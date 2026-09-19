@@ -130,6 +130,47 @@ test('inspection refuses escaped links and hard-linked contents', async t => {
   await assert.rejects(inspectProject(project));
 });
 
+test('imported Node manifests retain the declared entry and module format without assuming scaffold defaults', async t => {
+  const project = await fixture(t);
+  project.is_external = 1;
+  const packagePath = path.join(project.path, 'package.json');
+  for (const moduleType of ['commonjs', 'module', undefined]) {
+    const pkg = { name: 'external-client', ...(moduleType ? { type: moduleType } : {}),
+      main: 'src/main/main.js', scripts: { start: 'electron .', test: 'node --test test/*.test.cjs' } };
+    const bytes = JSON.stringify(pkg);
+    await fs.writeFile(packagePath, bytes);
+    const analysis = await inspectProject(project);
+    assert.equal(analysis.nodeProject.entryPoint, 'src/main/main.js');
+    assert.equal(analysis.nodeProject.moduleType, moduleType ?? 'unspecified');
+    assert.equal(analysis.nodeProject.scripts.test, pkg.scripts.test);
+    assert.equal(analysis.nodeProject.declaredOnly, true);
+    assert.equal(analysis.files.includes('src/main/main.js'), false, 'declared entry is not proof it exists');
+    assert.equal(analysis.excerpts[0].path, 'package.json');
+    assert.equal(await fs.readFile(packagePath, 'utf8'), bytes);
+  }
+  for (const invalid of ['null', '[]', '{broken']) {
+    await fs.writeFile(packagePath, invalid);
+    assert.equal((await inspectProject(project)).nodeProject.parseError, true);
+    assert.equal(await fs.readFile(packagePath, 'utf8'), invalid);
+  }
+});
+
+for (const extension of ['cjs', 'js']) {
+  test(`an existing project can propose a Node .test.${extension} without conversion to mjs`, async t => {
+    const project = await fixture(t); project.is_external = 1;
+    const target = `test/regression.test.${extension}`;
+    const response = await discussProject('Preserve the existing module convention and add a regression.', { project }, {
+      generate: async () => generated({ reply: 'A bounded regression.', plan: {
+        instruction: 'Test the existing behavior.', files: [{ path: target, instruction: 'Use node:test with functional assertions.', dependsOn: [] }],
+      } }),
+    });
+    const draft = response.metadata.projectWorkProposal.draft;
+    assert.equal(draft.files[0].path, target);
+    assert.deepEqual(draft.focusedTest.argv, ['--disable-wasm-trap-handler', '--test']);
+    assert.equal(execFileSync('git', ['status', '--porcelain'], { cwd: project.path, encoding: 'utf8' }), '');
+  });
+}
+
 test('a short continuation receives the same project, history and real evidence; proposal grants no effects', async t => {
   const project = await fixture(t);
   const before = await fs.readFile(path.join(project.path, 'src/index.mjs'), 'utf8');
@@ -139,7 +180,7 @@ test('a short continuation receives the same project, history and real evidence;
       const request = JSON.parse(prompt);
       assert.equal(request.project.id, project.id);
       assert.equal(request.host.platform, process.platform);
-      assert.equal(request.host.sensors, 'not_probed');
+      assert.equal(request.host.node, process.versions.node);
       assert.ok(request.analysis.setup.policy.externalImports.includes('node:fs/promises'));
       assert.ok(!request.analysis.setup.policy.externalImports.includes('electron'));
       assert.equal(request.history[0].content, 'Widget pro RPM, historie 1 hodinu.');
@@ -334,6 +375,27 @@ test('a short correction and full goal outrank old snippets when lifecycle evide
   assert.deepEqual(selected.analysis.setup.policy, input.analysis.setup.policy);
   assert.equal(budget.numCtx, 4096);
   assert.ok(Buffer.byteLength(budget.systemPrompt + budget.prompt) <= budget.maxBytes);
+});
+
+test('context selection keeps observed manifest facts and refills excerpts after reducing optional history', () => {
+  const nodeProject = { manifest: 'package.json', declaredOnly: true, moduleType: 'commonjs',
+    entryPoint: 'src/main/main.js', scripts: { test: 'node --test test/*.test.cjs' } };
+  const input = { request: 'Analyze this existing client without changing its architecture.',
+    project: { id: 1, name: 'External', imported: true, description: 'Preserve SSH and SFTP. '.repeat(45) },
+    history: Array.from({ length: 10 }, () => ({ role: 'user', content: 'Old conversation. '.repeat(150) })),
+    analysis: { fileCount: 43, files: ['package.json', 'src/main/main.js'], directories: ['.', 'src', 'test'],
+      setup: { policy: newProjectPolicy('desktop') }, nodeProject,
+      excerpts: [{ path: 'package.json', text: JSON.stringify({ main: nodeProject.entryPoint }) },
+        { path: 'README.md', text: 'Existing client documentation. '.repeat(120) }] }, projectWorkEvidence: [] };
+  const before = JSON.stringify(input);
+  const result = fitProjectDiscussionPrompt(before, 4096);
+  const selected = JSON.parse(result.prompt);
+  assert.deepEqual(selected.analysis.nodeProject, nodeProject);
+  assert.ok(selected.analysis.excerpts.some(file => file.path === 'package.json'));
+  assert.equal(selected.request, input.request);
+  assert.equal(selected.project.description, input.project.description);
+  assert.equal(JSON.stringify(input), before, 'selection cannot modify stored data');
+  assert.ok(Buffer.byteLength(result.systemPrompt + result.prompt) <= result.maxBytes);
 });
 
 test('actual HTTP creation/import preserves foreign files, rejects collisions and survives restart', { timeout: 60_000 }, async () => {

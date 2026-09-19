@@ -8,11 +8,19 @@ asistovaný modelový průchod, ne autonomní vytvoření na jeden prompt.
 SystemSmith_1 měl 488,3 MiB PSS a 7,21 % jednoho CPU jádra v privátním software
 renderingu; požadavek lightweight není doložený. Počasí má ověřená uložená
 místa, nikoli skutečnou polohu operátora; zprávy pět pevných zdrojů.
-Úklid vlastních kopií dosud uvolnil 16,48 GiB při zachování 2 392 hashů.
-Instalováno `ba144c86` (přesné opravy úseků); nový kandidát navíc odmítá vadnou
-JS syntaxi před plánem včetně retained návrhů (service 96/96, boundary PASS).
+Úklid vlastních kopií odstranil 18,10 GiB; poslední dávka ověřila 23 243 hashů.
+Instalováno `b0975bff`: přesné opravy úseků a odmítnutí vadné JS syntaxe před
+plánem včetně retained návrhů (service 96/96, boundary PASS). Úplný profil
+359 PASS / 1 zděděný FAIL Gate 0 / 0 BLOCKED; pečeť se neměnila. Nasazení
+potvrdilo integritu DB, nezměněných devět tabulek a zachování autentizace.
 **THREE_APPLICATIONS_RUNTIME_VERIFIED / ASSISTED_JOURNEY / REVIEW_PENDING**,
 nikoli celkový prod-ready. [Výsledky, meze a neúspěchy](docs/review/2026-09-19-THREE-PROJECTS-JOURNEY.md).
+
+Navazující převzetí skutečného ShellSmithu odhalilo vnucený scaffold vstup a
+prázdný výběr ukázek. Pracovní oprava předává skutečný package manifest,
+zachovává importované konvence, doplňuje volný kontext a přijímá CJS/JS Node
+testy (projektová sada 28/28). Dokončený modelový průchod se ověřuje odděleně;
+nejde o audit celého ShellSmithu ani navýšení oprávnění jeho původní instalace.
 
 **Následující checkpointy jsou historické, nikoli aktuální stav tří utilit.**
 
@@ -369,8 +377,8 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **225 990 ř.**, 631 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **247 884 ř.**, 533 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **226 014 ř.**, 631 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **247 946 ř.**, 533 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **525** (`431 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **177 / 102** |
 | HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |

@@ -1,9 +1,28 @@
 # Úklid pracovních kopií po dokončení projektového flow
 
-Stav: **PLANNED_AFTER_PROJECT_FLOW / INVENTORY_ONLY**.
-Autorita: explicitní požadavek operátora 2026-09-19 uvolnit co nejvíce místa,
-ale až po dokončení aktuální práce. Tento dokument neoznačuje projektové flow
-za hotové a nepotvrzuje odstranění žádných dat.
+Stav: **SCOPED_CLEANUP_DONE / FOREIGN_WORK_PRESERVED**.
+Autorita: operátorovo zadání 2026-09-19 uklidit již nyní a uvolnit co nejvíce
+bezpečně odstranitelného místa. Dvě skutečně provedené dávky odstranily
+51,904 spotřebovaných testovacích adresářů,
+celkem 19,430,506,496 bajtů (18.10 GiB) podle součtu jejich velikostí.
+To není tvrzení o stejné změně `df`: na disku souběžně pracují další workery.
+
+První dávka: 16,48 GiB, 2 392 shodných hashů důkazů před i po.
+Druhá dávka: 1,62 GiB, 23 243 shodných hashů před i po. Uchované reporty,
+logy, checkpointy, manifesty a aktuální úplný gate. Před odstraněním proběhla
+kontrola procesů přes cwd/exe/fd/maps; cizí běžící práce se neukončovala.
+Důkazy: `/home/belphareon/Projects/.intentsmith-artifacts/cleanup-20260919/`
+(`owned-result.json`, `final-plan.json`, `final-result.json`, `worktrees.json`).
+
+Automatická inventura 34 worktrees neoznačila žádný k bezpečnému úplnému
+odstranění: dirty, používané, evidence-bearing nebo detached instalace.
+Tyto stromy ani přibližně 55 GiB instalovaných release se plošně nemazaly.
+Staré receipty a rollback vazby potřebují samostatnou retenční proceduru;
+stáří nebo detached stav není důkaz nepotřebnosti. Skutečné projekty,
+modelové artefakty a DB jsou zachované. Backend po nasazení nové opravy
+prošel kontrolou integrity a devíti nezměněných datových tabulek.
+
+Následující inventura je výchozí historický stav, ne aktuální množství volného místa.
 
 Předchozí práce: [obecné projektové flow zkoušené na SystemSmith_1](WP-SYSTEMSMITH-PROJECT-FLOW-20260919.md).
 SystemSmith_1 je zkušební zadání. Cílem jsou přenositelné schopnosti stavby

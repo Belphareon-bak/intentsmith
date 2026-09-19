@@ -65,6 +65,15 @@ Model vidí vybrané ukázky podle svého schváleného kontextového okna, niko
 automaticky všechny soubory rozsáhlého repozitáře. Neověřené závěry musí
 označit; testy nejsou provedené pouhým nalezením testovacích souborů.
 
+U Node projektu dostane plánovač také kompaktní deklarace z `package.json`:
+modulový typ (nebo výslovně neurčený), vstupní soubor a příkazy start/test/build.
+Nejsou důkazem existence vstupu ani úspěšného spuštění. Zachovává se konvence
+převzatého projektu; výchozí ESM a `src/index.mjs` patří pouze novému základu.
+Testovací krok může použít `.test.js`, `.test.mjs` i `.test.cjs` v `test/` nebo
+`tests/`; běží stále pevný Node test profil. Po zmenšení rezervy odpovědi a
+starších zpráv výběr znovu doplní pozorované ukázky do volného místa. Celý
+aktuální požadavek, cíl a pravidla mají přednost; okno modelu se nezvyšuje.
+
 Před první řízenou změnou cizího projektu je nutný čistý Git stav a pravidla
 odpovídající jeho skutečné struktuře, viz příprava níže. Automatický návrh
 spustitelného kroku je nyní omezený na malé projekty Node.js; jiné jazyky lze

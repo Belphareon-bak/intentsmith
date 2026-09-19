@@ -82,10 +82,12 @@ export async function inspectProject(project, { signal } = {}) {
     { signal, deadlineAt: Date.now() + 15_000 });
   const regular = manifest.entries.filter(entry => entry.kind === 'regular@1');
   const isTest = name => /(^|\/)(test|tests)\/|\.(test|spec)\.|(^|\/)test_[^/]+\.py$|(^|\/)[^/]+_test\.(py|go)$/.test(name);
-  const priority = entry => /(^|\/)(readme[^/]*|package.json|pyproject.toml|cargo.toml|go.mod)$/i.test(entry.path) ? 0
+  const priority = entry => entry.path === 'package.json' ? -1
+    : /(^|\/)(readme[^/]*|package.json|pyproject.toml|cargo.toml|go.mod)$/i.test(entry.path) ? 0
     : isTest(entry.path) ? 1 : 2;
   const selected = [...regular].sort((a, b) => priority(a) - priority(b) || a.path.localeCompare(b.path));
   const excerpts = [];
+  let nodeProject = null;
   let used = 0;
   for (const entry of selected) {
     if (excerpts.length >= 10 || used >= 24_000) break;
@@ -94,6 +96,19 @@ export async function inspectProject(project, { signal } = {}) {
       { maxBytes: 64_000, requireCanonicalTarget: true, rejectHardlinks: true });
     const bytes = observation.bytes;
     if (!observation.exists || sha(bytes) !== entry.contentDigest) throw Object.assign(new Error('Projekt se během analýzy změnil; zopakuj načtení.'), { code: 'PROJECT_CHANGED' });
+    if (entry.path === 'package.json') {
+      try {
+        const pkg = JSON.parse(bytes.toString('utf8'));
+        if (!pkg || typeof pkg !== 'object' || Array.isArray(pkg)) throw new Error('Invalid package object');
+        const textField = value => typeof value === 'string' && Buffer.byteLength(value) <= 512 ? value : null;
+        nodeProject = {
+          manifest: 'package.json', declaredOnly: true,
+          moduleType: pkg.type === undefined ? 'unspecified' : textField(pkg.type),
+          entryPoint: textField(pkg.main),
+          scripts: { start: textField(pkg.scripts?.start), test: textField(pkg.scripts?.test), build: textField(pkg.scripts?.build) },
+        };
+      } catch { nodeProject = { manifest: 'package.json', parseError: true, declaredOnly: true }; }
+    }
     const text = bytes.toString('utf8').slice(0, Math.min(5_000, 24_000 - used));
     excerpts.push({ path: entry.path, text, truncated: text.length < bytes.toString('utf8').length });
     used += text.length;
@@ -131,7 +146,7 @@ export async function inspectProject(project, { signal } = {}) {
   }
   return { projectId: project.id, revision: manifest.revision, fileCount: regular.length,
     directories: [...directories].sort().slice(0, 64),
-    files: names.slice(0, 250), fileListTruncated: names.length > 250, excerpts, facts, gaps,
+    files: names.slice(0, 250), fileListTruncated: names.length > 250, excerpts, facts, gaps, nodeProject,
     setup, scope: 'Bounded static inspection; no project commands, tests or dependency installation.' };
 }
 

@@ -64,8 +64,11 @@ Důkazy pod `.intentsmith-artifacts/three-projects-20260919/`:
 
 ## Obecná oprava po závěrečném průchodu
 
-Aktivní runtime před touto opravou: `ba144c86`; nasazení nové opravy se doloží
-samostatným receipt. Předchozí oprava přesných úseků prokazatelně posloužila
+Nasazeno **`b0975bff832a26d43eccfa533e024b892a3aeecb`**, publikováno na
+`github/work/systemsmith-project-flow-20260919`. Předchozí runtime `ba144c86`.
+Receipt `deployment-syntax/deployment.json` dokládá devět nezměněných tabulek,
+16 zachovaných projektů, auth, 105 migrací, quick_check OK a nula FK chyb.
+Hunt timer zůstal podle původního stavu vypnutý/neaktivní. Předchozí oprava přesných úseků prokazatelně posloužila
 při dokončení obou widgetů, aniž by bylo nutné přepisovat funkční části.
 
 Nový modelový draft kontroluje syntaxi každého `.js/.mjs/.cjs/.jsx` výsledku
@@ -89,7 +92,62 @@ Předchozí přesná oprava měla celý profil 356 PASS / 1 FAIL / 3 BLOCKED;
 první příkaz nedodal cesty PDF/OCR nástrojů. Přesné tři blokované programy
 následně se správným prostředím prošly 3/3. To nejsou dva kompletní zelené
 běhy. Jediný ostatní FAIL je známá Gate 0 neshoda registru; pečeť se neměnila.
-Nový úplný profil bude uveden s vlastním run ID, nikoli připsán staršímu SHA.
+Nový úplný sériový profil `draft-syntax-20260919` na `b0975bff`: **359 PASS /
+1 FAIL / 0 BLOCKED**, celkový verdict FAIL kvůli stejné Gate 0 neshodě.
+`installed-syntax-historical-probe.json` ověřuje přímo nainstalovaný parser
+nad skutečnými starými modelovými bajty: vadný `34b` odmítá a opravený `34c`
+přijímá. Nejde o novou inferenci ani HTTP mutaci.
+
+## Původ výsledku a dokončený úklid
+
+`final-application-provenance.json` přiřazuje všech **43** finálních
+implementačních/UI/package souborů tří utilit k přesnému digestu a úspěšnému
+M2 plánu, bez chybějící položky. Profily a screenshoty z fyzických běhů jsou
+oddělené od kontrolovaných DOM/IPC testů.
+
+Dvě dávky úklidu odstranily **19 430 506 496 B (18,10 GiB)** v 51 904
+spotřebovaných testovacích adresářích. První ověřila 2 392 hashů, druhá
+23 243 hashů před i po. Důkazy, aktivní gate, skutečná data a cizí práce jsou
+zachované. Nejde o slib stejného nárůstu `df` při souběžné cizí práci.
+[Postup, vyloučené plochy a přesné výsledky](../wp/WP-WORKSPACE-CLEANUP-20260919.md).
+
+## Převzetí skutečného existujícího kódu — návazný průchod
+
+Až po dokončení tří desktopových běhů byl přes produktové open-folder API
+načten oddělený klon skutečného ShellSmithu z `b29eb502`, vytvořeného mimo
+IntentSmith. Projekt 16, 43 textových souborů / 7 ukázek. Hashová kontrola
+potvrdila import bez změny souborů, Git i původní instalace zůstaly nedotčené.
+Úvod pravdivě vymezil statickou analýzu a zeptal se na cíl (`40-import.json`).
+Výchozích 26 testů v klonu prošlo; samotný import žádný kód nespustil.
+
+První skutečná D1 odpověď (`40-chat.json`) chybně přenesla ESM/src/index.mjs
+z obecné šablony do existující aplikace. Model dostal nula ukázek po redukci
+kontextu. Navazující **obecná oprava**:
+
+- bezpečně načtený package manifest poskytuje kompaktní deklarovaný main,
+  type (při absenci `unspecified`) a start/test/build, bez vykonání;
+- pravidla výslovně zachovávají existující konvence; hardcoded senzorové
+  předpoklady byly odstraněné z obecného kontextu;
+- po zmenšení rezervy odpovědi/history se do zbývajícího místa znovu vyberou
+  pozorované úryvky. Všechny zkrácené ukázky jsou označené a profil zůstává stejný;
+- plán přijme `test/` či `tests/` a `.test.cjs/.test.js/.test.mjs`, stále s
+  backendem určeným Node profilem a skutečnými assertions, bez příkazů od modelu.
+
+Projektová sada **28/28 PASS**, včetně manifestů, absence typu, neplatného
+JSON, deklarovaného neexistujícího main, CJS/JS plánů a zachování celého cíle.
+První 23/24 běh zachoval skutečnou regresi rozpočtu: delší systémové instrukce
+vytlačily dlouhý cíl. Oprava zkrátila instrukce; test se neoslabil.
+
+Konkrétní dokončovaný krok: ShellSmith před `new URL()` neodmítal raw CR/LF/TAB,
+WHATWG normalizace pak tiše změnila host/path. `40-url-before.json` zachycuje
+reprodukci. Široká první governance odmítla již existující dynamické importy
+ve dvou cizích test helper modulech (`41-draft.json`). Pro tento omezený krok
+operátor výslovně připravil v klonu policy pro `src/shared` a jeden regresní
+soubor s původně padajícím placeholderem; zbytek repozitáře není předstíraně
+prohlášený za zkontrolovaný. Žádná aplikační implementace se ručně neopravovala.
+První návazný CODE návrh (`42`) odmítl **nasazený** nový syntax guard už přes
+skutečné HTTP; čistý projekt i nulový nový plán jsou doložené. Další návrh a
+fyzické provedení se zaznamenávají zvlášť, nikoli předem jako úspěch.
 
 ## Historické checkpointy (zachované beze změny)
 
