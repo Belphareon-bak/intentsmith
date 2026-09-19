@@ -1,5 +1,12 @@
 # IntentSmith — mapa systému
 
+**CODE, dvoubloková sonda 2026-09-19:** opravené zahození kratší části
+jednoho úseku; před opravou čtyři falešné nuly, po opravě 57/57 kontrol PASS.
+Extrakce 63 ranních odpovědí beze změny. Pět deklarovaných skupin není
+hotové rozhodovací pravidlo §6; krok 4 zůstává částečný. Bez nové inference
+a zápisu skóre; instalace `ec78722b` opravu neobsahuje.
+PILOT_INCOMPLETE / REVIEW_PENDING / NOT_DEPLOYED. [Důkazy](docs/review/2026-09-19-CODE-MEASUREMENT.md).
+
 **CODE pilot, měření 2026-09-19:** dokončeno 63/63 pokusů na čistém
 `0ca09dd9`; Qwen3.8 85,71 %, Devstral 46,03 %, qwen3-coder 11,43 %.
 Dvě zadání mají doplněné veřejné rozhraní, novou identitu a čerstvý baseline.
@@ -358,8 +365,8 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **225 894 ř.**, 631 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **247 635 ř.**, 533 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **225 896 ř.**, 631 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **247 679 ř.**, 533 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **525** (`431 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **177 / 102** |
 | HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |

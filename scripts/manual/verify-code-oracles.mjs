@@ -30,6 +30,7 @@ for (const definition of codePatchSuite.tests) {
   try {
     const task = definition.prepare();
     row.independenceGroup = task.oracleAcceptance.independenceGroup;
+    row.spanCount = task.spans.length;
     row.alternativeExplanation = task.oracleAcceptance.alternativeExplanation;
     row.oracle = definition.validateOracle();
     const fenced = codes => codes.map(code => '```javascript\n' + code + '\n```').join('\n');
@@ -42,15 +43,28 @@ for (const definition of codePatchSuite.tests) {
       ['confidently-wrong', 'All requirements are satisfied.\n' + fenced(task.functionTexts), 0],
       ['negated-repair', 'The repair must NOT change this implementation.\n' + fenced(task.functionTexts), 0],
     ];
+    // A single replacement can arrive as two successive code fragments.
+    // Multi-span tasks already exercise two/three complete ordered blocks;
+    // splitting their individual spans needs an explicit mapping protocol.
+    if (task.spans.length === 1) {
+      const split = code => {
+        const lines = code.split('\n');
+        const at = Math.floor(lines.length / 2);
+        return fenced([lines.slice(0, at).join('\n'), lines.slice(at).join('\n')]);
+      };
+      samples.push(['alternative-split-two-blocks', split(task.oracleAcceptance.alternativeTexts[0]), 1]);
+      samples.push(['incorrect-split-two-blocks', split(task.functionTexts[0]), 0]);
+    }
     for (const [kind, response, expected] of samples) {
       const result = definition.grade(response, { _task: task });
       const control = { kind, expected, score: result.score, valid: result.valid,
         outcome: result.outcome, reason: result.detail?.reason || null,
+        responseBlocks: (response.match(/^```javascript$/gm) || []).length,
         ok: result.valid === true && result.score === expected };
       row.controls.push(control);
       // The alternative must take the parser and actual execution path, not
       // a special grader branch keyed by fixture identity.
-      if (kind === 'alternative' && !extractFunctionCodes(response, task.spans)) control.ok = false;
+      if (kind.startsWith('alternative') && !extractFunctionCodes(response, task.spans)) control.ok = false;
       flush();
     }
     row.passed = row.controls.every(control => control.ok);
@@ -59,5 +73,9 @@ for (const definition of codePatchSuite.tests) {
 }
 report.finishedAt = new Date().toISOString();
 report.independentGroups = new Set(report.tasks.map(task => task.independenceGroup).filter(Boolean)).size;
+// Compatibility field above counts declarations, not proven independence or
+// an accepted decision rule. Do not infer completion of contract §6 from it.
+report.groupingStatus = 'DECLARED_SCENARIO_GROUPS_ONLY';
+report.decisionRuleStatus = 'NOT_IMPLEMENTED';
 report.status = report.tasks.every(task => task.passed) ? 'PASS' : 'FAIL';
 flush(); if (report.status !== 'PASS') process.exitCode = 1;

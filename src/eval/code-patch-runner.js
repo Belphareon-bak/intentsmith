@@ -405,16 +405,18 @@ export function functionNameOf(header) {
 }
 
 /**
- * Vytáhne z odpovědi kód jedné funkce.
+ * Vytáhne z odpovědi kód jednoho nahrazovaného úseku.
  *
- * Bere **nejdelší** blok: když model přidá krátkou ukázku „špatně/správně",
- * je ta podstatná ta delší.  Bez bloku se zkusí celá odpověď — model, který
- * vrátí holý kód, není za formát trestán.
+ * Spojí všechny bloky v pořadí odpovědi. Jeden úsek může obsahovat funkci
+ * rozdělenou do fragmentů nebo pomocnou deklaraci v samostatném bloku.
+ * Nic se nevybírá podle délky ani podle úspěšnosti testů: vloží se jediný
+ * celek a o jeho platnosti rozhodne syntaxe a spuštění. Bez bloku se zkusí
+ * celá odpověď — model, který vrátí holý kód, není za formát trestán.
  */
 export function extractFunctionCode(response) {
   if (!response || typeof response !== 'string') return null;
   const blocks = fencedBlocks(response);
-  if (blocks.length) return blocks.reduce((a, b) => (b.length > a.length ? b : a));
+  if (blocks.length) return blocks.join('\n');
   const bare = response.trim();
   if (bare.includes('{') && bare.includes('}')) return bare;
   return null;

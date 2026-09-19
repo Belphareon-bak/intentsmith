@@ -1,6 +1,6 @@
 # CODE — nové měření 19. 9. 2026
 
-**BENCHMARK_COMPLETE / EXPLORATORY_ONLY / PILOT_INCOMPLETE / REVIEW_PENDING.**
+**EXPLORATORY_MEASUREMENTS_COMPLETE / STEP_4_PARTIAL / PILOT_INCOMPLETE / REVIEW_PENDING.**
 Autorita: pokračování schváleného CODE pilotu a přímý pokyn operátora
 „muzes zacit s merenim“. Průzkumná data neopravňují k výměně role.
 
@@ -127,3 +127,58 @@ Git bundle byl ověřený; obsahuje měřený `0ca09dd9` a vyžaduje předchozí
 publikovaný `f5f35757`. Není to archiv celého prostředí ani nezávislé
 zopakování fyzického GPU běhu. První neúspěšný pokus balení zůstává
 označený jako neplatný v `packaging-first-error.json` a oddělených souborech.
+
+## Následná dvoubloková sonda — bez inference
+
+Autorita: operátorovo review a §3 schváleného kontraktu. Původní kontrola
+49 odpovědí neověřovala rozdělení **jednoho nahrazovaného úseku** mezi dva
+bloky. U tří úloh s více úseky už správná alternativa měla dva nebo tři
+bloky; tvrzení, že všechny dosavadní sondy byly jednoblokové, by nebylo přesné.
+
+Nová sonda rozdělí alternativu čtyř jednoúsekových úloh do dvou bloků na
+hranici řádků. **Před opravou všechny čtyři dostaly 0** s důvodem neplatné
+syntaxe; původních 49 kontrol prošlo. Parser z odpovědi vybíral nejdelší
+blok, a tím odstraňoval nutnou část opravy. Nyní pro jeden úsek spojí všechny
+bloky v pořadí odpovědi, vloží jediný celek a jednou jej vyhodnotí. Nevybírá
+úspěšnou variantu podle testů a nezahazuje kratší blok s chybou.
+
+Přejímka po opravě: **57/57 kontrol, všech 7 úloh PASS**, včetně čtyř
+rozdělených správných alternativ (1) a čtyř rozdělených vadných základů (0).
+Runner **66/66**, suite **27/27**, artifact **160/160**. Další skutečné
+spouštěné kontroly ověřují pomocnou funkci ve druhém bloku, konfliktní
+deklarace a kratší blok, který vyvolá chybu. Nejde o pouhé testování řetězce.
+Fragmentace více samostatných rozsahů do dalších neoznačených bloků zůstává
+nepodporovaná: vyžadovala by jednoznačné přiřazení fragmentů. Tato delta ji
+neprohlašuje za vyřešenou.
+
+Nový kontrakt je
+`94ef238d38c3ad8b2ed4894b9ad85e90a8905a02eb7f4d85773337b99d5b66ab`.
+**63/63 ranních odpovědí dává se starým i novým parserem bajtově totožný
+extrahovaný kód.** Je to kontrola dopadu parseru, nikoli nová inference ani
+přeznámkování. DB řádky se nepřepisovaly, nepřenášely do nového kontraktu
+ani nepoužily k výměně role. Původní měření výše patří výhradně k `0e55ee99…`.
+
+Report orákul nadále kvůli kompatibilitě nese `independentGroups: 5`, ale
+výslovně doplňuje `groupingStatus: DECLARED_SCENARIO_GROUPS_ONLY` a
+`decisionRuleStatus: NOT_IMPLEMENTED`. Počet deklarovaných skupin není důkaz
+nezávislosti a není implementací celého §6. Ani hotové tři průzkumné běhy
+nedokončují krok 4, který požaduje také předem uzamčené meze a nejistotu.
+
+Navazující pořadí: dokončit rozhodovací a provozní část CODE; potom D2/R2
+s lokacemi a reprodukčními kontrolami; před sémantickým skórováním otevřených
+odpovědí D1/R1 přijmout hodnotitele T4 podle §3. Více opakování nebo variant
+jedné vady nenahradí více nezávislých historických případů. Rychlý profil se
+odvodí až z přijatého širšího měření; samotných 20–30 minut kvalitu sady
+nedokazuje a krátké současné úlohy nepředstavují kompletní test role.
+
+Soukromá evidence této delty je oddělená:
+`/home/belphareon/Projects/coworker/intentsmith-code-parser-20260919`.
+Obsahuje zachovaný neúspěšný průchod, úspěšný průchod, srovnání parserů a logy.
+Starší zapečetěný balíček se nezměnil. Strojový přehled je
+[zde](evidence/2026-09-19-code-parser-probes.json).
+
+Při této kontrole má instalace revizi `ec78722b`, stále bez této opravy
+parseru i dřívějšího `ENVIRONMENT_INVALID`. **NOT_DEPLOYED** trvá. Timer je
+`enabled/active`, další termín 20. 9. 2026 03:07:10 CEST; tato práce jej
+neměnila. NVIDIA compute seznam je prázdný. Celý širší testovací profil
+nebyl opakován; dřívější zděděný FAIL pečeti tím nezískává PASS.

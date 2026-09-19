@@ -1,5 +1,12 @@
 # Inventura #18a — Správa modelů
 
+**CODE, dvoubloková sonda 2026-09-19:** opravené zahození kratší části
+jednoho úseku; před opravou čtyři falešné nuly, po opravě 57/57 kontrol PASS.
+Extrakce 63 ranních odpovědí beze změny. Pět deklarovaných skupin není
+hotové rozhodovací pravidlo §6; krok 4 zůstává částečný. Bez nové inference
+a zápisu skóre; instalace `ec78722b` opravu neobsahuje.
+PILOT_INCOMPLETE / REVIEW_PENDING / NOT_DEPLOYED. [Důkazy](../review/2026-09-19-CODE-MEASUREMENT.md).
+
 **CODE pilot, měření 2026-09-19:** dokončeno 63/63 pokusů na čistém
 `0ca09dd9`; Qwen3.8 85,71 %, Devstral 46,03 %, qwen3-coder 11,43 %.
 Dvě zadání mají doplněné veřejné rozhraní, novou identitu a čerstvý baseline.

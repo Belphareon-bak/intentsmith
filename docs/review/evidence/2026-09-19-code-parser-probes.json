@@ -1,0 +1,2073 @@
+{
+  "schemaVersion": 1,
+  "scope": "SINGLE_REPLACEMENT_SPLIT_CODE_BLOCKS",
+  "status": "PROBES_PASS_PILOT_INCOMPLETE",
+  "baseRevision": "efb5c0273b19d1afc4c3f286155dc5ee4222d1be",
+  "testedWorkingTreeDirty": true,
+  "sourceFilesSha256": {
+    "src/eval/code-patch-runner.js": "ed42c12765644e7d61b2874e0ed1cb668d7411a550ce68d3d11967534dd2b7de",
+    "scripts/manual/verify-code-oracles.mjs": "82717745cd64c802d653596d0c90ac0243bd54be3700f052cd129c0035d83e8c",
+    "tests/code-patch-runner.test.js": "c2349881bc78bf69eb53a8703679eeeb5cb3134d2b23e763daeb0dcc7d5ba124"
+  },
+  "inferencePerformed": false,
+  "productionImported": false,
+  "deployed": false,
+  "decisionRuleStatus": "NOT_IMPLEMENTED",
+  "groupingStatus": "DECLARED_SCENARIO_GROUPS_ONLY",
+  "remainingLimitations": [
+    "MULTIPLE_SPANS_WITH_EXTRA_UNLABELLED_FRAGMENTS_NOT_SUPPORTED",
+    "NO_LOCKED_DECISION_RULE",
+    "NO_INDEPENDENT_OPERATIONAL_HOLDOUT",
+    "NOT_A_QUICK_FULL_ROLE_PROFILE"
+  ],
+  "before": {
+    "startedAt": "2026-09-19T05:45:10.488Z",
+    "sourceRevision": "efb5c0273b19d1afc4c3f286155dc5ee4222d1be",
+    "workingTreeDirty": true,
+    "contractSha256": "0e55ee99cda70bb8d5a1c78741eeee3efcb234da5aa2fc8cb1278c4f61677c94",
+    "tasks": [
+      {
+        "name": "patch_8cae1b583963",
+        "controls": [
+          {
+            "kind": "gold",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "alternative",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "empty",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "odpověď neobsahuje použitelný kód",
+            "responseBlocks": 0,
+            "ok": true
+          },
+          {
+            "kind": "prompt-echo",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/1 požadavků",
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "keyword-stuffing",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "odpověď neobsahuje použitelný kód",
+            "responseBlocks": 0,
+            "ok": true
+          },
+          {
+            "kind": "confidently-wrong",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/1 požadavků",
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "negated-repair",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/1 požadavků",
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "alternative-split-two-blocks",
+            "expected": 1,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "vložený kód není syntakticky platný",
+            "responseBlocks": 2,
+            "ok": false
+          },
+          {
+            "kind": "incorrect-split-two-blocks",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "vložený kód není syntakticky platný",
+            "responseBlocks": 2,
+            "ok": true
+          }
+        ],
+        "independenceGroup": "model-cleanup",
+        "spanCount": 1,
+        "alternativeExplanation": "Reduce accumulator instead of a mutable for-of result; same canonical identity exclusions and ordering.",
+        "oracle": {
+          "verified": true,
+          "gold": 1,
+          "alternative": 1,
+          "broken": 0
+        },
+        "passed": false
+      },
+      {
+        "name": "patch_0fe346cc820c",
+        "controls": [
+          {
+            "kind": "gold",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 2,
+            "ok": true
+          },
+          {
+            "kind": "alternative",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 2,
+            "ok": true
+          },
+          {
+            "kind": "empty",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "odpověď neobsahuje použitelný kód",
+            "responseBlocks": 0,
+            "ok": true
+          },
+          {
+            "kind": "prompt-echo",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/59 požadavků",
+            "responseBlocks": 2,
+            "ok": true
+          },
+          {
+            "kind": "keyword-stuffing",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "odpověď neobsahuje použitelný kód",
+            "responseBlocks": 0,
+            "ok": true
+          },
+          {
+            "kind": "confidently-wrong",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/59 požadavků",
+            "responseBlocks": 2,
+            "ok": true
+          },
+          {
+            "kind": "negated-repair",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/59 požadavků",
+            "responseBlocks": 2,
+            "ok": true
+          }
+        ],
+        "independenceGroup": "model-use-leases",
+        "spanCount": 2,
+        "alternativeExplanation": "Construct frozen owner mapping from entries and shared-owner set from object values.",
+        "oracle": {
+          "verified": true,
+          "gold": 1,
+          "alternative": 1,
+          "broken": 0
+        },
+        "passed": true
+      },
+      {
+        "name": "patch_6fc5e4eb7dce",
+        "controls": [
+          {
+            "kind": "gold",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 2,
+            "ok": true
+          },
+          {
+            "kind": "alternative",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 2,
+            "ok": true
+          },
+          {
+            "kind": "empty",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "odpověď neobsahuje použitelný kód",
+            "responseBlocks": 0,
+            "ok": true
+          },
+          {
+            "kind": "prompt-echo",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "test nebyl dokončen",
+            "responseBlocks": 2,
+            "ok": true
+          },
+          {
+            "kind": "keyword-stuffing",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "odpověď neobsahuje použitelný kód",
+            "responseBlocks": 0,
+            "ok": true
+          },
+          {
+            "kind": "confidently-wrong",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "test nebyl dokončen",
+            "responseBlocks": 2,
+            "ok": true
+          },
+          {
+            "kind": "negated-repair",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "test nebyl dokončen",
+            "responseBlocks": 2,
+            "ok": true
+          }
+        ],
+        "independenceGroup": "model-use-leases",
+        "spanCount": 2,
+        "alternativeExplanation": "Construct frozen owner mapping from entries and shared-owner set from object values.",
+        "oracle": {
+          "verified": true,
+          "gold": 1,
+          "alternative": 1,
+          "broken": 0
+        },
+        "passed": true
+      },
+      {
+        "name": "patch_f63d14d5eb61",
+        "controls": [
+          {
+            "kind": "gold",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "alternative",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "empty",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "odpověď neobsahuje použitelný kód",
+            "responseBlocks": 0,
+            "ok": true
+          },
+          {
+            "kind": "prompt-echo",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/3 požadavků",
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "keyword-stuffing",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "odpověď neobsahuje použitelný kód",
+            "responseBlocks": 0,
+            "ok": true
+          },
+          {
+            "kind": "confidently-wrong",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/3 požadavků",
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "negated-repair",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/3 požadavků",
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "alternative-split-two-blocks",
+            "expected": 1,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "vložený kód není syntakticky platný",
+            "responseBlocks": 2,
+            "ok": false
+          },
+          {
+            "kind": "incorrect-split-two-blocks",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "vložený kód není syntakticky platný",
+            "responseBlocks": 2,
+            "ok": true
+          }
+        ],
+        "independenceGroup": "pairwise-confidence",
+        "spanCount": 1,
+        "alternativeExplanation": "Bounded lookup instead of chained conditionals for evidence-count labels.",
+        "oracle": {
+          "verified": true,
+          "gold": 1,
+          "alternative": 1,
+          "broken": 0
+        },
+        "passed": false
+      },
+      {
+        "name": "patch_75b5539f8cf5",
+        "controls": [
+          {
+            "kind": "gold",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 3,
+            "ok": true
+          },
+          {
+            "kind": "alternative",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 3,
+            "ok": true
+          },
+          {
+            "kind": "empty",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "odpověď neobsahuje použitelný kód",
+            "responseBlocks": 0,
+            "ok": true
+          },
+          {
+            "kind": "prompt-echo",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "test nebyl dokončen",
+            "responseBlocks": 3,
+            "ok": true
+          },
+          {
+            "kind": "keyword-stuffing",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "odpověď neobsahuje použitelný kód",
+            "responseBlocks": 0,
+            "ok": true
+          },
+          {
+            "kind": "confidently-wrong",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "test nebyl dokončen",
+            "responseBlocks": 3,
+            "ok": true
+          },
+          {
+            "kind": "negated-repair",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "test nebyl dokončen",
+            "responseBlocks": 3,
+            "ok": true
+          }
+        ],
+        "independenceGroup": "chat-persistence",
+        "spanCount": 3,
+        "alternativeExplanation": "Assign error metadata atomically, preserving cause, subclass identity and retry semantics.",
+        "oracle": {
+          "verified": true,
+          "gold": 1,
+          "alternative": 1,
+          "broken": 0
+        },
+        "passed": true
+      },
+      {
+        "name": "patch_22149f55b861",
+        "controls": [
+          {
+            "kind": "gold",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "alternative",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "empty",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "odpověď neobsahuje použitelný kód",
+            "responseBlocks": 0,
+            "ok": true
+          },
+          {
+            "kind": "prompt-echo",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/1 požadavků",
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "keyword-stuffing",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "odpověď neobsahuje použitelný kód",
+            "responseBlocks": 0,
+            "ok": true
+          },
+          {
+            "kind": "confidently-wrong",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/1 požadavků",
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "negated-repair",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/1 požadavků",
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "alternative-split-two-blocks",
+            "expected": 1,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "vložený kód není syntakticky platný",
+            "responseBlocks": 2,
+            "ok": false
+          },
+          {
+            "kind": "incorrect-split-two-blocks",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "vložený kód není syntakticky platný",
+            "responseBlocks": 2,
+            "ok": true
+          }
+        ],
+        "independenceGroup": "verification-timeout",
+        "spanCount": 1,
+        "alternativeExplanation": "Promise settlement cleanup before response parsing, including rejection, with idempotent outer cleanup.",
+        "oracle": {
+          "verified": true,
+          "gold": 1,
+          "alternative": 1,
+          "broken": 0
+        },
+        "passed": false
+      },
+      {
+        "name": "patch_adb1258cfec0",
+        "controls": [
+          {
+            "kind": "gold",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "alternative",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "empty",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "odpověď neobsahuje použitelný kód",
+            "responseBlocks": 0,
+            "ok": true
+          },
+          {
+            "kind": "prompt-echo",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/1 požadavků",
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "keyword-stuffing",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "odpověď neobsahuje použitelný kód",
+            "responseBlocks": 0,
+            "ok": true
+          },
+          {
+            "kind": "confidently-wrong",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/1 požadavků",
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "negated-repair",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/1 požadavků",
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "alternative-split-two-blocks",
+            "expected": 1,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "vložený kód není syntakticky platný",
+            "responseBlocks": 2,
+            "ok": false
+          },
+          {
+            "kind": "incorrect-split-two-blocks",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "vložený kód není syntakticky platný",
+            "responseBlocks": 2,
+            "ok": true
+          }
+        ],
+        "independenceGroup": "verification-timeout",
+        "spanCount": 1,
+        "alternativeExplanation": "Promise settlement cleanup before response parsing, including rejection, with idempotent outer cleanup.",
+        "oracle": {
+          "verified": true,
+          "gold": 1,
+          "alternative": 1,
+          "broken": 0
+        },
+        "passed": false
+      }
+    ],
+    "status": "FAIL",
+    "finishedAt": "2026-09-19T05:47:00.253Z",
+    "independentGroups": 5,
+    "groupingStatus": "DECLARED_SCENARIO_GROUPS_ONLY",
+    "decisionRuleStatus": "NOT_IMPLEMENTED"
+  },
+  "after": {
+    "startedAt": "2026-09-19T05:47:54.204Z",
+    "sourceRevision": "efb5c0273b19d1afc4c3f286155dc5ee4222d1be",
+    "workingTreeDirty": true,
+    "contractSha256": "94ef238d38c3ad8b2ed4894b9ad85e90a8905a02eb7f4d85773337b99d5b66ab",
+    "tasks": [
+      {
+        "name": "patch_8cae1b583963",
+        "controls": [
+          {
+            "kind": "gold",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "alternative",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "empty",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "odpověď neobsahuje použitelný kód",
+            "responseBlocks": 0,
+            "ok": true
+          },
+          {
+            "kind": "prompt-echo",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/1 požadavků",
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "keyword-stuffing",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "odpověď neobsahuje použitelný kód",
+            "responseBlocks": 0,
+            "ok": true
+          },
+          {
+            "kind": "confidently-wrong",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/1 požadavků",
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "negated-repair",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/1 požadavků",
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "alternative-split-two-blocks",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 2,
+            "ok": true
+          },
+          {
+            "kind": "incorrect-split-two-blocks",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/1 požadavků",
+            "responseBlocks": 2,
+            "ok": true
+          }
+        ],
+        "independenceGroup": "model-cleanup",
+        "spanCount": 1,
+        "alternativeExplanation": "Reduce accumulator instead of a mutable for-of result; same canonical identity exclusions and ordering.",
+        "oracle": {
+          "verified": true,
+          "gold": 1,
+          "alternative": 1,
+          "broken": 0
+        },
+        "passed": true
+      },
+      {
+        "name": "patch_0fe346cc820c",
+        "controls": [
+          {
+            "kind": "gold",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 2,
+            "ok": true
+          },
+          {
+            "kind": "alternative",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 2,
+            "ok": true
+          },
+          {
+            "kind": "empty",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "odpověď neobsahuje použitelný kód",
+            "responseBlocks": 0,
+            "ok": true
+          },
+          {
+            "kind": "prompt-echo",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/59 požadavků",
+            "responseBlocks": 2,
+            "ok": true
+          },
+          {
+            "kind": "keyword-stuffing",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "odpověď neobsahuje použitelný kód",
+            "responseBlocks": 0,
+            "ok": true
+          },
+          {
+            "kind": "confidently-wrong",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/59 požadavků",
+            "responseBlocks": 2,
+            "ok": true
+          },
+          {
+            "kind": "negated-repair",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/59 požadavků",
+            "responseBlocks": 2,
+            "ok": true
+          }
+        ],
+        "independenceGroup": "model-use-leases",
+        "spanCount": 2,
+        "alternativeExplanation": "Construct frozen owner mapping from entries and shared-owner set from object values.",
+        "oracle": {
+          "verified": true,
+          "gold": 1,
+          "alternative": 1,
+          "broken": 0
+        },
+        "passed": true
+      },
+      {
+        "name": "patch_6fc5e4eb7dce",
+        "controls": [
+          {
+            "kind": "gold",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 2,
+            "ok": true
+          },
+          {
+            "kind": "alternative",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 2,
+            "ok": true
+          },
+          {
+            "kind": "empty",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "odpověď neobsahuje použitelný kód",
+            "responseBlocks": 0,
+            "ok": true
+          },
+          {
+            "kind": "prompt-echo",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "test nebyl dokončen",
+            "responseBlocks": 2,
+            "ok": true
+          },
+          {
+            "kind": "keyword-stuffing",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "odpověď neobsahuje použitelný kód",
+            "responseBlocks": 0,
+            "ok": true
+          },
+          {
+            "kind": "confidently-wrong",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "test nebyl dokončen",
+            "responseBlocks": 2,
+            "ok": true
+          },
+          {
+            "kind": "negated-repair",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "test nebyl dokončen",
+            "responseBlocks": 2,
+            "ok": true
+          }
+        ],
+        "independenceGroup": "model-use-leases",
+        "spanCount": 2,
+        "alternativeExplanation": "Construct frozen owner mapping from entries and shared-owner set from object values.",
+        "oracle": {
+          "verified": true,
+          "gold": 1,
+          "alternative": 1,
+          "broken": 0
+        },
+        "passed": true
+      },
+      {
+        "name": "patch_f63d14d5eb61",
+        "controls": [
+          {
+            "kind": "gold",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "alternative",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "empty",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "odpověď neobsahuje použitelný kód",
+            "responseBlocks": 0,
+            "ok": true
+          },
+          {
+            "kind": "prompt-echo",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/3 požadavků",
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "keyword-stuffing",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "odpověď neobsahuje použitelný kód",
+            "responseBlocks": 0,
+            "ok": true
+          },
+          {
+            "kind": "confidently-wrong",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/3 požadavků",
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "negated-repair",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/3 požadavků",
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "alternative-split-two-blocks",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 2,
+            "ok": true
+          },
+          {
+            "kind": "incorrect-split-two-blocks",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/3 požadavků",
+            "responseBlocks": 2,
+            "ok": true
+          }
+        ],
+        "independenceGroup": "pairwise-confidence",
+        "spanCount": 1,
+        "alternativeExplanation": "Bounded lookup instead of chained conditionals for evidence-count labels.",
+        "oracle": {
+          "verified": true,
+          "gold": 1,
+          "alternative": 1,
+          "broken": 0
+        },
+        "passed": true
+      },
+      {
+        "name": "patch_75b5539f8cf5",
+        "controls": [
+          {
+            "kind": "gold",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 3,
+            "ok": true
+          },
+          {
+            "kind": "alternative",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 3,
+            "ok": true
+          },
+          {
+            "kind": "empty",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "odpověď neobsahuje použitelný kód",
+            "responseBlocks": 0,
+            "ok": true
+          },
+          {
+            "kind": "prompt-echo",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "test nebyl dokončen",
+            "responseBlocks": 3,
+            "ok": true
+          },
+          {
+            "kind": "keyword-stuffing",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "odpověď neobsahuje použitelný kód",
+            "responseBlocks": 0,
+            "ok": true
+          },
+          {
+            "kind": "confidently-wrong",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "test nebyl dokončen",
+            "responseBlocks": 3,
+            "ok": true
+          },
+          {
+            "kind": "negated-repair",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "test nebyl dokončen",
+            "responseBlocks": 3,
+            "ok": true
+          }
+        ],
+        "independenceGroup": "chat-persistence",
+        "spanCount": 3,
+        "alternativeExplanation": "Assign error metadata atomically, preserving cause, subclass identity and retry semantics.",
+        "oracle": {
+          "verified": true,
+          "gold": 1,
+          "alternative": 1,
+          "broken": 0
+        },
+        "passed": true
+      },
+      {
+        "name": "patch_22149f55b861",
+        "controls": [
+          {
+            "kind": "gold",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "alternative",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "empty",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "odpověď neobsahuje použitelný kód",
+            "responseBlocks": 0,
+            "ok": true
+          },
+          {
+            "kind": "prompt-echo",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/1 požadavků",
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "keyword-stuffing",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "odpověď neobsahuje použitelný kód",
+            "responseBlocks": 0,
+            "ok": true
+          },
+          {
+            "kind": "confidently-wrong",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/1 požadavků",
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "negated-repair",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/1 požadavků",
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "alternative-split-two-blocks",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 2,
+            "ok": true
+          },
+          {
+            "kind": "incorrect-split-two-blocks",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/1 požadavků",
+            "responseBlocks": 2,
+            "ok": true
+          }
+        ],
+        "independenceGroup": "verification-timeout",
+        "spanCount": 1,
+        "alternativeExplanation": "Promise settlement cleanup before response parsing, including rejection, with idempotent outer cleanup.",
+        "oracle": {
+          "verified": true,
+          "gold": 1,
+          "alternative": 1,
+          "broken": 0
+        },
+        "passed": true
+      },
+      {
+        "name": "patch_adb1258cfec0",
+        "controls": [
+          {
+            "kind": "gold",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "alternative",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "empty",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "odpověď neobsahuje použitelný kód",
+            "responseBlocks": 0,
+            "ok": true
+          },
+          {
+            "kind": "prompt-echo",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/1 požadavků",
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "keyword-stuffing",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "odpověď neobsahuje použitelný kód",
+            "responseBlocks": 0,
+            "ok": true
+          },
+          {
+            "kind": "confidently-wrong",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/1 požadavků",
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "negated-repair",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/1 požadavků",
+            "responseBlocks": 1,
+            "ok": true
+          },
+          {
+            "kind": "alternative-split-two-blocks",
+            "expected": 1,
+            "score": 1,
+            "valid": true,
+            "outcome": "SUCCESS",
+            "reason": null,
+            "responseBlocks": 2,
+            "ok": true
+          },
+          {
+            "kind": "incorrect-split-two-blocks",
+            "expected": 0,
+            "score": 0,
+            "valid": true,
+            "outcome": "INCORRECT",
+            "reason": "splněno 0/1 požadavků",
+            "responseBlocks": 2,
+            "ok": true
+          }
+        ],
+        "independenceGroup": "verification-timeout",
+        "spanCount": 1,
+        "alternativeExplanation": "Promise settlement cleanup before response parsing, including rejection, with idempotent outer cleanup.",
+        "oracle": {
+          "verified": true,
+          "gold": 1,
+          "alternative": 1,
+          "broken": 0
+        },
+        "passed": true
+      }
+    ],
+    "status": "PASS",
+    "finishedAt": "2026-09-19T05:49:51.276Z",
+    "independentGroups": 5,
+    "groupingStatus": "DECLARED_SCENARIO_GROUPS_ONLY",
+    "decisionRuleStatus": "NOT_IMPLEMENTED"
+  },
+  "impactCheck": {
+    "status": "PASS",
+    "check": "BYTE_IDENTICAL_EXTRACTED_CODE_ONLY",
+    "notNewInference": true,
+    "notRegraded": true,
+    "productionImported": false,
+    "comparedAgainst": "efb5c0273b19d1afc4c3f286155dc5ee4222d1be",
+    "oldParserSourceSha256": "f5b1e200d88ff9fe4ed15bf101deeb62a16cddbd2e2d9b7e70d3bc574df4a9e6",
+    "currentContractSha256": "94ef238d38c3ad8b2ed4894b9ad85e90a8905a02eb7f4d85773337b99d5b66ab",
+    "attempts": 63,
+    "unchanged": 63,
+    "rows": [
+      {
+        "model": "qwen3.8",
+        "runId": "eval_17ffb1f3-2f42-4f8a-bec7-8e11780cac03",
+        "task": "patch_8cae1b583963",
+        "repeat": 1,
+        "reportSha256": "9d340451503813eb61501f55054cff7b32d9115092d39deaf7d9611c7ed9ba82",
+        "responseSha256": "9fba81ba391b0e46e1ec64f8bb24c3947a69cfe570ff5d3eae09975bc4c0bdbb",
+        "extractionUnchanged": true,
+        "recordedScore": 1
+      },
+      {
+        "model": "qwen3.8",
+        "runId": "eval_17ffb1f3-2f42-4f8a-bec7-8e11780cac03",
+        "task": "patch_8cae1b583963",
+        "repeat": 2,
+        "reportSha256": "9d340451503813eb61501f55054cff7b32d9115092d39deaf7d9611c7ed9ba82",
+        "responseSha256": "e26db7f349f2b886404d304e47470b2ca6e8faa0e7b73581a366e6acd565e248",
+        "extractionUnchanged": true,
+        "recordedScore": 1
+      },
+      {
+        "model": "qwen3.8",
+        "runId": "eval_17ffb1f3-2f42-4f8a-bec7-8e11780cac03",
+        "task": "patch_8cae1b583963",
+        "repeat": 3,
+        "reportSha256": "9d340451503813eb61501f55054cff7b32d9115092d39deaf7d9611c7ed9ba82",
+        "responseSha256": "9fba81ba391b0e46e1ec64f8bb24c3947a69cfe570ff5d3eae09975bc4c0bdbb",
+        "extractionUnchanged": true,
+        "recordedScore": 1
+      },
+      {
+        "model": "qwen3.8",
+        "runId": "eval_17ffb1f3-2f42-4f8a-bec7-8e11780cac03",
+        "task": "patch_0fe346cc820c",
+        "repeat": 1,
+        "reportSha256": "9d340451503813eb61501f55054cff7b32d9115092d39deaf7d9611c7ed9ba82",
+        "responseSha256": "f209c143dfa98598c35f2b5405411c95f77dc307219b51c380d954f495c96220",
+        "extractionUnchanged": true,
+        "recordedScore": 1
+      },
+      {
+        "model": "qwen3.8",
+        "runId": "eval_17ffb1f3-2f42-4f8a-bec7-8e11780cac03",
+        "task": "patch_0fe346cc820c",
+        "repeat": 2,
+        "reportSha256": "9d340451503813eb61501f55054cff7b32d9115092d39deaf7d9611c7ed9ba82",
+        "responseSha256": "f209c143dfa98598c35f2b5405411c95f77dc307219b51c380d954f495c96220",
+        "extractionUnchanged": true,
+        "recordedScore": 1
+      },
+      {
+        "model": "qwen3.8",
+        "runId": "eval_17ffb1f3-2f42-4f8a-bec7-8e11780cac03",
+        "task": "patch_0fe346cc820c",
+        "repeat": 3,
+        "reportSha256": "9d340451503813eb61501f55054cff7b32d9115092d39deaf7d9611c7ed9ba82",
+        "responseSha256": "f209c143dfa98598c35f2b5405411c95f77dc307219b51c380d954f495c96220",
+        "extractionUnchanged": true,
+        "recordedScore": 1
+      },
+      {
+        "model": "qwen3.8",
+        "runId": "eval_17ffb1f3-2f42-4f8a-bec7-8e11780cac03",
+        "task": "patch_6fc5e4eb7dce",
+        "repeat": 1,
+        "reportSha256": "9d340451503813eb61501f55054cff7b32d9115092d39deaf7d9611c7ed9ba82",
+        "responseSha256": "04aa71f0db12bfce162991eca2afb972dd59c75926ab2e25a587e67a9d777e01",
+        "extractionUnchanged": true,
+        "recordedScore": 1
+      },
+      {
+        "model": "qwen3.8",
+        "runId": "eval_17ffb1f3-2f42-4f8a-bec7-8e11780cac03",
+        "task": "patch_6fc5e4eb7dce",
+        "repeat": 2,
+        "reportSha256": "9d340451503813eb61501f55054cff7b32d9115092d39deaf7d9611c7ed9ba82",
+        "responseSha256": "04aa71f0db12bfce162991eca2afb972dd59c75926ab2e25a587e67a9d777e01",
+        "extractionUnchanged": true,
+        "recordedScore": 1
+      },
+      {
+        "model": "qwen3.8",
+        "runId": "eval_17ffb1f3-2f42-4f8a-bec7-8e11780cac03",
+        "task": "patch_6fc5e4eb7dce",
+        "repeat": 3,
+        "reportSha256": "9d340451503813eb61501f55054cff7b32d9115092d39deaf7d9611c7ed9ba82",
+        "responseSha256": "04aa71f0db12bfce162991eca2afb972dd59c75926ab2e25a587e67a9d777e01",
+        "extractionUnchanged": true,
+        "recordedScore": 1
+      },
+      {
+        "model": "qwen3.8",
+        "runId": "eval_17ffb1f3-2f42-4f8a-bec7-8e11780cac03",
+        "task": "patch_f63d14d5eb61",
+        "repeat": 1,
+        "reportSha256": "9d340451503813eb61501f55054cff7b32d9115092d39deaf7d9611c7ed9ba82",
+        "responseSha256": "31a6171e3b5dc98ebc33973d2cbe885fc15aaeee980fc7a1c3a0ad0dc5a9c934",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "qwen3.8",
+        "runId": "eval_17ffb1f3-2f42-4f8a-bec7-8e11780cac03",
+        "task": "patch_f63d14d5eb61",
+        "repeat": 2,
+        "reportSha256": "9d340451503813eb61501f55054cff7b32d9115092d39deaf7d9611c7ed9ba82",
+        "responseSha256": "0fc5016d23a6b2ddf6af555821674cc731e82ba7ddd1bb443cecdbbdebe3acd8",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "qwen3.8",
+        "runId": "eval_17ffb1f3-2f42-4f8a-bec7-8e11780cac03",
+        "task": "patch_f63d14d5eb61",
+        "repeat": 3,
+        "reportSha256": "9d340451503813eb61501f55054cff7b32d9115092d39deaf7d9611c7ed9ba82",
+        "responseSha256": "31a6171e3b5dc98ebc33973d2cbe885fc15aaeee980fc7a1c3a0ad0dc5a9c934",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "qwen3.8",
+        "runId": "eval_17ffb1f3-2f42-4f8a-bec7-8e11780cac03",
+        "task": "patch_75b5539f8cf5",
+        "repeat": 1,
+        "reportSha256": "9d340451503813eb61501f55054cff7b32d9115092d39deaf7d9611c7ed9ba82",
+        "responseSha256": "f61267e7994703cd35c6411b87cbdb609d97b8a839a8a0064e0bfcdf2e4b718e",
+        "extractionUnchanged": true,
+        "recordedScore": 1
+      },
+      {
+        "model": "qwen3.8",
+        "runId": "eval_17ffb1f3-2f42-4f8a-bec7-8e11780cac03",
+        "task": "patch_75b5539f8cf5",
+        "repeat": 2,
+        "reportSha256": "9d340451503813eb61501f55054cff7b32d9115092d39deaf7d9611c7ed9ba82",
+        "responseSha256": "f61267e7994703cd35c6411b87cbdb609d97b8a839a8a0064e0bfcdf2e4b718e",
+        "extractionUnchanged": true,
+        "recordedScore": 1
+      },
+      {
+        "model": "qwen3.8",
+        "runId": "eval_17ffb1f3-2f42-4f8a-bec7-8e11780cac03",
+        "task": "patch_75b5539f8cf5",
+        "repeat": 3,
+        "reportSha256": "9d340451503813eb61501f55054cff7b32d9115092d39deaf7d9611c7ed9ba82",
+        "responseSha256": "f61267e7994703cd35c6411b87cbdb609d97b8a839a8a0064e0bfcdf2e4b718e",
+        "extractionUnchanged": true,
+        "recordedScore": 1
+      },
+      {
+        "model": "qwen3.8",
+        "runId": "eval_17ffb1f3-2f42-4f8a-bec7-8e11780cac03",
+        "task": "patch_22149f55b861",
+        "repeat": 1,
+        "reportSha256": "9d340451503813eb61501f55054cff7b32d9115092d39deaf7d9611c7ed9ba82",
+        "responseSha256": "a417ea7f41bd3e70239b045b7ba0e2032ae692eac2c00c1a4cf95f8d50164cb5",
+        "extractionUnchanged": true,
+        "recordedScore": 1
+      },
+      {
+        "model": "qwen3.8",
+        "runId": "eval_17ffb1f3-2f42-4f8a-bec7-8e11780cac03",
+        "task": "patch_22149f55b861",
+        "repeat": 2,
+        "reportSha256": "9d340451503813eb61501f55054cff7b32d9115092d39deaf7d9611c7ed9ba82",
+        "responseSha256": "a417ea7f41bd3e70239b045b7ba0e2032ae692eac2c00c1a4cf95f8d50164cb5",
+        "extractionUnchanged": true,
+        "recordedScore": 1
+      },
+      {
+        "model": "qwen3.8",
+        "runId": "eval_17ffb1f3-2f42-4f8a-bec7-8e11780cac03",
+        "task": "patch_22149f55b861",
+        "repeat": 3,
+        "reportSha256": "9d340451503813eb61501f55054cff7b32d9115092d39deaf7d9611c7ed9ba82",
+        "responseSha256": "a417ea7f41bd3e70239b045b7ba0e2032ae692eac2c00c1a4cf95f8d50164cb5",
+        "extractionUnchanged": true,
+        "recordedScore": 1
+      },
+      {
+        "model": "qwen3.8",
+        "runId": "eval_17ffb1f3-2f42-4f8a-bec7-8e11780cac03",
+        "task": "patch_adb1258cfec0",
+        "repeat": 1,
+        "reportSha256": "9d340451503813eb61501f55054cff7b32d9115092d39deaf7d9611c7ed9ba82",
+        "responseSha256": "2b50bd9cc2b3f591401a63b252b48eca81fbee25c62953c0bb16f8fd47c4cc8e",
+        "extractionUnchanged": true,
+        "recordedScore": 1
+      },
+      {
+        "model": "qwen3.8",
+        "runId": "eval_17ffb1f3-2f42-4f8a-bec7-8e11780cac03",
+        "task": "patch_adb1258cfec0",
+        "repeat": 2,
+        "reportSha256": "9d340451503813eb61501f55054cff7b32d9115092d39deaf7d9611c7ed9ba82",
+        "responseSha256": "2b50bd9cc2b3f591401a63b252b48eca81fbee25c62953c0bb16f8fd47c4cc8e",
+        "extractionUnchanged": true,
+        "recordedScore": 1
+      },
+      {
+        "model": "qwen3.8",
+        "runId": "eval_17ffb1f3-2f42-4f8a-bec7-8e11780cac03",
+        "task": "patch_adb1258cfec0",
+        "repeat": 3,
+        "reportSha256": "9d340451503813eb61501f55054cff7b32d9115092d39deaf7d9611c7ed9ba82",
+        "responseSha256": "2b50bd9cc2b3f591401a63b252b48eca81fbee25c62953c0bb16f8fd47c4cc8e",
+        "extractionUnchanged": true,
+        "recordedScore": 1
+      },
+      {
+        "model": "devstral-small-2",
+        "runId": "eval_b11c62f7-8631-4485-9af9-17e49c0306ee",
+        "task": "patch_8cae1b583963",
+        "repeat": 1,
+        "reportSha256": "d69a2876dfdce9d74e9a4be09bca4eb5e2c856b5663cc6cf5e249412ee629740",
+        "responseSha256": "75d9c4f7b224ef6d358bc6e008e08ab90e6302f3bda45509e61dd888caa86d5f",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "devstral-small-2",
+        "runId": "eval_b11c62f7-8631-4485-9af9-17e49c0306ee",
+        "task": "patch_8cae1b583963",
+        "repeat": 2,
+        "reportSha256": "d69a2876dfdce9d74e9a4be09bca4eb5e2c856b5663cc6cf5e249412ee629740",
+        "responseSha256": "75d9c4f7b224ef6d358bc6e008e08ab90e6302f3bda45509e61dd888caa86d5f",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "devstral-small-2",
+        "runId": "eval_b11c62f7-8631-4485-9af9-17e49c0306ee",
+        "task": "patch_8cae1b583963",
+        "repeat": 3,
+        "reportSha256": "d69a2876dfdce9d74e9a4be09bca4eb5e2c856b5663cc6cf5e249412ee629740",
+        "responseSha256": "75d9c4f7b224ef6d358bc6e008e08ab90e6302f3bda45509e61dd888caa86d5f",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "devstral-small-2",
+        "runId": "eval_b11c62f7-8631-4485-9af9-17e49c0306ee",
+        "task": "patch_0fe346cc820c",
+        "repeat": 1,
+        "reportSha256": "d69a2876dfdce9d74e9a4be09bca4eb5e2c856b5663cc6cf5e249412ee629740",
+        "responseSha256": "f209c143dfa98598c35f2b5405411c95f77dc307219b51c380d954f495c96220",
+        "extractionUnchanged": true,
+        "recordedScore": 1
+      },
+      {
+        "model": "devstral-small-2",
+        "runId": "eval_b11c62f7-8631-4485-9af9-17e49c0306ee",
+        "task": "patch_0fe346cc820c",
+        "repeat": 2,
+        "reportSha256": "d69a2876dfdce9d74e9a4be09bca4eb5e2c856b5663cc6cf5e249412ee629740",
+        "responseSha256": "f209c143dfa98598c35f2b5405411c95f77dc307219b51c380d954f495c96220",
+        "extractionUnchanged": true,
+        "recordedScore": 1
+      },
+      {
+        "model": "devstral-small-2",
+        "runId": "eval_b11c62f7-8631-4485-9af9-17e49c0306ee",
+        "task": "patch_0fe346cc820c",
+        "repeat": 3,
+        "reportSha256": "d69a2876dfdce9d74e9a4be09bca4eb5e2c856b5663cc6cf5e249412ee629740",
+        "responseSha256": "f209c143dfa98598c35f2b5405411c95f77dc307219b51c380d954f495c96220",
+        "extractionUnchanged": true,
+        "recordedScore": 1
+      },
+      {
+        "model": "devstral-small-2",
+        "runId": "eval_b11c62f7-8631-4485-9af9-17e49c0306ee",
+        "task": "patch_6fc5e4eb7dce",
+        "repeat": 1,
+        "reportSha256": "d69a2876dfdce9d74e9a4be09bca4eb5e2c856b5663cc6cf5e249412ee629740",
+        "responseSha256": "04aa71f0db12bfce162991eca2afb972dd59c75926ab2e25a587e67a9d777e01",
+        "extractionUnchanged": true,
+        "recordedScore": 1
+      },
+      {
+        "model": "devstral-small-2",
+        "runId": "eval_b11c62f7-8631-4485-9af9-17e49c0306ee",
+        "task": "patch_6fc5e4eb7dce",
+        "repeat": 2,
+        "reportSha256": "d69a2876dfdce9d74e9a4be09bca4eb5e2c856b5663cc6cf5e249412ee629740",
+        "responseSha256": "04aa71f0db12bfce162991eca2afb972dd59c75926ab2e25a587e67a9d777e01",
+        "extractionUnchanged": true,
+        "recordedScore": 1
+      },
+      {
+        "model": "devstral-small-2",
+        "runId": "eval_b11c62f7-8631-4485-9af9-17e49c0306ee",
+        "task": "patch_6fc5e4eb7dce",
+        "repeat": 3,
+        "reportSha256": "d69a2876dfdce9d74e9a4be09bca4eb5e2c856b5663cc6cf5e249412ee629740",
+        "responseSha256": "04aa71f0db12bfce162991eca2afb972dd59c75926ab2e25a587e67a9d777e01",
+        "extractionUnchanged": true,
+        "recordedScore": 1
+      },
+      {
+        "model": "devstral-small-2",
+        "runId": "eval_b11c62f7-8631-4485-9af9-17e49c0306ee",
+        "task": "patch_f63d14d5eb61",
+        "repeat": 1,
+        "reportSha256": "d69a2876dfdce9d74e9a4be09bca4eb5e2c856b5663cc6cf5e249412ee629740",
+        "responseSha256": "b62a6955037f78dc81feb8c3f222807f50302accd585bbd10856937975430c28",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "devstral-small-2",
+        "runId": "eval_b11c62f7-8631-4485-9af9-17e49c0306ee",
+        "task": "patch_f63d14d5eb61",
+        "repeat": 2,
+        "reportSha256": "d69a2876dfdce9d74e9a4be09bca4eb5e2c856b5663cc6cf5e249412ee629740",
+        "responseSha256": "fc378801927f5161a00e183982d70b4291abf4dd938a4a13273d898d7ee6f17b",
+        "extractionUnchanged": true,
+        "recordedScore": 0.6666666666666666
+      },
+      {
+        "model": "devstral-small-2",
+        "runId": "eval_b11c62f7-8631-4485-9af9-17e49c0306ee",
+        "task": "patch_f63d14d5eb61",
+        "repeat": 3,
+        "reportSha256": "d69a2876dfdce9d74e9a4be09bca4eb5e2c856b5663cc6cf5e249412ee629740",
+        "responseSha256": "b62a6955037f78dc81feb8c3f222807f50302accd585bbd10856937975430c28",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "devstral-small-2",
+        "runId": "eval_b11c62f7-8631-4485-9af9-17e49c0306ee",
+        "task": "patch_75b5539f8cf5",
+        "repeat": 1,
+        "reportSha256": "d69a2876dfdce9d74e9a4be09bca4eb5e2c856b5663cc6cf5e249412ee629740",
+        "responseSha256": "ab965dc9a4931219f1e6684649252c1c1ca5f2270ea4b5021102c3e178613988",
+        "extractionUnchanged": true,
+        "recordedScore": 1
+      },
+      {
+        "model": "devstral-small-2",
+        "runId": "eval_b11c62f7-8631-4485-9af9-17e49c0306ee",
+        "task": "patch_75b5539f8cf5",
+        "repeat": 2,
+        "reportSha256": "d69a2876dfdce9d74e9a4be09bca4eb5e2c856b5663cc6cf5e249412ee629740",
+        "responseSha256": "ab965dc9a4931219f1e6684649252c1c1ca5f2270ea4b5021102c3e178613988",
+        "extractionUnchanged": true,
+        "recordedScore": 1
+      },
+      {
+        "model": "devstral-small-2",
+        "runId": "eval_b11c62f7-8631-4485-9af9-17e49c0306ee",
+        "task": "patch_75b5539f8cf5",
+        "repeat": 3,
+        "reportSha256": "d69a2876dfdce9d74e9a4be09bca4eb5e2c856b5663cc6cf5e249412ee629740",
+        "responseSha256": "ab965dc9a4931219f1e6684649252c1c1ca5f2270ea4b5021102c3e178613988",
+        "extractionUnchanged": true,
+        "recordedScore": 1
+      },
+      {
+        "model": "devstral-small-2",
+        "runId": "eval_b11c62f7-8631-4485-9af9-17e49c0306ee",
+        "task": "patch_22149f55b861",
+        "repeat": 1,
+        "reportSha256": "d69a2876dfdce9d74e9a4be09bca4eb5e2c856b5663cc6cf5e249412ee629740",
+        "responseSha256": "33f4fb40b7403bdc83c5f88e01222d76a8d612a4dba1099eab5fd1581c6bb76c",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "devstral-small-2",
+        "runId": "eval_b11c62f7-8631-4485-9af9-17e49c0306ee",
+        "task": "patch_22149f55b861",
+        "repeat": 2,
+        "reportSha256": "d69a2876dfdce9d74e9a4be09bca4eb5e2c856b5663cc6cf5e249412ee629740",
+        "responseSha256": "33f4fb40b7403bdc83c5f88e01222d76a8d612a4dba1099eab5fd1581c6bb76c",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "devstral-small-2",
+        "runId": "eval_b11c62f7-8631-4485-9af9-17e49c0306ee",
+        "task": "patch_22149f55b861",
+        "repeat": 3,
+        "reportSha256": "d69a2876dfdce9d74e9a4be09bca4eb5e2c856b5663cc6cf5e249412ee629740",
+        "responseSha256": "6a3b5be798809ac67a65a5d18c440099ba3ad408b882a8a53977d972bf1b5a13",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "devstral-small-2",
+        "runId": "eval_b11c62f7-8631-4485-9af9-17e49c0306ee",
+        "task": "patch_adb1258cfec0",
+        "repeat": 1,
+        "reportSha256": "d69a2876dfdce9d74e9a4be09bca4eb5e2c856b5663cc6cf5e249412ee629740",
+        "responseSha256": "00d3b9d850d8f7c5c42b781b33f94b88d8dff021d9dc7d34bf455bcb6465fcde",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "devstral-small-2",
+        "runId": "eval_b11c62f7-8631-4485-9af9-17e49c0306ee",
+        "task": "patch_adb1258cfec0",
+        "repeat": 2,
+        "reportSha256": "d69a2876dfdce9d74e9a4be09bca4eb5e2c856b5663cc6cf5e249412ee629740",
+        "responseSha256": "00d3b9d850d8f7c5c42b781b33f94b88d8dff021d9dc7d34bf455bcb6465fcde",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "devstral-small-2",
+        "runId": "eval_b11c62f7-8631-4485-9af9-17e49c0306ee",
+        "task": "patch_adb1258cfec0",
+        "repeat": 3,
+        "reportSha256": "d69a2876dfdce9d74e9a4be09bca4eb5e2c856b5663cc6cf5e249412ee629740",
+        "responseSha256": "00d3b9d850d8f7c5c42b781b33f94b88d8dff021d9dc7d34bf455bcb6465fcde",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "qwen3-coder",
+        "runId": "eval_40172b39-041b-44b5-b627-b477aa97426a",
+        "task": "patch_8cae1b583963",
+        "repeat": 1,
+        "reportSha256": "36782e7c1c37c0f47b2d1c4b159b1db7714f4ddd7b78991bbdb792582af8e2a6",
+        "responseSha256": "045f077dbd48e8d08248054aa8a74006c0050857ea594c5c184527d5ac9ecc20",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "qwen3-coder",
+        "runId": "eval_40172b39-041b-44b5-b627-b477aa97426a",
+        "task": "patch_8cae1b583963",
+        "repeat": 2,
+        "reportSha256": "36782e7c1c37c0f47b2d1c4b159b1db7714f4ddd7b78991bbdb792582af8e2a6",
+        "responseSha256": "f5634552403e9cc588952b7136c0edceea9aaaa51775113c58ed73b2bf8d3f7a",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "qwen3-coder",
+        "runId": "eval_40172b39-041b-44b5-b627-b477aa97426a",
+        "task": "patch_8cae1b583963",
+        "repeat": 3,
+        "reportSha256": "36782e7c1c37c0f47b2d1c4b159b1db7714f4ddd7b78991bbdb792582af8e2a6",
+        "responseSha256": "045f077dbd48e8d08248054aa8a74006c0050857ea594c5c184527d5ac9ecc20",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "qwen3-coder",
+        "runId": "eval_40172b39-041b-44b5-b627-b477aa97426a",
+        "task": "patch_0fe346cc820c",
+        "repeat": 1,
+        "reportSha256": "36782e7c1c37c0f47b2d1c4b159b1db7714f4ddd7b78991bbdb792582af8e2a6",
+        "responseSha256": "619372cc59f76763c0c9ec441dbbac39ee44ab6192c39f1cf7d878bfd2879eb6",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "qwen3-coder",
+        "runId": "eval_40172b39-041b-44b5-b627-b477aa97426a",
+        "task": "patch_0fe346cc820c",
+        "repeat": 2,
+        "reportSha256": "36782e7c1c37c0f47b2d1c4b159b1db7714f4ddd7b78991bbdb792582af8e2a6",
+        "responseSha256": "619372cc59f76763c0c9ec441dbbac39ee44ab6192c39f1cf7d878bfd2879eb6",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "qwen3-coder",
+        "runId": "eval_40172b39-041b-44b5-b627-b477aa97426a",
+        "task": "patch_0fe346cc820c",
+        "repeat": 3,
+        "reportSha256": "36782e7c1c37c0f47b2d1c4b159b1db7714f4ddd7b78991bbdb792582af8e2a6",
+        "responseSha256": "619372cc59f76763c0c9ec441dbbac39ee44ab6192c39f1cf7d878bfd2879eb6",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "qwen3-coder",
+        "runId": "eval_40172b39-041b-44b5-b627-b477aa97426a",
+        "task": "patch_6fc5e4eb7dce",
+        "repeat": 1,
+        "reportSha256": "36782e7c1c37c0f47b2d1c4b159b1db7714f4ddd7b78991bbdb792582af8e2a6",
+        "responseSha256": "96b91a2d8484f3e9e71089d0cc2929b40ad92a9e336a2d62be9a70b96d86db95",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "qwen3-coder",
+        "runId": "eval_40172b39-041b-44b5-b627-b477aa97426a",
+        "task": "patch_6fc5e4eb7dce",
+        "repeat": 2,
+        "reportSha256": "36782e7c1c37c0f47b2d1c4b159b1db7714f4ddd7b78991bbdb792582af8e2a6",
+        "responseSha256": "96b91a2d8484f3e9e71089d0cc2929b40ad92a9e336a2d62be9a70b96d86db95",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "qwen3-coder",
+        "runId": "eval_40172b39-041b-44b5-b627-b477aa97426a",
+        "task": "patch_6fc5e4eb7dce",
+        "repeat": 3,
+        "reportSha256": "36782e7c1c37c0f47b2d1c4b159b1db7714f4ddd7b78991bbdb792582af8e2a6",
+        "responseSha256": "96b91a2d8484f3e9e71089d0cc2929b40ad92a9e336a2d62be9a70b96d86db95",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "qwen3-coder",
+        "runId": "eval_40172b39-041b-44b5-b627-b477aa97426a",
+        "task": "patch_f63d14d5eb61",
+        "repeat": 1,
+        "reportSha256": "36782e7c1c37c0f47b2d1c4b159b1db7714f4ddd7b78991bbdb792582af8e2a6",
+        "responseSha256": "a9470ddf42ac587e67f0abaa77f50fa559c6bcc580223e5a421d9d5bdda797bf",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "qwen3-coder",
+        "runId": "eval_40172b39-041b-44b5-b627-b477aa97426a",
+        "task": "patch_f63d14d5eb61",
+        "repeat": 2,
+        "reportSha256": "36782e7c1c37c0f47b2d1c4b159b1db7714f4ddd7b78991bbdb792582af8e2a6",
+        "responseSha256": "a9470ddf42ac587e67f0abaa77f50fa559c6bcc580223e5a421d9d5bdda797bf",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "qwen3-coder",
+        "runId": "eval_40172b39-041b-44b5-b627-b477aa97426a",
+        "task": "patch_f63d14d5eb61",
+        "repeat": 3,
+        "reportSha256": "36782e7c1c37c0f47b2d1c4b159b1db7714f4ddd7b78991bbdb792582af8e2a6",
+        "responseSha256": "a9470ddf42ac587e67f0abaa77f50fa559c6bcc580223e5a421d9d5bdda797bf",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "qwen3-coder",
+        "runId": "eval_40172b39-041b-44b5-b627-b477aa97426a",
+        "task": "patch_75b5539f8cf5",
+        "repeat": 1,
+        "reportSha256": "36782e7c1c37c0f47b2d1c4b159b1db7714f4ddd7b78991bbdb792582af8e2a6",
+        "responseSha256": "cfdaf6c6248f14d630121df77045710363e3de039ea0f17a65aa99569dedf777",
+        "extractionUnchanged": true,
+        "recordedScore": 0.8
+      },
+      {
+        "model": "qwen3-coder",
+        "runId": "eval_40172b39-041b-44b5-b627-b477aa97426a",
+        "task": "patch_75b5539f8cf5",
+        "repeat": 2,
+        "reportSha256": "36782e7c1c37c0f47b2d1c4b159b1db7714f4ddd7b78991bbdb792582af8e2a6",
+        "responseSha256": "cfdaf6c6248f14d630121df77045710363e3de039ea0f17a65aa99569dedf777",
+        "extractionUnchanged": true,
+        "recordedScore": 0.8
+      },
+      {
+        "model": "qwen3-coder",
+        "runId": "eval_40172b39-041b-44b5-b627-b477aa97426a",
+        "task": "patch_75b5539f8cf5",
+        "repeat": 3,
+        "reportSha256": "36782e7c1c37c0f47b2d1c4b159b1db7714f4ddd7b78991bbdb792582af8e2a6",
+        "responseSha256": "cfdaf6c6248f14d630121df77045710363e3de039ea0f17a65aa99569dedf777",
+        "extractionUnchanged": true,
+        "recordedScore": 0.8
+      },
+      {
+        "model": "qwen3-coder",
+        "runId": "eval_40172b39-041b-44b5-b627-b477aa97426a",
+        "task": "patch_22149f55b861",
+        "repeat": 1,
+        "reportSha256": "36782e7c1c37c0f47b2d1c4b159b1db7714f4ddd7b78991bbdb792582af8e2a6",
+        "responseSha256": "4eee6e686f001f60081e2409809b74490f469707d211385ba0b9547e2b935033",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "qwen3-coder",
+        "runId": "eval_40172b39-041b-44b5-b627-b477aa97426a",
+        "task": "patch_22149f55b861",
+        "repeat": 2,
+        "reportSha256": "36782e7c1c37c0f47b2d1c4b159b1db7714f4ddd7b78991bbdb792582af8e2a6",
+        "responseSha256": "4eee6e686f001f60081e2409809b74490f469707d211385ba0b9547e2b935033",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "qwen3-coder",
+        "runId": "eval_40172b39-041b-44b5-b627-b477aa97426a",
+        "task": "patch_22149f55b861",
+        "repeat": 3,
+        "reportSha256": "36782e7c1c37c0f47b2d1c4b159b1db7714f4ddd7b78991bbdb792582af8e2a6",
+        "responseSha256": "4eee6e686f001f60081e2409809b74490f469707d211385ba0b9547e2b935033",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "qwen3-coder",
+        "runId": "eval_40172b39-041b-44b5-b627-b477aa97426a",
+        "task": "patch_adb1258cfec0",
+        "repeat": 1,
+        "reportSha256": "36782e7c1c37c0f47b2d1c4b159b1db7714f4ddd7b78991bbdb792582af8e2a6",
+        "responseSha256": "9a0bc35b954c296d516888769b10c4332e03f3f5140809eb74ef6ecf692f0fc1",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "qwen3-coder",
+        "runId": "eval_40172b39-041b-44b5-b627-b477aa97426a",
+        "task": "patch_adb1258cfec0",
+        "repeat": 2,
+        "reportSha256": "36782e7c1c37c0f47b2d1c4b159b1db7714f4ddd7b78991bbdb792582af8e2a6",
+        "responseSha256": "9a0bc35b954c296d516888769b10c4332e03f3f5140809eb74ef6ecf692f0fc1",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      },
+      {
+        "model": "qwen3-coder",
+        "runId": "eval_40172b39-041b-44b5-b627-b477aa97426a",
+        "task": "patch_adb1258cfec0",
+        "repeat": 3,
+        "reportSha256": "36782e7c1c37c0f47b2d1c4b159b1db7714f4ddd7b78991bbdb792582af8e2a6",
+        "responseSha256": "9a0bc35b954c296d516888769b10c4332e03f3f5140809eb74ef6ecf692f0fc1",
+        "extractionUnchanged": true,
+        "recordedScore": 0
+      }
+    ]
+  },
+  "checks": [
+    {
+      "name": "runner",
+      "passed": 66,
+      "failed": 0,
+      "skipped": 0,
+      "logSha256": "eb3c05176e8df462a029fa19a68a52f05492023301c7ebe3765cf011b216ff8d"
+    },
+    {
+      "name": "suite",
+      "passed": 27,
+      "failed": 0,
+      "skipped": 0,
+      "logSha256": "4f7a9ecf300f933ca7748146801bbcee85238cc2226320445a39fc8ac885967a"
+    },
+    {
+      "name": "artifact",
+      "passed": 160,
+      "failed": 0,
+      "skipped": 0,
+      "logSha256": "f52f3b750d7cd8d7f751d21f040b6e178db02e7090f12d6ed38b3f50e3b68476"
+    }
+  ],
+  "evidenceFileSha256": {
+    "oracle-before.json": "8e9c9234a396358e79663f2b547ca1d08831090c836f077dfa510d934d2ea9d5",
+    "oracle-after.json": "1f67e3735013406602105c8486df4fef125bba2a180501d57b535e1964e313e6",
+    "extraction-comparison.json": "fb070024cf8271ad84856af43c080bccae00308cb9346b0a57b6b300690a12e5",
+    "compare-extraction.mjs": "100a8b1741c14ea3c763b885c842fe0ded18d94a00981a71701b4bc13e24c3ce",
+    "live-readonly.json": "6eccd4735a961880d1189a33a4c0cf315327bf7ebb0e3733531c43a0f8c278d2"
+  }
+}

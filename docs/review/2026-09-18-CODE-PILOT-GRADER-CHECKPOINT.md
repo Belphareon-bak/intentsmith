@@ -1,5 +1,9 @@
 # CODE pilot — oprava měřidla a výsledkových tříd
 
+**Historický noční checkpoint.** Novější [stav z 19. 9.](2026-09-19-CODE-MEASUREMENT.md)
+obsahuje dokončená průzkumná měření všech tří modelů a následnou opravu
+dvoublokové odpovědi. Údaj o vypnutém timeru níže platí k noční kontrole.
+
 Autorita: [schválený kontrakt](../wp/WP-GPU-HUNT-EVALUATION-CONTRACT-20260918.md),
 zejména §3–5 a §8 kroky 1–3. **IMPLEMENTATION_PARTIAL / REVIEW_PENDING /
 PILOT_INCOMPLETE / NOT_DEPLOYED.** Tento checkpoint není přijetí pilotu.

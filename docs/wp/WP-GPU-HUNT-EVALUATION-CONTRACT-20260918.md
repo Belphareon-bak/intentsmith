@@ -1,8 +1,10 @@
 # WP — kontrakt platnosti evaluací GPU huntu
 
 **Stav:** SCOPE_APPROVED / IMPLEMENTATION_PARTIAL / PILOT_INCOMPLETE / REVIEW_PENDING.
-Checkpoint implementace je v [review](../review/2026-09-18-CODE-PILOT-GRADER-CHECKPOINT.md);
-přijetí pilotu tím nevzniká.
+Aktuální průzkumné měření a přejímka parseru jsou v
+[review z 19. 9.](../review/2026-09-19-CODE-MEASUREMENT.md), původní noční
+[checkpoint](../review/2026-09-18-CODE-PILOT-GRADER-CHECKPOINT.md) je historický.
+Přijetí pilotu tím nevzniká; krok 4 bez uzamčeného §6 zůstává částečný.
 Autorita: zadání operátora z 18. 9. 2026 po dvou kolech nezávislé revize návrhu.
 Tento dokument je **zadání pilotu**, nikoli přijetí implementace a nikoli
 tvrzení, že současné evaluace jsou platné.

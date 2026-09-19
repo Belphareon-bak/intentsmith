@@ -185,10 +185,54 @@ test('extractFunctionCode vezme blok v apostrofech', () => {
   assertEqual(code, 'function f() { return 1; }');
 });
 
-test('extractFunctionCode vezme delší z více bloků', () => {
-  const fence = '`'.repeat(3);
-  const code = extractFunctionCode(`${fence}js\nspatne\n${fence}\n${fence}js\nfunction f() { return 1234567; }\n${fence}`);
-  assert(code.includes('1234567'), `vzal špatný blok: ${code}`);
+const fencedResponse = blocks => blocks.map(code => '```javascript\n' + code + '\n```').join('\n\n');
+
+test('správná oprava jednoho úseku rozdělená do dvou bloků projde skutečným testem', () => {
+  const { task } = deriveTask(fx.repo, fx.meta);
+  const response = fencedResponse(['export function add(a, b) {', '  return a + b;\n}']);
+  const result = applyAndTest(fx.repo, task, extractFunctionCodes(response, task.spans));
+  assertEqual(result.score, 1);
+  assert(result.valid && result.passed, result.reason);
+});
+
+test('pomocná funkce v samostatném bloku se při opravě jednoho úseku neztratí', () => {
+  const { task } = deriveTask(fx.repo, fx.meta);
+  const response = fencedResponse([
+    'function sum(a, b) { return a + b; }',
+    'export function add(a, b) { return sum(a, b); }',
+  ]);
+  const result = applyAndTest(fx.repo, task, extractFunctionCodes(response, task.spans));
+  assertEqual(result.score, 1);
+});
+
+test('chybná oprava rozdělená do dvou bloků zůstane platným neúspěchem', () => {
+  const { task } = deriveTask(fx.repo, fx.meta);
+  const response = fencedResponse(['export function add(a, b) {', '  return a - b;\n}']);
+  const result = applyAndTest(fx.repo, task, extractFunctionCodes(response, task.spans));
+  assertEqual(result.score, 0);
+  assert(result.valid && result.syntaxOk, result.reason);
+});
+
+test('parser nevybírá úspěšnou variantu ze dvou konfliktních deklarací', () => {
+  const { task } = deriveTask(fx.repo, fx.meta);
+  const response = fencedResponse([
+    'export function add(a, b) { return a - b; }',
+    'export function add(a, b) { return a + b; /* delší správná varianta */ }',
+  ]);
+  const result = applyAndTest(fx.repo, task, extractFunctionCodes(response, task.spans));
+  assertEqual(result.score, 0);
+  assert(result.valid && !result.syntaxOk, result.reason);
+});
+
+test('kratší blok s chybou se nezahodí ve prospěch delší správné opravy', () => {
+  const { task } = deriveTask(fx.repo, fx.meta);
+  const response = fencedResponse([
+    'throw new Error("not repaired");',
+    'export function add(a, b) { return a + b; /* tento blok je delší */ }',
+  ]);
+  const result = applyAndTest(fx.repo, task, extractFunctionCodes(response, task.spans));
+  assertEqual(result.score, 0);
+  assert(result.valid && result.syntaxOk, result.reason);
 });
 
 test('extractFunctionCode zvládne holý kód bez bloku', () => {
