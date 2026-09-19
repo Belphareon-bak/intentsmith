@@ -3,6 +3,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { spawnSync } from 'node:child_process';
 import { suite, test, testAsync, assert, assertEqual, assertIncludes, summary } from './harness.js';
 import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 import {
@@ -325,6 +326,62 @@ test('dedup across sources', () => {
 // ─── runFixLoop — convergence ───────────────────────────────────────────────
 
 suite('runFixLoop — convergence');
+
+// Real Node assertion output has no diagnostic recognized by the legacy parser.
+// A missing diagnostic must never override the test runner's failed status.
+const failedAssertion = spawnSync(process.execPath, ['--input-type=module', '-e',
+  "import assert from 'node:assert/strict'; assert.deepEqual(['analyst', 'accountant'], ['analyst']);"],
+{ encoding: 'utf8' });
+const unparsedFailure = { allPassed: false, exitCode: failedAssertion.status,
+  stdout: failedAssertion.stdout, stderr: failedAssertion.stderr };
+test('regression fixture is a failed real assertion without normalized diagnostics', () => {
+  assertEqual(failedAssertion.status, 1);
+  assertIncludes(failedAssertion.stderr, 'ERR_ASSERTION');
+  assertEqual(extractErrors(unparsedFailure, mkQualityGate(true)).length, 0);
+});
+
+for (const [name, testResults, qualityGateResult] of [
+  ['unparsed test failure', unparsedFailure, mkQualityGate(true)],
+  ['failed compile check without diagnostics', mkTestResults(true), mkQualityGate(false)],
+  ['missing test verification', { allPassed: null }, mkQualityGate(true)],
+]) {
+  await testAsync(`initial ${name} cannot report all_passed`, async () => {
+    const r = await runFixLoop({
+      lifecycle: { projectPath: TEST_DIR }, milestone: { id: 'unverified-initial' },
+      testResults, qualityGateResult,
+      callLLM: async () => { throw new Error('No actionable diagnostic'); },
+    });
+    assertEqual(r.converged, false);
+    assertEqual(r.stopReason, 'verification_failed');
+    assert(!r.report.summary.includes('Fixed all errors'));
+  });
+}
+
+await testAsync('failed real test after a patch stays failed in result, task memory and telemetry', async () => {
+  const { metricsCollector } = await import('../src/upgrade/metrics-collector.js');
+  const original = metricsCollector.recordEvent;
+  const events = [], fixes = [];
+  metricsCollector.recordEvent = event => events.push(event);
+  fs.writeFileSync(path.join(TEST_DIR, 'a.js'), 'function main() {\n  old;\n}\n');
+  try {
+    const r = await runFixLoop({
+      lifecycle: { projectPath: TEST_DIR }, milestone: { id: 'unparsed-after-patch' },
+      testResults: mkTestResults(false, '', ERR_SYNTAX), qualityGateResult: mkQualityGate(true),
+      callLLM: async () => ({ content: mkDiff('a.js', 1) }),
+      runTests: async () => unparsedFailure,
+      runQualityGate: async () => mkQualityGate(true), getGitDiff: async () => '',
+      taskMemory: { queryRelevant: async () => [], recordFix: async fix => fixes.push(fix) },
+    });
+    assertEqual(r.converged, false);
+    assertEqual(r.stopReason, 'verification_failed');
+    assertEqual(r.finalTestResults.exitCode, 1);
+    assert(!r.report.summary.includes('Fixed all errors'));
+    assert(fixes.length > 0 && fixes.every(fix => fix.success === false));
+    assertEqual(events.length, 1);
+    assertEqual(events[0].success, 0);
+    assertEqual(events[0].stopReason, r.stopReason);
+  } finally { metricsCollector.recordEvent = original; }
+});
 
 await testAsync('pass on iteration 1', async () => {
   const r = await runFixLoop({

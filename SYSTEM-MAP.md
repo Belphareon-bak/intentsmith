@@ -1,5 +1,13 @@
 # IntentSmith — mapa systému
 
+**GPU hunt, navazující oprava a audit 2026-09-19:** falešná konvergence
+v produkčním fix loopu opravena; výsledek, paměť oprav a metriky nyní vyžadují
+potvrzené kontroly. Regrese před opravou 63 PASS / 4 FAIL, po 67/67; navazující
+build 114/114. V instalaci zatím není. Hunt má provozní infrastrukturu, ale
+nemá přijaté rozhodovací sady všech rolí ani integrovaný CODE pilot.
+Timer zůstává vypnutý, mazání vypnuté; **IMPLEMENTATION_VERIFIED /
+REVIEW_PENDING / NOT_DEPLOYED**. [Oprava a seznam zbývající práce](docs/review/2026-09-19-GPU-HUNT-READINESS.md).
+
 **CODE, dokončený provozní duel 2026-09-19:** 48/48 pokusů, Qwen3.8
 0/24 dokončených oprav, Devstral 0/24; 44 chybných oprav a 4 ověřená
 vyčerpání rozpočtu, žádný nehodnotitelný pokus v konečné sérii. Oba modely
@@ -379,8 +387,8 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **226 053 ř.**, 632 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **247 779 ř.**, 533 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **226 066 ř.**, 632 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **247 836 ř.**, 533 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **525** (`431 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **177 / 102** |
 | HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |

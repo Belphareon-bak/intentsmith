@@ -1,5 +1,13 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**GPU hunt, navazující oprava a audit 2026-09-19:** falešná konvergence
+v produkčním fix loopu opravena; výsledek, paměť oprav a metriky nyní vyžadují
+potvrzené kontroly. Regrese před opravou 63 PASS / 4 FAIL, po 67/67; navazující
+build 114/114. V instalaci zatím není. Hunt má provozní infrastrukturu, ale
+nemá přijaté rozhodovací sady všech rolí ani integrovaný CODE pilot.
+Timer zůstává vypnutý, mazání vypnuté; **IMPLEMENTATION_VERIFIED /
+REVIEW_PENDING / NOT_DEPLOYED**. [Oprava a seznam zbývající práce](docs/review/2026-09-19-GPU-HUNT-READINESS.md).
+
 **CODE, dokončený provozní duel 2026-09-19:** 48/48 pokusů, Qwen3.8
 0/24 dokončených oprav, Devstral 0/24; 44 chybných oprav a 4 ověřená
 vyčerpání rozpočtu, žádný nehodnotitelný pokus v konečné sérii. Oba modely

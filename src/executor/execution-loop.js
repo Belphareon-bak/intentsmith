@@ -154,8 +154,13 @@ export function resolveMaxLoopIterations(value = MAX_FIX_LOOP_ITERATIONS) {
 
 // ─── Convergence Detection ──────────────────────────────────────────────────
 
+function checksPassed(testResults, qualityGate) {
+  return testResults?.allPassed === true && qualityGate?.passed === true;
+}
+
 /**
- * Decide whether the fix loop should continue.
+ * Decide whether diagnostics warrant another iteration. An all_passed proposal
+ * still requires affirmative test and quality-gate results in _buildResult.
  *
  * @param {Array} currentErrors - NormalizedError[] from latest iteration
  * @param {Array} previousErrors - NormalizedError[] from previous iteration
@@ -470,6 +475,8 @@ export async function runFixLoop(options) {
 
   const maxIter = config.lifecycle?.maxLoopIterations || 8;
   const projectRoot = lifecycle.projectPath;
+  let finalResult = null;
+  const finish = (...args) => (finalResult = _buildResult(...args));
 
   // Step 1: Parse initial errors
   let initialErrors = extractErrors(initialTestResults, initialQualityGate);
@@ -491,7 +498,7 @@ export async function runFixLoop(options) {
       logger.warn('ExecutionLoop', 'All errors reference out-of-scope files — regeneration needed', {
         milestoneId: milestone.id,
       });
-      return _buildResult(false, 'out_of_scope_only', 0, initialTestResults,
+      return finish(false, 'out_of_scope_only', 0, initialTestResults,
         initialQualityGate, outOfScopeErrors, [], new Set());
     }
     initialErrors = inScopeErrors;
@@ -523,15 +530,8 @@ export async function runFixLoop(options) {
   });
 
   if (initialErrors.length === 0) {
-    return {
-      converged: true,
-      stopReason: 'all_passed',
-      iterations: 0,
-      finalTestResults: initialTestResults,
-      finalQualityGate: initialQualityGate,
-      lastErrors: [],
-      report: buildReport([], new Set(), true),
-    };
+    return finish(true, 'all_passed', 0, initialTestResults,
+      initialQualityGate, [], [], new Set());
   }
 
   // Step 2: Check unrecoverable
@@ -677,7 +677,7 @@ export async function runFixLoop(options) {
           // If all errors were skipped, stop
           if (currentErrors.length === 0) {
             iterationLog.push({ iteration: iter, errorCount: 0, patchFiles: [], action: 'skipped' });
-            return _buildResult(false, 'unrecoverable', iter, lastTestResults, lastQualityGate, skipped, iterationLog, iterMem.filesModified);
+            return finish(false, 'unrecoverable', iter, lastTestResults, lastQualityGate, skipped, iterationLog, iterMem.filesModified);
           }
 
           // Build hints for HEURISTIC errors
@@ -742,7 +742,7 @@ export async function runFixLoop(options) {
           outputLen: llmOutput.length,
         });
         iterationLog.push({ iteration: iter, errorCount: currentErrors.length, patchFiles: [], action: 'skipped' });
-        return _buildResult(false, 'patch_failed', iter, lastTestResults, lastQualityGate, currentErrors, iterationLog, iterMem.filesModified);
+        return finish(false, 'patch_failed', iter, lastTestResults, lastQualityGate, currentErrors, iterationLog, iterMem.filesModified);
       }
 
       // 4d. GUARD: Patch scope limit
@@ -753,7 +753,7 @@ export async function runFixLoop(options) {
           iteration: iter,
         });
         iterationLog.push({ iteration: iter, errorCount: currentErrors.length, patchFiles, action: 'skipped' });
-        return _buildResult(false, 'scope_exceeded', iter, lastTestResults, lastQualityGate, currentErrors, iterationLog, iterMem.filesModified);
+        return finish(false, 'scope_exceeded', iter, lastTestResults, lastQualityGate, currentErrors, iterationLog, iterMem.filesModified);
       }
 
       // 4e. GUARD: File loop protection
@@ -771,7 +771,7 @@ export async function runFixLoop(options) {
       }
       if (fileLoopDetected) {
         iterationLog.push({ iteration: iter, errorCount: currentErrors.length, patchFiles, action: 'skipped' });
-        return _buildResult(false, 'file_loop', iter, lastTestResults, lastQualityGate, currentErrors, iterationLog, iterMem.filesModified);
+        return finish(false, 'file_loop', iter, lastTestResults, lastQualityGate, currentErrors, iterationLog, iterMem.filesModified);
       }
 
       // 4f. GUARD: Patch oscillation detection
@@ -795,7 +795,7 @@ export async function runFixLoop(options) {
       }
       if (oscillation) {
         iterationLog.push({ iteration: iter, errorCount: currentErrors.length, patchFiles, action: 'skipped' });
-        return _buildResult(false, 'oscillation_detected', iter, lastTestResults, lastQualityGate, currentErrors, iterationLog, iterMem.filesModified);
+        return finish(false, 'oscillation_detected', iter, lastTestResults, lastQualityGate, currentErrors, iterationLog, iterMem.filesModified);
       }
 
       // 4g0. GUARD: Scope limiter pre-validation (v119)
@@ -850,7 +850,7 @@ export async function runFixLoop(options) {
               pathAuthority: preview.pathAuthority || null,
               rejectedPatches,
             });
-            return _buildResult(false, 'project_path_violation', iter,
+            return finish(false, 'project_path_violation', iter,
               lastTestResults, lastQualityGate, currentErrors, iterationLog,
               iterMem.filesModified);
           }
@@ -869,7 +869,7 @@ export async function runFixLoop(options) {
           action: 'skipped',
           rejectedPatches,
         });
-        return _buildResult(false, 'patch_failed', iter, lastTestResults, lastQualityGate, currentErrors, iterationLog, iterMem.filesModified);
+        return finish(false, 'patch_failed', iter, lastTestResults, lastQualityGate, currentErrors, iterationLog, iterMem.filesModified);
       }
 
       // 4h. Apply patches
@@ -910,7 +910,7 @@ export async function runFixLoop(options) {
             ],
           } : rejectedPatches.length > 0 ? { rejectedPatches } : {}),
         });
-        return _buildResult(false,
+        return finish(false,
           orphanedEffect
             ? 'effect_orphaned'
             : authorityRejected ? 'project_path_violation' : 'patch_failed',
@@ -941,6 +941,9 @@ export async function runFixLoop(options) {
 
       // 4l. Check convergence
       const decision = shouldContinue(currentErrors, prevErrors, iter, maxIter);
+      if (decision.reason === 'all_passed' && !checksPassed(lastTestResults, lastQualityGate)) {
+        decision.reason = 'verification_failed';
+      }
 
       logger.info('ExecutionLoop', `Iteration ${iter} result: ${decision.reason}`, {
         milestoneId: milestone.id,
@@ -964,7 +967,7 @@ export async function runFixLoop(options) {
           action: 'rolled_back',
           ...(rejectedPatches.length > 0 ? { rejectedPatches } : {}),
         });
-        return _buildResult(false, 'diverging', iter, lastTestResults, lastQualityGate, prevErrors, iterationLog, iterMem.filesModified);
+        return finish(false, 'diverging', iter, lastTestResults, lastQualityGate, prevErrors, iterationLog, iterMem.filesModified);
       }
 
       iterationLog.push({
@@ -977,12 +980,12 @@ export async function runFixLoop(options) {
 
       if (!decision.continue) {
         const converged = decision.reason === 'all_passed';
-        return _buildResult(converged, decision.reason, iter, lastTestResults, lastQualityGate, currentErrors, iterationLog, iterMem.filesModified);
+        return finish(converged, decision.reason, iter, lastTestResults, lastQualityGate, currentErrors, iterationLog, iterMem.filesModified);
       }
     }
 
     // Budget exhausted (shouldn't reach here due to shouldContinue check, but safety)
-    return _buildResult(false, 'budget_exhausted', maxIter, lastTestResults, lastQualityGate, currentErrors, iterationLog, iterMem.filesModified);
+    return finish(false, 'budget_exhausted', maxIter, lastTestResults, lastQualityGate, currentErrors, iterationLog, iterMem.filesModified);
 
   } finally {
     // Always clean up backups
@@ -993,7 +996,7 @@ export async function runFixLoop(options) {
       try {
         const { recordFix } = taskMemory;
         const projectId = lifecycle.projectId || lifecycle.id;
-        const converged = currentErrors.length === 0;
+        const converged = finalResult?.converged === true;
         for (const entry of iterMem.errorHistory[0] || []) {
           await recordFix({
             projectId,
@@ -1004,7 +1007,7 @@ export async function runFixLoop(options) {
             success: converged,
             strategy: converged
               ? `Fixed in ${iterMem.iteration} iteration(s)`
-              : `Failed after ${iterMem.iteration} iteration(s): ${currentErrors.length} errors remain`,
+              : `Stopped after ${iterMem.iteration} iteration(s): ${finalResult?.stopReason || 'execution_failed'}`,
             milestoneId: milestone.id,
           });
         }
@@ -1017,7 +1020,7 @@ export async function runFixLoop(options) {
     try {
       const mc = await _ensureMetrics();
       if (mc) {
-        const converged = currentErrors.length === 0;
+        const converged = finalResult?.converged === true;
         const errorsFixed = (initialErrors.length - currentErrors.length);
         mc.recordEvent({
           role: 'CODE',
@@ -1029,7 +1032,7 @@ export async function runFixLoop(options) {
           durationMs: Date.now() - loopStartTime,
           errorsFixed: Math.max(0, errorsFixed),
           errorsRemaining: currentErrors.length,
-          stopReason: converged ? 'success' : 'max_iterations',
+          stopReason: finalResult?.stopReason || 'execution_failed',
           lifecycleId: lifecycle.id,
           milestoneId: milestone.id,
         });
@@ -1041,6 +1044,16 @@ export async function runFixLoop(options) {
 // ─── Result Builder ─────────────────────────────────────────────────────────
 
 function _buildResult(converged, stopReason, iterations, testResults, qualityGate, errors, iterationLog, filesModified) {
+  // Empty parser output is not evidence that the executed checks passed.
+  // Missing/deferred results also cannot substantiate an all_passed claim.
+  if (converged && !checksPassed(testResults, qualityGate)) {
+    converged = false;
+    stopReason = 'verification_failed';
+  }
+  const report = buildReport(iterationLog, filesModified, converged);
+  if (stopReason === 'verification_failed') {
+    report.summary = 'Fix not verified: tests or quality gate failed or did not confirm success; no actionable error was parsed';
+  }
   return {
     converged,
     stopReason,
@@ -1048,7 +1061,7 @@ function _buildResult(converged, stopReason, iterations, testResults, qualityGat
     finalTestResults: testResults,
     finalQualityGate: qualityGate,
     lastErrors: errors,
-    report: buildReport(iterationLog, filesModified, converged),
+    report,
   };
 }
 
