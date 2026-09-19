@@ -1642,7 +1642,11 @@
         },
         "format": "strict-json",
         "contentAggregation": "equal-fields",
-        "formatSeparate": true
+        "formatSeparate": true,
+        "rules": {
+          "verified": "literal-assertion-set",
+          "unknown": "literal-assertion-set"
+        }
       }
     },
     {

@@ -15,6 +15,15 @@ test('structured content and strict JSON protocol are independent observations',
  assert.equal(gradeStructuredAnswer(JSON.stringify({...expected,invented:1}),expected).detail.formatScore,0);
  assert.equal(gradeStructuredAnswer(JSON.stringify(expected),expected).passed,true);
 });
+test('assertion sets separate sentence punctuation from facts and do not invent ordering',()=>{
+ const e={verified:['cache reset completed.','5 of 8 replay batches passed.']};
+ const rules={verified:'literal-assertion-set'};
+ const g=gradeStructuredAnswer(JSON.stringify({verified:['5 of 8 replay batches passed','cache reset completed']}),e,rules);
+ assert.equal(g.score,1);assert.equal(g.detail.formatScore,0);assert.equal(g.passed,false);
+ assert.equal(gradeStructuredAnswer(JSON.stringify({verified:[...e.verified].reverse()}),e,rules).passed,true);
+ for(const verified of [['cache reset did NOT complete.','5 of 8 replay batches passed.'],['cache reset completed.'],['cache reset completed.','cache reset completed.']])
+  assert.equal(gradeStructuredAnswer(JSON.stringify({verified}),e,rules).score,0);
+});
 test('all structured tasks distinguish each wrong field and preserve equivalent key ordering',()=>{
  const tasks=SEMANTIC_ROLE_SUITES.CHAT.tests.filter(t=>t.tier==='T2');assert.equal(tasks.length,20);
  for(const t of tasks){
