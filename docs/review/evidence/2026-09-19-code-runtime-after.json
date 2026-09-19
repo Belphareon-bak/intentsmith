@@ -1,0 +1,45 @@
+{
+  "capturedAt": "2026-09-19T08:28:38.334186+00:00",
+  "bindingBefore": {
+    "role": "CODE",
+    "model": "qwen3.8:latest",
+    "model_digest_sha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+    "verification_status": "VERIFIED",
+    "binding_operation_id": "op_4e6c3cf8-c8d3-45d2-bc4f-a18def25b619",
+    "applied_at": "2026-09-19 06:29:13"
+  },
+  "bindingAfter": {
+    "role": "CODE",
+    "model": "qwen3.8:latest",
+    "model_digest_sha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+    "verification_status": "VERIFIED",
+    "binding_operation_id": "op_4e6c3cf8-c8d3-45d2-bc4f-a18def25b619",
+    "applied_at": "2026-09-19 06:29:13"
+  },
+  "bindingUnchanged": true,
+  "gpuCompute": "",
+  "systemOllamaPs": {
+    "models": []
+  },
+  "huntUnits": "Id=intentsmith-model-hunt.timer\nActiveState=inactive\nUnitFileState=disabled\nConditionResult=no\n\nMainPID=0\nId=intentsmith-model-hunt.service\nActiveState=inactive\nUnitFileState=static\nConditionResult=no",
+  "holdMarker": {
+    "owner": "work/hunt-model-controls-20260917",
+    "workPackage": "WP-GPU-HUNT-EVALUATION-CONTRACT-20260918",
+    "createdAt": "2026-09-19T06:52:32.197946+00:00",
+    "reason": "Operator requested isolation of CODE decision pilot from scheduled old evaluator. Manual isolated pilot only; no binding changes or deletion.",
+    "releaseCondition": "Reviewed evaluator installed; pilot evidence assessed; explicitly release this hold before resuming hunt."
+  },
+  "installation": {
+    "schemaVersion": 1,
+    "revision": "d22f64ac2328f1c0b109b2fce94c5f7943448033",
+    "sourceRoot": "/home/belphareon/.local/share/intentsmith/releases/d22f64ac2328f1c0b109b2fce94c5f7943448033",
+    "node": "/home/belphareon/.nvm/versions/node/v22.21.1/bin/node",
+    "dbPath": "/home/belphareon/Projects/intentsmith/data/c3.db",
+    "configDirectory": "/home/belphareon/.config/intentsmith",
+    "stateDirectory": "/home/belphareon/.local/state/intentsmith",
+    "projectsDirectory": "/home/belphareon/Projects/intentsmith/projects",
+    "icon": "/home/belphareon/.local/share/intentsmith/releases/d22f64ac2328f1c0b109b2fce94c5f7943448033/intentsmith-ide/applications/electron/resources/intentsmith-icon.png",
+    "pdfPython": "/home/belphareon/.local/share/intentsmith/python/pdf/bin/python"
+  },
+  "evaluationSidecarStopped": true
+}

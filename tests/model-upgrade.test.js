@@ -1375,7 +1375,7 @@ await testAsync('VISION sends twelve distinct PNG image requests and one no-imag
     globalThis.fetch = async (_url, options) => {
       const body = JSON.parse(options.body); requests.push(body);
       return { ok: true, json: async () => ({ model: body.model, digest: DIGEST_A,
-        provider_version: '0.34.0', message: { content: '{}' } }) };
+        provider_version: '0.34.0', done: true, done_reason: 'stop', message: { content: '{}' } }) };
     };
     const runner = new RoleQualityEvaluationRunner('http://127.0.0.1:11435');
     await runner.runSuite('vision_v2', 'qwen3.8:latest', null, {

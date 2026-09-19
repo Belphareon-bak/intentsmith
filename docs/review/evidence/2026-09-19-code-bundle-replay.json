@@ -1,0 +1,14 @@
+{
+  "status": "PASS",
+  "bundleIntentsmithSha256": "1a4de8bc956f43af8aece2d9e71f0230fc804bfcf12e460509e21db187692d1a",
+  "bundleC3Sha256": "4cf22a6e829d289e9e47c512a1388598b238f875fa2d539887b7d7fddac0c085",
+  "freshSourceRevision": "5b91bab88338ed456664d16260eceec6d76c1e15",
+  "freshC3Revision": "379c2e4b6dea0fd0cd0fb19df67c3454c267fd49",
+  "identicalManifests": true,
+  "matchesSealedCases": true,
+  "directControls": 24,
+  "c3RuntimeControls": 27,
+  "trackedSourceDirty": false,
+  "dependencyMode": "Shared existing node_modules; not a new package installation",
+  "initialFailure": "Clone of named branch bundle needed explicit checkout; initial MODULE_NOT_FOUND preserved in bundle-replay.log"
+}

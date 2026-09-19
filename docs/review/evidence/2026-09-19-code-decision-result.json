@@ -1,0 +1,1238 @@
+{
+  "status": "COMPLETE",
+  "sourceRevision": "5b91bab88338ed456664d16260eceec6d76c1e15",
+  "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+  "startedAt": "2026-09-19T07:54:07.232Z",
+  "qualifications": {
+    "incumbent": {
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "responseAttested": true,
+      "promptTokens": 11990,
+      "generatedTokens": 4096,
+      "durationMs": 94919,
+      "peakBytes": 21257781248,
+      "samples": 296,
+      "samplingErrors": [],
+      "fullGpuPlacement": true,
+      "status": "QUALIFIED"
+    },
+    "candidate": {
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "digest": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "responseAttested": true,
+      "promptTokens": 12182,
+      "generatedTokens": 4096,
+      "durationMs": 125114,
+      "peakBytes": 21257781248,
+      "samples": 402,
+      "samplingErrors": [],
+      "fullGpuPlacement": true,
+      "status": "QUALIFIED"
+    }
+  },
+  "attempts": [
+    {
+      "scenario": "search-report",
+      "repeat": 1,
+      "side": "incumbent",
+      "model": "qwen3.8:latest",
+      "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "startedAt": "2026-09-19T07:57:48.452Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 78399,
+      "finalSourceHashes": {
+        "src/chat/cre-decision.js": "565b596cf2c608c832754b1c9fe0586174b570bea4e743e38b67ec6f5376b7aa"
+      },
+      "calls": 1,
+      "evidence": "attempt-search-report-1-incumbent.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "search-report",
+      "repeat": 1,
+      "side": "candidate",
+      "model": "devstral-small-2:latest",
+      "digest": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "startedAt": "2026-09-19T07:59:07.634Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 39198,
+      "finalSourceHashes": {
+        "src/chat/cre-decision.js": "565b596cf2c608c832754b1c9fe0586174b570bea4e743e38b67ec6f5376b7aa"
+      },
+      "calls": 1,
+      "evidence": "attempt-search-report-1-candidate.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "build-arbitration",
+      "repeat": 1,
+      "side": "candidate",
+      "model": "devstral-small-2:latest",
+      "digest": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "startedAt": "2026-09-19T07:59:47.634Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "OPERATIONAL_FAILURE",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 107236,
+      "finalSourceHashes": {
+        "src/chat/cre-decision.js": "56eb4a541c69e38a0f9a971ed5d0708ab4ce95e624256a5f26912af03a17726a"
+      },
+      "calls": 1,
+      "evidence": "attempt-build-arbitration-1-candidate.json",
+      "measurementOutcome": "INCORRECT",
+      "responseBudgetExhausted": true
+    },
+    {
+      "scenario": "build-arbitration",
+      "repeat": 1,
+      "side": "incumbent",
+      "model": "qwen3.8:latest",
+      "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "startedAt": "2026-09-19T08:01:35.339Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "not_converging",
+      "repairHelp": 0,
+      "durationMs": 77151,
+      "finalSourceHashes": {
+        "src/chat/cre-decision.js": "fdedb7d912b38cd410bb66c38066606a3c1015fd60626da4084d420cae1cc8c5"
+      },
+      "calls": 1,
+      "evidence": "attempt-build-arbitration-1-incumbent.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "manual-scheduler",
+      "repeat": 1,
+      "side": "incumbent",
+      "model": "qwen3.8:latest",
+      "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "startedAt": "2026-09-19T08:02:53.268Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 9898,
+      "finalSourceHashes": {
+        "src/agents/scheduler.js": "974ff6ac1d6dbf806c4222e99b6d237528f5a198131c7622813a3ad5b9582740"
+      },
+      "calls": 1,
+      "evidence": "attempt-manual-scheduler-1-incumbent.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "manual-scheduler",
+      "repeat": 1,
+      "side": "candidate",
+      "model": "devstral-small-2:latest",
+      "digest": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "startedAt": "2026-09-19T08:03:03.612Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 29427,
+      "finalSourceHashes": {
+        "src/agents/scheduler.js": "974ff6ac1d6dbf806c4222e99b6d237528f5a198131c7622813a3ad5b9582740"
+      },
+      "calls": 1,
+      "evidence": "attempt-manual-scheduler-1-candidate.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "specialist-cleanup",
+      "repeat": 1,
+      "side": "candidate",
+      "model": "devstral-small-2:latest",
+      "digest": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "startedAt": "2026-09-19T08:03:33.416Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 29105,
+      "finalSourceHashes": {
+        "src/expertises/scenario-engine.js": "539a13c9f9b2ee29f82a7f1bfd7c068d1cc6f47dde25e7b4164369eed28455b3",
+        "src/specialists/specialist-loader.js": "d648def728ee5f9c7bcf966e0734d00350a57eb6d3cd466b3622b61ea47a83dc"
+      },
+      "calls": 1,
+      "evidence": "attempt-specialist-cleanup-1-candidate.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "specialist-cleanup",
+      "repeat": 1,
+      "side": "incumbent",
+      "model": "qwen3.8:latest",
+      "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "startedAt": "2026-09-19T08:04:02.808Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 50395,
+      "finalSourceHashes": {
+        "src/expertises/scenario-engine.js": "329d6589c86aaee8838cc5baa6ca15672e8f08055cd3eb3f3071b9ce29cd2da1",
+        "src/specialists/specialist-loader.js": "744d3d55b056ff35115489aad4f6d775d3dd2fd311599cdefced3aa7d1e8961a"
+      },
+      "calls": 2,
+      "evidence": "attempt-specialist-cleanup-1-incumbent.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "expertise-categories",
+      "repeat": 1,
+      "side": "incumbent",
+      "model": "qwen3.8:latest",
+      "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "startedAt": "2026-09-19T08:04:53.988Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 10602,
+      "finalSourceHashes": {
+        "src/expertises/expertise-layer.js": "74d9e0b00414eb7940d86e4c67196d938e1e3b4ef0681e2dfa91e985eba291fc"
+      },
+      "calls": 1,
+      "evidence": "attempt-expertise-categories-1-incumbent.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "expertise-categories",
+      "repeat": 1,
+      "side": "candidate",
+      "model": "devstral-small-2:latest",
+      "digest": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "startedAt": "2026-09-19T08:05:05.026Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "all_passed",
+      "repairHelp": 0,
+      "durationMs": 18427,
+      "finalSourceHashes": {
+        "src/expertises/expertise-layer.js": "4d7633c9b52e489b5a7639bbdb47905fffb29be7a5afa56995e60a1112887fa8"
+      },
+      "calls": 1,
+      "evidence": "attempt-expertise-categories-1-candidate.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "java-javadoc",
+      "repeat": 1,
+      "side": "candidate",
+      "model": "devstral-small-2:latest",
+      "digest": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "startedAt": "2026-09-19T08:05:24.097Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 17347,
+      "finalSourceHashes": {
+        "src/planner/quality-gate.js": "c20217862575d99b74c4ee65b7d51a645731fd129067f5b3d6cf57e3d911a918"
+      },
+      "calls": 1,
+      "evidence": "attempt-java-javadoc-1-candidate.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "java-javadoc",
+      "repeat": 1,
+      "side": "incumbent",
+      "model": "qwen3.8:latest",
+      "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "startedAt": "2026-09-19T08:05:41.905Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 30742,
+      "finalSourceHashes": {
+        "src/planner/quality-gate.js": "c20217862575d99b74c4ee65b7d51a645731fd129067f5b3d6cf57e3d911a918"
+      },
+      "calls": 1,
+      "evidence": "attempt-java-javadoc-1-incumbent.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "structured-code",
+      "repeat": 1,
+      "side": "incumbent",
+      "model": "qwen3.8:latest",
+      "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "startedAt": "2026-09-19T08:06:13.270Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 23336,
+      "finalSourceHashes": {
+        "src/planner/code-cleaner.js": "6a4237cc9afb7c811323e801fb1536be7f660ffc01163e15168e0b664a72c358"
+      },
+      "calls": 1,
+      "evidence": "attempt-structured-code-1-incumbent.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "structured-code",
+      "repeat": 1,
+      "side": "candidate",
+      "model": "devstral-small-2:latest",
+      "digest": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "startedAt": "2026-09-19T08:06:37.042Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 32941,
+      "finalSourceHashes": {
+        "src/planner/code-cleaner.js": "6a4237cc9afb7c811323e801fb1536be7f660ffc01163e15168e0b664a72c358"
+      },
+      "calls": 1,
+      "evidence": "attempt-structured-code-1-candidate.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "optional-legacy-table",
+      "repeat": 1,
+      "side": "candidate",
+      "model": "devstral-small-2:latest",
+      "digest": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "startedAt": "2026-09-19T08:07:10.737Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 15937,
+      "finalSourceHashes": {
+        "src/db/migrations/2026_02_20_008_v69_expert_to_expertise.js": "4b1d995e96319d49c94b4c0a767911a54f3fdfd7918d4b7b7eab55d1f82dc704"
+      },
+      "calls": 1,
+      "evidence": "attempt-optional-legacy-table-1-candidate.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "optional-legacy-table",
+      "repeat": 1,
+      "side": "incumbent",
+      "model": "qwen3.8:latest",
+      "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "startedAt": "2026-09-19T08:07:27.129Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 27977,
+      "finalSourceHashes": {
+        "src/db/migrations/2026_02_20_008_v69_expert_to_expertise.js": "4b1d995e96319d49c94b4c0a767911a54f3fdfd7918d4b7b7eab55d1f82dc704"
+      },
+      "calls": 1,
+      "evidence": "attempt-optional-legacy-table-1-incumbent.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "search-report",
+      "repeat": 2,
+      "side": "candidate",
+      "model": "devstral-small-2:latest",
+      "digest": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "startedAt": "2026-09-19T08:07:55.674Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 28841,
+      "finalSourceHashes": {
+        "src/chat/cre-decision.js": "565b596cf2c608c832754b1c9fe0586174b570bea4e743e38b67ec6f5376b7aa"
+      },
+      "calls": 1,
+      "evidence": "attempt-search-report-2-candidate.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "search-report",
+      "repeat": 2,
+      "side": "incumbent",
+      "model": "qwen3.8:latest",
+      "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "startedAt": "2026-09-19T08:08:25.161Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 59101,
+      "finalSourceHashes": {
+        "src/chat/cre-decision.js": "565b596cf2c608c832754b1c9fe0586174b570bea4e743e38b67ec6f5376b7aa"
+      },
+      "calls": 1,
+      "evidence": "attempt-search-report-2-incumbent.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "build-arbitration",
+      "repeat": 2,
+      "side": "incumbent",
+      "model": "qwen3.8:latest",
+      "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "startedAt": "2026-09-19T08:09:24.863Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 70708,
+      "finalSourceHashes": {
+        "src/chat/cre-decision.js": "06848139cdf9b5dd5ab2a44c3d497b009eb9a8ff2a0ab1d922ba239b892bf33a"
+      },
+      "calls": 2,
+      "evidence": "attempt-build-arbitration-2-incumbent.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "build-arbitration",
+      "repeat": 2,
+      "side": "candidate",
+      "model": "devstral-small-2:latest",
+      "digest": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "startedAt": "2026-09-19T08:10:36.033Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "OPERATIONAL_FAILURE",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 117593,
+      "finalSourceHashes": {
+        "src/chat/cre-decision.js": "56eb4a541c69e38a0f9a971ed5d0708ab4ce95e624256a5f26912af03a17726a"
+      },
+      "calls": 1,
+      "evidence": "attempt-build-arbitration-2-candidate.json",
+      "measurementOutcome": "INCORRECT",
+      "responseBudgetExhausted": true
+    },
+    {
+      "scenario": "manual-scheduler",
+      "repeat": 2,
+      "side": "candidate",
+      "model": "devstral-small-2:latest",
+      "digest": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "startedAt": "2026-09-19T08:12:34.178Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 17505,
+      "finalSourceHashes": {
+        "src/agents/scheduler.js": "974ff6ac1d6dbf806c4222e99b6d237528f5a198131c7622813a3ad5b9582740"
+      },
+      "calls": 1,
+      "evidence": "attempt-manual-scheduler-2-candidate.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "manual-scheduler",
+      "repeat": 2,
+      "side": "incumbent",
+      "model": "qwen3.8:latest",
+      "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "startedAt": "2026-09-19T08:12:52.146Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 24972,
+      "finalSourceHashes": {
+        "src/agents/scheduler.js": "974ff6ac1d6dbf806c4222e99b6d237528f5a198131c7622813a3ad5b9582740"
+      },
+      "calls": 1,
+      "evidence": "attempt-manual-scheduler-2-incumbent.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "specialist-cleanup",
+      "repeat": 2,
+      "side": "incumbent",
+      "model": "qwen3.8:latest",
+      "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "startedAt": "2026-09-19T08:13:17.475Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 31393,
+      "finalSourceHashes": {
+        "src/expertises/scenario-engine.js": "329d6589c86aaee8838cc5baa6ca15672e8f08055cd3eb3f3071b9ce29cd2da1",
+        "src/specialists/specialist-loader.js": "045e2c7bc9ef0daaa08d696e0043b3128fdd5dd819dc9b9bf20f7ce160f7d89c"
+      },
+      "calls": 2,
+      "evidence": "attempt-specialist-cleanup-2-incumbent.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "specialist-cleanup",
+      "repeat": 2,
+      "side": "candidate",
+      "model": "devstral-small-2:latest",
+      "digest": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "startedAt": "2026-09-19T08:13:49.149Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 48161,
+      "finalSourceHashes": {
+        "src/expertises/scenario-engine.js": "539a13c9f9b2ee29f82a7f1bfd7c068d1cc6f47dde25e7b4164369eed28455b3",
+        "src/specialists/specialist-loader.js": "d648def728ee5f9c7bcf966e0734d00350a57eb6d3cd466b3622b61ea47a83dc"
+      },
+      "calls": 1,
+      "evidence": "attempt-specialist-cleanup-2-candidate.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "expertise-categories",
+      "repeat": 2,
+      "side": "candidate",
+      "model": "devstral-small-2:latest",
+      "digest": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "startedAt": "2026-09-19T08:14:37.910Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "all_passed",
+      "repairHelp": 0,
+      "durationMs": 6865,
+      "finalSourceHashes": {
+        "src/expertises/expertise-layer.js": "4d7633c9b52e489b5a7639bbdb47905fffb29be7a5afa56995e60a1112887fa8"
+      },
+      "calls": 1,
+      "evidence": "attempt-expertise-categories-2-candidate.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "expertise-categories",
+      "repeat": 2,
+      "side": "incumbent",
+      "model": "qwen3.8:latest",
+      "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "startedAt": "2026-09-19T08:14:45.229Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 26155,
+      "finalSourceHashes": {
+        "src/expertises/expertise-layer.js": "74d9e0b00414eb7940d86e4c67196d938e1e3b4ef0681e2dfa91e985eba291fc"
+      },
+      "calls": 1,
+      "evidence": "attempt-expertise-categories-2-incumbent.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "java-javadoc",
+      "repeat": 2,
+      "side": "incumbent",
+      "model": "qwen3.8:latest",
+      "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "startedAt": "2026-09-19T08:15:12.264Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 9561,
+      "finalSourceHashes": {
+        "src/planner/quality-gate.js": "c20217862575d99b74c4ee65b7d51a645731fd129067f5b3d6cf57e3d911a918"
+      },
+      "calls": 1,
+      "evidence": "attempt-java-javadoc-2-incumbent.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "java-javadoc",
+      "repeat": 2,
+      "side": "candidate",
+      "model": "devstral-small-2:latest",
+      "digest": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "startedAt": "2026-09-19T08:15:22.276Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 25541,
+      "finalSourceHashes": {
+        "src/planner/quality-gate.js": "c20217862575d99b74c4ee65b7d51a645731fd129067f5b3d6cf57e3d911a918"
+      },
+      "calls": 1,
+      "evidence": "attempt-java-javadoc-2-candidate.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "structured-code",
+      "repeat": 2,
+      "side": "candidate",
+      "model": "devstral-small-2:latest",
+      "digest": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "startedAt": "2026-09-19T08:15:48.294Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 18024,
+      "finalSourceHashes": {
+        "src/planner/code-cleaner.js": "6a4237cc9afb7c811323e801fb1536be7f660ffc01163e15168e0b664a72c358"
+      },
+      "calls": 1,
+      "evidence": "attempt-structured-code-2-candidate.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "structured-code",
+      "repeat": 2,
+      "side": "incumbent",
+      "model": "qwen3.8:latest",
+      "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "startedAt": "2026-09-19T08:16:06.778Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 30503,
+      "finalSourceHashes": {
+        "src/planner/code-cleaner.js": "6a4237cc9afb7c811323e801fb1536be7f660ffc01163e15168e0b664a72c358"
+      },
+      "calls": 1,
+      "evidence": "attempt-structured-code-2-incumbent.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "optional-legacy-table",
+      "repeat": 2,
+      "side": "incumbent",
+      "model": "qwen3.8:latest",
+      "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "startedAt": "2026-09-19T08:16:38.003Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 10540,
+      "finalSourceHashes": {
+        "src/db/migrations/2026_02_20_008_v69_expert_to_expertise.js": "4b1d995e96319d49c94b4c0a767911a54f3fdfd7918d4b7b7eab55d1f82dc704"
+      },
+      "calls": 1,
+      "evidence": "attempt-optional-legacy-table-2-incumbent.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "optional-legacy-table",
+      "repeat": 2,
+      "side": "candidate",
+      "model": "devstral-small-2:latest",
+      "digest": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "startedAt": "2026-09-19T08:16:48.989Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 21316,
+      "finalSourceHashes": {
+        "src/db/migrations/2026_02_20_008_v69_expert_to_expertise.js": "4b1d995e96319d49c94b4c0a767911a54f3fdfd7918d4b7b7eab55d1f82dc704"
+      },
+      "calls": 1,
+      "evidence": "attempt-optional-legacy-table-2-candidate.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "search-report",
+      "repeat": 3,
+      "side": "incumbent",
+      "model": "qwen3.8:latest",
+      "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "startedAt": "2026-09-19T08:17:10.855Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 67969,
+      "finalSourceHashes": {
+        "src/chat/cre-decision.js": "565b596cf2c608c832754b1c9fe0586174b570bea4e743e38b67ec6f5376b7aa"
+      },
+      "calls": 1,
+      "evidence": "attempt-search-report-3-incumbent.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "search-report",
+      "repeat": 3,
+      "side": "candidate",
+      "model": "devstral-small-2:latest",
+      "digest": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "startedAt": "2026-09-19T08:18:19.442Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "OPERATIONAL_FAILURE",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 109871,
+      "finalSourceHashes": {
+        "src/chat/cre-decision.js": "565b596cf2c608c832754b1c9fe0586174b570bea4e743e38b67ec6f5376b7aa"
+      },
+      "calls": 1,
+      "evidence": "attempt-search-report-3-candidate.json",
+      "measurementOutcome": "INCORRECT",
+      "responseBudgetExhausted": true
+    },
+    {
+      "scenario": "build-arbitration",
+      "repeat": 3,
+      "side": "candidate",
+      "model": "devstral-small-2:latest",
+      "digest": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "startedAt": "2026-09-19T08:20:09.897Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "OPERATIONAL_FAILURE",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 106167,
+      "finalSourceHashes": {
+        "src/chat/cre-decision.js": "56eb4a541c69e38a0f9a971ed5d0708ab4ce95e624256a5f26912af03a17726a"
+      },
+      "calls": 1,
+      "evidence": "attempt-build-arbitration-3-candidate.json",
+      "measurementOutcome": "INCORRECT",
+      "responseBudgetExhausted": true
+    },
+    {
+      "scenario": "build-arbitration",
+      "repeat": 3,
+      "side": "incumbent",
+      "model": "qwen3.8:latest",
+      "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "startedAt": "2026-09-19T08:21:56.507Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 58588,
+      "finalSourceHashes": {
+        "src/chat/cre-decision.js": "344c1a3de288b33ca5248e8a0c4c9c42163ddae85d88f6c2184a61e1bdc9a4d7"
+      },
+      "calls": 2,
+      "evidence": "attempt-build-arbitration-3-incumbent.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "manual-scheduler",
+      "repeat": 3,
+      "side": "incumbent",
+      "model": "qwen3.8:latest",
+      "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "startedAt": "2026-09-19T08:22:55.796Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 10573,
+      "finalSourceHashes": {
+        "src/agents/scheduler.js": "974ff6ac1d6dbf806c4222e99b6d237528f5a198131c7622813a3ad5b9582740"
+      },
+      "calls": 1,
+      "evidence": "attempt-manual-scheduler-3-incumbent.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "manual-scheduler",
+      "repeat": 3,
+      "side": "candidate",
+      "model": "devstral-small-2:latest",
+      "digest": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "startedAt": "2026-09-19T08:23:06.809Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 38088,
+      "finalSourceHashes": {
+        "src/agents/scheduler.js": "974ff6ac1d6dbf806c4222e99b6d237528f5a198131c7622813a3ad5b9582740"
+      },
+      "calls": 1,
+      "evidence": "attempt-manual-scheduler-3-candidate.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "specialist-cleanup",
+      "repeat": 3,
+      "side": "candidate",
+      "model": "devstral-small-2:latest",
+      "digest": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "startedAt": "2026-09-19T08:23:45.244Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 36939,
+      "finalSourceHashes": {
+        "src/expertises/scenario-engine.js": "539a13c9f9b2ee29f82a7f1bfd7c068d1cc6f47dde25e7b4164369eed28455b3",
+        "src/specialists/specialist-loader.js": "d648def728ee5f9c7bcf966e0734d00350a57eb6d3cd466b3622b61ea47a83dc"
+      },
+      "calls": 1,
+      "evidence": "attempt-specialist-cleanup-3-candidate.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "specialist-cleanup",
+      "repeat": 3,
+      "side": "incumbent",
+      "model": "qwen3.8:latest",
+      "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "startedAt": "2026-09-19T08:24:22.463Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "not_converging",
+      "repairHelp": 0,
+      "durationMs": 51205,
+      "finalSourceHashes": {
+        "src/expertises/scenario-engine.js": "f84342e8117441b71e59a192f6e324718e356fdde3abd189c4d9a56f4ed3f81d",
+        "src/specialists/specialist-loader.js": "4ded1771a351f7c486f64a30dbea7fee9758b991067ccabb7f05db9fd42c3956"
+      },
+      "calls": 2,
+      "evidence": "attempt-specialist-cleanup-3-incumbent.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "expertise-categories",
+      "repeat": 3,
+      "side": "incumbent",
+      "model": "qwen3.8:latest",
+      "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "startedAt": "2026-09-19T08:25:14.491Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 12236,
+      "finalSourceHashes": {
+        "src/expertises/expertise-layer.js": "74d9e0b00414eb7940d86e4c67196d938e1e3b4ef0681e2dfa91e985eba291fc"
+      },
+      "calls": 1,
+      "evidence": "attempt-expertise-categories-3-incumbent.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "expertise-categories",
+      "repeat": 3,
+      "side": "candidate",
+      "model": "devstral-small-2:latest",
+      "digest": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "startedAt": "2026-09-19T08:25:27.198Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "all_passed",
+      "repairHelp": 0,
+      "durationMs": 20303,
+      "finalSourceHashes": {
+        "src/expertises/expertise-layer.js": "4d7633c9b52e489b5a7639bbdb47905fffb29be7a5afa56995e60a1112887fa8"
+      },
+      "calls": 1,
+      "evidence": "attempt-expertise-categories-3-candidate.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "java-javadoc",
+      "repeat": 3,
+      "side": "candidate",
+      "model": "devstral-small-2:latest",
+      "digest": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "startedAt": "2026-09-19T08:25:48.223Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 9266,
+      "finalSourceHashes": {
+        "src/planner/quality-gate.js": "c20217862575d99b74c4ee65b7d51a645731fd129067f5b3d6cf57e3d911a918"
+      },
+      "calls": 1,
+      "evidence": "attempt-java-javadoc-3-candidate.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "java-javadoc",
+      "repeat": 3,
+      "side": "incumbent",
+      "model": "qwen3.8:latest",
+      "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "startedAt": "2026-09-19T08:25:57.971Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 26653,
+      "finalSourceHashes": {
+        "src/planner/quality-gate.js": "c20217862575d99b74c4ee65b7d51a645731fd129067f5b3d6cf57e3d911a918"
+      },
+      "calls": 1,
+      "evidence": "attempt-java-javadoc-3-incumbent.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "structured-code",
+      "repeat": 3,
+      "side": "incumbent",
+      "model": "qwen3.8:latest",
+      "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "startedAt": "2026-09-19T08:26:25.388Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 13385,
+      "finalSourceHashes": {
+        "src/planner/code-cleaner.js": "6a4237cc9afb7c811323e801fb1536be7f660ffc01163e15168e0b664a72c358"
+      },
+      "calls": 1,
+      "evidence": "attempt-structured-code-3-incumbent.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "structured-code",
+      "repeat": 3,
+      "side": "candidate",
+      "model": "devstral-small-2:latest",
+      "digest": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "startedAt": "2026-09-19T08:26:39.806Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 34608,
+      "finalSourceHashes": {
+        "src/planner/code-cleaner.js": "6a4237cc9afb7c811323e801fb1536be7f660ffc01163e15168e0b664a72c358"
+      },
+      "calls": 1,
+      "evidence": "attempt-structured-code-3-candidate.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "optional-legacy-table",
+      "repeat": 3,
+      "side": "candidate",
+      "model": "devstral-small-2:latest",
+      "digest": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "startedAt": "2026-09-19T08:27:14.994Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 9522,
+      "finalSourceHashes": {
+        "src/db/migrations/2026_02_20_008_v69_expert_to_expertise.js": "4b1d995e96319d49c94b4c0a767911a54f3fdfd7918d4b7b7eab55d1f82dc704"
+      },
+      "calls": 1,
+      "evidence": "attempt-optional-legacy-table-3-candidate.json",
+      "measurementOutcome": "INCORRECT"
+    },
+    {
+      "scenario": "optional-legacy-table",
+      "repeat": 3,
+      "side": "incumbent",
+      "model": "qwen3.8:latest",
+      "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "startedAt": "2026-09-19T08:27:24.974Z",
+      "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+      "valid": true,
+      "score": 0,
+      "outcome": "INCORRECT",
+      "reason": "patch_failed",
+      "repairHelp": 0,
+      "durationMs": 26880,
+      "finalSourceHashes": {
+        "src/db/migrations/2026_02_20_008_v69_expert_to_expertise.js": "4b1d995e96319d49c94b4c0a767911a54f3fdfd7918d4b7b7eab55d1f82dc704"
+      },
+      "calls": 1,
+      "evidence": "attempt-optional-legacy-table-3-incumbent.json",
+      "measurementOutcome": "INCORRECT"
+    }
+  ],
+  "decision": {
+    "verdict": "NEROZHODNUTO",
+    "bindingAction": "UNCHANGED",
+    "activationAuthorized": false,
+    "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+    "plannedAttempts": 48,
+    "observedAttempts": 48,
+    "invalidAttempts": [],
+    "missingAttempts": [],
+    "groups": [
+      {
+        "group": "cre-routing",
+        "scenarios": [
+          "search-report",
+          "build-arbitration"
+        ],
+        "delta": 0,
+        "candidateMs": 600000,
+        "incumbentMs": 600000
+      },
+      {
+        "group": "scheduler-concurrency",
+        "scenarios": [
+          "manual-scheduler"
+        ],
+        "delta": 0,
+        "candidateMs": 600000,
+        "incumbentMs": 600000
+      },
+      {
+        "group": "specialist-lifecycle",
+        "scenarios": [
+          "specialist-cleanup"
+        ],
+        "delta": 0,
+        "candidateMs": 600000,
+        "incumbentMs": 600000
+      },
+      {
+        "group": "audit-c170",
+        "scenarios": [
+          "expertise-categories",
+          "optional-legacy-table"
+        ],
+        "delta": 0,
+        "candidateMs": 600000,
+        "incumbentMs": 600000
+      },
+      {
+        "group": "java-structural-validation",
+        "scenarios": [
+          "java-javadoc"
+        ],
+        "delta": 0,
+        "candidateMs": 600000,
+        "incumbentMs": 600000
+      },
+      {
+        "group": "structured-provider-content",
+        "scenarios": [
+          "structured-code"
+        ],
+        "delta": 0,
+        "candidateMs": 600000,
+        "incumbentMs": 600000
+      }
+    ],
+    "qualityInterval": {
+      "mean": 0,
+      "lower": -0.8411885794390658,
+      "upper": 0.8411885794390659,
+      "groups": 6,
+      "confidence": 0.95,
+      "independenceAssumed": true
+    },
+    "reason": "INSUFFICIENT_EVIDENCE",
+    "outcomeCounts": {
+      "INCORRECT": 44,
+      "OPERATIONAL_FAILURE": 4
+    },
+    "speedup": 1
+  },
+  "operationPolicy": {
+    "productionImported": false,
+    "applyBindings": false,
+    "removeModels": false
+  },
+  "bindingBefore": {
+    "role": "CODE",
+    "model": "qwen3.8:latest",
+    "model_digest_sha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+    "verification_status": "VERIFIED",
+    "binding_operation_id": "op_4e6c3cf8-c8d3-45d2-bc4f-a18def25b619",
+    "applied_at": "2026-09-19 06:29:13"
+  },
+  "finishedAt": "2026-09-19T08:27:51.860Z",
+  "durationMs": 2024628,
+  "bindingAfter": {
+    "role": "CODE",
+    "model": "qwen3.8:latest",
+    "model_digest_sha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+    "verification_status": "VERIFIED",
+    "binding_operation_id": "op_4e6c3cf8-c8d3-45d2-bc4f-a18def25b619",
+    "applied_at": "2026-09-19 06:29:13"
+  },
+  "models": {
+    "incumbent": {
+      "model": "qwen3.8:latest",
+      "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "attempts": 24,
+      "successes": 0,
+      "incorrect": 24,
+      "operationalFailures": 0,
+      "invalid": 0,
+      "durationMs": 838922,
+      "calls": 29,
+      "inputTokens": 104973,
+      "outputTokens": 22997
+    },
+    "candidate": {
+      "model": "devstral-small-2:latest",
+      "digest": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "attempts": 24,
+      "successes": 0,
+      "incorrect": 20,
+      "operationalFailures": 4,
+      "invalid": 0,
+      "durationMs": 938228,
+      "calls": 24,
+      "inputTokens": 102033,
+      "outputTokens": 25642
+    }
+  },
+  "adjudication": {
+    "generatedAt": "2026-09-19T08:28:08.040Z",
+    "sourceRawResultSha256": "9fce8f8d2a5b47e9cb302b291cf992f5d9057aa1435dbedefe785c41a9a84a50",
+    "rawEvidencePreserved": true,
+    "newInference": false,
+    "scoresUnchanged": true,
+    "decisionUnchanged": true,
+    "criteria": "WP §4: verified exhausted budget is operational failure / 0; final state dominates agent prose.",
+    "corrections": [
+      {
+        "evidence": "attempt-build-arbitration-1-candidate.json",
+        "rawSha256": "1a475256897032b1780111d03f6ea2faf87550200209cf2c56f7978890d6660e",
+        "from": "INCORRECT",
+        "to": "OPERATIONAL_FAILURE",
+        "scoreBefore": 0,
+        "scoreAfter": 0,
+        "reason": "RESPONSE_TOKEN_BUDGET_CONFIRMED",
+        "lastResponseTokens": 4096
+      },
+      {
+        "evidence": "attempt-build-arbitration-2-candidate.json",
+        "rawSha256": "470a872b0d3005fc3ec7b378e7ba740164645916858fd664fe40f0e30eec5164",
+        "from": "INCORRECT",
+        "to": "OPERATIONAL_FAILURE",
+        "scoreBefore": 0,
+        "scoreAfter": 0,
+        "reason": "RESPONSE_TOKEN_BUDGET_CONFIRMED",
+        "lastResponseTokens": 4096
+      },
+      {
+        "evidence": "attempt-search-report-3-candidate.json",
+        "rawSha256": "15d532bb4efb7bf4b4dbfad58cf04d31c72b9d365f0842bffd1d250d305f66cf",
+        "from": "INCORRECT",
+        "to": "OPERATIONAL_FAILURE",
+        "scoreBefore": 0,
+        "scoreAfter": 0,
+        "reason": "RESPONSE_TOKEN_BUDGET_CONFIRMED",
+        "lastResponseTokens": 4096
+      },
+      {
+        "evidence": "attempt-build-arbitration-3-candidate.json",
+        "rawSha256": "d67956250d4dcb879ee79d410cb1c9a750bdd4c4c8433efb21d87b4bba1dc540",
+        "from": "INCORRECT",
+        "to": "OPERATIONAL_FAILURE",
+        "scoreBefore": 0,
+        "scoreAfter": 0,
+        "reason": "RESPONSE_TOKEN_BUDGET_CONFIRMED",
+        "lastResponseTokens": 4096
+      }
+    ]
+  }
+}

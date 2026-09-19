@@ -1,8 +1,123 @@
 # CODE — nové měření 19. 9. 2026
 
-## Navazující rozhodovací průchod — plán uzamčen před inferencí
+## Dokončený rozhodovací průchod CODE — 19. 9., 10:27 CEST
 
-**PREPARED / MEMORY_QUALIFICATION_NOT_RUN / PAIRED_RUN_NOT_RUN / REVIEW_PENDING.**
+**DECISION_RUN_COMPLETE / NEROZHODNUTO / REVIEW_PENDING / NOT_DEPLOYED.**
+Provozní akce: **ponechat stávající binding Qwen3.8**, bez automatické výměny.
+Není prokázána stejná kvalita modelů ani připravenost celé platformy.
+
+Čistý měřený zdroj `5b91bab88338ed456664d16260eceec6d76c1e15`,
+uzamčený plán `8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3`.
+Běh 09:54:07–10:27:51 CEST trval **33 min 45 s** včetně kvalifikace,
+načítání a izolovaných kontrol. Osm reálných historických úloh, šest
+skupin, tři opakování, 48 plánovaných i dokončených pokusů; 53 kvalitativních
+volání modelů a dvě paměťové sondy. Každá z 53 odpovědí má ověřený digest,
+provider `.2`, terminální `done` a nenulové počty tokenů.
+
+| Model a jeho místo v duelu | Dokončeno bez opravné pomoci | Chybné/nepoužitelné opravy | Ověřené vyčerpání rozpočtu | Nehodnotitelné | Součet času pokusů |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Qwen3.8, současný CODE | 0/24 | 24 | 0 | 0 | 13 min 59 s |
+| Devstral-small-2, kandidát | 0/24 | 20 | 4 | 0 | 15 min 38 s |
+
+Všech osm úloh má u obou modelů 0/3 dokončení. Rozdíl skupinových průměrů
+je 0 p. b.; předem zvolený konzervativní 95% interval je
+**[−84,12; +84,12] p. b.**, podmíněný deklarovanou nezávislostí šesti skupin.
+Interval nesplňuje podmínky pro změnu ani průkaz horší kvality kandidáta.
+Nejde o důkaz ekvivalence ani
+pravděpodobnost úspěchu na budoucím projektu. Metrika zde měří celý
+lokalizovaný C3 opravný postup, včetně přijatelnosti patche.
+[Výsledek a rozhodnutí](evidence/2026-09-19-code-decision-result.json),
+[původní nezměněný výstup](evidence/2026-09-19-code-decision-result-raw.json).
+
+### Co provozní porovnání skutečně odhalilo
+
+- **43 pokusů skončilo `patch_failed`.** Z 39 jednoznačně přehratelných
+  jednokolových případů nemělo 18 parsovatelný patch a 21 odmítla kontrola
+  kotev či původního textu. Zbylé čtyři nejsou do tohoto rozkladu násilně
+  zařazené. [Rozbor konkrétních odpovědí](evidence/2026-09-19-code-patch-diagnostics.json).
+  Například scheduler: dvě změny pod stejnou funkční kotvou byly odmítnuté
+  jako stale patch. Samotný návrh změny není dokončená oprava.
+- **Třikrát C3 ohlásilo `all_passed`, přestože jeho testy selhaly.** Parser
+  chyb nevyčetl assertion z Node výstupu a prázdný seznam chyb zaměnil
+  za konvergenci. Nezávislá závěrečná kontrola stavu souborů všechny tři
+  falešné úspěchy odmítla. [Zachované rozpory](evidence/2026-09-19-code-false-convergence.json).
+- Dva zbývající pokusy skončily `not_converging`. Žádný nebyl odstraněn
+  z jmenovatele. Opravy nebyly během běhu ručně doplňovány.
+
+To ukazuje překážky konkrétního formátu patche a C3 integrace. Výsledek
+**nelze překládat jako obecnou nulovou schopnost modelů programovat**.
+Ranních 85,71 % / 46,03 % na krátkých opravách nepředpovědělo dokončení
+zdejšího provozního úkolu. Další smysluplná oprava patří do předávání
+patchů a zpracování chyb C3, nejprve na vývojových případech. Tato již
+viděná sada se nesmí vydávat za nový nezávislý holdout při ladění promptů.
+
+### Paměťová kvalifikace téhož profilu
+
+| Model | Vstup / výstup sondy | Vzorkované maximum celé karty | Umístění |
+| --- | ---: | ---: | --- |
+| Qwen3.8 | 11 990 / 4 096 tokenů | 21,258 GB | plně GPU |
+| Devstral-small-2 | 12 182 / 4 096 tokenů | 21,258 GB | plně GPU |
+
+Oba splnily limit **22 000 000 000 bajtů**, kontext 16 384, souběh 1,
+KV cache f16, teplotu 0,1 a stejný provider `0.34.0-intentsmith.2` jako
+kvalitativní pokusy. Vzorkování po 250 ms: 296 / 402 vzorků, žádná chyba;
+API placement potvrdilo celý model na GPU. Jde o naměřené maximum,
+ne průkaz submilisekundových špiček nebo libovolného dalšího kontextu.
+[Snímek runtime](evidence/2026-09-19-code-runtime.json).
+
+### Oprava výsledkové třídy bez nové inference
+
+Čtyři původní `INCORRECT / 0` měly poslední odpověď `done_reason:length`
+a 4 096 tokenů. Podle již platného §4 patří do `OPERATIONAL_FAILURE / 0`.
+[Přehled](evidence/2026-09-19-code-decision-result.json) obsahuje pro každou
+korekci původní i novou třídu a hash původního záznamu. **Všechny odpovědi,
+48 skóre, interval i verdikt zůstaly beze změny.** Původní záznamy nejsou
+přepsané; nejde o nové měření. Oprava runneru pro příští běhy vznikla až
+po doběhu připnutého zdroje. [Přejímka](evidence/2026-09-19-code-classification-oracles.json)
+obsahuje 24 přímých a 28 C3 kontrol, včetně rozlišení tokenového rozpočtu,
+neúplné HTTP 200 odpovědi a poruchy provideru.
+[Cesta výsledkových tříd](evidence/2026-09-19-code-outcome-trace.json)
+propojuje runner, ukládání, agregaci, rozhodnutí a ochranu retention.
+
+### Ověření, evidence a provoz po běhu
+
+- Opravený provider má shodné SHA ze dvou sestavení. Testy jeho completion
+  včetně opakovaných znaků a chybějící terminální události prošly. Zůstává
+  podporovaným ručním sidecarem; systémová Ollama se nepřepisovala.
+- Zdroj obnovený ze samostatných Git bundlů zopakoval původních 24 přímých
+  a 27 C3 kontrol; všechny manifesty odpovídají plánu.
+  [Reprodukce](evidence/2026-09-19-code-bundle-replay.json) přiznává sdílené
+  `node_modules`; nejde o novou instalaci závislostí.
+- Širší deterministický profil: nejprve 355 PASS / 2 FAIL / 3 BLOCKED.
+  Po opravě testovací odpovědi bez `done` a doložení existujících PDF/OCR
+  runtime prošly čtyři dotčené sady. **Efektivně 359 PASS / 1 zděděný FAIL**:
+  `nightly-orchestrator-self-test`, nesoulad registru s reviewovanou pečetí
+  Gate 0. Není přebaselovaný ani skrytý. První špatně umístěný auditní TMPDIR
+  i neúspěšný checkout bundlu jsou také zachované.
+  [Validační souhrn](evidence/2026-09-19-code-decision-validation.json).
+- Binding CODE před/po je totožný: Qwen3.8 a operace
+  `op_4e6c3cf8-c8d3-45d2-bc4f-a18def25b619`. Produkční skóre se neimportovalo,
+  nic se nestahovalo ani nemazalo. Sidecar je ukončený, compute procesy
+  prázdné, systémová Ollama nemá rezidentní model. Timer disabled/inactive,
+  ochranná podmínka zachovaná. [Koncový stav](evidence/2026-09-19-code-runtime-after.json).
+
+Úplný [archiv evidence](/home/belphareon/Projects/coworker/intentsmith-code-decision-20260919/evidence.tar.gz)
+má 137 720 708 bajtů a SHA-256
+`35221181fe3b0a30c636e3080a568f0ad4b3a14f9a42aa93a51ea48cc7100062`.
+Obsahuje původní odpovědi a kontroly, oba Git bundly, plány, neúspěšné
+přípravy, opravený provider a postup reprodukce. [Receipt](evidence/2026-09-19-code-bundle-receipt.json)
+a [ověření](evidence/2026-09-19-code-bundle-verification.json) dokládají kontrolu
+všech 949 souborů proti manifestu (950 položek s manifestem). Velké modelové
+bloby a nezměněné nativní CUDA knihovny jsou identifikované otisky; nejsou
+součástí archivu. Archiv zůstává na tomto hostu, v Git jsou souhrny a otisky.
+
+Nezávislé přijetí ani nasazení tím nevzniká. Rychlý profil a další role
+nejsou součástí této dodávky. Následující oddíly zachovávají přípravu a
+průzkumné checkpointy; jejich starší stavové výroky popisují danou etapu.
+
+## Přípravný checkpoint — plán uzamčen před inferencí
+
+**Historický stav před během: PREPARED / MEMORY_QUALIFICATION_NOT_RUN / PAIRED_RUN_NOT_RUN.**
 Tato část navazuje na nové zadání operátora; uzavřenou průzkumnou sérii níže
 nepovyšuje na rozhodovací data. Aktuální ověřený CODE binding je
 `qwen3.8:latest`, digest `22130167c4c2…`, operace

@@ -1,16 +1,20 @@
 # Inventura #18a — Správa modelů
 
-**CODE, uzamčený provozní duel 2026-09-19:** aktuální CODE Qwen3.8 proti
-Devstralu; osm oddělených historických oprav C3, šest deklarovaných skupin,
-tři opakování, 95% konzervativní interval. Orákula i skutečný C3 fix-loop
-projdou správnou a alternativní opravou; prázdná oprava selže. Paměťová
-kvalifikace v2 prošla; duel v2 přerušen kvůli neúplné odpovědi provideru.
-Opravený sidecar `.2` má reprodukovaný build; nový plán v3 připraven. Timer vypnutý,
-service i timer mají trvalou podmínku proti spuštění starého huntu; bez změn
-vazeb a mazání. **PREPARED / REVIEW_PENDING / NOT_DEPLOYED**.
-[Důkazy a plán](../review/2026-09-19-CODE-MEASUREMENT.md).
+**CODE, dokončený provozní duel 2026-09-19:** 48/48 pokusů, Qwen3.8
+0/24 dokončených oprav, Devstral 0/24; 44 chybných oprav a 4 ověřená
+vyčerpání rozpočtu, žádný nehodnotitelný pokus v konečné sérii. Oba modely
+splnily 22 GB profil při 16 384 tokenech. Verdikt **NEROZHODNUTO**,
+binding CODE beze změny. Překážkou jsou zejména nepřijaté C3 patche;
+tři falešná hlášení konvergence odmítla závěrečná kontrola souborů.
+Provider opraven, starší přerušený běh zachovaný. GPU uvolněná, timer
+vypnutý a chráněný před starou instalací. **DECISION_RUN_COMPLETE /
+REVIEW_PENDING / NOT_DEPLOYED**, širší testy 359 PASS / 1 zděděný FAIL.
+[Důkazy a meze](../review/2026-09-19-CODE-MEASUREMENT.md).
 
-**CODE, dvoubloková sonda 2026-09-19:** opravené zahození kratší části
+Starší checkpointy níže zachycují stav v dané etapě; aktuální výsledek
+a provozní stav uvádí dokončený duel výše.
+
+**Historický checkpoint — CODE, dvoubloková sonda 2026-09-19:** opravené zahození kratší části
 jednoho úseku; před opravou čtyři falešné nuly, po opravě 57/57 kontrol PASS.
 Extrakce 63 ranních odpovědí beze změny. Pět deklarovaných skupin není
 hotové rozhodovací pravidlo §6; krok 4 zůstává částečný. Bez nové inference

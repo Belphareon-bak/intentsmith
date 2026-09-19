@@ -162,8 +162,10 @@ async function attempt(def, work, callModel, budgetMs=600000) {
   const final=await check(work),durationMs=Date.now()-started;
   const invalid=failure?.environmentInvalid || final.environmentInvalid;
   const success=!invalid && !failure && final.allPassed && durationMs<=budgetMs;
+  const outputBudgetExhausted=calls.at(-1)?.doneReason==='length';
   return {valid:!invalid,score:invalid?null:success?1:0,
-    outcome:invalid?'ENVIRONMENT_INVALID':success?'SUCCESS':failure?.operational||final.timedOut||durationMs>budgetMs?'OPERATIONAL_FAILURE':'INCORRECT',
+    outcome:invalid?'ENVIRONMENT_INVALID':success?'SUCCESS':failure?.operational||final.timedOut||durationMs>budgetMs||outputBudgetExhausted?'OPERATIONAL_FAILURE':'INCORRECT',
+    responseBudgetExhausted:outputBudgetExhausted,
     reason:failure?.message||loop?.stopReason||null,repairHelp:0,durationMs,calls,initial,final,loop,
     finalSourceHashes:Object.fromEntries(def.files.map(f=>[f,hash(fs.readFileSync(path.join(work,f)))]))};
 }
@@ -179,7 +181,7 @@ if(mode==='--prepare') {
     }
     const runtimeControls=[];
     const runtimeSamples=[['gold',versions.gold,1],['alternative',versions.alternative,1],['empty',versions.before,0]];
-    if(def.id==='search-report')runtimeSamples.push(['budget',versions.before,0],['transport-down',versions.before,null],['provider-incomplete',versions.before,null]);
+    if(def.id==='search-report')runtimeSamples.push(['budget',versions.before,0],['transport-down',versions.before,null],['provider-incomplete',versions.before,null],['output-budget',versions.before,0]);
     for(const [name,sources,expected] of runtimeSamples) {
       console.log(def.id, 'runtime', name);put(dir,versions.before);
       const response=semanticDiff(versions.before,sources);
@@ -194,7 +196,7 @@ if(mode==='--prepare') {
             return await new ModelEvaluationRunner('http://oracle.invalid')._callModel('oracle',[],{}, {modelName:'oracle',digestSha256:digest});
           } finally {globalThis.fetch=original;}
         }
-        return {content:response,evalCount:0,model:'ORACLE_REPLAY'};
+        return {content:response,evalCount:0,model:'ORACLE_REPLAY',...(name==='output-budget'?{doneReason:'length'}:{})};
       });
       runtimeControls.push({name,expected,...r});
     }
@@ -208,7 +210,8 @@ if(mode==='--prepare') {
       contextSha256:hash(contextFor(def,dir))};
     manifest.contentSha256=hash(JSON.stringify(manifest));
     report.cases.push({manifest,controls,runtimeControls,passed:controls.every(c=>c.allPassed===c.expected&&!c.timedOut&&!c.environmentInvalid)
-      && runtimeControls.every(c=>c.valid===(c.expected!==null)&&c.score===c.expected)});
+      && runtimeControls.every(c=>c.valid===(c.expected!==null)&&c.score===c.expected
+        && (c.name!=='output-budget'||c.outcome==='OPERATIONAL_FAILURE'))});
     save('oracle-acceptance.json',report);
     console.log(def.id,report.cases.at(-1).passed?'PASS':'FAIL');
   }

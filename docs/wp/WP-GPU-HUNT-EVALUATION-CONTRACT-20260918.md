@@ -1,10 +1,13 @@
 # WP — kontrakt platnosti evaluací GPU huntu
 
-**Stav:** SCOPE_APPROVED / IMPLEMENTATION_PARTIAL / PILOT_INCOMPLETE / REVIEW_PENDING.
-Aktuální průzkumné měření a přejímka parseru jsou v
-[review z 19. 9.](../review/2026-09-19-CODE-MEASUREMENT.md), původní noční
-[checkpoint](../review/2026-09-18-CODE-PILOT-GRADER-CHECKPOINT.md) je historický.
-Přijetí pilotu tím nevzniká; krok 4 bez uzamčeného §6 zůstává částečný.
+**Stav:** SCOPE_APPROVED / DECISION_RUN_COMPLETE / NEROZHODNUTO / REVIEW_PENDING.
+Průzkumná série je uzavřená. Navazující párový provozní průchod má 48/48
+pokusů na předem uzamčeném plánu, oba modely kvalifikované do 22 GB,
+výsledek NEROZHODNUTO a binding beze změny. Nejde o přijetí pilotu ani
+obecnou použitelnost CODE: Qwen i Devstral v tomto C3 profilu dokončily 0/24
+oprav. Podklady, nalezené vady a omezení jsou v
+[review z 19. 9.](../review/2026-09-19-CODE-MEASUREMENT.md).
+Původní průzkum není dodatečně prohlášen za intervalově rozhodovací data.
 Autorita: zadání operátora z 18. 9. 2026 po dvou kolech nezávislé revize návrhu.
 Tento dokument je **zadání pilotu**, nikoli přijetí implementace a nikoli
 tvrzení, že současné evaluace jsou platné.
