@@ -255,6 +255,25 @@ async function buildGovernanceBaseline(
   let observedBytes = 0;
   let observedEntries = 0;
 
+  function recordFile(relativePath) {
+    const observation = readFile(canonicalRoot, relativePath);
+    if (!observation.exists || observation.linkCount !== 1) {
+      complete = false;
+      return;
+    }
+    observedBytes += observation.bytes.length;
+    if (observedBytes > maxBytes) {
+      complete = false;
+      return;
+    }
+    filesByPath.set(relativePath, Object.freeze({
+      path: relativePath,
+      contentBase64: observation.bytes.toString('base64'),
+      digest: sha256(observation.bytes),
+      bytes: observation.bytes.length,
+    }));
+  }
+
   async function walk(relativeDirectory, depth) {
     if (!complete) return;
     if (depth > 64 || ++observedEntries > maxFiles) {
@@ -267,7 +286,17 @@ async function buildGovernanceBaseline(
         realpath(absoluteDirectory),
         lstat(absoluteDirectory),
       ]);
-      if (resolved !== absoluteDirectory || !stat.isDirectory() || stat.isSymbolicLink()) {
+      if (resolved !== absoluteDirectory || stat.isSymbolicLink()) {
+        complete = false;
+        return;
+      }
+      // A policy root may name one exact file (e.g. package.json), not only
+      // a directory. Read it through the same no-follow, single-link reader.
+      if (stat.isFile()) {
+        recordFile(relativeDirectory);
+        return;
+      }
+      if (!stat.isDirectory()) {
         complete = false;
         return;
       }
@@ -284,22 +313,7 @@ async function buildGovernanceBaseline(
         } else if (entry.isDirectory()) {
           await walk(relativePath, depth + 1);
         } else if (entry.isFile()) {
-          const observation = readFile(canonicalRoot, relativePath);
-          if (!observation.exists || observation.linkCount !== 1) {
-            complete = false;
-            continue;
-          }
-          observedBytes += observation.bytes.length;
-          if (observedBytes > maxBytes) {
-            complete = false;
-            return;
-          }
-          filesByPath.set(relativePath, Object.freeze({
-            path: relativePath,
-            contentBase64: observation.bytes.toString('base64'),
-            digest: sha256(observation.bytes),
-            bytes: observation.bytes.length,
-          }));
+          recordFile(relativePath);
         } else {
           complete = false;
         }

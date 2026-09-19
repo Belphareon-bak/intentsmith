@@ -23,6 +23,7 @@ import {
 } from '../src/lifecycle/m2-lifecycle-application-service.js';
 import { suite, testAsync, summary } from './harness.js';
 import { compileCodeDraftInput } from '../src/lifecycle/m2-code-draft.js';
+import { initializeNewProject } from '../src/planner/project-onboarding.js';
 
 const PROJECT_ID = 27;
 const SUBJECT = Object.freeze({ actorType: 'user', actorId: 'operator-m2' });
@@ -175,6 +176,63 @@ async function prepare(service, proposalValue = proposal()) {
 }
 
 suite('M2 lifecycle application service — production journey');
+
+for (const type of ['general', 'desktop']) {
+  await testAsync(`actual ${type} scaffold reaches draft, sandbox test and committed increment`, async () => {
+    const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-scaffold-m2-'));
+    const root = path.join(parent, type); const db = openDatabase();
+    try {
+      await initializeNewProject(root, { name: 'Scaffold integration fixture', type });
+      const outputs = {
+        'src/index.mjs': 'export const add = (a, b) => a + b;\n',
+        'test/acceptance.test.mjs': "import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport {add} from '../src/index.mjs';\ntest('sum', () => assert.equal(add(2, 3), 5));\n",
+      };
+      const service = createService(db, root, makeClock(), { generateCodeDraft: async ({ prompt }) => ({
+        content: JSON.stringify({ afterContent: outputs[JSON.parse(prompt).path] }), finishReason: 'stop',
+      }) });
+      await service.recoverIncompleteSmallProjectChanges();
+      const planned = await service.draftSmallProjectChange({ authenticatedSubject: SUBJECT,
+        projectId: PROJECT_ID, origin: ORIGIN, draft: {
+          instruction: 'Implement the pure sum fixture and its behavior test.',
+          files: [
+            { path: 'src/index.mjs', instruction: 'Export add.', dependsOn: [] },
+            { path: 'test/acceptance.test.mjs', instruction: 'Assert 2 + 3 = 5.', dependsOn: ['src/index.mjs'] },
+          ], focusedTest: projectTestProfile(), gitCommit: proposal().gitCommit,
+        } });
+      assert.equal(planned.state, 'awaiting_approval');
+      const completed = await service.approveSmallProjectChange({ authenticatedSubject: SUBJECT,
+        lifecycleId: planned.lifecycleId, planDigest: planned.planDigest, origin: ORIGIN });
+      assert.equal(completed.state, 'succeeded');
+      assert.equal(completed.result.focusedTest.exitCode, 0);
+      assert.equal(completed.result.git.status, 'committed');
+      assert.equal(git(root, ['status', '--porcelain=v1']), '');
+    } finally { db.close(); fs.rmSync(parent, { recursive: true, force: true }); }
+  }, 60_000);
+}
+
+for (const defect of ['missing', 'symlink', 'hardlink', 'oversize']) {
+  await testAsync(`exact policy file root rejects ${defect} without a pending plan`, async () => {
+    const root = makeProject(); const db = openDatabase();
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-root-canary-'));
+    try {
+      const p = policy(); p.layers[0].roots = ['root.cfg', 'src']; writePolicy(root, p);
+      fs.writeFileSync(path.join(outside, 'canary'), 'outside private content\n');
+      const target = path.join(root, 'root.cfg');
+      if (defect === 'symlink') fs.symlinkSync(path.join(outside, 'canary'), target);
+      if (defect === 'hardlink') fs.linkSync(path.join(outside, 'canary'), target);
+      if (defect === 'oversize') fs.writeFileSync(target, Buffer.alloc(8 * 1024 * 1024 + 1, 65));
+      git(root, ['add', '--', '.intentsmith/m2-governance-policy.json', ...(defect === 'missing' ? [] : ['root.cfg'])]);
+      git(root, ['-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-m', 'Exact root fixture']);
+      assert.equal(git(root, ['status', '--porcelain=v1']), '');
+      const service = createService(db, root);
+      await service.recoverIncompleteSmallProjectChanges();
+      await assert.rejects(prepare(service));
+      assert.equal(db.prepare('SELECT count(*) AS n FROM m2_lifecycle_operations').get().n, 0);
+      assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), 'export const value = 1;\n');
+      assert.equal(fs.readFileSync(path.join(outside, 'canary'), 'utf8'), 'outside private content\n');
+    } finally { db.close(); fs.rmSync(root, { recursive: true, force: true }); fs.rmSync(outside, { recursive: true, force: true }); }
+  });
+}
 
 await testAsync('real SQLite, ProjectContext, Git and bwrap journey reaches one evidence-bound success', async () => {
   const root = makeProject();
