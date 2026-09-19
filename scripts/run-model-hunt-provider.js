@@ -15,11 +15,10 @@ import { holdGpuEvaluationLock } from '../src/upgrade/gpu-evaluation-lock.js';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const codePilot = process.argv.includes('--code-pilot');
-const providerVersion = codePilot ? '0.34.0-intentsmith.2' : '0.34.0-intentsmith.1';
+const providerVersion = '0.34.0-intentsmith.2';
 const runtime = process.env.INTENTSMITH_EVAL_RUNTIME || join(homedir(), '.local/share/intentsmith/evaluation-provider', providerVersion);
 const binary = join(runtime, 'bin/ollama');
-const expected = codePilot ? '3c22a0cfb46a9ea38fd4dba6746a022be04f5ada21a529e83c9380a5f0547b9d'
-  : '8883245b864485a74ecccf62c4ce17d4538816cde4e37ea2107c2204d1d04ca7';
+const expected = '3c22a0cfb46a9ea38fd4dba6746a022be04f5ada21a529e83c9380a5f0547b9d';
 const state = process.env.INTENTSMITH_HUNT_STATE_DIR || join(homedir(), '.local/state/intentsmith/model-hunt');
 mkdirSync(state, { recursive: true, mode: 0o700 });
 const runDir = mkdtempSync(join(state, 'run-'));

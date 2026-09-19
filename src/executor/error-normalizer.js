@@ -64,7 +64,7 @@ const ERROR_MAP = [
   // ── JavaScript runtime ────────────────────────────────────────────────────
   { pattern: /TypeError: Cannot read propert(?:y|ies) of (?:undefined|null)/,
     code: ERROR_CODES.NULL_REFERENCE, category: 'runtime' },
-  { pattern: /TypeError: (\w+) is not a function/,
+  { pattern: /TypeError: ([\w.]+) is not a function/,
     code: ERROR_CODES.TYPE_MISMATCH, category: 'runtime',
     symbolExtractor: m => m[1] },
   { pattern: /ReferenceError: (\w+) is not defined/,
@@ -124,6 +124,10 @@ const ERROR_MAP = [
     code: ERROR_CODES.UNDEFINED_VARIABLE, category: 'compile',
     symbolExtractor: m => m[1] },
   // ── Test assertions ───────────────────────────────────────────────────────
+  { pattern: /AssertionError(?:\s*\[[^\]]+\])?:/,
+    code: ERROR_CODES.ASSERTION_FAILED, category: 'test' },
+  { pattern: /^\s*not ok\s+\d+(?:\s+-\s+.*)?$/,
+    code: ERROR_CODES.TEST_FAILED, category: 'test' },
   { pattern: /Assertion(?:Error)?:.*expected/i,
     code: ERROR_CODES.ASSERTION_FAILED, category: 'test' },
   // ── Filesystem ────────────────────────────────────────────────────────────
@@ -143,16 +147,25 @@ const ERROR_MAP = [
 // ─── File:Line Extraction ────────────────────────────────────────────────────
 
 const FILE_LINE_PATTERNS = [
-  /([^\s:(]+\.(?:js|ts|jsx|tsx|py|go|java|rs|rb)):(\d+)/,            // generic file:line
+  /(?:file:\/\/)?([^\s:(]+\.(?:mjs|cjs|js|ts|jsx|tsx|py|go|java|rs|rb)):(\d+)/,
   /([^\s]+\.(?:js|ts|jsx|tsx))\((\d+),\d+\)/,                       // tsc: file.ts(42,5)
   /File "([^"]+)", line (\d+)/,                                       // Python traceback
   /at\s+.*?\(([\w./\\-]+\.(?:js|ts|py|go|java)):(\d+)/,              // JS stack trace
 ];
 
-const FILE_LINE_WINDOW = 5;
+const FILE_LINE_WINDOW = 40;
 
 function _extractFileLocation(lines, currentIdx) {
   for (let j = currentIdx; j < Math.min(lines.length, currentIdx + FILE_LINE_WINDOW + 1); j++) {
+    // Do not attribute the next diagnostic's file to this one.
+    if (j > currentIdx && /^\s*(?:\w*Error(?:\s*\[[^\]]+\])?:|not ok\s+\d+)/.test(lines[j])) break;
+    for (const pat of FILE_LINE_PATTERNS) {
+      const m = lines[j].match(pat);
+      if (m) return { file: m[1], lineNum: parseInt(m[2], 10) };
+    }
+  }
+  // node --check prints its file:line before the diagnostic.
+  for (let j = currentIdx - 1; j >= Math.max(0, currentIdx - 4); j--) {
     for (const pat of FILE_LINE_PATTERNS) {
       const m = lines[j].match(pat);
       if (m) return { file: m[1], lineNum: parseInt(m[2], 10) };
@@ -203,7 +216,7 @@ export function normalizeErrors(rawOutput, language) {
   }
 
   // Raw string path
-  const lines = String(rawOutput).split('\n');
+  const lines = String(rawOutput).replace(/\x1b\[[0-9;]*m/g, '').split('\n');
   const results = [];
 
   for (let i = 0; i < lines.length; i++) {

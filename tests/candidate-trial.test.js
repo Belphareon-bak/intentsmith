@@ -12,7 +12,8 @@ import {
 import { UpgradeManager } from '../src/upgrade/upgrade-manager.js';
 import { createRoleEvaluationPlans } from '../src/eval/role-evaluation-plan.js';
 
-const EVALUATION_PLANS = createRoleEvaluationPlans({ repeats: 1 });
+// Synthetic qualified plans: production prototype plans remain exploratory.
+const EVALUATION_PLANS = Object.fromEntries(Object.entries(createRoleEvaluationPlans({ repeats: 1 })).map(([role,p]) => [role,{...p,decisionReady:true}]));
 const SUITES = Object.fromEntries(
   Object.values(EVALUATION_PLANS).map(plan => [plan.suiteName, plan.suite]),
 );
@@ -172,11 +173,11 @@ suite('tryCandidate');
 await testAsync('přetékající kandidát se zamítne a smaže ještě před testy', async () => {
   const seen = stubOllama({ answers: GOOD_ANSWERS, placement: SPILLS, currentModel: 'cand:32b' });
   const r = await tryCandidate('cand:32b', {
-    ...FAST_DRAIN, allowRemoval: true, runner: fakeRunner({}), roles: ['CODE'], bindings: { CODE: 'inc:7b' } });
+    ...FAST_DRAIN, evaluationPlans: EVALUATION_PLANS, allowRemoval: true, runner: fakeRunner({}), roles: ['CODE'], bindings: { CODE: 'inc:7b' } });
   assertEqual(r.accepted, false);
   assertEqual(r.stage, 'measure');
   assert(/nevejde se do VRAM/.test(r.error), r.error);
-  assertEqual(r.removed, true);
+  assertEqual(r.removed, false, 'one profile cannot authorize deletion');
   assert(!seen.some(s => s.path === '/api/chat' && /platný JSON/.test(s.body?.messages?.[0]?.content || '')),
     'schopnostní minimum se nemá spouštět, když se model nevejde');
   restore();
@@ -185,10 +186,10 @@ await testAsync('přetékající kandidát se zamítne a smaže ještě před te
 await testAsync('propadnutí u minima zamítne kandidáta a smaže ho', async () => {
   stubOllama({ answers: { ...GOOD_ANSWERS, 'česky': 'no diacritics here' }, placement: FITS, currentModel: 'cand:7b' });
   const r = await tryCandidate('cand:7b', {
-    ...FAST_DRAIN, allowRemoval: true, runner: fakeRunner({}), roles: ['CODE'], bindings: { CODE: 'inc:7b' } });
+    ...FAST_DRAIN, evaluationPlans: EVALUATION_PLANS, allowRemoval: true, runner: fakeRunner({}), roles: ['CODE'], bindings: { CODE: 'inc:7b' } });
   assertEqual(r.accepted, false);
   assertEqual(r.stage, 'floor');
-  assertEqual(r.removed, true);
+  assertEqual(r.removed, false, 'one profile cannot authorize deletion');
   restore();
 });
 
@@ -196,7 +197,7 @@ await testAsync('lepší kandidát vyhraje roli a NEsmaže se', async () => {
   stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
   const [firstCodeTask, secondCodeTask] = EVALUATION_PLANS.CODE.suite.tests.map(test => test.name);
   const r = await tryCandidate('cand:7b', {
-    ...FAST_DRAIN,
+    ...FAST_DRAIN, evaluationPlans: EVALUATION_PLANS,
     allowRemoval: true,
     runner: fakeRunner({
       'cand:7b': { _default: 1 },
@@ -211,24 +212,24 @@ await testAsync('lepší kandidát vyhraje roli a NEsmaže se', async () => {
   restore();
 });
 
-await testAsync('kandidát, který nevyhraje žádnou roli, se smaže', async () => {
+await testAsync('nevyhraná role sama neopravňuje mazání', async () => {
   stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
   const r = await tryCandidate('cand:7b', {
-    ...FAST_DRAIN,
+    ...FAST_DRAIN, evaluationPlans: EVALUATION_PLANS,
     allowRemoval: true,
     runner: fakeRunner({ 'cand:7b': { _default: 1 }, 'inc:7b': { _default: 1 } }),
     roles: ['CODE'],
     bindings: { CODE: 'inc:7b' },
   });
   assertEqual(r.accepted, false);
-  assertEqual(r.removed, true, 'na disku nemá co dělat');
+  assertEqual(r.removed, false, 'cleanup requires all-role retention authority');
   restore();
 });
 
 await testAsync('keepOnFailure zabrání mazání', async () => {
   stubOllama({ answers: GOOD_ANSWERS, placement: SPILLS, currentModel: 'cand:32b' });
   const r = await tryCandidate('cand:32b', {
-    ...FAST_DRAIN,
+    ...FAST_DRAIN, evaluationPlans: EVALUATION_PLANS,
     allowRemoval: true,
     runner: fakeRunner({}), roles: [], bindings: {}, keepOnFailure: true,
   });
@@ -239,7 +240,7 @@ await testAsync('keepOnFailure zabrání mazání', async () => {
 await testAsync('selhání stahování nesmaže nic cizího', async () => {
   const seen = stubOllama({ pullFails: true });
   const r = await tryCandidate('cand:7b', {
-    ...FAST_DRAIN, runner: fakeRunner({}), roles: [], bindings: {} });
+    ...FAST_DRAIN, evaluationPlans: EVALUATION_PLANS, runner: fakeRunner({}), roles: [], bindings: {} });
   assertEqual(r.stage, 'pull');
   assert(r.error, 'chyba se musí propsat');
   assert(!seen.some(s => s.path === '/api/delete'), 'nestažený model se nemaže');
@@ -251,7 +252,7 @@ await testAsync('stahování nemá kvalitativní timeout', async () => {
   // Transport idle timeout vlastní pull autorita; není kritériem kvality.
   const seen = stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
   await tryCandidate('cand:7b', {
-    ...FAST_DRAIN, runner: fakeRunner({}), roles: [], bindings: {} });
+    ...FAST_DRAIN, evaluationPlans: EVALUATION_PLANS, runner: fakeRunner({}), roles: [], bindings: {} });
   assert(seen.some(s => s.path === '/api/pull'), 'stahování proběhlo');
   restore();
 });
@@ -259,7 +260,7 @@ await testAsync('stahování nemá kvalitativní timeout', async () => {
 await testAsync('role bez navázaného modelu se přeskočí', async () => {
   stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
   const r = await tryCandidate('cand:7b', {
-    ...FAST_DRAIN,
+    ...FAST_DRAIN, evaluationPlans: EVALUATION_PLANS,
     allowRemoval: true,
     runner: fakeRunner({}), roles: ['CODE', 'CHAT'], bindings: { CODE: 'inc:7b' },
   });
@@ -301,7 +302,7 @@ await testAsync('měření se hlásí hned, ne až po souboji', async () => {
   stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
   const stages = [];
   await tryCandidate('cand:7b', {
-    ...FAST_DRAIN,
+    ...FAST_DRAIN, evaluationPlans: EVALUATION_PLANS,
     allowRemoval: true,
     runner: fakeRunner({ 'cand:7b': { _default: 1 }, 'inc:7b': { _default: 1 } }),
     roles: ['CODE'],
@@ -323,7 +324,7 @@ await testAsync('rozhodnutí role se hlásí průběžně', async () => {
   stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
   const decided = [];
   await tryCandidate('cand:7b', {
-    ...FAST_DRAIN,
+    ...FAST_DRAIN, evaluationPlans: EVALUATION_PLANS,
     allowRemoval: true,
     runner: fakeRunner({ 'cand:7b': { _default: 1 }, 'inc:7b': { _default: 1 } }),
     roles: ['CODE', 'CHAT'],
@@ -338,7 +339,7 @@ await testAsync('u přetékajícího kandidáta se měření jako úspěch nehl�
   stubOllama({ answers: GOOD_ANSWERS, placement: SPILLS, currentModel: 'cand:32b' });
   const stages = [];
   await tryCandidate('cand:32b', {
-    ...FAST_DRAIN,
+    ...FAST_DRAIN, evaluationPlans: EVALUATION_PLANS,
     allowRemoval: true,
     runner: fakeRunner({}), roles: [], bindings: {},
     onStage: (stage, model, info) => stages.push(stage),
@@ -356,7 +357,7 @@ await testAsync('role se nesoutěží pod minimálním počtem aktivních úloh'
   const skipped = [];
   const stages = [];
   const r = await tryCandidate('qwen3-coder:30b', {
-    ...FAST_DRAIN,
+    ...FAST_DRAIN, evaluationPlans: EVALUATION_PLANS,
     runner: fakeRunner({}),
     roles: ['CODE'],
     bindings: { CODE: 'inc:7b' },
@@ -380,7 +381,7 @@ await testAsync('nedostupný CODE oracle blokuje kandidáta před pull a GPU', a
   stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'qwen3-coder:30b' });
   const stages = [];
   const result = await tryCandidate('qwen3-coder:30b', {
-    ...FAST_DRAIN,
+    ...FAST_DRAIN, evaluationPlans: EVALUATION_PLANS,
     runner: fakeRunner({}),
     roles: ['CODE'],
     bindings: { CODE: 'inc:7b' },
@@ -388,6 +389,7 @@ await testAsync('nedostupný CODE oracle blokuje kandidáta před pull a GPU', a
       CODE: {
         suiteName: 'code_patch', taskCount: 7, minimumTaskCount: 6,
         decisionReady: false,
+        measurementReady: false,
         runtimeBlockCode: 'CODE_FIXTURE_RUNTIME_UNAVAILABLE',
         runtimeBlockReason: 'historical CODE oracle commits are unavailable',
       },
@@ -406,7 +408,7 @@ await testAsync('textový model se pro VISION vůbec nesoutěží', async () => 
   stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'qwen3-coder:30b' });
   const skipped = [];
   const r = await tryCandidate('qwen3-coder:30b', {
-    ...FAST_DRAIN,
+    ...FAST_DRAIN, evaluationPlans: EVALUATION_PLANS,
     allowRemoval: true,
     runner: fakeRunner({}),
     roles: ['VISION'],
@@ -422,7 +424,7 @@ await testAsync('textový model se pro VISION vůbec nesoutěží', async () => 
 await testAsync('vision model se pro VISION soutěží normálně', async () => {
   stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'llava:34b' });
   const r = await tryCandidate('llava:34b', {
-    ...FAST_DRAIN,
+    ...FAST_DRAIN, evaluationPlans: EVALUATION_PLANS,
     allowRemoval: true,
     runner: fakeRunner({ 'llava:34b': { _default: 1 }, 'llava:13b': { _default: 1 } }),
     roles: ['VISION'],
@@ -436,7 +438,7 @@ await testAsync('volající může dodat přesnější vlastnosti kandidáta', a
   // qwen3.5:27b je podle HuggingFace multimodální, i když z názvu to nepoznáš.
   stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'qwen3.5:27b' });
   const r = await tryCandidate('qwen3.5:27b', {
-    ...FAST_DRAIN,
+    ...FAST_DRAIN, evaluationPlans: EVALUATION_PLANS,
     allowRemoval: true,
     runner: fakeRunner({ 'qwen3.5:27b': { _default: 1 }, 'llava:13b': { _default: 1 } }),
     roles: ['VISION'],
@@ -458,7 +460,7 @@ await testAsync('scoring zachová fail-closed reason code z runneru', async () =
   );
   error.code = 'MODEL_EVALUATION_RESPONSE_ARTIFACT_UNVERIFIED';
   const r = await tryCandidate('cand:7b', {
-    ...FAST_DRAIN,
+    ...FAST_DRAIN, evaluationPlans: EVALUATION_PLANS,
     runner: { runSuite: async () => { throw error; } },
     roles: ['CODE'], bindings: { CODE: 'inc:7b' },
   });
@@ -473,7 +475,7 @@ await testAsync('shodné skóre se označí jako nerozhodnuté, ne jako prohra',
   // to neumí změřit. To je vlastnost sady, ne modelu.
   stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
   const r = await tryCandidate('cand:7b', {
-    ...FAST_DRAIN,
+    ...FAST_DRAIN, evaluationPlans: EVALUATION_PLANS,
     allowRemoval: true,
     runner: fakeRunner({ 'cand:7b': { _default: 1 }, 'inc:7b': { _default: 1 } }),
     roles: ['CODE'], bindings: { CODE: 'inc:7b' },
@@ -487,7 +489,7 @@ await testAsync('skutečná prohra není nerozhodnuto', async () => {
   stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
   const [firstTask, secondTask] = EVALUATION_PLANS.CODE.suite.tests.map(test => test.name);
   const r = await tryCandidate('cand:7b', {
-    ...FAST_DRAIN,
+    ...FAST_DRAIN, evaluationPlans: EVALUATION_PLANS,
     allowRemoval: true,
     runner: fakeRunner({
       'cand:7b': { _default: 1, [firstTask]: 0, [secondTask]: 0 },
@@ -503,7 +505,7 @@ await testAsync('skutečná prohra není nerozhodnuto', async () => {
 await testAsync('keepInconclusive nechá nerozhodnutého na disku', async () => {
   stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
   const r = await tryCandidate('cand:7b', {
-    ...FAST_DRAIN,
+    ...FAST_DRAIN, evaluationPlans: EVALUATION_PLANS,
     allowRemoval: true,
     runner: fakeRunner({ 'cand:7b': { _default: 1 }, 'inc:7b': { _default: 1 } }),
     roles: ['CODE'], bindings: { CODE: 'inc:7b' },
@@ -514,11 +516,11 @@ await testAsync('keepInconclusive nechá nerozhodnutého na disku', async () => 
   restore();
 });
 
-await testAsync('keepInconclusive nezachrání toho, kdo prohrál', async () => {
+await testAsync('prohra v jedné roli neopravňuje k mazání', async () => {
   stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
   const [firstTask, secondTask] = EVALUATION_PLANS.CODE.suite.tests.map(test => test.name);
   const r = await tryCandidate('cand:7b', {
-    ...FAST_DRAIN,
+    ...FAST_DRAIN, evaluationPlans: EVALUATION_PLANS,
     allowRemoval: true,
     runner: fakeRunner({
       'cand:7b': { _default: 1, [firstTask]: 0, [secondTask]: 0 },
@@ -527,7 +529,7 @@ await testAsync('keepInconclusive nezachrání toho, kdo prohrál', async () => 
     roles: ['CODE'], bindings: { CODE: 'inc:7b' },
     keepInconclusive: true,
   });
-  assertEqual(r.removed, true, 'měřitelně horší model na disku nemá co dělat');
+  assertEqual(r.removed, false, 'ztráta v jedné roli není důkaz nezpůsobilosti pro všechny role');
   restore();
 });
 
@@ -545,30 +547,30 @@ test('výchozí stav je nemazat', () => {
 await testAsync('bez allowRemoval se nesmaže ani propadlý kandidát', async () => {
   stubOllama({ answers: { ...GOOD_ANSWERS, 'česky': 'no diacritics' }, placement: FITS, currentModel: 'cand:7b' });
   const r = await tryCandidate('cand:7b', {
-    ...FAST_DRAIN,
+    ...FAST_DRAIN, evaluationPlans: EVALUATION_PLANS,
     runner: fakeRunner({}), roles: ['CODE'], bindings: { CODE: 'inc:7b' },
   });
   assertEqual(r.accepted, false);
   assertEqual(r.removed, false);
-  assert(/vypnuté/.test(r.keptReason || ''), r.keptReason);
+  assert(/retence/.test(r.keptReason || ''), r.keptReason);
   restore();
 });
 
 await testAsync('bez allowRemoval se nesmaže ani přetékající kandidát', async () => {
   stubOllama({ answers: GOOD_ANSWERS, placement: SPILLS, currentModel: 'cand:32b' });
   const r = await tryCandidate('cand:32b', {
-    ...FAST_DRAIN, runner: fakeRunner({}), roles: [], bindings: {},
+    ...FAST_DRAIN, evaluationPlans: EVALUATION_PLANS, runner: fakeRunner({}), roles: [], bindings: {},
   });
   assertEqual(r.removed, false);
   restore();
 });
 
-await testAsync('allowRemoval mazání zapne', async () => {
+await testAsync('legacy allowRemoval neobchází oddělenou retenci', async () => {
   stubOllama({ answers: GOOD_ANSWERS, placement: SPILLS, currentModel: 'cand:32b' });
   const r = await tryCandidate('cand:32b', {
-    ...FAST_DRAIN, allowRemoval: true, runner: fakeRunner({}), roles: [], bindings: {},
+    ...FAST_DRAIN, evaluationPlans: EVALUATION_PLANS, allowRemoval: true, runner: fakeRunner({}), roles: [], bindings: {},
   });
-  assertEqual(r.removed, true);
+  assertEqual(r.removed, false, 'one profile cannot authorize deletion');
   restore();
 });
 
@@ -585,7 +587,7 @@ await testAsync('incumbent failure is attributed exactly and later candidate rol
       return original.call(runner, suite, model, ...args);
     };
     const result = await tryCandidate('cand:27b', {
-      ...FAST_DRAIN, runner, allowRemoval: true, keepInconclusive: true,
+      ...FAST_DRAIN, evaluationPlans: EVALUATION_PLANS, runner, allowRemoval: true, keepInconclusive: true,
       deleteModel: async () => { removed++; },
       roles: ['D1', 'R1', 'CODE'],
       bindings: { D1: 'ok:27b', R1: 'broken:27b', CODE: 'ok:27b' },
@@ -614,7 +616,7 @@ await testAsync('selected installed test measures only the requested role and pe
     const original = runner.runSuite;
     runner.runSuite = async (suite, model, ...args) => { calls.push({suite,model}); return original(suite,model,...args); };
     const result = await tryCandidate('cand:27b', {
-      ...FAST_DRAIN, runner, skipPull: true, evaluationOnly: true, allowRemoval: false,
+      ...FAST_DRAIN, evaluationPlans: EVALUATION_PLANS, runner, skipPull: true, evaluationOnly: true, allowRemoval: false,
       roles: ['CODE'], bindings: { CODE: 'different:27b' },
       trialOpts: { repeats: 3, resolveArtifact: async modelName => ({modelName,digestSha256:'a'.repeat(64)}),
         saveHistoricalSummary: async value => { saved.push(value); return {runId:'saved'}; } },

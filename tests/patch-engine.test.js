@@ -152,6 +152,41 @@ test('handles fence with title attribute', () => {
   assertEqual(patches.length, 1);
 });
 
+suite('Context-aware patch transport');
+test('two nonadjacent edits under one semantic anchor preserve intervening lines', () => {
+  const original = 'function work() {\n  first();\n  keep();\n  last();\n}\n';
+  const response = '--- app.js\n@@ function work\n   first();\n+  inserted();\n   keep();\n-  last();\n+  fixed();\n }';
+  const [patch] = parsePatchFromDiff(response);
+  assertEqual(validatePatch(patch, new Map([['app.js', original]])).valid, true);
+  assertEqual(applyPatch(patch, original).content,
+    'function work() {\n  first();\n  inserted();\n  keep();\n  fixed();\n}\n');
+});
+test('separate fenced patches do not consume each other', () => {
+  const response = '```diff\n--- a.js\n@@ function a\n-old\n+new\n```\nExplanation\n```diff\n--- b.js\n@@ function b\n-old\n+new\n```';
+  assertEqual(parsePatchFromDiff(response).map(p => p.file).join(','), 'a.js,b.js');
+});
+test('numeric unified hunks verify positions and counts before application', () => {
+  const original = 'function work() {\n  first();\n  keep();\n  last();\n}\n';
+  const response = 'diff --git a/app.js b/app.js\n--- a/app.js\n+++ b/app.js\n@@ -2,3 +2,3 @@\n   first();\n-  keep();\n+  fixed();\n   last();';
+  const [patch] = parsePatchFromDiff(response);
+  const files = new Map([['app.js', original]]);
+  assertEqual(validatePatch(patch, files).valid, true);
+  assertEqual(applyPatch(patch, original).content, original.replace('keep()', 'fixed()'));
+  assertEqual(validatePatch(parsePatchFromDiff(response.replace('-2,3', '-3,3'))[0], files).valid, false);
+  assertEqual(validatePatch(parsePatchFromDiff(response.replace('+2,3', '+2,4'))[0], files).valid, false);
+});
+test('repeated old text and stale context never choose an arbitrary match', () => {
+  const original = 'function work() {\n  old();\n  old();\n}\n';
+  const files = new Map([['app.js', original]]);
+  const response = '--- app.js\n@@ function work\n-  old();\n+  fixed();';
+  assertEqual(validatePatch(parsePatchFromDiff(response)[0], files).valid, false);
+  assertEqual(validatePatch(parsePatchFromDiff(response.replace('-  old();', '   stale();\n-  old();'))[0], files).valid, false);
+});
+test('context disambiguation must actually leave exactly one anchor', () => {
+  const p = {file:'app.js', regions:[{anchor:'old()', anchorType:'line', contextBefore:'same()', old:['old()'], new:['new()']}]};
+  assertEqual(validatePatch(p, new Map([['app.js','same()\nold()\nsame()\nold()\n']])).valid, false);
+});
+
 // ═══ Suite 3: parsePatchFromFullFile ══════════════════════════════════════
 
 suite('parsePatchFromFullFile');

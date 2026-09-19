@@ -250,7 +250,8 @@ function decodeDecision(row, context) {
   ));
   let actionability = 'NOT_CANDIDATE_WIN';
   if (row.outcome === 'CANDIDATE') {
-    if (context.providerVersion && row.provider_version !== context.providerVersion) actionability = 'PROVIDER_VERSION_CHANGED';
+    if (context.plan?.decisionReady !== true) actionability = 'EVALUATION_PROFILE_NOT_ACCEPTED';
+    else if (context.providerVersion && row.provider_version !== context.providerVersion) actionability = 'PROVIDER_VERSION_CHANGED';
     else if (details.activationEligible !== true) actionability = 'PORTFOLIO_NOT_APPROVED';
     else if (context.bindingAuthority.status !== 'DURABLE') {
       actionability = 'BINDING_AUTHORITY_DEGRADED';
@@ -367,6 +368,9 @@ export class ModelEvaluationReadModel {
             taskCount: plan.taskCount,
             minimumTaskCount: plan.minimumTaskCount,
             decisionReady: plan.decisionReady,
+            measurementReady: plan.measurementReady ?? plan.decisionReady,
+            evidencePurpose: plan.evidencePurpose || null,
+            decisionBlockReason: plan.decisionBlockReason || null,
             runtimeBlockCode: plan.runtimeBlockCode || null,
             runtimeBlockReason: plan.runtimeBlockReason || null,
             isCurrentBinding: sameModelName(bindings[role], artifact.name),
@@ -421,7 +425,7 @@ export class ModelEvaluationReadModel {
           plan.suiteVersion,
           plan.suiteContractSha256,
         ).map(row => (
-          decodeDecision(row, { inventory, binding: bindings[role], bindingAuthority, providerVersion: input.providerVersion || null, currentRuns: new Map(artifacts.map(a => [a.digestSha256, a.runId])) })
+          decodeDecision(row, { plan, inventory, binding: bindings[role], bindingAuthority, providerVersion: input.providerVersion || null, currentRuns: new Map(artifacts.map(a => [a.digestSha256, a.runId])) })
         ));
         decisions.push(...roleDecisions);
         roles[role] = Object.freeze({
@@ -434,6 +438,9 @@ export class ModelEvaluationReadModel {
           taskCount: plan.taskCount,
           minimumTaskCount: plan.minimumTaskCount,
           decisionReady: plan.decisionReady,
+          measurementReady: plan.measurementReady ?? plan.decisionReady,
+          evidencePurpose: plan.evidencePurpose || null,
+          decisionBlockReason: plan.decisionBlockReason || null,
           runtimeBlockCode: plan.runtimeBlockCode || null,
           runtimeBlockReason: plan.runtimeBlockReason || null,
           minimumDiscriminatingTasks: plan.minimumDiscriminatingTasks,

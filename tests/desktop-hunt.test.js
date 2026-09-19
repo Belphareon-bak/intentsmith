@@ -561,3 +561,21 @@ test('manual CLI validates all pins before execution and incomplete batches cann
   assert.equal(status([full]),'COMPLETE');assert.equal(status([{trials:[full.trials[0]]}]),'BLOCKED');
   assert.equal(status([{...full,roleErrors:[{role:'CHAT'}]}]),'FAILED');
 });
+
+test('automation hold is visible and refuses start/resume while preserving manual exploratory measurement', async t => {
+  const {config,file}=await fixture(t),effects=[];
+  await mkdir(config.stateDirectory,{recursive:true});
+  await writeFile(join(config.stateDirectory,'code-pilot-automation-hold.json'),JSON.stringify({reason:'Review pending',releaseCondition:'Accepted evaluator'}),{mode:0o600});
+  const control=createHuntControl({installationFile:file,databasePath:config.dbPath,
+    inspectGpu:async()=>({available:true}),launch:async args=>effects.push(['launch',...args]),
+    run:async args=>{if(args[0]!=='show')effects.push(args);return {stdout:`LoadState=loaded\nActiveState=inactive\nConditionResult=no\nConditionTimestampMonotonic=123\nWorkingDirectory=${ROOT}\nExecStart={ path=${process.execPath} ; argv[]=${ROOT}/scripts/run-model-hunt-provider.js ; }\nEnvironmentFiles=${config.configDirectory}/runtime.env (ignore_errors=no)\n`};}});
+  const status=await control.status();assert.equal(status.state,'HELD');assert.equal(status.hold.reason,'Review pending');
+  assert.equal(status.lastStartConditionFailed,true);
+  await assert.rejects(control.control('start'),/HUNT_AUTOMATION_HELD/);
+  await assert.rejects(control.control('resume'),/HUNT_AUTOMATION_HELD/);assert.equal(effects.length,0);
+  const request={model:'fixture:7b',role:'CODE',digestSha256:'d'.repeat(64),suiteContractSha256:'e'.repeat(64)};
+  const evaluations={roles:{CODE:{suiteContractSha256:request.suiteContractSha256,measurementReady:true,decisionReady:false,
+    artifacts:[{model:request.model,digestSha256:request.digestSha256,applicable:true}]}}};
+  assert.equal((await control.evaluate(request,evaluations)).accepted,true);assert.equal(effects.length,1);
+  assert.equal(effects[0][0],'launch');
+});

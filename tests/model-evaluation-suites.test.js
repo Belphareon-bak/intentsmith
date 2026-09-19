@@ -126,7 +126,9 @@ test('every role has a fail-closed task and discrimination floor', () => {
       `${role} decision floor must reject one lucky task`);
     assert(plan.taskCount >= plan.minimumTaskCount,
       `${role}: ${plan.taskCount}/${plan.minimumTaskCount}`);
-    assertEqual(plan.decisionReady, true);
+    assertEqual(plan.measurementReady, true);
+    assertEqual(plan.decisionReady, false);
+    assertEqual(plan.evidencePurpose, 'EXPLORATORY');
   }
 });
 

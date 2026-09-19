@@ -1149,7 +1149,8 @@ await testAsync('rotated reasoning contract resumes a missing incumbent from dur
     assertEqual(result.comparison.candidateRunId, candidateRun.runId);
     assertEqual(result.comparison.incumbentRunId,
       history.getComplete({ ...key, digestSha256: DIGEST_B }).runId);
-    assertEqual(result.decision.winner, 'candidate');
+    assertEqual(result.decision.winner, 'inconclusive');
+    assertEqual(result.decision.reasonCode, 'EVALUATION_PROFILE_NOT_ACCEPTED');
     const failed = db.prepare("SELECT model_name,role,score FROM model_evaluation_runs WHERE status='FAILED'").all();
     assertEqual(JSON.stringify(failed), JSON.stringify([{ model_name: inventory[1].name, role: 'R1', score: null }]));
     assertEqual(JSON.stringify(db.prepare('SELECT * FROM model_evaluation_runs WHERE suite_contract_sha256=? ORDER BY run_id').all(CONTRACT_A)),
@@ -1202,7 +1203,9 @@ function retentionFixture() {
     name, digest: (i + 1).toString(16).repeat(64), capabilities: ['completion', 'vision'],
     details: { parameter_size: '13B' }, size: 1024,
   }));
-  const plans = createRoleEvaluationPlans({ codeRuntimeAvailability: { ready: true } });
+  // Qualified synthetic fixture: production prototype plans remain unaccepted.
+  const plans = Object.fromEntries(Object.entries(createRoleEvaluationPlans({codeRuntimeAvailability:{ready:true}}))
+    .map(([role,plan])=>[role,{...plan,decisionReady:true}]));
   const hardware = { model: 'test GPU', vramMb: 24576, numCtx: 32768 };
   const rows = new Map();
   for (const [role, plan] of Object.entries(plans)) for (const m of inventory) {
@@ -1219,6 +1222,13 @@ function retentionFixture() {
   return { modelName: 'llava:13b', inventory, bindings, plans, hardware, rows,
     history: { providerVersion: '0.34.0', getComplete: ({ digestSha256, role }) => rows.get(`${digestSha256}:${role}`) } };
 }
+
+await testAsync('unaccepted production profiles cannot authorize deletion even with complete losing scores', async () => {
+  const f = retentionFixture();
+  f.plans = createRoleEvaluationPlans({codeRuntimeAvailability:{ready:true}});
+  const r = await assessHuntRetention(f);
+  assertEqual(r.eligible,false); assertEqual(r.reason,'RETENTION_SUITE_NOT_READY');
+});
 
 await testAsync('retention requires clear repeated losses in every applicable role without inference', async () => {
   const f = retentionFixture();

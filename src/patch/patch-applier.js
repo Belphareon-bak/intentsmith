@@ -12,7 +12,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { logger } from '../core/logger.js';
-import { findAnchor, getRegionOffset } from './patch-validator.js';
+import { resolveRegion } from './patch-validator.js';
 import { normalizeNewlines } from './patch-parser.js';
 
 // ─── Backup Store ───────────────────────────────────────────────────────────
@@ -84,8 +84,8 @@ export function applyPatch(patch, fileContent) {
   const skippedDetails = [];
 
   for (const region of regions) {
-    const result = findAnchor(content, region.anchor, region.anchorType, region.contextBefore || null);
-    if (!result) {
+    const result = resolveRegion(content, region);
+    if (!result || result.matches !== 1) {
       skippedDetails.push({ anchor: region.anchor, reason: 'anchor not found' });
       logger.warn('PatchApplier', `Anchor not found, skipping: "${region.anchor}"`, { file: patch.file });
       continue;
@@ -98,14 +98,12 @@ export function applyPatch(patch, fileContent) {
   }
 
   // Step 2: Sort descending by anchor line (bottom-up application)
-  resolved.sort((a, b) => b.line - a.line);
+  resolved.sort((a, b) => b.startLine - a.startLine);
 
   // Step 3: Apply each region
   const details = [];
 
-  for (const { region, line: anchorLine, tier } of resolved) {
-    const offset = getRegionOffset(region.anchorType);
-    const contentLine = anchorLine + offset;
+  for (const { region, line: anchorLine, startLine: contentLine, tier } of resolved) {
     const oldLen = region.old?.length || 0;
     const newLines = region.new || [];
 

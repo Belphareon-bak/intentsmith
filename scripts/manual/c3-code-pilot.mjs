@@ -8,22 +8,30 @@ import {execFileSync, spawn} from 'node:child_process';
 import {pathToFileURL, fileURLToPath} from 'node:url';
 import {cases, c3Revision} from './c3-code-pilot-fixtures.mjs';
 import {codePilotPlanHash, validateCodePilotPlan, decideCodePilot} from '../../src/eval/code-pilot-decision.js';
-import {ModelEvaluationRunner} from '../../src/eval/model-evaluation-runner.js';
 import {holdGpuEvaluationLock} from '../../src/upgrade/gpu-evaluation-lock.js';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const args = process.argv.slice(2);
 const opt = key => args.find(a => a.startsWith(`--${key}=`))?.slice(key.length + 3);
 const mode = args[0], c3 = opt('c3'), out = opt('out');
+const workflow = opt('workflow') || 'c3';
+const development = workflow === 'intentsmith';
 if (!args.length || mode === '--help') {
-  console.log('Manual CODE pilot: --prepare|--seal|--run --c3=/absolute/c3 --out=/absolute/evidence.\nPrepare validates executable oracles without GPU; seal locks the plan; run requires the pinned sidecar.');
+  console.log('Manual CODE pilot: --prepare|--seal|--run|--replay --c3=/absolute/c3 --out=/absolute/evidence.\nPrepare validates executable oracles without GPU; seal locks the plan; run requires the pinned sidecar.\n--workflow=intentsmith uses the current product loop for DEVELOPMENT ONLY. --replay --responses=/absolute/archive replays stored output without inference. Fresh development seal/run also require --development.');
   process.exit(0);
 }
-if (!['--prepare','--seal','--run'].includes(mode) || !path.isAbsolute(c3 || '') || !path.isAbsolute(out || '')) {
+if (!['--prepare','--seal','--run','--replay'].includes(mode) || !['c3','intentsmith'].includes(workflow) || !path.isAbsolute(c3 || '') || !path.isAbsolute(out || '')) {
   console.error('Explicit mode, absolute --c3 and --out are required.'); process.exit(2);
 }
+if (development && ['--seal','--run'].includes(mode) && !args.includes('--development')) throw new Error('EXPLICIT_DEVELOPMENT_MODE_REQUIRED');
 fs.mkdirSync(out,{recursive:true,mode:0o700});
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
+const runtimeSources = () => Object.fromEntries(execFileSync('git',['-C',root,'ls-files','src','scripts/manual/c3-code-pilot.mjs',
+  'scripts/manual/c3-code-pilot-fixtures.mjs','scripts/run-model-hunt-provider.js','package-lock.json'],{encoding:'utf8'})
+  .trim().split('\n').filter(Boolean).map(f=>[f,hash(fs.readFileSync(path.join(root,f)))]));
+const sourceState = () => ({revision:execFileSync('git',['-C',root,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),
+  workingTreeDirty:!!execFileSync('git',['-C',root,'status','--porcelain'],{encoding:'utf8'}).trim(),
+  sourceHashes:runtimeSources()});
 const save = (name, value) => fs.writeFileSync(path.join(out,name), JSON.stringify(value,null,2)+'\n');
 const read = name => JSON.parse(fs.readFileSync(path.join(out,name),'utf8'));
 const git = (...xs) => execFileSync('git',['-C',c3,...xs],{maxBuffer:150*1024*1024}).toString();
@@ -37,11 +45,12 @@ if (git('rev-parse','HEAD').trim() !== revision || git('status','--porcelain').t
 // C3's native-parser safety probe resolves modules from cwd. Match the
 // frozen runtime so it cannot probe IntentSmith's dependencies by accident.
 process.chdir(c3);
-process.env.C3_MAX_LOOP_ITERATIONS = '3';
-process.env.C3_DB_PATH = path.join(out,'unused-controller.db');
-process.env.C3_LOG_LEVEL = 'error';
-const {runFixLoop} = await import(pathToFileURL(path.join(c3,'src/planner/execution-loop.js')));
-const {parseLLMOutput} = await import(pathToFileURL(path.join(c3,'src/patch/patch-engine.js')));
+process.env.INTENTSMITH_MAX_LOOP_ITERATIONS = process.env.C3_MAX_LOOP_ITERATIONS = '3';
+process.env.INTENTSMITH_DB_PATH = process.env.C3_DB_PATH = path.join(out,'unused-controller.db');
+process.env.INTENTSMITH_LOG_LEVEL = process.env.C3_LOG_LEVEL = 'error';
+const {ModelEvaluationRunner} = await import('../../src/eval/model-evaluation-runner.js');
+const {runFixLoop} = await import(pathToFileURL(workflow === 'c3' ? path.join(c3,'src/planner/execution-loop.js') : path.join(root,'src/executor/execution-loop.js')));
+const {parseLLMOutput} = await import(pathToFileURL(path.join(workflow === 'c3' ? c3 : root,'src/patch/patch-engine.js')));
 
 function exportCase(def, work) {
   fs.mkdirSync(work,{recursive:true});
@@ -170,8 +179,35 @@ async function attempt(def, work, callModel, budgetMs=600000) {
     finalSourceHashes:Object.fromEntries(def.files.map(f=>[f,hash(fs.readFileSync(path.join(work,f)))]))};
 }
 
-if(mode==='--prepare') {
+if(mode==='--replay') {
+  if (!path.isAbsolute(opt('responses') || '')) throw new Error('ABSOLUTE_RESPONSE_ARCHIVE_REQUIRED');
+  const report = {status:'RUNNING',workflow,newInference:false,developmentOnly:true,productionImported:false,
+    historicalScoresChanged:false,modelOutcomeEligible:false,source:sourceState(),startedAt:new Date().toISOString(),attempts:[]};
+  if (fs.existsSync(path.join(out,'replay.json'))) throw new Error('REPLAY_ALREADY_EXISTS');
+  for (const file of fs.readdirSync(opt('responses')).filter(f => /^attempt-[a-z0-9-]+\.json$/.test(f)).sort()) {
+    const bytes = fs.readFileSync(path.join(opt('responses'),file));
+    const previous = JSON.parse(bytes), def = cases.find(c => c.id === previous.scenario);
+    if (!def) throw new Error('UNKNOWN_REPLAY_SCENARIO');
+    const work = path.join(out,'replay-work');
+    try {
+      exportCase(def,work);put(work,sourceVersions(def).before);
+      let index=0;
+      const result = await attempt(def,work,async()=> {
+        const call=previous.calls[index++];
+        if (!call) throw Object.assign(new Error('STORED_RESPONSES_EXHAUSTED'),{operational:true});
+        return call;
+      });
+      // This is a transfer diagnostic, not a new model run: prompts may differ.
+      report.attempts.push({file,originalSha256:hash(bytes),originalOutcome:previous.outcome,
+        originalReason:previous.reason,replayAssessment:result.reason==='STORED_RESPONSES_EXHAUSTED'?'INCOMPLETE_ARCHIVE':result.score===1?'STATE_VERIFIED_FIXED':'STATE_NOT_FIXED',...result});
+      save('replay.json',report);
+      console.log(file,result.outcome,result.reason);
+    } finally { fs.rmSync(work,{recursive:true,force:true}); }
+  }
+  report.status='REPLAY_COMPLETE';report.finishedAt=new Date().toISOString();save('replay.json',report);
+} else if(mode==='--prepare') {
   const report={startedAt:new Date().toISOString(),c3Revision:revision,
+    workflow,developmentOnly:development,source:sourceState(),
     fixturesSha256:hash(fs.readFileSync(new URL('./c3-code-pilot-fixtures.mjs',import.meta.url))),cases:[],status:'RUNNING'};
   for(const def of cases) {
     const dir=path.join(out,'oracles',def.id);exportCase(def,dir);
@@ -220,20 +256,21 @@ if(mode==='--prepare') {
 } else if(mode==='--seal') {
   if(fs.existsSync(path.join(out,'plan.json'))) throw new Error('PLAN_ALREADY_SEALED');
   const acceptance=read('oracle-acceptance.json');
-  if(acceptance.status!=='PASS' || acceptance.cases.length!==cases.length
+  if(acceptance.status!=='PASS' || (acceptance.workflow || 'c3')!==workflow || acceptance.cases.length!==cases.length
     || acceptance.fixturesSha256!==hash(fs.readFileSync(new URL('./c3-code-pilot-fixtures.mjs',import.meta.url)))) throw new Error('ORACLES_NOT_ACCEPTED');
+  if (development && JSON.stringify(acceptance.source?.sourceHashes)!==JSON.stringify(runtimeSources())) throw new Error('ACCEPTED_RUNTIME_SOURCE_DRIFT');
   if(!path.isAbsolute(opt('binding-db')||''))throw new Error('ABSOLUTE_BINDING_DB_REQUIRED');
   const binding=bindingAt(opt('binding-db'));
   if(binding?.model!=='qwen3.8:latest' || binding.model_digest_sha256!=='22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643'
     || binding.verification_status!=='VERIFIED')throw new Error('CURRENT_CODE_BINDING_CHANGED');
-  const plan={schemaVersion:1,role:'CODE',metric:'completed_without_repair_help',lockedAt:new Date().toISOString(),
+  const plan={schemaVersion:1,role:'CODE',workflow,developmentOnly:development,notAHoldout:development,metric:'completed_without_repair_help',lockedAt:new Date().toISOString(),
     bindingDb:opt('binding-db'),bindingAtLock:binding,predecessorPlanSha256:opt('supersedes')||null,
     c3Revision:revision,independenceStatus:'ASSUMED_GROUPS_NOT_PROVEN_INDEPENDENCE',
-    scope:'Localized historical C3 repair using its unchanged execution loop; no Studio journey or whole-project success claim.',
+    scope:development?'Development replay with fresh model responses on eight already exposed cases, using the IntentSmith product loop. Not selection evidence.':'Localized historical C3 repair using its unchanged execution loop; no Studio journey or whole-project success claim.',
     incumbent:{model:'qwen3.8:latest',digest:'22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643'},
     candidate:{model:'devstral-small-2:latest',digest:'24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8'},
     candidateSelection:'Runner-up from closed exploratory series; incumbent verified from production model_overrides before lock.',
-    repeats:3,budget:{attemptMs:600000,totalMs:4*60*60*1000,maxIterations:3},
+    repeats:development?1:3,budget:{attemptMs:600000,totalMs:(development?2:4)*60*60*1000,maxIterations:3},
     decision:{method:'hoeffding-kl-bounded-groups',alpha:.05,minimumBenefit:.05,
       nonInferiorityMargin:.05,minimumSpeedup:1.25,allowSpeedDecision:false},
     profile:{numCtx:16384,numPredict:4096,temperature:.1,topP:.9,callTimeoutMs:300000,
@@ -241,9 +278,7 @@ if(mode==='--prepare') {
       minimumPromptTokens:10000,minimumGeneratedTokens:2048,samplingMs:250,requiredGpuPlacement:'size_vram >= size',
       nativeAst:'C3 built-in native safety fallback; every changed JS file additionally checked by Node 22 before all executable oracles.'},
     oracleAcceptanceSha256:hash(fs.readFileSync(path.join(out,'oracle-acceptance.json'))),
-    sourceHashes:Object.fromEntries(['scripts/manual/c3-code-pilot.mjs','scripts/manual/c3-code-pilot-fixtures.mjs',
-      'src/eval/code-pilot-decision.js','src/eval/model-evaluation-runner.js','scripts/run-model-hunt-provider.js']
-      .map(f=>[f,hash(fs.readFileSync(path.join(root,f)))])),
+    sourceHashes:runtimeSources(),
     node:{version:process.version,sha256:hash(fs.readFileSync(process.execPath))},
     c3LockSha256:hash(fs.readFileSync(path.join(c3,'package-lock.json'))),
     scenarios:acceptance.cases.map(c=>c.manifest)};
@@ -254,6 +289,7 @@ if(mode==='--prepare') {
   console.log('SEALED',plan.planSha256,'scenarios',plan.scenarios.length,'groups',new Set(plan.scenarios.map(s=>s.independenceGroup)).size);
 } else if(mode==='--run') {
   const plan=read('plan.json');validateCodePilotPlan(plan);
+  if ((plan.workflow || 'c3')!==workflow || !!plan.developmentOnly!==development) throw new Error('WORKFLOW_PLAN_MISMATCH');
   for(const [f,digest] of Object.entries(plan.sourceHashes)) if(hash(fs.readFileSync(path.join(root,f)))!==digest) throw new Error('SEALED_SOURCE_DRIFT:'+f);
   if(hash(fs.readFileSync(path.join(out,'oracle-acceptance.json')))!==plan.oracleAcceptanceSha256
     || hash(fs.readFileSync(path.join(c3,'package-lock.json')))!==plan.c3LockSha256
@@ -265,7 +301,7 @@ if(mode==='--prepare') {
   if(endpoint!=='http://127.0.0.1:11435') throw new Error('PINNED_SIDECAR_REQUIRED');
   const get=async suffix=>{const r=await fetch(endpoint+suffix,{signal:AbortSignal.timeout(2000)});if(!r.ok)throw new Error('PROVIDER_HTTP_'+r.status);return r.json();};
   const lease=holdGpuEvaluationLock(),runner=new ModelEvaluationRunner(endpoint),started=Date.now();
-  const report={status:'RUNNING',sourceRevision,planSha256:plan.planSha256,startedAt:new Date().toISOString(),
+  const report={status:'RUNNING',sourceRevision,workflow,developmentOnly:development,notAHoldout:development,planSha256:plan.planSha256,startedAt:new Date().toISOString(),
     qualifications:{},attempts:[],decision:null,operationPolicy:{productionImported:false,applyBindings:false,removeModels:false}};
   const flush=()=>{save('result.json',report);if(opt('report'))fs.writeFileSync(opt('report'),JSON.stringify(report,null,2)+'\n');};
   const compute=()=>execFileSync('nvidia-smi',['--query-compute-apps=pid,process_name','--format=csv,noheader'],{timeout:3000}).toString().trim();
@@ -320,8 +356,8 @@ if(mode==='--prepare') {
       report.status='PROFILE_NOT_QUALIFIED';
     } else {
       // Same initial state per attempt; alternate order within every pair.
-      for(let repeat=1;repeat<=plan.repeats;repeat++) for(let i=0;i<cases.length;i++) {
-        if(Date.now()-started+plan.budget.attemptMs*2>plan.budget.totalMs) {report.status='BUDGET_EXHAUSTED';break;}
+      measurement: for(let repeat=1;repeat<=plan.repeats;repeat++) for(let i=0;i<cases.length;i++) {
+        if(Date.now()-started+plan.budget.attemptMs*2>plan.budget.totalMs) {report.status='BUDGET_EXHAUSTED';break measurement;}
         const def=cases[i],manifest=plan.scenarios[i];
         for(const side of (repeat+i)%2?['incumbent','candidate']:['candidate','incumbent']) {
           const name=`${def.id}-${repeat}-${side}`,work=path.join(out,'attempts',name);
@@ -349,7 +385,10 @@ if(mode==='--prepare') {
   } catch(error) {report.status='ENVIRONMENT_INVALID';report.error=error.message;process.exitCode=1;
   } finally {
     report.finishedAt=new Date().toISOString();report.durationMs=Date.now()-started;
-    report.decision=decideCodePilot(plan,report.attempts,report.qualifications);
+    report.decision=development
+      ? {verdict:'DEVELOPMENT_ONLY',reason:'EXPOSED_CASES_NOT_SELECTION_EVIDENCE',activationAuthorized:false,bindingAction:'UNCHANGED',
+        completedAttempts:report.attempts.length,successes:report.attempts.filter(a=>a.outcome==='SUCCESS').length}
+      : decideCodePilot(plan,report.attempts,report.qualifications);
     try {
       report.bindingAfter=bindingAt(plan.bindingDb);
       if(JSON.stringify(report.bindingAfter)!==JSON.stringify(plan.bindingAtLock))throw new Error('CURRENT_CODE_BINDING_CHANGED');

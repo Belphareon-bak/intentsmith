@@ -5,7 +5,7 @@
 //
 //   2a  stáhnout kandidáta            (bez časového limitu — stahování se
 //                                      nikdy nepoužívá jako kritérium)
-//   2b  změřit umístění ve VRAM       nevejde se celý → konec, smazat
+//   2b  změřit umístění ve VRAM       nevejde se celý → konec pro tento profil
 //   2c  kontrola schopnostního minima  ~2 min, binární věci
 //   3   souboj se stávajícím po rolích tytéž prompty, marže
 //   4   rozhodnout, uklidit
@@ -35,16 +35,9 @@ import { createRoleEvaluationPlans } from '../eval/role-evaluation-plan.js';
 
 const PROBE_TIMEOUT = 120_000;
 
-/**
- * Mazání kandidátů je **vypnuté**, dokud validační sady nerozlišují.
- *
- * Operátorské pravidlo z 2026-08-20.  Důvod: verdikt „kandidát neuspěl" dnes
- * často znamená „sada ho neuměla odlišit", ne „je horší" — 8 z 36 úloh dává
- * všem modelům 100 % a nenese žádnou informaci.  Mazat na základě měření,
- * o kterém víme, že nerozlišuje, je ztráta, kterou nejde vzít zpět.
- *
- * Zapnout zpátky až po doladění sad, vědomým `allowRemoval: true`.
- */
+/** Candidate trials never authorize deletion. The separate retention assessment
+ * must establish exact-artifact loss across all applicable roles and protect
+ * bindings and rollback slots. Kept for callers that display the default. */
 export const REMOVAL_ENABLED_BY_DEFAULT = false;
 
 function baseUrl(opts = {}) {
@@ -178,14 +171,8 @@ export async function tryCandidate(candidateName, ctx = {}) {
     roles = [],
     bindings = {},
     incumbentSpeed = {},
-    keepOnFailure = false,
-    // Mazání je vypnuté napevno; zapíná se jen vědomě, viz
-    // REMOVAL_ENABLED_BY_DEFAULT.
-    allowRemoval = REMOVAL_ENABLED_BY_DEFAULT,
     onStage = () => {},
   } = ctx;
-
-  const removalAllowed = allowRemoval && !keepOnFailure && !ctx.evaluationOnly;
 
   const out = {
     model: candidateName,
@@ -216,7 +203,7 @@ export async function tryCandidate(candidateName, ctx = {}) {
       const reason = `role ${role} nemá explicitní current evaluation plan`;
       out.trials.push({ role, skipped: true, reason });
       onStage('roleSkipped', candidateName, { role, reason });
-    } else if (!plan.decisionReady || plan.taskCount < minimumTaskCount) {
+    } else if (!(plan.measurementReady ?? plan.decisionReady) || plan.taskCount < minimumTaskCount) {
       const reason = plan.runtimeBlockCode
         ? `${plan.suiteName} je BLOCKED (${plan.runtimeBlockCode}): ${plan.runtimeBlockReason}`
         : `${plan.suiteName} má ${plan.taskCount}/${minimumTaskCount} `
@@ -257,8 +244,7 @@ export async function tryCandidate(candidateName, ctx = {}) {
       out.error = `nevejde se do VRAM při ${out.measurement.numCtx} tokenech — ${cpuGb.toFixed(2)} GB by běželo na CPU`;
     }
     if (out.error) {
-      if (removalAllowed) out.removed = await removeModel(candidateName, ctx);
-      else out.keptReason = 'mazání je vypnuté, dokud validační sady nerozlišují';
+      out.keptReason = 'samotný pokus neopravňuje k mazání; rozhoduje retence přes všechny role';
       return out;
     }
 
@@ -283,8 +269,7 @@ export async function tryCandidate(candidateName, ctx = {}) {
     if (!out.floor.passed) {
       if (out.floor.failures.some(failure => failure.retryable)) out.errorCode = 'CANDIDATE_EVALUATION_RETRYABLE';
       out.error = `neprošel schopnostním minimem: ${out.floor.failures.map(f => f.reason).join('; ')}`;
-      if (removalAllowed) out.removed = await removeModel(candidateName, ctx);
-      else out.keptReason = 'mazání je vypnuté, dokud validační sady nerozlišují';
+      out.keptReason = 'samotný pokus neopravňuje k mazání; rozhoduje retence přes všechny role';
       return out;
     }
 
@@ -372,16 +357,13 @@ export async function tryCandidate(candidateName, ctx = {}) {
       && Object.values(out.decisions).every(d => (
         d.reasonCode === 'QUALITY_INCONCLUSIVE'
         || d.reasonCode === 'INSUFFICIENT_EVIDENCE'
+        || d.reasonCode === 'EVALUATION_PROFILE_NOT_ACCEPTED'
       ));
 
     if (out.roleErrors.length) {
       out.keptReason = 'neúplné měření rolí — ponechán k opakování';
-    } else if (!out.accepted && removalAllowed && !(out.inconclusive && ctx.keepInconclusive)) {
-      out.removed = await removeModel(candidateName, ctx);
     } else if (!out.accepted) {
-      out.keptReason = removalAllowed
-        ? 'sada kandidáta neodlišila — nemazat, dokud nerozlišuje'
-        : 'mazání je vypnuté, dokud validační sady nerozlišují';
+      out.keptReason = 'samotný pokus neopravňuje k mazání; rozhoduje retence přes všechny role';
     }
   } catch (err) {
     out.error = err.message;

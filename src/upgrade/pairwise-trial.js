@@ -28,7 +28,7 @@ export const TASK_MARGIN_EPSILON = 0.05;
 // places. A rounded 0.333 must not beat an exact 2/3 noise boundary merely
 // because 1 - 0.333 is a few ten-thousandths larger than 0.666666....
 const SCORE_ROUNDING_EPSILON = 0.0005;
-export const MODEL_EVALUATION_DECISION_POLICY_VERSION = 'role-pairwise-v1';
+export const MODEL_EVALUATION_DECISION_POLICY_VERSION = 'role-pairwise-v2-qualified';
 export const MODEL_EVALUATION_DECISION_REASON = Object.freeze({
   CANDIDATE_QUALITY: 'CANDIDATE_QUALITY',
   INCUMBENT_QUALITY: 'INCUMBENT_QUALITY',
@@ -46,6 +46,7 @@ export function decisionPolicyForRole(plan, threshold = 0.05) {
     suiteName: plan.suiteName,
     suiteVersion: plan.suiteVersion,
     suiteContractSha256: plan.suiteContractSha256,
+    decisionQualified: plan.decisionReady === true,
     repeats: plan.repeats,
     taskMarginEpsilon: TASK_MARGIN_EPSILON,
     scoreRoundingEpsilon: SCORE_ROUNDING_EPSILON,
@@ -417,7 +418,7 @@ export function decideRole(comparison, _speed = {}, threshold = 0.05, evidence =
 // The same response-bound, append-only suite path without manufacturing a duel.
 export async function evaluateRole(runner, role, model, opts = {}) {
   const plan = opts.evaluationPlan;
-  if (!plan || plan.decisionReady === false) throw new Error('MODEL_EVALUATION_PLAN_UNAVAILABLE');
+  if (!plan || (plan.measurementReady ?? plan.decisionReady) === false) throw new Error('MODEL_EVALUATION_PLAN_UNAVAILABLE');
   return runSuiteCached(runner, plan.suiteName, model, opts.suiteCache, {
     ...opts, role, suite: plan.suite, suiteVersion: plan.suiteVersion,
     suiteContractSha256: plan.suiteContractSha256,
@@ -440,7 +441,10 @@ export async function trialRole(runner, role, candidate, incumbent, opts = {}) {
     suiteVersion: plan?.suiteVersion || opts.suiteVersion,
     suiteContractSha256: plan?.suiteContractSha256 || opts.suiteContractSha256,
   });
-  const decision = decideRole(comparison, {}, threshold, {
+  const decision = plan.decisionReady !== true ? {
+    winner: 'inconclusive', reasonCode: 'EVALUATION_PROFILE_NOT_ACCEPTED', basis: 'průzkumné měření',
+    detail: plan.decisionBlockReason || 'Profil nemá přijatou přejímku. Měření neopravňuje doporučit výměnu ani mazání.',
+  } : decideRole(comparison, {}, threshold, {
     minimumDiscriminatingTasks: plan?.minimumDiscriminatingTasks
       ?? opts.minimumDiscriminatingTasks,
     minimumDiscriminatingByLanguage: plan?.minimumDiscriminatingByLanguage

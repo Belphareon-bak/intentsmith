@@ -236,3 +236,19 @@ případů, odlišné úkoly pro D1/D2/R1/R2, revize CHAT a inventář VISION.
 Po pokynu se nespouštěla další inference ani validační sada; náročné ověření
 a GUI kontrola společného buildu jsou odložené. GPU hunt timer je zastavený
 a disabled, do dalšího výslovného spuštění se neobnovuje.
+
+## Navázání po review, 19. 9. 2026
+
+Operátor výslovně zadal dokončení nalezených mezer GPU huntu a předání k
+revizi. Následující implementace opravuje produkční přenos patchů a diagnostiku,
+odděluje spustitelnost měření od přijetí profilu pro rozhodování a ukazuje
+ochranné pozastavení automatiky v GUI. Původní provozní výsledek 0/24 na každé
+straně se nemění. Stejných osm případů se smí použít pouze k vývoji; nová
+inference nad nimi není nový holdout ani podklad k výměně modelu.
+
+Ruční runner podporuje `--workflow=intentsmith --development` při `--seal`
+a `--run`. Uzamyká zdroje současného produktu, nejvýše tři iterace, jeden
+pokus každého modelu na případ a paměťový profil. Výsledek vývojové série má
+vždy `DEVELOPMENT_ONLY`, bez změny produkční DB, vazeb nebo modelů. Přejímka
+správných/alternativních oprav a negativních kontrol běží přes stejnou smyčku.
+Automatický hunt zůstává pod původním holdem do přijetí rozhodovacích profilů.

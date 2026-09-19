@@ -423,4 +423,24 @@ test('single error formats correctly with code, file, line', () => {
 
 // ─── Summary ────────────────────────────────────────────────────────────────
 
+test('Node assertion with a long value diff retains its file URL location', () => {
+  const output = '\x1b[31mAssertionError [ERR_ASSERTION]: Expected values to be equal\x1b[0m\n'
+    + Array.from({length: 20}, (_, i) => `+ actual value ${i}`).join('\n')
+    + '\n    at file:///work/tests/fixture.mjs:42:3';
+  const errors = normalizeErrors(output);
+  assertEqual(errors.length, 1); assertEqual(errors[0].code, 'ASSERTION_FAILED');
+  assertEqual(errors[0].file, '/work/tests/fixture.mjs'); assertEqual(errors[0].line, 42);
+});
+test('member call TypeError and Node syntax location are recognized', () => {
+  const type = normalizeErrors('TypeError: loader.checkIntegrity is not a function\n    at file:///work/test.cjs:9:3')[0];
+  assertEqual(type.code, 'TYPE_MISMATCH'); assertEqual(type.file, '/work/test.cjs');
+  const syntax = normalizeErrors('/work/source.mjs:7\n  const x = ;\n            ^\nSyntaxError: Unexpected token')[0];
+  assertEqual(syntax.file, '/work/source.mjs'); assertEqual(syntax.line, 7);
+});
+test('TAP failure is explicit and one diagnostic cannot borrow the next diagnostic location', () => {
+  const errors = normalizeErrors('AssertionError [ERR_ASSERTION]: first\nnot ok 2 - second\n    at file:///work/second.mjs:8:2');
+  assertEqual(errors.length, 2); assertEqual(errors[0].file, '');
+  assertEqual(errors[1].code, 'TEST_FAILED'); assertEqual(errors[1].file, '/work/second.mjs');
+});
+
 summary();

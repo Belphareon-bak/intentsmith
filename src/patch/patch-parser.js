@@ -90,11 +90,14 @@ export function parsePatchFromDiff(llmOutput) {
     if (endIdx < 0) break;
     const block = input.substring(startIdx, endIdx).trim();
     if (block.length > 0) diffBlocks.push(block);
+    // The closing fence is not the start of another block (which used to eat
+    // prose and the opening fence of the following patch).
+    fenceStart.lastIndex = endIdx + 3;
   }
 
   // If no fenced blocks found, try parsing entire input as diff
   if (diffBlocks.length === 0) {
-    if (/^---\s/.test(input.trim()) || /^@@\s/.test(input.trim())) {
+    if (/^(?:---\s|@@\s|diff --git )/.test(input.trim())) {
       diffBlocks.push(input.trim());
     }
   }
@@ -113,31 +116,37 @@ export function parsePatchFromDiff(llmOutput) {
     let oldLines = [];
     let newLines = [];
     let inRegion = false;
+    let unified = null;
 
     const flushRegion = () => {
-      if (!currentFile || !currentAnchor) return;
-      if (oldLines.length === 0 && newLines.length === 0) return;
+      if (currentFile && currentAnchor && (oldLines.length || newLines.length)) {
+        if (!patchesByFile.has(currentFile)) {
+          patchesByFile.set(currentFile, {
+            file: currentFile,
+            regions: [],
+            metadata: { type: PatchType.FIX, confidence: 0.5, description: '', milestone: '' },
+          });
+        }
 
-      if (!patchesByFile.has(currentFile)) {
-        patchesByFile.set(currentFile, {
-          file: currentFile,
-          regions: [],
-          metadata: { type: PatchType.FIX, confidence: 0.5, description: '', milestone: '' },
+        patchesByFile.get(currentFile).regions.push({
+          anchor: currentAnchor,
+          anchorType: currentAnchorType || AnchorType.LINE,
+          contextBefore: contextLines.length > 0 ? contextLines.join('\n') : '',
+          old: [...oldLines],
+          new: [...newLines],
+          // Context-aware resolution pins the complete old text, rather than
+          // assuming every edit starts immediately below a function declaration.
+          matchMode: 'exact-context',
+          ...(unified ? { sourceLine: unified.start, expectedOldLines: unified.oldCount,
+            expectedNewLines: unified.newCount } : {}),
         });
       }
-
-      patchesByFile.get(currentFile).regions.push({
-        anchor: currentAnchor,
-        anchorType: currentAnchorType || AnchorType.LINE,
-        contextBefore: contextLines.length > 0 ? contextLines.join('\n') : '',
-        old: [...oldLines],
-        new: [...newLines],
-      });
 
       contextLines = [];
       oldLines = [];
       newLines = [];
       inRegion = false;
+      unified = null;
     };
 
     for (const line of lines) {
@@ -146,11 +155,25 @@ export function parsePatchFromDiff(llmOutput) {
       if (fileMatch) {
         flushRegion();
         currentFile = fileMatch[1].trim();
+        currentAnchor = null;
+        currentAnchorType = null;
         continue;
       }
 
       // Skip +++ header
       if (/^\+\+\+\s/.test(line)) continue;
+
+      const hunk = line.match(/^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(?:.*)$/);
+      if (hunk) {
+        flushRegion();
+        const oldCount = hunk[2] === undefined ? 1 : Number(hunk[2]);
+        unified = { start: Number(hunk[1]) - (oldCount ? 1 : 0), oldCount,
+          newCount: hunk[4] === undefined ? 1 : Number(hunk[4]) };
+        currentAnchor = `line ${hunk[1]}`;
+        currentAnchorType = AnchorType.LINE;
+        inRegion = true;
+        continue;
+      }
 
       // Anchor line: @@ anchorType anchorText or @@ anchorText
       const anchorMatch = line.match(/^@@\s+(.+)$/);
@@ -172,6 +195,15 @@ export function parsePatchFromDiff(llmOutput) {
       }
 
       if (!inRegion && !currentAnchor) continue;
+
+      // Numeric unified hunks retain context in both sides. Counts and exact
+      // source position are checked before applying; no fuzzy relocation.
+      if (unified && line.startsWith(' ')) {
+        oldLines.push(line.substring(1));
+        newLines.push(line.substring(1));
+        continue;
+      }
+      if (unified && line === '\\ No newline at end of file') continue;
 
       // Diff lines
       if (line.startsWith('-')) {

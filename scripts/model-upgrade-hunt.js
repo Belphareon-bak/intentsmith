@@ -747,7 +747,7 @@ if (!picked.length) {
   process.exit(0);
 }
 
-const readyRoles = ROLES.filter(role => evaluationPlans[role]?.decisionReady !== false);
+const readyRoles = ROLES.filter(role => (evaluationPlans[role]?.measurementReady ?? evaluationPlans[role]?.decisionReady) !== false);
 const blockedRoles = ROLES.filter(role => !readyRoles.includes(role));
 for (const role of blockedRoles) {
   const plan = evaluationPlans[role];

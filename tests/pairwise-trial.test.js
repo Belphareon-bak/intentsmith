@@ -201,6 +201,7 @@ const artifactFor = model => Object.freeze({
   digestSha256: model === 'A' ? 'a'.repeat(64) : 'b'.repeat(64),
 });
 const CODE_PLAN = Object.freeze({
+  decisionReady: true, // qualified synthetic contract for decision-rule controls
   role: 'CODE',
   suiteName: 'code',
   suite: SUITES.code,
@@ -601,6 +602,15 @@ await testAsync('a different suite contract cannot reuse an old summary', async 
   await comparePair(runner, 'code', 'A', 'B', { ...hooks, suiteContractSha256: 'a'.repeat(64) });
   await comparePair(runner, 'code', 'A', 'B', { ...hooks, suiteContractSha256: 'b'.repeat(64) });
   assertEqual(runner.calls.length, 4);
+});
+
+await testAsync('exploratory measurements remain visible but cannot recommend replacement', async () => {
+  const runner = fakeRunner({A:{_default:1},B:{_default:0}});
+  const r = await trialRole(runner, 'CODE', 'A', 'B', {...ONCE,
+    evaluationPlan:{...CODE_PLAN,measurementReady:true,decisionReady:false}});
+  assertEqual(r.skipped, false); assert(r.comparison, 'measurement remains inspectable');
+  assertEqual(r.decision.winner, 'inconclusive');
+  assertEqual(r.decision.reasonCode, 'EVALUATION_PROFILE_NOT_ACCEPTED');
 });
 
 summary();

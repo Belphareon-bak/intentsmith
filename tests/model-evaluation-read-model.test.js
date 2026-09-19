@@ -279,7 +279,8 @@ test('raw API and CLI metadata normalize qwen3-coder into the same technical sco
 
 test('current decision is linked to exact runs and only actionable for the bound incumbent', () => {
   const db = database();
-  const plans = createRoleEvaluationPlans({ repeats: 1 });
+  // Explicitly qualified synthetic plans exercise the remaining activation gates.
+  const plans = Object.fromEntries(Object.entries(createRoleEvaluationPlans({ repeats: 1 })).map(([role,p]) => [role,{...p,decisionReady:true}]));
   insert(db, {
     runId: 'incumbent-chat', digest: DIGEST, plan: plans.CHAT,
     score: 0.6, passed: 24,
@@ -310,6 +311,12 @@ test('current decision is linked to exact runs and only actionable for the bound
   assertEqual(result.roles.CHAT.latestDecision.actionable, true);
   assertEqual(result.roles.CHAT.latestDecision.actionability, 'READY_FOR_MANUAL_BINDING');
   assertEqual(result.decisions.length, 1);
+  const exploratory = new ModelEvaluationReadModel(db, {plans:createRoleEvaluationPlans({repeats:1})}).read({
+    ...input,bindingAuthority:{status:'DURABLE',durableRoles:['CHAT'],verifiedRoles:['CHAT']}});
+  assertEqual(exploratory.roles.CHAT.latestDecision.actionable,false);
+  assertEqual(exploratory.roles.CHAT.latestDecision.actionability,'EVALUATION_PROFILE_NOT_ACCEPTED');
+  assertEqual(exploratory.roles.CHAT.measurementReady,true);
+
   const rendered = renderEvaluationReport(result);
   assert(rendered.includes('DECISION CANDIDATE'));
   assert(rendered.includes('READY_FOR_MANUAL_BINDING'));
@@ -367,7 +374,8 @@ test('decision disappears when either linked run has a foreign suite version', (
 
 test('pairwise winner without final portfolio approval is not actionable', () => {
   const db = database();
-  const plans = createRoleEvaluationPlans({ repeats: 1 });
+  // Explicitly qualified synthetic plans exercise the remaining activation gates.
+  const plans = Object.fromEntries(Object.entries(createRoleEvaluationPlans({ repeats: 1 })).map(([role,p]) => [role,{...p,decisionReady:true}]));
   insert(db, {
     runId: 'incumbent-r2', digest: DIGEST, plan: plans.R2,
     score: 0.6, passed: 4,

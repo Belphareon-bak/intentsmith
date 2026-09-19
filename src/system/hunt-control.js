@@ -17,7 +17,7 @@ const ACTIONS = Object.freeze({
   pause: ['disable', '--now', TIMER],
   resume: ['enable', '--now', TIMER],
 });
-const properties = ['LoadState', 'ActiveState', 'SubState', 'Result', 'ExecMainStatus', 'NextElapseUSecRealtime', 'UnitFileState', 'WorkingDirectory', 'ExecStart', 'EnvironmentFiles'];
+const properties = ['LoadState', 'ActiveState', 'SubState', 'Result', 'ExecMainStatus', 'NextElapseUSecRealtime', 'UnitFileState', 'WorkingDirectory', 'ExecStart', 'EnvironmentFiles', 'ConditionResult', 'ConditionTimestampMonotonic'];
 const parse = value => Object.fromEntries(value.trim().split('\n').filter(Boolean).map(line => {
   const at = line.indexOf('='); return [line.slice(0, at), line.slice(at + 1)];
 }));
@@ -54,6 +54,11 @@ export function createHuntControl({ installationFile = process.env.INTENTSMITH_I
         freshGpu || !health || Date.now() - healthAt > 30000 ? inspectGpu().then(value => { health = value; healthAt = Date.now(); return value; }) : health,
       ]);
       const service = parse(serviceResult.stdout), timer = parse(timerResult.stdout), evaluation = parse(evaluationResult.stdout);
+      let hold = null;
+      try { const record = await json(join(installed.stateDirectory, 'code-pilot-automation-hold.json'));
+        hold = { code: 'HUNT_AUTOMATION_HELD', reason: record.reason || 'Automatika je pozastavena do přijetí evaluátoru.',
+          releaseCondition: record.releaseCondition || null, createdAt: record.createdAt || null }; }
+      catch (error) { if (error.code !== 'ENOENT') throw error; }
       if (service.LoadState !== 'loaded' || timer.LoadState !== 'loaded') throw new Error('HUNT_SERVICE_NOT_INSTALLED');
       if (service.WorkingDirectory !== installed.sourceRoot
         || !service.ExecStart?.includes(join(installed.sourceRoot,'scripts/run-model-hunt-provider.js'))
@@ -96,9 +101,10 @@ export function createHuntControl({ installationFile = process.env.INTENTSMITH_I
         schemaVersion: 1, generatedAt: new Date().toISOString(),
         installation: { revision: installed.revision, sourceRoot: installed.sourceRoot, dbPath: installed.dbPath },
         state: active ? (activeService.ActiveState === 'deactivating' ? 'STOPPING' : 'RUNNING')
-          : !gpu.available ? 'BLOCKED' : (current?.status === 'FAILED' || (!current && service.ActiveState === 'failed')) ? 'FAILED'
+          : hold ? 'HELD' : !gpu.available ? 'BLOCKED' : (current?.status === 'FAILED' || (!current && service.ActiveState === 'failed')) ? 'FAILED'
             : timer.ActiveState === 'active' ? 'WAITING' : 'PAUSED',
-        service, timer, evaluation, gpu, gpuInventory: await readInventory(), current, progress,
+        service, timer, evaluation, gpu, gpuInventory: await readInventory(), current, progress, hold,
+        lastStartConditionFailed: service.ConditionResult === 'no' && Number(service.ConditionTimestampMonotonic) > 0,
         recent: recent.filter(r => r.finishedAt).sort((a,b) => String(b.finishedAt).localeCompare(String(a.finishedAt))).slice(0,5),
         // A stored plan is explicitly dated, never passed off as a fresh discovery.
         queue: active ? progress?.queue || [] : [], lastPlan: progress?.queue || [], queueObservedAt: progress?.updatedAt || null,
@@ -122,7 +128,7 @@ export function createHuntControl({ installationFile = process.env.INTENTSMITH_I
       for (const pin of pins) {
         const role = evaluations?.roles?.[pin.role];
         const artifact = role?.artifacts?.find(row => row.model === request.model && row.digestSha256 === request.digestSha256);
-        if (!artifact || artifact.applicable === false || role.decisionReady === false
+        if (!artifact || artifact.applicable === false || (role.measurementReady ?? role.decisionReady) === false
           || role.suiteContractSha256 !== pin.suiteContractSha256) {
           throw Object.assign(new Error('MODEL_EVALUATION_IDENTITY_CHANGED_OR_UNAVAILABLE'), { httpStatus: 409 });
         }
@@ -146,6 +152,9 @@ export function createHuntControl({ installationFile = process.env.INTENTSMITH_I
     async control(action) {
       if (!Object.hasOwn(ACTIONS, action)) throw Object.assign(new Error('HUNT_ACTION_INVALID'), { httpStatus: 400 });
       const status = await control.status({ freshGpu: true });
+      if (['start','resume'].includes(action) && status.hold) {
+        throw Object.assign(new Error('HUNT_AUTOMATION_HELD: ' + status.hold.reason), {httpStatus:409, code:'HUNT_AUTOMATION_HELD'});
+      }
       if (action === 'start' && ['RUNNING','STOPPING'].includes(status.state)) throw Object.assign(new Error('HUNT_ALREADY_RUNNING'), { httpStatus: 409 });
       if (action === 'start' && !status.gpu.available) throw Object.assign(new Error(status.gpu.message), { httpStatus: 503, code: status.gpu.code });
       await run(action === 'stop' && ['active','activating','deactivating'].includes(status.evaluation.ActiveState)

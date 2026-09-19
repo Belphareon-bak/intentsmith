@@ -122,9 +122,19 @@ export function createRoleEvaluationPlans(opts = {}) {
       repeats,
       taskCount: suite.tests.length,
       minimumTaskCount,
-      decisionReady: suite.tests.length >= minimumTaskCount
+      measurementReady: suite.tests.length >= minimumTaskCount
         && (role !== 'VISION' || new Set(suite.tests.flatMap(t => t.contractMaterial?.prompt?.imageDigests || [])).size >= 10)
         && (role !== 'CODE' || codeRuntime.ready),
+      // Counts and a working runtime establish executability, not validity for
+      // replacing an incumbent. None of the current prototype contracts has
+      // an accepted paired operational qualification (§6/§8 of the eval WP).
+      // Keep exploratory measurement available while closing every effect path.
+      decisionReady: false,
+      evidencePurpose: 'EXPLORATORY',
+      decisionBlockCode: 'EVALUATION_PROFILE_NOT_ACCEPTED',
+      decisionBlockReason: role === 'CODE'
+        ? 'Krátké opravy jsou průzkumné měření. Výběr CODE vyžaduje přijaté párové měření celého opravného postupu.'
+        : 'Sada zatím nemá přejímku hodnotitele a provozního profilu pro výběr modelu.',
       runtimeBlockCode: role === 'CODE' ? codeRuntime.code : null,
       runtimeBlockReason: role === 'CODE' ? codeRuntime.reason : null,
       // CHAT needs breadth in both supported languages. The former 1:1

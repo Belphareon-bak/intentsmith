@@ -169,7 +169,6 @@ function checksPassed(testResults, qualityGate) {
  * @returns {{ continue: boolean, reason: string }}
  */
 export function shouldContinue(currentErrors, previousErrors, iteration, maxIter) {
-  if (iteration >= maxIter) return { continue: false, reason: 'budget_exhausted' };
   if (!currentErrors || currentErrors.length === 0) return { continue: false, reason: 'all_passed' };
 
   // Filter to errors only (skip warnings for convergence)
@@ -177,6 +176,7 @@ export function shouldContinue(currentErrors, previousErrors, iteration, maxIter
   const prevErrs = (previousErrors || []).filter(e => e.severity === 'error');
 
   if (currErrs.length === 0) return { continue: false, reason: 'all_passed' };
+  if (iteration >= maxIter) return { continue: false, reason: 'budget_exhausted' };
 
   // Same errors as last iteration → not converging
   if (prevErrs.length > 0) {
@@ -367,7 +367,13 @@ export function extractErrors(testResults, qualityGateResult) {
   if (testResults && testResults.allPassed === false) {
     const rawOutput = [testResults.stdout || '', testResults.stderr || ''].filter(Boolean).join('\n');
     if (rawOutput.trim()) {
-      allErrors.push(...normalizeErrors(rawOutput));
+      const parsed = normalizeErrors(rawOutput);
+      allErrors.push(...parsed);
+      if (parsed.length === 0) {
+        allErrors.push({ code: 'TEST_OUTPUT_UNRECOGNIZED', file: '', line: null,
+          message: testResults.summary || 'Test command failed; diagnostic format was not recognized',
+          raw: rawOutput.slice(-12000), category: 'test', severity: 'error', recoverable: false });
+      }
     }
   }
 
@@ -567,6 +573,8 @@ export async function runFixLoop(options) {
   let lastTestResults = initialTestResults;
   let lastQualityGate = initialQualityGate;
   let lastIterationFiles = [];
+  let patchFeedback = '';
+  let rejectedAttempts = 0;
 
   // FΔ: Context delta state
   const useDelta = await ensureContextDelta();
@@ -724,7 +732,9 @@ export async function runFixLoop(options) {
       }
       // v119: Build scope hint for this iteration
       const scopeHint = (patchScope && !violationTracker?.disabled) ? _formatScopeHint(patchScope) : '';
-      const prompt = buildFixPrompt(milestone, currentErrors, iterMem, gitDiff, taskContext, critiqueContext, deltaContext, strategyHints, scopeHint, importMapText);
+      const prompt = buildFixPrompt(milestone, currentErrors, iterMem, gitDiff, taskContext, critiqueContext, deltaContext, strategyHints, scopeHint, importMapText)
+        + (patchFeedback ? '\n\n## Previous patch was not applied\n' + patchFeedback
+          + '\nReturn a corrected patch against the unchanged source. Prefix every removed line with - and every added line with +. Copy old lines exactly; use @@ line followed by a unique source line or a numeric unified hunk. Do not repeat the rejected patch.' : '');
 
       // 4c. Call LLM
       const llmResult = await callLLM('CODE', prompt);
@@ -741,7 +751,11 @@ export async function runFixLoop(options) {
           iteration: iter,
           outputLen: llmOutput.length,
         });
-        iterationLog.push({ iteration: iter, errorCount: currentErrors.length, patchFiles: [], action: 'skipped' });
+        iterationLog.push({ iteration: iter, errorCount: currentErrors.length, patchFiles: [], action: 'rejected', state: 'patch_format_invalid' });
+        if (iter < maxIter && rejectedAttempts++ < 1) {
+          patchFeedback = 'No source changes were parsed. A prose answer or lines without diff prefixes are not an applicable patch.';
+          continue;
+        }
         return finish(false, 'patch_failed', iter, lastTestResults, lastQualityGate, currentErrors, iterationLog, iterMem.filesModified);
       }
 
@@ -869,8 +883,13 @@ export async function runFixLoop(options) {
           action: 'skipped',
           rejectedPatches,
         });
+        if (iter < maxIter && rejectedAttempts++ < 1) {
+          patchFeedback = rejectedPatches.map(p => p.file + ': ' + p.errors.join('; ')).join('\n').slice(0, 4000);
+          continue;
+        }
         return finish(false, 'patch_failed', iter, lastTestResults, lastQualityGate, currentErrors, iterationLog, iterMem.filesModified);
       }
+      patchFeedback = '';
 
       // 4h. Apply patches
       const applyResult = await applyPatchSet(validPatches, projectRoot);

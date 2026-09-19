@@ -16,7 +16,7 @@ go_bin=$(command -v "${GO_BIN:-go}") || {
   exit 2
 }
 provider_tag=${OLLAMA_PROVIDER_TAG:-v0.34.0}
-provider_revision=${OLLAMA_PROVIDER_REVISION:-1}
+provider_revision=${OLLAMA_PROVIDER_REVISION:-$([[ "$provider_tag" == v0.34.0 ]] && echo 2 || echo 1)}
 [[ "$provider_revision" == 1 || ( "$provider_tag" == v0.34.0 && "$provider_revision" == 2 ) ]] || {
   echo "Unsupported provider revision." >&2; exit 2
 }

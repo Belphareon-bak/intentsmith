@@ -141,6 +141,51 @@ export function getRegionOffset(anchorType) {
   return 0; // content IS the anchor line
 }
 
+/** Resolve both validation and application against the SAME original text.
+ * Numeric hunks must match their declared position and counts. Semantic hunks
+ * need one exact old-text/context occurrence; an anchor name alone is never
+ * enough to overwrite a guessed range. Legacy ADT callers keep their format.
+ */
+export function resolveRegion(content, region) {
+  const lines = normalizeNewlines(content || '').split('\n');
+  if (region.matchMode !== 'exact-context') {
+    const found = findAnchor(content, region.anchor, region.anchorType, region.contextBefore || null);
+    return found && { ...found, startLine: found.line +
+      (region.anchorType === 'insert_after' ? 1 : getRegionOffset(region.anchorType)) };
+  }
+  const old = region.old || [];
+  const matchesAt = (start, expected) => start >= 0 &&
+    expected.every((text, i) => lines[start + i] === text);
+  if (region.sourceLine !== undefined) {
+    if (!Number.isSafeInteger(region.sourceLine) || region.sourceLine < 0 ||
+      region.sourceLine > lines.length || old.length !== region.expectedOldLines ||
+      (region.new || []).length !== region.expectedNewLines || !matchesAt(region.sourceLine, old)) return null;
+    return { line: region.sourceLine, startLine: region.sourceLine, tier: 'exact', matches: 1 };
+  }
+  const before = region.contextBefore ? region.contextBefore.split('\n') : [];
+  if (!old.length && !before.length) {
+    const found = findAnchor(content, region.anchor, region.anchorType);
+    return found?.matches === 1 ? { ...found, startLine: found.line +
+      (region.anchorType === 'insert_after' ? 1 : getRegionOffset(region.anchorType)) } : null;
+  }
+  for (const tier of ['exact', 'normalized']) {
+    const sameAt = (start, expected) => start >= 0 && expected.every((text, i) =>
+      tier === 'exact' ? lines[start + i] === text : lines[start + i]?.trim() === text.trim());
+    const candidates = [];
+    for (let start = 0; start < lines.length; start++) {
+      if (old.length && !sameAt(start, old)) continue;
+      if (before.length && !sameAt(start - before.length, before)) continue;
+      if (!old.length && !before.length) continue;
+      // Repeated names are safe only if the actual old-text range is unique.
+      if (!lines.slice(0, start + 1).some(line => line.includes(region.anchor.trim()))) continue;
+      candidates.push(start);
+    }
+    if (candidates.length > 1) return null;
+    if (candidates.length === 1) return { line: candidates[0], startLine: candidates[0], tier, matches: 1 };
+  }
+  return null;
+}
+
 // ─── Patch Validation ───────────────────────────────────────────────────────
 
 /**
@@ -204,15 +249,15 @@ export function validatePatch(patch, fileContents) {
     // Skip anchor resolution for pure inserts on non-existent files
     if (!content && (!region.old || region.old.length === 0)) continue;
 
-    const result = findAnchor(normalizedContent, region.anchor, region.anchorType, region.contextBefore || null);
+    const result = resolveRegion(normalizedContent, region);
 
     if (!result) {
-      errors.push(`Region ${i}: anchor not found: "${region.anchor}"`);
+      errors.push(`Region ${i}: source range not found, ambiguous or stale: "${region.anchor}"`);
       continue;
     }
 
     // Ambiguity guard: reject if multiple matches without contextBefore
-    if (result.matches > 1 && !region.contextBefore) {
+    if (result.matches > 1) {
       errors.push(`Region ${i}: ambiguous anchor "${region.anchor}" (${result.matches} matches, no contextBefore for disambiguation)`);
       continue;
     }
@@ -220,9 +265,8 @@ export function validatePatch(patch, fileContents) {
     // Old-lines match check (stale patch detection)
     // For function/class/method: old/new starts AFTER anchor line
     // For import/line: old/new starts AT anchor line
-    const offset = getRegionOffset(region.anchorType);
     if (region.old && region.old.length > 0) {
-      const startLine = result.line + offset;
+      const startLine = result.startLine;
       for (let j = 0; j < region.old.length; j++) {
         const fileLine = contentLines[startLine + j];
         const patchLine = region.old[j];
@@ -233,7 +277,7 @@ export function validatePatch(patch, fileContents) {
       }
     }
 
-    const contentStart = result.line + offset;
+    const contentStart = result.startLine;
     resolvedLines.push({ index: i, line: contentStart, endLine: contentStart + (region.old?.length || 0) });
   }
 
