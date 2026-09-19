@@ -1,7 +1,16 @@
 # WP — kontrakt platnosti evaluací GPU huntu
 
-**Stav:** SCOPE_APPROVED / DECISION_RUN_COMPLETE / NEROZHODNUTO / REVIEW_PENDING.
-Průzkumná série je uzavřená. Navazující párový provozní průchod má 48/48
+**Aktuální stav:** ALL_ROLE_CAMPAIGN_COMPLETE / NO_GO_FOR_AUTONOMOUS_HUNT /
+NEROZHODNUTO / REVIEW_PENDING / NOT_DEPLOYED. Závěrečná série na `89531748`
+obsahuje 318 benchmarkových pokusů všech sedmi rolí a 16 vývojových CODE
+pokusů. Přijatých rozhodovacích profilů je 0/7; výsledky, vady i chybějící
+implementace jsou v [závěrečném review celého huntu](../review/2026-09-19-GPU-HUNT-FINAL-REVIEW.md).
+Timer zůstává vypnutý, nové výsledky nejsou importované do produkce.
+Dokončená série není přijetí huntu.
+
+**Historický checkpoint — ranní CODE rozhodovací běh:**
+DECISION_RUN_COMPLETE / NEROZHODNUTO / REVIEW_PENDING.
+Původní průzkumná série je uzavřená. Navazující párový provozní průchod má 48/48
 pokusů na předem uzamčeném plánu, oba modely kvalifikované do 22 GB,
 výsledek NEROZHODNUTO a binding beze změny. Nejde o přijetí pilotu ani
 obecnou použitelnost CODE: Qwen i Devstral v tomto C3 profilu dokončily 0/24

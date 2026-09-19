@@ -1,5 +1,10 @@
 # IntentSmith
 
+**GPU hunt, finální měření 19. 9.: NO-GO pro autonomní provoz.**
+Všech sedm rolí změřeno na `89531748`, přijatých profilů 0/7; produktová
+integrace a nezávislá kvalifikace nejsou dokončené. Timer zůstává vypnutý.
+[Výsledky, konkrétní nedodělky a celý podklad pro review](docs/review/2026-09-19-GPU-HUNT-FINAL-REVIEW.md).
+
 Nové rozvržení a ovládání: [pracovní prostory IDE](docs/IDE-WORKSPACE.md).
 
 Nové projektové flow a import: [ověřený rozsah a provozní blok](docs/review/2026-09-18-PROJECT-FLOW.md). Nasazený kandidát `5e46fca7` ještě není production-ready.

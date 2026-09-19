@@ -1,5 +1,10 @@
 # GPU hunt — oprava falešného úspěchu a zbývající práce
 
+> Aktuální stav celého huntu a navazující měření na finálním zdroji `89531748`
+> jsou v [závěrečném review z 19. 9.](2026-09-19-GPU-HUNT-FINAL-REVIEW.md).
+> Verdikt: **NO_GO_FOR_AUTONOMOUS_HUNT / NEROZHODNUTO / REVIEW_PENDING**.
+> Následující historické výsledky zůstávají zachované a nejsou novým během nahrazeny.
+
 **IMPLEMENTATION_VERIFIED / REVIEW_PENDING / NOT_DEPLOYED.** Navazuje na
 operátorovo review dokončeného CODE duelu a požadavek shrnout všechny mezery
 GPU huntu. Vstup `6d085f74`, větev `work/hunt-model-controls-20260917`.

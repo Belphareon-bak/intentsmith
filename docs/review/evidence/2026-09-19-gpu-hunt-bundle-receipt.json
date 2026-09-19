@@ -1,0 +1,20 @@
+{
+  "status": "CONTENT_VERIFIED",
+  "sourceRevision": "89531748fc6fab20327e0b539cbcd176a0ffb98f",
+  "c3Reference": "379c2e4b6dea0fd0cd0fb19df67c3454c267fd49",
+  "archive": "/home/belphareon/Projects/coworker/intentsmith-hunt-all-roles-20260919/evidence-42b743e872671e1d02b0e8ba36c7e1780699f7f034516b67c6382bc0a29ab909.tar.gz",
+  "sha256": "42b743e872671e1d02b0e8ba36c7e1780699f7f034516b67c6382bc0a29ab909",
+  "bytes": 186146053,
+  "filesVerified": 4117,
+  "manifestSha256": "d4c5db3de20b790238ba65b5cad445434c84b09c3c0460c49e9c3a82029ae9fa",
+  "workspaceSnapshots": {
+    "code-workflow-32f1eef5": 26269,
+    "code-workflow-ace66fdb": 8750,
+    "code-workflow-d7398148": 8752,
+    "code-workflow-f42ca14e": 8750,
+    "code-workflow-f460198f": 8752,
+    "code-workflow-final": 8752
+  },
+  "excludes": "production/projected DB; model weights; Electron private homes/state/tokens; native 1.4 GB archive and Go build caches/toolchains; dependency targets; SQLite workspace files",
+  "verification": "Read and hash every archived member, compare byte counts and full manifest; Git bundle verify for both exact sources. This is custody verification, not independent acceptance."
+}

@@ -1,5 +1,19 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**GPU hunt — závěrečné měření všech rolí, 19. 9. 2026:** zdroj `89531748`,
+318 benchmarkových a 16 vývojových provozních CODE pokusů, tři artefakty,
+2 331 odpovědí. CODE Qwen/Devstral/Coder: 80,95/49,21/11,43 %; VISION Qwen:
+84,62 %. D1/D2/R1/R2/CHAT nemají platné souhrnné skóre. Provozní CODE
+Qwen 4/8, Devstral 1/8 na známých vývojových případech; není to nový holdout.
+Široká regrese na shodném runtime: 361 PASS / 1 FAIL (Gate 0 pečeť).
+**NO_GO_FOR_AUTONOMOUS_HUNT / NEROZHODNUTO / REVIEW_PENDING / NOT_DEPLOYED**,
+0/7 přijatých profilů. Chybí přejímka měřidel i část produkční integrace;
+legacy substringové hodnocení není ještě všude zablokované. Timer vypnutý,
+GPU uvolněná, nové výsledky mimo produkční DB.
+[Závěrečný dokument, všechny meze a ověřený archiv](docs/review/2026-09-19-GPU-HUNT-FINAL-REVIEW.md).
+
+Následující checkpointy zachovávají historické výsledky, nikoli aktuální přejímku.
+
 **GPU hunt — přejímací brána, 19. 9. 2026:** `decisionReady` se odvozuje
 z append-only přejímky hodnotitele a odděleného párového provozního měření
 pro přesný kontrakt/runtime. Odvolání se znovu kontroluje; přejímka jedné

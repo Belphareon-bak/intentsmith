@@ -1,5 +1,10 @@
 # CODE — nové měření 19. 9. 2026
 
+> Aktuální stav celého huntu a navazující měření na finálním zdroji `89531748`
+> jsou v [závěrečném review z 19. 9.](2026-09-19-GPU-HUNT-FINAL-REVIEW.md).
+> Verdikt: **NO_GO_FOR_AUTONOMOUS_HUNT / NEROZHODNUTO / REVIEW_PENDING**.
+> Následující historické výsledky zůstávají zachované a nejsou novým během nahrazeny.
+
 ## Dokončený rozhodovací průchod CODE — 19. 9., 10:27 CEST
 
 **DECISION_RUN_COMPLETE / NEROZHODNUTO / REVIEW_PENDING / NOT_DEPLOYED.**
