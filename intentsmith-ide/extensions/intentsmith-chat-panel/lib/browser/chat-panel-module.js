@@ -1592,7 +1592,7 @@ function centerProjectWizard(){
     var pt=PROJECT_TYPES.find(function(t){return t.id===d.type;})||PROJECT_TYPES[0];
     var slug2=d.name.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'-').replace(/^-+|-+$/g,'').toLowerCase();
     var displayPath=d.pathMode==='auto'?(_projectWizard.defaultDir+'/'+slug2):d.path;
-    var scaffoldHint='Node.js 22, src/, public/, test/, scripts/, pravidla M2 a první Git commit';
+    var scaffoldHint=(d.type==='desktop'?'Node.js 22 + Electron (zatím nenainstalovaný)':'Node.js 22')+', src/, public/, test/, scripts/, pravidla M2 a první Git commit';
     content=h('div',{style:stepStyle},
       h('div',{style:labelStyle},'Souhrn'),
       h('div',{style:{display:'flex',flexDirection:'column',gap:10,marginTop:8}},
@@ -1603,7 +1603,7 @@ function centerProjectWizard(){
         d.description?h('div',{style:{fontSize:_fs(11),color:C.tx2,marginTop:4,padding:8,background:C.bg3,borderRadius:6,whiteSpace:'pre-wrap'}},d.description):null),
       h('div',{style:{marginTop:16,padding:10,background:C.accentBg,borderRadius:8,border:'1px solid '+C.accent+'33'}},
         h('div',{style:{fontSize:_fs(11),color:C.accentText,fontWeight:600}},'Projekt pro řízenou práci'),
-        h('div',{style:{fontSize:_fs(10),color:C.tx3,marginTop:4}},'Vznikne základ Node.js bez dalších závislostí, s připravenými pravidly změn. Popište cíl v chatu; návrh otevřete přes Připravit navržený krok. Implementace a funkční test zatím chybí. Každou změnu schvalujete zvlášť.')));
+        h('div',{style:{fontSize:_fs(10),color:C.tx3,marginTop:4}},(d.type==='desktop'?'Vznikne desktopový základ s deklarovaným Electronem. Závislosti se automaticky neinstalují. ':'Vznikne základ Node.js bez dalších závislostí. ')+'Pravidla změn budou připravená. Popište cíl v chatu; návrh otevřete přes Připravit navržený krok. Implementace a funkční test zatím chybí. Každou změnu schvalujete zvlášť.')));
   }
   if(w.error)content=h(React.Fragment,null,content,h('p',{role:'alert',style:{color:C.red||C.tx1,padding:12}},w.error));
   var totalSteps=d.mode==='create'?WIZARD_STEPS.length:1;
