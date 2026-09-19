@@ -1,0 +1,350 @@
+From f485d17204d6146072c112fa0507197accf56b09 Mon Sep 17 00:00:00 2001
+From: Belphareon <geofery.cz@gmail.com>
+Date: Fri, 11 Sep 2026 21:00:00 +0000
+Subject: [PATCH 1/2] server: attest chat manifest digest and serving provider
+ version
+
+---
+ api/types.go                   |  6 ++++
+ server/routes.go               | 60 ++++++++++++++++++++--------------
+ server/routes_generate_test.go | 45 +++++++++++++++++++++++--
+ 3 files changed, 85 insertions(+), 26 deletions(-)
+
+diff --git a/api/types.go b/api/types.go
+index c83f3f2..ab0fb5b 100644
+--- a/api/types.go
++++ b/api/types.go
+@@ -521,6 +521,12 @@ type ChatResponse struct {
+ 	// Model is the model name that generated the response.
+ 	Model string `json:"model"`
+ 
++	// Digest is the exact local manifest digest selected for this response.
++	Digest string `json:"digest,omitempty"`
++
++	// ProviderVersion identifies the Ollama build serving this response.
++	ProviderVersion string `json:"provider_version,omitempty"`
++
+ 	// RemoteModel is the name of the upstream model that generated the response.
+ 	RemoteModel string `json:"remote_model,omitempty"`
+ 
+diff --git a/server/routes.go b/server/routes.go
+index 0b1d668..77f2e55 100644
+--- a/server/routes.go
++++ b/server/routes.go
+@@ -2500,11 +2500,13 @@ func (s *Server) ChatHandler(c *gin.Context) {
+ 		s.sched.expireRunner(m)
+ 
+ 		c.JSON(http.StatusOK, api.ChatResponse{
+-			Model:      req.Model,
+-			CreatedAt:  time.Now().UTC(),
+-			Message:    api.Message{Role: "assistant"},
+-			Done:       true,
+-			DoneReason: "unload",
++			Digest:          m.Digest,
++			ProviderVersion: version.Version,
++			Model:           req.Model,
++			CreatedAt:       time.Now().UTC(),
++			Message:         api.Message{Role: "assistant"},
++			Done:            true,
++			DoneReason:      "unload",
+ 		})
+ 		return
+ 	}
+@@ -2638,11 +2640,13 @@ func (s *Server) ChatHandler(c *gin.Context) {
+ 
+ 	if len(req.Messages) == 0 {
+ 		c.JSON(http.StatusOK, api.ChatResponse{
+-			Model:      req.Model,
+-			CreatedAt:  time.Now().UTC(),
+-			Message:    api.Message{Role: "assistant"},
+-			Done:       true,
+-			DoneReason: "load",
++			Digest:          m.Digest,
++			ProviderVersion: version.Version,
++			Model:           req.Model,
++			CreatedAt:       time.Now().UTC(),
++			Message:         api.Message{Role: "assistant"},
++			Done:            true,
++			DoneReason:      "load",
+ 		})
+ 		return
+ 	}
+@@ -2701,8 +2705,10 @@ func (s *Server) ChatHandler(c *gin.Context) {
+ 	// If debug mode is enabled, return the rendered template instead of calling the model
+ 	if req.DebugRenderOnly {
+ 		c.JSON(http.StatusOK, api.ChatResponse{
+-			Model:     req.Model,
+-			CreatedAt: time.Now().UTC(),
++			Digest:          m.Digest,
++			ProviderVersion: version.Version,
++			Model:           req.Model,
++			CreatedAt:       time.Now().UTC(),
+ 			DebugInfo: &api.DebugInfo{
+ 				RenderedTemplate: prompt,
+ 				ImageCount:       len(media),
+@@ -2803,12 +2809,14 @@ func (s *Server) ChatHandler(c *gin.Context) {
+ 				}
+ 
+ 				res := api.ChatResponse{
+-					Model:     req.Model,
+-					CreatedAt: time.Now().UTC(),
+-					Message:   api.Message{Role: "assistant", Content: r.Content},
+-					Done:      r.Done,
+-					Metrics:   metrics,
+-					Logprobs:  toAPILogprobs(r.Logprobs),
++					Digest:          m.Digest,
++					ProviderVersion: version.Version,
++					Model:           req.Model,
++					CreatedAt:       time.Now().UTC(),
++					Message:         api.Message{Role: "assistant", Content: r.Content},
++					Done:            r.Done,
++					Metrics:         metrics,
++					Logprobs:        toAPILogprobs(r.Logprobs),
+ 				}
+ 
+ 				if r.Done {
+@@ -2995,8 +3003,10 @@ func (s *Server) handleNativeChat(c *gin.Context, req api.ChatRequest, m *Model,
+ 		}
+ 
+ 		c.JSON(http.StatusOK, api.ChatResponse{
+-			Model:     req.Model,
+-			CreatedAt: time.Now().UTC(),
++			Digest:          m.Digest,
++			ProviderVersion: version.Version,
++			Model:           req.Model,
++			CreatedAt:       time.Now().UTC(),
+ 			DebugInfo: &api.DebugInfo{
+ 				RenderedTemplate: prompt,
+ 				ImageCount:       countChatImages(msgs),
+@@ -3011,10 +3021,12 @@ func (s *Server) handleNativeChat(c *gin.Context, req api.ChatRequest, m *Model,
+ 
+ 		err := r.Chat(c.Request.Context(), nativeReq, func(r llm.ChatResponse) {
+ 			res := api.ChatResponse{
+-				Model:     req.Model,
+-				CreatedAt: time.Now().UTC(),
+-				Message:   r.Message,
+-				Done:      r.Done,
++				Digest:          m.Digest,
++				ProviderVersion: version.Version,
++				Model:           req.Model,
++				CreatedAt:       time.Now().UTC(),
++				Message:         r.Message,
++				Done:            r.Done,
+ 				Metrics: api.Metrics{
+ 					PromptEvalCount:       r.PromptEvalCount,
+ 					PromptEvalCachedCount: r.PromptEvalCachedCount,
+diff --git a/server/routes_generate_test.go b/server/routes_generate_test.go
+index 0bbf9b5..89b285d 100644
+--- a/server/routes_generate_test.go
++++ b/server/routes_generate_test.go
+@@ -4,6 +4,7 @@ import (
+ 	"bytes"
+ 	"context"
+ 	"encoding/json"
++	"github.com/ollama/ollama/version"
+ 	"io"
+ 	"net/http"
+ 	"net/http/httptest"
+@@ -348,6 +349,20 @@ func TestChatHandlerChatTemplateRoute(t *testing.T) {
+ 	if err := json.Unmarshal(w.Body.Bytes(), &actual); err != nil {
+ 		t.Fatal(err)
+ 	}
++	existingName, err := getExistingName(model.ParseName("chat-template"))
++	if err != nil {
++		t.Fatal(err)
++	}
++	servedModel, err := GetModel(existingName.String())
++	if err != nil {
++		t.Fatal(err)
++	}
++	if actual.ProviderVersion != version.Version {
++		t.Fatalf("provider version = %q, want %q", actual.ProviderVersion, version.Version)
++	}
++	if actual.Digest != servedModel.Digest {
++		t.Fatalf("response digest = %q, want exact manifest digest %q", actual.Digest, servedModel.Digest)
++	}
+ 	if actual.Message.Content != "chat template response" {
+ 		t.Fatalf("expected chat template response, got %q", actual.Message.Content)
+ 	}
+@@ -869,6 +884,18 @@ func TestGenerateChat(t *testing.T) {
+ 	if w.Code != http.StatusOK {
+ 		t.Fatalf("expected status 200, got %d", w.Code)
+ 	}
++	expectedDigest := func(t *testing.T, modelName string) string {
++		t.Helper()
++		existingName, err := getExistingName(model.ParseName(modelName))
++		if err != nil {
++			t.Fatal(err)
++		}
++		servedModel, err := GetModel(existingName.String())
++		if err != nil {
++			t.Fatal(err)
++		}
++		return servedModel.Digest
++	}
+ 
+ 	t.Run("missing body", func(t *testing.T) {
+ 		w := createRequest(t, s.ChatHandler, nil)
+@@ -971,6 +998,13 @@ func TestGenerateChat(t *testing.T) {
+ 		if actual.Model != "test" {
+ 			t.Errorf("expected model test, got %s", actual.Model)
+ 		}
++		wantDigest := expectedDigest(t, "test")
++		if actual.ProviderVersion != version.Version {
++			t.Fatalf("provider version = %q, want %q", actual.ProviderVersion, version.Version)
++		}
++		if actual.Digest != wantDigest {
++			t.Errorf("response digest = %q, want exact manifest digest %q", actual.Digest, wantDigest)
++		}
+ 
+ 		if !actual.Done {
+ 			t.Errorf("expected done true, got false")
+@@ -981,7 +1015,7 @@ func TestGenerateChat(t *testing.T) {
+ 		}
+ 	})
+ 
+-	checkChatResponse := func(t *testing.T, body io.Reader, model, content string) {
++	checkChatResponse := func(t *testing.T, body io.Reader, modelName, content string) {
+ 		t.Helper()
+ 
+ 		var actual api.ChatResponse
+@@ -989,9 +1023,16 @@ func TestGenerateChat(t *testing.T) {
+ 			t.Fatal(err)
+ 		}
+ 
+-		if actual.Model != model {
++		if actual.Model != modelName {
+ 			t.Errorf("expected model test, got %s", actual.Model)
+ 		}
++		wantDigest := expectedDigest(t, modelName)
++		if actual.ProviderVersion != version.Version {
++			t.Fatalf("provider version = %q, want %q", actual.ProviderVersion, version.Version)
++		}
++		if actual.Digest != wantDigest {
++			t.Errorf("response digest = %q, want exact manifest digest %q", actual.Digest, wantDigest)
++		}
+ 
+ 		if !actual.Done {
+ 			t.Errorf("expected done false, got true")
+-- 
+2.43.0
+
+
+From cd1553287618f6583c793fc4e5f9199b5bd8e894 Mon Sep 17 00:00:00 2001
+From: Belphareon <geofery.cz@gmail.com>
+Date: Sat, 19 Sep 2026 07:45:00 +0000
+Subject: [PATCH 2/2] llm: preserve repeated code tokens and require terminal
+ completion
+
+---
+ llm/llama_server.go      | 19 ++++-----------
+ llm/llama_server_test.go | 52 ++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 56 insertions(+), 15 deletions(-)
+
+diff --git a/llm/llama_server.go b/llm/llama_server.go
+index 7a0b1ed..1501397 100644
+--- a/llm/llama_server.go
++++ b/llm/llama_server.go
+@@ -1674,8 +1674,6 @@ func (s *llamaServerRunner) Completion(ctx context.Context, req CompletionReques
+ 	buf := make([]byte, 0, llamaServerStreamInitialBufferSize)
+ 	scanner.Buffer(buf, llamaServerStreamMaxBufferSize)
+ 
+-	var lastToken string
+-	var tokenRepeat int
+ 	var finalResp CompletionResponse
+ 	var hasFinalResp bool
+ 
+@@ -1702,18 +1700,9 @@ func (s *llamaServerRunner) Completion(ctx context.Context, req CompletionReques
+ 				return fmt.Errorf("error unmarshalling llama-server response: %v", err)
+ 			}
+ 
+-			// Token repeat detection
+-			switch {
+-			case strings.TrimSpace(lsResp.Content) == lastToken:
+-				tokenRepeat++
+-			default:
+-				lastToken = strings.TrimSpace(lsResp.Content)
+-				tokenRepeat = 0
+-			}
+-			if tokenRepeat > 100 {
+-				slog.Debug("prediction aborted, token repeat limit reached")
+-				return fmt.Errorf("prediction aborted, token repeat limit reached")
+-			}
++			// Repeated tokens can be valid source text (e.g. a comment separator).
++			// boundedNumPredict and the request context already bound generation.
++			// Never terminate successfully before a terminal response is received.
+ 
+ 			if lsResp.Content != "" && !lsResp.Stop {
+ 				resp := CompletionResponse{Content: lsResp.Content}
+@@ -1787,7 +1776,7 @@ func (s *llamaServerRunner) Completion(ctx context.Context, req CompletionReques
+ 		return fmt.Errorf("error reading llama-server response: %v", err)
+ 	}
+ 
+-	return nil
++	return errors.New("llama-server completion ended without a terminal response")
+ }
+ 
+ func llamaServerStreamLimitError(label string, err error) error {
+diff --git a/llm/llama_server_test.go b/llm/llama_server_test.go
+index 60193ff..6b8cfcd 100644
+--- a/llm/llama_server_test.go
++++ b/llm/llama_server_test.go
+@@ -3847,3 +3847,55 @@ func fakeRunningCmd() *exec.Cmd {
+ 	// SIGKILL children when the test process exits.
+ 	return cmd
+ }
++
++// Regression: a long code-comment separator used to return ctx.Err() == nil
++// after 31 repeated chunks, silently losing Done and the generation metrics.
++func TestLlamaServerCompletionRepeatedCodeTokens(t *testing.T) {
++	for _, terminal := range []bool{false, true} {
++		t.Run(fmt.Sprint(terminal), func(t *testing.T) {
++			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++				switch r.URL.Path {
++				case "/health":
++					fmt.Fprint(w, `{"status":"ok"}`)
++				case "/tokenize":
++					fmt.Fprint(w, `{"tokens":[1,2,3]}`)
++				case "/completion":
++					w.Header().Set("Content-Type", "text/event-stream")
++					for range 40 {
++						fmt.Fprintln(w, `data: {"content":"═","stop":false}`)
++					}
++					if terminal {
++						fmt.Fprintln(w, `data: {"content":"","stop":true,"stop_type":"limit","timings":{"prompt_n":3,"prompt_ms":1,"predicted_n":40,"predicted_ms":1}}`)
++					}
++				default:
++					t.Errorf("unexpected path: %s", r.URL.Path)
++				}
++			}))
++			defer srv.Close()
++			parts := strings.Split(srv.URL, ":")
++			var port int
++			fmt.Sscanf(parts[len(parts)-1], "%d", &port)
++			runner := &llamaServerRunner{port: port, cmd: fakeRunningCmd(), sem: semaphore.NewWeighted(1), options: api.Options{Runner: api.Runner{NumCtx: 2048}}}
++			opts := api.DefaultOptions()
++			opts.NumPredict = 40
++			var content strings.Builder
++			var final CompletionResponse
++			err := runner.Completion(t.Context(), CompletionRequest{Prompt: "code separator", Options: &opts}, func(r CompletionResponse) {
++				content.WriteString(r.Content)
++				if r.Done {
++					final = r
++				}
++			})
++			if content.String() != strings.Repeat("═", 40) {
++				t.Fatalf("lost valid repeated code: %q", content.String())
++			}
++			if terminal {
++				if err != nil || !final.Done || final.EvalCount != 40 || final.DoneReason != DoneReasonLength {
++					t.Fatalf("missing terminal proof: %v %+v", err, final)
++				}
++			} else if err == nil || final.Done {
++				t.Fatalf("missing terminal event accepted: %v %+v", err, final)
++			}
++		})
++	}
++}
+-- 
+2.43.0
+

@@ -19,10 +19,10 @@ const args = process.argv.slice(2);
 const flag = name => args.includes(`--${name}`);
 const option = (name, fallback = null) => args.find(a => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? fallback;
 if (!args.length || flag('help')) {
-  console.log('Usage: all-role-evaluation.mjs --prepare|--run --out=/absolute/new-directory [--model=qwen3.8:latest] [--judge=qwen3.8:latest] [--roles=D1,D2,CODE,R1,R2,CHAT,VISION] [--profile=full|smoke] [--calibrate-only] [--resume]');
+  console.log('Usage: all-role-evaluation.mjs --prepare|--run --out=/absolute/new-directory [--model=qwen3.8:latest] [--judge=qwen3.8:latest] [--roles=D1,D2,CODE,R1,R2,CHAT,VISION] [--profile=full|smoke] [--budget-minutes=240] [--calibrate-only] [--resume]');
   process.exit(0);
 }
-const allowed = /^(?:--(?:prepare|run|calibrate-only|resume)|--(?:out|model|judge|roles|profile|report|task)=.+)$/;
+const allowed = /^(?:--(?:prepare|run|calibrate-only|resume)|--(?:out|model|judge|roles|profile|report|task|budget-minutes)=.+)$/;
 if (args.some(a => !allowed.test(a)) || flag('prepare') === flag('run')) throw new Error('Invalid measurement arguments');
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const out = option('out');
@@ -33,6 +33,8 @@ if (new Set(selected).size !== selected.length || selected.some(r => !suites[r])
 const profile = option('profile', 'full');
 if (!['full','smoke'].includes(profile)) throw new Error('Quick quality estimates require an accepted full profile; use smoke only for transport diagnostics');
 const repeats = profile === 'full' ? 3 : 1;
+const budgetMinutes = Number(option('budget-minutes', '240'));
+if (!Number.isInteger(budgetMinutes) || budgetMinutes < 1 || budgetMinutes > 720) throw new Error('Budget must be 1..720 minutes');
 const hash = value => createHash('sha256').update(typeof value === 'string' ? value : JSON.stringify(value)).digest('hex');
 const write = (name, value) => {
   const dest = path.join(out, name), temp = `${dest}.${process.pid}.tmp`;
@@ -43,7 +45,7 @@ const workingTreeDirty = !!execFileSync('git',['-C',root,'status','--porcelain']
 const runtimeSha256 = qualificationRuntimeSha256();
 const plan = { schemaVersion: 1, sourceRevision, runtimeSha256, workingTreeDirty,
   runnerSha256: hash(fs.readFileSync(fileURLToPath(import.meta.url))),
-  profile, repeats, model: option('model', 'qwen3.8:latest'), judge: option('judge', 'qwen3.8:latest'),
+  profile, repeats, budgetMinutes, model: option('model', 'qwen3.8:latest'), judge: option('judge', 'qwen3.8:latest'),
   calibratedOnly: flag('calibrate-only'), taskFilter: option('task'),
   roles: selected.map(role => ({ role, suite: suites[role].name,
     contractSha256: suiteContract(suites[role],{repeats}).sha256,
@@ -95,6 +97,7 @@ const assertOwnership=()=>{
   }
 };
 let cancelling=false, activeModel=null;
+const deadline=Date.now()+budgetMinutes*60000;
 process.on('SIGTERM',()=>{cancelling=true;}); process.on('SIGINT',()=>{cancelling=true;});
 const runner=new ModelEvaluationRunner(endpoint);
 const unload=async()=>{
@@ -106,10 +109,17 @@ const unload=async()=>{
 };
 const call=async(model,messages,options,artifact)=>{
   if(cancelling)throw new Error('CANCELLED');
+  if(Date.now()>=deadline)throw new Error('MEASUREMENT_BUDGET_EXHAUSTED');
   assertOwnership();
   if(activeModel && activeModel!==model)await unload();
   activeModel=model;
-  const result=await runner._callModel(model,messages,options,artifact);
+  let result;
+  try { result=await runner._callModel(model,messages,{...options,timeout:Math.min(options.timeout||300000,deadline-Date.now())},artifact); }
+  catch(error) {
+    fs.appendFileSync(path.join(out,'calls.jsonl'),JSON.stringify({at:new Date().toISOString(),model,artifact,options,messages,
+      error:{code:error.code||null,message:error.message,detail:error.detail||null}})+'\n',{mode:0o600});
+    throw error;
+  }
   assertOwnership();
   const placement=(await get('/api/ps')).models?.find(m=>m.name===model);
   if(!result.error && (!placement || placement.size_vram<placement.size
@@ -125,7 +135,7 @@ try {
   const memory=Number(/^MemAvailable:\s+(\d+)/m.exec(fs.readFileSync('/proc/meminfo','utf8'))?.[1])*1024;
   const disk=fs.statfsSync(out);if(memory<8*2**30 || disk.bavail*disk.bsize<2*2**30)throw new Error('HOST_HEADROOM_INSUFFICIENT');
   const provider=(await get('/api/version')).version;
-  if(provider!=='0.34.0-intentsmith.2')throw new Error('PROVIDER_VERSION_UNEXPECTED');
+  if(provider!=='0.34.2-intentsmith.1')throw new Error('PROVIDER_VERSION_UNEXPECTED');
   const tags=(await get('/api/tags')).models;
   const identify=name=>{
     const found=tags.find(t=>t.name===name);

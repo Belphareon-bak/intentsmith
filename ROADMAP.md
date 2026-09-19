@@ -254,8 +254,10 @@ s touto roadmapou, platí `DIRECTION.md`.
 > sloučit do jednoho dlouhého pořadníku ani do stovek předvyplněných záznamů.
 
 
-Přejímací brána GPU huntu 2026-09-19: module graph má 1 384 hran,
-3 cykly / 28 členů. Šest konkrétních importů bylo zrevidováno; validace
+Přejímací brána a příprava všech rolí GPU huntu 2026-09-19: module graph má 1 386 hran,
+3 cykly / 28 členů. K šesti importům přejímky přibyly dvě revidované hrany:
+role runner → společný runner (zachování neplatného skóre) a role suites →
+sémantický hodnotitel (jediný protokol otevřených odpovědí). Validace
 přejímky a protokol jsou v [packetu](docs/review/2026-09-19-EVALUATION-ACCEPTANCE-GATE.md).
 
 Projektový flow a hunt katalog 2026-09-18: module graph má 1 379 hran,

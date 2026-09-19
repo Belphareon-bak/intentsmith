@@ -274,7 +274,7 @@ if(mode==='--replay') {
     decision:{method:'hoeffding-kl-bounded-groups',alpha:.05,minimumBenefit:.05,
       nonInferiorityMargin:.05,minimumSpeedup:1.25,allowSpeedDecision:false},
     profile:{numCtx:16384,numPredict:4096,temperature:.1,topP:.9,callTimeoutMs:300000,
-      providerVersion:'0.34.0-intentsmith.2',parallelism:1,maxVramBytes:22000000000,vramScope:'whole_device_including_desktop',
+      providerVersion:'0.34.2-intentsmith.1',parallelism:1,maxVramBytes:22000000000,vramScope:'whole_device_including_desktop',
       minimumPromptTokens:10000,minimumGeneratedTokens:2048,samplingMs:250,requiredGpuPlacement:'size_vram >= size',
       nativeAst:'C3 built-in native safety fallback; every changed JS file additionally checked by Node 22 before all executable oracles.'},
     oracleAcceptanceSha256:hash(fs.readFileSync(path.join(out,'oracle-acceptance.json'))),

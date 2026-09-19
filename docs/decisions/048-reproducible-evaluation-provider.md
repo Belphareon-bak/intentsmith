@@ -130,3 +130,30 @@ tohoto profilu. Retence musí mít přijatý profil a prokázanou ztrátu v kaž
 použitelné roli. `decisionReady` neplyne z počtu úloh; neověřené prototypy
 zůstávají průzkumné. Legacy `allowRemoval` na jednotlivém candidate trialu
 neopravňuje k mazání; běžný hunt používá samostatnou retenční autoritu.
+
+
+## Navazující upstream 0.34.2, 19. 9. 2026
+
+Výchozí recept je nyní `v0.34.2`, upstream
+`dfabde4539e42ba1e1eab50a3a50b88aea7958a0`, patchovaný zdroj
+`cd1553287618f6583c793fc4e5f9199b5bd8e894`, provider
+`0.34.2-intentsmith.1`. Oba patche jsou v
+`patches/ollama/0004-v0.34.2-attested-complete-responses.patch`.
+Dva nezávislé cgo build cache a reprodukce verzovaným skriptem poskytly
+SHA-256 `2b98fceffbc6d5d97a6e96ddfd46c597cee4fa06a03d740fdb74dd9a34ff0f92`.
+Nativní upstream archiv má SHA-256
+`e155b83589986d2c581fdbf1381ea3ebdb16549883679cd5a0627f7cdc05b12b`.
+Regrese `go test ./llm -run 'Test.*Completion' -count=1` prošla.
+
+Runtime v uživatelském adresáři byl sestaven a instalován pro izolovaný
+sidecar. Toto není potvrzení systémového upgradu na portu 11434 ani
+předpovědní platnosti hodnocení. Systémový instalační skript nadále
+vyžaduje root autentizaci, klid GPU a uchovává rollback. Konkrétní
+fyzická měření a jejich omezení jsou v závěrečném review huntu.
+
+Upstream [0.34.1](https://github.com/ollama/ollama/releases/tag/v0.34.1)
+mění detekci opakovaných tokenů a načítání katalogových údajů;
+[0.34.2](https://github.com/ollama/ollama/releases/tag/v0.34.2)
+aktualizuje llama.cpp a opravuje dlouhé generování MLX. Samotná dostupnost
+nové verze neprokazuje kompatibilitu starých měření. Starší recepty zůstaly
+explicitně dostupné přes `OLLAMA_PROVIDER_TAG`/`OLLAMA_PROVIDER_REVISION`.

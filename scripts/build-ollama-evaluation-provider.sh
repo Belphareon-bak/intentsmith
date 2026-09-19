@@ -15,7 +15,7 @@ go_bin=$(command -v "${GO_BIN:-go}") || {
   echo "Expected Go 1.26.7 for linux/amd64." >&2
   exit 2
 }
-provider_tag=${OLLAMA_PROVIDER_TAG:-v0.34.0}
+provider_tag=${OLLAMA_PROVIDER_TAG:-v0.34.2}
 provider_revision=${OLLAMA_PROVIDER_REVISION:-$([[ "$provider_tag" == v0.34.0 ]] && echo 2 || echo 1)}
 [[ "$provider_revision" == 1 || ( "$provider_tag" == v0.34.0 && "$provider_revision" == 2 ) ]] || {
   echo "Unsupported provider revision." >&2; exit 2
@@ -38,6 +38,14 @@ expected_source=e8c2d86c3a056b58031c77ec5141a8ecd7cf923a
 expected_binary=8883245b864485a74ecccf62c4ce17d4538816cde4e37ea2107c2204d1d04ca7
 patch_name=0002-v0.34.0-chat-digest-provider-version.patch
 source_epoch=1789160400
+;;
+v0.34.2)
+provider_version=0.34.2-intentsmith.1
+expected_base=dfabde4539e42ba1e1eab50a3a50b88aea7958a0
+expected_source=cd1553287618f6583c793fc4e5f9199b5bd8e894
+expected_binary=2b98fceffbc6d5d97a6e96ddfd46c597cee4fa06a03d740fdb74dd9a34ff0f92
+patch_name=0004-v0.34.2-attested-complete-responses.patch
+source_epoch=1789825500
 ;;
 *) echo "Unsupported provider tag: $provider_tag" >&2; exit 2 ;;
 esac

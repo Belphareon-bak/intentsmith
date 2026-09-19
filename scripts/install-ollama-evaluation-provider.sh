@@ -5,8 +5,8 @@ set -euo pipefail
 [[ $# == 2 && $EUID == 0 ]] || { echo 'Usage (as root): install-ollama-evaluation-provider.sh PATCHED_BINARY UPSTREAM_ARCHIVE' >&2; exit 2; }
 provider_binary=$(realpath -- "$1")
 provider_archive=$(realpath -- "$2")
-printf '%s  %s\n' 3c22a0cfb46a9ea38fd4dba6746a022be04f5ada21a529e83c9380a5f0547b9d "$provider_binary" | sha256sum --check
-printf '%s  %s\n' cf95886728959aa09910bb34de5cca1cc5a8f68003b5597197d3f2c2d57c0804 "$provider_archive" | sha256sum --check
+printf '%s  %s\n' 2b98fceffbc6d5d97a6e96ddfd46c597cee4fa06a03d740fdb74dd9a34ff0f92 "$provider_binary" | sha256sum --check
+printf '%s  %s\n' e155b83589986d2c581fdbf1381ea3ebdb16549883679cd5a0627f7cdc05b12b "$provider_archive" | sha256sum --check
 [[ $(uname -m) == x86_64 ]] || exit 2
 python3 - <<'PY'
 import json,urllib.request,subprocess
@@ -16,7 +16,7 @@ p=subprocess.check_output(['nvidia-smi','--query-compute-apps=pid','--format=csv
 assert not p.strip(), 'GPU has active compute work'
 PY
 install -d -m 755 /opt/intentsmith/ollama
-provider_destination=/opt/intentsmith/ollama/0.34.0-intentsmith.2
+provider_destination=/opt/intentsmith/ollama/0.34.2-intentsmith.1
 [[ ! -e "$provider_destination" ]] || { echo 'Destination already exists; inspect it before retrying.' >&2; exit 1; }
 provider_staging=$(mktemp -d /opt/intentsmith/ollama/.install-XXXXXX)
 provider_dropin=/etc/systemd/system/ollama.service.d/50-intentsmith-response-digest.conf
@@ -43,7 +43,7 @@ mv -- "$provider_staging" "$provider_destination"
 cat > "$provider_dropin" <<'CONFIG'
 [Service]
 ExecStart=
-ExecStart=/opt/intentsmith/ollama/0.34.0-intentsmith.2/bin/ollama serve
+ExecStart=/opt/intentsmith/ollama/0.34.2-intentsmith.1/bin/ollama serve
 Environment="OLLAMA_HOST=127.0.0.1:11434"
 CONFIG
 systemctl daemon-reload
@@ -58,7 +58,7 @@ for i in range(60):
  except Exception:
   if i==59: raise
   time.sleep(.5)
-assert version=='0.34.0-intentsmith.2',version
+assert version=='0.34.2-intentsmith.1',version
 models=json.load(urllib.request.urlopen(base+'/api/tags',timeout=5))['models']
 assert models, 'Existing model inventory disappeared'
 m=models[0]

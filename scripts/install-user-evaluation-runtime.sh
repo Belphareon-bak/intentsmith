@@ -4,9 +4,9 @@ set -euo pipefail
 [[ $# == 2 || $# == 3 ]] || { echo 'Usage: install-user-evaluation-runtime.sh PATCHED_BINARY UPSTREAM_ARCHIVE [NEW_DESTINATION]' >&2; exit 2; }
 provider_binary=$(realpath -- "$1")
 provider_archive=$(realpath -- "$2")
-provider_destination=${3:-${XDG_DATA_HOME:-$HOME/.local/share}/intentsmith/evaluation-provider/0.34.0-intentsmith.2}
-printf '%s  %s\n' 3c22a0cfb46a9ea38fd4dba6746a022be04f5ada21a529e83c9380a5f0547b9d "$provider_binary" | sha256sum --check
-printf '%s  %s\n' cf95886728959aa09910bb34de5cca1cc5a8f68003b5597197d3f2c2d57c0804 "$provider_archive" | sha256sum --check
+provider_destination=${3:-${XDG_DATA_HOME:-$HOME/.local/share}/intentsmith/evaluation-provider/0.34.2-intentsmith.1}
+printf '%s  %s\n' 2b98fceffbc6d5d97a6e96ddfd46c597cee4fa06a03d740fdb74dd9a34ff0f92 "$provider_binary" | sha256sum --check
+printf '%s  %s\n' e155b83589986d2c581fdbf1381ea3ebdb16549883679cd5a0627f7cdc05b12b "$provider_archive" | sha256sum --check
 [[ ! -e "$provider_destination" ]] || { echo "Destination already exists: $provider_destination" >&2; exit 1; }
 mkdir -p -- "$(dirname -- "$provider_destination")"
 provider_staging=$(mktemp -d "$(dirname -- "$provider_destination")/.staging-XXXXXX")
