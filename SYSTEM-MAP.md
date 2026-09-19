@@ -1,13 +1,17 @@
 # IntentSmith — mapa systému
 
-**Desktopové projektové kroky, 2026-09-19:** nasazeno `df1fc3b7`.
-Celý původní cíl, kontext existujících modulů pouze ke čtení, pozorované
+**Desktopové projektové kroky, 2026-09-19:** nasazeno `d22f64ac`.
+Celý původní cíl a aktuální oprava mají přednost před staršími zprávami.
+Kontext existujících modulů pouze ke čtení, pozorované
 adresáře a jedna strukturální oprava plánu. General i Desktop mají kanonická
 pravidla; inventura podporuje i přesné souborové kořeny se stejnými limity.
-M2 66/66, projekt 22/22, Studio 39/39; celý profil 359 PASS / 1 FAIL (Gate 0).
+M2 66/66, projekt 23/23, Studio 39/39; celý profil 359 PASS / 1 FAIL (Gate 0).
 Nové integrační testy projdou skutečným základem → draftem → sandboxem → commitem;
 generátor je v nich fixture. SystemSmith_1 z reálného modelu zůstává
 **APPLICATION_INCOMPLETE**, produkční systemd sandbox BLOCKED AppArmorem.
+Modelové návrhy včetně posledního s 14/14 vlastními testy odmítla nezávislá
+kontrola; žádný utility kód není aplikovaný. Zůstává práce na kvalitě oprav
+modelu i všech funkcích monitoru, nikoli pouze na provozním sandboxu.
 Neúspěšné modelové návrhy i běhy auditu jsou zachované. REVIEW_PENDING.
 [Průchod, opravy a zachované neúspěchy](docs/review/2026-09-19-SYSTEMSMITH-PROJECT-FLOW.md).
 

@@ -2,8 +2,8 @@
 
 Stav: **IMPLEMENTATION_VERIFIED / REVIEW_PENDING / APPLICATION_INCOMPLETE**.
 Autorita: operátorovo zadání samostatně vytvořit SystemSmith_1, nikoli kopii
-existujícího SystemSmithu. Review rozsah `ee5f36b9..df1fc3b7`; nasazený runtime
-`df1fc3b73d0b588727d434eb71cae0ac6a248840`. GPU hunt ani modelové bindingy
+existujícího SystemSmithu. Review rozsah `ee5f36b9..d22f64ac`; nasazený runtime
+`d22f64ac2328f1c0b109b2fce94c5f7943448033`. GPU hunt ani modelové bindingy
 nejsou změnou tohoto balíku. Vizuální ladění je odložené podle operátora.
 
 ## Co skutečný modelový průchod ukázal
@@ -37,6 +37,12 @@ Důkazy jsou pod `.intentsmith-artifacts/systemsmith-project-20260919/`:
 - **Celý původní cíl:** popis projektu se při výběru kontextu nezkracuje.
   Pokud se nevejde spolu s aktuálním požadavkem, plánování odmítne požadavek
   s vysvětlením. Kontextové okno ani schválený profil D1 se nezvyšovaly.
+- **Priorita aktuální opravy:** po zrušení plánu selhala i krátká připomínka
+  (`15-chat.json`), protože místo zabraly starší úryvky konverzace. Poslední
+  výběrový krok nyní podle potřeby vynechá starší zprávy; celý cíl, aktuální
+  požadavek, pravidla i stav posledního M2 kroku zůstávají zachované. Uložená
+  historie se nemaže, modelový profil se nezvyšuje. Regrese kontroluje i tuto
+  prioritu; `short-repair-budget.json` ukazuje skutečný cíl beze zkrácení.
 - **Pozorované prostředí:** model dostává OS, architekturu, verzi Node a
   povolené kořeny/importy projektu. Senzory zůstávají `not_probed`; povolený
   import není důkaz nainstalované závislosti. Plán mimo kořeny se odmítá ještě
@@ -84,7 +90,7 @@ a ruční Studio modul. Importový graf nemá novou hranu.
 
 ## Ověření
 
-- Projektová spolupráce **22/22**, Studio M2 **39/39**, M1 klient **133/133**.
+- Projektová spolupráce **23/23**, Studio M2 **39/39**, M1 klient **133/133**.
 - M2 application service **66/66**, včetně existujícího kontextu, neexistující
   cesty, traversal, překryvu s cílem, chráněné cesty, velikosti a změny revize.
   Existující reálné bwrap testy této sady běží z IDE testovacího prostředí;
@@ -94,7 +100,7 @@ a ruční Studio modul. Importový graf nemá novou hranu.
   zobrazením kontextového pole a kontrolou závěrečného souhrnu. Tento GUI test
   nepoužíval model ani produkční databázi. Snímky: `desktop-created.png`,
   `readonly-context-composer.png`, `desktop-review-final.png`.
-- Úplný offline/database audit na neměnném `df1fc3b7`: **359 PASS / 1 FAIL**,
+- Úplný offline/database audit na neměnném `d22f64ac`: **359 PASS / 1 FAIL**,
   360 programů. Jediný non-PASS `nightly-orchestrator-self-test`:
   `registry hash differs from the reviewed Gate 0 policy`. Verdikt zůstává
   **FAIL**, operátorská pečeť se neupravovala.
@@ -116,23 +122,29 @@ Vedle pečeti selhal `m7-durable-rate-limiter` při souběhu procesů na
 profil také PASS. M7 kód se neměnil; příčina časově ojedinělého selhání není
 prokázaná. Tento neúspěšný běh se nezaměňuje za čistý nejnovější profil.
 
-Mezilehlé úplné profily `c0eeec50` a `ec78722b` mají shodně 359 PASS / 1 FAIL.
+Mezilehlé úplné profily `c0eeec50`, `ec78722b` a `df1fc3b7` mají shodně
+359 PASS / 1 FAIL.
 Nejnovější důkaz:
-`gate-file-roots/systemsmith-flow-df1fc3b7/report.json` + `inventory.json` a 360 logů.
+`gate-context-priority/systemsmith-flow-d22f64ac/report.json` + `inventory.json` a 360 logů.
 SHA-256 inventář relevantních souborů: `evidence-sha256.json`.
 
 ## Nasazení, data a aktuální stav utility
 
 Instalátor pořídil zálohu
-`~/.local/state/intentsmith/installation-backups/2026-09-19T06-12-13-579Z`.
+`~/.local/state/intentsmith/installation-backups/2026-09-19T06-29-12-249Z`.
 Backend je aktivní, autentizované HTTP 200, bez autentizace 401. DB
 `quick_check=ok`, bez FK chyb. Kontrola proti záloze potvrdila shodné zprávy,
 konverzace, evaluace, rozhodnutí, bindingy a paměťové tabulky; projektům mohl
 pouze startup posunout `last_active`. Administrátorský credential zachován.
 Následující tvorba/archivace testovacího projektu je samostatně zaznamenaná.
-Důkaz: `deployment-file-roots/deployment.json`, `desktop-current.json`,
+Důkaz: `deployment-context-priority/deployment.json`, `desktop-current.json`,
 `first-attempt-archived.json`. Starší instalační důkazy a skutečně nainstalované
-release kopie zůstávají zachované pro audit/rollback.
+release kopie zůstávají zachované pro audit/rollback. Úklid se týkal pouze
+vlastních nikdy nenainstalovaných mezikandidátů (`unused-release-cleanup.json`,
+`unused-policy-release-cleanup.json`). Observer prvního post-deploy čekání
+omylem počítal vlastní keep-alive HTTP spojení; byl ukončen pouze tento
+observer, nový správně odlišil vlastní spojení a zaznamenal klid. Backend se
+kvůli tomu znovu neinstaloval ani neukončoval. Logy zůstávají zachované.
 
 Původní kontrolní projekt id 12 byl se všemi konverzacemi archivován. Jeho
 čistý výchozí Git strom se zachoval v `first-attempt-project/`, nic se nemazalo.
@@ -168,10 +180,49 @@ Plán `lifecycle:4e9b8542-cbb4-4e3a-82c2-16a275303547` byl zrušen před produk�
 zápisem (`14-cancelled.json`); model dostal konkrétní opravnou připomínku.
 Soukromé sondy nejsou schválením M2 ani důkazem spuštění ze systemd.
 
+`16-chat.json` na opraveném runtime skutečně prošel: původní cíl a aktuální
+oprava se vešly do 5200 B při limitu 5376 B, profil D1 zůstal 4096. D1 však
+v plánu zaměnil steal/guest a vynechal procentní výpočet. Operátor (Codex)
+v editovatelném blueprintu upřesnil přirozené instrukce a akceptační kritéria;
+`17-blueprint-review.json` obsahuje původní i upravený plán. Nepsal zdrojový
+kód utility; veškerý `afterContent` vytvořil stávající CODE model.
+
+Návrh `17` prošel **12/12 modelových testů** pod skutečným sandbox providerem
+v soukromé kopii. Stejné nezávislé CPU sondy tentokrát prošly **3/3**; skutečné
+read-only čtení /proc vrátilo CPU i RAM, MemTotal odpovídal `os.totalmem()`.
+Další kontrola ale odhalila přijetí špatných jednotek RAM a použití dynamických
+importů v rozporu se zadáním. Po `18-cancelled.json` byl model znovu požádán
+o opravu (`19-blueprint-review.json`). To není důkaz plně autonomního builderu;
+jde o vedený modelový průchod s nezávislou kritikou návrhu i výsledků.
+
 Fyzické čtení hosta potvrzuje /proc zdroje i hwmon ventilátory nct6687.
 `host-sensor-observation.json` obsahuje konkrétní hodnoty a čas, nikoli tvrzení
 modelu. Požadavky, které ještě nejsou implementované, vede
 `requirements-progress.json`.
+
+Poslední opravné pokusy nepřinesly přijatelný celek:
+
+- `19-draft.json`: modelové testy **14/14 PASS**, ale nezávislá sonda zjistila,
+  že CPU parser přijme poškozený poslední čítač `1x` a vypočte 52,38 % místo
+  `null` (`19-prefix-probe.json`). Plán je zrušený (`19-cancelled.json`).
+  Zachovaný lokální preflight `19-operator-preflight-rejected.log` navíc
+  ukazuje příliš dlouhou operátorskou instrukci odmítnutou ještě před HTTP;
+  kratší text již limit splnil. Nešlo o chybu modelové inference.
+- `20-draft.json`: operátor omylem poslal odvozené atributy `focusedTest`;
+  API je správně odmítlo HTTP 400 před inferencí. Následující požadavek tvar
+  opravil; předchozí neúspěch zůstává v důkazech.
+- `21-draft.json`: nová verze pouze CPU opravila číselné tokeny, ale změnila
+  rozhraní injektovaného readeru (volání bez `/proc/stat`, `utf8`) a přijala
+  řádek `cpu0` jako souhrnné CPU. `21-review.json` reprodukuje obě regrese.
+  Také tento neúplný návrh byl zrušen před schválením (`21-cancelled.json`).
+
+**Žádný modelový návrh utility nebyl přijat ani aplikován.** Aktivní projekt
+zůstává čistý na scaffold commitu `4a6072f`; jeho jediná ruční úprava se týkala
+výše doloženého pořadí stejných pravidel. Čtrnáct zelených vlastních testů
+modelu není důkaz správnosti všech požadavků. Regenerování dosud nepřijatého
+souboru také nezaručuje zachování předchozích oprav. Přidání instrukcí do
+promptu tuto schopnost samo nedokládá. Další práce musí ověřovat současně
+všechny nalezené případy a porovnávat opravený návrh s předchozím.
 
 ## Co brání dokončení celého průchodu
 
@@ -184,10 +235,13 @@ modelu. Požadavky, které ještě nejsou implementované, vede
    se nevypínala. Důkaz: `systemd-sandbox.log`, `systemd-sandbox-final.log`,
    `systemd-sandbox-df1fc3b7.log`.
 2. **Kapacita a kvalita modelu:** schválený profil D1 je 4096. Celý původní cíl
-   zůstává zachovaný, delší další připomínka se však nemusí vejít. Plánování
+   zůstává zachovaný, delší další připomínka se však nemusí vejít ani po
+   vynechání starších zpráv. Plánování
    a testové assertions stále vyžadují kritickou kontrolu; nikoli souhlas se
    vším, co model navrhne. GPU blokace byla dočasná a zámek se neobcházel.
-3. **Aplikace:** po odstranění provozní překážky znovu projít modelový návrh,
+3. **Aplikace:** nezávisle na AppArmoru zůstává nevyřešená kvalita výstupu
+   a zachování oprav mezi modelovými iteracemi. Samotná instalace profilu
+   tedy aplikaci nedokončí. Je třeba znovu projít modelový návrh,
    přesnou změnu, behaviorální testy a opravy; následně všechny metriky,
    historii 1m–1h, perzistentní nastavení, GUI, procesy a integraci do nabídky.
    Změřit režii a prověřit chybějící senzory, restart i delší běh.
