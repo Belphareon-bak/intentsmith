@@ -3527,6 +3527,10 @@ function _taskResultNotes(t){
     if(d.applied===false)notes.push('Opravu nelze použít');
     if(Number.isFinite(d.targeted))notes.push('Úspěšné cílové testy: '+(d.targetedPassed||0)+'/'+d.targeted);
     if(d.regressions)notes.push('Nové regrese: '+d.regressions);
+    if(Number.isFinite(d.contentScore))notes.push('Obsah: '+_taskScore(d.contentScore));
+    if(Number.isFinite(d.formatScore))notes.push(d.formatScore===1?'Požadovaný formát splněn':'Požadovaný formát nesplněn · obsah se uvádí odděleně');
+    ((d.contractChecks&&d.contractChecks.checks)||[]).filter(function(c){return !c.passed;}).forEach(function(c){notes.push('Porušení kontraktu: '+c.name+(c.reason?' · '+c.reason:''));});
+    (d.criteria||[]).filter(function(c){return c.score===0;}).forEach(function(c){notes.push(c.id+': očekáváno '+JSON.stringify(c.expected)+', vráceno '+JSON.stringify(c.observed));});
     var parts=d.parts||[];
     if(parts.length)notes.push('Splněné kontroly: '+parts.filter(function(x){return x.ok;}).length+'/'+parts.length);
     var failed=parts.filter(function(x){return !x.ok;}).map(function(x){return x.id;});

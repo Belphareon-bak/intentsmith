@@ -652,5 +652,16 @@ await testAsync('scoring refresh rejects HTTP errors and recovers on the next ex
   assertEqual(context._evaluationLoading, false);
 });
 
+
+test('shipped score detail exposes preservation failures and separates content from format', () => {
+  const body=studioSource.slice(studioSource.indexOf('var _evaluationRoleFilter='),studioSource.indexOf('/* ═',studioSource.indexOf('var _evaluationRoleFilter=')));
+  const t={details:[{targeted:8,targetedPassed:8,contentScore:1,formatScore:0,contractChecks:{passed:false,checks:[{name:'shared reader MODEL_VALIDATION',passed:false,reason:'owner rejected'}]},criteria:[{id:'count',score:0,expected:12,observed:8}]}]};
+  const notes=runInNewContext(body+';_taskResultNotes(t)',{t});
+  assert(notes.some(n=>n.includes('MODEL_VALIDATION')&&n.includes('owner rejected')));
+  assert(notes.some(n=>n.includes('Obsah: 100.0 %')));
+  assert(notes.some(n=>n.includes('formát nesplněn')));
+  assert(notes.some(n=>n.includes('count: očekáváno 12, vráceno 8')));
+});
+
 const results = summary();
 process.exit(results.failed > 0 ? 1 : 0);
