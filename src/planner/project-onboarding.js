@@ -117,7 +117,19 @@ export async function inspectProject(project, { signal } = {}) {
     setup.policy = { roots: policy.layers?.flatMap(layer => layer.roots) || [],
       externalImports: policy.externalImports || [] };
   }
+  const directories = new Set(['.', ...names.map(name => path.posix.dirname(name))]);
+  // Include empty permitted roots: the ordinary file manifest cannot list
+  // public/ or scripts/ until the first file is created there.
+  for (const root of setup.policy?.roots || []) {
+    if (typeof root !== 'string' || root.includes('\\') || path.isAbsolute(root) || root.split('/').some(part => !part || part === '.' || part === '..')) continue;
+    const candidate = path.join(canonicalRoot, root);
+    try {
+      const st = await fs.lstat(candidate);
+      if (st.isDirectory() && !st.isSymbolicLink() && await fs.realpath(candidate) === candidate) directories.add(root);
+    } catch { /* An unavailable policy root is not an existing directory. */ }
+  }
   return { projectId: project.id, revision: manifest.revision, fileCount: regular.length,
+    directories: [...directories].sort().slice(0, 64),
     files: names.slice(0, 250), fileListTruncated: names.length > 250, excerpts, facts, gaps,
     setup, scope: 'Bounded static inspection; no project commands, tests or dependency installation.' };
 }

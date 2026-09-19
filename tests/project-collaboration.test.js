@@ -155,6 +155,50 @@ test('planning phrases do not turn a clarification into a directory-list approva
   assert.equal(detectFileIntent('přečti src/index.mjs').filePath, 'src/index.mjs');
 });
 
+test('a missing directory is repaired once with observed directories and the same complete goal', async t => {
+  const project = await fixture(t); let calls = 0;
+  const response = await discussProject('Build my monitor', { project }, { generate: async ({ prompt }) => {
+    const input = JSON.parse(prompt); calls++;
+    assert.equal(input.request, 'Build my monitor');
+    assert.equal(input.project.description, project.description);
+    assert.ok(input.analysis.directories.includes('public'));
+    if (calls === 1) {
+      const bad = plan(); bad.files[0].path = 'src/config/index.mjs';
+      bad.files[1].dependsOn = ['src/config/index.mjs'];
+      return generated({ reply: 'Initial plan', plan: bad });
+    }
+    assert.equal(input.planFeedback.code, 'PROJECT_PLAN_PARENT_UNAVAILABLE');
+    assert.match(input.planFeedback.message, /src\/config/);
+    assert.doesNotMatch(input.planFeedback.message, /\/tmp\//);
+    return generated({ reply: 'Use the existing src directory.', plan: plan() });
+  } });
+  assert.equal(calls, 2); assert.equal(response.metadata.inspection.planningAttempts, 2);
+  assert.equal(response.metadata.projectWorkProposal.draft.files[0].path, 'src/index.mjs');
+  assert.equal(execFileSync('git', ['status', '--porcelain'], { cwd: project.path, encoding: 'utf8' }), '');
+  await assert.rejects(fs.stat(path.join(project.path, 'src/config')), { code: 'ENOENT' });
+});
+
+test('structural repair stops after two invalid model plans without effects', async t => {
+  const project = await fixture(t); let calls = 0;
+  await assert.rejects(discussProject('Build', { project }, { generate: async () => {
+    calls++; const bad = plan(); bad.files.pop(); return generated({ reply: 'Missing test', plan: bad });
+  } }), { code: 'PROJECT_PLAN_INVALID' });
+  assert.equal(calls, 2);
+  assert.equal(execFileSync('git', ['status', '--porcelain'], { cwd: project.path, encoding: 'utf8' }), '');
+});
+
+test('provider errors and incomplete generation never trigger structural retries', async t => {
+  const project = await fixture(t);
+  for (const failure of ['provider', 'length']) {
+    let calls = 0;
+    await assert.rejects(discussProject('Build', { project }, { generate: async () => {
+      calls++; if (failure === 'provider') throw new Error('provider down');
+      return { ...generated({ reply: 'Partial', plan: plan() }), finishReason: 'length' };
+    } }));
+    assert.equal(calls, 1);
+  }
+});
+
 test('workspace changes during planning invalidate the suggestion before it reaches the composer', async t => {
   const project = await fixture(t);
   await assert.rejects(discussProject('build', { project }, { generate: async () => {
