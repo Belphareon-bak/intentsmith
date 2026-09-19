@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "role": "CODE",
   "metric": "completed_without_repair_help",
-  "lockedAt": "2026-09-19T07:30:56.531Z",
+  "lockedAt": "2026-09-19T07:24:35.876Z",
   "bindingDb": "/home/belphareon/Projects/intentsmith/data/c3.db",
   "bindingAtLock": {
     "role": "CODE",
@@ -12,7 +12,6 @@
     "binding_operation_id": "op_4e6c3cf8-c8d3-45d2-bc4f-a18def25b619",
     "applied_at": "2026-09-19 06:29:13"
   },
-  "predecessorPlanSha256": "537ae6d68a7c9105528a49e1e9a1a7f5c0e18090dac3e10550d109e17d95d82e",
   "c3Revision": "379c2e4b6dea0fd0cd0fb19df67c3454c267fd49",
   "independenceStatus": "ASSUMED_GROUPS_NOT_PROVEN_INDEPENDENCE",
   "scope": "Localized historical C3 repair using its unchanged execution loop; no Studio journey or whole-project success claim.",
@@ -54,11 +53,11 @@
     "samplingMs": 250,
     "requiredGpuPlacement": "size_vram >= size",
     "nativeAst": "C3 built-in native safety fallback; every changed JS file additionally checked by Node 22 before all executable oracles.",
-    "promptSha256": "ca69e1e48f4befcc434a97457b6d379ea801dbf93bbf6f063ef15651115f7919"
+    "promptSha256": "57c886512bfc6ebb1977b20b9fa87a72ecdd12f19845ca4f7ac2b35cd48ef3ec"
   },
   "oracleAcceptanceSha256": "73f4a6cdbbad8278c744dcf2806f2c2132293d2f670a5ca2f5cd6c5d2d4e9800",
   "sourceHashes": {
-    "scripts/manual/c3-code-pilot.mjs": "e201c2a8435f38ba55d9984115174cfd588c31de151b37a1e81dbfd5ea6411ac",
+    "scripts/manual/c3-code-pilot.mjs": "3d3a59c3874a053dce8a177d3f206f0b9a50ce600cc38e3ccd1b5080441716da",
     "scripts/manual/c3-code-pilot-fixtures.mjs": "a534aa8ba469ec6aebc7b48d6419b3610d23275762987906678dbf2ce68e4b36",
     "src/eval/code-pilot-decision.js": "502aeb57e78b53e53f2d4165563d5aabff07d14326311dfef55d904bf5818a0b",
     "src/eval/model-evaluation-runner.js": "83b6cb29a438811d0533ec1ff0f0b7117a516cde882f63f77eefdac55b56a095",
@@ -209,5 +208,5 @@
       "contentSha256": "50b4ff296bb87341f3d157ab596b06719120b89f0a0018cae0a70ef91c52079d"
     }
   ],
-  "planSha256": "43a1e9172ea125351de930f8805b48bccd32d647e24d4043931aaafc95b78c01"
+  "planSha256": "537ae6d68a7c9105528a49e1e9a1a7f5c0e18090dac3e10550d109e17d95d82e"
 }

@@ -216,7 +216,7 @@ if(mode==='--prepare') {
   if(binding?.model!=='qwen3.8:latest' || binding.model_digest_sha256!=='22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643'
     || binding.verification_status!=='VERIFIED')throw new Error('CURRENT_CODE_BINDING_CHANGED');
   const plan={schemaVersion:1,role:'CODE',metric:'completed_without_repair_help',lockedAt:new Date().toISOString(),
-    bindingDb:opt('binding-db'),bindingAtLock:binding,
+    bindingDb:opt('binding-db'),bindingAtLock:binding,predecessorPlanSha256:opt('supersedes')||null,
     c3Revision:revision,independenceStatus:'ASSUMED_GROUPS_NOT_PROVEN_INDEPENDENCE',
     scope:'Localized historical C3 repair using its unchanged execution loop; no Studio journey or whole-project success claim.',
     incumbent:{model:'qwen3.8:latest',digest:'22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643'},
@@ -236,7 +236,7 @@ if(mode==='--prepare') {
     node:{version:process.version,sha256:hash(fs.readFileSync(process.execPath))},
     c3LockSha256:hash(fs.readFileSync(path.join(c3,'package-lock.json'))),
     scenarios:acceptance.cases.map(c=>c.manifest)};
-  const lines=Array.from({length:1000},(_,i)=>`Record ${i}: function item_${i}(value) { if (value === null) return 0; return value + ${i}; }`);
+  const lines=Array.from({length:350},(_,i)=>`Record ${i}: function item_${i}(value) { if (value === null) return 0; return value + ${i}; }`);
   const longPrompt='Memory qualification, not a scored task. Read all reference records below. Then write 600 numbered, detailed integration test cases, each at least 20 words. Continue until the response budget is exhausted; do not summarize.\n'+lines.join('\n')+'\nNow write the 600 detailed cases.';
   fs.writeFileSync(path.join(out,'profile-input.txt'),longPrompt);plan.profile.promptSha256=hash(longPrompt);
   plan.planSha256=codePilotPlanHash(plan);validateCodePilotPlan(plan);save('plan.json',plan);

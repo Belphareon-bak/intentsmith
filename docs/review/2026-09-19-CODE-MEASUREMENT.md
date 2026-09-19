@@ -10,7 +10,7 @@ nepovyšuje na rozhodovací data. Aktuální ověřený CODE binding je
 jako druhý v průzkumné sérii, nikoli podle výsledku tohoto duelu.
 
 [Uzamčený plán](evidence/2026-09-19-code-decision-plan.json), SHA-256
-`537ae6d68a7c9105528a49e1e9a1a7f5c0e18090dac3e10550d109e17d95d82e`,
+`43a1e9172ea125351de930f8805b48bccd32d647e24d4043931aaafc95b78c01`,
 obsahuje přesné artefakty, otisky runneru, testů a vstupních kontextů, rozpočet,
 provider i Node. [Přejímka orákul](evidence/2026-09-19-code-c3-oracles.json)
 zachycuje osm reálných historických oprav C3 `379c2e4` a jejich alternativy.
@@ -62,6 +62,25 @@ vyčerpání rozpočtu dává `OPERATIONAL_FAILURE / 0`, porucha provideru
 `ENVIRONMENT_INVALID / null`. Profilová nezpůsobilost blokuje kvalifikaci,
 nikdy se nepoužije k odstranění artefaktu. Po měření se doplní skutečný
 výsledek; zatím není doporučena výměna CODE.
+
+### Zachovaná nepřijatá paměťová sonda a oprava jejího vstupu
+
+První uzamčený [plán v1](evidence/2026-09-19-code-decision-plan-v1.json)
+obsahoval nadměrně dlouhý vstup. Provider jej zkrátil na 8 194 / 8 195 tokenů;
+oba modely vytvořily 4 096 tokenů, ale nesplnily požadovaných alespoň 10 000
+vstupních tokenů. Naměřené špičky celé karty byly 21,152 / 21,146 GB a placement
+plně na GPU. [Původní výsledek](evidence/2026-09-19-code-profile-v1.json)
+zůstává `PROFILE_NOT_QUALIFIED`; **žádný ze 48 kvalitativních pokusů se nespustil**.
+Příčina byla ověřena v lokálním připnutém zdroji Ollamy
+`llm/llama_server.go:completionPromptForRequest/contextShiftPromptLimit`:
+přesáhne-li vstup celý kontext, první zkrácení uvolní jeho polovinu.
+
+Plán v2 proto zkracuje technickou sondu z 1 000 na 350 vstupních záznamů.
+Požadavek ≥10 000 vstupních / ≥2 048 výstupních tokenů, kontext 16 384,
+limit 22 000 000 000 bajtů celé karty, modely, všech osm úloh, rozpočty,
+metriky i rozhodovací meze zůstaly stejné. Jde o opravu vstupu před jakýmkoli
+kvalitativním výsledkem; v1 se nepřepisuje a jeho nespustené pokusy nejsou
+falešné nuly. Finální měření používá nový uzamčený plán v2 uvedený výše.
 
 ## Uzavřená průzkumná série
 
