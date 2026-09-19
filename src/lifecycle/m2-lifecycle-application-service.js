@@ -730,8 +730,9 @@ export function createM2LifecycleApplicationService(dependencyValues) {
       contextFiles.set(target, { path: target, content: new TextDecoder('utf-8', { fatal: true }).decode(observedFile.bytes),
         state: 'read_only', contentDigest: entry.contentDigest });
     }
-    const generationBudget = generateCodeDraft === defaultGenerateCodeDraft
-      ? await codeDraftModelBudget(!!compiled.buildSteps) : null;
+    const generationBudgets = generateCodeDraft === defaultGenerateCodeDraft
+      ? await Promise.all([codeDraftModelBudget(!!compiled.buildSteps),
+        codeDraftModelBudget(!!compiled.buildSteps, true)]) : null;
     const changes = [];
     const steps = compiled.buildSteps ?? files.map((_, index) => ({ index }));
     const promptFor = index => buildCodeDraftPrompt(compiled, files[index].content, index,
@@ -750,7 +751,7 @@ export function createM2LifecycleApplicationService(dependencyValues) {
     files.forEach((_, index) => {
       if (steps.find(step => step.index === index).reusePrevious) return;
       const prompt = promptFor(index);
-      if (generationBudget) assertCodeDraftModelBudget(prompt, generationBudget);
+      if (generationBudgets) assertCodeDraftModelBudget(prompt, generationBudgets[prompt.repairBuild ? 1 : 0]);
     });
     for (const { index, reusePrevious } of steps) {
       check();
@@ -769,7 +770,8 @@ export function createM2LifecycleApplicationService(dependencyValues) {
         throw error;
       }
       check();
-      const change = compileCodeDraftResult(compiled, result, index).changes[0];
+      const change = compileCodeDraftResult(compiled, result, index,
+        previousFiles.get(files[index].path)?.content ?? null).changes[0];
       if (change.afterContent === files[index].content) {
         throw codeDraftError('OUTPUT_UNCHANGED', 'Model nenavrhl změnu vybraného souboru.');
       }

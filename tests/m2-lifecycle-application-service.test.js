@@ -22,7 +22,7 @@ import {
   createDefaultM2LifecycleApplicationService,
 } from '../src/lifecycle/m2-lifecycle-application-service.js';
 import { suite, testAsync, summary } from './harness.js';
-import { compileCodeDraftInput } from '../src/lifecycle/m2-code-draft.js';
+import { compileCodeDraftInput, compileCodeDraftResult, buildCodeDraftPrompt, assertCodeDraftModelBudget } from '../src/lifecycle/m2-code-draft.js';
 import { initializeNewProject } from '../src/planner/project-onboarding.js';
 
 const PROJECT_ID = 27;
@@ -1129,7 +1129,62 @@ for (const defect of [null, 'missing', 'traversal', 'target-overlap', 'secret', 
   });
 }
 
-for (const defect of [null, 'owner', 'origin', 'digest', 'active', 'stale', 'missing-retained', 'repeated']) {
+await testAsync('a compact proposal remains repairable when the original disk file is large', async () => {
+  const original = `/* ${'original scaffold '.repeat(550)} */\nexport const value = 1;\n`;
+  const compiled = compileCodeDraftInput({ instruction: 'Correct the proposed value.',
+    files: [{ path: 'src/app.js', instruction: 'Set value to 3.', dependsOn: [] }],
+    focusedTest: proposal().focusedTest, gitCommit: proposal().gitCommit });
+  const previous = { content: 'export const value = 2;\n',
+    contentDigest: sha('export const value = 2;\n'), state: 'unapplied_proposal' };
+  const repair = buildCodeDraftPrompt(compiled, original, 0, [], previous);
+  assert.doesNotThrow(() => assertCodeDraftModelBudget(repair, { maxPromptBytes: 8742 }));
+  assert.equal(JSON.parse(repair.prompt).onDiskContentDigest, sha(original));
+  assert.equal(JSON.parse(repair.prompt).previousDraft.content, previous.content);
+  // The same large file really exceeds the budget when it is the editable base.
+  assert.throws(() => assertCodeDraftModelBudget(
+    buildCodeDraftPrompt(compiled, original), { maxPromptBytes: 8742 }),
+  { code: 'M2_CODE_DRAFT_CONTEXT_LIMIT_EXCEEDED' });
+});
+
+await testAsync('repair replaces exact independent spans and preserves every other byte', async () => {
+  const compiled = compileCodeDraftInput({ instruction: 'Repair values.',
+    files: [{ path: 'src/app.js', instruction: 'Repair values.', dependsOn: [] }],
+    focusedTest: proposal().focusedTest });
+  const base = '// Česko\nexport const first = 1;\nexport const second = 2;\n';
+  const response = { finishReason: 'stop', content: JSON.stringify({ replacements: [
+    { before: 'second = 2', after: 'second = 3' },
+    { before: 'first = 1', after: 'first = 2' },
+  ] }) };
+  const result = compileCodeDraftResult(compiled, response, 0, base);
+  assert.deepEqual(result.changes, [{ path: 'src/app.js',
+    afterContent: '// Česko\nexport const first = 2;\nexport const second = 3;\n' }]);
+  assert.throws(() => compileCodeDraftResult(compiled, response), { code: 'M2_CODE_DRAFT_OUTPUT_INVALID' });
+});
+
+for (const [name, value, code] of [
+  ['empty replacement set', { replacements: [] }, 'OUTPUT_INVALID'],
+  ['excess replacement count', { replacements: Array(17).fill({ before: '1', after: '2' }) }, 'OUTPUT_INVALID'],
+  ['extra output path', { replacements: [{ before: '1', after: '2' }], path: '/other' }, 'OUTPUT_INVALID'],
+  ['extra replacement key', { replacements: [{ before: '1', after: '2', path: '/other' }] }, 'OUTPUT_INVALID'],
+  ['empty match', { replacements: [{ before: '', after: '2' }] }, 'OUTPUT_INVALID'],
+  ['missing match', { replacements: [{ before: 'missing', after: '2' }] }, 'REPAIR_MATCH_INVALID'],
+  ['ambiguous match', { replacements: [{ before: 'e', after: 'x' }] }, 'REPAIR_MATCH_INVALID'],
+  ['overlapping spans', { replacements: [{ before: 'const value', after: 'x' }, { before: 'value = 1', after: 'y' }] }, 'REPAIR_MATCH_INVALID'],
+  ['sequential rather than original match', { replacements: [{ before: '1', after: '2' }, { before: '2', after: '3' }] }, 'REPAIR_MATCH_INVALID'],
+  ['oversized resulting file', { replacements: [{ before: '1', after: '2'.repeat(16_384) }] }, 'OUTPUT_INVALID'],
+  ['whole-file output in repair mode', { afterContent: 'replacement' }, 'OUTPUT_INVALID'],
+]) {
+  await testAsync(`repair rejects ${name}`, async () => {
+    const compiled = compileCodeDraftInput({ instruction: 'Repair value.',
+      files: [{ path: 'src/app.js', instruction: 'Repair value.', dependsOn: [] }],
+      focusedTest: proposal().focusedTest });
+    assert.throws(() => compileCodeDraftResult(compiled,
+      { finishReason: 'stop', content: JSON.stringify(value) }, 0, 'export const value = 1;\n'),
+    { code: `M2_CODE_DRAFT_${code}` });
+  });
+}
+
+for (const defect of [null, 'owner', 'origin', 'digest', 'active', 'stale', 'missing-retained', 'repeated', 'ambiguous-repair']) {
   await testAsync(`revision preserves reviewed bytes and requires same owned cancelled plan: ${defect ?? 'success'}`, async () => {
     const root = makeProject(); const db = openDatabase(); let calls = 0;
     try {
@@ -1137,13 +1192,16 @@ for (const defect of [null, 'owner', 'origin', 'digest', 'active', 'stale', 'mis
       const service = createService(db, root, makeClock(), { generateCodeDraft: async ({ prompt }) => {
         calls++; const input = JSON.parse(prompt);
         assert.equal(input.path, 'src/app.js');
-        assert.equal(input.beforeContent, 'export const value = 1;\n');
+        assert.equal(Object.hasOwn(input, 'beforeContent'), false);
+        assert.equal(input.onDiskContentDigest, sha('export const value = 1;\n'));
         assert.equal(input.previousDraft.content, 'export const value = 2;\n');
         assert.equal(input.previousDraft.state, 'unapplied_proposal');
         assert.equal(input.previousDraft.contentDigest, sha(input.previousDraft.content));
         assert.equal(input.peerFiles[0].content, retained);
-        return { content: JSON.stringify({ afterContent: defect === 'repeated'
-          ? input.previousDraft.content : 'export const value = 3;\n' }), finishReason: 'stop' };
+        return { content: JSON.stringify({ replacements: [
+          { before: defect === 'ambiguous-repair' ? 'e' : 'value = 2',
+            after: defect === 'repeated' ? 'value = 2' : 'value = 3' },
+        ] }), finishReason: 'stop' };
       } });
       await service.recoverIncompleteSmallProjectChanges();
       const previous = await prepare(service, proposal({ changes: [
@@ -1167,8 +1225,9 @@ for (const defect of [null, 'owner', 'origin', 'digest', 'active', 'stale', 'mis
         const codes = { owner: 'M2_LIFECYCLE_OWNER_MISMATCH', origin: 'M2_LIFECYCLE_ORIGIN_MISMATCH',
           digest: 'M2_LIFECYCLE_PLAN_DIGEST_MISMATCH', active: 'M2_CODE_DRAFT_REVISION_UNAVAILABLE',
           stale: 'M2_LIFECYCLE_CONTEXT_STALE', 'missing-retained': 'M2_CODE_DRAFT_REVISION_UNAVAILABLE',
-          repeated: 'M2_CODE_DRAFT_REVISION_UNCHANGED' };
-        await assert.rejects(act(), { code: codes[defect] }); assert.equal(calls, defect === 'repeated' ? 1 : 0);
+          repeated: 'M2_CODE_DRAFT_REVISION_UNCHANGED', 'ambiguous-repair': 'M2_CODE_DRAFT_REPAIR_MATCH_INVALID' };
+        await assert.rejects(act(), { code: codes[defect] });
+        assert.equal(calls, ['repeated', 'ambiguous-repair'].includes(defect) ? 1 : 0);
         assert.equal(db.prepare('SELECT count(*) AS n FROM m2_lifecycle_operations').get().n, 1);
       } else {
         const next = await act(); assert.equal(calls, 1);

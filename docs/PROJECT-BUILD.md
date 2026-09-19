@@ -101,7 +101,13 @@ a v chatu zůstane. JSON není nutné psát.
   a zobrazit obnovený plán. Přepnutí projektu/konverzace staré zadání nepřeváže.
 
 Po zrušení nebo neúspěchu je dostupné **Opravit předchozí návrh**. Model dostane
-úplný původní návrh daného souboru odděleně od skutečného obsahu na disku.
+úplný předchozí návrh daného souboru jako jedinou upravovanou verzi.
+Vrací přesné náhrady úseků: každý původní úsek musí existovat právě jednou,
+úseky se nesmějí překrývat a všechny se ověřují proti stejnému návrhu.
+Nejednoznačná oprava odmítne celou dávku před vznikem plánu. Obsah mimo
+náhrady zůstává bajtově zachovaný; úplný výsledný soubor je vidět v novém
+plánu. Skutečný obsah na disku planner nadále ověřuje, ale model jej podruhé
+nedostává. Tím se šetří kontext a omezuje nechtěné vracení staršího kódu.
 U jednotlivých souborů lze zvolit **Zachovat přesný obsah**: jejich ověřené
 bajty se převezmou bez dalšího generování. Oprava vytvoří nový plán s novým
 schválením; starý plán ani jeho verdikt se nepřepisují. Odkaz je vázaný na

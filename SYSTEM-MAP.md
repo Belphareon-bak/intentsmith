@@ -1,12 +1,15 @@
 # IntentSmith — mapa systému
 
-**Tři projektové průchody, průběžně 2026-09-19:** instalováno `532b6c34`.
-Produkční systemd M2 sandbox už prošel. SystemSmith_1 má přes skutečný model,
-schválení, sandbox a Git zapsané sběrače CPU/RAM, síť/disky, GPU/FAN/host a
-procesy. Desktop a další dva widgety ještě nejsou hotové. Úklid vlastních
-testovacích kopií uvolnil 16,48 GiB při zachování 2 392 ověřených hashů důkazů.
-Opravy zachování draftu, výběru testů a oddělení instrukcí souborů jsou
-obecné. **IN_PROGRESS / REVIEW_PENDING**, nejde o hotové aplikace ani prod-ready.
+**Tři projektové průchody, průběžně 2026-09-19:** instalováno `a77cb63b`.
+SystemSmith_1 (`70d14693`) je v nabídce aplikací; skutečný Electron přes jeho
+launcher, živá host data a dva procesové starty se zachovanou preferencí prošly.
+Měření celého stromu: 488,3 MiB PSS a 7,21 % jednoho CPU jádra v privátním
+software-renderovaném prostředí; požadavek lightweight není tímto doložený.
+WeatherSmith a NewsSmith mají funkční živé datové zdroje, GUI se dokončuje.
+Úklid vlastních testovacích kopií uvolnil 16,48 GiB při zachování 2 392 hashů.
+Pracovní kandidát přidává opravy přesných úseků místo přegenerování souboru
+(service 88/88) a opravu falešné klasifikace exportovaných deklarací (22/22).
+**IN_PROGRESS / REVIEW_PENDING**, nejde o tři hotové aplikace ani prod-ready.
 [Aktuální checkpoint a zachované neúspěchy](docs/review/2026-09-19-THREE-PROJECTS-JOURNEY.md).
 
 **Desktopové projektové kroky, 2026-09-19:** nasazeno `d22f64ac`.
@@ -362,8 +365,8 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **225 914 ř.**, 631 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **247 740 ř.**, 533 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **225 963 ř.**, 631 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **247 826 ř.**, 533 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **525** (`431 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **177 / 102** |
 | HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |

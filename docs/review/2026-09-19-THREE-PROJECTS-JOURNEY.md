@@ -4,6 +4,40 @@
 SystemSmith_1, widget počasí, widget zpráv; teprve potom převzetí cizího projektu.
 Jde o obecnou zkoušku projektové práce, nikoli o specializaci IntentSmithu na monitory.
 
+## Novější checkpoint: desktop a přesné opravy
+
+Aktivní IntentSmith je `a77cb63b`. SystemSmith_1 je skutečně nainstalovaný v
+nabídce aplikací na `70d146936e2157008e3837774aa7c1edfe88c47c`.
+`system-desktop-zykJG9/result.json` dokládá vlastní launcher, skutečné host
+údaje, dvě různá PID, exit 0, obnovení délky historie a screenshoty. Šedesát
+sekund měření celého stromu dalo 488,317 MiB PSS / 7,2085 % jednoho CPU jádra
+v privátním Xvfb se software renderingem při souběžném CODE. Není to důkaz
+nízkých nároků ani srovnání s Mission Center. README utility vymezuje
+nepodporované per-process GPU/network údaje a ne-NVIDIA GPU.
+
+WeatherSmith má ověřené živé Open-Meteo forecast/geocoding a NewsSmith všech
+pět RSS zdrojů (BBC technology/science/world, Root.cz, Seznam Zprávy).
+Kontrolovaná místa Praha/Brno nejsou zjištěná poloha operátora. Desktopové
+kontrolery widgetů ještě nejsou hotové; chybný weather návrh `23g` není použitý.
+
+Nová obecná oprava `revisionOf` interně vrací `replacements`, nikoli celé
+`afterContent`: 1–16 přesných, jednoznačných, nepřekrývajících se úseků proti
+stejnému předchozímu souboru. Vnější M2 plán nadále obsahuje úplné before/after,
+pevné cesty, test a nové schválení. Limity výsledku, origin/digest/revision,
+atomická dávka i explicitní reusePrevious zůstávají. Model nemůže náhradou
+určit cestu nebo získat oprávnění. Service 88/88 zahrnuje nejednoznačné,
+překrývající se, sekvenčně závislé a příliš velké náhrady; při chybě nevzniká
+plán ani zápis. Skutečný účinek na kvalitu další opravy se teprve ověřuje.
+
+Governance scanner už nepovažuje `from` uvnitř exportované funkce/deklarace
+za re-export. Skutečné re-exporty a importy se kontrolují dál; 22/22 zahrnuje
+původní reprodukci i zakázaný skutečný import. Jde o konzervativní scanner,
+nikoli úplný parser JS. Dřívější chyby `23a/23b` nelze tomuto nálezu jednoznačně
+přisoudit: přesný nepřijatý výstup není v plánu uložený. Prázdné pole specifier
+v redigovaném reportu neprokazuje prázdný import v modelovém zdroji.
+
+Následující oddíly jsou starší checkpointy, nikoli aktuální inventura aplikací.
+
 ## Provoz a úklid
 
 - Instalovaný `532b6c34e755c01b9b2d171b63d187c8f94b1350` podporuje opravu
