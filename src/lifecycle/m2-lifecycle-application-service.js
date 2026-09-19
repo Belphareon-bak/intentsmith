@@ -666,6 +666,22 @@ export function createM2LifecycleApplicationService(dependencyValues) {
       return { path: target,
         content: before.exists ? new TextDecoder('utf-8', { fatal: true }).decode(before.bytes) : null };
     });
+    const contextFiles = new Map();
+    for (const target of new Set(compiled.buildSteps?.flatMap(step => step.contextFiles) || [])) {
+      const entry = manifest.entries.find(item => item.path === target);
+      if (!isManifestObservablePath(target) || !entry || entry.kind !== 'regular@1') {
+        throw codeDraftError('CONTEXT_UNAVAILABLE', 'Kontext musí být existující pozorovatelný soubor tohoto projektu.');
+      }
+      if (entry.size > maxFileBytes) throw codeDraftError('CONTEXT_LIMIT_EXCEEDED', 'Kontextový soubor překračuje limit.');
+      const observedFile = readProjectFile(scope.canonicalRoot, target, {
+        maxBytes: maxFileBytes, rejectHardlinks: true, requireCanonicalTarget: true, signal: boundedSignal,
+      });
+      if (!observedFile.exists || `sha256:${createHash('sha256').update(observedFile.bytes).digest('hex')}` !== entry.contentDigest) {
+        fail(M2LifecycleServiceErrorCode.CONTEXT_STALE, 'Context file changed before generation');
+      }
+      contextFiles.set(target, { path: target, content: new TextDecoder('utf-8', { fatal: true }).decode(observedFile.bytes),
+        state: 'read_only', contentDigest: entry.contentDigest });
+    }
     const generationBudget = generateCodeDraft === defaultGenerateCodeDraft
       ? await codeDraftModelBudget(!!compiled.buildSteps) : null;
     const changes = [];
@@ -677,7 +693,7 @@ export function createM2LifecycleApplicationService(dependencyValues) {
         const generated = changes.find(change => change.path === file.path);
         return { path: file.path, content: generated ? generated.afterContent : file.content,
           state: generated ? 'proposed' : 'original' };
-      }));
+      }).concat(steps.find(step => step.index === index).contextFiles?.map(target => contextFiles.get(target)) || []));
     // Preflight every initial prompt, then check again with preceding generated
     // after-images. No truncation or partial plan if any peer exceeds the budget.
     files.forEach((_, index) => {

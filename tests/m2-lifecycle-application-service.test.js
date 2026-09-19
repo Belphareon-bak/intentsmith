@@ -1028,4 +1028,43 @@ for (const failure of ['missing-test', 'duplicate', 'unknown-dependency', 'cycle
   });
 }
 
+for (const defect of [null, 'missing', 'traversal', 'target-overlap', 'secret', 'oversize', 'late-stale']) {
+  await testAsync(`existing project context is read-only and revision-bound: ${defect ?? 'success'}`, async () => {
+    const root = makeProject(); const db = openDatabase(); let calls = 0;
+    const contextPath = 'src/prior-step.js';
+    const content = 'export const priorValue = 42;\n';
+    fs.writeFileSync(path.join(root, contextPath), defect === 'oversize' ? 'x'.repeat(16_385) : content);
+    git(root, ['add', '--', contextPath]);
+    git(root, ['-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-m', 'previous increment']);
+    const reference = ({ missing: 'src/absent.js', traversal: '../outside.js', 'target-overlap': 'src/app.js', secret: '.env' })[defect] || contextPath;
+    const blueprint = { instruction: 'Use the existing module without rewriting it.',
+      files: [{ path: 'src/app.js', instruction: 'Re-export priorValue as value.', dependsOn: [], contextFiles: [reference] }],
+      focusedTest: proposal().focusedTest };
+    try {
+      const service = createService(db, root, makeClock(), { generateCodeDraft: async ({ prompt }) => {
+        calls++; const input = JSON.parse(prompt);
+        assert.deepEqual(input.peerFiles, [{ path: contextPath, content, state: 'read_only', contentDigest: sha(content) }]);
+        if (defect === 'late-stale') fs.writeFileSync(path.join(root, contextPath), 'export const priorValue = 99;\n');
+        return { content: JSON.stringify({ afterContent: "export {priorValue as value} from './prior-step.js';\n" }), finishReason: 'stop' };
+      } });
+      await service.recoverIncompleteSmallProjectChanges();
+      const execute = () => service.draftSmallProjectChange({ authenticatedSubject: SUBJECT, projectId: PROJECT_ID, origin: ORIGIN, draft: blueprint });
+      if (defect) {
+        const codes = { missing: 'M2_CODE_DRAFT_CONTEXT_UNAVAILABLE', traversal: 'M2_CODE_DRAFT_INPUT_INVALID',
+          'target-overlap': 'M2_CODE_DRAFT_INPUT_INVALID', secret: 'M2_CODE_DRAFT_CONTEXT_UNAVAILABLE',
+          oversize: 'M2_CODE_DRAFT_CONTEXT_LIMIT_EXCEEDED', 'late-stale': 'M2_LIFECYCLE_CONTEXT_STALE' };
+        await assert.rejects(execute(), { code: codes[defect] });
+        assert.equal(calls, defect === 'late-stale' ? 1 : 0);
+        assert.equal(db.prepare('SELECT count(*) AS n FROM m2_lifecycle_operations').get().n, 0);
+      } else {
+        const planned = await execute();
+        assert.equal(planned.state, 'awaiting_approval');
+        assert.deepEqual(planned.diff.map(file => file.path), ['src/app.js']);
+        assert.equal(fs.readFileSync(path.join(root, contextPath), 'utf8'), content);
+      }
+      assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), 'export const value = 1;\n');
+    } finally { db.close(); fs.rmSync(root, { recursive: true, force: true }); }
+  });
+}
+
 summary();

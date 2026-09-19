@@ -38,6 +38,21 @@ test('new project has a clean Git baseline, canonical policy and a genuinely fai
   assert.equal(JSON.parse(await fs.readFile(path.join(project.path, '.intentsmith/project.json'), 'utf8')).name, 'Fan monitor');
 });
 
+test('desktop is an explicit scaffold with no dependency install or GUI execution', async t => {
+  const project = await fixture(t); const root = path.join(path.dirname(project.path), 'desktop');
+  await initializeNewProject(root, { name: 'Monitor', description: 'Real hardware monitor', type: 'desktop' });
+  const pkg = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8'));
+  const policy = JSON.parse(await fs.readFile(path.join(root, '.intentsmith/m2-governance-policy.json'), 'utf8'));
+  assert.equal(pkg.scripts.start, 'electron src/index.mjs');
+  assert.equal(pkg.devDependencies.electron, '42.11.3');
+  assert.ok(policy.externalImports.includes('electron'));
+  assert.ok(policy.externalImports.includes('node:child_process'));
+  assert.ok(policy.layers[0].roots.includes('README.md'));
+  assert.ok(!policy.layers[0].roots.includes('.intentsmith'));
+  await assert.rejects(fs.stat(path.join(root, 'node_modules')), { code: 'ENOENT' });
+  assert.equal(execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' }), '');
+});
+
 test('foreign repository inspection preserves files and presents scope and goal questions', async t => {
   const project = await fixture(t);
   const foreign = path.join(path.dirname(project.path), 'foreign');
@@ -85,6 +100,10 @@ test('a short continuation receives the same project, history and real evidence;
     generate: async ({ prompt }) => {
       const request = JSON.parse(prompt);
       assert.equal(request.project.id, project.id);
+      assert.equal(request.host.platform, process.platform);
+      assert.equal(request.host.sensors, 'not_probed');
+      assert.ok(request.analysis.setup.policy.externalImports.includes('node:fs/promises'));
+      assert.ok(!request.analysis.setup.policy.externalImports.includes('electron'));
       assert.equal(request.history[0].content, 'Widget pro RPM, historie 1 hodinu.');
       assert.equal(request.analysis.excerpts.some(file => file.path === 'README.md'), true);
       return generated({ reply: 'Nejdřív ověříme čtení a historii, pak graf. Chybějící senzor zobrazíme jako nedostupný.', plan: plan() });
@@ -196,6 +215,10 @@ test('planning selects context for the real model window and never truncates the
     assert.match(result.systemPrompt, /Tomorrow \/ zítra:/);
     assert.ok(result.maxTokens + result.maxBytes / 2 + 384 <= numCtx);
   }
+  const goal = 'Desktop monitor with real CPU RAM GPU FAN NETWORK DISK. '.repeat(18) + 'PERSISTENT_HISTORY_LAST_REQUIREMENT';
+  const continuation = fitProjectDiscussionPrompt(JSON.stringify({ ...input,
+    project: { ...input.project, description: goal }, history: input.history.slice(2) }), 4096);
+  assert.equal(JSON.parse(continuation.prompt).project.description, goal, 'keep the whole original goal after older chat leaves the history window');
   assert.throws(() => fitProjectDiscussionPrompt(JSON.stringify({ ...input, request: 'q'.repeat(50_000) }), 4096), /Rozděl/);
   const repairRequest = 'Oprav čtení souborů i neúspěšný test. '.repeat(14);
   const repaired = fitProjectDiscussionPrompt(JSON.stringify({ ...input, request: repairRequest,
@@ -222,8 +245,9 @@ test('actual HTTP creation/import preserves foreign files, rejects collisions an
     const other = path.join(runtime.home, 'must-not-exist');
     const conflict = await api('POST', '/api/projects', { name: 'Fan HTTP', path: other });
     assert.equal(conflict.statusCode, 409); await assert.rejects(fs.stat(other), { code: 'ENOENT' });
-    const weather = await api('POST', '/api/projects', { name: 'Weather HTTP' });
-    assert.equal(weather.statusCode, 201); assert.notEqual(weather.json.project.id, project.id);
+    const weather = await api('POST', '/api/projects', { name: 'Desktop HTTP', type: 'desktop' });
+    assert.equal(weather.statusCode, 201);
+    assert.equal(JSON.parse(await fs.readFile(path.join(weather.json.path, 'package.json'), 'utf8')).scripts.start, 'electron src/index.mjs'); assert.notEqual(weather.json.project.id, project.id);
     assert.notEqual(weather.json.path, project.path);
     const foreign = path.join(runtime.home, 'outside-created'); await fs.mkdir(foreign);
     await fs.writeFile(path.join(foreign, 'app.py'), 'def add(a, b): return a - b\n');

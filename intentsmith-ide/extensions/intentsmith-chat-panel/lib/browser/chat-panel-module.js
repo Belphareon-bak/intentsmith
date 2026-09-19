@@ -982,7 +982,8 @@ var WIZARD_STEPS=[
   {id:'review',label:'Souhrn',icon:'✅',desc:'Zkontrolujte a vytvořte'}
 ];
 var PROJECT_TYPES=[
-  {id:'general',label:'Obecný',icon:'📦',desc:'Prázdný projekt bez šablony'},
+  {id:'general',label:'Obecný',icon:'📦',desc:'Node.js základ bez externích závislostí'},
+  {id:'desktop',label:'Desktop',icon:'🖥️',desc:'Electron aplikace; závislosti se neinstalují automaticky'},
   {id:'webapp',label:'Web App',icon:'🌐',desc:'Webová aplikace (frontend + backend)'},
   {id:'api',label:'API / Backend',icon:'⚡',desc:'REST/GraphQL API server'},
   {id:'automation',label:'Automatizace',icon:'🤖',desc:'Skripty, pipeline, worker'},
@@ -6610,7 +6611,8 @@ function _m2NormalizeWorkProposal(value){
     ||o.surface!=='studio'||typeof o.conversationId!=='string'||!o.conversationId||o.sessionId!==o.conversationId
     ||!_m2IsRecord(d)||typeof d.instruction!=='string'||!Array.isArray(d.files)||!d.files.length||d.files.length>8
     ||!_m2IsRecord(d.focusedTest)||typeof d.focusedTest.binary!=='string'||!Array.isArray(d.focusedTest.argv)
-    ||d.files.some(function(f){return !_m2IsRecord(f)||typeof f.path!=='string'||typeof f.instruction!=='string'||!Array.isArray(f.dependsOn);}))return null;
+    ||d.files.some(function(f){return !_m2IsRecord(f)||typeof f.path!=='string'||typeof f.instruction!=='string'||!Array.isArray(f.dependsOn)
+      ||(f.contextFiles!==undefined&&(!Array.isArray(f.contextFiles)||f.contextFiles.length>8||f.contextFiles.some(function(p){return typeof p!=='string';})));}))return null;
   return {origin:{surface:'studio',sessionId:o.sessionId,conversationId:o.conversationId,projectId:o.projectId},proposal:p};
 }
 function _m2StudioOrigin(s){
@@ -6813,7 +6815,7 @@ function _m2OpenComposer(idx){
       var offered=st._projectWorkProposal;
       var draft=offered&&_m2SameOrigin(offered.origin,origin)&&offered.proposal.projectId===origin.projectId?offered.proposal.draft:null;
       st._m2Composer=draft?{origin:origin,instruction:draft.instruction,
-        files:draft.files.map(function(file){return {path:file.path,instruction:file.instruction,dependencies:file.dependsOn.join('\n')};}),
+        files:draft.files.map(function(file){return {path:file.path,instruction:file.instruction,dependencies:file.dependsOn.join('\n'),contextFiles:(file.contextFiles||[]).join('\n')};}),
         binary:draft.focusedTest.binary,argv:draft.focusedTest.argv.slice(),timeoutMs:String(draft.focusedTest.timeoutMs),gitCommit:draft.gitCommit||null,error:null}
         :{origin:origin,instruction:ta?ta.value:'',files:[{path:'',instruction:'',dependencies:''}],binary:'',argv:[],timeoutMs:'30000',error:null};
     }
@@ -6825,7 +6827,8 @@ function _m2ComposerDraft(form){
   function required(value,label){if(typeof value!=='string'||!value.trim())throw new Error('Vyplňte '+label+'.');return value;}
   function instruction(value,label){required(value,label);if(new TextEncoder().encode(value).length>512)throw new Error(label+' přesahuje 512 bajtů.');return value;}
   var files=form.files.map(function(file){return {path:required(file.path,'cestu souboru'),instruction:instruction(file.instruction,'zadání souboru'),
-    dependsOn:file.dependencies?file.dependencies.split('\n').map(function(value){return value.trim();}).filter(Boolean):[]};});
+    dependsOn:file.dependencies?file.dependencies.split('\n').map(function(value){return value.trim();}).filter(Boolean):[],
+    ...(file.contextFiles?{contextFiles:file.contextFiles.split('\n').map(function(value){return value.trim();}).filter(Boolean)}:{})};});
   if(!files.length||files.length>32)throw new Error('Plán musí obsahovat 1–32 souborů.');
   var paths=files.map(function(file){return file.path;});
   if(new Set(paths).size!==paths.length)throw new Error('Každý soubor zadejte pouze jednou.');
@@ -6871,6 +6874,7 @@ function _m2ComposerUI(idx,s,st){
       field('Cesta v projektu','file-'+index+'-path',file.path,function(value){file.path=value;},false,'src/app.js'),
       field('Zadání souboru','file-'+index+'-instruction',file.instruction,function(value){file.instruction=value;},true),
       field('Závislosti — jedna cesta z plánu na řádek','file-'+index+'-dependencies',file.dependencies,function(value){file.dependencies=value;},true),
+      field('Existující kontext jen ke čtení — jedna cesta na řádek','file-'+index+'-context',file.contextFiles||'',function(value){file.contextFiles=value;},true),
       h('button',{type:'button',style:buttonStyle,disabled:locked||form.files.length===1,onClick:function(){form.files.splice(index,1);renderChat();}},'Odebrat soubor'));}),
     h('button',{type:'button',id:prefix+'add-file',style:buttonStyle,disabled:locked||form.files.length>=32,onClick:function(){form.files.push({path:'',instruction:'',dependencies:''});renderChat();}},'Přidat soubor'),
     h('h4',{style:{color:C.tx1,margin:'12px 0 8px'}},'Ověření výsledku'),

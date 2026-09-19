@@ -72,7 +72,7 @@ function isCanonicalAbsolute(value) {
     && (value === '/' || !value.endsWith('/'));
 }
 
-function isProjectRelativePath(value) {
+export function isProjectRelativePath(value) {
   if (
     !isBoundedNfcString(value, 4_096)
     || value.includes('\\')

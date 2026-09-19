@@ -73,7 +73,7 @@ export function createProjectRoutes(deps) {
       const { name, description = '', type = 'general', path: customPath } = body;
       if (typeof name !== 'string' || !name.trim() || name.length > 120
           || /[\x00-\x1f]/.test(name) || typeof description !== 'string' || description.length > 4000
-          || !['general', 'webapp', 'api', 'automation', 'data'].includes(type)
+          || !['general', 'desktop', 'webapp', 'api', 'automation', 'data'].includes(type)
           || (customPath != null && typeof customPath !== 'string')) {
         return sendJSON(res, 400, { error: 'Zadej název, popis a podporovaný typ projektu.' });
       }

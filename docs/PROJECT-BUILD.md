@@ -14,11 +14,23 @@ adresáře `src`, `public`, `test`, `scripts`, pravidla M2 a výchozí Git commi
 Existující adresář se nepřepisuje. Projekt zatím nemá implementaci; první
 `npm test` záměrně selže, dokud nevznikne skutečný funkční test.
 
+Pro aplikaci s vlastním oknem zvolte typ **Desktop**. Připraví deklaraci
+Electronu, startovací příkaz a pravidla pro `electron` a `node:child_process`.
+Závislosti se tím nestahují ani neinstalují; GUI, preload, sběrače a testy
+teprve vzniknou v řízených krocích. Obecný typ externí Electron nepovoluje.
+Nové základy dovolují upravovat také `package.json`, `README.md` a `ROADMAP.md`;
+pravidla dříve založených nebo importovaných projektů se zpětně nemění.
+
 V projektovém chatu popište požadovaný výsledek. IntentSmith naváže na cíl
 a předchozí zprávy, načte omezený kontext souborů, navrhne priority a podle
 potřeby se doptá. Krátké „a jak?“ patří ke stejnému projektu. Pro podporovaný
 malý JavaScript krok může nabídnout **Připravit navržený krok**. Tlačítko otevře
 editovatelný seznam souborů a test; generování a schválení jsou další dva kroky.
+Původní cíl z popisu projektu zůstává v modelovém vstupu celý i po dlouhé
+konverzaci. Pokud se cíl a aktuální požadavek nevejdou do schváleného okna,
+plánování skončí vysvětlením místo tichého odříznutí konce cíle.
+Plánovač zná OS, architekturu a povolené importy. Tím není prokázaná
+dostupnost hardwarových senzorů ani instalace deklarovaných závislostí.
 
 Test v takovém návrhu je `node --disable-wasm-trap-handler --test test/acceptance.test.mjs`. Přepínač zachovává funkčnost Node.js pod limitem virtuální paměti sandboxu. Model může
 navrhnout jeho assertions, takže úspěch testu sám nedokazuje splnění celého cíle.
@@ -63,6 +75,8 @@ a v chatu zůstane. JSON není nutné psát.
 1. Napište celkový cíl a pro každý soubor cestu v projektu a jeho zadání.
    Přidejte další soubory podle potřeby. Přímé závislosti uveďte po jedné cestě
    na řádek; musí to být jiné soubory téhož plánu bez cyklů.
+   Hotové moduly z předchozích kroků zadejte do **Existující kontext jen ke
+   čtení**. Jejich úplný obsah dostane model pro daný soubor, samy se nepřepisují.
 2. Zadejte úplnou cestu programu pro funkční test a jeho jednotlivé argumenty.
    Například program `/usr/bin/node` s argumenty `--test` a
    `tests/app.test.js`. Testovací soubor musí být připravený v projektu.
@@ -84,11 +98,16 @@ a v chatu zůstane. JSON není nutné psát.
 Pokročilý vstup `/m2-build <JSON>` zůstává dostupný, včetně volitelného
 Git commitu a vlastního prostředí testu. Formulář používá prostředí uvedené
 v jeho detailu. Ruční zadání Git commit nevyžaduje; nabídka z projektového
-chatu jej obsahuje. Stávající M2 HTTP kontrakt se nemění.
+chatu jej obsahuje. Položka souboru nyní podporuje volitelné `contextFiles`
+(nejvýše osm existujících projektových cest). Zapisované cíle, schvalování,
+efekty a formát přesného M2 plánu se nemění. Obsah kontextu se ověřuje proti
+manifestu; změna projektu během generování zneplatní návrh. Cesty mimo projekt,
+skryté chráněné soubory, odkazy, příliš velký obsah nebo přesah kontextového
+okna vedou k odmítnutí, nikoli ke zkrácení kódu nebo částečnému plánu.
 
 ## Předpoklady a meze
 
-- Registrovaný, připojený Git projekt s platnou `.c3/m2-governance-policy.json`;
+- Registrovaný, připojený Git projekt s platnou `.intentsmith/m2-governance-policy.json`;
   cílové adresáře již existují. Běžná registrace sama governance nezakládá.
 - Aktivní lokální model pro roli CODE a stávající M2 procesový sandbox.
   Žádné automatické změny modelového bindingu ani oprávnění.

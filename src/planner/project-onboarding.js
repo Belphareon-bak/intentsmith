@@ -12,16 +12,17 @@ const exec = promisify(execFile);
 const sha = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 const DIRECTORIES = ['public', 'scripts', 'src', 'test'];
 
-export function newProjectPolicy() {
+export function newProjectPolicy(type = 'general') {
   return {
     policyId: 'intentsmith-local-project-v1',
-    layers: [{ name: 'app', roots: DIRECTORIES }],
+    layers: [{ name: 'app', roots: [...DIRECTORIES, 'package.json', 'README.md', 'ROADMAP.md'] }],
     rules: [{ from: 'app', canImport: ['app'] }],
     externalImports: [
       'node:assert', 'node:assert/strict', 'node:buffer', 'node:crypto', 'node:events',
       'node:fs', 'node:fs/promises', 'node:http', 'node:https', 'node:os', 'node:path',
       'node:stream', 'node:stream/promises', 'node:test', 'node:timers/promises',
       'node:url', 'node:util',
+      ...(type === 'desktop' ? ['electron', 'node:child_process'] : []),
     ],
     sourceExtensions: ['.cjs', '.js', '.mjs'],
     requiredChecks: ['imports.allowed', 'inventory.complete', 'layers.mapped'],
@@ -38,18 +39,21 @@ export async function initializeNewProject(root, { name, description = '', type 
     const pkg = {
       name: path.basename(root).replace(/[^a-z0-9_-]/gi, '-').toLowerCase(),
       version: '0.1.0', private: true, type: 'module', description,
-      scripts: { start: 'node src/index.mjs', test: 'node --test test/acceptance.test.mjs' },
+      scripts: { start: type === 'desktop' ? 'electron src/index.mjs' : 'node src/index.mjs',
+        test: 'node --test test/acceptance.test.mjs' },
+      ...(type === 'desktop' ? { devDependencies: { electron: '42.11.3' } } : {}),
     };
     const files = {
       '.gitignore': 'node_modules/\n.env\n.env.*\ndist/\nbuild/\n*.log\n',
       '.intentsmith/project.json': JSON.stringify({ name, description, type, created: new Date().toISOString() }, null, 2) + '\n',
-      '.intentsmith/m2-governance-policy.json': JSON.stringify(newProjectPolicy(), null, 2) + '\n',
+      '.intentsmith/m2-governance-policy.json': JSON.stringify(newProjectPolicy(type), null, 2) + '\n',
       'package.json': JSON.stringify(pkg, null, 2) + '\n',
       'README.md': `# ${name}\n\n${description}\n\n## Stav\nZáklad projektu; implementace a funkční ověření ještě chybí.\n\n## Spuštění\nNode.js 22+, bez instalace závislostí: npm start.\nOvěření: npm test. Výchozí test záměrně selže, dokud nevzniknou skutečné assertions.\n`,
       'ROADMAP.md': '# Plán\n\n- [ ] Ujasnit cíl a ověřitelné podmínky dokončení\n- [ ] Navrhnout první použitelný krok\n- [ ] Schválit konkrétní změnu a provést ji\n- [ ] Funkčně ověřit a projít výsledek\n',
       'src/index.mjs': 'console.log("Projekt zatím nemá implementaci. Pokračuj zadáním cíle v IntentSmithu.");\n',
       'test/acceptance.test.mjs': 'import test from "node:test";\ntest("Požadavky projektu zatím nejsou ověřené", () => { throw new Error("Doplň funkční assertions podle cíle projektu."); });\n',
     };
+    if (type === 'desktop') files['README.md'] = `# ${name}\n\n${description}\n\n## Stav\nDesktopový základ pro Electron. Implementace, funkční testy, instalace závislostí a integrace do nabídky ještě chybí.\n\n## Spuštění\nNode.js 22+. Po instalaci deklarovaného Electronu: npm start.\nOvěření čistých modulů bez GUI: npm test. Výchozí test záměrně selže.\nRenderer musí mít contextIsolation a sandbox zapnuté, nodeIntegration vypnuté a úzké IPC přes preload.\nTato šablona nic nestahuje ani nespouští.\n`;
     for (const [file, content] of Object.entries(files)) {
       await fs.writeFile(path.join(root, file), content, { flag: 'wx' });
     }
@@ -105,6 +109,13 @@ export async function inspectProject(project, { signal } = {}) {
   for (const name of ['.git', '.intentsmith/m2-governance-policy.json']) {
     try { const st = await fs.lstat(path.join(canonicalRoot, name)); setup[name] = !st.isSymbolicLink(); }
     catch { setup[name] = false; }
+  }
+  if (setup['.intentsmith/m2-governance-policy.json']) {
+    const observed = readProjectFileBytes(canonicalRoot, '.intentsmith/m2-governance-policy.json',
+      { maxBytes: 32_768, requireCanonicalTarget: true, rejectHardlinks: true });
+    const policy = JSON.parse(observed.bytes.toString('utf8'));
+    setup.policy = { roots: policy.layers?.flatMap(layer => layer.roots) || [],
+      externalImports: policy.externalImports || [] };
   }
   return { projectId: project.id, revision: manifest.revision, fileCount: regular.length,
     files: names.slice(0, 250), fileListTruncated: names.length > 250, excerpts, facts, gaps,

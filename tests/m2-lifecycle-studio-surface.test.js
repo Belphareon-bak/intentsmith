@@ -503,6 +503,7 @@ test('build composer opens without HTTP or consuming the ordinary chat draft', (
 test('composer sends literal file/test inputs through the existing draft surface and never auto-approves', async () => {
   const studio = controlledStudio({ pending: false, activeM1: false, paths: ['src/app.js', 'src/helper.js'] });
   const form = fillComposer(studio);
+  form.files[0].contextFiles = 'src/previous-step.js\npublic/schema.json';
   studio.textarea.value = 'ordinary draft';
   studio.submitComposer();
   assert.equal(studio.calls.length, 1);
@@ -514,6 +515,7 @@ test('composer sends literal file/test inputs through the existing draft surface
   assert.deepEqual(body.draft.focusedTest.argv, form.argv);
   assert.equal(body.draft.focusedTest.binary, '/usr/bin/node');
   assert.deepEqual(body.draft.files[0].dependsOn, ['src/helper.js']);
+  assert.deepEqual(body.draft.files[0].contextFiles, ['src/previous-step.js', 'public/schema.json']);
   assert.equal(studio.textarea.value, 'ordinary draft');
   call.resolve(studio.view);
   await flushStudio();
