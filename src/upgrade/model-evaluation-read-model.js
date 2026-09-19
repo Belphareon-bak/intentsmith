@@ -105,6 +105,8 @@ function taskDetails(row) {
       truePositive: d.truePositive, falsePositive: d.falsePositive, falseNegative: d.falseNegative,
       observed: d.observed, expected: d.expected,
       responseFormat: d.responseFormat, strictJson: d.strictJson,
+      contentScore: d.contentScore, formatScore: d.formatScore, criteria: d.criteria,
+      contractChecks: d.contractChecks,
     })) }));
 }
 // Presentation only: no prompts, grading rules or contract hashes are changed.
