@@ -3462,6 +3462,7 @@ Opravený reprodukovaný souběh není zpětný důkaz příčiny historického 
 Review zůstává PENDING; fyzický modelový journey není součástí těchto důkazů.
 [Scope, neúspěšné pokusy a důkazy](docs/review/2026-09-12-STUDIO-M1-RESTART-REVIEW-PACKET.md).
 
-Oprava měřidel GPU huntu 2026-09-20: module graph má 1 387 hran,
-3 cykly / 28 členů. Jediná nová hrana `semantic-role-suites.js → structured-answer.js`
-připojuje deterministické hodnocení přesných JSON odpovědí; nevytváří provozní ani rozhodovací autoritu.
+Sjednocení parseru GPU huntu s produkcí 2026-09-20: module graph má 1 390 hran,
+3 cykly / 28 členů. Přibyly přesné hrany `role-quality-suites.js → runtime-json.js`,
+`structured-answer.js → runtime-json.js` a `runtime-json.js → llm/client.js`.
+Sdílejí produkční extrakci JSON podle explicitního zadání operátora; nemění rozhodovací autoritu.
