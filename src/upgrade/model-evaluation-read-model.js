@@ -92,11 +92,12 @@ function roleApplicability(artifact, plan) {
   return checkModelEvaluationApplicability(artifact, plan);
 }
 
-function taskDetails(row) {
+function taskDetails(row, includeResponses = false) {
   const tasks = JSON.parse(row.task_results_json || '[]');
-  return tasks.map(t => ({ name: t.name, repeat: t.repeat ?? null, language: t.language || null,
+  return tasks.map(t => ({ ...(includeResponses ? { responses: t.responses || [], input: t.input || null, options: t.options || null, independenceGroup: t.independenceGroup || null } : {}), name: t.name, repeat: t.repeat ?? null, language: t.language || null,
     mean: t.mean == null ? null : Number(t.mean), spread: Number(t.spread || 0), scores: t.scores || [],
     rubric: t.rubric || [], details: (t.details || []).map(d => d && ({
+      captureStatus: d.captureStatus, gradingStatus: d.gradingStatus, artifact: d.artifact, durationMs: d.durationMs,
       reason: d.reason || null, syntaxOk: d.syntaxOk, applied: d.applied,
       outcome: d.outcome, valid: d.valid, timedOut: d.timedOut,
       targetedPassed: d.targetedPassed, targeted: d.targeted, regressions: d.regressions,
@@ -161,7 +162,7 @@ function taskCatalog(plan) {
     const source = typeof g?.source === 'string' ? g.source : g?.source?.path;
     const simple = t.name.replace(/^(?:reason|review)_(?=repo_)/, '').replace(/^(?:en|cz)_/, '');
     return { name: t.name, label: TASK_LABELS[t.name] || TASK_LABELS[`patch_${g?.oracleCase}`] || TASK_LABELS[simple] || t.description || t.name.replaceAll('_', ' '),
-      type: plan.suiteName === 'code_patch' ? 'Oprava kódu · spuštěné testy' : plan.suiteName === 'review_v2' ? 'Revize kódu'
+      type: plan.collectionOnly ? ({D1:'Analýza a plán',D2:'Diagnóza a oprava',R1:'Hloubková revize',R2:'Lokální revize',CHAT:'Konverzace'}[plan.role] || 'Odpověď k posouzení') : plan.suiteName === 'code_patch' ? 'Oprava kódu · spuštěné testy' : plan.suiteName === 'review_v2' ? 'Revize kódu'
         : plan.suiteName === 'reasoning_v2' ? 'Analýza a logika' : plan.suiteName === 'vision_v2' ? 'Porozumění obrazu' : 'Konverzace',
       source: source || null, language: t.language || null, difficulty: t.difficulty || null, skill: t.skill || null,
       requirements: [...(g?.failToPass || t.rubric || []), ...(g?.publicContract?.requirements || [])],
@@ -169,12 +170,14 @@ function taskCatalog(plan) {
   });
 }
 
-function decodeCurrentRow(row, includeTasks = true) {
+function decodeCurrentRow(row, includeTasks = true, includeResponses = false) {
   if (!row) return null;
   const interval = decodedInterval(row);
   return Object.freeze({
     runId: row.run_id,
-    status: row.status,
+    status: row.error_code === 'EVALUATION_AWAITING_REVIEW' ? 'AWAITING_REVIEW'
+      : row.error_code === 'EVALUATION_COLLECTION_PARTIAL' ? 'COLLECTION_PARTIAL' : row.status,
+    collection: JSON.parse(row.metadata_json || '{}').collection || null,
     providerVersion: row.provider_version || null,
     providerProvenance: row.provider_version ? 'RECORDED' : 'UNRECORDED',
     score: row.score == null ? null : Number(row.score),
@@ -182,7 +185,7 @@ function decodeCurrentRow(row, includeTasks = true) {
     total: Number(row.total),
     repeats: Number(row.repeats),
     attemptCounts: JSON.parse(row.metadata_json || '{}').attemptCounts || null,
-    tasks: includeTasks ? Object.freeze(taskDetails(row)) : undefined,
+    tasks: includeTasks ? Object.freeze(taskDetails(row, includeResponses)) : undefined,
     ...interval,
     errorCode: row.error_code || null,
     errorMessage: row.error_message || null,
@@ -348,7 +351,7 @@ export class ModelEvaluationReadModel {
       const plan = this._plans[row.role];
       const exact = plan && row.suite_name === plan.suiteName && row.suite_version === plan.suiteVersion
         && row.suite_contract_sha256 === plan.suiteContractSha256;
-      return Object.freeze({ ...decodeCurrentRow(row), model: row.model_name, role: row.role,
+      return Object.freeze({ ...decodeCurrentRow(row, true, true), model: row.model_name, role: row.role,
         digestSha256: row.model_digest_sha256, suiteName: row.suite_name, suiteVersion: row.suite_version,
         suiteContractSha256: row.suite_contract_sha256, tokensPerSecond: row.tokens_per_second,
         taskCatalog: exact ? taskCatalog(plan) : [], catalogMatchesContract: Boolean(exact),
@@ -379,6 +382,7 @@ export class ModelEvaluationReadModel {
             decisionReady: plan.decisionReady,
             acceptance: plan.acceptance || null,
             decisionBlockCode: plan.decisionBlockCode || null,
+            collectionOnly: plan.collectionOnly === true,
             measurementReady: plan.measurementReady ?? plan.decisionReady,
             evidencePurpose: plan.evidencePurpose || null,
             decisionBlockReason: plan.decisionBlockReason || null,
@@ -451,6 +455,7 @@ export class ModelEvaluationReadModel {
           decisionReady: plan.decisionReady,
             acceptance: plan.acceptance || null,
             decisionBlockCode: plan.decisionBlockCode || null,
+          collectionOnly: plan.collectionOnly === true,
           measurementReady: plan.measurementReady ?? plan.decisionReady,
           evidencePurpose: plan.evidencePurpose || null,
           decisionBlockReason: plan.decisionBlockReason || null,
@@ -473,8 +478,8 @@ export class ModelEvaluationReadModel {
         });
       }
 
-      const statusCounts = { COMPLETE: 0, FAILED: 0, BLOCKED: 0, MISSING: 0 };
-      const applicableStatusCounts = { COMPLETE: 0, FAILED: 0, BLOCKED: 0, MISSING: 0 };
+      const statusCounts = { COMPLETE: 0, FAILED: 0, BLOCKED: 0, MISSING: 0, AWAITING_REVIEW: 0, COLLECTION_PARTIAL: 0 };
+      const applicableStatusCounts = { COMPLETE: 0, FAILED: 0, BLOCKED: 0, MISSING: 0, AWAITING_REVIEW: 0, COLLECTION_PARTIAL: 0 };
       let notApplicableCount = 0;
       for (const model of models) {
         for (const row of Object.values(model.evaluations)) {
@@ -505,7 +510,12 @@ export class ModelEvaluationReadModel {
           total: models.length * Object.keys(this._plans).length,
         }),
         history: Object.freeze(this._db.prepare(`SELECT *, json_extract(metadata_json, '$.provider.version') AS provider_version
-          FROM model_evaluation_runs ORDER BY completed_at DESC, rowid DESC LIMIT 200`).all().map(row => ({
+          FROM model_evaluation_runs r WHERE error_code IS NULL OR error_code <> 'EVALUATION_COLLECTION_PARTIAL'
+          OR NOT EXISTS (SELECT 1 FROM model_evaluation_runs newer
+            WHERE newer.model_digest_sha256 = r.model_digest_sha256 AND newer.role = r.role
+              AND newer.suite_contract_sha256 = r.suite_contract_sha256 AND newer.started_at = r.started_at
+              AND newer.rowid > r.rowid)
+          ORDER BY completed_at DESC, rowid DESC LIMIT 200`).all().map(row => ({
             ...decodeCurrentRow(row, false), model: row.model_name, role: row.role, digestSha256: row.model_digest_sha256,
             suiteName: row.suite_name, suiteContractSha256: row.suite_contract_sha256,
             current: models.some(m => m.digestSha256 === row.model_digest_sha256 && m.evaluations[row.role]?.runId === row.run_id),

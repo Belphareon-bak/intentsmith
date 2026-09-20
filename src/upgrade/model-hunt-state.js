@@ -77,7 +77,8 @@ export class ModelHuntState {
       && !result.floor.failures.some(failure => failure.retryable);
     const completed = !result.error && !result.roleErrors?.length
       && result.trials?.some(trial => !trial.skipped)
-      && result.trials.filter(trial => !trial.skipped).every(trial => trial.comparison?.candidateRunId);
+      && result.trials.filter(trial => !trial.skipped).every(trial => trial.comparison?.candidateRunId
+        || (trial.evaluation?.collection?.status === 'AWAITING_REVIEW' && trial.evaluation.historyRunId));
     const outcome = completed ? 'COMPLETE' : (cpuSpill || floorFailure ? 'BLOCKED' : 'RETRYABLE');
     this.db.prepare(`INSERT INTO model_hunt_attempts
       (attempt_id, candidate_key, evaluation_key, outcome, completed_at, result_json)

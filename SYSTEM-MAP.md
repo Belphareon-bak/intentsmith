@@ -1,5 +1,14 @@
 # IntentSmith — mapa systému
 
+**GPU hunt — sběr pod dohledem, 21. 9. 2026:**
+Běžná cesta nově sbírá odlišné D1/D2/R1/R2/CHAT sady bez nepřijatého soudce,
+s průběžným uložením, detaily ve Studiu a odděleným exportem bez identit.
+CODE/VISION zůstávají průzkumné; přejímka a provozní platnost zůstávají otevřené.
+Paměťový profil je jednotně 16 384 tokenů / 22 GB, nikoli důkaz pro větší kontext.
+**IMPLEMENTED / VALIDATION_IN_PROGRESS / NOT_DEPLOYED / AUTONOMOUS_SELECTION_NO_GO**.
+[Rozsah, ověření a zbývající práce](docs/review/2026-09-21-HUNT-SUPERVISED-COLLECTION.md).
+
+
 **GPU hunt — rozsouzení review, 21. 9. 2026:**
 Malý provozní vzorek předpovědní platnost benchmarku nepotvrdil ani nevyvrátil;
 změna znaménka u D1/R2 při podprahovém benchmarku není prokázaná reverze.

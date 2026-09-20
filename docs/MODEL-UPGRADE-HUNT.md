@@ -3,22 +3,43 @@
 **Vstup:** `scripts/model-upgrade-hunt.js` · **Stav:** current v136.1 pipeline
 **Autorita evaluací:** [MODEL-SCORING-ACTIVATION.md](MODEL-SCORING-ACTIVATION.md)
 
-Hunt používá trychtýř, aby GPU a disk platily až za kandidáty, kteří mají
-reálnou šanci pro konkrétní roli:
+Aktuální cesta (21. 9. 2026) odděluje **sběr**, **průzkumné skóre** a
+**přijaté rozhodnutí**. Běžný hunt i ruční „Nový test“ používají stejný plán:
 
-1. online/local discovery a role-specific eligibility;
-2. postupný pull jednoho kandidáta s 40 GiB diskovou rezervou;
-3. prázdný GPU slot a měření reálného VRAM placementu při produkčním contextu;
-4. krátké binární capability minimum;
-5. candidate/incumbent na stejné versioned suite, třikrát, exact digest;
-6. fail-closed evidence minima a append-only role decision až po kontrole
-   celého portfolia; pouze přesně vybraný kandidát může mít
-   `activationEligible=true`;
-7. žádná automatická aktivace — vítěz je podklad pro ruční binding application.
+1. discovery a technická způsobilost pro roli, pull s 40 GiB diskovou rezervou;
+2. ověřený prázdný GPU slot a měření umístění při 16 384 tokenech, maximálně
+   22 000 000 000 bajtů modelové VRAM; nejde o kvalifikaci většího provozního kontextu;
+3. D1, D2, R1, R2 a CHAT: celá odlišná sada, třikrát, uložené odpovědi bez
+   volání sémantického soudce. Tyto požadavky nefiltrují krátké jazykové/JSON sondy;
+4. CODE a VISION: celá sada třikrát, deterministické orákulum, pouze průzkumné skóre;
+5. rozhodnutí a retence až s přijatou evidencí pro přesný kontrakt. Chybějící
+   přejímku sběr nenahrazuje; automatická změna rolí se tím nezapíná.
 
-Discovery/ranking není score. CPU spill je diskvalifikace, ne kvalitativní
-penalizace. Run jiného digestu, role, suite contractu nebo verze provideru nelze z cache
-znovu použít. D1/D2/R1 zůstávají samostatnými identitami i při sdílené sadě.
+Sběr se průběžně ukládá do stávající append-only historie. Databázový
+`BLOCKED / EVALUATION_AWAITING_REVIEW` znamená blokované známkování;
+API a Studio zobrazují `AWAITING_REVIEW`, počet odpovědí a jejich detail.
+Nejde o zamítnutí modelu. `COLLECTION_PARTIAL` uchová i přerušené pokusy.
+Neplatná identita/transport ani vyčerpaný výstup se nemění v obsahovou nulu.
+Hotový sběr se při stejném digestu, roli, kontraktu a provideru neopakuje;
+ruční nový test vynutí nový sběr. Staré výsledky se nepřepisují.
+
+V Evaluaci nebo Historii otevři detail a „Zobrazit uložené odpovědi“.
+Pro nezávislé posouzení lze z přesných run ID vyexportovat zadání, kritéria
+a odpovědi bez identit modelů (výstupní adresář musí být nový):
+
+```bash
+node scripts/model-answer-review.js --db=/absolutni/cesta/db.sqlite \
+  --out=/absolutni/cesta/nova-revize --run-id=eval_ID
+```
+
+`answers-for-review.json` patří hodnotiteli; `identity-key.private.json`
+uchovej zvlášť až do zmrazení známek. Jde o export, nikoli import známek
+nebo přejímku hodnotitele. Sebeidentifikaci uvnitř odpovědi export nerediguje.
+Pět rolí s otevřenými odpověďmi zatím záměrně nevydává automatické skóre.
+
+Discovery/ranking není score. CPU spill znamená nezpůsobilost konkrétního
+paměťového profilu, nikoli automatický souhlas s odstraněním modelu.
+D1, D2, R1 a R2 mají odlišná zadání a kontrakty.
 
 Nerozlišující sada, příliš úzký jazykový vzorek, nestabilní úlohy, neúplný run
 nebo chybějící binding končí jako `nedostatečný důkaz`/`MISSING`/`BLOCKED`, ne

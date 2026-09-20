@@ -55,10 +55,9 @@ test('all seven roles have one explicit versioned contract', () => {
   }
 });
 
-test('shared reasoning roles use the same exact contract', () => {
-  assert(plans.D1.suite === plans.D2.suite && plans.D2.suite === plans.R1.suite);
-  assertEqual(plans.D1.suiteContractSha256, plans.D2.suiteContractSha256);
-  assertEqual(plans.D2.suiteContractSha256, plans.R1.suiteContractSha256);
+test('reasoning roles have distinct public prompts and exact contracts', () => {
+  assertEqual(new Set(['D1','D2','R1','R2'].map(role => plans[role].suiteContractSha256)).size, 4);
+  assertEqual(new Set(['D1','D2','R1','R2'].map(role => plans[role].suite.tests[0].prompt().text)).size, 4);
 });
 
 test('CODE reuse pins the actual grader/helper/lock bytes and Node runtime', () => {
@@ -126,9 +125,11 @@ test('every role has a fail-closed task and discrimination floor', () => {
       `${role} decision floor must reject one lucky task`);
     assert(plan.taskCount >= plan.minimumTaskCount,
       `${role}: ${plan.taskCount}/${plan.minimumTaskCount}`);
-    assertEqual(plan.measurementReady, ['CODE','VISION'].includes(role));
+    assertEqual(plan.measurementReady, true);
+    assertEqual(plan.collectionOnly, !['CODE','VISION'].includes(role));
+    assert(plan.suite.tests.every(t => t.options.num_ctx === plan.numCtx));
     assertEqual(plan.decisionReady, false);
-    assertEqual(plan.evidencePurpose, 'EXPLORATORY');
+    assertEqual(plan.evidencePurpose, plan.collectionOnly ? 'COLLECTION_FOR_REVIEW' : 'EXPLORATORY');
   }
 });
 

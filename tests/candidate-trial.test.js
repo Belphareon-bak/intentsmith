@@ -13,7 +13,7 @@ import { UpgradeManager } from '../src/upgrade/upgrade-manager.js';
 import { createRoleEvaluationPlans } from '../src/eval/role-evaluation-plan.js';
 
 // Synthetic qualified plans: production prototype plans remain exploratory.
-const EVALUATION_PLANS = Object.fromEntries(Object.entries(createRoleEvaluationPlans({ repeats: 1 })).map(([role,p]) => [role,{...p,measurementReady:true,decisionReady:true,qualificationForRuns:undefined,acceptance:null}]));
+const EVALUATION_PLANS = Object.fromEntries(Object.entries(createRoleEvaluationPlans({ repeats: 1 })).map(([role,p]) => [role,{...p,collectionOnly:false,measurementReady:true,decisionReady:true,qualificationForRuns:undefined,acceptance:null}]));
 const SUITES = Object.fromEntries(
   Object.values(EVALUATION_PLANS).map(plan => [plan.suiteName, plan.suite]),
 );
@@ -630,4 +630,26 @@ await testAsync('selected installed test measures only the requested role and pe
   } finally { restore(); }
 });
 
+await testAsync('normal candidate pipeline collects an unaccepted role without a judge, incumbent or quality floor', async () => {
+  const seen=stubOllama({ placement:FITS,currentModel:'cand:27b' });
+  try {
+    const source=createRoleEvaluationPlans({repeats:1}).D2;
+    const plan={...source,taskCount:2,minimumTaskCount:2,suite:{...source.suite,tests:source.suite.tests.slice(0,2)}};
+    const saved=[], stages=[];let calls=0;
+    const artifact={modelName:'cand:27b',digestSha256:'a'.repeat(64),providerVersion:'0.34.2-intentsmith.1'};
+    const result=await tryCandidate('cand:27b',{
+      ...FAST_DRAIN,runner:{runSuite(){throw Error('must not grade');},async _callModel(model){
+        assertEqual(model,'cand:27b');calls++;return {content:'raw answer',doneReason:'stop',...artifact};}},
+      evaluationPlans:{D2:plan},roles:['D2'],bindings:{D2:'other:27b'},skipPull:true,
+      onStage:s=>stages.push(s),trialOpts:{resolveArtifact:async()=>artifact,
+        saveCollection:async value=>{saved.push(value);return {runId:'collected-'+saved.length};}},
+    });
+    assertEqual(calls,2);assertEqual(saved.length,2);assertEqual(result.roleErrors.length,0);
+    assertEqual(result.trials[0].evaluation.collection.status,'AWAITING_REVIEW');
+    assertEqual(result.trials[0].evaluation.score,null);assertEqual(result.accepted,false);
+    assert(stages.includes('floorSkipped')&&stages.includes('roleCollected'));
+    assert(!stages.includes('roleDecided'));assertEqual(Object.keys(result.decisions).length,0);
+    assert(!seen.some(c=>c.path==='/api/pull'||c.path==='/api/delete'));
+  } finally {restore();}
+});
 summary();

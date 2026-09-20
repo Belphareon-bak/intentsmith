@@ -49,15 +49,16 @@ import { upgradeManager } from '../src/upgrade/upgrade-manager.js';
 import { modelUseAuthority } from '../src/upgrade/model-use-authority.js';
 import { createModelArtifactAuthorityRepository } from '../src/upgrade/model-artifact-authority-repository.js';
 import {
-  measureModel, drainResident, intendedNumCtx, listResident,
+  measureModel, drainResident, listResident,
 } from '../src/upgrade/vram-measurement.js';
 import { tryCandidate } from '../src/upgrade/candidate-trial.js';
 import { buildCandidates } from '../src/upgrade/model-discovery.js';
 import { canonicalModelName, normalizeModelDigestSha256 } from '../src/upgrade/model-identity.js';
 import {
-  CHAT_QUALITY_VERSION, RoleQualityEvaluationRunner, describeChatTests,
+  RoleQualityEvaluationRunner,
 } from '../src/eval/role-quality-suites.js';
-import { createRoleEvaluationPlans } from '../src/eval/role-evaluation-plan.js';
+import { createRoleEvaluationPlans, HUNT_EVALUATION_NUM_CTX } from '../src/eval/role-evaluation-plan.js';
+import { MAX_MODEL_BYTES } from '../src/eval/role-collection-profile.js';
 import { modelEvaluationHistory } from '../src/upgrade/model-evaluation-history.js';
 import { ModelEvaluationDecisionStore } from '../src/upgrade/model-evaluation-decision-store.js';
 import {
@@ -173,14 +174,14 @@ const ROLES = ROLE_FILTER.length ? ROLE_FILTER : ALL_ROLES;
 const log = (...a) => { if (!AS_JSON) console.log(...a); };
 
 if (SHOW_CHAT_TESTS) {
-  const tests = describeChatTests();
   const plan = createRoleEvaluationPlans().CHAT;
+  const tests = plan.suite.tests.map(t => ({name:t.name,language:t.language,prompt:t.prompt(),rubric:t.rubric}));
   if (AS_JSON || REPORT_PATH) emitJsonArtifact({
     generatedAt: new Date().toISOString(),
-    suite: 'chat_v3',
-    suiteVersion: CHAT_QUALITY_VERSION,
+    suite: plan.suiteName,
+    suiteVersion: plan.suiteVersion,
     suiteContractSha256: plan.suiteContractSha256,
-    weighting: { en: 0.6, cs: 0.4 },
+    weighting: null, gradingStatus: 'NOT_GRADED',
     decisionMinimums: {
       total: plan.minimumDiscriminatingTasks,
       byLanguage: plan.minimumDiscriminatingByLanguage,
@@ -188,7 +189,7 @@ if (SHOW_CHAT_TESTS) {
     tests,
   });
   else {
-    console.log('CHAT v3 — EN 60 %, CZ 40 %\n');
+    console.log('CHAT — sběr celé sady pro posouzení, bez automatické známky\n');
     for (const test of tests) {
       console.log(`── ${test.name} [${test.language}]`);
       console.log(typeof test.prompt === 'string' ? test.prompt : JSON.stringify(test.prompt));
@@ -214,11 +215,11 @@ async function detectVram() {
       const gpu = p.gpus.reduce((a, b) => ((b.vram_mb || 0) > (a.vram_mb || 0) ? b : a));
       return {
         vramMb: gpu.vram_mb || 0, model: gpu.gpu_model, igpu: gpu.is_igpu,
-        numCtx: intendedNumCtx(),
+        numCtx: HUNT_EVALUATION_NUM_CTX,
       };
     }
   } catch { /* bez detekce se jede jen na měření */ }
-  return { vramMb: 0, model: 'neznámá', igpu: false, numCtx: intendedNumCtx() };
+  return { vramMb: 0, model: 'neznámá', igpu: false, numCtx: HUNT_EVALUATION_NUM_CTX };
 }
 
 function memoryAvailableBytes() {
@@ -412,13 +413,12 @@ if (DO_RUN) {
 }
 const evaluationDecisionStore = new ModelEvaluationDecisionStore(db);
 const bindingRepository = createModelFailoverRepository(db);
-const evaluationRunner = new RoleQualityEvaluationRunner(config.ollama?.baseUrl);
 const evaluationPlans = createRoleEvaluationPlans({ db });
-// CODE-only measurements qualify the same context used by their inference.
-// A multi-role hunt still retains its declared production-context preflight.
-if (ROLES.length === 1 && ROLES[0] === 'CODE') {
-  gpu.numCtx = evaluationPlans.CODE.suite.tests[0]?.options?.num_ctx || gpu.numCtx;
-}
+const evaluationRunner = new RoleQualityEvaluationRunner(config.ollama?.baseUrl, {
+  codePatchSuite: evaluationPlans.CODE.suite, roleSuites: { vision_v2: evaluationPlans.VISION.suite },
+});
+// Placement and every task use the same locked exploratory context.
+if (ROLES.some(role => evaluationPlans[role].numCtx !== gpu.numCtx)) throw new Error('HUNT_PROFILE_CONTEXT_MISMATCH');
 if (EVALUATE_INSTALLED && ROLE_FILTER.some(role => evaluationPlans[role]?.suiteContractSha256 !== expectedContracts[role])) throw new Error('MODEL_EVALUATION_CONTRACT_CHANGED');
 
 const currentBindingNames = inventory => {
@@ -565,13 +565,13 @@ if (EXPORT_CHAT_HISTORY) {
     suite: plan.suiteName,
     suiteVersion: plan.suiteVersion,
     suiteContractSha256: plan.suiteContractSha256,
-    weighting: { en: 0.6, cs: 0.4 },
+    weighting: null, gradingStatus: 'NOT_GRADED',
     decisionMinimums: {
       total: plan.minimumDiscriminatingTasks,
       byLanguage: plan.minimumDiscriminatingByLanguage,
     },
     incumbent: currentForExport.bindings.CHAT,
-    tests: describeChatTests(),
+    tests: plan.suite.tests.map(t => ({name:t.name,language:t.language,prompt:t.prompt(),rubric:t.rubric})),
     models: rows.map(row => ({
       ...row,
       languageScores: { en: languageScore(row, 'en'), cs: languageScore(row, 'cs') },
@@ -818,7 +818,7 @@ log('\n══ MĚŘENÍ STÁVAJÍCÍCH MODELŮ ══');
 publishProgress('incumbents');
 const incumbentSpeed = {};
 const allowedDrainModels = new Set();
-const measurementOptions = { providerVersion, numCtx: gpu.numCtx,
+const measurementOptions = { providerVersion, numCtx: gpu.numCtx, maxVramBytes: MAX_MODEL_BYTES,
   ...(SCHEDULED ? { allowedDrainModels } : {}) };
 const markOwned = name => {
   allowedDrainModels.add(name);
@@ -834,7 +834,7 @@ const historyCallbacks = createHistoryCallbacks({
   hardware: gpu,
   measurements,
 });
-for (const name of new Set(EVALUATE_INSTALLED ? [] : readyRoles.map(role => bindings[role]).filter(Boolean))) {
+for (const name of new Set(EVALUATE_INSTALLED ? [] : readyRoles.filter(role => !evaluationPlans[role].collectionOnly).map(role => bindings[role]).filter(Boolean))) {
   const artifact = await historyCallbacks.resolveArtifact(name);
   const matchingRole = readyRoles.find(role => canonicalModelName(bindings[role]) === canonicalModelName(name));
   const plan = matchingRole ? evaluationPlans[matchingRole] : null;
@@ -935,6 +935,8 @@ for (const cand of toTry) {
       resolveArtifact: historyCallbacks.resolveArtifact,
       loadHistoricalSummary: historyCallbacks.loadHistoricalSummary,
       saveHistoricalSummary: historyCallbacks.saveHistoricalSummary,
+      loadCollection: historyCallbacks.loadCollection,
+      saveCollection: historyCallbacks.saveCollection,
     },
     hasReusableEvaluation: async (name, roles) => {
       if (EVALUATE_INSTALLED) return false;
@@ -960,6 +962,8 @@ for (const cand of toTry) {
       } else if (stage === 'roleFailed') {
         log(`     ${info.role} FAILED (${info.model || 'preparation'}): ${info.error}`);
         for (const task of info.failedTasks || []) log(`       ${task.name}: ${task.error || 'timeout'}`);
+      } else if (stage === 'roleCollected') {
+        log(`     ${info.role}: ${info.collection.observed}/${info.collection.planned} odpovědí · ${info.collection.status} (bez skóre)`);
       } else if (stage === 'roleEvaluated') {
         log(`     ${info.role}: skóre ${info.score}${info.reused ? ' (aktuální uložené měření)' : ''}`);
       } else if (stage === 'roleDecided') {
@@ -1119,7 +1123,9 @@ if (changed.length) {
   if (rawWinners.length) {
     log(`\nKvalitativní vítěz existuje (${rawWinners.join(', ')}), ale po segregaci nevznikla přípustná změna vazby.`);
   } else {
-    log('\nŽádný kandidát neporazil stávající modely.');
+    log(results.some(r => r.trials?.some(t => t.evaluation?.collection))
+      ? '\nOdpovědi uložené k posouzení; sběr bez známek neurčuje vítěze.'
+      : '\nŽádný kandidát neporazil stávající modely.');
   }
 }
 
@@ -1139,7 +1145,9 @@ if (AS_JSON || REPORT_PATH) {
   emitJsonArtifact({
     generatedAt: new Date().toISOString(),
     ...(EVALUATE_INSTALLED ? { status: results.some(r => r.error || r.roleErrors?.length) ? 'FAILED'
-      : results.length === 1 && ROLE_FILTER.every(role => results[0].trials?.some(t => t.role === role && t.evaluation && !t.skipped)) ? 'COMPLETE' : 'BLOCKED' } : {}),
+      : results.length === 1 && ROLE_FILTER.every(role => results[0].trials?.some(t => t.role === role && t.evaluation && !t.skipped)) ? (results[0].trials.some(t => t.evaluation?.collection) ? 'AWAITING_REVIEW' : 'COMPLETE') : 'BLOCKED' }
+      : { status: results.some(r => r.error || r.roleErrors?.length) ? 'FAILED'
+        : results.some(r => r.trials?.some(t => t.evaluation?.collection)) ? 'AWAITING_REVIEW' : 'COMPLETE' }),
     gpu, providerVersion, huntCatalog: huntState.summary(), catalogUpdatesRequiringManualImport,
     perRole: Object.fromEntries([...perRole].map(([r, l]) => [r, l])),
     queue, results, proposedBindings: bindings, portfolio,

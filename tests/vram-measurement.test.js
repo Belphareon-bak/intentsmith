@@ -253,4 +253,15 @@ await testAsync('wrong provider or artifact cannot become a VRAM placement verdi
   }
 });
 
+await testAsync('locked collection budget is separate from CPU spill and skips throughput', async () => {
+  const seen = stubFetch({ '/api/chat': {message:{content:'ok'}},
+    '/api/ps': {models:[{name:'fixture',size:23_000_000_000,size_vram:23_000_000_000}]} });
+  try {
+    const r=await measureModel('fixture',{drain:false,numCtx:16384,maxVramBytes:22_000_000_000});
+    assertEqual(r.fits,true);assertEqual(r.placement.cpuBytes,0);
+    assertEqual(r.errorCode,'CANDIDATE_VRAM_BUDGET_EXCEEDED');assertEqual(r.throughput,null);
+    assertEqual(seen.filter(x=>x.path==='/api/chat').length,1);
+    assertEqual(seen.find(x=>x.path==='/api/chat').body.options.num_ctx,16384);
+  }finally{restore();}
+});
 summary();

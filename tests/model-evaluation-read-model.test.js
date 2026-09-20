@@ -157,12 +157,12 @@ test('legacy inconsistent interval keeps only an explicitly unverified audit tim
   db.close();
 });
 
-test('D1 evidence remains MISSING for D2 and R1 on the shared reasoning suite', () => {
+test('D1 evidence remains MISSING for D2 and R1 on distinct role suites', () => {
   const db = database();
   const plans = createRoleEvaluationPlans({ repeats: 1 });
-  assertEqual(plans.D1.suiteName, plans.D2.suiteName);
-  assertEqual(plans.D1.suiteContractSha256, plans.D2.suiteContractSha256);
-  assertEqual(plans.D1.suiteContractSha256, plans.R1.suiteContractSha256);
+  assert(plans.D1.suiteName !== plans.D2.suiteName);
+  assert(plans.D1.suiteContractSha256 !== plans.D2.suiteContractSha256);
+  assert(plans.D1.suiteContractSha256 !== plans.R1.suiteContractSha256);
   insert(db, {
     runId: 'complete-d1-only', digest: DIGEST, plan: plans.D1,
     score: 0.8, passed: 7,
@@ -315,7 +315,8 @@ test('current decision is linked to exact runs and only actionable for the bound
     ...input,bindingAuthority:{status:'DURABLE',durableRoles:['CHAT'],verifiedRoles:['CHAT']}});
   assertEqual(exploratory.roles.CHAT.latestDecision.actionable,false);
   assertEqual(exploratory.roles.CHAT.latestDecision.actionability,'EVALUATION_PROFILE_NOT_ACCEPTED');
-  assertEqual(exploratory.roles.CHAT.measurementReady,false);
+  assertEqual(exploratory.roles.CHAT.measurementReady,true);
+  assertEqual(exploratory.roles.CHAT.collectionOnly,true);
 
   const rendered = renderEvaluationReport(result);
   assert(rendered.includes('DECISION CANDIDATE'));
@@ -665,6 +666,30 @@ test('shipped score detail exposes preservation failures and separates content f
   assert(notes.some(n=>n.includes('Obsah: 100.0 %')));
   assert(notes.some(n=>n.includes('formát nesplněn')));
   assert(notes.some(n=>n.includes('count: očekáváno 12, vráceno 8')));
+});
+
+test('Studio displays captured answers on demand without inventing a grade or rendering answer HTML', () => {
+  const render=studioSource.slice(studioSource.indexOf('var _evaluationRoleFilter='),studioSource.indexOf('/* ═',studioSource.indexOf('var _evaluationRoleFilter=')));
+  const helpers=studioSource.slice(studioSource.indexOf('function _modelButtonStyle('),studioSource.indexOf('var _huntData='));
+  const label=studioFunction('_huntEvaluationText','function _huntDuration(');
+  const row={runId:'raw',role:'D1',model:'fixture',status:'AWAITING_REVIEW',score:null,
+    collection:{status:'AWAITING_REVIEW',observed:3,planned:3,budgetExhausted:1},tasks:[{name:'t',mean:null}]};
+  const detail={...row,tasks:[{name:'t',input:{text:'Actual prompt'},rubric:['Required evidence'],
+    responses:['<img src=x onerror=alert(1)>','answer two','unfinished'],details:[{captureStatus:'CAPTURED'},{captureStatus:'CAPTURED'},{captureStatus:'OUTPUT_BUDGET_EXHAUSTED'}]}]};
+  let loaded=null;
+  const context={row,C:{},_rgba:()=>'',_fs:n=>n,h:(tag,props,...children)=>({tag,props,children}),
+    _historyExpanded:{},renderCenter(){},_readModelResource:(url,done)=>{loaded=url;done(detail);}};
+  const tree=runInNewContext(helpers+label+render+';_qualityDetail(row,{})',context);
+  const nodes=n=>!n||typeof n!=='object'?[]:Array.isArray(n)?n.flatMap(nodes):[n,...nodes(n.children)];
+  const load=nodes(tree).find(n=>n.tag==='button');assert(load);
+  load.props.onClick();assertEqual(loaded,'/api/system/models/evaluations/raw');
+  context.row=detail;
+  const full=runInNewContext(helpers+label+render+';_qualityDetail(row,{})',context);
+  const text=JSON.stringify(full);assert(text.includes('3/3 odpovědí'));assert(text.includes('čeká na posouzení'));
+  assert(text.includes('Actual prompt'));assert(text.includes('Required evidence'));assert(text.includes('Vyčerpán limit výstupu'));
+  assert(nodes(full).some(n=>n.tag==='pre'&&n.children.includes('<img src=x onerror=alert(1)>')));
+  assert(!nodes(full).some(n=>n.tag==='img'||n.props?.dangerouslySetInnerHTML));
+  assert(!text.includes('0.0 %'));assert(!text.includes('skóre 0 %'));
 });
 
 const results = summary();

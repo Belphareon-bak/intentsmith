@@ -283,6 +283,14 @@ export async function measureModel(modelName, opts = {}) {
       return result;
     }
 
+    if (opts.maxVramBytes != null && (!Number.isSafeInteger(opts.maxVramBytes) || opts.maxVramBytes <= 0
+      || result.placement.vramBytes > opts.maxVramBytes)) {
+      result.error = `Model překračuje uzamčený paměťový rozpočet ${opts.maxVramBytes} bajtů při ${result.numCtx} tokenech.`;
+      result.errorCode = 'CANDIDATE_VRAM_BUDGET_EXCEEDED';
+      // Placement remains fullyOnGpu: a budget excess is not CPU spill and
+      // cannot masquerade as an artifact-wide hardware rejection.
+      return result;
+    }
     result.throughput = await measureThroughput(modelName, opts);
   } catch (err) {
     result.error = err.message;

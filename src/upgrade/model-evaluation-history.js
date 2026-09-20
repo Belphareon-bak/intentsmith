@@ -81,6 +81,8 @@ function evaluationInterval(input = {}, durationMs = 0) {
 // placement inspection. Keep that attempt as evidence, but never turn a
 // transient resource race into a permanent rejection of the exact artifact.
 const RETRYABLE_TERMINAL_CODES = new Set([
+  'EVALUATION_AWAITING_REVIEW',
+  'EVALUATION_COLLECTION_PARTIAL',
   'HUNT_GPU_BUSY',
   'MODEL_EVALUATION_RESPONSE_PROVIDER_MISMATCH',
   'CANDIDATE_MEASURE_FAILED',       // compatibility with prototype.1 rows
@@ -214,6 +216,59 @@ export class ModelEvaluationHistory {
 
   hasComplete(input) {
     return this.getComplete(input) !== null;
+  }
+
+  getCollection(input) {
+    if (!this._db) return null;
+    const row = this._db.prepare(`SELECT * FROM model_evaluation_runs
+      WHERE model_digest_sha256 = ? AND role = ? AND suite_name = ? AND suite_version = ?
+        AND suite_contract_sha256 = ? AND status = 'BLOCKED'
+        AND error_code = 'EVALUATION_AWAITING_REVIEW'
+        AND json_extract(metadata_json, '$.provider.version') = ?
+      ORDER BY completed_at DESC, rowid DESC LIMIT 1`).get(input.digestSha256,
+      requireModelEvaluationRole(input.role), input.suiteName, input.suiteVersion,
+      input.contractSha256, this.providerVersion);
+    return row ? this.#decode(row) : null;
+  }
+
+  recordCollection(input) {
+    const summary = input.summary;
+    const c = summary?.collection;
+    const details = (summary?.tasks || []).flatMap(task => task.details || []);
+    const responses = (summary?.tasks || []).flatMap(task => task.responses || []);
+    if (!c || !['AWAITING_REVIEW', 'COLLECTION_PARTIAL'].includes(c.status)
+      || summary.score !== null || !Number.isSafeInteger(c.planned) || c.planned < 1
+      || c.observed !== details.length || responses.length !== details.length || !details.length
+      || c.observed > c.planned
+      || c.captured !== details.filter(d => d.captureStatus === 'CAPTURED').length
+      || c.budgetExhausted !== details.filter(d => d.captureStatus === 'OUTPUT_BUDGET_EXHAUSTED').length
+      || c.invalid !== details.filter(d => !['CAPTURED','OUTPUT_BUDGET_EXHAUSTED'].includes(d.captureStatus)).length
+      || this.providerVersion === 'UNRECORDED'
+      || !normalizeModelDigestSha256(input.artifact?.digestSha256)
+      || (c.status === 'AWAITING_REVIEW' && (c.observed !== c.planned || c.invalid !== 0))
+      || (summary.tasks || []).some(task => task.mean !== null || task.scores?.length)) {
+      throw new TypeError('invalid ungraded answer collection');
+    }
+    for (const detail of details) {
+      if (detail.gradingStatus !== 'NOT_GRADED') throw new TypeError('collection must not contain grades');
+      if (['CAPTURED','OUTPUT_BUDGET_EXHAUSTED'].includes(detail.captureStatus)
+        && (detail.artifact?.digestSha256 !== input.artifact.digestSha256
+          || detail.artifact?.providerVersion !== this.providerVersion)) {
+        throw new TypeError('collection response proof mismatch');
+      }
+    }
+    // The existing DB status describes scoring: BLOCKED until reviewed. This is
+    // not a model rejection. Read APIs expose AWAITING_REVIEW/COLLECTION_PARTIAL;
+    // score and decision queries still require COMPLETE and cannot consume it.
+    return this.recordTerminal({ ...input, summary: undefined, status: 'BLOCKED',
+      repeats: summary.runs, tasks: summary.tasks, startedAt: summary.startedAt,
+      completedAt: summary.completedAt, durationMs: summary.durationMs,
+      errorCode: c.status === 'AWAITING_REVIEW' ? 'EVALUATION_AWAITING_REVIEW' : 'EVALUATION_COLLECTION_PARTIAL',
+      errorMessage: c.status === 'AWAITING_REVIEW'
+        ? 'Odpovědi jsou uložené a čekají na posouzení. Skóre zatím nebylo vydáno.'
+        : 'Neúplný sběr odpovědí; uložené pokusy zůstávají k dispozici.',
+      metadata: { ...input.metadata, collection: c },
+    });
   }
 
   getHardwareBlock(input) {

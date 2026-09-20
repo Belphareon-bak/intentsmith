@@ -1,3 +1,4 @@
+import { collectRoleAnswers } from '../eval/model-answer-collection.js';
 // Candidate Trial — fáze 2 až 4: stáhnout, změřit, prosít, utkat, rozhodnout
 // ══════════════════════════════════════════════════════════════════════════════
 //
@@ -263,7 +264,10 @@ export async function tryCandidate(candidateName, ctx = {}) {
     const reusable = typeof ctx.hasReusableEvaluation === 'function'
       ? await ctx.hasReusableEvaluation(candidateName, runnableRoles)
       : false;
-    out.floor = reusable
+    // A mixed-role request must not discard raw answers on the basis of the
+    // old short language/JSON probes either. Graded roles run their full oracle.
+    const includesCollection = runnableRoles.some(role => evaluationPlans[role].collectionOnly);
+    out.floor = includesCollection ? { passed: true, failures: [], skipped: true, reason: 'raw collection has no quality prefilter' } : reusable
       ? { passed: true, failures: [], reused: true }
       : await runCapabilityFloor(candidateName, ctx);
     if (!out.floor.passed) {
@@ -273,7 +277,7 @@ export async function tryCandidate(candidateName, ctx = {}) {
       return out;
     }
 
-    onStage('floorPassed', candidateName, { probes: (ctx.probes || CAPABILITY_FLOOR).length });
+    onStage(includesCollection ? 'floorSkipped' : 'floorPassed', candidateName, { probes: (ctx.probes || CAPABILITY_FLOOR).length });
 
     // Vlastnosti kandidáta pro filtr způsobilosti. Volající je může dodat
     // přesnější (z katalogu či HuggingFace); jinak se odvodí z názvu.
@@ -286,11 +290,11 @@ export async function tryCandidate(candidateName, ctx = {}) {
     };
 
     out.stage = 'trial';
-    // Sdílená cache napříč rolemi — `reasoning` obsluhuje D1, D2 i R1.
+    // Cache remains keyed by the exact role contract; collection never grades.
     const suiteCache = createSuiteCache();
     for (const role of runnableRoles) {
       const incumbent = bindings[role];
-      if (!incumbent && !ctx.evaluationOnly) continue;
+      if (!incumbent && !ctx.evaluationOnly && !evaluationPlans[role]?.collectionOnly) continue;
       const evaluationPlan = evaluationPlans[role] || null;
 
       // Nezpůsobilá role se nesoutěží.  Textový model nemá co dělat v souboji
@@ -321,6 +325,14 @@ export async function tryCandidate(candidateName, ctx = {}) {
           ...ctx.trialOpts,
           onProgress: value => ctx.trialOpts?.onProgress?.({ ...value, role }),
         };
+        if (evaluationPlan.collectionOnly) {
+          const evaluation = await collectRoleAnswers(runner, role, candidateName, roleOptions);
+          out.trials.push({ role, evaluation });
+          if (evaluation.collection.status !== 'AWAITING_REVIEW') out.roleErrors.push({ role,
+            error: 'Sběr byl přerušen; odpovědi jsou uložené bez skóre.', code: 'EVALUATION_COLLECTION_PARTIAL' });
+          onStage('roleCollected', candidateName, { role, collection: evaluation.collection, reused: evaluation.reused === true });
+          continue;
+        }
         if (ctx.evaluationOnly) {
           const evaluation = await evaluateRole(runner, role, candidateName, roleOptions);
           out.trials.push({ role, evaluation });

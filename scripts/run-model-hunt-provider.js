@@ -141,7 +141,7 @@ try {
     reasons: report?.reasons || [], diagnostics: analyzeHuntDecisions(report?.results || []), results: (report?.results || []).map(r => ({
       model: r.model, stage: r.stage, error: r.error || null, roleErrors: r.roleErrors?.length || 0,
       roleFailures: (r.roleErrors || []).map(f => ({ role: f.role, model: f.model, code: f.code, error: f.error, failedTasks: f.failedTasks || [] })),
-      evaluations: (r.trials || []).filter(t => t.evaluation).map(t => ({role:t.role, score:t.evaluation.score, reused:t.evaluation.reused === true})),
+      evaluations: (r.trials || []).filter(t => t.evaluation).map(t => ({role:t.role, score:t.evaluation.score, collection:t.evaluation.collection||null, reused:t.evaluation.reused === true})),
       decisions: (r.trials || []).filter(t => t.decision).map(t => ({ role: t.role, reason: t.decision?.reasonCode, winner: t.decision?.winner })),
     })) });
 } catch (error) {

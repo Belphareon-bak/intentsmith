@@ -3,6 +3,8 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { SEMANTIC_ROLE_SUITES } from './semantic-role-suites.js';
+import { collectionSuite } from './role-collection-profile.js';
 import { codePatchRuntimeAvailability, codePatchSuite } from './code-patch-suite.js';
 import {
   ROLE_QUALITY_VERSION,
@@ -19,6 +21,10 @@ export {
   applicabilityContractForRole,
   checkModelEvaluationApplicability,
 } from './model-evaluation-applicability.js';
+
+// One locked exploratory context for placement and inference on every role.
+// Qualification for the larger interactive production profile is separate.
+export const HUNT_EVALUATION_NUM_CTX = 16384;
 
 const CODE_FIXTURE_URL = new URL('./code-suite-tasks.json', import.meta.url);
 
@@ -69,7 +75,7 @@ function fileSha256(url) {
 export function codeGradingRuntimeContract(readSource = readFileSync) {
   const files = [
     './code-patch-suite.js', './code-patch-runner.js', './code-contract-check.mjs', './function-span.js',
-    './code-task-extractor.js', './build-code-suite.js', './model-evaluation-runner.js',
+    './code-task-extractor.js', './build-code-suite.js', './model-evaluation-runner.js', './role-collection-profile.js',
     '../../package-lock.json',
   ];
   return Object.freeze({
@@ -82,7 +88,8 @@ export function codeGradingRuntimeContract(readSource = readFileSync) {
 export function textGradingRuntimeContract(readSource = readFileSync) {
   const files = ['./role-quality-suites.js', './model-evaluation-runner.js',
     './runtime-json.js', './structured-answer.js', '../llm/client.js',
-    './fixtures/vision/manifest.json'];
+    './fixtures/vision/manifest.json', './semantic-role-suites.js', './semantic-evaluation-judge.js',
+    './fixtures/role-semantic-tasks.json', './role-collection-profile.js', './model-answer-collection.js'];
   return Object.freeze({
     version: 1, nodeVersion: process.version,
     sources: Object.freeze(Object.fromEntries(files.map(relative => [relative,
@@ -100,8 +107,11 @@ export function createRoleEvaluationPlans(opts = {}) {
   let runtimeSha256 = null;
   try { runtimeSha256 = qualificationRuntimeSha256(); } catch { /* unavailable source cannot authorize decisions */ }
   const plans = {};
-  for (const [role, suiteName] of Object.entries(ROLE_SUITE_NAMES)) {
-    const suite = getQualitySuiteForRole(role);
+  for (const role of Object.keys(ROLE_SUITE_NAMES)) {
+    const collectionOnly = Boolean(SEMANTIC_ROLE_SUITES[role]);
+    const profile = collectionSuite(role, SEMANTIC_ROLE_SUITES[role] || getQualitySuiteForRole(role));
+    const suite = { ...profile, tests: profile.tests.map(t => ({ ...t, options: { ...t.options, num_ctx: HUNT_EVALUATION_NUM_CTX } })) };
+    const suiteName = suite.name;
     const suiteVersion = suiteName === 'code_patch'
       ? `code-patch-${ROLE_QUALITY_VERSION}`
       : (suite.version || ROLE_QUALITY_VERSION);
@@ -127,24 +137,26 @@ export function createRoleEvaluationPlans(opts = {}) {
       suiteContractSha256: contract.sha256,
       applicabilityContract: applicabilityContractForRole(role),
       repeats,
+      collectionOnly,
+      numCtx: HUNT_EVALUATION_NUM_CTX,
       taskCount: suite.tests.length,
       minimumTaskCount,
-      measurementReady: !['reasoning_v2','review_v2','chat_v3'].includes(suiteName) && suite.tests.length >= minimumTaskCount
+      measurementReady: suite.tests.length >= minimumTaskCount
         && (role !== 'VISION' || new Set(suite.tests.flatMap(t => t.contractMaterial?.prompt?.imageDigests || [])).size >= 10)
         && (role !== 'CODE' || codeRuntime.ready),
       // Read durable evidence at use time: revocation must affect an already
       // constructed plan, including the final retention recheck under its lock.
       qualificationRuntimeSha256: runtimeSha256,
       get acceptance() { return acceptanceStore.resolve(acceptanceIdentity); },
-      get decisionReady() { return this.measurementReady && this.acceptance.ready; },
-      get evidencePurpose() { return this.decisionReady ? 'QUALIFIED_PAIR_ONLY' : 'EXPLORATORY'; },
+      get decisionReady() { return !collectionOnly && this.measurementReady && this.acceptance.ready; },
+      get evidencePurpose() { return collectionOnly ? 'COLLECTION_FOR_REVIEW' : this.decisionReady ? 'QUALIFIED_PAIR_ONLY' : 'EXPLORATORY'; },
       get decisionBlockCode() { return this.decisionReady ? null : this.acceptance.code || 'EVALUATION_PROFILE_NOT_ACCEPTED'; },
       get decisionBlockReason() {
         return this.decisionReady ? null : 'Sada nemá ověřitelnou přejímku hodnotitele a odděleného párového provozního měření pro tento kontrakt. Výsledky jsou průzkumné.';
       },
       qualificationForRuns(runIds) { return this.decisionReady ? acceptanceStore.forRuns(this, runIds) : null; },
-      runtimeBlockCode: ['reasoning_v2','review_v2','chat_v3'].includes(suiteName) ? 'EVALUATOR_T5_FORBIDDEN' : role === 'CODE' ? codeRuntime.code : null,
-      runtimeBlockReason: ['reasoning_v2','review_v2','chat_v3'].includes(suiteName) ? 'Legacy substringové hodnocení je zakázané. Nová sada sbírá odpovědi pro nezávislé posouzení; přejímka hodnotitele chybí.' : role === 'CODE' ? codeRuntime.reason : null,
+      runtimeBlockCode: role === 'CODE' ? codeRuntime.code : null,
+      runtimeBlockReason: role === 'CODE' ? codeRuntime.reason : null,
       // CHAT needs breadth in both supported languages. The former 1:1
       // decision rested on just two Czech tasks and is diagnostic evidence,
       // not enough authority for an automatic user-facing model change.

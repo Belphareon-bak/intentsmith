@@ -197,6 +197,15 @@ export function createHistoryCallbacks(options) {
       artifacts.delete(canonicalModelName(model));
       return this.resolveArtifact(model);
     },
+    async loadCollection(input) {
+      const row = history.getCollection({ ...input, digestSha256: input.artifact.digestSha256,
+        contractSha256: input.suiteContractSha256 });
+      return row ? { ...row, score: null, collection: row.metadata.collection, historyRunId: row.runId } : null;
+    },
+    async saveCollection(input) {
+      return history.recordCollection({ ...input, contractSha256: input.suiteContractSha256,
+        hardware, metadata: { source: 'model-upgrade-hunt-collection-v1' } });
+    },
     async loadHistoricalSummary(input) {
       if (!input.suiteContractSha256) return null;
       const artifact = await resolveArtifact(input.model);
@@ -313,7 +322,11 @@ export function evaluationStateForArtifact(artifact, roles, plans, history, hard
       suiteVersion: plan.suiteVersion,
       contractSha256: plan.suiteContractSha256,
     });
-    const terminal = complete ? null : history.getTerminal({
+    const collected = plan.collectionOnly && history.getCollection?.({
+      digestSha256: artifact.digestSha256, role, suiteName: plan.suiteName,
+      suiteVersion: plan.suiteVersion, contractSha256: plan.suiteContractSha256,
+    });
+    const terminal = complete || collected ? null : history.getTerminal({
       digestSha256: artifact.digestSha256,
       role,
       suiteName: plan.suiteName,
@@ -321,11 +334,12 @@ export function evaluationStateForArtifact(artifact, roles, plans, history, hard
       contractSha256: plan.suiteContractSha256,
       hardware,
     });
-    perRole[role] = complete ? 'scored' : (terminal ? 'rejected' : 'unseen');
-    if (!complete && !terminal) missing++;
+    perRole[role] = complete ? 'scored' : collected ? 'awaiting-review' : (terminal ? 'rejected' : 'unseen');
+    if (!complete && !terminal && !collected) missing++;
     if (terminal) rejected++;
   }
-  const state = missing ? 'unseen' : (rejected ? 'rejected' : 'scored');
+  const state = missing ? 'unseen' : rejected ? 'rejected'
+    : Object.values(perRole).includes('awaiting-review') ? 'awaiting-review' : 'scored';
   return Object.freeze({ state, missing, rejected, perRole, hardwareBlock });
 }
 
@@ -439,7 +453,7 @@ export function buildInstalledCandidateQueue(input = {}) {
     // A deterministic failure for this exact artifact and suite contract is a
     // completed screening result, not a reason to spend GPU time again. Keep
     // the row forever, but omit only the affected roles from the next queue.
-    const runnableRoles = candidateRoles.filter(role => evalState.perRole[role] !== 'rejected');
+    const runnableRoles = candidateRoles.filter(role => !['rejected','awaiting-review'].includes(evalState.perRole[role]));
     if (!runnableRoles.length) continue;
     const priority = candidateRoles.reduce((score, role) => {
       const category = normalizedCandidate.category ?? profile.category;

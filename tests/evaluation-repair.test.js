@@ -124,8 +124,8 @@ test('VISION has broad image coverage and does not call partial JSON a complete 
   const first=Object.keys(e)[0];assert.equal(t.grade(JSON.stringify({...e,[first]:'WRONG'})).passed,false,t.name);
  }
 });
-test('legacy T5 production plans cannot measure or decide, history is not rewritten',()=>{
- const plans=createRoleEvaluationPlans();for(const role of ['D1','D2','R1','R2','CHAT']){assert.equal(plans[role].measurementReady,false);assert.equal(plans[role].runtimeBlockCode,'EVALUATOR_T5_FORBIDDEN');assert.equal(plans[role].decisionReady,false);}
+test('product plans collect new role-specific answers without re-enabling T5 or decisions',()=>{
+ const plans=createRoleEvaluationPlans();for(const role of ['D1','D2','R1','R2','CHAT']){assert.equal(plans[role].measurementReady,true);assert.equal(plans[role].collectionOnly,true);assert.equal(plans[role].suiteName,role.toLowerCase()+'_semantic_v1');assert.equal(plans[role].decisionReady,false);}
 });
 await testAsync('calling the production runner directly cannot bypass the legacy prohibition',async()=>{
  const r=new RoleQualityEvaluationRunner();let calls=0;r._callModel=()=>{calls++;throw Error('unexpected inference')};

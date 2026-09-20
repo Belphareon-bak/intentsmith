@@ -92,7 +92,7 @@ export function createHuntControl({ installationFile = process.env.INTENTSMITH_I
               request:manual ? {kind:'evaluation', model:report.results[0].model,
                 role:report.results[0].trials.filter(t => t.evaluation).map(t => t.role).join(',')} : null,
               results:(report.results || []).map(r => ({model:r.model, stage:r.stage, error:r.error || null,
-                evaluations:(r.trials || []).filter(t => t.evaluation).map(t => ({role:t.role,score:t.evaluation.score,reused:t.evaluation.reused === true}))})),
+                evaluations:(r.trials || []).filter(t => t.evaluation).map(t => ({role:t.role,score:t.evaluation.score,collection:t.evaluation.collection||null,reused:t.evaluation.reused === true}))})),
             });
           } catch { /* An absent or unsafe record is not evidence of a completed run. */ }
         }
