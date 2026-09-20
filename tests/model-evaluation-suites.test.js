@@ -185,30 +185,36 @@ test('all text-role cache identities include the real shared grader and image or
     assertEqual(hash(runtime), plan.suiteContractSha256);
     for (const path of Object.keys(runtime.sources)) {
       const changed = textGradingRuntimeContract(url => Buffer.concat([readFileSync(url),
-        Buffer.from(url.pathname.endsWith(path.replace(/^\.\//, '')) ? '\nmutation' : '')]));
+        Buffer.from(url.href === new URL('../src/eval/' + path, import.meta.url).href ? '\nmutation' : '')]));
       assert(hash(changed) !== plan.suiteContractSha256, `${role}/${path} invalidates reuse`);
     }
   }
   strictAssert.throws(() => textGradingRuntimeContract(() => { throw new Error('missing source'); }), /missing source/);
 });
 
-test('VISION complete-value oracle accepts normalization but rejects negations, stuffing and invented fields', () => {
+test('VISION checks production-extracted values; wrapping is diagnostic and extra fields fail schema', () => {
   for (const task of visionV2Suite.tests) {
     const expected = task.contractMaterial.gradingInputs.expected;
     assertEqual(task.grade(JSON.stringify(expected)).score, 1, task.name);
     const fenced = task.grade('```json\n'+JSON.stringify(expected)+'\n```');
     assertEqual(fenced.score, 1, `${task.name}: content survives a formatting-only wrapper`);
     assertEqual(fenced.detail.strictJson, false);
-    assertEqual(fenced.detail.responseFormat, 'JSON_CODE_BLOCK');
+    assertEqual(fenced.detail.responseFormat, 'RUNTIME_RECOVERED_JSON');
     assertEqual(task.grade(JSON.stringify(expected)).detail.strictJson, true);
-    for (const invalid of ['', '{}', task.promptText, 'red green blue black white ring 5 100',
+    for (const invalid of ['', '{}', task.promptText, 'red green blue black white ring 5 100']) {
+      assertEqual(task.grade(invalid).score, 0, `${task.name}: ${invalid.slice(0, 60)}`);
+    }
+    // Operator 2026-09-20: use client.js exactly, including its first-fence
+    // selection. These observations do NOT certify surrounding prose as true.
+    for (const recovered of [
       'Actually the answer is wrong. '+JSON.stringify(expected),
       'Actually the answer is wrong. ```json\n'+JSON.stringify(expected)+'\n```',
       '```json\n'+JSON.stringify(expected)+'\n```\nActually the answer is wrong.',
-      '```json\n'+JSON.stringify(expected)+'\n```\n```json\n{}\n```',
-      JSON.stringify({ ...expected, contradictory_extra_claim: 'everything else is false' })]) {
-      assertEqual(task.grade(invalid).score, 0, `${task.name}: ${invalid.slice(0, 60)}`);
+      '```json\n'+JSON.stringify(expected)+'\n```\n```json\n{}\n```']) {
+      assertEqual(task.grade(recovered).score, 1, `${task.name}: ${recovered.slice(0, 60)}`);
     }
+    const extra = task.grade(JSON.stringify({ ...expected, contradictory_extra_claim: 'everything else is false' }));
+    assertEqual(extra.score, 1); assertEqual(extra.passed, false); assertEqual(extra.detail.schema, false);
     // Each advertised field contributes once, with no free points for JSON.
     for (const key of Object.keys(expected)) {
       const wrong = { ...expected, [key]: null };
