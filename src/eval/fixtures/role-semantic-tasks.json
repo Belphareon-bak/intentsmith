@@ -2023,7 +2023,11 @@
         },
         "format": "strict-json",
         "contentAggregation": "equal-fields",
-        "formatSeparate": true
+        "formatSeparate": true,
+        "rules": {
+          "eu_day": "case-insensitive-label",
+          "us_day": "case-insensitive-label"
+        }
       }
     },
     {
@@ -2221,7 +2225,10 @@
         },
         "format": "strict-json",
         "contentAggregation": "equal-fields",
-        "formatSeparate": true
+        "formatSeparate": true,
+        "rules": {
+          "rezim": "case-insensitive-label"
+        }
       }
     },
     {
@@ -2254,7 +2261,10 @@
         },
         "format": "strict-json",
         "contentAggregation": "equal-fields",
-        "formatSeparate": true
+        "formatSeparate": true,
+        "rules": {
+          "termin": "case-insensitive-label"
+        }
       }
     },
     {
@@ -2571,7 +2581,10 @@
         },
         "format": "strict-json",
         "contentAggregation": "equal-fields",
-        "formatSeparate": true
+        "formatSeparate": true,
+        "rules": {
+          "den": "case-insensitive-label"
+        }
       }
     },
     {

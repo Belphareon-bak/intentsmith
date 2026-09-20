@@ -24,6 +24,22 @@ test('assertion sets separate sentence punctuation from facts and do not invent 
  for(const verified of [['cache reset did NOT complete.','5 of 8 replay batches passed.'],['cache reset completed.'],['cache reset completed.','cache reset completed.']])
   assert.equal(gradeStructuredAnswer(JSON.stringify({verified}),e,rules).score,0);
 });
+test('closed weekday and mode labels do not acquire an unstated capitalization rule',()=>{
+ for(const [name,field,correct,wrong] of [
+  ['en_multi_correction','eu_day','THURSDAY','Tuesday'],
+  ['en_multi_correction','us_day','wednesday','Thursday'],
+  ['cz_exact_bullets','rezim','Automatický','ruční'],
+  ['cz_context_correction','termin','Čtvrtek','středa'],
+  ['cz_conditional_deadline','den','Středa','Úterý'],
+ ]){
+  const t=SEMANTIC_ROLE_SUITES.CHAT.tests.find(t=>t.name===name),e=t.contractMaterial.gradingInputs.expected;
+  assert.equal(t.grade(JSON.stringify({...e,[field]:correct})).passed,true,name);
+  for(const bad of [wrong,42,null])assert.ok(t.grade(JSON.stringify({...e,[field]:bad})).score<1,name);
+ }
+ const exact=SEMANTIC_ROLE_SUITES.CHAT.tests.find(t=>t.name==='cz_coherent_status_paragraph');
+ const e=exact.contractMaterial.gradingInputs.expected;
+ assert.ok(exact.grade(JSON.stringify({...e,dalsi_krok:'Opravit testy'})).score<1,'explicitly literal fields stay literal');
+});
 await testAsync('structured fields are exact while open grammar remains ungraded',async()=>{
  const tasks=SEMANTIC_ROLE_SUITES.CHAT.tests.filter(t=>t.tier==='T2');assert.equal(tasks.length,19);
  for(const t of tasks){

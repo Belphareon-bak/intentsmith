@@ -9,6 +9,13 @@ export function gradeStructuredAnswer(response, expected, rules = {}) {
  const exactKeys=object&&isDeepStrictEqual(Object.keys(parsed).sort(),Object.keys(expected).sort());
  const criteria=Object.entries(expected).map(([id,value])=>{
   const observed=object?parsed[id]:null;
+  if(rules[id]==='case-insensitive-label') {
+   // These closed labels identify a weekday or a mode; their public prompts
+   // prescribe keys and types, but do not prescribe capitalization.
+   const normalize=v=>typeof v==='string'?v.normalize('NFC').toLowerCase():null;
+   const score=typeof observed==='string'&&normalize(observed)===normalize(value)?1:0;
+   return {id,score,observed,expected:value};
+  }
   if(rules[id]==='literal-assertion-set') {
    const strings=v=>Array.isArray(v)&&v.every(s=>typeof s==='string');
    const sorted=v=>[...v].sort();
@@ -31,6 +38,6 @@ export function structuredTask(task) {
  return Object.freeze({name:task.name,role:task.role,language:task.language,tier:'T2',description:task.description,independenceGroup:task.independenceGroup,
   promptText:task.prompt,prompt:()=>({text:task.prompt}),rubric:task.reference.criteria,
   options:{num_ctx:16384,num_predict:2048,temperature:.1,top_p:.9,timeout:300000},
-  contractMaterial:{prompt:{kind:'text',text:task.prompt},gradingInputs:{tier:'T2',expected,rules:structuredClone(task.evaluation.rules||{}),gradingVersion:'structured-answer.2',independenceGroup:task.independenceGroup,formatSeparate:true}},
+  contractMaterial:{prompt:{kind:'text',text:task.prompt},gradingInputs:{tier:'T2',expected,rules:structuredClone(task.evaluation.rules||{}),gradingVersion:'structured-answer.3',independenceGroup:task.independenceGroup,formatSeparate:true}},
   grade:response=>gradeStructuredAnswer(response,expected,task.evaluation.rules)});
 }
