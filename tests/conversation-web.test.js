@@ -4,7 +4,7 @@ import { EventEmitter } from 'node:events';
 import { Readable } from 'node:stream';
 import { spawn, spawnSync } from 'node:child_process';
 import { db, conversations, messages } from '../src/db/database.js';
-import { createConversationWebHandler } from '../src/chat/handlers/conversation-web.js';
+import { createConversationWebHandler, conversationSearchUrl } from '../src/chat/handlers/conversation-web.js';
 import { ConversationWebRepository } from '../src/network/conversation-web-repository.js';
 import { createConversationWebTransport, isPublicWebAddress } from '../src/network/conversation-web-transport.js';
 import { canonicalWebUrl, parseWebApproval, CONVERSATION_WEB } from '../contracts/m2/conversation-web-v1.js';
@@ -27,8 +27,9 @@ function fixture(options = {}) {
   const body = Buffer.from('Example content ``` </script><img src=x onerror=alert(1)>');
   const transport = options.transport || (async () => { calls++; return { bytes: body, status: 200, contentType: 'text/plain', address: '93.184.215.14' }; });
   const handler = createConversationWebHandler({ database: db, transport, ...options });
-  const initial = context('načti web https://example.com/');
-  const proposed = handler.propose('https://example.com/', initial);
+  const target = options.url || 'https://example.com/';
+  const initial = context('načti web ' + target);
+  const proposed = handler.propose(target, initial);
   const id = proposed.metadata.webRequestId;
   return { handler, context, initial, proposed, id, body, conversationId, calls: () => calls,
     approve: () => context(`schválit web ${id}`), repo: new ConversationWebRepository(db, options) };
@@ -45,6 +46,38 @@ await testAsync('unknown weather location asks locally, city proposes one URL, a
   assert.equal(slots.length,0);
   const command='schválit web '+answer.response.metadata.webRequestId;
   await f.handler.intercept(command,f.context(command));assert.equal(f.calls(),1);
+});
+
+test('search query removes only conversational preamble and retains requested constraints', () => {
+  const url = conversationSearchUrl('najdi mi na ceskemu webu inzerat na benzinove auto do 60k s vyhrivanim');
+  assert.equal(new URL(url).searchParams.get('q'),'inzerat na benzinove auto do 60k s vyhrivanim');
+});
+
+await testAsync('RSS results are readable, relevant previews, never remote instructions or verified claims', async () => {
+  const body=Buffer.from('<rss><channel><title>SEARCH_HEADER_NOT_A_RESULT</title><copyright>COPYRIGHT_NOISE</copyright>'
+    +'<item><title>OTTO Herrenmode</title><link>https://example.com/shoes</link><description>Schuhe kaufen</description></item>'
+    +'<item><title>Auto &amp; inzerát</title><link>https://example.com/car</link><description>Benzínové auto. &lt;img src=https://unapproved.invalid/image&gt; ![x](https://unapproved.invalid/img)</description></item>'
+    +'<item><title>Auto unsafe</title><link>javascript:alert(1)</link></item></channel></rss>');
+  let count=0; const f=fixture({url:conversationSearchUrl('najdi mi benzinove auto do 60k'),transport:async()=>{count++;return {bytes:body,status:200,contentType:'application/rss+xml',address:'93.184.215.14'};}});
+  const response=(await f.handler.intercept('schválit web '+f.id,f.approve())).response;
+  assert.equal(response.metadata.webDisplayStatus,'search_results');assert.equal(response.metadata.resultCount,1);
+  assert.match(response.content,/https:\/\/example.com\/car/);assert.match(response.content,/nepotvrzuje splnění všech podmínek/);
+  assert.doesNotMatch(response.content,/COPYRIGHT_NOISE|SEARCH_HEADER_NOT_A_RESULT|Herrenmode|javascript:/);
+  assert(!response.content.includes('![x]('));assert(!response.content.includes('<img'));
+  const again=(await f.handler.intercept('schválit web '+f.id,f.approve())).response;
+  assert.equal(again.content,response.content);assert.equal(count,1);assert.deepEqual(f.repo.read(f.id,f.approve()).output,body);
+});
+
+await testAsync('unrelated RSS, unsafe links and entity declarations never masquerade as found answers', async () => {
+  for(const body of [
+    '<rss><channel><item><title>Schuhe OTTO</title><link>https://example.com/shoes</link></item></channel></rss>',
+    '<rss><channel><item><title>Auto inzerát</title><link>javascript:alert(1)</link></item></channel></rss>',
+    '<!DOCTYPE rss [<!ENTITY x SYSTEM "https://unapproved.invalid">]><rss><item><title>Auto</title><link>https://example.com/car</link></item></rss>',
+  ]) {
+    const f=fixture({url:conversationSearchUrl('benzinove auto inzerat'),transport:async()=>({bytes:Buffer.from(body),status:200,contentType:'application/rss+xml',address:'93.184.215.14'})});
+    const r=(await f.handler.intercept('schválit web '+f.id,f.approve())).response;
+    assert.equal(r.metadata.resultCount,0);assert.match(r.content,/nemám doloženou odpověď/);assert.doesNotMatch(r.content,/Schuhe|javascript|DOCTYPE/);
+  }
 });
 
 suite('Conversation web exact approval and durable output');

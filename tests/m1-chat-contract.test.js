@@ -46,6 +46,9 @@ import {
   buildStandardCreativeInstruction,
   buildStandardConversationInstruction,
   selectAnswerTokenBudget,
+  buildAnswerContext,
+  isAnswerExpansion,
+  handleAnswerDecision,
 } from '../src/chat/handlers/decisions.js';
 import {
   getConversationStore,
@@ -63,6 +66,9 @@ import {
 import { recordDecision as recordWorkflowIntent } from '../src/skills/detector.js';
 import { inspectChatJourneyResult } from './helpers/chat-journey-response.js';
 import { suite, summary, test, testAsync } from './harness.js';
+import { llmGateway } from '../src/llm/gateway.js';
+import { conversationHandler } from '../src/chat/handlers/conversation.js';
+import { creDecisionEngine } from '../src/chat/cre-decision.js';
 
 const silentLog = Object.freeze({
   debug() {},
@@ -264,24 +270,24 @@ test('ANSWER model generation receives the request cancellation signal', () => {
   );
   assert.match(
     source,
-    /generateChatResponse\(currentPrompt, systemPrompt, \{[\s\S]*?maxTokens: selectAnswerTokenBudget\(input, decision\.intent\),[\s\S]*?signal: context\.signal \|\| null,[\s\S]*?\}\);/u,
+    /generateChatResponse\(currentPrompt, systemPrompt, \{[\s\S]*?maxTokens: answerContext\.maxTokens,[\s\S]*?signal: context\.signal \|\| null,[\s\S]*?\}\);/u,
   );
 });
 
 test('ANSWER token budgets bound short chat without constraining richer intents below authority', () => {
   assert.equal(selectAnswerTokenBudget('OK', 'CONVERSATIONAL'), 64);
   assert.equal(selectAnswerTokenBudget('Jak se máš?', 'CONVERSATIONAL'), 128);
-  assert.equal(selectAnswerTokenBudget('Co si myslíš o Pythonu?', 'CONVERSATIONAL'), 256);
+  assert.equal(selectAnswerTokenBudget('Co si myslíš o Pythonu?', 'CONVERSATIONAL'), 1200);
   for (const topic of ['Python', '?', 'DNS', 'Co je AI?']) {
-    assert.equal(selectAnswerTokenBudget(topic, 'CONVERSATIONAL'), 256);
-    assert.match(buildStandardConversationInstruction(topic, 'en', 'CONVERSATIONAL'), /at most 45 words/u);
+    assert.equal(selectAnswerTokenBudget(topic, 'CONVERSATIONAL'), 1200);
+    assert.doesNotMatch(buildStandardConversationInstruction(topic, 'en', 'CONVERSATIONAL'), /45 words|2–3 sentences/u);
     assert.equal(buildBriefReplyInstruction(topic, 'en'), '');
   }
   assert.equal(selectAnswerTokenBudget('Thanks', 'CONVERSATIONAL'), 64);
   assert.equal(selectAnswerTokenBudget('How are you?', 'CONVERSATIONAL'), 128);
-  assert.equal(selectAnswerTokenBudget('x'.repeat(10), 'CONVERSATIONAL'), 256);
-  assert.equal(selectAnswerTokenBudget('x'.repeat(160), 'CONVERSATIONAL'), 256);
-  assert.equal(selectAnswerTokenBudget('x'.repeat(161), 'CONVERSATIONAL'), 1200);
+  assert.equal(selectAnswerTokenBudget('x'.repeat(10), 'CONVERSATIONAL'), 1200);
+  assert.equal(selectAnswerTokenBudget('x'.repeat(160), 'CONVERSATIONAL'), 1200);
+  assert.equal(selectAnswerTokenBudget('x'.repeat(161), 'CONVERSATIONAL'), 2048);
   assert.equal(selectAnswerTokenBudget('Napiš haiku o kávě', 'CREATIVE'), 256);
   assert.equal(selectAnswerTokenBudget('Pomoz mi napsat email', 'CREATIVE'), 768);
   assert.equal(selectAnswerTokenBudget('Vymysli název pro knihovnu.', 'CREATIVE'), 128);
@@ -298,7 +304,7 @@ test('ANSWER token budgets bound short chat without constraining richer intents 
   assert.equal(buildBriefReplyInstruction('Co si myslíš o Pythonu?', 'cs'), '');
   assert.match(
     buildStandardConversationInstruction('Co si myslíš o Pythonu?', 'cs', 'CONVERSATIONAL'),
-    /nejvýše 45 slovy/u,
+    /Přizpůsob hloubku požadavku/u,
   );
   assert.equal(buildStandardConversationInstruction('Díky', 'cs', 'CONVERSATIONAL'), '');
   assert.equal(buildStandardConversationInstruction('Co je Python?', 'cs', 'CODE'), '');
@@ -318,6 +324,58 @@ test('ANSWER token budgets bound short chat without constraining richer intents 
   assert.equal(buildLongCreativeInstruction('Napiš finální verzi celého textu písně.', 'cs', 'CREATIVE'), '');
   assert.match(buildFullCreativeDeliverableInstruction('Napiš finální verzi celého textu písně.', 'cs', 'CREATIVE'), /nejvýše 280 slov/u);
   assert.match(buildFullCodeDeliverableInstruction('Napiš mi kompletní produkční API.', 'cs', 'CODE'), /nejvýše 260 slov/u);
+});
+
+test('detail requests retain headroom and cannot replay effects as presentation changes', () => {
+  for (const input of ['vic detailu', 'více detailů', 'chci vic detailu', 'podrobneji', 'please explain more', 'muzes mi detailne popsat jak to funguje']) {
+    assert.equal(selectAnswerTokenBudget(input, 'CONVERSATIONAL'), 2048, input);
+  }
+  for (const input of ['vic detailu', 'více detailů', 'chci vic detailu', 'vid detailu', 'rozved to']) assert.equal(isAnswerExpansion(input), true, input);
+  for (const input of ['smaz projekt a dej vic detailu', 'najdi podrobnosti o počasí', 'schválit web abc', 'víc detailů o jiném tématu', '']) assert.equal(isAnswerExpansion(input), false, input);
+});
+
+test('history preserves complete useful turns within the effective model context', () => {
+  const previous = 'Konkrétní vysvětlení. '.repeat(24) + 'CONCLUSION_BEYOND_200_CHARS';
+  const history = [
+    { response: { tag: { speaker: 'user' }, content: 'Co je Docker a Kubernetes?' } },
+    { response: { tag: { speaker: 'system' }, content: previous } },
+    { response: { tag: { speaker: 'user' }, content: 'vic detailu' } },
+  ];
+  const result = buildAnswerContext('vic detailu', history, 'Odpovídej česky.', 2048, 4096);
+  assert.match(result.prompt, /CONCLUSION_BEYOND_200_CHARS/);
+  assert.equal(result.prompt.match(/vic detailu/g).length, 1);
+  assert.match(result.prompt, /"role":"assistant"/);
+  assert.equal(result.historyTurns, 2);
+  assert.equal(result.maxTokens, 2048);
+  const huge = buildAnswerContext('Celý aktuální požadavek', [{response:{content:'x'.repeat(50000)+'TAIL_MARKER',tag:{speaker:'system'}}}], 'Instrukce', 2048, 4096);
+  assert.match(huge.prompt, /TAIL_MARKER/);
+  assert.match(huge.prompt, /část historie vynechána/);
+  assert.match(huge.prompt, /Celý aktuální požadavek$/);
+  assert(Buffer.byteLength(huge.prompt+'Instrukce')/2+huge.maxTokens+384 <= 4096);
+  assert.throws(() => buildAnswerContext('x'.repeat(20000), [], 'Instrukce', 2048, 4096), /nevejde/);
+});
+
+await testAsync('actual ANSWER continuation bypasses ambiguous classification and retains context and cancellation', async () => {
+  const previousCall = llmGateway.call; const previousDecide = creDecisionEngine.decide;
+  const calls = []; const abort = new AbortController();
+  const response = 'Kontejner sdílí jádro hostitele. Kubernetes používá řídicí smyčku: porovnává požadovaný stav se skutečným a vytváří chybějící pody. Například Deployment se třemi replikami nahradí pod, který skončil. Dostupnost však závisí na kapacitě uzlů a správném nastavení aplikace.';
+  try {
+    llmGateway.call = async (prompt, options) => { calls.push({prompt,options}); return {content:response,model:'controlled-chat',finishReason:'stop'}; };
+    creDecisionEngine.decide = async () => { throw new Error('Expansion must not be reclassified as an ambiguous new task'); };
+    const state = new SessionState('detail-regression');
+    state.recordDecision({type:'ANSWER',intent:'CONVERSATIONAL',tools:[]}, 'co je docker?');
+    const history = [{response:{content:'Docker: '+ 'vysvětlení '.repeat(30)+'Kubernetes používá Deployment.',tag:{speaker:'system'}}}];
+    const result = await conversationHandler('vic detailu', {sessionId:'detail-regression', sessionState:state, history, signal:abort.signal});
+    assert.equal(calls.length,1);
+    assert.equal(result.content,response);
+    assert.match(calls[0].prompt,/Deployment/);
+    assert.doesNotMatch(calls[0].options.systemPrompt,/45 slov|2–3 vět/);
+    assert.equal(calls[0].options._authToken.maxTokens,2048);
+    assert.equal(calls[0].options.signal,abort.signal);
+    assert.equal(result.tag.metadata.decision.metadata.overrideSource,'answer_expansion');
+    assert.equal(result.tag.canExecute,false);
+    assert.equal(state.awaitingClarification,false);
+  } finally {llmGateway.call=previousCall;creDecisionEngine.decide=previousDecide;}
 });
 
 test('expertise generation pairs bounded budgets with complete terminal output', () => {

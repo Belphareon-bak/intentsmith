@@ -17,6 +17,7 @@ import {
   handleToolCallDecision,
   handleAskUserDecision,
   handleAnswerDecision,
+  isAnswerExpansion,
   handleRefuseDecision,
 } from './decisions.js';
 import { buildProjectHint } from './utils/project-context-prompt.js';
@@ -247,6 +248,22 @@ export async function conversationHandler(input, context) {
     logger.info('ConversationHandler', 'Clarification not resolved, processing as new input', {
       pendingIntent: sessionState.getPendingIntent(),
     });
+  }
+
+  // A short request for more explanation is an ANSWER continuation, not an
+  // ambiguous new task. Keep the new request, previous topic and history; never
+  // replay previous tool effects or bypass pending approvals/clarification.
+  if (!sessionState?.awaitingClarification
+    && sessionState?.lastDecision?.type === DecisionType.ANSWER
+    && [IntentType.CONVERSATIONAL, IntentType.CODE, IntentType.CREATIVE].includes(sessionState.lastDecision.intent)
+    && context.history?.some(item => item.response?.content && item.response.tag?.speaker !== 'user')
+    && isAnswerExpansion(input)) {
+    const continuation = creDecisionEngine.overrideDecision({
+      type: DecisionType.ANSWER, intent: IntentType.CONVERSATIONAL, tools: [],
+      source: 'answer_expansion', reason: 'Expand the preceding answer using the current request and history',
+      confidence: 0.95, originalDecision: sessionState.lastDecision,
+    });
+    return handleAnswerDecision(input, continuation, context);
   }
 
   // STEP 1: Get CRE Decision
