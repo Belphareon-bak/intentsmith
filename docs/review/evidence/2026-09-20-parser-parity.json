@@ -1,0 +1,77 @@
+{
+  "status": "REPLAY_COMPLETE_REVIEW_PENDING",
+  "startedAt": "2026-09-20T18:12:55.368Z",
+  "sourceRevision": "30c5df3315171073ff4ea9fec1c22210157f35ef",
+  "workingTreeDirty": false,
+  "inputSha256": "8a71635d3ca7aed128b1ee63f85142c021a2d40542c5179d9a73610de803f91b",
+  "previousReportSha256": "f6c1b1217e7456a67b1880f97d6ea1ed05d712930512a5b1a894eda86ba6d33b",
+  "parser": {
+    "version": "runtime-json.1",
+    "implementation": "src/llm/client.js#extractJSON",
+    "sourceSha256": "bb6d6833cf412d46c5e1f4f5168c6263f7ad2e41497950addf2030d6753b90ce"
+  },
+  "inferenceCalls": 0,
+  "productionImported": false,
+  "decisionAuthority": false,
+  "limitations": [
+    "Scores are extracted-field accuracy, not Direction rubric grades or semantic acceptance.",
+    "Surrounding prose is treated exactly as production: it may be contradictory. No semantic claim follows from parsing.",
+    "Unparseable content and open T4 answers still need review; output-budget exhaustion remains visible."
+  ],
+  "shapes": {
+    "WHOLE_FENCE": 434,
+    "DIRECT": 642,
+    "FENCE_WITH_PROSE": 54,
+    "UNPARSEABLE": 48,
+    "OBJECT_BOUNDARIES": 3,
+    "OTHER_PRODUCTION_RECOVERY": 1
+  },
+  "byRole": {
+    "CHAT": {
+      "attempts": 630,
+      "runtimeParsed": 627,
+      "graded": 570,
+      "contentScoreChanged": 17,
+      "passChanged": 49,
+      "unparseable": 3,
+      "outputBudgetExhausted": 0
+    },
+    "VISION": {
+      "attempts": 552,
+      "runtimeParsed": 507,
+      "graded": 541,
+      "contentScoreChanged": 31,
+      "passChanged": 189,
+      "unparseable": 45,
+      "outputBudgetExhausted": 11
+    }
+  },
+  "finishedAt": "2026-09-20T18:12:55.435Z",
+  "total": 1182,
+  "runtimeParityChecks": 1182,
+  "replayMatchesDevelopment": true,
+  "visionProbes": 299,
+  "L1": {
+    "PASS": 363,
+    "FAIL": 1,
+    "TIMEOUT": 0,
+    "BLOCKED": 0,
+    "SKIPPED": 0
+  },
+  "L1Verdict": "FAIL",
+  "remainingFailure": "tests/nightly-orchestrator-self-test.js: Gate 0 registry seal mismatch",
+  "rawUnchanged": 247,
+  "runtimeParserChanged": false,
+  "codeResultsChanged": false,
+  "archive": {
+    "status": "PASS",
+    "archive": "parser-evidence-08648194d92bb4dd.tar.gz",
+    "sha256": "08648194d92bb4dd7ac539681f209edb5b368e15e3492d9e14e4ea370761be46",
+    "bytes": 1544370,
+    "verifiedFiles": 1132,
+    "exclusions": "Disposable test runtime inputs and Electron profile; all reports, checkpoints and logs preserved."
+  },
+  "evidenceRoot": "/home/belphareon/Projects/coworker/intentsmith-hunt-parser-parity-20260920",
+  "rawDataUnchanged": true,
+  "meaning": "Extracted-field accuracy, not an accepted model ranking or Direction semantic grade."
+}

@@ -1,5 +1,14 @@
 # IntentSmith — mapa systému
 
+**GPU hunt — produkční JSON parser, 20. 9. 2026:** CHAT T2 a VISION nyní
+používají přímo `client.js#extractJSON`; produkční parser se neměnil.
+Replay 1 182 odpovědí, všech 54 fence s prózou přečteno; 48 obsahových
+výsledků opraveno (17 CHAT / 31 VISION). Čistý `30c5df33`: VISION 299/299,
+celý offline/database profil **363 PASS / 1 FAIL** (známá Gate 0 pečeť).
+Původní odpovědi a známky zachované, překryvy reasoning rubrik stále otevřené.
+**PARSER_PARITY_VERIFIED / REVIEW_PENDING / NOT_DEPLOYED**, autonomní hunt **NO-GO**.
+[Změny výsledků, důkazy a meze](docs/review/2026-09-20-PARSER-PARITY.md).
+
 **GPU hunt — offline posouzení sběru, 20. 9. 2026:** všech 210 CODE odpovědí
 má výsledek spustitelných kontrol (133 plných / 3 částečné / 74 neúspěšných;
 67 unikátních spuštění). Ověřeno 16 externích známek po jejich přečtení;
