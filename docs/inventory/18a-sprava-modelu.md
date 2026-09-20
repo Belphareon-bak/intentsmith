@@ -4,12 +4,15 @@
 53 otevřených rubrik má novou verzi bez obecného instrukčního bodu a bez
 prerekvizity, která mazala správné části odpovědi. U R2 je nález a jeho
 reprodukce jeden důkaz, nikoli dva body za stejnou příčinu. Veřejná zadání
-sběru se nezměnila. Ručně dočteno 630 otevřených CHAT pokusů (330 unikátních
-textů) a prvních 30 R2 odpovědí; **celé hodnocení ještě není dokončené**.
-Šest nových historických CODE případů prošlo 48/48 offline kontrolami
-referencí, alternativ, vadných oprav a produkčního fix loopu na pracovním
-stromu. Čistý replay a skutečné párové měření následují.
-**IN_PROGRESS / REVIEW_PENDING / NOT_DEPLOYED / NO_GO_FOR_AUTONOMOUS_HUNT**.
+sběru se nezměnila. Uzavřeno všech 2 922 pokusů: 1 577 přímých obsahových posouzení,
+210 spustitelných CODE orákul, 1 074 přesných obsahových kontrol,
+37 provozně nečitelných odpovědí a 24 vyčerpaných limitů. Ruční známky
+mají 3 984 odůvodněných kritérií; otisky byly uzamčené před odkrytím identit.
+Nový CODE provozní pár na čistém `5831dfaf`: 4/6 proti 3/6,
+**NEROZHODNUTO**, bez změny vazeb. Při přípravě dalších rolí se odstranilo
+falešné dokončení R1 při nečitelném verdiktu a průchod neznámého verdiktu R2.
+Připravena omezená zkouška skutečných workflow kroků D1/D2/R1/R2; není to
+celý průchod Studiem ani přijatá rozhodovací kvalifikace. NO_GO trvá.
 [Podrobnosti a rozsah](../review/2026-09-20-HUNT-COMPLETION.md).
 
 **GPU hunt — produkční JSON parser, 20. 9. 2026:** CHAT T2 a VISION nyní

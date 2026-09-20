@@ -6,6 +6,7 @@ import {gradeStructuredAnswer} from '../src/eval/structured-answer.js';
 import {extractJSON} from '../src/llm/client.js';
 import {createRoleEvaluationPlans} from '../src/eval/role-evaluation-plan.js';
 import {RoleQualityEvaluationRunner,visionV2Suite} from '../src/eval/role-quality-suites.js';
+import {WorkflowOrchestrator,WorkflowSession,WorkflowState} from '../src/planner/workflow.js';
 suite('reviewed evaluation repair');
 // Operator 2026-09-20: use the production extraction chain, not a stricter rule.
 test('structured content uses production parsing and keeps strict JSON diagnostic',()=>{
@@ -129,5 +130,26 @@ test('legacy T5 production plans cannot measure or decide, history is not rewrit
 await testAsync('calling the production runner directly cannot bypass the legacy prohibition',async()=>{
  const r=new RoleQualityEvaluationRunner();let calls=0;r._callModel=()=>{calls++;throw Error('unexpected inference')};
  for(const name of ['chat_v3','reasoning_v2','review_v2'])await assert.rejects(()=>r.runSuite(name,'fixture'),e=>e.code==='EVALUATOR_T5_FORBIDDEN');assert.equal(calls,0);
+});
+await testAsync('production review stages fail closed on missing or unknown verdicts',async()=>{
+ for(const role of ['R1','R2'])for(const content of ['unreadable','null','{}','[]','{"verdict":"UNKNOWN"}','{"verdict":"pass"}']){
+  const w=new WorkflowOrchestrator();let calls=0,continued=false;
+  w._callLLM=async called=>{calls++;assert.equal(called,role);return {content,model:'fake',duration:0};};
+  const s=new WorkflowSession('negative-'+role,'bounded fixture');s.plan={steps:[]};s.implementation='fixture';
+  if(role==='R2')w._finalReview=async()=>{continued=true;};
+  const result=await (role==='R1'?w._finalReview(s):w._reviewLoop(s));
+  assert.equal(result.error,role+'_REVIEW_INVALID');assert.equal(s.state,WorkflowState.FAILED);
+  assert.equal(calls,1);assert.equal(continued,false);
+ }
+});
+await testAsync('explicit production review verdicts retain their documented branches',async()=>{
+ for(const [role,verdict,target] of [['R1','PASS','COMPLETED'],['R1','FAIL','fix'],['R1','REDESIGN','redesign'],['R2','PASS','final'],['R2','FAIL','fix']]){
+  const w=new WorkflowOrchestrator();w._callLLM=async()=>({content:JSON.stringify({verdict,issues:[{description:'real issue'}]}),model:'fake',duration:0});
+  const s=new WorkflowSession('positive-'+role,'fixture');s.plan={steps:[]};s.implementation='fixture';
+  w._fixLoop=async()=>({target:'fix'});w._redesign=async()=>({target:'redesign'});
+  if(role==='R2')w._finalReview=async()=>({target:'final'});
+  const result=await (role==='R1'?w._finalReview(s):w._reviewLoop(s));
+  if(target==='COMPLETED')assert.equal(s.state,target);else assert.equal(result.target,target);
+ }
 });
 summary();

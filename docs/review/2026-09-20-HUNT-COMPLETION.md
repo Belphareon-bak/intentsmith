@@ -35,11 +35,18 @@ Identita kandidátů se při tomto čtení nezobrazuje; autor nástrojů však
 není nezávislý na autorství části úloh. Shoda s dříve přečtenými externími
 známkami se nesmí používat jako slepá přejímka.
 
-Checkpoint: všech 630 otevřených CHAT pokusů, 330 unikátních textů,
-a 30 R2 odpovědí. Zbývající reasoning posouzení pokračuje. Shodný text
-ve shodné úloze se čte jednou, všechny původní pokusy zůstávají zachované.
-Předchozí mezikroky známek jsou uložené samostatně, včetně sloučení R2
-nálezu s jeho reprodukcí a vyjasnění českého vokativu v oslovení.
+Uzavřeno všech 2 922 pokusů. Přímé čtení pokrývá 1 577 dokončených
+pokusů (1 277 unikátních textů); 13 nedokončených otevřených odpovědí
+zůstává samostatně jako vyčerpaný limit. Celkem je 3 984 odůvodněných
+kritérií. Shodná odpověď ve shodné úloze sdílí čtení, všechny pokusy
+zůstávají započtené. `grading-freeze.json` vznikl před otevřením identity key;
+SHA ručních známek `be00f4621197ac03e0c03b9fe3a18fbe0e78ea7d678a7977b6d955849553e49d`.
+
+Dalších 210 CODE pokusů prošlo spustitelnými orákuly. Přesná pole CHAT/VISION
+pokrývají 1 074 obsahových známek. U 37 neparsovatelných odpovědí je obsah
+neznámý, provozní využitelnost nulová; 24 vyčerpaných limitů rovněž zůstává
+v počtu pokusů s nulovou provozní využitelností. Žádné čekající čtení.
+Hodnocení autora nástrojů není nezávislá lidská přejímka.
 
 ## Oddělená provozní zkouška CODE
 
@@ -54,8 +61,7 @@ Každý případ obnovuje celé povolené soubory před opravou. Kontroly běž�
 v bubblewrap bez sítě, mimo produkční DB. Vyhodnocuje se uložený stav,
 nikoli text modelu. Vedle reference a alternativy se spouští rozbitý
 základ a cílený mutant, dále reference, alternativa, dvojitý fenced patch
-a prázdná odpověď přes aktuální produkční fix loop. Předběžný výsledek
-na pracovním stromu: **48/48 kontrol**; čisté opakování před měřením je nutné.
+a prázdná odpověď přes aktuální produkční fix loop. Čisté opakování na `5831dfaf`: **48/48 kontrol**.
 
 Příprava má zachované dva neúspěšné mezikroky. První soubor obsahoval
 chybu zápisu template literal. Další odhalil nesouvisející historickou
@@ -72,12 +78,35 @@ runtime, případy a pravidla se zamykají před první inferencí.
 Šest skupin je malý vzorek: shodné pořadí nebude důkaz obecné validity a
 interval může zůstat nerozhodný. Výsledek neaktivuje binding ani retenci.
 
+## Provozní výsledek CODE
+
+Čistý `5831dfaf`, plán `374f4ff4ce70a70617e621bc963448175c5168df41bcfbb92e8c21f48fa3eafa`:
+Qwen3.8 dokončil 4/6 a Qwen3.5 3/6. Všech 12 pokusů je platných,
+7 SUCCESS a 5 INCORRECT. Oba kandidáti absolvovali paměťovou kvalifikaci
+16k kontextu / 4 096 výstupních tokenů; maximální pozorovaná paměť celého
+GPU byla 21,34 GB. Artefakt je potvrzen odpovědí, provider
+`0.34.2-intentsmith.1`. Verdikt **NEROZHODNUTO**, rozdíl kandidát−incumbent
+−16,67 p. b., interval [−90,40; +76,18] p. b. Šest předpokládaných
+nezávislých skupin nestačí k obecné validaci pořadí. Směr bodového výsledku
+souhlasí s benchmarkem, výhru ani přenosovou platnost tím netvrdíme.
+
+## Další zjištěná produkční vada
+
+`WorkflowOrchestrator._finalReview` přijímal neparsovatelný výsledek jako
+COMPLETED. `_reviewLoop` propouštěl neznámý verdikt do dalšího kroku.
+Obě větve nově končí FAILED s `R1_REVIEW_INVALID` / `R2_REVIEW_INVALID`.
+Platné PASS/FAIL/REDESIGN zachovávají svůj význam. 14/14 cílených kontrol
+zahrnuje nečitelný text, null, objekt bez verdiktu, pole, UNKNOWN i malé
+`pass`, a všechny platné větve. Transport je metodou orchestrátoru,
+v běžné aplikaci nadále volá autorizovanou bránu; manuální harness ji
+v izolovaném procesu nahrazuje transportem s potvrzeným digestem.
+
 ## Co zůstává otevřené
 
-- Dočíst zbývající reasoning odpovědi a zveřejnit srovnatelné souhrny.
-- Dokončit nové párové provozní měření, uchovat i blokované pokusy.
-- Ověřit přenos pořadí ostatních rolí až po jejich uzavřeném hodnocení.
+- Nové omezené provozní zkoušky ostatních rolí a jejich obsahové posouzení.
 - Nezávislé posouzení sporného a náhodného vzorku a přejímka automatického
   hodnotitele. Počet napsaných známek není důkaz jeho přijetí.
+- Skutečný celý průchod Studiem, přijaté rozhodovací profily a přenosová
+  platnost na dostatečném počtu nezávislých případů.
 
 Žádná produkční aktivace, automatické mazání ani zapnutí timeru.

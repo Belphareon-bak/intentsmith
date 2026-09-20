@@ -429,6 +429,9 @@ export class WorkflowOrchestrator {
     this.db = options.db || null;  // workflowSessions repository from database.js
   }
 
+  // Isolated transports may override this boundary; ordinary workflows always use the authorized gateway.
+  async _callLLM(...args) { return callLLM(...args); }
+
   // ═══ PUBLIC API ═══════════════════════════════════════════════════════════
 
   /**
@@ -459,7 +462,7 @@ export class WorkflowOrchestrator {
     session.transition(WorkflowState.ANALYZING);
     const analysisPrompt = PROMPTS.analyze(request, context);
 
-    const analysisResult = await callLLM('D1', analysisPrompt.prompt, analysisPrompt.system);
+    const analysisResult = await this._callLLM('D1', analysisPrompt.prompt, analysisPrompt.system);
     const analysis = parseJSON(analysisResult.content);
 
     session.addStep(new StepResult({
@@ -725,7 +728,7 @@ export class WorkflowOrchestrator {
     session.transition(WorkflowState.PLANNING);
     const planPrompt = PROMPTS.plan(request, analysis, context);
 
-    const planResult = await callLLM('D1', planPrompt.prompt, planPrompt.system);
+    const planResult = await this._callLLM('D1', planPrompt.prompt, planPrompt.system);
     const plan = parseJSON(planResult.content);
 
     session.addStep(new StepResult({
@@ -763,7 +766,7 @@ export class WorkflowOrchestrator {
 
     for (const step of plan.steps) {
       const implPrompt = PROMPTS.implement(plan, step, {});
-      const implResult = await callLLM('CODE', implPrompt.prompt, implPrompt.system);
+      const implResult = await this._callLLM('CODE', implPrompt.prompt, implPrompt.system);
 
       implementations.push({
         stepId: step.id,
@@ -848,7 +851,7 @@ export class WorkflowOrchestrator {
 
       // D2 diagnoses build errors
       const d2Prompt = PROMPTS.buildFix(session.implementation, buildErrors.join('\n'));
-      const d2Result = await callLLM('D2', d2Prompt.prompt, d2Prompt.system);
+      const d2Result = await this._callLLM('D2', d2Prompt.prompt, d2Prompt.system);
       const fixPlan = parseJSON(d2Result.content);
 
       session.addStep(new StepResult({
@@ -860,7 +863,7 @@ export class WorkflowOrchestrator {
 
       // CODE applies build fixes
       const fixPrompt = PROMPTS.applyFix(session.implementation, fixPlan || d2Result.content);
-      const fixResult = await callLLM('CODE', fixPrompt.prompt, fixPrompt.system);
+      const fixResult = await this._callLLM('CODE', fixPrompt.prompt, fixPrompt.system);
       session.implementation = fixResult.content;
 
       session.addStep(new StepResult({
@@ -945,7 +948,7 @@ export class WorkflowOrchestrator {
     // ─── R2: Quick Review ────────────────────────────────────────────────
     session.transition(WorkflowState.QUICK_REVIEWING);
     const r2Prompt = PROMPTS.quickReview(session.implementation, session.plan);
-    const r2Result = await callLLM('R2', r2Prompt.prompt, r2Prompt.system);
+    const r2Result = await this._callLLM('R2', r2Prompt.prompt, r2Prompt.system);
     const r2Verdict = parseJSON(r2Result.content);
 
     session.addStep(new StepResult({
@@ -956,7 +959,12 @@ export class WorkflowOrchestrator {
       duration: r2Result.duration,
     }));
 
-    if (!r2Verdict || r2Verdict.verdict === 'FAIL') {
+    if (!r2Verdict || !['PASS', 'FAIL'].includes(r2Verdict.verdict)) {
+      session.transition(WorkflowState.FAILED);
+      return { sessionId: session.id, state: WorkflowState.FAILED, error: 'R2_REVIEW_INVALID', history: session.history };
+    }
+
+    if (r2Verdict.verdict === 'FAIL') {
       // ─── R2 FAIL → D2 + CODE fix loop ─────────────────────────────────
       if (session.fixAttempts >= this.maxFixAttempts) {
         logger.warn('Workflow', 'Max fix attempts reached', { sessionId: session.id, attempts: session.fixAttempts });
@@ -981,7 +989,7 @@ export class WorkflowOrchestrator {
     // ─── D2: Fix Deliberation ────────────────────────────────────────────
     session.transition(WorkflowState.FIX_DELIBERATING);
     const d2Prompt = PROMPTS.fixDeliberation(session.implementation, issues);
-    const d2Result = await callLLM('D2', d2Prompt.prompt, d2Prompt.system);
+    const d2Result = await this._callLLM('D2', d2Prompt.prompt, d2Prompt.system);
     const fixPlan = parseJSON(d2Result.content);
 
     session.addStep(new StepResult({
@@ -994,7 +1002,7 @@ export class WorkflowOrchestrator {
     // ─── CODE: Apply Fix ─────────────────────────────────────────────────
     session.transition(WorkflowState.APPLYING_FIX);
     const fixPrompt = PROMPTS.applyFix(session.implementation, fixPlan || d2Result.content);
-    const fixResult = await callLLM('CODE', fixPrompt.prompt, fixPrompt.system);
+    const fixResult = await this._callLLM('CODE', fixPrompt.prompt, fixPrompt.system);
 
     session.implementation = fixResult.content;
 
@@ -1013,7 +1021,7 @@ export class WorkflowOrchestrator {
     // ─── R1: Final Deep Review ───────────────────────────────────────────
     session.transition(WorkflowState.FINAL_REVIEWING);
     const r1Prompt = PROMPTS.finalReview(session.implementation, session.plan);
-    const r1Result = await callLLM('R1', r1Prompt.prompt, r1Prompt.system);
+    const r1Result = await this._callLLM('R1', r1Prompt.prompt, r1Prompt.system);
     const r1Verdict = parseJSON(r1Result.content);
 
     session.addStep(new StepResult({
@@ -1024,7 +1032,12 @@ export class WorkflowOrchestrator {
       duration: r1Result.duration,
     }));
 
-    if (!r1Verdict || r1Verdict.verdict === 'PASS') {
+    if (!r1Verdict || !['PASS', 'FAIL', 'REDESIGN'].includes(r1Verdict.verdict)) {
+      session.transition(WorkflowState.FAILED);
+      return { sessionId: session.id, state: WorkflowState.FAILED, error: 'R1_REVIEW_INVALID', history: session.history };
+    }
+
+    if (r1Verdict.verdict === 'PASS') {
       // ─── DONE ──────────────────────────────────────────────────────
       session.transition(WorkflowState.COMPLETED);
       return {
@@ -1071,7 +1084,7 @@ export class WorkflowOrchestrator {
     // ─── D1: Redesign ────────────────────────────────────────────────────
     session.transition(WorkflowState.REDESIGNING);
     const redesignPrompt = PROMPTS.redesign(session.request, session.plan, reviewFeedback);
-    const redesignResult = await callLLM('D1', redesignPrompt.prompt, redesignPrompt.system);
+    const redesignResult = await this._callLLM('D1', redesignPrompt.prompt, redesignPrompt.system);
     const newPlan = parseJSON(redesignResult.content);
 
     session.addStep(new StepResult({
