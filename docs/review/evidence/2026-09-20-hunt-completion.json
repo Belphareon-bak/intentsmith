@@ -1,0 +1,31 @@
+{
+  "schema": "intentsmith-evidence-receipt.1",
+  "status": "ARCHIVE_VERIFIED_REVIEW_PENDING_NO_GO",
+  "verifiedAt": "2026-09-20T21:54:17.214609+00:00",
+  "archive": "/home/belphareon/Projects/coworker/intentsmith-hunt-completion-20260920.evidence.7eab04d13d056d4c83aee40f39e6caedf683c67be7a61ea6804a13980ff24523.tar.gz",
+  "archiveSha256": "7eab04d13d056d4c83aee40f39e6caedf683c67be7a61ea6804a13980ff24523",
+  "archiveBytes": 1258864156,
+  "manifestSha256": "c5535c26aff68c1f2289081753d026261465194609623ab599d2f0cc277440cd",
+  "verifiedRegularFiles": 42726,
+  "excludedDirectories": 59,
+  "symlinksMetadataOnly": 15,
+  "sourceCommit": "cca3de3b93919fcc2bd185732308e1aeda5509b2",
+  "c3SourceCommit": "379c2e4b6dea0fd0cd0fb19df67c3454c267fd49",
+  "providerSourceCommit": "2206cee85bf2cbe12ea69101aa7d76b91cd8cbb4",
+  "coverage": {
+    "oldAttempts": 2922,
+    "operationalUsable": 76,
+    "protocolExcluded": 32,
+    "responseUnverified": 1,
+    "operationalModelsTotal": 109,
+    "reviewSample": 30,
+    "filesFrozen": true,
+    "originalAnswersSha256": "8a71635d3ca7aed128b1ee63f85142c021a2d40542c5179d9a73610de803f91b"
+  },
+  "verification": "Every archived regular file reread without extraction and checked against its SHA-256 and size; no unexpected, duplicate or missing members. Source histories have verified Git bundles.",
+  "limitations": [
+    "Source, captured evidence and review tools are portable; dependencies, model weights, native Ollama payload and toolchains must be supplied separately for new execution.",
+    "Synthetic absolute symlinks are recorded but deliberately not restored.",
+    "Archive REVIEW.md predates the external archive hash receipt; final repository document adds that receipt only."
+  ]
+}

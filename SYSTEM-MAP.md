@@ -1,19 +1,19 @@
 # IntentSmith — mapa systému
 
-**GPU hunt — normalizace rubrik a příprava provozní zkoušky, 20. 9. 2026:**
-53 otevřených rubrik má novou verzi bez obecného instrukčního bodu a bez
-prerekvizity, která mazala správné části odpovědi. U R2 je nález a jeho
-reprodukce jeden důkaz, nikoli dva body za stejnou příčinu. Veřejná zadání
-sběru se nezměnila. Uzavřeno všech 2 922 pokusů: 1 577 přímých obsahových posouzení,
-210 spustitelných CODE orákul, 1 074 přesných obsahových kontrol,
-37 provozně nečitelných odpovědí a 24 vyčerpaných limitů. Ruční známky
-mají 3 984 odůvodněných kritérií; otisky byly uzamčené před odkrytím identit.
-Nový CODE provozní pár na čistém `5831dfaf`: 4/6 proti 3/6,
-**NEROZHODNUTO**, bez změny vazeb. Při přípravě dalších rolí se odstranilo
-falešné dokončení R1 při nečitelném verdiktu a průchod neznámého verdiktu R2.
-Připravena omezená zkouška skutečných workflow kroků D1/D2/R1/R2; není to
-celý průchod Studiem ani přijatá rozhodovací kvalifikace. NO_GO trvá.
-[Podrobnosti a rozsah](docs/review/2026-09-20-HUNT-COMPLETION.md).
+**GPU hunt — uzavřené hodnocení a nové provozní zkoušky, 20. 9. 2026:**
+53 rubrik sjednoceno, přesný produkční parser sdílen; všech 2 922 starých
+pokusů dohodnoceno (2 861 obsahových známek, 37 nečitelných, 24 limitů).
+Známky zmrazené před odkrytím identit. Nových 76 použitelných provozních
+pokusů přes všech 7 rolí: CODE 4/6 proti 3/6, NEROZHODNUTO; D1 a R2
+mají obrácený bodový směr; VISION 4/4 proti 4/4 bez rozlišení. Jedna nová
+R1 obsahová otázka zůstává bez souhrnné známky. 32 vadně označených revizí
+a 1 VISION bez digestu zachováno zvlášť. Generate digest doplněn ověřeným
+reprodukovatelným `.2` providerem pro manuální obrazovou kvalifikaci.
+Finální offline/database regrese 363 PASS / 1 známý FAIL / 0 BLOCKED;
+není L1 green ani nezávislá přejímka. Statické review UI prokliknuté,
+celý Studio journey zbývá. **REVIEW_PENDING / NOT_DEPLOYED / NO_GO**.
+Timer, bindingy, produkční import a mazání zůstávají neaktivované.
+[Závěrečný packet a omezení](docs/review/2026-09-20-HUNT-COMPLETION.md).
 
 **GPU hunt — produkční JSON parser, 20. 9. 2026:** CHAT T2 a VISION nyní
 používají přímo `client.js#extractJSON`; produkční parser se neměnil.
