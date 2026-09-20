@@ -1,5 +1,15 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**GPU hunt — rozsouzení review, 21. 9. 2026:**
+Malý provozní vzorek předpovědní platnost benchmarku nepotvrdil ani nevyvrátil;
+změna znaménka u D1/R2 při podprahovém benchmarku není prokázaná reverze.
+Nový vzorek: 29 číselných dvojic + 1 nevyřešený scope. Opraven export
+`score`/`contentScore`, dvě autorské kritériové korekce připojeny bez přepsání
+původní evidence. Hodnoticí měřítko stále není přijaté. Nové sémantické sady
+nejsou zapojené do běžného huntu; staré T5 cesty jsou blokované, provozní
+přejímka podporuje pouze CODE. **SCALE_ADJUDICATION_OPEN / NOT_DEPLOYED / NO_GO**.
+[Srovnání známek, korekce závěru a zbývající implementace](docs/review/2026-09-21-HUNT-REVIEW-RECONCILIATION.md).
+
 **GPU hunt — uzavřené hodnocení a nové provozní zkoušky, 20. 9. 2026:**
 53 rubrik sjednoceno, přesný produkční parser sdílen; všech 2 922 starých
 pokusů dohodnoceno (2 861 obsahových známek, 37 nečitelných, 24 limitů).
