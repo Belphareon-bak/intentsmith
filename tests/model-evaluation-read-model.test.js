@@ -570,12 +570,16 @@ test('historical detail uses the exact requested run and preserves failed gradin
   insert(db, { runId:'older', digest:DIGEST, plan:plans.CODE, score:.114 });
   insert(db, { runId:'newer', digest:DIGEST, plan:plans.CODE, score:.9 });
   const taskName=plans.CODE.suite.tests.find(t=>t.contractMaterial?.gradingInputs?.oracleCase==='75b5539f8cf5').name;
-  const tasks=[{name:taskName,mean:.8,scores:[.8,.8,.8],details:[{targetedPassed:4,targeted:5,schema:true,contractChecks:{passed:false,checks:[{name:'existing reader',passed:false}]},formatScore:0,contentScore:1,parts:[{id:'fails',ok:false}],penalties:[{id:'regression'}]}]}];
+  const tasks=[{name:taskName,mean:.8,scores:[.8,.8,.8],details:[{targetedPassed:4,targeted:5,schema:true,testFiles:['tests/fixture.js'],targetNames:['target assertion'],regressionNames:['existing assertion'],testOutput:'❌ target assertion: expected stable identity',contractChecks:{passed:false,checks:[{name:'existing reader',passed:false}]},formatScore:0,contentScore:1,parts:[{id:'fails',ok:false}],penalties:[{id:'regression'}]}]}];
   db.prepare('UPDATE model_evaluation_runs SET task_results_json=? WHERE run_id=?').run(JSON.stringify(tasks),'older');
   const read=new ModelEvaluationReadModel(db,{plans});
   const old=read.readRun('older'); assertEqual(old.score,.114); assertEqual(old.tasks[0].details[0].targetedPassed,4);
   assertEqual(old.tasks[0].details[0].parts[0].ok,false);
   assertEqual(old.tasks[0].details[0].contractChecks.checks[0].passed,false);
+  assertEqual(old.tasks[0].details[0].testOutput,'❌ target assertion: expected stable identity');
+  assertEqual(old.tasks[0].details[0].targetNames[0],'target assertion');
+  assertEqual(old.tasks[0].details[0].regressionNames[0],'existing assertion');
+  assertEqual(old.tasks[0].details[0].testFiles[0],'tests/fixture.js');
   assertEqual(old.tasks[0].details[0].formatScore,0);assertEqual(old.tasks[0].details[0].contentScore,1); assertEqual(old.catalogMatchesContract,true);
   const task=old.taskCatalog.find(t=>t.name===taskName);
   assertEqual(task.label,'Typ chyby při ukládání odpovědi');

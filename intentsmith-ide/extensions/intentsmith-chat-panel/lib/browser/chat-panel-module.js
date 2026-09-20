@@ -3527,6 +3527,8 @@ function _taskResultNotes(t){
     if(d.applied===false)notes.push('Opravu nelze použít');
     if(Number.isFinite(d.targeted))notes.push('Úspěšné cílové testy: '+(d.targetedPassed||0)+'/'+d.targeted);
     if(d.regressions)notes.push('Nové regrese: '+d.regressions);
+    (d.regressionNames||[]).forEach(function(name){notes.push('Regrese: '+name);});
+    if(d.targetNames&&d.targetNames.length&&d.targetedPassed<d.targeted)notes.push('Cílové kontroly: '+d.targetNames.join(', '));
     if(Number.isFinite(d.contentScore))notes.push('Obsah: '+_taskScore(d.contentScore));
     if(Number.isFinite(d.formatScore))notes.push(d.formatScore===1?'Požadovaný formát splněn':'Požadovaný formát nesplněn · obsah se uvádí odděleně');
     ((d.contractChecks&&d.contractChecks.checks)||[]).filter(function(c){return !c.passed;}).forEach(function(c){notes.push('Porušení kontraktu: '+c.name+(c.reason?' · '+c.reason:''));});
@@ -3558,7 +3560,9 @@ function _qualityDetail(row,rd){
             requirements.length?h('ul',{style:{paddingLeft:18,lineHeight:1.6}},requirements.map(function(r,i){return h('li',{key:i},typeof r==='string'?r:r.label||r.name||JSON.stringify(r));})):h('p',null,'Popis kritérií v tomto měření nebyl uložen.'),
             h('p',{style:{color:C.tx3}},'Opakování: '+(t.scores||[]).map(_taskScore).join(' / ')),h('code',null,t.name)))),
         _modelCell(h('strong',{style:{color:!Number.isFinite(t.mean)?C.tx3:t.mean>=.8?C.success:t.mean<.5?C.amber:C.tx1,whiteSpace:'nowrap'}},_taskScore(t.mean))),
-        _modelCell(notes.length?h('ul',{style:{margin:0,paddingLeft:17,lineHeight:1.5,maxWidth:320}},notes.map(function(n,i){return h('li',{key:i},n);})):h('span',{style:{color:C.tx3}},'Podrobné vyhodnocení nebylo uloženo.')));
+        _modelCell(h('div',null,
+          notes.length?h('ul',{style:{margin:0,paddingLeft:17,lineHeight:1.5,maxWidth:320}},notes.map(function(n,i){return h('li',{key:i},n);})):h('span',{style:{color:C.tx3}},'Podrobné vyhodnocení nebylo uloženo.'),
+          (t.details||[]).map(function(d,i){return d&&d.testOutput?h('details',{key:'output-'+i,style:{marginTop:8}},h('summary',{style:{cursor:'pointer',color:C.accent}},'Výpis testů · opakování '+(i+1)),h('pre',{style:{whiteSpace:'pre-wrap',overflowWrap:'anywhere',maxHeight:300,overflow:'auto',fontSize:_fs(9)}},d.testOutput)):null;}))));
     })));
 }
 function _modelResultBullets(tasks,rd){

@@ -177,6 +177,19 @@ test('public API requirements reach the real prompt and change its identity', ()
   assert(buildPrompt(persistence).includes('CHAT_PERSISTENCE_FAILED'));
 });
 
+test('failed CODE grade retains executable check names and output for review', () => {
+  const task = loadFixtureTasks().find(t => t.taskFingerprint.startsWith('22149f55b861'));
+  const definition = buildTests(process.cwd(), [task])[0];
+  const prepared = definition.prepare();
+  const grade = definition.grade(prepared.functionTexts.join('\n'), { _task: prepared });
+  assertEqual(grade.valid, true);
+  assertEqual(grade.passed, false);
+  assert(grade.detail.testFiles.length > 0);
+  assert(grade.detail.targetNames.length > 0);
+  assert(grade.detail.testOutput.includes(grade.detail.targetNames[0]));
+  assert(grade.detail.testOutput.includes('FAIL') || grade.detail.testOutput.includes('❌'));
+});
+
 test('public requirements do not bypass historical source validation', () => {
   const task = loadFixtureTasks().find(task => task.publicContract);
   const altered = { ...task, functionTexts: task.functionTexts.map(text => `${text}\n// altered source`) };
