@@ -24,8 +24,8 @@ test('assertion sets separate sentence punctuation from facts and do not invent 
  for(const verified of [['cache reset did NOT complete.','5 of 8 replay batches passed.'],['cache reset completed.'],['cache reset completed.','cache reset completed.']])
   assert.equal(gradeStructuredAnswer(JSON.stringify({verified}),e,rules).score,0);
 });
-test('all structured tasks distinguish each wrong field and preserve equivalent key ordering',()=>{
- const tasks=SEMANTIC_ROLE_SUITES.CHAT.tests.filter(t=>t.tier==='T2');assert.equal(tasks.length,20);
+await testAsync('structured fields are exact while open grammar remains ungraded',async()=>{
+ const tasks=SEMANTIC_ROLE_SUITES.CHAT.tests.filter(t=>t.tier==='T2');assert.equal(tasks.length,19);
  for(const t of tasks){
   const e=t.contractMaterial.gradingInputs.expected;
   assert.equal(t.grade(JSON.stringify(e)).passed,true,t.name);
@@ -33,6 +33,10 @@ test('all structured tasks distinguish each wrong field and preserve equivalent 
   for(const key of Object.keys(e))assert.ok(t.grade(JSON.stringify({...e,[key]:'__wrong__'})).score<1,t.name+'/'+key);
   assert.equal(t.grade(t.promptText).score,0,t.name);
  }
+ const grammar=SEMANTIC_ROLE_SUITES.CHAT.tests.find(t=>t.name==='cz_grammar_correction');
+ assert.equal(grammar.tier,'T4');
+ const g=await grammar.grade(JSON.stringify({vety:['Dvě velká okna zůstala otevřena.','Tři nové kolegyně přišly včas.','Oba vedoucí byli připraveni.','Pět kontrol skončilo úspěšně.']}));
+ assert.equal(g.valid,false);assert.equal(g.score,null);
 });
 test('reviewed missing context is delivered, not just kept in hidden metadata',()=>{
  for(const role of ['D1','D2','R1','R2'])for(const name of ['model_lease','model_cleanup','immutable_refinement','pairwise_confidence']){

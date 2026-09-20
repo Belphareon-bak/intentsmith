@@ -2462,14 +2462,18 @@
         "gold": "{\"vety\": [\"Dvě velká okna zůstala otevřená.\", \"Tři nové kolegyně přišly včas.\", \"Oba vedoucí byli připraveni.\", \"Pět kontrol skončilo úspěšně.\"]}",
         "alternative": "{\n  \"vety\": [\n    \"Dvě velká okna zůstala otevřená.\",\n    \"Tři nové kolegyně přišly včas.\",\n    \"Oba vedoucí byli připraveni.\",\n    \"Pět kontrol skončilo úspěšně.\"\n  ]\n}",
         "criteria": [
-          "Correct vety according to the supplied data and rules",
+          "Oprav shodu ve větě o oknech při zachování významu; běžný krátký či složený tvar nesmí být odmítnut jen kvůli odlišnosti od reference. Spornou významovou změnu dolož, nebo ponech k adjudikaci.",
+          "Oprav tvar přísudku u tří kolegyň při zachování osoby, počtu a významu.",
+          "Oprav tvar přísudku u obou vedoucích při zachování původního rodu a významu.",
+          "Oprav shodu po číslovce pět při zachování významu.",
+          "Zachovej čtyři věty, jejich pořadí a původní slovní zásobu; neočekávej jedinou doslovnou referenci.",
           "Complete response is a JSON object with exactly the required keys; no Markdown or prose."
         ],
         "controls": {}
       },
-      "revision": "chat-context.2",
+      "revision": "chat-context.2-language-review",
       "evaluation": {
-        "tier": "T2",
+        "tier": "T4",
         "expected": {
           "vety": [
             "Dvě velká okna zůstala otevřená.",
@@ -2480,7 +2484,9 @@
         },
         "format": "strict-json",
         "contentAggregation": "equal-fields",
-        "formatSeparate": true
+        "formatSeparate": true,
+        "reviewRequired": "Natural-language inflection variants cannot be rejected by equality to one reference sentence. Independent language review required; no automatic content score.",
+        "source": "https://prirucka.ujc.cas.cz/?id=420"
       }
     },
     {
