@@ -81,6 +81,7 @@ export function codeGradingRuntimeContract(readSource = readFileSync) {
 
 export function textGradingRuntimeContract(readSource = readFileSync) {
   const files = ['./role-quality-suites.js', './model-evaluation-runner.js',
+    './runtime-json.js', './structured-answer.js', '../llm/client.js',
     './fixtures/vision/manifest.json'];
   return Object.freeze({
     version: 1, nodeVersion: process.version,

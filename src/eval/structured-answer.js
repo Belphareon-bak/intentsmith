@@ -1,10 +1,10 @@
-// Exact structured tasks use deterministic content checks, with protocol
-// compliance reported separately. Markdown is never silently a strict-JSON PASS.
+// Exact fields are checked after production JSON extraction. Protocol shape is
+// separate; strictJson records the original wrapping without rejecting it.
 import { isDeepStrictEqual } from 'node:util';
+import { readRuntimeJson, RUNTIME_JSON_CONTRACT } from './runtime-json.js';
 export function gradeStructuredAnswer(response, expected, rules = {}) {
- const raw=String(response??'').trim();
- const fence=/^```(?:json)?\s*\n([\s\S]*?)\n```$/i.exec(raw);
- let parsed;try{parsed=JSON.parse(fence?fence[1]:raw);}catch{return {score:0,passed:false,valid:true,detail:{contentScore:0,formatScore:0,strictJson:false,reason:'INVALID_JSON',criteria:[]}};}
+ const {value:parsed,...parsing}=readRuntimeJson(response);
+ if(!parsing.runtimeParsed)return {score:0,passed:false,valid:true,detail:{contentScore:null,formatScore:0,...parsing,reason:'INVALID_JSON',criteria:[]}};
  const object=parsed!==null&&typeof parsed==='object'&&!Array.isArray(parsed);
  const exactKeys=object&&isDeepStrictEqual(Object.keys(parsed).sort(),Object.keys(expected).sort());
  const criteria=Object.entries(expected).map(([id,value])=>{
@@ -30,8 +30,8 @@ export function gradeStructuredAnswer(response, expected, rules = {}) {
   return {id,score:object&&isDeepStrictEqual(observed,value)?1:0,observed,expected:value};
  });
  const contentScore=criteria.reduce((n,c)=>n+c.score,0)/criteria.length;
- const formatScore=!fence&&exactKeys&&criteria.every(c=>c.formatScore!==0)?1:0;
- return {valid:true,score:contentScore,passed:contentScore===1&&formatScore===1,detail:{contentScore,formatScore,strictJson:!fence,exactKeys,criteria,reason:formatScore?null:'OUTPUT_FORMAT_MISMATCH'}};
+ const formatScore=exactKeys&&criteria.every(c=>c.formatScore!==0)?1:0;
+ return {valid:true,score:contentScore,passed:contentScore===1&&formatScore===1,detail:{contentScore,formatScore,...parsing,exactKeys,observed:parsed,criteria,reason:formatScore?null:'OUTPUT_FORMAT_MISMATCH'}};
 }
 export function structuredTask(task) {
  const expected=structuredClone(task.evaluation.expected);
@@ -39,6 +39,6 @@ export function structuredTask(task) {
   promptText:task.prompt,prompt:()=>({text:task.prompt}),rubric:task.reference.criteria,
   formatRubric:task.reference.formatCriteria||[],
   options:{num_ctx:16384,num_predict:2048,temperature:.1,top_p:.9,timeout:300000},
-  contractMaterial:{prompt:{kind:'text',text:task.prompt},gradingInputs:{tier:'T2',expected,rules:structuredClone(task.evaluation.rules||{}),gradingVersion:'structured-answer.3',independenceGroup:task.independenceGroup,formatSeparate:true,formatCriteria:task.reference.formatCriteria||[]}},
+  contractMaterial:{prompt:{kind:'text',text:task.prompt},gradingInputs:{tier:'T2',expected,rules:structuredClone(task.evaluation.rules||{}),gradingVersion:'structured-answer.4',parser:RUNTIME_JSON_CONTRACT,independenceGroup:task.independenceGroup,formatSeparate:true,formatCriteria:task.reference.formatCriteria||[]}},
   grade:response=>gradeStructuredAnswer(response,expected,task.evaluation.rules)});
 }

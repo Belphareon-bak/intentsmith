@@ -3,17 +3,46 @@ import assert from 'node:assert/strict';
 import {suite,test,testAsync,summary} from './harness.js';
 import {SEMANTIC_ROLE_SUITES} from '../src/eval/semantic-role-suites.js';
 import {gradeStructuredAnswer} from '../src/eval/structured-answer.js';
+import {extractJSON} from '../src/llm/client.js';
 import {createRoleEvaluationPlans} from '../src/eval/role-evaluation-plan.js';
 import {RoleQualityEvaluationRunner,visionV2Suite} from '../src/eval/role-quality-suites.js';
 suite('reviewed evaluation repair');
-test('structured content and strict JSON protocol are independent observations',()=>{
+// Operator 2026-09-20: use the production extraction chain, not a stricter rule.
+test('structured content uses production parsing and keeps strict JSON diagnostic',()=>{
  const expected={total:12,known:false,missing:null};
  const fenced=gradeStructuredAnswer('```json\n'+JSON.stringify(expected)+'\n```',expected);
- assert.equal(fenced.score,1);assert.equal(fenced.detail.formatScore,0);assert.equal(fenced.passed,false);
+ assert.equal(fenced.score,1);assert.equal(fenced.detail.formatScore,1);assert.equal(fenced.passed,true);assert.equal(fenced.detail.strictJson,false);
  assert.equal(gradeStructuredAnswer(JSON.stringify({...expected,total:'12'}),expected).score,2/3);
- assert.equal(gradeStructuredAnswer('Everything passed '+JSON.stringify(expected),expected).score,0);
+ assert.equal(gradeStructuredAnswer('Everything passed '+JSON.stringify(expected),expected).score,1);
  assert.equal(gradeStructuredAnswer(JSON.stringify({...expected,invented:1}),expected).detail.formatScore,0);
  assert.equal(gradeStructuredAnswer(JSON.stringify(expected),expected).passed,true);
+});
+test('CHAT and VISION consume the exact production value for all recovery strategies',()=>{
+ const task=visionV2Suite.tests.find(t=>t.name==='vision_no_image');
+ const expected={image_attached:false,need_upload:true};
+ const json=JSON.stringify(expected);
+ const variants=[json,'```json\n'+json+'\n```','Explanation\n```json\n'+json+'\n```\nEnd.',
+  'Answer: '+json,'{image_attached:false,need_upload:true,}',
+  "{'image_attached':false,'need_upload':true}",
+  'Not correct: '+json, // Runtime extracts this too; not proof of consistent prose.
+  '[false,true]','Output [false,true]','false','null','garbage','```json\n{broken}\n```'];
+ for(const response of variants){
+  const parsed=extractJSON(response);
+  for(const g of [task.grade(response),gradeStructuredAnswer(response,expected)]){
+   assert.equal(g.detail.runtimeParsed,parsed!==null,response);
+   if(parsed && typeof parsed==='object'&&!Array.isArray(parsed))assert.deepEqual(g.detail.observed,parsed,response);
+   assert.equal(g.passed,!!parsed&&!Array.isArray(parsed)&&parsed.image_attached===false&&parsed.need_upload===true,response);
+  }
+ }
+ const extra=task.grade(JSON.stringify({...expected,extra:1}));
+ assert.equal(extra.score,1);assert.equal(extra.detail.formatScore,0);assert.equal(extra.passed,false);
+});
+test('reviewed weighted-rates response with surrounding prose scores its two correct fields',()=>{
+ const t=visionV2Suite.tests.find(t=>t.name==='vision_weighted_rates');
+ const response='Here are the results:\n```json\n{"trials_a":18,"trials_b":15,"percent_a":60,"percent_b":40,"higher":"A"}\n```\nDone.';
+ const g=t.grade(response);assert.equal(g.score,.4);assert.equal(g.passed,false);
+ assert.equal(g.detail.runtimeParsed,true);assert.equal(g.detail.strictJson,false);
+ assert.deepEqual(g.detail.observed,extractJSON(response));
 });
 test('manual content rubrics cannot award or remove a content point for JSON wrapping',()=>{
  for(const t of SEMANTIC_ROLE_SUITES.CHAT.tests){
@@ -90,7 +119,7 @@ test('VISION has broad image coverage and does not call partial JSON a complete 
  const images=visionV2Suite.tests.flatMap(t=>t.contractMaterial.prompt.imageDigests||[]);
  assert.equal(new Set(images).size,22);
  for(const t of visionV2Suite.tests){const e=t.contractMaterial.gradingInputs.expected;const g=t.grade(JSON.stringify(e));assert.equal(g.passed,true,t.name);
-  assert.equal(t.grade('```json\n'+JSON.stringify(e)+'\n```').passed,false,t.name);
+  assert.equal(t.grade('```json\n'+JSON.stringify(e)+'\n```').passed,true,t.name);
   const first=Object.keys(e)[0];assert.equal(t.grade(JSON.stringify({...e,[first]:'WRONG'})).passed,false,t.name);
  }
 });

@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import { CodePatchEvaluationRunner, codePatchSuite } from './code-patch-suite.js';
 import { readFileSync } from 'node:fs';
 import { ModelEvaluationRunner } from './model-evaluation-runner.js';
+import { readRuntimeJson, RUNTIME_JSON_CONTRACT } from './runtime-json.js';
 
 export const ROLE_QUALITY_VERSION = 'v136.1-prototype.1';
 export const CHAT_QUALITY_VERSION = 'v136.1-chat.3.5';
@@ -862,22 +863,20 @@ function equalVisionValue(actual, expected, rule) {
   return [expected, ...(rule?.aliases || [])].some(value => normalizeValue(actual) === normalizeValue(value));
 }
 
-// Visual content and output formatting are different observations. Accept an
-// entirely fenced JSON object as content, recording the protocol deviation;
-// never salvage JSON from surrounding prose (including contradictory prose).
+// Consume the production parser's result. This measures extracted fields, not
+// semantic consistency of surrounding prose; strict JSON is diagnostic only.
 function gradeVisionAnswer(response, expected, rules = {}) {
-  const source = String(response || '').trim();
-  const fenced = /^```(?:json)?[ \t]*\r?\n([\s\S]*?)\r?\n```$/i.exec(source);
-  const obj = parseJson(fenced ? fenced[1] : source);
-  const format = fenced ? 'JSON_CODE_BLOCK' : 'JSON';
-  if (!exactObject(obj, Object.keys(expected))) return { score: 0, passed: false,
-    detail: { schema: false, strictJson: false, reason: 'Odpověď neobsahuje samostatný JSON s přesně požadovanými poli.' } };
+  const { value: obj, ...parsing } = readRuntimeJson(response);
+  const schema = exactObject(obj, Object.keys(expected));
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return { score: 0, passed: false,
+    detail: { schema: false, ...parsing, contentScore: parsing.runtimeParsed ? 0 : null, formatScore: 0,
+      reason: parsing.runtimeParsed ? 'INVALID_OBJECT_SHAPE' : 'INVALID_JSON' } };
   const result = checklist(Object.keys(expected).map(key => ({ id: key,
     ok: equalVisionValue(obj[key], expected[key], rules[key]) })));
-  result.passed = result.score === 1 && !fenced;
-  Object.assign(result.detail, { contentScore: result.score, formatScore: fenced ? 0 : 1, schema: true, strictJson: !fenced, responseFormat: format,
+  result.passed = result.score === 1 && schema;
+  Object.assign(result.detail, { contentScore: result.score, formatScore: schema ? 1 : 0, schema, ...parsing,
     observed: obj, expected,
-    ...(fenced ? { reason: 'Obsah vyhodnocen; model navíc přidal Markdown obal JSON. Formát je zaznamenán odděleně od obrazového skóre.' } : {}),
+    ...(!schema ? { reason: 'OUTPUT_FORMAT_MISMATCH' } : {}),
   });
   return result;
 }
@@ -898,13 +897,13 @@ function visionFixtureTask(fixture) {
     contractMaterial: Object.freeze({
       prompt: { kind: 'vision', text: fixture.question, imageDigests: [digest] },
       gradingInputs: { expected: fixture.expected, rules: fixture.rules, difficulty: fixture.difficulty,
-        skill: fixture.skill, provenance: visionManifest.provenance },
+        skill: fixture.skill, provenance: visionManifest.provenance, parser: RUNTIME_JSON_CONTRACT },
     }),
   });
 }
 
 export const visionV2Suite = Object.freeze({
-  name: 'vision_v2', version: visionManifest.version,
+  name: 'vision_v2', version: `${visionManifest.version}-runtime-json.1`,
   description: '22 distinct synthetic image tasks: perception, OCR, charts, tables, diagrams and UI/document checks; plus an absent-image control',
   roles: ['VISION'],
   tests: Object.freeze([
@@ -913,7 +912,7 @@ export const visionV2Suite = Object.freeze({
       name: 'vision_no_image', language: 'en',
       prompt: 'No image is attached. Return ONLY JSON with exactly two boolean fields: image_attached and need_upload. Report whether an image is attached and whether you need the user to upload one before inspecting it.',
       rubric: ['image_attached false', 'need_upload true'],
-      gradeMaterial: { expected: { image_attached: false, need_upload: true } },
+      gradeMaterial: { expected: { image_attached: false, need_upload: true }, parser: RUNTIME_JSON_CONTRACT },
       grade: r => gradeVisionAnswer(r, { image_attached: false, need_upload: true }),
       options: { num_predict: 768, num_ctx: 4096, timeout: 120_000, temperature: 0 },
     }),

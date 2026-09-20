@@ -46,13 +46,16 @@ for (const task of visionV2Suite.tests) {
     ['gold', JSON.stringify(expected), 1],
     ['alternative', JSON.stringify(alternative, null, 2), 1],
     ['fenced-alternative', '```json\n' + JSON.stringify(alternative) + '\n```', 1],
+    ['prose-fenced-alternative', 'Here is the result:\n```json\n' + JSON.stringify(alternative) + '\n```\nEnd.', 1],
     ['empty', '', 0], ['prompt-echo', task.promptText, 0],
     ['keyword-stuffing', Object.values(expected).flat().join(' ') + ' correct passed success', 0],
-    ['negated-facts', 'These values are NOT correct: ' + JSON.stringify(expected), 0],
+    // Operator 2026-09-20 requires exact runtime parity: production extracts
+    // these fields too. These are parser probes, not semantic acceptance.
+    ['negated-prose-runtime-extraction', 'These values are NOT correct: ' + JSON.stringify(expected), 1],
     ['confident-wrong', JSON.stringify(incorrect), 0],
     ['partial-one-field', JSON.stringify(firstOnly), 1 / fields.length],
-    ['contradictory-prose-with-json', 'The image contradicts these claims.\n' + JSON.stringify(expected), 0],
-    ['extra-field', JSON.stringify({ ...expected, fabricated: true }), 0],
+    ['contradictory-prose-runtime-extraction', 'The image contradicts these claims.\n' + JSON.stringify(expected), 1],
+    ['extra-field', JSON.stringify({ ...expected, fabricated: true }), 1],
     ['wrong-field-types', JSON.stringify(Object.fromEntries(fields.map(key => [key, null]))), 0],
   ];
   const row = { name: task.name, tier: 'T2', floor: 0,
@@ -62,7 +65,8 @@ for (const task of visionV2Suite.tests) {
     try {
       const actual = task.grade(response);
       const ok = Number.isFinite(actual.score) && Math.abs(actual.score - score) < 1e-12
-        && (kind !== 'fenced-alternative' || actual.detail?.strictJson === false);
+        && (!kind.includes('fenced-alternative') || actual.detail?.strictJson === false)
+        && (kind !== 'extra-field' || (actual.passed === false && actual.detail?.formatScore === 0));
       row.controls.push({ kind, response, responseSha256: hash(response), expected: score,
         score: actual.score, detail: actual.detail, ok });
       row.passed &&= ok;
