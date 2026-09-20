@@ -110,3 +110,19 @@ v izolovaném procesu nahrazuje transportem s potvrzeným digestem.
   platnost na dostatečném počtu nezávislých případů.
 
 Žádná produkční aktivace, automatické mazání ani zapnutí timeru.
+
+## Příprava navazujících provozních zkoušek
+
+První sběr rolí na `a7bdf9a8` zachovává všech 48 odpovědí. Před jejich
+obsahovým posouzením byla zjištěna chyba harnessu: název plánu v R1/R2
+obsahoval řídicí sufix before/after. Těchto 32 revizí se nepoužije pro
+pořadí; nová série používá neutrální název případu. Šestnáct D1/D2
+vstupů název nepoužívalo. Opakování revizí je přiznaný replay po opravě
+protokolu, nikoli netknutý první holdout.
+
+Pevný manuální vstup `conversation-operational-handoff.mjs` připravuje
+CHAT přes skutečný answer handler a VISION přes skutečný image bridge.
+Zachycuje požadavky a odpovědi bez náhrady produkčního parseru. Chybějící
+digest nebo CPU přetečení ukončí kvalifikaci role; zbývající plánované
+pokusy zůstávají explicitně nezahájené. Běh používá oddělenou DB a
+procesovou konfiguraci, žádné produkční přiřazení.

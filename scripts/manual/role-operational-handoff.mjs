@@ -10,7 +10,7 @@ import {holdGpuEvaluationLock} from '../../src/upgrade/gpu-evaluation-lock.js';
 const root=fileURLToPath(new URL('../../',import.meta.url));
 const args=process.argv.slice(2),opt=n=>args.find(x=>x.startsWith('--'+n+'='))?.slice(n.length+3);
 if(!args.length){console.log('role-operational-handoff.mjs --prepare|--run --out=/absolute/path --benchmark=/absolute/model-role-results.json [--report=/absolute/file]');process.exit(0);}
-if(args.some(x=>!/^--(?:prepare|run)$|^--(?:out|benchmark|report)=.+$/.test(x))||args.includes('--prepare')===args.includes('--run'))throw Error('INVALID_ARGUMENTS');
+if(args.some(x=>!/^--(?:prepare|run)$|^--(?:out|benchmark|report|roles)=.+$/.test(x))||args.includes('--prepare')===args.includes('--run'))throw Error('INVALID_ARGUMENTS');
 const out=opt('out');if(!path.isAbsolute(out||''))throw Error('ABSOLUTE_OUT_REQUIRED');
 const hash=x=>createHash('sha256').update(typeof x==='string'||Buffer.isBuffer(x)?x:JSON.stringify(x)).digest('hex');
 const save=(name,x)=>{const dest=path.join(out,name);fs.writeFileSync(dest+'.tmp',JSON.stringify(x,null,2)+'\n',{mode:0o600});fs.renameSync(dest+'.tmp',dest);};
@@ -21,7 +21,8 @@ const {WorkflowOrchestrator,WorkflowSession}=await import('../../src/planner/wor
 const STOP=Symbol('handoff');
 async function stage(spec,call){
  const w=new WorkflowOrchestrator(),s=new WorkflowSession('probe-'+spec.id,spec.requirement);
- s.plan={title:spec.id,steps:[{id:1,action:spec.requirement,detail:spec.requirement}],risks:[]};s.implementation=spec.source;
+ // Never leak controller-only before/after labels into the review prompt.
+ s.plan={title:spec.case,steps:[{id:1,action:spec.requirement,detail:spec.requirement}],risks:[]};s.implementation=spec.source;
  let downstream=null;
  w._callLLM=async(role,prompt,system)=>{
   if(role!==spec.role){downstream={role,prompt,system};throw STOP;}
@@ -42,7 +43,8 @@ async function stage(spec,call){
 if(args.includes('--prepare')){
  if(!path.isAbsolute(opt('benchmark')||''))throw Error('ABSOLUTE_BENCHMARK_REQUIRED');
  fs.mkdirSync(out,{mode:0o700});
- const benchmark=JSON.parse(fs.readFileSync(opt('benchmark'))),roles=['D1','D2','R1','R2'],pairs={};
+ const benchmark=JSON.parse(fs.readFileSync(opt('benchmark'))),roles=(opt('roles')||'D1,D2,R1,R2').split(','),pairs={};
+ if(!roles.length||new Set(roles).size!==roles.length||roles.some(r=>!['D1','D2','R1','R2'].includes(r)))throw Error('INVALID_ROLES');
  for(const role of roles){const rows=benchmark.rows.filter(x=>x.role===role).sort((a,b)=>b.utilityMean-a.utilityMean);pairs[role]=rows.slice(0,2).map(x=>({model:x.model,artifact:x.artifact,benchmarkScore:x.utilityMean}));}
  const selected=cases.filter(x=>['nonfinite-math','environment-prose','vat-migration-reentry','remote-package-integrity'].includes(x.id));
  const specs=[];

@@ -17,7 +17,8 @@ const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const codePilot = process.argv.includes('--code-pilot');
 const allRolePilot = process.argv.includes('--all-role-pilot');
 const roleHandoff = process.argv.includes('--role-handoff');
-if ([codePilot,allRolePilot,roleHandoff].filter(Boolean).length > 1) throw new Error('Choose one evaluation entrypoint');
+const conversationHandoff = process.argv.includes('--conversation-handoff');
+if ([codePilot,allRolePilot,roleHandoff,conversationHandoff].filter(Boolean).length > 1) throw new Error('Choose one evaluation entrypoint');
 const providerVersion = '0.34.2-intentsmith.1';
 const runtime = process.env.INTENTSMITH_EVAL_RUNTIME || join(homedir(), '.local/share/intentsmith/evaluation-provider', providerVersion);
 const binary = join(runtime, 'bin/ollama');
@@ -28,7 +29,7 @@ const runDir = mkdtempSync(join(state, 'run-'));
 mkdirSync(join(runDir, 'tmp'), { mode: 0o700 });
 const startedAt = new Date().toISOString();
 const argument = name => process.argv.slice(2).find(value => value.startsWith(`--${name}=`))?.slice(name.length + 3) || null;
-const request = { kind: roleHandoff ? 'role-handoff' : allRolePilot ? 'all-role-pilot' : codePilot ? 'code-pilot' : process.argv.includes('--evaluate-installed') ? 'evaluation' : 'hunt',
+const request = { kind: conversationHandoff ? 'conversation-handoff' : roleHandoff ? 'role-handoff' : allRolePilot ? 'all-role-pilot' : codePilot ? 'code-pilot' : process.argv.includes('--evaluate-installed') ? 'evaluation' : 'hunt',
   model: argument('only'), role: argument('role') };
 const currentFile = join(state, 'current.json');
 const publish = values => {
@@ -113,16 +114,16 @@ try {
   }
   if (stopping) throw new Error('HUNT_CANCELLED');
   if (!ready) throw new Error('EVALUATION_PROVIDER_START_FAILED');
-  const args = process.argv.slice(2).filter(arg => !['--code-pilot','--all-role-pilot','--role-handoff'].includes(arg));
+  const args = process.argv.slice(2).filter(arg => !['--code-pilot','--all-role-pilot','--role-handoff','--conversation-handoff'].includes(arg));
   const reportArgs = args.some(arg => arg.startsWith('--report=')) ? [] : [`--report=${join(runDir, 'result.json')}`];
   let failureOutput = '';
   // Fixed manual CODE entrypoint only; no arbitrary command execution surface.
-  const entrypoint = roleHandoff ? 'scripts/manual/role-operational-handoff.mjs' : allRolePilot ? 'scripts/manual/all-role-evaluation.mjs'
+  const entrypoint = conversationHandoff ? 'scripts/manual/conversation-operational-handoff.mjs' : roleHandoff ? 'scripts/manual/role-operational-handoff.mjs' : allRolePilot ? 'scripts/manual/all-role-evaluation.mjs'
     : codePilot ? 'scripts/manual/c3-code-pilot.mjs' : 'scripts/model-upgrade-hunt.js';
   hunt = spawn(process.execPath, [join(root, entrypoint), ...args, ...reportArgs], {
     cwd: root,
     env: { ...process.env, OLLAMA_URL: 'http://127.0.0.1:11435', INTENTSMITH_HUNT_PULL_URL: 'http://127.0.0.1:11434',
-      ...(codePilot || allRolePilot || roleHandoff ? { INTENTSMITH_EVAL_PROVIDER_PID: String(provider.pid) } : {}),
+      ...(codePilot || allRolePilot || roleHandoff || conversationHandoff ? { INTENTSMITH_EVAL_PROVIDER_PID: String(provider.pid) } : {}),
       INTENTSMITH_HUNT_PROGRESS_FILE: join(runDir, 'progress.json') },
     stdio: ['inherit', 'inherit', 'pipe'],
   });
