@@ -1,5 +1,22 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**GPU hunt — opravené sady a nový sběr, 20. 9. 2026:** všech sedm rolí,
+nejméně dva kandidáti na roli, tři pro CODE. 633 zaznamenaných pokusů:
+632 dokončených odpovědí a jeden výstupní limit; jedno další přerušené
+provider volání zachované mimo vzorek. Sběr `01b30ae6`, konečný kód
+`b9b7707b`; shoda veřejných vstupů a generačních profilů doložená.
+315 deterministických posudků oddělených od raw dat; 317 otevřených
+odpovědí čeká na nezávislé posouzení. Anonymní vzorek 15 cílených + 15 náhodných.
+CODE orákula 62/62, VISION 276/276, review renderer 16/16; široká regrese
+**363 PASS / 1 FAIL** (neshoda registru s přijatou Gate 0 politikou), bez BLOCKED.
+Staré T5 sady v této větvi odmítnuté před inferencí. Zjištěna otevřená chyba
+provider účtování MTP paměti. **READY_FOR_INDEPENDENT_REVIEW / NO_GO_FOR_AUTONOMOUS_HUNT /
+NOT_DEPLOYED**; timer vypnutý, GPU po sběru volná, žádné nové automatické vazby
+ani mazání. Opravy nejsou nasazené přes cizí produktovou větev.
+[Nové odpovědi, opravy, ověření a zbývající kroky](docs/review/2026-09-20-HUNT-SUITE-REPAIR.md).
+
+Následující checkpointy jsou historická evidence, nikoli aktuální přejímka.
+
 **GPU hunt — závěrečné měření všech rolí, 19. 9. 2026:** zdroj `89531748`,
 318 benchmarkových a 16 vývojových provozních CODE pokusů, tři artefakty,
 2 331 odpovědí. CODE Qwen/Devstral/Coder: 80,95/49,21/11,43 %; VISION Qwen:
