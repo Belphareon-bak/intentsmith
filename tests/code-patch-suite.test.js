@@ -35,10 +35,16 @@ test('historical panel importer refuses before DB or provider access instead of 
   assert(!/^import\s/m.test(importer), 'disabled importer must not bootstrap DB/provider modules');
 });
 
-test('CODE role plan nese exact current code_patch suite', () => {
+test('CODE role plan carries the full oracle suite with the locked collection profile', () => {
   const plan = createRoleEvaluationPlans({ repeats: 1 }).CODE;
   assertEqual(plan.suiteName, 'code_patch');
-  assert(plan.suite === codePatchSuite, 'plan must carry the exact suite object');
+  assertEqual(plan.suite.tests.length, codePatchSuite.tests.length);
+  for (const task of plan.suite.tests) {
+    const original = codePatchSuite.tests.find(t => t.name === task.name);
+    assert(original && task.grade === original.grade, 'the profile must preserve every executable oracle');
+    assertEqual(task.options.num_ctx, plan.numCtx);
+    assertEqual(task.contractMaterial.collectionProfile.version, 'role-collection.2');
+  }
   assert(/^[a-f0-9]{64}$/.test(plan.suiteContractSha256), 'missing suite contract SHA');
   assertEqual(plan.runtimeBlockCode, null);
 });
