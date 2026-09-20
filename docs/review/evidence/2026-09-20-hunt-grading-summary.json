@@ -1,0 +1,268 @@
+{
+  "status": "POST_COLLECTION_ASSESSMENT_PARTIAL_REVIEW_PENDING",
+  "generatedAt": "2026-09-20T16:00:17.943176+00:00",
+  "coverage": {
+    "CHAT": {
+      "attempts": 1200,
+      "observed": 570,
+      "needsSemanticReview": 630,
+      "needsFormatContentReview": 23,
+      "outputBudgetExhausted": 0
+    },
+    "CODE": {
+      "attempts": 210,
+      "observed": 210,
+      "needsSemanticReview": 0,
+      "needsFormatContentReview": 0,
+      "outputBudgetExhausted": 0
+    },
+    "D1": {
+      "attempts": 240,
+      "observed": 0,
+      "needsSemanticReview": 237,
+      "needsFormatContentReview": 0,
+      "outputBudgetExhausted": 3
+    },
+    "D2": {
+      "attempts": 240,
+      "observed": 0,
+      "needsSemanticReview": 238,
+      "needsFormatContentReview": 0,
+      "outputBudgetExhausted": 2
+    },
+    "R1": {
+      "attempts": 240,
+      "observed": 0,
+      "needsSemanticReview": 238,
+      "needsFormatContentReview": 0,
+      "outputBudgetExhausted": 2
+    },
+    "R2": {
+      "attempts": 240,
+      "observed": 0,
+      "needsSemanticReview": 234,
+      "needsFormatContentReview": 0,
+      "outputBudgetExhausted": 6
+    },
+    "VISION": {
+      "attempts": 552,
+      "observed": 541,
+      "needsSemanticReview": 0,
+      "needsFormatContentReview": 72,
+      "outputBudgetExhausted": 11
+    }
+  },
+  "rawAttempts": 2922,
+  "deterministicObservations": 1321,
+  "interpretableDeterministicObservations": 1226,
+  "requiresFormatContentReview": 95,
+  "openResponseReviewPendingBeforeSample": 1577,
+  "outputBudgetExhausted": 24,
+  "code": {
+    "attempts": 210,
+    "uniqueExecutions": 67,
+    "fullPass": 133,
+    "partial": 3,
+    "zero": 74,
+    "models": [
+      {
+        "model": "devstral-small-2:latest",
+        "artifact": {
+          "modelName": "devstral-small-2:latest",
+          "digestSha256": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+          "providerVersion": "0.34.2-intentsmith.1"
+        },
+        "attempts": 21,
+        "tasks": 7,
+        "repeats": 3,
+        "fullPass": 12,
+        "partial": 0,
+        "zero": 9,
+        "meanExecutableCheckFraction": 0.5714285714285714,
+        "productionGrade": null
+      },
+      {
+        "model": "gemma4:26b",
+        "artifact": {
+          "modelName": "gemma4:26b",
+          "digestSha256": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68",
+          "providerVersion": "0.34.2-intentsmith.1"
+        },
+        "attempts": 21,
+        "tasks": 7,
+        "repeats": 3,
+        "fullPass": 18,
+        "partial": 0,
+        "zero": 3,
+        "meanExecutableCheckFraction": 0.8571428571428571,
+        "productionGrade": null
+      },
+      {
+        "model": "ornith-1.5:9b",
+        "artifact": {
+          "modelName": "ornith-1.5:9b",
+          "digestSha256": "e5df7dcdd8a263994df62d610317e07be0d6af23f96fcbd8543273058fce575e",
+          "providerVersion": "0.34.2-intentsmith.1"
+        },
+        "attempts": 21,
+        "tasks": 7,
+        "repeats": 3,
+        "fullPass": 10,
+        "partial": 0,
+        "zero": 11,
+        "meanExecutableCheckFraction": 0.47619047619047616,
+        "productionGrade": null
+      },
+      {
+        "model": "phi4:14b",
+        "artifact": {
+          "modelName": "phi4:14b",
+          "digestSha256": "ac896e5b8b34a1f4efa7b14d7520725140d5512484457fab45d2a4ea14c69dba",
+          "providerVersion": "0.34.2-intentsmith.1"
+        },
+        "attempts": 21,
+        "tasks": 7,
+        "repeats": 3,
+        "fullPass": 10,
+        "partial": 0,
+        "zero": 11,
+        "meanExecutableCheckFraction": 0.47619047619047616,
+        "productionGrade": null
+      },
+      {
+        "model": "qwen3-30b-a3b:latest",
+        "artifact": {
+          "modelName": "qwen3-30b-a3b:latest",
+          "digestSha256": "dc0b52b99d0e4310b0e74d1b5c0b4af3459537614523b84d94ce62a7c5f99201",
+          "providerVersion": "0.34.2-intentsmith.1"
+        },
+        "attempts": 21,
+        "tasks": 7,
+        "repeats": 3,
+        "fullPass": 6,
+        "partial": 0,
+        "zero": 15,
+        "meanExecutableCheckFraction": 0.2857142857142857,
+        "productionGrade": null
+      },
+      {
+        "model": "qwen3-coder:latest",
+        "artifact": {
+          "modelName": "qwen3-coder:latest",
+          "digestSha256": "06c1097efce0431c2045fe7b2e5108366e43bee1b4603a7aded8f21689e90bca",
+          "providerVersion": "0.34.2-intentsmith.1"
+        },
+        "attempts": 21,
+        "tasks": 7,
+        "repeats": 3,
+        "fullPass": 12,
+        "partial": 2,
+        "zero": 7,
+        "meanExecutableCheckFraction": 0.6349206349206349,
+        "productionGrade": null
+      },
+      {
+        "model": "qwen3.5:27b",
+        "artifact": {
+          "modelName": "qwen3.5:27b",
+          "digestSha256": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+          "providerVersion": "0.34.2-intentsmith.1"
+        },
+        "attempts": 21,
+        "tasks": 7,
+        "repeats": 3,
+        "fullPass": 17,
+        "partial": 1,
+        "zero": 3,
+        "meanExecutableCheckFraction": 0.8412698412698413,
+        "productionGrade": null
+      },
+      {
+        "model": "qwen3.6:27b",
+        "artifact": {
+          "modelName": "qwen3.6:27b",
+          "digestSha256": "9d5803d493a991af27b9441c098aa56f2ed7bbd260877f075ec09b575c049bc3",
+          "providerVersion": "0.34.2-intentsmith.1"
+        },
+        "attempts": 21,
+        "tasks": 7,
+        "repeats": 3,
+        "fullPass": 15,
+        "partial": 0,
+        "zero": 6,
+        "meanExecutableCheckFraction": 0.7142857142857143,
+        "productionGrade": null
+      },
+      {
+        "model": "qwen3.8:latest",
+        "artifact": {
+          "modelName": "qwen3.8:latest",
+          "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+          "providerVersion": "0.34.2-intentsmith.1"
+        },
+        "attempts": 21,
+        "tasks": 7,
+        "repeats": 3,
+        "fullPass": 21,
+        "partial": 0,
+        "zero": 0,
+        "meanExecutableCheckFraction": 1,
+        "productionGrade": null
+      },
+      {
+        "model": "qwen3:14b",
+        "artifact": {
+          "modelName": "qwen3:14b",
+          "digestSha256": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+          "providerVersion": "0.34.2-intentsmith.1"
+        },
+        "attempts": 21,
+        "tasks": 7,
+        "repeats": 3,
+        "fullPass": 12,
+        "partial": 0,
+        "zero": 9,
+        "meanExecutableCheckFraction": 0.5714285714285714,
+        "productionGrade": null
+      }
+    ]
+  },
+  "sample": {
+    "external": 16,
+    "verifiedAfterSeeingExternal": 16,
+    "newManualReasoningReviews": 14,
+    "reasoningSubstantiveCriteria": 88,
+    "finalReasoningAggregates": 0,
+    "scope": "Whole30sample read, not whole2922manually graded. Reasoning criteria overlap; no aggregate that double counts defects."
+  },
+  "allOriginalSealedFilesUnchanged": 247,
+  "allAssessmentIdsAndResponseHashesVerified": true,
+  "codeCheckpointToFinalNoScoreChanges": true,
+  "decisionAuthority": false,
+  "productionImported": false,
+  "inferenceCallsThisTurn": 0,
+  "archive": {
+    "status": "PASS",
+    "archive": "assessment-evidence-138c3f3827d534f8.tar.gz",
+    "sha256": "138c3f3827d534f874dbd1696063c0be4fe82ed838e9ba3e567c7502495f98f2",
+    "bytes": 8476128,
+    "verifiedFiles": 104,
+    "exclusions": {
+      "deterministic-assessment.json": "Interrupted formatter output; identical scored prefix is preserved in grading-checkpoint.json.",
+      "ui-test-profile": "Disposable owned renderer profile removed after Electron exit; screenshots and logs retained."
+    }
+  },
+  "externalComparison": {
+    "externalFileSha256": "19baa811633dee641479e4213c1015d0414d6922d9003b657029bd3ea48e2aab",
+    "externalMean": 0.775,
+    "verifiedContentMean": 0.775,
+    "directionMean": 0.83125,
+    "exactContentMatches": 16,
+    "limitations": [
+      "External file identifies rows by sample position/task, without id/hash. Mapping anchored to unchanged sealed sample and validated task/role.",
+      "External grades are task-level and have brief notes, not a full criterion-level independent annotation.",
+      "Correctness fractions and Direction grades are different measures. The0.775sample mean is not model ranking and not an accepted role grade.",
+      "Automatic VISION parser still maps surrounding prose to zero. Item2 gives0automatically but2/5content fields are correct. This counterexample prevents claiming full separation on all2922items."
+    ]
+  }
+}

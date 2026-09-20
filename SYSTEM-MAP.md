@@ -1,5 +1,19 @@
 # IntentSmith — mapa systému
 
+**GPU hunt — offline posouzení sběru, 20. 9. 2026:** všech 210 CODE odpovědí
+má výsledek spustitelných kontrol (133 plných / 3 částečné / 74 neúspěšných;
+67 unikátních spuštění). Ověřeno 16 externích známek po jejich přečtení;
+14 dalších položek vzorku má posudek 88 obsahových kritérií, bez souhrnu
+z překrývajících se bodů. Potvrzená VISION parserová falešná nula; celkem
+95 parserových odmítnutí potřebuje odděleně posoudit obsah. Nejde o 95
+prokázaných falešných nul. Původních 247 zapečetěných souborů beze změny.
+**POST_COLLECTION_ASSESSMENT_PARTIAL / REVIEW_PENDING / NOT_DEPLOYED**;
+**NO_GO_FOR_AUTONOMOUS_HUNT**, bez nové inference a produkčních změn.
+[Posudky, CODE výsledky, ověřený archiv a otevřené vady](docs/review/2026-09-20-HUNT-GRADING-FOLLOWUP.md).
+
+Následující checkpointy zachycují dřívější etapy; jejich stav hodnocení
+není aktuálním stavem navazujícího posudku výše.
+
 **GPU hunt — rozšířený sběr, 20. 9. 2026:** všech 12 lokálních artefaktů,
 10 pro textové role a 8 pro VISION; **2 922/2 922** pokusů na čistém `775434ff`.
 2 898 dokončených generací, 24 tokenových limitů, 0 transportních chyb.
