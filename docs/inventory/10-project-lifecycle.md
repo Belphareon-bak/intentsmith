@@ -1,5 +1,13 @@
 # Inventura #10 — Project lifecycle
 
+**Aktualizace 2026-09-19, `9660d99b`:** skutečný asistovaný CODE/M2 průchod
+vytvořil a spustil tři různé utility a provedl jednu opravu v importovaném
+ShellSmithu. Přesné opravy úseků, syntax guard před plánem a kontext skutečného
+manifestu jsou nasazené. Runtime důkaz, zachované neúspěchy a omezení jsou v
+[projektovém review](../review/2026-09-19-THREE-PROJECTS-JOURNEY.md).
+Autonomie na jeden prompt ani celkový release nejsou prokázané. Následující
+strukturální počty a hodnocení pocházejí z historické inventury 2. 8. 2026.
+
 **Pořadí 15** · **2026-08-02** · `17a8b9a8` · 36 souborů, **16 611 řádků**
 **Druhá největší schopnost.**
 

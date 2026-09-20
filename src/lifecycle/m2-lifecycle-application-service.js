@@ -69,7 +69,7 @@ import {
 import { M2LifecycleAuthorityRepository } from './m2-lifecycle-authority-repository.js';
 import { compileM2ProjectChangeProposal } from './m2-proposal-compiler.js';
 import {
-  buildCodeDraftPrompt, codeDraftError, compileCodeDraftInput, codeDraftModelBudget, assertCodeDraftModelBudget,
+  buildCodeDraftPrompt, codeDraftError, compileCodeDraftInput, codeDraftModelBudget, assertCodeDraftModelBudget, assertCodeDraftSyntax,
   compileCodeDraftResult, generateCodeDraft as defaultGenerateCodeDraft,
 } from './m2-code-draft.js';
 
@@ -255,6 +255,25 @@ async function buildGovernanceBaseline(
   let observedBytes = 0;
   let observedEntries = 0;
 
+  function recordFile(relativePath) {
+    const observation = readFile(canonicalRoot, relativePath);
+    if (!observation.exists || observation.linkCount !== 1) {
+      complete = false;
+      return;
+    }
+    observedBytes += observation.bytes.length;
+    if (observedBytes > maxBytes) {
+      complete = false;
+      return;
+    }
+    filesByPath.set(relativePath, Object.freeze({
+      path: relativePath,
+      contentBase64: observation.bytes.toString('base64'),
+      digest: sha256(observation.bytes),
+      bytes: observation.bytes.length,
+    }));
+  }
+
   async function walk(relativeDirectory, depth) {
     if (!complete) return;
     if (depth > 64 || ++observedEntries > maxFiles) {
@@ -267,7 +286,17 @@ async function buildGovernanceBaseline(
         realpath(absoluteDirectory),
         lstat(absoluteDirectory),
       ]);
-      if (resolved !== absoluteDirectory || !stat.isDirectory() || stat.isSymbolicLink()) {
+      if (resolved !== absoluteDirectory || stat.isSymbolicLink()) {
+        complete = false;
+        return;
+      }
+      // A policy root may name one exact file (e.g. package.json), not only
+      // a directory. Read it through the same no-follow, single-link reader.
+      if (stat.isFile()) {
+        recordFile(relativeDirectory);
+        return;
+      }
+      if (!stat.isDirectory()) {
         complete = false;
         return;
       }
@@ -284,22 +313,7 @@ async function buildGovernanceBaseline(
         } else if (entry.isDirectory()) {
           await walk(relativePath, depth + 1);
         } else if (entry.isFile()) {
-          const observation = readFile(canonicalRoot, relativePath);
-          if (!observation.exists || observation.linkCount !== 1) {
-            complete = false;
-            continue;
-          }
-          observedBytes += observation.bytes.length;
-          if (observedBytes > maxBytes) {
-            complete = false;
-            return;
-          }
-          filesByPath.set(relativePath, Object.freeze({
-            path: relativePath,
-            contentBase64: observation.bytes.toString('base64'),
-            digest: sha256(observation.bytes),
-            bytes: observation.bytes.length,
-          }));
+          recordFile(relativePath);
         } else {
           complete = false;
         }
@@ -632,6 +646,40 @@ export function createM2LifecycleApplicationService(dependencyValues) {
     if (manifest.revision !== observed.workspaceRevision) {
       fail(M2LifecycleServiceErrorCode.CONTEXT_STALE, 'Workspace changed before generation');
     }
+    const previousFiles = new Map();
+    if (compiled.revisionOf) {
+      const previous = requireOwnedOperation({ authenticatedSubject, origin: transportOrigin,
+        lifecycleId: compiled.revisionOf.lifecycleId });
+      const plan = previous.plan;
+      if (computeM2LifecyclePlanSnapshotDigest(plan) !== compiled.revisionOf.planDigest) {
+        fail(M2LifecycleServiceErrorCode.PLAN_DIGEST_MISMATCH, 'Revision must name the exact previous plan');
+      }
+      const terminal = lifecycleRepository.getTerminal(plan.identity.lifecycleId);
+      if (!terminal || !['cancelled', 'failed', 'timed_out', 'blocked'].includes(terminal.state)) {
+        throw codeDraftError('REVISION_UNAVAILABLE', 'Nejdříve zrušte původní návrh; provedenou nebo běžící změnu nelze takto opravovat.');
+      }
+      if (plan.project.projectId !== projectId || plan.project.canonicalRoot !== scope.canonicalRoot
+        || plan.project.workspaceRevision !== manifest.revision) {
+        fail(M2LifecycleServiceErrorCode.CONTEXT_STALE, 'Previous proposal belongs to a different workspace revision');
+      }
+      for (const file of executionRepository.getFileMaterial(plan.identity.executionId)) {
+        const expected = plan.changes.find(change => change.path === file.path);
+        if (!expected || previousFiles.has(file.path) || expected.afterBytes !== file.afterBytes.length
+          || expected.afterDigest !== `sha256:${createHash('sha256').update(file.afterBytes).digest('hex')}`) {
+          fail(M2LifecycleServiceErrorCode.STORAGE_FAILURE, 'Previous proposal material failed integrity verification');
+        }
+        previousFiles.set(file.path, { content: new TextDecoder('utf-8', { fatal: true }).decode(file.afterBytes),
+          contentDigest: expected.afterDigest, state: 'unapplied_proposal' });
+      }
+      if (previousFiles.size !== plan.changes.length) {
+        fail(M2LifecycleServiceErrorCode.STORAGE_FAILURE, 'Previous proposal material is incomplete');
+      }
+      for (const step of compiled.buildSteps) {
+        if (step.reusePrevious && !previousFiles.has(targets[step.index])) {
+          throw codeDraftError('REVISION_UNAVAILABLE', 'Zachovaný soubor není součástí původního návrhu.');
+        }
+      }
+    }
     // Reject all invalid targets and target dirt before spending any model call.
     // The planner repeats policy/baseline checks before persisting the exact plan.
     loadPolicySnapshot(projectId, scope.canonicalRoot, manifest.revision, readProjectFile);
@@ -666,8 +714,25 @@ export function createM2LifecycleApplicationService(dependencyValues) {
       return { path: target,
         content: before.exists ? new TextDecoder('utf-8', { fatal: true }).decode(before.bytes) : null };
     });
-    const generationBudget = generateCodeDraft === defaultGenerateCodeDraft
-      ? await codeDraftModelBudget(!!compiled.buildSteps) : null;
+    const contextFiles = new Map();
+    for (const target of new Set(compiled.buildSteps?.flatMap(step => step.contextFiles) || [])) {
+      const entry = manifest.entries.find(item => item.path === target);
+      if (!isManifestObservablePath(target) || !entry || entry.kind !== 'regular@1') {
+        throw codeDraftError('CONTEXT_UNAVAILABLE', 'Kontext musí být existující pozorovatelný soubor tohoto projektu.');
+      }
+      if (entry.size > maxFileBytes) throw codeDraftError('CONTEXT_LIMIT_EXCEEDED', 'Kontextový soubor překračuje limit.');
+      const observedFile = readProjectFile(scope.canonicalRoot, target, {
+        maxBytes: maxFileBytes, rejectHardlinks: true, requireCanonicalTarget: true, signal: boundedSignal,
+      });
+      if (!observedFile.exists || `sha256:${createHash('sha256').update(observedFile.bytes).digest('hex')}` !== entry.contentDigest) {
+        fail(M2LifecycleServiceErrorCode.CONTEXT_STALE, 'Context file changed before generation');
+      }
+      contextFiles.set(target, { path: target, content: new TextDecoder('utf-8', { fatal: true }).decode(observedFile.bytes),
+        state: 'read_only', contentDigest: entry.contentDigest });
+    }
+    const generationBudgets = generateCodeDraft === defaultGenerateCodeDraft
+      ? await Promise.all([codeDraftModelBudget(!!compiled.buildSteps),
+        codeDraftModelBudget(!!compiled.buildSteps, true)]) : null;
     const changes = [];
     const steps = compiled.buildSteps ?? files.map((_, index) => ({ index }));
     const promptFor = index => buildCodeDraftPrompt(compiled, files[index].content, index,
@@ -675,17 +740,28 @@ export function createM2LifecycleApplicationService(dependencyValues) {
         ? steps.find(step => step.index === index).dependsOn.includes(file.path)
         : other !== index).map(file => {
         const generated = changes.find(change => change.path === file.path);
-        return { path: file.path, content: generated ? generated.afterContent : file.content,
-          state: generated ? 'proposed' : 'original' };
-      }));
+        const retained = steps.find(step => files[step.index].path === file.path)?.reusePrevious
+          ? previousFiles.get(file.path) : null;
+        return { path: file.path, content: generated ? generated.afterContent : retained ? retained.content : file.content,
+          state: generated || retained ? 'proposed' : 'original' };
+      }).concat(steps.find(step => step.index === index).contextFiles?.map(target => contextFiles.get(target)) || []),
+      previousFiles.get(files[index].path) ?? null);
     // Preflight every initial prompt, then check again with preceding generated
     // after-images. No truncation or partial plan if any peer exceeds the budget.
     files.forEach((_, index) => {
+      if (steps.find(step => step.index === index).reusePrevious) {
+        assertCodeDraftSyntax(files[index].path, previousFiles.get(files[index].path).content);
+        return;
+      }
       const prompt = promptFor(index);
-      if (generationBudget) assertCodeDraftModelBudget(prompt, generationBudget);
+      if (generationBudgets) assertCodeDraftModelBudget(prompt, generationBudgets[prompt.repairBuild ? 1 : 0]);
     });
-    for (const { index } of steps) {
+    for (const { index, reusePrevious } of steps) {
       check();
+      if (reusePrevious) {
+        changes.push({ path: files[index].path, afterContent: previousFiles.get(files[index].path).content });
+        continue;
+      }
       const prompt = promptFor(index);
       let result;
       try {
@@ -697,9 +773,14 @@ export function createM2LifecycleApplicationService(dependencyValues) {
         throw error;
       }
       check();
-      const change = compileCodeDraftResult(compiled, result, index).changes[0];
+      const change = compileCodeDraftResult(compiled, result, index,
+        previousFiles.get(files[index].path)?.content ?? null).changes[0];
       if (change.afterContent === files[index].content) {
         throw codeDraftError('OUTPUT_UNCHANGED', 'Model nenavrhl změnu vybraného souboru.');
+      }
+      if (change.afterContent === previousFiles.get(files[index].path)?.content) {
+        throw codeDraftError('REVISION_UNCHANGED',
+          'Model vrátil předchozí návrh beze změny. Oprava nevznikla; upřesněte požadovanou změnu.');
       }
       changes.push(change);
     }

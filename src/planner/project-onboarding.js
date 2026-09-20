@@ -12,17 +12,19 @@ const exec = promisify(execFile);
 const sha = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 const DIRECTORIES = ['public', 'scripts', 'src', 'test'];
 
-export function newProjectPolicy() {
+export function newProjectPolicy(type = 'general') {
   return {
     policyId: 'intentsmith-local-project-v1',
-    layers: [{ name: 'app', roots: DIRECTORIES }],
+    layers: [{ name: 'app', roots: [...DIRECTORIES, 'package.json', 'README.md', 'ROADMAP.md']
+      .sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b))) }],
     rules: [{ from: 'app', canImport: ['app'] }],
     externalImports: [
       'node:assert', 'node:assert/strict', 'node:buffer', 'node:crypto', 'node:events',
       'node:fs', 'node:fs/promises', 'node:http', 'node:https', 'node:os', 'node:path',
       'node:stream', 'node:stream/promises', 'node:test', 'node:timers/promises',
       'node:url', 'node:util',
-    ],
+      ...(type === 'desktop' ? ['electron', 'node:child_process'] : []),
+    ].sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b))),
     sourceExtensions: ['.cjs', '.js', '.mjs'],
     requiredChecks: ['imports.allowed', 'inventory.complete', 'layers.mapped'],
     unmappedFilePolicy: 'unavailable',
@@ -38,18 +40,21 @@ export async function initializeNewProject(root, { name, description = '', type 
     const pkg = {
       name: path.basename(root).replace(/[^a-z0-9_-]/gi, '-').toLowerCase(),
       version: '0.1.0', private: true, type: 'module', description,
-      scripts: { start: 'node src/index.mjs', test: 'node --test test/acceptance.test.mjs' },
+      scripts: { start: type === 'desktop' ? 'electron src/index.mjs' : 'node src/index.mjs',
+        test: 'node --test' },
+      ...(type === 'desktop' ? { devDependencies: { electron: '42.11.3' } } : {}),
     };
     const files = {
       '.gitignore': 'node_modules/\n.env\n.env.*\ndist/\nbuild/\n*.log\n',
       '.intentsmith/project.json': JSON.stringify({ name, description, type, created: new Date().toISOString() }, null, 2) + '\n',
-      '.intentsmith/m2-governance-policy.json': JSON.stringify(newProjectPolicy(), null, 2) + '\n',
+      '.intentsmith/m2-governance-policy.json': JSON.stringify(newProjectPolicy(type), null, 2) + '\n',
       'package.json': JSON.stringify(pkg, null, 2) + '\n',
       'README.md': `# ${name}\n\n${description}\n\n## Stav\nZáklad projektu; implementace a funkční ověření ještě chybí.\n\n## Spuštění\nNode.js 22+, bez instalace závislostí: npm start.\nOvěření: npm test. Výchozí test záměrně selže, dokud nevzniknou skutečné assertions.\n`,
       'ROADMAP.md': '# Plán\n\n- [ ] Ujasnit cíl a ověřitelné podmínky dokončení\n- [ ] Navrhnout první použitelný krok\n- [ ] Schválit konkrétní změnu a provést ji\n- [ ] Funkčně ověřit a projít výsledek\n',
       'src/index.mjs': 'console.log("Projekt zatím nemá implementaci. Pokračuj zadáním cíle v IntentSmithu.");\n',
       'test/acceptance.test.mjs': 'import test from "node:test";\ntest("Požadavky projektu zatím nejsou ověřené", () => { throw new Error("Doplň funkční assertions podle cíle projektu."); });\n',
     };
+    if (type === 'desktop') files['README.md'] = `# ${name}\n\n${description}\n\n## Stav\nDesktopový základ pro Electron. Implementace, funkční testy, instalace závislostí a integrace do nabídky ještě chybí.\n\n## Spuštění\nNode.js 22+. Po instalaci deklarovaného Electronu: npm start.\nOvěření čistých modulů bez GUI: npm test. Výchozí test záměrně selže.\nRenderer musí mít contextIsolation a sandbox zapnuté, nodeIntegration vypnuté a úzké IPC přes preload.\nTato šablona nic nestahuje ani nespouští.\n`;
     for (const [file, content] of Object.entries(files)) {
       await fs.writeFile(path.join(root, file), content, { flag: 'wx' });
     }
@@ -77,10 +82,12 @@ export async function inspectProject(project, { signal } = {}) {
     { signal, deadlineAt: Date.now() + 15_000 });
   const regular = manifest.entries.filter(entry => entry.kind === 'regular@1');
   const isTest = name => /(^|\/)(test|tests)\/|\.(test|spec)\.|(^|\/)test_[^/]+\.py$|(^|\/)[^/]+_test\.(py|go)$/.test(name);
-  const priority = entry => /(^|\/)(readme[^/]*|package.json|pyproject.toml|cargo.toml|go.mod)$/i.test(entry.path) ? 0
+  const priority = entry => entry.path === 'package.json' ? -1
+    : /(^|\/)(readme[^/]*|package.json|pyproject.toml|cargo.toml|go.mod)$/i.test(entry.path) ? 0
     : isTest(entry.path) ? 1 : 2;
   const selected = [...regular].sort((a, b) => priority(a) - priority(b) || a.path.localeCompare(b.path));
   const excerpts = [];
+  let nodeProject = null;
   let used = 0;
   for (const entry of selected) {
     if (excerpts.length >= 10 || used >= 24_000) break;
@@ -89,6 +96,19 @@ export async function inspectProject(project, { signal } = {}) {
       { maxBytes: 64_000, requireCanonicalTarget: true, rejectHardlinks: true });
     const bytes = observation.bytes;
     if (!observation.exists || sha(bytes) !== entry.contentDigest) throw Object.assign(new Error('Projekt se během analýzy změnil; zopakuj načtení.'), { code: 'PROJECT_CHANGED' });
+    if (entry.path === 'package.json') {
+      try {
+        const pkg = JSON.parse(bytes.toString('utf8'));
+        if (!pkg || typeof pkg !== 'object' || Array.isArray(pkg)) throw new Error('Invalid package object');
+        const textField = value => typeof value === 'string' && Buffer.byteLength(value) <= 512 ? value : null;
+        nodeProject = {
+          manifest: 'package.json', declaredOnly: true,
+          moduleType: pkg.type === undefined ? 'unspecified' : textField(pkg.type),
+          entryPoint: textField(pkg.main),
+          scripts: { start: textField(pkg.scripts?.start), test: textField(pkg.scripts?.test), build: textField(pkg.scripts?.build) },
+        };
+      } catch { nodeProject = { manifest: 'package.json', parseError: true, declaredOnly: true }; }
+    }
     const text = bytes.toString('utf8').slice(0, Math.min(5_000, 24_000 - used));
     excerpts.push({ path: entry.path, text, truncated: text.length < bytes.toString('utf8').length });
     used += text.length;
@@ -106,8 +126,27 @@ export async function inspectProject(project, { signal } = {}) {
     try { const st = await fs.lstat(path.join(canonicalRoot, name)); setup[name] = !st.isSymbolicLink(); }
     catch { setup[name] = false; }
   }
+  if (setup['.intentsmith/m2-governance-policy.json']) {
+    const observed = readProjectFileBytes(canonicalRoot, '.intentsmith/m2-governance-policy.json',
+      { maxBytes: 32_768, requireCanonicalTarget: true, rejectHardlinks: true });
+    const policy = JSON.parse(observed.bytes.toString('utf8'));
+    setup.policy = { roots: policy.layers?.flatMap(layer => layer.roots) || [],
+      externalImports: policy.externalImports || [] };
+  }
+  const directories = new Set(['.', ...names.map(name => path.posix.dirname(name))]);
+  // Include empty permitted roots: the ordinary file manifest cannot list
+  // public/ or scripts/ until the first file is created there.
+  for (const root of setup.policy?.roots || []) {
+    if (typeof root !== 'string' || root.includes('\\') || path.isAbsolute(root) || root.split('/').some(part => !part || part === '.' || part === '..')) continue;
+    const candidate = path.join(canonicalRoot, root);
+    try {
+      const st = await fs.lstat(candidate);
+      if (st.isDirectory() && !st.isSymbolicLink() && await fs.realpath(candidate) === candidate) directories.add(root);
+    } catch { /* An unavailable policy root is not an existing directory. */ }
+  }
   return { projectId: project.id, revision: manifest.revision, fileCount: regular.length,
-    files: names.slice(0, 250), fileListTruncated: names.length > 250, excerpts, facts, gaps,
+    directories: [...directories].sort().slice(0, 64),
+    files: names.slice(0, 250), fileListTruncated: names.length > 250, excerpts, facts, gaps, nodeProject,
     setup, scope: 'Bounded static inspection; no project commands, tests or dependency installation.' };
 }
 

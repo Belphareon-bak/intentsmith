@@ -176,6 +176,58 @@ REVIEW_PENDING; [důkazy a meze](docs/review/2026-09-18-EVALUATION-HARDENING-VIS
 Nový [kontrakt CODE pilotu](docs/wp/WP-GPU-HUNT-EVALUATION-CONTRACT-20260918.md)
 není implementační přejímka.
 
+**Tři projektové průchody, 2026-09-19:** všechny tři utility jsou v nabídce
+aplikací: SystemSmith_1 (`70d14693`), WeatherSmith (`74f7a861`) a NewsSmith
+(`cc083cff`). Skutečný Electron přes vlastní modelové launchery, živá data a
+dva procesové starty se zachovanými preferencemi prošly u všech tří. Jde o
+asistovaný modelový průchod, ne autonomní vytvoření na jeden prompt.
+SystemSmith_1 měl 488,3 MiB PSS a 7,21 % jednoho CPU jádra v privátním software
+renderingu; požadavek lightweight není doložený. Počasí má ověřená uložená
+místa, nikoli skutečnou polohu operátora; zprávy pět pevných zdrojů.
+Úklid vlastních kopií odstranil 18,10 GiB; poslední dávka ověřila 23 243 hashů.
+Instalováno `b0975bff`: přesné opravy úseků a odmítnutí vadné JS syntaxe před
+plánem včetně retained návrhů (service 96/96, boundary PASS). Úplný profil
+359 PASS / 1 zděděný FAIL Gate 0 / 0 BLOCKED; pečeť se neměnila. Nasazení
+potvrdilo integritu DB, nezměněných devět tabulek a zachování autentizace.
+**THREE_APPLICATIONS_RUNTIME_VERIFIED / ASSISTED_JOURNEY / REVIEW_PENDING**,
+nikoli celkový prod-ready. [Výsledky, meze a neúspěchy](docs/review/2026-09-19-THREE-PROJECTS-JOURNEY.md).
+
+Navazující převzetí skutečného ShellSmithu dokončilo jednu modelovou opravu
+v oddělené kopii přes M2: odmítnutí raw CR/LF/TAB před URL normalizací.
+Nová regrese selže na původním kódu; opravený návrh má 30/30 a renderer build
+PASS. Ostatních 63 původních souborů i původní instalace zůstaly nedotčené.
+Průchod odhalil vnucený scaffold vstup a prázdný výběr ukázek. Návazná obecná
+oprava **`9660d99b` je aktuálně nasazená**: skutečný package manifest,
+zachování importovaných konvencí, doplnění volného kontextu a CJS/JS Node testy.
+Projektová sada 28/28; vlastní úplný profil 359 PASS / 1 FAIL Gate 0 / 0 BLOCKED.
+Nasazení proběhlo až po uvolnění GPU zámku, s ověřením původní verze i dat.
+Následná skutečná D1 odpověď správně rozpoznala main, CJS i testovací příkaz,
+s 3 pozorovanými ukázkami v nezměněném 4096 profilu. Nejde o audit celého
+ShellSmithu ani kontrolovaný A/B benchmark.
+
+**Následující checkpointy jsou historické, nikoli aktuální stav tří utilit.**
+
+**Desktopové projektové kroky, 2026-09-19:** nasazeno `d22f64ac`.
+Celý původní cíl a aktuální oprava mají přednost před staršími zprávami.
+Kontext existujících modulů pouze ke čtení, pozorované
+adresáře a jedna strukturální oprava plánu. General i Desktop mají kanonická
+pravidla; inventura podporuje i přesné souborové kořeny se stejnými limity.
+M2 66/66, projekt 23/23, Studio 39/39; celý profil 359 PASS / 1 FAIL (Gate 0).
+Nové integrační testy projdou skutečným základem → draftem → sandboxem → commitem;
+generátor je v nich fixture. SystemSmith_1 z reálného modelu zůstává
+**APPLICATION_INCOMPLETE**, produkční systemd sandbox BLOCKED AppArmorem.
+Modelové návrhy včetně posledního s 14/14 vlastními testy odmítla nezávislá
+kontrola; žádný utility kód není aplikovaný. Zůstává práce na kvalitě oprav
+modelu i všech funkcích monitoru, nikoli pouze na provozním sandboxu.
+Neúspěšné modelové návrhy i běhy auditu jsou zachované. REVIEW_PENDING.
+[Průchod, opravy a zachované neúspěchy](docs/review/2026-09-19-SYSTEMSMITH-PROJECT-FLOW.md).
+
+**Studio — dotažení předloh, 2026-09-18:** nasazeno `0ef67a56`.
+Sémantická paleta, barevná navigace/role, 12 sekčních přehledů, kompaktní
+karty, miniatury stylů a živý náhled. Electron v šířce 960/1400, text
+0/100 %, kandidáti a restart ověřeny. 359 PASS / 1 FAIL (stávající Gate 0).
+REVIEW_PENDING. [Snímky a důkazy](docs/review/2026-09-18-IDE-DESIGN-REFINEMENT.md).
+
 **IDE vzhled, 2026-09-18:** nasazeno `9ab808f1`, zachováno novější hodnocení
 z `230778ad`. Dvě ikony rozložení, výraznost veškerého textu, 12 kategorií /
 33 záložek nastavení a volitelný styl Studio. Skutečný Electron, min/max textu
@@ -508,8 +560,8 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **226 820 ř.**, 638 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **248 645 ř.**, 536 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **227 423 ř.**  641 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **249 358 ř.**  536 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **529** (`435 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **178 / 103** |
 | HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |

@@ -6,10 +6,11 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { test } from 'node:test';
-import { initializeNewProject, inspectProject, importedProjectWelcome } from '../src/planner/project-onboarding.js';
+import { initializeNewProject, inspectProject, importedProjectWelcome, newProjectPolicy } from '../src/planner/project-onboarding.js';
 import { discussProject, collectProjectWorkEvidence, fitProjectDiscussionPrompt, PROJECT_DISCUSSION_SYSTEM } from '../src/chat/handlers/project-collaboration.js';
 import { createProjectRoutes } from '../src/routes/projects.js';
 import { detectFileIntent } from '../src/chat/handlers/project.js';
+import { validateM2GovernancePolicySnapshot } from '../contracts/m2/governance-v1.js';
 
 async function fixture(t) {
   const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'is-project-flow-'));
@@ -26,6 +27,28 @@ function plan() {
 }
 function generated(value) { return { content: JSON.stringify(value), finishReason: 'stop' }; }
 
+test('incremental project plans run both a new test file and the preserved acceptance suite', async t => {
+  const project = await fixture(t);
+  const previous = 'import test from "node:test"; test("existing behavior", () => {});\n';
+  await fs.writeFile(path.join(project.path, 'test/acceptance.test.mjs'), previous);
+  const next = { instruction: 'Add separately tested I/O support.', files: [
+    { path: 'test/io.test.mjs', instruction: 'Assert the new I/O behavior.', dependsOn: [] },
+  ] };
+  const response = await discussProject('Add I/O with its own tests; preserve the existing suite.', { project }, {
+    generate: async () => generated({ reply: 'A separate tested increment.', plan: next }),
+  });
+  const profile = response.metadata.projectWorkProposal.draft.focusedTest;
+  const run = () => execFileSync(profile.binary, profile.argv, { cwd: project.path, encoding: 'utf8',
+    env: Object.fromEntries(Object.entries(process.env).filter(([key]) => key !== 'NODE_TEST_CONTEXT')) });
+  await fs.writeFile(path.join(project.path, 'test/io.test.mjs'), 'import test from "node:test"; test("new behavior", () => { throw Error("new regression"); });\n');
+  assert.throws(run, error => error.status === 1 && error.stdout.includes('new regression'));
+  await fs.writeFile(path.join(project.path, 'test/io.test.mjs'), 'import test from "node:test"; test("new behavior", () => {});\n');
+  assert.match(run(), /# pass 2/);
+  assert.equal(await fs.readFile(path.join(project.path, 'test/acceptance.test.mjs'), 'utf8'), previous);
+  await fs.writeFile(path.join(project.path, 'test/acceptance.test.mjs'), 'import test from "node:test"; test("existing behavior", () => { throw Error("old regression"); });\n');
+  assert.throws(run, error => error.status === 1 && error.stdout.includes('old regression'));
+});
+
 test('new project has a clean Git baseline, canonical policy and a genuinely failing initial test', async t => {
   const project = await fixture(t);
   assert.equal(execFileSync('git', ['status', '--porcelain'], { cwd: project.path, encoding: 'utf8' }), '');
@@ -36,6 +59,36 @@ test('new project has a clean Git baseline, canonical policy and a genuinely fai
   assert.throws(() => execFileSync(process.execPath, ['--test', 'test/acceptance.test.mjs'], { cwd: project.path, stdio: 'pipe', env: Object.fromEntries(Object.entries(process.env).filter(([key]) => key !== 'NODE_TEST_CONTEXT')) }), { status: 1 });
   await assert.rejects(initializeNewProject(project.path, { name: 'overwrite' }), { code: 'EEXIST' });
   assert.equal(JSON.parse(await fs.readFile(path.join(project.path, '.intentsmith/project.json'), 'utf8')).name, 'Fan monitor');
+});
+
+test('desktop is an explicit scaffold with no dependency install or GUI execution', async t => {
+  const project = await fixture(t); const root = path.join(path.dirname(project.path), 'desktop');
+  await initializeNewProject(root, { name: 'Monitor', description: 'Real hardware monitor', type: 'desktop' });
+  const pkg = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8'));
+  const policy = JSON.parse(await fs.readFile(path.join(root, '.intentsmith/m2-governance-policy.json'), 'utf8'));
+  assert.equal(pkg.scripts.start, 'electron src/index.mjs');
+  assert.equal(pkg.devDependencies.electron, '42.11.3');
+  assert.ok(policy.externalImports.includes('electron'));
+  assert.ok(policy.externalImports.includes('node:child_process'));
+  assert.ok(policy.layers[0].roots.includes('README.md'));
+  assert.ok(!policy.layers[0].roots.includes('.intentsmith'));
+  await assert.rejects(fs.stat(path.join(root, 'node_modules')), { code: 'ENOENT' });
+  assert.equal(execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' }), '');
+});
+
+test('both created project types satisfy the actual M2 governance policy contract', async t => {
+  const project = await fixture(t);
+  for (const type of ['general', 'desktop']) {
+    const root = path.join(path.dirname(project.path), `policy-${type}`);
+    await initializeNewProject(root, { name: type, type });
+    const analysis = await inspectProject({ ...project, path: root });
+    const policy = JSON.parse(await fs.readFile(path.join(root, '.intentsmith/m2-governance-policy.json'), 'utf8'));
+    const result = validateM2GovernancePolicySnapshot({ ...policy,
+      contract: 'GovernancePolicySnapshot', version: 1, projectId: project.id,
+      workspaceRevision: analysis.revision, policyPath: '.intentsmith/m2-governance-policy.json',
+    });
+    assert.equal(result.valid, true, `${type}: ${result.errors.join(', ')}`);
+  }
 });
 
 test('foreign repository inspection preserves files and presents scope and goal questions', async t => {
@@ -77,6 +130,47 @@ test('inspection refuses escaped links and hard-linked contents', async t => {
   await assert.rejects(inspectProject(project));
 });
 
+test('imported Node manifests retain the declared entry and module format without assuming scaffold defaults', async t => {
+  const project = await fixture(t);
+  project.is_external = 1;
+  const packagePath = path.join(project.path, 'package.json');
+  for (const moduleType of ['commonjs', 'module', undefined]) {
+    const pkg = { name: 'external-client', ...(moduleType ? { type: moduleType } : {}),
+      main: 'src/main/main.js', scripts: { start: 'electron .', test: 'node --test test/*.test.cjs' } };
+    const bytes = JSON.stringify(pkg);
+    await fs.writeFile(packagePath, bytes);
+    const analysis = await inspectProject(project);
+    assert.equal(analysis.nodeProject.entryPoint, 'src/main/main.js');
+    assert.equal(analysis.nodeProject.moduleType, moduleType ?? 'unspecified');
+    assert.equal(analysis.nodeProject.scripts.test, pkg.scripts.test);
+    assert.equal(analysis.nodeProject.declaredOnly, true);
+    assert.equal(analysis.files.includes('src/main/main.js'), false, 'declared entry is not proof it exists');
+    assert.equal(analysis.excerpts[0].path, 'package.json');
+    assert.equal(await fs.readFile(packagePath, 'utf8'), bytes);
+  }
+  for (const invalid of ['null', '[]', '{broken']) {
+    await fs.writeFile(packagePath, invalid);
+    assert.equal((await inspectProject(project)).nodeProject.parseError, true);
+    assert.equal(await fs.readFile(packagePath, 'utf8'), invalid);
+  }
+});
+
+for (const extension of ['cjs', 'js']) {
+  test(`an existing project can propose a Node .test.${extension} without conversion to mjs`, async t => {
+    const project = await fixture(t); project.is_external = 1;
+    const target = `test/regression.test.${extension}`;
+    const response = await discussProject('Preserve the existing module convention and add a regression.', { project }, {
+      generate: async () => generated({ reply: 'A bounded regression.', plan: {
+        instruction: 'Test the existing behavior.', files: [{ path: target, instruction: 'Use node:test with functional assertions.', dependsOn: [] }],
+      } }),
+    });
+    const draft = response.metadata.projectWorkProposal.draft;
+    assert.equal(draft.files[0].path, target);
+    assert.deepEqual(draft.focusedTest.argv, ['--disable-wasm-trap-handler', '--test']);
+    assert.equal(execFileSync('git', ['status', '--porcelain'], { cwd: project.path, encoding: 'utf8' }), '');
+  });
+}
+
 test('a short continuation receives the same project, history and real evidence; proposal grants no effects', async t => {
   const project = await fixture(t);
   const before = await fs.readFile(path.join(project.path, 'src/index.mjs'), 'utf8');
@@ -85,6 +179,10 @@ test('a short continuation receives the same project, history and real evidence;
     generate: async ({ prompt }) => {
       const request = JSON.parse(prompt);
       assert.equal(request.project.id, project.id);
+      assert.equal(request.host.platform, process.platform);
+      assert.equal(request.host.node, process.versions.node);
+      assert.ok(request.analysis.setup.policy.externalImports.includes('node:fs/promises'));
+      assert.ok(!request.analysis.setup.policy.externalImports.includes('electron'));
       assert.equal(request.history[0].content, 'Widget pro RPM, historie 1 hodinu.');
       assert.equal(request.analysis.excerpts.some(file => file.path === 'README.md'), true);
       return generated({ reply: 'Nejdřív ověříme čtení a historii, pak graf. Chybějící senzor zobrazíme jako nedostupný.', plan: plan() });
@@ -134,6 +232,50 @@ test('planning phrases do not turn a clarification into a directory-list approva
   }
   assert.equal(detectFileIntent('Ukaž soubory v tomto projektu').filePath, '.');
   assert.equal(detectFileIntent('přečti src/index.mjs').filePath, 'src/index.mjs');
+});
+
+test('a missing directory is repaired once with observed directories and the same complete goal', async t => {
+  const project = await fixture(t); let calls = 0;
+  const response = await discussProject('Build my monitor', { project }, { generate: async ({ prompt }) => {
+    const input = JSON.parse(prompt); calls++;
+    assert.equal(input.request, 'Build my monitor');
+    assert.equal(input.project.description, project.description);
+    assert.ok(input.analysis.directories.includes('public'));
+    if (calls === 1) {
+      const bad = plan(); bad.files[0].path = 'src/config/index.mjs';
+      bad.files[1].dependsOn = ['src/config/index.mjs'];
+      return generated({ reply: 'Initial plan', plan: bad });
+    }
+    assert.equal(input.planFeedback.code, 'PROJECT_PLAN_PARENT_UNAVAILABLE');
+    assert.match(input.planFeedback.message, /src\/config/);
+    assert.doesNotMatch(input.planFeedback.message, /\/tmp\//);
+    return generated({ reply: 'Use the existing src directory.', plan: plan() });
+  } });
+  assert.equal(calls, 2); assert.equal(response.metadata.inspection.planningAttempts, 2);
+  assert.equal(response.metadata.projectWorkProposal.draft.files[0].path, 'src/index.mjs');
+  assert.equal(execFileSync('git', ['status', '--porcelain'], { cwd: project.path, encoding: 'utf8' }), '');
+  await assert.rejects(fs.stat(path.join(project.path, 'src/config')), { code: 'ENOENT' });
+});
+
+test('structural repair stops after two invalid model plans without effects', async t => {
+  const project = await fixture(t); let calls = 0;
+  await assert.rejects(discussProject('Build', { project }, { generate: async () => {
+    calls++; const bad = plan(); bad.files.pop(); return generated({ reply: 'Missing test', plan: bad });
+  } }), { code: 'PROJECT_PLAN_INVALID' });
+  assert.equal(calls, 2);
+  assert.equal(execFileSync('git', ['status', '--porcelain'], { cwd: project.path, encoding: 'utf8' }), '');
+});
+
+test('provider errors and incomplete generation never trigger structural retries', async t => {
+  const project = await fixture(t);
+  for (const failure of ['provider', 'length']) {
+    let calls = 0;
+    await assert.rejects(discussProject('Build', { project }, { generate: async () => {
+      calls++; if (failure === 'provider') throw new Error('provider down');
+      return { ...generated({ reply: 'Partial', plan: plan() }), finishReason: 'length' };
+    } }));
+    assert.equal(calls, 1);
+  }
 });
 
 test('workspace changes during planning invalidate the suggestion before it reaches the composer', async t => {
@@ -196,6 +338,10 @@ test('planning selects context for the real model window and never truncates the
     assert.match(result.systemPrompt, /Tomorrow \/ zítra:/);
     assert.ok(result.maxTokens + result.maxBytes / 2 + 384 <= numCtx);
   }
+  const goal = 'Desktop monitor with real CPU RAM GPU FAN NETWORK DISK. '.repeat(18) + 'PERSISTENT_HISTORY_LAST_REQUIREMENT';
+  const continuation = fitProjectDiscussionPrompt(JSON.stringify({ ...input,
+    project: { ...input.project, description: goal }, history: input.history.slice(2) }), 4096);
+  assert.equal(JSON.parse(continuation.prompt).project.description, goal, 'keep the whole original goal after older chat leaves the history window');
   assert.throws(() => fitProjectDiscussionPrompt(JSON.stringify({ ...input, request: 'q'.repeat(50_000) }), 4096), /Rozděl/);
   const repairRequest = 'Oprav čtení souborů i neúspěšný test. '.repeat(14);
   const repaired = fitProjectDiscussionPrompt(JSON.stringify({ ...input, request: repairRequest,
@@ -206,6 +352,50 @@ test('planning selects context for the real model window and never truncates the
   assert.equal(JSON.parse(repaired.prompt).request, repairRequest);
   assert.equal(JSON.parse(repaired.prompt).projectWorkEvidence[0].errorCode, 'PROJECT_CHANGE_TEST_FAILED');
   assert.ok(Buffer.byteLength(repaired.systemPrompt + repaired.prompt) <= repaired.maxBytes);
+});
+
+test('a short correction and full goal outrank old snippets when lifecycle evidence consumes the window', () => {
+  const policy = newProjectPolicy('desktop');
+  const input = {
+    request: 'Fix RAM keys, use UTF8. Validate CPU counters and guest time; malformed samples and counter regressions must not produce invented percentages. Test positive values and failures independently.',
+    project: { id: 1, name: 'Monitor', description: 'CPU RAM GPU fans, network, disks, readable charts and persistent history. '.repeat(28) },
+    history: [{ role: 'user', content: 'old goal '.repeat(30) }, { role: 'user', content: 'old correction '.repeat(30) }],
+    analysis: { fileCount: 6, files: ['README.md', 'ROADMAP.md', 'package.json', 'src/index.mjs', 'test/acceptance.test.mjs'],
+      setup: { policy: { roots: policy.layers[0].roots, externalImports: policy.externalImports } },
+      directories: ['.', 'public', 'scripts', 'src', 'test'], excerpts: [] },
+    projectWorkEvidence: [{ lifecycleId: 'lifecycle:cancelled', state: 'cancelled', errorCode: null, focusedTest: null }],
+  };
+  const budget = fitProjectDiscussionPrompt(JSON.stringify(input), 4096);
+  const selected = JSON.parse(budget.prompt);
+  assert.equal(selected.project.description, input.project.description);
+  assert.equal(selected.request, input.request);
+  assert.equal(selected.history.length, 0);
+  assert.equal(input.history.length, 2, 'selection must not erase stored history');
+  assert.equal(selected.projectWorkEvidence[0].state, 'cancelled');
+  assert.deepEqual(selected.analysis.setup.policy, input.analysis.setup.policy);
+  assert.equal(budget.numCtx, 4096);
+  assert.ok(Buffer.byteLength(budget.systemPrompt + budget.prompt) <= budget.maxBytes);
+});
+
+test('context selection keeps observed manifest facts and refills excerpts after reducing optional history', () => {
+  const nodeProject = { manifest: 'package.json', declaredOnly: true, moduleType: 'commonjs',
+    entryPoint: 'src/main/main.js', scripts: { test: 'node --test test/*.test.cjs' } };
+  const input = { request: 'Analyze this existing client without changing its architecture.',
+    project: { id: 1, name: 'External', imported: true, description: 'Preserve SSH and SFTP. '.repeat(45) },
+    history: Array.from({ length: 10 }, () => ({ role: 'user', content: 'Old conversation. '.repeat(150) })),
+    analysis: { fileCount: 43, files: ['package.json', 'src/main/main.js'], directories: ['.', 'src', 'test'],
+      setup: { policy: newProjectPolicy('desktop') }, nodeProject,
+      excerpts: [{ path: 'package.json', text: JSON.stringify({ main: nodeProject.entryPoint }) },
+        { path: 'README.md', text: 'Existing client documentation. '.repeat(120) }] }, projectWorkEvidence: [] };
+  const before = JSON.stringify(input);
+  const result = fitProjectDiscussionPrompt(before, 4096);
+  const selected = JSON.parse(result.prompt);
+  assert.deepEqual(selected.analysis.nodeProject, nodeProject);
+  assert.ok(selected.analysis.excerpts.some(file => file.path === 'package.json'));
+  assert.equal(selected.request, input.request);
+  assert.equal(selected.project.description, input.project.description);
+  assert.equal(JSON.stringify(input), before, 'selection cannot modify stored data');
+  assert.ok(Buffer.byteLength(result.systemPrompt + result.prompt) <= result.maxBytes);
 });
 
 test('actual HTTP creation/import preserves foreign files, rejects collisions and survives restart', { timeout: 60_000 }, async () => {
@@ -222,8 +412,9 @@ test('actual HTTP creation/import preserves foreign files, rejects collisions an
     const other = path.join(runtime.home, 'must-not-exist');
     const conflict = await api('POST', '/api/projects', { name: 'Fan HTTP', path: other });
     assert.equal(conflict.statusCode, 409); await assert.rejects(fs.stat(other), { code: 'ENOENT' });
-    const weather = await api('POST', '/api/projects', { name: 'Weather HTTP' });
-    assert.equal(weather.statusCode, 201); assert.notEqual(weather.json.project.id, project.id);
+    const weather = await api('POST', '/api/projects', { name: 'Desktop HTTP', type: 'desktop' });
+    assert.equal(weather.statusCode, 201);
+    assert.equal(JSON.parse(await fs.readFile(path.join(weather.json.path, 'package.json'), 'utf8')).scripts.start, 'electron src/index.mjs'); assert.notEqual(weather.json.project.id, project.id);
     assert.notEqual(weather.json.path, project.path);
     const foreign = path.join(runtime.home, 'outside-created'); await fs.mkdir(foreign);
     await fs.writeFile(path.join(foreign, 'app.py'), 'def add(a, b): return a - b\n');

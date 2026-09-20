@@ -36,7 +36,7 @@ const REVISION_PATTERN = /^wsr1:[0-9a-f]{64}$/;
 const SUPPORTED_SOURCE_EXTENSIONS = new Set(['.cjs', '.js', '.jsx', '.mjs', '.ts', '.tsx']);
 const IMPORT_PATTERNS = Object.freeze([
   /\bimport\s+(?:[^'";]*?\s+from\s+)?['"]([^'"]+)['"]/g,
-  /\bexport\s+[^'";]*?\s+from\s+['"]([^'"]+)['"]/g,
+  /\bexport(?!\s+(?:(?:async\s+)?function|class|const|let|var|default)\b)\s+[^'";]*?\s+from\s+['"]([^'"]+)['"]/g,
   /\brequire\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
   /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
 ]);
@@ -196,7 +196,10 @@ function scanImports(source) {
     specifiers: Object.freeze([...new Set(imports)].sort(compareUtf8)),
     complete: !(
       /\b(?:import|require)\b/.test(unmatched)
-      || /\bexport\b[^;]*?\bfrom\b/.test(unmatched)
+      // A declaration body can contain Array.from or a comment mentioning a
+      // source. It is not a re-export. Nested import()/require() are scanned
+      // independently above and still fail closed when not understood.
+      || /\bexport(?!\s+(?:(?:async\s+)?function|class|const|let|var|default)\b)\s+[^;]*?\bfrom\b/.test(unmatched)
     ),
   });
 }

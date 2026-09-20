@@ -475,6 +475,33 @@ test('unrecognized import forms are unavailable instead of silently omitted', ()
   }
 });
 
+test('exported declarations containing from are not re-export statements', () => {
+  for (const appAfter of [
+    "export function app() { return Array.from([]); }\n",
+    "export \n  function app() { return Array.from([]); }\n",
+    "export const app = Array.from([]);\n",
+    "export default function app() { // copied from './missing.js'\n return []; }\n",
+    "export async function app() { // derived from './missing.js'\n return []; }\n",
+    "export class App { values() { return Array.from([]); } }\n",
+  ]) {
+    assert.equal(evaluate(setup({ appAfter })).verdict, 'allow', appAfter);
+  }
+});
+
+test('imports within exported declarations and actual re-exports remain checked', () => {
+  for (const appAfter of [
+    "export const app = import('./missing.js');\n",
+    "export default function app() { return require('./missing.js'); }\n",
+    "export * as app from './missing.js';\n",
+    "export { app } from './missing.js';\n",
+    "export /* annotation */ * from './missing.js';\n",
+  ]) {
+    const decision = evaluate(setup({ appAfter }));
+    assert.notEqual(decision.verdict, 'allow', appAfter);
+    assert(decision.findings.some(finding => finding.code === 'RELATIVE_IMPORT_UNRESOLVED'), appAfter);
+  }
+});
+
 test('scan has no 200-file false-pass limit', () => {
   const files = [];
   for (let index = 0; index < 201; index += 1) {

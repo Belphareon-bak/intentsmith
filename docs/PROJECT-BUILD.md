@@ -5,7 +5,8 @@ builder. Dvousouborový fyzický průchod ze skutečně nainstalovaného Studia 
 ověřen na `dc81a0f0`, včetně schválení, funkčního testu, restartů a obnovy DB.
 [Rozsah a důkazy](review/2026-09-12-PRODUCTION-JOURNEY-REVIEW-PACKET.md).
 Úplný autonomní builder tím prokázaný není. Následující postup zahrnuje opravu
-projektového flow z 18. září 2026; důkazy staršího průchodu neověřují tuto změnu.
+projektového flow z 18.–19. září 2026; důkazy staršího průchodu neověřují tuto změnu.
+[Aktuální skutečný pokus SystemSmith_1 a jeho omezení](review/2026-09-19-SYSTEMSMITH-PROJECT-FLOW.md).
 
 ## Nový projekt
 
@@ -14,13 +15,29 @@ adresáře `src`, `public`, `test`, `scripts`, pravidla M2 a výchozí Git commi
 Existující adresář se nepřepisuje. Projekt zatím nemá implementaci; první
 `npm test` záměrně selže, dokud nevznikne skutečný funkční test.
 
+Pro aplikaci s vlastním oknem zvolte typ **Desktop**. Připraví deklaraci
+Electronu, startovací příkaz a pravidla pro `electron` a `node:child_process`.
+Závislosti se tím nestahují ani neinstalují; GUI, preload, sběrače a testy
+teprve vzniknou v řízených krocích. Obecný typ externí Electron nepovoluje.
+Nové základy dovolují upravovat také `package.json`, `README.md` a `ROADMAP.md`;
+pravidla dříve založených nebo importovaných projektů se zpětně nemění.
+
 V projektovém chatu popište požadovaný výsledek. IntentSmith naváže na cíl
 a předchozí zprávy, načte omezený kontext souborů, navrhne priority a podle
 potřeby se doptá. Krátké „a jak?“ patří ke stejnému projektu. Pro podporovaný
 malý JavaScript krok může nabídnout **Připravit navržený krok**. Tlačítko otevře
 editovatelný seznam souborů a test; generování a schválení jsou další dva kroky.
+Původní cíl z popisu projektu zůstává v modelovém vstupu celý i po dlouhé
+konverzaci. Pokud se cíl a aktuální požadavek nevejdou do schváleného okna,
+plánování skončí vysvětlením místo tichého odříznutí konce cíle.
+Plánovač zná OS, architekturu a povolené importy. Tím není prokázaná
+dostupnost hardwarových senzorů ani instalace deklarovaných závislostí.
+Model dostává také seznam skutečných adresářů. U vyjmenovaných strukturálních
+chyb návrhu (například neexistující adresář nebo cyklus závislostí) zkusí jednou
+plán opravit podle konkrétní chyby. Nevytváří tím adresáře ani neschvaluje
+změny. Chyby provideru, přerušený výstup a změna revize se automaticky neopakují.
 
-Test v takovém návrhu je `node --disable-wasm-trap-handler --test test/acceptance.test.mjs`. Přepínač zachovává funkčnost Node.js pod limitem virtuální paměti sandboxu. Model může
+Test v takovém návrhu je `node --disable-wasm-trap-handler --test`: Node vyhledá testy projektu, takže nová sada nezůstane mimo ověření a původní regrese se kontrolují dál. Nový modul může mít vlastní `test/*.test.mjs`; není nutné přepisovat nesouvisející `acceptance.test.mjs`. Přepínač zachovává funkčnost Node.js pod limitem virtuální paměti sandboxu. Model může
 navrhnout jeho assertions, takže úspěch testu sám nedokazuje splnění celého cíle.
 Prohlédněte změny a ověřte i skutečný výsledek. Součástí návrhu je lokální Git
 commit po úspěšném provedení, aby další krok mohl vycházet z čistého stavu.
@@ -48,6 +65,15 @@ Model vidí vybrané ukázky podle svého schváleného kontextového okna, niko
 automaticky všechny soubory rozsáhlého repozitáře. Neověřené závěry musí
 označit; testy nejsou provedené pouhým nalezením testovacích souborů.
 
+U Node projektu dostane plánovač také kompaktní deklarace z `package.json`:
+modulový typ (nebo výslovně neurčený), vstupní soubor a příkazy start/test/build.
+Nejsou důkazem existence vstupu ani úspěšného spuštění. Zachovává se konvence
+převzatého projektu; výchozí ESM a `src/index.mjs` patří pouze novému základu.
+Testovací krok může použít `.test.js`, `.test.mjs` i `.test.cjs` v `test/` nebo
+`tests/`; běží stále pevný Node test profil. Po zmenšení rezervy odpovědi a
+starších zpráv výběr znovu doplní pozorované ukázky do volného místa. Celý
+aktuální požadavek, cíl a pravidla mají přednost; okno modelu se nezvyšuje.
+
 Před první řízenou změnou cizího projektu je nutný čistý Git stav a pravidla
 odpovídající jeho skutečné struktuře, viz příprava níže. Automatický návrh
 spustitelného kroku je nyní omezený na malé projekty Node.js; jiné jazyky lze
@@ -63,6 +89,8 @@ a v chatu zůstane. JSON není nutné psát.
 1. Napište celkový cíl a pro každý soubor cestu v projektu a jeho zadání.
    Přidejte další soubory podle potřeby. Přímé závislosti uveďte po jedné cestě
    na řádek; musí to být jiné soubory téhož plánu bez cyklů.
+   Hotové moduly z předchozích kroků zadejte do **Existující kontext jen ke
+   čtení**. Jejich úplný obsah dostane model pro daný soubor, samy se nepřepisují.
 2. Zadejte úplnou cestu programu pro funkční test a jeho jednotlivé argumenty.
    Například program `/usr/bin/node` s argumenty `--test` a
    `tests/app.test.js`. Testovací soubor musí být připravený v projektu.
@@ -79,16 +107,51 @@ a v chatu zůstane. JSON není nutné psát.
 5. Tlačítkem **Zrušit** nebo `/m2-cancel` zastavíte generování nebo požádáte
    o zrušení prováděné operace. **Načíst stav a plán** či `/m2-status` obnoví
    uložený stav. Po restartu Studia musí tlačítko schválení nejprve načíst
-   a zobrazit obnovený plán. Přepnutí projektu/konverzace staré zadání nepřeváže.
+  a zobrazit obnovený plán. Přepnutí projektu/konverzace staré zadání nepřeváže.
+
+Po zrušení nebo neúspěchu je dostupné **Opravit předchozí návrh**. Model dostane
+úplný předchozí návrh daného souboru jako jedinou upravovanou verzi.
+Vrací přesné náhrady úseků: každý původní úsek musí existovat právě jednou,
+úseky se nesmějí překrývat a všechny se ověřují proti stejnému návrhu.
+Nejednoznačná oprava odmítne celou dávku před vznikem plánu. Obsah mimo
+náhrady zůstává bajtově zachovaný; úplný výsledný soubor je vidět v novém
+plánu. Skutečný obsah na disku planner nadále ověřuje, ale model jej podruhé
+nedostává. Tím se šetří kontext a omezuje nechtěné vracení staršího kódu.
+U jednotlivých souborů lze zvolit **Zachovat přesný obsah**: jejich ověřené
+bajty se převezmou bez dalšího generování. Oprava vytvoří nový plán s novým
+schválením; starý plán ani jeho verdikt se nepřepisují. Odkaz je vázaný na
+přesný digest, vlastníka, projekt, konverzaci a nezměněnou revizi pracovního
+stromu. Při změně souborů nebo po úspěšném provedení je třeba nový běžný krok.
+Zachování souboru znamená zachování obsahu, nikoli potvrzení jeho správnosti;
+funkční test a kontrola celého výsledku zůstávají nutné.
+Vrátí-li model při opravě přesně původní návrh souboru, builder jej odmítne
+chybou `M2_CODE_DRAFT_REVISION_UNCHANGED`; nový plán nevznikne. Vědomé zachování
+souboru se zadává volbou **Zachovat přesný obsah**, nikoli opakovaným generováním.
+
+Před nabídkou plánu builder parsuje generované `.js/.mjs/.cjs/.jsx` soubory,
+včetně opravených a výslovně zachovaných návrhů. Vadná syntaxe odmítne celou
+dávku bez zápisu. Jde o gramatickou kontrolu bez spuštění či linkování kódu;
+nenahrazuje funkční test, kontrolu runtime API ani ověření celé aplikace.
+TypeScript, HTML a CSS tato kontrola nepokrývá. Přímé operátorské `/m2-plan`
+se tím nemění.
+
+Pokročilý builder přijímá `revisionOf: { lifecycleId, planDigest }` a
+`reusePrevious: true` u explicitně uvedených souborů. Kontext se čte jen na
+tento výslovný požadavek, ne jako automatická paměť mezi projekty.
 
 Pokročilý vstup `/m2-build <JSON>` zůstává dostupný, včetně volitelného
 Git commitu a vlastního prostředí testu. Formulář používá prostředí uvedené
 v jeho detailu. Ruční zadání Git commit nevyžaduje; nabídka z projektového
-chatu jej obsahuje. Stávající M2 HTTP kontrakt se nemění.
+chatu jej obsahuje. Položka souboru nyní podporuje volitelné `contextFiles`
+(nejvýše osm existujících projektových cest). Zapisované cíle, schvalování,
+efekty a formát přesného M2 plánu se nemění. Obsah kontextu se ověřuje proti
+manifestu; změna projektu během generování zneplatní návrh. Cesty mimo projekt,
+skryté chráněné soubory, odkazy, příliš velký obsah nebo přesah kontextového
+okna vedou k odmítnutí, nikoli ke zkrácení kódu nebo částečnému plánu.
 
 ## Předpoklady a meze
 
-- Registrovaný, připojený Git projekt s platnou `.c3/m2-governance-policy.json`;
+- Registrovaný, připojený Git projekt s platnou `.intentsmith/m2-governance-policy.json`;
   cílové adresáře již existují. Běžná registrace sama governance nezakládá.
 - Aktivní lokální model pro roli CODE a stávající M2 procesový sandbox.
   Žádné automatické změny modelového bindingu ani oprávnění.
@@ -118,7 +181,7 @@ Volný text v projektovém chatu nabízí návrh; provedení vyžaduje samostatn
 
 Nejprve v editoru připravte adresář `src/` a funkční test, například
 `tests/app.test.js`. Vlastní pravidla projektu uložte do
-`.c3/m2-governance-policy.json`. Pro jednu aplikační vrstvu bez externích
+`.intentsmith/m2-governance-policy.json`. Pro jednu aplikační vrstvu bez externích
 importů může soubor vypadat takto:
 
 ```json
@@ -134,8 +197,11 @@ importů může soubor vypadat takto:
 ```
 
 Pravidla upravte podle skutečných vrstev a dovolených importů projektu;
-seznamy přípon, názvů vrstev, pravidel a importů udržujte seřazené bez duplicit.
-prázdné `externalImports` záměrně neumožňují externí knihovny. Uložte výchozí
+seznamy kořenů, přípon, názvů vrstev, pravidel a importů udržujte seřazené podle
+bajtového pořadí UTF-8 bez duplicit. Kořen může být existující adresář nebo
+jednotlivý existující soubor; inventura pro oba používá stejné kontroly cest,
+odkazů a velikosti. Nové šablony mají toto pořadí připravené automaticky.
+Prázdné `externalImports` záměrně neumožňují externí knihovny. Uložte výchozí
 soubory, test a pravidla do Git commitu a začněte s čistým pracovním stromem.
 Import existujícího projektu tato pravidla nevytváří. U nově založeného
 projektu je základ připravený automaticky. U importu tato příprava probíhá

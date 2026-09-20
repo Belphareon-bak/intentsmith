@@ -174,6 +174,25 @@ REVIEW_PENDING. [Review a otevřené vady](docs/review/2026-09-18-EVALUATION-HAR
 [CODE pilot](docs/wp/WP-GPU-HUNT-EVALUATION-CONTRACT-20260918.md) má schválený
 rozsah, implementace a přejímka čekají; quick profil až po ověřeném pilotu.
 
+**Tři projektové průchody, 2026-09-19:** SystemSmith_1, WeatherSmith a NewsSmith
+jsou nainstalované a ověřené skutečným Electronem, živými daty a restartem.
+Asistovaný postup přes CODE/M2; všech 43 finálních implementačních souborů má
+ověřený původ. Lightweight SystemSmithu ani skutečná geolokace nejsou doložené.
+Následná konkrétní oprava importovaného ShellSmithu prošla M2, 30 testy a buildem;
+původní instalace beze změny. Obecné opravy jsou nasazené na `9660d99b`,
+projektová sada 28/28, M2 service 96/96, úplný profil 359 PASS / 1 FAIL Gate 0 /
+0 BLOCKED. Úklid odstranil 18,10 GiB spotřebovaných sandboxů se zachováním důkazů.
+REVIEW_PENDING; bez tvrzení celkové production readiness či autonomie na jeden
+prompt. [Výsledky, rozsah a meze](docs/review/2026-09-19-THREE-PROJECTS-JOURNEY.md).
+
+Následující datované položky uchovávají dřívější checkpointy.
+
+**Studio — dotažení předloh, 2026-09-18:** nasazeno `0ef67a56`.
+Sémantická paleta, barevná navigace/role, 12 sekčních přehledů, kompaktní
+karty, miniatury stylů a živý náhled. Electron v šířce 960/1400, text
+0/100 %, kandidáti a restart ověřeny. 359 PASS / 1 FAIL (stávající Gate 0).
+REVIEW_PENDING. [Snímky a důkazy](docs/review/2026-09-18-IDE-DESIGN-REFINEMENT.md).
+
 **IDE vzhled, 2026-09-18:** nasazeno `9ab808f1`, zachováno novější hodnocení
 z `230778ad`. Dvě ikony rozložení, výraznost veškerého textu, 12 kategorií /
 33 záložek nastavení a volitelný styl Studio. Skutečný Electron, min/max textu

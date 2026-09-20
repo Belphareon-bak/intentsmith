@@ -10,6 +10,68 @@ function tagged(content, metadata) {
   return Object.freeze({ content, metadata: Object.freeze({ handler: 'conversation.web', ...metadata }) });
 }
 
+export function conversationSearchUrl(input) {
+  // Remove conversational scaffolding, never the requested constraints. The
+  // complete resulting URL is still shown and approved as one exact request.
+  const query = String(input).trim()
+    .replace(/^(?:pros[ií]m[, ]+)?(?:najdi|vyhledej|hledej|find|search(?: for)?)\s+(?:mi\s+)?/iu, '')
+    .replace(/^na\s+(?:[cč]esk[eé]m[u]?\s+)?(?:webu|internetu)\s+/iu, '').trim();
+  return `https://www.bing.com/search?format=rss&q=${encodeURIComponent(query || String(input).trim())}`;
+}
+
+const fold = text => text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+const searchStopWords = new Set('najdi vyhledej hledej prosim ktery ktere ktera kteri ceskem ceskemu webu internetu chci potrebuji pomoz nejaky nejake nejaka dnes aktualni find search please with that this from which'.split(' '));
+function searchTerms(text) {
+  return [...new Set((fold(text).match(/[\p{L}\p{N}]+/gu) || [])
+    .filter(word => word.length >= 4 && !searchStopWords.has(word)).map(word => word.slice(0, 5)))];
+}
+function feedText(value) {
+  const entities = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+  return value.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/gu, '$1')
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/giu, '')
+    .replace(/<[^>]*>/gu, ' ')
+    .replace(/&(#x[\da-f]+|#\d+|amp|lt|gt|quot|apos|nbsp);/giu, (match, entity) => {
+      if (!entity.startsWith('#')) return entities[entity.toLowerCase()] || match;
+      const n = entity[1].toLowerCase() === 'x' ? parseInt(entity.slice(2), 16) : Number(entity.slice(1));
+      return n > 0 && n <= 0x10ffff && !(n >= 0xd800 && n <= 0xdfff) ? String.fromCodePoint(n) : '';
+    }).replace(/<[^>]*>/gu, ' ').replace(/[\u0000-\u001f\u007f]/gu, ' ').replace(/\s+/gu, ' ').trim();
+}
+const quoteMarkdown = text => text.replace(/[\\`*_{}\[\]()<>#!|~]/gu, '\\$&');
+
+function renderSearchResults(content, row, metadata) {
+  const target = new URL(row.url);
+  if (target.hostname !== 'www.bing.com' || target.pathname !== '/search'
+    || target.searchParams.get('format') !== 'rss') return null;
+  const query = target.searchParams.get('q') || '';
+  const terms = searchTerms(query);
+  const results = []; const seen = new Set(); let parsed = 0;
+  // This is bounded extraction, not an XML engine: no entities, remote DTDs,
+  // embedded HTML, model calls, link following or secondary request is allowed.
+  if (!/<!DOCTYPE|<!ENTITY/iu.test(content)) {
+    for (const item of content.matchAll(/<item(?:\s[^>]*)?>([\s\S]*?)<\/item\s*>/giu)) {
+      if (++parsed > 50) break;
+      const field = name => feedText(item[1].match(new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${name}\\s*>`, 'iu'))?.[1] || '');
+      const title = field('title').slice(0, 250); const description = field('description').slice(0, 800);
+      let url;
+      try {
+        url = new URL(field('link'));
+        if (url.protocol !== 'https:' || url.username || url.password || url.port || seen.has(url.href)) continue;
+      } catch { continue; }
+      if (!title || (terms.length && !terms.some(term => fold(title + ' ' + description).includes(term)))) continue;
+      seen.add(url.href);
+      results.push({ title, description, url: url.href });
+      if (results.length >= 10) break;
+    }
+  }
+  const notice = results.length
+    ? 'Následující náhledy souvisejí s dotazem. Samotný náhled ale nepotvrzuje splnění všech podmínek; cílové stránky zatím nejsou načtené.'
+    : 'Z vrácených náhledů nemám doloženou odpověď na tvůj dotaz. Vyhledávač nevrátil použitelné odkazy s textovou shodou; nesouvisející výsledky nevydávám za řešení. Zkus kratší dotaz s hlavními podmínkami nebo uveď konkrétní web.';
+  const rows = results.map((result, index) => `${index + 1}. ${quoteMarkdown(result.title)}\n   ${result.url.replace(/[()<>\\]/gu, c => '%' + c.charCodeAt(0).toString(16).toUpperCase())}\n   ${quoteMarkdown(result.description)}`);
+  return tagged(`Výsledky pro: ${quoteMarkdown(query)}\n\n${notice}${rows.length ? '\n\n' + rows.join('\n\n') : ''}`,
+    { ...metadata, webDisplayStatus: results.length ? 'search_results' : 'no_relevant_search_results',
+      resultCount: results.length, responseBytes: row.output.length, responseDigest: row.output_digest });
+}
+
 function render(row) {
   const metadata = { webRequestId: row.request_id, webStatus: row.status, url: row.url };
   if (row.status === 'pending') return tagged(
@@ -24,6 +86,8 @@ function render(row) {
   let content;
   try { content = new TextDecoder('utf-8', { fatal: true }).decode(row.output); }
   catch { return tagged('Odpověď je uložená, ale její kódování nelze zobrazit jako UTF-8.', { ...metadata, webDisplayStatus: 'unsupported_encoding' }); }
+  const search = renderSearchResults(content, row, metadata);
+  if (search) return search;
   // The external content is displayed as quoted data, never raw HTML or a new
   // model/tool instruction. It cannot close the dynamically sized code fence.
   const truncated = content.length > 12000;
@@ -58,7 +122,7 @@ export function createConversationWebHandler({ database = db, clock = Date.now,
         state.clearPendingDecision();
         if (text.length <= 100 && text.split(/\s+/).length <= 8 && /^[\p{L}\p{N}\s,'’.-]+$/u.test(text)
           && !/^(?:ne|ano|zrus|cancel|jak|co|proc|what|how)(?:\s|$)/.test(normalized)) {
-          const target = `https://www.bing.com/search?format=rss&q=${encodeURIComponent((pending?.query || 'počasí dnes') + ' — místo: ' + text)}`;
+          const target = conversationSearchUrl((pending?.query || 'počasí dnes') + ' — místo: ' + text);
           try { return { handled: true, response: this.propose(target, context) }; }
           catch (error) { return { handled: true, response: tagged(`Webový požadavek nelze připravit: ${error.code || 'WEB_AUTHORITY_UNAVAILABLE'}.`, {}) }; }
         }
