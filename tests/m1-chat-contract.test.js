@@ -378,6 +378,36 @@ await testAsync('actual ANSWER continuation bypasses ambiguous classification an
   } finally {llmGateway.call=previousCall;creDecisionEngine.decide=previousDecide;}
 });
 
+await testAsync('truncated conversational output retries without raising authority and still fails closed after exhaustion', async () => {
+  const previousCall = llmGateway.call;
+  const complete = 'Kontejner sdílí jádro hostitele. Kubernetes používá řídicí smyčku: porovnává požadovaný stav se skutečným a vytváří chybějící pody. Například Deployment se třemi replikami nahradí pod, který skončil. Dostupnost však závisí na kapacitě uzlů a správném nastavení aplikace.';
+  try {
+    for (const recover of [true, false]) {
+      const calls = []; const abort = new AbortController();
+      llmGateway.call = async (prompt, options) => {
+        calls.push({ prompt, options });
+        return { content: recover && calls.length > 1 ? complete : 'Nedokončené vysvětlení, které',
+          model: 'controlled-chat', finishReason: recover && calls.length > 1 ? 'stop' : 'length' };
+      };
+      const decision = creDecisionEngine.overrideDecision({ type: 'ANSWER', intent: 'CONVERSATIONAL',
+        tools: [], source: 'completion_regression', reason: 'Controlled incomplete generation', confidence: 1 });
+      const result = await handleAnswerDecision('co je docker?', decision,
+        { sessionId: 'completion-regression', sessionState: new SessionState('completion-regression'), history: [], signal: abort.signal });
+      assert.equal(calls.length, recover ? 2 : 3);
+      assert(calls.every(call => call.options._authToken.maxTokens === 1200 && call.options.signal === abort.signal));
+      assert.match(calls[1].prompt, /technický limit/);
+      assert.equal(result.tag.metadata.answerRetries, recover ? 1 : 2);
+      if (recover) { assert.equal(result.content, complete); assert.equal(result.tag.metadata.finishReason, 'stop'); }
+      else {
+        let writes = 0;
+        await assert.rejects(() => finalize({ result, persistAssistantTurn: async () => { writes++; } }),
+          error => error.code === 'MODEL_RESPONSE_TRUNCATED');
+        assert.equal(writes, 0);
+      }
+    }
+  } finally { llmGateway.call = previousCall; }
+});
+
 test('expertise generation pairs bounded budgets with complete terminal output', () => {
   assert.equal(selectExpertiseTokenBudget('Ahoj, pomůžeš mi?'), 128);
   assert.equal(selectExpertiseTokenBudget('Porovnej tři možnosti a doporuč jednu.'), 384);

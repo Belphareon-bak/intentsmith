@@ -24,3 +24,10 @@ regrese, cílené chat/privacy/boundary sady a kompletní offline/database profi
 GPU měření jen při volném společném zámku a bez cizího aktivního modelu.
 Pokud GPU obsadí jiný worker, pokračují offline opravy; fyzický důkaz zůstává
 oddělený a nesmí být prohlášený za hotový.
+
+Fyzický průchod na `945fc40c` odhalil u první otázky HTTP 502 /
+MODEL_RESPONSE_TRUNCATED; další čtyři měly stop a správnou návaznost, ale
+obsahovaly i věcné a jazykové nepřesnosti. Běh není PASS. Následná oprava
+přidává plánování rozsahu podle rozpočtu a nejvýše dvě regenerace po
+useknutí v rámci původního retry limitu a stejné tokenové autority.
+Vyčerpaný nedokončený výstup zůstává chybou bez uložení do historie.

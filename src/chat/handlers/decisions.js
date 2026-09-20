@@ -98,6 +98,19 @@ function buildBriefReplyInstruction(input, language) {
   return BRIEF_REPLY_INSTRUCTION[language] || BRIEF_REPLY_INSTRUCTION.cs;
 }
 
+function completionInstruction(maxTokens, language, retry = false) {
+  // Plan a complete answer inside this turn's actual output allowance. This
+  // scales with requested depth; it is not the old universal 45-word cap.
+  const words = Math.max(20, Math.floor(maxTokens / (retry ? 8 : 5)));
+  const instructions = {
+    cs: `\n\n${retry ? 'Předchozí výstup narazil na technický limit. Napiš odpověď znovu a úsporněji. ' : ''}Naplánuj úplnou odpověď přibližně do ${words} slov. Vyber nejdůležitější body a konkrétní příklad; nezačínej více oddílů, než dokážeš dokončit. Výslovná žádost o kratší odpověď má přednost. Rozlišuj běžné chování, podmínky a záruky; neopakuj chyby z historie.`,
+    sk: `\n\n${retry ? 'Predošlý výstup dosiahol technický limit. Napíš odpoveď znova a úspornejšie. ' : ''}Naplánuj úplnú odpoveď približne do ${words} slov. Vyber hlavné body a príklad; dokonči všetky začaté časti. Výslovná stručnosť má prednosť. Rozlišuj bežné správanie, podmienky a záruky; neopakuj chyby z histórie.`,
+    en: `\n\n${retry ? 'The previous output hit its technical limit. Rewrite the answer more economically. ' : ''}Plan a complete answer in approximately ${words} words or fewer. Choose the key points and a concrete example; finish every section you start. Explicit requests for a shorter answer take precedence. Distinguish typical behavior, conditions and guarantees; do not repeat errors from history.`,
+    de: `\n\n${retry ? 'Die vorige Ausgabe erreichte die technische Grenze. Formuliere die Antwort erneut und knapper. ' : ''}Plane eine vollständige Antwort mit etwa ${words} Wörtern oder weniger. Wähle die wichtigsten Punkte und ein Beispiel; beende jeden begonnenen Abschnitt. Ausdrücklich gewünschte Kürze hat Vorrang. Unterscheide typisches Verhalten, Bedingungen und Garantien; wiederhole keine Fehler aus dem Verlauf.`,
+  };
+  return instructions[language] || instructions.cs;
+}
+
 function buildStandardConversationInstruction(input, language, intent) {
   if (intent !== IntentType.CONVERSATIONAL) return '';
   const normalizedInput = typeof input === 'string' ? input.trim() : '';
@@ -1158,8 +1171,13 @@ Délku, strukturu a počet příkladů přizpůsob zadání. Přiznej nejistotu;
 
     // v65.4: Project context injection (sanitized, length-limited)
     systemPrompt += buildProjectContext(context);
-    const answerContext = buildAnswerContext(input, context.history, systemPrompt,
-      selectAnswerTokenBudget(input, decision.intent), getNumCtx(config.models.CHAT));
+    const requestedTokens = selectAnswerTokenBudget(input, decision.intent);
+    const numCtx = getNumCtx(config.models.CHAT);
+    if (decision.intent === IntentType.CONVERSATIONAL) {
+      const allowance = buildAnswerContext(input, [], systemPrompt, requestedTokens, numCtx).maxTokens;
+      systemPrompt += completionInstruction(allowance, langCtx.language);
+    }
+    const answerContext = buildAnswerContext(input, context.history, systemPrompt, requestedTokens, numCtx);
     const prompt = answerContext.prompt;
 
     // v123.2: System step — prompt prepared
@@ -1196,6 +1214,14 @@ Délku, strukturu a počet příkladů přizpůsob zadání. Přiznej nejistotu;
         num_ctx: answerContext.numCtx,
         signal: context.signal || null,
       });
+
+      if (decision.intent === IntentType.CONVERSATIONAL
+        && result.finishReason === 'length' && answerRetry < MAX_ANSWER_RETRIES) {
+        logger.warn('ConversationHandler', 'Incomplete answer: retrying within the same output authority', { retry: answerRetry });
+        currentPrompt = prompt + completionInstruction(answerContext.maxTokens, langCtx.language, true);
+        answerRetry++;
+        continue;
+      }
 
       // v123.2: System step — LLM response received
       if (typeof context.onSystemStep === 'function') {
@@ -1331,6 +1357,7 @@ Délku, strukturu a počet příkladů přizpůsob zadání. Přiznej nejistotu;
         duration: result.duration,
         finishReason: result.finishReason || null,
         answerBudget: { maxTokens: answerContext.maxTokens, numCtx: answerContext.numCtx, historyTurns: answerContext.historyTurns },
+        answerRetries: answerRetry,
         decision: decision.toJSON(),
       },
     });
