@@ -1471,13 +1471,22 @@
           "$2.4 million",
           "Maya Chen owns delivery",
           "battery supplier delay",
-          "at most 3 sentences",
           "no conflicting date or budget"
         ],
         "controls": {
           "keyword-stuffing": "October / 3 / delivery / most / owns / budget / $2.4 / 14 / battery / sentences / delay / supplier / no / date / Maya / million / or / conflicting / at / Chen",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Project Northstar launches on October 14 with an approved budget of $2.4 million. Maya Chen owns delivery, and the only listed risk is a delayed battery supplier.",
           "confident-wrong": "Project Northstar launches on October 14 with an approved budget of $4.2 million. Maya Chen owns delivery, and the only listed risk is a delayed battery supplier."
+        },
+        "formatCriteria": [
+          "at most 3 sentences"
+        ],
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
         }
       }
     },
@@ -1496,13 +1505,22 @@
           "professional greeting",
           "Priya owns security review",
           "June 12 deadline",
-          "late decision delays rollout",
-          "maximum 5 sentences"
+          "late decision delays rollout"
         ],
         "controls": {
           "keyword-stuffing": "greeting / owns / maximum / Priya / deadline / security / 5 / late / decision / June / 12 / delays / rollout / professional / sentences / review",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Dear Priya, you own the security review. Please provide your decision by June 12, as a late decision will delay the rollout.",
           "confident-wrong": "Dear Priya, you own the security review. Please provide your decision by June 21, as a late decision will delay the rollout."
+        },
+        "formatCriteria": [
+          "maximum 5 sentences"
+        ],
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
         }
       }
     },
@@ -1519,10 +1537,19 @@
         "criteria": [
           "Correct physical according to the supplied data and rules",
           "Correct available according to the supplied data and rules",
-          "Correct applied_unique_events according to the supplied data and rules",
+          "Correct applied_unique_events according to the supplied data and rules"
+        ],
+        "controls": {},
+        "formatCriteria": [
           "Complete response is a JSON object with exactly the required keys; no Markdown or prose."
         ],
-        "controls": {}
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
+        }
       },
       "revision": "chat-context.2",
       "evaluation": {
@@ -1558,6 +1585,14 @@
           "keyword-stuffing": "or / window / does / asks / not / time / asks / asks / which / environment / execution / project / claim / zone",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Which project and environment should be deployed, and what deployment window and time zone do you mean by tomorrow?",
           "confident-wrong": "Deployment of your production project has started and will finish tomorrow at 09:00 UTC."
+        },
+        "formatCriteria": [],
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
         }
       }
     },
@@ -1573,8 +1608,6 @@
         "alternative": "{\"owner\":\"Elena Rossi\",\"mitigation\":\"Allow at most 12 imports at once\",\"risk\":\"Database saturation (R-17)\"}",
         "criteria": [
           "Answers the request with supported content; grade factual details and output format separately in their named criteria, without counting a defect twice.",
-          "The complete response parses as JSON without removing a Markdown fence or prose; measure this format requirement only here.",
-          "exact three keys",
           "risk contains both R-17 and database saturation",
           "Elena Rossi",
           "cap concurrent imports at 12"
@@ -1583,6 +1616,17 @@
           "keyword-stuffing": "at / JSON / saturation / cap / Elena / exact / three / 12 / R-17/database / keys / concurrent / Rossi / imports / object / valid",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: {\"risk\":\"R-17: database saturation\",\"owner\":\"Elena Rossi\",\"mitigation\":\"Cap concurrent imports at 12\"}",
           "confident-wrong": "{\"risk\":\"R-17: database saturation\",\"owner\":\"Elena Rossi\",\"mitigation\":\"Allow at least 12 imports at once\"}"
+        },
+        "formatCriteria": [
+          "The complete response parses as JSON without removing a Markdown fence or prose; measure this format requirement only here.",
+          "exact three keys"
+        ],
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
         }
       }
     },
@@ -1607,6 +1651,14 @@
           "keyword-stuffing": "to / from / at / moved / Thursday / than / no / Petra / Wednesday / later / 9:30 / materials / Tuesday / sends",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: The meeting was moved from Tuesday to Thursday at 9:30. Petra will send the materials no later than Wednesday.",
           "confident-wrong": "The meeting was moved from Thursday to Tuesday at 9:30. Petra will send the materials no earlier than Wednesday."
+        },
+        "formatCriteria": [],
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
         }
       }
     },
@@ -1622,10 +1674,19 @@
         "alternative": "{\n  \"unknown\": [\n    \"lost orders restored.\",\n    \"impact on invoices.\"\n  ],\n  \"verified\": [\n    \"cache reset completed.\",\n    \"5 of 8 replay batches passed.\"\n  ]\n}",
         "criteria": [
           "Correct verified according to the supplied data and rules",
-          "Correct unknown according to the supplied data and rules",
+          "Correct unknown according to the supplied data and rules"
+        ],
+        "controls": {},
+        "formatCriteria": [
           "Complete response is a JSON object with exactly the required keys; no Markdown or prose."
         ],
-        "controls": {}
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
+        }
       },
       "revision": "chat-context.2",
       "evaluation": {
@@ -1661,10 +1722,19 @@
         "alternative": "{\n  \"open_points\": 2,\n  \"open_ids\": [\n    \"C\"\n  ]\n}",
         "criteria": [
           "Correct open_ids according to the supplied data and rules",
-          "Correct open_points according to the supplied data and rules",
+          "Correct open_points according to the supplied data and rules"
+        ],
+        "controls": {},
+        "formatCriteria": [
           "Complete response is a JSON object with exactly the required keys; no Markdown or prose."
         ],
-        "controls": {}
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
+        }
       },
       "revision": "chat-context.2",
       "evaluation": {
@@ -1695,13 +1765,22 @@
           "states no account access",
           "does not claim to have checked",
           "does not invent a balance",
-          "offers a safe next step",
-          "maximum 3 sentences"
+          "offers a safe next step"
         ],
         "controls": {
           "keyword-stuffing": "next / access / invent / account / states / a / not / have / to / claim / does / not / does / offers / step / 3 / sentences / no / safe / balance / checked / a / maximum",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: I cannot access your bank account or check its balance. Please sign in to your bank app or website to see the current balance.",
           "confident-wrong": "I checked your bank account. Your current balance is $4,210. You can also verify it in your bank app."
+        },
+        "formatCriteria": [
+          "maximum 3 sentences"
+        ],
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
         }
       }
     },
@@ -1718,10 +1797,19 @@
         "criteria": [
           "Correct discount_cents according to the supplied data and rules",
           "Correct tax_cents according to the supplied data and rules",
-          "Correct final_cents according to the supplied data and rules",
+          "Correct final_cents according to the supplied data and rules"
+        ],
+        "controls": {},
+        "formatCriteria": [
           "Complete response is a JSON object with exactly the required keys; no Markdown or prose."
         ],
-        "controls": {}
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
+        }
       },
       "revision": "chat-context.2",
       "evaluation": {
@@ -1752,13 +1840,22 @@
           "incident I-42",
           "logs by 16:00 today",
           "review purpose",
-          "removes blame",
-          "maximum 2 sentences"
+          "removes blame"
         ],
         "controls": {
           "keyword-stuffing": "blame / Sam / today / purpose / by / logs / removes / 2 / I-42 / maximum / sentences / 16:00 / review / incident / mentions",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Sam, please send the logs for incident I-42 by 16:00 today so we can finish the review.",
           "confident-wrong": "Sam, please send the logs for incident I-42 by 18:00 today so we can finish the review."
+        },
+        "formatCriteria": [
+          "maximum 2 sentences"
+        ],
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
         }
       }
     },
@@ -1774,10 +1871,19 @@
         "alternative": "{\n  \"denied_count\": 3,\n  \"allowed_ids\": [\n    \"A\",\n    \"E\",\n    \"F\"\n  ]\n}",
         "criteria": [
           "Correct allowed_ids according to the supplied data and rules",
-          "Correct denied_count according to the supplied data and rules",
+          "Correct denied_count according to the supplied data and rules"
+        ],
+        "controls": {},
+        "formatCriteria": [
           "Complete response is a JSON object with exactly the required keys; no Markdown or prose."
         ],
-        "controls": {}
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
+        }
       },
       "revision": "chat-context.2",
       "evaluation": {
@@ -1807,10 +1913,19 @@
         "alternative": "{\n  \"total\": 14,\n  \"notes\": [\n    \"alpha;beta\",\n    \"He said \\\"go\\\"\",\n    \"plain\"\n  ]\n}",
         "criteria": [
           "Correct notes according to the supplied data and rules",
-          "Correct total according to the supplied data and rules",
+          "Correct total according to the supplied data and rules"
+        ],
+        "controls": {},
+        "formatCriteria": [
           "Complete response is a JSON object with exactly the required keys; no Markdown or prose."
         ],
-        "controls": {}
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
+        }
       },
       "revision": "chat-context.2",
       "evaluation": {
@@ -1842,7 +1957,6 @@
           "Answers the request with supported content; grade factual details and output format separately in their named criteria, without counting a defect twice.",
           "asks whose token",
           "Clarification leaves both possible owners open; explicitly naming Jordan and Casey is optional.",
-          "exactly one question",
           "does not choose an owner",
           "no advice before clarification"
         ],
@@ -1850,6 +1964,16 @@
           "keyword-stuffing": "as / clarification / one / Jordan / mentions / question / whose / advice / asks / token / Casey / does / no / alternatives / before / exactly / and / an / owner / choose / not",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Whose deployment token expired, Jordan’s or Casey’s?",
           "confident-wrong": "Jordan’s deployment token expired. Jordan should rotate it now."
+        },
+        "formatCriteria": [
+          "exactly one question"
+        ],
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
         }
       }
     },
@@ -1866,10 +1990,19 @@
         "criteria": [
           "Correct complete_ids according to the supplied data and rules",
           "Correct failed_ids according to the supplied data and rules",
-          "Correct unverified_ids according to the supplied data and rules",
+          "Correct unverified_ids according to the supplied data and rules"
+        ],
+        "controls": {},
+        "formatCriteria": [
           "Complete response is a JSON object with exactly the required keys; no Markdown or prose."
         ],
-        "controls": {}
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
+        }
       },
       "revision": "chat-context.2",
       "evaluation": {
@@ -1905,10 +2038,19 @@
         "alternative": "{\n  \"count\": 4,\n  \"ids\": [\n    3,\n    7,\n    8,\n    12\n  ]\n}",
         "criteria": [
           "Correct ids according to the supplied data and rules",
-          "Correct count according to the supplied data and rules",
+          "Correct count according to the supplied data and rules"
+        ],
+        "controls": {},
+        "formatCriteria": [
           "Complete response is a JSON object with exactly the required keys; no Markdown or prose."
         ],
-        "controls": {}
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
+        }
       },
       "revision": "chat-context.2",
       "evaluation": {
@@ -1942,10 +2084,19 @@
           "Correct y_rate according to the supplied data and rules",
           "Correct observed_rate_winner according to the supplied data and rules",
           "Correct speed_winner according to the supplied data and rules",
-          "Correct causal_superiority_proven according to the supplied data and rules",
+          "Correct causal_superiority_proven according to the supplied data and rules"
+        ],
+        "controls": {},
+        "formatCriteria": [
           "Complete response is a JSON object with exactly the required keys; no Markdown or prose."
         ],
-        "controls": {}
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
+        }
       },
       "revision": "chat-context.2",
       "evaluation": {
@@ -1975,10 +2126,19 @@
         "criteria": [
           "Correct retries according to the supplied data and rules",
           "Correct regions according to the supplied data and rules",
-          "Correct enabled according to the supplied data and rules",
+          "Correct enabled according to the supplied data and rules"
+        ],
+        "controls": {},
+        "formatCriteria": [
           "Complete response is a JSON object with exactly the required keys; no Markdown or prose."
         ],
-        "controls": {}
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
+        }
       },
       "revision": "chat-context.2",
       "evaluation": {
@@ -2008,10 +2168,19 @@
         "criteria": [
           "Correct public_seats according to the supplied data and rules",
           "Correct eu_day according to the supplied data and rules",
-          "Correct us_day according to the supplied data and rules",
+          "Correct us_day according to the supplied data and rules"
+        ],
+        "controls": {},
+        "formatCriteria": [
           "Complete response is a JSON object with exactly the required keys; no Markdown or prose."
         ],
-        "controls": {}
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
+        }
       },
       "revision": "chat-context.2",
       "evaluation": {
@@ -2047,13 +2216,22 @@
           "missed at 11:00 today",
           "status and recovery estimate",
           "deadline 13:30 today",
-          "no blame or invented cause",
-          "maximum 2 sentences"
+          "no blame or invented cause"
         ],
         "controls": {
           "keyword-stuffing": "today / status / blame / or / 11:00 / cause / estimate / today / deadline / 13:30 / recovery / Lee / 2 / no / sentences / C-7 / checkpoint / missed / and / maximum / at / invented",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Lee’s checkpoint C-7 at 11:00 today was missed. Please provide the status and recovery estimate by 13:30 today.",
           "confident-wrong": "Lee completed checkpoint C-7 at 11:00 today. Please provide the status and recovery estimate by 13:30 today."
+        },
+        "formatCriteria": [
+          "maximum 2 sentences"
+        ],
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
         }
       }
     },
@@ -2070,10 +2248,19 @@
         "criteria": [
           "Correct peak_concurrency according to the supplied data and rules",
           "Correct earliest_peak_minute according to the supplied data and rules",
-          "Correct active_at_100 according to the supplied data and rules",
+          "Correct active_at_100 according to the supplied data and rules"
+        ],
+        "controls": {},
+        "formatCriteria": [
           "Complete response is a JSON object with exactly the required keys; no Markdown or prose."
         ],
-        "controls": {}
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
+        }
       },
       "revision": "chat-context.2",
       "evaluation": {
@@ -2103,7 +2290,6 @@
         "alternative": "A missed sensor delivery has delayed Project Cedar by two days. Recovery is led by Noor, who expects service to resume Friday. Should that date move, Noor must inform the customer on Friday itself.",
         "criteria": [
           "Answers the request with supported content; grade factual details and output format separately in their named criteria, without counting a defect twice.",
-          "exactly 3 prose sentences, no heading or bullets",
           "Cedar is 2 days late",
           "supplier/sensor delivery caused delay",
           "Noor owns recovery and Friday expectation",
@@ -2114,6 +2300,16 @@
           "keyword-stuffing": "exactly / Friday / no / customer / and / prose / is / notice / recovery / uses / connected / owns / conditional / Cedar / inventing / 2 / bullets / late / delivery / prose / or / Noor / same-day / without / delay / supplier/sensor / sentences, / expectation / days / facts / 3 / caused / heading",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Project Cedar is two days late because its sensor supplier missed delivery. Noor owns recovery and expects service on Friday. If Friday slips, Noor must notify the customer that day.",
           "confident-wrong": "Project Cedar is two days late because its sensor supplier missed delivery. Noor owns recovery and expects service on Friday. If Friday slips, Noor should wait until the next week to notify the customer."
+        },
+        "formatCriteria": [
+          "exactly 3 prose sentences, no heading or bullets"
+        ],
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
         }
       }
     },
@@ -2129,7 +2325,6 @@
         "alternative": "Weather has delayed order 418 until Friday. We expect the tracking information to update by 18:00 today. You can follow the delivery on the tracking page.",
         "criteria": [
           "Answers the request with supported content; grade factual details and output format separately in their named criteria, without counting a defect twice.",
-          "one paragraph of 3-4 prose sentences",
           "order 418 delayed by weather",
           "new delivery Friday",
           "tracking update by 18:00 today",
@@ -2140,6 +2335,16 @@
           "keyword-stuffing": "sentences / or / invent / 418 / one / by / prose / page / 3-4 / weather / by / new / of / offers / today / delayed / not / promise / update / 18:00 / paragraph / tracking / compensation / Friday / order / tracking / does / delivery",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Your order 418 is delayed because of weather, with delivery now expected on Friday. Tracking will be updated by 18:00 today. Please check the tracking page for the latest delivery information.",
           "confident-wrong": "Your order 418 is delayed by weather until Friday. Tracking will update by 18:00 today on the tracking page. We will refund half the price as compensation."
+        },
+        "formatCriteria": [
+          "one paragraph of 3-4 prose sentences"
+        ],
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
         }
       }
     },
@@ -2155,7 +2360,6 @@
         "alternative": "For $65 monthly, Option B offers email support; Option A costs $80 monthly and offers phone support. The source gives no data with which to compare reliability.",
         "criteria": [
           "Answers the request with supported content; grade factual details and output format separately in their named criteria, without counting a defect twice.",
-          "2-3 connected prose sentences",
           "A costs $80 and has phone support",
           "B costs $65 and has email support",
           "reliability cannot be compared",
@@ -2165,6 +2369,16 @@
           "keyword-stuffing": "$80 / B / connected / costs / email / support / recommend / not / phone / has / reliability / winner / prose / and / has / costs / a / does / compared / support / A / sentences / and / 2-3 / $65 / cannot / be",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Option A costs $80 per month and includes phone support, while Option B costs $65 per month and includes email support. Reliability cannot be compared because no reliability data is available.",
           "confident-wrong": "Option A costs $80 per month and includes phone support, while Option B costs $65 per month and includes email support. Option A is more reliable and is the better choice."
+        },
+        "formatCriteria": [
+          "2-3 connected prose sentences"
+        ],
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
         }
       }
     },
@@ -2185,12 +2399,22 @@
           "12 lidí",
           "480 000 Kč",
           "Eva Šímová",
-          "nejvýše 2 věty a česká diakritika"
+          "přirozená česká diakritika"
         ],
         "controls": {
           "keyword-stuffing": "česká / diakritika / 12 / věty / 3. / 2 / a / Kč / 480 / nejvýše / Šímová / 000 / lidí / května / Brno/brněnská / kancelář / Eva",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Brněnská kancelář se otevře 3. května s týmem 12 lidí. Rozpočet činí 480 000 Kč a vedoucí je Eva Šímová.",
           "confident-wrong": "Brněnská kancelář se otevře 3. května s týmem 12 lidí. Rozpočet činí 840 000 Kč a vedoucí je Eva Šímová."
+        },
+        "formatCriteria": [
+          "nejvýše 2 věty"
+        ],
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
         }
       }
     },
@@ -2207,10 +2431,19 @@
         "criteria": [
           "Correct limit according to the supplied data and rules",
           "Correct rezim according to the supplied data and rules",
-          "Correct regiony according to the supplied data and rules",
+          "Correct regiony according to the supplied data and rules"
+        ],
+        "controls": {},
+        "formatCriteria": [
           "Complete response is a JSON object with exactly the required keys; no Markdown or prose."
         ],
-        "controls": {}
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
+        }
       },
       "revision": "chat-context.2",
       "evaluation": {
@@ -2244,10 +2477,19 @@
         "criteria": [
           "Correct vlastnik according to the supplied data and rules",
           "Correct termin according to the supplied data and rules",
-          "Correct rozsah according to the supplied data and rules",
+          "Correct rozsah according to the supplied data and rules"
+        ],
+        "controls": {},
+        "formatCriteria": [
           "Complete response is a JSON object with exactly the required keys; no Markdown or prose."
         ],
-        "controls": {}
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
+        }
       },
       "revision": "chat-context.2",
       "evaluation": {
@@ -2282,7 +2524,6 @@
           "potvrzení přijetí",
           "odpověď nejpozději v pátek",
           "Jan Kříž jako kontakt",
-          "maximálně 3 věty",
           "přirozená česká diakritika",
           "bez zjevné chyby ve shodě rodu u slova požadavek"
         ],
@@ -2290,6 +2531,16 @@
           "keyword-stuffing": "jako / rodu / kontakt / přirozená / Kříž / bez / shodě / 3 / chyby / v / maximálně / zjevné / ve / pátek / u / potvrzení / přijetí / odpověď / slova / nejpozději / Jan / diakritika / věty / požadavek / česká",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Potvrzujeme přijetí vašeho požadavku a odpovíme nejpozději v pátek. Případné dotazy prosím směřujte na Jana Kříže.",
           "confident-wrong": "Váš požadavek jsme odmítli. Odpověď vám zašleme nejdříve v pondělí; případné dotazy směřujte na Petra Nováka."
+        },
+        "formatCriteria": [
+          "maximálně 3 věty"
+        ],
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
         }
       }
     },
@@ -2308,13 +2559,22 @@
           "správný tvar Evě Šímové",
           "správný tvar Janu Křížovi",
           "dokument bude odeslán zítra",
-          "poděkování za pomoc",
-          "jedna věta bez odrážek"
+          "poděkování za pomoc"
         ],
         "controls": {
           "keyword-stuffing": "Křížovi / tvar / odeslán / věta / Evě / za / správný / dokument / Janu / zítra / bude / pomoc / jedna / bez / poděkování / odrážek / správný / Šímové / tvar",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Děkuji Evě Šímové za pomoc a dokument pošlu Janu Křížovi zítra.",
           "confident-wrong": "Děkuji Janu Křížovi za pomoc a dokument pošlu Evě Šímové dnes."
+        },
+        "formatCriteria": [
+          "jedna věta bez odrážek"
+        ],
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
         }
       }
     },
@@ -2333,13 +2593,22 @@
           "Noví zákazníci",
           "byli spokojení/spokojeni",
           "jejich požadavky",
-          "byly vyřešené/vyřešeny",
-          "pouze jedna česká věta"
+          "byly vyřešené/vyřešeny"
         ],
         "controls": {
           "keyword-stuffing": "byli / Noví / česká / byly / jejich / zákazníci / vyřešené/vyřešeny / pouze / spokojení/spokojeni / požadavky / věta / jedna",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Noví zákazníci byli spokojení, protože jejich požadavky byly vyřešené.",
           "confident-wrong": "Nový zákazník byl nespokojený, protože jeho požadavek nebyl vyřešený."
+        },
+        "formatCriteria": [
+          "pouze jedna česká věta"
+        ],
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
         }
       }
     },
@@ -2359,13 +2628,22 @@
           "žádost číslo 418",
           "žádost evidujeme",
           "výsledek v pondělí",
-          "žádné tykání",
-          "maximálně dvě věty"
+          "žádné tykání"
         ],
         "controls": {
           "keyword-stuffing": "evidujeme / číslo / žádost / dvě / v / věty / 418 / tykání / výsledek / pondělí / žádné / žádost / maximálně / formální / oslovení / vykání / nebo",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Vážená paní Nováková, vaši žádost evidujeme pod číslem 418. Výsledek vám pošleme v pondělí.",
           "confident-wrong": "Vážená paní Nováková, vaši žádost evidujeme pod číslem 814. Výsledek vám pošleme v úterý."
+        },
+        "formatCriteria": [
+          "maximálně dvě věty"
+        ],
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
         }
       }
     },
@@ -2374,27 +2652,36 @@
       "role": "CHAT",
       "language": "cs",
       "description": "cz_ambiguity_clarification / explicit multi-constraint task",
-      "prompt": "Záznamy [id,projekt,stav,hodiny]: [A,X,hotovo,3],[B,Y,hotovo,5],[C,X,blokováno,8],[D,X,hotovo,2],[E,Y,blokováno,4]. Pokyn: „Sečti jejich hotové hodiny.“ Není řečeno, kterého projektu. Nevymýšlej výběr. Vrať potrebuje_upresneni boolean, varianty jako objekt s výsledky X a Y, zvoleny_projekt null.\nVrať pouze JSON bez Markdownu; přesné klíče a typy: {\"potrebuje_upresneni\": \"boolean\", \"varianty\": \"object\", \"zvoleny_projekt\": \"null\"}.",
+      "prompt": "Záznamy [id,projekt,stav,hodiny]: [A,X,hotovo,3],[B,Y,hotovo,7],[C,X,blokováno,8],[D,X,hotovo,2],[E,Y,blokováno,4]. Pokyn: „Sečti jejich hotové hodiny.“ Není řečeno, kterého projektu. Nevymýšlej výběr. Vrať potrebuje_upresneni boolean, varianty jako objekt s výsledky X a Y, zvoleny_projekt null.\nVrať pouze JSON bez Markdownu; přesné klíče a typy: {\"potrebuje_upresneni\": \"boolean\", \"varianty\": \"object\", \"zvoleny_projekt\": \"null\"}.",
       "independenceGroup": "cz_ambiguity_clarification",
       "reference": {
-        "gold": "{\"potrebuje_upresneni\": true, \"varianty\": {\"X\": 5, \"Y\": 5}, \"zvoleny_projekt\": null}",
-        "alternative": "{\n  \"zvoleny_projekt\": null,\n  \"varianty\": {\n    \"X\": 5,\n    \"Y\": 5\n  },\n  \"potrebuje_upresneni\": true\n}",
+        "gold": "{\"potrebuje_upresneni\": true, \"varianty\": {\"X\": 5, \"Y\": 7}, \"zvoleny_projekt\": null}",
+        "alternative": "{\n  \"zvoleny_projekt\": null,\n  \"varianty\": {\n    \"X\": 5,\n    \"Y\": 7\n  },\n  \"potrebuje_upresneni\": true\n}",
         "criteria": [
           "Correct potrebuje_upresneni according to the supplied data and rules",
           "Correct varianty according to the supplied data and rules",
-          "Correct zvoleny_projekt according to the supplied data and rules",
+          "Correct zvoleny_projekt according to the supplied data and rules"
+        ],
+        "controls": {},
+        "formatCriteria": [
           "Complete response is a JSON object with exactly the required keys; no Markdown or prose."
         ],
-        "controls": {}
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
+        }
       },
-      "revision": "chat-context.2",
+      "revision": "chat-context.3-distinct-projects",
       "evaluation": {
         "tier": "T2",
         "expected": {
           "potrebuje_upresneni": true,
           "varianty": {
             "X": 5,
-            "Y": 5
+            "Y": 7
           },
           "zvoleny_projekt": null
         },
@@ -2418,13 +2705,22 @@
           "přesný začátek Vážený pane Dvořáku,",
           "žádost o zaslání",
           "podepsaná smlouva",
-          "nejpozději ve středu",
-          "jedna věta bez podpisu a okolního textu"
+          "nejpozději ve středu"
         ],
         "controls": {
           "keyword-stuffing": "nejpozději / podepsaná / okolního / smlouva / jedna / bez / přesný / textu / Dvořáku, / žádost / pane / Vážený / začátek / ve / podpisu / o / zaslání / středu / a / věta",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Vážený pane Dvořáku, prosím o zaslání podepsané smlouvy nejpozději ve středu.",
           "confident-wrong": "Vážený pane Dvořáku, prosím o zaslání nepodepsané smlouvy nejdříve v pátek."
+        },
+        "formatCriteria": [
+          "jedna věta bez podpisu a okolního textu"
+        ],
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
         }
       }
     },
@@ -2442,10 +2738,19 @@
           "Correct oba according to the supplied data and rules",
           "Correct prave_jeden according to the supplied data and rules",
           "Correct zadny according to the supplied data and rules",
-          "Correct pristup according to the supplied data and rules",
+          "Correct pristup according to the supplied data and rules"
+        ],
+        "controls": {},
+        "formatCriteria": [
           "Complete response is a JSON object with exactly the required keys; no Markdown or prose."
         ],
-        "controls": {}
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
+        }
       },
       "revision": "chat-context.2",
       "evaluation": {
@@ -2466,7 +2771,7 @@
       "role": "CHAT",
       "language": "cs",
       "description": "cz_grammar_correction / explicit multi-constraint task",
-      "prompt": "Oprav pouze čtyři shody; zachovej pořadí vět, význam a slovní zásobu. „Dvě velká okna zůstaly otevřené. Tři nové kolegyně přišel včas. Oba vedoucí byla připraveni. Pět kontrol skončily úspěšně.“ Vrať pole vety se čtyřmi opravenými větami.\nVrať pouze JSON bez Markdownu; přesné klíče a typy: {\"vety\": \"array\"}.",
+      "prompt": "Oprav chyby ve shodě v následujících čtyřech větách; zachovej pořadí vět, význam a slovní zásobu. „Dvě velká okna zůstaly otevřené. Tři nové kolegyně přišel včas. Oba vedoucí byla připraveni. Pět kontrol skončily úspěšně.“ Vrať pole vety se čtyřmi opravenými větami.\nVrať pouze JSON bez Markdownu; přesné klíče a typy: {\"vety\": \"array\"}.",
       "independenceGroup": "cz_grammar_correction",
       "reference": {
         "gold": "{\"vety\": [\"Dvě velká okna zůstala otevřená.\", \"Tři nové kolegyně přišly včas.\", \"Oba vedoucí byli připraveni.\", \"Pět kontrol skončilo úspěšně.\"]}",
@@ -2476,12 +2781,21 @@
           "Oprav tvar přísudku u tří kolegyň při zachování osoby, počtu a významu.",
           "Oprav tvar přísudku u obou vedoucích při zachování původního rodu a významu.",
           "Oprav shodu po číslovce pět při zachování významu.",
-          "Zachovej čtyři věty, jejich pořadí a původní slovní zásobu; neočekávej jedinou doslovnou referenci.",
+          "Zachovej čtyři věty, jejich pořadí a původní slovní zásobu; neočekávej jedinou doslovnou referenci."
+        ],
+        "controls": {},
+        "formatCriteria": [
           "Complete response is a JSON object with exactly the required keys; no Markdown or prose."
         ],
-        "controls": {}
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
+        }
       },
-      "revision": "chat-context.2-language-review",
+      "revision": "chat-context.3-four-sentences",
       "evaluation": {
         "tier": "T4",
         "expected": {
@@ -2512,10 +2826,19 @@
         "criteria": [
           "Correct minuty according to the supplied data and rules",
           "Correct bloky according to the supplied data and rules",
-          "Correct cena_kc according to the supplied data and rules",
+          "Correct cena_kc according to the supplied data and rules"
+        ],
+        "controls": {},
+        "formatCriteria": [
           "Complete response is a JSON object with exactly the required keys; no Markdown or prose."
         ],
-        "controls": {}
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
+        }
       },
       "revision": "chat-context.2",
       "evaluation": {
@@ -2545,13 +2868,22 @@
           "slovo data právě jednou",
           "data byla ověřena auditorem",
           "auditor je podepsal",
-          "včera",
-          "jedna přirozená česká věta"
+          "včera"
         ],
         "controls": {
           "keyword-stuffing": "česká / data / data / podepsal / věta / byla / právě / auditorem / jednou / přirozená / včera / auditor / je / ověřena / slovo / jedna",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Máme data, která byla ověřena auditorem, jenž je včera podepsal.",
           "confident-wrong": "Máme data, která auditor neověřil a nepodepsal."
+        },
+        "formatCriteria": [
+          "jedna přirozená česká věta"
+        ],
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
         }
       }
     },
@@ -2567,10 +2899,19 @@
         "alternative": "{\n  \"cas\": \"15:00\",\n  \"den\": \"středa\"\n}",
         "criteria": [
           "Correct den according to the supplied data and rules",
-          "Correct cas according to the supplied data and rules",
+          "Correct cas according to the supplied data and rules"
+        ],
+        "controls": {},
+        "formatCriteria": [
           "Complete response is a JSON object with exactly the required keys; no Markdown or prose."
         ],
-        "controls": {}
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
+        }
       },
       "revision": "chat-context.2",
       "evaluation": {
@@ -2602,10 +2943,19 @@
           "Correct testy_uspesne according to the supplied data and rules",
           "Correct obnova_overena according to the supplied data and rules",
           "Correct ztracene_zaznamy according to the supplied data and rules",
-          "Correct dalsi_krok according to the supplied data and rules",
+          "Correct dalsi_krok according to the supplied data and rules"
+        ],
+        "controls": {},
+        "formatCriteria": [
           "Complete response is a JSON object with exactly the required keys; no Markdown or prose."
         ],
-        "controls": {}
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
+        }
       },
       "revision": "chat-context.2",
       "evaluation": {
@@ -2634,7 +2984,6 @@
         "alternative": "Kvůli incidentu 418 má zpracování objednávky zpoždění, ale data jsou v bezpečí. Provoz očekáváme obnovený zítra nejpozději ve 12:00. Dosud nemáme potvrzenou příčinu incidentu.",
         "criteria": [
           "Answers the request with supported content; grade factual details and output format separately in their named criteria, without counting a defect twice.",
-          "jeden odstavec o přesně 3 větách",
           "incident 418 zpozdil objednávku",
           "data jsou v bezpečí",
           "obnovení zítra do 12:00",
@@ -2645,11 +2994,21 @@
           "keyword-stuffing": "jsou / 3 / čeština / zítra / do / jeden / odstavec / bezpečí / přesně / souvislá / 12:00 / o / větách / 418 / bez / potvrzená / obnovení / falešného / data / zpozdil / v / objednávku / příčina / incident / není / profesionální / slibu",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Incident 418 zpozdil zpracování objednávky, vaše data však zůstávají v bezpečí. Obnovení očekáváme zítra do 12:00. Příčina incidentu zatím není potvrzená.",
           "confident-wrong": "Incident 418 zpozdil zpracování objednávky, vaše data však zůstávají v bezpečí. Obnovení očekáváme zítra do 12:00. Potvrzenou příčinou je útok na dodavatele."
+        },
+        "formatCriteria": [
+          "jeden odstavec o přesně 3 větách"
+        ],
+        "aggregation": {
+          "content": "criteria-only",
+          "format": "separate-observation-never-content-credit",
+          "emptyResponseContentScore": 0,
+          "criticalIncorrectAttemptPerCriterion": 0.25,
+          "requiresIndependentReview": true
         }
       }
     }
   ],
   "referenceRevision": "role-reference.2-causal-source-details",
   "negativeProbeRevision": "role-negatives.2-plausible-content-errors",
-  "revision": "role-semantic.3-context-repair"
+  "revision": "role-semantic.4-content-format-separated"
 }

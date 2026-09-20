@@ -15,6 +15,29 @@ test('structured content and strict JSON protocol are independent observations',
  assert.equal(gradeStructuredAnswer(JSON.stringify({...expected,invented:1}),expected).detail.formatScore,0);
  assert.equal(gradeStructuredAnswer(JSON.stringify(expected),expected).passed,true);
 });
+test('manual content rubrics cannot award or remove a content point for JSON wrapping',()=>{
+ for(const t of SEMANTIC_ROLE_SUITES.CHAT.tests){
+  assert.ok(Array.isArray(t.formatRubric),t.name);
+  assert.ok(!t.rubric.some(c=>/no Markdown or prose|without removing a Markdown fence|exact three keys/.test(c)),t.name);
+ }
+ const grammar=SEMANTIC_ROLE_SUITES.CHAT.tests.find(t=>t.name==='cz_grammar_correction');
+ assert.equal(grammar.rubric.length,5);assert.equal(grammar.formatRubric.length,1);
+ assert.match(grammar.promptText,/následujících čtyřech větách/);
+ const state=SEMANTIC_ROLE_SUITES.CHAT.tests.find(t=>t.name==='en_state_updates');
+ assert.equal(state.rubric.length,2);assert.equal(state.formatRubric.length,1);
+ const wrong=state.grade('{"open_ids":["B"],"open_points":13}');
+ assert.equal(wrong.detail.contentScore,0);assert.equal(wrong.detail.formatScore,1);
+ assert.equal(state.grade('').score,0);
+});
+test('ambiguous project fixture detects a swapped project total',()=>{
+ const t=SEMANTIC_ROLE_SUITES.CHAT.tests.find(t=>t.name==='cz_ambiguity_clarification');
+ assert.match(t.promptText,/\[B,Y,hotovo,7\]/);
+ const correct={potrebuje_upresneni:true,varianty:{X:5,Y:7},zvoleny_projekt:null};
+ assert.equal(t.grade(JSON.stringify(correct)).score,1);
+ const swapped=t.grade(JSON.stringify({...correct,varianty:{X:7,Y:5}}));
+ assert.equal(swapped.detail.criteria.find(c=>c.id==='varianty').score,0);
+ assert.equal(swapped.passed,false);
+});
 test('assertion sets separate sentence punctuation from facts and do not invent ordering',()=>{
  const e={verified:['cache reset completed.','5 of 8 replay batches passed.']};
  const rules={verified:'literal-assertion-set'};

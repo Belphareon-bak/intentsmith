@@ -146,7 +146,7 @@ export function semanticTask({ name, role, language = 'en', prompt, reference,
   independenceGroup, description, provenance = null }) {
   const task = { name, role, language, tier: 'T4', independenceGroup,
     description, promptText: prompt, prompt: () => prompt,
-    semanticReference: reference, rubric: reference.criteria,
+    semanticReference: reference, rubric: reference.criteria, formatRubric: reference.formatCriteria || [],
     options: { num_ctx: 16384, num_predict: 2048, temperature: 0.1, top_p: 0.9, timeout: 300000 },
     contractMaterial: { prompt: { kind: 'text', text: prompt },
       gradingInputs: { tier: 'T4', reference, independenceGroup, provenance,

@@ -1,5 +1,11 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**GPU hunt — rozšířený sběr, 20. 9. 2026:** po druhé revizi oddělen formát
+od obsahové rubriky, opraveny dvě české úlohy. Připraven panel všech 12
+lokálních artefaktů: 10 pro textový profil, 8 pro VISION, 2 922 pokusů.
+**PREPARED / NOT_GRADED / NOT_DEPLOYED**, rozhodování a timer vypnuté.
+[Plán, meze a následný průběh](docs/review/2026-09-20-HUNT-ALL-INSTALLED.md).
+
 **GPU hunt — opravené sady a nový sběr, 20. 9. 2026:** všech sedm rolí,
 nejméně dva kandidáti na roli, tři pro CODE. 633 zaznamenaných pokusů:
 632 dokončených odpovědí a jeden výstupní limit; jedno další přerušené

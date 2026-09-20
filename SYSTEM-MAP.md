@@ -1,5 +1,11 @@
 # IntentSmith — mapa systému
 
+**GPU hunt — rozšířený sběr, 20. 9. 2026:** po druhé revizi oddělen formát
+od obsahové rubriky, opraveny dvě české úlohy. Připraven panel všech 12
+lokálních artefaktů: 10 pro textový profil, 8 pro VISION, 2 922 pokusů.
+**PREPARED / NOT_GRADED / NOT_DEPLOYED**, rozhodování a timer vypnuté.
+[Plán, meze a následný průběh](docs/review/2026-09-20-HUNT-ALL-INSTALLED.md).
+
 **GPU hunt — opravené sady a nový sběr, 20. 9. 2026:** všech sedm rolí,
 nejméně dva kandidáti na roli, tři pro CODE. 633 zaznamenaných pokusů:
 632 dokončených odpovědí a jeden výstupní limit; jedno další přerušené
@@ -441,8 +447,8 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **226 763 ř.**, 637 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **248 527 ř.**, 536 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **226 764 ř.**, 637 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **248 550 ř.**, 536 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **529** (`435 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **178 / 103** |
 | HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |

@@ -87,7 +87,7 @@ const blockBeforeRun = message => {
   report.status='BLOCKED';report.error=message;report.finishedAt=new Date().toISOString();
   report.durationMs=Date.parse(report.finishedAt)-Date.parse(report.startedAt);flush();
 };
-write('tasks.json', plan.roles.flatMap(p => suites[p.role].tests.filter(t => p.tasks.some(s => s.name === t.name)).map(t => ({role:p.role,name:t.name,description:t.description||null,rubric:t.rubric||[],contractMaterial:t.contractMaterial, input:t.prompt(),options:t.options}))));
+write('tasks.json', plan.roles.flatMap(p => suites[p.role].tests.filter(t => p.tasks.some(s => s.name === t.name)).map(t => ({role:p.role,name:t.name,description:t.description||null,rubric:t.rubric||[],formatRubric:t.formatRubric||(p.role==='VISION'?['Complete response is a JSON object with exactly the required keys; no Markdown or prose.']:[]),contractMaterial:t.contractMaterial, input:t.prompt(),options:t.options}))));
 flush();
 if (flag('prepare')) { console.log(JSON.stringify({status:'PREPARED',planSha256:plan.sha256,roles:plan.roles})); process.exit(0); }
 if (workingTreeDirty) {

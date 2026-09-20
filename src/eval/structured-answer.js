@@ -37,7 +37,8 @@ export function structuredTask(task) {
  const expected=structuredClone(task.evaluation.expected);
  return Object.freeze({name:task.name,role:task.role,language:task.language,tier:'T2',description:task.description,independenceGroup:task.independenceGroup,
   promptText:task.prompt,prompt:()=>({text:task.prompt}),rubric:task.reference.criteria,
+  formatRubric:task.reference.formatCriteria||[],
   options:{num_ctx:16384,num_predict:2048,temperature:.1,top_p:.9,timeout:300000},
-  contractMaterial:{prompt:{kind:'text',text:task.prompt},gradingInputs:{tier:'T2',expected,rules:structuredClone(task.evaluation.rules||{}),gradingVersion:'structured-answer.3',independenceGroup:task.independenceGroup,formatSeparate:true}},
+  contractMaterial:{prompt:{kind:'text',text:task.prompt},gradingInputs:{tier:'T2',expected,rules:structuredClone(task.evaluation.rules||{}),gradingVersion:'structured-answer.3',independenceGroup:task.independenceGroup,formatSeparate:true,formatCriteria:task.reference.formatCriteria||[]}},
   grade:response=>gradeStructuredAnswer(response,expected,task.evaluation.rules)});
 }
