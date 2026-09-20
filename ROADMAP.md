@@ -1,11 +1,23 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**Chat, 2026-09-20:** aktuálně nasazeno `9ad8bc3f`. Odstraněna plošná instrukce
+45 slov / 2–3 vět a 256tokenový rozpočet krátké otázky; zachovaná návaznost,
+rozpočet kontextu, dokončení odpovědi a čitelné výsledky Bing RSS.
+Stejný CHAT model, 8/8 skutečných HTTP tahů dokončeno včetně rozvedení
+na druhém tématu a shrnutí do dvou vět. **FLOW_RUNTIME_VERIFIED /
+CHAT_CONTENT_NOT_ACCEPTED / REVIEW_PENDING**: přetrvávají doložené věcné
+a jazykové chyby; nejde o důkaz lepšího modelu ani production readiness.
+Úplný profil 359 PASS / 1 FAIL Gate 0 / 0 BLOCKED; pečeť nezměněna.
+Hunt/bindingy/profily beze změny. [Příčiny, odpovědi a důkazy](docs/review/2026-09-20-CHAT-QUALITY.md).
+
+Následující datované checkpointy uchovávají historický stav.
+
 **Tři projektové průchody, 2026-09-19:** SystemSmith_1, WeatherSmith a NewsSmith
 jsou nainstalované a ověřené skutečným Electronem, živými daty a restartem.
 Asistovaný postup přes CODE/M2; všech 43 finálních implementačních souborů má
 ověřený původ. Lightweight SystemSmithu ani skutečná geolokace nejsou doložené.
 Následná konkrétní oprava importovaného ShellSmithu prošla M2, 30 testy a buildem;
-původní instalace beze změny. Obecné opravy jsou nasazené na `9660d99b`,
+původní instalace beze změny. Obecné opravy byly tehdy nasazené na `9660d99b`,
 projektová sada 28/28, M2 service 96/96, úplný profil 359 PASS / 1 FAIL Gate 0 /
 0 BLOCKED. Úklid odstranil 18,10 GiB spotřebovaných sandboxů se zachováním důkazů.
 REVIEW_PENDING; bez tvrzení celkové production readiness či autonomie na jeden

@@ -1,5 +1,11 @@
 # Inventura #6 — Chat pipeline a handlery
 
+**Aktualizace 2026-09-20:** konverzační hloubka, historie, pokračování a zobrazení
+Bing RSS opravené v `9ad8bc3f`; HTTP/modelový průchod 8/8. Obsahová kvalita
+zůstává neakceptovaná, review otevřené. [Rozsah a důkazy](../review/2026-09-20-CHAT-QUALITY.md).
+Níže uvedené počty a strukturální zjištění jsou historickou inventurou z 2. 8.,
+nikoli současným přepočtem chat pipeline.
+
 **Pořadí 7** · **2026-08-02** · `17a8b9a8` · **46 souborů, ~20 400 řádků**
 **Největší schopnost v systému.**
 

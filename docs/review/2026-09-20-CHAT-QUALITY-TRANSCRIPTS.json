@@ -1,0 +1,364 @@
+{
+  "schemaVersion": 1,
+  "scope": "Own synthetic HTTP chat probes; content quality NOT accepted",
+  "finalRevision": "9ad8bc3ff609400ec1cd44e50db4fe71ec1ee283",
+  "runs": [
+    {
+      "phase": "before",
+      "at": "2026-09-20T19:28:43.481Z",
+      "revision": "9660d99b075b8fbc9b55199c08953dc36db2ac26",
+      "sourceSha256": "ed2770b123b9b83318701db54c475bfb57cc04987761c0cad171bce79b915763",
+      "archiveHTTP": 200,
+      "turns": [
+        {
+          "input": "co je to docker?",
+          "httpStatus": 200,
+          "elapsedMs": 16756,
+          "status": "ok",
+          "error": null,
+          "content": "Docker je platforma pro automatizaci nasazování aplikací v izolovaných kontejnerech, které obsahují veškerý potřebný kód a závislosti. Umožňuje vývojářům vytvářet konzistentní prostředí od vývoje až po produkci bez nutnosti instalovat virtuální stroje. Například spustíte webserver příkazem `docker run nginx` a získáte okamžitě běžící instanci s přednastaveným prostředím.",
+          "words": 47,
+          "model": "qwen3.5:27b",
+          "finishReason": "stop",
+          "decision": "ANSWER",
+          "intent": "CONVERSATIONAL",
+          "answerBudget": null,
+          "answerRetries": null
+        },
+        {
+          "input": "a jak funguje kubernetes? v cem jsou rozdily?",
+          "httpStatus": 200,
+          "elapsedMs": 3854,
+          "status": "ok",
+          "error": null,
+          "content": "Kubernetes je orchestrátor kontejnerů, který automaticky spravuje nasazení, škálování a síťování aplikací napříč clusterem serverů. Zatímco Docker vytváří jednotlivé izolované kontejnery pro jednu instanci aplikace, Kubernetes řídí stovky těchto kontejnerů najednou zajišťující jejich vysokou dostupnost a dynamické rozdělování zdrojů v distribuovaném prostředí.",
+          "words": 42,
+          "model": "qwen3.5:27b",
+          "finishReason": "stop",
+          "decision": "ANSWER",
+          "intent": "CONVERSATIONAL",
+          "answerBudget": null,
+          "answerRetries": null
+        },
+        {
+          "input": "muzes mi detailne popsat jak to funguje",
+          "httpStatus": 200,
+          "elapsedMs": 3361,
+          "status": "ok",
+          "error": null,
+          "content": "Kubernetes automaticky rozděluje aplikaci na kontejnery, které řídí prostřednictvím definic v YAML souborech. Systém neustále porovnává aktuální stav clusteru s požadovaným a při odchylkách opravuje chyby nebo škáluje instance nahoru i dolů podle zátěže.",
+          "words": 34,
+          "model": "qwen3.5:27b",
+          "finishReason": "stop",
+          "decision": "ANSWER",
+          "intent": "CONVERSATIONAL",
+          "answerBudget": null,
+          "answerRetries": null
+        },
+        {
+          "input": "vic detailu",
+          "httpStatus": 200,
+          "elapsedMs": 1208,
+          "status": "ok",
+          "error": null,
+          "content": "🤔 **\"vic detailu\"**\n\nUpřesněte záměr:\n• **Vyhledávání** - najít informace\n• **Přehled** - vytvořit souhrn\n• **Kód** - napsat program",
+          "words": 20,
+          "model": null,
+          "finishReason": null,
+          "decision": "ASK_USER",
+          "intent": "AMBIGUOUS",
+          "answerBudget": null,
+          "answerRetries": null
+        },
+        {
+          "input": "chci vic detailu",
+          "httpStatus": 200,
+          "elapsedMs": 3695,
+          "status": "ok",
+          "error": null,
+          "content": "Kubernetes udržuje požadovaný stav clusteru neustálým sledováním a porovnáváním s aktuální realitou pomocí kontrolních smyček. Pokud dojde k selhání kontejneru, systém ho okamžitě znovu vytvoří nebo přesune na jiný uzel pro zajištění dostupnosti. Tento mechanismus funguje automaticky bez zásahu administrátora a garantuje stabilitu celé infrastruktury.",
+          "words": 45,
+          "model": "qwen3.5:27b",
+          "finishReason": "stop",
+          "decision": "ANSWER",
+          "intent": "CONVERSATIONAL",
+          "answerBudget": null,
+          "answerRetries": null
+        }
+      ]
+    },
+    {
+      "phase": "after",
+      "at": "2026-09-20T19:55:04.288Z",
+      "revision": "945fc40c50fa3a2ebca95d9d08372d280f93428a",
+      "sourceSha256": "82011209adc35256a6980b48b300353ba0711a11877728af1319025747ef2eff",
+      "archiveHTTP": 200,
+      "turns": [
+        {
+          "input": "co je to docker?",
+          "httpStatus": 502,
+          "elapsedMs": 51747,
+          "status": "error",
+          "error": {
+            "code": "MODEL_RESPONSE_TRUNCATED",
+            "message": "Model response was incomplete and was not saved."
+          },
+          "content": "",
+          "words": 0,
+          "model": null,
+          "finishReason": null,
+          "decision": null,
+          "intent": null,
+          "answerBudget": null,
+          "answerRetries": null
+        },
+        {
+          "input": "a jak funguje kubernetes? v cem jsou rozdily?",
+          "httpStatus": 200,
+          "elapsedMs": 27678,
+          "status": "ok",
+          "error": null,
+          "content": "Kubernetes je systém pro automatizaci nasazování, škálování a správy kontejnerizovaných aplikací. Zatímco Docker řeší vytvoření a běh jednotlivých kontejnerů na jednom počítači (hostu), Kubernetes slouží k řízení stovek nebo tisíců těchto hostů v jedné síti (clustru).\n\nZde je podrobné vysvětlení principu, příkladu rozdílu a omezení:\n\n### 1. Princip fungování\nKubernetes funguje na základě **prohlášeného stavu** (desired state) a neustálého porovnávání se skutečným stavem systému.\n\n*   **Struktura clusteru:** Systém je rozdělen na *kontrolní rovinu* (Control Plane), která rozhoduje, kde co má běžet, a *pracovní uzly* (Worker Nodes), které fyzicky běží kontejnery.\n*   **Objekty:** Uživatel definují specifikace (např. YAML soubory) popisující požadovaný stav: „Chci 3 instance mé aplikace\". Kubernetes pak tyto objekty vytvoří a udržuje je v tomto stavu. Pokud jeden kontejner spadne, systém ho automaticky znovu spustí na jiném uzlu.\n*   **Síťování:** Každý pod (nejmenší jednotka nasazení) má svou vlastní IP adresu a Kubernetes zajišťuje komunikaci mezi nimi přes sítě bez ohledu na to, na jakém fyzickém serveru se nacházejí.\n\n### 2. Praktický příklad rozdílu: Docker vs. Kubernetes\nPředstavte si situaci, kdy chcete nasadit webovou aplikaci pro Black Friday výprodej.\n\n**Scénář s pouhým Dockerem (Docker Swarm nebo ruční správa):**\n*   **Akce:** Spustíte příkaz `docker run` na jednom serveru. Pokud ten server spadne, aplikace se zastaví. Chcete-li ji zkopírovat na jiný server, musíte tam manuálně nainstalovat Docker a znovu spustit kontejner.\n*   **Škálování:** Pro zvýšení kapacity musí ručně přidávat další instance nebo přenášet data mezi servery.\n\n**Scénář s Kubernetes (K8s):**\n1.  **Definice:** Napišete jeden YAML soubor, který říká: „Běžte 5 replik mé aplikace a pokud jedna spadne, nahraďte ji novou\".\n2.  **Nasazení:** Spustíte příkaz `kubectl apply -f app.yaml`. Kubernetes automaticky rozdělí tyto kontejnery na dostupné servery v clustru.\n3.  **Selhání:** Pokud jeden server (uzel) přestane fungovat, Kubernetes během sekund přesune všechny zasažené kontejnery na ostatní zdravé uzly a uživatel ani nezaznamená výpadek.\n4.  **Škálovování:** Můžete příkazem `kubectl scale` zvýšit počet replik ze 5 na 50, aby systém zvládl vyšší nával návštěvnosti.\n\n**Hlavní rozdíl v praxi:** Docker řeší *co* se spouští (kontejner), Kubernetes řeží *kde a jak* to běží ve velkém měřítku (orchestrace).\n\n### 3. Relevantní omezení\nPřestože je Kubernetes mocný nástroj, není vhodný pro každou situaci:\n\n*   **Složitost:** Má velmi strmé učební křivku. Vyžaduje hluboké znalosti sítě, úložných prostorů a bezpečnosti. Pro jednoduchou aplikaci na jednom serveru je často přehnaný (tzv. \"overkill\").\n*   **Náklady na infrastrukturu:** Kubernetes vyžaduje více výpočetních zdrojů pro svůj vlastní běh (kontrolní rovina, služby jako etcd nebo DNS), což zvyšuje nároky na hardware ve srovnání s čistým Dockerem.\n*   **Zdrojová data a aktualizace:** Správa verzí Kubernetesu je složitá; upgrade clusteru může být rizikový proces vyžadující plánování výpadků (downtime) nebo složité postupy migrace dat.\n\n**Shrnutí rozdílu:** Docker je jako výroba cihel, zatímco Kubernetes je architekt a stavební firma, která rozhoduje, kam které cihly položí, aby vznikl stabilní dům schopný odolat zemětřesení (výpadku serveru).",
+          "words": 464,
+          "model": "qwen3.5:27b",
+          "finishReason": "stop",
+          "decision": "ANSWER",
+          "intent": "CONVERSATIONAL",
+          "answerBudget": {
+            "maxTokens": 1200,
+            "numCtx": 4096,
+            "historyTurns": 1
+          },
+          "answerRetries": null
+        },
+        {
+          "input": "muzes mi detailne popsat jak to funguje",
+          "httpStatus": 200,
+          "elapsedMs": 38452,
+          "status": "ok",
+          "error": null,
+          "content": "Samozřejmě. Detailně vysvětlím princip fungování Kubernetesu na základě předchozího srovnání, kdy Docker poskytuje „cihly\" (kontejnery) a Kubernetes je „architekt i stavební firma\", která tyto cihly organizuje do funkčního celku.\n\n### 1. Princip: Jak to funguje v jádru\nKubernetes nefunguje jako jeden velký program, ale jako **rozložený orchestrátor** založený na principu **„žádoucího stavu\" (Desired State)**.\n\n*   **Declarativní přístup:** Uživatel neříká Kubernetesu „spusť tento kontejner na server A\". Místo toho definuje soubor (manifest), který říká: „Chci, aby běžely 3 instance mé aplikace a každá musela mít dostatek paměti.\"\n*   **Smoochový smyčka kontrolní:** Kubernetes neustále porovnává skutečný stav klastru (co se děje na serverech) s tímto definovaným žádoucím stavem. Pokud zjistí rozdíly (např. jeden kontejner spadl nebo je nedostatek místa), automaticky provede opravy, aby byl dosáhnut požadovaný stav.\n*   **Rozdělení rolí:** Systém se dělí na dva hlavní typy uzlů:\n    *   **Control Plane (Řídící rovina):** Mozek klastru. Rozhoduje o tom, co a kde spustit, monitoruje zdraví systémů a ukládá konfiguraci do interní databáze `etcd`.\n    *   **Worker Nodes (Pracovní uzly):** To jsou skutečné servery (fyzické nebo virtuální), na kterých běží vaše aplikace v kontejnerech.\n\n### 2. Praktický příklad: Nasazení webové aplikace\nPředstavme si, že chcete nasadit webovou aplikaci pro e-shop a potřebujete ji spolehlivou (pokud jeden server spadne, musí se práce přenést na jiný).\n\n**Krok A: Definice žádoucího stavu (Manifest)**\nVytvoříte soubor `deployment.yaml`, který říká Kubernetesi:\n> „Chci 3 repliky mé aplikace. Každá instance potřebuje 512 MB RAM a musí být dostupná na portu 80.\"\n\n**Krok B: Podání požadavku (Scheduler)**\nTento soubor odešlete do Control Plane pomocí příkazu `kubectl apply`.\n*   Komponenta **API Server** přijme tento požadavek.\n*   Databáze **etcd** uloží tuto konfiguraci jako „pravdu\".\n*   Komponenta **Scheduler** se podívá na všechny dostupné Worker Nodes (servery). Vypočítá, které servery mají dostatek volných zdrojů (CPU/RAM) a rozhodne: „Repliku 1 spustím na Server A, repliku 2 na Server B a repliku 3 zase na Server A.\"\n\n**Krok C: Spuštění kontejnerů (kubelet)**\n*   Na každém vybraném Worker Node běží agent **kubelet**. Ten se ptá Control Plane: „Mám něco nového?\"\n*   Když Scheduler určil, že na Server B má běžet replika 2, kubelet na tomto serveru stáhne obraz aplikace (např. z Docker Registry) a spustí kontejner přes `containerd` nebo jiný runtime.\n\n**Krok D: Zajištění dostupnosti (Self-healing)**\nPředstavte si scénář: Server A se rozpadl (vypnul se proud).\n*   **Controller Manager** v Control Plane pravidelně kontroluje stav všech kontejnerů. Všímá si, že replika 1 na Serveru A přestala vysílat signál života („heartbeat\").\n*   Skutečný stav je nyní: „Mám pouze 2 běžící instance.\" Žádoucí stav je: „Musím mít 3 instance.\"\n*   Kubernetes automaticky spustí novou repliku na dostupném Serveru C, aby se počet vrátil na 3. Celý proces trvá vteřiny a uživatel to ani nemusí vědět.\n\n**Krok E: Přístup zvenčí (Service)**\nAplikace běží na různých serverech s různými IP adresami. Aby si klient mohl na aplikaci napsat, Kubernetes vytvoří virtuální **LoadBalancer** nebo **NodePort**. Ten funguje jako „recepce\", která přijme požadavek a přesměruje ho na jednu z živých replik (např. tu nejzátěžnější).\n\n### 3. Relevantní omezení\nAčkoliv je Kubernetes velmi silný, má svá specifická omezení:\n\n*   **Vysoká složitost:** Správa klastru vyžaduje hluboké znalosti sítě, úložiště a bezpečnosti. Je to „přehnaně složité\" pro jednoduché aplikace (například malý blog), kde by stačil jeden server nebo Docker Compose.\n*   **Nároky na zdroje:** Samotný Kubernetes konzumuje výrazné množství CPU a paměti pro svůj vlastní provoz (Control Plane, síťové proxy, monitoring). Pro velmi malé kontejnery může být přidaná váha systému neúměrná.\n*   **Složité úložiště (Stateful applications):** Kubernetes je skvělý pro „bezstavové\" aplikace (web servery), ale správa aplikací s trvalým datovým úložištěm (databáze) vyžaduje specifické koncepty jako `PersistentVolumes` a často i další nástroje, protože dynamická migrace databází mezi uzly je riskantní.\n*   **Síťová konfigurace:** Správa komunikace mezi kontejnery na různých fyzických serverech (CNI - Container Network Interface) může být technicky náročná a chybově náchylná při špatném nastavení.\n\nShrnutím: Kubernetes funguje jako automatický řídící systém, který neustále porovnává to, co chcete mít (`yaml` soubor), s tím, co je realita na serverech, a okamžitě opravuje jakékoliv odchylky spuštěním nových kontejnerů nebo přesunem práce.",
+          "words": 662,
+          "model": "qwen3.5:27b",
+          "finishReason": "stop",
+          "decision": "ANSWER",
+          "intent": "CONVERSATIONAL",
+          "answerBudget": {
+            "maxTokens": 2048,
+            "numCtx": 4096,
+            "historyTurns": 1
+          },
+          "answerRetries": null
+        },
+        {
+          "input": "vic detailu",
+          "httpStatus": 200,
+          "elapsedMs": 37396,
+          "status": "ok",
+          "error": null,
+          "content": "Rozumím. Rozvedeme tedy princip fungování Kubernetesu hlouběji s důrazem na konkrétní mechanismy, kroky a limity tohoto systému. Následující vysvětlení navazuje přímo na předchozí analogii „architekta\", který organizuje kontejnery do funkčního celku.\n\n### 1. Princip: Deklarativní řízení stavu (Desired State)\nZákladem Kubernetesu není příkazová logika („spusť to tam\"), ale **deklarativní model**. Uživatel definuje *cílový stav* systému v konfiguračním souboru (obvykle ve formátu YAML nebo JSON), nikoliv postup, jak se k němu dostat.\n\n*   **Jak to funguje:** Systém neustále porovnává aktuální reálnou situaci na serverech (co je spuštěno) s vaší definicí cílového stavu. Pokud dojde ke změně (např. padne kontejner nebo se změní počet požadovaných instancí), Kubernetes automaticky provede akce, aby realitu přiblížil k deklaraci.\n*   **Klíčový koncept:** Tento proces je řízen smyčkou zpětné vazby (Control Loop). Systém nikdy nespocítá „co udělat\", ale neustále se ptá: „Líbí se mi, jak to vypadá teď? Pokud ne, opravím to.\"\n\n### 2. Praktický příklad: Samoléčba a škálování\nPředstavme si webovou aplikaci, kterou chcete provozovat ve vysoké dostupnosti (High Availability).\n\n**Krok A: Definice cíle (YAML soubor)**\nDefinujete v konfiguraci (`deployment.yaml`), že aplikace `my-web-app` musí běžet vždy na **3 instancích**.\n```yaml\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: my-web-app\nspec:\n  replicas: 3  # Cílový stav: chceme mít 3 běhící kopie\n  template:\n    spec:\n      containers:\n      - name: nginx\n        image: nginx:1.24\n```\n\n**Krok B: Reakce na selhání (Self-healing)**\n*   **Scénář:** Jeden z tří serverů v klastru se náhle vypne nebo dojde k chybě a kontejner přestane běžet.\n*   **Akce Kubernetesu:** Kontrolní smyčka zjistí, že běží pouze 2 instanc místo požadovaných 3. Systém okamžitě vytvoří nový kontejner na jiném dostupném serveru v klastru, aby se počet vrátil na 3. Pro uživatele je výpadek často nepostřehnutelný.\n\n**Krok C: Horizontální škálování (Scaling)**\n*   **Scénář:** Využití procesoru stoupne a vy potřebujete více kapacity.\n*   **Akce Kubernetesu:** Můžete změnit hodnotu `replicas` na 10 nebo použít automatické škálování (HPA). Systém rozloží zátěž tak, aby nově vytvořené kontejnery běžely vyváženě napříč dostupnými servery.\n\n### 3. Relevantní omezení a rizika\nKubernetes je výkonný nástroj, ale není všemocný ani univerzální řešení pro každý případ.\n\n*   **Složitost správy:** Kubernetes má extrémně strmou křivku učení. Správa klastru vyžaduje hluboké znalosti sítě (CNI), úložiště (CSI) a bezpečnosti. Chyba v konfiguraci může vést k selhání celého systému, nikoliv jen jednoho kontejneru.\n*   **Nedostatečná pro jednoduché projekty:** Pro malou aplikaci běžící na jednom serveru je Kubernetes často „přehnaný\" (overkill). Přináší značnou operační zátěž bez výrazného přínosu oproti jednoduchému Docker Compose.\n*   **Závislost na infrastruktuře:** I když Kubernetes řeší selhání kontejnerů, neřeří fyzické poruchy hardwaru nebo problémy s datovým centrem mimo jeho kontrolní obvod (pokud není nakonfigurován přesně pro takové scénáře).\n*   **Paměťová a výpočetná náročnost:** Samotný orchestrátor vyžaduje určité množství prostředků na běh svých komponent (API server, etcd, scheduler), což snižuje efektivitu u velmi malých klastrů.\n\n### Shrnutí rozdílu oproti jednoduchému Dockeru\nZatímco **Docker** je nástroj pro *balení a spouštění* jednotlivé aplikace na jednom hostiteli, **Kubernetes** je platforma pro *správu života* těchto aplikací napříč desítkami nebo stovkami serverů.\n\n| Vlastnost | Docker (jako samostatný nástroj) | Kubernetes |\n| :--- | :--- | :--- |\n| **Hlavní úkol** | Spustit kontejner, zajistit jeho izolaci. | Udržet definovaný stav systému napříč klastru serverů. |\n| **Selhání** | Pokud padne hostitel, aplikace je pryč (pokud není ručně restartována). | Automaticky přesune aplikaci na jiný zdravý uzel v síti. |\n| **Škálování** | Manuální nebo skriptované spouštění nových instancí. | Dynamické přidávání/odstraňování instancí podle zátěže. |\n| **Složitosť** | Nízka, vhodná pro vývojáře a malé projekty. | Vysoká, vyžaduje dedikovaného inženýra (DevOps/SRE). |\n\nPokud potřebujete podrobněji rozebrat konkrétní komponentu Kubernetesu (např. jak fungují *Pods*, *Services* nebo *Ingress*), dejte vědět a zaměříme se na ni.",
+          "words": 596,
+          "model": "qwen3.5:27b",
+          "finishReason": "stop",
+          "decision": "ANSWER",
+          "intent": "CONVERSATIONAL",
+          "answerBudget": {
+            "maxTokens": 2048,
+            "numCtx": 4096,
+            "historyTurns": 1
+          },
+          "answerRetries": null
+        },
+        {
+          "input": "chci vic detailu",
+          "httpStatus": 200,
+          "elapsedMs": 52945,
+          "status": "ok",
+          "error": null,
+          "content": "Rozumím, prohloubíme tedy předchozí vysvětlení o architekturu Kubernetesu. Zaměříme se na tři klíčové komponenty zmiňované v závěru minulé odpovědi: **Pods**, **Services** a **Ingress**. Pro každou ukážeme princip fungování, konkrétní příklad použití a jejich reálná omezení.\n\n### 1. Pod (Nejnižší jednotka nasazení)\n\n**Princip:**\nPod je nejmenší objekt, který Kubernetes dokáže vytvořit nebo umisťovat na uzly (nodes). Není to synonymum pro jeden kontejner; může obsahovat jeden či více těsně propojených kontejnerů, které sdílí stejný prostor souborového systému a síťové rozhraní. Kubernetes nikdy nenasazuje „holé\" kontejnery přímo na uzel, vždy je obaluje do Podu.\n\n**Praktický příklad:**\nPředstavte si aplikaci složenou z webového serveru (Nginx) a malého logovacího pomocníka (sidecar), který čte výpisy ze sdílené složky a odesílá je do externího systému.\n\n*   **Konfigurace:** V manifestu YAML definujete jeden Pod se dvěma kontejnery (`nginx` a `fluentd`).\n*   **Společný zdroj:** Oba kontejnery sdílejí volume (souborový systém). Nginx zapisuje logy do `/var/log/nginx`, fluentd je odtud čte.\n*   **Síť:** Oběma kontejnerům přiřadí Kubernetes jednu IP adresu. Pokud `fluentd` potřebuje komunikovat s nginxem, použije adresu `localhost`.\n\n**Omezení a rizika:**\n*   **Životnost:** Pod je navrženy jako efemerní (dočasný). Pokud se uzel rozbije nebo dojde k aktualizaci softwaru, celý Pod může být zničen. Data v lokálním úložišti (pokud není použito trvalé úložiště – PersistentVolume) jsou ztracena.\n*   **Komplexita:** Sdílení souborového systému mezi kontejnery zvyšuje riziko bezpečnostních dír; pokud jeden kontejner kompromituje druhý, může získat přístup k citlivým datům nebo konfiguraci souseda.\n\n---\n\n### 2. Service (Stabilní síťová identita)\n\n**Princip:**\nProtože jsou Pods efemerní a jejich IP adresy se mění při restartu, nelze je přímo používat jako cíl pro ostatní aplikace. Služba (**Service**) funguje jako abstrakce nad skupinou Podů (definovanou pomocí *selector label*). Přiřazuje této skupině stabilní virtuální IP adresu a port, která se nemění ani při výměně konkrétních instancí aplikace za nové. Kubernetes automaticky směruje provoz na všechny zdravé instance v rámci výběrových kritériů (Load Balancing).\n\n**Praktický příklad:**\nMáte nasazeno 5 replik webové aplikace (každá ve svém Podu s IP `10.x.y.z`). Chcete, aby frontend aplikaci mohl volat na jedné adrese.\n\n*   **Definice:** Vytvoříte Service typu `ClusterIP` se selektorem `app: my-web`.\n*   **Chování:** Jakmile se jeden z 5 Podů rozbije a Kubernetes ho nahradí novým, IP adresy konkrétních Podů se změní. Adresa Service však zůstává stejná (např. `10.96.42.18`).\n*   **Výsledek:** Frontend volá stále na jednu adresu a Kubernetes vnitřně rozděluje požadavky mezi zbývající 5 zdravých Podů bez přerušení služby.\n\n**Omezení a rizika:**\n*   **Typy Service:** Základní `ClusterIP` je viditelný pouze uvnitř clusteru. Pokud potřebujete přístup zvenčí, musíte použít typ `NodePort`, `LoadBalancer` (vyžaduje externí cloud provider) nebo kombinaci s Ingressem. Každé řešení má své náklady a složitost.\n*   **Latence:** Přidání vrstvy Service přidává mikrosekundovou latenci při směrování paketu, což je zanedbatelné pro většinu aplikací, ale může být kritické u ultra-vysokofrekvenčního obchodování nebo real-time komunikace.\n\n---\n\n### 3. Ingress (Brána do clusteru)\n\n**Princip:**\nIngress slouží jako inteligentní směrovač provozu na hranici clusteru, který funguje na vrstvě HTTP/HTTPS (L7). Na rozdíl od Service, která pouze rozděluje TCP spojení podle portů, Ingress dokáže rozhodovat o tom, kam poslat požadavek na základě domény (`api.mujweb.cz`), cesty (`/images`) nebo jiných hlaviček HTTP. Jedna Ingress může směrovat provoz do více různých Service uvnitř clusteru.\n\n**Praktický příklad:**\nMáte jeden veřejný IP adresu pro celý Kubernetes cluster a chcete na ni nasadit tři různé aplikace: `eshop`, `blog` a `api`.\n\n*   **Konfigurace:** Vytvoříte Ingress resource s pravidly:\n    *   Pokud doména je `shop.example.com` -> směruj do Service `my-shop-service`.\n    *   Pokud cesta začíná `/docs` na doméně `main.example.com` -> směruj do Service `wiki-service`.\n*   **Implementace:** Ingress se obvykle realizuje pomocí specifického softwaru (Ingress Controller), jako je Nginx, Traefik nebo HAProxy, který běží v clusteru a naslouchá na venkovní IP.\n\n**Omezení a rizika:**\n*   **Závislost na kontroleru:** Kubernetes sám o sobě Ingressem nedisponuje; vyžadujete instalaci a údržbu externího *Ingress Controller*. Pokud se tento controller rozbije, přestane fungovat veškerý venkovní provoz.\n*   **TLS/SSL správa:** Ačkoliv moderní kontrolery podporují automatické získávání certifikátů (např. přes Let's Encrypt), konfigurace šifrování a obnova certifikátů přidává další vrstvu složitosti do pipeline nasazení.\n\n### Shrnutí rozdílu mezi Service a Ingress\n*   **Service** řeší komunikaci na úrovni sítě (L4) – ví, jaké IP adresy má směrovat provoz, ale nerozumí obsahu HTTP požadavku. Je to \"hloupý\" load balancer pro skupinu Podů.\n*   **Ingress** rozumí obsahu žádosti (domény, cesty). Je to \"inteligentní brána\", která rozhoduje o tom, *která* Service má být vyvolaná na základě URL adresy v prohlížeči uživatele.\n\nPokud byste chtěl rozebrat konkrétní příklad YAML konfigurace pro jednu z těchto komponent nebo se podívat na to, jak funguje mechanismus *Health Checks* (liveness a readiness probes) uvnitř Podu, dejte vědět.",
+          "words": 744,
+          "model": "qwen3.5:27b",
+          "finishReason": "stop",
+          "decision": "ANSWER",
+          "intent": "CONVERSATIONAL",
+          "answerBudget": {
+            "maxTokens": 2048,
+            "numCtx": 4096,
+            "historyTurns": 1
+          },
+          "answerRetries": null
+        }
+      ]
+    },
+    {
+      "phase": "after-final",
+      "at": "2026-09-20T20:09:24.262Z",
+      "revision": "9ad8bc3ff609400ec1cd44e50db4fe71ec1ee283",
+      "sourceSha256": "509a605aaf6a53bde004b6bfbf5b781b67120f6d389d5378177180331bfe7ea3",
+      "archiveHTTP": 200,
+      "turns": [
+        {
+          "input": "co je to docker?",
+          "httpStatus": 200,
+          "elapsedMs": 32781,
+          "status": "ok",
+          "error": null,
+          "content": "Docker je platforma pro vývoj, nasazování a spouštění aplikací v kontejnerech. Kontejnerizace umožňuje balit software spolu se všemi jeho závislostmi (knihovny, konfigurace) do jednoho izolovaného prostředí, které funguje stejně na jakémkoli počítači s Dockerem nainstalovaným.\n\n**Princip:**\nDocker využívá sdílené jádro operačního systému hostitele, ale vytváří pro každou aplikaci vlastní virtuální prostoru (kontejner). Na rozdíl od virtualizačních strojů (VM), které simulují celé hardware a OS, kontejnery jsou mnohem lehčí a rychlejší. Klíčovým prvkem je obraz (image) – neměnná šablona s kódem a závislostmi, ze kterého se spouští instancie kontejneru.\n\n**Praktický příklad:**\nPředstav si vývojáře, který vytvoří webovou aplikaci v Pythonu potřebující specifickou verzi knihovny `pandas`. Bez Docker by aplikace na jiném počítači mohla selhat kvůli odlišným verzím Pythonu nebo chybějícím balíčkům. S Dockerem:\n1. Vývojář napíše soubor `Dockerfile`, který definuje, jaký základní obraz použít a co nainstalovat.\n2. Spustí příkaz `docker build -t moje-aplikace .`. Vytvoří se obraz.\n3. Příkazem `docker run moje-aplikace` spustí kontejner. Aplikace běží izolovaně, aniž by zasahovala do hostitelského systému.\n\n**Omezení:**\nDocker sdílí jádro OS hostitele, takže pokud je systémová chyba v jádru nebo se liší architektura procesoru (např. spouštění Linuxu na Windows bez virtuálního stroje), může dojít k problémům s kompatibilitou. Také kontejnery nejsou plně izolované od ostatních kontejnerů sdílejících stejné jádro, což vyžaduje opatrnost při bezpečnosti a správě zdrojů (CPU, RAM).",
+          "words": 216,
+          "model": "qwen3.5:27b",
+          "finishReason": "stop",
+          "decision": "ANSWER",
+          "intent": "CONVERSATIONAL",
+          "answerBudget": {
+            "maxTokens": 1200,
+            "numCtx": 4096,
+            "historyTurns": 0
+          },
+          "answerRetries": 0
+        },
+        {
+          "input": "a jak funguje kubernetes? v cem jsou rozdily?",
+          "httpStatus": 200,
+          "elapsedMs": 17907,
+          "status": "ok",
+          "error": null,
+          "content": "Kubernetes je systém pro automatizované nasazování, škálování a správu kontejnerizovaných aplikací. Zatímco Docker slouží primárně ke **vytvoření** jednoho kontejneru na jednom serveru, Kubernetes řídí **tisíce kontejnerů** napříč celým clusterem počítačů (uzlů).\n\n**Princip:**\nKubernetes funguje jako \"orchestrátor\". Místo toho, abyste ručně spouštěli kontejnery na jednotlivých strojích, definujete v YAML souboru požadovaný stav aplikace (např. „chci 5 instancí této služby\"). Kubernetes neustále monitoruje skutečný stav a automaticky ho přivádí do souladu s vaší specifikací – pokud jeden server spadne nebo kontejner zkolabuje, systém okamžitě spustí nový na jiném dostupném uzlu.\n\n**Praktický příklad:**\nPředstavte si e-shop v době Vánoc:\n1.  **Docker:** Umožní vám vytvořit obraz aplikace a nainstalovat ho na jeden server. Pokud přibude zátěž, musíte ručně přidat další servery nebo restartovat aplikaci s více vlákny.\n2.  **Kubernetes:** Definujete pravidlo „pokud CPU využítí přesáhne 80 %, automaticky navýšit počet instancí na 10\". Když přichází špička, Kubernetes sám vytvoří nové kontejnery na volných strojích v cloudu. Pokud jeden server selže, převede provoz bez výpadku na ostatní uzly.\n\n**Hlavní rozdíly:**\n*   **Rozsah:** Docker je nástroj pro životní cyklus jednoho kontejneru (build/run). Kubernetes řeší správu celého clusteru a vztahů mezi aplikacemi.\n*   **Vysoká dostupnost:** Docker sám o sobě nezaručuje přežití při pádu serveru; Kubernetes tuto redundanci poskytuje nativně přes mechanismy jako *ReplicaSets*.\n*   **Složitosť:** Docker je relativně jednoduchý k nastavení. Kubernetes vyžaduje komplexní infrastrukturu (kontrolní rovinu, uzly workerů) a hlubší znalosti pro správu sítě i úložiště.\n\n**Omezení:**\nKubernetes má vysokou křivku učení; konfigurace je často složitější než u samotného Dockeru. Pro malé projekty nebo vývojáře pracujícího na jednom notebooku může být jeho nasazení nadbytečně náročné a zdlouhavé (\"overkill\"). Často se proto používá v kombinaci: aplikace se balí pomocí Dockeru, ale provozuje a škáluje pomocí Kubernetes.",
+          "words": 279,
+          "model": "qwen3.5:27b",
+          "finishReason": "stop",
+          "decision": "ANSWER",
+          "intent": "CONVERSATIONAL",
+          "answerBudget": {
+            "maxTokens": 1200,
+            "numCtx": 4096,
+            "historyTurns": 2
+          },
+          "answerRetries": 0
+        },
+        {
+          "input": "muzes mi detailne popsat jak to funguje",
+          "httpStatus": 200,
+          "elapsedMs": 26366,
+          "status": "ok",
+          "error": null,
+          "content": "Samozřejmě. Podrobně vysvětlím princip spolupráce Dockeru (resp. kontejnerů) a Kubernetesu na konkrétním příkladu, abychom viděli rozdíl mezi samotným balíčkem aplikace a jejím řízeným provozem v cloudu.\n\n**Základní princip: Rozdělení rolí**\nKlíčem k pochopení je oddělit **co** se spouští od toho **jak** to běží. Docker (nebo přesněji runtime jako containerd) slouží ke stažení obrazu a spuštění procesu v izolovaném prostředí – kontejneru. Kubernetes (k8s) však není nástroj pro balení, ale orchestrátor. Jeho úlohou je řídit desítky či tisíce těchto kontejnerů na mnoha serverech najednou.\n\nKubernetes neví přímo o Dockeru jako takovém; komunikuje s ním přes standardní rozhraní (CRI – Container Runtime Interface). V praxi to znamená, že Kubernetes říká: „Potřebuji 5 instancí aplikace X\", a onen kontejnerový runtime se postará o jejich fyzické spuštění.\n\n**Konkrétní příklad nasazení webového serveru**\nPředstavme si aplikaci pro e-shop napsanou v Go, zabalenou do obrazu `eshop-app:1.0`.\n\n1.  **Definice (Princip):** Místo ručního spouštění příkazu `docker run` vytvoříte soubor YAML (manifest), který říká Kubernetesu, co má dělat. Tento manifest definuje „Deployment\" – požadavek na udržení tří instancí aplikace vždy běžících.\n2.  **Spuštění:** Nahrnete tento manifest do clusteru (`kubectl apply -f app.yaml`). Kontrolér v Kubernetesu (Controller Manager) detekuje, že aktuální stav je nula běhů a požadovaný stav jsou tři.\n3.  **Rozdělení práce:** Plánovač (Scheduler) vybere vhodné uzly (servery), kde má dostatek volné paměti a procesoru. Na tyto uzly pošle příkaz kontejnerovému runtime, aby stáhl obraz `eshop-app:1.0` ze skladu obrázů (Registry) a spustil tři oddělené instance procesu.\n4.  **Správa:** Pokud jeden server spadne nebo se aplikace v jednom kontejneru zasekne, Kubernetes to detekuje prostřednictvím „health check\" (zdravotní kontrola). Okamžitě restartuje vadný kontejner na stejném uzlu nebo přesune jeho práci jinam. Uživatel ani netuší, že došlo k výpadku; služba zůstává dostupná díky LoadBalanceru, který rozděluje požadavky mezi zdravé instance.\n\n**Relevantní omezení a realita**\nTento systém není kouzelný štít proti všemu. Existují jasná omezení:\n*   **Složitost:** Kubernetes vyžaduje hluboké znalosti sítě, úložných prostorů (Storage Classes) a bezpečnosti (RBAC). Chyba v konfiguraci může vést k tomu, že aplikace bude běželit na nesprávném portu nebo bez přístupu k databázi.\n*   **Nedostatek pro malé projekty:** Pro jednoduchou aplikaci s jedním kontejnerem je Kubernetes často „přehnaný\" (overkill). Správa celého clusteru má vlastní náklady na infrastrukturu a údržbu, které mohou převážit výhody automatizace.\n*   **Není to Docker:** Často se pletou pojmy. Pokud odeberete Kubernetes z rovnice, aplikace v kontejneru stále funguje lokálně nebo na jednom serveru. Kubernetes přidává pouze vrstvu vysoké dostupnosti a škálovatelnosti.\n\nShrnutím: Docker (nebo ekvivalentní runtime) je motor, který spálí palivo a pohybuje se; Kubernetes je řidič, dispečer a navigace v jednom, která rozhoduje o trase, kdy má auto zastavit, pokud se rozbije, a kolik aut potřebujete pro přepravu nákladu.",
+          "words": 436,
+          "model": "qwen3.5:27b",
+          "finishReason": "stop",
+          "decision": "ANSWER",
+          "intent": "CONVERSATIONAL",
+          "answerBudget": {
+            "maxTokens": 2048,
+            "numCtx": 4096,
+            "historyTurns": 1
+          },
+          "answerRetries": 0
+        },
+        {
+          "input": "vic detailu",
+          "httpStatus": 200,
+          "elapsedMs": 31241,
+          "status": "ok",
+          "error": null,
+          "content": "Samozřejmě. Rozvedeme předchozí téma spolupráce Dockeru a Kubernetesu s důrazem na hlubší principy, konkrétní kroky nasazení a reálná omezení těchto technologií. Následující vysvětlení se zaměřuje na to, jak fungují kontejnery v orchestraci, nikoliv jen na obecnou definici.\n\n### Princip: Oddělení runtime od orchestrace\nDocker (nebo spíše jeho jádro `containerd`) slouží jako **runtime** – je to technologie, která fyzicky vytváří a běží kontejnery uvnitř operačního systému hostitele. Kubernetes (K8s) funguje jako **orchestrátor**. Neřeší samotné spuštění procesu v izolovaném prostředí přímo na úrovni jádra OS; místo toho komunikuje s runtime prostřednictvím standardizovaných rozhraní, tzv. CRI (Container Runtime Interface).\n\nZákladní princip spočívá v tom, že Kubernetes definuje *přání* systému (například: „chci 5 kopií této aplikace běžící na portu 80\"), zatímco Docker (nebo jiný runtime) se postará o technické detaily spuštění těchto procesů. Kubernetes neustále monitoruje stav clusteru a pokud zjiší, že jeden kontejner spadl nebo je server nefunkční, automaticky jej přesune na jiné místo v clousteru.\n\n### Praktický příklad: Nasazení webové aplikace\nPředstavme si scénář, kdy chcete nasadit jednoduchou webovou aplikaci napsanou v Pythonu (Flask), která má být dostupná 24/7 s vysokou odolností.\n\n1.  **Definice obrazu:** Nejprve vytvoříte Docker image pomocí `Dockerfile`. Ten obsahuje systém, runtime pro Python a váš kód. Tento obraz je uložen ve veřejném nebo soukromém registry (např. Docker Hub).\n2.  **Specifikace v Kubernetes:** Napišete YAML soubor (`deployment.yaml`), který říká: „Vytvoř službu `my-web-app`, která bude používat tento image, nasadit 3 repliky a restartovat kontejner při pádu.\"\n    ```yaml\n    apiVersion: apps/v1\n    kind: Deployment\n    metadata:\n      name: my-web-app\n    spec:\n      replicas: 3\n      selector:\n        matchLabels:\n          app: web\n      template:\n        spec:\n          containers:\n            - name: flask-app\n              image: moj-registry/my-web-app:v1.0\n              ports:\n                - containerPort: 80\n    ```\n3.  **Proces nasazení:** Když příkazem `kubectl apply` pošlete tento soubor do clusteru, Kubernetes (konkrétně komponenta *kubelet* na jednotlivých uzlech) požádá Docker runtime o stažení obrazu a spuštění tří kontejnerů.\n4.  **Reakce na selhání:** Pokud jeden z těchto třech kontejnerů přestane reagovat (např. kvůli chybě v kódu nebo nedostatku paměti), Kubernetes to okamžitě detekuje, zastaví nefunkční instanci a automaticky spustí novou náhradu na volném uzlu, aniž by uživatel musel zasahovat.\n\n### Relevantní omezení a rozdíly\nJe důležité si uvědomit reálná omezení tohoto spojení:\n\n*   **Závaznost k Dockeru:** Ačkoliv se historicky používal Docker jako primární runtime, novější verze Kubernetes (od 1.24) již oficiálně nepodporují `docker-shim`. Nyní je standardem použití přímého rozhraní CRI s alternativními runtimes, jako je **containerd** nebo **CRI-O**. Docker CLI (`docker ps`) se v clousteru často nevidí přímo; místo toho používáte příkazy Kubernetes.\n*   **Složitost správy:** Zatímco Docker sám o sobě zvládne běh jedné aplikace na jednom serveru velmi snadno, přidání Kubernetesu dramaticky zvyšuje složitost infrastruktury. Musíte řešit síťování mezi uzly (CNI), úložný prostor (CSI) a bezpečnostní politiky.\n*   **Paměťové limity:** Kontejnery sdílejí jádro hostitele, což znamená, že chyba v jádru může ovlivnit všechny kontejnery na daném uzlu. Na rozdíl od virtuálních strojů (VM) nemají plnou izolaci operačního systému, což je při bezpečnostních útocích rizikové, pokud není správně nakonfigurována izolace jmenovných prostorů a cgroup.\n\nTento model umožňuje škálovat aplikace automaticky podle zátěže (přidáním více replik), ale vyžaduje hluboké porozumění tomu, jak Kubernetes komunikuje s podkladovým runtime systémem pro správu životního cyklu aplikací.",
+          "words": 506,
+          "model": "qwen3.5:27b",
+          "finishReason": "stop",
+          "decision": "ANSWER",
+          "intent": "CONVERSATIONAL",
+          "answerBudget": {
+            "maxTokens": 2048,
+            "numCtx": 4096,
+            "historyTurns": 1
+          },
+          "answerRetries": 0
+        },
+        {
+          "input": "chci vic detailu",
+          "httpStatus": 200,
+          "elapsedMs": 38535,
+          "status": "ok",
+          "error": null,
+          "content": "Rozvedeme téma komunikace mezi Kubernetes (K8s) a kontejnerovým runtime systétem, konkrétně princip **CRI** (Container Runtime Interface), který nahradil přímou integraci Dockeru. Toto je klíčové pro pochopení moderních orchestrátorů aplikací.\n\n### Princip: Jak to funguje\nKubernetes se již přímo nespojuje s bináři Dockeru, ale využívá abstrakci nazvanou **CRI**. Tento standard definuje rozhraní (API), kterým K8s mluví s jakýmkoli kompatibilním runtime systémem.\n\n1.  **Rozdělení rolí**: Kubernetes je \"mozek\", který rozhoduje, kde a kdy spustit kontejner. Runtime systém (např. containerd nebo CRI-O) je \"rukama\", které fyzicky vytváří procesy v izolovaných prostředích.\n2.  **Komunikace přes gRPC**: K8s odesílá požadavky na vytvoření, spuštění nebo zástavu kontejneru pomocí protokolu gRPC k CRI socketu (obvykle `unix:///run/containerd/io.containerd.runtime.v1.linux`).\n3.  **Nepřímé použití Docker CLI**: I když často mluvíme o \"Docker imagech\", Kubernetes je stahuje a ukládá přímo do runtime systému, nikoliv přes Docker daemon (`dockerd`), pokud není použit jako wrapper.\n\n### Praktický příklad: Životní cyklus podu\nPředstavte si scénář, kdy chcete spustit aplikaci `nginx`. Proces probíhá takto:\n\n1.  **Definice**: Uživatel pošle manifest YAML s názvem Podu a obrazem `nginx:latest` do API serveru Kubernetesu (kube-apiserver).\n2.  **Rozvržení**: Kubelet na uzlu detekuje nový požadavek a rozhodne, že tento Pod spustí právě zde.\n3.  **Požadavek na CRI**: Místo volání příkazu `docker run`, kubelet vygeneruje gRPC zprávu pro containerd (jako runtime). Tato zpráva obsahuje specifikaci obrazu a potřebné zdroje (CPU, RAM).\n4.  **Exekuce Runtimeem**: Containerd stáhne vrstvy obrazu ze registry (pokud je nemá lokálně), vytvoří sandboxový kontejner pro síťování a následně spustí samotný proces Nginx v izolovaném prostoru.\n5.  **Monitorování**: Kubelet neustále dotazuje CRI o stavu procesu (běží, selhalo) a reportuje to zpět do clusteru.\n\n### Relevantní omezení a rozdíly\nJe důležité pochopit limity tohoto přístupu:\n\n*   **Ztráta Docker CLI**: V prostředí Kubernetesu nemůžete běžet příkazy jako `docker ps` nebo `docker logs` přímo na uzlu pro správu kontejnerů spravovaných K8s. Musíte použít `kubectl`. Příkazový řádek Dockeru je v tomto modelu irelevantní pro běhající instancí.\n*   **Kompatibilita obrazů**: Obrazy musí být kompatibilní s OCI (Open Container Initiative). Starší obrazy závislé na specifických funkcích Docker API nemusí fungovat bez úprav, ačkoliv většina standardních obrazů je nyní plně OCI-kompatibilní.\n*   **Složitost debugování**: Protože se oddělují vrstvy (K8s vs. Runtime), řešení problémů vyžaduje hlubší znalost obou komponent. Chyba může být v logice Kubeletu, ale také v konfiguraci containerd nebo CNI síti.\n\nTento přechod na abstrakci umožnil Kubernetesu používat nejen Docker (přes jeho engine), ale i jiné rychlé a lehké runtime systémy jako **CRI-O** nebo samotný **containerd**, což zvyšuje bezpečnost, výkon a flexibilitu celého clusteru.",
+          "words": 406,
+          "model": "qwen3.5:27b",
+          "finishReason": "stop",
+          "decision": "ANSWER",
+          "intent": "CONVERSATIONAL",
+          "answerBudget": {
+            "maxTokens": 2048,
+            "numCtx": 4096,
+            "historyTurns": 1
+          },
+          "answerRetries": 0
+        }
+      ]
+    },
+    {
+      "phase": "general-final",
+      "at": "2026-09-20T20:11:51.101Z",
+      "revision": "9ad8bc3ff609400ec1cd44e50db4fe71ec1ee283",
+      "sourceSha256": "cf613d040045528387b7ef6ed4a4a026857ea7b93608ff65979eed83752ee6fa",
+      "archiveHTTP": 200,
+      "turns": [
+        {
+          "input": "Co je databázový index?",
+          "httpStatus": 200,
+          "elapsedMs": 14344,
+          "status": "ok",
+          "error": null,
+          "content": "Databázový index je speciální datová struktura, která významně urychluje operace čtení (SELECT) v relačních databázích funguje podobně jako rejstřík na konci knihy. Místo aby se systém při vyhledávání musel projít všechny záznamy tabulky řádek po řádku, index mu umožňuje přímo najít potřebnou polohu dat.\n\n**Princip:**\nIndex vytváří oddělenou strukturu (často B-strom nebo hashovací tabulku), která mapuje hodnoty vybraného sloupce na fyzické umístění příslušných záznamů v databázi. Díky tomu se složitost vyhledávání snižuje z lineárního O(n) na logaritmický čas O(log n).\n\n**Praktický příklad:**\nPředstavte si tabulku `Zamestnanci` s milionem řádků a sloupcem `Jmeno`. Pokud zadáte dotaz „najdi Jana Nováka“ bez indexu, databáze musí zkontrolovat každý řádek od začátku do konce. S vytvořeným indexem na sloupec `Jmeno` se systém podívá jen do uspořádané struktury indexu, okamžitě najde adresu řádku s tímto jménem a načte pouze ten jeden záznam.\n\n**Omezení:**\nIndexy nejsou všemocné a mají své nevýhody:\n1.  **Zpomalení zápisu:** Při vkládání, mazání nebo aktualizaci dat (INSERT/UPDATE/DELETE) musí databáze současně upravovat i index, což zpomaluje tyto operace.\n2.  **Paměťová náročnost:** Indexy zabývají dodatečný diskový prostor a RAM paměť.\n3.  **Neefektivita u malých tabulek:** U velmi malých datových souborů je často rychlejší projít celou tabulku, než číst index z disku.\n\nIndex se tedy vytváří pouze na sloupce, které jsou často používány v podmínkách vyhledávání (WHERE), řazení (ORDER BY) nebo propojení tabulek (JOIN).",
+          "words": 218,
+          "model": "qwen3.5:27b",
+          "finishReason": "stop",
+          "decision": "ANSWER",
+          "intent": "CONVERSATIONAL",
+          "answerBudget": {
+            "maxTokens": 1200,
+            "numCtx": 4096,
+            "historyTurns": 0
+          },
+          "answerRetries": 0
+        },
+        {
+          "input": "vice detailu",
+          "httpStatus": 200,
+          "elapsedMs": 27120,
+          "status": "ok",
+          "error": null,
+          "content": "Pokud chcete hlouběji pochopit fungování databázových indexů, zaměříme se na jejich vnitřní princip, konkrétní scénář použití a zásadní omezení, která s sebou nese. Index není jen „seznam čísel\", ale komplexní datová struktura optimalizovaná pro rychlé vyhledávání.\n\n**Princip fungování: Stromová struktura (B-Tree)**\nNejčastějším typem indexu je B-strom (Balanced Tree). Představte si ho jako telefonní seznam, kde jsou jména seřazena abecedně. Bez indexu by databáze musela projít každou řádkovou položku v tabulce lineárním prohledáváním (tzv. full table scan), což má časovou složitost O(n). S indexem však databáze využívá binární vyhledávání ve stromové struktuře, kde se data rozdělují do vrcholů a listů. To snižuje počet přístupů k disku na logaritmickou úroveň O(log n). Každý uzel v tomto stromě obsahuje klíč (hodnotu sloupce) a ukazatel na fyzické umístění řádku v tabulce. Díky tomu se databáze dostane přímo k požadovaným datům, aniž by musela číst celé soubory.\n\n**Praktický příklad: Vyhledávání zákazníka**\nPředstavte si velkou e-shopovou tabulku `zakaznici` s milionem záznamů a sloupcem `email`. Chcete najít objednávky pro konkrétního uživatele.\n\n*   **Bez indexu:** Databáze začne číst první řádek, porovná email, pak druhý, třetí... až dokud nenajde shodu nebo nevyčerpá tabulku. Při milionu záznamech to znamená miliony operací I/O (vstupu/výstupu), což je pomalé a zatěžuje disk i paměť RAM.\n*   **S indexem na sloupec `email`:** Databáze se podívá do kořene B-stromu, rozhodne se, zda hledat v levé nebo pravé větvi, a postupně sestupuje až k listovému uzlu s konkrétním emailem. Nalezne ukazatel na řádek přímo v tabulce `zakaznici` a načte pouze tento jeden záznam (a případné další shodné). Čas vyhledání se tím snižuje z minut nebo sekund na milisekundy.\n\n**Relevantní omezení a kompromisy**\nIndexy nejsou všelékem a jejich používání přináší náklady:\n\n1.  **Zpomalení zápisu (Write Penalty):** Při každém vložení (`INSERT`), aktualizaci (`UPDATE`) nebo smazání (`DELETE`) záznamu musí databáze nejen upravit tabulku, ale také synchronizovat všechny indexy, které tento sloupec obsahují. To znamená další I/O operace a zamčení (locking) datových struktur. U tabulek s velmi častým zápisem může nadměrné množství indexů výrazně snížit výkon celého systému.\n2.  **Paměťová náročnost:** Indexy zabírají místo na disku i v paměti (buffer cache). Velký B-strom se musí vejít do RAM pro maximální rychlost; pokud je příliš velký, dochází k častým výměnám stránek z diskové úložiště.\n3.  **Neefektivita u nízké selektivity:** Pokud sloupec obsahuje velmi málo unikátních hodnot (například sloupec `pohlavi` s hodnotami „muž\" a „žena\"), index je často neúčinný. Databázový optimalizátor může rozhodnout, že projít celou tabulku bude rychlejší než skákat po stromu indexu pro 50 % všech řádků.\n\nShrnutím: Indexy jsou nezbytné pro rychlé čtení a filtrování velkých datových sad na základě klíčových sloupců, ale vyžadují pečlivý výběr, aby nevadily zápisovým operacím ani nevyplňovaly zbytečně úložiště.",
+          "words": 435,
+          "model": "qwen3.5:27b",
+          "finishReason": "stop",
+          "decision": "ANSWER",
+          "intent": "CONVERSATIONAL",
+          "answerBudget": {
+            "maxTokens": 2048,
+            "numCtx": 4096,
+            "historyTurns": 1
+          },
+          "answerRetries": 0
+        },
+        {
+          "input": "Shrň to do dvou vět.",
+          "httpStatus": 200,
+          "elapsedMs": 5615,
+          "status": "ok",
+          "error": null,
+          "content": "Databázové indexy využívají stromovou strukturu (B-Tree) k urychlení vyhledávání dat na logaritmickou složitost, čímž předejdou pomalému lineárnímu prohledání celé tabulky. Na druhou stranu jejich nadměrné používání zpomaluje zápisové operace a zvyšuje nároky na úložiště, proto jsou neefektivní u sloupců s nízkým počtem unikátních hodnot.",
+          "words": 44,
+          "model": "qwen3.5:27b",
+          "finishReason": "stop",
+          "decision": "ANSWER",
+          "intent": "CONVERSATIONAL",
+          "answerBudget": {
+            "maxTokens": 1200,
+            "numCtx": 4096,
+            "historyTurns": 2
+          },
+          "answerRetries": 0
+        }
+      ]
+    }
+  ]
+}

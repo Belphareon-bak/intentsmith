@@ -1,5 +1,17 @@
 # IntentSmith — mapa systému
 
+**Chat, 2026-09-20:** aktuálně nasazeno `9ad8bc3f`. Odstraněna plošná instrukce
+45 slov / 2–3 vět a 256tokenový rozpočet krátké otázky; zachovaná návaznost,
+rozpočet kontextu, dokončení odpovědi a čitelné výsledky Bing RSS.
+Stejný CHAT model, 8/8 skutečných HTTP tahů dokončeno včetně rozvedení
+na druhém tématu a shrnutí do dvou vět. **FLOW_RUNTIME_VERIFIED /
+CHAT_CONTENT_NOT_ACCEPTED / REVIEW_PENDING**: přetrvávají doložené věcné
+a jazykové chyby; nejde o důkaz lepšího modelu ani production readiness.
+Úplný profil 359 PASS / 1 FAIL Gate 0 / 0 BLOCKED; pečeť nezměněna.
+Hunt/bindingy/profily beze změny. [Příčiny, odpovědi a důkazy](docs/review/2026-09-20-CHAT-QUALITY.md).
+
+Následující datované checkpointy uchovávají historický stav.
+
 **Tři projektové průchody, 2026-09-19:** všechny tři utility jsou v nabídce
 aplikací: SystemSmith_1 (`70d14693`), WeatherSmith (`74f7a861`) a NewsSmith
 (`cc083cff`). Skutečný Electron přes vlastní modelové launchery, živá data a
@@ -21,7 +33,7 @@ v oddělené kopii přes M2: odmítnutí raw CR/LF/TAB před URL normalizací.
 Nová regrese selže na původním kódu; opravený návrh má 30/30 a renderer build
 PASS. Ostatních 63 původních souborů i původní instalace zůstaly nedotčené.
 Průchod odhalil vnucený scaffold vstup a prázdný výběr ukázek. Návazná obecná
-oprava **`9660d99b` je aktuálně nasazená**: skutečný package manifest,
+oprava **`9660d99b` byla nasazena v tomto checkpointu**: skutečný package manifest,
 zachování importovaných konvencí, doplnění volného kontextu a CJS/JS Node testy.
 Projektová sada 28/28; vlastní úplný profil 359 PASS / 1 FAIL Gate 0 / 0 BLOCKED.
 Nasazení proběhlo až po uvolnění GPU zámku, s ověřením původní verze i dat.

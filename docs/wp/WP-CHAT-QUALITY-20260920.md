@@ -2,7 +2,8 @@
 
 Autorita: explicitní hlášení operátora 20. 9. 2026 se screenshoty Docker/Kubernetes
 (a opakovaným požadavkem na detaily) a nerelevantního webového hledání auta.
-Stav: IN_PROGRESS / REVIEW_PENDING. Vstup `080114ae`, runtime `9660d99b`.
+Stav: FLOW_RUNTIME_VERIFIED / CHAT_CONTENT_NOT_ACCEPTED / REVIEW_PENDING.
+Vstup `080114ae`, původní runtime `9660d99b`, konečný runtime `9ad8bc3f`.
 Vlastněné cesty: konverzační ANSWER, návaznost, zobrazení konverzačního webu,
 související testy a dokumentace. Hunt, bindingy, role profily a cizí checkout
 se nemění. Práce používá existující čistý checkout a novou větev.
@@ -31,3 +32,10 @@ obsahovaly i věcné a jazykové nepřesnosti. Běh není PASS. Následná oprav
 přidává plánování rozsahu podle rozpočtu a nejvýše dvě regenerace po
 useknutí v rámci původního retry limitu a stejné tokenové autority.
 Vyčerpaný nedokončený výstup zůstává chybou bez uložení do historie.
+
+Konečný skutečný M1 HTTP průchod: 8/8 ANSWER + stop, dvě témata, respektování
+rozvedení i dvouvětého shrnutí. Úplný profil 359 PASS / 1 FAIL Gate 0 / 0 BLOCKED;
+pečeť se neměnila. Zachována data při instalaci a původní neúspěšné běhy.
+Zjištěné věcné/jazykové chyby mají konkrétní doklady; kvalitativní akceptace
+chatu ani změna CHAT bindingu z těchto výsledků neplyne.
+[Závěrečný report a manifest](../review/2026-09-20-CHAT-QUALITY.md).
