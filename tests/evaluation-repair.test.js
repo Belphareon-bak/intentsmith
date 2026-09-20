@@ -50,7 +50,7 @@ test('manual content rubrics cannot award or remove a content point for JSON wra
   assert.ok(!t.rubric.some(c=>/no Markdown or prose|without removing a Markdown fence|exact three keys/.test(c)),t.name);
  }
  const grammar=SEMANTIC_ROLE_SUITES.CHAT.tests.find(t=>t.name==='cz_grammar_correction');
- assert.equal(grammar.rubric.length,5);assert.equal(grammar.formatRubric.length,1);
+ assert.equal(grammar.rubric.length,4);assert.equal(grammar.formatRubric.length,2);
  assert.match(grammar.promptText,/následujících čtyřech větách/);
  const state=SEMANTIC_ROLE_SUITES.CHAT.tests.find(t=>t.name==='en_state_updates');
  assert.equal(state.rubric.length,2);assert.equal(state.formatRubric.length,1);
@@ -113,7 +113,7 @@ test('reviewed missing context is delivered, not just kept in hidden metadata',(
   assert.ok(context.length);for(const file of context)assert.ok(t.promptText.includes(file.text));
  }
  const d2=SEMANTIC_ROLE_SUITES.D2.tests.find(t=>t.name==='d2_immutable_refinement');
- assert.match(d2.rubric[2],/separate finalContent/);assert.match(d2.rubric[3],/Any evidenced shortcut/);
+ assert.match(d2.rubric[1],/separate finalContent/);assert.match(d2.rubric[2],/Any evidenced shortcut/);
 });
 test('VISION has broad image coverage and does not call partial JSON a complete pass',()=>{
  const images=visionV2Suite.tests.flatMap(t=>t.contractMaterial.prompt.imageDigests||[]);

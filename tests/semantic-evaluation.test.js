@@ -54,6 +54,44 @@ test('malformed, partial, extra, reordered and out-of-range judgements fail clos
     JSON.stringify({...valid,a:rows(0.9)}),JSON.stringify({...valid,b:[{criterion:1,score:1,evidence:''},rows(1)[1]]})])
     assert.equal(parseSemanticJudgement(bad,2),null);
 });
+test('current analytic rubrics contain neither instruction points nor duplicate criteria',()=>{
+  for (const role of ['D1','D2','R1','R2','CHAT']) for (const t of SEMANTIC_ROLE_SUITES[role].tests.filter(t=>t.tier==='T4')) {
+    const ref=t.semanticReference;
+    assert.equal(ref.rubricPolicy.revision,'content-rubric.5');
+    assert.equal(ref.criterionIds.length,ref.criteria.length);
+    assert.equal(new Set(ref.criterionIds).size,ref.criteria.length);
+    assert.ok(ref.criteria.every(c=>!c.startsWith('Answers the request') && !c.startsWith('Answers the requested role')));
+  }
+  for (const t of SEMANTIC_ROLE_SUITES.R2.tests) {
+    assert.equal(t.semanticReference.criteria.length,1,'finding and its reproduction must not count the same causal error twice');
+  }
+});
+test('content calibration distinguishes a substantive wrong attempt from accepting it as correct',()=>{
+  const probes=Object.fromEntries(['gold','alternative','empty','prompt-echo','keyword-stuffing','negated-facts','confident-wrong']
+    .map(kind=>[kind,{valid:true,score:['gold','alternative'].includes(kind)?1:['negated-facts','confident-wrong'].includes(kind)?.25:0}]));
+  assert.equal(calibrationProbeMetrics(probes,{contentPolicy:true}).falseAcceptRate,0);
+  probes['confident-wrong'].score=.75;
+  assert.equal(calibrationProbeMetrics(probes,{contentPolicy:true}).falseAcceptRate,.2);
+  probes.empty.score=.25;
+  assert.equal(calibrationProbeMetrics(probes,{contentPolicy:true}).falseAcceptRate,.4);
+});
+await testAsync('analytic rubric keeps independent credit after a failed first criterion and supports an ungradable response',async()=>{
+  const current=semanticTask({name:'analytic',role:'D2',prompt:'A task',reference:{
+    ...task.semanticReference,rubricPolicy:{revision:'content-rubric.5',instructions:['No global prerequisite.']},
+  }});
+  let format;
+  const judge=new SemanticEvaluationJudge({artifact,call:async(_model,messages,options)=>{
+    format=options.format;const data=JSON.parse(messages[1].content),target=rows(0);target[1].score=1;
+    return {doneReason:'stop',content:JSON.stringify(data.a==='partial'?{a:target,b:rows(1)}:{a:rows(1),b:target})};
+  }});
+  const result=await judge.grade(current,'partial',{calibration:true});
+  assert.equal(result.score,0.5);assert.equal(result.detail.parts[1].score,1);
+  assert.deepEqual(format.anyOf[1].required,['ungradable','reason']);
+  for(const score of [0.25,0.75]) assert.ok(parseSemanticJudgement(JSON.stringify({a:rows(score),b:rows(1)}),2));
+  judge.call=async()=>({doneReason:'stop',content:JSON.stringify({ungradable:true,reason:'Caller contract absent'})});
+  const missing=await judge.grade(current,'partial',{calibration:true});
+  assert.equal(missing.valid,false);assert.equal(missing.score,null);
+});
 await testAsync('unqualified open answers have no score, including empty output',async()=>{
   const judge=new SemanticEvaluationJudge({call:goodCall,artifact});
   for(const answer of ['','correct']) {

@@ -1,5 +1,17 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**GPU hunt — normalizace rubrik a příprava provozní zkoušky, 20. 9. 2026:**
+53 otevřených rubrik má novou verzi bez obecného instrukčního bodu a bez
+prerekvizity, která mazala správné části odpovědi. U R2 je nález a jeho
+reprodukce jeden důkaz, nikoli dva body za stejnou příčinu. Veřejná zadání
+sběru se nezměnila. Ručně dočteno 630 otevřených CHAT pokusů (330 unikátních
+textů) a prvních 30 R2 odpovědí; **celé hodnocení ještě není dokončené**.
+Šest nových historických CODE případů prošlo 48/48 offline kontrolami
+referencí, alternativ, vadných oprav a produkčního fix loopu na pracovním
+stromu. Čistý replay a skutečné párové měření následují.
+**IN_PROGRESS / REVIEW_PENDING / NOT_DEPLOYED / NO_GO_FOR_AUTONOMOUS_HUNT**.
+[Podrobnosti a rozsah](docs/review/2026-09-20-HUNT-COMPLETION.md).
+
 **GPU hunt — produkční JSON parser, 20. 9. 2026:** CHAT T2 a VISION nyní
 používají přímo `client.js#extractJSON`; produkční parser se neměnil.
 Replay 1 182 odpovědí, všech 54 fence s prózou přečteno; 48 obsahových

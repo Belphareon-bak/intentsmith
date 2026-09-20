@@ -6,7 +6,8 @@ import path from 'node:path';
 import {createHash, randomUUID} from 'node:crypto';
 import {execFileSync, spawn} from 'node:child_process';
 import {pathToFileURL, fileURLToPath} from 'node:url';
-import {cases, c3Revision} from './c3-code-pilot-fixtures.mjs';
+import {cases as developmentCases, c3Revision} from './c3-code-pilot-fixtures.mjs';
+import {cases as freshCases, caseSet as freshCaseSet} from './code-operational-20260920-fixtures.mjs';
 import {codePilotPlanHash, validateCodePilotPlan, decideCodePilot, classifyCodePilotOutcome} from '../../src/eval/code-pilot-decision.js';
 import {holdGpuEvaluationLock} from '../../src/upgrade/gpu-evaluation-lock.js';
 
@@ -15,9 +16,15 @@ const args = process.argv.slice(2);
 const opt = key => args.find(a => a.startsWith(`--${key}=`))?.slice(key.length + 3);
 const mode = args[0], c3 = opt('c3'), out = opt('out');
 const workflow = opt('workflow') || 'c3';
-const development = workflow === 'intentsmith';
+const caseSet = opt('case-set') || 'development-20260919';
+if (!['development-20260919',freshCaseSet].includes(caseSet)) throw new Error('UNKNOWN_CASE_SET');
+const fresh = caseSet === freshCaseSet;
+if (fresh && workflow !== 'intentsmith') throw new Error('FRESH_CASES_REQUIRE_PRODUCT_WORKFLOW');
+const cases = fresh ? freshCases : developmentCases;
+const fixturesUrl = new URL(fresh ? './code-operational-20260920-fixtures.mjs' : './c3-code-pilot-fixtures.mjs',import.meta.url);
+const development = workflow === 'intentsmith' && !fresh;
 if (!args.length || mode === '--help') {
-  console.log('Manual CODE pilot: --prepare|--seal|--run|--replay --c3=/absolute/c3 --out=/absolute/evidence.\nPrepare validates executable oracles without GPU; seal locks the plan; run requires the pinned sidecar.\n--workflow=intentsmith uses the current product loop for DEVELOPMENT ONLY. --replay --responses=/absolute/archive replays stored output without inference. Fresh development seal/run also require --development.');
+  console.log('Manual CODE pilot: --prepare|--seal|--run|--replay --c3=/absolute/c3 --out=/absolute/evidence.\nPrepare validates executable oracles without GPU; seal locks the plan; run requires the pinned sidecar.\n--workflow=intentsmith uses the current product loop for DEVELOPMENT ONLY. --replay --responses=/absolute/archive replays stored output without inference. Fresh development seal/run also require --development. --case-set=fresh-20260920 uses disjoint historical cases through the IntentSmith loop with a separately sealed comparison plan.');
   process.exit(0);
 }
 if (!['--prepare','--seal','--run','--replay'].includes(mode) || !['c3','intentsmith'].includes(workflow) || !path.isAbsolute(c3 || '') || !path.isAbsolute(out || '')) {
@@ -27,7 +34,7 @@ if (development && ['--seal','--run'].includes(mode) && !args.includes('--develo
 fs.mkdirSync(out,{recursive:true,mode:0o700});
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const runtimeSources = () => Object.fromEntries(execFileSync('git',['-C',root,'ls-files','src','scripts/manual/c3-code-pilot.mjs',
-  'scripts/manual/c3-code-pilot-fixtures.mjs','scripts/run-model-hunt-provider.js','package-lock.json'],{encoding:'utf8'})
+  'scripts/manual/c3-code-pilot-fixtures.mjs','scripts/manual/code-operational-20260920-fixtures.mjs','scripts/run-model-hunt-provider.js','package-lock.json'],{encoding:'utf8'})
   .trim().split('\n').filter(Boolean).map(f=>[f,hash(fs.readFileSync(path.join(root,f)))]));
 const sourceState = () => ({revision:execFileSync('git',['-C',root,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),
   workingTreeDirty:!!execFileSync('git',['-C',root,'status','--porcelain'],{encoding:'utf8'}).trim(),
@@ -207,12 +214,21 @@ if(mode==='--replay') {
   report.status='REPLAY_COMPLETE';report.finishedAt=new Date().toISOString();save('replay.json',report);
 } else if(mode==='--prepare') {
   const report={startedAt:new Date().toISOString(),c3Revision:revision,
-    workflow,developmentOnly:development,source:sourceState(),
-    fixturesSha256:hash(fs.readFileSync(new URL('./c3-code-pilot-fixtures.mjs',import.meta.url))),cases:[],status:'RUNNING'};
+    workflow,caseSet,developmentOnly:development,source:sourceState(),
+    fixturesSha256:hash(fs.readFileSync(fixturesUrl)),cases:[],status:'RUNNING'};
   for(const def of cases) {
     const dir=path.join(out,'oracles',def.id);exportCase(def,dir);
     const versions=sourceVersions(def), controls=[];
-    for(const [name,sources,expected] of [['gold',versions.gold,true],['alternative',versions.alternative,true],['broken',versions.before,false]]) {
+    const negativeControls=(def.mutants || []).map(mutant=>{
+      const sources={...versions.gold};
+      for(const [before,after] of mutant.edits) {
+        const file=def.files.find(f=>sources[f].includes(before));
+        if(!file)throw new Error('NEGATIVE_CONTROL_DRIFT:'+def.id+':'+mutant.name);
+        sources[file]=sources[file].replace(before,after);
+      }
+      return [mutant.name,sources,false];
+    });
+    for(const [name,sources,expected] of [['gold',versions.gold,true],['alternative',versions.alternative,true],['broken',versions.before,false],...negativeControls]) {
       console.log(def.id, 'oracle', name);put(dir,sources);const r=await check(dir);controls.push({name,expected,...r});
     }
     const runtimeControls=[];
@@ -256,21 +272,21 @@ if(mode==='--replay') {
 } else if(mode==='--seal') {
   if(fs.existsSync(path.join(out,'plan.json'))) throw new Error('PLAN_ALREADY_SEALED');
   const acceptance=read('oracle-acceptance.json');
-  if(acceptance.status!=='PASS' || (acceptance.workflow || 'c3')!==workflow || acceptance.cases.length!==cases.length
-    || acceptance.fixturesSha256!==hash(fs.readFileSync(new URL('./c3-code-pilot-fixtures.mjs',import.meta.url)))) throw new Error('ORACLES_NOT_ACCEPTED');
-  if (development && JSON.stringify(acceptance.source?.sourceHashes)!==JSON.stringify(runtimeSources())) throw new Error('ACCEPTED_RUNTIME_SOURCE_DRIFT');
+  if(acceptance.status!=='PASS' || (acceptance.caseSet || 'development-20260919')!==caseSet || (acceptance.workflow || 'c3')!==workflow || acceptance.cases.length!==cases.length
+    || acceptance.fixturesSha256!==hash(fs.readFileSync(fixturesUrl))) throw new Error('ORACLES_NOT_ACCEPTED');
+  if (workflow === 'intentsmith' && JSON.stringify(acceptance.source?.sourceHashes)!==JSON.stringify(runtimeSources())) throw new Error('ACCEPTED_RUNTIME_SOURCE_DRIFT');
   if(!path.isAbsolute(opt('binding-db')||''))throw new Error('ABSOLUTE_BINDING_DB_REQUIRED');
   const binding=bindingAt(opt('binding-db'));
   if(binding?.model!=='qwen3.8:latest' || binding.model_digest_sha256!=='22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643'
     || binding.verification_status!=='VERIFIED')throw new Error('CURRENT_CODE_BINDING_CHANGED');
-  const plan={schemaVersion:1,role:'CODE',workflow,developmentOnly:development,notAHoldout:development,metric:'completed_without_repair_help',lockedAt:new Date().toISOString(),
+  const plan={schemaVersion:1,role:'CODE',workflow,caseSet,developmentOnly:development,notAHoldout:development,metric:'completed_without_repair_help',lockedAt:new Date().toISOString(),
     bindingDb:opt('binding-db'),bindingAtLock:binding,predecessorPlanSha256:opt('supersedes')||null,
     c3Revision:revision,independenceStatus:'ASSUMED_GROUPS_NOT_PROVEN_INDEPENDENCE',
-    scope:development?'Development replay with fresh model responses on eight already exposed cases, using the IntentSmith product loop. Not selection evidence.':'Localized historical C3 repair using its unchanged execution loop; no Studio journey or whole-project success claim.',
+    scope:fresh?'First paired run on six distinct historical repairs, using the current IntentSmith product fix loop. Localized source context; not a Studio or whole-project claim. Historical source may have been in model training.':development?'Development replay with fresh model responses on eight already exposed cases, using the IntentSmith product loop. Not selection evidence.':'Localized historical C3 repair using its unchanged execution loop; no Studio journey or whole-project success claim.',
     incumbent:{model:'qwen3.8:latest',digest:'22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643'},
-    candidate:{model:'devstral-small-2:latest',digest:'24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8'},
-    candidateSelection:'Runner-up from closed exploratory series; incumbent verified from production model_overrides before lock.',
-    repeats:development?1:3,budget:{attemptMs:600000,totalMs:(development?2:4)*60*60*1000,maxIterations:3},
+    candidate:fresh?{model:'qwen3.5:27b',digest:'7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e'}:{model:'devstral-small-2:latest',digest:'24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8'},
+    candidateSelection:fresh?'Closed stored CODE replay: qwen3.8 1.000, qwen3.5 0.84127. Gemma4:26b 0.85714 excluded because the tested profile lacks whole-GPU qualification. This is a preselected validation pair, not a role promotion.':'Runner-up from closed exploratory series; incumbent verified from production model_overrides before lock.',
+    repeats:(development || fresh)?1:3,budget:{attemptMs:600000,totalMs:(development?2:4)*60*60*1000,maxIterations:3},
     decision:{method:'hoeffding-kl-bounded-groups',alpha:.05,minimumBenefit:.05,
       nonInferiorityMargin:.05,minimumSpeedup:1.25,allowSpeedDecision:false},
     profile:{numCtx:16384,numPredict:4096,temperature:.1,topP:.9,callTimeoutMs:300000,
@@ -289,7 +305,7 @@ if(mode==='--replay') {
   console.log('SEALED',plan.planSha256,'scenarios',plan.scenarios.length,'groups',new Set(plan.scenarios.map(s=>s.independenceGroup)).size);
 } else if(mode==='--run') {
   const plan=read('plan.json');validateCodePilotPlan(plan);
-  if ((plan.workflow || 'c3')!==workflow || !!plan.developmentOnly!==development) throw new Error('WORKFLOW_PLAN_MISMATCH');
+  if ((plan.caseSet || 'development-20260919')!==caseSet || (plan.workflow || 'c3')!==workflow || !!plan.developmentOnly!==development) throw new Error('WORKFLOW_PLAN_MISMATCH');
   for(const [f,digest] of Object.entries(plan.sourceHashes)) if(hash(fs.readFileSync(path.join(root,f)))!==digest) throw new Error('SEALED_SOURCE_DRIFT:'+f);
   if(hash(fs.readFileSync(path.join(out,'oracle-acceptance.json')))!==plan.oracleAcceptanceSha256
     || hash(fs.readFileSync(path.join(c3,'package-lock.json')))!==plan.c3LockSha256
@@ -301,7 +317,7 @@ if(mode==='--replay') {
   if(endpoint!=='http://127.0.0.1:11435') throw new Error('PINNED_SIDECAR_REQUIRED');
   const get=async suffix=>{const r=await fetch(endpoint+suffix,{signal:AbortSignal.timeout(2000)});if(!r.ok)throw new Error('PROVIDER_HTTP_'+r.status);return r.json();};
   const lease=holdGpuEvaluationLock(),runner=new ModelEvaluationRunner(endpoint),started=Date.now();
-  const report={status:'RUNNING',sourceRevision,workflow,developmentOnly:development,notAHoldout:development,planSha256:plan.planSha256,startedAt:new Date().toISOString(),
+  const report={status:'RUNNING',sourceRevision,workflow,caseSet,developmentOnly:development,notAHoldout:development,planSha256:plan.planSha256,startedAt:new Date().toISOString(),
     qualifications:{},attempts:[],decision:null,operationPolicy:{productionImported:false,applyBindings:false,removeModels:false}};
   const flush=()=>{save('result.json',report);if(opt('report'))fs.writeFileSync(opt('report'),JSON.stringify(report,null,2)+'\n');};
   const compute=()=>execFileSync('nvidia-smi',['--query-compute-apps=pid,process_name','--format=csv,noheader'],{timeout:3000}).toString().trim();

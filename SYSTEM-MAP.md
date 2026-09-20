@@ -1,5 +1,17 @@
 # IntentSmith — mapa systému
 
+**GPU hunt — normalizace rubrik a příprava provozní zkoušky, 20. 9. 2026:**
+53 otevřených rubrik má novou verzi bez obecného instrukčního bodu a bez
+prerekvizity, která mazala správné části odpovědi. U R2 je nález a jeho
+reprodukce jeden důkaz, nikoli dva body za stejnou příčinu. Veřejná zadání
+sběru se nezměnila. Ručně dočteno 630 otevřených CHAT pokusů (330 unikátních
+textů) a prvních 30 R2 odpovědí; **celé hodnocení ještě není dokončené**.
+Šest nových historických CODE případů prošlo 48/48 offline kontrolami
+referencí, alternativ, vadných oprav a produkčního fix loopu na pracovním
+stromu. Čistý replay a skutečné párové měření následují.
+**IN_PROGRESS / REVIEW_PENDING / NOT_DEPLOYED / NO_GO_FOR_AUTONOMOUS_HUNT**.
+[Podrobnosti a rozsah](docs/review/2026-09-20-HUNT-COMPLETION.md).
+
 **GPU hunt — produkční JSON parser, 20. 9. 2026:** CHAT T2 a VISION nyní
 používají přímo `client.js#extractJSON`; produkční parser se neměnil.
 Replay 1 182 odpovědí, všech 54 fence s prózou přečteno; 48 obsahových
@@ -474,8 +486,8 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **226 787 ř.**, 638 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **248 585 ř.**, 536 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **226 807 ř.**, 638 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **248 623 ř.**, 536 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **529** (`435 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **178 / 103** |
 | HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |
