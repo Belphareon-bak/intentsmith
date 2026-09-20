@@ -1,10 +1,14 @@
 # IntentSmith — mapa systému
 
-**GPU hunt — rozšířený sběr, 20. 9. 2026:** po druhé revizi oddělen formát
-od obsahové rubriky, opraveny dvě české úlohy. Připraven panel všech 12
-lokálních artefaktů: 10 pro textový profil, 8 pro VISION, 2 922 pokusů.
-**PREPARED / NOT_GRADED / NOT_DEPLOYED**, rozhodování a timer vypnuté.
-[Plán, meze a následný průběh](docs/review/2026-09-20-HUNT-ALL-INSTALLED.md).
+**GPU hunt — rozšířený sběr, 20. 9. 2026:** všech 12 lokálních artefaktů,
+10 pro textové role a 8 pro VISION; **2 922/2 922** pokusů na čistém `775434ff`.
+2 898 dokončených generací, 24 tokenových limitů, 0 transportních chyb.
+Integrita PASS, formulář 14/14, ověřený archiv a vzorek 15 cílených + 15 náhodných.
+Obsahové známky zatím nevydané; CODE čeká na samostatné orákulum.
+**COLLECTION_COMPLETE / NOT_GRADED / REVIEW_PENDING / NOT_DEPLOYED**;
+**NO_GO_FOR_AUTONOMOUS_HUNT**, timer vypnutý, GPU po sběru uvolněná.
+Starší níže uvedené známky nejsou výsledky tohoto nového sběru.
+[Výsledky sběru, podklady k hodnocení a meze](docs/review/2026-09-20-HUNT-ALL-INSTALLED.md).
 
 **GPU hunt — opravené sady a nový sběr, 20. 9. 2026:** všech sedm rolí,
 nejméně dva kandidáti na roli, tři pro CODE. 633 zaznamenaných pokusů:
