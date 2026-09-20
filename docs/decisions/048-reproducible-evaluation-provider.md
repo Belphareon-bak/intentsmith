@@ -157,3 +157,23 @@ mění detekci opakovaných tokenů a načítání katalogových údajů;
 aktualizuje llama.cpp a opravuje dlouhé generování MLX. Samotná dostupnost
 nové verze neprokazuje kompatibilitu starých měření. Starší recepty zůstaly
 explicitně dostupné přes `OLLAMA_PROVIDER_TAG`/`OLLAMA_PROVIDER_REVISION`.
+
+## Lokální generate attestation, 20. 9. 2026
+
+Provozní obrazová cesta `analyzeImages` používá `/api/generate`. Reprodukce
+na `0.34.2-intentsmith.1` potvrdila, že tato cesta nevrací response digest;
+odmítnutý první pokus zůstává v evidence, inventory jej nenahrazuje.
+Patch `0005` doplňuje digest již vybraného modelu a provider version do
+lokálních generate odpovědí včetně streamu, load/unload a debug renderu.
+Remote forwarding se nemění. Go regresní kontrola mění manifest tagu
+během dokončování a požaduje původní obsloužený digest; bez doplněných
+polí selže v obou stream režimech.
+
+`OLLAMA_PROVIDER_REVISION=2` s tagem `v0.34.2` skládá nový build
+`0.34.2-intentsmith.2`, source `2206cee85bf2cbe12ea69101aa7d76b91cd8cbb4`,
+binary SHA `351d992d509eb4c0d97dea75111de1b91d1bec8643dd46a88355fd0b7f11cef3`.
+Explicitní manuální `--conversation-handoff` jej vyžaduje; běžný hunt a
+dříve uzamčené piloty nadále používají `.1`. Systémový provider ani
+produkční bindingy se tím neaktualizují. Stejný 0.34.2 native payload
+je ověřen přes jeho souborové hashe. Tato implementace není přejímka
+automatického rozhodovacího profilu.

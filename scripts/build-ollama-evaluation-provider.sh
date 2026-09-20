@@ -17,7 +17,7 @@ go_bin=$(command -v "${GO_BIN:-go}") || {
 }
 provider_tag=${OLLAMA_PROVIDER_TAG:-v0.34.2}
 provider_revision=${OLLAMA_PROVIDER_REVISION:-$([[ "$provider_tag" == v0.34.0 ]] && echo 2 || echo 1)}
-[[ "$provider_revision" == 1 || ( "$provider_tag" == v0.34.0 && "$provider_revision" == 2 ) ]] || {
+[[ "$provider_revision" == 1 || ( ( "$provider_tag" == v0.34.0 || "$provider_tag" == v0.34.2 ) && "$provider_revision" == 2 ) ]] || {
   echo "Unsupported provider revision." >&2; exit 2
 }
 case "$provider_tag" in
@@ -49,10 +49,16 @@ source_epoch=1789825500
 ;;
 *) echo "Unsupported provider tag: $provider_tag" >&2; exit 2 ;;
 esac
-if [[ "$provider_revision" == 2 ]]; then
+if [[ "$provider_revision" == 2 && "$provider_tag" == v0.34.0 ]]; then
   provider_version=0.34.0-intentsmith.2
   expected_source=4b548b3d49c8bb79b08673bfebc3c2f1f8468fd7
   expected_binary=3c22a0cfb46a9ea38fd4dba6746a022be04f5ada21a529e83c9380a5f0547b9d
+fi
+if [[ "$provider_revision" == 2 && "$provider_tag" == v0.34.2 ]]; then
+  provider_version=0.34.2-intentsmith.2
+  expected_source=2206cee85bf2cbe12ea69101aa7d76b91cd8cbb4
+  expected_binary=351d992d509eb4c0d97dea75111de1b91d1bec8643dd46a88355fd0b7f11cef3
+  source_epoch=1789940160
 fi
 mkdir -- "$1"
 output=$(cd -- "$1" && pwd)
@@ -67,10 +73,15 @@ git -c core.hooksPath=/dev/null clone --no-local --depth=1 --single-branch \
 git -C "$source_dir" -c core.hooksPath=/dev/null -c commit.gpgSign=false \
   -c user.name=Belphareon -c user.email=geofery.cz@gmail.com \
   am --committer-date-is-author-date "$patch_file"
-if [[ "$provider_revision" == 2 ]]; then
+if [[ "$provider_revision" == 2 && "$provider_tag" == v0.34.0 ]]; then
   git -C "$source_dir" -c core.hooksPath=/dev/null -c commit.gpgSign=false \
     -c user.name=Belphareon -c user.email=geofery.cz@gmail.com \
     am --committer-date-is-author-date "$script_root/patches/ollama/0003-v0.34.0-complete-repeated-code-tokens.patch"
+fi
+if [[ "$provider_revision" == 2 && "$provider_tag" == v0.34.2 ]]; then
+  git -C "$source_dir" -c core.hooksPath=/dev/null -c commit.gpgSign=false \
+    -c user.name=Belphareon -c user.email=geofery.cz@gmail.com \
+    am --committer-date-is-author-date "$script_root/patches/ollama/0005-v0.34.2-generate-response-digest.patch"
 fi
 [[ "$(git -C "$source_dir" rev-parse HEAD)" == "$expected_source" ]] || {
   echo "Patched source identity mismatch." >&2
