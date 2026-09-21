@@ -121,6 +121,16 @@ test('Studio progress exposes real task counts and ETA, with raw failures only i
   const details=nodes(tree()).find(n=>n.tag==='details'&&JSON.stringify(n).includes('private-stack.js:673'));
   assert.ok(details);assert.notEqual(details.props.open,true);
   assert.match(JSON.stringify(tree()),/Obnov seznam modelů/);
+  // systemd can be active before the wrapper replaces the previous summary.
+  context._huntData.state='RUNNING';
+  context._huntData.current={status:'COMPLETE',startedAt:'2020-01-01T00:00:00Z',request:{kind:'evaluation',model:'fixture',role:'D1,CODE,VISION'}};
+  assert.match(JSON.stringify(tree()),/Čekám na potvrzení začátku běhu/);
+  assert.doesNotMatch(JSON.stringify(tree()),/Uplynulo/);
+  Object.assign(context,{_loadEvaluationData(){},renderCenter(){}});
+  const resultButton=nodes(tree()).find(n=>n.tag==='button'&&n.children.includes('Zobrazit výsledky'));
+  assert.ok(resultButton);resultButton.props.onClick();
+  assert.equal(context._evaluationRoleFilter,'all');
+  assert.equal(context._evaluationModelFilter,'fixture');
 });
 test('calibration diagnostic separates a stable near-tie from noise without overriding decisions',()=>{
   const data=[{model:'fixture',trials:[{role:'D1',decision:{reasonCode:'INSUFFICIENT_EVIDENCE'},

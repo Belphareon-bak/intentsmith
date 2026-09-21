@@ -2586,7 +2586,7 @@ function _renderHuntTab(){
   var phases={'provider-start':'Spouštění evaluačního provideru',discovery:'Ověřování inventáře a sestavení plánu',planned:'Plán připraven',
     roleCollected:'Odpovědi uloženy k posouzení',incumbents:'Příprava referenčních modelů',evaluating:'Příprava modelu',pull:'Stahování modelu',pullSkipped:'Model už je stažený',
     'waiting-gpu':'Čekám na uvolnění GPU',measure:'Načítání modelu a ověření jeho paměťových nároků',measured:'Paměť a rychlost změřeny',floor:'Kontrola základních schopností',floorPassed:'Základní kontroly prošly',
-    tasks:'Vyhodnocování testovacích úloh',roleEvaluated:'Ukládání výsledku role',roleDecided:'Porovnání role dokončeno',roleFailed:'Měření role selhalo',roleSkipped:'Role přeskočena'};
+    tasks:'Probíhají testovací úlohy',roleEvaluated:'Ukládání výsledku role',roleDecided:'Porovnání role dokončeno',roleFailed:'Měření role selhalo',roleSkipped:'Role přeskočena'};
   var activeRequest=last&&last.status==='RUNNING'?last.request:null;
   var model=progress&&progress.activeModel||activeRequest&&activeRequest.model;
   var phase=progress&&progress.phase||last&&last.phase;
@@ -2598,7 +2598,7 @@ function _renderHuntTab(){
   var request=last&&last.request||{};
   function button(label,action,disabled){disabled=!d||_huntActionPending||disabled;return h('button',{disabled:disabled,
     onClick:function(){_controlHunt(action);},style:_modelButtonStyle(action==='start',disabled)},label);}
-  function scoreButton(){return h('button',{style:_modelButtonStyle(true,false),onClick:function(){_evaluationModelFilter='';_evaluationRoleFilter=request.role||'all';_upgradeTab='evaluations';_loadEvaluationData();renderCenter();}},'Zobrazit skóre');}
+  function scoreButton(){return h('button',{style:_modelButtonStyle(true,false),onClick:function(){_evaluationModelFilter=request.model||'';_evaluationRoleFilter=['D1','D2','R1','CODE','R2','CHAT','VISION'].includes(request.role)?request.role:'all';_upgradeTab='evaluations';_loadEvaluationData();renderCenter();}},'Zobrazit výsledky');}
   function technical(record){return h('details',{style:{marginTop:12,color:C.tx3,fontSize:_fs(10)}},h('summary',{style:{cursor:'pointer'}},'Technické podrobnosti'),
     h('pre',{style:{whiteSpace:'pre-wrap',overflowWrap:'anywhere',maxHeight:240,overflow:'auto',background:C.bg1,padding:12,borderRadius:6}},record.error||(record.reasons||[]).join('\n')||record.status));}
   var card={padding:16,marginBottom:16,border:'1px solid '+C.border,borderRadius:8,background:C.bg2};
@@ -2615,7 +2615,7 @@ function _renderHuntTab(){
       h('progress',{max:100,value:counted?percent:undefined,'aria-label':'Průběh aktuální testovací sady',style:{display:'block',width:'100%',height:12,margin:'14px 0 8px',accentColor:C.accent}}),
       h('div',{style:{display:'flex',gap:16,flexWrap:'wrap',justifyContent:'space-between',color:C.tx3}},
         h('span',null,counted?completed+' / '+total+' provedených úloh · '+percent+' %':detail.download?detail.download.text:phase==='waiting-gpu'?'Požadavek čeká na volné prostředky':'Přípravná fáze · ověřuji konkrétní model'),
-        h('span',null,'Uplynulo '+_huntDuration(Date.now()-Date.parse(last&&last.startedAt)))),
+        h('span',null,activeRequest?'Uplynulo '+_huntDuration(Date.now()-Date.parse(last.startedAt)):'Čekám na potvrzení začátku běhu')),
       h('div',{style:{color:C.tx3,fontSize:_fs(10),marginTop:8}},counted?eta:'Délka této fáze zatím není známá.'),
       progress?h('div',{style:{color:age>60000?C.amber:C.tx4,fontSize:_fs(10),marginTop:4}},'Poslední změna před '+_huntDuration(age)+(age>60000?' · aktuální úloha zatím nevrátila další výsledek.':'')):null,
       h('div',{style:{marginTop:12}},button('Zastavit měření','stop',d.state==='STOPPING'||Boolean(_huntError)))):null,
