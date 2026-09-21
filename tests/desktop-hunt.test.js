@@ -184,7 +184,7 @@ test('desktop and hunt use one environment, bounded commands, and persistent sch
     assert.match(unit,/KillMode=control-group/);
   }
   assert.match(files.hunt,/--limit=2 .*--scheduled/);
-  assert.match(files.timer,/Persistent=true/);
+  assert.match(files.timer,/Persistent=false/);
   assert.match(files.desktop,/Terminal=false/);
   assert.match(files.apparmor,/profile intentsmith "\/opt\/Intent Smith\/intentsmith-ide\/node_modules\/electron\/dist\/electron" flags=\(unconfined\)/);
   assert.match(files.apparmor,/\n  userns,\n/);
