@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "928dedb19c7baf0d0475079acafd9279d1795bf3",
-  "sourceTree": "5814d026a013d5e2f3923e9d41c280069a3b6cc5",
+  "sourceRevision": "d8b95f30cadfaf81fc39050a3c969ded3eab02ca",
+  "sourceTree": "33f1b4b32b68f683ea04012fa77c96349cc49845",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "a111646c052627fd0803fc881838f58d7d5fd8dc",
@@ -1371,6 +1371,7 @@
     "src/upgrade/upgrade-manager.js -> src/config.js",
     "src/upgrade/upgrade-manager.js -> src/core/logger.js",
     "src/upgrade/upgrade-manager.js -> src/system/gpu-detector.js",
+    "src/upgrade/upgrade-manager.js -> src/upgrade/gpu-evaluation-lock.js",
     "src/upgrade/upgrade-manager.js -> src/upgrade/model-catalog.js",
     "src/upgrade/upgrade-manager.js -> src/upgrade/model-discovery.js",
     "src/upgrade/upgrade-manager.js -> src/upgrade/model-identity.js",
