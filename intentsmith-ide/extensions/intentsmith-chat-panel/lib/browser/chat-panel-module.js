@@ -3841,10 +3841,10 @@ function centerUpgrades(){
     /* tab bar */
     h('div',{style:{display:'flex',gap:6,padding:'10px 18px',borderBottom:'1px solid '+C.border,flexWrap:'wrap'}},
       h('button',{style:tabStyle('overview'),onClick:function(){_upgradeTab='overview';renderCenter();}},'P\u0159ehled'),
-      h('button',{style:tabStyle('roles'),onClick:function(){_upgradeTab='roles';renderCenter();}},'Role (7)'),
+      h('button',{style:tabStyle('roles'),onClick:function(){_upgradeTab='roles';_loadEvaluationData();renderCenter();}},'Role (7)'),
       h('button',{style:tabStyle('evaluations'),onClick:function(){_upgradeTab='evaluations';_loadEvaluationData();renderCenter();}},'Evaluace'),
       h('button',{style:tabStyle('hunt'),onClick:function(){_upgradeTab='hunt';_loadHuntStatus();renderCenter();}},'GPU hunt'),
-      h('button',{style:tabStyle('history'),onClick:function(){_upgradeTab='history';renderCenter();}},'Historie'),
+      h('button',{style:tabStyle('history'),onClick:function(){_upgradeTab='history';_loadEvaluationData();renderCenter();}},'Historie'),
       h('button',{style:tabStyle('discovered'),onClick:function(){_upgradeTab='discovered';renderCenter();}},'Kandid\u00E1ti'),
       h('button',{style:tabStyle('governor'),onClick:function(){_upgradeTab='governor';_governorData=null;_loadGovernorData();renderCenter();}},'Spr\u00E1vce')),
     /* toast */
