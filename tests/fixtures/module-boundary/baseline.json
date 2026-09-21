@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "2799ab440cd90111f1e52b8164a066388cc3ca03",
-  "sourceTree": "4ca898143dd0433fd8dcc5e56b75397a47c7b852",
+  "sourceRevision": "928dedb19c7baf0d0475079acafd9279d1795bf3",
+  "sourceTree": "5814d026a013d5e2f3923e9d41c280069a3b6cc5",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "a111646c052627fd0803fc881838f58d7d5fd8dc",
@@ -1124,6 +1124,7 @@
     "src/server.js -> src/core/logger.js",
     "src/server.js -> src/db/data-retention.js",
     "src/server.js -> src/db/database.js",
+    "src/server.js -> src/eval/evaluation-provider-build.js",
     "src/server.js -> src/executor/tool-executor.js",
     "src/server.js -> src/expertises/expertise-store.js",
     "src/server.js -> src/expertises/specialist-memory.js",

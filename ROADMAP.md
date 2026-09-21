@@ -1,7 +1,8 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
 **GPU hunt — sběr pod dohledem, 21. 9. 2026:**
-Integrovaný module graph má 1 396 hran, 3 cykly / 28 členů; čtyři nové hrany
+Provider má společně připnutou verzi a SHA; hunt zachovává rezervu RAM a FS.
+Integrovaný module graph má 1 397 hran, 3 cykly / 28 členů; čtyři nové hrany
 sběru a dvě již přijaté hrany chatového kontextu.
 Běžná cesta nově sbírá odlišné D1/D2/R1/R2/CHAT sady bez nepřijatého soudce,
 s průběžným uložením, detaily ve Studiu a odděleným exportem bez identit.
