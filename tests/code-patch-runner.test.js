@@ -6,7 +6,7 @@
 
 import { suite, test, assert, assertEqual, summary } from './harness.js';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -139,6 +139,20 @@ test('isolated test retains network isolation with session environment omitted',
     for (const [key,value] of Object.entries(saved)) { if(value===undefined) delete process.env[key];else process.env[key]=value; }
     rmSync(work,{recursive:true,force:true});
   }
+});
+
+test('a successful launcher without a new network namespace cannot execute candidate code', () => {
+  const work=mkdtempSync(path.join(tmpdir(),'codepatch-false-isolation-'));
+  const saved=process.env.PATH;
+  try {
+    const bin=path.join(work,'bin');mkdirSync(bin);
+    writeFileSync(path.join(bin,'unshare'),'#!/bin/sh\nshift\nexec "$@"\n',{mode:0o700});
+    process.env.PATH=bin+path.delimiter+saved;
+    writeFileSync(path.join(work,'test.cjs'),"require('node:fs').writeFileSync("+JSON.stringify(path.join(work,'must-not-execute'))+",'unsafe');");
+    const result=runIsolatedTest(work,'test.cjs',10000);
+    assertEqual(result.passed,false);assertEqual(result.environmentError,'CODE_TEST_NETWORK_ISOLATION_UNAVAILABLE');
+    assert(!existsSync(path.join(work,'must-not-execute')),'candidate must not execute before isolation proof');
+  } finally { process.env.PATH=saved;rmSync(work,{recursive:true,force:true}); }
 });
 
 test('vícesouborový test po prvním timeoutu končí fail-fast', () => {

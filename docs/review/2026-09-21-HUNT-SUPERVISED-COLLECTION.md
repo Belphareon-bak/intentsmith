@@ -41,6 +41,12 @@ CODE fallback spouštěný přes samostatnou systemd jednotku má vlastní limit
 nepatří pod cgroup rodiče, proto potřebuje vlastní limit. Při odstraněných
 session proměnných se klient připojí pouze k ověřenému socketu stejného UID;
 bez dostupného manageru nadále vrací chybu prostředí, žádné skóre.
+Živá negativní kontrola odhalila, že PrivateNetwork=yes může být ignorováno.
+Fallback proto používá /usr/bin/bwrap s vlastním síťovým namespace, read-only
+kořenem a zapisovatelným pracovním adresářem. Bootstrap před importem testu
+ověří odlišný skutečný network namespace; falešně úspěšný launcher modelový
+kód nespustí. Nejde o tvrzení plného hostile-code sandboxu ani skrytí všech
+čitelných souborů hostu.
 
 Instalace zachovává pozastavený timer; existující automation hold má přednost.
 Evaluační verze 0.34.2-intentsmith.1 je připnutá společně s binární SHA.

@@ -40,7 +40,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { readFileSync, writeFileSync, mkdtempSync, rmSync, symlinkSync, existsSync, lstatSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, symlinkSync, existsSync, lstatSync, readlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { findSpansForLines, regionForLines, mergeSpans, replaceSpans } from './function-span.js';
@@ -480,8 +480,15 @@ export function runIsolatedTest(work, testFile, timeout = DEFAULT_TEST_TIMEOUT) 
   // The evaluator, not the generated function, appends a completion receipt
   // after the test module (including top-level await) has finished loading.
   const receipt = `CODE_TEST_COMPLETED_${randomUUID()}`;
+  const isolationFailure = `CODE_TEST_NETWORK_ISOLATION_FAILED_${randomUUID()}`;
+  let parentNetwork;
+  try { parentNetwork = readlinkSync('/proc/self/ns/net'); }
+  catch { return {passed:false,timedOut:false,completed:false,environmentError:'CODE_TEST_NETWORK_ISOLATION_UNAVAILABLE',output:''}; }
   const bootstrap = `import { pathToFileURL } from 'node:url';
-import { writeSync } from 'node:fs';
+import { writeSync, readlinkSync } from 'node:fs';
+if (readlinkSync('/proc/self/ns/net') === ${JSON.stringify(parentNetwork)}) {
+  writeSync(2, ${JSON.stringify(isolationFailure)}); process.exit(78);
+}
 process.argv[1] = ${JSON.stringify(path.resolve(work, testFile))};
 await import(pathToFileURL(${JSON.stringify(path.resolve(work, testFile))}).href);
 writeSync(1, ${JSON.stringify('\n' + receipt + '\n')});\n`;
@@ -502,9 +509,11 @@ writeSync(1, ${JSON.stringify('\n' + receipt + '\n')});\n`;
     return observation(out || '', { passed: true, timedOut: false });
   } catch (err) {
     const unshareOutput = `${err.stdout || ''}${err.stderr || ''}`;
+    if (unshareOutput.includes(isolationFailure)) return observation(unshareOutput.replaceAll(isolationFailure, ''),
+      {passed:false,timedOut:false,environmentError:'CODE_TEST_NETWORK_ISOLATION_UNAVAILABLE'});
     // Some managed agent/container environments disable unprivileged user
-    // namespaces even though the user's systemd instance can still create a
-    // real private network namespace. Keep the same isolation guarantee; do
+    // namespaces even though root-owned bubblewrap can create a private
+    // network namespace. PrivateNetwork alone may be silently ignored. Keep the same isolation guarantee; do
     // not fall back to an unrestricted test process.
     if (/Operation not permitted|uid_map/i.test(unshareOutput)) {
       const unit = `intentsmith-codepatch-${process.pid}-${randomUUID().slice(0, 8)}`;
@@ -521,18 +530,19 @@ writeSync(1, ${JSON.stringify('\n' + receipt + '\n')});\n`;
       try {
         const out = execFileSync('systemd-run', [
           '--user', '--wait', '--pipe', '--quiet', '--collect', '--unit', unit,
-          '-p', 'PrivateNetwork=yes',
           '-p', 'MemoryHigh=1G', '-p', 'MemoryMax=2G', '-p', 'MemorySwapMax=256M',
           '-p', `RuntimeMaxSec=${Math.ceil(timeout / 1000) + 2}`, '-p', 'KillMode=control-group',
           '-p', `WorkingDirectory=${work}`,
           '-E', `INTENTSMITH_DB_PATH=${env.INTENTSMITH_DB_PATH}`,
-          process.execPath,
-          '--', bootstrapPath,
+          '/usr/bin/bwrap', '--die-with-parent', '--unshare-user', '--unshare-net',
+          '--ro-bind', '/', '/', '--dev', '/dev', '--proc', '/proc', '--tmpfs', '/tmp',
+          '--bind', work, work, '--setenv', 'TMPDIR', '/tmp', '--setenv', 'TMP', '/tmp', '--setenv', 'TEMP', '/tmp',
+          process.execPath, '--', bootstrapPath,
         ], {
           cwd: work, timeout, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
           stdio: ['ignore', 'pipe', 'pipe'], env: managerEnv,
         });
-        return observation(out || '', { passed: true, timedOut: false, isolation: 'systemd-private-network' });
+        return observation(out || '', { passed: true, timedOut: false, isolation: 'systemd-bwrap-network' });
       } catch (fallbackError) {
         // execFileSync timeout terminates the systemd-run client, not
         // necessarily the transient service. Stop only our unique owned unit
@@ -543,13 +553,15 @@ writeSync(1, ${JSON.stringify('\n' + receipt + '\n')});\n`;
           });
         } catch { /* the collected unit may already be gone */ }
         const output = `${fallbackError.stdout || ''}${fallbackError.stderr || ''}`;
+        if (output.includes(isolationFailure)) return observation(output.replaceAll(isolationFailure,''),
+          {passed:false,timedOut:false,environmentError:'CODE_TEST_NETWORK_ISOLATION_UNAVAILABLE'});
         return observation(output, {
           passed: false,
           timedOut: fallbackError.code === 'ETIMEDOUT' || fallbackError.signal === 'SIGTERM',
           environmentError: ['ENOENT', 'EACCES', 'EPERM'].includes(fallbackError.code)
-            || /Failed to (?:start transient|connect to bus)|Failed at step|Failed to set up.*namespac/i.test(output)
+            || /Failed to (?:start transient|connect to bus)|Failed at step|Failed to set up.*namespac|bwrap:/i.test(output)
             ? 'CODE_TEST_LAUNCH_FAILED' : null,
-          isolation: 'systemd-private-network',
+          isolation: 'systemd-bwrap-network',
         });
       }
     }
