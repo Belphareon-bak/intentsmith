@@ -3960,6 +3960,7 @@ function _renderGovernorTab(){
     h('div',{style:{display:'flex',alignItems:'center',gap:12}},h('h3',{style:{flex:1}},'Provozní diagnostika'),
       h('button',{style:_modelButtonStyle(false,_governorLoading),disabled:_governorLoading,onClick:_runGovernorCheck},'Zkontrolovat')),
     h('p',{style:{color:C.tx3}},'Správce sleduje provoz aplikace. Kvalitu modelů porovnávej v Evaluaci. Zdroje ověřeny: '+known+' / '+Object.keys(labels).length+'. Bez aktivity se skóre nevymýšlí.'),
+    h('p',{style:{color:C.tx3}},report.created_at?'Výsledky kontroly z '+new Date(report.created_at).toLocaleString('cs-CZ')+'. Pro aktuální stav spusť Zkontrolovat.':'Čas této kontroly není doložen. Spusť Zkontrolovat pro aktuální stav.'),
     _governorActionMessage?h('p',{role:'status',style:{color:C.accent}},_governorActionMessage):null,
     _modelTable(['Oblast','Stav','Hodnota','Co se měří'],Object.keys(labels).map(function(key){var d=dimensions[key];var unknown=!d||d.status==='UNKNOWN';return h('tr',{key:key},
       _modelCell(labels[key]),_modelCell(unknown?'Chyba sběru':status[d.status]||d.status),_modelCell(!d||!Number.isFinite(d.score)?'—':Math.round(d.score*100)+' %'),
