@@ -279,6 +279,7 @@ import { upgradeManager } from './upgrade/upgrade-manager.js';
 // v133: ModelRegistry — centralized model management
 import { modelRegistry } from './upgrade/model-registry.js';
 import { ModelEvaluationReadModel } from './upgrade/model-evaluation-read-model.js';
+import { EVALUATION_PROVIDER_BUILD } from './eval/evaluation-provider-build.js';
 import { modelUniverseStore } from './upgrade/model-universe-store.js';
 import { createModelFailoverRepository } from './upgrade/model-failover.js';
 import {
@@ -425,6 +426,7 @@ try {
     bindingRepository,
     bindingStartupAuthority,
     modelEvaluationReadModel,
+    evaluationProviderVersion: EVALUATION_PROVIDER_BUILD.version,
     broadcast: bindingBroadcast,
     modelUseAuthority,
     modelArtifactAuthorityRepository,

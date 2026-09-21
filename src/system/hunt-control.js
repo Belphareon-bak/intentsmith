@@ -145,6 +145,7 @@ export function createHuntControl({ installationFile = process.env.INTENTSMITH_I
         '--property=Type=exec', '--property=WorkingDirectory=' + installed.sourceRoot,
         '--property=EnvironmentFile=' + join(installed.configDirectory,'runtime.env'),
         '--property=KillMode=control-group', '--property=TimeoutStopSec=15s',
+        '--property=MemoryHigh=60%', '--property=MemoryMax=75%', '--property=MemorySwapMax=1G', '--property=OOMPolicy=stop',
         '--property=RuntimeMaxSec=6h', '--property=NoNewPrivileges=true', '--property=UMask=0077', '--property=Nice=10',
         '--', installed.node, join(installed.sourceRoot,'scripts/run-model-hunt-provider.js'),
         '--run', '--scheduled', '--keep-inconclusive', '--evaluate-installed', '--limit=1',

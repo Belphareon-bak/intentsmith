@@ -311,6 +311,14 @@ test('current decision is linked to exact runs and only actionable for the bound
   assertEqual(result.roles.CHAT.latestDecision.actionable, true);
   assertEqual(result.roles.CHAT.latestDecision.actionability, 'READY_FOR_MANUAL_BINDING');
   assertEqual(result.decisions.length, 1);
+  const foreignRuntime=reader.read({...input,runtimeProviderVersion:'foreign-runtime',
+    bindingAuthority:{status:'DURABLE',durableRoles:['CHAT'],verifiedRoles:['CHAT']}});
+  assertEqual(foreignRuntime.roles.CHAT.latestDecision.actionability,'RUNTIME_PROVIDER_NOT_QUALIFIED');
+  assertEqual(foreignRuntime.roles.CHAT.latestDecision.actionable,false);
+  const unavailableRuntime=reader.read({...input,runtimeProviderVersion:null,
+    bindingAuthority:{status:'DURABLE',durableRoles:['CHAT'],verifiedRoles:['CHAT']}});
+  assertEqual(unavailableRuntime.roles.CHAT.latestDecision.actionability,'RUNTIME_PROVIDER_UNAVAILABLE');
+
   const exploratory = new ModelEvaluationReadModel(db, {plans:createRoleEvaluationPlans({repeats:1})}).read({
     ...input,bindingAuthority:{status:'DURABLE',durableRoles:['CHAT'],verifiedRoles:['CHAT']}});
   assertEqual(exploratory.roles.CHAT.latestDecision.actionable,false);

@@ -112,6 +112,7 @@ function createRegistry(db, opts = {}) {
     },
     bindingRepository: opts.bindingRepository || null,
     bindingStartupAuthority: opts.bindingStartupAuthority,
+    evaluationProviderVersion: opts.evaluationProviderVersion,
     modelEvaluationReadModel: opts.modelEvaluationReadModel || completeEvaluationReadModel(),
     broadcast: opts.broadcast || (() => {}),
     clock: opts.clock,
@@ -124,6 +125,18 @@ async function captureError(promise) {
   try { await promise; } catch (error) { return error; }
   throw new Error('expected promise to reject');
 }
+
+await testAsync('evaluation provider identity is separate from the live conversation provider', async () => {
+  const db = createTestDb();
+  try {
+    globalThis.fetch = async () => ({ok:true,json:async()=>({version:'runtime.1'})});
+    const registry = createRegistry(db, {evaluationProviderVersion:'evaluation.2',
+      modelEvaluationReadModel:{read:input=>input}});
+    const result = await registry.getEvaluations([]);
+    assertEqual(result.providerVersion,'evaluation.2');
+    assertEqual(result.runtimeProviderVersion,'runtime.1');
+  } finally { db.close(); globalThis.fetch = originalFetch; }
+});
 
 suite('current model identity');
 

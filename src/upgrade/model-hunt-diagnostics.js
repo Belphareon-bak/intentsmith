@@ -1,5 +1,47 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { readFileSync, statfsSync } from 'node:fs';
+
+// Preserve working space and stop our workload before the host reaches its
+// earlyoom threshold. Swap usage alone is not memory pressure: MemAvailable
+// includes reclaimable cache. Download admission retains its larger 40 GiB gate.
+export function inspectHuntResources(paths, { starting = false, readMemory = () => readFileSync('/proc/meminfo', 'utf8'), diskStats = statfsSync } = {}) {
+  const minimumMemoryBytes = (starting ? 8 : 4) * 2 ** 30;
+  const minimumDiskBytes = 12 * 2 ** 30;
+  const snapshot = { checkedAt: new Date().toISOString(), minimumMemoryBytes, minimumDiskBytes,
+    memoryAvailableBytes: null, disks: [], ready: false, code: null };
+  try {
+    const memory = /^MemAvailable:\s+(\d+)\s+kB$/m.exec(readMemory());
+    if (!memory) throw new Error('MemAvailable missing');
+    snapshot.memoryAvailableBytes = Number(memory[1]) * 1024;
+    if (!Number.isSafeInteger(snapshot.memoryAvailableBytes)) throw new Error('MemAvailable invalid');
+    if (!paths?.length) throw new Error('Storage paths missing');
+    for (const path of new Set(paths)) {
+      const stats = diskStats(path);
+      const availableBytes = Number(stats.bavail) * Number(stats.bsize);
+      if (!Number.isSafeInteger(availableBytes) || availableBytes < 0) throw new Error('Storage capacity invalid');
+      snapshot.disks.push({ path, availableBytes });
+    }
+    snapshot.code = snapshot.memoryAvailableBytes < minimumMemoryBytes ? 'HUNT_MEMORY_RESERVE_LOW'
+      : snapshot.disks.some(d => d.availableBytes < minimumDiskBytes) ? 'HUNT_DISK_RESERVE_LOW' : null;
+    snapshot.ready = !snapshot.code;
+  } catch (error) { snapshot.code = 'HUNT_RESOURCE_PROBE_FAILED'; snapshot.error = error.message; }
+  return snapshot;
+}
+
+export function watchHuntResources({ inspect, onSnapshot, onBlocked, intervalMs = 2000 }) {
+  let stopped = false;
+  const tick = () => {
+    if (stopped) return;
+    let snapshot;
+    try { snapshot = inspect(); onSnapshot(snapshot); }
+    catch (error) { snapshot = { ready: false, code: 'HUNT_RESOURCE_PROBE_FAILED', error: error.message }; }
+    if (!snapshot.ready) { stopped = true; clearInterval(timer); onBlocked(snapshot); }
+  };
+  const timer = setInterval(tick, intervalMs);
+  timer.unref();
+  return () => { stopped = true; clearInterval(timer); };
+}
 
 // Diagnose recorded evidence; this never changes a score, policy or model binding.
 export function analyzeHuntDecisions(results = []) {

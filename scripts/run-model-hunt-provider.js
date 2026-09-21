@@ -3,15 +3,16 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, renameSync, mkdirSync, mkdtempSync, rmSync, openSync, closeSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { resolve, join, basename } from 'node:path';
+import { resolve, join, basename, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { readFile } from 'node:fs/promises';
 import { once } from 'node:events';
 import { createServer } from 'node:net';
-import { analyzeHuntDecisions, inspectHuntGpu } from '../src/upgrade/model-hunt-diagnostics.js';
+import { analyzeHuntDecisions, inspectHuntGpu, inspectHuntResources, watchHuntResources } from '../src/upgrade/model-hunt-diagnostics.js';
 import { holdGpuEvaluationLock } from '../src/upgrade/gpu-evaluation-lock.js';
+import { EVALUATION_PROVIDER_BUILD, CONVERSATION_PROVIDER_BUILD } from '../src/eval/evaluation-provider-build.js';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const codePilot = process.argv.includes('--code-pilot');
@@ -19,10 +20,11 @@ const allRolePilot = process.argv.includes('--all-role-pilot');
 const roleHandoff = process.argv.includes('--role-handoff');
 const conversationHandoff = process.argv.includes('--conversation-handoff');
 if ([codePilot,allRolePilot,roleHandoff,conversationHandoff].filter(Boolean).length > 1) throw new Error('Choose one evaluation entrypoint');
-const providerVersion = conversationHandoff ? '0.34.2-intentsmith.2' : '0.34.2-intentsmith.1';
+const providerBuild = conversationHandoff ? CONVERSATION_PROVIDER_BUILD : EVALUATION_PROVIDER_BUILD;
+const providerVersion = providerBuild.version;
 const runtime = process.env.INTENTSMITH_EVAL_RUNTIME || join(homedir(), '.local/share/intentsmith/evaluation-provider', providerVersion);
 const binary = join(runtime, 'bin/ollama');
-const expected = conversationHandoff ? '351d992d509eb4c0d97dea75111de1b91d1bec8643dd46a88355fd0b7f11cef3' : '2b98fceffbc6d5d97a6e96ddfd46c597cee4fa06a03d740fdb74dd9a34ff0f92';
+const expected = providerBuild.sha256;
 const state = process.env.INTENTSMITH_HUNT_STATE_DIR || join(homedir(), '.local/state/intentsmith/model-hunt');
 mkdirSync(state, { recursive: true, mode: 0o700 });
 const runDir = mkdtempSync(join(state, 'run-'));
@@ -67,20 +69,37 @@ try {
 }
 await new Promise(ok => port.close(ok));
 publish({ status: 'RUNNING', phase: 'provider-start' });
-let provider, hunt, providerError, stopping = false;
+let provider, hunt, providerError, resourceBlock, stopResourceWatch, killDeadline, stopping = false;
 const cancellation = new AbortController();
 const delay = ms => new Promise(ok => setTimeout(ok, ms));
 // Ollama's native runners inherit its process group. Killing only the Go
 // parent can leave a llama-server holding GPU memory after cancellation.
-const signalProviderGroup = signal => {
-  if (!provider?.pid) return false;
-  try { process.kill(-provider.pid, signal); return true; }
+const signalGroup = (child, signal) => {
+  if (!child?.pid) return false;
+  try { process.kill(-child.pid, signal); return true; }
   catch (error) { if (error.code === 'ESRCH') return false; throw error; }
 };
-const stop = () => { stopping = true; cancellation.abort(); hunt?.kill('SIGTERM'); };
+const signalProviderGroup = signal => signalGroup(provider, signal);
+const stop = () => { stopping = true; cancellation.abort(); signalGroup(hunt, 'SIGTERM'); signalProviderGroup('SIGTERM'); };
 process.on('SIGTERM', stop);
 process.on('SIGINT', stop);
 try {
+  const resourcePaths = [state, dirname(process.env.INTENTSMITH_DB_PATH || join(root, 'data/c3.db')),
+    process.env.OLLAMA_MODELS || '/usr/share/ollama/.ollama/models'];
+  const saveResources = snapshot => {
+    const file = join(runDir, 'resources.json');
+    writeFileSync(file + '.tmp', JSON.stringify(snapshot) + '\n', {mode:0o600});
+    renameSync(file + '.tmp', file);
+  };
+  const initialResources = inspectHuntResources(resourcePaths, {starting:true});
+  saveResources(initialResources);
+  if (!initialResources.ready) throw Object.assign(new Error(initialResources.code), {code:initialResources.code});
+  stopResourceWatch = watchHuntResources({inspect:() => inspectHuntResources(resourcePaths), onSnapshot:saveResources,
+    onBlocked:snapshot => {
+      resourceBlock = snapshot; stop(); signalProviderGroup('SIGTERM');
+      killDeadline = setTimeout(() => { signalGroup(hunt, 'SIGKILL'); signalProviderGroup('SIGKILL'); }, 8000);
+      killDeadline.unref();
+    }});
   const gpu = await inspectHuntGpu();
   if (!gpu.available) throw Object.assign(new Error(gpu.message), { code: gpu.code });
   if (createHash('sha256').update(await readFile(binary)).digest('hex') !== expected) throw new Error('EVALUATION_PROVIDER_BINARY_MISMATCH');
@@ -121,6 +140,7 @@ try {
   const entrypoint = conversationHandoff ? 'scripts/manual/conversation-operational-handoff.mjs' : roleHandoff ? 'scripts/manual/role-operational-handoff.mjs' : allRolePilot ? 'scripts/manual/all-role-evaluation.mjs'
     : codePilot ? 'scripts/manual/c3-code-pilot.mjs' : 'scripts/model-upgrade-hunt.js';
   hunt = spawn(process.execPath, [join(root, entrypoint), ...args, ...reportArgs], {
+    detached: true,
     cwd: root,
     env: { ...process.env, OLLAMA_URL: 'http://127.0.0.1:11435', INTENTSMITH_HUNT_PULL_URL: 'http://127.0.0.1:11434',
       ...(codePilot || allRolePilot || roleHandoff || conversationHandoff ? { INTENTSMITH_EVAL_PROVIDER_PID: String(provider.pid) } : {}),
@@ -134,9 +154,10 @@ try {
   let report = null;
   try { report = JSON.parse(readFileSync(args.find(arg => arg.startsWith('--report='))?.slice(9) || join(runDir, 'result.json'), 'utf8')); }
   catch { /* Missing report is explicit; a successful exit alone is not a completed measurement. */ }
-  publish({ status: stopping ? 'CANCELLED' : code !== 0 ? 'FAILED' : report?.status || (report ? 'COMPLETE' : 'REPORT_MISSING'),
+  publish({ status: resourceBlock ? 'BLOCKED' : stopping ? 'CANCELLED' : code !== 0 ? 'FAILED' : report?.status || (report ? 'COMPLETE' : 'REPORT_MISSING'),
     finishedAt: new Date().toISOString(), exitCode: code,
-    code: report?.code || /Error:\s*([A-Z][A-Z0-9_]{3,})/.exec(failureOutput)?.[1] || null,
+    code: resourceBlock?.code || report?.code || /Error:\s*([A-Z][A-Z0-9_]{3,})/.exec(failureOutput)?.[1] || null,
+    resources: resourceBlock || null,
     error: code !== 0 ? (report?.error || failureOutput.trim() || 'Proces měření skončil bez výsledku; podrobnosti jsou v systémovém logu.') : null,
     reasons: report?.reasons || [], diagnostics: analyzeHuntDecisions(report?.results || []), results: (report?.results || []).map(r => ({
       model: r.model, stage: r.stage, error: r.error || null, roleErrors: r.roleErrors?.length || 0,
@@ -145,15 +166,18 @@ try {
       decisions: (r.trials || []).filter(t => t.decision).map(t => ({ role: t.role, reason: t.decision?.reasonCode, winner: t.decision?.winner })),
     })) });
 } catch (error) {
-  const blocked = ['GPU_DRIVER_LIBRARY_MISMATCH','GPU_PROBE_UNAVAILABLE'].includes(error.code);
-  const result = { status: stopping ? 'CANCELLED' : blocked ? 'BLOCKED' : 'FAILED', finishedAt: new Date().toISOString(), error: error.message, code: error.code || null, results: [] };
+  const blocked = Boolean(resourceBlock) || ['GPU_DRIVER_LIBRARY_MISMATCH','GPU_PROBE_UNAVAILABLE','HUNT_MEMORY_RESERVE_LOW','HUNT_DISK_RESERVE_LOW','HUNT_RESOURCE_PROBE_FAILED'].includes(error.code);
+  const result = { status: blocked ? 'BLOCKED' : stopping ? 'CANCELLED' : 'FAILED', finishedAt: new Date().toISOString(), error: error.message, code: resourceBlock?.code || error.code || null, resources:resourceBlock || null, results: [] };
   publish(result);
   writeFileSync(join(runDir,'result.json'), JSON.stringify(result) + '\n', {mode:0o600});
   if (!stopping && !blocked) throw error;
   process.exitCode = 0;
 } finally {
+  stopResourceWatch?.(); clearTimeout(killDeadline);
+  signalGroup(hunt, 'SIGTERM');
   signalProviderGroup('SIGTERM');
-  for (let i = 0; i < 50 && signalProviderGroup(0); i++) await delay(100);
+  for (let i = 0; i < 50 && (signalProviderGroup(0) || signalGroup(hunt, 0)); i++) await delay(100);
+  signalGroup(hunt, 'SIGKILL');
   signalProviderGroup('SIGKILL');
   // Keep logs/results as evidence. The service cgroup also owns every child,
   // including on an uncatchable wrapper failure (systemd KillMode=control-group).

@@ -12,14 +12,51 @@ import { createHuntControl } from '../src/system/hunt-control.js';
 import { buildCandidates } from '../src/upgrade/model-discovery.js';
 import { canonicalModelName } from '../src/upgrade/model-identity.js';
 import { comparePair } from '../src/upgrade/pairwise-trial.js';
-import { analyzeHuntDecisions, inspectHuntGpu, readNvidiaDisplayCapacity } from '../src/upgrade/model-hunt-diagnostics.js';
+import { analyzeHuntDecisions, inspectHuntGpu, readNvidiaDisplayCapacity, inspectHuntResources, watchHuntResources } from '../src/upgrade/model-hunt-diagnostics.js';
 import { acquireGpuEvaluationLock, waitForGpuReadiness } from '../src/upgrade/gpu-evaluation-lock.js';
 import { createGlobalAuthAuthority } from '../src/security/global-auth-policy.js';
 import { createSystemRoutes } from '../src/routes/system.js';
-import { ROOT, refreshDesktopCaches, renderDesktopInstallation, resolveElectronSandboxArgs, verifyDesktopUnits, waitForBackend, writePrivate } from '../scripts/desktop-runtime.mjs';
+import { ROOT, refreshDesktopCaches, renderDesktopInstallation, restoreHuntTimerState, resolveElectronSandboxArgs, verifyDesktopUnits, waitForBackend, writePrivate } from '../scripts/desktop-runtime.mjs';
 const exec = promisify(execFile);
 const revision = 'a'.repeat(40);
 const capability = 'c'.repeat(43);
+test('resource reserve uses available RAM, all filesystems, and fails closed on unknown capacity', () => {
+  const GiB=2**30;
+  const check=(memory,free,starting=false)=>inspectHuntResources(['/state','/models'],{
+    starting,readMemory:()=>`MemAvailable: ${memory*GiB/1024} kB\nSwapFree: 0 kB`,
+    diskStats:path=>({bsize:1,bavail:path==='/models'?free*GiB:100*GiB})});
+  assert.equal(check(8,12,true).ready,true);
+  assert.equal(check(7,12,true).code,'HUNT_MEMORY_RESERVE_LOW');
+  assert.equal(check(4,12).ready,true);
+  assert.equal(check(3,12).code,'HUNT_MEMORY_RESERVE_LOW');
+  assert.equal(check(20,11).code,'HUNT_DISK_RESERVE_LOW');
+  assert.equal(inspectHuntResources(['/state'],{readMemory:()=>''}).code,'HUNT_RESOURCE_PROBE_FAILED');
+  assert.equal(inspectHuntResources(['/state'],{readMemory:()=> 'MemAvailable: 9000000 kB',
+    diskStats:()=>({bsize:1,bavail:NaN})}).code,'HUNT_RESOURCE_PROBE_FAILED');
+});
+test('resource watcher stops once, records last probe, and can be disposed',async()=>{
+  let stopped=0,samples=0;
+  const dispose=watchHuntResources({intervalMs:5,inspect:()=>({ready:++samples<2,code:'HUNT_DISK_RESERVE_LOW'}),
+    onSnapshot:s=>assert.equal(s.code,'HUNT_DISK_RESERVE_LOW'),onBlocked:()=>stopped++});
+  await new Promise(r=>setTimeout(r,35));
+  assert.equal(stopped,1);assert.equal(samples,2);dispose();
+  const dispose2=watchHuntResources({intervalMs:5,inspect:()=>assert.fail('disposed'),onSnapshot(){},onBlocked(){}});
+  dispose2();await new Promise(r=>setTimeout(r,15));
+});
+test('installation preserves stopped scheduling and an automation hold overrides a previously active timer', async () => {
+  for (const [previous, held, expected] of [
+    [{UnitFileState:'disabled',ActiveState:'inactive'},false,['disable','stop']],
+    [{},false,['disable','stop']],
+    [{UnitFileState:'enabled',ActiveState:'active'},false,['enable','start']],
+    [{UnitFileState:'enabled',ActiveState:'inactive'},false,['enable','stop']],
+    [{UnitFileState:'enabled',ActiveState:'active'},true,['disable','stop']],
+  ]) {
+    const calls=[];
+    await restoreHuntTimerState(previous,{held,run:async args=>calls.push(args)});
+    assert.deepEqual(calls.map(c=>c[0]),expected);
+    assert(calls.every(c=>c.at(-1)==='intentsmith-model-hunt.timer'));
+  }
+});
 test('manual CLI selection consumes the actual normalized inventory digest and rejects drift before pull',async()=>{
   const source=await readFile(join(ROOT,'scripts/model-upgrade-hunt.js'),'utf8');
   const block=source.slice(source.indexOf('let picked = queue;'),source.indexOf('if (INSTALLED_PANEL && picked.some'));

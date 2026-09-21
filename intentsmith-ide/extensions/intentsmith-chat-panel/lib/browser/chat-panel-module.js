@@ -2569,6 +2569,9 @@ function _huntFailureText(last){
     MODEL_EVALUATION_CONTRACT_CHANGED:'Testovací sada se změnila. Obnov scoring a spusť test pro aktuální sadu.',
     GPU_DRIVER_LIBRARY_MISMATCH:'Ovladač NVIDIA čeká na restart počítače. Měření se nespustilo.',
     HUNT_GPU_BUSY:'GPU používá jiná úloha. Měření můžeš zopakovat, až se uvolní.',
+    HUNT_MEMORY_RESERVE_LOW:'Měření bylo zastaveno kvůli malé rezervě RAM. Uložené odpovědi zůstávají k dispozici.',
+    HUNT_DISK_RESERVE_LOW:'Na disku zbývá méně než 12 GiB. Měření bylo zastaveno; uložené odpovědi zůstávají k dispozici.',
+    HUNT_RESOURCE_PROBE_FAILED:'Rezervu RAM nebo disku nelze ověřit. Měření se bezpečně zastavilo.',
     GPU_PROBE_UNAVAILABLE:'Dostupnost GPU se nepodařilo ověřit.'};
   return messages[code]||'Měření nebylo dokončeno. Příčinu najdeš v podrobnostech; uložená skóre zůstávají zachovaná.';
 }
@@ -3623,6 +3626,7 @@ function _renderEvaluationsTab(){
   if(!_evaluationData)return h('p',null,_evaluationLoading?'Načítám výsledky…':'Výsledky nejsou dostupné.');
   var roles=_evaluationData.roles||{},models=Array.from(new Set(Object.keys(roles).filter(function(role){return _evaluationRoleFilter==='all'||role===_evaluationRoleFilter;}).flatMap(function(role){return (roles[role].artifacts||[]).filter(function(row){return row.applicable!==false;}).map(function(row){return row.model;});}))).sort();
   return h('div',{'data-testid':'model-quality'},
+    _evaluationData.runtimeProviderVersion&&_evaluationData.providerVersion!==_evaluationData.runtimeProviderVersion?h('p',{'data-testid':'evaluation-provider-difference',style:{color:C.amber}},'Měření: Ollama '+_evaluationData.providerVersion+' · Provoz aplikace: '+_evaluationData.runtimeProviderVersion+'. Výsledky měření se zobrazují; přenos do jiné verze provozu není kvalifikovaný.'):null,
     h('div',{style:{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap',marginBottom:16}},
       h('label',null,'Role ',h('select',{style:_modelFieldStyle(),value:_evaluationRoleFilter,onChange:function(e){_evaluationRoleFilter=e.target.value;renderCenter();}},h('option',{value:'all'},'Všechny role'),Object.keys(roles).map(function(role){return h('option',{key:role,value:role},role);}))),
       h('label',null,'Model ',h('select',{style:_modelFieldStyle(),value:_evaluationModelFilter||'',onChange:function(e){_evaluationModelFilter=e.target.value;renderCenter();}},h('option',{value:''},'Všechny modely'),models.map(function(model){return h('option',{key:model,value:model},model);}))),

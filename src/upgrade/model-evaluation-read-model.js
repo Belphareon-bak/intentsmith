@@ -264,6 +264,8 @@ function decodeDecision(row, context) {
         || details.decision?.acceptanceSha256 !== q.payloadSha256;
     })()) actionability = 'EVALUATION_PAIR_NOT_ACCEPTED';
     else if (context.providerVersion && row.provider_version !== context.providerVersion) actionability = 'PROVIDER_VERSION_CHANGED';
+    else if (context.runtimeProviderKnown === false) actionability = 'RUNTIME_PROVIDER_UNAVAILABLE';
+    else if (context.runtimeProviderVersion && row.provider_version !== context.runtimeProviderVersion) actionability = 'RUNTIME_PROVIDER_NOT_QUALIFIED';
     else if (details.activationEligible !== true) actionability = 'PORTFOLIO_NOT_APPROVED';
     else if (context.bindingAuthority.status !== 'DURABLE') {
       actionability = 'BINDING_AUTHORITY_DEGRADED';
@@ -440,7 +442,7 @@ export class ModelEvaluationReadModel {
           plan.suiteVersion,
           plan.suiteContractSha256,
         ).map(row => (
-          decodeDecision(row, { plan, inventory, binding: bindings[role], bindingAuthority, providerVersion: input.providerVersion || null, currentRuns: new Map(artifacts.map(a => [a.digestSha256, a.runId])) })
+          decodeDecision(row, { plan, inventory, binding: bindings[role], bindingAuthority, providerVersion: input.providerVersion || null, runtimeProviderVersion: input.runtimeProviderVersion || null, runtimeProviderKnown: Object.hasOwn(input, 'runtimeProviderVersion') ? Boolean(input.runtimeProviderVersion) : undefined, currentRuns: new Map(artifacts.map(a => [a.digestSha256, a.runId])) })
         ));
         decisions.push(...roleDecisions);
         roles[role] = Object.freeze({
@@ -492,6 +494,7 @@ export class ModelEvaluationReadModel {
         schemaVersion: 2,
         generatedAt: new Date().toISOString(),
         providerVersion: input.providerVersion || null,
+        runtimeProviderVersion: input.runtimeProviderVersion || input.providerVersion || null,
         authority: Object.freeze({
           status: 'READY',
           tables: Object.freeze(['model_evaluation_runs', 'model_evaluation_decisions']),

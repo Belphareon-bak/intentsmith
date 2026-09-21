@@ -169,6 +169,7 @@ export class ModelRegistry {
     bindingRepository,
     bindingStartupAuthority,
     modelEvaluationReadModel,
+    evaluationProviderVersion = null,
     broadcast,
     clock,
     modelUseAuthority: injectedModelUseAuthority,
@@ -227,6 +228,7 @@ export class ModelRegistry {
       this._bindingStartupAuthority = null;
     }
     this._evaluationReadModel = modelEvaluationReadModel || null;
+    this._evaluationProviderVersion = evaluationProviderVersion;
     this._broadcast = broadcast || (() => {});
     this._clock = typeof clock === 'function' ? clock : Date.now;
     this._modelUseAuthority = injectedModelUseAuthority || modelUseAuthority;
@@ -581,7 +583,8 @@ export class ModelRegistry {
       if (typeof body?.version === 'string' && body.version) providerVersion = body.version;
     } catch { /* Unknown provider cannot turn old evidence into current evidence. */ }
     return this._evaluationReadModel.read({
-      providerVersion,
+      providerVersion: this._evaluationProviderVersion || providerVersion,
+      runtimeProviderVersion: providerVersion,
       inventory: installed,
       bindings: bindingState.bindings,
       bindingAuthority: {

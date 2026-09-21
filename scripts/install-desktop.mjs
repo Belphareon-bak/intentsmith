@@ -8,7 +8,7 @@ import { homedir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import Database from 'better-sqlite3';
 import { runMigrations } from '../src/db/migrate.js';
-import { ROOT, normalizeAdminEnvironment, refreshDesktopCaches, renderDesktopInstallation, verifyDesktopUnits, writePrivate, waitForBackend } from './desktop-runtime.mjs';
+import { ROOT, normalizeAdminEnvironment, refreshDesktopCaches, renderDesktopInstallation, restoreHuntTimerState, verifyDesktopUnits, writePrivate, waitForBackend } from './desktop-runtime.mjs';
 const exec = promisify(execFile);
 const arg = name => process.argv.find(v => v.startsWith(`--${name}=`))?.slice(name.length + 3);
 const systemctl = args => exec('/usr/bin/systemctl', ['--user', ...args], { timeout: 40000 });
@@ -53,6 +53,8 @@ if (!['inactive','failed',''].includes(backendState)) {
   throw new Error('BACKEND_ACTIVE: stop the existing backend deliberately before changing installations');
 }
 const stamp = new Date().toISOString().replace(/[:.]/g,'-');
+const timerBefore = Object.fromEntries((await systemctl(['show','intentsmith-model-hunt.timer',
+  '--property=UnitFileState','--property=ActiveState'])).stdout.trim().split('\n').map(line => line.split('=')));
 const adminFile = join(configDirectory,'admin.env');
 let adminEnvironment;
 try {
@@ -107,7 +109,10 @@ await systemctl(['enable','intentsmith-backend.service']);
 await systemctl(['reset-failed','intentsmith-backend.service']);
 await systemctl(['restart','intentsmith-backend.service']);
 await waitForBackend(config);
-await systemctl(['enable','--now','intentsmith-model-hunt.timer']);
+let held = true;
+try { await lstat(join(stateDirectory,'code-pilot-automation-hold.json')); }
+catch (error) { if (error.code === 'ENOENT') held = false; }
+const huntTimer = await restoreHuntTimerState(timerBefore, { held, run: systemctl });
 const desktopCache = await refreshDesktopCaches(join(homedir(),'.local/share/applications'));
-console.log(JSON.stringify({ installed:true, revision, dbPath, backup,
+console.log(JSON.stringify({ installed:true, revision, dbPath, backup, huntTimer,
   launcher: join(homedir(),'.local/share/applications/intentsmith.desktop'), desktopCache },null,2));

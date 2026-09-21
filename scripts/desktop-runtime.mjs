@@ -10,6 +10,16 @@ const require = createRequire(import.meta.url);
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const installationFile = process.env.INTENTSMITH_INSTALLATION_FILE || join(homedir(), '.config/intentsmith/installation.json');
 
+// Updating the app is not consent to resume an intentionally paused GPU hunt.
+export async function restoreHuntTimerState(previous, { held = false, run } = {}) {
+  const timer = 'intentsmith-model-hunt.timer';
+  const enabled = !held && ['enabled', 'enabled-runtime'].includes(previous?.UnitFileState);
+  const active = !held && previous?.ActiveState === 'active';
+  await run(enabled ? ['enable', ...(previous.UnitFileState === 'enabled-runtime' ? ['--runtime'] : []), timer] : ['disable', timer]);
+  await run([active ? 'start' : 'stop', timer]);
+  return { enabled, active, held };
+}
+
 export async function writePrivate(file, content, mode = 0o600) {
   if (![0o600, 0o755].includes(mode)) throw new Error('DESKTOP_FILE_MODE_UNSUPPORTED');
   await mkdir(dirname(file), { recursive: true, mode: 0o700 });
@@ -43,7 +53,7 @@ export function renderDesktopInstallation(config) {
   return {
     environment: env,
     backend: `[Unit]\nDescription=IntentSmith backend\nStartLimitIntervalSec=120\nStartLimitBurst=3\n\n[Service]\nType=simple\n${common}EnvironmentFile=${join(configDirectory,'admin.env')}\nExecStart=${quotedPath(node)} ${quotedPath(join(sourceRoot,'src/server.js'))}\nRestart=on-failure\nRestartSec=3\nTimeoutStopSec=30\n\n[Install]\nWantedBy=default.target\n`,
-    hunt: `[Unit]\nDescription=IntentSmith bounded GPU hunt\n\n[Service]\nType=oneshot\n${common}ExecStart=${quotedPath(node)} ${quotedPath(join(sourceRoot,'scripts/run-model-hunt-provider.js'))} --run --limit=2 --keep-inconclusive --scheduled\nTimeoutStartSec=12h\nTimeoutStopSec=15s\nNoNewPrivileges=true\nNice=10\n`,
+    hunt: `[Unit]\nDescription=IntentSmith bounded GPU hunt\n\n[Service]\nType=oneshot\n${common}ExecStart=${quotedPath(node)} ${quotedPath(join(sourceRoot,'scripts/run-model-hunt-provider.js'))} --run --limit=2 --keep-inconclusive --scheduled\nTimeoutStartSec=12h\nTimeoutStopSec=15s\nMemoryHigh=60%\nMemoryMax=75%\nMemorySwapMax=1G\nOOMPolicy=stop\nNoNewPrivileges=true\nNice=10\n`,
     timer: '[Unit]\nDescription=IntentSmith nightly model hunt\n\n[Timer]\nOnCalendar=*-*-* 03:00:00\nRandomizedDelaySec=15m\nAccuracySec=5m\nPersistent=true\nUnit=intentsmith-model-hunt.service\n\n[Install]\nWantedBy=timers.target\n',
     desktop: `[Desktop Entry]\nType=Application\nName=IntentSmith\nComment=Lokální AI pracovní prostředí\nExec=${quotedPath(node)} ${quotedPath(join(sourceRoot,'scripts/desktop-runtime.mjs'))}\nIcon=${icon}\nTerminal=false\nCategories=Development;Utility;\nStartupNotify=true\nStartupWMClass=IntentSmith\n`,
     apparmor: `# IntentSmith Electron profile for this exact installed revision.\nabi <abi/4.0>,\ninclude <tunables/global>\n\nprofile intentsmith ${quotedPath(join(sourceRoot,'intentsmith-ide/node_modules/electron/dist/electron'))} flags=(unconfined) {\n  userns,\n  include if exists <local/intentsmith>\n}\n`,

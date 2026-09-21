@@ -588,6 +588,11 @@ await testAsync('returns ok when VRAM usage is fine', async () => {
 
 await testAsync('returns reloaded when CPU spillover detected', async () => {
   const mgr = createManager();
+  mgr.waitForVramDrop = async (target, options) => {
+    assert(target > 0, 'settling target must be bounded');
+    assertEqual(options.timeoutMs, 8000);
+    return true; // simulated unload must not poll the host GPU
+  };
   mgr._lastReloadTime = 0;  // bypass cooldown
   const actions = [];
 
@@ -622,6 +627,11 @@ await testAsync('returns reloaded when CPU spillover detected', async () => {
 
 await testAsync('returns reloaded when only excessive context detected', async () => {
   const mgr = createManager();
+  mgr.waitForVramDrop = async (target, options) => {
+    assert(target > 0, 'settling target must be bounded');
+    assertEqual(options.timeoutMs, 8000);
+    return true; // simulated unload must not poll the host GPU
+  };
   mgr._lastReloadTime = 0;
 
   globalThis.fetch = async (url, opts) => {

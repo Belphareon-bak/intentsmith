@@ -24,6 +24,23 @@ Umístění a inference používají stejných 16 384 tokenů. Nad 22 GB modelov
 VRAM se neprovádí další inference; tento limit není CPU spill a nedokazuje,
 že model není vhodný pro jiné kontexty. Důkaz pro větší produkční kontext chybí.
 
+## Rezerva hostu a identita provideru
+
+Wrapper před startem vyžaduje 8 GiB MemAvailable a 12 GiB na souborových
+systémech DB, stavu a modelů. Každé dvě sekundy kontroluje 4 GiB RAM a
+12 GiB disku; neznámý stav nebo podkročení rezervy ukončí vlastní procesové
+skupiny, zachová checkpointy a zveřejní BLOCKED s konkrétním důvodem.
+Nesleduje pouhou velikost volné RAM ani obsazenost swapu bez kontextu.
+Stahování si zachovává silnější rezervu 40 GiB po stažení kandidáta.
+Manuální i plánovaný systemd běh mají MemoryHigh=60%, MemoryMax=75%,
+MemorySwapMax=1G, OOMPolicy=stop. Limity omezují tento workload; negarantují,
+že jiná aplikace nemůže vyčerpat paměť mezi kontrolami.
+
+Instalace zachovává pozastavený timer; existující automation hold má přednost.
+Evaluační verze 0.34.2-intentsmith.1 je připnutá společně s binární SHA.
+GUI čte výsledky této verze, samostatně uvádí verzi systémového provideru.
+Rozdíl nebo neznámá systémová verze nesmí vytvořit doporučení k aktivaci.
+
 ## Ověření
 
 Doplní skutečné běhy na připnutém commitu. Žádný plán ani zelený unit test
