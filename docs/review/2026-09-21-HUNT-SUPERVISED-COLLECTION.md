@@ -36,6 +36,12 @@ Manuální i plánovaný systemd běh mají MemoryHigh=60%, MemoryMax=75%,
 MemorySwapMax=1G, OOMPolicy=stop. Limity omezují tento workload; negarantují,
 že jiná aplikace nemůže vyčerpat paměť mezi kontrolami.
 
+CODE fallback spouštěný přes samostatnou systemd jednotku má vlastní limit
+2 GiB RAM, 256 MiB swapu a RuntimeMaxSec (timeout + nejvýše 3 s). Jednotka
+nepatří pod cgroup rodiče, proto potřebuje vlastní limit. Při odstraněných
+session proměnných se klient připojí pouze k ověřenému socketu stejného UID;
+bez dostupného manageru nadále vrací chybu prostředí, žádné skóre.
+
 Instalace zachovává pozastavený timer; existující automation hold má přednost.
 Evaluační verze 0.34.2-intentsmith.1 je připnutá společně s binární SHA.
 GUI čte výsledky této verze, samostatně uvádí verzi systémového provideru.

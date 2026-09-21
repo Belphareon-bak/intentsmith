@@ -40,7 +40,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { readFileSync, writeFileSync, mkdtempSync, rmSync, symlinkSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, symlinkSync, existsSync, lstatSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { findSpansForLines, regionForLines, mergeSpans, replaceSpans } from './function-span.js';
@@ -508,17 +508,29 @@ writeSync(1, ${JSON.stringify('\n' + receipt + '\n')});\n`;
     // not fall back to an unrestricted test process.
     if (/Operation not permitted|uid_map/i.test(unshareOutput)) {
       const unit = `intentsmith-codepatch-${process.pid}-${randomUUID().slice(0, 8)}`;
+      // A clean test environment deliberately omits session variables. Resolve
+      // only this uid's real local bus; never invent an unrestricted fallback.
+      const managerEnv = { ...env };
+      if (!managerEnv.DBUS_SESSION_BUS_ADDRESS && typeof process.getuid === 'function') {
+        const bus = `/run/user/${process.getuid()}/bus`;
+        try {
+          const stat = lstatSync(bus);
+          if (stat.isSocket() && stat.uid === process.getuid()) managerEnv.DBUS_SESSION_BUS_ADDRESS = `unix:path=${bus}`;
+        } catch { /* the launch reports CODE_TEST_LAUNCH_FAILED */ }
+      }
       try {
         const out = execFileSync('systemd-run', [
           '--user', '--wait', '--pipe', '--quiet', '--collect', '--unit', unit,
           '-p', 'PrivateNetwork=yes',
+          '-p', 'MemoryHigh=1G', '-p', 'MemoryMax=2G', '-p', 'MemorySwapMax=256M',
+          '-p', `RuntimeMaxSec=${Math.ceil(timeout / 1000) + 2}`, '-p', 'KillMode=control-group',
           '-p', `WorkingDirectory=${work}`,
           '-E', `INTENTSMITH_DB_PATH=${env.INTENTSMITH_DB_PATH}`,
           process.execPath,
           '--', bootstrapPath,
         ], {
           cwd: work, timeout, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
-          stdio: ['ignore', 'pipe', 'pipe'], env,
+          stdio: ['ignore', 'pipe', 'pipe'], env: managerEnv,
         });
         return observation(out || '', { passed: true, timedOut: false, isolation: 'systemd-private-network' });
       } catch (fallbackError) {
@@ -527,7 +539,7 @@ writeSync(1, ${JSON.stringify('\n' + receipt + '\n')});\n`;
         // so model-generated test code cannot survive the evaluation timeout.
         try {
           execFileSync('systemctl', ['--user', 'stop', `${unit}.service`], {
-            timeout: 10_000, stdio: 'ignore',
+            timeout: 10_000, stdio: 'ignore', env: managerEnv,
           });
         } catch { /* the collected unit may already be gone */ }
         const output = `${fallbackError.stdout || ''}${fallbackError.stderr || ''}`;

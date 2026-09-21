@@ -127,6 +127,20 @@ test('isolated test pins Node, preserves literal argv and forwards its private D
   }
 });
 
+test('isolated test retains network isolation with session environment omitted', () => {
+  const work = mkdtempSync(path.join(tmpdir(), 'codepatch-no-session-'));
+  const saved = Object.fromEntries(['DBUS_SESSION_BUS_ADDRESS','XDG_RUNTIME_DIR'].map(k=>[k,process.env[k]]));
+  try {
+    delete process.env.DBUS_SESSION_BUS_ADDRESS; delete process.env.XDG_RUNTIME_DIR;
+    writeFileSync(path.join(work,'test.cjs'), `const fs=require('node:fs');const assert=require('node:assert/strict');assert(!fs.readFileSync('/proc/net/route','utf8').split('\\n').some(line=>/^[^\\t]+\\t00000000\\t/.test(line)));console.log('NO_DEFAULT_ROUTE');`);
+    const result=runIsolatedTest(work,'test.cjs',10000);
+    assert(result.passed,result.output);assert(result.completed);assert(result.output.includes('NO_DEFAULT_ROUTE'));
+  } finally {
+    for (const [key,value] of Object.entries(saved)) { if(value===undefined) delete process.env[key];else process.env[key]=value; }
+    rmSync(work,{recursive:true,force:true});
+  }
+});
+
 test('vícesouborový test po prvním timeoutu končí fail-fast', () => {
   const seen = [];
   const runs = runIsolatedTests('/tmp/unused', ['a.test.js', 'b.test.js', 'c.test.js'], 10,
