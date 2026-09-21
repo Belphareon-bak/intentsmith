@@ -152,7 +152,7 @@ async function seedDurableManualBinding(databasePath) {
       ),
     };
     const repository = createModelFailoverRepository(db);
-    const manager = new UpgradeManager();
+    const manager = new UpgradeManager({readPullStorageBytes:()=>200*2**30});
     manager.setDb(db);
     const application = createModelBindingApplication({
       repository,

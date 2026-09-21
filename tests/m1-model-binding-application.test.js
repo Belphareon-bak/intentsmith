@@ -367,7 +367,7 @@ async function withFixture(callback, options = {}) {
   const db = new Database(':memory:');
   await runMigrations(db);
   const repository = createModelFailoverRepository(db, options.repositoryOptions || {});
-  const manager = new UpgradeManager();
+  const manager = new UpgradeManager({readPullStorageBytes:()=>200*2**30});
   manager.setDb(db);
   const provider = options.provider || new FakeExactProvider();
   const events = [];
@@ -2769,9 +2769,9 @@ await testAsync('two WAL application instances reject a second effect under a li
       source: 'CONFIG_DEFAULT',
       actor: 'system:binding-application',
     });
-    const firstManager = new UpgradeManager();
+    const firstManager = new UpgradeManager({readPullStorageBytes:()=>200*2**30});
     firstManager.setDb(firstDb);
-    const secondManager = new UpgradeManager();
+    const secondManager = new UpgradeManager({readPullStorageBytes:()=>200*2**30});
     secondManager.setDb(secondDb);
     const createApplication = (repository, manager, prefix) => createModelBindingApplication({
       repository,
@@ -3509,7 +3509,7 @@ await testAsync('second restart recovers both pre-receipt runtime generations wi
     firstDb.pragma('foreign_keys = ON');
     await runMigrations(firstDb);
     const firstRepository = createModelFailoverRepository(firstDb);
-    const firstManager = new UpgradeManager();
+    const firstManager = new UpgradeManager({readPullStorageBytes:()=>200*2**30});
     firstManager.setDb(firstDb);
     const firstApplication = createModelBindingApplication({
       repository: repositoryProxy(firstRepository, {
@@ -3547,7 +3547,7 @@ await testAsync('second restart recovers both pre-receipt runtime generations wi
     secondDb = new Database(databasePath);
     secondDb.pragma('foreign_keys = ON');
     const secondRepository = createModelFailoverRepository(secondDb);
-    const secondManager = new UpgradeManager();
+    const secondManager = new UpgradeManager({readPullStorageBytes:()=>200*2**30});
     secondManager.setDb(secondDb);
     const secondApplication = createModelBindingApplication({
       repository: repositoryProxy(secondRepository, {
@@ -3583,7 +3583,7 @@ await testAsync('second restart recovers both pre-receipt runtime generations wi
     thirdDb = new Database(databasePath);
     thirdDb.pragma('foreign_keys = ON');
     const thirdRepository = createModelFailoverRepository(thirdDb);
-    const thirdManager = new UpgradeManager();
+    const thirdManager = new UpgradeManager({readPullStorageBytes:()=>200*2**30});
     thirdManager.setDb(thirdDb);
     const events = [];
     const thirdApplication = createModelBindingApplication({
@@ -3697,7 +3697,7 @@ await testAsync('real restart waits for a live provider lease then performs one 
     secondDb.pragma('journal_mode = WAL');
     secondDb.pragma('foreign_keys = ON');
     const secondRepository = createModelFailoverRepository(secondDb, { clock: () => nowMs });
-    const manager = new UpgradeManager();
+    const manager = new UpgradeManager({readPullStorageBytes:()=>200*2**30});
     manager.setDb(secondDb);
     const provider = new FakeExactProvider();
     provider.calls.inventory = 0;
@@ -3781,7 +3781,7 @@ await testAsync('provider terminal resumes the accepted binding after a real DB 
     config.models.CHAT = 'fixture-base';
     secondDb = new Database(databasePath);
     const secondRepository = createModelFailoverRepository(secondDb);
-    const secondManager = new UpgradeManager();
+    const secondManager = new UpgradeManager({readPullStorageBytes:()=>200*2**30});
     secondManager.setDb(secondDb);
     const secondApplication = createModelBindingApplication({
       repository: secondRepository,
@@ -3819,7 +3819,7 @@ await testAsync('provider terminal resumes the accepted binding after a real DB 
     firstDb = new Database(databasePath);
     await runMigrations(firstDb);
     const firstRepository = createModelFailoverRepository(firstDb);
-    const firstManager = new UpgradeManager();
+    const firstManager = new UpgradeManager({readPullStorageBytes:()=>200*2**30});
     firstManager.setDb(firstDb);
     const firstApplication = createModelBindingApplication({
       repository: firstRepository,
@@ -3841,7 +3841,7 @@ await testAsync('provider terminal resumes the accepted binding after a real DB 
     config.models.CHAT = 'fixture-base';
     secondDb = new Database(databasePath);
     const secondRepository = createModelFailoverRepository(secondDb);
-    const secondManager = new UpgradeManager();
+    const secondManager = new UpgradeManager({readPullStorageBytes:()=>200*2**30});
     secondManager.setDb(secondDb);
     const secondApplication = createModelBindingApplication({
       repository: secondRepository,
@@ -3883,7 +3883,7 @@ await testAsync('restart restores prior manual override before failed newer inte
     firstDb = new Database(databasePath);
     await runMigrations(firstDb);
     const firstRepository = createModelFailoverRepository(firstDb);
-    const firstManager = new UpgradeManager();
+    const firstManager = new UpgradeManager({readPullStorageBytes:()=>200*2**30});
     firstManager.setDb(firstDb);
     const firstApplication = createModelBindingApplication({
       repository: firstRepository,
@@ -3919,7 +3919,7 @@ await testAsync('restart restores prior manual override before failed newer inte
     config.models.CHAT = 'fixture-base';
     secondDb = new Database(databasePath);
     const secondRepository = createModelFailoverRepository(secondDb);
-    const secondManager = new UpgradeManager();
+    const secondManager = new UpgradeManager({readPullStorageBytes:()=>200*2**30});
     secondManager.setDb(secondDb);
     const secondApplication = createModelBindingApplication({
       repository: secondRepository,
@@ -3995,7 +3995,7 @@ await testAsync('prior exact override treats stale census identity as a hint und
       );
     };
 
-    const restartManager = new UpgradeManager();
+    const restartManager = new UpgradeManager({readPullStorageBytes:()=>200*2**30});
     restartManager.setDb(db);
     const restartApplication = createModelBindingApplication({
       repository,
@@ -4040,7 +4040,7 @@ await testAsync('terminal runtime failure performs no provider work on restart',
     provider.calls.snapshotResolve = 0;
     const attemptsBefore = count(db, 'model_binding_application_attempts');
 
-    const restartManager = new UpgradeManager();
+    const restartManager = new UpgradeManager({readPullStorageBytes:()=>200*2**30});
     restartManager.setDb(db);
     const restartApplication = createModelBindingApplication({
       repository,
@@ -4078,7 +4078,7 @@ await testAsync('startup shares one inventory and serializes verification after 
     const gate = deferred();
     provider.verifyGate = gate;
 
-    const restartManager = new UpgradeManager();
+    const restartManager = new UpgradeManager({readPullStorageBytes:()=>200*2**30});
     restartManager.setDb(db);
     const restartApplication = createModelBindingApplication({
       repository,
@@ -4135,7 +4135,7 @@ await testAsync('startup census hint is re-resolved under cutover leases before 
       );
     };
 
-    const restartManager = new UpgradeManager();
+    const restartManager = new UpgradeManager({readPullStorageBytes:()=>200*2**30});
     restartManager.setDb(db);
     const restartApplication = createModelBindingApplication({
       repository,
@@ -4196,7 +4196,7 @@ await testAsync('startup ignores a stale failing census when exact identity reco
       );
     };
 
-    const restartManager = new UpgradeManager();
+    const restartManager = new UpgradeManager({readPullStorageBytes:()=>200*2**30});
     restartManager.setDb(db);
     const restartApplication = createModelBindingApplication({
       repository,
@@ -4812,7 +4812,7 @@ await testAsync('production pull composition performs tags-pull-tags on one pinn
     }
     response.writeHead(404).end();
   }, async baseUrl => {
-    const manager = new UpgradeManager();
+    const manager = new UpgradeManager({readPullStorageBytes:()=>200*2**30});
     const provider = new OllamaModelBindingProvider({
       baseUrl,
       pullImpl: (modelName, onProgress, authority) => (

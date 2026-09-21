@@ -302,7 +302,7 @@ await testAsync('active shared use blocks pull before the provider request', asy
     owner: MODEL_ACTIVITY_OWNER.LLM_GATEWAY,
   });
   try {
-    const manager = new UpgradeManager();
+    const manager = new UpgradeManager({readPullStorageBytes:()=>200*2**30});
     const error = await captureAsync(manager.pullModel('pull-lease-fixture:latest'));
     assertEqual(error.code, 'MODEL_MUTATION_ACTIVE_USE');
     assertEqual(providerCalls, 0);
@@ -334,7 +334,7 @@ await testAsync('pull holds exclusive ownership through the streamed response', 
     },
   });
   try {
-    const manager = new UpgradeManager();
+    const manager = new UpgradeManager({readPullStorageBytes:()=>200*2**30});
     const pull = manager.pullModel('pull-stream-fixture:latest');
     while (reads === 0) await Promise.resolve();
     const blocked = captureError(() => modelUseAuthority.acquireShared({
@@ -387,7 +387,7 @@ await testAsync('default registry and pull wiring share the production singleton
     return [installedModel('default-wire-fixture:latest')];
   };
   try {
-    const manager = new UpgradeManager();
+    const manager = new UpgradeManager({readPullStorageBytes:()=>200*2**30});
     const pull = manager.pullModel('default-wire-fixture:latest');
     while (reads === 0) await Promise.resolve();
     const blocked = await captureAsync(registry.deleteModel('default-wire-fixture', {

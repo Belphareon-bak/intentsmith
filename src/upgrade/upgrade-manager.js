@@ -22,6 +22,8 @@ import {
 } from './model-use-authority.js';
 import { requireLoopbackModelProviderOrigin } from './model-provider-origin.js';
 import { checkOllamaUpdate } from './ollama-update-check.js';
+import { statfsSync } from 'node:fs';
+import { DEFAULT_MIN_AVAILABLE_DISK_BYTES } from './gpu-evaluation-lock.js';
 
 // Presentation of Ollama's NDJSON stream. A layer reaching 100% is not a
 // completed pull: only the provider's success receipt settles the operation.
@@ -125,6 +127,10 @@ export class UpgradeManager {
     this._modelArtifactAuthorityRepository = null;
     this._pullIdleTimeoutMs = MODEL_PULL_IDLE_TIMEOUT_MS;
     this._pullProgress = new Map();
+    this._readPullStorageBytes = options.readPullStorageBytes || (() => {
+      const stats = statfsSync(config.ollama?.modelsPath || process.env.OLLAMA_MODELS || '/usr/share/ollama/.ollama/models');
+      return Number(stats.bavail) * Number(stats.bsize);
+    });
     this._modelUseAuthority = options.modelUseAuthority || modelUseAuthority;
     if (typeof this._modelUseAuthority?.acquireExclusive !== 'function') {
       throw modelPullError('MODEL_USE_AUTHORITY_REQUIRED', 'Model use authority is unavailable');
@@ -413,7 +419,21 @@ export class UpgradeManager {
       }
       onProgress?.(event);
     };
+    let storageWatch, pullController, pullReader, storageError;
+    let remainingDownloadBytes = 0;
+    const requireStorage = () => {
+      let available;
+      try { available = this._readPullStorageBytes(); } catch { /* Unknown storage fails closed. */ }
+      if (!Number.isSafeInteger(available) || available < 0) throw modelPullError(
+        'MODEL_PULL_STORAGE_UNKNOWN', 'Volné místo pro modely nelze ověřit. Stahování se nespustí nebo zastaví.');
+      if (available - remainingDownloadBytes < DEFAULT_MIN_AVAILABLE_DISK_BYTES) throw modelPullError(
+        'MODEL_PULL_STORAGE_RESERVE', `Stahování zastaveno: zbývá ${(available / 2 ** 30).toFixed(1)} GiB, `
+          + `známá zbývající data ${(remainingDownloadBytes / 2 ** 30).toFixed(1)} GiB; je potřeba zachovat 40 GiB rezervy.`);
+    };
     try {
+      // Before recording any provider effect. Also applies to GUI, binding and
+      // recovery pulls; the hunt's catalog estimate is an additional preflight.
+      requireStorage();
       if (!recovery && this._modelArtifactAuthorityRepository) {
         if (typeof pullLease.claimId !== 'string') {
           throw modelPullError(
@@ -433,6 +453,14 @@ export class UpgradeManager {
       }
       publish({ status: 'starting', text: recovery ? 'Obnovuji přerušené stahování' : 'Navazuji spojení s Ollamou', percent: null });
       const controller = new AbortController();
+      pullController = controller;
+      storageWatch = setInterval(() => {
+        try { requireStorage(); } catch (error) {
+          clearInterval(storageWatch); storageError = error; controller.abort(error);
+          void pullReader?.cancel?.(error)?.catch(() => {});
+        }
+      }, 2000);
+      storageWatch.unref();
       const headerTimeout = setTimeout(() => controller.abort(modelPullError('MODEL_PULL_IDLE_TIMEOUT', 'Ollama neodpověděla na zahájení stahování')), this._pullIdleTimeoutMs);
       let response;
       try { response = await fetch(provider.endpoint('/api/pull'), {
@@ -454,6 +482,7 @@ export class UpgradeManager {
       }
 
       const reader = response.body.getReader();
+      pullReader = reader;
       const decoder = new TextDecoder();
       let buffer = '';
       let lastEmitTime = 0;
@@ -487,6 +516,10 @@ export class UpgradeManager {
         if (data.status === 'success') providerSuccessSeen = true;
 
         const progress = parseProgress(data);
+        if (Number.isSafeInteger(progress.totalBytes) && Number.isSafeInteger(progress.completedBytes)) {
+          remainingDownloadBytes = Math.max(0, progress.totalBytes - progress.completedBytes);
+        }
+        requireStorage();
         const time = Date.now();
         if (progress.status !== lastStatus || time - lastEmitTime >= 1000 || progress.percent === 100) {
           publish(progress);
@@ -501,8 +534,11 @@ export class UpgradeManager {
           controller,
           this._pullIdleTimeoutMs,
         );
+        if (storageError) throw storageError;
         if (done) break;
-
+        if (value.byteLength > 1024 * 1024 || buffer.length + value.byteLength > 1024 * 1024) {
+          throw modelPullError('MODEL_PULL_PROVIDER_BODY_INVALID', 'Ollama pull exceeded the 1 MiB event buffer limit');
+        }
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
         buffer = lines.pop();
@@ -528,6 +564,11 @@ export class UpgradeManager {
       }
       publish({ status: 'done', text: 'Staženo · model je připravený k testování', percent: 100, etaSeconds: null, bytesPerSecond: null });
     } catch (error) {
+      error = storageError || error;
+      if (pullController && !pullController.signal.aborted) {
+        pullController.abort(error);
+        void pullReader?.cancel?.(error)?.catch(() => {});
+      }
       if (operationId && !recovery) {
         const definitive = typeof error?.code === 'string'
           && (error.code.startsWith('MODEL_PULL_PROVIDER_HTTP_')
@@ -543,6 +584,7 @@ export class UpgradeManager {
       publish({ status: 'error', text: error.message, errorCode: error.code || 'MODEL_PULL_FAILED', percent: null, etaSeconds: null });
       throw error;
     } finally {
+      clearInterval(storageWatch);
       pullLease.release();
     }
   }

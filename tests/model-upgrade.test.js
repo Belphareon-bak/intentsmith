@@ -453,7 +453,7 @@ test('UPGRADE_HINTS covers current IntentSmith models', () => {
 suite('UpgradeManager lifecycle');
 
 test('startPeriodicCheck sets _active flag', () => {
-  const mgr = new UpgradeManager();
+  const mgr = new UpgradeManager({readPullStorageBytes:()=>200*2**30});
   // Override checkForUpgrades to prevent real Ollama call
   mgr.checkForUpgrades = async () => ({ discovery: { candidates: [], hints: new Map(), ollamaAvailable: false, timestamp: Date.now() } });
   mgr.startPeriodicCheck({ recheckMs: 999999, pollMs: 999999 });
@@ -463,7 +463,7 @@ test('startPeriodicCheck sets _active flag', () => {
 });
 
 test('startPeriodicCheck is idempotent', () => {
-  const mgr = new UpgradeManager();
+  const mgr = new UpgradeManager({readPullStorageBytes:()=>200*2**30});
   let callCount = 0;
   mgr.checkForUpgrades = async () => { callCount++; return { discovery: { candidates: [], hints: new Map(), ollamaAvailable: false, timestamp: Date.now() } }; };
   mgr.startPeriodicCheck({ recheckMs: 999999, pollMs: 999999 });
@@ -476,7 +476,7 @@ test('startPeriodicCheck is idempotent', () => {
 });
 
 test('stopPeriodicCheck clears scheduled timers', () => {
-  const mgr = new UpgradeManager();
+  const mgr = new UpgradeManager({readPullStorageBytes:()=>200*2**30});
   mgr.checkForUpgrades = async () => ({ discovery: { candidates: [], hints: new Map(), ollamaAvailable: false, timestamp: Date.now() } });
   mgr.startPeriodicCheck({ recheckMs: 999999, pollMs: 999999 });
   assert(mgr._recheckTimeout !== null, 'should have full-cycle timeout');
@@ -487,7 +487,7 @@ test('stopPeriodicCheck clears scheduled timers', () => {
 });
 
 await testAsync('_pollModelChanges detects model list change', async () => {
-  const mgr = new UpgradeManager();
+  const mgr = new UpgradeManager({readPullStorageBytes:()=>200*2**30});
   let checkCalled = false;
   mgr._modelHash = 'llava:13b,qwen3.5:27b'; // Old hash
   mgr.checkForUpgrades = async () => { checkCalled = true; return { discovery: { candidates: [], hints: new Map(), ollamaAvailable: true, timestamp: Date.now() } }; };
@@ -515,7 +515,7 @@ await testAsync('_pollModelChanges detects model list change', async () => {
 }, ASYNC_TEST_TIMEOUT_MS);
 
  await testAsync('_lastCheckTime is set after checkForUpgrades', async () => {
-  const mgr = new UpgradeManager();
+  const mgr = new UpgradeManager({readPullStorageBytes:()=>200*2**30});
   // Mock discover to avoid real Ollama call
   const origDiscover = (await import('../src/upgrade/model-discovery.js')).discover;
   // We can test that _lastCheckTime is null initially and set after manual invocation

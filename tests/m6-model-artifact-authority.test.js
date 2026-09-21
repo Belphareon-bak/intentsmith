@@ -106,17 +106,80 @@ test('actual Ollama pulling events count multiple layers and exclude resumed byt
   assert.equal(parse({status:'success'}).status, 'success');
 });
 
+await testAsync('GUI pull refuses unknown or insufficient storage before provider effect and reports its reason', async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => assert.fail('no provider request allowed');
+    for (const free of [null, NaN, 39*2**30]) {
+      const state=fixture();
+      try {
+        const authority=new ModelUseAuthority({durableRepository:state.first});
+        const manager=new UpgradeManager({modelUseAuthority:authority,readPullStorageBytes:()=>free});
+        manager.setModelArtifactAuthorityRepository(state.first);
+        const events=[];
+        await assert.rejects(manager.pullModel('storage-fixture:latest',e=>events.push(e),{source:'USER_HTTP'}),
+          e=>e.code===(free===39*2**30?'MODEL_PULL_STORAGE_RESERVE':'MODEL_PULL_STORAGE_UNKNOWN'));
+        assert.equal(events.at(-1).status,'error');
+        assert.equal(state.first.listOutstandingEffects().length,0);
+        assert.equal(authority.snapshot('storage-fixture').exclusiveOwner,null);
+      } finally {state.close();}
+    }
+  } finally {globalThis.fetch=originalFetch;}
+});
+
+await testAsync('known remaining layers cannot consume the pull reserve; an interrupted effect stays recoverable', async () => {
+  const state=fixture(),originalFetch=globalThis.fetch;let cancelled=false;
+  try {
+    const manager=new UpgradeManager({modelUseAuthority:new ModelUseAuthority({durableRepository:state.first}),readPullStorageBytes:()=>41*2**30});
+    manager.setModelArtifactAuthorityRepository(state.first);
+    globalThis.fetch=async()=>({ok:true,body:{getReader:()=>({
+      read:async()=>({done:false,value:new TextEncoder().encode(JSON.stringify({status:'pulling blob',total:2*2**30,completed:0})+'\n')}),
+      cancel:async()=>{cancelled=true;},
+    })}});
+    await assert.rejects(manager.pullModel('large-fixture:latest'),{code:'MODEL_PULL_STORAGE_RESERVE'});
+    assert.equal(cancelled,true);assert.equal(state.first.listOutstandingEffects()[0].state,'ORPHANED');
+    assert.equal(manager.getModelPulls()[0].status,'error');
+  } finally {globalThis.fetch=originalFetch;state.close();}
+});
+
+await testAsync('disk pressure cancels even a stalled provider stream without waiting for another progress chunk', async () => {
+  const state=fixture(),originalFetch=globalThis.fetch;let free=50*2**30,cancelled=false,completeRead;
+  try {
+    const manager=new UpgradeManager({modelUseAuthority:new ModelUseAuthority({durableRepository:state.first}),readPullStorageBytes:()=>free});
+    manager.setModelArtifactAuthorityRepository(state.first);
+    globalThis.fetch=async()=>({ok:true,body:{getReader:()=>({
+      read:()=>{free=39*2**30;return new Promise(r=>{completeRead=r;});},
+      cancel:async()=>{cancelled=true;completeRead({done:true});},
+    })}});
+    await assert.rejects(manager.pullModel('pressure-fixture:latest'),{code:'MODEL_PULL_STORAGE_RESERVE'});
+    assert.equal(cancelled,true);assert.equal(state.first.listOutstandingEffects()[0].state,'ORPHANED');
+  } finally {globalThis.fetch=originalFetch;state.close();}
+}, 5000);
+
+await testAsync('an oversized unterminated progress event is cancelled with a bounded buffer', async () => {
+  const state=fixture(),originalFetch=globalThis.fetch;let cancelled=false;
+  try {
+    const manager=new UpgradeManager({modelUseAuthority:new ModelUseAuthority({durableRepository:state.first}),readPullStorageBytes:()=>200*2**30});
+    manager.setModelArtifactAuthorityRepository(state.first);
+    globalThis.fetch=async()=>({ok:true,body:{getReader:()=>({
+      read:async()=>({done:false,value:new Uint8Array(1024*1024+1)}),cancel:async()=>{cancelled=true;},
+    })}});
+    await assert.rejects(manager.pullModel('oversized-progress:latest'),{code:'MODEL_PULL_PROVIDER_BODY_INVALID'});
+    assert.equal(cancelled,true);assert.equal(manager.getModelPulls()[0].status,'error');
+  } finally {globalThis.fetch=originalFetch;state.close();}
+});
+
 await testAsync('durable download reader restores success without a websocket or live in-memory state', async () => {
   const state = fixture(); const originalFetch = globalThis.fetch;
   try {
-    const manager = new UpgradeManager({modelUseAuthority:new ModelUseAuthority({durableRepository:state.first})});
+    const manager = new UpgradeManager({readPullStorageBytes:()=>200*2**30,modelUseAuthority:new ModelUseAuthority({durableRepository:state.first})});
     manager.setModelArtifactAuthorityRepository(state.first);
     globalThis.fetch = async () => new Response('{"status":"pulling abc","digest":"abc","total":1000,"completed":500}\n{"status":"success"}');
     const events=[];
     await manager.pullModel('reader-fixture:latest', event=>events.push(event), {source:'USER_HTTP'});
     assert.equal(events.find(e=>e.status==='downloading').percent, 50);
     assert.equal(manager.getModelPulls()[0].status, 'done');
-    const fresh = new UpgradeManager();fresh.setModelArtifactAuthorityRepository(state.second);
+    const fresh = new UpgradeManager({readPullStorageBytes:()=>200*2**30});fresh.setModelArtifactAuthorityRepository(state.second);
     assert.equal(fresh.getModelPulls()[0].status, 'done');
     assert.equal(fresh.getModelPulls()[0].model, 'reader-fixture:latest');
     assert.equal(fresh.getModelPulls()[0].etaSeconds, null);
@@ -369,7 +432,7 @@ await testAsync('stalled pull becomes a durable orphan and startup recovery resu
   const originalFetch = globalThis.fetch;
   try {
     const authority = new ModelUseAuthority({ durableRepository: state.first });
-    const manager = new UpgradeManager({ modelUseAuthority: authority });
+    const manager = new UpgradeManager({ readPullStorageBytes:()=>200*2**30, modelUseAuthority: authority });
     manager.setModelArtifactAuthorityRepository(state.first);
     manager._pullIdleTimeoutMs = 5;
     let cancelled = 0;
@@ -436,7 +499,7 @@ await testAsync('pull EOF without an explicit provider success receipt fails clo
   const originalFetch = globalThis.fetch;
   try {
     const authority = new ModelUseAuthority({ durableRepository: state.first });
-    const manager = new UpgradeManager({ modelUseAuthority: authority });
+    const manager = new UpgradeManager({ readPullStorageBytes:()=>200*2**30, modelUseAuthority: authority });
     manager.setModelArtifactAuthorityRepository(state.first);
     globalThis.fetch = async () => ({
       ok: true,
@@ -479,7 +542,7 @@ await testAsync('provider error cannot be hidden behind a success status', async
   const originalFetch = globalThis.fetch;
   try {
     const authority = new ModelUseAuthority({ durableRepository: state.first });
-    const manager = new UpgradeManager({ modelUseAuthority: authority });
+    const manager = new UpgradeManager({ readPullStorageBytes:()=>200*2**30, modelUseAuthority: authority });
     manager.setModelArtifactAuthorityRepository(state.first);
     let reads = 0;
     globalThis.fetch = async () => ({

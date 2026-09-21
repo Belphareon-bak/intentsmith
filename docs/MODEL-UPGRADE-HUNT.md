@@ -37,6 +37,19 @@ uchovej zvlášť až do zmrazení známek. Jde o export, nikoli import známek
 nebo přejímku hodnotitele. Sebeidentifikaci uvnitř odpovědi export nerediguje.
 Pět rolí s otevřenými odpověďmi zatím záměrně nevydává automatické skóre.
 
+Rezervu 40 GiB vynucuje i společná cesta ručního stažení, přiřazení a obnovy
+přerušeného pullu. Neznámá kapacita nebo nedostatečná rezerva zastaví požadavek
+před kontaktem s providerem. Během přenosu se kontroluje i zbývající velikost
+dosud oznámených vrstev a každé dvě sekundy dostupné místo. Přerušení zachová
+záznam účinku pro pozdější obnovu; samo nemaže částečné vrstvy ani jiné modely.
+Je to kontrola aktuálního místa, nikoli transakční rezervace proti cizím zápisům.
+Pokles pod rezervu během přenosu může před příští kontrolou krátce překročit
+hranici. Průběhový NDJSON buffer je omezený na 1 MiB.
+
+Měření již staženého modelu požaduje při startu 8 GiB dostupné RAM a 12 GiB
+disku. Za běhu se zastaví pod 4 GiB RAM nebo 12 GiB disku a uchová checkpointy.
+Proto lze při 32 GiB volného disku měřit místní model, ale nelze začít další pull.
+
 Discovery/ranking není score. CPU spill znamená nezpůsobilost konkrétního
 paměťového profilu, nikoli automatický souhlas s odstraněním modelu.
 D1, D2, R1 a R2 mají odlišná zadání a kontrakty.
