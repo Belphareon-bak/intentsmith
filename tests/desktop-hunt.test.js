@@ -98,6 +98,13 @@ test('latest completed manual evaluation is not overridden by an older failed hu
   assert.equal((await control.status()).state,'WAITING');
   await writeFile(current,JSON.stringify({status:'FAILED'}),{mode:0o600});
   assert.equal((await control.status()).state,'FAILED');
+  const run=join(config.stateDirectory,'model-hunt/run-fixture');await mkdir(run);
+  const resources={checkedAt:new Date().toISOString(),ready:true,memoryAvailableBytes:10*2**30,disks:[{availableBytes:20*2**30}]};
+  await writeFile(join(run,'resources.json'),JSON.stringify(resources),{mode:0o600});
+  await writeFile(current,JSON.stringify({runId:'run-fixture',status:'COMPLETE'}),{mode:0o600});
+  assert.deepEqual((await control.status()).resources,resources);
+  await chmod(join(run,'resources.json'),0o644);
+  assert.equal((await control.status()).resources.code,'HUNT_RESOURCE_STATE_UNAVAILABLE');
 });
 
 test('Studio progress exposes real task counts and ETA, with raw failures only in collapsed details',async()=>{
@@ -131,6 +138,11 @@ test('Studio progress exposes real task counts and ETA, with raw failures only i
   assert.ok(resultButton);resultButton.props.onClick();
   assert.equal(context._evaluationRoleFilter,'all');
   assert.equal(context._evaluationModelFilter,'fixture');
+  context._huntData.resources={memoryAvailableBytes:10*2**30,disks:[{availableBytes:32*2**30},{availableBytes:20*2**30}],minimumMemoryBytes:4*2**30,minimumDiskBytes:12*2**30};
+  const resourceText=JSON.stringify(nodes(tree()).find(n=>n.props?.['data-testid']==='hunt-resources'));
+  assert.match(resourceText,/RAM 10\.0 GiB/);assert.match(resourceText,/disku 20\.0 GiB/);
+  context._huntData.resources={ready:null};
+  assert.match(JSON.stringify(tree()),/stav nelze ověřit/);
 });
 test('calibration diagnostic separates a stable near-tie from noise without overriding decisions',()=>{
   const data=[{model:'fixture',trials:[{role:'D1',decision:{reasonCode:'INSUFFICIENT_EVIDENCE'},

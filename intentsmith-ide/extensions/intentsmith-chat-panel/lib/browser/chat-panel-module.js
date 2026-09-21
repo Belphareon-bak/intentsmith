@@ -2596,6 +2596,9 @@ function _renderHuntTab(){
   var age=progress?Math.max(0,Date.now()-Date.parse(progress.updatedAt)):0;
   var eta=counted&&detail.etaMs>0&&detail.etaMs>age?'Přibližně '+_huntDuration(detail.etaMs-age)+' do konce této sady':counted&&completed>0?'Odhad času se upřesňuje':'Odhad času po prvních dokončených úlohách';
   var request=last&&last.request||{};
+  var resources=d&&d.resources;
+  var diskBytes=resources&&Array.isArray(resources.disks)&&resources.disks.length?Math.min.apply(null,resources.disks.map(function(item){return Number.isFinite(item.availableBytes)?item.availableBytes:NaN;})):NaN;
+  function gib(value){return Number.isFinite(value)?(value/Math.pow(2,30)).toFixed(1)+' GiB':'nezjištěno';}
   function button(label,action,disabled){disabled=!d||_huntActionPending||disabled;return h('button',{disabled:disabled,
     onClick:function(){_controlHunt(action);},style:_modelButtonStyle(action==='start',disabled)},label);}
   function scoreButton(){return h('button',{style:_modelButtonStyle(true,false),onClick:function(){_evaluationModelFilter=request.model||'';_evaluationRoleFilter=['D1','D2','R1','CODE','R2','CHAT','VISION'].includes(request.role)?request.role:'all';_upgradeTab='evaluations';_loadEvaluationData();renderCenter();}},'Zobrazit výsledky');}
@@ -2606,6 +2609,10 @@ function _renderHuntTab(){
     h('div',{style:{display:'flex',alignItems:'center',gap:12,marginBottom:16}},h('h3',{style:{margin:0,flex:1}},request.kind==='evaluation'?'Testování modelu':'GPU hunt'),
       h('button',{onClick:_loadHuntStatus,disabled:_huntLoading,style:_modelButtonStyle(false,_huntLoading)},'Obnovit')),
     _huntError?h('p',{role:'alert',style:{color:C.red}},'Aktuální stav není ověřen: '+_huntError):null,
+    resources?h('div',{'data-testid':'hunt-resources',style:{marginBottom:12,color:resources.ready===false?C.amber:C.tx3}},
+      'Poslední kontrola prostředků: dostupná RAM '+gib(resources.memoryAvailableBytes)+' · nejmenší volné místo na disku '+gib(diskBytes),
+      h('div',{style:{fontSize:_fs(10)}},'Rezerva pro pokračování: RAM '+gib(resources.minimumMemoryBytes)+' · disk '+gib(resources.minimumDiskBytes)+
+        (resources.checkedAt?' · '+new Date(resources.checkedAt).toLocaleString('cs-CZ'):' · stav nelze ověřit'))):null,
     running?h('div',{'data-testid':'hunt-progress',style:card},
       h('div',{role:'status',style:{color:C.accent,fontWeight:600}},d.state==='STOPPING'?'Zastavování měření…':phases[phase]||'Připravuji měření…'),
       h('div',{style:{fontSize:_fs(16),fontWeight:700,marginTop:6}},model||'Ověřuji vybraný model',detail.role?' · '+detail.role:activeRequest&&activeRequest.role?' · '+activeRequest.role:''),

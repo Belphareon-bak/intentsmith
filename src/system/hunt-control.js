@@ -71,12 +71,14 @@ export function createHuntControl({ installationFile = process.env.INTENTSMITH_I
         || !(await readFile(join(installed.configDirectory,'runtime.env'),'utf8')).split('\n').includes(`INTENTSMITH_DB_PATH="${installed.dbPath}"`)) {
         throw new Error('HUNT_INSTALLATION_MISMATCH');
       }
-      let current = null, progress = null;
+      let current = null, progress = null, resources = null;
       try { current = await json(join(installed.stateDirectory, 'model-hunt/current.json')); }
       catch (error) { if (error.code !== 'ENOENT') throw error; }
       if (current && /^run-[A-Za-z0-9]+$/.test(current.runId)) {
         try { progress = await json(join(installed.stateDirectory, 'model-hunt', current.runId, 'progress.json')); }
         catch (error) { if (error.code !== 'ENOENT') throw error; }
+        try { resources = await json(join(installed.stateDirectory, 'model-hunt', current.runId, 'resources.json')); }
+        catch (error) { if (error.code !== 'ENOENT') resources = { ready: null, code: 'HUNT_RESOURCE_STATE_UNAVAILABLE' }; }
       }
       const recent = [];
       for (const entry of await readdir(join(installed.stateDirectory, 'model-hunt'), {withFileTypes:true}).catch(() => [])) {
@@ -107,7 +109,7 @@ export function createHuntControl({ installationFile = process.env.INTENTSMITH_I
         state: active ? (activeService.ActiveState === 'deactivating' ? 'STOPPING' : 'RUNNING')
           : hold ? 'HELD' : !gpu.available ? 'BLOCKED' : (current?.status === 'FAILED' || (!current && service.ActiveState === 'failed')) ? 'FAILED'
             : timer.ActiveState === 'active' ? 'WAITING' : 'PAUSED',
-        service, timer, evaluation, gpu, gpuInventory: await readInventory(), current, progress, hold,
+        service, timer, evaluation, gpu, gpuInventory: await readInventory(), current, progress, resources, hold,
         lastStartConditionFailed: service.ConditionResult === 'no' && Number(service.ConditionTimestampMonotonic) > 0,
         recent: recent.filter(r => r.finishedAt).sort((a,b) => String(b.finishedAt).localeCompare(String(a.finishedAt))).slice(0,5),
         // A stored plan is explicitly dated, never passed off as a fresh discovery.
