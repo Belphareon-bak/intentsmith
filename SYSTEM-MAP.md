@@ -5,7 +5,9 @@ Běžná cesta nově sbírá odlišné D1/D2/R1/R2/CHAT sady bez nepřijatého s
 s průběžným uložením, detaily ve Studiu a odděleným exportem bez identit.
 CODE/VISION zůstávají průzkumné; přejímka a provozní platnost zůstávají otevřené.
 Paměťový profil je jednotně 16 384 tokenů / 22 GB, nikoli důkaz pro větší kontext.
-**IMPLEMENTED / VALIDATION_IN_PROGRESS / NOT_DEPLOYED / AUTONOMOUS_SELECTION_NO_GO**.
+Nasazeno `cd5a6943`. Skutečný Qwen běh přes sedm rolí: 306 pokusů,
+pět rolí bez známek čeká na posouzení. Nové stahování blokuje rezerva 40 GiB.
+**DEPLOYED / SUPERVISED_COLLECTION_VERIFIED / REVIEW_PENDING / AUTONOMOUS_SELECTION_NO_GO**.
 [Rozsah, ověření a zbývající práce](docs/review/2026-09-21-HUNT-SUPERVISED-COLLECTION.md).
 
 

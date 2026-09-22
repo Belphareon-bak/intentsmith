@@ -105,17 +105,17 @@ doplnění coverage, nikoli vynucené přeměření. Model s CPU offloadem nepok
 do capability ani quality sad. Režim nic neaktivuje ani nemaže.
 
 `intervalIntegrity=LEGACY_UNVERIFIED` označuje nedoložený časový interval.
-Pouhý další hunt jej neopraví: cache a unikátní COMPLETE identita zachovají
-starý záznam. Přeměření stejného kontraktu vyžaduje samostatně vyřešit
-append-only opakované běhy; historii nemaž ani nepřepisuj.
+Starý záznam zůstává historií; běžný hunt není vynucené přeměření.
+Ruční „Nový test“ dnes vytvoří nový append-only běh stejného kontraktu
+s novým response-bound důkazem. Historii nemaž ani nepřepisuj.
 
 ## Reprodukovatelný provider
 
 Původní patch `0cb3844557c2cbf0beac555da0147279eebd9488` je v
 [`patches/ollama/0001-chat-response-manifest-digest.patch`](../patches/ollama/0001-chat-response-manifest-digest.patch).
 [`scripts/build-ollama-evaluation-provider.sh`](../scripts/build-ollama-evaluation-provider.sh)
-obnoví přesný commit nad tagem `v0.34.0` (historicky také
-`OLLAMA_PROVIDER_TAG=v0.32.14`), vyžaduje Go 1.26.7
+obnoví přesný commit nad tagem `v0.34.2` (volitelně také
+`OLLAMA_PROVIDER_TAG=v0.34.0` nebo `v0.32.14`), vyžaduje Go 1.26.7
 linux/amd64, sestaví binárku a ověří její SHA-256.
 
 ```bash
@@ -244,7 +244,10 @@ Operátor 2026-09-12 výslovně autorizoval úzké automatické mazání.
 Noční service používá `--prune-rejected`. Kritéria a zbývající review:
 [Decision 048 — uchování kandidátů](decisions/048-reproducible-evaluation-provider.md#výslovná-aktivace-operátorem-2026-09-12).
 
-K odstranění vede buď ověřený CPU spill při produkčním kontextu, nebo jasná
+CPU spill nyní končí `RETENTION_CONTEXT_SPECIFIC_GPU_UNFIT`: model se ponechá,
+protože chybí důkaz nevhodnosti i při menším kontextu. Kvalitativní odstranění
+vyžaduje přejímku příslušných profilů; nepřijatá sada končí
+`RETENTION_SUITE_NOT_READY` a model se také ponechá. K odstranění může vést jasná
 prohra ve všech použitelných rolích na aktuálním provideru, GPU, kontextu a
 sadách proti aktuálním digestům incumbentů. Chybějící data, timeout, remíza,
 INSUFFICIENT_EVIDENCE, vítězství v jedné roli a chráněný rollback znamenají
@@ -256,10 +259,10 @@ mazání částečných candidate trials. Serverový age-based cleanup zůstáv�
 
 Nová měření ukládají `metadata_json.provider.version` a API/report ukazují
 `providerVersion`. Starší evidence má `UNRECORDED`. Aktuální default build
-0.34.0-intentsmith.1 má SHA
-`8883245b864485a74ecccf62c4ce17d4538816cde4e37ea2107c2204d1d04ca7`;
+0.34.2-intentsmith.1 má SHA
+`2b98fceffbc6d5d97a6e96ddfd46c597cee4fa06a03d740fdb74dd9a34ff0f92`;
 linux amd64 native archive má SHA
-`cf95886728959aa09910bb34de5cca1cc5a8f68003b5597197d3f2c2d57c0804`.
+`e155b83589986d2c581fdbf1381ea3ebdb16549883679cd5a0627f7cdc05b12b`.
 Podporovaný provider popisuje [Decision 048](decisions/048-reproducible-evaluation-provider.md).
 
 Šablona GPU service vyžaduje také `@DB_PATH@`: absolutní cestu jedné
@@ -274,12 +277,13 @@ hunt CLI. Sidecar běží jako běžný uživatel s vypnutým cloudem; výchozí
 systémový modelový sklad vlastní účet `ollama` a uživatel do něj nemůže
 zapisovat. Nejde o filesystem sandbox. Vlastní procesní skupina zajišťuje
 ukončení provideru i všech jeho native runnerů; systemd navíc vlastní celou
-cgroup. Není potřeba povolovat user namespaces ani měnit AppArmor.
+cgroup. Samotný sidecar nepoužívá user namespaces; spustitelná CODE orákula
+mají vlastní izolaci a vyžadují ověřený oddělený síťový namespace.
 Při ukončení dávky se procesy zastaví. Provider log a JSON report
 zůstanou v `~/.local/state/intentsmith/model-hunt/run-*/`.
 
 Výchozí runtime je
-`~/.local/share/intentsmith/evaluation-provider/0.34.0-intentsmith.1`;
+`~/.local/share/intentsmith/evaluation-provider/0.34.2-intentsmith.1`;
 `INTENTSMITH_EVAL_RUNTIME` dovoluje explicitní jinou cestu ke stejné
 ověřené binárce. Potřebuje `bin/ollama`, odpovídající `lib/ollama` a
 `native.sha256`. Manifest vzniká z ověřeného upstream archivu při instalaci.
@@ -294,6 +298,12 @@ stáří verze: při kontrole 2026-09-12 oba endpointy hlásily
 `0.34.0-intentsmith.1`. Verze `/api/version` sama neprokazuje response-bound
 identitu; tu musí dodat každá měřená odpověď. Systémový upgrade zůstává
 samostatná instalační operace.
+
+Nasazení 21. 9. 2026 má evaluační `.34.2-intentsmith.1` a systémovou
+`.34.0-intentsmith.1`. Read model zobrazí výsledky evaluační verze, ale
+odlišná systémová verze nemá kvalifikaci pro aktivaci těchto výsledků.
+Aktuální měření a hranice nasazení shrnuje
+[packet sběru pod dohledem](review/2026-09-21-HUNT-SUPERVISED-COLLECTION.md).
 
 Po změně suite kontraktu se starší COMPLETE zachovají jako historie.
 Chybějící aktuální incumbent není předpokladem pro pád: párový runner jej
@@ -314,7 +324,7 @@ INTENTSMITH_DB_PATH=/absolutni/provozni.db node scripts/run-model-hunt-provider.
 Reprodukovatelná instalace uživatelského runtime používá
 `scripts/install-user-evaluation-runtime.sh PATCHED_BINARY UPSTREAM_ARCHIVE`.
 Archiv je oficiální `ollama-linux-amd64.tar.zst` z
-[release v0.34.0](https://github.com/ollama/ollama/releases/tag/v0.34.0).
+[release v0.34.2](https://github.com/ollama/ollama/releases/tag/v0.34.2).
 Instalátor kontroluje oba připnuté SHA před rozbalením a odmítne přepsat
 existující runtime. Systémovou službu a modelový sklad nemění.
 
