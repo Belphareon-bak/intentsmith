@@ -2551,7 +2551,7 @@ function _gradeStoredAnswers(runId){
     .then(function(d){
       if(!d.graders||!d.graders.length)throw new Error(d.code==='SEMANTIC_SELF_GRADING_FORBIDDEN'?'Dostupný hodnotitel je stejný artefakt jako hodnocený model. Je potřeba jiný přijatý hodnotitel.':'Pro tyto odpovědi není k dispozici přijatý hodnotitel. Odpovědi zůstávají uložené; nový test není potřeba. '+(d.code||''));
       var grader=d.graders[0];
-      if(!confirm('Ohodnotit uložené odpovědi '+d.model+' · '+d.role+' hodnotitelem '+(grader.judge&&grader.judge.modelName||'deterministické kontroly')+'? Odpovědi se znovu negenerují. Použije GPU; přiřazení rolí zůstane beze změny.'))return null;
+      if(!confirm('Ohodnotit uložené odpovědi '+d.model+' · '+d.role+' hodnotitelem '+(grader.judge&&grader.judge.modelName||'deterministické kontroly')+'? Odpovědi se znovu negenerují. Použije GPU; přiřazení rolí zůstane beze změny.')){_modelTestMessage='Hodnocení nebylo spuštěno.';return null;}
       _huntSubmittedAt=Date.now();
       return fetch(_backendUrl()+'/api/system/models/grade',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({runId:runId,graderAcceptanceId:grader.id,sourceSha256:d.sourceSha256}),signal:AbortSignal.timeout(20000)});
@@ -3898,7 +3898,7 @@ function centerUpgrades(){
         :h('button',{style:{padding:'4px 12px',borderRadius:4,border:'1px solid #ef4444',background:'transparent',
           color:'#ef4444',cursor:'pointer',fontSize:_fs(10),fontFamily:C.font},
           onClick:function(){_rollbackConfirm=true;renderCenter();}},'Rollback')):null):null,
-    _modelTestMessage&&(_upgradeTab==='hunt'||_upgradeTab==='evaluations')?h('div',{role:_modelTestFailed?'alert':'status',style:{margin:'12px 18px 0',padding:'8px 12px',borderRadius:6,
+    _modelTestMessage&&(_upgradeTab==='hunt'||_upgradeTab==='evaluations'||_upgradeTab==='history')?h('div',{role:_modelTestFailed?'alert':'status',style:{margin:'12px 18px 0',padding:'8px 12px',borderRadius:6,
       border:'1px solid '+C.border2,fontSize:_fs(11),lineHeight:1.5,background:_modelTestFailed?C.redBg:C.bg3,color:_modelTestFailed?C.red:C.tx2}},_modelTestMessage):null,
     /* body */
     h('div',{key:_upgradeTab,'data-testid':'model-tab-body',style:{flex:1,overflowY:'auto',padding:18}},

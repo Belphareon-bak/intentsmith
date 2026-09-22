@@ -35,8 +35,9 @@ historii, frontu, párové rozhodování a Studio pro všech sedm rolí.
 
 `GET /api/system/models/grading/:runId` poskytuje čerstvý náhled, pevný hash
 zdroje a způsobilé hodnotitele. `POST /api/system/models/grade` přijímá jen
-run ID, hash a ID přejímky. Obě cesty vyžadují lokální brandovanou autoritu;
-vstup nemůže dodat skóre, příkaz, cestu DB ani libovolný systemd unit.
+run ID, hash a ID přejímky. GET podléhá autentizaci serveru; mutační POST navíc
+vyžaduje lokální brandovanou autoritu. Vstup nemůže dodat skóre, příkaz,
+cestu DB ani libovolný systemd unit.
 
 CLI `scripts/grade-model-collection.js --help` popisuje read-only `--plan`
 a měření přes vlastněný provider wrapper `--grade-collection --run`.

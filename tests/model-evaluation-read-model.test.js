@@ -712,5 +712,37 @@ test('Studio displays captured answers on demand without inventing a grade or re
   assert(!text.includes('0.0 %'));assert(!text.includes('skóre 0 %'));
 });
 
+await testAsync('stored-answer grading shows missing acceptance in History and clears a cancelled preview', async () => {
+  const handler = studioFunction('_gradeStoredAnswers', 'setInterval(');
+  const toastStart = studioSource.indexOf("_modelTestMessage&&(_upgradeTab");
+  const toast = studioSource.slice(toastStart, studioSource.indexOf('/* body */', toastStart)).trim().replace(/,$/, '');
+  let accepted = false;
+  const calls = [];
+  const context = {
+    _modelTestPending: false, _modelTestMessage: null, _modelTestFailed: false, _upgradeTab: 'history',
+    _backendUrl: () => 'http://127.0.0.1:1234', renderCenter() {}, AbortSignal, confirm: () => false,
+    C: {}, _fs: n => n, h: (tag, props, ...children) => ({tag, props, children}),
+    fetch: async (url, options) => {
+      calls.push({url, method: options.method || 'GET'});
+      return {ok: true, json: async () => ({model: 'fixture', role: 'D1',
+        graders: accepted ? [{id: 'accepted', judge: {modelName: 'judge'}}] : [],
+        code: accepted ? null : 'EVALUATION_GRADER_ACCEPTANCE_MISSING'})};
+    },
+  };
+  runInNewContext(handler + ';_gradeStoredAnswers("raw")', context);
+  await new Promise(resolve => setImmediate(resolve));
+  let rendered = runInNewContext(toast, context);
+  assertEqual(rendered.props.role, 'alert');
+  assert(rendered.children[0].includes('nový test není potřeba'));
+  assertEqual(context._modelTestPending, false);
+  accepted = true;
+  runInNewContext('_gradeStoredAnswers("raw")', context);
+  await new Promise(resolve => setImmediate(resolve));
+  rendered = runInNewContext(toast, context);
+  assertEqual(rendered.props.role, 'status');
+  assertEqual(rendered.children[0], 'Hodnocení nebylo spuštěno.');
+  assert(calls.every(c => c.method === 'GET'), 'neither refusal may launch GPU work');
+});
+
 const results = summary();
 process.exit(results.failed > 0 ? 1 : 0);
