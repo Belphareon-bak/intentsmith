@@ -156,6 +156,30 @@ export function createHuntControl({ installationFile = process.env.INTENTSMITH_I
           : '--expected-contract=' + request.suiteContractSha256]);
       return { accepted: true, model: request.model, role: pins.map(pin => pin.role).join(','), roles: pins.map(pin => pin.role) };
     },
+    async grade(request, preview) {
+      if (!request || Object.keys(request).sort().join(',') !== 'graderAcceptanceId,runId,sourceSha256'
+        || !/^eval_[a-zA-Z0-9-]{1,100}$/.test(request.runId || '')
+        || !/^accept_[a-zA-Z0-9-]{1,100}$/.test(request.graderAcceptanceId || '')
+        || !/^[a-f0-9]{64}$/.test(request.sourceSha256 || ''))
+        throw Object.assign(new Error('MODEL_GRADING_REQUEST_INVALID'), {httpStatus:400});
+      if (preview?.runId !== request.runId || preview.sourceSha256 !== request.sourceSha256
+        || !preview.graders?.some(g => g.id === request.graderAcceptanceId))
+        throw Object.assign(new Error(preview?.code || 'MODEL_GRADING_EVIDENCE_CHANGED'), {httpStatus:409});
+      const status = await control.status({freshGpu:true});
+      if (['RUNNING','STOPPING'].includes(status.state)) throw Object.assign(new Error('HUNT_ALREADY_RUNNING'), {httpStatus:409});
+      if (!status.gpu.available) throw Object.assign(new Error(status.gpu.message), {httpStatus:503,code:status.gpu.code});
+      const installed = await installation();
+      await launch(['--user','--collect','--unit=' + EVALUATION,
+        '--property=Type=exec','--property=WorkingDirectory=' + installed.sourceRoot,
+        '--property=EnvironmentFile=' + join(installed.configDirectory,'runtime.env'),
+        '--property=KillMode=control-group','--property=TimeoutStopSec=15s',
+        '--property=MemoryHigh=60%','--property=MemoryMax=75%','--property=MemorySwapMax=1G','--property=OOMPolicy=stop',
+        '--property=RuntimeMaxSec=65m','--property=NoNewPrivileges=true','--property=UMask=0077','--property=Nice=10',
+        '--',installed.node,join(installed.sourceRoot,'scripts/run-model-hunt-provider.js'),
+        '--grade-collection','--run','--db=' + installed.dbPath,'--run-id=' + request.runId,
+        '--grader-acceptance=' + request.graderAcceptanceId, '--expected-source=' + request.sourceSha256]);
+      return {accepted:true,runId:request.runId,model:preview.model,role:preview.role};
+    },
     async control(action) {
       if (!Object.hasOwn(ACTIONS, action)) throw Object.assign(new Error('HUNT_ACTION_INVALID'), { httpStatus: 400 });
       const status = await control.status({ freshGpu: true });

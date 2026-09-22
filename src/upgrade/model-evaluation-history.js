@@ -6,6 +6,7 @@
 
 import { createHash, randomUUID } from 'node:crypto';
 import { DEFAULT_MODEL_EVALUATION_OPTIONS } from '../eval/model-evaluation-runner.js';
+import { ModelEvaluationAcceptanceStore, qualificationRuntimeSha256 } from './model-evaluation-acceptance.js';
 import {
   canonicalModelName,
   normalizeModelDigestSha256,
@@ -83,6 +84,7 @@ function evaluationInterval(input = {}, durationMs = 0) {
 const RETRYABLE_TERMINAL_CODES = new Set([
   'EVALUATION_AWAITING_REVIEW',
   'EVALUATION_COLLECTION_PARTIAL',
+  'EVALUATION_GRADING_INCOMPLETE',
   'HUNT_GPU_BUSY',
   'MODEL_EVALUATION_RESPONSE_PROVIDER_MISMATCH',
   'CANDIDATE_MEASURE_FAILED',       // compatibility with prototype.1 rows
@@ -199,7 +201,7 @@ export class ModelEvaluationHistory {
     const suiteVersion = requireText(input?.suiteVersion, 'suiteVersion', 128);
     const contractSha256 = normalizeModelDigestSha256(input?.contractSha256);
     if (!digestSha256 || !contractSha256) return null;
-    const row = this._db.prepare(`
+    const rows = this._db.prepare(`
       SELECT * FROM model_evaluation_runs
       WHERE model_digest_sha256 = ?
         AND suite_name = ?
@@ -209,9 +211,17 @@ export class ModelEvaluationHistory {
         AND status = 'COMPLETE'
         AND COALESCE(json_extract(metadata_json, '$.provider.version'), 'UNRECORDED') = ?
       ORDER BY completed_at DESC, rowid DESC
-      LIMIT 1
-    `).get(digestSha256, suiteName, suiteVersion, contractSha256, role, this.providerVersion);
-    return row ? this.#decode(row) : null;
+    `).all(digestSha256, suiteName, suiteVersion, contractSha256, role, this.providerVersion);
+    for (const row of rows) {
+      const decoded = this.#decode(row), grading = decoded.metadata?.grading;
+      if (grading) {
+        const acceptance = new ModelEvaluationAcceptanceStore(this._db).resolve({role,
+          suiteContractSha256:contractSha256,taskNames:decoded.tasks.map(t=>t.name),runtimeSha256:qualificationRuntimeSha256()});
+        if (!acceptance.graders?.some(g=>g.id===grading.graderAcceptanceId && g.payloadSha256===grading.graderAcceptanceSha256)) continue;
+      }
+      return decoded;
+    }
+    return null;
   }
 
   hasComplete(input) {
@@ -228,6 +238,11 @@ export class ModelEvaluationHistory {
       ORDER BY completed_at DESC, rowid DESC LIMIT 1`).get(input.digestSha256,
       requireModelEvaluationRole(input.role), input.suiteName, input.suiteVersion,
       input.contractSha256, this.providerVersion);
+    return row ? this.#decode(row) : null;
+  }
+
+  getRun(runId) {
+    const row = this._db?.prepare('SELECT * FROM model_evaluation_runs WHERE run_id=?').get(requireText(runId, 'runId'));
     return row ? this.#decode(row) : null;
   }
 

@@ -25,7 +25,7 @@
 
 import Database from 'better-sqlite3';
 import { resolve, dirname } from 'node:path';
-import { existsSync, readFileSync, statfsSync, writeFileSync, renameSync } from 'node:fs';
+import { existsSync, readFileSync, statfsSync, writeFileSync, renameSync, appendFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
@@ -59,6 +59,9 @@ import {
 } from '../src/eval/role-quality-suites.js';
 import { createRoleEvaluationPlans, HUNT_EVALUATION_NUM_CTX } from '../src/eval/role-evaluation-plan.js';
 import { MAX_MODEL_BYTES } from '../src/eval/role-collection-profile.js';
+import { gradeAcceptedCollection } from '../src/eval/grade-answer-collection.js';
+import { ModelEvaluationRunner } from '../src/eval/model-evaluation-runner.js';
+import { assertGradingGpuOwnership } from '../src/eval/grading-provider-guard.js';
 import { modelEvaluationHistory } from '../src/upgrade/model-evaluation-history.js';
 import { ModelEvaluationDecisionStore } from '../src/upgrade/model-evaluation-decision-store.js';
 import {
@@ -818,8 +821,7 @@ log('\n══ MĚŘENÍ STÁVAJÍCÍCH MODELŮ ══');
 publishProgress('incumbents');
 const incumbentSpeed = {};
 const allowedDrainModels = new Set();
-const measurementOptions = { providerVersion, numCtx: gpu.numCtx, maxVramBytes: MAX_MODEL_BYTES,
-  ...(SCHEDULED ? { allowedDrainModels } : {}) };
+const measurementOptions = { providerVersion, numCtx: gpu.numCtx, maxVramBytes: MAX_MODEL_BYTES, allowedDrainModels };
 const markOwned = name => {
   allowedDrainModels.add(name);
   const canonical = canonicalModelName(name);
@@ -928,6 +930,33 @@ for (const cand of toTry) {
     deleteModel: (name, options) => modelRegistry.deleteModel(name, options),
     incumbentSpeed,
     evaluationPlans,
+    gradeCollection: async (runId, plan) => gradeAcceptedCollection({history:modelEvaluationHistory,plan,runId,
+      fresh:EVALUATE_INSTALLED,call:async(...values)=>{
+        const owner=Number(process.env.INTENTSMITH_EVAL_PROVIDER_PID);
+        await assertGradingGpuOwnership(owner);
+        const result=await new ModelEvaluationRunner(config.ollama?.baseUrl)._callModel(...values);
+        await assertGradingGpuOwnership(owner);
+        const response=await fetch('http://127.0.0.1:11435/api/ps',{signal:AbortSignal.timeout(5000)});
+        if(!response.ok)throw new Error('GRADER_PLACEMENT_UNVERIFIED');
+        const resident=(await response.json()).models?.find(m=>m.digest?.replace(/^sha256:/,'')===values[3]?.digestSha256);
+        if(!resident || !Number.isSafeInteger(resident.size) || resident.size<=0 || resident.size_vram<resident.size)
+          throw new Error('GRADER_NOT_FULLY_GPU_RESIDENT');
+        return result;
+      },
+      prepareJudge:async judge => {
+        if (!await drainResident(measurementOptions)) throw new Error('HUNT_GPU_BUSY');
+        const artifact = await historyCallbacks.refreshArtifact(judge.modelName);
+        if (artifact.digestSha256 !== judge.digestSha256 || artifact.providerVersion !== judge.providerVersion)
+          throw new Error('EVALUATION_GRADER_IDENTITY_MISMATCH');
+        markOwned(judge.modelName);
+        const measured = await measureModel(judge.modelName,{...measurementOptions,expectedArtifact:judge});
+        if (!measured.fits) throw new Error('GRADER_NOT_FULLY_GPU_RESIDENT');
+      },
+      finishJudge:async()=>{if(!await drainResident(measurementOptions))throw new Error('HUNT_GPU_BUSY');},
+      onProgress:value=>publishProgress('grading',cand.name,results.map(r=>r.model),value),
+      onReceipt:receipt=>{if(process.env.INTENTSMITH_HUNT_PROGRESS_FILE)
+        appendFileSync(resolve(dirname(process.env.INTENTSMITH_HUNT_PROGRESS_FILE),'grading-receipts.jsonl'),JSON.stringify(receipt)+'\n',{mode:0o600});},
+    }),
     trialOpts: {
       fresh: EVALUATE_INSTALLED,
       repeats: 3,

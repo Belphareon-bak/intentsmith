@@ -44,7 +44,11 @@ export class ModelHuntState {
   }
 
   evaluationKey(candidate, providerVersion, plans, hardware) {
-    return hash([providerVersion, hardware, [...candidate.roles].sort().map(role => [role, plans[role]?.suiteContractSha256])]);
+    return hash([providerVersion, hardware, [...candidate.roles].sort().map(role => {
+      const acceptance = plans[role]?.acceptance;
+      return [role, plans[role]?.suiteContractSha256, acceptance?.graderIds || [],
+        acceptance?.qualifications?.map(q=>[q.id,q.payloadSha256]) || []];
+    })]);
   }
 
   pending(candidate, evaluationKey, now = Date.now(), { retentionKey = null } = {}) {
@@ -78,7 +82,8 @@ export class ModelHuntState {
     const completed = !result.error && !result.roleErrors?.length
       && result.trials?.some(trial => !trial.skipped)
       && result.trials.filter(trial => !trial.skipped).every(trial => trial.comparison?.candidateRunId
-        || (trial.evaluation?.collection?.status === 'AWAITING_REVIEW' && trial.evaluation.historyRunId));
+        || (trial.evaluation?.collection?.status === 'AWAITING_REVIEW' && trial.evaluation.historyRunId)
+        || (trial.evaluation?.status === 'COMPLETE' && trial.evaluation?.grading?.status === 'GRADED' && trial.evaluation.historyRunId));
     const outcome = completed ? 'COMPLETE' : (cpuSpill || floorFailure ? 'BLOCKED' : 'RETRYABLE');
     this.db.prepare(`INSERT INTO model_hunt_attempts
       (attempt_id, candidate_key, evaluation_key, outcome, completed_at, result_json)

@@ -471,10 +471,12 @@ test('specialists dimension — only observability events returns fallback', () 
 
 test('upgrades dimension — missing current exact-contract evaluation penalizes', () => {
   const db = createTestDb();
-  seedCurrentEvaluations(db, { missing: ['D1'] });
+  seedCurrentEvaluations(db, { missing: ['CODE'] });
   const result = analyzeUpgrades(db);
-  assertEqual(result.score, 6 / 7);
-  assertEqual(result.details.current_evaluation_missing_roles.join(','), 'D1');
+  // Bare COMPLETE rows for T4 are not accepted grades. Only VISION remains
+  // covered here; the deterministic CODE measurement is deliberately absent.
+  assertEqual(result.score, 1 / 7);
+  assertEqual(result.details.current_evaluation_missing_roles.join(','), 'CODE');
   db.close();
 });
 
@@ -487,7 +489,7 @@ test('upgrades dimension — unrelated historical evaluation does not affect cur
     ) VALUES (?, ?, ?, 'FAILED', datetime('now', '-20 days'))
   `).run('f'.repeat(64), 'retired_suite', 'e'.repeat(64));
   const result = analyzeUpgrades(db);
-  assertEqual(result.score, 1.0);
+  assertEqual(result.score, 2 / 7); // CODE + VISION; T4 requires a reviewed grader.
   db.close();
 });
 

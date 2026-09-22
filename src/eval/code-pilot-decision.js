@@ -20,8 +20,14 @@ export function classifyCodePilotOutcome({ invalid, success, operationalFailure,
 }
 
 export function validateCodePilotPlan(plan) {
+  return validatePairedPlan(plan, 'CODE', 'completed_without_repair_help');
+}
+
+// Shared arithmetic, explicit caller-owned workflow/metric. The CODE entrypoint
+// remains strict so old callers cannot silently reinterpret another role.
+export function validatePairedPlan(plan, role, metric) {
   const fail = message => { throw new Error(`CODE_PILOT_PLAN_INVALID: ${message}`); };
-  if (plan?.schemaVersion !== 1 || plan.role !== 'CODE' || plan.metric !== 'completed_without_repair_help') fail('metric');
+  if (plan?.schemaVersion !== 1 || plan.role !== role || plan.metric !== metric) fail('metric');
   if (plan.planSha256 !== codePilotPlanHash(plan)) fail('seal');
   if (!Number.isFinite(Date.parse(plan.lockedAt))) fail('lockedAt');
   if (!Number.isInteger(plan.repeats) || plan.repeats < 1) fail('repeats');
@@ -74,6 +80,10 @@ export function boundedGroupInterval(values, alpha) {
 
 export function decideCodePilot(plan, attempts, qualifications = {}) {
   validateCodePilotPlan(plan);
+  return decidePairedPlan(plan, attempts, qualifications);
+}
+
+export function decidePairedPlan(plan, attempts, qualifications = {}) {
   const result = { verdict: 'NEROZHODNUTO', bindingAction: 'UNCHANGED', activationAuthorized: false,
     planSha256: plan.planSha256, plannedAttempts: plan.scenarios.length * plan.repeats * 2,
     observedAttempts: attempts.length, invalidAttempts: [], missingAttempts: [], groups: [],

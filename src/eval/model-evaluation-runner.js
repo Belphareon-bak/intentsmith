@@ -216,7 +216,8 @@ export class ModelEvaluationRunner {
         rubric: testDef.rubric || [],
       };
     }
-    const graded = await testDef.grade(result.content, { ...data, semanticJudge: this._semanticJudge });
+    const graded = await testDef.grade(result.content, { ...data, semanticJudge: this._semanticJudge,
+      artifact: { digestSha256: result.digestSha256, providerVersion: result.providerVersion } });
     const valid = graded.valid !== false && Number.isFinite(graded.score);
     return {
       name: testDef.name,

@@ -89,7 +89,8 @@ export function textGradingRuntimeContract(readSource = readFileSync) {
   const files = ['./role-quality-suites.js', './model-evaluation-runner.js',
     './runtime-json.js', './structured-answer.js', '../llm/client.js',
     './fixtures/vision/manifest.json', './semantic-role-suites.js', './semantic-evaluation-judge.js',
-    './fixtures/role-semantic-tasks.json', './role-collection-profile.js', './model-answer-collection.js'];
+    './fixtures/role-semantic-tasks.json', './role-collection-profile.js', './model-answer-collection.js',
+    './grade-answer-collection.js', './semantic-grader-acceptance.js'];
   return Object.freeze({
     version: 1, nodeVersion: process.version,
     sources: Object.freeze(Object.fromEntries(files.map(relative => [relative,
@@ -148,8 +149,8 @@ export function createRoleEvaluationPlans(opts = {}) {
       // constructed plan, including the final retention recheck under its lock.
       qualificationRuntimeSha256: runtimeSha256,
       get acceptance() { return acceptanceStore.resolve(acceptanceIdentity); },
-      get decisionReady() { return !collectionOnly && this.measurementReady && this.acceptance.ready; },
-      get evidencePurpose() { return collectionOnly ? 'COLLECTION_FOR_REVIEW' : this.decisionReady ? 'QUALIFIED_PAIR_ONLY' : 'EXPLORATORY'; },
+      get decisionReady() { return this.measurementReady && this.acceptance.ready; },
+      get evidencePurpose() { return this.decisionReady ? 'QUALIFIED_PAIR_ONLY' : collectionOnly ? 'COLLECTION_FOR_REVIEW' : 'EXPLORATORY'; },
       get decisionBlockCode() { return this.decisionReady ? null : this.acceptance.code || 'EVALUATION_PROFILE_NOT_ACCEPTED'; },
       get decisionBlockReason() {
         return this.decisionReady ? null : 'Sada nemá ověřitelnou přejímku hodnotitele a odděleného párového provozního měření pro tento kontrakt. Výsledky jsou průzkumné.';

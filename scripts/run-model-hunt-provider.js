@@ -19,7 +19,8 @@ const codePilot = process.argv.includes('--code-pilot');
 const allRolePilot = process.argv.includes('--all-role-pilot');
 const roleHandoff = process.argv.includes('--role-handoff');
 const conversationHandoff = process.argv.includes('--conversation-handoff');
-if ([codePilot,allRolePilot,roleHandoff,conversationHandoff].filter(Boolean).length > 1) throw new Error('Choose one evaluation entrypoint');
+const gradeCollection = process.argv.includes('--grade-collection');
+if ([codePilot,allRolePilot,roleHandoff,conversationHandoff,gradeCollection].filter(Boolean).length > 1) throw new Error('Choose one evaluation entrypoint');
 const providerBuild = conversationHandoff ? CONVERSATION_PROVIDER_BUILD : EVALUATION_PROVIDER_BUILD;
 const providerVersion = providerBuild.version;
 const runtime = process.env.INTENTSMITH_EVAL_RUNTIME || join(homedir(), '.local/share/intentsmith/evaluation-provider', providerVersion);
@@ -31,7 +32,7 @@ const runDir = mkdtempSync(join(state, 'run-'));
 mkdirSync(join(runDir, 'tmp'), { mode: 0o700 });
 const startedAt = new Date().toISOString();
 const argument = name => process.argv.slice(2).find(value => value.startsWith(`--${name}=`))?.slice(name.length + 3) || null;
-const request = { kind: conversationHandoff ? 'conversation-handoff' : roleHandoff ? 'role-handoff' : allRolePilot ? 'all-role-pilot' : codePilot ? 'code-pilot' : process.argv.includes('--evaluate-installed') ? 'evaluation' : 'hunt',
+const request = { kind: gradeCollection ? 'grading' : conversationHandoff ? 'conversation-handoff' : roleHandoff ? 'role-handoff' : allRolePilot ? 'all-role-pilot' : codePilot ? 'code-pilot' : process.argv.includes('--evaluate-installed') ? 'evaluation' : 'hunt',
   model: argument('only'), role: argument('role') };
 const currentFile = join(state, 'current.json');
 const publish = values => {
@@ -133,17 +134,17 @@ try {
   }
   if (stopping) throw new Error('HUNT_CANCELLED');
   if (!ready) throw new Error('EVALUATION_PROVIDER_START_FAILED');
-  const args = process.argv.slice(2).filter(arg => !['--code-pilot','--all-role-pilot','--role-handoff','--conversation-handoff'].includes(arg));
+  const args = process.argv.slice(2).filter(arg => !['--code-pilot','--all-role-pilot','--role-handoff','--conversation-handoff','--grade-collection'].includes(arg));
   const reportArgs = args.some(arg => arg.startsWith('--report=')) ? [] : [`--report=${join(runDir, 'result.json')}`];
   let failureOutput = '';
   // Fixed manual CODE entrypoint only; no arbitrary command execution surface.
-  const entrypoint = conversationHandoff ? 'scripts/manual/conversation-operational-handoff.mjs' : roleHandoff ? 'scripts/manual/role-operational-handoff.mjs' : allRolePilot ? 'scripts/manual/all-role-evaluation.mjs'
+  const entrypoint = gradeCollection ? 'scripts/grade-model-collection.js' : conversationHandoff ? 'scripts/manual/conversation-operational-handoff.mjs' : roleHandoff ? 'scripts/manual/role-operational-handoff.mjs' : allRolePilot ? 'scripts/manual/all-role-evaluation.mjs'
     : codePilot ? 'scripts/manual/c3-code-pilot.mjs' : 'scripts/model-upgrade-hunt.js';
   hunt = spawn(process.execPath, [join(root, entrypoint), ...args, ...reportArgs], {
     detached: true,
     cwd: root,
     env: { ...process.env, OLLAMA_URL: 'http://127.0.0.1:11435', INTENTSMITH_HUNT_PULL_URL: 'http://127.0.0.1:11434',
-      ...(codePilot || allRolePilot || roleHandoff || conversationHandoff ? { INTENTSMITH_EVAL_PROVIDER_PID: String(provider.pid) } : {}),
+      INTENTSMITH_EVAL_PROVIDER_PID: String(provider.pid),
       INTENTSMITH_HUNT_PROGRESS_FILE: join(runDir, 'progress.json') },
     stdio: ['inherit', 'inherit', 'pipe'],
   });
@@ -156,6 +157,7 @@ try {
   catch { /* Missing report is explicit; a successful exit alone is not a completed measurement. */ }
   publish({ status: resourceBlock ? 'BLOCKED' : stopping ? 'CANCELLED' : code !== 0 ? 'FAILED' : report?.status || (report ? 'COMPLETE' : 'REPORT_MISSING'),
     finishedAt: new Date().toISOString(), exitCode: code,
+    ...(gradeCollection ? {request:{...request,model:report?.model || null,role:report?.role || null}} : {}),
     code: resourceBlock?.code || report?.code || /Error:\s*([A-Z][A-Z0-9_]{3,})/.exec(failureOutput)?.[1] || null,
     resources: resourceBlock || null,
     error: code !== 0 ? (report?.error || failureOutput.trim() || 'Proces měření skončil bez výsledku; podrobnosti jsou v systémovém logu.') : null,

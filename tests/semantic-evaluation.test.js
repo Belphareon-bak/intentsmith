@@ -7,6 +7,8 @@ import { ModelEvaluationRunner } from '../src/eval/model-evaluation-runner.js';
 import { RoleQualityEvaluationRunner } from '../src/eval/role-quality-suites.js';
 
 const artifact={modelName:'fixture:latest',digestSha256:'a'.repeat(64),providerVersion:'test-provider'};
+const proof={done:true,digestSha256:artifact.digestSha256,providerVersion:artifact.providerVersion};
+const answerArtifact={...artifact,digestSha256:'b'.repeat(64)};
 const task=semanticTask({name:'fixture',role:'D1',prompt:'A task',independenceGroup:'fixture',reference:{
   gold:'correct',alternative:'equivalent',criteria:['Respond correctly','Explain the cause'],
   controls:{'keyword-stuffing':'stuff','negated-facts':'negation','confident-wrong':'wrong'},
@@ -15,7 +17,7 @@ const rows=(score)=>[1,2].map(criterion=>({criterion,score,evidence:score?'suppo
 const goodCall=async(_model,messages)=>{
   const p=JSON.parse(messages[1].content);
   const value=answer=>['correct','equivalent'].includes(answer)?1:0;
-  return {content:JSON.stringify({a:rows(value(p.a)),b:rows(value(p.b))}),doneReason:'stop'};
+  return {...proof,content:JSON.stringify({a:rows(value(p.a)),b:rows(value(p.b))}),doneReason:'stop'};
 };
 
 suite('semantic evaluation protocol and invalid-evidence propagation');
@@ -82,20 +84,20 @@ await testAsync('analytic rubric keeps independent credit after a failed first c
   let format;
   const judge=new SemanticEvaluationJudge({artifact,call:async(_model,messages,options)=>{
     format=options.format;const data=JSON.parse(messages[1].content),target=rows(0);target[1].score=1;
-    return {doneReason:'stop',content:JSON.stringify(data.a==='partial'?{a:target,b:rows(1)}:{a:rows(1),b:target})};
+    return {...proof,doneReason:'stop',content:JSON.stringify(data.a==='partial'?{a:target,b:rows(1)}:{a:rows(1),b:target})};
   }});
   const result=await judge.grade(current,'partial',{calibration:true});
   assert.equal(result.score,0.5);assert.equal(result.detail.parts[1].score,1);
   assert.deepEqual(format.anyOf[1].required,['ungradable','reason']);
   for(const score of [0.25,0.75]) assert.ok(parseSemanticJudgement(JSON.stringify({a:rows(score),b:rows(1)}),2));
-  judge.call=async()=>({doneReason:'stop',content:JSON.stringify({ungradable:true,reason:'Caller contract absent'})});
+  judge.call=async()=>({...proof,doneReason:'stop',content:JSON.stringify({ungradable:true,reason:'Caller contract absent'})});
   const missing=await judge.grade(current,'partial',{calibration:true});
   assert.equal(missing.valid,false);assert.equal(missing.score,null);
 });
 await testAsync('unqualified open answers have no score, including empty output',async()=>{
   const judge=new SemanticEvaluationJudge({call:goodCall,artifact});
   for(const answer of ['','correct']) {
-    const r=await judge.grade(task,answer);assert.equal(r.valid,false);assert.equal(r.score,null);
+    const r=await judge.grade(task,answer,{artifact:answerArtifact});assert.equal(r.valid,false);assert.equal(r.score,null);
     assert.equal(r.detail.reason,'SEMANTIC_JUDGE_NOT_QUALIFIED');
   }
   assert.equal((await task.grade('correct',{})).score,null);
@@ -106,14 +108,14 @@ await testAsync('all seven adversarial probes are checked in both orders before 
   const calibration=await judge.qualify(task);
   assert.equal(calibration.status,'PASS');assert.equal(calibration.decisionAccepted,false);
   assert.equal(receipts.length,14);assert.equal(receipts.filter(r=>r.reverse).length,7);
-  assert.equal((await judge.grade(task,'equivalent')).score,1);
-  assert.equal((await judge.grade(task,'wrong')).score,0);
+  assert.equal((await judge.grade(task,'equivalent',{artifact:answerArtifact})).score,1);
+  assert.equal((await judge.grade(task,'wrong',{artifact:answerArtifact})).score,0);
   assert.ok(receipts.every(r=>r.inputSha256.length===64 && r.artifact.digestSha256===artifact.digestSha256));
 });
 await testAsync('one admitted wrong answer prevents qualification; an editable score flag is not a bypass',async()=>{
-  const judge=new SemanticEvaluationJudge({artifact,call:async()=>({doneReason:'stop',content:JSON.stringify({a:rows(1),b:rows(1)})})});
+  const judge=new SemanticEvaluationJudge({artifact,call:async()=>({...proof,doneReason:'stop',content:JSON.stringify({a:rows(1),b:rows(1)})})});
   assert.equal((await judge.qualify(task)).status,'FAIL');
-  assert.equal((await judge.grade(task,'correct')).score,null);
+  assert.equal((await judge.grade(task,'correct',{artifact:answerArtifact})).score,null);
 });
 await testAsync('a judge that rejects a correct alternative is not qualified',async()=>{
   const judge=new SemanticEvaluationJudge({artifact,call:async(model,messages)=>{
@@ -123,14 +125,14 @@ await testAsync('a judge that rejects a correct alternative is not qualified',as
   const c=await judge.qualify(task);assert.equal(c.status,'FAIL');assert.equal(c.probes.alternative.accepted,false);
 });
 await testAsync('position bias is missing evidence, not averaged model quality',async()=>{
-  const judge=new SemanticEvaluationJudge({artifact,call:async()=>({doneReason:'stop',content:JSON.stringify({a:rows(1),b:rows(0)})})});
+  const judge=new SemanticEvaluationJudge({artifact,call:async()=>({...proof,doneReason:'stop',content:JSON.stringify({a:rows(1),b:rows(0)})})});
   const r=await judge.grade(task,'wrong',{calibration:true});assert.equal(r.valid,false);assert.equal(r.score,null);
 });
 await testAsync('agreed prerequisite failure keeps zero credit while preserving raw subordinate order drift',async()=>{
   const judge=new SemanticEvaluationJudge({artifact,call:async(_model,messages)=>{
     const data=JSON.parse(messages[1].content);
     const target=rows(0);target[1].score=data.a==='wrong'?0:1;
-    return {doneReason:'stop',content:JSON.stringify(data.a==='wrong'?{a:target,b:rows(1)}:{a:rows(1),b:target})};
+    return {...proof,doneReason:'stop',content:JSON.stringify(data.a==='wrong'?{a:target,b:rows(1)}:{a:rows(1),b:target})};
   }});
   const r=await judge.grade(task,'wrong',{calibration:true});
   assert.equal(r.valid,true);assert.equal(r.score,0);assert.equal(r.detail.disagreement,0);
@@ -141,13 +143,13 @@ await testAsync('disagreement on the prerequisite itself still blocks a superfic
   const judge=new SemanticEvaluationJudge({artifact,call:async(_model,messages)=>{
     const data=JSON.parse(messages[1].content),target=rows(0);
     target[0].score=data.a==='wrong'?0:1;
-    return {doneReason:'stop',content:JSON.stringify(data.a==='wrong'?{a:target,b:rows(1)}:{a:rows(1),b:target})};
+    return {...proof,doneReason:'stop',content:JSON.stringify(data.a==='wrong'?{a:target,b:rows(1)}:{a:rows(1),b:target})};
   }});
   const r=await judge.grade(task,'wrong',{calibration:true});
   assert.equal(r.valid,false);assert.equal(r.score,null);assert.equal(r.detail.reason,'SEMANTIC_ORDER_UNSTABLE');
 });
 await testAsync('truncated judge generation is invalid even with parseable JSON',async()=>{
-  const judge=new SemanticEvaluationJudge({artifact,call:async()=>({doneReason:'length',content:JSON.stringify({a:rows(1),b:rows(1)})})});
+  const judge=new SemanticEvaluationJudge({artifact,call:async()=>({...proof,doneReason:'length',content:JSON.stringify({a:rows(1),b:rows(1)})})});
   assert.equal((await judge.grade(task,'correct',{calibration:true})).detail.reason,'SEMANTIC_JUDGE_RESPONSE_INVALID');
 });
 await testAsync('confirmed target output-budget exhaustion is an operational failure, not a high-scoring answer prefix',async()=>{

@@ -3,7 +3,9 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { DEFAULT_MODEL_EVALUATION_OPTIONS } from '../eval/model-evaluation-runner.js';
-import { decideCodePilot } from '../eval/code-pilot-decision.js';
+import { decideRoleOperational } from '../eval/role-operational-decision.js';
+import { validateSemanticAcceptance } from '../eval/semantic-grader-acceptance.js';
+import { SEMANTIC_ROLE_SUITES } from '../eval/semantic-role-suites.js';
 
 const roles = new Set(['D1','D2','CODE','R1','R2','CHAT','VISION']);
 const canonical = value => JSON.stringify(value, (_key, item) => item && typeof item === 'object'
@@ -31,6 +33,7 @@ export function qualificationRuntimeSha256(readSource = readFileSync) {
   visit('../');
   visit('../../contracts/');
   sources.push('../../scripts/manual/c3-code-pilot.mjs','../../scripts/manual/c3-code-pilot-fixtures.mjs',
+    '../../scripts/manual/code-operational-20260920-fixtures.mjs', '../../scripts/grade-model-collection.js',
     '../../scripts/run-model-hunt-provider.js','../../package-lock.json');
   return acceptanceHash({nodeVersion:process.version, sources:Object.fromEntries(sources.sort().map(path => [path,
     createHash('sha256').update(readSource(new URL(path,import.meta.url))).digest('hex')]))});
@@ -57,29 +60,32 @@ function validateEnvelope(record) {
     requireValue(Array.isArray(e.tasks) && e.tasks.length > 0
       && new Set(e.tasks.map(t => t.name)).size === e.tasks.length, 'grader tasks');
     for (const task of e.tasks) {
-      // T4 needs a separately accepted evaluator/calibration path; a PASS flag
-      // must never silently admit it through the deterministic T1–T3 importer.
-      requireValue(text(task.name) && ['T1','T2','T3'].includes(task.tier), 'grader tier');
-      requireValue(Number.isFinite(task.floor) && task.floor >= 0 && task.floor < 0.9, 'grader floor');
+      requireValue(text(task.name) && ['T1','T2','T3','T4'].includes(task.tier), 'grader tier');
+      const actual = SEMANTIC_ROLE_SUITES[record.role]?.tests.find(t => t.name === task.name);
+      if (SEMANTIC_ROLE_SUITES[record.role]) requireValue(actual && actual.tier === task.tier
+        && (task.tier !== 'T4' || actual.semanticReference.criteria.length === task.criterionCount), 'actual grading tier');
+      if (task.tier === 'T4') requireValue(text(task.taskType)
+        && Number.isSafeInteger(task.criterionCount) && task.criterionCount > 0, 'semantic task');
+      requireValue(Number.isFinite(task.floor) && task.floor >= 0 && task.floor <= (task.tier === 'T4' ? 0.25 : 0.1), 'grader floor');
       for (const name of ['empty','prompt-echo','keyword-stuffing','negated-facts','confident-wrong','gold','alternative']) {
         const probe = task.probes?.[name];
         requireValue(Number.isFinite(probe?.score) && probe.score >= 0 && probe.score <= 1
           && hash(probe.responseSha256)
-          && (['gold','alternative'].includes(name) ? probe.score >= 0.9 : probe.score <= task.floor), `probe ${name}`);
+          && (['gold','alternative'].includes(name) ? probe.score >= 0.9
+            : probe.score <= Math.min(task.floor, ['negated-facts','confident-wrong'].includes(name) ? 0.25 : 0.1)), `probe ${name}`);
       }
     }
+    if (e.tasks.some(t => t.tier === 'T4')) validateSemanticAcceptance(e.semanticAcceptance, e);
   } else {
-    // The accepted pilot currently has a CODE decision engine only. Other
-    // roles remain closed until their own §3/§8 implementation is accepted.
-    requireValue(record.role === 'CODE', 'operational role unsupported');
     requireValue(text(e.graderAcceptanceId) && e.plan?.evaluationContractSha256 === record.contractSha256
+      && e.plan.role === record.role
       && e.plan.runtimeSha256 === e.runtimeSha256
       && e.plan.workflow === 'intentsmith' && e.plan.developmentOnly === false && e.plan.notAHoldout === false
       && e.holdout?.independent === true && e.holdout.usedForDevelopment === false
       && hash(e.holdout.manifestSha256) && e.plan.holdoutSha256 === e.holdout.manifestSha256, 'holdout');
     requireValue(text(e.hardware?.model) && Number.isFinite(e.hardware?.vramMb) && e.hardware.vramMb > 0
       && text(e.plan.profile?.providerVersion), 'operational profile');
-    const decision = decideCodePilot(e.plan, e.attempts, e.qualifications);
+    const decision = decideRoleOperational(e.plan, e.attempts, e.qualifications);
     requireValue(decision.qualityInterval && !decision.invalidAttempts.length && !decision.missingAttempts.length
       && ['QUALITY_BENEFIT','SPEED_WITH_NONINFERIOR_QUALITY','CANDIDATE_QUALITY_LOSS','INSUFFICIENT_EVIDENCE'].includes(decision.reason), 'paired evidence');
     requireValue(e.attempts.every(a => Date.parse(a.startedAt) + a.durationMs <= Date.parse(e.completedAt)), 'attempt interval');
@@ -139,10 +145,13 @@ export class ModelEvaluationAcceptanceStore {
           incumbentDigestSha256:r.evidence.plan.incumbent.digest,
           providerVersion:r.evidence.plan.profile.providerVersion, numCtx:r.evidence.plan.profile.numCtx,
           hardware:r.evidence.hardware,
-          decision:decideCodePilot(r.evidence.plan,r.evidence.attempts,r.evidence.qualifications) }));
+          decision:decideRoleOperational(r.evidence.plan,r.evidence.attempts,r.evidence.qualifications) }));
       return { ready:qualifications.length > 0,
         code:qualifications.length ? null : graders.length ? 'EVALUATION_OPERATIONAL_ACCEPTANCE_MISSING' : 'EVALUATION_GRADER_ACCEPTANCE_MISSING',
-        graderIds:graders.map(r => r.id), qualifications };
+        graderIds:graders.map(r => r.id),
+        graders:graders.map(r => ({ id:r.id, payloadSha256:r.payloadSha256,
+          judge:r.evidence.semanticAcceptance?.plan.judge || null,
+          semanticPlanSha256:r.evidence.semanticAcceptance?.plan.planSha256 || null })), qualifications };
     } catch { return blocked('EVALUATION_ACCEPTANCE_UNVERIFIABLE'); }
   }
 
@@ -154,12 +163,20 @@ export class ModelEvaluationAcceptanceStore {
       const candidate = get(candidateRunId), incumbent = get(incumbentRunId);
       const matches = (run,q,digest) => {
         const metadata = JSON.parse(run?.metadata_json || '{}'), hardware = JSON.parse(run?.hardware_json || '{}');
+        const grader = acceptance.graders.find(g => g.id === q.graderId);
         return run?.status === 'COMPLETE' && run.role === plan.role
           && run.suite_contract_sha256 === plan.suiteContractSha256
           && run.suite_name === plan.suiteName && run.suite_version === plan.suiteVersion
           && plan.suite.tests.every(t => [['num_ctx','numCtx'],['num_predict','numPredict'],['temperature','temperature'],['top_p','topP']]
             .every(([option,key]) => (t.options?.[option] ?? DEFAULT_MODEL_EVALUATION_OPTIONS[option]) === q.profile[key]))
           && run.model_digest_sha256 === digest && metadata.provider?.proof === 'RESPONSE_BOUND'
+          && (!plan.collectionOnly || (metadata.grading?.graderAcceptanceId === q.graderId
+            && metadata.grading?.graderAcceptanceSha256 === grader?.payloadSha256
+            && metadata.grading?.sourceCollectionRunId
+            && hash(metadata.grading?.sourceCollectionSha256)
+            && (!grader?.judge || (metadata.grading?.judge?.digestSha256 === grader.judge.digestSha256
+              && metadata.grading?.judge?.providerVersion === grader.judge.providerVersion
+              && grader.judge.digestSha256 !== digest))))
           && metadata.provider.version === q.providerVersion && hardware.model === q.hardware.model
           && hardware.vramMb === q.hardware.vramMb && hardware.numCtx === q.numCtx;
       };

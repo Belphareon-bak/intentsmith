@@ -334,8 +334,10 @@ export function evaluationStateForArtifact(artifact, roles, plans, history, hard
       contractSha256: plan.suiteContractSha256,
       hardware,
     });
-    perRole[role] = complete ? 'scored' : collected ? 'awaiting-review' : (terminal ? 'rejected' : 'unseen');
-    if (!complete && !terminal && !collected) missing++;
+    const gradingPending = collected && plan.acceptance?.graders?.some(g => !g.judge
+      || g.judge.digestSha256 !== artifact.digestSha256);
+    perRole[role] = complete ? 'scored' : gradingPending ? 'grading-pending' : collected ? 'awaiting-review' : (terminal ? 'rejected' : 'unseen');
+    if (!complete && !terminal && (!collected || gradingPending)) missing++;
     if (terminal) rejected++;
   }
   const state = missing ? 'unseen' : rejected ? 'rejected'

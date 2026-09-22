@@ -327,10 +327,31 @@ export async function tryCandidate(candidateName, ctx = {}) {
         };
         if (evaluationPlan.collectionOnly) {
           const evaluation = await collectRoleAnswers(runner, role, candidateName, roleOptions);
-          out.trials.push({ role, evaluation });
+          let graded = null;
+          if (evaluation.collection.status === 'AWAITING_REVIEW' && ctx.gradeCollection)
+            graded = await ctx.gradeCollection(evaluation.historyRunId, evaluationPlan);
+          out.trials.push({ role, evaluation: graded?.status === 'COMPLETE'
+            ? { ...graded, historyRunId:graded.runId, grading:graded.metadata.grading } : evaluation });
+          if (graded && graded.status !== 'COMPLETE') out.roleErrors.push({role,
+            error:graded.errorMessage,code:graded.errorCode});
           if (evaluation.collection.status !== 'AWAITING_REVIEW') out.roleErrors.push({ role,
             error: 'Sběr byl přerušen; odpovědi jsou uložené bez skóre.', code: 'EVALUATION_COLLECTION_PARTIAL' });
-          onStage('roleCollected', candidateName, { role, collection: evaluation.collection, reused: evaluation.reused === true });
+          onStage(graded?.status === 'COMPLETE' ? 'roleEvaluated' : 'roleCollected', candidateName,
+            { role, collection: graded?.status === 'COMPLETE' ? null : evaluation.collection,
+              score: graded?.score ?? null, reused: graded?.reused === true || (!graded && evaluation.reused === true) });
+          if (graded?.status === 'COMPLETE' && !ctx.evaluationOnly && incumbent && incumbent !== candidateName
+            && evaluationPlan.decisionReady && roleOptions.loadHistoricalSummary) {
+            // No unreviewed fallback inference. Only already graded, exact
+            // runs can reach the existing accepted pair/portfolio authority.
+            const cached = await roleOptions.loadHistoricalSummary({model:incumbent,role,
+              suiteName:evaluationPlan.suiteName,suiteVersion:evaluationPlan.suiteVersion,
+              suiteContractSha256:evaluationPlan.suiteContractSha256});
+            if (cached) {
+              const result = await trialRole(runner, role, candidateName, incumbent, {...roleOptions,fresh:false});
+              out.trials.push(result);out.decisions[role]=result.decision;
+              onStage('roleDecided',candidateName,{role,decision:result.decision});
+            }
+          }
           continue;
         }
         if (ctx.evaluationOnly) {

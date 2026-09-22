@@ -22,6 +22,9 @@ import { readNvidiaDisplayCapacity } from '../upgrade/model-hunt-diagnostics.js'
 import { ModelHuntState } from '../upgrade/model-hunt-state.js';
 import { TYPICAL_VRAM_OVERHEAD } from '../upgrade/model-sweep.js';
 import { isLocalOperatorTransportSubject } from '../security/global-auth-policy.js';
+import { ModelEvaluationHistory } from '../upgrade/model-evaluation-history.js';
+import { createRoleEvaluationPlans } from '../eval/role-evaluation-plan.js';
+import { collectionGradingOptions } from '../eval/grade-answer-collection.js';
 import {
   POLICY_SOURCE,
   readModelAutomationPolicy,
@@ -314,6 +317,21 @@ export function createSystemRoutes({
   };
 
   return {
+    'GET /api/system/models/grading/:runId': async (req, res) => {
+      try {
+        const runId = req.params?.runId || decodeURIComponent(req.url.split('?')[0].split('/').pop());
+        return sendJSON(res, 200, collectionGradingOptions(new ModelEvaluationHistory(rawDb), createRoleEvaluationPlans({db:rawDb}), runId));
+      } catch (error) { return sendJSON(res, 409, {code:error.code || 'MODEL_GRADING_UNAVAILABLE',error:error.message}); }
+    },
+    'POST /api/system/models/grade': async (req, res) => {
+      if (!isLocalOperatorTransportSubject(req.authenticatedSubject))
+        return sendJSON(res, 403, {code:'HUNT_LOCAL_TRANSPORT_REQUIRED'});
+      try {
+        const body = await parseBody(req);
+        const preview = collectionGradingOptions(new ModelEvaluationHistory(rawDb), createRoleEvaluationPlans({db:rawDb}), body?.runId);
+        return sendJSON(res, 202, await huntControl.grade(body, preview));
+      } catch (error) { return sendJSON(res, error.httpStatus || 409, {code:error.code || 'MODEL_GRADING_UNAVAILABLE',error:error.message}); }
+    },
     'GET /api/system/models/hunt': async (req, res) => {
       if (!isLocalOperatorTransportSubject(req.authenticatedSubject)) {
         return sendJSON(res, 403, { code: 'HUNT_LOCAL_TRANSPORT_REQUIRED' });

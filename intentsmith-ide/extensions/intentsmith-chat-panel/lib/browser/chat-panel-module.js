@@ -2543,6 +2543,25 @@ function _testInstalledModel(model,role){
     .finally(function(){_modelTestPending=false;renderCenter();});
 }
 
+function _gradeStoredAnswers(runId){
+  if(_modelTestPending)return;
+  _modelTestPending=true;_modelTestMessage='Ověřuji přejímku hodnotitele a uložené odpovědi…';_modelTestFailed=false;renderCenter();
+  fetch(_backendUrl()+'/api/system/models/grading/'+encodeURIComponent(runId),{signal:AbortSignal.timeout(15000)})
+    .then(function(r){return r.json().then(function(d){if(!r.ok)throw new Error(d.error||d.code);return d;});})
+    .then(function(d){
+      if(!d.graders||!d.graders.length)throw new Error(d.code==='SEMANTIC_SELF_GRADING_FORBIDDEN'?'Dostupný hodnotitel je stejný artefakt jako hodnocený model. Je potřeba jiný přijatý hodnotitel.':'Pro tyto odpovědi není k dispozici přijatý hodnotitel. Odpovědi zůstávají uložené; nový test není potřeba. '+(d.code||''));
+      var grader=d.graders[0];
+      if(!confirm('Ohodnotit uložené odpovědi '+d.model+' · '+d.role+' hodnotitelem '+(grader.judge&&grader.judge.modelName||'deterministické kontroly')+'? Odpovědi se znovu negenerují. Použije GPU; přiřazení rolí zůstane beze změny.'))return null;
+      _huntSubmittedAt=Date.now();
+      return fetch(_backendUrl()+'/api/system/models/grade',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({runId:runId,graderAcceptanceId:grader.id,sourceSha256:d.sourceSha256}),signal:AbortSignal.timeout(20000)});
+    })
+    .then(function(r){if(!r)return null;return r.json().then(function(d){if(!r.ok)throw new Error(d.error||d.code);return d;});})
+    .then(function(d){if(!d)return;_upgradeTab='hunt';_modelTestMessage='Hodnocení uložených odpovědí přijato. Průběh a výsledek najdeš zde.';_loadHuntStatus();})
+    .catch(function(e){_modelTestFailed=true;_modelTestMessage=e.message;})
+    .finally(function(){_modelTestPending=false;renderCenter();});
+}
+
 setInterval(function(){if(_centerState.view==='upgrades'&&_upgradeTab==='hunt')_loadHuntStatus();},5000);
 function _renderRecentHunts(data){
   var rows=data&&data.recent||[];
@@ -2582,11 +2601,11 @@ function _renderHuntTab(){
   var progress=running&&last&&last.status==='RUNNING'?d.progress:null;
   var detail=progress&&progress.detail||{};
   var labels={RUNNING:'Probíhá měření',STOPPING:'Zastavuje se',WAITING:'Čeká na další termín',PAUSED:'Plánovač pozastaven',FAILED:'Měření selhalo',HELD:'Automatika pozastavena do přijetí evaluátoru',
-    AWAITING_REVIEW:'Odpovědi uloženy · čeká na posouzení',COMPLETE:'Dokončeno',CANCELLED:'Zastaveno',SCHEDULED_SKIPPED:'Přeskočeno',NO_PENDING_CANDIDATES:'Žádný čekající kandidát',BLOCKED:'Měření blokované',REPORT_MISSING:'Chybí výsledek'};
+    GRADED:'Uložené odpovědi ohodnoceny',GRADING_INCOMPLETE:'Hodnocení není úplné',AWAITING_REVIEW:'Odpovědi uloženy · čeká na posouzení',COMPLETE:'Dokončeno',CANCELLED:'Zastaveno',SCHEDULED_SKIPPED:'Přeskočeno',NO_PENDING_CANDIDATES:'Žádný čekající kandidát',BLOCKED:'Měření blokované',REPORT_MISSING:'Chybí výsledek'};
   var phases={'provider-start':'Spouštění evaluačního provideru',discovery:'Ověřování inventáře a sestavení plánu',planned:'Plán připraven',
     roleCollected:'Odpovědi uloženy k posouzení',incumbents:'Příprava referenčních modelů',evaluating:'Příprava modelu',pull:'Stahování modelu',pullSkipped:'Model už je stažený',
     'waiting-gpu':'Čekám na uvolnění GPU',measure:'Načítání modelu a ověření jeho paměťových nároků',measured:'Paměť a rychlost změřeny',floor:'Kontrola základních schopností',floorPassed:'Základní kontroly prošly',
-    tasks:'Probíhají testovací úlohy',roleEvaluated:'Ukládání výsledku role',roleDecided:'Porovnání role dokončeno',roleFailed:'Měření role selhalo',roleSkipped:'Role přeskočena'};
+    grading:'Hodnocení uložených odpovědí',tasks:'Probíhají testovací úlohy',roleEvaluated:'Ukládání výsledku role',roleDecided:'Porovnání role dokončeno',roleFailed:'Měření role selhalo',roleSkipped:'Role přeskočena'};
   var activeRequest=last&&last.status==='RUNNING'?last.request:null;
   var model=progress&&progress.activeModel||activeRequest&&activeRequest.model;
   var phase=progress&&progress.phase||last&&last.phase;
@@ -2616,7 +2635,7 @@ function _renderHuntTab(){
     running?h('div',{'data-testid':'hunt-progress',style:card},
       h('div',{role:'status',style:{color:C.accent,fontWeight:600}},d.state==='STOPPING'?'Zastavování měření…':phases[phase]||'Připravuji měření…'),
       h('div',{style:{fontSize:_fs(16),fontWeight:700,marginTop:6}},model||'Ověřuji vybraný model',detail.role?' · '+detail.role:activeRequest&&activeRequest.role?' · '+activeRequest.role:''),
-      detail.testName?h('p',{style:{margin:'8px 0',fontFamily:C.mono,fontSize:_fs(11)}},detail.testName+' · opakování '+detail.repeat+'/'+detail.repeats):null,
+      detail.testName?h('p',{style:{margin:'8px 0',fontFamily:C.mono,fontSize:_fs(11)}},detail.testName+(detail.repeat?' · opakování '+detail.repeat+'/'+detail.repeats:'')):null,
       detail.reasons?h('p',{style:{color:C.amber}},detail.reasons.map(function(reason){return /GPU evaluation is already active/.test(reason)?'GPU právě používá jiný testovací běh':reason;}).join('; ')+'. Test se spustí automaticky po uvolnění prostředků (nejvýše 30 minut).'):null,
       detail.currentProbe?h('p',null,'Základní kontrola '+detail.currentProbe+'/'+detail.totalProbes+' · '+detail.probe):null,
       h('progress',{max:100,value:counted?percent:undefined,'aria-label':'Průběh aktuální testovací sady',style:{display:'block',width:'100%',height:12,margin:'14px 0 8px',accentColor:C.accent}}),
@@ -3549,8 +3568,10 @@ function _taskResultNotes(t){
     ((d.contractChecks&&d.contractChecks.checks)||[]).filter(function(c){return !c.passed;}).forEach(function(c){notes.push('Porušení kontraktu: '+c.name+(c.reason?' · '+c.reason:''));});
     (d.criteria||[]).filter(function(c){return c.score===0;}).forEach(function(c){notes.push(c.id+': očekáváno '+JSON.stringify(c.expected)+', vráceno '+JSON.stringify(c.observed));});
     var parts=d.parts||[];
-    if(parts.length)notes.push('Splněné kontroly: '+parts.filter(function(x){return x.ok;}).length+'/'+parts.length);
-    var failed=parts.filter(function(x){return !x.ok;}).map(function(x){return x.id;});
+    parts.filter(function(x){return Number.isFinite(x.score);}).forEach(function(x){notes.push(x.id+' · '+_taskScore(x.score)+' · '+(x.evidence||[]).join(' / '));});
+    var checks=parts.filter(function(x){return typeof x.ok==='boolean';});
+    if(checks.length)notes.push('Splněné kontroly: '+checks.filter(function(x){return x.ok;}).length+'/'+checks.length);
+    var failed=checks.filter(function(x){return !x.ok;}).map(function(x){return x.id;});
     if(failed.length)notes.push('Nesplněno: '+failed.join(', '));
     if((d.penalties||[]).length)notes.push('Srážky: '+d.penalties.map(function(x){return x.id;}).join(', '));
   });
@@ -3561,6 +3582,7 @@ function _qualityDetail(row,rd){
     var captured=row.tasks&&row.tasks.some(function(t){return Array.isArray(t.responses);})?row:_historyDetails[row.runId];
     return h('div',{'data-testid':'collection-detail'},h('p',null,_huntEvaluationText({role:row.role||'',collection:row.collection})),
       h('p',{style:{color:C.tx3}},'Obsah zatím nebyl hodnocen. Vyčerpaný limit ani neúplný sběr nejsou nulová známka.'),
+      row.collection.status==='AWAITING_REVIEW'?h('button',{'data-testid':'grade-stored-answers',style:_modelButtonStyle(true,_modelTestPending),disabled:_modelTestPending,onClick:function(){_gradeStoredAnswers(row.runId);}},'Ohodnotit uložené odpovědi'):null,
       !captured||captured.loading||captured.error?h('button',{style:_modelButtonStyle(false,!!(captured&&captured.loading)),disabled:!!(captured&&captured.loading),onClick:function(){_historyExpanded[row.runId]=false;_loadHistoricalRun(row.runId);}},captured&&captured.loading?'Načítám odpovědi…':'Zobrazit uložené odpovědi'):
       (captured.tasks||[]).map(function(t){return h('details',{key:t.name,style:{borderTop:'1px solid '+C.border,padding:'10px 0'}},
         h('summary',{style:{cursor:'pointer',color:C.accent}},_taskLabel(t,rd)+' · '+(t.responses||[]).length+' pokusy'),
@@ -3573,6 +3595,11 @@ function _qualityDetail(row,rd){
   var tasks=row.tasks||[],catalogs=row.taskCatalog||rd.tasks||[],counts=row.attemptCounts;
   return h('div',{'data-testid':'model-task-detail',style:{padding:'4px 0 12px'}},
     h('strong',null,row.model+' · výsledky '+tasks.length+' úloh'),
+    row.grading?h('p',{'data-testid':'grading-provenance',style:{color:C.tx3}},
+      'Odpovědi pořízeny '+(row.grading.collectedAt?new Date(row.grading.collectedAt).toLocaleString('cs-CZ'):'(čas nezaznamenán)')+
+      ' · sběr '+_huntDuration(row.grading.collectionDurationMs)+' · hodnocení '+_huntDuration(row.durationMs)+
+      ' · hodnotitel '+(row.grading.judge&&row.grading.judge.modelName||'deterministická kontrola')+
+      '. Hodnocení nepouštělo odpovídající model znovu.'):null,
     h('p',{style:{color:C.tx3}},counts?'Celkové skóre chybí: měření není úplné. Plánováno '+(counts.planned==null?'nezaznamenáno':counts.planned)+' pokusů · zaznamenáno '+counts.observed+' · neplatné prostředí '+counts.invalid+' · vyčerpání rozpočtu '+counts.operationalFailure+' · nezahájeno '+(counts.notAttempted==null?'nezaznamenáno':counts.notAttempted)+'.':'Skóre '+_modelScore(row)+' = průměr '+tasks.length+' úloh, každá má stejnou váhu. '+(row.repeats||rd.repeats||'?')+' opakování na úlohu'+(row.durationMs!=null?' · měření '+_huntDuration(row.durationMs):'')+'.'),
     h('p',{style:{color:C.tx3}},row.suiteName==='code_patch'||rd.suiteName==='code_patch'?'Tato sada měří konkrétní opravy JavaScriptu, nikoli dokončení celého projektu. Každá oprava se ověří spuštěním testů; regrese vynuluje výsledek úlohy. Délka běhu není cílem testu.':'Výsledek platí pro tuto sadu úloh. Shoda opakování neprokazuje pokrytí všech schopností modelu.'),
     row.catalogMatchesContract===false?h('p',{style:{color:C.amber}},'Historická verze sady: dnešní popisy testů se na ni nepřenášejí. Níže jsou tehdy uložené výsledky a kritéria.'):null,

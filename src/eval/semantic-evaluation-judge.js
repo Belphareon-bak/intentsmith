@@ -3,7 +3,7 @@
 // durable independent acceptance remains the authority in model-evaluation-acceptance.
 import { createHash } from 'node:crypto';
 
-export const SEMANTIC_JUDGE_VERSION = 'semantic-rubric.4';
+export const SEMANTIC_JUDGE_VERSION = 'semantic-rubric.5';
 export const SEMANTIC_JUDGE_OPTIONS = Object.freeze({
   num_ctx: 16384, num_predict: 2048, temperature: 0, top_p: 1, timeout: 300000,
 });
@@ -63,11 +63,11 @@ function judgementSchema(count, allowUngradable = false) {
 }
 
 export class SemanticEvaluationJudge {
-  constructor({ call, artifact, onReceipt = () => {} }) {
+  constructor({ call, artifact, onReceipt = () => {}, isAccepted = () => false }) {
     if (typeof call !== 'function' || !/^[a-f0-9]{64}$/.test(artifact?.digestSha256)
       || !artifact.modelName || !artifact.providerVersion) throw new TypeError('An exact judge artifact is required');
     this.call = call; this.artifact = Object.freeze({ ...artifact });
-    this.onReceipt = onReceipt; this.qualified = new Map();
+    this.onReceipt = onReceipt; this.qualified = new Map(); this.isAccepted = isAccepted;
   }
 
   async _compare(task, response, reverse) {
@@ -89,22 +89,29 @@ export class SemanticEvaluationJudge {
     }
     const result = await this.call(this.artifact.modelName, messages,
       { ...SEMANTIC_JUDGE_OPTIONS, format: judgementSchema(reference.criteria.length, !!reference.rubricPolicy) }, this.artifact);
-    const parsed = result.error || result.doneReason === 'length' ? null
+    const parsed = result.error || result.done !== true || result.doneReason !== 'stop'
+      || result.digestSha256 !== this.artifact.digestSha256
+      || result.providerVersion !== this.artifact.providerVersion ? null
       : parseSemanticJudgement(result.content, reference.criteria.length);
     const receipt = { version: SEMANTIC_JUDGE_VERSION, task: task.name,
       reverse, artifact: this.artifact, inputSha256: digest(messages),
-      responseSha256: digest(response), result, parsed };
+      answerSha256: digest(response), responseSha256: digest(result.content), result, parsed };
     await this.onReceipt(receipt);
     if (!parsed) return null;
     return { target: parsed[reverse ? 'b' : 'a'], reference: parsed[reverse ? 'a' : 'b'] };
   }
 
-  async grade(task, response, { calibration = false } = {}) {
+  async grade(task, response, { calibration = false, artifact = null } = {}) {
     const ref = task.semanticReference;
     if (!ref?.gold || !ref.criteria?.length) return invalid('SEMANTIC_REFERENCE_MISSING');
+    if (!calibration && !/^[a-f0-9]{64}$/.test(artifact?.digestSha256 || ''))
+      return invalid('SEMANTIC_ANSWER_ARTIFACT_REQUIRED');
+    if (!calibration && artifact.digestSha256 === this.artifact.digestSha256)
+      return invalid('SEMANTIC_SELF_GRADING_FORBIDDEN');
     const identity = digest({ task: task.contractMaterial, reference: ref, artifact: this.artifact,
       options: SEMANTIC_JUDGE_OPTIONS, version: SEMANTIC_JUDGE_VERSION });
-    if (!calibration && this.qualified.get(task.name) !== identity) return invalid('SEMANTIC_JUDGE_NOT_QUALIFIED');
+    if (!calibration && this.qualified.get(task.name) !== identity
+      && await this.isAccepted(task, this.artifact) !== true) return invalid('SEMANTIC_JUDGE_NOT_QUALIFIED');
     const first = await this._compare(task, response, false);
     const second = await this._compare(task, response, true);
     if (!first || !second) return invalid('SEMANTIC_JUDGE_RESPONSE_INVALID');
@@ -168,7 +175,7 @@ export function semanticTask({ name, role, language = 'en', prompt, reference,
       gradingInputs: { tier: 'T4', reference, independenceGroup, provenance,
         judgeVersion: SEMANTIC_JUDGE_VERSION, judgeOptions: SEMANTIC_JUDGE_OPTIONS } },
     grade: async (response, context) => context?.semanticJudge
-      ? context.semanticJudge.grade(task, response) : invalid('SEMANTIC_JUDGE_NOT_QUALIFIED'),
+      ? context.semanticJudge.grade(task, response, { artifact: context.artifact }) : invalid('SEMANTIC_JUDGE_NOT_QUALIFIED'),
   };
   return Object.freeze(task);
 }

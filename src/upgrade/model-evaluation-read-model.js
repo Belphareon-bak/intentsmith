@@ -178,6 +178,7 @@ function decodeCurrentRow(row, includeTasks = true, includeResponses = false) {
     status: row.error_code === 'EVALUATION_AWAITING_REVIEW' ? 'AWAITING_REVIEW'
       : row.error_code === 'EVALUATION_COLLECTION_PARTIAL' ? 'COLLECTION_PARTIAL' : row.status,
     collection: JSON.parse(row.metadata_json || '{}').collection || null,
+    grading: JSON.parse(row.metadata_json || '{}').grading || null,
     providerVersion: row.provider_version || null,
     providerProvenance: row.provider_version ? 'RECORDED' : 'UNRECORDED',
     score: row.score == null ? null : Number(row.score),
@@ -225,7 +226,18 @@ function currentStatus(db, artifact, role, plan, providerVersion = null) {
     role,
     providerVersion, providerVersion,
   );
-  if (row) return decodeCurrentRow(row);
+  if (row) {
+    const result = decodeCurrentRow(row);
+    if (plan.collectionOnly && row.status === 'COMPLETE') {
+      const grading = JSON.parse(row.metadata_json || '{}').grading;
+      const accepted = plan.acceptance?.graders?.find(g => g.id === grading?.graderAcceptanceId
+        && g.payloadSha256 === grading?.graderAcceptanceSha256);
+      if (!accepted) return Object.freeze({ ...result, status: 'BLOCKED', score: null,
+        errorCode: 'EVALUATION_GRADER_ACCEPTANCE_MISSING',
+        errorMessage: 'Přejímka hodnotitele už není platná. Původní známky zůstávají v historii.' });
+    }
+    return result;
+  }
   const previous = db.prepare(`SELECT suite_name, suite_version, suite_contract_sha256, completed_at,
       json_extract(metadata_json, '$.provider.version') AS provider_version
     FROM model_evaluation_runs WHERE model_digest_sha256 = ? AND role = ? AND status = 'COMPLETE'

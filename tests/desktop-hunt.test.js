@@ -394,6 +394,46 @@ test('selected evaluation HTTP rejects a remote or forged subject before reading
   assert.equal(result.status,403);assert.equal(effects,0);
 });
 
+test('grading HTTP rejects forged local identity before reading answers or launching GPU work',async()=>{
+  let effects=0;
+  const routes=createSystemRoutes({db:{},sendJSON:(_r,status,value)=>({status,value}),
+    parseBody:async()=>{effects++;return {};},huntControl:{grade:async()=>{effects++;}}});
+  const result=await routes['POST /api/system/models/grade']({authenticatedSubject:{actorType:'user',actorId:'local-operator'}},{});
+  assert.equal(result.status,403);assert.equal(effects,0);
+});
+
+test('grading launches only an exact reviewed source, with the same resource limits and no new inference of answers',async t=>{
+  const {config,file}=await fixture(t),launched=[];
+  const control=createHuntControl({installationFile:file,databasePath:config.dbPath,inspectGpu:async()=>({available:true}),
+    launch:async args=>launched.push(args),run:async()=>({stdout:`LoadState=loaded\nActiveState=inactive\nWorkingDirectory=${ROOT}\nExecStart={ path=${process.execPath} ; argv[]=${ROOT}/scripts/run-model-hunt-provider.js ; }\nEnvironmentFiles=${config.configDirectory}/runtime.env (ignore_errors=no)\n`})});
+  const request={runId:'eval_test',graderAcceptanceId:'accept_test',sourceSha256:'a'.repeat(64)},
+    preview={runId:request.runId,sourceSha256:request.sourceSha256,graders:[{id:'accept_test'}],model:'fixture',role:'D1'};
+  await assert.rejects(control.grade({...request,sourceSha256:'b'.repeat(64)},preview),/EVIDENCE_CHANGED/);
+  await assert.rejects(control.grade({...request,command:'anything'},preview),/REQUEST_INVALID/);
+  assert.equal(launched.length,0);await control.grade(request,preview);
+  assert.ok(launched[0].includes('--grade-collection'));assert.ok(launched[0].includes('--expected-source='+request.sourceSha256));
+  assert.ok(launched[0].includes('--property=MemoryMax=75%'));assert.ok(!launched[0].includes('--evaluate-installed'));
+});
+
+test('Studio grading handles absent acceptance and pins a confirmed source without requesting a new test',async()=>{
+  const source=await readFile(join(ROOT,'intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
+  const start=source.indexOf('function _gradeStoredAnswers('),end=source.indexOf('\nsetInterval(',start);
+  for(const approved of [false,true]) {
+    const calls=[],context=vm.createContext({AbortSignal,confirm:()=>true,renderCenter(){},_loadHuntStatus(){},
+      _modelTestPending:false,_backendUrl:()=> 'http://fixture',fetch:async(url,options)=>{
+        calls.push({url,options});return {ok:true,json:async()=>url.includes('/grading/')?
+          {model:'candidate',role:'D1',sourceSha256:'s',code:'EVALUATION_GRADER_ACCEPTANCE_MISSING',
+            graders:approved?[{id:'accept_exact',judge:{modelName:'other-model'}}]:[]}:{accepted:true}};
+      }});
+    vm.runInContext(source.slice(start,end)+';_gradeStoredAnswers("eval_exact");',context);
+    await new Promise(r=>setImmediate(r));
+    assert.equal(calls.length,approved?2:1);assert.equal(context._modelTestPending,false);
+    if(approved){assert.ok(calls[1].url.endsWith('/models/grade'));assert.deepEqual(JSON.parse(calls[1].options.body),
+      {runId:'eval_exact',graderAcceptanceId:'accept_exact',sourceSha256:'s'});}
+    else assert.match(context._modelTestMessage,/nový test není potřeba/);
+  }
+});
+
 test('historical HTTP detail delegates to the injected read authority with the exact run ID',async()=>{
   const calls=[];
   const routes=createSystemRoutes({db:{},sendJSON:(_r,status,value)=>({status,value}),modelRegistry:{getEvaluationRun(id){calls.push(id);return {runId:id,score:.114};}}});

@@ -16,6 +16,16 @@ import { compareSnapshotReplay } from '../scripts/model-evaluation-snapshot-repl
 
 const DIGEST = 'a'.repeat(64);
 const OLD_DIGEST = 'b'.repeat(64);
+// Read-model fixtures only; durable acceptance and revocation are exercised
+// against the real store in evaluation-grading-acceptance.test.mjs.
+function reviewedPlans(role) {
+  const plans = createRoleEvaluationPlans({repeats:1});
+  return {...plans,[role]:{...plans[role],acceptance:{graders:[{id:'fixture-grader',payloadSha256:DIGEST}]}}};
+}
+function markReviewed(db, id) {
+  db.prepare('UPDATE model_evaluation_runs SET metadata_json=? WHERE run_id=?').run(JSON.stringify({
+    grading:{graderAcceptanceId:'fixture-grader',graderAcceptanceSha256:DIGEST}}), id);
+}
 
 function database() {
   const db = new Database(':memory:');
@@ -110,11 +120,12 @@ suite('ModelEvaluationReadModel');
 
 test('exact artifact and current contract expose score and timestamp', () => {
   const db = database();
-  const plans = createRoleEvaluationPlans({ repeats: 1 });
+  const plans = reviewedPlans('CHAT');
   insert(db, {
     runId: 'complete-chat', digest: DIGEST, plan: plans.CHAT,
     score: 0.75, passed: 30,
   });
+  markReviewed(db, 'complete-chat');
   const result = new ModelEvaluationReadModel(db, { plans }).read({
     inventory: [{ name: 'fixture:latest', digest: `sha256:${DIGEST}`, size: 42 }],
     bindings: { CHAT: 'fixture' },
@@ -159,7 +170,7 @@ test('legacy inconsistent interval keeps only an explicitly unverified audit tim
 
 test('D1 evidence remains MISSING for D2 and R1 on distinct role suites', () => {
   const db = database();
-  const plans = createRoleEvaluationPlans({ repeats: 1 });
+  const plans = reviewedPlans('D1');
   assert(plans.D1.suiteName !== plans.D2.suiteName);
   assert(plans.D1.suiteContractSha256 !== plans.D2.suiteContractSha256);
   assert(plans.D1.suiteContractSha256 !== plans.R1.suiteContractSha256);
@@ -167,6 +178,7 @@ test('D1 evidence remains MISSING for D2 and R1 on distinct role suites', () => 
     runId: 'complete-d1-only', digest: DIGEST, plan: plans.D1,
     score: 0.8, passed: 7,
   });
+  markReviewed(db, 'complete-d1-only');
   const evaluations = new ModelEvaluationReadModel(db, { plans }).read({
     inventory: [{ name: 'fixture:latest', digest: DIGEST }],
   }).models[0].evaluations;
@@ -686,10 +698,10 @@ test('Studio displays captured answers on demand without inventing a grade or re
     responses:['<img src=x onerror=alert(1)>','answer two','unfinished'],details:[{captureStatus:'CAPTURED'},{captureStatus:'CAPTURED'},{captureStatus:'OUTPUT_BUDGET_EXHAUSTED'}]}]};
   let loaded=null;
   const context={row,C:{},_rgba:()=>'',_fs:n=>n,h:(tag,props,...children)=>({tag,props,children}),
-    _historyExpanded:{},renderCenter(){},_readModelResource:(url,done)=>{loaded=url;done(detail);}};
+    _modelTestPending:false,_historyExpanded:{},renderCenter(){},_readModelResource:(url,done)=>{loaded=url;done(detail);}};
   const tree=runInNewContext(helpers+label+render+';_qualityDetail(row,{})',context);
   const nodes=n=>!n||typeof n!=='object'?[]:Array.isArray(n)?n.flatMap(nodes):[n,...nodes(n.children)];
-  const load=nodes(tree).find(n=>n.tag==='button');assert(load);
+  const load=nodes(tree).find(n=>n.tag==='button'&&n.children.includes('Zobrazit uložené odpovědi'));assert(load);
   load.props.onClick();assertEqual(loaded,'/api/system/models/evaluations/raw');
   context.row=detail;
   const full=runInNewContext(helpers+label+render+';_qualityDetail(row,{})',context);
