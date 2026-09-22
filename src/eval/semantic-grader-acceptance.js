@@ -71,14 +71,21 @@ export function validateSemanticAcceptance(evidence, identity) {
         && hash(prediction.inputSha256) && hash(prediction.responseSha256)
         && validScores(prediction.scores) && prediction.scores.length === c.expectedScores.length
         && prediction.evidence?.length === c.expectedScores.length && prediction.evidence.every(text), `prediction ${order}`);
+      // Admission must reject the same unusable judgements as the production
+      // grader, including a rejected reference and cancelling criterion flips.
+      requireValue(validScores(prediction.referenceScores)
+        && prediction.referenceScores.length === c.expectedScores.length
+        && mean(prediction.referenceScores) >= .9, `reference ${order}`);
       scores.push(mean(prediction.scores));
     }
+    const criterionOrderDifference = Math.max(...r.forward.scores.map((s, i) => Math.abs(s - r.reverse.scores[i])));
+    requireValue(criterionOrderDifference <= .5, 'criterion order instability');
     const expected = mean(c.expectedScores), predicted = mean(scores);
     const error = mean(c.expectedScores.map((s, i) => Math.abs(s - (r.forward.scores[i] + r.reverse.scores[i]) / 2)));
     const row = { id: c.id, group: c.independenceGroup, positive: expected >= rule.passThreshold,
       falsePositive: expected < rule.passThreshold && predicted >= rule.passThreshold,
       falseNegative: expected >= rule.passThreshold && predicted < rule.passThreshold,
-      error, orderDifference: Math.abs(scores[0] - scores[1]) };
+      error, orderDifference: Math.abs(scores[0] - scores[1]), criterionOrderDifference };
     if (!types.has(c.type)) types.set(c.type, []);
     types.get(c.type).push(row);
   }
@@ -96,7 +103,8 @@ export function validateSemanticAcceptance(evidence, identity) {
       negatives: negatives.length, falsePositives: fp, falseNegatives: fn,
       falsePositiveRate: fp / negatives.length, falseNegativeRate: fn / positives.length,
       meanAbsoluteError: mean(groups.map(g => Math.max(...g.map(r => r.error)))),
-      maxOrderDifference: Math.max(...rows.map(r => r.orderDifference)) };
+      maxOrderDifference: Math.max(...rows.map(r => r.orderDifference)),
+      maxCriterionOrderDifference: Math.max(...rows.map(r => r.criterionOrderDifference)) };
     const m = metrics[type];
     requireValue(groups.length >= rule.minimumIndependentGroups && positives.length >= rule.minimumPerClass
       && negatives.length >= rule.minimumPerClass, `insufficient ${type}`);

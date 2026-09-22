@@ -50,7 +50,8 @@ function fixture(role='D1') {
   const predictions=p=>p.cases.map(c=>({id:c.id,planSha256:p.planSha256,answerSha256:c.answerSha256,
     startedAt:'2026-09-21T00:02:00Z',completedAt:'2026-09-21T00:03:00Z',labelsSuppliedToJudge:false,
     ...Object.fromEntries(['forward','reverse'].map(order=>[order,{artifact:judgeArtifact,inputSha256:acceptanceHash([order,c.id]),
-      responseSha256:H,scores:[...c.expectedScores],evidence:c.expectedScores.map(()=> 'synthetic explanatory fact')}]))}));
+      responseSha256:H,scores:[...c.expectedScores],referenceScores:c.expectedScores.map(()=>1),
+      evidence:c.expectedScores.map(()=> 'synthetic explanatory fact')}]))}));
   calibration.planSha256=semanticAcceptancePlanHash(calibration);
   const grader=()=>envelope('GRADER',{...base,tasks,...(semanticTasks.length?{
     semanticAcceptance:{plan:structuredClone(calibration),results:predictions(calibration)}}:{})});
@@ -140,6 +141,20 @@ test('non-CODE qualification rejects isolated answers, missing checks and succes
     }
     const e=operation(f,g).evidence;e.attempts[0].valid=false;e.attempts[0].score=null;
     assert.equal(decideRoleOperational(e.plan,e.attempts,e.qualifications).reason,'INCOMPLETE_PAIRED_EVIDENCE');
+  }finally{f.db.close();}
+});
+test('acceptance cannot hide opposing criterion flips in an unchanged mean or omit rejected references',()=>{
+  const f=fixture();try {
+    const e=f.grader(),s=e.evidence.semanticAcceptance;
+    s.plan.cases[0].expectedScores[0]=.5;s.plan.cases[0].expectedScores[1]=.5;
+    s.plan.planSha256=semanticAcceptancePlanHash(s.plan);s.results=f.predictions(s.plan);
+    s.results[0].forward.scores[0]=1;s.results[0].forward.scores[1]=0;
+    s.results[0].reverse.scores[0]=0;s.results[0].reverse.scores[1]=1;
+    assert.throws(()=>f.store.record(resign(e)),/criterion order instability/);
+    for (const change of [r=>r.forward.referenceScores.fill(0),r=>delete r.reverse.referenceScores]) {
+      const v=f.grader();change(v.evidence.semanticAcceptance.results[0]);
+      assert.throws(()=>f.store.record(resign(v)),/reference/);
+    }
   }finally{f.db.close();}
 });
 const fakeJudge=(f,id,onCall=()=>{})=>new SemanticEvaluationJudge({artifact:judgeArtifact,
