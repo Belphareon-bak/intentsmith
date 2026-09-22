@@ -3750,7 +3750,7 @@ function _renderOverviewTab(){
       h('span',null,mods.length+' model\u016F'),
       h('span',null,du.totalGB+' GB celkem'),
       delCount>0?h('span',null,delCount+' nepou\u017E\u00EDvan\u00FDch'):null,
-      h('span',null,'Voln\u00E9 m\u00EDsto: '+(du.freeGB||'?')+' GB')),
+      h('span',{title:du.modelsPath||''},'Volné místo pro modely: '+(du.freeGB===null||du.freeGB===undefined?'nezjištěno':du.freeGB+' GiB'))),
     /* Action bar */
     h('div',{style:{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}},
       delCount>0?h('button',{style:{padding:'6px 14px',borderRadius:6,border:'1px solid rgba(239,68,68,0.3)',

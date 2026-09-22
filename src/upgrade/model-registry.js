@@ -24,7 +24,6 @@ import {
 import { requireLoopbackModelProviderOrigin } from './model-provider-origin.js';
 import { readModelAutomationPolicy } from '../db/model-policy.js';
 import { resolveCurrentBindings } from './model-upgrade-prototype.js';
-import { execSync } from 'child_process';
 import fs from 'fs';
 
 const OVERVIEW_CACHE_TTL = 30_000; // 30s
@@ -610,24 +609,17 @@ export class ModelRegistry {
     const ollamaAvailable = installed.length > 0 || Object.keys(bindings).length > 0;
 
     // Disk usage
-    let diskUsage = { totalBytes: 0, totalGB: '0', freeBytes: 0, freeGB: '0' };
+    let diskUsage = { totalBytes: 0, totalGB: '0', freeBytes: null, freeGB: null,
+      modelsPath: config.ollama.modelsPath };
     const totalBytes = installed.reduce((sum, m) => sum + (m.size || 0), 0);
     diskUsage.totalBytes = totalBytes;
     diskUsage.totalGB = (totalBytes / 1_073_741_824).toFixed(1);
-    try {
-      const stats = fs.statfsSync(config.ollama?.modelsPath || '/usr/share/ollama/.ollama/models');
-      diskUsage.freeBytes = stats.bfree * stats.bsize;
-      diskUsage.freeGB = (diskUsage.freeBytes / 1_073_741_824).toFixed(1);
-    } catch (_) {
-      // Try df as fallback
-      try {
-        const dfOut = execSync('df -B1 / 2>/dev/null', { encoding: 'utf-8', timeout: 3000 });
-        const parts = dfOut.split('\n')[1]?.split(/\s+/);
-        if (parts && parts[3]) {
-          diskUsage.freeBytes = parseInt(parts[3], 10) || 0;
-          diskUsage.freeGB = (diskUsage.freeBytes / 1_073_741_824).toFixed(1);
-        }
-      } catch (_) {}
+    // Use the same user-available capacity as cleanup. A missing model mount
+    // must remain unknown; capacity on / says nothing about a separate disk.
+    const freeBytes = this._modelStorageFreeBytes();
+    if (Number.isSafeInteger(freeBytes) && freeBytes >= 0) {
+      diskUsage.freeBytes = freeBytes;
+      diskUsage.freeGB = (freeBytes / 1_073_741_824).toFixed(1);
     }
 
     // Auto-cleanup is enabled only by the authoritative JSON settings row.

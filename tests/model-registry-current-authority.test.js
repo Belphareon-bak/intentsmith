@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import Database from 'better-sqlite3';
+import fs from 'node:fs';
 import {
   assert, assertEqual, suite, summary, test, testAsync,
 } from './harness.js';
@@ -376,6 +377,30 @@ for (const scenario of ['allow', 'proof-changed', 'binding-changed', 'digest-cha
 }
 
 suite('registry evaluation and retention read path');
+
+await testAsync('overview uses the configured model mount and never substitutes root capacity', async () => {
+  const db = createTestDb(), previousPath = config.ollama.modelsPath, previousStat = fs.statfsSync;
+  globalThis.fetch = async () => ({ok:true,json:async()=>({version:'fixture'})});
+  try {
+    config.ollama.modelsPath = '/fixture/new-model-disk';
+    let available = 755 * GiB;
+    fs.statfsSync = target => {
+      assertEqual(target, config.ollama.modelsPath);
+      if (available === null) throw Object.assign(new Error('model mount missing'), {code:'ENOENT'});
+      return {bavail: available / 4096, bfree: (available + GiB) / 4096, bsize: 4096};
+    };
+    const registry = new ModelRegistry();
+    registry.init({db,modelEvaluationReadModel:completeEvaluationReadModel()});
+    registry.getInstalled = async () => [];
+    for (const free of [755 * GiB, 0, null]) {
+      available = free; registry._overviewCache = null;
+      const result = (await registry.getOverview()).diskUsage;
+      assertEqual(result.modelsPath, '/fixture/new-model-disk');
+      assertEqual(result.freeBytes, free);
+      assertEqual(result.freeGB, free === null ? null : (free / GiB).toFixed(1));
+    }
+  } finally { db.close(); config.ollama.modelsPath = previousPath; fs.statfsSync = previousStat; globalThis.fetch = originalFetch; }
+});
 
 await testAsync('overview exposes exact evaluation score, digest and timestamp', async () => {
   const db = createTestDb();
