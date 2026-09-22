@@ -1,5 +1,14 @@
 # Inventura #18a — Správa modelů
 
+**GPU hunt — úložiště a arbitráž, 22. 9. 2026:**
+Staré `OLLAMA_MODELS` přepsáno pro user služby pomocí environment.d;
+backend, transient evaluace a provider nyní používají `/mnt/vi7000/ollama/models`.
+Na novém FS přibližně 755 GiB dostupných; 12 shodných inventářových artefaktů
+bez inference. Připraveno deset kritériových podkladů k arbitráži; žádné
+přijaté nové skóre ani rozhodovací profil. Timer disabled/inactive, **NO_GO**
+pro automatický výběr a mazání podle kvality.
+[Ověření, omezení a navazující práce](../review/2026-09-22-HUNT-ARBITRATION-STORAGE.md).
+
 **GPU hunt — sběr pod dohledem, 21. 9. 2026:**
 Běžná cesta nově sbírá odlišné D1/D2/R1/R2/CHAT sady bez nepřijatého soudce,
 s průběžným uložením, detaily ve Studiu a odděleným exportem bez identit.

@@ -1,5 +1,14 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**GPU hunt — úložiště a arbitráž, 22. 9. 2026:**
+Po přesunu na Vi7000 opravena stará cesta modelů v user service prostředí;
+backend i transient evaluace používají `/mnt/vi7000/ollama/models`.
+Oba provideři mají shodných 12 artefaktů, přibližně 755 GiB volných pro modely.
+Žádná inference ani mazání. Připraveno deset položek k arbitráži s důvody
+po kritériích a reprodukcemi; nejde o přejímku hodnotitele. CODE holdout
+může postupovat nezávisle na sémantických sporech. Timer vypnutý, **NO_GO**
+pro automatický výběr. [Ověření a podklad k rozsouzení](docs/review/2026-09-22-HUNT-ARBITRATION-STORAGE.md).
+
 **GPU hunt — sběr pod dohledem, 21. 9. 2026:**
 Provider má společně připnutou verzi a SHA; hunt zachovává rezervu RAM a FS.
 Integrovaný module graph má 1 398 hran, 3 cykly / 28 členů; čtyři nové hrany

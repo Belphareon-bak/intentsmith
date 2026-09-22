@@ -1,5 +1,14 @@
 # IntentSmith — mapa systému
 
+**GPU hunt — úložiště a arbitráž, 22. 9. 2026:**
+Nasazený `cd5a6943` po opravě user environment používá modely na Vi7000.
+Systémová Ollama a read-only sidecar mají 12 shodných name/digest/size;
+backend API health/hunt/evaluace/kandidáti 4×200, sedm nepřijatých profilů.
+Storage probe neprováděl inferenci. Z 28 releasů 26 přímo referencovaných,
+dva KEEP_UNPROVEN; nic smazáno. **CONFIGURATION_VERIFIED /
+ARBITRATION_REVIEW_PENDING / AUTONOMOUS_SELECTION_NO_GO**.
+[Rozsah a důkazy](docs/review/2026-09-22-HUNT-ARBITRATION-STORAGE.md).
+
 **GPU hunt — sběr pod dohledem, 21. 9. 2026:**
 Běžná cesta nově sbírá odlišné D1/D2/R1/R2/CHAT sady bez nepřijatého soudce,
 s průběžným uložením, detaily ve Studiu a odděleným exportem bez identit.
