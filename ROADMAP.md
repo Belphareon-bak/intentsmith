@@ -3,7 +3,7 @@
 **GPU hunt — propojené hodnocení, 23. 9. 2026:**
 Podporovaná cesta ze sběru do přijatého hodnocení, API/Studio a příjem provozní
 přejímky všech sedmi rolí jsou implementované; probíhá finální ověření.
-Aktuální modulový graf má **1 408 hran**, 3 cykly / 28 členů.
+Aktuální module graph má 1 408 hran, 3 cykly / 28 členů.
 Skutečná přejímka hodnotitelů a modelových dvojic zůstává samostatnou podmínkou GO.
 [Delta k review](docs/review/2026-09-23-HUNT-GRADING-INTEGRATION.md).
 
