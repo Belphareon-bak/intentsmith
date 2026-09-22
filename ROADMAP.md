@@ -1,5 +1,12 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**GPU hunt — propojené hodnocení, 23. 9. 2026:**
+Podporovaná cesta ze sběru do přijatého hodnocení, API/Studio a příjem provozní
+přejímky všech sedmi rolí jsou implementované; probíhá finální ověření.
+Aktuální modulový graf má **1 408 hran**, 3 cykly / 28 členů.
+Skutečná přejímka hodnotitelů a modelových dvojic zůstává samostatnou podmínkou GO.
+[Delta k review](docs/review/2026-09-23-HUNT-GRADING-INTEGRATION.md).
+
 **GPU hunt — úložiště a arbitráž, 22. 9. 2026:**
 Po přesunu na Vi7000 opravena stará cesta modelů v user service prostředí;
 backend i transient evaluace používají `/mnt/vi7000/ollama/models`.

@@ -79,7 +79,9 @@ const SPILLS = { size: 29 * GB, size_vram: 21 * GB };
 // Mazání vlastní model-registry a candidate-trial ho dostává injekcí, stejně
 // jako v `scripts/model-upgrade-hunt.js`.  Bez ní se fail-closed nemaže, takže
 // scénáře, které mazání očekávají, musí autoritu dodat.
-const testPullManager = new UpgradeManager();
+// These offline pulls use a synthetic disk budget. They must not stat the
+// operator's Ollama directory (which can move independently of the tests).
+const testPullManager = new UpgradeManager({ readPullStorageBytes: () => 100 * GB });
 const FAST_DRAIN = {
   pullModel: (...args) => testPullManager.pullModel(...args),
   // These unit cases hold their synthetic /api/ps placement forever. The

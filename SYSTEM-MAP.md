@@ -1,5 +1,14 @@
 # IntentSmith — mapa systému
 
+**GPU hunt — hodnocení uloženého sběru, 23. 9. 2026:**
+Doplněny CLI, lokální API a Studio pro hodnocení již uložených odpovědí.
+Přejímka T4 vyžaduje nezávislé označení a jiný digest hodnotitele, provozní
+přejímka přijímá úplný postup každé ze sedmi rolí. Zneplatnění přejímky
+vyřazuje aktuální skóre i běžící hodnocení; historie zůstává.
+**IMPLEMENTED / INTEGRATION_TESTING / REVIEW_PENDING**; žádná přejímka
+skutečného modelu ani autonomní výběr nejsou tímto vyhlášeny.
+[Ověření a konkrétní meze](docs/review/2026-09-23-HUNT-GRADING-INTEGRATION.md).
+
 **GPU hunt — úložiště a arbitráž, 22. 9. 2026:**
 Nasazený `cd5a6943` po opravě user environment používá modely na Vi7000.
 Systémová Ollama a read-only sidecar mají 12 shodných name/digest/size;
@@ -572,7 +581,7 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 | | |
 |---|---:|
 | `src/**/*.js` | **228 030 ř.**, 646 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **249 595 ř.**, 536 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **249 597 ř.**, 536 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **530** (`436 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **178 / 103** |
 | HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |
