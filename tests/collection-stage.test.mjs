@@ -5,6 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createStage, readStage, runStageWindow, stageHash, stageSummary, recordedStageAnswer } from '../src/eval/collection-stage.js';
+import { progressSnapshot } from '../scripts/manual/serve-chat-progress.mjs';
 
 const artifact={modelName:'test',digestSha256:'a'.repeat(64),providerVersion:'test-provider'};
 const base={schemaVersion:1,decisionAuthority:false,notAHoldout:true,sourceContractSha256:'b'.repeat(64),
@@ -132,4 +133,33 @@ test('live elapsed time is separate from the reserved window and crash charge',t
   const live=stageSummary(stage,46000);assert.equal(live.activeDurationMs,45000);assert.equal(live.reservedOpenWindowMs,14400000);assert.equal(live.conservativeCrashDurationMs,0);
   stage.events.push({type:'WINDOW_CLOSED',windowId:'live',elapsedMs:14400000,conservativeTimeCharge:true});
   const crashed=stageSummary(stage,46000);assert.equal(crashed.reservedOpenWindowMs,0);assert.equal(crashed.conservativeCrashDurationMs,14400000);
+});
+
+test('progress names the in-flight model/task/repetition without publishing answer content',async t=>{
+  const opts=setup(t);let observed=false;
+  await runStageWindow({...opts,call:async()=>{
+    const p=progressSnapshot(readStage(opts.directory),{provider:{status:'RUNNING'},service:{ActiveState:'active',SubState:'running'},titles:{cs_test:'Čitelný název'}});
+    assert.equal(p.state,'RUNNING');assert.equal(p.current.model,'test');assert.equal(p.current.title,'Čitelný název');
+    assert.equal(p.current.repeat,1);assert.equal(p.current.pending,true);assert.equal(p.current.taskCount,1);
+    assert.equal(p.score,null);assert.equal(p.decisionAuthority,false);observed=true;return reply('PRIVATE ANSWER CONTENT');
+  }});
+  assert(observed);const final=progressSnapshot(readStage(opts.directory));
+  assert(!JSON.stringify(final).includes('PRIVATE ANSWER CONTENT'));
+});
+test('progress surfaces a stopped guard and does not trust stale provider RUNNING',async t=>{
+  const opts=setup(t);const result=await runStageWindow({...opts,guard:()=>{throw Error('GPU_FOREIGN_WORK_PRESENT');}});
+  const p=progressSnapshot(result.stage,{provider:{status:'RUNNING'},service:{ActiveState:'active',SubState:'running'}});
+  assert.equal(p.running,false);assert.equal(p.state,'STOPPED');assert.equal(p.stopReason,'GPU_FOREIGN_WORK_PRESENT');
+  assert(p.problems.some(e=>e.message.includes('GPU_FOREIGN_WORK_PRESENT')));assert.equal(p.completedCalls,0);
+  const torn=structuredClone(result.stage);torn.events=torn.events.filter(e=>e.type!=='WINDOW_CLOSED');
+  const crashed=progressSnapshot(torn,{provider:{status:'RUNNING'},service:{ActiveState:'failed',SubState:'failed'}});
+  assert.equal(crashed.state,'INTERRUPTED');assert.equal(crashed.running,false);
+});
+test('progress counts completed-with-exceptions separately from successful capture and skipped turns',async t=>{
+  const other=setup(t);const limited=await runStageWindow({...other,call:async()=>({...reply('partial'),doneReason:'length'})});
+  const p=progressSnapshot(limited.stage);
+  assert.equal(p.state,'COMPLETE_WITH_EXCEPTIONS');assert.equal(p.percent,100);
+  assert.equal(p.finishedDialogs,1);assert.equal(p.completeDialogs,0);assert.equal(p.exceptions,1);
+  assert.equal(p.completedCalls,1);assert.equal(p.plannedCalls,2);assert.equal(p.skippedCalls,1);
+  assert.equal(p.models[0].exceptions,1);assert.equal(p.score,null);
 });
