@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "status": "REVIEW_PACKET_PREPARED",
+  "createdAt": "2026-09-23T12:49:03.703962+00:00",
+  "baseRevision": "57ce222e6cf54a47f111bf1f71f01bbe69789fc3",
+  "implementationRevision": "50e67abf8b947a6bcceacc86c4011ebee51cd1bd",
+  "sourceHashes": {
+    "scripts/manual/prepare-code-prose-review.py": "2f16281b562e6df1fa34d4fc81da3b024ff53ba6d0ed7c59b538e052ae3afcf7",
+    "scripts/manual/prepare-chat-conversation.mjs": "c0c90275af868d3b626f723f12b4ff80d3373cef8a4913b1141eed557347dd40",
+    "tests/code-prose-review.test.py": "4b12bf876668ea9a843517677af5ee5f9ed3857b204c5050f929ebc31e73ac99"
+  },
+  "newInference": false,
+  "productionImported": false,
+  "decisionAuthority": false,
+  "deployed": false,
+  "identityMasked": true,
+  "priorExposureAcknowledged": true,
+  "freshHoldout": false,
+  "independentAcceptance": false,
+  "originalAnswers": 30,
+  "observedCalls": 360,
+  "originalAnswerBytesPreserved": true,
+  "gradesPrefilled": false,
+  "templateStatus": "DRAFT",
+  "tests": {
+    "export": {
+      "passed": 5,
+      "failed": 0,
+      "log": "/mnt/vi7000/intentsmith/evidence/hunt-code-prose-second-review-20260923/export-tests.log"
+    },
+    "browser": {
+      "status": "PASS",
+      "scope": "Local second-review HTML in headless Chromium; no GPU inference or backend.",
+      "checks": [
+        "No original IDs, model names, digests, author scores or author reasons embedded",
+        "All 30 permuted answers reachable",
+        "Full original response and all 12 observed calls visible",
+        "No prefilled grades",
+        "Prior exposure and limited acceptance explicit",
+        "Disputed under-threshold confidence explicitly excluded",
+        "Fractional grade and reason stick to the same answer across navigation",
+        "Draft survives browser reload",
+        "Downloaded JSON preserves ID, fractional grade and draft/no-authority status",
+        "Clean browser starts with unanswered form",
+        "No renderer errors"
+      ],
+      "htmlSha256": "12da390eac18f4b2e6a1b681b8737887b80d5883535c0fac5d7d77485f195310"
+    },
+    "chatProposal": {
+      "quickUnchanged": true,
+      "fullCalls": 3480,
+      "promptFixtureUnchanged": true,
+      "continuation": "PROPOSED_NOT_IMPLEMENTED",
+      "automaticContinuation": false
+    }
+  },
+  "taskClarification": {
+    "status": "PROPOSED_NOT_APPLIED_TO_EXISTING_TASK",
+    "historicBelowThresholdConfidence": "EXCLUDED_FROM_REGRADING",
+    "futureProposal": "All basis=kvalita returns carry confidence and a consistent explanation. Requires new public task identity/reference and new capture."
+  },
+  "artifactRoot": "/mnt/vi7000/intentsmith/evidence/hunt-code-prose-second-review-20260923",
+  "publicArchive": {
+    "path": "/mnt/vi7000/intentsmith/evidence/hunt-code-prose-second-review-20260923/public-review-sha256-8c30e0cde1b5e567159db8110b32247c31f602fd8adb240cbb16781514385188.zip",
+    "sha256": "8c30e0cde1b5e567159db8110b32247c31f602fd8adb240cbb16781514385188",
+    "members": 5,
+    "privateIdentityKeyIncluded": false
+  },
+  "publicArtifacts": {
+    "README.md": {
+      "sha256": "98f4ed53789987ad3bf01bf5e64cd78251ddf2b141c3e3988acc7935c2c730b7",
+      "bytes": 1312
+    },
+    "answers.json": {
+      "sha256": "4e35887ed486cb4515e64efeedde75cc64ab7bf0f0218d0b88365f498aa8a648",
+      "bytes": 296707
+    },
+    "grades-template.json": {
+      "sha256": "af30fd97928e0e3c8b137e77291cd950c520764347297f05932b4ac85e52b6eb",
+      "bytes": 12072
+    },
+    "review.html": {
+      "sha256": "12da390eac18f4b2e6a1b681b8737887b80d5883535c0fac5d7d77485f195310",
+      "bytes": 219388
+    }
+  },
+  "custodyKey": {
+    "path": "/mnt/vi7000/intentsmith/evidence/hunt-code-prose-second-review-20260923/custody/identity-key.json",
+    "sha256": "cc2190c78640bc9cdd2bf095860f226ca68c1c87bcb40f886d112de8e3f77f4b",
+    "shareWithReviewer": false
+  },
+  "sourceEvidence": {
+    "answersSha256": "8a71635d3ca7aed128b1ee63f85142c021a2d40542c5179d9a73610de803f91b",
+    "replaySha256": "f10c81102d923cc9184919cd056f3d5a81f5d11a9803a25574e0a7878bb28687"
+  },
+  "remainingPilotPrerequisites": [
+    "Rubric and bilingual prompt review/freeze",
+    "Stage-wide budget-enforcing caller",
+    "Live model/provider/GPU inventory",
+    "Explicit execution of the bounded stage"
+  ]
+}

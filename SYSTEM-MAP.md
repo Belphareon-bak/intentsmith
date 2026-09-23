@@ -1,5 +1,15 @@
 # IntentSmith — mapa systému
 
+**GPU hunt — druhé posouzení připraveno, 23. 9. 2026:**
+30 odpovědí a 360 pozorovaných návratů má oddělený formulář bez identit,
+původních známek a autorských důvodů. Předchozí expozice je přiznaná;
+nejde o nový slepý přejímací vzorek. Podprahová jistota zůstává ve starém
+měření mimo hodnocení; univerzální povinnost pro všechny kvalitativní
+větve je návrh nové verze zadání. 5 testů exportu + 11 browser kontrol.
+Nová inference 0, žádná přejímka ani GO. Pokračování plného CHAT panelu
+v dalším okně je výslovný návrh, nikoli automatické prodloužení rozpočtu.
+[Podklad, vyjasnění a další postup](docs/review/2026-09-23-CODE-SECOND-REVIEW.md).
+
 **GPU hunt — čtyři milníky pro společnou revizi, 23. 9. 2026:**
 Nová explicitní technická složka CODE prošla 53 kontrolami a přehrála všech
 210 odpovědí bez inference. Celková známka zůstává null; 30 textů má oddělené
