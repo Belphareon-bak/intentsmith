@@ -10,6 +10,8 @@ import re
 parser = argparse.ArgumentParser(description=__doc__)
 for key in ['answers', 'grades', 'identities', 'out']:
     parser.add_argument('--' + key, required=True, type=Path)
+parser.add_argument('--code-components', type=Path)
+parser.add_argument('--component-review', type=Path)
 args = parser.parse_args()
 if not args.out.is_absolute():
     parser.error('--out must be absolute')
@@ -21,6 +23,31 @@ def read(name):
     return json.loads(raw)
 
 answers, grades, identities = read('answers'), read('grades'), read('identities')
+components = read('code_components') if args.code_components else None
+component_by_id = {}
+opinion_by_id = {}
+if components:
+    assert components['status'] == 'EXECUTABLE_COMPONENT_REPLAY_COMPLETE'
+    assert components['decisionAuthority'] is False and components['fullOracleAccepted'] is False
+    assert components['sources']['answers']['sha256'] == sources['answers']['sha256']
+    assert components['sources']['identities']['sha256'] == sources['identities']['sha256']
+    assert {r['id'] for r in components['items']} == {r['id'] for r in answers['items'] if r['role'] == 'CODE'}
+    for item in components['items']:
+        assert item['assessment']['score'] is None and item['assessment']['passed'] is False
+        assert item['id'] not in component_by_id
+        # Large immutable stdout stays in the linked evidence JSON, not the UI payload.
+        assessment = {**item['assessment'], 'technical': {k: v for k, v in item['assessment']['technical'].items() if k != 'output'}}
+        component_by_id[item['id']] = {**item, 'assessment': assessment}
+if args.component_review:
+    assert components, '--component-review requires --code-components'
+    opinion = read('component_review')
+    assert opinion['status'] == 'AUTHOR_REVIEW_FOR_ADJUDICATION' and opinion['decisionAuthority'] is False
+    assert opinion['source']['sha256'] == sources['code_components']['sha256']
+    for row in opinion['items']:
+        assert row['id'] in component_by_id and row['id'] not in opinion_by_id
+        assert row['responseSha256'] == component_by_id[row['id']]['responseSha256']
+        assert row['fullTaskScore'] is None
+        opinion_by_id[row['id']] = {k: v for k, v in row.items() if k != 'observations'}
 grade_by_id = {g['id']: g for g in grades['items']}
 assert len(grade_by_id) == len(grades['items'])
 assert len({r['id'] for r in answers['items']}) == len(answers['items'])
@@ -37,13 +64,19 @@ for row in answers['items']:
     assert row['responseSha256'] == g['responseSha256']
     assert hashlib.sha256(row['response'].encode()).hexdigest() == row['responseSha256']
     assert (row['role'], row['task']) == (g['role'], g['task'])
+    component = component_by_id.get(row['id'])
+    if component:
+        assert component['responseSha256'] == row['responseSha256']
+        assert component['model'] == identity['model'] and component['artifact'] == identity['artifact']
     # Original values are preserved, including known suspect CODE results.
     # This warning applies to EVERY answer of the affected task, not only to
     # the three observed false negatives: false positives are possible too.
     warning = ('Známka čeká na opravu orákula: doložené falešné přijetí i odmítnutí volného textu.'
                if row['role'] == 'CODE' and row['task'] == 'patch_90eff80ecb8a' else None)
     items.append({**row, 'grade': g, 'model': identity['model'], 'artifact': identity['artifact'],
-                  'jsonRequested': requests_json(row['inputKey']), 'warning': warning})
+                  'jsonRequested': requests_json(row['inputKey']), 'warning': warning,
+                  **({'codeComponent': component} if component else {}),
+                  **({'componentOpinion': opinion_by_id[row['id']]} if row['id'] in opinion_by_id else {})})
 
 def aggregate(rows, field):
     # Repetitions do not acquire extra task weight. Missing values remain
@@ -82,6 +115,8 @@ for (role, model), rows in sorted(grouped.items()):
     summaries.append({'role': role, 'model': model, 'historicalContent': content,
         'conversationProxy': aggregate(prose, lambda r: r['grade'].get('contentScore')),
         'technical': aggregate(exact, lambda r: r['grade'].get('contentScore')),
+        **({'executableComponent': aggregate(rows, lambda r: r['codeComponent']['assessment']['technical']['score'])}
+           if role == 'CODE' and components else {}),
         'strictJson': aggregate(structured, lambda r: None if r['grade'].get('format', {}).get('strictJson') is None else int(r['grade']['format']['strictJson'])),
         'runtimeParsed': aggregate(structured, lambda r: None if r['grade'].get('format', {}).get('runtimeParsed') is None else int(r['grade']['format']['runtimeParsed'])),
         'oracleReviewRequired': any(r['warning'] for r in rows)})
@@ -99,7 +134,7 @@ for role in sorted({r['role'] for r in items}):
                       'reason': 'Požadují JSON, ale původní obsah je hodnocen posudkem; '
                                 'nepatří do osy prózy ani přesných polí. Původní známky jsou v matici.'}
 
-payload = {'schemaVersion': 1, 'status': 'EXISTING_OBSERVATIONS_NOT_REPLAYED',
+payload = {'schemaVersion': 1, 'status': 'ORIGINAL_GRADES_WITH_SEPARATE_CODE_COMPONENT' if components else 'EXISTING_OBSERVATIONS_NOT_REPLAYED',
            'decisionAuthority': False, 'productionImported': False, 'sources': sources,
            'inputs': inputs, 'items': items, 'summaries': summaries, 'contentAxisCoverage': coverage}
 data = json.dumps(payload, ensure_ascii=False).replace('<', '\\u003c').replace('>', '\\u003e').replace('&', '\\u0026')
@@ -113,7 +148,7 @@ document = '''<!doctype html><html lang="cs"><meta charset="utf-8"><title>GPU hu
 <div class="toolbar"><label>Role <select id="role"></select></label><label>Model <select id="model"><option value="">Všechny</option></select></label><label>Filtr úloh <input id="filter" type="search"></label><button id="reset">Zrušit filtry</button></div>
 <p id="counts"></p><h2>Oddělené osy — dosavadní pokrytí</h2>
 <p class="muted">Konverzační sloupec je pouze průměr původních rubrik nad jednorázovou prózou, nikoli nové měření konverzační kvality. Technická osa: CHAT/VISION přesná pole, CODE spuštěné testy, D1/D2/R1/R2 původní obsahové posudky; tyto metody nejsou zaměnitelné. Formát zde znamená pouze striktní JSON, ne úplné dodržení instrukcí. Runtime znamená parsovatelnost, nikoli správnost. Čísla jsou průměry úloh; opakování se agregují uvnitř úlohy. U neúplných dat je průměr jen z dostupných známek a počet chybějících zůstává viditelný.</p>
-<div id="coverage"></div><div id="axes" class="scroll"></div><h2>Úlohy × modely</h2><div id="matrix" class="scroll"></div><section id="detail"></section>
+REPLAY_NOTICE<div id="coverage"></div><div id="axes" class="scroll"></div><h2>Úlohy × modely</h2><div id="matrix" class="scroll"></div><section id="detail"></section>
 <details><summary>Původ dat a omezení</summary><pre id="sources"></pre></details>
 <script id="data" type="application/json">PAYLOAD</script><script>
 const data=JSON.parse(document.getElementById('data').textContent),$=id=>document.getElementById(id);
@@ -131,7 +166,7 @@ function render(){
  $('counts').textContent=`${rows.length} odpovědí v roli · ${new Set(rows.map(r=>r.task)).size} úloh · ${new Set(rows.map(r=>r.model)).size} modelů. Zobrazeno ${tasks.length} úloh / ${models.length} modelů.`;
  const coverage=data.contentAxisCoverage[$('role').value];
  $('coverage').innerHTML=`<p>Pokrytí obsahových os celé role: <strong>${coverage.coveredTasks} / ${coverage.totalTasks} úloh</strong>.</p>`+(coverage.outsideContentAxes.length?`<p class="warning">Mimo obsahové osy: <strong>${coverage.outsideContentAxes.length} úlohy / ${coverage.outsideAttempts} odpovědí</strong>. ${esc(coverage.reason)}</p>`+coverage.outsideContentAxes.map(t=>`<button data-task="${esc(t)}">${esc(t)}</button>`).join(''):'');
- $('axes').innerHTML='<table><thead><tr><th>Model</th><th>Konverzační obsah: původní próza</th><th>Technická správnost</th><th>Striktní JSON</th><th>Produkční parsovatelnost</th></tr></thead><tbody>'+data.summaries.filter(s=>s.role===$('role').value&&models.includes(s.model)).map(s=>`<tr><td>${esc(s.model)}</td><td>${axis(s.conversationProxy)}</td><td>${s.oracleReviewRequired?'<span class="warning">⚠ Původní, orákulum vyžaduje opravu</span><br>':''}${axis(s.technical)}</td><td>${axis(s.strictJson)}</td><td>${axis(s.runtimeParsed)}</td></tr>`).join('')+'</tbody></table>';
+ $('axes').innerHTML='<table><thead><tr><th>Model</th><th>Konverzační obsah: původní próza</th><th>Technická správnost</th><th>Nově spuštěná technická složka CODE</th><th>Striktní JSON</th><th>Produkční parsovatelnost</th></tr></thead><tbody>'+data.summaries.filter(s=>s.role===$('role').value&&models.includes(s.model)).map(s=>`<tr><td>${esc(s.model)}</td><td>${axis(s.conversationProxy)}</td><td>${s.oracleReviewRequired?'<span class="warning">⚠ Původní, orákulum vyžaduje opravu</span><br>':''}${axis(s.technical)}</td><td>${s.executableComponent?axis(s.executableComponent)+'<br><small>Bez souhrnné známky; význam textu čeká na posouzení.</small>':'—'}</td><td>${axis(s.strictJson)}</td><td>${axis(s.runtimeParsed)}</td></tr>`).join('')+'</tbody></table>';
  $('matrix').innerHTML='<table><thead><tr><th>Test</th>'+models.map(m=>`<th>${esc(m)}</th>`).join('')+'</tr></thead><tbody>'+tasks.map(t=>`<tr><td><button data-task="${esc(t)}">${esc(t)}</button></td>`+models.map(m=>{const attempts=rows.filter(r=>r.task===t&&r.model===m).sort((a,b)=>a.repeat-b.repeat);return `<td><button data-task="${esc(t)}" data-model="${esc(m)}">${attempts.some(r=>r.warning)?'⚠ ':''}${attempts.map(r=>fmt(r.grade.contentScore)).join(' / ')||'—'}</button></td>`}).join('')+'</tr>').join('')+'</tbody></table>';
  $('detail').innerHTML='';
 }
@@ -143,7 +178,10 @@ function showTask(task,model){
  for(const image of images){if(typeof image==='string'&&/^[A-Za-z0-9+/=\\s]+$/.test(image))text+=`<img alt="Původní obrazová příloha zadání" style="max-width:100%;max-height:750px" src="data:image/png;base64,${image.replace(/\\s/g,'')}">`;}
  text+=`<details><summary>Celý vstup včetně příloh</summary><pre>${esc(JSON.stringify(input,null,2))}</pre></details>`;
  for(const name of order){text+=`<h2>${esc(name)}</h2>`;for(const r of rows.filter(r=>r.model===name)){
- const g=r.grade;text+=`<article class="answer"><h3>Pokus ${r.repeat} · původní známka <span class="score">${fmt(g.contentScore)} / 1</span></h3>${r.warning?`<p class="warning">${esc(r.warning)}</p>`:''}<p class="muted">${esc(g.status)} · ${esc(g.method)} · ${esc(r.id)}</p><h4>Odpověď modelu</h4><pre>${esc(r.response)}</pre><h4>Důvody původní známky</h4>`;
+ const g=r.grade;text+=`<article class="answer"><h3>Pokus ${r.repeat} · původní známka <span class="score">${fmt(g.contentScore)} / 1</span></h3>${r.warning?`<p class="warning">${esc(r.warning)}</p>`:''}<p class="muted">${esc(g.status)} · ${esc(g.method)} · ${esc(r.id)}</p><h4>Odpověď modelu</h4><pre>${esc(r.response)}</pre>`;
+ if(r.codeComponent){const a=r.codeComponent.assessment;text+=`<section class="component"><h4>Nově spuštěná technická složka: ${fmt(a.technical.score)} / 1</h4><p class="warning">Celá úloha: neoznámkována. ${a.semantics.status==='REVIEW_REQUIRED'?'Význam textu vyžaduje posouzení.':'Tato složka neposuzuje provozní dokončení ani vysvětlení mimo záplatu.'}</p><p>${esc(a.technical.reason||'Spustitelné kontroly prošly.')}</p><details><summary>Kontroly API a skutečné výstupy funkce</summary><pre>${esc(JSON.stringify(a.technical.contractChecks,null,2))}</pre></details><details><summary>Rozsah a identita technického měření</summary><pre>${esc(JSON.stringify(r.codeComponent,null,2))}</pre></details></section>`;}
+ if(r.componentOpinion)text+='<h4>Autorské posouzení textu — k revizi, neslepé</h4><ul>'+r.componentOpinion.criteria.map(c=>`<li><b>${esc(c.id)}: ${fmt(c.score)}</b> — ${esc(c.reason)}<br><small>${esc(c.scope)}</small></li>`).join('')+'</ul><p class="muted">Toto není nezávislá přejímka. Celková známka se z těchto složek nepočítá.</p>';
+ text+='<h4>Důvody původní známky</h4>';
  if(g.criteria?.length)text+='<ul>'+g.criteria.map(c=>`<li>${esc(c.criterion||c.id||c.index)} — <b>${fmt(c.score??(typeof c.ok==='boolean'?Number(c.ok):null))}</b><br>${esc(c.reason||('Odpověď: '+JSON.stringify(c.observed)+'; očekáváno: '+JSON.stringify(c.expected)))}</li>`).join('')+'</ul>';
  else text+=`<p>${esc(g.detail?.reason||'Rozpad spustitelných kontrol je v podrobnostech hodnocení.')}</p>`;
  text+=`<details><summary>Úplné původní hodnocení a identita</summary><pre>${esc(JSON.stringify({grade:g,artifact:r.artifact},null,2))}</pre></details></article>`;
@@ -155,7 +193,7 @@ $('role').onchange=setModels;$('model').onchange=render;$('filter').oninput=rend
 $('reset').onclick=()=>{$('filter').value='';$('model').value='';render()};setModels();
 </script></html>'''
 with args.out.open('x') as f:
-    f.write(document.replace('PAYLOAD', data))
+    f.write(document.replace('PAYLOAD', data).replace('REPLAY_NOTICE', '<p class="warning">CODE: nové spustitelné výsledky jsou samostatná složka. Původní známky níže zůstávají zachované; celková správnost úlohy není nově oznámkovaná.</p>' if components else ''))
 summary = {k: payload[k] for k in ['schemaVersion', 'status', 'decisionAuthority', 'productionImported', 'sources', 'summaries', 'contentAxisCoverage']}
 summary.update({'responses': len(items), 'models': len({r['model'] for r in items}),
                 'flaggedOracleResponses': sum(bool(r['warning']) for r in items),
