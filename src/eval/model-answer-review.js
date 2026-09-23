@@ -16,10 +16,19 @@ export function createBlindAnswerReview(runs) {
         const id = randomUUID(), detail = task.details[index];
         items.push({ id, role: run.role, task: task.name, independenceGroup: task.independenceGroup,
           input: task.input, criteria: task.rubric, response, captureStatus: detail.captureStatus,
+          ...(detail.conversation ? { conversation: {
+            transcript: detail.conversation.transcript,
+            plannedTurns: detail.conversation.plannedTurns, completedTurns: detail.conversation.completedTurns,
+            status: detail.conversation.status, transcriptSha256: detail.conversation.transcriptSha256,
+            // Provider identity stays in the private identity key.
+            receipts: detail.conversation.receipts.map(r => ({ turn:r.turn, captureStatus:r.captureStatus,
+              inputSha256:r.inputSha256, responseSha256:r.responseSha256, error:r.error })),
+          } } : {}),
           error: detail.reason || null, score: null, criterionGrades: [], reviewStatus: 'NOT_REVIEWED' });
         identities.push({ id, runId: run.runId, model: run.model, digestSha256: run.digestSha256,
           suiteContractSha256: run.suiteContractSha256, providerVersion: run.providerVersion,
-          task: task.name, repeat: index + 1, responseSha256: createHash('sha256').update(response).digest('hex') });
+          task: task.name, repeat: index + 1, responseSha256: createHash('sha256').update(response).digest('hex'),
+          ...(detail.conversation ? { conversationReceipts:detail.conversation.receipts } : {}) });
       }
     }
   }

@@ -74,8 +74,8 @@ function fileSha256(url) {
 // production plans always read these fixed local files with the default reader.
 export function codeGradingRuntimeContract(readSource = readFileSync) {
   const files = [
-    './code-patch-suite.js', './code-patch-runner.js', './code-contract-check.mjs', './function-span.js',
-    './code-task-extractor.js', './build-code-suite.js', './model-evaluation-runner.js', './role-collection-profile.js',
+    './code-patch-suite.js', './code-patch-runner.js', './code-contract-check.mjs', './code-technical-projection.js', './function-span.js',
+    './code-task-extractor.js', './build-code-suite.js', './model-evaluation-runner.js', './role-collection-profile.js', './conversation-capture.js',
     '../../package-lock.json',
   ];
   return Object.freeze({
@@ -89,7 +89,7 @@ export function textGradingRuntimeContract(readSource = readFileSync) {
   const files = ['./role-quality-suites.js', './model-evaluation-runner.js',
     './runtime-json.js', './structured-answer.js', '../llm/client.js',
     './fixtures/vision/manifest.json', './semantic-role-suites.js', './semantic-evaluation-judge.js',
-    './fixtures/role-semantic-tasks.json', './role-collection-profile.js', './model-answer-collection.js',
+    './fixtures/role-semantic-tasks.json', './role-collection-profile.js', './conversation-capture.js', './model-answer-collection.js',
     './grade-answer-collection.js', './semantic-grader-acceptance.js'];
   return Object.freeze({
     version: 1, nodeVersion: process.version,

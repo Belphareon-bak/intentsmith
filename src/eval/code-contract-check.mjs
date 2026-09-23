@@ -5,8 +5,9 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
-const {name,source,codes}=JSON.parse(fs.readFileSync('.code-contract-input.json','utf8'));
+const {name,source,codes,oracleProfile}=JSON.parse(fs.readFileSync('.code-contract-input.json','utf8'));
 const checks=[];
+const observations=[];
 const check=async(name,fn)=>{try{await fn();checks.push({name,passed:true});}catch(e){checks.push({name,passed:false,reason:e.message});}};
 const load=()=>import(pathToFileURL(path.resolve(source)));
 if(['0fe346cc820c','6fc5e4eb7dce'].includes(name)) {
@@ -39,14 +40,27 @@ if(['0fe346cc820c','6fc5e4eb7dce'].includes(name)) {
  const {decideRole}=await load();
  for(const side of ['candidate','incumbent'])for(const n of [1,2,3,7])await check('confidence '+side+'/'+n,()=>{
   const r=decideRole({margin:side==='candidate'?.2:-.2,candidateWins:side==='candidate'?n:0,incumbentWins:side==='incumbent'?n:0,inconclusive:false,discriminating:n});
+  observations.push({case:'confidence',side,discriminating:n,result:r});
   assert.equal(r.winner,side);assert.equal(r.confidence,n===1?'nízká (jediná úloha)':n===2?'střední':'vysoká');
-  assert.match(r.detail,n===1?/nízk/i:n===2?/střední/i:/vysok/i);
+  if (oracleProfile !== 'code-executable-component.1') assert.match(r.detail,n===1?/nízk/i:n===2?/střední/i:/vysok/i);
+  else assert.equal(typeof r.detail, 'string'); // Presence/type only; meaning is explicitly ungraded.
  });
+ if (oracleProfile === 'code-executable-component.1') {
+  for (const [label,comparison,speeds] of [
+   ['below-quality-threshold',{margin:.03,candidateWins:3,incumbentWins:1,discriminating:4,inconclusive:false},{}],
+   ['speed-candidate',{margin:0,discriminating:0,inconclusive:true},{candidate:20,incumbent:10}],
+   ['speed-insufficient',{margin:0,discriminating:0,inconclusive:true},{candidate:11,incumbent:10}],
+   ['speed-unmeasured',{margin:0,discriminating:0,inconclusive:true},{}],
+  ]) {
+   try { observations.push({case:label,comparison,speeds,result:decideRole(comparison,speeds,.05)}); }
+   catch(error) { observations.push({case:label,error:error.message}); }
+  }
+ }
 } else if(name==='75b5539f8cf5') {
  const m=await load();
  await check('typed persistence failure',()=>{const cause=Error('store failed');const e=new m.ChatPersistenceError(cause);assert.ok(e instanceof m.ChatTurnError);assert.equal(e.code,'CHAT_PERSISTENCE_FAILED');assert.equal(e.statusCode,500);assert.equal(e.recoverable,false);assert.equal(e.cause,cause);assert.equal(e.sourceErrorType,'ASSISTANT_TURN_PERSIST_FAILED');});
  await check('old errors retained',()=>{assert.equal(new m.LLMProviderUnavailableError().statusCode,503);assert.equal(new m.ChatProcessingError().recoverable,false);assert.doesNotThrow(()=>new m.ChatPersistenceError());});
 } else throw Error('UNKNOWN_PUBLIC_CONTRACT:'+name);
 const passed=checks.length>0&&checks.every(c=>c.passed);
-console.log('CODE_CONTRACT_RECEIPT '+JSON.stringify({name,checks,passed}));
+console.log('CODE_CONTRACT_RECEIPT '+JSON.stringify({name,checks,passed,observations}));
 if(!passed)process.exitCode=1;

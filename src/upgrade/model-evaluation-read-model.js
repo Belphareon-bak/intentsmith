@@ -108,6 +108,7 @@ function taskDetails(row, includeResponses = false) {
       responseFormat: d.responseFormat, strictJson: d.strictJson,
       contentScore: d.contentScore, formatScore: d.formatScore, criteria: d.criteria,
       contractChecks: d.contractChecks,
+      ...(includeResponses && d.conversation ? { conversation: d.conversation } : {}),
       testFiles: d.testFiles, targetNames: d.targetNames,
       regressionNames: d.regressionNames, testOutput: d.testOutput,
     })) }));

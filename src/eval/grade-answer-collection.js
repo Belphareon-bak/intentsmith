@@ -73,6 +73,9 @@ export function prepareCollectionGrading({ plan, collection, judge, graderAccept
   // Validate the complete input before any judge inference.
   for (const task of collection.tasks) {
     const current = plan.suite.tests.find(t => t.name === task.name);
+    if (task.input?.conversationTurns && typeof current.gradeConversation !== 'function') {
+      fail('EVALUATION_CONVERSATION_GRADER_NOT_AVAILABLE');
+    }
     // A grading implementation change may reuse captures only when every
     // public input and inference option is byte-for-byte equivalent. The old
     // contract and raw run remain immutable; this creates a new grading run.
@@ -102,8 +105,13 @@ export async function gradeAnswerCollection({ plan, collection, judge, graderAcc
         valid: true, score: 0, passed: false, outcome: 'OPERATIONAL_FAILURE',
         detail: { reason: 'MODEL_OUTPUT_BUDGET_EXHAUSTED', contentScoreEvaluated: false } };
       else {
-        try { grade = await task.grade(input.responses[i], { semanticJudge: judge, artifact: {
-          ...collection.artifact, providerVersion: collection.providerVersion } }); }
+        try {
+          const context = { semanticJudge: judge, artifact: {
+            ...collection.artifact, providerVersion: collection.providerVersion } };
+          grade = input.input?.conversationTurns
+            ? await task.gradeConversation(input.details[i].conversation, context)
+            : await task.grade(input.responses[i], context);
+        }
         catch (error) { grade = { valid: false, score: null, detail: { reason: error.code || error.message } }; }
       }
       checkAcceptance();

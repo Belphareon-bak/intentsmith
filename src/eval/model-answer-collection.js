@@ -41,7 +41,12 @@ export async function collectRoleAnswers(runner, role, model, opts = {}) {
         elapsedMs, etaMs: attempts.length ? elapsedMs / attempts.length * (total - attempts.length) : null });
       let answer;
       try {
-        answer = await collectAnswer(task, model, artifact, runner._callModel.bind(runner));
+        answer = await collectAnswer(task, model, artifact, runner._callModel.bind(runner), turn => {
+          opts.onProgress?.({ model, role, testName:task.name, status:'running', repeat, repeats,
+            conversationTurn:turn.turn, totalConversationTurns:turn.totalTurns, turnStatus:turn.status,
+            completedTests:attempts.length, totalTests:total, percent:Math.floor(attempts.length/total*100),
+            elapsedMs:Date.now()-started, etaMs:null });
+        });
       } catch (error) {
         answer = { name: task.name, response: '', captureStatus: 'IDENTITY_OR_PROVIDER_ERROR',
           error: error.code || error.message, detail: error.detail || null, artifact: null };
@@ -58,6 +63,7 @@ export async function collectRoleAnswers(runner, role, model, opts = {}) {
       row.details.push({ repeat, captureStatus: answer.captureStatus, reason: answer.error || null,
         artifact: answer.artifact, durationMs: answer.durationMs ?? null,
         evalTokens: answer.evalTokens ?? null, promptEvalTokens: answer.promptEvalTokens ?? null,
+        ...(answer.conversation ? { conversation: answer.conversation } : {}),
         doneReason: answer.doneReason || null, gradingStatus: 'NOT_GRADED' });
       const invalid = !['CAPTURED','OUTPUT_BUDGET_EXHAUSTED'].includes(answer.captureStatus);
       const status = invalid ? 'COLLECTION_PARTIAL' : attempts.length === total ? 'AWAITING_REVIEW' : 'COLLECTION_PARTIAL';

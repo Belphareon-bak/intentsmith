@@ -1,5 +1,6 @@
 // Operator handoff 2026-09-19: collect first, adjudicate separately.
 // This profile deliberately has no scoring or judge authority.
+import { captureConversation } from './conversation-capture.js';
 export const COLLECTION_PROFILE = 'role-collection.2';
 export const MAX_MODEL_BYTES = 22_000_000_000;
 
@@ -28,8 +29,12 @@ export function collectionSuite(role, suite) {
   }) };
 }
 
-export async function collectAnswer(task, model, artifact, call) {
+export async function collectAnswer(task, model, artifact, call, onTurn) {
   const data = task.prompt();
+  if (data.conversationTurns) {
+    const answer = await captureConversation({ turns: data.conversationTurns, model, artifact, options: task.options, call, onTurn });
+    return { name: task.name, language: task.language || null, ...answer };
+  }
   const messages = structuredClone(data.messages || [{ role: 'user', content: data.text || '' }]);
   if (data.images?.length) messages[messages.length - 1].images = [...data.images];
   // Never call prepare(), validateOracle(), grade(), or a semantic judge here.
