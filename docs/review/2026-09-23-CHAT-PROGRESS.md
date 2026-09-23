@@ -2,6 +2,20 @@
 
 23. 9. 2026 — **PROGRESS_RUNTIME_VERIFIED / COLLECTION_RESUMED / NOT_GRADED**.
 
+**Pozdější pokyn operátora: pauza po šestém modelu.** Je aktivovaný jednorázový
+hlídač `intentsmith-chat-pause-after-six-20260923.service`: po trvalém uložení
+všech 120 pokusů `qwen3.5:27b` pošle SIGTERM pouze ověřenému procesu sběrače.
+Sběrač uzavře deník a uvolní svůj model; nadřazený skript dokončí export.
+Při zápisu této poznámky byl hlídač **ARMED**, nikoli již potvrzená pauza.
+Výsledný doklad `pause-after-model-status.json` ověří úplnost cílového modelu
+a nulový počet volání čtyř odložených modelů. `PAUSE_REQUIRES_REVIEW` se nesmí
+zaměnit za úspěšnou pauzu. Běžný důvod deníku bude `CANCELLED`; wrapper může
+částečný výstup označit `FAILED`, proto se čte také tento operátorský doklad.
+`qwen3.6:27b`, `qwen3:14b`, `phi4:14b` a `qwen3.8:latest` zůstávají na další
+den, **bez automatického restartu**. Plán ani rozpočet se nemění.
+Pokyn, skript hlídače a tři procesní kontroly bez inference jsou vedle ostatní
+evidence: `pause-after-model.json`, `pause-after-model.py`, `pause-watcher-check.json`.
+
 Operátor požádal o progress bar s logem, modelem, aktuální úlohou a počtem z celku. Navazuje na [spuštěný panel](2026-09-23-CHAT-PANEL.md).
 
 ## Otevření a význam údajů
