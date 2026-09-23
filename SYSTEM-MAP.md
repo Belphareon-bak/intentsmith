@@ -1,5 +1,14 @@
 # IntentSmith — mapa systému
 
+**GPU hunt — druhý CODE posudek připojen, 23. 9. 2026:**
+Původní DRAFT ověřen přes packet ID, custody a hashe: shoda 60/60 os,
+všech 60 citací nalezeno. Předchozí expozice zachovaná; nejde o nezávislou
+přejímku ani o nové skóre. U O09–O12 je shodná próza, API se liší;
+v O01–O08 je správné API 216/240, 24 polí chybí. Operátor přijal jistotu
+ve všech kvalitativních větvích pro novou verzi zadání (direction §7.5).
+13 cílených testů PASS, žádná inference/import/nasazení. **NO_AUTONOMOUS_GO**.
+[Rozsouzení a meze důkazu](docs/review/2026-09-23-CODE-RECONCILIATION.md).
+
 **GPU hunt — druhé posouzení připraveno, 23. 9. 2026:**
 30 odpovědí a 360 pozorovaných návratů má oddělený formulář bez identit,
 původních známek a autorských důvodů. Předchozí expozice je přiznaná;

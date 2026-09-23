@@ -265,3 +265,24 @@ Chybějící měření se nezamění za nulu ani za úspěch. Nová rubrika nezm
 zpětně to, co původní prompt žádal. Změna promptu vyžaduje nový sběr;
 oprava hodnotitele vyžaduje nejprve přejímku jeho pozitivních a negativních
 kontrol a teprve potom verzovaný replay s uchováním původních známek.
+
+### 7.5 Vyjasnění CODE jistoty — přijato operátorem 23. 9. 2026
+
+Operátor po druhém posouzení 30 odpovědí výslovně přijal pro **novou
+verzi zadání** požadavek vracet jistotu ve všech větvích `basis: kvalita`,
+včetně podprahového ponechání současného modelu. Pole `confidence`, význam
+vysvětlení `detail` a počet `discriminating` musí být ve shodě. Přesné API
+lze kontrolovat deterministicky; volná formulace ani interpunkce nejsou
+předepsané znění. Jde o vyjasnění zadání, nikoli o přijetí existujícího
+orákula nebo automatického extraktoru významu.
+
+Původní veřejné zadání a reference se v podprahové větvi rozcházely.
+Nová povinnost se proto nepřenáší zpětně na staré odpovědi. Potřebuje novou
+identitu zadání, odpovídající referenci a alternativy, přejímku hodnotitele
+a nový sběr. Historické rychlostní větve nejsou novým oprávněním pro
+produkční hunt rozhodovat při neprůkazné kvalitě. Doména neplatných vstupů
+je stále položkou k výslovnému uzavření před zmrazením nové úlohy.
+
+Druhé posouzení s deklarovanou předchozí expozicí je podklad k rozsouzení,
+nikoli nezávislá slepá přejímka. Shoda s autorem mu nedává rozhodovací
+autoritu a nemění původní stav DRAFT.
