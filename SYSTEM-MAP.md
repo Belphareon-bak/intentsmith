@@ -4,8 +4,10 @@
 čekání, souborové diffy/+− a kopírování formátované odpovědi. Přidáno skutečné
 prostředí backendu a explicitní potvrzované/automatické instalace npm a .NET SDK
 v odděleném rozsahu. Default ask, bez sudo. Skutečný Electron/M2 a SDK ověřeny;
-kompletní profil a nasazení probíhají. REVIEW_PENDING, žádná změna Huntu/modelů.
-Aktuální module graph má 1 420 hran, 3 cykly / 28 členů.
+Profil na `398d1448`: 366 PASS / 1 FAIL Gate 0. Při nasazení startup probe
+přerušila cizí CHAT panel; doplněno čekání na společný GPU zámek, ověření
+ápravy probíhá. REVIEW_PENDING; měřicí kontrakty ani modelové role nezměněny.
+Aktuální module graph má 1 421 hran, 3 cykly / 28 členů.
 [Podrobnosti, důkazy a omezení](docs/review/2026-09-23-STUDIO-ACTIVITY-ENVIRONMENT.md).
 
 **GPU hunt — hodnocení uloženého sběru, 23. 9. 2026:**

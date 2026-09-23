@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "3171342dba7254e7ed5db9195967afb0f7627266",
-  "sourceTree": "c4565b2cad534aefa7cc778938b0b6b933211ea6",
+  "sourceRevision": "e5a8ef9f2dcc2a026b367ce6ea24e7a7647409a8",
+  "sourceTree": "416b4c90244bc7edb413e7767a68d14b38bf707e",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "a111646c052627fd0803fc881838f58d7d5fd8dc",
@@ -1324,6 +1324,7 @@
     "src/upgrade/model-artifact-authority-repository.js -> src/upgrade/model-identity.js",
     "src/upgrade/model-binding-application.js -> src/config.js",
     "src/upgrade/model-binding-application.js -> src/core/logger.js",
+    "src/upgrade/model-binding-application.js -> src/upgrade/gpu-evaluation-lock.js",
     "src/upgrade/model-binding-application.js -> src/upgrade/model-identity.js",
     "src/upgrade/model-binding-application.js -> src/upgrade/model-use-authority.js",
     "src/upgrade/model-discovery.js -> src/config.js",
