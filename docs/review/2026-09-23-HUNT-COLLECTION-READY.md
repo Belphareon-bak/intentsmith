@@ -113,11 +113,15 @@ Povolené výsledky jsou ASSERTED / MISSING / UNRESOLVED / CONTRADICTORY. Stejn�
 
 Orchestration self-test se kvůli zastaralé release pečeti nepřeznačuje na PASS. Tohle není release přejímka. Výsledky různých SHA nejsou prezentované jako jeden zelený běh na finálním commitu.
 
+Na čistém `0a9eec5a` proběhlo závěrečné opakování 60/60 cílených kontrol a dva auditované programy: artifact validation (160/160) a module boundary (13/13), oba PASS. `final-stage-check.json` potvrzuje shodu všech zdrojových hashů se zmrazeným pilotem a 0 dosavadních modelových volání.
+
 ## 6. Zachování původních dat a prostředí
 
 Původních 2 922 odpovědí, známky, DRAFT druhého posuzovatele ani produkční DB nejsou předmětem přepisu. DRAFT SHA256 zůstává `680bbc7d41b7c286c46bede4a59372dc908da298c21afd1b4dbcf95411cf9d65`. Shoda 60/60 je druhé čtení s expozicí; nikde se z ní nestává nezávislá slepá přejímka.
 
 Timer zůstává disabled/inactive; žádná změna bindingů, automatického mazání, stahování modelů nebo instalovaného releasu. Pracuje se v původním worktree. Předání obsahuje snapshot zdrojových rozdílů a kontrolní hashe, nikoli kopii vah modelů či runtime sandboxů.
+
+Úklid standardním `workspace-budget clean --yes` skončil částečně: z 566 naplánovaných runtime/home adresářů je po běhu 217 nepřítomných, 349 zůstává. Běh zastavilo EACCES na staré Go cache (`core-completion-20260909/provider-proposal/toolchain/gomodcache/.../runtime`). Individuální receipt se při chybě nevydal, proto jde o kontrolu existence po běhu, nikoli úplný seznam potvrzených smazání. Další mazání ani změny práv nebyly provedené. `workspace-clean-result.json` uchovává přesný rozsah a chybu. Zdroje zůstaly čisté; rezerva /home přibližně 183 GiB, evidence 755 GiB. Tento úklid neblokuje pilot.
 
 ## 7. Co zbývá po této revizi
 

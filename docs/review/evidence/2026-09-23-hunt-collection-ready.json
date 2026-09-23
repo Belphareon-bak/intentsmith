@@ -170,5 +170,24 @@
     "semanticProbes": 18,
     "authorControlsOnly": true,
     "independentAcceptance": false
+  },
+  "finalVerification": {
+    "sourceRevision": "0a9eec5a320d615704ebcda76c3b33d8dc7bdb8a",
+    "focusedPassed": 60,
+    "focusedFailed": 0,
+    "auditedPrograms": 2,
+    "auditedPassed": 2,
+    "auditedFailed": 0,
+    "report": "/mnt/vi7000/intentsmith/evidence/hunt-collection-ready-20260923/.intentsmith-artifacts/final/2026-09-23T14-26-09-542Z/report.json",
+    "sourceContractMatchesPilot": true,
+    "modelCalls": 0
+  },
+  "workspaceCleanup": {
+    "status": "PARTIAL_PERMISSION_BLOCKED",
+    "plannedTargets": 566,
+    "absentAfter": 217,
+    "remainingAfter": 349,
+    "report": "/mnt/vi7000/intentsmith/evidence/hunt-collection-ready-20260923/workspace-clean-result.json",
+    "furtherDeletionAttempted": false
   }
 }
