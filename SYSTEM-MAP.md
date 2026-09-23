@@ -1,5 +1,11 @@
 # IntentSmith — mapa systému
 
+**GPU hunt — osobní porovnání odpovědí, 23. 9. 2026:**
+Offline podklad z uloženého panelu: 27 společných úloh, 4 modely na úlohu,
+324 odpovědí včetně všech opakování; 12 modelů celkem. Vlastní známky,
+preference a návrhy vah s exportem; žádný import do produkce ani změna GO.
+[Výběr, původ známek a ověření rozhraní](docs/review/2026-09-23-HUNT-ANSWER-COMPARISON.md).
+
 **GPU hunt — hodnocení uloženého sběru, 23. 9. 2026:**
 Doplněny CLI, lokální API a Studio pro hodnocení již uložených odpovědí.
 Přejímka T4 vyžaduje nezávislé označení a jiný digest hodnotitele, provozní
