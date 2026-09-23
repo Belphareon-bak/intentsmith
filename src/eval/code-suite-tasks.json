@@ -5698,7 +5698,25 @@
         "alternativeTexts": [
           "export function decideRole(comparison, speed = {}, threshold = 0.05) {\n  const { margin, candidateWins, incumbentWins, inconclusive } = comparison;\n\n  // Rozhodnutí opřené o jedinou úlohu je jedno pozorování, ne trend. Signál se\n  // nezahazuje — úloha stabilní přes tři běhy nese informaci — ale operátor má\n  // vidět, jak široký podklad za rozhodnutím stojí.\n  const confidence = ['žádná', 'nízká (jediná úloha)', 'střední', 'vysoká'][Math.min(3, Math.max(0, comparison.discriminating))];\n\n  if (!inconclusive) {\n    if (margin >= threshold && candidateWins > incumbentWins) {\n      return {\n        winner: 'candidate',\n        basis: 'kvalita',\n        confidence,\n        detail: `marže ${margin.toFixed(3)} ≥ práh ${threshold} na ${comparison.discriminating} rozlišujících úlohách `\n          + `(${candidateWins}:${incumbentWins}), jistota ${confidence}`,\n      };\n    }\n    if (margin <= -threshold && incumbentWins > candidateWins) {\n      return {\n        winner: 'incumbent',\n        basis: 'kvalita',\n        confidence,\n        detail: `kandidát ztrácí ${Math.abs(margin).toFixed(3)} na ${comparison.discriminating} úlohách, jistota ${confidence}`,\n      };\n    }\n    return {\n      winner: 'incumbent',\n      basis: 'kvalita',\n      detail: `rozdíl ${margin.toFixed(3)} nedosáhl prahu ${threshold} — stávající zůstává`,\n    };\n  }\n\n  // Kvalita nerozlišila. Rychlost rozhodne jen při zřetelném rozdílu.\n  const c = speed.candidate;\n  const i = speed.incumbent;\n  if (c > 0 && i > 0) {\n    const ratio = c / i;\n    if (ratio >= 1.25) {\n      return {\n        winner: 'candidate',\n        basis: 'rychlost',\n        detail: `kvalita nerozlišila (všechny úlohy shodné), kandidát je ${ratio.toFixed(2)}× rychlejší `\n          + `(${c} vs ${i} tok/s)`,\n      };\n    }\n    return {\n      winner: 'incumbent',\n      basis: 'nerozhodně',\n      detail: `kvalita nerozlišila a rychlost se liší jen ${ratio.toFixed(2)}× — stávající zůstává`,\n    };\n  }\n\n  return {\n    winner: 'incumbent',\n    basis: 'nerozhodně',\n    detail: 'kvalita nerozlišila a rychlost není změřená',\n  };\n}"
         ],
-        "alternativeExplanation": "Bounded lookup instead of chained conditionals for evidence-count labels."
+        "alternativeExplanation": "Bounded lookup instead of chained conditionals for evidence-count labels.",
+      "additionalControls": [
+        {
+          "name": "equivalent-inserted-word",
+          "expectedScore": 1,
+          "replace": {
+            "from": "jistota ${confidence}",
+            "to": "jistota rozhodnutí: ${confidence}"
+          }
+        },
+        {
+          "name": "contradictory-full-value",
+          "expectedScore": 0,
+          "replace": {
+            "from": "jistota ${confidence}",
+            "to": "jistota ${confidence} neplatí; skutečná jistota je opačná"
+          }
+        }
+      ]
       },
       "priorCalibration": {
         "taskFingerprint": "ef4ae48ec16e01d521d86b3f30517e9f9ee84ee877249fd9892846e3ffcccee9",

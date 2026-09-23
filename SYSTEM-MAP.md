@@ -1,5 +1,16 @@
 # IntentSmith — mapa systému
 
+**GPU hunt — audit textových orákul, 23. 9. 2026:**
+Offline inventář zahrnuje všech 37 CODE fixtures a 83 verzí kontrolních
+souborů; lexikální seznam není přejímka jejich významu. Skutečný izolovaný
+runner doložil falešné odmítnutí i přijetí u aktivního výpisu jistoty a další
+falešné odmítnutí v rezervní matematické úloze. Nové přejímací kontroly
+zastaví aktuální CODE sadu před inferencí. **ORACLE_DEFECTS_REPRODUCED /
+PREFLIGHT_HARDENED / NOT_DEPLOYED / REVIEW_PENDING**. Orákulum prózy není
+opravené a nové známky nebyly vydané. Úplná matice zobrazuje všech 2 922
+původních odpovědí, oddělené osy a upozornění na sporné CODE známky.
+[Audit, přehratelné sondy, matice a zbývající práce](docs/review/2026-09-23-HUNT-ORACLE-TEXT-AUDIT.md).
+
 **GPU hunt — osobní porovnání odpovědí, 23. 9. 2026:**
 Offline podklad z uloženého panelu: 27 společných úloh, 4 modely na úlohu,
 324 odpovědí včetně všech opakování; 12 modelů celkem. Vlastní známky,

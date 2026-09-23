@@ -133,6 +133,19 @@ await testAsync('§3: failed oracle control stops before any provider invocation
   assertEqual(error.message, 'GOLD_FAILED'); assertEqual(calls, 0);
 });
 
+await testAsync('reviewed real text-oracle counterexamples block CODE before inference', async () => {
+  const definition = codePatchSuite.tests.find(t => t.name === 'patch_90eff80ecb8a');
+  const runner = new CodePatchEvaluationRunner('http://127.0.0.1:1', {
+    name: 'text-oracle-audit', tests: [definition],
+  });
+  let calls = 0, error;
+  runner._callModel = async () => { calls++; throw Error('UNEXPECTED_PROVIDER_CALL'); };
+  try { await runner.runSuite('text-oracle-audit', 'candidate'); } catch (caught) { error = caught; }
+  assertEqual(calls, 0);
+  assert(error?.message.includes('equivalent-inserted-word'), error?.message);
+  assert(error?.message.includes('contradictory-full-value'), error?.message);
+});
+
 test('CODE prompt fixture se načte i bez dosažitelného git repozitáře', () => {
   const withoutHistory = loadFixtureTasks('/definitely/missing/git/history');
   assertEqual(withoutHistory.length, codePatchSuite.tests.length);
