@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 537
+- Runnable programs: 538
 - Explicit support-module exclusions: 21
-- Profiles: offline=294, database=78, server=48, model=82, soak=15, manual=20
-- States: ACTIVE=443, HISTORICAL=15, BLOCKED=79
+- Profiles: offline=295, database=78, server=48, model=82, soak=15, manual=20
+- States: ACTIVE=444, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -110,6 +110,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-COLLECTION-STAGE-PROVIDER-TEST-MJS` | `tests/collection-stage-provider.test.mjs` | `C3-010` | T1 | `offline` | 1 s | 2 min | network:loopback | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-COLLECTION-STAGE-TEST-MJS` | `tests/collection-stage.test.mjs` | `C3-010` | T1 | `offline` | 1 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CONCEPT-REGISTRY-TEST` | `tests/concept-registry.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-CONFIDENCE-MEANING-TEST-MJS` | `tests/confidence-meaning.test.mjs` | `C3-010` | T1 | `offline` | 1 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CONTEXT-BUILDER-TEST` | `tests/context-builder.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CONTEXT-COMPACT-MODEL-CTX-TEST` | `tests/context-compact-model-ctx.test.js` | `C3-016` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CONTEXT-DELTA-TEST` | `tests/context-delta.test.js` | `C3-016` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

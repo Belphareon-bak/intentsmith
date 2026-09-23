@@ -16,6 +16,7 @@ function setup(t,plan=base){const parent=mkdtempSync(join(tmpdir(),'hunt-stage-t
 
 test('real dialog is durable, ungraded, and resume never regenerates a completed turn',async t=>{
   const opts=setup(t), inputs=[];
+  assert.equal(stageSummary(readStage(opts.directory)).status,'PREPARED');
   const call=async(_,m)=>{inputs.push(m);return reply('answer '+inputs.length);};
   const first=await runStageWindow({...opts,call,budget:{...opts.budget,calls:1}});
   assert.equal(first.summary.stopReason,'CALL_LIMIT');assert.equal(first.summary.calls,1);

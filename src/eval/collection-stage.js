@@ -80,7 +80,7 @@ export function stageSummary(stage) {
     ...e, close:events.find(c=>c.type==='WINDOW_CLOSED'&&c.windowId===e.windowId) || null }));
   const captured=finished.filter(e=>e.answer.captureStatus==='CAPTURED').length;
   return {planSha256:stage.sha256,gradingStatus:'NOT_GRADED',score:null,decisionAuthority:false,
-    status:finished.length===planned?(captured===planned?'CAPTURED':'CAPTURE_COMPLETE_WITH_EXCEPTIONS'):'PARTIAL',
+    status:!windows.length?'PREPARED':finished.length===planned?(captured===planned?'CAPTURED':'CAPTURE_COMPLETE_WITH_EXCEPTIONS'):'PARTIAL',
     plannedConversations:planned,finishedConversations:finished.length,capturedConversations:captured,
     calls:starts.length,observedOutputTokens,chargedOutputTokens,unknownTokenCalls,
     unattemptedConversations:planned-new Set(starts.map(e=>e.attemptId)).size,
