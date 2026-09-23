@@ -2,7 +2,12 @@
 
 Autorita: zadání operátora 23. 9. 2026 a jeho přiložené ukázky IDE.
 Vstup: nasazený `400c9d8ffdf336055d4dc6f9fb8a10565c0adccd`.
-Stav: IN_PROGRESS / REVIEW_PENDING.
+Stav: IMPLEMENTATION_VERIFIED / DEPLOYED / REVIEW_PENDING.
+
+Nasazený kód `72247a49`; úplný offline/database profil 366 PASS / 1 FAIL
+(nezměněná Gate 0 pečeť), 0 BLOCKED. Běh neuzavírá obecné autonomní instalace:
+v tomto přírůstku je připravuje uživatel z UI. Původní incident Huntu a jeho
+ověřená náprava jsou součástí packetu, nejsou skryté pod stavem nasazení.
 
 Výsledek: u konkrétního tahu je vidět běžící práce, nástroj/model, čekání
 na odpověď či schválení a pravdivý terminál. Souborový plán a provedený výsledek

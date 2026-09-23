@@ -1,10 +1,17 @@
 # Studio: průběh práce a prostředí projektu
 
-Stav: IMPLEMENTED / REVIEW_PENDING. Autorita: přímé zadání operátora 23. 9.
+Stav: IMPLEMENTATION_VERIFIED / DEPLOYED / REVIEW_PENDING. Autorita: přímé zadání operátora 23. 9.
 2026 (transparentní práce v IDE, kopírování odpovědi; znalost prostředí a
 explicitní automatické/potvrzované instalace). Vstupní nasazený zdroj:
 `400c9d8ffdf336055d4dc6f9fb8a10565c0adccd`. První UI commit `43a293f8`.
 Nejde o přijetí release, změnu modelových profilů ani důkaz kvality inference.
+
+**Nasazený zdroj: `72247a4983abcb12d42f6da6cc5b27af8f2212fd`.**
+Review rozsah: `400c9d8f..72247a49`, navazující commit obsahuje pouze uzavření
+dokumentace. GitHub větev: `work/studio-activity-20260923`. Modelové hodnocení,
+kolektor a profily se nemění; jedna nutná změna sdílené binding vrstvy je
+výslovně vysvětlená v incidentu níže. Instalace je funkční v uvedeném rozsahu,
+samostatný výběr chybějících balíčků agentem zůstává nenapojený.
 
 ## Co je vidět ve Studiu
 
@@ -138,7 +145,7 @@ explicitní toolchain: bubblewrap (samostatný alias od bwrap).
 `398d1448` byl nasazen 23. 9. v 21:30 UTC. Před restartem byly prověřeny
 oddělené procesy a provider kolektoru, shodný kód Huntu i konfigurace. To
 **nestačilo**: přehlédnutá startup cesta `rehydrateBindings` →
-`startBackgroundVerification` → `verifyExact` posílá skutečný jednoto­kenový
+`startBackgroundVerification` → `verifyExact` posílá skutečný jednotokenový
 `POST /api/chat` na 11434. Zámek evaluace dosud nerespektovala. Systémová
 Ollama začala načítat model v 21:30:22.512Z; CHAT panel uzavřel okno v
 21:30:22.914Z s `GPU_FOREIGN_WORK_PRESENT`, service skončila exit 1.
@@ -158,3 +165,40 @@ do konce probe a auditního zápisu a uvolní ji i při chybě. Rozšířená p�
 sada má **111/111 PASS** včetně skutečného cizího procesu držícího zámek,
 pokračování po uvolnění a odmítnutí zastaralého odloženého bindingu.
 První pokus odhalil chybné pořadí testovací izolace; zachován, opraven.
+
+### Finální ověření a nasazení
+
+- Kód `72247a49`: **366 PASS / 1 FAIL / 0 BLOCKED / 0 TIMEOUT**, všech 367
+  programů dokončeno. Report `test-runs/2026-09-23T21-38-36-470Z/report.json`;
+  jediná chyba je stejná Gate 0 pečeť. Artefaktová kontrola **160/160**.
+- Produkční build zkopírován do čistého detached snapshotu, kontrola M1
+  consumer build PASS. SHA-256 frontend bundle:
+  `339c8ddb3fa8b793f6723b30771ae1f2d12a7deb5403378c59f08c355a3faf9b`.
+- Druhé nasazení proběhlo až při zastaveném panelu a prázdné GPU. Při
+  skutečném restartu backendu držel samostatný nasazovací proces společný
+  zámek: **7 odložených sond, žádný POST /api/chat** během držení zámku.
+  Poté byl vlastní zámek uvolněn. Důkazy `guard-startup-journal.log`,
+  `guard-provider-journal.log`, `guard-deployment.json`. Není to tvrzení,
+  že původní přerušený panel byl automaticky obnoven.
+- Živý backend má `ask/ask`, systémy `manual`. Ověřené lokální HTTP 200,
+  bez autentizace odmítnuto. Zachován admin credential, cesty, runtime env
+  a vypnutý Hunt timer. Cizí transient jednotka a její stav zůstaly beze změny.
+- DB quick_check `ok`, 0 foreign key chyb. Devět chráněných tabulek včetně
+  evaluací, rozhodnutí, bindingů, konverzací a paměti bajtově shodných podle
+  kanonického řádkového SHA-256 se zálohou. U devíti projektů se změnilo jen
+  `last_active` kvůli stávajícímu startup scan; ostatní pole zachovaná.
+  Živá DB má **107** migration receipts (historické položky zachované),
+  čerstvá DB **104**. První instalace přidala přesně 117, druhá nic.
+- Nový Electron z nasazeného snapshotu proti živému backendu: M1 handshake,
+  Ubuntu/tool přehled a obě volby `ask` PASS (`installed-studio-second.log`,
+  `installed-studio.json`). První příliš brzký pokus před načtením navigace
+  zachován v `installed-studio-first.log`; ověření čeká na načtené Studio.
+- Lokální obrázky pro review: `work-completed-wide.png` (skutečný M2 průchod),
+  `development-wide.png` (izolovaný test s úmyslně uloženým disabled),
+  `installed-studio.png` (živý backend, výchozí ask). Živá uživatelská data
+  a snímky se neposílají do veřejného Gitu.
+
+Další review má samostatně pokrýt instalační autoritu a nápravu background
+ověřování. Funkční UI a tento ověřený rozsah nejsou univerzální automatické
+budování projektů. Převzetí výběru závislostí agentem, jejich aktualizace,
+další správci a systémové balíčky zůstávají otevřené.
