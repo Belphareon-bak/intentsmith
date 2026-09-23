@@ -5,8 +5,13 @@ Doplněny CLI, lokální API a Studio pro hodnocení již uložených odpovědí
 Přejímka T4 vyžaduje nezávislé označení a jiný digest hodnotitele, provozní
 přejímka přijímá úplný postup každé ze sedmi rolí. Zneplatnění přejímky
 vyřazuje aktuální skóre i běžící hodnocení; historie zůstává.
-**IMPLEMENTED / INTEGRATION_TESTING / REVIEW_PENDING**; žádná přejímka
-skutečného modelu ani autonomní výběr nejsou tímto vyhlášeny.
+Nasazeno `400c9d8f`, Studio fyzicky prokliknuté v sedmi záložkách.
+Finální fyzický běh: všech 7 rolí plus druhý CODE kandidát, **327 pokusů**;
+216 otevřených odpovědí čeká na posouzení.
+Offline/database 364 PASS / 1 známý Gate 0 FAIL / 0 BLOCKED. Přehled místa
+čte skutečný modelový FS; odmítnutí hodnocení je viditelné i v Historii.
+**DEPLOYED / REVIEW_PENDING**; žádná přejímka skutečného hodnotitele
+ani autonomní výběr nejsou tímto vyhlášeny. Přijatých profilů 0/7.
 [Ověření a konkrétní meze](docs/review/2026-09-23-HUNT-GRADING-INTEGRATION.md).
 
 **GPU hunt — úložiště a arbitráž, 22. 9. 2026:**

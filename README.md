@@ -1,9 +1,14 @@
 # IntentSmith
 
-**GPU hunt, finální měření 19. 9.: NO-GO pro autonomní provoz.**
-Všech sedm rolí změřeno na `89531748`, přijatých profilů 0/7; produktová
-integrace a nezávislá kvalifikace nejsou dokončené. Timer zůstává vypnutý.
-[Výsledky, konkrétní nedodělky a celý podklad pro review](docs/review/2026-09-19-GPU-HUNT-FINAL-REVIEW.md).
+**GPU hunt, předání 23. 9.: nasazený `400c9d8f`, REVIEW_PENDING.**
+Finální fyzický běh: všech 7 rolí plus druhý CODE kandidát, **327 pokusů**;
+216 otevřených odpovědí čeká na posouzení.
+Studio, sériový sběr všech rolí a oddělené hodnocení uložených odpovědí jsou
+propojené. Přejímka skutečných hodnotitelů a provozní kvalifikace dvojic
+zůstávají otevřené: **0/7 přijatých rozhodovacích profilů**, timer vypnutý,
+automatický výběr a mazání podle kvality **NO_GO**. Celý offline/database
+profil: 364 PASS / 1 známý Gate 0 FAIL; nejde o release PASS.
+[Celý hunt: funkce, skutečná měření, testy a podmínky GO](docs/review/2026-09-23-HUNT-GRADING-INTEGRATION.md).
 
 Nové rozvržení a ovládání: [pracovní prostory IDE](docs/IDE-WORKSPACE.md).
 

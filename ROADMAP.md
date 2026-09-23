@@ -2,9 +2,14 @@
 
 **GPU hunt — propojené hodnocení, 23. 9. 2026:**
 Podporovaná cesta ze sběru do přijatého hodnocení, API/Studio a příjem provozní
-přejímky všech sedmi rolí jsou implementované; probíhá finální ověření.
+přejímky všech sedmi rolí jsou implementované a nasazené na `400c9d8f`.
+Finální fyzický běh: všech 7 rolí plus druhý CODE kandidát, **327 pokusů**;
+216 otevřených odpovědí čeká na posouzení.
+Proklik Studia a offline/database profil: 364 PASS / 1 známý Gate 0 FAIL.
 Aktuální module graph má 1 408 hran, 3 cykly / 28 členů.
-Skutečná přejímka hodnotitelů a modelových dvojic zůstává samostatnou podmínkou GO.
+Skutečná přejímka hodnotitelů a modelových dvojic zůstává podmínkou GO;
+zbývá také podpora úplného ne-CODE provozního měření, ne jen příjem receiptů.
+Přijatých profilů je 0/7, automatika zůstává pozastavená.
 [Delta k review](docs/review/2026-09-23-HUNT-GRADING-INTEGRATION.md).
 
 **GPU hunt — úložiště a arbitráž, 22. 9. 2026:**

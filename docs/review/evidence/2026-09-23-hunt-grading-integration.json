@@ -1,0 +1,599 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "2026-09-23T01:15:18.797673+00:00",
+  "scope": "GPU hunt grading integration and final installed collection journey; independent model acceptance remains outstanding",
+  "baseRevision": "a144c447908baf590876fdf3f917bed78c818bbc",
+  "runtimeRevision": "400c9d8ffdf336055d4dc6f9fb8a10565c0adccd",
+  "deliveryCommitScope": "documentation and evidence receipt only after runtime revision",
+  "branch": "work/hunt-model-controls-20260917",
+  "verdict": {
+    "supervisedCollection": "RUNTIME_VERIFIED_REVIEW_PENDING",
+    "autonomousSelection": "NO_GO",
+    "acceptedDecisionProfiles": 0,
+    "totalRoles": 7,
+    "fullReleaseAccepted": false
+  },
+  "installation": {
+    "root": "/mnt/vi7000/intentsmith/releases/400c9d8ffdf336055d4dc6f9fb8a10565c0adccd",
+    "productionDatabase": "/home/belphareon/Projects/intentsmith/data/c3.db",
+    "backendNodeEnvironment": "NODE_ENV=production",
+    "frontendSha256": "30e06c7fb5bd76bfeea2b19b72034bcfb178ef5142f43f892324e2fbdb7efb7d",
+    "evaluationProvider": "0.34.2-intentsmith.1",
+    "systemProvider": "0.34.0-intentsmith.1",
+    "dependencyLimitation": "Build dependencies reused from the local environment; empty-cache installation on a second machine untested."
+  },
+  "measurements": {
+    "runCount": 8,
+    "attemptCount": 327,
+    "openResponses": 216,
+    "deterministicAttempts": 111,
+    "freshInference": true,
+    "sameDevelopmentSuites": true,
+    "newOperationalHoldout": false,
+    "runs": [
+      {
+        "role": "D1",
+        "runId": "eval_80e8f162-cd84-449d-a0f0-d12e8264759e",
+        "status": "AWAITING_REVIEW",
+        "score": null,
+        "collection": {
+          "version": 1,
+          "status": "AWAITING_REVIEW",
+          "planned": 24,
+          "observed": 24,
+          "captured": 24,
+          "budgetExhausted": 0,
+          "invalid": 0
+        },
+        "providerVersion": "0.34.2-intentsmith.1",
+        "durationMs": 918035,
+        "taskCount": 8,
+        "observed": 24,
+        "catalogMatchesContract": true,
+        "model": "qwen3.8:latest",
+        "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643"
+      },
+      {
+        "role": "D2",
+        "runId": "eval_f766e962-899b-4fab-b0b9-f6eefe76809a",
+        "status": "AWAITING_REVIEW",
+        "score": null,
+        "collection": {
+          "version": 1,
+          "status": "AWAITING_REVIEW",
+          "planned": 24,
+          "observed": 24,
+          "captured": 24,
+          "budgetExhausted": 0,
+          "invalid": 0
+        },
+        "providerVersion": "0.34.2-intentsmith.1",
+        "durationMs": 531760,
+        "taskCount": 8,
+        "observed": 24,
+        "catalogMatchesContract": true,
+        "model": "qwen3.8:latest",
+        "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643"
+      },
+      {
+        "role": "R1",
+        "runId": "eval_ee420a92-2fc1-462d-aa04-8b5df914e099",
+        "status": "AWAITING_REVIEW",
+        "score": null,
+        "collection": {
+          "version": 1,
+          "status": "AWAITING_REVIEW",
+          "planned": 24,
+          "observed": 24,
+          "captured": 24,
+          "budgetExhausted": 0,
+          "invalid": 0
+        },
+        "providerVersion": "0.34.2-intentsmith.1",
+        "durationMs": 681889,
+        "taskCount": 8,
+        "observed": 24,
+        "catalogMatchesContract": true,
+        "model": "qwen3.8:latest",
+        "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643"
+      },
+      {
+        "role": "CODE",
+        "runId": "eval_a20bf874-d5d1-4217-8396-95a47589e9aa",
+        "status": "COMPLETE",
+        "score": 1,
+        "collection": null,
+        "providerVersion": "0.34.2-intentsmith.1",
+        "durationMs": 259905,
+        "taskCount": 7,
+        "observed": 21,
+        "catalogMatchesContract": true,
+        "model": "qwen3.8:latest",
+        "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643"
+      },
+      {
+        "role": "R2",
+        "runId": "eval_70611a17-4e34-45dc-a500-3a48536d60de",
+        "status": "AWAITING_REVIEW",
+        "score": null,
+        "collection": {
+          "version": 1,
+          "status": "AWAITING_REVIEW",
+          "planned": 24,
+          "observed": 24,
+          "captured": 24,
+          "budgetExhausted": 0,
+          "invalid": 0
+        },
+        "providerVersion": "0.34.2-intentsmith.1",
+        "durationMs": 525330,
+        "taskCount": 8,
+        "observed": 24,
+        "catalogMatchesContract": true,
+        "model": "qwen3.8:latest",
+        "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643"
+      },
+      {
+        "role": "CHAT",
+        "runId": "eval_ffa31949-c3b7-4319-97d6-d16e46f9953f",
+        "status": "AWAITING_REVIEW",
+        "score": null,
+        "collection": {
+          "version": 1,
+          "status": "AWAITING_REVIEW",
+          "planned": 120,
+          "observed": 120,
+          "captured": 120,
+          "budgetExhausted": 0,
+          "invalid": 0
+        },
+        "providerVersion": "0.34.2-intentsmith.1",
+        "durationMs": 111728,
+        "taskCount": 40,
+        "observed": 120,
+        "catalogMatchesContract": true,
+        "model": "qwen3.8:latest",
+        "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643"
+      },
+      {
+        "role": "VISION",
+        "runId": "eval_b7a5f7a8-2baa-462a-a361-bc4c38a22d56",
+        "status": "COMPLETE",
+        "score": 0.772463768115942,
+        "collection": null,
+        "providerVersion": "0.34.2-intentsmith.1",
+        "durationMs": 126197,
+        "taskCount": 23,
+        "observed": 69,
+        "catalogMatchesContract": true,
+        "model": "qwen3.8:latest",
+        "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643"
+      },
+      {
+        "role": "CODE",
+        "model": "devstral-small-2:latest",
+        "digestSha256": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+        "runId": "eval_9c4b5df1-25be-48fc-b0bc-165635cd8755",
+        "status": "COMPLETE",
+        "score": 0.47619047619047616,
+        "durationMs": 327234,
+        "taskCount": 7,
+        "observed": 21,
+        "providerVersion": "0.34.2-intentsmith.1"
+      }
+    ],
+    "cancelledEarlierRun": "run-YKGCJ6 on 790ceeeb; retained, excluded from final 327",
+    "visionFullSuccesses": 36,
+    "visionIncorrect": 33,
+    "codeFullSuccesses": {
+      "qwen3.8:latest": 21,
+      "devstral-small-2:latest": 10
+    }
+  },
+  "verification": {
+    "fullOfflineDatabase": {
+      "programs": 365,
+      "PASS": 364,
+      "FAIL": 1,
+      "BLOCKED": 0,
+      "TIMEOUT": 0,
+      "verdict": "FAIL",
+      "failure": "tests/nightly-orchestrator-self-test.js: test-registry hash differs from old reviewed Gate 0 policy; no reseal"
+    },
+    "authorOracleProbes": {
+      "CODE": {
+        "passed": 62,
+        "tasks": 7,
+        "declaredIndependentGroups": 5
+      },
+      "VISION": {
+        "passed": 299,
+        "tasks": 23,
+        "distinctImages": 22
+      },
+      "independentAcceptance": false
+    },
+    "artifactValidation": {
+      "passed": 160,
+      "failed": 0
+    },
+    "testRegistryPrograms": 530,
+    "gradingAcceptanceIntegrationPassed": 17,
+    "readModelUIRegressionPassed": 25,
+    "modelDiskRegressionPassed": 22,
+    "studio": {
+      "tabsExercised": 7,
+      "actualGUIAllRoleStart202": true,
+      "busyRequest409ThenIdle202": true,
+      "graderMissing409": true,
+      "unauthorizedGET401": true,
+      "runDetailsAndAnswersExpanded": true,
+      "backendReconnectVerified": true,
+      "firstReconnectHarnessResult": "FAIL: Chromium response cache evicted body; separate retry after buffer adjustment PASS",
+      "diagnosticFlags": [
+        "--no-sandbox",
+        "--disable-gpu"
+      ]
+    },
+    "modelReassignmentExecuted": false,
+    "modelDeletionExecuted": false,
+    "newLargeDownloadExecuted": false,
+    "systemRebootTested": false,
+    "actualAcceptedT4JudgeInference": false
+  },
+  "preservation": {
+    "at": "2026-09-23T01:03:18.394Z",
+    "tables": {
+      "model_desired_bindings": {
+        "baseline": {
+          "count": 7,
+          "sha256": "ddbdfce82570a121c0ab869b1377f00af147af7b7a3724e9a56435c77ed0cfca"
+        },
+        "backupCount": 7,
+        "backupSha256": "ddbdfce82570a121c0ab869b1377f00af147af7b7a3724e9a56435c77ed0cfca",
+        "currentCount": 7,
+        "originalRowsPreserved": true,
+        "currentSha256": "ddbdfce82570a121c0ab869b1377f00af147af7b7a3724e9a56435c77ed0cfca"
+      },
+      "model_evaluation_decisions": {
+        "baseline": {
+          "count": 234,
+          "sha256": "29baa9a24acfe0c7dcce10b3616a4f7c184bac1d9ea467c41d49be8d6fa8fd97"
+        },
+        "backupCount": 234,
+        "backupSha256": "29baa9a24acfe0c7dcce10b3616a4f7c184bac1d9ea467c41d49be8d6fa8fd97",
+        "currentCount": 234,
+        "originalRowsPreserved": true,
+        "currentSha256": "29baa9a24acfe0c7dcce10b3616a4f7c184bac1d9ea467c41d49be8d6fa8fd97"
+      },
+      "model_evaluation_runs": {
+        "baseline": {
+          "count": 754,
+          "sha256": "f3499e1add0ff3d1d490e16d550788dcb75f02bb96722e46769a41875d84f6af"
+        },
+        "backupCount": 754,
+        "backupSha256": "f3499e1add0ff3d1d490e16d550788dcb75f02bb96722e46769a41875d84f6af",
+        "currentCount": 1002,
+        "originalRowsPreserved": true,
+        "currentSha256": "ab06fa767b7e0824c37d4b63a60308c7fecf57c8c994fb40d809784806c315b9"
+      },
+      "model_evaluation_acceptances": {
+        "baseline": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "backupCount": 0,
+        "backupSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "currentCount": 0,
+        "originalRowsPreserved": true,
+        "currentSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "model_binding_provider_operations": {
+        "baseline": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "backupCount": 0,
+        "backupSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "currentCount": 0,
+        "originalRowsPreserved": true,
+        "currentSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "model_overrides": {
+        "baselineSource": "before first installation backup",
+        "backupCount": 7,
+        "backupSha256": "f7263ba0d46d74ba24d6a3e6a0daf72145ed5ca3ae4f29c21af8400dc73ed055",
+        "currentCount": 7,
+        "currentSha256": "8a211424c345210afa9942252557d2f5d8aaec2d350b53aeb580cb3a9e58e131",
+        "originalRowsPreserved": false,
+        "changes": [
+          {
+            "role": "R2",
+            "fields": [
+              {
+                "field": "applied_at",
+                "before": "2026-09-22 21:34:32",
+                "after": "2026-09-23 01:00:25"
+              }
+            ]
+          },
+          {
+            "role": "CHAT",
+            "fields": [
+              {
+                "field": "applied_at",
+                "before": "2026-09-22 21:34:32",
+                "after": "2026-09-23 01:00:25"
+              }
+            ]
+          },
+          {
+            "role": "VISION",
+            "fields": [
+              {
+                "field": "applied_at",
+                "before": "2026-09-22 21:34:32",
+                "after": "2026-09-23 01:00:25"
+              }
+            ]
+          },
+          {
+            "role": "D1",
+            "fields": [
+              {
+                "field": "applied_at",
+                "before": "2026-09-22 21:34:32",
+                "after": "2026-09-23 01:00:25"
+              }
+            ]
+          },
+          {
+            "role": "R1",
+            "fields": [
+              {
+                "field": "applied_at",
+                "before": "2026-09-22 21:34:32",
+                "after": "2026-09-23 01:00:25"
+              }
+            ]
+          },
+          {
+            "role": "D2",
+            "fields": [
+              {
+                "field": "applied_at",
+                "before": "2026-09-22 21:34:32",
+                "after": "2026-09-23 01:00:25"
+              }
+            ]
+          },
+          {
+            "role": "CODE",
+            "fields": [
+              {
+                "field": "applied_at",
+                "before": "2026-09-22 21:34:32",
+                "after": "2026-09-23 01:00:25"
+              }
+            ]
+          }
+        ],
+        "bindingIdentityPreserved": true,
+        "explanation": "The pre-existing STARTUP_REHYDRATE writer in model-failover.js refreshes applied_at in the legacy runtime projection. Exact table preservation is false; model, digest, operation, previous model, verification, score and actor remain equal."
+      }
+    },
+    "quickCheck": "ok"
+  },
+  "resources": {
+    "schemaVersion": 1,
+    "intervalSeconds": 30,
+    "limitation": "Point samples plus cumulative cgroup counters; not a guarantee about unobserved peaks or other processes.",
+    "groups": {
+      "observedPeriod": {
+        "first": "2026-09-22T23:51:03.072506+00:00",
+        "last": "2026-09-23T01:10:03.419464+00:00",
+        "samples": 159,
+        "minimumAvailableMemoryBytes": 18036006912,
+        "maximumHostSwapUsedBytes": 7397003264,
+        "minimumAvailableDiskBytes": {
+          "/": 200269828096,
+          "/mnt/vi7000": 810382471168
+        },
+        "maximumObservedCgroupBytes": 20081930240,
+        "maximumObservedCgroupPeakBytes": 20083011584,
+        "maxCounters": {
+          "high": 4783,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        }
+      },
+      "finalSeries": {
+        "first": "2026-09-23T00:00:33.088742+00:00",
+        "last": "2026-09-23T01:10:03.419464+00:00",
+        "samples": 140,
+        "minimumAvailableMemoryBytes": 18036006912,
+        "maximumHostSwapUsedBytes": 7397003264,
+        "minimumAvailableDiskBytes": {
+          "/": 200269828096,
+          "/mnt/vi7000": 810382471168
+        },
+        "maximumObservedCgroupBytes": 20081930240,
+        "maximumObservedCgroupPeakBytes": 20082855936,
+        "maxCounters": {
+          "high": 3621,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        }
+      }
+    }
+  },
+  "finalHost": {
+    "at": "2026-09-23T01:09:59.651Z",
+    "computeProcesses": "",
+    "systemOllamaResident": {
+      "models": []
+    },
+    "sidecarListening": false,
+    "modelsInstalled": 12,
+    "disks": {
+      "/": {
+        "availableBytes": 200269996032,
+        "totalBytes": 511428800512
+      },
+      "/mnt/vi7000/ollama/models": {
+        "availableBytes": 810382471168,
+        "totalBytes": 1024208142336
+      }
+    },
+    "memory": [
+      "MemTotal:       32686116 kB",
+      "MemAvailable:   27684596 kB",
+      "SwapTotal:       8388604 kB",
+      "SwapFree:        2324352 kB"
+    ],
+    "huntTimer": "disabled/inactive",
+    "ownedDiagnosticBrowserAndWatcherStopped": true
+  },
+  "reviewInputs": {
+    "openAnswers": "review/review.html",
+    "openAnswerCount": 216,
+    "noGradesIssued": true,
+    "blindingLimitation": "Only one known candidate; metadata removal is not independent blind acceptance",
+    "oracles": "oracle-review.html",
+    "oracleAttempts": 111
+  },
+  "remainingForAutonomousGO": [
+    "Resolve 10 pending operator arbitration items; author cannot declare independent acceptance.",
+    "Independent labelled and separated grader acceptance sample, actual predictions from a different exact model digest.",
+    "Implement complete non-CODE operational workflow evidence producer; isolated steps insufficient.",
+    "New independent paired operational holdout with locked policy, grouping, runtime and exact digests.",
+    "Positive real accepted stored-collection grading, baseline, decision and recommendation journey; auto T4 incumbent baseline and quick profile remain undelivered.",
+    "Bounded scheduler/retention acceptance after those gates; no authorization fabricated from exploratory scores."
+  ],
+  "evidenceRoot": "/mnt/vi7000/intentsmith/evidence/hunt-grading-20260923",
+  "archive": {
+    "path": "/mnt/vi7000/intentsmith/evidence/hunt-grading-20260923.1283ca93c9bb2ad37333b7f6059937f3606b3e05c307f144808f7e6de6d955ba.tar.gz",
+    "sha256": "1283ca93c9bb2ad37333b7f6059937f3606b3e05c307f144808f7e6de6d955ba",
+    "bytes": 9083990,
+    "membersVerified": 2113,
+    "manifestSha256": "14f701a69f0b20e7a84df29a307d9629055574da44a657b714b4dd9beaf13a83",
+    "includesPrivateIdentityKey": true,
+    "publicDistribution": false
+  },
+  "evidenceFiles": [
+    {
+      "path": "current-runs-final.json",
+      "sha256": "e142c1d8f7716ea313174bbb78f3e8b480ff504222c39888bb4a035614bc616b",
+      "bytes": 4515
+    },
+    {
+      "path": "devstral-run-final.json",
+      "sha256": "91428455c881fbf07827773631114de81b8ed45448d9713707a12c6a95217ee7",
+      "bytes": 7849665
+    },
+    {
+      "path": "code-oracles-final.json",
+      "sha256": "bfb31c0a2affd02746a4f1065ce6aa89517cb7da06d69abbc985629644a73aa9",
+      "bytes": 19501
+    },
+    {
+      "path": "vision-oracles-final.json",
+      "sha256": "72d1e79e6d686147cd5af0dbab88d5da1ceb515b2657573f506107266f689f98",
+      "bytes": 411447
+    },
+    {
+      "path": "db-preservation-final.json",
+      "sha256": "98286437724ba3749770a8f70f97e393ee0eaeffa0baa1a80d1ba05dffe223e2",
+      "bytes": 4655
+    },
+    {
+      "path": "db-added-runs-final.json",
+      "sha256": "c6038b5f7ba02f318ae82971f15883903eb604c37e8219854695656e4751e661",
+      "bytes": 60640
+    },
+    {
+      "path": "resources-summary-final.json",
+      "sha256": "fea19c4568daf709a91a34d582f2efde786fbf4fcc630a5255830a122eea2404",
+      "bytes": 1391
+    },
+    {
+      "path": "handoff-host.json",
+      "sha256": "dd89720cb8423e3b9c8088b85f826211fac3ca124fd560e82defb55100beab31",
+      "bytes": 10153
+    },
+    {
+      "path": "ui-all-tabs-final.json",
+      "sha256": "82266ed9e6d74691a625fa6fca96a03034455527a3115160787a81b0c286bb42",
+      "bytes": 88237
+    },
+    {
+      "path": "ui-history-loaded-final.json",
+      "sha256": "5872b244c12579df61349147c295afee5bde1e3af498da2234fb6e13683d630b",
+      "bytes": 37234
+    },
+    {
+      "path": "ui-answer-expand-final.json",
+      "sha256": "6f33104c6e5c34bf4a542658f06e7de9dde6714e00184a94e54b2e000d085458",
+      "bytes": 41003
+    },
+    {
+      "path": "ui-results-final.json",
+      "sha256": "014735a3df3f46cca0d6d9b016fee2d91494885adabc091cd88e97bda96d1e94",
+      "bytes": 36624
+    },
+    {
+      "path": "backend-reconnect-final.json",
+      "sha256": "6c5810518e126dba59dd9b2cfea35c843bc1161248cc314b418b57c1b6c2483b",
+      "bytes": 732
+    },
+    {
+      "path": "backend-reconnect-retry.json",
+      "sha256": "a26a6316a926a4e16b7c15a8d54d44335472819d4944db0561ef1901a7ee06f4",
+      "bytes": 2040
+    },
+    {
+      "path": "review/review.html",
+      "sha256": "9da54d41b2b099f7ca0a8b6214a07aafcf96cbf64328f5c163c7c3bc237e8791",
+      "bytes": 2248580
+    },
+    {
+      "path": "review/answers-for-review.json",
+      "sha256": "3a3a0bb37a65ae9ae4ea99e04bdaf560aaeb82112b9075863f36438d32e1ba04",
+      "bytes": 2276315
+    },
+    {
+      "path": "review-export-ui-final.json",
+      "sha256": "2ec8333c6d36f72a1ebd00a86ec51bf5fe6090fa24ec3c93677cc57621591f6e",
+      "bytes": 414
+    },
+    {
+      "path": "oracle-review.html",
+      "sha256": "1574f08ae3b7239124a15609280c13df32bfb65839f77ecf1c8187be8574c913",
+      "bytes": 16539474
+    },
+    {
+      "path": "oracle-review-ui-final.json",
+      "sha256": "da72ccabd4ea26fd49abaa9677c771bb40d312db28a47b72a4784c50082136f6",
+      "bytes": 192
+    },
+    {
+      "path": "artifact-closeout.log",
+      "sha256": "f52f3b750d7cd8d7f751d21f040b6e178db02e7090f12d6ed38b3f50e3b68476",
+      "bytes": 13425
+    },
+    {
+      "path": "registry-closeout.log",
+      "sha256": "f74bcb2e1b84472565936d103c09f553f3d6244b84d9d968255e530921c17e2c",
+      "bytes": 116
+    },
+    {
+      "path": "source.bundle",
+      "sha256": "8f8fa9bd20335290d31dca8da1554fbc3377a192d40fa958117659a9a0c86f5a",
+      "bytes": 43456
+    }
+  ]
+}

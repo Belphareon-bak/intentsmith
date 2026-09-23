@@ -1,5 +1,19 @@
 # Inventura #18a — Správa modelů
 
+**GPU hunt — celé předání, 23. 9. 2026:**
+Nasazeno `400c9d8f`: propojené dodatečné hodnocení uloženého sběru,
+CLI/API/Studio, nezávislá T4 přejímka, odvolání a příjem provozní evidence
+všech rolí.
+Finální fyzický běh: všech 7 rolí plus druhý CODE kandidát, **327 pokusů**;
+216 otevřených odpovědí čeká na posouzení.
+Sedm záložek Studia fyzicky ověřeno, přesná disková kapacita
+na Vi7000 a viditelný důvod odmítnutí hodnocení. Celý offline/database
+profil: 364 PASS / 1 známý Gate 0 FAIL / 0 BLOCKED.
+**DEPLOYED / REVIEW_PENDING / AUTONOMOUS_SELECTION_NO_GO**;
+0/7 přijatých profilů, timer vypnutý. Pozitivní cesta skutečného T4 soudce
+a nová úplná párová provozní kvalifikace nejsou tímto přijaté.
+[Celý rozsah a podmínky GO](../review/2026-09-23-HUNT-GRADING-INTEGRATION.md).
+
 **GPU hunt — úložiště a arbitráž, 22. 9. 2026:**
 Staré `OLLAMA_MODELS` přepsáno pro user služby pomocí environment.d;
 backend, transient evaluace a provider nyní používají `/mnt/vi7000/ollama/models`.
