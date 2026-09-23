@@ -3589,7 +3589,13 @@ function _qualityDetail(row,rd){
         h('h4',null,'Zadání'),h('pre',{style:{whiteSpace:'pre-wrap',overflowWrap:'anywhere',maxHeight:350,overflow:'auto'}},typeof t.input==='string'?t.input:t.input&&t.input.text||JSON.stringify(t.input)),
         h('h4',null,'Kritéria'),h('ul',null,(t.rubric||[]).map(function(c,i){return h('li',{key:i},typeof c==='string'?c:JSON.stringify(c));})),
         (t.responses||[]).map(function(answer,i){var info=(t.details||[])[i]||{};return h('div',{key:i},h('h4',null,'Pokus '+(i+1)+' · '+({CAPTURED:'Odpověď zachycena',OUTPUT_BUDGET_EXHAUSTED:'Vyčerpán limit výstupu',TRANSPORT_ERROR:'Chyba přenosu',IDENTITY_OR_PROVIDER_ERROR:'Neověřený provider nebo artefakt'}[info.captureStatus]||info.captureStatus||'Neznámý stav')),
-          info.reason?h('p',{role:'alert'},info.reason):null,h('pre',{style:{whiteSpace:'pre-wrap',overflowWrap:'anywhere',maxHeight:450,overflow:'auto',background:C.bg1,padding:12}},answer||'(bez odpovědi)'));}));}));
+          info.reason?h('p',{role:'alert'},info.reason):null,
+          info.conversation&&Array.isArray(info.conversation.transcript)?h('div',{'data-testid':'captured-conversation'},
+            h('p',{style:{color:C.tx3}},'Dokončené tahy: '+info.conversation.completedTurns+' / '+info.conversation.plannedTurns+'. Zobrazen je skutečný průběh této konverzace.'),
+            info.conversation.transcript.map(function(message,j){return h('div',{key:j,'data-testid':'conversation-message',style:{borderTop:'1px solid '+C.border}},
+              h('h5',null,(message.role==='user'?'Uživatel':'Model')+' · tah '+(Math.floor(j/2)+1)),
+              h('pre',{style:{whiteSpace:'pre-wrap',overflowWrap:'anywhere',maxHeight:450,overflow:'auto',background:C.bg1,padding:12}},message.content||'(bez odpovědi)'));})):
+            h('pre',{style:{whiteSpace:'pre-wrap',overflowWrap:'anywhere',maxHeight:450,overflow:'auto',background:C.bg1,padding:12}},answer||'(bez odpovědi)'));}));}));
   }
 
   var tasks=row.tasks||[],catalogs=row.taskCatalog||rd.tasks||[],counts=row.attemptCounts;

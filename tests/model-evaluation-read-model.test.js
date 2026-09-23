@@ -712,6 +712,26 @@ test('Studio displays captured answers on demand without inventing a grade or re
   assert(!text.includes('0.0 %'));assert(!text.includes('skóre 0 %'));
 });
 
+test('Studio renders every real conversation turn and does not duplicate the final answer', () => {
+  const render=studioSource.slice(studioSource.indexOf('var _evaluationRoleFilter='),studioSource.indexOf('/* ═',studioSource.indexOf('var _evaluationRoleFilter=')));
+  const helpers=studioSource.slice(studioSource.indexOf('function _modelButtonStyle('),studioSource.indexOf('var _huntData='));
+  const label=studioFunction('_huntEvaluationText','function _huntDuration(');
+  const row={runId:'conversation',role:'CHAT',collection:{status:'AWAITING_REVIEW',observed:1,planned:1},tasks:[{
+    name:'paired',input:{conversationTurns:[{role:'user',content:'first question'},{role:'user',content:'follow-up'}]},
+    rubric:[],responses:['final response'],details:[{captureStatus:'CAPTURED',conversation:{completedTurns:2,plannedTurns:2,
+      transcript:[{role:'user',content:'first question'},{role:'assistant',content:'<img src=x onerror=alert(1)>'},
+        {role:'user',content:'follow-up'},{role:'assistant',content:'final response'}]}}]}]};
+  const context={row,C:{},_rgba:()=>'',_fs:n=>n,h:(tag,props,...children)=>({tag,props,children}),_modelTestPending:false};
+  const tree=runInNewContext(helpers+label+render+';_qualityDetail(row,{})',context);
+  const nodes=n=>!n||typeof n!=='object'?[]:Array.isArray(n)?n.flatMap(nodes):[n,...nodes(n.children)];
+  const all=nodes(tree);
+  assertEqual(all.filter(n=>n.props?.['data-testid']==='conversation-message').length,4);
+  assertEqual(all.filter(n=>n.tag==='pre'&&n.children.includes('final response')).length,1);
+  assert(all.some(n=>n.tag==='pre'&&n.children.includes('<img src=x onerror=alert(1)>')));
+  assert(!all.some(n=>n.tag==='img'||n.props?.dangerouslySetInnerHTML));
+  assert(JSON.stringify(tree).includes('Dokončené tahy: 2 / 2'));
+});
+
 await testAsync('stored-answer grading shows missing acceptance in History and clears a cancelled preview', async () => {
   const handler = studioFunction('_gradeStoredAnswers', 'setInterval(');
   const toastStart = studioSource.indexOf("_modelTestMessage&&(_upgradeTab");
