@@ -63,7 +63,7 @@ export function readStage(directory) {
   return {plan,sha256,events};
 }
 
-export function stageSummary(stage) {
+export function stageSummary(stage, asOfMs=Date.now()) {
   const {plan,events}=stage;
   const starts=events.filter(e=>e.type==='CALL_RESERVED');
   const results=new Map(events.filter(e=>e.type==='CALL_OBSERVED').map(e=>[e.callId,e]));
@@ -86,7 +86,10 @@ export function stageSummary(stage) {
     unattemptedConversations:planned-new Set(starts.map(e=>e.attemptId)).size,
     remainingCalls:Math.max(0,plan.budget.calls-starts.length),
     remainingOutputTokens:Math.max(0,plan.budget.outputTokens-chargedOutputTokens),
-    activeDurationMs:windows.reduce((n,w)=>n+(w.close?.elapsedMs ?? w.budget.wallMs),0),
+    // An open window is elapsed wall time, not its entire reserved ceiling.
+    activeDurationMs:windows.reduce((n,w)=>n+(w.close?.elapsedMs ?? Math.max(0,asOfMs-Date.parse(w.at))),0),
+    reservedOpenWindowMs:windows.filter(w=>!w.close).reduce((n,w)=>n+w.budget.wallMs,0),
+    conservativeCrashDurationMs:windows.filter(w=>w.close?.conservativeTimeCharge).reduce((n,w)=>n+w.close.elapsedMs,0),
     windows,stopReason:windows.at(-1)?.close?.reason || null};
 }
 
@@ -150,7 +153,7 @@ export async function runStageWindow({directory, windowId, budget, call, guard, 
       if (!stage.events.some(e=>e.type==='WINDOW_CLOSED'&&e.windowId===w.windowId))
         append('WINDOW_CLOSED',{windowId:w.windowId,reason:'INTERRUPTED_WINDOW',elapsedMs:w.budget.wallMs,conservativeTimeCharge:true});
     }
-    const baseline=stageSummary(stage);
+    const baseline=stageSummary(stage,now());
     if (budget.calls>baseline.remainingCalls || budget.outputTokens>baseline.remainingOutputTokens) fail('STAGE_WINDOW_EXCEEDS_REMAINDER');
     const started=now(), deadline=started+budget.wallMs;
     append('WINDOW_OPENED',{windowId,budget});
@@ -170,7 +173,7 @@ export async function runStageWindow({directory, windowId, budget, call, guard, 
               return structuredClone(stage.events.find(e=>e.type==='CALL_OBSERVED'&&e.callId===callId).result);
             }
             if (abortReason()) paused(abortReason());
-            const used=stageSummary(stage);
+            const used=stageSummary(stage,now());
             if (used.calls-baseline.calls>=budget.calls) paused('CALL_LIMIT');
             if (used.chargedOutputTokens-baseline.chargedOutputTokens+options.num_predict>budget.outputTokens) paused('OUTPUT_TOKEN_LIMIT');
             // Do not alter the model's locked per-call timeout to fit a window.
@@ -202,7 +205,7 @@ export async function runStageWindow({directory, windowId, budget, call, guard, 
             let postflight;
             try { postflight=await guard({model,task,phase:'after'}); } catch(e) { result={...result,error:result.error || e.code || e.message}; }
             append('CALL_OBSERVED',{callId,result,durationMs:now()-start,postflight:postflight || null});
-            onProgress({...stageSummary(stage),model:name,task:task.name,turn,totalTurns:task.turns.length,
+            onProgress({...stageSummary(stage,now()),model:name,task:task.name,turn,totalTurns:task.turns.length,
               elapsedWindowMs:now()-started,remainingWindowMs:Math.max(0,deadline-now()),etaMs:null});
             return result;
           }});
@@ -214,6 +217,6 @@ export async function runStageWindow({directory, windowId, budget, call, guard, 
       }
     } catch(e) { stopReason=e.code || e.message; }
     append('WINDOW_CLOSED',{windowId,reason:stopReason || 'PLANNED_ATTEMPTS_FINISHED',elapsedMs:now()-started});
-    return {stage,summary:stageSummary(stage)};
+    return {stage,summary:stageSummary(stage,now())};
   } finally { if(fd!==undefined)closeSync(fd);lease.release(); }
 }

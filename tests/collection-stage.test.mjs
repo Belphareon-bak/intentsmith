@@ -125,3 +125,11 @@ test('CLI exports paused transcript, null grades and a separate identity key',as
   assert(!JSON.stringify(review).includes(artifact.digestSha256));assert.equal(key.identities[0].digestSha256,artifact.digestSha256);
   assert.equal(JSON.parse(readFileSync(join(out,'coverage.json'))).calls,1);
 });
+
+test('live elapsed time is separate from the reserved window and crash charge',t=>{
+  const opts=setup(t),stage=readStage(opts.directory);
+  stage.events.push({type:'WINDOW_OPENED',windowId:'live',at:new Date(1000).toISOString(),budget:{wallMs:14400000}});
+  const live=stageSummary(stage,46000);assert.equal(live.activeDurationMs,45000);assert.equal(live.reservedOpenWindowMs,14400000);assert.equal(live.conservativeCrashDurationMs,0);
+  stage.events.push({type:'WINDOW_CLOSED',windowId:'live',elapsedMs:14400000,conservativeTimeCharge:true});
+  const crashed=stageSummary(stage,46000);assert.equal(crashed.reservedOpenWindowMs,0);assert.equal(crashed.conservativeCrashDurationMs,14400000);
+});

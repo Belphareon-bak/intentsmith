@@ -9,7 +9,7 @@ import { installedStageModels, createStageProvider, stageResources } from '../..
 import { chatConversationDraft as suite, chatConversationDraftSha256 } from '../../src/eval/chat-conversation-suite.js';
 import { EVALUATION_PROVIDER_BUILD } from '../../src/eval/evaluation-provider-build.js';
 import { holdGpuEvaluationLock } from '../../src/upgrade/gpu-evaluation-lock.js';
-import { createBlindAnswerReview } from '../../src/eval/model-answer-review.js';
+import { createBlindAnswerReview, renderConversationReview } from '../../src/eval/model-answer-review.js';
 
 const args=process.argv.slice(2), modes=['prepare','run','status','export'];
 if(!args.length || args.includes('--help')) {
@@ -67,6 +67,7 @@ else if(options.export) {
   const review=createBlindAnswerReview(runs),out=options['review-out'];
   for(const item of review.review.items) {
     const task=stage.plan.tasks.find(t=>t.name===item.task);
+    item.title=stage.plan.fixtureSha256===chatConversationDraftSha256?suite.tests.find(t=>t.name===item.task)?.description || item.task:item.task;
     item.formatCriteria=task.formatRubric || [];
     item.gradingContext=task.contractMaterial?.gradingInputs || null;
   }
@@ -74,6 +75,8 @@ else if(options.export) {
   mkdirSync(out,{mode:0o700});
   for(const [file,value] of [['review.json',review.review],['PRIVATE-identity-key.json',review.identityKey],['coverage.json',stageSummary(stage)]])
     writeFileSync(join(out,file),JSON.stringify(value,null,2)+'\n',{flag:'wx',mode:0o600});
+  for(const [name,html] of [['review.html',renderConversationReview(review.review)],['comparison-with-identities.html',renderConversationReview(review.review,review.identityKey)]])
+    writeFileSync(join(out,name),html,{flag:'wx',mode:0o600});
   console.log(JSON.stringify({status:'EXPORTED_NOT_GRADED',items:review.review.items.length,directory:out}));
 } else {
   const stage=readStage(options.out);

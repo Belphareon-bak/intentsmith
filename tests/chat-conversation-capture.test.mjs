@@ -9,7 +9,7 @@ import { ModelEvaluationHistory, suiteContract } from '../src/upgrade/model-eval
 import { ModelEvaluationReadModel } from '../src/upgrade/model-evaluation-read-model.js';
 import { createHistoryCallbacks } from '../src/upgrade/model-upgrade-prototype.js';
 import { collectRoleAnswers } from '../src/eval/model-answer-collection.js';
-import { createBlindAnswerReview } from '../src/eval/model-answer-review.js';
+import { createBlindAnswerReview, renderConversationReview } from '../src/eval/model-answer-review.js';
 import { prepareCollectionGrading } from '../src/eval/grade-answer-collection.js';
 
 const artifact={digestSha256:'a'.repeat(64),providerVersion:'0.34.2-test'};
@@ -90,4 +90,15 @@ test('conversation survives actual DB/read-model/blind-export path, without beco
     assert.throws(()=>prepareCollectionGrading({plan:{...plan,acceptance:{graders:[{id:'synthetic',judge}]}},
       collection,graderAcceptanceId:'synthetic',judge:{artifact:judge}}),/CONVERSATION_GRADER_NOT_AVAILABLE/);
   } finally {db.close();}
+});
+
+test('review pages keep identity separate and preserve hostile text as inert data',()=>{
+  const response='</script><img src=x onerror="alert(1)">';
+  const review={items:[{id:'item',task:'cs_test',response,input:{conversationTurns:[]},criteria:[]}]};
+  const identities={identities:[{id:'item',model:'secret-model',digestSha256:'b'.repeat(64)}]};
+  const blind=renderConversationReview(review);const named=renderConversationReview(review,identities);
+  assert(!blind.includes('secret-model'));assert(!blind.includes(response));
+  const data=JSON.parse(/<script id="payload" type="application\/json">(.*?)<\/script>/s.exec(blind)[1]);
+  assert.equal(data.items[0].response,response);assert.equal(data.identified,false);assert.equal(data.decisionAuthority,false);assert.match(data.reviewSha256,/^[a-f0-9]{64}$/);
+  assert(named.includes('secret-model'));assert.throws(()=>renderConversationReview(review,{identities:[]}),/INPUT_INVALID/);
 });
