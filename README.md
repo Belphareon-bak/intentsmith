@@ -1,5 +1,13 @@
 # IntentSmith
 
+**GPU hunt — živý progress a pokračování CHAT panelu, 23. 9. 2026:**
+Přehled na `http://127.0.0.1:8765/`: celkový/modelový progress, aktuální
+úloha, opakování/tah, počty a skutečný log s filtrem. První okno zastavené
+po 1 361 voláních ochranou cizí GPU práce; po odeznění pokračuje `full-02`
+v původním zbytkovém rozpočtu. **COLLECTION_RESUMED / NOT_GRADED**.
+[Ovládání, důkazy a význam počítadel](docs/review/2026-09-23-CHAT-PROGRESS.md).
+
+
 **GPU hunt — velký CHAT sběr po slepém posudku, 23. 9. 2026:**
 Operátorem spuštěný panel deseti místních modelů: 20 CS/EN párů, tři
 opakování, 1 200 dialogů / nejvýše 3 480 volání, okno 24 hodin.
