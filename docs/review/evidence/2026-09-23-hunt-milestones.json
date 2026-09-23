@@ -1,0 +1,183 @@
+{
+  "schemaVersion": 1,
+  "status": "IMPLEMENTED_AND_OFFLINE_VERIFIED",
+  "reviewStatus": "REVIEW_PENDING",
+  "deploymentStatus": "NOT_DEPLOYED",
+  "autonomousGo": false,
+  "baseRevision": "750ba050e1c2a2e849bc38a28a2dd119bf472081",
+  "implementationRevision": "c7c4f2623dd762e55fe2588b478d2895511ecb54",
+  "implementationCommits": [
+    "f4ed4656",
+    "9f876a4c",
+    "c7c4f262"
+  ],
+  "createdAt": "2026-09-23T11:58:41.655405+00:00",
+  "operationPolicy": {
+    "newInference": false,
+    "productionImported": false,
+    "roleBindingsChanged": false,
+    "modelsDeleted": false,
+    "schedulerEnabled": false,
+    "deployed": false
+  },
+  "validation": {
+    "focusedTests": {
+      "passed": 190,
+      "failed": 0,
+      "logs": {
+        "runner-tests.log": 68,
+        "code-suite-tests.log": 29,
+        "suites-tests.log": 33,
+        "read-model-tests-final.log": 26,
+        "acceptance-tests.log": 17,
+        "collection-tests-02.log": 17
+      }
+    },
+    "componentControls": {
+      "passed": 53,
+      "failed": 0,
+      "independentAcceptance": false
+    },
+    "storedAnswerReplay": {
+      "attemptsPerRun": 210,
+      "completedRuns": 2,
+      "models": 10,
+      "tasks": 7,
+      "repetitions": 3,
+      "technicalComplete": 152,
+      "technicalUnsuccessful": 58,
+      "missing": 0,
+      "scoreChangesAgainstHistoricalFullTask": 19,
+      "fullTaskScore": null,
+      "decisionAuthority": false
+    },
+    "browser": {
+      "matrixAndDraft": 18,
+      "studioRender": 7,
+      "failed": 0,
+      "liveInstalledJourney": false
+    },
+    "originalResponsesAndGradesPreserved": 2922,
+    "finalReplaySourceHashesMatch": true,
+    "fullReleaseGateRun": false
+  },
+  "authorReview": {
+    "answers": 30,
+    "distinctOutputs": 8,
+    "apiCorrect": 27,
+    "explanationCorrectOnProbedBranches": 14,
+    "missingExplanation": 16,
+    "missingApi": 3,
+    "bothComponentsCorrectOnProbedBranches": 11,
+    "falseLexicalRejectionIds": [
+      "0bb777148c9c",
+      "75d6bd34f679",
+      "223256373d26"
+    ],
+    "blindToIdentity": false,
+    "independentOfTaskAuthor": false,
+    "calibrationEvidence": false
+  },
+  "chatDraft": {
+    "status": "PREPARED_NOT_VALIDATED",
+    "tasks": 40,
+    "pairedScenarios": 20,
+    "multiTurnScenarios": 19,
+    "strictJsonScenarios": 1,
+    "providerCallsPerModelRepeat": 116,
+    "productionRegistered": false,
+    "pilotCalls": 64,
+    "fullPanelCalls": 3480,
+    "requiresSeparateGo": true,
+    "stageWideBudgetEnforcedByPreparationTool": false
+  },
+  "currentHostObservation": {
+    "timerEnabled": "disabled",
+    "timerActive": "inactive",
+    "homeFreeGiBApprox": 186,
+    "evidenceFreeGiBApprox": 755,
+    "ramAvailableGiBApprox": 23,
+    "gpuEmptyClaimed": false
+  },
+  "evidence": {
+    "root": "/mnt/vi7000/intentsmith/evidence/hunt-milestones-20260923",
+    "manifest": {
+      "path": "/mnt/vi7000/intentsmith/evidence/hunt-milestones-20260923/manifest.json",
+      "sha256": "0807ab6f5ecf8494120874c95597b7294ece936b1cad3ea94c7f55c91e5a7b18",
+      "artifacts": 88
+    },
+    "archive": {
+      "path": "/mnt/vi7000/intentsmith/evidence/hunt-milestones-20260923/evidence-sha256-d5c9366db1d1144de8a80519fe976ae4daac61ad3f9923897809f4d20de149f7.tar.gz",
+      "sha256": "d5c9366db1d1144de8a80519fe976ae4daac61ad3f9923897809f4d20de149f7",
+      "bytes": 94584251,
+      "allManifestMembersVerified": 88
+    },
+    "keyArtifacts": [
+      {
+        "path": "/mnt/vi7000/intentsmith/evidence/hunt-milestones-20260923/review-matrix.html",
+        "bytes": 16129382,
+        "sha256": "f700808fdda8396a47f90dd097f5e91ea645a66076cf5df73acfd397090459f7"
+      },
+      {
+        "path": "/mnt/vi7000/intentsmith/evidence/hunt-milestones-20260923/review-matrix.json",
+        "bytes": 69909,
+        "sha256": "356d572e25ff8e5c6ec8b313a4be6b291f9790fed0a54e975ce2decc531c9663"
+      },
+      {
+        "path": "/mnt/vi7000/intentsmith/evidence/hunt-milestones-20260923/code-components-with-observations.json",
+        "bytes": 90319723,
+        "sha256": "f10c81102d923cc9184919cd056f3d5a81f5d11a9803a25574e0a7878bb28687"
+      },
+      {
+        "path": "/mnt/vi7000/intentsmith/evidence/hunt-milestones-20260923/code-prose-author-review.json",
+        "bytes": 174162,
+        "sha256": "ba161882edc9cb721617e26844898d4d49eccbbfa5b2ea0da0752b63eee2df47"
+      },
+      {
+        "path": "/mnt/vi7000/intentsmith/evidence/hunt-milestones-20260923/chat-draft/plan.json",
+        "bytes": 7231,
+        "sha256": "0469978a5b536320d192d02356a81f0a330ec31b9b50319a5b4fbff6d23b5ec8"
+      },
+      {
+        "path": "/mnt/vi7000/intentsmith/evidence/hunt-milestones-20260923/chat-draft/tasks.json",
+        "bytes": 73691,
+        "sha256": "be0be58001abac433415537fd7e7acee2148ca1e33cf5ad09024d02a928bd84b"
+      },
+      {
+        "path": "/mnt/vi7000/intentsmith/evidence/hunt-milestones-20260923/matrix-ui-final.json",
+        "bytes": 1472,
+        "sha256": "86e1d9da51069b35b8f2751a1261057b8c4d03c8eee4dd4b2294c55502711b24"
+      },
+      {
+        "path": "/mnt/vi7000/intentsmith/evidence/hunt-milestones-20260923/studio-conversation-ui.json",
+        "bytes": 587,
+        "sha256": "48dd7870ae6620325e50206cabc32703ae5a9d6cd47d187c6c4601d585a55c03"
+      },
+      {
+        "path": "/mnt/vi7000/intentsmith/evidence/hunt-milestones-20260923/preservation.json",
+        "bytes": 185,
+        "sha256": "bf091654d452a868e9afe1956ec0a945241c2c4ddb7eb851814ff098bd8ec268"
+      },
+      {
+        "path": "/mnt/vi7000/intentsmith/evidence/hunt-milestones-20260923/final-verification.json",
+        "bytes": 338,
+        "sha256": "1f3ea48df6d783f7455e2d36cbd58810a17c1c10b443b73c0afaa2e5703910f8"
+      },
+      {
+        "path": "/mnt/vi7000/intentsmith/evidence/hunt-milestones-20260923/source.bundle",
+        "bytes": 68992196,
+        "sha256": "6138615b9b744ccc6014ebf9218df842ff3e71ea8fcd16347d064ee98268a6d5"
+      }
+    ]
+  },
+  "limitations": [
+    "Known development tasks, not a new operational holdout.",
+    "Technical projection is not full semantic oracle acceptance.",
+    "Author prose review is non-blind and not independent.",
+    "CHAT requires review and new capture; no new candidate answers collected.",
+    "D1/D2/R1/R2/VISION receive no new measurement or acceptance in this block.",
+    "Budget plan requires an enforcing caller before inference.",
+    "190 focused tests and 25 browser checks are not a full release or installed app journey.",
+    "Earlier failed and partial evidence is retained and separated from final entry points."
+  ]
+}

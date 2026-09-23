@@ -1,5 +1,18 @@
 # IntentSmith — mapa systému
 
+**GPU hunt — čtyři milníky pro společnou revizi, 23. 9. 2026:**
+Nová explicitní technická složka CODE prošla 53 kontrolami a přehrála všech
+210 odpovědí bez inference. Celková známka zůstává null; 30 textů má oddělené
+neslepé autorské posouzení. Tři původní odmítnutí správné formulace jsou
+doložená; 16 odpovědí skutečně vynechává požadované vysvětlení. Sběrač,
+DB/read model, slepý export a Studio detail podporují skutečné navazující
+tahy. Nový CHAT návrh obsahuje 20 CZ/EN dvojic / 40 úloh, jediný striktní
+JSON scénář; není aktivovaný. Matice zachovává 2 922 původních odpovědí
+a známek. 190 cílených testů, 25 browser kontrol; žádný release gate ani
+živý modelový journey. **IMPLEMENTED_AND_OFFLINE_VERIFIED / REVIEW_PENDING /
+NOT_DEPLOYED / NO_AUTONOMOUS_GO**.
+[Milníky, výsledky, zdrojové commity, rozpočet a přenositelné důkazy](docs/review/2026-09-23-HUNT-MILESTONES-REVIEW.md).
+
 **GPU hunt — rozsouzení textových kontrol a pokrytí matice, 23. 9. 2026:**
 Všech 154 inventarizovaných míst má autorské zařazení, důvod a zdrojový
 kontext: 102 mechanických/protokolových kontrol, 40 prózových kontrol okolí
