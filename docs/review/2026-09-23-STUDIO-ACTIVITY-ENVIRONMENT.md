@@ -7,7 +7,7 @@ explicitní automatické/potvrzované instalace). Vstupní nasazený zdroj:
 Nejde o přijetí release, změnu modelových profilů ani důkaz kvality inference.
 
 **Nasazený zdroj: `72247a4983abcb12d42f6da6cc5b27af8f2212fd`.**
-Review rozsah: `400c9d8f..72247a49`, navazující commit obsahuje pouze uzavření
+Review rozsah: `400c9d8f..72247a49`, navazující commity obsahují pouze uzavření
 dokumentace. GitHub větev: `work/studio-activity-20260923`. Modelové hodnocení,
 kolektor a profily se nemění; jedna nutná změna sdílené binding vrstvy je
 výslovně vysvětlená v incidentu níže. Instalace je funkční v uvedeném rozsahu,
