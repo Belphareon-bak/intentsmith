@@ -3,6 +3,8 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import vm from 'node:vm';
+import { createRequire } from 'node:module';
+const WorkActivity = createRequire(import.meta.url)('../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/work-activity.js');
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -174,6 +176,7 @@ test('Studio draft command renders complete bytes and never auto-approves the mo
       after: { content: 'export const value=42;', digest: 'sha256:after' } }],
   };
   const sandbox = vm.createContext({
+    WorkActivity, setTimeout, clearTimeout,
     _sessions: [session], _backendUrl: () => 'http://fixture.invalid',
     _M2_TERMINAL_STATES: { succeeded: true, failed: true, cancelled: true },
     _sessionActive: 0, _persistSessionState() {}, _showWorkspace() {}, renderChat() {}, _chatScrollPane() {},
@@ -201,6 +204,7 @@ test('Studio can cancel an active draft without sending approval or a legacy mut
   const pane = { msgs: [], attachments: [] };
   const calls = [];
   const sandbox = vm.createContext({
+    WorkActivity, setTimeout, clearTimeout,
     _sessions: [session], _backendUrl: () => 'http://fixture.invalid', _M2_TERMINAL_STATES: {},
     _sessionActive: 0, _persistSessionState() {}, _showWorkspace() {}, renderChat() {}, _chatScrollPane() {}, AbortSignal, AbortController, TextEncoder,
     fetch(url, options) {
@@ -221,7 +225,7 @@ test('Studio can cancel an active draft without sending approval or a legacy mut
   assert.match(pane.msgs.at(-1).text, /M2_STUDIO_DRAFT_CANCELLED/);
 });
 
-function controlledStudio({ pending = true, paths = ['src/app.js'], activeM1 = true } = {}) {
+function controlledStudio({ pending = true, paths = ['src/app.js'], activeM1 = true, manualTimers = false } = {}) {
   const origin = { surface: 'studio', sessionId: 'conversation-27', conversationId: 'conversation-27', projectId: 27 };
   const planDigest = 'sha256:' + 'a'.repeat(64);
   const session = { _projectId: 27, _convId: origin.conversationId,
@@ -230,6 +234,7 @@ function controlledStudio({ pending = true, paths = ['src/app.js'], activeM1 = t
   session.chat = pane;
   const textarea = { value: '', style: {} };
   const calls = [];
+  const timers = new Map(); let timerId = 0;
   const view = {
     lifecycleId: 'draft-27', state: 'awaiting_approval', planDigest,
     plan: { identity: { lifecycleId: 'draft-27' }, state: 'awaiting_approval', origin,
@@ -240,6 +245,9 @@ function controlledStudio({ pending = true, paths = ['src/app.js'], activeM1 = t
       after: { content: 'export const value=42;', digest: 'sha256:after' } })),
   };
   const sandbox = vm.createContext({
+    WorkActivity,
+    setTimeout: manualTimers ? callback => { timers.set(++timerId, callback);return timerId; } : setTimeout,
+    clearTimeout: manualTimers ? id => timers.delete(id) : clearTimeout,
     _sessions: [session], _backendUrl: () => 'http://fixture.invalid',
     _M2_TERMINAL_STATES: { succeeded: true, failed: true, cancelled: true },
     _sessionActive: 0, _persistSessionState() {}, _showWorkspace() {}, renderChat() {}, _chatScrollPane() {}, AbortSignal, AbortController, TextEncoder,
@@ -253,6 +261,8 @@ function controlledStudio({ pending = true, paths = ['src/app.js'], activeM1 = t
   vm.runInContext(source.slice(source.indexOf('function _m2IsRecord'), source.indexOf('/* ── M4 learning')), sandbox);
   vm.runInContext(functionSlice('_chatSendPane', '_chatGapChoice'), sandbox);
   return { session, pane, calls, view, textarea,
+    timers,
+    tick() { const [id, callback] = timers.entries().next().value; timers.delete(id); callback(); },
     setActiveM1(value) { activeM1 = value; },
     openComposer() { sandbox._m2OpenComposer(0); return pane._m2Composer; },
     normalizeWorkProposal(value) { return sandbox._m2NormalizeWorkProposal(value); },
@@ -270,6 +280,52 @@ function controlledStudio({ pending = true, paths = ['src/app.js'], activeM1 = t
 }
 
 const flushStudio = () => new Promise(resolve => setImmediate(resolve));
+
+test('live execution observations are read-only, deduplicated and cannot finish or approve a turn', async () => {
+  const studio = controlledStudio({ activeM1: false, manualTimers: true });
+  studio.command('/m2-approve');
+  const activity = studio.pane.msgs[0]._activity;
+  const observed = { ...studio.view, state: 'executing', audit: { executionEvents: [
+    { eventId: 'write-a', type: 'phase_applied', path: 'src/app.js' },
+    { eventId: 'test-start', type: 'process_started' },
+  ] } };
+  studio.tick();
+  assert.equal(studio.calls[1].options.method, 'GET');
+  assert.match(studio.calls[1].url, /id=draft-27&surface=studio&sessionId=conversation-27/);
+  studio.calls[1].resolve(observed);await flushStudio();
+  assert.equal(activity.steps.length, 3);
+  assert.match(activity.steps[2].input, /--check/);
+  assert.equal(activity.status, 'running');
+  assert.equal(studio.session._m2PresentedPlan, undefined, 'poll cannot grant a displayed approval binding');
+  studio.tick();studio.calls[2].resolve(observed);await flushStudio();
+  assert.equal(activity.steps.length, 3, 'same durable audit events appear once');
+  studio.tick();
+  studio.calls[0].resolve(studio.terminal());await flushStudio();
+  assert.equal(activity.status, 'cancelled');
+  studio.calls[3].resolve({ ...observed, audit: { executionEvents: [{ eventId: 'late', type: 'git_ref_updated' }] } });
+  await flushStudio();
+  assert.equal(activity.steps.length, 3, 'late poll cannot change the completed turn');
+  assert.equal(studio.timers.size, 0);
+});
+
+test('foreign lifecycle, changed digest and changed conversation observations never reach the visible activity', async () => {
+  for (const scenario of ['lifecycle', 'digest', 'conversation', 'read-failure']) {
+    const studio = controlledStudio({ activeM1: false, manualTimers: true });
+    studio.command('/m2-approve');studio.tick();
+    const activity = studio.pane.msgs[0]._activity;
+    const view = { ...studio.view, audit: { executionEvents: [{ eventId: 'foreign', type: 'phase_applied', path: 'PRIVATE_FILE' }] } };
+    if (scenario === 'lifecycle') view.lifecycleId = 'foreign';
+    if (scenario === 'digest') view.planDigest = 'sha256:' + 'c'.repeat(64);
+    if (scenario === 'conversation') studio.session._convId = 'foreign';
+    if (scenario === 'read-failure') studio.calls[1].reject(new Error('offline'));
+    else studio.calls[1].resolve(view);
+    await flushStudio();
+    assert.equal(activity.steps.length, 1);
+    assert.equal(activity.status, 'running', 'read failure is not a successful main terminal');
+    studio.calls[0].reject(new Error('controlled main failure'));await flushStudio();
+    assert.equal(activity.status, 'error');assert.equal(studio.timers.size, 0);
+  }
+});
 
 test('cancelled proposal can be revised with exact retained files but no inherited approval', async () => {
   const studio = controlledStudio({ pending: false, activeM1: false, paths: ['src/app.js', 'src/helper.js'] });
@@ -696,7 +752,8 @@ test('project wizard preserves the draft and current sessions when creation is r
     const data = { name: 'Fan', pathMode: 'auto', path: '', description: 'RPM widget', type: 'general' };
     const wizard = { active: true, step: 5, data, saving: false, defaultDir: '/stale/default' };
     let routes = 0; const logs = []; const requests = [];
-    const context = vm.createContext({ _projectWizard: wizard, AbortSignal, _backendUrl: () => '',
+    const context = vm.createContext({
+    WorkActivity, setTimeout, clearTimeout, _projectWizard: wizard, AbortSignal, _backendUrl: () => '',
       _showWorkspace() {}, renderCenter() {}, _wizardRestoreLayout() { throw Error('must preserve form'); },
       _smartRouteToRelay() { routes++; }, window: { _intentsmith: { agentLog: (...args) => logs.push(args) } },
       fetch: async (url, options) => { requests.push({ url, body: JSON.parse(options.body) });
@@ -716,7 +773,8 @@ test('opening a registered project clears foreign context and ignores stale asyn
   const calls = [];
   const session = { _projectId: 1, _convId: 'old-conversation', _agentId: 'old-agent',
     chat: { msgs: [], _projectWorkProposal: { old: true }, _m2Composer: { old: true } } };
-  const context = vm.createContext({ _sessions: [session], _backendUrl: () => '', AbortSignal,
+  const context = vm.createContext({
+    WorkActivity, setTimeout, clearTimeout, _sessions: [session], _backendUrl: () => '', AbortSignal,
     _showWorkspace() {}, _chatInvalidatePreparedSends() {}, _loadWorkspaceTree() {}, _syncFocusClass() {}, _persistSessionState() {},
     renderChat() {}, _chatScrollPane() {}, requestAnimationFrame(fn) { fn(); },
     fetch(url) { return new Promise(resolve => calls.push({ url, resolve(body, status = 200) {

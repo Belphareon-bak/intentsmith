@@ -1,1 +1,55 @@
 /* All styles merged into intentsmith-theme.css */
+
+/* Turn-local work activity. The terminal and detailed log keep their own panes. */
+.intentsmith-message-row { margin: 0 auto 16px; width: 100%; min-width: 0; }
+.intentsmith-message { color: var(--intentsmith-tx1); padding: 12px 10px; min-width: 0; border-bottom: 1px solid var(--intentsmith-border); }
+.intentsmith-message.user { cursor: pointer; background: var(--intentsmith-bg2); border-radius: 8px; }
+.intentsmith-message.bordered { border: 1px solid var(--intentsmith-border); border-radius: 10px; }
+.intentsmith-message.editing { outline: 2px solid var(--intentsmith-accent); }
+.intentsmith-message > header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; color: var(--intentsmith-tx2); font-size: 11px; }
+.intentsmith-message-avatar { border-radius: 6px; background: var(--intentsmith-accent-bg); color: var(--intentsmith-accent-text); width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; }
+.intentsmith-message-tag { color: var(--intentsmith-tx3); font-size: 9px; text-transform: uppercase; }
+.intentsmith-message-body { font-size: var(--intentsmith-font-size, 13px); line-height: 1.7; overflow-wrap: anywhere; }
+.intentsmith-message-body.plain { white-space: pre-wrap; }
+.intentsmith-message-body.markdown > :first-child { margin-top: 0; }
+.intentsmith-message-body.markdown > :last-child { margin-bottom: 0; }
+.intentsmith-message-body.markdown h1,.intentsmith-message-body.markdown h2,.intentsmith-message-body.markdown h3 { font-size: 1.12em; margin: 1.3em 0 .5em; line-height: 1.4; }
+.intentsmith-message-body.markdown p { margin: .6em 0; }
+.intentsmith-message-body.markdown ul,.intentsmith-message-body.markdown ol { padding-left: 22px; }
+.intentsmith-message-body.markdown table { display: block; overflow-x: auto; border-collapse: collapse; max-width: 100%; }
+.intentsmith-message-body.markdown th,.intentsmith-message-body.markdown td { border: 1px solid var(--intentsmith-border2); padding: 5px 9px; }
+.intentsmith-message-body.markdown pre { padding: 12px; background: var(--intentsmith-bg0); border: 1px solid var(--intentsmith-border); border-radius: 6px; overflow-x: auto; }
+.intentsmith-message-body.markdown code { font-size: .92em; background: var(--intentsmith-bg3); border-radius: 3px; padding: 1px 3px; }
+.intentsmith-message-body.markdown pre code { background: none; padding: 0; }
+.intentsmith-message-body.markdown a { color: var(--intentsmith-accent-text); }
+.intentsmith-response-copy { margin-left: auto; display: inline-flex; gap: 5px; align-items: center; padding: 5px; border: 0; border-radius: 5px; background: transparent; color: var(--intentsmith-tx3); cursor: pointer; }
+.intentsmith-response-copy:hover,.intentsmith-response-copy:focus-visible { color: var(--intentsmith-tx1); background: var(--intentsmith-bg4); }
+.intentsmith-work-activity { margin: 10px 2px 4px 10px; padding: 2px 0 2px 12px; border-left: 1px solid var(--intentsmith-border2); color: var(--intentsmith-tx3); font-size: 11px; }
+.intentsmith-work-activity > summary,.intentsmith-activity-steps summary { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 5px 0; list-style: none; }
+.intentsmith-work-activity > summary::after { content: '⌄'; margin-left: 2px; }
+.intentsmith-work-activity[open] > summary::after { content: '⌃'; }
+.intentsmith-work-activity > summary > span:nth-child(2),.intentsmith-activity-steps summary > span:nth-child(2) { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.intentsmith-activity-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--intentsmith-tx4); flex-shrink: 0; }
+.intentsmith-activity-dot.running { background: var(--intentsmith-accent); box-shadow: 0 0 0 3px var(--intentsmith-accent-bg); animation: intentsmith-thinking-dot 1.5s ease-in-out infinite; }
+.intentsmith-activity-dot.done { background: var(--intentsmith-success); }
+.intentsmith-activity-dot.error,.intentsmith-activity-dot.timeout { background: #ed8292; }
+.intentsmith-activity-dot.question,.intentsmith-activity-dot.approval { background: #e8bc59; }
+.intentsmith-activity-count,.intentsmith-activity-time { font-variant-numeric: tabular-nums; font-size: 10px; white-space: nowrap; }
+.intentsmith-activity-steps { list-style: none; padding: 0 0 0 10px; margin: 8px 0; border-left: 1px solid var(--intentsmith-border); }
+.intentsmith-activity-steps li { margin: 5px 0; }
+.intentsmith-step-detail { background: var(--intentsmith-bg0); border: 1px solid var(--intentsmith-border); padding: 8px; margin: 5px 0; border-radius: 5px; }
+.intentsmith-step-detail pre,.intentsmith-plan-detail pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 11px/1.6 monospace; color: var(--intentsmith-tx2); margin: 5px 0; }
+.intentsmith-change-summary { border: 1px solid var(--intentsmith-border2); border-radius: 8px; overflow: hidden; margin: 12px 0; font-size: 12px; }
+.intentsmith-change-summary > header { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px; background: var(--intentsmith-bg2); }
+.intentsmith-change-summary > header > div { display: flex; flex-direction: column; gap: 5px; }
+.intentsmith-change-summary > header > div > span { font-size: 11px; color: var(--intentsmith-tx3); }
+.intentsmith-change-file { display: flex; justify-content: space-between; gap: 10px; width: 100%; padding: 9px 12px; border: 0; border-top: 1px solid var(--intentsmith-border); background: transparent; color: var(--intentsmith-tx2); cursor: pointer; text-align: left; font-size: 11px; }
+.intentsmith-change-file > span:first-child { overflow-wrap: anywhere; min-width: 0; }
+.intentsmith-change-file:hover,.intentsmith-change-file:focus-visible { background: var(--intentsmith-bg3); color: var(--intentsmith-tx1); }
+.intentsmith-change-counts { display: inline-flex; gap: 6px; white-space: nowrap; font: 11px/1.5 monospace; }
+.intentsmith-change-counts .added { color: var(--intentsmith-success); }
+.intentsmith-change-counts .removed { color: #ed8292; }
+.intentsmith-plan-detail > summary { cursor: pointer; padding: 8px 0; color: var(--intentsmith-tx3); font-size: 11px; }
+.intentsmith-question-label { border-left: 3px solid #e8bc59; color: var(--intentsmith-accent-text); padding: 7px 10px; margin-bottom: 10px; background: var(--intentsmith-accent-bg); }
+.intentsmith-question-reply { margin-top: 12px; border: 1px solid var(--intentsmith-border2); border-radius: 5px; padding: 5px 12px; color: var(--intentsmith-accent-text); background: var(--intentsmith-accent-bg); cursor: pointer; }
+@media (prefers-reduced-motion: reduce) { .intentsmith-activity-dot.running { animation: none; } }

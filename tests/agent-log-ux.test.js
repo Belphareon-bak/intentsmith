@@ -771,5 +771,15 @@ test('realistic 2-turn conversation renders correctly', () => {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 
+test('canonical transport terminal wins over progress completion and closes a turn with no turn_end', () => {
+  for (const status of ['ok', 'cancelled', 'timeout', 'error']) {
+    const log = fmtAll([mkTurnStart('t-transport', 'Private request'), mkLLMStart('t-transport', 'answer')]);
+    log.forEach(entry => { entry.transportTerminalStatus = status; });
+    assertEqual(groupByTurn(log)[0].status, status);
+    log.push(formatAgentEvent(mkTurnEnd('t-transport', 'ok', 200)));
+    assertEqual(groupByTurn(log)[0].status, status, 'progress must not overwrite the canonical terminal');
+  }
+});
+
 const results = summary();
 if (results.failed > 0) process.exit(1);

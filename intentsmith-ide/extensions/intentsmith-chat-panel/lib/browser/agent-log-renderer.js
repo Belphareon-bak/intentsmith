@@ -64,6 +64,8 @@ function groupByTurn(log) {
       }
       currentTurn.events.push(e);
 
+      if (e.transportTerminalStatus) currentTurn.transportTerminalStatus = e.transportTerminalStatus;
+
       // Extract metadata from _raw
       if (e._raw) {
         if (e._raw.eventType === 'turn_start') {
@@ -84,6 +86,7 @@ function groupByTurn(log) {
   // Handle incomplete turns (missing turn_end)
   for (var j = 0; j < groups.length; j++) {
     var g = groups[j];
+    if (g.type === 'turn' && g.transportTerminalStatus) g.status = g.transportTerminalStatus;
     if (g.type === 'turn' && g.status === 'pending') {
       g.status = 'incomplete';
       // Estimate duration: last event - first event
@@ -244,9 +247,9 @@ function renderTurnGroup(h, turn, key, isLast, collapsed, onToggle, C, TC, _fs) 
 
   var statusIcon = turn.status === 'ok' ? '\u2705' :
                    turn.status === 'incomplete' ? '\u23F3' :
-                   turn.status === 'cancelled_by_user' ? '\u274C' :
+                   (turn.status === 'cancelled_by_user' || turn.status === 'cancelled') ? '\u274C' :
                    turn.status === 'error' ? '\u26A0\uFE0F' :
-                   turn.status === 'timeout' ? '\u23F0' : '\u2705';
+                   turn.status === 'timeout' ? '\u23F0' : '?';
 
   var header = h('div', {
     key: key + '-hdr',

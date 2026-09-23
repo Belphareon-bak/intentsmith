@@ -35,6 +35,7 @@ import {
 import { attachWebSocketServer } from '../src/ws-bridge/ws-server.js';
 
 const require = createRequire(import.meta.url);
+const WorkActivity = require('../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/work-activity.js');
 const {
   REQUIRED_BUNDLE_MARKERS,
   REQUIRED_CONSUMER_FUNCTIONS,
@@ -607,7 +608,7 @@ test('default Studio identity uses the accessible IntentSmith brand system', () 
   assert.match(source, /accentDim:'#9b6b32'/);
   assert.match(source, /text:_theme\.accentText/,
     'the explicit brand mode keeps the reviewed logo accent text token at runtime');
-  assert.match(source, /a\?'IntentSmith':'System'/);
+  assert.match(fs.readFileSync(new URL('../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/work-activity.js', import.meta.url), 'utf8'), /a\?'IntentSmith':'Systém'/);
   assert.match(source, /widgetName:'IntentSmith Navigation'/);
   assert.match(source, /widgetName:'IntentSmith Chat'/);
   assert.match(source, /label:'IntentSmith: Toggle Sidebar',category:'IntentSmith'/);
@@ -1280,6 +1281,7 @@ function terminalPanelHarness(pane = session('panel-terminal')) {
   const counters = { agentRender: 0, persist: 0, render: 0, scroll: 0 };
   if (!Array.isArray(pane.log)) pane.log = [];
   const context = vm.createContext({
+    WorkActivity,
     IntentSmithBus: {
       on(name, callback) { listeners[name] = callback; },
     },
@@ -5581,6 +5583,69 @@ test('specialist focus repaints the center conversation on chat changes',()=>{
   vm.runInContext(source.slice(a,b),ctx);ctx.renderChat();assert.equal(center,1);assert.equal(side,1);
   focus=false;ctx.renderChat();assert.equal(center,1);assert.equal(side,2);
   focus=true;ctx._chatContainer=null;ctx.renderChat();assert.equal(center,2);
+});
+
+
+suite('Studio transparent work activity');
+test('turn-local activity ignores foreign events, duplicate steps and late progress after a terminal', () => {
+  const a=WorkActivity.createActivity('turn-a','Pracuje',1000);
+  assert.equal(WorkActivity.applyEvent(a,{turnId:'foreign',seq:1,type:'tool_call',payload:{tool:'read'}}),false);
+  WorkActivity.applyEvent(a,{turnId:'turn-a',seq:1,type:'tool_call',payload:{tool:'read',callId:'a',args:{path:'a.js',apiKey:'SECRET'}}},1010);
+  assert.doesNotMatch(a.steps[0].input,/SECRET/);
+  assert.equal(WorkActivity.applyEvent(a,{turnId:'turn-a',seq:1,type:'tool_call',payload:{tool:'read'}}),false);
+  WorkActivity.applyEvent(a,{turnId:'turn-a',seq:2,type:'turn_end',payload:{status:'ok'}},1020);
+  assert.equal(a.status,'running','progress turn_end is not the M1 terminal');
+  WorkActivity.finishActivity(a,'error',{},1030);
+  assert.equal(a.status,'error');assert.equal(a.steps[0].status,'unconfirmed');
+  WorkActivity.applyEvent(a,{turnId:'turn-a',seq:3,type:'tool_result',payload:{tool:'read',success:true}},1040);
+  assert.equal(a.steps[0].status,'unconfirmed','late result cannot invent success');
+});
+test('tool result matches its call identity and preserves a failed result and zero duration', () => {
+  const a=WorkActivity.createActivity('t','Pracuje',1000);
+  for(const [seq,id] of [[1,'one'],[2,'two']])WorkActivity.applyEvent(a,{turnId:'t',seq,type:'tool_call',payload:{tool:'read',callId:id}},1000+seq);
+  WorkActivity.applyEvent(a,{turnId:'t',seq:3,type:'tool_result',payload:{tool:'read',callId:'one',success:false,durationMs:0,summary:'file missing'}},1010);
+  assert.equal(a.steps[0].status,'error');assert.equal(a.steps[0].durationMs,0);
+  assert.equal(a.steps[0].output,'file missing');assert.equal(a.steps[1].status,'running');
+});
+test('activity is bounded and never displays model token/reasoning payloads', () => {
+  const a=WorkActivity.createActivity('t','Pracuje');
+  for(let seq=1;seq<=100;seq++)WorkActivity.applyEvent(a,{turnId:'t',seq,type:'system_step',payload:{step:'analyzing_input',detail:'x'.repeat(9000)}});
+  WorkActivity.applyEvent(a,{turnId:'t',seq:101,type:'llm_token',payload:{token:'PRIVATE_REASONING'}});
+  assert.equal(a.steps.length,80);assert.equal(a.omitted,20);assert.equal(a.steps[0].input.length,6000);
+  assert.doesNotMatch(JSON.stringify(a),/PRIVATE_REASONING/);
+});
+test('question, approval, cancellation and timeout have distinct terminal presentation', () => {
+  for(const [status,metadata,expected] of [['ok',{awaitingClarification:true},'question'],['ok',{webStatus:'pending'},'approval'],['cancelled',{},'cancelled'],['timeout',{},'timeout'],['ok',{},'done']]){
+    const a=WorkActivity.createActivity('t','Pracuje');WorkActivity.finishActivity(a,status,metadata);
+    assert.equal(a.status,expected);assert.ok(a.endedAt);
+  }
+});
+test('actual panel subscriptions bind activity to the owner turn and reject another conversation', () => {
+  const pane=session('activity-conversation');pane._convId='activity-conversation';pane.chat.msgs=[{role:'user',text:'Own request'}];
+  const h=terminalPanelHarness(pane);
+  const event=(type,seq,conversationId='activity-conversation')=>({sessionIdx:0,event:{transport:'m1',turnId:'activity-turn',conversationId,seq,type,payload:{model:'answer'}}});
+  h.listeners['agent:event'](event('turn_start',1,'other'));
+  assert.equal(pane.chat.msgs[0]._activity,undefined);
+  h.listeners['agent:event'](event('turn_start',1));h.listeners['agent:event'](event('llm_start',2));
+  assert.equal(pane.chat.msgs[0]._activity.steps[0].status,'running');
+  h.listeners['chat:terminal']({sessionIdx:0,action:'send',turnId:'activity-turn',status:'cancelled',result:{error:{message:'cancelled'}}});
+  assert.equal(pane.chat.msgs[0]._activity.status,'cancelled');
+  assert.equal(pane.chat.msgs[0]._activity.steps[0].status,'unconfirmed');
+});
+test('line statistics count actual added and removed lines, including new files and newline-only changes', () => {
+  for(const [before,after,added,removed] of [[null,'a\nb\n',2,0],['a\nb\nc\n','a\nB\nc\n',1,1],['a\n','',0,1],['','',0,0],['a\nb','a\nb',0,0],['a\nb\nc','a\nc',0,1],['a\na\n','a\n',0,1]]){
+    const c=WorkActivity.lineCounts(before,after);assert.equal(c.added,added);assert.equal(c.removed,removed);
+  }
+  assert.equal(WorkActivity.lineCounts('a','a\n').newlineChanged,true);
+  assert.equal(WorkActivity.lineCounts(undefined,'a'),null);
+  assert.equal(WorkActivity.lineCounts('a\n'.repeat(2100),'b\n'.repeat(2100)),null,'large diff is unavailable, not a fabricated count');
+});
+test('prepared and failed M2 views cannot claim applied changes; success requires its canonical result', () => {
+  const view={state:'awaiting_approval',lifecycleId:'l',diff:[{path:'a.js',before:{content:'old\n'},after:{content:'new\nsecond\n'}}]};
+  const plan=WorkActivity.changeSummary(view);assert.equal(plan.applied,false);assert.deepEqual(plan.counts,{added:2,removed:1});
+  assert.equal(WorkActivity.changeSummary({...view,state:'succeeded'}).applied,false);
+  assert.equal(WorkActivity.changeSummary({...view,state:'succeeded',terminal:{state:'succeeded'},result:{terminalStatus:'succeeded'}}).applied,true);
+  assert.equal(WorkActivity.changeSummary({...view,state:'failed',terminal:{state:'failed'},result:{terminalStatus:'failed'}}).applied,false);
 });
 
 summary();

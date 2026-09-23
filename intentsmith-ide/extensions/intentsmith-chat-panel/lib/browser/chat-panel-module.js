@@ -21,6 +21,8 @@ var _createRoot = (ReactDOM.createRoot || function(c){return{render:function(el)
 var React = require("@theia/core/shared/react");
 var createLegacyLocalObjectUrlCache = require("../../../../shared/legacy-local-object-url-cache").createLegacyLocalObjectUrlCache;
 var h = React.createElement;
+var WorkActivity = require("./work-activity");
+var WorkActivityUI = WorkActivity.createComponents(React);
 
 /* ═══ TRANSPORT MODULES ═══ */
 try { require("./event-bus"); } catch(e) { console.warn('[IntentSmith] event-bus.js not loaded:', e.message); }
@@ -5209,6 +5211,10 @@ function _renderFileContent(tab){
 }
 
 function _renderDiffContent(tab){
+  if(tab.tooLarge&&tab.readOnly){
+    return h('div',{style:{padding:16,overflow:'auto'}},h('p',null,'Velký soubor — úplné obsahy před změnou a po ní.'),
+      h('h3',null,'Před změnou'),h('pre',null,tab.oldContent||''),h('h3',null,'Po změně'),h('pre',null,tab.newContent||''));
+  }
   if(tab.tooLarge){
     return h('div',{style:{padding:24,textAlign:'center'}},
       h('div',{style:{fontSize:_fs(13),color:C.tx2,marginBottom:12}},'Soubor příliš velký pro inline diff.'),
@@ -5596,12 +5602,13 @@ function _intentsmithOpenFolderDo(folderPath){
 document.addEventListener('intentsmith-diff-open',function(e){
   var d=e.detail;if(!d)return;
   var totalLines=((d.oldContent||'').split('\n').length)+((d.newContent||'').split('\n').length);
-  var tab={id:'diff-'+(d.reqId||Date.now()),type:'diff',path:d.path||'',
-    label:'~ '+(d.path||'').split('/').pop(),reqId:d.reqId||null,baseHash:d.baseHash||null,
-    tooLarge:totalLines>4000,dirty:false,scrollTop:0,deleted:false,externalChange:false,
+  var tab={id:'diff-'+(d.previewId||d.reqId||Date.now()),type:'diff',path:d.path||'',readOnly:d.readOnly===true,
+    label:'~ '+(d.path||'').split('/').pop(),reqId:d.readOnly===true?null:d.reqId||null,baseHash:d.baseHash||null,
+    tooLarge:totalLines>4000,oldContent:d.oldContent,newContent:d.newContent,dirty:false,scrollTop:0,deleted:false,externalChange:false,
     diffData:totalLines>4000?null:{hunks:computeLineDiff(d.oldContent,d.newContent)}};
   _showWorkspace();_sessions[_sessionActive]._chatCollapsed=true;
-  _editorState.tabs.push(tab);
+  var prior=_editorState.tabs.find(function(item){return item.id===tab.id;});
+  if(!prior)_editorState.tabs.push(tab);
   _editorState.activeTabId=tab.id;
   _editorState.active=true;
   renderCenter();
@@ -5789,6 +5796,18 @@ var _chatContainer=null;
 function _initBusSubscriptions() {
   if (typeof IntentSmithBus === 'undefined') { console.warn('[IntentSmith] IntentSmithBus not available yet'); return; }
 
+  /* Only validated M1 progress reaches this bus. Associate by turn, never the active column. */
+  IntentSmithBus.on('agent:event', function(ev) {
+    var s=_sessions[ev.sessionIdx], event=ev.event||{};
+    if(!s||s._closed||event.transport!=='m1'||!event.turnId||s._convId!==event.conversationId)return;
+    var messages=s.chat.msgs, owner=messages.find(function(m){return m._activity&&m._activity.id===event.turnId;});
+    if(!owner&&event.type==='turn_start'){
+      owner=messages.slice().reverse().find(function(m){return m.role==='user'&&!m._activity;});
+      if(owner)owner._activity=WorkActivity.createActivity(event.turnId,'Zpracovává zadání');
+    }
+    if(owner){WorkActivity.applyEvent(owner._activity,event);renderChat();}
+  });
+
   /* Chat messages from assistant */
   IntentSmithBus.on('chat:message', function(ev) {
     var s = _sessions[ev.sessionIdx];if(!s||s._closed)return;
@@ -5837,6 +5856,10 @@ function _initBusSubscriptions() {
       return;
     }
     s.chat._thinking = null;
+    var activityOwner=s.chat.msgs.find(function(m){return m._activity&&m._activity.id===ev.turnId;});
+    if(activityOwner)WorkActivity.finishActivity(activityOwner._activity,ev.status,result.response&&result.response.metadata||{});
+    (s.log||[]).forEach(function(entry){if(entry.turnId===ev.turnId)entry.transportTerminalStatus=ev.status;});
+    renderAgent();
     var terminalError = result.error || {};
     var deliveryUnknown = ev.status === 'error' && (
       terminalError.code === 'M1_CONNECTION_REPLACED'
@@ -5853,6 +5876,7 @@ function _initBusSubscriptions() {
       s.chat.msgs.push({
         role:'assistant',
         text:result.response.content,
+        _question:metadata.awaitingClarification===true||(metadata.decision&&metadata.decision.type==='ASK_USER'),
         tag:metadata.mode||'LLM'
       });
       s.chat._projectWorkProposal = metadata.projectWorkProposal && metadata.projectWorkProposal.kind === 'ProjectWorkProposal@1' && metadata.projectWorkProposal.projectId === Number(s._projectId)
@@ -6869,9 +6893,17 @@ function _m2BeginStudioCommand(idx,st,ta,text){
 function _m2FinishStudioCommand(idx,s,st,text,isError,operation){
   if(st._m2Operation===operation){
     operation.requests--;
-    if(operation.requests===0){st._m2Busy=false;st._m2DraftController=null;st._thinking=null;st._m2Operation=null;}
+    if(operation.requests===0){clearTimeout(operation.progressTimer);st._m2Busy=false;st._m2DraftController=null;st._thinking=null;st._m2Operation=null;}
   }
-  st.msgs.push({role:isError?'system':'assistant',text:text,tag:isError?'M2_ERROR':'M2'});
+  var view=operation.view;
+  if(view)WorkActivity.applyM2View(operation.activity,view);
+  if(operation.activity&&operation.requests===0){
+    var outcome=isError?'error':view&&view.state==='awaiting_approval'?'ok':view&&view.state==='succeeded'?'ok':view&&view.state==='cancelled'?'cancelled':view&&view.state==='timed_out'?'timeout':'error';
+    WorkActivity.applyEvent(operation.activity,{turnId:operation.activity.id,seq:2,type:'tool_result',payload:{tool:operation.activity.requestLabel,success:!isError,summary:view?'Server potvrdil stav: '+view.state:text}});
+    WorkActivity.finishActivity(operation.activity,outcome,view&&view.state==='awaiting_approval'?{webStatus:'pending'}:{});
+  }
+  st.msgs.push({role:isError?'system':'assistant',text:text,tag:isError?'M2_ERROR':'M2',
+    _changes:!isError&&view?WorkActivity.changeSummary(view):null});
   _persistSessionState();renderChat();_chatScrollPane(idx);
 }
 function _m2StudioError(error){
@@ -7016,6 +7048,23 @@ function _m2ActionsUI(idx,s,st){
       !pending&&!st._m2DraftController&&st._m2RevisionSource?h('button',{type:'button',disabled:!!st._m2Busy||sendBusy(),onClick:function(){_m2OpenRevision(idx);}},'Opravit předchozí návrh'):null,
       pending||st._m2DraftController?action('Zrušit','/m2-cancel',!!st._m2Busy&&!st._m2DraftController&&!(st._m2Operation&&st._m2Operation.command==='/m2-approve'&&!st._m2Operation.cancelIssued)):null));
 }
+function _m2ObserveExecution(idx,s,st,operation){
+  var pending=operation.pending;
+  if(!pending)return;
+  operation.progressTimer=setTimeout(function observe(){
+    if(st._m2Operation!==operation||operation.requests===0||_sessions[idx]!==s||s._closed)return;
+    var origin=pending.origin;
+    var query='?id='+encodeURIComponent(pending.lifecycleId)+'&surface='+encodeURIComponent(origin.surface)
+      +'&sessionId='+encodeURIComponent(origin.sessionId)+'&conversationId='+encodeURIComponent(origin.conversationId)+'&projectId='+encodeURIComponent(origin.projectId);
+    _m2FetchJSON(_m2StatusEndpoint+query,{method:'GET'},5000).then(function(view){
+      if(st._m2Operation!==operation||operation.requests===0)return;
+      _m2AssertCurrentContext(idx,s,origin);_m2RequireStatusView(view,pending.lifecycleId,origin,pending.planDigest);
+      WorkActivity.applyM2View(operation.activity,view);renderChat();
+    }).catch(function(){/* Main HTTP terminal retains ownership; a failed observation cannot fabricate an outcome. */})
+    .finally(function(){if(st._m2Operation===operation&&operation.requests>0)operation.progressTimer=setTimeout(observe,2000);});
+  },2000);
+}
+var _m2StatusEndpoint='/api/m2/lifecycle/status';
 function _m2IsGenericApproval(text){return /^(?:ano|ok|spusť(?: to)?|spust(?: to)?|yes|approve)$/i.test(text.trim());}
 function _m2HandleStudioCommand(idx,s,st,ta,text,cmd,arg){
   if(['/m2-draft','/m2-build','/m2-plan','/m2-approve','/m2-status','/m2-cancel'].indexOf(cmd)<0)return false;
@@ -7083,6 +7132,13 @@ function _m2HandleStudioCommand(idx,s,st,ta,text,cmd,arg){
     operation={command:cmd,pending:pending,requests:1,cancelIssued:false,terminal:null};st._m2Operation=operation;
     _m2BeginStudioCommand(idx,st,ta,text);
   }
+  if(!concurrentCancel){
+    operation.activity=WorkActivity.createActivity('m2-'+Date.now(),isDraft?'Připravuje návrh souborů':cmd==='/m2-approve'?'Provádí schválený plán a testy':cmd==='/m2-cancel'?'Žádá o zrušení':'Načítá a ověřuje plán');
+    operation.activity.requestLabel=operation.activity.label;
+    WorkActivity.applyEvent(operation.activity,{turnId:operation.activity.id,seq:1,type:'tool_call',payload:{tool:operation.activity.requestLabel,
+      args:{soubory:isDraft?(draft.files?draft.files.map(function(f){return f.path;}):draft.paths||[draft.path]):proposal&&proposal.changes?proposal.changes.map(function(f){return f.path;}):[],lifecycleId:pending&&pending.lifecycleId||null}}});
+    st.msgs[st.msgs.length-1]._activity=operation.activity;renderChat();
+  }
   var request;
   if(isDraft){st._m2DraftController=new AbortController();st._thinking.text='Připravuji návrh; zrušení: /m2-cancel';renderChat();}
   if(cmd==='/m2-plan'||isDraft){
@@ -7109,10 +7165,11 @@ function _m2HandleStudioCommand(idx,s,st,ta,text,cmd,arg){
     var query='?id='+encodeURIComponent(lifecycleId)+'&surface='+encodeURIComponent(origin.surface)
       +'&sessionId='+encodeURIComponent(origin.sessionId)+'&conversationId='+encodeURIComponent(origin.conversationId)
       +'&projectId='+encodeURIComponent(origin.projectId);
-    request=_m2FetchJSON('/api/m2/lifecycle/status'+query,{method:'GET'},120000)
+    request=_m2FetchJSON(_m2StatusEndpoint+query,{method:'GET'},120000)
       .then(function(view){_m2AssertCurrentContext(idx,s,origin);return _m2RequireStatusView(view,lifecycleId,origin,
         pending&&pending.lifecycleId===lifecycleId?pending.planDigest:null);});
   }
+  if(cmd==='/m2-approve')_m2ObserveExecution(idx,s,st,operation);
   request.then(function(view){
     // Approval and durable cancellation may return in either order. A terminal
     // result owns the display and pending state; a late older view cannot reopen it.
@@ -7141,6 +7198,7 @@ function _m2HandleStudioCommand(idx,s,st,ta,text,cmd,arg){
       }
       st._m2Composer=null;st._m2ComposerOpen=false;st._projectWorkProposal=null;
     }
+    operation.view=view;
     _m2FinishStudioCommand(idx,s,st,_m2RenderStatus(view),false,operation);
   }).catch(function(error){
     if(st._m2DraftController&&st._m2DraftController.signal.aborted)error=Object.assign(new Error('Generování návrhu zrušeno.'),{code:'M2_STUDIO_DRAFT_CANCELLED'});
@@ -7568,29 +7626,21 @@ function _chatPaneUI(idx,opts){
           onClick:function(){_closeDialogAction('cancel');}},'C) Zrušit'))):null,
     /* FEED */
     h('div',{id:'intentsmith-chat-feed-'+idx,style:{flex:1,overflowY:'auto',overflowX:'hidden',padding:8,minWidth:0}},
-      st.msgs.map(function(m,i){var u=m.role==='user',a=m.role==='assistant';var bub=_settingsVals.visualMode==='borders';
-        var isEditing=st.editingIdx===i;
-        var wrapS=bub?{padding:'3px 6px',marginBottom:3,display:'flex',justifyContent:u?'flex-end':'flex-start'}
-          :{padding:'6px 0',borderBottom:'1px solid '+C.border};
-        var _mw=inFocus?'90%':'85%';
-        var msgS=bub?{background:u?C.bg4:a?C.bg2:C.bg3,borderRadius:u?'12px 12px 2px 12px':a?'12px 12px 12px 2px':'8px',padding:'6px 10px',maxWidth:_mw,minWidth:60,border:isEditing?'2px solid '+C.accent:'none'}:{border:isEditing?'2px solid '+C.accent:'none'};
-        return h('div',{key:i,style:Object.assign({},wrapS,u?{cursor:'pointer'}:{}),onClick:u?function(){_chatStartEdit(idx,i);}:undefined,title:u?'Klikni pro editaci':undefined},
-          h('div',{style:msgS},
-          h('div',{style:{display:'flex',alignItems:'center',gap:4,marginBottom:2}},
-            h('div',{style:{width:18,height:18,borderRadius:'50%',background:u?C.bg4:a?'linear-gradient(135deg,'+C.accentText+','+C.accent+')':C.bg3,display:'flex',alignItems:'center',justifyContent:'center',fontSize:a?_fs(6):_fs(8),fontWeight:a?800:400,color:u?C.tx3:a?C.onAccent:C.tx4}},u?'👤':a?'IS':'⚡'),
-            h('span',{style:{fontSize:_fs(10),fontWeight:600,color:C.tx2}},u?'Ty':a?'IntentSmith':'System'),
-            m.tag?h('span',{style:{fontSize:_fs(7.5),padding:'1px 3px',borderRadius:3,fontFamily:C.mono,textTransform:'uppercase',background:m.tag==='ERROR'||m.tag==='NOT_SENT'?C.redBg:C.purpleBg,color:m.tag==='ERROR'||m.tag==='NOT_SENT'?C.red:C.purple}},m.tag):null),
-          h('div',{style:{fontSize:_fs(12),lineHeight:'1.5',color:C.tx1,paddingLeft:22,wordBreak:'break-word',whiteSpace:'pre-wrap'}},m.text),
-          /* D5: Gap choice inline buttons */
-          m._gapChoice&&!m._gapResolved?h('div',{style:{display:'flex',gap:6,paddingLeft:22,paddingTop:6}},
-            h('button',{style:{padding:'5px 12px',borderRadius:6,border:'1px solid #f59e0b',background:'rgba(245,158,11,0.1)',color:'#fbbf24',fontSize:_fs(11),fontWeight:600,cursor:'pointer'},
-              onClick:function(ev){ev.stopPropagation();_chatGapChoice(idx,'create',i);}},
-              '✨ Vytvořit expertízu'),
-            h('button',{style:{padding:'5px 12px',borderRadius:6,border:'1px solid '+C.border2,background:C.bg3,color:C.tx2,fontSize:_fs(11),fontWeight:600,cursor:'pointer'},
-              onClick:function(ev){ev.stopPropagation();_chatGapChoice(idx,'fallback',i);}},
-              '💬 Odpovědět bez ní')):null));}),
+      st.msgs.map(function(m,i){return h(WorkActivityUI.Message,{key:i,message:m,
+        bubbles:_settingsVals.visualMode==='borders',editing:st.editingIdx===i,
+        questionPending:m._question&&!st.msgs.slice(i+1).some(function(next){return next.role==='user';}),
+        markdownEnabled:localStorage.getItem('intentsmith.output.markdownRendering')!=='false',
+        onEdit:function(){_chatStartEdit(idx,i);},onQuestion:function(){var ta=document.getElementById('intentsmith-chat-ta-'+idx);if(ta)ta.focus();},
+        onReview:function(file,changes){
+          if(_sessions[idx]!==s||s._closed)return;_switchSession(idx);
+          document.dispatchEvent(new CustomEvent('intentsmith-diff-open',{detail:{path:file.path,oldContent:file.before||'',newContent:file.after,
+            previewId:changes.lifecycleId+'-'+file.path,readOnly:true}}));
+        }},
+        m._gapChoice&&!m._gapResolved?h('div',{style:{display:'flex',gap:6,paddingTop:6}},
+          h('button',{onClick:function(ev){ev.stopPropagation();_chatGapChoice(idx,'create',i);}},'Vytvořit expertízu'),
+          h('button',{onClick:function(ev){ev.stopPropagation();_chatGapChoice(idx,'fallback',i);}},'Odpovědět bez ní')):null);}),
       /* v90: Thinking indicator */
-      st._thinking?h('div',{key:'thinking',style:{padding:'3px 6px',marginBottom:3,display:'flex',justifyContent:'flex-start'}},
+      st._thinking&&!st.msgs.some(function(m){return m._activity&&m._activity.status==='running';})?h('div',{key:'thinking',style:{padding:'3px 6px',marginBottom:3,display:'flex',justifyContent:'flex-start'}},
         h('div',{style:{background:C.bg2,borderRadius:'12px 12px 12px 2px',padding:'6px 10px',maxWidth:'85%',minWidth:60}},
           h('div',{style:{display:'flex',alignItems:'center',gap:4,marginBottom:2}},
             h('div',{style:{width:18,height:18,borderRadius:'50%',background:'linear-gradient(135deg,'+C.accentText+','+C.accent+')',display:'flex',alignItems:'center',justifyContent:'center',fontSize:_fs(6),fontWeight:800,color:C.onAccent}},'IS'),
