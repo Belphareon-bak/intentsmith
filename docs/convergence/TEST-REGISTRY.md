@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 530
+- Runnable programs: 537
 - Explicit support-module exclusions: 21
-- Profiles: offline=288, database=77, server=48, model=82, soak=15, manual=20
-- States: ACTIVE=436, HISTORICAL=15, BLOCKED=79
+- Profiles: offline=294, database=78, server=48, model=82, soak=15, manual=20
+- States: ACTIVE=443, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -84,6 +84,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-CAPABILITY-REGISTRY-TEST` | `tests/capability-registry.test.js` | `C3-020` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CAPABILITY-SANDBOX-TEST` | `tests/capability-sandbox.test.js` | `C3-020` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CATALOG-METADATA-TEST` | `tests/catalog-metadata.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-CHAT-CONVERSATION-CAPTURE-TEST-MJS` | `tests/chat-conversation-capture.test.mjs` | `C3-010` | T1 | `database` | 1 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST` | `tests/chat-export-budget.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none, toolchain:python-pdf-runtime | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CHAT-FIXES-TEST` | `tests/chat-fixes.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CHAT-MEMORY-PRIVACY-TEST` | `tests/chat-memory-privacy.test.js` | `C3-015` | T1 | `database` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-REVIEW-REMEDIATION-20260917 |
@@ -97,11 +98,17 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-CHUNKER-TEST` | `tests/chunker.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CIRCUIT-BREAKER-V55-TEST` | `tests/circuit-breaker-v55.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CODE-ANALYZER-TEST` | `tests/code-analyzer.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-CODE-CONFIDENCE-V2-TEST-MJS` | `tests/code-confidence-v2.test.mjs` | `C3-010` | T1 | `offline` | 1 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CODE-EVOLUTION-TEST` | `tests/code-evolution.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CODE-PATCH-RUNNER-TEST` | `tests/code-patch-runner.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CODE-PATCH-SUITE-TEST` | `tests/code-patch-suite.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-CODE-PROSE-RECONCILIATION-TEST-PY` | `tests/code-prose-reconciliation.test.py` | `C3-010` | T1 | `offline` | 1 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-CODE-PROSE-REVIEW-TEST-PY` | `tests/code-prose-review.test.py` | `C3-010` | T1 | `offline` | 1 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CODE-SEARCH-TEST` | `tests/code-search.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CODE-TASK-EXTRACTOR-TEST` | `tests/code-task-extractor.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-CODE-TECHNICAL-PROJECTION-TEST-MJS` | `tests/code-technical-projection.test.mjs` | `C3-010` | T1 | `offline` | 1 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-COLLECTION-STAGE-PROVIDER-TEST-MJS` | `tests/collection-stage-provider.test.mjs` | `C3-010` | T1 | `offline` | 1 s | 2 min | network:loopback | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-COLLECTION-STAGE-TEST-MJS` | `tests/collection-stage.test.mjs` | `C3-010` | T1 | `offline` | 1 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CONCEPT-REGISTRY-TEST` | `tests/concept-registry.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CONTEXT-BUILDER-TEST` | `tests/context-builder.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CONTEXT-COMPACT-MODEL-CTX-TEST` | `tests/context-compact-model-ctx.test.js` | `C3-016` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

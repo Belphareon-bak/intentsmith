@@ -16107,6 +16107,216 @@
       },
       "flakeCount": 0,
       "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-CHAT-CONVERSATION-CAPTURE-TEST-MJS",
+      "path": "tests/chat-conversation-capture.test.mjs",
+      "argv": [
+        "node",
+        "tests/chat-conversation-capture.test.mjs"
+      ],
+      "capabilityId": "C3-010",
+      "tier": "T1",
+      "fixture": "isolated-sqlite",
+      "profile": "database",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-CODE-CONFIDENCE-V2-TEST-MJS",
+      "path": "tests/code-confidence-v2.test.mjs",
+      "argv": [
+        "node",
+        "tests/code-confidence-v2.test.mjs"
+      ],
+      "capabilityId": "C3-010",
+      "tier": "T1",
+      "fixture": "isolated-code-network-namespace",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-CODE-PROSE-RECONCILIATION-TEST-PY",
+      "path": "tests/code-prose-reconciliation.test.py",
+      "argv": [
+        "python3",
+        "tests/code-prose-reconciliation.test.py"
+      ],
+      "capabilityId": "C3-010",
+      "tier": "T1",
+      "fixture": "synthetic-review-packet",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-CODE-PROSE-REVIEW-TEST-PY",
+      "path": "tests/code-prose-review.test.py",
+      "argv": [
+        "python3",
+        "tests/code-prose-review.test.py"
+      ],
+      "capabilityId": "C3-010",
+      "tier": "T1",
+      "fixture": "synthetic-review-packet",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-CODE-TECHNICAL-PROJECTION-TEST-MJS",
+      "path": "tests/code-technical-projection.test.mjs",
+      "argv": [
+        "node",
+        "tests/code-technical-projection.test.mjs"
+      ],
+      "capabilityId": "C3-010",
+      "tier": "T1",
+      "fixture": "historical-git-source-and-synthetic-results",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-COLLECTION-STAGE-PROVIDER-TEST-MJS",
+      "path": "tests/collection-stage-provider.test.mjs",
+      "argv": [
+        "node",
+        "tests/collection-stage-provider.test.mjs"
+      ],
+      "capabilityId": "C3-010",
+      "tier": "T1",
+      "fixture": "isolated-home-and-owned-loopback-server",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "loopback",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-COLLECTION-STAGE-TEST-MJS",
+      "path": "tests/collection-stage.test.mjs",
+      "argv": [
+        "node",
+        "tests/collection-stage.test.mjs"
+      ],
+      "capabilityId": "C3-010",
+      "tier": "T1",
+      "fixture": "temporary-journal-and-synthetic-provider",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
     }
   ]
 }
