@@ -110,8 +110,11 @@ Ovládání proběhlo ve skutečném Electronu s vlastní DB a projekty, bez GPU
 
 Neúspěšné první testy jsou zachované: chybná dvojí npm config cesta, chybějící
 SDK manifest, nový host prompt vytlačující historii; opraveno v produkčním kódu.
-První nedokončený celý profil byl přerušen a není PASS. Kompletní aktuální
-profil a finální nasazení budou doplněny po dokončení ověřování.
+První nedokončený celý profil byl přerušen a není PASS. Na `398d1448` celý
+offline/database profil dokončil **366 PASS / 1 FAIL / 0 BLOCKED** ze 367
+programů (`test-runs/2026-09-23T21-20-18-742Z/report.json`). Jediný FAIL:
+`nightly-orchestrator-self-test`, registry fingerprint nesouhlasí s přijatou
+operátorskou Gate 0 pečetí. Pečeť se neměnila, celkový verdict zůstává FAIL.
 
 ## Rozsah dalšího review
 
@@ -129,3 +132,29 @@ M6 počet migrací a generovaný inventář desktopových rout. Opravy zachováv
 přesné seznamy i assertions; upgrade/fresh/idempotence sada 61/61 PASS.
 Šestý FAIL je očekávaná operátorská Gate 0 pečeť. BLOCKED procesu vyžadoval
 explicitní toolchain: bubblewrap (samostatný alias od bwrap).
+
+### Incident při nasazení — nesplněná kontinuita Huntu
+
+`398d1448` byl nasazen 23. 9. v 21:30 UTC. Před restartem byly prověřeny
+oddělené procesy a provider kolektoru, shodný kód Huntu i konfigurace. To
+**nestačilo**: přehlédnutá startup cesta `rehydrateBindings` →
+`startBackgroundVerification` → `verifyExact` posílá skutečný jednoto­kenový
+`POST /api/chat` na 11434. Zámek evaluace dosud nerespektovala. Systémová
+Ollama začala načítat model v 21:30:22.512Z; CHAT panel uzavřel okno v
+21:30:22.914Z s `GPU_FOREIGN_WORK_PRESENT`, service skončila exit 1.
+Jde o dopad tohoto nasazení, nikoli o úspěšně zachovaný běh.
+
+Uložený panel zůstal PARTIAL: 712 finished / 710 captured conversations,
+2060 calls, 488 unattempted. Automatický restart se neprovedl; ve vedlejším
+workeru už existoval záměr po aktuálním modelu zastavit a `autoResume:false`.
+Do jeho rozpočtu, procesů, provideru ani příkazů nebylo přímo zasaženo;
+to neanuluje uvedený nepřímý dopad. Evidence: `deploy-run.log`,
+`hunt-interruption-journal.log`, `ollama-startup-probes.log`.
+
+Náprava: background ověření musí získat stávající cross-process GPU lease.
+Při obsazení nevydá provider request, nezapíše neúspěšné ověření a naplánuje
+odložený pokus. Při něm znovu ověří, že binding nebyl nahrazen. Lease drží
+do konce probe a auditního zápisu a uvolní ji i při chybě. Rozšířená původní
+sada má **111/111 PASS** včetně skutečného cizího procesu držícího zámek,
+pokračování po uvolnění a odmítnutí zastaralého odloženého bindingu.
+První pokus odhalil chybné pořadí testovací izolace; zachován, opraven.

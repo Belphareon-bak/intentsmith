@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 
+import './helpers/isolated-test-db.js';
 import Database from 'better-sqlite3';
 import { once } from 'node:events';
 import { createServer } from 'node:http';
 import { Worker } from 'node:worker_threads';
+import { spawn } from 'node:child_process';
+import { acquireGpuEvaluationLock } from '../src/upgrade/gpu-evaluation-lock.js';
 import {
   mkdtempSync,
   mkdirSync,
@@ -399,6 +402,7 @@ async function withFixture(callback, options = {}) {
     clock: options.applicationClock,
     scheduleRecovery: options.scheduleRecovery,
     cancelRecovery: options.cancelRecovery,
+    acquireVerificationGpu: options.acquireVerificationGpu,
     logger: { warn() {}, info() {}, debug() {}, error() {} },
   };
   if (!options.useDefaultModelUseAuthority) {
@@ -1598,6 +1602,50 @@ await testAsync('verification conflict retries after releasing the lease before 
       });
     },
   });
+});
+
+await testAsync('foreign process GPU lease defers verification without inference or false failure, then resumes', async () => {
+  const moduleUrl = new URL('../src/upgrade/gpu-evaluation-lock.js', import.meta.url).href;
+  const child = spawn(process.execPath, ['--input-type=module', '-e',
+    `import {acquireGpuEvaluationLock} from ${JSON.stringify(moduleUrl)};
+     const lease=acquireGpuEvaluationLock({command:'binding-test-foreign-collector'});
+     process.stdout.write('READY');process.stdin.once('data',()=>{lease.release();process.exit(0)});`
+  ], { env: { ...process.env }, stdio: ['pipe', 'pipe', 'pipe'] });
+  const callbacks = [];
+  try {
+    await once(child.stdout, 'data');
+    await withFixture(async ({ repository, provider, application, events }) => {
+      const result = await application.applyManualBinding({role:'CHAT',targetModel:'fixture-target'});
+      const before = repository.getBindingApplicationState(result.operationId);
+      application.startBackgroundVerification();
+      await application.awaitBackgroundWork();
+      assertEqual(provider.calls.verify, 0);
+      assertEqual(repository.getBindingApplicationState(result.operationId).state, 'APPLIED_PENDING_VERIFICATION');
+      assertEqual(repository.getBindingApplicationState(result.operationId).attemptRevision, before.attemptRevision);
+      assertEqual(events.filter(x=>x.action==='upgrade_verify_failed').length,0);
+      assertEqual(callbacks.length,1);
+      const exited=once(child,'exit');child.stdin.end('release');await exited;
+      callbacks.shift()();await application.awaitBackgroundWork();
+      assertEqual(provider.calls.verify,1);
+      assertEqual(repository.getBindingApplicationState(result.operationId).state,'VERIFIED');
+      const lease=acquireGpuEvaluationLock({command:'verify-released'});lease.release();
+    }, {startVerification:false,scheduleRecovery(callback){callbacks.push(callback);return callback;}});
+  } finally { if(child.exitCode===null)child.kill('SIGTERM'); }
+});
+
+await testAsync('GPU deferral never probes a superseded binding', async () => {
+  const callbacks=[];
+  await withFixture(async ({application,provider})=>{
+    await application.applyManualBinding({role:'CHAT',targetModel:'fixture-target'});
+    await application.awaitBackgroundWork();
+    await application.applyManualBinding({role:'CHAT',targetModel:'fixture-other'});
+    await application.awaitBackgroundWork();
+    assertEqual(callbacks.length,2);assertEqual(provider.calls.verify,0);
+    application.acquireVerificationGpu=()=>acquireGpuEvaluationLock({command:'binding-test-resume'});
+    callbacks.shift()();await application.awaitBackgroundWork();assertEqual(provider.calls.verify,0);
+    callbacks.shift()();await application.awaitBackgroundWork();assertEqual(provider.calls.verify,1);
+  }, {acquireVerificationGpu(){throw Object.assign(new Error('busy'),{code:'GPU_EVALUATION_BUSY'});},
+    scheduleRecovery(callback){callbacks.push(callback);return callback;}});
 });
 
 await testAsync('model delete reservation excludes binding apply before any runtime or provider effect', async () => {

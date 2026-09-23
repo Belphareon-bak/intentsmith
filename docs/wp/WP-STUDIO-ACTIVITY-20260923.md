@@ -28,3 +28,11 @@ policy pro projektové závislosti a SDK a skutečná ohraničená instalace.
 Vlastněné cesty rozšířeny o src/setup/dependency-*, development-environment,
 nové development routes, migraci 117, související registry a dva testprogramy.
 Měřený výsledek a otevřené limity: [review packet](../review/2026-09-23-STUDIO-ACTIVITY-ENVIRONMENT.md).
+
+Nalezená provozní regrese při nasazení: startup exact binding verification
+spustila inference na 11434 bez globálního GPU zámku a přerušila cizí CHAT
+panel. Vlastněný rozsah rozšířen o tuto konkrétní cestu v
+`src/upgrade/model-binding-application.js` a její existující test. Kolektor,
+hodnocení, profily a zbývající rozpočet panelu se nemění. Oprava používá
+stávající společný zámek, čeká bez falešného selhání modelu a před pozdějším
+ověřením znovu kontroluje aktuální identitu bindingu.

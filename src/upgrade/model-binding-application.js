@@ -7,6 +7,7 @@
 // to share the same mutation owner.
 
 import { randomUUID } from 'node:crypto';
+import { acquireGpuEvaluationLock } from './gpu-evaluation-lock.js';
 import { config } from '../config.js';
 import { logger as defaultLogger } from '../core/logger.js';
 import {
@@ -673,6 +674,9 @@ export class ModelBindingApplication {
     this.delay = options.delay || defaultDelay;
     this.verificationAttempts = options.verificationAttempts ?? 1;
     this.verificationRetryDelayMs = options.verificationRetryDelayMs ?? 30_000;
+    this.acquireVerificationGpu = options.acquireVerificationGpu || (() => acquireGpuEvaluationLock({
+      command: 'IntentSmith exact binding verification',
+    }));
     this.clock = options.clock || Date.now;
     this.scheduleRecovery = options.scheduleRecovery || ((callback, delayMs) => {
       const timer = setTimeout(callback, delayMs);
@@ -688,6 +692,7 @@ export class ModelBindingApplication {
     this._ownedProviderClaims = new Map();
     this._providerRecoveryTimers = new Map();
     this._runtimeFinalizeRecoveryTimers = new Map();
+    this._verificationRecoveryTimers = new Map();
     this._verificationTail = Promise.resolve();
     this._verificationStarted = false;
     this._rehydratePromise = null;
@@ -2571,14 +2576,20 @@ export class ModelBindingApplication {
   }
 
   async #verifyOperation(operation) {
+    if (!this.#isCurrentOperation(operation)) return { ok: false, stale: true };
     let lastError = null;
     let attempts = 0;
     for (let index = 0; index < this.verificationAttempts; index++) {
       attempts++;
       let resolved;
       let releaseUseLease = null;
+      let gpuLease = null;
       let probeCompleted = false;
       try {
+        // Rehydration may queue real inference on startup. Share the same
+        // cross-process exclusion as the model collector, even for a one-token
+        // identity probe. An occupied GPU is not a failed model verification.
+        gpuLease = this.acquireVerificationGpu();
         try {
           releaseUseLease = this.#acquireModelUseLeases(
             [operation.targetModelName],
@@ -2616,12 +2627,24 @@ export class ModelBindingApplication {
         return { ok: true };
       } catch (error) {
         if (probeCompleted) throw error;
+        if (error?.code === 'GPU_EVALUATION_BUSY') {
+          if (!this._verificationRecoveryTimers.has(operation.operationId)) {
+            const timer = this.scheduleRecovery(() => {
+              this._verificationRecoveryTimers.delete(operation.operationId);
+              if (this.#isCurrentOperation(operation)) this.#scheduleVerification(operation);
+            }, Math.max(1000, this.verificationRetryDelayMs));
+            this._verificationRecoveryTimers.set(operation.operationId, timer);
+          }
+          this.logger.info('ModelBindingApplication', 'Exact verification deferred: GPU evaluation is active');
+          return { ok: false, deferred: true, reason: 'GPU_EVALUATION_BUSY' };
+        }
         lastError = error;
         const code = verificationFailureCode(error);
         if (code === 'MODEL_BINDING_VERIFICATION_DIGEST_DRIFT'
           || index === this.verificationAttempts - 1) break;
       } finally {
         releaseUseLease?.();
+        gpuLease?.release();
       }
       await this.delay(this.verificationRetryDelayMs);
     }
