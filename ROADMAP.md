@@ -1,5 +1,16 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**GPU hunt — technická příprava dalšího sběru, 23. 9. 2026:**
+Trvalý deník a pokračování mezi okny, souhrnné rozpočty a průběžná ochrana
+RAM/FS/GPU jsou implementované. Připravený CHAT pilot: dva přesné artefakty,
+24 dialogů / 64 volání, zatím 0 volání. Nové CODE zadání vyžaduje jistotu i
+pod prahem; dvě reference prošly 24/24 technickými kontrolami. Kandidát
+extraktoru pracuje pouze s prózou a nemá přejímku ani skórovací autoritu.
+60 cílených kontrol PASS; nejde o modelový pilot ani release PASS.
+Aktuální module graph má 1 417 hran, 3 cykly / 28 členů.
+**REVIEW_PENDING / NOT_DEPLOYED / NO_AUTONOMOUS_GO**.
+[Nové předání, příkazy, důkazy a zbývající přejímky](docs/review/2026-09-23-HUNT-COLLECTION-READY.md).
+
 **GPU hunt — propojené hodnocení, 23. 9. 2026:**
 Podporovaná cesta ze sběru do přijatého hodnocení, API/Studio a příjem provozní
 přejímky všech sedmi rolí jsou implementované a nasazené na `400c9d8f`.

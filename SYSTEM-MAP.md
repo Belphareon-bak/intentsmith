@@ -1,5 +1,16 @@
 # IntentSmith — mapa systému
 
+**GPU hunt — technická příprava dalšího sběru, 23. 9. 2026:**
+Trvalý deník a pokračování mezi okny, souhrnné rozpočty a průběžná ochrana
+RAM/FS/GPU jsou implementované. Připravený CHAT pilot: dva přesné artefakty,
+24 dialogů / 64 volání, zatím 0 volání. Nové CODE zadání vyžaduje jistotu i
+pod prahem; dvě reference prošly 24/24 technickými kontrolami. Kandidát
+extraktoru pracuje pouze s prózou a nemá přejímku ani skórovací autoritu.
+60 cílených kontrol PASS; nejde o modelový pilot ani release PASS.
+Aktuální module graph má 1 417 hran, 3 cykly / 28 členů.
+**REVIEW_PENDING / NOT_DEPLOYED / NO_AUTONOMOUS_GO**.
+[Nové předání, příkazy, důkazy a zbývající přejímky](docs/review/2026-09-23-HUNT-COLLECTION-READY.md).
+
 **GPU hunt — druhý CODE posudek připojen, 23. 9. 2026:**
 Původní DRAFT ověřen přes packet ID, custody a hashe: shoda 60/60 os,
 všech 60 citací nalezeno. Předchozí expozice zachovaná; nejde o nezávislou
@@ -647,15 +658,15 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **228 757 ř.**  654 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **249 691 ř.**  536 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **228 757 ř.**, 654 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **249 691 ř.**, 536 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **538** (`444 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **178 / 103** |
 | HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
 
 Aktuální registry fingerprint je
-`74a353daa7c1c75b961ee963c2a251e026c6440ccdd7f9860ce051c6101f97cb`.
+`127ed6e320f05fdb785b5e9066099ee79fa2a7dd866d26bb6b04ac2b3191b464`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 
