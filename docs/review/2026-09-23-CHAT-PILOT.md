@@ -45,6 +45,21 @@ Všechny odpovědi se zobrazují jako původní text. Formátovací značky mode
 
 ## Samostatné pozorování formátu
 
+### Zopakování auditu bez GPU
+
+`audit-chat-pilot.mjs` kontroluje uloženou událostní stopu a vytvoří nový report do dosud neexistujícího adresáře. Nevolá modely ani nepřiděluje obsahové známky:
+
+```bash
+node /mnt/vi7000/intentsmith/evidence/hunt-chat-pilot-20260923/audit-chat-pilot.mjs \
+  --stage=/mnt/vi7000/intentsmith/evidence/hunt-chat-pilot-20260923/capture \
+  --out=/absolute/new/audit-output \
+  --repo=/home/belphareon/worktrees/is-mobile-completion-20260908
+```
+
+První opakování v `audit-replay-01/` potvrdilo totožné kontroly, zdrojová pozorování rezerv a rozpad po modelech (`audit-replay-verification.json`: PASS). Je to reprodukce technického auditu stejných dat, nikoli nové měření nebo nezávislá přejímka hodnotitele. Archiv balíčku obsahuje také identity modelů; pro posouzení bez metadata identity se předává samostatně pouze `review/review.html`.
+
+### Výstupy parseru
+
 Jediný striktní JSON scénář má dvě jazykové varianty a dva modely, tedy čtyři odpovědi. **2/4 byly přímo platný JSON, produkční `extractJSON()` přečetl 4/4.** `format-observations.json` váže výsledky na anonymní ID a SHA odpovědi. Neříká nic o správnosti vyčtených hodnot ani o obsahové známce. Ostatní konverzační scénáře za formát penalizované nejsou.
 
 ## Oprava nalezená při pilotu a ověření rozhraní

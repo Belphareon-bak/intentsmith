@@ -34,7 +34,8 @@
     "browserPassed": 17,
     "browserErrors": 0,
     "auditedProgramsPassed": 2,
-    "releaseGateRun": false
+    "releaseGateRun": false,
+    "offlineCaptureAuditReplay": "PASS"
   },
   "formatOnly": {
     "strictJson": 2,
@@ -102,6 +103,16 @@
       "path": "capture/summary.json",
       "sha256": "3b610a03b253a9fb7b08349eb7992ee1f9cac1190d2f39f5370f9756fc7d24a3",
       "bytes": 1388
+    },
+    {
+      "path": "audit-chat-pilot.mjs",
+      "sha256": "13bb3e79576ed6f9f82f74070c8225d0047f69f3ad3321f1534bdd43a2ab85c0",
+      "bytes": 5793
+    },
+    {
+      "path": "audit-replay-verification.json",
+      "sha256": "b2ddd4be9176730b84f8a198237080fffd7d6f8992ecba35a929723bf9f08b58",
+      "bytes": 114
     }
   ]
 }
