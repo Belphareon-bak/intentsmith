@@ -119,3 +119,13 @@ Oddělit UI/M1 zobrazení od nové instalační autority. Zaměřit se na lokál
 transport, policy revoke/race, síť a DNS, lockfile/SDK integritu, izolaci procesů,
 atomickou publikaci, restart a přiznané omezení parserů/instalací. Zelené testy
 neznamenají nezávislé přijetí této nové schopnosti.
+
+### První úplný integrovaný profil
+
+Na `0c424e6a`: 360 PASS / 6 FAIL / 1 BLOCKED ze 367 programů. Zachováno
+v `test-runs/2026-09-23T21-13-54-213Z/report.json`. Pět opravitelných
+FAIL: nové testy chyběly v standardní izolaci, dva inventáře migrací, aktuální
+M6 počet migrací a generovaný inventář desktopových rout. Opravy zachovávají
+přesné seznamy i assertions; upgrade/fresh/idempotence sada 61/61 PASS.
+Šestý FAIL je očekávaná operátorská Gate 0 pečeť. BLOCKED procesu vyžadoval
+explicitní toolchain: bubblewrap (samostatný alias od bwrap).

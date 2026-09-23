@@ -1,3 +1,4 @@
+import './helpers/isolated-test-db.js';
 import assert from 'node:assert/strict';
 import { test, after } from 'node:test';
 import { EventEmitter } from 'node:events';

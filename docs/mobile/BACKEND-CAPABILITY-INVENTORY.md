@@ -12,14 +12,14 @@ remote-health.read is a public GET /remote/v1/health prerequisite, not one of th
 The underlying requirements retain their own candidate stage. Availability and scopes must
 still be validated against the actual server/session; desktop route existence grants no remote authority.
 
-- Desktop route declarations: 250
+- Desktop route declarations: 258
 - Legacy /m1 declarations: 0
 - M7 HTTP routes: 7
 - M7 invocation operations: 17
 - Capability areas: approvals, conversations, events, notifications, projects, settings, stored_information
 - Control-plane operations (not another capability): 3
-- Desktop route digest: `67f76769cf0a15ce6305e333e3947521c48193d4a442299b3485e0004cffd2c8`
-- Combined inventory digest: `a19ce0b199719d4dd557313c555e2f809035d97822377f335c292d4e8c0bf2a4`
+- Desktop route digest: `a42fa20fdf1f00440e1c5ca3bc8e74c0f3d753bdbf628a0e46f0897bab9e40cb`
+- Combined inventory digest: `d6f62a091765e382365d705afdc20f0bcd24a8c08eb6f5a647bce541f8001b24`
 
 Workers, specialists and device management have no M7 operation in this projection.
 Their desktop route declarations must not be mistaken for a mobile capability.
@@ -109,6 +109,14 @@ Their desktop route declarations must not be mistaken for a mobile capability.
 | POST | `/api/conversations/:id/assign` | src/routes/projects.js |
 | GET | `/api/conversations/:id/messages` | src/routes/chat.js |
 | PATCH | `/api/conversations/:id/restore` | src/routes/chat.js |
+| POST | `/api/development/cancel` | src/routes/development.js |
+| GET | `/api/development/environment` | src/routes/development.js |
+| POST | `/api/development/execute` | src/routes/development.js |
+| GET | `/api/development/installations` | src/routes/development.js |
+| GET | `/api/development/policy` | src/routes/development.js |
+| PUT | `/api/development/policy` | src/routes/development.js |
+| POST | `/api/development/prepare` | src/routes/development.js |
+| GET | `/api/development/status` | src/routes/development.js |
 | DELETE | `/api/drafts` | src/routes/chat.js |
 | GET | `/api/drafts` | src/routes/chat.js |
 | POST | `/api/drafts` | src/routes/chat.js |
