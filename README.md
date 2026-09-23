@@ -1,5 +1,15 @@
 # IntentSmith
 
+**GPU hunt — velký CHAT sběr po slepém posudku, 23. 9. 2026:**
+Operátorem spuštěný panel deseti místních modelů: 20 CS/EN párů, tři
+opakování, 1 200 dialogů / nejvýše 3 480 volání, okno 24 hodin.
+Rubrika v2 upravuje podmíněný kredit u injektáže a nevyplněné šablony;
+40 promptů se nemění. Posudek pilotu (96 známek) uchován v původní verzi.
+**COLLECTION_RUNNING / NOT_GRADED / NO_AUTONOMOUS_GO** — stav je snímek
+zahájeného běhu, aktuální průběh a výsledek jsou v jeho trvalé evidenci.
+[Průběh, změny rubriky, původní známky a ovládání běhu](docs/review/2026-09-23-CHAT-PANEL.md).
+
+
 **GPU hunt — skutečný CHAT pilot, 23. 9. 2026:**
 Qwen3.8 a Phi4 dokončily **24/24 dialogů, 64/64 volání** za 7 min 33 s.
 Návaznost, identity a úplnost ověřené; obsahové známky zatím nevydané.

@@ -65,7 +65,7 @@ export function renderConversationReview(review, identityKey = null) {
 <script id="payload" type="application/json">${data}</script>
 <script>
 const packet=JSON.parse(document.getElementById('payload').textContent);
-const key='hunt-dialog-review:'+packet.identified+':'+packet.items.map(i=>i.id).sort().join(',');
+const key='hunt-dialog-review:'+packet.identified+':'+packet.reviewSha256;
 let grades={};try{const saved=JSON.parse(localStorage.getItem(key)||'{}');if(saved&&typeof saved==='object'&&!Array.isArray(saved))grades=saved;}catch{}
 const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;};
 const persist=()=>{try{localStorage.setItem(key,JSON.stringify(grades));document.getElementById('saved').textContent='Uloženo v tomto prohlížeči';}catch{document.getElementById('saved').textContent='Místní ukládání není dostupné; použij export.';}};
@@ -76,7 +76,7 @@ for(const name of [...new Set(packet.items.map(i=>i.task))].sort()){const item=p
 function render(){
  const main=document.getElementById('content');main.replaceChildren();
  const items=packet.items.filter(i=>i.task===taskSelect.value);
- if(packet.identified)items.sort((a,b)=>a.identity.model.localeCompare(b.identity.model));
+ if(packet.identified)items.sort((a,b)=>a.identity.model.localeCompare(b.identity.model)||(a.identity.repeat||0)-(b.identity.repeat||0));
  if(!items.length)return;
  main.append(el('h2','Zadání testu: '+(items[0].title||taskSelect.value)));
  for(const [index,turn] of (items[0].input.conversationTurns||[]).entries()){
@@ -87,7 +87,7 @@ function render(){
  for(const [index,item] of items.entries()){
   const card=el('section',undefined,'card');card.dataset.id=item.id;cards.append(card);
   const title=packet.identified?item.identity.model:'Odpověď '+(index+1);
-  card.append(el('h2',title),el('p','Záznam '+item.id.slice(0,8)+' · '+item.captureStatus,'muted'));
+  card.append(el('h2',title),el('p',(packet.identified?'Opakování '+item.identity.repeat+' · ':'')+'Záznam '+item.id.slice(0,8)+' · '+item.captureStatus,'muted'));
   const transcript=item.conversation?.transcript||[{role:'assistant',content:item.response}];
   let turn=0;
   for(const message of transcript){
