@@ -86,9 +86,22 @@ for (role, model), rows in sorted(grouped.items()):
         'runtimeParsed': aggregate(structured, lambda r: None if r['grade'].get('format', {}).get('runtimeParsed') is None else int(r['grade']['format']['runtimeParsed'])),
         'oracleReviewRequired': any(r['warning'] for r in rows)})
 
+coverage = {}
+for role in sorted({r['role'] for r in items}):
+    role_rows = [r for r in items if r['role'] == role]
+    all_tasks = {r['task'] for r in role_rows}
+    prose_tasks = {r['task'] for r in role_rows if role == 'CHAT' and not r['jsonRequested']}
+    exact_tasks = {task for task_role, task in technical_tasks if task_role == role}
+    outside = sorted(all_tasks - prose_tasks - exact_tasks)
+    coverage[role] = {'totalTasks': len(all_tasks), 'coveredTasks': len(prose_tasks | exact_tasks),
+                      'outsideContentAxes': outside,
+                      'outsideAttempts': sum(r['task'] in outside for r in role_rows),
+                      'reason': 'Požadují JSON, ale původní obsah je hodnocen posudkem; '
+                                'nepatří do osy prózy ani přesných polí. Původní známky jsou v matici.'}
+
 payload = {'schemaVersion': 1, 'status': 'EXISTING_OBSERVATIONS_NOT_REPLAYED',
            'decisionAuthority': False, 'productionImported': False, 'sources': sources,
-           'inputs': inputs, 'items': items, 'summaries': summaries}
+           'inputs': inputs, 'items': items, 'summaries': summaries, 'contentAxisCoverage': coverage}
 data = json.dumps(payload, ensure_ascii=False).replace('<', '\\u003c').replace('>', '\\u003e').replace('&', '\\u0026')
 document = '''<!doctype html><html lang="cs"><meta charset="utf-8"><title>GPU hunt — úplná matice</title>
 <style>
@@ -100,7 +113,7 @@ document = '''<!doctype html><html lang="cs"><meta charset="utf-8"><title>GPU hu
 <div class="toolbar"><label>Role <select id="role"></select></label><label>Model <select id="model"><option value="">Všechny</option></select></label><label>Filtr úloh <input id="filter" type="search"></label><button id="reset">Zrušit filtry</button></div>
 <p id="counts"></p><h2>Oddělené osy — dosavadní pokrytí</h2>
 <p class="muted">Konverzační sloupec je pouze průměr původních rubrik nad jednorázovou prózou, nikoli nové měření konverzační kvality. Technická osa: CHAT/VISION přesná pole, CODE spuštěné testy, D1/D2/R1/R2 původní obsahové posudky; tyto metody nejsou zaměnitelné. Formát zde znamená pouze striktní JSON, ne úplné dodržení instrukcí. Runtime znamená parsovatelnost, nikoli správnost. Čísla jsou průměry úloh; opakování se agregují uvnitř úlohy. U neúplných dat je průměr jen z dostupných známek a počet chybějících zůstává viditelný.</p>
-<div id="axes" class="scroll"></div><h2>Úlohy × modely</h2><div id="matrix" class="scroll"></div><section id="detail"></section>
+<div id="coverage"></div><div id="axes" class="scroll"></div><h2>Úlohy × modely</h2><div id="matrix" class="scroll"></div><section id="detail"></section>
 <details><summary>Původ dat a omezení</summary><pre id="sources"></pre></details>
 <script id="data" type="application/json">PAYLOAD</script><script>
 const data=JSON.parse(document.getElementById('data').textContent),$=id=>document.getElementById(id);
@@ -116,6 +129,8 @@ function render(){
  const rows=roleRows(),models=[...new Set(rows.map(r=>r.model))].sort().filter(m=>!$('model').value||m===$('model').value);
  const tasks=[...new Set(rows.map(r=>r.task))].sort().filter(t=>t.toLowerCase().includes($('filter').value.toLowerCase()));
  $('counts').textContent=`${rows.length} odpovědí v roli · ${new Set(rows.map(r=>r.task)).size} úloh · ${new Set(rows.map(r=>r.model)).size} modelů. Zobrazeno ${tasks.length} úloh / ${models.length} modelů.`;
+ const coverage=data.contentAxisCoverage[$('role').value];
+ $('coverage').innerHTML=`<p>Pokrytí obsahových os celé role: <strong>${coverage.coveredTasks} / ${coverage.totalTasks} úloh</strong>.</p>`+(coverage.outsideContentAxes.length?`<p class="warning">Mimo obsahové osy: <strong>${coverage.outsideContentAxes.length} úlohy / ${coverage.outsideAttempts} odpovědí</strong>. ${esc(coverage.reason)}</p>`+coverage.outsideContentAxes.map(t=>`<button data-task="${esc(t)}">${esc(t)}</button>`).join(''):'');
  $('axes').innerHTML='<table><thead><tr><th>Model</th><th>Konverzační obsah: původní próza</th><th>Technická správnost</th><th>Striktní JSON</th><th>Produkční parsovatelnost</th></tr></thead><tbody>'+data.summaries.filter(s=>s.role===$('role').value&&models.includes(s.model)).map(s=>`<tr><td>${esc(s.model)}</td><td>${axis(s.conversationProxy)}</td><td>${s.oracleReviewRequired?'<span class="warning">⚠ Původní, orákulum vyžaduje opravu</span><br>':''}${axis(s.technical)}</td><td>${axis(s.strictJson)}</td><td>${axis(s.runtimeParsed)}</td></tr>`).join('')+'</tbody></table>';
  $('matrix').innerHTML='<table><thead><tr><th>Test</th>'+models.map(m=>`<th>${esc(m)}</th>`).join('')+'</tr></thead><tbody>'+tasks.map(t=>`<tr><td><button data-task="${esc(t)}">${esc(t)}</button></td>`+models.map(m=>{const attempts=rows.filter(r=>r.task===t&&r.model===m).sort((a,b)=>a.repeat-b.repeat);return `<td><button data-task="${esc(t)}" data-model="${esc(m)}">${attempts.some(r=>r.warning)?'⚠ ':''}${attempts.map(r=>fmt(r.grade.contentScore)).join(' / ')||'—'}</button></td>`}).join('')+'</tr>').join('')+'</tbody></table>';
  $('detail').innerHTML='';
@@ -135,12 +150,13 @@ function showTask(task,model){
  }}$('detail').innerHTML=text;$('detail').scrollIntoView();
 }
 $('matrix').addEventListener('click',e=>{const b=e.target.closest('[data-task]');if(b)showTask(b.dataset.task,b.dataset.model)});
+$('coverage').addEventListener('click',e=>{const b=e.target.closest('[data-task]');if(b)showTask(b.dataset.task,$('model').value)});
 $('role').onchange=setModels;$('model').onchange=render;$('filter').oninput=render;
 $('reset').onclick=()=>{$('filter').value='';$('model').value='';render()};setModels();
 </script></html>'''
 with args.out.open('x') as f:
     f.write(document.replace('PAYLOAD', data))
-summary = {k: payload[k] for k in ['schemaVersion', 'status', 'decisionAuthority', 'productionImported', 'sources', 'summaries']}
+summary = {k: payload[k] for k in ['schemaVersion', 'status', 'decisionAuthority', 'productionImported', 'sources', 'summaries', 'contentAxisCoverage']}
 summary.update({'responses': len(items), 'models': len({r['model'] for r in items}),
                 'flaggedOracleResponses': sum(bool(r['warning']) for r in items),
                 'chatJsonTasks': len({r['task'] for r in items if r['role']=='CHAT' and r['jsonRequested']})})

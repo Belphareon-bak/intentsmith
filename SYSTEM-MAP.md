@@ -1,5 +1,16 @@
 # IntentSmith — mapa systému
 
+**GPU hunt — rozsouzení textových kontrol a pokrytí matice, 23. 9. 2026:**
+Všech 154 inventarizovaných míst má autorské zařazení, důvod a zdrojový
+kontext: 102 mechanických/protokolových kontrol, 40 prózových kontrol okolí
+mimo měnitelný úsek, 12 míst vyžadujících sémantickou úpravu. Není to
+nezávislá přejímka. Nové párové sondy: 14 mutací, 13 nesouladů; jeden
+rezervní referenční běh nedokončen, jeho dva páry neprovedeny. Aktivní CODE
+přejímka navíc kontroluje práh, rychlost a chybějící měření před inferencí.
+Matice výslovně ukazuje CHAT 38/40 a zbývající 2 úlohy / 60 odpovědí.
+**AUTHOR_DISPOSITION_REVIEW_PENDING / NOT_DEPLOYED / NO_REPLAY**.
+[Rozpad, přesný rozsah sond a opravená matice](docs/review/2026-09-23-HUNT-TEXT-DISPOSITION.md).
+
 **GPU hunt — audit textových orákul, 23. 9. 2026:**
 Offline inventář zahrnuje všech 37 CODE fixtures a 83 verzí kontrolních
 souborů; lexikální seznam není přejímka jejich významu. Skutečný izolovaný

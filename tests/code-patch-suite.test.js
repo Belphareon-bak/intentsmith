@@ -144,6 +144,10 @@ await testAsync('reviewed real text-oracle counterexamples block CODE before inf
   assertEqual(calls, 0);
   assert(error?.message.includes('equivalent-inserted-word'), error?.message);
   assert(error?.message.includes('contradictory-full-value'), error?.message);
+  for (const name of ['threshold', 'speed', 'unmeasured-speed']) {
+    assert(error?.message.includes(`${name}-equivalent`), error?.message);
+    assert(error?.message.includes(`${name}-contradictory`), error?.message);
+  }
 });
 
 test('CODE prompt fixture se načte i bez dosažitelného git repozitáře', () => {
