@@ -3,7 +3,9 @@
 **GPU hunt — osobní porovnání odpovědí, 23. 9. 2026:**
 Offline podklad z uloženého panelu: 27 společných úloh, 4 modely na úlohu,
 324 odpovědí včetně všech opakování; 12 modelů celkem. Vlastní známky,
-preference a návrhy vah s exportem; žádný import do produkce ani změna GO.
+preference a návrhy vah s exportem. Rozložení v2: zadání → pojmenovaný model
+→ všechny tři odpovědi → viditelné známky a důvody; kompatibilní staré poznámky
+a exporty. Žádný import do produkce ani změna GO.
 [Výběr, původ známek a ověření rozhraní](docs/review/2026-09-23-HUNT-ANSWER-COMPARISON.md).
 
 **GPU hunt — hodnocení uloženého sběru, 23. 9. 2026:**

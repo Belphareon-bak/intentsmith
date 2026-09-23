@@ -19,13 +19,18 @@ sérií jednoho Qwenu a CODE Devstralu z 23. září. U každé zahrnuté odpov�
 byla znovu ověřena shoda s původním call logem: text vstupu, obrázky,
 inferenční parametry, nastavení think/tools, text odpovědi, model, digest
 odpovídajícího artefaktu a verze provideru. Všechny zdrojové otisky jsou
-v [receiptu](evidence/2026-09-23-hunt-answer-comparison.json).
+v [receiptu původního výběru](evidence/2026-09-23-hunt-answer-comparison.json).
+[Aktuální rozložení v2 a jeho ověření](evidence/2026-09-23-hunt-answer-comparison-layout-v2.json)
+mění pouze prezentaci; datový soubor se všemi odpověďmi a známkami zůstává
+bajtově shodný.
 
 Výběr je **cílená ukázka rozpětí**, ne náhodný vzorek ani žebříček.
 Algoritmus vybírá různým modelům ukázku nízké, vysoké a prostřední známky;
-při shodě vyvažuje zastoupení modelů. Výchozí pokus může být 1, 2 nebo 3.
-Vedle něho jsou vždy obě ostatní odpovědi téhož modelu, včetně nehodnoceného
-případu, pokud existuje. Písmena A–D označují různé modely pouze uvnitř úlohy.
+při shodě vyvažuje zastoupení modelů. V rozložení v2 jsou modely vždy
+pojmenované a všechny tři odpovědi zobrazené pod sebou v pořadí 1, 2, 3,
+včetně nehodnoceného případu. Výběr odpovědí se změnou rozložení nezměnil.
+Původní výběrový pokus a označení A–D zůstávají pouze v podkladových datech
+a kompatibilním exportu, nikoli jako ovládání pro čtenáře.
 
 ## Doporučený začátek pro CHAT
 
@@ -53,19 +58,26 @@ začerněný dokument a vážené podíly včetně skutečných obrázků.
 
 ## Jak doplnit svůj názor
 
-1. Vyber roli a úlohu. Nejprve přečti zadání a odpovědi A–D. Jména modelů
-   a původní body jsou ve výchozím stavu skryté; můžeš je kdykoli odkrýt.
-2. Zadej **obsahovou známku 0–1** a konkrétní důvod. Tlačítka 0 / 0,25 /
-   0,5 / 0,75 / 1 jsou pomůcka; číslo lze napsat ručně. Nehodnocená položka
-   zůstane prázdná, nikoli nula.
-3. **Osobní použitelnost / styl** je samostatná známka. Zvol také odpověď,
-   kterou bys preferoval. To nezmění výsledek spustitelných kontrol.
-4. Nastav **důležitost úlohy**: 1 běžná, 2 dvojnásobná, 0 vynechat z
-   budoucího návrhu. Volný komentář zachytí váhy jednotlivých kritérií;
-   rozbalovací poznámka pro roli zachytí obecné preference.
-5. **Exportovat hodnocení** stáhne `moje-hodnoceni-gpu-hunt-20260923.json`.
-   Soubor lze znovu načíst. Obsahuje ID a SHA odpovědí, známky, váhy,
-   důvody a záznam, zda byla odkryta identita či původní známka.
+1. Vyber roli a test. Nahoře je **přesné zadání**, u VISION i obrázek.
+2. Pod zadáním je tabulka **názvů modelů a tří původních známek**.
+   Kliknutím na model nebo známku přejdeš přímo k odpovědi.
+3. Každý model má všechny tři odpovědi pevně pod sebou. Jde o tři samostatná
+   opakování stejného testu, nikoli tři odlišná zadání. Nic se nepřepíná.
+   Vedle každé odpovědi je **známka 0–1, způsob hodnocení a konkrétní důvody**;
+   na užším okně je známka hned pod odpovědí. Přesné znění kritérií lze rozbalit.
+4. Pod odpovědí rozbal **Můj názor na tuto odpověď**. Obsahovou známku,
+   osobní použitelnost/styl a poznámku zapisuješ zvlášť od původního hodnocení.
+   V **Moje váha testu a preference** nastav důležitost úlohy (1 běžná,
+   2 dvojnásobná, 0 vynechat), preferovaný pojmenovaný model a preference role.
+5. **Exportovat moje hodnocení** stáhne `moje-hodnoceni-gpu-hunt-20260923.json`.
+   Starší export v1 lze načíst i do v2. Zachován je stejný soubor HTML, klíč
+   místního úložiště, ID odpovědí a vazba na původní zdroje; dřívější poznámky,
+   známky, váhy a preference se nemění. Nečitelný místní návrh se nepřepisuje.
+
+Jména i původní známky jsou nyní vidět od začátku podle výslovného požadavku
+operátora. Toto osobní posouzení proto není slepé; export zaznamenává jejich
+zpřístupnění. Původní JSON zůstal zmrazený včetně starých prezentačních příznaků;
+aktuální rozložení je nepoužívá a je samostatně označené jako v2.
 
 Stránka se průběžně ukládá v prohlížeči, ale export je přenosný pracovní
 výsledek. Nikam neposílá data, nemění DB, role, retenci ani timer. Váhy jsou
@@ -97,24 +109,38 @@ námitek druhým posuzovatelem nezaměňujeme za nový slepý posudek.
 
 ## Ověření a reprodukce
 
-V headless Chromium 145 prošlo všech 27 úloh, přepínání opakování a shoda
-zobrazených textů, všechny čtyři obrazy, skrytí/odkrytí známek a identit,
-uložení známky i váhy po reloadu, export/import a odmítnutí cizího zdroje
-či známky mimo rozsah. Nulové renderer chyby, nulové síťové požadavky,
-bez vodorovného přetečení při šířce 800 px. Diagnostický browser používá
-`--no-sandbox --disable-gpu`; nejedná se o nový fyzický průchod Studiem.
+V headless Chromium 145 bylo ve v2 ověřeno **27 testů, 108 modelových
+sekcí a všech 324 odpovědí i jejich známek**, přímo proti datovému souboru.
+Kontrola pokrývá také 958 dílčích kritérií (včetně důvodů, jsou-li v záznamu),
+čtyři obrázky a jednu odpověď bez známky. Modely i známky jsou viditelné
+bez přepínačů; odkazy vedou ke správným odpovědím. Ověřen je import v1/v2,
+známky a poznámky po reloadu, zachování váhy a preference, odmítnutí cizího
+zdroje či známky mimo rozsah a ochrana nečitelného místního návrhu.
 
-Zachované neúspěšné kroky harnessu: chyběla očekávaná Chrome 152 cache,
-proto byl explicitně použit existující Chromium 145. Další kontrola
-hledala po reloadu jiný než právě zobrazený pokus; po zvolení stejného
-opakování ověřila zachovanou známku. Testovací exporty jsou oddělené a
-výslovně syntetické, žádné z nich nejsou skutečné hodnocení modelů.
+Nulové renderer chyby a síťové požadavky, bez vodorovného přetečení při
+šířkách 800 a 390 px. Snímky zadání, konkrétních odpovědí a reasoning
+hodnocení byly také vizuálně zkontrolovány. Diagnostický browser používá
+`--no-sandbox --disable-gpu`; toto je ověření samostatného HTML, ne Studia.
+Testovací exporty jsou syntetické a oddělené od skutečného hodnocení.
 
-`build-comparison.py` a `comparison-template.html` v evidence rootu
-znovu sestaví stránku z původních zdrojů s kontrolou otisků a call logů:
-`python3 build-comparison.py --output /absolutni/novy/adresar`.
-Existující data builder nepřepisuje. Pro samotné prohlížení a hodnocení
-stačí samostatný `comparison.html`; obsahuje všechny texty a obrázky.
+Původní v1 archiv a jeho receipt zůstávají zachované včetně tehdejších
+neúspěšných kroků harnessu (chybějící cache Chrome 152, chybný výběr pokusu
+v testu po reloadu). V2 má vlastní obsahově adresovaný archiv, manifest,
+receipt a `ui-verification-layout-v2.json`. Při rozšíření testu importu
+harness nejprve čekal na stále zobrazenou hlášku předchozího importu a četl
+starou známku. Zachovaný neúspěšný pokus vedl k opravě čekání na skutečně
+obnovenou hodnotu; finální průchod prošel.
+
+Reprodukce stejného rozložení z neměnných dat v evidence rootu:
+
+```sh
+python3 render-comparison-layout-v2.py --output /absolutni/novy/comparison.html
+node check-comparison-layout-v2.cjs
+```
+
+Renderer ověřuje SHA vstupního datového souboru a bez výslovného parametru
+nepřepíše výstup. Pro samotné prohlížení a hodnocení stačí samostatný
+`review/comparison.html`; obsahuje všechny texty i obrázky.
 
 K odhadu šumu: změna Devstralu 11/21 → 10/21 znamená pozorovaný rozdíl
 4,76 procentního bodu. Dva běhy samy nestanovují spolehlivou hranici šumu
