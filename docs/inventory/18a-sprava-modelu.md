@@ -1,5 +1,14 @@
 # Inventura #18a — Správa modelů
 
+**GPU hunt — skutečný CHAT pilot, 23. 9. 2026:**
+Qwen3.8 a Phi4 dokončily **24/24 dialogů, 64/64 volání** za 7 min 33 s.
+Návaznost, identity a úplnost ověřené; obsahové známky zatím nevydané.
+Připravené oddělené stránky pro anonymní a pojmenované hodnocení, 17 browser
+kontrol PASS. Opravený výpis uplynulého času; 45 cílených kontrol PASS.
+Další desetimodelový CHAT panel (3 480 volání) je zmrazený, nespuštěný.
+**CAPTURE_COMPLETE / UNGRADED / REVIEW_PENDING / NO_AUTONOMOUS_GO**.
+[Dialogy, důkazy, rozpočet a další postup](../review/2026-09-23-CHAT-PILOT.md).
+
 **GPU hunt — technická příprava dalšího sběru, 23. 9. 2026:**
 Trvalý deník a pokračování mezi okny, souhrnné rozpočty a průběžná ochrana
 RAM/FS/GPU jsou implementované. Připravený CHAT pilot: dva přesné artefakty,

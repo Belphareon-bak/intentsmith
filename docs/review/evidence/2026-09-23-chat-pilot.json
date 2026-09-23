@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-23T15:19:48.638229+00:00",
+  "status": "CAPTURE_COMPLETE_UNGRADED_REVIEW_PENDING",
+  "modelCaptureRevision": "3a2a82cb9102cf9afce9c43bced00b9959885006",
+  "postCaptureUiRevision": "60783fd0821ed2f7d91a5cebf6ba17aca3b0743c",
+  "modelCalls": 64,
+  "completeConversations": 24,
+  "elapsedMs": 452810,
+  "outputTokens": 21019,
+  "resources": {
+    "minimumObservedRamGiB": 16.722251892089844,
+    "minimumObservedDiskGiB": {
+      "/mnt/vi7000/intentsmith/evidence/hunt-collection-ready-20260923/chat-pilot-final": 754.4840850830078,
+      "/home/belphareon": 182.58969116210938,
+      "/tmp": 15.330169677734375
+    },
+    "maximumObservedModelVramGiB": 16.126640623435378
+  },
+  "pilotPlanSha256": "7fcbbae79a7339b99eab8afa5d9474dab3c443779ce4bd6fad1eba3f1590f1a4",
+  "fullPanelPlanSha256": "a13dcc6e5b89acf5c07f2a8c6f5c75cfa7580ad8ae04c523b2dae28584dc9570",
+  "fullPanelStarted": false,
+  "fullPanelBudget": {
+    "calls": 3480,
+    "outputTokens": 7127040
+  },
+  "qualityScores": null,
+  "decisionAuthority": false,
+  "independentGraderAccepted": false,
+  "operationalQualificationAccepted": false,
+  "verification": {
+    "focusedPassed": 45,
+    "focusedFailed": 0,
+    "browserPassed": 17,
+    "browserErrors": 0,
+    "auditedProgramsPassed": 2,
+    "releaseGateRun": false
+  },
+  "formatOnly": {
+    "strictJson": 2,
+    "runtimeParsed": 4,
+    "responses": 4
+  },
+  "evidenceRoot": "/mnt/vi7000/intentsmith/evidence/hunt-chat-pilot-20260923",
+  "files": [
+    {
+      "path": "capture-audit.json",
+      "sha256": "52f32b7006fc13db401f8fd1ac333ec035e49699b30715e5a761eadb303b44ed",
+      "bytes": 11601
+    },
+    {
+      "path": "full-panel-budget.json",
+      "sha256": "860bc1561214d34f07ab5c70ae09ba33c221584f37ee7c71cd30e0ef34e319b9",
+      "bytes": 783
+    },
+    {
+      "path": "format-observations.json",
+      "sha256": "4366b9bcd1474f63ab3249b513b01d86038b1e554938efc062f28b9ae00dafed",
+      "bytes": 1362
+    },
+    {
+      "path": "browser-check.json",
+      "sha256": "df36700af4d8ebab899ddb9726511e8eecba3799047d58e9d1df81e3cbb711a6",
+      "bytes": 1827
+    },
+    {
+      "path": "focused-final.log",
+      "sha256": "1dc4d42f733998ad7d39cb6165d371df5efd5996b152a035b549bc381f9a9a25",
+      "bytes": 40556
+    },
+    {
+      "path": "review/review.json",
+      "sha256": "5adf7dd01db695615aba4ebfa091bb1f45749760b7e58f39fc56c0bee90fd139",
+      "bytes": 314738
+    },
+    {
+      "path": "review/review.html",
+      "sha256": "05d5b4d61151a26e83e63abec6c41f04842dbb2e531a7795762d1afa64c6c50a",
+      "bytes": 274178
+    },
+    {
+      "path": "review/comparison-with-identities.html",
+      "sha256": "99520903cacc897e0545b95dc69f79e68da83fea2f6a86f4f83ac2b3da3229ec",
+      "bytes": 314284
+    },
+    {
+      "path": "review/PRIVATE-identity-key.json",
+      "sha256": "d0456fa5e205631523621c02302c67f5a3a8a150fa110220d7b31579e59427cf",
+      "bytes": 53582
+    },
+    {
+      "path": "capture/plan.json",
+      "sha256": "3cdf3776ca10e0cd32b79c2514fc79efbfc9f49f6cc6017d6f004d62d338c03a",
+      "bytes": 100041
+    },
+    {
+      "path": "capture/events.jsonl",
+      "sha256": "21220af4649021c21980e0361957662362570d3ad70d4eb94470db8b96ede35b",
+      "bytes": 493813
+    },
+    {
+      "path": "capture/summary.json",
+      "sha256": "3b610a03b253a9fb7b08349eb7992ee1f9cac1190d2f39f5370f9756fc7d24a3",
+      "bytes": 1388
+    }
+  ]
+}
