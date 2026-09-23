@@ -18,6 +18,7 @@ import {
 } from '../cre-decision.js';
 import { toolExecutor, ExecutionStatus } from '../../executor/tool-executor.js';
 import { logger } from '../../core/logger.js';
+import { developmentEnvironmentPrompt } from '../../setup/development-environment.js';
 import { Structure, FollowUpStyle } from '../../memory/preferences.js';
 import { synthesizeWithLLM } from './utils/synthesis.js';
 import { getLanguageContext, inferUserLanguageFromHistory } from './utils/language.js';
@@ -280,8 +281,6 @@ export function buildAnswerContext(input, history, systemPrompt, requestedTokens
   const base = `User: ${input}`;
   const available = numCtx - 384 - Math.ceil(bytes(systemPrompt + base) / 2);
   if (available < Math.min(requestedTokens, 384)) throw new Error('Zpráva se nevejde do kontextu modelu. Zkrať ji nebo ji rozděl na části.');
-  const maxTokens = Math.min(requestedTokens, available, Math.floor(numCtx / 2));
-  const historyBudget = Math.max(0, (available - maxTokens) * 2 - 160);
   const turns = [];
   for (const item of history || []) {
     if (item.userInput) turns.push({ role: 'user', content: item.userInput });
@@ -292,6 +291,12 @@ export function buildAnswerContext(input, history, systemPrompt, requestedTokens
   }
   // Durable history already contains the current user message.
   if (turns.at(-1)?.role === 'user' && turns.at(-1).content === input) turns.pop();
+  // A follow-up needs its antecedent. Optional host observations must not
+  // consume the last history slot merely to reserve the maximum output cap.
+  // Stay inside the same model context and output authority.
+  const historyReserve = turns.length ? Math.min(512, Math.floor(available / 4)) : 0;
+  const maxTokens = Math.min(requestedTokens, available - historyReserve, Math.floor(numCtx / 2));
+  const historyBudget = Math.max(0, (available - maxTokens) * 2 - 160);
   let used = 0; const selected = [];
   for (const turn of turns.slice(-10).reverse()) {
     const remaining = historyBudget - used;
@@ -1170,6 +1175,7 @@ Délku, strukturu a počet příkladů přizpůsob zadání. Přiznej nejistotu;
       + buildFullCodeDeliverableInstruction(input, langCtx.language, decision.intent);
 
     // v65.4: Project context injection (sanitized, length-limited)
+    systemPrompt += await developmentEnvironmentPrompt();
     systemPrompt += buildProjectContext(context);
     const requestedTokens = selectAnswerTokenBudget(input, decision.intent);
     const numCtx = getNumCtx(config.models.CHAT);

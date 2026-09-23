@@ -6,6 +6,7 @@ import path from 'node:path';
 import { inspectProject } from '../../planner/project-onboarding.js';
 import { compileCodeDraftInput } from '../../lifecycle/m2-code-draft.js';
 import { clockSystemPrompt } from '../../llm/clock-context.js';
+import { inspectDevelopmentEnvironment } from '../../setup/development-environment.js';
 
 export const PROJECT_DISCUSSION_SYSTEM = `Read-only IntentSmith collaborator. Brief reply in user's language. Preserve the whole goal; propose only the next increment.
 Imported repo: strengths, defects, unknowns; ask goal/next work if unclear. Challenge mistakes.
@@ -218,8 +219,12 @@ async function discussProjectOnce(input, context, {
     role: turn.response?.tag?.speaker === 'user' ? 'user' : 'assistant',
     content: String(turn.response?.content || '').slice(0, 2400),
   }));
-  const prompt = JSON.stringify({ request: input, host: { platform: process.platform, architecture: process.arch,
-    node: process.versions.node }, project: { id: project.id, name: project.name,
+  const observed = await inspectDevelopmentEnvironment();
+  const host = { platform: observed.platform, architecture: observed.architecture,
+    distribution: observed.distribution, node: observed.runtime.node,
+    toolsPresent: Object.keys(observed.tools).filter(name => observed.tools[name]),
+    observedAtMs: observed.observedAtMs, observation: observed.observation };
+  const prompt = JSON.stringify({ request: input, host, project: { id: project.id, name: project.name,
     description: project.description, imported: !!project.is_external },
     history, analysis, ...(planFeedback ? { planFeedback } : {}), projectWorkEvidence: await readEvidence(context) });
   if (Buffer.byteLength(prompt) > 64_000) throw new Error('Kontext projektu je příliš velký; vyber konkrétní část pro další krok.');

@@ -1,5 +1,13 @@
 # IntentSmith — mapa systému
 
+**Studio: průběh práce a prostředí, 2026-09-23:** konkrétní tahy, nástroje,
+čekání, souborové diffy/+− a kopírování formátované odpovědi. Přidáno skutečné
+prostředí backendu a explicitní potvrzované/automatické instalace npm a .NET SDK
+v odděleném rozsahu. Default ask, bez sudo. Skutečný Electron/M2 a SDK ověřeny;
+kompletní profil a nasazení probíhají. REVIEW_PENDING, žádná změna Huntu/modelů.
+Aktuální module graph má 1 420 hran, 3 cykly / 28 členů.
+[Podrobnosti, důkazy a omezení](docs/review/2026-09-23-STUDIO-ACTIVITY-ENVIRONMENT.md).
+
 **GPU hunt — hodnocení uloženého sběru, 23. 9. 2026:**
 Doplněny CLI, lokální API a Studio pro hodnocení již uložených odpovědí.
 Přejímka T4 vyžaduje nezávislé označení a jiný digest hodnotitele, provozní
@@ -580,15 +588,15 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **228 031 ř.**, 646 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **249 654 ř.**, 536 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **530** (`436 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
-| Tabulek v čerstvé DB / aplikovaných migrací | **178 / 103** |
-| HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |
+| `src/**/*.js` | **228 620 ř.**, 652 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **250 012 ř.**, 538 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **532** (`438 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
+| Tabulek v čerstvé DB / aplikovaných migrací | **181 / 104** |
+| HTTP rout | **254 statických deklarací**; nejde o počet runtime ověřených cest |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
 
 Aktuální registry fingerprint je
-`74a353daa7c1c75b961ee963c2a251e026c6440ccdd7f9860ce051c6101f97cb`.
+`aeb5944a462f042dde35f6f2f46febeefcca5716b5f5331f40b13ccbe8c921e1`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 

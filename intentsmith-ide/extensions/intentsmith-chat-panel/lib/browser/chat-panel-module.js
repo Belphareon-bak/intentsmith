@@ -23,6 +23,7 @@ var createLegacyLocalObjectUrlCache = require("../../../../shared/legacy-local-o
 var h = React.createElement;
 var WorkActivity = require("./work-activity");
 var WorkActivityUI = WorkActivity.createComponents(React);
+var DevelopmentPanel = require("./development-panel").createPanel(React);
 
 /* ═══ TRANSPORT MODULES ═══ */
 try { require("./event-bus"); } catch(e) { console.warn('[IntentSmith] event-bus.js not loaded:', e.message); }
@@ -4066,6 +4067,7 @@ function settingsSystemPanel(){
   if(!_bCfg)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');
   if(!_sysInfo){fetch(_backendUrl()+'/api/system/info',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_sysInfo=d;renderCenter();}).catch(function(){_sysInfo={error:true};});}
   return _settingsPage("System",[
+{id:"development",label:"Prostředí a závislosti",cards:[h(DevelopmentPanel,{key:"development",backend:_backendUrl(),projectId:_sessions[_sessionActive]&&_sessions[_sessionActive]._projectId})]},
 {id:"startup",label:"Spouštění",cards:[_settingsCard("Pracovní relace",[_settingsToggle('Obnovit poslední relaci','Při startu obnoví poslední otevřený pohled, konverzaci a projekt',_settingsVals.restoreSession,function(nv){_settingsVals.restoreSession=nv;_saveSV();renderCenter();})]),
 _settingsCard("Místní formát",[_cfgSelect('Časové pásmo','intentsmith.account.timezone','Europe/Prague',['Europe/Prague','Europe/London','America/New_York','America/Los_Angeles','Asia/Tokyo','UTC']),
 _cfgSelect('Měna','intentsmith.account.currency','CZK',['CZK','EUR','USD','GBP'])])]},
@@ -7706,6 +7708,7 @@ function _chatPaneUI(idx,opts){
               }else{
                 var inp=document.createElement('input');inp.type='file';inp.multiple=true;inp.style.display='none';document.body.appendChild(inp);inp.onchange=function(){if(inp.files){for(var j=0;j<inp.files.length;j++){st.attachments.push({name:inp.files[j].name,size:Math.round(inp.files[j].size/1024)+' KB',file:inp.files[j]});}renderChat();}document.body.removeChild(inp);};inp.click();
                             }}},svgEl(I.attach,12)),
+          s._projectId?h('button',{type:'button',title:'Prostředí a instalace závislostí projektu',onClick:function(){_settingsTabs.System='development';_centerState.view='settings';_centerState.settingsSection=SETTINGS_SECTIONS.findIndex(function(s){return s.title==='System';});_syncWorkspacePanels();renderCenter();}},'Závislosti'):null,
           s._projectId&&s._convId?h('button',{type:'button',id:'m2-build-'+idx+'-open',style:{background:C.accentBg,color:C.accentText,border:'1px solid '+C.border2,borderRadius:4,cursor:'pointer',padding:'3px 6px',fontSize:_fs(10)},
             disabled:!!st._m2Busy||!!st._preparedSend||!!_m2NormalizePending(s._m2Pending),onClick:function(){_m2OpenComposer(idx);}},st._m2Composer?'Pokračovat v zadání':st._projectWorkProposal?'Připravit navržený krok':'Připravit změnu'):null,
           /* Edit mode toggle */

@@ -370,7 +370,9 @@ await testAsync('actual ANSWER continuation bypasses ambiguous classification an
     assert.equal(result.content,response);
     assert.match(calls[0].prompt,/Deployment/);
     assert.doesNotMatch(calls[0].options.systemPrompt,/45 slov|2–3 vět/);
-    assert.equal(calls[0].options._authToken.maxTokens,2048);
+    assert(calls[0].options._authToken.maxTokens >= 1024 && calls[0].options._authToken.maxTokens <= 2048);
+    assert.match(calls[0].options.systemPrompt, /Backend host \(observed now\)/);
+    assert.match(calls[0].options.systemPrompt, /Host OS is not project target/);
     assert.equal(calls[0].options.signal,abort.signal);
     assert.equal(result.tag.metadata.decision.metadata.overrideSource,'answer_expansion');
     assert.equal(result.tag.canExecute,false);

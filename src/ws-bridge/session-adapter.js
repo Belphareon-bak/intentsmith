@@ -662,6 +662,15 @@ export function createSessionAdapter({
           confidence: response.confidence,
           conversationId: m1Command.conversationId,
         };
+        // Presentation facts only. Do not forward arbitrary handler metadata,
+        // pending decisions, grants or model-authored commands into Studio.
+        if (response.metadata?.awaitingClarification === true
+            || response.metadata?.decision?.type === 'ASK_USER'
+            || response.state?.awaitingClarification === true
+            || response.metadata?.clarification === 'weather_location') {
+          metadata.awaitingClarification = true;
+        }
+        if (pendingWebProposal) metadata.webStatus = 'pending';
         // A project proposal is editable input, never an approval/effect. Keep
         // the explicit fields across the canonical Studio wire just as HTTP
         // does; otherwise the model's concrete next step disappears in the UI.

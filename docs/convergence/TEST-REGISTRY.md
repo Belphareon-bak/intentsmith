@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 530
+- Runnable programs: 532
 - Explicit support-module exclusions: 21
-- Profiles: offline=288, database=77, server=48, model=82, soak=15, manual=20
-- States: ACTIVE=436, HISTORICAL=15, BLOCKED=79
+- Profiles: offline=289, database=78, server=48, model=82, soak=15, manual=20
+- States: ACTIVE=438, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -134,6 +134,8 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T3-TESTS-DESIGN-TESTS-TEST` | `tests/design-tests.test.js` | `C3-027` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-DESKTOP-HUNT-TEST` | `tests/desktop-hunt.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none, toolchain:systemd-analyze | yes | `ACTIVE` | — | WP-DESKTOP-HUNT-20260917 |
 | `IS-T1-TESTS-DETERMINISTIC-ANSWER-LATENCY-TEST` | `tests/deterministic-answer-latency.test.js` | `C3-004` | T1 | `offline` | 5 s | 1 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-DEVELOPMENT-DOWNLOAD-TEST` | `tests/development-download.test.js` | `C3-011` | T1 | `offline` | 10 s | 1 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-DEVELOPMENT-INSTALLATION-TEST` | `tests/development-installation.test.js` | `C3-011` | T1 | `database` | 10 s | 1 min | network:none, temp-db, toolchain:bwrap, toolchain:python3, toolchain:prlimit, toolchain:tar | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-DOMAINS-TEST` | `tests/domains.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-DRIFT-DETECTOR-TEST` | `tests/drift-detector.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-E2E-COMPLEX-TEST` | `tests/e2e-complex.test.js` | `C3-027` | T3 | `manual` | 2 min | 15 min | network:external, temp-db, server, ollama, gpu, toolchain:python-pdf-runtime | no | `ACTIVE` | — | primary implementer |

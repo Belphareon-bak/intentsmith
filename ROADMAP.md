@@ -1,5 +1,13 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**Studio: průběh práce a prostředí, 2026-09-23:** konkrétní tahy, nástroje,
+čekání, souborové diffy/+− a kopírování formátované odpovědi. Přidáno skutečné
+prostředí backendu a explicitní potvrzované/automatické instalace npm a .NET SDK
+v odděleném rozsahu. Default ask, bez sudo. Skutečný Electron/M2 a SDK ověřeny;
+kompletní profil a nasazení probíhají. REVIEW_PENDING, žádná změna Huntu/modelů.
+Aktuální module graph má 1 420 hran, 3 cykly / 28 členů.
+[Podrobnosti, důkazy a omezení](docs/review/2026-09-23-STUDIO-ACTIVITY-ENVIRONMENT.md).
+
 **GPU hunt — propojené hodnocení, 23. 9. 2026:**
 Podporovaná cesta ze sběru do přijatého hodnocení, API/Studio a příjem provozní
 přejímky všech sedmi rolí jsou implementované; probíhá finální ověření.

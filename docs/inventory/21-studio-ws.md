@@ -1,5 +1,13 @@
 # Inventura #21 — Studio a WS bridge
 
+**Studio: průběh práce a prostředí, 2026-09-23:** konkrétní tahy, nástroje,
+čekání, souborové diffy/+− a kopírování formátované odpovědi. Přidáno skutečné
+prostředí backendu a explicitní potvrzované/automatické instalace npm a .NET SDK
+v odděleném rozsahu. Default ask, bez sudo. Skutečný Electron/M2 a SDK ověřeny;
+kompletní profil a nasazení probíhají. REVIEW_PENDING, žádná změna Huntu/modelů.
+Aktuální module graph má 1 420 hran, 3 cykly / 28 členů.
+[Podrobnosti, důkazy a omezení](../review/2026-09-23-STUDIO-ACTIVITY-ENVIRONMENT.md).
+
 **Studio — dotažení předloh, 2026-09-18:** nasazeno `0ef67a56`.
 Sémantická paleta, barevná navigace/role, 12 sekčních přehledů, kompaktní
 karty, miniatury stylů a živý náhled. Electron v šířce 960/1400, text

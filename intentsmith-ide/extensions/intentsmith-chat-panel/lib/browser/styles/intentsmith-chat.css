@@ -53,3 +53,16 @@
 .intentsmith-question-label { border-left: 3px solid #e8bc59; color: var(--intentsmith-accent-text); padding: 7px 10px; margin-bottom: 10px; background: var(--intentsmith-accent-bg); }
 .intentsmith-question-reply { margin-top: 12px; border: 1px solid var(--intentsmith-border2); border-radius: 5px; padding: 5px 12px; color: var(--intentsmith-accent-text); background: var(--intentsmith-accent-bg); cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .intentsmith-activity-dot.running { animation: none; } }
+
+.intentsmith-development { grid-column: 1 / -1; color: var(--intentsmith-tx2); display: grid; grid-template-columns: repeat(auto-fit,minmax(min(340px,100%),1fr)); gap: 16px; }
+.intentsmith-development section { background: var(--intentsmith-bg2); padding: 16px; border: 1px solid var(--intentsmith-border2); border-radius: 7px; min-width: 0; }
+.intentsmith-development h3 { color: var(--intentsmith-tx1); margin: 0 0 14px; }
+.intentsmith-development p,.intentsmith-development li { font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.intentsmith-development label { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.intentsmith-development select,.intentsmith-development input { color: var(--intentsmith-tx1); background: var(--intentsmith-bg0); border: 1px solid var(--intentsmith-border2); padding: 8px; min-width: 0; }
+.intentsmith-development button { color: var(--intentsmith-accent-text); background: var(--intentsmith-accent-bg); border: 1px solid var(--intentsmith-border2); border-radius: 5px; padding: 8px; margin: 6px 6px 0 0; cursor: pointer; }
+.intentsmith-development button:disabled { opacity: .5; cursor: default; }
+.intentsmith-development [role=alert] { color: #ed8292; grid-column: 1/-1; }
+.intentsmith-development pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 10px; max-height: 240px; overflow-y: auto; }
+.intentsmith-install-events { border-left: 1px solid var(--intentsmith-border2); list-style: none; padding-left: 12px; }
+.intentsmith-install-events li { margin-bottom: 10px; }

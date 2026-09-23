@@ -1718,6 +1718,31 @@ await asyncTest('T23ca: project next-step proposal survives the actual canonical
   assert.equal(events.some(event => event.payload?.effectId), false);
 });
 
+await asyncTest('T23cb: actual M1 terminal retains clarification and pending web display without forwarding authority', async () => {
+  for (const [metadata, state, expected] of [
+    [{ awaitingClarification: true, privateGrant: 'not-for-ui' }, null, 'awaitingClarification'],
+    [{ decision: { type: 'ASK_USER', internal: 'not-for-ui' } }, null, 'awaitingClarification'],
+    [{ clarification: 'weather_location' }, null, 'awaitingClarification'],
+    [{}, { awaitingClarification: true }, 'awaitingClarification'],
+    [{ handler: 'conversation.web', webStatus: 'pending', approvalRequired: true,
+      webRequestId: 'web:' + 'a'.repeat(64) }, null, 'webStatus'],
+  ]) {
+    const sent = [], frame = m1StudioFrame('display-facts');
+    const adapter = createSessionAdapter({ send: encoded => sent.push(JSON.parse(encoded)), logger: mockLogger,
+      handleRequest: async () => ({ response: 'Upřesni prosím zadání', mode: 'conversation', confidence: 1, metadata, state }),
+    });
+    try { await adapter.processM1Command(frame); } finally { adapter.cleanup(); }
+    const events = m1EventStream(sent, frame.command.requestId);
+    assert.equal(validateCoreEventStream(events).valid, true);
+    const result = events.at(-1).payload.result;
+    assert.equal(result.status, 'ok');
+    assert.equal(result.response.metadata[expected], expected === 'webStatus' ? 'pending' : true);
+    assert.equal(result.response.metadata.privateGrant, undefined);
+    assert.equal(result.response.metadata.decision, undefined);
+    assert.equal(result.response.metadata.approvalRequired, undefined);
+  }
+});
+
 await asyncTest('T23c1: M1 WS emits a typed error, never ok, for a length-truncated model result', async () => {
   const sent = [];
   const frame = m1StudioFrame('truncated');

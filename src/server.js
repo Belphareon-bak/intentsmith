@@ -165,6 +165,7 @@ import { M3_LEGACY_AGENT_MUTATING_ROUTE_KEYS } from './agents/m3-legacy-agent-qu
 import { createExpertiseRoutes, createLifecycleRoutes } from './routes/expertises.js';
 import { createProjectRoutes } from './routes/projects.js';
 import { createChatRoutes } from './routes/chat.js';
+import { createDevelopmentRoutes } from './routes/development.js';
 import { createMiscRoutes } from './routes/misc.js';
 import { createSpecialistRoutes } from './routes/specialists.js';
 import { createQualityRoutes } from './routes/quality.js';
@@ -1211,6 +1212,7 @@ const routes = {
     sendJSON,
   }),
   ...createMiscRoutes(routeDeps),
+  ...createDevelopmentRoutes(routeDeps),
   ...createSpecialistRoutes(routeDeps),
   ...createQualityRoutes(routeDeps),
 

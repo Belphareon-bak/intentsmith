@@ -22,3 +22,9 @@ produkční Studio build, registry a úplný offline/database profil.
 Kontrolované události nejsou důkaz živé modelové inference. Žádné smyšlené
 mezistavy ani oprávnění odvozené ze zobrazení. Při chybě nebo odpojení žádný
 falešný úspěch; nasazení nesmí přerušit cizí běžící GPU práci.
+
+Rozšíření na přímý požadavek operátora: detekce host prostředí, explicitní
+policy pro projektové závislosti a SDK a skutečná ohraničená instalace.
+Vlastněné cesty rozšířeny o src/setup/dependency-*, development-environment,
+nové development routes, migraci 117, související registry a dva testprogramy.
+Měřený výsledek a otevřené limity: [review packet](../review/2026-09-23-STUDIO-ACTIVITY-ENVIRONMENT.md).
