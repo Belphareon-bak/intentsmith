@@ -1,6 +1,6 @@
 # CHAT: zastavení na cizím GPU procesu a omezené navázání
 
-24. 9. 2026 — **IMPLEMENTED / RESUME_PENDING_VERIFICATION / NOT_GRADED**.
+24. 9. 2026 — **RUNTIME_RESUMED / NOT_GRADED**.
 
 Operátor hlásil „Běh zastaven“ a nečinnou GPU při autorizovaném sběru.
 
@@ -68,8 +68,8 @@ Evidence zůstává v `/mnt/vi7000/intentsmith/evidence/hunt-chat-panel-20260923
 `supervised-resume-verification.json`. Okna `full-04` a případně další mají
 vlastní reporty, logy, exit receipty a exporty `review-full-NN/`.
 
-Ověřeno: **23/23** cílených testů, artifact validation **160/160**,
-**5/5** kontrol v prohlížeči. Testy pokrývají skutečný deník po přerušení,
+Ověřeno: **24/24** cílených testů, artifact validation **160/160**,
+**5/5** kontrol čekacích stavů a **6/6** kontrol živého běhu v prohlížeči. Testy pokrývají skutečný deník po přerušení,
 zachování neúplného pokusu, zákaz opakování, kumulativní rozpočet, omezení
 počtu navázání, jiné příčiny zastavení a čerstvost stavu čekání.
 První start prohlížečového testu blokovala chybějící výchozí verze Chrome;
@@ -78,3 +78,8 @@ browser testu simulované pouze na jeho HTTP odpovědích, bez další inference
 
 Sběr nemění známky, role, noční timer ani přijaté rozhodovací profily.
 Nejde o přejímku hodnotitele nebo autonomní GO.
+
+Skutečné pokračování `full-04` ověřeno: nové odpovědi uložené, prefix
+původního deníku a všechny zmrazené zdrojové hashe zachované, žádné staré
+volání znovu vyvolané. Poslední úprava pouze zpřesňuje důvod definitivního
+zastavení v přehledu (vyčerpané čekání / počet navázání / chyba exportu).

@@ -221,3 +221,10 @@ test('dashboard shows bounded GPU waiting only for a live matching supervisor he
   assert.equal(progressSnapshot(stage,{supervisor,now}).waitingForGpu,false);
   assert.equal(progressSnapshot(stage,{service,supervisor:{...supervisor,planSha256:'wrong'},now}).waitingForGpu,false);
 });
+
+test('dashboard reports exhausted GPU wait instead of hiding it behind the old contention reason',async t=>{
+  const opts=setup(t),result=await runStageWindow({...opts,guard:async()=>{throw Error('GPU_FOREIGN_WORK_PRESENT');}});
+  const supervisor={planSha256:result.stage.sha256,status:'STOPPED',reason:'GPU_WAIT_LIMIT',updatedAt:new Date(Date.now()+1000).toISOString()};
+  assert.equal(progressSnapshot(result.stage,{supervisor}).stopReason,'GPU_WAIT_LIMIT');
+  assert.equal(progressSnapshot(result.stage,{supervisor:{...supervisor,planSha256:'unrelated'}}).stopReason,'GPU_FOREIGN_WORK_PRESENT');
+});

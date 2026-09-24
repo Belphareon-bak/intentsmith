@@ -4,8 +4,8 @@
 Qwen3.5 dokončen. Qwen3.6 přerušen při cizí GPU aktivitě; časově doložen
 souběh s RustDesk CUDA/NVENC sondou. Doplněno omezené čekání a nejvýše tři
 navázání při GPU konfliktu, zachování deníku a původního rozpočtu.
-Přehled rozlišuje čekání od zastavení. 23 cílených testů a 5 browser kontrol PASS.
-**IMPLEMENTED / NOT_GRADED**.
+Přehled rozlišuje čekání od zastavení. 24 cílených testů a 11 browser kontrol PASS.
+**RUNTIME_RESUMED / NOT_GRADED**.
 [Diagnóza, aktuální běh a důkazy](docs/review/2026-09-24-CHAT-GPU-CONTENTION.md).
 
 

@@ -20,6 +20,9 @@ export function progressSnapshot(stage,{provider={},service={},supervisor={},tit
   const running=Boolean(open&&processAlive&&provider.status==='RUNNING');
   const waiting=Boolean(!open&&processAlive&&supervisor.planSha256===stage.sha256
     &&supervisor.status==='WAITING_GPU'&&now-Date.parse(supervisor.updatedAt)<20000);
+  const supervisorStop=!open&&supervisor.planSha256===stage.sha256&&['STOPPED','CANCELLED'].includes(supervisor.status)
+    &&Date.parse(supervisor.updatedAt)>=Date.parse(summary.windows.at(-1)?.close?.at)
+    ?supervisor.reason:null;
   const complete=finished.length===summary.plannedConversations;
   const state=complete?(summary.capturedConversations===finished.length?'COMPLETE':'COMPLETE_WITH_EXCEPTIONS')
     :running?'RUNNING':waiting?'WAITING_GPU':!summary.windows.length?'PREPARED':open?'INTERRUPTED':'STOPPED';
@@ -68,7 +71,7 @@ export function progressSnapshot(stage,{provider={},service={},supervisor={},tit
     if(message)logs.push({sequence:event.sequence,at:event.at,level,message});
   }
   return {updatedAt:new Date(now).toISOString(),planSha256:stage.sha256,state,running,
-    stopReason:running?null:summary.stopReason,providerStatus:provider.status||null,service,
+    stopReason:running?null:supervisorStop||summary.stopReason,providerStatus:provider.status||null,service,
     waitingForGpu:waiting,contentionResumes:waiting?supervisor.resumes:null,
     maxContentionResumes:waiting?supervisor.maxResumes:null,
     current,modelCount:models.length,models,finishedDialogs:finished.length,completeDialogs:summary.capturedConversations,
