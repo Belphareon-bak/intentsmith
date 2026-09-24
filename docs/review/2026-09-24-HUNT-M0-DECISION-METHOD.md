@@ -55,3 +55,55 @@ nevymění. Ukázka proti živým bindingům (`demo` v JSON):
   - Chybí jen hodnocení konverzační sady. Stačí jednorázově dodat skóre po úlohách do stejné DB.
   - Pak jeden pilotní paired run qwen3.8 proti qwen3.5.
 - **Ostatní role:** plánovač určí, kolik rozlišujících úloh je potřeba. Dokud je nemají, zůstanou v průzkumu.
+
+## Pilot CHAT (24. 9. večer): skóre konverzační sady v DB a rozhodnutí na 60 skupinách
+
+**Hodnocení.**
+- Opakování 1 konverzačního panelu: 400 rozhovorů, 10 modelů × 40 úloh, 1 600 známek po kritériích.
+- Hodnotil přechodný externí hodnotitel (Opus) naslepo podle rubriky `chat-conversation.2-draft`, váhy 0,4/0,3/0,2/0,1.
+- Dva rozhovory přerušené infrastrukturou nahradilo opakování 2.
+- Striktní JSON je ohodnocený mechanicky.
+- Známky: `/mnt/vi7000/intentsmith/evidence/hunt-chat-panel-20260923/opus-grading-20260924/grades.jsonl`.
+- **Shoda s nezávislými ručními známkami GPT** na 59 společných dialozích: 88 % kritérií ±0,25, korelace 0,72.
+- Systematický rozdíl: doslovná citace podvrženého pokynu (přísnější Opus) a diagnostika (přísnější GPT). Jsou to kandidáti na rozsouzení.
+
+**Zápis.**
+- `scripts/manual/import-chat-conversation-grades.mjs` přes `ModelEvaluationHistory.recordComplete` zapsal sadu `chat_conversation_pilot`, kontrakt `bf780068…`.
+- Postup: záloha DB → zkušební zápis do kopie → ověření čtecím modelem živé release (`72247a49`) → zápis do živé DB → znovu ověřeno.
+- Metadata `externalGrading.status = EXTERNAL_INTERIM_NOT_ACCEPTED`, `decisionAuthority:false`. Název sady se neshoduje s plánem role, takže běžící hunt z řádků autoritu nebere.
+- Záloha: `/mnt/vi7000/intentsmith/evidence/hunt-decision-m0-20260924/db-backups/`.
+
+| Model | Konverzační skóre | Rozdíl proti qwen3.5 (20 skupin) |
+|---|---|---|
+| qwen3.8 | 0,953 | +0,069 |
+| gemma4:26b | 0,921 | +0,036 |
+| qwen3.6:27b | 0,909 | +0,024 |
+| qwen3.5:27b (současný) | 0,884 | 0 |
+| ornith-1.5:9b | 0,863 | −0,021 |
+| qwen3-30b-a3b | 0,802 | −0,082 |
+| qwen3:14b | 0,764 | −0,121 |
+| qwen3-coder | 0,745 | −0,139 |
+| devstral-small-2 | 0,666 | −0,218 |
+| phi4:14b | 0,649 | −0,235 |
+
+**Rozhodnutí (kalibrovaný párový t, α = 0,02, `chat_v3` + konverzace = 60 skupin, jen shodné digesty).**
+- σ proti současnému modelu je 0,166. Na 60 skupinách: MDE 0,114, škodlivá výměna 0 %.
+- Pro rozhodnutí o zlepšení +0,10 je potřeba ~94 skupin.
+- qwen3.8 proti qwen3.5: +0,024, interval [−0,009; +0,058].
+  - Přínos 0,04 **neprokázán**.
+  - **Nezhoršení prokázáno** i při toleranci 0,02.
+  - Zrychlení na shodných voláních panelu **1,62×** (p50 4,1 s proti 7,3 s).
+  - Podle druhé cesty kontraktu (`SPEED_WITH_NONINFERIOR_QUALITY`) tedy **ZMĚNIT**, jako pilotní doklad bez autority.
+- qwen3.8 zároveň splňuje navržené CHAT brány: citovaný pokyn 6/6 odmítnut, žádný únik. qwen3.5 česky pokyn převzal (3/3).
+- gemma4 a qwen3.6 mají na stejném digestu jen 20 skupin, takže rozhodnutí je nerozhodné. qwen3.6 navíc česky převzal podvržený pokyn.
+
+**Konflikt sestavy.**
+- Živé bindingy už dávají qwen3.8 role D2, CODE a R1.
+- CODE+R1 je podle dnešní `independentRolePairs` zakázaná dvojice, takže dnešní stav pravidlo porušuje.
+- Přidání CHAT by znamenalo čtyři role.
+- Výměnu CHAT je proto nutné řešit spolu se sestavou (M5).
+
+**Omezení.**
+- Hodnotitel není přijatý (jeden externí hodnotitel, ne dvojice).
+- Panel běžel bez produkčního systémového promptu a s `think:false`.
+- Rychlost je měřená v podmínkách panelu.

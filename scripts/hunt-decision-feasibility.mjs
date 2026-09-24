@@ -5,6 +5,7 @@
 //
 // node scripts/hunt-decision-feasibility.mjs [--db=PATH] [--out=FILE.json]
 //   [--planned-effect=0.10] [--sims=2000] [--role=CHAT] [--also-groups=20,60]
+//   [--extra-suite=CHAT:chat_conversation_pilot]  (merge another suite's groups by exact digest)
 import Database from 'better-sqlite3';
 import { writeFileSync } from 'node:fs';
 import { ROLE_IMPROVEMENT_THRESHOLDS } from '../src/eval/role-evaluation-plan.js';
@@ -20,24 +21,27 @@ const onlyRole = args.role || null;
 // Extra suite sizes to evaluate with the same measured variability, e.g. the
 // 20-group CHAT conversation suite or a planned larger confirmation set.
 const alsoGroups = String(args['also-groups'] || '').split(',').filter(Boolean).map(Number);
+// role -> suite name whose groups are merged into the role's main suite per exact digest
+const extraSuites = Object.fromEntries(String(args['extra-suite'] || '').split(',').filter(Boolean)
+  .map(x => x.split(':')));
 // Live role bindings (running backend export) for a demonstration of what each
 // method would say today. Benchmark data is exploratory, never confirmation.
 const bindingsPath = args.bindings || '/mnt/vi7000/intentsmith/evidence/hunt-decision-methods-20260924/live-bindings.json';
 const bindings = existsSync(bindingsPath) ? JSON.parse(readFileSync(bindingsPath, 'utf8')).bindingResponse?.bindings || {} : {};
 
-function demoDecisions(role, models, minimumBenefit, margin) {
+function demoDecisions(role, models, minimumBenefit, margin, alpha = 0.05) {
   const incumbent = models.find(m => m.model === bindings[role]);
   if (!incumbent) return { incumbent: bindings[role] || null, status: 'INCUMBENT_NOT_MEASURED_ON_THIS_SUITE' };
   const verdict = iv => iv.lower > minimumBenefit ? 'ZMENIT' : iv.upper < -margin ? 'PONECHAT' : 'NEROZHODNUTO';
   const rows = models.filter(m => m !== incumbent).map(candidate => {
     const shared = [...incumbent.groups.keys()].filter(g => candidate.groups.has(g));
     const deltas = shared.map(g => candidate.groups.get(g) - incumbent.groups.get(g));
-    const t = groupInterval(deltas, 0.05, DECISION_METHODS.PAIRED_T), kl = groupInterval(deltas, 0.05, DECISION_METHODS.KL_BOUNDED);
+    const t = groupInterval(deltas, alpha, DECISION_METHODS.PAIRED_T), kl = groupInterval(deltas, 0.05, DECISION_METHODS.KL_BOUNDED);
     return { candidate: candidate.model, groups: deltas.length, meanDelta: r3(t.mean),
       pairedT: { lower: r3(t.lower), upper: r3(t.upper), verdict: verdict(t) },
       kl: { lower: r3(kl.lower), upper: r3(kl.upper), verdict: verdict(kl) } };
   }).sort((a, b) => b.meanDelta - a.meanDelta);
-  return { incumbent: incumbent.model, minimumBenefit, margin, rows };
+  return { incumbent: incumbent.model, minimumBenefit, margin, alpha, rows };
 }
 
 const db = new Database(dbPath, { readonly: true, fileMustExist: true });
@@ -77,7 +81,28 @@ function roleData(role) {
     models.set(row.model_digest_sha256, { model: row.model_name,
       groups: new Map([...byGroup].map(([g, xs]) => [g, mean(xs)])) });
   }
-  return { suite: best.suite_name, contract: best.suite_contract_sha256, models: [...models.values()] };
+  const extra = extraSuites[role];
+  if (extra) {
+    const extraRows = db.prepare(`SELECT model_name, model_digest_sha256, task_results_json FROM model_evaluation_runs
+      WHERE role=? AND status='COMPLETE' AND suite_name=? ORDER BY completed_at DESC`).all(role, extra);
+    const seen = new Set();
+    for (const row of extraRows) {
+      if (seen.has(row.model_digest_sha256)) continue;
+      seen.add(row.model_digest_sha256);
+      const byGroup = new Map();
+      for (const task of JSON.parse(row.task_results_json)) {
+        const m = taskMean(task); if (m == null) continue;
+        const g = `${extra}:${groupOf(task)}`; // namespaced: never collides with main-suite groups
+        if (!byGroup.has(g)) byGroup.set(g, []);
+        byGroup.get(g).push(m);
+      }
+      const target = models.get(row.model_digest_sha256) || { model: row.model_name, groups: new Map() };
+      for (const [g, xs] of byGroup) target.groups.set(g, mean(xs));
+      models.set(row.model_digest_sha256, target);
+    }
+  }
+  return { suite: extra ? `${best.suite_name}+${extra}` : best.suite_name, contract: best.suite_contract_sha256,
+    models: [...models.values()] };
 }
 
 function pairedPools(models) {
@@ -129,6 +154,8 @@ for (const role of Object.keys(ROLE_IMPROVEMENT_THRESHOLDS)) {
         availableGroups: groups, plannedEffect, pools: incumbentPools, sims, calibrate: true }),
       pairedTAtGroups: Object.fromEntries(alsoGroups.map(n => [n, planFeasibility({ method: DECISION_METHODS.PAIRED_T,
         minimumBenefit, nonInferiorityMargin: 0.05, availableGroups: n, plannedEffect, pools: incumbentPools, sims, calibrate: true })])) };
+    if (entry.incumbentPairs.pairedT.calibration)
+      entry.demo = demoDecisions(role, data.models, minimumBenefit, 0.05, entry.incumbentPairs.pairedT.alpha);
   }
   report.roles[role] = entry;
   const q = entry.pairedT.quality, ni2 = entry.pairedT.nonInferiority, ni5 = entry.pairedTMargin005.nonInferiority;
