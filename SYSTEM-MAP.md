@@ -1,5 +1,13 @@
 # IntentSmith — mapa systému
 
+**GPU hunt — dokončený CHAT sběr a první reference, 24. 9. 2026:**
+1 196 úplných dialogů a čtyři výjimky z 1 200 plánovaných. Posouzeno
+60 dialogů ručně a 60 striktních JSON; jeden dialog čeká na rozsouzení,
+1 076 úplných dialogů ještě známku nemá. Identita odkryta po zmrazení
+prvního posudku; znalost sady a pilotu přiznána. Nejde o přejímku hodnotitele.
+**PARTIAL_REFERENCE_GRADING_DRAFT / NO_AUTONOMOUS_GO**.
+[Výsledky a zbývající místní hodnoticí cesta](docs/review/2026-09-24-CHAT-PANEL-ASSESSMENT.md).
+
 **GPU hunt — navázání po krátkém konfliktu GPU, 24. 9. 2026:**
 Qwen3.5 dokončen. Qwen3.6 přerušen při cizí GPU aktivitě; časově doložen
 souběh s RustDesk CUDA/NVENC sondou. Doplněno omezené čekání a nejvýše tři

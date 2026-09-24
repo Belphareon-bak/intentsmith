@@ -1,5 +1,14 @@
 # Inventura #18a — Správa modelů
 
+**GPU hunt — dokončený CHAT sběr, první hodnoticí blok, 24. 9. 2026:**
+Finální panel: 1 200 záznamů, 1 196 úplných dialogů, čtyři přerušené;
+3 472 volání. Posouzeno 60 celých rozhovorů ručně a 60 striktních JSON
+produkčním parserem. Dvě kritéria jednoho dialogu zůstávají nerozhodnutá;
+1 076 úplných dialogů ještě známku nemá. Zmrazení před odkrytím modelových
+metadat, přiznaná znalost sady a pilotu; není to nezávislá přejímka.
+**PARTIAL_REFERENCE_GRADING_DRAFT / NO_AUTONOMOUS_GO**.
+[Výsledky, podklad pro druhé čtení a cesta k místnímu hodnotiteli](../review/2026-09-24-CHAT-PANEL-ASSESSMENT.md).
+
 **GPU hunt — navázání po krátkém konfliktu GPU, 24. 9. 2026:**
 Qwen3.5 dokončen. Qwen3.6 přerušen při cizí GPU aktivitě; časově doložen
 souběh s RustDesk CUDA/NVENC sondou. Doplněno omezené čekání a nejvýše tři
