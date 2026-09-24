@@ -81,23 +81,13 @@ export async function gradeAcceptedCollection({ history, plan, runId, call, prep
     errorMessage:'Dvojí posouzení není uzavřené.'};
 }
 
-export function prepareCollectionGrading({ plan, collection, judge, graderAcceptanceId }) {
+export function validateCollectionCapture(plan, collection) {
   if (!plan?.collectionOnly || !plan.measurementReady || collection?.role !== plan.role
+    || collection.status !== 'BLOCKED' || collection.errorCode !== 'EVALUATION_AWAITING_REVIEW'
     || !/^[a-f0-9]{64}$/.test(collection.contractSha256 || '') || collection.suiteName !== plan.suiteName
     || collection.repeats !== plan.repeats
     || collection.metadata?.collection?.status !== 'AWAITING_REVIEW') fail('EVALUATION_COLLECTION_CONTRACT_MISMATCH');
   const sourceSha256 = collectionEvidenceHash(collection), sourceDigest = collection.artifact.digestSha256;
-  const checkAcceptance = () => {
-    const accepted = plan.acceptance.graders?.find(g => g.id === graderAcceptanceId);
-    if (!accepted) fail('EVALUATION_GRADER_ACCEPTANCE_MISSING');
-    if (plan.suite.tests.some(t => t.tier === 'T4')) {
-      if (!judge || !accepted.judge || accepted.judge.digestSha256 !== judge.artifact?.digestSha256
-        || accepted.judge.providerVersion !== judge.artifact?.providerVersion) fail('EVALUATION_GRADER_IDENTITY_MISMATCH');
-      if (sourceDigest === judge.artifact.digestSha256) fail('SEMANTIC_SELF_GRADING_FORBIDDEN');
-    }
-    return accepted;
-  };
-  const accepted = checkAcceptance();
   const expected = plan.suite.tests.map(t => t.name).sort();
   if (JSON.stringify(collection.tasks.map(t => t.name).sort()) !== JSON.stringify(expected)) fail('EVALUATION_COLLECTION_TASKS_MISMATCH');
   const planned = plan.taskCount * plan.repeats;
@@ -121,6 +111,46 @@ export function prepareCollectionGrading({ plan, collection, judge, graderAccept
         || d.artifact?.digestSha256 !== sourceDigest || d.artifact?.providerVersion !== collection.providerVersion)
       || task.responses.some(r => typeof r !== 'string')) fail('EVALUATION_COLLECTION_RESPONSE_UNVERIFIED');
   }
+  return { sourceSha256, planned };
+}
+
+// A grading-only contract change may reuse immutable captures. Query by exact
+// answer artifact and provider, then run the same input/response validation as
+// grading. A changed prompt, inference option or incomplete capture is skipped.
+export function findReusableCollection(history, plan, digestSha256) {
+  if (!history?._db || !plan?.collectionOnly || !/^[a-f0-9]{64}$/.test(digestSha256 || '')
+    || history.providerVersion === 'UNRECORDED') return null;
+  const rows = history._db.prepare(`SELECT run_id FROM model_evaluation_runs
+    WHERE model_digest_sha256=? AND role=? AND suite_name=? AND status='BLOCKED'
+      AND error_code='EVALUATION_AWAITING_REVIEW'
+      AND json_extract(metadata_json,'$.provider.version')=?
+    ORDER BY completed_at DESC, rowid DESC`).all(digestSha256,plan.role,plan.suiteName,history.providerVersion);
+  for (const row of rows) {
+    const collection = history.getRun(row.run_id);
+    try { validateCollectionCapture(plan,collection); return collection; }
+    catch (error) {
+      // A known old capture may be incompatible; SQL or programming failures
+      // must remain visible instead of silently triggering new GPU inference.
+      if (!/^EVALUATION_COLLECTION_/.test(error.code || '')) throw error;
+    }
+  }
+  return null;
+}
+
+export function prepareCollectionGrading({ plan, collection, judge, graderAcceptanceId }) {
+  const { sourceSha256, planned } = validateCollectionCapture(plan, collection);
+  const sourceDigest = collection.artifact.digestSha256;
+  const checkAcceptance = () => {
+    const accepted = plan.acceptance.graders?.find(g => g.id === graderAcceptanceId);
+    if (!accepted) fail('EVALUATION_GRADER_ACCEPTANCE_MISSING');
+    if (plan.suite.tests.some(t => t.tier === 'T4')) {
+      if (!judge || !accepted.judge || accepted.judge.digestSha256 !== judge.artifact?.digestSha256
+        || accepted.judge.providerVersion !== judge.artifact?.providerVersion) fail('EVALUATION_GRADER_IDENTITY_MISMATCH');
+      if (sourceDigest === judge.artifact.digestSha256) fail('SEMANTIC_SELF_GRADING_FORBIDDEN');
+    }
+    return accepted;
+  };
+  const accepted = checkAcceptance();
   return { sourceSha256, accepted, planned, checkAcceptance };
 }
 
@@ -303,7 +333,9 @@ function verifyGradedSummary(plan, source, summary) {
 }
 
 export function persistGradedCollection({ history, plan, collection, summary }) {
-  return history._db.transaction(() => persist({ history, plan, collection, summary })).immediate();
+  const previousProviderVersion = history.providerVersion;
+  try { return history._db.transaction(() => persist({ history, plan, collection, summary })).immediate(); }
+  finally { history.providerVersion = previousProviderVersion; }
 }
 
 function persist({ history, plan, collection, summary }) {
@@ -358,13 +390,17 @@ function persist({ history, plan, collection, summary }) {
 // disputed criterion. The two first judgements remain immutable. This path
 // never asks a model for a third opinion or guesses an average.
 export function persistAdjudicatedCollection({history,plan,collection,decision}) {
-  return history._db.transaction(() => {
+  const previousProviderVersion = history.providerVersion;
+  try { return history._db.transaction(() => {
     const source = history.getRun(collection.runId);
     if (!source || source.role !== plan.role || !plan.collectionOnly
       || collectionEvidenceHash(source) !== decision?.sourceSha256
       || decision.sourceRunId !== source.runId
-      || source.suiteName !== plan.suiteName || source.contractSha256 !== plan.suiteContractSha256)
+      || source.suiteName !== plan.suiteName)
       fail('EVALUATION_ADJUDICATION_SOURCE_CHANGED');
+    try { validateCollectionCapture(plan,source); }
+    catch { fail('EVALUATION_ADJUDICATION_SOURCE_CHANGED'); }
+    history.setProviderVersion(source.providerVersion);
     const reviews = storedGraderReviews(history,plan,source);
     const pair = acceptedGraderPair(reviews.map(row => row.accepted),source.artifact.digestSha256);
     if (!pair || reviews.length !== 2 || reviews.some(row => !row.accepted)
@@ -461,5 +497,6 @@ export function persistAdjudicatedCollection({history,plan,collection,decision})
       metadata:{source:'accepted-collection-adjudication-v1',grading},
       summary:{score:finalScore,runs:plan.repeats,tasks,
         startedAt:review.reviewedAt,completedAt:new Date().toISOString(),grading}});
-  }).immediate();
+  }).immediate(); }
+  finally { history.providerVersion = previousProviderVersion; }
 }

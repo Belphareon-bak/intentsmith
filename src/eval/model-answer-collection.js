@@ -11,7 +11,7 @@ export async function collectRoleAnswers(runner, role, model, opts = {}) {
   const identity = { role, model, artifact, suiteName: plan.suiteName,
     suiteVersion: plan.suiteVersion, suiteContractSha256: plan.suiteContractSha256 };
   if (!opts.fresh && opts.loadCollection) {
-    const previous = await opts.loadCollection(identity);
+    const previous = await opts.loadCollection({ ...identity, evaluationPlan: plan });
     if (previous) return { ...previous, reused: true };
   }
   const started = Date.now(), startedAt = new Date(started).toISOString();

@@ -84,7 +84,9 @@ test('conversation survives actual DB/read-model/blind-export path, without beco
     assert(!JSON.stringify(review.review).includes('synthetic-model'));
     assert.equal(review.identityKey.identities[0].conversationReceipts.length,3);
     const collection=history.getRun(captured.historyRunId);
-    assert.throws(()=>prepareCollectionGrading({plan:{...plan,acceptance:{graders:[{id:'synthetic',judge:artifact}]}},
+    const withConversationGrader={...plan,suite:{...plan.suite,tests:plan.suite.tests.map(t=>({...t,gradeConversation:()=>null}))},
+      acceptance:{graders:[{id:'synthetic',judge:artifact}]}};
+    assert.throws(()=>prepareCollectionGrading({plan:withConversationGrader,
       collection,graderAcceptanceId:'synthetic',judge:{artifact:{...artifact,digestSha256:'b'.repeat(64)}}}),/IDENTITY_MISMATCH/);
     const judge={...artifact,digestSha256:'b'.repeat(64)};
     assert.throws(()=>prepareCollectionGrading({plan:{...plan,acceptance:{graders:[{id:'synthetic',judge}]}},

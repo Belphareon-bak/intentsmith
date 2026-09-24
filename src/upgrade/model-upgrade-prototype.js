@@ -1,6 +1,7 @@
 // Small orchestration helpers for the v136.1 model-upgrade prototype.
 
 import { artifactFromInventory, resolveInstalledArtifact } from './model-evaluation-history.js';
+import { findReusableCollection } from '../eval/grade-answer-collection.js';
 import {
   canonicalModelName,
   normalizeModelDigestSha256,
@@ -263,8 +264,14 @@ export function createHistoryCallbacks(options) {
       return this.resolveArtifact(model);
     },
     async loadCollection(input) {
-      const row = history.getCollection({ ...input, digestSha256: input.artifact.digestSha256,
-        contractSha256: input.suiteContractSha256 });
+      if (input.evaluationPlan && (input.evaluationPlan.role !== input.role
+        || input.evaluationPlan.suiteName !== input.suiteName
+        || input.evaluationPlan.suiteContractSha256 !== input.suiteContractSha256))
+        throw new Error('EVALUATION_COLLECTION_PLAN_MISMATCH');
+      const row = input.evaluationPlan
+        ? findReusableCollection(history, input.evaluationPlan, input.artifact.digestSha256)
+        : history.getCollection({ ...input, digestSha256: input.artifact.digestSha256,
+          contractSha256: input.suiteContractSha256 });
       return row ? { ...row, score: null, collection: row.metadata.collection, historyRunId: row.runId } : null;
     },
     async saveCollection(input) {
@@ -387,10 +394,7 @@ export function evaluationStateForArtifact(artifact, roles, plans, history, hard
       suiteVersion: plan.suiteVersion,
       contractSha256: plan.suiteContractSha256,
     });
-    const collected = plan.collectionOnly && history.getCollection?.({
-      digestSha256: artifact.digestSha256, role, suiteName: plan.suiteName,
-      suiteVersion: plan.suiteVersion, contractSha256: plan.suiteContractSha256,
-    });
+    const collected = plan.collectionOnly && findReusableCollection(history,plan,artifact.digestSha256);
     const terminal = complete || collected ? null : history.getTerminal({
       digestSha256: artifact.digestSha256,
       role,

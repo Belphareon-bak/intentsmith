@@ -35,7 +35,7 @@ tiše vyplnit až podle výsledků kandidátů.
 
 | Položka | Stav a další konkrétní krok |
 |---|---|
-| Samostatné modely pro role, maximum dvě nesouvisející role, žádná vlastní revize | **Zadáno operátorem 24. 9.** Zapsáno i v DIRECTION; implementace stále má maximum 3. |
+| Samostatné modely pro role, maximum dvě nesouvisející role, žádná vlastní revize | **Zadáno operátorem 24. 9.** Zapsáno i v DIRECTION; vývojová implementace nyní prosazuje maximum 2, její nasazení a přejímka sestavy zbývá. |
 | Alespoň dva nezávislí hodnotitelé | **Zadáno.** Konkrétní modely a rozsah jejich přejímky teprve doložit. |
 | Produkční profil benchmarku | **Vyplývá z kontraktu §7.** Uzamknout skutečný prompt, thinking, nástroje, parser a limity každé role; samotný záznam nastavení nestačí. |
 | Přejímací limity hodnotitelů | Uzamknout meze falešných přijetí/odmítnutí, jejich nejistotu, rozsah typů a společné chyby dvojice. Dnešní konstanty nejsou automaticky přijatý limit. |
@@ -791,6 +791,7 @@ kvalitu konkrétního modelu. Podrobný předávací protokol je v
 | Oblast | Doložený stav / zbývající mezera |
 |---|---|
 | Sběr a identity | Uložené odpovědi mají přesný digest artefaktu a kontraktu. CHAT panel dokončil 1 196 z 1 200 záznamů a 3 472 volání; viz [audit](review/2026-09-24-CHAT-OPUS-RECONCILIATION.md). To není čerstvý provozní holdout. |
+| Znovupoužití uložených odpovědí | [Read-only audit](../scripts/audit-hunt-collections.mjs) a běžná cesta huntu znovu používají sběr po změně známkovacího kontraktu pouze při stejném digestu artefaktu, verzi poskytovatele, veřejných vstupech, inference volbách a všech opakováních. Dnešní živá DB obsahuje 11 strukturálně kompatibilních dokončených sběrů pěti sémantických rolí, všechny od jediného artefaktu qwen3.8. Všechny vznikly s providerem `0.34.2-intentsmith.1`, zatímco běžící provider je `0.34.0-intentsmith.1`: automaticky použitelných je proto **0**. Dalších 448 průběžných checkpointů nelze známkovat jako celé sady. Žádný sběr není známka ani druhý kandidát. Viz [rozpad](review/2026-09-25-GPU-HUNT-CAPTURE-REUSE.md). |
 | Konverzační CHAT | V DB je oddělená nepřijatá sada `chat_conversation_pilot`: 400 rozhovorů z prvního opakování panelu oznámkoval jeden externí hodnotitel; 59 položek má také ruční známku GPT. Není to dvojice přijatých nezávislých hodnotitelů. Historické `chat_v3` se s ní neslévá do rozhodovací sady. |
 | Přijetí hodnotitelů | [semantic-grader-acceptance.js](../src/eval/semantic-grader-acceptance.js) vyžaduje oddělené případy a negativní sondy. Žádná konkrétní místní dvojice pro novou CHAT sadu zatím touto přejímkou neprošla. |
 | Dvojí hodnocení uložených odpovědí | [grade-answer-collection.js](../src/eval/grade-answer-collection.js) nyní spouští dva přijaté hodnotitele postupně, ukládá každý posudek append-only a porovnává známky po kritériích. Jeden posudek, neshoda nebo chybějící fyzický záznam nevytvoří `COMPLETE`. [Read/decision brána](../src/eval/independent-grader-pair.js) ověřuje oba posudky a přesný zdroj. Manuální CLI může uložit jeden průzkumný posudek. |
