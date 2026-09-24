@@ -1,5 +1,12 @@
 # IntentSmith — mapa systému
 
+**GPU hunt — cílové workflow a oddělení rolí, 24. 9. 2026:**
+Operátor upřesnil nejvýše dvě nesouvisející role na model a nejméně dva
+nezávislé hodnotitele. Zpracovaný návrh celého provozu k revizi;
+současný kód stále volí prvního přijatého hodnotitele a dovoluje tři role/model.
+**DESIGN_REVIEW / NO_IMPLEMENTATION_CHANGE / NO_AUTONOMOUS_GO**.
+[Workflow, podmínky autonomie a konkrétní implementační mezery](docs/GPU-HUNT-WORKFLOW.md).
+
 **GPU hunt — ověření druhého CHAT posudku, 24. 9. 2026:**
 Potvrzena návaznost všech 1 200 dialogů a konkrétní vady včetně dvou smyček
 a výskytu neveřejných údajů v předchozích tazích Gemmy. Opusův součet pokrývá

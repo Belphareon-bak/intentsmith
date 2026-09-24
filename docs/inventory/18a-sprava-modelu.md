@@ -1,5 +1,12 @@
 # Inventura #18a — Správa modelů
 
+**GPU hunt — cílový provoz se dvěma hodnotiteli, 24. 9. 2026:**
+Dokumentovaný výběr sestavy rolí, přejímka doplňující se dvojice, zákaz vlastní
+kontroly, spory, provozní ověření a řízená aktivace. Požadavek max. 2 role/model
+se liší od současné konstanty 3; automatická hodnoticí cesta dosud používá
+jednoho hodnotitele. **DESIGN_REVIEW / NO_IMPLEMENTATION_CHANGE**.
+[Úplné workflow a porovnání s kódem](../GPU-HUNT-WORKFLOW.md).
+
 **GPU hunt — ověření druhého CHAT posudku, 24. 9. 2026:**
 Zachování sběru ověřeno proti celému deníku. Druhý posudek dokládá další
 nálezy, jeho součet ale pokrývá 12/20 scénářů a není exportem známek po

@@ -1,5 +1,11 @@
 # Hledání lepších modelů
 
+**Cílové workflow k revizi, 24. 9. 2026:**
+[Celý postup huntu se dvěma nezávislými hodnotiteli a výběrem sestavy rolí](GPU-HUNT-WORKFLOW.md).
+Obsahuje sběr, přejímku hodnotitelů, neshody, provozní ověření, aktivaci,
+fallback a rollback. Jde o cílový návrh, nikoli popis již dokončené implementace;
+rozdíly vůči současnému kódu jsou uvedené v jeho §14.
+
 **Vstup:** `scripts/model-upgrade-hunt.js` · **Stav:** current v136.1 pipeline
 **Autorita evaluací:** [MODEL-SCORING-ACTIVATION.md](MODEL-SCORING-ACTIVATION.md)
 
