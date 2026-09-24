@@ -2,6 +2,7 @@
 // deletes models, or promotes exploratory benchmark rows to decision evidence.
 import { createHash } from 'node:crypto';
 import { DECISION_METHODS, PAIRED_T_MINIMUM_GROUPS, groupInterval } from './decision-methods.js';
+export { boundedGroupInterval } from './decision-methods.js';
 
 const canonical = value => JSON.stringify(value, (_key, item) => item && typeof item === 'object'
   && !Array.isArray(item) ? Object.fromEntries(Object.keys(item).sort().map(key => [key, item[key]])) : item);
@@ -69,26 +70,6 @@ export function validatePairedPlanFields(plan, fail, methods) {
 // in each tail. Group means are in [-1,1], transformed to [0,1]. This is
 // conservative and conditional on independent groups, not proof that a
 // curated set represents every future CODE task. Hoeffding (1963), §2.
-export function boundedGroupInterval(values, alpha) {
-  if (!values.length || !(alpha > 0 && alpha < 1)
-    || values.some(x => !Number.isFinite(x) || x < -1 || x > 1)) throw new Error('INVALID_GROUP_VALUES');
-  const mean = values.reduce((a, b) => a + b, 0) / values.length;
-  const p = (mean + 1) / 2;
-  const limit = Math.log(2 / alpha) / values.length;
-  const kl = q => (p ? p * Math.log(p / q) : 0) + (p < 1 ? (1 - p) * Math.log((1 - p) / (1 - q)) : 0);
-  const root = lower => {
-    if (lower && p === 0) return 0;
-    if (!lower && p === 1) return 1;
-    let lo = lower ? 0 : p, hi = lower ? p : 1;
-    for (let i = 0; i < 80; i++) {
-      const mid = (lo + hi) / 2;
-      if ((kl(mid) > limit) === lower) lo = mid; else hi = mid;
-    }
-    return (lo + hi) / 2;
-  };
-  return { mean, lower: 2 * root(true) - 1, upper: 2 * root(false) - 1,
-    groups: values.length, confidence: 1 - alpha, independenceAssumed: true };
-}
 
 export function decideCodePilot(plan, attempts, qualifications = {}) {
   validateCodePilotPlan(plan);

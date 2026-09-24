@@ -242,6 +242,7 @@ záznamu selže v `artifact-validation`.
 | `2026_09_18_114_model_evaluation_remeasure.js` | zadání operátora 2026-09-18 — nové ruční měření se zachováním historie |
 | `2026_09_18_115_intentsmith_setting_names.js` | zadání operátora 2026-09-18 — přejmenování nastavení; staré klíče a explicitní nové hodnoty zachované |
 | `2026_09_19_116_model_evaluation_acceptance.js` | zadání operátora 2026-09-19 — odvozená rozhodovací způsobilost z přijaté evidence; append-only přejímky a odvolání |
+| `2026_09_24_117_model_evaluation_grader_reviews.js` | zadání operátora 2026-09-24 — samostatné append-only posudky dvojice nad jedním uloženým sběrem |
 <!-- migration-source-manifest:end -->
 
 ## Navazující M7 rezervace 2026-08-29
@@ -498,3 +499,9 @@ Migrace 116 přidává pouze historii přejímek a odvolání v existující DB.
 registrovaných worktrees po přidání nenašla jiného vlastníka slotu 116;
 aktuální manifest obsahuje 103 migrací. Důkaz `migration116-worktrees.json`
 je součástí packetu přejímací brány.
+
+### 2026-09-25 — dvojí hodnocení huntu
+
+Migrace 117 přidává oddělené neměnné posudky. Neuděluje modelům ani
+hodnotitelům žádnou přejímku. Lokální manifest nyní obsahuje 104 migrací;
+živá DB vyžaduje samostatné nasazení a migraci.

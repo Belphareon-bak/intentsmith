@@ -1,7 +1,6 @@
 // Group-level interval methods for paired candidate/incumbent decisions.
 // A plan names its method explicitly and the method is part of the sealed plan
 // hash, so an existing KL plan is never reinterpreted by adding a new method.
-import { boundedGroupInterval } from './code-pilot-decision.js';
 
 export const DECISION_METHODS = Object.freeze({
   KL_BOUNDED: 'hoeffding-kl-bounded-groups',
@@ -86,6 +85,28 @@ export function pairedTGroupInterval(values, alpha) {
   const half = studentTQuantile(1 - alpha / 2, n - 1) * sd / Math.sqrt(n);
   return { ...base, sd, lower: Math.max(-1, mean - half), upper: Math.min(1, mean + half) };
 }
+
+export function boundedGroupInterval(values, alpha) {
+  if (!values.length || !(alpha > 0 && alpha < 1)
+    || values.some(x => !Number.isFinite(x) || x < -1 || x > 1)) throw new Error('INVALID_GROUP_VALUES');
+  const mean = values.reduce((a, b) => a + b, 0) / values.length;
+  const p = (mean + 1) / 2;
+  const limit = Math.log(2 / alpha) / values.length;
+  const kl = q => (p ? p * Math.log(p / q) : 0) + (p < 1 ? (1 - p) * Math.log((1 - p) / (1 - q)) : 0);
+  const root = lower => {
+    if (lower && p === 0) return 0;
+    if (!lower && p === 1) return 1;
+    let lo = lower ? 0 : p, hi = lower ? p : 1;
+    for (let i = 0; i < 80; i++) {
+      const mid = (lo + hi) / 2;
+      if ((kl(mid) > limit) === lower) lo = mid; else hi = mid;
+    }
+    return (lo + hi) / 2;
+  };
+  return { mean, lower: 2 * root(true) - 1, upper: 2 * root(false) - 1,
+    groups: values.length, confidence: 1 - alpha, independenceAssumed: true };
+}
+
 
 export function groupInterval(values, alpha, method) {
   if (method === DECISION_METHODS.KL_BOUNDED) return { ...boundedGroupInterval(values, alpha), method };

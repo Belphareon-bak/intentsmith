@@ -1,5 +1,14 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**GPU hunt — milník dvojího hodnocení, 25. 9. 2026:**
+Ve vývojové větvi jsou dva oddělené append-only posudky na jeden sběr;
+neúplná dvojice, spor a záměna digestu neotevřou skóre. M0 cyklus v
+rozhodovací metodě byl odstraněn. Toto je kód a syntetické testy, ne
+přejímka konkrétní dvojice či rozhodnutí o modelu. **REVIEW_PENDING /
+NOT_DEPLOYED / NO_AUTONOMOUS_GO**.
+[Revizní protokol](docs/review/2026-09-25-GPU-HUNT-DUAL-GRADING-MILESTONE.md).
+
+
 **GPU hunt — navázání po krátkém konfliktu GPU, 24. 9. 2026:**
 Qwen3.5 dokončen. Qwen3.6 přerušen při cizí GPU aktivitě; časově doložen
 souběh s RustDesk CUDA/NVENC sondou. Doplněno omezené čekání a nejvýše tři
