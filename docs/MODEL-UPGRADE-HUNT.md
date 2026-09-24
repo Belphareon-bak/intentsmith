@@ -8,6 +8,9 @@ rozdíly vůči současnému kódu jsou uvedené v jeho §14.
 Navazující [review](review/2026-09-24-HUNT-WORKFLOW-REVIEW.md) zpřesňuje
 provozní profil, proveditelnost měření, absolutní brány a přechod k místní
 dvojici. Seznam již zadaných a dosud otevřených rozhodnutí je ve workflow §0.
+[Následná kontrola metody](review/2026-09-24-HUNT-DECISION-FEASIBILITY.md)
+označuje proveditelnost malých rozhodovacích mezí jako blokující návrhový bod.
+Srovnání KL/t/bootstrap je syntetické, není přejímkou ani změnou runtime.
 
 **Vstup:** `scripts/model-upgrade-hunt.js` · **Stav:** current v136.1 pipeline
 **Autorita evaluací:** [MODEL-SCORING-ACTIVATION.md](MODEL-SCORING-ACTIVATION.md)

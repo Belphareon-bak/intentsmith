@@ -9,6 +9,12 @@ současný kód stále volí prvního přijatého hodnotitele a dovoluje tři ro
 Navazující revize doplnila povinnou proveditelnost měření, absolutní brány,
 zdroje čerstvých případů a přechodné dvojí review. Reprodukce intervalové
 metody je ilustrační, ne nové hodnocení panelu. [Výsledek revize](docs/review/2026-09-24-HUNT-WORKFLOW-REVIEW.md).
+Následné [ověření proveditelnosti](docs/review/2026-09-24-HUNT-DECISION-FEASIBILITY.md)
+potvrdilo 18 441 skupin pro nulový rozdíl / toleranci 0,02 v KL a společnou
+binární provozní cestu všech rolí. 21 000 syntetických simulací ukazuje i
+riziko t/percentilového bootstrapu při vzácném zhoršení; metoda není přijatá.
+Autorizovaný GET běžícího backendu potvrdil CHAT `qwen3.5:27b`; produkční
+reprodukce panelového selhání s přesným profilem ještě neproběhla.
 
 **GPU hunt — ověření druhého CHAT posudku, 24. 9. 2026:**
 Potvrzena návaznost všech 1 200 dialogů a konkrétní vady včetně dvou smyček

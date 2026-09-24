@@ -9,6 +9,10 @@ jednoho hodnotitele. **DESIGN_REVIEW / NO_IMPLEMENTATION_CHANGE**.
 Navazující [revize návrhu](../review/2026-09-24-HUNT-WORKFLOW-REVIEW.md)
 doplňuje zdroje případů, proveditelnost, absolutní brány a přechodnou dvojici;
 bez změny runtime a bez nové modelové inference.
+[Kontrola rozhodovací metody](../review/2026-09-24-HUNT-DECISION-FEASIBILITY.md)
+dokládá společnou KL cestu všech rolí, problém proveditelnosti tolerance 0,02
+a omezení t/bootstrap náhrady. Živý CHAT binding je ověřen přes API;
+nová rozhodovací metoda a produkční reprodukce rizika dosud nejsou přijaté/provedené.
 
 **GPU hunt — ověření druhého CHAT posudku, 24. 9. 2026:**
 Zachování sběru ověřeno proti celému deníku. Druhý posudek dokládá další

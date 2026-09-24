@@ -4,6 +4,7 @@
 **Stav:** úplný návrh cílového provozu k revizi; **není implementační GO**.
 Kód pro srovnání se současností: `805148c5a7171654b9ef7c1d89a5d9a14b09db73`.
 Zapracovaná navazující revize: [nálezy, opravy a ověření](review/2026-09-24-HUNT-WORKFLOW-REVIEW.md).
+Následné ověření metody a živého bindingu: [problém proveditelnosti a srovnání metod](review/2026-09-24-HUNT-DECISION-FEASIBILITY.md).
 V tomto kroku se nemění runtime, přiřazení, známky, přejímky ani plánovač.
 
 Dokument odpovídá na přímé zadání operátora: popsat celý hotový hunt,
@@ -277,11 +278,29 @@ operátor před sběrem vybere větší rozpočet/zdroj případů, jiný odůvo
 rozhodovací cíl nebo ponechání. Metoda se nesmí změnit po výsledku jen
 proto, že jiná dává užší interval.
 
-Současná `boundedGroupInterval` je konzervativní KL mez. Ilustrační
-výpočet pro průměr +0,17 a 20 skupin dává dolní mez −0,415, nikoli +0,027.
-Čísla 50–140 skupin z review bez párových dat a metody nelze převzít.
-[Reprodukce](review/2026-09-24-HUNT-WORKFLOW-REVIEW.md) není power analýza
-panelu: skutečný CHAT profil rozhodovací metodu teprve uzamkne.
+**Blokující položka před rozhodovací kampaní:** současná `boundedGroupInterval`
+nepoužívá výběrový rozptyl. Při konstantním pozorovaném rozdílu +0,17 potřebuje
+434 skupin pro dolní mez >0,04; při rozdílu 0 potřebuje **18 441 skupin**
+pro dolní mez >−0,02. Jsou to pevné pozorované průměry, nikoli power analýza.
+Pro plán v řádu desítek až nízkých stovek skupin a tyto malé meze není
+prokázaná proveditelnost. Není přijatelné naplánovat drahý sběr a tento
+problém řešit až nad jeho výsledkem.
+
+Stejnou funkci volá `decideRoleOperational()` přes `decidePairedPlan()` u
+všech rolí. Dnešní provozní kontrakt ovšem přijímá **0/1 za dokončený postup**,
+potom agreguje rozdíly po skupinách; spojité rubrikové skóre CHATu tím ještě
+není provozní metrikou. Nová metoda potřebuje explicitní metriku a verzi
+plánu. Nesmí tiše změnit význam starých plánů ani nahradit jejich výpočet.
+
+Párový t-interval je kandidát pro spojité rozdíly při přijatých předpokladech;
+bootstrap po skupinách je další přesně specifikovaná možnost. Užší interval
+sám nestačí: [reprodukovatelná simulace](review/2026-09-24-HUNT-DECISION-FEASIBILITY.md)
+ukazuje falešné přijetí u obou metod při vzácném zhoršení, i s nenulovým
+výběrovým rozptylem. Před potvrzovacím sběrem operátor přijme metodu, její
+rozsah/předpoklady a ověření chybovosti a síly, případně **jiný věcně přijatelný
+cíl či toleranci**. Zvýšení tolerance z 0,02 na 0,05 dovoluje větší zhoršení;
+není to pouhá optimalizace výpočtu. Metoda, meze a pravidla pro nepoužitelný
+vzorek se uzamknou před výsledkem. Do té doby zůstává nový profil průzkumný.
 
 ### 5.2b Absolutní brány a relativní zhoršení
 
@@ -304,6 +323,22 @@ Seznam není zákaz jakékoli obyčejné chyby. Politika pojmenuje závažnost,
 ověřovací vstupy a co je přesně porušení. Samotný flag hodnotitele pozastaví
 doporučení do ověření; není důkaz. Nový neklasifikovaný nález se rozsouzuje,
 nezmění potichu pravidla ve prospěch nebo neprospěch jednoho modelu.
+
+Brána se váže na **pevnou verzovanou sadu sond pro konkrétní profil**.
+Manifest obsahuje `probeSetSha256`, ID a původ případů, hash vstupů,
+verzi kritéria a ověření, jazyky, počet pokusů/seedy, produkční profil
+a předem dané pravidlo porušení. Návrh pro zdejší kritické brány je
+**alespoň jeden nezávisle potvrzený výskyt v předepsaném konečném vzorku**;
+neověřený signál se rozsouzuje a chyba prostředí není ani PASS, ani selhání
+modelu. Všechny předepsané pokusy musí být doloženy. Opakování do prvního
+úspěchu nesmaže potvrzené selhání. Úspěch znamená pouze „bez potvrzeného
+porušení na této verzi sady a profilu“, nikoli nulové populační riziko.
+
+Nové sondy vytvoří novou verzi a společný rozsah pro kandidáta i současný
+model; nepřipisují se potichu k dokončené kampani. Původní výsledek zůstane
+vázaný na původní sadu. Nově potvrzený provozní incident se přesto řeší hned
+jako incident a může pozastavit dotčenou automatiku; verze sady není důvod
+ignorovat známou závadu. Takový zásah není zpětné přeznámkování benchmarku.
 
 **Nová kritická regrese** je navíc srovnávací údaj: kandidát porušil
 podmínku v párovém případě, kde ji současný model splnil. Pokud selhaly
@@ -757,7 +792,7 @@ Tato tabulka rozlišuje čtení kódu na uvedeném SHA od fyzického důkazu.
 | První reference CHAT | 119 úplných návrhových známek + jeden spor; 1 076 úplných dialogů ještě bez kritériového hodnocení. Opusův souhrn není náhradní per-ID export. |
 | Přejímka T4 a zákaz stejného digestu | Validace v [semantic-grader-acceptance.js](../src/eval/semantic-grader-acceptance.js) a [grade-answer-collection.js](../src/eval/grade-answer-collection.js). Není to doklad kvalifikované místní dvojice pro novou sadu. |
 | Dvojí autonomní hodnocení | **Chybí:** `gradeAcceptedCollection()` vybírá `preview.graders[0]`; potřebuje oba posudky, jejich oddělené identity, rozsouzení a propagaci do všech read/decision cest. |
-| Proveditelnost a nové případy | Povinný power/budget plán, oddělené zásoby případů s expozicí a automatická výroba rozhodovacích plánů nejsou doloženy. Současná KL funkce je podklad k ověření metody, nikoli přijatá metoda pro nový CHAT profil. |
+| Proveditelnost a nové případy | **Blokující návrhový bod:** KL ignoruje rozptyl a při nulovém rozdílu potřebuje 18 441 skupin pro toleranci 0,02. Společná provozní cesta všech rolí přijímá binární dokončení. Nová metoda/metrika, power/budget plán a oddělená zásoba případů nejsou přijaté; užší t/bootstrap interval není přejímka. |
 | Nový vícekolový CHAT | [chat-conversation-suite.js](../src/eval/chat-conversation-suite.js) je draft mimo běžné plány, `measurementReady:false`, bez přijatého `gradeConversation`. Je nutná integrace, ne jen změna přepínače. |
 | Produkční profil sběru | [conversation-capture.js](../src/eval/conversation-capture.js) začíná bez systémové zprávy; runner posílá `think:false`. Nový produkční profil a jeho identita se musejí vynucovat, ne jen doplnit do reportu. |
 | Důkazy před rozhodnutím | [model-evaluation-acceptance.js](../src/upgrade/model-evaluation-acceptance.js) vyžaduje odpovídající uložené přejímky; dnešní vazba je na jednotlivého hodnotitele. Je třeba zahrnout obě kvalifikace a jejich platnost. |
@@ -776,7 +811,10 @@ populační chybovosti. Přejímka dvojice potřebuje i její skutečné společ
 
 ## 15. Dokončení po milnících a provozní přejímka
 
-1. **Reference, zdroje a proveditelnost:** dokončit srovnatelné posudky,
+1. **Metoda, reference a proveditelnost:** nejdřív vymezit a předložit
+   rozhodovací metriku, metodu, meze a jejich předpoklady; před finálním
+   sběrem je uzamknout. Potřebný počet čerstvých případů odvodit z ověřeného
+   plánu, ne ze samotného bodového odhadu rozptylu. Dokončit srovnatelné posudky,
    rozsoudit spory, připravit konkrétní doplnění politiky, produkční profily,
    zásobu oddělených případů a výpočet rozpočtu/síly. Přijmout rubriky,
    absolutní brány, rozhodovací cesty a mapu konfliktů před finálním sběrem.
@@ -785,6 +823,8 @@ populační chybovosti. Přejímka dvojice potřebuje i její skutečné společ
    záznamy a asistovaným GPT/Opus review; skutečné rozhodovací známkování
    vyžaduje přejímku i externí dvojice. Nečekat se stavbou cesty na místní
    kandidáty, ale neoznačit stub ani externí značku za přijatého hodnotitele.
+   Technická příprava může běžet souběžně s přejímkou metody; drahá
+   potvrzovací kampaň bez uzamčené proveditelnosti nezačne.
    Během této přípravy prověřovat také místní kandidáty a po přejímce
    nahradit externí posudky, včetně rezervy při střetu.
 3. **Výběr sestavy:** prosadit max. dvě nesouvisející role, digestové

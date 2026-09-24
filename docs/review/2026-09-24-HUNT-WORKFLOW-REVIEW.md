@@ -51,8 +51,12 @@ Poslední sloupec **není power analýza ani doporučený počet úloh**. Drží
 pozorovaný průměr konstantní a používá současnou konzervativní KL funkci,
 která závisí na průměru, rozsahu a N. Ukazuje zásadní význam volby metody;
 neprokazuje, že je toto vhodná či přijatá metoda pro nový CHAT profil.
-Při průměru +1 a 20 skupinách tatáž funkce dává dolní mez +0,663133,
-takže obecné tvrzení „s 20 skupinami nelze nikdy rozhodnout“ by neplatilo.
+**Oprava po další revizi:** dříve uvedený extrém +1 / dolní mez +0,663133
+neodpovídal praktické námitce a jako protiargument jej stahuji. Následná
+[simulace a audit společné rozhodovací cesty](2026-09-24-HUNT-DECISION-FEASIBILITY.md)
+potvrzují závažnou překážku: při nulovém rozdílu je pro toleranci 0,02
+potřeba 18 441 skupin. Zúžení intervalu jinou metodou ale musí projít
+ověřením předpokladů a chybovosti, ne jen ukázat vyšší počet rozhodnutí.
 
 Správná změna plánu je povinná proveditelnost **před** potvrzovacím sběrem.
 Neprovádí se tichá náhrada metody užší po shlédnutí výsledku. Přijatý plán
@@ -95,9 +99,10 @@ node docs/review/evidence/2026-09-24-workflow-method-check.mjs
 
 ## Co zůstává k provedení
 
-Opraven je **návrh**, nikoli chybějící runtime. Další implementační krok
-je společná cesta pro dva verzované posudky a spory nad již existujícím
-sběrem. Lze ji ověřovat kontrolními a asistovanými exporty, aniž se
+Opraven je **návrh**, nikoli chybějící runtime. Přednost má vymezení a
+přejímka proveditelné rozhodovací metody/metriky podle následné revize.
+Společná cesta pro dva verzované posudky a spory nad již existujícím
+sběrem se může technicky připravovat souběžně. Lze ji ověřovat kontrolními a asistovanými exporty, aniž se
 prohlásí za přijatý lokální hodnotitel. Současně je potřeba připravit
 konkrétní produkční profily, referenční data a proveditelný rozhodovací
 plán; až potom má význam nový potvrzovací běh pro změnu role.
