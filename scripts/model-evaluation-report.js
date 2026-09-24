@@ -88,6 +88,9 @@ export async function buildEvaluationReport(options = {}) {
       : await fetchProviderVersion(options.baseUrl);
     return new ModelEvaluationReadModel(db).read({
       providerVersion,
+      ...(options.runtimeProviderVersion === undefined ? {} : {
+        runtimeProviderVersion: options.runtimeProviderVersion,
+      }),
       inventory,
       bindings: bindingState.bindings,
       bindingAuthority: {

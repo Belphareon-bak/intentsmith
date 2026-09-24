@@ -23,7 +23,7 @@ node scripts/audit-hunt-readiness.mjs --db=/home/belphareon/Projects/intentsmith
 | Aktuální skóre | 0 `COMPLETE` z 74 použitelných model/role buněk; 10 technicky nepoužitelných buněk zvlášť | Žádná role nemá aktuální srovnání pro automatický výběr. |
 | Přijetí hodnotitelů a provozní kvalifikace | 0/7 rolí `decisionReady` | Nelze vydat rozhodovací souhrnnou známku. |
 | Uložené odpovědi | 11 strukturálně kompatibilních dokončených sběrů pro D1/D2/R1/R2/CHAT, ale jen jeden artefakt qwen3.8 | Není zde dvojice kandidátů pro srovnání. |
-| Provider sběrů | Sběry `0.34.2-intentsmith.1`; aktivní Ollama `0.34.0-intentsmith.1` | **0** sběrů je automaticky použitelných v dnešním běhu. |
+| Provider sběrů | Sběry i připnutý evaluační sidecar používají `0.34.2-intentsmith.1`; interaktivní Ollama používá `0.34.0-intentsmith.1` | Všech **11** dokončených sběrů lze převzít při běhu přes ověřený sidecar. Read-only audit samotné spuštění ani hash binárky nedokládá. |
 | Požadované bindingy | qwen3.8 drží D2+CODE+R1; qwen3.5 drží D1+CHAT | Audit našel kapacitní a nezávislostní konflikt. |
 | Skutečný runtime binding | Read-only CLI vidí požadovaný stav DB, nikoli ověřený runtime serveru | Nelze tvrdit, že DB stav je přesný stav obsluhy uživatelů. |
 
@@ -38,3 +38,7 @@ node scripts/audit-hunt-readiness.mjs --db=/home/belphareon/Projects/intentsmith
 5. **Přejmout nainstalovanou release.** Až po nezávislé revizi vývojového kódu provést zálohovanou migraci, fyzický průchod na běžící službě, negativní cesty a dohled. GO se váže na tuto přesnou release a evidenci, ne na větev.
 
 Alternativa s menším počátečním nákladem je nejprve pod dohledem zprovoznit **sběr bez rozhodovací autority**. Dostane nové srovnatelné odpovědi a přesný pokrok bez rizika automatické výměny; rozhodovací brána zůstane zavřená do přejímky hodnotitelů a provozního ověření. Tato alternativa je částečný provoz, nikoli GO autonomního huntu.
+
+## Kontroly přesného revizního commitu
+
+Na čistém commitu `5e32abfe` dokončila deterministická sada `offline,database` 375 programů: **364 PASS, 1 FAIL, 10 BLOCKED**. Jediný FAIL je `tests/nightly-orchestrator-self-test.js`: Gate 0 registry hash se liší od nezávisle revidované policy (`Nightly evidence contract violation: registry hash differs from the reviewed Gate 0 policy`). Tatáž chyba se projevila už na čistém `94315ed9`; není to zelený výsledek ani důvod přepsat review pečeť. Detaily jsou v lokálním reportu `.intentsmith-artifacts/test-runs/2026-09-24T23-04-50-460Z/report.json`. Cílené kontroly modelového read modelu prošly 26/26. Po opravě rozlišení systémového a evaluačního provideru byl živý read-only audit zopakován; změnil počet podmíněně znovupoužitelných sběrů z chybně uvedené nuly na 11, verdikt zůstává `NO_GO`.

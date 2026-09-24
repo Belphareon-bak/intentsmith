@@ -1,6 +1,6 @@
 {
   "scope": "READ_ONLY_HUNT_READINESS",
-  "generatedAt": "2026-09-24T23:03:56.121Z",
+  "generatedAt": "2026-09-24T23:15:50.218Z",
   "verdict": "NO_GO",
   "decisionAuthority": false,
   "effects": [],
@@ -10,7 +10,9 @@
     "CURRENT_CONTRACT_COVERAGE_INCOMPLETE",
     "ROLE_ACCEPTANCE_INCOMPLETE"
   ],
-  "providerVersion": "0.34.0-intentsmith.1",
+  "evaluationProviderVersion": "0.34.2-intentsmith.1",
+  "runtimeProviderVersion": "0.34.0-intentsmith.1",
+  "evaluationProviderAttested": false,
   "coverage": {
     "applicableStatusCounts": {
       "COMPLETE": 0,
@@ -93,7 +95,7 @@
   },
   "captures": {
     "compatibleRuns": 11,
-    "automaticReusableRuns": 0,
+    "automaticReusableRuns": 11,
     "excludedSnapshots": {
       "CHAT:PARTIAL_CHECKPOINT": 238,
       "R2:PARTIAL_CHECKPOINT": 46,
@@ -110,7 +112,7 @@
       "currentComplete": 0,
       "currentMissing": 9,
       "structurallyCompatibleCaptures": 3,
-      "automaticReusableCaptures": 0,
+      "automaticReusableCaptures": 3,
       "acceptedGraders": 0
     },
     "D2": {
@@ -120,7 +122,7 @@
       "currentComplete": 0,
       "currentMissing": 12,
       "structurallyCompatibleCaptures": 2,
-      "automaticReusableCaptures": 0,
+      "automaticReusableCaptures": 2,
       "acceptedGraders": 0
     },
     "R1": {
@@ -130,7 +132,7 @@
       "currentComplete": 0,
       "currentMissing": 9,
       "structurallyCompatibleCaptures": 2,
-      "automaticReusableCaptures": 0,
+      "automaticReusableCaptures": 2,
       "acceptedGraders": 0
     },
     "CODE": {
@@ -150,7 +152,7 @@
       "currentComplete": 0,
       "currentMissing": 12,
       "structurallyCompatibleCaptures": 2,
-      "automaticReusableCaptures": 0,
+      "automaticReusableCaptures": 2,
       "acceptedGraders": 0
     },
     "CHAT": {
@@ -160,7 +162,7 @@
       "currentComplete": 0,
       "currentMissing": 12,
       "structurallyCompatibleCaptures": 2,
-      "automaticReusableCaptures": 0,
+      "automaticReusableCaptures": 2,
       "acceptedGraders": 0
     },
     "VISION": {
@@ -174,5 +176,5 @@
       "acceptedGraders": null
     }
   },
-  "note": "REVIEW_REQUIRED still needs installed runtime and physical operational acceptance. This read-only report cannot grant GO."
+  "note": "Reuse is conditional on the hunt launcher attesting and starting its pinned sidecar. This read-only report cannot grant GO."
 }

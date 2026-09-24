@@ -6,6 +6,7 @@ import { isAbsolute, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { buildEvaluationReport } from './model-evaluation-report.js';
 import { auditHuntCollections } from './audit-hunt-collections.mjs';
+import { EVALUATION_PROVIDER_BUILD } from '../src/eval/evaluation-provider-build.js';
 import { normalizeInstalledInventory } from '../src/upgrade/model-inventory.js';
 import { auditResponsibilitySegregation } from '../src/upgrade/model-upgrade-prototype.js';
 
@@ -16,11 +17,15 @@ async function getJson(path) {
   return response.json();
 }
 
-export async function buildHuntReadiness({dbPath,inventory,providerVersion}) {
-  const read=await buildEvaluationReport({dbPath,inventory,providerVersion});
+export async function buildHuntReadiness({dbPath,inventory,runtimeProviderVersion}) {
+  // The hunt launches an attested evaluation sidecar. The interactive Ollama
+  // version is a separate runtime fact and must not invalidate sidecar captures.
+  const evaluationProviderVersion=EVALUATION_PROVIDER_BUILD.version;
+  const read=await buildEvaluationReport({dbPath,inventory,
+    providerVersion:evaluationProviderVersion,runtimeProviderVersion});
   const db=new Database(dbPath,{readonly:true,fileMustExist:true});
   let captures;
-  try { captures=auditHuntCollections(db,{providerVersion}); }
+  try { captures=auditHuntCollections(db,{providerVersion:evaluationProviderVersion}); }
   finally { db.close(); }
   const portfolio=auditResponsibilitySegregation(read.bindings,undefined,{inventory});
   const roleRows=Object.fromEntries(Object.entries(read.roles).map(([role,state])=>[role,{
@@ -40,12 +45,13 @@ export async function buildHuntReadiness({dbPath,inventory,providerVersion}) {
   if (Object.values(read.roles).some(role=>!role.decisionReady)) blockers.push('ROLE_ACCEPTANCE_INCOMPLETE');
   return {scope:'READ_ONLY_HUNT_READINESS',generatedAt:new Date().toISOString(),
     verdict:blockers.length?'NO_GO':'REVIEW_REQUIRED',decisionAuthority:false,effects:[],blockers,
-    providerVersion,coverage:read.coverage,bindingAuthority:read.bindingAuthority,
+    evaluationProviderVersion,runtimeProviderVersion,
+    evaluationProviderAttested:false,coverage:read.coverage,bindingAuthority:read.bindingAuthority,
     portfolio:{compliant:portfolio.compliant,violations:portfolio.violations},
     captures:{compatibleRuns:captures.collections.length,
       automaticReusableRuns:captures.collections.filter(row=>row.automaticReuse).length,
       excludedSnapshots:captures.excludedSnapshots},roles:roleRows,
-    note:'REVIEW_REQUIRED still needs installed runtime and physical operational acceptance. This read-only report cannot grant GO.'};
+    note:'Reuse is conditional on the hunt launcher attesting and starting its pinned sidecar. This read-only report cannot grant GO.'};
 }
 
 function parseArgs(args) {
@@ -63,7 +69,7 @@ if (process.argv[1] && import.meta.url===pathToFileURL(resolve(process.argv[1]))
     if (!Array.isArray(tags.models) || !/^\d+\.\d+\.\d+(?:[-+][a-zA-Z0-9.-]+)?$/.test(version.version||''))
       throw new Error('OLLAMA_IDENTITY_UNVERIFIED');
     const report=await buildHuntReadiness({dbPath,
-      inventory:normalizeInstalledInventory(tags.models),providerVersion:version.version});
+      inventory:normalizeInstalledInventory(tags.models),runtimeProviderVersion:version.version});
     process.stdout.write(JSON.stringify(report,null,2)+'\n');
   } catch(error) { console.error(`HUNT_READINESS_AUDIT_FAILED: ${error.message}`);process.exitCode=1; }
 }
