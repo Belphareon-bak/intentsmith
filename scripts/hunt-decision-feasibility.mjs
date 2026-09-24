@@ -141,12 +141,12 @@ for (const role of Object.keys(ROLE_IMPROVEMENT_THRESHOLDS)) {
     + alsoGroups.map(n => { const x = entry.pairedTAtGroups[n];
       return ` | @${n}: ${x.verdict} power=${x.quality.powerAtPlannedEffect} MDE=${x.quality.minimumDetectableEffect}`; }).join(''));
   if (entry.incumbentPairs) { const ip = entry.incumbentPairs, x = ip.pairedT;
-    console.error(`       vs incumbent ${ip.incumbent}: sigma med=${ip.sigma.median} | calibrated t alpha=${x.alpha} ${x.verdict} `
+    console.error(`       vs incumbent ${ip.incumbent}: sigma med=${ip.sigma.median} | calibrated t alpha=${x.calibration ? x.alpha : 'none-safe'} ${x.verdict} `
       + `FA=${x.quality.falseAcceptAtBoundary} switchWhenEqual=${x.quality.switchWhenEqual} `
       + `power=${x.quality.powerAtPlannedEffect} MDE=${x.quality.minimumDetectableEffect} needN=${x.quality.requiredGroupsForPlannedEffect} `
       + `NI.05 power=${x.nonInferiority.powerWhenEqual} needN=${x.nonInferiority.requiredGroupsWhenEqual}`
       + alsoGroups.map(n => { const y = ip.pairedTAtGroups[n];
-        return ` | @${n}: alpha=${y.alpha} ${y.verdict} power=${y.quality.powerAtPlannedEffect} MDE=${y.quality.minimumDetectableEffect}`; }).join('')); }
+        return ` | @${n}: alpha=${y.calibration ? y.alpha : 'none-safe'} ${y.verdict} power=${y.quality.powerAtPlannedEffect} MDE=${y.quality.minimumDetectableEffect}`; }).join('')); }
 }
 const json = JSON.stringify(report, null, 1) + '\n';
 if (args.out) writeFileSync(args.out, json); else process.stdout.write(json);
