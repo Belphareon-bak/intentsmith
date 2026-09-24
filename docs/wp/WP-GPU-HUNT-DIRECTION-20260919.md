@@ -229,8 +229,10 @@ rozsouzení (operátora). Nejasnost se nevydává za prokázanou vadu modelu.
 „Nová“ znamená, že kandidát tuto podmínku porušil v párovém případě, kde
 současný model podmínku splnil. Identita případu, opakování, důkaz a stav
 prostředí se uchovají. Pokud oba selhali, není to nová regrese kandidáta,
-ale stále to může být nesplněná absolutní podmínka způsobilosti. Jeden výskyt
-prokazuje dané selhání, nikoli jeho populační četnost.
+ale je-li podmínka předem přijata jako absolutní brána, oba modely ji
+nesplnily a nelze je pro daný profil kvalifikovat. Návrh konkrétní mapy
+bran je v [cílovém workflow §5.2b](../GPU-HUNT-WORKFLOW.md).
+Jeden výskyt prokazuje dané selhání, nikoli jeho populační četnost.
 
 Potvrzená kritická chyba blokuje úspěch případu a doporučení do rozsouzení;
 nezávislé dílčí známky se zachovají. Samotný příznak nesmí přidat druhou
@@ -286,3 +288,19 @@ je stále položkou k výslovnému uzavření před zmrazením nové úlohy.
 Druhé posouzení s deklarovanou předchozí expozicí je podklad k rozsouzení,
 nikoli nezávislá slepá přejímka. Shoda s autorem mu nedává rozhodovací
 autoritu a nemění původní stav DRAFT.
+
+## 8. Oddělení rolí a dvojí hodnocení — upřesnění 24. 9. 2026
+
+Operátor výslovně požaduje sestavu podle jednotlivých rolí, přednost
+samostatnému modelu na roli a nejvýše **dvě nesouvisející role na model**.
+Model nesmí revidovat vlastní práci. Autonomní významové hodnocení má
+nejméně dva nezávislé hodnotitele vybrané podle prokázané schopnosti
+hodnotit, kteří se vzájemně doplňují. Rozhodnutí je zapsané také v hlavním
+[DIRECTION](../../DIRECTION.md); stará konstanta 3 není aktuální požadavek.
+
+[Cílové workflow](../GPU-HUNT-WORKFLOW.md) a jeho navazující review navrhují
+provedení. Číselné přejímací limity, konkrétní absolutní brány, power/budget
+plán, externí API dvojice a třetí důvod automatické výměny (náprava kritické
+vady) nadále vyžadují přijetí příslušné politiky. Zvlášť třetí cesta není
+součástí dnešních dvou rozhodovacích větví kontraktu §6. Ten se tímto zápisem
+nemění; původní hold trvá. Dokumentace požadavku není implementační GO.

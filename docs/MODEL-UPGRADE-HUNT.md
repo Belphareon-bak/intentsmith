@@ -5,6 +5,9 @@
 Obsahuje sběr, přejímku hodnotitelů, neshody, provozní ověření, aktivaci,
 fallback a rollback. Jde o cílový návrh, nikoli popis již dokončené implementace;
 rozdíly vůči současnému kódu jsou uvedené v jeho §14.
+Navazující [review](review/2026-09-24-HUNT-WORKFLOW-REVIEW.md) zpřesňuje
+provozní profil, proveditelnost měření, absolutní brány a přechod k místní
+dvojici. Seznam již zadaných a dosud otevřených rozhodnutí je ve workflow §0.
 
 **Vstup:** `scripts/model-upgrade-hunt.js` · **Stav:** current v136.1 pipeline
 **Autorita evaluací:** [MODEL-SCORING-ACTIVATION.md](MODEL-SCORING-ACTIVATION.md)

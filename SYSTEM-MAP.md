@@ -6,6 +6,9 @@ nezávislé hodnotitele. Zpracovaný návrh celého provozu k revizi;
 současný kód stále volí prvního přijatého hodnotitele a dovoluje tři role/model.
 **DESIGN_REVIEW / NO_IMPLEMENTATION_CHANGE / NO_AUTONOMOUS_GO**.
 [Workflow, podmínky autonomie a konkrétní implementační mezery](docs/GPU-HUNT-WORKFLOW.md).
+Navazující revize doplnila povinnou proveditelnost měření, absolutní brány,
+zdroje čerstvých případů a přechodné dvojí review. Reprodukce intervalové
+metody je ilustrační, ne nové hodnocení panelu. [Výsledek revize](docs/review/2026-09-24-HUNT-WORKFLOW-REVIEW.md).
 
 **GPU hunt — ověření druhého CHAT posudku, 24. 9. 2026:**
 Potvrzena návaznost všech 1 200 dialogů a konkrétní vady včetně dvou smyček

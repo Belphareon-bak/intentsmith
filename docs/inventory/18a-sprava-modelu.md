@@ -6,6 +6,9 @@ kontroly, spory, provozní ověření a řízená aktivace. Požadavek max. 2 ro
 se liší od současné konstanty 3; automatická hodnoticí cesta dosud používá
 jednoho hodnotitele. **DESIGN_REVIEW / NO_IMPLEMENTATION_CHANGE**.
 [Úplné workflow a porovnání s kódem](../GPU-HUNT-WORKFLOW.md).
+Navazující [revize návrhu](../review/2026-09-24-HUNT-WORKFLOW-REVIEW.md)
+doplňuje zdroje případů, proveditelnost, absolutní brány a přechodnou dvojici;
+bez změny runtime a bez nové modelové inference.
 
 **GPU hunt — ověření druhého CHAT posudku, 24. 9. 2026:**
 Zachování sběru ověřeno proti celému deníku. Druhý posudek dokládá další

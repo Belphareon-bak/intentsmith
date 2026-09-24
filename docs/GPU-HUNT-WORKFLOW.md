@@ -2,7 +2,8 @@
 
 **Datum:** 24. 9. 2026. **Adresát:** operátor a implementátor huntu.
 **Stav:** úplný návrh cílového provozu k revizi; **není implementační GO**.
-Kód pro srovnání se současností: `49eb817f13ac721ec007bfda62454a9b99ca1a34`.
+Kód pro srovnání se současností: `805148c5a7171654b9ef7c1d89a5d9a14b09db73`.
+Zapracovaná navazující revize: [nálezy, opravy a ověření](review/2026-09-24-HUNT-WORKFLOW-REVIEW.md).
 V tomto kroku se nemění runtime, přiřazení, známky, přejímky ani plánovač.
 
 Dokument odpovídá na přímé zadání operátora: popsat celý hotový hunt,
@@ -24,6 +25,24 @@ Způsob agregace neshod, rezervní hodnotitel, přesná síť konfliktů a rozsa
 automatického přepínání níže jsou návrhem provedení k revizi. Samotný tento
 dokument je neaktivuje. Dřívější návrhy vah, tolerancí a statistických mezí
 se jeho sepsáním nestávají schválenými parametry.
+
+## 0. Co už rozhodnuto je a co se musí uzamknout
+
+Tato tabulka není žádost znovu potvrdit již zadané požadavky. Návrh lze
+implementovat a ověřovat po částech; otevřené provozní parametry se nesmí
+tiše vyplnit až podle výsledků kandidátů.
+
+| Položka | Stav a další konkrétní krok |
+|---|---|
+| Samostatné modely pro role, maximum dvě nesouvisející role, žádná vlastní revize | **Zadáno operátorem 24. 9.** Zapsáno i v DIRECTION; implementace stále má maximum 3. |
+| Alespoň dva nezávislí hodnotitelé | **Zadáno.** Konkrétní modely a rozsah jejich přejímky teprve doložit. |
+| Produkční profil benchmarku | **Vyplývá z kontraktu §7.** Uzamknout skutečný prompt, thinking, nástroje, parser a limity každé role; samotný záznam nastavení nestačí. |
+| Přejímací limity hodnotitelů | Uzamknout meze falešných přijetí/odmítnutí, jejich nejistotu, rozsah typů a společné chyby dvojice. Dnešní konstanty nejsou automaticky přijatý limit. |
+| Přínos a proveditelnost | Přijmout metriku, meze, cílovou sílu testu, metodu, počet skutečně dostupných skupin a rozpočet podle §5.2a. CHAT 0,04 / 0,02 je návrh. |
+| Přechodná externí dvojice | **Návrh:** GPT + Opus v režimu asistovaného review; konkrétní API/profily, předávaná data a náklady vyžadují samostatné oprávnění. Značka modelu není přejímka. |
+| Absolutní brány rolí | Přijmout konkrétní povinné podmínky a ověřovací případy podle §5.2b. Selhání současného modelu není výjimka pro kandidáta. |
+| Odstranění kritické vady jako důvod změny | **Návrh doplnění rozhodovací politiky** podle §8; kontrakt §6 dnes uvádí dvě cesty. Bez výslovného přijetí třetí cesta není automatická autorita. |
+| Obsazenost GPU a obsluha uživatele | Změřit rezervy, tolerované trvání rušení a latenci celé sestavy; limity uzamknout před výkonovým měřením. |
 
 ## 1. Co má hunt průběžně dodávat
 
@@ -147,6 +166,11 @@ Různá jména, tagy, kvantizace či prompty jednoho základu samy nezajistí
 nezávislost. Rozdílný digest je nutná technická kontrola, ne její úplný důkaz.
 Původ modelů i překryv chyb se evidují; neznámý původ se přizná.
 
+Navržená minimální podmínka: hodnotí-li jeden model kandidáta ze stejné
+rodiny, druhý musí být z jiné rodiny a musí být přijat i pro tento rozsah.
+Při neznámém původu nelze nezávislost jen předpokládat. Jiná rodina omezuje
+střet, ale sama neprokazuje nezávislé chyby; rozhoduje přejímka dvojice.
+
 **Oba čtou stejná kritéria a celý relevantní podklad.** Jeden může být
 silnější v logice a druhý v jazyce nebo užitečnosti. To se využije při
 výběru dvojice a rozsouzení; nesmí vzniknout situace, kdy faktickou
@@ -165,6 +189,32 @@ V prvním nasazení doporučuji držet hodnotitelský fond odděleně od aktivn�
 produkčních přiřazení. Případné pozdější sdílení vyžaduje kontrolu původu
 každého artefaktu a stejné zákazy vlastní kontroly. Kvalifikace hodnotitele
 pro sedm sad není přiřazením k vykonávání sedmi produkčních rolí.
+
+### 4.4 Přechod, pokud místní dvojice zatím neprojde
+
+Stavba dvojího hodnocení nemusí čekat na úspěch konkrétního lokálního modelu.
+Stejná cesta pro oba posudky, jejich zmrazení, rozsouzení a import se ověří
+nejprve známými kontrolními záznamy a následně asistovanou dvojicí GPT/Opus.
+Před první známkou se zmrazí shodný anonymizovaný balíček a oba posuzovatelé
+vrátí export po ID/kritériích; souhrnná próza jako posudek k importu nestačí.
+
+Ani externí dvojice nemá automaticky přijatou kvalifikaci. Nevyřešené
+referenční známky zůstávají návrhové; externí modely se pro rozhodovací
+použití ověří na oddělených referencích stejně jako místní. Hodnotitel ani
+autor případu sám nepřijímá vlastní měřidlo. Rodina, dostupná verze API,
+prompt a expozice posuzovatele se zaznamenají; změna verze či její nejasnost
+má viditelný dopad na platnost kvalifikace.
+
+Výchozí přechod je ruční předání schváleného balíčku. Automatické API
+volání se povolí až pro konkrétní data, poskytovatele a rozpočet; tento
+dokument není souhlas s odesláním projektových dat. Offline režim zůstává
+schopný sbírat odpovědi, provádět mechanické kontroly a připravit review.
+Čeká jen nepřijaté významové hodnocení a změny, které na něm závisejí.
+
+Místní model nejprve známkuje paralelně bez rozhodovací autority. Po
+přejímce může nahradit jednoho externího hodnotitele; po přejímce druhého
+a celé dvojice běží běžné hodnocení lokálně. Externí přijetí se na lokální
+dvojici nepřenáší. Automatická výměna rolí je samostatná pozdější brána.
 
 ## 5. První část cyklu: plán, discovery a technická způsobilost
 
@@ -188,23 +238,78 @@ počet opakování a skupiny původu, oba hodnotitele a jejich přejímky,
 kritéria/váhy, pravidla pro neshody, hlavní provozní měřítko, minimální
 přínos, toleranci zhoršení, metodu nejistoty a maximální rozpočet.
 
+Čistě sběrný průzkum může mít přejímky dosud nedostupné; v plánu je pak
+výslovně sběr bez rozhodovací autority. Příprava dat tím není blokovaná,
+ale neúplný plán nelze použít jako finální měření pro automatickou výměnu.
+
 Plán má neměnný otisk. Rozhodovací způsobilost se odvozuje z uložených
 přejímek obou hodnotitelů a provozní kvalifikace pro konkrétní contract SHA,
 profil a dvojici modelů. Není to ručně přepnutý příznak „připraveno“.
-
-**Nová kritická chyba** znamená doložené porušení předem stanovené
-nepřekročitelné podmínky, které kandidát přidává vůči současnému modelu
-na stejném případu. Podle role může jít například o únik chráněných údajů,
-provedení instrukce z nedůvěryhodného podkladu nebo schválení opravy přes
-prokázanou blokující regresi. Samotné označení hodnotitelem je podnět
-k ověření, ne důkaz. Chyba společná oběma modelům se eviduje jako existující
-vada; může bránit absolutní způsobilosti obou, ale není novým zhoršením.
 
 Rozpočet zahrnuje **sběr + obě hodnocení + omezenou rezervu na spory +
 provozní ověření**. Dvojí hodnocení není bezplatné a stojí samostatné
 modelové volání. Limity času, tokenů, disku, RAM a GPU jsou součástí plánu.
 Při jejich dosažení se uloží checkpoint; další okno nezačíná s vynulovaným
 celkovým rozpočtem. Náklady na opakování jsou vidět.
+
+### 5.2a Proveditelnost rozhodnutí před sběrem
+
+Povinným výstupem plánování je výpočet potřebného počtu **nezávislých skupin**
+a dosažitelné síly testu při maximálním rozpočtu, ne jen volba „20 úloh“.
+Plán uvede zdroj a omezení pilotních dat, očekávaný přínos oproti minimálnímu
+přínosu, nejistotu variability, cílovou sílu, alpha a pravidla kontrolních
+okamžiků. Ověří se zároveň všechny podmínky: kvalita, tolerance ostatních
+os, kritické brány, jazyky a případná výkonnost. Nejvyšší požadavek může
+pocházet z tolerance 0,02, nikoli z hlavní kvality.
+
+Výpočet nebo simulace musí použít skutečnou zamýšlenou rozhodovací funkci,
+agregaci po původu, vazby CZ/EN, opakování a společné pokrytí více podmínek.
+Ověří se chybné přijetí na hranici nulové hypotézy i pravděpodobnost přijetí
+při předpokládaném zlepšení. Pilot dodává odhad pro plán, není novým holdoutem;
+ukáže se citlivost na jeho malý rozsah a jiné rozdělení skutečné práce.
+Nedostatek platných párových známek znamená, že odhad potřebuje doplnit,
+nikoli že se doplní vymyšlenou variancí.
+
+Rozpočet se spočítá z pilotních časů sběru i obou hodnotitelů a dostupného
+počtu čerstvých skupin. Výstup rozliší proveditelný rozhodovací běh,
+průzkum bez práva rozhodnout a neproveditelný plán. V posledním případě
+operátor před sběrem vybere větší rozpočet/zdroj případů, jiný odůvodněný
+rozhodovací cíl nebo ponechání. Metoda se nesmí změnit po výsledku jen
+proto, že jiná dává užší interval.
+
+Současná `boundedGroupInterval` je konzervativní KL mez. Ilustrační
+výpočet pro průměr +0,17 a 20 skupin dává dolní mez −0,415, nikoli +0,027.
+Čísla 50–140 skupin z review bez párových dat a metody nelze převzít.
+[Reprodukce](review/2026-09-24-HUNT-WORKFLOW-REVIEW.md) není power analýza
+panelu: skutečný CHAT profil rozhodovací metodu teprve uzamkne.
+
+### 5.2b Absolutní brány a relativní zhoršení
+
+Absolutní podmínka platí bez ohledu na výsledek současného modelu.
+Potvrzené porušení přijaté brány **brání kvalifikaci kandidáta**; dobrý
+průměr ani stejné selhání současného modelu je nevyruší. Následující mapa
+je návrh k přijetí, vždy s konkrétním důkazem a rozsahem produkčního profilu:
+
+| Role | Příklady povinné podmínky |
+|---|---|
+| Všechny podle jejich vstupu/výstupu | Nepředat chráněný údaj do zakázaného kanálu; nepřevzít pokyn z nedůvěryhodných dat za autoritu. |
+| D1 | Nenavrhnout prokazatelně nepovolený či destruktivní krok přes výslovnou hranici zadání. |
+| D2 | Nevydat opravu za ověřenou přes doložené selhání povinné reprodukce/regresního testu. |
+| CODE | Neporušit povolený rozsah změny ani předem označenou kritickou regresní podmínku. |
+| R1/R2 | Neschválit změnu s prokázanou blokující vadou v dodaném rozsahu. |
+| CHAT | Neprozradit chráněný údaj, neuposlechnout citovanou injekci a nevydat neprovedený zásadní úkon za provedený. |
+| VISION | Neprovést instrukci vloženou do obrazu; neopřít zásadní závěr o vymyšlený údaj z výslovně nečitelné či zakryté oblasti. |
+
+Seznam není zákaz jakékoli obyčejné chyby. Politika pojmenuje závažnost,
+ověřovací vstupy a co je přesně porušení. Samotný flag hodnotitele pozastaví
+doporučení do ověření; není důkaz. Nový neklasifikovaný nález se rozsouzuje,
+nezmění potichu pravidla ve prospěch nebo neprospěch jednoho modelu.
+
+**Nová kritická regrese** je navíc srovnávací údaj: kandidát porušil
+podmínku v párovém případě, kde ji současný model splnil. Pokud selhaly
+oba modely, oba selhaly absolutně. U současného modelu se otevře náprava
+nebo omezení dotčené funkce; `PONECHAT` se nevydává za bezpečný provoz.
+Žádný konečný soubor bez selhání nedokazuje nulové riziko ve všech úlohách.
 
 ### 5.3 Paměť, disk a GPU
 
@@ -222,8 +327,73 @@ KV cache, limitech a souběhu, které má používat role v produkci.
 
 Na jednom GPU mohou oba hodnotitelé běžet **postupně**: nezávislost znamená
 oddělené posudky, ne souběh v paměti. Běh nic cizího automaticky neukončí.
-Pokles rezerv, obsazené GPU nebo přerušení vytvoří konkrétní stav čekání
-či zastavení. Po pauze se ověří identity a naváže z deníku.
+Obsazenost nemá být samotná existence cizího PID ani seznam výjimek pro
+konkrétní aplikace. Navržená politika rozlišuje:
+
+- **Tvrdá ochrana:** nedostatečná aktuální RAM/VRAM rezerva, neověřitelná
+  telemetrie, drift identity nebo ztráta vlastního oprávnění k použití GPU.
+  Reaguje okamžitě, bez čekání na časový práh.
+- **Cizí zatížení při zachované rezervě:** vzorkuje paměť, zatížení včetně
+  kodeků a trvání. Před dalším voláním vyčká na předem stanovené klidové
+  okno; delší konflikt pozastaví plán. Krátký bezpečný výskyt sám neruší
+  již kompletní záznamy ani celé měřicí okno.
+- **Překryv s voláním:** označí rušení a nepoužije dotčenou latenci pro
+  rozhodnutí o rychlosti. Dokončený obsah lze ponechat jen při ověřené
+  identitě, stejné konfiguraci a bez chyby/krácení či změny offloadu.
+  Nejasný vliv, timeout nebo OOM se klasifikuje jako problém prostředí;
+  nesmí přinést obsahovou nulu. Opakování a jeho rozpočet jsou v plánu.
+
+Číselné prahy, interval vzorkování a délka klidového okna se změří a
+uzamknou; libovolná „jedna sekunda“ se nestává univerzálním bezpečným limitem.
+Výpadek vzorkování neprokazuje nepřítomnost rušení. Výkonově neplatná data
+zůstávají viditelná a párové zacházení s nimi se určí před sběrem. Po pauze
+se ověří identity a naváže z deníku. Jde o návrh změny ochrany, ne o její
+oslabení v současném kódu.
+
+### 5.4 Odkud budou nové případy a kdy se spotřebují
+
+Zdroj pro CODE/D1/D2/R1/R2 jsou ověřené historické opravy, incidenty,
+správné změny a skutečné regresní testy. Příčina a gold patch se modelu
+nesdělují. CHAT vychází z povolených reálných komunikačních potřeb a
+dokumentů; VISION z ověřených obrazových podkladů a skutečných vizuálních
+úkolů. Citlivé údaje lze nahradit, ale anonymizace a překlad nevytvářejí
+nezávislý případ. Princip „odvozovat, ne vymýšlet“ z historického
+[EVAL-REDESIGN](EVAL-REDESIGN.md) je užitečný zdrojový princip, ne přejímka
+nových sad ani požadavek odvodit všechny úlohy jen z jednoho repozitáře.
+
+Každý případ nese zdroj, oprávnění k použití, obsahový hash, rodinu/původ,
+ověřenou referenci, omezení, vlastníka a deník expozice. V rámci existující
+evidence se předem rozdělí celé rodiny, nikoli jednotlivé odpovědi:
+
+| Účel | Použití a hranice |
+|---|---|
+| Vývoj a kalibrace | Známé případy pro návrh rubrik, opravy nástrojů a výuku měřítka. |
+| Přejímka hodnotitelů | Oddělené reference; posuzovatel nevidí gold známky. Autor sond není sám nezávislou přejímkou. |
+| Výběrový benchmark | Porovnání kandidátů; data pro výběr nejsou potvrzovací provozní data. |
+| Provozní potvrzení | Nové zamčené rodiny pro vybraný pár a profil; kandidát se podle jejich výsledků již neladí. |
+| Průběžný dohled | Známé regresní kontroly plus zásoba nových slepých případů. Tyto dvě části se vykazují zvlášť. |
+
+Stejný případ lze během jedné předem zmrazené kampaně předat všem
+kandidátům i opakováním. Při odhalení výsledků nebo použití k ladění se
+označí jako exponovaný; dál může být vývojový/regresní, nikoli znovu čerstvý
+holdout. Výměna ID, čísel, jazyka, modelu či promptu tuto expozici nevymaže.
+Zásoba nových skupin je součástí rozpočtu a její nedostatek se hlásí před
+spuštěním. Nové doložené případy se doplňují průběžně, ne až po neúspěšné
+přejímce; sběr ze skutečných projektů nesmí překročit jejich oprávnění.
+
+**Syntetické negativy jsou doplněk přejímky:** z ověřené odpovědi vznikne
+například změněná výsledná částka, převrácený stav nebo únik kontrolního
+tokenu. Ke každé mutaci se uloží původní odpověď, přesná změna a důkaz,
+které kritérium porušila; doplní se i správné alternativní formulace.
+Pouhá výměna slova v citaci či zavržené hypotéze nemusí změnit výsledný
+význam. Automatický štítek je proto přípustný jen tam, kde jej konstrukce
+a kontrola skutečně dokazují, ne pro celé volné vysvětlení. Nejasné mutace
+potřebují posudek a nesmějí samy vyrábět ground truth.
+
+Mutace se seskupují pod původní případ/generátor; tisíc variant jednoho
+scénáře není tisíc nezávislých skupin. Chyby dvojice se vykazují zvlášť na
+mutacích a na přirozených dosud neviděných odpovědích. Tím zůstává možné
+změřit společná selhání, aniž se snadné syntetické sondy vydají za celý provoz.
 
 ## 6. Sběr odpovědí a dva rozsahy testování
 
@@ -235,6 +405,18 @@ označení odhadu; sám nikdy nepřepíná roli ani nemaže model.
 pro kandidáty a současný model. Není to jen opakování úloh, které někomu
 nešly. Tři opakování nejsou trvalé magické číslo; plán je zvolí podle
 pilotní variability a účelu, a pak se bez změny aplikuje na všechny.
+
+Benchmark použitý pro výběr měří **produkční konfiguraci role**, nejen
+samotné váhy modelu. Identita kandidáta zahrnuje model/digest × thinking ×
+efektivní systémový prompt a šablonu × runtime/nástroje/parser × limity.
+Nastavení se při volání vynucuje a porovnává s plánem. Thinking zapnuto a
+vypnuto jsou dva profily; jejich skóre se neslévá a kvalifikace nepřenáší.
+Vyhledávání výhodného profilu patří do vývojové fáze, před finálním holdoutem.
+
+Holý model bez promptu aplikace lze měřit jako průzkum, musí tak být označen.
+CHAT panel z 23.–24. 9. měl `think:false` a neměl systémovou zprávu aplikace;
+jeho odpovědi jsou použitelné pro tento průzkum a reference, nejsou dokladem
+produkčního CHAT profilu. Změna na produkční prompt vyžaduje nový sběr.
 
 Každé volání uloží přesnou identitu modelu, provider a runtime, systémový
 prompt/šablonu, vstupy a přílohy, nastavení včetně thinking/seedu, odpověď,
@@ -267,6 +449,20 @@ Nesmějí přehlasovat prokázaný pád testu. Spor o vadné orákulum blokuje
 dotčené hodnocení a vrací se k opravě měřidla, nikoli k většinovému hlasování.
 Čistě mechanický výsledek se nevyrábí znovu dvěma LLM úsudky; dvojice
 pokrývá všechny významové a kvalitativní závěry, které na něm dále závisejí.
+
+Přesná fakta lze ověřovat i **uvnitř prózy**. Hodnotitel vytáhne tvrzenou
+hodnotu, jednotku, tah a přesnou citaci s pozicí; kód ověří existenci citace
+a provede výpočet/porovnání. Extraktor musí rozlišit závěr, negaci, citaci
+cizího tvrzení a odvolaný mezivýsledek. Má vlastní přejímku s pozitivními
+i negativními sondami. Neshoda extraktorů či nejednoznačný text vede
+k rozsouzení, nikoli k výběru čísla, které se hodí referenci.
+
+Kontrolní signály přes **všechny tahy** vyhledají např. chráněný testový
+token, nevyplněný placeholder, Markdown obal či opakující se smyčku.
+Uchovají výskyt a předají ho hodnotitelům; samy nezvyšují ani nesnižují
+významovou známku. Mechanická známka je přípustná pouze pro samostatné
+přijaté přesné kritérium (např. parse JSON), ne z pouhého tripwire signálu.
+„Bez omluvy“ není omluva a chybějící regexový nález není důkaz správnosti.
 
 ### 7.2 Samostatné první čtení A a B
 
@@ -332,6 +528,30 @@ prázdný seznam parsovaných chyb neprokazují úspěch. U všech rolí se vyka
 i nedokončené, vyloučené a neplatné pokusy; nelze porovnávat jen úspěchy
 kandidáta proti všem pokusům současného modelu.
 
+### 7.5 Úspora hodnocení bez změny jeho významu
+
+Posudky lze znovu použít pro identický hodnoticí vstup, ne pouze podle
+hashe poslední odpovědi. Klíč zahrnuje celé zadání/dialog/přílohy,
+relevantní mechanické důkazy a stav dokončení, kontrakt a produkční profil
+kandidáta, rubriku, referenční kontext,
+prompt/verzi/profil hodnotitele a rozsah přejímky. Zvlášť se ukládá posudek
+A a B; před použitím se znovu ověří platná kvalifikace a střet s kandidátem.
+Jedna známka se nesmí zkopírovat jako druhý nezávislý posudek. Cache se
+nepoužije místo čerstvého volání při měření stability samotného hodnotitele.
+
+Opakované bajtově shodné výstupy mohou sdílet obsahový posudek, ale zůstává
+jejich počet, původ a vlastní provozní výsledek/čas. Každé použití ukazuje
+zdrojový posudek. Změna kontraktu nebo vstupu cache zneplatní; neshodný
+záznam se nepřepíše. V panelu je doloženo 25 ze 396 úplných trojic se
+shodným transkriptem, nikoli nárok na libovolnou úsporu napříč různými úlohami.
+
+Úlohu lze hodnotit čistě mechanicky jen tehdy, když přijaté orákulum pokrývá
+**celý její měřený požadavek**. Jinak mechanicky ověřené osy doplní dvojice
+pro zbývající význam. Dosavadní saturace není důvod tuto kontrolu odstranit.
+Namátkový audit ověřuje kvalitu měřidla; nenahrazuje chybějící posudky,
+které potřebuje rozhodovací profil. Náklad se odhadne pilotem hodnotitelů,
+nikoli přepsáním 5,5 hodin sběru na dobu známkování.
+
 ## 8. Porovnání kandidátů a nezávislé provozní ověření
 
 Nejprve se agregují opakování uvnitř případu. Potom se zachováním skupin
@@ -348,6 +568,13 @@ projde proti skutečnému současnému modelu **novými uzamčenými provozními
 případy**, nikoli dalšími opakováními vývojových úloh. Oba dostanou stejné
 výchozí podmínky, nástroje, limity, parser a profil aplikace.
 
+**Rozhodovací interval se počítá jen z nové potvrzovací provozní sady.**
+Benchmark, pilot, přejímka hodnotitelů a známé incidenty jsou podklady pro
+výběr/plán, nepřisčítají se k ní. Kandidát, současný model i pravidlo jsou
+vybrané před odhalením výsledků. Pokud se ve finální fázi porovnává více
+kandidátů, profil předem řeší více porovnání; nelze vybrat nejlepšího
+z týchž výsledků a vykázat pro něj nekorigovaný interval jednoho páru.
+
 U CODE se měří dokončená oprava v rozpočtu bez opravné pomoci člověka,
 se splněnými přejímacími a stanovenými regresními testy. U D1/D2 se ověřuje
 i použití diagnózy/plánu navazujícím postupem; jediný hezký odstavec není
@@ -362,6 +589,21 @@ Rozhodovací kód použije uzamčená pravidla kontraktu:
   a současně je splněn předem určený požadavek na zrychlení.
 - **Nerozhodnuto:** po vyčerpání rozpočtu se model ponechá a další sběr
   pro stejný cíl vyžaduje nové odůvodněné rozhodnutí. Neměří se do výhry.
+
+**Navržená třetí cesta — odstranění kritické vady:** současný model má
+doložené porušení přijaté absolutní brány; kandidát splní brány, napraví
+konkrétní reprodukci a obstojí i na nových případech stejné schopnosti.
+V ostatních předem určených osách a dokončenosti prokáže nezhoršení
+v přijaté toleranci a dodrží provozní rozpočet. Nemusí zároveň prokázat
+nárůst celkového skóre o 0,04. Nejistota ostatních os však
+nezmizí a jedno opravené zadání nedokazuje odstranění celé třídy vad.
+
+Tato cesta vyžaduje výslovné doplnění/přijetí rozhodovací politiky vůči
+§6 kontraktu, není už schválenou třetí automatickou větví. Nouzové ruční
+omezení či přepnutí nebezpečné funkce může operátor provést samostatně;
+označí se jako zásah operátora s důvodem, ne jako statisticky prokázaná
+výměna. Pokud žádný kandidát nesplní brány, řeší se ochrana/omezení funkce,
+nikoli výběr „nejméně špatného“ pod falešným GO.
 
 Pro CHAT je v DIRECTION návrh přínosu 0,04 a tolerance 0,02 při 95% intervalu;
 nejde dosud o úplně uzamčený rozhodovací profil. U dalších rolí jsou v kódu
@@ -402,6 +644,15 @@ celá konfliktní část nebo případ čeká. Stejná kontrola platí pro náhr
 hodnotitele. Pokud nelze sestavit způsobilou sestavu, hunt ukáže chybějící
 role a důvody. Existující konflikt se nezakryje označením PONECHAT za zdravý
 stav; dotčené vlastní kontroly se nesmějí vydávat za nezávislé.
+
+Na jedné kartě neznamená sedm přiřazení sedm současně rezidentních modelů.
+Měří se také **celá sestava**: počet a čas load/unload, studená i zahřátá
+latence, doba čekání interaktivního CHATu a celková délka skutečného postupu.
+Plánovač dává uživatelské práci přednost před background hodnocením;
+hodnotitele lze dávkovat po modelu bez předání posudků mezi A a B.
+Limity čekání a přerušení musí být součástí přejímky, nikoli slib nulového
+čekání při každém přepnutí. Naměřená rychlost jednotlivého modelu není
+rychlost sestavy. Omezení přepínání nesmí obejít zákaz vlastní kontroly.
 
 ## 10. Aktivace, dohled a návrat
 
@@ -506,12 +757,16 @@ Tato tabulka rozlišuje čtení kódu na uvedeném SHA od fyzického důkazu.
 | První reference CHAT | 119 úplných návrhových známek + jeden spor; 1 076 úplných dialogů ještě bez kritériového hodnocení. Opusův souhrn není náhradní per-ID export. |
 | Přejímka T4 a zákaz stejného digestu | Validace v [semantic-grader-acceptance.js](../src/eval/semantic-grader-acceptance.js) a [grade-answer-collection.js](../src/eval/grade-answer-collection.js). Není to doklad kvalifikované místní dvojice pro novou sadu. |
 | Dvojí autonomní hodnocení | **Chybí:** `gradeAcceptedCollection()` vybírá `preview.graders[0]`; potřebuje oba posudky, jejich oddělené identity, rozsouzení a propagaci do všech read/decision cest. |
+| Proveditelnost a nové případy | Povinný power/budget plán, oddělené zásoby případů s expozicí a automatická výroba rozhodovacích plánů nejsou doloženy. Současná KL funkce je podklad k ověření metody, nikoli přijatá metoda pro nový CHAT profil. |
 | Nový vícekolový CHAT | [chat-conversation-suite.js](../src/eval/chat-conversation-suite.js) je draft mimo běžné plány, `measurementReady:false`, bez přijatého `gradeConversation`. Je nutná integrace, ne jen změna přepínače. |
+| Produkční profil sběru | [conversation-capture.js](../src/eval/conversation-capture.js) začíná bez systémové zprávy; runner posílá `think:false`. Nový produkční profil a jeho identita se musejí vynucovat, ne jen doplnit do reportu. |
 | Důkazy před rozhodnutím | [model-evaluation-acceptance.js](../src/upgrade/model-evaluation-acceptance.js) vyžaduje odpovídající uložené přejímky; dnešní vazba je na jednotlivého hodnotitele. Je třeba zahrnout obě kvalifikace a jejich platnost. |
 | Sestava rolí | [model-upgrade-prototype.js](../src/upgrade/model-upgrade-prototype.js) má solver, ale **maxRolesPerModel:3**, čtyři zakázané dvojice a kontrolu jmen. Nové maximum 2, širší konflikty a identita přes artefakt/původ nejsou tímto implementované. |
 | Tolerance solveru | Staré `maxQualityDrop:0.15` a oprava konfliktní sestavy nejsou souhlasem s automatickým zhoršením role. Musí se sladit s přijatou politikou a individuální kvalifikací změn. |
 | Úplná provozní kvalifikace rolí | Existuje příjem/validace důkazů. [Předání integrace](review/2026-09-23-HUNT-GRADING-INTEGRATION.md) výslovně uvádí chybějící automatickou výrobu úplných ne-CODE provozních průchodů. |
 | Aktivace sestavy a fallback | Existuje [binding application](../src/upgrade/model-binding-application.js) pro řízenou změnu. End-to-end vynucení všech nových konfliktů, přepnutí více rolí a návrat celé sestavy je nutné prokázat. |
+| Absolutní brány a kritická náprava | Mapa bran a třetí důvod výměny jsou návrh politiky v tomto dokumentu, nikoli nová aktivní větev v kontraktu/rozhodovacím kódu. |
+| Přechodné review, cache a GPU rušení | Ruční podklady existují. Dvojí verzovaný import/externí adaptéry, cache se správnou identitou a nová časová/resource politika rušení nejsou tímto implementované. |
 | UI | Existují tabulky, historie a průběh. Dvě známky vedle sebe, životní cyklus dvojice hodnotitelů a konflikty všech fallbacků jsou cílové doplnění. |
 
 Číselné meze dnešního T4 validátoru (mj. ≥20 skupin na typ, ≥8 kladných
@@ -521,12 +776,17 @@ populační chybovosti. Přejímka dvojice potřebuje i její skutečné společ
 
 ## 15. Dokončení po milnících a provozní přejímka
 
-1. **Reference a role:** dokončit srovnatelné posudky, rozsoudit spory,
-   uzamknout používané rubriky a mapu konfliktů. Výstupem jsou použitelné
-   známky a pravidla, ne další obecný žebříček.
-2. **Místní dvojice:** přijmout alespoň dva hodnotitele pro daný rozsah,
-   zajistit náhradu při střetu a implementovat dvojí hodnocení od sběru
-   po uložené důkazy a UI. Ověřit shodu i konkrétní odmítnutí chybných verdiktů.
+1. **Reference, zdroje a proveditelnost:** dokončit srovnatelné posudky,
+   rozsoudit spory, připravit konkrétní doplnění politiky, produkční profily,
+   zásobu oddělených případů a výpočet rozpočtu/síly. Přijmout rubriky,
+   absolutní brány, rozhodovací cesty a mapu konfliktů před finálním sběrem.
+2. **Dvojí hodnocení jako funkční cesta:** implementovat oddělené posudky,
+   jejich import, přejímky, cache, rozsouzení a UI. Ověřit kontrolními
+   záznamy a asistovaným GPT/Opus review; skutečné rozhodovací známkování
+   vyžaduje přejímku i externí dvojice. Nečekat se stavbou cesty na místní
+   kandidáty, ale neoznačit stub ani externí značku za přijatého hodnotitele.
+   Během této přípravy prověřovat také místní kandidáty a po přejímce
+   nahradit externí posudky, včetně rezervy při střetu.
 3. **Výběr sestavy:** prosadit max. dvě nesouvisející role, digestové
    konflikty a bezpečné fallbacky ve všech cestách. Chybějící varianta
    vytvoří viditelnou mezeru; ne automatickou výjimku.
