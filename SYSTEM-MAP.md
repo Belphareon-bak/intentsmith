@@ -711,7 +711,7 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **229 078 ř.**, 656 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **229 289 ř.**, 657 `.js` souborů v pracovním kandidátu |
 | `tests/**/*.js` | **249 691 ř.**, 536 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **539** (`445 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **178 / 103** |

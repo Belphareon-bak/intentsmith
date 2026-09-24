@@ -11,7 +11,7 @@ import { writeFileSync } from 'node:fs';
 import { ROLE_IMPROVEMENT_THRESHOLDS } from '../src/eval/role-evaluation-plan.js';
 import { DECISION_METHODS, groupInterval } from '../src/eval/decision-methods.js';
 import { existsSync, readFileSync } from 'node:fs';
-import { planFeasibility, sampleSd } from '../src/eval/decision-feasibility.js';
+import { planFeasibility, sampleSd, orientedPairPools, FEASIBILITY_MODEL_VERSION } from '../src/eval/decision-feasibility.js';
 
 const args = Object.fromEntries(process.argv.slice(2).map(a => a.replace(/^--/, '').split('=')));
 const dbPath = args.db || '/home/belphareon/Projects/intentsmith/data/c3.db';
@@ -29,19 +29,22 @@ const extraSuites = Object.fromEntries(String(args['extra-suite'] || '').split('
 const bindingsPath = args.bindings || '/mnt/vi7000/intentsmith/evidence/hunt-decision-methods-20260924/live-bindings.json';
 const bindings = existsSync(bindingsPath) ? JSON.parse(readFileSync(bindingsPath, 'utf8')).bindingResponse?.bindings || {} : {};
 
-function demoDecisions(role, models, minimumBenefit, margin, alpha = 0.05) {
-  const incumbent = models.find(m => m.model === bindings[role]);
+// The binding names a model; the newest graded run under that name fixes the
+// exact artifact. Other digests under the same name remain candidates.
+const incumbentOf = (role, models) => models.find(m => m.model === bindings[role]) || null;
+
+function demoDecisions(role, models, minimumBenefit, margin, alpha = 0.05, alphaSource = 'NOMINAL_UNCALIBRATED') {
+  const incumbent = incumbentOf(role, models);
   if (!incumbent) return { incumbent: bindings[role] || null, status: 'INCUMBENT_NOT_MEASURED_ON_THIS_SUITE' };
   const verdict = iv => iv.lower > minimumBenefit ? 'ZMENIT' : iv.upper < -margin ? 'PONECHAT' : 'NEROZHODNUTO';
-  const rows = models.filter(m => m !== incumbent).map(candidate => {
-    const shared = [...incumbent.groups.keys()].filter(g => candidate.groups.has(g));
-    const deltas = shared.map(g => candidate.groups.get(g) - incumbent.groups.get(g));
+  const rows = orientedPairPools(models, { incumbentDigest: incumbent.digest }).map(({ candidate, deltas }) => {
     const t = groupInterval(deltas, alpha, DECISION_METHODS.PAIRED_T), kl = groupInterval(deltas, 0.05, DECISION_METHODS.KL_BOUNDED);
-    return { candidate: candidate.model, groups: deltas.length, meanDelta: r3(t.mean),
+    return { candidate, groups: deltas.length, meanDelta: r3(t.mean),
       pairedT: { lower: r3(t.lower), upper: r3(t.upper), verdict: verdict(t) },
       kl: { lower: r3(kl.lower), upper: r3(kl.upper), verdict: verdict(kl) } };
-  }).sort((a, b) => b.meanDelta - a.meanDelta);
-  return { incumbent: incumbent.model, minimumBenefit, margin, alpha, rows };
+  }).sort((a, b) => b.meanDelta - a.meanDelta || (a.candidate < b.candidate ? -1 : 1));
+  return { incumbent: incumbent.model, incumbentDigest: incumbent.digest, orientation: 'candidate-minus-incumbent',
+    minimumBenefit, margin, alpha, alphaSource, rows };
 }
 
 const db = new Database(dbPath, { readonly: true, fileMustExist: true });
@@ -78,7 +81,7 @@ function roleData(role) {
       if (!byGroup.has(g)) byGroup.set(g, []);
       byGroup.get(g).push(m);
     }
-    models.set(row.model_digest_sha256, { model: row.model_name,
+    models.set(row.model_digest_sha256, { model: row.model_name, digest: row.model_digest_sha256,
       groups: new Map([...byGroup].map(([g, xs]) => [g, mean(xs)])) });
   }
   const extra = extraSuites[role];
@@ -96,7 +99,7 @@ function roleData(role) {
         if (!byGroup.has(g)) byGroup.set(g, []);
         byGroup.get(g).push(m);
       }
-      const target = models.get(row.model_digest_sha256) || { model: row.model_name, groups: new Map() };
+      const target = models.get(row.model_digest_sha256) || { model: row.model_name, digest: row.model_digest_sha256, groups: new Map() };
       for (const [g, xs] of byGroup) target.groups.set(g, mean(xs));
       models.set(row.model_digest_sha256, target);
     }
@@ -105,33 +108,29 @@ function roleData(role) {
     models: [...models.values()] };
 }
 
-function pairedPools(models) {
-  const pools = [];
-  for (let i = 0; i < models.length; i++) for (let j = i + 1; j < models.length; j++) {
-    const a = models[i], b = models[j];
-    const shared = [...a.groups.keys()].filter(g => b.groups.has(g));
-    if (shared.length < 2) continue;
-    pools.push({ pair: [a.model, b.model], deltas: shared.map(g => a.groups.get(g) - b.groups.get(g)) });
-  }
-  return pools;
-}
-
 const report = { status: 'PLANNING_EVIDENCE_ONLY', decisionAuthority: false, inference: false,
+  feasibilityModelVersion: FEASIBILITY_MODEL_VERSION,
   generatedAt: new Date().toISOString(), db: dbPath, plannedEffect, sims, roles: {} };
 for (const role of Object.keys(ROLE_IMPROVEMENT_THRESHOLDS)) {
   if (onlyRole && role !== onlyRole) continue;
   const data = roleData(role);
   if (!data || data.models.length < 2) { report.roles[role] = { status: 'NO_PAIRED_DATA' }; continue; }
-  const pools = pairedPools(data.models);
-  const sds = pools.map(p => sampleSd(p.deltas)).filter(Number.isFinite);
+  // All ordered pairs: both directions of every pair, so the mixture has no
+  // hidden sign. Sign-free statistics use each unordered pair once.
+  const pools = orientedPairPools(data.models);
+  const unordered = pools.filter(p => p.candidateDigest > p.incumbentDigest);
+  const sds = unordered.map(p => sampleSd(p.deltas)).filter(Number.isFinite);
   const groups = Math.max(...pools.map(p => p.deltas.length));
-  const zeroShare = mean(pools.map(p => p.deltas.filter(d => Math.abs(d) < 1e-9).length / p.deltas.length));
+  const zeroShare = mean(unordered.map(p => p.deltas.filter(d => Math.abs(d) < 1e-9).length / p.deltas.length));
   const deltaPools = pools.map(p => p.deltas);
   const minimumBenefit = ROLE_IMPROVEMENT_THRESHOLDS[role];
   const run = (method, nonInferiorityMargin, availableGroups = groups) => planFeasibility({ method, minimumBenefit,
     nonInferiorityMargin, availableGroups, plannedEffect, pools: deltaPools, sims });
   const entry = {
-    suite: data.suite, contract: data.contract, models: data.models.length, pairs: pools.length, groups,
+    suite: data.suite, contract: data.contract, models: data.models.length, pairs: unordered.length, groups,
+    // Mixture over every observed pair and direction. It describes the suite,
+    // not the safety of any one candidate against the incumbent.
+    scope: 'ALL_ORDERED_PAIRS_MIXTURE', perCandidateGuarantee: false,
     sigma: { median: r3(quantile(sds, 0.5)), p25: r3(quantile(sds, 0.25)), p75: r3(quantile(sds, 0.75)),
       max: r3(Math.max(...sds)) },
     zeroDeltaShare: r3(zeroShare), minimumBenefit,
@@ -145,17 +144,20 @@ for (const role of Object.keys(ROLE_IMPROVEMENT_THRESHOLDS)) {
   };
   // Variability that matters for a real decision: incumbent vs candidates, not
   // every pair (clearly unsuitable models inflate the all-pairs sigma).
-  const incumbentPools = pools.filter(p => p.pair.includes(bindings[role])).map(p => p.deltas);
+  // Always candidate - incumbent: a rare candidate loss must stay a loss.
+  const incumbent = incumbentOf(role, data.models);
+  const incumbentPools = incumbent ? orientedPairPools(data.models, { incumbentDigest: incumbent.digest }).map(p => p.deltas) : [];
   if (incumbentPools.length) {
     const isds = incumbentPools.map(sampleSd).filter(Number.isFinite);
-    entry.incumbentPairs = { incumbent: bindings[role], pairs: incumbentPools.length,
+    entry.incumbentPairs = { incumbent: incumbent.model, incumbentDigest: incumbent.digest,
+      orientation: 'candidate-minus-incumbent', scope: 'INCUMBENT_PAIRS_MIXTURE', pairs: incumbentPools.length,
       sigma: { median: r3(quantile(isds, 0.5)), p25: r3(quantile(isds, 0.25)), p75: r3(quantile(isds, 0.75)) },
       pairedT: planFeasibility({ method: DECISION_METHODS.PAIRED_T, minimumBenefit, nonInferiorityMargin: 0.05,
         availableGroups: groups, plannedEffect, pools: incumbentPools, sims, calibrate: true }),
       pairedTAtGroups: Object.fromEntries(alsoGroups.map(n => [n, planFeasibility({ method: DECISION_METHODS.PAIRED_T,
         minimumBenefit, nonInferiorityMargin: 0.05, availableGroups: n, plannedEffect, pools: incumbentPools, sims, calibrate: true })])) };
     if (entry.incumbentPairs.pairedT.calibration)
-      entry.demo = demoDecisions(role, data.models, minimumBenefit, 0.05, entry.incumbentPairs.pairedT.alpha);
+      entry.demo = demoDecisions(role, data.models, minimumBenefit, 0.05, entry.incumbentPairs.pairedT.alpha, 'CALIBRATED_INCUMBENT_PAIRS');
   }
   report.roles[role] = entry;
   const q = entry.pairedT.quality, ni2 = entry.pairedT.nonInferiority, ni5 = entry.pairedTMargin005.nonInferiority;

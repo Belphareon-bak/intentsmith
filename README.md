@@ -1,5 +1,14 @@
 # IntentSmith
 
+**GPU hunt M0 — zapracovaná revize 1, 24. 9. 2026:**
+Opraveny dvě P1 z review M0. Páry jsou vždy kandidát − současný model, na
+pořadí běhů nezáleží. Simulovaná populace má přesně uvedený průměr.
+Binární plány se vrátily ke KL; spojité skóre má samostatný plán schema 2,
+který bez přijatého dokladu `FEASIBLE` neprojde. Přepočet na stejném snímku DB:
+CHAT pilot na 60 skupinách α 0,03 místo 0,02, D2 u 60 skupin nově `METHOD_UNSAFE`.
+**PLANNING_EVIDENCE / NO_BINDING_CHANGE**, body addenda otevřené.
+[Revize a přepočet](docs/review/2026-09-24-HUNT-M0-DECISION-METHOD.md#revize-1-24-9-večer).
+
 **GPU hunt — navázání po krátkém konfliktu GPU, 24. 9. 2026:**
 Qwen3.5 dokončen. Qwen3.6 přerušen při cizí GPU aktivitě; časově doložen
 souběh s RustDesk CUDA/NVENC sondou. Doplněno omezené čekání a nejvýše tři

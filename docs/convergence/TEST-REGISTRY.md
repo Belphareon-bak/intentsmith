@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 538
+- Runnable programs: 539
 - Explicit support-module exclusions: 21
-- Profiles: offline=295, database=78, server=48, model=82, soak=15, manual=20
-- States: ACTIVE=444, HISTORICAL=15, BLOCKED=79
+- Profiles: offline=296, database=78, server=48, model=82, soak=15, manual=20
+- States: ACTIVE=445, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -137,6 +137,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-DB-AUTOREPAIR-TEST` | `tests/db-autorepair.test.js` | `C3-024` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-DEAD-CODE-DETECTOR-TEST` | `tests/dead-code-detector.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-DEBUG-AGENT-TEST` | `tests/debug-agent.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-DECISION-METHODS-TEST` | `tests/decision-methods.test.mjs` | `C3-025` | T1 | `offline` | 15 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-DEPENDENCY-MANAGER-TEST` | `tests/dependency-manager.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-DESIGN-SPRINT34-TEST` | `tests/design-sprint34.test.js` | `C3-027` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-DESIGN-TESTS-TEST` | `tests/design-tests.test.js` | `C3-027` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
