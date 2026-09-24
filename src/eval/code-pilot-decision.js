@@ -1,6 +1,7 @@
 // Bounded CODE pilot (§6/§8). Pure recommendation; never applies bindings,
 // deletes models, or promotes exploratory benchmark rows to decision evidence.
 import { createHash } from 'node:crypto';
+import { DECISION_METHODS, PAIRED_T_MINIMUM_GROUPS, groupInterval } from './decision-methods.js';
 
 const canonical = value => JSON.stringify(value, (_key, item) => item && typeof item === 'object'
   && !Array.isArray(item) ? Object.fromEntries(Object.keys(item).sort().map(key => [key, item[key]])) : item);
@@ -25,14 +26,23 @@ export function validateCodePilotPlan(plan) {
 
 // Shared arithmetic, explicit caller-owned workflow/metric. The CODE entrypoint
 // remains strict so old callers cannot silently reinterpret another role.
+// Schema 1 scores binary completion and keeps the variance-free KL bound
+// (roadmap R1). A variance-based method needs the separately versioned
+// continuous plan with accepted method evidence (continuous-paired-decision.js).
 export function validatePairedPlan(plan, role, metric) {
   const fail = message => { throw new Error(`CODE_PILOT_PLAN_INVALID: ${message}`); };
   if (plan?.schemaVersion !== 1 || plan.role !== role || plan.metric !== metric) fail('metric');
+  validatePairedPlanFields(plan, fail, [DECISION_METHODS.KL_BOUNDED]);
+  return true;
+}
+
+// Seal, budget, identities and scenarios common to every paired plan schema.
+export function validatePairedPlanFields(plan, fail, methods) {
   if (plan.planSha256 !== codePilotPlanHash(plan)) fail('seal');
   if (!Number.isFinite(Date.parse(plan.lockedAt))) fail('lockedAt');
   if (!Number.isInteger(plan.repeats) || plan.repeats < 1) fail('repeats');
   const rule = plan.decision;
-  if (rule?.method !== 'hoeffding-kl-bounded-groups' || !(rule.alpha > 0 && rule.alpha < 1)
+  if (!methods.includes(rule?.method) || !(rule.alpha > 0 && rule.alpha < 1)
     || !(rule.minimumBenefit > 0 && rule.minimumBenefit < 1)
     || !(rule.nonInferiorityMargin >= 0 && rule.nonInferiorityMargin < 1)
     || !(rule.minimumSpeedup > 1) || typeof rule.allowSpeedDecision !== 'boolean') fail('decision');
@@ -44,13 +54,15 @@ export function validatePairedPlan(plan, role, metric) {
   }
   if (plan.incumbent.digest === plan.candidate.digest) fail('identical artifacts');
   if (!Array.isArray(plan.scenarios) || !plan.scenarios.length) fail('scenarios');
+  // A variance-based interval needs enough independent groups to mean anything.
+  if (rule.method === DECISION_METHODS.PAIRED_T
+    && new Set(plan.scenarios.map(s => s.independenceGroup)).size < PAIRED_T_MINIMUM_GROUPS) fail('too few groups for paired t');
   const ids = new Set();
   for (const scenario of plan.scenarios) {
     if (!scenario.id || ids.has(scenario.id) || !scenario.independenceGroup
       || !scenario.groupRationale || !/^[a-f0-9]{64}$/.test(scenario.contentSha256 || '')) fail('scenario identity');
     ids.add(scenario.id);
   }
-  return true;
 }
 
 // Invert the bounded-variable Chernoff/Hoeffding KL bound, with alpha/2
@@ -83,7 +95,23 @@ export function decideCodePilot(plan, attempts, qualifications = {}) {
   return decidePairedPlan(plan, attempts, qualifications);
 }
 
+// Schema-1 attempts: completion is 1, anything else 0; a failure costs the
+// full attempt budget in timing.
+const BINARY_SCORING = Object.freeze({
+  schemaVersion: 1,
+  valid: (row, plan) => ['SUCCESS', 'INCORRECT', 'OPERATIONAL_FAILURE'].includes(row.outcome)
+    && [0, 1].includes(row.score) && (row.outcome === 'SUCCESS') === (row.score === 1)
+    && !(row.score === 1 && (row.durationMs > plan.budget.attemptMs || row.repairHelp !== 0)),
+  timeMs: (row, plan) => (row.score ? row.durationMs : plan.budget.attemptMs),
+});
+
 export function decidePairedPlan(plan, attempts, qualifications = {}) {
+  return decideScoredPairs(plan, attempts, qualifications, BINARY_SCORING);
+}
+
+// Paired engine shared by schema versions; `scoring` owns what a valid score is.
+export function decideScoredPairs(plan, attempts, qualifications, scoring) {
+  if (plan?.schemaVersion !== scoring.schemaVersion) throw new Error('PAIRED_PLAN_SCHEMA_MISMATCH');
   const result = { verdict: 'NEROZHODNUTO', bindingAction: 'UNCHANGED', activationAuthorized: false,
     planSha256: plan.planSha256, plannedAttempts: plan.scenarios.length * plan.repeats * 2,
     observedAttempts: attempts.length, invalidAttempts: [], missingAttempts: [], groups: [],
@@ -98,13 +126,10 @@ export function decidePairedPlan(plan, attempts, qualifications = {}) {
       || !['candidate', 'incumbent'].includes(row.side)
       || !Number.isInteger(row.repeat) || row.repeat < 1 || row.repeat > plan.repeats) throw new Error('CODE_PILOT_ATTEMPT_IDENTITY');
     indexed.set(key, row);
-    const validOutcome = ['SUCCESS', 'INCORRECT', 'OPERATIONAL_FAILURE'].includes(row.outcome);
     if (row.planSha256 !== plan.planSha256 || row.digest !== plan[row.side].digest
       || !Number.isFinite(Date.parse(row.startedAt)) || Date.parse(row.startedAt) < Date.parse(plan.lockedAt)
-      || !validOutcome || row.valid !== true || ![0, 1].includes(row.score)
-      || (row.outcome === 'SUCCESS') !== (row.score === 1)
-      || !Number.isFinite(row.durationMs) || row.durationMs <= 0
-      || (row.score === 1 && (row.durationMs > plan.budget.attemptMs || row.repairHelp !== 0))) {
+      || row.valid !== true || !Number.isFinite(row.durationMs) || row.durationMs <= 0
+      || !scoring.valid(row, plan)) {
       result.invalidAttempts.push({ key, outcome: row.outcome, reason: row.reason || 'UNVERIFIED_ATTEMPT' });
     }
   }
@@ -123,8 +148,8 @@ export function decidePairedPlan(plan, attempts, qualifications = {}) {
       if (pair.every(row => row?.valid && Number.isFinite(row.score))) {
         deltas.push(pair[0].score - pair[1].score);
         // Budget-consuming failures remain in timing as the full cap.
-        candidateTimes.push(pair[0].score ? pair[0].durationMs : plan.budget.attemptMs);
-        incumbentTimes.push(pair[1].score ? pair[1].durationMs : plan.budget.attemptMs);
+        candidateTimes.push(scoring.timeMs(pair[0], plan));
+        incumbentTimes.push(scoring.timeMs(pair[1], plan));
       }
     }
     const mean = xs => xs.reduce((a, b) => a + b, 0) / xs.length;
@@ -139,7 +164,7 @@ export function decidePairedPlan(plan, attempts, qualifications = {}) {
     delta: rows.reduce((sum, r) => sum + r.delta, 0) / rows.length,
     candidateMs: rows.reduce((sum, r) => sum + r.candidateMs, 0) / rows.length,
     incumbentMs: rows.reduce((sum, r) => sum + r.incumbentMs, 0) / rows.length });
-  result.qualityInterval = boundedGroupInterval(result.groups.map(g => g.delta), plan.decision.alpha);
+  result.qualityInterval = groupInterval(result.groups.map(g => g.delta), plan.decision.alpha, plan.decision.method);
   for (const side of ['incumbent', 'candidate']) {
     const q = qualifications[side];
     if (!q || q.planSha256 !== plan.planSha256 || q.digest !== plan[side].digest || q.status !== 'QUALIFIED') {

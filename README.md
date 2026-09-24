@@ -1,5 +1,14 @@
 # IntentSmith
 
+**GPU hunt M0 — zapracované revize 1 a 2, 24. 9. 2026:**
+Páry jsou vždy kandidát − současný model a simulovaná populace má přesně
+uvedený průměr. Binární plány se vrátily ke KL, spojité skóre má plán schema 2.
+Přidaná sada se vybírá jen přes přesný kontrakt a každá sada má vlastní
+výsledek. Tolerance nezhoršení je zamknutá na 0,02.
+qwen3.8 proti qwen3.5: `chat_v3` +0,002, nová konverzační sada +0,069.
+**Závěr „ZMĚNIT CHAT“ se nepřijímá**; PLANNING_EVIDENCE / NO_BINDING_CHANGE.
+[Revize a přepočet](docs/review/2026-09-24-HUNT-M0-DECISION-METHOD.md#revize-2-24-9-noc).
+
 **GPU hunt — navázání po krátkém konfliktu GPU, 24. 9. 2026:**
 Qwen3.5 dokončen. Qwen3.6 přerušen při cizí GPU aktivitě; časově doložen
 souběh s RustDesk CUDA/NVENC sondou. Doplněno omezené čekání a nejvýše tři
@@ -63,8 +72,8 @@ Studio používá Theia runtime s motivy a ovládáním IntentSmithu.
 
 **Verze:** 136.1.0, vývojový kandidát 1.0. Aktuální počty testovacích programů
 jsou v [generovaném registru](docs/convergence/TEST-REGISTRY.md):
-**538 registrovaných testovacích programů**
-(`444 ACTIVE`, `79 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).
+**540 registrovaných testovacích programů**
+(`446 ACTIVE`, `79 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).
 
 **Navazující M5 review, 2026-09-17:** historický inventář doplněn o zveřejněný
 TLS testovací klíč a certifikát: 15 známých objektů. Pár je trvale vyřazený;
