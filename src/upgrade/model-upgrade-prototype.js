@@ -14,47 +14,107 @@ import { parseModelNameExtended } from './model-family-extensions.js';
 import { normalizeInstalledModel } from './model-inventory.js';
 
 export const DEFAULT_RESPONSIBILITY_POLICY = Object.freeze({
-  // The operator-approved product rule is "no model may own a majority of
-  // roles". IntentSmith currently has seven primary roles, hence at most 3.
-  maxRolesPerModel: 3,
-  maxQualityDrop: 0.15,
+  // Operator direction 2026-09-24: at most two unrelated roles; a known
+  // conflict does not authorize a weaker/unqualified replacement.
+  maxRolesPerModel: 2,
+  allowedSharedRolePairs: Object.freeze([]),
   changePenalty: 0.005,
   independentRolePairs: Object.freeze([
     Object.freeze(['D1', 'R1']),
+    Object.freeze(['D1', 'R2']),
+    Object.freeze(['D2', 'R1']),
     Object.freeze(['CODE', 'R1']),
     Object.freeze(['CODE', 'R2']),
     Object.freeze(['D2', 'R2']),
+    Object.freeze(['R1', 'R2']),
   ]),
 });
 
-export function auditResponsibilitySegregation(bindings = {}, policy = DEFAULT_RESPONSIBILITY_POLICY) {
+const RESPONSIBILITY_ROLES = new Set(['D1', 'D2', 'CODE', 'R1', 'R2', 'CHAT', 'VISION']);
+const pairKey = pair => [...pair].sort().join(':');
+function responsibilityPolicy(input = DEFAULT_RESPONSIBILITY_POLICY) {
+  const policy = { ...DEFAULT_RESPONSIBILITY_POLICY, ...input };
+  if (!Number.isInteger(policy.maxRolesPerModel) || policy.maxRolesPerModel < 1 || policy.maxRolesPerModel > 2
+    || !Number.isFinite(policy.changePenalty) || policy.changePenalty < 0) throw new Error('INVALID_RESPONSIBILITY_POLICY');
+  for (const pairs of [policy.allowedSharedRolePairs, policy.independentRolePairs]) {
+    if (!Array.isArray(pairs) || pairs.some(pair => !Array.isArray(pair) || pair.length !== 2
+      || pair[0] === pair[1] || pair.some(role => !RESPONSIBILITY_ROLES.has(role)))) throw new Error('INVALID_RESPONSIBILITY_POLICY');
+  }
+  // Extra restrictions may be supplied, mandatory author/reviewer exclusions
+  // cannot be removed by supplying an empty list or a sharing exception.
+  policy.independentRolePairs = [...new Map([...DEFAULT_RESPONSIBILITY_POLICY.independentRolePairs,
+    ...policy.independentRolePairs].map(pair => [pairKey(pair), pair])).values()];
+  return policy;
+}
+
+function responsibilityArtifacts(inventory = []) {
+  const byName = new Map(), lineageByDigest = new Map();
+  for (const row of inventory) {
+    const name = canonicalModelName(row?.name || row?.modelName);
+    const digest = normalizeModelDigestSha256(row?.digestSha256 || row?.digest);
+    if (!name) continue;
+    const lineage = normalizeModelDigestSha256(row?.lineageSha256);
+    const entry = { digestSha256: row?.lineageSha256 != null && !lineage ? null : digest, lineageSha256: lineage };
+    if (!byName.has(name)) byName.set(name, []);
+    byName.get(name).push(entry);
+    if (digest && lineage) {
+      if (!lineageByDigest.has(digest)) lineageByDigest.set(digest, new Set());
+      lineageByDigest.get(digest).add(lineage);
+    }
+  }
+  return model => {
+    const rows = byName.get(canonicalModelName(model)) || [];
+    const digests = new Set(rows.map(row => row.digestSha256));
+    if (digests.size !== 1 || digests.has(null)) return null;
+    const digestSha256 = [...digests][0];
+    const lineages = lineageByDigest.get(digestSha256) || new Set();
+    if (lineages.size > 1) return null;
+    return { digestSha256, lineageSha256: [...lineages][0] || null };
+  };
+}
+
+export function auditResponsibilitySegregation(bindings = {}, inputPolicy = DEFAULT_RESPONSIBILITY_POLICY, context = {}) {
+  const policy = responsibilityPolicy(inputPolicy);
+  const artifactFor = responsibilityArtifacts(context.inventory);
+  const resolved = {}, violations = [];
   const byModel = new Map();
   for (const [role, model] of Object.entries(bindings)) {
-    const key = canonicalModelName(model);
-    if (!key) continue;
+    const artifact = artifactFor(model);
+    const expected = context.artifactsByRole?.[role];
+    if (!RESPONSIBILITY_ROLES.has(role)) violations.push({ type: 'unknown-role', model, roles: [role] });
+    if (!canonicalModelName(model) || !artifact) violations.push({ type: 'identity-unverified', model, roles: [role] });
+    if (expected && (!sameModelName(expected.modelName, model)
+      || normalizeModelDigestSha256(expected.digestSha256) !== artifact?.digestSha256)) {
+      violations.push({ type: 'binding-artifact-drift', model, roles: [role] });
+    }
+    resolved[role] = artifact;
+    const key = artifact?.lineageSha256 ? `lineage:${artifact.lineageSha256}`
+      : artifact ? `sha256:${artifact.digestSha256}` : `unverified:${canonicalModelName(model) || role}`;
     if (!byModel.has(key)) byModel.set(key, []);
     byModel.get(key).push(role);
   }
-  const violations = [];
-  for (const [model, roles] of byModel) {
+  const allowed = new Set(policy.allowedSharedRolePairs.map(pairKey));
+  const independent = new Set(policy.independentRolePairs.map(pairKey));
+  for (const [identity, roles] of byModel) {
+    const model = [...new Set(roles.map(role => bindings[role]))].join(' / ');
     if (roles.length > policy.maxRolesPerModel) {
-      violations.push(Object.freeze({
-        type: 'role-capacity', model, roles: Object.freeze([...roles]),
+      violations.push({
+        type: 'role-capacity', model, identity, roles: [...roles],
         maximum: policy.maxRolesPerModel,
-      }));
+      });
     }
-  }
-  for (const [left, right] of policy.independentRolePairs || []) {
-    if (bindings[left] && bindings[right] && sameModelName(bindings[left], bindings[right])) {
-      violations.push(Object.freeze({
-        type: 'independence', model: canonicalModelName(bindings[left]),
-        roles: Object.freeze([left, right]),
-      }));
+    for (let i = 0; i < roles.length; i++) for (let j = i + 1; j < roles.length; j++) {
+      const pair = [roles[i], roles[j]], key = pairKey(pair);
+      if (independent.has(key) || !allowed.has(key)) violations.push({
+        type: independent.has(key) ? 'independence' : 'sharing-not-approved', model, identity, roles: pair,
+      });
     }
   }
   return Object.freeze({
     compliant: violations.length === 0,
-    violations: Object.freeze(violations),
+    identityScope: 'exact-digest-and-explicit-lineage',
+    lineageUnverifiedRoles: Object.freeze(Object.keys(bindings).filter(role => !resolved[role]?.lineageSha256)),
+    violations: Object.freeze(violations.map(row => Object.freeze({ ...row, roles: Object.freeze(row.roles) }))),
     assignments: Object.freeze(Object.fromEntries(
       [...byModel].map(([model, roles]) => [model, Object.freeze([...roles])]),
     )),
@@ -63,31 +123,39 @@ export function auditResponsibilitySegregation(bindings = {}, policy = DEFAULT_R
 
 /**
  * Select the highest-scoring whole-role portfolio that satisfies separation.
- * A role may accept a slightly weaker alternative to preserve independent
- * review, but never more than maxQualityDrop below the best measured option.
- * The incumbent always remains a safe no-change option.
+ * Only individually eligible alternatives can replace an incumbent. Existing
+ * conflicts never waive that condition. The incumbent is a no-change option,
+ * not evidence that its current concentration or self-review is acceptable.
  */
 export function selectResponsibilityPortfolio(input = {}) {
   const before = input.before || {};
-  const policy = input.policy || DEFAULT_RESPONSIBILITY_POLICY;
+  const policy = responsibilityPolicy(input.policy);
   const evidenceByRole = input.evidenceByRole || {};
   const roles = input.roles || Object.keys(before);
+  if (!Array.isArray(roles) || new Set(roles).size !== roles.length
+    || roles.some(role => !RESPONSIBILITY_ROLES.has(role))) throw new Error('INVALID_RESPONSIBILITY_ROLES');
+  const context = { inventory: input.inventory || [] };
+  const artifactFor = responsibilityArtifacts(context.inventory);
   const optionsByRole = {};
-  const repairingExistingViolation = !auditResponsibilitySegregation(before, policy).compliant;
+  const beforeAudit = auditResponsibilitySegregation(before, policy, { ...context, artifactsByRole: input.artifactsByRole });
+  const repairingExistingViolation = !beforeAudit.compliant;
+  const rejectedOptions = [];
 
   for (const role of roles) {
     const current = before[role];
     const byModel = new Map();
     for (const row of evidenceByRole[role] || []) {
       const key = canonicalModelName(row.model);
-      const score = Number(row.score);
-      if (!key || !Number.isFinite(score)) continue;
-      // A compliant portfolio may move only to a model that actually won its
-      // pairwise decision. Raw suite averages cannot overrule task majority,
-      // noise or language evidence gates. Near-equivalent non-winners remain
-      // available only when repairing a portfolio that was already invalid.
-      if (!repairingExistingViolation && row.eligibleForChange === false
-        && !sameModelName(row.model, current)) continue;
+      const score = row.score;
+      const artifact = artifactFor(row.model);
+      const reject = reason => rejectedOptions.push({ role, model: row.model, reason });
+      if (!key || !Number.isFinite(score) || score < 0 || score > 1) { reject('INVALID_SCORE'); continue; }
+      if (!artifact || normalizeModelDigestSha256(row.digestSha256) !== artifact.digestSha256) {
+        reject('EVIDENCE_ARTIFACT_UNVERIFIED'); continue;
+      }
+      if (!sameModelName(row.model, current) && row.eligibleForChange !== true) {
+        reject('ROLE_CHANGE_NOT_QUALIFIED'); continue;
+      }
       const previous = byModel.get(key);
       if (!previous || score > previous.score) {
         byModel.set(key, { model: row.model, score, source: row.source || 'evaluation' });
@@ -97,24 +165,19 @@ export function selectResponsibilityPortfolio(input = {}) {
     if (currentKey && !byModel.has(currentKey)) {
       byModel.set(currentKey, { model: current, score: null, source: 'unmeasured-incumbent' });
     }
-    const measured = [...byModel.values()].filter(row => Number.isFinite(row.score));
-    const bestScore = measured.length ? Math.max(...measured.map(row => row.score)) : null;
-    let options = [...byModel.values()].filter(row => (
-      !Number.isFinite(bestScore)
-      || !Number.isFinite(row.score)
-      || row.score >= bestScore - policy.maxQualityDrop
-      || sameModelName(row.model, current)
-    ));
+    let options = [...byModel.values()];
     // A role without comparative evidence remains fixed. This prevents a
     // portfolio repair from silently replacing an unmeasured responsibility.
-    if (!measured.length && current) options = options.filter(row => sameModelName(row.model, current));
+    if (current && !Number.isFinite(byModel.get(currentKey)?.score)) {
+      options = options.filter(row => sameModelName(row.model, current));
+    }
     optionsByRole[role] = options;
   }
 
   let best = null;
   const visit = (index, bindings, utility, choices) => {
     if (index === roles.length) {
-      const audit = auditResponsibilitySegregation(bindings, policy);
+      const audit = auditResponsibilitySegregation(bindings, policy, context);
       if (!audit.compliant) return;
       if (!best || utility > best.utility) {
         best = { bindings: { ...bindings }, utility, choices: { ...choices }, audit };
@@ -126,12 +189,7 @@ export function selectResponsibilityPortfolio(input = {}) {
       const next = { ...bindings, [role]: option.model };
       // Capacity and independence are monotonic while the DFS adds roles, so
       // partial violations can be pruned without hiding a later solution.
-      const partialPolicy = {
-        ...policy,
-        independentRolePairs: (policy.independentRolePairs || [])
-          .filter(([left, right]) => left in next && right in next),
-      };
-      if (!auditResponsibilitySegregation(next, partialPolicy).compliant) continue;
+      if (!auditResponsibilitySegregation(next, policy, context).compliant) continue;
       const changed = before[role] && !sameModelName(before[role], option.model);
       const value = Number.isFinite(option.score) ? option.score : 0;
       visit(index + 1, next, utility + value - (changed ? policy.changePenalty : 0), {
@@ -139,15 +197,21 @@ export function selectResponsibilityPortfolio(input = {}) {
       });
     }
   };
-  visit(0, {}, 0, {});
+  // Filtered hunts must keep every other responsibility in the search state.
+  // A missing/drifted baseline requires reconciliation, not a solver repair.
+  const fixed = Object.fromEntries(Object.entries(before).filter(([role]) => !roles.includes(role)));
+  if (!beforeAudit.violations.some(row => ['identity-unverified', 'binding-artifact-drift', 'unknown-role'].includes(row.type))) {
+    visit(0, fixed, 0, {});
+  }
 
   if (!best) {
     return Object.freeze({
       bindings: Object.freeze({ ...before }),
       choices: Object.freeze({}),
-      audit: auditResponsibilitySegregation(before, policy),
+      audit: beforeAudit,
       changedRoles: Object.freeze([]),
       feasible: false,
+      rejectedOptions: Object.freeze(rejectedOptions),
     });
   }
   const changedRoles = roles.filter(role => !sameModelName(before[role], best.bindings[role]));
@@ -159,6 +223,7 @@ export function selectResponsibilityPortfolio(input = {}) {
     changedRoles: Object.freeze(changedRoles),
     feasible: true,
     repairMode: repairingExistingViolation,
+    rejectedOptions: Object.freeze(rejectedOptions),
   });
 }
 

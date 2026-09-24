@@ -617,7 +617,9 @@ const roleScores = Object.fromEntries(ROLES.map(role => {
 if (Object.keys(durableBindings).length) {
   log(`Durable runtime vazby: ${Object.entries(durableBindings).map(([role, model]) => `${role}=${model}`).join(', ')}`);
 }
-const initialResponsibilityAudit = auditResponsibilitySegregation(initialBindings);
+const initialResponsibilityAudit = auditResponsibilitySegregation(initialBindings, undefined, {
+  inventory: installedRaw, artifactsByRole: current.artifacts,
+});
 if (!initialResponsibilityAudit.compliant) {
   log(`Segregace vyžaduje opravu: ${initialResponsibilityAudit.violations
     .map(row => `${row.type} ${row.roles.join('+')}=${row.model}`).join('; ')}`);
@@ -1081,12 +1083,16 @@ for (const result of results) {
     if (!trial?.comparison || !trial.role) continue;
     addPortfolioEvidence(trial.role, {
       model: result.model,
+      digestSha256: trial.comparison.candidateRunId
+        ? modelEvaluationHistory.getRun(trial.comparison.candidateRunId)?.artifact?.digestSha256 : null,
       score: trial.comparison.candidateSuiteScore,
       source: 'candidate-evaluation',
       eligibleForChange: trial.decision?.winner === 'candidate',
     });
     addPortfolioEvidence(trial.role, {
       model: initialBindings[trial.role],
+      digestSha256: trial.comparison.incumbentRunId
+        ? modelEvaluationHistory.getRun(trial.comparison.incumbentRunId)?.artifact?.digestSha256 : null,
       score: trial.comparison.incumbentSuiteScore,
       source: 'incumbent-evaluation',
       eligibleForChange: true,
@@ -1096,6 +1102,10 @@ for (const result of results) {
 const portfolio = selectResponsibilityPortfolio({
   before: initialBindings,
   evidenceByRole: portfolioEvidence,
+  // Include newly pulled artifacts and detect a tag replaced since the run
+  // started; an old run's digest cannot qualify the new contents of a tag.
+  inventory: await modelRegistry.getInstalled({ strict: true }),
+  artifactsByRole: current.artifacts,
   roles: ALL_ROLES,
 });
 Object.assign(bindings, portfolio.bindings);
@@ -1124,7 +1134,10 @@ for (const result of results) {
 
 log('\n══ SEGREGACE ODPOVĚDNOSTÍ ══');
 if (portfolio.feasible) {
-  log(`  portfolio vyhovuje: nejvýše ${DEFAULT_RESPONSIBILITY_POLICY.maxRolesPerModel} role/model, kritické autor-reviewer dvojice oddělené`);
+  log(`  sestava vyhovuje kontrole artefaktů: nejvýše ${DEFAULT_RESPONSIBILITY_POLICY.maxRolesPerModel} role/model, autor a reviewer nemají stejný digest ani doložený společný původ`);
+  if (portfolio.audit.lineageUnverifiedRoles.length) {
+    log(`  původ modelů není doložen pro: ${portfolio.audit.lineageUnverifiedRoles.join(', ')}; tato kontrola nedokládá jejich úplnou nezávislost`);
+  }
   for (const role of portfolio.changedRoles) {
     const choice = portfolio.choices[role];
     log(`  ${role}: ${initialBindings[role]} → ${portfolio.bindings[role]}  score ${choice?.score?.toFixed?.(3) ?? '—'}`);
