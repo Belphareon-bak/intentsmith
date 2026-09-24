@@ -216,6 +216,7 @@ const ALL_MIGRATIONS = [
   '2026_09_18_115_intentsmith_setting_names',
   '2026_09_19_116_model_evaluation_acceptance',
   '2026_09_24_117_model_evaluation_grader_reviews',
+  '2026_09_25_118_model_evaluation_adjudications',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
@@ -264,6 +265,7 @@ const EXPECTED_TABLES = [
   'model_binding_application_attempts', 'model_binding_operations', 'model_binding_runtime_finalize_cutoffs', 'model_binding_runtime_finalize_receipts', 'model_catalog_cache', 'model_desired_bindings', 'model_failover_events', 'model_failover_proofs',
   'model_failover_health_events', 'model_failover_runtime_finalize_receipts', 'model_failover_state', 'model_overrides', 'model_performance', 'model_reconciliation_log',
   'model_evaluation_decision_quarantine', 'model_evaluation_decisions', 'model_evaluation_import_audits', 'model_evaluation_import_evidence', 'model_evaluation_runs',
+  'model_evaluation_acceptances', 'model_evaluation_grader_reviews', 'model_evaluation_grader_adjudications',
   'model_signal_events', 'model_universe_derived', 'model_universe_raw',
   'model_usage', 'model_write_log',
   'period_locks', 'project_lifecycles', 'project_memory', 'projects',
@@ -496,6 +498,7 @@ describe('T-SM0: Migration identity preflight', async () => {
   '2026_09_18_115_intentsmith_setting_names',
   '2026_09_19_116_model_evaluation_acceptance',
   '2026_09_24_117_model_evaluation_grader_reviews',
+  '2026_09_25_118_model_evaluation_adjudications',
     ]);
     assert.strictEqual(db.prepare(`
       SELECT COUNT(*) AS count FROM schema_migrations
@@ -1562,9 +1565,10 @@ describe('T-SM11: Core / hunt branch upgrades converge without losing evidence',
         const settingNames = '2026_09_18_115_intentsmith_setting_names';
         const evaluationAcceptance = '2026_09_19_116_model_evaluation_acceptance';
         const graderReviews = '2026_09_24_117_model_evaluation_grader_reviews';
+        const adjudications = '2026_09_25_118_model_evaluation_adjudications';
         assert.deepEqual(result.applied, origin === 'fresh' ? ALL_MIGRATIONS
-          : origin === 'base' ? [...huntVersions, canonicalWeb, repeatedMeasurement, settingNames, evaluationAcceptance, graderReviews]
-          : origin === 'web' ? [...huntVersions, repeatedMeasurement, settingNames, evaluationAcceptance, graderReviews] : [canonicalWeb, repeatedMeasurement, settingNames, evaluationAcceptance, graderReviews]);
+          : origin === 'base' ? [...huntVersions, canonicalWeb, repeatedMeasurement, settingNames, evaluationAcceptance, graderReviews, adjudications]
+          : origin === 'web' ? [...huntVersions, repeatedMeasurement, settingNames, evaluationAcceptance, graderReviews, adjudications] : [canonicalWeb, repeatedMeasurement, settingNames, evaluationAcceptance, graderReviews, adjudications]);
         assert.deepEqual(schema(db), expectedSchema);
         for (const [table, originalRows] of Object.entries(before)) assert.deepEqual(rows(db)[table], originalRows, `${origin}: ${table}`);
         assert.deepEqual(db.pragma('foreign_key_check'), []);

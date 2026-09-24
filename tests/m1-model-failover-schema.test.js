@@ -392,7 +392,7 @@ suite('M1 model failover schema — exact migration contract');
 await testAsync('fresh file-backed DB creates all failover tables, indexes and triggers', async () => {
   await withMigratedDb(async (db) => {
     // M7 per-device notification receipt authority is the exact current tip.
-    assertEqual(getCurrentVersion(db), '2026_09_24_117_model_evaluation_grader_reviews');
+    assertEqual(getCurrentVersion(db), '2026_09_25_118_model_evaluation_adjudications');
 
     for (const table of [
       'model_desired_bindings',
@@ -676,7 +676,7 @@ await testAsync('second migration run is a no-op with an identical schema snapsh
     const before = schemaSnapshot(db);
     const result = await runMigrations(db);
     assertEqual(result.applied.length, 0);
-    assertEqual(result.skipped.length, 104);
+    assertEqual(result.skipped.length, 105);
     assertEqual(schemaSnapshot(db), before);
   });
 });
@@ -758,10 +758,11 @@ await testAsync('migration 054 preserves pre-existing success as unconfirmed evi
         '2026_09_18_115_intentsmith_setting_names',
         '2026_09_19_116_model_evaluation_acceptance',
         '2026_09_24_117_model_evaluation_grader_reviews',
+        '2026_09_25_118_model_evaluation_adjudications',
       ]),
     );
     assertEqual(result.skipped.length, 55);
-    assertEqual(getCurrentVersion(db), '2026_09_24_117_model_evaluation_grader_reviews');
+    assertEqual(getCurrentVersion(db), '2026_09_25_118_model_evaluation_adjudications');
     assertEqual(
       db.prepare(`
         SELECT COUNT(*) AS count

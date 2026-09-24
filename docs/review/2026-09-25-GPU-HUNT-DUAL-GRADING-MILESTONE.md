@@ -25,7 +25,8 @@ přejímky zavře opětovné použití skóre bez mazání historie.
   neotevře rozhodování.
 - Sémantické provozní přijetí nově vyžaduje obě přejímky; historické
   jednosoudcovské přijetí se zobrazuje, ale není rozhodovací autoritou.
-- Studio zobrazuje stav čekání/sporu a podrobnosti obou posudků.
+- Studio zobrazuje stav čekání/sporu, podrobnosti obou posudků a u rozsouzeného běhu také lidské rozhodnutí s důvody.
+- Migrace 118 přidává append-only rozsouzení. CLI `scripts/adjudicate-model-collection.mjs --plan` vydává anonymní podklad bez původních známek; `--run` vyžaduje přesný hash sběru, vyplněné odůvodnění ke každému kritériu a zálohu DB. Shodné známky nesmí změnit.
 
 Jméno rodiny je konzervativní technická kontrola nezávislosti, ne důkaz
 nezávislosti chyb. Tu musí doložit přejímka dvojice na oddělených případech.
@@ -33,11 +34,12 @@ nezávislosti chyb. Tu musí doložit přejímka dvojice na oddělených přípa
 ## Ověření
 
 Cílené syntetické testy po změně:
-`evaluation-grading-acceptance` 21/21;
+`evaluation-grading-acceptance` 22/22;
 `desktop-hunt` 40/40;
 `model-evaluation-read-model` 26/26;
-`decision-methods` + `hunt-decision-feasibility` 17/17.
-Migrační testy pro čistou a historickou DB prošly. Negativní testy
+`schema-migrations` 61/61; `m1-model-failover-schema` 20/20;
+`artifact-validation` 160/160; M6 runtime evidence 8/8.
+Tyto výsledky jsou lokální cílené běhy nad vývojovou verzí. Negativní testy
 pokrývají jeden posudek, shodný součet při rozdílných kritériích,
 odvolání přejímky, pokus o přepsání uloženého posudku, změnu odpovědi,
 změnu souhrnného skóre a záměnu digestu modelu.
@@ -47,7 +49,7 @@ předpovědní platnost sady ani bezpečnou autonomní výměnu bindingu.
 
 ## Zbývá do GO
 
-1. Verzovaný postup rozsouzení sporů a přijatá nezávislá dvojice pro každou
+1. Skutečná lidská rozsouzení sporů na čerstvých slepých případech a přijatá nezávislá dvojice pro každou
    sémantickou sadu, včetně měření společných falešných přijetí/odmítnutí.
 2. Nová vícekolová CHAT sada se skutečným produkčním profilem, nebo vědomé
    omezení CHAT na dosavadní roli; `chat_v3` není oprávněná náhrada.

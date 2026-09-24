@@ -243,6 +243,7 @@ záznamu selže v `artifact-validation`.
 | `2026_09_18_115_intentsmith_setting_names.js` | zadání operátora 2026-09-18 — přejmenování nastavení; staré klíče a explicitní nové hodnoty zachované |
 | `2026_09_19_116_model_evaluation_acceptance.js` | zadání operátora 2026-09-19 — odvozená rozhodovací způsobilost z přijaté evidence; append-only přejímky a odvolání |
 | `2026_09_24_117_model_evaluation_grader_reviews.js` | zadání operátora 2026-09-24 — samostatné append-only posudky dvojice nad jedním uloženým sběrem |
+| `2026_09_25_118_model_evaluation_adjudications.js` | zadání operátora 2026-09-25 — append-only lidské rozsouzení sporných kritérií dvojice |
 <!-- migration-source-manifest:end -->
 
 ## Navazující M7 rezervace 2026-08-29

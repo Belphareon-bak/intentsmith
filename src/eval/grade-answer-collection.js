@@ -352,3 +352,114 @@ function persist({ history, plan, collection, summary }) {
       ? 'Dva nezávislé posudky se liší po kritériích. Skóre čeká na rozsouzení.'
       : 'První posudek je uložený; skóre čeká na druhého nezávislého hodnotitele.'});
 }
+
+
+// A disagreement is resolved only by a separate reviewed decision over each
+// disputed criterion. The two first judgements remain immutable. This path
+// never asks a model for a third opinion or guesses an average.
+export function persistAdjudicatedCollection({history,plan,collection,decision}) {
+  return history._db.transaction(() => {
+    const source = history.getRun(collection.runId);
+    if (!source || source.role !== plan.role || !plan.collectionOnly
+      || collectionEvidenceHash(source) !== decision?.sourceSha256
+      || decision.sourceRunId !== source.runId
+      || source.suiteName !== plan.suiteName || source.contractSha256 !== plan.suiteContractSha256)
+      fail('EVALUATION_ADJUDICATION_SOURCE_CHANGED');
+    const reviews = storedGraderReviews(history,plan,source);
+    const pair = acceptedGraderPair(reviews.map(row => row.accepted),source.artifact.digestSha256);
+    if (!pair || reviews.length !== 2 || reviews.some(row => !row.accepted)
+      || reviews[0].id !== decision.firstReviewId || reviews[1].id !== decision.secondReviewId)
+      fail('EVALUATION_ADJUDICATION_REVIEW_PAIR_INVALID');
+    const pending = reconcileGraderReviews(reviews,plan,source);
+    if (pending.status !== 'REVIEW_DISPUTED' || !pending.disputes.length)
+      fail('EVALUATION_ADJUDICATION_NOT_DISPUTED');
+    const review = decision.review;
+    if (decision.schemaVersion !== 1 || review?.blindToModel !== true
+      || review.independent !== true || typeof review.reviewer !== 'string'
+      || !review.reviewer.trim() || typeof review.reference !== 'string'
+      || !review.reference.trim() || typeof review.reason !== 'string'
+      || !review.reason.trim() || !Number.isFinite(Date.parse(review.reviewedAt))
+      || Date.parse(review.reviewedAt) > Date.now()
+      || reviews.some(row => Date.parse(review.reviewedAt) < Date.parse(row.recordedAt))
+      || !Array.isArray(decision.decisions))
+      fail('EVALUATION_ADJUDICATION_INVALID');
+    if (decision.decisions.length !== pending.disputes.length)
+      fail('EVALUATION_ADJUDICATION_INCOMPLETE');
+    const key = item => item.task + '/' + item.repeat;
+    const indexed = new Map(decision.decisions.map(item => [key(item),item]));
+    if (indexed.size !== pending.disputes.length
+      || pending.disputes.some(dispute => !indexed.has(key(dispute)))
+      || decision.decisions.some(item => !pending.disputes.some(dispute => key(dispute) === key(item))))
+      fail('EVALUATION_ADJUDICATION_INCOMPLETE');
+    const oldComplete = history.getComplete({role:plan.role,digestSha256:source.artifact.digestSha256,
+      suiteName:plan.suiteName,suiteVersion:plan.suiteVersion,
+      contractSha256:plan.suiteContractSha256});
+    if (oldComplete?.metadata?.grading?.sourceCollectionRunId === source.runId)
+      fail('EVALUATION_ADJUDICATION_ALREADY_COMPLETE');
+    const adjudicationId = 'adjudication_' + randomUUID();
+    const first = reviews[0].summary, second = reviews[1].summary;
+    const tasks = first.tasks.map((task,i) => {
+      if (task.name !== second.tasks[i]?.name) fail('EVALUATION_ADJUDICATION_REVIEW_PAIR_INVALID');
+      const captured = source.tasks.find(row => row.name === task.name);
+      const definition = plan.suite.tests.find(row => row.name === task.name);
+      if (!captured || !definition) fail('EVALUATION_ADJUDICATION_SOURCE_CHANGED');
+      const details = task.details.map((detail,j) => {
+        const other = second.tasks[i].details[j], selected = indexed.get(task.name+'/'+(j+1));
+        const graderReviews = reviews.map(row => ({reviewId:row.id,
+          graderAcceptanceId:row.accepted.id,score:row.summary.tasks[i].details[j].score,
+          parts:row.summary.tasks[i].details[j].parts || null}));
+        if (!selected) return {...detail,graderReviews};
+        if (detail.tier !== 'T4' || !Array.isArray(detail.parts)
+          || !Array.isArray(other?.parts) || detail.parts.length !== other.parts.length
+          || !Array.isArray(selected.parts) || selected.parts.length !== detail.parts.length
+          || detail.criteria || other.criteria || detail.contractChecks || other.contractChecks)
+          fail('EVALUATION_ADJUDICATION_REQUIRES_ORACLE_REPAIR');
+        const parts = detail.parts.map((part,k) => {
+          const counterpart = other.parts[k], chosen = selected.parts[k];
+          if (acceptanceHash(part.id) !== acceptanceHash(counterpart?.id)
+            || chosen?.criterion !== k+1 || ![0,0.25,0.5,0.75,1].includes(chosen.score)
+            || typeof chosen.evidence !== 'string' || !chosen.evidence.trim()
+            || typeof chosen.reason !== 'string' || !chosen.reason.trim())
+            fail('EVALUATION_ADJUDICATION_INVALID');
+          // A reviewer resolves disagreements; a value on which both original
+          // judges agreed is outside the authority of this decision.
+          if (part.score === counterpart.score && chosen.score !== part.score)
+            fail('EVALUATION_ADJUDICATION_CONSENSUS_CHANGED');
+          return {...part,score:chosen.score,
+            rawScores:[part.score,counterpart.score],
+            evidence:[chosen.evidence],adjudicationReason:chosen.reason};
+        });
+        const score=mean(parts.map(part => part.score));
+        return {...detail,score,valid:true,passed:score>=0.7,
+          outcome:score>=0.7?'SUCCESS':'INCORRECT',parts,graderReviews,
+          adjudicationId};
+      });
+      const scores=details.map(detail=>detail.score);
+      return {...captured,rubric:definition.rubric || [],scores,mean:mean(scores),
+        spread:Math.max(...scores)-Math.min(...scores),details};
+    });
+    const finalScore=mean(tasks.map(task=>task.mean));
+    const digest=acceptanceHash(decision);
+    history._db.prepare(`INSERT INTO model_evaluation_grader_adjudications
+      (adjudication_id,source_run_id,role,contract_sha256,source_sha256,
+        first_review_id,second_review_id,decision_json,decision_sha256,final_score)
+      VALUES (?,?,?,?,?,?,?,?,?,?)`).run(adjudicationId,source.runId,plan.role,
+      plan.suiteContractSha256,decision.sourceSha256,reviews[0].id,reviews[1].id,
+      JSON.stringify(decision),digest,finalScore);
+    const grading={version:2,status:'GRADED',
+      sourceCollectionRunId:source.runId,sourceCollectionSha256:decision.sourceSha256,
+      sourceContractSha256:source.contractSha256,targetContractSha256:plan.suiteContractSha256,
+      graders:reviews.map(row=>({id:row.accepted.id,payloadSha256:row.accepted.payloadSha256,
+        judge:row.accepted.judge,reviewId:row.id,reviewSha256:row.summarySha256})),
+      adjudication:{id:adjudicationId,sha256:digest}};
+    history.setProviderVersion(source.providerVersion);
+    return history.recordComplete({artifact:source.artifact,role:plan.role,
+      suiteName:plan.suiteName,suiteVersion:plan.suiteVersion,
+      contractSha256:plan.suiteContractSha256,hardware:source.hardware,
+      vramBytes:source.vramBytes,fresh:true,
+      startedAt:review.reviewedAt,completedAt:new Date().toISOString(),
+      metadata:{source:'accepted-collection-adjudication-v1',grading},
+      summary:{score:finalScore,runs:plan.repeats,tasks,
+        startedAt:review.reviewedAt,completedAt:new Date().toISOString(),grading}});
+  }).immediate();
+}

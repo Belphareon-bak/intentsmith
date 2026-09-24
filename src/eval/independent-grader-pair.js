@@ -67,7 +67,7 @@ export function validStoredGradingPair(db, grading, acceptedGraders, answerDiges
     const canonical = value => JSON.stringify(value, (_key,item) => item && typeof item === 'object'
       && !Array.isArray(item) ? Object.fromEntries(Object.keys(item).sort().map(key => [key,item[key]])) : item);
     const digest = value => createHash('sha256').update(canonical(value)).digest('hex');
-    return grading.graders.every(entry => {
+    const reviewsValid = grading.graders.every(entry => {
       const row = db.prepare('SELECT * FROM model_evaluation_grader_reviews WHERE review_id=?').get(entry.reviewId);
       if (!row || row.source_run_id !== grading.sourceCollectionRunId
         || row.source_sha256 !== grading.sourceCollectionSha256
@@ -76,10 +76,28 @@ export function validStoredGradingPair(db, grading, acceptedGraders, answerDiges
         || row.grader_acceptance_sha256 !== entry.payloadSha256
         || row.summary_sha256 !== entry.reviewSha256) return false;
       const summary = JSON.parse(row.summary_json);
-      return digest(summary) === row.summary_sha256 && summary.score === score
+      return digest(summary) === row.summary_sha256
+        && (grading.adjudication ? Number.isFinite(summary.score) : summary.score === score)
         && summary.grading?.graderAcceptanceId === entry.id
         && summary.grading?.graderAcceptanceSha256 === entry.payloadSha256
         && summary.grading?.sourceCollectionSha256 === grading.sourceCollectionSha256;
     });
+    if (!reviewsValid) return false;
+    if (!grading.adjudication) return true;
+    const a = grading.adjudication;
+    if (!a.id || !hash(a.sha256)) return false;
+    const row = db.prepare('SELECT * FROM model_evaluation_grader_adjudications WHERE adjudication_id=?').get(a.id);
+    if (!row || row.source_run_id !== grading.sourceCollectionRunId
+      || row.source_sha256 !== grading.sourceCollectionSha256 || row.role !== role
+      || row.contract_sha256 !== contractSha256 || row.final_score !== score
+      || row.first_review_id !== grading.graders[0].reviewId
+      || row.second_review_id !== grading.graders[1].reviewId
+      || row.decision_sha256 !== a.sha256) return false;
+    const decision = JSON.parse(row.decision_json);
+    return digest(decision) === row.decision_sha256
+      && decision.sourceRunId === grading.sourceCollectionRunId
+      && decision.sourceSha256 === grading.sourceCollectionSha256
+      && decision.firstReviewId === row.first_review_id
+      && decision.secondReviewId === row.second_review_id;
   } catch { return false; }
 }

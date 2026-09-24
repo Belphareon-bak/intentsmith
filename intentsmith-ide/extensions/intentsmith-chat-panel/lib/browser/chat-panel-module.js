@@ -3606,6 +3606,8 @@ function _qualityDetail(row,rd){
       ' · sběr '+_huntDuration(row.grading.collectionDurationMs)+' · hodnocení '+_huntDuration(row.durationMs)+
       ' · hodnotitelé '+(row.grading.graders?row.grading.graders.map(function(g){return g.judge&&g.judge.modelName||g.id;}).join(' + '):(row.grading.judge&&row.grading.judge.modelName||'deterministická kontrola'))+
       '. Hodnocení nepouštělo odpovídající model znovu.'):null,
+    row.grading&&row.grading.adjudication?h('p',{'data-testid':'grading-adjudication',style:{color:C.amber}},
+      'Neshodná kritéria rozsouzená člověkem · záznam '+row.grading.adjudication.id+'. Oba původní posudky zůstávají níže.'):null,
     h('p',{style:{color:C.tx3}},counts?'Celkové skóre chybí: měření není úplné. Plánováno '+(counts.planned==null?'nezaznamenáno':counts.planned)+' pokusů · zaznamenáno '+counts.observed+' · neplatné prostředí '+counts.invalid+' · vyčerpání rozpočtu '+counts.operationalFailure+' · nezahájeno '+(counts.notAttempted==null?'nezaznamenáno':counts.notAttempted)+'.':'Skóre '+_modelScore(row)+' = průměr '+tasks.length+' úloh, každá má stejnou váhu. '+(row.repeats||rd.repeats||'?')+' opakování na úlohu'+(row.durationMs!=null?' · měření '+_huntDuration(row.durationMs):'')+'.'),
     h('p',{style:{color:C.tx3}},row.suiteName==='code_patch'||rd.suiteName==='code_patch'?'Tato sada měří konkrétní opravy JavaScriptu, nikoli dokončení celého projektu. Každá oprava se ověří spuštěním testů; regrese vynuluje výsledek úlohy. Délka běhu není cílem testu.':'Výsledek platí pro tuto sadu úloh. Shoda opakování neprokazuje pokrytí všech schopností modelu.'),
     row.catalogMatchesContract===false?h('p',{style:{color:C.amber}},'Historická verze sady: dnešní popisy testů se na ni nepřenášejí. Níže jsou tehdy uložené výsledky a kritéria.'):null,
@@ -3628,6 +3630,10 @@ function _qualityDetail(row,rd){
             d.graderReviews.map(function(r,j){var identity=(row.grading&&row.grading.graders||[]).find(function(g){return g.id===r.graderAcceptanceId;});return h('div',{key:r.reviewId,style:{borderTop:'1px solid '+C.border,padding:'6px 0'}},
               h('strong',null,(identity&&identity.judge&&identity.judge.modelName||'Hodnotitel '+(j+1))+' · '+_taskScore(r.score)),
               (r.parts||[]).map(function(p,k){return h('div',{key:k,style:{paddingLeft:12}},p.id+' · '+_taskScore(p.score)+' · '+(p.evidence||[]).join(' / '));}));})):null;}),
+          (t.details||[]).map(function(d,i){return d&&d.adjudicationId?h('details',{key:'adjudication-'+i,style:{marginTop:8}},
+            h('summary',{style:{cursor:'pointer',color:C.amber}},'Rozsouzení kritérií · pokus '+(i+1)),
+            (d.parts||[]).map(function(p,k){return h('div',{key:k,style:{borderTop:'1px solid '+C.border,padding:'6px 0'}},
+              p.id+' · '+_taskScore(p.score)+' · '+(p.adjudicationReason||'')+' · '+(p.evidence||[]).join(' / '));})):null;}),
           (t.details||[]).map(function(d,i){return d&&d.testOutput?h('details',{key:'output-'+i,style:{marginTop:8}},h('summary',{style:{cursor:'pointer',color:C.accent}},'Výpis testů · opakování '+(i+1)),h('pre',{style:{whiteSpace:'pre-wrap',overflowWrap:'anywhere',maxHeight:300,overflow:'auto',fontSize:_fs(9)}},d.testOutput)):null;}))));
     })));
 }
