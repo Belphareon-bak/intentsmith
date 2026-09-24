@@ -13,7 +13,7 @@ přejímky zavře opětovné použití skóre bez mazání historie.
 
 ## Co se změnilo
 
-- `model_evaluation_grader_reviews` (migrace 117) uchovává oba posudky
+- `model_evaluation_grader_reviews` (migrace 118) uchovává oba posudky
   odděleně a zakazuje UPDATE/DELETE.
 - Automatické hodnocení před inferencí vyžaduje jedinou nezávislou dvojici
   přijatých artefaktů, různé digesty a známé různé rodiny; žádný z nich nesmí
@@ -26,7 +26,7 @@ přejímky zavře opětovné použití skóre bez mazání historie.
 - Sémantické provozní přijetí nově vyžaduje obě přejímky; historické
   jednosoudcovské přijetí se zobrazuje, ale není rozhodovací autoritou.
 - Studio zobrazuje stav čekání/sporu, podrobnosti obou posudků a u rozsouzeného běhu také lidské rozhodnutí s důvody.
-- Migrace 118 přidává append-only rozsouzení. CLI `scripts/adjudicate-model-collection.mjs --plan` vydává anonymní podklad bez původních známek; `--run` vyžaduje přesný hash sběru, vyplněné odůvodnění ke každému kritériu a zálohu DB. Shodné známky nesmí změnit.
+- Migrace 119 přidává append-only rozsouzení. CLI `scripts/adjudicate-model-collection.mjs --plan` vydává anonymní podklad bez původních známek; `--run` vyžaduje přesný hash sběru, vyplněné odůvodnění ke každému kritériu a zálohu DB. Shodné známky nesmí změnit.
 
 Jméno rodiny je konzervativní technická kontrola nezávislosti, ne důkaz
 nezávislosti chyb. Tu musí doložit přejímka dvojice na oddělených případech.

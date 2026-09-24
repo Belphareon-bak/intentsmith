@@ -1,6 +1,6 @@
 // Independent, append-only per-grader reviews of one immutable answer capture.
 // A row here is evidence, never a COMPLETE model score or a role decision.
-export const version = '2026_09_24_117_model_evaluation_grader_reviews';
+export const version = '2026_09_24_118_model_evaluation_grader_reviews';
 export const description = 'Append-only independent grader review evidence for model answer collections';
 export function up(db) {
   db.exec(`

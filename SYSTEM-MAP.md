@@ -5,7 +5,7 @@ Vývojová větev `work/hunt-model-controls-20260917` má dva oddělené
 append-only posudky a bránu proti jediné známce, sporům po kritériích a
 záměně artefaktu. Solver již omezuje model na dvě role a vynucuje nezávislé
 autorské a revizní role. Cílené testy prošly; živá DB má při read-only kontrole
-0 záznamů přejímky a migrace 117 v instalaci dosud není. **IMPLEMENTED /
+0 záznamů přejímky; hunt migrace 118 a 119 v instalaci dosud nejsou. **IMPLEMENTED /
 REVIEW_PENDING / NOT_DEPLOYED / NO_AUTONOMOUS_GO**.
 [Stav, testy a chybějící přejímky](docs/review/2026-09-25-GPU-HUNT-DUAL-GRADING-MILESTONE.md).
 
@@ -727,10 +727,10 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **229 878 ř.**, 660 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **249 876 ř.**, 536 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **229 914 ř.**, 661 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **249 881 ř.**, 536 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **540** (`446 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
-| Tabulek v čerstvé DB / aplikovaných migrací | **180 / 105** |
+| Tabulek v čerstvé DB / aplikovaných migrací | **183 / 106** |
 | HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
 

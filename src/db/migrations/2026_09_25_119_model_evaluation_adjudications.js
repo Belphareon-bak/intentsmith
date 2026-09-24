@@ -1,6 +1,6 @@
 // Explicit, immutable human resolution of disagreements between two accepted
 // grader reviews. The original reviews remain intact and independently readable.
-export const version = '2026_09_25_118_model_evaluation_adjudications';
+export const version = '2026_09_25_119_model_evaluation_adjudications';
 export const description = 'Append-only reviewed adjudication of paired semantic grader disputes';
 export function up(db) {
   db.exec(`

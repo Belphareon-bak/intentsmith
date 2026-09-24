@@ -27,7 +27,25 @@ node scripts/audit-hunt-readiness.mjs --db=/home/belphareon/Projects/intentsmith
 | Požadované bindingy | qwen3.8 drží D2+CODE+R1; qwen3.5 drží D1+CHAT | Audit našel kapacitní a nezávislostní konflikt. |
 | Skutečný runtime binding | Read-only CLI vidí požadovaný stav DB, nikoli ověřený runtime serveru | Nelze tvrdit, že DB stav je přesný stav obsluhy uživatelů. |
 
-Živá DB dosud nemá nové migrace 117/118 ani přijaté místní hodnotitele. Aktivní backend používá release `72247a4983abcb12d42f6da6cc5b27af8f2212fd`, nikoli tento vývojový checkout. Z tohoto důvodu nebyly provedeny změny živé DB, bindingů, timeru ani služby.
+Živá DB má migraci 117 pro development installations, ale dosud nemá hunt migrace 118/119 ani přijaté místní hodnotitele. Aktivní backend používá release `72247a4983abcb12d42f6da6cc5b27af8f2212fd`, nikoli tento vývojový checkout. Z tohoto důvodu nebyly provedeny změny živé DB, bindingů, timeru ani služby.
+
+## Kompatibilita migrací se živou DB
+
+Při zkoušce na kopii živé DB se ukázala kolize čísla 117: nainstalovaná
+release již má `2026_09_23_117_development_installations`, zatímco vývojová
+větev číslo původně použila pro posudky huntu. Tělo nainstalované migrace
+bylo převzato bajtově beze změny (SHA256
+`9d12760320e091bec15935566b1fb9d23e8566fcfec52b5ea5f676beb6946af5`).
+Nové migrace huntu nyní mají čísla 118 a 119. Původní 117/118 huntu nebyly
+na živé DB aplikované; jejich přejmenování tedy nemění uloženou historii.
+
+Čerstvá read-only záloha živé DB byla upgradována izolovaně: aplikovaly se
+přesně 118 a 119, další průchod neaplikoval nic, počty řádků ve všech 194
+původních tabulkách zůstaly stejné, `integrity_check = ok` a
+`foreign_key_check` má nula chyb. Čerstvá prázdná DB prošla 106 migracemi. Cílené kontroly po opravě: schema migrations 61/61, M1 failover schema 20/20, grader acceptance 23/23, artifact validation 160/160 a module boundary 13/13.
+Podrobný [strojový záznam](evidence/2026-09-25-hunt-migration-upgrade.json)
+neobsahuje kopii databáze ani uživatelské řádky. To dokládá kompatibilitu
+schématu, nikoli přejímku nové release nebo kvalitu hodnocení.
 
 ## Revizní rozhodnutí a cesta k GO
 
