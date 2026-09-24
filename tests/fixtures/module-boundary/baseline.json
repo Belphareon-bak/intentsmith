@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "4ba3cb77a978863c9413c5a482d1461dc2feb148",
-  "sourceTree": "1900d6debd8beaed047cb2315680405596428cd8",
+  "sourceRevision": "0f8aa6188c2ec88850639cb626e3967d3585fe96",
+  "sourceTree": "c7e02322291896597c0fb58fa95f7f076e800b9c",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "a111646c052627fd0803fc881838f58d7d5fd8dc",
@@ -1382,6 +1382,7 @@
     "src/upgrade/model-sweep.js -> src/network/outbound-policy.js",
     "src/upgrade/model-sweep.js -> src/upgrade/model-identity.js",
     "src/upgrade/model-universe-store.js -> src/upgrade/model-profiles.js",
+    "src/upgrade/model-upgrade-prototype.js -> src/eval/grade-answer-collection.js",
     "src/upgrade/model-upgrade-prototype.js -> src/eval/role-evaluation-plan.js",
     "src/upgrade/model-upgrade-prototype.js -> src/upgrade/model-evaluation-history.js",
     "src/upgrade/model-upgrade-prototype.js -> src/upgrade/model-family-extensions.js",

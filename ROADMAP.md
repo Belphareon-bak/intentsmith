@@ -1,5 +1,15 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**GPU hunt — kompatibilita uložených odpovědí, 25. 9. 2026:**
+Přesná kontrola vstupů a identity umožňuje po změně známkování znovu použít
+celý uložený sběr bez inference. Read-only audit našel 11 strukturálně
+kompatibilních sběrů jediného artefaktu, avšak **0** z nich odpovídá právě
+běžící verzi poskytovatele. Zápis známky ani rozsouzení nepřepíná sdílený
+provider filtr. Přesná nová module edge byla přijata bez růstu cyklů;
+aktuální module graph má 1 428 hran, 3 cykly / 28 členů.
+**REVIEW_PENDING / NOT_DEPLOYED / NO_AUTONOMOUS_GO**.
+[Audit a omezení](docs/review/2026-09-25-GPU-HUNT-CAPTURE-REUSE.md).
+
 **GPU hunt — milník dvojího hodnocení, 25. 9. 2026:**
 Ve vývojové větvi jsou dva oddělené append-only posudky na jeden sběr;
 neúplná dvojice, spor a záměna digestu neotevřou skóre. M0 cyklus v
