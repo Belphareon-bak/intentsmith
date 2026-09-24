@@ -1,6 +1,7 @@
 // Bounded CODE pilot (§6/§8). Pure recommendation; never applies bindings,
 // deletes models, or promotes exploratory benchmark rows to decision evidence.
 import { createHash } from 'node:crypto';
+import { DECISION_METHODS, PAIRED_T_MINIMUM_GROUPS, groupInterval } from './decision-methods.js';
 
 const canonical = value => JSON.stringify(value, (_key, item) => item && typeof item === 'object'
   && !Array.isArray(item) ? Object.fromEntries(Object.keys(item).sort().map(key => [key, item[key]])) : item);
@@ -32,7 +33,7 @@ export function validatePairedPlan(plan, role, metric) {
   if (!Number.isFinite(Date.parse(plan.lockedAt))) fail('lockedAt');
   if (!Number.isInteger(plan.repeats) || plan.repeats < 1) fail('repeats');
   const rule = plan.decision;
-  if (rule?.method !== 'hoeffding-kl-bounded-groups' || !(rule.alpha > 0 && rule.alpha < 1)
+  if (!Object.values(DECISION_METHODS).includes(rule?.method) || !(rule.alpha > 0 && rule.alpha < 1)
     || !(rule.minimumBenefit > 0 && rule.minimumBenefit < 1)
     || !(rule.nonInferiorityMargin >= 0 && rule.nonInferiorityMargin < 1)
     || !(rule.minimumSpeedup > 1) || typeof rule.allowSpeedDecision !== 'boolean') fail('decision');
@@ -44,6 +45,9 @@ export function validatePairedPlan(plan, role, metric) {
   }
   if (plan.incumbent.digest === plan.candidate.digest) fail('identical artifacts');
   if (!Array.isArray(plan.scenarios) || !plan.scenarios.length) fail('scenarios');
+  // A variance-based interval needs enough independent groups to mean anything.
+  if (rule.method === DECISION_METHODS.PAIRED_T
+    && new Set(plan.scenarios.map(s => s.independenceGroup)).size < PAIRED_T_MINIMUM_GROUPS) fail('too few groups for paired t');
   const ids = new Set();
   for (const scenario of plan.scenarios) {
     if (!scenario.id || ids.has(scenario.id) || !scenario.independenceGroup
@@ -139,7 +143,7 @@ export function decidePairedPlan(plan, attempts, qualifications = {}) {
     delta: rows.reduce((sum, r) => sum + r.delta, 0) / rows.length,
     candidateMs: rows.reduce((sum, r) => sum + r.candidateMs, 0) / rows.length,
     incumbentMs: rows.reduce((sum, r) => sum + r.incumbentMs, 0) / rows.length });
-  result.qualityInterval = boundedGroupInterval(result.groups.map(g => g.delta), plan.decision.alpha);
+  result.qualityInterval = groupInterval(result.groups.map(g => g.delta), plan.decision.alpha, plan.decision.method);
   for (const side of ['incumbent', 'candidate']) {
     const q = qualifications[side];
     if (!q || q.planSha256 !== plan.planSha256 || q.digest !== plan[side].digest || q.status !== 'QUALIFIED') {

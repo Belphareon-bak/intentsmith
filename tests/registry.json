@@ -16109,6 +16109,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-DECISION-METHODS-TEST",
+      "path": "tests/decision-methods.test.mjs",
+      "argv": [
+        "node",
+        "tests/decision-methods.test.mjs"
+      ],
+      "capabilityId": "C3-025",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 15000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-CHAT-CONVERSATION-CAPTURE-TEST-MJS",
       "path": "tests/chat-conversation-capture.test.mjs",
       "argv": [
