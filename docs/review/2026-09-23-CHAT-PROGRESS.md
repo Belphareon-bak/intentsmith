@@ -1,5 +1,37 @@
 # Živý průběh CHAT panelu a pokračování sběru
 
+## Pokračování 24. 9. 2026
+
+**COLLECTION_RESUMED / NOT_GRADED** na výslovný pokyn „pokračuj“.
+Včerejší hlídač se k plánované pauze nedostal: `full-02` skončilo ve
+23:30:22 CEST na `GPU_FOREIGN_WORK_PRESENT`. Skutečný doklad je
+`STOPPED_BEFORE_TARGET`: Qwen3.5 **112/120 úplných dialogů**, žádné volání
+modelů 7–10. Celkem 712 zpracovaných / 710 úplných dialogů a 2 060 volání.
+Částečný export `review-full-02/` proběhl, exit 0; původní hlídač neběží.
+
+Po ověření celého deníku, zdrojových hashů a digestů všech modelů pokračuje
+okno **`full-03`**: nejprve zbývajících osm dialogů Qwen3.5, potom Qwen3.6,
+Qwen3 14b, Phi4 a Qwen3.8. Původní plán i odpovědi zůstávají beze změny.
+Limit okna je pouze původní zbytek: 1 420 volání, 6 470 051 výstupních
+tokenů a 75 980 sekund. Čtyři již přeskočená navazující volání u původních
+dvou neúplných dialogů se automaticky nedoplňují; nové pokusy se nevymýšlejí.
+
+Aktuální služby jsou `intentsmith-chat-panel-20260924-full03.service`
+a `intentsmith-chat-progress-20260924.service`. Přehled na
+**http://127.0.0.1:8765/** sleduje nové okno. Nový report a export budou
+`full-03-summary.json`, `run-full-03-exit.json`, `review-full-03/`
+a `export-full-03-exit.json`. Výchozí stav, přesný rozpočet a hash původních
+bajtů deníku jsou v `resume-full-03.json`; kontrola návaznosti v
+`resume-full-03-verification.json`. Žádná změna známek ani role v produkci.
+
+```bash
+systemctl --user status intentsmith-chat-panel-20260924-full03.service --no-pager
+systemctl --user stop intentsmith-chat-panel-20260924-full03.service
+```
+
+Následující oddíly zachovávají historii 23. 9.; jejich názvy služeb platí
+pro tehdejší okna, nikoli pro nynější sběr.
+
 23. 9. 2026 — **PROGRESS_RUNTIME_VERIFIED / COLLECTION_RESUMED / NOT_GRADED**.
 
 **Pozdější pokyn operátora: pauza po šestém modelu.** Je aktivovaný jednorázový

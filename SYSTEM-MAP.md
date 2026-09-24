@@ -1,11 +1,12 @@
 # IntentSmith — mapa systému
 
-**GPU hunt — živý progress a pokračování CHAT panelu, 23. 9. 2026:**
-Přehled na `http://127.0.0.1:8765/`: celkový/modelový progress, aktuální
-úloha, opakování/tah, počty a skutečný log s filtrem. První okno zastavené
-po 1 361 voláních ochranou cizí GPU práce; po odeznění pokračuje `full-02`
-v původním zbytkovém rozpočtu. **COLLECTION_RESUMED / NOT_GRADED**.
-[Ovládání, důkazy a význam počítadel](docs/review/2026-09-23-CHAT-PROGRESS.md).
+**GPU hunt — pokračování CHAT panelu, 24. 9. 2026:**
+Včerejší ochrana zastavila sběr před plánovanou pauzou: Qwen3.5 má 112/120
+úplných dialogů, modely 7–10 ještě nezačaly. Na pokyn operátora běží
+`full-03`: dokončení Qwen3.5 a zbývajících čtyř modelů, stejný plán a pouze
+zbytkový rozpočet. Přehled: `http://127.0.0.1:8765/`.
+**COLLECTION_RESUMED / NOT_GRADED**.
+[Průběh, návaznost a ovládání](docs/review/2026-09-23-CHAT-PROGRESS.md).
 
 
 **GPU hunt — velký CHAT sběr po slepém posudku, 23. 9. 2026:**
