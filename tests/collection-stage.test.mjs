@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createStage, readStage, runStageWindow, stageHash, stageSummary, recordedStageAnswer } from '../src/eval/collection-stage.js';
 import { progressSnapshot } from '../scripts/manual/serve-chat-progress.mjs';
+import {remainingWindowBudget,waitForGpuIdle,superviseCollection} from '../scripts/manual/supervise-chat-panel.mjs';
 
 const artifact={modelName:'test',digestSha256:'a'.repeat(64),providerVersion:'test-provider'};
 const base={schemaVersion:1,decisionAuthority:false,notAHoldout:true,sourceContractSha256:'b'.repeat(64),
@@ -162,4 +163,61 @@ test('progress counts completed-with-exceptions separately from successful captu
   assert.equal(p.finishedDialogs,1);assert.equal(p.completeDialogs,0);assert.equal(p.exceptions,1);
   assert.equal(p.completedCalls,1);assert.equal(p.plannedCalls,2);assert.equal(p.skippedCalls,1);
   assert.equal(p.models[0].exceptions,1);assert.equal(p.score,null);
+});
+
+test('GPU resume waits for consecutive clear observations and fails closed on unknown/timeout',async()=>{
+  let clock=0,index=0;const states=[true,false,true,true,true];
+  await waitForGpuIdle({probe:async()=>({idle:states[index++]}),now:()=>clock,sleep:async ms=>{clock+=ms;},timeoutMs:100,intervalMs:5});
+  assert.equal(index,5);assert.equal(clock,20);
+  await assert.rejects(waitForGpuIdle({probe:async()=>({}),now:()=>clock}),/GPU_PROBE_UNVERIFIED/);
+  clock=0;
+  await assert.rejects(waitForGpuIdle({probe:async()=>({idle:false}),now:()=>clock,sleep:async ms=>{clock+=ms;},timeoutMs:10,intervalMs:5}),/GPU_WAIT_LIMIT/);
+  const cancel=new AbortController();cancel.abort();
+  await assert.rejects(waitForGpuIdle({signal:cancel.signal,probe:()=>assert.fail('probe')}),/CANCELLED/);
+});
+
+test('supervisor resumes GPU contention without retrying a failed recorded attempt or resetting budget',async t=>{
+  const plan=structuredClone(base);plan.repeats=2;plan.budget={calls:4,outputTokens:40};
+  const opts=setup(t,plan),events=[],budgets=[],exports=[];let calls=0,waits=0;
+  await superviseCollection({snapshot:()=>readStage(opts.directory),verify:()=>{},ceilingMs:10000,maxResumes:1,
+    waitUntilIdle:async()=>{waits++;},publish:(status)=>events.push(status),
+    runWindow:async(windowId,budget)=>{budgets.push(budget);await runStageWindow({...opts,windowId,budget,
+      call:async()=>++calls===1?{content:'interrupted',error:'GPU_FOREIGN_WORK_PRESENT'}:reply()});},
+    exportWindow:async w=>exports.push(w)});
+  const stage=readStage(opts.directory),summary=stageSummary(stage);
+  assert.equal(waits,2);assert.deepEqual(exports,['full-04','full-05']);assert.equal(events.at(-1),'COMPLETE');
+  assert.equal(calls,3);assert.equal(summary.finishedConversations,2);assert.equal(summary.capturedConversations,1);
+  assert.equal(stage.events.filter(e=>e.type==='CALL_RESERVED'&&e.attemptId==='m1-r1-cs_test').length,1);
+  assert.equal(budgets[1].calls,3);assert.equal(budgets[1].outputTokens,30);
+  assert.equal(summary.score,null);assert.equal(stage.events.find(e=>e.type==='ATTEMPT_FINISHED').answer.captureStatus,'TRANSPORT_ERROR');
+});
+
+test('supervisor has a hard retry cap and never retries resource/identity/cancellation failures',async t=>{
+  for(const reason of ['GPU_FOREIGN_WORK_PRESENT','STAGE_RAM_FLOOR','STAGE_ARTIFACT_CHANGED','CANCELLED']){
+    const opts=setup(t);let windows=0;
+    await assert.rejects(superviseCollection({snapshot:()=>readStage(opts.directory),verify:()=>{},ceilingMs:10000,maxResumes:1,
+      waitUntilIdle:async()=>{},publish:()=>{},exportWindow:async()=>{},
+      runWindow:async(windowId,budget)=>{windows++;await runStageWindow({...opts,windowId,budget,guard:async()=>{throw Error(reason);}});}}),
+      new RegExp(reason==='GPU_FOREIGN_WORK_PRESENT'?'GPU_CONTENTION_RESUME_LIMIT':reason));
+    assert.equal(windows,reason==='GPU_FOREIGN_WORK_PRESENT'?2:1);
+  }
+});
+
+test('supervisor cannot reopen a window, reset elapsed time, or proceed after source verification fails',async t=>{
+  const opts=setup(t);const first=await runStageWindow({...opts,windowId:'full-04',budget:{...opts.budget,calls:1}});
+  assert.throws(()=>remainingWindowBudget(first.stage,0),/BUDGET_EXHAUSTED/);
+  const callbacks={snapshot:()=>readStage(opts.directory),verify:()=>{},ceilingMs:10000,
+    waitUntilIdle:()=>assert.fail('wait'),runWindow:()=>assert.fail('run'),exportWindow:()=>{},publish:()=>{}};
+  await assert.rejects(superviseCollection(callbacks),/WINDOW_ALREADY_EXISTS/);
+  await assert.rejects(superviseCollection({...callbacks,verify:()=>{throw Error('SOURCE_CHANGED');}}),/SOURCE_CHANGED/);
+});
+
+test('dashboard shows bounded GPU waiting only for a live matching supervisor heartbeat',async t=>{
+  const opts=setup(t),stage=readStage(opts.directory),now=Date.now();
+  const supervisor={planSha256:stage.sha256,status:'WAITING_GPU',updatedAt:new Date(now).toISOString(),resumes:1,maxResumes:3};
+  const service={ActiveState:'active',SubState:'running'};
+  assert.equal(progressSnapshot(stage,{service,supervisor,now}).state,'WAITING_GPU');
+  assert.equal(progressSnapshot(stage,{service,supervisor,now:now+21000}).waitingForGpu,false);
+  assert.equal(progressSnapshot(stage,{supervisor,now}).waitingForGpu,false);
+  assert.equal(progressSnapshot(stage,{service,supervisor:{...supervisor,planSha256:'wrong'},now}).waitingForGpu,false);
 });

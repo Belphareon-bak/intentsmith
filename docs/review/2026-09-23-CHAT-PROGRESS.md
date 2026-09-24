@@ -1,5 +1,7 @@
 # Živý průběh CHAT panelu a pokračování sběru
 
+**Novější stav:** [Zastavení Qwen3.6 a omezené navázání po GPU konfliktu](2026-09-24-CHAT-GPU-CONTENTION.md).
+
 ## Pokračování 24. 9. 2026
 
 **COLLECTION_RESUMED / NOT_GRADED** na výslovný pokyn „pokračuj“.

@@ -7,7 +7,7 @@ import {resolve,join,isAbsolute} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {readStage,stageSummary,stageAttempts} from '../../src/eval/collection-stage.js';
 
-export function progressSnapshot(stage,{provider={},service={},titles={},now=Date.now()}={}) {
+export function progressSnapshot(stage,{provider={},service={},supervisor={},titles={},now=Date.now()}={}) {
   const summary=stageSummary(stage,now),attempts=stageAttempts(stage);
   const byAttempt=new Map(attempts.map(a=>[a.id,a]));
   const calls=stage.events.filter(e=>e.type==='CALL_RESERVED');
@@ -18,9 +18,11 @@ export function progressSnapshot(stage,{provider={},service={},titles={},now=Dat
   const open=summary.windows.at(-1)&&!summary.windows.at(-1).close;
   const processAlive=service.ActiveState==='active'&&service.SubState==='running';
   const running=Boolean(open&&processAlive&&provider.status==='RUNNING');
+  const waiting=Boolean(!open&&processAlive&&supervisor.planSha256===stage.sha256
+    &&supervisor.status==='WAITING_GPU'&&now-Date.parse(supervisor.updatedAt)<20000);
   const complete=finished.length===summary.plannedConversations;
   const state=complete?(summary.capturedConversations===finished.length?'COMPLETE':'COMPLETE_WITH_EXCEPTIONS')
-    :running?'RUNNING':!summary.windows.length?'PREPARED':open?'INTERRUPTED':'STOPPED';
+    :running?'RUNNING':waiting?'WAITING_GPU':!summary.windows.length?'PREPARED':open?'INTERRUPTED':'STOPPED';
   const last=calls.at(-1),attempt=byAttempt.get(last?.attemptId);
   const current=attempt?{model:attempt.model.name,modelIndex:stage.plan.models.findIndex(m=>m.name===attempt.model.name)+1,
     task:attempt.task.name,title:titles[attempt.task.name]||attempt.task.name,language:attempt.task.language,
@@ -67,6 +69,8 @@ export function progressSnapshot(stage,{provider={},service={},titles={},now=Dat
   }
   return {updatedAt:new Date(now).toISOString(),planSha256:stage.sha256,state,running,
     stopReason:running?null:summary.stopReason,providerStatus:provider.status||null,service,
+    waitingForGpu:waiting,contentionResumes:waiting?supervisor.resumes:null,
+    maxContentionResumes:waiting?supervisor.maxResumes:null,
     current,modelCount:models.length,models,finishedDialogs:finished.length,completeDialogs:summary.capturedConversations,
     plannedDialogs:summary.plannedConversations,exceptions:finished.length-summary.capturedConversations,
     completedCalls:replies.length,startedCalls:calls.length,plannedCalls:stage.plan.budget.calls,skippedCalls,
@@ -87,9 +91,10 @@ export async function serveProgress({root,port=8765,unit}) {
     try{
       const stage=readStage(join(root,'capture'));
       let provider={};try{provider=JSON.parse(readFileSync(join(root,'provider-state/current.json')));}catch{}
+      let supervisor={};try{supervisor=JSON.parse(readFileSync(join(root,'supervisor-state.json')));}catch{}
       const text=execFileSync('systemctl',['--user','show',unit,'-p','ActiveState','-p','SubState','-p','MainPID'],{encoding:'utf8',timeout:2000});
       const service=Object.fromEntries(text.trim().split('\n').map(s=>s.split('=')));
-      cache=progressSnapshot(stage,{provider,service,titles});error=null;
+      cache=progressSnapshot(stage,{provider,service,supervisor,titles});error=null;
     }catch(e){error=e.code||e.message;}
   }
   update();const timer=setInterval(update,5000);

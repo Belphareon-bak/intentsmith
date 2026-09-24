@@ -1,12 +1,12 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**GPU hunt — pokračování CHAT panelu, 24. 9. 2026:**
-Včerejší ochrana zastavila sběr před plánovanou pauzou: Qwen3.5 má 112/120
-úplných dialogů, modely 7–10 ještě nezačaly. Na pokyn operátora běží
-`full-03`: dokončení Qwen3.5 a zbývajících čtyř modelů, stejný plán a pouze
-zbytkový rozpočet. Přehled: `http://127.0.0.1:8765/`.
-**COLLECTION_RESUMED / NOT_GRADED**.
-[Průběh, návaznost a ovládání](docs/review/2026-09-23-CHAT-PROGRESS.md).
+**GPU hunt — navázání po krátkém konfliktu GPU, 24. 9. 2026:**
+Qwen3.5 dokončen. Qwen3.6 přerušen při cizí GPU aktivitě; časově doložen
+souběh s RustDesk CUDA/NVENC sondou. Doplněno omezené čekání a nejvýše tři
+navázání při GPU konfliktu, zachování deníku a původního rozpočtu.
+Přehled rozlišuje čekání od zastavení. 23 cílených testů a 5 browser kontrol PASS.
+**IMPLEMENTED / NOT_GRADED**.
+[Diagnóza, aktuální běh a důkazy](docs/review/2026-09-24-CHAT-GPU-CONTENTION.md).
 
 
 **GPU hunt — velký CHAT sběr po slepém posudku, 23. 9. 2026:**
