@@ -113,6 +113,8 @@ for (const role of Object.keys(ROLE_IMPROVEMENT_THRESHOLDS)) {
     kl: run(DECISION_METHODS.KL_BOUNDED, 0.02),
     pairedT: run(DECISION_METHODS.PAIRED_T, 0.02),
     pairedTMargin005: run(DECISION_METHODS.PAIRED_T, 0.05),
+    pairedTCalibrated: planFeasibility({ method: DECISION_METHODS.PAIRED_T, minimumBenefit, nonInferiorityMargin: 0.05,
+      availableGroups: groups, plannedEffect, pools: deltaPools, sims, calibrate: true }),
     pairedTAtGroups: Object.fromEntries(alsoGroups.map(n => [n, run(DECISION_METHODS.PAIRED_T, 0.05, n)])),
     demo: demoDecisions(role, data.models, minimumBenefit, 0.05),
   };
@@ -124,9 +126,9 @@ for (const role of Object.keys(ROLE_IMPROVEMENT_THRESHOLDS)) {
     entry.incumbentPairs = { incumbent: bindings[role], pairs: incumbentPools.length,
       sigma: { median: r3(quantile(isds, 0.5)), p25: r3(quantile(isds, 0.25)), p75: r3(quantile(isds, 0.75)) },
       pairedT: planFeasibility({ method: DECISION_METHODS.PAIRED_T, minimumBenefit, nonInferiorityMargin: 0.05,
-        availableGroups: groups, plannedEffect, pools: incumbentPools, sims }),
+        availableGroups: groups, plannedEffect, pools: incumbentPools, sims, calibrate: true }),
       pairedTAtGroups: Object.fromEntries(alsoGroups.map(n => [n, planFeasibility({ method: DECISION_METHODS.PAIRED_T,
-        minimumBenefit, nonInferiorityMargin: 0.05, availableGroups: n, plannedEffect, pools: incumbentPools, sims })])) };
+        minimumBenefit, nonInferiorityMargin: 0.05, availableGroups: n, plannedEffect, pools: incumbentPools, sims, calibrate: true })])) };
   }
   report.roles[role] = entry;
   const q = entry.pairedT.quality, ni2 = entry.pairedT.nonInferiority, ni5 = entry.pairedTMargin005.nonInferiority;
@@ -139,11 +141,12 @@ for (const role of Object.keys(ROLE_IMPROVEMENT_THRESHOLDS)) {
     + alsoGroups.map(n => { const x = entry.pairedTAtGroups[n];
       return ` | @${n}: ${x.verdict} power=${x.quality.powerAtPlannedEffect} MDE=${x.quality.minimumDetectableEffect}`; }).join(''));
   if (entry.incumbentPairs) { const ip = entry.incumbentPairs, x = ip.pairedT;
-    console.error(`       vs incumbent ${ip.incumbent}: sigma med=${ip.sigma.median} | t ${x.verdict} FA=${x.quality.falseAcceptAtBoundary} `
+    console.error(`       vs incumbent ${ip.incumbent}: sigma med=${ip.sigma.median} | calibrated t alpha=${x.alpha} ${x.verdict} `
+      + `FA=${x.quality.falseAcceptAtBoundary} switchWhenEqual=${x.quality.switchWhenEqual} `
       + `power=${x.quality.powerAtPlannedEffect} MDE=${x.quality.minimumDetectableEffect} needN=${x.quality.requiredGroupsForPlannedEffect} `
       + `NI.05 power=${x.nonInferiority.powerWhenEqual} needN=${x.nonInferiority.requiredGroupsWhenEqual}`
       + alsoGroups.map(n => { const y = ip.pairedTAtGroups[n];
-        return ` | @${n}: ${y.verdict} power=${y.quality.powerAtPlannedEffect} MDE=${y.quality.minimumDetectableEffect}`; }).join('')); }
+        return ` | @${n}: alpha=${y.alpha} ${y.verdict} power=${y.quality.powerAtPlannedEffect} MDE=${y.quality.minimumDetectableEffect}`; }).join('')); }
 }
 const json = JSON.stringify(report, null, 1) + '\n';
 if (args.out) writeFileSync(args.out, json); else process.stdout.write(json);

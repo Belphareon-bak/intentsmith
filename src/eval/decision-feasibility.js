@@ -73,27 +73,55 @@ export function minimumDetectableEffect({ maxEffect = 0.6, power = 0.8, threshol
   return Math.round(hi * 1000) / 1000;
 }
 
+// Largest alpha from the grid whose simulated false acceptance at BOTH
+// boundaries (quality and non-inferiority) stays within the nominal one-sided
+// target on this role's observed data. Skewed, spiky deltas make the nominal t
+// interval anti-conservative; calibrating alpha on pilot pools fixes that
+// without inventing a different estimand. Null = no safe alpha in the grid.
+export const ALPHA_GRID = Object.freeze([0.05, 0.04, 0.03, 0.02, 0.015, 0.01, 0.005]);
+export function calibrateAlpha({ method, groups, minimumBenefit, nonInferiorityMargin, pools, sigma,
+  target = 0.025, sims = 2000, seed = 20260924, grid = ALPHA_GRID }) {
+  // Strict: Monte Carlo noise may only make the chosen alpha conservative.
+  const tolerance = target;
+  for (const alpha of grid) {
+    const common = { method, alpha, groups, pools, sigma, sims, seed };
+    const quality = acceptanceRate({ ...common, trueMean: minimumBenefit, threshold: minimumBenefit });
+    const nonInferiority = nonInferiorityMargin > 0
+      ? acceptanceRate({ ...common, trueMean: -nonInferiorityMargin, threshold: -nonInferiorityMargin }) : 0;
+    if (quality <= tolerance && nonInferiority <= tolerance) return { alpha, target, tolerance, quality, nonInferiority };
+  }
+  return null;
+}
+
 // Verdict for one role plan: FEASIBLE / EXPLORATORY_ONLY / METHOD_UNSAFE.
-export function planFeasibility({ method, alpha = 0.05, minimumBenefit, nonInferiorityMargin,
-  availableGroups, plannedEffect, pools, sigma, power = 0.8, sims = 2000, seed = 20260924, maxGroups = 400 }) {
-  const common = { method, alpha, pools, sigma, sims, seed };
-  const allowed = allowedFalseAccept(alpha, sims);
+export function planFeasibility({ method, alpha: requestedAlpha = 0.05, minimumBenefit, nonInferiorityMargin,
+  availableGroups, plannedEffect, pools, sigma, power = 0.8, sims = 2000, seed = 20260924, maxGroups = 400,
+  calibrate = false }) {
+  const calibration = calibrate ? calibrateAlpha({ method, groups: availableGroups, minimumBenefit,
+    nonInferiorityMargin, pools, sigma, target: requestedAlpha / 2, sims, seed }) : null;
+  const alpha = calibration?.alpha ?? requestedAlpha;
+  // Verify on fresh simulations: the calibration draws selected alpha and
+  // would be optimistic. The target stays the requested nominal tail.
+  const common = { method, alpha, pools, sigma, sims, seed: calibrate ? seed + 1 : seed };
+  const allowed = allowedFalseAccept(requestedAlpha, sims);
   const quality = {
     falseAcceptAtBoundary: acceptanceRate({ ...common, groups: availableGroups, trueMean: minimumBenefit, threshold: minimumBenefit }),
     powerAtPlannedEffect: acceptanceRate({ ...common, groups: availableGroups, trueMean: plannedEffect, threshold: minimumBenefit }),
     minimumDetectableEffect: minimumDetectableEffect({ ...common, groups: availableGroups, threshold: minimumBenefit, power }),
     requiredGroupsForPlannedEffect: requiredGroups({ ...common, trueMean: plannedEffect, threshold: minimumBenefit, power, maxGroups }),
+    // The practically harmful error: switching when the candidate is not better at all.
+    switchWhenEqual: acceptanceRate({ ...common, groups: availableGroups, trueMean: 0, threshold: minimumBenefit }),
   };
   const nonInferiority = nonInferiorityMargin > 0 ? {
     falseAcceptAtBoundary: acceptanceRate({ ...common, groups: availableGroups, trueMean: -nonInferiorityMargin, threshold: -nonInferiorityMargin }),
     powerWhenEqual: acceptanceRate({ ...common, groups: availableGroups, trueMean: 0, threshold: -nonInferiorityMargin }),
     requiredGroupsWhenEqual: requiredGroups({ ...common, trueMean: 0, threshold: -nonInferiorityMargin, power, maxGroups }),
   } : null;
-  const unsafe = quality.falseAcceptAtBoundary > allowed
+  const unsafe = (calibrate && !calibration) || quality.falseAcceptAtBoundary > allowed
     || (nonInferiority && nonInferiority.falseAcceptAtBoundary > allowed);
   const verdict = unsafe ? 'METHOD_UNSAFE'
     : quality.powerAtPlannedEffect >= power ? 'FEASIBLE' : 'EXPLORATORY_ONLY';
-  return { method, alpha, minimumBenefit, nonInferiorityMargin, availableGroups, plannedEffect, power,
+  return { method, alpha, requestedAlpha, calibration, minimumBenefit, nonInferiorityMargin, availableGroups, plannedEffect, power,
     sims, seed, allowedFalseAccept: allowed, quality, nonInferiority, verdict,
     dataModel: Array.isArray(pools) && pools.length ? `empirical resampling of ${pools.length} observed pairs` : `normal sigma=${sigma}` };
 }

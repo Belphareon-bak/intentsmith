@@ -99,3 +99,21 @@ test('feasibility verdicts and empirical pools are deterministic', () => {
   const kl = planFeasibility({ ...args, method: DECISION_METHODS.KL_BOUNDED, availableGroups: 300 });
   assert.equal(kl.verdict, 'EXPLORATORY_ONLY');
 });
+
+test('calibration: extreme rare drops are blocked, moderate skew gets a safe alpha', () => {
+  const base = { method: DECISION_METHODS.PAIRED_T, minimumBenefit: 0.04, nonInferiorityMargin: 0.05,
+    availableGroups: 40, plannedEffect: 0.10, sims: 1500, seed: 5 };
+  // One -0.6 drop per 40 groups: a third of samples never see it, so no t alpha is safe.
+  const extreme = Array.from({ length: 6 }, (_, k) => Array.from({ length: 40 }, (_, i) => (i === k ? -0.6 : 0)));
+  const blocked = planFeasibility({ ...base, pools: extreme, calibrate: true });
+  assert.equal(blocked.calibration, null);
+  assert.equal(blocked.verdict, 'METHOD_UNSAFE');
+  // Moderately skewed pools: calibration finds an alpha meeting the nominal tail on fresh draws.
+  const moderate = Array.from({ length: 6 }, (_, k) => Array.from({ length: 40 }, (_, i) =>
+    ((i + k) % 5 === 0 ? -0.35 : (i + k) % 5 === 1 ? 0.15 : (i + k) % 5 === 2 ? 0.1 : 0.05)));
+  const ok = planFeasibility({ ...base, pools: moderate, calibrate: true });
+  assert.ok(ok.calibration && ok.alpha <= 0.05);
+  assert.ok(ok.quality.falseAcceptAtBoundary <= allowedFalseAccept(0.05, 1500));
+  assert.notEqual(ok.verdict, 'METHOD_UNSAFE');
+  assert.ok(ok.quality.switchWhenEqual <= ok.quality.falseAcceptAtBoundary);
+});
