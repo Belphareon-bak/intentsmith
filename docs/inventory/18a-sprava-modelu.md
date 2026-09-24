@@ -1,5 +1,12 @@
 # Inventura #18a — Správa modelů
 
+**GPU hunt — ověření druhého CHAT posudku, 24. 9. 2026:**
+Zachování sběru ověřeno proti celému deníku. Druhý posudek dokládá další
+nálezy, jeho součet ale pokrývá 12/20 scénářů a není exportem známek po
+kritériích. Pokrytí původního hodnocení se nezměnilo; žádné nové přiřazení.
+**AUDIT_NOT_GRADING_ACCEPTANCE / NO_AUTONOMOUS_GO**.
+[Rozbor a konkrétní důkazy](../review/2026-09-24-CHAT-OPUS-RECONCILIATION.md).
+
 **GPU hunt — dokončený CHAT sběr, první hodnoticí blok, 24. 9. 2026:**
 Finální panel: 1 200 záznamů, 1 196 úplných dialogů, čtyři přerušené;
 3 472 volání. Posouzeno 60 celých rozhovorů ručně a 60 striktních JSON

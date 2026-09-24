@@ -1,5 +1,12 @@
 # IntentSmith — mapa systému
 
+**GPU hunt — ověření druhého CHAT posudku, 24. 9. 2026:**
+Potvrzena návaznost všech 1 200 dialogů a konkrétní vady včetně dvou smyček
+a výskytu neveřejných údajů v předchozích tazích Gemmy. Opusův součet pokrývá
+12/20 scénářů; bez známek po ID nejde vypočítat shodu ani otevřít přejímku.
+Původní známky zachované, **AUDIT_NOT_GRADING_ACCEPTANCE / NO_AUTONOMOUS_GO**.
+[Rozbor, opravy závěrů a důkazy](docs/review/2026-09-24-CHAT-OPUS-RECONCILIATION.md).
+
 **GPU hunt — dokončený CHAT sběr a první reference, 24. 9. 2026:**
 1 196 úplných dialogů a čtyři výjimky z 1 200 plánovaných. Posouzeno
 60 dialogů ručně a 60 striktních JSON; jeden dialog čeká na rozsouzení,
