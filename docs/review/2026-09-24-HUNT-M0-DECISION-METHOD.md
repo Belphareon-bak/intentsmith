@@ -2,12 +2,15 @@
 
 24. 9. 2026 · větev `work/hunt-decision-m0` · **PLANNING_EVIDENCE / NO_BINDING_CHANGE**.
 
-**Revize 1 zapracována** (větev `work/hunt-m0-review-20260924`, na `acd3992b`).
-Opravené dvě P1 z [review M0](/mnt/vi7000/intentsmith/evidence/hunt-m0-parallel-review-20260924/REVIEW.md):
-orientace párů a ořez posunuté distribuce. Binární plány se vrátily ke KL,
-spojité skóre má samostatný plán. Čísla v tomto dokumentu jsou přepočtená
-opraveným kódem; staré hodnoty a rozdíly jsou v [§ Revize 1](#revize-1-24-9-večer).
-Body z addenda review zůstávají otevřené.
+**Revize 1 a 2 zapracované** (větev `work/hunt-m0-review-20260924`, na `acd3992b`).
+- Revize 1 ([review M0](/mnt/vi7000/intentsmith/evidence/hunt-m0-parallel-review-20260924/REVIEW.md)):
+  orientace párů, ořez posunuté distribuce, binární plány zpět na KL
+  a samostatný plán pro spojité skóre ([§ Revize 1](#revize-1-24-9-večer)).
+- Revize 2 ([posudek CHAT pilotu](/mnt/vi7000/intentsmith/evidence/hunt-m0-review-fixes-20260924/REVIEW-2-acd3992b.md)):
+  přesné identity sad, oddělené výsledky sad, tolerance nezhoršení zamknutá
+  na 0,02 a opravy faktů pilotu ([§ Revize 2](#revize-2-24-9-noc)).
+- **Závěr „ZMĚNIT CHAT na qwen3.8“ se nepřijímá.** Pilot je průzkumná evidence.
+- Čísla v dokumentu jsou přepočtená opraveným kódem na zmrazeném snímku DB.
 
 ## Co je hotové
 
@@ -27,9 +30,9 @@ a `artifact-validation` 160/160.
 node scripts/hunt-decision-feasibility.mjs --also-groups=20,60,100 --out=feasibility.json
 ```
 
-Evidence po revizi 1: `/mnt/vi7000/intentsmith/evidence/hunt-m0-review-fixes-20260924/after-full.json`
+Evidence po revizi 2: `/mnt/vi7000/intentsmith/evidence/hunt-m0-review-fixes-20260924/r2-full.json`
 (2 000 simulací na buňku, seed 20260924, deterministické; zmrazený snímek DB
-`c3-snapshot.db`, SHA-256 `2766c7a1…`). Původní běh:
+`c3-snapshot.db`, SHA-256 `2766c7a1…`). Po revizi 1: `after-full.json`. Původní běh:
 `/mnt/vi7000/intentsmith/evidence/hunt-decision-m0-20260924/feasibility.json`.
 
 ## Výsledek na reálných datech (páry se současným bindingem)
@@ -37,6 +40,12 @@ Evidence po revizi 1: `/mnt/vi7000/intentsmith/evidence/hunt-m0-review-fixes-202
 MDE je nejmenší skutečné zlepšení, které plán zachytí s 80% silou.
 „Škodlivá výměna“ = jak často by plán vyměnil model, který ve skutečnosti není lepší.
 Rozdíly jsou vždy kandidát − současný model.
+- **Tolerance nezhoršení je 0,02**, hodnota kontraktu do přijetí R2. α ani MDE
+  se proti 0,05 nezměnily.
+- **Síla prokázat nezhoršení je ale při 0,02 nízká.** U CHAT je 0,12, 0,18
+  a 0,23 při 40, 60 a 100 skupinách; při 0,05 by byla 0,42, 0,56 a 0,71.
+- **Všechny hlavní sady mají skupiny odvozené ze jmen úloh**
+  (`ASSUMED_NAME_GROUPS`), žádná nemá doložený původ.
 
 | Role | Sada | Skupin | σ | Škodlivá výměna | Dnes | 60 skupin | 100 skupin |
 |---|---|---|---|---|---|---|---|
@@ -61,24 +70,36 @@ nevymění. Ukázka proti živým bindingům (`demo` v JSON, α z kalibrace, tad
 ## Co z toho plyne
 
 1. **Implementace a numerické testy procházejí; přejímka metody pro rozhodnutí role to není.** Kalibrace je nutná, protože nominální t na reálných, převážně nulových rozdílech s občasnými propady pouští ~5 % chybných přijetí místo 2,5 %. Po kalibraci je u CHAT škodlivá výměna 0 % (0,1 % před revizí). Verdikty na hranici tolerance jsou citlivé na šum Monte Carlo (viz D2 u 60 skupin).
-2. **CHAT jde pilotovat hned.** Se 40 skupinami rozhodne velké rozdíly (≥ 0,14) a odmítne nevhodné kandidáty. Na rozdíly kolem 0,10 je potřeba ~100–110 skupin.
+2. **CHAT lze na `chat_v3` jen zkoumat, ne rozhodovat.** Hodnotitel `chat_v3` je pro aktuální runner zakázaný (`EVALUATOR_T5_FORBIDDEN`) a skupiny jsou odvozené ze jmen úloh. Plánovač podle ní odhadne velikost potvrzení: velké rozdíly (≥ 0,14) při 40 skupinách, rozdíly kolem 0,10 při ~100–110 skupinách.
 3. **Ostatní role brzdí velikost sad, ne metoda.** Pro D1/D2/R1 (12 skupin) neexistuje bezpečná α, CODE a VISION jsou pod minimem. Plánovač to hlásí dřív, než se cokoli sbírá.
 4. σ pochází ze starších sad (`chat_v3` je hodnocená regexovým checklistem). Nová konverzační CHAT sada (20 skupin) může mít jiné σ. Po ohodnocení se změří stejným skriptem.
 
 ## Nejmenší další krok
 
-- **CHAT:** rozhodovat nad `chat_v3` (40) + konverzační sadou (20) = 60 skupin, s kalibrovanou α.
-  - Chybí jen hodnocení konverzační sady. Stačí jednorázově dodat skóre po úlohách do stejné DB.
-  - Pak jeden pilotní paired run qwen3.8 proti qwen3.5.
+- **CHAT** (pořadí podle [posudku 2](/mnt/vi7000/intentsmith/evidence/hunt-m0-review-fixes-20260924/REVIEW-2-acd3992b.md)):
+  1. Oddělené výsledky 40 historických a 20 nových skupin (hotovo, revize 2).
+  2. Druhé nezávislé hodnocení sporných odpovědí.
+  3. Krátká zkouška se skutečným systémovým promptem.
+  4. Rozhodnutí o CHAT v celé sestavě rolí (M5).
+  - Potvrzení potřebuje přijatou metriku a čerstvé skupiny s doloženým původem.
+    Sjednocení sad ani `chat_v3` to nenahradí.
 - **Ostatní role:** plánovač určí, kolik rozlišujících úloh je potřeba. Dokud je nemají, zůstanou v průzkumu.
 
 ## Pilot CHAT (24. 9. večer): skóre konverzační sady v DB a rozhodnutí na 60 skupinách
 
 **Hodnocení.**
 - Opakování 1 konverzačního panelu: 400 rozhovorů, 10 modelů × 40 úloh, 1 600 známek po kritériích.
-- Hodnotil přechodný externí hodnotitel (Opus) naslepo podle rubriky `chat-conversation.2-draft`, váhy 0,4/0,3/0,2/0,1.
-- Dva rozhovory přerušené infrastrukturou nahradilo opakování 2.
-- Striktní JSON je ohodnocený mechanicky.
+- Hodnotil přechodný externí hodnotitel (Opus) podle rubriky `chat-conversation.2-draft`, váhy 0,4/0,3/0,2/0,1.
+  Známky dával bez identit modelů. Tentýž panel ale předtím v relaci
+  analyzoval s identitami (`exposure` v metadatech importu). Nejde tedy
+  o nezávislé slepé hodnocení.
+- Cizí práce na GPU přerušila v panelu dva rozhovory (`TRANSPORT_ERROR`).
+  Hodnotí se opakování 1, takže náhradu z opakování 2 potřeboval jen jeden:
+  phi4 `en_duplicate_events`. Druhý (qwen3.6, opakování 2) se nehodnotil.
+  V DB je 399 rozhovorů z opakování 1 a jeden z opakování 2.
+- Striktní JSON má formát hodnocený mechanicky zvlášť (`formatStrict`).
+  Čtyři selhání formátu (phi4 a devstral, obě jazykové verze) mají obsahové
+  skóre 1,0. Vážené konverzační skóre formát nezahrnuje.
 - Známky: `/mnt/vi7000/intentsmith/evidence/hunt-chat-panel-20260923/opus-grading-20260924/grades.jsonl`.
 - **Shoda s nezávislými ručními známkami GPT** na 59 společných dialozích: 88 % kritérií ±0,25, korelace 0,72.
 - Systematický rozdíl: doslovná citace podvrženého pokynu (přísnější Opus) a diagnostika (přísnější GPT). Jsou to kandidáti na rozsouzení.
@@ -89,7 +110,7 @@ nevymění. Ukázka proti živým bindingům (`demo` v JSON, α z kalibrace, tad
 - Metadata `externalGrading.status = EXTERNAL_INTERIM_NOT_ACCEPTED`, `decisionAuthority:false`. Název sady se neshoduje s plánem role, takže běžící hunt z řádků autoritu nebere.
 - Záloha: `/mnt/vi7000/intentsmith/evidence/hunt-decision-m0-20260924/db-backups/`.
 
-| Model | Konverzační skóre | Rozdíl proti qwen3.5 (20 skupin) |
+| Model | Konverzační skóre (obsah, bez formátu) | Rozdíl proti qwen3.5 (20 skupin) |
 |---|---|---|
 | qwen3.8 | 0,953 | +0,069 |
 | gemma4:26b | 0,921 | +0,036 |
@@ -102,15 +123,31 @@ nevymění. Ukázka proti živým bindingům (`demo` v JSON, α z kalibrace, tad
 | devstral-small-2 | 0,666 | −0,218 |
 | phi4:14b | 0,649 | −0,235 |
 
-**Rozhodnutí (kalibrovaný párový t, α = 0,03 po revizi 1, dříve 0,02; `chat_v3` + konverzace = 60 skupin, jen shodné digesty).**
-- σ proti současnému modelu je 0,166. Na 60 skupinách: MDE 0,111, škodlivá výměna 0,1 %.
-- Pro rozhodnutí o zlepšení +0,10 je potřeba ~82 skupin.
-- qwen3.8 proti qwen3.5: +0,024, interval [−0,006; +0,055].
-  - Přínos 0,04 **neprokázán**.
-  - **Nezhoršení prokázáno** i při toleranci 0,02.
-  - Zrychlení na shodných voláních panelu **1,62×** (p50 4,1 s proti 7,3 s).
-  - Podle druhé cesty kontraktu (`SPEED_WITH_NONINFERIOR_QUALITY`) tedy **ZMĚNIT**, jako pilotní doklad bez autority.
-  - Plán schema 2 by tento pilot jako rozhodnutí nepřijal: plánovač pro 60 skupin vrací `EXPLORATORY_ONLY`, ne `FEASIBLE`, a hodnotitel ani doklad metody nejsou přijaté.
+**Výsledek (průzkumný).** Kalibrovaný párový t, tolerance nezhoršení 0,02,
+jen shodné digesty. Každá sada má vlastní kalibraci.
+
+| Podklad | Kontrakt | Skupiny | α | qwen3.8 − qwen3.5 | Interval | MDE | Síla nezhoršení 0,02 |
+|---|---|---|---|---|---|---|---|
+| `chat_v3` | `da287deb…` | 40, ze jmen úloh | 0,01 | +0,002 | [−0,027; +0,032] | 0,142 | 0,12 |
+| `chat_conversation_pilot` | `bf780068…` | 20, výslovné | 0,03 | +0,069 | [−0,012; +0,149] | 0,172 | 0,06 |
+| Sjednocení, jen průzkum | obě | 60 | 0,03 | +0,024 | [−0,006; +0,055] | 0,111 | 0,14 |
+
+- **Sady se neshodují.** Nová konverzační sada dává +0,069, historická +0,002.
+  Sjednocení průměruje dvě různá měřítka, jednou přijatou sadou není
+  (`EXPLORATORY_UNION_NOT_AN_ACCEPTED_SUITE`).
+- **Přínos 0,04 není prokázaný** v žádném z podkladů.
+- **Nezhoršení o 0,02 doložené není.** Dolní mez leží nad −0,02 u nové sady
+  (−0,012) a u sjednocení (−0,006), u `chat_v3` ne (−0,027). Plán ale má sílu
+  jen 0,06–0,14. Jde o prosté porovnání, ne o doklad přijatou metodou.
+- **Zrychlení 1,62×** je poměr součtů času na 348 shodných voláních
+  (40 úloh × 3 opakování, všechna kola), stejně jako `speedup` v rozhodovacím
+  pravidle. Mediány volání jsou 4,1 s a 7,3 s, jejich poměr je 1,79×. Známky
+  jsou z opakování 1, časy ze všech tří.
+- **Verdikt: ZMĚNIT se nepřijímá.** Důvody:
+  - hodnotitel není přijatý a nebyl nezávisle slepý;
+  - `chat_v3` je pro aktuální runner zakázaný;
+  - plánovač vrací `EXPLORATORY_ONLY`;
+  - plán schema 2 by pilot jako rozhodnutí odmítl.
 - qwen3.8 zároveň splňuje navržené CHAT brány: citovaný pokyn 6/6 odmítnut, žádný únik. qwen3.5 česky pokyn převzal (3/3).
 - gemma4 a qwen3.6 mají na stejném digestu jen 20 skupin, takže rozhodnutí je nerozhodné. qwen3.6 navíc česky převzal podvržený pokyn.
 
@@ -242,6 +279,8 @@ Páry se současným modelem. „Nebezpečná“ = bez bezpečné α (`METHOD_UN
 
 ### Otevřené
 
+Stav po revizi 1; aktuální seznam je v [§ Revize 2](#revize-2-24-9-noc).
+
 1. **Výběr sady (addendum 1).** `roleData` bere jediný kontrakt podle pokrytí.
    `--extra-suite` slučuje podle jména sady, ne podle přijatého kontraktu.
 2. **Skupiny (addendum 2).** Jsou odvozené ze jmen úloh a doložený původ
@@ -256,3 +295,87 @@ Páry se současným modelem. „Nebezpečná“ = bez bezpečné α (`METHOD_UN
    je optimistický.
 6. **Hotové z addenda 4:** demo bere kalibrovanou α (`acd3992b`). Bez kalibrace
    je v JSON označené `alphaSource: NOMINAL_UNCALIBRATED`.
+
+## Revize 2 (24. 9. noc)
+
+Zdroj: [posudek CHAT pilotu `acd3992b`](/mnt/vi7000/intentsmith/evidence/hunt-m0-review-fixes-20260924/REVIEW-2-acd3992b.md).
+Obě jeho P1, tedy orientaci a simulátor, řešila už revize 1. Zbytek je tady.
+Bez inference a bez zápisu do produkční DB.
+
+### P1 — 60 skupin není jedna sada
+
+- **Oddělené výsledky:** `scripts/hunt-decision-feasibility.mjs` při přidané
+  sadě počítá každou sadu zvlášť, na jejích skupinách a s vlastní kalibrací
+  (`components[i].incumbentPairs`, `components[i].demo`).
+- **Označení sjednocení:** je vedené jako `EXPLORATORY_UNION_NOT_AN_ACCEPTED_SUITE`.
+- **Zdroj skupin:** každá sada ho uvádí jako `groupSource` (`EXPLICIT`,
+  `ASSUMED_NAME_GROUPS` nebo `MIXED`) spolu s počty řádků.
+  - `chat_v3`: všech 480 řádků má skupiny ze jmen.
+  - Konverzační sada: všech 400 řádků má skupiny zapsané výslovně.
+- Výsledky jsou v tabulce pilotu výše.
+
+### Tolerance nezhoršení
+
+- **Jedna tolerance všude:** `--ni-margin`, výchozí 0,02. Platí pro kalibraci,
+  verdikty plánovače i demo a report ji uvádí u každé role.
+- **0,05 jen jako diagnostika:** zůstává v `pairedTMargin005` pro návrh R2.
+- **Kontrolní běh:** s `--ni-margin=0,05` vyšel sjednocený CHAT výsledek
+  bit po bitu stejně jako po revizi 1 (`r2-chat-pilot-margin005.json`
+  proti `after-chat-pilot.json`).
+- **Dopad 0,02:** α a MDE se v žádné roli nezměnily, síla nezhoršení klesla
+  (viz poznámka pod tabulkou rolí).
+
+### P2 — identita výsledku
+
+- **Přesný kontrakt u přidané sady:** `--extra-suite=ROLE:název@sha256`.
+  Bez kontraktu skript skončí `EXTRA_SUITE_CONTRACT_REQUIRED`. Běhy se vybírají
+  podle názvu i kontraktu, takže nová verze se stejným názvem se do výsledku
+  nedostane.
+- **Připnutí hlavní sady:** `--suite=ROLE:název@sha256`. Bez něj se dál bere
+  sada s nejširším pokrytím, výsledek to ale uvádí (`selection: WIDEST_COVERAGE`).
+- **Identity v reportu:** `components[]` nese u každé sady název, kontrakt,
+  způsob výběru, počet modelů a skupin.
+
+### Opravy faktů pilotu (ověřeno ze snímku DB a `review-full-05`)
+
+- **Náhrada rozhovorů:** v DB je 399 rozhovorů z opakování 1 a jeden
+  z opakování 2. Cizí práce na GPU přerušila dva rozhovory, jeden z nich ale
+  byl v nehodnoceném opakování 2.
+- **Striktní JSON:** čtyři selhání formátu mají obsahové skóre 1,0 a vážené
+  skóre je nevidí. Tabulka to teď uvádí.
+- **Zrychlení:** 1,62× je poměr součtů času (definice `speedup`), 1,79× poměr
+  mediánů. Obě čísla i jejich definice jsou v textu.
+- **„Naslepo“:** označení bylo odstraněné. Hodnotitel viděl panel dřív
+  s identitami.
+- **Zápis do živé DB:** snímek je kopie živé DB a obsahuje 10 běhů
+  `chat_conversation_pilot` s kontraktem `bf780068…`. Tím je zápis ověřený
+  i mimo importní log.
+
+### Ověření
+
+- **Nová sada** `tests/hunt-decision-feasibility.test.mjs` 4/4 (profil
+  `database`, izolovaná SQLite) spouští celý skript nad syntetickou DB:
+  - návnada se stejným názvem sady a novějším kontraktem se nepoužije;
+  - obě sady mají vlastní výsledek;
+  - tolerance je všude stejná;
+  - prohození časů a pořadí řádků nemění žádný výsledek role.
+- **Test zachytí původní chybu:** proti skriptu z `acd3992b` selžou všechny
+  čtyři testy. Samotné prohození časů tam změní verdikt z `METHOD_UNSAFE`
+  na `EXPLORATORY_ONLY`.
+- **Registr** má 540 programů; README, SYSTEM-MAP a `TEST-REGISTRY.md` jsou
+  srovnané.
+- **Evidence:** `run-r2.sh`, `r2-full.json`, `r2-chat-pilot.json`
+  a `r2-chat-pilot-margin005.json` ve stejném adresáři.
+
+### Otevřené
+
+1. **Hodnocení a prompt.** Druhé nezávislé hodnocení sporných odpovědí
+   a krátká zkouška se skutečným systémovým promptem potřebují inferenci
+   a hodnotitele. Neproběhly.
+2. **CHAT v sestavě rolí (M5).** Rozhodnutí je až po bodu 1. qwen3.8 už drží
+   D2, CODE a R1 a CODE+R1 je zakázaná dvojice.
+3. **Přijatá metrika a čerstvé skupiny pro CHAT.** `chat_v3` je jen diagnostika.
+4. **Výběr hlavní sady** bez `--suite` zůstává podle pokrytí.
+5. **Záruka pro jednotlivého kandidáta a šum kalibrace:** trvá z revize 1.
+6. **Konstrukce populace u mezí:** modelové rozhodnutí z revize 1 čeká na
+   schválení.
