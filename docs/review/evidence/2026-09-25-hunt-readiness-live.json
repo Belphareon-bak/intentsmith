@@ -1,0 +1,178 @@
+{
+  "scope": "READ_ONLY_HUNT_READINESS",
+  "generatedAt": "2026-09-24T23:03:56.121Z",
+  "verdict": "NO_GO",
+  "decisionAuthority": false,
+  "effects": [],
+  "blockers": [
+    "BINDING_RUNTIME_NOT_VERIFIED",
+    "ROLE_PORTFOLIO_CONFLICT",
+    "CURRENT_CONTRACT_COVERAGE_INCOMPLETE",
+    "ROLE_ACCEPTANCE_INCOMPLETE"
+  ],
+  "providerVersion": "0.34.0-intentsmith.1",
+  "coverage": {
+    "applicableStatusCounts": {
+      "COMPLETE": 0,
+      "FAILED": 0,
+      "BLOCKED": 0,
+      "MISSING": 74,
+      "AWAITING_REVIEW": 0,
+      "COLLECTION_PARTIAL": 0
+    },
+    "applicableTotal": 74,
+    "notApplicable": 10,
+    "total": 84
+  },
+  "bindingAuthority": {
+    "status": "UNVERIFIED_RUNTIME",
+    "durableRoles": [
+      "CHAT",
+      "CODE",
+      "D1",
+      "D2",
+      "R1",
+      "R2",
+      "VISION"
+    ],
+    "verifiedRoles": [],
+    "reason": "MODEL_BINDING_RUNTIME_NOT_OBSERVED",
+    "failures": []
+  },
+  "portfolio": {
+    "compliant": false,
+    "violations": [
+      {
+        "type": "sharing-not-approved",
+        "model": "qwen3.5:27b",
+        "identity": "sha256:7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+        "roles": [
+          "D1",
+          "CHAT"
+        ]
+      },
+      {
+        "type": "role-capacity",
+        "model": "qwen3.8:latest",
+        "identity": "sha256:22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+        "roles": [
+          "D2",
+          "CODE",
+          "R1"
+        ],
+        "maximum": 2
+      },
+      {
+        "type": "sharing-not-approved",
+        "model": "qwen3.8:latest",
+        "identity": "sha256:22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+        "roles": [
+          "D2",
+          "CODE"
+        ]
+      },
+      {
+        "type": "independence",
+        "model": "qwen3.8:latest",
+        "identity": "sha256:22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+        "roles": [
+          "D2",
+          "R1"
+        ]
+      },
+      {
+        "type": "independence",
+        "model": "qwen3.8:latest",
+        "identity": "sha256:22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+        "roles": [
+          "CODE",
+          "R1"
+        ]
+      }
+    ]
+  },
+  "captures": {
+    "compatibleRuns": 11,
+    "automaticReusableRuns": 0,
+    "excludedSnapshots": {
+      "CHAT:PARTIAL_CHECKPOINT": 238,
+      "R2:PARTIAL_CHECKPOINT": 46,
+      "R1:PARTIAL_CHECKPOINT": 46,
+      "D2:PARTIAL_CHECKPOINT": 49,
+      "D1:PARTIAL_CHECKPOINT": 69
+    }
+  },
+  "roles": {
+    "D1": {
+      "binding": "qwen3.5:27b",
+      "decisionReady": false,
+      "decisionBlockCode": "EVALUATION_GRADER_ACCEPTANCE_MISSING",
+      "currentComplete": 0,
+      "currentMissing": 9,
+      "structurallyCompatibleCaptures": 3,
+      "automaticReusableCaptures": 0,
+      "acceptedGraders": 0
+    },
+    "D2": {
+      "binding": "qwen3.8:latest",
+      "decisionReady": false,
+      "decisionBlockCode": "EVALUATION_GRADER_ACCEPTANCE_MISSING",
+      "currentComplete": 0,
+      "currentMissing": 12,
+      "structurallyCompatibleCaptures": 2,
+      "automaticReusableCaptures": 0,
+      "acceptedGraders": 0
+    },
+    "R1": {
+      "binding": "qwen3.8:latest",
+      "decisionReady": false,
+      "decisionBlockCode": "EVALUATION_GRADER_ACCEPTANCE_MISSING",
+      "currentComplete": 0,
+      "currentMissing": 9,
+      "structurallyCompatibleCaptures": 2,
+      "automaticReusableCaptures": 0,
+      "acceptedGraders": 0
+    },
+    "CODE": {
+      "binding": "qwen3.8:latest",
+      "decisionReady": false,
+      "decisionBlockCode": "EVALUATION_GRADER_ACCEPTANCE_MISSING",
+      "currentComplete": 0,
+      "currentMissing": 12,
+      "structurallyCompatibleCaptures": 0,
+      "automaticReusableCaptures": 0,
+      "acceptedGraders": null
+    },
+    "R2": {
+      "binding": "devstral-small-2:latest",
+      "decisionReady": false,
+      "decisionBlockCode": "EVALUATION_GRADER_ACCEPTANCE_MISSING",
+      "currentComplete": 0,
+      "currentMissing": 12,
+      "structurallyCompatibleCaptures": 2,
+      "automaticReusableCaptures": 0,
+      "acceptedGraders": 0
+    },
+    "CHAT": {
+      "binding": "qwen3.5:27b",
+      "decisionReady": false,
+      "decisionBlockCode": "EVALUATION_GRADER_ACCEPTANCE_MISSING",
+      "currentComplete": 0,
+      "currentMissing": 12,
+      "structurallyCompatibleCaptures": 2,
+      "automaticReusableCaptures": 0,
+      "acceptedGraders": 0
+    },
+    "VISION": {
+      "binding": "ornith-1.5:9b",
+      "decisionReady": false,
+      "decisionBlockCode": "EVALUATION_GRADER_ACCEPTANCE_MISSING",
+      "currentComplete": 0,
+      "currentMissing": 8,
+      "structurallyCompatibleCaptures": 0,
+      "automaticReusableCaptures": 0,
+      "acceptedGraders": null
+    }
+  },
+  "note": "REVIEW_REQUIRED still needs installed runtime and physical operational acceptance. This read-only report cannot grant GO."
+}
