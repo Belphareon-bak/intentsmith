@@ -215,6 +215,7 @@ const ALL_MIGRATIONS = [
   '2026_09_18_114_model_evaluation_remeasure',
   '2026_09_18_115_intentsmith_setting_names',
   '2026_09_19_116_model_evaluation_acceptance',
+  '2026_09_24_117_model_evaluation_grader_reviews',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
@@ -494,6 +495,7 @@ describe('T-SM0: Migration identity preflight', async () => {
   '2026_09_18_114_model_evaluation_remeasure',
   '2026_09_18_115_intentsmith_setting_names',
   '2026_09_19_116_model_evaluation_acceptance',
+  '2026_09_24_117_model_evaluation_grader_reviews',
     ]);
     assert.strictEqual(db.prepare(`
       SELECT COUNT(*) AS count FROM schema_migrations
@@ -1559,9 +1561,10 @@ describe('T-SM11: Core / hunt branch upgrades converge without losing evidence',
         const repeatedMeasurement = '2026_09_18_114_model_evaluation_remeasure';
         const settingNames = '2026_09_18_115_intentsmith_setting_names';
         const evaluationAcceptance = '2026_09_19_116_model_evaluation_acceptance';
+        const graderReviews = '2026_09_24_117_model_evaluation_grader_reviews';
         assert.deepEqual(result.applied, origin === 'fresh' ? ALL_MIGRATIONS
-          : origin === 'base' ? [...huntVersions, canonicalWeb, repeatedMeasurement, settingNames, evaluationAcceptance]
-          : origin === 'web' ? [...huntVersions, repeatedMeasurement, settingNames, evaluationAcceptance] : [canonicalWeb, repeatedMeasurement, settingNames, evaluationAcceptance]);
+          : origin === 'base' ? [...huntVersions, canonicalWeb, repeatedMeasurement, settingNames, evaluationAcceptance, graderReviews]
+          : origin === 'web' ? [...huntVersions, repeatedMeasurement, settingNames, evaluationAcceptance, graderReviews] : [canonicalWeb, repeatedMeasurement, settingNames, evaluationAcceptance, graderReviews]);
         assert.deepEqual(schema(db), expectedSchema);
         for (const [table, originalRows] of Object.entries(before)) assert.deepEqual(rows(db)[table], originalRows, `${origin}: ${table}`);
         assert.deepEqual(db.pragma('foreign_key_check'), []);

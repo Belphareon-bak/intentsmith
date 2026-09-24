@@ -781,33 +781,32 @@ starou kvalifikaci. Systém ukáže rozsah zneplatnění a doměří jen potřeb
 část. Neúspěšná přejímka hodnotitele neruší samotnou existenci uložených
 odpovědí: lze je později posoudit správným měřidlem při zachování identity.
 
-## 14. Co z tohoto workflow již je a co je potřeba doplnit
+## 14. Implementovaný stav a zbývající přejímka (25. 9. 2026)
 
-Tato tabulka rozlišuje čtení kódu na uvedeném SHA od fyzického důkazu.
-Živá instalace ani produkční DB se při psaní tohoto návrhu nově neměřily.
+Tato tabulka popisuje zdrojový kód a doložené podklady, nikoli automaticky
+stav nainstalované release. Syntetické testy dokazují chování brány, ne
+kvalitu konkrétního modelu. Podrobný předávací protokol je v
+[revizi dvojího hodnocení](review/2026-09-25-GPU-HUNT-DUAL-GRADING-MILESTONE.md).
 
 | Oblast | Doložený stav / zbývající mezera |
 |---|---|
-| Trvalý sběr, pokračování, identity | Fyzický CHAT panel: 1 200 záznamů, 1 196 úplných, 3 472 volání; celý deník ověřen. Viz [poslední audit](review/2026-09-24-CHAT-OPUS-RECONCILIATION.md). |
-| První reference CHAT | 119 úplných návrhových známek + jeden spor; 1 076 úplných dialogů ještě bez kritériového hodnocení. Opusův souhrn není náhradní per-ID export. |
-| Přejímka T4 a zákaz stejného digestu | Validace v [semantic-grader-acceptance.js](../src/eval/semantic-grader-acceptance.js) a [grade-answer-collection.js](../src/eval/grade-answer-collection.js). Není to doklad kvalifikované místní dvojice pro novou sadu. |
-| Dvojí autonomní hodnocení | **Chybí:** `gradeAcceptedCollection()` vybírá `preview.graders[0]`; potřebuje oba posudky, jejich oddělené identity, rozsouzení a propagaci do všech read/decision cest. |
-| Proveditelnost a nové případy | **Blokující návrhový bod:** KL ignoruje rozptyl a při nulovém rozdílu potřebuje 18 441 skupin pro toleranci 0,02. Společná provozní cesta všech rolí přijímá binární dokončení. Nová metoda/metrika, power/budget plán a oddělená zásoba případů nejsou přijaté; užší t/bootstrap interval není přejímka. |
-| Nový vícekolový CHAT | [chat-conversation-suite.js](../src/eval/chat-conversation-suite.js) je draft mimo běžné plány, `measurementReady:false`, bez přijatého `gradeConversation`. Je nutná integrace, ne jen změna přepínače. |
-| Produkční profil sběru | [conversation-capture.js](../src/eval/conversation-capture.js) začíná bez systémové zprávy; runner posílá `think:false`. Nový produkční profil a jeho identita se musejí vynucovat, ne jen doplnit do reportu. |
-| Důkazy před rozhodnutím | [model-evaluation-acceptance.js](../src/upgrade/model-evaluation-acceptance.js) vyžaduje odpovídající uložené přejímky; dnešní vazba je na jednotlivého hodnotitele. Je třeba zahrnout obě kvalifikace a jejich platnost. |
-| Sestava rolí | [model-upgrade-prototype.js](../src/upgrade/model-upgrade-prototype.js) má solver, ale **maxRolesPerModel:3**, čtyři zakázané dvojice a kontrolu jmen. Nové maximum 2, širší konflikty a identita přes artefakt/původ nejsou tímto implementované. |
-| Tolerance solveru | Staré `maxQualityDrop:0.15` a oprava konfliktní sestavy nejsou souhlasem s automatickým zhoršením role. Musí se sladit s přijatou politikou a individuální kvalifikací změn. |
-| Úplná provozní kvalifikace rolí | Existuje příjem/validace důkazů. [Předání integrace](review/2026-09-23-HUNT-GRADING-INTEGRATION.md) výslovně uvádí chybějící automatickou výrobu úplných ne-CODE provozních průchodů. |
-| Aktivace sestavy a fallback | Existuje [binding application](../src/upgrade/model-binding-application.js) pro řízenou změnu. End-to-end vynucení všech nových konfliktů, přepnutí více rolí a návrat celé sestavy je nutné prokázat. |
-| Absolutní brány a kritická náprava | Mapa bran a třetí důvod výměny jsou návrh politiky v tomto dokumentu, nikoli nová aktivní větev v kontraktu/rozhodovacím kódu. |
-| Přechodné review, cache a GPU rušení | Ruční podklady existují. Dvojí verzovaný import/externí adaptéry, cache se správnou identitou a nová časová/resource politika rušení nejsou tímto implementované. |
-| UI | Existují tabulky, historie a průběh. Dvě známky vedle sebe, životní cyklus dvojice hodnotitelů a konflikty všech fallbacků jsou cílové doplnění. |
+| Sběr a identity | Uložené odpovědi mají přesný digest artefaktu a kontraktu. CHAT panel dokončil 1 196 z 1 200 záznamů a 3 472 volání; viz [audit](review/2026-09-24-CHAT-OPUS-RECONCILIATION.md). To není čerstvý provozní holdout. |
+| Konverzační CHAT | V DB je oddělená nepřijatá sada `chat_conversation_pilot`: 400 rozhovorů z prvního opakování panelu oznámkoval jeden externí hodnotitel; 59 položek má také ruční známku GPT. Není to dvojice přijatých nezávislých hodnotitelů. Historické `chat_v3` se s ní neslévá do rozhodovací sady. |
+| Přijetí hodnotitelů | [semantic-grader-acceptance.js](../src/eval/semantic-grader-acceptance.js) vyžaduje oddělené případy a negativní sondy. Žádná konkrétní místní dvojice pro novou CHAT sadu zatím touto přejímkou neprošla. |
+| Dvojí hodnocení uložených odpovědí | [grade-answer-collection.js](../src/eval/grade-answer-collection.js) nyní spouští dva přijaté hodnotitele postupně, ukládá každý posudek append-only a porovnává známky po kritériích. Jeden posudek, neshoda nebo chybějící fyzický záznam nevytvoří `COMPLETE`. [Read/decision brána](../src/eval/independent-grader-pair.js) ověřuje oba posudky a přesný zdroj. Manuální CLI může uložit jeden průzkumný posudek. |
+| Rozsouzení neshody | Oba původní posudky zůstanou uložené a stav je `REVIEW_DISPUTED`; automatické zprůměrování je zakázané. Zatím není implementovaný verzovaný import arbitráže nebo třetího posudku, který by spor uzavřel. |
+| Metoda rozhodnutí | Binární provozní schéma 1 zůstává na KL. [Spojitá metoda](../src/eval/continuous-paired-decision.js) schema 2 má kalibrovaný párový interval a plánovač, avšak není zapojená do přijaté provozní kvalifikace rolí. Kalibrace starých sad je průzkumná: CHAT `chat_v3` je pro aktuální runner zakázaná a ostatní role mají příliš málo nezávislých případů. Viz [M0](review/2026-09-24-HUNT-M0-DECISION-METHOD.md). |
+| Nový vícekolový CHAT v huntu | [chat-conversation-suite.js](../src/eval/chat-conversation-suite.js) je stále vývojový návrh mimo role plans (`measurementReady:false`), bez přijaté `gradeConversation`. Dosavadní panel nebyl veden skutečným produkčním systémovým promptem. |
+| Rozhodovací autorita | [model-evaluation-acceptance.js](../src/upgrade/model-evaluation-acceptance.js) nyní pro sémantické role vyžaduje dvě platné přejímky hodnotitelů a fyzicky uložené dva shodné posudky. Staré jednosoudcovské běhy zůstávají v historii, autoritu nedostávají. Kvalifikovaný čerstvý provozní běh pro žádnou z těchto rolí z této změny nevznikl. |
+| Sestava rolí | [model-upgrade-prototype.js](../src/upgrade/model-upgrade-prototype.js) prosazuje maximum dvě role na artefakt, explicitní zákaz autorských/revizních dvojic a kontrolu digestu a uvedené lineage. Živá sestava s qwen3.8 v D2+CODE+R1 byla podle [M0](review/2026-09-24-HUNT-M0-DECISION-METHOD.md) v konfliktu; změna solveru ji sama neopraví. Sdílení role vyžaduje schválenou dvojici, jinak vrací nevyřešenou sestavu. |
+| Aktivace a návrat | Binding application existuje, ale přepnutí celé sedmirolové sestavy na podkladech nových sad, kontrola fallbacků a návrat celé sestavy nebyly fyzicky přijaty. |
+| UI | Studio zobrazuje čekání na druhý posudek, spor a jednotlivé známky obou hodnotitelů u úloh. Stav v nainstalované release je nutné ověřit zvlášť. |
+| Absolutní brány | Kritické vady a třetí důvod výměny jsou návrh politiky, nikoli aktivní rozhodovací větev. Je potřeba verzovaná, nezávisle přijatá sada negativních sond. |
 
-Číselné meze dnešního T4 validátoru (mj. ≥20 skupin na typ, ≥8 kladných
-i záporných skupin a návrhové limity chyb) jsou zdokumentované
-implementační volby. Nejsou samy přejímkou, nezávislostí dat ani zárukou
-populační chybovosti. Přejímka dvojice potřebuje i její skutečné společné chyby.
+**Aktuální verdikt: technická cesta pro dvojí hodnocení je připravená k revizi;
+GO pro autonomní změny modelů ne.** Schází přijatí hodnotitelé, uzavření
+sporů, čerstvé provozní případy s doloženým původem a fyzický průchod
+celou sestavou. Umělé fixture v testech nesmějí tyto důkazy suplovat.
 
 ## 15. Dokončení po milnících a provozní přejímka
 

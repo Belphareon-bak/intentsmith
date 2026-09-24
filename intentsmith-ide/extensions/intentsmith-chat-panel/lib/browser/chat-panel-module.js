@@ -2551,7 +2551,7 @@ function _gradeStoredAnswers(runId){
     .then(function(d){
       if(!d.graders||!d.graders.length)throw new Error(d.code==='SEMANTIC_SELF_GRADING_FORBIDDEN'?'Dostupný hodnotitel je stejný artefakt jako hodnocený model. Je potřeba jiný přijatý hodnotitel.':'Pro tyto odpovědi není k dispozici přijatý hodnotitel. Odpovědi zůstávají uložené; nový test není potřeba. '+(d.code||''));
       var grader=d.graders[0];
-      if(!confirm('Ohodnotit uložené odpovědi '+d.model+' · '+d.role+' hodnotitelem '+(grader.judge&&grader.judge.modelName||'deterministické kontroly')+'? Odpovědi se znovu negenerují. Použije GPU; přiřazení rolí zůstane beze změny.')){_modelTestMessage='Hodnocení nebylo spuštěno.';return null;}
+      if(!confirm('Ohodnotit uložené odpovědi '+d.model+' · '+d.role+' hodnotitelem '+(grader.judge&&grader.judge.modelName||'deterministické kontroly')+'? Uložené posudky: '+(d.reviewed||[]).length+'/2. '+(d.pairAvailable?'Po shodě dvou nezávislých posudků může vzniknout skóre.':'Bez přijaté nezávislé dvojice zůstane posudek průzkumný.')+' Odpovědi se znovu negenerují. Použije GPU; přiřazení rolí zůstane beze změny.')){_modelTestMessage='Hodnocení nebylo spuštěno.';return null;}
       _huntSubmittedAt=Date.now();
       return fetch(_backendUrl()+'/api/system/models/grade',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({runId:runId,graderAcceptanceId:grader.id,sourceSha256:d.sourceSha256}),signal:AbortSignal.timeout(20000)});
@@ -3547,7 +3547,7 @@ function _modelTable(headers,rows,options){
 function _modelCell(value,props){return h('td',Object.assign({style:{padding:'9px 12px',borderTop:'1px solid '+_rgba(C.tx1,0.22),verticalAlign:'top'}},props||{}),value);}
 function _modelScore(row){return row&&row.status==='COMPLETE'&&Number.isFinite(row.score)?(row.score*100).toFixed(1)+' %':'—';}
 function _taskScore(value){return Number.isFinite(value)?(value*100).toFixed(1)+' %':'—';}
-function _modelStatus(row){return row.applicable===false?'Mimo roli':({AWAITING_REVIEW:'Čeká na posouzení',COLLECTION_PARTIAL:'Neúplný sběr',COMPLETE:'Změřeno',MISSING:'Nezměřeno',FAILED:'Test selhal',BLOCKED:'Blokováno'}[row.status]||row.status);}
+function _modelStatus(row){if(row.errorCode==='EVALUATION_REVIEW_PENDING_PAIR')return 'Čeká na druhý posudek';if(row.errorCode==='EVALUATION_GRADING_DISPUTE')return 'Spor hodnotitelů';return row.applicable===false?'Mimo roli':({AWAITING_REVIEW:'Čeká na posouzení',COLLECTION_PARTIAL:'Neúplný sběr',COMPLETE:'Změřeno',MISSING:'Nezměřeno',FAILED:'Test selhal',BLOCKED:'Blokováno'}[row.status]||row.status);}
 function _taskLabel(task,rd){var d=(rd.tasks||[]).find(function(t){return t.name===task.name;});return d?d.label:task.name.replace(/_/g,' ');}
 function _taskResultNotes(t){
   var notes=[];
@@ -3604,7 +3604,7 @@ function _qualityDetail(row,rd){
     row.grading?h('p',{'data-testid':'grading-provenance',style:{color:C.tx3}},
       'Odpovědi pořízeny '+(row.grading.collectedAt?new Date(row.grading.collectedAt).toLocaleString('cs-CZ'):'(čas nezaznamenán)')+
       ' · sběr '+_huntDuration(row.grading.collectionDurationMs)+' · hodnocení '+_huntDuration(row.durationMs)+
-      ' · hodnotitel '+(row.grading.judge&&row.grading.judge.modelName||'deterministická kontrola')+
+      ' · hodnotitelé '+(row.grading.graders?row.grading.graders.map(function(g){return g.judge&&g.judge.modelName||g.id;}).join(' + '):(row.grading.judge&&row.grading.judge.modelName||'deterministická kontrola'))+
       '. Hodnocení nepouštělo odpovídající model znovu.'):null,
     h('p',{style:{color:C.tx3}},counts?'Celkové skóre chybí: měření není úplné. Plánováno '+(counts.planned==null?'nezaznamenáno':counts.planned)+' pokusů · zaznamenáno '+counts.observed+' · neplatné prostředí '+counts.invalid+' · vyčerpání rozpočtu '+counts.operationalFailure+' · nezahájeno '+(counts.notAttempted==null?'nezaznamenáno':counts.notAttempted)+'.':'Skóre '+_modelScore(row)+' = průměr '+tasks.length+' úloh, každá má stejnou váhu. '+(row.repeats||rd.repeats||'?')+' opakování na úlohu'+(row.durationMs!=null?' · měření '+_huntDuration(row.durationMs):'')+'.'),
     h('p',{style:{color:C.tx3}},row.suiteName==='code_patch'||rd.suiteName==='code_patch'?'Tato sada měří konkrétní opravy JavaScriptu, nikoli dokončení celého projektu. Každá oprava se ověří spuštěním testů; regrese vynuluje výsledek úlohy. Délka běhu není cílem testu.':'Výsledek platí pro tuto sadu úloh. Shoda opakování neprokazuje pokrytí všech schopností modelu.'),
@@ -3623,6 +3623,11 @@ function _qualityDetail(row,rd){
         _modelCell(h('strong',{style:{color:!Number.isFinite(t.mean)?C.tx3:t.mean>=.8?C.success:t.mean<.5?C.amber:C.tx1,whiteSpace:'nowrap'}},_taskScore(t.mean))),
         _modelCell(h('div',null,
           notes.length?h('ul',{style:{margin:0,paddingLeft:17,lineHeight:1.5,maxWidth:320}},notes.map(function(n,i){return h('li',{key:i},n);})):h('span',{style:{color:C.tx3}},'Podrobné vyhodnocení nebylo uloženo.'),
+          (t.details||[]).map(function(d,i){return d&&d.graderReviews&&d.graderReviews.length?h('details',{key:'review-'+i,style:{marginTop:8}},
+            h('summary',{style:{cursor:'pointer',color:C.accent}},'Oba nezávislé posudky · pokus '+(i+1)),
+            d.graderReviews.map(function(r,j){var identity=(row.grading&&row.grading.graders||[]).find(function(g){return g.id===r.graderAcceptanceId;});return h('div',{key:r.reviewId,style:{borderTop:'1px solid '+C.border,padding:'6px 0'}},
+              h('strong',null,(identity&&identity.judge&&identity.judge.modelName||'Hodnotitel '+(j+1))+' · '+_taskScore(r.score)),
+              (r.parts||[]).map(function(p,k){return h('div',{key:k,style:{paddingLeft:12}},p.id+' · '+_taskScore(p.score)+' · '+(p.evidence||[]).join(' / '));}));})):null;}),
           (t.details||[]).map(function(d,i){return d&&d.testOutput?h('details',{key:'output-'+i,style:{marginTop:8}},h('summary',{style:{cursor:'pointer',color:C.accent}},'Výpis testů · opakování '+(i+1)),h('pre',{style:{whiteSpace:'pre-wrap',overflowWrap:'anywhere',maxHeight:300,overflow:'auto',fontSize:_fs(9)}},d.testOutput)):null;}))));
     })));
 }

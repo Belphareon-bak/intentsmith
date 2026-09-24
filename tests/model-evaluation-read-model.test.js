@@ -120,18 +120,17 @@ suite('ModelEvaluationReadModel');
 
 test('exact artifact and current contract expose score and timestamp', () => {
   const db = database();
-  const plans = reviewedPlans('CHAT');
+  const plans = createRoleEvaluationPlans({repeats:1});
   insert(db, {
-    runId: 'complete-chat', digest: DIGEST, plan: plans.CHAT,
+    runId: 'complete-code', digest: DIGEST, plan: plans.CODE,
     score: 0.75, passed: 30,
   });
-  markReviewed(db, 'complete-chat');
   const result = new ModelEvaluationReadModel(db, { plans }).read({
     inventory: [{ name: 'fixture:latest', digest: `sha256:${DIGEST}`, size: 42 }],
-    bindings: { CHAT: 'fixture' },
+    bindings: { CODE: 'fixture' },
     bindingAuthority: { status: 'DURABLE' },
   });
-  const row = result.models[0].evaluations.CHAT;
+  const row = result.models[0].evaluations.CODE;
   assertEqual(row.status, 'COMPLETE');
   assertEqual(row.score, 0.75);
   assertEqual(row.testedAt, '2026-08-24T18:01:00.000Z');
@@ -168,7 +167,7 @@ test('legacy inconsistent interval keeps only an explicitly unverified audit tim
   db.close();
 });
 
-test('D1 evidence remains MISSING for D2 and R1 on distinct role suites', () => {
+test('legacy single-grader D1 score is BLOCKED and remains MISSING for D2 and R1', () => {
   const db = database();
   const plans = reviewedPlans('D1');
   assert(plans.D1.suiteName !== plans.D2.suiteName);
@@ -182,7 +181,8 @@ test('D1 evidence remains MISSING for D2 and R1 on distinct role suites', () => 
   const evaluations = new ModelEvaluationReadModel(db, { plans }).read({
     inventory: [{ name: 'fixture:latest', digest: DIGEST }],
   }).models[0].evaluations;
-  assertEqual(evaluations.D1.status, 'COMPLETE');
+  assertEqual(evaluations.D1.status, 'BLOCKED');
+  assertEqual(evaluations.D1.score, null);
   assertEqual(evaluations.D2.status, 'MISSING');
   assertEqual(evaluations.R1.status, 'MISSING');
   db.close();

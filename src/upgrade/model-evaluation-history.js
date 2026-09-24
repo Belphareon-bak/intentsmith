@@ -7,6 +7,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { DEFAULT_MODEL_EVALUATION_OPTIONS } from '../eval/model-evaluation-runner.js';
 import { ModelEvaluationAcceptanceStore, qualificationRuntimeSha256 } from './model-evaluation-acceptance.js';
+import { validStoredGradingPair } from '../eval/independent-grader-pair.js';
 import {
   canonicalModelName,
   normalizeModelDigestSha256,
@@ -85,6 +86,8 @@ const RETRYABLE_TERMINAL_CODES = new Set([
   'EVALUATION_AWAITING_REVIEW',
   'EVALUATION_COLLECTION_PARTIAL',
   'EVALUATION_GRADING_INCOMPLETE',
+  'EVALUATION_REVIEW_PENDING_PAIR',
+  'EVALUATION_GRADING_DISPUTE',
   'HUNT_GPU_BUSY',
   'MODEL_EVALUATION_RESPONSE_PROVIDER_MISMATCH',
   'CANDIDATE_MEASURE_FAILED',       // compatibility with prototype.1 rows
@@ -217,7 +220,7 @@ export class ModelEvaluationHistory {
       if (grading) {
         const acceptance = new ModelEvaluationAcceptanceStore(this._db).resolve({role,
           suiteContractSha256:contractSha256,taskNames:decoded.tasks.map(t=>t.name),runtimeSha256:qualificationRuntimeSha256()});
-        if (!acceptance.graders?.some(g=>g.id===grading.graderAcceptanceId && g.payloadSha256===grading.graderAcceptanceSha256)) continue;
+        if (!validStoredGradingPair(this._db,grading,acceptance.graders,digestSha256,role,contractSha256,decoded.score)) continue;
       }
       return decoded;
     }
