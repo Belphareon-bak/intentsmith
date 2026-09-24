@@ -554,7 +554,7 @@ test('provider-filtered coverage replays offline and its filter cannot be tamper
   const missing = reader.read({ inventory, providerVersion });
   assertEqual(missing.models[0].evaluations.CODE.status, 'MISSING');
   assertEqual(missing.models[0].evaluations.CODE.missingReason, 'PROVIDER_CHANGED');
-  assert(renderEvaluationReport(missing).includes(`Provider filtr: ${providerVersion}`));
+  assert(renderEvaluationReport(missing).includes(`Evaluační provider filtr: ${providerVersion}`));
   insert(db, { runId: 'current-provider', digest: DIGEST, plan: plans.CODE, score: 0.4 });
   db.prepare('UPDATE model_evaluation_runs SET metadata_json = ? WHERE run_id = ?')
     .run(JSON.stringify({ provider: { version: providerVersion } }), 'current-provider');
