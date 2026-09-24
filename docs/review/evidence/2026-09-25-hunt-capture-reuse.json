@@ -1,7 +1,7 @@
 {
   "scope": "READ_ONLY_CAPTURE_REUSE_AUDIT",
-  "generatedAt": "2026-09-24T22:57:57.344Z",
-  "providerVersionFilter": "0.34.0-intentsmith.1",
+  "generatedAt": "2026-09-24T23:17:59.175Z",
+  "providerVersionFilter": "0.34.2-intentsmith.1",
   "decisionAuthority": false,
   "noInference": true,
   "noDatabaseWrites": true,
@@ -22,7 +22,7 @@
       "captureReusable": true,
       "blockCode": null,
       "sourceSha256": "3d27f2c4b8893a160fb821a0f200b22ab856d2cd3475b3960f988ad1c8cc8eb0",
-      "automaticReuse": false
+      "automaticReuse": true
     },
     {
       "runId": "eval_70611a17-4e34-45dc-a500-3a48536d60de",
@@ -39,7 +39,7 @@
       "captureReusable": true,
       "blockCode": null,
       "sourceSha256": "eb362d0a8bc553e67823905218eba0b55d74b22cf9d0caa27630765de6cbd930",
-      "automaticReuse": false
+      "automaticReuse": true
     },
     {
       "runId": "eval_ee420a92-2fc1-462d-aa04-8b5df914e099",
@@ -56,7 +56,7 @@
       "captureReusable": true,
       "blockCode": null,
       "sourceSha256": "adfecc2b3b0a97bf76baa00fca14edc7cdec4e2213941df762bfd23baf0bdf5a",
-      "automaticReuse": false
+      "automaticReuse": true
     },
     {
       "runId": "eval_f766e962-899b-4fab-b0b9-f6eefe76809a",
@@ -73,7 +73,7 @@
       "captureReusable": true,
       "blockCode": null,
       "sourceSha256": "713966147f3122d6e7a1c3c56d57c4906c12498ce473c178e78e6aee2c73a6c2",
-      "automaticReuse": false
+      "automaticReuse": true
     },
     {
       "runId": "eval_80e8f162-cd84-449d-a0f0-d12e8264759e",
@@ -90,7 +90,7 @@
       "captureReusable": true,
       "blockCode": null,
       "sourceSha256": "047b623336391b99aa98c0c39be3b9dceff83404275f91f13c562dba771edd62",
-      "automaticReuse": false
+      "automaticReuse": true
     },
     {
       "runId": "eval_41801a74-c367-452a-b458-ad6153d39cc3",
@@ -107,7 +107,7 @@
       "captureReusable": true,
       "blockCode": null,
       "sourceSha256": "78666ad6cc52b89113aa5d92a1b632a953118ccf84abda21c43522f1b5ef2611",
-      "automaticReuse": false
+      "automaticReuse": true
     },
     {
       "runId": "eval_af22b72d-102f-4767-86b8-99a17b6bda26",
@@ -124,7 +124,7 @@
       "captureReusable": true,
       "blockCode": null,
       "sourceSha256": "957ab5af9918ccf4779d03eec557f4339d09feb480a9cc09b26c7c73fcbb08e2",
-      "automaticReuse": false
+      "automaticReuse": true
     },
     {
       "runId": "eval_15dc969f-63bb-4c86-a35a-908adf8452ad",
@@ -141,7 +141,7 @@
       "captureReusable": true,
       "blockCode": null,
       "sourceSha256": "a21b242f5c3c3158f355b51659bb81be6856b1d235f452629620bb62c71987c7",
-      "automaticReuse": false
+      "automaticReuse": true
     },
     {
       "runId": "eval_01d5fa35-d64c-40b7-9723-b7d46d24f88f",
@@ -158,7 +158,7 @@
       "captureReusable": true,
       "blockCode": null,
       "sourceSha256": "7b66dd39be8019ed357be0e105adeaa1c82b94292506e9a53dfecbf55b3dac79",
-      "automaticReuse": false
+      "automaticReuse": true
     },
     {
       "runId": "eval_1f818c16-f098-4df2-8074-0b4ebe182803",
@@ -175,7 +175,7 @@
       "captureReusable": true,
       "blockCode": null,
       "sourceSha256": "95242ae818b1f202a1564257c75b3e17857e15d49999f084f50a5c70bcd10125",
-      "automaticReuse": false
+      "automaticReuse": true
     },
     {
       "runId": "eval_f6e4c790-b4ad-4262-924b-262f3e208a88",
@@ -192,7 +192,7 @@
       "captureReusable": true,
       "blockCode": null,
       "sourceSha256": "84bd1b9fb2d03404f35df2b4ae309c4f761867006d7eae61613dc531c62a7a59",
-      "automaticReuse": false
+      "automaticReuse": true
     }
   ],
   "excludedSnapshots": {
@@ -208,8 +208,8 @@
       "collectionOnly": true,
       "compatibleRuns": 3,
       "compatibleDistinctArtifacts": 1,
-      "automaticReusableRuns": 0,
-      "automaticReusableDistinctArtifacts": 0,
+      "automaticReusableRuns": 3,
+      "automaticReusableDistinctArtifacts": 1,
       "exploratoryTwoArtifactTargetMet": false,
       "acceptedGraderCount": 0,
       "decisionReady": false
@@ -219,8 +219,8 @@
       "collectionOnly": true,
       "compatibleRuns": 2,
       "compatibleDistinctArtifacts": 1,
-      "automaticReusableRuns": 0,
-      "automaticReusableDistinctArtifacts": 0,
+      "automaticReusableRuns": 2,
+      "automaticReusableDistinctArtifacts": 1,
       "exploratoryTwoArtifactTargetMet": false,
       "acceptedGraderCount": 0,
       "decisionReady": false
@@ -230,8 +230,8 @@
       "collectionOnly": true,
       "compatibleRuns": 2,
       "compatibleDistinctArtifacts": 1,
-      "automaticReusableRuns": 0,
-      "automaticReusableDistinctArtifacts": 0,
+      "automaticReusableRuns": 2,
+      "automaticReusableDistinctArtifacts": 1,
       "exploratoryTwoArtifactTargetMet": false,
       "acceptedGraderCount": 0,
       "decisionReady": false
@@ -252,8 +252,8 @@
       "collectionOnly": true,
       "compatibleRuns": 2,
       "compatibleDistinctArtifacts": 1,
-      "automaticReusableRuns": 0,
-      "automaticReusableDistinctArtifacts": 0,
+      "automaticReusableRuns": 2,
+      "automaticReusableDistinctArtifacts": 1,
       "exploratoryTwoArtifactTargetMet": false,
       "acceptedGraderCount": 0,
       "decisionReady": false
@@ -263,8 +263,8 @@
       "collectionOnly": true,
       "compatibleRuns": 2,
       "compatibleDistinctArtifacts": 1,
-      "automaticReusableRuns": 0,
-      "automaticReusableDistinctArtifacts": 0,
+      "automaticReusableRuns": 2,
+      "automaticReusableDistinctArtifacts": 1,
       "exploratoryTwoArtifactTargetMet": false,
       "acceptedGraderCount": 0,
       "decisionReady": false
