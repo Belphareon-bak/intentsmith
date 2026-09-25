@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "status": "STEP3_PREPARATION_NO_GRADES",
   "decisionAuthority": false,
-  "generatedAt": "2026-09-25T15:34:16.634495+00:00",
+  "generatedAt": "2026-09-25T16:37:59.772830+00:00",
   "sources": {
     "packet": {
       "path": "/mnt/vi7000/intentsmith/evidence/hunt-isolated-20260925/blind/packet.json",
@@ -24,6 +24,18 @@
     "chatSummary": {
       "path": "/mnt/vi7000/intentsmith/evidence/hunt-chat-panel-20260923/capture/summary.json",
       "sha256": "70e356d4209cfbc067da9421fbe00ea4f943e2ae9fa18c1be17accf485276615"
+    },
+    "chatCaptureIndex": {
+      "reviewSha256": "e4537bad22b0c55b8f15316381442af48a44550bfc84cd096d45f438c410d729",
+      "identityKeySha256": "c41e149f8ebdcd7556e1b9f8f2a4fcd596f554c5fc830f6435f1524efa9c9cb9",
+      "note": "Key used only to count CAPTURED items by model; grades and responses not read"
+    },
+    "productionChatCanary": {
+      "planPath": "/mnt/vi7000/intentsmith/evidence/hunt-chat-production-canary-20260925/run-equal-4096/plan.json",
+      "planFileSha256": "5dd6efec75c379c8685ae580b3d9b1ed3957580d22d48018e66a55b63e1b3a09",
+      "sealedPlanSha256": "050a6f44de0e1ea771b1bd85845ca3b99194c3742e610b7443397195da5e93d5",
+      "resultPath": "/mnt/vi7000/intentsmith/evidence/hunt-chat-production-canary-20260925/run-equal-4096/result.json",
+      "resultSha256": "9d194d1121b0252fdb0f4fa51a83af27b3a9054cd88ad0ad2b835d3bba99fa58"
     }
   },
   "models": [
@@ -142,6 +154,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "No exact comparable capture for this model and role"
@@ -157,6 +172,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "No exact comparable capture for this model and role"
@@ -172,6 +190,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "CODE_ORACLE_CONTROL_FAILED before model inference; historical components are not full scores"
@@ -187,6 +208,9 @@
       "currentSuiteContractSha256": "d15f2f96a0d6a32d89f67b1a18715f44337bbf4c1a24bf5f59950d2b772921da",
       "inputOptionsSha256": "3ca94157180cbca93820d9876ff963ea3a5a47e17396782cc09e82ff76820d51",
       "responseCount": 24,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "Exact raw answers; semantic review pending"
@@ -202,6 +226,9 @@
       "currentSuiteContractSha256": "ec73edea1eb0db37de8f635bf5f5745c5ffca6ea22f2059bc62b437f9b811c6f",
       "inputOptionsSha256": "8366bb61ee81b614f0d599a305b5a3449ee4f34adbba32722adc9797450d9d90",
       "responseCount": 24,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "Exact raw answers; semantic review pending"
@@ -216,10 +243,13 @@
       "suiteContractSha256": "43315c3a554a55b77cd59f98b42bd0e735582ae25c6e212846ff98e5fe5b5fee",
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
-      "responseCount": 120,
+      "responseCount": 119,
+      "plannedResponseCount": 120,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
-      "reason": "120 dialogues attempted under draft profile; 1196/1200 captured panel-wide; production system prompt not verified"
+      "reason": "120 dialogues under draft profile; production-profile capture missing"
     },
     {
       "model": "devstral-small-2:latest",
@@ -232,6 +262,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "No exact comparable capture for this model and role"
@@ -247,6 +280,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "No exact comparable capture for this model and role"
@@ -262,6 +298,9 @@
       "currentSuiteContractSha256": "d8c1799838019e889df48ef65c81673e4d8010563f7453522eb9c27b7176891f",
       "inputOptionsSha256": "7a35b028fdbeb72f320e49ec0f1e78ef2ec70e6696aefd84155ad1b951215dc0",
       "responseCount": 24,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "Exact raw answers; semantic review pending"
@@ -277,6 +316,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "CODE_ORACLE_CONTROL_FAILED before model inference; historical components are not full scores"
@@ -292,6 +334,9 @@
       "currentSuiteContractSha256": "d15f2f96a0d6a32d89f67b1a18715f44337bbf4c1a24bf5f59950d2b772921da",
       "inputOptionsSha256": "3ca94157180cbca93820d9876ff963ea3a5a47e17396782cc09e82ff76820d51",
       "responseCount": 24,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "Exact raw answers; semantic review pending"
@@ -307,6 +352,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "No exact comparable capture for this model and role"
@@ -321,10 +369,13 @@
       "suiteContractSha256": "43315c3a554a55b77cd59f98b42bd0e735582ae25c6e212846ff98e5fe5b5fee",
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
-      "responseCount": 120,
+      "responseCount": 119,
+      "plannedResponseCount": 120,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
-      "reason": "120 dialogues attempted under draft profile; 1196/1200 captured panel-wide; production system prompt not verified"
+      "reason": "120 dialogues under draft profile; production-profile capture missing"
     },
     {
       "model": "gemma4:26b",
@@ -337,6 +388,9 @@
       "currentSuiteContractSha256": "d4c6aa37b8c294cba05f62e61c58e5617250641f4fdf7541b15dfdba6998cbdc",
       "inputOptionsSha256": "9102a22082c2f10d67edc8290eed1a426b56486e29753250eeab70236a869c42",
       "responseCount": 69,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "Technical score only; deterministic repeats identical, no accepted rank-check"
@@ -352,6 +406,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "No exact comparable capture for this model and role"
@@ -367,6 +424,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "No exact comparable capture for this model and role"
@@ -382,6 +442,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "CODE_ORACLE_CONTROL_FAILED before model inference; historical components are not full scores"
@@ -397,6 +460,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "No exact comparable capture for this model and role"
@@ -412,6 +478,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "No exact comparable capture for this model and role"
@@ -427,9 +496,12 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 120,
+      "plannedResponseCount": 120,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
-      "reason": "120 dialogues attempted under draft profile; 1196/1200 captured panel-wide; production system prompt not verified"
+      "reason": "120 dialogues under draft profile; production-profile capture missing"
     },
     {
       "model": "ornith-1.5:9b",
@@ -442,6 +514,9 @@
       "currentSuiteContractSha256": "d4c6aa37b8c294cba05f62e61c58e5617250641f4fdf7541b15dfdba6998cbdc",
       "inputOptionsSha256": "9102a22082c2f10d67edc8290eed1a426b56486e29753250eeab70236a869c42",
       "responseCount": 69,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "Technical score only; deterministic repeats identical, no accepted rank-check"
@@ -457,6 +532,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "No exact comparable capture for this model and role"
@@ -472,6 +550,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "No exact comparable capture for this model and role"
@@ -487,6 +568,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "CODE_ORACLE_CONTROL_FAILED before model inference; historical components are not full scores"
@@ -502,6 +586,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "No exact comparable capture for this model and role"
@@ -517,6 +604,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "No exact comparable capture for this model and role"
@@ -532,9 +622,12 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 120,
+      "plannedResponseCount": 120,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
-      "reason": "120 dialogues attempted under draft profile; 1196/1200 captured panel-wide; production system prompt not verified"
+      "reason": "120 dialogues under draft profile; production-profile capture missing"
     },
     {
       "model": "qwen3-30b-a3b:latest",
@@ -547,6 +640,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "Exact installed artifact has no vision capability"
@@ -562,6 +658,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "No exact comparable capture for this model and role"
@@ -577,6 +676,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "No exact comparable capture for this model and role"
@@ -592,6 +694,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "CODE_ORACLE_CONTROL_FAILED before model inference; historical components are not full scores"
@@ -607,6 +712,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "No exact comparable capture for this model and role"
@@ -622,6 +730,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "No exact comparable capture for this model and role"
@@ -637,9 +748,12 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 120,
+      "plannedResponseCount": 120,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
-      "reason": "120 dialogues attempted under draft profile; 1196/1200 captured panel-wide; production system prompt not verified"
+      "reason": "120 dialogues under draft profile; production-profile capture missing"
     },
     {
       "model": "qwen3-coder:latest",
@@ -652,6 +766,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "Exact installed artifact has no vision capability"
@@ -667,6 +784,9 @@
       "currentSuiteContractSha256": "195b4a045aa1665d79c4f070bd71efdabde02d82ae3f99fe1baae636f6a3aabf",
       "inputOptionsSha256": "12eded6d42e5b0a98cecf62f25e7351f278234571638546c90a4f388666ff3ac",
       "responseCount": 24,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "Exact raw answers; semantic review pending"
@@ -682,6 +802,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "No exact comparable capture for this model and role"
@@ -697,6 +820,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "CODE_ORACLE_CONTROL_FAILED before model inference; historical components are not full scores"
@@ -712,6 +838,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "No exact comparable capture for this model and role"
@@ -727,6 +856,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "No exact comparable capture for this model and role"
@@ -742,9 +874,12 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 120,
+      "plannedResponseCount": 120,
+      "productionCanaryDialogs": 4,
+      "productionCanaryPlanSha256": "050a6f44de0e1ea771b1bd85845ca3b99194c3742e610b7443397195da5e93d5",
       "graded": false,
       "decisionAuthority": false,
-      "reason": "120 dialogues attempted under draft profile; 1196/1200 captured panel-wide; production system prompt not verified"
+      "reason": "120 dialogues under draft profile plus 4 production-profile canary dialogues; full 40-task production profile missing"
     },
     {
       "model": "qwen3.5:27b",
@@ -757,6 +892,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "No exact comparable capture for this model and role"
@@ -772,6 +910,9 @@
       "currentSuiteContractSha256": "195b4a045aa1665d79c4f070bd71efdabde02d82ae3f99fe1baae636f6a3aabf",
       "inputOptionsSha256": "12eded6d42e5b0a98cecf62f25e7351f278234571638546c90a4f388666ff3ac",
       "responseCount": 24,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "Exact raw answers; semantic review pending"
@@ -787,6 +928,9 @@
       "currentSuiteContractSha256": "d8c1799838019e889df48ef65c81673e4d8010563f7453522eb9c27b7176891f",
       "inputOptionsSha256": "7a35b028fdbeb72f320e49ec0f1e78ef2ec70e6696aefd84155ad1b951215dc0",
       "responseCount": 24,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "Exact raw answers; semantic review pending"
@@ -802,6 +946,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "CODE_ORACLE_CONTROL_FAILED before model inference; historical components are not full scores"
@@ -817,6 +964,9 @@
       "currentSuiteContractSha256": "d15f2f96a0d6a32d89f67b1a18715f44337bbf4c1a24bf5f59950d2b772921da",
       "inputOptionsSha256": "3ca94157180cbca93820d9876ff963ea3a5a47e17396782cc09e82ff76820d51",
       "responseCount": 24,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "Exact raw answers; semantic review pending"
@@ -832,6 +982,9 @@
       "currentSuiteContractSha256": "ec73edea1eb0db37de8f635bf5f5745c5ffca6ea22f2059bc62b437f9b811c6f",
       "inputOptionsSha256": "8366bb61ee81b614f0d599a305b5a3449ee4f34adbba32722adc9797450d9d90",
       "responseCount": 24,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "Exact raw answers; semantic review pending"
@@ -846,10 +999,13 @@
       "suiteContractSha256": "43315c3a554a55b77cd59f98b42bd0e735582ae25c6e212846ff98e5fe5b5fee",
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
-      "responseCount": 120,
+      "responseCount": 119,
+      "plannedResponseCount": 120,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
-      "reason": "120 dialogues attempted under draft profile; 1196/1200 captured panel-wide; production system prompt not verified"
+      "reason": "120 dialogues under draft profile; production-profile capture missing"
     },
     {
       "model": "qwen3.6:27b",
@@ -862,6 +1018,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "No exact comparable capture for this model and role"
@@ -877,6 +1036,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "No exact comparable capture for this model and role"
@@ -892,6 +1054,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "No exact comparable capture for this model and role"
@@ -907,6 +1072,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "CODE_ORACLE_CONTROL_FAILED before model inference; historical components are not full scores"
@@ -922,6 +1090,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "No exact comparable capture for this model and role"
@@ -937,6 +1108,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "No exact comparable capture for this model and role"
@@ -952,9 +1126,12 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 120,
+      "plannedResponseCount": 120,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
-      "reason": "120 dialogues attempted under draft profile; 1196/1200 captured panel-wide; production system prompt not verified"
+      "reason": "120 dialogues under draft profile; production-profile capture missing"
     },
     {
       "model": "qwen3:14b",
@@ -967,6 +1144,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "Exact installed artifact has no vision capability"
@@ -982,6 +1162,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "No exact comparable capture for this model and role"
@@ -997,6 +1180,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "No exact comparable capture for this model and role"
@@ -1012,6 +1198,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "CODE_ORACLE_CONTROL_FAILED before model inference; historical components are not full scores"
@@ -1027,6 +1216,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "No exact comparable capture for this model and role"
@@ -1042,6 +1234,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "No exact comparable capture for this model and role"
@@ -1056,10 +1251,13 @@
       "suiteContractSha256": "43315c3a554a55b77cd59f98b42bd0e735582ae25c6e212846ff98e5fe5b5fee",
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
-      "responseCount": 120,
+      "responseCount": 119,
+      "plannedResponseCount": 120,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
-      "reason": "120 dialogues attempted under draft profile; 1196/1200 captured panel-wide; production system prompt not verified"
+      "reason": "120 dialogues under draft profile; production-profile capture missing"
     },
     {
       "model": "phi4:14b",
@@ -1072,6 +1270,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "Exact installed artifact has no vision capability"
@@ -1087,6 +1288,9 @@
       "currentSuiteContractSha256": "195b4a045aa1665d79c4f070bd71efdabde02d82ae3f99fe1baae636f6a3aabf",
       "inputOptionsSha256": "12eded6d42e5b0a98cecf62f25e7351f278234571638546c90a4f388666ff3ac",
       "responseCount": 24,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "Exact raw answers; semantic review pending"
@@ -1102,6 +1306,9 @@
       "currentSuiteContractSha256": "d8c1799838019e889df48ef65c81673e4d8010563f7453522eb9c27b7176891f",
       "inputOptionsSha256": "7a35b028fdbeb72f320e49ec0f1e78ef2ec70e6696aefd84155ad1b951215dc0",
       "responseCount": 24,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "Exact raw answers; semantic review pending"
@@ -1117,6 +1324,9 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 0,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "CODE_ORACLE_CONTROL_FAILED before model inference; historical components are not full scores"
@@ -1132,6 +1342,9 @@
       "currentSuiteContractSha256": "d15f2f96a0d6a32d89f67b1a18715f44337bbf4c1a24bf5f59950d2b772921da",
       "inputOptionsSha256": "3ca94157180cbca93820d9876ff963ea3a5a47e17396782cc09e82ff76820d51",
       "responseCount": 24,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "Exact raw answers; semantic review pending"
@@ -1147,6 +1360,9 @@
       "currentSuiteContractSha256": "ec73edea1eb0db37de8f635bf5f5745c5ffca6ea22f2059bc62b437f9b811c6f",
       "inputOptionsSha256": "8366bb61ee81b614f0d599a305b5a3449ee4f34adbba32722adc9797450d9d90",
       "responseCount": 24,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "Exact raw answers; semantic review pending"
@@ -1162,9 +1378,12 @@
       "currentSuiteContractSha256": null,
       "inputOptionsSha256": null,
       "responseCount": 120,
+      "plannedResponseCount": 120,
+      "productionCanaryDialogs": 4,
+      "productionCanaryPlanSha256": "050a6f44de0e1ea771b1bd85845ca3b99194c3742e610b7443397195da5e93d5",
       "graded": false,
       "decisionAuthority": false,
-      "reason": "120 dialogues attempted under draft profile; 1196/1200 captured panel-wide; production system prompt not verified"
+      "reason": "120 dialogues under draft profile plus 4 production-profile canary dialogues; full 40-task production profile missing"
     },
     {
       "model": "qwen3.8:latest",
@@ -1177,6 +1396,9 @@
       "currentSuiteContractSha256": "d4c6aa37b8c294cba05f62e61c58e5617250641f4fdf7541b15dfdba6998cbdc",
       "inputOptionsSha256": "9102a22082c2f10d67edc8290eed1a426b56486e29753250eeab70236a869c42",
       "responseCount": 69,
+      "plannedResponseCount": 0,
+      "productionCanaryDialogs": 0,
+      "productionCanaryPlanSha256": null,
       "graded": false,
       "decisionAuthority": false,
       "reason": "Technical score only; deterministic repeats identical, no accepted rank-check"
@@ -2138,7 +2360,7 @@
   "gates": {
     "D_R": "RAW_CAPTURE_COMPARABLE_BUT_GRADER_NOT_ACCEPTED",
     "CODE": "ORACLE_PREFLIGHT_BLOCKED",
-    "CHAT": "PRODUCTION_PROFILE_AND_GRADING_OPEN",
+    "CHAT": "PRODUCTION_CANARY_4_OF_40_FOR_2_MODELS_GRADING_OPEN",
     "VISION": "TECHNICAL_EXPLORATION_ONLY",
     "roleDecision": "NO_GO"
   }

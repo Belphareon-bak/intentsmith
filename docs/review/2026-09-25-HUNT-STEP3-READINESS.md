@@ -2,7 +2,7 @@
 
 25. 9. 2026 · **bez rozhodovací autority a bez vydaných sémantických známek**
 
-Tento přehled váže stav každé buňky na přesný digest a zdroj. `SEBRÁNO` znamená pouze úplný syrový sběr v dané sadě, nikoli přijaté skóre. `ČÁSTEČNÉ` u CHAT znamená sběr pod vývojovým profilem bez ověřeného produkčního systémového promptu. `BLOKOVÁNO` u CODE je selhání orákula před inferencí, ne nula modelu. `N/A` u VISION je doložené nepřítomností capability `vision` na přesném lokálním artefaktu.
+Tento přehled váže stav každé buňky na přesný digest a zdroj. `SEBRÁNO` znamená pouze úplný syrový sběr v dané sadě, nikoli přijaté skóre. `ČÁSTEČNÉ` u CHAT znamená vývojový panel; pouze dva modely mají navíc čtyři dialogy ve skutečném produkčním profilu. `BLOKOVÁNO` u CODE je selhání orákula před inferencí, ne nula modelu. `N/A` u VISION je doložené nepřítomností capability `vision` na přesném lokálním artefaktu.
 
 Kanonický [formulář](/mnt/vi7000/intentsmith/evidence/hunt-isolated-20260925/blind/review.html) má 312 celých odpovědí a 840 kritérií; packet SHA256 `b3a2f33445ed7537fca65d2dd25645e68ba90250c1c0718c57396f8371aefc0f`. Starší oddělené packety po 120 jsou stažené ze srovnávacího hodnocení. Níže předvolený náhodný vzorek vznikl z tohoto SHA **před otevřením nových známek**.
 
@@ -19,11 +19,13 @@ Kanonický [formulář](/mnt/vi7000/intentsmith/evidence/hunt-isolated-20260925/
 | phi4:14b (`ac896e5b8b34`) | CHYBÍ | CHYBÍ | BLOKOVÁNO | CHYBÍ | CHYBÍ | ČÁSTEČNÉ | N/A |
 | qwen3.8:latest (`22130167c4c2`) | SEBRÁNO | SEBRÁNO | BLOKOVÁNO | SEBRÁNO | SEBRÁNO | ČÁSTEČNÉ | SEBRÁNO |
 
+Podrobné [přejímací brány všech sedmi sad](2026-09-25-HUNT-SUITE-ACCEPTANCE-GATES.md) odlišují dvoumodelový pilot od přijaté sady.
+
 ## Podklad a omezení sad
 
 - D1/D2/R1/R2: 8 historických skupin na roli, všech 312 odpovědí přesně odpovídá aktuálnímu veřejnému zadání a rubrice. 32 úloh má autora gold, alternativu a negativní sondy; **nezávislá přejímka dostatku kontextu a významového hodnocení chybí**. Zadání jsou aktuálně jen anglicky. Počet opakování nepřidává nezávislé případy. Přesné SHA, původ a počet kritérií každé úlohy jsou ve [strojovém podkladu](evidence/2026-09-25-hunt-step3-readiness.json).
 - CODE: aktivní historické orákulum stále přijme věcný rozpor a odmítne správnou parafrázi. Připravená v2 není přijata nezávisle. Plné modelové známky zůstávají `null`.
-- CHAT: pečetěný plán má 10 modelů × 40 dialogů × 3 pokusy. Všech 1 200 pokusů skončilo, 1 196 bylo zachyceno; čtyři skončily výstupním limitem nebo transportní chybou. Bez skutečného produkčního systémového promptu a dokončeného druhého posudku jde jen o vývojové odpovědi.
+- CHAT: pečetěný plán má 10 modelů × 40 dialogů × 3 pokusy. Všech 1 200 pokusů skončilo, 1 196 bylo zachyceno; čtyři skončily výstupním limitem nebo transportní chybou. Strojová matice uvádí pro každý model skutečně zachycených 119 či 120 z plánovaných 120, ne fiktivní úplnost. Samostatný [produkční canary](2026-09-25-HUNT-CHAT-PRODUCTION-CANARY.md) zachytil 4 ze 40 úloh pro qwen3.8 a qwen3.5 se skutečným promptem a shodným kontextem; ostatní modely ani celá sada takto pokryté nejsou. Druhý nezávislý posudek chybí.
 - VISION: 3 × 23 úloh bylo sebráno, ale tři opakování při `temperature: 0` jsou vždy stejná. U dalšího měření stačí jedna deterministická odpověď; chybějící vision-capable modely jsou v tabulce `CHYBÍ`, ne `N/A`.
 
 ## Předem vybraný vzorek pro operátora
@@ -63,7 +65,7 @@ Pro každou D/R roli jsou vybrány dvě celé historické úlohy a jedna náhodn
 
 1. Codex a Opus hodnotí **stejný úplný packet** odděleně, po kritériích s konkrétním důvodem a citací místa v odpovědi. Jakoukoli předchozí expozici identit nebo známek oba výslovně uvedou. Nevyplněná známka není nula.
 2. Každý posudek se zmrazí jako samostatný soubor navázaný na SHA packetu. [Validátor](../../scripts/verify-hunt-blind-review.mjs) kontroluje úplnost 312 řádků / 840 kritérií a porovnává celé setiny. Původní známky nepřepisuje.
-3. Operátor dostane tento předvolený vzorek, všechny spory nad 0,25 po kritériích, kritická selhání a explicitně označenou nízkou jistotu. Rozsudek bude samostatná vrstva s vlastním původem; nikdy nezmění syrové odpovědi nebo posudky.
+3. Operátor dostane tento předvolený vzorek, všechny spory od 0,15 po kritériích, kritická selhání a explicitně označenou nízkou jistotu. Rozsudek bude samostatná vrstva s vlastním původem; nikdy nezmění syrové odpovědi nebo posudky.
 4. Prozatímní procentní matice vznikne **až z rozsouzených skutečně hodnocených buněk** a nese původ každého skóre. Kde je CODE zablokovaný nebo CHAT neporovnatelný s produkcí, nesmí být procento vykládáno jako výběr modelu.
 
 Před GO stále zbývá nezávisle přijmout hodnotitele/orákula a ověřit pořadí na čerstvých provozních případech. Tato příprava neaktivuje model, timer ani mazání.
