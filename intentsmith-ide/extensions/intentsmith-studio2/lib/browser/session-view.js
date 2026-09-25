@@ -23,14 +23,21 @@ function renderSessionView(widget, h) {
     const mode = widget.bottomMode || 'Průběh';
     const tabs = ['Terminál', 'Log agenta', 'Průběh', 'Audit', 'Problémy'];
     let content = 'Zatím žádné události.';
-    if (mode === 'Terminál') content = session.term.map(entry => typeof entry === 'string' ? entry : JSON.stringify(entry.data || entry.text || entry)).join('\n');
+    if (mode === 'Terminál') content = session.term.map(entry => typeof entry === 'string' ? entry : entry.text || '').join('\n');
     if (mode === 'Log agenta') content = session.log.map(entry => entry.text || JSON.stringify(entry)).join('\n');
     if (mode === 'Průběh') content = session.chat.msgs.flatMap(item => item._activity?.steps || []).map(step => `${step.label} · ${step.status}`).join('\n');
     return h('div', { className: 'intentsmith-s2-bottom' },
       h('div', { className: 'intentsmith-s2-bottom-tabs' }, tabs.map(tab => h('button', {
         key: tab, type: 'button', className: tab === mode ? 'active' : '', onClick: () => { widget.bottomMode = tab; widget.update(); },
       }, tab))),
-      h('pre', { className: 'intentsmith-s2-bottom-content' }, content || 'Zatím žádné události.'));
+      h('pre', { className: 'intentsmith-s2-bottom-content' }, content || 'Zatím žádné události.'),
+      mode === 'Terminál' ? h('div', { className: 'intentsmith-s2-terminal-input' },
+        h('span', null, '$'),
+        h('input', { type: 'text', 'aria-label': `Příkaz terminálu relace ${session.number}`,
+          disabled: connection !== 'Připojeno' || widget.transport?.isTerminalExecuting(session),
+          onKeyDown: event => { if (event.key === 'Enter') { event.preventDefault(); widget.sendTerminal(session, event.currentTarget); } } }),
+        h('button', { type: 'button', disabled: connection !== 'Připojeno' || widget.transport?.isTerminalExecuting(session),
+          onClick: event => widget.sendTerminal(session, event.currentTarget.closest('.intentsmith-s2-terminal-input').querySelector('input')) }, 'Spustit')) : null);
   }
   function column(sessionId, index) {
     const session = store.find(sessionId);

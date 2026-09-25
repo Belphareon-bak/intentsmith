@@ -51,7 +51,7 @@ class Studio2Widget extends ReactWidget {
 
   onAfterAttach(message) {
     super.onAfterAttach(message);
-    if (!this.transport) this.transport = new TransportAdapter(this.store);
+    if (!this.transport) this.transport = new TransportAdapter(this.store, this.workspace);
     this.update();
   }
 
@@ -108,6 +108,9 @@ class Studio2Widget extends ReactWidget {
       }
       this.section = 'Relace'; this.update();
     } catch (error) { this.catalogActionError = error.message || 'Relaci se nepodařilo otevřít.'; this.update(); }
+  }
+  async sendTerminal(session, input) {
+    if (await this.transport?.sendTerminal(session, input.value)) input.value = '';
   }
   send(session, textarea) {
     const value = textarea.value.trim();

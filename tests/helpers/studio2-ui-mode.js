@@ -16,7 +16,9 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail }) {
     widgetIds: [...document.querySelectorAll('[id*="intentsmith"]')].map(el => el.id).slice(0, 24),
     transport: Boolean(window.IntentSmithWS?.connect),
     bus: Boolean(window.IntentSmithBus?.on),
-    classicFacade: Boolean(window._intentsmith),
+    classicFacade: typeof window._intentsmith?.renderChat === 'function',
+    terminalClient: typeof window.IntentSmithTerminal?.send === 'function',
+    terminalInput: Boolean(document.querySelector('[aria-label^="Příkaz terminálu relace"]')),
     busListeners: window.IntentSmithBus?._debug?.() || {},
     sessionTabs: document.querySelectorAll('.intentsmith-s2-tab').length,
     columnSessions: [...document.querySelectorAll('.intentsmith-s2-column-head select')].map(select => select.value),
@@ -47,7 +49,9 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail }) {
   const studio2 = await waitFor(s => s.mode === 'studio2' && s.switchReady
     && s.studio2 && !s.classicSidebar && !s.classicChat
     && s.transport && s.bus && !s.classicFacade
-    && s.busListeners['chat:message'] === 1 && s.busListeners['chat:terminal'] === 1, 'studio2-only');
+    && s.busListeners['chat:message'] === 1 && s.busListeners['chat:terminal'] === 1
+    && s.busListeners['terminal:output'] === 1 && s.busListeners['terminal:line'] === 1
+    && s.terminalClient, 'studio2-only');
   await evaluate(cdp, `(async () => {
     for (let i = 0; i < 5; i++) {
       document.querySelector('[aria-label="Nová relace"]').click();
@@ -68,6 +72,13 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail }) {
   })()`);
   const swapped = await waitFor(s => s.columnSessions[0] === original[1]
     && s.columnSessions[1] === original[0] && s.columnSessions[2] === original[2], 'column-swap');
+  await evaluate(cdp, `(() => {
+    const terminal = [...document.querySelectorAll('.intentsmith-s2-column.focused .intentsmith-s2-bottom-tabs button')]
+      .find(node => node.textContent === 'Terminál');
+    terminal.click();
+    return true;
+  })()`);
+  const terminalUi = await waitFor(s => s.terminalInput && s.busListeners['terminal:output'] === 1, 'terminal-ui');
   await evaluate(cdp, `(() => {
     setTimeout(() => window.IntentSmithStudioMode.selectMode('classic'), 0);
     return true;
@@ -121,10 +132,12 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail }) {
     studio2ExclusivelyAttached: studio2.studio2 && !studio2.classicSidebar && !studio2.classicChat,
     oneReusedTransportInStudio2: studio2.transport && studio2.bus
       && studio2.busListeners['chat:message'] === 1 && studio2.busListeners['chat:terminal'] === 1
-      && !studio2.classicFacade,
+      && studio2.busListeners['terminal:output'] === 1 && studio2.busListeners['terminal:line'] === 1
+      && studio2.terminalClient && !studio2.classicFacade,
     classicRestored: restored.classicSidebar && restored.classicChat && !restored.studio2,
     sixSessionsInThreeColumns: six.sessionTabs === 6 && six.columnSessions.length === 3,
     visibleSessionSwap: swapped.columnSessions[0] === original[1] && swapped.columnSessions[1] === original[0],
+    terminalPanelConnected: terminalUi.terminalInput && terminalUi.terminalClient,
     sessionsPersistedAcrossReload: persisted.sessionTabs === 6 && persisted.columnSessions.length === 3,
     projectCatalogLoaded: catalog.catalogSection === 'Projekty' && catalog.catalogStatus === 'ready',
     elevenThemesRendered: themes.length === 11 && themes.every(Boolean),

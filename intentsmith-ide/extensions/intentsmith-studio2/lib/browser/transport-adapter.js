@@ -2,24 +2,50 @@
 
 const { IntentSmithBus } = require('@intentsmith/chat-panel/lib/browser/event-bus');
 const WorkActivity = require('@intentsmith/chat-panel/lib/browser/work-activity');
+const TerminalClient = require('@intentsmith/chat-panel/lib/browser/terminal-client');
 require('@intentsmith/chat-panel/lib/browser/ws-client');
 
 class TransportAdapter {
-  constructor(store) {
+  constructor(store, workspace) {
     this.store = store;
+    this.workspace = workspace;
+    this.slots = [...store.state.sessions];
     this.connection = 'Připojování';
     this.serverVersion = null;
     this.subscriptions = [];
-    // The pinned transport resolves session identity through these globals.
-    // Keep the same array object so closing one tab never changes another's owner.
-    window._sessions = store.state.sessions;
-    window._sessionActive = store.state.sessions.indexOf(store.focusedSession());
+    // Pinned WS/terminal clients address sessions by numeric slot. A closed tab
+    // remains a tombstone until renderer exit so another session never inherits
+    // an in-flight reqId or M1 turn. The visible SessionStore may still splice.
+    window._sessions = this.slots;
+    window._sessionActive = this.slots.indexOf(store.focusedSession());
+    window._intentsmith = {
+      getSessionActive: () => this.slots.indexOf(store.focusedSession()),
+      getSessionRoot: index => {
+        const session = this.slots[index];
+        return session && !session._closed ? this.workspace.entry(session).root || undefined : undefined;
+      },
+    };
     this.unlistenStore = store.subscribe(() => {
-      window._sessionActive = store.state.sessions.indexOf(store.focusedSession());
+      for (const session of store.state.sessions) if (!this.slots.includes(session)) this.slots.push(session);
+      window._sessionActive = this.slots.indexOf(store.focusedSession());
     });
     this.on('ws:ready', event => { this.connection = 'Připojeno'; this.serverVersion = event.version || null; this.changed(); });
     this.on('ws:disconnected', () => {
       this.connection = 'Odpojeno';
+      for (let index = 0; index < this.slots.length; index++) {
+        if (!TerminalClient.isTermExecuting(index)) continue;
+        const session = this.slots[index];
+        const length = session.term.length;
+        // The pinned client's cancel only resets its local execution lock. Its
+        // default ^C echo would imply that the server command was cancelled,
+        // which cannot be established after a connection loss.
+        TerminalClient.termCancel(index);
+        session.term.splice(length);
+        if (!session._closed) session.term.push({
+          text: '[NEZNÁMÝ VÝSLEDEK] Spojení skončilo během příkazu. Příkaz se automaticky neopakuje.',
+          ts: new Date().toISOString(), type: 'uncertain',
+        });
+      }
       for (const session of this.store.state.sessions) {
         if (session.chat._thinking) {
           session.chat._thinking = null;
@@ -42,15 +68,14 @@ class TransportAdapter {
     });
     this.on('chat:terminal', event => this.terminal(event));
     this.on('agent:event', event => this.activity(event));
-    this.on('terminal:output', event => {
-      const session = this.session(event.sessionIdx);
-      if (!session) return;
-      session.term.push({ ts: new Date().toISOString(), type: 'output', data: event.data });
-      this.changed();
-    });
+    this.on('terminal:line', () => this.changed());
+    TerminalClient.initTerminalClient();
     window.IntentSmithWS.connect();
   }
-  session(index) { return Number.isInteger(index) ? this.store.state.sessions[index] || null : null; }
+  session(index) {
+    const session = Number.isInteger(index) ? this.slots[index] : null;
+    return session && !session._closed ? session : null;
+  }
   on(name, fn) { IntentSmithBus.on(name, fn); this.subscriptions.push([name, fn]); }
   changed() { this.store.changed(); }
   append(index, role, value, tag = '') {
@@ -98,7 +123,7 @@ class TransportAdapter {
   }
   send(session, content) {
     if (!session || !content.trim() || session.chat._delivery?.status === 'DELIVERY_UNKNOWN') return false;
-    const index = this.store.state.sessions.indexOf(session);
+    const index = this.slots.indexOf(session);
     if (index < 0 || window.IntentSmithWS.hasActiveM1Turn(session)) return false;
     const message = { role: 'user', text: content, ts: new Date().toISOString() };
     session.chat.msgs.push(message);
@@ -115,6 +140,27 @@ class TransportAdapter {
     this.changed();
     return sent;
   }
+  isTerminalExecuting(session) {
+    const index = this.slots.indexOf(session);
+    return index >= 0 && TerminalClient.isTermExecuting(index);
+  }
+  async sendTerminal(session, command) {
+    const value = String(command || '').trim();
+    const index = this.slots.indexOf(session);
+    if (!value || index < 0 || session._closed || !window.IntentSmithWS.isReady()
+      || TerminalClient.isTermExecuting(index)) return false;
+    // A project-bound terminal may only use its verified project root. Never
+    // silently run a project command in the backend process directory.
+    if (session._projectId && !this.workspace.entry(session).root) {
+      if (!await this.workspace.loadTree(session)) {
+        session.term.push({ text: '[ERROR] Kořen projektu se nepodařilo ověřit.', type: 'error' });
+        this.changed();
+        return false;
+      }
+    }
+    if (session._closed || this.slots[index] !== session || !window.IntentSmithWS.isReady()) return false;
+    return TerminalClient.termSend(index, value);
+  }
   acknowledgeUnknown(session) {
     if (session?.chat._delivery?.status !== 'DELIVERY_UNKNOWN') return false;
     session.chat._delivery = null;
@@ -125,6 +171,11 @@ class TransportAdapter {
   destroy() {
     for (const [name, fn] of this.subscriptions) IntentSmithBus.off(name, fn);
     this.unlistenStore();
+    if (window._sessions === this.slots) {
+      delete window._sessions;
+      delete window._sessionActive;
+      delete window._intentsmith;
+    }
     window.IntentSmithWS.destroy();
   }
 }

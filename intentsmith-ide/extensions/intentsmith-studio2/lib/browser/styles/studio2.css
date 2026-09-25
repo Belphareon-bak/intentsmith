@@ -133,3 +133,8 @@
 .intentsmith-s2-file-diff pre:first-child { border-left: 2px solid var(--bad); }
 .intentsmith-s2-file-diff pre:nth-child(2) { border-left: 2px solid var(--ok); }
 .intentsmith-s2-file-actions button:last-child { color: var(--acc); }
+
+.intentsmith-s2-bottom { display: flex; flex-direction: column; }
+.intentsmith-s2-bottom-content { flex: 1; min-height: 0; height: auto; }
+.intentsmith-s2-terminal-input { display: flex; align-items: center; gap: 6px; padding: 3px 6px; border-top: 1px solid var(--bd2); color: var(--acc); }
+.intentsmith-s2-terminal-input input { flex: 1; min-width: 0; color: var(--text); background: var(--s0); border: 1px solid var(--bd2); border-radius: 4px; padding: 4px; font: 11px/1.4 "JetBrains Mono", monospace; }
