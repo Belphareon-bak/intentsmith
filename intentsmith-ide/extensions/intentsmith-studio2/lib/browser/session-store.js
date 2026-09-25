@@ -41,7 +41,10 @@ function makeSession(number, source = {}) {
       specialist: chat.specialist || raw.specialistData || null,
       editMode: chat.editMode === 'auto' || raw.editMode === 'auto' ? 'auto' : 'ask',
       attachments: [], _pendingAttachments: [],
-      _thinking: null, _delivery: null,
+      _thinking: null, _delivery: raw.delivery?.status === 'DELIVERY_UNKNOWN' ? {
+        status: 'DELIVERY_UNKNOWN',
+        text: 'Spojení skončilo po odeslání. Výsledek nelze bezpečně určit; požadavek se neopakuje automaticky.',
+      } : null,
     },
     bottom: text(raw.bottom || raw.bottomMode, 'agent'),
     log: Array.isArray(raw.log) ? raw.log.slice(-300) : [],
@@ -58,6 +61,7 @@ function snapshotSession(session) {
     recentMsgs: messages(session.chat.msgs).slice(-20),
     expertiseName: session.chat.expertise, specialistData: session.chat.specialist,
     editMode: session.chat.editMode, bottomMode: session.bottom,
+    delivery: session.chat._delivery?.status === 'DELIVERY_UNKNOWN' ? { status: 'DELIVERY_UNKNOWN' } : null,
   };
 }
 function parse(storage, key) {

@@ -18,7 +18,16 @@ class TransportAdapter {
       window._sessionActive = store.state.sessions.indexOf(store.focusedSession());
     });
     this.on('ws:ready', event => { this.connection = 'Připojeno'; this.serverVersion = event.version || null; this.changed(); });
-    this.on('ws:disconnected', () => { this.connection = 'Odpojeno'; this.changed(); });
+    this.on('ws:disconnected', () => {
+      this.connection = 'Odpojeno';
+      for (const session of this.store.state.sessions) {
+        if (session.chat._thinking) {
+          session.chat._thinking = null;
+          session.chat._delivery = { status: 'DELIVERY_UNKNOWN', text: 'Spojení skončilo po odeslání. Výsledek nelze bezpečně určit; požadavek se neopakuje automaticky.' };
+        }
+      }
+      this.changed();
+    });
     this.on('ws:reconnect_exhausted', () => { this.connection = 'Spojení se nezdařilo'; this.changed(); });
     this.on('ws:reconnected', () => this.changed());
     this.on('session:changed', () => this.changed());
@@ -72,6 +81,11 @@ class TransportAdapter {
       return;
     }
     session.chat._thinking = null;
+    const uncertain = event.status === 'error' && ['M1_CONNECTION_REPLACED', 'M1_CONNECTION_INTERRUPTED',
+      'M1_CLIENT_DESTROYED', 'M1_PROTOCOL_ERROR'].includes(result.error?.code);
+    if (uncertain) session.chat._delivery = { status: 'DELIVERY_UNKNOWN',
+      text: 'Spojení skončilo po odeslání. Výsledek nelze bezpečně určit; požadavek se neopakuje automaticky.' };
+    else if (event.status === 'ok') session.chat._delivery = null;
     if (event.status === 'ok' && event.renderAssistant === true && result.response) {
       const metadata = result.response.metadata || {};
       session.chat.msgs.push({ role: 'assistant', text: String(result.response.content || ''), tag: metadata.mode || 'LLM', ts: new Date().toISOString() });
@@ -83,7 +97,7 @@ class TransportAdapter {
     this.changed();
   }
   send(session, content) {
-    if (!session || !content.trim()) return false;
+    if (!session || !content.trim() || session.chat._delivery?.status === 'DELIVERY_UNKNOWN') return false;
     const index = this.store.state.sessions.indexOf(session);
     if (index < 0 || window.IntentSmithWS.hasActiveM1Turn(session)) return false;
     const message = { role: 'user', text: content, ts: new Date().toISOString() };
@@ -97,8 +111,15 @@ class TransportAdapter {
       session.chat._thinking = null;
       session.chat._delivery = { status: 'NOT_SENT', text: 'Zpráva nebyla odeslána. Zkontrolujte připojení.' };
     }
+    if (sent) session.chat._delivery = null;
     this.changed();
     return sent;
+  }
+  acknowledgeUnknown(session) {
+    if (session?.chat._delivery?.status !== 'DELIVERY_UNKNOWN') return false;
+    session.chat._delivery = null;
+    this.changed();
+    return true;
   }
   cancel(session) { return window.IntentSmithWS.sendCancel(session); }
   destroy() {

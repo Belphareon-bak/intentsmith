@@ -50,7 +50,10 @@ function renderSessionView(widget, h) {
       h('div', { className: 'intentsmith-s2-messages' },
         session.chat.msgs.length ? session.chat.msgs.map(message) : h('p', null, 'Napište zprávu a začněte konverzaci.'),
         session.chat._thinking ? h('p', { className: 'intentsmith-s2-thinking' }, session.chat._thinking.text) : null,
-        session.chat._delivery?.status === 'NOT_SENT' ? h('p', { role: 'alert', className: 'intentsmith-s2-error' }, session.chat._delivery.text) : null),
+        session.chat._delivery?.status === 'NOT_SENT' ? h('p', { role: 'alert', className: 'intentsmith-s2-error' }, session.chat._delivery.text) : null,
+        session.chat._delivery?.status === 'DELIVERY_UNKNOWN' ? h('div', { role: 'alert', className: 'intentsmith-s2-error' },
+          h('p', null, session.chat._delivery.text),
+          h('button', { type: 'button', onClick: () => widget.transport.acknowledgeUnknown(session) }, 'Pokračovat bez opakování')) : null),
       h('div', { className: 'intentsmith-s2-composer' },
         h('textarea', { 'aria-label': `Zpráva v relaci ${session.number}`, placeholder: 'Napište zprávu…', onKeyDown: event => {
           if (event.key === 'Enter' && event.ctrlKey) { event.preventDefault(); widget.send(session, event.currentTarget); }

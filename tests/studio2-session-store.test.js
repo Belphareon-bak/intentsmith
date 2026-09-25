@@ -86,3 +86,13 @@ test('opened and verified modified files survive a renderer restart per session'
   assert.deepEqual(reboot.state.sessions[0]._fileChanges['src/main.js'], { added: 2, removed: 1 });
   assert.deepEqual(reboot.find(other.id)._openedFiles, []);
 });
+
+test('uncertain delivery survives restart and never becomes success', () => {
+  const mem = storage();
+  const store = new SessionStore(mem);
+  store.state.sessions[0].chat._delivery = { status: 'DELIVERY_UNKNOWN', text: 'uncertain' };
+  store.changed();
+  const reboot = new SessionStore(mem);
+  assert.equal(reboot.state.sessions[0].chat._delivery.status, 'DELIVERY_UNKNOWN');
+  assert.match(reboot.state.sessions[0].chat._delivery.text, /neopakuje automaticky/);
+});
