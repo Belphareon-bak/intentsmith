@@ -17,6 +17,7 @@ const { AppearanceStore, STYLES } = require('./appearance-store');
 const { renderSettings } = require('./settings-view');
 const { WorkspaceFiles } = require('./workspace-files');
 const { M2Controller } = require('./m2-controller');
+const { renderPalette } = require('./command-palette');
 
 const WIDGET_ID = 'intentsmith-studio2';
 const h = React.createElement;
@@ -47,6 +48,14 @@ class Studio2Widget extends ReactWidget {
     this.catalogSelection = null;
     this.catalogActionError = null;
     this.unlistenCatalog = this.catalog.subscribe(() => this.update());
+    this.paletteOpen = false; this.paletteQuery = '';
+    this.onPaletteKey = event => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault(); event.stopPropagation(); this.paletteOpen = true; this.paletteQuery = ''; this.update();
+      } else if (event.key === 'Escape' && this.paletteOpen) {
+        event.preventDefault(); this.paletteOpen = false; this.update();
+      }
+    };
     this.sideMode = 'Soubory';
     this.bottomMode = 'Průběh';
     this.unlistenStore = this.store.subscribe(() => this.update());
@@ -55,10 +64,12 @@ class Studio2Widget extends ReactWidget {
   onAfterAttach(message) {
     super.onAfterAttach(message);
     if (!this.transport) this.transport = new TransportAdapter(this.store, this.workspace);
+    window.addEventListener('keydown', this.onPaletteKey, true);
     this.update();
   }
 
   dispose() {
+    window.removeEventListener('keydown', this.onPaletteKey, true);
     if (this.transport) { this.transport.destroy(); this.transport = null; }
     if (this.unlistenStore) { this.unlistenStore(); this.unlistenStore = null; }
     if (this.unlistenCatalog) { this.unlistenCatalog(); this.unlistenCatalog = null; }
@@ -145,6 +156,8 @@ class Studio2Widget extends ReactWidget {
       h('header', { className: 'intentsmith-studio2-top' },
         h('span', { className: 'intentsmith-studio2-brand' }, 'IntentSmith'),
         h('span', null, 'Studio 2'),
+        h('button', { type: 'button', className: 'intentsmith-s2-search',
+          onClick: () => { this.paletteOpen = true; this.paletteQuery = ''; this.update(); } }, 'Hledat, přepnout relaci…  Ctrl+K'),
         h('span', { className: 'intentsmith-studio2-top-spacer' }),
         h('select', { 'aria-label': 'Styl Studia 2', value: appearance.style, onChange: event => this.appearance.set('style', event.target.value) },
           STYLES.map(style => h('option', { key: style, value: style }, style))),
@@ -168,6 +181,7 @@ class Studio2Widget extends ReactWidget {
           this.section === 'Relace' ? view.columns : NAV.includes(this.section) ? renderCatalog(this, h)
             : renderSettings(this, h)),
         this.section === 'Relace' ? view.right : null),
+      renderPalette(this, h),
       h('footer', { className: 'intentsmith-studio2-foot' },
         h('span', null, view.connection),
         h('span', null, this.transport?.serverVersion ? `Backend ${this.transport.serverVersion}` : 'Backend není potvrzený'),

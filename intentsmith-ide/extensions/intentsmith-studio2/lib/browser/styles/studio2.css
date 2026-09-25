@@ -159,3 +159,11 @@
 .intentsmith-s2-settings .intentsmith-development button { border-color: var(--bd2); }
 .intentsmith-s2-settings .intentsmith-development pre { overflow: auto; max-height: 250px; }
 .intentsmith-s2-settings .intentsmith-development [role=alert] { color: var(--bad); }
+
+.intentsmith-s2-search { min-width: 205px; max-width: 300px; color: var(--dim) !important; border: 1px solid var(--bd2) !important; text-align: left; font-size: 11px !important; }
+.intentsmith-s2-palette-backdrop { position: fixed; inset: 0; z-index: 1100; background: rgb(0 0 0 / .45); display: flex; justify-content: center; align-items: flex-start; padding-top: min(12vh, 110px); }
+.intentsmith-s2-palette { width: min(600px, calc(100vw - 36px)); max-height: 70vh; display: flex; flex-direction: column; padding: 9px; border: 1px solid var(--bd2); border-radius: 10px; background: var(--s1); box-shadow: 0 18px 50px rgb(0 0 0 / .35); }
+.intentsmith-s2-palette input { width: 100%; padding: 11px; border: 1px solid var(--bd2); border-radius: 6px; color: var(--text); background: var(--s0); font: inherit; }
+.intentsmith-s2-palette-results { overflow: auto; padding-top: 6px; }
+.intentsmith-s2-palette-results button { display: flex; gap: 12px; align-items: center; width: 100%; text-align: left; }
+.intentsmith-s2-palette-results button small { width: 70px; color: var(--dim); }

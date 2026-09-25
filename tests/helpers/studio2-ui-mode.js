@@ -23,6 +23,8 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail }) {
     settingsCategories: Boolean(document.querySelector('nav[aria-label="Kategorie nastavení"]')),
     environmentPanel: Boolean(document.querySelector('.intentsmith-development')),
     environmentLoaded: Boolean(document.querySelector('.intentsmith-development')?.textContent?.includes('Skutečné prostředí backendu')),
+    paletteOpen: Boolean(document.querySelector('[role="dialog"][aria-label="Paleta příkazů"]')),
+    columnsVisible: Boolean(document.querySelector('.intentsmith-s2-columns')),
     busListeners: window.IntentSmithBus?._debug?.() || {},
     sessionTabs: document.querySelectorAll('.intentsmith-s2-tab').length,
     columnSessions: [...document.querySelectorAll('.intentsmith-s2-column-head select')].map(select => select.value),
@@ -150,6 +152,16 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail }) {
     return true;
   })()`);
   const environment = await waitFor(s => s.environmentPanel && s.environmentLoaded, 'backend-environment');
+  await evaluate(cdp, `(() => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true, cancelable: true }));
+    return true;
+  })()`);
+  await waitFor(s => s.paletteOpen, 'command-palette');
+  await evaluate(cdp, `(() => {
+    document.querySelector('.intentsmith-s2-palette-results button').click();
+    return true;
+  })()`);
+  const palette = await waitFor(s => !s.paletteOpen && s.columnsVisible, 'palette-session-navigation');
   return Object.freeze({
     classicInitiallyAttached: classic.classicSidebar && classic.classicChat,
     studio2ExclusivelyAttached: studio2.studio2 && !studio2.classicSidebar && !studio2.classicChat,
@@ -163,6 +175,7 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail }) {
     terminalPanelConnected: terminalUi.terminalInput && terminalUi.terminalClient,
     m2ReviewPanelRendered: m2Ui.m2Panel,
     backendEnvironmentLoaded: environment.environmentLoaded,
+    commandPaletteNavigatesSession: palette.columnsVisible && !palette.paletteOpen,
     sessionsPersistedAcrossReload: persisted.sessionTabs === 6 && persisted.columnSessions.length === 3,
     projectCatalogLoaded: catalog.catalogSection === 'Projekty' && catalog.catalogStatus === 'ready',
     elevenThemesRendered: themes.length === 11 && themes.every(Boolean),
