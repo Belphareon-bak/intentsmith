@@ -11,6 +11,7 @@ const calls = [];
 const files = new WorkspaceFiles({ backendUrl: () => 'http://127.0.0.1:1234', fetchImpl: async (url, options) => {
   calls.push({ url, method: options.method || 'GET' });
   if (url.includes('/tree?')) return { ok: true, json: async () => ({ root: '/tmp/project', tree }) };
+  if (url.includes('/ls?')) return { ok: true, json: async () => ({ entries: [{ name: 'main.js', isDir: false }] }) };
   if (options.method === 'POST') {
     assert.equal(JSON.parse(options.body).expectedHash, 'old-hash');
     if (conflict) return { ok: false, status: 409, json: async () => ({ error: 'changed' }) };
@@ -22,6 +23,9 @@ const files = new WorkspaceFiles({ backendUrl: () => 'http://127.0.0.1:1234', fe
 assert.equal(await files.loadTree(session), true);
 assert.equal(await files.open(session, '../escape'), false);
 assert.equal(await files.open(session, 'src/main.js'), true);
+assert.equal(await files.completePath(session, 'cat src/ma'), 'cat src/main.js');
+assert.equal(await files.completePath(session, 'cat ../secret'), null);
+assert.equal(calls.filter(call => call.url.includes('/ls?')).length, 1);
 files.edit(session, 'new');
 assert.equal(files.anyDirty(), true);
 assert.equal(await files.save(session), false);
@@ -33,5 +37,9 @@ assert.equal(await files.save(session), true);
 assert.equal(files.anyDirty(), false);
 assert.deepEqual(session._modifiedFiles, ['src/main.js']);
 assert.deepEqual(session._openedFiles, ['src/main.js']);
+session._projectId = 6;
+assert.equal(await files.completePath(session, 'cat src/ma'), null);
+assert.equal(await files.open(session, 'src/main.js'), false);
+assert.equal(files.entry(session).projectId, '5');
 assert.equal(calls.filter(call => call.method === 'POST').length, 2);
 console.log('PASS project tree, scoped editor, 409 conflict guard, and verified save');

@@ -10,6 +10,8 @@ class TransportAdapter {
     this.store = store;
     this.workspace = workspace;
     this.slots = [...store.state.sessions];
+    this.terminalTail = Promise.resolve();
+    this.lastTerminalSendMs = 0;
     this.connection = 'Připojování';
     this.serverVersion = null;
     this.subscriptions = [];
@@ -22,7 +24,9 @@ class TransportAdapter {
       getSessionActive: () => this.slots.indexOf(store.focusedSession()),
       getSessionRoot: index => {
         const session = this.slots[index];
-        return session && !session._closed ? this.workspace.entry(session).root || undefined : undefined;
+        if (!session || session._closed) return undefined;
+        const workspace = this.workspace.entry(session);
+        return workspace.projectId === String(session._projectId) ? workspace.root || undefined : undefined;
       },
     };
     this.unlistenStore = store.subscribe(() => {
@@ -152,15 +156,29 @@ class TransportAdapter {
       || TerminalClient.isTermExecuting(index)) return false;
     // A project-bound terminal may only use its verified project root. Never
     // silently run a project command in the backend process directory.
-    if (session._projectId && !this.workspace.entry(session).root) {
+    const workspace = this.workspace.entry(session);
+    if (session._projectId && (!workspace.root || workspace.projectId !== String(session._projectId))) {
       if (!await this.workspace.loadTree(session)) {
         session.term.push({ text: '[ERROR] Kořen projektu se nepodařilo ověřit.', type: 'error' });
         this.changed();
         return false;
       }
     }
-    if (session._closed || this.slots[index] !== session || !window.IntentSmithWS.isReady()) return false;
-    return TerminalClient.termSend(index, value);
+    // The pinned client creates terminal reqId from Date.now(). Serialize sends
+    // across sessions with distinct milliseconds so simultaneous commands cannot
+    // overwrite each other's reqId-to-session mapping.
+    const run = this.terminalTail.then(async () => {
+      const delay = this.lastTerminalSendMs + 1 - Date.now();
+      if (delay > 0) await new Promise(resolve => setTimeout(resolve, delay));
+      if (session._closed || this.slots[index] !== session || !window.IntentSmithWS.isReady()
+        || TerminalClient.isTermExecuting(index)) return false;
+      const current = this.workspace.entry(session);
+      if (session._projectId && (!current.root || current.projectId !== String(session._projectId))) return false;
+      this.lastTerminalSendMs = Date.now();
+      return TerminalClient.termSend(index, value);
+    });
+    this.terminalTail = run.then(() => {}, () => {});
+    return run;
   }
   acknowledgeUnknown(session) {
     if (session?.chat._delivery?.status !== 'DELIVERY_UNKNOWN') return false;

@@ -116,6 +116,12 @@ class Studio2Widget extends ReactWidget {
       this.section = 'Relace'; this.update();
     } catch (error) { this.catalogActionError = error.message || 'Relaci se nepodařilo otevřít.'; this.update(); }
   }
+  async completeTerminal(session, input) {
+    try {
+      const result = await this.workspace.completePath(session, input.value);
+      if (result !== null) input.value = result;
+    } catch { /* Completion is optional; keep the user's command intact. */ }
+  }
   async sendTerminal(session, input) {
     if (await this.transport?.sendTerminal(session, input.value)) input.value = '';
   }

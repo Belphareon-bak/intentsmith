@@ -19,11 +19,11 @@ let destroys = 0;
 const terminalFrames = [];
 const fakeWS = { connect() {}, destroy() { destroys++; }, isReady: () => true, hasActiveM1Turn: () => false,
   sendChat() { sends++; return true; }, sendCancel: () => true,
-  sendTerminal(command, session, index) { terminalFrames.push({ command, session, index }); return true; } };
+  sendTerminal(command, session, index) { terminalFrames.push({ command, session, index, sentAt: Date.now() }); return true; } };
 const window = { IntentSmithWS: fakeWS };
 const terminalModule = { exports: {} };
 const terminalSource = readFileSync(new URL('../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/terminal-client.js', import.meta.url),'utf8');
-const context = vm.createContext({ window, Date, console, requestAnimationFrame() {}, IntentSmithBus: bus, IntentSmithWS: fakeWS });
+const context = vm.createContext({ window, Date, console, setTimeout, requestAnimationFrame() {}, IntentSmithBus: bus, IntentSmithWS: fakeWS });
 Object.defineProperty(context, '_sessions', { get: () => window._sessions });
 vm.runInContext(`(function(module,exports){${terminalSource}\n})`, context)(terminalModule, terminalModule.exports);
 const source = readFileSync(new URL('../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/transport-adapter.js', import.meta.url),'utf8');
@@ -37,7 +37,7 @@ const mockRequire = name => {
 };
 vm.runInContext(`(function(require,module,exports){${source}\n})`, context)(mockRequire,module,module.exports);
 const roots = new Map();
-const workspace = { entry: session => ({ root: roots.get(session.id) || null }), async loadTree() { return false; } };
+const workspace = { entry: session => ({ root: roots.get(session.id) || null, projectId: String(session._projectId) }), async loadTree() { return false; } };
 const adapter = new module.exports.TransportAdapter(store, workspace);
 assert.equal(window._sessions.length, store.state.sessions.length);
 first.chat._thinking = { text: 'Pracuji' };
@@ -81,6 +81,13 @@ const third = store.addSession({ projectId: 'third' });
 assert.equal(window._sessions[2], third);
 assert.equal(await adapter.sendTerminal(third, 'pwd'), false);
 assert.equal(terminalFrames.length, 2);
+roots.set(third.id, '/project/third');
+assert.deepEqual(await Promise.all([
+  adapter.sendTerminal(second, 'echo two'),
+  adapter.sendTerminal(third, 'echo three'),
+]), [true, true]);
+assert.ok(terminalFrames.at(-1).sentAt > terminalFrames.at(-2).sentAt,
+  'pinned Date.now reqIds must be distinct for simultaneous sessions');
 adapter.destroy();
 assert.equal(destroys, 1);
 assert.equal(handlers.get('chat:terminal').size, 0);

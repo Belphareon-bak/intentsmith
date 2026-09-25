@@ -26,7 +26,7 @@ class WorkspaceFiles {
     this.entries = new Map();
   }
   entry(session) {
-    if (!this.entries.has(session.id)) this.entries.set(session.id, { root: null, tree: [], editor: null, loading: false, error: null });
+    if (!this.entries.has(session.id)) this.entries.set(session.id, { root: null, projectId: null, tree: [], editor: null, loading: false, error: null });
     return this.entries.get(session.id);
   }
   changed() { this.onChange(); }
@@ -40,10 +40,13 @@ class WorkspaceFiles {
   async loadTree(session) {
     const state = this.entry(session);
     if (!session._projectId) { state.error = 'Tahle relace nemá projekt.'; this.changed(); return false; }
+    const projectId = String(session._projectId);
     state.loading = true; state.error = null; this.changed();
     try {
       const data = await this.request('/api/workspace/tree?project_id=' + encodeURIComponent(session._projectId));
       if (!Array.isArray(data.tree) || typeof data.root !== 'string' || !data.root.startsWith('/')) throw new Error('Neplatný strom projektu.');
+      if (String(session._projectId) !== projectId) throw new Error('Projekt relace se během načítání změnil.');
+      state.projectId = projectId;
       state.root = data.root;
       state.tree = flattenTree(data.tree);
       state.loading = false;
@@ -56,7 +59,8 @@ class WorkspaceFiles {
   }
   async open(session, path) {
     const state = this.entry(session);
-    if (!state.root || !state.tree.some(item => item.path === path && !item.directory)) return false;
+    if (!state.root || state.projectId !== String(session._projectId)
+      || !state.tree.some(item => item.path === path && !item.directory)) return false;
     if (state.editor?.dirty) { state.error = 'Nejprve uložte nebo zahoďte neuložené změny.'; this.changed(); return false; }
     try {
       const data = await this.request('/api/workspace/file?root=' + encodeURIComponent(state.root) + '&path=' + encodeURIComponent(path));
@@ -84,7 +88,8 @@ class WorkspaceFiles {
   async save(session) {
     const state = this.entry(session);
     const editor = state.editor;
-    if (!editor?.dirty || !state.root || !state.tree.some(item => item.path === editor.path && !item.directory)) return false;
+    if (!editor?.dirty || !state.root || state.projectId !== String(session._projectId)
+      || !state.tree.some(item => item.path === editor.path && !item.directory)) return false;
     try {
       const result = await this.request('/api/workspace/file', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ root: state.root, path: editor.path, content: editor.draft, expectedHash: editor.hash }) });
@@ -100,6 +105,24 @@ class WorkspaceFiles {
       session._modifiedFiles = [editor.path, ...session._modifiedFiles.filter(value => value !== editor.path)].slice(0, 30);
       state.error = null; this.changed(); return true;
     } catch (error) { state.error = error.status === 409 ? 'Soubor mezitím změnil jiný proces. Vaše úprava zůstává otevřená.' : error.message || 'Uložení selhalo.'; this.changed(); return false; }
+  }
+  async completePath(session, command) {
+    const state = this.entry(session);
+    if (!state.root || state.projectId !== String(session._projectId) || typeof command !== 'string') return null;
+    const split = command.search(/[^\s]*$/);
+    const token = command.slice(split);
+    if (!token || token.startsWith('/') || token.includes('\\')) return null;
+    const slash = token.lastIndexOf('/');
+    const directory = slash < 0 ? '' : token.slice(0, slash + 1);
+    const prefix = slash < 0 ? token : token.slice(slash + 1);
+    if (directory.split('/').some(part => part === '..')) return null;
+    const absolute = state.root + (directory ? '/' + directory.slice(0, -1) : '');
+    const data = await this.request('/api/workspace/ls?path=' + encodeURIComponent(absolute)
+      + '&prefix=' + encodeURIComponent(prefix));
+    const matches = Array.isArray(data.entries) ? data.entries.filter(item => safeName(item?.name)
+      && item.name.startsWith(prefix) && typeof item.isDir === 'boolean') : [];
+    if (matches.length !== 1) return null;
+    return command.slice(0, split) + directory + matches[0].name + (matches[0].isDir ? '/' : '');
   }
   anyDirty() { return [...this.entries.values()].some(state => state.editor?.dirty); }
 }

@@ -36,7 +36,10 @@ function renderSessionView(widget, h) {
         h('span', null, '$'),
         h('input', { type: 'text', 'aria-label': `Příkaz terminálu relace ${session.number}`,
           disabled: connection !== 'Připojeno' || widget.transport?.isTerminalExecuting(session),
-          onKeyDown: event => { if (event.key === 'Enter') { event.preventDefault(); widget.sendTerminal(session, event.currentTarget); } } }),
+          onKeyDown: event => {
+            if (event.key === 'Enter') { event.preventDefault(); widget.sendTerminal(session, event.currentTarget); }
+            if (event.key === 'Tab') { event.preventDefault(); widget.completeTerminal(session, event.currentTarget); }
+          } }),
         h('button', { type: 'button', disabled: connection !== 'Připojeno' || widget.transport?.isTerminalExecuting(session),
           onClick: event => widget.sendTerminal(session, event.currentTarget.closest('.intentsmith-s2-terminal-input').querySelector('input')) }, 'Spustit')) : null);
   }
