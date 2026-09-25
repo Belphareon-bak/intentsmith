@@ -1932,6 +1932,7 @@ const STUDIO2_MODE_FIELDS = Object.freeze([
   'visibleSessionSwap',
   'sessionsPersistedAcrossReload',
   'projectCatalogLoaded',
+  'elevenThemesRendered',
 ]);
 
 export function successEvidence({

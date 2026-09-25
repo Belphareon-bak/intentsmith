@@ -13,6 +13,8 @@ const { TransportAdapter } = require('./transport-adapter');
 const { renderSessionView } = require('./session-view');
 const { CatalogStore } = require('./catalog-store');
 const { renderCatalog } = require('./catalog-view');
+const { AppearanceStore, STYLES } = require('./appearance-store');
+const { renderSettings } = require('./settings-view');
 
 const WIDGET_ID = 'intentsmith-studio2';
 const h = React.createElement;
@@ -30,6 +32,11 @@ class Studio2Widget extends ReactWidget {
     this.transport = null;
     this.section = 'Relace';
     this.catalog = new CatalogStore();
+    this.appearance = new AppearanceStore(window.localStorage, () => window.matchMedia('(prefers-color-scheme: light)').matches);
+    this.unlistenAppearance = this.appearance.subscribe(() => this.update());
+    this.systemTheme = window.matchMedia('(prefers-color-scheme: light)');
+    this.onSystemTheme = () => this.update();
+    this.systemTheme.addEventListener('change', this.onSystemTheme);
     this.catalogSearch = '';
     this.catalogLayout = 'tiles';
     this.catalogSelection = null;
@@ -50,6 +57,8 @@ class Studio2Widget extends ReactWidget {
     if (this.transport) { this.transport.destroy(); this.transport = null; }
     if (this.unlistenStore) { this.unlistenStore(); this.unlistenStore = null; }
     if (this.unlistenCatalog) { this.unlistenCatalog(); this.unlistenCatalog = null; }
+    if (this.unlistenAppearance) { this.unlistenAppearance(); this.unlistenAppearance = null; }
+    if (this.systemTheme) this.systemTheme.removeEventListener('change', this.onSystemTheme);
     super.dispose();
   }
 
@@ -97,11 +106,20 @@ class Studio2Widget extends ReactWidget {
   render() {
     const state = this.store.state;
     const view = renderSessionView(this, h);
-    return h('div', { className: 'intentsmith-studio2-root intentsmith-root ide th-intentsmith-dark', 'data-studio-ui': 'studio2' },
+    const appearance = this.appearance.values;
+    const font = appearance.fontIdx === 1 ? 'Inter, system-ui, sans-serif' : appearance.fontIdx === 2 ? 'system-ui, sans-serif' : 'Plus Jakarta Sans, system-ui, sans-serif';
+    return h('div', { className: `intentsmith-studio2-root intentsmith-root ide ${this.appearance.classes()}`,
+      style: { fontSize: `${appearance.fontSizeVal * Number(appearance.uiScale)}px`, fontFamily: font }, 'data-studio-ui': 'studio2' },
       h('header', { className: 'intentsmith-studio2-top' },
         h('span', { className: 'intentsmith-studio2-brand' }, 'IntentSmith'),
         h('span', null, 'Studio 2'),
         h('span', { className: 'intentsmith-studio2-top-spacer' }),
+        h('select', { 'aria-label': 'Styl Studia 2', value: appearance.style, onChange: event => this.appearance.set('style', event.target.value) },
+          STYLES.map(style => h('option', { key: style, value: style }, style))),
+        h('button', { type: 'button', 'aria-label': 'Přepnout světlý a tmavý motiv',
+          disabled: ['matrix','japanese','midnight'].includes(appearance.style),
+          onClick: () => this.appearance.set('theme', this.appearance.effectiveTheme() === 'dark' ? 'light' : 'dark') },
+          this.appearance.effectiveTheme() === 'dark' ? 'Tmavý' : 'Světlý'),
         [1, 2, 3].map(count => h('button', { key: count, type: 'button', disabled: count > state.sessions.length,
           className: count === state.columns.length ? 'active' : '', onClick: () => this.store.setColumnCount(count),
           'aria-label': `${count} sloupce` }, count)),
@@ -116,8 +134,7 @@ class Studio2Widget extends ReactWidget {
         h('main', { className: 'intentsmith-studio2-center' },
           view.tabs,
           this.section === 'Relace' ? view.columns : NAV.includes(this.section) ? renderCatalog(this, h)
-            : h('div', { className: 'intentsmith-studio2-empty' }, h('strong', null, this.section),
-              h('p', null, 'Nastavení této sekce ještě není připojené.'))),
+            : renderSettings(this, h)),
         this.section === 'Relace' ? view.right : null),
       h('footer', { className: 'intentsmith-studio2-foot' },
         h('span', null, view.connection),

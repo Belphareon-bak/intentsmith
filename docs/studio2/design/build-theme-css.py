@@ -55,8 +55,12 @@ def contrast(a, b):
     return (la + 0.05) / (lb + 0.05)
 
 
-def readable(fg, bg, alt):
-    return fg if contrast(fg, bg) >= 4.5 else alt
+def readable(fg, backgrounds, alt):
+    # Sidebar, cards and chat bubbles use s0..s2; faint text must be legible on all.
+    chosen = fg if all(contrast(fg, bg) >= 4.5 for bg in backgrounds) else alt
+    if not all(contrast(chosen, bg) >= 4.5 for bg in backgrounds):
+        raise ValueError('faint palette lacks 4.5:1 contrast on a primary surface')
+    return chosen
 
 
 def on_color(h):
@@ -116,7 +120,7 @@ CLEAN_BG = {1: '#14141e', 2: '#0c1525'}
 
 def theme_rule(name, t):
     s = t['s']
-    faint = readable(t['faint'], s[0], t['dm'])
+    faint = readable(t['faint'], s[:3], t['dm'])
     parts = [f'--s{i}:{c}' for i, c in enumerate(s)]
     parts += [f"--tx:{t['tx']}", f"--dm:{t['dm']}", f'--faint:{faint}', f"--bd1:{t['bd1']}", f"--bd2:{t['bd2']}",
               f"--accF:{t['acc']}", f"--acct:{t['acct']}", f"--accD:{t['accd']}", f"--accR:{trip(t['acc'])}", f"--acc-fg:{t['fg']}", f"--asa:{t['asa']}",

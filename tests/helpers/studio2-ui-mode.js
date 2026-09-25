@@ -90,6 +90,32 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail }) {
     return true;
   })()`);
   const catalog = await waitFor(s => s.catalogSection === 'Projekty' && s.catalogStatus === 'ready', 'project-catalog');
+  const themes = await evaluate(cdp, `(async () => {
+    const styles = ['intentsmith','studio','clean','matrix','japanese','midnight','nocturne'];
+    const darkOnly = new Set(['matrix','japanese','midnight']);
+    const seen = [];
+    for (const style of styles) {
+      const select = document.querySelector('[aria-label="Styl Studia 2"]');
+      const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
+      setter.call(select, style);
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      await new Promise(resolve => setTimeout(resolve, 35));
+      for (const tone of darkOnly.has(style) ? ['dark'] : ['dark','light']) {
+        const wanted = darkOnly.has(style) ? 'th-' + style : 'th-' + style + '-' + tone;
+        let root = document.querySelector('[data-studio-ui="studio2"]');
+        if (!root.classList.contains(wanted)) {
+          document.querySelector('[aria-label="Přepnout světlý a tmavý motiv"]').click();
+          await new Promise(resolve => setTimeout(resolve, 35));
+          root = document.querySelector('[data-studio-ui="studio2"]');
+        }
+        const css = getComputedStyle(root);
+        seen.push(root.classList.contains(wanted)
+          && Boolean(css.getPropertyValue('--s0').trim())
+          && Boolean(css.getPropertyValue('--faint').trim()));
+      }
+    }
+    return seen;
+  })()`);
   return Object.freeze({
     classicInitiallyAttached: classic.classicSidebar && classic.classicChat,
     studio2ExclusivelyAttached: studio2.studio2 && !studio2.classicSidebar && !studio2.classicChat,
@@ -101,5 +127,6 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail }) {
     visibleSessionSwap: swapped.columnSessions[0] === original[1] && swapped.columnSessions[1] === original[0],
     sessionsPersistedAcrossReload: persisted.sessionTabs === 6 && persisted.columnSessions.length === 3,
     projectCatalogLoaded: catalog.catalogSection === 'Projekty' && catalog.catalogStatus === 'ready',
+    elevenThemesRendered: themes.length === 11 && themes.every(Boolean),
   });
 }

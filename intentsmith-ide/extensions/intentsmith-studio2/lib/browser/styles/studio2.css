@@ -1,5 +1,5 @@
 .intentsmith-studio2-widget { overflow: hidden; min-width: 0; min-height: 0; }
-.intentsmith-studio2-root { --text: var(--tx); --dim: var(--dm); --acc: var(--acct); height: 100%; width: 100%; display: flex; flex-direction: column; overflow: hidden; color: var(--text); background: var(--s0); font: 13px/1.45 var(--font-ui, system-ui, sans-serif); }
+.intentsmith-studio2-root { --text: color-mix(in srgb, var(--tx) var(--tip), var(--s0)); --dim: var(--dm); --acc: var(--acct); --acc-soft: rgb(var(--accR) / var(--aia)); height: 100%; width: 100%; display: flex; flex-direction: column; overflow: hidden; color: var(--text); background: var(--s0); font: 13px/1.45 var(--font-ui, system-ui, sans-serif); }
 .intentsmith-studio2-root * { box-sizing: border-box; }
 .intentsmith-studio2-top { flex: 0 0 38px; display: flex; align-items: center; gap: 16px; padding: 0 14px; border-bottom: 1px solid var(--bd2); background: var(--s1); }
 .intentsmith-studio2-brand { font-weight: 750; letter-spacing: .04em; color: var(--acc); }
@@ -88,3 +88,22 @@
 .intentsmith-s2-catalog-detail dt { color: var(--dim); }
 .intentsmith-s2-catalog-detail dd { margin: 0; }
 .intentsmith-s2-catalog-empty { padding: 20px; color: var(--dim); }
+.intentsmith-studio2-top select { max-width: 130px; color: var(--text); background: var(--s1); border: 1px solid var(--bd2); border-radius: 5px; padding: 5px; font: inherit; }
+.intentsmith-studio2-top select:focus-visible { outline: 2px solid var(--acc); }
+.intentsmith-s2-settings { flex: 1; min-height: 0; display: flex; }
+.intentsmith-s2-settings > nav { width: 205px; flex: 0 0 205px; overflow: auto; padding: 9px; background: var(--s1); border-right: 1px solid var(--bd2); }
+.intentsmith-s2-settings > nav button { display: block; width: 100%; text-align: left; }
+.intentsmith-s2-settings > main { flex: 1; min-width: 0; overflow: auto; padding: 16px 22px; }
+.intentsmith-s2-settings h1 { margin: 0 0 14px; font-size: 20px; }
+.intentsmith-s2-settings-tabs { display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid var(--bd2); padding-bottom: 7px; }
+.intentsmith-s2-settings-content { max-width: 720px; padding-top: 14px; }
+.intentsmith-s2-setting { display: grid; grid-template-columns: minmax(170px,1fr) minmax(180px,2fr) 60px; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--bd1); }
+.intentsmith-s2-setting select, .intentsmith-s2-setting input:not([type=checkbox]) { max-width: 100%; padding: 6px; border: 1px solid var(--bd2); border-radius: 5px; color: var(--text); background: var(--s1); }
+.intentsmith-s2-setting input[type=range] { accent-color: var(--acc); }
+.intentsmith-s2-setting output { text-align: right; color: var(--dim); }
+.intentsmith-s2-settings textarea { width: 100%; min-height: 210px; color: var(--text); background: var(--s1); border: 1px solid var(--bd2); }
+.intentsmith-studio2-root.den-compact .intentsmith-s2-message { padding: 7px 9px; margin-bottom: 7px; }
+.intentsmith-studio2-root.den-minimal .intentsmith-s2-message { padding: 5px; margin-bottom: 4px; }
+.intentsmith-studio2-root.sep-linky .intentsmith-s2-message,
+.intentsmith-studio2-root.sep-linky .intentsmith-s2-catalog-item { border-left: 0 !important; border-right: 0 !important; border-radius: 0; }
+@media (max-width: 850px) { .intentsmith-s2-settings > nav { width: 60px; flex-basis: 60px; } .intentsmith-s2-settings > nav button { overflow: hidden; white-space: nowrap; } }
