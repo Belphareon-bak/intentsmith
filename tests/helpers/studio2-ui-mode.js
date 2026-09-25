@@ -20,6 +20,7 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail }) {
     terminalClient: typeof window.IntentSmithTerminal?.send === 'function',
     terminalInput: Boolean(document.querySelector('[aria-label^="Příkaz terminálu relace"]')),
     m2Panel: Boolean(document.querySelector('[aria-label="Změny M2"]')),
+    settingsCategories: Boolean(document.querySelector('nav[aria-label="Kategorie nastavení"]')),
     environmentPanel: Boolean(document.querySelector('.intentsmith-development')),
     environmentLoaded: Boolean(document.querySelector('.intentsmith-development')?.textContent?.includes('Skutečné prostředí backendu')),
     busListeners: window.IntentSmithBus?._debug?.() || {},
@@ -140,6 +141,10 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail }) {
   await evaluate(cdp, `(() => {
     [...document.querySelectorAll('nav[aria-label="Hlavní navigace"] button')]
       .find(node => node.textContent === 'Nastavení').click();
+    return true;
+  })()`);
+  await waitFor(s => s.settingsCategories, 'settings-categories');
+  await evaluate(cdp, `(() => {
     [...document.querySelectorAll('nav[aria-label="Kategorie nastavení"] button')]
       .find(node => node.textContent === 'Systém').click();
     return true;
