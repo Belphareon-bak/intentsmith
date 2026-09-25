@@ -39,5 +39,11 @@
     "Codex had prior exposure to task design; identity masking does not establish a fresh blind acceptance.",
     "Opus review not read before this freeze.",
     "No adjudication or role decision."
-  ]
+  ],
+  "durableD2Archive": {
+    "path": "/home/belphareon/worktrees/is-mobile-completion-20260908/docs/review/evidence/2026-09-25-hunt-codex-d2-development-review.json",
+    "sha256": "fffd49cf4b295c46fc2842687eb19ddaf53c85d38f09ae8cdbd2dde008f61971",
+    "note": "Normalized 72-case D2 source saved before the full review freeze; original drafting JSONL was temporary."
+  },
+  "manifestAugmentedAt": "2026-09-25T21:04:14.403386+00:00"
 }
