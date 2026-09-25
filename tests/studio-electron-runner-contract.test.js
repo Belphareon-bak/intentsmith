@@ -880,7 +880,7 @@ test('composer PASS evidence requires actual rejection, exact input, context che
   assert.throws(() => successEvidence({ ...args, m2ComposerJourney: true, m1Journey: true }), /composer-evidence-contract-failed/);
   const uiModes = {
     classicInitiallyAttached: true, studio2ExclusivelyAttached: true,
-    classicTransportAbsentInStudio2: true, classicRestored: true,
+    oneReusedTransportInStudio2: true, classicRestored: true,
   };
   const modeEvidence = successEvidence({ ...args, studio2ModeJourney: true,
     uiModes: { ...uiModes, privateCanary: 'PRIVATE_STUDIO2_CANARY' } });

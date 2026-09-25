@@ -1926,7 +1926,7 @@ export function validateM2ComposerEvidence(value) {
 const STUDIO2_MODE_FIELDS = Object.freeze([
   'classicInitiallyAttached',
   'studio2ExclusivelyAttached',
-  'classicTransportAbsentInStudio2',
+  'oneReusedTransportInStudio2',
   'classicRestored',
 ]);
 

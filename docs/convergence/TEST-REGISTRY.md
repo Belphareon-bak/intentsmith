@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 544
+- Runnable programs: 545
 - Explicit support-module exclusions: 22
-- Profiles: offline=298, database=80, server=49, model=82, soak=15, manual=20
-- States: ACTIVE=450, HISTORICAL=15, BLOCKED=79
+- Profiles: offline=299, database=80, server=49, model=82, soak=15, manual=20
+- States: ACTIVE=451, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -553,6 +553,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T5-TESTS-STUDIO-M1-ELECTRON-JOURNEY-E2E` | `tests/studio-m1-electron-journey.e2e.js` | `C3-001` | T5 | `server` | 2 min | 5 min | network:loopback, temp-db, toolchain:linux-user-network-namespace, toolchain:iproute2, toolchain:x11-display | yes | `ACTIVE` | — | primary implementer |
 | `IS-T5-TESTS-STUDIO-M2-COMPOSER-DOM-E2E` | `tests/studio-m2-composer-dom.e2e.js` | `C3-001` | T5 | `server` | 2 min | 5 min | network:loopback, temp-db, toolchain:linux-user-network-namespace, toolchain:iproute2, toolchain:x11-display | yes | `ACTIVE` | — | primary implementer |
 | `IS-T5-TESTS-STUDIO2-EXCLUSIVE-UI-E2E` | `tests/studio2-exclusive-ui.e2e.js` | `C3-001` | T5 | `server` | 2 min | 5 min | network:loopback, temp-db, toolchain:linux-user-network-namespace, toolchain:iproute2, toolchain:x11-display | yes | `ACTIVE` | — | WP-STUDIO-2 S2-0 |
+| `IS-T1-TESTS-STUDIO2-SESSION-STORE-TEST` | `tests/studio2-session-store.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-SYMBOL-INDEX-TEST` | `tests/symbol-index.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-TASK-MEMORY-TEST` | `tests/task-memory.test.js` | `C3-016` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-TELEMETRY-AGGREGATION-VERSION-TEST` | `tests/telemetry-aggregation-version.test.js` | `C3-027` | T2 | `database` | 1 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |

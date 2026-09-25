@@ -15968,6 +15968,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-STUDIO2-SESSION-STORE-TEST",
+      "path": "tests/studio2-session-store.test.js",
+      "argv": [
+        "node",
+        "tests/studio2-session-store.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T1",
+      "fixture": "memory storage and Studio 2 session state",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-STUDIO-2-20260925",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-IDE-WORKSPACE-TEST",
       "path": "tests/ide-workspace.test.js",
       "argv": [

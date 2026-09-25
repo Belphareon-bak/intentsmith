@@ -14,8 +14,10 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail }) {
     studio2Widget: Boolean(document.getElementById('intentsmith-studio2')),
     studio2WidgetText: document.getElementById('intentsmith-studio2')?.textContent?.slice(0, 200) || null,
     widgetIds: [...document.querySelectorAll('[id*="intentsmith"]')].map(el => el.id).slice(0, 24),
-    classicTransport: Boolean(window.IntentSmithWS?.connect),
-    classicBus: Boolean(window.IntentSmithBus?.on),
+    transport: Boolean(window.IntentSmithWS?.connect),
+    bus: Boolean(window.IntentSmithBus?.on),
+    classicFacade: Boolean(window._intentsmith),
+    busListeners: window.IntentSmithBus?._debug?.() || {},
   }))()`;
   const waitFor = async (predicate, label) => {
     const deadline = Date.now() + 60_000;
@@ -33,24 +35,27 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail }) {
     fail('studio2-mode-timeout', { stage: label, last });
   };
   const classic = await waitFor(s => s.mode === 'classic' && s.switchReady
-    && s.classicSidebar && s.classicChat && !s.studio2 && s.classicTransport, 'initial-classic');
+    && s.classicSidebar && s.classicChat && !s.studio2 && s.transport, 'initial-classic');
   await evaluate(cdp, `(() => {
     setTimeout(() => window.IntentSmithStudioMode.selectMode('studio2'), 0);
     return true;
   })()`);
   const studio2 = await waitFor(s => s.mode === 'studio2' && s.switchReady
     && s.studio2 && !s.classicSidebar && !s.classicChat
-    && !s.classicTransport && !s.classicBus, 'studio2-only');
+    && s.transport && s.bus && !s.classicFacade
+    && s.busListeners['chat:message'] === 1 && s.busListeners['chat:terminal'] === 1, 'studio2-only');
   await evaluate(cdp, `(() => {
     setTimeout(() => window.IntentSmithStudioMode.selectMode('classic'), 0);
     return true;
   })()`);
   const restored = await waitFor(s => s.mode === 'classic' && s.switchReady
-    && s.classicSidebar && s.classicChat && !s.studio2 && s.classicTransport, 'classic-restored');
+    && s.classicSidebar && s.classicChat && !s.studio2 && s.transport, 'classic-restored');
   return Object.freeze({
     classicInitiallyAttached: classic.classicSidebar && classic.classicChat,
     studio2ExclusivelyAttached: studio2.studio2 && !studio2.classicSidebar && !studio2.classicChat,
-    classicTransportAbsentInStudio2: !studio2.classicTransport && !studio2.classicBus,
+    oneReusedTransportInStudio2: studio2.transport && studio2.bus
+      && studio2.busListeners['chat:message'] === 1 && studio2.busListeners['chat:terminal'] === 1
+      && !studio2.classicFacade,
     classicRestored: restored.classicSidebar && restored.classicChat && !restored.studio2,
   });
 }
