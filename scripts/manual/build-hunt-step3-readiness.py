@@ -1,0 +1,193 @@
+#!/usr/bin/env python3
+"""Read-only reconciliation of the 2026-09-25 hunt campaign for human review.
+
+No grader, model inference, database write, role recommendation or activation.
+The packet is checked byte-for-byte against the current D/R public prompts and
+rubrics.  A precommitted sample is selected before any review is opened.
+"""
+import collections
+import datetime as dt
+import hashlib
+import json
+import pathlib
+import urllib.request
+
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+EVIDENCE = pathlib.Path('/mnt/vi7000/intentsmith/evidence')
+PACKET = EVIDENCE / 'hunt-isolated-20260925/blind/packet.json'
+CAMPAIGN = ROOT / 'docs/review/evidence/2026-09-25-hunt-isolated-campaign.json'
+TASKS = ROOT / 'src/eval/fixtures/role-semantic-tasks.json'
+CHAT_PLAN = EVIDENCE / 'hunt-chat-panel-20260923/capture/plan.json'
+CHAT_SUMMARY = EVIDENCE / 'hunt-chat-panel-20260923/capture/summary.json'
+OUT = ROOT / 'docs/review/evidence/2026-09-25-hunt-step3-readiness.json'
+DOC = ROOT / 'docs/review/2026-09-25-HUNT-STEP3-READINESS.md'
+ROLES = ('D1', 'D2', 'CODE', 'R1', 'R2', 'CHAT', 'VISION')
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+def read(path):
+    data = path.read_bytes()
+    return json.loads(data), sha(data)
+
+def get_json(url):
+    with urllib.request.urlopen(url, timeout=5) as response:
+        return json.load(response)
+
+def rank(seed, *parts):
+    return sha(('\x00'.join((seed, *parts))).encode())
+
+def main():
+    packet, packet_sha = read(PACKET)
+    campaign, campaign_sha = read(CAMPAIGN)
+    fixture, fixture_sha = read(TASKS)
+    chat_wrapper, chat_plan_sha = read(CHAT_PLAN)
+    chat_summary, chat_summary_sha = read(CHAT_SUMMARY)
+    plan = chat_wrapper['plan']
+    assert packet['status'] == 'DEVELOPMENT_BLIND_REVIEW' and packet['decisionAuthority'] is False
+    assert len(packet['cases']) == 312 and len(fixture['tasks']) >= 32
+    assert len(plan['models']) == 10 and len(plan['tasks']) == 40 and plan['repeats'] == 3
+    assert chat_summary['plannedConversations'] == 1200 and chat_summary['finishedConversations'] == 1200
+    assert chat_summary['capturedConversations'] == 1196
+    task_map = {task['name']: task for task in fixture['tasks'] if task['role'] in ('D1','D2','R1','R2')}
+    assert len(task_map) == 32
+    grouped = collections.defaultdict(list)
+    for case in packet['cases']:
+        task = task_map[case['task']]
+        assert case['role'] == task['role']
+        assert case['question'] == task['prompt']
+        assert case['rubric'] == task['reference']['criteria']
+        grouped[(case['role'], case['task'])].append(case)
+    assert set(grouped) == {(t['role'], t['name']) for t in task_map.values()}
+    selected = {(s['model'], s['role']): s for s in campaign['selected']}
+    assert len(selected) == 16
+    current_tags = {m['name']: m['digest'] for m in get_json('http://127.0.0.1:11434/api/tags')['models']}
+    models = []
+    for item in plan['models']:
+        name, artifact = item['name'], item['artifact']
+        digest = artifact['digestSha256']
+        assert current_tags.get(name) == digest, f'ARTIFACT_DRIFT:{name}'
+        request = urllib.request.Request('http://127.0.0.1:11434/api/show',
+            data=json.dumps({'model':name}).encode(), headers={'Content-Type':'application/json'})
+        with urllib.request.urlopen(request, timeout=5) as response:
+            capabilities = json.load(response).get('capabilities', [])
+        models.append({'model':name, 'digestSha256':digest,
+            'providerVersion':artifact['providerVersion'], 'capabilities':sorted(capabilities)})
+    assert len({m['digestSha256'] for m in models}) == 10
+    cells = []
+    for model in models:
+        for role in ROLES:
+            row = {'model':model['model'], 'digestSha256':model['digestSha256'], 'role':role,
+                   'status':None, 'source':None, 'runId':None, 'suiteContractSha256':None,
+                   'currentSuiteContractSha256':None, 'inputOptionsSha256':None,
+                   'responseCount':0, 'graded':False, 'decisionAuthority':False, 'reason':None}
+            run = selected.get((model['model'],role))
+            if run:
+                assert run['digestSha256'] == model['digestSha256']
+                row.update(status='SEBRÁNO',source='isolated-20260925',runId=run['runId'],
+                    suiteContractSha256=run['contractSha256'],
+                    currentSuiteContractSha256=run['currentContractSha256'],
+                    inputOptionsSha256=campaign['roles'][role]['currentInputOptionsSha256'],
+                    responseCount=run['responses'],
+                    reason='Exact raw answers; semantic review pending' if role != 'VISION'
+                      else 'Technical score only; deterministic repeats identical, no accepted rank-check')
+            elif role == 'VISION' and 'vision' not in model['capabilities']:
+                row.update(status='N/A',source='Ollama capabilities for exact digest',
+                    reason='Exact installed artifact has no vision capability')
+            elif role == 'CODE':
+                row.update(status='BLOKOVÁNO',source='CODE full-suite preflight',
+                    reason='CODE_ORACLE_CONTROL_FAILED before model inference; historical components are not full scores')
+            elif role == 'CHAT':
+                row.update(status='ČÁSTEČNÉ',source='chat-panel-20260923',
+                    suiteContractSha256=plan['fixtureSha256'],responseCount=120,
+                    reason='120 dialogues attempted under draft profile; 1196/1200 captured panel-wide; production system prompt not verified')
+            else:
+                row.update(status='CHYBÍ',source='isolated-20260925',
+                    reason='No exact comparable capture for this model and role')
+            cells.append(row)
+    # VISION/CODE/CHAT have their own suites.  This audit concerns only the D/R
+    # task set, and does not call author probes an independent acceptance.
+    tasks = []
+    for task in fixture['tasks']:
+        if task['name'] not in task_map: continue
+        cases = grouped[(task['role'],task['name'])]
+        controls = task['reference']['controls']
+        assert {'keyword-stuffing','negated-facts','confident-wrong'} <= set(controls)
+        assert task['reference']['gold'] and task['reference']['alternative']
+        assert len(cases) in (9,12)
+        tasks.append({'role':task['role'],'task':task['name'],
+            'language':task['language'],'independenceGroup':task['independenceGroup'],
+            'purpose':task['reference']['criteria'][0],
+            'sourceRevision':task['provenance']['revision'],
+            'sourcePath':task['provenance']['path'],
+            'sourceFileSha256':task['provenance']['fileSha256'],
+            'publicContextChars':len(task['prompt']),
+            'promptSha256':sha(task['prompt'].encode()),
+            'rubricSha256':sha(json.dumps(task['reference']['criteria'],ensure_ascii=False).encode()),
+            'criteria':len(task['reference']['criteria']),'capturedResponses':len(cases),
+            'goldAndAlternativePresent':True,'authorNegativeControls':controls,
+            'contextSufficiency':'REQUIRES_INDEPENDENT_REVIEW',
+            'oracleAcceptance':'AUTHOR_PROBES_ONLY'})
+    # Select two whole scenario groups per role and one repetition per label.
+    # Each role therefore contributes a comparison of answers to the SAME task.
+    sample = []
+    for role in ('D1','D2','R1','R2'):
+        names = sorted(t['name'] for t in task_map.values() if t['role']==role)
+        chosen = sorted(names,key=lambda task:rank(packet_sha,'task',role,task))[:2]
+        for task in chosen:
+            labels = sorted({c['label'] for c in grouped[(role,task)]})
+            for label in labels:
+                options = [c for c in grouped[(role,task)] if c['label']==label]
+                assert len(options)==3 and sorted(c['repeat'] for c in options)==[1,2,3]
+                case = min(options,key=lambda c:rank(packet_sha,'repeat',role,task,label,str(c['repeat'])))
+                sample.append({'id':case['id'],'role':role,'task':task,
+                    'label':label,'repeat':case['repeat']})
+    assert len(sample)==26 and len({c['id'] for c in sample})==26
+    result={'schemaVersion':1,'status':'STEP3_PREPARATION_NO_GRADES',
+        'decisionAuthority':False,'generatedAt':dt.datetime.now(dt.timezone.utc).isoformat(),
+        'sources':{'packet':{'path':str(PACKET),'sha256':packet_sha},
+            'campaign':{'path':str(CAMPAIGN),'sha256':campaign_sha},
+            'tasks':{'path':str(TASKS),'sha256':fixture_sha},
+            'chatPlan':{'path':str(CHAT_PLAN),'sha256':chat_plan_sha,
+                        'sealedPlanSha256':chat_wrapper['sha256']},
+            'chatSummary':{'path':str(CHAT_SUMMARY),'sha256':chat_summary_sha}},
+        'models':models,'cells':cells,'taskAudit':tasks,'presampledOperatorCases':sample,
+        'reviewScope':{'semanticPacketCases':312,'semanticCriteria':sum(len(c['rubric']) for c in packet['cases']),
+            'packetModelLabelsByRole':{r:dict(collections.Counter(c['label'] for c in packet['cases'] if c['role']==r))
+                for r in ('D1','D2','R1','R2')},
+            'blindnessLimitation':'Prior exposure to identified answers/grades must be disclosed by each reviewer; anonymity alone does not prove independence.',
+            'humanReference':'NOT_CREATED','opusReview':'NOT_IMPORTED','codexReview':'NOT_CREATED'},
+        'gates':{'D_R':'RAW_CAPTURE_COMPARABLE_BUT_GRADER_NOT_ACCEPTED',
+            'CODE':'ORACLE_PREFLIGHT_BLOCKED','CHAT':'PRODUCTION_PROFILE_AND_GRADING_OPEN',
+            'VISION':'TECHNICAL_EXPLORATION_ONLY','roleDecision':'NO_GO'}}
+    OUT.write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n')
+    symbol={'N/A':'N/A','CHYBÍ':'CHYBÍ','SEBRÁNO':'SEBRÁNO','ČÁSTEČNÉ':'ČÁSTEČNÉ','BLOKOVÁNO':'BLOKOVÁNO'}
+    by={(c['model'],c['role']):c for c in cells}
+    lines=['# GPU hunt: podklad pro krok 3','',
+      '25. 9. 2026 · **bez rozhodovací autority a bez vydaných sémantických známek**','',
+      'Tento přehled váže stav každé buňky na přesný digest a zdroj. `SEBRÁNO` znamená pouze úplný syrový sběr v dané sadě, nikoli přijaté skóre. `ČÁSTEČNÉ` u CHAT znamená sběr pod vývojovým profilem bez ověřeného produkčního systémového promptu. `BLOKOVÁNO` u CODE je selhání orákula před inferencí, ne nula modelu. `N/A` u VISION je doložené nepřítomností capability `vision` na přesném lokálním artefaktu.','',
+      f'Kanonický [formulář]({PACKET.parent / "review.html"}) má 312 celých odpovědí a 840 kritérií; packet SHA256 `{packet_sha}`. Starší oddělené packety po 120 jsou stažené ze srovnávacího hodnocení. Níže předvolený náhodný vzorek vznikl z tohoto SHA **před otevřením nových známek**.','',
+      '| Model (digest prefix) | D1 | D2 | CODE | R1 | R2 | CHAT | VISION |','|---|---|---|---|---|---|---|---|']
+    for m in models:
+        lines.append('| '+m['model']+' (`'+m['digestSha256'][:12]+'`) | '+' | '.join(symbol[by[(m['model'],r)]['status']] for r in ROLES)+' |')
+    lines.extend(['','## Podklad a omezení sad','',
+      '- D1/D2/R1/R2: 8 historických skupin na roli, všech 312 odpovědí přesně odpovídá aktuálnímu veřejnému zadání a rubrice. 32 úloh má autora gold, alternativu a negativní sondy; **nezávislá přejímka dostatku kontextu a významového hodnocení chybí**. Zadání jsou aktuálně jen anglicky. Počet opakování nepřidává nezávislé případy. Přesné SHA, původ a počet kritérií každé úlohy jsou ve [strojovém podkladu](evidence/2026-09-25-hunt-step3-readiness.json).',
+      '- CODE: aktivní historické orákulum stále přijme věcný rozpor a odmítne správnou parafrázi. Připravená v2 není přijata nezávisle. Plné modelové známky zůstávají `null`.',
+      '- CHAT: pečetěný plán má 10 modelů × 40 dialogů × 3 pokusy. Všech 1 200 pokusů skončilo, 1 196 bylo zachyceno; čtyři skončily výstupním limitem nebo transportní chybou. Bez skutečného produkčního systémového promptu a dokončeného druhého posudku jde jen o vývojové odpovědi.',
+      '- VISION: 3 × 23 úloh bylo sebráno, ale tři opakování při `temperature: 0` jsou vždy stejná. U dalšího měření stačí jedna deterministická odpověď; chybějící vision-capable modely jsou v tabulce `CHYBÍ`, ne `N/A`.','',
+      '## Předem vybraný vzorek pro operátora','',
+      'Pro každou D/R roli jsou vybrány dvě celé historické úlohy a jedna náhodně určená odpověď každého anonymního modelu na **tutéž** úlohu. Jde o 26 odpovědí; výběr nečetl známky. K tomu po příchodu obou posudků přibudou všechny neshody, nízká jistota nahlášená hodnotitelem a kritická selhání.','',
+      '| Role | Úloha | Odpověď | ID |','|---|---|---|---|'])
+    for c in sample:lines.append(f"| {c['role']} | `{c['task']}` | {c['label']}/{c['repeat']} | `{c['id']}` |")
+    lines.extend(['','## Krok 3 – přejímací postup','',
+      '1. Codex a Opus hodnotí **stejný úplný packet** odděleně, po kritériích s konkrétním důvodem a citací místa v odpovědi. Jakoukoli předchozí expozici identit nebo známek oba výslovně uvedou. Nevyplněná známka není nula.',
+      '2. Každý posudek se zmrazí jako samostatný soubor navázaný na SHA packetu. [Validátor](../../scripts/verify-hunt-blind-review.mjs) kontroluje úplnost 312 řádků / 840 kritérií a porovnává celé setiny. Původní známky nepřepisuje.',
+      '3. Operátor dostane tento předvolený vzorek, všechny spory nad 0,25 po kritériích, kritická selhání a explicitně označenou nízkou jistotu. Rozsudek bude samostatná vrstva s vlastním původem; nikdy nezmění syrové odpovědi nebo posudky.',
+      '4. Prozatímní procentní matice vznikne **až z rozsouzených skutečně hodnocených buněk** a nese původ každého skóre. Kde je CODE zablokovaný nebo CHAT neporovnatelný s produkcí, nesmí být procento vykládáno jako výběr modelu.','',
+      'Před GO stále zbývá nezávisle přijmout hodnotitele/orákula a ověřit pořadí na čerstvých provozních případech. Tato příprava neaktivuje model, timer ani mazání.',''])
+    DOC.write_text('\n'.join(lines))
+    print(json.dumps({'status':result['status'],'models':len(models),'cells':len(cells),
+        'tasks':len(tasks),'sample':len(sample),'packetSha256':packet_sha,
+        'output':str(DOC)},ensure_ascii=False))
+
+if __name__ == '__main__':main()

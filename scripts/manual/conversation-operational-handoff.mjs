@@ -13,7 +13,9 @@ if(args.includes('--prepare')){
  for(const key of ['tasks','benchmark'])if(!path.isAbsolute(opt(key)||''))throw Error('ABSOLUTE_'+key+'_REQUIRED');
  fs.mkdirSync(out,{mode:0o700});const tasks=JSON.parse(fs.readFileSync(opt('tasks'))),benchmark=JSON.parse(fs.readFileSync(opt('benchmark'))),pairs={};
  for(const role of roles)pairs[role]=benchmark.rows.filter(x=>x.role===role).sort((a,b)=>b.utilityMean-a.utilityMean).slice(0,2).map(x=>({model:x.model,artifact:x.artifact,benchmarkScore:x.utilityMean}));
- for(const t of tasks){if(!['CHAT','VISION'].includes(t.role))throw Error('BAD_ROLE');if(t.image&&hash(fs.readFileSync(t.image))!==t.imageSha256)throw Error('IMAGE_DRIFT');}
+ for(const t of tasks){if(!['CHAT','VISION'].includes(t.role))throw Error('BAD_ROLE');
+  if(t.role==='CHAT' && t.turns && (!Array.isArray(t.turns)||t.turns.length<1||t.turns.length>4||t.turns.some(turn=>typeof turn!=='string'||!turn.trim())))throw Error('BAD_CHAT_TURNS');
+  if(t.image&&hash(fs.readFileSync(t.image))!==t.imageSha256)throw Error('IMAGE_DRIFT');}
  const plan={status:'SEALED',roles,providerVersion,createdAt:new Date().toISOString(),sourceRevision:git('rev-parse','HEAD'),workingTreeDirty:!!git('status','--porcelain'),sourceHashes:Object.fromEntries(sourceFiles.map(f=>[f,hash(fs.readFileSync(path.join(root,f)))])),tasks,pairs,benchmarkSha256:hash(fs.readFileSync(opt('benchmark'))),taskFileSha256:hash(fs.readFileSync(opt('tasks'))),repeats:1,totalBudgetMs:30*60000,decisionAuthority:false,operationPolicy:{productionImported:false,bindings:false,deletion:false,timer:false},profile:{CHAT:'actual handler/gateway settings, model-context cache fixed to 8192 for both candidates',VISION:'actual analyzeImages /api/generate: context4096 output2048 temperature.3'},scope:'Actual answer handler including history, prompt, authorized gateway and output gates; actual vision bridge. Isolated configured model selection, no durable production binding and no whole Studio journey. Every provider response is captured passively; missing response digest blocks qualification rather than being replaced by inventory checks.',limitations:['No independently accepted semantic judge.','Clock context is supplied by the production bridge at call time and recorded.','A role stops on absent response attestation or CPU spill; remaining planned attempts stay explicitly unattempted.','Real report screenshots are controller-rendered documents, not live Studio captures.']};plan.planSha256=hash(plan);save('plan.json',plan);console.log('SEALED',plan.planSha256);process.exit(0);
 }
 const plan=JSON.parse(fs.readFileSync(path.join(out,'plan.json'))),{planSha256,...mat}=plan;if(hash(mat)!==planSha256)throw Error('PLAN_DRIFT');if(git('status','--porcelain'))throw Error('DIRTY_SOURCE');
@@ -49,8 +51,16 @@ try{
     if(blocked){report.unattempted.push({role,id:t.id,model:pair.model,reason:blocked});continue;}
     if(cancel||Date.now()-Date.parse(report.startedAt)>plan.totalBudgetMs)throw Error('CANCELLED_OR_BUDGET');
     current={id:t.id+'-'+hash(pair.model).slice(0,8),role,task:t.id,model:pair.model,artifact:pair.artifact,receipts:[],startedAt:new Date().toISOString(),gradingStatus:'NOT_GRADED'};active=pair.model;
-    try{if(role==='CHAT')current.result=await handleAnswerDecision(t.input,{intent:'CONVERSATIONAL',type:'ANSWER',toJSON(){return {intent:this.intent,type:this.type};}},{sessionId:current.id,history:t.history||[]});
-     else {if(hash(fs.readFileSync(t.image))!==t.imageSha256)throw Error('IMAGE_DRIFT');current.result=await analyzeImages(t.input,[fs.readFileSync(t.image).toString('base64')]);}
+    try{if(role==='CHAT'){
+      const decision={intent:'CONVERSATIONAL',type:'ANSWER',toJSON(){return {intent:this.intent,type:this.type};}};
+      const history=structuredClone(t.history||[]);current.dialogue=[];
+      for(const input of t.turns||[t.input]){
+       const result=await handleAnswerDecision(input,decision,{sessionId:current.id,history});
+       current.dialogue.push({input,result});current.result=result;
+       if(result?.tag?.metadata?.error)throw Error('PRODUCTION_HANDLER_ERROR');
+       history.push({userInput:input,response:{content:result.content,tag:result.tag}});
+      }
+     }else {if(hash(fs.readFileSync(t.image))!==t.imageSha256)throw Error('IMAGE_DRIFT');current.result=await analyzeImages(t.input,[fs.readFileSync(t.image).toString('base64')]);}
     }catch(e){current.error=e.message;}
     const actual=current.receipts.filter(x=>x.body?.model);
     current.proof=actual.length&&actual.every(x=>(x.data?.digest||x.data?.model_digest_sha256||'').replace(/^sha256:/,'')===pair.artifact.digestSha256&&x.data?.provider_version===plan.providerVersion)?'RESPONSE_BOUND':'RESPONSE_UNVERIFIED';
