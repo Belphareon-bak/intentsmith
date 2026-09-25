@@ -7,7 +7,8 @@ import { isAbsolute, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
-const scores = new Set([0, .25, .5, .75, 1]);
+const validScore = score => Number.isFinite(score) && score >= 0 && score <= 1
+  && Math.abs(score * 100 - Math.round(score * 100)) < 1e-8;
 const fail = code => { throw new Error(`HUNT_BLIND_REVIEW_INVALID:${code}`); };
 const exactKeys = (value, keys) => value && !Array.isArray(value) && typeof value === 'object'
   && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
@@ -38,7 +39,7 @@ export function verifyHuntBlindReview(packetBytes, review) {
     if (!exactKeys(row,['id','ratings','reasons']) || !expected.has(row.id) || graded.has(row.id)) fail('REVIEW_CASE_ID');
     const item = expected.get(row.id);
     if (!Array.isArray(row.ratings) || row.ratings.length !== item.rubric.length
-      || !row.ratings.every(score => scores.has(score))
+      || !row.ratings.every(validScore)
       || !Array.isArray(row.reasons) || row.reasons.length !== item.rubric.length
       || row.reasons.some(reason => typeof reason !== 'string' || !reason.trim())) fail('REVIEW_CRITERIA');
     graded.set(row.id,row);

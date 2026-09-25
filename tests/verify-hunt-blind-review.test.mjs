@@ -23,6 +23,15 @@ test('complete grounded draft validates but never becomes accepted evidence',()=
   assert.equal(result.acceptedGrader,false);
 });
 
+test('grounded hundredth-step grades are valid but arbitrary precision and out-of-range scores are rejected',()=>{
+  const partial=review();partial.cases[0].ratings[1]=.98;
+  assert.equal(verifyHuntBlindReview(packet,partial).cases,2);
+  for(const score of [.333,-.01,1.01,NaN]){
+    const invalid=review();invalid.cases[0].ratings[1]=score;
+    assert.throws(()=>verifyHuntBlindReview(packet,invalid),/REVIEW_CRITERIA/);
+  }
+});
+
 test('packet binding and missing grades fail closed',()=>{
   assert.throws(()=>verifyHuntBlindReview(Buffer.from(packet.toString()+' '),review()),/REVIEW_HEADER/);
   const missing=review();missing.cases[0].ratings[1]=null;

@@ -416,7 +416,28 @@ if (DO_RUN) {
 }
 const evaluationDecisionStore = new ModelEvaluationDecisionStore(db);
 const bindingRepository = createModelFailoverRepository(db);
-const evaluationPlans = createRoleEvaluationPlans({ db });
+let evaluationPlans = createRoleEvaluationPlans({ db });
+// CODE's historical oracle can exist yet reject its own gold/alternative
+// controls. Check the executable oracle once before any candidate is placed on
+// the GPU; a failed control is an unavailable measurement, never model quality.
+if (DO_RUN && ROLES.includes('CODE') && evaluationPlans.CODE.measurementReady) {
+  try {
+    for (const test of evaluationPlans.CODE.suite.tests) {
+      test.prepare();
+      test.validateOracle();
+    }
+  } catch (error) {
+    const plan = evaluationPlans.CODE;
+    evaluationPlans = Object.freeze({ ...evaluationPlans, CODE: Object.freeze({ ...plan,
+      measurementReady: false, decisionReady: false,
+      // Keep the suite file unchanged: it contributes to the locked CODE SHA.
+      // The subtype here is diagnostic only; the complete reason is retained.
+      runtimeBlockCode: error.message?.includes('oracle controls failed:')
+        ? 'CODE_ORACLE_CONTROL_FAILED' : error.code || 'CODE_FIXTURE_RUNTIME_UNAVAILABLE',
+      runtimeBlockReason: error.message,
+    }) });
+  }
+}
 const evaluationRunner = new RoleQualityEvaluationRunner(config.ollama?.baseUrl, {
   codePatchSuite: evaluationPlans.CODE.suite, roleSuites: { vision_v2: evaluationPlans.VISION.suite },
 });
@@ -754,13 +775,26 @@ if (!picked.length) {
 
 const readyRoles = ROLES.filter(role => (evaluationPlans[role]?.measurementReady ?? evaluationPlans[role]?.decisionReady) !== false);
 const blockedRoles = ROLES.filter(role => !readyRoles.includes(role));
+const blockedRoleDetails = blockedRoles.map(role => {
+  const plan = evaluationPlans[role];
+  return { role, code: plan.runtimeBlockCode || 'EVALUATION_SUITE_NOT_READY',
+    reason: plan.runtimeBlockReason || `${plan.suiteName} má ${plan.taskCount}/${plan.minimumTaskCount} požadovaných aktivních úloh`,
+    suiteContractSha256: plan.suiteContractSha256 };
+});
 for (const role of blockedRoles) {
   const plan = evaluationPlans[role];
-  log(`  [suite-readiness] ${role}: ${plan.suiteName} má ${plan.taskCount}/${plan.minimumTaskCount} `
-    + 'požadovaných aktivních úloh');
+  log(plan.runtimeBlockCode
+    ? `  [suite-readiness] ${role}: ${plan.runtimeBlockCode}: ${plan.runtimeBlockReason}`
+    : `  [suite-readiness] ${role}: ${plan.suiteName} má ${plan.taskCount}/${plan.minimumTaskCount} požadovaných aktivních úloh`);
 }
 if (readyRoles.length === 0) {
-  log('\nŽádná vybraná role nemá rozhodovací sadu; bez stahování a bez GPU běhu končím.');
+  log('\nŽádná vybraná role nemá dostupnou měřicí sadu; bez stahování a bez GPU běhu končím.');
+  emitJsonArtifact({
+    generatedAt: new Date().toISOString(), providerVersion, status: 'BLOCKED', code: 'EVALUATION_SUITE_NOT_READY',
+    reasons: blockedRoleDetails.map(item => `${item.role}: ${item.code}: ${item.reason}`),
+    blockedRoles: blockedRoleDetails, queue: picked, results: [],
+  });
+  db.close();
   process.exit(0);
 }
 
@@ -1189,7 +1223,9 @@ if (AS_JSON || REPORT_PATH) {
     ...(EVALUATE_INSTALLED ? { status: results.some(r => r.error || r.roleErrors?.length) ? 'FAILED'
       : results.length === 1 && ROLE_FILTER.every(role => results[0].trials?.some(t => t.role === role && t.evaluation && !t.skipped)) ? (results[0].trials.some(t => t.evaluation?.collection) ? 'AWAITING_REVIEW' : 'COMPLETE') : 'BLOCKED' }
       : { status: results.some(r => r.error || r.roleErrors?.length) ? 'FAILED'
+        : blockedRoles.length ? 'PARTIAL'
         : results.some(r => r.trials?.some(t => t.evaluation?.collection)) ? 'AWAITING_REVIEW' : 'COMPLETE' }),
+    blockedRoles: blockedRoleDetails,
     gpu, providerVersion, huntCatalog: huntState.summary(), catalogUpdatesRequiringManualImport,
     perRole: Object.fromEntries([...perRole].map(([r, l]) => [r, l])),
     queue, results, proposedBindings: bindings, portfolio,

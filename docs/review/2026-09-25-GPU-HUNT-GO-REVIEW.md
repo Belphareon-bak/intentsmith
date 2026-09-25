@@ -2,7 +2,7 @@
 
 25. 9. 2026 · `work/hunt-model-controls-20260917` · **NO_GO pro autonomní výměny**
 
-Tento packet popisuje skutečný stav. Vývojová větev není nainstalovaná release a zelené syntetické testy nepředstavují přejímku modelů. Souhrnný [read-only audit živého stavu](evidence/2026-09-25-hunt-readiness-live.json) lze opakovat:
+Tento packet popisuje skutečný stav. Vývojová větev není nainstalovaná release a zelené syntetické testy nepředstavují přejímku modelů. Novější [izolovaná kampaň a podklady k revizi](2026-09-25-GPU-HUNT-ISOLATED-CAMPAIGN.md) rozšiřují počet přesných sběrů, ale nemění tento verdikt ani živé přiřazení. Souhrnný [read-only audit živého stavu](evidence/2026-09-25-hunt-readiness-live.json) lze opakovat:
 
 ```bash
 node scripts/audit-hunt-readiness.mjs --db=/home/belphareon/Projects/intentsmith/data/c3.db

@@ -162,7 +162,8 @@ try {
     code: resourceBlock?.code || report?.code || /Error:\s*([A-Z][A-Z0-9_]{3,})/.exec(failureOutput)?.[1] || null,
     resources: resourceBlock || null,
     error: code !== 0 ? (report?.error || failureOutput.trim() || 'Proces měření skončil bez výsledku; podrobnosti jsou v systémovém logu.') : null,
-    reasons: report?.reasons || [], diagnostics: analyzeHuntDecisions(report?.results || []), results: (report?.results || []).map(r => ({
+    reasons: report?.reasons || [], blockedRoles: report?.blockedRoles || [],
+    diagnostics: analyzeHuntDecisions(report?.results || []), results: (report?.results || []).map(r => ({
       model: r.model, stage: r.stage, error: r.error || null, roleErrors: r.roleErrors?.length || 0,
       roleFailures: (r.roleErrors || []).map(f => ({ role: f.role, model: f.model, code: f.code, error: f.error, failedTasks: f.failedTasks || [] })),
       evaluations: (r.trials || []).filter(t => t.evaluation).map(t => ({role:t.role, score:t.evaluation.score, collection:t.evaluation.collection||null, reused:t.evaluation.reused === true})),
