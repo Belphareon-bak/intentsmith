@@ -1,6 +1,6 @@
 # Decision 049 — Studio 2.0: nové UI nad stávajícím hostitelem a správa zdrojů
 
-Datum: 2026-09-25. Stav: **ZADÁNO OPERÁTOREM / ČEKÁ NA PŘIJETÍ BODŮ D1–D5**.
+Datum: 2026-09-25. Stav: **D1–D5 PŘIJATO CODEXEM PRO IMPLEMENTACI; S2-U INTEGRAČNÍ KANDIDÁT, S2-0 AŽ S2-7 OTEVŘENÉ**.
 Prováděcí kontrakt: [`WP-STUDIO-2-20260925`](../wp/WP-STUDIO-2-20260925.md).
 Dokumentace: [`docs/studio2/`](../studio2/README.md).
 
@@ -43,7 +43,7 @@ uspořádání, ne připnuté chování.
    přepínání a zakládání větví, potvrzení commitu, pull (ideálně automaticky),
    push, historie.
 
-## K přijetí operátorem
+## Přijaté body D1–D5
 
 **D1 — Hostitel zůstává Theia, vyměňuje se vrstva UI.** Operátor 2026-09-25
 požaduje nejnovější stabilní verzi, pokud projde funkční kompatibilita.
