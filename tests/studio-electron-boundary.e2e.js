@@ -1928,6 +1928,9 @@ const STUDIO2_MODE_FIELDS = Object.freeze([
   'studio2ExclusivelyAttached',
   'oneReusedTransportInStudio2',
   'classicRestored',
+  'sixSessionsInThreeColumns',
+  'visibleSessionSwap',
+  'sessionsPersistedAcrossReload',
 ]);
 
 export function successEvidence({

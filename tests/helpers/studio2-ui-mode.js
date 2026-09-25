@@ -18,6 +18,8 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail }) {
     bus: Boolean(window.IntentSmithBus?.on),
     classicFacade: Boolean(window._intentsmith),
     busListeners: window.IntentSmithBus?._debug?.() || {},
+    sessionTabs: document.querySelectorAll('.intentsmith-s2-tab').length,
+    columnSessions: [...document.querySelectorAll('.intentsmith-s2-column-head select')].map(select => select.value),
   }))()`;
   const waitFor = async (predicate, label) => {
     const deadline = Date.now() + 60_000;
@@ -44,12 +46,41 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail }) {
     && s.studio2 && !s.classicSidebar && !s.classicChat
     && s.transport && s.bus && !s.classicFacade
     && s.busListeners['chat:message'] === 1 && s.busListeners['chat:terminal'] === 1, 'studio2-only');
+  await evaluate(cdp, `(async () => {
+    for (let i = 0; i < 5; i++) {
+      document.querySelector('[aria-label="Nová relace"]').click();
+      await new Promise(resolve => setTimeout(resolve, 35));
+    }
+    document.querySelector('[aria-label="3 sloupce"]').click();
+    return true;
+  })()`);
+  const six = await waitFor(s => s.mode === 'studio2' && s.sessionTabs === 6
+    && s.columnSessions.length === 3, 'six-sessions');
+  const original = [...six.columnSessions];
+  await evaluate(cdp, `(() => {
+    const select = document.querySelectorAll('.intentsmith-s2-column-head select')[0];
+    const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
+    setter.call(select, ${JSON.stringify(original[1])});
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  })()`);
+  const swapped = await waitFor(s => s.columnSessions[0] === original[1]
+    && s.columnSessions[1] === original[0] && s.columnSessions[2] === original[2], 'column-swap');
   await evaluate(cdp, `(() => {
     setTimeout(() => window.IntentSmithStudioMode.selectMode('classic'), 0);
     return true;
   })()`);
   const restored = await waitFor(s => s.mode === 'classic' && s.switchReady
     && s.classicSidebar && s.classicChat && !s.studio2 && s.transport, 'classic-restored');
+  await evaluate(cdp, `(() => {
+    setTimeout(() => window.IntentSmithStudioMode.selectMode('studio2'), 0);
+    return true;
+  })()`);
+  const persisted = await waitFor(s => s.mode === 'studio2' && s.studio2
+    && !s.classicChat && s.sessionTabs === 6
+    && s.columnSessions[0] === swapped.columnSessions[0]
+    && s.columnSessions[1] === swapped.columnSessions[1]
+    && s.columnSessions[2] === swapped.columnSessions[2], 'session-restore');
   return Object.freeze({
     classicInitiallyAttached: classic.classicSidebar && classic.classicChat,
     studio2ExclusivelyAttached: studio2.studio2 && !studio2.classicSidebar && !studio2.classicChat,
@@ -57,5 +88,8 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail }) {
       && studio2.busListeners['chat:message'] === 1 && studio2.busListeners['chat:terminal'] === 1
       && !studio2.classicFacade,
     classicRestored: restored.classicSidebar && restored.classicChat && !restored.studio2,
+    sixSessionsInThreeColumns: six.sessionTabs === 6 && six.columnSessions.length === 3,
+    visibleSessionSwap: swapped.columnSessions[0] === original[1] && swapped.columnSessions[1] === original[0],
+    sessionsPersistedAcrossReload: persisted.sessionTabs === 6 && persisted.columnSessions.length === 3,
   });
 }
