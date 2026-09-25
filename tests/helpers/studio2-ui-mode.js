@@ -28,6 +28,7 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
     environmentLoaded: Boolean(document.querySelector('.intentsmith-development')?.textContent?.includes('Skutečné prostředí backendu')),
     paletteOpen: Boolean(document.querySelector('[role="dialog"][aria-label="Paleta příkazů"]')),
     columnsVisible: Boolean(document.querySelector('.intentsmith-s2-columns')),
+    centerInsideStudio: Boolean(document.querySelector('[data-studio-ui="studio2"]')?.contains(document.elementFromPoint(innerWidth / 2, innerHeight / 2))),
     busListeners: window.IntentSmithBus?._debug?.() || {},
     sessionTabs: document.querySelectorAll('.intentsmith-s2-tab').length,
     columnSessions: [...document.querySelectorAll('.intentsmith-s2-column-head select')].map(select => select.value),
@@ -165,6 +166,7 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
     return true;
   })()`);
   const palette = await waitFor(s => !s.paletteOpen && s.columnsVisible, 'palette-session-navigation');
+  await waitFor(s => s.centerInsideStudio, 'visually-uncovered-studio2');
   const visible = await evaluate(cdp, `(() => {
     const root = document.querySelector('[data-studio-ui="studio2"]');
     const rect = root?.getBoundingClientRect();
@@ -194,6 +196,7 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
     visibleSessionSwap: swapped.columnSessions[0] === original[1] && swapped.columnSessions[1] === original[0],
     terminalPanelConnected: terminalUi.terminalInput && terminalUi.terminalClient,
     attachmentPickerRendered: studio2.attachmentPicker,
+    visuallyUncoveredStudio2: visible.centerInsideStudio,
     m2ReviewPanelRendered: m2Ui.m2Panel,
     backendEnvironmentLoaded: environment.environmentLoaded,
     commandPaletteNavigatesSession: palette.columnsVisible && !palette.paletteOpen,
