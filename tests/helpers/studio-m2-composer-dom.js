@@ -29,6 +29,9 @@ export async function rendererBuildComposerProbe({ cdp, paths, requests, evaluat
       environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' }, timeoutMs: 30000 },
   };
   const projectPath = path.join(paths.home, 'composer-dom-project');
+  // Opening an existing folder leaves its files unchanged. New projects now
+  // receive Git and an M2 policy, so they cannot exercise missing-policy rejection.
+  fs.mkdirSync(projectPath, { mode: 0o700 });
   const input = { projectPath, draft };
   const result = await evaluate(cdp, '(' + (async function ({ projectPath, draft }) {
     const pause = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
@@ -43,7 +46,7 @@ export async function rendererBuildComposerProbe({ cdp, paths, requests, evaluat
       const payload = await response.json();
       check(response.status === 201, 'fixture-registration'); return payload;
     };
-    const registered = await post('/api/projects', { name: 'Composer DOM fixture', type: 'general', path: projectPath });
+    const registered = await post('/api/projects/open-folder', { name: 'Composer DOM fixture', folderPath: projectPath });
     const projectId = registered.project?.id;
     check(Number.isSafeInteger(projectId) && projectId > 0, 'registered-project-id');
     const conversationA = (await post('/api/conversations', { title: 'Composer original context', project_id: projectId })).conversation;
@@ -122,16 +125,17 @@ export async function rendererBuildComposerProbe({ cdp, paths, requests, evaluat
   }).toString() + ')(' + JSON.stringify(input) + ')', 45000);
   const observed = [...requests.values()];
   const drafts = observed.filter(request => request.pathname === '/api/m2/lifecycle/draft');
-  const registrations = observed.filter(request => request.pathname === '/api/projects' || request.pathname === '/api/conversations');
+  const registrations = observed.filter(request => request.pathname === '/api/projects/open-folder' || request.pathname === '/api/conversations');
   if (observed.length !== 4 || drafts.length !== 1 || drafts[0].method !== 'POST' || drafts[0].status !== 503
     || registrations.length !== 3 || registrations.some(request => request.method !== 'POST' || request.status !== 201)
-    || registrations.filter(request => request.pathname === '/api/projects').length !== 1) fail('composer-request-boundary-failed');
+    || registrations.filter(request => request.pathname === '/api/projects/open-folder').length !== 1) fail('composer-request-boundary-failed');
   const expected = { projectId: result.projectId,
     origin: { surface: 'studio', sessionId: result.conversationId, conversationId: result.conversationId, projectId: result.projectId }, draft };
   let actual;
   try { actual = JSON.parse(drafts[0].postData); } catch { fail('composer-request-payload-unavailable'); }
   if (JSON.stringify(actual) !== JSON.stringify(expected)) fail('composer-request-payload-changed');
   if (fs.existsSync(path.join(projectPath, '.intentsmith/m2-governance-policy.json'))
+    || fs.existsSync(path.join(projectPath, '.git'))
     || draft.files.some(file => fs.existsSync(path.join(projectPath, file.path)))) fail('composer-rejection-mutated-project');
   return Object.freeze({ scope: 'built-dom-production-authenticated-policy-rejection',
     status: 503, errorCode: 'M2_LIFECYCLE_POLICY_UNAVAILABLE', fixtureRegistrationRequests: 3, draftRequests: 1, approvalRequests: 0,
