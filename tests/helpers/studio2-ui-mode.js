@@ -165,6 +165,20 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
     return true;
   })()`);
   const palette = await waitFor(s => !s.paletteOpen && s.columnsVisible, 'palette-session-navigation');
+  const visible = await evaluate(cdp, `(() => {
+    const root = document.querySelector('[data-studio-ui="studio2"]');
+    const rect = root?.getBoundingClientRect();
+    const center = document.elementFromPoint(innerWidth / 2, innerHeight / 2);
+    return { innerWidth, innerHeight, readyState: document.readyState,
+      rootRect: rect ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height } : null,
+      centerTag: center?.tagName || null, centerClass: String(center?.className || '').slice(0, 160),
+      centerInsideStudio: Boolean(root?.contains(center)),
+      topChildren: [...document.body.children].map(node => ({ tag: node.tagName, id: node.id,
+        className: String(node.className || '').slice(0, 120), display: getComputedStyle(node).display,
+        visibility: getComputedStyle(node).visibility, zIndex: getComputedStyle(node).zIndex })).slice(0, 12),
+    };
+  })()`);
+  await writeFile(path.join(artifactRoot, 'studio2-visible-dom.json'), JSON.stringify(visible, null, 2), { mode: 0o600 });
   const screenshot = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
   if (!screenshot?.data) fail('studio2-screenshot-empty');
   await writeFile(path.join(artifactRoot, 'studio2-current.png'), Buffer.from(screenshot.data, 'base64'), { mode: 0o600 });
