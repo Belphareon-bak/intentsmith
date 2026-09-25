@@ -7,7 +7,9 @@ Stav: podklad k [WP-STUDIO-2](../wp/WP-STUDIO-2-20260925.md), změřeno na
 ## Princip nejmenší práce
 
 Nová je jen **vizuální vrstva**. Transport, protokol, bezpečnostní hranice,
-Electron shell, balení a všechna backendová API zůstávají. Z monolitu
+Electron shell, jeho bezpečnostní chování a všechna backendová API zůstávají.
+Balení se převede na bundler Theie 1.76.0 podle S2-U; jeho vstupy a výsledné
+bezpečnostní chování se ověří znovu. Z monolitu
 `chat-panel-module.js` se převezme logika (načítání dat, perzistence relací,
 M2 klient, přílohy, terminál), nepřevezmou se React stromy s inline styly.
 
@@ -26,7 +28,7 @@ M2 klient, přílohy, terminál), nepřevezmou se React stromy s inline styly.
 |---|---|
 | `applications/electron/intentsmith-preload*.js` | `window.electronIntentSmith`: URL backendu, per-process capability, výběr příloh bez odhalení cesty. |
 | `applications/electron/intentsmith-local-access.js`, `intentsmith-local-http-bootstrap.js`, `intentsmith-local-origin-normalizer.js` | Jediný producent hlavičky `X-IntentSmith-Local-Capability`, jen pro přesný origin z privátního port-file. Připnuto `studio-electron-boundary.e2e.js` a `DIRECTION.md` 2026-08-07. |
-| `applications/electron/intentsmith-attachment-bridge.js`, `resolve-user-data.js`, `scripts/launch.js`, `webpack.config.js`, `electron-builder.yml` | Balení a spouštění; `desktop-runtime.mjs` a instalace releasů s nimi počítají. |
+| `applications/electron/intentsmith-attachment-bridge.js`, `resolve-user-data.js`, `scripts/launch.js`, `electron-builder.yml` | Balení a spouštění; `desktop-runtime.mjs` a instalace releasů s nimi počítají. Stávající `webpack.config.js` se při S2-U nahradí konfigurací nového bundleru se stejnými bezpečnostními vstupy. |
 | `extensions/intentsmith-protocol` | `validateM1Contract`, `validateCoreEventStream`, `classifyTerminal`; build ho generuje v `prebuild`, `verify-m1-consumer-build.js` hlídá. |
 | `extensions/intentsmith-backend-bridge`, `-ws-security`, `-process-isolation`, `-shell-security`, `-security-audit` | Nejsou UI. Bezpečnostní vrstvy se nesmí oslabit (L0-10). |
 | `extensions/intentsmith-release` | Release metadata. |
@@ -87,7 +89,9 @@ Jedenáct testovacích souborů odkazuje na `chat-panel-module.js`:
 
 Pravidlo: tvrzení se **nepřepisují ani neoslabují** (CONTRACT §7). Když se
 funkce přesune do modulu, test se přesměruje na modul se stejným tvrzením.
-Dokud je staré UI zapnuté (D2), zůstávají testy obou cest.
+Dokud je možné zvolit klasické UI (D2), zůstávají testy obou cest; nikdy
+se však nepřipojí obě UI současně. Po ověřené paritě S2-7 odstraní klasické
+UI z runtime a přesměruje všechna jeho tvrzení.
 
 ## 6. Ostatní rozšíření — ověřit, pak navrhnout dispozici
 

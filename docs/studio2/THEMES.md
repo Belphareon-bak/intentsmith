@@ -43,7 +43,8 @@ Komponenty nepoužívají žádnou pevnou barvu; jen tyto proměnné.
 ## 3. Převod uložených nastavení
 
 Dnešní UI ukládá do `localStorage`. Nové UI starý klíč **přečte, převede a
-ponechá** (návrat na Klasické Studio musí dál fungovat).
+ponechá** během souběhu voleb (návrat na Klasické Studio musí dál fungovat).
+Po S2-7 zůstane převod dat, ale klasické UI se už nenačítá ani nenabízí.
 
 | Dnes | Studio 2 |
 |---|---|

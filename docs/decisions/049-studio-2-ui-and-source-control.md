@@ -45,19 +45,23 @@ uspořádání, ne připnuté chování.
 
 ## K přijetí operátorem
 
-**D1 — Hostitel zůstává Theia 1.65, vyměňuje se vrstva UI.** Doporučeno.
-V souladu s `DIRECTION.md` 2026-08-02/03 (Linux + Theia + Ollama). Aktivní
-Studio z Theie používá jen kontejner widgetů, DI a sdílené knihovny
-([REUSE-MAP](../studio2/REUSE-MAP.md)); balení, launcher, desktop runtime,
-capability transport a jejich testy zůstávají beze změny. Vlastní Electron shell
+**D1 — Hostitel zůstává Theia, vyměňuje se vrstva UI.** Operátor 2026-09-25
+požaduje nejnovější stabilní verzi, pokud projde funkční kompatibilita.
+Vstupní kód měl Theiu 1.74.1, React 18 a Node 22; cíl je Theia 1.76.0,
+React 19 a Node 24. Přechod zahrnuje nový bundler a zachování launcheru,
+desktop runtime, capability transportu a jejich negativních testů. Pouhá
+změna verzí balíků není splnění D1. Vlastní Electron shell
 v duchu ShellSmith by ušetřil paměť, ale znamenal přepis balení a bezpečnostní
 hranice — je to samostatné L4 rozhodnutí, ne součást Studia 2.0.
 
-**D2 — Postupná výměna.** Nové UI vzniká jako nové rozšíření vedle
-autoritativního `intentsmith-chat-panel/lib` (Decision `DIRECTION.md`
-2026-08-07). Do parity se přepíná volbou „Studio 2 / Klasické Studio"; výchozí
-se stane až po splnění parity a přesměrování testů se stejnými tvrzeními.
-Odstranění starého UI je samostatný krok s vlastním potvrzením.
+**D2 — Postupná výměna, v běhu vždy jen jedno UI.** Operátor upřesnil
+2026-09-25. Nové UI vzniká jako nové rozšíření vedle autoritativního
+`intentsmith-chat-panel/lib` (Decision `DIRECTION.md` 2026-08-07).
+Do parity se přepíná volbou „Studio 2 / Klasické Studio". Při startu,
+obnově layoutu i přepnutí je k layoutu připojené nejvýš jedno z nich;
+skrytí starého UI přes CSS nestačí. Po prokázání všech správných funkcí,
+parity a přesměrování testů nové UI staré nahradí. Klasické se pak
+z runtime odstraní a nebude se dále používat ani nabízet jako volba.
 
 **D3 — Zápisové operace gitu jsou efekty (L0-11).** Commit, stage, založení a
 přepnutí větve, init: prepare → plán s digestem → potvrzení → provedení →
