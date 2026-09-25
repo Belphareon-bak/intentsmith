@@ -140,6 +140,7 @@ class TransportAdapter {
     this.changed();
     return sent;
   }
+  hasActiveM1Turn(session) { return window.IntentSmithWS.hasActiveM1Turn(session); }
   isTerminalExecuting(session) {
     const index = this.slots.indexOf(session);
     return index >= 0 && TerminalClient.isTermExecuting(index);

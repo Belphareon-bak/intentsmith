@@ -3,12 +3,18 @@
 const V2_KEY = 'intentsmith-studio2-session-state';
 const V1_KEY = 'intentsmith-session-state';
 const MAX_COLUMNS = 3;
+const { pendingBinding } = require('./m2-controller');
 
 function safeObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 function text(value, fallback = '') {
   return typeof value === 'string' ? value : fallback;
+}
+function identity(value) {
+  if (typeof value === 'string' && value.trim()) return value;
+  if (Number.isSafeInteger(value) && value > 0) return String(value);
+  return null;
 }
 function messages(value) {
   return Array.isArray(value) ? value.slice(-100).filter(item => item && typeof item === 'object')
@@ -24,10 +30,10 @@ function makeSession(number, source = {}) {
   return {
     id: text(raw.id) || id(), number,
     _uiId: text(raw._uiId) || id(), _convId: text(raw._convId || raw.convId) || null,
-    _projectId: text(raw._projectId || raw.projectId) || null,
-    _agentId: text(raw._agentId || raw.agentId) || null,
+    _projectId: identity(raw._projectId ?? raw.projectId),
+    _agentId: identity(raw._agentId ?? raw.agentId),
     _label: text(raw._label || raw.label) || `Relace ${number}`,
-    _m2Pending: raw._m2Pending || raw.m2Pending || null,
+    _m2Pending: pendingBinding(raw._m2Pending || raw.m2Pending),
     _closed: false, _editor: { active: false, tabs: [], activeTabId: null, scrollRaf: null },
     _focusFiles: Array.isArray(raw._focusFiles || raw.focusFiles) ? (raw._focusFiles || raw.focusFiles).slice(0, 100) : [],
     _openedFiles: Array.isArray(raw._openedFiles || raw.openedFiles) ? (raw._openedFiles || raw.openedFiles).filter(value => typeof value === 'string').slice(0, 30) : [],
@@ -55,7 +61,7 @@ function snapshotSession(session) {
   return {
     id: session.id, number: session.number,
     convId: session._convId, projectId: session._projectId, agentId: session._agentId,
-    label: session._label, m2Pending: session._m2Pending,
+    label: session._label, m2Pending: pendingBinding(session._m2Pending),
     focusFiles: session._focusFiles,
     openedFiles: session._openedFiles, modifiedFiles: session._modifiedFiles, fileChanges: session._fileChanges,
     recentMsgs: messages(session.chat.msgs).slice(-20),

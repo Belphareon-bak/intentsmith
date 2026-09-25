@@ -1930,6 +1930,8 @@ const STUDIO2_MODE_FIELDS = Object.freeze([
   'classicRestored',
   'sixSessionsInThreeColumns',
   'visibleSessionSwap',
+  'terminalPanelConnected',
+  'm2ReviewPanelRendered',
   'sessionsPersistedAcrossReload',
   'projectCatalogLoaded',
   'elevenThemesRendered',

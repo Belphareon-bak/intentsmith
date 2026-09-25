@@ -18,7 +18,7 @@ function test(name, fn) {
 test('migrates legacy sessions without writing over the classic snapshot', () => {
   const legacy = JSON.stringify({ sessionCount: 3, sessionActive: 2, sessions: [
     { convId: 'conv-a', label: 'A', recentMsgs: [{ role: 'user', text: 'A' }] },
-    { convId: 'conv-b', label: 'B', m2Pending: { lifecycleId: 'l-1', planDigest: 'sha256:x' } },
+    { convId: 'conv-b', label: 'B', projectId: 2, m2Pending: { lifecycleId: 'l-1', planDigest: 'sha256:' + 'a'.repeat(64), origin: { surface: 'studio', sessionId: 'conv-b', conversationId: 'conv-b', projectId: 2 } } },
     { convId: 'conv-c', label: 'C' },
   ] });
   const mem = storage({ [V1_KEY]: legacy });
@@ -27,7 +27,8 @@ test('migrates legacy sessions without writing over the classic snapshot', () =>
   assert.equal(JSON.parse(mem.getItem(V2_KEY)).version, 2);
   assert.equal(store.state.sessions.length, 3);
   assert.equal(store.focusedSession()._convId, 'conv-c');
-  assert.deepEqual(store.state.sessions[1]._m2Pending, { lifecycleId: 'l-1', planDigest: 'sha256:x' });
+  assert.equal(store.state.sessions[1]._m2Pending.planDigest, 'sha256:' + 'a'.repeat(64));
+  assert.equal(store.state.sessions[1]._m2Pending.origin.conversationId, 'conv-b');
 });
 
 test('six tabs in three columns swap an already visible session', () => {

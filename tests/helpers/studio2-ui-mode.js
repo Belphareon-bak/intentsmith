@@ -19,6 +19,7 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail }) {
     classicFacade: typeof window._intentsmith?.renderChat === 'function',
     terminalClient: typeof window.IntentSmithTerminal?.send === 'function',
     terminalInput: Boolean(document.querySelector('[aria-label^="Příkaz terminálu relace"]')),
+    m2Panel: Boolean(document.querySelector('[aria-label="Změny M2"]')),
     busListeners: window.IntentSmithBus?._debug?.() || {},
     sessionTabs: document.querySelectorAll('.intentsmith-s2-tab').length,
     columnSessions: [...document.querySelectorAll('.intentsmith-s2-column-head select')].map(select => select.value),
@@ -80,6 +81,13 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail }) {
   })()`);
   const terminalUi = await waitFor(s => s.terminalInput && s.busListeners['terminal:output'] === 1, 'terminal-ui');
   await evaluate(cdp, `(() => {
+    const changes = [...document.querySelectorAll('.intentsmith-s2-side-tabs button')]
+      .find(node => node.textContent === 'Změny');
+    changes.click();
+    return true;
+  })()`);
+  const m2Ui = await waitFor(s => s.m2Panel, 'm2-review-panel');
+  await evaluate(cdp, `(() => {
     setTimeout(() => window.IntentSmithStudioMode.selectMode('classic'), 0);
     return true;
   })()`);
@@ -138,6 +146,7 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail }) {
     sixSessionsInThreeColumns: six.sessionTabs === 6 && six.columnSessions.length === 3,
     visibleSessionSwap: swapped.columnSessions[0] === original[1] && swapped.columnSessions[1] === original[0],
     terminalPanelConnected: terminalUi.terminalInput && terminalUi.terminalClient,
+    m2ReviewPanelRendered: m2Ui.m2Panel,
     sessionsPersistedAcrossReload: persisted.sessionTabs === 6 && persisted.columnSessions.length === 3,
     projectCatalogLoaded: catalog.catalogSection === 'Projekty' && catalog.catalogStatus === 'ready',
     elevenThemesRendered: themes.length === 11 && themes.every(Boolean),

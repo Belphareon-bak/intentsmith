@@ -16,6 +16,7 @@ const { renderCatalog } = require('./catalog-view');
 const { AppearanceStore, STYLES } = require('./appearance-store');
 const { renderSettings } = require('./settings-view');
 const { WorkspaceFiles } = require('./workspace-files');
+const { M2Controller } = require('./m2-controller');
 
 const WIDGET_ID = 'intentsmith-studio2';
 const h = React.createElement;
@@ -34,6 +35,8 @@ class Studio2Widget extends ReactWidget {
     this.section = 'Relace';
     this.catalog = new CatalogStore();
     this.workspace = new WorkspaceFiles({ onChange: () => this.update() });
+    this.m2 = new M2Controller(this.store, { onChange: () => this.update(),
+      activeTurn: session => !!session.chat._thinking || !!this.transport?.hasActiveM1Turn(session) });
     this.appearance = new AppearanceStore(window.localStorage, () => window.matchMedia('(prefers-color-scheme: light)').matches);
     this.unlistenAppearance = this.appearance.subscribe(() => this.update());
     this.systemTheme = window.matchMedia('(prefers-color-scheme: light)');
@@ -66,6 +69,10 @@ class Studio2Widget extends ReactWidget {
 
   addSession() { this.store.addSession(); this.section = 'Relace'; this.update(); }
   closeSession(session) {
+    if (this.m2.entry(session).busy) {
+      window.alert('Počkejte na výsledek M2 nebo načtěte trvalý stav před zavřením relace.');
+      return false;
+    }
     if (this.workspace.entry(session).editor?.dirty) {
       this.sideMode = 'Soubory'; this.update();
       window.alert('Nejprve uložte nebo zahoďte neuložené změny souboru.');
@@ -114,6 +121,7 @@ class Studio2Widget extends ReactWidget {
   }
   send(session, textarea) {
     const value = textarea.value.trim();
+    if (value && this.m2.handleText(session, value)) { textarea.value = ''; return; }
     if (value && this.transport?.send(session, value)) textarea.value = '';
   }
 

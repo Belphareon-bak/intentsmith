@@ -138,3 +138,14 @@
 .intentsmith-s2-bottom-content { flex: 1; min-height: 0; height: auto; }
 .intentsmith-s2-terminal-input { display: flex; align-items: center; gap: 6px; padding: 3px 6px; border-top: 1px solid var(--bd2); color: var(--acc); }
 .intentsmith-s2-terminal-input input { flex: 1; min-width: 0; color: var(--text); background: var(--s0); border: 1px solid var(--bd2); border-radius: 4px; padding: 4px; font: 11px/1.4 "JetBrains Mono", monospace; }
+
+.intentsmith-s2-m2 { font-size: 11px; }
+.intentsmith-s2-m2 p { overflow-wrap: anywhere; }
+.intentsmith-s2-m2-digest { font-family: "JetBrains Mono", monospace; }
+.intentsmith-s2-m2-file { border-top: 1px solid var(--bd2); padding: 8px 0; }
+.intentsmith-s2-m2-file summary { cursor: pointer; font-weight: 650; }
+.intentsmith-s2-m2-file h4 { margin: 8px 0 3px; font-size: 10px; }
+.intentsmith-s2-m2-file pre { max-height: 250px; overflow: auto; padding: 7px; background: var(--s0); white-space: pre-wrap; overflow-wrap: anywhere; font: 10px/1.4 "JetBrains Mono", monospace; }
+.intentsmith-s2-m2-actions { display: flex; flex-wrap: wrap; gap: 5px; border-top: 1px solid var(--bd2); padding-top: 8px; }
+.intentsmith-s2-m2-actions p { width: 100%; }
+.intentsmith-s2-m2-actions button { border-color: var(--bd2); }

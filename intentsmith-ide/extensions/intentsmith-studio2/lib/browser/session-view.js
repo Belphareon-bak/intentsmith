@@ -2,6 +2,7 @@
 
 const WorkActivity = require('@intentsmith/chat-panel/lib/browser/work-activity');
 const { renderWorkspaceFiles } = require('./workspace-view');
+const { renderM2Changes } = require('./m2-view');
 
 function renderSessionView(widget, h) {
   const store = widget.store;
@@ -74,7 +75,7 @@ function renderSessionView(widget, h) {
     const tabs = ['Změny', 'Soubory', 'Správa zdrojů', 'Kontext'];
     const side = widget.sideMode || 'Soubory';
     const content = side === 'Kontext' ? h('p', null, `Kontext relace: ${Math.round(session.chat.ctx || 0)} %`)
-      : side === 'Změny' ? h('p', null, 'Žádné ověřené změny v této relaci.')
+      : side === 'Změny' ? renderM2Changes(widget, session, h)
         : side === 'Správa zdrojů' ? h('p', null, 'Správa zdrojů se připravuje. Git efekty nejsou dostupné.')
           : renderWorkspaceFiles(widget, session, h);
     return h('aside', { className: 'intentsmith-studio2-right', 'aria-label': 'Pracovní plocha' },
