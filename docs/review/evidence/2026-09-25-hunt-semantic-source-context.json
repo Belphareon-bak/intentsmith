@@ -1,0 +1,1053 @@
+{
+  "schemaVersion": 1,
+  "status": "SOURCE_FIDELITY_PASS",
+  "decisionAuthority": false,
+  "fixtureSha256": "fc06cb4eff7a95fb6412567e29a6558b937f21409b5954bbe2bf89065d4b6ee9",
+  "tasks": 32,
+  "sourceSections": 72,
+  "uniqueSourceFiles": 13,
+  "excerptLines": 8476,
+  "contextSufficiency": "NOT_ASSESSED",
+  "results": [
+    {
+      "role": "D1",
+      "task": "d1_audit_error_envelope",
+      "independenceGroup": "audit_error_envelope",
+      "sections": [
+        {
+          "revision": "bae8106d0c137437162c05b03d441d7824a888b1",
+          "path": "src/tools/registry.js",
+          "expectedFileSha256": "3e041171c788a16ec03ed8e237ca9faaf79aae6944f59c5b2e1f0d386674c74f",
+          "observedFileSha256": "3e041171c788a16ec03ed8e237ca9faaf79aae6944f59c5b2e1f0d386674c74f",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 159,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "D2",
+      "task": "d2_audit_error_envelope",
+      "independenceGroup": "audit_error_envelope",
+      "sections": [
+        {
+          "revision": "bae8106d0c137437162c05b03d441d7824a888b1",
+          "path": "src/tools/registry.js",
+          "expectedFileSha256": "3e041171c788a16ec03ed8e237ca9faaf79aae6944f59c5b2e1f0d386674c74f",
+          "observedFileSha256": "3e041171c788a16ec03ed8e237ca9faaf79aae6944f59c5b2e1f0d386674c74f",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 159,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "R1",
+      "task": "r1_audit_error_envelope",
+      "independenceGroup": "audit_error_envelope",
+      "sections": [
+        {
+          "revision": "bae8106d0c137437162c05b03d441d7824a888b1",
+          "path": "src/tools/registry.js",
+          "expectedFileSha256": "3e041171c788a16ec03ed8e237ca9faaf79aae6944f59c5b2e1f0d386674c74f",
+          "observedFileSha256": "3e041171c788a16ec03ed8e237ca9faaf79aae6944f59c5b2e1f0d386674c74f",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 159,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "R2",
+      "task": "r2_audit_error_envelope",
+      "independenceGroup": "audit_error_envelope",
+      "sections": [
+        {
+          "revision": "bae8106d0c137437162c05b03d441d7824a888b1",
+          "path": "src/tools/registry.js",
+          "expectedFileSha256": "3e041171c788a16ec03ed8e237ca9faaf79aae6944f59c5b2e1f0d386674c74f",
+          "observedFileSha256": "3e041171c788a16ec03ed8e237ca9faaf79aae6944f59c5b2e1f0d386674c74f",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 159,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "D1",
+      "task": "d1_history_late_guard",
+      "independenceGroup": "chat-history",
+      "sections": [
+        {
+          "revision": "570782eb68b72301ba61899a0263e8470f4b5f53",
+          "path": "src/chat/controller.js",
+          "expectedFileSha256": "c10cfa793ba1a2be9669577ca18eb4ae243e1aef8a63db4b3ac5f774ecc3dc81",
+          "observedFileSha256": "c10cfa793ba1a2be9669577ca18eb4ae243e1aef8a63db4b3ac5f774ecc3dc81",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 141,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "D2",
+      "task": "d2_history_late_guard",
+      "independenceGroup": "chat-history",
+      "sections": [
+        {
+          "revision": "570782eb68b72301ba61899a0263e8470f4b5f53",
+          "path": "src/chat/controller.js",
+          "expectedFileSha256": "c10cfa793ba1a2be9669577ca18eb4ae243e1aef8a63db4b3ac5f774ecc3dc81",
+          "observedFileSha256": "c10cfa793ba1a2be9669577ca18eb4ae243e1aef8a63db4b3ac5f774ecc3dc81",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 141,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "R1",
+      "task": "r1_history_late_guard",
+      "independenceGroup": "chat-history",
+      "sections": [
+        {
+          "revision": "570782eb68b72301ba61899a0263e8470f4b5f53",
+          "path": "src/chat/controller.js",
+          "expectedFileSha256": "c10cfa793ba1a2be9669577ca18eb4ae243e1aef8a63db4b3ac5f774ecc3dc81",
+          "observedFileSha256": "c10cfa793ba1a2be9669577ca18eb4ae243e1aef8a63db4b3ac5f774ecc3dc81",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 141,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "R2",
+      "task": "r2_history_late_guard",
+      "independenceGroup": "chat-history",
+      "sections": [
+        {
+          "revision": "570782eb68b72301ba61899a0263e8470f4b5f53",
+          "path": "src/chat/controller.js",
+          "expectedFileSha256": "c10cfa793ba1a2be9669577ca18eb4ae243e1aef8a63db4b3ac5f774ecc3dc81",
+          "observedFileSha256": "c10cfa793ba1a2be9669577ca18eb4ae243e1aef8a63db4b3ac5f774ecc3dc81",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 141,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "D1",
+      "task": "d1_immutable_refinement",
+      "independenceGroup": "immutable_refinement",
+      "sections": [
+        {
+          "revision": "265b87729628c7d21d9fea5ccef1c282ebd94170",
+          "path": "src/chat/controller.js",
+          "expectedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "observedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 145,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "265b87729628c7d21d9fea5ccef1c282ebd94170",
+          "path": "src/chat/controller.js",
+          "expectedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "observedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 116,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "265b87729628c7d21d9fea5ccef1c282ebd94170",
+          "path": "src/chat/controller.js",
+          "expectedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "observedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 51,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "265b87729628c7d21d9fea5ccef1c282ebd94170",
+          "path": "src/chat/controller.js",
+          "expectedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "observedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 86,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "D2",
+      "task": "d2_immutable_refinement",
+      "independenceGroup": "immutable_refinement",
+      "sections": [
+        {
+          "revision": "265b87729628c7d21d9fea5ccef1c282ebd94170",
+          "path": "src/chat/controller.js",
+          "expectedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "observedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 145,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "265b87729628c7d21d9fea5ccef1c282ebd94170",
+          "path": "src/chat/controller.js",
+          "expectedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "observedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 116,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "265b87729628c7d21d9fea5ccef1c282ebd94170",
+          "path": "src/chat/controller.js",
+          "expectedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "observedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 51,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "265b87729628c7d21d9fea5ccef1c282ebd94170",
+          "path": "src/chat/controller.js",
+          "expectedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "observedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 86,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "R1",
+      "task": "r1_immutable_refinement",
+      "independenceGroup": "immutable_refinement",
+      "sections": [
+        {
+          "revision": "265b87729628c7d21d9fea5ccef1c282ebd94170",
+          "path": "src/chat/controller.js",
+          "expectedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "observedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 145,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "265b87729628c7d21d9fea5ccef1c282ebd94170",
+          "path": "src/chat/controller.js",
+          "expectedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "observedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 116,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "265b87729628c7d21d9fea5ccef1c282ebd94170",
+          "path": "src/chat/controller.js",
+          "expectedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "observedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 51,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "265b87729628c7d21d9fea5ccef1c282ebd94170",
+          "path": "src/chat/controller.js",
+          "expectedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "observedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 86,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "R2",
+      "task": "r2_immutable_refinement",
+      "independenceGroup": "immutable_refinement",
+      "sections": [
+        {
+          "revision": "265b87729628c7d21d9fea5ccef1c282ebd94170",
+          "path": "src/chat/controller.js",
+          "expectedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "observedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 145,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "265b87729628c7d21d9fea5ccef1c282ebd94170",
+          "path": "src/chat/controller.js",
+          "expectedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "observedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 116,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "265b87729628c7d21d9fea5ccef1c282ebd94170",
+          "path": "src/chat/controller.js",
+          "expectedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "observedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 51,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "265b87729628c7d21d9fea5ccef1c282ebd94170",
+          "path": "src/chat/controller.js",
+          "expectedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "observedFileSha256": "def128bde890b6983a5661f13f418e2c40e2a6818dd81401451cf853d578cd4e",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 86,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "D1",
+      "task": "d1_model_cleanup",
+      "independenceGroup": "model-cleanup",
+      "sections": [
+        {
+          "revision": "a3a00baae2dffa6204afa327b97f102ee36c8c09",
+          "path": "src/upgrade/upgrade-manager.js",
+          "expectedFileSha256": "29542c835a63731317c328069a94b62bbfc4edb694040d61ab52ae0ceaa0c82c",
+          "observedFileSha256": "29542c835a63731317c328069a94b62bbfc4edb694040d61ab52ae0ceaa0c82c",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 140,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "a3a00baae2dffa6204afa327b97f102ee36c8c09",
+          "path": "src/upgrade/model-identity.js",
+          "expectedFileSha256": "a32d2ba2d7aa940b5718638866cdb18afaa5b1f47197fdde0b8ad4dbb2d98a9d",
+          "observedFileSha256": "a32d2ba2d7aa940b5718638866cdb18afaa5b1f47197fdde0b8ad4dbb2d98a9d",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 72,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "a3a00baae2dffa6204afa327b97f102ee36c8c09",
+          "path": "src/chat/handlers/pre-handler.js",
+          "expectedFileSha256": "9bacbbd8fccbe77d9db5873ff0b5084b09a56a33782b59e8935ac803f6fcbaf8",
+          "observedFileSha256": "9bacbbd8fccbe77d9db5873ff0b5084b09a56a33782b59e8935ac803f6fcbaf8",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 45,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "D2",
+      "task": "d2_model_cleanup",
+      "independenceGroup": "model-cleanup",
+      "sections": [
+        {
+          "revision": "a3a00baae2dffa6204afa327b97f102ee36c8c09",
+          "path": "src/upgrade/upgrade-manager.js",
+          "expectedFileSha256": "29542c835a63731317c328069a94b62bbfc4edb694040d61ab52ae0ceaa0c82c",
+          "observedFileSha256": "29542c835a63731317c328069a94b62bbfc4edb694040d61ab52ae0ceaa0c82c",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 140,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "a3a00baae2dffa6204afa327b97f102ee36c8c09",
+          "path": "src/upgrade/model-identity.js",
+          "expectedFileSha256": "a32d2ba2d7aa940b5718638866cdb18afaa5b1f47197fdde0b8ad4dbb2d98a9d",
+          "observedFileSha256": "a32d2ba2d7aa940b5718638866cdb18afaa5b1f47197fdde0b8ad4dbb2d98a9d",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 72,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "a3a00baae2dffa6204afa327b97f102ee36c8c09",
+          "path": "src/chat/handlers/pre-handler.js",
+          "expectedFileSha256": "9bacbbd8fccbe77d9db5873ff0b5084b09a56a33782b59e8935ac803f6fcbaf8",
+          "observedFileSha256": "9bacbbd8fccbe77d9db5873ff0b5084b09a56a33782b59e8935ac803f6fcbaf8",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 45,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "R1",
+      "task": "r1_model_cleanup",
+      "independenceGroup": "model-cleanup",
+      "sections": [
+        {
+          "revision": "a3a00baae2dffa6204afa327b97f102ee36c8c09",
+          "path": "src/upgrade/upgrade-manager.js",
+          "expectedFileSha256": "29542c835a63731317c328069a94b62bbfc4edb694040d61ab52ae0ceaa0c82c",
+          "observedFileSha256": "29542c835a63731317c328069a94b62bbfc4edb694040d61ab52ae0ceaa0c82c",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 140,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "a3a00baae2dffa6204afa327b97f102ee36c8c09",
+          "path": "src/upgrade/model-identity.js",
+          "expectedFileSha256": "a32d2ba2d7aa940b5718638866cdb18afaa5b1f47197fdde0b8ad4dbb2d98a9d",
+          "observedFileSha256": "a32d2ba2d7aa940b5718638866cdb18afaa5b1f47197fdde0b8ad4dbb2d98a9d",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 72,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "a3a00baae2dffa6204afa327b97f102ee36c8c09",
+          "path": "src/chat/handlers/pre-handler.js",
+          "expectedFileSha256": "9bacbbd8fccbe77d9db5873ff0b5084b09a56a33782b59e8935ac803f6fcbaf8",
+          "observedFileSha256": "9bacbbd8fccbe77d9db5873ff0b5084b09a56a33782b59e8935ac803f6fcbaf8",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 45,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "R2",
+      "task": "r2_model_cleanup",
+      "independenceGroup": "model-cleanup",
+      "sections": [
+        {
+          "revision": "a3a00baae2dffa6204afa327b97f102ee36c8c09",
+          "path": "src/upgrade/upgrade-manager.js",
+          "expectedFileSha256": "29542c835a63731317c328069a94b62bbfc4edb694040d61ab52ae0ceaa0c82c",
+          "observedFileSha256": "29542c835a63731317c328069a94b62bbfc4edb694040d61ab52ae0ceaa0c82c",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 140,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "a3a00baae2dffa6204afa327b97f102ee36c8c09",
+          "path": "src/upgrade/model-identity.js",
+          "expectedFileSha256": "a32d2ba2d7aa940b5718638866cdb18afaa5b1f47197fdde0b8ad4dbb2d98a9d",
+          "observedFileSha256": "a32d2ba2d7aa940b5718638866cdb18afaa5b1f47197fdde0b8ad4dbb2d98a9d",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 72,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "a3a00baae2dffa6204afa327b97f102ee36c8c09",
+          "path": "src/chat/handlers/pre-handler.js",
+          "expectedFileSha256": "9bacbbd8fccbe77d9db5873ff0b5084b09a56a33782b59e8935ac803f6fcbaf8",
+          "observedFileSha256": "9bacbbd8fccbe77d9db5873ff0b5084b09a56a33782b59e8935ac803f6fcbaf8",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 45,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "D1",
+      "task": "d1_model_lease",
+      "independenceGroup": "model-use-leases",
+      "sections": [
+        {
+          "revision": "b03a9e640299edfcd430475f824ca8bab813d6ce",
+          "path": "src/upgrade/model-use-authority.js",
+          "expectedFileSha256": "b2c46ce6bc42f89c456c95b1df830d45166cdb9b9d5f23076d47a1dfee6c6ef1",
+          "observedFileSha256": "b2c46ce6bc42f89c456c95b1df830d45166cdb9b9d5f23076d47a1dfee6c6ef1",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 83,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "b03a9e640299edfcd430475f824ca8bab813d6ce",
+          "path": "src/upgrade/model-use-authority.js",
+          "expectedFileSha256": "b2c46ce6bc42f89c456c95b1df830d45166cdb9b9d5f23076d47a1dfee6c6ef1",
+          "observedFileSha256": "b2c46ce6bc42f89c456c95b1df830d45166cdb9b9d5f23076d47a1dfee6c6ef1",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 127,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "b03a9e640299edfcd430475f824ca8bab813d6ce",
+          "path": "src/upgrade/model-identity.js",
+          "expectedFileSha256": "610854d8d7c80f288569baa0be512354e655f634c7ad2015d7c4b3360441fd12",
+          "observedFileSha256": "610854d8d7c80f288569baa0be512354e655f634c7ad2015d7c4b3360441fd12",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 65,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "b03a9e640299edfcd430475f824ca8bab813d6ce",
+          "path": "src/upgrade/model-binding-application.js",
+          "expectedFileSha256": "a4b7045d6d17246f0bdfccc6a4ad9ac8d66b5045750c4da24d00e1edf614ca60",
+          "observedFileSha256": "a4b7045d6d17246f0bdfccc6a4ad9ac8d66b5045750c4da24d00e1edf614ca60",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 158,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "D2",
+      "task": "d2_model_lease",
+      "independenceGroup": "model-use-leases",
+      "sections": [
+        {
+          "revision": "b03a9e640299edfcd430475f824ca8bab813d6ce",
+          "path": "src/upgrade/model-use-authority.js",
+          "expectedFileSha256": "b2c46ce6bc42f89c456c95b1df830d45166cdb9b9d5f23076d47a1dfee6c6ef1",
+          "observedFileSha256": "b2c46ce6bc42f89c456c95b1df830d45166cdb9b9d5f23076d47a1dfee6c6ef1",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 83,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "b03a9e640299edfcd430475f824ca8bab813d6ce",
+          "path": "src/upgrade/model-use-authority.js",
+          "expectedFileSha256": "b2c46ce6bc42f89c456c95b1df830d45166cdb9b9d5f23076d47a1dfee6c6ef1",
+          "observedFileSha256": "b2c46ce6bc42f89c456c95b1df830d45166cdb9b9d5f23076d47a1dfee6c6ef1",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 127,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "b03a9e640299edfcd430475f824ca8bab813d6ce",
+          "path": "src/upgrade/model-identity.js",
+          "expectedFileSha256": "610854d8d7c80f288569baa0be512354e655f634c7ad2015d7c4b3360441fd12",
+          "observedFileSha256": "610854d8d7c80f288569baa0be512354e655f634c7ad2015d7c4b3360441fd12",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 65,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "b03a9e640299edfcd430475f824ca8bab813d6ce",
+          "path": "src/upgrade/model-binding-application.js",
+          "expectedFileSha256": "a4b7045d6d17246f0bdfccc6a4ad9ac8d66b5045750c4da24d00e1edf614ca60",
+          "observedFileSha256": "a4b7045d6d17246f0bdfccc6a4ad9ac8d66b5045750c4da24d00e1edf614ca60",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 158,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "R1",
+      "task": "r1_model_lease",
+      "independenceGroup": "model-use-leases",
+      "sections": [
+        {
+          "revision": "b03a9e640299edfcd430475f824ca8bab813d6ce",
+          "path": "src/upgrade/model-use-authority.js",
+          "expectedFileSha256": "b2c46ce6bc42f89c456c95b1df830d45166cdb9b9d5f23076d47a1dfee6c6ef1",
+          "observedFileSha256": "b2c46ce6bc42f89c456c95b1df830d45166cdb9b9d5f23076d47a1dfee6c6ef1",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 83,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "b03a9e640299edfcd430475f824ca8bab813d6ce",
+          "path": "src/upgrade/model-use-authority.js",
+          "expectedFileSha256": "b2c46ce6bc42f89c456c95b1df830d45166cdb9b9d5f23076d47a1dfee6c6ef1",
+          "observedFileSha256": "b2c46ce6bc42f89c456c95b1df830d45166cdb9b9d5f23076d47a1dfee6c6ef1",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 127,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "b03a9e640299edfcd430475f824ca8bab813d6ce",
+          "path": "src/upgrade/model-identity.js",
+          "expectedFileSha256": "610854d8d7c80f288569baa0be512354e655f634c7ad2015d7c4b3360441fd12",
+          "observedFileSha256": "610854d8d7c80f288569baa0be512354e655f634c7ad2015d7c4b3360441fd12",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 65,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "b03a9e640299edfcd430475f824ca8bab813d6ce",
+          "path": "src/upgrade/model-binding-application.js",
+          "expectedFileSha256": "a4b7045d6d17246f0bdfccc6a4ad9ac8d66b5045750c4da24d00e1edf614ca60",
+          "observedFileSha256": "a4b7045d6d17246f0bdfccc6a4ad9ac8d66b5045750c4da24d00e1edf614ca60",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 158,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "R2",
+      "task": "r2_model_lease",
+      "independenceGroup": "model-use-leases",
+      "sections": [
+        {
+          "revision": "b03a9e640299edfcd430475f824ca8bab813d6ce",
+          "path": "src/upgrade/model-use-authority.js",
+          "expectedFileSha256": "b2c46ce6bc42f89c456c95b1df830d45166cdb9b9d5f23076d47a1dfee6c6ef1",
+          "observedFileSha256": "b2c46ce6bc42f89c456c95b1df830d45166cdb9b9d5f23076d47a1dfee6c6ef1",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 83,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "b03a9e640299edfcd430475f824ca8bab813d6ce",
+          "path": "src/upgrade/model-use-authority.js",
+          "expectedFileSha256": "b2c46ce6bc42f89c456c95b1df830d45166cdb9b9d5f23076d47a1dfee6c6ef1",
+          "observedFileSha256": "b2c46ce6bc42f89c456c95b1df830d45166cdb9b9d5f23076d47a1dfee6c6ef1",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 127,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "b03a9e640299edfcd430475f824ca8bab813d6ce",
+          "path": "src/upgrade/model-identity.js",
+          "expectedFileSha256": "610854d8d7c80f288569baa0be512354e655f634c7ad2015d7c4b3360441fd12",
+          "observedFileSha256": "610854d8d7c80f288569baa0be512354e655f634c7ad2015d7c4b3360441fd12",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 65,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "b03a9e640299edfcd430475f824ca8bab813d6ce",
+          "path": "src/upgrade/model-binding-application.js",
+          "expectedFileSha256": "a4b7045d6d17246f0bdfccc6a4ad9ac8d66b5045750c4da24d00e1edf614ca60",
+          "observedFileSha256": "a4b7045d6d17246f0bdfccc6a4ad9ac8d66b5045750c4da24d00e1edf614ca60",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 158,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "D1",
+      "task": "d1_pairwise_confidence",
+      "independenceGroup": "pairwise-confidence",
+      "sections": [
+        {
+          "revision": "580800e1f1675ef105233f3d15c29b0a17e5bbd4",
+          "path": "src/upgrade/pairwise-trial.js",
+          "expectedFileSha256": "9921e8826081e3fd93341e86a57289d861199106d129548b48e773935407a937",
+          "observedFileSha256": "9921e8826081e3fd93341e86a57289d861199106d129548b48e773935407a937",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 133,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "580800e1f1675ef105233f3d15c29b0a17e5bbd4",
+          "path": "src/upgrade/pairwise-trial.js",
+          "expectedFileSha256": "9921e8826081e3fd93341e86a57289d861199106d129548b48e773935407a937",
+          "observedFileSha256": "9921e8826081e3fd93341e86a57289d861199106d129548b48e773935407a937",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 81,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "580800e1f1675ef105233f3d15c29b0a17e5bbd4",
+          "path": "src/upgrade/validation-suites.js",
+          "expectedFileSha256": "49520a4176c60f6fd27b713d4fa042dc6c164d3bbda0b983dfd10fe18a24b0ef",
+          "observedFileSha256": "49520a4176c60f6fd27b713d4fa042dc6c164d3bbda0b983dfd10fe18a24b0ef",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 205,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "D2",
+      "task": "d2_pairwise_confidence",
+      "independenceGroup": "pairwise-confidence",
+      "sections": [
+        {
+          "revision": "580800e1f1675ef105233f3d15c29b0a17e5bbd4",
+          "path": "src/upgrade/pairwise-trial.js",
+          "expectedFileSha256": "9921e8826081e3fd93341e86a57289d861199106d129548b48e773935407a937",
+          "observedFileSha256": "9921e8826081e3fd93341e86a57289d861199106d129548b48e773935407a937",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 133,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "580800e1f1675ef105233f3d15c29b0a17e5bbd4",
+          "path": "src/upgrade/pairwise-trial.js",
+          "expectedFileSha256": "9921e8826081e3fd93341e86a57289d861199106d129548b48e773935407a937",
+          "observedFileSha256": "9921e8826081e3fd93341e86a57289d861199106d129548b48e773935407a937",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 81,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "580800e1f1675ef105233f3d15c29b0a17e5bbd4",
+          "path": "src/upgrade/validation-suites.js",
+          "expectedFileSha256": "49520a4176c60f6fd27b713d4fa042dc6c164d3bbda0b983dfd10fe18a24b0ef",
+          "observedFileSha256": "49520a4176c60f6fd27b713d4fa042dc6c164d3bbda0b983dfd10fe18a24b0ef",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 205,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "R1",
+      "task": "r1_pairwise_confidence",
+      "independenceGroup": "pairwise-confidence",
+      "sections": [
+        {
+          "revision": "580800e1f1675ef105233f3d15c29b0a17e5bbd4",
+          "path": "src/upgrade/pairwise-trial.js",
+          "expectedFileSha256": "9921e8826081e3fd93341e86a57289d861199106d129548b48e773935407a937",
+          "observedFileSha256": "9921e8826081e3fd93341e86a57289d861199106d129548b48e773935407a937",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 133,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "580800e1f1675ef105233f3d15c29b0a17e5bbd4",
+          "path": "src/upgrade/pairwise-trial.js",
+          "expectedFileSha256": "9921e8826081e3fd93341e86a57289d861199106d129548b48e773935407a937",
+          "observedFileSha256": "9921e8826081e3fd93341e86a57289d861199106d129548b48e773935407a937",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 81,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "580800e1f1675ef105233f3d15c29b0a17e5bbd4",
+          "path": "src/upgrade/validation-suites.js",
+          "expectedFileSha256": "49520a4176c60f6fd27b713d4fa042dc6c164d3bbda0b983dfd10fe18a24b0ef",
+          "observedFileSha256": "49520a4176c60f6fd27b713d4fa042dc6c164d3bbda0b983dfd10fe18a24b0ef",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 205,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "R2",
+      "task": "r2_pairwise_confidence",
+      "independenceGroup": "pairwise-confidence",
+      "sections": [
+        {
+          "revision": "580800e1f1675ef105233f3d15c29b0a17e5bbd4",
+          "path": "src/upgrade/pairwise-trial.js",
+          "expectedFileSha256": "9921e8826081e3fd93341e86a57289d861199106d129548b48e773935407a937",
+          "observedFileSha256": "9921e8826081e3fd93341e86a57289d861199106d129548b48e773935407a937",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 133,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "580800e1f1675ef105233f3d15c29b0a17e5bbd4",
+          "path": "src/upgrade/pairwise-trial.js",
+          "expectedFileSha256": "9921e8826081e3fd93341e86a57289d861199106d129548b48e773935407a937",
+          "observedFileSha256": "9921e8826081e3fd93341e86a57289d861199106d129548b48e773935407a937",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 81,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        },
+        {
+          "revision": "580800e1f1675ef105233f3d15c29b0a17e5bbd4",
+          "path": "src/upgrade/validation-suites.js",
+          "expectedFileSha256": "49520a4176c60f6fd27b713d4fa042dc6c164d3bbda0b983dfd10fe18a24b0ef",
+          "observedFileSha256": "49520a4176c60f6fd27b713d4fa042dc6c164d3bbda0b983dfd10fe18a24b0ef",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 205,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "D1",
+      "task": "d1_verification_timeout",
+      "independenceGroup": "verification-timeout",
+      "sections": [
+        {
+          "revision": "7de5c6459b66fff8b4ac7fa76bab9e5bb9e1e403",
+          "path": "src/upgrade/upgrade-manager.js",
+          "expectedFileSha256": "f03d4ab7605ff166769456a64069129144aa4a1838a9b0a3ca609e9e50da3e75",
+          "observedFileSha256": "f03d4ab7605ff166769456a64069129144aa4a1838a9b0a3ca609e9e50da3e75",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 151,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "D2",
+      "task": "d2_verification_timeout",
+      "independenceGroup": "verification-timeout",
+      "sections": [
+        {
+          "revision": "7de5c6459b66fff8b4ac7fa76bab9e5bb9e1e403",
+          "path": "src/upgrade/upgrade-manager.js",
+          "expectedFileSha256": "f03d4ab7605ff166769456a64069129144aa4a1838a9b0a3ca609e9e50da3e75",
+          "observedFileSha256": "f03d4ab7605ff166769456a64069129144aa4a1838a9b0a3ca609e9e50da3e75",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 151,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "R1",
+      "task": "r1_verification_timeout",
+      "independenceGroup": "verification-timeout",
+      "sections": [
+        {
+          "revision": "7de5c6459b66fff8b4ac7fa76bab9e5bb9e1e403",
+          "path": "src/upgrade/upgrade-manager.js",
+          "expectedFileSha256": "f03d4ab7605ff166769456a64069129144aa4a1838a9b0a3ca609e9e50da3e75",
+          "observedFileSha256": "f03d4ab7605ff166769456a64069129144aa4a1838a9b0a3ca609e9e50da3e75",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 151,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "R2",
+      "task": "r2_verification_timeout",
+      "independenceGroup": "verification-timeout",
+      "sections": [
+        {
+          "revision": "7de5c6459b66fff8b4ac7fa76bab9e5bb9e1e403",
+          "path": "src/upgrade/upgrade-manager.js",
+          "expectedFileSha256": "f03d4ab7605ff166769456a64069129144aa4a1838a9b0a3ca609e9e50da3e75",
+          "observedFileSha256": "f03d4ab7605ff166769456a64069129144aa4a1838a9b0a3ca609e9e50da3e75",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 151,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "D1",
+      "task": "d1_metrics_flush",
+      "independenceGroup": "metrics-transaction",
+      "sections": [
+        {
+          "revision": "912bf0ff344c86a8014b3c5b90b75ec4da707f65",
+          "path": "src/upgrade/metrics-collector.js",
+          "expectedFileSha256": "1c0cdac22f1f40dde4b7040e999224ae928f0168dfa37c8bbcb4dd48896a9705",
+          "observedFileSha256": "1c0cdac22f1f40dde4b7040e999224ae928f0168dfa37c8bbcb4dd48896a9705",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 161,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "D2",
+      "task": "d2_metrics_flush",
+      "independenceGroup": "metrics-transaction",
+      "sections": [
+        {
+          "revision": "912bf0ff344c86a8014b3c5b90b75ec4da707f65",
+          "path": "src/upgrade/metrics-collector.js",
+          "expectedFileSha256": "1c0cdac22f1f40dde4b7040e999224ae928f0168dfa37c8bbcb4dd48896a9705",
+          "observedFileSha256": "1c0cdac22f1f40dde4b7040e999224ae928f0168dfa37c8bbcb4dd48896a9705",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 161,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "R1",
+      "task": "r1_metrics_flush",
+      "independenceGroup": "metrics-transaction",
+      "sections": [
+        {
+          "revision": "912bf0ff344c86a8014b3c5b90b75ec4da707f65",
+          "path": "src/upgrade/metrics-collector.js",
+          "expectedFileSha256": "1c0cdac22f1f40dde4b7040e999224ae928f0168dfa37c8bbcb4dd48896a9705",
+          "observedFileSha256": "1c0cdac22f1f40dde4b7040e999224ae928f0168dfa37c8bbcb4dd48896a9705",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 161,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    },
+    {
+      "role": "R2",
+      "task": "r2_metrics_flush",
+      "independenceGroup": "metrics-transaction",
+      "sections": [
+        {
+          "revision": "912bf0ff344c86a8014b3c5b90b75ec4da707f65",
+          "path": "src/upgrade/metrics-collector.js",
+          "expectedFileSha256": "1c0cdac22f1f40dde4b7040e999224ae928f0168dfa37c8bbcb4dd48896a9705",
+          "observedFileSha256": "1c0cdac22f1f40dde4b7040e999224ae928f0168dfa37c8bbcb4dd48896a9705",
+          "presentInPublicPrompt": true,
+          "excerptLineCount": 161,
+          "lineMismatches": [],
+          "sourceFaithful": true
+        }
+      ],
+      "sourceFaithful": true,
+      "contextSufficient": null,
+      "note": "Source fidelity does not prove that the excerpt contains all facts needed for a correct answer."
+    }
+  ]
+}

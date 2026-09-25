@@ -17,6 +17,7 @@ EVIDENCE = pathlib.Path('/mnt/vi7000/intentsmith/evidence')
 PACKET = EVIDENCE / 'hunt-isolated-20260925/blind/packet.json'
 CAMPAIGN = ROOT / 'docs/review/evidence/2026-09-25-hunt-isolated-campaign.json'
 TASKS = ROOT / 'src/eval/fixtures/role-semantic-tasks.json'
+SEMANTIC_AUDIT = ROOT / 'docs/review/evidence/2026-09-25-hunt-semantic-source-context.json'
 CHAT_PLAN = EVIDENCE / 'hunt-chat-panel-20260923/capture/plan.json'
 CHAT_SUMMARY = EVIDENCE / 'hunt-chat-panel-20260923/capture/summary.json'
 CHAT_REVIEW = EVIDENCE / 'hunt-chat-panel-20260923/review-full-05/review.json'
@@ -44,6 +45,10 @@ def main():
     packet, packet_sha = read(PACKET)
     campaign, campaign_sha = read(CAMPAIGN)
     fixture, fixture_sha = read(TASKS)
+    semantic_audit, semantic_audit_sha = read(SEMANTIC_AUDIT)
+    assert semantic_audit['status'] == 'SOURCE_FIDELITY_PASS' and semantic_audit['fixtureSha256'] == fixture_sha
+    faithful_tasks = {row['task'] for row in semantic_audit['results'] if row['sourceFaithful']}
+    assert len(faithful_tasks) == 32
     chat_wrapper, chat_plan_sha = read(CHAT_PLAN)
     chat_summary, chat_summary_sha = read(CHAT_SUMMARY)
     chat_review, chat_review_sha = read(CHAT_REVIEW)
@@ -145,6 +150,7 @@ def main():
             'rubricSha256':sha(json.dumps(task['reference']['criteria'],ensure_ascii=False).encode()),
             'criteria':len(task['reference']['criteria']),'capturedResponses':len(cases),
             'goldAndAlternativePresent':True,'authorNegativeControls':controls,
+            'sourceFidelity':'GIT_EXCERPT_MATCHES',
             'contextSufficiency':'REQUIRES_INDEPENDENT_REVIEW',
             'oracleAcceptance':'AUTHOR_PROBES_ONLY'})
     # Select two whole scenario groups per role and one repetition per label.
@@ -167,6 +173,7 @@ def main():
         'sources':{'packet':{'path':str(PACKET),'sha256':packet_sha},
             'campaign':{'path':str(CAMPAIGN),'sha256':campaign_sha},
             'tasks':{'path':str(TASKS),'sha256':fixture_sha},
+            'semanticSourceAudit':{'path':str(SEMANTIC_AUDIT),'sha256':semantic_audit_sha},
             'chatPlan':{'path':str(CHAT_PLAN),'sha256':chat_plan_sha,
                         'sealedPlanSha256':chat_wrapper['sha256']},
             'chatSummary':{'path':str(CHAT_SUMMARY),'sha256':chat_summary_sha},
@@ -195,7 +202,7 @@ def main():
     for m in models:
         lines.append('| '+m['model']+' (`'+m['digestSha256'][:12]+'`) | '+' | '.join(symbol[by[(m['model'],r)]['status']] for r in ROLES)+' |')
     lines.extend(['','Podrobné [přejímací brány všech sedmi sad](2026-09-25-HUNT-SUITE-ACCEPTANCE-GATES.md) odlišují dvoumodelový pilot od přijaté sady.','','## Podklad a omezení sad','',
-      '- D1/D2/R1/R2: 8 historických skupin na roli, všech 312 odpovědí přesně odpovídá aktuálnímu veřejnému zadání a rubrice. 32 úloh má autora gold, alternativu a negativní sondy; **nezávislá přejímka dostatku kontextu a významového hodnocení chybí**. Zadání jsou aktuálně jen anglicky. Počet opakování nepřidává nezávislé případy. Přesné SHA, původ a počet kritérií každé úlohy jsou ve [strojovém podkladu](evidence/2026-09-25-hunt-step3-readiness.json).',
+      '- D1/D2/R1/R2: 8 historických skupin na roli, všech 312 odpovědí přesně odpovídá aktuálnímu veřejnému zadání a rubrice. 32 úloh má autora gold, alternativu a negativní sondy; 8 476 předaných řádků bylo ověřeno proti historickým souborům, ale **nezávislá přejímka dostatku kontextu a významového hodnocení chybí**. Zadání jsou aktuálně jen anglicky. Počet opakování nepřidává nezávislé případy. Přesné SHA, původ a počet kritérií každé úlohy jsou ve [strojovém podkladu](evidence/2026-09-25-hunt-step3-readiness.json).',
       '- CODE: aktivní historické orákulum stále přijme věcný rozpor a odmítne správnou parafrázi. Připravená v2 není přijata nezávisle. Plné modelové známky zůstávají `null`.',
       '- CHAT: pečetěný plán má 10 modelů × 40 dialogů × 3 pokusy. Všech 1 200 pokusů skončilo, 1 196 bylo zachyceno; čtyři skončily výstupním limitem nebo transportní chybou. Strojová matice uvádí pro každý model skutečně zachycených 119 či 120 z plánovaných 120, ne fiktivní úplnost. Samostatný [produkční canary](2026-09-25-HUNT-CHAT-PRODUCTION-CANARY.md) zachytil 4 ze 40 úloh pro qwen3.8 a qwen3.5 se skutečným promptem a shodným kontextem; ostatní modely ani celá sada takto pokryté nejsou. Druhý nezávislý posudek chybí.',
       '- VISION: 3 × 23 úloh bylo sebráno, ale tři opakování při `temperature: 0` jsou vždy stejná. U dalšího měření stačí jedna deterministická odpověď; chybějící vision-capable modely jsou v tabulce `CHYBÍ`, ne `N/A`.','',
