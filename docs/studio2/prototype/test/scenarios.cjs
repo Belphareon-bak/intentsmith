@@ -30,7 +30,13 @@ vm.tabs.forEach((t, i) => { reset(); let v = R('t'); call(v.tabs[i].go, 'tab go'
 // cols
 for (const k of [1, 2, 3]) { reset(); let v = R(); call(v.tbar.cols[k - 1].pick, 'cols'); v = R('cols ' + k); if (v.columns.length !== k) fail('cols count', k, v.columns.length); v.columns.forEach((col, i) => { col.btabs.forEach((bt, j) => { const sv = snap(); call(bt.go, 'btab'); const v2 = R('btab ' + k + i + j); restore(sv); }); }); }
 // column cycle / close / drag
-reset(); vm = R(); call(vm.tbar.cols[2].pick); vm = R('3 cols'); call(vm.columns[1].cycle, 'cycle'); vm = R('cycled'); const sidsAfter = vm.columns.map((x) => x.title); if (new Set(sidsAfter).size !== 3) fail('dup after cycle', sidsAfter);
+reset(); vm = R(); call(vm.tbar.cols[2].pick); vm = R('3 cols');
+{ const before = vm.columns.map((x) => x.title); call(vm.columns[1].pick, 'colpick'); vm = R('colpick open'); if (!vm.hasCtx || !vm.ctxItems.some((x) => x.hasNum)) fail('colpick menu');
+  // vyber relaci, která je ve sloupci 1 -> sloupce se vymění
+  const inCol0 = vm.ctxItems.find((x) => x.k.indexOf('sloupec 1') === 0); if (!inCol0) fail('colpick no swap item'); else { call(inCol0.go, 'swap'); vm = R('swapped'); const after = vm.columns.map((x) => x.title); if (after[1] !== before[0] || after[0] !== before[1]) fail('swap', before, after); if (new Set(after).size !== 3) fail('dup after swap', after); }
+  call(vm.columns[2].pick); vm = R(); const free = vm.ctxItems.find((x) => x.isItem && x.hasNum && !x.numCls); if (!free) fail('no free session'); else { call(free.go, 'pick free'); vm = R('picked'); if (vm.columns[2].title.indexOf(free.t) < 0 && !vm.columns.some((c2) => c2.title.indexOf(free.t) >= 0)) fail('pick free', free.t); if (!vm.columns[2].cls.includes('focus')) fail('picked not focus'); }
+  call(vm.columns[0].pick); vm = R(); const nw = vm.ctxItems.find((x) => x.t.indexOf('Nová relace') === 0); call(nw.go, 'new in col'); vm = R('new in col'); if (vm.tabs.length !== 7) fail('new in col tabs'); if (vm.columns[0].title !== 'Nová konverzace') fail('new in col 0', vm.columns[0].title); }
+reset(); vm = R(); call(vm.tbar.cols[2].pick); vm = R('3 cols');
 call(vm.columns[1].split.down); call(Object.assign({}, vm.columns[1].split).move); call(vm.columns[1].split.up); call(vm.columns[1].split.reset); R('col drag');
 vm = R(); call(vm.columns[2].closeCol, 'closeCol'); vm = R('closed col'); if (vm.columns.length !== 2) fail('closeCol count', vm.columns.length);
 // focus click, send, stop, approve
@@ -40,7 +46,56 @@ const run = vm.columns[0].msgs.find((m) => m.isRunning); if (!run) fail('no runn
 reset(); vm = R(); const ap = vm.columns[0].msgs.find((m) => m.hasApproval); if (!ap) fail('no approval s1'); else { call(ap.showChanges, 'show'); call(ap.approve, 'approve'); vm = R('approved'); if (vm.ws.hasChanges) fail('ws still pending'); }
 reset(); vm = R(); call(vm.ws.reject, 'ws reject'); R('rejected');
 // ws tabs for each session
-for (const t of ['zmeny', 'kontext', 'soubory']) for (const sid of ['s1', 's2', 's3', 's4', 's5', 's6']) { reset(); c.setState({ rightTab: t, colSids: [sid], cols: 1 }); R('ws ' + t + sid); }
+for (const t of ['zmeny', 'kontext', 'soubory', 'scm']) for (const sid of ['s1', 's2', 's3', 's4', 's5', 's6']) { reset(); c.setState({ rightTab: t, colSids: [sid], cols: 1 }); R('ws ' + t + sid); }
+// soubory: seznamy, náhled, diff, úpravy se stráží
+reset(); c.setState({ rightTab: 'soubory', colSids: ['s1'], cols: 1 }); vm = R('files s1');
+if (vm.ws.fl.edited.length !== 3 || vm.ws.fl.edited[0].st !== 'navrženo') fail('s1 edited', vm.ws.fl.edited.map((x) => x.st));
+if (!vm.ws.fl.opened.some((x) => x.src === 'příloha')) fail('no attachment');
+{ const dirRow = vm.ws.fl.tree.find((x) => x.isDir && x.name === 'main'); const n0 = vm.ws.fl.tree.length; call(dirRow.go, 'fold'); vm = R('folded'); if (vm.ws.fl.tree.length >= n0) fail('fold'); call(vm.ws.fl.tree.find((x) => x.name === 'main').go); vm = R(); if (vm.ws.fl.tree.length !== n0) fail('unfold'); }
+call(vm.ws.fl.edited[0].go, 'open edited'); vm = R('file open'); if (!vm.ws.isSouboryFile || !vm.ws.fv.isDiff) fail('open edited diff', vm.ws.fv.isDiff);
+call(vm.ws.fv.modes[0].pick); vm = R('preview'); if (!vm.ws.fv.isPreview || vm.ws.fv.lines.length < 10) fail('preview');
+call(vm.ws.fv.modes[2].pick); vm = R('edit'); if (!vm.ws.fv.isEdit || !vm.ws.editFoot) fail('edit');
+call(() => vm.ws.fv.setDraft({ target: { value: 'nový obsah' } })); vm = R('dirty'); if (!vm.ws.fv.dirty) fail('not dirty');
+call(vm.ws.fv.back, 'back dirty'); vm = R('guard'); if (!vm.ws.fv.hasGuard || !vm.ws.isSouboryFile) fail('no guard');
+call(vm.ws.fv.guardStay); vm = R(); if (vm.ws.fv.hasGuard || !vm.ws.fv.dirty) fail('stay');
+call(vm.ws.fv.back); vm = R(); call(vm.ws.fv.guardSave, 'guard save'); vm = R('saved'); if (!vm.ws.isSouboryList) fail('not back after save');
+if (vm.columns[0].audit[0].e !== 'file_save') fail('no save audit');
+reset(); c.setState({ rightTab: 'soubory', colSids: ['s1'], cols: 1 }); vm = R(); const trf = vm.ws.fl.tree.find((x) => x.name === 'window.js'); call(trf.go); vm = R('tree open'); if (vm.ws.fv.path !== 'src/main/window.js') fail('tree path', vm.ws.fv.path);
+call(vm.ws.fv.modes[2].pick); vm = R(); call(() => vm.ws.fv.setDraft({ target: { value: 'x' } })); vm = R(); call(vm.ws.fv.back); vm = R(); call(vm.ws.fv.guardDiscard); vm = R('discard'); if (!vm.ws.isSouboryList || vm.ws.fl.opened[0].src !== 'otevřel jsi') fail('discard/user opened');
+reset(); c.setState({ rightTab: 'soubory', colSids: ['s5'], cols: 1 }); vm = R('files s5'); if (!vm.ws.fl.noTree || !vm.ws.fl.noEdited) fail('s5 files');
+// správa zdrojů
+reset(); c.setState({ rightTab: 'scm', colSids: ['s5'], cols: 1 }); vm = R(); if (!vm.ws.scm.noProject) fail('scm s5');
+reset(); c.setState({ rightTab: 'scm', colSids: ['s4'], cols: 1 }); vm = R(); if (!vm.ws.scm.noRepo) fail('scm s4 norepo'); call(vm.ws.scm.init); vm = R(); if (!vm.ws.scm.plan.has) fail('init plan'); call(vm.ws.scm.plan.run, 'init run'); vm = R('inited'); if (!vm.ws.scm.isRepo || !vm.ws.scm.groups.length) fail('init result');
+reset(); c.setState({ rightTab: 'scm', colSids: ['s1'], cols: 1 }); vm = R('scm s1');
+if (vm.ws.scm.count !== 1 || vm.ws.scm.syncText !== '↓0 ↑1') fail('scm s1 before', vm.ws.scm.count, vm.ws.scm.syncText);
+{ const head = vm.ws.scm.graph.find((r) => r.refs.some((x) => x.cls === 'head')); if (!head || head.hash !== '9f8e7d6') fail('head ref'); }
+call(vm.ws.scm.sync); vm = R(); if (!vm.ws.scm.plan.has || vm.ws.scm.plan.title !== 'git push') fail('push plan'); call(vm.ws.scm.plan.cancel); vm = R();
+call(vm.columns[0].msgs.find((m) => m.hasApproval).approve, 'approve'); vm = R('approved'); if (vm.ws.scm.count !== 4) fail('after approve count', vm.ws.scm.count);
+call(vm.ws.scm.commit); vm = R(); if (!vm.ws.scm.hasHint) fail('empty msg hint');
+call(() => vm.ws.scm.setMsg({ target: { value: 'SFTP: obnovení přenosu' } })); vm = R(); call(vm.ws.scm.commit); vm = R(); if (!vm.ws.scm.hasHint || vm.ws.scm.plan.has) fail('nothing staged hint');
+call(vm.ws.scm.groups.find((g) => g.label === 'Změny').all, 'stage all'); vm = R('staged'); if (vm.ws.scm.groups[0].label !== 'Připravené' || vm.ws.scm.groups[0].n !== 3) fail('staged group', vm.ws.scm.groups.map((g) => g.label + g.n));
+call(vm.ws.scm.groups[0].rows[0].open, 'open diff'); vm = R('scm file'); if (!vm.ws.isScmFile || !vm.ws.fv.isDiff) fail('scm diff'); call(vm.ws.fv.back); vm = R();
+call(vm.ws.scm.commit); vm = R('plan'); if (!vm.ws.scm.plan.has || !vm.ws.scm.plan.canRun) fail('commit plan');
+call(vm.ws.scm.plan.run, 'commit run'); vm = R('committed'); if (vm.ws.scm.count !== 1 || vm.ws.scm.syncText !== '↓0 ↑2' || vm.ws.scm.graph[0].s !== 'SFTP: obnovení přenosu') fail('commit result', vm.ws.scm.count, vm.ws.scm.syncText);
+if (vm.columns[0].audit[0].e !== 'scm_commit') fail('commit audit');
+call(vm.ws.scm.branchMenu); vm = R('branches'); if (!vm.ctxHasQ) fail('branch search'); const wb = vm.ctxItems.find((x) => x.t === 'work/sftp-resume'); call(wb.go); vm = R(); if (!vm.ws.scm.plan.blocked) fail('checkout dirty not blocked'); call(vm.ws.scm.plan.cancel); vm = R();
+call(vm.ws.scm.groups[0].all); vm = R(); call(() => vm.ws.scm.setMsg({ target: { value: 'Dokumentace' } })); vm = R(); call(vm.ws.scm.commitMenu); vm = R(); call(vm.ctxItems.find((x) => x.t.indexOf('odeslat') > 0).go); vm = R(); call(vm.ws.scm.plan.run); vm = R('commit+push'); if (vm.ws.scm.syncText !== '↓0 ↑0' || !vm.ws.scm.clean) fail('commit push', vm.ws.scm.syncText);
+call(vm.ws.scm.branchMenu); vm = R(); call(vm.ctxItems.find((x) => x.t === 'work/sftp-resume').go); vm = R(); call(vm.ws.scm.plan.run, 'checkout'); vm = R('checked out'); if (vm.ws.scm.branch !== 'work/sftp-resume' || vm.ws.scm.graph.find((r) => r.refs.some((x) => x.cls === 'head')).hash !== 'a41c9e2') fail('checkout head');
+call(vm.ws.scm.branchMenu); vm = R(); call(() => vm.setCtxQ({ target: { value: 'work/dalsi' } })); vm = R(); call(vm.ctxItems.find((x) => x.t.indexOf('Nová větev') === 0).go); vm = R(); if (vm.ws.scm.plan.blocked) fail('branch blocked', vm.ws.scm.plan.reason); call(vm.ws.scm.plan.run); vm = R(); if (vm.ws.scm.branch !== 'work/dalsi') fail('new branch');
+reset(); c.setState({ rightTab: 'scm', colSids: ['s2'], cols: 1 }); vm = R('scm s2'); call(vm.ws.scm.sync); vm = R(); if (vm.ws.scm.plan.title !== 'git pull --ff-only' || !vm.ws.scm.plan.blocked) fail('pull dirty blocked'); call(vm.ws.scm.fetch); vm = R(); if (!vm.ws.scm.plan.blocked) fail('fetch policy');
+reset(); c.setState({ rightTab: 'scm', colSids: ['s3'], cols: 1 }); vm = R('scm s3'); if (vm.ws.scm.syncCls !== 'dis') fail('no upstream'); call(vm.ws.scm.groups[0].all); vm = R(); call(() => vm.ws.scm.setMsg({ target: { value: 'x' } })); vm = R(); call(vm.ws.scm.commit); vm = R(); if (!vm.ws.scm.plan.blocked) fail('commit while agent writes');
+// terminál relace a přílohy ve skladateli
+reset(); vm = R(); call(() => vm.columns[0].setCmd({ target: { value: 'cat src/main/sf' } })); vm = R(); vm.columns[0].cmdKey({ key: 'Tab', preventDefault() {} }); vm = R('tab'); if (vm.columns[0].cmd !== 'cat src/main/sftp.js') fail('tab completion', vm.columns[0].cmd);
+vm.columns[0].cmdKey({ key: 'Enter', preventDefault() {} }); vm = R('term enter'); if (vm.columns[0].cmd !== '' || !vm.columns[0].term.some((l) => l.t === '$ cat src/main/sftp.js')) fail('term enter');
+call(vm.columns[0].attach); call(R().columns[0].attach); vm = R('atts'); if (vm.columns[0].atts.length !== 2) fail('attach'); call(vm.columns[0].atts[0].remove); vm = R(); if (vm.columns[0].atts.length !== 1) fail('remove att');
+call(vm.columns[0].send, 'send att only'); vm = R('sent att'); { const last = vm.columns[0].msgs.filter((m) => m.isUser).pop(); if (!last.hasAtts || last.hasText) fail('att-only message'); } if (vm.columns[0].hasAtts) fail('atts not cleared');
+// klávesové zkratky
+reset(); vm = R(); c.onKey({ key: 'k', ctrlKey: true, preventDefault() {}, stopPropagation() {} }); vm = R('ctrl k'); if (!vm.palette) fail('ctrl+k');
+c.onKey({ key: 'Escape', preventDefault() {}, stopPropagation() {} }); vm = R(); if (vm.palette) fail('esc');
+c.onKey({ key: '3', code: 'Digit3', altKey: true, shiftKey: true, preventDefault() {}, stopPropagation() {} }); vm = R(); if (vm.columns.length !== 3) fail('alt+shift+3');
+c.onKey({ key: '5', altKey: true, preventDefault() {}, stopPropagation() {} }); vm = R(); if (!vm.tabs[4].cls.includes('focus')) fail('alt+5');
+c.onKey({ key: 'b', ctrlKey: true, preventDefault() {}, stopPropagation() {} }); vm = R(); if (!vm.navRail) fail('ctrl+b');
+c.onKey({ key: 'x', preventDefault() {}, stopPropagation() {} }); R('plain key');
 // nav + sections + details
 const secs = { chats: ['s1', 's6', 'h1', 'h3'], projects: d.P.map((x) => x.id), specialists: d.SP.map((x) => x.id), expertises: d.EX.map((x) => x.id), workers: d.WK.map((x) => x.id), market: d.MK.map((x) => x.id), settings: d.SET.map((x) => x.id) };
 reset(); vm = R();

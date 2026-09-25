@@ -210,6 +210,15 @@ html,body{margin:0;height:100%;overflow:hidden}
 .term .p{color:var(--acct)}
 .term .ok{color:var(--ok)}
 .term .err{color:var(--bad)}
+.term-in{display:flex;align-items:center;gap:8px;cursor:text;position:sticky;bottom:-6px;padding-bottom:4px;background:var(--bg2)}
+.term-in input{flex:1;min-width:0;border:0;background:none;outline:none;padding:0;font-family:var(--font-mono);font-size:calc(var(--fs) - .5px);line-height:1.7;color:var(--text)}
+.term-in input::placeholder{color:var(--faint)}
+.atts{display:flex;flex-wrap:wrap;gap:6px}
+.msg .atts{margin-top:6px}
+.chip.att{cursor:default;color:var(--text);gap:6px;max-width:260px}
+.att-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.att-x{display:inline-flex;border:0;background:none;padding:0;color:var(--faint);cursor:pointer}
+.att-x:hover{color:var(--text)}
 .log{display:grid;grid-template-columns:62px 42px 104px minmax(0,1fr);gap:8px;font-size:11.5px;line-height:1.75;white-space:nowrap}
 .log span{overflow:hidden;text-overflow:ellipsis}
 .lm{color:var(--dim)}
@@ -407,6 +416,107 @@ html,body{margin:0;height:100%;overflow:hidden}
 .pal-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pal-s{font-size:11.5px;color:var(--faint);white-space:nowrap}
 .pal-f{padding:8px 14px;border-top:1px solid var(--soft);font-size:11px;color:var(--faint)}
+/* zadání 25. 9. bod 1: výběr relace ve sloupci */
+.scol{position:relative}
+button.pane-t{display:inline-flex;align-items:center;gap:5px;border:0;background:none;padding:3px 6px;margin-left:-4px;border-radius:5px;cursor:pointer;font-family:inherit;max-width:100%}
+button.pane-t:hover,button.pane-t.open{background:var(--hover)}
+button.pane-t .ic{color:var(--faint);flex:0 0 auto}
+.pane-tt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.dd.picker{min-width:280px;max-width:340px}
+.dd.picker .dd-k{font-family:var(--font-ui);font-size:11px}
+.ide .btn-acc{color:var(--acc-fg)}
+.rp{container-type:inline-size}
+.rp .ptab{padding:0 8px}
+@container (max-width: 470px){.wss-t{display:none}}
+.dd.picker .dd-i{grid-template-columns:20px minmax(0,1fr) auto}
+.dd.picker .dd-t{display:flex;align-items:center;gap:7px}
+.dd-i.cur{background:var(--acc-soft)}
+.dd-i .tnum{min-width:17px}
+.dd-q{display:flex;align-items:center;gap:7px;margin:2px 3px 5px;padding:0 8px;height:28px;border:1px solid var(--border);border-radius:5px;background:var(--bg2);color:var(--faint)}
+.dd-q input{flex:1;min-width:0;border:0;background:none;outline:none;font-size:12.5px;color:var(--text)}
+/* zadání 25. 9. bod 2: soubory relace */
+.fsec{border-bottom:1px solid var(--soft);padding-bottom:6px}
+.fsec-h{display:flex;align-items:center;gap:7px;height:32px;padding:0 10px 0 12px}
+.fsec-e{padding:2px 12px 8px;font-size:12px;color:var(--faint)}
+.frow{display:flex;align-items:center;gap:7px;width:100%;height:26px;padding:0 10px 0 12px;border:0;background:none;color:var(--text);font-size:12px;text-align:left;cursor:pointer;min-width:0}
+.frow:hover{background:var(--hover)}
+.frow>.ic{color:var(--faint);flex:0 0 auto}
+.fr-n{white-space:nowrap;flex:0 0 auto;max-width:60%;overflow:hidden;text-overflow:ellipsis}
+.fr-d{font-size:10.5px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto}
+.fr-c{font-size:11px;white-space:nowrap;flex:0 0 auto}
+.fr-s{font-size:11px;color:var(--dim);white-space:nowrap;flex:0 0 auto}
+.stt{font-size:10.5px;line-height:16px;padding:0 6px;border-radius:8px;white-space:nowrap;flex:0 0 auto;background:var(--panel3);color:var(--dim)}
+.stt.ok{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
+.stt.warn{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+.stt.acc{background:var(--acc-soft);color:var(--acct)}
+.stt.idle{color:var(--faint)}
+button.tree-r{width:100%;border:0;background:none;color:var(--dim);cursor:pointer;text-align:left;font-family:inherit}
+.tree-r.sel{background:var(--acc-soft);color:var(--text)}
+.tchev{width:11px;display:flex;color:var(--faint);flex:0 0 auto}
+.tn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fv{display:grid;grid-template-rows:auto auto auto minmax(0,1fr);height:100%;min-height:0}
+.fv-h{display:flex;align-items:center;gap:6px;height:38px;padding:0 6px;border-bottom:1px solid var(--soft);min-width:0}
+.fv-p{display:flex;align-items:baseline;gap:7px;min-width:0;overflow:hidden;white-space:nowrap}
+.fv-p b{font-size:12px;font-weight:600}
+.fv-p span{font-size:10.5px;overflow:hidden;text-overflow:ellipsis}
+.fv-dirty{width:8px;height:8px;border-radius:50%;background:var(--warn);flex:0 0 auto}
+.fv-h .seg button.off{opacity:.4;cursor:default}
+.fv-m{display:flex;align-items:center;gap:8px;padding:5px 12px;font-size:11px;color:var(--faint);border-bottom:1px solid var(--soft)}
+.fv-g{display:flex;align-items:center;gap:8px;padding:8px 10px 8px 12px;background:color-mix(in srgb,var(--warn) 12%,var(--panel));border-bottom:1px solid var(--soft);font-size:12px;color:var(--text)}
+.fv-g>.ic{color:var(--warn)}
+.cv{overflow:auto;background:var(--bg2);padding:4px 0;min-height:0;user-select:text}
+.cvl{display:grid;grid-template-columns:40px minmax(0,1fr);font-size:11.5px;line-height:20px}
+.cvl .ln{color:var(--faint);text-align:right;padding-right:10px;user-select:none}
+.cvl .cd{white-space:pre;color:var(--text)}
+.fv-d{overflow:auto;min-height:0;border-bottom:0}
+textarea.fv-ed{font-family:var(--font-mono)}
+.fv-ed{width:100%;height:100%;min-height:0;resize:none;border:0;outline:none;padding:8px 12px;background:var(--bg2);color:var(--text);font-size:11.5px;line-height:20px;tab-size:2;white-space:pre;user-select:text}
+.rp-b:has(.fv){overflow:hidden}
+/* zadání 25. 9. bod 3: správa zdrojů */
+.scm-h{display:flex;align-items:center;gap:6px;padding:10px 10px 0 12px}
+.scm-br{max-width:220px;height:26px;color:var(--text)}
+.scm-br .mono{font-size:11.5px;overflow:hidden;text-overflow:ellipsis}
+.scm-sync{height:26px;padding:0 9px}
+.scm-sync{gap:3px}
+.scm-sync .num{font-size:11.5px;margin-right:4px}
+.scm-sync .num:last-child{margin-right:0}
+.scm-sync.dis{opacity:.5;cursor:default}
+.scm-s{padding:5px 12px 0;font-size:11px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scm-c{padding:10px 12px 8px;border-bottom:1px solid var(--soft)}
+.scm-c textarea{display:block;width:100%;min-height:54px;resize:vertical;padding:7px 9px;border:1px solid var(--border);border-radius:5px;background:var(--bg2);color:var(--text);font-size:12.5px;line-height:1.45;outline:none}
+.scm-c textarea:focus{border-color:var(--acc)}
+.scm-cb{display:flex;margin-top:7px}
+.scm-go{flex:1;justify-content:center;border-radius:5px 0 0 5px}
+.scm-more{padding:0 8px;border-radius:0 5px 5px 0;border-left:1px solid color-mix(in srgb,var(--acc-fg) 25%,transparent)}
+.scm-go.soft,.scm-more.soft{opacity:.55}
+.scm-hint{margin-top:7px;font-size:11.5px;color:var(--warn)}
+.scm-gh{margin-top:4px}
+.iconbtn.sm{width:22px;height:22px}
+.scm-r{padding:0 6px 0 0;cursor:default}
+.scm-o{display:flex;align-items:center;gap:7px;flex:1;min-width:0;height:100%;padding:0 4px 0 12px;border:0;background:none;color:inherit;font-size:12px;text-align:left;cursor:pointer}
+.scm-x{width:14px;font-family:var(--font-mono);font-size:10.5px;font-weight:700;text-align:center;flex:0 0 auto}
+.scm-x.x-M{color:var(--warn)}.scm-x.x-A,.scm-x.x-U{color:var(--ok)}.scm-x.x-D,.scm-x.x-C{color:var(--bad)}
+.plan{margin:10px 10px 4px;border:1px solid var(--acc);border-radius:9px;background:var(--panel2);overflow:hidden}
+.plan-h{display:flex;align-items:flex-start;gap:9px;padding:10px 12px 6px}
+.plan-h>.ic{color:var(--acct);margin-top:2px}
+.plan-h>.grow{display:flex;flex-direction:column;gap:3px;min-width:0}
+.plan-h b{font-size:12.5px;font-weight:600}
+.plan-r{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:4px 12px;padding:4px 12px 10px;font-size:12px}
+.plan-r .mono{font-size:11.5px;overflow-wrap:anywhere}
+.plan-k{color:var(--faint)}
+.plan-b{margin:0 12px 10px;padding:7px 10px;border-radius:5px;background:color-mix(in srgb,var(--bad) 13%,transparent);color:var(--text);font-size:12px;line-height:1.45;border-left:2px solid var(--bad)}
+.plan-f{display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid var(--soft);background:var(--title);font-size:11.5px}
+.glog{padding:0 0 10px}
+.gl-r{display:flex;align-items:center;gap:6px;height:26px;padding:0 10px 0 6px;font-size:12px;min-width:0}
+.gl-r:hover{background:var(--hover)}
+.gl-g{flex:0 0 auto;overflow:visible}
+.gl-g path{fill:none;stroke-width:1.6}
+.gl-s{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1 1 auto}
+.gref{font-size:10px;line-height:15px;padding:0 5px;border-radius:3px;border:1px solid var(--border);color:var(--dim);white-space:nowrap;flex:0 0 auto;font-family:var(--font-mono)}
+.gref.head{border-color:var(--acc);color:var(--acct);background:var(--acc-soft)}
+.gref.remote{border-color:var(--info);color:var(--info)}
+.gref.tag{border-color:var(--warn);color:var(--warn)}
+.gl-m{font-size:10.5px;color:var(--faint);white-space:nowrap;flex:0 0 auto}
 </style>
 </helmet>
 <div class="{{rootCls}}" style="width: {{rootW}}; height: {{rootH}}; zoom: {{zoom}}; filter: {{filter}};">
@@ -519,18 +629,18 @@ html,body{margin:0;height:100%;overflow:hidden}
 <span class="tnum {{c.numCls}}">{{c.n}}</span>
 <svg class="ic" width="13" height="13" viewBox="0 0 24 24" style="color: var(--faint);"><path d="{{c.kindIcon}}"></path></svg>
 <span class="dot {{c.dot}}"></span>
-<span class="pane-t" title="{{c.title}}">{{c.title}}</span>
+<button class="pane-t {{c.pickCls}}" onClick="{{c.pick}}" aria-haspopup="menu" title="{{c.title}} · vybrat relaci pro tento sloupec"><span class="pane-tt">{{c.title}}</span><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{I.down}}"></path></svg></button>
 <sc-if value="{{c.hasOwner}}" hint-placeholder-val="{{true}}"><button class="chip pchip" onClick="{{c.openOwner}}" title="{{c.ownerTitle}}"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{c.ownerIcon}}"></path></svg>{{c.ownerName}}</button></sc-if>
 <span class="grow"></span>
 <sc-if value="{{c.hasIntent}}" hint-placeholder-val="{{true}}"><span class="pmeta badge">{{c.intent}}</span></sc-if>
 <span class="seg pseg" title="Režim úprav"><button class="{{c.autoCls}}" onClick="{{c.setAuto}}">Auto</button><button class="{{c.revCls}}" onClick="{{c.setRev}}">Kontrola</button></span>
 <span class="cmeter" title="Zaplnění kontextu"><span class="bar"><i style="width: {{c.ctx}}%;"></i></span><span class="num">{{c.ctx}} %</span></span>
-<sc-if value="{{c.multi}}" hint-placeholder-val="{{false}}"><button class="iconbtn psw" aria-label="Přepnout relaci ve sloupci" title="Další relace do tohoto sloupce" onClick="{{c.cycle}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{I.swap}}"></path></svg></button><button class="iconbtn" aria-label="Zavřít sloupec" title="Zavřít sloupec (relace zůstane v záložkách)" onClick="{{c.closeCol}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{I.x}}"></path></svg></button></sc-if>
+<sc-if value="{{c.multi}}" hint-placeholder-val="{{false}}"><button class="iconbtn" aria-label="Zavřít sloupec" title="Zavřít sloupec (relace zůstane v záložkách)" onClick="{{c.closeCol}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{I.x}}"></path></svg></button></sc-if>
 </div>
 <div class="msgs"><div class="mcol">
 <sc-if value="{{c.isFresh}}" hint-placeholder-val="{{false}}"><div class="empty" style="margin-top: 30px;"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="{{c.kindIcon}}"></path></svg><b style="color: var(--text);">{{c.freshTitle}}</b><span>{{c.freshText}}</span></div></sc-if>
 <sc-for list="{{c.msgs}}" as="m" hint-placeholder-count="2">
-<sc-if value="{{m.isUser}}" hint-placeholder-val="{{true}}"><div class="msg"><div class="who"><b>Ty</b><span>{{m.time}}</span></div><div class="ubox">{{m.text}}</div></div></sc-if>
+<sc-if value="{{m.isUser}}" hint-placeholder-val="{{true}}"><div class="msg"><div class="who"><b>Ty</b><span>{{m.time}}</span></div><sc-if value="{{m.hasText}}" hint-placeholder-val="{{true}}"><div class="ubox">{{m.text}}</div></sc-if><sc-if value="{{m.hasAtts}}" hint-placeholder-val="{{false}}"><div class="atts"><sc-for list="{{m.atts}}" as="a" hint-placeholder-count="1"><span class="chip att"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{I.clip}}"></path></svg><span class="att-t">{{a.t}}</span></span></sc-for></div></sc-if></div></sc-if>
 <sc-if value="{{m.isAgent}}" hint-placeholder-val="{{false}}">
 <div class="msg">
 <div class="who"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" style="color: var(--acct);"><path d="{{m.authorIcon}}"></path></svg><b>{{m.author}}</b><sc-if value="{{m.hasBadge}}" hint-placeholder-val="{{true}}"><span class="badge">{{m.badge}}</span></sc-if><span>{{m.expert}}</span><span>{{m.time}}</span></div>
@@ -545,9 +655,10 @@ html,body{margin:0;height:100%;overflow:hidden}
 </sc-for>
 </div></div>
 <div class="compw"><div class="comp">
+<sc-if value="{{c.hasAtts}}" hint-placeholder-val="{{false}}"><div class="atts"><sc-for list="{{c.atts}}" as="a" hint-placeholder-count="1"><span class="chip att"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{I.clip}}"></path></svg><span class="att-t">{{a.t}}</span><span class="faint">{{a.s}}</span><button class="att-x" aria-label="Odebrat přílohu {{a.t}}" onClick="{{a.remove}}"><svg class="ic" width="11" height="11" viewBox="0 0 24 24"><path d="{{I.x}}"></path></svg></button></span></sc-for></div></sc-if>
 <textarea aria-label="Zpráva pro relaci {{c.n}}" placeholder="Napiš, co má IntentSmith udělat…" value="{{c.draft}}" onChange="{{c.setDraft}}" onKeyDown="{{c.keyDown}}"></textarea>
 <div class="comp-r">
-<button class="iconbtn" aria-label="Připojit soubor" title="Připojit soubor"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="{{I.clip}}"></path></svg></button>
+<button class="iconbtn" aria-label="Připojit soubor" title="Připojit soubor" onClick="{{c.attach}}"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="{{I.clip}}"></path></svg></button>
 <button class="chip" onClick="{{c.pickExpert}}" title="Změnit expertýzu"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{I.cap}}"></path></svg>{{c.expert}}<svg class="ic" width="11" height="11" viewBox="0 0 24 24"><path d="{{I.down}}"></path></svg></button>
 <button class="chip mchip" onClick="{{c.pickModel}}" title="Změnit model"><span class="mono" style="font-size: 11px;">{{c.model}}</span><svg class="ic" width="11" height="11" viewBox="0 0 24 24"><path d="{{I.down}}"></path></svg></button>
 <span class="grow"></span>
@@ -561,7 +672,7 @@ html,body{margin:0;height:100%;overflow:hidden}
 <sc-for list="{{c.btabs}}" as="t" hint-placeholder-count="5"><button class="ptab {{t.cls}}" onClick="{{t.go}}">{{t.label}}<sc-if value="{{t.hasN}}" hint-placeholder-val="{{false}}"><span class="cnt">{{t.n}}</span></sc-if></button></sc-for>
 </div>
 <div class="bp-b">
-<sc-if value="{{c.isTerm}}" hint-placeholder-val="{{true}}"><div class="term mono"><sc-for list="{{c.term}}" as="l" hint-placeholder-count="4"><div class="{{l.cls}}">{{l.t}}</div></sc-for></div></sc-if>
+<sc-if value="{{c.isTerm}}" hint-placeholder-val="{{true}}"><div class="term mono"><sc-for list="{{c.term}}" as="l" hint-placeholder-count="4"><div class="{{l.cls}}">{{l.t}}</div></sc-for><label class="term-in"><span class="p">$</span><input aria-label="Příkaz terminálu relace {{c.n}}" spellcheck="false" placeholder="příkaz · Tab doplní cestu" value="{{c.cmd}}" onChange="{{c.setCmd}}" onKeyDown="{{c.cmdKey}}"></label></div></sc-if>
 <sc-if value="{{c.isLog}}" hint-placeholder-val="{{false}}"><div class="mono"><sc-for list="{{c.log}}" as="l" hint-placeholder-count="5"><div class="log"><span class="faint">{{l.t}}</span><span style="color: {{l.c}};">{{l.lv}}</span><span>{{l.e}}</span><span class="lm">{{l.m}}</span></div></sc-for></div></sc-if>
 <sc-if value="{{c.isRuns}}" hint-placeholder-val="{{false}}"><sc-if value="{{c.hasRuns}}" hint-placeholder-val="{{true}}"><div><div class="trow th" style="grid-template-columns: {{c.runGrid}}; background: none; padding: 0 2px;"><span>Čas</span><span>Krok</span><span>Nástroj</span><span>Cíl</span><span>Trvání</span><span>Stav</span></div><sc-for list="{{c.runs}}" as="r" hint-placeholder-count="4"><div class="trow" style="grid-template-columns: {{c.runGrid}}; padding: 0 2px; min-height: 26px;"><span class="mono faint">{{r.t}}</span><span>{{r.step}}</span><span class="mono" style="color: var(--dim);">{{r.tool}}</span><span class="mono">{{r.target}}</span><span class="num">{{r.dur}}</span><span style="color: {{r.c}};">{{r.st}}</span></div></sc-for></div></sc-if><sc-if value="{{c.noRuns}}" hint-placeholder-val="{{false}}"><div class="rp-empty" style="padding: 20px;">Relace zatím nespustila žádný krok.</div></sc-if></sc-if>
 <sc-if value="{{c.isAudit}}" hint-placeholder-val="{{false}}"><div class="mono"><sc-for list="{{c.audit}}" as="l" hint-placeholder-count="3"><div class="log" style="grid-template-columns: 70px 120px minmax(0, 1fr);"><span class="faint">{{l.t}}</span><span style="color: var(--violet);">{{l.e}}</span><span class="lm">{{l.m}}</span></div></sc-for></div></sc-if>
@@ -713,7 +824,7 @@ html,body{margin:0;height:100%;overflow:hidden}
 <div class="ptabs">
 <sc-for list="{{ws.tabs}}" as="t" hint-placeholder-count="3"><button class="ptab {{t.cls}}" onClick="{{t.go}}">{{t.label}}<sc-if value="{{t.hasN}}" hint-placeholder-val="{{false}}"><span class="cnt">{{t.n}}</span></sc-if></button></sc-for>
 <span class="grow"></span>
-<span class="wss"><span class="tnum">{{ws.n}}</span><span class="dot {{ws.dot}}"></span>{{ws.label}}</span>
+<span class="wss" title="{{ws.label}}"><span class="tnum">{{ws.n}}</span><span class="dot {{ws.dot}}"></span><span class="wss-t">{{ws.label}}</span></span>
 </div>
 <div class="rp-b">
 <sc-if value="{{ws.isZmeny}}" hint-placeholder-val="{{true}}">
@@ -737,11 +848,56 @@ html,body{margin:0;height:100%;overflow:hidden}
 <sc-if value="{{ws.hasMemory}}" hint-placeholder-val="{{true}}"><span class="lbl-acc" style="margin-top: 8px;">Paměť projektu</span><ul class="bul"><sc-for list="{{ws.memory}}" as="mm" hint-placeholder-count="3"><li style="font-size: 12px;">{{mm.t}}</li></sc-for></ul></sc-if>
 </div>
 </sc-if>
-<sc-if value="{{ws.isSoubory}}" hint-placeholder-val="{{false}}">
-<sc-if value="{{ws.hasTree}}" hint-placeholder-val="{{true}}"><div class="tree"><sc-for list="{{ws.tree}}" as="f" hint-placeholder-count="8"><div class="tree-r" style="padding-left: {{f.pad}}px;"><svg class="ic" width="13" height="13" viewBox="0 0 24 24" style="color: {{f.ic}};"><path d="{{f.icon}}"></path></svg><span class="{{f.cls}}">{{f.name}}</span><span class="grow"></span><span class="mono mk" style="color: {{f.mc}};">{{f.mark}}</span></div></sc-for></div></sc-if>
-<sc-if value="{{ws.noTree}}" hint-placeholder-val="{{false}}"><div class="rp-empty"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="{{I.folder}}"></path></svg><b>Bez projektu</b><span>Tahle relace nemá připojený projekt, takže nemá ani soubory.</span></div></sc-if>
+<sc-if value="{{ws.isSouboryList}}" hint-placeholder-val="{{false}}">
+<div class="fsec"><div class="fsec-h"><span class="lbl">Upravené v relaci</span><sc-if value="{{ws.fl.hasEdited}}" hint-placeholder-val="{{true}}"><span class="cnt">{{ws.fl.edited.length}}</span></sc-if></div>
+<sc-for list="{{ws.fl.edited}}" as="f" hint-placeholder-count="3"><button class="frow" onClick="{{f.go}}" title="{{f.path}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{I.file}}"></path></svg><span class="fr-n">{{f.name}}</span><span class="fr-d mono">{{f.dir}}</span><span class="grow"></span><span class="stt {{f.stCls}}">{{f.st}}</span><span class="mono num fr-c"><span class="plus">{{f.addText}}</span> <span class="minus">{{f.delText}}</span></span></button></sc-for>
+<sc-if value="{{ws.fl.noEdited}}" hint-placeholder-val="{{false}}"><div class="fsec-e">Relace zatím nic neupravila.</div></sc-if></div>
+<div class="fsec"><div class="fsec-h"><span class="lbl">Otevřené</span><sc-if value="{{ws.fl.hasOpened}}" hint-placeholder-val="{{true}}"><span class="cnt">{{ws.fl.opened.length}}</span></sc-if></div>
+<sc-for list="{{ws.fl.opened}}" as="f" hint-placeholder-count="3"><button class="frow" onClick="{{f.go}}" title="{{f.path}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{f.icon}}"></path></svg><span class="fr-n">{{f.name}}</span><span class="fr-d mono">{{f.dir}}</span><span class="grow"></span><span class="fr-s">{{f.src}}</span><span class="mono fr-c faint">{{f.meta}}</span></button></sc-for>
+<sc-if value="{{ws.fl.noOpened}}" hint-placeholder-val="{{false}}"><div class="fsec-e">Relace zatím nečetla žádný soubor.</div></sc-if></div>
+<div class="fsec"><div class="fsec-h"><span class="lbl">{{ws.fl.treeTitle}}</span></div>
+<sc-if value="{{ws.fl.hasTree}}" hint-placeholder-val="{{true}}"><div class="tree"><sc-for list="{{ws.fl.tree}}" as="f" hint-placeholder-count="8"><button class="tree-r {{f.cls}}" style="padding-left: {{f.pad}}px;" onClick="{{f.go}}" title="{{f.path}}"><span class="tchev"><sc-if value="{{f.hasChev}}" hint-placeholder-val="{{false}}"><svg class="ic" width="11" height="11" viewBox="0 0 24 24"><path d="{{f.chev}}"></path></svg></sc-if></span><svg class="ic" width="13" height="13" viewBox="0 0 24 24" style="color: {{f.ic}};"><path d="{{f.icon}}"></path></svg><span class="tn">{{f.name}}</span><span class="grow"></span><span class="mono mk" style="color: {{f.mc}};">{{f.mark}}</span></button></sc-for></div></sc-if>
+<sc-if value="{{ws.fl.noTree}}" hint-placeholder-val="{{false}}"><div class="fsec-e">Tahle relace nemá připojený projekt, takže nemá ani strom souborů.</div></sc-if></div>
+</sc-if>
+<sc-if value="{{ws.isSouboryFile}}" hint-placeholder-val="{{false}}">
+<div class="fv">
+<div class="fv-h"><button class="iconbtn" aria-label="Zpět na seznam" title="Zpět" onClick="{{ws.fvS.back}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{I.back}}"></path></svg></button><span class="fv-p" title="{{ws.fvS.path}}"><b class="mono">{{ws.fvS.name}}</b><span class="mono faint">{{ws.fvS.dir}}</span></span><sc-if value="{{ws.fvS.dirty}}" hint-placeholder-val="{{false}}"><span class="fv-dirty" title="Neuložené změny"></span></sc-if><span class="grow"></span><span class="seg"><sc-for list="{{ws.fvS.modes}}" as="md" hint-placeholder-count="3"><button class="{{md.cls}}" onClick="{{md.pick}}">{{md.label}}</button></sc-for></span><button class="iconbtn" aria-label="Rozšířit panel" title="Rozšířit nebo zúžit panel" onClick="{{ws.fvS.widen}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{I.widen}}"></path></svg></button></div>
+<div class="fv-m"><span class="num">{{ws.fvS.meta}}</span><sc-if value="{{ws.fvS.hasSt}}" hint-placeholder-val="{{true}}"><span class="stt {{ws.fvS.stCls}}">{{ws.fvS.stText}}</span></sc-if></div>
+<sc-if value="{{ws.fvS.hasGuard}}" hint-placeholder-val="{{false}}"><div class="fv-g"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="{{I.info}}"></path></svg><span class="grow">Soubor má neuložené změny.</span><button class="btn" onClick="{{ws.fvS.guardStay}}">Zpět k úpravám</button><button class="btn" onClick="{{ws.fvS.guardDiscard}}">Zahodit</button><button class="btn btn-acc" onClick="{{ws.fvS.guardSave}}">Uložit</button></div></sc-if>
+<sc-if value="{{ws.fvS.isPreview}}" hint-placeholder-val="{{true}}"><div class="cv mono"><sc-for list="{{ws.fvS.lines}}" as="ln" hint-placeholder-count="12"><div class="cvl"><span class="ln">{{ln.n}}</span><span class="cd">{{ln.t}}</span></div></sc-for></div></sc-if>
+<sc-if value="{{ws.fvS.isDiff}}" hint-placeholder-val="{{false}}"><div class="diff fv-d"><sc-for list="{{ws.fvS.diff}}" as="l" hint-placeholder-count="6"><div class="dfl mono {{l.cls}}"><span class="ln">{{l.o}}</span><span class="ln">{{l.n}}</span><span class="sg">{{l.sign}}</span><span class="cd">{{l.code}}</span></div></sc-for></div></sc-if>
+<sc-if value="{{ws.fvS.isEdit}}" hint-placeholder-val="{{false}}"><textarea class="fv-ed mono" spellcheck="false" aria-label="Obsah souboru {{ws.fvS.path}}" value="{{ws.fvS.draft}}" onChange="{{ws.fvS.setDraft}}" onKeyDown="{{ws.fvS.editKey}}"></textarea></sc-if>
+</div>
+</sc-if>
+<sc-if value="{{ws.isScmMain}}" hint-placeholder-val="{{false}}">
+<sc-if value="{{ws.scm.noProject}}" hint-placeholder-val="{{false}}"><div class="rp-empty"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="{{I.branch}}"></path></svg><b>Tahle relace nemá projekt</b><span>Správa zdrojů patří projektu. Volná konverzace ani specialista bez projektu repozitář nemají.</span></div></sc-if>
+<sc-if value="{{ws.scm.noRepo}}" hint-placeholder-val="{{false}}"><div class="rp-empty"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="{{I.branch}}"></path></svg><b>{{ws.scm.projectName}} nemá repozitář</b><span>{{ws.scm.initText}}</span><button class="btn" onClick="{{ws.scm.init}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{I.plus}}"></path></svg>Inicializovat repozitář…</button></div></sc-if>
+<sc-if value="{{ws.scm.plan.has}}" hint-placeholder-val="{{false}}"><div class="plan"><div class="plan-h"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="{{I.shield}}"></path></svg><span class="grow"><span class="lbl-acc">Plán operace</span><b class="mono">{{ws.scm.plan.title}}</b></span></div><div class="plan-r"><sc-for list="{{ws.scm.plan.rows}}" as="r" hint-placeholder-count="3"><span class="plan-k">{{r.k}}</span><span class="{{r.cls}}">{{r.v}}</span></sc-for></div><sc-if value="{{ws.scm.plan.blocked}}" hint-placeholder-val="{{false}}"><div class="plan-b">{{ws.scm.plan.reason}}</div></sc-if><div class="plan-f"><span class="faint">Zatím se nic nestalo.</span><span class="grow"></span><button class="btn" onClick="{{ws.scm.plan.cancel}}">Zrušit</button><sc-if value="{{ws.scm.plan.canRun}}" hint-placeholder-val="{{true}}"><button class="btn btn-acc" onClick="{{ws.scm.plan.run}}">{{ws.scm.plan.runLabel}}</button></sc-if></div></div></sc-if>
+<sc-if value="{{ws.scm.isRepo}}" hint-placeholder-val="{{true}}">
+<div class="scm-h"><button class="chip scm-br" onClick="{{ws.scm.branchMenu}}" title="Přepnout nebo založit větev"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{I.branch}}"></path></svg><span class="mono">{{ws.scm.branch}}</span><svg class="ic" width="11" height="11" viewBox="0 0 24 24"><path d="{{I.down}}"></path></svg></button><span class="grow"></span><button class="iconbtn" aria-label="Načíst ze vzdáleného repozitáře" title="Načíst ze vzdáleného repozitáře (fetch)" onClick="{{ws.scm.fetch}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{I.refresh}}"></path></svg></button><button class="btn scm-sync {{ws.scm.syncCls}}" onClick="{{ws.scm.sync}}" title="{{ws.scm.syncTitle}}"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{I.dn}}"></path></svg><span class="num">{{ws.scm.behind}}</span><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{I.up}}"></path></svg><span class="num">{{ws.scm.ahead}}</span></button></div>
+<div class="scm-s">{{ws.scm.sub}}</div>
+<div class="scm-c"><textarea aria-label="Zpráva commitu" placeholder="Zpráva commitu (Ctrl+Enter potvrdí)" value="{{ws.scm.msg}}" onChange="{{ws.scm.setMsg}}" onKeyDown="{{ws.scm.msgKey}}"></textarea><div class="scm-cb"><button class="btn btn-acc scm-go {{ws.scm.commitCls}}" onClick="{{ws.scm.commit}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{I.check}}"></path></svg>Potvrdit</button><button class="btn btn-acc scm-more {{ws.scm.commitCls}}" aria-label="Další možnosti potvrzení" title="Commit a push, potvrdit vše" onClick="{{ws.scm.commitMenu}}"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{I.down}}"></path></svg></button></div><sc-if value="{{ws.scm.hasHint}}" hint-placeholder-val="{{false}}"><div class="scm-hint">{{ws.scm.hint}}</div></sc-if></div>
+<sc-for list="{{ws.scm.groups}}" as="gr" hint-placeholder-count="2">
+<div class="fsec-h scm-gh"><span class="lbl">{{gr.label}}</span><span class="cnt">{{gr.n}}</span><span class="grow"></span><button class="iconbtn sm" aria-label="{{gr.allLabel}}" title="{{gr.allLabel}}" onClick="{{gr.all}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{gr.allIcon}}"></path></svg></button></div>
+<sc-for list="{{gr.rows}}" as="f" hint-placeholder-count="3"><div class="frow scm-r"><button class="scm-o" onClick="{{f.open}}" title="Otevřít změny"><span class="scm-x {{f.xCls}}">{{f.x}}</span><span class="fr-n">{{f.name}}</span><span class="fr-d mono">{{f.dir}}</span><span class="grow"></span><span class="mono num fr-c"><span class="plus">{{f.addText}}</span> <span class="minus">{{f.delText}}</span></span></button><button class="iconbtn sm" aria-label="{{f.actLabel}}" title="{{f.actLabel}}" onClick="{{f.act}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{f.actIcon}}"></path></svg></button></div></sc-for>
+</sc-for>
+<sc-if value="{{ws.scm.clean}}" hint-placeholder-val="{{false}}"><div class="fsec-e">Pracovní strom je čistý – nic k potvrzení.</div></sc-if>
+<div class="fsec-h scm-gh"><span class="lbl">Historie</span></div>
+<div class="glog"><sc-for list="{{ws.scm.graph}}" as="r" hint-placeholder-count="6"><div class="gl-r" title="{{r.title}}"><svg class="gl-g" width="30" height="26" viewBox="0 0 30 26" aria-hidden="true"><path d="{{r.p1}}" stroke="var(--violet)"></path><path d="{{r.p0}}" stroke="var(--acct)"></path><circle cx="{{r.cx}}" cy="13" r="3.6" fill="{{r.dc}}"></circle></svg><span class="gl-s">{{r.s}}</span><sc-for list="{{r.refs}}" as="rf" hint-placeholder-count="1"><span class="gref {{rf.cls}}">{{rf.t}}</span></sc-for><span class="gl-m mono">{{r.hash}} · {{r.when}}</span></div></sc-for></div>
+</sc-if>
+</sc-if>
+<sc-if value="{{ws.isScmFile}}" hint-placeholder-val="{{false}}">
+<div class="fv">
+<div class="fv-h"><button class="iconbtn" aria-label="Zpět na seznam" title="Zpět" onClick="{{ws.fvG.back}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{I.back}}"></path></svg></button><span class="fv-p" title="{{ws.fvG.path}}"><b class="mono">{{ws.fvG.name}}</b><span class="mono faint">{{ws.fvG.dir}}</span></span><sc-if value="{{ws.fvG.dirty}}" hint-placeholder-val="{{false}}"><span class="fv-dirty" title="Neuložené změny"></span></sc-if><span class="grow"></span><span class="seg"><sc-for list="{{ws.fvG.modes}}" as="md" hint-placeholder-count="3"><button class="{{md.cls}}" onClick="{{md.pick}}">{{md.label}}</button></sc-for></span><button class="iconbtn" aria-label="Rozšířit panel" title="Rozšířit nebo zúžit panel" onClick="{{ws.fvG.widen}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{I.widen}}"></path></svg></button></div>
+<div class="fv-m"><span class="num">{{ws.fvG.meta}}</span><sc-if value="{{ws.fvG.hasSt}}" hint-placeholder-val="{{true}}"><span class="stt {{ws.fvG.stCls}}">{{ws.fvG.stText}}</span></sc-if></div>
+<sc-if value="{{ws.fvG.hasGuard}}" hint-placeholder-val="{{false}}"><div class="fv-g"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="{{I.info}}"></path></svg><span class="grow">Soubor má neuložené změny.</span><button class="btn" onClick="{{ws.fvG.guardStay}}">Zpět k úpravám</button><button class="btn" onClick="{{ws.fvG.guardDiscard}}">Zahodit</button><button class="btn btn-acc" onClick="{{ws.fvG.guardSave}}">Uložit</button></div></sc-if>
+<sc-if value="{{ws.fvG.isPreview}}" hint-placeholder-val="{{true}}"><div class="cv mono"><sc-for list="{{ws.fvG.lines}}" as="ln" hint-placeholder-count="12"><div class="cvl"><span class="ln">{{ln.n}}</span><span class="cd">{{ln.t}}</span></div></sc-for></div></sc-if>
+<sc-if value="{{ws.fvG.isDiff}}" hint-placeholder-val="{{false}}"><div class="diff fv-d"><sc-for list="{{ws.fvG.diff}}" as="l" hint-placeholder-count="6"><div class="dfl mono {{l.cls}}"><span class="ln">{{l.o}}</span><span class="ln">{{l.n}}</span><span class="sg">{{l.sign}}</span><span class="cd">{{l.code}}</span></div></sc-for></div></sc-if>
+<sc-if value="{{ws.fvG.isEdit}}" hint-placeholder-val="{{false}}"><textarea class="fv-ed mono" spellcheck="false" aria-label="Obsah souboru {{ws.fvG.path}}" value="{{ws.fvG.draft}}" onChange="{{ws.fvG.setDraft}}" onKeyDown="{{ws.fvG.editKey}}"></textarea></sc-if>
+</div>
 </sc-if>
 </div>
+<sc-if value="{{ws.editFoot}}" hint-placeholder-val="{{false}}"><div class="rp-f"><span class="num">{{ws.fv.path}}</span><span class="grow"></span><button class="btn" onClick="{{ws.fv.discard}}">Zahodit</button><button class="btn btn-acc" onClick="{{ws.fv.save}}">Uložit</button></div></sc-if>
 <sc-if value="{{ws.showFoot}}" hint-placeholder-val="{{true}}"><div class="rp-f"><span class="num">{{ws.sum}}</span><span class="grow"></span><button class="btn" onClick="{{ws.reject}}">Zamítnout vše</button><button class="btn btn-acc" onClick="{{ws.approve}}">Schválit vše</button></div></sc-if>
 </aside>
 </div>
@@ -775,11 +931,13 @@ html,body{margin:0;height:100%;overflow:hidden}
 
 <sc-if value="{{hasCtx}}" hint-placeholder-val="{{false}}">
 <div class="mbg" style="z-index: 60;" onClick="{{closeCtx}}" onContextMenu="{{closeCtx}}"></div>
-<div class="dd ctx" role="menu" style="left: {{ctxX}}px; top: {{ctxY}}px;">
+<div class="dd ctx {{ctxCls}}" role="menu" style="left: {{ctxX}}px; top: {{ctxY}}px;">
 <div class="dd-head">{{ctxTitle}}</div>
+<sc-if value="{{ctxHasQ}}" hint-placeholder-val="{{false}}"><label class="dd-q"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{I.search}}"></path></svg><input aria-label="Hledat větev" placeholder="Hledat nebo nový název…" value="{{ctxQ}}" onChange="{{setCtxQ}}"></label></sc-if>
 <sc-for list="{{ctxItems}}" as="mi" hint-placeholder-count="5">
 <sc-if value="{{mi.isSep}}" hint-placeholder-val="{{false}}"><div class="dd-sep"></div></sc-if>
-<sc-if value="{{mi.isItem}}" hint-placeholder-val="{{true}}"><button class="dd-i {{mi.cls}}" role="menuitem" onClick="{{mi.go}}"><span class="dd-ic"><sc-if value="{{mi.hasIcon}}" hint-placeholder-val="{{false}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{mi.icon}}"></path></svg></sc-if></span><span class="dd-t">{{mi.t}}</span><span class="dd-k">{{mi.k}}</span></button></sc-if>
+<sc-if value="{{mi.isHead}}" hint-placeholder-val="{{false}}"><div class="dd-head">{{mi.t}}</div></sc-if>
+<sc-if value="{{mi.isItem}}" hint-placeholder-val="{{true}}"><button class="dd-i {{mi.cls}}" role="menuitem" onClick="{{mi.go}}"><span class="dd-ic"><sc-if value="{{mi.hasIcon}}" hint-placeholder-val="{{false}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{mi.icon}}"></path></svg></sc-if><sc-if value="{{mi.hasNum}}" hint-placeholder-val="{{false}}"><span class="tnum {{mi.numCls}}">{{mi.num}}</span></sc-if></span><span class="dd-t"><sc-if value="{{mi.hasDot}}" hint-placeholder-val="{{false}}"><span class="dot {{mi.dot}}"></span></sc-if>{{mi.t}}</span><span class="dd-k">{{mi.k}}</span></button></sc-if>
 </sc-for>
 </div>
 </sc-if>

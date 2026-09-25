@@ -1,11 +1,33 @@
 class Component extends DCLogic {
   componentDidMount() {
     this._onResize = () => this.forceUpdate();
-    if (typeof window !== 'undefined') window.addEventListener('resize', this._onResize);
+    this._onKey = (e) => this.onKey(e);
+    if (typeof window !== 'undefined') { window.addEventListener('resize', this._onResize); window.addEventListener('keydown', this._onKey, true); }
   }
 
   componentWillUnmount() {
-    if (typeof window !== 'undefined') window.removeEventListener('resize', this._onResize);
+    if (typeof window !== 'undefined') { window.removeEventListener('resize', this._onResize); window.removeEventListener('keydown', this._onKey, true); }
+  }
+
+  // Klávesové zkratky z nabídek; stejné změny stavu jako položky nabídek.
+  onKey(e) {
+    const s = this.st();
+    const k = (e.key || '').toLowerCase();
+    const ctrl = e.ctrlKey || e.metaKey;
+    let p = null;
+    if (k === 'escape' && (s.palette || s.menu || s.ctx || s.scmPlan)) p = s.palette || s.menu || s.ctx ? { palette: false, menu: null, ctx: null } : { scmPlan: null };
+    else if (ctrl && !e.altKey && !e.shiftKey && k === 'k') p = { palette: true, pq: '', menu: null, ctx: null };
+    else if (ctrl && !e.altKey && k === 'b') p = { navOpen: !s.navOpen, navPin: !s.navOpen };
+    else if (ctrl && e.altKey && k === 'b') p = { rightOpen: !s.rightOpen, rightPin: !s.rightOpen };
+    else if (ctrl && !e.altKey && k === 'j') p = { bottomOpen: !s.bottomOpen };
+    else if (ctrl && !e.altKey && (k === 't' || k === 'n')) p = this.pNewSession(s, {});
+    else if (ctrl && k === ',') p = this.pGo(s, 'settings');
+    else if (e.altKey && e.shiftKey && /^digit[1-3]$/.test((e.code || '').toLowerCase())) p = this.pSetCols(s, Number(e.code.slice(-1)));
+    else if (e.altKey && !ctrl && !e.shiftKey && /^[1-9]$/.test(k) && s.tabs[Number(k) - 1]) p = this.pFocusSession(s, s.tabs[Number(k) - 1]);
+    if (!p) return;
+    if (e.preventDefault) e.preventDefault();
+    if (e.stopPropagation) e.stopPropagation();
+    this.setState(Object.assign({ menu: null, ctx: null }, p));
   }
 
   defaults() {
@@ -18,6 +40,8 @@ class Component extends DCLogic {
       menu: null, palette: false, pq: '', ctx: null, q: '', chip: 'vse',
       view: 'dlazdice', size: 2, dtab: {}, approved: {}, stopped: {}, modes: {}, experts: {}, drafts: {}, extra: {}, sessions: {},
       openFiles: { 'src/main/sftp.js': true }, paused: {}, ran: {}, installed: {}, seq: 1,
+      fileView: {}, fileMode: {}, fileDraft: {}, fileText: {}, fileGuard: null, userOpened: {}, treeClosed: {},
+      scm: {}, scmPlan: null, auditX: {}, ctxQ: '', atts: {}, cmds: {}, termX: {},
       style: 'intentsmith', tmode: 'dark', fs: 13, ff: 'brand', ti: 70, ai: 100, bright: 100, pa: 80, ta: 80, bd: 30,
       sep: 'ramecky', density: 'komfortni', scale: '100', col: true, cacc: 0, caccHex: '#22c55e', cbg: 0, cbgHex: '#14141e', css: ''
     };
@@ -102,7 +126,16 @@ class Component extends DCLogic {
       ext: 'M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6',
       refresh: 'M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5',
       type: 'M4 7V4h16v3M9 20h6M12 4v16',
-      columns: 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM9 3v18M15 3v18'
+      columns: 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM9 3v18M15 3v18',
+      branch: 'M6 3v12M6 21a3 3 0 1 0 0-6a3 3 0 1 0 0 6M18 9a3 3 0 1 0 0-6a3 3 0 1 0 0 6M18 9a9 9 0 0 1-9 9',
+      commit: 'M3 12h6M15 12h6M9 12a3 3 0 1 0 6 0a3 3 0 1 0-6 0',
+      back: 'M19 12H5M12 19l-7-7 7-7',
+      eye: 'M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7zM9 12a3 3 0 1 0 6 0a3 3 0 1 0-6 0',
+      minus: 'M5 12h14',
+      widen: 'M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7',
+      up: 'M12 19V5M5 12l7-7 7 7',
+      dn: 'M12 5v14M19 12l-7 7-7-7',
+      undo: 'M3 7v6h6M21 17a9 9 0 0 0-15-6.7L3 13'
     };
     const N = 'var(--info)', A = 'var(--acct)', V = 'var(--violet)', W = 'var(--warn)';
     const hk = (t) => ({ k: 'hunk', o: '', n: '', t });
@@ -128,6 +161,7 @@ class Component extends DCLogic {
           { path: 'test/sftp-resume.test.js', add: 62, del: 0, isNew: true, lines: [hk('@@ -0,0 +1,62 @@'), ad('1', "import { test } from 'node:test';"), ad('2', "import assert from 'node:assert/strict';"), ad('3', "import { upload } from '../src/main/sftp.js';"), ad('4', ''), ad('5', "test('obnoví přenos od posunu', async () => {"), ad('6', '  const sftp = fakeSftp({ remoteSize: 4096 });'), ad('7', "  await upload(sftp, fixture('8k.bin'), '/tmp/8k.bin', () => {});"), ad('8', '  assert.equal(sftp.written.start, 4096);'), ad('9', '});')] }
         ],
         ctxFiles: [['src/main/sftp.js', '412 ř.'], ['src/renderer/js/files.js', '388 ř.'], ['src/main/ssh.js', '530 ř.'], ['docs/ARCHITECTURE.md', '210 ř.']],
+        attach: [['prenos-log.txt', '3 kB']],
         memory: ['Sestavení přes esbuild, bez TypeScriptu', 'GUI se v testech řídí přes CDP (window.__shellsmith)', 'Balíček .deb potřebuje v package.json homepage a author.email'],
         tree: [[0, 'src', 1], [1, 'main', 1], [2, 'sftp.js', 0, 'M'], [2, 'ssh.js', 0], [2, 'window.js', 0], [1, 'renderer', 1], [2, 'js', 1], [3, 'files.js', 0, 'M'], [3, 'tabs.js', 0], [3, 'terminal.js', 0], [2, 'styles', 1], [3, 'app.css', 0], [0, 'test', 1], [1, 'sftp-resume.test.js', 0, 'A'], [1, 'ssh.test.js', 0], [0, 'docs', 1], [1, 'ARCHITECTURE.md', 0], [0, 'package.json', 0], [0, 'README.md', 0]],
         term: [['$ npm test', 'p'], ['> shellsmith@1.1.2 test', ''], ['> node --test test/', ''], ['ok 1 - obnoví přenos od posunu', 'ok'], ['ok 2 - bez podpory posunu začne znovu', 'ok'], ['ok 3 - průběh nejvýš čtyřikrát za sekundu', 'ok'], ['# tests 38 · pass 38 · fail 0', ''], ['$ ', 'p']],
@@ -148,6 +182,7 @@ class Component extends DCLogic {
             approval: { files: 2, add: 23, del: 5, done: 'Schváleno v 11:44 · 2 soubory zapsány' } }
         ],
         changes: [],
+        edited: [['src/renderer/js/processes.js', 14, 3, 'zapsáno', 'M'], ['src/renderer/js/chart.js', 9, 2, 'zapsáno', 'M']],
         ctxFiles: [['src/renderer/js/processes.js', '296 ř.'], ['src/renderer/js/chart.js', '241 ř.']],
         memory: ['Výkon měřit jen přes scripts/measure.sh', 'Historie grafů záměrně nepřežívá restart'],
         tree: [[0, 'src', 1], [1, 'main', 1], [2, 'collectors', 1], [1, 'renderer', 1], [2, 'js', 1], [3, 'chart.js', 0, 'M'], [3, 'processes.js', 0, 'M'], [3, 'overview.js', 0], [0, 'scripts', 1], [1, 'measure.sh', 0], [0, 'package.json', 0]],
@@ -167,6 +202,7 @@ class Component extends DCLogic {
             steps: [['Založil strukturu projektu', '0,8 s'], ['Naplánoval 5 modulů', '9,2 s'], ['Vytvořil src/feeds/rss.js', '+86'], ['Píše src/feeds/filter.js', '', 'run']] }
         ],
         changes: [],
+        edited: [['src/feeds/rss.js', 86, 0, 'zapsáno', 'A'], ['src/feeds/filter.js', 0, 0, 'zapisuje se', 'A']],
         ctxFiles: [['src/feeds/rss.js', '86 ř.'], ['docs/ZADANI.md', '42 ř.']],
         memory: ['Zdroje jen přes RSS, bez scrapování'],
         tree: [[0, 'src', 1], [1, 'feeds', 1], [2, 'rss.js', 0, 'A'], [2, 'filter.js', 0, 'A'], [1, 'renderer', 1], [0, 'docs', 1], [1, 'ZADANI.md', 0], [0, 'package.json', 0, 'A']],
@@ -309,7 +345,40 @@ class Component extends DCLogic {
       { id: 'about', name: 'O aplikaci', icon: I.info, tone: 'blue', desc: 'Verze aplikace, protokol a stav backendu.' }
     ];
     const MODELS = ['qwen3.5:27b', 'qwen3.6:27b', 'gemma4:26b', 'qwen3.8:latest', 'qwen3-coder:latest', 'qwen3-30b-a3b:latest', 'devstral-small-2:latest', 'phi4:14b', 'qwen3:14b', 'ornith-1.5:9b', 'llava:13b', 'llava-llama3:8b'];
-    this._d = { I, S, H, P, SP, CATS, EX, WK, MK, SET, MODELS };
+    const FILES = {
+      'src/main/sftp.js': "'use strict';\n\nconst fs = require('fs');\nconst { throttle } = require('./util');\n\n// Velikost cíle na serveru; chybějící soubor = 0.\nasync function remoteSize(sftp, target) {\n  const st = await sftp.stat(target);\n  return st.size;\n}\n\nasync function upload(sftp, local, target, onProgress) {\n  const offset = await remoteSize(sftp, target).catch(() => 0);\n  const stream = fs.createReadStream(local, { start: offset });\n  const total = (await fs.promises.stat(local)).size;\n  let sent = offset;\n  const tick = throttle(() => onProgress(sent, total), 250);\n  return new Promise((resolve, reject) => {\n    const ws = sftp.createWriteStream(target, {\n      flags: offset > 0 ? 'r+' : 'w',\n      start: offset\n    });\n    stream.on('data', (chunk) => {\n      sent += chunk.length; tick();\n    });\n    stream.pipe(ws).on('close', resolve).on('error', reject);\n  });\n}\n\nmodule.exports = { upload, remoteSize };",
+      'src/renderer/js/files.js': "import { fmt } from './format.js';\n\nexport function renderTransfer(row, t) {\n  const pct = t.total ? Math.round(t.sent / t.total * 100) : 0;\n  row.querySelector('.size').textContent = fmt(t.sent) + ' / ' + fmt(t.total);\n  row.querySelector('.bar').style.width = pct + '%';\n}\n\nexport function renderRow(file) {\n  const row = document.createElement('div');\n  row.className = 'frow';\n  row.innerHTML = `<span class=\"name\"></span><span class=\"size\"></span><i class=\"bar\"></i>`;\n  row.querySelector('.name').textContent = file.name;\n  return row;\n}",
+      'test/sftp-resume.test.js': "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { upload } from '../src/main/sftp.js';\n\ntest('obnoví přenos od posunu', async () => {\n  const sftp = fakeSftp({ remoteSize: 4096 });\n  await upload(sftp, fixture('8k.bin'), '/tmp/8k.bin', () => {});\n  assert.equal(sftp.written.start, 4096);\n});",
+      'docs/ARCHITECTURE.md': "# ShellSmith – architektura\n\n## Procesy\n\n- **main** – SSH a SFTP spojení, okna, klíčenka.\n- **renderer** – záložky, terminál, strom souborů.\n\n## Přenosy souborů\n\nPřenos běží v hlavním procesu po blocích 32 KiB.\nPřerušený přenos pokračuje od posledního potvrzeného bloku.\nRenderer dostává průběh nejvýš čtyřikrát za sekundu.",
+      'src/main/ssh.js': "'use strict';\n\nconst { Client } = require('ssh2');\n\nfunction connect(profile, onReady) {\n  const c = new Client();\n  c.on('ready', () => onReady(c));\n  c.connect({ host: profile.host, port: profile.port || 22, username: profile.user, agent: process.env.SSH_AUTH_SOCK });\n  return c;\n}\n\nmodule.exports = { connect };",
+      'package.json': "{\n  \"name\": \"shellsmith\",\n  \"version\": \"1.1.2\",\n  \"main\": \"src/main/window.js\",\n  \"scripts\": {\n    \"start\": \"electron .\",\n    \"build\": \"node scripts/build.mjs\",\n    \"test\": \"node --test test/\"\n  }\n}",
+      'README.md': "# ShellSmith\n\nSSH/SFTP klient pro KDE – strom souborů s přetahováním,\nzáložky, dělené panely a čtyři motivy.\n\n    npm install\n    npm start",
+      'src/feeds/rss.js': "export async function readFeed(url, fetchImpl = fetch) {\n  const res = await fetchImpl(url, { signal: AbortSignal.timeout(8000) });\n  if (!res.ok) throw new Error('RSS ' + res.status);\n  const xml = await res.text();\n  return parseItems(xml);\n}\n\nfunction parseItems(xml) {\n  const out = [];\n  for (const m of xml.matchAll(/<item>([\\s\\S]*?)<\\/item>/g)) {\n    out.push({ title: pick(m[1], 'title'), link: pick(m[1], 'link'), date: pick(m[1], 'pubDate') });\n  }\n  return out;\n}",
+      'src/renderer/js/processes.js': "import { sortBy } from './table.js';\n\nexport function diskRate(p) {\n  return (p.readBps || 0) + (p.writeBps || 0);\n}\n\nexport const COLUMNS = [\n  ['name', 'Proces'],\n  ['cpu', 'CPU'],\n  ['mem', 'Paměť'],\n  ['disk', 'Disk', diskRate]\n];\n\nexport function sortRows(rows, key) {\n  const col = COLUMNS.find((c) => c[0] === key);\n  return sortBy(rows, col && col[2] ? col[2] : (r) => r[key]);\n}",
+      'src/renderer/js/chart.js': "export function draw(ctx, samples, opts) {\n  if (samples.length < 2) return;\n  const w = ctx.canvas.width, h = ctx.canvas.height;\n  ctx.clearRect(0, 0, w, h);\n  ctx.beginPath();\n  samples.forEach((v, i) => {\n    const x = i / (samples.length - 1) * w;\n    const y = h - v / opts.max * h;\n    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);\n  });\n  ctx.stroke();\n}"
+    };
+    const DIFFS = {
+      'docs/ARCHITECTURE.md': [hk('@@ -9,4 +9,6 @@ ## Přenosy souborů'), cx('9', '9', '## Přenosy souborů'), cx('10', '10', ''), cx('11', '11', 'Přenos běží v hlavním procesu po blocích 32 KiB.'), dl('12', 'Přerušený přenos začne znovu.'), ad('12', 'Přerušený přenos pokračuje od posledního potvrzeného bloku.'), ad('13', 'Renderer dostává průběh nejvýš čtyřikrát za sekundu.')],
+      'src/renderer/js/processes.js': [hk('@@ -1,6 +1,10 @@'), cx('1', '1', "import { sortBy } from './table.js';"), cx('2', '2', ''), ad('3', 'export function diskRate(p) {'), ad('4', '  return (p.readBps || 0) + (p.writeBps || 0);'), ad('5', '}'), ad('6', ''), cx('3', '7', 'export const COLUMNS = ['), dl('6', "  ['disk', 'Disk']"), ad('10', "  ['disk', 'Disk', diskRate]")],
+      'src/renderer/js/chart.js': [hk('@@ -1,3 +1,3 @@'), cx('1', '1', 'export function draw(ctx, samples, opts) {'), dl('2', '  if (!samples.length) return;'), ad('2', '  if (samples.length < 2) return;'), cx('3', '3', '  const w = ctx.canvas.width, h = ctx.canvas.height;')]
+    };
+    const POL = (o) => Object.assign({ init: 'automatic', commit: 'ask', branch: 'ask', fetch: 'ask', pull: 'ask', push: 'ask' }, o || {});
+    const GIT = {
+      shellsmith: { repo: true, branch: 'main', upstream: 'origin/main', ahead: 1, behind: 0, fetched: 'dnes 13:58', remote: 'origin', host: 'github.com', policy: POL(),
+        branches: ['main', 'work/sftp-resume', 'release/1.1'], remoteBranches: ['origin/main', 'origin/release/1.1'],
+        changes: [['docs/ARCHITECTURE.md', 'M', 2, 1]],
+        log: [['b', 'a41c9e2', 'WIP: obnovení přenosu přes SFTP', 'operátor', 'dnes 12:40', ['work/sftp-resume']], ['o', '9f8e7d6', 'Záložky: zavření bez posunu fokusu', 'IntentSmith', 'dnes 11:02', []], ['o', '5c4b3a2', 'Strom souborů: přetahování více položek', 'operátor', 'včera 19:30', []], ['f', '3e2d1c0', 'Motivy: čtvrtý motiv Nocturne', 'IntentSmith', '23. 9.', []], ['m', '7a6b5c4', 'Sloučení větve work/split-panes', 'operátor', '22. 9.', []], ['b', '2d3e4f5', 'Dělené panely: svislé dělení', 'IntentSmith', '21. 9.', []], ['f', '1a2b3c4', 'Vydání 1.1.2', 'operátor', '20. 9.', ['v1.1.2']], ['o', '0f9e8d7', 'SFTP: přenos po blocích', 'IntentSmith', '19. 9.', []]],
+        incoming: [] },
+      systemsmith_1: { repo: true, branch: 'main', upstream: 'origin/main', ahead: 0, behind: 2, fetched: 'dnes 11:20', remote: 'origin', host: 'github.com', policy: POL({ fetch: 'disabled' }),
+        branches: ['main'], remoteBranches: ['origin/main'], changes: [],
+        log: [['o', '6b5a4c3', 'Procesy: sloupec GPU', 'IntentSmith', 'dnes 10:15', []], ['o', '8d7c6b5', 'Měření výkonu přes scripts/measure.sh', 'operátor', '23. 9.', []], ['o', '2f1e0d9', 'Založení projektu', 'IntentSmith', '18. 9.', []]],
+        incoming: [['o', 'd4e5f6a', 'Teploty NVMe: čtení mimo hlavní vlákno', 'operátor', 'dnes 12:05', []], ['o', 'b3c2d1e', 'README: snímky obrazovky', 'operátor', 'dnes 12:01', []]] },
+      newssmith: { repo: true, branch: 'main', upstream: '', ahead: 0, behind: 0, fetched: '', remote: '', host: '', policy: POL({ fetch: 'disabled', pull: 'disabled', push: 'disabled' }),
+        branches: ['main'], remoteBranches: [], changes: [['package.json', 'A', 18, 0], ['docs/ZADANI.md', 'A', 42, 0]],
+        log: [['o', 'e1f2a3b', 'Založení projektu', 'IntentSmith', 'dnes 14:04', []]], incoming: [] },
+      weathersmith: { repo: false, policy: POL({ init: 'ask' }) }
+    };
+    this._d = { I, S, H, P, SP, CATS, EX, WK, MK, SET, MODELS, FILES, DIFFS, GIT };
     return this._d;
   }
 
@@ -475,27 +544,65 @@ class Component extends DCLogic {
 
   pSend(s, sid) {
     const text = (s.drafts[sid] || '').trim();
-    if (!text) return null;
+    const atts = s.atts[sid] || [];
+    if (!text && !atts.length) return null;
     const b = this.sess(sid, s);
     const expert = s.experts[sid] || b.expert;
     const rid = 'r' + s.seq;
     const msgs = (s.extra[sid] || []).concat([
-      { k: 'user', time: 'teď', text },
+      { k: 'user', time: 'teď', text, atts: atts.map((a) => a[0]) },
       { k: 'agent', time: 'teď', badge: b.intent || (b.kind === 'specialist' ? 'SPECIALISTA' : 'CONVERSATION'), expert, author: b.kind === 'specialist' ? b.short : '', rid, running: true, runText: 'Model ' + b.model + ' odpovídá…', steps: [['Načetl kontext relace', '0,4 s'], ['Připravuje odpověď', '', 'run']] }
     ]);
-    return { extra: this.merge(s, 'extra', { [sid]: msgs }), drafts: this.merge(s, 'drafts', { [sid]: '' }), seq: s.seq + 1 };
+    return { extra: this.merge(s, 'extra', { [sid]: msgs }), drafts: this.merge(s, 'drafts', { [sid]: '' }), atts: this.merge(s, 'atts', { [sid]: [] }), seq: s.seq + 1 };
   }
 
-  showCtx(sec, id) {
+  showCtx(sec, id, anchored) {
     return (e) => {
       if (e && e.preventDefault) e.preventDefault();
       if (e && e.stopPropagation) e.stopPropagation();
-      const w = typeof window !== 'undefined' ? window.innerWidth : 1600;
-      const h = typeof window !== 'undefined' ? window.innerHeight : 960;
-      const x = Math.max(4, Math.min((e && e.clientX) || 200, w - 260));
-      const y = Math.max(4, Math.min((e && e.clientY) || 200, h - 340));
-      this.setState({ ctx: { sec, id, x, y }, menu: null });
+      const z = Number(this.st().scale) / 100 || 1;
+      const w = (typeof window !== 'undefined' ? window.innerWidth : 1600) / z;
+      const h = (typeof window !== 'undefined' ? window.innerHeight : 960) / z;
+      let x = ((e && e.clientX) || 200) / z, y = ((e && e.clientY) || 200) / z;
+      if (anchored) {
+        try { const r = e.currentTarget.getBoundingClientRect(); x = (anchored === 'right' ? r.right - 280 : r.left) / z; y = r.bottom / z + 4; } catch (err) { /* souřadnice z události */ }
+      }
+      x = Math.max(4, Math.min(x, w - 290));
+      y = Math.max(4, Math.min(y, h - 200));
+      this.setState({ ctx: { sec, id, x, y }, menu: null, ctxQ: '' });
     };
+  }
+
+  // Terminál relace: Enter spustí, Tab doplní cestu ze stromu projektu.
+  termKey(e, sid) {
+    const s = this.st();
+    const cmd = s.cmds[sid] || '';
+    if (e.key === 'Tab') {
+      if (e.preventDefault) e.preventDefault();
+      const b = this.sess(sid, s);
+      const m = cmd.match(/(\S*)$/);
+      const pre = m ? m[1] : '';
+      const stack = [];
+      const paths = [];
+      (b && b.tree || []).forEach((t) => { stack.length = t[0]; paths.push(stack.concat([t[1]]).join('/') + (t[2] ? '/' : '')); stack.push(t[1]); });
+      const hit = pre && paths.find((x) => x.indexOf(pre) === 0 && x !== pre);
+      if (hit) this.setState({ cmds: this.merge(s, 'cmds', { [sid]: cmd.slice(0, cmd.length - pre.length) + hit }) });
+      return;
+    }
+    if (e.key !== 'Enter' || !cmd.trim()) return;
+    if (e.preventDefault) e.preventDefault();
+    const lines = (s.termX[sid] || []).concat([['$ ' + cmd.trim(), 'p'], ['(prototyp příkaz nespouští – v IDE jde přes kanál terminal)', '']]);
+    this.setState({ termX: this.merge(s, 'termX', { [sid]: lines }), cmds: this.merge(s, 'cmds', { [sid]: '' }) });
+  }
+
+  pPickInCol(s, i, sid) {
+    const lay = this.colLayout(s);
+    const next = lay.slice();
+    const j = next.indexOf(sid);
+    if (j === i) return { mode: 'sessions', focusCol: i };
+    if (j >= 0) next[j] = next[i];
+    next[i] = sid;
+    return { mode: 'sessions', colSids: next, focusCol: i };
   }
 
   entities(sec, s) {
@@ -731,14 +838,23 @@ class Component extends DCLogic {
       const props = [['Cesta', p.path, true], ['Stav', p.status === 'active' ? 'aktivní' : 'specifikace'], ['Poslední aktivita', p.last], ['Konverzací', String(p.convs.length)]];
       if (p.stack) props.push(['Technologie', p.stack]);
       if (p.test) props.push(['Příkaz testů', p.test, true]);
+      const g = this.gitVM(s, p.id);
+      const POLK = [['init', 'Init repozitáře'], ['commit', 'Commit'], ['branch', 'Větve'], ['fetch', 'Fetch (síť)'], ['pull', 'Pull (--ff-only)'], ['push', 'Push (nikdy --force)']];
+      const pol = g ? g.policy : { init: 'automatic', commit: 'ask', branch: 'ask', fetch: 'disabled', pull: 'ask', push: 'ask' };
+      const scmBlocks = [
+        g && g.repo ? { kind: 'rows', title: 'Repozitář', rows: [{ t: 'Větev ' + g.branch, m: g.upstream ? '↓' + g.behind + ' ↑' + g.ahead : 'bez upstreamu', icon: I.branch, mono: true }, { t: g.remote ? g.remote + ' · ' + g.host : 'bez vzdáleného repozitáře', m: g.remote ? 'povolený hostitel' : '', mc: ok, icon: I.globe }] } : { kind: 'empty', title: 'Repozitář', text: g ? 'Složka zatím nemá repozitář git. Inicializuješ ho v pravém panelu relace › Správa zdrojů.' : 'Stav repozitáře se načte z GET /api/scm/status.' },
+        { kind: 'table', title: 'Politika gitu', cols: ['Operace', 'Režim'], grid: 'minmax(0, 1fr) 120px', trs: POLK.map((k) => [k[1], [this.polLabel(pol[k[0]]), pol[k[0]] === 'disabled' ? 'var(--faint)' : pol[k[0]] === 'automatic' ? 'var(--ok)' : 'var(--text)']]) },
+        { kind: 'text', title: 'Jak politika funguje', items: ['Každá operace se zápisem nebo sítí nejdřív ukáže plán a provede se až po potvrzení. Síť jen na povolené hostitele, hooky jsou vypnuté. Politiku mění PUT /api/scm/policy, ne obecné nastavení.'] }
+      ];
       const related = [{ t: 'Vývojář', s: 'expertýza', icon: I.cap, go: (s2) => this.pSelect(s2, 'expertises', 'developer') }];
       if (p.code) related.push({ t: 'Code Reviewer', s: 'specialista', icon: I.users, go: (s2) => this.pSelect(s2, 'specialists', 'code-reviewer') });
       return {
         icon: I.folder, tone: 'rose', title: p.name, type: 'Projekt', idText: p.path, status: p.status === 'active' ? 'aktivní' : 'specifikace', stCls: p.status === 'active' ? 'ok' : 'idle',
         primary: { label: 'Nová relace v projektu', go: (s2) => this.pNewSession(s2, { project: p.id }) },
         secondary: [{ label: 'Otevřít složku', icon: I.ext }, { label: 'Upravit', icon: I.pen }],
-        tabs: [['prehled', 'Přehled'], ['konverzace', 'Konverzace', p.convs.length], ['soubory', 'Soubory']],
+        tabs: [['prehled', 'Přehled'], ['konverzace', 'Konverzace', p.convs.length], ['soubory', 'Soubory'], ['scm', 'Správa zdrojů']],
         blocks: {
+          scm: scmBlocks,
           prehled,
           konverzace: [{ kind: 'rows', title: 'Konverzace projektu', rows: convRows, empty: 'Projekt zatím nemá žádnou konverzaci.' }],
           soubory: [tree.length ? { kind: 'rows', title: 'Soubory', rows: tree } : { kind: 'empty', title: 'Soubory', text: 'Strom souborů se načte po otevření projektu v relaci.' }]
@@ -986,7 +1102,8 @@ class Component extends DCLogic {
     const mode = s.modes[sid] || b.mode;
     const author = m.author || (b.kind === 'specialist' && m.k === 'agent' ? b.short : 'IntentSmith');
     return {
-      isUser: m.k === 'user', isAgent: m.k === 'agent', text: m.text || '', time: m.time || '',
+      isUser: m.k === 'user', isAgent: m.k === 'agent', text: m.text || '', hasText: !!m.text, time: m.time || '',
+      hasAtts: !!(m.atts && m.atts.length), atts: (m.atts || []).map((a) => ({ t: a })),
       author, authorIcon: b.kind === 'specialist' ? I.users : I.anvil,
       badge: m.badge || '', hasBadge: !!m.badge, expert: m.expert || '',
       steps, hasSteps: steps.length > 0, paras: (m.paras || []).map((t) => ({ t })),
@@ -1039,7 +1156,7 @@ class Component extends DCLogic {
         setRev: () => this.setState({ modes: this.merge(this.st(), 'modes', { [sid]: 'kontrola' }) }),
         ctx: this.ctxOf(sid, s),
         multi: lay.length > 1,
-        cycle: () => { const s2 = this.st(); const l2 = this.colLayout(s2); const cands = s2.tabs.filter((t) => l2.indexOf(t) < 0); if (!cands.length) return; const after = s2.tabs.slice(s2.tabs.indexOf(sid) + 1).concat(s2.tabs); const nx = after.find((t) => cands.indexOf(t) >= 0); const next = l2.slice(); next[i] = nx; this.setState({ colSids: next, focusCol: i }); },
+        pick: this.showCtx('colpick', String(i), 'left'), pickCls: s.ctx && s.ctx.sec === 'colpick' && s.ctx.id === String(i) ? 'open' : '',
         closeCol: () => { const s2 = this.st(); const l2 = this.colLayout(s2); l2.splice(i, 1); const fr2 = s2.colFr.slice(); fr2.splice(i, 1); fr2.push(1); this.setState({ cols: Math.max(1, s2.cols - 1), colSids: l2, colFr: fr2, focusCol: Math.max(0, Math.min(s2.focusCol, l2.length - 1)) }); },
         msgs: b.msgs.concat(extra).map((m) => this.msgVM(m, sid, s, b)),
         isFresh: fresh, freshTitle: sp ? 'Nová konverzace se specialistou ' + sp.name : p ? 'Nová relace v projektu ' + p.name : 'Nová konverzace',
@@ -1053,10 +1170,16 @@ class Component extends DCLogic {
         pickModel: this.run((s2) => this.pSelect(s2, 'settings', 'modely')),
         btabs: btabs.map((t) => ({ label: t[1], n: t[2] || '', hasN: !!t[2], cls: bt === t[0] ? 'on' : '', go: () => this.setState({ btab: this.merge(this.st(), 'btab', { [sid]: t[0] }), bottomOpen: true }) })),
         isTerm: bt === 'terminal', isLog: bt === 'log', isRuns: bt === 'runs', isAudit: bt === 'audit', isProb: bt === 'prob',
-        term: b.term.map((l) => ({ t: l[0], cls: l[1] })),
+        term: b.term.concat(s.termX[sid] || []).filter((l, j, all) => !(l[0] === '$ ' && j === all.length - 1)).map((l) => ({ t: l[0], cls: l[1] })),
+        cmd: s.cmds[sid] || '',
+        setCmd: (e) => this.setState({ cmds: this.merge(this.st(), 'cmds', { [sid]: e.target.value }) }),
+        cmdKey: (e) => this.termKey(e, sid),
+        atts: (s.atts[sid] || []).map((a, j) => ({ t: a[0], s: a[1], remove: () => { const s2 = this.st(); const l = (s2.atts[sid] || []).slice(); l.splice(j, 1); this.setState({ atts: this.merge(s2, 'atts', { [sid]: l }) }); } })),
+        hasAtts: (s.atts[sid] || []).length > 0,
+        attach: () => { const s2 = this.st(); const l = s2.atts[sid] || []; const pool = [['zadani.md', '2 kB'], ['snimek-obrazovky.png', '184 kB'], ['chyba.log', '12 kB']]; const next = pool.find((a) => !l.some((x) => x[0] === a[0])); if (next) this.setState({ atts: this.merge(s2, 'atts', { [sid]: l.concat([next]) }) }); },
         log: log.map((l) => ({ t: l[0], lv: l[1], c: l[2], e: l[3], m: l[4] })),
         runs, hasRuns: runs.length > 0, noRuns: runs.length === 0, runGrid: '60px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr) 52px 76px',
-        audit: (b.audit || []).map((l) => ({ t: l[0], e: l[1], m: l[2] })),
+        audit: (s.auditX[sid] || []).concat(b.audit || []).map((l) => ({ t: l[0], e: l[1], m: l[2] })),
         problems: probs, hasProblems: probs.length > 0, noProblems: probs.length === 0
       };
     });
@@ -1080,10 +1203,20 @@ class Component extends DCLogic {
 
   wsVM(s, fsid) {
     const I = this.data().I;
-    const tabsDef = [['zmeny', 'Změny'], ['kontext', 'Kontext'], ['soubory', 'Soubory']];
+    const tabsDef = [['zmeny', 'Změny'], ['soubory', 'Soubory'], ['scm', 'Správa zdrojů'], ['kontext', 'Kontext']];
     const b = fsid ? this.sess(fsid, s) : null;
+    const fl = this.filesVM(fsid, s);
+    const scm = this.scmVM(s, fsid);
+    const fvS = this.fileViewVM(fsid, s, 'soubory');
+    const fvG = this.fileViewVM(fsid, s, 'scm');
+    const common = {
+      fl, scm, fvS, fvG, isSouboryList: s.rightTab === 'soubory' && !fvS.isOpen, isSouboryFile: s.rightTab === 'soubory' && fvS.isOpen,
+      isScm: s.rightTab === 'scm', isScmMain: s.rightTab === 'scm' && !fvG.isOpen, isScmFile: s.rightTab === 'scm' && fvG.isOpen,
+      editFoot: (s.rightTab === 'soubory' && fvS.showFoot) || (s.rightTab === 'scm' && fvG.showFoot)
+    };
+    common.fv = s.rightTab === 'scm' ? fvG : fvS;
     if (!b) {
-      return { tabs: tabsDef.map((t) => ({ label: t[1], n: '', hasN: false, cls: s.rightTab === t[0] ? 'on' : '', go: () => this.setState({ rightTab: t[0] }) })), n: '–', dot: '', label: 'žádná relace', isZmeny: s.rightTab === 'zmeny', isKontext: false, isSoubory: false, hasChanges: false, noChanges: true, files: [], emptyIcon: I.chat, emptyTitle: 'Žádná otevřená relace', emptyText: 'Pracovní plocha ukazuje změny, kontext a soubory relace v aktivním sloupci.', showFoot: false, sum: '', approve: () => {}, reject: () => {}, ctx: 0, parts: [], tokens: '', turns: 0, ctxFiles: [], hasCtxFiles: false, noCtxFiles: true, memory: [], hasMemory: false, tree: [], hasTree: false, noTree: true };
+      return Object.assign(common, { tabs: tabsDef.map((t) => ({ label: t[1], n: '', hasN: false, cls: s.rightTab === t[0] ? 'on' : '', go: () => this.setState({ rightTab: t[0] }) })), n: '–', dot: '', label: 'žádná relace', isZmeny: s.rightTab === 'zmeny', isKontext: s.rightTab === 'kontext', isSoubory: s.rightTab === 'soubory', hasChanges: false, noChanges: true, files: [], emptyIcon: I.chat, emptyTitle: 'Žádná otevřená relace', emptyText: 'Pracovní plocha ukazuje změny, soubory, správu zdrojů a kontext relace v aktivním sloupci.', showFoot: false, sum: '', approve: () => {}, reject: () => {}, ctx: 0, parts: [], tokens: '', turns: 0, ctxFiles: [], hasCtxFiles: false, noCtxFiles: true, memory: [], hasMemory: false, editFoot: false });
     }
     const st = this.sstate(fsid, s);
     const pending = b.changes.length > 0 && st === 'wait';
@@ -1099,9 +1232,9 @@ class Component extends DCLogic {
     const a = s.approved[fsid];
     const emptyTitle = a === 'ok' ? 'Změny jsou zapsané' : a === 'no' ? 'Změny byly zamítnuté' : st === 'run' ? 'Agent právě pracuje' : 'Nic nečeká na schválení';
     const emptyText = a === 'ok' ? 'Soubory jsou v projektu. Historie změn zůstává v auditu relace.' : a === 'no' ? 'Projekt zůstal beze změny. Agentovi můžeš napsat, co udělat jinak.' : st === 'run' ? 'Hotové změny se tu objeví, jakmile agent požádá o schválení.' : 'V režimu Kontrola se sem dostanou změny souborů, než se zapíšou.';
-    const tree = (b.tree || []).map((t) => ({ pad: 12 + t[0] * 14, name: t[1], icon: t[2] ? I.folder : I.file, ic: t[2] ? 'var(--acct)' : 'var(--faint)', cls: t[3] ? 'tmod' : '', mark: t[3] || '', mc: t[3] === 'A' ? 'var(--ok)' : 'var(--warn)' }));
-    return {
-      tabs: tabsDef.map((t) => ({ label: t[1], n: t[0] === 'zmeny' && pending ? b.changes.length : '', hasN: t[0] === 'zmeny' && pending, cls: s.rightTab === t[0] ? 'on' : '', go: () => this.setState({ rightTab: t[0] }) })),
+    const counts = { zmeny: pending ? b.changes.length : 0, scm: scm.count };
+    return Object.assign(common, {
+      tabs: tabsDef.map((t) => ({ label: t[1], n: counts[t[0]] || '', hasN: !!counts[t[0]], cls: s.rightTab === t[0] ? 'on' : '', go: () => this.setState({ rightTab: t[0] }) })),
       n: s.tabs.indexOf(fsid) + 1, dot: st, label: b.short,
       isZmeny: s.rightTab === 'zmeny', isKontext: s.rightTab === 'kontext', isSoubory: s.rightTab === 'soubory',
       hasChanges: pending, noChanges: !pending, files, emptyIcon: a === 'no' ? I.x : st === 'run' ? I.clock : I.check, emptyTitle, emptyText,
@@ -1109,8 +1242,442 @@ class Component extends DCLogic {
       approve: this.run((s2) => this.pApprove(s2, fsid, 'ok')), reject: this.run((s2) => this.pApprove(s2, fsid, 'no')),
       ctx: this.ctxOf(fsid, s), parts: b.parts.map((p) => ({ label: p[0], v: p[1], c: p[2] })), tokens: b.tokens, turns: b.turns + (s.extra[fsid] || []).length / 2,
       ctxFiles: (b.ctxFiles || []).map((f) => ({ p: f[0], s: f[1] })), hasCtxFiles: (b.ctxFiles || []).length > 0, noCtxFiles: !(b.ctxFiles || []).length,
-      memory: (b.memory || []).map((t) => ({ t })), hasMemory: (b.memory || []).length > 0,
-      tree, hasTree: tree.length > 0, noTree: tree.length === 0
+      memory: (b.memory || []).map((t) => ({ t })), hasMemory: (b.memory || []).length > 0
+    });
+  }
+
+  // ---- Soubory relace (zadání 25. 9., bod 2) ----
+
+  fileKey(sid, s, path) {
+    const b = this.sess(sid, s);
+    return ((b && b.project) || sid) + '|' + path;
+  }
+
+  fileContent(sid, s, path) {
+    const saved = s.fileText[this.fileKey(sid, s, path)];
+    if (saved !== undefined) return saved;
+    const f = this.data().FILES[path];
+    if (f !== undefined) return f;
+    return '// ' + path + '\n\n// Prototyp obsah tohoto souboru nemá. V IDE ho načte GET /api/workspace/file.';
+  }
+
+  sessFiles(sid, s) {
+    const d = this.data();
+    const b = this.sess(sid, s);
+    if (!b) return { edited: [], opened: [] };
+    const a = s.approved[sid];
+    const edited = [];
+    const seen = {};
+    b.changes.forEach((f) => {
+      seen[f.path] = 1;
+      edited.push({ path: f.path, add: f.add, del: f.del, st: a === 'ok' ? 'zapsáno' : a === 'no' ? 'zamítnuto' : 'navrženo', diff: f.lines, isNew: !!f.isNew });
+    });
+    (b.edited || []).forEach((e) => {
+      if (seen[e[0]]) return;
+      seen[e[0]] = 1;
+      const st = e[3] === 'zapisuje se' && !this.isRunning(sid, s) ? 'nedokončeno' : e[3];
+      edited.push({ path: e[0], add: e[1], del: e[2], st, diff: d.DIFFS[e[0]] || null, isNew: e[4] === 'A' });
+    });
+    const pk = (b.project || sid) + '|';
+    Object.keys(s.fileText).forEach((k) => {
+      if (k.indexOf(pk) !== 0) return;
+      const path = k.slice(pk.length);
+      if (seen[path]) return;
+      seen[path] = 1;
+      edited.push({ path, add: 1, del: 1, st: 'uloženo ručně', diff: null, isNew: false });
+    });
+    const opened = [];
+    Object.keys(s.userOpened[sid] || {}).forEach((path) => opened.push({ path, src: 'otevřel jsi', meta: '' }));
+    (b.ctxFiles || []).forEach((f) => { if (!opened.some((o) => o.path === f[0])) opened.push({ path: f[0], src: 'četl agent', meta: f[1] }); });
+    (b.attach || []).forEach((f) => opened.push({ path: f[0], src: 'příloha', meta: f[1], attach: true }));
+    return { edited, opened };
+  }
+
+  fileDiff(sid, s, path) {
+    const d = this.data();
+    const e = this.sessFiles(sid, s).edited.find((x) => x.path === path);
+    if (e && e.diff) return e.diff;
+    if (d.DIFFS[path]) return d.DIFFS[path];
+    const g = this.focusGit(s, sid);
+    const isNew = (e && e.isNew) || (g && g.all.some((x) => x.path === path && x.isNew));
+    if (isNew && d.FILES[path] !== undefined) {
+      const lines = d.FILES[path].split('\n');
+      return [{ k: 'hunk', o: '', n: '', t: '@@ -0,0 +1,' + lines.length + ' @@' }].concat(lines.map((t, i) => ({ k: 'add', o: '', n: String(i + 1), t })));
+    }
+    return null;
+  }
+
+  dirtyOf(sid, s) {
+    const fv = s.fileView[sid];
+    if (!fv) return false;
+    const k = this.fileKey(sid, s, fv.path);
+    return s.fileDraft[k] !== undefined && s.fileDraft[k] !== this.fileContent(sid, s, fv.path);
+  }
+
+  pOpenFile(s, sid, next) {
+    if (this.dirtyOf(sid, s) && !(next && s.fileView[sid] && next.path === s.fileView[sid].path)) return { fileGuard: { sid, next: next || null } };
+    const fv = Object.assign({}, s.fileView, { [sid]: next ? { path: next.path, from: next.from } : null });
+    const p = { fileView: fv, fileGuard: null, rightOpen: true };
+    if (next) {
+      p.fileMode = this.merge(s, 'fileMode', { [sid]: next.mode || 'nahled' });
+      p.rightTab = next.from;
+      const b = this.sess(sid, s);
+      if (next.from === 'soubory' && !(b.ctxFiles || []).some((f) => f[0] === next.path)) p.userOpened = this.merge(s, 'userOpened', { [sid]: Object.assign({}, s.userOpened[sid], { [next.path]: true }) });
+    }
+    return p;
+  }
+
+  pSaveFile(s, sid) {
+    const fv = s.fileView[sid];
+    if (!fv) return null;
+    const k = this.fileKey(sid, s, fv.path);
+    const draft = s.fileDraft[k];
+    const fileDraft = Object.assign({}, s.fileDraft);
+    delete fileDraft[k];
+    const p = { fileDraft };
+    if (draft !== undefined && draft !== this.fileContent(sid, s, fv.path)) {
+      p.fileText = this.merge(s, 'fileText', { [k]: draft });
+      p.auditX = this.merge(s, 'auditX', { [sid]: [['teď', 'file_save', fv.path + ' · uloženo uživatelem']].concat(s.auditX[sid] || []) });
+    }
+    return p;
+  }
+
+  pDiscardFile(s, sid) {
+    const fv = s.fileView[sid];
+    if (!fv) return null;
+    const fileDraft = Object.assign({}, s.fileDraft);
+    delete fileDraft[this.fileKey(sid, s, fv.path)];
+    return { fileDraft };
+  }
+
+  pResolveGuard(s, how) {
+    const g = s.fileGuard;
+    if (!g) return null;
+    if (how === 'stay') return { fileGuard: null, fileMode: this.merge(s, 'fileMode', { [g.sid]: 'upravy' }) };
+    const p1 = how === 'save' ? this.pSaveFile(s, g.sid) : this.pDiscardFile(s, g.sid);
+    return this.chain(s, Object.assign({ fileGuard: null }, p1), (s2) => this.pOpenFile(s2, g.sid, g.next));
+  }
+
+  treeVM(sid, s, b) {
+    const I = this.data().I;
+    const rows = [];
+    const stack = [];
+    let hideBelow = -1;
+    const pk = (b.project || sid) + '|';
+    (b.tree || []).forEach((t) => {
+      const depth = t[0], name = t[1], isDir = !!t[2];
+      stack.length = depth;
+      const path = stack.concat([name]).join('/');
+      stack.push(name);
+      if (hideBelow >= 0) { if (depth > hideBelow) return; hideBelow = -1; }
+      const closed = isDir && !!s.treeClosed[sid + '|' + path];
+      if (closed) hideBelow = depth;
+      const mark = t[3] || (s.fileText[pk + path] !== undefined ? 'M' : '');
+      const fv = s.fileView[sid];
+      rows.push({
+        pad: 8 + depth * 14, name, path, isDir, icon: isDir ? I.folder : I.file, ic: isDir ? 'var(--acct)' : 'var(--faint)',
+        chev: isDir ? (closed ? I.right : I.down) : '', hasChev: isDir, cls: (mark ? 'tmod' : '') + (fv && fv.path === path ? ' sel' : ''), mark, mc: mark === 'A' ? 'var(--ok)' : 'var(--warn)',
+        go: isDir ? () => this.setState({ treeClosed: this.merge(this.st(), 'treeClosed', { [sid + '|' + path]: !closed }) }) : this.run((s2) => this.pOpenFile(s2, sid, { path, from: 'soubory' }))
+      });
+    });
+    return rows;
+  }
+
+  splitPath(path) {
+    const i = path.lastIndexOf('/');
+    return { name: i >= 0 ? path.slice(i + 1) : path, dir: i >= 0 ? path.slice(0, i) : '' };
+  }
+
+  fileViewVM(sid, s, from) {
+    const I = this.data().I;
+    const fv = sid ? s.fileView[sid] : null;
+    const off = { isOpen: false, path: '', name: '', dir: '', meta: '', modes: [], isPreview: false, isDiff: false, isEdit: false, lines: [], diff: [], hasDiff: false, noDiff: false, draft: '', setDraft: () => {}, editKey: () => {}, dirty: false, save: () => {}, discard: () => {}, back: () => {}, widen: () => {}, hasGuard: false, guardSave: () => {}, guardDiscard: () => {}, guardStay: () => {}, showFoot: false, stCls: '', stText: '', hasSt: false };
+    if (!fv || fv.from !== from) return off;
+    const path = fv.path;
+    const k = this.fileKey(sid, s, path);
+    const content = this.fileContent(sid, s, path);
+    const draft = s.fileDraft[k] !== undefined ? s.fileDraft[k] : content;
+    const dirty = draft !== content;
+    const diff = this.fileDiff(sid, s, path);
+    const mode = s.fileMode[sid] === 'diff' && !diff ? 'nahled' : (s.fileMode[sid] || 'nahled');
+    const e = this.sessFiles(sid, s).edited.find((x) => x.path === path);
+    const sp = this.splitPath(path);
+    const n = content.split('\n').length;
+    const setMode = (m) => () => this.setState({ fileMode: this.merge(this.st(), 'fileMode', { [sid]: m }) });
+    return {
+      isOpen: true, path, name: sp.name, dir: sp.dir,
+      meta: n + (n === 1 ? ' řádek' : n <= 4 ? ' řádky' : ' řádků') + ' · UTF-8' + (e ? ' · +' + e.add + (e.del ? ' −' + e.del : '') : ''),
+      hasSt: !!e, stText: e ? e.st : '', stCls: e ? (e.st === 'navrženo' ? 'warn' : e.st === 'zamítnuto' || e.st === 'nedokončeno' ? 'idle' : 'ok') : '',
+      modes: [['nahled', 'Náhled', true], ['diff', 'Změny', !!diff], ['upravy', 'Upravit', true]].map((m) => ({ label: m[1], cls: (mode === m[0] ? 'on' : '') + (m[2] ? '' : ' off'), pick: m[2] ? setMode(m[0]) : () => {} })),
+      isPreview: mode === 'nahled', isDiff: mode === 'diff', isEdit: mode === 'upravy',
+      lines: content.split('\n').map((t, i) => ({ n: i + 1, t })),
+      diff: (diff || []).map((l) => ({ o: l.o, n: l.n, sign: l.k === 'add' ? '+' : l.k === 'del' ? '−' : '', code: l.t, cls: l.k })), hasDiff: !!diff, noDiff: !diff,
+      draft, dirty,
+      setDraft: (ev) => this.setState({ fileDraft: this.merge(this.st(), 'fileDraft', { [k]: ev.target.value }) }),
+      editKey: (ev) => { if (ev.key === 's' && (ev.ctrlKey || ev.metaKey)) { if (ev.preventDefault) ev.preventDefault(); const p = this.pSaveFile(this.st(), sid); if (p) this.setState(p); } },
+      save: this.run((s2) => this.pSaveFile(s2, sid) || {}),
+      discard: this.run((s2) => this.pDiscardFile(s2, sid) || {}),
+      back: this.run((s2) => this.pOpenFile(s2, sid, null)),
+      widen: () => { const s2 = this.st(); this.setState({ rightW: s2.rightW < 600 ? 680 : 400, rightPin: true }); },
+      hasGuard: !!(s.fileGuard && s.fileGuard.sid === sid),
+      guardSave: this.run((s2) => this.pResolveGuard(s2, 'save')), guardDiscard: this.run((s2) => this.pResolveGuard(s2, 'discard')), guardStay: this.run((s2) => this.pResolveGuard(s2, 'stay')),
+      showFoot: mode === 'upravy'
+    };
+  }
+
+  filesVM(sid, s) {
+    const I = this.data().I;
+    const b = sid ? this.sess(sid, s) : null;
+    if (!b) return { edited: [], hasEdited: false, noEdited: true, opened: [], hasOpened: false, noOpened: true, tree: [], hasTree: false, noTree: true, treeTitle: 'Projekt' };
+    const f = this.sessFiles(sid, s);
+    const open = (path, from, mode) => this.run((s2) => this.pOpenFile(s2, sid, { path, from, mode }));
+    const edited = f.edited.map((e) => {
+      const sp = this.splitPath(e.path);
+      return { name: sp.name, dir: sp.dir, path: e.path, addText: e.add ? '+' + e.add : '', delText: e.del ? '−' + e.del : '', st: e.st, stCls: e.st === 'navrženo' ? 'warn' : e.st === 'zapisuje se' ? 'acc' : e.st === 'zamítnuto' || e.st === 'nedokončeno' ? 'idle' : 'ok', go: open(e.path, 'soubory', e.diff ? 'diff' : 'nahled') };
+    });
+    const opened = f.opened.map((o) => {
+      const sp = this.splitPath(o.path);
+      return { name: sp.name, dir: sp.dir, path: o.path, src: o.src, meta: o.meta, icon: o.attach ? I.clip : I.file, go: open(o.path, 'soubory', 'nahled') };
+    });
+    const p = b.project ? this.proj(b.project) : null;
+    const tree = this.treeVM(sid, s, b);
+    return { edited, hasEdited: edited.length > 0, noEdited: edited.length === 0, opened, hasOpened: opened.length > 0, noOpened: opened.length === 0, tree, hasTree: tree.length > 0, noTree: tree.length === 0, treeTitle: p ? 'Projekt ' + p.name : 'Projekt' };
+  }
+
+  // ---- Správa zdrojů (zadání 25. 9., bod 3) ----
+
+  polLabel(v) { return { automatic: 'automaticky', ask: 'ptát se', disabled: 'zakázáno' }[v] || v; }
+
+  focusGit(s, sid) {
+    const b = sid ? this.sess(sid, s) : null;
+    return b && b.project ? this.gitVM(s, b.project) : null;
+  }
+
+  gitVM(s, pid) {
+    const d = this.data();
+    const p = this.proj(pid);
+    if (!d.GIT[pid] || !p) return null;
+    const base = Object.assign({ branch: 'main', upstream: '', ahead: 0, behind: 0, fetched: '', remote: '', host: '', branches: ['main'], remoteBranches: [], changes: [], log: [], incoming: [] }, d.GIT[pid]);
+    const st = s.scm[pid] || {};
+    const repo = !!base.repo || !!st.inited;
+    const out = { pid, projectName: p.name, repo, policy: base.policy, branches: [], remoteBranches: [], branch: '', all: [], staged: [], changes: [], untracked: [], conflicts: [], ahead: 0, behind: 0, upstream: '', log: [] };
+    if (!repo) return out;
+    const committed = st.committed || {};
+    const ch = {};
+    const put = (path, isNew, add, del) => { if (!committed[path]) ch[path] = { path, isNew, add, del }; };
+    if (st.inited) {
+      const stack = [];
+      (p.tree || []).forEach((t) => { stack.length = t[0]; const path = stack.concat([t[1]]).join('/'); stack.push(t[1]); if (!t[2]) put(path, true, (d.FILES[path] || '').split('\n').length, 0); });
+    }
+    (base.changes || []).forEach((c) => put(c[0], c[1] === 'A', c[2], c[3]));
+    const sids = Object.keys(d.S).concat(Object.keys(s.sessions));
+    sids.forEach((sid) => {
+      const b = this.sess(sid, s);
+      if (!b || b.project !== pid) return;
+      this.sessFiles(sid, s).edited.forEach((e) => { if (e.st === 'zapsáno' || e.st === 'uloženo ručně') put(e.path, e.isNew, e.add, e.del); });
+    });
+    const staged = st.staged || {};
+    const all = Object.keys(ch).map((k) => Object.assign({ staged: !!staged[k] }, ch[k]));
+    out.all = all;
+    out.staged = all.filter((x) => x.staged);
+    out.changes = all.filter((x) => !x.staged && !x.isNew);
+    out.untracked = all.filter((x) => !x.staged && x.isNew);
+    out.branch = st.branch || base.branch;
+    out.branches = base.branches.concat(st.newBranches || []);
+    out.remoteBranches = base.remoteBranches;
+    out.upstream = out.branch === base.branch ? base.upstream : (base.remoteBranches.indexOf('origin/' + out.branch) >= 0 ? 'origin/' + out.branch : '');
+    out.ahead = st.ahead !== undefined ? st.ahead : (out.branch === base.branch ? base.ahead : 0);
+    out.behind = st.pulled ? 0 : (out.branch === base.branch ? base.behind : 0);
+    out.fetched = st.fetched || base.fetched;
+    out.remote = base.remote; out.host = base.host;
+    out.log = (st.commits || []).concat(st.pulled ? base.incoming : []).concat(base.log);
+    out.laneBranch = ((base.log.find((r) => r[0] === 'b') || [])[5] || [])[0] || '';
+    out.baseBranch = base.branch;
+    return out;
+  }
+
+  runningInProject(s, pid) {
+    const d = this.data();
+    return s.tabs.find((sid) => { const b = this.sess(sid, s); return b && b.project === pid && this.isRunning(sid, s); }) || null;
+  }
+
+  pScmCommit(s, pid, o) {
+    const g = this.gitVM(s, pid);
+    if (!g || !g.repo) return null;
+    const st = s.scm[pid] || {};
+    const msg = (st.msg || '').trim();
+    const files = o.all ? g.all : g.staged;
+    if (!msg) return { scm: this.merge(s, 'scm', { [pid]: Object.assign({}, st, { hint: 'Napiš zprávu commitu.' }) }) };
+    if (!files.length) return { scm: this.merge(s, 'scm', { [pid]: Object.assign({}, st, { hint: g.all.length ? 'Nic není připravené. Připrav soubory tlačítkem + nebo zvol Potvrdit vše.' : 'Není co potvrdit.' }) }) };
+    return { scmPlan: { pid, op: 'commit', files: files.map((f) => f.path), msg, push: !!o.push, all: !!o.all } };
+  }
+
+  planVM(s, g, fsid) {
+    const I = this.data().I;
+    const pl = s.scmPlan;
+    const off = { has: false, title: '', rows: [], blocked: false, reason: '', run: () => {}, cancel: () => {}, runLabel: '', canRun: false };
+    if (!pl || !g || pl.pid !== g.pid) return off;
+    const pol = g.policy;
+    const dirty = g.all.length;
+    const remote = g.remote ? g.remote + ' · ' + g.host : '';
+    let title = '', rows = [], reason = '', runLabel = 'Provést';
+    const busy = this.runningInProject(s, g.pid);
+    if (pl.op === 'commit') {
+      title = pl.push ? 'git commit a push' : 'git commit';
+      rows = [['Větev', g.branch, true], ['Soubory', this.filesWord(pl.files.length) + ' · ' + pl.files.slice(0, 3).join(', ') + (pl.files.length > 3 ? ' …' : ''), true], ['Zpráva', pl.msg.split('\n')[0]], ['Hooky', 'vypnuté (core.hooksPath=/dev/null)']];
+      if (pl.push) rows.push(['Odeslat na', (g.upstream || 'bez upstreamu') + (remote ? ' · ' + g.host : ''), true]);
+      if (pol.commit === 'disabled') reason = 'Politika projektu commit zakazuje.';
+      else if (busy) reason = 'V projektu právě zapisuje agent (relace ' + (s.tabs.indexOf(busy) + 1) + '). Commit počká, až doběhne.';
+      else if (pl.push && (pol.push === 'disabled' || !g.upstream)) reason = !g.upstream ? 'Větev nemá vzdálený protějšek, push nejde. Zvol jen Potvrdit.' : 'Politika projektu push zakazuje.';
+      runLabel = pl.push ? 'Potvrdit a odeslat' : 'Potvrdit';
+    } else if (pl.op === 'push') {
+      title = 'git push';
+      rows = [['Větev', g.branch + ' → ' + (g.upstream || '—'), true], ['Commity', String(g.ahead)], ['Hostitel', g.host || '—', true], ['Force', 'nikdy']];
+      if (pol.push === 'disabled') reason = 'Politika projektu push zakazuje.';
+      else if (!g.upstream) reason = 'Větev nemá vzdálený protějšek.';
+      else if (!g.ahead) reason = 'Není co odeslat.';
+      runLabel = 'Odeslat';
+    } else if (pl.op === 'pull') {
+      title = 'git pull --ff-only';
+      rows = [['Větev', g.branch + ' ← ' + (g.upstream || '—'), true], ['Nové commity', String(g.behind)], ['Hostitel', g.host || '—', true]];
+      if (pol.pull === 'disabled') reason = 'Politika projektu pull zakazuje.';
+      else if (g.ahead && g.behind) reason = 'Historie se rozešla: ' + g.ahead + ' commit jen tady, ' + g.behind + ' jen na ' + g.upstream + '. Pull --ff-only to neumí; sluč větve ručně v terminálu relace.';
+      else if (dirty) reason = 'Strom obsahuje nepotvrzené změny (' + this.filesWord(dirty) + '). Nejdřív je potvrď.';
+      else if (busy) reason = 'V projektu právě pracuje agent (relace ' + (s.tabs.indexOf(busy) + 1) + ').';
+      runLabel = 'Stáhnout';
+    } else if (pl.op === 'fetch') {
+      title = 'git fetch';
+      rows = [['Vzdálený', remote || '—', true], ['Mění', 'jen vzdálené větve, pracovní strom ne']];
+      if (pol.fetch === 'disabled') reason = 'Politika projektu síťový fetch zakazuje. Změníš ji v detailu projektu › Správa zdrojů.';
+      else if (!g.remote) reason = 'Projekt nemá vzdálený repozitář.';
+      runLabel = 'Načíst';
+    } else if (pl.op === 'checkout') {
+      title = 'git switch ' + pl.target;
+      rows = [['Z větve', g.branch, true], ['Na větev', pl.target, true]];
+      if (pol.branch === 'disabled') reason = 'Politika projektu přepínání větví zakazuje.';
+      else if (dirty) reason = 'Strom obsahuje nepotvrzené změny (' + this.filesWord(dirty) + '). Nejdřív je potvrď – odložení (stash) verze 1.0 nemá.';
+      runLabel = 'Přepnout';
+    } else if (pl.op === 'branch') {
+      title = 'git switch -c ' + pl.target;
+      rows = [['Nová větev', pl.target, true], ['Z commitu', (g.log.find((r) => r[0] !== 'b') || ['', '—'])[1] + ' (' + g.branch + ')', true], ['Nepotvrzené změny', dirty ? 'přejdou do nové větve' : 'žádné']];
+      if (pol.branch === 'disabled') reason = 'Politika projektu zakládání větví zakazuje.';
+      else if (!/^[A-Za-z0-9._\/-]+$/.test(pl.target) || /\.\.|\/\/|^\/|\/$/.test(pl.target)) reason = 'Neplatný název větve (git check-ref-format).';
+      else if (g.branches.indexOf(pl.target) >= 0) reason = 'Větev ' + pl.target + ' už existuje.';
+      runLabel = 'Založit a přepnout';
+    } else if (pl.op === 'init') {
+      title = 'git init';
+      rows = [['Složka', (this.proj(g.pid) || {}).path || '', true], ['Výchozí větev', 'main', true], ['První commit', 'ne – soubory zůstanou nesledované']];
+      if (pol.init === 'disabled') reason = 'Politika projektu init zakazuje.';
+      runLabel = 'Inicializovat';
+    }
+    return {
+      has: true, title, rows: rows.map((r) => ({ k: r[0], v: r[1], cls: r[2] ? 'mono' : '' })), blocked: !!reason, reason, runLabel, canRun: !reason,
+      run: reason ? () => {} : this.run((s2) => this.pScmRun(s2, fsid)),
+      cancel: () => this.setState({ scmPlan: null })
+    };
+  }
+
+  pScmRun(s, fsid) {
+    const pl = s.scmPlan;
+    if (!pl) return null;
+    const g = this.gitVM(s, pl.pid);
+    if (!g) return { scmPlan: null };
+    const st = Object.assign({}, s.scm[pl.pid] || {});
+    let line = '';
+    if (pl.op === 'commit') {
+      const committed = Object.assign({}, st.committed);
+      pl.files.forEach((f) => { committed[f] = true; });
+      const hash = (0x1000000 + (s.seq * 2654435761 >>> 0) % 0xefffff).toString(16).slice(-7);
+      const lane = g.laneBranch && g.branch === g.laneBranch ? 'b' : 'o';
+      st.commits = [[lane, hash, pl.msg.split('\n')[0], 'operátor', 'teď', []]].concat(st.commits || []);
+      st.committed = committed; st.staged = {}; st.msg = ''; st.hint = '';
+      st.ahead = pl.push && g.upstream ? 0 : g.ahead + 1;
+      line = 'commit ' + hash + ' · ' + this.filesWord(pl.files.length) + (pl.push && g.upstream ? ' · odesláno na ' + g.upstream : '');
+    } else if (pl.op === 'push') { st.ahead = 0; line = 'push ' + g.branch + ' → ' + g.upstream; }
+    else if (pl.op === 'pull') { st.pulled = true; line = 'pull --ff-only · ' + g.behind + ' commity'; }
+    else if (pl.op === 'fetch') { st.fetched = 'teď'; line = 'fetch ' + g.remote + ' · bez nových commitů'; }
+    else if (pl.op === 'checkout') { st.branch = pl.target; st.ahead = undefined; line = 'switch ' + pl.target; }
+    else if (pl.op === 'branch') { st.newBranches = (st.newBranches || []).concat([pl.target]); st.branch = pl.target; st.ahead = 0; line = 'switch -c ' + pl.target; }
+    else if (pl.op === 'init') { st.inited = true; line = 'init · větev main'; }
+    const p = { scm: this.merge(s, 'scm', { [pl.pid]: st }), scmPlan: null };
+    if (fsid) p.auditX = this.merge(s, 'auditX', { [fsid]: [['teď', 'scm_' + pl.op, line]].concat(s.auditX[fsid] || []) });
+    return p;
+  }
+
+  graphRows(g) {
+    let open1 = false, seen0 = false;
+    const headLane = g.laneBranch && g.branch === g.laneBranch ? 1 : 0;
+    let headDone = false, baseDone = false, l0 = 0;
+    return g.log.map((r, i) => {
+      const lane = r[0] === 'b' ? 1 : 0;
+      let p0 = '', p1 = '';
+      if (lane === 1) { p1 = 'M21 ' + (open1 ? 0 : 13) + 'V26'; open1 = true; if (seen0) p0 = 'M9 0V26'; }
+      else {
+        p0 = 'M9 ' + (seen0 ? 0 : 13) + 'V26'; seen0 = true;
+        if (r[0] === 'f') { if (open1) p1 = 'M21 0C21 8 9 6 9 13'; open1 = false; }
+        else if (r[0] === 'm') { p1 = 'M9 13C9 20 21 18 21 26'; open1 = true; }
+        else if (open1) p1 = 'M21 0V26';
+      }
+      const refs = [];
+      if (!headDone && lane === headLane) { refs.push({ t: 'HEAD → ' + g.branch, cls: 'head' }); headDone = true; }
+      if (lane === 0) {
+        if (!baseDone && g.branch !== g.baseBranch) { refs.push({ t: g.baseBranch, cls: '' }); baseDone = true; }
+        if (headLane === 0 && g.upstream && g.behind === 0 && l0 === g.ahead) refs.push({ t: g.upstream, cls: 'remote' });
+        l0++;
+      }
+      (r[5] || []).forEach((x) => { if (!(headLane === 1 && x === g.branch)) refs.push({ t: x, cls: /^v\d/.test(x) ? 'tag' : '' }); });
+      return { p0, p1, cx: lane ? 21 : 9, dc: lane ? 'var(--violet)' : 'var(--acct)', hash: r[1], s: r[2], who: r[3], when: r[4], refs, hasRefs: refs.length > 0, title: r[1] + ' · ' + r[3] + ' · ' + r[4] };
+    });
+  }
+
+  scmVM(s, fsid) {
+    const I = this.data().I;
+    const b = fsid ? this.sess(fsid, s) : null;
+    const off = { noProject: true, noRepo: false, isRepo: false, projectName: '', initText: '', init: () => {}, branch: '', branchMenu: () => {}, syncText: '', behind: 0, ahead: 0, syncTitle: '', sync: () => {}, syncCls: '', fetch: () => {}, sub: '', msg: '', setMsg: () => {}, msgKey: () => {}, commit: () => {}, commitCls: '', commitMenu: () => {}, hint: '', hasHint: false, groups: [], graph: [], plan: this.planVM(s, null, fsid), count: 0, clean: false };
+    if (!b || !b.project) return off;
+    const g = this.gitVM(s, b.project);
+    if (!g) return off;
+    const pid = g.pid;
+    const st = s.scm[pid] || {};
+    if (!g.repo) {
+      return Object.assign({}, off, { noProject: false, noRepo: true, projectName: g.projectName,
+        initText: 'Složka projektu zatím nemá repozitář git. Politika init: ' + this.polLabel(g.policy.init) + '.',
+        init: () => this.setState({ scmPlan: { pid, op: 'init' } }), plan: this.planVM(s, g, fsid) });
+    }
+    const setSt = (patch) => { const s2 = this.st(); this.setState({ scm: this.merge(s2, 'scm', { [pid]: Object.assign({}, s2.scm[pid] || {}, patch) }) }); };
+    const stage = (paths, on) => () => { const s2 = this.st(); const cur = Object.assign({}, (s2.scm[pid] || {}).staged); paths.forEach((x) => { if (on) cur[x] = true; else delete cur[x]; }); setSt({ staged: cur, hint: '' }); };
+    const row = (f) => {
+      const sp = this.splitPath(f.path);
+      const x = f.staged ? (f.isNew ? 'A' : 'M') : (f.isNew ? 'U' : 'M');
+      return { name: sp.name, dir: sp.dir, x, xCls: 'x-' + x, addText: f.add ? '+' + f.add : '', delText: f.del ? '−' + f.del : '',
+        open: this.run((s2) => this.pOpenFile(s2, fsid, { path: f.path, from: 'scm', mode: this.fileDiff(fsid, s2, f.path) ? 'diff' : 'nahled' })),
+        act: stage([f.path], !f.staged), actIcon: f.staged ? I.minus : I.plus, actLabel: f.staged ? 'Odebrat z připravených' : 'Připravit (stage)' };
+    };
+    const grp = (label, list, on, allLabel) => ({ label, n: list.length, rows: list.map(row), allIcon: on ? I.plus : I.minus, allLabel, all: stage(list.map((f) => f.path), on), has: list.length > 0 });
+    const groups = [
+      grp('Konflikty', g.conflicts, true, 'Připravit vše'),
+      grp('Připravené', g.staged, false, 'Odebrat vše'),
+      grp('Změny', g.changes, true, 'Připravit vše'),
+      grp('Nesledované', g.untracked, true, 'Připravit vše')
+    ].filter((x) => x.has);
+    const canCommit = !!(st.msg || '').trim() && g.staged.length > 0;
+    const sync = g.behind ? 'pull' : 'push';
+    return {
+      noProject: false, noRepo: false, isRepo: true, projectName: g.projectName, initText: '', init: () => {},
+      branch: g.branch, branchMenu: this.showCtx('branch', pid, 'left'),
+      syncText: '↓' + g.behind + ' ↑' + g.ahead, behind: g.behind, ahead: g.ahead, syncCls: g.upstream ? '' : 'dis',
+      syncTitle: g.upstream ? (g.behind ? 'Stáhnout ' + g.behind + ' commity z ' + g.upstream : g.ahead ? 'Odeslat ' + g.ahead + ' commit na ' + g.upstream : 'Synchronizováno s ' + g.upstream) : 'Větev nemá vzdálený protějšek',
+      sync: g.upstream ? () => this.setState({ scmPlan: { pid, op: sync } }) : () => {},
+      fetch: () => this.setState({ scmPlan: { pid, op: 'fetch' } }),
+      sub: g.upstream ? g.remote + ' · ' + g.host + ' · fetch ' + (g.fetched || 'nikdy') + ' · pull ' + this.polLabel(g.policy.pull) : 'bez vzdáleného repozitáře · jen místní commity',
+      msg: st.msg || '', setMsg: (ev) => setSt({ msg: ev.target.value, hint: '' }),
+      msgKey: (ev) => { if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) { if (ev.preventDefault) ev.preventDefault(); const p = this.pScmCommit(this.st(), pid, {}); if (p) this.setState(p); } },
+      commit: this.run((s2) => this.pScmCommit(s2, pid, {})), commitCls: canCommit ? '' : 'soft',
+      commitMenu: this.showCtx('commit', pid, 'right'),
+      hint: st.hint || '', hasHint: !!st.hint,
+      groups, clean: groups.length === 0, count: g.all.length,
+      graph: this.graphRows(g),
+      plan: this.planVM(s, g, fsid)
     };
   }
 
@@ -1217,12 +1784,54 @@ class Component extends DCLogic {
 
   ctxVM(s) {
     const I = this.data().I;
-    if (!s.ctx) return { hasCtx: false, ctxItems: [], ctxX: 0, ctxY: 0, ctxTitle: '' };
+    const none = { hasCtx: false, ctxItems: [], ctxX: 0, ctxY: 0, ctxTitle: '', ctxHasQ: false, ctxQ: '', ctxCls: '' };
+    if (!s.ctx) return none;
     const c = s.ctx;
-    const it = (t, k, fn, o) => Object.assign({ t, k: k || '', go: this.run(fn || (() => ({}))), isItem: true, isSep: false, cls: '', hasIcon: false, icon: '' }, o || {});
-    const sep = () => ({ t: '', k: '', go: () => {}, isItem: false, isSep: true, cls: '', hasIcon: false, icon: '' });
+    const base = { t: '', k: '', go: () => {}, isItem: false, isSep: false, isHead: false, cls: '', hasIcon: false, icon: '', hasNum: false, num: 0, numCls: '', hasDot: false, dot: '' };
+    const it = (t, k, fn, o) => Object.assign({}, base, { t, k: k || '', go: this.run(fn || (() => ({}))), isItem: true }, o || {});
+    const sep = () => Object.assign({}, base, { isSep: true });
+    const head = (t) => Object.assign({}, base, { t, isHead: true });
     const ic = (i) => ({ hasIcon: true, icon: i });
-    let items = [], title = '';
+    let items = [], title = '', hasQ = false, cls = '';
+    if (c.sec === 'colpick') {
+      const i = Number(c.id);
+      const lay = this.colLayout(s);
+      if (!(i >= 0 && i < lay.length)) return none;
+      title = 'Relace ve sloupci ' + (i + 1);
+      cls = 'picker';
+      items = s.tabs.map((sid, n) => {
+        const b = this.sess(sid, s);
+        const st = this.sstate(sid, s);
+        const j = lay.indexOf(sid);
+        const where = j === i ? 'tady' : j >= 0 ? 'sloupec ' + (j + 1) + ' · vymění se' : this.stLabel(st);
+        return it(b.short, where, (s2) => this.pPickInCol(s2, i, sid), { hasNum: true, num: n + 1, numCls: j === i ? 'focus' : j >= 0 ? 'vis' : '', hasDot: true, dot: st, cls: j === i ? 'cur' : '' });
+      }).concat([sep(), it('Nová relace v tomto sloupci', 'Ctrl+T', (s2) => this.chain(s2, { focusCol: i }, (s3) => this.pNewSession(s3, {})), ic(I.plus))]);
+      return { hasCtx: true, ctxItems: items, ctxX: c.x, ctxY: c.y, ctxTitle: title, ctxHasQ: false, ctxQ: '', ctxCls: cls };
+    }
+    if (c.sec === 'branch' || c.sec === 'commit') {
+      const g = this.gitVM(s, c.id);
+      if (!g) return none;
+      if (c.sec === 'branch') {
+        title = 'Větve · ' + g.projectName;
+        hasQ = true;
+        const q = (s.ctxQ || '').trim().toLowerCase();
+        const match = (b) => !q || b.toLowerCase().indexOf(q) >= 0;
+        const loc = g.branches.filter(match).map((b) => it(b, b === g.branch ? 'aktuální' : '', b === g.branch ? null : (s2) => ({ scmPlan: { pid: c.id, op: 'checkout', target: b } }), Object.assign(ic(b === g.branch ? I.check : I.branch), { cls: b === g.branch ? 'cur' : '' })));
+        const rem = g.remoteBranches.filter(match).map((b) => it(b, 'vzdálená', (s2) => ({ scmPlan: { pid: c.id, op: 'checkout', target: b.replace(/^[^/]+\//, '') } }), ic(I.globe)));
+        items = [head('Místní')].concat(loc.length ? loc : [it('Žádná shoda', '', null, { cls: 'dis', go: () => {} })]);
+        if (rem.length) items = items.concat([head('Vzdálené')]).concat(rem);
+        items = items.concat([sep(), it(q ? 'Nová větev „' + q + '“…' : 'Nová větev…', '', (s2) => ({ scmPlan: { pid: c.id, op: 'branch', target: q ? q.replace(/\s+/g, '-') : 'work/nova-vetev' } }), ic(I.plus))]);
+      } else {
+        title = 'Potvrdit změny';
+        items = [
+          it('Potvrdit (commit)', 'Ctrl+Enter', (s2) => this.pScmCommit(s2, c.id, {}), ic(I.commit)),
+          it('Potvrdit a odeslat (push)', '', (s2) => this.pScmCommit(s2, c.id, { push: true }), ic(I.up)),
+          sep(),
+          it('Potvrdit vše včetně nepřipravených', '', (s2) => this.pScmCommit(s2, c.id, { all: true }), ic(I.check))
+        ];
+      }
+      return { hasCtx: true, ctxItems: items, ctxX: c.x, ctxY: c.y, ctxTitle: title, ctxHasQ: hasQ, ctxQ: s.ctxQ || '', ctxCls: 'picker' };
+    }
     const sessCtx = (sid) => [
       it('Přepnout na relaci', 'Enter', (s2) => this.pFocusSession(s2, sid), ic(I.chat)),
       it('Otevřít ve vedlejším sloupci', '', (s2) => this.pOpenBeside(s2, sid), ic(I.columns))
@@ -1252,7 +1861,7 @@ class Component extends DCLogic {
       }
       items = items.concat([sep(), it('Připnout', '', null, ic(I.pin)), it('Přejmenovat…', 'F2', null, ic(I.pen)), it('Duplikovat', '', null, ic(I.copy)), sep(), it('Archivovat', '', null, ic(I.archive)), it('Smazat…', 'Del', null, Object.assign(ic(I.trash), { cls: 'danger' }))]);
     }
-    return { hasCtx: true, ctxItems: items, ctxX: c.x, ctxY: c.y, ctxTitle: title };
+    return { hasCtx: true, ctxItems: items, ctxX: c.x, ctxY: c.y, ctxTitle: title, ctxHasQ: false, ctxQ: '', ctxCls: '' };
   }
 
   palVM(s, fsid) {
@@ -1423,7 +2032,7 @@ class Component extends DCLogic {
       closePalette: () => this.setState({ palette: false }),
       palette: !!s.palette, pq: s.pq, setPq: (e) => this.setState({ pq: e.target.value }),
       pal: pal.pal, palEmpty: pal.palEmpty, palKey: pal.palKey,
-      hasCtx: ctx.hasCtx, ctxItems: ctx.ctxItems, ctxX: ctx.ctxX, ctxY: ctx.ctxY, ctxTitle: ctx.ctxTitle, closeCtx: (e) => { if (e && e.preventDefault) e.preventDefault(); this.setState({ ctx: null }); },
+      hasCtx: ctx.hasCtx, ctxItems: ctx.ctxItems, ctxX: ctx.ctxX, ctxY: ctx.ctxY, ctxTitle: ctx.ctxTitle, ctxHasQ: ctx.ctxHasQ, ctxQ: ctx.ctxQ, ctxCls: ctx.ctxCls, setCtxQ: (e) => this.setState({ ctxQ: e.target.value }), closeCtx: (e) => { if (e && e.preventDefault) e.preventDefault(); this.setState({ ctx: null }); },
       tbar: {
         tilesCls: s.view === 'dlazdice' ? 'on' : '', listCls: s.view === 'seznam' ? 'on' : '',
         showTiles: () => this.setState({ view: 'dlazdice' }), showList: () => this.setState({ view: 'seznam' }),
