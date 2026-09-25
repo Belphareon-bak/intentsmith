@@ -1,5 +1,10 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**Studio 2 integrační kandidát, 25. 9. 2026:** současný module graph má 1 446 hran,
+3 cykly a 28 souborů v cyklech. Pět přesných SCM hran bylo přijato po ověření
+bez růstu cyklů. Nový vzhled prošel izolovaným Electron průchodem; úplná funkční
+parita, nezávislé review a balík k uživatelskému vyzkoušení zůstávají otevřené.
+
 **Studio: průběh práce a prostředí, 2026-09-23:** konkrétní tahy, nástroje,
 čekání, souborové diffy/+− a kopírování formátované odpovědi. Přidáno skutečné
 prostředí backendu a explicitní potvrzované/automatické instalace npm a .NET SDK

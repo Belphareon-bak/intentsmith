@@ -245,6 +245,7 @@ záznamu selže v `artifact-validation`.
 | `2026_09_23_117_development_installations.js` | převzato beze změny z nainstalované release; stejná identita je již v živé DB |
 | `2026_09_24_118_model_evaluation_grader_reviews.js` | zadání operátora 2026-09-24 — samostatné append-only posudky dvojice nad jedním uloženým sběrem |
 | `2026_09_25_119_model_evaluation_adjudications.js` | zadání operátora 2026-09-25 — append-only lidské rozsouzení sporných kritérií dvojice |
+| `2026_09_25_120_studio_scm.js` | `WP-STUDIO-2-20260925` — politika projektu, přesné git plány a audit |
 <!-- migration-source-manifest:end -->
 
 ## Navazující M7 rezervace 2026-08-29
