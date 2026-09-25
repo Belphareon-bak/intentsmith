@@ -9,7 +9,7 @@ import { trialRole } from './pairwise-trial.js';
 import { ROLE_IMPROVEMENT_THRESHOLDS } from '../eval/role-evaluation-plan.js';
 import { auditResponsibilitySegregation } from './model-upgrade-prototype.js';
 
-export const HUNT_RETENTION_POLICY = 'all-role-loss-context-aware-v3';
+export const HUNT_RETENTION_POLICY = 'all-role-loss-context-aware-v4';
 const keep = (reason, detail = {}) => ({ eligible: false, reason, ...detail });
 
 export function huntRetentionKey({ inventory, bindings, plans, hardware, providerVersion }) {
@@ -36,7 +36,12 @@ function validRun(row, artifact, role, plan, hardware, providerVersion) {
     && row.contractSha256 === plan.suiteContractSha256
     && row.metadata?.provider?.version === providerVersion
     && row.metadata?.provider?.proof === 'RESPONSE_BOUND'
-    && row.repeats === plan.repeats && row.repeats >= 3
+    && row.repeats === plan.repeats
+    // vision_v2 is deliberately deterministic and has one sealed run per
+    // task; sampled roles still require at least three repetitions.
+    && (role === 'VISION'
+      ? row.repeats === 1 && plan.suite.tests.every(task => task.options?.temperature === 0)
+      : row.repeats >= 3)
     && row.hardware?.model === hardware.model && row.hardware?.vramMb === hardware.vramMb
     && row.hardware?.numCtx === hardware.numCtx
     && Number.isFinite(row.score) && row.score >= 0 && row.score <= 1

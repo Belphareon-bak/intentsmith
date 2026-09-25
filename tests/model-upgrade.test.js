@@ -1365,7 +1365,7 @@ function retentionFixture() {
     rows.set(`${m.digest}:${role}`, { runId: `${m.name}-${role}`, status: 'COMPLETE', role,
       artifact: { modelName: m.name, digestSha256: m.digest },
       suiteName: plan.suiteName, suiteVersion: plan.suiteVersion, contractSha256: plan.suiteContractSha256,
-      repeats: 3, score: loser ? 0.2 : 1,
+      repeats: plan.repeats, score: loser ? 0.2 : 1,
       tasks: plan.suite.tests.map(t => ({ name: t.name, language: t.language, mean: loser ? 0.2 : 1, spread: 0 })),
       hardware: { ...hardware }, metadata: { provider: { version: '0.34.0', proof: 'RESPONSE_BOUND' } },
       tokensPerSecond: loser ? 100 : 40, vramBytes: 1024,
@@ -1442,6 +1442,8 @@ await testAsync('integrated retention cannot delete from helper-blind CODE evide
 
 for (const [label, change] of [
   ['missing VISION despite complete CODE', f => f.rows.delete(`${f.inventory[0].digest}:VISION`)],
+  ['stale three-repeat VISION contract', f => { f.rows.get(`${f.inventory[0].digest}:VISION`).repeats = 3; }],
+  ['stochastic VISION with one repeat', f => { const plan = f.plans.VISION; f.plans.VISION = { ...plan, suite: { ...plan.suite, tests: plan.suite.tests.map(t => ({ ...t, options: { ...t.options, temperature: 0.1 } })) } }; }],
   ['failed role', f => { f.rows.get(`${f.inventory[0].digest}:R2`).status = 'FAILED'; }],
   ['blocked role', f => { f.rows.get(`${f.inventory[0].digest}:R2`).status = 'BLOCKED'; }],
   ['older provider', f => { f.rows.get(`${f.inventory[0].digest}:CODE`).metadata.provider.version = '0.32.14'; }],
