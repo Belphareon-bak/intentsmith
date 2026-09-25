@@ -48,6 +48,12 @@ def main():
         by_task.setdefault(value['task'],[]).append(value)
         receipts[attempt['id']]=file_sha
     assert set(by_task)=={task['id'] for task in tasks}
+    if plan.get('status') == 'DERIVED_MERGED_VIEW':
+        merged,_=read(args.run/'manifest.json')
+        assert result.get('derivedView') is True
+        assert merged['status']=='DERIVED_VIEW_NOT_ORIGINAL_RUN'
+        assert merged['sourceRunLineage']==plan['sourceRunLineage']==result['sourceRunLineage']
+        assert merged['attemptFileSha256']==receipts
     cases=[];key=[]
     for task in tasks:
         answers=by_task[task['id']]
@@ -71,6 +77,10 @@ def main():
             'Original unequal-context canary is diagnostic and is not pooled with these answers.',
             'Model-specific prior turns differ naturally; all user turns, handler code and request options are matched.'],
         'cases':cases}
+    if plan.get('status') == 'DERIVED_MERGED_VIEW':
+        packet['derivedView']=True
+        packet['sourceRunLineage']=plan['sourceRunLineage']
+        packet['limitations'].append('This review packet combines two separately sealed captures; each original run remains immutable and traceable by SHA-256.')
     output=json.dumps(packet,ensure_ascii=False,indent=2)+'\n'
     packet_sha=sha(output.encode())
     review_template={'schemaVersion':1,'status':'DRAFT_BLIND_REVIEW','decisionAuthority':False,
