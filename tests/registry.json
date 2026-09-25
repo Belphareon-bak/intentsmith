@@ -85,6 +85,10 @@
     {
       "path": "tests/helpers/studio-m2-composer-dom.js",
       "reason": "Explicit visual DOM probe invoked only by studio-m2-composer-dom.e2e.js through the shared Electron harness; not a standalone suite."
+    },
+    {
+      "path": "tests/helpers/studio2-ui-mode.js",
+      "reason": "Imported Electron DOM mode-switch probe; its direct assertions run in studio2-exclusive-ui.e2e.js."
     }
   ],
   "suites": [
@@ -15670,6 +15674,41 @@
       },
       "required": true,
       "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T5-TESTS-STUDIO2-EXCLUSIVE-UI-E2E",
+      "path": "tests/studio2-exclusive-ui.e2e.js",
+      "argv": [
+        "node",
+        "tests/studio2-exclusive-ui.e2e.js"
+      ],
+      "capabilityId": "C3-001",
+      "tier": "T5",
+      "fixture": "isolated-home-owned-loopback-electron-exclusive-ui",
+      "profile": "server",
+      "timeoutMs": 300000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false,
+        "toolchain": [
+          "linux-user-network-namespace",
+          "iproute2",
+          "x11-display"
+        ]
+      },
+      "required": true,
+      "owner": "WP-STUDIO-2 S2-0",
       "state": "ACTIVE",
       "lastGreen": {
         "commit": null,

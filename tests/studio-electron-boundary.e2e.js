@@ -47,6 +47,7 @@ const STARTUP_TIMEOUT_MS = 60_000;
 const SHUTDOWN_TIMEOUT_MS = 15_000;
 const M1_JOURNEY_ENV = 'INTENTSMITH_STUDIO_M1_JOURNEY';
 const M2_COMPOSER_JOURNEY_ENV = 'INTENTSMITH_STUDIO_M2_COMPOSER_DOM_JOURNEY';
+const STUDIO2_MODE_JOURNEY_ENV = 'INTENTSMITH_STUDIO2_MODE_JOURNEY';
 
 class SafeFailure extends Error {
   constructor(code, exitCode = 1, privateDetail = null) {
@@ -271,7 +272,7 @@ async function writeFailureDetail(artifactRoot, error) {
   }
 }
 
-async function writeSanitizedFailureEvidence(artifactRoot, error, exitCode, m2ComposerJourney = false) {
+async function writeSanitizedFailureEvidence(artifactRoot, error, exitCode, m2ComposerJourney = false, studio2ModeJourney = false) {
   if (!artifactRoot) return;
   const sourceRevision = process.env.INTENTSMITH_TEST_SOURCE_REVISION;
   const evidence = Object.freeze({
@@ -285,6 +286,10 @@ async function writeSanitizedFailureEvidence(artifactRoot, error, exitCode, m2Co
       evidenceType: 'intentsmith.studio-m2-composer-dom',
       uiEvaluation: 'built-dom-composer-policy-rejection',
     } : {}),
+    ...(studio2ModeJourney ? {
+      evidenceType: 'intentsmith.studio2-exclusive-ui',
+      uiEvaluation: 'built-dom-exclusive-mode-switch',
+    } : {}),
   });
   try {
     await writePrivateJson(path.join(artifactRoot, EVIDENCE_FILE), evidence);
@@ -296,7 +301,8 @@ async function writeSanitizedFailureEvidence(artifactRoot, error, exitCode, m2Co
 async function outerMain(options = {}) {
   const m1Journey = options.m1Journey === true;
   const m2ComposerJourney = options.m2ComposerJourney === true;
-  if (m1Journey && m2ComposerJourney) fail('studio-journey-mode-conflict');
+  const studio2ModeJourney = options.studio2ModeJourney === true;
+  if (Number(m1Journey) + Number(m2ComposerJourney) + Number(studio2ModeJourney) > 1) fail('studio-journey-mode-conflict');
   let facts;
   try {
     facts = await preflight();
@@ -327,6 +333,7 @@ async function outerMain(options = {}) {
   };
   if (m1Journey) childEnv[M1_JOURNEY_ENV] = '1';
   if (m2ComposerJourney) childEnv[M2_COMPOSER_JOURNEY_ENV] = '1';
+  if (studio2ModeJourney) childEnv[STUDIO2_MODE_JOURNEY_ENV] = '1';
   if (process.env.INTENTSMITH_AUDIT_RUN === '1') childEnv.INTENTSMITH_AUDIT_RUN = '1';
   const child = spawn('unshare', [
     '--user',
@@ -359,6 +366,10 @@ export async function runStudioM1ElectronJourney() {
 // Explicitly visual DOM journey; ordinary M0/M1 entry points never select it.
 export async function runStudioM2ComposerDomJourney() {
   await outerMain({ m2ComposerJourney: true });
+}
+
+export async function runStudio2ExclusiveUiJourney() {
+  await outerMain({ studio2ModeJourney: true });
 }
 
 export function observeSpawnCompletion(child) {
@@ -1912,6 +1923,13 @@ export function validateM2ComposerEvidence(value) {
     .every(([key, expected]) => value[key] === expected);
 }
 
+const STUDIO2_MODE_FIELDS = Object.freeze([
+  'classicInitiallyAttached',
+  'studio2ExclusivelyAttached',
+  'classicTransportAbsentInStudio2',
+  'classicRestored',
+]);
+
 export function successEvidence({
   sourceRevision,
   observationDurationMs,
@@ -1929,10 +1947,16 @@ export function successEvidence({
   logDigests,
   m1Journey = false,
   m2ComposerJourney = false,
+  studio2ModeJourney = false,
   buildComposer,
+  uiModes,
 }) {
   if (m2ComposerJourney && (m1Journey || !validateM2ComposerEvidence(buildComposer))) {
     fail('composer-evidence-contract-failed');
+  }
+  if (studio2ModeJourney && (m1Journey || m2ComposerJourney || !uiModes
+    || STUDIO2_MODE_FIELDS.some(key => uiModes[key] !== true))) {
+    fail('studio2-mode-evidence-contract-failed');
   }
   return Object.freeze({
     schemaVersion: SCHEMA_VERSION,
@@ -1948,6 +1972,11 @@ export function successEvidence({
       buildComposer: Object.freeze(Object.fromEntries(
         Object.keys(M2_COMPOSER_EXPECTED).map(key => [key, buildComposer[key]]),
       )),
+    } : {}),
+    ...(studio2ModeJourney ? {
+      evidenceType: 'intentsmith.studio2-exclusive-ui',
+      uiEvaluation: 'built-dom-exclusive-mode-switch',
+      uiModes: Object.freeze(Object.fromEntries(STUDIO2_MODE_FIELDS.map(key => [key, uiModes[key]]))),
     } : {}),
     isolation: Object.freeze({
       networkNamespace: 'owned-loopback-only',
@@ -2114,8 +2143,9 @@ async function runJourney({
   xauthority,
   m1Journey = false,
   m2ComposerJourney = false,
+  studio2ModeJourney = false,
 }) {
-  if (m1Journey && m2ComposerJourney) fail('studio-journey-mode-conflict');
+  if (Number(m1Journey) + Number(m2ComposerJourney) + Number(studio2ModeJourney) > 1) fail('studio-journey-mode-conflict');
   const paths = makeRuntimePaths(artifactRoot);
   await prepareRuntime(paths);
   const buildDigests = await captureBuildDigests();
@@ -2129,6 +2159,7 @@ async function runJourney({
   let functional;
   let byteBridge;
   let buildComposer;
+  let uiModes;
   const composerRequests = new Map();
   let composerProviderBaseline = 0;
   let soakMonitor;
@@ -2142,6 +2173,9 @@ async function runJourney({
     // The separate registered DOM scenario opts in; defaults never import its probe.
     const composerProbe = m2ComposerJourney
       ? await import('./helpers/studio-m2-composer-dom.js')
+      : null;
+    const modeProbe = studio2ModeJourney
+      ? await import('./helpers/studio2-ui-mode.js')
       : null;
     if (!m1Journey) modelProviderSentinel = await startModelProviderSentinel();
     const backendEnv = makeBackendEnvironment(
@@ -2306,6 +2340,14 @@ async function runJourney({
       fail('positive-boundary-missing');
     }
 
+    if (studio2ModeJourney) {
+      cdp.setEventSink(null);
+      uiModes = await modeProbe.probeStudio2ModeSwitch({ cdp, evaluate, fail });
+      if (modelProviderSentinel.requestCount() !== modelProviderRequestsBeforeTurn) {
+        fail('studio2-mode-triggered-model-provider');
+      }
+    }
+
     browserCloseRequested = true;
     try {
       await cdp.send('Browser.close', {}, 2_000);
@@ -2419,7 +2461,9 @@ async function runJourney({
     logDigests,
     m1Journey,
     m2ComposerJourney,
+    studio2ModeJourney,
     buildComposer,
+    uiModes,
   });
   await writePrivateJson(paths.evidence, evidence);
   return evidence;
@@ -2427,6 +2471,7 @@ async function runJourney({
 
 async function namespaceMain() {
   const m2ComposerJourney = process.env[M2_COMPOSER_JOURNEY_ENV] === '1';
+  const studio2ModeJourney = process.env[STUDIO2_MODE_JOURNEY_ENV] === '1';
   let artifactRoot;
   try {
     artifactRoot = await assertPrivateDirectory(
@@ -2460,14 +2505,16 @@ async function namespaceMain() {
       xauthority: x11.xauthority,
       m1Journey: process.env[M1_JOURNEY_ENV] === '1',
       m2ComposerJourney,
+      studio2ModeJourney,
     });
-    process.stdout.write(m2ComposerJourney
-      ? 'STUDIO_M2_COMPOSER_DOM_PASS\n'
+    process.stdout.write(studio2ModeJourney
+      ? 'STUDIO2_EXCLUSIVE_UI_PASS\n'
+      : m2ComposerJourney ? 'STUDIO_M2_COMPOSER_DOM_PASS\n'
       : 'STUDIO_ELECTRON_BOUNDARY_PASS\n');
   } catch (error) {
     await writeFailureDetail(artifactRoot, error);
     const exitCode = effectiveExitCode(error);
-    await writeSanitizedFailureEvidence(artifactRoot, error, exitCode, m2ComposerJourney);
+    await writeSanitizedFailureEvidence(artifactRoot, error, exitCode, m2ComposerJourney, studio2ModeJourney);
     const code = safeFailureCode(error);
     process.stderr.write(
       `${exitCode === 2 ? 'STUDIO_ELECTRON_BOUNDARY_BLOCKED' : 'STUDIO_ELECTRON_BOUNDARY_FAIL'} ${code}\n`,

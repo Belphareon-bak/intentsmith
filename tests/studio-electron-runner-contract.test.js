@@ -825,7 +825,7 @@ test('separate visual DOM journey requires explicit opt-in and keeps default M0/
   assert.match(source, /const m2ComposerJourney = options\.m2ComposerJourney === true/);
   assert.match(source, /if \(m2ComposerJourney\) childEnv\[M2_COMPOSER_JOURNEY_ENV\] = '1'/);
   assert.match(source, /const composerProbe = m2ComposerJourney\s*\? await import\('\.\/helpers\/studio-m2-composer-dom\.js'\)\s*: null/);
-  assert.match(source, /if \(m1Journey && m2ComposerJourney\) fail/);
+  assert.match(source, /Number\(m1Journey\) \+ Number\(m2ComposerJourney\) \+ Number\(studio2ModeJourney\) > 1/);
   assert.match(probe, /document\.getElementById/);
   assert.match(probe, /HTMLTextAreaElement\.prototype/);
   assert.match(probe, /dispatchEvent\(new Event\('input'/);
@@ -878,6 +878,21 @@ test('composer PASS evidence requires actual rejection, exact input, context che
   assert.equal(JSON.stringify(evidence).includes('PRIVATE_COMPOSER_CANARY'), false);
   assert.throws(() => successEvidence({ ...args, m2ComposerJourney: true, buildComposer: null }), /composer-evidence-contract-failed/);
   assert.throws(() => successEvidence({ ...args, m2ComposerJourney: true, m1Journey: true }), /composer-evidence-contract-failed/);
+  const uiModes = {
+    classicInitiallyAttached: true, studio2ExclusivelyAttached: true,
+    classicTransportAbsentInStudio2: true, classicRestored: true,
+  };
+  const modeEvidence = successEvidence({ ...args, studio2ModeJourney: true,
+    uiModes: { ...uiModes, privateCanary: 'PRIVATE_STUDIO2_CANARY' } });
+  assert.equal(modeEvidence.evidenceType, 'intentsmith.studio2-exclusive-ui');
+  assert.deepEqual(modeEvidence.uiModes, uiModes);
+  assert.equal(JSON.stringify(modeEvidence).includes('PRIVATE_STUDIO2_CANARY'), false);
+  for (const key of Object.keys(uiModes)) {
+    assert.throws(() => successEvidence({ ...args, studio2ModeJourney: true,
+      uiModes: { ...uiModes, [key]: false } }), /studio2-mode-evidence-contract-failed/, key);
+  }
+  assert.throws(() => successEvidence({ ...args, studio2ModeJourney: true,
+    m2ComposerJourney: true, uiModes }), /studio2-mode-evidence-contract-failed/);
 });
 
 summary();
