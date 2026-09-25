@@ -1,5 +1,6 @@
 {
-  "status": "HUMAN_REVIEW_MATRIX_PREVIEW",
+  "status": "MIXED_SOURCE_SCORE_INDEX_NOT_JOINT_GRADING",
+  "jointlyGraded": false,
   "decisionAuthority": false,
   "modelAssignmentRecommendation": false,
   "roles": [
