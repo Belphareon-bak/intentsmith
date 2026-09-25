@@ -881,7 +881,11 @@ test('composer PASS evidence requires actual rejection, exact input, context che
   const uiModes = {
     classicInitiallyAttached: true, studio2ExclusivelyAttached: true,
     oneReusedTransportInStudio2: true, classicRestored: true,
-    sixSessionsInThreeColumns: true, visibleSessionSwap: true, sessionsPersistedAcrossReload: true,
+    sixSessionsInThreeColumns: true, visibleSessionSwap: true,
+    terminalPanelConnected: true, attachmentPickerRendered: true,
+    visuallyUncoveredStudio2: true, exclusiveWorkbenchChrome: true,
+    m2ReviewPanelRendered: true, backendEnvironmentLoaded: true,
+    commandPaletteNavigatesSession: true, sessionsPersistedAcrossReload: true,
     projectCatalogLoaded: true, elevenThemesRendered: true,
   };
   const modeEvidence = successEvidence({ ...args, studio2ModeJourney: true,

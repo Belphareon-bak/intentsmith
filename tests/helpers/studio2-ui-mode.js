@@ -34,6 +34,7 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
       busListeners: window.IntentSmithBus?._debug?.() || {},
       sessionTabs: root?.querySelectorAll('.tabs-in .tab').length || 0,
       columnSessions: [...(root?.querySelectorAll('.cols .scol .pane-t .pane-tt') || [])].map(node => node.textContent.trim()),
+      pickerItems: [...(root?.querySelectorAll('.dd.ctx.picker .dd-i .dd-t') || [])].map(node => node.textContent.trim()),
       catalogSection: root?.querySelector('.cat-t h1')?.textContent?.trim() || null,
       catalogStatus: root?.querySelector('.cat-t')?.textContent?.includes('položek z backendu') ? 'ready' : null,
     };
@@ -73,7 +74,13 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
   await evaluate(cdp, `(() => {
     const root = document.querySelector('#intentsmith-studio2 [data-studio-ui="studio2"]');
     root.querySelectorAll('.cols .scol .pane-t')[0].click();
-    const option = [...root.querySelectorAll('.dd.ctx .dd-i')].find(node => node.querySelector('.dd-t')?.textContent.trim() === ${JSON.stringify(original[1])});
+    return true;
+  })()`);
+  await waitFor(s => s.pickerItems.includes(original[1]), 'column-picker');
+  await evaluate(cdp, `(() => {
+    const root = document.querySelector('#intentsmith-studio2 [data-studio-ui="studio2"]');
+    const option = [...root.querySelectorAll('.dd.ctx.picker .dd-i')]
+      .find(node => node.querySelector('.dd-t')?.textContent.trim() === ${JSON.stringify(original[1])});
     if (!option) throw Error('Second column session absent from picker');
     option.click();
     return true;

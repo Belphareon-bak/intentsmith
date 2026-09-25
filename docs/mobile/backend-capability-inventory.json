@@ -12,10 +12,10 @@
     "clientProjection": "src/mobile/client/m7-runtime-contract-v1.js",
     "requirementsStage": "CANDIDATE_NOT_ACCEPTED"
   },
-  "routeDigest": "a42fa20fdf1f00440e1c5ca3bc8e74c0f3d753bdbf628a0e46f0897bab9e40cb",
-  "inventoryDigest": "d6f62a091765e382365d705afdc20f0bcd24a8c08eb6f5a647bce541f8001b24",
+  "routeDigest": "594212a40669f739723935fabdc6fe079646d1d390a4790cf6cccf9cc88fd25e",
+  "inventoryDigest": "eae40737205b97e96ef462bb498ee59906e9b25d2f7ba6def52f319be2d9f28b",
   "summary": {
-    "desktopRouteDeclarations": 258,
+    "desktopRouteDeclarations": 268,
     "legacyM1Declarations": 0,
     "m7TransportRoutes": 7,
     "m7Operations": 17,
@@ -1178,6 +1178,76 @@
       "path": "/api/scheduler/status",
       "sources": [
         "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/scm/branches",
+      "sources": [
+        "src/routes/scm.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/scm/cancel",
+      "sources": [
+        "src/routes/scm.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/scm/diff",
+      "sources": [
+        "src/routes/scm.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/scm/execute",
+      "sources": [
+        "src/routes/scm.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/scm/log",
+      "sources": [
+        "src/routes/scm.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/scm/operations",
+      "sources": [
+        "src/routes/scm.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/scm/policy",
+      "sources": [
+        "src/routes/scm.js"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/scm/policy",
+      "sources": [
+        "src/routes/scm.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/scm/prepare",
+      "sources": [
+        "src/routes/scm.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/scm/status",
+      "sources": [
+        "src/routes/scm.js"
       ]
     },
     {

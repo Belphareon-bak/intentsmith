@@ -12,14 +12,14 @@ remote-health.read is a public GET /remote/v1/health prerequisite, not one of th
 The underlying requirements retain their own candidate stage. Availability and scopes must
 still be validated against the actual server/session; desktop route existence grants no remote authority.
 
-- Desktop route declarations: 258
+- Desktop route declarations: 268
 - Legacy /m1 declarations: 0
 - M7 HTTP routes: 7
 - M7 invocation operations: 17
 - Capability areas: approvals, conversations, events, notifications, projects, settings, stored_information
 - Control-plane operations (not another capability): 3
-- Desktop route digest: `a42fa20fdf1f00440e1c5ca3bc8e74c0f3d753bdbf628a0e46f0897bab9e40cb`
-- Combined inventory digest: `d6f62a091765e382365d705afdc20f0bcd24a8c08eb6f5a647bce541f8001b24`
+- Desktop route digest: `594212a40669f739723935fabdc6fe079646d1d390a4790cf6cccf9cc88fd25e`
+- Combined inventory digest: `eae40737205b97e96ef462bb498ee59906e9b25d2f7ba6def52f319be2d9f28b`
 
 Workers, specialists and device management have no M7 operation in this projection.
 Their desktop route declarations must not be mistaken for a mobile capability.
@@ -226,6 +226,16 @@ Their desktop route declarations must not be mistaken for a mobile capability.
 | GET | `/api/quality/volatility/:id` | src/routes/quality.js |
 | POST | `/api/reset` | src/routes/misc.js |
 | GET | `/api/scheduler/status` | src/routes/agents.js |
+| GET | `/api/scm/branches` | src/routes/scm.js |
+| POST | `/api/scm/cancel` | src/routes/scm.js |
+| GET | `/api/scm/diff` | src/routes/scm.js |
+| POST | `/api/scm/execute` | src/routes/scm.js |
+| GET | `/api/scm/log` | src/routes/scm.js |
+| GET | `/api/scm/operations` | src/routes/scm.js |
+| GET | `/api/scm/policy` | src/routes/scm.js |
+| PUT | `/api/scm/policy` | src/routes/scm.js |
+| POST | `/api/scm/prepare` | src/routes/scm.js |
+| GET | `/api/scm/status` | src/routes/scm.js |
 | GET | `/api/security/audit` | src/routes/security.js |
 | POST | `/api/security/privacy/history/attest` | src/routes/privacy.js |
 | GET | `/api/security/privacy/remediation` | src/routes/privacy.js |
