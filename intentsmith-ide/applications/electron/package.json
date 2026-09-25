@@ -83,7 +83,8 @@
     "@intentsmith-ide/intentsmith-center-views": "*",
     "@intentsmith-ide/intentsmith-detail-panel": "*",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "@intentsmith-ide/intentsmith-studio2": "*"
   },
   "devDependencies": {
     "@theia/cli": "1.76.0",
