@@ -23,6 +23,11 @@ class Studio2Widget extends ReactWidget {
     this.addClass('intentsmith-studio2-widget');
   }
 
+  onAfterAttach(message) {
+    super.onAfterAttach(message);
+    this.update();
+  }
+
   render() {
     return h('div', { className: 'intentsmith-studio2-root intentsmith-root ide th-intentsmith-dark', 'data-studio-ui': 'studio2' },
       h('header', { className: 'intentsmith-studio2-top' },
