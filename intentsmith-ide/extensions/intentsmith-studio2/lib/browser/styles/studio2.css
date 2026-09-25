@@ -171,3 +171,103 @@
 .intentsmith-s2-attachments { display: flex; flex-wrap: wrap; gap: 5px; padding: 3px 0 7px; }
 .intentsmith-s2-attachments span { display: inline-flex; gap: 5px; align-items: center; border: 1px solid var(--bd2); border-radius: 5px; padding: 2px 6px; overflow-wrap: anywhere; }
 .intentsmith-s2-attachments button { padding: 0 3px; min-width: 18px; }
+
+/* Studio 2 workbench chrome follows the checked-in operator prototype. */
+.intentsmith-studio2-top { position: relative; z-index: 50; flex: 0 0 38px; gap: 0; padding: 0 10px; background: var(--s1); border-bottom-color: var(--bd1); }
+.intentsmith-s2-brand-mark { display: flex; align-items: center; justify-content: center; flex: 0 0 28px; color: var(--acc); margin-right: 9px; }
+.intentsmith-s2-menu-bar { display: flex; align-items: stretch; gap: 0; height: 100%; flex: 0 0 auto; }
+.intentsmith-s2-menu-item { position: relative; display: flex; align-items: stretch; }
+.intentsmith-studio2-root .intentsmith-s2-menu-item > button { border: 0; border-radius: 0; padding: 0 9px; font-size: 12px; color: var(--text); }
+.intentsmith-s2-menu-popover { position: absolute; top: 100%; left: 0; min-width: 215px; max-height: min(70vh, 520px); overflow: auto; padding: 5px; border: 1px solid var(--bd2); border-radius: 0 0 7px 7px; background: var(--s1); box-shadow: 0 12px 28px rgb(0 0 0 / .3); }
+.intentsmith-studio2-root .intentsmith-s2-menu-popover button { display: block; width: 100%; text-align: left; white-space: nowrap; padding: 6px 9px; font-size: 11px; }
+.intentsmith-studio2-root .intentsmith-s2-search { display: flex; align-items: center; gap: 7px; flex: 1 1 260px; min-width: 130px; max-width: 420px; height: 27px; margin: auto; padding: 0 9px; border: 1px solid var(--bd2); background: var(--s0); font-size: 11px; }
+.intentsmith-s2-search span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.intentsmith-s2-search kbd { margin-left: auto; color: var(--faint); border: 1px solid var(--bd2); border-radius: 3px; padding: 0 3px; font: 10px "JetBrains Mono", monospace; white-space: nowrap; }
+.intentsmith-s2-top-controls { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; margin-left: auto; }
+.intentsmith-studio2-root .intentsmith-s2-top-controls button { display: inline-flex; justify-content: center; align-items: center; min-width: 25px; height: 26px; padding: 2px 5px; border-radius: 4px; font-size: 11px; }
+.intentsmith-s2-top-controls button.active { color: var(--acc); background: var(--acc-soft); }
+.intentsmith-s2-control-separator { width: 1px; height: 17px; margin: 0 5px; background: var(--bd2); }
+.intentsmith-studio2-top select { max-width: 94px; height: 25px; font-size: 10px; margin-left: 5px; }
+.intentsmith-studio2-nav { width: 248px; flex-basis: 248px; padding: 7px 5px; border-right: 1px solid var(--bd2); background: var(--s0); }
+.intentsmith-studio2-root .intentsmith-studio2-nav button { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 34px; padding: 5px 7px; text-align: left; font-size: 12px; }
+.intentsmith-s2-nav-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 25px; width: 25px; height: 25px; border-radius: 5px; color: var(--acc); background: var(--acc-soft); }
+.intentsmith-s2-nav-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.intentsmith-s2-nav-count { min-width: 17px; padding: 1px 5px; border-radius: 10px; background: var(--s2); color: var(--dim); text-align: center; font-size: 10px; }
+.intentsmith-s2-nav-arrow { display: inline-flex; color: var(--dim); }
+.intentsmith-studio2-nav-bottom { padding-top: 8px; border-top: 1px solid var(--bd1); }
+.intentsmith-studio2-nav.collapsed { width: 48px; flex-basis: 48px; }
+.intentsmith-studio2-nav.collapsed .intentsmith-s2-nav-name,
+.intentsmith-studio2-nav.collapsed .intentsmith-s2-nav-count,
+.intentsmith-studio2-nav.collapsed .intentsmith-s2-nav-arrow { display: none; }
+.intentsmith-studio2-tabs { flex: 0 0 34px; gap: 0; padding: 0; background: var(--s0); border-bottom-color: var(--bd1); }
+.intentsmith-s2-tab { height: 100%; max-width: 250px; min-width: 90px; border-right: 1px solid var(--bd1); }
+.intentsmith-s2-tab.active { box-shadow: inset 0 2px 0 var(--acc); }
+.intentsmith-s2-tab > button:first-child { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
+.intentsmith-s2-tab-number { display: inline-grid; place-items: center; flex: 0 0 18px; height: 18px; border-radius: 4px; border: 1px solid var(--bd2); color: var(--dim); font: 10px "JetBrains Mono", monospace; }
+.intentsmith-s2-tab.active .intentsmith-s2-tab-number { background: var(--acc); border-color: var(--acc); color: var(--acc-fg); }
+.intentsmith-s2-tab-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.intentsmith-s2-state-dot { display: inline-block; flex: 0 0 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--faint); }
+.intentsmith-s2-state-dot.running { background: var(--acc); box-shadow: 0 0 0 3px var(--acc-soft); }
+.intentsmith-s2-state-dot.waiting { background: var(--warn); }
+.intentsmith-s2-column { min-width: 300px; }
+.intentsmith-s2-column-head { flex: 0 0 40px; gap: 7px; padding: 4px 8px; background: var(--s1); }
+.intentsmith-s2-column-head select { flex: 0 1 190px; border-color: transparent; background: transparent; font-weight: 600; }
+.intentsmith-s2-column-head select:hover, .intentsmith-s2-column-head select:focus { border-color: var(--bd2); }
+.intentsmith-s2-column-head .intentsmith-s2-context { margin-left: auto; }
+.intentsmith-s2-context-meter { display: inline-block; width: 44px; height: 4px; border-radius: 3px; background: var(--s3); vertical-align: middle; overflow: hidden; }
+.intentsmith-s2-context-meter i { display: block; height: 100%; background: var(--acc); }
+.intentsmith-s2-messages { display: flex; flex-direction: column; gap: 16px; padding: 20px clamp(16px, 3%, 42px) 12px; background: var(--s0); }
+.intentsmith-s2-messages > :first-child { margin-top: auto; }
+.intentsmith-s2-message { flex: 0 0 auto; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+.intentsmith-s2-message.user { background: transparent; }
+.intentsmith-s2-message.user > p { padding: 11px 14px; border-radius: 9px; background: var(--s2); }
+.intentsmith-s2-message.assistant { background: transparent; }
+.intentsmith-s2-message.system { border: 0; color: var(--dim); }
+.intentsmith-s2-message header { color: var(--dim); font-size: 11px; }
+.intentsmith-s2-message header strong { color: var(--text); }
+.intentsmith-s2-message .intentsmith-s2-markdown { font-size: 13px; line-height: 1.65; }
+.intentsmith-s2-composer { margin: 0 10px 10px; padding: 8px; border: 1px solid var(--bd2); border-radius: 11px; background: var(--s1); }
+.intentsmith-s2-composer:focus-within { border-color: var(--acc); }
+.intentsmith-s2-composer textarea { min-height: 42px; max-height: 150px; padding: 3px 4px; resize: vertical; border: 0; background: transparent; outline: none; }
+.intentsmith-s2-composer-controls { align-items: center; gap: 4px; margin-top: 2px; }
+.intentsmith-studio2-root .intentsmith-s2-composer-controls button { padding: 4px 7px; font-size: 11px; }
+.intentsmith-studio2-root .intentsmith-s2-composer-controls .intentsmith-s2-send { margin-left: auto; background: var(--acc); color: var(--acc-fg); }
+.intentsmith-studio2-right { width: 350px; flex-basis: 350px; padding: 0; background: var(--s0); }
+.intentsmith-studio2-right h2 { margin: 0; padding: 11px 14px; border-bottom: 1px solid var(--bd1); font-size: 11px; }
+.intentsmith-s2-side-tabs { padding: 0 6px; border-bottom: 1px solid var(--bd1); flex-wrap: nowrap; }
+.intentsmith-studio2-root .intentsmith-s2-side-tabs button { border-radius: 0; padding: 8px 7px; font-size: 11px; white-space: nowrap; }
+.intentsmith-studio2-root .intentsmith-s2-side-tabs button.active { box-shadow: inset 0 -2px 0 var(--acc); background: transparent; }
+.intentsmith-s2-side-content { padding: 10px 13px; }
+.intentsmith-s2-bottom { flex: 0 0 190px; background: var(--s0); }
+.intentsmith-s2-bottom-tabs { border-bottom: 1px solid var(--bd1); background: var(--s1); }
+.intentsmith-studio2-root .intentsmith-s2-bottom-tabs button { border-radius: 0; padding: 6px 9px; font-size: 11px; }
+.intentsmith-studio2-root .intentsmith-s2-bottom-tabs button.active { box-shadow: inset 0 -2px 0 var(--acc); background: transparent; }
+.intentsmith-studio2-foot { border-top-color: var(--bd1); background: var(--s1); }
+@media (max-width: 1280px) { .intentsmith-s2-top-controls select { display: none; } }
+@media (max-width: 1050px) { .intentsmith-s2-menu-bar { display: none; } .intentsmith-studio2-right { width: 275px; flex-basis: 275px; } }
+@media (max-width: 880px) { .intentsmith-studio2-nav { width: 48px; flex-basis: 48px; } .intentsmith-studio2-nav .intentsmith-s2-nav-name, .intentsmith-studio2-nav .intentsmith-s2-nav-count, .intentsmith-studio2-nav .intentsmith-s2-nav-arrow { display: none; } }
+
+.intentsmith-s2-author-icon { display: inline-flex; color: var(--acc); }
+.intentsmith-s2-message header time { color: var(--faint); font: 10px "JetBrains Mono", monospace; }
+.intentsmith-s2-message header button { margin-left: auto; color: var(--dim); font-size: 10px; }
+.intentsmith-s2-timeline { position: relative; display: grid; gap: 3px; padding: 2px 0 8px 16px; margin: 4px 0 7px; border-left: 1px solid var(--bd2); }
+.intentsmith-s2-timeline-step { min-width: 0; color: var(--dim); font-size: 11px; }
+.intentsmith-s2-timeline-step summary { display: flex; align-items: center; gap: 9px; min-width: 0; cursor: pointer; list-style: none; }
+.intentsmith-s2-timeline-step summary::-webkit-details-marker { display: none; }
+.intentsmith-s2-timeline-step summary .intentsmith-s2-state-dot { margin-left: -20px; box-shadow: 0 0 0 3px var(--s0); background: var(--ok); }
+.intentsmith-s2-timeline-step.error summary .intentsmith-s2-state-dot { background: var(--bad); }
+.intentsmith-s2-timeline-step.running summary .intentsmith-s2-state-dot { background: var(--acc); }
+.intentsmith-s2-timeline-step summary span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.intentsmith-s2-timeline-step summary small { margin-left: auto; white-space: nowrap; color: var(--faint); font: 10px "JetBrains Mono", monospace; }
+.intentsmith-s2-timeline-step pre { max-height: 140px; overflow: auto; margin: 5px 0; padding: 6px; border: 1px solid var(--bd1); border-radius: 5px; background: var(--s1); white-space: pre-wrap; }
+.intentsmith-s2-activity-status { font-size: 10px; color: var(--faint); }
+.intentsmith-s2-progress { flex: 1; min-height: 0; overflow: auto; padding: 7px 10px; }
+.intentsmith-s2-progress p { margin: 8px; color: var(--dim); font-size: 11px; }
+.intentsmith-s2-progress table { width: 100%; border-collapse: collapse; font-size: 10px; }
+.intentsmith-s2-progress th { text-align: left; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); font-weight: 500; }
+.intentsmith-s2-progress th, .intentsmith-s2-progress td { padding: 3px 7px; border-bottom: 1px solid var(--bd1); vertical-align: top; }
+.intentsmith-s2-progress td:nth-child(4) { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.intentsmith-s2-progress td:last-child { color: var(--ok); }
+.intentsmith-s2-bottom-tabs button.active { color: var(--acc); }
+.intentsmith-s2-composer-controls button.active { color: var(--acc); background: var(--acc-soft); }
+.intentsmith-s2-composer-controls button:first-child { display: inline-flex; align-items: center; gap: 5px; }

@@ -3,35 +3,63 @@
 const WorkActivity = require('@intentsmith/chat-panel/lib/browser/work-activity');
 const { renderWorkspaceFiles } = require('./workspace-view');
 const { renderM2Changes } = require('./m2-view');
+const { icon } = require('./icon');
 
 function renderSessionView(widget, h) {
   const store = widget.store;
   const state = store.state;
   const focused = store.focusedSession();
   const connection = widget.transport?.connection || 'Připojování';
-  function message(item, index) {
+  function timeline(activity) {
+    if (!activity) return null;
+    return h('div', { className: 'intentsmith-s2-timeline', 'data-activity-status': activity.status },
+      activity.steps.map(step => h('details', { key: step.id, className: `intentsmith-s2-timeline-step ${step.status}` },
+        h('summary', null,
+          h('span', { className: `intentsmith-s2-state-dot ${step.status === 'running' ? 'running' : step.status === 'error' ? 'waiting' : ''}` }),
+          h('span', null, step.label),
+          h('small', null, step.durationMs != null ? `${(step.durationMs / 1000).toFixed(1)} s` : step.status === 'running' ? 'probíhá' : step.status === 'error' ? 'chyba' : '')),
+        step.input ? h('pre', null, step.input) : null,
+        step.output ? h('pre', null, step.output) : null)),
+      h('p', { className: 'intentsmith-s2-activity-status' }, activity.label,
+        activity.omitted ? ` · ${activity.omitted} starších kroků v logu` : ''));
+  }
+  function message(session, item, index) {
     const assistant = item.role === 'assistant';
-    const Activity = WorkActivity.createComponents(h).Activity;
+    const who = assistant ? session.chat.specialist?.name || 'IntentSmith' : item.role === 'user' ? 'Ty' : 'Systém';
+    const time = item.ts ? new Date(item.ts).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' }) : '';
     return h('article', { key: index, className: `intentsmith-s2-message ${item.role}` },
-      h('header', null, h('strong', null, assistant ? 'IntentSmith' : item.role === 'user' ? 'Ty' : 'Systém'),
+      h('header', null,
+        assistant ? h('span', { className: 'intentsmith-s2-author-icon' }, icon(h, 'anvil', 14)) : null,
+        h('strong', null, who),
         item.tag ? h('span', { className: 'intentsmith-s2-tag' }, item.tag) : null,
-        assistant ? h('button', { type: 'button', onClick: () => navigator.clipboard.writeText(item.text || '') }, 'Kopírovat') : null),
+        time ? h('time', null, time) : null,
+        assistant ? h('button', { type: 'button', 'aria-label': 'Kopírovat odpověď',
+          onClick: () => navigator.clipboard.writeText(item.text || '') }, 'Kopírovat') : null),
+      timeline(item._activity),
       assistant ? h('div', { className: 'intentsmith-s2-markdown', dangerouslySetInnerHTML: { __html: WorkActivity.renderMarkdown(item.text || '') } })
-        : h('p', null, item.text),
-      item._activity ? h(Activity, { activity: item._activity }) : null);
+        : h('p', null, item.text));
   }
   function bottom(session) {
-    const mode = widget.bottomMode || 'Průběh';
     const tabs = ['Terminál', 'Log agenta', 'Průběh', 'Audit', 'Problémy'];
+    const mode = tabs.includes(session.bottom) ? session.bottom : 'Průběh';
     let content = 'Zatím žádné události.';
     if (mode === 'Terminál') content = session.term.map(entry => typeof entry === 'string' ? entry : entry.text || '').join('\n');
     if (mode === 'Log agenta') content = session.log.map(entry => entry.text || JSON.stringify(entry)).join('\n');
-    if (mode === 'Průběh') content = session.chat.msgs.flatMap(item => item._activity?.steps || []).map(step => `${step.label} · ${step.status}`).join('\n');
+    const progress = session.chat.msgs.flatMap(item => item._activity?.steps || []);
+    if (mode === 'Průběh') content = null;
     return h('div', { className: 'intentsmith-s2-bottom' },
       h('div', { className: 'intentsmith-s2-bottom-tabs' }, tabs.map(tab => h('button', {
-        key: tab, type: 'button', className: tab === mode ? 'active' : '', onClick: () => { widget.bottomMode = tab; widget.update(); },
+        key: tab, type: 'button', className: tab === mode ? 'active' : '', onClick: () => { session.bottom = tab; store.changed(); },
       }, tab))),
-      h('pre', { className: 'intentsmith-s2-bottom-content' }, content || 'Zatím žádné události.'),
+      mode === 'Průběh' ? h('div', { className: 'intentsmith-s2-progress' },
+        progress.length ? h('table', null,
+          h('thead', null, h('tr', null, ['Čas', 'Krok', 'Nástroj', 'Cíl', 'Trvání', 'Stav'].map(label => h('th', { key: label }, label)))),
+          h('tbody', null, progress.map((step, index) => h('tr', { key: step.id || index },
+            h('td', null, step.startedAt ? new Date(step.startedAt).toLocaleTimeString('cs-CZ') : '—'),
+            h('td', null, step.label), h('td', null, step.tool || (step.kind === 'model' ? 'model' : '—')),
+            h('td', null, step.input || '—'), h('td', null, step.durationMs != null ? `${(step.durationMs / 1000).toFixed(1)} s` : '—'),
+            h('td', null, step.status))))) : h('p', null, 'Zatím žádné kroky.'))
+        : h('pre', { className: 'intentsmith-s2-bottom-content' }, content || 'Zatím žádné události.'),
       mode === 'Terminál' ? h('div', { className: 'intentsmith-s2-terminal-input' },
         h('span', null, '$'),
         h('input', { type: 'text', 'aria-label': `Příkaz terminálu relace ${session.number}`,
@@ -50,16 +78,22 @@ function renderSessionView(widget, h) {
     return h('section', { key: sessionId, className: `intentsmith-s2-column${focusedColumn ? ' focused' : ''}`, onClick: () => store.focusColumn(index) },
       h('header', { className: 'intentsmith-s2-column-head' },
         h('span', { className: 'intentsmith-s2-number' }, session.number),
+        icon(h, session._projectId ? 'folder' : session.chat.specialist ? 'users' : 'chat', 13),
+        h('span', { className: `intentsmith-s2-state-dot${session.chat._thinking ? ' running' : session._m2Pending ? ' waiting' : ''}` }),
         h('select', { 'aria-label': `Relace ve sloupci ${index + 1}`, value: sessionId, onChange: event => {
           if (event.target.value === '__new') widget.addSession();
           else store.selectInColumn(index, event.target.value);
         } }, state.sessions.map(item => h('option', { key: item.id, value: item.id }, `${item.number} · ${item._label}`)),
         h('option', { value: '__new' }, 'Nová relace')),
-        session._projectId ? h('span', { className: 'intentsmith-s2-chip' }, `Projekt ${session._projectId}`) : null,
-        h('span', { className: 'intentsmith-s2-context' }, `${Math.round(session.chat.ctx || 0)} %`),
+        session._projectId ? h('span', { className: 'intentsmith-s2-chip' }, `Projekt ${session._projectId}`)
+          : session.chat.specialist ? h('span', { className: 'intentsmith-s2-chip' }, session.chat.specialist.name) : null,
+        h('span', { className: 'intentsmith-s2-context' },
+          h('span', { className: 'intentsmith-s2-context-meter' },
+            h('i', { style: { width: `${Math.max(0, Math.min(100, session.chat.ctx || 0))}%` } })),
+          ` ${Math.round(session.chat.ctx || 0)} %`),
         h('button', { type: 'button', 'aria-label': 'Zavřít sloupec', disabled: state.columns.length === 1, onClick: event => { event.stopPropagation(); store.closeColumn(index); } }, '×')),
       h('div', { className: 'intentsmith-s2-messages' },
-        session.chat.msgs.length ? session.chat.msgs.map(message) : h('p', null, 'Napište zprávu a začněte konverzaci.'),
+        session.chat.msgs.length ? session.chat.msgs.map((item, index) => message(session, item, index)) : h('p', null, 'Napište zprávu a začněte konverzaci.'),
         session.chat._thinking ? h('p', { className: 'intentsmith-s2-thinking' }, session.chat._thinking.text) : null,
         session.chat._delivery?.status === 'NOT_SENT' ? h('p', { role: 'alert', className: 'intentsmith-s2-error' }, session.chat._delivery.text) : null,
         session.chat._delivery?.status === 'DELIVERY_UNKNOWN' ? h('div', { role: 'alert', className: 'intentsmith-s2-error' },
@@ -77,15 +111,18 @@ function renderSessionView(widget, h) {
           if (event.key === 'Enter' && event.ctrlKey) { event.preventDefault(); widget.send(session, event.currentTarget); }
         } }),
         h('div', { className: 'intentsmith-s2-composer-controls' },
-          h('button', { type: 'button', disabled: session.chat._preparing || session.chat._picking, onClick: () => widget.pickAttachments(session) }, 'Připojit soubor'),
-          h('button', { type: 'button', onClick: () => { session.chat.editMode = session.chat.editMode === 'ask' ? 'auto' : 'ask'; store.changed(); } }, session.chat.editMode === 'ask' ? 'Kontrola' : 'Auto'),
-          h('button', { type: 'button', disabled: session.chat._preparing || session.chat._picking,
+          h('button', { type: 'button', disabled: session.chat._preparing || session.chat._picking, onClick: () => widget.pickAttachments(session) },
+            icon(h, 'clip', 14), 'Připojit soubor'),
+          ['auto', 'ask'].map(mode => h('button', { key: mode, type: 'button', className: session.chat.editMode === mode ? 'active' : '',
+            onClick: () => { session.chat.editMode = mode; store.changed(); } }, mode === 'auto' ? 'Auto' : 'Kontrola')),
+          h('button', { type: 'button', className: 'intentsmith-s2-send', disabled: session.chat._preparing || session.chat._picking,
+            'aria-label': 'Odeslat zprávu', title: 'Odeslat · Ctrl+Enter',
             onClick: event => widget.send(session, event.currentTarget.closest('.intentsmith-s2-composer').querySelector('textarea')) },
-            session.chat._preparing ? 'Připravuji…' : 'Odeslat'))),
-      bottom(session));
+            session.chat._preparing ? 'Připravuji…' : icon(h, 'send', 15)))),
+      widget.bottomVisible ? bottom(session) : null);
   }
   function right(session) {
-    const tabs = ['Změny', 'Soubory', 'Správa zdrojů', 'Kontext'];
+    const tabs = ['Změny', 'Kontext', 'Soubory', 'Správa zdrojů'];
     const side = widget.sideMode || 'Soubory';
     const content = side === 'Kontext' ? h('p', null, `Kontext relace: ${Math.round(session.chat.ctx || 0)} %`)
       : side === 'Změny' ? renderM2Changes(widget, session, h)
@@ -100,7 +137,11 @@ function renderSessionView(widget, h) {
   return {
     tabs: h('div', { className: 'intentsmith-studio2-tabs' },
       state.sessions.map(session => h('div', { key: session.id, className: `intentsmith-s2-tab${focused?.id === session.id ? ' active' : ''}` },
-        h('button', { type: 'button', onClick: () => { widget.section = 'Relace'; store.focusTab(session.id); } }, `${session.number} · ${session._label}`),
+        h('button', { type: 'button', onClick: () => { widget.section = 'Relace'; store.focusTab(session.id); } },
+          h('span', { className: 'intentsmith-s2-tab-number' }, session.number),
+          icon(h, session._projectId ? 'folder' : session.chat.specialist ? 'users' : 'chat', 12),
+          h('span', { className: 'intentsmith-s2-tab-name' }, session._label),
+          h('span', { className: `intentsmith-s2-state-dot${session.chat._thinking ? ' running' : session._m2Pending ? ' waiting' : ''}` })),
         h('button', { type: 'button', 'aria-label': `Zavřít relaci ${session.number}`, onClick: () => widget.closeSession(session) }, '×'))),
       h('button', { type: 'button', 'aria-label': 'Nová relace', onClick: () => widget.addSession() }, '+')),
     columns: h('div', { className: 'intentsmith-s2-columns' }, state.columns.map(column)),

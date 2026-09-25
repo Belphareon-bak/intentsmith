@@ -29,6 +29,7 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
     paletteOpen: Boolean(document.querySelector('[role="dialog"][aria-label="Paleta příkazů"]')),
     columnsVisible: Boolean(document.querySelector('.intentsmith-s2-columns')),
     centerInsideStudio: Boolean(document.querySelector('[data-studio-ui="studio2"]')?.contains(document.elementFromPoint(innerWidth / 2, innerHeight / 2))),
+    studioDark: Boolean(document.querySelector('[data-studio-ui="studio2"]')?.classList.contains('th-studio-dark')),
     busListeners: window.IntentSmithBus?._debug?.() || {},
     sessionTabs: document.querySelectorAll('.intentsmith-s2-tab').length,
     columnSessions: [...document.querySelectorAll('.intentsmith-s2-column-head select')].map(select => select.value),
@@ -166,7 +167,24 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
     return true;
   })()`);
   const palette = await waitFor(s => !s.paletteOpen && s.columnsVisible, 'palette-session-navigation');
-  await waitFor(s => s.centerInsideStudio, 'visually-uncovered-studio2');
+  await evaluate(cdp, `(() => {
+    document.querySelector('[aria-label="1 sloupce"]').click();
+    document.querySelector('.intentsmith-s2-tab > button').click();
+    const select = document.querySelector('[aria-label="Styl Studia 2"]');
+    const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
+    setter.call(select, 'studio');
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  })()`);
+  await waitFor(s => s.columnSessions.length === 1 && s.centerInsideStudio, 'single-column-visual-preview');
+  await evaluate(cdp, `(() => {
+    const root = document.querySelector('[data-studio-ui="studio2"]');
+    if (root.classList.contains('th-studio-light')) {
+      document.querySelector('[aria-label="Přepnout světlý a tmavý motiv"]').click();
+    }
+    return true;
+  })()`);
+  await waitFor(s => s.centerInsideStudio && s.studioDark, 'dark-studio-visual-preview');
   const visible = await evaluate(cdp, `(() => {
     const root = document.querySelector('[data-studio-ui="studio2"]');
     const rect = root?.getBoundingClientRect();

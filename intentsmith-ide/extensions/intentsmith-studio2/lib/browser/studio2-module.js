@@ -7,17 +7,18 @@ const { ContainerModule, decorate, injectable } = require('@theia/core/shared/in
 const browser = require('@theia/core/lib/browser');
 const { ReactWidget } = require('@theia/core/lib/browser/widgets/react-widget');
 const React = require('@theia/core/shared/react');
-const { currentMode, selectMode } = require('./studio-mode-module');
+const { currentMode } = require('./studio-mode-module');
 const { SessionStore } = require('./session-store');
 const { TransportAdapter } = require('./transport-adapter');
 const { renderSessionView } = require('./session-view');
 const { CatalogStore } = require('./catalog-store');
 const { renderCatalog } = require('./catalog-view');
-const { AppearanceStore, STYLES } = require('./appearance-store');
+const { AppearanceStore } = require('./appearance-store');
 const { renderSettings } = require('./settings-view');
 const { WorkspaceFiles } = require('./workspace-files');
 const { M2Controller } = require('./m2-controller');
 const { renderPalette } = require('./command-palette');
+const { renderChrome, renderNavigation } = require('./chrome-view');
 const Attachments = require('./attachments');
 
 const WIDGET_ID = 'intentsmith-studio2';
@@ -49,12 +50,13 @@ class Studio2Widget extends ReactWidget {
     this.catalogSelection = null;
     this.catalogActionError = null;
     this.unlistenCatalog = this.catalog.subscribe(() => this.update());
-    this.paletteOpen = false; this.paletteQuery = '';
+    this.paletteOpen = false; this.paletteQuery = ''; this.menuOpen = null;
+    this.navVisible = true; this.bottomVisible = true; this.rightVisible = true;
     this.onPaletteKey = event => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault(); event.stopPropagation(); this.paletteOpen = true; this.paletteQuery = ''; this.update();
-      } else if (event.key === 'Escape' && this.paletteOpen) {
-        event.preventDefault(); this.paletteOpen = false; this.update();
+      } else if (event.key === 'Escape' && (this.paletteOpen || this.menuOpen)) {
+        event.preventDefault(); this.paletteOpen = false; this.menuOpen = null; this.update();
       }
     };
     this.sideMode = 'Soubory';
@@ -192,34 +194,14 @@ class Studio2Widget extends ReactWidget {
       : appearance.fontIdx === 2 ? 'system-ui, sans-serif' : 'Plus Jakarta Sans, system-ui, sans-serif';
     return h('div', { className: `intentsmith-studio2-root intentsmith-root ide ${this.appearance.classes()}`,
       style: { fontSize: `${appearance.fontSizeVal * Number(appearance.uiScale)}px`, fontFamily: font }, 'data-studio-ui': 'studio2' },
-      h('header', { className: 'intentsmith-studio2-top' },
-        h('span', { className: 'intentsmith-studio2-brand' }, 'IntentSmith'),
-        h('span', null, 'Studio 2'),
-        h('button', { type: 'button', className: 'intentsmith-s2-search',
-          onClick: () => { this.paletteOpen = true; this.paletteQuery = ''; this.update(); } }, 'Hledat, přepnout relaci…  Ctrl+K'),
-        h('span', { className: 'intentsmith-studio2-top-spacer' }),
-        h('select', { 'aria-label': 'Styl Studia 2', value: appearance.style, onChange: event => this.appearance.set('style', event.target.value) },
-          STYLES.map(style => h('option', { key: style, value: style }, style))),
-        h('button', { type: 'button', 'aria-label': 'Přepnout světlý a tmavý motiv',
-          disabled: ['matrix','japanese','midnight'].includes(appearance.style),
-          onClick: () => this.appearance.set('theme', this.appearance.effectiveTheme() === 'dark' ? 'light' : 'dark') },
-          this.appearance.effectiveTheme() === 'dark' ? 'Tmavý' : 'Světlý'),
-        [1, 2, 3].map(count => h('button', { key: count, type: 'button', disabled: count > state.sessions.length,
-          className: count === state.columns.length ? 'active' : '', onClick: () => this.store.setColumnCount(count),
-          'aria-label': `${count} sloupce` }, count)),
-        h('button', { type: 'button', onClick: () => selectMode('classic') }, 'Klasické Studio')),
+      renderChrome(this, h, NAV),
       h('div', { className: 'intentsmith-studio2-main' },
-        h('nav', { className: 'intentsmith-studio2-nav', 'aria-label': 'Hlavní navigace' },
-          h('span', { className: 'intentsmith-studio2-nav-label' }, 'Pracovní prostor'),
-          NAV.map(name => h('button', { key: name, type: 'button', className: name === this.section ? 'active' : '',
-            onClick: () => this.selectSection(name) }, name)),
-          h('div', { className: 'intentsmith-studio2-nav-bottom' },
-            h('button', { type: 'button', onClick: () => this.selectSection('Nastavení') }, 'Nastavení'))),
+        renderNavigation(this, h, NAV),
         h('main', { className: 'intentsmith-studio2-center' },
           view.tabs,
           this.section === 'Relace' ? view.columns : NAV.includes(this.section) ? renderCatalog(this, h)
             : renderSettings(this, h)),
-        this.section === 'Relace' ? view.right : null),
+        this.section === 'Relace' && this.rightVisible ? view.right : null),
       renderPalette(this, h),
       h('footer', { className: 'intentsmith-studio2-foot' },
         h('span', null, view.connection),
