@@ -1,0 +1,363 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "2026-09-23T07:54:10.601711+00:00",
+  "sourceRevisionAtPreparation": "399b02c940da3eaf17bbec448f8bbfd48a0a1585",
+  "status": "OPERATOR_REVIEW_INPUT",
+  "productionChanged": false,
+  "newInference": false,
+  "independentAcceptance": false,
+  "sourceCollectionRevision": "775434ffc0d5a95228de275ed26e7a1ba66d43f9",
+  "gradeRevision": "content-rubric.5",
+  "selection": "low/high/near 0.5/near 0.75 from distinct models; tie-break balances model coverage; all repeats retained",
+  "sources": [
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-all-installed-20260920/answers-for-review.json",
+      "sha256": "8a71635d3ca7aed128b1ee63f85142c021a2d40542c5179d9a73610de803f91b"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-completion-20260920/blind-assessment.json",
+      "sha256": "50f225ceca65262cd0b886d5ffae51aade5a26c41f3e6e696c8c55e33b681775"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-all-installed-20260920/identity-key.json",
+      "sha256": "d280e4b32bf8c5256fb4813c38e29366107d349466209cb0979796c42f57827d"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-adjudication-20260921/adjudication.json",
+      "sha256": "180d7d9d32cb9420257b3b7466b170d8d280c8bfe77d8ad5b943e0c1b8f67369"
+    }
+  ],
+  "counts": {
+    "tasks": 27,
+    "cards": 108,
+    "responses": 324,
+    "models": 12,
+    "roleTasks": {
+      "CHAT": 8,
+      "D1": 3,
+      "D2": 3,
+      "R1": 3,
+      "R2": 3,
+      "CODE": 3,
+      "VISION": 4
+    }
+  },
+  "allSourceCallsVerified": 324,
+  "selectedScoreCoverage": {
+    "CHAT": {
+      "zero": 25,
+      "middle": 28,
+      "one": 43
+    },
+    "D1": {
+      "middle": 34,
+      "one": 2
+    },
+    "D2": {
+      "middle": 34,
+      "one": 2
+    },
+    "R1": {
+      "zero": 4,
+      "middle": 31,
+      "missing": 1
+    },
+    "R2": {
+      "one": 8,
+      "middle": 28
+    },
+    "CODE": {
+      "one": 19,
+      "middle": 3,
+      "zero": 14
+    },
+    "VISION": {
+      "one": 15,
+      "middle": 23,
+      "zero": 10
+    }
+  },
+  "rolePopulationRanges": {
+    "CHAT": {
+      "attempts": 1200,
+      "graded": 1197,
+      "ungraded": 3,
+      "min": 0,
+      "max": 1,
+      "zero": 130,
+      "one": 794,
+      "middle": 273
+    },
+    "D1": {
+      "attempts": 240,
+      "graded": 237,
+      "ungraded": 3,
+      "min": 0.0625,
+      "max": 1.0,
+      "zero": 0,
+      "one": 2,
+      "middle": 235
+    },
+    "D2": {
+      "attempts": 240,
+      "graded": 238,
+      "ungraded": 2,
+      "min": 0.0625,
+      "max": 1.0,
+      "zero": 0,
+      "one": 4,
+      "middle": 234
+    },
+    "R1": {
+      "attempts": 240,
+      "graded": 238,
+      "ungraded": 2,
+      "min": 0.0,
+      "max": 0.875,
+      "zero": 11,
+      "one": 0,
+      "middle": 227
+    },
+    "R2": {
+      "attempts": 240,
+      "graded": 234,
+      "ungraded": 6,
+      "min": 0.25,
+      "max": 1.0,
+      "zero": 0,
+      "one": 28,
+      "middle": 206
+    },
+    "CODE": {
+      "attempts": 210,
+      "graded": 210,
+      "ungraded": 0,
+      "min": 0,
+      "max": 1,
+      "zero": 74,
+      "one": 133,
+      "middle": 3
+    },
+    "VISION": {
+      "attempts": 552,
+      "graded": 507,
+      "ungraded": 45,
+      "min": 0,
+      "max": 1,
+      "zero": 72,
+      "one": 255,
+      "middle": 180
+    }
+  },
+  "selectedPrimaryScores": {
+    "CHAT/cz_numeral_cases": [
+      0,
+      0.6666666666666666,
+      0,
+      1
+    ],
+    "CHAT/en_state_updates": [
+      0,
+      1,
+      0,
+      0
+    ],
+    "CHAT/cz_double_negation_counts": [
+      1,
+      0.25,
+      0.5,
+      0.75
+    ],
+    "CHAT/cz_professional_reply": [
+      0.9,
+      0.9,
+      0.85,
+      1.0
+    ],
+    "CHAT/cz_customer_explanation_paragraph": [
+      1.0,
+      0.9,
+      0.85,
+      0.9
+    ],
+    "CHAT/en_missing_context": [
+      1.0,
+      1.0,
+      1.0,
+      0.6875
+    ],
+    "CHAT/en_exact_markdown_table": [
+      0.3333333333333333,
+      0,
+      0,
+      0
+    ],
+    "CHAT/en_professional_rewrite": [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "D1/d1_audit_error_envelope": [
+      1.0,
+      0.5,
+      0.75,
+      0.25
+    ],
+    "D1/d1_model_lease": [
+      0.6875,
+      0.6875,
+      0.0625,
+      0.5
+    ],
+    "D1/d1_immutable_refinement": [
+      0.1875,
+      0.9375,
+      0.75,
+      0.5
+    ],
+    "D2/d2_history_late_guard": [
+      0.5,
+      0.6875,
+      0.125,
+      1.0
+    ],
+    "D2/d2_immutable_refinement": [
+      0.75,
+      0.375,
+      0.5,
+      1.0
+    ],
+    "D2/d2_model_cleanup": [
+      0.5625,
+      0.4375,
+      0.75,
+      0.9375
+    ],
+    "R1/r1_immutable_refinement": [
+      0.0,
+      0.875,
+      0.5,
+      0.75
+    ],
+    "R1/r1_pairwise_confidence": [
+      0.0,
+      0.375,
+      0.5,
+      0.625
+    ],
+    "R1/r1_history_late_guard": [
+      0.5,
+      0.0,
+      0.75,
+      0.5
+    ],
+    "R2/r2_audit_error_envelope": [
+      0.5,
+      0.25,
+      1.0,
+      0.75
+    ],
+    "R2/r2_model_lease": [
+      0.25,
+      0.75,
+      0.25,
+      0.25
+    ],
+    "R2/r2_model_cleanup": [
+      1.0,
+      0.75,
+      0.25,
+      0.5
+    ],
+    "CODE/patch_90eff80ecb8a": [
+      0.6666666666666666,
+      0,
+      1,
+      0.6666666666666666
+    ],
+    "CODE/patch_5351c2c22f75": [
+      1,
+      1,
+      1,
+      0
+    ],
+    "CODE/patch_adb1258cfec0": [
+      1,
+      0,
+      0,
+      1
+    ],
+    "VISION/vision_routes": [
+      1,
+      0.6666666666666666,
+      1,
+      0
+    ],
+    "VISION/vision_count": [
+      1,
+      0.25,
+      0,
+      0.75
+    ],
+    "VISION/vision_redacted_document": [
+      0,
+      0.75,
+      0.25,
+      1
+    ],
+    "VISION/vision_weighted_rates": [
+      0.8,
+      0.2,
+      0.4,
+      1
+    ]
+  },
+  "reviewHtml": "/mnt/vi7000/intentsmith/evidence/hunt-answer-comparison-20260923/review/comparison.html",
+  "reviewHtmlSha256": "0cc561373b016af4da92dfb7df45aaf562b74e9a7aa27c9796daf91109f11e1a",
+  "reviewDataSha256": "9bdeb907fc1b36f56bff17353e2b38aeb6698705a6416b25b301763195f41394",
+  "uiVerification": {
+    "status": "PASS",
+    "at": "2026-09-23T07:48:54.232Z",
+    "tasks": 27,
+    "models": 12,
+    "cards": 108,
+    "responses": 324,
+    "images": 4,
+    "allPrimaryResponsesExact": true,
+    "repeatSwitching": true,
+    "initialNamesAndGradesHidden": true,
+    "scoreAndIdentityReveal": true,
+    "scoreAndWeightPersistAfterReload": true,
+    "validExportAndImport": true,
+    "invalidScoreAndWrongSourceRejected": true,
+    "sourceHashesPinned": true,
+    "narrowViewportNoOverflow": true,
+    "rendererErrors": [],
+    "networkRequests": [],
+    "syntheticTestGradesNotModelEvidence": true,
+    "diagnosticBrowserSandboxDisabled": true
+  },
+  "artifactValidation": {
+    "passed": 160,
+    "failed": 0,
+    "logSha256": "f52f3b750d7cd8d7f751d21f040b6e178db02e7090f12d6ed38b3f50e3b68476"
+  },
+  "archive": {
+    "path": "/mnt/vi7000/intentsmith/evidence/hunt-answer-comparison-20260923.eb59a6403698979a397131d33796bb021f7ee42650aab31ed2195863978a6e58.tar.gz",
+    "sha256": "eb59a6403698979a397131d33796bb021f7ee42650aab31ed2195863978a6e58",
+    "bytes": 1391775,
+    "membersVerified": 17,
+    "manifestSha256": "9b76e7bcd0b0a3bd2ab82a0901e53a0c926be5b6015cea37c172182e90feb434"
+  },
+  "limitations": [
+    "Historical September 20 grades, not September 23 installed measurement.",
+    "Purposive selection; never a random sample, acceptance set or model ranking.",
+    "Names and scores hidden initially but embedded in standalone HTML.",
+    "Original grades immutable; later author amendments remain separate proposals.",
+    "Personal weights and grades export proposals only; no production import.",
+    "One selected nonprimary R1 repeat has no content grade and remains visible.",
+    "Diagnostic Chromium used --no-sandbox --disable-gpu; runtime Studio not changed.",
+    "Two preparation harness failures are retained in archive; missing browser cache and wrong repeat selector after reload."
+  ]
+}

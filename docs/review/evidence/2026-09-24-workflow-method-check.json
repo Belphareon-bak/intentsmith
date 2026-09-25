@@ -1,0 +1,105 @@
+{
+  "status": "REPRODUCED_DESIGN_REVIEW_ONLY",
+  "decisionAuthority": false,
+  "inference": false,
+  "modelGradesChanged": false,
+  "powerAnalysisComplete": false,
+  "sourceHashes": {
+    "capture/plan.json": "3cd266b75a9d177c23b26bd13b4621ba4b37607ba4b9a8a5279146b986e5fb07",
+    "capture/events.jsonl": "862c62e016a30f14ea902c3ca3ff6db74e2a28fc4ef95a60b257fc7d80c63e0f",
+    "review-full-05/review.json": "e4537bad22b0c55b8f15316381442af48a44550bfc84cd096d45f438c410d729",
+    "review-full-05/PRIVATE-identity-key.json": "c41e149f8ebdcd7556e1b9f8f2a4fcd596f554c5fc830f6435f1524efa9c9cb9",
+    "assessment-20260924/assessment.json": "601c9bed6d9b0963e3bd8b9ad7b7b5b48f7fd3190b923c739c5b35342de19565",
+    "assessment-20260924/coverage.json": "dac0fab030519d4319e8f3e20692bc365d6fe2b36d9b0d4b29d319f1b0dda009",
+    "assessment-20260924/first-review-freeze.json": "1b3efc0b84d2d7072c492fc91076d47c8be1c84f7a6c3733a22c8c2f2423f3fc"
+  },
+  "originalSourcesUnchanged": true,
+  "method": {
+    "path": "src/eval/code-pilot-decision.js",
+    "sha256": "57eaeec4f4fe929b4d0893fd33f9afa07ea211bf863231038deff4977329d9cc",
+    "function": "boundedGroupInterval",
+    "alpha": 0.05,
+    "minimumBenefit": 0.04,
+    "acceptedChatMethod": false
+  },
+  "contractSha256": "fce2c8991295e739b8b1f1f2a1471c549af08bace54c01edea2ad3e3d629b504",
+  "capture": {
+    "items": 1200,
+    "declaredIndependenceGroups": 20,
+    "groupIndependenceNotRevalidatedHere": true,
+    "completeTriples": 396,
+    "byteIdenticalTriples": 25,
+    "coverage": {
+      "planned": 1200,
+      "captured": 1196,
+      "interrupted": 4,
+      "manuallyReviewed": 60,
+      "deterministicReviewed": 60,
+      "assessed": 120,
+      "fullyGraded": 119,
+      "arbitrationItems": 1,
+      "ungradedCaptured": 1076,
+      "manualNumericCriteria": 238,
+      "manualUnresolvedCriteria": 2,
+      "strictJsonContentCorrect": 60,
+      "strictJsonBare": 48,
+      "strictJsonRuntimeParsed": 60,
+      "wholePanelRankingAvailable": false
+    }
+  },
+  "illustrations": [
+    {
+      "hypotheticalMeanDifference": 0.08,
+      "groups20": {
+        "mean": 0.08000000000000002,
+        "lower": -0.49142539063889146,
+        "upper": 0.6161664688168571,
+        "groups": 20,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      "firstNWithLowerAbove004AtExactlyThisObservedMean": 4598,
+      "power": null
+    },
+    {
+      "hypotheticalMeanDifference": 0.1,
+      "groups20": {
+        "mean": 0.10000000000000002,
+        "lower": -0.4749129116328712,
+        "upper": 0.6308418945797238,
+        "groups": 20,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      "firstNWithLowerAbove004AtExactlyThisObservedMean": 2042,
+      "power": null
+    },
+    {
+      "hypotheticalMeanDifference": 0.17,
+      "groups20": {
+        "mean": 0.16999999999999996,
+        "lower": -0.4154785287774634,
+        "upper": 0.6805818458512043,
+        "groups": 20,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      "firstNWithLowerAbove004AtExactlyThisObservedMean": 434,
+      "power": null
+    }
+  ],
+  "possibleLargeEffectAt20Groups": {
+    "mean": 1,
+    "lower": 0.6631330580338295,
+    "upper": 1,
+    "groups": 20,
+    "confidence": 0.95,
+    "independenceAssumed": true
+  },
+  "limitations": [
+    "Review lower bound +0.027 and 50-140 groups lack supplied paired grades, method and power assumptions; not reproduced.",
+    "The illustrations do not estimate model quality or required sample size with a target power.",
+    "Current partial grades and the Opus /72 selection are not a full accepted paired CHAT dataset.",
+    "Synthetic mutations, translations and repeats do not establish new independent origins."
+  ]
+}

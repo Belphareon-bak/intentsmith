@@ -9,7 +9,7 @@ import { trialRole } from './pairwise-trial.js';
 import { ROLE_IMPROVEMENT_THRESHOLDS } from '../eval/role-evaluation-plan.js';
 import { auditResponsibilitySegregation } from './model-upgrade-prototype.js';
 
-export const HUNT_RETENTION_POLICY = 'all-role-loss-context-aware-v2';
+export const HUNT_RETENTION_POLICY = 'all-role-loss-context-aware-v3';
 const keep = (reason, detail = {}) => ({ eligible: false, reason, ...detail });
 
 export function huntRetentionKey({ inventory, bindings, plans, hardware, providerVersion }) {
@@ -55,9 +55,10 @@ export async function assessHuntRetention(input) {
   if (!artifact || !Array.isArray(model?.capabilities) || !model.capabilities.includes('completion')) {
     return keep('RETENTION_IDENTITY_OR_CAPABILITIES_UNKNOWN');
   }
-  if (Object.values(bindings).some(name => sameModelName(name, modelName))) return keep('RETENTION_BOUND');
+  if (Object.values(bindings).some(name => sameModelName(name, modelName)
+    || artifactFromInventory(name, inventory)?.digestSha256 === artifact.digestSha256)) return keep('RETENTION_BOUND');
   if (!hardware?.model || !(hardware.vramMb > 0) || !(hardware.numCtx > 0)) return keep('RETENTION_HARDWARE_UNKNOWN');
-  if (!auditResponsibilitySegregation(bindings).compliant) return keep('RETENTION_PORTFOLIO_UNRESOLVED');
+  if (!auditResponsibilitySegregation(bindings, undefined, { inventory }).compliant) return keep('RETENTION_PORTFOLIO_UNRESOLVED');
   const key = huntRetentionKey({ ...input, providerVersion });
   const profile = normalizeInstalledModel(model);
   const roles = MODEL_EVALUATION_ROLES.filter(role => checkRoleEligibility(profile, role).eligible);

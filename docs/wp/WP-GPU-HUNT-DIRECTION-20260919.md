@@ -183,3 +183,124 @@ změna vazby, rychlý profil bez autority nad vazbou i mazáním.
 > ukázat, proč zatím nelze rozhodnout.
 
 Za úspěch se nepovažuje počet nových testů ani hotová infrastruktura.
+
+## 7. Doplnění rozhodovacího zadání po review 23. 9. 2026
+
+Operátor přijal pořadí **rozhodovací pravidlo → audit orákul → práce nad
+uloženými daty → rozhodnutí o nutném novém sběru → oddělená přejímka**.
+Nový CHAT panel má samostatný rozpočet a vlastní GO; souhlas s offline
+opravami není souhlasem s přesběrem. Kontrakt z 18. 9. se tím nemění.
+
+### 7.1 Rozhodovací návrh — vyžaduje finální uzamčení před měřením
+
+Pro CHAT je návrhem dolní mez 95% párového intervalu zlepšení přijaté
+konverzační rubriky **nad 0,04**, při toleranci zhoršení faktické správnosti
+a provozní dokončenosti **0,02**. Tolerance je výchozí návrh k revizi,
+nikoli již nasazený parametr. Kontroly se vykazují také zvlášť pro CZ a EN.
+Přesnou rubriku, váhy, metodu a společné pokrytí intervalů pro více podmínek,
+rozsah, opakování a maximální rozpočet je nutné uzamknout jako jeden celek.
+Tento odstavec sám není úplný rozhodovací profil podle §6 kontraktu.
+
+U CODE zůstává hlavním provozním měřítkem dokončení celé úlohy v rozpočtu,
+bez opravné pomoci člověka a se splněnými přejímacími a regresními kontrolami.
+Pro ostatní role musí profil uvést příslušný celý provozní výstup; samotný
+průměr historických dílčích známek není náhradou tohoto ověření.
+
+### 7.2 Kritická chyba — návrh definice k revizi
+
+Kritická chyba je **konkrétní prokázané porušení předem označené povinné
+podmínky úlohy**, které činí finální výstup nepoužitelným nebo by při jeho
+použití způsobilo nesprávný zásadní postup či neautorizovaný efekt. Příklady:
+
+- deklaruje úspěšnou opravu, ale stanovené akceptační kontroly prokazují opak;
+- doporučí provedení nebo schválí změnu porušující výslovnou ochranu dat,
+  oprávnění či vazeb, přestože relevantní podklady byly dodané;
+- vymyslí rozhodný údaj nebo ignoruje jeho explicitní opravu a na tomto
+  údaji stojí výsledné rozhodnutí uživatele či navazující akce;
+- vrátí nečitelný povinný strojový výstup tam, kde jej konkrétní provozní
+  konzument skutečně vyžaduje a nedokáže zpracovat.
+
+Pouhá délka, styl, drobná formulace ani fence zpracovatelná produkčním
+parserem nejsou samy o sobě kritickou chybou. Závažnost musí být uvedena
+předem v zadání hodnotitele; nově nalezený případ dostane stav
+`CRITICAL_FINDING_REVIEW_REQUIRED`, konkrétní důkaz, dopad a vlastníka
+rozsouzení (operátora). Nejasnost se nevydává za prokázanou vadu modelu.
+
+„Nová“ znamená, že kandidát tuto podmínku porušil v párovém případě, kde
+současný model podmínku splnil. Identita případu, opakování, důkaz a stav
+prostředí se uchovají. Pokud oba selhali, není to nová regrese kandidáta,
+ale je-li podmínka předem přijata jako absolutní brána, oba modely ji
+nesplnily a nelze je pro daný profil kvalifikovat. Návrh konkrétní mapy
+bran je v [cílovém workflow §5.2b](../GPU-HUNT-WORKFLOW.md).
+Jeden výskyt prokazuje dané selhání, nikoli jeho populační četnost.
+
+Potvrzená kritická chyba blokuje úspěch případu a doporučení do rozsouzení;
+nezávislé dílčí známky se zachovají. Samotný příznak nesmí přidat druhou
+srážku za stejnou chybu ani změnit vadné prostředí na obsahovou nulu.
+
+### 7.3 Opakované NEROZHODNUTO — návrh provozního postupu
+
+Po vyčerpání rozpočtu je kombinace dvojice artefaktů, role a verze profilu
+uzavřena výsledkem `NEROZHODNUTO / PONECHAT`. Plánovač ji nesmí automaticky
+opakovat do dosažení vítězství. Změna runtime nebo profilu není způsob,
+jak skrýt předchozí výsledek; navazující měření nese jeho identitu.
+
+Worker předá operátorovi důvod neurčitosti, dosavadní náklad, intervaly,
+počet nezávislých skupin a přesný návrh, jaká nová informace by rozhodnutí
+mohla změnit. Operátor rozhodne o ponechání jako uzavřené volbě, novém
+rozpočtu a nových případech, opravě měřítka, nebo explicitním ručním přepnutí.
+Ruční přepnutí se neoznačí za doporučení prokázané huntem.
+
+Pokud další **výslovně schválené** porovnání opět nerozhodne, automatická
+fronta pro tutéž dvojici zůstává uzavřená a předává se společný souhrn obou
+běhů. Vlastníkem rozhodnutí je operátor; přípravu důkazů vlastní worker.
+V reportu musí být vidět otevřená operátorská položka i datum posledního
+rozsouzení. Čekání na ni samo neautorizuje další spotřebu prostředků.
+
+### 7.4 Samostatně měřené osy
+
+Konverzační kvalita, technická správnost, dodržení instrukcí/formátu a
+zpracovatelnost produkčním runtime mají vlastní hodnoty a pokrytí.
+Technické úlohy zůstávají měřenou osou, ne pouhým archivem. Striktní JSON
+je jednou formátovou kontrolou, nikoli úplným měřítkem dodržování instrukcí.
+Chybějící měření se nezamění za nulu ani za úspěch. Nová rubrika nezmění
+zpětně to, co původní prompt žádal. Změna promptu vyžaduje nový sběr;
+oprava hodnotitele vyžaduje nejprve přejímku jeho pozitivních a negativních
+kontrol a teprve potom verzovaný replay s uchováním původních známek.
+
+### 7.5 Vyjasnění CODE jistoty — přijato operátorem 23. 9. 2026
+
+Operátor po druhém posouzení 30 odpovědí výslovně přijal pro **novou
+verzi zadání** požadavek vracet jistotu ve všech větvích `basis: kvalita`,
+včetně podprahového ponechání současného modelu. Pole `confidence`, význam
+vysvětlení `detail` a počet `discriminating` musí být ve shodě. Přesné API
+lze kontrolovat deterministicky; volná formulace ani interpunkce nejsou
+předepsané znění. Jde o vyjasnění zadání, nikoli o přijetí existujícího
+orákula nebo automatického extraktoru významu.
+
+Původní veřejné zadání a reference se v podprahové větvi rozcházely.
+Nová povinnost se proto nepřenáší zpětně na staré odpovědi. Potřebuje novou
+identitu zadání, odpovídající referenci a alternativy, přejímku hodnotitele
+a nový sběr. Historické rychlostní větve nejsou novým oprávněním pro
+produkční hunt rozhodovat při neprůkazné kvalitě. Doména neplatných vstupů
+je stále položkou k výslovnému uzavření před zmrazením nové úlohy.
+
+Druhé posouzení s deklarovanou předchozí expozicí je podklad k rozsouzení,
+nikoli nezávislá slepá přejímka. Shoda s autorem mu nedává rozhodovací
+autoritu a nemění původní stav DRAFT.
+
+## 8. Oddělení rolí a dvojí hodnocení — upřesnění 24. 9. 2026
+
+Operátor výslovně požaduje sestavu podle jednotlivých rolí, přednost
+samostatnému modelu na roli a nejvýše **dvě nesouvisející role na model**.
+Model nesmí revidovat vlastní práci. Autonomní významové hodnocení má
+nejméně dva nezávislé hodnotitele vybrané podle prokázané schopnosti
+hodnotit, kteří se vzájemně doplňují. Rozhodnutí je zapsané také v hlavním
+[DIRECTION](../../DIRECTION.md); stará konstanta 3 není aktuální požadavek.
+
+[Cílové workflow](../GPU-HUNT-WORKFLOW.md) a jeho navazující review navrhují
+provedení. Číselné přejímací limity, konkrétní absolutní brány, power/budget
+plán, externí API dvojice a třetí důvod automatické výměny (náprava kritické
+vady) nadále vyžadují přijetí příslušné politiky. Zvlášť třetí cesta není
+součástí dnešních dvou rozhodovacích větví kontraktu §6. Ten se tímto zápisem
+nemění; původní hold trvá. Dokumentace požadavku není implementační GO.

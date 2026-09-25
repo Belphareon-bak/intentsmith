@@ -1,0 +1,52 @@
+{
+  "status": "ORACLE_DEFECTS_REPRODUCED_PREFLIGHT_HARDENED_REVIEW_PENDING",
+  "productionImported": false,
+  "deployed": false,
+  "inference": false,
+  "replayPerformed": false,
+  "baseRevision": "2599c3dfd6a7120d1dc5c71dfac5b10b24f0e20b",
+  "evidenceScope": "Offline assertion inventory, isolated falsification probes, CODE preflight regression and standalone review HTML. No model replay or deployment.",
+  "tests": {
+    "regressionPassed": 128,
+    "regressionFailed": 0,
+    "browserPassed": 13,
+    "oracleProbes": 6,
+    "oracleProbeDisagreements": 3
+  },
+  "evidenceRoot": "/mnt/vi7000/intentsmith/evidence/hunt-oracle-audit-20260923",
+  "archive": {
+    "path": "/mnt/vi7000/intentsmith/evidence/hunt-oracle-audit-20260923/evidence-c7e110bd61b9895d958711b48248549264333fe53f5829feb73f7ac9314a695e.tar.gz",
+    "sha256": "c7e110bd61b9895d958711b48248549264333fe53f5829feb73f7ac9314a695e",
+    "bytes": 3386467
+  },
+  "receipt": {
+    "path": "/mnt/vi7000/intentsmith/evidence/hunt-oracle-audit-20260923/receipt.json",
+    "sha256": "dbf5b6e86bb8b50d99ea84b21c820cefa8e05ce700f2cac2392f9ce3b8aaa768"
+  },
+  "sourceHashes": {
+    "SYSTEM-MAP.md": "cbd6ca379814701677f4e89f84303ed00da5bee4818599c54681f8b905f4de95",
+    "docs/wp/WP-GPU-HUNT-DIRECTION-20260919.md": "c68563efce178f7716aeabfc58b663e26474a7a5fe371bd59d1296ef18067544",
+    "docs/review/2026-09-23-HUNT-ORACLE-TEXT-AUDIT.md": "c3440b270f9ae7192a7edfd15de8859ad02df552f0f1dee272bd613b0a4a2e9d",
+    "src/eval/code-patch-suite.js": "06228aad0a03dfeed010cb17c5462d3b282b381be3eed80bb2b2547c62577242",
+    "src/eval/code-suite-tasks.json": "dc33417022bc08670752e6d75955f96d9528154278402debb82b0f38d66a8139",
+    "tests/code-patch-suite.test.js": "04a305741f37d0059f2a4876573fb23c00e0dd7afbdcc890897f291bbba62027",
+    "scripts/manual/audit-code-oracle-text.py": "f0cb7855f78ad16add9eb861244d706ca8150cff76708b44ccc2d1f27158bdbd",
+    "scripts/manual/probe-code-oracle-text.mjs": "d28cc57b39649bba417cdc29ba1ad464645bafd44e88eba630ab7379a044f492",
+    "scripts/manual/render-hunt-review-matrix.py": "ee599aced5cfb6b55209da1561f0ca25d4e79ea8316aeeafd7fc2a712009d03a"
+  },
+  "historicalGradesUnchanged": true,
+  "matrix": {
+    "path": "/mnt/vi7000/intentsmith/evidence/hunt-oracle-audit-20260923/full-matrix-v4.html",
+    "sha256": "423ca16b6fa4f4982c1d130e68847b0c0db6b5d3220ea8f2c3f9a443bb444505",
+    "responses": 2922,
+    "models": 12,
+    "roles": 7,
+    "suspectCodeResponses": 30
+  },
+  "limitations": [
+    "Complete lexical inventory is not a semantic acceptance of every assertion.",
+    "CODE oracle semantics remain defective; new preflight refuses the suite.",
+    "Old grades are displayed unchanged, not independently accepted.",
+    "New critical-error and retry definitions are review proposals, not deployed policy."
+  ]
+}

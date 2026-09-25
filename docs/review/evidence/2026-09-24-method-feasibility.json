@@ -1,0 +1,2397 @@
+{
+  "status": "DESIGN_STRESS_STUDY_NOT_METHOD_ACCEPTANCE",
+  "decisionAuthority": false,
+  "inference": false,
+  "productionChanged": false,
+  "sourceHead": "6cfcceb4d21d9a429b8e5986448e0e4d39a30044",
+  "sourceSha256": "57eaeec4f4fe929b4d0893fd33f9afa07ea211bf863231038deff4977329d9cc",
+  "scriptSha256": "6824669cbbe6f29fa7d1e8004909d12a55d2ce37b7da8a85987faae62117b0c3",
+  "versions": {
+    "python": "3.12.3",
+    "numpy": "2.3.3",
+    "scipy": "1.16.2"
+  },
+  "seed": 20260924,
+  "trialsPerCell": 1000,
+  "bootstrapResamples": 999,
+  "confidence": 0.95,
+  "tails": "two-sided; acceptance lower tail alpha/2=.025",
+  "samplingUnit": "one independently drawn origin-group delta; equal group weights",
+  "bootstrapMethod": "percentile over origin-group deltas; linear quantiles; NOT BCa",
+  "distributions": {
+    "uniform": "Uniform(mu-sqrt(3)*.15,mu+sqrt(3)*.15), population sd=.15; no clipping",
+    "rare_exact": "P(delta=-1)=.02, P(delta=0)=.98; true mean=-.02",
+    "rare_jitter": "P(delta=-1)=.02, otherwise Uniform(-.001,.001); true mean=-.02",
+    "binary": "P(-1)=.1,P(0)=.7,P(+1)=.2; mean=.10, sd=sqrt(.29)"
+  },
+  "limitations": [
+    "Synthetic distributions, not measured CHAT pilot variance or accepted group independence",
+    "Monte Carlo study per endpoint, not joint multi-axis/candidate/sequential error control",
+    "Constant-sample blocking is only a stress variant, not a sufficient eligibility rule",
+    "Student t is exact under normal iid group differences; bounded/skewed cases need qualification",
+    "Percentile bootstrap is one specified bootstrap, not a verdict on all bootstrap methods",
+    "No repeated peeking; no method/threshold selection authorization; no new profile acceptance"
+  ],
+  "actualJavaScriptParity": {
+    "checks": [
+      {
+        "n": 1,
+        "mean": -1,
+        "lower": -1,
+        "upper": 0.9500000000000002,
+        "groups": 1,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 1,
+        "mean": -0.75,
+        "lower": -0.999999999999985,
+        "upper": 0.9807824278340842,
+        "groups": 1,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 1,
+        "mean": -0.02,
+        "lower": -0.999738537595184,
+        "upper": 0.9996286967100803,
+        "groups": 1,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 1,
+        "mean": 0,
+        "lower": -0.9996874511566103,
+        "upper": 0.9996874511566101,
+        "groups": 1,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 1,
+        "mean": 0.04,
+        "lower": -0.9995614715311002,
+        "upper": 0.9997827127093393,
+        "groups": 1,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 1,
+        "mean": 0.17,
+        "lower": -0.9988549066649418,
+        "upper": 0.9999462370661969,
+        "groups": 1,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 1,
+        "mean": 0.9,
+        "lower": -0.9665585710436102,
+        "upper": 1,
+        "groups": 1,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 1,
+        "mean": 1,
+        "lower": -0.95,
+        "upper": 1,
+        "groups": 1,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 20,
+        "mean": -1,
+        "lower": -1,
+        "upper": -0.6631330580338294,
+        "groups": 20,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 20,
+        "mean": -0.75,
+        "lower": -0.975532283813668,
+        "upper": -0.2005144457736503,
+        "groups": 20,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 20,
+        "mean": -0.020000000000000004,
+        "lower": -0.5709156706938706,
+        "upper": 0.5397312713952718,
+        "groups": 20,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 20,
+        "mean": 0,
+        "lower": -0.555425159511847,
+        "upper": 0.5554251595118469,
+        "groups": 20,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 20,
+        "mean": 0.04000000000000001,
+        "lower": -0.5238337226268799,
+        "upper": 0.5862028677032258,
+        "groups": 20,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 20,
+        "mean": 0.16999999999999996,
+        "lower": -0.4154785287774634,
+        "upper": 0.6805818458512043,
+        "groups": 20,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 20,
+        "mean": 0.9,
+        "lower": 0.42740775073314685,
+        "upper": 0.9990480436760567,
+        "groups": 20,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 20,
+        "mean": 1,
+        "lower": 0.6631330580338295,
+        "upper": 1,
+        "groups": 20,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 60,
+        "mean": -1,
+        "lower": -1,
+        "upper": -0.8807410154276664,
+        "groups": 60,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 60,
+        "mean": -0.75,
+        "lower": -0.9201558784298692,
+        "upper": -0.4621450283813926,
+        "groups": 60,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 60,
+        "mean": -0.02000000000000001,
+        "lower": -0.35850543432702,
+        "upper": 0.3216660339176336,
+        "groups": 60,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 60,
+        "mean": 0,
+        "lower": -0.3401518899286433,
+        "upper": 0.3401518899286433,
+        "groups": 60,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 60,
+        "mean": 0.04000000000000002,
+        "lower": -0.3030477683436561,
+        "upper": 0.37672661073424996,
+        "groups": 60,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 60,
+        "mean": 0.16999999999999996,
+        "lower": -0.1787689761353053,
+        "upper": 0.4919081926643978,
+        "groups": 60,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 60,
+        "mean": 0.899999999999999,
+        "lower": 0.6733685434293695,
+        "upper": 0.9875797052470356,
+        "groups": 60,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 60,
+        "mean": 1,
+        "lower": 0.8807410154276663,
+        "upper": 1,
+        "groups": 60,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 150,
+        "mean": -1,
+        "lower": -1,
+        "upper": -0.9514148056677828,
+        "groups": 150,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 150,
+        "mean": -0.75,
+        "lower": -0.871766521321526,
+        "upper": -0.5799036777819656,
+        "groups": 150,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 150,
+        "mean": -0.020000000000000014,
+        "lower": -0.23838821321571935,
+        "upper": 0.19968062558697897,
+        "groups": 150,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 150,
+        "mean": 0,
+        "lower": -0.21907775801103657,
+        "upper": 0.21907775801103657,
+        "groups": 150,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 150,
+        "mean": 0.04000000000000003,
+        "lower": -0.18019676107362015,
+        "upper": 0.25761194312895075,
+        "groups": 150,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 150,
+        "mean": 0.1700000000000006,
+        "lower": -0.05141655961897351,
+        "upper": 0.3804317598455569,
+        "groups": 150,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 150,
+        "mean": 0.9000000000000025,
+        "lower": 0.7734450029211115,
+        "upper": 0.9689306214874724,
+        "groups": 150,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      },
+      {
+        "n": 150,
+        "mean": 1,
+        "lower": 0.9514148056677829,
+        "upper": 1,
+        "groups": 150,
+        "confidence": 0.95,
+        "independenceAssumed": true
+      }
+    ],
+    "firstN": 18441,
+    "preceding": {
+      "mean": 0,
+      "lower": -0.02000038394614556,
+      "upper": 0.02000038394614556,
+      "groups": 18440,
+      "confidence": 0.95,
+      "independenceAssumed": true
+    },
+    "atFirst": {
+      "mean": 0,
+      "lower": -0.019999841766911164,
+      "upper": 0.019999841766911164,
+      "groups": 18441,
+      "confidence": 0.95,
+      "independenceAssumed": true
+    },
+    "pythonJsMaxAbsoluteError": 0.0
+  },
+  "scipyReferenceChecks": {
+    "percentileBootstrapParity": true,
+    "studentIntervalParity": true
+  },
+  "illustrations": {
+    "tN20Mean010Sd015Lower": 0.029797839037013593,
+    "rareHarmNoObservedHarmN20": 0.6676079717550942,
+    "constantZeroN20NaiveTAndPercentileBootstrap": [
+      0,
+      0
+    ],
+    "constantZeroVarianceIsPopulationProof": false
+  },
+  "rows": [
+    {
+      "case": "quality_boundary",
+      "n": 20,
+      "trueMean": 0.04,
+      "threshold": 0.04,
+      "boundaryNull": true,
+      "kl": {
+        "coverage": {
+          "count": 1000,
+          "of": 1000,
+          "rate": 1.0,
+          "monteCarloWilson95": [
+            0.996173241514445,
+            1.0
+          ]
+        },
+        "acceptNaive": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "pairedT": {
+        "coverage": {
+          "count": 935,
+          "of": 1000,
+          "rate": 0.935,
+          "monteCarloWilson95": [
+            0.9179944906866292,
+            0.948676229430938
+          ]
+        },
+        "acceptNaive": {
+          "count": 34,
+          "of": 1000,
+          "rate": 0.034,
+          "monteCarloWilson95": [
+            0.024431348663226313,
+            0.04713519024531107
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 34,
+          "of": 1000,
+          "rate": 0.034,
+          "monteCarloWilson95": [
+            0.024431348663226313,
+            0.04713519024531107
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "groupPercentileBootstrap": {
+        "coverage": {
+          "count": 913,
+          "of": 1000,
+          "rate": 0.913,
+          "monteCarloWilson95": [
+            0.8939135189433066,
+            0.928925578547625
+          ]
+        },
+        "acceptNaive": {
+          "count": 43,
+          "of": 1000,
+          "rate": 0.043,
+          "monteCarloWilson95": [
+            0.03207865341171336,
+            0.057419003844084014
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 43,
+          "of": 1000,
+          "rate": 0.043,
+          "monteCarloWilson95": [
+            0.03207865341171336,
+            0.057419003844084014
+          ]
+        },
+        "constantSampleCount": 0
+      }
+    },
+    {
+      "case": "quality_boundary",
+      "n": 60,
+      "trueMean": 0.04,
+      "threshold": 0.04,
+      "boundaryNull": true,
+      "kl": {
+        "coverage": {
+          "count": 1000,
+          "of": 1000,
+          "rate": 1.0,
+          "monteCarloWilson95": [
+            0.996173241514445,
+            1.0
+          ]
+        },
+        "acceptNaive": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "pairedT": {
+        "coverage": {
+          "count": 947,
+          "of": 1000,
+          "rate": 0.947,
+          "monteCarloWilson95": [
+            0.9313253831625082,
+            0.9592534947514054
+          ]
+        },
+        "acceptNaive": {
+          "count": 27,
+          "of": 1000,
+          "rate": 0.027,
+          "monteCarloWilson95": [
+            0.018621382774294995,
+            0.03899873075304015
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 27,
+          "of": 1000,
+          "rate": 0.027,
+          "monteCarloWilson95": [
+            0.018621382774294995,
+            0.03899873075304015
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "groupPercentileBootstrap": {
+        "coverage": {
+          "count": 942,
+          "of": 1000,
+          "rate": 0.942,
+          "monteCarloWilson95": [
+            0.9257504237337675,
+            0.9548667217650018
+          ]
+        },
+        "acceptNaive": {
+          "count": 30,
+          "of": 1000,
+          "rate": 0.03,
+          "monteCarloWilson95": [
+            0.0210937388288347,
+            0.042503414147587126
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 30,
+          "of": 1000,
+          "rate": 0.03,
+          "monteCarloWilson95": [
+            0.0210937388288347,
+            0.042503414147587126
+          ]
+        },
+        "constantSampleCount": 0
+      }
+    },
+    {
+      "case": "quality_boundary",
+      "n": 150,
+      "trueMean": 0.04,
+      "threshold": 0.04,
+      "boundaryNull": true,
+      "kl": {
+        "coverage": {
+          "count": 1000,
+          "of": 1000,
+          "rate": 1.0,
+          "monteCarloWilson95": [
+            0.996173241514445,
+            1.0
+          ]
+        },
+        "acceptNaive": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "pairedT": {
+        "coverage": {
+          "count": 953,
+          "of": 1000,
+          "rate": 0.953,
+          "monteCarloWilson95": [
+            0.9380600619184716,
+            0.9644728948936154
+          ]
+        },
+        "acceptNaive": {
+          "count": 28,
+          "of": 1000,
+          "rate": 0.028,
+          "monteCarloWilson95": [
+            0.019442276812770925,
+            0.04017018319759311
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 28,
+          "of": 1000,
+          "rate": 0.028,
+          "monteCarloWilson95": [
+            0.019442276812770925,
+            0.04017018319759311
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "groupPercentileBootstrap": {
+        "coverage": {
+          "count": 946,
+          "of": 1000,
+          "rate": 0.946,
+          "monteCarloWilson95": [
+            0.9302078451539475,
+            0.9583786862769372
+          ]
+        },
+        "acceptNaive": {
+          "count": 31,
+          "of": 1000,
+          "rate": 0.031,
+          "monteCarloWilson95": [
+            0.02192400344715857,
+            0.04366549601229214
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 31,
+          "of": 1000,
+          "rate": 0.031,
+          "monteCarloWilson95": [
+            0.02192400344715857,
+            0.04366549601229214
+          ]
+        },
+        "constantSampleCount": 0
+      }
+    },
+    {
+      "case": "quality_alternative",
+      "n": 20,
+      "trueMean": 0.1,
+      "threshold": 0.04,
+      "boundaryNull": false,
+      "kl": {
+        "coverage": {
+          "count": 1000,
+          "of": 1000,
+          "rate": 1.0,
+          "monteCarloWilson95": [
+            0.996173241514445,
+            1.0
+          ]
+        },
+        "acceptNaive": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "pairedT": {
+        "coverage": {
+          "count": 961,
+          "of": 1000,
+          "rate": 0.961,
+          "monteCarloWilson95": [
+            0.9471306895804986,
+            0.9713410390958196
+          ]
+        },
+        "acceptNaive": {
+          "count": 340,
+          "of": 1000,
+          "rate": 0.34,
+          "monteCarloWilson95": [
+            0.31130188230514194,
+            0.36992268041023574
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 340,
+          "of": 1000,
+          "rate": 0.34,
+          "monteCarloWilson95": [
+            0.31130188230514194,
+            0.36992268041023574
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "groupPercentileBootstrap": {
+        "coverage": {
+          "count": 938,
+          "of": 1000,
+          "rate": 0.938,
+          "monteCarloWilson95": [
+            0.9213119396866343,
+            0.9513358198800193
+          ]
+        },
+        "acceptNaive": {
+          "count": 408,
+          "of": 1000,
+          "rate": 0.408,
+          "monteCarloWilson95": [
+            0.3779477218755777,
+            0.43875640168576435
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 408,
+          "of": 1000,
+          "rate": 0.408,
+          "monteCarloWilson95": [
+            0.3779477218755777,
+            0.43875640168576435
+          ]
+        },
+        "constantSampleCount": 0
+      }
+    },
+    {
+      "case": "quality_alternative",
+      "n": 60,
+      "trueMean": 0.1,
+      "threshold": 0.04,
+      "boundaryNull": false,
+      "kl": {
+        "coverage": {
+          "count": 1000,
+          "of": 1000,
+          "rate": 1.0,
+          "monteCarloWilson95": [
+            0.996173241514445,
+            1.0
+          ]
+        },
+        "acceptNaive": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "pairedT": {
+        "coverage": {
+          "count": 937,
+          "of": 1000,
+          "rate": 0.937,
+          "monteCarloWilson95": [
+            0.920205076295354,
+            0.9504503367882711
+          ]
+        },
+        "acceptNaive": {
+          "count": 841,
+          "of": 1000,
+          "rate": 0.841,
+          "monteCarloWilson95": [
+            0.8170364534597756,
+            0.8623536972530759
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 841,
+          "of": 1000,
+          "rate": 0.841,
+          "monteCarloWilson95": [
+            0.8170364534597756,
+            0.8623536972530759
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "groupPercentileBootstrap": {
+        "coverage": {
+          "count": 937,
+          "of": 1000,
+          "rate": 0.937,
+          "monteCarloWilson95": [
+            0.920205076295354,
+            0.9504503367882711
+          ]
+        },
+        "acceptNaive": {
+          "count": 858,
+          "of": 1000,
+          "rate": 0.858,
+          "monteCarloWilson95": [
+            0.8349940829788968,
+            0.8782659579454458
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 858,
+          "of": 1000,
+          "rate": 0.858,
+          "monteCarloWilson95": [
+            0.8349940829788968,
+            0.8782659579454458
+          ]
+        },
+        "constantSampleCount": 0
+      }
+    },
+    {
+      "case": "quality_alternative",
+      "n": 150,
+      "trueMean": 0.1,
+      "threshold": 0.04,
+      "boundaryNull": false,
+      "kl": {
+        "coverage": {
+          "count": 1000,
+          "of": 1000,
+          "rate": 1.0,
+          "monteCarloWilson95": [
+            0.996173241514445,
+            1.0
+          ]
+        },
+        "acceptNaive": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "pairedT": {
+        "coverage": {
+          "count": 947,
+          "of": 1000,
+          "rate": 0.947,
+          "monteCarloWilson95": [
+            0.9313253831625082,
+            0.9592534947514054
+          ]
+        },
+        "acceptNaive": {
+          "count": 1000,
+          "of": 1000,
+          "rate": 1.0,
+          "monteCarloWilson95": [
+            0.996173241514445,
+            1.0
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 1000,
+          "of": 1000,
+          "rate": 1.0,
+          "monteCarloWilson95": [
+            0.996173241514445,
+            1.0
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "groupPercentileBootstrap": {
+        "coverage": {
+          "count": 943,
+          "of": 1000,
+          "rate": 0.943,
+          "monteCarloWilson95": [
+            0.9268629323405141,
+            0.9557465596412841
+          ]
+        },
+        "acceptNaive": {
+          "count": 998,
+          "of": 1000,
+          "rate": 0.998,
+          "monteCarloWilson95": [
+            0.9927371921365079,
+            0.9994513564118793
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 998,
+          "of": 1000,
+          "rate": 0.998,
+          "monteCarloWilson95": [
+            0.9927371921365079,
+            0.9994513564118793
+          ]
+        },
+        "constantSampleCount": 0
+      }
+    },
+    {
+      "case": "noninferiority_boundary",
+      "n": 20,
+      "trueMean": -0.02,
+      "threshold": -0.02,
+      "boundaryNull": true,
+      "kl": {
+        "coverage": {
+          "count": 1000,
+          "of": 1000,
+          "rate": 1.0,
+          "monteCarloWilson95": [
+            0.996173241514445,
+            1.0
+          ]
+        },
+        "acceptNaive": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "pairedT": {
+        "coverage": {
+          "count": 944,
+          "of": 1000,
+          "rate": 0.944,
+          "monteCarloWilson95": [
+            0.927976651850269,
+            0.9566251866145581
+          ]
+        },
+        "acceptNaive": {
+          "count": 31,
+          "of": 1000,
+          "rate": 0.031,
+          "monteCarloWilson95": [
+            0.02192400344715857,
+            0.04366549601229214
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 31,
+          "of": 1000,
+          "rate": 0.031,
+          "monteCarloWilson95": [
+            0.02192400344715857,
+            0.04366549601229214
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "groupPercentileBootstrap": {
+        "coverage": {
+          "count": 938,
+          "of": 1000,
+          "rate": 0.938,
+          "monteCarloWilson95": [
+            0.9213119396866343,
+            0.9513358198800193
+          ]
+        },
+        "acceptNaive": {
+          "count": 36,
+          "of": 1000,
+          "rate": 0.036,
+          "monteCarloWilson95": [
+            0.02611557140738732,
+            0.049435660467207834
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 36,
+          "of": 1000,
+          "rate": 0.036,
+          "monteCarloWilson95": [
+            0.02611557140738732,
+            0.049435660467207834
+          ]
+        },
+        "constantSampleCount": 0
+      }
+    },
+    {
+      "case": "noninferiority_boundary",
+      "n": 60,
+      "trueMean": -0.02,
+      "threshold": -0.02,
+      "boundaryNull": true,
+      "kl": {
+        "coverage": {
+          "count": 1000,
+          "of": 1000,
+          "rate": 1.0,
+          "monteCarloWilson95": [
+            0.996173241514445,
+            1.0
+          ]
+        },
+        "acceptNaive": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "pairedT": {
+        "coverage": {
+          "count": 946,
+          "of": 1000,
+          "rate": 0.946,
+          "monteCarloWilson95": [
+            0.9302078451539475,
+            0.9583786862769372
+          ]
+        },
+        "acceptNaive": {
+          "count": 27,
+          "of": 1000,
+          "rate": 0.027,
+          "monteCarloWilson95": [
+            0.018621382774294995,
+            0.03899873075304015
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 27,
+          "of": 1000,
+          "rate": 0.027,
+          "monteCarloWilson95": [
+            0.018621382774294995,
+            0.03899873075304015
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "groupPercentileBootstrap": {
+        "coverage": {
+          "count": 941,
+          "of": 1000,
+          "rate": 0.941,
+          "monteCarloWilson95": [
+            0.9246390972285408,
+            0.9539857017871995
+          ]
+        },
+        "acceptNaive": {
+          "count": 31,
+          "of": 1000,
+          "rate": 0.031,
+          "monteCarloWilson95": [
+            0.02192400344715857,
+            0.04366549601229214
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 31,
+          "of": 1000,
+          "rate": 0.031,
+          "monteCarloWilson95": [
+            0.02192400344715857,
+            0.04366549601229214
+          ]
+        },
+        "constantSampleCount": 0
+      }
+    },
+    {
+      "case": "noninferiority_boundary",
+      "n": 150,
+      "trueMean": -0.02,
+      "threshold": -0.02,
+      "boundaryNull": true,
+      "kl": {
+        "coverage": {
+          "count": 1000,
+          "of": 1000,
+          "rate": 1.0,
+          "monteCarloWilson95": [
+            0.996173241514445,
+            1.0
+          ]
+        },
+        "acceptNaive": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "pairedT": {
+        "coverage": {
+          "count": 956,
+          "of": 1000,
+          "rate": 0.956,
+          "monteCarloWilson95": [
+            0.9414482108495923,
+            0.9670617854115815
+          ]
+        },
+        "acceptNaive": {
+          "count": 22,
+          "of": 1000,
+          "rate": 0.022,
+          "monteCarloWilson95": [
+            0.014572707764791058,
+            0.03308567334739963
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 22,
+          "of": 1000,
+          "rate": 0.022,
+          "monteCarloWilson95": [
+            0.014572707764791058,
+            0.03308567334739963
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "groupPercentileBootstrap": {
+        "coverage": {
+          "count": 952,
+          "of": 1000,
+          "rate": 0.952,
+          "monteCarloWilson95": [
+            0.936933911349866,
+            0.963606698979192
+          ]
+        },
+        "acceptNaive": {
+          "count": 25,
+          "of": 1000,
+          "rate": 0.025,
+          "monteCarloWilson95": [
+            0.016990131293434067,
+            0.0366452892678433
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 25,
+          "of": 1000,
+          "rate": 0.025,
+          "monteCarloWilson95": [
+            0.016990131293434067,
+            0.0366452892678433
+          ]
+        },
+        "constantSampleCount": 0
+      }
+    },
+    {
+      "case": "noninferiority_alternative",
+      "n": 20,
+      "trueMean": 0.0,
+      "threshold": -0.02,
+      "boundaryNull": false,
+      "kl": {
+        "coverage": {
+          "count": 1000,
+          "of": 1000,
+          "rate": 1.0,
+          "monteCarloWilson95": [
+            0.996173241514445,
+            1.0
+          ]
+        },
+        "acceptNaive": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "pairedT": {
+        "coverage": {
+          "count": 932,
+          "of": 1000,
+          "rate": 0.932,
+          "monteCarloWilson95": [
+            0.9146861384770105,
+            0.9460075421914699
+          ]
+        },
+        "acceptNaive": {
+          "count": 99,
+          "of": 1000,
+          "rate": 0.099,
+          "monteCarloWilson95": [
+            0.08199544136866538,
+            0.11907361893674984
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 99,
+          "of": 1000,
+          "rate": 0.099,
+          "monteCarloWilson95": [
+            0.08199544136866538,
+            0.11907361893674984
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "groupPercentileBootstrap": {
+        "coverage": {
+          "count": 904,
+          "of": 1000,
+          "rate": 0.904,
+          "monteCarloWilson95": [
+            0.8841648792420682,
+            0.9207430999016033
+          ]
+        },
+        "acceptNaive": {
+          "count": 121,
+          "of": 1000,
+          "rate": 0.121,
+          "monteCarloWilson95": [
+            0.10222378228920963,
+            0.14267690064284116
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 121,
+          "of": 1000,
+          "rate": 0.121,
+          "monteCarloWilson95": [
+            0.10222378228920963,
+            0.14267690064284116
+          ]
+        },
+        "constantSampleCount": 0
+      }
+    },
+    {
+      "case": "noninferiority_alternative",
+      "n": 60,
+      "trueMean": 0.0,
+      "threshold": -0.02,
+      "boundaryNull": false,
+      "kl": {
+        "coverage": {
+          "count": 1000,
+          "of": 1000,
+          "rate": 1.0,
+          "monteCarloWilson95": [
+            0.996173241514445,
+            1.0
+          ]
+        },
+        "acceptNaive": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "pairedT": {
+        "coverage": {
+          "count": 950,
+          "of": 1000,
+          "rate": 0.95,
+          "monteCarloWilson95": [
+            0.9346861797557492,
+            0.9618697376072513
+          ]
+        },
+        "acceptNaive": {
+          "count": 161,
+          "of": 1000,
+          "rate": 0.161,
+          "monteCarloWilson95": [
+            0.13952453255948705,
+            0.18507000969371934
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 161,
+          "of": 1000,
+          "rate": 0.161,
+          "monteCarloWilson95": [
+            0.13952453255948705,
+            0.18507000969371934
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "groupPercentileBootstrap": {
+        "coverage": {
+          "count": 944,
+          "of": 1000,
+          "rate": 0.944,
+          "monteCarloWilson95": [
+            0.927976651850269,
+            0.9566251866145581
+          ]
+        },
+        "acceptNaive": {
+          "count": 181,
+          "of": 1000,
+          "rate": 0.181,
+          "monteCarloWilson95": [
+            0.15837194044398084,
+            0.20606953146980334
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 181,
+          "of": 1000,
+          "rate": 0.181,
+          "monteCarloWilson95": [
+            0.15837194044398084,
+            0.20606953146980334
+          ]
+        },
+        "constantSampleCount": 0
+      }
+    },
+    {
+      "case": "noninferiority_alternative",
+      "n": 150,
+      "trueMean": 0.0,
+      "threshold": -0.02,
+      "boundaryNull": false,
+      "kl": {
+        "coverage": {
+          "count": 1000,
+          "of": 1000,
+          "rate": 1.0,
+          "monteCarloWilson95": [
+            0.996173241514445,
+            1.0
+          ]
+        },
+        "acceptNaive": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "pairedT": {
+        "coverage": {
+          "count": 955,
+          "of": 1000,
+          "rate": 0.955,
+          "monteCarloWilson95": [
+            0.9403171620637766,
+            0.9662004877143683
+          ]
+        },
+        "acceptNaive": {
+          "count": 385,
+          "of": 1000,
+          "rate": 0.385,
+          "monteCarloWilson95": [
+            0.35533568538042837,
+            0.4155444690712493
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 385,
+          "of": 1000,
+          "rate": 0.385,
+          "monteCarloWilson95": [
+            0.35533568538042837,
+            0.4155444690712493
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "groupPercentileBootstrap": {
+        "coverage": {
+          "count": 946,
+          "of": 1000,
+          "rate": 0.946,
+          "monteCarloWilson95": [
+            0.9302078451539475,
+            0.9583786862769372
+          ]
+        },
+        "acceptNaive": {
+          "count": 399,
+          "of": 1000,
+          "rate": 0.399,
+          "monteCarloWilson95": [
+            0.3690912514553691,
+            0.42968175375871304
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 399,
+          "of": 1000,
+          "rate": 0.399,
+          "monteCarloWilson95": [
+            0.3690912514553691,
+            0.42968175375871304
+          ]
+        },
+        "constantSampleCount": 0
+      }
+    },
+    {
+      "case": "rare_harm_exact",
+      "n": 20,
+      "trueMean": -0.02,
+      "threshold": -0.02,
+      "boundaryNull": true,
+      "kl": {
+        "coverage": {
+          "count": 1000,
+          "of": 1000,
+          "rate": 1.0,
+          "monteCarloWilson95": [
+            0.996173241514445,
+            1.0
+          ]
+        },
+        "acceptNaive": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "constantSampleCount": 647
+      },
+      "pairedT": {
+        "coverage": {
+          "count": 351,
+          "of": 1000,
+          "rate": 0.351,
+          "monteCarloWilson95": [
+            0.322039577987741,
+            0.3811007960409543
+          ]
+        },
+        "acceptNaive": {
+          "count": 647,
+          "of": 1000,
+          "rate": 0.647,
+          "monteCarloWilson95": [
+            0.6168686714441486,
+            0.6760062615610983
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "constantSampleCount": 647
+      },
+      "groupPercentileBootstrap": {
+        "coverage": {
+          "count": 350,
+          "of": 1000,
+          "rate": 0.35,
+          "monteCarloWilson95": [
+            0.32106271005247566,
+            0.38008531749319086
+          ]
+        },
+        "acceptNaive": {
+          "count": 647,
+          "of": 1000,
+          "rate": 0.647,
+          "monteCarloWilson95": [
+            0.6168686714441486,
+            0.6760062615610983
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "constantSampleCount": 647
+      }
+    },
+    {
+      "case": "rare_harm_exact",
+      "n": 60,
+      "trueMean": -0.02,
+      "threshold": -0.02,
+      "boundaryNull": true,
+      "kl": {
+        "coverage": {
+          "count": 1000,
+          "of": 1000,
+          "rate": 1.0,
+          "monteCarloWilson95": [
+            0.996173241514445,
+            1.0
+          ]
+        },
+        "acceptNaive": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "constantSampleCount": 294
+      },
+      "pairedT": {
+        "coverage": {
+          "count": 705,
+          "of": 1000,
+          "rate": 0.705,
+          "monteCarloWilson95": [
+            0.6759934395775895,
+            0.7324375894433328
+          ]
+        },
+        "acceptNaive": {
+          "count": 294,
+          "of": 1000,
+          "rate": 0.294,
+          "monteCarloWilson95": [
+            0.2665940090203127,
+            0.3229826154757359
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "constantSampleCount": 294
+      },
+      "groupPercentileBootstrap": {
+        "coverage": {
+          "count": 705,
+          "of": 1000,
+          "rate": 0.705,
+          "monteCarloWilson95": [
+            0.6759934395775895,
+            0.7324375894433328
+          ]
+        },
+        "acceptNaive": {
+          "count": 294,
+          "of": 1000,
+          "rate": 0.294,
+          "monteCarloWilson95": [
+            0.2665940090203127,
+            0.3229826154757359
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "constantSampleCount": 294
+      }
+    },
+    {
+      "case": "rare_harm_exact",
+      "n": 150,
+      "trueMean": -0.02,
+      "threshold": -0.02,
+      "boundaryNull": true,
+      "kl": {
+        "coverage": {
+          "count": 1000,
+          "of": 1000,
+          "rate": 1.0,
+          "monteCarloWilson95": [
+            0.996173241514445,
+            1.0
+          ]
+        },
+        "acceptNaive": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "constantSampleCount": 53
+      },
+      "pairedT": {
+        "coverage": {
+          "count": 777,
+          "of": 1000,
+          "rate": 0.777,
+          "monteCarloWilson95": [
+            0.7501681060278989,
+            0.8017118697711036
+          ]
+        },
+        "acceptNaive": {
+          "count": 218,
+          "of": 1000,
+          "rate": 0.218,
+          "monteCarloWilson95": [
+            0.19351481458069164,
+            0.2446434772051615
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 165,
+          "of": 1000,
+          "rate": 0.165,
+          "monteCarloWilson95": [
+            0.14328467985555532,
+            0.18927924832976667
+          ]
+        },
+        "constantSampleCount": 53
+      },
+      "groupPercentileBootstrap": {
+        "coverage": {
+          "count": 941,
+          "of": 1000,
+          "rate": 0.941,
+          "monteCarloWilson95": [
+            0.9246390972285408,
+            0.9539857017871995
+          ]
+        },
+        "acceptNaive": {
+          "count": 53,
+          "of": 1000,
+          "rate": 0.053,
+          "monteCarloWilson95": [
+            0.04074650524859452,
+            0.06867461683749176
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "constantSampleCount": 53
+      }
+    },
+    {
+      "case": "rare_harm_jitter",
+      "n": 20,
+      "trueMean": -0.02,
+      "threshold": -0.02,
+      "boundaryNull": true,
+      "kl": {
+        "coverage": {
+          "count": 1000,
+          "of": 1000,
+          "rate": 1.0,
+          "monteCarloWilson95": [
+            0.996173241514445,
+            1.0
+          ]
+        },
+        "acceptNaive": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "pairedT": {
+        "coverage": {
+          "count": 351,
+          "of": 1000,
+          "rate": 0.351,
+          "monteCarloWilson95": [
+            0.322039577987741,
+            0.3811007960409543
+          ]
+        },
+        "acceptNaive": {
+          "count": 649,
+          "of": 1000,
+          "rate": 0.649,
+          "monteCarloWilson95": [
+            0.6188992039590456,
+            0.6779604220122589
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 649,
+          "of": 1000,
+          "rate": 0.649,
+          "monteCarloWilson95": [
+            0.6188992039590456,
+            0.6779604220122589
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "groupPercentileBootstrap": {
+        "coverage": {
+          "count": 351,
+          "of": 1000,
+          "rate": 0.351,
+          "monteCarloWilson95": [
+            0.322039577987741,
+            0.3811007960409543
+          ]
+        },
+        "acceptNaive": {
+          "count": 649,
+          "of": 1000,
+          "rate": 0.649,
+          "monteCarloWilson95": [
+            0.6188992039590456,
+            0.6779604220122589
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 649,
+          "of": 1000,
+          "rate": 0.649,
+          "monteCarloWilson95": [
+            0.6188992039590456,
+            0.6779604220122589
+          ]
+        },
+        "constantSampleCount": 0
+      }
+    },
+    {
+      "case": "rare_harm_jitter",
+      "n": 60,
+      "trueMean": -0.02,
+      "threshold": -0.02,
+      "boundaryNull": true,
+      "kl": {
+        "coverage": {
+          "count": 1000,
+          "of": 1000,
+          "rate": 1.0,
+          "monteCarloWilson95": [
+            0.996173241514445,
+            1.0
+          ]
+        },
+        "acceptNaive": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "pairedT": {
+        "coverage": {
+          "count": 704,
+          "of": 1000,
+          "rate": 0.704,
+          "monteCarloWilson95": [
+            0.6749696568758727,
+            0.7314690256620207
+          ]
+        },
+        "acceptNaive": {
+          "count": 296,
+          "of": 1000,
+          "rate": 0.296,
+          "monteCarloWilson95": [
+            0.26853097433797923,
+            0.32503034312412726
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 296,
+          "of": 1000,
+          "rate": 0.296,
+          "monteCarloWilson95": [
+            0.26853097433797923,
+            0.32503034312412726
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "groupPercentileBootstrap": {
+        "coverage": {
+          "count": 704,
+          "of": 1000,
+          "rate": 0.704,
+          "monteCarloWilson95": [
+            0.6749696568758727,
+            0.7314690256620207
+          ]
+        },
+        "acceptNaive": {
+          "count": 296,
+          "of": 1000,
+          "rate": 0.296,
+          "monteCarloWilson95": [
+            0.26853097433797923,
+            0.32503034312412726
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 296,
+          "of": 1000,
+          "rate": 0.296,
+          "monteCarloWilson95": [
+            0.26853097433797923,
+            0.32503034312412726
+          ]
+        },
+        "constantSampleCount": 0
+      }
+    },
+    {
+      "case": "rare_harm_jitter",
+      "n": 150,
+      "trueMean": -0.02,
+      "threshold": -0.02,
+      "boundaryNull": true,
+      "kl": {
+        "coverage": {
+          "count": 1000,
+          "of": 1000,
+          "rate": 1.0,
+          "monteCarloWilson95": [
+            0.996173241514445,
+            1.0
+          ]
+        },
+        "acceptNaive": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "pairedT": {
+        "coverage": {
+          "count": 800,
+          "of": 1000,
+          "rate": 0.8,
+          "monteCarloWilson95": [
+            0.7740810353518655,
+            0.8236229095568015
+          ]
+        },
+        "acceptNaive": {
+          "count": 196,
+          "of": 1000,
+          "rate": 0.196,
+          "monteCarloWilson95": [
+            0.17257900508840987,
+            0.22174766407080768
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 196,
+          "of": 1000,
+          "rate": 0.196,
+          "monteCarloWilson95": [
+            0.17257900508840987,
+            0.22174766407080768
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "groupPercentileBootstrap": {
+        "coverage": {
+          "count": 932,
+          "of": 1000,
+          "rate": 0.932,
+          "monteCarloWilson95": [
+            0.9146861384770105,
+            0.9460075421914699
+          ]
+        },
+        "acceptNaive": {
+          "count": 61,
+          "of": 1000,
+          "rate": 0.061,
+          "monteCarloWilson95": [
+            0.0477797751260337,
+            0.07758011882428367
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 61,
+          "of": 1000,
+          "rate": 0.061,
+          "monteCarloWilson95": [
+            0.0477797751260337,
+            0.07758011882428367
+          ]
+        },
+        "constantSampleCount": 0
+      }
+    },
+    {
+      "case": "binary_workflow_alternative",
+      "n": 20,
+      "trueMean": 0.1,
+      "threshold": 0.04,
+      "boundaryNull": false,
+      "kl": {
+        "coverage": {
+          "count": 1000,
+          "of": 1000,
+          "rate": 1.0,
+          "monteCarloWilson95": [
+            0.996173241514445,
+            1.0
+          ]
+        },
+        "acceptNaive": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "pairedT": {
+        "coverage": {
+          "count": 950,
+          "of": 1000,
+          "rate": 0.95,
+          "monteCarloWilson95": [
+            0.9346861797557492,
+            0.9618697376072513
+          ]
+        },
+        "acceptNaive": {
+          "count": 66,
+          "of": 1000,
+          "rate": 0.066,
+          "monteCarloWilson95": [
+            0.05221235045948584,
+            0.08310927590597601
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 66,
+          "of": 1000,
+          "rate": 0.066,
+          "monteCarloWilson95": [
+            0.05221235045948584,
+            0.08310927590597601
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "groupPercentileBootstrap": {
+        "coverage": {
+          "count": 946,
+          "of": 1000,
+          "rate": 0.946,
+          "monteCarloWilson95": [
+            0.9302078451539475,
+            0.9583786862769372
+          ]
+        },
+        "acceptNaive": {
+          "count": 120,
+          "of": 1000,
+          "rate": 0.12,
+          "monteCarloWilson95": [
+            0.10129926060130913,
+            0.14160907584771276
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 120,
+          "of": 1000,
+          "rate": 0.12,
+          "monteCarloWilson95": [
+            0.10129926060130913,
+            0.14160907584771276
+          ]
+        },
+        "constantSampleCount": 0
+      }
+    },
+    {
+      "case": "binary_workflow_alternative",
+      "n": 60,
+      "trueMean": 0.1,
+      "threshold": 0.04,
+      "boundaryNull": false,
+      "kl": {
+        "coverage": {
+          "count": 1000,
+          "of": 1000,
+          "rate": 1.0,
+          "monteCarloWilson95": [
+            0.996173241514445,
+            1.0
+          ]
+        },
+        "acceptNaive": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 0,
+          "of": 1000,
+          "rate": 0.0,
+          "monteCarloWilson95": [
+            2.168404344971009e-19,
+            0.0038267584855551234
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "pairedT": {
+        "coverage": {
+          "count": 954,
+          "of": 1000,
+          "rate": 0.954,
+          "monteCarloWilson95": [
+            0.9391877960583809,
+            0.9653375072367351
+          ]
+        },
+        "acceptNaive": {
+          "count": 137,
+          "of": 1000,
+          "rate": 0.137,
+          "monteCarloWilson95": [
+            0.11707313063299474,
+            0.1597050960275183
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 137,
+          "of": 1000,
+          "rate": 0.137,
+          "monteCarloWilson95": [
+            0.11707313063299474,
+            0.1597050960275183
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "groupPercentileBootstrap": {
+        "coverage": {
+          "count": 951,
+          "of": 1000,
+          "rate": 0.951,
+          "monteCarloWilson95": [
+            0.9358092984933898,
+            0.9627389653526394
+          ]
+        },
+        "acceptNaive": {
+          "count": 157,
+          "of": 1000,
+          "rate": 0.157,
+          "monteCarloWilson95": [
+            0.1357693269808853,
+            0.18085582934020553
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 157,
+          "of": 1000,
+          "rate": 0.157,
+          "monteCarloWilson95": [
+            0.1357693269808853,
+            0.18085582934020553
+          ]
+        },
+        "constantSampleCount": 0
+      }
+    },
+    {
+      "case": "binary_workflow_alternative",
+      "n": 150,
+      "trueMean": 0.1,
+      "threshold": 0.04,
+      "boundaryNull": false,
+      "kl": {
+        "coverage": {
+          "count": 1000,
+          "of": 1000,
+          "rate": 1.0,
+          "monteCarloWilson95": [
+            0.996173241514445,
+            1.0
+          ]
+        },
+        "acceptNaive": {
+          "count": 1,
+          "of": 1000,
+          "rate": 0.001,
+          "monteCarloWilson95": [
+            0.00017654637062607809,
+            0.0056425585979579355
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 1,
+          "of": 1000,
+          "rate": 0.001,
+          "monteCarloWilson95": [
+            0.00017654637062607809,
+            0.0056425585979579355
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "pairedT": {
+        "coverage": {
+          "count": 947,
+          "of": 1000,
+          "rate": 0.947,
+          "monteCarloWilson95": [
+            0.9313253831625082,
+            0.9592534947514054
+          ]
+        },
+        "acceptNaive": {
+          "count": 266,
+          "of": 1000,
+          "rate": 0.266,
+          "monteCarloWilson95": [
+            0.23954672321443168,
+            0.29424419975680804
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 266,
+          "of": 1000,
+          "rate": 0.266,
+          "monteCarloWilson95": [
+            0.23954672321443168,
+            0.29424419975680804
+          ]
+        },
+        "constantSampleCount": 0
+      },
+      "groupPercentileBootstrap": {
+        "coverage": {
+          "count": 953,
+          "of": 1000,
+          "rate": 0.953,
+          "monteCarloWilson95": [
+            0.9380600619184716,
+            0.9644728948936154
+          ]
+        },
+        "acceptNaive": {
+          "count": 256,
+          "of": 1000,
+          "rate": 0.256,
+          "monteCarloWilson95": [
+            0.22992018472379963,
+            0.2839472734171513
+          ]
+        },
+        "acceptBlockingConstantSamples": {
+          "count": 256,
+          "of": 1000,
+          "rate": 0.256,
+          "monteCarloWilson95": [
+            0.22992018472379963,
+            0.2839472734171513
+          ]
+        },
+        "constantSampleCount": 0
+      }
+    }
+  ]
+}

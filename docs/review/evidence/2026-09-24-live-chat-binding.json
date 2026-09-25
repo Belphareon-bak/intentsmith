@@ -1,0 +1,35 @@
+{
+  "generatedAt": "2026-09-24T19:24:38.782Z",
+  "providerVersion": "0.34.2-intentsmith.1",
+  "runtimeProviderVersion": "0.34.0-intentsmith.1",
+  "bindingAuthority": {
+    "status": "DURABLE",
+    "durableRoles": [
+      "CHAT",
+      "CODE",
+      "D1",
+      "D2",
+      "R1",
+      "R2",
+      "VISION"
+    ],
+    "verifiedRoles": [
+      "CHAT",
+      "CODE",
+      "D1",
+      "D2",
+      "R1",
+      "R2",
+      "VISION"
+    ],
+    "reason": null,
+    "failures": []
+  },
+  "CHAT": "qwen3.5:27b",
+  "method": "authenticated GET /api/system/models/evaluations; corroborated by GET /api/system/upgrades/bindings",
+  "runtimeRelease": "72247a4983abcb12d42f6da6cc5b27af8f2212fd",
+  "inference": false,
+  "activation": false,
+  "productionInjectionReproduced": false,
+  "artifactDigestIndependentlyVerified": false
+}

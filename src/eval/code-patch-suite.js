@@ -227,13 +227,32 @@ export function buildTests(repo = REPO_ROOT, tasks = null) {
         const broken = applyAndTest(repo, target, target.functionTexts);
         const alternative = target.oracleAcceptance?.alternativeTexts
           ? applyAndTest(repo, target, target.oracleAcceptance.alternativeTexts) : null;
+        // Reviewed counterexamples are part of acceptance, not just a manual
+        // report. A gold/alternative/broken trio can miss both lexical false
+        // negatives and a contradictory explanation accepted as correct.
+        const extra = (target.oracleAcceptance?.additionalControls || []).map(control => {
+          const { from, to } = control.replace || {};
+          if (typeof from !== 'string' || !from || typeof to !== 'string'
+            || ![0, 1].includes(control.expectedScore)
+            || !target.goldTexts.some(code => code.includes(from))) {
+            throw new CodePatchRuntimeError(task, `invalid oracle control: ${control.name}`);
+          }
+          const codes = target.goldTexts.map(code => code.replaceAll(from, to));
+          if (codes.every((code, index) => code === target.goldTexts[index])) {
+            throw new CodePatchRuntimeError(task, `unchanged oracle control: ${control.name}`);
+          }
+          const observed = applyAndTest(repo, target, codes);
+          return { name: control.name, expected: control.expectedScore, score: observed.score,
+            verified: observed.valid === true && !observed.timedOut && observed.score === control.expectedScore };
+        });
         if (gold.valid !== true || gold.score !== 1 || broken.valid !== true
           || broken.timedOut || broken.score !== 0
-          || alternative?.valid !== true || alternative.score < 0.9) {
+          || alternative?.valid !== true || alternative.score < 0.9
+          || extra.some(control => !control.verified)) {
           throw new CodePatchRuntimeError(task,
-            `oracle controls failed: gold=${gold.score}, alternative=${alternative?.score}, broken=${broken.score}; ${gold.reason || alternative?.reason || broken.reason || ''}`);
+            `oracle controls failed: gold=${gold.score}, alternative=${alternative?.score}, broken=${broken.score}; ${gold.reason || alternative?.reason || broken.reason || ''}; ${extra.filter(c => !c.verified).map(c => `${c.name}=${c.score} expected ${c.expected}`).join('; ')}`);
         }
-        return { verified: true, gold: gold.score, alternative: alternative.score, broken: broken.score };
+        return { verified: true, gold: gold.score, alternative: alternative.score, broken: broken.score, additionalControls: extra };
       },
       prompt: () => ({ text: promptText, _task: runtimeTask || task }),
       contractMaterial: Object.freeze({

@@ -4,6 +4,7 @@
 // versioned suite contract match. Timestamps are displayed, never converted
 // into an arbitrary freshness TTL. Legacy name-only rows cannot match.
 
+import { validStoredGradingPair } from '../eval/independent-grader-pair.js';
 import {
   checkModelEvaluationApplicability,
   createRoleEvaluationPlans,
@@ -101,13 +102,14 @@ function taskDetails(row, includeResponses = false) {
       reason: d.reason || null, syntaxOk: d.syntaxOk, applied: d.applied,
       outcome: d.outcome, valid: d.valid, timedOut: d.timedOut,
       targetedPassed: d.targetedPassed, targeted: d.targeted, regressions: d.regressions,
-      schema: d.schema, parts: d.parts, penalties: d.penalties,
+      schema: d.schema, parts: d.parts, graderReviews: d.graderReviews || [], penalties: d.penalties,
       precision: d.precision, recall: d.recall, f1: d.f1,
       truePositive: d.truePositive, falsePositive: d.falsePositive, falseNegative: d.falseNegative,
       observed: d.observed, expected: d.expected,
       responseFormat: d.responseFormat, strictJson: d.strictJson,
       contentScore: d.contentScore, formatScore: d.formatScore, criteria: d.criteria,
       contractChecks: d.contractChecks,
+      ...(includeResponses && d.conversation ? { conversation: d.conversation } : {}),
       testFiles: d.testFiles, targetNames: d.targetNames,
       regressionNames: d.regressionNames, testOutput: d.testOutput,
     })) }));
@@ -230,9 +232,8 @@ function currentStatus(db, artifact, role, plan, providerVersion = null) {
     const result = decodeCurrentRow(row);
     if (plan.collectionOnly && row.status === 'COMPLETE') {
       const grading = JSON.parse(row.metadata_json || '{}').grading;
-      const accepted = plan.acceptance?.graders?.find(g => g.id === grading?.graderAcceptanceId
-        && g.payloadSha256 === grading?.graderAcceptanceSha256);
-      if (!accepted) return Object.freeze({ ...result, status: 'BLOCKED', score: null,
+      if (!validStoredGradingPair(db,grading,plan.acceptance?.graders,artifact.digestSha256,role,
+        plan.suiteContractSha256,result.score)) return Object.freeze({ ...result, status: 'BLOCKED', score: null,
         errorCode: 'EVALUATION_GRADER_ACCEPTANCE_MISSING',
         errorMessage: 'Přejímka hodnotitele už není platná. Původní známky zůstávají v historii.' });
     }

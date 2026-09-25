@@ -1,0 +1,94 @@
+# Živý průběh CHAT panelu a pokračování sběru
+
+**Novější stav:** [Zastavení Qwen3.6 a omezené navázání po GPU konfliktu](2026-09-24-CHAT-GPU-CONTENTION.md).
+
+## Pokračování 24. 9. 2026
+
+**COLLECTION_RESUMED / NOT_GRADED** na výslovný pokyn „pokračuj“.
+Včerejší hlídač se k plánované pauze nedostal: `full-02` skončilo ve
+23:30:22 CEST na `GPU_FOREIGN_WORK_PRESENT`. Skutečný doklad je
+`STOPPED_BEFORE_TARGET`: Qwen3.5 **112/120 úplných dialogů**, žádné volání
+modelů 7–10. Celkem 712 zpracovaných / 710 úplných dialogů a 2 060 volání.
+Částečný export `review-full-02/` proběhl, exit 0; původní hlídač neběží.
+
+Po ověření celého deníku, zdrojových hashů a digestů všech modelů pokračuje
+okno **`full-03`**: nejprve zbývajících osm dialogů Qwen3.5, potom Qwen3.6,
+Qwen3 14b, Phi4 a Qwen3.8. Původní plán i odpovědi zůstávají beze změny.
+Limit okna je pouze původní zbytek: 1 420 volání, 6 470 051 výstupních
+tokenů a 75 980 sekund. Čtyři již přeskočená navazující volání u původních
+dvou neúplných dialogů se automaticky nedoplňují; nové pokusy se nevymýšlejí.
+
+Aktuální služby jsou `intentsmith-chat-panel-20260924-full03.service`
+a `intentsmith-chat-progress-20260924.service`. Přehled na
+**http://127.0.0.1:8765/** sleduje nové okno. Nový report a export budou
+`full-03-summary.json`, `run-full-03-exit.json`, `review-full-03/`
+a `export-full-03-exit.json`. Výchozí stav, přesný rozpočet a hash původních
+bajtů deníku jsou v `resume-full-03.json`; kontrola návaznosti v
+`resume-full-03-verification.json`. Žádná změna známek ani role v produkci.
+
+```bash
+systemctl --user status intentsmith-chat-panel-20260924-full03.service --no-pager
+systemctl --user stop intentsmith-chat-panel-20260924-full03.service
+```
+
+Následující oddíly zachovávají historii 23. 9.; jejich názvy služeb platí
+pro tehdejší okna, nikoli pro nynější sběr.
+
+23. 9. 2026 — **PROGRESS_RUNTIME_VERIFIED / COLLECTION_RESUMED / NOT_GRADED**.
+
+**Pozdější pokyn operátora: pauza po šestém modelu.** Je aktivovaný jednorázový
+hlídač `intentsmith-chat-pause-after-six-20260923.service`: po trvalém uložení
+všech 120 pokusů `qwen3.5:27b` pošle SIGTERM pouze ověřenému procesu sběrače.
+Sběrač uzavře deník a uvolní svůj model; nadřazený skript dokončí export.
+Při zápisu této poznámky byl hlídač **ARMED**, nikoli již potvrzená pauza.
+Výsledný doklad `pause-after-model-status.json` ověří úplnost cílového modelu
+a nulový počet volání čtyř odložených modelů. `PAUSE_REQUIRES_REVIEW` se nesmí
+zaměnit za úspěšnou pauzu. Běžný důvod deníku bude `CANCELLED`; wrapper může
+částečný výstup označit `FAILED`, proto se čte také tento operátorský doklad.
+`qwen3.6:27b`, `qwen3:14b`, `phi4:14b` a `qwen3.8:latest` zůstávají na další
+den, **bez automatického restartu**. Plán ani rozpočet se nemění.
+Pokyn, skript hlídače a tři procesní kontroly bez inference jsou vedle ostatní
+evidence: `pause-after-model.json`, `pause-after-model.py`, `pause-watcher-check.json`.
+
+Operátor požádal o progress bar s logem, modelem, aktuální úlohou a počtem z celku. Navazuje na [spuštěný panel](2026-09-23-CHAT-PANEL.md).
+
+## Otevření a význam údajů
+
+**http://127.0.0.1:8765/** — místní přehled pouze pro čtení, každých pět sekund načte nová data bez obnovení celé stránky. Původní soubor `hunt-chat-panel-20260923/progress.html` přesměruje sem; jeho starý obsah je zachovaný jako `progress-static-before-dashboard.html`.
+
+- Celkový progress: zpracované rozhovory / 1 200. Zahrnuje i neúplné pokusy, které jsou samostatně spočítané; dokončení sběru není správnost odpovědí.
+- Volání: uložené odpovědi / nejvýše 3 480. U neúplného rozhovoru se další tahy nespouštějí a jsou uvedené jako neprovedené. Proto může být celý panel zpracovaný při nižším počtu volání.
+- Aktuální model a jeho pořadí / 10, čitelný název úlohy a pořadí / 40, jazyk, opakování / 3 a tah rozhovoru / 3 (striktní JSON má jediný tah).
+- Druhý progress bar pro model, uplynulý čas a orientační odhad jeho zbývající práce z posledních nejvýše 30 volání. Celková ETA se nevymýšlí z neznámé rychlosti zbytku panelu.
+- Posledních 100 skutečných událostí deníku: zahájení tahu, uložení odpovědi, délka, tokeny, dokončení dialogu a důvod zastavení. Filtr problémů zahrnuje i starší výjimky; automatický posun lze vypnout.
+
+Přehled ověřuje aktivní službu a otevřené okno deníku, nestačí starý nápis RUNNING v souboru provideru. Při výpadku spojení nebo starých datech zobrazí varování. Server poslouchá pouze na loopbacku, nepřijímá mutační požadavky, nepodává libovolné soubory a neposílá do přehledu obsah modelových odpovědí. Nevytváří modelová volání ani známky.
+
+## Zjištěné zastavení a návaznost
+
+Při vstupu do práce bylo první okno ukončené v **22:05:23 CEST** důvodem `GPU_FOREIGN_WORK_PRESENT`: 1 361 provedených volání, 471 zpracovaných dialogů, z toho 469 úplných a dvě vyčerpání výstupního rozpočtu. Bezprostřední ochrana zachytila cizí GPU práci; z uloženého důvodu nelze zpětně určit její aplikaci/PID. Žádný cizí proces nebyl ukončen.
+
+Následná kontrola nenašla aktivní cizí výpočet ani rezidentní model systémové Ollamy. Sběr proto pokračuje v **`full-02`**, pod stejným zmrazeným plánem:
+`3948c67362e610633830a0034b6c9f1134635348505d85eae8f41ab570451385`.
+
+Nové okno má pouze zbývajících **2 119 volání, 6 691 086 výstupních tokenů a 80 597 sekund**. Předchozí čas 5 802,433 s plus nové maximum nepřekračují původních 24 hodin. Žádné další opakování ani navýšení celkového rozpočtu. První byte prefix deníku se zachovává; dokončené tahy se znovu negenerují. Původní report, exit 2 a částečný export `review/` zůstávají vedle nových výstupů.
+
+Aktuální sběr řídí `intentsmith-chat-panel-20260923-full02.service`; náhled samostatně `intentsmith-chat-progress-20260923.service`. Ukončení náhledu neukončí sběr. Náhled sám žádné pozastavené měření nerestartuje.
+
+```bash
+systemctl --user status intentsmith-chat-panel-20260923-full02.service --no-pager
+# Zastavit pouze modelový sběr:
+systemctl --user stop intentsmith-chat-panel-20260923-full02.service
+# Zastavit pouze místní přehled:
+systemctl --user stop intentsmith-chat-progress-20260923.service
+```
+
+Po druhém okně vznikne samostatný report `full-02-summary.json`, `run-full-02-exit.json` a export `review-full-02/` s vlastním `export-full-02-exit.json`. Důkazy leží v `/mnt/vi7000/intentsmith/evidence/hunt-chat-panel-20260923/`.
+
+## Ověření
+
+- 18/18 testů sběrového deníku a přehledu: živý krok, nepravdivě starý RUNNING, zastavená ochrana, neúplný pokus a neprovedené tahy, oddělení obsahu odpovědi od logu.
+- Artifact validation: 160/160, registr testů validní.
+- Prohlížeč: 13 kontrol nad skutečným zastaveným během a šest kontrol po pokračování. Ověřené počty, oba bary, aktuální model/úloha/opakování, filtr logu, automatické aktualizace, výpadek a obnovení spojení i odmítnutí zápisových HTTP požadavků a libovolných cest. Simulace výpadku proběhla pouze uvnitř testovacího prohlížeče, ne zastavením sběru.
+
+Změna přehledu nezasahuje do zmrazených promptů, parametrů generování ani implementace sběrače. Pokračování modelového sběru není přejímka hodnotitele ani autonomní GO.

@@ -1,9 +1,62 @@
 # IntentSmith
 
-**GPU hunt, finální měření 19. 9.: NO-GO pro autonomní provoz.**
-Všech sedm rolí změřeno na `89531748`, přijatých profilů 0/7; produktová
-integrace a nezávislá kvalifikace nejsou dokončené. Timer zůstává vypnutý.
-[Výsledky, konkrétní nedodělky a celý podklad pro review](docs/review/2026-09-19-GPU-HUNT-FINAL-REVIEW.md).
+**GPU hunt M0 — zapracované revize 1 a 2, 24. 9. 2026:**
+Páry jsou vždy kandidát − současný model a simulovaná populace má přesně
+uvedený průměr. Binární plány se vrátily ke KL, spojité skóre má plán schema 2.
+Přidaná sada se vybírá jen přes přesný kontrakt a každá sada má vlastní
+výsledek. Tolerance nezhoršení je zamknutá na 0,02.
+qwen3.8 proti qwen3.5: `chat_v3` +0,002, nová konverzační sada +0,069.
+**Závěr „ZMĚNIT CHAT“ se nepřijímá**; PLANNING_EVIDENCE / NO_BINDING_CHANGE.
+[Revize a přepočet](docs/review/2026-09-24-HUNT-M0-DECISION-METHOD.md#revize-2-24-9-noc).
+
+**GPU hunt — navázání po krátkém konfliktu GPU, 24. 9. 2026:**
+Qwen3.5 dokončen. Qwen3.6 přerušen při cizí GPU aktivitě; časově doložen
+souběh s RustDesk CUDA/NVENC sondou. Doplněno omezené čekání a nejvýše tři
+navázání při GPU konfliktu, zachování deníku a původního rozpočtu.
+Přehled rozlišuje čekání od zastavení. 24 cílených testů a 11 browser kontrol PASS.
+**RUNTIME_RESUMED / NOT_GRADED**.
+[Diagnóza, aktuální běh a důkazy](docs/review/2026-09-24-CHAT-GPU-CONTENTION.md).
+
+
+**GPU hunt — velký CHAT sběr po slepém posudku, 23. 9. 2026:**
+Operátorem spuštěný panel deseti místních modelů: 20 CS/EN párů, tři
+opakování, 1 200 dialogů / nejvýše 3 480 volání, okno 24 hodin.
+Rubrika v2 upravuje podmíněný kredit u injektáže a nevyplněné šablony;
+40 promptů se nemění. Posudek pilotu (96 známek) uchován v původní verzi.
+**COLLECTION_RUNNING / NOT_GRADED / NO_AUTONOMOUS_GO** — stav je snímek
+zahájeného běhu, aktuální průběh a výsledek jsou v jeho trvalé evidenci.
+[Průběh, změny rubriky, původní známky a ovládání běhu](docs/review/2026-09-23-CHAT-PANEL.md).
+
+
+**GPU hunt — skutečný CHAT pilot, 23. 9. 2026:**
+Qwen3.8 a Phi4 dokončily **24/24 dialogů, 64/64 volání** za 7 min 33 s.
+Návaznost, identity a úplnost ověřené; obsahové známky zatím nevydané.
+Připravené oddělené stránky pro anonymní a pojmenované hodnocení, 17 browser
+kontrol PASS. Opravený výpis uplynulého času; 45 cílených kontrol PASS.
+Další desetimodelový CHAT panel (3 480 volání) je zmrazený, nespuštěný.
+**CAPTURE_COMPLETE / UNGRADED / REVIEW_PENDING / NO_AUTONOMOUS_GO**.
+[Dialogy, důkazy, rozpočet a další postup](docs/review/2026-09-23-CHAT-PILOT.md).
+
+**GPU hunt — technická příprava dalšího sběru, 23. 9. 2026:**
+Trvalý deník a pokračování mezi okny, souhrnné rozpočty a průběžná ochrana
+RAM/FS/GPU jsou implementované. Připravený CHAT pilot: dva přesné artefakty,
+24 dialogů / 64 volání, zatím 0 volání. Nové CODE zadání vyžaduje jistotu i
+pod prahem; dvě reference prošly 24/24 technickými kontrolami. Kandidát
+extraktoru pracuje pouze s prózou a nemá přejímku ani skórovací autoritu.
+60 cílených kontrol PASS; nejde o modelový pilot ani release PASS.
+Aktuální module graph má 1 417 hran, 3 cykly / 28 členů.
+**REVIEW_PENDING / NOT_DEPLOYED / NO_AUTONOMOUS_GO**.
+[Nové předání, příkazy, důkazy a zbývající přejímky](docs/review/2026-09-23-HUNT-COLLECTION-READY.md).
+
+**GPU hunt, předání 23. 9.: nasazený `400c9d8f`, REVIEW_PENDING.**
+Finální fyzický běh: všech 7 rolí plus druhý CODE kandidát, **327 pokusů**;
+216 otevřených odpovědí čeká na posouzení.
+Studio, sériový sběr všech rolí a oddělené hodnocení uložených odpovědí jsou
+propojené. Přejímka skutečných hodnotitelů a provozní kvalifikace dvojic
+zůstávají otevřené: **0/7 přijatých rozhodovacích profilů**, timer vypnutý,
+automatický výběr a mazání podle kvality **NO_GO**. Celý offline/database
+profil: 364 PASS / 1 známý Gate 0 FAIL; nejde o release PASS.
+[Celý hunt: funkce, skutečná měření, testy a podmínky GO](docs/review/2026-09-23-HUNT-GRADING-INTEGRATION.md).
 
 Nové rozvržení a ovládání: [pracovní prostory IDE](docs/IDE-WORKSPACE.md).
 
@@ -19,8 +72,8 @@ Studio používá Theia runtime s motivy a ovládáním IntentSmithu.
 
 **Verze:** 136.1.0, vývojový kandidát 1.0. Aktuální počty testovacích programů
 jsou v [generovaném registru](docs/convergence/TEST-REGISTRY.md):
-**532 registrovaných testovacích programů**
-(`438 ACTIVE`, `79 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).
+**543 registrovaných testovacích programů**
+(`449 ACTIVE`, `79 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).
 
 **Navazující M5 review, 2026-09-17:** historický inventář doplněn o zveřejněný
 TLS testovací klíč a certifikát: 15 známých objektů. Pár je trvale vyřazený;

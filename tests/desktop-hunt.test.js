@@ -655,10 +655,17 @@ test('manual CLI validates all pins before execution and incomplete batches cann
   for(const pins of [{CODE:hash},{CODE:hash,CHAT:'bad'},{CODE:hash,CHAT:hash,VISION:hash}])assert.throws(()=>validate(pins),/INVALID/);
   assert.throws(()=>validate({CODE:hash},'CODE,CODE'),/INVALID/);
   const start=source.indexOf("...(EVALUATE_INSTALLED ? { status:");const end=source.indexOf('\n    gpu,',start);
-  const status=results=>vm.runInNewContext('({'+source.slice(start,end)+'})',{EVALUATE_INSTALLED:true,ROLE_FILTER:roles,results}).status;
+  const status=(results,{installed=true,blocked=[]}={})=>vm.runInNewContext('({'+source.slice(start,end)+'})',{
+    EVALUATE_INSTALLED:installed,ROLE_FILTER:roles,results,blockedRoles:blocked,
+    blockedRoleDetails:blocked.map(role=>({role,code:'EVALUATION_SUITE_NOT_READY'})),
+  });
   const full={trials:roles.map(role=>({role,evaluation:{score:.8}}))};
-  assert.equal(status([full]),'COMPLETE');assert.equal(status([{trials:[full.trials[0]]}]),'BLOCKED');
-  assert.equal(status([{...full,roleErrors:[{role:'CHAT'}]}]),'FAILED');
+  assert.equal(status([full]).status,'COMPLETE');assert.equal(status([{trials:[full.trials[0]]}]).status,'BLOCKED');
+  assert.equal(status([{...full,roleErrors:[{role:'CHAT'}]}]).status,'FAILED');
+  const mixed=status([full],{installed:false,blocked:['CODE']});
+  assert.equal(mixed.status,'PARTIAL');assert.equal(mixed.blockedRoles[0].role,'CODE');
+  const awaiting=status([{trials:[{role:'CHAT',evaluation:{collection:{status:'AWAITING_REVIEW'}}}]}],{installed:false,blocked:['CODE']});
+  assert.equal(awaiting.status,'PARTIAL');assert.deepEqual(Array.from(awaiting.awaitingReviewRoles),['CHAT']);
 });
 
 test('automation hold is visible and refuses start/resume while preserving manual exploratory measurement', async t => {

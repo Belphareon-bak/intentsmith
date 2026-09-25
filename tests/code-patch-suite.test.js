@@ -14,6 +14,7 @@ import {
   incrementalBuildSeed, preserveCalibration, reconcileVerifiedTaskSupply, taskFingerprint,
 } from '../src/eval/build-code-suite.js';
 import { buildPrompt } from '../src/eval/code-patch-runner.js';
+import { inspectCodeOracleSuite } from '../src/eval/code-oracle-preflight.js';
 import {
   calibrate, rebaseCalibrationPanel, buildPanelSummaries,
 } from '../src/eval/calibrate-code-suite.js';
@@ -21,6 +22,28 @@ import { createRoleEvaluationPlans } from '../src/eval/role-evaluation-plan.js';
 import { suiteContract } from '../src/upgrade/model-evaluation-history.js';
 
 suite('code-patch-suite');
+
+test('CODE preflight reports every failing oracle without invoking a provider', () => {
+  const visited = [];
+  const suite = { tests: ['first','second','third'].map(name => ({
+    name,
+    prepare() { visited.push(`prepare:${name}`); },
+    validateOracle() {
+      visited.push(`oracle:${name}`);
+      if (name !== 'second') throw Error(`oracle controls failed: ${name}`);
+    },
+  })) };
+  const result = inspectCodeOracleSuite(suite);
+  assertEqual(result.ready, false);
+  assertEqual(result.checked, 3);
+  assertEqual(result.code, 'CODE_ORACLE_CONTROL_FAILED');
+  assertEqual(result.failures.length, 2);
+  assertEqual(result.failures[0].test, 'first');
+  assertEqual(result.failures[1].test, 'third');
+  assert(result.reason.includes('first') && result.reason.includes('third'));
+  assertEqual(visited.length, 6);
+});
+
 
 test('historical panel importer refuses before DB or provider access instead of relabelling old scores', () => {
   let failure;
@@ -131,6 +154,23 @@ await testAsync('§3: failed oracle control stops before any provider invocation
   let error;
   try { await runner.runSuite('control', 'candidate'); } catch (e) { error = e; }
   assertEqual(error.message, 'GOLD_FAILED'); assertEqual(calls, 0);
+});
+
+await testAsync('reviewed real text-oracle counterexamples block CODE before inference', async () => {
+  const definition = codePatchSuite.tests.find(t => t.name === 'patch_90eff80ecb8a');
+  const runner = new CodePatchEvaluationRunner('http://127.0.0.1:1', {
+    name: 'text-oracle-audit', tests: [definition],
+  });
+  let calls = 0, error;
+  runner._callModel = async () => { calls++; throw Error('UNEXPECTED_PROVIDER_CALL'); };
+  try { await runner.runSuite('text-oracle-audit', 'candidate'); } catch (caught) { error = caught; }
+  assertEqual(calls, 0);
+  assert(error?.message.includes('equivalent-inserted-word'), error?.message);
+  assert(error?.message.includes('contradictory-full-value'), error?.message);
+  for (const name of ['threshold', 'speed', 'unmeasured-speed']) {
+    assert(error?.message.includes(`${name}-equivalent`), error?.message);
+    assert(error?.message.includes(`${name}-contradictory`), error?.message);
+  }
 });
 
 test('CODE prompt fixture se načte i bez dosažitelného git repozitáře', () => {

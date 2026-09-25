@@ -3,17 +3,22 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 import { up } from '../src/db/migrations/2026_09_19_116_model_evaluation_acceptance.js';
+import { up as upReviews } from '../src/db/migrations/2026_09_24_118_model_evaluation_grader_reviews.js';
+import { up as upAdjudications } from '../src/db/migrations/2026_09_25_119_model_evaluation_adjudications.js';
 import { ModelEvaluationAcceptanceStore, acceptanceHash } from '../src/upgrade/model-evaluation-acceptance.js';
 import { ModelEvaluationHistory } from '../src/upgrade/model-evaluation-history.js';
 import { createRoleEvaluationPlans } from '../src/eval/role-evaluation-plan.js';
 import { semanticAcceptancePlanHash, semanticGraderContract, validateSemanticAcceptance } from '../src/eval/semantic-grader-acceptance.js';
 import { SemanticEvaluationJudge } from '../src/eval/semantic-evaluation-judge.js';
-import { gradeAnswerCollection, persistGradedCollection, gradeAcceptedCollection, collectionGradingOptions } from '../src/eval/grade-answer-collection.js';
+import { gradeAnswerCollection, persistGradedCollection, gradeAcceptedCollection, collectionGradingOptions, persistAdjudicatedCollection, findReusableCollection } from '../src/eval/grade-answer-collection.js';
 import { evaluationStateForArtifact } from '../src/upgrade/model-upgrade-prototype.js';
+import { validStoredGradingPair } from '../src/eval/independent-grader-pair.js';
+import { buildBlindAdjudicationPacket } from '../scripts/adjudicate-model-collection.mjs';
 import { codePilotPlanHash } from '../src/eval/code-pilot-decision.js';
 import { decideRoleOperational } from '../src/eval/role-operational-decision.js';
-const A='a'.repeat(64), B='b'.repeat(64), H='c'.repeat(64), J='d'.repeat(64);
-const provider='0.34.2-intentsmith.1', judgeArtifact={modelName:'synthetic-judge',digestSha256:J,providerVersion:provider};
+const A='a'.repeat(64), B='b'.repeat(64), H='c'.repeat(64), J='d'.repeat(64), K='e'.repeat(64);
+const provider='0.34.2-intentsmith.1', judgeArtifact={modelName:'qwen3.8:latest',digestSha256:J,providerVersion:provider};
+const secondJudgeArtifact={modelName:'gemma4:31b',digestSha256:K,providerVersion:provider};
 const review={reviewer:'synthetic reviewer',reference:'fixture://not-a-real-acceptance',reason:'authority regression test',
   reviewedAt:'2026-09-21T01:00:00Z',decision:'ACCEPTED'};
 const envelope=(kind,evidence)=>({schemaVersion:1,kind,role:evidence.role,contractSha256:evidence.contractSha256,evidence,
@@ -25,6 +30,7 @@ function fixture(role='D1') {
     score REAL,passed INTEGER,total INTEGER,repeats INTEGER,duration_ms INTEGER,tokens_per_second REAL,vram_bytes INTEGER,
     task_results_json TEXT,hardware_json TEXT,metadata_json TEXT,error_code TEXT,error_message TEXT,started_at TEXT,completed_at TEXT);
     CREATE TRIGGER keep_runs BEFORE UPDATE ON model_evaluation_runs BEGIN SELECT RAISE(ABORT,'immutable'); END;`);
+  upReviews(db);upAdjudications(db);
   const plan=createRoleEvaluationPlans({db,codeRuntimeAvailability:{ready:true}})[role];
   const store=new ModelEvaluationAcceptanceStore(db), history=new ModelEvaluationHistory(db);history.setProviderVersion(provider);
   const base={role,contractSha256:plan.suiteContractSha256,runtimeSha256:plan.qualificationRuntimeSha256,
@@ -49,19 +55,22 @@ function fixture(role='D1') {
       maxFalseNegativeRate:.1,maxMeanAbsoluteError:.1,maxOrderDifference:.15}};
   const predictions=p=>p.cases.map(c=>({id:c.id,planSha256:p.planSha256,answerSha256:c.answerSha256,
     startedAt:'2026-09-21T00:02:00Z',completedAt:'2026-09-21T00:03:00Z',labelsSuppliedToJudge:false,
-    ...Object.fromEntries(['forward','reverse'].map(order=>[order,{artifact:judgeArtifact,inputSha256:acceptanceHash([order,c.id]),
+    ...Object.fromEntries(['forward','reverse'].map(order=>[order,{artifact:p.judge,inputSha256:acceptanceHash([order,c.id]),
       responseSha256:H,scores:[...c.expectedScores],referenceScores:c.expectedScores.map(()=>1),
       evidence:c.expectedScores.map(()=> 'synthetic explanatory fact')}]))}));
   calibration.planSha256=semanticAcceptancePlanHash(calibration);
-  const grader=()=>envelope('GRADER',{...base,tasks,...(semanticTasks.length?{
-    semanticAcceptance:{plan:structuredClone(calibration),results:predictions(calibration)}}:{})});
+  const grader=(judge=judgeArtifact)=>{
+    const plan=structuredClone(calibration);plan.judge=judge;plan.planSha256=semanticAcceptancePlanHash(plan);
+    return envelope('GRADER',{...base,tasks,...(semanticTasks.length?{
+      semanticAcceptance:{plan,results:predictions(plan)}}:{})});
+  };
   const revoke=id=>{const e={targetId:id};return store.record({schemaVersion:1,kind:'REVOKE',role,
     contractSha256:base.contractSha256,targetId:id,evidence:e,
     review:{...review,decision:'REVOKED',evidenceSha256:acceptanceHash(e)}});};
-  const collect=()=>{
+  const collect=(contractSha256=plan.suiteContractSha256)=>{
     const n=plan.taskCount*plan.repeats;
     return history.recordCollection({artifact:{modelName:'answer-model',digestSha256:A},role,
-      suiteName:plan.suiteName,suiteVersion:plan.suiteVersion,contractSha256:plan.suiteContractSha256,
+      suiteName:plan.suiteName,suiteVersion:plan.suiteVersion,contractSha256,
       summary:{score:null,runs:plan.repeats,startedAt:'2026-09-21T00:00:00Z',completedAt:'2026-09-21T00:01:00Z',
         collection:{status:'AWAITING_REVIEW',planned:n,observed:n,captured:n,budgetExhausted:0,invalid:0},
         tasks:plan.suite.tests.map(t=>({name:t.name,input:t.prompt(),options:t.options,mean:null,scores:[],responses:Array(plan.repeats).fill('synthetic response'),
@@ -70,7 +79,7 @@ function fixture(role='D1') {
   };
   return {db,plan,store,history,base,grader,revoke,collect,predictions};
 }
-function operation(f,graderId) {
+function operation(f,graderId,secondId=null) {
   const p={schemaVersion:1,role:f.plan.role,workflow:'intentsmith',evaluationContractSha256:f.base.contractSha256,
     runtimeSha256:f.base.runtimeSha256,developmentOnly:false,notAHoldout:false,holdoutSha256:H,
     metric:f.plan.role==='CODE'?'completed_without_repair_help':'completed_role_workflow_without_repair_help',
@@ -90,7 +99,8 @@ function operation(f,graderId) {
     workflowReceipt:{role:p.role,scope:p.roleWorkflow.scope,workflowContractSha256:H,inputSha256:s.inputSha256,
       finalStateSha256:H,traceSha256:H,environmentValid:true,independentVerification:true,repairHelp:0,
       checks:[{id:'delivered',passed:side==='candidate',evidenceSha256:H},{id:'no regression',passed:true,evidenceSha256:H}]}})));
-  return envelope('OPERATIONAL',{...f.base,graderAcceptanceId:graderId,plan:p,attempts,
+  return envelope('OPERATIONAL',{...f.base,
+    ...(f.plan.collectionOnly?{graderAcceptanceIds:[graderId,secondId]}:{graderAcceptanceId:graderId}),plan:p,attempts,
     hardware:{model:'fixture GPU',vramMb:24576},holdout:{independent:true,usedForDevelopment:false,manifestSha256:H},
     qualifications:Object.fromEntries(['candidate','incumbent'].map(side=>[side,{planSha256:p.planSha256,digest:p[side].digest,status:'QUALIFIED'}]))});
 }
@@ -100,7 +110,9 @@ for(const role of ['D1','D2','CODE','R1','R2','CHAT','VISION']) test(`${role}: r
   const f=fixture(role);try {
     assert.equal(f.plan.decisionReady,false);
     const g=f.store.record(f.grader()).id;assert.equal(f.plan.decisionReady,false);
-    const op=f.store.record(operation(f,g)).id;
+    const second=f.plan.collectionOnly?f.store.record(f.grader(secondJudgeArtifact)).id:null;
+    assert.equal(f.plan.decisionReady,false);
+    const op=f.store.record(operation(f,g,second)).id;
     assert.equal(f.plan.decisionReady,true);assert.equal(f.plan.acceptance.qualifications[0].decision.verdict,'ZMENIT');
     f.revoke(op);assert.equal(f.plan.decisionReady,false);
   }finally{f.db.close();}
@@ -131,15 +143,15 @@ test('acceptance recomputes per-type errors and order stability, ignoring claime
 });
 test('non-CODE qualification rejects isolated answers, missing checks and success contradicting the final state',()=>{
   const f=fixture();try {
-    const g=f.store.record(f.grader()).id;
+    const g=f.store.record(f.grader()).id, second=f.store.record(f.grader(secondJudgeArtifact)).id;
     for(const change of [p=>p.plan.roleWorkflow.scope='SINGLE_ANSWER',p=>p.attempts[0].workflowReceipt.checks.pop(),
       p=>p.attempts[0].workflowReceipt.checks[0].passed=false,p=>p.plan.developmentGroups.push('g0'),
       p=>p.plan.scenarios[1].originSha256=p.plan.scenarios[0].originSha256]) {
-      const e=operation(f,g);change(e.evidence);e.evidence.plan.planSha256=codePilotPlanHash(e.evidence.plan);
+      const e=operation(f,g,second);change(e.evidence);e.evidence.plan.planSha256=codePilotPlanHash(e.evidence.plan);
       e.evidence.attempts.forEach(a=>a.planSha256=e.evidence.plan.planSha256);
       assert.throws(()=>f.store.record(resign(e)),/INVALID/);
     }
-    const e=operation(f,g).evidence;e.attempts[0].valid=false;e.attempts[0].score=null;
+    const e=operation(f,g,second).evidence;e.attempts[0].valid=false;e.attempts[0].score=null;
     assert.equal(decideRoleOperational(e.plan,e.attempts,e.qualifications).reason,'INCOMPLETE_PAIRED_EVIDENCE');
   }finally{f.db.close();}
 });
@@ -157,20 +169,58 @@ test('acceptance cannot hide opposing criterion flips in an unchanged mean or om
     }
   }finally{f.db.close();}
 });
-const fakeJudge=(f,id,onCall=()=>{})=>new SemanticEvaluationJudge({artifact:judgeArtifact,
-  isAccepted:()=>f.plan.acceptance.graderIds.includes(id),call:async(_model,messages)=>{
-    onCall();const count=JSON.parse(messages[1].content).criteria.length;
-    const parts=Array.from({length:count},(_,i)=>({criterion:i+1,score:1,evidence:'synthetic correct result'}));
-    return {done:true,doneReason:'stop',digestSha256:J,providerVersion:provider,content:JSON.stringify({a:parts,b:parts})};
-  }});
+const fakeCall=(onCall=()=>{})=>async(_model,messages,_options,artifact)=>{
+  onCall();const count=JSON.parse(messages[1].content).criteria.length;
+  const parts=Array.from({length:count},(_,i)=>({criterion:i+1,score:1,evidence:'synthetic correct result'}));
+  return {done:true,doneReason:'stop',digestSha256:artifact.digestSha256,providerVersion:provider,content:JSON.stringify({a:parts,b:parts})};
+};
+const fakeJudge=(f,id,onCall=()=>{},artifact=judgeArtifact)=>new SemanticEvaluationJudge({artifact,
+  isAccepted:()=>f.plan.acceptance.graderIds.includes(id),call:fakeCall(onCall)});
+test('grading-contract drift reuses exact stored answers without accepting changed inputs',()=>{
+  const f=fixture();try {
+    const old=f.collect(B);
+    assert.equal(f.history.getCollection({digestSha256:A,role:'D1',suiteName:f.plan.suiteName,
+      suiteVersion:f.plan.suiteVersion,contractSha256:f.plan.suiteContractSha256}),null);
+    assert.equal(findReusableCollection(f.history,f.plan,A)?.runId,old.runId);
+    assert.equal(evaluationStateForArtifact(old.artifact,['D1'],{D1:f.plan},f.history).perRole.D1,'awaiting-review');
+    assert.equal(findReusableCollection(f.history,f.plan,B),null,'different digest cannot inherit answers');
+    const first=f.plan.suite.tests[0];
+    const changedPrompt={...f.plan,suite:{...f.plan.suite,tests:[{...first,prompt:()=>({...first.prompt(),changed:true})},...f.plan.suite.tests.slice(1)]}};
+    assert.equal(findReusableCollection(f.history,changedPrompt,A),null,'changed prompt requires a new capture');
+    const changedOptions={...f.plan,suite:{...f.plan.suite,tests:[{...first,options:{...first.options,temperature:.99}},...f.plan.suite.tests.slice(1)]}};
+    assert.equal(findReusableCollection(f.history,changedOptions,A),null,'changed inference options require a new capture');
+    f.history.setProviderVersion('0.35.0-test');
+    assert.equal(findReusableCollection(f.history,f.plan,A),null,'provider drift cannot inherit answers');
+  }finally{f.db.close();}
+});
 test('stored answers are graded without generation, persist new rows, retain source, and wait for operational acceptance',async()=>{
   const f=fixture();try {
     const id=f.store.record(f.grader()).id,source=f.collect(),before=JSON.stringify(source);let calls=0;
     const summary=await gradeAnswerCollection({plan:f.plan,collection:source,graderAcceptanceId:id,judge:fakeJudge(f,id,()=>calls++)});
     assert.equal(calls,48);assert.equal(summary.score,1);assert.equal(summary.grading.observed,24);
-    const saved=persistGradedCollection({history:f.history,plan:f.plan,collection:source,summary});
-    assert.equal(saved.status,'COMPLETE');assert.equal(saved.metadata.grading.sourceCollectionRunId,source.runId);
-    assert.equal(JSON.stringify(f.history.getRun(source.runId)),before);assert.equal(f.history.count(),2);
+    f.history.setProviderVersion('0.35.0-test');
+    const first=persistGradedCollection({history:f.history,plan:f.plan,collection:source,summary});
+    assert.equal(f.history.providerVersion,'0.35.0-test','grading must restore caller provider identity');
+    f.history.setProviderVersion(provider);
+    assert.equal(first.status,'BLOCKED');assert.equal(first.errorCode,'EVALUATION_REVIEW_PENDING_PAIR');
+    assert.equal(f.history.getComplete({role:'D1',digestSha256:A,suiteName:f.plan.suiteName,
+      suiteVersion:f.plan.suiteVersion,contractSha256:f.plan.suiteContractSha256}),null);
+    const second=f.store.record(f.grader(secondJudgeArtifact)).id;
+    const secondSummary=await gradeAnswerCollection({plan:f.plan,collection:source,graderAcceptanceId:second,
+      judge:fakeJudge(f,second,()=>calls++,secondJudgeArtifact)});
+    const saved=persistGradedCollection({history:f.history,plan:f.plan,collection:source,summary:secondSummary});
+    assert.equal(saved.status,'COMPLETE');assert.equal(saved.metadata.grading.version,2);
+    assert.equal(saved.metadata.grading.graders.length,2);
+    assert.equal(saved.metadata.grading.sourceCollectionRunId,source.runId);
+    assert.equal(validStoredGradingPair(f.db,saved.metadata.grading,f.plan.acceptance.graders,
+      A,f.plan.role,f.plan.suiteContractSha256,saved.score),true);
+    assert.equal(validStoredGradingPair(f.db,saved.metadata.grading,f.plan.acceptance.graders,
+      B,f.plan.role,f.plan.suiteContractSha256,saved.score),false,
+      'a graded score cannot be reassigned to another answer artifact');
+    assert.equal(validStoredGradingPair(f.db,{...saved.metadata.grading,
+      graders:saved.metadata.grading.graders.map((g,i)=>i?{...g,reviewId:'missing'}:g)},
+      f.plan.acceptance.graders,A,f.plan.role,f.plan.suiteContractSha256,saved.score),false);
+    assert.equal(JSON.stringify(f.history.getRun(source.runId)),before);assert.equal(f.history.count(),3);
     assert.equal(f.plan.decisionReady,false);
   }finally{f.db.close();}
 });
@@ -208,13 +258,16 @@ test('automatic hunt resumes pending grading after acceptance, reuses scores, an
     assert.equal(await gradeAcceptedCollection({history:f.history,plan:f.plan,runId:source.runId}),null);
     const id=f.store.record(f.grader()).id;assert.equal(state().perRole.D1,'grading-pending');
     let prepared=0,finished=0,calls=0;
-    const options={history:f.history,plan:f.plan,runId:source.runId,call:fakeJudge(f,id,()=>calls++).call,
+    const options={history:f.history,plan:f.plan,runId:source.runId,call:fakeCall(()=>calls++),
       prepareJudge:async()=>{prepared++;},finishJudge:async()=>{finished++;}};
+    assert.equal(await gradeAcceptedCollection(options),null,'one judge cannot start an automatic final review');
+    assert.equal(calls,0);
+    const second=f.store.record(f.grader(secondJudgeArtifact)).id;
     const result=await gradeAcceptedCollection(options);
-    assert.equal(result.score,1);assert.equal(prepared,1);assert.equal(finished,1);assert.equal(calls,48);
+    assert.equal(result.score,1);assert.equal(prepared,2);assert.equal(finished,2);assert.equal(calls,96);
     assert.equal(state().perRole.D1,'scored');
-    assert.equal((await gradeAcceptedCollection(options)).reused,true);assert.equal(calls,48);
-    f.revoke(id);assert.equal(state().perRole.D1,'awaiting-review');
+    assert.equal((await gradeAcceptedCollection(options)).reused,true);assert.equal(calls,96);
+    f.revoke(second);assert.equal(state().perRole.D1,'grading-pending');
     assert.equal(f.history.getRun(result.runId).score,1,'revocation preserves historical grades');
   }finally{f.db.close();}
 });
@@ -243,4 +296,149 @@ test('grading refuses foreign GPU owners, unknown telemetry and malformed CLI fl
   for(const args of [['--run=false','--db=/not-opened','--run-id=eval_x','--grader-acceptance=accept_x'],
     ['--plan','--db','--run-id=eval_x','--grader-acceptance=accept_x'],['--run','--plan'],['--arbitrary=command']])
     await assert.rejects(main(args),/INVALID_GRADING_ARGUMENTS/);
+});
+
+test('two judges from the same model family never make an independent score',async()=>{
+  const f=fixture();try {
+    const source=f.collect(),first=f.store.record(f.grader()).id;
+    const sameFamily={...secondJudgeArtifact,modelName:'qwen3.5:27b'};
+    const second=f.store.record(f.grader(sameFamily)).id;
+    for(const [id,artifact] of [[first,judgeArtifact],[second,sameFamily]]) {
+      const summary=await gradeAnswerCollection({plan:f.plan,collection:source,graderAcceptanceId:id,
+        judge:fakeJudge(f,id,()=>{},artifact)});
+      const saved=persistGradedCollection({history:f.history,plan:f.plan,collection:source,summary});
+      assert.equal(saved.status,'BLOCKED');
+    }
+    assert.equal(f.history.getComplete({role:'D1',digestSha256:A,suiteName:f.plan.suiteName,
+      suiteVersion:f.plan.suiteVersion,contractSha256:f.plan.suiteContractSha256}),null);
+    assert.equal(f.plan.acceptance.ready,false);
+  }finally{f.db.close();}
+});
+
+test('equal total scores cannot hide opposing criterion grades',async()=>{
+  const f=fixture();try {
+    const source=f.collect(),first=f.store.record(f.grader()).id;
+    const second=f.store.record(f.grader(secondJudgeArtifact)).id;
+    const one=await gradeAnswerCollection({plan:f.plan,collection:source,graderAcceptanceId:first,
+      judge:fakeJudge(f,first)});
+    persistGradedCollection({history:f.history,plan:f.plan,collection:source,summary:one});
+    const two=await gradeAnswerCollection({plan:f.plan,collection:source,graderAcceptanceId:second,
+      judge:fakeJudge(f,second,()=>{},secondJudgeArtifact)});
+    const part=two.tasks[0].details[0].parts[0];part.score=.5;part.rawScores=[.5,.5];
+    assert.equal(two.score,one.score,'aggregate is unchanged');
+    const saved=persistGradedCollection({history:f.history,plan:f.plan,collection:source,summary:two});
+    assert.equal(saved.status,'BLOCKED');assert.equal(saved.errorCode,'EVALUATION_GRADING_DISPUTE');
+    assert.equal(saved.metadata.disputes[0].task,two.tasks[0].name);
+    assert.equal(f.history.getComplete({role:'D1',digestSha256:A,suiteName:f.plan.suiteName,
+      suiteVersion:f.plan.suiteVersion,contractSha256:f.plan.suiteContractSha256}),null);
+  }finally{f.db.close();}
+});
+
+test('a recorded first review is not repeated and immutable review rows cannot be rewritten',async()=>{
+  const f=fixture();try {
+    const source=f.collect(),id=f.store.record(f.grader()).id;let calls=0;
+    const one=await gradeAnswerCollection({plan:f.plan,collection:source,graderAcceptanceId:id,
+      judge:fakeJudge(f,id)});
+    const first=persistGradedCollection({history:f.history,plan:f.plan,collection:source,summary:one});
+    assert.equal(first.status,'BLOCKED');
+    const second=f.store.record(f.grader(secondJudgeArtifact)).id;
+    const options={history:f.history,plan:f.plan,runId:source.runId,call:fakeCall(()=>calls++),
+      prepareJudge:async()=>{},finishJudge:async()=>{}};
+    const completed=await gradeAcceptedCollection(options);
+    assert.equal(completed.status,'COMPLETE');assert.equal(calls,48,'only the missing second judge ran');
+    const again=await gradeAcceptedCollection(options);
+    assert.equal(again.reused,true);assert.equal(calls,48);
+    const row=f.db.prepare('SELECT review_id FROM model_evaluation_grader_reviews').get();
+    assert.throws(()=>f.db.prepare('UPDATE model_evaluation_grader_reviews SET role=? WHERE review_id=?')
+      .run('CHAT',row.review_id),/append-only/);
+    assert.throws(()=>f.db.prepare('DELETE FROM model_evaluation_grader_reviews WHERE review_id=?')
+      .run(row.review_id),/append-only/);
+  }finally{f.db.close();}
+});
+
+test('persist rejects forged aggregate and swapped answer evidence before storing a review',async()=>{
+  const f=fixture();try {
+    const source=f.collect(),id=f.store.record(f.grader()).id;
+    const genuine=await gradeAnswerCollection({plan:f.plan,collection:source,graderAcceptanceId:id,
+      judge:fakeJudge(f,id)});
+    const badScore=structuredClone(genuine);badScore.score=.4;
+    const badResponse=structuredClone(genuine);badResponse.tasks[0].responses[0]='forged';
+    const badCriterion=structuredClone(genuine);badCriterion.tasks[0].scores[0]=0;
+    for (const summary of [badScore,badResponse,badCriterion])
+      assert.throws(()=>persistGradedCollection({history:f.history,plan:f.plan,collection:source,summary}),
+        /EVALUATION_GRADING_SUMMARY_INVALID/);
+    assert.equal(f.db.prepare('SELECT count(*) AS n FROM model_evaluation_grader_reviews').get().n,0);
+    const saved=persistGradedCollection({history:f.history,plan:f.plan,collection:source,summary:genuine});
+    assert.equal(saved.errorCode,'EVALUATION_REVIEW_PENDING_PAIR');
+  }finally{f.db.close();}
+});
+
+test('reviewed adjudication closes only exact criterion disputes and preserves both first reviews',async()=>{
+  const f=fixture();try {
+    const source=f.collect(B),id=f.store.record(f.grader()).id;
+    const second=f.store.record(f.grader(secondJudgeArtifact)).id;
+    const firstGrade=await gradeAnswerCollection({plan:f.plan,collection:source,
+      graderAcceptanceId:id,judge:fakeJudge(f,id)});
+    persistGradedCollection({history:f.history,plan:f.plan,collection:source,summary:firstGrade});
+    const differentCall=async(_model,messages,_options,artifact)=>{
+      const data=JSON.parse(messages[1].content),count=data.criteria.length;
+      const full=Array.from({length:count},(_,i)=>({criterion:i+1,score:1,evidence:'synthetic fact'}));
+      const partial=full.map((row,i)=>({...row,score:i===0?.75:1}));
+      const response=data.a==='synthetic response'?{a:partial,b:full}:{a:full,b:partial};
+      return {done:true,doneReason:'stop',digestSha256:artifact.digestSha256,
+        providerVersion:provider,content:JSON.stringify(response)};
+    };
+    const secondGrade=await gradeAnswerCollection({plan:f.plan,collection:source,
+      graderAcceptanceId:second,
+      judge:new SemanticEvaluationJudge({artifact:secondJudgeArtifact,
+        isAccepted:()=>true,call:differentCall})});
+    const disputed=persistGradedCollection({history:f.history,plan:f.plan,
+      collection:source,summary:secondGrade});
+    assert.equal(disputed.errorCode,'EVALUATION_GRADING_DISPUTE');
+    const reviews=f.db.prepare('SELECT * FROM model_evaluation_grader_reviews ORDER BY recorded_at,review_id').all();
+    const blind=buildBlindAdjudicationPacket(f.history,f.plan,source);
+    assert.equal(blind.cases.length,disputed.metadata.disputes.length);
+    assert.equal(blind.cases[0].response,'synthetic response');
+    assert.equal(blind.decision.decisions[0].parts[0].score,null);
+    assert.equal(JSON.stringify(blind).includes('qwen3.8'),false);
+    assert.equal(JSON.stringify(blind).includes('gemma4'),false);
+    const basis={schemaVersion:1,sourceRunId:source.runId,
+      sourceSha256:disputed.metadata.grading?.sourceCollectionSha256
+        || firstGrade.grading.sourceCollectionSha256,
+      firstReviewId:reviews[0].review_id,secondReviewId:reviews[1].review_id,
+      review:{reviewer:'Independent operator',reference:'fixture://human-evidence',
+        reason:'Reviewed each contested criterion against the public task',
+        reviewedAt:new Date().toISOString(),blindToModel:true,independent:true},
+      decisions:disputed.metadata.disputes.map(d=>({
+        task:d.task,repeat:d.repeat,
+        parts:d.firstParts.map((part,i)=>({criterion:i+1,score:1,
+          evidence:'Verified against the supplied task and captured response',
+          reason:'The first judgement has direct supporting evidence'}))}))};
+    const incomplete=structuredClone(basis);incomplete.decisions.pop();
+    assert.throws(()=>persistAdjudicatedCollection({history:f.history,plan:f.plan,
+      collection:source,decision:incomplete}),/EVALUATION_ADJUDICATION_INCOMPLETE/);
+    assert.equal(f.db.prepare('SELECT count(*) AS n FROM model_evaluation_grader_adjudications').get().n,0);
+    const alteredConsensus=structuredClone(basis);
+    alteredConsensus.decisions[0].parts[1].score=.75;
+    assert.throws(()=>persistAdjudicatedCollection({history:f.history,plan:f.plan,
+      collection:source,decision:alteredConsensus}),/EVALUATION_ADJUDICATION_CONSENSUS_CHANGED/);
+    f.history.setProviderVersion('0.35.0-test');
+    const saved=persistAdjudicatedCollection({history:f.history,plan:f.plan,
+      collection:source,decision:basis});
+    assert.equal(f.history.providerVersion,'0.35.0-test','adjudication must restore caller provider identity');
+    f.history.setProviderVersion(provider);
+    assert.equal(saved.status,'COMPLETE');assert.equal(saved.score,1);
+    assert.equal(f.history.getComplete({role:'D1',digestSha256:A,suiteName:f.plan.suiteName,
+      suiteVersion:f.plan.suiteVersion,contractSha256:f.plan.suiteContractSha256})?.runId,saved.runId);
+    assert.equal(saved.metadata.grading.adjudication.id.startsWith('adjudication_'),true);
+    assert.equal(saved.metadata.grading.sourceContractSha256,B);
+    assert.equal(validStoredGradingPair(f.db,saved.metadata.grading,f.plan.acceptance.graders,
+      A,f.plan.role,f.plan.suiteContractSha256,saved.score),true);
+    assert.throws(()=>persistAdjudicatedCollection({history:f.history,plan:f.plan,
+      collection:source,decision:basis}),/EVALUATION_ADJUDICATION_ALREADY_COMPLETE/);
+    const row=f.db.prepare('SELECT adjudication_id FROM model_evaluation_grader_adjudications').get();
+    assert.throws(()=>f.db.prepare('DELETE FROM model_evaluation_grader_adjudications WHERE adjudication_id=?')
+      .run(row.adjudication_id),/append-only/);
+    assert.equal(f.db.prepare('SELECT count(*) AS n FROM model_evaluation_grader_reviews').get().n,2);
+  }finally{f.db.close();}
 });

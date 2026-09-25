@@ -20,7 +20,8 @@ const allRolePilot = process.argv.includes('--all-role-pilot');
 const roleHandoff = process.argv.includes('--role-handoff');
 const conversationHandoff = process.argv.includes('--conversation-handoff');
 const gradeCollection = process.argv.includes('--grade-collection');
-if ([codePilot,allRolePilot,roleHandoff,conversationHandoff,gradeCollection].filter(Boolean).length > 1) throw new Error('Choose one evaluation entrypoint');
+const collectionStage = process.argv.includes('--collection-stage');
+if ([codePilot,allRolePilot,roleHandoff,conversationHandoff,gradeCollection,collectionStage].filter(Boolean).length > 1) throw new Error('Choose one evaluation entrypoint');
 const providerBuild = conversationHandoff ? CONVERSATION_PROVIDER_BUILD : EVALUATION_PROVIDER_BUILD;
 const providerVersion = providerBuild.version;
 const runtime = process.env.INTENTSMITH_EVAL_RUNTIME || join(homedir(), '.local/share/intentsmith/evaluation-provider', providerVersion);
@@ -32,7 +33,7 @@ const runDir = mkdtempSync(join(state, 'run-'));
 mkdirSync(join(runDir, 'tmp'), { mode: 0o700 });
 const startedAt = new Date().toISOString();
 const argument = name => process.argv.slice(2).find(value => value.startsWith(`--${name}=`))?.slice(name.length + 3) || null;
-const request = { kind: gradeCollection ? 'grading' : conversationHandoff ? 'conversation-handoff' : roleHandoff ? 'role-handoff' : allRolePilot ? 'all-role-pilot' : codePilot ? 'code-pilot' : process.argv.includes('--evaluate-installed') ? 'evaluation' : 'hunt',
+const request = { kind: collectionStage ? 'collection-stage' : gradeCollection ? 'grading' : conversationHandoff ? 'conversation-handoff' : roleHandoff ? 'role-handoff' : allRolePilot ? 'all-role-pilot' : codePilot ? 'code-pilot' : process.argv.includes('--evaluate-installed') ? 'evaluation' : 'hunt',
   model: argument('only'), role: argument('role') };
 const currentFile = join(state, 'current.json');
 const publish = values => {
@@ -134,11 +135,11 @@ try {
   }
   if (stopping) throw new Error('HUNT_CANCELLED');
   if (!ready) throw new Error('EVALUATION_PROVIDER_START_FAILED');
-  const args = process.argv.slice(2).filter(arg => !['--code-pilot','--all-role-pilot','--role-handoff','--conversation-handoff','--grade-collection'].includes(arg));
+  const args = process.argv.slice(2).filter(arg => !['--code-pilot','--all-role-pilot','--role-handoff','--conversation-handoff','--grade-collection','--collection-stage'].includes(arg));
   const reportArgs = args.some(arg => arg.startsWith('--report=')) ? [] : [`--report=${join(runDir, 'result.json')}`];
   let failureOutput = '';
   // Fixed manual CODE entrypoint only; no arbitrary command execution surface.
-  const entrypoint = gradeCollection ? 'scripts/grade-model-collection.js' : conversationHandoff ? 'scripts/manual/conversation-operational-handoff.mjs' : roleHandoff ? 'scripts/manual/role-operational-handoff.mjs' : allRolePilot ? 'scripts/manual/all-role-evaluation.mjs'
+  const entrypoint = collectionStage ? 'scripts/manual/collect-chat-conversation.mjs' : gradeCollection ? 'scripts/grade-model-collection.js' : conversationHandoff ? 'scripts/manual/conversation-operational-handoff.mjs' : roleHandoff ? 'scripts/manual/role-operational-handoff.mjs' : allRolePilot ? 'scripts/manual/all-role-evaluation.mjs'
     : codePilot ? 'scripts/manual/c3-code-pilot.mjs' : 'scripts/model-upgrade-hunt.js';
   hunt = spawn(process.execPath, [join(root, entrypoint), ...args, ...reportArgs], {
     detached: true,
@@ -161,7 +162,8 @@ try {
     code: resourceBlock?.code || report?.code || /Error:\s*([A-Z][A-Z0-9_]{3,})/.exec(failureOutput)?.[1] || null,
     resources: resourceBlock || null,
     error: code !== 0 ? (report?.error || failureOutput.trim() || 'Proces měření skončil bez výsledku; podrobnosti jsou v systémovém logu.') : null,
-    reasons: report?.reasons || [], diagnostics: analyzeHuntDecisions(report?.results || []), results: (report?.results || []).map(r => ({
+    reasons: report?.reasons || [], blockedRoles: report?.blockedRoles || [],
+    diagnostics: analyzeHuntDecisions(report?.results || []), results: (report?.results || []).map(r => ({
       model: r.model, stage: r.stage, error: r.error || null, roleErrors: r.roleErrors?.length || 0,
       roleFailures: (r.roleErrors || []).map(f => ({ role: f.role, model: f.model, code: f.code, error: f.error, failedTasks: f.failedTasks || [] })),
       evaluations: (r.trials || []).filter(t => t.evaluation).map(t => ({role:t.role, score:t.evaluation.score, collection:t.evaluation.collection||null, reused:t.evaluation.reused === true})),

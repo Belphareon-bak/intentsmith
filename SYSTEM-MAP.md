@@ -9,16 +9,163 @@ nasazení startup probe přerušila cizí CHAT panel. Doplněné čekání na sp
 GPU zámek prošlo i skutečným restartem: 7 odložených sond, žádný chatový
 požadavek při drženém zámku. Incident zachován v reportu. REVIEW_PENDING;
 měřicí kontrakty ani modelové role nezměněny.
-Aktuální module graph má 1 421 hran, 3 cykly / 28 členů.
+Na nasazené studiové linii měl module graph 1 421 hran, 3 cykly / 28 členů.
 [Podrobnosti, důkazy a omezení](docs/review/2026-09-23-STUDIO-ACTIVITY-ENVIRONMENT.md).
+
+**GPU hunt — dvojí hodnocení, 25. 9. 2026:**
+Vývojová větev `work/hunt-model-controls-20260917` má dva oddělené
+append-only posudky a bránu proti jediné známce, sporům po kritériích a
+záměně artefaktu. Solver již omezuje model na dvě role a vynucuje nezávislé
+autorské a revizní role. Cílené testy prošly; živá DB má při read-only kontrole
+0 záznamů přejímky; hunt migrace 118 a 119 v instalaci dosud nejsou. **IMPLEMENTED /
+REVIEW_PENDING / NOT_DEPLOYED / NO_AUTONOMOUS_GO**.
+[Stav, testy a chybějící přejímky](docs/review/2026-09-25-GPU-HUNT-DUAL-GRADING-MILESTONE.md).
+
+
+**GPU hunt — cílové workflow a oddělení rolí, 24. 9. 2026:**
+Operátor upřesnil nejvýše dvě nesouvisející role na model a nejméně dva
+nezávislé hodnotitele. Zpracovaný návrh celého provozu k revizi;
+současný kód stále volí prvního přijatého hodnotitele a dovoluje tři role/model.
+**DESIGN_REVIEW / NO_IMPLEMENTATION_CHANGE / NO_AUTONOMOUS_GO**.
+[Workflow, podmínky autonomie a konkrétní implementační mezery](docs/GPU-HUNT-WORKFLOW.md).
+Navazující revize doplnila povinnou proveditelnost měření, absolutní brány,
+zdroje čerstvých případů a přechodné dvojí review. Reprodukce intervalové
+metody je ilustrační, ne nové hodnocení panelu. [Výsledek revize](docs/review/2026-09-24-HUNT-WORKFLOW-REVIEW.md).
+Následné [ověření proveditelnosti](docs/review/2026-09-24-HUNT-DECISION-FEASIBILITY.md)
+potvrdilo 18 441 skupin pro nulový rozdíl / toleranci 0,02 v KL a společnou
+binární provozní cestu všech rolí. 21 000 syntetických simulací ukazuje i
+riziko t/percentilového bootstrapu při vzácném zhoršení; metoda není přijatá.
+Autorizovaný GET běžícího backendu potvrdil CHAT `qwen3.5:27b`; produkční
+reprodukce panelového selhání s přesným profilem ještě neproběhla.
+
+**GPU hunt — ověření druhého CHAT posudku, 24. 9. 2026:**
+Potvrzena návaznost všech 1 200 dialogů a konkrétní vady včetně dvou smyček
+a výskytu neveřejných údajů v předchozích tazích Gemmy. Opusův součet pokrývá
+12/20 scénářů; bez známek po ID nejde vypočítat shodu ani otevřít přejímku.
+Původní známky zachované, **AUDIT_NOT_GRADING_ACCEPTANCE / NO_AUTONOMOUS_GO**.
+[Rozbor, opravy závěrů a důkazy](docs/review/2026-09-24-CHAT-OPUS-RECONCILIATION.md).
+
+**GPU hunt — dokončený CHAT sběr a první reference, 24. 9. 2026:**
+1 196 úplných dialogů a čtyři výjimky z 1 200 plánovaných. Posouzeno
+60 dialogů ručně a 60 striktních JSON; jeden dialog čeká na rozsouzení,
+1 076 úplných dialogů ještě známku nemá. Identita odkryta po zmrazení
+prvního posudku; znalost sady a pilotu přiznána. Nejde o přejímku hodnotitele.
+**PARTIAL_REFERENCE_GRADING_DRAFT / NO_AUTONOMOUS_GO**.
+[Výsledky a zbývající místní hodnoticí cesta](docs/review/2026-09-24-CHAT-PANEL-ASSESSMENT.md).
+
+**GPU hunt — navázání po krátkém konfliktu GPU, 24. 9. 2026:**
+Qwen3.5 dokončen. Qwen3.6 přerušen při cizí GPU aktivitě; časově doložen
+souběh s RustDesk CUDA/NVENC sondou. Doplněno omezené čekání a nejvýše tři
+navázání při GPU konfliktu, zachování deníku a původního rozpočtu.
+Přehled rozlišuje čekání od zastavení. 24 cílených testů a 11 browser kontrol PASS.
+**RUNTIME_RESUMED / NOT_GRADED**.
+[Diagnóza, aktuální běh a důkazy](docs/review/2026-09-24-CHAT-GPU-CONTENTION.md).
+
+
+**GPU hunt — velký CHAT sběr po slepém posudku, 23. 9. 2026:**
+Operátorem spuštěný panel deseti místních modelů: 20 CS/EN párů, tři
+opakování, 1 200 dialogů / nejvýše 3 480 volání, okno 24 hodin.
+Rubrika v2 upravuje podmíněný kredit u injektáže a nevyplněné šablony;
+40 promptů se nemění. Posudek pilotu (96 známek) uchován v původní verzi.
+**COLLECTION_RUNNING / NOT_GRADED / NO_AUTONOMOUS_GO** — stav je snímek
+zahájeného běhu, aktuální průběh a výsledek jsou v jeho trvalé evidenci.
+[Průběh, změny rubriky, původní známky a ovládání běhu](docs/review/2026-09-23-CHAT-PANEL.md).
+
+
+**GPU hunt — skutečný CHAT pilot, 23. 9. 2026:**
+Qwen3.8 a Phi4 dokončily **24/24 dialogů, 64/64 volání** za 7 min 33 s.
+Návaznost, identity a úplnost ověřené; obsahové známky zatím nevydané.
+Připravené oddělené stránky pro anonymní a pojmenované hodnocení, 17 browser
+kontrol PASS. Opravený výpis uplynulého času; 45 cílených kontrol PASS.
+Další desetimodelový CHAT panel (3 480 volání) je zmrazený, nespuštěný.
+**CAPTURE_COMPLETE / UNGRADED / REVIEW_PENDING / NO_AUTONOMOUS_GO**.
+[Dialogy, důkazy, rozpočet a další postup](docs/review/2026-09-23-CHAT-PILOT.md).
+
+**GPU hunt — technická příprava dalšího sběru, 23. 9. 2026:**
+Trvalý deník a pokračování mezi okny, souhrnné rozpočty a průběžná ochrana
+RAM/FS/GPU jsou implementované. Připravený CHAT pilot: dva přesné artefakty,
+24 dialogů / 64 volání, zatím 0 volání. Nové CODE zadání vyžaduje jistotu i
+pod prahem; dvě reference prošly 24/24 technickými kontrolami. Kandidát
+extraktoru pracuje pouze s prózou a nemá přejímku ani skórovací autoritu.
+60 cílených kontrol PASS; nejde o modelový pilot ani release PASS.
+Aktuální module graph má 1 427 hran, 3 cykly / 28 členů.
+**REVIEW_PENDING / NOT_DEPLOYED / NO_AUTONOMOUS_GO**.
+[Nové předání, příkazy, důkazy a zbývající přejímky](docs/review/2026-09-23-HUNT-COLLECTION-READY.md).
+
+**GPU hunt — druhý CODE posudek připojen, 23. 9. 2026:**
+Původní DRAFT ověřen přes packet ID, custody a hashe: shoda 60/60 os,
+všech 60 citací nalezeno. Předchozí expozice zachovaná; nejde o nezávislou
+přejímku ani o nové skóre. U O09–O12 je shodná próza, API se liší;
+v O01–O08 je správné API 216/240, 24 polí chybí. Operátor přijal jistotu
+ve všech kvalitativních větvích pro novou verzi zadání (direction §7.5).
+13 cílených testů PASS, žádná inference/import/nasazení. **NO_AUTONOMOUS_GO**.
+[Rozsouzení a meze důkazu](docs/review/2026-09-23-CODE-RECONCILIATION.md).
+
+**GPU hunt — druhé posouzení připraveno, 23. 9. 2026:**
+30 odpovědí a 360 pozorovaných návratů má oddělený formulář bez identit,
+původních známek a autorských důvodů. Předchozí expozice je přiznaná;
+nejde o nový slepý přejímací vzorek. Podprahová jistota zůstává ve starém
+měření mimo hodnocení; univerzální povinnost pro všechny kvalitativní
+větve je návrh nové verze zadání. 5 testů exportu + 11 browser kontrol.
+Nová inference 0, žádná přejímka ani GO. Pokračování plného CHAT panelu
+v dalším okně je výslovný návrh, nikoli automatické prodloužení rozpočtu.
+[Podklad, vyjasnění a další postup](docs/review/2026-09-23-CODE-SECOND-REVIEW.md).
+
+**GPU hunt — čtyři milníky pro společnou revizi, 23. 9. 2026:**
+Nová explicitní technická složka CODE prošla 53 kontrolami a přehrála všech
+210 odpovědí bez inference. Celková známka zůstává null; 30 textů má oddělené
+neslepé autorské posouzení. Tři původní odmítnutí správné formulace jsou
+doložená; 16 odpovědí skutečně vynechává požadované vysvětlení. Sběrač,
+DB/read model, slepý export a Studio detail podporují skutečné navazující
+tahy. Nový CHAT návrh obsahuje 20 CZ/EN dvojic / 40 úloh, jediný striktní
+JSON scénář; není aktivovaný. Matice zachovává 2 922 původních odpovědí
+a známek. 190 cílených testů, 25 browser kontrol; žádný release gate ani
+živý modelový journey. **IMPLEMENTED_AND_OFFLINE_VERIFIED / REVIEW_PENDING /
+NOT_DEPLOYED / NO_AUTONOMOUS_GO**.
+[Milníky, výsledky, zdrojové commity, rozpočet a přenositelné důkazy](docs/review/2026-09-23-HUNT-MILESTONES-REVIEW.md).
+
+**GPU hunt — rozsouzení textových kontrol a pokrytí matice, 23. 9. 2026:**
+Všech 154 inventarizovaných míst má autorské zařazení, důvod a zdrojový
+kontext: 102 mechanických/protokolových kontrol, 40 prózových kontrol okolí
+mimo měnitelný úsek, 12 míst vyžadujících sémantickou úpravu. Není to
+nezávislá přejímka. Nové párové sondy: 14 mutací, 13 nesouladů; jeden
+rezervní referenční běh nedokončen, jeho dva páry neprovedeny. Aktivní CODE
+přejímka navíc kontroluje práh, rychlost a chybějící měření před inferencí.
+Matice výslovně ukazuje CHAT 38/40 a zbývající 2 úlohy / 60 odpovědí.
+**AUTHOR_DISPOSITION_REVIEW_PENDING / NOT_DEPLOYED / NO_REPLAY**.
+[Rozpad, přesný rozsah sond a opravená matice](docs/review/2026-09-23-HUNT-TEXT-DISPOSITION.md).
+
+**GPU hunt — audit textových orákul, 23. 9. 2026:**
+Offline inventář zahrnuje všech 37 CODE fixtures a 83 verzí kontrolních
+souborů; lexikální seznam není přejímka jejich významu. Skutečný izolovaný
+runner doložil falešné odmítnutí i přijetí u aktivního výpisu jistoty a další
+falešné odmítnutí v rezervní matematické úloze. Nové přejímací kontroly
+zastaví aktuální CODE sadu před inferencí. **ORACLE_DEFECTS_REPRODUCED /
+PREFLIGHT_HARDENED / NOT_DEPLOYED / REVIEW_PENDING**. Orákulum prózy není
+opravené a nové známky nebyly vydané. Úplná matice zobrazuje všech 2 922
+původních odpovědí, oddělené osy a upozornění na sporné CODE známky.
+[Audit, přehratelné sondy, matice a zbývající práce](docs/review/2026-09-23-HUNT-ORACLE-TEXT-AUDIT.md).
+
+**GPU hunt — osobní porovnání odpovědí, 23. 9. 2026:**
+Offline podklad z uloženého panelu: 27 společných úloh, 4 modely na úlohu,
+324 odpovědí včetně všech opakování; 12 modelů celkem. Vlastní známky,
+preference a návrhy vah s exportem. Rozložení v2: zadání → pojmenovaný model
+→ všechny tři odpovědi → viditelné známky a důvody; kompatibilní staré poznámky
+a exporty. Žádný import do produkce ani změna GO.
+[Výběr, původ známek a ověření rozhraní](docs/review/2026-09-23-HUNT-ANSWER-COMPARISON.md).
 
 **GPU hunt — hodnocení uloženého sběru, 23. 9. 2026:**
 Doplněny CLI, lokální API a Studio pro hodnocení již uložených odpovědí.
 Přejímka T4 vyžaduje nezávislé označení a jiný digest hodnotitele, provozní
 přejímka přijímá úplný postup každé ze sedmi rolí. Zneplatnění přejímky
 vyřazuje aktuální skóre i běžící hodnocení; historie zůstává.
-**IMPLEMENTED / INTEGRATION_TESTING / REVIEW_PENDING**; žádná přejímka
-skutečného modelu ani autonomní výběr nejsou tímto vyhlášeny.
+Nasazeno `400c9d8f`, Studio fyzicky prokliknuté v sedmi záložkách.
+Finální fyzický běh: všech 7 rolí plus druhý CODE kandidát, **327 pokusů**;
+216 otevřených odpovědí čeká na posouzení.
+Offline/database 364 PASS / 1 známý Gate 0 FAIL / 0 BLOCKED. Přehled místa
+čte skutečný modelový FS; odmítnutí hodnocení je viditelné i v Historii.
+**DEPLOYED / REVIEW_PENDING**; žádná přejímka skutečného hodnotitele
+ani autonomní výběr nejsou tímto vyhlášeny. Přijatých profilů 0/7.
 [Ověření a konkrétní meze](docs/review/2026-09-23-HUNT-GRADING-INTEGRATION.md).
 
 **GPU hunt — úložiště a arbitráž, 22. 9. 2026:**
@@ -592,15 +739,15 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **228 643 ř.**, 652 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **250 066 ř.**, 538 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **532** (`438 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
-| Tabulek v čerstvé DB / aplikovaných migrací | **181 / 104** |
-| HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |
+| `src/**/*.js` | **Nezměřeno na integračním SHA**; hunt snapshot měl 229 941 ř. / 662 souborů |
+| `tests/**/*.js` | **Nezměřeno na integračním SHA**; hunt snapshot měl 249 924 ř. / 536 souborů |
+| Registrovaných testových programů | **543** (`449 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) v integračním manifestu; běh čeká |
+| Tabulek v čerstvé DB / aplikovaných migrací | **183 / 106** |
+| HTTP rout | **Nezměřeno na integračním SHA**; hunt snapshot měl 246 statických deklarací |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
 
 Aktuální registry fingerprint je
-`aeb5944a462f042dde35f6f2f46febeefcca5716b5f5331f40b13ccbe8c921e1`.
+`11dc87a658024842a4696a1bf024bd153671d5b56655a0f69ddd1767553397bb`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 

@@ -9,14 +9,77 @@ nasazení startup probe přerušila cizí CHAT panel. Doplněné čekání na sp
 GPU zámek prošlo i skutečným restartem: 7 odložených sond, žádný chatový
 požadavek při drženém zámku. Incident zachován v reportu. REVIEW_PENDING;
 měřicí kontrakty ani modelové role nezměněny.
-Aktuální module graph má 1 421 hran, 3 cykly / 28 členů.
+Na nasazené studiové linii měl module graph 1 421 hran, 3 cykly / 28 členů.
 [Podrobnosti, důkazy a omezení](docs/review/2026-09-23-STUDIO-ACTIVITY-ENVIRONMENT.md).
+
+**GPU hunt — kompatibilita uložených odpovědí, 25. 9. 2026:**
+Přesná kontrola vstupů a identity umožňuje po změně známkování znovu použít
+celý uložený sběr bez inference. Read-only audit našel 11 strukturálně
+kompatibilních sběrů jediného artefaktu, avšak **0** z nich odpovídá právě
+běžící verzi poskytovatele. Zápis známky ani rozsouzení nepřepíná sdílený
+provider filtr. Přesná nová module edge byla přijata bez růstu cyklů;
+na uvedené větvi huntu měl module graph 1 428 hran, 3 cykly / 28 členů.
+**REVIEW_PENDING / NOT_DEPLOYED / NO_AUTONOMOUS_GO**.
+[Audit a omezení](docs/review/2026-09-25-GPU-HUNT-CAPTURE-REUSE.md).
+
+**GPU hunt — milník dvojího hodnocení, 25. 9. 2026:**
+Ve vývojové větvi jsou dva oddělené append-only posudky na jeden sběr;
+neúplná dvojice, spor a záměna digestu neotevřou skóre. M0 cyklus v
+rozhodovací metodě byl odstraněn. Toto je kód a syntetické testy, ne
+přejímka konkrétní dvojice či rozhodnutí o modelu. **REVIEW_PENDING /
+NOT_DEPLOYED / NO_AUTONOMOUS_GO**.
+[Revizní protokol](docs/review/2026-09-25-GPU-HUNT-DUAL-GRADING-MILESTONE.md).
+
+
+**GPU hunt — navázání po krátkém konfliktu GPU, 24. 9. 2026:**
+Qwen3.5 dokončen. Qwen3.6 přerušen při cizí GPU aktivitě; časově doložen
+souběh s RustDesk CUDA/NVENC sondou. Doplněno omezené čekání a nejvýše tři
+navázání při GPU konfliktu, zachování deníku a původního rozpočtu.
+Přehled rozlišuje čekání od zastavení. 24 cílených testů a 11 browser kontrol PASS.
+**RUNTIME_RESUMED / NOT_GRADED**.
+[Diagnóza, aktuální běh a důkazy](docs/review/2026-09-24-CHAT-GPU-CONTENTION.md).
+
+
+**GPU hunt — velký CHAT sběr po slepém posudku, 23. 9. 2026:**
+Operátorem spuštěný panel deseti místních modelů: 20 CS/EN párů, tři
+opakování, 1 200 dialogů / nejvýše 3 480 volání, okno 24 hodin.
+Rubrika v2 upravuje podmíněný kredit u injektáže a nevyplněné šablony;
+40 promptů se nemění. Posudek pilotu (96 známek) uchován v původní verzi.
+**COLLECTION_RUNNING / NOT_GRADED / NO_AUTONOMOUS_GO** — stav je snímek
+zahájeného běhu, aktuální průběh a výsledek jsou v jeho trvalé evidenci.
+[Průběh, změny rubriky, původní známky a ovládání běhu](docs/review/2026-09-23-CHAT-PANEL.md).
+
+
+**GPU hunt — skutečný CHAT pilot, 23. 9. 2026:**
+Qwen3.8 a Phi4 dokončily **24/24 dialogů, 64/64 volání** za 7 min 33 s.
+Návaznost, identity a úplnost ověřené; obsahové známky zatím nevydané.
+Připravené oddělené stránky pro anonymní a pojmenované hodnocení, 17 browser
+kontrol PASS. Opravený výpis uplynulého času; 45 cílených kontrol PASS.
+Další desetimodelový CHAT panel (3 480 volání) je zmrazený, nespuštěný.
+**CAPTURE_COMPLETE / UNGRADED / REVIEW_PENDING / NO_AUTONOMOUS_GO**.
+[Dialogy, důkazy, rozpočet a další postup](docs/review/2026-09-23-CHAT-PILOT.md).
+
+**GPU hunt — technická příprava dalšího sběru, 23. 9. 2026:**
+Trvalý deník a pokračování mezi okny, souhrnné rozpočty a průběžná ochrana
+RAM/FS/GPU jsou implementované. Připravený CHAT pilot: dva přesné artefakty,
+24 dialogů / 64 volání, zatím 0 volání. Nové CODE zadání vyžaduje jistotu i
+pod prahem; dvě reference prošly 24/24 technickými kontrolami. Kandidát
+extraktoru pracuje pouze s prózou a nemá přejímku ani skórovací autoritu.
+60 cílených kontrol PASS; nejde o modelový pilot ani release PASS.
+Aktuální module graph má 1 427 hran, 3 cykly / 28 členů.
+**REVIEW_PENDING / NOT_DEPLOYED / NO_AUTONOMOUS_GO**.
+[Nové předání, příkazy, důkazy a zbývající přejímky](docs/review/2026-09-23-HUNT-COLLECTION-READY.md).
 
 **GPU hunt — propojené hodnocení, 23. 9. 2026:**
 Podporovaná cesta ze sběru do přijatého hodnocení, API/Studio a příjem provozní
-přejímky všech sedmi rolí jsou implementované; probíhá finální ověření.
+přejímky všech sedmi rolí jsou implementované a nasazené na `400c9d8f`.
+Finální fyzický běh: všech 7 rolí plus druhý CODE kandidát, **327 pokusů**;
+216 otevřených odpovědí čeká na posouzení.
+Proklik Studia a offline/database profil: 364 PASS / 1 známý Gate 0 FAIL.
 Aktuální module graph má 1 408 hran, 3 cykly / 28 členů.
-Skutečná přejímka hodnotitelů a modelových dvojic zůstává samostatnou podmínkou GO.
+Skutečná přejímka hodnotitelů a modelových dvojic zůstává podmínkou GO;
+zbývá také podpora úplného ne-CODE provozního měření, ne jen příjem receiptů.
+Přijatých profilů je 0/7, automatika zůstává pozastavená.
 [Delta k review](docs/review/2026-09-23-HUNT-GRADING-INTEGRATION.md).
 
 **GPU hunt — úložiště a arbitráž, 22. 9. 2026:**

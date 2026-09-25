@@ -1,6 +1,8 @@
 // Re-grade immutable stored answers through the same task graders. This stage
 // never regenerates an answer, changes a binding or imports a user-supplied mean.
 import { acceptanceHash } from '../upgrade/model-evaluation-acceptance.js';
+import { randomUUID } from 'node:crypto';
+import { acceptedGraderPair } from './independent-grader-pair.js';
 import { SemanticEvaluationJudge } from './semantic-evaluation-judge.js';
 
 const fail = code => { throw Object.assign(new Error(code), { code }); };
@@ -14,57 +16,78 @@ export function collectionGradingOptions(history, plans, runId) {
   const collection = history.getRun(runId);
   if (!collection) fail('EVALUATION_COLLECTION_NOT_FOUND');
   const plan = plans[collection.role];
+  const reviews = plan ? storedGraderReviews(history,plan,collection) : [];
   const graders = [], blocked = [];
   for (const accepted of plan?.acceptance.graders || []) {
     try {
       prepareCollectionGrading({plan, collection, graderAcceptanceId: accepted.id,
         judge: accepted.judge ? {artifact: accepted.judge} : null});
-      graders.push(accepted);
+      if (reviews.some(row => row.accepted?.id === accepted.id))
+        blocked.push({id:accepted.id,code:'EVALUATION_GRADER_REVIEW_ALREADY_RECORDED'});
+      else graders.push(accepted);
     } catch (error) { blocked.push({id: accepted.id, code: error.code || error.message}); }
   }
+  const activeReviews = reviews.filter(row => row.accepted);
+  const pair = acceptedGraderPair((plan?.acceptance.graders || []),collection.artifact.digestSha256);
+  if (activeReviews.length && !pair) {
+    for (const grader of graders) blocked.push({id:grader.id,code:'EVALUATION_GRADER_PAIR_NOT_AVAILABLE'});
+    graders.length = 0;
+  }
+  const reconciliation = reconcileGraderReviews(activeReviews,plan,collection);
   return { runId, role: collection.role, model: collection.artifact.modelName,
     sourceSha256: collectionEvidenceHash(collection), graders, blocked,
-    code: graders.length ? null : blocked[0]?.code || 'EVALUATION_GRADER_ACCEPTANCE_MISSING' };
+    reviewed:reviews.map(row => ({reviewId:row.id,graderAcceptanceId:row.summary.grading.graderAcceptanceId,
+      accepted:!!row.accepted,score:row.summary.score,recordedAt:row.recordedAt})),
+    pairAvailable:!!pair,reviewStatus:reconciliation.status,
+    disputes:reconciliation.disputes,
+    code: graders.length ? null : reconciliation.status === 'REVIEW_DISPUTED'
+      ? 'EVALUATION_GRADING_DISPUTE' : activeReviews.length && !pair
+      ? 'EVALUATION_GRADER_PAIR_NOT_AVAILABLE' : blocked[0]?.code || 'EVALUATION_GRADER_ACCEPTANCE_MISSING' };
 }
 
 export async function gradeAcceptedCollection({ history, plan, runId, call, prepareJudge, finishJudge,
-  onProgress, onReceipt, fresh = false }) {
+  onProgress, onReceipt }) {
+  const collection = history.getRun(runId);
+  if (!collection) fail('EVALUATION_COLLECTION_NOT_FOUND');
   const preview = collectionGradingOptions(history, {[plan.role]:plan}, runId);
-  if (!preview.graders.length) return null; // Raw capture remains useful without an accepted judge.
-  const accepted = preview.graders[0], collection = history.getRun(runId);
   const current = history.getComplete({role:plan.role,digestSha256:collection.artifact.digestSha256,
     suiteName:plan.suiteName,suiteVersion:plan.suiteVersion,contractSha256:plan.suiteContractSha256});
-  if (!fresh && current?.metadata?.grading?.graderAcceptanceId === accepted.id
-    && current.metadata.grading.graderAcceptanceSha256 === accepted.payloadSha256
-    && current.metadata.grading.sourceCollectionSha256 === preview.sourceSha256) return {...current,reused:true};
-  const judge = accepted.judge && new SemanticEvaluationJudge({artifact:accepted.judge,call,onReceipt,
-    isAccepted:()=>plan.acceptance.graders?.some(g=>g.id===accepted.id && g.payloadSha256===accepted.payloadSha256)===true});
-  prepareCollectionGrading({plan,collection,judge,graderAcceptanceId:accepted.id});
-  if (judge && (typeof prepareJudge !== 'function' || typeof finishJudge !== 'function')) fail('EVALUATION_GRADER_GPU_OWNER_REQUIRED');
-  try {
-    if (judge) await prepareJudge(accepted.judge);
-    const summary = await gradeAnswerCollection({plan,collection,judge,graderAcceptanceId:accepted.id,onProgress});
-    return persistGradedCollection({history,plan,collection,summary});
-  } finally { if (judge) await finishJudge(accepted.judge); }
+  if (current?.metadata?.grading?.sourceCollectionSha256 === preview.sourceSha256)
+    return {...current,reused:true};
+  // Scheduled inference starts only with a unique accepted independent pair.
+  // A manual operator may still store a first exploratory review separately.
+  const pair = acceptedGraderPair(plan.acceptance.graders,collection.artifact.digestSha256);
+  if (!pair) return preview.reviewed.length ? {status:'BLOCKED',score:null,reused:true,
+    errorCode:preview.code || 'EVALUATION_GRADER_PAIR_NOT_AVAILABLE',
+    errorMessage:'Bez jednoznačné nezávislé dvojice nelze vydat skóre.'} : null;
+  let result = null;
+  for (const accepted of pair) {
+    if (!preview.graders.some(g => g.id === accepted.id)) continue;
+    const judge = accepted.judge && new SemanticEvaluationJudge({artifact:accepted.judge,call,onReceipt,
+      isAccepted:()=>plan.acceptance.graders?.some(g=>g.id===accepted.id
+        && g.payloadSha256===accepted.payloadSha256)===true});
+    prepareCollectionGrading({plan,collection,judge,graderAcceptanceId:accepted.id});
+    if (judge && (typeof prepareJudge !== 'function' || typeof finishJudge !== 'function'))
+      fail('EVALUATION_GRADER_GPU_OWNER_REQUIRED');
+    try {
+      if (judge) await prepareJudge(accepted.judge);
+      const summary = await gradeAnswerCollection({plan,collection,judge,graderAcceptanceId:accepted.id,onProgress});
+      result = persistGradedCollection({history,plan,collection,summary});
+    } finally { if (judge) await finishJudge(accepted.judge); }
+    if (result.status === 'COMPLETE' || result.errorCode !== 'EVALUATION_REVIEW_PENDING_PAIR') break;
+  }
+  return result || {status:'BLOCKED',score:null,reused:true,
+    errorCode:preview.code || 'EVALUATION_GRADING_DISPUTE',
+    errorMessage:'Dvojí posouzení není uzavřené.'};
 }
 
-export function prepareCollectionGrading({ plan, collection, judge, graderAcceptanceId }) {
+export function validateCollectionCapture(plan, collection) {
   if (!plan?.collectionOnly || !plan.measurementReady || collection?.role !== plan.role
+    || collection.status !== 'BLOCKED' || collection.errorCode !== 'EVALUATION_AWAITING_REVIEW'
     || !/^[a-f0-9]{64}$/.test(collection.contractSha256 || '') || collection.suiteName !== plan.suiteName
     || collection.repeats !== plan.repeats
     || collection.metadata?.collection?.status !== 'AWAITING_REVIEW') fail('EVALUATION_COLLECTION_CONTRACT_MISMATCH');
   const sourceSha256 = collectionEvidenceHash(collection), sourceDigest = collection.artifact.digestSha256;
-  const checkAcceptance = () => {
-    const accepted = plan.acceptance.graders?.find(g => g.id === graderAcceptanceId);
-    if (!accepted) fail('EVALUATION_GRADER_ACCEPTANCE_MISSING');
-    if (plan.suite.tests.some(t => t.tier === 'T4')) {
-      if (!judge || !accepted.judge || accepted.judge.digestSha256 !== judge.artifact?.digestSha256
-        || accepted.judge.providerVersion !== judge.artifact?.providerVersion) fail('EVALUATION_GRADER_IDENTITY_MISMATCH');
-      if (sourceDigest === judge.artifact.digestSha256) fail('SEMANTIC_SELF_GRADING_FORBIDDEN');
-    }
-    return accepted;
-  };
-  const accepted = checkAcceptance();
   const expected = plan.suite.tests.map(t => t.name).sort();
   if (JSON.stringify(collection.tasks.map(t => t.name).sort()) !== JSON.stringify(expected)) fail('EVALUATION_COLLECTION_TASKS_MISMATCH');
   const planned = plan.taskCount * plan.repeats;
@@ -73,6 +96,9 @@ export function prepareCollectionGrading({ plan, collection, judge, graderAccept
   // Validate the complete input before any judge inference.
   for (const task of collection.tasks) {
     const current = plan.suite.tests.find(t => t.name === task.name);
+    if (task.input?.conversationTurns && typeof current.gradeConversation !== 'function') {
+      fail('EVALUATION_CONVERSATION_GRADER_NOT_AVAILABLE');
+    }
     // A grading implementation change may reuse captures only when every
     // public input and inference option is byte-for-byte equivalent. The old
     // contract and raw run remain immutable; this creates a new grading run.
@@ -85,6 +111,46 @@ export function prepareCollectionGrading({ plan, collection, judge, graderAccept
         || d.artifact?.digestSha256 !== sourceDigest || d.artifact?.providerVersion !== collection.providerVersion)
       || task.responses.some(r => typeof r !== 'string')) fail('EVALUATION_COLLECTION_RESPONSE_UNVERIFIED');
   }
+  return { sourceSha256, planned };
+}
+
+// A grading-only contract change may reuse immutable captures. Query by exact
+// answer artifact and provider, then run the same input/response validation as
+// grading. A changed prompt, inference option or incomplete capture is skipped.
+export function findReusableCollection(history, plan, digestSha256) {
+  if (!history?._db || !plan?.collectionOnly || !/^[a-f0-9]{64}$/.test(digestSha256 || '')
+    || history.providerVersion === 'UNRECORDED') return null;
+  const rows = history._db.prepare(`SELECT run_id FROM model_evaluation_runs
+    WHERE model_digest_sha256=? AND role=? AND suite_name=? AND status='BLOCKED'
+      AND error_code='EVALUATION_AWAITING_REVIEW'
+      AND json_extract(metadata_json,'$.provider.version')=?
+    ORDER BY completed_at DESC, rowid DESC`).all(digestSha256,plan.role,plan.suiteName,history.providerVersion);
+  for (const row of rows) {
+    const collection = history.getRun(row.run_id);
+    try { validateCollectionCapture(plan,collection); return collection; }
+    catch (error) {
+      // A known old capture may be incompatible; SQL or programming failures
+      // must remain visible instead of silently triggering new GPU inference.
+      if (!/^EVALUATION_COLLECTION_/.test(error.code || '')) throw error;
+    }
+  }
+  return null;
+}
+
+export function prepareCollectionGrading({ plan, collection, judge, graderAcceptanceId }) {
+  const { sourceSha256, planned } = validateCollectionCapture(plan, collection);
+  const sourceDigest = collection.artifact.digestSha256;
+  const checkAcceptance = () => {
+    const accepted = plan.acceptance.graders?.find(g => g.id === graderAcceptanceId);
+    if (!accepted) fail('EVALUATION_GRADER_ACCEPTANCE_MISSING');
+    if (plan.suite.tests.some(t => t.tier === 'T4')) {
+      if (!judge || !accepted.judge || accepted.judge.digestSha256 !== judge.artifact?.digestSha256
+        || accepted.judge.providerVersion !== judge.artifact?.providerVersion) fail('EVALUATION_GRADER_IDENTITY_MISMATCH');
+      if (sourceDigest === judge.artifact.digestSha256) fail('SEMANTIC_SELF_GRADING_FORBIDDEN');
+    }
+    return accepted;
+  };
+  const accepted = checkAcceptance();
   return { sourceSha256, accepted, planned, checkAcceptance };
 }
 
@@ -102,8 +168,13 @@ export async function gradeAnswerCollection({ plan, collection, judge, graderAcc
         valid: true, score: 0, passed: false, outcome: 'OPERATIONAL_FAILURE',
         detail: { reason: 'MODEL_OUTPUT_BUDGET_EXHAUSTED', contentScoreEvaluated: false } };
       else {
-        try { grade = await task.grade(input.responses[i], { semanticJudge: judge, artifact: {
-          ...collection.artifact, providerVersion: collection.providerVersion } }); }
+        try {
+          const context = { semanticJudge: judge, artifact: {
+            ...collection.artifact, providerVersion: collection.providerVersion } };
+          grade = input.input?.conversationTurns
+            ? await task.gradeConversation(input.details[i].conversation, context)
+            : await task.grade(input.responses[i], context);
+        }
         catch (error) { grade = { valid: false, score: null, detail: { reason: error.code || error.message } }; }
       }
       checkAcceptance();
@@ -135,28 +206,297 @@ export async function gradeAnswerCollection({ plan, collection, judge, graderAcc
       collectedAt: collection.completedAt, collectionDurationMs: collection.durationMs } };
 }
 
+// The first judge's result is an immutable review, not a model score. Only a
+// second, independent accepted judge can close the pair. Disagreement remains
+// an explicit BLOCKED event and preserves both original judgements.
+export function storedGraderReviews(history, plan, collection) {
+  const sourceSha256 = collectionEvidenceHash(collection);
+  const rows = history._db.prepare(`SELECT * FROM model_evaluation_grader_reviews
+    WHERE source_run_id=? ORDER BY recorded_at, review_id`).all(collection.runId);
+  return rows.map(row => {
+    const summary = JSON.parse(row.summary_json);
+    if (acceptanceHash(summary) !== row.summary_sha256 || row.role !== plan.role
+      || row.contract_sha256 !== plan.suiteContractSha256
+      || summary.grading?.graderAcceptanceId !== row.grader_acceptance_id
+      || summary.grading?.graderAcceptanceSha256 !== row.grader_acceptance_sha256)
+      fail('EVALUATION_GRADER_REVIEW_TAMPERED');
+    if (row.source_sha256 !== sourceSha256 || summary.grading.sourceCollectionSha256 !== sourceSha256)
+      fail('EVALUATION_COLLECTION_CHANGED');
+    const accepted = plan.acceptance.graders?.find(g => g.id === row.grader_acceptance_id
+      && g.payloadSha256 === row.grader_acceptance_sha256);
+    if (accepted && (summary.grading.judge?.digestSha256 !== accepted.judge?.digestSha256
+      || summary.grading.judge?.providerVersion !== accepted.judge?.providerVersion))
+      fail('EVALUATION_GRADER_REVIEW_TAMPERED');
+    return { id: row.review_id, summarySha256: row.summary_sha256, accepted,
+      summary, recordedAt: row.recorded_at };
+  });
+}
+
+function gradingProjection(summary) {
+  return { score: summary.score, runs: summary.runs, startedAt:summary.startedAt,
+    completedAt:summary.completedAt, grading: summary.grading,
+    tasks: summary.tasks.map(task => ({ name: task.name, scores: task.scores,
+      mean: task.mean, spread: task.spread, details: task.details })) };
+}
+
+function comparableDetail(detail) {
+  return { valid:detail.valid, score:detail.score, outcome:detail.outcome,
+    // Compare the criteria, including each order-specific judgement; the same
+    // mean can hide two cancelling mistakes.
+    parts:detail.parts?.map(part => ({id:part.id,score:part.score,rawScores:part.rawScores})),
+    criteria:detail.criteria, contractChecks:detail.contractChecks };
+}
+
+export function reconcileGraderReviews(reviews, plan, collection) {
+  if (reviews.length !== 2 || reviews.some(row => !row.accepted))
+    return { status:'REVIEW_PENDING_PAIR', disputes:[] };
+  const pair = acceptedGraderPair(reviews.map(row => row.accepted),collection.artifact.digestSha256);
+  if (!pair || reviews.some(row => !pair.some(g => g.id === row.accepted.id)))
+    return { status:'REVIEW_PAIR_NOT_INDEPENDENT', disputes:[] };
+  const [a,b] = reviews.map(row => row.summary), disputes = [];
+  if (a.grading.status !== 'GRADED' || b.grading.status !== 'GRADED'
+    || !Number.isFinite(a.score) || !Number.isFinite(b.score)
+    || a.tasks.length !== b.tasks.length || a.tasks.length !== plan.taskCount)
+    return { status:'REVIEW_INCOMPLETE', disputes:[] };
+  for (let i = 0; i < a.tasks.length; i++) {
+    const x = a.tasks[i], y = b.tasks[i];
+    if (x.name !== y.name || x.details.length !== y.details.length || x.details.length !== plan.repeats)
+      return { status:'REVIEW_INCOMPLETE', disputes:[] };
+    for (let j = 0; j < x.details.length; j++) {
+      if (JSON.stringify(comparableDetail(x.details[j])) !== JSON.stringify(comparableDetail(y.details[j])))
+        disputes.push({task:x.name,repeat:j+1,first:x.details[j].score,second:y.details[j].score,
+          firstParts:x.details[j].parts || null,secondParts:y.details[j].parts || null});
+    }
+  }
+  if (disputes.length || a.score !== b.score) return { status:'REVIEW_DISPUTED', disputes };
+  const tasks = a.tasks.map((graded,i) => {
+    const source = collection.tasks.find(task => task.name === graded.name);
+    const definition = plan.suite.tests.find(task => task.name === graded.name);
+    if (!source || !definition) fail('EVALUATION_COLLECTION_TASKS_MISMATCH');
+    return { ...source,rubric:definition.rubric || [],scores:graded.scores,
+      mean:graded.mean,spread:graded.spread,
+      details:graded.details.map((detail,j) => ({...detail,
+        graderReviews:reviews.map(row => ({reviewId:row.id,graderAcceptanceId:row.accepted.id,
+          score:row.summary.tasks[i].details[j].score,
+          parts:row.summary.tasks[i].details[j].parts || null}))})) };
+  });
+  return { status:'GRADED', disputes:[], summary:{score:a.score,runs:plan.repeats,tasks,
+    startedAt:a.startedAt,
+    completedAt:new Date().toISOString(),
+    grading:{version:2,status:'GRADED',sourceCollectionRunId:collection.runId,
+      sourceCollectionSha256:collectionEvidenceHash(collection),
+      sourceContractSha256:collection.contractSha256,targetContractSha256:plan.suiteContractSha256,
+      graders:reviews.map(row => ({id:row.accepted.id,payloadSha256:row.accepted.payloadSha256,
+        judge:row.accepted.judge,reviewId:row.id,reviewSha256:row.summarySha256}))}} };
+}
+
+function verifyGradedSummary(plan, source, summary) {
+  const grading = summary?.grading;
+  if (grading?.version !== 1 || grading.sourceCollectionRunId !== source.runId
+    || grading.sourceCollectionSha256 !== collectionEvidenceHash(source)
+    || grading.sourceContractSha256 !== source.contractSha256
+    || grading.targetContractSha256 !== plan.suiteContractSha256
+    || summary.runs !== plan.repeats || !Array.isArray(summary.tasks)
+    || summary.tasks.length !== plan.taskCount
+    || grading.planned !== plan.taskCount * plan.repeats
+    || grading.observed !== grading.planned) fail('EVALUATION_GRADING_SUMMARY_INVALID');
+  let invalid = 0;
+  for (const definition of plan.suite.tests) {
+    const task = summary.tasks.find(row => row.name === definition.name);
+    const captured = source.tasks.find(row => row.name === definition.name);
+    if (!task || !captured || summary.tasks.filter(row => row.name === definition.name).length !== 1
+      || acceptanceHash(task.input) !== acceptanceHash(captured.input)
+      || acceptanceHash(task.options) !== acceptanceHash(captured.options)
+      || acceptanceHash(task.responses) !== acceptanceHash(captured.responses)
+      || task.scores?.length !== plan.repeats || task.details?.length !== plan.repeats)
+      fail('EVALUATION_GRADING_SUMMARY_INVALID');
+    for (let i = 0; i < plan.repeats; i++) {
+      const detail = task.details[i], capture = captured.details[i];
+      const score = task.scores[i];
+      if (!detail || detail.repeat !== capture.repeat
+        || detail.captureStatus !== capture.captureStatus
+        || acceptanceHash(detail.artifact) !== acceptanceHash(capture.artifact)
+        || detail.score !== score || detail.valid !== Number.isFinite(score)
+        || (Number.isFinite(score) && (score < 0 || score > 1)))
+        fail('EVALUATION_GRADING_SUMMARY_INVALID');
+      if (!Number.isFinite(score)) invalid++;
+    }
+    const scoresValid = task.scores.every(Number.isFinite);
+    if (task.mean !== (scoresValid ? mean(task.scores) : null)
+      || task.spread !== (scoresValid ? Math.max(...task.scores) - Math.min(...task.scores) : null))
+      fail('EVALUATION_GRADING_SUMMARY_INVALID');
+  }
+  if (grading.invalid !== invalid
+    || grading.status !== (invalid ? 'GRADING_INCOMPLETE' : 'GRADED')
+    || summary.score !== (invalid ? null : mean(summary.tasks.map(task => task.mean))))
+    fail('EVALUATION_GRADING_SUMMARY_INVALID');
+}
+
 export function persistGradedCollection({ history, plan, collection, summary }) {
-  return history._db.transaction(() => persist({ history, plan, collection, summary })).immediate();
+  const previousProviderVersion = history.providerVersion;
+  try { return history._db.transaction(() => persist({ history, plan, collection, summary })).immediate(); }
+  finally { history.providerVersion = previousProviderVersion; }
 }
 
 function persist({ history, plan, collection, summary }) {
-  // Re-read source and authority immediately before the append-only write. A
-  // revoked grader or a different source cannot reuse an in-flight score.
   const source = history.getRun(collection.runId);
   const accepted = plan.acceptance.graders?.find(g => g.id === summary.grading?.graderAcceptanceId
     && g.payloadSha256 === summary.grading?.graderAcceptanceSha256);
   if (!source || collectionEvidenceHash(source) !== summary.grading?.sourceCollectionSha256)
     fail('EVALUATION_COLLECTION_CHANGED');
   if (!accepted) fail('EVALUATION_GRADER_ACCEPTANCE_MISSING');
+  verifyGradedSummary(plan,source,summary);
   history.setProviderVersion(source.providerVersion);
-  const input = { artifact: source.artifact, role: plan.role, suiteName: plan.suiteName,
-    suiteVersion: plan.suiteVersion, contractSha256: plan.suiteContractSha256,
-    hardware: source.hardware, vramBytes: source.vramBytes, fresh: true,
-    startedAt: summary.startedAt, completedAt: summary.completedAt,
-    metadata: { source: 'accepted-collection-grading-v1', grading: summary.grading } };
-  if (summary.grading.status === 'GRADED' && Number.isFinite(summary.score))
-    return history.recordComplete({ ...input, summary });
-  return history.recordTerminal({ ...input, status: 'BLOCKED', repeats: summary.runs,
-    tasks: summary.tasks, errorCode: 'EVALUATION_GRADING_INCOMPLETE',
-    errorMessage: 'Hodnotitel nevydal platnou známku pro všechny pokusy. Souhrnné skóre nebylo vydáno.' });
+  const input = { artifact:source.artifact,role:plan.role,suiteName:plan.suiteName,
+    suiteVersion:plan.suiteVersion,contractSha256:plan.suiteContractSha256,
+    hardware:source.hardware,vramBytes:source.vramBytes,fresh:true,
+    startedAt:summary.startedAt,completedAt:summary.completedAt,
+    metadata:{source:'accepted-collection-grading-v2',grading:summary.grading} };
+  if (summary.grading.status !== 'GRADED' || !Number.isFinite(summary.score))
+    return history.recordTerminal({...input,status:'BLOCKED',repeats:summary.runs,tasks:summary.tasks,
+      errorCode:'EVALUATION_GRADING_INCOMPLETE',
+      errorMessage:'Hodnotitel nevydal platnou známku pro všechny pokusy. Souhrnné skóre nebylo vydáno.'});
+  const existing = storedGraderReviews(history,plan,source);
+  if (existing.some(row => row.accepted?.id === accepted.id)) fail('EVALUATION_GRADER_REVIEW_ALREADY_RECORDED');
+  const projected = gradingProjection(summary), reviewId = `review_${randomUUID()}`;
+  history._db.prepare(`INSERT INTO model_evaluation_grader_reviews
+    (review_id,source_run_id,role,contract_sha256,source_sha256,grader_acceptance_id,
+      grader_acceptance_sha256,summary_json,summary_sha256) VALUES (?,?,?,?,?,?,?,?,?)`).run(
+    reviewId,source.runId,plan.role,plan.suiteContractSha256,summary.grading.sourceCollectionSha256,
+    accepted.id,accepted.payloadSha256,JSON.stringify(projected),acceptanceHash(projected));
+  const reviews = storedGraderReviews(history,plan,source).filter(row => row.accepted);
+  const pair = acceptedGraderPair(reviews.map(row => row.accepted),source.artifact.digestSha256);
+  const reconciled = reconcileGraderReviews(pair
+    ? reviews.filter(row => pair.some(g => g.id === row.accepted.id)) : reviews,plan,source);
+  if (reconciled.status === 'GRADED') {
+    // Re-check both acceptances under the same transaction as the COMPLETE row.
+    if (!reconciled.summary.grading.graders.every(g => plan.acceptance.graders?.some(a =>
+      a.id === g.id && a.payloadSha256 === g.payloadSha256))) fail('EVALUATION_GRADER_ACCEPTANCE_MISSING');
+    return history.recordComplete({...input,metadata:{source:'accepted-collection-grading-v2',
+      grading:reconciled.summary.grading},summary:reconciled.summary});
+  }
+  return history.recordTerminal({...input,status:'BLOCKED',repeats:summary.runs,tasks:[],
+    metadata:{source:'accepted-collection-grading-v2',reviewId,reviewStatus:reconciled.status,
+      sourceCollectionRunId:source.runId,disputes:reconciled.disputes},
+    errorCode:reconciled.status === 'REVIEW_DISPUTED' ? 'EVALUATION_GRADING_DISPUTE'
+      : 'EVALUATION_REVIEW_PENDING_PAIR',
+    errorMessage:reconciled.status === 'REVIEW_DISPUTED'
+      ? 'Dva nezávislé posudky se liší po kritériích. Skóre čeká na rozsouzení.'
+      : 'První posudek je uložený; skóre čeká na druhého nezávislého hodnotitele.'});
+}
+
+
+// A disagreement is resolved only by a separate reviewed decision over each
+// disputed criterion. The two first judgements remain immutable. This path
+// never asks a model for a third opinion or guesses an average.
+export function persistAdjudicatedCollection({history,plan,collection,decision}) {
+  const previousProviderVersion = history.providerVersion;
+  try { return history._db.transaction(() => {
+    const source = history.getRun(collection.runId);
+    if (!source || source.role !== plan.role || !plan.collectionOnly
+      || collectionEvidenceHash(source) !== decision?.sourceSha256
+      || decision.sourceRunId !== source.runId
+      || source.suiteName !== plan.suiteName)
+      fail('EVALUATION_ADJUDICATION_SOURCE_CHANGED');
+    try { validateCollectionCapture(plan,source); }
+    catch { fail('EVALUATION_ADJUDICATION_SOURCE_CHANGED'); }
+    history.setProviderVersion(source.providerVersion);
+    const reviews = storedGraderReviews(history,plan,source);
+    const pair = acceptedGraderPair(reviews.map(row => row.accepted),source.artifact.digestSha256);
+    if (!pair || reviews.length !== 2 || reviews.some(row => !row.accepted)
+      || reviews[0].id !== decision.firstReviewId || reviews[1].id !== decision.secondReviewId)
+      fail('EVALUATION_ADJUDICATION_REVIEW_PAIR_INVALID');
+    const pending = reconcileGraderReviews(reviews,plan,source);
+    if (pending.status !== 'REVIEW_DISPUTED' || !pending.disputes.length)
+      fail('EVALUATION_ADJUDICATION_NOT_DISPUTED');
+    const review = decision.review;
+    if (decision.schemaVersion !== 1 || review?.blindToModel !== true
+      || review.independent !== true || typeof review.reviewer !== 'string'
+      || !review.reviewer.trim() || typeof review.reference !== 'string'
+      || !review.reference.trim() || typeof review.reason !== 'string'
+      || !review.reason.trim() || !Number.isFinite(Date.parse(review.reviewedAt))
+      || Date.parse(review.reviewedAt) > Date.now()
+      || reviews.some(row => Date.parse(review.reviewedAt) < Date.parse(row.recordedAt))
+      || !Array.isArray(decision.decisions))
+      fail('EVALUATION_ADJUDICATION_INVALID');
+    if (decision.decisions.length !== pending.disputes.length)
+      fail('EVALUATION_ADJUDICATION_INCOMPLETE');
+    const key = item => item.task + '/' + item.repeat;
+    const indexed = new Map(decision.decisions.map(item => [key(item),item]));
+    if (indexed.size !== pending.disputes.length
+      || pending.disputes.some(dispute => !indexed.has(key(dispute)))
+      || decision.decisions.some(item => !pending.disputes.some(dispute => key(dispute) === key(item))))
+      fail('EVALUATION_ADJUDICATION_INCOMPLETE');
+    const oldComplete = history.getComplete({role:plan.role,digestSha256:source.artifact.digestSha256,
+      suiteName:plan.suiteName,suiteVersion:plan.suiteVersion,
+      contractSha256:plan.suiteContractSha256});
+    if (oldComplete?.metadata?.grading?.sourceCollectionRunId === source.runId)
+      fail('EVALUATION_ADJUDICATION_ALREADY_COMPLETE');
+    const adjudicationId = 'adjudication_' + randomUUID();
+    const first = reviews[0].summary, second = reviews[1].summary;
+    const tasks = first.tasks.map((task,i) => {
+      if (task.name !== second.tasks[i]?.name) fail('EVALUATION_ADJUDICATION_REVIEW_PAIR_INVALID');
+      const captured = source.tasks.find(row => row.name === task.name);
+      const definition = plan.suite.tests.find(row => row.name === task.name);
+      if (!captured || !definition) fail('EVALUATION_ADJUDICATION_SOURCE_CHANGED');
+      const details = task.details.map((detail,j) => {
+        const other = second.tasks[i].details[j], selected = indexed.get(task.name+'/'+(j+1));
+        const graderReviews = reviews.map(row => ({reviewId:row.id,
+          graderAcceptanceId:row.accepted.id,score:row.summary.tasks[i].details[j].score,
+          parts:row.summary.tasks[i].details[j].parts || null}));
+        if (!selected) return {...detail,graderReviews};
+        if (detail.tier !== 'T4' || !Array.isArray(detail.parts)
+          || !Array.isArray(other?.parts) || detail.parts.length !== other.parts.length
+          || !Array.isArray(selected.parts) || selected.parts.length !== detail.parts.length
+          || detail.criteria || other.criteria || detail.contractChecks || other.contractChecks)
+          fail('EVALUATION_ADJUDICATION_REQUIRES_ORACLE_REPAIR');
+        const parts = detail.parts.map((part,k) => {
+          const counterpart = other.parts[k], chosen = selected.parts[k];
+          if (acceptanceHash(part.id) !== acceptanceHash(counterpart?.id)
+            || chosen?.criterion !== k+1 || ![0,0.25,0.5,0.75,1].includes(chosen.score)
+            || typeof chosen.evidence !== 'string' || !chosen.evidence.trim()
+            || typeof chosen.reason !== 'string' || !chosen.reason.trim())
+            fail('EVALUATION_ADJUDICATION_INVALID');
+          // A reviewer resolves disagreements; a value on which both original
+          // judges agreed is outside the authority of this decision.
+          if (part.score === counterpart.score && chosen.score !== part.score)
+            fail('EVALUATION_ADJUDICATION_CONSENSUS_CHANGED');
+          return {...part,score:chosen.score,
+            rawScores:[part.score,counterpart.score],
+            evidence:[chosen.evidence],adjudicationReason:chosen.reason};
+        });
+        const score=mean(parts.map(part => part.score));
+        return {...detail,score,valid:true,passed:score>=0.7,
+          outcome:score>=0.7?'SUCCESS':'INCORRECT',parts,graderReviews,
+          adjudicationId};
+      });
+      const scores=details.map(detail=>detail.score);
+      return {...captured,rubric:definition.rubric || [],scores,mean:mean(scores),
+        spread:Math.max(...scores)-Math.min(...scores),details};
+    });
+    const finalScore=mean(tasks.map(task=>task.mean));
+    const digest=acceptanceHash(decision);
+    history._db.prepare(`INSERT INTO model_evaluation_grader_adjudications
+      (adjudication_id,source_run_id,role,contract_sha256,source_sha256,
+        first_review_id,second_review_id,decision_json,decision_sha256,final_score)
+      VALUES (?,?,?,?,?,?,?,?,?,?)`).run(adjudicationId,source.runId,plan.role,
+      plan.suiteContractSha256,decision.sourceSha256,reviews[0].id,reviews[1].id,
+      JSON.stringify(decision),digest,finalScore);
+    const grading={version:2,status:'GRADED',
+      sourceCollectionRunId:source.runId,sourceCollectionSha256:decision.sourceSha256,
+      sourceContractSha256:source.contractSha256,targetContractSha256:plan.suiteContractSha256,
+      graders:reviews.map(row=>({id:row.accepted.id,payloadSha256:row.accepted.payloadSha256,
+        judge:row.accepted.judge,reviewId:row.id,reviewSha256:row.summarySha256})),
+      adjudication:{id:adjudicationId,sha256:digest}};
+    history.setProviderVersion(source.providerVersion);
+    return history.recordComplete({artifact:source.artifact,role:plan.role,
+      suiteName:plan.suiteName,suiteVersion:plan.suiteVersion,
+      contractSha256:plan.suiteContractSha256,hardware:source.hardware,
+      vramBytes:source.vramBytes,fresh:true,
+      startedAt:review.reviewedAt,completedAt:new Date().toISOString(),
+      metadata:{source:'accepted-collection-adjudication-v1',grading},
+      summary:{score:finalScore,runs:plan.repeats,tasks,
+        startedAt:review.reviewedAt,completedAt:new Date().toISOString(),grading}});
+  }).immediate(); }
+  finally { history.providerVersion = previousProviderVersion; }
 }

@@ -1,5 +1,88 @@
 # Inventura #18a — Správa modelů
 
+**GPU hunt — cílový provoz se dvěma hodnotiteli, 24. 9. 2026:**
+Dokumentovaný výběr sestavy rolí, přejímka doplňující se dvojice, zákaz vlastní
+kontroly, spory, provozní ověření a řízená aktivace. Požadavek max. 2 role/model
+se liší od současné konstanty 3; automatická hodnoticí cesta dosud používá
+jednoho hodnotitele. **DESIGN_REVIEW / NO_IMPLEMENTATION_CHANGE**.
+[Úplné workflow a porovnání s kódem](../GPU-HUNT-WORKFLOW.md).
+Navazující [revize návrhu](../review/2026-09-24-HUNT-WORKFLOW-REVIEW.md)
+doplňuje zdroje případů, proveditelnost, absolutní brány a přechodnou dvojici;
+bez změny runtime a bez nové modelové inference.
+[Kontrola rozhodovací metody](../review/2026-09-24-HUNT-DECISION-FEASIBILITY.md)
+dokládá společnou KL cestu všech rolí, problém proveditelnosti tolerance 0,02
+a omezení t/bootstrap náhrady. Živý CHAT binding je ověřen přes API;
+nová rozhodovací metoda a produkční reprodukce rizika dosud nejsou přijaté/provedené.
+
+**GPU hunt — ověření druhého CHAT posudku, 24. 9. 2026:**
+Zachování sběru ověřeno proti celému deníku. Druhý posudek dokládá další
+nálezy, jeho součet ale pokrývá 12/20 scénářů a není exportem známek po
+kritériích. Pokrytí původního hodnocení se nezměnilo; žádné nové přiřazení.
+**AUDIT_NOT_GRADING_ACCEPTANCE / NO_AUTONOMOUS_GO**.
+[Rozbor a konkrétní důkazy](../review/2026-09-24-CHAT-OPUS-RECONCILIATION.md).
+
+**GPU hunt — dokončený CHAT sběr, první hodnoticí blok, 24. 9. 2026:**
+Finální panel: 1 200 záznamů, 1 196 úplných dialogů, čtyři přerušené;
+3 472 volání. Posouzeno 60 celých rozhovorů ručně a 60 striktních JSON
+produkčním parserem. Dvě kritéria jednoho dialogu zůstávají nerozhodnutá;
+1 076 úplných dialogů ještě známku nemá. Zmrazení před odkrytím modelových
+metadat, přiznaná znalost sady a pilotu; není to nezávislá přejímka.
+**PARTIAL_REFERENCE_GRADING_DRAFT / NO_AUTONOMOUS_GO**.
+[Výsledky, podklad pro druhé čtení a cesta k místnímu hodnotiteli](../review/2026-09-24-CHAT-PANEL-ASSESSMENT.md).
+
+**GPU hunt — navázání po krátkém konfliktu GPU, 24. 9. 2026:**
+Qwen3.5 dokončen. Qwen3.6 přerušen při cizí GPU aktivitě; časově doložen
+souběh s RustDesk CUDA/NVENC sondou. Doplněno omezené čekání a nejvýše tři
+navázání při GPU konfliktu, zachování deníku a původního rozpočtu.
+Přehled rozlišuje čekání od zastavení. 24 cílených testů a 11 browser kontrol PASS.
+**RUNTIME_RESUMED / NOT_GRADED**.
+[Diagnóza, aktuální běh a důkazy](../review/2026-09-24-CHAT-GPU-CONTENTION.md).
+
+
+**GPU hunt — velký CHAT sběr po slepém posudku, 23. 9. 2026:**
+Operátorem spuštěný panel deseti místních modelů: 20 CS/EN párů, tři
+opakování, 1 200 dialogů / nejvýše 3 480 volání, okno 24 hodin.
+Rubrika v2 upravuje podmíněný kredit u injektáže a nevyplněné šablony;
+40 promptů se nemění. Posudek pilotu (96 známek) uchován v původní verzi.
+**COLLECTION_RUNNING / NOT_GRADED / NO_AUTONOMOUS_GO** — stav je snímek
+zahájeného běhu, aktuální průběh a výsledek jsou v jeho trvalé evidenci.
+[Průběh, změny rubriky, původní známky a ovládání běhu](../review/2026-09-23-CHAT-PANEL.md).
+
+
+**GPU hunt — skutečný CHAT pilot, 23. 9. 2026:**
+Qwen3.8 a Phi4 dokončily **24/24 dialogů, 64/64 volání** za 7 min 33 s.
+Návaznost, identity a úplnost ověřené; obsahové známky zatím nevydané.
+Připravené oddělené stránky pro anonymní a pojmenované hodnocení, 17 browser
+kontrol PASS. Opravený výpis uplynulého času; 45 cílených kontrol PASS.
+Další desetimodelový CHAT panel (3 480 volání) je zmrazený, nespuštěný.
+**CAPTURE_COMPLETE / UNGRADED / REVIEW_PENDING / NO_AUTONOMOUS_GO**.
+[Dialogy, důkazy, rozpočet a další postup](../review/2026-09-23-CHAT-PILOT.md).
+
+**GPU hunt — technická příprava dalšího sběru, 23. 9. 2026:**
+Trvalý deník a pokračování mezi okny, souhrnné rozpočty a průběžná ochrana
+RAM/FS/GPU jsou implementované. Připravený CHAT pilot: dva přesné artefakty,
+24 dialogů / 64 volání, zatím 0 volání. Nové CODE zadání vyžaduje jistotu i
+pod prahem; dvě reference prošly 24/24 technickými kontrolami. Kandidát
+extraktoru pracuje pouze s prózou a nemá přejímku ani skórovací autoritu.
+60 cílených kontrol PASS; nejde o modelový pilot ani release PASS.
+Aktuální module graph má 1 417 hran, 3 cykly / 28 členů.
+**REVIEW_PENDING / NOT_DEPLOYED / NO_AUTONOMOUS_GO**.
+[Nové předání, příkazy, důkazy a zbývající přejímky](../review/2026-09-23-HUNT-COLLECTION-READY.md).
+
+**GPU hunt — celé předání, 23. 9. 2026:**
+Nasazeno `400c9d8f`: propojené dodatečné hodnocení uloženého sběru,
+CLI/API/Studio, nezávislá T4 přejímka, odvolání a příjem provozní evidence
+všech rolí.
+Finální fyzický běh: všech 7 rolí plus druhý CODE kandidát, **327 pokusů**;
+216 otevřených odpovědí čeká na posouzení.
+Sedm záložek Studia fyzicky ověřeno, přesná disková kapacita
+na Vi7000 a viditelný důvod odmítnutí hodnocení. Celý offline/database
+profil: 364 PASS / 1 známý Gate 0 FAIL / 0 BLOCKED.
+**DEPLOYED / REVIEW_PENDING / AUTONOMOUS_SELECTION_NO_GO**;
+0/7 přijatých profilů, timer vypnutý. Pozitivní cesta skutečného T4 soudce
+a nová úplná párová provozní kvalifikace nejsou tímto přijaté.
+[Celý rozsah a podmínky GO](../review/2026-09-23-HUNT-GRADING-INTEGRATION.md).
+
 **GPU hunt — úložiště a arbitráž, 22. 9. 2026:**
 Staré `OLLAMA_MODELS` přepsáno pro user služby pomocí environment.d;
 backend, transient evaluace a provider nyní používají `/mnt/vi7000/ollama/models`.

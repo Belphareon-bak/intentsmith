@@ -45,6 +45,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { findSpansForLines, regionForLines, mergeSpans, replaceSpans } from './function-span.js';
 import { testFilesOf } from './code-task-extractor.js';
+import { CODE_TECHNICAL_PROFILE, CONFIDENCE_CASE, projectConfidenceTests, executableComponent } from './code-technical-projection.js';
 
 export const DEFAULT_TEST_TIMEOUT = 120_000;
 
@@ -711,6 +712,14 @@ export function scoreFromOutput(output, task, filePassed) {
  * @returns {{score, passed, applied, syntaxOk, timedOut, reason}}
  */
 export function applyAndTest(repo, task, codes, opts = {}) {
+  if (opts.oracleProfile != null && opts.oracleProfile !== CODE_TECHNICAL_PROFILE) {
+    throw new Error('CODE_ORACLE_PROFILE_UNKNOWN');
+  }
+  const result = executePatch(repo, task, codes, opts);
+  return opts.oracleProfile === CODE_TECHNICAL_PROFILE ? executableComponent(result, task) : result;
+}
+
+function executePatch(repo, task, codes, opts) {
   const timeout = opts.testTimeout ?? DEFAULT_TEST_TIMEOUT;
   const fail = (reason, extra = {}) => ({
     score: 0, valid: true, outcome: CODE_EVALUATION_OUTCOME.INCORRECT,
@@ -744,10 +753,12 @@ export function applyAndTest(repo, task, codes, opts = {}) {
     // A reviewed historical assertion confused punctuation with meaning.
     // Versioned repair applies only inside the disposable oracle worktree;
     // original evidence and repository history remain unchanged.
-    if ((task.oracleCase || task.taskFingerprint?.slice(0,12)) === 'f63d14d5eb61') {
+    if ((task.oracleCase || task.taskFingerprint?.slice(0,12)) === CONFIDENCE_CASE) {
       const testPath = path.join(work, 'tests/pairwise-trial.test.js');
       const original = readFileSync(testPath, 'utf8');
-      const revised = original.replaceAll('/jistota nízká/', '/jistota\\s*:?\\s*nízká/i');
+      const revised = opts.oracleProfile === CODE_TECHNICAL_PROFILE
+        ? projectConfidenceTests(original).text
+        : original.replaceAll('/jistota nízká/', '/jistota\\s*:?\\s*nízká/i');
       writeFileSync(testPath, revised);
     }
 
@@ -797,7 +808,8 @@ export function applyAndTest(repo, task, codes, opts = {}) {
     if (task.publicContract) {
       const fixture = path.join(work, '.code-contract-input.json');
       const checker = path.join(work, '.code-contract-check.mjs');
-      writeFileSync(fixture, JSON.stringify({ name: task.oracleCase || task.taskFingerprint?.slice(0, 12), source: task.source, codes: list }));
+      writeFileSync(fixture, JSON.stringify({ name: task.oracleCase || task.taskFingerprint?.slice(0, 12), source: task.source, codes: list,
+        oracleProfile: opts.oracleProfile || null }));
       writeFileSync(checker, readFileSync(new URL('./code-contract-check.mjs', import.meta.url)));
       const checked = (opts.testRunner || runIsolatedTest)(work, '.code-contract-check.mjs', timeout);
       if (checked.environmentError) return invalid(checked.environmentError, { applied: true, syntaxOk });

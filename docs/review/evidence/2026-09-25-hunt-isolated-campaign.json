@@ -1,0 +1,378 @@
+{
+  "status": "EXPLORATORY_RAW_CAPTURES_INCOMPLETE",
+  "decisionAuthority": false,
+  "notAHoldout": true,
+  "generatedAt": "2026-09-25T06:49:32.274Z",
+  "database": "isolated copy of live DB",
+  "providerVersion": "0.34.2-intentsmith.1",
+  "comparabilityBasis": "Each semantic capture passed byte-exact current input/options validation; sourceSha256 is artifact-and-response specific and is not compared across models.",
+  "integrityCheck": "ok",
+  "selected": [
+    {
+      "role": "D1",
+      "model": "qwen3.6:27b",
+      "kind": "campaign",
+      "runId": "eval_a5e13447-d837-4f03-b39d-978f241b956c",
+      "status": "BLOCKED",
+      "errorCode": "EVALUATION_AWAITING_REVIEW",
+      "digestSha256": "9d5803d493a991af27b9441c098aa56f2ed7bbd260877f075ec09b575c049bc3",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "contractSha256": "195b4a045aa1665d79c4f070bd71efdabde02d82ae3f99fe1baae636f6a3aabf",
+      "currentContractSha256": "195b4a045aa1665d79c4f070bd71efdabde02d82ae3f99fe1baae636f6a3aabf",
+      "sourceSha256": "de7a0046b8ef6a40c77dcae99849c7d719acf624095acdfdf959f4db4f3dac84",
+      "taskCount": 8,
+      "responses": 24,
+      "score": null,
+      "completedAt": "2026-09-24T23:59:40.465Z"
+    },
+    {
+      "role": "R1",
+      "model": "qwen3.6:27b",
+      "kind": "campaign",
+      "runId": "eval_754215bd-3ae1-41c3-aa0a-eec5009325c3",
+      "status": "BLOCKED",
+      "errorCode": "EVALUATION_AWAITING_REVIEW",
+      "digestSha256": "9d5803d493a991af27b9441c098aa56f2ed7bbd260877f075ec09b575c049bc3",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "contractSha256": "d15f2f96a0d6a32d89f67b1a18715f44337bbf4c1a24bf5f59950d2b772921da",
+      "currentContractSha256": "d15f2f96a0d6a32d89f67b1a18715f44337bbf4c1a24bf5f59950d2b772921da",
+      "sourceSha256": "eba0114c5fff9567cb23438e9ccafce40e0364bcf5d146ce17e086afca56c61a",
+      "taskCount": 8,
+      "responses": 24,
+      "score": null,
+      "completedAt": "2026-09-25T00:14:51.428Z"
+    },
+    {
+      "role": "R2",
+      "model": "qwen3.6:27b",
+      "kind": "campaign",
+      "runId": "eval_6de74c77-dc0d-48c9-bf68-cdae6b7ca71f",
+      "status": "BLOCKED",
+      "errorCode": "EVALUATION_AWAITING_REVIEW",
+      "digestSha256": "9d5803d493a991af27b9441c098aa56f2ed7bbd260877f075ec09b575c049bc3",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "contractSha256": "ec73edea1eb0db37de8f635bf5f5745c5ffca6ea22f2059bc62b437f9b811c6f",
+      "currentContractSha256": "ec73edea1eb0db37de8f635bf5f5745c5ffca6ea22f2059bc62b437f9b811c6f",
+      "sourceSha256": "c050bf66edb7bff603c73a491bda856ff3bc7ce3752be558a568a2a7f99d7122",
+      "taskCount": 8,
+      "responses": 24,
+      "score": null,
+      "completedAt": "2026-09-25T00:25:00.045Z"
+    },
+    {
+      "role": "VISION",
+      "model": "qwen3.8:latest",
+      "kind": "campaign",
+      "runId": "eval_248d2112-fc20-4830-8173-f5157aa7d900",
+      "status": "COMPLETE",
+      "errorCode": null,
+      "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "contractSha256": "d4c6aa37b8c294cba05f62e61c58e5617250641f4fdf7541b15dfdba6998cbdc",
+      "currentContractSha256": "d4c6aa37b8c294cba05f62e61c58e5617250641f4fdf7541b15dfdba6998cbdc",
+      "sourceSha256": null,
+      "taskCount": 23,
+      "responses": 69,
+      "score": 0.772463768115942,
+      "completedAt": "2026-09-25T05:32:55.782Z"
+    },
+    {
+      "role": "VISION",
+      "model": "gemma4:26b",
+      "kind": "campaign",
+      "runId": "eval_14bc91d1-5add-4f8a-bd87-48d58a12a19f",
+      "status": "COMPLETE",
+      "errorCode": null,
+      "digestSha256": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "contractSha256": "d4c6aa37b8c294cba05f62e61c58e5617250641f4fdf7541b15dfdba6998cbdc",
+      "currentContractSha256": "d4c6aa37b8c294cba05f62e61c58e5617250641f4fdf7541b15dfdba6998cbdc",
+      "sourceSha256": null,
+      "taskCount": 23,
+      "responses": 69,
+      "score": 0.7572463768115942,
+      "completedAt": "2026-09-25T05:35:17.882Z"
+    },
+    {
+      "role": "VISION",
+      "model": "ornith-1.5:9b",
+      "kind": "incumbent",
+      "runId": "eval_4d7587d8-6047-4ee9-aa9e-57795cd85344",
+      "status": "COMPLETE",
+      "errorCode": null,
+      "digestSha256": "e5df7dcdd8a263994df62d610317e07be0d6af23f96fcbd8543273058fce575e",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "contractSha256": "d4c6aa37b8c294cba05f62e61c58e5617250641f4fdf7541b15dfdba6998cbdc",
+      "currentContractSha256": "d4c6aa37b8c294cba05f62e61c58e5617250641f4fdf7541b15dfdba6998cbdc",
+      "sourceSha256": null,
+      "taskCount": 23,
+      "responses": 69,
+      "score": 0.7760869565217392,
+      "completedAt": "2026-09-25T05:54:30.207Z"
+    },
+    {
+      "role": "D1",
+      "model": "qwen3.5:27b",
+      "kind": "incumbent",
+      "runId": "eval_e37bee5f-78e4-4ded-ae84-9350624f0c86",
+      "status": "BLOCKED",
+      "errorCode": "EVALUATION_AWAITING_REVIEW",
+      "digestSha256": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "contractSha256": "195b4a045aa1665d79c4f070bd71efdabde02d82ae3f99fe1baae636f6a3aabf",
+      "currentContractSha256": "195b4a045aa1665d79c4f070bd71efdabde02d82ae3f99fe1baae636f6a3aabf",
+      "sourceSha256": "eb4bd46b617a0b3883e27b0a849c4e2a3fe66d38e41f4dfa1c453654b1eecc70",
+      "taskCount": 8,
+      "responses": 24,
+      "score": null,
+      "completedAt": "2026-09-25T06:17:48.537Z"
+    },
+    {
+      "role": "R2",
+      "model": "devstral-small-2:latest",
+      "kind": "incumbent",
+      "runId": "eval_6534bff0-7830-4bd5-8dfe-e09b1e9a7cad",
+      "status": "BLOCKED",
+      "errorCode": "EVALUATION_AWAITING_REVIEW",
+      "digestSha256": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "contractSha256": "ec73edea1eb0db37de8f635bf5f5745c5ffca6ea22f2059bc62b437f9b811c6f",
+      "currentContractSha256": "ec73edea1eb0db37de8f635bf5f5745c5ffca6ea22f2059bc62b437f9b811c6f",
+      "sourceSha256": "2114303a28a08772d93b7d2ac35e8a6853c8e2ba51bce297dfe7cadab710382f",
+      "taskCount": 8,
+      "responses": 24,
+      "score": null,
+      "completedAt": "2026-09-25T06:26:58.014Z"
+    },
+    {
+      "role": "R1",
+      "model": "gemma4:26b",
+      "kind": "portfolio-alternative",
+      "runId": "eval_d116d7be-a68c-43e0-8ff3-19612003cc7b",
+      "status": "BLOCKED",
+      "errorCode": "EVALUATION_AWAITING_REVIEW",
+      "digestSha256": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "contractSha256": "d15f2f96a0d6a32d89f67b1a18715f44337bbf4c1a24bf5f59950d2b772921da",
+      "currentContractSha256": "d15f2f96a0d6a32d89f67b1a18715f44337bbf4c1a24bf5f59950d2b772921da",
+      "sourceSha256": "50fb1edc27d69b94296ef6f6529ae8089c6349cf4860c357ee84d4c0f74008cb",
+      "taskCount": 8,
+      "responses": 24,
+      "score": null,
+      "completedAt": "2026-09-25T06:31:03.979Z"
+    },
+    {
+      "role": "R1",
+      "model": "devstral-small-2:latest",
+      "kind": "portfolio-alternative",
+      "runId": "eval_9bca2dd3-799d-4df7-b9a5-4d3a839f86f9",
+      "status": "BLOCKED",
+      "errorCode": "EVALUATION_AWAITING_REVIEW",
+      "digestSha256": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "contractSha256": "d15f2f96a0d6a32d89f67b1a18715f44337bbf4c1a24bf5f59950d2b772921da",
+      "currentContractSha256": "d15f2f96a0d6a32d89f67b1a18715f44337bbf4c1a24bf5f59950d2b772921da",
+      "sourceSha256": "c70b3c1a66f1af661e02fe4d38a1e265fda650576279d0f45b998cce54d597c1",
+      "taskCount": 8,
+      "responses": 24,
+      "score": null,
+      "completedAt": "2026-09-25T06:39:53.254Z"
+    },
+    {
+      "role": "D2",
+      "model": "gemma4:26b",
+      "kind": "portfolio-alternative",
+      "runId": "eval_1d8bc564-095b-4d52-8d39-62d192d1cdbb",
+      "status": "BLOCKED",
+      "errorCode": "EVALUATION_AWAITING_REVIEW",
+      "digestSha256": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "contractSha256": "d8c1799838019e889df48ef65c81673e4d8010563f7453522eb9c27b7176891f",
+      "currentContractSha256": "d8c1799838019e889df48ef65c81673e4d8010563f7453522eb9c27b7176891f",
+      "sourceSha256": "3626abcebab32c92d5694a23584f316bc57cd5be129f0b815edc02e58d8cc8e6",
+      "taskCount": 8,
+      "responses": 24,
+      "score": null,
+      "completedAt": "2026-09-25T06:42:57.360Z"
+    },
+    {
+      "role": "D2",
+      "model": "qwen3.6:27b",
+      "kind": "pre-campaign",
+      "runId": "eval_6ddb2091-24e1-454c-bd44-eb21e46564c3",
+      "status": "BLOCKED",
+      "errorCode": "EVALUATION_AWAITING_REVIEW",
+      "digestSha256": "9d5803d493a991af27b9441c098aa56f2ed7bbd260877f075ec09b575c049bc3",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "contractSha256": "d8c1799838019e889df48ef65c81673e4d8010563f7453522eb9c27b7176891f",
+      "currentContractSha256": "d8c1799838019e889df48ef65c81673e4d8010563f7453522eb9c27b7176891f",
+      "sourceSha256": "a9f8fb7aea8a42625c4828d8ded33d076267a225f194808e1c9459f6e2a39cac",
+      "taskCount": 8,
+      "responses": 24,
+      "score": null,
+      "completedAt": "2026-09-24T23:44:18.243Z"
+    },
+    {
+      "role": "D1",
+      "model": "qwen3.8:latest",
+      "kind": "baseline",
+      "runId": "eval_80e8f162-cd84-449d-a0f0-d12e8264759e",
+      "status": "BLOCKED",
+      "errorCode": "EVALUATION_AWAITING_REVIEW",
+      "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "contractSha256": "6303f6808d329b19002bf2d86677366487a86d04b8d9167f552dc5a28b6c8763",
+      "currentContractSha256": "195b4a045aa1665d79c4f070bd71efdabde02d82ae3f99fe1baae636f6a3aabf",
+      "sourceSha256": "047b623336391b99aa98c0c39be3b9dceff83404275f91f13c562dba771edd62",
+      "taskCount": 8,
+      "responses": 24,
+      "score": null,
+      "completedAt": "2026-09-23T00:16:08.765Z"
+    },
+    {
+      "role": "D2",
+      "model": "qwen3.8:latest",
+      "kind": "baseline",
+      "runId": "eval_f766e962-899b-4fab-b0b9-f6eefe76809a",
+      "status": "BLOCKED",
+      "errorCode": "EVALUATION_AWAITING_REVIEW",
+      "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "contractSha256": "0f61623173d9640fa55353ce3963fa504f0edabcf788fbc64ef89c046d7e9582",
+      "currentContractSha256": "d8c1799838019e889df48ef65c81673e4d8010563f7453522eb9c27b7176891f",
+      "sourceSha256": "713966147f3122d6e7a1c3c56d57c4906c12498ce473c178e78e6aee2c73a6c2",
+      "taskCount": 8,
+      "responses": 24,
+      "score": null,
+      "completedAt": "2026-09-23T00:25:00.533Z"
+    },
+    {
+      "role": "R1",
+      "model": "qwen3.8:latest",
+      "kind": "baseline",
+      "runId": "eval_ee420a92-2fc1-462d-aa04-8b5df914e099",
+      "status": "BLOCKED",
+      "errorCode": "EVALUATION_AWAITING_REVIEW",
+      "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "contractSha256": "d26f33fa7e99886ade68efd4aa54e80bd4eb91229e78af38535c0d0327bf9093",
+      "currentContractSha256": "d15f2f96a0d6a32d89f67b1a18715f44337bbf4c1a24bf5f59950d2b772921da",
+      "sourceSha256": "adfecc2b3b0a97bf76baa00fca14edc7cdec4e2213941df762bfd23baf0bdf5a",
+      "taskCount": 8,
+      "responses": 24,
+      "score": null,
+      "completedAt": "2026-09-23T00:36:22.429Z"
+    },
+    {
+      "role": "R2",
+      "model": "qwen3.8:latest",
+      "kind": "baseline",
+      "runId": "eval_70611a17-4e34-45dc-a500-3a48536d60de",
+      "status": "BLOCKED",
+      "errorCode": "EVALUATION_AWAITING_REVIEW",
+      "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "contractSha256": "b458d17b730f57eebd846c43b5695f3b59b490a6469a4e343c6c0a1478f18259",
+      "currentContractSha256": "ec73edea1eb0db37de8f635bf5f5745c5ffca6ea22f2059bc62b437f9b811c6f",
+      "sourceSha256": "eb362d0a8bc553e67823905218eba0b55d74b22cf9d0caa27630765de6cbd930",
+      "taskCount": 8,
+      "responses": 24,
+      "score": null,
+      "completedAt": "2026-09-23T00:49:27.843Z"
+    }
+  ],
+  "missing": [
+    {
+      "role": "CODE",
+      "model": "qwen3.8:latest",
+      "kind": "campaign",
+      "reason": "EXACT_CAPTURE_MISSING"
+    },
+    {
+      "role": "CODE",
+      "model": "devstral-small-2:latest",
+      "kind": "campaign",
+      "reason": "EXACT_CAPTURE_MISSING"
+    },
+    {
+      "role": "CODE",
+      "reason": "ROLE_COVERAGE_INCOMPLETE"
+    }
+  ],
+  "roles": {
+    "D1": {
+      "models": 3,
+      "distinctArtifacts": 3,
+      "currentInputOptionsSha256": "12eded6d42e5b0a98cecf62f25e7351f278234571638546c90a4f388666ff3ac",
+      "olderSuiteContractsReused": [
+        {
+          "model": "qwen3.8:latest",
+          "recordedContractSha256": "6303f6808d329b19002bf2d86677366487a86d04b8d9167f552dc5a28b6c8763"
+        }
+      ],
+      "comparable": true,
+      "independentAcceptedGraders": 0,
+      "decisionReady": false
+    },
+    "D2": {
+      "models": 3,
+      "distinctArtifacts": 3,
+      "currentInputOptionsSha256": "7a35b028fdbeb72f320e49ec0f1e78ef2ec70e6696aefd84155ad1b951215dc0",
+      "olderSuiteContractsReused": [
+        {
+          "model": "qwen3.8:latest",
+          "recordedContractSha256": "0f61623173d9640fa55353ce3963fa504f0edabcf788fbc64ef89c046d7e9582"
+        }
+      ],
+      "comparable": true,
+      "independentAcceptedGraders": 0,
+      "decisionReady": false
+    },
+    "R1": {
+      "models": 4,
+      "distinctArtifacts": 4,
+      "currentInputOptionsSha256": "3ca94157180cbca93820d9876ff963ea3a5a47e17396782cc09e82ff76820d51",
+      "olderSuiteContractsReused": [
+        {
+          "model": "qwen3.8:latest",
+          "recordedContractSha256": "d26f33fa7e99886ade68efd4aa54e80bd4eb91229e78af38535c0d0327bf9093"
+        }
+      ],
+      "comparable": true,
+      "independentAcceptedGraders": 0,
+      "decisionReady": false
+    },
+    "R2": {
+      "models": 3,
+      "distinctArtifacts": 3,
+      "currentInputOptionsSha256": "8366bb61ee81b614f0d599a305b5a3449ee4f34adbba32722adc9797450d9d90",
+      "olderSuiteContractsReused": [
+        {
+          "model": "qwen3.8:latest",
+          "recordedContractSha256": "b458d17b730f57eebd846c43b5695f3b59b490a6469a4e343c6c0a1478f18259"
+        }
+      ],
+      "comparable": true,
+      "independentAcceptedGraders": 0,
+      "decisionReady": false
+    },
+    "CODE": {
+      "models": 0,
+      "distinctArtifacts": 0,
+      "currentInputOptionsSha256": "b6f80d2bc86a0f9eee55fb272abf3c771bdf5de3d69a11b9f005b4d10fe46301",
+      "olderSuiteContractsReused": [],
+      "comparable": false,
+      "independentAcceptedGraders": 0,
+      "decisionReady": false
+    },
+    "VISION": {
+      "models": 3,
+      "distinctArtifacts": 3,
+      "currentInputOptionsSha256": "9102a22082c2f10d67edc8290eed1a426b56486e29753250eeab70236a869c42",
+      "olderSuiteContractsReused": [],
+      "comparable": true,
+      "independentAcceptedGraders": 0,
+      "decisionReady": false
+    }
+  }
+}

@@ -913,6 +913,11 @@ test('durable desired bindings override stale config defaults', () => {
   assertEqual(current.artifacts.CHAT.digestSha256, DIGEST_A);
 });
 
+const responsibilityDigest = model => createHash('sha256').update(model.toLowerCase().replace(/:latest$/, '')).digest('hex');
+const responsibilityInventory = (...names) => [...new Set(names.flat())].map(name => ({ name, digest: responsibilityDigest(name) }));
+const responsibilityEvidence = (model, score, eligibleForChange = true) => ({ model, score, eligibleForChange,
+  digestSha256: responsibilityDigest(model) });
+
 test('responsibility audit rejects concentration and author-reviewer identity', () => {
   const audit = auditResponsibilitySegregation({
     D1: 'qwen:14b', D2: 'qwen:14b', R1: 'qwen:14b',
@@ -924,22 +929,23 @@ test('responsibility audit rejects concentration and author-reviewer identity', 
     && row.roles.join(',') === 'D1,R1'));
 });
 
-test('portfolio keeps the best feasible models while separating review', () => {
+test('portfolio repairs only with individually qualified roles and distinct artifacts', () => {
   const before = {
     D1: 'qwen:14b', D2: 'qwen:14b', R1: 'qwen:14b',
     CODE: 'coder:14b', R2: 'reviewer:14b', CHAT: 'chat:14b', VISION: 'vision:8b',
   };
   const evidenceByRole = {
-    D1: [{ model: 'qwen:14b', score: 0.95 }, { model: 'deepseek:14b', score: 0.90 }],
-    D2: [{ model: 'qwen:14b', score: 0.95 }, { model: 'deepseek:14b', score: 0.89 }],
-    R1: [{ model: 'qwen:14b', score: 0.95 }, { model: 'deepseek:14b', score: 0.92 }],
+    D1: [responsibilityEvidence('qwen:14b', .85), responsibilityEvidence('deepseek:14b', .90)],
+    D2: [responsibilityEvidence('qwen:14b', .95)],
+    R1: [responsibilityEvidence('qwen:14b', .80), responsibilityEvidence('review-b:14b', .92)],
   };
-  const result = selectResponsibilityPortfolio({ before, evidenceByRole });
+  const result = selectResponsibilityPortfolio({ before, evidenceByRole,
+    inventory: responsibilityInventory(Object.values(before), 'deepseek:14b', 'review-b:14b') });
   assertEqual(result.feasible, true);
   assertEqual(result.audit.compliant, true);
-  assertEqual(result.bindings.D1, 'qwen:14b');
+  assertEqual(result.bindings.D1, 'deepseek:14b');
   assertEqual(result.bindings.D2, 'qwen:14b');
-  assertEqual(result.bindings.R1, 'deepseek:14b');
+  assertEqual(result.bindings.R1, 'review-b:14b');
 });
 
 test('compliant portfolio never promotes a raw-score candidate that lost pairwise', () => {
@@ -950,10 +956,11 @@ test('compliant portfolio never promotes a raw-score candidate that lost pairwis
   };
   const result = selectResponsibilityPortfolio({
     before,
+    inventory: responsibilityInventory(Object.values(before), 'fast-loser:14b'),
     evidenceByRole: {
       CHAT: [
-        { model: 'chat:14b', score: 0.80, eligibleForChange: true },
-        { model: 'fast-loser:14b', score: 0.90, eligibleForChange: false },
+        responsibilityEvidence('chat:14b', .80),
+        responsibilityEvidence('fast-loser:14b', .90, false),
       ],
     },
   });
@@ -965,16 +972,17 @@ test('compliant portfolio never promotes a raw-score candidate that lost pairwis
 
 test('compliant incumbent remains feasible when a stronger winner conflicts with reviewer separation', () => {
   const before = {
-    D1: 'qwen3.5:27b', D2: 'qwen3.8:latest', CODE: 'qwen3.5:27b',
-    R1: 'qwen3.8:latest', R2: 'qwen3:14b', CHAT: 'qwen3.5:27b',
+    D1: 'planner:14b', D2: 'diagnoser:14b', CODE: 'qwen3.5:27b',
+    R1: 'qwen3.8:latest', R2: 'qwen3:14b', CHAT: 'chat:14b',
     VISION: 'llava-llama3:8b',
   };
   const result = selectResponsibilityPortfolio({
     before,
+    inventory: responsibilityInventory(Object.values(before)),
     evidenceByRole: {
       CODE: [
-        { model: 'qwen3.5:27b', score: 0.292, eligibleForChange: true },
-        { model: 'qwen3.8:latest', score: 0.792, eligibleForChange: true },
+        responsibilityEvidence('qwen3.5:27b', .292),
+        responsibilityEvidence('qwen3.8:latest', .792),
       ],
     },
   });
@@ -982,6 +990,150 @@ test('compliant incumbent remains feasible when a stronger winner conflicts with
   assertEqual(result.audit.compliant, true);
   assertEqual(result.bindings.CODE, 'qwen3.5:27b');
   assertEqual(result.changedRoles.length, 0);
+});
+
+test('responsibility capacity is at most two and every shared pair needs explicit allowance', () => {
+  const inventory = responsibilityInventory('shared');
+  const bindings = { CHAT: 'shared', VISION: 'shared' };
+  assertEqual(auditResponsibilitySegregation(bindings, undefined, { inventory }).compliant, false);
+  const policy = { allowedSharedRolePairs: [['CHAT', 'VISION']] };
+  assertEqual(auditResponsibilitySegregation(bindings, policy, { inventory }).compliant, true);
+  const three = auditResponsibilitySegregation({ ...bindings, D1: 'shared' }, {
+    allowedSharedRolePairs: [['CHAT', 'VISION'], ['CHAT', 'D1'], ['VISION', 'D1']],
+  }, { inventory });
+  assert(three.violations.some(row => row.type === 'role-capacity' && row.maximum === 2));
+  let rejected = false;
+  try { auditResponsibilitySegregation(bindings, { ...policy, maxRolesPerModel: 3 }, { inventory }); }
+  catch (error) { rejected = error.message === 'INVALID_RESPONSIBILITY_POLICY'; }
+  assert(rejected, 'a caller cannot restore the old three-role ceiling');
+});
+
+test('sharing exceptions cannot permit author self-review or identical reviewers', () => {
+  const inventory = responsibilityInventory('shared');
+  for (const pair of [['CODE', 'R1'], ['CODE', 'R2'], ['D1', 'R1'], ['D2', 'R2'], ['R1', 'R2']]) {
+    const audit = auditResponsibilitySegregation(Object.fromEntries(pair.map(role => [role, 'shared'])), {
+      independentRolePairs: [], allowedSharedRolePairs: [pair],
+    }, { inventory });
+    assert(audit.violations.some(row => row.type === 'independence'), pair.join('/'));
+  }
+});
+
+test('different model names with the same digest are the same responsibility identity', () => {
+  const inventory = [{ name: 'coder', digest: DIGEST_A }, { name: 'review-alias', digest: `sha256:${DIGEST_A}` }];
+  const audit = auditResponsibilitySegregation({ CODE: 'coder:latest', R1: 'review-alias' }, undefined, { inventory });
+  assert(audit.violations.some(row => row.type === 'independence'));
+  assertEqual(Object.keys(audit.assignments).length, 1);
+});
+
+test('explicit shared lineage groups different artifacts; architecture names do not establish lineage', () => {
+  const inventory = responsibilityInventory('qwen-a', 'qwen-b');
+  const bindings = { CODE: 'qwen-a', R1: 'qwen-b' };
+  const unknown = auditResponsibilitySegregation(bindings, undefined, { inventory });
+  assertEqual(unknown.compliant, true);
+  assertEqual(unknown.identityScope, 'exact-digest-and-explicit-lineage');
+  assertEqual(unknown.lineageUnverifiedRoles.length, 2, 'must not claim independent model origins');
+  const known = auditResponsibilitySegregation(bindings, undefined, {
+    inventory: inventory.map(row => ({ ...row, lineageSha256: DIGEST_A })),
+  });
+  assertEqual(known.compliant, false);
+  assert(known.violations.some(row => row.type === 'independence'));
+});
+
+test('missing, ambiguous and malformed artifact evidence cannot yield a compliant audit', () => {
+  for (const inventory of [[], [{ name: 'x' }], [{ name: 'x', digest: 'short' }],
+    [{ name: 'x', digest: DIGEST_A }, { name: 'x:latest', digest: DIGEST_B }],
+    [{ name: 'x', digest: DIGEST_A, lineageSha256: 'broken' }],
+    [{ name: 'x', digest: DIGEST_A, lineageSha256: DIGEST_A },
+      { name: 'alias', digest: DIGEST_A, lineageSha256: DIGEST_B }]]) {
+    const audit = auditResponsibilitySegregation({ CHAT: 'x' }, undefined, { inventory });
+    assert(audit.violations.some(row => row.type === 'identity-unverified'), JSON.stringify(inventory));
+  }
+});
+
+test('filtered CODE selection preserves fixed responsibilities and rejects reviewer aliases', () => {
+  const before = { CODE: 'old', R1: 'reviewer', CHAT: 'chat' };
+  const inventory = responsibilityInventory(Object.values(before), 'reviewer-alias');
+  inventory.find(row => row.name === 'reviewer-alias').digest = responsibilityDigest('reviewer');
+  const result = selectResponsibilityPortfolio({ before, roles: ['CODE'], inventory,
+    evidenceByRole: { CODE: [responsibilityEvidence('old', .5), {
+      ...responsibilityEvidence('reviewer-alias', 1), digestSha256: responsibilityDigest('reviewer'),
+    }] },
+  });
+  assertEqual(JSON.stringify(result.bindings), JSON.stringify({ R1: 'reviewer', CHAT: 'chat', CODE: 'old' }));
+  assertEqual(result.changedRoles.length, 0);
+  assertEqual(result.feasible, true);
+});
+
+test('repairing a pre-existing self-review conflict never promotes a losing or unqualified candidate', () => {
+  for (const eligibleForChange of [false, undefined, null, 1]) {
+    const before = { CODE: 'same', R1: 'same' };
+    const result = selectResponsibilityPortfolio({ before, roles: ['R1'],
+      inventory: responsibilityInventory('same', 'alternative'),
+      evidenceByRole: { R1: [responsibilityEvidence('same', .5), {
+        ...responsibilityEvidence('alternative', 1), eligibleForChange,
+      }] },
+    });
+    assertEqual(result.feasible, false);
+    assertEqual(result.bindings.R1, 'same');
+    assertEqual(result.changedRoles.length, 0);
+    assert(result.rejectedOptions.some(row => row.reason === 'ROLE_CHANGE_NOT_QUALIFIED'));
+  }
+});
+
+test('filtered conflict repair accepts a qualified alternative and keeps the fixed author', () => {
+  const before = { CODE: 'same', R1: 'same' };
+  const result = selectResponsibilityPortfolio({ before, roles: ['R1'],
+    inventory: responsibilityInventory('same', 'alternative'),
+    evidenceByRole: { R1: [responsibilityEvidence('same', .5), responsibilityEvidence('alternative', .7)] },
+  });
+  assertEqual(result.feasible, true);
+  assertEqual(result.repairMode, true);
+  assertEqual(result.bindings.CODE, 'same');
+  assertEqual(result.bindings.R1, 'alternative');
+  assertEqual(result.changedRoles.join(','), 'R1');
+});
+
+test('invalid scores are excluded instead of coercing missing grades to zero', () => {
+  for (const score of [null, undefined, NaN, Infinity, -.1, 1.1, '1']) {
+    const result = selectResponsibilityPortfolio({ before: { CHAT: 'current' },
+      inventory: responsibilityInventory('current', 'alternative'),
+      evidenceByRole: { CHAT: [responsibilityEvidence('current', .5), responsibilityEvidence('alternative', score)] },
+    });
+    assertEqual(result.bindings.CHAT, 'current');
+    assert(result.rejectedOptions.some(row => row.reason === 'INVALID_SCORE'));
+  }
+});
+
+test('stale candidate scores cannot qualify the new artifact behind an unchanged tag', () => {
+  const result = selectResponsibilityPortfolio({ before: { CHAT: 'current' },
+    inventory: responsibilityInventory('current', 'alternative'),
+    evidenceByRole: { CHAT: [responsibilityEvidence('current', .5), {
+      ...responsibilityEvidence('alternative', 1), digestSha256: DIGEST_A,
+    }] },
+  });
+  assertEqual(result.bindings.CHAT, 'current');
+  assert(result.rejectedOptions.some(row => row.reason === 'EVIDENCE_ARTIFACT_UNVERIFIED'));
+});
+
+test('baseline artifact drift requires reconciliation rather than a portfolio replacement', () => {
+  const result = selectResponsibilityPortfolio({ before: { CHAT: 'current' },
+    artifactsByRole: { CHAT: { modelName: 'current', digestSha256: DIGEST_A } },
+    inventory: responsibilityInventory('current', 'alternative'),
+    evidenceByRole: { CHAT: [responsibilityEvidence('current', .5), responsibilityEvidence('alternative', 1)] },
+  });
+  assertEqual(result.feasible, false);
+  assertEqual(result.bindings.CHAT, 'current');
+  assert(result.audit.violations.some(row => row.type === 'binding-artifact-drift'));
+});
+
+test('an unmeasured incumbent stays fixed despite a candidate score and eligibility claim', () => {
+  const result = selectResponsibilityPortfolio({ before: { CHAT: 'current' },
+    inventory: responsibilityInventory('current', 'alternative'),
+    evidenceByRole: { CHAT: [responsibilityEvidence('alternative', 1)] },
+  });
+  assertEqual(result.bindings.CHAT, 'current');
+  assertEqual(result.choices.CHAT.score, null);
+  assertEqual(result.choices.CHAT.source, 'unmeasured-incumbent');
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1197,8 +1349,8 @@ test('§4: failed evaluation preserves valid, invalid, budget and unattempted co
 
 
 function retentionFixture() {
-  const bindings = { D1: 'qwen3.5:27b', CODE: 'qwen3.5:27b', CHAT: 'qwen3.5:27b',
-    D2: 'qwen3.8:latest', R1: 'qwen3.8:latest', R2: 'qwen3:14b', VISION: 'llava-llama3:8b' };
+  const bindings = { D1: 'planner:14b', CODE: 'qwen3.5:27b', CHAT: 'chat:14b',
+    D2: 'diagnoser:14b', R1: 'qwen3.8:latest', R2: 'qwen3:14b', VISION: 'llava-llama3:8b' };
   const inventory = ['llava:13b', ...new Set(Object.values(bindings))].map((name, i) => ({
     name, digest: (i + 1).toString(16).repeat(64), capabilities: ['completion', 'vision'],
     details: { parameter_size: '13B' }, size: 1024,
@@ -1222,6 +1374,30 @@ function retentionFixture() {
   return { modelName: 'llava:13b', inventory, bindings, plans, hardware, rows,
     history: { providerVersion: '0.34.0', getComplete: ({ digestSha256, role }) => rows.get(`${digestSha256}:${role}`) } };
 }
+
+await testAsync('retention keeps a bound artifact even when the candidate has another alias', async () => {
+  const f = retentionFixture();
+  const bound = f.inventory.find(row => row.name === f.bindings.CODE);
+  f.inventory.push({ ...bound, name: 'different-alias' });
+  const result = await assessHuntRetention({ ...f, modelName: 'different-alias' });
+  assertEqual(result.eligible, false);
+  assertEqual(result.reason, 'RETENTION_BOUND');
+});
+
+await testAsync('retention never prunes while the current portfolio has unresolved self-review', async () => {
+  const f = retentionFixture();
+  f.bindings.R1 = f.bindings.CODE;
+  let effects = 0;
+  const results = await pruneRejectedHuntModels({ ...f,
+    registry: { deleteRejectedModel: async () => { effects++; } },
+    journal: { recordRetention: () => { effects++; } },
+    getInventory: async () => f.inventory, getBindings: () => f.bindings,
+    getProviderVersion: async () => f.history.providerVersion, assertIdle: async () => { effects++; },
+  });
+  assertEqual(effects, 0);
+  assert(results.every(row => row.status === 'KEPT'));
+  assert(results.some(row => row.reason === 'RETENTION_PORTFOLIO_UNRESOLVED'));
+});
 
 await testAsync('unaccepted production profiles cannot authorize deletion even with complete losing scores', async () => {
   const f = retentionFixture();

@@ -120,18 +120,17 @@ suite('ModelEvaluationReadModel');
 
 test('exact artifact and current contract expose score and timestamp', () => {
   const db = database();
-  const plans = reviewedPlans('CHAT');
+  const plans = createRoleEvaluationPlans({repeats:1});
   insert(db, {
-    runId: 'complete-chat', digest: DIGEST, plan: plans.CHAT,
+    runId: 'complete-code', digest: DIGEST, plan: plans.CODE,
     score: 0.75, passed: 30,
   });
-  markReviewed(db, 'complete-chat');
   const result = new ModelEvaluationReadModel(db, { plans }).read({
     inventory: [{ name: 'fixture:latest', digest: `sha256:${DIGEST}`, size: 42 }],
-    bindings: { CHAT: 'fixture' },
+    bindings: { CODE: 'fixture' },
     bindingAuthority: { status: 'DURABLE' },
   });
-  const row = result.models[0].evaluations.CHAT;
+  const row = result.models[0].evaluations.CODE;
   assertEqual(row.status, 'COMPLETE');
   assertEqual(row.score, 0.75);
   assertEqual(row.testedAt, '2026-08-24T18:01:00.000Z');
@@ -168,7 +167,7 @@ test('legacy inconsistent interval keeps only an explicitly unverified audit tim
   db.close();
 });
 
-test('D1 evidence remains MISSING for D2 and R1 on distinct role suites', () => {
+test('legacy single-grader D1 score is BLOCKED and remains MISSING for D2 and R1', () => {
   const db = database();
   const plans = reviewedPlans('D1');
   assert(plans.D1.suiteName !== plans.D2.suiteName);
@@ -182,7 +181,8 @@ test('D1 evidence remains MISSING for D2 and R1 on distinct role suites', () => 
   const evaluations = new ModelEvaluationReadModel(db, { plans }).read({
     inventory: [{ name: 'fixture:latest', digest: DIGEST }],
   }).models[0].evaluations;
-  assertEqual(evaluations.D1.status, 'COMPLETE');
+  assertEqual(evaluations.D1.status, 'BLOCKED');
+  assertEqual(evaluations.D1.score, null);
   assertEqual(evaluations.D2.status, 'MISSING');
   assertEqual(evaluations.R1.status, 'MISSING');
   db.close();
@@ -554,7 +554,7 @@ test('provider-filtered coverage replays offline and its filter cannot be tamper
   const missing = reader.read({ inventory, providerVersion });
   assertEqual(missing.models[0].evaluations.CODE.status, 'MISSING');
   assertEqual(missing.models[0].evaluations.CODE.missingReason, 'PROVIDER_CHANGED');
-  assert(renderEvaluationReport(missing).includes(`Provider filtr: ${providerVersion}`));
+  assert(renderEvaluationReport(missing).includes(`Evaluační provider filtr: ${providerVersion}`));
   insert(db, { runId: 'current-provider', digest: DIGEST, plan: plans.CODE, score: 0.4 });
   db.prepare('UPDATE model_evaluation_runs SET metadata_json = ? WHERE run_id = ?')
     .run(JSON.stringify({ provider: { version: providerVersion } }), 'current-provider');
@@ -710,6 +710,26 @@ test('Studio displays captured answers on demand without inventing a grade or re
   assert(nodes(full).some(n=>n.tag==='pre'&&n.children.includes('<img src=x onerror=alert(1)>')));
   assert(!nodes(full).some(n=>n.tag==='img'||n.props?.dangerouslySetInnerHTML));
   assert(!text.includes('0.0 %'));assert(!text.includes('skóre 0 %'));
+});
+
+test('Studio renders every real conversation turn and does not duplicate the final answer', () => {
+  const render=studioSource.slice(studioSource.indexOf('var _evaluationRoleFilter='),studioSource.indexOf('/* ═',studioSource.indexOf('var _evaluationRoleFilter=')));
+  const helpers=studioSource.slice(studioSource.indexOf('function _modelButtonStyle('),studioSource.indexOf('var _huntData='));
+  const label=studioFunction('_huntEvaluationText','function _huntDuration(');
+  const row={runId:'conversation',role:'CHAT',collection:{status:'AWAITING_REVIEW',observed:1,planned:1},tasks:[{
+    name:'paired',input:{conversationTurns:[{role:'user',content:'first question'},{role:'user',content:'follow-up'}]},
+    rubric:[],responses:['final response'],details:[{captureStatus:'CAPTURED',conversation:{completedTurns:2,plannedTurns:2,
+      transcript:[{role:'user',content:'first question'},{role:'assistant',content:'<img src=x onerror=alert(1)>'},
+        {role:'user',content:'follow-up'},{role:'assistant',content:'final response'}]}}]}]};
+  const context={row,C:{},_rgba:()=>'',_fs:n=>n,h:(tag,props,...children)=>({tag,props,children}),_modelTestPending:false};
+  const tree=runInNewContext(helpers+label+render+';_qualityDetail(row,{})',context);
+  const nodes=n=>!n||typeof n!=='object'?[]:Array.isArray(n)?n.flatMap(nodes):[n,...nodes(n.children)];
+  const all=nodes(tree);
+  assertEqual(all.filter(n=>n.props?.['data-testid']==='conversation-message').length,4);
+  assertEqual(all.filter(n=>n.tag==='pre'&&n.children.includes('final response')).length,1);
+  assert(all.some(n=>n.tag==='pre'&&n.children.includes('<img src=x onerror=alert(1)>')));
+  assert(!all.some(n=>n.tag==='img'||n.props?.dangerouslySetInnerHTML));
+  assert(JSON.stringify(tree).includes('Dokončené tahy: 2 / 2'));
 });
 
 await testAsync('stored-answer grading shows missing acceptance in History and clears a cancelled preview', async () => {

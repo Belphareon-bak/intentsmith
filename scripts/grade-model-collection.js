@@ -7,7 +7,7 @@ import { writeFileSync, renameSync, appendFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { createRoleEvaluationPlans } from '../src/eval/role-evaluation-plan.js';
 import { ModelEvaluationHistory } from '../src/upgrade/model-evaluation-history.js';
-import { prepareCollectionGrading, gradeAnswerCollection, persistGradedCollection } from '../src/eval/grade-answer-collection.js';
+import { prepareCollectionGrading, gradeAnswerCollection, persistGradedCollection, storedGraderReviews } from '../src/eval/grade-answer-collection.js';
 import { ModelEvaluationRunner } from '../src/eval/model-evaluation-runner.js';
 import { SemanticEvaluationJudge } from '../src/eval/semantic-evaluation-judge.js';
 import { holdGpuEvaluationLock } from '../src/upgrade/gpu-evaluation-lock.js';
@@ -59,12 +59,14 @@ export async function main(args = process.argv.slice(2)) {
         return result;
       } });
     const prepared = prepareCollectionGrading({plan, collection, judge, graderAcceptanceId});
+    if (storedGraderReviews(history,plan,collection).some(row => row.accepted?.id === graderAcceptanceId))
+      throw new Error('EVALUATION_GRADER_REVIEW_ALREADY_RECORDED');
     if (options['expected-source'] && options['expected-source'] !== prepared.sourceSha256)
       throw new Error('EVALUATION_COLLECTION_CHANGED');
     if (!options.run) {
       console.log(JSON.stringify({status: 'READY_TO_GRADE', sourceRunId: collection.runId, role: plan.role,
         sourceSha256: prepared.sourceSha256, planned: prepared.planned, judge: accepted.judge,
-        decisionReady: plan.decisionReady, effects: []}, null, 2));
+        decisionReady: plan.decisionReady, reviewStatus:'READY_FOR_INDEPENDENT_REVIEW', effects: []}, null, 2));
       return;
     }
     if (!options.report) throw new Error('GRADING_REPORT_REQUIRED');
@@ -81,13 +83,16 @@ export async function main(args = process.argv.slice(2)) {
             updatedAt:new Date().toISOString(),detail:progress}) + '\n', {mode: 0o600}); renameSync(file + '.tmp', file); }
         } });
       const saved = persistGradedCollection({history, plan, collection, summary});
-      const result = {status: summary.grading.status, sourceRunId: collection.runId, runId: saved.runId,
+      const result = {status: saved.status === 'COMPLETE' ? 'GRADED' : saved.errorCode,
+        sourceRunId: collection.runId, runId: saved.runId,
         role: plan.role, model:collection.artifact.modelName, score: saved.score, grading: summary.grading,
-        results: [{model:collection.artifact.modelName,stage:'graded',trials:[{role:plan.role,evaluation:{score:saved.score}}]}],
+        results: [{model:collection.artifact.modelName,
+          stage:saved.status === 'COMPLETE' ? 'graded' : 'review-pending',
+          trials:[{role:plan.role,evaluation:{score:saved.score}}]}],
         decisionReady: plan.decisionReady};
       writeFileSync(options.report, JSON.stringify(result, null, 2) + '\n', {mode: 0o600});
       console.log(JSON.stringify(result));
-      if (saved.status !== 'COMPLETE') process.exitCode = 2;
+      if (saved.status !== 'COMPLETE' && saved.errorCode !== 'EVALUATION_REVIEW_PENDING_PAIR') process.exitCode = 2;
     } finally { process.removeListener('SIGTERM', signal); process.removeListener('SIGINT', signal); }
   } finally { lease?.release(); db.close(); }
 }
