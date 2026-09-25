@@ -20,6 +20,8 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail }) {
     terminalClient: typeof window.IntentSmithTerminal?.send === 'function',
     terminalInput: Boolean(document.querySelector('[aria-label^="Příkaz terminálu relace"]')),
     m2Panel: Boolean(document.querySelector('[aria-label="Změny M2"]')),
+    environmentPanel: Boolean(document.querySelector('.intentsmith-development')),
+    environmentLoaded: Boolean(document.querySelector('.intentsmith-development')?.textContent?.includes('Skutečné prostředí backendu')),
     busListeners: window.IntentSmithBus?._debug?.() || {},
     sessionTabs: document.querySelectorAll('.intentsmith-s2-tab').length,
     columnSessions: [...document.querySelectorAll('.intentsmith-s2-column-head select')].map(select => select.value),
@@ -135,6 +137,14 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail }) {
     }
     return seen;
   })()`);
+  await evaluate(cdp, `(() => {
+    [...document.querySelectorAll('nav[aria-label="Hlavní navigace"] button')]
+      .find(node => node.textContent === 'Nastavení').click();
+    [...document.querySelectorAll('nav[aria-label="Kategorie nastavení"] button')]
+      .find(node => node.textContent === 'Systém').click();
+    return true;
+  })()`);
+  const environment = await waitFor(s => s.environmentPanel && s.environmentLoaded, 'backend-environment');
   return Object.freeze({
     classicInitiallyAttached: classic.classicSidebar && classic.classicChat,
     studio2ExclusivelyAttached: studio2.studio2 && !studio2.classicSidebar && !studio2.classicChat,
@@ -147,6 +157,7 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail }) {
     visibleSessionSwap: swapped.columnSessions[0] === original[1] && swapped.columnSessions[1] === original[0],
     terminalPanelConnected: terminalUi.terminalInput && terminalUi.terminalClient,
     m2ReviewPanelRendered: m2Ui.m2Panel,
+    backendEnvironmentLoaded: environment.environmentLoaded,
     sessionsPersistedAcrossReload: persisted.sessionTabs === 6 && persisted.columnSessions.length === 3,
     projectCatalogLoaded: catalog.catalogSection === 'Projekty' && catalog.catalogStatus === 'ready',
     elevenThemesRendered: themes.length === 11 && themes.every(Boolean),

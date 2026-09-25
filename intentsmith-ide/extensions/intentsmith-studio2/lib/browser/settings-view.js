@@ -1,5 +1,8 @@
 'use strict';
 
+const React = require('@theia/core/shared/react');
+const DevelopmentPanel = require('@intentsmith/chat-panel/lib/browser/development-panel').createPanel(React);
+
 const CATEGORIES = Object.freeze({
   'Účet': ['Profil', 'Projekty'],
   'Modely a inference': ['Lokální modely', 'Inference', 'Připojení', 'Hardware'],
@@ -40,6 +43,10 @@ function renderSettings(widget, h) {
       h('input', { type: 'checkbox', checked: v[key], onChange: event => appearance.set(key, event.target.checked) }));
   }
   let content = h('p', null, 'Tato část nastavení ještě není v novém rozhraní připojená.');
+  if (category === 'Systém' && tab === 'Prostředí a závislosti') {
+    content = h(DevelopmentPanel, { backend: window.electronIntentSmith.getBackendUrl(),
+      projectId: widget.store.focusedSession()?._projectId || null });
+  }
   if (category === 'Vzhled') {
     if (tab === 'Obecné') content = h('div', null,
       select('style', 'Styl', STYLES),

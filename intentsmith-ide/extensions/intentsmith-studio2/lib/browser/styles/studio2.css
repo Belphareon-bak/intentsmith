@@ -149,3 +149,13 @@
 .intentsmith-s2-m2-actions { display: flex; flex-wrap: wrap; gap: 5px; border-top: 1px solid var(--bd2); padding-top: 8px; }
 .intentsmith-s2-m2-actions p { width: 100%; }
 .intentsmith-s2-m2-actions button { border-color: var(--bd2); }
+
+.intentsmith-s2-settings .intentsmith-development { display: grid; gap: 14px; }
+.intentsmith-s2-settings .intentsmith-development section { padding: 12px; border: 1px solid var(--bd2); border-radius: 7px; background: var(--s1); }
+.intentsmith-s2-settings .intentsmith-development h3 { margin: 0 0 9px; }
+.intentsmith-s2-settings .intentsmith-development label { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 7px 0; }
+.intentsmith-s2-settings .intentsmith-development select,
+.intentsmith-s2-settings .intentsmith-development input { max-width: 65%; padding: 5px; color: var(--text); background: var(--s0); border: 1px solid var(--bd2); }
+.intentsmith-s2-settings .intentsmith-development button { border-color: var(--bd2); }
+.intentsmith-s2-settings .intentsmith-development pre { overflow: auto; max-height: 250px; }
+.intentsmith-s2-settings .intentsmith-development [role=alert] { color: var(--bad); }
