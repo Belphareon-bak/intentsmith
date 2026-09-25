@@ -15,6 +15,8 @@ import { ModelEvaluationReadModel } from '../src/upgrade/model-evaluation-read-m
 import { createHistoryCallbacks, buildInstalledCandidateQueue } from '../src/upgrade/model-upgrade-prototype.js';
 import { createRoleEvaluationPlans } from '../src/eval/role-evaluation-plan.js';
 import { collectRoleAnswers } from '../src/eval/model-answer-collection.js';
+import { replayVisionCollection } from '../scripts/manual/replay-hunt-vision-collection.mjs';
+import { createHash } from 'node:crypto';
 
 test('raw collection cannot grade, qualify or prepare a task; references never reach the model', async () => {
   const forbidden=()=>{throw new Error('grading side effect');};
@@ -56,6 +58,31 @@ test('images are sent as images and preserved without rubric leakage',async()=>{
     return {content:'{}',doneReason:'stop'};
   });
 });
+test('VISION replay preserves operational failures and rejects changed evidence',()=>{
+  const suite=collectionSuite('VISION',visionV2Suite);
+  const model={modelName:'fixture:vision',digestSha256:'a'.repeat(64),providerVersion:'test-provider'};
+  const plan={schemaVersion:1,collectOnly:true,profile:'full',roles:[{role:'VISION',
+    contractSha256:suiteContract(suite,{repeats:1}).sha256,
+    tasks:suite.tests.map(t=>({name:t.name,options:t.options}))}],
+    repeats:1,model:model.modelName,sourceRevision:'fixture'};
+  plan.sha256=createHash('sha256').update(JSON.stringify(plan)).digest('hex');
+  const result={planSha256:plan.sha256,status:'COLLECTION_COMPLETE',decisionAuthority:false,
+    operationPolicy:{removeModels:false},artifacts:{model},
+    attempts:suite.tests.map(t=>({role:'VISION',task:t.name,repeat:1,
+      captureStatus:'CAPTURED',response:'{}',artifact:{digestSha256:model.digestSha256,
+        providerVersion:model.providerVersion}}))};
+  assert.equal(replayVisionCollection(plan,result).planned,suite.tests.length);
+  const changed=modify=>{const copy=structuredClone(result);modify(copy);return copy;};
+  assert.throws(()=>replayVisionCollection(plan,changed(r=>{r.attempts[1]={...r.attempts[0]};})),/VISION_REPLAY_INVALID:ATTEMPT/);
+  assert.throws(()=>replayVisionCollection(plan,changed(r=>{r.attempts.pop();})),/VISION_REPLAY_INVALID:COVERAGE/);
+  assert.throws(()=>replayVisionCollection(plan,changed(r=>{r.attempts[0].artifact.digestSha256='b'.repeat(64);})),/VISION_REPLAY_INVALID:ATTEMPT/);
+  assert.throws(()=>replayVisionCollection(plan,changed(r=>{r.decisionAuthority=true;})),/VISION_REPLAY_INVALID:PLAN_OR_SOURCE/);
+  const budget=replayVisionCollection(plan,changed(r=>{r.attempts[0].captureStatus='OUTPUT_BUDGET_EXHAUSTED';}));
+  assert.equal(budget.outputBudgetExhausted,1);
+  assert.equal(budget.tasks[0].attempts[0].contentScore,null);
+  assert.equal(budget.decisionAuthority,false);
+});
+
 test('length and transport failures retain evidence without inventing a score',async()=>{
   const task=collectionSuite('CHAT',SEMANTIC_ROLE_SUITES.CHAT).tests[0];
   for(const [raw,status] of [[{content:'partial',doneReason:'length'},'OUTPUT_BUDGET_EXHAUSTED'],

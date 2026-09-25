@@ -26,12 +26,13 @@ def main():
     plan,plan_file_sha=read(args.run/'plan.json')
     result,result_sha=read(args.run/'result.json')
     tasks,tasks_sha=read(args.tasks)
-    if result['status']!='COLLECTION_COMPLETE' or len(result['attempts'])!=8 or result['unattempted']:
+    if result['status']!='COLLECTION_COMPLETE' or len(result['attempts'])!=2*len(tasks) or result['unattempted']:
         raise SystemExit('CANARY_NOT_COMPLETE')
-    if plan['profile']['CHAT'].find('fixed to 4096')<0 or len(plan['pairs']['CHAT'])!=2 or len(tasks)!=4:
+    if plan['profile']['CHAT'].find('fixed to 4096')<0 or len(plan['pairs']['CHAT'])!=2 or not tasks or len({t['id'] for t in tasks})!=len(tasks):
         raise SystemExit('PROFILE_NOT_COMPARABLE')
     assert plan['taskFileSha256']==tasks_sha and result['planSha256']==plan['planSha256']
     models={p['model']:p['artifact'] for p in plan['pairs']['CHAT']}
+    task_by_id={t['id']:t for t in tasks}
     by_task={}
     receipts={}
     for attempt in result['attempts']:
@@ -39,7 +40,7 @@ def main():
         value,file_sha=read(path)
         assert attempt['status']=='CAPTURED' and attempt['proof']=='RESPONSE_BOUND'
         assert value['status']=='CAPTURED' and value['proof']=='RESPONSE_BOUND' and value['fullGpu']
-        assert len(value['dialogue'])==3 and len(value['receipts'])>=3
+        assert value['task'] in task_by_id and len(value['dialogue'])==len(task_by_id[value['task']]['turns']) and len(value['receipts'])>=len(value['dialogue'])
         assert value['artifact']['digestSha256']==models[value['model']]['digestSha256']
         assert all(call['body'].get('options',{}).get('num_ctx')==4096 for call in value['receipts'])
         assert all(call['body'].get('think') is False for call in value['receipts'])
@@ -76,7 +77,7 @@ def main():
         'packetSha256':packet_sha,'reviewer':'','reviewedAt':'',
         'cases':[{'id':c['id'],'ratings':[None]*len(c['rubric']),'reasons':['']*len(c['rubric'])} for c in cases]}
     body=['<!doctype html><html lang="cs"><meta charset="utf-8"><title>CHAT · produkční canary k hodnocení</title><style>body{background:#111;color:#eee;font:15px/1.5 system-ui;max-width:1150px;margin:auto;padding:24px}article{background:#1c1c1c;border:1px solid #554b3b;padding:16px;margin:20px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#090909;padding:16px;max-height:650px;overflow:auto}textarea,input{background:#292929;color:#fff;border:1px solid #8b7755;padding:6px}textarea{width:90%}label{display:block;margin:8px 0}button{background:#e6b665;padding:9px}</style><h1>CHAT · skutečný produkční handler</h1>',
-        f'<p>8 tříkolových dialogů · dvě anonymní odpovědi na stejnou úlohu · stejné skutečné num_ctx=4096 · packet SHA256 <code>{packet_sha}</code>. Vývojové případy, bez rozhodovací autority. Pokud identitu či předchozí známku znáš, přiznej expozici v review.</p>',
+        f'<p>{len(cases)} dialogů · dvě anonymní odpovědi na stejnou úlohu · stejné skutečné num_ctx=4096 · packet SHA256 <code>{packet_sha}</code>. Vývojové případy, bez rozhodovací autority. Pokud identitu či předchozí známku znáš, přiznej expozici v review.</p>',
         '<label>Hodnotitel <input id="reviewer"></label><button id="export">Stáhnout posudek JSON</button>']
     for c in cases:
         body.append(f"<article><h2>{html.escape(c['task'])} · odpověď {c['label']}</h2><small>{c['id']}</small><details><summary>Celé zadání</summary><pre>{html.escape(c['question'])}</pre></details><h3>Celý dialog</h3><pre>{html.escape(c['response'])}</pre>")
