@@ -15,6 +15,7 @@ const { CatalogStore } = require('./catalog-store');
 const { renderCatalog } = require('./catalog-view');
 const { AppearanceStore, STYLES } = require('./appearance-store');
 const { renderSettings } = require('./settings-view');
+const { WorkspaceFiles } = require('./workspace-files');
 
 const WIDGET_ID = 'intentsmith-studio2';
 const h = React.createElement;
@@ -32,6 +33,7 @@ class Studio2Widget extends ReactWidget {
     this.transport = null;
     this.section = 'Relace';
     this.catalog = new CatalogStore();
+    this.workspace = new WorkspaceFiles({ onChange: () => this.update() });
     this.appearance = new AppearanceStore(window.localStorage, () => window.matchMedia('(prefers-color-scheme: light)').matches);
     this.unlistenAppearance = this.appearance.subscribe(() => this.update());
     this.systemTheme = window.matchMedia('(prefers-color-scheme: light)');
@@ -63,6 +65,14 @@ class Studio2Widget extends ReactWidget {
   }
 
   addSession() { this.store.addSession(); this.section = 'Relace'; this.update(); }
+  closeSession(session) {
+    if (this.workspace.entry(session).editor?.dirty) {
+      this.sideMode = 'Soubory'; this.update();
+      window.alert('Nejprve uložte nebo zahoďte neuložené změny souboru.');
+      return false;
+    }
+    return this.store.closeSession(session.id);
+  }
   selectSection(name) {
     this.section = name; this.catalogSearch = ''; this.catalogSelection = null; this.catalogActionError = null;
     if (NAV.includes(name)) this.catalog.load(name);
@@ -93,7 +103,8 @@ class Studio2Widget extends ReactWidget {
         if (!response.ok) throw new Error(body.error || `Vytvoření relace selhalo (HTTP ${response.status}).`);
         const conversation = body.conversation || body;
         if (!conversation.id || String(conversation.project_id) !== String(item.raw.id)) throw new Error('Server nepotvrdil správný projekt konverzace.');
-        this.store.addSession({ convId: conversation.id, projectId: item.raw.id, label: item.name });
+        const session = this.store.addSession({ convId: conversation.id, projectId: item.raw.id, label: item.name });
+        this.workspace.loadTree(session);
       }
       this.section = 'Relace'; this.update();
     } catch (error) { this.catalogActionError = error.message || 'Relaci se nepodařilo otevřít.'; this.update(); }
@@ -107,7 +118,11 @@ class Studio2Widget extends ReactWidget {
     const state = this.store.state;
     const view = renderSessionView(this, h);
     const appearance = this.appearance.values;
-    const font = appearance.fontIdx === 1 ? 'Inter, system-ui, sans-serif' : appearance.fontIdx === 2 ? 'system-ui, sans-serif' : 'Plus Jakarta Sans, system-ui, sans-serif';
+    const font = appearance.style === 'matrix' ? 'Share Tech Mono, JetBrains Mono, monospace'
+      : appearance.style === 'japanese' ? 'Zen Kaku Gothic Antique, system-ui, sans-serif'
+      : appearance.style === 'midnight' ? 'Inter, system-ui, sans-serif'
+      : appearance.fontIdx === 1 ? 'Inter, system-ui, sans-serif'
+      : appearance.fontIdx === 2 ? 'system-ui, sans-serif' : 'Plus Jakarta Sans, system-ui, sans-serif';
     return h('div', { className: `intentsmith-studio2-root intentsmith-root ide ${this.appearance.classes()}`,
       style: { fontSize: `${appearance.fontSizeVal * Number(appearance.uiScale)}px`, fontFamily: font }, 'data-studio-ui': 'studio2' },
       h('header', { className: 'intentsmith-studio2-top' },
@@ -151,6 +166,15 @@ class Studio2Contribution extends browser.AbstractViewContribution {
   async initializeLayout(app) {
     if (currentMode() !== 'studio2') throw new Error('Studio 2 widget loaded in classic mode');
     await this.openView({ activate: true, reveal: true });
+  }
+  onWillStop() {
+    const widget = this.tryGetWidget();
+    if (!widget?.workspace?.anyDirty()) return undefined;
+    return { reason: 'Studio 2 has unsaved file edits', action: () => {
+      widget.sideMode = 'Soubory'; widget.update();
+      window.alert('Nejprve uložte nebo zahoďte neuložené změny souboru.');
+      return false;
+    } };
   }
   async onDidInitializeLayout(app) {
     if (currentMode() !== 'studio2') throw new Error('Studio 2 widget restored in classic mode');

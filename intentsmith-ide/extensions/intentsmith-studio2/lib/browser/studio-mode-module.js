@@ -2,6 +2,8 @@
 
 const { ContainerModule } = require('@theia/core/shared/inversify');
 const browser = require('@theia/core/lib/browser');
+const { WindowService } = require('@theia/core/lib/browser/window/window-service');
+const { StopReason } = require('@theia/core/lib/common/frontend-application-state');
 
 const MODE_KEY = 'intentsmith-studio-ui-mode';
 const MODE_CLASSIC = 'classic';
@@ -11,7 +13,7 @@ function currentMode() {
   return window.__intentsmithStudioMode === MODE_STUDIO2 ? MODE_STUDIO2 : MODE_CLASSIC;
 }
 
-function selectMode(mode) {
+async function selectMode(mode) {
   if (mode !== MODE_CLASSIC && mode !== MODE_STUDIO2) throw new TypeError('Unsupported Studio UI mode');
   if (mode === currentMode()) return false;
   // Theia's Electron window service mediates reload and checks close vetoes.
@@ -19,6 +21,9 @@ function selectMode(mode) {
   if (typeof window.electronTheiaCore?.requestReload !== 'function') {
     throw new Error('Theia Electron reload API is unavailable');
   }
+  const container = window.theia?.container;
+  if (!container) throw new Error('Theia container is unavailable for UI mode switch');
+  if (!await container.get(WindowService).isSafeToShutDown(StopReason.Reload)) return false;
   window.localStorage.setItem(MODE_KEY, mode);
   window.electronTheiaCore.requestReload();
   return true;

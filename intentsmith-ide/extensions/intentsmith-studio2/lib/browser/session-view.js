@@ -1,6 +1,7 @@
 'use strict';
 
 const WorkActivity = require('@intentsmith/chat-panel/lib/browser/work-activity');
+const { renderWorkspaceFiles } = require('./workspace-view');
 
 function renderSessionView(widget, h) {
   const store = widget.store;
@@ -65,10 +66,7 @@ function renderSessionView(widget, h) {
     const content = side === 'Kontext' ? h('p', null, `Kontext relace: ${Math.round(session.chat.ctx || 0)} %`)
       : side === 'Změny' ? h('p', null, 'Žádné ověřené změny v této relaci.')
         : side === 'Správa zdrojů' ? h('p', null, 'Správa zdrojů se připravuje. Git efekty nejsou dostupné.')
-          : h('div', null,
-            h('h3', null, 'Upravené v relaci'), h('p', null, 'Žádné soubory.'),
-            h('h3', null, 'Otevřené'), h('p', null, 'Žádné soubory.'),
-            h('h3', null, 'Projekt'), h('p', null, session._projectId ? `Projekt ${session._projectId}` : 'Relace nemá projekt.'));
+          : renderWorkspaceFiles(widget, session, h);
     return h('aside', { className: 'intentsmith-studio2-right', 'aria-label': 'Pracovní plocha' },
       h('h2', null, `Relace ${session.number} · ${session._label}`),
       h('div', { className: 'intentsmith-s2-side-tabs' }, tabs.map(tab => h('button', {
@@ -79,7 +77,7 @@ function renderSessionView(widget, h) {
     tabs: h('div', { className: 'intentsmith-studio2-tabs' },
       state.sessions.map(session => h('div', { key: session.id, className: `intentsmith-s2-tab${focused?.id === session.id ? ' active' : ''}` },
         h('button', { type: 'button', onClick: () => { widget.section = 'Relace'; store.focusTab(session.id); } }, `${session.number} · ${session._label}`),
-        h('button', { type: 'button', 'aria-label': `Zavřít relaci ${session.number}`, onClick: () => store.closeSession(session.id) }, '×'))),
+        h('button', { type: 'button', 'aria-label': `Zavřít relaci ${session.number}`, onClick: () => widget.closeSession(session) }, '×'))),
       h('button', { type: 'button', 'aria-label': 'Nová relace', onClick: () => widget.addSession() }, '+')),
     columns: h('div', { className: 'intentsmith-s2-columns' }, state.columns.map(column)),
     right: focused ? right(focused) : null,

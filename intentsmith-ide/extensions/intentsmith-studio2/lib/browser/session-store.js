@@ -30,6 +30,9 @@ function makeSession(number, source = {}) {
     _m2Pending: raw._m2Pending || raw.m2Pending || null,
     _closed: false, _editor: { active: false, tabs: [], activeTabId: null, scrollRaf: null },
     _focusFiles: Array.isArray(raw._focusFiles || raw.focusFiles) ? (raw._focusFiles || raw.focusFiles).slice(0, 100) : [],
+    _openedFiles: Array.isArray(raw._openedFiles || raw.openedFiles) ? (raw._openedFiles || raw.openedFiles).filter(value => typeof value === 'string').slice(0, 30) : [],
+    _modifiedFiles: Array.isArray(raw._modifiedFiles || raw.modifiedFiles) ? (raw._modifiedFiles || raw.modifiedFiles).filter(value => typeof value === 'string').slice(0, 30) : [],
+    _fileChanges: safeObject(raw._fileChanges || raw.fileChanges),
     _conversationFocus: raw._conversationFocus === true,
     chat: {
       msgs: messages(chat.msgs || raw.recentMsgs),
@@ -51,6 +54,7 @@ function snapshotSession(session) {
     convId: session._convId, projectId: session._projectId, agentId: session._agentId,
     label: session._label, m2Pending: session._m2Pending,
     focusFiles: session._focusFiles,
+    openedFiles: session._openedFiles, modifiedFiles: session._modifiedFiles, fileChanges: session._fileChanges,
     recentMsgs: messages(session.chat.msgs).slice(-20),
     expertiseName: session.chat.expertise, specialistData: session.chat.specialist,
     editMode: session.chat.editMode, bottomMode: session.bottom,

@@ -71,3 +71,18 @@ test('invalid stored columns and duplicate IDs cannot restore ghost sessions', (
   assert.equal(store.state.focusedColumn, 0);
   assert.equal(store.state.nextNumber, 2);
 });
+
+test('opened and verified modified files survive a renderer restart per session', () => {
+  const mem = storage();
+  const store = new SessionStore(mem);
+  store.state.sessions[0]._openedFiles = ['src/main.js'];
+  store.state.sessions[0]._modifiedFiles = ['src/main.js'];
+  store.state.sessions[0]._fileChanges = { 'src/main.js': { added: 2, removed: 1 } };
+  const other = store.addSession();
+  store.changed();
+  const reboot = new SessionStore(mem);
+  assert.deepEqual(reboot.state.sessions[0]._openedFiles, ['src/main.js']);
+  assert.deepEqual(reboot.state.sessions[0]._modifiedFiles, ['src/main.js']);
+  assert.deepEqual(reboot.state.sessions[0]._fileChanges['src/main.js'], { added: 2, removed: 1 });
+  assert.deepEqual(reboot.find(other.id)._openedFiles, []);
+});
