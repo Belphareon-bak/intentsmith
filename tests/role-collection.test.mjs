@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { collectAnswer, collectionSuite } from '../scripts/manual/role-collection-profile.mjs';
+import { inspectCodeCaptureSuite } from '../src/eval/code-capture-preflight.js';
 import { SEMANTIC_ROLE_SUITES } from '../src/eval/semantic-role-suites.js';
 import { codePatchSuite } from '../src/eval/code-patch-suite.js';
 import { visionV2Suite } from '../src/eval/role-quality-suites.js';
@@ -145,4 +146,36 @@ test('transport or digest failure preserves partial answers and cannot suppress 
     const changed=structuredClone(result);changed.collection.status='AWAITING_REVIEW';
     assert.throws(()=>history.recordCollection({summary:changed,artifact:{modelName:'fixture',digestSha256:inventory[0].digest}}),/invalid/);
   }finally{db.close();}
+});
+
+// A broken semantic grading oracle must not prevent eligible CODE raw capture.
+test('CODE capture preflight checks executable environment without invoking final oracle', async () => {
+  let prepared = 0, verified = 0;
+  const suite = { tests: [{ name: 'patch', prompt: () => ({ text: 'repair this' }),
+    prepare() { prepared++; return { oracleCase: 'fixture' }; },
+    validateOracle() { throw Error('SEMANTIC_ORACLE_REJECTED'); } }] };
+  const inspection = inspectCodeCaptureSuite(suite, { verify(_repo, task) {
+    verified++; assert.equal(task.oracleCase, 'fixture');
+    return { status: 'COMPONENT_CONTROLS_PASS', controls: [
+      { name: 'gold', ok: true, expectedTechnicalScore: 1, result: { technical: { score: 1 } } },
+      { name: 'broken', ok: true, expectedTechnicalScore: 0, result: { technical: { score: 0 } } },
+    ] };
+  }});
+  assert.equal(inspection.ready, true);
+  assert.equal(inspection.fullOracleAccepted, false);
+  assert.equal(prepared, 1); assert.equal(verified, 1);
+  const answer = await collectAnswer(collectionSuite('CODE', suite).tests[0], 'candidate', {},
+    async () => ({ content: 'replacement', doneReason: 'stop' }));
+  assert.equal(answer.captureStatus, 'CAPTURED');
+  assert.equal(answer.gradingStatus, 'NOT_GRADED');
+  assert.equal(Object.hasOwn(answer, 'score'), false);
+});
+
+test('CODE capture preflight stops on a failing executable control', () => {
+  const result = inspectCodeCaptureSuite({ tests: [{ name: 'broken-fixture', prepare: () => ({}) }] },
+    { verify: () => ({ status: 'COMPONENT_CONTROLS_FAILED', controls: [
+      { name: 'gold', ok: false, expectedTechnicalScore: 1, result: { technical: { score: 0 } } }] }) });
+  assert.equal(result.ready, false);
+  assert.equal(result.code, 'CODE_CAPTURE_FIXTURE_UNAVAILABLE');
+  assert.equal(result.failures[0].test, 'broken-fixture');
 });

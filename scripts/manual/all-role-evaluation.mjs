@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { collectAnswer, collectionSuite, MAX_MODEL_BYTES } from './role-collection-profile.mjs';
+import { inspectCodeCaptureSuite } from '../../src/eval/code-capture-preflight.js';
 import { ModelEvaluationRunner } from '../../src/eval/model-evaluation-runner.js';
 import { CodePatchEvaluationRunner, codePatchSuite } from '../../src/eval/code-patch-suite.js';
 import { visionV2Suite } from '../../src/eval/role-quality-suites.js';
@@ -76,7 +77,7 @@ if (flag('resume')) {
   fs.mkdirSync(out,{mode:0o700});
   write('plan.json',plan);
   report = { schemaVersion:1, planSha256:plan.sha256, startedAt:new Date().toISOString(), status:'PREPARED',
-    phase:'prepared', calibrations:[], attempts:[], artifacts:null, inferenceCalls:0,
+    phase:'prepared', calibrations:[], capturePreflights:[], attempts:[], artifacts:null, inferenceCalls:0,
     verdict:'NEROZHODNUTO', decisionAuthority:false, operationPolicy:plan.operationPolicy };
 }
 const flush = () => {
@@ -185,7 +186,12 @@ try {
       if(cancelling)throw new Error('CANCELLED');
       report.phase='oracle';report.current={role:rolePlan.role,task:task.name};flush();
       let calibrated=collectOnly?null:true;
-      if(collectOnly) { /* raw collection has no oracle or judge calls */ }
+      if(collectOnly && rolePlan.role==='CODE') {
+        const preflight=inspectCodeCaptureSuite({tests:[task]});
+        report.capturePreflights.push(preflight);
+        fs.appendFileSync(path.join(out,'capture-preflights.jsonl'),JSON.stringify(preflight)+'\n',{mode:0o600});flush();
+        if(!preflight.ready)throw new Error('CODE_CAPTURE_FIXTURE_UNAVAILABLE:'+task.name);
+      } else if(collectOnly) { /* raw collection has no oracle or judge calls */ }
       else if(task.tier==='T4') {
         // Re-run probes on resume; never trust an editable PASS flag as a
         // live qualified judge. Prior failures remain in the append-only log.
