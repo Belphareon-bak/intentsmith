@@ -28,7 +28,7 @@ Kanonický [formulář](/mnt/vi7000/intentsmith/evidence/hunt-isolated-20260925/
 
 ## Předem vybraný vzorek pro operátora
 
-Pro každou D/R roli jsou vybrány dvě celé historické úlohy a jedna náhodně určená odpověď každého anonymního modelu na **tutéž** úlohu. Jde o 26 odpovědí; výběr nečetl známky. K tomu po příchodu obou posudků přibudou všechny neshody, nízká jistota nahlášená hodnotitelem a kritická selhání.
+Pro každou D/R roli jsou vybrány dvě celé historické úlohy a jedna náhodně určená odpověď každého anonymního modelu na **tutéž** úlohu. Jde o 26 odpovědí; výběr nečetl známky. K tomu po příchodu obou posudků přibudou všechny neshody od 0,15 po kritériích, nízká jistota nahlášená hodnotitelem a kritická selhání. [Generátor fronty pro operátora](../../scripts/manual/build-hunt-operator-queue.mjs) zachová celé zadání, odpověď i oba konkrétní důvody; pokud hodnotitelé nedodají explicitní příznaky jistoty a kritických selhání, výsledek to označí jako neúplné.
 
 | Role | Úloha | Odpověď | ID |
 |---|---|---|---|
