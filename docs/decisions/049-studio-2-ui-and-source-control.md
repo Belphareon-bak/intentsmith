@@ -61,8 +61,8 @@ Do parity se přepíná volbou „Studio 2 / Klasické Studio". Při startu,
 obnově layoutu i přepnutí je k layoutu připojené nejvýš jedno z nich. Brána
 rozhoduje před načtením klasického modulu, protože ten spouští transport
 a odběry událostí už při vyhodnocení; skrytí widgetu přes CSS nestačí.
-Přepnutí smí znovu načíst renderer až po skončení starého. Po prokázání všech správných funkcí,
-parity a přesměrování testů nové UI staré nahradí. Klasické se pak
+Přepnutí smí znovu načíst renderer až po skončení starého. Po prokázání
+všech správných funkcí, parity a přesměrování testů nové UI staré nahradí. Klasické se pak
 z runtime odstraní a nebude se dále používat ani nabízet jako volba.
 
 **D3 — Zápisové operace gitu jsou efekty (L0-11).** Commit, stage, založení a
