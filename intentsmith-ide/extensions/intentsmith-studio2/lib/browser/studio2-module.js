@@ -60,6 +60,9 @@ class Studio2Contribution extends browser.AbstractViewContribution {
   }
   async onDidInitializeLayout(app) {
     if (currentMode() !== 'studio2') throw new Error('Studio 2 widget restored in classic mode');
+    // A saved classic layout skips initializeLayout; attach the selected UI
+    // after restoration without ever registering the classic widget factory.
+    await this.openView({ activate: true, reveal: true });
     // The host may restore built-in side views; they are not part of Studio 2.
     for (const side of ['leftPanelHandler', 'rightPanelHandler', 'bottomPanelHandler']) {
       app.shell[side]?.container?.hide();
