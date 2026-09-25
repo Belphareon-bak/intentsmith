@@ -934,7 +934,14 @@ export class CdpClient {
 
 function runtimeValue(result) {
   if (result?.exceptionDetails || !Object.hasOwn(result || {}, 'result')) {
-    fail('renderer-evaluation-failed');
+    const detail = result?.exceptionDetails;
+    fail('renderer-evaluation-failed', {
+      // Private 0600 failure log only; the public evidence retains a stable code.
+      text: String(detail?.text || '').slice(0, 300),
+      description: String(detail?.exception?.description || '').slice(0, 2000),
+      lineNumber: detail?.lineNumber ?? null,
+      columnNumber: detail?.columnNumber ?? null,
+    });
   }
   return result.result.value;
 }
