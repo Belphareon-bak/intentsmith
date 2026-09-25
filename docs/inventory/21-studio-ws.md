@@ -1,5 +1,12 @@
 # Inventura #21 — Studio a WS bridge
 
+**Studio 2.0 — kontrakt, 2026-09-25:** na zadání operátora připraven
+[Decision 049](../decisions/049-studio-2-ui-and-source-control.md),
+[WP-STUDIO-2](../wp/WP-STUDIO-2-20260925.md) a [dokumentace](../studio2/README.md).
+Nové UI jako rozšíření vedle autoritativního chat panelu, hostitel Theia beze
+změny, nový backend jen konektor správy zdrojů. NÁVRH / NEZAHÁJENO; D1–D5 čekají
+na přijetí.
+
 **Studio: průběh práce a prostředí, 2026-09-23:** konkrétní tahy, nástroje,
 čekání, souborové diffy/+− a kopírování formátované odpovědi. Přidáno skutečné
 prostředí backendu a explicitní potvrzované/automatické instalace npm a .NET SDK
