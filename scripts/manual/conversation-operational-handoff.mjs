@@ -8,7 +8,7 @@ const roles=(opt('roles')||'CHAT,VISION').split(',');if(!roles.length||new Set(r
 const providerVersion='0.34.2-intentsmith.2';
 const out=opt('out');if(!path.isAbsolute(out||''))throw Error('ABSOLUTE_OUT_REQUIRED');
 const save=(n,x)=>{const p=path.join(out,n);fs.writeFileSync(p+'.tmp',JSON.stringify(x,null,2)+'\n',{mode:0o600});fs.renameSync(p+'.tmp',p);},git=(...a)=>execFileSync('git',['-C',root,...a],{encoding:'utf8'}).trim();
-const sourceFiles=['src/chat/handlers/decisions.js','src/llm/cre-bridge.js','src/llm/gateway.js','src/llm/client.js','src/llm/auth-types.js','scripts/manual/conversation-operational-handoff.mjs'];
+const sourceFiles=['src/chat/handlers/decisions.js','src/llm/model-ctx.js','src/llm/model-runtime-profile.js','src/llm/cre-bridge.js','src/llm/gateway.js','src/llm/client.js','src/llm/auth-types.js','scripts/manual/conversation-operational-handoff.mjs'];
 if(args.includes('--prepare')){
  for(const key of ['tasks','benchmark'])if(!path.isAbsolute(opt(key)||''))throw Error('ABSOLUTE_'+key+'_REQUIRED');
  fs.mkdirSync(out,{mode:0o700});const tasks=JSON.parse(fs.readFileSync(opt('tasks'))),benchmark=JSON.parse(fs.readFileSync(opt('benchmark'))),pairs={};
@@ -16,7 +16,7 @@ if(args.includes('--prepare')){
  for(const t of tasks){if(!['CHAT','VISION'].includes(t.role))throw Error('BAD_ROLE');
   if(t.role==='CHAT' && t.turns && (!Array.isArray(t.turns)||t.turns.length<1||t.turns.length>4||t.turns.some(turn=>typeof turn!=='string'||!turn.trim())))throw Error('BAD_CHAT_TURNS');
   if(t.image&&hash(fs.readFileSync(t.image))!==t.imageSha256)throw Error('IMAGE_DRIFT');}
- const plan={status:'SEALED',roles,providerVersion,createdAt:new Date().toISOString(),sourceRevision:git('rev-parse','HEAD'),workingTreeDirty:!!git('status','--porcelain'),sourceHashes:Object.fromEntries(sourceFiles.map(f=>[f,hash(fs.readFileSync(path.join(root,f)))])),tasks,pairs,benchmarkSha256:hash(fs.readFileSync(opt('benchmark'))),taskFileSha256:hash(fs.readFileSync(opt('tasks'))),repeats:1,totalBudgetMs:30*60000,decisionAuthority:false,operationPolicy:{productionImported:false,bindings:false,deletion:false,timer:false},profile:{CHAT:'actual handler/gateway settings, model-context cache fixed to 8192 for both candidates',VISION:'actual analyzeImages /api/generate: context4096 output2048 temperature.3'},scope:'Actual answer handler including history, prompt, authorized gateway and output gates; actual vision bridge. Isolated configured model selection, no durable production binding and no whole Studio journey. Every provider response is captured passively; missing response digest blocks qualification rather than being replaced by inventory checks.',limitations:['No independently accepted semantic judge.','Clock context is supplied by the production bridge at call time and recorded.','A role stops on absent response attestation or CPU spill; remaining planned attempts stay explicitly unattempted.','Real report screenshots are controller-rendered documents, not live Studio captures.']};plan.planSha256=hash(plan);save('plan.json',plan);console.log('SEALED',plan.planSha256);process.exit(0);
+ const plan={status:'SEALED',roles,providerVersion,createdAt:new Date().toISOString(),sourceRevision:git('rev-parse','HEAD'),workingTreeDirty:!!git('status','--porcelain'),sourceHashes:Object.fromEntries(sourceFiles.map(f=>[f,hash(fs.readFileSync(path.join(root,f)))])),tasks,pairs,benchmarkSha256:hash(fs.readFileSync(opt('benchmark'))),taskFileSha256:hash(fs.readFileSync(opt('tasks'))),repeats:1,totalBudgetMs:30*60000,decisionAuthority:false,operationPolicy:{productionImported:false,bindings:false,deletion:false,timer:false},profile:{CHAT:'actual handler/gateway settings, model-context cache fixed to 4096 for both candidates; 0.7 first-call temperature and handler retries',VISION:'actual analyzeImages /api/generate: context4096 output2048 temperature.3'},scope:'Actual answer handler including history, prompt, authorized gateway and output gates; actual vision bridge. Isolated configured model selection, no durable production binding and no whole Studio journey. Every provider response is captured passively; missing response digest blocks qualification rather than being replaced by inventory checks.',limitations:['No independently accepted semantic judge.','Clock context is supplied by the production bridge at call time and recorded.','A role stops on absent response attestation or CPU spill; remaining planned attempts stay explicitly unattempted.','Real report screenshots are controller-rendered documents, not live Studio captures.']};plan.planSha256=hash(plan);save('plan.json',plan);console.log('SEALED',plan.planSha256);process.exit(0);
 }
 const plan=JSON.parse(fs.readFileSync(path.join(out,'plan.json'))),{planSha256,...mat}=plan;if(hash(mat)!==planSha256)throw Error('PLAN_DRIFT');if(git('status','--porcelain'))throw Error('DIRTY_SOURCE');
 for(const[f,h]of Object.entries(plan.sourceHashes))if(hash(fs.readFileSync(path.join(root,f)))!==h)throw Error('SOURCE_DRIFT:'+f);
@@ -32,7 +32,7 @@ const report={status:'RUNNING',sourceRevision:git('rev-parse','HEAD'),planSha256
 const unload=async()=>{if(!active)return;owned();const r=await nativeFetch(endpoint+'/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:active,keep_alive:0}),signal:AbortSignal.timeout(10000)});if(!r.ok)throw Error('UNLOAD_FAILED');active=null;};
 try{
  const system=await nativeFetch('http://127.0.0.1:11434/api/ps',{signal:AbortSignal.timeout(5000)}).then(r=>r.json());if(system.models?.length||compute()||(await get('/api/ps')).models?.length)throw Error('GPU_BUSY');if((await get('/api/version')).version!==plan.providerVersion)throw Error('PROVIDER_DRIFT');
- const {config}=await import('../../src/config.js');const{setNumCtx}=await import('../../src/llm/model-ctx.js');const{handleAnswerDecision}=await import('../../src/chat/handlers/decisions.js');const{analyzeImages}=await import('../../src/llm/cre-bridge.js');
+ const {config}=await import('../../src/config.js');const{setNumCtx,getNumCtx}=await import('../../src/llm/model-ctx.js');const{handleAnswerDecision}=await import('../../src/chat/handlers/decisions.js');const{analyzeImages}=await import('../../src/llm/cre-bridge.js');
  globalThis.fetch=async(url,init={})=>{
   if(!String(url).startsWith(endpoint+'/api/'))throw Error('UNEXPECTED_NETWORK:'+url);
   owned();if(cancel||Date.now()-Date.parse(report.startedAt)>plan.totalBudgetMs)throw Error('CANCELLED_OR_BUDGET');
@@ -45,7 +45,7 @@ try{
  for(const role of plan.roles){
   let blocked=null;
   for(const pair of plan.pairs[role]){
-   config.models[role]=pair.model;setNumCtx(pair.model,8192);
+   config.models[role]=pair.model;if(role==='CHAT'){setNumCtx(pair.model,4096);if(getNumCtx(pair.model)!==4096)throw Error('CONTEXT_PROFILE_UNAVAILABLE');}
    const tag=(await get('/api/tags')).models.find(x=>x.name===pair.model);if(tag?.digest?.replace(/^sha256:/,'')!==pair.artifact.digestSha256)throw Error('ARTIFACT_CHANGED');
    for(const t of plan.tasks.filter(x=>x.role===role)){
     if(blocked){report.unattempted.push({role,id:t.id,model:pair.model,reason:blocked});continue;}
@@ -65,6 +65,7 @@ try{
     const actual=current.receipts.filter(x=>x.body?.model);
     current.proof=actual.length&&actual.every(x=>(x.data?.digest||x.data?.model_digest_sha256||'').replace(/^sha256:/,'')===pair.artifact.digestSha256&&x.data?.provider_version===plan.providerVersion)?'RESPONSE_BOUND':'RESPONSE_UNVERIFIED';
     current.fullGpu=actual.length>0&&actual.every(x=>x.placement&&x.placement.size_vram>=x.placement.size);
+    if(role==='CHAT'&&actual.some(x=>x.body?.options?.num_ctx!==4096))current.error='PROFILE_CONTEXT_DRIFT';
     if(current.result?.tag?.metadata?.error)current.error='PRODUCTION_HANDLER_ERROR';
     if(actual.at(-1)?.data?.done_reason==='length')current.error='OUTPUT_BUDGET_EXHAUSTED';
     current.finishedAt=new Date().toISOString();current.status=current.error?'OPERATIONAL_FAILURE':current.proof==='RESPONSE_UNVERIFIED'?'BLOCKED':current.fullGpu?'CAPTURED':'BLOCKED';
