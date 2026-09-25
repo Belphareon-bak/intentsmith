@@ -225,6 +225,7 @@ test('missing, duplicate, rebound and weaker upgrade receipts fail closed', () =
     `${log()}${log()}`,
     log(receipt({ candidateSha: 'c'.repeat(40) })),
     log(receipt({ currentMigrationCount: 79 })),
+    log(receipt({ currentMigrationCount: 105 })),
     log(receipt({ previousServerCleanShutdown: false })),
     log(receipt({ failedUpgradeExitCode: 0 })),
     log(receipt({ failedUpgradeMigrationCount: M6_CURRENT_VERSION_MIGRATION_COUNT })),

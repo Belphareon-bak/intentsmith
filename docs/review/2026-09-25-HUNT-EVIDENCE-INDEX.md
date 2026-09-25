@@ -8,35 +8,40 @@ buněk není konsenzus Codex + Opus + operátor nebo doporučení k přiřazení
 
 | Model | D1 | D2 | CODE | R1 | R2 | CHAT | VISION |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| devstral-small-2:latest | 50.3 % H | 51.6 % H | — | 28.1 % H | 42.7 % H | 66.6 % O | 63.5 % H |
-| gemma4:26b | 59.6 % H | 56.0 % H | — | 35.9 % H | 59.4 % H | 92.1 % O | 75.7 % V |
+| devstral-small-2:latest | 50.3 % D | 51.6 % D | — | 28.1 % D | 42.7 % D | 66.6 % O | 63.5 % D |
+| gemma4:26b | 59.6 % D | 56.0 % D | — | 35.9 % D | 59.4 % D | 92.1 % O | 75.7 % V |
 | llava-llama3:8b | — | — | — | — | — | — | — |
 | llava:13b | — | — | — | — | — | — | — |
 | ornith-1.5:9b | — | — | — | — | — | 86.3 % O | 77.6 % V |
-| phi4:14b | 40.1 % H | 54.2 % H | — | 28.1 % H | 38.5 % H | 64.9 % O | — |
-| qwen3-30b-a3b:latest | 41.7 % H | 49.7 % H | — | 20.8 % H | 34.4 % H | 80.2 % O | — |
-| qwen3-coder:latest | 51.0 % H | 58.6 % H | — | 37.0 % H | 43.8 % H | 74.5 % O | — |
-| qwen3.5:27b | 63.5 % H | 67.7 % H | — | — | 72.9 % H | 88.4 % O | 88.6 % H |
-| qwen3.6:27b | 59.1 % H | 72.9 % H | — | 48.4 % H | 70.8 % H | 90.9 % O | 83.0 % H |
-| qwen3.8:latest | 62.0 % H | 58.3 % H | — | 54.2 % H | 71.9 % H | 95.3 % O | 77.2 % V |
-| qwen3:14b | 40.1 % H | 52.9 % H | — | 32.3 % H | — | 76.4 % O | — |
+| phi4:14b | 40.1 % D | 54.2 % D | — | 28.1 % D | 38.5 % D | 64.9 % O | — |
+| qwen3-30b-a3b:latest | 41.7 % D | 49.7 % D | — | 20.8 % D | 34.4 % D | 80.2 % O | — |
+| qwen3-coder:latest | 51.0 % D | 58.6 % D | — | 37.0 % D | 43.8 % D | 74.5 % O | — |
+| qwen3.5:27b | 63.5 % D | 67.7 % D | — | — | 72.9 % D | 88.4 % O | 88.6 % D |
+| qwen3.6:27b | 59.1 % D | 72.9 % D | — | 48.4 % D | 70.8 % D | 90.9 % O | 83.0 % D |
+| qwen3.8:latest | 62.0 % D | 58.3 % D | — | 54.2 % D | 71.9 % D | 95.3 % O | 77.2 % V |
+| qwen3:14b | 40.1 % D | 52.9 % D | — | 32.3 % D | — | 76.4 % O | — |
 
-**H = sběr 20. 9.:** 2 922 odpovědí napříč sedmi rolemi. Codex přímo četl
+**D = vývojový sběr 20. 9.:** 2 922 odpovědí napříč sedmi rolemi. Codex přímo četl
 1 577 otevřených odpovědí; 210 CODE četla tehdejší spustitelná orákula,
 1 074 strukturovaných odpovědí produkční parser a 61 pokusů mělo
 nepoužitelný formát nebo provozní selhání. Opus nezávisle posoudil
 vzorek 30 položek napříč rolemi, nikoli všech 2 922; jeho známky nebyly
-do H průměrů promítnuty. **O = jiná CHAT kampaň 23.–24. 9.:** Opus
-oznámkoval 400 rozhovorů jako jediný hodnotitel, s předchozí expozicí
-identitám a bez produkčního systémového promptu. **V = izolované VISION
-měření 25. 9.:** 23 úloh × 3 opakování pro tři modely; technické orákulum
-bez provozní kvalifikace. H a V u VISION ani H a O u CHAT se neporovnávají.
+do D průměrů promítnuty. **O = jiná CHAT kampaň 23.–24. 9.:** Opus
+oznámkoval obsah 400 rozhovorů jako jediný hodnotitel, s předchozí expozicí
+identitám a bez produkčního systémového promptu; striktní JSON formát je
+mimo tento průměr. **V = izolované VISION měření 25. 9.:** 23 úloh × 3
+bajtově totožná opakování pro tři modely, tedy 69 odlišných výstupů z 207.
+Každý model má jeden deterministický výstup na úlohu. Stabilita při
+odlišném vzorkování změřená není. D a V u qwen3.8 a gemma4 vycházejí
+bitově stejně ze stejných výstupů, nejsou nezávislé potvrzení. D a O u CHAT
+zůstávají odlišné kampaně a metodiky.
 D1/D2/R1/R2 z 25. 9. mají 312 uložených odpovědí, ale jejich známky
 jsou stále nevyplněné, takže v této tabulce **nejsou**. CODE se 25. 9.
 zastavil před inferencí.
 
 **Proč je CODE prázdný:** ve sběru 20. 9. existuje původní známka
-qwen3.8 21/21 = 100 % a Devstralu 12/21 = 57,1 %. Následný audit prokázal
+pro několik modelů (např. qwen3.8 21/21, Devstral 12/21, gemma4
+85,7 % a qwen3.5 84,1 %). Následný audit prokázal
 falešné přijetí i odmítnutí v orákulu volného textu, proto tento součet
 není platná známka celé role. Nový technický replay dává qwen3.8 21/21
 a Devstralu 15/21, ale celé skóre úlohy chybí; význam textu čeká
@@ -61,7 +66,7 @@ Předchozí formulace s vítězi rolí byla nepřiměřená vzhledem k rozdíln�
 kampaním, vadnému CODE orákulu a čekajícím 312 známkám. R1 a CODE navíc
 nesmějí držet tentýž model.
 
-## Příklad: odkud přesně pochází qwen3.8 / D2 = 58,3 % H
+## Příklad: odkud přesně pochází qwen3.8 / D2 = 58,3 % D
 
 Ve sběru 20. 9. odpověděl qwen3.8 na **8 úloh třikrát**, tedy 24krát.
 Codex každou odpověď četl podle čtyř obsahových kritérií (0 / 0,25 /
@@ -87,24 +92,27 @@ lepší; jde o jiné požadované výstupy a jiný jmenovatel.
 Toto jsou **priority revize**, nikoli návrhy na změnu bindingů. Každá role
 potřebuje doložené známky na stejné sadě a posouzení konkrétních sporných
 odpovědí. U nové izolované kampaně je všech 312 sémantických odpovědí stále
-bez známky. Oddělený balíček 120 odpovědí bez překryvu se starým je v
-[revizním formuláři](/home/belphareon/Projects/coworker/intentsmith-hunt-human-review-20260925/new-120/review.html).
-Je to vývojová sada, ne čerstvý přejímací holdout. Starých 192 odpovědí
-nelze po otevření jejich identit vydávat za slepé hodnocení.
+bez známky. Pro srovnávací posouzení se používá jediný [formulář pro všech
+312 odpovědí](/mnt/vi7000/intentsmith/evidence/hunt-isolated-20260925/blind/review.html)
+a jeho packet SHA256 b3a2f33445ed7537fca65d2dd25645e68ba90250c1c0718c57396f8371aefc0f.
+Dvě odvozené 120položkové kopie jsou stažené ze srovnávacího hodnocení:
+nemají stejné SHA a u D1, D2, R2 obsahují jediný model na roli. Hodnotitel
+u všech 312 přizná expozici identity; bez ní jde o zaslepené čtení obsahu,
+nikoli nezávislou přejímku na čerstvých případech.
 
 ## Cesta k ověřenému doporučení v IntentSmithu
 
 1. U všech 312 sémantických odpovědí D1/D2/R1/R2 dokončit známky po
-   jednotlivých kritériích. Nových 120 odpovědí je odděleno pro revizi;
-   starých 192 po odhalení identity zůstává vývojovou evidencí. U CODE
+   jednotlivých kritériích ve stejném 312položkovém balíčku a za stejných
+   podmínek. Předešlé 120položkové kopie se k porovnání nepoužijí. U CODE
    nejprve opravit a přijmout orákulum; žádnou jeho plnou známku nenahrazovat
    dílčí technickou komponentou. Sporné odpovědi a konkrétní důvody
    projdeme spolu s Opusem a operátorem. Přepočet matice musí uvést pokrytí
    a shodu posudků, nejen jedno procento.
-2. Až po kontrole lidských známek otestovat dva **nezávislé místní**
+2. Až po kontrole posudků Codexu, Opusu a operátora otestovat dva **nezávislé místní**
    hodnotitele na dosud nepoužité zaslepené sadě. Oba musí dostat stejné
    zadání a odpověď bez modelové identity i bez našich známek. V IntentSmithu
-   zobrazit vedle každé odpovědi lidskou kotvu, oba posudky, důvody a
+   zobrazit vedle každé odpovědi posudek operátora (pokud vznikl), oba posudky, důvody a
    rozpory. Přijetí hodnotitelů vyžaduje předem zamčené meze falešného
    přijetí/odmítnutí a rozhodnutí o neshodách; shoda na známé vývojové sadě
    nestačí. Do přijetí nesmějí hodnotitelé doporučovat výměnu role.
@@ -121,9 +129,9 @@ nelze po otevření jejich identit vydávat za slepé hodnocení.
 
 ## Přesné zdroje
 
-- H: /mnt/vi7000/intentsmith/evidence/hunt-milestones-20260923/full-matrix.json · SHA256 `356d572e25ff8e5c6ec8b313a4be6b291f9790fed0a54e975ce2decc531c9663`
+- D: /mnt/vi7000/intentsmith/evidence/hunt-milestones-20260923/full-matrix.json · SHA256 `356d572e25ff8e5c6ec8b313a4be6b291f9790fed0a54e975ce2decc531c9663`
 - O: /mnt/vi7000/intentsmith/evidence/hunt-chat-panel-20260923/opus-grading-20260924/scores-unblinded.json · SHA256 `550335d8c79536b0a622a45a67cbed1a2c6628d5d15379a03f60c2f122e81652`
 - V: /home/belphareon/worktrees/is-mobile-completion-20260908/docs/review/evidence/2026-09-25-hunt-isolated-campaign.json · SHA256 `30551815a6ab8633d6113204ba0a5736e6794b4d13f058da23d953e4f6ff4054`
 - CODE_component: /home/belphareon/worktrees/is-mobile-completion-20260908/docs/review/evidence/2026-09-25-hunt-code-components.json · SHA256 `1510d3642edb273462e64cfb1baec6fc0d66bc462e31a115809c6252b0366647`
 
-Strojové buňky a jejich pokrytí: [JSON](evidence/2026-09-25-hunt-human-matrix-preview.json).
+Strojové buňky a jejich pokrytí: [JSON](evidence/2026-09-25-hunt-evidence-index.json).

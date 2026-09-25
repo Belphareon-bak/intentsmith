@@ -109,6 +109,10 @@ export function createRoleEvaluationPlans(opts = {}) {
   try { runtimeSha256 = qualificationRuntimeSha256(); } catch { /* unavailable source cannot authorize decisions */ }
   const plans = {};
   for (const role of Object.keys(ROLE_SUITE_NAMES)) {
+    // vision_v2 uses temperature=0; replaying the same prompt, image and
+    // artifact cannot estimate sampling stability. A stochastic profile needs
+    // its own versioned contract and explicit acceptance.
+    const roleRepeats = role === 'VISION' ? 1 : repeats;
     const collectionOnly = Boolean(SEMANTIC_ROLE_SUITES[role]);
     const profile = collectionSuite(role, SEMANTIC_ROLE_SUITES[role] || getQualitySuiteForRole(role));
     const suite = { ...profile, tests: profile.tests.map(t => ({ ...t, options: { ...t.options, num_ctx: HUNT_EVALUATION_NUM_CTX } })) };
@@ -118,7 +122,7 @@ export function createRoleEvaluationPlans(opts = {}) {
       : (suite.version || ROLE_QUALITY_VERSION);
     const contract = suiteContract(suite, {
       version: suiteVersion,
-      repeats,
+      repeats: roleRepeats,
       extra: suiteName === 'code_patch' ? { codeFixtureSha256, codeGradingRuntime } : { textGradingRuntime },
     });
     const minimumTaskCount = MINIMUM_ROLE_TASK_COUNTS[role];
@@ -137,7 +141,7 @@ export function createRoleEvaluationPlans(opts = {}) {
       suiteVersion,
       suiteContractSha256: contract.sha256,
       applicabilityContract: applicabilityContractForRole(role),
-      repeats,
+      repeats: roleRepeats,
       collectionOnly,
       numCtx: HUNT_EVALUATION_NUM_CTX,
       taskCount: suite.tests.length,

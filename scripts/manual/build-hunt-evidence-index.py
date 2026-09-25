@@ -16,8 +16,8 @@ HISTORICAL = Path("/mnt/vi7000/intentsmith/evidence/hunt-milestones-20260923/ful
 CHAT = Path("/mnt/vi7000/intentsmith/evidence/hunt-chat-panel-20260923/opus-grading-20260924/scores-unblinded.json")
 CURRENT = ROOT / "docs/review/evidence/2026-09-25-hunt-isolated-campaign.json"
 CODE = ROOT / "docs/review/evidence/2026-09-25-hunt-code-components.json"
-OUTPUT_JSON = ROOT / "docs/review/evidence/2026-09-25-hunt-human-matrix-preview.json"
-OUTPUT_MD = ROOT / "docs/review/2026-09-25-HUNT-HUMAN-MATRIX.md"
+OUTPUT_JSON = ROOT / "docs/review/evidence/2026-09-25-hunt-evidence-index.json"
+OUTPUT_MD = ROOT / "docs/review/2026-09-25-HUNT-EVIDENCE-INDEX.md"
 ROLES = ("D1", "D2", "CODE", "R1", "R2", "CHAT", "VISION")
 ALIASES = {
     "qwen3.8": "qwen3.8:latest",
@@ -51,8 +51,8 @@ for row in historical["summaries"]:
     score = content.get("completeMean")
     if score is not None:
         matrix[canonical(row["model"])][role] = cell(
-            score, "H", content["attempts"], content["tasks"],
-            "Historical development grading, known rubric limitations; not comparable with current suite."
+            score, "D", content["attempts"], content["tasks"],
+            "Historical agent/development grading, known rubric limitations; not comparable with current suite."
         )
 by_model = defaultdict(list)
 assert sum(row["repeat"] == 1 for row in chat) == 399
@@ -66,15 +66,18 @@ assert len(by_model) == 10 and all(len(scores) == 40 for scores in by_model.valu
 for model, scores in by_model.items():
     matrix[model]["CHAT"] = cell(
         statistics.mean(scores), "O", len(scores), 40,
-        "One Opus reviewer of exposed development panel; no production system prompt."
+        "One Opus reviewer of exposed development panel; content only (strict JSON format excluded); no production system prompt."
     )
 vision_runs = [row for row in current["selected"] if row["role"] == "VISION"]
 assert len(vision_runs) == 3 and all(row["score"] is not None for row in vision_runs)
 for row in vision_runs:
-    matrix[canonical(row["model"])]["VISION"] = cell(
+    assert row["responses"] == row["taskCount"] * 3 == 69
+    vision_cell = cell(
         row["score"], "V", row["responses"], row["taskCount"],
-        "Current isolated VISION technical rubric; author probes only, no operational validation."
+        "One deterministic output per task, stored three times identically; no sampling stability or operational validation."
     )
+    vision_cell.update(distinctTaskOutputs=row["taskCount"], samplingStabilityMeasured=False)
+    matrix[canonical(row["model"])]["VISION"] = vision_cell
 for model in matrix:
     matrix[model]["CODE"] = None
 for model in [canonical(row["model"]) for row in code["selected"]]:
@@ -85,9 +88,13 @@ result = {
     "jointlyGraded": False,
     "decisionAuthority": False,
     "modelAssignmentRecommendation": False,
+    "humanGradingPresent": False,
+    "visionStoredResponses": 207,
+    "visionDistinctOutputsWithinRuns": 69,
+    "visionSamplingStabilityMeasured": False,
     "roles": ROLES,
     "sources": {
-        "H": {"path": str(HISTORICAL), "sha256": file_hash(HISTORICAL)},
+        "D": {"path": str(HISTORICAL), "sha256": file_hash(HISTORICAL)},
         "O": {"path": str(CHAT), "sha256": file_hash(CHAT)},
         "V": {"path": str(CURRENT), "sha256": file_hash(CURRENT)},
         "CODE_component": {"path": str(CODE), "sha256": file_hash(CODE)},
@@ -121,22 +128,27 @@ for model in sorted(matrix):
     lines.append("| " + model + " | " + " | ".join(values) + " |")
 lines += [
     "",
-    "**H = sběr 20. 9.:** 2 922 odpovědí napříč sedmi rolemi. Codex přímo četl",
+    "**D = vývojový sběr 20. 9.:** 2 922 odpovědí napříč sedmi rolemi. Codex přímo četl",
     "1 577 otevřených odpovědí; 210 CODE četla tehdejší spustitelná orákula,",
     "1 074 strukturovaných odpovědí produkční parser a 61 pokusů mělo",
     "nepoužitelný formát nebo provozní selhání. Opus nezávisle posoudil",
     "vzorek 30 položek napříč rolemi, nikoli všech 2 922; jeho známky nebyly",
-    "do H průměrů promítnuty. **O = jiná CHAT kampaň 23.–24. 9.:** Opus",
-    "oznámkoval 400 rozhovorů jako jediný hodnotitel, s předchozí expozicí",
-    "identitám a bez produkčního systémového promptu. **V = izolované VISION",
-    "měření 25. 9.:** 23 úloh × 3 opakování pro tři modely; technické orákulum",
-    "bez provozní kvalifikace. H a V u VISION ani H a O u CHAT se neporovnávají.",
+    "do D průměrů promítnuty. **O = jiná CHAT kampaň 23.–24. 9.:** Opus",
+    "oznámkoval obsah 400 rozhovorů jako jediný hodnotitel, s předchozí expozicí",
+    "identitám a bez produkčního systémového promptu; striktní JSON formát je",
+    "mimo tento průměr. **V = izolované VISION měření 25. 9.:** 23 úloh × 3",
+    "bajtově totožná opakování pro tři modely, tedy 69 odlišných výstupů z 207.",
+    "Každý model má jeden deterministický výstup na úlohu. Stabilita při",
+    "odlišném vzorkování změřená není. D a V u qwen3.8 a gemma4 vycházejí",
+    "bitově stejně ze stejných výstupů, nejsou nezávislé potvrzení. D a O u CHAT",
+    "zůstávají odlišné kampaně a metodiky.",
     "D1/D2/R1/R2 z 25. 9. mají 312 uložených odpovědí, ale jejich známky",
     "jsou stále nevyplněné, takže v této tabulce **nejsou**. CODE se 25. 9.",
     "zastavil před inferencí.",
     "",
     "**Proč je CODE prázdný:** ve sběru 20. 9. existuje původní známka",
-    "qwen3.8 21/21 = 100 % a Devstralu 12/21 = 57,1 %. Následný audit prokázal",
+    "pro několik modelů (např. qwen3.8 21/21, Devstral 12/21, gemma4",
+    "85,7 % a qwen3.5 84,1 %). Následný audit prokázal",
     "falešné přijetí i odmítnutí v orákulu volného textu, proto tento součet",
     "není platná známka celé role. Nový technický replay dává qwen3.8 21/21",
     "a Devstralu 15/21, ale celé skóre úlohy chybí; význam textu čeká",
@@ -161,7 +173,7 @@ lines += [
     "kampaním, vadnému CODE orákulu a čekajícím 312 známkám. R1 a CODE navíc",
     "nesmějí držet tentýž model.",
     "",
-    "## Příklad: odkud přesně pochází qwen3.8 / D2 = 58,3 % H",
+    "## Příklad: odkud přesně pochází qwen3.8 / D2 = 58,3 % D",
     "",
     "Ve sběru 20. 9. odpověděl qwen3.8 na **8 úloh třikrát**, tedy 24krát.",
     "Codex každou odpověď četl podle čtyř obsahových kritérií (0 / 0,25 /",
@@ -187,24 +199,27 @@ lines += [
     "Toto jsou **priority revize**, nikoli návrhy na změnu bindingů. Každá role",
     "potřebuje doložené známky na stejné sadě a posouzení konkrétních sporných",
     "odpovědí. U nové izolované kampaně je všech 312 sémantických odpovědí stále",
-    "bez známky. Oddělený balíček 120 odpovědí bez překryvu se starým je v",
-    "[revizním formuláři](/home/belphareon/Projects/coworker/intentsmith-hunt-human-review-20260925/new-120/review.html).",
-    "Je to vývojová sada, ne čerstvý přejímací holdout. Starých 192 odpovědí",
-    "nelze po otevření jejich identit vydávat za slepé hodnocení.",
+    "bez známky. Pro srovnávací posouzení se používá jediný [formulář pro všech",
+    "312 odpovědí](/mnt/vi7000/intentsmith/evidence/hunt-isolated-20260925/blind/review.html)",
+    "a jeho packet SHA256 b3a2f33445ed7537fca65d2dd25645e68ba90250c1c0718c57396f8371aefc0f.",
+    "Dvě odvozené 120položkové kopie jsou stažené ze srovnávacího hodnocení:",
+    "nemají stejné SHA a u D1, D2, R2 obsahují jediný model na roli. Hodnotitel",
+    "u všech 312 přizná expozici identity; bez ní jde o zaslepené čtení obsahu,",
+    "nikoli nezávislou přejímku na čerstvých případech.",
     "",
     "## Cesta k ověřenému doporučení v IntentSmithu",
     "",
     "1. U všech 312 sémantických odpovědí D1/D2/R1/R2 dokončit známky po",
-    "   jednotlivých kritériích. Nových 120 odpovědí je odděleno pro revizi;",
-    "   starých 192 po odhalení identity zůstává vývojovou evidencí. U CODE",
+    "   jednotlivých kritériích ve stejném 312položkovém balíčku a za stejných",
+    "   podmínek. Předešlé 120položkové kopie se k porovnání nepoužijí. U CODE",
     "   nejprve opravit a přijmout orákulum; žádnou jeho plnou známku nenahrazovat",
     "   dílčí technickou komponentou. Sporné odpovědi a konkrétní důvody",
     "   projdeme spolu s Opusem a operátorem. Přepočet matice musí uvést pokrytí",
     "   a shodu posudků, nejen jedno procento.",
-    "2. Až po kontrole lidských známek otestovat dva **nezávislé místní**",
+    "2. Až po kontrole posudků Codexu, Opusu a operátora otestovat dva **nezávislé místní**",
     "   hodnotitele na dosud nepoužité zaslepené sadě. Oba musí dostat stejné",
     "   zadání a odpověď bez modelové identity i bez našich známek. V IntentSmithu",
-    "   zobrazit vedle každé odpovědi lidskou kotvu, oba posudky, důvody a",
+    "   zobrazit vedle každé odpovědi posudek operátora (pokud vznikl), oba posudky, důvody a",
     "   rozpory. Přijetí hodnotitelů vyžaduje předem zamčené meze falešného",
     "   přijetí/odmítnutí a rozhodnutí o neshodách; shoda na známé vývojové sadě",
     "   nestačí. Do přijetí nesmějí hodnotitelé doporučovat výměnu role.",
@@ -224,7 +239,7 @@ lines += [
 ]
 for name, source in result["sources"].items():
     lines.append(f'- {name}: {source["path"]} · SHA256 `{source["sha256"]}`')
-lines += ["", "Strojové buňky a jejich pokrytí: [JSON](evidence/2026-09-25-hunt-human-matrix-preview.json).", ""]
+lines += ["", "Strojové buňky a jejich pokrytí: [JSON](evidence/2026-09-25-hunt-evidence-index.json).", ""]
 OUTPUT_MD.write_text("\n".join(lines))
 print(json.dumps({"models": len(matrix), "roles": len(ROLES), "chatScores": len(chat),
                   "visionRuns": len(vision_runs), "markdown": str(OUTPUT_MD),
