@@ -58,6 +58,7 @@ import {
   RoleQualityEvaluationRunner,
 } from '../src/eval/role-quality-suites.js';
 import { createRoleEvaluationPlans, HUNT_EVALUATION_NUM_CTX } from '../src/eval/role-evaluation-plan.js';
+import { inspectCodeOracleSuite } from '../src/eval/code-oracle-preflight.js';
 import { MAX_MODEL_BYTES } from '../src/eval/role-collection-profile.js';
 import { gradeAcceptedCollection } from '../src/eval/grade-answer-collection.js';
 import { ModelEvaluationRunner } from '../src/eval/model-evaluation-runner.js';
@@ -421,20 +422,14 @@ let evaluationPlans = createRoleEvaluationPlans({ db });
 // controls. Check the executable oracle once before any candidate is placed on
 // the GPU; a failed control is an unavailable measurement, never model quality.
 if (DO_RUN && ROLES.includes('CODE') && evaluationPlans.CODE.measurementReady) {
-  try {
-    for (const test of evaluationPlans.CODE.suite.tests) {
-      test.prepare();
-      test.validateOracle();
-    }
-  } catch (error) {
+  const preflight = inspectCodeOracleSuite(evaluationPlans.CODE.suite);
+  if (!preflight.ready) {
     const plan = evaluationPlans.CODE;
     evaluationPlans = Object.freeze({ ...evaluationPlans, CODE: Object.freeze({ ...plan,
       measurementReady: false, decisionReady: false,
-      // Keep the suite file unchanged: it contributes to the locked CODE SHA.
-      // The subtype here is diagnostic only; the complete reason is retained.
-      runtimeBlockCode: error.message?.includes('oracle controls failed:')
-        ? 'CODE_ORACLE_CONTROL_FAILED' : error.code || 'CODE_FIXTURE_RUNTIME_UNAVAILABLE',
-      runtimeBlockReason: error.message,
+      // Diagnostic only; the committed suite and its contract stay unchanged.
+      runtimeBlockCode: preflight.code,
+      runtimeBlockReason: preflight.reason,
     }) });
   }
 }
@@ -1226,6 +1221,8 @@ if (AS_JSON || REPORT_PATH) {
         : blockedRoles.length ? 'PARTIAL'
         : results.some(r => r.trials?.some(t => t.evaluation?.collection)) ? 'AWAITING_REVIEW' : 'COMPLETE' }),
     blockedRoles: blockedRoleDetails,
+    awaitingReviewRoles: [...new Set(results.flatMap(row => (row.trials || [])
+      .filter(trial => trial.evaluation?.collection).map(trial => trial.role)))],
     gpu, providerVersion, huntCatalog: huntState.summary(), catalogUpdatesRequiringManualImport,
     perRole: Object.fromEntries([...perRole].map(([r, l]) => [r, l])),
     queue, results, proposedBindings: bindings, portfolio,

@@ -664,6 +664,8 @@ test('manual CLI validates all pins before execution and incomplete batches cann
   assert.equal(status([{...full,roleErrors:[{role:'CHAT'}]}]).status,'FAILED');
   const mixed=status([full],{installed:false,blocked:['CODE']});
   assert.equal(mixed.status,'PARTIAL');assert.equal(mixed.blockedRoles[0].role,'CODE');
+  const awaiting=status([{trials:[{role:'CHAT',evaluation:{collection:{status:'AWAITING_REVIEW'}}}]}],{installed:false,blocked:['CODE']});
+  assert.equal(awaiting.status,'PARTIAL');assert.deepEqual(Array.from(awaiting.awaitingReviewRoles),['CHAT']);
 });
 
 test('automation hold is visible and refuses start/resume while preserving manual exploratory measurement', async t => {
