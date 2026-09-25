@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 552
+- Runnable programs: 554
 - Explicit support-module exclusions: 22
-- Profiles: offline=306, database=80, server=49, model=82, soak=15, manual=20
-- States: ACTIVE=458, HISTORICAL=15, BLOCKED=79
+- Profiles: offline=307, database=81, server=49, model=82, soak=15, manual=20
+- States: ACTIVE=460, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -520,6 +520,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-SCENARIO-ENGINE-TEST` | `tests/scenario-engine.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SCHEDULER-TEST` | `tests/scheduler.test.js` | `C3-015` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SCHEMA-MIGRATIONS-TEST` | `tests/schema-migrations.test.js` | `C3-024` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-SCM-STUDIO-TEST` | `tests/scm-studio.test.js` | `C3-005` | T1 | `database` | 2 s | 1 min | network:none, temp-db, toolchain:git | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-SCOPE-LIMITER-TEST` | `tests/scope-limiter.test.js` | `C3-007` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SEARCH-QUALITY-A123-TEST` | `tests/search-quality-a123.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SECURITY-HARDENING-V126-TEST` | `tests/security-hardening-v126.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
@@ -556,6 +557,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-STUDIO2-ATTACHMENTS-TEST` | `tests/studio2-attachments.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-STUDIO2-CATALOG-STORE-TEST` | `tests/studio2-catalog-store.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T5-TESTS-STUDIO2-EXCLUSIVE-UI-E2E` | `tests/studio2-exclusive-ui.e2e.js` | `C3-001` | T5 | `server` | 2 min | 5 min | network:loopback, temp-db, toolchain:linux-user-network-namespace, toolchain:iproute2, toolchain:x11-display | yes | `ACTIVE` | — | WP-STUDIO-2 S2-0 |
+| `IS-T1-TESTS-STUDIO2-LIVE-MODEL-TEST` | `tests/studio2-live-model.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-STUDIO2-M2-TEST` | `tests/studio2-m2.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-STUDIO2-SESSION-STORE-TEST` | `tests/studio2-session-store.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-STUDIO2-TRANSPORT-TEST` | `tests/studio2-transport.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |

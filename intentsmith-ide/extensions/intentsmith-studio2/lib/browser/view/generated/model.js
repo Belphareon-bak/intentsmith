@@ -340,6 +340,7 @@ class Component extends DCLogic {
     const SET = [
       { id: 'obecne', name: 'Obecné', icon: I.sliders, tone: 'blue', desc: 'Jazyk, spouštění a chování okna.' },
       { id: 'vzhled', name: 'Vzhled', icon: I.palette, tone: 'violet', desc: 'Paleta, písmo a rozvržení pracovního prostředí.' },
+      { id: 'system', name: 'Systém', icon: I.cpu, tone: 'blue', desc: 'Skutečné prostředí backendu a závislosti projektu.' },
       { id: 'modely', name: 'Modely', icon: I.cpu, tone: 'violet', desc: 'Modely, jejich role a parametry inference.' },
       { id: 'pamet', name: 'Paměť', icon: I.db, tone: 'cyan', desc: 'Historie, kontext a automatické učení.' },
       { id: 'oznameni', name: 'Oznámení', icon: I.bell, tone: 'amber', desc: 'Kanály oznámení a čas pro soustředění.' },
@@ -772,7 +773,7 @@ class Component extends DCLogic {
       ? { t: 'Zatím žádné generování', x: 'Obrázky a video z ComfyUI se tu ukážou jako dlaždice nebo seznam, stejně jako všechno ostatní.', i: I.sparkle }
       : { t: 'Nic nenalezeno', x: 'Zkus jiný filtr nebo hledaný výraz.', i: I.search };
     return {
-      title: SC.label, icon: SC.icon, tone: SC.tone, summary: sums[sec] || '', primary: SC.newLabel, hasPrimary: !!SC.newLabel,
+      title: SC.label, icon: SC.icon, tone: SC.tone, summary: sums[sec] || '', catalogError: '', hasCatalogError: false, primary: SC.newLabel, hasPrimary: !!SC.newLabel,
       onPrimary: this.run((s2) => (sec === 'chats' ? this.pNewSession(s2, {}) : null)),
       hasChips: f.chips.length > 1, chips: f.chips, items,
       isTiles: s.view === 'dlazdice' && items.length > 0, isList: s.view === 'seznam' && items.length > 0, isEmpty: items.length === 0,
@@ -848,7 +849,7 @@ class Component extends DCLogic {
       const pol = g ? g.policy : { init: 'automatic', commit: 'ask', branch: 'ask', fetch: 'disabled', pull: 'ask', push: 'ask' };
       const scmBlocks = [
         g && g.repo ? { kind: 'rows', title: 'Repozitář', rows: [{ t: 'Větev ' + g.branch, m: g.upstream ? '↓' + g.behind + ' ↑' + g.ahead : 'bez upstreamu', icon: I.branch, mono: true }, { t: g.remote ? g.remote + ' · ' + g.host : 'bez vzdáleného repozitáře', m: g.remote ? 'povolený hostitel' : '', mc: ok, icon: I.globe }] } : { kind: 'empty', title: 'Repozitář', text: g ? 'Složka zatím nemá repozitář git. Inicializuješ ho v pravém panelu relace › Správa zdrojů.' : 'Stav repozitáře se načte z GET /api/scm/status.' },
-        { kind: 'table', title: 'Politika gitu', cols: ['Operace', 'Režim'], grid: 'minmax(0, 1fr) 120px', trs: POLK.map((k) => [k[1], [this.polLabel(pol[k[0]]), pol[k[0]] === 'disabled' ? 'var(--faint)' : pol[k[0]] === 'automatic' ? 'var(--ok)' : 'var(--text)']]) },
+        { kind: 'scmPolicy', title: 'Politika gitu' },
         { kind: 'text', title: 'Jak politika funguje', items: ['Každá operace se zápisem nebo sítí nejdřív ukáže plán a provede se až po potvrzení. Síť jen na povolené hostitele, hooky jsou vypnuté. Politiku mění PUT /api/scm/policy, ne obecné nastavení.'] }
       ];
       const related = [{ t: 'Vývojář', s: 'expertýza', icon: I.cap, go: (s2) => this.pSelect(s2, 'expertises', 'developer') }];
@@ -973,6 +974,7 @@ class Component extends DCLogic {
           hideProps: true
         });
       }
+      if (x.id === 'system') return Object.assign(base, { tabs: [['prostredi', 'Prostředí a závislosti']], blocks: { prostredi: [{ kind: 'development' }] }, props: [] });
       if (x.id === 'modely') return Object.assign(base, { blocks: { prehled: [{ kind: 'rows', title: 'Nainstalované modely', rows: d.MODELS.map((m) => ({ t: m, m: m === 'qwen3.5:27b' ? 'CHAT' : '', mc: 'var(--acct)', icon: I.cpu, mono: true })) }] }, props: [['Model CHAT', 'qwen3.5:27b', true], ['Model FAST', 'nenastaven'], ['Server', 'Ollama 0.34'], ['Adresa', '127.0.0.1:11434', true]] });
       if (x.id === 'oznameni') return Object.assign(base, { blocks: { prehled: [{ kind: 'rows', title: 'Kanály', rows: [r('Systémová oznámení', 'zapnuto'), r('E-mail (SMTP)', 'nenastaveno'), r('ntfy.sh', 'nenastaveno'), r('Telegram', 'v M5 nepodporováno'), r('Webhook (HMAC)', 'v M5 nepodporováno')] }] }, props: [['Tichý režim', 'vypnutý'], ['Tichý režim od–do', '22:00–07:00'], ['Chyby v tichém režimu', 'projdou']] });
       if (x.id === 'uloziste') return Object.assign(base, { primary: { label: 'Vacuum DB', go: () => ({}) }, blocks: { prehled: [{ kind: 'rows', title: 'Data', rows: [r('Konverzace', '46'), r('Projekty', '6'), r('Workeři', '6'), r('Generování médií', '0')] }] }, props: [['Databáze', 'data/c3.db', true], ['Velikost', '134 MiB'], ['Retence logů', '30 dní']] });
@@ -984,6 +986,35 @@ class Component extends DCLogic {
       return Object.assign(base, { blocks: { prehled: [{ kind: 'empty', title: x.name, text: 'Žádné rozpracované funkce nejsou k dispozici.' }] }, props: [['Položek', '0']] });
     }
     return null;
+  }
+
+  scmPolicyVM(s, pid) {
+    const g = pid ? this.gitVM(s, pid) : null;
+    const policy = g?.policy || { init: 'automatic', commit: 'ask', branch: 'ask', fetch: 'disabled', pull: 'ask', push: 'ask', remotes: [] };
+    const labels = [['init', 'Inicializace'], ['commit', 'Commit'], ['branch', 'Větve'], ['fetch', 'Fetch'], ['pull', 'Pull (--ff-only)'], ['push', 'Push']];
+    return { fields: labels.map(([key, label]) => ({ key, label, value: policy[key],
+      options: (key === 'branch' || key === 'push' ? ['ask', 'disabled'] : ['ask', 'automatic', 'disabled'])
+        .map(value => ({ value, label: this.polLabel(value) })), change: event => {
+          if (!pid) return;
+          const st = s.scm[pid] || {};
+          this.setState({ scm: this.merge(this.st(), 'scm', { [pid]: { ...st, policyDraft: { ...policy, [key]: event.target.value } } }) });
+        } })),
+      remotes: (policy.remotes || []).map(item => ({ name: item.name, host: item.host, remove: () => {} })),
+      remoteName: '', remoteHost: '', setRemoteName: () => {}, setRemoteHost: () => {}, addRemote: () => {},
+      save: () => {}, hasError: false, error: '', disabled: !g };
+  }
+
+  developmentVM(s) {
+    return { loading: false, hasError: false, error: '', os: 'Ukázkové prostředí', arch: 'x64', node: '24',
+      tools: 'git, npm, python3', observation: 'Ukázková data prototypu.',
+      projectMode: 'ask', sdkMode: 'ask', modes: [
+        { value: 'ask', label: 'Vyžadovat potvrzení' }, { value: 'automatic', label: 'Automaticky' }, { value: 'disabled', label: 'Zakázáno' }
+      ], policyReady: true, policyDisabled: false, prepareDisabled: false, setProjectMode: () => {}, setSdkMode: () => {}, savePolicy: () => {},
+      projects: [], projectId: '', setProject: () => {}, kind: 'npm', setKind: () => {},
+      version: '', setVersion: () => {}, isDotnet: false, prepare: () => {},
+      hasPlan: false, planState: '', planTarget: '', planCommand: '', planLimitations: '',
+      planSources: [], planEvents: [], canExecute: false, canCancel: false,
+      execute: () => {}, cancel: () => {}, history: [], refresh: () => {}, chooseHistory: () => {} };
   }
 
   appearanceDefaults() {
@@ -1063,6 +1094,7 @@ class Component extends DCLogic {
       isTable: kind === 'table', cols: (b.cols || []).map((t) => ({ t })), grid: b.grid || '1fr',
       trs: (b.trs || []).map((r) => ({ cells: r.map((c) => (Array.isArray(c) ? { t: c[0], c: c[1] } : { t: c, c: 'inherit' })) })),
       isEmpty: kind === 'empty', empty: b.text || b.empty || '',
+      isDevelopment: kind === 'development', isScmPolicy: kind === 'scmPolicy',
       isApObecne: kind === 'apObecne', isApPismo: kind === 'apPismo', isApBarvy: kind === 'apBarvy', isApRozvrzeni: kind === 'apRozvrzeni', isApCss: kind === 'apCss'
     };
   }
@@ -1086,6 +1118,7 @@ class Component extends DCLogic {
       showProps: first && !sp.hideProps && sp.props.length > 0,
       props: sp.props.map((p) => ({ k: p[0], v: p[1], cls: p[2] ? 'mono' : '' })),
       blocks: (sp.blocks[tabId] || []).map((b) => this.blockVM(b)),
+      development: this.developmentVM(s), scmPolicy: this.scmPolicyVM(s, sec === 'projects' ? id : null),
       hasRelated: !!(sp.related && sp.related.length) && first, related: (sp.related || []).map((r) => ({ t: r.t, s: r.s, icon: r.icon, go: this.run(r.go) }))
     };
   }
@@ -1113,6 +1146,10 @@ class Component extends DCLogic {
       badge: m.badge || '', hasBadge: !!m.badge, expert: m.expert || '',
       steps, hasSteps: steps.length > 0, paras: (m.paras || []).map((t) => ({ t })),
       code: (m.code || []).map((t) => ({ t })), hasCode: !!(m.code && m.code.length),
+      hasMarkdown: false, noMarkdown: true, html: '',
+      hasCopy: m.k === 'agent' && !!((m.paras || []).length || (m.code || []).length),
+      copy: () => { const value = (m.paras || []).join('\n\n') + ((m.code || []).length ? '\n\n' + m.code.join('\n') : '');
+        if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) navigator.clipboard.writeText(value).catch(() => {}); },
       isRunning: !!m.running && !stopped, runText: m.runText || 'Pracuje…',
       stop: () => this.setState({ stopped: this.merge(this.st(), 'stopped', { [m.rid]: true }) }),
       hasApproval, apprTitle: 'Změny čekají na schválení', apprSub: ap ? this.filesWord(ap.files) + ' · +' + ap.add + ' −' + ap.del + ' · režim ' + (mode === 'auto' ? 'Auto' : 'Kontrola') : '',
@@ -1167,6 +1204,8 @@ class Component extends DCLogic {
         isFresh: fresh, freshTitle: sp ? 'Nová konverzace se specialistou ' + sp.name : p ? 'Nová relace v projektu ' + p.name : 'Nová konverzace',
         freshText: sp ? 'Specialista má k dispozici své nástroje. Napiš, co má udělat.' : p ? 'Agent zná strukturu projektu a jeho paměť. Napiš, co se má udělat.' : 'Zeptej se na cokoli, nebo připoj projekt přes paletu příkazů.',
         expert: s.experts[sid] || b.expert, model: b.model,
+        hasAttachmentError: false, attachmentError: '', hasDelivery: false, deliveryText: '',
+        deliveryUnknown: false, acknowledge: () => {}, hasModel: true, hasExpertPicker: true,
         draft: s.drafts[sid] || '',
         setDraft: (e) => this.setState({ drafts: this.merge(this.st(), 'drafts', { [sid]: e.target.value }) }),
         keyDown: (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); const p2 = this.pSend(this.st(), sid); if (p2) this.setState(p2); } },
@@ -1212,10 +1251,12 @@ class Component extends DCLogic {
     const b = fsid ? this.sess(fsid, s) : null;
     const fl = this.filesVM(fsid, s);
     const scm = this.scmVM(s, fsid);
+    scm.unavailable = false;
     const fvS = this.fileViewVM(fsid, s, 'soubory');
     const fvG = this.fileViewVM(fsid, s, 'scm');
     const common = {
-      fl, scm, fvS, fvG, isSouboryList: s.rightTab === 'soubory' && !fvS.isOpen, isSouboryFile: s.rightTab === 'soubory' && fvS.isOpen,
+      fl, scm, fvS, fvG, m2Pending: false, m2Digest: '', m2Lifecycle: '', m2Governance: '', m2Test: '', m2Git: '',
+      m2Refresh: () => {}, m2HasError: false, m2Error: '', hasFileError: false, fileError: '', isSouboryList: s.rightTab === 'soubory' && !fvS.isOpen, isSouboryFile: s.rightTab === 'soubory' && fvS.isOpen,
       isScm: s.rightTab === 'scm', isScmMain: s.rightTab === 'scm' && !fvG.isOpen, isScmFile: s.rightTab === 'scm' && fvG.isOpen,
       editFoot: (s.rightTab === 'soubory' && fvS.showFoot) || (s.rightTab === 'scm' && fvG.showFoot)
     };
@@ -1638,7 +1679,7 @@ class Component extends DCLogic {
   scmVM(s, fsid) {
     const I = this.data().I;
     const b = fsid ? this.sess(fsid, s) : null;
-    const off = { noProject: true, noRepo: false, isRepo: false, projectName: '', initText: '', init: () => {}, branch: '', branchMenu: () => {}, syncText: '', behind: 0, ahead: 0, syncTitle: '', sync: () => {}, syncCls: '', fetch: () => {}, sub: '', msg: '', setMsg: () => {}, msgKey: () => {}, commit: () => {}, commitCls: '', commitMenu: () => {}, hint: '', hasHint: false, groups: [], graph: [], plan: this.planVM(s, null, fsid), count: 0, clean: false };
+    const off = { noProject: true, noRepo: false, isRepo: false, unavailable: false, unavailableText: 'Správa zdrojů zatím není připojená.', projectName: '', initText: '', init: () => {}, branch: '', branchMenu: () => {}, syncText: '', behind: 0, ahead: 0, syncTitle: '', sync: () => {}, syncCls: '', fetch: () => {}, sub: '', msg: '', setMsg: () => {}, msgKey: () => {}, commit: () => {}, commitCls: '', commitMenu: () => {}, hint: '', hasHint: false, groups: [], graph: [], plan: this.planVM(s, null, fsid), count: 0, clean: false };
     if (!b || !b.project) return off;
     const g = this.gitVM(s, b.project);
     if (!g) return off;
@@ -1654,7 +1695,7 @@ class Component extends DCLogic {
     const row = (f) => {
       const sp = this.splitPath(f.path);
       const x = f.staged ? (f.isNew ? 'A' : 'M') : (f.isNew ? 'U' : 'M');
-      return { name: sp.name, dir: sp.dir, x, xCls: 'x-' + x, addText: f.add ? '+' + f.add : '', delText: f.del ? '−' + f.del : '',
+      return { path: f.path, name: sp.name, dir: sp.dir, x, xCls: 'x-' + x, addText: f.add ? '+' + f.add : '', delText: f.del ? '−' + f.del : '',
         open: this.run((s2) => this.pOpenFile(s2, fsid, { path: f.path, from: 'scm', mode: this.fileDiff(fsid, s2, f.path) ? 'diff' : 'nahled' })),
         act: stage([f.path], !f.staged), actIcon: f.staged ? I.minus : I.plus, actLabel: f.staged ? 'Odebrat z připravených' : 'Připravit (stage)' };
     };
@@ -1668,7 +1709,7 @@ class Component extends DCLogic {
     const canCommit = !!(st.msg || '').trim() && g.staged.length > 0;
     const sync = g.behind ? 'pull' : 'push';
     return {
-      noProject: false, noRepo: false, isRepo: true, projectName: g.projectName, initText: '', init: () => {},
+      noProject: false, noRepo: false, isRepo: true, unavailable: false, unavailableText: '', projectName: g.projectName, initText: '', init: () => {},
       branch: g.branch, branchMenu: this.showCtx('branch', pid, 'left'),
       syncText: '↓' + g.behind + ' ↑' + g.ahead, behind: g.behind, ahead: g.ahead, syncCls: g.upstream ? '' : 'dis',
       syncTitle: g.upstream ? (g.behind ? 'Stáhnout ' + g.behind + ' commity z ' + g.upstream : g.ahead ? 'Odeslat ' + g.ahead + ' commit na ' + g.upstream : 'Synchronizováno s ' + g.upstream) : 'Větev nemá vzdálený protějšek',
@@ -2019,7 +2060,7 @@ class Component extends DCLogic {
     const rootCls = ['ide', this.themeClass(style.id, mode), mode, style.pro ? 'pro' : '', style.id === 'studio' ? 'toned' : '', 'ff-' + s.ff, 'fs-' + s.fs, 'ti-' + s.ti, 'ai-' + s.ai, 'pa-' + s.pa, 'ta-' + s.ta, 'bd-' + s.bd, 'den-' + s.density, 'sep-' + s.sep].filter(Boolean).join(' ') + cleanCls;
     const dyn = this.dynCss(s, mode);
     const dt = !isSessions ? this.detailVM(s) : null;
-    const emptyDt = { icon: I.file, tone: 'none', icls: '', title: '', type: '', idText: '', hasStatus: false, status: '', stCls: '', hasPrimary: false, primaryLabel: '', onPrimary: () => {}, secondary: [], more: () => {}, hasTabs: false, tabs: [], hasDesc: false, desc: '', showProps: false, props: [], blocks: [], hasRelated: false, related: [] };
+    const emptyDt = { icon: I.file, tone: 'none', icls: '', title: '', type: '', idText: '', hasStatus: false, status: '', stCls: '', hasPrimary: false, primaryLabel: '', onPrimary: () => {}, secondary: [], more: () => {}, hasTabs: false, tabs: [], hasDesc: false, desc: '', showProps: false, props: [], blocks: [], development: this.developmentVM(s), scmPolicy: this.scmPolicyVM(s, null), hasRelated: false, related: [] };
     const colTpl = lay.map((x, i) => (i ? '4px ' : '') + 'minmax(0, ' + (s.colFr[i] || 1) + 'fr)').join(' ') || 'minmax(0, 1fr)';
     const nRun = s.tabs.filter((x) => this.sstate(x, s) === 'run').length;
     const nWait = s.tabs.filter((x) => this.sstate(x, s) === 'wait').length;
@@ -2064,7 +2105,7 @@ class Component extends DCLogic {
       closeDetail: () => { const s2 = this.st(); this.setState({ detail: this.merge(s2, 'detail', { [s2.section]: null }) }); },
       ap: this.apVM(s, mode),
       ws: this.wsVM(s, fsid),
-      sb: { sessions: sessWord + ' · ' + nRun + ' pracuje · ' + nWait + ' čeká', ctx: fsid ? this.ctxOf(fsid, s) : 0 }
+      sb: { sessions: sessWord + ' · ' + nRun + ' pracuje · ' + nWait + ' čeká', ctx: fsid ? this.ctxOf(fsid, s) : 0, connection: 'Připojeno', dot: 'ok', backend: 'backend 136.1.0', ws: 'ws :3335', db: 'DB 134 MiB', gpu: 'GPU 18,3 / 24,0 GiB · 57 °C' }
     };
   }
 }

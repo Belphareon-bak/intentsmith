@@ -271,6 +271,23 @@
 .intentsmith-studio2-widget .who b{color:var(--dim);font-weight:600}
 .intentsmith-studio2-widget .ubox{font-size:var(--fc);line-height:1.6;background:var(--panel2);border-radius:10px;padding:10px 14px;white-space:pre-wrap;user-select:text}
 .intentsmith-studio2-widget .para{margin:0;font-size:var(--fc);line-height:1.66;user-select:text}
+.intentsmith-studio2-widget .md{font-size:var(--fc);line-height:1.66;overflow-wrap:anywhere;user-select:text}
+.intentsmith-studio2-widget .md p{margin:0 0 9px}
+.intentsmith-studio2-widget .md p:last-child{margin-bottom:0}
+.intentsmith-studio2-widget .md h1,.intentsmith-studio2-widget .md h2,.intentsmith-studio2-widget .md h3,.intentsmith-studio2-widget .md h4{color:var(--text);margin:14px 0 7px;line-height:1.35}
+.intentsmith-studio2-widget .md h1{font-size:1.35em}
+.intentsmith-studio2-widget .md h2{font-size:1.2em}
+.intentsmith-studio2-widget .md h3{font-size:1.1em}
+.intentsmith-studio2-widget .md ul,.intentsmith-studio2-widget .md ol{padding-left:22px;margin:7px 0}
+.intentsmith-studio2-widget .md li{margin:3px 0}
+.intentsmith-studio2-widget .md pre{overflow-x:auto;background:var(--bg2);border:1px solid var(--soft);border-radius:7px;padding:10px 12px}
+.intentsmith-studio2-widget .md code{font-family:var(--font-mono);font-size:.9em}
+.intentsmith-studio2-widget .md :not(pre)>code{background:var(--bg2);padding:1px 4px;border-radius:3px}
+.intentsmith-studio2-widget .md table{display:block;overflow-x:auto;border-collapse:collapse;max-width:100%;margin:10px 0}
+.intentsmith-studio2-widget .md th,.intentsmith-studio2-widget .md td{border:1px solid var(--soft);padding:6px 9px;text-align:left;white-space:nowrap}
+.intentsmith-studio2-widget .md th{color:var(--text);background:var(--panel2)}
+.intentsmith-studio2-widget .md blockquote{margin:8px 0;padding-left:12px;border-left:2px solid var(--acct);color:var(--dim)}
+.intentsmith-studio2-widget .md a{color:var(--info)}
 .intentsmith-studio2-widget .tl{position:relative;display:flex;flex-direction:column;gap:6px;padding-left:20px}
 .intentsmith-studio2-widget .tl-line{position:absolute;left:4px;top:7px;bottom:7px;width:1px;background:var(--border)}
 .intentsmith-studio2-widget .tl-i{position:relative;display:flex;align-items:center;gap:10px;font-size:calc(var(--fc) - 1.5px);color:var(--dim);min-width:0}
@@ -428,6 +445,16 @@
 .intentsmith-studio2-widget .rel:hover{color:var(--acct)}
 .intentsmith-studio2-widget .rel-s{margin-left:auto;font-size:11px;color:var(--faint)}
 .intentsmith-studio2-widget .aps{display:flex;flex-direction:column;gap:16px}
+.intentsmith-studio2-widget .dev-panel>div{display:flex;flex-direction:column;align-items:flex-start;gap:9px;padding:11px 12px;background:var(--panel2);border:1px solid var(--soft);border-radius:8px;max-width:100%}
+.intentsmith-studio2-widget .dev-panel .blk-h{width:100%}
+.intentsmith-studio2-widget .dev-panel .dev-facts{width:100%;overflow-wrap:anywhere}
+.intentsmith-studio2-widget .dev-panel .dev-facts>span:nth-child(odd){color:var(--dim)}
+.intentsmith-studio2-widget .dev-panel .dev-facts>strong,.intentsmith-studio2-widget .dev-panel .dev-facts>code{min-width:0;overflow-wrap:anywhere}
+.intentsmith-studio2-widget .dev-panel .arow2{width:100%;gap:12px;align-items:center}
+.intentsmith-studio2-widget .dev-panel select,.intentsmith-studio2-widget .dev-panel input{min-width:0;max-width:220px;padding:5px 7px;background:var(--panel);border:1px solid var(--border);border-radius:5px;font-size:12px}
+.intentsmith-studio2-widget .dev-panel .note{width:100%;overflow-wrap:anywhere}
+.intentsmith-studio2-widget .dev-panel button:disabled{opacity:.5;cursor:default}
+.intentsmith-studio2-widget .dev-panel .row{width:100%}
 .intentsmith-studio2-widget .tcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
 .intentsmith-studio2-widget .tcard{display:flex;flex-direction:column;gap:6px;padding:6px 6px 8px;border:1px solid var(--border);border-radius:9px;background:var(--panel2);text-align:left;cursor:pointer;color:var(--text);min-width:0}
 .intentsmith-studio2-widget .tcard.on{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}

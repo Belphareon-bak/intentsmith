@@ -2,7 +2,7 @@
 
 const React = require('@theia/core/shared/react');
 const { render } = require('./generated/view');
-const { Component } = require('./generated/model');
+const { LiveModel } = require('./live-model');
 
 const h = React.createElement;
 
@@ -32,8 +32,8 @@ const rt = {
   css
 };
 
-function createModel() {
-  return new Component();
+function createModel(widget) {
+  return new LiveModel(widget);
 }
 
 // Kořen vizuální vrstvy. Model (logika prototypu) drží stav; každá jeho změna

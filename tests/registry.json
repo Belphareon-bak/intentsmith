@@ -16088,6 +16088,67 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-SCM-STUDIO-TEST",
+      "path": "tests/scm-studio.test.js",
+      "argv": [
+        "node",
+        "tests/scm-studio.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T1",
+      "fixture": "temporary git repositories and isolated SQLite",
+      "profile": "database",
+      "timeoutMs": 60000,
+      "expectedDurationMs": 2000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false,
+        "toolchain": ["git"]
+      },
+      "required": true,
+      "owner": "WP-STUDIO-2-20260925",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-STUDIO2-LIVE-MODEL-TEST",
+      "path": "tests/studio2-live-model.test.js",
+      "argv": [
+        "node",
+        "tests/studio2-live-model.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T1",
+      "fixture": "real SessionStore and WorkspaceFiles with mocked effect boundaries",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-STUDIO-2-20260925",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-STUDIO2-WORKSPACE-FILES-TEST",
       "path": "tests/studio2-workspace-files.test.js",
       "argv": [

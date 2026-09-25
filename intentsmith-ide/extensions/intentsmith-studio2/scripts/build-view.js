@@ -128,6 +128,7 @@ function gen(node, scope, ind) {
     let key = ATTR[name] || SVG_ATTR[name] || name;
     const v = interp(value, scope);
     if (key === 'style') { props.push(`style: css(${v})`); continue; }
+    if (key === 'data-html') { props.push(`dangerouslySetInnerHTML: { __html: ${v} }`); continue; }
     if (/^on[A-Z]/.test(key)) { props.push(`${key}: ${v}`); continue; }
     props.push(`${/^[\w$]+$/.test(key) ? key : JSON.stringify(key)}: ${v}`);
   }

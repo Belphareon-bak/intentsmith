@@ -1,41 +1,43 @@
 import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
-// Explicit Electron DOM probe. Invoked only after the M0 boundary soak has
-// already completed; UI reload traffic is excluded from that M0 verdict.
+
+// Runs after the M0 boundary soak. All selectors belong to the generated
+// prototype view, so this also catches a silent return to the former UI.
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot }) {
-  const inspect = `(() => ({
-    mode: window.__intentsmithStudioMode || null,
-    savedMode: window.localStorage.getItem('intentsmith-studio-ui-mode'),
-    electronReloadReady: typeof window.electronTheiaCore?.requestReload === 'function',
-    switchReady: typeof window.IntentSmithStudioMode?.selectMode === 'function',
-    classicSidebar: Boolean(document.getElementById('intentsmith-sidebar')),
-    classicChat: Boolean(document.getElementById('intentsmith-chat-panel')),
-    studio2: Boolean(document.querySelector('[data-studio-ui="studio2"]')),
-    studio2Widget: Boolean(document.getElementById('intentsmith-studio2')),
-    studio2WidgetText: document.getElementById('intentsmith-studio2')?.textContent?.slice(0, 200) || null,
-    widgetIds: [...document.querySelectorAll('[id*="intentsmith"]')].map(el => el.id).slice(0, 24),
-    transport: Boolean(window.IntentSmithWS?.connect),
-    bus: Boolean(window.IntentSmithBus?.on),
-    classicFacade: typeof window._intentsmith?.renderChat === 'function',
-    terminalClient: typeof window.IntentSmithTerminal?.send === 'function',
-    terminalInput: Boolean(document.querySelector('[aria-label^="Příkaz terminálu relace"]')),
-    attachmentPicker: [...document.querySelectorAll('.intentsmith-s2-composer-controls button')].some(button => button.textContent === 'Připojit soubor'),
-    m2Panel: Boolean(document.querySelector('[aria-label="Změny M2"]')),
-    settingsCategories: Boolean(document.querySelector('nav[aria-label="Kategorie nastavení"]')),
-    environmentPanel: Boolean(document.querySelector('.intentsmith-development')),
-    environmentLoaded: Boolean(document.querySelector('.intentsmith-development')?.textContent?.includes('Skutečné prostředí backendu')),
-    paletteOpen: Boolean(document.querySelector('[role="dialog"][aria-label="Paleta příkazů"]')),
-    columnsVisible: Boolean(document.querySelector('.intentsmith-s2-columns')),
-    centerInsideStudio: Boolean(document.querySelector('[data-studio-ui="studio2"]')?.contains(document.elementFromPoint(innerWidth / 2, innerHeight / 2))),
-    studioDark: Boolean(document.querySelector('[data-studio-ui="studio2"]')?.classList.contains('th-studio-dark')),
-    busListeners: window.IntentSmithBus?._debug?.() || {},
-    sessionTabs: document.querySelectorAll('.intentsmith-s2-tab').length,
-    columnSessions: [...document.querySelectorAll('.intentsmith-s2-column-head select')].map(select => select.value),
-    catalogSection: document.querySelector('[data-catalog-section]')?.getAttribute('data-catalog-section') || null,
-    catalogStatus: document.querySelector('[data-catalog-status]')?.getAttribute('data-catalog-status') || null,
-  }))()`;
+  const inspect = `(() => {
+    const root = document.querySelector('#intentsmith-studio2 [data-studio-ui="studio2"]');
+    const panel = root?.querySelector('.dev-panel[aria-label="Prostředí a závislosti"]');
+    const facts = panel?.querySelector('.dev-facts strong')?.textContent?.trim();
+    const activeSide = root?.querySelector('.rp .ptabs .ptab.on')?.textContent?.trim();
+    return {
+      mode: window.__intentsmithStudioMode || null,
+      switchReady: typeof window.IntentSmithStudioMode?.selectMode === 'function',
+      classicSidebar: Boolean(document.getElementById('intentsmith-sidebar')),
+      classicChat: Boolean(document.getElementById('intentsmith-chat-panel')),
+      studio2: Boolean(root),
+      transport: Boolean(window.IntentSmithWS?.connect),
+      bus: Boolean(window.IntentSmithBus?.on),
+      classicFacade: typeof window._intentsmith?.renderChat === 'function',
+      terminalClient: typeof window.IntentSmithTerminal?.send === 'function',
+      terminalInput: Boolean(root?.querySelector('[aria-label^="Příkaz terminálu relace"]')),
+      attachmentPicker: Boolean(root?.querySelector('[aria-label="Připojit soubor"]')),
+      m2Panel: activeSide?.startsWith('Změny') && Boolean(root?.querySelector('.rp .rp-b')),
+      settingsCategories: root?.querySelector('.cat-t h1')?.textContent?.trim() === 'Nastavení',
+      environmentPanel: Boolean(panel),
+      environmentLoaded: Boolean(facts && facts !== 'Zatím nenačteno' && facts !== 'nezjištěno' && !panel.querySelector('[role="alert"]')),
+      paletteOpen: Boolean(root?.querySelector('[role="dialog"][aria-label="Paleta příkazů"]')),
+      columnsVisible: Boolean(root?.querySelector('.cols .scol')),
+      centerInsideStudio: Boolean(root?.contains(document.elementFromPoint(innerWidth / 2, innerHeight / 2))),
+      studioDark: Boolean(root?.classList.contains('th-studio-dark')),
+      busListeners: window.IntentSmithBus?._debug?.() || {},
+      sessionTabs: root?.querySelectorAll('.tabs-in .tab').length || 0,
+      columnSessions: [...(root?.querySelectorAll('.cols .scol .pane-t .pane-tt') || [])].map(node => node.textContent.trim()),
+      catalogSection: root?.querySelector('.cat-t h1')?.textContent?.trim() || null,
+      catalogStatus: root?.querySelector('.cat-t')?.textContent?.includes('položek z backendu') ? 'ready' : null,
+    };
+  })()`;
   const waitFor = async (predicate, label) => {
     const deadline = Date.now() + 60_000;
     let last = null;
@@ -44,7 +46,6 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
         last = await evaluate(cdp, inspect);
         if (predicate(last)) return last;
       } catch {
-        // Navigation temporarily destroys the V8 context.
         cdp.assertHealthy();
       }
       await delay(150);
@@ -53,142 +54,124 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
   };
   const classic = await waitFor(s => s.mode === 'classic' && s.switchReady
     && s.classicSidebar && s.classicChat && !s.studio2 && s.transport, 'initial-classic');
-  await evaluate(cdp, `(() => {
-    setTimeout(() => window.IntentSmithStudioMode.selectMode('studio2'), 0);
-    return true;
-  })()`);
-  const studio2 = await waitFor(s => s.mode === 'studio2' && s.switchReady
-    && s.studio2 && !s.classicSidebar && !s.classicChat
-    && s.transport && s.bus && !s.classicFacade
+  await evaluate(cdp, `(() => { setTimeout(() => window.IntentSmithStudioMode.selectMode('studio2'), 0); return true; })()`);
+  const studio2 = await waitFor(s => s.mode === 'studio2' && s.studio2
+    && !s.classicSidebar && !s.classicChat && s.transport && s.bus && !s.classicFacade
     && s.busListeners['chat:message'] === 1 && s.busListeners['chat:terminal'] === 1
     && s.busListeners['terminal:output'] === 1 && s.busListeners['terminal:line'] === 1
-    && s.terminalClient, 'studio2-only');
+    && s.terminalClient && s.attachmentPicker, 'studio2-only');
   await evaluate(cdp, `(async () => {
     for (let i = 0; i < 5; i++) {
-      document.querySelector('[aria-label="Nová relace"]').click();
+      document.querySelector('#intentsmith-studio2 [aria-label="Nová relace"]').click();
       await new Promise(resolve => setTimeout(resolve, 35));
     }
-    document.querySelector('[aria-label="3 sloupce"]').click();
+    document.querySelector('#intentsmith-studio2 [aria-label="Tři relace vedle sebe"]').click();
     return true;
   })()`);
-  const six = await waitFor(s => s.mode === 'studio2' && s.sessionTabs === 6
-    && s.columnSessions.length === 3, 'six-sessions');
+  const six = await waitFor(s => s.sessionTabs === 6 && s.columnSessions.length === 3, 'six-sessions');
   const original = [...six.columnSessions];
   await evaluate(cdp, `(() => {
-    const select = document.querySelectorAll('.intentsmith-s2-column-head select')[0];
-    const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
-    setter.call(select, ${JSON.stringify(original[1])});
-    select.dispatchEvent(new Event('change', { bubbles: true }));
+    const root = document.querySelector('#intentsmith-studio2 [data-studio-ui="studio2"]');
+    root.querySelectorAll('.cols .scol .pane-t')[0].click();
+    const option = [...root.querySelectorAll('.dd.ctx .dd-i')].find(node => node.querySelector('.dd-t')?.textContent.trim() === ${JSON.stringify(original[1])});
+    if (!option) throw Error('Second column session absent from picker');
+    option.click();
     return true;
   })()`);
   const swapped = await waitFor(s => s.columnSessions[0] === original[1]
     && s.columnSessions[1] === original[0] && s.columnSessions[2] === original[2], 'column-swap');
   await evaluate(cdp, `(() => {
-    const terminal = [...document.querySelectorAll('.intentsmith-s2-column.focused .intentsmith-s2-bottom-tabs button')]
-      .find(node => node.textContent === 'Terminál');
-    terminal.click();
+    const root = document.querySelector('#intentsmith-studio2 [data-studio-ui="studio2"]');
+    [...root.querySelectorAll('.scol:first-of-type .btabs .ptab, .scol .btabs .ptab')]
+      .find(node => node.textContent.trim() === 'Terminál').click();
     return true;
   })()`);
   const terminalUi = await waitFor(s => s.terminalInput && s.busListeners['terminal:output'] === 1, 'terminal-ui');
   await evaluate(cdp, `(() => {
-    const changes = [...document.querySelectorAll('.intentsmith-s2-side-tabs button')]
-      .find(node => node.textContent === 'Změny');
-    changes.click();
+    const root = document.querySelector('#intentsmith-studio2 [data-studio-ui="studio2"]');
+    [...root.querySelectorAll('.rp .ptabs .ptab')].find(node => node.textContent.trim().startsWith('Změny')).click();
     return true;
   })()`);
   const m2Ui = await waitFor(s => s.m2Panel, 'm2-review-panel');
+  await evaluate(cdp, `(() => { setTimeout(() => window.IntentSmithStudioMode.selectMode('classic'), 0); return true; })()`);
+  const restored = await waitFor(s => s.mode === 'classic' && s.classicSidebar && s.classicChat && !s.studio2, 'classic-restored');
+  await evaluate(cdp, `(() => { setTimeout(() => window.IntentSmithStudioMode.selectMode('studio2'), 0); return true; })()`);
+  const persisted = await waitFor(s => s.mode === 'studio2' && s.studio2 && !s.classicChat
+    && s.sessionTabs === 6 && s.columnSessions.every((value, i) => value === swapped.columnSessions[i]), 'session-restore');
   await evaluate(cdp, `(() => {
-    setTimeout(() => window.IntentSmithStudioMode.selectMode('classic'), 0);
-    return true;
-  })()`);
-  const restored = await waitFor(s => s.mode === 'classic' && s.switchReady
-    && s.classicSidebar && s.classicChat && !s.studio2 && s.transport, 'classic-restored');
-  await evaluate(cdp, `(() => {
-    setTimeout(() => window.IntentSmithStudioMode.selectMode('studio2'), 0);
-    return true;
-  })()`);
-  const persisted = await waitFor(s => s.mode === 'studio2' && s.studio2
-    && !s.classicChat && s.sessionTabs === 6
-    && s.columnSessions[0] === swapped.columnSessions[0]
-    && s.columnSessions[1] === swapped.columnSessions[1]
-    && s.columnSessions[2] === swapped.columnSessions[2], 'session-restore');
-  await evaluate(cdp, `(() => {
-    const button = [...document.querySelectorAll('nav[aria-label="Hlavní navigace"] button')]
-      .find(node => node.textContent === 'Projekty');
-    button.click();
+    const root = document.querySelector('#intentsmith-studio2 [data-studio-ui="studio2"]');
+    [...root.querySelectorAll('nav[aria-label="Sekce"] .nbtn, nav[aria-label="Sekce"] .rail')]
+      .find(node => node.textContent.trim() === 'Projekty' || node.getAttribute('aria-label') === 'Projekty').click();
     return true;
   })()`);
   const catalog = await waitFor(s => s.catalogSection === 'Projekty' && s.catalogStatus === 'ready', 'project-catalog');
-  const themes = await evaluate(cdp, `(async () => {
-    const styles = ['intentsmith','studio','clean','matrix','japanese','midnight','nocturne'];
-    const darkOnly = new Set(['matrix','japanese','midnight']);
-    const seen = [];
-    for (const style of styles) {
-      const select = document.querySelector('[aria-label="Styl Studia 2"]');
-      const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
-      setter.call(select, style);
-      select.dispatchEvent(new Event('change', { bubbles: true }));
-      await new Promise(resolve => setTimeout(resolve, 35));
-      for (const tone of darkOnly.has(style) ? ['dark'] : ['dark','light']) {
-        const wanted = darkOnly.has(style) ? 'th-' + style : 'th-' + style + '-' + tone;
-        let root = document.querySelector('[data-studio-ui="studio2"]');
-        if (!root.classList.contains(wanted)) {
-          document.querySelector('[aria-label="Přepnout světlý a tmavý motiv"]').click();
-          await new Promise(resolve => setTimeout(resolve, 35));
-          root = document.querySelector('[data-studio-ui="studio2"]');
-        }
-        const css = getComputedStyle(root);
-        seen.push(root.classList.contains(wanted)
-          && Boolean(css.getPropertyValue('--s0').trim())
-          && Boolean(css.getPropertyValue('--faint').trim())
-          && (style !== 'studio' || (!root.classList.contains('cacc-0')
-            && css.getPropertyValue('--accF').trim() === '#8170ef')));
-      }
-    }
-    return seen;
-  })()`);
   await evaluate(cdp, `(() => {
-    [...document.querySelectorAll('nav[aria-label="Hlavní navigace"] button')]
-      .find(node => node.textContent === 'Nastavení').click();
+    const root = document.querySelector('#intentsmith-studio2 [data-studio-ui="studio2"]');
+    [...root.querySelectorAll('nav[aria-label="Sekce"] .nbtn, nav[aria-label="Sekce"] .rail')]
+      .find(node => node.textContent.trim() === 'Nastavení' || node.getAttribute('aria-label') === 'Nastavení').click();
     return true;
   })()`);
   await waitFor(s => s.settingsCategories, 'settings-categories');
   await evaluate(cdp, `(() => {
-    [...document.querySelectorAll('nav[aria-label="Kategorie nastavení"] button')]
-      .find(node => node.textContent === 'Systém').click();
+    const root = document.querySelector('#intentsmith-studio2 [data-studio-ui="studio2"]');
+    [...root.querySelectorAll('.cat-b .tile, .cat-b .lrow')]
+      .find(node => node.querySelector('.tile-n, .cell')?.textContent.trim() === 'Systém').click();
     return true;
   })()`);
-  const environment = await waitFor(s => s.environmentPanel && s.environmentLoaded, 'backend-environment');
+  const environment = await waitFor(s => s.environmentLoaded, 'backend-environment');
   await evaluate(cdp, `(() => {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true, cancelable: true }));
     return true;
   })()`);
   await waitFor(s => s.paletteOpen, 'command-palette');
-  await evaluate(cdp, `(() => {
-    document.querySelector('.intentsmith-s2-palette-results button').click();
-    return true;
-  })()`);
+  await evaluate(cdp, `(() => { document.querySelector('#intentsmith-studio2 .pal-i').click(); return true; })()`);
   const palette = await waitFor(s => !s.paletteOpen && s.columnsVisible, 'palette-session-navigation');
   await evaluate(cdp, `(() => {
-    document.querySelector('[aria-label="1 sloupce"]').click();
-    document.querySelector('.intentsmith-s2-tab > button').click();
-    const select = document.querySelector('[aria-label="Styl Studia 2"]');
-    const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
-    setter.call(select, 'studio');
-    select.dispatchEvent(new Event('change', { bubbles: true }));
+    const root = document.querySelector('#intentsmith-studio2 [data-studio-ui="studio2"]');
+    [...root.querySelectorAll('nav[aria-label="Sekce"] .nbtn, nav[aria-label="Sekce"] .rail')]
+      .find(node => node.textContent.trim() === 'Nastavení' || node.getAttribute('aria-label') === 'Nastavení').click();
+    [...root.querySelectorAll('.cat-b .tile, .cat-b .lrow')]
+      .find(node => node.querySelector('.tile-n, .cell')?.textContent.trim() === 'Vzhled').click();
     return true;
   })()`);
-  await waitFor(s => s.columnSessions.length === 1 && s.centerInsideStudio, 'single-column-visual-preview');
-  await evaluate(cdp, `(() => {
-    const root = document.querySelector('[data-studio-ui="studio2"]');
-    if (root.classList.contains('th-studio-light')) {
-      document.querySelector('[aria-label="Přepnout světlý a tmavý motiv"]').click();
+  const themes = await evaluate(cdp, `(async () => {
+    const root = document.querySelector('#intentsmith-studio2 [data-studio-ui="studio2"]');
+    const styles = ['IntentSmith','Studio','Clean','Matrix','Japanese','Midnight','Nocturne'];
+    const darkOnly = new Set(['Matrix','Japanese','Midnight']);
+    const seen = [];
+    for (const style of styles) {
+      const card = [...root.querySelectorAll('.aps .tcard')]
+        .find(node => node.querySelector('.tname')?.textContent.trim().startsWith(style));
+      if (!card) throw Error('Missing style ' + style);
+      card.click();
+      await new Promise(resolve => setTimeout(resolve, 40));
+      for (const tone of darkOnly.has(style) ? ['dark'] : ['dark','light']) {
+        const button = [...root.querySelectorAll('.aps .seg button')]
+          .find(node => node.textContent.trim() === (tone === 'dark' ? 'Tmavé' : 'Světlé'));
+        if (!button) throw Error('Missing theme control');
+        button.click();
+        await new Promise(resolve => setTimeout(resolve, 40));
+        const name = style.toLowerCase();
+        const expected = 'th-' + name + (darkOnly.has(style) ? '' : '-' + tone);
+        const css = getComputedStyle(root);
+        seen.push(root.classList.contains(expected)
+          && Boolean(css.getPropertyValue('--s0').trim())
+          && Boolean(css.getPropertyValue('--faint').trim()));
+      }
     }
+    return seen;
+  })()`);
+  await evaluate(cdp, `(() => {
+    const root = document.querySelector('#intentsmith-studio2 [data-studio-ui="studio2"]');
+    [...root.querySelectorAll('.aps .tcard')].find(node => node.querySelector('.tname')?.textContent.trim().startsWith('Studio')).click();
+    [...root.querySelectorAll('.aps .seg button')].find(node => node.textContent.trim() === 'Tmavé').click();
+    root.querySelector('.tabs-in .tab').click();
+    root.querySelector('[aria-label="Jedna relace"]').click();
     return true;
   })()`);
-  await waitFor(s => s.centerInsideStudio && s.studioDark, 'dark-studio-visual-preview');
+  await waitFor(s => s.columnSessions.length === 1 && s.centerInsideStudio && s.studioDark, 'single-column-visual-preview');
   const visible = await evaluate(cdp, `(() => {
-    const root = document.querySelector('[data-studio-ui="studio2"]');
+    const root = document.querySelector('#intentsmith-studio2 [data-studio-ui="studio2"]');
     const rect = root?.getBoundingClientRect();
     const center = document.elementFromPoint(innerWidth / 2, innerHeight / 2);
     return { innerWidth, innerHeight, readyState: document.readyState,
@@ -196,8 +179,7 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
       theiaStatusVisible: getComputedStyle(document.getElementById('theia-statusBar')).display !== 'none',
       theiaTabVisible: [...document.querySelectorAll('#theia-main-content-panel .theia-app-main')]
         .some(node => node.classList.contains('lm-TabBar') && getComputedStyle(node).display !== 'none'),
-      navIconColors: [...document.querySelectorAll('.intentsmith-s2-nav-icon')]
-        .map(node => getComputedStyle(node).color),
+      navIconColors: [...root.querySelectorAll('.nico')].map(node => getComputedStyle(node).color),
       rootRect: rect ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height } : null,
       centerTag: center?.tagName || null, centerClass: String(center?.className || '').slice(0, 160),
       centerInsideStudio: Boolean(root?.contains(center)),

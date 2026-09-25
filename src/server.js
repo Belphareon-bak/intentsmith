@@ -166,6 +166,7 @@ import { createExpertiseRoutes, createLifecycleRoutes } from './routes/expertise
 import { createProjectRoutes } from './routes/projects.js';
 import { createChatRoutes } from './routes/chat.js';
 import { createDevelopmentRoutes } from './routes/development.js';
+import { createScmRoutes } from './routes/scm.js';
 import { createMiscRoutes } from './routes/misc.js';
 import { createSpecialistRoutes } from './routes/specialists.js';
 import { createQualityRoutes } from './routes/quality.js';
@@ -1213,6 +1214,7 @@ const routes = {
   }),
   ...createMiscRoutes(routeDeps),
   ...createDevelopmentRoutes(routeDeps),
+  ...createScmRoutes(routeDeps),
   ...createSpecialistRoutes(routeDeps),
   ...createQualityRoutes(routeDeps),
 

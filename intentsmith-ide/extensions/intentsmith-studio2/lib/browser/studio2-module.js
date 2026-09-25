@@ -43,8 +43,8 @@ class Studio2Widget extends ReactWidget {
     this.transport = null;
     this.section = 'Relace';
     this.catalog = new CatalogStore();
-    this.workspace = new WorkspaceFiles({ onChange: () => this.update() });
-    this.m2 = new M2Controller(this.store, { onChange: () => this.update(),
+    this.workspace = new WorkspaceFiles({ onChange: () => { this.model?.forceUpdate(); this.update(); } });
+    this.m2 = new M2Controller(this.store, { onChange: () => { this.model?.forceUpdate(); this.update(); },
       activeTurn: session => !!session.chat._thinking || !!this.transport?.hasActiveM1Turn(session) });
     this.appearance = new AppearanceStore(window.localStorage, () => window.matchMedia('(prefers-color-scheme: light)').matches);
     this.unlistenAppearance = this.appearance.subscribe(() => this.update());
@@ -69,7 +69,7 @@ class Studio2Widget extends ReactWidget {
     this.bottomMode = 'Průběh';
     this.unlistenStore = this.store.subscribe(() => this.update());
     this.legacyView = window.localStorage.getItem(VIEW_KEY) === 'legacy';
-    this.model = this.legacyView ? null : createModel();
+    this.model = this.legacyView ? null : createModel(this);
   }
 
   onAfterAttach(message) {
@@ -113,11 +113,11 @@ class Studio2Widget extends ReactWidget {
     try {
       if (section === 'Konverzace') {
         const existing = this.store.state.sessions.find(session => session._convId === item.id);
-        if (existing) { this.store.focusTab(existing.id); this.section = 'Relace'; this.update(); return; }
+        if (existing) { this.store.focusTab(existing.id); this.section = 'Relace'; this.update(); return true; }
         const route = '/api/conversations/' + encodeURIComponent(item.id);
         const metadataBody = await this.catalog.get(route);
         const metadata = metadataBody.conversation || metadataBody;
-        if (metadata.id !== item.id) throw new Error('Server vrátil jinou konverzaci.');
+        if (String(metadata.id) !== item.id) throw new Error('Server vrátil jinou konverzaci.');
         const body = await this.catalog.get(route + '/messages');
         const rows = Array.isArray(body) ? body : body.messages;
         if (!Array.isArray(rows)) throw new Error('Server nevrátil platnou historii.');
@@ -136,7 +136,28 @@ class Studio2Widget extends ReactWidget {
         this.workspace.loadTree(session);
       }
       this.section = 'Relace'; this.update();
-    } catch (error) { this.catalogActionError = error.message || 'Relaci se nepodařilo otevřít.'; this.update(); }
+      return true;
+    } catch (error) { this.catalogActionError = error.message || 'Relaci se nepodařilo otevřít.'; this.update(); return false; }
+  }
+  async openSpecialist(item) {
+    this.catalogActionError = null;
+    const id = item?.id === 'accountant' ? 'accountant-cz' : item?.id;
+    if (!id) return false;
+    const existing = this.store.state.sessions.find(session => session.chat.specialist?.id === id);
+    if (existing) { this.store.focusTab(existing.id); this.update(); return true; }
+    const sessionId = 'studio-specialist-' + crypto.randomUUID();
+    try {
+      const response = await fetch(this.catalog.backendUrl() + '/api/chat/specialist', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ specialistId: id, sessionId }), signal: AbortSignal.timeout(8000),
+      });
+      const body = await response.json();
+      if (!response.ok || body.ok !== true || body.specialistId !== id)
+        throw new Error(body.error || 'Backend nepotvrdil specialistu.');
+      const specialist = { ...item.raw, id, name: item.name };
+      this.store.addSession({ convId: sessionId, label: item.name, specialistData: specialist, expertiseName: item.name });
+      this.section = 'Relace'; this.update(); return true;
+    } catch (error) { this.catalogActionError = error.message || 'Specialistu nelze aktivovat.'; this.update(); return false; }
   }
   async completeTerminal(session, input) {
     try {
