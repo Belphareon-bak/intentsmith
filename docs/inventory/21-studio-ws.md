@@ -1,11 +1,13 @@
 # Inventura #21 — Studio a WS bridge
 
-**Studio 2.0 — kontrakt, 2026-09-25:** na zadání operátora připraven
-[Decision 049](../decisions/049-studio-2-ui-and-source-control.md),
-[WP-STUDIO-2](../wp/WP-STUDIO-2-20260925.md) a [dokumentace](../studio2/README.md).
-Nové UI jako rozšíření vedle autoritativního chat panelu, hostitel Theia beze
-změny, nový backend jen konektor správy zdrojů. NÁVRH / NEZAHÁJENO; D1–D5 čekají
-na přijetí.
+**Studio 2.0 — 2026-09-25:** D1–D5 přijaty a implementace běží podle
+[Decision 049](../decisions/049-studio-2-ui-and-source-control.md) a
+[WP-STUDIO-2](../wp/WP-STUDIO-2-20260925.md) v izolovaném worktree.
+Theia 1.76.0 a React 19 mají build i fyzický Electron boundary důkaz; nové UI
+má první funkční části relací, terminálu, M2, souborů, vzhledu, katalogů a
+prostředí. **IMPLEMENTACE ČÁSTEČNÁ / REVIEW_PENDING**: klasické Studio je
+výchozí, SCM ani celá parita hotové nejsou; balík nebyl předán ani nasazen.
+[Přesný průběžný stav a důkazy](../review/2026-09-25-STUDIO2-IMPLEMENTATION-PROGRESS.md).
 
 **Studio: průběh práce a prostředí, 2026-09-23:** konkrétní tahy, nástroje,
 čekání, souborové diffy/+− a kopírování formátované odpovědi. Přidáno skutečné
