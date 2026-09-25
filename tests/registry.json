@@ -16058,6 +16058,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-STUDIO2-VIEW-TEST",
+      "path": "tests/studio2-view.test.js",
+      "argv": [
+        "node",
+        "tests/studio2-view.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T1",
+      "fixture": "prototype sources, generated view layer and static React render",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 5000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-STUDIO-2-20260925",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-STUDIO2-WORKSPACE-FILES-TEST",
       "path": "tests/studio2-workspace-files.test.js",
       "argv": [

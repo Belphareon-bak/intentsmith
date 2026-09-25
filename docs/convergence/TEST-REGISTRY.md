@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 551
+- Runnable programs: 552
 - Explicit support-module exclusions: 22
-- Profiles: offline=305, database=80, server=49, model=82, soak=15, manual=20
-- States: ACTIVE=457, HISTORICAL=15, BLOCKED=79
+- Profiles: offline=306, database=80, server=49, model=82, soak=15, manual=20
+- States: ACTIVE=458, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -559,6 +559,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-STUDIO2-M2-TEST` | `tests/studio2-m2.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-STUDIO2-SESSION-STORE-TEST` | `tests/studio2-session-store.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-STUDIO2-TRANSPORT-TEST` | `tests/studio2-transport.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
+| `IS-T1-TESTS-STUDIO2-VIEW-TEST` | `tests/studio2-view.test.js` | `C3-005` | T1 | `offline` | 5 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-STUDIO2-WORKSPACE-FILES-TEST` | `tests/studio2-workspace-files.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-SYMBOL-INDEX-TEST` | `tests/symbol-index.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-TASK-MEMORY-TEST` | `tests/task-memory.test.js` | `C3-016` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

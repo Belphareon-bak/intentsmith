@@ -2,6 +2,8 @@
 
 require('./styles/tokens.css');
 require('./styles/studio2.css');
+require('./view/view.css');
+require('./view/generated/proto.css');
 
 const { ContainerModule, decorate, injectable } = require('@theia/core/shared/inversify');
 const browser = require('@theia/core/lib/browser');
@@ -20,10 +22,14 @@ const { M2Controller } = require('./m2-controller');
 const { renderPalette } = require('./command-palette');
 const { renderChrome, renderNavigation } = require('./chrome-view');
 const Attachments = require('./attachments');
+const { StudioRoot, createModel } = require('./view/studio-root');
 
 const WIDGET_ID = 'intentsmith-studio2';
 const h = React.createElement;
 const NAV = ['Konverzace', 'Projekty', 'Specialisté', 'Expertýzy', 'Workeři', 'Obchod', 'Multimédia'];
+// Vizuální vrstva z prototypu (view/) je výchozí. Původní ruční render zůstává jen
+// po dobu integrace pro porovnání: localStorage 'intentsmith-studio2-view' = 'legacy'.
+const VIEW_KEY = 'intentsmith-studio2-view';
 
 class Studio2Widget extends ReactWidget {
   constructor() {
@@ -62,12 +68,14 @@ class Studio2Widget extends ReactWidget {
     this.sideMode = 'Soubory';
     this.bottomMode = 'Průběh';
     this.unlistenStore = this.store.subscribe(() => this.update());
+    this.legacyView = window.localStorage.getItem(VIEW_KEY) === 'legacy';
+    this.model = this.legacyView ? null : createModel();
   }
 
   onAfterAttach(message) {
     super.onAfterAttach(message);
     if (!this.transport) this.transport = new TransportAdapter(this.store, this.workspace);
-    window.addEventListener('keydown', this.onPaletteKey, true);
+    if (this.legacyView) window.addEventListener('keydown', this.onPaletteKey, true);
     this.update();
   }
 
@@ -184,6 +192,11 @@ class Studio2Widget extends ReactWidget {
   }
 
   render() {
+    if (!this.legacyView) return h(StudioRoot, { model: this.model });
+    return this.renderLegacy();
+  }
+
+  renderLegacy() {
     const state = this.store.state;
     const view = renderSessionView(this, h);
     const appearance = this.appearance.values;
@@ -242,6 +255,8 @@ class Studio2Contribution extends browser.AbstractViewContribution {
     for (const side of ['leftPanelHandler', 'rightPanelHandler', 'bottomPanelHandler']) {
       app.shell[side]?.container?.hide();
     }
+    // Lumino keeps the hidden tab bar's height reserved until the dock layout refits.
+    app.shell.mainPanel.fit();
   }
 }
 decorate(injectable(), Studio2Contribution);
