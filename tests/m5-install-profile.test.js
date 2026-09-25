@@ -24,7 +24,7 @@ function executable(target, source) {
   chmodSync(target, 0o700);
 }
 
-function fixture({ nodeVersion = '22.14.0', nvm = false, pdf = false } = {}) {
+function fixture({ nodeVersion = '24.21.0', nvm = false, pdf = false } = {}) {
   const directory = mkdtempSync(path.join(tmpdir(), 'intentsmith-m5-install-'));
   const bin = path.join(directory, 'bin');
   const home = path.join(directory, 'home');
@@ -102,12 +102,14 @@ test('full preflight succeeds with exact optional interpreter and font set', () 
   assert.doesNotMatch(result.output, /PDF export unavailable/);
 });
 
-test('core profile does not weaken the Node 22 boundary', () => {
-  const result = verify('core', { nodeVersion: '20.19.0', nvm: true });
-  assert.equal(result.status, 1, result.output);
-  assert.match(result.output, /Node\.js v20\.19\.0 \(need 22\.12\+ below 23\)/);
-  assert.match(result.output, /verify-only never changes the active runtime/);
-  assert.equal(result.nvmCalled, false);
+test('core profile requires Node 24 without mutating verify-only', () => {
+  for (const nodeVersion of ['20.19.0', '22.21.1']) {
+    const result = verify('core', { nodeVersion, nvm: true });
+    assert.equal(result.status, 1, result.output);
+    assert.match(result.output, /need 24\.x/);
+    assert.match(result.output, /verify-only never changes the active runtime/);
+    assert.equal(result.nvmCalled, false);
+  }
 });
 
 test('documented upgrade references and smoke commands match real files and routes', () => {

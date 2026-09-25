@@ -16,8 +16,8 @@ try { require("./styles/intentsmith-chat.css"); } catch(e) {}
 var inversify_1 = require("@theia/core/shared/inversify");
 var browser_1 = require("@theia/core/lib/browser");
 var react_widget_1 = require("@theia/core/lib/browser/widgets/react-widget");
-var ReactDOM = require("@theia/core/shared/react-dom");
-var _createRoot = (ReactDOM.createRoot || function(c){return{render:function(el){ReactDOM.render(el,c);}};});
+var ReactDOM = require("@theia/core/shared/react-dom/client");
+var _createRoot = ReactDOM.createRoot;
 var React = require("@theia/core/shared/react");
 var createLegacyLocalObjectUrlCache = require("../../../../shared/legacy-local-object-url-cache").createLegacyLocalObjectUrlCache;
 var h = React.createElement;
@@ -890,7 +890,7 @@ function SidebarApp(props){
 
 
 /* ═══════════════════════════════════════════════════════════
-   2. CENTER VIEW (ReactDOM.render into main panel)
+   2. CENTER VIEW (React root rendering into main panel)
    ═══════════════════════════════════════════════════════════ */
 var _centerState={view:null,detail:null,detailConversations:null,openSections:{},zoom:1,listView:false,settingsSection:null,filterMode:'active',projectFilterMode:'active',_bulkMode:false,_bulkSelected:[]};
 /* v125: Resizable detail panel — drag handle between main content and detail */
@@ -5666,7 +5666,7 @@ window.addEventListener('intentsmith-nav',function(e){
 
 
 /* ═══════════════════════════════════════════════════════════
-   3. CHAT PANEL — pure DOM via ReactDOM.render (NO ReactWidget)
+   3. CHAT PANEL — pure DOM via React root rendering (NO ReactWidget)
    ═══════════════════════════════════════════════════════════ */
 var INTENTSMITH_CHAT_ID='intentsmith-chat-panel';
 
@@ -8004,14 +8004,14 @@ function ChatApp(){return WorkspaceContextApp();}
 class IntentSmithChatWidget extends react_widget_1.ReactWidget {
   constructor(){super();this.id=INTENTSMITH_CHAT_ID;this.title.label='';this.title.iconClass='';this.title.closable=false;this.node.tabIndex=-1;this.node.style.cssText='height:100%;width:100%;outline:none;';}
   render(){return null;}
-  onUpdateRequest(){/* block ReactWidget re-render — we manage DOM via ReactDOM.render */}
+  onUpdateRequest(){/* block ReactWidget re-render — we manage DOM via React root rendering */}
   onAfterAttach(){_chatContainer=this.node;renderChat();}
 }
 inversify_1.decorate(inversify_1.injectable(),IntentSmithChatWidget);
 
 
 /* ═══════════════════════════════════════════════════════════
-   4. AGENT LOG — pure DOM via ReactDOM.render
+   4. AGENT LOG — pure DOM via React root rendering
    ═══════════════════════════════════════════════════════════ */
 var INTENTSMITH_AGENT_ID='intentsmith-agent-panel';
 var TC={cre:C.cyan,llm:C.purple,tool:C.amber,gate:C.accentText,turn:C.blue,sys:C.tx3};

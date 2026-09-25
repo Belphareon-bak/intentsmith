@@ -40,9 +40,9 @@ for (const lockPath of [
   assert.equal(trackedSet.has(lockPath), true, `required dependency lock is not tracked: ${lockPath}`);
 }
 assert.equal(
-  trackedSet.has('intentsmith-ide/applications/electron/webpack.config.js'),
+  trackedSet.has('intentsmith-ide/applications/electron/esbuild.mjs'),
   true,
-  'tracked IntentSmith Studio webpack hardening config is missing',
+  'tracked IntentSmith Studio esbuild hardening config is missing',
 );
 assert.equal(
   trackedSet.has('intentsmith-ide/applications/electron/intentsmith-local-http-bootstrap.js'),
@@ -101,9 +101,18 @@ const chatPanelPackage = JSON.parse(readFileSync(
   'utf8',
 ));
 const installer = readFileSync(resolve(repoRoot, 'scripts/install.sh'), 'utf8');
-const electronWebpack = readFileSync(
-  resolve(repoRoot, 'intentsmith-ide/applications/electron/webpack.config.js'),
+const electronEsbuild = readFileSync(
+  resolve(repoRoot, 'intentsmith-ide/applications/electron/esbuild.mjs'),
   'utf8',
+);
+const electronBrowserEntry = readFileSync(
+  resolve(repoRoot, 'intentsmith-ide/applications/electron/intentsmith-browser-entry.js'), 'utf8',
+);
+const electronMainEntry = readFileSync(
+  resolve(repoRoot, 'intentsmith-ide/applications/electron/intentsmith-electron-main-entry.js'), 'utf8',
+);
+const electronPreloadEntry = readFileSync(
+  resolve(repoRoot, 'intentsmith-ide/applications/electron/intentsmith-preload-entry.js'), 'utf8',
 );
 const electronLocalHttpBootstrap = readFileSync(
   resolve(
@@ -144,13 +153,15 @@ const localObjectUrlCache = readFileSync(
 );
 const ideLock = readFileSync(resolve(repoRoot, 'intentsmith-ide/yarn.lock'), 'utf8');
 assert.equal(rootPackage.packageManager, 'npm@10.9.4');
-assert.equal(rootPackage.engines?.node, '>=22.12.0 <23');
+assert.equal(rootPackage.engines?.node, '>=24 <25');
 assert.equal(idePackage.packageManager, 'yarn@1.22.22');
-assert.equal(idePackage.engines?.node, '>=22.12.0 <23');
+assert.equal(idePackage.engines?.node, '>=24 <25');
 assert.equal(idePackage.resolutions?.['@vscode/ripgrep'], '1.18.0');
-assert.equal(electronPackage.devDependencies?.['terser-webpack-plugin'], '5.3.17');
-assert.equal(electronPackage.devDependencies?.webpack, '5.109.2');
-assert.equal(electronPackage.devDependencies?.['webpack-cli'], '4.7.0');
+for (const removed of ['terser-webpack-plugin', 'webpack', 'webpack-cli']) {
+  assert.equal(Object.hasOwn(electronPackage.devDependencies, removed), false);
+}
+assert.equal(electronPackage.dependencies?.react, '19.3.0');
+assert.equal(electronPackage.dependencies?.['react-dom'], '19.3.0');
 assert.equal(chatPanelPackage.main, 'lib/browser/chat-panel-module.js');
 assert.deepEqual(chatPanelPackage.theiaExtensions, [
   { frontend: 'lib/browser/chat-panel-module' },
@@ -250,8 +261,8 @@ for (const workspaceKind of ['applications', 'extensions']) {
         if (dependency.startsWith('@theia/')) {
           assert.equal(
             version,
-            // Monaco core follows the VS Code version pinned by Theia 1.74.1.
-            dependency === '@theia/monaco-editor-core' ? '1.108.201' : '1.74.1',
+            // Monaco core follows the VS Code version pinned by Theia 1.76.0.
+            dependency === '@theia/monaco-editor-core' ? '1.108.201' : '1.76.0',
             `${workspaceKind}/${workspaceName} drifts ${dependency} to ${version}`,
           );
         }
@@ -276,18 +287,12 @@ assert.doesNotMatch(installer, /ollama pull "\$PRIMARY" \|\|/);
 assert.doesNotMatch(installer, /ollama pull "\$REASONING" \|\|/);
 assert.match(installer, /grep -Fqx -- "\$1"/);
 assert.match(installer, /Unknown argument: \$arg/);
-assert.match(electronWebpack, /@vscode\/ripgrep-\$\{process\.platform\}-\$\{arch\}/);
-assert.match(electronWebpack, /config\.target === 'electron-preload'/);
-assert.match(electronWebpack, /preloadConfigs\.length !== 1/);
-assert.match(electronWebpack, /preloadConfigs\[0\]\.entry\.preload/);
-assert.match(
-  electronWebpack,
-  /configs\[0\]\.entry\.bundle\s*=\s*\[\s*path\.resolve\(__dirname,\s*'intentsmith-local-http-bootstrap\.js'\)/,
-);
-assert.match(
-  electronWebpack,
-  /nodeConfig\.config\.entry\['electron-main'\]\s*=\s*\[\s*path\.resolve\(__dirname,\s*'intentsmith-local-origin-normalizer\.js'\)/,
-);
+assert.match(electronEsbuild, /replaceEntry\(browserOptions, 'bundle',/);
+assert.match(electronEsbuild, /replaceEntry\(nodeOptions, 'electron-main',/);
+assert.match(electronEsbuild, /replaceEntry\(electronOptions, 'preload',/);
+assert.match(electronBrowserEntry, /require\('\.\/intentsmith-local-http-bootstrap'\);\s*require\('\.\/src-gen\/frontend\/index'\)/);
+assert.match(electronMainEntry, /require\('\.\/intentsmith-local-origin-normalizer'\);\s*require\('\.\/src-gen\/backend\/electron-main'\)/);
+assert.match(electronPreloadEntry, /require\('\.\/src-gen\/frontend\/preload'\);\s*require\('\.\/intentsmith-preload'\)\.preload\(\)/);
 assert.match(electronPreload, /require\('\.\/intentsmith-local-access'\)/);
 assert.match(electronPreload, /readLocalAccess\(\)/);
 assert.match(electronLocalAccess, /fs\.constants\.O_NOFOLLOW/);
@@ -350,7 +355,7 @@ assert.match(
 assert.match(localObjectUrlCache, /record\.active\s*&&\s*pending\.get\(key\)\s*===\s*record/);
 assert.match(localObjectUrlCache, /record\.controller\.abort\(\)/);
 assert.doesNotMatch(
-  electronWebpack,
+  electronEsbuild,
   /require\.resolve\([`'"]@vscode\/ripgrep\/bin\/rg/,
 );
 for (const platformPackage of [

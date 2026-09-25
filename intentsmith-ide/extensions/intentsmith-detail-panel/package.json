@@ -10,6 +10,6 @@
     }
   ],
   "dependencies": {
-    "@theia/core": "1.74.1"
+    "@theia/core": "1.76.0"
   }
 }

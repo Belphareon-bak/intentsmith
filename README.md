@@ -395,11 +395,11 @@ Pro 1.0 zůstává lokální in-app/desktop cesta. SMTP, Telegram, ntfy, webhook
 
 | Vrstva | Technologie | Detail |
 |--------|-------------|--------|
-| Runtime | Node.js 22 (ESM) | Žádný framework — raw `http` modul |
+| Runtime | Node.js 24 (ESM) | Žádný framework — raw `http` modul |
 | Databáze | SQLite | better-sqlite3, WAL mód, verzované migrace |
 | LLM | Ollama | Lokální inference, 7 modelových rolí (D1, D2, CODE, R1, R2, CHAT, VISION) |
-| IDE | IntentSmith Studio | Theia 1.74.1 + Electron 42.11.3, 32 vlastních rozšíření |
-| Frontend | React (lite) | Webpack bundle v chat-panel-module.js |
+| IDE | IntentSmith Studio | Theia 1.76.0 + React 19 + Electron 42.11.3, 32 vlastních rozšíření |
+| Frontend | React 19 | esbuild bundle s autoritativním chat-panel-module.js |
 | AST | tree-sitter | JS, Python, Go, Java — symbol extraction, structural analysis |
 | Závislosti | 13 produkčních | better-sqlite3, ws, dotenv, nodemailer, puppeteer, tree-sitter, chokidar, ... |
 
@@ -448,7 +448,7 @@ intentsmith/
 ├── intentsmith-ide/                       # IDE (Theia + Electron)
 │   ├── extensions/               #   32 vlastních rozšíření
 │   │   └── intentsmith-chat-panel/        #     Hlavní chat widget (4,000+ ř.)
-│   └── applications/electron/    #   Electron wrapper + webpack
+│   └── applications/electron/    #   Electron wrapper + esbuild
 │
 ├── specialists/                  # Specialist balíčky (self-contained pluginy)
 │   ├── accountant-cz/            #   České účetnictví (DPH, daně, pojistné)

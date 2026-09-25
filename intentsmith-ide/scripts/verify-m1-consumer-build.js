@@ -23,12 +23,13 @@ const REQUIRED_BUNDLE_MARKERS = Object.freeze([
   'core-event-stream-limit',
   'DELIVERY_UNKNOWN',
   'CONVERSATION_BUSY',
-  'M1_CONNECTION_REPLACED'
+  'M1_CONNECTION_REPLACED',
+  '__intentSmithLegacyLocalFetchV1'
 ]);
 
 /*
- * 021 byte bridge. The preload is bundled by a separate webpack config whose
- * entry `webpack.config.js` overrides by hand; if that override ever stops
+ * 021 byte bridge. The preload is bundled by the Theia esbuild config whose
+ * entry `esbuild.mjs` overrides by hand; if that override ever stops
  * applying, the app still builds and starts, and the only symptom is that every
  * attachment picked from the file dialog silently loses its bytes again. These
  * markers make that a build failure instead of a Studio that looks fine.
@@ -38,6 +39,13 @@ const REQUIRED_PRELOAD_MARKERS = Object.freeze([
   'pickAttachmentFiles',
   'readAttachmentBytes',
   'M1_BRIDGE_ITEM_TOO_LARGE'
+]);
+
+const REQUIRED_ELECTRON_MAIN_MARKERS = Object.freeze([
+  'x-intentsmith-local-capability',
+  'sec-fetch-site',
+  'http://127.0.0.1/*',
+  'http://localhost/*'
 ]);
 
 const REQUIRED_CONSUMER_FUNCTIONS = Object.freeze([
@@ -159,6 +167,17 @@ function validateBundleSource(bundleSource) {
   }
 }
 
+function validateElectronMainSource(mainSource) {
+  if (typeof mainSource !== 'string' || mainSource.length === 0) {
+    throw new Error('Studio Electron main bundle is empty');
+  }
+  for (const marker of REQUIRED_ELECTRON_MAIN_MARKERS) {
+    if (!mainSource.includes(marker)) {
+      throw new Error(`Studio Electron main bundle is missing local Origin marker: ${marker}`);
+    }
+  }
+}
+
 function validatePreloadSource(preloadSource) {
   if (typeof preloadSource !== 'string' || preloadSource.length === 0) {
     throw new Error('Studio preload bundle is empty');
@@ -269,6 +288,8 @@ function verifyM1ConsumerBuild(options = {}) {
     'frontend',
     'bundle.js'
   );
+  const mainPath = path.join(studioRoot, 'applications', 'electron', 'lib', 'backend', 'electron-main.js');
+  const nativeRipgrepPath = path.join(studioRoot, 'applications', 'electron', 'lib', 'backend', 'native', process.platform === 'win32' ? 'rg.exe' : 'rg');
   const preloadPath = path.join(
     studioRoot,
     'applications',
@@ -281,6 +302,11 @@ function verifyM1ConsumerBuild(options = {}) {
   const consumerMetadata = assertRegularFile(consumerPath, 'authoritative Studio M1 consumer');
   const bundleMetadata = assertRegularFile(bundlePath, 'Studio production bundle');
   const preloadMetadata = assertRegularFile(preloadPath, 'Studio preload bundle');
+  const mainMetadata = assertRegularFile(mainPath, 'Studio Electron main bundle');
+  const ripgrepMetadata = assertRegularFile(nativeRipgrepPath, 'Studio native ripgrep');
+  if (process.platform !== 'win32' && (ripgrepMetadata.mode & 0o111) === 0) {
+    throw new Error('Studio native ripgrep is not executable');
+  }
   const protocol = options.protocol || require(protocolPath);
   validateProtocolRuntime(protocol);
   if (options.consumer) validateConsumerRuntime(options.consumer);
@@ -290,6 +316,8 @@ function verifyM1ConsumerBuild(options = {}) {
   validateBundleSource(bundleSource);
   const preloadBytes = fs.readFileSync(preloadPath);
   validatePreloadSource(preloadBytes.toString('utf8'));
+  const mainBytes = fs.readFileSync(mainPath);
+  validateElectronMainSource(mainBytes.toString('utf8'));
   const application = path.join(studioRoot, 'applications', 'electron');
   const manifestBytes = fs.readFileSync(path.join(application, 'package.json'));
   const frontendBytes = fs.readFileSync(path.join(application, 'src-gen', 'frontend', 'index.js'));
@@ -304,6 +332,10 @@ function verifyM1ConsumerBuild(options = {}) {
     bundleSha256: sha256(bundleBytes),
     preloadBytes: preloadMetadata.size,
     preloadSha256: sha256(preloadBytes),
+    mainBytes: mainMetadata.size,
+    mainSha256: sha256(mainBytes),
+    ripgrepBytes: ripgrepMetadata.size,
+    ripgrepSha256: sha256(fs.readFileSync(nativeRipgrepPath)),
     consumerBytes: consumerMetadata.size,
     consumerSha256: sha256(fs.readFileSync(consumerPath)),
     protocolBytes: protocolMetadata.size,
@@ -330,12 +362,14 @@ if (require.main === module) process.exitCode = runCli();
 module.exports = {
   REQUIRED_BUNDLE_MARKERS,
   REQUIRED_PRELOAD_MARKERS,
+  REQUIRED_ELECTRON_MAIN_MARKERS,
   REQUIRED_CONSUMER_FUNCTIONS,
   REQUIRED_PROTOCOL_FUNCTIONS,
   assertRegularFile,
   probeConsumerRuntime,
   runCli,
   validateBundleSource,
+  validateElectronMainSource,
   validatePreloadSource,
   validateConsumerRuntime,
   validateProtocolRuntime,

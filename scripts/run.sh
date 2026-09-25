@@ -142,20 +142,20 @@ echo -e "${BOLD}── Pre-flight ──${NC}"
 
 # Node version — try nvm if system node is too old
 NODE_MAJOR=$(node -v 2>/dev/null | sed 's/v//' | cut -d. -f1 || echo "0")
-if [ "$NODE_MAJOR" -lt 22 ] 2>/dev/null; then
+if [ "$NODE_MAJOR" -ne 24 ] 2>/dev/null; then
   # Try loading nvm
   if [ -f "$HOME/.nvm/nvm.sh" ]; then
     export NVM_DIR="$HOME/.nvm"
     # shellcheck source=/dev/null
     . "$NVM_DIR/nvm.sh"
-    nvm use 22 >/dev/null 2>&1 || true
+    nvm use 24 >/dev/null 2>&1 || true
     NODE_MAJOR=$(node -v 2>/dev/null | sed 's/v//' | cut -d. -f1 || echo "0")
   fi
 fi
-if [ "$NODE_MAJOR" -ge 22 ] 2>/dev/null; then
+if [ "$NODE_MAJOR" -eq 24 ] 2>/dev/null; then
   ok "Node.js $(node -v)"
 else
-  fail "Node.js ≥ 22 required (found: $(node -v 2>/dev/null || echo 'none'))"
+  fail "Node.js 24 required (found: $(node -v 2>/dev/null || echo 'none'))"
   echo "       Run ./scripts/install.sh first"
   exit 1
 fi

@@ -36,7 +36,7 @@
 
 | Prerekvizita | Verze | Ucel |
 |-------------|-------|------|
-| Node.js | 22.21.1 z `.nvmrc`; minimum 22.12.0, méně než 23 | Backend + IDE build |
+| Node.js | 24.21.0 z `.nvmrc`; požadovaná řada 24.x | Backend + IDE build |
 | npm | 10.9.4 | Frozen instalace BE zavislosti |
 | Yarn | 1.22.22 | Frozen IDE build (Theia workspaces) |
 | Ollama | `0.34.0-intentsmith.1`, přesně ověřený build podle Decision 048 | LLM inference a ověřená identita artefaktu |
@@ -50,11 +50,11 @@
 ### Instalace prerekvizit (Ubuntu/Debian)
 
 ```bash
-# Node.js 22 pres nvm (doporuceno)
+# Node.js 24 pres nvm (doporuceno)
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
 source ~/.nvm/nvm.sh
-nvm install 22.21.1
-nvm use 22.21.1
+nvm install 24.21.0
+nvm use 24.21.0
 npm install -g npm@10.9.4
 
 # Systemove zavislosti
@@ -71,11 +71,11 @@ npm install -g yarn@1.22.22
 ### Instalace prerekvizit (Fedora/RHEL)
 
 ```bash
-# Node.js 22 pres nvm
+# Node.js 24 pres nvm
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
 source ~/.nvm/nvm.sh
-nvm install 22.21.1
-nvm use 22.21.1
+nvm install 24.21.0
+nvm use 24.21.0
 npm install -g npm@10.9.4
 
 # Systemove zavislosti
@@ -158,7 +158,7 @@ Installer failne pri
 nesouladu locku, neuspesnem Electron rebuild nebo chybejicim/ABI-nekompatibilnim
 IDE artefaktu. Pouziva `npm ci`, frozen Yarn 1.22.22 a v profilu `full`
 hash-locked PDF wheels,
-tracked Theia webpack konfiguraci a integrity-locked ripgrep platform package.
+tracked Theia esbuild konfiguraci a integrity-locked ripgrep platform package.
 Rucni `npm ci`, PDF installer nebo `yarn build` jsou jen dilci vyvojove kroky.
 
 `--minimal` preskoci pouze stahovani modelu. Interaktivni rezim se na primarni
@@ -256,7 +256,7 @@ curl -X POST http://127.0.0.1:3335/chat \
 
 ## 3. Vyvoj IntentSmith IDE
 
-IntentSmith je desktopova IDE postavena na Eclipse Theia 1.74.1 a Electron 42.11.3.
+IntentSmith je desktopova IDE postavena na Eclipse Theia 1.76.0, React 19 a Electron 42.11.3.
 Na cistem checkoutu nejdrive vzdy spustte
 `./scripts/install.sh --minimal`; nasledujici prikazy jsou urcene pro iteraci
 po jiz uspesne kanonicke instalaci a samy neprovadeji Electron ABI rebuild ani
