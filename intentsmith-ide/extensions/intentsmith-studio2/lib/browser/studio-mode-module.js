@@ -14,10 +14,13 @@ function currentMode() {
 function selectMode(mode) {
   if (mode !== MODE_CLASSIC && mode !== MODE_STUDIO2) throw new TypeError('Unsupported Studio UI mode');
   if (mode === currentMode()) return false;
-  // This is a renderer replacement, not an in-place mount of a second UI.
-  // The outgoing renderer tears down its transport and listeners on unload.
+  // Theia's Electron window service mediates reload and checks close vetoes.
+  // Browser location.reload is blocked by the desktop navigation boundary.
+  if (typeof window.electronTheiaCore?.requestReload !== 'function') {
+    throw new Error('Theia Electron reload API is unavailable');
+  }
   window.localStorage.setItem(MODE_KEY, mode);
-  window.location.reload();
+  window.electronTheiaCore.requestReload();
   return true;
 }
 

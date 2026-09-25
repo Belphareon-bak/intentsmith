@@ -5,6 +5,8 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 export async function probeStudio2ModeSwitch({ cdp, evaluate, fail }) {
   const inspect = `(() => ({
     mode: window.__intentsmithStudioMode || null,
+    savedMode: window.localStorage.getItem('intentsmith-studio-ui-mode'),
+    electronReloadReady: typeof window.electronTheiaCore?.requestReload === 'function',
     switchReady: typeof window.IntentSmithStudioMode?.selectMode === 'function',
     classicSidebar: Boolean(document.getElementById('intentsmith-sidebar')),
     classicChat: Boolean(document.getElementById('intentsmith-chat-panel')),
