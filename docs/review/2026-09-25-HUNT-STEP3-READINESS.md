@@ -2,29 +2,29 @@
 
 25. 9. 2026 · **bez rozhodovací autority a bez vydaných sémantických známek**
 
-Tento přehled váže stav každé buňky na přesný digest a zdroj. `SEBRÁNO` znamená pouze úplný syrový sběr v dané sadě, nikoli přijaté skóre. `ČÁSTEČNÉ` u CHAT znamená vývojový panel; pouze dva modely mají navíc čtyři dialogy ve skutečném produkčním profilu. `BLOKOVÁNO` u CODE je selhání orákula před inferencí, ne nula modelu. `N/A` u VISION je doložené nepřítomností capability `vision` na přesném lokálním artefaktu.
+Tento přehled váže stav každé buňky na přesný digest a zdroj. `SEBRÁNO` znamená pouze úplný syrový sběr v dané sadě, nikoli přijaté skóre. `ČÁSTEČNÉ` u CHAT znamená vývojový panel; pouze dva modely mají navíc čtyři dialogy ve skutečném produkčním profilu. U CODE dva modely nově mají plný syrový jednozprávový sběr; zbylým modelům tento sběr `CHYBÍ`. **Známka CODE je u všech blokována významovým orákulem.** Technický replay není celkové skóre ani průchod C3 opravnou smyčkou. `N/A` u VISION je doložené nepřítomností capability `vision` na přesném lokálním artefaktu.
 
 Kanonický [formulář](/mnt/vi7000/intentsmith/evidence/hunt-isolated-20260925/blind/review.html) má 312 celých odpovědí a 840 kritérií; packet SHA256 `b3a2f33445ed7537fca65d2dd25645e68ba90250c1c0718c57396f8371aefc0f`. Starší oddělené packety po 120 jsou stažené ze srovnávacího hodnocení. Níže předvolený náhodný vzorek vznikl z tohoto SHA **před otevřením nových známek**.
 
 | Model (digest prefix) | D1 | D2 | CODE | R1 | R2 | CHAT | VISION |
 |---|---|---|---|---|---|---|---|
-| devstral-small-2:latest (`24277f07f62d`) | CHYBÍ | CHYBÍ | BLOKOVÁNO | SEBRÁNO | SEBRÁNO | ČÁSTEČNÉ | CHYBÍ |
-| gemma4:26b (`08ae7ec1744b`) | CHYBÍ | SEBRÁNO | BLOKOVÁNO | SEBRÁNO | CHYBÍ | ČÁSTEČNÉ | SEBRÁNO |
-| ornith-1.5:9b (`e5df7dcdd8a2`) | CHYBÍ | CHYBÍ | BLOKOVÁNO | CHYBÍ | CHYBÍ | ČÁSTEČNÉ | SEBRÁNO |
-| qwen3-30b-a3b:latest (`dc0b52b99d0e`) | CHYBÍ | CHYBÍ | BLOKOVÁNO | CHYBÍ | CHYBÍ | ČÁSTEČNÉ | N/A |
-| qwen3-coder:latest (`06c1097efce0`) | CHYBÍ | CHYBÍ | BLOKOVÁNO | CHYBÍ | CHYBÍ | ČÁSTEČNÉ | N/A |
-| qwen3.5:27b (`7653528ba5cb`) | SEBRÁNO | CHYBÍ | BLOKOVÁNO | CHYBÍ | CHYBÍ | ČÁSTEČNÉ | CHYBÍ |
-| qwen3.6:27b (`9d5803d493a9`) | SEBRÁNO | SEBRÁNO | BLOKOVÁNO | SEBRÁNO | SEBRÁNO | ČÁSTEČNÉ | CHYBÍ |
-| qwen3:14b (`bdbd181c33f2`) | CHYBÍ | CHYBÍ | BLOKOVÁNO | CHYBÍ | CHYBÍ | ČÁSTEČNÉ | N/A |
-| phi4:14b (`ac896e5b8b34`) | CHYBÍ | CHYBÍ | BLOKOVÁNO | CHYBÍ | CHYBÍ | ČÁSTEČNÉ | N/A |
-| qwen3.8:latest (`22130167c4c2`) | SEBRÁNO | SEBRÁNO | BLOKOVÁNO | SEBRÁNO | SEBRÁNO | ČÁSTEČNÉ | SEBRÁNO |
+| devstral-small-2:latest (`24277f07f62d`) | CHYBÍ | CHYBÍ | CHYBÍ | SEBRÁNO | SEBRÁNO | ČÁSTEČNÉ | CHYBÍ |
+| gemma4:26b (`08ae7ec1744b`) | CHYBÍ | SEBRÁNO | CHYBÍ | SEBRÁNO | CHYBÍ | ČÁSTEČNÉ | SEBRÁNO |
+| ornith-1.5:9b (`e5df7dcdd8a2`) | CHYBÍ | CHYBÍ | CHYBÍ | CHYBÍ | CHYBÍ | ČÁSTEČNÉ | SEBRÁNO |
+| qwen3-30b-a3b:latest (`dc0b52b99d0e`) | CHYBÍ | CHYBÍ | CHYBÍ | CHYBÍ | CHYBÍ | ČÁSTEČNÉ | N/A |
+| qwen3-coder:latest (`06c1097efce0`) | CHYBÍ | CHYBÍ | CHYBÍ | CHYBÍ | CHYBÍ | ČÁSTEČNÉ | N/A |
+| qwen3.5:27b (`7653528ba5cb`) | SEBRÁNO | CHYBÍ | SEBRÁNO | CHYBÍ | CHYBÍ | ČÁSTEČNÉ | CHYBÍ |
+| qwen3.6:27b (`9d5803d493a9`) | SEBRÁNO | SEBRÁNO | CHYBÍ | SEBRÁNO | SEBRÁNO | ČÁSTEČNÉ | CHYBÍ |
+| qwen3:14b (`bdbd181c33f2`) | CHYBÍ | CHYBÍ | CHYBÍ | CHYBÍ | CHYBÍ | ČÁSTEČNÉ | N/A |
+| phi4:14b (`ac896e5b8b34`) | CHYBÍ | CHYBÍ | CHYBÍ | CHYBÍ | CHYBÍ | ČÁSTEČNÉ | N/A |
+| qwen3.8:latest (`22130167c4c2`) | SEBRÁNO | SEBRÁNO | SEBRÁNO | SEBRÁNO | SEBRÁNO | ČÁSTEČNÉ | SEBRÁNO |
 
 Podrobné [přejímací brány všech sedmi sad](2026-09-25-HUNT-SUITE-ACCEPTANCE-GATES.md) odlišují dvoumodelový pilot od přijaté sady.
 
 ## Podklad a omezení sad
 
-- D1/D2/R1/R2: 8 historických skupin na roli, všech 312 odpovědí přesně odpovídá aktuálnímu veřejnému zadání a rubrice. 32 úloh má autora gold, alternativu a negativní sondy; 8 476 předaných řádků bylo ověřeno proti historickým souborům, ale **nezávislá přejímka dostatku kontextu a významového hodnocení chybí**. Zadání jsou aktuálně jen anglicky. Počet opakování nepřidává nezávislé případy. Přesné SHA, původ a počet kritérií každé úlohy jsou ve [strojovém podkladu](evidence/2026-09-25-hunt-step3-readiness.json).
-- CODE: aktivní historické orákulum stále přijme věcný rozpor a odmítne správnou parafrázi. Připravená v2 není přijata nezávisle. Plné modelové známky zůstávají `null`.
+- D1/D2/R1/R2: 8 historických skupin na roli, všech 312 odpovědí přesně odpovídá aktuálnímu veřejnému zadání a rubrice. 32 úloh má autora gold, alternativu a negativní sondy; 8 476 předaných řádků bylo ověřeno proti historickým souborům. [Předběžná věcná kontrola](2026-09-25-HUNT-DR-CONTEXT-REVIEW.md) našla chybějící DDL u `model_cleanup` ve všech čtyřech rolích; **nezávislá přejímka dostatku kontextu a významového hodnocení stále chybí**. Zadání jsou aktuálně jen anglicky. Počet opakování nepřidává nezávislé případy. Přesné SHA, původ a počet kritérií každé úlohy jsou ve [strojovém podkladu](evidence/2026-09-25-hunt-step3-readiness.json).
+- CODE: [nový oddělený sběr](2026-09-25-HUNT-CODE-CAPTURE.md) qwen3.8 a qwen3.5 obsahuje 42/42 syrových odpovědí (7 úloh × 3 opakování na model). Technický replay je samostatný. Aktivní finální orákulum stále přijme věcný rozpor a odmítne správnou parafrázi; všechny plné známky jsou `null`. Jednozprávová sada neobsahuje C3 pracovní opravné iterace.
 - CHAT: pečetěný plán má 10 modelů × 40 dialogů × 3 pokusy. Všech 1 200 pokusů skončilo, 1 196 bylo zachyceno; čtyři skončily výstupním limitem nebo transportní chybou. Strojová matice uvádí pro každý model skutečně zachycených 119 či 120 z plánovaných 120, ne fiktivní úplnost. Samostatný [produkční canary](2026-09-25-HUNT-CHAT-PRODUCTION-CANARY.md) zachytil 4 ze 40 úloh pro qwen3.8 a qwen3.5 se skutečným promptem a shodným kontextem; ostatní modely ani celá sada takto pokryté nejsou. Druhý nezávislý posudek chybí.
 - VISION: 3 × 23 úloh bylo sebráno, ale tři opakování při `temperature: 0` jsou vždy stejná. U dalšího měření stačí jedna deterministická odpověď; chybějící vision-capable modely jsou v tabulce `CHYBÍ`, ne `N/A`.
 
@@ -66,6 +66,6 @@ Pro každou D/R roli jsou vybrány dvě celé historické úlohy a jedna náhodn
 1. Codex a Opus hodnotí **stejný úplný packet** odděleně, po kritériích s konkrétním důvodem a citací místa v odpovědi. Jakoukoli předchozí expozici identit nebo známek oba výslovně uvedou. Nevyplněná známka není nula.
 2. Každý posudek se zmrazí jako samostatný soubor navázaný na SHA packetu. [Validátor](../../scripts/verify-hunt-blind-review.mjs) kontroluje úplnost 312 řádků / 840 kritérií a porovnává celé setiny. Původní známky nepřepisuje.
 3. Operátor dostane tento předvolený vzorek, všechny spory od 0,15 po kritériích, kritická selhání a explicitně označenou nízkou jistotu. Rozsudek bude samostatná vrstva s vlastním původem; nikdy nezmění syrové odpovědi nebo posudky.
-4. Prozatímní procentní matice vznikne **až z rozsouzených skutečně hodnocených buněk** a nese původ každého skóre. Kde je CODE zablokovaný nebo CHAT neporovnatelný s produkcí, nesmí být procento vykládáno jako výběr modelu.
+4. Prozatímní procentní matice vznikne **až z rozsouzených skutečně hodnocených buněk** a nese původ každého skóre. Kde je CODE plné hodnocení zablokované nebo CHAT neporovnatelný s produkcí, nesmí být procento vykládáno jako výběr modelu.
 
 Před GO stále zbývá nezávisle přijmout hodnotitele/orákula a ověřit pořadí na čerstvých provozních případech. Tato příprava neaktivuje model, timer ani mazání.

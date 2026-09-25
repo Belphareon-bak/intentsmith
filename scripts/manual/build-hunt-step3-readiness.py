@@ -23,6 +23,7 @@ CHAT_SUMMARY = EVIDENCE / 'hunt-chat-panel-20260923/capture/summary.json'
 CHAT_REVIEW = EVIDENCE / 'hunt-chat-panel-20260923/review-full-05/review.json'
 CHAT_KEY = EVIDENCE / 'hunt-chat-panel-20260923/review-full-05/PRIVATE-identity-key.json'
 CANARY_RUN = EVIDENCE / 'hunt-chat-production-canary-20260925/run-equal-4096'
+CODE_ROOT = EVIDENCE / 'hunt-code-capture-20260925'
 OUT = ROOT / 'docs/review/evidence/2026-09-25-hunt-step3-readiness.json'
 DOC = ROOT / 'docs/review/2026-09-25-HUNT-STEP3-READINESS.md'
 ROLES = ('D1', 'D2', 'CODE', 'R1', 'R2', 'CHAT', 'VISION')
@@ -64,6 +65,36 @@ def main():
     assert all(a['status'] == 'CAPTURED' and a['proof'] == 'RESPONSE_BOUND' for a in canary_result['attempts'])
     canary_models = {p['model'] for p in canary_plan['pairs']['CHAT']}
     assert canary_models == {'qwen3.8:latest', 'qwen3.5:27b'}
+    code_captures = {}
+    code_sources = {}
+    for directory in ('qwen38', 'qwen35'):
+        capture_plan, plan_file_sha = read(CODE_ROOT / directory / 'plan.json')
+        capture_result, result_file_sha = read(CODE_ROOT / directory / 'result.json')
+        assert capture_plan['collectOnly'] and not capture_plan['workingTreeDirty']
+        assert len(capture_plan['roles']) == 1 and capture_plan['roles'][0]['role'] == 'CODE'
+        assert capture_plan['profile'] == 'full' and capture_plan['repeats'] == 3
+        assert len(capture_plan['roles'][0]['tasks']) == 7
+        assert capture_result['status'] == 'COLLECTION_COMPLETE'
+        assert capture_result['planSha256'] == capture_plan['sha256']
+        assert capture_result['decisionAuthority'] is False and len(capture_result['attempts']) == 21
+        assert len(capture_result['capturePreflights']) == 7
+        assert all(p['ready'] for p in capture_result['capturePreflights'])
+        assert all(a['captureStatus'] == 'CAPTURED' and a['gradingStatus'] == 'NOT_GRADED'
+                   and 'score' not in a for a in capture_result['attempts'])
+        identity = capture_result['artifacts']['model']
+        assert identity['modelName'] == capture_plan['model']
+        assert all(a['artifact']['digestSha256'] == identity['digestSha256']
+                   for a in capture_result['attempts'])
+        code_captures[identity['modelName']] = (capture_plan, capture_result)
+        code_sources[identity['modelName']] = {'planPath': str(CODE_ROOT / directory / 'plan.json'),
+            'planFileSha256': plan_file_sha, 'resultPath': str(CODE_ROOT / directory / 'result.json'),
+            'resultFileSha256': result_file_sha, 'digestSha256': identity['digestSha256']}
+    assert len({p['roles'][0]['contractSha256'] for p, _ in code_captures.values()}) == 1
+    code_replay, code_replay_sha = read(CODE_ROOT / 'technical-replay.json')
+    assert code_replay['status'] == 'EXECUTABLE_COMPONENT_REPLAY_COMPLETE'
+    assert code_replay['expectedAttempts'] == len(code_replay['items']) == 42
+    assert code_replay['fullOracleAccepted'] is False and code_replay['decisionAuthority'] is False
+    assert all(item['assessment']['score'] is None for item in code_replay['items'])
     plan = chat_wrapper['plan']
     assert packet['status'] == 'DEVELOPMENT_BLIND_REVIEW' and packet['decisionAuthority'] is False
     assert len(packet['cases']) == 312 and len(fixture['tasks']) >= 32
@@ -115,9 +146,17 @@ def main():
             elif role == 'VISION' and 'vision' not in model['capabilities']:
                 row.update(status='N/A',source='Ollama capabilities for exact digest',
                     reason='Exact installed artifact has no vision capability')
+            elif role == 'CODE' and model['model'] in code_captures:
+                capture_plan, capture_result = code_captures[model['model']]
+                assert capture_result['artifacts']['model']['digestSha256'] == model['digestSha256']
+                row.update(status='SEBRÁNO',source='code-capture-20260925',
+                    runId=capture_plan['sha256'],
+                    suiteContractSha256=capture_plan['roles'][0]['contractSha256'],
+                    responseCount=21,plannedResponseCount=21,gradeStatus='BLOKOVÁNO_ORACLE',
+                    reason='One-shot raw CODE answers and separate executable replay; no repair loop or accepted full score')
             elif role == 'CODE':
-                row.update(status='BLOKOVÁNO',source='CODE full-suite preflight',
-                    reason='CODE_ORACLE_CONTROL_FAILED before model inference; historical components are not full scores')
+                row.update(status='CHYBÍ',source='CODE capture inventory',gradeStatus='BLOKOVÁNO_ORACLE',
+                    reason='No current raw CODE capture for this artifact; executable capture is available, full semantic scoring remains blocked')
             elif role == 'CHAT':
                 row.update(status='ČÁSTEČNÉ',source='chat-panel-20260923',
                     suiteContractSha256=plan['fixtureSha256'],responseCount=captured_by_model[model['model']],plannedResponseCount=120,
@@ -152,6 +191,8 @@ def main():
             'goldAndAlternativePresent':True,'authorNegativeControls':controls,
             'sourceFidelity':'GIT_EXCERPT_MATCHES',
             'contextSufficiency':'REQUIRES_INDEPENDENT_REVIEW',
+            'specificContextIssue':('PREVIOUS_MODEL_NULL_SCHEMA_OMITTED'
+                if task['name'].endswith('_model_cleanup') else None),
             'oracleAcceptance':'AUTHOR_PROBES_ONLY'})
     # Select two whole scenario groups per role and one repetition per label.
     # Each role therefore contributes a comparison of answers to the SAME task.
@@ -179,6 +220,8 @@ def main():
             'chatSummary':{'path':str(CHAT_SUMMARY),'sha256':chat_summary_sha},
             'chatCaptureIndex':{'reviewSha256':chat_review_sha,'identityKeySha256':chat_key_sha,
                 'note':'Key used only to count CAPTURED items by model; grades and responses not read'},
+            'codeCapture':{'runs':code_sources,'technicalReplayPath':str(CODE_ROOT / 'technical-replay.json'),
+                'technicalReplaySha256':code_replay_sha,'fullOracleAccepted':False},
             'productionChatCanary':{'planPath':str(CANARY_RUN / 'plan.json'),
                 'planFileSha256':canary_plan_file_sha,'sealedPlanSha256':canary_plan['planSha256'],
                 'resultPath':str(CANARY_RUN / 'result.json'),'resultSha256':canary_result_sha}},
@@ -189,21 +232,21 @@ def main():
             'blindnessLimitation':'Prior exposure to identified answers/grades must be disclosed by each reviewer; anonymity alone does not prove independence.',
             'humanReference':'NOT_CREATED','opusReview':'NOT_IMPORTED','codexReview':'NOT_CREATED'},
         'gates':{'D_R':'RAW_CAPTURE_COMPARABLE_BUT_GRADER_NOT_ACCEPTED',
-            'CODE':'ORACLE_PREFLIGHT_BLOCKED','CHAT':'PRODUCTION_CANARY_4_OF_40_FOR_2_MODELS_GRADING_OPEN',
+            'CODE':'RAW_TWO_ARTIFACTS_TECHNICAL_REPLAY_COMPLETE_FULL_ORACLE_BLOCKED','CHAT':'PRODUCTION_CANARY_4_OF_40_FOR_2_MODELS_GRADING_OPEN',
             'VISION':'TECHNICAL_EXPLORATION_ONLY','roleDecision':'NO_GO'}}
     OUT.write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n')
     symbol={'N/A':'N/A','CHYBÍ':'CHYBÍ','SEBRÁNO':'SEBRÁNO','ČÁSTEČNÉ':'ČÁSTEČNÉ','BLOKOVÁNO':'BLOKOVÁNO'}
     by={(c['model'],c['role']):c for c in cells}
     lines=['# GPU hunt: podklad pro krok 3','',
       '25. 9. 2026 · **bez rozhodovací autority a bez vydaných sémantických známek**','',
-      'Tento přehled váže stav každé buňky na přesný digest a zdroj. `SEBRÁNO` znamená pouze úplný syrový sběr v dané sadě, nikoli přijaté skóre. `ČÁSTEČNÉ` u CHAT znamená vývojový panel; pouze dva modely mají navíc čtyři dialogy ve skutečném produkčním profilu. `BLOKOVÁNO` u CODE je selhání orákula před inferencí, ne nula modelu. `N/A` u VISION je doložené nepřítomností capability `vision` na přesném lokálním artefaktu.','',
+      'Tento přehled váže stav každé buňky na přesný digest a zdroj. `SEBRÁNO` znamená pouze úplný syrový sběr v dané sadě, nikoli přijaté skóre. `ČÁSTEČNÉ` u CHAT znamená vývojový panel; pouze dva modely mají navíc čtyři dialogy ve skutečném produkčním profilu. U CODE dva modely nově mají plný syrový jednozprávový sběr; zbylým modelům tento sběr `CHYBÍ`. **Známka CODE je u všech blokována významovým orákulem.** Technický replay není celkové skóre ani průchod C3 opravnou smyčkou. `N/A` u VISION je doložené nepřítomností capability `vision` na přesném lokálním artefaktu.','',
       f'Kanonický [formulář]({PACKET.parent / "review.html"}) má 312 celých odpovědí a 840 kritérií; packet SHA256 `{packet_sha}`. Starší oddělené packety po 120 jsou stažené ze srovnávacího hodnocení. Níže předvolený náhodný vzorek vznikl z tohoto SHA **před otevřením nových známek**.','',
       '| Model (digest prefix) | D1 | D2 | CODE | R1 | R2 | CHAT | VISION |','|---|---|---|---|---|---|---|---|']
     for m in models:
         lines.append('| '+m['model']+' (`'+m['digestSha256'][:12]+'`) | '+' | '.join(symbol[by[(m['model'],r)]['status']] for r in ROLES)+' |')
     lines.extend(['','Podrobné [přejímací brány všech sedmi sad](2026-09-25-HUNT-SUITE-ACCEPTANCE-GATES.md) odlišují dvoumodelový pilot od přijaté sady.','','## Podklad a omezení sad','',
-      '- D1/D2/R1/R2: 8 historických skupin na roli, všech 312 odpovědí přesně odpovídá aktuálnímu veřejnému zadání a rubrice. 32 úloh má autora gold, alternativu a negativní sondy; 8 476 předaných řádků bylo ověřeno proti historickým souborům, ale **nezávislá přejímka dostatku kontextu a významového hodnocení chybí**. Zadání jsou aktuálně jen anglicky. Počet opakování nepřidává nezávislé případy. Přesné SHA, původ a počet kritérií každé úlohy jsou ve [strojovém podkladu](evidence/2026-09-25-hunt-step3-readiness.json).',
-      '- CODE: aktivní historické orákulum stále přijme věcný rozpor a odmítne správnou parafrázi. Připravená v2 není přijata nezávisle. Plné modelové známky zůstávají `null`.',
+      '- D1/D2/R1/R2: 8 historických skupin na roli, všech 312 odpovědí přesně odpovídá aktuálnímu veřejnému zadání a rubrice. 32 úloh má autora gold, alternativu a negativní sondy; 8 476 předaných řádků bylo ověřeno proti historickým souborům. [Předběžná věcná kontrola](2026-09-25-HUNT-DR-CONTEXT-REVIEW.md) našla chybějící DDL u `model_cleanup` ve všech čtyřech rolích; **nezávislá přejímka dostatku kontextu a významového hodnocení stále chybí**. Zadání jsou aktuálně jen anglicky. Počet opakování nepřidává nezávislé případy. Přesné SHA, původ a počet kritérií každé úlohy jsou ve [strojovém podkladu](evidence/2026-09-25-hunt-step3-readiness.json).',
+      '- CODE: [nový oddělený sběr](2026-09-25-HUNT-CODE-CAPTURE.md) qwen3.8 a qwen3.5 obsahuje 42/42 syrových odpovědí (7 úloh × 3 opakování na model). Technický replay je samostatný. Aktivní finální orákulum stále přijme věcný rozpor a odmítne správnou parafrázi; všechny plné známky jsou `null`. Jednozprávová sada neobsahuje C3 pracovní opravné iterace.',
       '- CHAT: pečetěný plán má 10 modelů × 40 dialogů × 3 pokusy. Všech 1 200 pokusů skončilo, 1 196 bylo zachyceno; čtyři skončily výstupním limitem nebo transportní chybou. Strojová matice uvádí pro každý model skutečně zachycených 119 či 120 z plánovaných 120, ne fiktivní úplnost. Samostatný [produkční canary](2026-09-25-HUNT-CHAT-PRODUCTION-CANARY.md) zachytil 4 ze 40 úloh pro qwen3.8 a qwen3.5 se skutečným promptem a shodným kontextem; ostatní modely ani celá sada takto pokryté nejsou. Druhý nezávislý posudek chybí.',
       '- VISION: 3 × 23 úloh bylo sebráno, ale tři opakování při `temperature: 0` jsou vždy stejná. U dalšího měření stačí jedna deterministická odpověď; chybějící vision-capable modely jsou v tabulce `CHYBÍ`, ne `N/A`.','',
       '## Předem vybraný vzorek pro operátora','',
@@ -214,7 +257,7 @@ def main():
       '1. Codex a Opus hodnotí **stejný úplný packet** odděleně, po kritériích s konkrétním důvodem a citací místa v odpovědi. Jakoukoli předchozí expozici identit nebo známek oba výslovně uvedou. Nevyplněná známka není nula.',
       '2. Každý posudek se zmrazí jako samostatný soubor navázaný na SHA packetu. [Validátor](../../scripts/verify-hunt-blind-review.mjs) kontroluje úplnost 312 řádků / 840 kritérií a porovnává celé setiny. Původní známky nepřepisuje.',
       '3. Operátor dostane tento předvolený vzorek, všechny spory od 0,15 po kritériích, kritická selhání a explicitně označenou nízkou jistotu. Rozsudek bude samostatná vrstva s vlastním původem; nikdy nezmění syrové odpovědi nebo posudky.',
-      '4. Prozatímní procentní matice vznikne **až z rozsouzených skutečně hodnocených buněk** a nese původ každého skóre. Kde je CODE zablokovaný nebo CHAT neporovnatelný s produkcí, nesmí být procento vykládáno jako výběr modelu.','',
+      '4. Prozatímní procentní matice vznikne **až z rozsouzených skutečně hodnocených buněk** a nese původ každého skóre. Kde je CODE plné hodnocení zablokované nebo CHAT neporovnatelný s produkcí, nesmí být procento vykládáno jako výběr modelu.','',
       'Před GO stále zbývá nezávisle přijmout hodnotitele/orákula a ověřit pořadí na čerstvých provozních případech. Tato příprava neaktivuje model, timer ani mazání.',''])
     DOC.write_text('\n'.join(lines))
     print(json.dumps({'status':result['status'],'models':len(models),'cells':len(cells),
