@@ -1,6 +1,11 @@
 'use strict';
 
 const { icon, SECTIONS } = require('./icon');
+
+const SECTION_TONES = Object.freeze({
+  Konverzace: 'amber', Projekty: 'rose', Specialisté: 'violet', Expertýzy: 'cyan',
+  Workeři: 'mint', Obchod: 'blue', Multimédia: 'violet',
+});
 const { selectMode } = require('./studio-mode-module');
 
 function renderChrome(widget, h, sections) {
@@ -81,7 +86,7 @@ function renderNavigation(widget, h, sections) {
       const view = widget.catalog.view(name);
       return h('button', { key: name, type: 'button', title: name, className: name === widget.section ? 'active' : '',
         onClick: () => widget.selectSection(name) },
-        h('span', { className: 'intentsmith-s2-nav-icon' }, icon(h, SECTIONS[name], 16)),
+        h('span', { className: `intentsmith-s2-nav-icon tone-${SECTION_TONES[name]}` }, icon(h, SECTIONS[name], 16)),
         h('span', { className: 'intentsmith-s2-nav-name' }, name),
         view.status === 'ready' ? h('small', { className: 'intentsmith-s2-nav-count' }, view.items.length) : null,
         h('span', { className: 'intentsmith-s2-nav-arrow' }, icon(h, 'right', 12)));
@@ -89,7 +94,7 @@ function renderNavigation(widget, h, sections) {
     h('div', { className: 'intentsmith-studio2-nav-bottom' },
       h('button', { type: 'button', title: 'Nastavení', className: widget.section === 'Nastavení' ? 'active' : '',
         onClick: () => widget.selectSection('Nastavení') },
-        h('span', { className: 'intentsmith-s2-nav-icon' }, icon(h, 'gear', 16)),
+        h('span', { className: 'intentsmith-s2-nav-icon tone-none' }, icon(h, 'gear', 16)),
         h('span', { className: 'intentsmith-s2-nav-name' }, 'Nastavení'))));
 }
 module.exports = { renderChrome, renderNavigation };

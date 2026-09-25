@@ -140,7 +140,9 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
         const css = getComputedStyle(root);
         seen.push(root.classList.contains(wanted)
           && Boolean(css.getPropertyValue('--s0').trim())
-          && Boolean(css.getPropertyValue('--faint').trim()));
+          && Boolean(css.getPropertyValue('--faint').trim())
+          && (style !== 'studio' || (!root.classList.contains('cacc-0')
+            && css.getPropertyValue('--accF').trim() === '#8170ef')));
       }
     }
     return seen;
@@ -190,6 +192,9 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
     const rect = root?.getBoundingClientRect();
     const center = document.elementFromPoint(innerWidth / 2, innerHeight / 2);
     return { innerWidth, innerHeight, readyState: document.readyState,
+      studioAccent: root ? getComputedStyle(root).getPropertyValue('--accF').trim() : null,
+      navIconColors: [...document.querySelectorAll('.intentsmith-s2-nav-icon')]
+        .map(node => getComputedStyle(node).color),
       rootRect: rect ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height } : null,
       centerTag: center?.tagName || null, centerClass: String(center?.className || '').slice(0, 160),
       centerInsideStudio: Boolean(root?.contains(center)),

@@ -20,6 +20,13 @@ for (const key of ['style','theme','textIntensity','activeInt','fontSizeVal','fo
 }
 assert.equal(appearance.values.style, 'clean');
 assert.match(appearance.classes(), /th-clean-light/);
+assert.match(appearance.classes(), /cacc-4/);
+assert.doesNotMatch(appearance.classes(), /cbg-/);
+assert.equal(appearance.set('theme', 'dark'), true);
+assert.match(appearance.classes(), /cbg-2/);
+assert.equal(appearance.set('style', 'studio'), true);
+assert.match(appearance.classes(), /th-studio-dark/);
+assert.doesNotMatch(appearance.classes(), /cacc-|cbg-/);
 assert.equal(JSON.parse(mem.getItem(KEY)).version, 2);
 assert.equal(appearance.set('style', 'matrix'), true);
 assert.equal(appearance.effectiveTheme(), 'dark');

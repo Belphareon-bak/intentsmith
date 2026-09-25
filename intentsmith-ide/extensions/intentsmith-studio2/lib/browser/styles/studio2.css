@@ -190,7 +190,15 @@
 .intentsmith-studio2-top select { max-width: 94px; height: 25px; font-size: 10px; margin-left: 5px; }
 .intentsmith-studio2-nav { width: 248px; flex-basis: 248px; padding: 7px 5px; border-right: 1px solid var(--bd2); background: var(--s0); }
 .intentsmith-studio2-root .intentsmith-studio2-nav button { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 34px; padding: 5px 7px; text-align: left; font-size: 12px; }
-.intentsmith-s2-nav-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 25px; width: 25px; height: 25px; border-radius: 5px; color: var(--acc); background: var(--acc-soft); }
+.intentsmith-s2-nav-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 25px; width: 25px; height: 25px; border-radius: 5px; color: var(--tone); background: color-mix(in srgb, var(--tone) 12%, transparent); }
+.intentsmith-s2-nav-icon.tone-amber { --tone: var(--warn); }
+.intentsmith-s2-nav-icon.tone-rose { --tone: var(--bad); }
+.intentsmith-s2-nav-icon.tone-violet { --tone: var(--acct); }
+.intentsmith-s2-nav-icon.tone-cyan { --tone: var(--cyan); }
+.intentsmith-s2-nav-icon.tone-mint { --tone: var(--ok); }
+.intentsmith-s2-nav-icon.tone-blue { --tone: var(--info); }
+.intentsmith-s2-nav-icon.tone-none { --tone: var(--dm); }
+.intentsmith-studio2-root .intentsmith-studio2-nav button.active { color: var(--acc); background: var(--acc-soft); }
 .intentsmith-s2-nav-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .intentsmith-s2-nav-count { min-width: 17px; padding: 1px 5px; border-radius: 10px; background: var(--s2); color: var(--dim); text-align: center; font-size: 10px; }
 .intentsmith-s2-nav-arrow { display: inline-flex; color: var(--dim); }

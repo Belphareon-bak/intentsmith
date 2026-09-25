@@ -74,9 +74,12 @@ class AppearanceStore {
     const v = this.values;
     const theme = this.effectiveTheme();
     const style = DARK_ONLY.has(v.style) ? `th-${v.style}` : `th-${v.style}-${theme}`;
+    const cleanPalette = v.style === 'clean'
+      ? [`cacc-${v.accentIdx}`, ...(theme === 'dark' ? [`cbg-${v.bgIdx}`] : [])]
+      : [];
     return [style, theme, `ti-${round10(v.textIntensity)}`, `ai-${round10(v.activeInt)}`,
       `ta-${round10(v.tileOpacity)}`, `pa-${round10(v.sidebarOpacity)}`, `bd-${round10(v.bgDim)}`,
-      `cacc-${v.accentIdx}`, `cbg-${v.bgIdx}`, `den-${v.density}`, `sep-${v.visualMode}`].join(' ');
+      ...cleanPalette, `den-${v.density}`, `sep-${v.visualMode}`].join(' ');
   }
 }
 module.exports = { AppearanceStore, STYLES, DARK_ONLY, DEFAULTS, normalize, migrate, KEY };
