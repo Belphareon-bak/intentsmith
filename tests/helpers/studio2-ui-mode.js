@@ -137,6 +137,11 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
     const root = document.querySelector('#intentsmith-studio2 [data-studio-ui="studio2"]');
     [...root.querySelectorAll('nav[aria-label="Sekce"] .nbtn, nav[aria-label="Sekce"] .rail')]
       .find(node => node.textContent.trim() === 'Nastavení' || node.getAttribute('aria-label') === 'Nastavení').click();
+    return true;
+  })()`);
+  await waitFor(s => s.settingsCategories, 'settings-return');
+  await evaluate(cdp, `(() => {
+    const root = document.querySelector('#intentsmith-studio2 [data-studio-ui="studio2"]');
     [...root.querySelectorAll('.cat-b .tile, .cat-b .lrow')]
       .find(node => node.querySelector('.tile-n, .cell')?.textContent.trim() === 'Vzhled').click();
     return true;
