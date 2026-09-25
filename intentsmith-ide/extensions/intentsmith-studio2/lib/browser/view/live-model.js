@@ -55,6 +55,9 @@ class LiveModel extends Component {
       onChange: () => this.forceUpdate() });
     this._policyDrafts = new Map();
     this._projectConversations = new Map();
+    this._audit = new Map();
+    this._auditRequest = new Map();
+    this.fetchImpl = widget.fetchImpl || fetch;
   }
 
   componentDidMount() {
@@ -146,6 +149,42 @@ class LiveModel extends Component {
       && Array.isArray(view.diff) ? view : null;
   }
 
+  async loadAudit(session) {
+    const conversationId = session?._convId;
+    if (!conversationId) return;
+    const key = String(conversationId);
+    const cached = this._audit.get(key);
+    if (this._auditRequest.has(key) || (cached?.status === 'ready' && Date.now() - cached.time < 30_000)) return;
+    const request = Promise.resolve().then(async () => {
+      this._audit.set(key, { status: 'loading', rows: cached?.rows || [], time: cached?.time || 0 });
+      this.forceUpdate();
+      try {
+        const base = this.widget.catalog.backendUrl();
+        if (typeof base !== 'string' || !/^https?:\/\//.test(base)) throw Error('Backend není dostupný.');
+        const url = base + '/api/audit?limit=100&conversation_id=' + encodeURIComponent(key);
+        const response = await this.fetchImpl(url, { signal: AbortSignal.timeout(8_000) });
+        if (!response.ok) throw Error('Načtení auditu selhalo (HTTP ' + response.status + ').');
+        const data = await response.json();
+        if (!data || !Array.isArray(data.audit) || !Array.isArray(data.drift)) throw Error('Backend vrátil neplatný audit.');
+        const rows = data.audit.map(item => ({ ts: item.created_at || '', kind: 'MERGE',
+          detail: (item.expertise_name || '') + ' → ' + (item.verdict || item.result || '') }))
+          .concat(data.drift.map(item => ({ ts: item.created_at || '', kind: 'DRIFT',
+            detail: (item.capability || '') + ': ' + (item.drift_score ?? item.value ?? '') })))
+          .sort((a, b) => b.ts.localeCompare(a.ts))
+          .map(item => [clock(item.ts), item.kind, item.detail]);
+        this._audit.set(key, { status: 'ready', rows, time: Date.now() });
+      } catch (error) {
+        this._audit.set(key, { status: 'error', rows: cached?.rows || [],
+          error: error?.message || 'Načtení auditu selhalo.', time: Date.now() });
+      } finally {
+        this._auditRequest.delete(key);
+        this.forceUpdate();
+      }
+    });
+    this._auditRequest.set(key, request);
+    return request;
+  }
+
   m2Change(file) {
     const before = file.before?.content || '';
     const after = file.after?.content || '';
@@ -208,11 +247,14 @@ class LiveModel extends Component {
       ctx: Math.max(0, Math.min(100, Number(chat.ctx) || 0)), tokens: '',
       turns: chat.msgs.filter(msg => msg.role === 'user').length, parts: [],
       msgs, changes, edited, ctxFiles: (session._focusFiles || []).map(path => [path, '']),
-      attach: [], memory: [], tree, term, log, runs, audit: session._projectId
-        ? this.scmClient.entry(session._projectId).operations.flatMap(operation =>
+      attach: [], memory: [], tree, term, log, runs, audit: [
+        ...(this._audit.get(String(session._convId))?.rows || []),
+        ...(this._audit.get(String(session._convId))?.status === 'error'
+          ? [['', 'CHYBA AUDITU', this._audit.get(String(session._convId)).error]] : []),
+        ...(session._projectId ? this.scmClient.entry(session._projectId).operations.flatMap(operation =>
           (operation.events || []).slice().reverse().map(event => [clock(event.occurredAt),
-            'git ' + operation.plan.op, event.kind + (event.detail?.code ? ' · ' + event.detail.code : '')]))
-        : [],
+            'git ' + operation.plan.op, event.kind + (event.detail?.code ? ' · ' + event.detail.code : '')])) : [])
+      ],
       problems: this.widget.m2.entry(session).error ? [['teď', 'M2', this.widget.m2.entry(session).error]] : [],
     };
   }
@@ -580,7 +622,8 @@ class LiveModel extends Component {
     if (editor?.path === next.path) return { fileView: this.merge(s, 'fileView', { [sid]: { path: next.path, from: next.from, staged: !!next.staged } }),
       fileMode: this.merge(s, 'fileMode', { [sid]: next.mode || 'nahled' }), rightTab: next.from, rightOpen: true, fileGuard: null };
     this.widget.workspace.open(session, next.path).then(ok => {
-      if (!ok || this.widget.store.find(sid) !== session) return;
+      // A deleted tracked file has no workspace contents, but its Git diff is still reviewable.
+      if ((!ok && next.from !== 'scm') || this.widget.store.find(sid) !== session) return;
       this.setState({ fileView: this.merge(this.st(), 'fileView', { [sid]: { path: next.path, from: next.from, staged: !!next.staged } }),
         fileMode: this.merge(this.st(), 'fileMode', { [sid]: next.mode || 'nahled' }), rightTab: next.from, rightOpen: true, fileGuard: null });
     }).catch(error => this.error(session, error));
@@ -621,7 +664,17 @@ class LiveModel extends Component {
     const vm = super.fileViewVM(sid, s, from);
     const session = sid && this.widget.store.find(sid);
     const editor = session && this.widget.workspace.entry(session).editor;
-    if (!vm.isOpen || !editor || vm.path !== editor.path) return vm;
+    if (!vm.isOpen) return vm;
+    if (!editor || vm.path !== editor.path) {
+      if (from === 'scm') {
+        vm.modes = vm.modes.map(mode => mode.label === 'Upravit'
+          ? { ...mode, cls: 'off', pick: () => {} } : mode);
+        vm.isEdit = false;
+        vm.lines = [];
+        vm.meta = 'Diff z gitu · pracovní soubor není otevřený';
+      }
+      return vm;
+    }
     vm.draft = editor.draft;
     vm.dirty = editor.dirty;
     vm.setDraft = event => this.widget.workspace.edit(session, event.target.value);
@@ -919,6 +972,11 @@ class LiveModel extends Component {
       column.deliveryText = session.chat._delivery?.text || '';
       column.deliveryUnknown = session.chat._delivery?.status === 'DELIVERY_UNKNOWN';
       column.acknowledge = () => this.widget.transport?.acknowledgeUnknown(session);
+      const auditTab = column.btabs.find(tab => tab.label === 'Audit');
+      if (auditTab) {
+        const openAudit = auditTab.go;
+        auditTab.go = () => { openAudit(); this.loadAudit(session); };
+      }
       column.hasModel = false; column.hasExpertPicker = false;
       column.msgs.forEach(message => {
         message.stop = () => this.widget.transport?.cancel(session);

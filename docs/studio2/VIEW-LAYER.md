@@ -33,8 +33,19 @@ se na něj napojuje backend.
   přebíjelo `.btn-acc`); pod widgetem zůstával 35px pruh po skryté liště záložek Theie
   (`mainPanel.fit()` po skrytí).
 
-**Není hotové:** veškerá data jsou zatím ukázková (fixtury prototypu). Tlačítka mění
-jen stav prototypu, nic nevolají na backendu. To je úkol integrace (§4).
+**Stav integrace v tomto worktree (25. 9.):** `LiveModel` už nahrazuje ukázkové
+relace, zprávy a katalogy skutečnými daty. Odeslání zprávy, terminál, přílohy,
+M2 schválení, projektový strom, editor s ověřeným uložením, detail projektu,
+aktivace specialisty, audit konverzace a stavová lišta používají stávající
+služby. Správa zdrojů používá nové `/api/scm/*` s plánem a potvrzením; i diff
+smazaného souboru je dostupný bez falešného editoru. Izolovaný průchod ve
+skutečném Electronu na `1b4699a9` prošel včetně výměny sloupců, šesti relací,
+obnovy a jedenácti témat (`tests/studio2-exclusive-ui.e2e.js`).
+
+**Zbývá před paritou S2-7:** průvodci a akce dalších katalogů, úplných 12 kategorií
+nastavení, modely/hunt/governor/upgrady, M4/M7, multimédia a automatické režimy
+gitu. Prototypové fixtury se stále používají u nenapojených částí nastavení;
+tyto části nesmějí být vydávány za živá data. Klasické UI proto zůstává dostupné.
 
 ## 2. Jak to funguje
 
@@ -132,5 +143,5 @@ většinu) a přegenerují:
   selektory původního renderu (`.intentsmith-s2-*`, `nav[aria-label="Kategorie nastavení"]`,
   `[aria-label="Změny M2"]`). S novou vrstvou neprojde, dokud se sonda nepřepíše na
   prvky prototypu (`.intentsmith-studio2-widget .ide`, `.scol`, `.rp`, `aria-label`
-  z šablony). Nespuštěno.
+  z šablony). Sonda byla přepsána a izolovaný Electron průchod na `1b4699a9` prošel.
 - `tests/studio2-view.test.js` hlídá, že vygenerované soubory odpovídají prototypu.

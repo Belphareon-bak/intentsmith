@@ -419,3 +419,52 @@ test('rendered status line does not expose prototype DB or GPU numbers', () => {
   assert.equal(status.gpu, 'GPU nezjištěno');
   assert.doesNotMatch(JSON.stringify(status), /134 MiB|18,3 \/ 24,0|57 °C|136\.1\.0/);
 });
+
+test('conversation audit loads only when opened and shows backend records without fixture data', async () => {
+  const { model, store, widget } = setup();
+  const session = store.focusedSession();
+  session._convId = 'conversation/17';
+  widget.catalog.backendUrl = () => 'http://127.0.0.1:3335';
+  const urls = [];
+  model.fetchImpl = async url => {
+    urls.push(url);
+    return { ok: true, json: async () => ({
+      audit: [{ created_at: '2026-09-25T14:02:45Z', expertise_name: 'Vývojář', verdict: 'ok' }],
+      drift: [{ created_at: '2026-09-25T14:03:00Z', capability: 'fs.write', drift_score: 0.25 }],
+    }) };
+  };
+  assert.equal(urls.length, 0, 'render must not read audit or cause effects');
+  let column = model.renderVals().columns[0];
+  assert.equal(urls.length, 0);
+  column.btabs.find(tab => tab.label === 'Audit').go();
+  await tick();
+  assert.equal(urls.length, 1);
+  assert.equal(new URL(urls[0]).searchParams.get('conversation_id'), session._convId);
+  column = model.renderVals().columns[0];
+  assert.deepEqual(column.audit.map(row => row.e), ['DRIFT', 'MERGE']);
+  assert.match(column.audit[0].m, /fs\.write/);
+  column.btabs.find(tab => tab.label === 'Audit').go();
+  await tick();
+  assert.equal(urls.length, 1, 'recent audit is cached');
+  model._audit.get(session._convId).time = 0;
+  model.fetchImpl = async () => { throw Error('backend offline'); };
+  model.renderVals().columns[0].btabs.find(tab => tab.label === 'Audit').go();
+  await tick();
+  assert.equal(model.renderVals().columns[0].audit.at(-1).e, 'CHYBA AUDITU');
+});
+
+test('deleted tracked file opens its Git diff without presenting an empty editable file', async () => {
+  const { model, store } = setup();
+  const session = store.focusedSession();
+  session._projectId = 17;
+  const e = model.scmClient.entry(17);
+  e.diffs.set('unstaged|deleted.txt', 'diff --git a/deleted.txt b/deleted.txt\n@@ -1 +0,0 @@\n-old');
+  model.pOpenFile(model.st(), session.id, { path: 'deleted.txt', from: 'scm', mode: 'diff', staged: false });
+  await tick();
+  const file = model.renderVals().ws.fvG;
+  assert.equal(file.isOpen, true);
+  assert.equal(file.isDiff, true);
+  assert.equal(file.diff[1].code, 'old');
+  assert.equal(file.modes.find(mode => mode.label === 'Upravit').cls, 'off');
+  assert.equal(model.renderVals().ws.fvS.isOpen, false);
+});
