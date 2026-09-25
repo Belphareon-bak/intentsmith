@@ -2,6 +2,7 @@
 
 const { lineCounts } = require('@intentsmith/chat-panel/lib/browser/work-activity');
 const { pendingBinding } = require('./m2-controller');
+const { icon } = require('./icon');
 
 function renderM2Changes(widget, session, h) {
   const controller = widget.m2;
@@ -52,4 +53,37 @@ function renderM2Changes(widget, session, h) {
     pending && !exact ? h('button', { type: 'button', disabled: state.busy && state.operation?.command !== '/m2-approve',
       onClick: () => run('/m2-cancel') }, 'Zrušit uložený plán') : null);
 }
-module.exports = { renderM2Changes };
+function renderM2ApprovalCard(widget, session, h) {
+  const controller = widget.m2;
+  const state = controller.entry(session);
+  const pending = pendingBinding(session._m2Pending);
+  if (!pending) return null;
+  const view = state.view;
+  const exact = view?.state === 'awaiting_approval'
+    && view.lifecycleId === pending.lifecycleId && view.planDigest === pending.planDigest;
+  const reviewed = exact && state.presentedView === view;
+  const diffs = exact && Array.isArray(view.diff) ? view.diff : [];
+  const counts = diffs.map(file => typeof file?.before?.content === 'string' || file?.before?.content === null
+    ? lineCounts(file.before?.content || '', file.after?.content || '') : null);
+  const knownCounts = counts.length === diffs.length && counts.every(Boolean);
+  const summary = exact
+    ? `${diffs.length} ${diffs.length === 1 ? 'soubor' : diffs.length < 5 ? 'soubory' : 'souborů'}`
+      + (knownCounts ? ` · +${counts.reduce((sum, count) => sum + count.added, 0)} / −${counts.reduce((sum, count) => sum + count.removed, 0)}` : '')
+      + ' · navrženo, nezapsáno'
+    : 'Uložený plán čeká na načtení a kontrolu';
+  const run = command => controller.run(session, command, '', view).catch(error => controller.report(session, error));
+  return h('div', { className: 'intentsmith-s2-approval-card', role: 'group', 'aria-label': 'Schválení změn M2' },
+    h('span', { className: 'intentsmith-s2-approval-icon' }, icon(h, 'shield', 18)),
+    h('span', { className: 'intentsmith-s2-approval-copy' },
+      h('strong', null, 'Změny čekají na schválení'),
+      h('small', null, summary),
+      exact && !reviewed ? h('small', null, 'Před schválením otevřete a zkontrolujte přesný plán.') : null),
+    h('span', { className: 'intentsmith-s2-approval-actions' },
+      h('button', { type: 'button', onClick: () => { widget.sideMode = 'Změny'; widget.update(); } }, 'Zobrazit změny'),
+      h('button', { type: 'button', disabled: state.busy,
+        onClick: () => run('/m2-cancel') }, 'Zamítnout'),
+      h('button', { type: 'button', className: 'intentsmith-s2-approve',
+        disabled: !reviewed || state.busy || controller.activeTurn(session),
+        onClick: () => run('/m2-approve') }, 'Schválit')));
+}
+module.exports = { renderM2Changes, renderM2ApprovalCard };

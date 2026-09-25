@@ -193,6 +193,9 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
     const center = document.elementFromPoint(innerWidth / 2, innerHeight / 2);
     return { innerWidth, innerHeight, readyState: document.readyState,
       studioAccent: root ? getComputedStyle(root).getPropertyValue('--accF').trim() : null,
+      theiaStatusVisible: getComputedStyle(document.getElementById('theia-statusBar')).display !== 'none',
+      theiaTabVisible: [...document.querySelectorAll('#theia-main-content-panel .theia-app-main')]
+        .some(node => node.classList.contains('lm-TabBar') && getComputedStyle(node).display !== 'none'),
       navIconColors: [...document.querySelectorAll('.intentsmith-s2-nav-icon')]
         .map(node => getComputedStyle(node).color),
       rootRect: rect ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height } : null,
@@ -220,6 +223,8 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
     terminalPanelConnected: terminalUi.terminalInput && terminalUi.terminalClient,
     attachmentPickerRendered: studio2.attachmentPicker,
     visuallyUncoveredStudio2: visible.centerInsideStudio,
+    exclusiveWorkbenchChrome: visible.rootRect?.y === 0
+      && visible.theiaStatusVisible === false && visible.theiaTabVisible === false,
     m2ReviewPanelRendered: m2Ui.m2Panel,
     backendEnvironmentLoaded: environment.environmentLoaded,
     commandPaletteNavigatesSession: palette.columnsVisible && !palette.paletteOpen,

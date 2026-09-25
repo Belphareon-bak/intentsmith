@@ -233,6 +233,11 @@ class Studio2Contribution extends browser.AbstractViewContribution {
     // A saved classic layout skips initializeLayout; attach the selected UI
     // after restoration without ever registering the classic widget factory.
     await this.openView({ activate: true, reveal: true });
+    // Studio 2 owns its tabs and status line. Keep Theia as the host without
+    // displaying a second tab strip and status bar around its workbench.
+    const widget = this.tryGetWidget();
+    app.shell.mainPanel.findTabBar(widget?.title)?.hide();
+    app.shell.statusBar.hide();
     // The host may restore built-in side views; they are not part of Studio 2.
     for (const side of ['leftPanelHandler', 'rightPanelHandler', 'bottomPanelHandler']) {
       app.shell[side]?.container?.hide();

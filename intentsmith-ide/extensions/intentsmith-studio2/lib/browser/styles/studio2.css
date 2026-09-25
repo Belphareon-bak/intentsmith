@@ -279,3 +279,12 @@
 .intentsmith-s2-bottom-tabs button.active { color: var(--acc); }
 .intentsmith-s2-composer-controls button.active { color: var(--acc); background: var(--acc-soft); }
 .intentsmith-s2-composer-controls button:first-child { display: inline-flex; align-items: center; gap: 5px; }
+
+.intentsmith-s2-approval-card { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px 10px 14px; border: 1px solid var(--bd2); border-radius: 10px; background: var(--s1); }
+.intentsmith-s2-approval-icon { display: inline-flex; flex: 0 0 auto; color: var(--warn); }
+.intentsmith-s2-approval-copy { display: flex; flex: 1 1 180px; flex-direction: column; min-width: 0; gap: 1px; font-size: 12px; }
+.intentsmith-s2-approval-copy small { color: var(--dim); font-size: 11px; }
+.intentsmith-s2-approval-actions { display: inline-flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.intentsmith-studio2-root .intentsmith-s2-approval-actions button { padding: 6px 9px; border-color: var(--bd2); font-size: 11px; }
+.intentsmith-studio2-root .intentsmith-s2-approval-actions .intentsmith-s2-approve:not([disabled]) { border-color: var(--acc); background: var(--acc); color: var(--acc-fg); }
+.intentsmith-studio2-root .intentsmith-s2-approval-actions button[disabled] { opacity: .6; }

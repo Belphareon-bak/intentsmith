@@ -2,7 +2,7 @@
 
 const WorkActivity = require('@intentsmith/chat-panel/lib/browser/work-activity');
 const { renderWorkspaceFiles } = require('./workspace-view');
-const { renderM2Changes } = require('./m2-view');
+const { renderM2Changes, renderM2ApprovalCard } = require('./m2-view');
 const { icon } = require('./icon');
 
 function renderSessionView(widget, h) {
@@ -98,7 +98,8 @@ function renderSessionView(widget, h) {
         session.chat._delivery?.status === 'NOT_SENT' ? h('p', { role: 'alert', className: 'intentsmith-s2-error' }, session.chat._delivery.text) : null,
         session.chat._delivery?.status === 'DELIVERY_UNKNOWN' ? h('div', { role: 'alert', className: 'intentsmith-s2-error' },
           h('p', null, session.chat._delivery.text),
-          h('button', { type: 'button', onClick: () => widget.transport.acknowledgeUnknown(session) }, 'Pokračovat bez opakování')) : null),
+          h('button', { type: 'button', onClick: () => widget.transport.acknowledgeUnknown(session) }, 'Pokračovat bez opakování')) : null,
+        renderM2ApprovalCard(widget, session, h)),
       h('div', { className: 'intentsmith-s2-composer' },
         session.chat._attachmentError ? h('p', { role: 'alert', className: 'intentsmith-s2-error' }, session.chat._attachmentError) : null,
         session.chat.attachments.length ? h('div', { className: 'intentsmith-s2-attachments' },

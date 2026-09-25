@@ -1933,6 +1933,7 @@ const STUDIO2_MODE_FIELDS = Object.freeze([
   'terminalPanelConnected',
   'attachmentPickerRendered',
   'visuallyUncoveredStudio2',
+  'exclusiveWorkbenchChrome',
   'm2ReviewPanelRendered',
   'backendEnvironmentLoaded',
   'commandPaletteNavigatesSession',
