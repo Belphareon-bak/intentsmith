@@ -66,6 +66,7 @@ class WorkspaceFiles {
       const data = await this.request('/api/workspace/file?root=' + encodeURIComponent(state.root) + '&path=' + encodeURIComponent(path));
       if (typeof data.content !== 'string' || typeof data.hash !== 'string' || data.path !== path) throw new Error('Neplatná odpověď souboru.');
       state.editor = { path, original: data.content, draft: data.content, hash: data.hash, dirty: false };
+      state.saveUncertain = false; state.pendingSaveDraft = null;
       session._openedFiles = Array.isArray(session._openedFiles) ? session._openedFiles : [];
       session._openedFiles = [path, ...session._openedFiles.filter(value => value !== path)].slice(0, 30);
       state.error = null; this.changed(); return true;
@@ -81,30 +82,76 @@ class WorkspaceFiles {
   discard(session) {
     const state = this.entry(session);
     if (!state.editor) return;
+    if (state.saving) {
+      state.error = 'Počkejte na odpověď o uložení.'; this.changed(); return;
+    }
+    if (state.saveUncertain) {
+      state.editor = null; state.saveUncertain = false; state.pendingSaveDraft = null;
+      state.error = 'Úpravy byly zahozeny. Otevřete soubor znovu pro skutečný obsah.';
+      this.changed(); return;
+    }
     state.editor.draft = state.editor.original;
     state.editor.dirty = false;
     state.error = null; this.changed();
   }
-  async save(session) {
+  async verifySave(session, { internal = false } = {}) {
     const state = this.entry(session);
     const editor = state.editor;
-    if (!editor?.dirty || !state.root || state.projectId !== String(session._projectId)
-      || !state.tree.some(item => item.path === editor.path && !item.directory)) return false;
+    const sent = state.pendingSaveDraft;
+    if ((state.saving && !internal) || !state.saveUncertain || !editor || typeof sent !== 'string' || !state.root
+      || state.projectId !== String(session._projectId)) return false;
     try {
-      const result = await this.request('/api/workspace/file', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ root: state.root, path: editor.path, content: editor.draft, expectedHash: editor.hash }) });
-      if (result.ok !== true || result.path !== editor.path) throw new Error('Server nepotvrdil uložení souboru.');
-      const saved = await this.request('/api/workspace/file?root=' + encodeURIComponent(state.root) + '&path=' + encodeURIComponent(editor.path));
-      if (saved.content !== editor.draft || typeof saved.hash !== 'string') throw new Error('Uložený obsah nebyl ověřen.');
+      const saved = await this.request('/api/workspace/file?root=' + encodeURIComponent(state.root)
+        + '&path=' + encodeURIComponent(editor.path));
+      if (saved.path !== editor.path || typeof saved.content !== 'string' || typeof saved.hash !== 'string') {
+        throw new Error('Server nevrátil ověřitelný obsah souboru.');
+      }
+      if (saved.content === editor.original) {
+        state.saveUncertain = false; state.pendingSaveDraft = null;
+        state.error = 'Zápis se neprojevil. Můžete jej odeslat znovu.';
+        this.changed(); return false;
+      }
+      if (saved.content !== sent) {
+        state.error = 'Soubor má jiný obsah. Vaše úprava zůstává otevřená; před další akcí ji porovnejte se souborem na disku.';
+        this.changed(); return false;
+      }
       const before = editor.original;
       editor.previous = before;
-      editor.original = saved.content; editor.hash = saved.hash; editor.dirty = false;
+      editor.original = saved.content; editor.hash = saved.hash;
+      editor.dirty = editor.draft !== saved.content;
       session._fileChanges = session._fileChanges && typeof session._fileChanges === 'object' ? session._fileChanges : {};
       session._fileChanges[editor.path] = lineCounts(before, saved.content);
       session._modifiedFiles = Array.isArray(session._modifiedFiles) ? session._modifiedFiles : [];
       session._modifiedFiles = [editor.path, ...session._modifiedFiles.filter(value => value !== editor.path)].slice(0, 30);
+      state.saveUncertain = false; state.pendingSaveDraft = null;
       state.error = null; this.changed(); return true;
-    } catch (error) { state.error = error.status === 409 ? 'Soubor mezitím změnil jiný proces. Vaše úprava zůstává otevřená.' : error.message || 'Uložení selhalo.'; this.changed(); return false; }
+    } catch (error) {
+      state.error = error.message || 'Stav zápisu nelze ověřit.';
+      this.changed(); return false;
+    }
+  }
+  async save(session) {
+    const state = this.entry(session);
+    const editor = state.editor;
+    if (!editor?.dirty || state.saveUncertain || state.saving || !state.root || state.projectId !== String(session._projectId)
+      || !state.tree.some(item => item.path === editor.path && !item.directory)) return false;
+    const draft = editor.draft;
+    state.saveUncertain = true; state.saving = true;
+    state.pendingSaveDraft = draft;
+    this.changed();
+    try {
+      const result = await this.request('/api/workspace/file', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ root: state.root, path: editor.path, content: draft, expectedHash: editor.hash }) });
+      if (result.ok !== true || result.path !== editor.path) throw new Error('Server nepotvrdil uložení souboru.');
+      return await this.verifySave(session, { internal: true });
+    } catch (error) {
+      state.error = error.status === 409
+        ? 'Soubor mezitím změnil jiný proces. Ověřte stav před dalším pokusem; vaše úprava zůstává otevřená.'
+        : 'Výsledek zápisu je neznámý. Ověřte skutečný obsah souboru před dalším pokusem.';
+      this.changed(); return false;
+    } finally {
+      state.saving = false; this.changed();
+    }
   }
   async completePath(session, command) {
     const state = this.entry(session);

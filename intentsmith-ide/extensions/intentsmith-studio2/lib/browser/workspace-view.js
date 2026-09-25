@@ -49,7 +49,8 @@ function renderWorkspaceFiles(widget, session, h) {
             return counts ? h('p', null, `+${counts.added} / −${counts.removed}`) : h('p', null, 'Počty řádků nejsou dostupné.'); })())
           : h('pre', null, editor.draft),
       editor.dirty ? h('div', { className: 'intentsmith-s2-file-actions' },
-        h('button', { type: 'button', onClick: () => files.discard(session) }, 'Zahodit úpravy'),
-        h('button', { type: 'button', onClick: () => files.save(session).then(() => widget.store.changed()) }, 'Uložit')) : null) : null);
+        h('button', { type: 'button', disabled: state.saving, onClick: () => files.discard(session) }, 'Zahodit úpravy'),
+        state.saveUncertain ? h('button', { type: 'button', disabled: state.saving, onClick: () => files.verifySave(session).then(() => widget.store.changed()) }, 'Ověřit uložení')
+          : h('button', { type: 'button', disabled: state.saving, onClick: () => files.save(session).then(() => widget.store.changed()) }, 'Uložit')) : null) : null);
 }
 module.exports = { renderWorkspaceFiles };
