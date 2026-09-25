@@ -18,6 +18,7 @@ const { renderSettings } = require('./settings-view');
 const { WorkspaceFiles } = require('./workspace-files');
 const { M2Controller } = require('./m2-controller');
 const { renderPalette } = require('./command-palette');
+const Attachments = require('./attachments');
 
 const WIDGET_ID = 'intentsmith-studio2';
 const h = React.createElement;
@@ -136,10 +137,48 @@ class Studio2Widget extends ReactWidget {
   async sendTerminal(session, input) {
     if (await this.transport?.sendTerminal(session, input.value)) input.value = '';
   }
-  send(session, textarea) {
+  async pickAttachments(session) {
+    if (session.chat._picking || session.chat._preparing) return;
+    const origin = { projectId: session._projectId, convId: session._convId, chat: session.chat };
+    session.chat._picking = true; this.store.changed();
+    try {
+      const result = await Attachments.selectFiles(session, window.electronIntentSmith,
+        () => !session._closed && this.store.find(session.id) === session
+          && session.chat === origin.chat && session._projectId === origin.projectId
+          && session._convId === origin.convId);
+      session.chat._attachmentError = result.refused.join('; ');
+    } finally { session.chat._picking = false; this.store.changed(); }
+  }
+  async send(session, textarea) {
     const value = textarea.value.trim();
+    if (session.chat.attachments.length && /^\/m2-(?:draft|build|plan|status|approve|cancel)(?:\s|$)/i.test(value)) {
+      session.chat._attachmentError = 'M2 příkazy nepřijímají přílohy. Odeberte je před pokračováním.';
+      this.store.changed(); return;
+    }
     if (value && this.m2.handleText(session, value)) { textarea.value = ''; return; }
-    if (value && this.transport?.send(session, value)) textarea.value = '';
+    const selected = session.chat.attachments.slice();
+    if ((!value && !selected.length) || session.chat._preparing || session.chat._picking) return;
+    const identity = { convId: session._convId, projectId: session._projectId, agentId: session._agentId,
+      editMode: session.chat.editMode, messages: session.chat.msgs, messageCount: session.chat.msgs.length };
+    session.chat._preparing = true; this.store.changed();
+    try {
+      const prepared = await Attachments.prepare(selected);
+      if (session._closed || this.store.find(session.id) !== session || textarea.value.trim() !== value
+        || session.chat.attachments.length !== selected.length
+        || selected.some((item, index) => session.chat.attachments[index] !== item)
+        || session._convId !== identity.convId || session._projectId !== identity.projectId
+        || session._agentId !== identity.agentId || session.chat.editMode !== identity.editMode
+        || session.chat.msgs !== identity.messages || session.chat.msgs.length !== identity.messageCount) {
+        session.chat._attachmentError = 'Relace nebo rozepsaná zpráva se během čtení změnila. Nic se neodeslalo.';
+        return;
+      }
+      const content = selected.length ? `${value ? value + '\n' : ''}📎 ${selected.map(item => item.name).join(', ')}` : value;
+      if (this.transport?.send(session, content, prepared)) {
+        textarea.value = ''; session.chat.attachments = []; session.chat._attachmentError = '';
+      }
+    } catch (error) {
+      session.chat._attachmentError = error?.message || 'Přílohu nelze přečíst. Nic se neodeslalo.';
+    } finally { session.chat._preparing = false; this.store.changed(); }
   }
 
   render() {

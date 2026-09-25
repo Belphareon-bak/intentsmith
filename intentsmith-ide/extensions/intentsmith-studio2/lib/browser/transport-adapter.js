@@ -125,7 +125,7 @@ class TransportAdapter {
     }
     this.changed();
   }
-  send(session, content) {
+  send(session, content, attachments = []) {
     if (!session || !content.trim() || session.chat._delivery?.status === 'DELIVERY_UNKNOWN') return false;
     const index = this.slots.indexOf(session);
     if (index < 0 || window.IntentSmithWS.hasActiveM1Turn(session)) return false;
@@ -133,12 +133,17 @@ class TransportAdapter {
     session.chat.msgs.push(message);
     session.chat._thinking = { text: 'Zpracovává zadání' };
     let sent = false;
+    session.chat._m1AttachmentRejection = null;
+    session.chat._pendingAttachments = attachments.length ? attachments : null;
     try { sent = window.IntentSmithWS.isReady() && window.IntentSmithWS.sendChat(content, session, index); }
     catch { sent = false; }
+    finally { session.chat._pendingAttachments = null; }
     if (!sent) {
       message.tag = 'NOT_SENT';
       session.chat._thinking = null;
-      session.chat._delivery = { status: 'NOT_SENT', text: 'Zpráva nebyla odeslána. Zkontrolujte připojení.' };
+      session.chat._delivery = { status: 'NOT_SENT', text: session.chat._m1AttachmentRejection
+        ? `Zpráva nebyla odeslána (${session.chat._m1AttachmentRejection}). Přílohy zůstaly zachované.`
+        : 'Zpráva nebyla odeslána. Zkontrolujte připojení.' };
     }
     if (sent) session.chat._delivery = null;
     this.changed();

@@ -66,12 +66,22 @@ function renderSessionView(widget, h) {
           h('p', null, session.chat._delivery.text),
           h('button', { type: 'button', onClick: () => widget.transport.acknowledgeUnknown(session) }, 'Pokračovat bez opakování')) : null),
       h('div', { className: 'intentsmith-s2-composer' },
+        session.chat._attachmentError ? h('p', { role: 'alert', className: 'intentsmith-s2-error' }, session.chat._attachmentError) : null,
+        session.chat.attachments.length ? h('div', { className: 'intentsmith-s2-attachments' },
+          session.chat.attachments.map((item, attachmentIndex) => h('span', { key: attachmentIndex },
+            `${item.name} · ${Math.ceil(item.size / 1024)} KiB`,
+            h('button', { type: 'button', 'aria-label': `Odebrat ${item.name}`, onClick: () => {
+              session.chat.attachments.splice(attachmentIndex, 1); store.changed();
+            } }, '×')))) : null,
         h('textarea', { 'aria-label': `Zpráva v relaci ${session.number}`, placeholder: 'Napište zprávu…', onKeyDown: event => {
           if (event.key === 'Enter' && event.ctrlKey) { event.preventDefault(); widget.send(session, event.currentTarget); }
         } }),
         h('div', { className: 'intentsmith-s2-composer-controls' },
+          h('button', { type: 'button', disabled: session.chat._preparing || session.chat._picking, onClick: () => widget.pickAttachments(session) }, 'Připojit soubor'),
           h('button', { type: 'button', onClick: () => { session.chat.editMode = session.chat.editMode === 'ask' ? 'auto' : 'ask'; store.changed(); } }, session.chat.editMode === 'ask' ? 'Kontrola' : 'Auto'),
-          h('button', { type: 'button', onClick: event => widget.send(session, event.currentTarget.closest('.intentsmith-s2-composer').querySelector('textarea')) }, 'Odeslat'))),
+          h('button', { type: 'button', disabled: session.chat._preparing || session.chat._picking,
+            onClick: event => widget.send(session, event.currentTarget.closest('.intentsmith-s2-composer').querySelector('textarea')) },
+            session.chat._preparing ? 'Připravuji…' : 'Odeslat'))),
       bottom(session));
   }
   function right(session) {

@@ -167,3 +167,7 @@
 .intentsmith-s2-palette-results { overflow: auto; padding-top: 6px; }
 .intentsmith-s2-palette-results button { display: flex; gap: 12px; align-items: center; width: 100%; text-align: left; }
 .intentsmith-s2-palette-results button small { width: 70px; color: var(--dim); }
+
+.intentsmith-s2-attachments { display: flex; flex-wrap: wrap; gap: 5px; padding: 3px 0 7px; }
+.intentsmith-s2-attachments span { display: inline-flex; gap: 5px; align-items: center; border: 1px solid var(--bd2); border-radius: 5px; padding: 2px 6px; overflow-wrap: anywhere; }
+.intentsmith-s2-attachments button { padding: 0 3px; min-width: 18px; }

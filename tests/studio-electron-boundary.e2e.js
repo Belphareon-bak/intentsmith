@@ -1931,6 +1931,7 @@ const STUDIO2_MODE_FIELDS = Object.freeze([
   'sixSessionsInThreeColumns',
   'visibleSessionSwap',
   'terminalPanelConnected',
+  'attachmentPickerRendered',
   'm2ReviewPanelRendered',
   'backendEnvironmentLoaded',
   'commandPaletteNavigatesSession',
