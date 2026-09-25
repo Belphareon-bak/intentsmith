@@ -2352,7 +2352,7 @@ async function runJourney({
 
     if (studio2ModeJourney) {
       cdp.setEventSink(null);
-      uiModes = await modeProbe.probeStudio2ModeSwitch({ cdp, evaluate, fail });
+      uiModes = await modeProbe.probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot });
       if (modelProviderSentinel.requestCount() !== modelProviderRequestsBeforeTurn) {
         fail('studio2-mode-triggered-model-provider');
       }

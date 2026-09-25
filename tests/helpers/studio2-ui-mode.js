@@ -1,8 +1,10 @@
+import { writeFile } from 'node:fs/promises';
+import path from 'node:path';
 // Explicit Electron DOM probe. Invoked only after the M0 boundary soak has
 // already completed; UI reload traffic is excluded from that M0 verdict.
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-export async function probeStudio2ModeSwitch({ cdp, evaluate, fail }) {
+export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot }) {
   const inspect = `(() => ({
     mode: window.__intentsmithStudioMode || null,
     savedMode: window.localStorage.getItem('intentsmith-studio-ui-mode'),
@@ -163,6 +165,9 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail }) {
     return true;
   })()`);
   const palette = await waitFor(s => !s.paletteOpen && s.columnsVisible, 'palette-session-navigation');
+  const screenshot = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+  if (!screenshot?.data) fail('studio2-screenshot-empty');
+  await writeFile(path.join(artifactRoot, 'studio2-current.png'), Buffer.from(screenshot.data, 'base64'), { mode: 0o600 });
   return Object.freeze({
     classicInitiallyAttached: classic.classicSidebar && classic.classicChat,
     studio2ExclusivelyAttached: studio2.studio2 && !studio2.classicSidebar && !studio2.classicChat,
