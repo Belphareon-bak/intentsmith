@@ -78,7 +78,7 @@ function renderSessionView(widget, h) {
   return {
     tabs: h('div', { className: 'intentsmith-studio2-tabs' },
       state.sessions.map(session => h('div', { key: session.id, className: `intentsmith-s2-tab${focused?.id === session.id ? ' active' : ''}` },
-        h('button', { type: 'button', onClick: () => { widget.section = 'Konverzace'; store.focusTab(session.id); } }, `${session.number} · ${session._label}`),
+        h('button', { type: 'button', onClick: () => { widget.section = 'Relace'; store.focusTab(session.id); } }, `${session.number} · ${session._label}`),
         h('button', { type: 'button', 'aria-label': `Zavřít relaci ${session.number}`, onClick: () => store.closeSession(session.id) }, '×'))),
       h('button', { type: 'button', 'aria-label': 'Nová relace', onClick: () => widget.addSession() }, '+')),
     columns: h('div', { className: 'intentsmith-s2-columns' }, state.columns.map(column)),

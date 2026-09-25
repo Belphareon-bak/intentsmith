@@ -1931,6 +1931,7 @@ const STUDIO2_MODE_FIELDS = Object.freeze([
   'sixSessionsInThreeColumns',
   'visibleSessionSwap',
   'sessionsPersistedAcrossReload',
+  'projectCatalogLoaded',
 ]);
 
 export function successEvidence({

@@ -20,6 +20,8 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail }) {
     busListeners: window.IntentSmithBus?._debug?.() || {},
     sessionTabs: document.querySelectorAll('.intentsmith-s2-tab').length,
     columnSessions: [...document.querySelectorAll('.intentsmith-s2-column-head select')].map(select => select.value),
+    catalogSection: document.querySelector('[data-catalog-section]')?.getAttribute('data-catalog-section') || null,
+    catalogStatus: document.querySelector('[data-catalog-status]')?.getAttribute('data-catalog-status') || null,
   }))()`;
   const waitFor = async (predicate, label) => {
     const deadline = Date.now() + 60_000;
@@ -81,6 +83,13 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail }) {
     && s.columnSessions[0] === swapped.columnSessions[0]
     && s.columnSessions[1] === swapped.columnSessions[1]
     && s.columnSessions[2] === swapped.columnSessions[2], 'session-restore');
+  await evaluate(cdp, `(() => {
+    const button = [...document.querySelectorAll('nav[aria-label="Hlavní navigace"] button')]
+      .find(node => node.textContent === 'Projekty');
+    button.click();
+    return true;
+  })()`);
+  const catalog = await waitFor(s => s.catalogSection === 'Projekty' && s.catalogStatus === 'ready', 'project-catalog');
   return Object.freeze({
     classicInitiallyAttached: classic.classicSidebar && classic.classicChat,
     studio2ExclusivelyAttached: studio2.studio2 && !studio2.classicSidebar && !studio2.classicChat,
@@ -91,5 +100,6 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail }) {
     sixSessionsInThreeColumns: six.sessionTabs === 6 && six.columnSessions.length === 3,
     visibleSessionSwap: swapped.columnSessions[0] === original[1] && swapped.columnSessions[1] === original[0],
     sessionsPersistedAcrossReload: persisted.sessionTabs === 6 && persisted.columnSessions.length === 3,
+    projectCatalogLoaded: catalog.catalogSection === 'Projekty' && catalog.catalogStatus === 'ready',
   });
 }

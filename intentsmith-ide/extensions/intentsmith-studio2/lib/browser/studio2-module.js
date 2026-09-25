@@ -11,6 +11,8 @@ const { currentMode, selectMode } = require('./studio-mode-module');
 const { SessionStore } = require('./session-store');
 const { TransportAdapter } = require('./transport-adapter');
 const { renderSessionView } = require('./session-view');
+const { CatalogStore } = require('./catalog-store');
+const { renderCatalog } = require('./catalog-view');
 
 const WIDGET_ID = 'intentsmith-studio2';
 const h = React.createElement;
@@ -26,7 +28,13 @@ class Studio2Widget extends ReactWidget {
     this.addClass('intentsmith-studio2-widget');
     this.store = new SessionStore(window.localStorage);
     this.transport = null;
-    this.section = 'Konverzace';
+    this.section = 'Relace';
+    this.catalog = new CatalogStore();
+    this.catalogSearch = '';
+    this.catalogLayout = 'tiles';
+    this.catalogSelection = null;
+    this.catalogActionError = null;
+    this.unlistenCatalog = this.catalog.subscribe(() => this.update());
     this.sideMode = 'Soubory';
     this.bottomMode = 'Průběh';
     this.unlistenStore = this.store.subscribe(() => this.update());
@@ -41,10 +49,46 @@ class Studio2Widget extends ReactWidget {
   dispose() {
     if (this.transport) { this.transport.destroy(); this.transport = null; }
     if (this.unlistenStore) { this.unlistenStore(); this.unlistenStore = null; }
+    if (this.unlistenCatalog) { this.unlistenCatalog(); this.unlistenCatalog = null; }
     super.dispose();
   }
 
-  addSession() { this.store.addSession(); this.section = 'Konverzace'; this.update(); }
+  addSession() { this.store.addSession(); this.section = 'Relace'; this.update(); }
+  selectSection(name) {
+    this.section = name; this.catalogSearch = ''; this.catalogSelection = null; this.catalogActionError = null;
+    if (NAV.includes(name)) this.catalog.load(name);
+    this.update();
+  }
+  async openCatalogItem(section, item) {
+    if (section !== 'Konverzace' && section !== 'Projekty') return;
+    this.catalogActionError = null;
+    try {
+      if (section === 'Konverzace') {
+        const existing = this.store.state.sessions.find(session => session._convId === item.id);
+        if (existing) { this.store.focusTab(existing.id); this.section = 'Relace'; this.update(); return; }
+        const route = '/api/conversations/' + encodeURIComponent(item.id);
+        const metadataBody = await this.catalog.get(route);
+        const metadata = metadataBody.conversation || metadataBody;
+        if (metadata.id !== item.id) throw new Error('Server vrátil jinou konverzaci.');
+        const body = await this.catalog.get(route + '/messages');
+        const rows = Array.isArray(body) ? body : body.messages;
+        if (!Array.isArray(rows)) throw new Error('Server nevrátil platnou historii.');
+        this.store.addSession({ convId: item.id, projectId: metadata.project_id, label: metadata.title || item.name,
+          recentMsgs: rows.map(row => ({ role: row.role, text: row.content || row.text || '' })) });
+      } else {
+        const response = await fetch(this.catalog.backendUrl() + '/api/conversations', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ project_id: item.raw.id, title: item.name }), signal: AbortSignal.timeout(8000),
+        });
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error || `Vytvoření relace selhalo (HTTP ${response.status}).`);
+        const conversation = body.conversation || body;
+        if (!conversation.id || String(conversation.project_id) !== String(item.raw.id)) throw new Error('Server nepotvrdil správný projekt konverzace.');
+        this.store.addSession({ convId: conversation.id, projectId: item.raw.id, label: item.name });
+      }
+      this.section = 'Relace'; this.update();
+    } catch (error) { this.catalogActionError = error.message || 'Relaci se nepodařilo otevřít.'; this.update(); }
+  }
   send(session, textarea) {
     const value = textarea.value.trim();
     if (value && this.transport?.send(session, value)) textarea.value = '';
@@ -66,14 +110,15 @@ class Studio2Widget extends ReactWidget {
         h('nav', { className: 'intentsmith-studio2-nav', 'aria-label': 'Hlavní navigace' },
           h('span', { className: 'intentsmith-studio2-nav-label' }, 'Pracovní prostor'),
           NAV.map(name => h('button', { key: name, type: 'button', className: name === this.section ? 'active' : '',
-            onClick: () => { this.section = name; this.update(); } }, name)),
+            onClick: () => this.selectSection(name) }, name)),
           h('div', { className: 'intentsmith-studio2-nav-bottom' },
-            h('button', { type: 'button', onClick: () => { this.section = 'Nastavení'; this.update(); } }, 'Nastavení'))),
+            h('button', { type: 'button', onClick: () => this.selectSection('Nastavení') }, 'Nastavení'))),
         h('main', { className: 'intentsmith-studio2-center' },
           view.tabs,
-          this.section === 'Konverzace' ? view.columns : h('div', { className: 'intentsmith-studio2-empty' },
-            h('strong', null, this.section), h('p', null, 'Katalog této sekce ještě není připojený.'))),
-        this.section === 'Konverzace' ? view.right : null),
+          this.section === 'Relace' ? view.columns : NAV.includes(this.section) ? renderCatalog(this, h)
+            : h('div', { className: 'intentsmith-studio2-empty' }, h('strong', null, this.section),
+              h('p', null, 'Nastavení této sekce ještě není připojené.'))),
+        this.section === 'Relace' ? view.right : null),
       h('footer', { className: 'intentsmith-studio2-foot' },
         h('span', null, view.connection),
         h('span', null, this.transport?.serverVersion ? `Backend ${this.transport.serverVersion}` : 'Backend není potvrzený'),
