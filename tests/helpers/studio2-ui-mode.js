@@ -11,6 +11,9 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail }) {
     classicSidebar: Boolean(document.getElementById('intentsmith-sidebar')),
     classicChat: Boolean(document.getElementById('intentsmith-chat-panel')),
     studio2: Boolean(document.querySelector('[data-studio-ui="studio2"]')),
+    studio2Widget: Boolean(document.getElementById('intentsmith-studio2')),
+    studio2WidgetText: document.getElementById('intentsmith-studio2')?.textContent?.slice(0, 200) || null,
+    widgetIds: [...document.querySelectorAll('[id*="intentsmith"]')].map(el => el.id).slice(0, 24),
     classicTransport: Boolean(window.IntentSmithWS?.connect),
     classicBus: Boolean(window.IntentSmithBus?.on),
   }))()`;
