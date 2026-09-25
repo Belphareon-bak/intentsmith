@@ -23,7 +23,7 @@ const packet = JSON.parse(packetBytes);
 const readiness = JSON.parse(readinessBytes);
 const reviewA = JSON.parse(reviewABytes), reviewB = JSON.parse(reviewBBytes);
 const comparison = compareHuntBlindReviews(packetBytes, reviewA, reviewB);
-if (readiness.status !== 'STEP3_PREPARATION_NO_GRADES'
+if (!['STEP3_PREPARATION_NO_GRADES','STEP3_PREPARATION_NO_ACCEPTED_GRADES'].includes(readiness.status)
   || readiness.sources?.packet?.sha256 !== comparison.packetSha256
   || readiness.presampledOperatorCases?.length !== 26) throw Error('READINESS_DRIFT');
 const byId = new Map(packet.cases.map(item => [item.id,item]));

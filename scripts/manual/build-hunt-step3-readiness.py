@@ -24,6 +24,8 @@ CHAT_REVIEW = EVIDENCE / 'hunt-chat-panel-20260923/review-full-05/review.json'
 CHAT_KEY = EVIDENCE / 'hunt-chat-panel-20260923/review-full-05/PRIVATE-identity-key.json'
 CANARY_RUN = EVIDENCE / 'hunt-chat-production-canary-20260925/run-equal-4096'
 CODE_ROOT = EVIDENCE / 'hunt-code-capture-20260925'
+CODEX_SAMPLE = ROOT / 'docs/review/evidence/2026-09-25-hunt-codex-presampled-review.json'
+CODEX_R2 = ROOT / 'docs/review/evidence/2026-09-25-hunt-codex-r2-development-review.json'
 OUT = ROOT / 'docs/review/evidence/2026-09-25-hunt-step3-readiness.json'
 DOC = ROOT / 'docs/review/2026-09-25-HUNT-STEP3-READINESS.md'
 ROLES = ('D1', 'D2', 'CODE', 'R1', 'R2', 'CHAT', 'VISION')
@@ -209,12 +211,29 @@ def main():
                 sample.append({'id':case['id'],'role':role,'task':task,
                     'label':label,'repeat':case['repeat']})
     assert len(sample)==26 and len({c['id'] for c in sample})==26
-    result={'schemaVersion':1,'status':'STEP3_PREPARATION_NO_GRADES',
+    codex_sample, codex_sample_sha = read(CODEX_SAMPLE)
+    assert codex_sample['packetSha256'] == packet_sha and not codex_sample['decisionAuthority']
+    assert {c['id'] for c in codex_sample['items']} == {c['id'] for c in sample}
+    assert sum(c['status'] == 'CODEX_PRELIMINARY_GRADED' for c in codex_sample['items']) == 23
+    assert sum(c['status'] == 'TASK_ISSUE_NO_AGGREGATE_GRADE' for c in codex_sample['items']) == 3
+    codex_r2, codex_r2_sha = read(CODEX_R2)
+    assert codex_r2['packetSha256'] == packet_sha and codex_r2['decisionAuthority'] is False
+    r2_packet = {c['id']:c for c in packet['cases'] if c['role'] == 'R2'}
+    assert len(r2_packet) == 72 and {c['id'] for c in codex_r2['cases']} == set(r2_packet)
+    assert all(c['task'] == r2_packet[c['id']]['task'] and
+        c['label'] == r2_packet[c['id']]['label'] and
+        c['repeat'] == r2_packet[c['id']]['repeat'] for c in codex_r2['cases'])
+    assert codex_r2['summary'] == {'responses':72,'graded':63,'taskIssue':9}
+    result={'schemaVersion':1,'status':'STEP3_PREPARATION_NO_ACCEPTED_GRADES',
         'decisionAuthority':False,'generatedAt':dt.datetime.now(dt.timezone.utc).isoformat(),
         'sources':{'packet':{'path':str(PACKET),'sha256':packet_sha},
             'campaign':{'path':str(CAMPAIGN),'sha256':campaign_sha},
             'tasks':{'path':str(TASKS),'sha256':fixture_sha},
             'semanticSourceAudit':{'path':str(SEMANTIC_AUDIT),'sha256':semantic_audit_sha},
+            'codexPresampledReview':{'path':str(CODEX_SAMPLE),'sha256':codex_sample_sha,
+                'graded':23,'taskIssue':3,'decisionAuthority':False},
+            'codexR2DevelopmentReview':{'path':str(CODEX_R2),'sha256':codex_r2_sha,
+                'graded':63,'taskIssue':9,'decisionAuthority':False},
             'chatPlan':{'path':str(CHAT_PLAN),'sha256':chat_plan_sha,
                         'sealedPlanSha256':chat_wrapper['sha256']},
             'chatSummary':{'path':str(CHAT_SUMMARY),'sha256':chat_summary_sha},
@@ -230,7 +249,7 @@ def main():
             'packetModelLabelsByRole':{r:dict(collections.Counter(c['label'] for c in packet['cases'] if c['role']==r))
                 for r in ('D1','D2','R1','R2')},
             'blindnessLimitation':'Prior exposure to identified answers/grades must be disclosed by each reviewer; anonymity alone does not prove independence.',
-            'humanReference':'NOT_CREATED','opusReview':'NOT_IMPORTED','codexReview':'NOT_CREATED'},
+            'humanReference':'NOT_CREATED','opusReview':'NOT_IMPORTED','codexReview':'R2_72_OF_72_REVIEWED_63_PRELIMINARY_GRADES_9_TASK_ISSUES; OTHER_ROLES_PRESAMPLED_ONLY'},
         'gates':{'D_R':'RAW_CAPTURE_COMPARABLE_BUT_GRADER_NOT_ACCEPTED',
             'CODE':'RAW_TWO_ARTIFACTS_TECHNICAL_REPLAY_COMPLETE_FULL_ORACLE_BLOCKED','CHAT':'PRODUCTION_CANARY_4_OF_40_FOR_2_MODELS_GRADING_OPEN',
             'VISION':'TECHNICAL_EXPLORATION_ONLY','roleDecision':'NO_GO'}}
@@ -238,7 +257,7 @@ def main():
     symbol={'N/A':'N/A','CHYBÍ':'CHYBÍ','SEBRÁNO':'SEBRÁNO','ČÁSTEČNÉ':'ČÁSTEČNÉ','BLOKOVÁNO':'BLOKOVÁNO'}
     by={(c['model'],c['role']):c for c in cells}
     lines=['# GPU hunt: podklad pro krok 3','',
-      '25. 9. 2026 · **bez rozhodovací autority a bez vydaných sémantických známek**','',
+      '25. 9. 2026 · **bez rozhodovací autority a bez přijatých sémantických známek**','',
       'Tento přehled váže stav každé buňky na přesný digest a zdroj. `SEBRÁNO` znamená pouze úplný syrový sběr v dané sadě, nikoli přijaté skóre. `ČÁSTEČNÉ` u CHAT znamená vývojový panel; pouze dva modely mají navíc čtyři dialogy ve skutečném produkčním profilu. U CODE dva modely nově mají plný syrový jednozprávový sběr; zbylým modelům tento sběr `CHYBÍ`. **Známka CODE je u všech blokována významovým orákulem.** Technický replay není celkové skóre ani průchod C3 opravnou smyčkou. `N/A` u VISION je doložené nepřítomností capability `vision` na přesném lokálním artefaktu.','',
       f'Kanonický [formulář]({PACKET.parent / "review.html"}) má 312 celých odpovědí a 840 kritérií; packet SHA256 `{packet_sha}`. Starší oddělené packety po 120 jsou stažené ze srovnávacího hodnocení. Níže předvolený náhodný vzorek vznikl z tohoto SHA **před otevřením nových známek**.','',
       '| Model (digest prefix) | D1 | D2 | CODE | R1 | R2 | CHAT | VISION |','|---|---|---|---|---|---|---|---|']
@@ -253,7 +272,7 @@ def main():
       'Pro každou D/R roli jsou vybrány dvě celé historické úlohy a jedna náhodně určená odpověď každého anonymního modelu na **tutéž** úlohu. Jde o 26 odpovědí; výběr nečetl známky. K tomu po příchodu obou posudků přibudou všechny neshody od 0,15 po kritériích, nízká jistota nahlášená hodnotitelem a kritická selhání. [Generátor fronty pro operátora](../../scripts/manual/build-hunt-operator-queue.mjs) zachová celé zadání, odpověď i oba konkrétní důvody; pokud hodnotitelé nedodají explicitní příznaky jistoty a kritických selhání, výsledek to označí jako neúplné.','',
       '| Role | Úloha | Odpověď | ID |','|---|---|---|---|'])
     for c in sample:lines.append(f"| {c['role']} | `{c['task']}` | {c['label']}/{c['repeat']} | `{c['id']}` |")
-    lines.extend(['','## Krok 3 – přejímací postup','',
+    lines.extend(['','[Čitelná stránka pro revizi předvoleného vzorku](2026-09-25-HUNT-STEP3-OPERATOR-PRESAMPLE.html) ukazuje celé zadání, odpověď a známku u anonymního kandidáta. [Strojový posudek 26 odpovědí](evidence/2026-09-25-hunt-codex-presampled-review.json) má 23 předběžných známek po kritériích a 3 bez souhrnné známky kvůli vadě zadání `model_cleanup`. Codex dále prošel [celou roli R2](evidence/2026-09-25-hunt-codex-r2-development-review.json): 63/72 předběžných známek a 9 označených vad zadání. Ostatní tři role zatím mají jen předvolený vzorek. To není úplná reference ani přijaté známky; známky Opusu při tomto čtení nebyly otevřeny.','','## Krok 3 – přejímací postup','',
       '1. Codex a Opus hodnotí **stejný úplný packet** odděleně, po kritériích s konkrétním důvodem a citací místa v odpovědi. Jakoukoli předchozí expozici identit nebo známek oba výslovně uvedou. Nevyplněná známka není nula.',
       '2. Každý posudek se zmrazí jako samostatný soubor navázaný na SHA packetu. [Validátor](../../scripts/verify-hunt-blind-review.mjs) kontroluje úplnost 312 řádků / 840 kritérií a porovnává celé setiny. Původní známky nepřepisuje.',
       '3. Operátor dostane tento předvolený vzorek, všechny spory od 0,15 po kritériích, kritická selhání a explicitně označenou nízkou jistotu. Rozsudek bude samostatná vrstva s vlastním původem; nikdy nezmění syrové odpovědi nebo posudky.',

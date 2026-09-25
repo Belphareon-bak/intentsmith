@@ -1,5 +1,15 @@
 # IntentSmith — mapa systému
 
+**GPU hunt — krok 3, podklad pro operátora, 25. 9. 2026:**
+D/R má 312 syrových odpovědí v jednom kanonickém packetu. Codex prošel
+předem vybraných 26 odpovědí a celou R2 (63 předběžných známek, 9 vad
+kontextu bez známky); D1/D2/R1 ani druhý posudek nejsou dokončené a
+rozsouzené. CODE má oddělený syrový dvoumodelový sběr 42/42 a technický
+replay, ale celkovou známku blokuje nepřijaté významové orákulum; opravná
+smyčka C3 zde neproběhla. Produkční CHAT canary má 8 dialogů, vývojový
+posudek je neslepý. **STEP3_PARTIAL / REVIEW_PENDING / NO_AUTONOMOUS_GO**.
+[Matice, podklad a odkazy na celé odpovědi](docs/review/2026-09-25-HUNT-STEP3-READINESS.md).
+
 **GPU hunt — dvojí hodnocení, 25. 9. 2026:**
 Vývojová větev `work/hunt-model-controls-20260917` má dva oddělené
 append-only posudky a bránu proti jediné známce, sporům po kritériích a

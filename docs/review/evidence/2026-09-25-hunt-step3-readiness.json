@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "status": "STEP3_PREPARATION_NO_GRADES",
+  "status": "STEP3_PREPARATION_NO_ACCEPTED_GRADES",
   "decisionAuthority": false,
-  "generatedAt": "2026-09-25T19:07:42.509241+00:00",
+  "generatedAt": "2026-09-25T19:36:29.288508+00:00",
   "sources": {
     "packet": {
       "path": "/mnt/vi7000/intentsmith/evidence/hunt-isolated-20260925/blind/packet.json",
@@ -19,6 +19,20 @@
     "semanticSourceAudit": {
       "path": "/home/belphareon/worktrees/is-mobile-completion-20260908/docs/review/evidence/2026-09-25-hunt-semantic-source-context.json",
       "sha256": "21daa559e1f84e9e750dc4e2bb7c3898bfd095cddf56404cbbf41547b24d85f9"
+    },
+    "codexPresampledReview": {
+      "path": "/home/belphareon/worktrees/is-mobile-completion-20260908/docs/review/evidence/2026-09-25-hunt-codex-presampled-review.json",
+      "sha256": "635c06c605bc826bffb47beb88bc31590f232cf81c15a2fb6d4c62fa99368fe5",
+      "graded": 23,
+      "taskIssue": 3,
+      "decisionAuthority": false
+    },
+    "codexR2DevelopmentReview": {
+      "path": "/home/belphareon/worktrees/is-mobile-completion-20260908/docs/review/evidence/2026-09-25-hunt-codex-r2-development-review.json",
+      "sha256": "519d9de0b17be5bc08b31cc9f3b5ddba483039ada124d2a34d3df8ad312232e8",
+      "graded": 63,
+      "taskIssue": 9,
+      "decisionAuthority": false
     },
     "chatPlan": {
       "path": "/mnt/vi7000/intentsmith/evidence/hunt-chat-panel-20260923/capture/plan.json",
@@ -2454,7 +2468,7 @@
     "blindnessLimitation": "Prior exposure to identified answers/grades must be disclosed by each reviewer; anonymity alone does not prove independence.",
     "humanReference": "NOT_CREATED",
     "opusReview": "NOT_IMPORTED",
-    "codexReview": "NOT_CREATED"
+    "codexReview": "R2_72_OF_72_REVIEWED_63_PRELIMINARY_GRADES_9_TASK_ISSUES; OTHER_ROLES_PRESAMPLED_ONLY"
   },
   "gates": {
     "D_R": "RAW_CAPTURE_COMPARABLE_BUT_GRADER_NOT_ACCEPTED",

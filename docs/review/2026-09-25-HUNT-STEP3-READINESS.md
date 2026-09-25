@@ -1,6 +1,6 @@
 # GPU hunt: podklad pro krok 3
 
-25. 9. 2026 · **bez rozhodovací autority a bez vydaných sémantických známek**
+25. 9. 2026 · **bez rozhodovací autority a bez přijatých sémantických známek**
 
 Tento přehled váže stav každé buňky na přesný digest a zdroj. `SEBRÁNO` znamená pouze úplný syrový sběr v dané sadě, nikoli přijaté skóre. `ČÁSTEČNÉ` u CHAT znamená vývojový panel; pouze dva modely mají navíc čtyři dialogy ve skutečném produkčním profilu. U CODE dva modely nově mají plný syrový jednozprávový sběr; zbylým modelům tento sběr `CHYBÍ`. **Známka CODE je u všech blokována významovým orákulem.** Technický replay není celkové skóre ani průchod C3 opravnou smyčkou. `N/A` u VISION je doložené nepřítomností capability `vision` na přesném lokálním artefaktu.
 
@@ -60,6 +60,8 @@ Pro každou D/R roli jsou vybrány dvě celé historické úlohy a jedna náhodn
 | R2 | `r2_model_lease` | A/1 | `26e89a00-c690-4257-9299-00f578711a98` |
 | R2 | `r2_model_lease` | B/3 | `0abf6f12-2486-4310-b61b-ee4d4b8ea372` |
 | R2 | `r2_model_lease` | C/1 | `627e30ee-cb6a-46b5-86a3-28af09e3b82b` |
+
+[Čitelná stránka pro revizi předvoleného vzorku](2026-09-25-HUNT-STEP3-OPERATOR-PRESAMPLE.html) ukazuje celé zadání, odpověď a známku u anonymního kandidáta. [Strojový posudek 26 odpovědí](evidence/2026-09-25-hunt-codex-presampled-review.json) má 23 předběžných známek po kritériích a 3 bez souhrnné známky kvůli vadě zadání `model_cleanup`. Codex dále prošel [celou roli R2](evidence/2026-09-25-hunt-codex-r2-development-review.json): 63/72 předběžných známek a 9 označených vad zadání. Ostatní tři role zatím mají jen předvolený vzorek. To není úplná reference ani přijaté známky; známky Opusu při tomto čtení nebyly otevřeny.
 
 ## Krok 3 – přejímací postup
 
