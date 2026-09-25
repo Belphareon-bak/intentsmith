@@ -39,24 +39,33 @@ export function verifyHuntBlindReview(packetBytes, review) {
     if (!exactKeys(row,['id','ratings','reasons']) || !expected.has(row.id) || graded.has(row.id)) fail('REVIEW_CASE_ID');
     const item = expected.get(row.id);
     if (!Array.isArray(row.ratings) || row.ratings.length !== item.rubric.length
-      || !row.ratings.every(validScore)
       || !Array.isArray(row.reasons) || row.reasons.length !== item.rubric.length
-      || row.reasons.some(reason => typeof reason !== 'string' || !reason.trim())) fail('REVIEW_CRITERIA');
+      || row.reasons.some(reason => typeof reason !== 'string' || !reason.trim())
+      || row.ratings.some((score, index) => score === null
+        ? !row.reasons[index].startsWith('TASK_ISSUE:') : !validScore(score))) fail('REVIEW_CRITERIA');
     graded.set(row.id,row);
   }
+  const criteria=[...expected.values()].reduce((n,x)=>n+x.rubric.length,0);
+  const taskIssueCriteria=review.cases.reduce((n,row)=>n+row.ratings.filter(score=>score===null).length,0);
   return {packetSha256,reviewer:review.reviewer,reviewedAt:review.reviewedAt,
-    cases:graded.size,criteria:[...expected.values()].reduce((n,x)=>n+x.rubric.length,0),
+    cases:graded.size,criteria,gradedCriteria:criteria-taskIssueCriteria,taskIssueCriteria,
     decisionAuthority:false,acceptedGrader:false,rows:graded,packetCases:expected};
 }
 
 export function compareHuntBlindReviews(packetBytes, first, second) {
   const a=verifyHuntBlindReview(packetBytes,first),b=verifyHuntBlindReview(packetBytes,second);
   if(a.reviewer===b.reviewer)fail('REVIEWER_NOT_INDEPENDENT');
-  const disputes=[];let withinQuarter=0,total=0;
+  const disputes=[],taskIssues=[];let withinQuarter=0,total=0,comparedCriteria=0;
   for(const [id,item] of a.packetCases){
     const left=a.rows.get(id),right=b.rows.get(id);
     for(let i=0;i<item.rubric.length;i++){
       total++;
+      if(left.ratings[i]===null || right.ratings[i]===null){
+        taskIssues.push({id,role:item.role,task:item.task,criterion:i+1,
+          scoreA:left.ratings[i],scoreB:right.ratings[i],reasonA:left.reasons[i],reasonB:right.reasons[i]});
+        continue;
+      }
+      comparedCriteria++;
       const differenceInHundredths=Math.abs(Math.round(left.ratings[i]*100)-Math.round(right.ratings[i]*100));
       if(differenceInHundredths<=25)withinQuarter++;
       else disputes.push({id,role:item.role,task:item.task,criterion:i+1,
@@ -65,7 +74,8 @@ export function compareHuntBlindReviews(packetBytes, first, second) {
   }
   return {status:'DEVELOPMENT_REVIEW_COMPARISON',decisionAuthority:false,
     packetSha256:a.packetSha256,reviewers:[a.reviewer,b.reviewer],cases:a.cases,
-    criteria:total,withinQuarter,disagreementAboveQuarter:disputes.length,disputes,
+    criteria:total,comparedCriteria,taskIssueCriteria:taskIssues.length,taskIssues,
+    withinQuarter,disagreementAboveQuarter:disputes.length,disputes,
     note:'Agreement on known development cases is not independent grader acceptance or a role decision.'};
 }
 

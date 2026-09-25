@@ -66,7 +66,7 @@ Pro každou D/R roli jsou vybrány dvě celé historické úlohy a jedna náhodn
 ## Krok 3 – přejímací postup
 
 1. Codex a Opus hodnotí **stejný úplný packet** odděleně, po kritériích s konkrétním důvodem a citací místa v odpovědi. Jakoukoli předchozí expozici identit nebo známek oba výslovně uvedou. Nevyplněná známka není nula.
-2. Každý posudek se zmrazí jako samostatný soubor navázaný na SHA packetu. [Validátor](../../scripts/verify-hunt-blind-review.mjs) kontroluje úplnost 312 řádků / 840 kritérií a porovnává celé setiny. Původní známky nepřepisuje.
+2. Každý posudek se zmrazí jako samostatný soubor navázaný na SHA packetu. [Validátor](../../scripts/verify-hunt-blind-review.mjs) kontroluje úplnost 312 řádků / 840 kritérií a porovnává celé setiny. `null` povoluje jen s konkrétním důvodem `TASK_ISSUE:`; nesmí se počítat jako nula ani jako shoda. Původní známky nepřepisuje.
 3. Operátor dostane tento předvolený vzorek, všechny spory od 0,15 po kritériích, kritická selhání a explicitně označenou nízkou jistotu. Rozsudek bude samostatná vrstva s vlastním původem; nikdy nezmění syrové odpovědi nebo posudky.
 4. Prozatímní procentní matice vznikne **až z rozsouzených skutečně hodnocených buněk** a nese původ každého skóre. Kde je CODE plné hodnocení zablokované nebo CHAT neporovnatelný s produkcí, nesmí být procento vykládáno jako výběr modelu.
 

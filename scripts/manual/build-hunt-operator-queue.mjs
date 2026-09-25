@@ -40,6 +40,10 @@ let differingCriteria=0, majorCriteria=0;
 for (const item of packet.cases) {
   const a=ratingsA.get(item.id),b=ratingsB.get(item.id);
   for (let i=0;i<item.rubric.length;i++) {
+    if (a.ratings[i]===null || b.ratings[i]===null) {
+      enqueue(item.id,'TASK_ISSUE_UNSCORABLE');
+      continue;
+    }
     const left=Math.round(a.ratings[i]*100),right=Math.round(b.ratings[i]*100),delta=Math.abs(left-right);
     // Frozen before importing grades: all 15-point gaps go to the operator;
     // the existing 25-point agreement statistic remains unchanged.
@@ -70,15 +74,18 @@ const rows=[...queue].map(([id,reasons])=>{
     selectionReasons:[...reasons].sort(),question:item.question,response:item.response,
     criteria:item.rubric.map((criterion,i)=>({index:i+1,criterion,
       scoreA:a.ratings[i],reasonA:a.reasons[i],scoreB:b.ratings[i],reasonB:b.reasons[i],
-      differenceHundredths:Math.abs(Math.round(a.ratings[i]*100)-Math.round(b.ratings[i]*100))}))};
+      differenceHundredths:a.ratings[i]===null||b.ratings[i]===null?null:
+        Math.abs(Math.round(a.ratings[i]*100)-Math.round(b.ratings[i]*100))}))};
 }).sort((a,b)=>a.role.localeCompare(b.role)||a.task.localeCompare(b.task)||a.label.localeCompare(b.label)||a.repeat-b.repeat);
 const result={schemaVersion:1,status:'OPERATOR_ADJUDICATION_PENDING',decisionAuthority:false,
   packetSha256:comparison.packetSha256,readinessSha256:hash(readinessBytes),
   reviewSha256:[hash(reviewABytes),hash(reviewBBytes)],reviewers:[reviewA.reviewer,reviewB.reviewer],
   flags:flagStatus,statistics:{cases:comparison.cases,criteria:comparison.criteria,
-    withinQuarter:comparison.withinQuarter,majorCriteria,differingCriteria,
+    withinQuarter:comparison.withinQuarter,comparedCriteria:comparison.comparedCriteria,
+    taskIssueCriteria:comparison.taskIssueCriteria,majorCriteria,differingCriteria,
     presampledCases:26,operatorCases:rows.length},
   warnings:['This is a development review, not accepted grader calibration or a role decision.',
+    ...comparison.taskIssueCriteria?['At least one criterion is unscored because its task needs adjudication; it is excluded from numeric agreement.']:[],
     ...flagStatus.some(x=>x.status==='NOT_SUBMITTED')?['Low-confidence and critical-failure selection is incomplete until both reviewers submit explicit flags.']:[]],
   rows};
 const esc=s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
@@ -86,7 +93,7 @@ const html=`<!doctype html><html lang="cs"><meta charset="utf-8"><title>GPU hunt
 <style>body{background:#111;color:#eee;font:15px/1.5 system-ui;max-width:1300px;margin:auto;padding:24px}article{border:1px solid #5b5141;background:#1d1d1d;padding:16px;margin:24px 0;border-radius:8px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#0b0b0b;padding:16px;max-height:500px;overflow:auto}details{margin:12px 0}summary{cursor:pointer;color:#e9bb6f}table{border-collapse:collapse;width:100%}td,th{border:1px solid #514b41;padding:8px;text-align:left;vertical-align:top}.alert{color:#ffc46b}</style>
 <h1>GPU hunt · podklad k rozsouzení</h1><p>Žádná identita modelu ani doporučení role. Packet <code>${result.packetSha256}</code>. ${rows.length} odpovědí ve frontě; 26 bylo vybráno před známkováním.</p>
 ${result.warnings.map(x=>`<p class="alert">${esc(x)}</p>`).join('')}
-${rows.map(row=>`<article id="${esc(row.id)}"><h2>${esc(row.role)} · ${esc(row.task)} · ${esc(row.label)}/${row.repeat}</h2><p>${row.selectionReasons.map(esc).join(' · ')} · <code>${esc(row.id)}</code></p><details><summary>Celé zadání</summary><pre>${esc(row.question)}</pre></details><h3>Celá odpověď</h3><pre>${esc(row.response)}</pre><table><thead><tr><th>Kritérium</th><th>${esc(reviewA.reviewer)}</th><th>${esc(reviewB.reviewer)}</th></tr></thead><tbody>${row.criteria.map(c=>`<tr><td>${c.index}. ${esc(c.criterion)}</td><td>${c.scoreA.toFixed(2)} · ${esc(c.reasonA)}</td><td>${c.scoreB.toFixed(2)} · ${esc(c.reasonB)}</td></tr>`).join('')}</tbody></table></article>`).join('')}
+${rows.map(row=>`<article id="${esc(row.id)}"><h2>${esc(row.role)} · ${esc(row.task)} · ${esc(row.label)}/${row.repeat}</h2><p>${row.selectionReasons.map(esc).join(' · ')} · <code>${esc(row.id)}</code></p><details><summary>Celé zadání</summary><pre>${esc(row.question)}</pre></details><h3>Celá odpověď</h3><pre>${esc(row.response)}</pre><table><thead><tr><th>Kritérium</th><th>${esc(reviewA.reviewer)}</th><th>${esc(reviewB.reviewer)}</th></tr></thead><tbody>${row.criteria.map(c=>`<tr><td>${c.index}. ${esc(c.criterion)}</td><td>${c.scoreA===null?'bez známky':c.scoreA.toFixed(2)} · ${esc(c.reasonA)}</td><td>${c.scoreB===null?'bez známky':c.scoreB.toFixed(2)} · ${esc(c.reasonB)}</td></tr>`).join('')}</tbody></table></article>`).join('')}
 </html>`;
 mkdirSync(args.out,{mode:0o700});
 writeFileSync(join(args.out,'queue.json'),JSON.stringify(result,null,2)+'\n',{mode:0o600});

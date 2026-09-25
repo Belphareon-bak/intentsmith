@@ -40,6 +40,26 @@ test('packet binding and missing grades fail closed',()=>{
   assert.throws(()=>verifyHuntBlindReview(packet,reason),/REVIEW_CRITERIA/);
 });
 
+test('explicit task issue is unscored and retained for adjudication',()=>{
+  const a=review('reader A'),b=review('reader B');
+  a.cases[0].ratings[1]=null;
+  a.cases[0].reasons[1]='TASK_ISSUE: Historical DDL is absent from the public prompt';
+  const valid=verifyHuntBlindReview(packet,a);
+  assert.equal(valid.criteria,3);
+  assert.equal(valid.gradedCriteria,2);
+  assert.equal(valid.taskIssueCriteria,1);
+  const result=compareHuntBlindReviews(packet,a,b);
+  assert.equal(result.criteria,3);
+  assert.equal(result.comparedCriteria,2);
+  assert.equal(result.taskIssueCriteria,1);
+  assert.equal(result.withinQuarter,2);
+  assert.equal(result.disagreementAboveQuarter,0);
+  assert.equal(result.taskIssues[0].scoreA,null);
+  assert.equal(result.taskIssues[0].scoreB,.5);
+  assert.match(result.taskIssues[0].reasonA,/Historical DDL/);
+  assert.equal(result.decisionAuthority,false);
+});
+
 test('duplicate or foreign answers cannot stand in for the packet',()=>{
   const duplicate=review();duplicate.cases[1].id='case-a';
   assert.throws(()=>verifyHuntBlindReview(packet,duplicate),/REVIEW_CASE_ID/);
