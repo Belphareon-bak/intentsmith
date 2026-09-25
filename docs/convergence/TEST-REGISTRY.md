@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 540
+- Runnable programs: 541
 - Explicit support-module exclusions: 21
-- Profiles: offline=296, database=79, server=48, model=82, soak=15, manual=20
-- States: ACTIVE=446, HISTORICAL=15, BLOCKED=79
+- Profiles: offline=297, database=79, server=48, model=82, soak=15, manual=20
+- States: ACTIVE=447, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -566,6 +566,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T3-TESTS-ULTIMATE-E2E-TEST` | `tests/ultimate-e2e.test.js` | `C3-027` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-UPGRADE-UX-V125-TEST` | `tests/upgrade-ux-v125.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-V583-TIER1-TEST` | `tests/v583-tier1.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-VERIFY-HUNT-BLIND-REVIEW-TEST` | `tests/verify-hunt-blind-review.test.mjs` | `C3-010` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-VRAM-COORDINATION-TEST` | `tests/vram-coordination.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-VRAM-MEASUREMENT-TEST` | `tests/vram-measurement.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-WHATLLM-CLIENT-TEST` | `tests/whatllm-client.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

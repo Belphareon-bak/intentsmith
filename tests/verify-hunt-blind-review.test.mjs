@@ -58,3 +58,17 @@ test('independent reviewers retain concrete criterion disputes',()=>{
   assert.equal(result.decisionAuthority,false);
   assert.throws(()=>compareHuntBlindReviews(packet,a,review('reader A')),/REVIEWER_NOT_INDEPENDENT/);
 });
+
+
+test('a difference of exactly 25 hundredths is agreement across decimal representations',()=>{
+  for(const [left,right] of [[.54,.29],[.29,.54],[.75,.50],[.25,0]]){
+    const a=review('reader A'),b=review('reader B');
+    a.cases[0].ratings[0]=left;b.cases[0].ratings[0]=right;
+    const result=compareHuntBlindReviews(packet,a,b);
+    assert.equal(result.withinQuarter,3,`${left} versus ${right}`);
+    assert.equal(result.disagreementAboveQuarter,0,`${left} versus ${right}`);
+  }
+  const a=review('reader A'),b=review('reader B');
+  a.cases[0].ratings[0]=.55;b.cases[0].ratings[0]=.29;
+  assert.equal(compareHuntBlindReviews(packet,a,b).disagreementAboveQuarter,1);
+});

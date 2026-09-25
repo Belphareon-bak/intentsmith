@@ -57,8 +57,8 @@ export function compareHuntBlindReviews(packetBytes, first, second) {
     const left=a.rows.get(id),right=b.rows.get(id);
     for(let i=0;i<item.rubric.length;i++){
       total++;
-      const difference=Math.abs(left.ratings[i]-right.ratings[i]);
-      if(difference<=.25)withinQuarter++;
+      const differenceInHundredths=Math.abs(Math.round(left.ratings[i]*100)-Math.round(right.ratings[i]*100));
+      if(differenceInHundredths<=25)withinQuarter++;
       else disputes.push({id,role:item.role,task:item.task,criterion:i+1,
         scoreA:left.ratings[i],scoreB:right.ratings[i],reasonA:left.reasons[i],reasonB:right.reasons[i]});
     }

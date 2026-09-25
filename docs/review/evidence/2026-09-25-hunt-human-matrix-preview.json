@@ -1,0 +1,506 @@
+{
+  "status": "HUMAN_REVIEW_MATRIX_PREVIEW",
+  "decisionAuthority": false,
+  "modelAssignmentRecommendation": false,
+  "roles": [
+    "D1",
+    "D2",
+    "CODE",
+    "R1",
+    "R2",
+    "CHAT",
+    "VISION"
+  ],
+  "sources": {
+    "H": {
+      "path": "/mnt/vi7000/intentsmith/evidence/hunt-milestones-20260923/full-matrix.json",
+      "sha256": "356d572e25ff8e5c6ec8b313a4be6b291f9790fed0a54e975ce2decc531c9663"
+    },
+    "O": {
+      "path": "/mnt/vi7000/intentsmith/evidence/hunt-chat-panel-20260923/opus-grading-20260924/scores-unblinded.json",
+      "sha256": "550335d8c79536b0a622a45a67cbed1a2c6628d5d15379a03f60c2f122e81652"
+    },
+    "V": {
+      "path": "/home/belphareon/worktrees/is-mobile-completion-20260908/docs/review/evidence/2026-09-25-hunt-isolated-campaign.json",
+      "sha256": "30551815a6ab8633d6113204ba0a5736e6794b4d13f058da23d953e4f6ff4054"
+    },
+    "CODE_component": {
+      "path": "/home/belphareon/worktrees/is-mobile-completion-20260908/docs/review/evidence/2026-09-25-hunt-code-components.json",
+      "sha256": "1510d3642edb273462e64cfb1baec6fc0d66bc462e31a115809c6252b0366647"
+    }
+  },
+  "cells": {
+    "devstral-small-2:latest": {
+      "D1": {
+        "percent": 50.3,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "D2": {
+        "percent": 51.6,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "CODE": null,
+      "R1": {
+        "percent": 28.1,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "R2": {
+        "percent": 42.7,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "CHAT": {
+        "percent": 66.6,
+        "source": "O",
+        "attempts": 40,
+        "tasks": 40,
+        "note": "One Opus reviewer of exposed development panel; no production system prompt.",
+        "decisionAuthority": false
+      },
+      "VISION": {
+        "percent": 63.5,
+        "source": "H",
+        "attempts": 69,
+        "tasks": 23,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      }
+    },
+    "gemma4:26b": {
+      "D1": {
+        "percent": 59.6,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "D2": {
+        "percent": 56.0,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "CODE": null,
+      "R1": {
+        "percent": 35.9,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "R2": {
+        "percent": 59.4,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "CHAT": {
+        "percent": 92.1,
+        "source": "O",
+        "attempts": 40,
+        "tasks": 40,
+        "note": "One Opus reviewer of exposed development panel; no production system prompt.",
+        "decisionAuthority": false
+      },
+      "VISION": {
+        "percent": 75.7,
+        "source": "V",
+        "attempts": 69,
+        "tasks": 23,
+        "note": "Current isolated VISION technical rubric; author probes only, no operational validation.",
+        "decisionAuthority": false
+      }
+    },
+    "llava-llama3:8b": {
+      "D1": null,
+      "D2": null,
+      "CODE": null,
+      "R1": null,
+      "R2": null,
+      "CHAT": null,
+      "VISION": null
+    },
+    "llava:13b": {
+      "D1": null,
+      "D2": null,
+      "CODE": null,
+      "R1": null,
+      "R2": null,
+      "CHAT": null,
+      "VISION": null
+    },
+    "ornith-1.5:9b": {
+      "D1": null,
+      "D2": null,
+      "CODE": null,
+      "R1": null,
+      "R2": null,
+      "CHAT": {
+        "percent": 86.3,
+        "source": "O",
+        "attempts": 40,
+        "tasks": 40,
+        "note": "One Opus reviewer of exposed development panel; no production system prompt.",
+        "decisionAuthority": false
+      },
+      "VISION": {
+        "percent": 77.6,
+        "source": "V",
+        "attempts": 69,
+        "tasks": 23,
+        "note": "Current isolated VISION technical rubric; author probes only, no operational validation.",
+        "decisionAuthority": false
+      }
+    },
+    "phi4:14b": {
+      "D1": {
+        "percent": 40.1,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "D2": {
+        "percent": 54.2,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "CODE": null,
+      "R1": {
+        "percent": 28.1,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "R2": {
+        "percent": 38.5,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "CHAT": {
+        "percent": 64.9,
+        "source": "O",
+        "attempts": 40,
+        "tasks": 40,
+        "note": "One Opus reviewer of exposed development panel; no production system prompt.",
+        "decisionAuthority": false
+      },
+      "VISION": null
+    },
+    "qwen3-30b-a3b:latest": {
+      "D1": {
+        "percent": 41.7,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "D2": {
+        "percent": 49.7,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "CODE": null,
+      "R1": {
+        "percent": 20.8,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "R2": {
+        "percent": 34.4,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "CHAT": {
+        "percent": 80.2,
+        "source": "O",
+        "attempts": 40,
+        "tasks": 40,
+        "note": "One Opus reviewer of exposed development panel; no production system prompt.",
+        "decisionAuthority": false
+      },
+      "VISION": null
+    },
+    "qwen3-coder:latest": {
+      "D1": {
+        "percent": 51.0,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "D2": {
+        "percent": 58.6,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "CODE": null,
+      "R1": {
+        "percent": 37.0,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "R2": {
+        "percent": 43.8,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "CHAT": {
+        "percent": 74.5,
+        "source": "O",
+        "attempts": 40,
+        "tasks": 40,
+        "note": "One Opus reviewer of exposed development panel; no production system prompt.",
+        "decisionAuthority": false
+      },
+      "VISION": null
+    },
+    "qwen3.5:27b": {
+      "D1": {
+        "percent": 63.5,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "D2": {
+        "percent": 67.7,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "CODE": null,
+      "R1": null,
+      "R2": {
+        "percent": 72.9,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "CHAT": {
+        "percent": 88.4,
+        "source": "O",
+        "attempts": 40,
+        "tasks": 40,
+        "note": "One Opus reviewer of exposed development panel; no production system prompt.",
+        "decisionAuthority": false
+      },
+      "VISION": {
+        "percent": 88.6,
+        "source": "H",
+        "attempts": 69,
+        "tasks": 23,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      }
+    },
+    "qwen3.6:27b": {
+      "D1": {
+        "percent": 59.1,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "D2": {
+        "percent": 72.9,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "CODE": null,
+      "R1": {
+        "percent": 48.4,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "R2": {
+        "percent": 70.8,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "CHAT": {
+        "percent": 90.9,
+        "source": "O",
+        "attempts": 40,
+        "tasks": 40,
+        "note": "One Opus reviewer of exposed development panel; no production system prompt.",
+        "decisionAuthority": false
+      },
+      "VISION": {
+        "percent": 83.0,
+        "source": "H",
+        "attempts": 69,
+        "tasks": 23,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      }
+    },
+    "qwen3.8:latest": {
+      "D1": {
+        "percent": 62.0,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "D2": {
+        "percent": 58.3,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "CODE": null,
+      "R1": {
+        "percent": 54.2,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "R2": {
+        "percent": 71.9,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "CHAT": {
+        "percent": 95.3,
+        "source": "O",
+        "attempts": 40,
+        "tasks": 40,
+        "note": "One Opus reviewer of exposed development panel; no production system prompt.",
+        "decisionAuthority": false
+      },
+      "VISION": {
+        "percent": 77.2,
+        "source": "V",
+        "attempts": 69,
+        "tasks": 23,
+        "note": "Current isolated VISION technical rubric; author probes only, no operational validation.",
+        "decisionAuthority": false
+      }
+    },
+    "qwen3:14b": {
+      "D1": {
+        "percent": 40.1,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "D2": {
+        "percent": 52.9,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "CODE": null,
+      "R1": {
+        "percent": 32.3,
+        "source": "H",
+        "attempts": 24,
+        "tasks": 8,
+        "note": "Historical development grading, known rubric limitations; not comparable with current suite.",
+        "decisionAuthority": false
+      },
+      "R2": null,
+      "CHAT": {
+        "percent": 76.4,
+        "source": "O",
+        "attempts": 40,
+        "tasks": 40,
+        "note": "One Opus reviewer of exposed development panel; no production system prompt.",
+        "decisionAuthority": false
+      },
+      "VISION": null
+    }
+  },
+  "codeTechnicalOnly": [
+    {
+      "model": "qwen3.8:latest",
+      "technicalPercent": 100,
+      "attempts": 21,
+      "fullTaskScore": null
+    },
+    {
+      "model": "devstral-small-2:latest",
+      "technicalPercent": 71.4,
+      "attempts": 21,
+      "fullTaskScore": null
+    }
+  ]
+}
