@@ -88,6 +88,7 @@ class LiveModel extends Component {
       onChange: () => this.forceUpdate() });
     this._policyDrafts = new Map();
     this._projectConversations = new Map();
+    this._specialistConversations = new Map();
     this._projectWizardStatus = { busy: false, error: '', defaultDir: '', uncertain: false };
     this._specialistWizardStatus = { busy: false, error: '', uncertain: false };
     this._workerWizardStatus = { busy: false, loading: false, error: '', uncertain: false,
@@ -525,10 +526,16 @@ class LiveModel extends Component {
       const enabled = raw.status === 'enabled';
       const busy = this._catalogBusy.has('specialist:' + id);
       const tab = s.dtab['specialists:' + id] || 'prehled';
-      const tabs = [['prehled', 'Přehled'], ['nastroje', 'Nástroje'], ['nastaveni', 'Nastavení']];
+      const conversations = this._specialistConversations.get(id) || { status: 'idle', items: [] };
+      const tabs = [['prehled', 'Přehled'], ['konverzace', 'Konverzace'], ['nastroje', 'Nástroje'], ['nastaveni', 'Nastavení']];
       const tools = Array.isArray(detail.data?.tools) ? detail.data.tools :
         Array.isArray(raw.tools) ? raw.tools : [];
-      const blocks = tab === 'nastroje' ? [this.blockVM({ kind: 'rows', title: 'Nástroje specialisty',
+      const blocks = tab === 'konverzace' ? [this.blockVM({ kind: 'rows', title: 'Konverzace se specialistou',
+        rows: conversations.items.map(conversation => ({ t: conversation.name, s: String(conversation.raw.updated_at || ''),
+          icon: I.chat, go: () => this.pOpenSpecialistConversation(id, conversation) })),
+        empty: conversations.status === 'error' ? conversations.error
+          : conversations.status === 'ready' ? 'Zatím žádná uložená konverzace.' : 'Načítám historii specialisty…' })]
+        : tab === 'nastroje' ? [this.blockVM({ kind: 'rows', title: 'Nástroje specialisty',
         rows: tools.map(tool => ({ t: typeof tool === 'string' ? tool : String(tool?.name || tool?.id || 'neznámý'),
           s: typeof tool === 'object' ? String(tool?.description || '') : '' })),
         empty: 'Specialista nemá zveřejněné nástroje.' })]
@@ -553,7 +560,9 @@ class LiveModel extends Component {
           { label: 'Odinstalovat', icon: I.trash,
             go: () => this.specialistAction(id, 'uninstall') }] : [],
         more: this.showCtx('specialists', id), hasTabs: true,
-        tabs: tabs.map(([key,label]) => ({ label, n: '', hasN: false, cls: key === tab ? 'on' : '',
+        tabs: tabs.map(([key,label]) => ({ label, n: key === 'konverzace' && conversations.status === 'ready' ? conversations.items.length : '',
+          hasN: key === 'konverzace' && conversations.status === 'ready' && conversations.items.length > 0,
+          cls: key === tab ? 'on' : '',
           go: () => this.setState({ dtab: this.merge(this.st(), 'dtab', { ['specialists:' + id]: key }) }) })),
         hasDesc: tab === 'prehled' && !!item.description, desc: item.description,
         showProps: tab === 'prehled', props: [['ID', id, true], ['Doména', raw.domain || '—'],
@@ -2038,6 +2047,36 @@ class LiveModel extends Component {
     this.forceUpdate();
   }
 
+  async loadSpecialistConversations(id) {
+    const key = String(id), previous = this._specialistConversations.get(key);
+    if (previous?.status === 'loading') return;
+    const request = Symbol(key);
+    this._specialistConversations.set(key, { status: 'loading', items: previous?.items || [], request });
+    this.forceUpdate();
+    try {
+      const body = await this.widget.catalog.get('/api/conversations?limit=100&specialistId=' + encodeURIComponent(key));
+      if (!Array.isArray(body.conversations)) throw Error('Backend nevrátil historii specialisty.');
+      const items = body.conversations.map(row => {
+        if (!row || typeof row.id !== 'string' || !row.id || row.state !== 'active')
+          throw Error('Backend vrátil neplatnou konverzaci specialisty.');
+        return { id: row.id, name: row.title || row.id, raw: row };
+      });
+      if (this._specialistConversations.get(key)?.request === request)
+        this._specialistConversations.set(key, { status: 'ready', items });
+    } catch (error) {
+      if (this._specialistConversations.get(key)?.request === request)
+        this._specialistConversations.set(key, { status: 'error', items: [], error: error?.message || 'Historii nelze načíst.' });
+    }
+    this.forceUpdate();
+  }
+
+  pOpenSpecialistConversation(id, item) {
+    Promise.resolve(this.widget.openSpecialistConversation(id, item)).then(ok => {
+      if (ok) this.setState({ mode: 'sessions' }); else this.forceUpdate();
+    }).catch(error => { this.widget.catalogActionError = error?.message || 'Konverzaci nelze otevřít.'; this.forceUpdate(); });
+    return null;
+  }
+
   pOpenProjectConversation(item) {
     Promise.resolve(this.widget.openCatalogItem('Konverzace', item)).then(ok => {
       if (ok) this.setState({ mode: 'sessions' }); else this.forceUpdate();
@@ -2051,7 +2090,7 @@ class LiveModel extends Component {
       this.loadProjectDefaults();
     } else if (sec === 'projects') { this.scmClient.load(id); this.loadProjectConversations(id); }
     if (sec === 'specialists' && id === '__new__') this._specialistWizardStatus = { busy: false, error: '', uncertain: false };
-    else if (sec === 'specialists') this.loadSpecialistDetail(id);
+    else if (sec === 'specialists') { this.loadSpecialistDetail(id); this.loadSpecialistConversations(id); }
     if (sec === 'expertises' && id === '__new__') this._expertiseWizardStatus = {
       busy: false, error: '', uncertain: false, preview: null, previewKey: '', testResult: null, testKey: '' };
     if (sec === 'workers' && id === '__new__') {

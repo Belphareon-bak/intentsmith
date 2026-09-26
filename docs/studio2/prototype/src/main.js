@@ -938,9 +938,10 @@ class Component extends DCLogic {
         icon: I.users, tone: 'violet', title: x.name, type: 'Specialista', idText: x.id, status: 'zapnutý', stCls: 'ok',
         primary: { label: 'Nová konverzace se specialistou', go: (s2) => this.pNewSession(s2, { specialist: x.id }) },
         secondary: [{ label: 'Vypnout', icon: I.pause }],
-        tabs: [['prehled', 'Přehled'], ['nastroje', 'Nástroje', x.tools.length], ['nastaveni', 'Nastavení']],
+        tabs: [['prehled', 'Přehled'], ['konverzace', 'Konverzace', convs.length], ['nastroje', 'Nástroje', x.tools.length], ['nastaveni', 'Nastavení']],
         blocks: {
           prehled,
+          konverzace: [{ kind: 'rows', title: 'Konverzace se specialistou', rows: convs.map((c) => this.convRow(s, c)), empty: 'Zatím žádná uložená konverzace.' }],
           nastroje: [{ kind: 'rows', title: 'Nástroje', rows: x.tools.map((t) => ({ t: t[0], s: t[1], icon: I.tool })) }],
           nastaveni: [{ kind: 'empty', title: 'Nastavení', text: 'Specialista nemá žádná vlastní nastavení.' }]
         },

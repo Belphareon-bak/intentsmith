@@ -83,6 +83,37 @@ test('specialist workspace files stay local until explicitly attached and can be
   model.componentWillUnmount();
 });
 
+test('specialist detail loads saved conversation history and opens the chosen identity', async () => {
+  let invalid = false;
+  const calls = [];
+  const catalog = { view: section => section === 'Specialisté'
+    ? { status: 'ready', items: [{ id: 'alpha', name: 'Alpha', description: '', raw: { status: 'enabled' } }] }
+    : { status: 'ready', items: [] }, subscribe: () => () => {},
+    get: async path => {
+      calls.push(path);
+      return { conversations: invalid ? [{ id: 'conv-a', state: 'deleted' }]
+        : [{ id: 'conv-a', title: 'Uložená práce', state: 'active', updated_at: '2026-09-26' }] };
+    } };
+  const { model, widget } = setup({ catalog });
+  widget.openSpecialistConversation = async (id, item) => { calls.push([id, item.id]); return true; };
+  model.setState({ mode: 'section', section: 'specialists', detail: { specialists: 'alpha' },
+    dtab: { 'specialists:alpha': 'konverzace' } });
+  await model.loadSpecialistConversations('alpha');
+  let detail = model.detailVM(model.st());
+  assert.deepEqual(detail.tabs.map(tab => tab.label), ['Přehled', 'Konverzace', 'Nástroje', 'Nastavení']);
+  assert.equal(detail.blocks[0].rows[0].t, 'Uložená práce');
+  detail.blocks[0].rows[0].go();
+  await tick();
+  assert.deepEqual(calls, ['/api/conversations?limit=100&specialistId=alpha', ['alpha', 'conv-a']]);
+  assert.equal(model.st().mode, 'sessions');
+  invalid = true;
+  await model.loadSpecialistConversations('alpha');
+  detail = model.detailVM({ ...model.st(), mode: 'section', section: 'specialists' });
+  assert.match(detail.blocks[0].empty, /neplatnou konverzaci/);
+  assert.equal(detail.blocks[0].rows.length, 0);
+  model.componentWillUnmount();
+});
+
 test('model command in menu and palette opens live role assignments without a fixture model name', () => {
   const { model, store } = setup();
   const selected = [];

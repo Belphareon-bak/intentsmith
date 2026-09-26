@@ -53,6 +53,9 @@ Soubory pracovního prostoru specialisty používají stejný místní IndexedDB
 `intentsmith-specialist-files` jako klasické Studio. Pravý panel nabízí přidání,
 náhled textu do 512 KiB, výslovné připojení do zprávy, kopii mezi specialisty
 a odebrání uložené kopie. Náhled soubor nepřipojí ani neposílá modelu.
+Detail specialisty navíc načítá uložené konverzace z backendového filtru
+`specialistId`; při otevření vybrané historie znovu ověří aktivaci stejného
+specialisty a až pak obnoví relaci a zprávy.
 
 Správa zdrojů používá nové `/api/scm/*` s plánem a potvrzením; i diff
 smazaného souboru je dostupný bez falešného editoru. Izolovaný průchod ve

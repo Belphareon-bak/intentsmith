@@ -164,6 +164,36 @@ class Studio2Widget extends ReactWidget {
       this.section = 'Relace'; this.update(); return true;
     } catch (error) { this.catalogActionError = error.message || 'Specialistu nelze aktivovat.'; this.update(); return false; }
   }
+  async openSpecialistConversation(specialistId, item) {
+    const specialist = this.catalog.view('Specialisté').items.find(row => row.id === specialistId);
+    if (!specialist || !item || typeof item.id !== 'string' || !item.id) {
+      this.catalogActionError = 'Specialistu nebo konverzaci nelze ověřit.';
+      this.update(); return false;
+    }
+    if (specialist.raw?.status !== 'enabled') {
+      this.catalogActionError = 'Specialista je vypnutý. Zapni ho před obnovením konverzace.';
+      this.update(); return false;
+    }
+    try {
+      const response = await fetch(this.catalog.backendUrl() + '/api/chat/specialist', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ specialistId, sessionId: item.id }), signal: AbortSignal.timeout(8000),
+      });
+      const body = await response.json();
+      if (!response.ok || body.ok !== true || body.specialistId !== specialistId)
+        throw Error(body.error || 'Backend nepotvrdil specialistu konverzace.');
+      if (!await this.openCatalogItem('Konverzace', item)) return false;
+      const session = this.store.state.sessions.find(row => row._convId === item.id);
+      if (!session) throw Error('Konverzace se neotevřela jako relace.');
+      session.chat.specialist = { ...specialist.raw, id: specialistId, name: specialist.name };
+      session.chat.expertise = specialist.name;
+      this.store.changed();
+      return true;
+    } catch (error) {
+      this.catalogActionError = error?.message || 'Konverzaci specialisty nelze obnovit.';
+      this.update(); return false;
+    }
+  }
   async completeTerminal(session, input) {
     try {
       const result = await this.workspace.completePath(session, input.value);
