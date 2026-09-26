@@ -92,3 +92,37 @@ test('a difference of exactly 25 hundredths is agreement across decimal represen
   a.cases[0].ratings[0]=.55;b.cases[0].ratings[0]=.29;
   assert.equal(compareHuntBlindReviews(packet,a,b).disagreementAboveQuarter,1);
 });
+
+test('complete response packet and exposure-aware review export can be compared',()=>{
+  const completePacket=Buffer.from(JSON.stringify({schemaVersion:2,status:'ANONYMIZED_REVIEW_PENDING',
+    decisionAuthority:false,notAHoldout:true,cases:[
+      {id:'complete-a',role:'R1',task:'model_cleanup',rubric:['Cause','Impact'],response:'Full answer'},
+    ]})+'\n');
+  const digest=createHash('sha256').update(completePacket).digest('hex');
+  const form=(reviewer,exposure='')=>({schemaVersion:2,status:'DRAFT_NOT_ACCEPTED',
+    decisionAuthority:false,packetSha256:digest,exportedAt:'2026-09-26T10:00:00Z',
+    reviewer,exposure,grades:{'complete-a':{criteria:[
+      {index:1,score:.75,reason:'Names the cause'},
+      {index:2,score:.5,reason:'Partial impact'},
+    ]}}});
+  const first=form('first reader','Earlier answers were visible');
+  const second=form('second reader');second.grades['complete-a'].criteria[1].score=.25;
+  const verified=verifyHuntBlindReview(completePacket,first);
+  assert.equal(verified.cases,1);
+  assert.equal(verified.criteria,2);
+  assert.equal(verified.exposure,'Earlier answers were visible');
+  const comparison=compareHuntBlindReviews(completePacket,first,second);
+  assert.equal(comparison.withinQuarter,2);
+  assert.deepEqual(comparison.reviewerExposures,['Earlier answers were visible','']);
+  second.grades['complete-a'].criteria[0].index=2;
+  assert.throws(()=>verifyHuntBlindReview(completePacket,second),/REVIEW_CRITERIA/);
+  const missing=form('first reader');delete missing.grades['complete-a'];
+  assert.throws(()=>verifyHuntBlindReview(completePacket,missing),/REVIEW_HEADER/);
+});
+
+test('exposure-aware CHAT review keeps its disclosed status and packet binding',()=>{
+  const disclosed={...review(),status:'DRAFT_EXPOSURE_RECORDED',exposure:'Saw the model names before grading'};
+  assert.equal(verifyHuntBlindReview(packet,disclosed).exposure,disclosed.exposure);
+  delete disclosed.exposure;
+  assert.throws(()=>verifyHuntBlindReview(packet,disclosed),/REVIEW_HEADER/);
+});

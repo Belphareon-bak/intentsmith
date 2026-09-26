@@ -17,14 +17,22 @@ export function verifyHuntBlindReview(packetBytes, review) {
   const packetSha256 = sha256(packetBytes);
   let packet;
   try { packet = JSON.parse(packetBytes); } catch { fail('PACKET_JSON'); }
-  if (packet?.schemaVersion !== 1 || packet.status !== 'DEVELOPMENT_BLIND_REVIEW'
-    || packet.decisionAuthority !== false || packet.notFreshHoldout !== true
+  const legacyPacket = packet?.schemaVersion === 1 && packet.status === 'DEVELOPMENT_BLIND_REVIEW'
+    && packet.notFreshHoldout === true;
+  const completePacket = packet?.schemaVersion === 2 && packet.status === 'ANONYMIZED_REVIEW_PENDING'
+    && packet.notAHoldout === true;
+  if ((!legacyPacket && !completePacket) || packet.decisionAuthority !== false
     || !Array.isArray(packet.cases) || packet.cases.length === 0) fail('PACKET_SCOPE');
-  if (review?.schemaVersion !== 1 || review.status !== 'DRAFT_BLIND_REVIEW'
+  const legacyReview = review?.schemaVersion === 1
+    && ['DRAFT_BLIND_REVIEW', 'DRAFT_EXPOSURE_RECORDED'].includes(review.status)
+    && Array.isArray(review.cases) && review.cases.length === packet.cases.length;
+  const completeReview = review?.schemaVersion === 2 && review.status === 'DRAFT_NOT_ACCEPTED'
+    && exactKeys(review.grades, packet.cases.map(item => item.id));
+  if (!(legacyPacket ? legacyReview : completeReview)
     || review.decisionAuthority !== false || review.packetSha256 !== packetSha256
     || typeof review.reviewer !== 'string' || !review.reviewer.trim()
-    || !Number.isFinite(Date.parse(review.reviewedAt))
-    || !Array.isArray(review.cases) || review.cases.length !== packet.cases.length) fail('REVIEW_HEADER');
+    || !Number.isFinite(Date.parse(legacyReview ? review.reviewedAt : review.exportedAt))
+    || (review.status !== 'DRAFT_BLIND_REVIEW' && typeof review.exposure !== 'string')) fail('REVIEW_HEADER');
   const expected = new Map();
   for (const item of packet.cases) {
     if (typeof item?.id !== 'string' || expected.has(item.id)
@@ -34,8 +42,17 @@ export function verifyHuntBlindReview(packetBytes, review) {
       || typeof item.response !== 'string') fail('PACKET_CASE');
     expected.set(item.id, item);
   }
+  const rows = legacyReview ? review.cases : packet.cases.map(item => {
+    const grade = review.grades[item.id];
+    if (!exactKeys(grade, ['criteria']) || !Array.isArray(grade.criteria)
+      || grade.criteria.length !== item.rubric.length
+      || grade.criteria.some((criterion, index) => !exactKeys(criterion, ['index','score','reason'])
+        || criterion.index !== index + 1)) fail('REVIEW_CRITERIA');
+    return {id:item.id,ratings:grade.criteria.map(x => x.score),
+      reasons:grade.criteria.map(x => x.reason)};
+  });
   const graded = new Map();
-  for (const row of review.cases) {
+  for (const row of rows) {
     if (!exactKeys(row,['id','ratings','reasons']) || !expected.has(row.id) || graded.has(row.id)) fail('REVIEW_CASE_ID');
     const item = expected.get(row.id);
     if (!Array.isArray(row.ratings) || row.ratings.length !== item.rubric.length
@@ -46,8 +63,10 @@ export function verifyHuntBlindReview(packetBytes, review) {
     graded.set(row.id,row);
   }
   const criteria=[...expected.values()].reduce((n,x)=>n+x.rubric.length,0);
-  const taskIssueCriteria=review.cases.reduce((n,row)=>n+row.ratings.filter(score=>score===null).length,0);
-  return {packetSha256,reviewer:review.reviewer,reviewedAt:review.reviewedAt,
+  const taskIssueCriteria=rows.reduce((n,row)=>n+row.ratings.filter(score=>score===null).length,0);
+  return {packetSha256,reviewer:review.reviewer,
+    reviewedAt:legacyReview ? review.reviewedAt : review.exportedAt,
+    exposure:typeof review.exposure === 'string' ? review.exposure : null,
     cases:graded.size,criteria,gradedCriteria:criteria-taskIssueCriteria,taskIssueCriteria,
     decisionAuthority:false,acceptedGrader:false,rows:graded,packetCases:expected};
 }
@@ -74,6 +93,7 @@ export function compareHuntBlindReviews(packetBytes, first, second) {
   }
   return {status:'DEVELOPMENT_REVIEW_COMPARISON',decisionAuthority:false,
     packetSha256:a.packetSha256,reviewers:[a.reviewer,b.reviewer],cases:a.cases,
+    reviewerExposures:[a.exposure,b.exposure],
     criteria:total,comparedCriteria,taskIssueCriteria:taskIssues.length,taskIssues,
     withinQuarter,disagreementAboveQuarter:disputes.length,disputes,
     note:'Agreement on known development cases is not independent grader acceptance or a role decision.'};
