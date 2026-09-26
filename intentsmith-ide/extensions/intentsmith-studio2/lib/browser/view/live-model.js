@@ -558,6 +558,14 @@ class LiveModel extends Component {
       const raw = item.raw || {}, installed = raw.installed === true;
       const busy = this._catalogBusy.has(raw.type + ':' + id);
       const actionable = ['skill', 'expertise', 'specialist'].includes(raw.type);
+      const tab = s.dtab['market:' + id] || 'prehled';
+      const blocks = tab === 'verze' ? [this.blockVM({ kind: 'rows', title: 'Verze balíčku', rows: [
+        { t: 'Dostupná verze', m: String(raw.version || '—') },
+        { t: 'Nainstalovaná verze', m: installed ? String(raw.installedVersion || raw.version || '—') : 'není nainstalovaná' },
+        { t: 'Aktualizace', m: raw.updateAvailable ? 'dostupná' : 'není potvrzená' }] })]
+        : [this.blockVM({ kind: 'text', items: [busy ? 'Čekám na výsledek operace…'
+          : actionable ? item.description || 'Balíček z katalogu backendu.'
+            : 'Backend vrátil nepodporovaný typ balíčku.'] })];
       return { icon: this.sec(s.section).icon, tone: this.sec(s.section).tone,
         icls: '', title: item.name, type: 'Balíček · ' + (raw.type || 'neznámý typ'),
         idText: String(raw.id), hasStatus: true,
@@ -567,13 +575,14 @@ class LiveModel extends Component {
         onPrimary: () => this.pMarketplaceAction(item, installed ? 'uninstall' : 'install'),
         secondary: actionable && raw.updateAvailable && !busy ? [{ label: 'Aktualizovat', icon: I.zap,
           go: () => this.pMarketplaceAction(item, 'update') }] : [],
-        more: () => {}, hasTabs: false, tabs: [], hasDesc: !!item.description,
+        more: () => {}, hasTabs: true, tabs: [['prehled', 'Přehled'], ['verze', 'Verze']]
+          .map(([key, label]) => ({ label, n: '', hasN: false, cls: key === tab ? 'on' : '',
+            go: () => this.setState({ dtab: this.merge(this.st(), 'dtab', { ['market:' + id]: key }) }) })),
+        hasDesc: tab === 'prehled' && !!item.description,
         desc: item.description, showProps: true,
         props: [['ID', raw.id, true], ['Typ', raw.type || '—'], ['Verze', raw.version || '—'],
           ['Instalovaná verze', raw.installedVersion || '—']].map(([k, v, mono]) => ({ k, v, cls: mono ? 'mono' : '' })),
-        blocks: [this.blockVM({ kind: 'empty', text: busy ? 'Čekám na výsledek operace…'
-          : actionable ? 'Instalace, aktualizace a odebrání používají skutečný katalog backendu.'
-            : 'Backend vrátil nepodporovaný typ balíčku.' })],
+        blocks,
         hasRelated: false, related: [], development: this.developmentVM(s), scmPolicy: this.scmPolicyVM(s, null) };
     }
     if (s.section === 'workers') {

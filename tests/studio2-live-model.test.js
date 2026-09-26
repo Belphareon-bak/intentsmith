@@ -513,6 +513,14 @@ test('marketplace detail uses confirmed backend mutations and never claims succe
   await catalog.load('Obchod');
   model.setState({ mode: 'section', section: 'market', detail: { market: 'skill:pkg-a' } });
   let vm = model.detailVM(model.st());
+  assert.deepEqual(vm.tabs.map(tab => tab.label), ['Přehled', 'Verze']);
+  assert.match(vm.blocks[0].items[0].t, /Balíček z katalogu backendu/);
+  vm.tabs[1].go();
+  vm = model.detailVM(model.st());
+  assert.equal(vm.blocks[0].rows.find(row => row.t === 'Dostupná verze').m, '1.2.3');
+  assert.equal(vm.blocks[0].rows.find(row => row.t === 'Nainstalovaná verze').m, 'není nainstalovaná');
+  vm.tabs[0].go();
+  vm = model.detailVM(model.st());
   assert.equal(vm.primaryLabel, 'Nainstalovat');
   assert.equal(await vm.onPrimary(), false, 'rejected confirmation has no effect');
   assert.equal(calls.filter(([method]) => method !== 'GET').length, 0);
@@ -524,6 +532,8 @@ test('marketplace detail uses confirmed backend mutations and never claims succe
   assert.equal(await model.detailVM(model.st()).onPrimary(), true);
   assert.equal(widget.catalogActionError, null);
   assert.equal(model.detailVM(model.st()).primaryLabel, 'Odinstalovat');
+  model.detailVM(model.st()).tabs[1].go();
+  assert.equal(model.detailVM(model.st()).blocks[0].rows.find(row => row.t === 'Nainstalovaná verze').m, '1.2.3');
   assert.equal(await model.detailVM(model.st()).onPrimary(), true);
   assert.equal(model.detailVM(model.st()).primaryLabel, 'Nainstalovat');
   assert.deepEqual(calls.filter(([method]) => method !== 'GET'), [
