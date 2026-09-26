@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "0f8aa6188c2ec88850639cb626e3967d3585fe96",
-  "sourceTree": "c7e02322291896597c0fb58fa95f7f076e800b9c",
+  "sourceRevision": "b431d475d1ac06f486e622b1e9d4bd5d7808fe3f",
+  "sourceTree": "cb46ae36dea57526b98b7ab2a336535c64215173",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "a111646c052627fd0803fc881838f58d7d5fd8dc",
@@ -619,6 +619,7 @@
     "src/eval/build-code-suite.js -> src/eval/code-task-extractor.js",
     "src/eval/calibrate-code-suite.js -> src/eval/build-code-suite.js",
     "src/eval/calibrate-code-suite.js -> src/eval/discrimination-report.js",
+    "src/eval/code-capture-preflight.js -> src/eval/code-technical-replay.js",
     "src/eval/code-confidence-v2.js -> src/eval/code-patch-runner.js",
     "src/eval/code-patch-runner.js -> src/eval/code-task-extractor.js",
     "src/eval/code-patch-runner.js -> src/eval/code-technical-projection.js",

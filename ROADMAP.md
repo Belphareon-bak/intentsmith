@@ -6,7 +6,7 @@ celý uložený sběr bez inference. Read-only audit našel 11 strukturálně
 kompatibilních sběrů jediného artefaktu, avšak **0** z nich odpovídá právě
 běžící verzi poskytovatele. Zápis známky ani rozsouzení nepřepíná sdílený
 provider filtr. Přesná nová module edge byla přijata bez růstu cyklů;
-aktuální module graph má 1 428 hran, 3 cykly / 28 členů.
+aktuální module graph má 1 429 hran, 3 cykly / 28 členů.
 **REVIEW_PENDING / NOT_DEPLOYED / NO_AUTONOMOUS_GO**.
 [Audit a omezení](docs/review/2026-09-25-GPU-HUNT-CAPTURE-REUSE.md).
 
