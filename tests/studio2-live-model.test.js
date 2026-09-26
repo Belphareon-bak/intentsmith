@@ -97,6 +97,77 @@ test('conversation context renames and archives only after backend readback', as
   model.componentWillUnmount();
 });
 
+test('disabled specialist remains manageable and enables only after detail and catalog readback', async () => {
+  const raw = { id: 'specialist-one', name: 'Specialista', status: 'disabled', version: '1.0.0',
+    domain: 'analysis', tools: ['file.read'] };
+  const catalog = { backendUrl: () => 'http://127.0.0.1:3335', subscribe: () => () => {},
+    view: name => ({ status: 'ready', items: name === 'Specialisté' ? [{ id: raw.id, name: raw.name,
+      description: 'Pomáhá s analýzou.', raw: { ...raw } }] : [] }),
+    get: async path => { assert.equal(path, '/api/specialists/' + raw.id);
+      return { ok: true, id: raw.id, status: raw.status, version: raw.version,
+        manifest: { description: 'Ověřený manifest' }, tools: raw.tools,
+        isRegistered: raw.status === 'enabled' }; }, load: async () => {} };
+  const { model, widget } = setup({ catalog });
+  widget.confirmAction = () => true;
+  model.fetchImpl = async (url, options) => {
+    assert.equal(new URL(url).pathname, '/api/specialists/' + raw.id + '/enable');
+    assert.equal(options.method, 'POST');
+    raw.status = 'enabled';
+    return { ok: true, json: async () => ({ ok: true, status: 'enabled' }) };
+  };
+  model.setState({ mode: 'section', section: 'specialists', detail: { specialists: raw.id } });
+  await model.loadSpecialistDetail(raw.id);
+  let detail = model.detailVM(model.st());
+  assert.equal(detail.hasPrimary, false);
+  assert.equal(detail.secondary[0].label, 'Zapnout');
+  assert.equal(detail.hasTabs, true);
+  assert.equal(await model.specialistAction(raw.id, 'enable'), true, widget.catalogActionError);
+  detail = model.detailVM(model.st());
+  assert.equal(detail.hasPrimary, true);
+  assert.equal(detail.secondary[0].label, 'Vypnout');
+  model.componentWillUnmount();
+});
+
+test('specialist update verifies exact installed version and uninstall disappears from catalog', async () => {
+  const raw = { id: 'specialist-two', name: 'Specialista', status: 'enabled', version: '1.0.0' };
+  let installed = true;
+  const catalog = { backendUrl: () => 'http://127.0.0.1:3335', subscribe: () => () => {},
+    view: name => ({ status: 'ready', items: name === 'Specialisté' && installed
+      ? [{ id: raw.id, name: raw.name, raw: { ...raw } }] : [] }),
+    get: async () => ({ ok: true, id: raw.id, status: raw.status, version: raw.version,
+      manifest: { description: 'Ověřený manifest' }, tools: [], isRegistered: true }),
+    load: async () => {} };
+  const { model, widget } = setup({ catalog });
+  widget.confirmAction = () => true;
+  model.setState({ mode: 'section', section: 'specialists', detail: { specialists: raw.id } });
+  await model.loadSpecialistDetail(raw.id);
+  model.fetchImpl = async (url, options) => {
+    const path = new URL(url).pathname;
+    if (path.endsWith('/update')) {
+      assert.equal(options.method, 'POST');
+      raw.version = '1.1.0';
+      return { ok: true, json: async () => ({ ok: true, newVersion: '1.1.0' }) };
+    }
+    assert.equal(path, '/api/specialists/' + raw.id);
+    assert.equal(options.method, 'DELETE');
+    installed = false;
+    return { ok: true, json: async () => ({ ok: true, id: raw.id, removed: true }) };
+  };
+  assert.deepEqual(model.detailVM(model.st()).secondary.map(item => item.label),
+    ['Vypnout', 'Zkontrolovat aktualizaci', 'Odinstalovat']);
+  const verifiedFetch = model.fetchImpl;
+  model.fetchImpl = async () => ({ ok: true, json: async () => ({ ok: true, newVersion: '9.9.9' }) });
+  assert.equal(await model.specialistAction(raw.id, 'update'), false);
+  assert.match(widget.catalogActionError, /nelze ověřit/);
+  model.fetchImpl = verifiedFetch;
+  assert.equal(await model.specialistAction(raw.id, 'update'), true, widget.catalogActionError);
+  assert.equal(model._specialistDetails.get(raw.id).data.version, '1.1.0');
+  assert.equal(await model.specialistAction(raw.id, 'uninstall'), true, widget.catalogActionError);
+  assert.equal(model.st().detail.specialists, null);
+  assert.equal(catalog.view('Specialisté').items.length, 0);
+  model.componentWillUnmount();
+});
+
 test('M4 composer commands stay in the project and never reach the ordinary chat transport', async () => {
   const { model, store, calls } = setup();
   const session = store.focusedSession();
@@ -1343,7 +1414,8 @@ test('SCM lists partly staged file twice and renders backend diff in right panel
 test('specialist detail activates backend identity before showing a new session', async () => {
   const { model, widget, store } = setup();
   widget.catalog.view = section => ({ status: 'ready', items: section === 'Specialisté'
-    ? [{ id: 'specialist-9', name: 'Testovací specialista', description: 'Popis', raw: { id: 'specialist-9' } }] : [] });
+    ? [{ id: 'specialist-9', name: 'Testovací specialista', description: 'Popis',
+      raw: { id: 'specialist-9', status: 'enabled' } }] : [] });
   const calls = [];
   widget.openSpecialist = async item => { calls.push(item.id); store.addSession({ label: item.name,
     convId: 'studio-specialist-verified', specialistData: { id: item.id, name: item.name } }); return true; };

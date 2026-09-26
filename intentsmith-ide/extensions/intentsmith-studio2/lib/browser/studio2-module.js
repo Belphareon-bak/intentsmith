@@ -143,6 +143,11 @@ class Studio2Widget extends ReactWidget {
     this.catalogActionError = null;
     const id = item?.id === 'accountant' ? 'accountant-cz' : item?.id;
     if (!id) return false;
+    if (item.raw?.status && item.raw.status !== 'enabled') {
+      this.catalogActionError = 'Specialista je vypnutý. Zapni ho v detailu katalogu.';
+      this.update();
+      return false;
+    }
     const existing = this.store.state.sessions.find(session => session.chat.specialist?.id === id);
     if (existing) { this.store.focusTab(existing.id); this.update(); return true; }
     const sessionId = 'studio-specialist-' + crypto.randomUUID();

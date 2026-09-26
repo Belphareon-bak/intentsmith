@@ -13,8 +13,10 @@ const payloads = {
   Multimédia: { generations: [{ id: 'g1', prompt: 'Krajina' }] },
 };
 for (const [section, body] of Object.entries(payloads)) {
-  assert.equal(normalizeCatalog(section, body).length, 1, section);
+  assert.equal(normalizeCatalog(section, body).length, section === 'Specialisté' ? 2 : 1, section);
 }
+assert.equal(normalizeCatalog('Specialisté', payloads.Specialisté)[1].raw.status, 'disabled',
+  'a disabled specialist stays visible so it can be enabled from its detail');
 assert.equal(normalizeCatalog('Konverzace', {}).length, 0);
 assert.equal(normalizeCatalog('Expertýzy', { expertises: [{ id: 'wrong-shape' }] }).length, 0,
   'the current backend emits experts, not expertises');

@@ -334,5 +334,7 @@ export function createScmService({ db, clock = Date.now, idFactory = randomUUID 
   }
   return {policy,writePolicy,status,branches,log,diff,prepare,execute,cancel,
     runAutomatic,automaticProjects,
-    operations:(projectId,actorId)=>db.prepare('SELECT * FROM scm_operations WHERE project_id=? AND actor_id=? ORDER BY created_at DESC LIMIT 30').all(projectId,actorId).map(view)};
+    operations:(projectId,actorId)=>db.prepare(`SELECT * FROM scm_operations
+      WHERE project_id=? AND actor_id IN (?,?) ORDER BY created_at DESC LIMIT 30`)
+      .all(projectId,actorId,automaticActor).map(view)};
 }

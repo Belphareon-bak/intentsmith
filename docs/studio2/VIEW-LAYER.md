@@ -41,8 +41,14 @@ služby. Detail Obchodu potvrzeně instaluje, aktualizuje a odinstaluje přes
 `/api/marketplace/*`, stav ověřuje novým načtením katalogu. Detail workeru
 načítá definici; spustit, pozastavit a obnovit lze pouze instanci s vazbou
 na rozšíření M3 přes `/api/agent-extensions/instances/:id/*`. Legacy worker
-zůstává jen pro čtení, protože jeho mutační endpointy vracejí 410. Správa
-zdrojů používá nové `/api/scm/*` s plánem a potvrzením; i diff
+zůstává jen pro čtení, protože jeho mutační endpointy vracejí 410.
+
+Specialisté v katalogu zahrnují i vypnuté balíčky. Detail čte ověřený manifest,
+zobrazuje nástroje a konfiguraci. Zapnutí, vypnutí a aktualizaci potvrdí
+novým čtením detailu i katalogu; odinstalaci potvrdí zmizením z katalogu.
+Vypnutý balíček nelze otevřít jako relaci.
+
+Správa zdrojů používá nové `/api/scm/*` s plánem a potvrzením; i diff
 smazaného souboru je dostupný bez falešného editoru. Izolovaný průchod ve
 skutečném Electronu na `bd77c771` prošel včetně výměny sloupců, šesti relací,
 obnovy a jedenácti témat (`tests/studio2-exclusive-ui.e2e.js`).

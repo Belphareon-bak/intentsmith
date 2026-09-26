@@ -93,6 +93,7 @@ class LiveModel extends Component {
     this._expertiseWizardStatus = { busy: false, error: '', uncertain: false,
       preview: null, previewKey: '', testResult: null, testKey: '' };
     this._workerDetails = new Map();
+    this._specialistDetails = new Map();
     this._mediaNotices = new Map();
     this._mediaEnvironment = { status: 'idle', available: false, models: [], error: '' };
     this._mediaSubmitting = false;
@@ -509,6 +510,48 @@ class LiveModel extends Component {
     const entry = s.section === 'settings' ? this.data().SET.find(row => row.id === id) : item;
     if (!entry) return null;
     const I = this.data().I;
+    if (s.section === 'specialists') {
+      const detail = this._specialistDetails.get(id) || { status: 'idle' };
+      const raw = item.raw || {};
+      const enabled = raw.status === 'enabled';
+      const busy = this._catalogBusy.has('specialist:' + id);
+      const tab = s.dtab['specialists:' + id] || 'prehled';
+      const tabs = [['prehled', 'Přehled'], ['nastroje', 'Nástroje'], ['nastaveni', 'Nastavení']];
+      const tools = Array.isArray(detail.data?.tools) ? detail.data.tools :
+        Array.isArray(raw.tools) ? raw.tools : [];
+      const blocks = tab === 'nastroje' ? [this.blockVM({ kind: 'rows', title: 'Nástroje specialisty',
+        rows: tools.map(tool => ({ t: typeof tool === 'string' ? tool : String(tool?.name || tool?.id || 'neznámý'),
+          s: typeof tool === 'object' ? String(tool?.description || '') : '' })),
+        empty: 'Specialista nemá zveřejněné nástroje.' })]
+        : tab === 'nastaveni' ? [this.blockVM({ kind: 'rows', title: 'Konfigurace balíčku', rows: [
+          { t: 'Verze', m: String(detail.data?.version || raw.version || '—') },
+          { t: 'Stav', m: String(detail.data?.status || raw.status || '—') },
+          { t: 'Registrace', m: detail.data?.isRegistered === true ? 'aktivní' : 'neaktivní' }] })]
+          : [this.blockVM({ kind: 'text', items: [detail.status === 'error' ? detail.error
+            : detail.status !== 'ready' ? 'Načítám manifest specialisty…'
+              : String(detail.data.manifest?.description || item.description || '')] })];
+      return { icon: this.sec(s.section).icon, tone: this.sec(s.section).tone,
+        icls: '', title: item.name, type: 'Specialista', idText: id,
+        hasStatus: true, status: busy ? 'probíhá' : raw.status || 'nezjištěno',
+        stCls: enabled ? 'ok' : 'idle', hasPrimary: enabled && !busy,
+        primaryLabel: 'Nová konverzace se specialistou',
+        onPrimary: () => this.pNewSession(s, { specialist: id }),
+        secondary: ['enabled','disabled'].includes(raw.status) && !busy
+          ? [{ label: enabled ? 'Vypnout' : 'Zapnout', icon: enabled ? I.pause : I.play,
+            go: () => this.specialistAction(id, enabled ? 'disable' : 'enable') },
+          { label: 'Zkontrolovat aktualizaci', icon: I.refresh,
+            go: () => this.specialistAction(id, 'update') },
+          { label: 'Odinstalovat', icon: I.trash,
+            go: () => this.specialistAction(id, 'uninstall') }] : [],
+        more: this.showCtx('specialists', id), hasTabs: true,
+        tabs: tabs.map(([key,label]) => ({ label, n: '', hasN: false, cls: key === tab ? 'on' : '',
+          go: () => this.setState({ dtab: this.merge(this.st(), 'dtab', { ['specialists:' + id]: key }) }) })),
+        hasDesc: tab === 'prehled' && !!item.description, desc: item.description,
+        showProps: tab === 'prehled', props: [['ID', id, true], ['Doména', raw.domain || '—'],
+          ['Verze', raw.version || '—']].map(([k,v,mono]) => ({ k, v, cls: mono ? 'mono' : '' })),
+        blocks, hasRelated: false, related: [],
+        development: this.developmentVM(s), scmPolicy: this.scmPolicyVM(s, null) };
+    }
     if (s.section === 'market') {
       const raw = item.raw || {}, installed = raw.installed === true;
       const busy = this._catalogBusy.has(raw.type + ':' + id);
@@ -988,6 +1031,79 @@ class LiveModel extends Component {
         this._workerDetails.set(key, { status: 'error', error: error?.message || 'Načtení workeru selhalo.' });
     }
     this.forceUpdate();
+  }
+
+  async loadSpecialistDetail(id) {
+    const key = String(id), previous = this._specialistDetails.get(key);
+    if (previous?.status === 'loading') return;
+    const request = Symbol(key);
+    this._specialistDetails.set(key, { status: 'loading', data: previous?.data, request });
+    this.forceUpdate();
+    try {
+      const data = await this.widget.catalog.get('/api/specialists/' + encodeURIComponent(key));
+      if (data?.ok !== true || data.id !== key || !data.manifest
+        || !Array.isArray(data.tools) || typeof data.status !== 'string')
+        throw Error('Backend vrátil neplatný detail specialisty.');
+      if (this._specialistDetails.get(key)?.request === request)
+        this._specialistDetails.set(key, { status: 'ready', data });
+    } catch (error) {
+      if (this._specialistDetails.get(key)?.request === request)
+        this._specialistDetails.set(key, { status: 'error', error: error?.message || 'Detail nelze načíst.' });
+    }
+    this.forceUpdate();
+  }
+
+  async specialistAction(id, operation) {
+    if (!['enable','disable','update','uninstall'].includes(operation)) return false;
+    const item = this.widget.catalog.view('Specialisté').items.find(row => row.id === id);
+    if (!item || this._catalogBusy.has('specialist:' + id)
+      || !['enabled','disabled'].includes(item.raw.status)
+      || operation === 'enable' && item.raw.status !== 'disabled'
+      || operation === 'disable' && item.raw.status !== 'enabled') return false;
+    const confirmAction = this.widget.confirmAction || globalThis.confirm;
+    const question = { enable: `Zapnout specialistu ${item.name}?`,
+      disable: `Vypnout specialistu ${item.name}?`,
+      update: `Zkontrolovat a případně aktualizovat specialistu ${item.name}?`,
+      uninstall: `Odinstalovat specialistu ${item.name}? Balíček přestane být dostupný v relacích.` };
+    if (typeof confirmAction !== 'function' || !confirmAction(question[operation])) return false;
+    const busyKey = 'specialist:' + id;
+    this._catalogBusy.add(busyKey); this.forceUpdate();
+    try {
+      const base = this.widget.catalog.backendUrl();
+      if (typeof base !== 'string' || !/^https?:\/\//.test(base)) throw Error('Backend není dostupný.');
+      const response = await this.fetchImpl(base + '/api/specialists/' + encodeURIComponent(id)
+        + (operation === 'uninstall' ? '' : '/' + operation), {
+        method: operation === 'uninstall' ? 'DELETE' : 'POST', credentials: 'same-origin',
+        signal: AbortSignal.timeout(30_000) });
+      let receipt = {};
+      try { receipt = await response.json(); } catch { /* Readback decides the result. */ }
+      if (!response.ok || receipt.ok !== true
+        || ['enable','disable'].includes(operation) && receipt.status !== (operation === 'enable' ? 'enabled' : 'disabled')
+        || operation === 'uninstall' && (receipt.removed !== true || receipt.id !== id))
+        throw Error(receipt.error || 'Backend nepotvrdil změnu stavu specialisty.');
+      if (operation !== 'uninstall') await this.loadSpecialistDetail(id);
+      await this.widget.catalog.load('Specialisté');
+      const detail = this._specialistDetails.get(id);
+      const updated = this.widget.catalog.view('Specialisté').items.find(row => row.id === id);
+      const expectedVersion = operation === 'update' ? receipt.newVersion || receipt.version : null;
+      const verified = operation === 'uninstall' ? !updated
+        : detail?.status === 'ready' && !!updated &&
+          (operation === 'update' ? typeof expectedVersion === 'string' && !!expectedVersion
+            && detail.data.version === expectedVersion && updated.raw.version === expectedVersion
+            : detail.data.status === receipt.status && updated.raw.status === receipt.status);
+      if (this.widget.catalog.view('Specialisté').status !== 'ready' || !verified)
+        throw Error('Změnu stavu specialisty nelze ověřit. Obnov katalog.');
+      if (operation === 'uninstall') {
+        this._specialistDetails.delete(id);
+        this.setState({ detail: this.merge(this.st(), 'detail', { specialists: null }) });
+      }
+      return true;
+    } catch (error) {
+      this.widget.catalogActionError = error?.message || 'Akce specialisty selhala.';
+      return false;
+    } finally {
+      this._catalogBusy.delete(busyKey); this.forceUpdate();
+    }
   }
 
   async pWorkerAction(item, operation) {
@@ -1855,6 +1971,7 @@ class LiveModel extends Component {
       this.loadProjectDefaults();
     } else if (sec === 'projects') { this.scmClient.load(id); this.loadProjectConversations(id); }
     if (sec === 'specialists' && id === '__new__') this._specialistWizardStatus = { busy: false, error: '', uncertain: false };
+    else if (sec === 'specialists') this.loadSpecialistDetail(id);
     if (sec === 'expertises' && id === '__new__') this._expertiseWizardStatus = {
       busy: false, error: '', uncertain: false, preview: null, previewKey: '', testResult: null, testKey: '' };
     if (sec === 'workers' && id === '__new__') {

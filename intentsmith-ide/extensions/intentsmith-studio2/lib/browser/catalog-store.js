@@ -21,7 +21,7 @@ function arrayFrom(section, data) {
 function normalize(section, raw) {
   const item = raw && typeof raw === 'object' ? raw : {};
   if (section === 'Projekty' && (!item.path || !item.name)) return null;
-  if (section === 'Specialisté' && (item.status !== 'enabled' || item.type === 'utility')) return null;
+  if (section === 'Specialisté' && item.type === 'utility') return null;
   const backendId = item.id == null ? '' : String(item.id);
   if (!backendId) return null;
   const id = section === 'Obchod' ? `${item.type || 'unknown'}:${backendId}` : backendId;

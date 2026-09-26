@@ -61,6 +61,8 @@ test('automatic SCM obeys project policy and executes init through an audited ex
   assert.equal(f.git(['branch','--show-current']),'main');
   const event=f.db.prepare("SELECT actor_id,kind FROM scm_events WHERE kind='succeeded'").get();
   assert.deepEqual(event,{actor_id:'studio-scm-automatic',kind:'succeeded'});
+  assert.equal(f.service.operations(1,'local-operator')[0].state,'succeeded',
+    'the local operator can inspect the automatic plan and its terminal audit');
   const policy=f.service.writePolicy({...f.service.policy(1),init:'disabled',fetch:'automatic'},'local-operator');
   assert.equal((await f.service.runAutomatic(1,'init')).reason,'SCM_POLICY_NOT_AUTOMATIC');
   assert.deepEqual(f.service.automaticProjects(),[{projectId:1,pullMode:'ask',fetchMode:'automatic'}]);
