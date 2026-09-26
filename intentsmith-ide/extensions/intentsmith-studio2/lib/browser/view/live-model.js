@@ -8,6 +8,7 @@ const { pendingBinding } = require('../m2-controller');
 const { DevelopmentClient } = require('../development-client');
 const { ScmClient } = require('../scm-client');
 const { StatusClient } = require('../status-client');
+const { MEDIA_ID } = require('../catalog-store');
 
 const CATALOG = Object.freeze({
   chats: 'Konverzace', projects: 'Projekty', specialists: 'Specialisté',
@@ -550,7 +551,7 @@ class LiveModel extends Component {
   async pMediaAction(item, operation) {
     const id = item?.id, raw = item?.raw || {}, key = 'media:' + id;
     const active = raw.status === 'pending' || raw.status === 'running';
-    if (typeof id !== 'string' || !/^[0-9a-f-]{36}$/i.test(id)
+    if (typeof id !== 'string' || !MEDIA_ID.test(id)
       || !['cancel', 'favorite', 'delete'].includes(operation)
       || (operation === 'cancel' && !active) || (operation === 'delete' && active)
       || this._catalogBusy.has(key)) return false;

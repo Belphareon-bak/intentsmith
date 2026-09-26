@@ -9,6 +9,7 @@ const ROUTES = Object.freeze({
   Obchod: '/api/marketplace/catalog?page=1&limit=50',
   Multimédia: '/api/media/history?page=1&limit=20',
 });
+const MEDIA_ID = /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|gen-[0-9]{13}-[0-9a-f]{8})$/i;
 function str(value, fallback = '') { return typeof value === 'string' ? value : fallback; }
 function arrayFrom(section, data) {
   if (Array.isArray(data)) return data;
@@ -55,9 +56,11 @@ class CatalogStore {
   }
   async mutate(path, method, body = null, timeoutMs = 30000) {
     const workerPath = /^\/api\/agent-extensions\/instances\/[A-Za-z0-9._-]+\/(run|enable|disable)$/.test(path);
-    const mediaPath = (method === 'POST' && /^\/api\/media\/cancel\?id=[0-9a-f-]{36}$/i.test(path))
+    const mediaId = path.startsWith('/api/media/cancel?id=') ? path.slice('/api/media/cancel?id='.length)
+      : path.startsWith('/api/media?id=') ? path.slice('/api/media?id='.length) : '';
+    const mediaPath = (method === 'POST' && path.startsWith('/api/media/cancel?id=') && MEDIA_ID.test(mediaId))
       || (method === 'PUT' && path === '/api/media/favorite')
-      || (method === 'DELETE' && /^\/api\/media\?id=[0-9a-f-]{36}$/i.test(path));
+      || (method === 'DELETE' && path.startsWith('/api/media?id=') && MEDIA_ID.test(mediaId));
     if (!['POST', 'PUT', 'DELETE'].includes(method) || typeof path !== 'string'
       || (!path.startsWith('/api/marketplace/') && !(method === 'POST' && workerPath)
         && !mediaPath)) {
@@ -91,4 +94,4 @@ class CatalogStore {
     this.changed();
   }
 }
-module.exports = { CatalogStore, normalizeCatalog, ROUTES };
+module.exports = { CatalogStore, normalizeCatalog, ROUTES, MEDIA_ID };

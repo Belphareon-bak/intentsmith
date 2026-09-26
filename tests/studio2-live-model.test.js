@@ -123,7 +123,7 @@ test('worker detail runs only a verified M3 extension through its active route',
 });
 
 test('media history actions refresh real state and report deferred cancellation honestly', async () => {
-  const id = '30e4aab2-6227-46f4-b069-4306ec7ab671';
+  const id = 'gen-1790400000000-30e4aab2';
   const calls = [];
   let status = 'running', favorite = 0, deleted = false;
   const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335',
