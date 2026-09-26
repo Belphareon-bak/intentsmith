@@ -12,10 +12,10 @@
     "clientProjection": "src/mobile/client/m7-runtime-contract-v1.js",
     "requirementsStage": "CANDIDATE_NOT_ACCEPTED"
   },
-  "routeDigest": "21deeeea96a9f35f330fdc1a4889992b9c5efb2f932b9d084f559d1fcbf8d5c6",
-  "inventoryDigest": "0a642ae907a3ebad14953b37db4d9c58c3cd3c376002e8caa46d471af8f861d9",
+  "routeDigest": "eb31d3ca0ee4dc6a8f65914e23fb674aa70b436fc06227a3087ba428357c3a09",
+  "inventoryDigest": "91691bb23dd20166759320a077b4d6f8064b4e544f5bd3a36dc2da6dc76a0231",
   "summary": {
-    "desktopRouteDeclarations": 270,
+    "desktopRouteDeclarations": 273,
     "legacyM1Declarations": 0,
     "m7TransportRoutes": 7,
     "m7Operations": 17,
@@ -344,6 +344,20 @@
       "path": "/api/conversations/:id/assign",
       "sources": [
         "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/conversations/:id/expertises",
+      "sources": [
+        "src/routes/expertises.js"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/conversations/:id/expertises",
+      "sources": [
+        "src/routes/expertises.js"
       ]
     },
     {
@@ -819,6 +833,13 @@
     {
       "method": "GET",
       "path": "/api/media/history",
+      "sources": [
+        "src/routes/media.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/media/input-image",
       "sources": [
         "src/routes/media.js"
       ]

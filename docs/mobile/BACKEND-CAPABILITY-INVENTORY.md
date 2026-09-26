@@ -12,14 +12,14 @@ remote-health.read is a public GET /remote/v1/health prerequisite, not one of th
 The underlying requirements retain their own candidate stage. Availability and scopes must
 still be validated against the actual server/session; desktop route existence grants no remote authority.
 
-- Desktop route declarations: 270
+- Desktop route declarations: 273
 - Legacy /m1 declarations: 0
 - M7 HTTP routes: 7
 - M7 invocation operations: 17
 - Capability areas: approvals, conversations, events, notifications, projects, settings, stored_information
 - Control-plane operations (not another capability): 3
-- Desktop route digest: `21deeeea96a9f35f330fdc1a4889992b9c5efb2f932b9d084f559d1fcbf8d5c6`
-- Combined inventory digest: `0a642ae907a3ebad14953b37db4d9c58c3cd3c376002e8caa46d471af8f861d9`
+- Desktop route digest: `eb31d3ca0ee4dc6a8f65914e23fb674aa70b436fc06227a3087ba428357c3a09`
+- Combined inventory digest: `91691bb23dd20166759320a077b4d6f8064b4e544f5bd3a36dc2da6dc76a0231`
 
 Workers, specialists and device management have no M7 operation in this projection.
 Their desktop route declarations must not be mistaken for a mobile capability.
@@ -107,6 +107,8 @@ Their desktop route declarations must not be mistaken for a mobile capability.
 | PUT | `/api/conversations/:id` | src/routes/chat.js |
 | PATCH | `/api/conversations/:id/archive` | src/routes/chat.js |
 | POST | `/api/conversations/:id/assign` | src/routes/projects.js |
+| GET | `/api/conversations/:id/expertises` | src/routes/expertises.js |
+| PUT | `/api/conversations/:id/expertises` | src/routes/expertises.js |
 | GET | `/api/conversations/:id/messages` | src/routes/chat.js |
 | PATCH | `/api/conversations/:id/restore` | src/routes/chat.js |
 | POST | `/api/development/cancel` | src/routes/development.js |
@@ -175,6 +177,7 @@ Their desktop route declarations must not be mistaken for a mobile capability.
 | POST | `/api/media/generate` | src/routes/media.js |
 | GET | `/api/media/health` | src/routes/media.js |
 | GET | `/api/media/history` | src/routes/media.js |
+| POST | `/api/media/input-image` | src/routes/media.js |
 | GET | `/api/media/models` | src/routes/media.js |
 | POST | `/api/media/models/refresh` | src/routes/media.js |
 | GET | `/api/media/output` | src/routes/media.js |

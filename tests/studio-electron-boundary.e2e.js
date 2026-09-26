@@ -1938,6 +1938,7 @@ const STUDIO2_MODE_FIELDS = Object.freeze([
   'backendEnvironmentLoaded',
   'commandPaletteNavigatesSession',
   'sessionsPersistedAcrossReload',
+  'pinnedSessionPersisted',
   'projectCatalogLoaded',
   'elevenThemesRendered',
 ]);

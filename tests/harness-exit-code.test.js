@@ -435,7 +435,9 @@ try {
   // directory and imports the isolation bootstrap before the route under test.
   // 135 -> 136: Studio 2 live-model tests now exercise the expertise route;
   // its first import provides the same isolated database bootstrap.
-  const expectedDatabaseReachableRootTests = 136;
+  // 136 -> 138: Studio 2 expertise selection and media input tests both import
+  // the isolated database bootstrap before their production database imports.
+  const expectedDatabaseReachableRootTests = 138;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,

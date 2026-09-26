@@ -33,6 +33,9 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
       studioDark: Boolean(root?.classList.contains('th-studio-dark')),
       busListeners: window.IntentSmithBus?._debug?.() || {},
       sessionTabs: root?.querySelectorAll('.tabs-in .tab').length || 0,
+      pinnedTabs: root?.querySelectorAll('.tabs-in .tab .tab-pin').length || 0,
+      firstTabTitle: root?.querySelector('.tabs-in .tab:first-child .tab-t')?.textContent?.trim() || null,
+      pinAction: [...(root?.querySelectorAll('.dd.ctx .dd-i .dd-t') || [])].some(node => node.textContent.trim() === 'Připnout'),
       columnSessions: [...(root?.querySelectorAll('.cols .scol .pane-t .pane-tt') || [])].map(node => node.textContent.trim()),
       pickerItems: [...(root?.querySelectorAll('.dd.ctx.picker .dd-i .dd-t') || [])].map(node => node.textContent.trim()),
       catalogSection: root?.querySelector('.cat-t h1')?.textContent?.trim() || null,
@@ -70,6 +73,25 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
     return true;
   })()`);
   const six = await waitFor(s => s.sessionTabs === 6 && s.columnSessions.length === 3, 'six-sessions');
+  const pinnedTitle = await evaluate(cdp, `(() => {
+    const root = document.querySelector('#intentsmith-studio2 [data-studio-ui="studio2"]');
+    const tab = [...root.querySelectorAll('.tabs-in .tab')].at(-1);
+    const title = tab.querySelector('.tab-t').textContent.trim();
+    const rect = tab.getBoundingClientRect();
+    tab.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true,
+      clientX: rect.left + 12, clientY: rect.top + 12 }));
+    return title;
+  })()`);
+  await waitFor(s => s.pinAction, 'pin-menu');
+  await evaluate(cdp, `(() => {
+    const root = document.querySelector('#intentsmith-studio2 [data-studio-ui="studio2"]');
+    const action = [...root.querySelectorAll('.dd.ctx .dd-i')]
+      .find(node => node.querySelector('.dd-t')?.textContent.trim() === 'Připnout');
+    if (!action) throw Error('Pin action absent');
+    action.click();
+    return true;
+  })()`);
+  await waitFor(s => s.pinnedTabs === 1 && s.firstTabTitle === pinnedTitle, 'pinned-tab');
   const original = [...six.columnSessions];
   await evaluate(cdp, `(() => {
     const root = document.querySelector('#intentsmith-studio2 [data-studio-ui="studio2"]');
@@ -104,7 +126,8 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
   const restored = await waitFor(s => s.mode === 'classic' && s.classicSidebar && s.classicChat && !s.studio2, 'classic-restored');
   await evaluate(cdp, `(() => { setTimeout(() => window.IntentSmithStudioMode.selectMode('studio2'), 0); return true; })()`);
   const persisted = await waitFor(s => s.mode === 'studio2' && s.studio2 && !s.classicChat
-    && s.sessionTabs === 6 && s.columnSessions.every((value, i) => value === swapped.columnSessions[i]), 'session-restore');
+    && s.sessionTabs === 6 && s.pinnedTabs === 1 && s.firstTabTitle === pinnedTitle
+    && s.columnSessions.every((value, i) => value === swapped.columnSessions[i]), 'session-restore');
   await evaluate(cdp, `(() => {
     const root = document.querySelector('#intentsmith-studio2 [data-studio-ui="studio2"]');
     [...root.querySelectorAll('nav[aria-label="Sekce"] .nbtn, nav[aria-label="Sekce"] .rail')]
@@ -223,6 +246,7 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
     backendEnvironmentLoaded: environment.environmentLoaded,
     commandPaletteNavigatesSession: palette.columnsVisible && !palette.paletteOpen,
     sessionsPersistedAcrossReload: persisted.sessionTabs === 6 && persisted.columnSessions.length === 3,
+    pinnedSessionPersisted: persisted.pinnedTabs === 1 && persisted.firstTabTitle === pinnedTitle,
     projectCatalogLoaded: catalog.catalogSection === 'Projekty' && catalog.catalogStatus === 'ready',
     elevenThemesRendered: themes.length === 11 && themes.every(Boolean),
   });
