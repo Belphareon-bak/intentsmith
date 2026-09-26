@@ -75,6 +75,19 @@ test('complete profile retains every task and hashes changed settings/prompts',(
     assert.notEqual(suiteContract(profile,{repeats:3}).sha256,suiteContract(suite,{repeats:3}).sha256);
   }
 });
+test('R1 model_cleanup uses a separately hashed long-output collection profile',()=>{
+  const base=SEMANTIC_ROLE_SUITES.R1;
+  const long=collectionSuite('R1',base);
+  const cleanup=long.tests.find(task=>task.name==='r1_model_cleanup');
+  assert.equal(cleanup.options.num_ctx,24576);
+  assert.equal(cleanup.options.num_predict,16384);
+  assert.equal(cleanup.options.timeout,900000);
+  assert.equal(cleanup.contractMaterial.collectionProfile.options.num_predict,16384);
+  assert.notEqual(suiteContract(long,{repeats:3}).sha256,suiteContract(base,{repeats:3}).sha256);
+  assert.equal(long.tests.find(task=>task.name==='r1_history_late_guard').options.num_predict,8192);
+  assert.equal(collectionSuite('D1',SEMANTIC_ROLE_SUITES.D1).tests
+    .find(task=>task.name==='d1_model_cleanup').options.num_predict,8192);
+});
 test('confidence API and timeout preservation are explicit before capture, without changing old suites',()=>{
   const suite=collectionSuite('CODE',codePatchSuite);
   const confidence=suite.tests.find(t=>t.contractMaterial?.gradingInputs?.oracleCase==='f63d14d5eb61');

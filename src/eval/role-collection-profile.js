@@ -27,6 +27,11 @@ export function collectionSuite(role, suite) {
     };
     const options = { ...original.options,
       ...(['D1','D2','R1','R2'].includes(role) ? { num_predict: 8192, timeout: 600000 } : {}),
+      // R1 model_cleanup exhausted 8192 output tokens in 2/3 observed runs.
+      // Rerun both candidates under this exact, larger profile; never splice
+      // those earlier incomplete attempts into a scored comparison.
+      ...(role === 'R1' && original.name === 'r1_model_cleanup'
+        ? { num_ctx: 24576, num_predict: 16384, timeout: 900000 } : {}),
       ...(role === 'VISION' ? { num_predict: 1024 } : {}),
     };
     return { ...original, prompt, options, contractMaterial: {
