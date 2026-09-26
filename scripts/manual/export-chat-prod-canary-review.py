@@ -8,6 +8,7 @@ import argparse
 import hashlib
 import html
 import json
+import os
 import secrets
 from pathlib import Path
 
@@ -16,7 +17,8 @@ def read(path):
     data=path.read_bytes()
     return json.loads(data),sha(data)
 def write_new(path,data):
-    with path.open('x',encoding='utf-8') as stream:stream.write(data)
+    descriptor=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+    with os.fdopen(descriptor,'w',encoding='utf-8') as stream:stream.write(data)
 
 def main():
     parser=argparse.ArgumentParser()
