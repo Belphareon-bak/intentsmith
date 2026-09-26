@@ -180,6 +180,28 @@ async function prepare(service, proposalValue = proposal()) {
 
 suite('M2 lifecycle application service — production journey');
 
+await testAsync('SCM disabled commit blocks M2 preparation and later approval while allowing a file-only plan', async () => {
+  const root = makeProject(); const db = openDatabase();
+  let mode = 'disabled';
+  try {
+    const service = createService(db, root, makeClock(), { scmCommitMode: () => mode });
+    await service.recoverIncompleteSmallProjectChanges();
+    const beforeHead = git(root, ['rev-parse', 'HEAD']);
+    await assert.rejects(prepare(service), { code: M2LifecycleServiceErrorCode.SCM_COMMIT_DISABLED });
+    assert.equal(db.prepare('SELECT count(*) AS n FROM m2_lifecycle_operations').get().n, 0);
+    const fileOnly = await prepare(service, proposal({ commit: false }));
+    assert.equal(fileOnly.state, 'awaiting_approval');
+    mode = 'ask';
+    const withCommit = await prepare(service);
+    mode = 'disabled';
+    await assert.rejects(service.approveSmallProjectChange({ authenticatedSubject: SUBJECT,
+      lifecycleId: withCommit.lifecycleId, planDigest: withCommit.planDigest, origin: ORIGIN }),
+    { code: M2LifecycleServiceErrorCode.SCM_COMMIT_DISABLED });
+    assert.equal(git(root, ['rev-parse', 'HEAD']), beforeHead);
+    assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), 'export const value = 1;\n');
+  } finally { db.close(); fs.rmSync(root, { recursive: true, force: true }); }
+});
+
 for (const type of ['general', 'desktop']) {
   await testAsync(`actual ${type} scaffold reaches draft, sandbox test and committed increment`, async () => {
     const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-scaffold-m2-'));

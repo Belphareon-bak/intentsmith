@@ -27,6 +27,17 @@ function plan() {
 }
 function generated(value) { return { content: JSON.stringify(value), finishReason: 'stop' }; }
 
+test('project planning omits a Git effect when this project disables commits', async t => {
+  const project = await fixture(t);
+  const response = await discussProject('Prepare a file-only increment.', { project }, {
+    generate: async () => generated({ reply: 'The change needs approval.', plan: plan() }),
+    commitMode: async id => { assert.equal(id, project.id); return 'disabled'; },
+  });
+  const draft = response.metadata.projectWorkProposal.draft;
+  assert.equal(Object.hasOwn(draft, 'gitCommit'), false);
+  assert.equal(draft.files.length, 2);
+});
+
 test('incremental project plans run both a new test file and the preserved acceptance suite', async t => {
   const project = await fixture(t);
   const previous = 'import test from "node:test"; test("existing behavior", () => {});\n';
@@ -43,7 +54,7 @@ test('incremental project plans run both a new test file and the preserved accep
   await fs.writeFile(path.join(project.path, 'test/io.test.mjs'), 'import test from "node:test"; test("new behavior", () => { throw Error("new regression"); });\n');
   assert.throws(run, error => error.status === 1 && error.stdout.includes('new regression'));
   await fs.writeFile(path.join(project.path, 'test/io.test.mjs'), 'import test from "node:test"; test("new behavior", () => {});\n');
-  assert.match(run(), /# pass 2/);
+  assert.match(run(), /(?:#|ℹ) pass 2/);
   assert.equal(await fs.readFile(path.join(project.path, 'test/acceptance.test.mjs'), 'utf8'), previous);
   await fs.writeFile(path.join(project.path, 'test/acceptance.test.mjs'), 'import test from "node:test"; test("existing behavior", () => { throw Error("old regression"); });\n');
   assert.throws(run, error => error.status === 1 && error.stdout.includes('old regression'));

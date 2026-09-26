@@ -67,8 +67,11 @@ zkontroluje povolený fetch nebo pull. Pull používá stejný plán, audit,
 ověření hostitele a `--ff-only` jako ruční akce. Výchozí politika inicializace
 je podle Decision 049 `ask`; import složky do repozitáře nezapisuje. Pokud
 uživatel poté nastaví `init=automatic`, backend bez gitu provede auditovaný
-plán a vrátí zvlášť výsledek efektu. Politika automatického commitu po M2 se
-musí sladit s již existujícím commitem v M2.
+plán a vrátí zvlášť výsledek efektu. Automatický commit po M2 používá
+již existující commit v atomickém M2 plánu: celý plán včetně commitu čeká na
+schválení. Projektová politika se čte při tvorbě návrhu; `disabled` vytvoří
+návrh bez commitu. M2 služba politiku kontroluje znovu při přípravě i schválení,
+takže přímé API ani změna politiky mezi těmito kroky zákaz commitu neobejde.
 
 Historie Multimédií načítá skutečné záznamy; oblíbené, zrušení a smazání
 prochází backendem a znovunačtením stavu. Běžící úloha po požadavku na
@@ -158,7 +161,7 @@ v Nastavení → Zabezpečení → Přístup. Vydání lokálního pětiminutov�
 ověřuje přesnou smlouvu odpovědi a drží kód jen v paměti okna.
 
 **Zbývá před paritou S2-7:** použití výběru expertýz v projektových relacích,
-obecný průvodce workerem, další akce katalogů a automatický commit gitu.
+obecný průvodce workerem a další akce katalogů.
 Nová obrazovka Nastavení pokrývá všech 12 kategorií; jednotlivé záložky
 vyžadují samostatnou kontrolu funkční parity.
 Prototypové fixtury se stále používají u nenapojených částí nastavení;

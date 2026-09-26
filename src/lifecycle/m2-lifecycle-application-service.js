@@ -91,6 +91,7 @@ export const M2LifecycleServiceErrorCode = Object.freeze({
   CONTEXT_UNAVAILABLE: 'M2_LIFECYCLE_CONTEXT_UNAVAILABLE',
   CONTEXT_STALE: 'M2_LIFECYCLE_CONTEXT_STALE',
   POLICY_UNAVAILABLE: 'M2_LIFECYCLE_POLICY_UNAVAILABLE',
+  SCM_COMMIT_DISABLED: 'M2_LIFECYCLE_SCM_COMMIT_DISABLED',
   GOVERNANCE_DENIED: 'M2_LIFECYCLE_GOVERNANCE_DENIED',
   PLAN_NOT_FOUND: 'M2_LIFECYCLE_PLAN_NOT_FOUND',
   PLAN_DIGEST_MISMATCH: 'M2_LIFECYCLE_PLAN_DIGEST_MISMATCH',
@@ -566,13 +567,32 @@ export function createM2LifecycleApplicationService(dependencyValues) {
     gitProvider,
     requireRecoveryCensus = false,
     generateCodeDraft = defaultGenerateCodeDraft,
+    scmCommitMode = () => 'ask',
   } = dependencies;
+  if (typeof scmCommitMode !== 'function') throw new TypeError('m2-lifecycle-service:scm-commit-policy-required');
   const activeRuns = new Map();
   let recoveryCensusComplete = requireRecoveryCensus !== true;
   let recoveryCensusAttempts = 0;
   let recoveryCensusLastAttemptAt = null;
   let recoveryCensusLastErrorCode = null;
   const recoveryExecutionAuthority = Symbol('m2-recovery-execution-authority');
+
+  async function assertScmCommitAllowed(projectId, gitCommit) {
+    if (!gitCommit) return;
+    let mode;
+    try { mode = await scmCommitMode(projectId); }
+    catch (error) {
+      fail(M2LifecycleServiceErrorCode.POLICY_UNAVAILABLE, 'SCM commit policy is unavailable', {
+        cause: error?.message || String(error),
+      });
+    }
+    if (!['ask', 'automatic', 'disabled'].includes(mode)) {
+      fail(M2LifecycleServiceErrorCode.POLICY_UNAVAILABLE, 'SCM commit policy is invalid');
+    }
+    if (mode === 'disabled') {
+      fail(M2LifecycleServiceErrorCode.SCM_COMMIT_DISABLED, 'Git commits are disabled for this project');
+    }
+  }
 
   function requireRecoveryCensusComplete(authority = null) {
     if (!recoveryCensusComplete && authority !== recoveryExecutionAuthority) {
@@ -806,6 +826,7 @@ export function createM2LifecycleApplicationService(dependencyValues) {
     requireRecoveryCensusComplete();
     const actor = requireSubject(authenticatedSubject);
     const compiled = compileM2ProjectChangeProposal(proposal);
+    await assertScmCommitAllowed(projectId, compiled.gitCommit);
     const transportOrigin = normalizeOrigin(origin, projectId);
     const projectScope = await resolveProject(projectId);
     const invocation = signal == null ? {} : { signal };
@@ -1151,6 +1172,7 @@ export function createM2LifecycleApplicationService(dependencyValues) {
     if (planDigest !== computeM2LifecyclePlanSnapshotDigest(plan)) {
       fail(M2LifecycleServiceErrorCode.PLAN_DIGEST_MISMATCH, 'Approval does not name the exact current plan');
     }
+    await assertScmCommitAllowed(plan.project.projectId, plan.gitCommit);
     const current = await observeCurrentRevision(plan, signal);
     if (current.workspaceRevision !== plan.project.workspaceRevision) {
       fail(M2LifecycleServiceErrorCode.CONTEXT_STALE, 'Workspace changed before approval');
@@ -1414,6 +1436,7 @@ export function createDefaultM2LifecycleApplicationService({
   clock = Date.now,
   processProvider = processSandboxProvider,
   generateCodeDraft = defaultGenerateCodeDraft,
+  scmCommitMode,
 } = {}) {
   if (!database || typeof database.transaction !== 'function') {
     throw new TypeError('m2-lifecycle-service:database-required');
@@ -1450,6 +1473,7 @@ export function createDefaultM2LifecycleApplicationService({
     gitProvider: exactGitProvider,
     requireRecoveryCensus: true,
     generateCodeDraft,
+    scmCommitMode,
   });
 }
 

@@ -210,6 +210,7 @@ const invalidPlan = (message, code = 'PROJECT_PLAN_INVALID') => Object.assign(ne
 
 async function discussProjectOnce(input, context, {
   inspect = inspectProject, generate = generateProjectDiscussion, readEvidence = readProjectWorkEvidence,
+  commitMode = async () => 'ask',
   planFeedback = null,
 } = {}) {
   const project = context.project;
@@ -255,11 +256,13 @@ async function discussProjectOnce(input, context, {
     }
     // Test executable and environment are chosen here, never by the model.
     const date = new Date().toISOString();
-    const draft = { ...plan, focusedTest: projectTestProfile(), gitCommit: {
+    const mode = await commitMode(project.id);
+    if (!['ask', 'automatic', 'disabled'].includes(mode)) throw new Error('Politika commitu projektu není dostupná.');
+    const draft = { ...plan, focusedTest: projectTestProfile(), ...(mode === 'disabled' ? {} : { gitCommit: {
       message: 'Implement reviewed project step',
       identity: { authorName: 'IntentSmith', authorEmail: 'local@intentsmith.invalid', authorDate: date,
         committerName: 'IntentSmith', committerEmail: 'local@intentsmith.invalid', committerDate: date },
-    } };
+    } }) };
     compileCodeDraftInput(draft);
     const roots = analysis.setup.policy?.roots;
     if (Array.isArray(roots) && plan.files.some(file => !roots.some(root => file.path === root || file.path.startsWith(root + '/')))) {
@@ -295,7 +298,12 @@ async function discussProjectOnce(input, context, {
 export async function handleProjectCollaboration(input, context) {
   const { TaggedResponse, ResponseTag, ResponseSpeaker, ChatMode } = await import('../controller.js');
   let response;
-  try { response = await discussProject(input, context); }
+  try { response = await discussProject(input, context, { commitMode: async projectId => {
+    const { default: database } = await import('../../db/database.js');
+    if (!Number.isSafeInteger(projectId) || projectId < 1) throw new Error('Neplatný projekt pro politiku gitu.');
+    const row = database.db.prepare('SELECT commit_mode FROM scm_project_policy WHERE project_id=?').get(projectId);
+    return row?.commit_mode ?? 'ask';
+  } }); }
   catch (error) {
     if (context.signal?.aborted) throw error;
     response = { content: `Příprava dalšího kroku se nepodařila: ${error.message} Soubory projektu zůstaly beze změny.`,

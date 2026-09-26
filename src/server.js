@@ -1012,6 +1012,7 @@ const routeDeps = {
 const m2LifecycleService = createDefaultM2LifecycleApplicationService({
   database: db.db,
   projects: db.projects,
+  scmCommitMode: projectId => scmService.policy(projectId).commit,
 });
 const learningService = createLearningApplicationService({
   repository: db.learningAuthority,
