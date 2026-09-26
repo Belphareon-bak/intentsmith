@@ -8,6 +8,7 @@ import argparse
 import hashlib
 import html
 import json
+import secrets
 from pathlib import Path
 
 def sha(data): return hashlib.sha256(data).hexdigest()
@@ -53,12 +54,20 @@ def main():
         assert result.get('derivedView') is True
         assert merged['status']=='DERIVED_VIEW_NOT_ORIGINAL_RUN'
         assert merged['sourceRunLineage']==plan['sourceRunLineage']==result['sourceRunLineage']
+        assert merged['excludedPriorAttempts']==plan['excludedPriorAttempts']==result['excludedPriorAttempts']
         assert merged['attemptFileSha256']==receipts
+    # A public plan hash plus known model digests would make deterministic A/B
+    # ordering reversible. Keep a fresh ordering key only with the identity map.
+    # Retain the historical four-task canary byte-for-byte. Every new full
+    # packet needs an ordering secret: public plan hashes and installed model
+    # digests otherwise reveal which candidate is A or B.
+    secret_ordering=plan.get('status') == 'DERIVED_MERGED_VIEW' or len(tasks) > 4
+    blind_salt=secrets.token_hex(32) if secret_ordering else plan['planSha256']
     cases=[];key=[]
     for task in tasks:
         answers=by_task[task['id']]
         assert len(answers)==2 and {a['model'] for a in answers}==set(models)
-        answers.sort(key=lambda a:sha((plan['planSha256']+'\0'+task['id']+'\0'+a['artifact']['digestSha256']).encode()))
+        answers.sort(key=lambda a:sha((blind_salt+'\0'+task['id']+'\0'+a['artifact']['digestSha256']).encode()))
         for label,answer in zip(('A','B'),answers):
             case_id=sha((plan['planSha256']+'\0'+task['id']+'\0'+label).encode())[:32]
             dialogue=answer['dialogue']
@@ -79,8 +88,9 @@ def main():
         'cases':cases}
     if plan.get('status') == 'DERIVED_MERGED_VIEW':
         packet['derivedView']=True
-        packet['sourceRunLineage']=plan['sourceRunLineage']
-        packet['limitations'].append('This review packet combines two separately sealed captures; each original run remains immutable and traceable by SHA-256.')
+        packet['excludedPriorAttemptCount']=len(plan['excludedPriorAttempts'])
+        packet['limitations'].append('This review packet combines two separately sealed captures; the restricted identity key links their SHA-256 lineage.')
+        packet['limitations'].append('Incomplete attempts from the interrupted source run are excluded from paired answers and recorded in the restricted identity key.')
     output=json.dumps(packet,ensure_ascii=False,indent=2)+'\n'
     packet_sha=sha(output.encode())
     review_template={'schemaVersion':1,'status':'DRAFT_BLIND_REVIEW','decisionAuthority':False,
@@ -100,7 +110,13 @@ def main():
     write_new(args.out/'packet.json',output)
     write_new(args.out/'review.html','\n'.join(body))
     restricted=args.out/'restricted';restricted.mkdir(mode=0o700)
-    write_new(restricted/'identity-key.json',json.dumps({'packetSha256':packet_sha,'cases':key},indent=2)+'\n')
+    identity={'packetSha256':packet_sha,'cases':key}
+    if plan.get('status') == 'DERIVED_MERGED_VIEW':
+        identity['sourceRunLineage']=plan['sourceRunLineage']
+        identity['excludedPriorAttempts']=plan['excludedPriorAttempts']
+    if secret_ordering:
+        identity['blindSalt']=blind_salt
+    write_new(restricted/'identity-key.json',json.dumps(identity,indent=2)+'\n')
     write_new(args.out/'manifest.json',json.dumps({'status':'NOT_GRADED','packetSha256':packet_sha,
         'planFileSha256':plan_file_sha,'resultSha256':result_sha,'taskInputSha256':tasks_sha,
         'attemptFileSha256':receipts,'decisionAuthority':False},indent=2)+'\n')

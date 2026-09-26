@@ -98,6 +98,10 @@ def main():
             and first_plan.get('tasks') == second_plan.get('tasks') == tasks
             and first_plan.get('repeats') == second_plan.get('repeats') == 1
             and first_plan.get('decisionAuthority') is second_plan.get('decisionAuthority') is False
+            and first_result.get('decisionAuthority') is second_result.get('decisionAuthority') is False
+            and all(plan.get('operationPolicy', {}).get(key) is False
+                    for plan in (first_plan, second_plan, first_result, second_result)
+                    for key in ('productionImported', 'bindings', 'deletion', 'timer'))
             and first_result.get('planSha256') == first_plan.get('planSha256')
             and second_result.get('planSha256') == second_plan.get('planSha256')
             and first_result.get('status') in ('BLOCKED', 'COLLECTION_PARTIAL')
@@ -113,8 +117,18 @@ def main():
         if file != 'scripts/manual/conversation-operational-handoff.mjs':
             require(second_plan.get('sourceHashes', {}).get(file) == digest, 'HANDLER_CHANGED:' + file)
     first_rows = [row for row in first_result['attempts'] if row.get('model') == first_pairs[0]['model']]
+    excluded_prior = []
+    for row in first_result['attempts']:
+        if row.get('model') != second_pairs[0]['model']:
+            continue
+        value, file_sha, _ = read(first / ('attempt-' + row['id'] + '.json'))
+        require(value.get('id') == row['id'] and value.get('model') == row['model']
+                and value.get('status') == row.get('status') and row.get('status') != 'CAPTURED',
+                'EXCLUDED_ATTEMPT_FILE')
+        excluded_prior.append({**row, 'attemptFileSha256': file_sha})
     second_rows = second_result['attempts']
-    require(not any(row.get('model') != first_pairs[0]['model'] for row in first_result['attempts'] if row.get('status') == 'CAPTURED')
+    require(len(first_rows) + len(excluded_prior) == len(first_result['attempts'])
+            and all(row.get('status') != 'CAPTURED' for row in excluded_prior)
             and len(second_rows) == len(tasks), 'EXTRA_CAPTURE')
     first_files = captured(first, first_rows, first_pairs[0]['model'], first_pairs[0]['artifact']['digestSha256'], tasks, first_plan['providerVersion'])
     second_files = captured(second, second_rows, second_pairs[0]['model'], second_pairs[0]['artifact']['digestSha256'], tasks, first_plan['providerVersion'])
@@ -128,13 +142,15 @@ def main():
     ]
     merged_plan = {'status': 'DERIVED_MERGED_VIEW', 'roles': ['CHAT'], 'providerVersion': first_plan['providerVersion'],
         'tasks': tasks, 'pairs': first_plan['pairs'], 'taskFileSha256': task_file_sha,
+        'benchmarkSha256': first_plan['benchmarkSha256'], 'sourceHashes': first_plan['sourceHashes'],
         'profile': first_plan['profile'], 'decisionAuthority': False,
         'operationPolicy': {'productionImported': False, 'bindings': False, 'deletion': False, 'timer': False},
-        'sourceRunLineage': sources}
+        'sourceRunLineage': sources, 'excludedPriorAttempts': excluded_prior}
     merged_plan['planSha256'] = sha(encoded(merged_plan))
     merged_result = {'status': 'COLLECTION_COMPLETE', 'derivedView': True,
         'planSha256': merged_plan['planSha256'], 'attempts': first_rows + second_rows,
-        'unattempted': [], 'decisionAuthority': False, 'sourceRunLineage': sources}
+        'unattempted': [], 'decisionAuthority': False, 'sourceRunLineage': sources,
+        'excludedPriorAttempts': excluded_prior}
     out.mkdir(mode=0o700)
     def write(name, raw):
         with (out / name).open('xb') as stream:
@@ -144,7 +160,8 @@ def main():
     for attempt_id, row in {**first_files, **second_files}.items():
         write('attempt-' + attempt_id + '.json', row['raw'])
     write('manifest.json', (json.dumps({'status': 'DERIVED_VIEW_NOT_ORIGINAL_RUN', 'decisionAuthority': False,
-        'sourceRunLineage': sources, 'attemptFileSha256': {key: row['sha256'] for key, row in {**first_files, **second_files}.items()}}, indent=2) + '\n').encode())
+        'sourceRunLineage': sources, 'excludedPriorAttempts': excluded_prior,
+        'attemptFileSha256': {key: row['sha256'] for key, row in {**first_files, **second_files}.items()}}, indent=2) + '\n').encode())
     print(json.dumps({'status': 'DERIVED_VIEW_NOT_ORIGINAL_RUN', 'attempts': 80,
         'planSha256': merged_plan['planSha256'], 'out': str(out)}))
 
