@@ -32,6 +32,56 @@ function setup({ workspace, m2, catalog: catalogOverride } = {}) {
 
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
+test('settings preserve twelve prototype categories and verify live feature changes against backend', async () => {
+  let features = { skills: true, agents: false };
+  let fail = false, approved = false;
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    const path = new URL(url).pathname, method = options.method || 'GET';
+    calls.push([method, path]);
+    if (path === '/api/features' && method === 'GET') return { ok: true, json: async () => ({ features: { ...features } }) };
+    if (path === '/api/system/models') return { ok: true, json: async () => ({
+      models: [{ name: 'local-model:latest', size: 2 * 1024 ** 3, digest: 'sha256:abc' }],
+      ollama_url: 'http://127.0.0.1:11434', current_model: 'local-model:latest' }) };
+    if (path === '/api/storage/info') return { ok: true, json: async () => ({ totalSize: 1024 ** 2 }) };
+    if (fail) return { ok: false, status: 503, json: async () => ({ error: 'Backend selhal' }) };
+    if (path === '/api/features/reset') features = { skills: true, agents: true };
+    else if (path === '/api/features/skills') features = { ...features, skills: JSON.parse(options.body).enabled };
+    else throw Error('Unexpected request: ' + path);
+    return { ok: true, json: async () => ({ ok: true, features: { ...features } }) };
+  };
+  const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335', fetchImpl });
+  const { model, widget } = setup({ catalog });
+  model.fetchImpl = fetchImpl;
+  widget.confirmAction = () => approved;
+  assert.deepEqual(model.data().SET.map(category => category.name), [
+    'Účet', 'Modely a inference', 'Paměť', 'Oznámení', 'Výstup', 'Vzhled',
+    'Systém', 'Úložiště', 'Zálohy', 'Funkční přepínače', 'Zabezpečení', 'O aplikaci']);
+  assert.deepEqual(model.data().SET.map(category => category.tabs.length), [2, 4, 3, 2, 2, 5, 4, 2, 3, 2, 3, 2]);
+  model.setState({ mode: 'section', section: 'settings', detail: { settings: 'prepinace' } });
+  await model.loadSettingsResource('prepinace');
+  assert.equal(model.detailVM(model.st()).blocks[0].rows[0].m, 'vypnuto');
+  assert.equal(await model.toggleFeature('skills', false), false, 'rejected confirmation sends no mutation');
+  assert.equal(calls.filter(([method]) => method === 'POST').length, 0);
+  approved = true; fail = true;
+  assert.equal(await model.toggleFeature('skills', false), false);
+  assert.match(model._settingsNotice, /Backend selhal/);
+  assert.equal(model.detailVM(model.st()).blocks.at(-1).rows.find(row => row.t === 'skills').m, 'zapnuto');
+  fail = false;
+  assert.equal(await model.toggleFeature('skills', false), true);
+  assert.equal(model.detailVM(model.st()).blocks.at(-1).rows.find(row => row.t === 'skills').m, 'vypnuto');
+  model.detailVM(model.st()).tabs.find(tab => tab.label === 'Obnovení').go();
+  assert.equal(model.detailVM(model.st()).primaryLabel, 'Obnovit přepínače');
+  assert.equal(await model.resetFeatures(), true);
+  assert.equal(features.skills, true);
+  model.setState({ detail: { settings: 'modely' } });
+  await model.loadSettingsResource('modely');
+  assert.equal(model.detailVM(model.st()).blocks[0].rows[0].t, 'local-model:latest');
+  model.setState({ detail: { settings: 'uloziste' } });
+  await model.loadSettingsResource('uloziste');
+  assert.equal(model.detailVM(model.st()).blocks[0].rows[0].m, '1.00 MiB');
+});
+
 test('marketplace detail uses confirmed backend mutations and never claims success after failure', async () => {
   let installed = false, fail = false, approved = false;
   const calls = [];

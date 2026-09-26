@@ -65,10 +65,16 @@ projekt nebo registruje existující složku přes stávající `/api/projects`
 a `/api/projects/open-folder`. Po odpovědi ověřuje projekt v katalogu;
 nejistý výsledek zápisu neopakuje automaticky.
 
+Nastavení má nyní přesně 12 kategorií a záložky z UI-SPEC. Funkční přepínače
+se čtou z `/api/features`; zapnutí, vypnutí a obnovení výchozích hodnot
+vyžaduje potvrzení a ověřuje nový stav ze serveru. Lokální modely se čtou
+z Ollamy prostřednictvím backendu a velikost uložených příloh z backendu.
+Ostatní nepřipojené záložky jsou výslovně označené a neukazují ukázková data.
+
 **Zbývá před paritou S2-7:** průvodci specialistů, expertýz a workerů
 a další akce katalogů, vytvoření,
 přejmenování a smazání souborů ve stromu, úplných 12 kategorií nastavení,
-modely/hunt/governor/upgrady, M4/M7, vstupní obraz pro Multimédia
+stahování modelů, role/hunt/governor/upgrady, M4/M7, vstupní obraz pro Multimédia
 a automatické režimy gitu.
 Prototypové fixtury se stále používají u nenapojených částí nastavení;
 tyto části nesmějí být vydávány za živá data. Klasické UI proto zůstává dostupné.

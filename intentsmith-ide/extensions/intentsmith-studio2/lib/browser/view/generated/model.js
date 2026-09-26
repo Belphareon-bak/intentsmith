@@ -343,17 +343,18 @@ class Component extends DCLogic {
       mk('sazeni', 'specialist', 'Sázkový analytik', '1.0.0', 'Porovnání kurzů, analýza zápasů, value betting a sestavení tiketů.', true)
     ];
     const SET = [
-      { id: 'obecne', name: 'Obecné', icon: I.sliders, tone: 'blue', desc: 'Jazyk, spouštění a chování okna.' },
-      { id: 'vzhled', name: 'Vzhled', icon: I.palette, tone: 'violet', desc: 'Paleta, písmo a rozvržení pracovního prostředí.' },
-      { id: 'system', name: 'Systém', icon: I.cpu, tone: 'blue', desc: 'Skutečné prostředí backendu a závislosti projektu.' },
-      { id: 'modely', name: 'Modely', icon: I.cpu, tone: 'violet', desc: 'Modely, jejich role a parametry inference.' },
-      { id: 'pamet', name: 'Paměť', icon: I.db, tone: 'cyan', desc: 'Historie, kontext a automatické učení.' },
-      { id: 'oznameni', name: 'Oznámení', icon: I.bell, tone: 'amber', desc: 'Kanály oznámení a čas pro soustředění.' },
-      { id: 'uloziste', name: 'Úložiště a zálohy', icon: I.drive, tone: 'cyan', desc: 'Přehled databáze, údržba a zálohy.' },
-      { id: 'zabezpeceni', name: 'Zabezpečení', icon: I.shield, tone: 'mint', desc: 'Přístupové tokeny, schvalování změn a audit.' },
-      { id: 'prepinace', name: 'Funkční přepínače', icon: I.toggle, tone: 'violet', desc: 'Dostupné subsystémy a jejich běhové přepínače.' },
-      { id: 'pokrocile', name: 'Pokročilé', icon: I.code, tone: 'blue', desc: 'Výstup, log, limity a vlastní CSS.' },
-      { id: 'about', name: 'O aplikaci', icon: I.info, tone: 'blue', desc: 'Verze aplikace, protokol a stav backendu.' }
+      { id: 'ucet', name: 'Účet', icon: I.sliders, tone: 'blue', desc: 'Profil a projekty.', tabs: [['prehled', 'Profil'], ['projekty', 'Projekty']] },
+      { id: 'modely', name: 'Modely a inference', icon: I.cpu, tone: 'violet', desc: 'Modely, inference, připojení a hardware.', tabs: [['prehled', 'Lokální modely'], ['inference', 'Inference'], ['pripojeni', 'Připojení'], ['hardware', 'Hardware']] },
+      { id: 'pamet', name: 'Paměť', icon: I.db, tone: 'cyan', desc: 'Historie, kontext a automatické učení.', tabs: [['prehled', 'Historie a kontext'], ['uceni', 'Paměť a učení'], ['retence', 'Kapacita a retence']] },
+      { id: 'oznameni', name: 'Oznámení', icon: I.bell, tone: 'amber', desc: 'Kanály oznámení a čas pro soustředění.', tabs: [['prehled', 'Kanály'], ['ticho', 'Tiché hodiny']] },
+      { id: 'vystup', name: 'Výstup', icon: I.code, tone: 'blue', desc: 'Formátování a délka odpovědi.', tabs: [['prehled', 'Formátování'], ['delka', 'Délka odpovědi']] },
+      { id: 'vzhled', name: 'Vzhled', icon: I.palette, tone: 'violet', desc: 'Paleta, písmo a rozvržení pracovního prostředí.', tabs: [['obecne', 'Obecné'], ['pismo', 'Písmo'], ['barvy', 'Barvy a prvky'], ['rozvrzeni', 'Rozvržení'], ['css', 'Vlastní CSS']] },
+      { id: 'system', name: 'Systém', icon: I.cpu, tone: 'blue', desc: 'Prostředí, spouštění, diagnostika a limity.', tabs: [['prostredi', 'Prostředí a závislosti'], ['spousteni', 'Spouštění'], ['diagnostika', 'Diagnostika'], ['limity', 'Limity']] },
+      { id: 'uloziste', name: 'Úložiště', icon: I.drive, tone: 'cyan', desc: 'Přehled databáze a údržba.', tabs: [['prehled', 'Databáze'], ['udrzba', 'Údržba']] },
+      { id: 'zalohy', name: 'Zálohy', icon: I.drive, tone: 'cyan', desc: 'Export, obnova a výchozí hodnoty.', tabs: [['prehled', 'Export'], ['obnova', 'Obnova'], ['vychozi', 'Výchozí hodnoty']] },
+      { id: 'prepinace', name: 'Funkční přepínače', icon: I.toggle, tone: 'violet', desc: 'Dostupné subsystémy a jejich běhové přepínače.', tabs: [['prehled', 'Přepínače'], ['obnoveni', 'Obnovení']] },
+      { id: 'zabezpeceni', name: 'Zabezpečení', icon: I.shield, tone: 'mint', desc: 'Audit, přístup a relace.', tabs: [['prehled', 'Audit'], ['pristup', 'Přístup'], ['relace', 'Relace']] },
+      { id: 'about', name: 'O aplikaci', icon: I.info, tone: 'blue', desc: 'Verze aplikace, protokol a stav backendu.', tabs: [['prehled', 'Aplikace'], ['zpetna_vazba', 'Zpětná vazba']] }
     ];
     const MODELS = ['qwen3.5:27b', 'qwen3.6:27b', 'gemma4:26b', 'qwen3.8:latest', 'qwen3-coder:latest', 'qwen3-30b-a3b:latest', 'devstral-small-2:latest', 'phi4:14b', 'qwen3:14b', 'ornith-1.5:9b', 'llava:13b', 'llava-llama3:8b'];
     const FILES = {
@@ -982,28 +983,27 @@ class Component extends DCLogic {
     if (sec === 'settings') {
       const x = d.SET.find((q) => q.id === id);
       if (!x) return null;
-      const base = { icon: x.icon, tone: x.tone, icls: 'always', title: x.name, type: 'Nastavení', idText: 'nastaveni/' + x.id, status: '', stCls: '', secondary: [], tabs: [['prehled', 'Přehled']], desc: x.desc, related: [] };
+      const base = { icon: x.icon, tone: x.tone, icls: 'always', title: x.name, type: 'Nastavení', idText: 'nastaveni/' + x.id, status: '', stCls: '', secondary: [], tabs: x.tabs, desc: x.desc, related: [] };
       const r = (t, m, sub) => ({ t, m, s: sub || '', mc: 'var(--dim)' });
       if (x.id === 'vzhled') {
         const st = this.styleList().find((q) => q.id === s.style) || this.styleList()[0];
         return Object.assign(base, {
           desc: '', primary: { label: 'Obnovit výchozí', go: () => this.appearanceDefaults() },
-          tabs: [['obecne', 'Obecné'], ['pismo', 'Písmo'], ['barvy', 'Barvy a prvky'], ['rozvrzeni', 'Rozvržení'], ['css', 'Vlastní CSS']],
           blocks: { obecne: [{ kind: 'apObecne' }], pismo: [{ kind: 'apPismo' }], barvy: [{ kind: 'apBarvy' }], rozvrzeni: [{ kind: 'apRozvrzeni' }], css: [{ kind: 'apCss' }] },
           props: [['Styl', st.name], ['Téma', { dark: 'tmavé', light: 'světlé', system: 'podle systému' }[s.tmode]], ['Písmo', s.fs + ' px'], ['Hustota', { komfortni: 'komfortní', kompaktni: 'kompaktní', minimalni: 'minimální' }[s.density]]],
           hideProps: true
         });
       }
-      if (x.id === 'system') return Object.assign(base, { tabs: [['prostredi', 'Prostředí a závislosti']], blocks: { prostredi: [{ kind: 'development' }] }, props: [] });
+      if (x.id === 'system') return Object.assign(base, { blocks: { prostredi: [{ kind: 'development' }], spousteni: [{ kind: 'empty', text: 'Spouštění zatím není připojené.' }], diagnostika: [{ kind: 'empty', text: 'Diagnostika zatím není připojená.' }], limity: [{ kind: 'empty', text: 'Limity zatím nejsou připojené.' }] }, props: [] });
       if (x.id === 'modely') return Object.assign(base, { blocks: { prehled: [{ kind: 'rows', title: 'Nainstalované modely', rows: d.MODELS.map((m) => ({ t: m, m: m === 'qwen3.5:27b' ? 'CHAT' : '', mc: 'var(--acct)', icon: I.cpu, mono: true })) }] }, props: [['Model CHAT', 'qwen3.5:27b', true], ['Model FAST', 'nenastaven'], ['Server', 'Ollama 0.34'], ['Adresa', '127.0.0.1:11434', true]] });
       if (x.id === 'oznameni') return Object.assign(base, { blocks: { prehled: [{ kind: 'rows', title: 'Kanály', rows: [r('Systémová oznámení', 'zapnuto'), r('E-mail (SMTP)', 'nenastaveno'), r('ntfy.sh', 'nenastaveno'), r('Telegram', 'v M5 nepodporováno'), r('Webhook (HMAC)', 'v M5 nepodporováno')] }] }, props: [['Tichý režim', 'vypnutý'], ['Tichý režim od–do', '22:00–07:00'], ['Chyby v tichém režimu', 'projdou']] });
       if (x.id === 'uloziste') return Object.assign(base, { primary: { label: 'Vacuum DB', go: () => ({}) }, blocks: { prehled: [{ kind: 'rows', title: 'Data', rows: [r('Konverzace', '46'), r('Projekty', '6'), r('Workeři', '6'), r('Generování médií', '0')] }] }, props: [['Databáze', 'data/c3.db', true], ['Velikost', '134 MiB'], ['Retence logů', '30 dní']] });
-      if (x.id === 'pokrocile') return Object.assign(base, { blocks: { prehled: [{ kind: 'rows', title: 'Výstup', rows: [r('Code blocks ve výstupu', 'zapnuto'), r('Zvýrazňování syntaxe', 'zapnuto'), r('Markdown', 'zapnuto')] }] }, props: [['Úroveň logu', 'info'], ['Retence logů', '30 dní'], ['Max. velikost souboru', '1 MiB'], ['Limit požadavků', '120 / min']] });
+      if (x.id === 'vystup') return Object.assign(base, { blocks: { prehled: [{ kind: 'rows', title: 'Výstup', rows: [r('Code blocks ve výstupu', 'zapnuto'), r('Zvýrazňování syntaxe', 'zapnuto'), r('Markdown', 'zapnuto')] }] }, props: [['Úroveň logu', 'info'], ['Retence logů', '30 dní'], ['Max. velikost souboru', '1 MiB'], ['Limit požadavků', '120 / min']] });
       if (x.id === 'about') return Object.assign(base, { blocks: { prehled: [{ kind: 'rows', title: 'Stav', rows: [r('Backend', 'připojeno', '136.1.0'), r('Protokol', 'WebSocket v1'), r('Ollama', 'běží', '127.0.0.1:11434')] }] }, props: [['Aplikace', 'IntentSmith 2.0 (návrh)'], ['Backend', '136.1.0'], ['Rozhraní', 'ws :3335', true]] });
       if (x.id === 'zabezpeceni') return Object.assign(base, { blocks: { prehled: [{ kind: 'rows', title: 'Ochrana', rows: [r('Schvalování změn souborů', 'Kontrola'), r('Auditní log', 'zapnutý'), r('Přístupové tokeny', '1 aktivní')] }] }, props: [['Výchozí režim úprav', 'Kontrola']] });
       if (x.id === 'pamet') return Object.assign(base, { blocks: { prehled: [{ kind: 'rows', title: 'Dlouhodobá paměť', rows: [r('Poločas zapomínání', '~69 dní'), r('Vkládání do kontextu', 'podle relevance'), r('Paměť projektů', 'zapnutá')] }] }, props: [['Stav', 'zapnutá']] });
-      if (x.id === 'obecne') return Object.assign(base, { blocks: { prehled: [{ kind: 'rows', title: 'Chování', rows: [r('Jazyk rozhraní', 'čeština'), r('Po spuštění obnovit relace', 'zapnuto'), r('Varovat při zavření s běžícím agentem', 'zapnuto')] }] }, props: [['Jazyk', 'čeština']] });
-      return Object.assign(base, { blocks: { prehled: [{ kind: 'empty', title: x.name, text: 'Žádné rozpracované funkce nejsou k dispozici.' }] }, props: [['Položek', '0']] });
+      if (x.id === 'ucet') return Object.assign(base, { blocks: { prehled: [{ kind: 'rows', title: 'Chování', rows: [r('Jazyk rozhraní', 'čeština'), r('Po spuštění obnovit relace', 'zapnuto'), r('Varovat při zavření s běžícím agentem', 'zapnuto')] }] }, props: [['Jazyk', 'čeština']] });
+      return Object.assign(base, { blocks: { prehled: [{ kind: 'empty', title: x.name, text: 'Tato záložka se připojuje k backendu.' }] }, props: [] });
     }
     return null;
   }
@@ -1201,7 +1201,7 @@ class Component extends DCLogic {
     const sp = this.detailSpec(sec, id, s);
     if (!sp) return null;
     const key = sec + ':' + id;
-    const tabId = s.dtab[key] && sp.blocks[s.dtab[key]] ? s.dtab[key] : sp.tabs[0][0];
+    const tabId = s.dtab[key] && sp.tabs.some((tab) => tab[0] === s.dtab[key]) ? s.dtab[key] : sp.tabs[0][0];
     const first = tabId === sp.tabs[0][0];
     return {
       icon: sp.icon, tone: sp.tone || 'none', icls: sp.icls || '', title: sp.title, type: sp.type, idText: sp.idText, hasStatus: !!sp.status, status: sp.status || '', stCls: sp.stCls || '',
@@ -1213,7 +1213,7 @@ class Component extends DCLogic {
       hasDesc: !!sp.desc && first, desc: sp.desc || '',
       showProps: first && !sp.hideProps && sp.props.length > 0,
       props: sp.props.map((p) => ({ k: p[0], v: p[1], cls: p[2] ? 'mono' : '' })),
-      blocks: (sp.blocks[tabId] || []).map((b) => this.blockVM(b)),
+      blocks: (sp.blocks[tabId] || (sec === 'settings' ? [{ kind: 'empty', text: 'Tato záložka zatím není připojená.' }] : [])).map((b) => this.blockVM(b)),
       development: this.developmentVM(s), scmPolicy: this.scmPolicyVM(s, sec === 'projects' ? id : null),
       hasRelated: !!(sp.related && sp.related.length) && first, related: (sp.related || []).map((r) => ({ t: r.t, s: r.s, icon: r.icon, go: this.run(r.go) }))
     };

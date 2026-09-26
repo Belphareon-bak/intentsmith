@@ -76,6 +76,9 @@ class LiveModel extends Component {
     this._audit = new Map();
     this._auditRequest = new Map();
     this._catalogBusy = new Set();
+    this._settingsResources = new Map();
+    this._settingsBusy = false;
+    this._settingsNotice = '';
     this.fetchImpl = widget.fetchImpl || fetch;
   }
 
@@ -386,7 +389,7 @@ class LiveModel extends Component {
     if (!id) return null;
     if (s.section === 'media' && id === '__new__') return super.detailVM(s);
     if (s.section === 'projects' && id === '__new__') return super.detailVM(s);
-    if (s.section === 'settings' && (id === 'vzhled' || id === 'system')) return super.detailVM(s);
+    if (s.section === 'settings') return this.settingsDetailVM(s, id);
     if (s.section === 'projects') {
       const vm = super.detailVM(s);
       if (!vm) return null;
@@ -506,6 +509,125 @@ class LiveModel extends Component {
       props: item ? [['ID', item.id, true], ['Stav', item.state || '—']] .map(row => ({ k: row[0], v: row[1], cls: row[2] ? 'mono' : '' })) : [],
       blocks: [this.blockVM({ kind: 'empty', text: 'Další akce této obrazovky zatím nejsou připojené.' })],
       hasRelated: false, related: [], development: this.developmentVM(s), scmPolicy: this.scmPolicyVM(s, null) };
+  }
+
+  settingsDetailVM(s, id) {
+    const vm = super.detailVM(s);
+    if (!vm) return null;
+    if (id === 'vzhled' || id === 'system') return vm;
+    const tab = (s.dtab || {})['settings:' + id] || 'prehled';
+    const resource = this._settingsResources.get(id);
+    const state = resource?.status || 'idle';
+    const connectedTab = (id === 'prepinace' && (tab === 'prehled' || tab === 'obnoveni')) ||
+      ((id === 'modely' || id === 'uloziste') && tab === 'prehled');
+    const unavailable = 'Tato část nastavení zatím nemá připojené ovládání.';
+    vm.hasDesc = false; vm.desc = ''; vm.showProps = false; vm.props = [];
+    vm.hasPrimary = false; vm.primaryLabel = ''; vm.secondary = [];
+    vm.hasRelated = false; vm.related = [];
+    vm.status = !connectedTab ? 'nepřipojeno' : state === 'loading' ? 'načítání' : state === 'error' ? 'chyba' : state === 'ready' ? 'živá data' : 'nenačteno';
+    vm.stCls = connectedTab && state === 'error' ? 'warn' : connectedTab && state === 'ready' ? 'ok' : 'idle';
+    vm.hasStatus = true;
+    if (connectedTab && state !== 'loading') vm.secondary = [{ label: 'Obnovit', icon: this.data().I.refresh,
+      go: () => this.loadSettingsResource(id, true) }];
+    if (id === 'prepinace' && tab === 'prehled') {
+      const features = resource?.data?.features;
+      const rows = state === 'ready' && features ? Object.entries(features).sort(([a], [b]) => a.localeCompare(b))
+        .map(([name, enabled]) => ({ t: name, s: 'Klikni pro změnu po potvrzení. Změna platí do restartu backendu.',
+          m: enabled ? 'zapnuto' : 'vypnuto', icon: this.data().I.toggle,
+          go: () => { this.toggleFeature(name, !enabled); return null; } })) : [];
+      vm.blocks = state === 'ready' ? [this.blockVM({ kind: 'rows', title: 'Běhové přepínače', rows })]
+        : [this.blockVM({ kind: 'empty', text: state === 'error' ? resource.error : 'Načítám běhové přepínače…' })];
+    } else if (id === 'prepinace' && tab === 'obnoveni') {
+      vm.blocks = [this.blockVM({ kind: 'text', items: ['Obnovení vrátí běhové přepínače na výchozí hodnoty backendu.'] })];
+      vm.hasPrimary = state === 'ready' && !this._settingsBusy;
+      vm.primaryLabel = 'Obnovit přepínače';
+      vm.onPrimary = () => this.resetFeatures();
+    } else if (id === 'modely' && tab === 'prehled') {
+      const models = resource?.data?.models;
+      const rows = state === 'ready' && Array.isArray(models) ? models.map(model => ({
+        t: model.name, s: model.digest || '', m: model.size ? (model.size / 1024 ** 3).toFixed(2) + ' GiB' : '',
+        icon: this.data().I.cpu, mono: true })) : [];
+      vm.blocks = state === 'ready' ? [this.blockVM({ kind: 'rows', title: 'Modely z Ollamy', rows,
+        empty: 'Ollama nevrátila žádný nainstalovaný model.' })] :
+        [this.blockVM({ kind: 'empty', text: state === 'error' ? resource.error : 'Načítám modely z backendu…' })];
+      vm.props = state === 'ready' ? [{ k: 'Model CHAT', v: resource.data.current_model || '—', cls: 'mono' },
+        { k: 'Adresa Ollamy', v: resource.data.ollama_url || '—', cls: 'mono' }] : [];
+      vm.showProps = vm.props.length > 0;
+    } else if (id === 'uloziste' && tab === 'prehled') {
+      vm.blocks = state === 'ready' ? [this.blockVM({ kind: 'rows', title: 'Uložené přílohy', rows: [
+        { t: 'Velikost příloh', m: (resource.data.totalSize / 1024 ** 2).toFixed(2) + ' MiB', icon: this.data().I.drive }] })]
+        : [this.blockVM({ kind: 'empty', text: state === 'error' ? resource.error : 'Načítám stav úložiště…' })];
+    } else {
+      vm.blocks = [this.blockVM({ kind: 'empty', text: unavailable })];
+    }
+    if (this._settingsNotice && id === 'prepinace') vm.blocks.unshift(this.blockVM({ kind: 'text', items: [this._settingsNotice] }));
+    return vm;
+  }
+
+  async loadSettingsResource(id, refresh = false) {
+    const paths = { prepinace: '/api/features', modely: '/api/system/models', uloziste: '/api/storage/info' };
+    const path = paths[id];
+    if (!path || !refresh && this._settingsResources.get(id)?.status === 'ready') return;
+    const request = Symbol(id);
+    this._settingsResources.set(id, { status: 'loading', request });
+    this.forceUpdate();
+    try {
+      const data = await this.widget.catalog.get(path);
+      if (id === 'prepinace' && (!data?.features || typeof data.features !== 'object' || Array.isArray(data.features)
+        || Object.values(data.features).some(value => typeof value !== 'boolean'))) throw Error('Backend vrátil neplatné přepínače.');
+      if (id === 'modely' && (!Array.isArray(data?.models) || data.models.some(model => typeof model.name !== 'string'))) throw Error('Backend vrátil neplatný seznam modelů.');
+      if (id === 'uloziste' && (!Number.isFinite(data?.totalSize) || data.totalSize < 0)) throw Error('Backend vrátil neplatnou velikost úložiště.');
+      if (this._settingsResources.get(id)?.request === request) this._settingsResources.set(id, { status: 'ready', data });
+    } catch (error) {
+      if (this._settingsResources.get(id)?.request === request) this._settingsResources.set(id, {
+        status: 'error', error: error?.message || 'Načtení nastavení selhalo.' });
+    } finally { this.forceUpdate(); }
+  }
+
+  async changeFeatures(path, message, verify) {
+    if (this._settingsBusy) return false;
+    const confirmAction = this.widget.confirmAction || globalThis.confirm;
+    if (typeof confirmAction !== 'function' || !confirmAction(message)) return false;
+    this._settingsBusy = true;
+    this._settingsNotice = '';
+    this.forceUpdate();
+    try {
+      const base = this.widget.catalog.backendUrl();
+      if (typeof base !== 'string' || !/^https?:\/\//.test(base)) throw Error('Backend není dostupný.');
+      const response = await this.fetchImpl(base + path.route, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(path.body), signal: AbortSignal.timeout(10_000) });
+      let body = {};
+      try { body = await response.json(); } catch { /* HTTP status remains authoritative. */ }
+      if (!response.ok || body.ok !== true) throw Error(body.error || 'Změna přepínačů selhala (HTTP ' + response.status + ').');
+      await this.loadSettingsResource('prepinace', true);
+      const current = this._settingsResources.get('prepinace');
+      if (current?.status !== 'ready' || !body.features ||
+        Object.keys(current.data.features).length !== Object.keys(body.features).length ||
+        !Object.entries(body.features).every(([key, value]) => current.data.features[key] === value) ||
+        !verify(current.data.features, body.features))
+        throw Error('Požadavek byl přijat, ale výsledek se nepodařilo ověřit. Obnov stav před dalším pokusem.');
+      this._settingsNotice = 'Změna byla ověřena v backendu. Platí do jeho restartu.';
+      return true;
+    } catch (error) {
+      this._settingsNotice = error?.message || 'Změna selhala.';
+      return false;
+    } finally { this._settingsBusy = false; this.forceUpdate(); }
+  }
+
+  toggleFeature(name, enabled) {
+    const features = this._settingsResources.get('prepinace')?.data?.features;
+    if (!features || !Object.hasOwn(features, name) || typeof enabled !== 'boolean' || !/^[A-Za-z][A-Za-z0-9]*$/.test(name)) return false;
+    return this.changeFeatures({ route: '/api/features/' + encodeURIComponent(name), body: { enabled } },
+      (enabled ? 'Zapnout ' : 'Vypnout ') + name + '? Změna platí do restartu backendu.',
+      current => current[name] === enabled);
+  }
+
+  resetFeatures() {
+    if (this._settingsResources.get('prepinace')?.status !== 'ready') return false;
+    return this.changeFeatures({ route: '/api/features/reset', body: {} },
+      'Obnovit výchozí běhové přepínače backendu?', (current, expected) => expected &&
+        Object.keys(current).length === Object.keys(expected).length &&
+        Object.entries(expected).every(([key, value]) => current[key] === value));
   }
 
   async pMarketplaceAction(item, operation) {
@@ -936,6 +1058,7 @@ class LiveModel extends Component {
     if (sec === 'settings' && id === 'system' && !this._developmentRequested) {
       this._developmentRequested = true; this.development.refresh();
     }
+    if (sec === 'settings') this.loadSettingsResource(id);
     if (CATALOG[sec] && this.widget.catalog.view(CATALOG[sec]).status === 'idle') this.widget.catalog.load(CATALOG[sec]);
     return super.pSelect(s, sec, id);
   }
