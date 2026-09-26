@@ -183,7 +183,7 @@ a jeho migraci `intentsmith-settings`. Vše ostatní se čte ze stores.
 | kontext relace | `b.ctx`, `b.parts`, `b.tokens` | `POST /api/context` |
 | Soubory: upravené / otevřené | `b.changes`, `b.edited`, `b.ctxFiles`, `b.attach` | M2 plán a výsledek, WS `workspace`, soubory v `tool_call` (CONNECTORS G2) |
 | Soubory: strom, náhled, uložení, vytvoření, přejmenování, smazání | `b.tree`, `data().FILES`, `s.fileText`, `s.fileAction` | `workspace-files.js` a `src/routes/studio2-workspace.js` (projektově omezené operace, revize, ověření stavu, stráž neuložených změn) |
-| Správa zdrojů | `data().GIT`, `pScmRun` | **backend chybí** — `/api/scm/*` (SCM §3–4, CONNECTORS G1, etapa S2-6); do té doby zobrazit prázdný stav „Správa zdrojů zatím není připojená", nic nepředstírat |
+| Správa zdrojů | `data().GIT`, `pScmRun` | `scm-client.js`, `src/routes/scm.js`: serverový plán a digest, potvrzení a terminální audit; běhové ověření celého toku stále patří do S2-6 |
 | katalogy `entities(sec)` | `data().H, P, SP, EX, WK, MK` | `catalog-store.js` a API z CONNECTORS §2 |
 | akce detailu (`detailSpec` → `primary`, `secondary`) | mění stav prototypu | API sekce z CONNECTORS §2 |
 | nastavení (`data().SET`, bloky `apObecne`…) | vzhled funkční lokálně | `appearance-store.js`; ostatní kategorie §10 UI-SPEC |
@@ -216,3 +216,15 @@ většinu) a přegenerují:
   prvky prototypu (`.intentsmith-studio2-widget .ide`, `.scol`, `.rp`, `aria-label`
   z šablony). Sonda byla přepsána a izolovaný Electron průchod na `1b4699a9` prošel.
 - `tests/studio2-view.test.js` hlídá, že vygenerované soubory odpovídají prototypu.
+
+## 7. Aktuální integrace modelů
+
+`model-workspace.js` čte inventář, role, evaluace, historii, hunt, kandidáty,
+Správce, upgrady a autoritativní politiku z backendových API. Stažení, evaluace,
+hodnocení uložených odpovědí, řízení huntu, přiřazení role a rollback mají
+potvrzení před efektem. Evaluace používá přesný digest modelu a sady;
+hodnocení uložených odpovědí používá `runId`, přijatého hodnotitele a hash
+zdroje. Politika automatizace se ukládá přes revizní CAS a potvrzené zpětné
+čtení; neplatná politika zůstává vypnutá. Rollback tlačítko se objeví pouze
+po WS události s úplnou identitou operace. Testy používají simulovaný backend,
+neprovádějí skutečné GPU efekty. Úplné UI-SPEC §13 a S2-7 zatím splněné nejsou.

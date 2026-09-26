@@ -1027,7 +1027,7 @@ class Component extends DCLogic {
         });
       }
       if (x.id === 'system') return Object.assign(base, { blocks: { prostredi: [{ kind: 'development' }], spousteni: [{ kind: 'empty', text: 'Spouštění zatím není připojené.' }], diagnostika: [{ kind: 'empty', text: 'Diagnostika zatím není připojená.' }], limity: [{ kind: 'empty', text: 'Limity zatím nejsou připojené.' }] }, props: [] });
-      if (x.id === 'modely') return Object.assign(base, { blocks: { prehled: [{ kind: 'rows', title: 'Nainstalované modely', rows: d.MODELS.map((m) => ({ t: m, m: m === 'qwen3.5:27b' ? 'CHAT' : '', mc: 'var(--acct)', icon: I.cpu, mono: true })) }] }, props: [['Model CHAT', 'qwen3.5:27b', true], ['Model FAST', 'nenastaven'], ['Server', 'Ollama 0.34'], ['Adresa', '127.0.0.1:11434', true]] });
+      if (x.id === 'modely') return Object.assign(base, { blocks: { prehled: [{ kind: 'modelWorkspace' }] }, props: [['Model CHAT', 'qwen3.5:27b', true], ['Model FAST', 'nenastaven'], ['Server', 'Ollama 0.34'], ['Adresa', '127.0.0.1:11434', true]] });
       if (x.id === 'oznameni') return Object.assign(base, { blocks: { prehled: [{ kind: 'rows', title: 'Kanály', rows: [r('Systémová oznámení', 'zapnuto'), r('E-mail (SMTP)', 'nenastaveno'), r('ntfy.sh', 'nenastaveno'), r('Telegram', 'v M5 nepodporováno'), r('Webhook (HMAC)', 'v M5 nepodporováno')] }] }, props: [['Tichý režim', 'vypnutý'], ['Tichý režim od–do', '22:00–07:00'], ['Chyby v tichém režimu', 'projdou']] });
       if (x.id === 'uloziste') return Object.assign(base, { primary: { label: 'Vacuum DB', go: () => ({}) }, blocks: { prehled: [{ kind: 'rows', title: 'Data', rows: [r('Konverzace', '46'), r('Projekty', '6'), r('Workeři', '6'), r('Generování médií', '0')] }] }, props: [['Databáze', 'data/c3.db', true], ['Velikost', '134 MiB'], ['Retence logů', '30 dní']] });
       if (x.id === 'vystup') return Object.assign(base, { blocks: { prehled: [{ kind: 'rows', title: 'Výstup', rows: [r('Code blocks ve výstupu', 'zapnuto'), r('Zvýrazňování syntaxe', 'zapnuto'), r('Markdown', 'zapnuto')] }] }, props: [['Úroveň logu', 'info'], ['Retence logů', '30 dní'], ['Max. velikost souboru', '1 MiB'], ['Limit požadavků', '120 / min']] });
@@ -1149,6 +1149,7 @@ class Component extends DCLogic {
       isDevelopment: kind === 'development', isScmPolicy: kind === 'scmPolicy',
       isPairing: kind === 'pairing', pairing: this.pairingVM(),
       isPreferences: kind === 'preferences', preferences: this.preferencesVM(this.st()),
+      isModelWorkspace: kind === 'modelWorkspace', modelWorkspace: this.modelWorkspaceVM(),
       isMediaForm: kind === 'mediaForm', mediaForm: this.mediaFormVM(this.st()),
       isMediaOutputs: kind === 'mediaOutputs', mediaOutputs: b.outputs || [],
       isProjectWizard: kind === 'projectWizard', projectWizard: this.projectWizardVM(this.st()),
@@ -1173,6 +1174,19 @@ class Component extends DCLogic {
       isTextarea: false, isNumber: false, isToggle: false, isTime: false, isSelect: false,
       options: [], checked: false, disabled: true, min: 0, max: 0, step: 1, change: () => {} }],
     status: 'Prototyp ukazuje formulář; hodnoty načítá až živé Studio.' };
+  }
+
+  modelWorkspaceVM() {
+    return { tabs: ['Přehled', 'Role', 'Evaluace', 'GPU hunt', 'Historie', 'Kandidáti', 'Správce', 'Upgrady', 'Automatizace'].map((label, index) => ({ label, cls: index === 0 ? 'on' : '', go: () => {} })),
+      rows: [{ title: 'qwen3.5:27b', subtitle: 'Lokálně nainstalovaný · aktuální CHAT', meta: '26 GiB',
+        actions: [{ label: 'Podrobnosti', disabled: true, go: () => {} }] }],
+      buttons: [{ label: 'Obnovit', disabled: true, go: () => {} }],
+      status: 'Prototyp ukazuje rozvržení; data a akce připojuje živé Studio.',
+      hasRoleForm: false, roleOptions: [], modelOptions: [], selectedRole: '', selectedModel: '',
+      setRole: () => {}, setModel: () => {}, applyRole: () => {}, applyRoleDisabled: true,
+      hasPolicyForm: false, policyFailover: false, policyCleanup: false, policyDays: 14,
+      setPolicyFailover: () => {}, setPolicyCleanup: () => {}, setPolicyDays: () => {},
+      verifyWarning: '', hasRollback: false, rollback: () => {} };
   }
 
   projectStatus() { return { busy: false, error: 'Prototyp ukazuje průvodce; backend se připojuje až v IDE.', defaultDir: '' }; }

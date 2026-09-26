@@ -4,6 +4,19 @@
 // renderer keeps these declarations separate from backend-owned model policy.
 const field = (key, label, type, defaultValue, extra = {}) => Object.freeze({ key, label, type, defaultValue, ...extra });
 const SETTINGS_FIELDS = Object.freeze({
+  modely: {
+    inference: [field('intentsmith.llm.temperature', 'Teplota generování', 'number', 0.7, { min: 0, max: 2, step: 0.1 }),
+      field('intentsmith.llm.contextWindow', 'Kontextové okno v tokenech', 'number', 32768,
+        { min: 2048, max: 131072, step: 1024 }),
+      field('intentsmith.llm.timeoutChat', 'Časový limit chatu v ms', 'number', 90000,
+        { min: 10000, max: 300000, step: 5000 }),
+      field('intentsmith.llm.timeoutCode', 'Časový limit kódu v ms', 'number', 90000,
+        { min: 10000, max: 300000, step: 5000 })],
+    pripojeni: [field('intentsmith.llm.ollamaUrl', 'Adresa lokální Ollamy', 'text', 'http://127.0.0.1:11434',
+      { maxLength: 512 })],
+    hardware: [field('intentsmith.llm.numGpu', 'Počet vrstev v GPU (-1 = automaticky)', 'number', -1,
+      { min: -1, max: 8, step: 1 })],
+  },
   ucet: {
     prehled: [field('intentsmith.account.displayName', 'Zobrazované jméno', 'text', '', { maxLength: 120 }),
       field('intentsmith.account.description', 'Popis / Bio', 'textarea', '', { maxLength: 2000 }),

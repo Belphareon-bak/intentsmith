@@ -447,6 +447,13 @@
 .intentsmith-studio2-widget .rel:hover{color:var(--acct)}
 .intentsmith-studio2-widget .rel-s{margin-left:auto;font-size:11px;color:var(--faint)}
 .intentsmith-studio2-widget .aps{display:flex;flex-direction:column;gap:16px}
+.intentsmith-studio2-widget .model-tabs{padding:0;flex-wrap:wrap;overflow:visible}
+.intentsmith-studio2-widget .model-actions,.intentsmith-studio2-widget .model-row-actions{display:flex;gap:6px;flex-wrap:wrap}
+.intentsmith-studio2-widget .model-row{display:flex;flex-wrap:wrap;gap:5px 10px;border:1px solid var(--soft);border-radius:6px;margin:4px 0}
+.intentsmith-studio2-widget .model-row .row-tt{flex:1 1 220px}
+.intentsmith-studio2-widget .model-row .row-m{white-space:normal;text-align:right}
+.intentsmith-studio2-widget .model-row .row-s{display:block}
+.intentsmith-studio2-widget .model-row-actions{flex:1 0 100%;justify-content:flex-end}
 .intentsmith-studio2-widget .dev-panel>div{display:flex;flex-direction:column;align-items:flex-start;gap:9px;padding:11px 12px;background:var(--panel2);border:1px solid var(--soft);border-radius:8px;max-width:100%}
 .intentsmith-studio2-widget .dev-panel .blk-h{width:100%}
 .intentsmith-studio2-widget .dev-panel .dev-facts{width:100%;overflow-wrap:anywhere}

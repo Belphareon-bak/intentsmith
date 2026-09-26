@@ -197,7 +197,8 @@ test('settings preserve twelve prototype categories and verify live feature chan
   assert.equal(features.skills, true);
   model.setState({ detail: { settings: 'modely' } });
   await model.loadSettingsResource('modely');
-  assert.equal(model.detailVM(model.st()).blocks[0].rows[0].t, 'local-model:latest');
+  assert.equal(model.detailVM(model.st()).blocks[0].isModelWorkspace, true);
+  assert.equal(model.detailVM(model.st()).props.find(prop => prop.k === 'Model CHAT').v, 'local-model:latest');
   model.setState({ detail: { settings: 'uloziste' } });
   await model.loadSettingsResource('uloziste');
   assert.equal(model.detailVM(model.st()).blocks[0].rows[0].m, '1.00 MiB');

@@ -338,6 +338,13 @@ html,body{margin:0;height:100%;overflow:hidden}
 .rel:hover{color:var(--acct)}
 .rel-s{margin-left:auto;font-size:11px;color:var(--faint)}
 .aps{display:flex;flex-direction:column;gap:16px}
+.model-tabs{padding:0;flex-wrap:wrap;overflow:visible}
+.model-actions,.model-row-actions{display:flex;gap:6px;flex-wrap:wrap}
+.model-row{display:flex;flex-wrap:wrap;gap:5px 10px;border:1px solid var(--soft);border-radius:6px;margin:4px 0}
+.model-row .row-tt{flex:1 1 220px}
+.model-row .row-m{white-space:normal;text-align:right}
+.model-row .row-s{display:block}
+.model-row-actions{flex:1 0 100%;justify-content:flex-end}
 .dev-panel>div{display:flex;flex-direction:column;align-items:flex-start;gap:9px;padding:11px 12px;background:var(--panel2);border:1px solid var(--soft);border-radius:8px;max-width:100%}
 .dev-panel .blk-h{width:100%}
 .dev-panel .dev-facts{width:100%;overflow-wrap:anywhere}
@@ -778,6 +785,24 @@ textarea.fv-ed{font-family:var(--font-mono)}
 <p class="aph">{{b.pairing.status}}</p>
 <sc-if value="{{b.pairing.hasError}}" hint-placeholder-val="{{false}}"><div class="note" role="alert">{{b.pairing.error}}</div></sc-if>
 <sc-if value="{{b.pairing.hasClaim}}" hint-placeholder-val="{{false}}"><div class="note" aria-label="Párovací kód"><div class="dl"><span>Kód</span><strong class="mono">{{b.pairing.code}}</strong><span>Platí do</span><span>{{b.pairing.expiry}}</span><span>Odkaz do telefonu</span><code>{{b.pairing.uri}}</code></div><p class="aph">Po prvním použití nebo po vypršení kód už nefunguje.</p></div></sc-if>
+</div></sc-if>
+<sc-if value="{{b.isModelWorkspace}}" hint-placeholder-val="{{false}}"><div class="aps" aria-label="Modelové pracoviště">
+<div class="blk-h"><span class="lbl-acc">Modely a inference</span></div>
+<div class="dtabs model-tabs"><sc-for list="{{b.modelWorkspace.tabs}}" as="tab" hint-placeholder-count="7"><button class="dtab {{tab.cls}}" onClick="{{tab.go}}">{{tab.label}}</button></sc-for></div>
+<p class="aph" role="status">{{b.modelWorkspace.status}}</p>
+<sc-if value="{{b.modelWorkspace.verifyWarning}}" hint-placeholder-val="{{false}}"><div class="note" role="alert">{{b.modelWorkspace.verifyWarning}} <sc-if value="{{b.modelWorkspace.hasRollback}}" hint-placeholder-val="{{false}}"><button class="btn" onClick="{{b.modelWorkspace.rollback}}">Vrátit předchozí model</button></sc-if></div></sc-if>
+<sc-if value="{{b.modelWorkspace.hasPolicyForm}}" hint-placeholder-val="{{false}}"><div class="note" aria-label="Politika automatizace modelů">
+<label class="arow2"><span>Automatické přepnutí při výpadku</span><input type="checkbox" checked="{{b.modelWorkspace.policyFailover}}" onChange="{{b.modelWorkspace.setPolicyFailover}}"></label>
+<label class="arow2"><span>Automatický úklid nepoužívaných modelů</span><input type="checkbox" checked="{{b.modelWorkspace.policyCleanup}}" onChange="{{b.modelWorkspace.setPolicyCleanup}}"></label>
+<label class="arow2"><span>Úklid po dnech</span><input type="number" min="1" max="3650" value="{{b.modelWorkspace.policyDays}}" onChange="{{b.modelWorkspace.setPolicyDays}}"></label>
+</div></sc-if>
+<sc-if value="{{b.modelWorkspace.hasRoleForm}}" hint-placeholder-val="{{false}}"><div class="note">
+<label class="arow2"><span>Role</span><select value="{{b.modelWorkspace.selectedRole}}" onChange="{{b.modelWorkspace.setRole}}"><sc-for list="{{b.modelWorkspace.roleOptions}}" as="option" hint-placeholder-count="7"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
+<label class="arow2"><span>Model</span><select value="{{b.modelWorkspace.selectedModel}}" onChange="{{b.modelWorkspace.setModel}}"><sc-for list="{{b.modelWorkspace.modelOptions}}" as="option" hint-placeholder-count="4"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
+<button class="btn btn-acc" disabled="{{b.modelWorkspace.applyRoleDisabled}}" onClick="{{b.modelWorkspace.applyRole}}">Přiřadit model roli</button>
+</div></sc-if>
+<div class="model-actions"><sc-for list="{{b.modelWorkspace.buttons}}" as="action" hint-placeholder-count="2"><button class="btn" disabled="{{action.disabled}}" onClick="{{action.go}}">{{action.label}}</button></sc-for></div>
+<div class="rows"><sc-for list="{{b.modelWorkspace.rows}}" as="row" hint-placeholder-count="3"><div class="row model-row"><span class="row-tt"><strong class="row-t">{{row.title}}</strong><span class="row-s">{{row.subtitle}}</span></span><span class="row-m">{{row.meta}}</span><span class="model-row-actions"><sc-for list="{{row.actions}}" as="action" hint-placeholder-count="2"><button class="btn" disabled="{{action.disabled}}" onClick="{{action.go}}">{{action.label}}</button></sc-for></span></div></sc-for></div>
 </div></sc-if>
 <sc-if value="{{b.isPreferences}}" hint-placeholder-val="{{false}}"><div class="aps" aria-label="Uživatelské nastavení">
 <div class="blk-h"><span class="lbl-acc">Uživatelské volby</span></div>
