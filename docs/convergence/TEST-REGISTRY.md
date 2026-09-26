@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 541
+- Runnable programs: 542
 - Explicit support-module exclusions: 21
-- Profiles: offline=297, database=79, server=48, model=82, soak=15, manual=20
-- States: ACTIVE=447, HISTORICAL=15, BLOCKED=79
+- Profiles: offline=298, database=79, server=48, model=82, soak=15, manual=20
+- States: ACTIVE=448, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -450,6 +450,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-MOBILE-SECURE-CREDENTIAL-TEST` | `tests/mobile-secure-credential.test.js` | `C3-032` | T1 | `offline` | 5 s | 3 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MOBILE-TRUST-BAR-TEST` | `tests/mobile-trust-bar.test.js` | `C3-032` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODEL-CATALOG-REGISTRY-TEST` | `tests/model-catalog-registry.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-MODEL-CLEANUP-FIXTURE-CONTEXT-TEST` | `tests/model-cleanup-fixture-context.test.mjs` | `C3-010` | T1 | `offline` | 1 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODEL-CTX-TEST` | `tests/model-ctx.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODEL-EVALUATION-ACCEPTANCE-TEST` | `tests/model-evaluation-acceptance.test.js` | `C3-010` | T1 | `database` | 2 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODEL-EVALUATION-CONSOLIDATION-TEST` | `tests/model-evaluation-consolidation.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |

@@ -15989,6 +15989,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-MODEL-CLEANUP-FIXTURE-CONTEXT-TEST",
+      "path": "tests/model-cleanup-fixture-context.test.mjs",
+      "argv": [
+        "node",
+        "tests/model-cleanup-fixture-context.test.mjs"
+      ],
+      "capabilityId": "C3-010",
+      "tier": "T1",
+      "fixture": "pinned-historical-schema",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-SEMANTIC-EVALUATION-TEST",
       "path": "tests/semantic-evaluation.test.js",
       "argv": [

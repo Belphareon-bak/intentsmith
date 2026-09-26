@@ -23,6 +23,7 @@ def main():
     parser.add_argument('--run',type=Path,required=True)
     parser.add_argument('--tasks',type=Path,required=True)
     parser.add_argument('--out',type=Path,required=True)
+    parser.add_argument('--audit',type=Path)
     args=parser.parse_args()
     plan,plan_file_sha=read(args.run/'plan.json')
     result,result_sha=read(args.run/'result.json')
@@ -33,6 +34,20 @@ def main():
         raise SystemExit('PROFILE_NOT_COMPARABLE')
     assert plan['taskFileSha256']==tasks_sha and result['planSha256']==plan['planSha256']
     models={p['model']:p['artifact'] for p in plan['pairs']['CHAT']}
+    full_original=len(tasks)>4 and plan.get('status')!='DERIVED_MERGED_VIEW'
+    audit_sha=None
+    if full_original:
+        if args.audit is None: raise SystemExit('FULL_PAIR_AUDIT_REQUIRED')
+        audit,audit_sha=read(args.audit)
+        if not (audit.get('status')=='COLLECTION_AUDIT_PASS'
+                and audit.get('decisionAuthority') is False
+                and audit.get('planSha256')==plan['planSha256']
+                and audit.get('resultFileSha256')==result_sha
+                and audit.get('taskFileSha256')==tasks_sha
+                and audit.get('attempts')==len(result['attempts'])
+                and audit.get('models')=={name:artifact['digestSha256'] for name,artifact in models.items()}
+                and audit.get('localDate')):
+            raise SystemExit('FULL_PAIR_AUDIT_MISMATCH')
     task_by_id={t['id']:t for t in tasks}
     by_task={}
     receipts={}
@@ -86,6 +101,10 @@ def main():
             'Original unequal-context canary is diagnostic and is not pooled with these answers.',
             'Model-specific prior turns differ naturally; all user turns, handler code and request options are matched.'],
         'cases':cases}
+    if full_original:
+        packet['collectionAuditSha256']=audit_sha
+        packet['clockLocalDate']=audit['localDate']
+        packet['limitations'].append('All paired system prompts and request options were checked on one local date; this does not grade response quality.')
     if plan.get('status') == 'DERIVED_MERGED_VIEW':
         packet['derivedView']=True
         packet['excludedPriorAttemptCount']=len(plan['excludedPriorAttempts'])
@@ -119,7 +138,7 @@ def main():
     write_new(restricted/'identity-key.json',json.dumps(identity,indent=2)+'\n')
     write_new(args.out/'manifest.json',json.dumps({'status':'NOT_GRADED','packetSha256':packet_sha,
         'planFileSha256':plan_file_sha,'resultSha256':result_sha,'taskInputSha256':tasks_sha,
-        'attemptFileSha256':receipts,'decisionAuthority':False},indent=2)+'\n')
+        'attemptFileSha256':receipts,'collectionAuditSha256':audit_sha,'decisionAuthority':False},indent=2)+'\n')
     print(json.dumps({'status':'EXPORTED_NOT_GRADED','cases':len(cases),'packetSha256':packet_sha,'out':str(args.out)}))
 
 if __name__=='__main__': main()
