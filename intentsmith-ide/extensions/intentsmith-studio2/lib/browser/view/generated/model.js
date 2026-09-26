@@ -45,7 +45,7 @@ class Component extends DCLogic {
       menu: null, palette: false, pq: '', ctx: null, q: '', chip: 'vse',
       view: 'dlazdice', size: 2, dtab: {}, approved: {}, stopped: {}, modes: {}, experts: {}, drafts: {}, extra: {}, sessions: {},
       openFiles: { 'src/main/sftp.js': true }, paused: {}, ran: {}, installed: {}, seq: 1,
-      fileView: {}, fileMode: {}, fileDraft: {}, fileText: {}, fileGuard: null, userOpened: {}, treeClosed: {},
+      fileView: {}, fileMode: {}, fileDraft: {}, fileText: {}, fileGuard: null, userOpened: {}, treeClosed: {}, fileAction: null, fileActionNotice: '',
       scm: {}, scmPlan: null, auditX: {}, ctxQ: '', atts: {}, cmds: {}, termX: {},
       mediaType: 'txt2img', mediaPrompt: '', mediaNegative: '', mediaWidth: 1024, mediaHeight: 1024,
       mediaSteps: 20, mediaCfg: 7, mediaSeed: -1, mediaFrames: 49, mediaModel: '',
@@ -1692,7 +1692,9 @@ class Component extends DCLogic {
       rows.push({
         pad: 8 + depth * 14, name, path, isDir, icon: isDir ? I.folder : I.file, ic: isDir ? 'var(--acct)' : 'var(--faint)',
         chev: isDir ? (closed ? I.right : I.down) : '', hasChev: isDir, cls: (mark ? 'tmod' : '') + (fv && fv.path === path ? ' sel' : ''), mark, mc: mark === 'A' ? 'var(--ok)' : 'var(--warn)',
-        go: isDir ? () => this.setState({ treeClosed: this.merge(this.st(), 'treeClosed', { [sid + '|' + path]: !closed }) }) : this.run((s2) => this.pOpenFile(s2, sid, { path, from: 'soubory' }))
+        go: isDir ? () => this.setState({ treeClosed: this.merge(this.st(), 'treeClosed', { [sid + '|' + path]: !closed }) }) : this.run((s2) => this.pOpenFile(s2, sid, { path, from: 'soubory' })),
+        rename: () => this.startFileAction(sid, 'rename', path),
+        remove: () => this.startFileAction(sid, 'delete', path)
       });
     });
     return rows;
@@ -1701,6 +1703,53 @@ class Component extends DCLogic {
   splitPath(path) {
     const i = path.lastIndexOf('/');
     return { name: i >= 0 ? path.slice(i + 1) : path, dir: i >= 0 ? path.slice(0, i) : '' };
+  }
+
+  startFileAction(sid, op, path = '') {
+    this.setState({ fileAction: { sid, op, path, to: op === 'rename' ? path : '' }, fileActionNotice: '' });
+  }
+
+  fileActionVM(sid, s) {
+    const action = s.fileAction?.sid === sid ? s.fileAction : null;
+    if (!action) return { has: false, target: '', setTarget: () => {}, submit: () => {}, cancel: () => {}, title: '', plan: '', isDelete: false, needsTarget: false, busy: false };
+    const names = { create_file: 'Nový soubor', create_directory: 'Nová složka', rename: 'Přejmenovat', delete: 'Smazat' };
+    const target = action.op === 'rename' ? action.to : action.path;
+    return { has: true, target, title: names[action.op], isDelete: action.op === 'delete', needsTarget: action.op !== 'delete', busy: !!action.busy,
+      plan: action.op === 'rename' ? action.path + ' → ' + action.to : target,
+      setTarget: (event) => this.setState({ fileAction: { ...this.st().fileAction,
+        [action.op === 'rename' ? 'to' : 'path']: event.target.value } }),
+      submit: () => this.submitFileAction(sid),
+      cancel: () => this.setState({ fileAction: null, fileActionNotice: '' }) };
+  }
+
+  submitFileAction(sid) {
+    const s = this.st(), action = s.fileAction;
+    if (!action || action.sid !== sid || action.busy) return;
+    const b = this.sess(sid, s);
+    if (!b || !b.project) return;
+    const valid = path => typeof path === 'string' && path.length > 0 && !path.startsWith('/')
+      && path.split('/').every(part => part && part !== '.' && part !== '..' && !part.includes('\\'));
+    const destination = action.op === 'rename' ? action.to : action.path;
+    if (!valid(destination) || (action.op === 'rename' && destination === action.path)) {
+      this.setState({ fileActionNotice: 'Zadej platnou relativní cestu projektu.' }); return;
+    }
+    const stack = [], rows = (b.tree || []).map(row => { stack.length = row[0];
+      const path = stack.concat([row[1]]).join('/'); stack.push(row[1]); return { path, dir: !!row[2], mark: row[3] }; });
+    const exists = rows.some(row => row.path === destination);
+    if (action.op !== 'delete' && exists) { this.setState({ fileActionNotice: 'Cíl už existuje.' }); return; }
+    if (['rename', 'delete'].includes(action.op) && !rows.some(row => row.path === action.path)) return;
+    if (action.op === 'delete' && rows.some(row => row.path.startsWith(action.path + '/'))) {
+      this.setState({ fileActionNotice: 'Složka není prázdná.' }); return;
+    }
+    const next = action.op === 'delete' ? rows.filter(row => row.path !== action.path)
+      : action.op === 'rename' ? rows.map(row => ({ ...row, path: row.path === action.path ? destination
+        : row.path.startsWith(action.path + '/') ? destination + row.path.slice(action.path.length) : row.path }))
+        : rows.concat([{ path: destination, dir: action.op === 'create_directory', mark: 'A' }]);
+    next.sort((a, b2) => a.path.localeCompare(b2.path));
+    const tree = next.map(row => [row.path.split('/').length - 1, row.path.split('/').at(-1), row.dir ? 1 : 0, row.mark]);
+    this.setState({ sessions: this.merge(s, 'sessions', { [sid]: { ...b, tree } }), fileAction: null,
+      fileActionNotice: ({ create_file: 'Soubor vytvořen', create_directory: 'Složka vytvořena',
+        rename: 'Položka přejmenována', delete: 'Položka smazána' })[action.op] + ' · ukázka provedena.' });
   }
 
   fileViewVM(sid, s, from) {
@@ -1743,7 +1792,7 @@ class Component extends DCLogic {
   filesVM(sid, s) {
     const I = this.data().I;
     const b = sid ? this.sess(sid, s) : null;
-    if (!b) return { edited: [], hasEdited: false, noEdited: true, opened: [], hasOpened: false, noOpened: true, tree: [], hasTree: false, noTree: true, treeTitle: 'Projekt' };
+    if (!b) return { edited: [], hasEdited: false, noEdited: true, opened: [], hasOpened: false, noOpened: true, tree: [], hasTree: false, noTree: true, treeTitle: 'Projekt', canManage: false, newFile: () => {}, newDirectory: () => {}, action: this.fileActionVM(sid, s), actionNotice: '', hasUncertain: false, refresh: () => {} };
     const f = this.sessFiles(sid, s);
     const open = (path, from, mode) => this.run((s2) => this.pOpenFile(s2, sid, { path, from, mode }));
     const edited = f.edited.map((e) => {
@@ -1756,7 +1805,9 @@ class Component extends DCLogic {
     });
     const p = b.project ? this.proj(b.project) : null;
     const tree = this.treeVM(sid, s, b);
-    return { edited, hasEdited: edited.length > 0, noEdited: edited.length === 0, opened, hasOpened: opened.length > 0, noOpened: opened.length === 0, tree, hasTree: tree.length > 0, noTree: tree.length === 0, treeTitle: p ? 'Projekt ' + p.name : 'Projekt' };
+    return { edited, hasEdited: edited.length > 0, noEdited: edited.length === 0, opened, hasOpened: opened.length > 0, noOpened: opened.length === 0, tree, hasTree: tree.length > 0, noTree: tree.length === 0, treeTitle: p ? 'Projekt ' + p.name : 'Projekt', canManage: !!b.project,
+      newFile: () => this.startFileAction(sid, 'create_file'), newDirectory: () => this.startFileAction(sid, 'create_directory'),
+      action: this.fileActionVM(sid, s), actionNotice: s.fileActionNotice || '', hasUncertain: false, refresh: () => {} };
   }
 
   // ---- Správa zdrojů (zadání 25. 9., bod 3) ----

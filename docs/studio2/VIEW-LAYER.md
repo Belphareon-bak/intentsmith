@@ -95,9 +95,13 @@ vyžaduje potvrzení a ověřuje nový stav ze serveru. Lokální modely se čto
 z Ollamy prostřednictvím backendu a velikost uložených příloh z backendu.
 Ostatní nepřipojené záložky jsou výslovně označené a neukazují ukázková data.
 
+V panelu Soubory lze vytvořit soubor/složku, přejmenovat a smazat položku.
+Operace používají ID projektu z relace, relativní cestu, revizi pro přejmenování
+a smazání a následné ověření skutečného stavu. Smazání složky vyžaduje prázdnou
+složku. Nejasný výsledek zápisu se neopakuje automaticky; strom se musí obnovit.
+
 **Zbývá před paritou S2-7:** kombinace expertýz a obecný průvodce workerem
-a další akce katalogů, vytvoření,
-přejmenování a smazání souborů ve stromu, úplných 12 kategorií nastavení,
+a další akce katalogů, úplných 12 kategorií nastavení,
 stahování modelů, role/hunt/governor/upgrady, M4/M7, vstupní obraz pro Multimédia
 a automatické režimy gitu.
 Prototypové fixtury se stále používají u nenapojených částí nastavení;
@@ -167,7 +171,7 @@ a jeho migraci `intentsmith-settings`. Vše ostatní se čte ze stores.
 | log, průběh, audit, problémy | `b.log`, `b.runs`, `b.audit`, `b.problems` | WS `agent` události, `GET /api/audit` |
 | kontext relace | `b.ctx`, `b.parts`, `b.tokens` | `POST /api/context` |
 | Soubory: upravené / otevřené | `b.changes`, `b.edited`, `b.ctxFiles`, `b.attach` | M2 plán a výsledek, WS `workspace`, soubory v `tool_call` (CONNECTORS G2) |
-| Soubory: strom, náhled, uložení | `b.tree`, `data().FILES`, `s.fileText` | `workspace-files.js` (strom, čtení, zápis s ověřením přečtením bajtů, stráž) |
+| Soubory: strom, náhled, uložení, vytvoření, přejmenování, smazání | `b.tree`, `data().FILES`, `s.fileText`, `s.fileAction` | `workspace-files.js` a `src/routes/studio2-workspace.js` (projektově omezené operace, revize, ověření stavu, stráž neuložených změn) |
 | Správa zdrojů | `data().GIT`, `pScmRun` | **backend chybí** — `/api/scm/*` (SCM §3–4, CONNECTORS G1, etapa S2-6); do té doby zobrazit prázdný stav „Správa zdrojů zatím není připojená", nic nepředstírat |
 | katalogy `entities(sec)` | `data().H, P, SP, EX, WK, MK` | `catalog-store.js` a API z CONNECTORS §2 |
 | akce detailu (`detailSpec` → `primary`, `secondary`) | mění stav prototypu | API sekce z CONNECTORS §2 |

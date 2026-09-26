@@ -574,6 +574,13 @@
 .intentsmith-studio2-widget .stt.idle{color:var(--faint)}
 .intentsmith-studio2-widget button.tree-r{width:100%;border:0;background:none;color:var(--dim);cursor:pointer;text-align:left;font-family:inherit}
 .intentsmith-studio2-widget .tree-r.sel{background:var(--acc-soft);color:var(--text)}
+.intentsmith-studio2-widget .tree-entry{display:flex;align-items:center;min-width:0}
+.intentsmith-studio2-widget .tree-entry>.tree-r{flex:1;min-width:0}
+.intentsmith-studio2-widget .tree-entry .tree-actions{display:none;align-items:center;padding-right:5px}
+.intentsmith-studio2-widget .tree-entry:hover .tree-actions,.intentsmith-studio2-widget .tree-entry:focus-within .tree-actions{display:flex}
+.intentsmith-studio2-widget .file-action{padding:10px 12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:7px}
+.intentsmith-studio2-widget .file-action input{width:100%;min-width:0;background:var(--surface);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:6px;font:inherit}
+.intentsmith-studio2-widget .file-action .file-action-buttons{display:flex;gap:6px;justify-content:flex-end}
 .intentsmith-studio2-widget .tchev{width:11px;display:flex;color:var(--faint);flex:0 0 auto}
 .intentsmith-studio2-widget .tn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .intentsmith-studio2-widget .fv{display:grid;grid-template-rows:auto auto auto minmax(0,1fr);height:100%;min-height:0}

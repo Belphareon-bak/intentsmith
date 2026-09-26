@@ -1531,6 +1531,79 @@ class LiveModel extends Component {
     return !!(session && this.widget.workspace.entry(session).editor?.dirty);
   }
 
+  async startFileAction(sid, op, path = '') {
+    const session = this.widget.store.find(sid);
+    if (!session?._projectId) return;
+    const workspace = this.widget.workspace.entry(session);
+    const projectSessions = this.widget.store.state.sessions.filter(item => item._projectId === session._projectId);
+    if (projectSessions.some(item => this.widget.workspace.entry(item).editor?.dirty)
+      || workspace.saving || workspace.operationBusy || workspace.mutationUncertain) {
+      workspace.error = workspace.mutationUncertain
+        ? 'Nejprve obnov strom a ověř skutečný stav souborů.'
+        : 'Nejprve ulož nebo zahoď neuložené změny v projektu.';
+      this.forceUpdate(); return;
+    }
+    const action = { sid, op, path, to: op === 'rename' ? path : '', revision: '', busy: ['rename', 'delete'].includes(op) };
+    this.setState({ fileAction: action, fileActionNotice: '' });
+    if (!action.busy) return;
+    const entry = await this.widget.workspace.inspect(session, path);
+    if (this.st().fileAction !== action) return;
+    if (!entry) { this.setState({ fileAction: null }); return; }
+    this.setState({ fileAction: { ...action, revision: entry.revision, busy: false } });
+  }
+
+  async submitFileAction(sid) {
+    const action = this.st().fileAction;
+    const session = this.widget.store.find(sid);
+    if (!session || !action || action.sid !== sid || action.busy) return;
+    const { op, path, to, revision } = action;
+    const valid = value => typeof value === 'string' && value.length > 0 && !value.startsWith('/')
+      && value.split('/').every(part => part && part !== '.' && part !== '..' && !part.includes('\\'));
+    if (!valid(path) || op === 'rename' && (!valid(to) || to === path)) {
+      this.setState({ fileActionNotice: 'Zadej platnou relativní cestu projektu.' }); return;
+    }
+    if (['rename', 'delete'].includes(op) && !revision) return;
+    const pending = { ...action, busy: true };
+    this.setState({ fileAction: pending, fileActionNotice: '' });
+    const projectSessions = this.widget.store.state.sessions.filter(item => item._projectId === session._projectId);
+    if (projectSessions.some(item => this.widget.workspace.entry(item).editor?.dirty)) {
+      this.setState({ fileAction: { ...action, busy: false },
+        fileActionNotice: 'Nejprve ulož nebo zahoď neuložené změny v projektu.' }); return;
+    }
+    const ok = await this.widget.workspace.operate(session, { op, path, to, expectedRevision: revision });
+    if (this.widget.store.find(sid) !== session || this.st().fileAction !== pending) return;
+    if (!ok) { this.setState({ fileAction: { ...action, busy: false } }); return; }
+    const affects = value => value === path || value.startsWith(path + '/');
+    const rewrite = value => op === 'rename' && affects(value) ? to + value.slice(path.length) : value;
+    if (op === 'rename' || op === 'delete') {
+      const views = { ...this.st().fileView };
+      for (const item of projectSessions) {
+        for (const key of ['_openedFiles', '_modifiedFiles', '_focusFiles']) {
+          if (Array.isArray(item[key])) item[key] = item[key].filter(value => op !== 'delete' || !affects(value)).map(rewrite);
+        }
+        const workspace = this.widget.workspace.entry(item);
+        if (workspace.editor && affects(workspace.editor.path)) workspace.editor = null;
+        if (views[item.id] && affects(views[item.id].path)) views[item.id] = null;
+      }
+      this.setState({ fileView: views });
+    }
+    await Promise.all(projectSessions.filter(item => item !== session).map(item => this.widget.workspace.loadTree(item)));
+    this.widget.store.changed();
+    this.setState({ fileAction: null, fileActionNotice: 'Operace provedena a ověřena.' });
+  }
+
+  filesVM(sid, s) {
+    const vm = super.filesVM(sid, s);
+    const session = sid && this.widget.store.find(sid);
+    if (!session) return vm;
+    const workspace = this.widget.workspace.entry(session);
+    vm.canManage = vm.canManage && workspace.projectId === String(session._projectId) && !!workspace.root;
+    vm.hasUncertain = !!workspace.mutationUncertain;
+    vm.refresh = () => this.widget.workspace.refreshAfterUncertain(session)
+      .catch(error => this.error(session, error));
+    return vm;
+  }
+
   pOpenFile(s, sid, next) {
     const session = this.widget.store.find(sid);
     if (!session) return null;

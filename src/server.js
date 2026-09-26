@@ -164,6 +164,7 @@ import { createAgentPlatformRoutes } from './routes/agents.js';
 import { M3_LEGACY_AGENT_MUTATING_ROUTE_KEYS } from './agents/m3-legacy-agent-quarantine.js';
 import { createExpertiseRoutes, createLifecycleRoutes } from './routes/expertises.js';
 import { createProjectRoutes } from './routes/projects.js';
+import { createStudio2WorkspaceRoutes } from './routes/studio2-workspace.js';
 import { createChatRoutes } from './routes/chat.js';
 import { createDevelopmentRoutes } from './routes/development.js';
 import { createScmRoutes } from './routes/scm.js';
@@ -1191,6 +1192,7 @@ const routes = {
   ...createExpertiseRoutes(routeDeps),
   ...createLifecycleRoutes(routeDeps),
   ...createProjectRoutes(routeDeps),
+  ...createStudio2WorkspaceRoutes(routeDeps),
   // Spread last among lifecycle/project routes: the returned map contains the
   // authoritative M2 endpoints and a typed 410 overlay for every legacy
   // lifecycle mutator.

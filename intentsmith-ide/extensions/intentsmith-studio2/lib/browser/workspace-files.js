@@ -57,6 +57,80 @@ class WorkspaceFiles {
       state.loading = false; this.changed(); return false;
     }
   }
+  async inspect(session, path) {
+    const state = this.entry(session);
+    if (!state.root || state.projectId !== String(session._projectId) || typeof path !== 'string'
+      || !state.tree.some(item => item.path === path)) return null;
+    try {
+      const result = await this.request('/api/studio2/workspace/entry?project_id='
+        + encodeURIComponent(state.projectId) + '&path=' + encodeURIComponent(path));
+      if (result.projectId !== Number(state.projectId) || result.path !== path
+        || !['file', 'directory'].includes(result.type) || !/^[0-9a-f]{64}$/.test(result.revision))
+        throw Error('Backend vrátil neplatnou revizi souboru.');
+      return result;
+    } catch (error) {
+      state.error = error.message || 'Stav souboru nelze načíst.';
+      this.changed(); return null;
+    }
+  }
+  async operate(session, { op, path, to = '', expectedRevision = '' }) {
+    const state = this.entry(session);
+    if (!state.root || state.projectId !== String(session._projectId) || state.operationBusy
+      || state.mutationUncertain || state.editor?.dirty || state.saving
+      || !['create_file', 'create_directory', 'rename', 'delete'].includes(op)
+      || typeof path !== 'string' || !path || typeof to !== 'string'
+      || (['rename', 'delete'].includes(op) && !/^[0-9a-f]{64}$/.test(expectedRevision))) return false;
+    state.operationBusy = true;
+    state.mutationUncertain = true;
+    state.error = null; this.changed();
+    try {
+      const result = await this.request('/api/studio2/workspace/operation', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: Number(state.projectId), op, path,
+          ...(op === 'rename' ? { to } : {}),
+          ...(['rename', 'delete'].includes(op) ? { expectedRevision } : {}) }) });
+      if (result.ok !== true || result.projectId !== Number(state.projectId)
+        || result.op !== op || result.path !== path || op === 'rename' && result.to !== to)
+        throw Error('Backend nepotvrdil přesnou operaci se souborem.');
+      const afterPath = op === 'rename' ? to : path;
+      const original = state.tree.find(item => item.path === path);
+      try {
+        const check = await this.request('/api/studio2/workspace/entry?project_id='
+          + encodeURIComponent(state.projectId) + '&path=' + encodeURIComponent(afterPath));
+        if (op === 'delete' || check.projectId !== Number(state.projectId) || check.path !== afterPath
+          || check.type !== (op === 'create_directory' ? 'directory' : op === 'create_file' ? 'file'
+            : original?.directory ? 'directory' : 'file'))
+          throw Error('Stav po operaci neodpovídá plánu.');
+      } catch (error) {
+        if (op !== 'delete' || error.status !== 404) throw error;
+      }
+      if (op === 'rename') {
+        try {
+          await this.request('/api/studio2/workspace/entry?project_id='
+            + encodeURIComponent(state.projectId) + '&path=' + encodeURIComponent(path));
+          throw Error('Původní položka po přejmenování stále existuje.');
+        } catch (error) { if (error.status !== 404) throw error; }
+      }
+      state.mutationUncertain = false;
+      const refreshed = await this.loadTree(session);
+      if (!refreshed) { state.error = 'Operace byla potvrzena, ale strom se nepodařilo načíst. Obnov seznam.'; this.changed(); }
+      return true;
+    } catch (error) {
+      if ([400, 403, 404, 409].includes(error.status)) state.mutationUncertain = false;
+      state.error = state.mutationUncertain
+        ? 'Výsledek operace není jistý. Obnov strom a ověř soubor před dalším pokusem.'
+        : error.message || 'Operace se souborem selhala.';
+      this.changed(); return false;
+    } finally { state.operationBusy = false; this.changed(); }
+  }
+  async refreshAfterUncertain(session) {
+    const state = this.entry(session);
+    if (!state.mutationUncertain || state.operationBusy) return false;
+    if (!await this.loadTree(session)) return false;
+    state.mutationUncertain = false;
+    state.error = 'Strom obnoven. Před další akcí zkontroluj skutečný stav souborů.';
+    this.changed(); return true;
+  }
   async open(session, path) {
     const state = this.entry(session);
     if (!state.root || state.projectId !== String(session._projectId)

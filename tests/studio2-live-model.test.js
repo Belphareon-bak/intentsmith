@@ -752,6 +752,32 @@ test('file editor opens through WorkspaceFiles and saves through its verified pa
   assert.equal(model.renderVals().ws.fvS.draft, 'upravené');
 });
 
+test('file tree actions bind the prototype form to project-scoped verified operations', async () => {
+  const revision = 'a'.repeat(64), operations = [];
+  const state = { root: '/safe/project', projectId: '17', tree: [
+    { path: 'src', name: 'src', depth: 0, directory: true },
+    { path: 'src/main.js', name: 'main.js', depth: 1, directory: false }], editor: null };
+  const workspace = { entry: () => state, inspect: async (_session, path) => ({ projectId: 17, path, type: 'file', revision }),
+    operate: async (_session, operation) => { operations.push(operation); return true; },
+    loadTree: async () => true, open: async () => false, save: async () => false, discard: () => {}, edit: () => {} };
+  const { model, store } = setup({ workspace });
+  const session = store.focusedSession(); session._projectId = '17';
+  model.setState({ rightTab: 'soubory' });
+  let vm = model.renderVals().ws.fl;
+  assert.equal(vm.canManage, true);
+  await vm.tree.find(row => row.path === 'src/main.js').rename();
+  vm = model.renderVals().ws.fl;
+  assert.equal(vm.action.title, 'Přejmenovat');
+  vm.action.setTarget({ target: { value: 'src/renamed.js' } });
+  await model.renderVals().ws.fl.action.submit();
+  assert.deepEqual(operations, [{ op: 'rename', path: 'src/main.js', to: 'src/renamed.js', expectedRevision: revision }]);
+  assert.equal(model.st().fileAction, null);
+  state.editor = { path: 'src/main.js', dirty: true };
+  await model.renderVals().ws.fl.tree.find(row => row.path === 'src/main.js').remove();
+  assert.equal(model.st().fileAction, null, 'dirty edit prevents destructive action');
+  assert.equal(operations.length, 1);
+});
+
 test('M2 approval needs the bound digest and rendered changes panel', async () => {
   const digest = 'sha256:' + 'a'.repeat(64);
   const calls = [];

@@ -1,6 +1,14 @@
+import './helpers/isolated-test-db.js';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createStudio2WorkspaceRoutes } from '../src/routes/studio2-workspace.js';
+import { classifyRouteAuth, RouteAuthClass } from '../src/security/global-auth-policy.js';
 const require = createRequire(import.meta.url);
+assert.equal(classifyRouteAuth('GET /api/studio2/workspace/entry'), RouteAuthClass.READ);
+assert.equal(classifyRouteAuth('POST /api/studio2/workspace/operation'), RouteAuthClass.ADMIN);
 const { WorkspaceFiles, flattenTree } = require('../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/workspace-files.js');
 const tree = [{ n: 'src', d: true, children: [{ n: 'main.js', d: false }, { n: '..', d: false }] }];
 assert.deepEqual(flattenTree(tree).map(item => item.path), ['src','src/main.js']);
@@ -103,3 +111,94 @@ assert.equal(await racing.save(racingSession), true);
 assert.equal(racingDisk, 'second');
 assert.equal(racing.entry(racingSession).editor.dirty, false);
 console.log('PASS scoped tree/completion, 409 guard, uncertain write recovery, and in-flight edit preservation');
+
+const projectRoot = mkdtempSync(join(tmpdir(), 'studio2-files-'));
+let result;
+const routes = createStudio2WorkspaceRoutes({
+  db: { projects: { findById: { get: id => id === 17 ? { id, path: projectRoot } : null } } },
+  parseBody: async req => req.body,
+  sendJSON: (_res, status, body) => { result = { status, body }; },
+  safeError: error => ({ error: error.message })
+});
+const operate = async body => {
+  await routes['POST /api/studio2/workspace/operation']({ body }, {});
+  return result;
+};
+const entry = async relative => {
+  await routes['GET /api/studio2/workspace/entry']({
+    url: '/api/studio2/workspace/entry?project_id=17&path=' + encodeURIComponent(relative),
+    headers: { host: '127.0.0.1' }
+  }, {});
+  return result;
+};
+try {
+  assert.equal((await operate({ projectId: 17, op: 'create_directory', path: 'src' })).status, 200);
+  assert.equal((await operate({ projectId: 17, op: 'create_file', path: 'src/a.txt' })).status, 200);
+  assert.equal((await operate({ projectId: 17, op: 'create_file', path: 'src/a.txt' })).status, 409);
+  assert.equal((await operate({ projectId: 17, op: 'create_file', path: '../escape' })).status, 400);
+  assert.equal((await operate({ projectId: 18, op: 'create_file', path: 'src/b.txt' })).status, 404);
+  symlinkSync(tmpdir(), join(projectRoot, 'outside'));
+  assert.equal((await operate({ projectId: 17, op: 'create_file', path: 'outside/escape.txt' })).status, 403);
+  const original = await entry('src/a.txt');
+  assert.equal(original.status, 200);
+  writeFileSync(join(projectRoot, 'src/a.txt'), 'changed');
+  assert.equal((await operate({ projectId: 17, op: 'rename', path: 'src/a.txt', to: 'src/b.txt',
+    expectedRevision: original.body.revision })).status, 409);
+  const current = await entry('src/a.txt');
+  assert.equal((await operate({ projectId: 17, op: 'rename', path: 'src/a.txt', to: 'src/b.txt',
+    expectedRevision: current.body.revision })).status, 200);
+  assert.equal(readFileSync(join(projectRoot, 'src/b.txt'), 'utf8'), 'changed');
+  assert.equal((await operate({ projectId: 17, op: 'delete', path: 'src',
+    expectedRevision: (await entry('src')).body.revision })).status, 409);
+  assert.equal((await operate({ projectId: 17, op: 'delete', path: 'src/b.txt',
+    expectedRevision: (await entry('src/b.txt')).body.revision })).status, 200);
+  assert.equal(existsSync(join(projectRoot, 'src/b.txt')), false);
+  assert.equal((await operate({ projectId: 17, op: 'delete', path: 'src',
+    expectedRevision: (await entry('src')).body.revision })).status, 200);
+  console.log('PASS Studio 2 project-scoped create, revision-guarded rename/delete, no overwrite and symlink block');
+} finally { rmSync(projectRoot, { recursive: true, force: true }); }
+
+const diskEntries = new Map([['src', 'directory'], ['src/main.js', 'file']]);
+let loseResponse = false, operationPosts = 0;
+const mutationClient = new WorkspaceFiles({ backendUrl: () => 'http://studio.test', fetchImpl: async (url, options = {}) => {
+  const route = new URL(url), method = options.method || 'GET';
+  const reply = (status, body) => ({ ok: status < 400, status, json: async () => body });
+  if (route.pathname === '/api/workspace/tree') return reply(200, { root: '/tmp/project', tree: [{ n: 'src', d: true,
+    children: [...diskEntries].filter(([name]) => name.startsWith('src/')).map(([name, kind]) => ({ n: name.slice(4), d: kind === 'directory' })) }] });
+  if (route.pathname === '/api/studio2/workspace/entry') {
+    const name = route.searchParams.get('path');
+    return diskEntries.has(name) ? reply(200, { projectId: 19, path: name, type: diskEntries.get(name), revision: 'a'.repeat(64) })
+      : reply(404, { error: 'Entry not found' });
+  }
+  if (route.pathname === '/api/studio2/workspace/operation' && method === 'POST') {
+    const body = JSON.parse(options.body);
+    operationPosts++;
+    assert.equal(body.projectId, 19);
+    if (body.op === 'rename' || body.op === 'delete') assert.equal(body.expectedRevision, 'a'.repeat(64));
+    if (body.op === 'delete') diskEntries.delete(body.path);
+    else if (body.op === 'rename') { diskEntries.set(body.to, diskEntries.get(body.path)); diskEntries.delete(body.path); }
+    else diskEntries.set(body.path, body.op === 'create_directory' ? 'directory' : 'file');
+    if (loseResponse) throw Error('lost response');
+    return reply(200, { ok: true, projectId: 19, op: body.op, path: body.path,
+      ...(body.op === 'rename' ? { to: body.to } : {}) });
+  }
+  throw Error('Unexpected request: ' + route.pathname);
+} });
+const mutationSession = { id: 's4', _projectId: 19 };
+assert.equal(await mutationClient.loadTree(mutationSession), true);
+assert.equal(await mutationClient.operate(mutationSession, { op: 'create_file', path: 'src/new.js' }), true);
+assert.equal(diskEntries.get('src/new.js'), 'file');
+const rev = (await mutationClient.inspect(mutationSession, 'src/new.js')).revision;
+assert.equal(await mutationClient.operate(mutationSession, { op: 'rename', path: 'src/new.js', to: 'src/renamed.js', expectedRevision: rev }), true);
+assert.equal(diskEntries.has('src/new.js'), false);
+assert.equal(await mutationClient.operate(mutationSession, { op: 'delete', path: 'src/renamed.js', expectedRevision: rev }), true);
+assert.equal(diskEntries.has('src/renamed.js'), false);
+loseResponse = true;
+assert.equal(await mutationClient.operate(mutationSession, { op: 'create_file', path: 'src/uncertain.js' }), false);
+assert.equal(mutationClient.entry(mutationSession).mutationUncertain, true);
+assert.equal(await mutationClient.operate(mutationSession, { op: 'create_file', path: 'src/uncertain.js' }), false);
+assert.equal(operationPosts, 4, 'lost response must never be retried');
+assert.equal(await mutationClient.refreshAfterUncertain(mutationSession), true);
+assert.equal(mutationClient.entry(mutationSession).mutationUncertain, false);
+assert.equal(mutationClient.entry(mutationSession).tree.some(item => item.path === 'src/uncertain.js'), true);
+console.log('PASS Studio 2 file controls verify readback and never retry uncertain mutations');
