@@ -764,6 +764,12 @@ test('file tree actions bind the prototype form to project-scoped verified opera
     loadTree: async () => true, open: async () => false, save: async () => false, discard: () => {}, edit: () => {} };
   const { model, store } = setup({ workspace });
   const session = store.focusedSession(); session._projectId = '17';
+  session._modifiedFiles = ['src/main.js'];
+  session._fileChanges = { 'src/main.js': { added: 2, removed: 1 } };
+  const scmEntry = model.scmClient.entry('17');
+  scmEntry.diffs.set('unstaged|src/main.js', 'old diff');
+  let scmLoads = 0;
+  model.scmClient.load = async (_projectId, { refresh }) => { assert.equal(refresh, true); scmLoads++; return true; };
   model.setState({ rightTab: 'soubory' });
   let vm = model.renderVals().ws.fl;
   assert.equal(vm.canManage, true);
@@ -774,15 +780,28 @@ test('file tree actions bind the prototype form to project-scoped verified opera
   await model.renderVals().ws.fl.action.submit();
   assert.deepEqual(operations, [{ op: 'rename', path: 'src/main.js', to: 'src/renamed.js', expectedRevision: revision }]);
   assert.equal(model.st().fileAction, null);
+  assert.deepEqual(session._modifiedFiles, ['src/renamed.js']);
+  assert.deepEqual(session._fileChanges, { 'src/renamed.js': { added: 2, removed: 1 } });
+  assert.equal(scmEntry.diffs.size, 0);
   state.editor = { path: 'src/main.js', dirty: true };
   await model.renderVals().ws.fl.tree.find(row => row.path === 'src/main.js').remove();
   assert.equal(model.st().fileAction, null, 'dirty edit prevents destructive action');
   assert.equal(operations.length, 1);
   state.editor = null;
+  scmEntry.plan = { state: 'pending', planId: 'old-plan' };
+  scmEntry.next = { op: 'push' };
+  let scmCancels = 0;
+  model.scmClient.cancel = async projectId => { assert.equal(projectId, '17'); scmCancels++; return true; };
   await model.renderVals().ws.fl.tree.find(row => row.path === 'src').remove();
   assert.match(model.renderVals().ws.fl.action.impact, /včetně obsahu\. Položek: 1\./);
   await model.renderVals().ws.fl.action.submit();
   assert.deepEqual(operations[1], { op: 'delete', path: 'src', to: '', expectedRevision: revision });
+  assert.deepEqual(session._modifiedFiles, []);
+  assert.deepEqual(session._fileChanges, {});
+  assert.equal(scmLoads, 2);
+  assert.equal(scmCancels, 1);
+  assert.equal(scmEntry.plan, null);
+  assert.equal(scmEntry.next, null);
 });
 
 test('M2 approval needs the bound digest and rendered changes panel', async () => {

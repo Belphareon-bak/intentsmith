@@ -1587,6 +1587,11 @@ class LiveModel extends Component {
         for (const key of ['_openedFiles', '_modifiedFiles', '_focusFiles']) {
           if (Array.isArray(item[key])) item[key] = item[key].filter(value => op !== 'delete' || !affects(value)).map(rewrite);
         }
+        if (item._fileChanges && typeof item._fileChanges === 'object') {
+          item._fileChanges = Object.fromEntries(Object.entries(item._fileChanges)
+            .filter(([value]) => op !== 'delete' || !affects(value))
+            .map(([value, count]) => [rewrite(value), count]));
+        }
         const workspace = this.widget.workspace.entry(item);
         if (workspace.editor && affects(workspace.editor.path)) workspace.editor = null;
         if (views[item.id] && affects(views[item.id].path)) views[item.id] = null;
@@ -1594,8 +1599,14 @@ class LiveModel extends Component {
       this.setState({ fileView: views });
     }
     await Promise.all(projectSessions.filter(item => item !== session).map(item => this.widget.workspace.loadTree(item)));
+    const scm = this.scmClient.entry(session._projectId);
+    const cancelled = scm.plan?.state === 'pending' ? await this.scmClient.cancel(session._projectId) : true;
+    scm.plan = null; scm.next = null; scm.diffs.clear();
+    const scmLoaded = await this.scmClient.load(session._projectId, { refresh: true });
     this.widget.store.changed();
-    this.setState({ fileAction: null, fileActionNotice: 'Operace provedena a ověřena.' });
+    this.setState({ fileAction: null, fileActionNotice: scmLoaded && cancelled
+      ? 'Operace provedena a ověřena.'
+      : 'Souborová operace byla ověřena, ale stav gitu nebo jeho plán se nepodařilo obnovit. Před další git akcí obnov stav projektu.' });
   }
 
   filesVM(sid, s) {
