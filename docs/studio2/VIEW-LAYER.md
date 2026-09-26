@@ -97,8 +97,10 @@ Ostatní nepřipojené záložky jsou výslovně označené a neukazují ukázko
 
 V panelu Soubory lze vytvořit soubor/složku, přejmenovat a smazat položku.
 Operace používají ID projektu z relace, relativní cestu, revizi pro přejmenování
-a smazání a následné ověření skutečného stavu. Smazání složky vyžaduje prázdnou
-složku. Nejasný výsledek zápisu se neopakuje automaticky; strom se musí obnovit.
+a smazání a následné ověření skutečného stavu. Potvrzení smazání složky ukazuje
+počet položek v podstromu; backend porovná jeho revizi a odmítne chráněné
+položky, symbolické odkazy a jiné disky. Nejasný výsledek zápisu se neopakuje
+automaticky; strom se musí obnovit.
 
 **Zbývá před paritou S2-7:** kombinace expertýz a obecný průvodce workerem
 a další akce katalogů, úplných 12 kategorií nastavení,

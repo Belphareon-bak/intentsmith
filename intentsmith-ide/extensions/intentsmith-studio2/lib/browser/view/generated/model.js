@@ -1694,7 +1694,7 @@ class Component extends DCLogic {
         chev: isDir ? (closed ? I.right : I.down) : '', hasChev: isDir, cls: (mark ? 'tmod' : '') + (fv && fv.path === path ? ' sel' : ''), mark, mc: mark === 'A' ? 'var(--ok)' : 'var(--warn)',
         go: isDir ? () => this.setState({ treeClosed: this.merge(this.st(), 'treeClosed', { [sid + '|' + path]: !closed }) }) : this.run((s2) => this.pOpenFile(s2, sid, { path, from: 'soubory' })),
         rename: () => this.startFileAction(sid, 'rename', path),
-        remove: () => this.startFileAction(sid, 'delete', path)
+        remove: () => this.startFileAction(sid, 'delete', path, isDir)
       });
     });
     return rows;
@@ -1705,17 +1705,19 @@ class Component extends DCLogic {
     return { name: i >= 0 ? path.slice(i + 1) : path, dir: i >= 0 ? path.slice(0, i) : '' };
   }
 
-  startFileAction(sid, op, path = '') {
-    this.setState({ fileAction: { sid, op, path, to: op === 'rename' ? path : '' }, fileActionNotice: '' });
+  startFileAction(sid, op, path = '', directory = false) {
+    this.setState({ fileAction: { sid, op, path, to: op === 'rename' ? path : '', directory }, fileActionNotice: '' });
   }
 
   fileActionVM(sid, s) {
     const action = s.fileAction?.sid === sid ? s.fileAction : null;
-    if (!action) return { has: false, target: '', setTarget: () => {}, submit: () => {}, cancel: () => {}, title: '', plan: '', isDelete: false, needsTarget: false, busy: false };
+    if (!action) return { has: false, target: '', setTarget: () => {}, submit: () => {}, cancel: () => {}, title: '', plan: '', impact: '', isDelete: false, needsTarget: false, busy: false };
     const names = { create_file: 'Nový soubor', create_directory: 'Nová složka', rename: 'Přejmenovat', delete: 'Smazat' };
     const target = action.op === 'rename' ? action.to : action.path;
     return { has: true, target, title: names[action.op], isDelete: action.op === 'delete', needsTarget: action.op !== 'delete', busy: !!action.busy,
       plan: action.op === 'rename' ? action.path + ' → ' + action.to : target,
+      impact: action.directory ? 'Složka se smaže včetně obsahu.' + (action.entries == null ? '' : ' Položek: ' + action.entries + '.')
+        : 'Soubor bude odstraněn z projektu.',
       setTarget: (event) => this.setState({ fileAction: { ...this.st().fileAction,
         [action.op === 'rename' ? 'to' : 'path']: event.target.value } }),
       submit: () => this.submitFileAction(sid),
@@ -1738,10 +1740,7 @@ class Component extends DCLogic {
     const exists = rows.some(row => row.path === destination);
     if (action.op !== 'delete' && exists) { this.setState({ fileActionNotice: 'Cíl už existuje.' }); return; }
     if (['rename', 'delete'].includes(action.op) && !rows.some(row => row.path === action.path)) return;
-    if (action.op === 'delete' && rows.some(row => row.path.startsWith(action.path + '/'))) {
-      this.setState({ fileActionNotice: 'Složka není prázdná.' }); return;
-    }
-    const next = action.op === 'delete' ? rows.filter(row => row.path !== action.path)
+    const next = action.op === 'delete' ? rows.filter(row => row.path !== action.path && !row.path.startsWith(action.path + '/'))
       : action.op === 'rename' ? rows.map(row => ({ ...row, path: row.path === action.path ? destination
         : row.path.startsWith(action.path + '/') ? destination + row.path.slice(action.path.length) : row.path }))
         : rows.concat([{ path: destination, dir: action.op === 'create_directory', mark: 'A' }]);

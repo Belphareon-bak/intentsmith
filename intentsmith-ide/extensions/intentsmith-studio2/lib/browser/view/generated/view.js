@@ -1636,7 +1636,7 @@ function render(vm, h, F, rt) {
                     h("span", { className: "mono" },
                       vm.ws.fl.action.plan),
                     h("span", null,
-                      "Odstranit položku z projektu?")) : null,
+                      vm.ws.fl.action.impact)) : null,
                   (vm.ws.fl.action.needsTarget) ? h(F, null,
                     h("input", { "aria-label": "Cesta položky v projektu", value: vm.ws.fl.action.target, onChange: vm.ws.fl.action.setTarget, placeholder: "Relativní cesta v projektu" })) : null,
                   h("div", { className: "file-action-buttons" },

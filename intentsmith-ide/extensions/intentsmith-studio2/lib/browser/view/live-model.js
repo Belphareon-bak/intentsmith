@@ -1531,7 +1531,7 @@ class LiveModel extends Component {
     return !!(session && this.widget.workspace.entry(session).editor?.dirty);
   }
 
-  async startFileAction(sid, op, path = '') {
+  async startFileAction(sid, op, path = '', directory = false) {
     const session = this.widget.store.find(sid);
     if (!session?._projectId) return;
     const workspace = this.widget.workspace.entry(session);
@@ -1543,13 +1543,19 @@ class LiveModel extends Component {
         : 'Nejprve ulož nebo zahoď neuložené změny v projektu.';
       this.forceUpdate(); return;
     }
-    const action = { sid, op, path, to: op === 'rename' ? path : '', revision: '', busy: ['rename', 'delete'].includes(op) };
+    const action = { sid, op, path, to: op === 'rename' ? path : '', revision: '', directory,
+      busy: ['rename', 'delete'].includes(op) };
     this.setState({ fileAction: action, fileActionNotice: '' });
     if (!action.busy) return;
     const entry = await this.widget.workspace.inspect(session, path);
     if (this.st().fileAction !== action) return;
     if (!entry) { this.setState({ fileAction: null }); return; }
-    this.setState({ fileAction: { ...action, revision: entry.revision, busy: false } });
+    if (op === 'delete' && entry.protectedDescendants) {
+      workspace.error = 'Složka obsahuje chráněné položky, odkazy nebo jiný disk. Odstraň je nejprve samostatně.';
+      this.setState({ fileAction: null }); return;
+    }
+    this.setState({ fileAction: { ...action, revision: entry.revision,
+      directory: entry.type === 'directory', entries: entry.entries, busy: false } });
   }
 
   async submitFileAction(sid) {

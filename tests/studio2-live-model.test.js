@@ -757,7 +757,9 @@ test('file tree actions bind the prototype form to project-scoped verified opera
   const state = { root: '/safe/project', projectId: '17', tree: [
     { path: 'src', name: 'src', depth: 0, directory: true },
     { path: 'src/main.js', name: 'main.js', depth: 1, directory: false }], editor: null };
-  const workspace = { entry: () => state, inspect: async (_session, path) => ({ projectId: 17, path, type: 'file', revision }),
+  const workspace = { entry: () => state, inspect: async (_session, path) => ({ projectId: 17, path,
+    type: path === 'src' ? 'directory' : 'file', revision,
+    ...(path === 'src' ? { entries: 1, protectedDescendants: false } : {}) }),
     operate: async (_session, operation) => { operations.push(operation); return true; },
     loadTree: async () => true, open: async () => false, save: async () => false, discard: () => {}, edit: () => {} };
   const { model, store } = setup({ workspace });
@@ -776,6 +778,11 @@ test('file tree actions bind the prototype form to project-scoped verified opera
   await model.renderVals().ws.fl.tree.find(row => row.path === 'src/main.js').remove();
   assert.equal(model.st().fileAction, null, 'dirty edit prevents destructive action');
   assert.equal(operations.length, 1);
+  state.editor = null;
+  await model.renderVals().ws.fl.tree.find(row => row.path === 'src').remove();
+  assert.match(model.renderVals().ws.fl.action.impact, /včetně obsahu\. Položek: 1\./);
+  await model.renderVals().ws.fl.action.submit();
+  assert.deepEqual(operations[1], { op: 'delete', path: 'src', to: '', expectedRevision: revision });
 });
 
 test('M2 approval needs the bound digest and rendered changes panel', async () => {

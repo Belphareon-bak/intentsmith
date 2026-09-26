@@ -1,7 +1,7 @@
 import './helpers/isolated-test-db.js';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createStudio2WorkspaceRoutes } from '../src/routes/studio2-workspace.js';
@@ -150,14 +150,24 @@ try {
   assert.equal((await operate({ projectId: 17, op: 'rename', path: 'src/a.txt', to: 'src/b.txt',
     expectedRevision: current.body.revision })).status, 200);
   assert.equal(readFileSync(join(projectRoot, 'src/b.txt'), 'utf8'), 'changed');
+  const directoryBefore = await entry('src');
+  assert.equal(directoryBefore.body.entries, 1);
+  writeFileSync(join(projectRoot, 'src/b.txt'), 'changed again');
   assert.equal((await operate({ projectId: 17, op: 'delete', path: 'src',
-    expectedRevision: (await entry('src')).body.revision })).status, 409);
-  assert.equal((await operate({ projectId: 17, op: 'delete', path: 'src/b.txt',
-    expectedRevision: (await entry('src/b.txt')).body.revision })).status, 200);
+    expectedRevision: directoryBefore.body.revision })).status, 409, 'changed subtree is not deleted');
+  symlinkSync(tmpdir(), join(projectRoot, 'src/link'));
+  const protectedDirectory = await entry('src');
+  assert.equal(protectedDirectory.body.protectedDescendants, true);
+  assert.equal((await operate({ projectId: 17, op: 'delete', path: 'src',
+    expectedRevision: protectedDirectory.body.revision })).status, 403);
+  unlinkSync(join(projectRoot, 'src/link'));
+  const currentDirectory = await entry('src');
+  assert.equal(currentDirectory.body.protectedDescendants, false);
+  assert.equal((await operate({ projectId: 17, op: 'delete', path: 'src',
+    expectedRevision: currentDirectory.body.revision })).status, 200);
   assert.equal(existsSync(join(projectRoot, 'src/b.txt')), false);
-  assert.equal((await operate({ projectId: 17, op: 'delete', path: 'src',
-    expectedRevision: (await entry('src')).body.revision })).status, 200);
-  console.log('PASS Studio 2 project-scoped create, revision-guarded rename/delete, no overwrite and symlink block');
+  assert.equal(existsSync(join(projectRoot, 'src')), false);
+  console.log('PASS Studio 2 scoped create and revision-guarded recursive delete with protected-descendant block');
 } finally { rmSync(projectRoot, { recursive: true, force: true }); }
 
 const diskEntries = new Map([['src', 'directory'], ['src/main.js', 'file']]);
@@ -169,7 +179,9 @@ const mutationClient = new WorkspaceFiles({ backendUrl: () => 'http://studio.tes
     children: [...diskEntries].filter(([name]) => name.startsWith('src/')).map(([name, kind]) => ({ n: name.slice(4), d: kind === 'directory' })) }] });
   if (route.pathname === '/api/studio2/workspace/entry') {
     const name = route.searchParams.get('path');
-    return diskEntries.has(name) ? reply(200, { projectId: 19, path: name, type: diskEntries.get(name), revision: 'a'.repeat(64) })
+    return diskEntries.has(name) ? reply(200, { projectId: 19, path: name, type: diskEntries.get(name), revision: 'a'.repeat(64),
+      ...(diskEntries.get(name) === 'directory' ? { entries: [...diskEntries.keys()].filter(item => item.startsWith(name + '/')).length,
+        protectedDescendants: false } : {}) })
       : reply(404, { error: 'Entry not found' });
   }
   if (route.pathname === '/api/studio2/workspace/operation' && method === 'POST') {
@@ -188,6 +200,7 @@ const mutationClient = new WorkspaceFiles({ backendUrl: () => 'http://studio.tes
 } });
 const mutationSession = { id: 's4', _projectId: 19 };
 assert.equal(await mutationClient.loadTree(mutationSession), true);
+assert.equal((await mutationClient.inspect(mutationSession, 'src')).entries, 1);
 assert.equal(await mutationClient.operate(mutationSession, { op: 'create_file', path: 'src/new.js' }), true);
 assert.equal(diskEntries.get('src/new.js'), 'file');
 const rev = (await mutationClient.inspect(mutationSession, 'src/new.js')).revision;

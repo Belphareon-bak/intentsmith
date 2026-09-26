@@ -1,6 +1,7 @@
 // Project-scoped filesystem effects for the Studio 2 file tree. The existing
 // workspace routes remain available for legacy clients.
 import * as fs from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 
@@ -52,12 +53,36 @@ async function revision(entry) {
   if (!entry.stat) return null;
   const { stat, target } = entry;
   const type = stat.isDirectory() ? 'directory' : 'file';
-  const content = type === 'file' ? createHash('sha256').update(await fs.readFile(target)).digest('hex')
-    : (await fs.readdir(target)).sort();
+  let content, entries = 0, protectedDescendants = false;
+  if (type === 'file') {
+    const digest = createHash('sha256');
+    for await (const chunk of createReadStream(target)) digest.update(chunk);
+    content = digest.digest('hex');
+  } else {
+    content = [];
+    const walk = async (directory, prefix, depth) => {
+      if (depth > 64) throw Object.assign(Error('Directory too deep'), { status: 413 });
+      const names = (await fs.readdir(directory)).sort();
+      for (const name of names) {
+        if (++entries > 50000) throw Object.assign(Error('Directory too large'), { status: 413 });
+        const child = path.join(directory, name);
+        const childStat = await fs.lstat(child);
+        const relative = prefix ? prefix + '/' + name : name;
+        const directoryChild = childStat.isDirectory();
+        const protectedChild = BLOCKED.has(name) || childStat.isSymbolicLink()
+          || childStat.dev !== stat.dev || !directoryChild && !childStat.isFile();
+        content.push([relative, directoryChild ? 'directory' : childStat.isFile() ? 'file' : 'special',
+          String(childStat.dev), String(childStat.ino), childStat.size, childStat.mtimeMs]);
+        if (protectedChild) protectedDescendants = true;
+        else if (directoryChild) await walk(child, relative, depth + 1);
+      }
+    };
+    await walk(target, '', 0);
+  }
   return { type, revision: createHash('sha256').update(JSON.stringify({
     type, dev: String(stat.dev), ino: String(stat.ino), size: stat.size,
     mtimeMs: stat.mtimeMs, content
-  })).digest('hex'), size: stat.size };
+  })).digest('hex'), size: stat.size, ...(type === 'directory' ? { entries, protectedDescendants } : {}) };
 }
 
 function errorStatus(error) {
@@ -76,7 +101,8 @@ function sendRouteError(res, error, sendJSON, safeError) {
     400: 'Neplatná cesta nebo požadavek.',
     403: 'Přístup k položce projektu je odmítnut.',
     404: 'Projekt nebo položka nebyly nalezeny.',
-    409: 'Položka se změnila, cíl už existuje nebo složka není prázdná.'
+    409: 'Položka se změnila, cíl už existuje nebo složka není prázdná.',
+    413: 'Složka je příliš velká pro bezpečné ověření v UI.'
   };
   return sendJSON(res, status, { error: publicMessages[status] || 'Operaci nelze provést.' });
 }
@@ -122,7 +148,11 @@ export function createStudio2WorkspaceRoutes({ db, parseBody, sendJSON, safeErro
             const destination = await scopedEntry(root, to);
             if (destination.stat) return sendJSON(res, 409, { error: 'Cílová položka už existuje.' });
             await fs.rename(source.target, destination.target);
-          } else if (source.stat.isDirectory()) await fs.rmdir(source.target);
+          } else if (source.stat.isDirectory()) {
+            if (current.protectedDescendants) return sendJSON(res, 403,
+              { error: 'Složka obsahuje chráněnou položku, symbolický odkaz nebo jiný disk.' });
+            await fs.rm(source.target, { recursive: true, force: false, maxRetries: 0 });
+          }
           else await fs.unlink(source.target);
         }
         sendJSON(res, 200, { ok: true, projectId: Number(projectId), op, path: relative,

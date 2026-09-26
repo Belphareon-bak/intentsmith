@@ -65,7 +65,9 @@ class WorkspaceFiles {
       const result = await this.request('/api/studio2/workspace/entry?project_id='
         + encodeURIComponent(state.projectId) + '&path=' + encodeURIComponent(path));
       if (result.projectId !== Number(state.projectId) || result.path !== path
-        || !['file', 'directory'].includes(result.type) || !/^[0-9a-f]{64}$/.test(result.revision))
+        || !['file', 'directory'].includes(result.type) || !/^[0-9a-f]{64}$/.test(result.revision)
+        || result.type === 'directory' && (!Number.isSafeInteger(result.entries) || result.entries < 0
+          || typeof result.protectedDescendants !== 'boolean'))
         throw Error('Backend vrátil neplatnou revizi souboru.');
       return result;
     } catch (error) {
@@ -116,7 +118,7 @@ class WorkspaceFiles {
       if (!refreshed) { state.error = 'Operace byla potvrzena, ale strom se nepodařilo načíst. Obnov seznam.'; this.changed(); }
       return true;
     } catch (error) {
-      if ([400, 403, 404, 409].includes(error.status)) state.mutationUncertain = false;
+      if ([400, 403, 404, 409, 413].includes(error.status)) state.mutationUncertain = false;
       state.error = state.mutationUncertain
         ? 'Výsledek operace není jistý. Obnov strom a ověř soubor před dalším pokusem.'
         : error.message || 'Operace se souborem selhala.';
