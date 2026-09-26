@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { collectAnswer, collectionSuite, MAX_MODEL_BYTES } from './role-collection-profile.mjs';
+import { collectAnswer, collectionCoverage, collectionSuite, MAX_MODEL_BYTES } from './role-collection-profile.mjs';
 import { inspectCodeCaptureSuite } from '../../src/eval/code-capture-preflight.js';
 import { ModelEvaluationRunner } from '../../src/eval/model-evaluation-runner.js';
 import { CodePatchEvaluationRunner, codePatchSuite } from '../../src/eval/code-patch-suite.js';
@@ -223,7 +223,7 @@ try {
       }
     }
   }
-  report.status=collectOnly ? (report.attempts.some(a=>a.captureStatus==='TRANSPORT_ERROR')?'COLLECTION_INCOMPLETE':'COLLECTION_COMPLETE') : report.calibrations.some(c=>c.status!=='PASS') || report.attempts.some(a=>a.valid===false)
+  report.status=collectOnly ? (collectionCoverage(report.attempts,total).complete?'COLLECTION_COMPLETE':'COLLECTION_INCOMPLETE') : report.calibrations.some(c=>c.status!=='PASS') || report.attempts.some(a=>a.valid===false)
     ? 'INCOMPLETE_EVIDENCE' : flag('calibrate-only')?'CALIBRATION_COMPLETE':'MEASUREMENT_COMPLETE';
   if(['INCOMPLETE_EVIDENCE','COLLECTION_INCOMPLETE'].includes(report.status))process.exitCode=2;
 } catch(error) {
@@ -234,7 +234,11 @@ try {
   report.durationMs=Date.parse(report.finishedAt)-Date.parse(report.startedAt);
   report.roles=plan.roles.map(p=>{
     const rows=report.attempts.filter(a=>a.role===p.role);
-    if(collectOnly) return {role:p.role,expectedAttempts:p.tasks.length*repeats,attempted:rows.length,captured:rows.filter(a=>a.captureStatus==='CAPTURED').length,outputBudgetExhausted:rows.filter(a=>a.captureStatus==='OUTPUT_BUDGET_EXHAUSTED').length,transportErrors:rows.filter(a=>a.captureStatus==='TRANSPORT_ERROR').length,gradingStatus:'NOT_GRADED',contractSha256:p.contractSha256};
+    if(collectOnly) {
+      const expectedAttempts=p.tasks.length*repeats;
+      const coverage=collectionCoverage(rows,expectedAttempts);
+      return {role:p.role,expectedAttempts,attempted:rows.length,captured:coverage.captured,outputBudgetExhausted:rows.filter(a=>a.captureStatus==='OUTPUT_BUDGET_EXHAUSTED').length,transportErrors:rows.filter(a=>a.captureStatus==='TRANSPORT_ERROR').length,collectionStatus:coverage.complete?'COLLECTION_COMPLETE':'COLLECTION_INCOMPLETE',gradingStatus:'NOT_GRADED',contractSha256:p.contractSha256};
+    }
     const requiredCalibrations=p.tasks.filter(t=>t.tier==='T4');
     const calibrationValid=requiredCalibrations.every(t=>
       report.calibrations.findLast(c=>c.role===p.role && c.task===t.name)?.status==='PASS');

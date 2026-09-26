@@ -4,6 +4,14 @@ import { captureConversation } from './conversation-capture.js';
 export const COLLECTION_PROFILE = 'role-collection.2';
 export const MAX_MODEL_BYTES = 22_000_000_000;
 
+export function collectionCoverage(attempts, expectedAttempts) {
+  if (!Array.isArray(attempts) || !Number.isInteger(expectedAttempts) || expectedAttempts < 1) {
+    throw new Error('COLLECTION_COVERAGE_INVALID');
+  }
+  const captured = attempts.filter(attempt => attempt.captureStatus === 'CAPTURED').length;
+  return { captured, complete: attempts.length === expectedAttempts && captured === expectedAttempts };
+}
+
 export function collectionSuite(role, suite) {
   return { ...suite, version: `${suite.version}+${COLLECTION_PROFILE}`, tests: suite.tests.map(original => {
     const additions = [];
