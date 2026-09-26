@@ -817,6 +817,11 @@ textarea.fv-ed{font-family:var(--font-mono)}
 <p class="aph">{{b.security.webhook}}</p></sc-if>
 <sc-if value="{{b.security.isSessions}}" hint-placeholder-val="{{false}}"><p class="aph">{{b.security.sessions}}</p></sc-if>
 </div></sc-if>
+<sc-if value="{{b.isProjectDirectory}}" hint-placeholder-val="{{false}}"><div class="aps" aria-label="Výchozí složka projektů">
+<div class="blk-h"><span class="lbl-acc">Výchozí složka nových projektů</span></div>
+<label class="arow2"><span>Absolutní cesta ve tvé domácí složce</span><input class="mono" value="{{b.projectDirectory.value}}" onChange="{{b.projectDirectory.change}}" placeholder="/home/user/Projects"></label>
+<p class="aph" role="status">{{b.projectDirectory.status}}</p>
+</div></sc-if>
 <sc-if value="{{b.isModelWorkspace}}" hint-placeholder-val="{{false}}"><div class="aps" aria-label="Modelové pracoviště">
 <div class="blk-h"><span class="lbl-acc">Modely a inference</span></div>
 <div class="dtabs model-tabs"><sc-for list="{{b.modelWorkspace.tabs}}" as="tab" hint-placeholder-count="7"><button class="dtab {{tab.cls}}" onClick="{{tab.go}}">{{tab.label}}</button></sc-for></div>

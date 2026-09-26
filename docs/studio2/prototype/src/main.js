@@ -1146,6 +1146,7 @@ class Component extends DCLogic {
       isSettingsImport: kind === 'settingsImport', settingsImport: this.settingsImportVM(),
       isFeedback: kind === 'feedback', feedback: this.feedbackVM(),
       isSecurity: kind === 'security', security: this.securityVM(this.st()),
+      isProjectDirectory: kind === 'projectDirectory', projectDirectory: this.projectDirectoryVM(),
       isPreferences: kind === 'preferences', preferences: this.preferencesVM(this.st()),
       isModelWorkspace: kind === 'modelWorkspace', modelWorkspace: this.modelWorkspaceVM(),
       isMediaForm: kind === 'mediaForm', mediaForm: this.mediaFormVM(this.st()),
@@ -1189,6 +1190,10 @@ class Component extends DCLogic {
       createDisabled: true, create: () => {}, hasOneTimeToken: false, oneTimeToken: '',
       copyToken: () => {}, hideToken: () => {}, webhook: 'Načítání v živém Studiu.',
       sessions: 'Načítání v živém Studiu.' };
+  }
+
+  projectDirectoryVM() {
+    return { value: '', change: () => {}, status: 'Prototyp ukazuje lokální volbu; živé Studio ji převezme do průvodce projektem.' };
   }
 
   preferencesVM() {

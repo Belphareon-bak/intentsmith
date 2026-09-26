@@ -13,7 +13,8 @@ const { IntentSmithBus } = require('../intentsmith-ide/extensions/intentsmith-ch
 
 function setup({ workspace, m2, catalog: catalogOverride } = {}) {
   const memory = new Map();
-  const storage = { getItem: key => memory.get(key) || null, setItem: (key, value) => memory.set(key, value) };
+  const storage = { getItem: key => memory.has(key) ? memory.get(key) : null,
+    setItem: (key, value) => memory.set(key, value) };
   const store = new SessionStore(storage);
   const appearance = new AppearanceStore(storage);
   const catalog = catalogOverride || { view: () => ({ status: 'idle', items: [] }), load: () => {}, subscribe: () => () => {} };
@@ -213,6 +214,21 @@ test('settings import previews a bounded JSON file and confirms backend readback
   assert.equal(model.settingsImportVM().disabled, true);
 });
 
+test('expertise detail applies catalog identity to the focused session and persists it', () => {
+  const item = { id: 'architect', name: 'Architekt', raw: { isCustom: false, domain: 'code' } };
+  const catalog = { view: section => ({ status: 'ready', items: section === 'Expertýzy' ? [item] : [] }),
+    load: () => {}, subscribe: () => () => {} };
+  const { model, store, storage } = setup({ catalog });
+  model.setState({ mode: 'section', section: 'expertises', detail: { expertises: 'architect' } });
+  const vm = model.detailVM(model.st());
+  assert.equal(vm.primaryLabel, 'Použít v aktivní relaci');
+  assert.equal(vm.onPrimary(), true);
+  assert.equal(store.focusedSession().chat.expertise, 'Architekt');
+  assert.match(storage.getItem('intentsmith-studio2-session-state'), /Architekt/);
+  assert.equal(model.st().mode, 'sessions');
+  assert.equal(model.useExpertise({ id: 'architect', name: 'Jiná' }), false);
+});
+
 test('preference fields reject out-of-range values before POST', async () => {
   const calls = [];
   const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335',
@@ -367,6 +383,29 @@ test('project wizard confirms create or open only after backend response and cat
   assert.equal(await model.submitProject(model.st()), true);
   assert.equal(model.st().detail.projects, '42');
   assert.deepEqual(posts[2], ['/api/projects/open-folder', { folderPath: '/home/user/existing' }]);
+});
+
+test('account project directory migrates locally, can be cleared, and shapes the reviewed create path', async () => {
+  const { model, widget, storage } = setup();
+  widget.catalog.backendUrl = () => 'http://127.0.0.1:3335';
+  model.setState({ mode: 'section', section: 'settings', detail: { settings: 'ucet' },
+    dtab: { 'settings:ucet': 'projekty' } });
+  const field = model.detailVM(model.st()).blocks.find(block => block.isProjectDirectory).projectDirectory;
+  assert.equal(field.change({ target: { value: '/home/user/work' } }), true);
+  assert.equal(storage.getItem('intentsmith-studio2-projects-dir'), '/home/user/work');
+  model.setState({ section: 'projects', detail: { projects: '__new__' },
+    projectStep: 1, projectName: 'Projekt', projectPath: '' });
+  assert.equal(model.projectWizardVM(model.st()).reviewTarget, '/home/user/work/projekt');
+  let body = null;
+  model.fetchImpl = async (_url, options) => {
+    body = JSON.parse(options.body);
+    return { ok: false, status: 409, json: async () => ({ error: 'Kolize' }) };
+  };
+  assert.equal(await model.submitProject(model.st()), false);
+  assert.equal(body.path, '/home/user/work/projekt');
+  assert.equal(model.setProjectsDir(''), true);
+  assert.equal(storage.getItem('intentsmith-studio2-projects-dir'), '');
+  assert.equal(model.projectWizardVM(model.st()).reviewTarget, 'výchozí složka backendu');
 });
 
 test('specialist wizard creates reviewed package and verifies manifest before opening catalog detail', async () => {

@@ -96,7 +96,14 @@ z Ollamy prostřednictvím backendu a velikost uložených příloh z backendu.
 Účet/Profil, Paměť, Oznámení, Výstup a tři systémové záložky používají
 prototypový formulář a existující `/api/settings`. Před zápisem se stav znovu
 čte kvůli souběžným úpravám, po zápisu se ověřují přesné uložené hodnoty.
-Ostatní nepřipojené záložky jsou výslovně označené a neukazují ukázková data.
+Účet/Projekty ukládá místní výchozí složku, převádí dřívější volbu a předává
+ji průvodci při vytvoření projektu. Využití úložiště a zálohy se čtou z
+backendu; ruční záloha, export, import a návrat výchozích hodnot vyžadují
+potvrzení a nové čtení výsledku. Zabezpečení zobrazuje audit, přístupové
+tokeny a stav webhooků. Zpětná vazba odesílá skutečný obsah a volitelné
+přílohy, modelová obrazovka zobrazuje inventář, hodnocení, hunt, role,
+governor a upgrady s ověřenými efekty. Ostatní nepřipojené záložky jsou
+výslovně označené a neukazují ukázková data.
 
 V panelu Soubory lze vytvořit soubor/složku, přejmenovat a smazat položku.
 Operace používají ID projektu z relace, relativní cestu, revizi pro přejmenování
@@ -111,10 +118,10 @@ zobrazením validují; při souběžném M1 tahu se příkaz neposílá. Párov�
 v Nastavení → Zabezpečení → Přístup. Vydání lokálního pětiminutového kódu
 ověřuje přesnou smlouvu odpovědi a drží kód jen v paměti okna.
 
-**Zbývá před paritou S2-7:** kombinace expertýz a obecný průvodce workerem
-a další akce katalogů, úplných 12 kategorií nastavení,
-stahování modelů, role/hunt/governor/upgrady, vstupní obraz pro Multimédia
-a automatické režimy gitu.
+**Zbývá před paritou S2-7:** kombinace expertýz a obecný průvodce workerem,
+další akce katalogů, vstupní obraz pro Multimédia a automatické režimy gitu.
+Nová obrazovka Nastavení pokrývá všech 12 kategorií; jednotlivé záložky
+vyžadují samostatnou kontrolu funkční parity.
 Prototypové fixtury se stále používají u nenapojených částí nastavení;
 tyto části nesmějí být vydávány za živá data. Klasické UI proto zůstává dostupné.
 

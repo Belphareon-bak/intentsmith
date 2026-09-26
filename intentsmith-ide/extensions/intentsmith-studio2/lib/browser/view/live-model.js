@@ -21,6 +21,7 @@ const CATALOG = Object.freeze({
   expertises: 'Expertýzy', workers: 'Workeři', market: 'Obchod', media: 'Multimédia'
 });
 const LAYOUT_KEY = 'intentsmith-studio2-layout';
+const PROJECTS_DIR_KEY = 'intentsmith-studio2-projects-dir';
 const LAYOUT_FIELDS = Object.freeze(['mode', 'section', 'navOpen', 'navPin', 'navW', 'navExp',
   'rightOpen', 'rightPin', 'rightW', 'rightTab', 'bottomOpen', 'bottomH', 'btab',
   'detailW', 'view', 'size', 'colFr', 'treeClosed']);
@@ -56,6 +57,16 @@ function safeLayout(storage) {
   }
   if (!Array.isArray(out.colFr) || out.colFr.length !== 3 || out.colFr.some(x => !Number.isFinite(x) || x < 0.2 || x > 5)) delete out.colFr;
   return out;
+}
+
+function savedProjectsDir(storage) {
+  let value = '';
+  try {
+    const stored = storage.getItem(PROJECTS_DIR_KEY);
+    value = stored === null ? JSON.parse(storage.getItem('intentsmith-settings') || '{}').projectsDir || '' : stored;
+  } catch { return ''; }
+  return typeof value === 'string' && value.length <= 1024 && (value === '' || value.startsWith('/'))
+    && !/[\x00-\x1f]/.test(value) ? value : '';
 }
 
 class LiveModel extends Component {
@@ -96,6 +107,8 @@ class LiveModel extends Component {
     this._maintenanceBusy = false;
     this._maintenanceNotice = '';
     this._settingsImport = { fileName: '', settings: null, status: 'Vyber soubor JSON s nastavením.', busy: false };
+    this._projectsDir = savedProjectsDir(widget.store.storage);
+    this._projectsDirNotice = '';
     this._preferenceDrafts = new Map();
     this._preferenceNotice = new Map();
     this._pairing = { status: 'idle', error: '', claim: null, selectedScopes: PAIRING_SCOPES.filter(scope => scope.startsWith('read:')) };
@@ -561,15 +574,17 @@ class LiveModel extends Component {
       const editable = raw.isCustom === true;
       return { icon: this.sec(s.section).icon, tone: this.sec(s.section).tone,
         icls: '', title: item.name, type: editable ? 'Vlastní expertýza' : 'Vestavěná expertýza',
-        idText: id, hasStatus: false, status: '', stCls: '', hasPrimary: editable,
-        primaryLabel: 'Upravit', onPrimary: editable ? () => this.openExpertiseEdit(item) : () => {},
-        secondary: [], more: () => {}, hasTabs: false, tabs: [], hasDesc: !!item.description,
+        idText: id, hasStatus: false, status: '', stCls: '', hasPrimary: true,
+        primaryLabel: 'Použít v aktivní relaci', onPrimary: () => this.useExpertise(item),
+        secondary: editable ? [{ label: 'Upravit', icon: this.data().I.pen,
+          go: () => this.openExpertiseEdit(item) }] : [],
+        more: () => {}, hasTabs: false, tabs: [], hasDesc: !!item.description,
         desc: item.description, showProps: true,
         props: [['ID', id, true], ['Doména', raw.domain || '—'], ['Teplota', String(raw.temperature ?? '—')]]
           .map(([k, v, mono]) => ({ k, v, cls: mono ? 'mono' : '' })),
-        blocks: [this.blockVM({ kind: 'empty', text: editable
+        blocks: [this.blockVM({ kind: 'text', items: [editable
           ? 'Úprava načte aktuální konfiguraci z backendu a před uložením ověří její revizi.'
-          : 'Vestavěnou expertýzu nelze přímo upravit.' })],
+          : 'Vestavěnou expertýzu můžeš použít v aktivní relaci.'] })],
         hasRelated: false, related: [], development: this.developmentVM(s), scmPolicy: this.scmPolicyVM(s, null) };
     }
     return { icon: this.sec(s.section).icon, tone: this.sec(s.section).tone,
@@ -599,7 +614,8 @@ class LiveModel extends Component {
     const resource = this._settingsResources.get(resourceKey);
     const state = resource?.status || 'idle';
     const preferenceFields = fieldsFor(id, tab);
-    const connectedTab = preferenceFields.length > 0 || id === 'zabezpeceni' ||
+    const connectedTab = preferenceFields.length > 0 || id === 'zabezpeceni'
+      || (id === 'ucet' && tab === 'projekty') ||
       (id === 'prepinace' && (tab === 'prehled' || tab === 'obnoveni')) ||
       ((id === 'modely' || id === 'uloziste') && tab === 'prehled')
       || (id === 'uloziste' && tab === 'udrzba') || id === 'zalohy'
@@ -626,6 +642,8 @@ class LiveModel extends Component {
     } else if (id === 'zabezpeceni') {
       vm.blocks = [...(tab === 'pristup' ? [this.blockVM({ kind: 'pairing' })] : []),
         this.blockVM({ kind: 'security' })];
+    } else if (id === 'ucet' && tab === 'projekty') {
+      vm.blocks = [this.blockVM({ kind: 'projectDirectory' })];
     } else if (id === 'prepinace' && tab === 'prehled') {
       const features = resource?.data?.features;
       const rows = state === 'ready' && features ? Object.entries(features).sort(([a], [b]) => a.localeCompare(b))
@@ -1098,7 +1116,28 @@ class LiveModel extends Component {
       error: this._mediaSubmitNotice || this._mediaEnvironment.error };
   }
 
-  projectStatus() { return this._projectWizardStatus; }
+  projectStatus() { return { ...this._projectWizardStatus,
+    defaultDir: this._projectsDir || this._projectWizardStatus.defaultDir }; }
+
+  projectDirectoryVM() {
+    return { value: this._projectsDir, status: this._projectsDirNotice ||
+      (this._projectsDir ? 'Složka je uložená lokálně. Nový projekt ji použije po kontrole backendem.'
+        : 'Nové projekty použijí výchozí složku backendu.'),
+      change: event => this.setProjectsDir(event.target.value) };
+  }
+
+  setProjectsDir(value) {
+    if (typeof value !== 'string' || value.length > 1024 || /[\x00-\x1f]/.test(value)
+      || value && !value.startsWith('/')) {
+      this._projectsDirNotice = 'Zadej absolutní cestu bez řídicích znaků.';
+      this.forceUpdate(); return false;
+    }
+    try { this.widget.store.storage.setItem(PROJECTS_DIR_KEY, value); this._projectsDir = value;
+      this._projectsDirNotice = '';
+      this.forceUpdate(); return true; }
+    catch { this._projectsDirNotice = 'Složku se nepodařilo uložit; při dalším spuštění nemusí být dostupná.';
+      this.forceUpdate(); return false; }
+  }
 
   specialistStatus() { return this._specialistWizardStatus; }
 
@@ -1435,7 +1474,7 @@ class LiveModel extends Component {
     const mode = form.mode, route = mode === 'create' ? '/api/projects' : '/api/projects/open-folder';
     const body = mode === 'create'
       ? { name: s.projectName.trim(), description: s.projectDescription, type: s.projectType,
-        ...(s.projectPath.trim() ? { path: s.projectPath.trim() } : {}) }
+        ...(s.projectPath.trim() || this._projectsDir ? { path: form.reviewTarget } : {}) }
       : { folderPath: s.projectPath.trim(), ...(s.projectName.trim() ? { name: s.projectName.trim() } : {}) };
     this._projectWizardStatus = { ...this._projectWizardStatus, busy: true, error: '' };
     this.widget.catalogActionError = null;
@@ -1564,6 +1603,16 @@ class LiveModel extends Component {
     if (Number.isInteger(s.focusCol)) this.widget.store.focusColumn(s.focusCol);
     this.widget.store.addSession();
     return { mode: 'sessions' };
+  }
+
+  useExpertise(item) {
+    const current = this.widget.catalog.view('Expertýzy').items.find(row => row.id === item?.id);
+    const session = this.widget.store.focusedSession();
+    if (!current || current.name !== item.name || !session || session.chat._thinking) return false;
+    session.chat.expertise = current.name;
+    this.widget.store.changed();
+    this.setState({ mode: 'sessions' });
+    return true;
   }
 
   pOpenSession(s, id) {
