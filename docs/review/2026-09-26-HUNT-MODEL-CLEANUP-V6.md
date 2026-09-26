@@ -1,5 +1,7 @@
 # D/R `model_cleanup`: oprava historického zadání
 
+**Aktualizace po revizi:** tento dokument popisuje původní částečný pilot a jeho formulář je neslepý. Všechny úplné odpovědi a aktuální revizní formulář jsou v [navazující opravě kroku 3](2026-09-26-HUNT-STEP3-REVIEW-FIXES.md); původní evidence se nepřepisuje.
+
 **Stav: opravený vývojový kontrakt; nový GPU pilot je částečný a přejímka chybí.** Tato změna se týká pouze čtyř úloh `d1/d2/r1/r2_model_cleanup`. Starých 312 odpovědí ani původních známek se nedotýká. Jejich 105 sporných kritérií nelze po změně promptu tiše přeznámkovat.
 
 Historická migrace `2026_03_08_030_v103_model_overrides.js` na revizi `a3a00baa` má `role TEXT PRIMARY KEY` a `previous_model TEXT NOT NULL`. Přímý SQLite pokus potvrdil: `NULL` se odmítne, prázdný řetězec projde, druhý řádek pro stejnou roli se odmítne a dvě různé role mohou sdílet stejnou předchozí identitu. Původní reference a kritéria žádaly reprodukci `NULL` a některá znění tvrdila, že cesta k mazání není v dodaných výřezech, ačkoli `pre-handler.js:400–419` přímo posílá navržený název na `/api/delete`.
