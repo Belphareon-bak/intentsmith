@@ -2726,7 +2726,7 @@ class LiveModel extends Component {
   menusVM(s, fsid) {
     const menus = super.menusVM(s, fsid);
     const disabled = new Set(['Importovat konverzaci…', 'Exportovat projekt…', 'Ukončit',
-      'Znovu vygenerovat', 'Změnit model…', 'Dokumentace']);
+      'Znovu vygenerovat', 'Dokumentace']);
     const session = fsid && this.widget.store.find(fsid);
     for (const menu of menus) for (const item of menu.items) {
       if (disabled.has(item.t)) { item.cls = 'dis'; item.go = () => {}; }
@@ -2742,6 +2742,10 @@ class LiveModel extends Component {
         const answer = [...session.chat.msgs].reverse().find(msg => msg.role === 'assistant');
         if (answer) navigator.clipboard.writeText(answer.text || '').catch(error => this.error(session, error));
       };
+      if (item.t === 'Změnit model…') item.go = this.run(state => {
+        this.modelWorkspace.select('roles');
+        return this.pSelect(state, 'settings', 'modely');
+      });
     }
     return menus;
   }
@@ -2787,7 +2791,13 @@ class LiveModel extends Component {
 
   palVM(s, fsid) {
     const vm = super.palVM(s, fsid);
-    for (const group of vm.pal) group.items = group.items.filter(item => item.t !== 'Změnit model');
+    for (const group of vm.pal) for (const item of group.items) if (item.t === 'Změnit model') {
+      item.s = 'Otevřít přiřazení modelových rolí';
+      item.go = this.run(state => {
+        this.modelWorkspace.select('roles');
+        return this.pSelect(state, 'settings', 'modely');
+      });
+    }
     vm.palEmpty = vm.pal.every(group => group.items.length === 0);
     vm.palKey = event => {
       if (event.key === 'Escape') this.setState({ palette: false });

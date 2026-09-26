@@ -34,6 +34,27 @@ function setup({ workspace, m2, catalog: catalogOverride } = {}) {
 
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
+test('model command in menu and palette opens live role assignments without a fixture model name', () => {
+  const { model, store } = setup();
+  const selected = [];
+  model.modelWorkspace.select = tab => selected.push(tab);
+  model.modelWorkspace.load = () => {};
+  const sessionId = store.focusedSession().id;
+  const menu = model.menusVM(model.st(), sessionId).flatMap(group => group.items)
+    .find(item => item.t === 'Změnit model…');
+  assert.notEqual(menu.cls, 'dis');
+  menu.go();
+  assert.equal(model.st().section, 'settings');
+  assert.equal(model.st().detail.settings, 'modely');
+  model.setState({ palette: true, pq: 'model' });
+  const command = model.palVM(model.st(), sessionId).pal.flatMap(group => group.items)
+    .find(item => item.t === 'Změnit model');
+  assert.equal(command.s, 'Otevřít přiřazení modelových rolí');
+  command.go();
+  assert.deepEqual(selected, ['roles', 'roles']);
+  model.componentWillUnmount();
+});
+
 test('tab context closes the real sessions, persists them, and keeps all tabs when an editor is dirty', () => {
   const dirty = new Set();
   const workspace = { entry: session => ({ editor: { dirty: dirty.has(session.id) } }) };

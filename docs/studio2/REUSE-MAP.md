@@ -95,10 +95,15 @@ UI z runtime a přesměruje všechna jeho tvrzení.
 
 ## 6. Ostatní rozšíření — ověřit, pak navrhnout dispozici
 
-Všechna jsou v závislostech `applications/electron`, takže se načítají. Zda
-jsou za běhu viditelná, inventura #21 nezměřila (W-4 zůstává otevřené pro
-hlubokou inventuru). Před jakoukoli změnou S2-0 zjistí jejich příspěvky
-v běžícím Studiu. Dispozici schvaluje operátor (CONTRACT §7).
+Všechna jsou v závislostech `applications/electron`, takže se načítají.
+Kontrola autoritativního `lib/` ve větvi Studia 2 dne 26. 9. (`8bb99727`)
+našla ve všech 18 balících dohromady 23 běhových souborů JS. Každý je prázdný
+Inversify `ContainerModule`; `agent-panel` výslovně odkazuje na přesun do
+`chat-panel`. Žádný z těchto 18 balíků proto v současném balíku neregistruje
+viditelný widget, příkaz ani běhovou službu. Jejich rozsáhlejší TypeScript v
+`src/` je historický zdroj, nikoli aktuální runtime (`DIRECTION.md` 7. 8.).
+Níže uvedené návrhy byly odvozeny z TypeScriptu a nejsou důkazem ztráty živé
+funkce. Odstranění závislostí a dispozici zdrojů schvaluje operátor v S2-7.
 
 | Rozšíření | ř. | Předběžný návrh |
 |---|---:|---|
