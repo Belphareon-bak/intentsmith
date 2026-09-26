@@ -100,6 +100,59 @@ test('M7 pairing in Security accepts only an exact short-lived local claim and k
   assert.match(malformed.pairingVM().error, /nepodařilo bezpečně/);
 });
 
+test('user preferences use the prototype form and verify saved backend values', async () => {
+  let server = { 'intentsmith.account.displayName': 'Původní', 'intentsmith.language': 'cs', unrelated: 'zůstane' };
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    const method = options.method || 'GET';
+    assert.equal(new URL(url).pathname, '/api/settings');
+    calls.push(method);
+    if (method === 'POST') {
+      server = JSON.parse(options.body);
+      return { ok: true, json: async () => ({ success: true }) };
+    }
+    return { ok: true, json: async () => ({ ...server }) };
+  };
+  const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335', fetchImpl });
+  const { model } = setup({ catalog });
+  model.fetchImpl = fetchImpl;
+  model.setState({ mode: 'section', section: 'settings', detail: { settings: 'ucet' } });
+  await model.loadSettingsResource('ucet');
+  let vm = model.detailVM(model.st());
+  let form = vm.blocks.find(block => block.isPreferences).preferences;
+  assert.equal(form.fields[0].value, 'Původní');
+  form.fields[0].change({ target: { value: 'Nové jméno' } });
+  vm = model.detailVM(model.st());
+  assert.equal(vm.primaryLabel, 'Uložit změny');
+  assert.equal(await vm.onPrimary(), true);
+  assert.deepEqual(server, { 'intentsmith.account.displayName': 'Nové jméno',
+    'intentsmith.language': 'cs', unrelated: 'zůstane' });
+  assert.equal(model.detailVM(model.st()).hasPrimary, false);
+  assert.deepEqual(calls, ['GET', 'GET', 'POST', 'GET']);
+  model.detailVM(model.st()).blocks.find(block => block.isPreferences).preferences.fields[0]
+    .change({ target: { value: 'Další jméno' } });
+  server['intentsmith.language'] = 'en';
+  assert.equal(await model.savePreferences('ucet'), false, 'external write requires refresh');
+  assert.equal(calls.filter(method => method === 'POST').length, 1);
+  assert.match(model._preferenceNotice.get('ucet'), /mezitím změnilo/);
+});
+
+test('preference fields reject out-of-range values before POST', async () => {
+  const calls = [];
+  const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335',
+    fetchImpl: async (url, options = {}) => { calls.push(options.method || 'GET');
+      return { ok: true, json: async () => ({}) }; } });
+  const { model } = setup({ catalog });
+  model.setState({ mode: 'section', section: 'settings', detail: { settings: 'vystup' },
+    dtab: { 'settings:vystup': 'delka' } });
+  await model.loadSettingsResource('vystup');
+  const field = model.detailVM(model.st()).blocks.find(block => block.isPreferences).preferences.fields[0];
+  field.change({ target: { value: '999999' } });
+  assert.equal(await model.savePreferences('vystup'), false);
+  assert.equal(calls.includes('POST'), false);
+  assert.match(model._preferenceNotice.get('vystup'), /Neplatná hodnota/);
+});
+
 test('settings preserve twelve prototype categories and verify live feature changes against backend', async () => {
   let features = { skills: true, agents: false };
   let fail = false, approved = false;

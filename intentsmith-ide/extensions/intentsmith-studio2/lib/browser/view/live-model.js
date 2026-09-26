@@ -11,6 +11,7 @@ const { StatusClient } = require('../status-client');
 const { MEDIA_ID } = require('../catalog-store');
 const { IntentSmithBus } = require('@intentsmith/chat-panel/lib/browser/event-bus');
 const { COMMANDS: LEARNING_COMMANDS, runCommand: runLearningCommand } = require('../learning-commands');
+const { SETTINGS_FIELDS, fieldsFor, validateValue } = require('../settings-preferences');
 
 const CATALOG = Object.freeze({
   chats: 'Konverzace', projects: 'Projekty', specialists: 'Specialisté',
@@ -89,6 +90,8 @@ class LiveModel extends Component {
     this._settingsResources = new Map();
     this._settingsBusy = false;
     this._settingsNotice = '';
+    this._preferenceDrafts = new Map();
+    this._preferenceNotice = new Map();
     this._pairing = { status: 'idle', error: '', claim: null, selectedScopes: PAIRING_SCOPES.filter(scope => scope.startsWith('read:')) };
     this._pairingTimer = null;
     this._pairingAlive = true;
@@ -556,11 +559,13 @@ class LiveModel extends Component {
   settingsDetailVM(s, id) {
     const vm = super.detailVM(s);
     if (!vm) return null;
-    if (id === 'vzhled' || id === 'system') return vm;
-    const tab = (s.dtab || {})['settings:' + id] || 'prehled';
+    if (id === 'vzhled') return vm;
+    const tab = (s.dtab || {})['settings:' + id] || (id === 'system' ? 'prostredi' : 'prehled');
+    if (id === 'system' && tab === 'prostredi') return vm;
     const resource = this._settingsResources.get(id);
     const state = resource?.status || 'idle';
-    const connectedTab = (id === 'zabezpeceni' && tab === 'pristup') ||
+    const preferenceFields = fieldsFor(id, tab);
+    const connectedTab = preferenceFields.length > 0 || (id === 'zabezpeceni' && tab === 'pristup') ||
       (id === 'prepinace' && (tab === 'prehled' || tab === 'obnoveni')) ||
       ((id === 'modely' || id === 'uloziste') && tab === 'prehled');
     const unavailable = 'Tato část nastavení zatím nemá připojené ovládání.';
@@ -573,7 +578,15 @@ class LiveModel extends Component {
     vm.hasStatus = true;
     if (connectedTab && id !== 'zabezpeceni' && state !== 'loading') vm.secondary = [{ label: 'Obnovit', icon: this.data().I.refresh,
       go: () => this.loadSettingsResource(id, true) }];
-    if (id === 'zabezpeceni' && tab === 'pristup') {
+    if (preferenceFields.length) {
+      const draft = this._preferenceDrafts.get(id) || {};
+      vm.blocks = [this.blockVM({ kind: 'preferences' })];
+      vm.hasPrimary = state === 'ready' && !this._settingsBusy && Object.keys(draft).length > 0;
+      vm.primaryLabel = 'Uložit změny';
+      vm.onPrimary = () => this.savePreferences(id);
+      const notice = this._preferenceNotice.get(id);
+      if (notice) vm.blocks.unshift(this.blockVM({ kind: 'text', items: [notice] }));
+    } else if (id === 'zabezpeceni' && tab === 'pristup') {
       vm.blocks = [this.blockVM({ kind: 'pairing' })];
     } else if (id === 'prepinace' && tab === 'prehled') {
       const features = resource?.data?.features;
@@ -612,7 +625,7 @@ class LiveModel extends Component {
 
   async loadSettingsResource(id, refresh = false) {
     const paths = { prepinace: '/api/features', modely: '/api/system/models', uloziste: '/api/storage/info' };
-    const path = paths[id];
+    const path = SETTINGS_FIELDS[id] ? '/api/settings' : paths[id];
     if (!path || !refresh && this._settingsResources.get(id)?.status === 'ready') return;
     const request = Symbol(id);
     this._settingsResources.set(id, { status: 'loading', request });
@@ -623,6 +636,7 @@ class LiveModel extends Component {
         || Object.values(data.features).some(value => typeof value !== 'boolean'))) throw Error('Backend vrátil neplatné přepínače.');
       if (id === 'modely' && (!Array.isArray(data?.models) || data.models.some(model => typeof model.name !== 'string'))) throw Error('Backend vrátil neplatný seznam modelů.');
       if (id === 'uloziste' && (!Number.isFinite(data?.totalSize) || data.totalSize < 0)) throw Error('Backend vrátil neplatnou velikost úložiště.');
+      if (SETTINGS_FIELDS[id] && (!data || typeof data !== 'object' || Array.isArray(data))) throw Error('Backend vrátil neplatné uživatelské nastavení.');
       if (this._settingsResources.get(id)?.request === request) this._settingsResources.set(id, { status: 'ready', data });
     } catch (error) {
       if (this._settingsResources.get(id)?.request === request) this._settingsResources.set(id, {
@@ -1475,6 +1489,84 @@ class LiveModel extends Component {
   }
 
   developmentVM() { return this.development.vm(); }
+
+  preferencesVM(s) {
+    const id = s.detail?.settings;
+    const tab = (s.dtab || {})['settings:' + id] || 'prehled';
+    const resource = this._settingsResources.get(id), draft = this._preferenceDrafts.get(id) || {};
+    const ready = resource?.status === 'ready';
+    return { fields: fieldsFor(id, tab).map(definition => {
+      const current = Object.hasOwn(draft, definition.key) ? draft[definition.key]
+        : ready && resource.data[definition.key] !== undefined ? resource.data[definition.key] : definition.defaultValue;
+      return { label: definition.label, value: String(current), checked: current === true,
+        disabled: !ready || this._settingsBusy,
+        isText: definition.type === 'text', isTextarea: definition.type === 'textarea',
+        isNumber: definition.type === 'number', isToggle: definition.type === 'toggle',
+        isTime: definition.type === 'time', isSelect: definition.type === 'select',
+        min: definition.min || 0, max: definition.max || 0, step: definition.step || 1,
+        options: (definition.options || []).map(value => ({ value, label: value })),
+        change: event => this.changePreference(id, definition, definition.type === 'toggle'
+          ? event.target.checked : event.target.value) };
+    }), status: !ready ? resource?.status === 'error' ? resource.error : 'Načítám hodnoty z backendu…'
+      : Object.keys(draft).length ? 'Změny nejsou uložené. Použij tlačítko Uložit změny.'
+        : 'Hodnoty jsou načtené z backendu.' };
+  }
+
+  changePreference(id, definition, raw) {
+    const resource = this._settingsResources.get(id);
+    if (resource?.status !== 'ready' || this._settingsBusy || !Object.values(SETTINGS_FIELDS[id] || {}).flat().includes(definition)) return false;
+    const draft = { ...(this._preferenceDrafts.get(id) || {}) };
+    const value = raw;
+    const original = resource.data[definition.key] === undefined ? definition.defaultValue : resource.data[definition.key];
+    if (String(value) === String(original)) delete draft[definition.key]; else draft[definition.key] = value;
+    this._preferenceDrafts.set(id, draft);
+    this._preferenceNotice.delete(id);
+    this.forceUpdate();
+    return true;
+  }
+
+  async savePreferences(id) {
+    const resource = this._settingsResources.get(id), draft = this._preferenceDrafts.get(id) || {};
+    if (resource?.status !== 'ready' || this._settingsBusy || !Object.keys(draft).length) return false;
+    const definitions = Object.values(SETTINGS_FIELDS[id] || {}).flat();
+    const patch = {};
+    for (const [key, raw] of Object.entries(draft)) {
+      const definition = definitions.find(item => item.key === key);
+      const value = definition?.type === 'number' ? Number(raw) : raw;
+      if (!definition || !validateValue(definition, value)) {
+        this._preferenceNotice.set(id, 'Neplatná hodnota: ' + (definition?.label || key));
+        this.forceUpdate(); return false;
+      }
+      patch[key] = value;
+    }
+    this._settingsBusy = true; this._preferenceNotice.delete(id); this.forceUpdate();
+    try {
+      const current = await this.widget.catalog.get('/api/settings');
+      if (!current || typeof current !== 'object' || Array.isArray(current)
+        || JSON.stringify(current) !== JSON.stringify(resource.data)) {
+        throw Error('Nastavení se mezitím změnilo. Obnov stránku a zkontroluj změny.');
+      }
+      const base = this.widget.catalog.backendUrl();
+      if (typeof base !== 'string' || !/^https?:\/\//.test(base)) throw Error('Backend není dostupný.');
+      const response = await this.fetchImpl(base + '/api/settings', { method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...current, ...patch }),
+        signal: AbortSignal.timeout(10_000) });
+      let result = {};
+      try { result = await response.json(); } catch { /* HTTP status remains authoritative. */ }
+      if (!response.ok || result.success !== true) throw Error(result.error || 'Uložení selhalo (HTTP ' + response.status + ').');
+      await this.loadSettingsResource(id, true);
+      const verified = this._settingsResources.get(id);
+      if (verified?.status !== 'ready' || !Object.entries(patch).every(([key, value]) => verified.data[key] === value)) {
+        throw Error('Zápis mohl proběhnout, ale čtením se nepodařilo ověřit. Před opakováním obnov stav.');
+      }
+      this._preferenceDrafts.delete(id);
+      this._preferenceNotice.set(id, 'Změny byly ověřeny v backendu.');
+      return true;
+    } catch (error) {
+      this._preferenceNotice.set(id, error?.message || 'Uložení nastavení selhalo.');
+      return false;
+    } finally { this._settingsBusy = false; this.forceUpdate(); }
+  }
 
   pairingVM() {
     const pairing = this._pairing, claim = pairing.claim;

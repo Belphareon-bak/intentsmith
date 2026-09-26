@@ -93,6 +93,9 @@ Nastavení má nyní přesně 12 kategorií a záložky z UI-SPEC. Funkční př
 se čtou z `/api/features`; zapnutí, vypnutí a obnovení výchozích hodnot
 vyžaduje potvrzení a ověřuje nový stav ze serveru. Lokální modely se čtou
 z Ollamy prostřednictvím backendu a velikost uložených příloh z backendu.
+Účet/Profil, Paměť, Oznámení, Výstup a tři systémové záložky používají
+prototypový formulář a existující `/api/settings`. Před zápisem se stav znovu
+čte kvůli souběžným úpravám, po zápisu se ověřují přesné uložené hodnoty.
 Ostatní nepřipojené záložky jsou výslovně označené a neukazují ukázková data.
 
 V panelu Soubory lze vytvořit soubor/složku, přejmenovat a smazat položku.

@@ -1148,6 +1148,7 @@ class Component extends DCLogic {
       isEmpty: kind === 'empty', empty: b.text || b.empty || '',
       isDevelopment: kind === 'development', isScmPolicy: kind === 'scmPolicy',
       isPairing: kind === 'pairing', pairing: this.pairingVM(),
+      isPreferences: kind === 'preferences', preferences: this.preferencesVM(this.st()),
       isMediaForm: kind === 'mediaForm', mediaForm: this.mediaFormVM(this.st()),
       isMediaOutputs: kind === 'mediaOutputs', mediaOutputs: b.outputs || [],
       isProjectWizard: kind === 'projectWizard', projectWizard: this.projectWizardVM(this.st()),
@@ -1165,6 +1166,13 @@ class Component extends DCLogic {
       busy: false, disabled: true, issue: () => {}, hasError: false, error: '',
       hasClaim: false, code: '', expiry: '', uri: '',
       status: 'Prototyp ukazuje ovládání. Párovací kód vydává až lokální backend Studia.' };
+  }
+
+  preferencesVM() {
+    return { fields: [{ label: 'Ukázková volba', value: 'Hodnota z prototypu', isText: true,
+      isTextarea: false, isNumber: false, isToggle: false, isTime: false, isSelect: false,
+      options: [], checked: false, disabled: true, min: 0, max: 0, step: 1, change: () => {} }],
+    status: 'Prototyp ukazuje formulář; hodnoty načítá až živé Studio.' };
   }
 
   projectStatus() { return { busy: false, error: 'Prototyp ukazuje průvodce; backend se připojuje až v IDE.', defaultDir: '' }; }

@@ -779,6 +779,18 @@ textarea.fv-ed{font-family:var(--font-mono)}
 <sc-if value="{{b.pairing.hasError}}" hint-placeholder-val="{{false}}"><div class="note" role="alert">{{b.pairing.error}}</div></sc-if>
 <sc-if value="{{b.pairing.hasClaim}}" hint-placeholder-val="{{false}}"><div class="note" aria-label="Párovací kód"><div class="dl"><span>Kód</span><strong class="mono">{{b.pairing.code}}</strong><span>Platí do</span><span>{{b.pairing.expiry}}</span><span>Odkaz do telefonu</span><code>{{b.pairing.uri}}</code></div><p class="aph">Po prvním použití nebo po vypršení kód už nefunguje.</p></div></sc-if>
 </div></sc-if>
+<sc-if value="{{b.isPreferences}}" hint-placeholder-val="{{false}}"><div class="aps" aria-label="Uživatelské nastavení">
+<div class="blk-h"><span class="lbl-acc">Uživatelské volby</span></div>
+<sc-for list="{{b.preferences.fields}}" as="field" hint-placeholder-count="3"><label class="arow2"><span>{{field.label}}</span>
+<sc-if value="{{field.isToggle}}" hint-placeholder-val="{{false}}"><input type="checkbox" checked="{{field.checked}}" disabled="{{field.disabled}}" onChange="{{field.change}}"></sc-if>
+<sc-if value="{{field.isText}}" hint-placeholder-val="{{false}}"><input value="{{field.value}}" disabled="{{field.disabled}}" onChange="{{field.change}}"></sc-if>
+<sc-if value="{{field.isTextarea}}" hint-placeholder-val="{{false}}"><textarea rows="3" value="{{field.value}}" disabled="{{field.disabled}}" onChange="{{field.change}}"></textarea></sc-if>
+<sc-if value="{{field.isNumber}}" hint-placeholder-val="{{false}}"><input type="number" min="{{field.min}}" max="{{field.max}}" step="{{field.step}}" value="{{field.value}}" disabled="{{field.disabled}}" onChange="{{field.change}}"></sc-if>
+<sc-if value="{{field.isTime}}" hint-placeholder-val="{{false}}"><input type="time" value="{{field.value}}" disabled="{{field.disabled}}" onChange="{{field.change}}"></sc-if>
+<sc-if value="{{field.isSelect}}" hint-placeholder-val="{{false}}"><select value="{{field.value}}" disabled="{{field.disabled}}" onChange="{{field.change}}"><sc-for list="{{field.options}}" as="option" hint-placeholder-count="2"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></sc-if>
+</label></sc-for>
+<p class="aph">{{b.preferences.status}}</p>
+</div></sc-if>
 <sc-if value="{{b.isMediaOutputs}}" hint-placeholder-val="{{false}}"><div class="aps" aria-label="Výstupy generování"><div class="blk-h"><span class="lbl-acc">Výstupy</span></div><sc-for list="{{b.mediaOutputs}}" as="output" hint-placeholder-count="2"><div class="media-output"><span class="mono">{{output.name}}</span><sc-if value="{{output.ready}}" hint-placeholder-val="{{false}}"><sc-if value="{{output.isImage}}" hint-placeholder-val="{{true}}"><img src="{{output.url}}" alt="{{output.name}}"></sc-if><sc-if value="{{output.isVideo}}" hint-placeholder-val="{{false}}"><video src="{{output.url}}" controls="true"></video></sc-if></sc-if><sc-if value="{{output.hasStatus}}" hint-placeholder-val="{{false}}"><span class="aph">{{output.status}}</span></sc-if></div></sc-for></div></sc-if>
 <sc-if value="{{b.isMediaForm}}" hint-placeholder-val="{{false}}">
 <div class="aps" aria-label="Nové generování médií">
