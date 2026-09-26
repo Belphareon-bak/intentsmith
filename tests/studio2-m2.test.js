@@ -59,7 +59,9 @@ controller.entry(session).view = stale;
 const rebootStore = new SessionStore(storage);
 const rebootSession = rebootStore.state.sessions[0];
 assert.equal(rebootSession._m2Pending.planDigest, digest);
-const reboot = new M2Controller(rebootStore, { backendUrl: () => 'http://fixture.invalid', fetchImpl: fakeFetch });
+const verifiedProjects = [];
+const reboot = new M2Controller(rebootStore, { backendUrl: () => 'http://fixture.invalid',
+  fetchImpl: fakeFetch, onVerifiedChange: item => verifiedProjects.push(item._projectId) });
 await assert.rejects(reboot.run(rebootSession, '/m2-approve'), /Nejdřív načtěte/);
 assert.equal(requests.length, 1);
 await reboot.run(rebootSession, '/m2-status');
@@ -84,12 +86,14 @@ assert.equal(rebootSession._modifiedFiles.length, 0);
 assert.equal(requests.filter(request => request.url.endsWith('/approve')).length, 1);
 nextResponse = complete;
 await reboot.run(rebootSession, '/m2-approve');
+assert.deepEqual(verifiedProjects, ['27'], 'only confirmed M2 success refreshes SCM');
 const approval = requests.filter(request => request.url.endsWith('/approve')).at(-1);
 assert.deepEqual(JSON.parse(approval.options.body), {
   lifecycleId: base.lifecycleId, planDigest: digest, origin,
 });
 assert.equal(rebootSession._m2Pending, null);
 await reboot.run(rebootSession, '/m2-status', base.lifecycleId);
+assert.deepEqual(verifiedProjects, ['27'], 're-reading a successful lifecycle does not repeat SCM refresh');
 assert.deepEqual(rebootSession._modifiedFiles, ['src/app.js']);
 assert.equal(rebootSession._fileChanges['src/app.js'].added, 1);
 assert.equal(rebootSession._fileChanges['src/app.js'].removed, 1);

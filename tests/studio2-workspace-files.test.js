@@ -16,7 +16,9 @@ const session = { id: 's1', _projectId: 5 };
 let saved = false;
 let conflict = true;
 const calls = [];
-const files = new WorkspaceFiles({ backendUrl: () => 'http://127.0.0.1:1234', fetchImpl: async (url, options) => {
+const verifiedProjects = [];
+const files = new WorkspaceFiles({ backendUrl: () => 'http://127.0.0.1:1234',
+  onVerifiedChange: item => verifiedProjects.push(item._projectId), fetchImpl: async (url, options) => {
   calls.push({ url, method: options.method || 'GET' });
   if (url.includes('/tree?')) return { ok: true, json: async () => ({ root: '/tmp/project', tree }) };
   if (url.includes('/ls?')) return { ok: true, json: async () => ({ entries: [{ name: 'main.js', isDir: false }] }) };
@@ -31,12 +33,14 @@ const files = new WorkspaceFiles({ backendUrl: () => 'http://127.0.0.1:1234', fe
 assert.equal(await files.loadTree(session), true);
 assert.equal(await files.open(session, '../escape'), false);
 assert.equal(await files.open(session, 'src/main.js'), true);
+assert.deepEqual(verifiedProjects, [], 'opening a file must not refresh SCM');
 assert.equal(await files.completePath(session, 'cat src/ma'), 'cat src/main.js');
 assert.equal(await files.completePath(session, 'cat ../secret'), null);
 assert.equal(calls.filter(call => call.url.includes('/ls?')).length, 1);
 files.edit(session, 'new');
 assert.equal(files.anyDirty(), true);
 assert.equal(await files.save(session), false);
+assert.deepEqual(verifiedProjects, [], 'failed and uncertain writes must not refresh SCM');
 assert.equal(files.entry(session).editor.draft, 'new');
 assert.equal(files.entry(session).editor.dirty, true);
 assert.match(files.entry(session).error, /jiný proces/);
@@ -47,6 +51,7 @@ assert.equal(await files.verifySave(session), false);
 assert.equal(files.entry(session).saveUncertain, false);
 conflict = false;
 assert.equal(await files.save(session), true);
+assert.deepEqual(verifiedProjects, [5], 'confirmed write refreshes the owning project');
 assert.equal(files.anyDirty(), false);
 assert.deepEqual(session._modifiedFiles, ['src/main.js']);
 assert.deepEqual(session._openedFiles, ['src/main.js']);

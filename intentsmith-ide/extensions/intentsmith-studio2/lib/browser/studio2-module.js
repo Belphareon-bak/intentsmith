@@ -43,8 +43,15 @@ class Studio2Widget extends ReactWidget {
     this.transport = null;
     this.section = 'Relace';
     this.catalog = new CatalogStore();
-    this.workspace = new WorkspaceFiles({ onChange: () => { this.model?.forceUpdate(); this.update(); } });
+    const refreshVerifiedProject = session => {
+      if (!session?._projectId || !this.model) return;
+      this.model.scmClient.entry(session._projectId).diffs.clear();
+      void this.model.scmClient.load(session._projectId, { refresh: true });
+    };
+    this.workspace = new WorkspaceFiles({ onChange: () => { this.model?.forceUpdate(); this.update(); },
+      onVerifiedChange: refreshVerifiedProject });
     this.m2 = new M2Controller(this.store, { onChange: () => { this.model?.forceUpdate(); this.update(); },
+      onVerifiedChange: refreshVerifiedProject,
       activeTurn: session => !!session.chat._thinking || !!this.transport?.hasActiveM1Turn(session) });
     this.appearance = new AppearanceStore(window.localStorage, () => window.matchMedia('(prefers-color-scheme: light)').matches);
     this.unlistenAppearance = this.appearance.subscribe(() => this.update());

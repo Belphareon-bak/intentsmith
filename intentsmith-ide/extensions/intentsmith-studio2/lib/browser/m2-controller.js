@@ -87,11 +87,13 @@ function parseObject(text, label) {
 }
 
 class M2Controller {
-  constructor(store, { backendUrl, fetchImpl = fetch, onChange = () => {}, activeTurn = () => false } = {}) {
+  constructor(store, { backendUrl, fetchImpl = fetch, onChange = () => {},
+    onVerifiedChange = () => {}, activeTurn = () => false } = {}) {
     this.store = store;
     this.backendUrl = backendUrl || (() => window.electronIntentSmith.getBackendUrl());
     this.fetchImpl = fetchImpl;
     this.onChange = onChange;
+    this.onVerifiedChange = onVerifiedChange;
     this.activeTurn = activeTurn;
     this.entries = new Map();
   }
@@ -138,6 +140,8 @@ class M2Controller {
         throw new Error('M2 vrátil konfliktní výsledek. Obnovte trvalý stav.');
       }
     }
+    const firstVerifiedSuccess = view.state === 'succeeded'
+      && !(entry.view?.lifecycleId === view.lifecycleId && entry.view.state === 'succeeded');
     entry.view = view;
     entry.presentedView = null;
     if (view.state === 'awaiting_approval') {
@@ -147,7 +151,10 @@ class M2Controller {
     } else if (TERMINAL.has(view.state)) {
       if (session._m2Pending?.lifecycleId === view.lifecycleId
         && session._m2Pending.planDigest === view.planDigest) session._m2Pending = null;
-      if (view.state === 'succeeded') this.recordVerifiedFiles(session, view);
+      if (view.state === 'succeeded') {
+        this.recordVerifiedFiles(session, view);
+        if (firstVerifiedSuccess) this.onVerifiedChange(session);
+      }
     }
     entry.error = null;
     this.changed();

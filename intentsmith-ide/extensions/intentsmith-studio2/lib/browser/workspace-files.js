@@ -19,10 +19,11 @@ function flattenTree(nodes, prefix = '', depth = 0) {
   return result;
 }
 class WorkspaceFiles {
-  constructor({ backendUrl, fetchImpl = fetch, onChange = () => {} } = {}) {
+  constructor({ backendUrl, fetchImpl = fetch, onChange = () => {}, onVerifiedChange = () => {} } = {}) {
     this.backendUrl = backendUrl || (() => window.electronIntentSmith.getBackendUrl());
     this.fetchImpl = fetchImpl;
     this.onChange = onChange;
+    this.onVerifiedChange = onVerifiedChange;
     this.entries = new Map();
   }
   entry(session) {
@@ -200,7 +201,9 @@ class WorkspaceFiles {
       session._modifiedFiles = Array.isArray(session._modifiedFiles) ? session._modifiedFiles : [];
       session._modifiedFiles = [editor.path, ...session._modifiedFiles.filter(value => value !== editor.path)].slice(0, 30);
       state.saveUncertain = false; state.pendingSaveDraft = null;
-      state.error = null; this.changed(); return true;
+      state.error = null; this.changed();
+      this.onVerifiedChange(session);
+      return true;
     } catch (error) {
       state.error = error.message || 'Stav zápisu nelze ověřit.';
       this.changed(); return false;
