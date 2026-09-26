@@ -7,27 +7,41 @@ SOURCE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OPERATOR_HOME="$HOME"
 PROFILE="${INTENTSMITH_STUDIO2_PROFILE:-$OPERATOR_HOME/Projects/intentsmith-studio2-trial}"
 LIVE_PORT_FILE="${INTENTSMITH_LIVE_PORT_FILE:-$OPERATOR_HOME/.local/state/intentsmith/backend.port.json}"
+APPIMAGE="${INTENTSMITH_STUDIO2_APPIMAGE:-}"
 NODE24="${INTENTSMITH_NODE24_BIN:-}"
 
-if [ -z "$NODE24" ]; then
-  if command -v node >/dev/null 2>&1 && [ "$(node -p 'process.versions.node.split(".")[0]')" = 24 ]; then
-    NODE24="$(command -v node)"
-  elif [ -x /tmp/is-studio2-node24/node_modules/node/bin/node ]; then
-    NODE24=/tmp/is-studio2-node24/node_modules/node/bin/node
+if [ -n "$APPIMAGE" ]; then
+  if [[ "$APPIMAGE" != /* ]] || [ ! -f "$APPIMAGE" ] || [ ! -x "$APPIMAGE" ]; then
+    echo 'INTENTSMITH_STUDIO2_APPIMAGE must name an absolute executable AppImage path.' >&2
+    exit 1
   fi
-fi
-if [ -z "$NODE24" ] || [ ! -x "$NODE24" ] || [ "$("$NODE24" -p 'process.versions.node.split(".")[0]')" != 24 ]; then
-  echo 'Studio 2 requires Node 24. Set INTENTSMITH_NODE24_BIN to its executable.' >&2
-  exit 1
-fi
-if [ ! -s "$SOURCE_ROOT/intentsmith-ide/applications/electron/lib/frontend/bundle.js" ]; then
-  echo 'Studio 2 build is missing. Build it with Node 24: (cd intentsmith-ide && yarn build)' >&2
-  exit 1
+  PROBE_NODE="$(command -v node || true)"
+  if [ -z "$PROBE_NODE" ]; then
+    echo 'Node.js is required to verify the private backend port file.' >&2
+    exit 1
+  fi
+else
+  if [ -z "$NODE24" ]; then
+    if command -v node >/dev/null 2>&1 && [ "$(node -p 'process.versions.node.split(".")[0]')" = 24 ]; then
+      NODE24="$(command -v node)"
+    elif [ -x /tmp/is-studio2-node24/node_modules/node/bin/node ]; then
+      NODE24=/tmp/is-studio2-node24/node_modules/node/bin/node
+    fi
+  fi
+  if [ -z "$NODE24" ] || [ ! -x "$NODE24" ] || [ "$("$NODE24" -p 'process.versions.node.split(".")[0]')" != 24 ]; then
+    echo 'Studio 2 source build requires Node 24. Set INTENTSMITH_NODE24_BIN.' >&2
+    exit 1
+  fi
+  if [ ! -s "$SOURCE_ROOT/intentsmith-ide/applications/electron/lib/frontend/bundle.js" ]; then
+    echo 'Studio 2 build is missing. Build it with Node 24: (cd intentsmith-ide && yarn build)' >&2
+    exit 1
+  fi
+  PROBE_NODE="$NODE24"
+  export PATH="$(dirname "$NODE24"):$PATH"
 fi
 
 export INTENTSMITH_PORT_FILE="$LIVE_PORT_FILE"
-export PATH="$(dirname "$NODE24"):$PATH"
-if ! "$NODE24" -e '
+if ! "$PROBE_NODE" -e '
   (async () => {
     const access = require(process.argv[1]).readLocalAccess();
     if (!access) process.exit(1);
@@ -43,7 +57,7 @@ if ! "$NODE24" -e '
 fi
 
 if [ "${1:-}" = '--check' ]; then
-  echo 'Studio 2 build, Node 24 and live backend port file are ready.'
+  echo 'Studio 2 application and live backend port file are ready.'
   exit 0
 fi
 if [ "$#" -ne 0 ]; then
@@ -70,4 +84,7 @@ export XDG_CACHE_HOME="$PROFILE/cache"
 export XDG_DATA_HOME="$PROFILE/data"
 cd "$SOURCE_ROOT/intentsmith-ide/applications/electron"
 echo 'Opening Studio 2 with the currently running IntentSmith backend and its live data.'
+if [ -n "$APPIMAGE" ]; then
+  exec env -u ELECTRON_RUN_AS_NODE APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGE"
+fi
 exec env -u ELECTRON_RUN_AS_NODE "$NODE24" scripts/launch.js

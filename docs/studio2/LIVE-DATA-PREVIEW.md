@@ -6,14 +6,24 @@ profil, ale konverzace, projekty, specialisty a expertýzy čte a mění přes
 stejné API a databázi jako klasické Studio.
 
 1. Zavři dřívější testovací AppImage (používá tentýž profil okna).
-2. V checkoutu sestav aktuální zdroj s Node 24:
+2. Pokud používáš nový AppImage, nastav jeho cestu a otevři ho bez sestavování
+   zdroje:
+
+   ```sh
+   cd /home/belphareon/Projects/intentsmith-studio2-integration-20260925
+   export INTENTSMITH_STUDIO2_APPIMAGE=/cesta/k/novemu/IntentSmith-0.1.0.AppImage
+   ./scripts/studio2-live-data-preview.sh --check
+   ./scripts/studio2-live-data-preview.sh
+   ```
+
+   Pro běh přímo ze zdroje místo AppImage sestav aktuální zdroj s Node 24:
 
    ```sh
    cd /home/belphareon/Projects/intentsmith-studio2-integration-20260925
    (cd intentsmith-ide && PATH="/tmp/is-studio2-node24/node_modules/node/bin:$PATH" corepack yarn build)
    ```
 
-3. Ověř a spusť:
+   Pak ověř a spusť:
 
    ```sh
    ./scripts/studio2-live-data-preview.sh --check
