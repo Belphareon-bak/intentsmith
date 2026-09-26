@@ -11,7 +11,7 @@ import { up } from '../src/db/migrations/2026_09_23_117_development_installation
 import { createDependencyInstallationService, npmInstallationArtifacts, dotnetArtifact, readInstallationPolicy } from '../src/setup/dependency-installation.js';
 import { createGlobalAuthAuthority } from '../src/security/global-auth-policy.js';
 import { inspectDevelopmentEnvironment, developmentEnvironmentPrompt } from '../src/setup/development-environment.js';
-import { runInstallationProcess, archiveInspectionArgs, publishInstallation } from '../src/setup/dependency-installer-process.js';
+import { runInstallationProcess, archiveInspectionArgs, publishInstallation, installationSandboxArgs } from '../src/setup/dependency-installer-process.js';
 import { createDevelopmentRoutes } from '../src/routes/development.js';
 
 const subject = createGlobalAuthAuthority({ production: false }).authorize({ routeKey: 'POST /api/chat', headers: {}, remoteAddress: '127.0.0.1' }).subject;
@@ -136,6 +136,14 @@ test('real sandbox cannot read host HOME or connect to host network; archive lin
   await assert.rejects(runInstallationProcess({ stage, binary: '/usr/bin/prlimit', argv: archiveInspectionArgs('/work/downloads/unsafe.tgz'), audit() {} }), error => /INSTALL_ARCHIVE_TYPE_DENIED/.test(error.receipt?.output));
   const destination = path.join(stage, 'existing');await fs.mkdir(destination);
   await assert.rejects(publishInstallation(path.join(stage, 'project'), destination));assert.ok(await fs.stat(path.join(stage, 'project/unsafe')));
+});
+test('npm from a different Node prefix exposes only its package inside the installer sandbox', () => {
+  const npm = '/private/runtime/lib/node_modules/npm/bin/npm-cli.js';
+  const args = installationSandboxArgs('/private/stage', process.execPath, [npm, 'ci', '--offline']);
+  const root = '/private/runtime/lib/node_modules/npm';
+  assert.ok(args.some((value, index) => value === '--ro-bind' && args[index + 1] === root && args[index + 2] === root));
+  assert.equal(args.includes('/private/runtime'), false);
+  assert.equal(args.includes('/private/runtime/lib/node_modules'), false);
 });
 test('HTTP routes require real local transport, publish policy errors and expose durable status', async () => {
   const f = await fixture(), routes = createDevelopmentRoutes({ db: f.db, parseBody: async req => req.body, sendJSON: (_res, status, value) => ({ status, value }), installationService: f.service });

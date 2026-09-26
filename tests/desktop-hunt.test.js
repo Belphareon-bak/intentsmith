@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm, symlink, lstat, chmod } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import vm from 'node:vm';
 import { createGpuProfileCache } from '../src/system/gpu-detector.js';
@@ -304,6 +304,17 @@ test('legacy launcher preserves attached backend and its port file on Studio fai
   await assert.rejects(exec('/bin/bash',[join(ROOT,'scripts/run.sh')],{cwd:ROOT,env:{...process.env,HOME:home,
     INTENTSMITH_PORT_FILE:port,INTENTSMITH_INSTALLATION_FILE:join(home,'absent'),PATH:bin+':'+process.env.PATH},timeout:10000}),e=>e.code===17);
   assert.equal(await readFile(port,'utf8'),data);assert.doesNotThrow(()=>process.kill(process.pid,0));
+});
+
+test('legacy launcher preserves a live foreign process port file instead of deleting it',async t=>{
+  const {home}=await fixture(t),port=join(home,'foreign-port.json');
+  const foreign=spawn('/bin/sleep',['10'],{stdio:'ignore'});
+  t.after(()=>foreign.kill('SIGTERM'));
+  const data=JSON.stringify({host:'127.0.0.1',port:34567,pid:foreign.pid,localCapability:capability});
+  await writeFile(port,data,{mode:0o600});
+  await assert.rejects(exec('/bin/bash',[join(ROOT,'scripts/run.sh')],{cwd:ROOT,env:{...process.env,HOME:home,
+    INTENTSMITH_PORT_FILE:port,INTENTSMITH_INSTALLATION_FILE:join(home,'absent')},timeout:10000}),e=>e.code===1);
+  assert.equal(await readFile(port,'utf8'),data);
 });
 
 test('Studio hunt renders queue and skip reason, and cancelled confirmation sends no control request',async()=>{

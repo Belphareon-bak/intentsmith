@@ -26,6 +26,9 @@ import { compileCodeDraftInput, compileCodeDraftResult, buildCodeDraftPrompt, as
 import { initializeNewProject } from '../src/planner/project-onboarding.js';
 
 const PROJECT_ID = 27;
+// Node 24 infers ESM from syntax and no longer accepts this legacy flag.
+const defaultModuleTypeArgs = process.allowedNodeEnvironmentFlags.has('--experimental-default-type')
+  ? ['--experimental-default-type=module'] : [];
 const SUBJECT = Object.freeze({ actorType: 'user', actorId: 'operator-m2' });
 const ORIGIN = Object.freeze({
   surface: 'studio',
@@ -746,7 +749,7 @@ for (const invalidLastFile of [false, true]) {
       await service.recoverIncompleteSmallProjectChanges();
       const draft = { paths, instruction: 'Export value from helper and add the extra flag.' };
       if (!invalidLastFile) draft.focusedTest = { binary: process.execPath,
-        argv: [...projectTestProfile().argv.slice(0, -2), '--experimental-default-type=module', '--input-type=module', '-e',
+        argv: [...projectTestProfile().argv.slice(0, -2), ...defaultModuleTypeArgs, '--input-type=module', '-e',
           "import assert from 'node:assert/strict';import {value} from './src/app.js';import {okay} from './src/extra.js';assert.equal(value,42);assert.equal(okay,true);"],
         environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' }, timeoutMs: 30_000 };
       const planning = service.draftSmallProjectChange({
@@ -808,7 +811,7 @@ for (const invalidSyntax of [true, false]) {
       await service.recoverIncompleteSmallProjectChanges();
       const draft = { paths, instruction: 'Export 42 from app and propagate it through copy and view.' };
       if (!invalidSyntax) draft.focusedTest = { binary: process.execPath,
-        argv: [...projectTestProfile().argv.slice(0, -2), '--experimental-default-type=module', '--input-type=module', '-e',
+        argv: [...projectTestProfile().argv.slice(0, -2), ...defaultModuleTypeArgs, '--input-type=module', '-e',
           "import assert from 'node:assert/strict';import {displayed} from './src/view.js';assert.equal(displayed,42,'transitive peer result');"],
         environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' }, timeoutMs: 30_000 };
       const planning = service.draftSmallProjectChange({
@@ -936,7 +939,7 @@ function projectBlueprint() {
     files: files.map(([path, instruction, dependsOn]) => ({ path, instruction, dependsOn })),
     focusedTest: {
       binary: process.execPath,
-      argv: [...projectTestProfile().argv.slice(0, projectTestProfile().argv.indexOf('--test')), '--experimental-default-type=module', '--input-type=module', '-e',
+      argv: [...projectTestProfile().argv.slice(0, projectTestProfile().argv.indexOf('--test')), ...defaultModuleTypeArgs, '--input-type=module', '-e',
         "import assert from 'node:assert/strict';import {run} from './src/app.js';assert.equal(new WebAssembly.Memory({initial:1}).buffer.byteLength,65536);const results=run([['add',12,'food'],['add',8,'travel'],['add',3,'food'],['total'],['categories'],['list']]);assert.equal(results[3],23);assert.deepEqual(results[4],{food:15,travel:8});assert.equal(results[5].length,3);assert.deepEqual(run([['list'],['total']]),[[],0]);for(const amount of [0,-1,NaN,Infinity])assert.throws(()=>run([['add',amount,'food']]));assert.throws(()=>run([['add',1,'']]));assert.throws(()=>run([['unknown']]));"],
       environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' }, timeoutMs: 30_000,
     },

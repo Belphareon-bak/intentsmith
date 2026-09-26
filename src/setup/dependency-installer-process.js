@@ -42,6 +42,13 @@ export function installationSandboxArgs(stage, binary, argv) {
     '--proc', '/proc', '--dev', '/dev', '--tmpfs', '/tmp', '--dir', '/etc',
     '--ro-bind-try', '/etc/ld.so.cache', '/etc/ld.so.cache'];
   if (nodePrefix !== '/usr' && !nodePrefix.startsWith('/usr/')) args.push('--ro-bind', nodePrefix, nodePrefix);
+  // The active Node runtime and the observed npm executable can come from
+  // different installations. Expose only npm's package directory, never the
+  // surrounding user home, so its CLI remains available inside the sandbox.
+  if (binary === process.execPath && path.isAbsolute(argv[0] || '') && path.basename(argv[0]) === 'npm-cli.js') {
+    const npmRoot = path.dirname(path.dirname(argv[0]));
+    if (npmRoot !== '/usr' && !npmRoot.startsWith('/usr/')) args.push('--ro-bind', npmRoot, npmRoot);
+  }
   args.push('--bind', stage, '/work', '--chdir', '/work/project', '--clearenv',
     '--setenv', 'PATH', `${path.dirname(process.execPath)}:/usr/bin:/bin`,
     '--setenv', 'HOME', '/work/home', '--setenv', 'LANG', 'C.UTF-8',

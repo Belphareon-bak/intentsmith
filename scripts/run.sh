@@ -163,8 +163,12 @@ fi
 # Check for stale port file
 if [ -f "$PORT_FILE" ]; then
   EXISTING_PID=$(node -e "try{console.log(JSON.parse(require('fs').readFileSync('$PORT_FILE','utf8')).pid)}catch(e){console.log('')}" 2>/dev/null || echo "")
-  EXISTING_CMD=$(ps -p "$EXISTING_PID" -o comm= 2>/dev/null || echo "")
-  if [ -n "$EXISTING_PID" ] && kill -0 "$EXISTING_PID" 2>/dev/null && [ "$EXISTING_CMD" = "node" ]; then
+  NODE_EXE=$(readlink -f "$(command -v node)")
+  EXISTING_EXE=""
+  if [[ "$EXISTING_PID" =~ ^[1-9][0-9]*$ ]] && kill -0 "$EXISTING_PID" 2>/dev/null; then
+    EXISTING_EXE=$(readlink -f "/proc/${EXISTING_PID}/exe" 2>/dev/null || true)
+  fi
+  if [ -n "$EXISTING_EXE" ] && [ "$EXISTING_EXE" = "$NODE_EXE" ]; then
     EXISTING_PORT=$(node -e "try{console.log(JSON.parse(require('fs').readFileSync('$PORT_FILE','utf8')).port)}catch(e){console.log('?')}" 2>/dev/null || echo "?")
     ASSIGNED_PORT=$(node -e 'const a=require("./intentsmith-ide/applications/electron/intentsmith-local-access.js").readLocalAccess();if(!a)process.exit(1);console.log(a.port)')
     if ! curl --max-time 3 -sf "http://127.0.0.1:${ASSIGNED_PORT}/api/health" >/dev/null; then
@@ -173,6 +177,9 @@ if [ -f "$PORT_FILE" ]; then
     fi
     ATTACHED_BACKEND=true
     ok "Connecting to existing backend (PID ${EXISTING_PID}, port ${ASSIGNED_PORT})"
+  elif [[ "$EXISTING_PID" =~ ^[1-9][0-9]*$ ]] && kill -0 "$EXISTING_PID" 2>/dev/null; then
+    fail "Existing backend process cannot be verified; its port file was left untouched"
+    exit 1
   else
     # Stale port file — remove it
     rm -f "$PORT_FILE"
