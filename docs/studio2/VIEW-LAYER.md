@@ -53,7 +53,8 @@ zrušení zůstává označená jako běžící, dokud backend neohlásí koncov
 Nový formulář generování je součástí prototypu a generovaného pohledu.
 V IDE ověřuje dostupnost ComfyUI a checkpointu, validuje textové generování
 obrázku a videa, odesílá ho přes `/api/media/generate` a kontroluje přijetí
-v historii. Dokončené výstupy se načítají z `/api/media/output` do lokálních
+v historii. Průběh a konec přebírá z již existující sběrnice WebSocketu;
+konečný stav znovu ověří v historii. Dokončené výstupy se načítají z `/api/media/output` do lokálních
 objektových URL; zamítají se nebezpečné názvy a neočekávané typy. Obraz → obraz
 zatím formulář nenabízí, protože backend nemá připojené nahrání zdrojového obrázku.
 Fyzické GPU generování nebylo v izolovaných testech spuštěno.

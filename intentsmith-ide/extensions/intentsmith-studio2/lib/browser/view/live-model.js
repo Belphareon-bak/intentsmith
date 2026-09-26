@@ -9,6 +9,7 @@ const { DevelopmentClient } = require('../development-client');
 const { ScmClient } = require('../scm-client');
 const { StatusClient } = require('../status-client');
 const { MEDIA_ID } = require('../catalog-store');
+const { IntentSmithBus } = require('@intentsmith/chat-panel/lib/browser/event-bus');
 
 const CATALOG = Object.freeze({
   chats: 'Konverzace', projects: 'Projekty', specialists: 'Specialisté',
@@ -70,6 +71,7 @@ class LiveModel extends Component {
     this._mediaSubmitting = false;
     this._mediaSubmitNotice = '';
     this._mediaOutputUrls = new Map();
+    this._mediaBusListeners = [];
     this._audit = new Map();
     this._auditRequest = new Map();
     this._catalogBusy = new Set();
@@ -78,6 +80,12 @@ class LiveModel extends Component {
 
   componentDidMount() {
     super.componentDidMount();
+    for (const [name, kind] of [['comfyui:progress', 'progress'], ['comfyui:complete', 'complete'],
+      ['comfyui:error', 'error']]) {
+      const listener = event => this.onMediaEvent(kind, event);
+      IntentSmithBus.on(name, listener);
+      this._mediaBusListeners.push([name, listener]);
+    }
     for (const source of [this.widget.store, this.widget.catalog, this.widget.appearance]) {
       this._unlisten.push(source.subscribe(() => { if (source === this.widget.store) this.syncTrees(); this.forceUpdate(); }));
     }
@@ -98,6 +106,7 @@ class LiveModel extends Component {
   }
 
   componentWillUnmount() {
+    for (const [name, listener] of this._mediaBusListeners.splice(0)) IntentSmithBus.off(name, listener);
     for (const output of this._mediaOutputUrls.values()) if (output.url) URL.revokeObjectURL(output.url);
     this._mediaOutputUrls.clear();
     for (const unlisten of this._unlisten.splice(0)) unlisten();
@@ -645,6 +654,37 @@ class LiveModel extends Component {
       }
       this.forceUpdate();
     }));
+    return true;
+  }
+
+  async onMediaEvent(kind, event) {
+    const id = event?.generationId;
+    if (typeof id !== 'string' || !MEDIA_ID.test(id)) return false;
+    if (kind === 'progress') {
+      const percent = Number.isFinite(event.percent) && event.percent >= 0 && event.percent <= 100
+        ? ` · ${Math.round(event.percent)} %` : '';
+      const label = typeof event.text === 'string' ? event.text.slice(0, 200) : 'Generování probíhá';
+      this._mediaNotices.set(id, label + percent);
+      this.forceUpdate();
+      return true;
+    }
+    if (kind !== 'complete' && kind !== 'error') return false;
+    const error = typeof event.error === 'string' ? event.error.slice(0, 200) : '';
+    this._mediaNotices.set(id, kind === 'error' ? 'Generování selhalo: ' + (error || 'neznámá chyba')
+      : 'Dokončeno; ověřuji historii a výstupy…');
+    this.forceUpdate();
+    if (this.st().section !== 'media') return true;
+    await this.widget.catalog.load('Multimédia');
+    const view = this.widget.catalog.view('Multimédia');
+    const item = view.items.find(row => row.id === id);
+    if (view.status !== 'ready' || !item || (kind === 'complete' && item.raw.status !== 'completed')
+      || (kind === 'error' && item.raw.status !== 'failed')) {
+      this._mediaNotices.set(id, 'Událost generování dorazila, ale historie zatím stav nepotvrdila. Obnov historii.');
+    } else if (kind === 'complete') {
+      this._mediaNotices.set(id, 'Generování dokončeno.');
+      if (this.st().detail?.media === id) await this.loadMediaOutputs(item);
+    }
+    this.forceUpdate();
     return true;
   }
 

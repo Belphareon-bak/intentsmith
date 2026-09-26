@@ -8,6 +8,7 @@ const { SessionStore } = require('../intentsmith-ide/extensions/intentsmith-stud
 const { AppearanceStore } = require('../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/appearance-store');
 const { WorkspaceFiles } = require('../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/workspace-files');
 const { CatalogStore } = require('../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/catalog-store');
+const { IntentSmithBus } = require('../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/event-bus');
 
 function setup({ workspace, m2, catalog: catalogOverride } = {}) {
   const memory = new Map();
@@ -243,6 +244,36 @@ test('completed media loads only safe output names as local object URLs', async 
   assert.equal(requests.length, 2);
   assert.ok(requests.every(url => url.includes('/api/media/output?id=' + id)));
   model.componentWillUnmount();
+});
+
+test('media WS events update progress and verify terminal state from history without a second transport', async () => {
+  const id = 'gen-1790400000003-784bc072';
+  let status = 'running', loads = 0;
+  const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335',
+    fetchImpl: async url => {
+      assert.equal(new URL(url).pathname, '/api/media/history');
+      loads++;
+      return { ok: true, json: async () => ({ generations: [{ id, type: 'txt2img',
+        prompt: 'Krajina', status, outputs: '[]' }] }) };
+    } });
+  const { model } = setup({ catalog });
+  model.statusClient.start = () => {};
+  await catalog.load('Multimédia');
+  model.componentDidMount();
+  model.setState({ mode: 'section', section: 'media', detail: { media: id } });
+  IntentSmithBus.emit('comfyui:progress', { generationId: id, percent: 42, text: 'Generuji' });
+  assert.match(JSON.stringify(model.detailVM(model.st()).blocks), /Generuji · 42 %/);
+  IntentSmithBus.emit('comfyui:complete', { generationId: 'other-id' });
+  assert.equal(loads, 1, 'invalid ID does not trigger refresh');
+  status = 'completed';
+  IntentSmithBus.emit('comfyui:complete', { generationId: id });
+  await tick(); await tick();
+  assert.equal(loads, 2);
+  assert.equal(model.detailVM(model.st()).status, 'completed');
+  assert.match(JSON.stringify(model.detailVM(model.st()).blocks), /Generování dokončeno/);
+  model.componentWillUnmount();
+  IntentSmithBus.emit('comfyui:progress', { generationId: id, percent: 99, text: 'Pozdě' });
+  assert.doesNotMatch(JSON.stringify(model.detailVM(model.st()).blocks), /Pozdě/);
 });
 
 test('live view contains only actual sessions and messages, and swaps column ownership', () => {

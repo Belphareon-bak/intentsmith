@@ -63,6 +63,9 @@ out = html({ rightTab: 'scm', colSids: ['s5'], cols: 1 });
 assert.ok(out.includes('Tahle relace nemá projekt'), 'relace bez projektu');
 out = html((c) => c.pSelect(c.st(), 'projects', 'shellsmith'));
 assert.ok(out.includes('class="cat') && out.includes('Nová relace v projektu'), 'katalog a detail');
+out = html({ mode: 'section', section: 'media', detail: { media: '__new__' } });
+for (const label of ['Nové generování', 'Zadání pro ComfyUI', 'Checkpoint', 'Generovat'])
+  assert.ok(out.includes(label), 'formulář médií: ' + label);
 for (const style of c0().styleList().map((x) => x.id)) assert.ok(html({ style }).includes('th-' + style), 'motiv ' + style);
 console.log('PASS generated React view renders sessions, column picker, files, source control, catalog and all styles');
 
