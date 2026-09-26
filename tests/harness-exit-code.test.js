@@ -431,7 +431,9 @@ try {
   // 132 -> 133: sazeni-integration also starts with the isolation bootstrap.
   // 133 -> 134: project-collaboration imports the real project/controller graph;
   // its first import is isolated-test-db.js and it owns every HTTP child server.
-  const expectedDatabaseReachableRootTests = 134;
+  // 134 -> 135: the Studio 2 specialist package test creates a temporary
+  // directory and imports the isolation bootstrap before the route under test.
+  const expectedDatabaseReachableRootTests = 135;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,
