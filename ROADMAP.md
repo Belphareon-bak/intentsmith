@@ -1,5 +1,13 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**GPU hunt — druhý posudek a věrnost CHAT historie, 26. 9. 2026:**
+D/R posudky jsou úplné pro 24 odpovědí jedné úlohy, ale mají 5 nerozsouzených
+sporů. CHAT posudky jsou úplné pro 80 dialogů, ale skutečné requesty ve třetím
+tahu u 66 ze 76 tříkolových pokusů neobsahovaly aspoň jeden předchozí vstup
+uživatele. Oprava skládání historie prošla offline rekonstrukcí; nové měření
+a přejímka zbývají. **REVIEW_PENDING / NO_AUTONOMOUS_GO**.
+[Přesné počty, důkazy a další krok](docs/review/2026-09-26-HUNT-STEP3-SECOND-REVIEW-CONTEXT.md).
+
 **GPU hunt — kompatibilita uložených odpovědí, 25. 9. 2026:**
 Přesná kontrola vstupů a identity umožňuje po změně známkování znovu použít
 celý uložený sběr bez inference. Read-only audit našel 11 strukturálně

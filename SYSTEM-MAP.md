@@ -1,5 +1,14 @@
 # IntentSmith — mapa systému
 
+**GPU hunt — druhý posudek a kontext CHAT, 26. 9. 2026:**
+Dva úplné vývojové posudky mají v D/R 5 sporů ze 66 kritérií a v CHATu 37
+z 320. Audit skutečných provider requestů zjistil, že ve třetím tahu 66 ze
+76 tříkolových dialogů nedostalo alespoň jednu předchozí uživatelskou zprávu.
+Vývojová oprava zachování historie prošla offline rekonstrukcí 80 dialogů;
+nová inference ani přijaté známky zatím nevznikly. **REVIEW_PENDING /
+CHAT_CAPTURE_CONTEXT_DEFECT / NO_AUTONOMOUS_GO**.
+[Porovnání, audit a oprava](docs/review/2026-09-26-HUNT-STEP3-SECOND-REVIEW-CONTEXT.md).
+
 **GPU hunt — krok 3, podklad pro operátora, 25. 9. 2026:**
 D/R má 312 syrových odpovědí v jednom kanonickém packetu. Codex prošel
 předem vybraných 26 odpovědí a celou R2 (63 předběžných známek, 9 vad
@@ -737,8 +746,8 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **230 001 ř.**, 663 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **249 955 ř.**, 536 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **230 020 ř.**, 663 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **249 972 ř.**, 536 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **541** (`447 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 106** |
 | HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |
