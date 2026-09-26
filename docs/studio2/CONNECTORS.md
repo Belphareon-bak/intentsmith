@@ -34,8 +34,8 @@ globály `_sessions` a `_sessionActive`; routování zpět do relací zůstává
 | Expertýzy | `GET /api/expertises`, `/api/expertise-schema`, `POST /api/expertise-wizard/test-prompt` |
 | Workeři | `GET /api/agents?all=true`, `GET /api/agents/:id`; mutace jen ověřené instance M3 přes `POST /api/agent-extensions/instances/:agentId/run`, `/enable`, `/disable`. Legacy mutace `/api/agents/:id/*` a `/api/agents/dry-run` vracejí 410. |
 | Obchod | `GET /api/marketplace/catalog?page=`, `POST …/catalog/refresh`, `…/install/:type/:id`, `DELETE …/installed/:type/:id`, `…/update/:type/:id`, `…/export/:type/:id` |
-| Multimédia | `GET /api/media/history`, `/models`, `/health`, `/output?id=`; `POST /api/media/generate`, `/cancel`, `/favorite`, `/models/refresh` |
-| Pracovní plocha — soubory | `GET /api/workspace/tree?path=`, `/ls?path=`, `/file?path=`; `POST /api/workspace/file`, `/directory`, `/rename`; `POST /api/merge-preview` |
+| Multimédia | `GET /api/media/history`, `/models`, `/health`, `/output?id=&filename=`; `POST /api/media/generate`, `/cancel?id=`, `/models/refresh`; `PUT /api/media/favorite`; `DELETE /api/media?id=` |
+| Pracovní plocha — soubory | `GET /api/workspace/tree?project_id=`, `/ls?path=`, `/file?root=&path=`; `POST /api/workspace/file`, `/directory`; `PUT /api/workspace/rename`; `DELETE /api/workspace/file`; `POST /api/merge-preview` |
 | Pracovní plocha — kontext | `POST /api/context` |
 | Nastavení — účet, výstup, funkce | `GET/POST /api/settings`, `/api/settings/import`, `/api/features`, `/api/features/reset` |
 | Nastavení — modely | `/api/system/models` (`overview`, `candidates`, `downloads`, `pull`, `evaluate`, `evaluations`, `grade`, `grading`, `hunt`, `hunt/control`), `/api/system/upgrades` (`check`, `apply`, `rollback`, `bindings`), `/api/system/governor` (`report`, `proposals`, `check`) |
