@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 561
+- Runnable programs: 562
 - Explicit support-module exclusions: 22
-- Profiles: offline=314, database=81, server=49, model=82, soak=15, manual=20
-- States: ACTIVE=467, HISTORICAL=15, BLOCKED=79
+- Profiles: offline=314, database=82, server=49, model=82, soak=15, manual=20
+- States: ACTIVE=468, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -594,6 +594,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T3-TESTS-WORKFLOW-ORCHESTRATOR-TEST` | `tests/workflow-orchestrator.test.js` | `C3-027` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-WORKFLOW-TEST` | `tests/workflow.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-WORKSPACE-BUDGET-TEST` | `tests/workspace-budget.test.js` | `C3-027` | T1 | `offline` | 1 s | 30 s | network:none, toolchain:git | yes | `ACTIVE` | — | WP-WORKSPACE-BUDGET-INTEGRATION |
+| `IS-T1-TESTS-WORKSPACE-TREE-PROJECT-ID-TEST` | `tests/workspace-tree-project-id.test.js` | `C3-005` | T1 | `database` | 2 s | 1 min | network:none, temp-db, toolchain:git | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-WS-BRIDGE-TEST` | `tests/ws-bridge.test.js` | `C3-023` | T1 | `offline` | 30 s | 2 min | network:loopback | yes | `ACTIVE` | — | primary implementer |
 
 ## Explicit support-module exclusions

@@ -740,7 +740,7 @@ export function createProjectRoutes(deps) {
         let projectPath = url.searchParams.get('path');
 
         if (projectId) {
-          const proj = db.projects.get(projectId);
+          const proj = db.projects.findById.get(projectId);
           if (proj) projectPath = proj.path;
         }
         if (!projectPath) {
@@ -944,7 +944,7 @@ export function createProjectRoutes(deps) {
         let projectPath = url.searchParams.get('path');
 
         if (projectId) {
-          const proj = db.projects.get(projectId);
+          const proj = db.projects.findById.get(projectId);
           if (proj) projectPath = proj.path;
         }
         if (!projectPath) { sendJSON(res, 400, { error: 'Missing project_id or path' }); return; }

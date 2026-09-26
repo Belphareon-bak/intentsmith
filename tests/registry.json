@@ -16981,6 +16981,39 @@
       },
       "flakeCount": 0,
       "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-WORKSPACE-TREE-PROJECT-ID-TEST",
+      "path": "tests/workspace-tree-project-id.test.js",
+      "argv": [
+        "node",
+        "tests/workspace-tree-project-id.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T1",
+      "fixture": "temporary git repository and isolated SQLite",
+      "profile": "database",
+      "timeoutMs": 60000,
+      "expectedDurationMs": 2000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false,
+        "toolchain": [
+          "git"
+        ]
+      },
+      "required": true,
+      "owner": "WP-STUDIO-2-20260925",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
     }
   ]
 }

@@ -740,8 +740,8 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 | | |
 |---|---:|
 | `src/**/*.js` | **231 546 ř.**, 674 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **254 258 ř.**, 557 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **561** (`467 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) v integračním manifestu; úplný profil má samostatný výsledek |
+| `tests/**/*.js` | **254 316 ř.**, 558 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **562** (`468 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) v integračním manifestu; úplný profil má samostatný výsledek |
 | Tabulek v čerstvé DB / aplikovaných migrací | **185 / 107** |
 | HTTP rout | **Nezměřeno na integračním SHA**; hunt snapshot měl 246 statických deklarací |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |

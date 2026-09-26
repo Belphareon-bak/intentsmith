@@ -437,7 +437,9 @@ try {
   // its first import provides the same isolated database bootstrap.
   // 136 -> 138: Studio 2 expertise selection and media input tests both import
   // the isolated database bootstrap before their production database imports.
-  const expectedDatabaseReachableRootTests = 138;
+  // 138 -> 139: the workspace tree regression test resolves project_id through
+  // the real database module after importing the isolated bootstrap first.
+  const expectedDatabaseReachableRootTests = 139;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,
