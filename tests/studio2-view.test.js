@@ -66,6 +66,10 @@ assert.ok(out.includes('class="cat') && out.includes('Nová relace v projektu'),
 out = html({ mode: 'section', section: 'media', detail: { media: '__new__' } });
 for (const label of ['Nové generování', 'Zadání pro ComfyUI', 'Checkpoint', 'Generovat'])
   assert.ok(out.includes(label), 'formulář médií: ' + label);
+out = html({ mode: 'section', section: 'projects', detail: { projects: '__new__' } });
+assert.ok(out.includes('Průvodce projektem') && out.includes('Pokračovat na kontrolu'), 'projektový průvodce');
+out = html({ mode: 'section', section: 'projects', detail: { projects: '__new__' }, projectStep: 1, projectName: 'Nový' });
+assert.ok(out.includes('Potvrdit projekt') && out.includes('Krok 2 ze 2'), 'kontrola projektu před vytvořením');
 for (const style of c0().styleList().map((x) => x.id)) assert.ok(html({ style }).includes('th-' + style), 'motiv ' + style);
 console.log('PASS generated React view renders sessions, column picker, files, source control, catalog and all styles');
 

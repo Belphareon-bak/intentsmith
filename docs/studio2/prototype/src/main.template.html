@@ -783,6 +783,25 @@ textarea.fv-ed{font-family:var(--font-mono)}
 <button class="btn btn-acc" disabled="{{b.mediaForm.disabled}}" onClick="{{b.mediaForm.submit}}">Generovat</button>
 </div>
 </sc-if>
+<sc-if value="{{b.isProjectWizard}}" hint-placeholder-val="{{false}}">
+<div class="aps" aria-label="Průvodce projektem">
+<div class="blk-h"><span class="lbl-acc">{{b.projectWizard.stepLabel}}</span></div>
+<sc-if value="{{b.projectWizard.isForm}}" hint-placeholder-val="{{true}}">
+<label class="arow2"><span>Postup</span><select value="{{b.projectWizard.mode}}" onChange="{{b.projectWizard.setMode}}"><sc-for list="{{b.projectWizard.modes}}" as="option" hint-placeholder-count="2"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
+<label class="arow2"><span>Název</span><input value="{{b.projectWizard.name}}" onChange="{{b.projectWizard.setName}}" maxLength="120" placeholder="Název projektu"></label>
+<label class="arow2"><span>{{b.projectWizard.pathLabel}}</span><input value="{{b.projectWizard.path}}" onChange="{{b.projectWizard.setPath}}" placeholder="Prázdné = výchozí složka; pro otevření zadej absolutní cestu"></label>
+<sc-if value="{{b.projectWizard.isCreate}}" hint-placeholder-val="{{true}}"><label class="arow2"><span>Typ</span><select value="{{b.projectWizard.type}}" onChange="{{b.projectWizard.setType}}"><sc-for list="{{b.projectWizard.types}}" as="type" hint-placeholder-count="6"><option value="{{type.value}}">{{type.label}}</option></sc-for></select></label>
+<label class="arow2"><span>Popis</span><textarea rows="3" value="{{b.projectWizard.description}}" onChange="{{b.projectWizard.setDescription}}" placeholder="Co má projekt řešit"></textarea></label></sc-if>
+<button class="btn btn-acc" disabled="{{b.projectWizard.nextDisabled}}" onClick="{{b.projectWizard.next}}">Pokračovat na kontrolu</button>
+</sc-if>
+<sc-if value="{{b.projectWizard.isReview}}" hint-placeholder-val="{{false}}">
+<div class="dl"><span>Operace</span><strong>{{b.projectWizard.reviewMode}}</strong><span>Název</span><strong>{{b.projectWizard.reviewName}}</strong><span>Složka</span><code>{{b.projectWizard.reviewTarget}}</code><sc-if value="{{b.projectWizard.isCreate}}" hint-placeholder-val="{{true}}"><span>Typ</span><span>{{b.projectWizard.reviewType}}</span><span>Popis</span><span>{{b.projectWizard.reviewDescription}}</span></sc-if></div>
+<p class="aph">Nový projekt vytvoří složku a git repozitář. Otevření existující složky ji zaregistruje bez změny jejích souborů.</p>
+<div style="display:flex;gap:8px"><button class="btn" onClick="{{b.projectWizard.back}}">Zpět</button><button class="btn btn-acc" disabled="{{b.projectWizard.submitDisabled}}" onClick="{{b.projectWizard.submit}}">Potvrdit projekt</button></div>
+</sc-if>
+<sc-if value="{{b.projectWizard.hasStatus}}" hint-placeholder-val="{{false}}"><div role="alert" class="note">{{b.projectWizard.status}}</div></sc-if>
+</div>
+</sc-if>
 <sc-if value="{{b.isScmPolicy}}" hint-placeholder-val="{{false}}">
 <div class="aps dev-panel" aria-label="Politika správy zdrojů">
 <sc-for list="{{dt.scmPolicy.fields}}" as="setting" hint-placeholder-count="2"><label class="arow2"><span>{{setting.label}}</span><select value="{{setting.value}}" onChange="{{setting.change}}"><sc-for list="{{setting.options}}" as="option" hint-placeholder-count="3"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label></sc-for>

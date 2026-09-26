@@ -65,6 +65,7 @@ class LiveModel extends Component {
       onChange: () => this.forceUpdate() });
     this._policyDrafts = new Map();
     this._projectConversations = new Map();
+    this._projectWizardStatus = { busy: false, error: '', defaultDir: '', uncertain: false };
     this._workerDetails = new Map();
     this._mediaNotices = new Map();
     this._mediaEnvironment = { status: 'idle', available: false, models: [], error: '' };
@@ -370,10 +371,12 @@ class LiveModel extends Component {
       }
       vm.catalogError = this.widget.catalogActionError || view.error || '';
       vm.hasCatalogError = !!vm.catalogError;
-      vm.hasPrimary = s.section === 'chats' || s.section === 'media';
-      vm.primary = s.section === 'media' ? 'Nové generování' : 'Nová konverzace';
+      vm.hasPrimary = ['chats', 'projects', 'media'].includes(s.section);
+      vm.primary = s.section === 'media' ? 'Nové generování'
+        : s.section === 'projects' ? 'Nový projekt' : 'Nová konverzace';
       vm.onPrimary = this.run(s2 => s.section === 'media'
-        ? this.pSelect(s2, 'media', '__new__') : this.pNewSession(s2, {}));
+        ? this.pSelect(s2, 'media', '__new__') : s.section === 'projects'
+          ? this.pSelect(s2, 'projects', '__new__') : this.pNewSession(s2, {}));
     }
     return vm;
   }
@@ -382,6 +385,7 @@ class LiveModel extends Component {
     const id = s.detail[s.section];
     if (!id) return null;
     if (s.section === 'media' && id === '__new__') return super.detailVM(s);
+    if (s.section === 'projects' && id === '__new__') return super.detailVM(s);
     if (s.section === 'settings' && (id === 'vzhled' || id === 'system')) return super.detailVM(s);
     if (s.section === 'projects') {
       const vm = super.detailVM(s);
@@ -701,6 +705,70 @@ class LiveModel extends Component {
       error: this._mediaSubmitNotice || this._mediaEnvironment.error };
   }
 
+  projectStatus() { return this._projectWizardStatus; }
+
+  async loadProjectDefaults() {
+    try {
+      const result = await this.widget.catalog.get('/api/projects/defaults');
+      if (typeof result.defaultDir !== 'string' || !result.defaultDir.startsWith('/'))
+        throw Error('Backend nevrátil platnou výchozí složku.');
+      this._projectWizardStatus = { ...this._projectWizardStatus, defaultDir: result.defaultDir, error: '' };
+    } catch (error) {
+      this._projectWizardStatus = { ...this._projectWizardStatus,
+        error: error?.message || 'Výchozí složku projektu nelze načíst.' };
+    }
+    this.forceUpdate();
+  }
+
+  async submitProject(s) {
+    const form = this.projectWizardVM(s);
+    if (s.projectStep !== 1 || form.submitDisabled || this._projectWizardStatus.uncertain) return false;
+    const mode = form.mode, route = mode === 'create' ? '/api/projects' : '/api/projects/open-folder';
+    const body = mode === 'create'
+      ? { name: s.projectName.trim(), description: s.projectDescription, type: s.projectType,
+        ...(s.projectPath.trim() ? { path: s.projectPath.trim() } : {}) }
+      : { folderPath: s.projectPath.trim(), ...(s.projectName.trim() ? { name: s.projectName.trim() } : {}) };
+    this._projectWizardStatus = { ...this._projectWizardStatus, busy: true, error: '' };
+    this.widget.catalogActionError = null;
+    this.forceUpdate();
+    let accepted = null;
+    try {
+      const base = this.widget.catalog.backendUrl();
+      if (typeof base !== 'string' || !/^https?:\/\//.test(base)) throw Error('Backend není dostupný.');
+      const response = await this.fetchImpl(base + route, { method: 'POST',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+        signal: AbortSignal.timeout(30000) });
+      const result = await response.json();
+      if (!response.ok) throw Object.assign(Error(result.error || `Projekt nelze připravit (HTTP ${response.status}).`),
+        { status: response.status });
+      const project = result.project;
+      if (!project || !Number.isSafeInteger(project.id) || typeof project.path !== 'string'
+        || !project.path.startsWith('/')) throw Error('Backend nevrátil ověřitelný projekt. Zkontroluj katalog.');
+      accepted = project;
+      await this.widget.catalog.load('Projekty');
+      const view = this.widget.catalog.view('Projekty');
+      const row = view.items.find(item => item.id === String(project.id) && item.raw.path === project.path);
+      if (view.status !== 'ready' || !row) {
+        this._projectWizardStatus = { ...this._projectWizardStatus,
+          error: `Backend potvrdil projekt ${project.id}, ale katalog jej zatím neověřil. Obnov seznam projektů.` };
+        return true;
+      }
+      this.setState({ ...this.pSelect(this.st(), 'projects', String(project.id)),
+        projectStep: 0, projectName: '', projectPath: '', projectDescription: '' });
+      return true;
+    } catch (error) {
+      this._projectWizardStatus = { ...this._projectWizardStatus,
+        uncertain: !accepted && !error?.status,
+        error: accepted ? `Backend potvrdil projekt ${accepted.id}, ale další ověření selhalo. Obnov katalog.`
+          : (error?.message || 'Výsledek založení projektu není jistý. Zkontroluj katalog před dalším pokusem.') };
+      this.widget.catalogActionError = this._projectWizardStatus.error;
+      return false;
+    } finally {
+      this._projectWizardStatus.busy = false;
+      this.forceUpdate();
+    }
+  }
+
   async loadMediaEnvironment() {
     this._mediaEnvironment = { status: 'loading', available: false, models: [], error: '' };
     this._mediaSubmitNotice = '';
@@ -854,7 +922,10 @@ class LiveModel extends Component {
   }
 
   pSelect(s, sec, id) {
-    if (sec === 'projects') { this.scmClient.load(id); this.loadProjectConversations(id); }
+    if (sec === 'projects' && id === '__new__') {
+      this._projectWizardStatus = { busy: false, error: '', defaultDir: '', uncertain: false };
+      this.loadProjectDefaults();
+    } else if (sec === 'projects') { this.scmClient.load(id); this.loadProjectConversations(id); }
     if (sec === 'workers') this.loadWorkerDetail(id);
     if (sec === 'media') this.clearMediaOutputUrls(id === '__new__' ? '' : id);
     if (sec === 'media' && id === '__new__') this.loadMediaEnvironment();

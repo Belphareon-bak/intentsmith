@@ -59,7 +59,14 @@ objektových URL; zamítají se nebezpečné názvy a neočekávané typy. Obraz
 zatím formulář nenabízí, protože backend nemá připojené nahrání zdrojového obrázku.
 Fyzické GPU generování nebylo v izolovaných testech spuštěno.
 
-**Zbývá před paritou S2-7:** průvodci a další akce katalogů, vytvoření,
+Projektový průvodce je v prototypu a generovaném pohledu. V IDE načítá
+výchozí složku backendu, ukazuje kontrolu před potvrzením, zakládá nový
+projekt nebo registruje existující složku přes stávající `/api/projects`
+a `/api/projects/open-folder`. Po odpovědi ověřuje projekt v katalogu;
+nejistý výsledek zápisu neopakuje automaticky.
+
+**Zbývá před paritou S2-7:** průvodci specialistů, expertýz a workerů
+a další akce katalogů, vytvoření,
 přejmenování a smazání souborů ve stromu, úplných 12 kategorií nastavení,
 modely/hunt/governor/upgrady, M4/M7, vstupní obraz pro Multimédia
 a automatické režimy gitu.

@@ -76,6 +76,65 @@ test('marketplace detail uses confirmed backend mutations and never claims succe
     ['DELETE', '/api/marketplace/installed/skill/pkg-a']]);
 });
 
+test('project wizard confirms create or open only after backend response and catalog readback', async () => {
+  const posts = [];
+  let conflict = true, projects = [];
+  const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335',
+    fetchImpl: async url => {
+      const path = new URL(url).pathname;
+      if (path === '/api/projects/defaults') return { ok: true, json: async () => ({ defaultDir: '/home/user/projects' }) };
+      if (path === '/api/projects') return { ok: true, json: async () => ({ projects }) };
+      throw Error('Unexpected request: ' + path);
+    } });
+  const { model, widget } = setup({ catalog });
+  model.scmClient.load = () => {};
+  model.loadProjectConversations = () => {};
+  model.fetchImpl = async (url, options) => {
+    const path = new URL(url).pathname, body = JSON.parse(options.body);
+    posts.push([path, body]);
+    if (path === '/api/projects' && conflict) return { ok: false, status: 409,
+      json: async () => ({ error: 'Projekt už existuje' }) };
+    const project = path === '/api/projects' ? { id: 41, name: body.name, path: '/home/user/projects/novy' }
+      : { id: 42, name: 'Import', path: '/home/user/existing' };
+    projects = [...projects, project];
+    return { ok: true, json: async () => ({ project }) };
+  };
+  await model.loadProjectDefaults();
+  model.setState({ mode: 'section', section: 'projects', detail: { projects: '__new__' }, projectStep: 1,
+    projectName: 'Nový', projectDescription: 'Popis', projectType: 'general' });
+  let form = model.projectWizardVM(model.st());
+  assert.equal(form.reviewTarget, '/home/user/projects/Novy'.toLowerCase());
+  assert.equal(form.submitDisabled, false);
+  assert.equal(await model.submitProject(model.st()), false);
+  assert.match(widget.catalogActionError, /Projekt už existuje/);
+  assert.equal(model.projectStatus().uncertain, false, 'explicit HTTP conflict may be corrected');
+  conflict = false;
+  assert.equal(await model.submitProject(model.st()), true);
+  assert.equal(model.st().detail.projects, '41');
+  assert.equal(model.detailVM(model.st()).title, 'Nový');
+  assert.deepEqual(posts[1], ['/api/projects', { name: 'Nový', description: 'Popis', type: 'general' }]);
+  model.setState({ detail: { projects: '__new__' }, projectStep: 1, projectMode: 'open',
+    projectName: '', projectPath: '/home/user/existing' });
+  assert.equal(await model.submitProject(model.st()), true);
+  assert.equal(model.st().detail.projects, '42');
+  assert.deepEqual(posts[2], ['/api/projects/open-folder', { folderPath: '/home/user/existing' }]);
+});
+
+test('project wizard treats lost mutation response as uncertain and never retries automatically', async () => {
+  let posts = 0;
+  const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335',
+    fetchImpl: async () => ({ ok: true, json: async () => ({ projects: [] }) }) });
+  const { model } = setup({ catalog });
+  model.fetchImpl = async () => { posts++; throw Error('socket closed'); };
+  model.setState({ mode: 'section', section: 'projects', detail: { projects: '__new__' },
+    projectStep: 1, projectName: 'Nový' });
+  assert.equal(await model.submitProject(model.st()), false);
+  assert.equal(model.projectStatus().uncertain, true);
+  assert.equal(model.projectWizardVM(model.st()).submitDisabled, true);
+  assert.equal(await model.submitProject(model.st()), false);
+  assert.equal(posts, 1);
+});
+
 test('worker detail runs only a verified M3 extension through its active route', async () => {
   const calls = [];
   let enabled = true, rejectRun = false;

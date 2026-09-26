@@ -44,6 +44,8 @@ class Component extends DCLogic {
       scm: {}, scmPlan: null, auditX: {}, ctxQ: '', atts: {}, cmds: {}, termX: {},
       mediaType: 'txt2img', mediaPrompt: '', mediaNegative: '', mediaWidth: 1024, mediaHeight: 1024,
       mediaSteps: 20, mediaCfg: 7, mediaSeed: -1, mediaFrames: 49, mediaModel: '',
+      projectMode: 'create', projectStep: 0, projectName: '', projectPath: '',
+      projectDescription: '', projectType: 'general',
       style: 'intentsmith', tmode: 'dark', fs: 13, ff: 'brand', ti: 70, ai: 100, bright: 100, pa: 80, ta: 80, bd: 30,
       sep: 'ramecky', density: 'komfortni', scale: '100', col: true, cacc: 0, caccHex: '#22c55e', cbg: 0, cbgHex: '#14141e', css: ''
     };
@@ -773,7 +775,8 @@ class Component extends DCLogic {
     return {
       title: SC.label, icon: SC.icon, tone: SC.tone, summary: sums[sec] || '', catalogError: '', hasCatalogError: false, primary: SC.newLabel, hasPrimary: !!SC.newLabel,
       onPrimary: this.run((s2) => (sec === 'chats' ? this.pNewSession(s2, {})
-        : sec === 'media' ? this.pSelect(s2, 'media', '__new__') : null)),
+        : sec === 'media' ? this.pSelect(s2, 'media', '__new__')
+          : sec === 'projects' ? this.pSelect(s2, 'projects', '__new__') : null)),
       hasChips: f.chips.length > 1, chips: f.chips, items,
       isTiles: s.view === 'dlazdice' && items.length > 0, isList: s.view === 'seznam' && items.length > 0, isEmpty: items.length === 0,
       emptyTitle: empty.t, emptyText: empty.x, emptyIcon: empty.i,
@@ -796,6 +799,12 @@ class Component extends DCLogic {
   detailSpec(sec, id, s) {
     const d = this.data(), I = d.I;
     const ok = 'var(--ok)';
+    if (sec === 'projects' && id === '__new__') return {
+      icon: I.folder, tone: 'rose', title: 'Nový projekt', type: 'Projektový průvodce', idText: 'projekty/novy',
+      status: '', stCls: '', secondary: [], tabs: [['pruvodce', 'Průvodce']],
+      blocks: { pruvodce: [{ kind: 'projectWizard' }] },
+      desc: 'Založ nový projekt nebo zaregistruj existující složku.', props: [], related: []
+    };
     if (sec === 'media' && id === '__new__') return {
       icon: I.image, tone: 'violet', title: 'Nové generování', type: 'Multimédia', idText: 'ComfyUI',
       status: '', stCls: '', secondary: [], tabs: [['formular', 'Zadání']],
@@ -1103,11 +1112,51 @@ class Component extends DCLogic {
       isDevelopment: kind === 'development', isScmPolicy: kind === 'scmPolicy',
       isMediaForm: kind === 'mediaForm', mediaForm: this.mediaFormVM(this.st()),
       isMediaOutputs: kind === 'mediaOutputs', mediaOutputs: b.outputs || [],
+      isProjectWizard: kind === 'projectWizard', projectWizard: this.projectWizardVM(this.st()),
       isApObecne: kind === 'apObecne', isApPismo: kind === 'apPismo', isApBarvy: kind === 'apBarvy', isApRozvrzeni: kind === 'apRozvrzeni', isApCss: kind === 'apCss'
     };
   }
 
   mediaStatus() { return { status: 'preview', available: false, models: [], error: 'Prototyp ukazuje formulář; backend se připojuje až v IDE.' }; }
+
+  projectStatus() { return { busy: false, error: 'Prototyp ukazuje průvodce; backend se připojuje až v IDE.', defaultDir: '' }; }
+
+  submitProject() { return null; }
+
+  projectWizardVM(s) {
+    const status = this.projectStatus();
+    const mode = s.projectMode === 'open' ? 'open' : 'create';
+    const name = s.projectName.trim(), path = s.projectPath.trim();
+    const nameValid = name.length > 0 && name.length <= 120 && !/[\x00-\x1f]/.test(name);
+    const pathValid = !path || path.startsWith('/') && !/[\x00-\x1f]/.test(path);
+    const valid = mode === 'create' ? nameValid && pathValid && s.projectDescription.length <= 4000
+      : path.length > 1 && pathValid && (!name || nameValid);
+    const slug = name.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase();
+    const target = path || (status.defaultDir && slug ? status.defaultDir + '/' + slug : 'výchozí složka backendu');
+    return {
+      mode, modes: [{ value: 'create', label: 'Vytvořit nový' }, { value: 'open', label: 'Otevřít existující složku' }],
+      setMode: e => this.setState({ projectMode: e.target.value, projectStep: 0 }),
+      step: s.projectStep, stepLabel: s.projectStep === 0 ? 'Krok 1 ze 2 · Údaje' : 'Krok 2 ze 2 · Kontrola',
+      isForm: s.projectStep === 0, isReview: s.projectStep === 1,
+      name: s.projectName, setName: e => this.setState({ projectName: e.target.value }),
+      path: s.projectPath, setPath: e => this.setState({ projectPath: e.target.value }),
+      description: s.projectDescription, setDescription: e => this.setState({ projectDescription: e.target.value }),
+      type: s.projectType, types: [
+        { value: 'general', label: 'Obecný' }, { value: 'desktop', label: 'Desktop' },
+        { value: 'webapp', label: 'Web' }, { value: 'api', label: 'API' },
+        { value: 'automation', label: 'Automatizace' }, { value: 'data', label: 'Data' }
+      ], setType: e => this.setState({ projectType: e.target.value }),
+      isCreate: mode === 'create', pathLabel: mode === 'create' ? 'Vlastní cesta (volitelně)' : 'Existující složka',
+      reviewMode: mode === 'create' ? 'Vytvořit nový' : 'Otevřít existující',
+      reviewName: name || '(název ze složky)', reviewTarget: target,
+      reviewType: s.projectType, reviewDescription: s.projectDescription || 'bez popisu',
+      status: status.error || '', hasStatus: !!status.error,
+      nextDisabled: !valid || status.busy || (mode === 'create' && !slug),
+      submitDisabled: !valid || status.busy || !!status.uncertain || (mode === 'create' && !slug),
+      next: () => this.setState({ projectStep: 1 }), back: () => this.setState({ projectStep: 0 }),
+      submit: () => this.submitProject(this.st())
+    };
+  }
 
   submitMedia() { return null; }
 
