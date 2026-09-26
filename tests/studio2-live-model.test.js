@@ -135,6 +135,27 @@ test('model command in menu and palette opens live role assignments without a fi
   model.componentWillUnmount();
 });
 
+test('composer reads the configured CHAT binding once without contacting the model provider', async () => {
+  const paths = [];
+  const catalog = { view: () => ({ status: 'idle', items: [] }), load: () => {},
+    subscribe: () => () => {}, get: async path => {
+      paths.push(path);
+      assert.equal(path, '/api/system/upgrades/bindings');
+      return { bindings: { CHAT: 'local-chat:27b' } };
+    } };
+  const { model } = setup({ catalog });
+  model.renderVals();
+  model.renderVals();
+  assert.deepEqual(paths, [], 'rendering alone performs no network request');
+  await model.loadChatModel();
+  const columns = model.renderVals().columns;
+  assert.equal(columns[0].model, 'local-chat:27b');
+  assert.deepEqual(paths, ['/api/system/upgrades/bindings']);
+  model.renderVals();
+  assert.equal(paths.length, 1);
+  model.componentWillUnmount();
+});
+
 test('project menu actions open the project wizard in the requested mode', () => {
   const { model, store } = setup();
   model.loadProjectDefaults = () => {};

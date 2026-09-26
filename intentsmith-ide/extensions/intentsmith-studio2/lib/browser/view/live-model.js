@@ -171,6 +171,8 @@ class LiveModel extends Component {
     this._auditRequest = new Map();
     this._catalogBusy = new Set();
     this._settingsResources = new Map();
+    this._chatModel = '';
+    this._chatModelRequest = null;
     this._settingsBusy = false;
     this._settingsNotice = '';
     this._maintenanceBusy = false;
@@ -214,7 +216,7 @@ class LiveModel extends Component {
     for (const [name, callback] of [
       ['upgrade:verify_failed', event => this.modelWorkspace.onVerifyFailure(event)],
       ['upgrade:verify_cleared', event => this.modelWorkspace.onVerifyCleared(event)],
-      ['model:changed', () => { this.modelWorkspace.load('roles', true); this.modelWorkspace.load('overview', true); }],
+      ['model:changed', () => { this.loadChatModel(); this.modelWorkspace.load('roles', true); this.modelWorkspace.load('overview', true); }],
       ['upgrade:error', event => { this.modelWorkspace.notice = 'Změna modelu selhala: ' + (event?.error || 'neznámá chyba'); this.forceUpdate(); }],
     ]) {
       IntentSmithBus.on(name, callback);
@@ -233,6 +235,7 @@ class LiveModel extends Component {
     }
     this.syncTrees();
     this.statusClient.start();
+    this.loadChatModel();
     if (this.state.mode === 'section' && CATALOG[this.state.section]) this.widget.catalog.load(CATALOG[this.state.section]);
     const focused = this.widget.store.focusedSession();
     if (focused?._convId) this.expertiseSelection.load(focused);
@@ -250,6 +253,7 @@ class LiveModel extends Component {
   }
 
   componentWillUnmount() {
+    this._chatModelRequest = null;
     this._pairingAlive = false;
     if (this._pairingTimer) clearTimeout(this._pairingTimer);
     this._pairing.claim = null;
@@ -947,6 +951,23 @@ class LiveModel extends Component {
       if (this._settingsResources.get(id)?.request === request) this._settingsResources.set(id, {
         status: 'error', error: error?.message || 'Načtení nastavení selhalo.' });
     } finally { this.forceUpdate(); }
+  }
+
+  async loadChatModel() {
+    const request = Symbol('chat-model');
+    this._chatModelRequest = request;
+    try {
+      // The bindings endpoint reads the configured role without querying the
+      // model provider. A composer render must never start an Ollama request.
+      const data = await this.widget.catalog.get('/api/system/upgrades/bindings');
+      if (this._chatModelRequest !== request) return;
+      this._chatModel = typeof data?.bindings?.CHAT === 'string'
+        && data.bindings.CHAT.length <= 256 ? data.bindings.CHAT : '';
+    } catch {
+      if (this._chatModelRequest !== request) return;
+      this._chatModel = '';
+    }
+    this.forceUpdate();
   }
 
   async performMaintenance(operation) {
@@ -3163,11 +3184,7 @@ class LiveModel extends Component {
       // Čipy skladatele: expertýza nebo specialista relace, model z posledního tahu nebo role CHAT.
       column.hasExpertPicker = !session.chat.specialist;
       column.expert = session.chat.expertise || 'Výchozí';
-      if (!column.model) {
-        const models = this._settingsResources.get('modely');
-        if (!models) this.loadSettingsResource('modely').catch(() => {});
-        column.model = models?.status === 'ready' ? models.data?.current_model || '' : '';
-      }
+      if (!column.model) column.model = this._chatModel;
       column.hasModel = !!column.model;
       column.pickModel = this.run(state => { this.modelWorkspace.select('roles'); return this.pSelect(state, 'settings', 'modely'); });
       // Zaplnění kontextu: backend ho posílá jen někdy; bez měření „—", ne vymyšlené číslo.
