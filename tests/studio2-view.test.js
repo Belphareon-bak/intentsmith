@@ -85,6 +85,9 @@ assert.ok(out.includes('Průvodce expertýzou') && out.includes('Pokračovat na 
 out = html({ mode: 'section', section: 'expertises', detail: { expertises: '__new__' },
   expertiseStep: 1, expertiseName: 'Test Expert' });
 assert.ok(out.includes('Náhled pravidel') && out.includes('Potvrdit expertýzu'), 'ladění a kontrola expertýzy');
+out = html({ mode: 'section', section: 'expertises', detail: { expertises: '__new__' },
+  expertiseStep: 1, expertiseName: 'Test Expert', expertiseAdvanced: true });
+assert.ok(out.includes('Pravidla domény') && out.includes('Spustit test modelu'), 'pokročilé moduly a výslovný test');
 for (const style of c0().styleList().map((x) => x.id)) assert.ok(html({ style }).includes('th-' + style), 'motiv ' + style);
 console.log('PASS generated React view renders sessions, column picker, files, source control, catalog and all styles');
 

@@ -338,6 +338,39 @@ test('expertise wizard does not repeat uncertain save and discards stale preview
   assert.equal(saves, 1);
 });
 
+test('advanced expertise rules are bounded and model test needs explicit approval', async () => {
+  const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335', fetchImpl: async () => ({
+    ok: true, json: async () => ({ experts: [] }) }) });
+  const { model, widget } = setup({ catalog });
+  let approved = false, calls = 0;
+  widget.confirmAction = () => approved;
+  model.fetchImpl = async (url, options) => {
+    calls++;
+    assert.equal(new URL(url).pathname, '/api/expertise-wizard/test-prompt');
+    const body = JSON.parse(options.body);
+    assert.equal(body.question, 'Jaký je stav?');
+    assert.deepEqual(body.expertiseConfig.modules.domain_rules, ['Pravidlo A', 'Pravidlo B']);
+    assert.deepEqual(body.expertiseConfig.inheritance, { vocabulary: 'extend' });
+    assert.equal(body.expertiseConfig.capabilities.riskTolerance, 15);
+    return { ok: true, json: async () => ({ response: 'Ověřená odpověď', model: 'local', duration: 10 }) };
+  };
+  model.setState({ mode: 'section', section: 'expertises', detail: { expertises: '__new__' },
+    expertiseStep: 1, expertiseName: 'Test Expert', expertiseAdvanced: true,
+    expertiseDomainRules: 'Pravidlo A\nPravidlo B', expertiseInheritance: '{"vocabulary":"extend"}',
+    expertiseRiskTolerance: 15, expertiseTestQuestion: 'Jaký je stav?' });
+  assert.equal(model.expertiseWizardVM(model.st()).testDisabled, false);
+  assert.equal(await model.testExpertise(model.st()), false);
+  assert.equal(calls, 0);
+  approved = true;
+  assert.equal(await model.testExpertise(model.st()), true);
+  assert.equal(model.expertiseWizardVM(model.st()).testResult, 'Ověřená odpověď');
+  model.setState({ expertiseTestQuestion: 'Jiný dotaz' });
+  assert.equal(model.expertiseWizardVM(model.st()).hasTestResult, false, 'answer belongs to exact question');
+  model.setState({ expertiseInheritance: '{' });
+  assert.equal(model.expertiseWizardVM(model.st()).submitDisabled, true);
+  assert.equal(model.expertiseWizardVM(model.st()).hasTestResult, false);
+});
+
 test('project wizard treats lost mutation response as uncertain and never retries automatically', async () => {
   let posts = 0;
   const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335',

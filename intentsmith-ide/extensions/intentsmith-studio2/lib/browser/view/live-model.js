@@ -69,7 +69,8 @@ class LiveModel extends Component {
     this._specialistWizardStatus = { busy: false, error: '', uncertain: false };
     this._workerWizardStatus = { busy: false, loading: false, error: '', uncertain: false,
       extensions: [], projects: [] };
-    this._expertiseWizardStatus = { busy: false, error: '', uncertain: false, preview: null, previewKey: '' };
+    this._expertiseWizardStatus = { busy: false, error: '', uncertain: false,
+      preview: null, previewKey: '', testResult: null, testKey: '' };
     this._workerDetails = new Map();
     this._mediaNotices = new Map();
     this._mediaEnvironment = { status: 'idle', available: false, models: [], error: '' };
@@ -850,19 +851,49 @@ class LiveModel extends Component {
     const name = s.expertiseName.trim();
     const id = name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
       .replace(/^_+|_+$/g, '').slice(0, 32);
+    const lines = value => String(value || '').split('\n').map(line => line.trim()).filter(Boolean);
     return { id, name, description: s.expertiseDescription.trim(), domain: s.expertiseDomain || 'custom',
       icon: s.expertiseIcon || '👤', tone: s.expertiseTone, temperature: s.expertiseTemperature,
       systemPrompt: s.expertiseSystemPrompt,
       capabilities: { reasoning: s.expertiseReasoning, creativity: s.expertiseCreativity,
-        determinism: s.expertiseDeterminism, riskTolerance: 50, verbosity: 50 },
-      modules: { domain_rules: [], emphasis: [], constraints: [], vocabulary: [], antipatterns: [], disclaimer: null },
-      styleRules: { forbiddenPhrases: [] } };
+        determinism: s.expertiseDeterminism, riskTolerance: s.expertiseRiskTolerance,
+        verbosity: s.expertiseVerbosity },
+      modules: { domain_rules: lines(s.expertiseDomainRules), emphasis: lines(s.expertiseEmphasis),
+        constraints: lines(s.expertiseConstraints), vocabulary: lines(s.expertiseVocabulary),
+        antipatterns: lines(s.expertiseAntipatterns), disclaimer: s.expertiseDisclaimer.trim() || null },
+      inheritance: JSON.parse(s.expertiseInheritance || '{}'),
+      styleRules: { forbiddenPhrases: lines(s.expertiseForbiddenPhrases) } };
   }
 
   expertiseStatus() {
     const status = this._expertiseWizardStatus;
-    return { ...status, preview: status.previewKey === JSON.stringify(this.expertiseConfig(this.st()))
-      ? status.preview : null };
+    let key = '';
+    try { key = JSON.stringify(this.expertiseConfig(this.st())); } catch { /* invalid draft */ }
+    return { ...status, preview: status.previewKey === key ? status.preview : null,
+      testResult: status.testKey === JSON.stringify({ key, question: this.st().expertiseTestQuestion.trim() })
+        ? status.testResult : null };
+  }
+
+  async testExpertise(s) {
+    const form = this.expertiseWizardVM(s);
+    const question = s.expertiseTestQuestion.trim();
+    if (form.testDisabled || s.expertiseStep !== 1 || !question || question.length > 2000) return false;
+    const confirmAction = this.widget.confirmAction || globalThis.confirm;
+    if (typeof confirmAction !== 'function' || !confirmAction('Spustit test expertýzy na modelu? Použije inference backendu.')) return false;
+    const config = this.expertiseConfig(s), key = JSON.stringify({ key: JSON.stringify(config), question });
+    this._expertiseWizardStatus = { ...this._expertiseWizardStatus, busy: true, error: '',
+      testResult: null, testKey: '' };
+    this.forceUpdate();
+    try {
+      const result = await this.postExpertise('/api/expertise-wizard/test-prompt',
+        { expertiseConfig: config, question }, 65000);
+      if (typeof result.response !== 'string') throw Error('Backend nevrátil výsledek modelového testu.');
+      this._expertiseWizardStatus = { ...this._expertiseWizardStatus, testResult: result, testKey: key };
+      return true;
+    } catch (error) {
+      this._expertiseWizardStatus.error = error?.message || 'Modelový test expertýzy selhal.';
+      return false;
+    } finally { this._expertiseWizardStatus.busy = false; this.forceUpdate(); }
   }
 
   async postExpertise(path, body, timeoutMs = 15000) {
@@ -1291,7 +1322,7 @@ class LiveModel extends Component {
     } else if (sec === 'projects') { this.scmClient.load(id); this.loadProjectConversations(id); }
     if (sec === 'specialists' && id === '__new__') this._specialistWizardStatus = { busy: false, error: '', uncertain: false };
     if (sec === 'expertises' && id === '__new__') this._expertiseWizardStatus = {
-      busy: false, error: '', uncertain: false, preview: null, previewKey: '' };
+      busy: false, error: '', uncertain: false, preview: null, previewKey: '', testResult: null, testKey: '' };
     if (sec === 'workers' && id === '__new__') {
       this._workerWizardStatus = { busy: false, loading: false, error: '', uncertain: false,
         extensions: [], projects: [] };

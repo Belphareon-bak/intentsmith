@@ -856,7 +856,25 @@ textarea.fv-ed{font-family:var(--font-mono)}
 <label class="arow2"><span>Tón</span><select value="{{b.expertiseWizard.tone}}" onChange="{{b.expertiseWizard.setTone}}"><sc-for list="{{b.expertiseWizard.tones}}" as="option" hint-placeholder-count="3"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
 <label class="arow2"><span>Teplota · {{b.expertiseWizard.temperature}}</span><input type="range" min="0" max="1" step="0.05" value="{{b.expertiseWizard.temperature}}" onChange="{{b.expertiseWizard.setTemperature}}"></label>
 <label class="arow2"><span>System prompt</span><textarea rows="4" value="{{b.expertiseWizard.systemPrompt}}" onChange="{{b.expertiseWizard.setSystemPrompt}}" placeholder="Volitelné instrukce"></textarea></label>
+<button class="btn" onClick="{{b.expertiseWizard.toggleAdvanced}}">Pokročilé moduly a capability</button>
+<sc-if value="{{b.expertiseWizard.advanced}}" hint-placeholder-val="{{false}}">
+<label class="arow2"><span>Tolerance rizika · {{b.expertiseWizard.riskTolerance}}</span><input type="range" min="0" max="100" value="{{b.expertiseWizard.riskTolerance}}" onChange="{{b.expertiseWizard.setRiskTolerance}}"></label>
+<label class="arow2"><span>Podrobnost · {{b.expertiseWizard.verbosity}}</span><input type="range" min="0" max="100" value="{{b.expertiseWizard.verbosity}}" onChange="{{b.expertiseWizard.setVerbosity}}"></label>
+<p class="aph">V modulech piš jedno pravidlo na řádek. Dědění je JSON objekt s hodnotami extend nebo replace.</p>
+<label class="arow2"><span>Pravidla domény</span><textarea rows="3" value="{{b.expertiseWizard.domainRules}}" onChange="{{b.expertiseWizard.setDomainRules}}"></textarea></label>
+<label class="arow2"><span>Důrazy</span><textarea rows="3" value="{{b.expertiseWizard.emphasis}}" onChange="{{b.expertiseWizard.setEmphasis}}"></textarea></label>
+<label class="arow2"><span>Omezení</span><textarea rows="3" value="{{b.expertiseWizard.constraints}}" onChange="{{b.expertiseWizard.setConstraints}}"></textarea></label>
+<label class="arow2"><span>Slovník</span><textarea rows="3" value="{{b.expertiseWizard.vocabulary}}" onChange="{{b.expertiseWizard.setVocabulary}}"></textarea></label>
+<label class="arow2"><span>Nežádoucí vzory</span><textarea rows="3" value="{{b.expertiseWizard.antipatterns}}" onChange="{{b.expertiseWizard.setAntipatterns}}"></textarea></label>
+<label class="arow2"><span>Upozornění</span><textarea rows="2" value="{{b.expertiseWizard.disclaimer}}" onChange="{{b.expertiseWizard.setDisclaimer}}"></textarea></label>
+<label class="arow2"><span>Zakázané fráze</span><textarea rows="3" value="{{b.expertiseWizard.forbiddenPhrases}}" onChange="{{b.expertiseWizard.setForbiddenPhrases}}"></textarea></label>
+<label class="arow2"><span>Dědění (JSON)</span><textarea rows="3" class="mono" value="{{b.expertiseWizard.inheritance}}" onChange="{{b.expertiseWizard.setInheritance}}"></textarea></label>
+<sc-if value="{{b.expertiseWizard.hasInheritanceError}}" hint-placeholder-val="{{false}}"><div role="alert" class="note">Dědění musí být JSON objekt s hodnotami extend nebo replace.</div></sc-if>
+</sc-if>
 <sc-if value="{{b.expertiseWizard.hasPreview}}" hint-placeholder-val="{{false}}"><div class="code mono">{{b.expertiseWizard.previewText}}</div></sc-if>
+<label class="arow2"><span>Testovací dotaz (volitelný)</span><input value="{{b.expertiseWizard.testQuestion}}" onChange="{{b.expertiseWizard.setTestQuestion}}" placeholder="Dotaz pro model"></label>
+<button class="btn" disabled="{{b.expertiseWizard.testDisabled}}" onClick="{{b.expertiseWizard.test}}">Spustit test modelu</button>
+<sc-if value="{{b.expertiseWizard.hasTestResult}}" hint-placeholder-val="{{false}}"><div class="note">{{b.expertiseWizard.testResult}}</div></sc-if>
 <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onClick="{{b.expertiseWizard.back}}">Zpět</button><button class="btn" disabled="{{b.expertiseWizard.submitDisabled}}" onClick="{{b.expertiseWizard.preview}}">Náhled pravidel</button><button class="btn btn-acc" disabled="{{b.expertiseWizard.submitDisabled}}" onClick="{{b.expertiseWizard.submit}}">Potvrdit expertýzu</button></div>
 </sc-if>
 <sc-if value="{{b.expertiseWizard.hasStatus}}" hint-placeholder-val="{{false}}"><div role="alert" class="note">{{b.expertiseWizard.status}}</div></sc-if>

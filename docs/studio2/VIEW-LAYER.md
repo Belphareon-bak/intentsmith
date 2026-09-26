@@ -78,10 +78,13 @@ obecný průvodce zdrojů, podmínek, spouštěčů a akcí zůstává otevřeno
 jeho legacy mutační API vrací 410 a veřejné M3 API zatím nepopisuje schéma
 parametrů dalších rozšíření.
 
-Jednoduchý průvodce expertýzou přebírá profil a ladění 5D ze starého UI.
+Průvodce expertýzou přebírá profil a ladění 5D ze starého UI.
 Před zápisem čte náhled pravidel z `/api/merge-preview`; uloženou expertýzu
 ověřuje přes `/api/expertises/:id` a nový seznam. Žádný modelový test nespouští
-automaticky. Pokročilé moduly, dědění a testovací prompt ještě chybí.
+automaticky. Pokročilé moduly, dědění a zakázané fráze se editují v detailu;
+testovací prompt vyžaduje samostatné potvrzení a jeho odpověď platí jen pro
+stejnou konfiguraci a dotaz. Úprava již existující expertýzy a řízené
+kombinace více expertýz ještě chybí.
 
 Nastavení má nyní přesně 12 kategorií a záložky z UI-SPEC. Funkční přepínače
 se čtou z `/api/features`; zapnutí, vypnutí a obnovení výchozích hodnot
@@ -89,7 +92,7 @@ vyžaduje potvrzení a ověřuje nový stav ze serveru. Lokální modely se čto
 z Ollamy prostřednictvím backendu a velikost uložených příloh z backendu.
 Ostatní nepřipojené záložky jsou výslovně označené a neukazují ukázková data.
 
-**Zbývá před paritou S2-7:** pokročilá část průvodce expertýzou a obecný průvodce workerem
+**Zbývá před paritou S2-7:** editace a kombinace expertýz a obecný průvodce workerem
 a další akce katalogů, vytvoření,
 přejmenování a smazání souborů ve stromu, úplných 12 kategorií nastavení,
 stahování modelů, role/hunt/governor/upgrady, M4/M7, vstupní obraz pro Multimédia

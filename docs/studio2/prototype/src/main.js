@@ -52,6 +52,10 @@ class Component extends DCLogic {
       expertiseStep: 0, expertiseName: '', expertiseDomain: '', expertiseDescription: '', expertiseIcon: '👤',
       expertiseTone: 'professional', expertiseTemperature: 0.5, expertiseSystemPrompt: '',
       expertiseCreativity: 50, expertiseReasoning: 50, expertiseDeterminism: 50,
+      expertiseRiskTolerance: 50, expertiseVerbosity: 50, expertiseAdvanced: false,
+      expertiseDomainRules: '', expertiseEmphasis: '', expertiseConstraints: '',
+      expertiseVocabulary: '', expertiseAntipatterns: '', expertiseDisclaimer: '',
+      expertiseForbiddenPhrases: '', expertiseInheritance: '{}', expertiseTestQuestion: '',
       style: 'intentsmith', tmode: 'dark', fs: 13, ff: 'brand', ti: 70, ai: 100, bright: 100, pa: 80, ta: 80, bd: 30,
       sep: 'ramecky', density: 'komfortni', scale: '100', col: true, cacc: 0, caccHex: '#22c55e', cbg: 0, cbgHex: '#14141e', css: ''
     };
@@ -1167,18 +1171,36 @@ class Component extends DCLogic {
 
   previewExpertise() { return null; }
 
+  testExpertise() { return null; }
+
   submitExpertise() { return null; }
 
   expertiseWizardVM(s) {
     const status = this.expertiseStatus();
     const name = s.expertiseName.trim();
     const id = name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '').replace(/^_+|_+$/g, '').slice(0, 32);
+    const moduleFields = [
+      [s.expertiseDomainRules, 15], [s.expertiseEmphasis, 10], [s.expertiseConstraints, 15],
+      [s.expertiseVocabulary, 30], [s.expertiseAntipatterns, 10]
+    ];
+    let inheritanceValid = false;
+    try { const parsed = JSON.parse(s.expertiseInheritance || '{}');
+      inheritanceValid = !!parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        && Object.values(parsed).every(value => value === 'extend' || value === 'replace');
+    } catch { /* invalid JSON is shown as invalid form */ }
     const valid = name.length >= 2 && name.length <= 64 && !!id && !/[\x00-\x1f]/.test(name)
       && (!s.expertiseDomain || /^[a-z0-9_]{1,64}$/.test(s.expertiseDomain))
       && s.expertiseDescription.length <= 500 && s.expertiseSystemPrompt.length <= 8000
       && Number.isFinite(s.expertiseTemperature) && s.expertiseTemperature >= 0 && s.expertiseTemperature <= 1
-      && [s.expertiseCreativity, s.expertiseReasoning, s.expertiseDeterminism]
-        .every(value => Number.isInteger(value) && value >= 0 && value <= 100);
+      && [s.expertiseCreativity, s.expertiseReasoning, s.expertiseDeterminism,
+        s.expertiseRiskTolerance, s.expertiseVerbosity]
+        .every(value => Number.isInteger(value) && value >= 0 && value <= 100)
+      && moduleFields.every(([value, limit]) => value.split('\n').filter(line => line.trim()).length <= limit
+        && value.split('\n').every(line => line.length <= 500))
+      && s.expertiseDisclaimer.length <= 2000
+      && s.expertiseForbiddenPhrases.split('\n').filter(line => line.trim()).length <= 50
+      && s.expertiseForbiddenPhrases.split('\n').every(line => line.length <= 200)
+      && inheritanceValid;
     const setNumber = key => e => this.setState({ [key]: Number(e.target.value) });
     return {
       stepLabel: s.expertiseStep === 0 ? 'Krok 1 ze 2 · Profil' : 'Krok 2 ze 2 · Ladění a kontrola',
@@ -1194,6 +1216,23 @@ class Component extends DCLogic {
       creativity: s.expertiseCreativity, setCreativity: setNumber('expertiseCreativity'),
       reasoning: s.expertiseReasoning, setReasoning: setNumber('expertiseReasoning'),
       determinism: s.expertiseDeterminism, setDeterminism: setNumber('expertiseDeterminism'),
+      riskTolerance: s.expertiseRiskTolerance, setRiskTolerance: setNumber('expertiseRiskTolerance'),
+      verbosity: s.expertiseVerbosity, setVerbosity: setNumber('expertiseVerbosity'),
+      advanced: s.expertiseAdvanced, toggleAdvanced: () => this.setState({ expertiseAdvanced: !s.expertiseAdvanced }),
+      domainRules: s.expertiseDomainRules, setDomainRules: e => this.setState({ expertiseDomainRules: e.target.value }),
+      emphasis: s.expertiseEmphasis, setEmphasis: e => this.setState({ expertiseEmphasis: e.target.value }),
+      constraints: s.expertiseConstraints, setConstraints: e => this.setState({ expertiseConstraints: e.target.value }),
+      vocabulary: s.expertiseVocabulary, setVocabulary: e => this.setState({ expertiseVocabulary: e.target.value }),
+      antipatterns: s.expertiseAntipatterns, setAntipatterns: e => this.setState({ expertiseAntipatterns: e.target.value }),
+      disclaimer: s.expertiseDisclaimer, setDisclaimer: e => this.setState({ expertiseDisclaimer: e.target.value }),
+      forbiddenPhrases: s.expertiseForbiddenPhrases,
+      setForbiddenPhrases: e => this.setState({ expertiseForbiddenPhrases: e.target.value }),
+      inheritance: s.expertiseInheritance, setInheritance: e => this.setState({ expertiseInheritance: e.target.value }),
+      inheritanceValid, hasInheritanceError: !inheritanceValid, testQuestion: s.expertiseTestQuestion,
+      setTestQuestion: e => this.setState({ expertiseTestQuestion: e.target.value }),
+      testDisabled: !valid || status.busy || !s.expertiseTestQuestion.trim(),
+      test: () => this.testExpertise(this.st()), testResult: status.testResult?.response || '',
+      hasTestResult: !!status.testResult?.response,
       reviewName: name, reviewId: id, reviewDomain: s.expertiseDomain || 'custom',
       nextDisabled: !valid || status.busy, submitDisabled: !valid || status.busy || !!status.uncertain,
       next: () => this.setState({ expertiseStep: 1 }), back: () => this.setState({ expertiseStep: 0 }),
