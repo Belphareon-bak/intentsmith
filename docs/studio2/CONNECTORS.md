@@ -32,7 +32,7 @@ globály `_sessions` a `_sessionActive`; routování zpět do relací zůstává
 | Projekty | `GET /api/projects?limit=50&status=`, `POST /api/projects`, `/api/projects/:id/conversations`, `POST /api/projects/open-folder`, `GET /api/projects/defaults` |
 | Specialisté | `GET /api/specialists`, `POST /api/chat/specialist` |
 | Expertýzy | `GET /api/expertises`, `/api/expertise-schema`, `POST /api/expertise-wizard/test-prompt` |
-| Workeři | `GET /api/agents`, `?all=true`, `/api/agents/schema`, `POST /api/agents/dry-run`, `/api/agent-extensions/instances/` |
+| Workeři | `GET /api/agents?all=true`, `GET /api/agents/:id`; mutace jen ověřené instance M3 přes `POST /api/agent-extensions/instances/:agentId/run`, `/enable`, `/disable`. Legacy mutace `/api/agents/:id/*` a `/api/agents/dry-run` vracejí 410. |
 | Obchod | `GET /api/marketplace/catalog?page=`, `POST …/catalog/refresh`, `…/install/:type/:id`, `DELETE …/installed/:type/:id`, `…/update/:type/:id`, `…/export/:type/:id` |
 | Multimédia | `GET /api/media/history`, `/models`, `/health`, `/output?id=`; `POST /api/media/generate`, `/cancel`, `/favorite`, `/models/refresh` |
 | Pracovní plocha — soubory | `GET /api/workspace/tree?path=`, `/ls?path=`, `/file?path=`; `POST /api/workspace/file`, `/directory`, `/rename`; `POST /api/merge-preview` |

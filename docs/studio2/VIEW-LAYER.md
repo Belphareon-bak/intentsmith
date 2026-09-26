@@ -37,14 +37,20 @@ se na něj napojuje backend.
 relace, zprávy a katalogy skutečnými daty. Odeslání zprávy, terminál, přílohy,
 M2 schválení, projektový strom, editor s ověřeným uložením, detail projektu,
 aktivace specialisty, audit konverzace a stavová lišta používají stávající
-služby. Správa zdrojů používá nové `/api/scm/*` s plánem a potvrzením; i diff
+služby. Detail Obchodu potvrzeně instaluje, aktualizuje a odinstaluje přes
+`/api/marketplace/*`, stav ověřuje novým načtením katalogu. Detail workeru
+načítá definici; spustit, pozastavit a obnovit lze pouze instanci s vazbou
+na rozšíření M3 přes `/api/agent-extensions/instances/:id/*`. Legacy worker
+zůstává jen pro čtení, protože jeho mutační endpointy vracejí 410. Správa
+zdrojů používá nové `/api/scm/*` s plánem a potvrzením; i diff
 smazaného souboru je dostupný bez falešného editoru. Izolovaný průchod ve
 skutečném Electronu na `1b4699a9` prošel včetně výměny sloupců, šesti relací,
 obnovy a jedenácti témat (`tests/studio2-exclusive-ui.e2e.js`).
 
-**Zbývá před paritou S2-7:** průvodci a akce dalších katalogů, úplných 12 kategorií
-nastavení, modely/hunt/governor/upgrady, M4/M7, multimédia a automatické režimy
-gitu. Prototypové fixtury se stále používají u nenapojených částí nastavení;
+**Zbývá před paritou S2-7:** průvodci a další akce katalogů, vytvoření,
+přejmenování a smazání souborů ve stromu, úplných 12 kategorií nastavení,
+modely/hunt/governor/upgrady, M4/M7, multimédia a automatické režimy gitu.
+Prototypové fixtury se stále používají u nenapojených částí nastavení;
 tyto části nesmějí být vydávány za živá data. Klasické UI proto zůstává dostupné.
 
 ## 2. Jak to funguje

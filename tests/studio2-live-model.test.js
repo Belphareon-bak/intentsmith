@@ -7,13 +7,14 @@ const { LiveModel } = require('../intentsmith-ide/extensions/intentsmith-studio2
 const { SessionStore } = require('../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/session-store');
 const { AppearanceStore } = require('../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/appearance-store');
 const { WorkspaceFiles } = require('../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/workspace-files');
+const { CatalogStore } = require('../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/catalog-store');
 
-function setup({ workspace, m2 } = {}) {
+function setup({ workspace, m2, catalog: catalogOverride } = {}) {
   const memory = new Map();
   const storage = { getItem: key => memory.get(key) || null, setItem: (key, value) => memory.set(key, value) };
   const store = new SessionStore(storage);
   const appearance = new AppearanceStore(storage);
-  const catalog = { view: () => ({ status: 'idle', items: [] }), load: () => {}, subscribe: () => () => {} };
+  const catalog = catalogOverride || { view: () => ({ status: 'idle', items: [] }), load: () => {}, subscribe: () => () => {} };
   const files = workspace || { entry: () => ({ tree: [], editor: null }), loadTree: async () => false,
     open: async () => false, save: async () => false, discard: () => {}, edit: () => {} };
   const controller = m2 || { entry: () => ({ view: null, presentedView: null, error: null }), run: async () => {}, report: () => {} };
@@ -29,6 +30,97 @@ function setup({ workspace, m2 } = {}) {
 }
 
 const tick = () => new Promise(resolve => setImmediate(resolve));
+
+test('marketplace detail uses confirmed backend mutations and never claims success after failure', async () => {
+  let installed = false, fail = false, approved = false;
+  const calls = [];
+  const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335',
+    fetchImpl: async (url, options = {}) => {
+      const path = new URL(url).pathname;
+      calls.push([options.method || 'GET', path]);
+      if (path === '/api/marketplace/catalog') return { ok: true, json: async () => ({
+        items: [{ id: 'pkg-a', name: 'Balíček A', type: 'skill', version: '1.2.3', installed }] }) };
+      if (path === '/api/marketplace/install/skill/pkg-a') {
+        if (fail) return { ok: false, status: 503, json: async () => ({ error: 'Instalace selhala' }) };
+        installed = true;
+        return { ok: true, json: async () => ({ ok: true }) };
+      }
+      if (path === '/api/marketplace/installed/skill/pkg-a') {
+        installed = false;
+        return { ok: true, json: async () => ({ ok: true }) };
+      }
+      throw new Error('Unexpected request: ' + path);
+    } });
+  const { model, widget } = setup({ catalog });
+  widget.confirmAction = () => approved;
+  await catalog.load('Obchod');
+  model.setState({ mode: 'section', section: 'market', detail: { market: 'skill:pkg-a' } });
+  let vm = model.detailVM(model.st());
+  assert.equal(vm.primaryLabel, 'Nainstalovat');
+  assert.equal(await vm.onPrimary(), false, 'rejected confirmation has no effect');
+  assert.equal(calls.filter(([method]) => method !== 'GET').length, 0);
+  approved = true; fail = true;
+  assert.equal(await vm.onPrimary(), false, 'failed backend response remains failed');
+  assert.match(widget.catalogActionError, /Instalace selhala/);
+  assert.equal(model.detailVM(model.st()).primaryLabel, 'Nainstalovat');
+  fail = false;
+  assert.equal(await model.detailVM(model.st()).onPrimary(), true);
+  assert.equal(widget.catalogActionError, null);
+  assert.equal(model.detailVM(model.st()).primaryLabel, 'Odinstalovat');
+  assert.equal(await model.detailVM(model.st()).onPrimary(), true);
+  assert.equal(model.detailVM(model.st()).primaryLabel, 'Nainstalovat');
+  assert.deepEqual(calls.filter(([method]) => method !== 'GET'), [
+    ['POST', '/api/marketplace/install/skill/pkg-a'],
+    ['POST', '/api/marketplace/install/skill/pkg-a'],
+    ['DELETE', '/api/marketplace/installed/skill/pkg-a']]);
+});
+
+test('worker detail runs only a verified M3 extension through its active route', async () => {
+  const calls = [];
+  let enabled = true, rejectRun = false;
+  const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335',
+    fetchImpl: async (url, options = {}) => {
+      const path = new URL(url).pathname;
+      calls.push([options.method || 'GET', path]);
+      if (path === '/api/agents') return { ok: true, json: async () => ({ agents: [
+        { id: 'worker-m3', name: 'Nový worker', enabled },
+        { id: 'legacy', name: 'Starý worker', enabled: true }] }) };
+      if (path === '/api/agents/worker-m3') return { ok: true, json: async () => ({
+        id: 'worker-m3', enabled, definition: { m3_extension: { id: 'approved-extension' }, schedule: { type: 'manual' } }, recentRuns: [] }) };
+      if (path === '/api/agents/legacy') return { ok: true, json: async () => ({
+        id: 'legacy', enabled: true, definition: { schedule: { type: 'manual' } }, recentRuns: [] }) };
+      if (path === '/api/agent-extensions/instances/worker-m3/run') return rejectRun
+        ? { ok: false, status: 409, json: async () => ({ error: 'Worker je zaneprázdněný.' }) }
+        : { ok: true, json: async () => ({ runId: 'run-1' }) };
+      if (path === '/api/agent-extensions/instances/worker-m3/disable') {
+        enabled = false;
+        return { ok: true, json: async () => ({ id: 'worker-m3', enabled: false }) };
+      }
+      throw new Error('Unexpected request: ' + path);
+    } });
+  const { model, widget } = setup({ catalog });
+  widget.confirmAction = () => true;
+  await catalog.load('Workeři');
+  await model.loadWorkerDetail('worker-m3');
+  model.setState({ mode: 'section', section: 'workers', detail: { workers: 'worker-m3' } });
+  let vm = model.detailVM(model.st());
+  assert.equal(vm.hasPrimary, true);
+  rejectRun = true;
+  assert.equal(await vm.onPrimary(), false);
+  assert.match(widget.catalogActionError, /zaneprázdněný/);
+  rejectRun = false;
+  assert.equal(await model.detailVM(model.st()).onPrimary(), true);
+  assert.equal(await model.detailVM(model.st()).secondary[0].go(), true);
+  assert.equal(model.detailVM(model.st()).hasPrimary, false);
+  await model.loadWorkerDetail('legacy');
+  model.setState({ detail: { workers: 'legacy' } });
+  vm = model.detailVM(model.st());
+  assert.equal(vm.hasPrimary, false);
+  assert.deepEqual(vm.secondary, []);
+  assert.match(JSON.stringify(vm.blocks), /legacy worker/);
+  assert.equal(calls.some(([, path]) => path.startsWith('/api/agents/worker-m3/run')), false);
+  assert.equal(calls.filter(([method, path]) => method === 'POST' && path.includes('/worker-m3/run')).length, 2);
+});
 
 test('live view contains only actual sessions and messages, and swaps column ownership', () => {
   const { model, store } = setup();

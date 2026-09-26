@@ -21,8 +21,9 @@ function normalize(section, raw) {
   const item = raw && typeof raw === 'object' ? raw : {};
   if (section === 'Projekty' && (!item.path || !item.name)) return null;
   if (section === 'Specialisté' && (item.status !== 'enabled' || item.type === 'utility')) return null;
-  const id = item.id == null ? '' : String(item.id);
-  if (!id) return null;
+  const backendId = item.id == null ? '' : String(item.id);
+  if (!backendId) return null;
+  const id = section === 'Obchod' ? `${item.type || 'unknown'}:${backendId}` : backendId;
   const name = str(item.name || item.title || item.label || item.prompt, section === 'Multimédia' ? `Generování ${id}` : id);
   const description = str(item.description || item.desc || item.preview || item.summary || item.domain);
   const group = str(item.type || item.domain || item.expertise || item.status || item.state, section);
@@ -51,6 +52,20 @@ class CatalogStore {
     const response = await this.fetchImpl(base + path, { signal: AbortSignal.timeout(timeoutMs) });
     if (!response.ok) throw new Error(`Načtení selhalo (HTTP ${response.status}).`);
     return response.json();
+  }
+  async mutate(path, method, timeoutMs = 30000) {
+    const workerPath = /^\/api\/agent-extensions\/instances\/[A-Za-z0-9._-]+\/(run|enable|disable)$/.test(path);
+    if (!['POST', 'DELETE'].includes(method) || typeof path !== 'string'
+      || (!path.startsWith('/api/marketplace/') && !(method === 'POST' && workerPath))) {
+      throw new Error('Nepovolená akce katalogu.');
+    }
+    const base = this.backendUrl();
+    if (typeof base !== 'string' || !/^https?:\/\//.test(base)) throw new Error('Backend není dostupný.');
+    const response = await this.fetchImpl(base + path, { method, signal: AbortSignal.timeout(timeoutMs) });
+    let body = {};
+    try { body = await response.json(); } catch { /* HTTP status remains authoritative. */ }
+    if (!response.ok || body.ok === false) throw new Error(body.error || `Akce selhala (HTTP ${response.status}).`);
+    return body;
   }
   async load(section) {
     const route = ROUTES[section];

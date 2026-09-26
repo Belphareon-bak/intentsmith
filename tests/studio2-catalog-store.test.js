@@ -16,6 +16,9 @@ for (const [section, body] of Object.entries(payloads)) {
   assert.equal(normalizeCatalog(section, body).length, 1, section);
 }
 assert.equal(normalizeCatalog('Konverzace', {}).length, 0);
+assert.deepEqual(normalizeCatalog('Obchod', { items: [
+  { id: 'same', type: 'skill' }, { id: 'same', type: 'specialist' }] }).map(item => item.id),
+['skill:same', 'specialist:same']);
 console.log('PASS all seven catalog payloads normalize without ghost rows');
 
 const requests = [];

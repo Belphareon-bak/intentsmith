@@ -55,8 +55,10 @@ class LiveModel extends Component {
       onChange: () => this.forceUpdate() });
     this._policyDrafts = new Map();
     this._projectConversations = new Map();
+    this._workerDetails = new Map();
     this._audit = new Map();
     this._auditRequest = new Map();
+    this._catalogBusy = new Set();
     this.fetchImpl = widget.fetchImpl || fetch;
   }
 
@@ -382,6 +384,54 @@ class LiveModel extends Component {
     const entry = s.section === 'settings' ? this.data().SET.find(row => row.id === id) : item;
     if (!entry) return null;
     const I = this.data().I;
+    if (s.section === 'market') {
+      const raw = item.raw || {}, installed = raw.installed === true;
+      const busy = this._catalogBusy.has(raw.type + ':' + id);
+      const actionable = ['skill', 'expertise', 'specialist'].includes(raw.type);
+      return { icon: this.sec(s.section).icon, tone: this.sec(s.section).tone,
+        icls: '', title: item.name, type: 'Balíček · ' + (raw.type || 'neznámý typ'),
+        idText: String(raw.id), hasStatus: true,
+        status: busy ? 'probíhá' : installed ? 'nainstalováno' : 'k instalaci',
+        stCls: busy ? 'warn' : installed ? 'ok' : 'idle',
+        hasPrimary: actionable && !busy, primaryLabel: installed ? 'Odinstalovat' : 'Nainstalovat',
+        onPrimary: () => this.pMarketplaceAction(item, installed ? 'uninstall' : 'install'),
+        secondary: actionable && raw.updateAvailable && !busy ? [{ label: 'Aktualizovat', icon: I.zap,
+          go: () => this.pMarketplaceAction(item, 'update') }] : [],
+        more: () => {}, hasTabs: false, tabs: [], hasDesc: !!item.description,
+        desc: item.description, showProps: true,
+        props: [['ID', raw.id, true], ['Typ', raw.type || '—'], ['Verze', raw.version || '—'],
+          ['Instalovaná verze', raw.installedVersion || '—']].map(([k, v, mono]) => ({ k, v, cls: mono ? 'mono' : '' })),
+        blocks: [this.blockVM({ kind: 'empty', text: busy ? 'Čekám na výsledek operace…'
+          : actionable ? 'Instalace, aktualizace a odebrání používají skutečný katalog backendu.'
+            : 'Backend vrátil nepodporovaný typ balíčku.' })],
+        hasRelated: false, related: [], development: this.developmentVM(s), scmPolicy: this.scmPolicyVM(s, null) };
+    }
+    if (s.section === 'workers') {
+      const detail = this._workerDetails.get(id) || { status: 'idle' };
+      const worker = detail.data, extension = !!worker?.definition?.m3_extension;
+      const enabled = worker?.enabled === true || worker?.enabled === 1;
+      const busy = this._catalogBusy.has('worker:' + id);
+      const runs = Array.isArray(worker?.recentRuns) ? worker.recentRuns : [];
+      return { icon: this.sec(s.section).icon, tone: this.sec(s.section).tone,
+        icls: '', title: item.name, type: 'Worker', idText: item.id, hasStatus: true,
+        status: busy ? 'probíhá' : detail.status !== 'ready' ? 'nezjištěno' : enabled ? 'zapnutý' : 'pozastavený',
+        stCls: busy ? 'warn' : enabled ? 'ok' : 'idle',
+        hasPrimary: extension && enabled && !busy, primaryLabel: 'Spustit teď',
+        onPrimary: () => this.pWorkerAction(item, 'run'),
+        secondary: extension && !busy ? [{ label: enabled ? 'Pozastavit' : 'Obnovit',
+          icon: enabled ? I.pause : I.play, go: () => this.pWorkerAction(item, enabled ? 'disable' : 'enable') }] : [],
+        more: () => {}, hasTabs: false, tabs: [], hasDesc: !!item.description,
+        desc: item.description, showProps: !!worker,
+        props: worker ? [['ID', item.id, true], ['Zdroj', extension ? worker.definition.m3_extension.id : 'legacy'],
+          ['Plán', worker.definition?.schedule?.type || '—'], ['Poslední běh', runs[0]?.started_at || '—']]
+          .map(([k, v, mono]) => ({ k, v: String(v), cls: mono ? 'mono' : '' })) : [],
+        blocks: [this.blockVM({ kind: 'empty', text: busy ? 'Čekám na výsledek operace…'
+          : detail.status === 'loading' || detail.status === 'idle' ? 'Načítám definici workeru…'
+            : detail.status === 'error' ? detail.error
+              : extension ? runs.length ? `Běhů v historii: ${runs.length}.` : 'Zatím žádný běh.'
+                : 'Tento legacy worker má vypnuté operace. Použij rozšíření agentů M3.' })],
+        hasRelated: false, related: [], development: this.developmentVM(s), scmPolicy: this.scmPolicyVM(s, null) };
+    }
     return { icon: this.sec(s.section).icon, tone: this.sec(s.section).tone,
       icls: '', title: entry.name, type: this.sec(s.section).label,
       idText: item ? item.id : '', hasStatus: false, status: '', stCls: '',
@@ -396,6 +446,83 @@ class LiveModel extends Component {
       props: item ? [['ID', item.id, true], ['Stav', item.state || '—']] .map(row => ({ k: row[0], v: row[1], cls: row[2] ? 'mono' : '' })) : [],
       blocks: [this.blockVM({ kind: 'empty', text: 'Další akce této obrazovky zatím nejsou připojené.' })],
       hasRelated: false, related: [], development: this.developmentVM(s), scmPolicy: this.scmPolicyVM(s, null) };
+  }
+
+  async pMarketplaceAction(item, operation) {
+    const type = item?.raw?.type, id = item?.raw?.id;
+    const key = type + ':' + id;
+    if (!['skill', 'expertise', 'specialist'].includes(type) || typeof id !== 'string'
+      || !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(id) || !['install', 'uninstall', 'update'].includes(operation)
+      || this._catalogBusy.has(key)) return false;
+    const verb = { install: 'Nainstalovat', uninstall: 'Odinstalovat', update: 'Aktualizovat' }[operation];
+    const confirmAction = this.widget.confirmAction || globalThis.confirm;
+    if (typeof confirmAction !== 'function' || !confirmAction(`${verb} balíček ${type}/${id} (${item.raw.version || 'verze neuvedena'})?`)) return false;
+    this._catalogBusy.add(key);
+    this.widget.catalogActionError = null;
+    this.forceUpdate();
+    try {
+      const route = operation === 'uninstall' ? '/api/marketplace/installed/'
+        : '/api/marketplace/' + operation + '/';
+      await this.widget.catalog.mutate(route + encodeURIComponent(type) + '/' + encodeURIComponent(id),
+        operation === 'uninstall' ? 'DELETE' : 'POST');
+      await this.widget.catalog.load('Obchod');
+      const current = this.widget.catalog.view('Obchod');
+      const updated = current.items.find(row => row.raw.id === id && row.raw.type === type);
+      if (current.status !== 'ready' || !updated || updated.raw.installed !== (operation !== 'uninstall')) {
+        throw Error('Akce byla odeslána, ale aktuální stav balíčku nelze ověřit. Obnov katalog před dalším pokusem.');
+      }
+      return true;
+    } catch (error) {
+      this.widget.catalogActionError = error?.message || 'Akce s balíčkem selhala.';
+      return false;
+    } finally {
+      this._catalogBusy.delete(key);
+      this.forceUpdate();
+    }
+  }
+
+  async loadWorkerDetail(id) {
+    const key = String(id), previous = this._workerDetails.get(key);
+    if (previous?.status === 'loading') return;
+    const request = Symbol(key);
+    this._workerDetails.set(key, { status: 'loading', data: previous?.data, request });
+    this.forceUpdate();
+    try {
+      const data = await this.widget.catalog.get('/api/agents/' + encodeURIComponent(key));
+      if (!data || String(data.id) !== key || !data.definition || typeof data.definition !== 'object')
+        throw Error('Backend vrátil neplatnou definici workeru.');
+      if (this._workerDetails.get(key)?.request === request)
+        this._workerDetails.set(key, { status: 'ready', data });
+    } catch (error) {
+      if (this._workerDetails.get(key)?.request === request)
+        this._workerDetails.set(key, { status: 'error', error: error?.message || 'Načtení workeru selhalo.' });
+    }
+    this.forceUpdate();
+  }
+
+  async pWorkerAction(item, operation) {
+    const id = item?.id, key = 'worker:' + id;
+    const detail = this._workerDetails.get(id);
+    if (typeof id !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(id)
+      || !['run', 'enable', 'disable'].includes(operation) || !detail?.data?.definition?.m3_extension
+      || this._catalogBusy.has(key)) return false;
+    const verb = { run: 'Spustit', enable: 'Obnovit', disable: 'Pozastavit' }[operation];
+    const confirmAction = this.widget.confirmAction || globalThis.confirm;
+    if (typeof confirmAction !== 'function' || !confirmAction(`${verb} worker ${item.name} (${id})?`)) return false;
+    this._catalogBusy.add(key);
+    this.widget.catalogActionError = null;
+    this.forceUpdate();
+    try {
+      await this.widget.catalog.mutate('/api/agent-extensions/instances/' + encodeURIComponent(id) + '/' + operation, 'POST');
+      await Promise.all([this.loadWorkerDetail(id), this.widget.catalog.load('Workeři')]);
+      return this._workerDetails.get(id)?.status === 'ready';
+    } catch (error) {
+      this.widget.catalogActionError = error?.message || 'Akce workeru selhala.';
+      return false;
+    } finally {
+      this._catalogBusy.delete(key);
+      this.forceUpdate();
+    }
   }
 
   pFocusSession(s, sid) {
@@ -495,6 +622,7 @@ class LiveModel extends Component {
 
   pSelect(s, sec, id) {
     if (sec === 'projects') { this.scmClient.load(id); this.loadProjectConversations(id); }
+    if (sec === 'workers') this.loadWorkerDetail(id);
     if (sec === 'settings' && id === 'system' && !this._developmentRequested) {
       this._developmentRequested = true; this.development.refresh();
     }
