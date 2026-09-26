@@ -44,12 +44,17 @@ na rozšíření M3 přes `/api/agent-extensions/instances/:id/*`. Legacy worker
 zůstává jen pro čtení, protože jeho mutační endpointy vracejí 410. Správa
 zdrojů používá nové `/api/scm/*` s plánem a potvrzením; i diff
 smazaného souboru je dostupný bez falešného editoru. Izolovaný průchod ve
-skutečném Electronu na `1b4699a9` prošel včetně výměny sloupců, šesti relací,
+skutečném Electronu na `bd77c771` prošel včetně výměny sloupců, šesti relací,
 obnovy a jedenácti témat (`tests/studio2-exclusive-ui.e2e.js`).
+
+Historie Multimédií načítá skutečné záznamy; oblíbené, zrušení a smazání
+prochází backendem a znovunačtením stavu. Běžící úloha po požadavku na
+zrušení zůstává označená jako běžící, dokud backend neohlásí koncový stav.
 
 **Zbývá před paritou S2-7:** průvodci a další akce katalogů, vytvoření,
 přejmenování a smazání souborů ve stromu, úplných 12 kategorií nastavení,
-modely/hunt/governor/upgrady, M4/M7, multimédia a automatické režimy gitu.
+modely/hunt/governor/upgrady, M4/M7, nové generování a otevření výstupů
+Multimédií a automatické režimy gitu.
 Prototypové fixtury se stále používají u nenapojených částí nastavení;
 tyto části nesmějí být vydávány za živá data. Klasické UI proto zůstává dostupné.
 

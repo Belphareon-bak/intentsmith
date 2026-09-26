@@ -53,19 +53,25 @@ class CatalogStore {
     if (!response.ok) throw new Error(`Načtení selhalo (HTTP ${response.status}).`);
     return response.json();
   }
-  async mutate(path, method, timeoutMs = 30000) {
+  async mutate(path, method, body = null, timeoutMs = 30000) {
     const workerPath = /^\/api\/agent-extensions\/instances\/[A-Za-z0-9._-]+\/(run|enable|disable)$/.test(path);
-    if (!['POST', 'DELETE'].includes(method) || typeof path !== 'string'
-      || (!path.startsWith('/api/marketplace/') && !(method === 'POST' && workerPath))) {
+    const mediaPath = (method === 'POST' && /^\/api\/media\/cancel\?id=[0-9a-f-]{36}$/i.test(path))
+      || (method === 'PUT' && path === '/api/media/favorite')
+      || (method === 'DELETE' && /^\/api\/media\?id=[0-9a-f-]{36}$/i.test(path));
+    if (!['POST', 'PUT', 'DELETE'].includes(method) || typeof path !== 'string'
+      || (!path.startsWith('/api/marketplace/') && !(method === 'POST' && workerPath)
+        && !mediaPath)) {
       throw new Error('Nepovolená akce katalogu.');
     }
     const base = this.backendUrl();
     if (typeof base !== 'string' || !/^https?:\/\//.test(base)) throw new Error('Backend není dostupný.');
-    const response = await this.fetchImpl(base + path, { method, signal: AbortSignal.timeout(timeoutMs) });
-    let body = {};
-    try { body = await response.json(); } catch { /* HTTP status remains authoritative. */ }
-    if (!response.ok || body.ok === false) throw new Error(body.error || `Akce selhala (HTTP ${response.status}).`);
-    return body;
+    const response = await this.fetchImpl(base + path, { method, signal: AbortSignal.timeout(timeoutMs),
+      ...(body == null ? {} : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }) });
+    let result = {};
+    try { result = await response.json(); } catch { /* HTTP status remains authoritative. */ }
+    if (!response.ok || result.ok === false || (!workerPath && result.ok !== true))
+      throw new Error(result.error || `Akce selhala (HTTP ${response.status}).`);
+    return result;
   }
   async load(section) {
     const route = ROUTES[section];

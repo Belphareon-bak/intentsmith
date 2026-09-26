@@ -122,6 +122,52 @@ test('worker detail runs only a verified M3 extension through its active route',
   assert.equal(calls.filter(([method, path]) => method === 'POST' && path.includes('/worker-m3/run')).length, 2);
 });
 
+test('media history actions refresh real state and report deferred cancellation honestly', async () => {
+  const id = '30e4aab2-6227-46f4-b069-4306ec7ab671';
+  const calls = [];
+  let status = 'running', favorite = 0, deleted = false;
+  const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335',
+    fetchImpl: async (url, options = {}) => {
+      const path = new URL(url).pathname + new URL(url).search;
+      const method = options.method || 'GET';
+      calls.push([method, path, options.body && JSON.parse(options.body)]);
+      if (path.startsWith('/api/media/history')) return { ok: true, json: async () => ({
+        generations: deleted ? [] : [{ id, type: 'txt2img', prompt: 'Krajina', status, favorite }] }) };
+      if (path === '/api/media/cancel?id=' + id) return { ok: true,
+        json: async () => ({ ok: true, message: 'Zrušení se projeví po dokončení aktuální úlohy' }) };
+      if (path === '/api/media/favorite') {
+        favorite = options.body && JSON.parse(options.body).favorite ? 1 : 0;
+        return { ok: true, json: async () => ({ ok: true, favorite }) };
+      }
+      if (path === '/api/media?id=' + id) {
+        deleted = true;
+        return { ok: true, json: async () => ({ ok: true }) };
+      }
+      throw new Error('Unexpected request: ' + path);
+    } });
+  const { model, widget } = setup({ catalog });
+  widget.confirmAction = () => true;
+  await catalog.load('Multimédia');
+  model.setState({ mode: 'section', section: 'media', detail: { media: id } });
+  let vm = model.detailVM(model.st());
+  assert.equal(vm.primaryLabel, 'Zrušit generování');
+  assert.equal(await vm.onPrimary(), true);
+  vm = model.detailVM(model.st());
+  assert.equal(vm.status, 'running', 'deferred cancellation must not appear complete');
+  assert.match(JSON.stringify(vm.blocks), /po dokončení aktuální úlohy/);
+  assert.equal(await vm.secondary[0].go(), true);
+  assert.match(model.detailVM(model.st()).secondary[0].label, /Odebrat/);
+  assert.deepEqual(calls.find(([method]) => method === 'PUT')[2], { id, favorite: true });
+  status = 'completed';
+  await catalog.load('Multimédia');
+  vm = model.detailVM(model.st());
+  assert.equal(vm.hasPrimary, false);
+  assert.equal(await vm.secondary[1].go(), true);
+  assert.equal(model.detailVM(model.st()), null);
+  assert.deepEqual(calls.filter(([method]) => method !== 'GET').map(([method, path]) => [method, path]), [
+    ['POST', '/api/media/cancel?id=' + id], ['PUT', '/api/media/favorite'], ['DELETE', '/api/media?id=' + id]]);
+});
+
 test('live view contains only actual sessions and messages, and swaps column ownership', () => {
   const { model, store } = setup();
   const first = store.focusedSession();

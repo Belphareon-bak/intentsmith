@@ -56,6 +56,7 @@ class LiveModel extends Component {
     this._policyDrafts = new Map();
     this._projectConversations = new Map();
     this._workerDetails = new Map();
+    this._mediaNotices = new Map();
     this._audit = new Map();
     this._auditRequest = new Map();
     this._catalogBusy = new Set();
@@ -432,6 +433,27 @@ class LiveModel extends Component {
                 : 'Tento legacy worker má vypnuté operace. Použij rozšíření agentů M3.' })],
         hasRelated: false, related: [], development: this.developmentVM(s), scmPolicy: this.scmPolicyVM(s, null) };
     }
+    if (s.section === 'media') {
+      const raw = item.raw || {}, active = raw.status === 'pending' || raw.status === 'running';
+      const busy = this._catalogBusy.has('media:' + id), favorite = raw.favorite === true || raw.favorite === 1;
+      return { icon: this.sec(s.section).icon, tone: this.sec(s.section).tone,
+        icls: '', title: item.name, type: 'Médium · ' + (raw.type || 'generování'), idText: id,
+        hasStatus: true, status: busy ? 'probíhá' : raw.status || 'nezjištěno',
+        stCls: active ? 'warn' : raw.status === 'completed' ? 'ok' : 'idle',
+        hasPrimary: active && !busy, primaryLabel: 'Zrušit generování',
+        onPrimary: () => this.pMediaAction(item, 'cancel'),
+        secondary: busy ? [] : [
+          { label: favorite ? 'Odebrat z oblíbených' : 'Přidat do oblíbených', icon: I.star,
+            go: () => this.pMediaAction(item, 'favorite') },
+          ...(!active ? [{ label: 'Smazat', icon: I.trash, go: () => this.pMediaAction(item, 'delete') }] : [])],
+        more: () => {}, hasTabs: false, tabs: [], hasDesc: !!raw.prompt, desc: raw.prompt || '',
+        showProps: true, props: [['ID', id, true], ['Typ', raw.type || '—'],
+          ['Vytvořeno', raw.created_at || '—'], ['Stav', raw.status || '—']]
+          .map(([k, v, mono]) => ({ k, v, cls: mono ? 'mono' : '' })),
+        blocks: [this.blockVM({ kind: 'empty', text: busy ? 'Čekám na výsledek operace…'
+          : this._mediaNotices.get(id) || raw.error || 'Historie a stav se načítají z backendu.' })],
+        hasRelated: false, related: [], development: this.developmentVM(s), scmPolicy: this.scmPolicyVM(s, null) };
+    }
     return { icon: this.sec(s.section).icon, tone: this.sec(s.section).tone,
       icls: '', title: entry.name, type: this.sec(s.section).label,
       idText: item ? item.id : '', hasStatus: false, status: '', stCls: '',
@@ -518,6 +540,48 @@ class LiveModel extends Component {
       return this._workerDetails.get(id)?.status === 'ready';
     } catch (error) {
       this.widget.catalogActionError = error?.message || 'Akce workeru selhala.';
+      return false;
+    } finally {
+      this._catalogBusy.delete(key);
+      this.forceUpdate();
+    }
+  }
+
+  async pMediaAction(item, operation) {
+    const id = item?.id, raw = item?.raw || {}, key = 'media:' + id;
+    const active = raw.status === 'pending' || raw.status === 'running';
+    if (typeof id !== 'string' || !/^[0-9a-f-]{36}$/i.test(id)
+      || !['cancel', 'favorite', 'delete'].includes(operation)
+      || (operation === 'cancel' && !active) || (operation === 'delete' && active)
+      || this._catalogBusy.has(key)) return false;
+    if (operation !== 'favorite') {
+      const confirmAction = this.widget.confirmAction || globalThis.confirm;
+      const verb = operation === 'cancel' ? 'Zrušit generování' : 'Smazat generování';
+      if (typeof confirmAction !== 'function' || !confirmAction(`${verb} ${id}?`)) return false;
+    }
+    this._catalogBusy.add(key);
+    this.widget.catalogActionError = null;
+    this.forceUpdate();
+    try {
+      const nextFavorite = !(raw.favorite === true || raw.favorite === 1);
+      const route = operation === 'favorite' ? '/api/media/favorite'
+        : operation === 'cancel' ? '/api/media/cancel?id=' + encodeURIComponent(id)
+          : '/api/media?id=' + encodeURIComponent(id);
+      const result = await this.widget.catalog.mutate(route,
+        operation === 'favorite' ? 'PUT' : operation === 'cancel' ? 'POST' : 'DELETE',
+        operation === 'favorite' ? { id, favorite: nextFavorite } : null);
+      await this.widget.catalog.load('Multimédia');
+      const current = this.widget.catalog.view('Multimédia');
+      const updated = current.items.find(row => row.id === id);
+      if (current.status !== 'ready' || (operation === 'delete' ? !!updated : !updated)
+        || (operation === 'favorite' && !!updated.raw.favorite !== nextFavorite)
+        || (operation === 'cancel' && raw.status === 'pending' && updated.raw.status !== 'cancelled'))
+        throw Error('Akce byla odeslána, ale aktuální stav média nelze ověřit. Obnov historii před dalším pokusem.');
+      if (operation === 'cancel') this._mediaNotices.set(id, result.message || 'Požadavek na zrušení přijat.');
+      if (operation === 'delete') this._mediaNotices.delete(id);
+      return true;
+    } catch (error) {
+      this.widget.catalogActionError = error?.message || 'Akce s médiem selhala.';
       return false;
     } finally {
       this._catalogBusy.delete(key);
