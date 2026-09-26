@@ -228,3 +228,12 @@ zdroje. Politika automatizace se ukládá přes revizní CAS a potvrzené zpětn
 čtení; neplatná politika zůstává vypnutá. Rollback tlačítko se objeví pouze
 po WS události s úplnou identitou operace. Testy používají simulovaný backend,
 neprovádějí skutečné GPU efekty. Úplné UI-SPEC §13 a S2-7 zatím splněné nejsou.
+
+Nastavení Úložiště čte `/api/system/storage`; optimalizace vyžaduje potvrzení
+a nové čtení. Zálohy čtou backendový seznam, vytvoření zálohy potvrzuje její
+jméno v seznamu. Export/preview/import uživatelských nastavení používá
+`/api/settings` a verzovaný `/api/settings/import`, pak ověřuje přesný obsah;
+obnova celé databáze zůstává offline podle backendového kontraktu.
+`feedback-workspace.js` odesílá zprávu a omezené přílohy přes existující API,
+volitelně poslední odpověď a serverový log. Nejistý výsledek odeslání se
+automaticky neopakuje.

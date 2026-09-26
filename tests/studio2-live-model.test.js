@@ -137,6 +137,82 @@ test('user preferences use the prototype form and verify saved backend values', 
   assert.match(model._preferenceNotice.get('ucet'), /mezitím změnilo/);
 });
 
+test('storage and backup settings show backend data and verify a confirmed backup', async () => {
+  let approve = false, backedUp = false;
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    const path = new URL(url).pathname, method = options.method || 'GET';
+    calls.push([method, path]);
+    if (path === '/api/system/storage') return { ok: true, json: async () => ({
+      db_size_mb: 21, messages_in_db: 42, history: { total_mb: 7 }, backups: { count: backedUp ? 1 : 0 } }) };
+    if (path === '/api/system/backups' && method === 'GET') return { ok: true, json: async () => ({
+      backups: backedUp ? [{ name: 'state-20260926', total_size_mb: 4, restorable: true }] : [] }) };
+    if (path === '/api/system/backup' && method === 'POST') {
+      backedUp = true; return { ok: true, json: async () => ({ ok: true, name: 'state-20260926' }) };
+    }
+    if (path === '/api/system/vacuum' && method === 'POST') return { ok: true,
+      json: async () => ({ ok: true }) };
+    throw Error('Unexpected ' + method + ' ' + path);
+  };
+  const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335', fetchImpl });
+  const { model, widget } = setup({ catalog });
+  widget.confirmAction = () => approve;
+  model.fetchImpl = fetchImpl;
+  model.setState({ mode: 'section', section: 'settings', detail: { settings: 'uloziste' } });
+  await model.loadSettingsResource('uloziste:system');
+  assert.equal(model.detailVM(model.st()).blocks[0].rows[0].m, '21 MiB');
+  model.setState({ dtab: { 'settings:uloziste': 'udrzba' } });
+  assert.equal(await model.detailVM(model.st()).onPrimary(), false);
+  assert.equal(calls.some(([method]) => method === 'POST'), false);
+  approve = true;
+  assert.equal(await model.detailVM(model.st()).onPrimary(), true);
+  assert.equal(calls.filter(([method]) => method === 'POST').length, 1);
+  model.setState({ detail: { settings: 'zalohy' }, dtab: { 'settings:zalohy': 'prehled' } });
+  await model.loadSettingsResource('zalohy');
+  assert.equal(await model.detailVM(model.st()).onPrimary(), true);
+  assert.equal(model.detailVM(model.st()).blocks.find(block => block.isRows).rows[0].t, 'state-20260926');
+  assert.deepEqual(calls.filter(([method]) => method === 'POST').map(([, path]) => path),
+    ['/api/system/vacuum', '/api/system/backup']);
+});
+
+test('settings import previews a bounded JSON file and confirms backend readback', async () => {
+  let settings = { old: true }, approved = false;
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    const path = new URL(url).pathname, method = options.method || 'GET';
+    calls.push([method, path]);
+    if (path === '/api/system/backups') return { ok: true, json: async () => ({ backups: [] }) };
+    if (path === '/api/settings' && method === 'GET') return { ok: true, json: async () => ({ ...settings }) };
+    if (path === '/api/settings/import' && method === 'POST') {
+      const body = JSON.parse(options.body);
+      assert.equal(body.version, 1);
+      settings = body.settings;
+      return { ok: true, json: async () => ({ ok: true }) };
+    }
+    throw Error('Unexpected ' + method + ' ' + path);
+  };
+  const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335', fetchImpl });
+  const { model, widget } = setup({ catalog });
+  widget.confirmAction = () => approved;
+  model.fetchImpl = fetchImpl;
+  model.setState({ mode: 'section', section: 'settings', detail: { settings: 'zalohy' },
+    dtab: { 'settings:zalohy': 'obnova' } });
+  await model.loadSettingsResource('zalohy');
+  const file = { name: 'settings.json', size: 25, text: async () => JSON.stringify({ language: 'cs' }) };
+  assert.equal(await model.prepareSettingsImport({ target: { files: [file] } }), true);
+  const form = model.detailVM(model.st()).blocks.find(block => block.isSettingsImport).settingsImport;
+  assert.equal(form.disabled, false);
+  assert.equal(await form.submit(), false);
+  assert.equal(calls.some(([method]) => method === 'POST'), false);
+  approved = true;
+  assert.equal(await form.submit(), true);
+  assert.deepEqual(settings, { language: 'cs' });
+  assert.match(model.settingsImportVM().status, /ověřen/);
+  assert.equal(await model.prepareSettingsImport({ target: { files: [{ name: 'bad.json', size: 10,
+    text: async () => JSON.stringify({ models: { autoFailoverEnabled: true } }) }] } }), false);
+  assert.equal(model.settingsImportVM().disabled, true);
+});
+
 test('preference fields reject out-of-range values before POST', async () => {
   const calls = [];
   const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335',
@@ -164,7 +240,8 @@ test('settings preserve twelve prototype categories and verify live feature chan
     if (path === '/api/system/models') return { ok: true, json: async () => ({
       models: [{ name: 'local-model:latest', size: 2 * 1024 ** 3, digest: 'sha256:abc' }],
       ollama_url: 'http://127.0.0.1:11434', current_model: 'local-model:latest' }) };
-    if (path === '/api/storage/info') return { ok: true, json: async () => ({ totalSize: 1024 ** 2 }) };
+    if (path === '/api/system/storage') return { ok: true, json: async () => ({
+      db_size_mb: 1, messages_in_db: 10, history: { total_mb: 0 }, backups: { count: 0 } }) };
     if (fail) return { ok: false, status: 503, json: async () => ({ error: 'Backend selhal' }) };
     if (path === '/api/features/reset') features = { skills: true, agents: true };
     else if (path === '/api/features/skills') features = { ...features, skills: JSON.parse(options.body).enabled };
@@ -200,8 +277,8 @@ test('settings preserve twelve prototype categories and verify live feature chan
   assert.equal(model.detailVM(model.st()).blocks[0].isModelWorkspace, true);
   assert.equal(model.detailVM(model.st()).props.find(prop => prop.k === 'Model CHAT').v, 'local-model:latest');
   model.setState({ detail: { settings: 'uloziste' } });
-  await model.loadSettingsResource('uloziste');
-  assert.equal(model.detailVM(model.st()).blocks[0].rows[0].m, '1.00 MiB');
+  await model.loadSettingsResource('uloziste:system');
+  assert.equal(model.detailVM(model.st()).blocks[0].rows[0].m, '1 MiB');
 });
 
 test('marketplace detail uses confirmed backend mutations and never claims success after failure', async () => {

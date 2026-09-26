@@ -786,6 +786,24 @@ textarea.fv-ed{font-family:var(--font-mono)}
 <sc-if value="{{b.pairing.hasError}}" hint-placeholder-val="{{false}}"><div class="note" role="alert">{{b.pairing.error}}</div></sc-if>
 <sc-if value="{{b.pairing.hasClaim}}" hint-placeholder-val="{{false}}"><div class="note" aria-label="Párovací kód"><div class="dl"><span>Kód</span><strong class="mono">{{b.pairing.code}}</strong><span>Platí do</span><span>{{b.pairing.expiry}}</span><span>Odkaz do telefonu</span><code>{{b.pairing.uri}}</code></div><p class="aph">Po prvním použití nebo po vypršení kód už nefunguje.</p></div></sc-if>
 </div></sc-if>
+<sc-if value="{{b.isSettingsImport}}" hint-placeholder-val="{{false}}"><div class="aps" aria-label="Import nastavení">
+<div class="blk-h"><span class="lbl-acc">Import nastavení z JSON</span></div>
+<p class="aph">Soubor se před změnou zkontroluje. Modelová automatizace má samostatnou politiku.</p>
+<input type="file" accept=".json,application/json" disabled="{{b.settingsImport.busy}}" onChange="{{b.settingsImport.choose}}">
+<p class="aph">{{b.settingsImport.fileName}}</p><p class="aph" role="status">{{b.settingsImport.status}}</p>
+<button class="btn btn-acc" disabled="{{b.settingsImport.disabled}}" onClick="{{b.settingsImport.submit}}">Importovat nastavení</button>
+</div></sc-if>
+<sc-if value="{{b.isFeedback}}" hint-placeholder-val="{{false}}"><div class="aps" aria-label="Zpětná vazba">
+<div class="blk-h"><span class="lbl-acc">Zpětná vazba</span></div>
+<label class="arow2"><span>Kategorie</span><select value="{{b.feedback.category}}" onChange="{{b.feedback.setCategory}}"><sc-for list="{{b.feedback.categories}}" as="option" hint-placeholder-count="5"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
+<label class="arow2"><span>Zpráva (max. 2000 znaků)</span><textarea rows="5" maxlength="2000" value="{{b.feedback.message}}" onChange="{{b.feedback.setMessage}}"></textarea></label>
+<label class="arow2"><span>Přiložit poslední odpověď asistenta</span><input type="checkbox" checked="{{b.feedback.attachLast}}" onChange="{{b.feedback.setAttachLast}}"></label>
+<label class="arow2"><span>Přiložit serverové logy</span><input type="checkbox" checked="{{b.feedback.attachLogs}}" onChange="{{b.feedback.setAttachLogs}}"></label>
+<label class="arow2"><span>Přílohy (2 MiB na soubor, 5 MiB celkem)</span><input type="file" multiple="true" onChange="{{b.feedback.chooseFiles}}"></label>
+<div class="rows"><sc-for list="{{b.feedback.files}}" as="file" hint-placeholder-count="2"><div class="row"><span class="row-tt"><strong class="row-t">{{file.name}}</strong></span><span class="row-m">{{file.size}}</span><button class="btn" onClick="{{file.remove}}">Odebrat</button></div></sc-for></div>
+<p class="aph" role="status">{{b.feedback.notice}}</p>
+<button class="btn btn-acc" disabled="{{b.feedback.disabled}}" onClick="{{b.feedback.send}}">Odeslat zpětnou vazbu</button>
+</div></sc-if>
 <sc-if value="{{b.isModelWorkspace}}" hint-placeholder-val="{{false}}"><div class="aps" aria-label="Modelové pracoviště">
 <div class="blk-h"><span class="lbl-acc">Modely a inference</span></div>
 <div class="dtabs model-tabs"><sc-for list="{{b.modelWorkspace.tabs}}" as="tab" hint-placeholder-count="7"><button class="dtab {{tab.cls}}" onClick="{{tab.go}}">{{tab.label}}</button></sc-for></div>

@@ -1148,6 +1148,8 @@ class Component extends DCLogic {
       isEmpty: kind === 'empty', empty: b.text || b.empty || '',
       isDevelopment: kind === 'development', isScmPolicy: kind === 'scmPolicy',
       isPairing: kind === 'pairing', pairing: this.pairingVM(),
+      isSettingsImport: kind === 'settingsImport', settingsImport: this.settingsImportVM(),
+      isFeedback: kind === 'feedback', feedback: this.feedbackVM(),
       isPreferences: kind === 'preferences', preferences: this.preferencesVM(this.st()),
       isModelWorkspace: kind === 'modelWorkspace', modelWorkspace: this.modelWorkspaceVM(),
       isMediaForm: kind === 'mediaForm', mediaForm: this.mediaFormVM(this.st()),
@@ -1167,6 +1169,19 @@ class Component extends DCLogic {
       busy: false, disabled: true, issue: () => {}, hasError: false, error: '',
       hasClaim: false, code: '', expiry: '', uri: '',
       status: 'Prototyp ukazuje ovládání. Párovací kód vydává až lokální backend Studia.' };
+  }
+
+  settingsImportVM() {
+    return { fileName: '', status: 'Prototyp ukazuje výběr souboru; validaci a import provádí až živé Studio.',
+      disabled: true, busy: false, choose: () => {}, submit: () => {} };
+  }
+
+  feedbackVM() {
+    return { categories: [{ value: 'bug', label: 'Chyba' }, { value: 'ux', label: 'Rozhraní' }],
+      category: 'bug', setCategory: () => {}, message: '', setMessage: () => {},
+      files: [], chooseFiles: () => {}, attachLast: false, setAttachLast: () => {},
+      attachLogs: false, setAttachLogs: () => {}, disabled: true, send: () => {},
+      notice: 'Prototyp ukazuje formulář; skutečnou zprávu odesílá až živé Studio.' };
   }
 
   preferencesVM() {

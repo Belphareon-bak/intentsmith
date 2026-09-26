@@ -13,6 +13,7 @@ const { IntentSmithBus } = require('@intentsmith/chat-panel/lib/browser/event-bu
 const { COMMANDS: LEARNING_COMMANDS, runCommand: runLearningCommand } = require('../learning-commands');
 const { SETTINGS_FIELDS, fieldsFor, validateValue } = require('../settings-preferences');
 const { ModelWorkspace } = require('../model-workspace');
+const { FeedbackWorkspace } = require('../feedback-workspace');
 
 const CATALOG = Object.freeze({
   chats: 'Konverzace', projects: 'Projekty', specialists: 'Specialisté',
@@ -91,6 +92,9 @@ class LiveModel extends Component {
     this._settingsResources = new Map();
     this._settingsBusy = false;
     this._settingsNotice = '';
+    this._maintenanceBusy = false;
+    this._maintenanceNotice = '';
+    this._settingsImport = { fileName: '', settings: null, status: 'Vyber soubor JSON s nastavením.', busy: false };
     this._preferenceDrafts = new Map();
     this._preferenceNotice = new Map();
     this._pairing = { status: 'idle', error: '', claim: null, selectedScopes: PAIRING_SCOPES.filter(scope => scope.startsWith('read:')) };
@@ -101,6 +105,11 @@ class LiveModel extends Component {
       fetchImpl: (...args) => this.fetchImpl(...args),
       confirmAction: message => (widget.confirmAction || globalThis.confirm)?.(message) === true,
       onChange: () => this.forceUpdate() });
+    this.feedbackWorkspace = new FeedbackWorkspace({ backendUrl: () => widget.catalog.backendUrl(),
+      fetchImpl: (...args) => this.fetchImpl(...args), onChange: () => this.forceUpdate(),
+      version: () => this.statusClient.health?.version || null,
+      lastResponse: () => this.widget.store.focusedSession()?.chat?.msgs?.slice().reverse()
+        .find(message => message.role === 'assistant')?.text || '' });
   }
 
   componentDidMount() {
@@ -151,6 +160,8 @@ class LiveModel extends Component {
     this.scmClient.destroy();
     this.statusClient.destroy();
     this.modelWorkspace.destroy();
+    this.feedbackWorkspace.files = [];
+    this.feedbackWorkspace.message = '';
     super.componentWillUnmount();
   }
 
@@ -577,18 +588,22 @@ class LiveModel extends Component {
     if (id === 'vzhled') return vm;
     const tab = (s.dtab || {})['settings:' + id] || (id === 'system' ? 'prostredi' : 'prehled');
     if (id === 'system' && tab === 'prostredi') return vm;
-    const resourceKey = id === 'modely' && fieldsFor(id, tab).length ? 'modely:prefs' : id;
+    const resourceKey = id === 'modely' && fieldsFor(id, tab).length ? 'modely:prefs'
+      : id === 'uloziste' ? 'uloziste:system' : id;
     const resource = this._settingsResources.get(resourceKey);
     const state = resource?.status || 'idle';
     const preferenceFields = fieldsFor(id, tab);
     const connectedTab = preferenceFields.length > 0 || (id === 'zabezpeceni' && tab === 'pristup') ||
       (id === 'prepinace' && (tab === 'prehled' || tab === 'obnoveni')) ||
-      ((id === 'modely' || id === 'uloziste') && tab === 'prehled');
+      ((id === 'modely' || id === 'uloziste') && tab === 'prehled')
+      || (id === 'uloziste' && tab === 'udrzba') || id === 'zalohy'
+      || id === 'about';
     const unavailable = 'Tato část nastavení zatím nemá připojené ovládání.';
     vm.hasDesc = false; vm.desc = ''; vm.showProps = false; vm.props = [];
     vm.hasPrimary = false; vm.primaryLabel = ''; vm.secondary = [];
     vm.hasRelated = false; vm.related = [];
-    vm.status = !connectedTab ? 'nepřipojeno' : id === 'zabezpeceni' ? 'lokální párování'
+    vm.status = !connectedTab ? 'nepřipojeno' : id === 'about' ? 'lokální aplikace'
+      : id === 'zabezpeceni' ? 'lokální párování'
       : state === 'loading' ? 'načítání' : state === 'error' ? 'chyba' : state === 'ready' ? 'živá data' : 'nenačteno';
     vm.stCls = connectedTab && state === 'error' ? 'warn' : connectedTab && state === 'ready' ? 'ok' : 'idle';
     vm.hasStatus = true;
@@ -623,9 +638,50 @@ class LiveModel extends Component {
         { k: 'Adresa Ollamy', v: resource.data.ollama_url || '—', cls: 'mono' }] : [];
       vm.showProps = vm.props.length > 0;
     } else if (id === 'uloziste' && tab === 'prehled') {
-      vm.blocks = state === 'ready' ? [this.blockVM({ kind: 'rows', title: 'Uložené přílohy', rows: [
-        { t: 'Velikost příloh', m: (resource.data.totalSize / 1024 ** 2).toFixed(2) + ' MiB', icon: this.data().I.drive }] })]
+      const storage = resource?.data;
+      vm.blocks = state === 'ready' ? [this.blockVM({ kind: 'rows', title: 'Databáze a historie', rows: [
+        { t: 'Databáze', m: storage.db_size_mb + ' MiB' },
+        { t: 'Zprávy v DB', m: String(storage.messages_in_db) },
+        { t: 'Historie', m: storage.history.total_mb + ' MiB' },
+        { t: 'Zálohy', m: String(storage.backups?.count ?? '—') }] })]
         : [this.blockVM({ kind: 'empty', text: state === 'error' ? resource.error : 'Načítám stav úložiště…' })];
+    } else if (id === 'uloziste' && tab === 'udrzba') {
+      vm.blocks = [this.blockVM({ kind: 'text', items: [
+        'Optimalizace SQLite odstraní fragmentaci. Během operace mohou ostatní požadavky čekat.',
+        this._maintenanceNotice || 'Operace začne až po výslovném potvrzení.'] })];
+      vm.hasPrimary = state === 'ready' && !this._maintenanceBusy;
+      vm.primaryLabel = 'Optimalizovat databázi';
+      vm.onPrimary = () => this.performMaintenance('vacuum');
+    } else if (id === 'zalohy') {
+      const backups = resource?.data?.backups || [];
+      vm.blocks = [this.blockVM({ kind: 'text', items: [this._maintenanceNotice ||
+        (tab === 'obnova' ? 'Obnova databáze probíhá mimo běžící aplikaci. Nejprve ji zastav, pak použij ověřený příkaz restore-state-backup.js.'
+          : tab === 'vychozi' ? 'Obnovení výchozích hodnot smaže uživatelská nastavení a vypne modelovou automatizaci.'
+            : 'Zálohy jsou uloženy v datovém adresáři backendu.')] }),
+      ...(state === 'ready' && tab !== 'vychozi' ? [this.blockVM({ kind: 'rows', title: 'Dostupné zálohy',
+        rows: backups.slice(0, 30).map(item => ({ t: item.name, s: item.created_at || '',
+          m: item.restorable ? item.total_size_mb + ' MiB' : 'nelze obnovit' })) })] : [])];
+      if (tab === 'prehled') {
+        vm.hasPrimary = state === 'ready' && !this._maintenanceBusy;
+        vm.primaryLabel = 'Vytvořit zálohu stavu';
+        vm.onPrimary = () => this.performMaintenance('backup');
+        vm.secondary.push({ label: 'Exportovat nastavení JSON', icon: this.data().I.download,
+          go: () => this.exportSettings() });
+      } else if (tab === 'obnova') {
+        vm.blocks.unshift(this.blockVM({ kind: 'settingsImport' }));
+      } else if (tab === 'vychozi') {
+        vm.hasPrimary = state === 'ready' && !this._maintenanceBusy;
+        vm.primaryLabel = 'Obnovit výchozí nastavení';
+        vm.onPrimary = () => this.performMaintenance('reset');
+      }
+    } else if (id === 'about' && tab === 'zpetna_vazba') {
+      vm.blocks = [this.blockVM({ kind: 'feedback' })];
+    } else if (id === 'about' && tab === 'prehled') {
+      const health = this.statusClient.health;
+      vm.blocks = [this.blockVM({ kind: 'rows', title: 'Aplikace', rows: [
+        { t: 'Backend', m: health?.version ? String(health.version) : 'nepotvrzený' },
+        { t: 'Stav', m: health?.ready === true ? 'připravený' : 'neověřený' },
+        { t: 'Rozhraní', m: 'Studio 2' }] })];
     } else {
       vm.blocks = [this.blockVM({ kind: 'empty', text: unavailable })];
     }
@@ -634,7 +690,8 @@ class LiveModel extends Component {
   }
 
   async loadSettingsResource(id, refresh = false) {
-    const paths = { prepinace: '/api/features', modely: '/api/system/models', uloziste: '/api/storage/info' };
+    const paths = { prepinace: '/api/features', modely: '/api/system/models',
+      'uloziste:system': '/api/system/storage', zalohy: '/api/system/backups' };
     const preferenceCategory = id === 'modely:prefs' ? 'modely' : id;
     const path = SETTINGS_FIELDS[preferenceCategory] && id !== 'modely' ? '/api/settings' : paths[id];
     if (!path || !refresh && this._settingsResources.get(id)?.status === 'ready') return;
@@ -646,7 +703,9 @@ class LiveModel extends Component {
       if (id === 'prepinace' && (!data?.features || typeof data.features !== 'object' || Array.isArray(data.features)
         || Object.values(data.features).some(value => typeof value !== 'boolean'))) throw Error('Backend vrátil neplatné přepínače.');
       if (id === 'modely' && (!Array.isArray(data?.models) || data.models.some(model => typeof model.name !== 'string'))) throw Error('Backend vrátil neplatný seznam modelů.');
-      if (id === 'uloziste' && (!Number.isFinite(data?.totalSize) || data.totalSize < 0)) throw Error('Backend vrátil neplatnou velikost úložiště.');
+      if (id === 'uloziste:system' && (!Number.isFinite(data?.db_size_mb) || !Number.isSafeInteger(data?.messages_in_db)
+        || !Number.isFinite(data?.history?.total_mb))) throw Error('Backend vrátil neplatný stav úložiště.');
+      if (id === 'zalohy' && !Array.isArray(data?.backups)) throw Error('Backend vrátil neplatný seznam záloh.');
       if (SETTINGS_FIELDS[preferenceCategory] && id !== 'modely'
         && (!data || typeof data !== 'object' || Array.isArray(data))) throw Error('Backend vrátil neplatné uživatelské nastavení.');
       if (this._settingsResources.get(id)?.request === request) this._settingsResources.set(id, { status: 'ready', data });
@@ -654,6 +713,139 @@ class LiveModel extends Component {
       if (this._settingsResources.get(id)?.request === request) this._settingsResources.set(id, {
         status: 'error', error: error?.message || 'Načtení nastavení selhalo.' });
     } finally { this.forceUpdate(); }
+  }
+
+  async performMaintenance(operation) {
+    const paths = { vacuum: '/api/system/vacuum', backup: '/api/system/backup', reset: '/api/reset' };
+    if (!paths[operation] || this._maintenanceBusy) return false;
+    const confirmation = { vacuum: 'Optimalizovat databázi? Během operace mohou ostatní požadavky čekat.',
+      backup: 'Vytvořit novou zálohu stavu backendu?',
+      reset: 'Smazat všechna uživatelská nastavení a vypnout modelovou automatizaci? Tuto akci nelze vrátit.' };
+    if (!(this.widget.confirmAction || globalThis.confirm)?.(confirmation[operation])) return false;
+    this._maintenanceBusy = true; this._maintenanceNotice = 'Čekám na potvrzení backendu…'; this.forceUpdate();
+    try {
+      const base = this.widget.catalog.backendUrl();
+      if (typeof base !== 'string' || !/^https?:\/\//.test(base)) throw Error('Backend není dostupný.');
+      const response = await this.fetchImpl(base + paths[operation], { method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' }, body: '{}', signal: AbortSignal.timeout(30_000) });
+      let result = {};
+      try { result = await response.json(); } catch { /* Response may be lost after the effect. */ }
+      if (!response.ok || (operation === 'reset' ? result.success !== true : result.ok !== true))
+        throw Error(result.error || `Operace nebyla potvrzena (HTTP ${response.status}).`);
+      if (operation === 'backup') {
+        if (typeof result.name !== 'string' || !result.name) throw Error('Záloha mohla vzniknout, ale backend nevrátil její jméno.');
+        await this.loadSettingsResource('zalohy', true);
+        if (this._settingsResources.get('zalohy')?.status !== 'ready'
+          || !this._settingsResources.get('zalohy').data.backups.some(item => item.name === result.name))
+          throw Error('Záloha mohla vzniknout, ale není ověřená v seznamu. Obnov stav před opakováním.');
+        this._maintenanceNotice = 'Záloha ' + result.name + ' je ověřená v backendu.';
+      } else if (operation === 'reset') {
+        const settings = await this.widget.catalog.get('/api/settings');
+        const policy = await this.widget.catalog.get('/api/system/models/policy');
+        if (Object.keys(settings || {}).length || !policy.valid || policy.policy.autoFailoverEnabled
+          || policy.policy.autoCleanupEnabled) throw Error('Reset mohl proběhnout, ale výsledek nelze ověřit. Obnov stav.');
+        this._preferenceDrafts.clear();
+        this._settingsResources.clear();
+        await this.loadSettingsResource('zalohy', true);
+        this._maintenanceNotice = 'Uživatelská nastavení jsou prázdná a modelová automatizace vypnutá.';
+      } else {
+        await this.loadSettingsResource('uloziste:system', true);
+        if (this._settingsResources.get('uloziste:system')?.status !== 'ready')
+          throw Error('Optimalizace mohla proběhnout, ale stav úložiště nelze ověřit.');
+        this._maintenanceNotice = 'Databáze byla optimalizována; nový stav byl načten.';
+      }
+      return true;
+    } catch (error) {
+      this._maintenanceNotice = error?.message || 'Výsledek operace není jistý. Obnov stav před opakováním.';
+      return false;
+    } finally { this._maintenanceBusy = false; this.forceUpdate(); }
+  }
+
+  settingsImportVM() {
+    return { fileName: this._settingsImport.fileName, status: this._settingsImport.status,
+      busy: this._settingsImport.busy, disabled: !this._settingsImport.settings || this._settingsImport.busy,
+      choose: event => this.prepareSettingsImport(event), submit: () => this.importSettings() };
+  }
+
+  async prepareSettingsImport(event) {
+    const file = event?.target?.files?.[0];
+    this._settingsImport = { fileName: file?.name || '', settings: null,
+      status: 'Kontroluji soubor…', busy: true }; this.forceUpdate();
+    try {
+      if (!file || file.size > 1024 * 1024) throw Error('Vyber JSON soubor do 1 MiB.');
+      const raw = await file.text();
+      const settings = JSON.parse(raw);
+      if (!settings || typeof settings !== 'object' || Array.isArray(settings)
+        || Object.keys(settings).length > 5000
+        || Object.keys(settings).some(key => key.length > 256)) throw Error('Soubor neobsahuje platný dokument nastavení.');
+      if (settings.models && typeof settings.models === 'object'
+        && ['autoFailoverEnabled', 'autoCleanupEnabled', 'autoCleanupDays']
+          .some(key => Object.hasOwn(settings.models, key)))
+        throw Error('Modelová automatizace se importuje samostatně. Odeber její klíče ze souboru.');
+      this._settingsImport = { fileName: file.name, settings,
+        status: `Připraveno ${Object.keys(settings).length} položek. Import nahradí uživatelská nastavení po potvrzení.`,
+        busy: false };
+      return true;
+    } catch (error) {
+      this._settingsImport = { fileName: file?.name || '', settings: null,
+        status: error?.message || 'Soubor nelze přečíst.', busy: false };
+      return false;
+    } finally { this.forceUpdate(); }
+  }
+
+  async importSettings() {
+    const settings = this._settingsImport.settings;
+    if (!settings || this._settingsImport.busy) return false;
+    const confirmAction = this.widget.confirmAction || globalThis.confirm;
+    if (typeof confirmAction !== 'function' || !confirmAction(`Importovat nastavení z ${this._settingsImport.fileName}? Aktuální uživatelské volby budou nahrazeny.`))
+      return false;
+    this._settingsImport.busy = true;
+    this._settingsImport.status = 'Čekám na potvrzení backendu…'; this.forceUpdate();
+    try {
+      const base = this.widget.catalog.backendUrl();
+      if (typeof base !== 'string' || !/^https?:\/\//.test(base)) throw Error('Backend není dostupný.');
+      const response = await this.fetchImpl(base + '/api/settings/import', { method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: 1, settings }),
+        signal: AbortSignal.timeout(30_000) });
+      let result = {};
+      try { result = await response.json(); } catch { /* Effect may have committed despite a lost response. */ }
+      if (!response.ok || result.ok !== true) throw Error(result.error || `Import nebyl potvrzen (HTTP ${response.status}).`);
+      const after = await this.widget.catalog.get('/api/settings');
+      if (JSON.stringify(after) !== JSON.stringify(settings))
+        throw Error('Import mohl proběhnout, ale nastavení se nepodařilo ověřit. Obnov stav před opakováním.');
+      this._preferenceDrafts.clear();
+      this._settingsResources.clear();
+      await this.loadSettingsResource('zalohy', true);
+      this._settingsImport = { fileName: '', settings: null,
+        status: 'Import byl ověřen zpětným čtením backendu.', busy: false };
+      return true;
+    } catch (error) {
+      this._settingsImport.status = error?.message || 'Výsledek importu není jistý. Před opakováním obnov stav.';
+      this._settingsImport.settings = null;
+      return false;
+    } finally { this._settingsImport.busy = false; this.forceUpdate(); }
+  }
+
+  async exportSettings() {
+    try {
+      const settings = await this.widget.catalog.get('/api/settings');
+      if (!settings || typeof settings !== 'object' || Array.isArray(settings))
+        throw Error('Backend nevrátil platný dokument nastavení.');
+      const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = 'intentsmith-settings-' + new Date().toISOString().slice(0, 10) + '.json';
+      anchor.click();
+      setTimeout(() => URL.revokeObjectURL(url), 30_000);
+      this._maintenanceNotice = 'Soubor nastavení byl připraven ke stažení.';
+      this.forceUpdate();
+      return true;
+    } catch (error) {
+      this._maintenanceNotice = error?.message || 'Export nastavení selhal.';
+      this.forceUpdate();
+      return false;
+    }
   }
 
   async changeFeatures(path, message, verify) {
@@ -1456,6 +1648,7 @@ class LiveModel extends Component {
     }
     if (sec === 'settings') {
       this.loadSettingsResource(id);
+      if (id === 'uloziste') this.loadSettingsResource('uloziste:system');
       if (id === 'modely') this.loadSettingsResource('modely:prefs');
       if (id === 'modely') this.modelWorkspace.load();
     }
@@ -1507,6 +1700,8 @@ class LiveModel extends Component {
   developmentVM() { return this.development.vm(); }
 
   modelWorkspaceVM() { return this.modelWorkspace.vm(); }
+
+  feedbackVM() { return this.feedbackWorkspace.vm(); }
 
   preferencesVM(s) {
     const id = s.detail?.settings;
