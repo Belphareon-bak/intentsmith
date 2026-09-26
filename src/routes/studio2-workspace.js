@@ -69,6 +69,18 @@ function errorStatus(error) {
   return 500;
 }
 
+function sendRouteError(res, error, sendJSON, safeError) {
+  const status = errorStatus(error);
+  if (status >= 500) return sendJSON(res, status, safeError(error));
+  const publicMessages = {
+    400: 'Neplatná cesta nebo požadavek.',
+    403: 'Přístup k položce projektu je odmítnut.',
+    404: 'Projekt nebo položka nebyly nalezeny.',
+    409: 'Položka se změnila, cíl už existuje nebo složka není prázdná.'
+  };
+  return sendJSON(res, status, { error: publicMessages[status] || 'Operaci nelze provést.' });
+}
+
 export function createStudio2WorkspaceRoutes({ db, parseBody, sendJSON, safeError }) {
   return {
     'GET /api/studio2/workspace/entry': async (req, res) => {
@@ -76,46 +88,46 @@ export function createStudio2WorkspaceRoutes({ db, parseBody, sendJSON, safeErro
         const url = new URL(req.url, `http://${req.headers.host}`);
         const root = await projectRoot(db, url.searchParams.get('project_id'));
         const entry = await scopedEntry(root, url.searchParams.get('path'));
-        if (!entry.stat) return sendJSON(res, 404, { error: 'Entry not found' });
+        if (!entry.stat) return sendJSON(res, 404, { error: 'Položka nebyla nalezena.' });
         sendJSON(res, 200, { projectId: Number(url.searchParams.get('project_id')), path: entry.relative,
           ...await revision(entry) });
-      } catch (error) { sendJSON(res, errorStatus(error), safeError(error)); }
+      } catch (error) { sendRouteError(res, error, sendJSON, safeError); }
     },
     'POST /api/studio2/workspace/operation': async (req, res) => {
       try {
         const body = await parseBody(req);
         if (!body || typeof body !== 'object' || Array.isArray(body))
-          return sendJSON(res, 400, { error: 'Invalid operation body' });
+          return sendJSON(res, 400, { error: 'Neplatný požadavek.' });
         const { projectId, op, path: relative, to, expectedRevision } = body;
         if (!['create_file', 'create_directory', 'rename', 'delete'].includes(op))
-          return sendJSON(res, 400, { error: 'Unsupported operation' });
+          return sendJSON(res, 400, { error: 'Nepodporovaná operace.' });
         const root = await projectRoot(db, projectId);
         const source = await scopedEntry(root, relative);
         if (op === 'create_file' || op === 'create_directory') {
-          if (source.stat) return sendJSON(res, 409, { error: 'Entry already exists' });
+          if (source.stat) return sendJSON(res, 409, { error: 'Položka už existuje.' });
           if (op === 'create_file') {
             const file = await fs.open(source.target, 'wx', 0o600);
             await file.close();
           } else await fs.mkdir(source.target);
         } else {
-          if (!source.stat) return sendJSON(res, 404, { error: 'Entry not found' });
+          if (!source.stat) return sendJSON(res, 404, { error: 'Položka nebyla nalezena.' });
           if (!REVISION.test(expectedRevision || ''))
-            return sendJSON(res, 400, { error: 'Expected entry revision is required' });
+            return sendJSON(res, 400, { error: 'Chybí platná revize položky.' });
           const current = await revision(source);
           if (current.revision !== expectedRevision)
-            return sendJSON(res, 409, { error: 'Entry changed since it was opened' });
+            return sendJSON(res, 409, { error: 'Položka se mezitím změnila. Obnov strom před další akcí.' });
           if (op === 'rename') {
             if (typeof to !== 'string' || to === relative || source.stat.isDirectory() && to.startsWith(relative + '/'))
-              return sendJSON(res, 400, { error: 'Invalid rename destination' });
+              return sendJSON(res, 400, { error: 'Neplatný cíl přejmenování.' });
             const destination = await scopedEntry(root, to);
-            if (destination.stat) return sendJSON(res, 409, { error: 'Destination already exists' });
+            if (destination.stat) return sendJSON(res, 409, { error: 'Cílová položka už existuje.' });
             await fs.rename(source.target, destination.target);
           } else if (source.stat.isDirectory()) await fs.rmdir(source.target);
           else await fs.unlink(source.target);
         }
         sendJSON(res, 200, { ok: true, projectId: Number(projectId), op, path: relative,
           ...(op === 'rename' ? { to } : {}) });
-      } catch (error) { sendJSON(res, errorStatus(error), safeError(error)); }
+      } catch (error) { sendRouteError(res, error, sendJSON, safeError); }
     }
   };
 }

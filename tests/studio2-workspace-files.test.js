@@ -113,12 +113,12 @@ assert.equal(racing.entry(racingSession).editor.dirty, false);
 console.log('PASS scoped tree/completion, 409 guard, uncertain write recovery, and in-flight edit preservation');
 
 const projectRoot = mkdtempSync(join(tmpdir(), 'studio2-files-'));
-let result;
+let result, sanitizedErrors = 0;
 const routes = createStudio2WorkspaceRoutes({
   db: { projects: { findById: { get: id => id === 17 ? { id, path: projectRoot } : null } } },
   parseBody: async req => req.body,
   sendJSON: (_res, status, body) => { result = { status, body }; },
-  safeError: error => ({ error: error.message })
+  safeError: () => { sanitizedErrors++; return { error: 'Internal server error' }; }
 });
 const operate = async body => {
   await routes['POST /api/studio2/workspace/operation']({ body }, {});
@@ -135,7 +135,8 @@ try {
   assert.equal((await operate({ projectId: 17, op: 'create_directory', path: 'src' })).status, 200);
   assert.equal((await operate({ projectId: 17, op: 'create_file', path: 'src/a.txt' })).status, 200);
   assert.equal((await operate({ projectId: 17, op: 'create_file', path: 'src/a.txt' })).status, 409);
-  assert.equal((await operate({ projectId: 17, op: 'create_file', path: '../escape' })).status, 400);
+  assert.deepEqual(await operate({ projectId: 17, op: 'create_file', path: '../escape' }),
+    { status: 400, body: { error: 'Neplatná cesta nebo požadavek.' } });
   assert.equal((await operate({ projectId: 18, op: 'create_file', path: 'src/b.txt' })).status, 404);
   symlinkSync(tmpdir(), join(projectRoot, 'outside'));
   assert.equal((await operate({ projectId: 17, op: 'create_file', path: 'outside/escape.txt' })).status, 403);
@@ -144,6 +145,7 @@ try {
   writeFileSync(join(projectRoot, 'src/a.txt'), 'changed');
   assert.equal((await operate({ projectId: 17, op: 'rename', path: 'src/a.txt', to: 'src/b.txt',
     expectedRevision: original.body.revision })).status, 409);
+  assert.equal(sanitizedErrors, 0, 'expected conflicts must not be reported as server errors');
   const current = await entry('src/a.txt');
   assert.equal((await operate({ projectId: 17, op: 'rename', path: 'src/a.txt', to: 'src/b.txt',
     expectedRevision: current.body.revision })).status, 200);
