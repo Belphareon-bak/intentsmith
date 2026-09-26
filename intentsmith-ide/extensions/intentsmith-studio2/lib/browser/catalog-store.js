@@ -15,7 +15,7 @@ function arrayFrom(section, data) {
   if (Array.isArray(data)) return data;
   if (!data || typeof data !== 'object') return [];
   const key = ({ Konverzace: 'conversations', Projekty: 'projects', Specialisté: 'specialists',
-    Expertýzy: 'expertises', Workeři: 'agents', Obchod: 'items', Multimédia: 'generations' })[section];
+    Expertýzy: 'experts', Workeři: 'agents', Obchod: 'items', Multimédia: 'generations' })[section];
   return Array.isArray(data[key]) ? data[key] : [];
 }
 function normalize(section, raw) {

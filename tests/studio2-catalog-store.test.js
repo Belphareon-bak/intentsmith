@@ -7,7 +7,7 @@ const payloads = {
   Konverzace: { conversations: [{ id: 'c1', title: 'Nápad', preview: 'První zpráva' }] },
   Projekty: { projects: [{ id: 1, name: 'Projekt', path: '/tmp/p' }, { id: 2, name: 'Bez cesty' }] },
   Specialisté: { specialists: [{ id: 's1', name: 'Účetní', status: 'enabled' }, { id: 's2', status: 'disabled' }] },
-  Expertýzy: { expertises: [{ id: 'e1', name: 'Výchozí' }] },
+  Expertýzy: { experts: [{ id: 'e1', name: 'Výchozí' }] },
   Workeři: { agents: [{ id: 5, name: 'Denní', enabled: true }] },
   Obchod: { items: [{ id: 'p1', name: 'Balíček', type: 'skill' }] },
   Multimédia: { generations: [{ id: 'g1', prompt: 'Krajina' }] },
@@ -16,6 +16,8 @@ for (const [section, body] of Object.entries(payloads)) {
   assert.equal(normalizeCatalog(section, body).length, 1, section);
 }
 assert.equal(normalizeCatalog('Konverzace', {}).length, 0);
+assert.equal(normalizeCatalog('Expertýzy', { expertises: [{ id: 'wrong-shape' }] }).length, 0,
+  'the current backend emits experts, not expertises');
 assert.deepEqual(normalizeCatalog('Obchod', { items: [
   { id: 'same', type: 'skill' }, { id: 'same', type: 'specialist' }] }).map(item => item.id),
 ['skill:same', 'specialist:same']);

@@ -31,7 +31,7 @@ globály `_sessions` a `_sessionActive`; routování zpět do relací zůstává
 | Konverzace (katalog) | `GET /api/conversations?limit=50&status=` |
 | Projekty | `GET /api/projects?limit=50&status=`, `POST /api/projects`, `/api/projects/:id/conversations`, `POST /api/projects/open-folder`, `GET /api/projects/defaults` |
 | Specialisté | `GET /api/specialists`, `POST /api/chat/specialist` |
-| Expertýzy | `GET /api/expertises`, `/api/expertise-schema`, `POST /api/expertise-wizard/test-prompt` |
+| Expertýzy | `GET /api/expertises` (pole `experts`), `/api/expertises/:id`, `/api/expertise-schema`; `POST /api/merge-preview`, `/api/expertises`, `/api/expertise-wizard/test-prompt` |
 | Workeři | `GET /api/agents?all=true`, `GET /api/agents/:id`; mutace jen ověřené instance M3 přes `POST /api/agent-extensions/instances/:agentId/run`, `/enable`, `/disable`. Legacy mutace `/api/agents/:id/*` a `/api/agents/dry-run` vracejí 410. |
 | Obchod | `GET /api/marketplace/catalog?page=`, `POST …/catalog/refresh`, `…/install/:type/:id`, `DELETE …/installed/:type/:id`, `…/update/:type/:id`, `…/export/:type/:id` |
 | Multimédia | `GET /api/media/history`, `/models`, `/health`, `/output?id=&filename=`; `POST /api/media/generate`, `/cancel?id=`, `/models/refresh`; `PUT /api/media/favorite`; `DELETE /api/media?id=` |

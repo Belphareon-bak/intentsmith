@@ -272,6 +272,72 @@ test('worker wizard never repeats installation after uncertain response', async 
   assert.equal(posts, 1);
 });
 
+test('expertise wizard previews the exact configuration and verifies saved identity', async () => {
+  let installed = false, previews = 0, saves = 0;
+  const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335',
+    fetchImpl: async url => {
+      const path = new URL(url).pathname;
+      if (path === '/api/expertises') return { ok: true, json: async () => ({ experts: installed ? [
+        { id: 'custom_expert', name: 'Custom Expert', isCustom: true }] : [] }) };
+      if (path === '/api/expertises/custom_expert') return { ok: true,
+        json: async () => ({ id: 'custom_expert', name: 'Custom Expert' }) };
+      throw Error('Unexpected request: ' + path);
+    } });
+  const { model } = setup({ catalog });
+  model.fetchImpl = async (url, options) => {
+    const path = new URL(url).pathname, body = JSON.parse(options.body);
+    if (path === '/api/merge-preview') {
+      previews++;
+      assert.equal(body.expertises[0].capabilities.reasoning, 70);
+      return { ok: true, json: async () => ({ promptPreview: 'Ověřený náhled', tokenCount: 22,
+        requiresConfirmation: false }) };
+    }
+    if (path === '/api/expertises') {
+      saves++;
+      assert.equal(body.id, 'custom_expert');
+      assert.equal(body.temperature, 0.4);
+      installed = true;
+      return { ok: true, json: async () => ({ id: body.id, name: body.name }) };
+    }
+    throw Error('Unexpected mutation: ' + path);
+  };
+  model.setState({ mode: 'section', section: 'expertises', detail: { expertises: '__new__' },
+    expertiseStep: 1, expertiseName: 'Custom Expert', expertiseDomain: 'technology',
+    expertiseReasoning: 70, expertiseTemperature: 0.4 });
+  assert.equal(await model.previewExpertise(model.st()), true);
+  assert.equal(model.expertiseWizardVM(model.st()).previewText, 'Ověřený náhled');
+  assert.equal(await model.submitExpertise(model.st()), true);
+  assert.equal(previews, 1, 'unchanged preview is reused for this exact configuration');
+  assert.equal(saves, 1);
+  assert.equal(model.st().detail.expertises, 'custom_expert');
+});
+
+test('expertise wizard does not repeat uncertain save and discards stale preview', async () => {
+  let previews = 0, saves = 0;
+  const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335', fetchImpl: async () => ({
+    ok: true, json: async () => ({ experts: [] }) }) });
+  const { model } = setup({ catalog });
+  model.fetchImpl = async url => {
+    const path = new URL(url).pathname;
+    if (path === '/api/merge-preview') {
+      previews++;
+      return { ok: true, json: async () => ({ promptPreview: 'náhled', tokenCount: 12 }) };
+    }
+    saves++;
+    throw Error('Lost response');
+  };
+  model.setState({ mode: 'section', section: 'expertises', detail: { expertises: '__new__' },
+    expertiseStep: 1, expertiseName: 'Test Expert' });
+  assert.equal(await model.previewExpertise(model.st()), true);
+  model.setState({ expertiseTemperature: 0.6 });
+  assert.equal(model.expertiseWizardVM(model.st()).hasPreview, false);
+  assert.equal(await model.submitExpertise(model.st()), false);
+  assert.equal(previews, 2);
+  assert.equal(model.expertiseStatus().uncertain, true);
+  assert.equal(await model.submitExpertise(model.st()), false);
+  assert.equal(saves, 1);
+});
+
 test('project wizard treats lost mutation response as uncertain and never retries automatically', async () => {
   let posts = 0;
   const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335',

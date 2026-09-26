@@ -80,6 +80,11 @@ assert.ok(out.includes('Průvodce workerem') && out.includes('Rozšíření M3')
 out = html({ mode: 'section', section: 'workers', detail: { workers: '__new__' },
   workerStep: 1, workerProject: '1', workerInstanceId: 'health-repo' });
 assert.ok(out.includes('Potvrdit instanci') && out.includes('vypnuto'), 'worker začíná vypnutý');
+out = html({ mode: 'section', section: 'expertises', detail: { expertises: '__new__' } });
+assert.ok(out.includes('Průvodce expertýzou') && out.includes('Pokračovat na ladění'), 'profil expertýzy');
+out = html({ mode: 'section', section: 'expertises', detail: { expertises: '__new__' },
+  expertiseStep: 1, expertiseName: 'Test Expert' });
+assert.ok(out.includes('Náhled pravidel') && out.includes('Potvrdit expertýzu'), 'ladění a kontrola expertýzy');
 for (const style of c0().styleList().map((x) => x.id)) assert.ok(html({ style }).includes('th-' + style), 'motiv ' + style);
 console.log('PASS generated React view renders sessions, column picker, files, source control, catalog and all styles');
 

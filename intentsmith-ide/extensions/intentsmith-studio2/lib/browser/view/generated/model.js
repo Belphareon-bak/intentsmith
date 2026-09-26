@@ -54,6 +54,9 @@ class Component extends DCLogic {
       specialistStep: 0, specialistName: '', specialistDomain: 'general',
       specialistDescription: '', specialistIcon: '',
       workerStep: 0, workerExtension: 'project-health', workerProject: '', workerInstanceId: '',
+      expertiseStep: 0, expertiseName: '', expertiseDomain: '', expertiseDescription: '', expertiseIcon: '👤',
+      expertiseTone: 'professional', expertiseTemperature: 0.5, expertiseSystemPrompt: '',
+      expertiseCreativity: 50, expertiseReasoning: 50, expertiseDeterminism: 50,
       style: 'intentsmith', tmode: 'dark', fs: 13, ff: 'brand', ti: 70, ai: 100, bright: 100, pa: 80, ta: 80, bd: 30,
       sep: 'ramecky', density: 'komfortni', scale: '100', col: true, cacc: 0, caccHex: '#22c55e', cbg: 0, cbgHex: '#14141e', css: ''
     };
@@ -787,7 +790,8 @@ class Component extends DCLogic {
         : sec === 'media' ? this.pSelect(s2, 'media', '__new__')
           : sec === 'projects' ? this.pSelect(s2, 'projects', '__new__')
             : sec === 'specialists' ? this.pSelect(s2, 'specialists', '__new__')
-              : sec === 'workers' ? this.pSelect(s2, 'workers', '__new__') : null)),
+              : sec === 'workers' ? this.pSelect(s2, 'workers', '__new__')
+                : sec === 'expertises' ? this.pSelect(s2, 'expertises', '__new__') : null)),
       hasChips: f.chips.length > 1, chips: f.chips, items,
       isTiles: s.view === 'dlazdice' && items.length > 0, isList: s.view === 'seznam' && items.length > 0, isEmpty: items.length === 0,
       emptyTitle: empty.t, emptyText: empty.x, emptyIcon: empty.i,
@@ -827,6 +831,12 @@ class Component extends DCLogic {
       status: '', stCls: '', secondary: [], tabs: [['pruvodce', 'Průvodce']],
       blocks: { pruvodce: [{ kind: 'workerWizard' }] },
       desc: 'Vyber projekt a vytvoř instanci dostupného deklarativního rozšíření.', props: [], related: []
+    };
+    if (sec === 'expertises' && id === '__new__') return {
+      icon: I.cap, tone: 'cyan', title: 'Nová expertýza', type: 'Průvodce expertýzou', idText: 'expertyzy/nova',
+      status: '', stCls: '', secondary: [], tabs: [['pruvodce', 'Průvodce']],
+      blocks: { pruvodce: [{ kind: 'expertiseWizard' }] },
+      desc: 'Nastav profil, ladění a pravidla expertýzy; před uložením zkontroluj náhled.', props: [], related: []
     };
     if (sec === 'media' && id === '__new__') return {
       icon: I.image, tone: 'violet', title: 'Nové generování', type: 'Multimédia', idText: 'ComfyUI',
@@ -1137,6 +1147,7 @@ class Component extends DCLogic {
       isProjectWizard: kind === 'projectWizard', projectWizard: this.projectWizardVM(this.st()),
       isSpecialistWizard: kind === 'specialistWizard', specialistWizard: this.specialistWizardVM(this.st()),
       isWorkerWizard: kind === 'workerWizard', workerWizard: this.workerWizardVM(this.st()),
+      isExpertiseWizard: kind === 'expertiseWizard', expertiseWizard: this.expertiseWizardVM(this.st()),
       isApObecne: kind === 'apObecne', isApPismo: kind === 'apPismo', isApBarvy: kind === 'apBarvy', isApRozvrzeni: kind === 'apRozvrzeni', isApCss: kind === 'apCss'
     };
   }
@@ -1155,6 +1166,47 @@ class Component extends DCLogic {
     extensions: [{ id: 'project-health', name: 'Project Health' }], projects: [{ id: 1, name: 'ShellSmith' }] }; }
 
   submitWorker() { return null; }
+
+  expertiseStatus() { return { busy: false, error: 'Prototyp ukazuje průvodce; backend se připojuje až v IDE.',
+    preview: null }; }
+
+  previewExpertise() { return null; }
+
+  submitExpertise() { return null; }
+
+  expertiseWizardVM(s) {
+    const status = this.expertiseStatus();
+    const name = s.expertiseName.trim();
+    const id = name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '').replace(/^_+|_+$/g, '').slice(0, 32);
+    const valid = name.length >= 2 && name.length <= 64 && !!id && !/[\x00-\x1f]/.test(name)
+      && (!s.expertiseDomain || /^[a-z0-9_]{1,64}$/.test(s.expertiseDomain))
+      && s.expertiseDescription.length <= 500 && s.expertiseSystemPrompt.length <= 8000
+      && Number.isFinite(s.expertiseTemperature) && s.expertiseTemperature >= 0 && s.expertiseTemperature <= 1
+      && [s.expertiseCreativity, s.expertiseReasoning, s.expertiseDeterminism]
+        .every(value => Number.isInteger(value) && value >= 0 && value <= 100);
+    const setNumber = key => e => this.setState({ [key]: Number(e.target.value) });
+    return {
+      stepLabel: s.expertiseStep === 0 ? 'Krok 1 ze 2 · Profil' : 'Krok 2 ze 2 · Ladění a kontrola',
+      isProfile: s.expertiseStep === 0, isReview: s.expertiseStep === 1,
+      name: s.expertiseName, setName: e => this.setState({ expertiseName: e.target.value }),
+      domain: s.expertiseDomain, setDomain: e => this.setState({ expertiseDomain: e.target.value }),
+      description: s.expertiseDescription, setDescription: e => this.setState({ expertiseDescription: e.target.value }),
+      icon: s.expertiseIcon, setIcon: e => this.setState({ expertiseIcon: e.target.value }),
+      tone: s.expertiseTone, tones: ['professional', 'casual', 'academic', 'empathetic', 'assertive', 'neutral']
+        .map(value => ({ value, label: value })), setTone: e => this.setState({ expertiseTone: e.target.value }),
+      temperature: s.expertiseTemperature, setTemperature: setNumber('expertiseTemperature'),
+      systemPrompt: s.expertiseSystemPrompt, setSystemPrompt: e => this.setState({ expertiseSystemPrompt: e.target.value }),
+      creativity: s.expertiseCreativity, setCreativity: setNumber('expertiseCreativity'),
+      reasoning: s.expertiseReasoning, setReasoning: setNumber('expertiseReasoning'),
+      determinism: s.expertiseDeterminism, setDeterminism: setNumber('expertiseDeterminism'),
+      reviewName: name, reviewId: id, reviewDomain: s.expertiseDomain || 'custom',
+      nextDisabled: !valid || status.busy, submitDisabled: !valid || status.busy || !!status.uncertain,
+      next: () => this.setState({ expertiseStep: 1 }), back: () => this.setState({ expertiseStep: 0 }),
+      preview: () => this.previewExpertise(this.st()), submit: () => this.submitExpertise(this.st()),
+      previewText: status.preview?.promptPreview || '', hasPreview: !!status.preview?.promptPreview,
+      status: status.error || '', hasStatus: !!status.error
+    };
+  }
 
   workerWizardVM(s) {
     const status = this.workerStatus();

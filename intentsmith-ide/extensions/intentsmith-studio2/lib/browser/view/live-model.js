@@ -69,6 +69,7 @@ class LiveModel extends Component {
     this._specialistWizardStatus = { busy: false, error: '', uncertain: false };
     this._workerWizardStatus = { busy: false, loading: false, error: '', uncertain: false,
       extensions: [], projects: [] };
+    this._expertiseWizardStatus = { busy: false, error: '', uncertain: false, preview: null, previewKey: '' };
     this._workerDetails = new Map();
     this._mediaNotices = new Map();
     this._mediaEnvironment = { status: 'idle', available: false, models: [], error: '' };
@@ -377,16 +378,18 @@ class LiveModel extends Component {
       }
       vm.catalogError = this.widget.catalogActionError || view.error || '';
       vm.hasCatalogError = !!vm.catalogError;
-      vm.hasPrimary = ['chats', 'projects', 'specialists', 'workers', 'media'].includes(s.section);
+      vm.hasPrimary = ['chats', 'projects', 'specialists', 'expertises', 'workers', 'media'].includes(s.section);
       vm.primary = s.section === 'media' ? 'Nové generování'
         : s.section === 'projects' ? 'Nový projekt'
           : s.section === 'specialists' ? 'Nový specialista'
-            : s.section === 'workers' ? 'Nový worker' : 'Nová konverzace';
+            : s.section === 'expertises' ? 'Nová expertýza'
+              : s.section === 'workers' ? 'Nový worker' : 'Nová konverzace';
       vm.onPrimary = this.run(s2 => s.section === 'media'
         ? this.pSelect(s2, 'media', '__new__') : s.section === 'projects'
           ? this.pSelect(s2, 'projects', '__new__') : s.section === 'specialists'
-            ? this.pSelect(s2, 'specialists', '__new__') : s.section === 'workers'
-              ? this.pSelect(s2, 'workers', '__new__') : this.pNewSession(s2, {}));
+            ? this.pSelect(s2, 'specialists', '__new__') : s.section === 'expertises'
+              ? this.pSelect(s2, 'expertises', '__new__') : s.section === 'workers'
+                ? this.pSelect(s2, 'workers', '__new__') : this.pNewSession(s2, {}));
     }
     return vm;
   }
@@ -398,6 +401,7 @@ class LiveModel extends Component {
     if (s.section === 'projects' && id === '__new__') return super.detailVM(s);
     if (s.section === 'specialists' && id === '__new__') return super.detailVM(s);
     if (s.section === 'workers' && id === '__new__') return super.detailVM(s);
+    if (s.section === 'expertises' && id === '__new__') return super.detailVM(s);
     if (s.section === 'settings') return this.settingsDetailVM(s, id);
     if (s.section === 'projects') {
       const vm = super.detailVM(s);
@@ -842,6 +846,102 @@ class LiveModel extends Component {
 
   workerStatus() { return this._workerWizardStatus; }
 
+  expertiseConfig(s) {
+    const name = s.expertiseName.trim();
+    const id = name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
+      .replace(/^_+|_+$/g, '').slice(0, 32);
+    return { id, name, description: s.expertiseDescription.trim(), domain: s.expertiseDomain || 'custom',
+      icon: s.expertiseIcon || '👤', tone: s.expertiseTone, temperature: s.expertiseTemperature,
+      systemPrompt: s.expertiseSystemPrompt,
+      capabilities: { reasoning: s.expertiseReasoning, creativity: s.expertiseCreativity,
+        determinism: s.expertiseDeterminism, riskTolerance: 50, verbosity: 50 },
+      modules: { domain_rules: [], emphasis: [], constraints: [], vocabulary: [], antipatterns: [], disclaimer: null },
+      styleRules: { forbiddenPhrases: [] } };
+  }
+
+  expertiseStatus() {
+    const status = this._expertiseWizardStatus;
+    return { ...status, preview: status.previewKey === JSON.stringify(this.expertiseConfig(this.st()))
+      ? status.preview : null };
+  }
+
+  async postExpertise(path, body, timeoutMs = 15000) {
+    const base = this.widget.catalog.backendUrl();
+    if (typeof base !== 'string' || !/^https?:\/\//.test(base)) throw Error('Backend není dostupný.');
+    const response = await this.fetchImpl(base + path, { method: 'POST',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      signal: AbortSignal.timeout(timeoutMs) });
+    let result = {};
+    try { result = await response.json(); } catch { /* A lost response leaves a mutation uncertain. */ }
+    if (!response.ok) throw Object.assign(Error(result.error || `Operace expertýzy selhala (HTTP ${response.status}).`),
+      { status: response.status });
+    return result;
+  }
+
+  async previewExpertise(s) {
+    const form = this.expertiseWizardVM(s);
+    if (s.expertiseStep !== 1 || form.submitDisabled) return false;
+    const config = this.expertiseConfig(s), key = JSON.stringify(config);
+    this._expertiseWizardStatus = { ...this._expertiseWizardStatus, busy: true, error: '', preview: null, previewKey: '' };
+    this.forceUpdate();
+    try {
+      const preview = await this.postExpertise('/api/merge-preview', { expertises: [{ ...config, weight: 1 }] });
+      if (typeof preview.promptPreview !== 'string' || !Number.isFinite(preview.tokenCount))
+        throw Error('Backend nevrátil platný náhled pravidel.');
+      this._expertiseWizardStatus = { ...this._expertiseWizardStatus, preview, previewKey: key };
+      return true;
+    } catch (error) {
+      this._expertiseWizardStatus.error = error?.message || 'Náhled expertýzy selhal.';
+      return false;
+    } finally { this._expertiseWizardStatus.busy = false; this.forceUpdate(); }
+  }
+
+  async submitExpertise(s) {
+    const form = this.expertiseWizardVM(s);
+    if (s.expertiseStep !== 1 || form.submitDisabled || this._expertiseWizardStatus.uncertain) return false;
+    const config = this.expertiseConfig(s), key = JSON.stringify(config);
+    this._expertiseWizardStatus = { ...this._expertiseWizardStatus, busy: true, error: '' };
+    this.widget.catalogActionError = null;
+    this.forceUpdate();
+    let attempted = false, accepted = null;
+    try {
+      let preview = this._expertiseWizardStatus.previewKey === key ? this._expertiseWizardStatus.preview : null;
+      if (!preview) {
+        preview = await this.postExpertise('/api/merge-preview', { expertises: [{ ...config, weight: 1 }] });
+        if (typeof preview.promptPreview !== 'string') throw Error('Backend nevrátil platný náhled pravidel.');
+        this._expertiseWizardStatus = { ...this._expertiseWizardStatus, preview, previewKey: key };
+      }
+      if (preview.requiresConfirmation) {
+        const confirmAction = this.widget.confirmAction || globalThis.confirm;
+        if (typeof confirmAction !== 'function' || !confirmAction('Backend žádá potvrzení kombinace expertýz. Pokračovat?')) return false;
+      }
+      attempted = true;
+      const result = await this.postExpertise('/api/expertises', config);
+      if (result.id !== config.id || result.name !== config.name)
+        throw Error('Backend nevrátil ověřitelnou expertýzu. Zkontroluj katalog.');
+      accepted = result;
+      const detail = await this.widget.catalog.get('/api/expertises/' + encodeURIComponent(config.id));
+      if (detail.id !== config.id || detail.name !== config.name)
+        throw Error('Detail expertýzy neodpovídá potvrzenému plánu.');
+      await this.widget.catalog.load('Expertýzy');
+      const view = this.widget.catalog.view('Expertýzy');
+      if (view.status !== 'ready' || !view.items.some(item => item.id === config.id)) {
+        this._expertiseWizardStatus.error = `Backend vytvořil expertýzu ${config.id}, ale katalog ji ještě neukazuje. Obnov seznam.`;
+        return true;
+      }
+      this.setState({ ...this.pSelect(this.st(), 'expertises', config.id),
+        expertiseStep: 0, expertiseName: '', expertiseDescription: '', expertiseSystemPrompt: '' });
+      return true;
+    } catch (error) {
+      this._expertiseWizardStatus = { ...this._expertiseWizardStatus,
+        uncertain: attempted && !accepted && !error?.status,
+        error: accepted ? `Backend vytvořil expertýzu ${config.id}, ale další ověření selhalo. Obnov katalog.`
+          : (error?.message || 'Výsledek vytvoření není jistý. Zkontroluj katalog před dalším pokusem.') };
+      this.widget.catalogActionError = this._expertiseWizardStatus.error;
+      return false;
+    } finally { this._expertiseWizardStatus.busy = false; this.forceUpdate(); }
+  }
+
   async loadWorkerWizard() {
     this._workerWizardStatus = { ...this._workerWizardStatus, loading: true, error: '' };
     this.forceUpdate();
@@ -1190,6 +1290,8 @@ class LiveModel extends Component {
       this.loadProjectDefaults();
     } else if (sec === 'projects') { this.scmClient.load(id); this.loadProjectConversations(id); }
     if (sec === 'specialists' && id === '__new__') this._specialistWizardStatus = { busy: false, error: '', uncertain: false };
+    if (sec === 'expertises' && id === '__new__') this._expertiseWizardStatus = {
+      busy: false, error: '', uncertain: false, preview: null, previewKey: '' };
     if (sec === 'workers' && id === '__new__') {
       this._workerWizardStatus = { busy: false, loading: false, error: '', uncertain: false,
         extensions: [], projects: [] };
