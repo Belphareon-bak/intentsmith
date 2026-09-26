@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "66a4ee8ba07031a3765cb1374620192f9a5a58f5",
-  "sourceTree": "7583753db96756a26433ba7438c9a8a0292876ed",
+  "sourceRevision": "16a0cf1dfbad5cfe27dd2448918b19b9caf007c1",
+  "sourceTree": "a6eeb85cfc95d3217605a1ee4c2acd2c6e11699d",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "a111646c052627fd0803fc881838f58d7d5fd8dc",
@@ -1214,6 +1214,7 @@
     "src/server.js -> src/routes/security.js",
     "src/server.js -> src/routes/skills.js",
     "src/server.js -> src/routes/specialists.js",
+    "src/server.js -> src/routes/studio2-workspace.js",
     "src/server.js -> src/routes/system.js",
     "src/server.js -> src/runtime-environment.js",
     "src/server.js -> src/security/global-auth-policy.js",

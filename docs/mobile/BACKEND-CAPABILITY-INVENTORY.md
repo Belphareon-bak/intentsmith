@@ -12,14 +12,14 @@ remote-health.read is a public GET /remote/v1/health prerequisite, not one of th
 The underlying requirements retain their own candidate stage. Availability and scopes must
 still be validated against the actual server/session; desktop route existence grants no remote authority.
 
-- Desktop route declarations: 268
+- Desktop route declarations: 270
 - Legacy /m1 declarations: 0
 - M7 HTTP routes: 7
 - M7 invocation operations: 17
 - Capability areas: approvals, conversations, events, notifications, projects, settings, stored_information
 - Control-plane operations (not another capability): 3
-- Desktop route digest: `594212a40669f739723935fabdc6fe079646d1d390a4790cf6cccf9cc88fd25e`
-- Combined inventory digest: `eae40737205b97e96ef462bb498ee59906e9b25d2f7ba6def52f319be2d9f28b`
+- Desktop route digest: `21deeeea96a9f35f330fdc1a4889992b9c5efb2f932b9d084f559d1fcbf8d5c6`
+- Combined inventory digest: `0a642ae907a3ebad14953b37db4d9c58c3cd3c376002e8caa46d471af8f861d9`
 
 Workers, specialists and device management have no M7 operation in this projection.
 Their desktop route declarations must not be mistaken for a mobile capability.
@@ -275,6 +275,8 @@ Their desktop route declarations must not be mistaken for a mobile capability.
 | POST | `/api/specialists/discover` | src/routes/specialists.js |
 | GET | `/api/specialists/telemetry` | src/routes/specialists.js |
 | GET | `/api/storage/info` | src/routes/misc.js |
+| GET | `/api/studio2/workspace/entry` | src/routes/studio2-workspace.js |
+| POST | `/api/studio2/workspace/operation` | src/routes/studio2-workspace.js |
 | POST | `/api/system/backup` | src/routes/system.js |
 | GET | `/api/system/backups` | src/routes/system.js |
 | GET | `/api/system/catalog` | src/routes/system.js |
