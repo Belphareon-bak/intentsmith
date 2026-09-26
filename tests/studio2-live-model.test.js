@@ -273,14 +273,14 @@ test('worker wizard never repeats installation after uncertain response', async 
 });
 
 test('expertise wizard previews the exact configuration and verifies saved identity', async () => {
-  let installed = false, previews = 0, saves = 0;
+  let installed = false, previews = 0, saves = 0, savedConfig;
   const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335',
     fetchImpl: async url => {
       const path = new URL(url).pathname;
       if (path === '/api/expertises') return { ok: true, json: async () => ({ experts: installed ? [
         { id: 'custom_expert', name: 'Custom Expert', isCustom: true }] : [] }) };
       if (path === '/api/expertises/custom_expert') return { ok: true,
-        json: async () => ({ id: 'custom_expert', name: 'Custom Expert' }) };
+        json: async () => savedConfig };
       throw Error('Unexpected request: ' + path);
     } });
   const { model } = setup({ catalog });
@@ -296,6 +296,7 @@ test('expertise wizard previews the exact configuration and verifies saved ident
       saves++;
       assert.equal(body.id, 'custom_expert');
       assert.equal(body.temperature, 0.4);
+      savedConfig = body;
       installed = true;
       return { ok: true, json: async () => ({ id: body.id, name: body.name }) };
     }
@@ -373,6 +374,92 @@ test('advanced expertise rules are bounded and model test needs explicit approva
   assert.equal(model.expertiseWizardVM(model.st()).submitDisabled, true);
   model.setState({ expertiseInheritance: '{}', expertiseTestQuestion: 'x'.repeat(2001) });
   assert.equal(model.expertiseWizardVM(model.st()).testDisabled, true);
+});
+
+test('custom expertise edit keeps its identity and refuses stale or uncertain updates', async () => {
+  const original = { id: 'writer', name: 'Writer', description: 'První verze', domain: 'custom',
+    icon: '✍', tone: 'professional', temperature: 0.5, systemPrompt: '', isCustom: true,
+    capabilities: { reasoning: 50, creativity: 60, determinism: 50, riskTolerance: 50, verbosity: 50 },
+    modules: { domain_rules: [], emphasis: [], constraints: [], vocabulary: [], antipatterns: [], disclaimer: null },
+    inheritance: {}, styleRules: { forbiddenPhrases: [], minResponseLength: 50 } };
+  let current = { ...original }, puts = 0, loseResponse = false;
+  const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335', fetchImpl: async url => {
+    const path = new URL(url).pathname;
+    if (path === '/api/expertises/writer') return { ok: true, json: async () => ({ ...current }) };
+    if (path === '/api/expertises') return { ok: true, json: async () => ({ experts: [{ ...current }] }) };
+    throw Error(path);
+  } });
+  const { model } = setup({ catalog });
+  model.fetchImpl = async (url, options) => {
+    const path = new URL(url).pathname;
+    if (path === '/api/merge-preview') return { ok: true, json: async () => ({ promptPreview: 'náhled', tokenCount: 5 }) };
+    assert.equal(path, '/api/expertises/writer');
+    assert.equal(options.method, 'PUT');
+    assert.match(options.headers['If-Match'], /^"sha256:[0-9a-f]{64}"$/);
+    puts++;
+    if (loseResponse) throw Error('Lost response');
+    current = { ...current, ...JSON.parse(options.body) };
+    return { ok: true, json: async () => ({ ...current }) };
+  };
+  await catalog.load('Expertýzy');
+  const item = catalog.view('Expertýzy').items[0];
+  assert.equal(await model.openExpertiseEdit(item), true);
+  assert.equal(model.st().detail.expertises, '__edit__');
+  assert.equal(model.st().expertiseEditingId, 'writer');
+  assert.equal(model.expertiseConfig(model.st()).styleRules.minResponseLength, 50);
+  model.setState({ expertiseStep: 1, expertiseName: 'Writer revised' });
+  assert.equal(model.expertiseConfig(model.st()).id, 'writer');
+  current = { ...current, description: 'cizí změna' };
+  assert.equal(await model.submitExpertise(model.st()), false);
+  assert.equal(puts, 0);
+  assert.match(model.expertiseStatus().error, /změnila/);
+  current = { ...original };
+  assert.equal(await model.submitExpertise(model.st()), true);
+  assert.equal(puts, 1);
+  assert.equal(current.name, 'Writer revised');
+  assert.equal(model.st().detail.expertises, 'writer');
+  assert.equal(await model.openExpertiseEdit(catalog.view('Expertýzy').items[0]), true);
+  model.setState({ expertiseStep: 1, expertiseName: 'Writer revised again' });
+  loseResponse = true;
+  assert.equal(await model.submitExpertise(model.st()), false);
+  assert.equal(model.expertiseStatus().uncertain, true);
+  assert.equal(await model.submitExpertise(model.st()), false);
+  assert.equal(puts, 2);
+  assert.equal(await model.openExpertiseEdit({ id: 'developer', raw: { isCustom: false } }), false);
+});
+
+test('expertise update route requires matching revision, keeps ID and rolls back failed persistence', async () => {
+  const { createExpertiseRoutes } = await import('../src/routes/expertises.js');
+  const { createHash } = await import('node:crypto');
+  const path = await import('node:path');
+  const data = { id: 'writer', name: 'Writer', domain: 'custom', isCustom: true };
+  const asExpert = value => ({ ...value, toJSON() { return { id: this.id, name: this.name,
+    domain: this.domain, isCustom: this.isCustom }; } });
+  const registry = new Map([['writer', asExpert(data)]]);
+  let failSave = false, result;
+  const routes = createExpertiseRoutes({ expertiseLayer: { expertiseRegistry: {
+    get: id => registry.get(id), getCustom: () => [...registry.values()],
+    updateCustom: (id, body) => { const next = asExpert({ ...registry.get(id).toJSON(), ...body }); registry.set(id, next); return next; },
+    register: expert => registry.set(expert.id, expert), removeCustom: id => registry.delete(id)
+  } }, parseBody: async req => req.body, sendJSON: (_res, status, body) => { result = { status, body }; },
+  safeError: error => ({ error: error.message }), logger: { debug() {} }, path,
+  db: { db: { transaction: fn => fn, exec() {}, prepare: () => ({ run() { if (failSave) throw Error('db failed'); } }) } } });
+  const revision = '"sha256:' + createHash('sha256').update(JSON.stringify(registry.get('writer').toJSON())).digest('hex') + '"';
+  await routes['PUT /api/expertises/:id']({ headers: { 'if-match': '"sha256:stale"' },
+    body: { name: 'Updated' } }, {}, { id: 'writer' });
+  assert.equal(result.status, 412);
+  assert.equal(registry.get('writer').name, 'Writer');
+  failSave = true;
+  await routes['PUT /api/expertises/:id']({ headers: { 'if-match': revision },
+    body: { id: 'spoofed', name: 'Updated' } }, {}, { id: 'writer' });
+  assert.equal(result.status, 500);
+  assert.equal(registry.get('writer').name, 'Writer');
+  failSave = false;
+  await routes['PUT /api/expertises/:id']({ headers: { 'if-match': revision },
+    body: { id: 'spoofed', name: 'Updated' } }, {}, { id: 'writer' });
+  assert.equal(result.status, 200);
+  assert.equal(registry.get('writer').id, 'writer');
+  assert.equal(registry.get('writer').name, 'Updated');
 });
 
 test('project wizard treats lost mutation response as uncertain and never retries automatically', async () => {

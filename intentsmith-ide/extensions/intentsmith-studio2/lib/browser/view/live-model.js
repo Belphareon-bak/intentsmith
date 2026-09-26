@@ -403,6 +403,7 @@ class LiveModel extends Component {
     if (s.section === 'specialists' && id === '__new__') return super.detailVM(s);
     if (s.section === 'workers' && id === '__new__') return super.detailVM(s);
     if (s.section === 'expertises' && id === '__new__') return super.detailVM(s);
+    if (s.section === 'expertises' && id === '__edit__') return super.detailVM(s);
     if (s.section === 'settings') return this.settingsDetailVM(s, id);
     if (s.section === 'projects') {
       const vm = super.detailVM(s);
@@ -507,6 +508,22 @@ class LiveModel extends Component {
         blocks: [this.blockVM({ kind: 'empty', text: busy ? 'Čekám na výsledek operace…'
           : this._mediaNotices.get(id) || raw.error || 'Historie a stav se načítají z backendu.' }),
         ...(outputs.length ? [this.blockVM({ kind: 'mediaOutputs', outputs })] : [])],
+        hasRelated: false, related: [], development: this.developmentVM(s), scmPolicy: this.scmPolicyVM(s, null) };
+    }
+    if (s.section === 'expertises') {
+      const raw = item.raw || {};
+      const editable = raw.isCustom === true;
+      return { icon: this.sec(s.section).icon, tone: this.sec(s.section).tone,
+        icls: '', title: item.name, type: editable ? 'Vlastní expertýza' : 'Vestavěná expertýza',
+        idText: id, hasStatus: false, status: '', stCls: '', hasPrimary: editable,
+        primaryLabel: 'Upravit', onPrimary: editable ? () => this.openExpertiseEdit(item) : () => {},
+        secondary: [], more: () => {}, hasTabs: false, tabs: [], hasDesc: !!item.description,
+        desc: item.description, showProps: true,
+        props: [['ID', id, true], ['Doména', raw.domain || '—'], ['Teplota', String(raw.temperature ?? '—')]]
+          .map(([k, v, mono]) => ({ k, v, cls: mono ? 'mono' : '' })),
+        blocks: [this.blockVM({ kind: 'empty', text: editable
+          ? 'Úprava načte aktuální konfiguraci z backendu a před uložením ověří její revizi.'
+          : 'Vestavěnou expertýzu nelze přímo upravit.' })],
         hasRelated: false, related: [], development: this.developmentVM(s), scmPolicy: this.scmPolicyVM(s, null) };
     }
     return { icon: this.sec(s.section).icon, tone: this.sec(s.section).tone,
@@ -849,9 +866,15 @@ class LiveModel extends Component {
 
   expertiseConfig(s) {
     const name = s.expertiseName.trim();
-    const id = name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
+    const id = s.expertiseEditingId || name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
       .replace(/^_+|_+$/g, '').slice(0, 32);
     const lines = value => String(value || '').split('\n').map(line => line.trim()).filter(Boolean);
+    let originalRules = {};
+    if (s.expertiseEditingId && this._expertiseWizardStatus.source) {
+      const source = JSON.parse(this._expertiseWizardStatus.source);
+      if (source.id === id && source.styleRules && typeof source.styleRules === 'object'
+        && !Array.isArray(source.styleRules)) originalRules = source.styleRules;
+    }
     return { id, name, description: s.expertiseDescription.trim(), domain: s.expertiseDomain || 'custom',
       icon: s.expertiseIcon || '👤', tone: s.expertiseTone, temperature: s.expertiseTemperature,
       systemPrompt: s.expertiseSystemPrompt,
@@ -862,16 +885,49 @@ class LiveModel extends Component {
         constraints: lines(s.expertiseConstraints), vocabulary: lines(s.expertiseVocabulary),
         antipatterns: lines(s.expertiseAntipatterns), disclaimer: s.expertiseDisclaimer.trim() || null },
       inheritance: JSON.parse(s.expertiseInheritance || '{}'),
-      styleRules: { forbiddenPhrases: lines(s.expertiseForbiddenPhrases) } };
+      styleRules: { ...originalRules, forbiddenPhrases: lines(s.expertiseForbiddenPhrases) } };
   }
 
   expertiseStatus() {
     const status = this._expertiseWizardStatus;
     let key = '';
     try { key = JSON.stringify(this.expertiseConfig(this.st())); } catch { /* invalid draft */ }
-    return { ...status, preview: status.previewKey === key ? status.preview : null,
+    return { ...status, busy: status.busy || status.loading,
+      preview: status.previewKey === key ? status.preview : null,
       testResult: status.testKey === JSON.stringify({ key, question: this.st().expertiseTestQuestion.trim() })
         ? status.testResult : null };
+  }
+
+  async openExpertiseEdit(item) {
+    if (item?.raw?.isCustom !== true || !/^[A-Za-z0-9_][A-Za-z0-9_.-]*$/.test(item.id)) return false;
+    this._expertiseWizardStatus = { busy: true, loading: true, error: '', uncertain: false,
+      preview: null, previewKey: '', testResult: null, testKey: '', source: null };
+    this.forceUpdate();
+    try {
+      const source = await this.widget.catalog.get('/api/expertises/' + encodeURIComponent(item.id));
+      if (source?.id !== item.id || source.isCustom !== true) throw Error('Backend nevrátil vlastní expertýzu se stejným ID.');
+      const lines = value => Array.isArray(value) ? value.join('\n') : '';
+      const caps = source.capabilities || {}, modules = source.modules || {};
+      const number = value => Number.isInteger(value) && value >= 0 && value <= 100 ? value : 50;
+      this._expertiseWizardStatus.source = JSON.stringify(source);
+      this.setState({ ...this.pSelect(this.st(), 'expertises', '__edit__'),
+        expertiseEditingId: source.id, expertiseStep: 0, expertiseName: source.name || '',
+        expertiseDomain: source.domain || '', expertiseDescription: source.description || '',
+        expertiseIcon: source.icon || '👤', expertiseTone: source.tone || 'professional',
+        expertiseTemperature: Number.isFinite(source.temperature) ? source.temperature : 0.5,
+        expertiseSystemPrompt: source.systemPrompt || '', expertiseCreativity: number(caps.creativity),
+        expertiseReasoning: number(caps.reasoning), expertiseDeterminism: number(caps.determinism),
+        expertiseRiskTolerance: number(caps.riskTolerance), expertiseVerbosity: number(caps.verbosity),
+        expertiseDomainRules: lines(modules.domain_rules), expertiseEmphasis: lines(modules.emphasis),
+        expertiseConstraints: lines(modules.constraints), expertiseVocabulary: lines(modules.vocabulary),
+        expertiseAntipatterns: lines(modules.antipatterns), expertiseDisclaimer: modules.disclaimer || '',
+        expertiseForbiddenPhrases: lines(source.styleRules?.forbiddenPhrases),
+        expertiseInheritance: JSON.stringify(source.inheritance || {}), expertiseTestQuestion: '', expertiseAdvanced: false });
+      return true;
+    } catch (error) {
+      this.widget.catalogActionError = error?.message || 'Expertýzu nelze načíst pro úpravu.';
+      return false;
+    } finally { this._expertiseWizardStatus.busy = false; this._expertiseWizardStatus.loading = false; this.forceUpdate(); }
   }
 
   async testExpertise(s) {
@@ -896,11 +952,11 @@ class LiveModel extends Component {
     } finally { this._expertiseWizardStatus.busy = false; this.forceUpdate(); }
   }
 
-  async postExpertise(path, body, timeoutMs = 15000) {
+  async postExpertise(path, body, timeoutMs = 15000, method = 'POST', revision = '') {
     const base = this.widget.catalog.backendUrl();
     if (typeof base !== 'string' || !/^https?:\/\//.test(base)) throw Error('Backend není dostupný.');
-    const response = await this.fetchImpl(base + path, { method: 'POST',
-      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    const response = await this.fetchImpl(base + path, { method,
+      headers: { 'Content-Type': 'application/json', ...(revision ? { 'If-Match': revision } : {}) }, body: JSON.stringify(body),
       signal: AbortSignal.timeout(timeoutMs) });
     let result = {};
     try { result = await response.json(); } catch { /* A lost response leaves a mutation uncertain. */ }
@@ -931,6 +987,8 @@ class LiveModel extends Component {
     const form = this.expertiseWizardVM(s);
     if (s.expertiseStep !== 1 || form.submitDisabled || this._expertiseWizardStatus.uncertain) return false;
     const config = this.expertiseConfig(s), key = JSON.stringify(config);
+    const editing = !!s.expertiseEditingId;
+    if (editing && (s.detail.expertises !== '__edit__' || !this._expertiseWizardStatus.source)) return false;
     this._expertiseWizardStatus = { ...this._expertiseWizardStatus, busy: true, error: '' };
     this.widget.catalogActionError = null;
     this.forceUpdate();
@@ -946,27 +1004,44 @@ class LiveModel extends Component {
         const confirmAction = this.widget.confirmAction || globalThis.confirm;
         if (typeof confirmAction !== 'function' || !confirmAction('Backend žádá potvrzení kombinace expertýz. Pokračovat?')) return false;
       }
+      let revision = '';
+      if (editing) {
+        const current = await this.widget.catalog.get('/api/expertises/' + encodeURIComponent(config.id));
+        if (JSON.stringify(current) !== this._expertiseWizardStatus.source)
+          throw Error('Expertýza se na backendu změnila. Obnov ji před uložením.');
+        const bytes = new TextEncoder().encode(this._expertiseWizardStatus.source);
+        const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+        revision = '"sha256:' + Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('') + '"';
+      }
       attempted = true;
-      const result = await this.postExpertise('/api/expertises', config);
+      const result = await this.postExpertise('/api/expertises' + (editing ? '/' + encodeURIComponent(config.id) : ''),
+        config, 15000, editing ? 'PUT' : 'POST', revision);
       if (result.id !== config.id || result.name !== config.name)
         throw Error('Backend nevrátil ověřitelnou expertýzu. Zkontroluj katalog.');
       accepted = result;
       const detail = await this.widget.catalog.get('/api/expertises/' + encodeURIComponent(config.id));
-      if (detail.id !== config.id || detail.name !== config.name)
+      if (detail.id !== config.id || detail.name !== config.name || detail.domain !== config.domain
+        || detail.description !== config.description || detail.icon !== config.icon
+        || detail.tone !== config.tone || detail.temperature !== config.temperature
+        || detail.systemPrompt !== config.systemPrompt
+        || JSON.stringify(detail.modules) !== JSON.stringify(config.modules)
+        || JSON.stringify(detail.capabilities) !== JSON.stringify(config.capabilities)
+        || JSON.stringify(detail.inheritance) !== JSON.stringify(config.inheritance)
+        || JSON.stringify(detail.styleRules) !== JSON.stringify(config.styleRules))
         throw Error('Detail expertýzy neodpovídá potvrzenému plánu.');
       await this.widget.catalog.load('Expertýzy');
       const view = this.widget.catalog.view('Expertýzy');
       if (view.status !== 'ready' || !view.items.some(item => item.id === config.id)) {
-        this._expertiseWizardStatus.error = `Backend vytvořil expertýzu ${config.id}, ale katalog ji ještě neukazuje. Obnov seznam.`;
+        this._expertiseWizardStatus.error = `Backend uložil expertýzu ${config.id}, ale katalog ji ještě neukazuje. Obnov seznam.`;
         return true;
       }
       this.setState({ ...this.pSelect(this.st(), 'expertises', config.id),
-        expertiseStep: 0, expertiseName: '', expertiseDescription: '', expertiseSystemPrompt: '' });
+        expertiseStep: 0, expertiseEditingId: '', expertiseName: '', expertiseDescription: '', expertiseSystemPrompt: '' });
       return true;
     } catch (error) {
       this._expertiseWizardStatus = { ...this._expertiseWizardStatus,
         uncertain: attempted && !accepted && !error?.status,
-        error: accepted ? `Backend vytvořil expertýzu ${config.id}, ale další ověření selhalo. Obnov katalog.`
+        error: accepted ? `Backend uložil expertýzu ${config.id}, ale další ověření selhalo. Obnov katalog.`
           : (error?.message || 'Výsledek vytvoření není jistý. Zkontroluj katalog před dalším pokusem.') };
       this.widget.catalogActionError = this._expertiseWizardStatus.error;
       return false;
@@ -1340,7 +1415,10 @@ class LiveModel extends Component {
     }
     if (sec === 'settings') this.loadSettingsResource(id);
     if (CATALOG[sec] && this.widget.catalog.view(CATALOG[sec]).status === 'idle') this.widget.catalog.load(CATALOG[sec]);
-    return super.pSelect(s, sec, id);
+    const patch = super.pSelect(s, sec, id);
+    if (sec === 'expertises' && id === '__new__') return { ...patch,
+      ...Object.fromEntries(Object.entries(this.defaults()).filter(([key]) => key.startsWith('expertise'))) };
+    return patch;
   }
 
   scmPolicyVM(s, projectId) {

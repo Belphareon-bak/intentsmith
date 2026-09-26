@@ -1082,7 +1082,7 @@ function render(vm, h, F, rt) {
                                   h("button", { className: "btn", disabled: $b.expertiseWizard.submitDisabled, onClick: $b.expertiseWizard.preview },
                                     "Náhled pravidel"),
                                   h("button", { className: "btn btn-acc", disabled: $b.expertiseWizard.submitDisabled, onClick: $b.expertiseWizard.submit },
-                                    "Potvrdit expertýzu"))) : null,
+                                    $b.expertiseWizard.submitLabel))) : null,
                               ($b.expertiseWizard.hasStatus) ? h(F, null,
                                 h("div", { role: "alert", className: "note" },
                                   $b.expertiseWizard.status)) : null)) : null,

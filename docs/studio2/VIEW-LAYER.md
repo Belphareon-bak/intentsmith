@@ -83,7 +83,10 @@ Před zápisem čte náhled pravidel z `/api/merge-preview`; uloženou expertýz
 ověřuje přes `/api/expertises/:id` a nový seznam. Žádný modelový test nespouští
 automaticky. Pokročilé moduly, dědění a zakázané fráze se editují v detailu;
 testovací prompt vyžaduje samostatné potvrzení a jeho odpověď platí jen pro
-stejnou konfiguraci a dotaz. Úprava již existující expertýzy a řízené
+stejnou konfiguraci a dotaz. Vlastní expertýzu lze otevřít k úpravě; UI načte
+celou aktuální konfiguraci, ponechá původní ID, před zápisem ověří revizi a
+backend odmítne mezitím změněnou revizi. Zápis do DB je transakční a po chybě
+vrátí původní stav registru. Vestavěné expertýzy jsou jen ke čtení. Řízené
 kombinace více expertýz ještě chybí.
 
 Nastavení má nyní přesně 12 kategorií a záložky z UI-SPEC. Funkční přepínače
@@ -92,7 +95,7 @@ vyžaduje potvrzení a ověřuje nový stav ze serveru. Lokální modely se čto
 z Ollamy prostřednictvím backendu a velikost uložených příloh z backendu.
 Ostatní nepřipojené záložky jsou výslovně označené a neukazují ukázková data.
 
-**Zbývá před paritou S2-7:** editace a kombinace expertýz a obecný průvodce workerem
+**Zbývá před paritou S2-7:** kombinace expertýz a obecný průvodce workerem
 a další akce katalogů, vytvoření,
 přejmenování a smazání souborů ve stromu, úplných 12 kategorií nastavení,
 stahování modelů, role/hunt/governor/upgrady, M4/M7, vstupní obraz pro Multimédia

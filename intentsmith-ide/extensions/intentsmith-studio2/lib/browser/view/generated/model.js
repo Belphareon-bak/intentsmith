@@ -54,7 +54,7 @@ class Component extends DCLogic {
       specialistStep: 0, specialistName: '', specialistDomain: 'general',
       specialistDescription: '', specialistIcon: '',
       workerStep: 0, workerExtension: 'project-health', workerProject: '', workerInstanceId: '',
-      expertiseStep: 0, expertiseName: '', expertiseDomain: '', expertiseDescription: '', expertiseIcon: '👤',
+      expertiseStep: 0, expertiseEditingId: '', expertiseName: '', expertiseDomain: '', expertiseDescription: '', expertiseIcon: '👤',
       expertiseTone: 'professional', expertiseTemperature: 0.5, expertiseSystemPrompt: '',
       expertiseCreativity: 50, expertiseReasoning: 50, expertiseDeterminism: 50,
       expertiseRiskTolerance: 50, expertiseVerbosity: 50, expertiseAdvanced: false,
@@ -836,8 +836,9 @@ class Component extends DCLogic {
       blocks: { pruvodce: [{ kind: 'workerWizard' }] },
       desc: 'Vyber projekt a vytvoř instanci dostupného deklarativního rozšíření.', props: [], related: []
     };
-    if (sec === 'expertises' && id === '__new__') return {
-      icon: I.cap, tone: 'cyan', title: 'Nová expertýza', type: 'Průvodce expertýzou', idText: 'expertyzy/nova',
+    if (sec === 'expertises' && (id === '__new__' || id === '__edit__')) return {
+      icon: I.cap, tone: 'cyan', title: id === '__edit__' ? 'Upravit expertýzu' : 'Nová expertýza',
+      type: 'Průvodce expertýzou', idText: id === '__edit__' ? 'expertyzy/uprava' : 'expertyzy/nova',
       status: '', stCls: '', secondary: [], tabs: [['pruvodce', 'Průvodce']],
       blocks: { pruvodce: [{ kind: 'expertiseWizard' }] },
       desc: 'Nastav profil, ladění a pravidla expertýzy; před uložením zkontroluj náhled.', props: [], related: []
@@ -1183,7 +1184,7 @@ class Component extends DCLogic {
   expertiseWizardVM(s) {
     const status = this.expertiseStatus();
     const name = s.expertiseName.trim();
-    const id = name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '').replace(/^_+|_+$/g, '').slice(0, 32);
+    const id = s.expertiseEditingId || name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '').replace(/^_+|_+$/g, '').slice(0, 32);
     const moduleFields = [
       [s.expertiseDomainRules, 15], [s.expertiseEmphasis, 10], [s.expertiseConstraints, 15],
       [s.expertiseVocabulary, 30], [s.expertiseAntipatterns, 10]
@@ -1209,7 +1210,7 @@ class Component extends DCLogic {
       && inheritanceValid;
     const setNumber = key => e => this.setState({ [key]: Number(e.target.value) });
     return {
-      stepLabel: s.expertiseStep === 0 ? 'Krok 1 ze 2 · Profil' : 'Krok 2 ze 2 · Ladění a kontrola',
+      stepLabel: (s.expertiseEditingId ? 'Úprava · ' : '') + (s.expertiseStep === 0 ? 'Krok 1 ze 2 · Profil' : 'Krok 2 ze 2 · Ladění a kontrola'),
       isProfile: s.expertiseStep === 0, isReview: s.expertiseStep === 1,
       name: s.expertiseName, setName: e => this.setState({ expertiseName: e.target.value }),
       domain: s.expertiseDomain, setDomain: e => this.setState({ expertiseDomain: e.target.value }),
@@ -1240,6 +1241,7 @@ class Component extends DCLogic {
       test: () => this.testExpertise(this.st()), testResult: status.testResult?.response || '',
       hasTestResult: !!status.testResult?.response,
       reviewName: name, reviewId: id, reviewDomain: s.expertiseDomain || 'custom',
+      submitLabel: s.expertiseEditingId ? 'Uložit změny' : 'Potvrdit expertýzu',
       nextDisabled: !valid || status.busy, submitDisabled: !valid || status.busy || !!status.uncertain,
       next: () => this.setState({ expertiseStep: 1 }), back: () => this.setState({ expertiseStep: 0 }),
       preview: () => this.previewExpertise(this.st()), submit: () => this.submitExpertise(this.st()),
