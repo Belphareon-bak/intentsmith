@@ -55,7 +55,10 @@ class CatalogStore {
     return response.json();
   }
   async mutate(path, method, body = null, timeoutMs = 30000) {
-    const workerPath = /^\/api\/agent-extensions\/instances\/[A-Za-z0-9._-]+\/(run|enable|disable)$/.test(path);
+    const workerPath = method === 'POST'
+      && /^\/api\/agent-extensions\/instances\/[A-Za-z0-9._-]+\/(run|enable|disable)$/.test(path);
+    const workerRemovalPath = method === 'DELETE'
+      && /^\/api\/agent-extensions\/[a-z0-9-]+\/instances\/[A-Za-z0-9._-]+$/.test(path);
     const mediaId = path.startsWith('/api/media/cancel?id=') ? path.slice('/api/media/cancel?id='.length)
       : path.startsWith('/api/media?id=') ? path.slice('/api/media?id='.length) : '';
     const mediaPath = (method === 'POST' && path.startsWith('/api/media/cancel?id=') && MEDIA_ID.test(mediaId))
@@ -63,7 +66,7 @@ class CatalogStore {
       || (method === 'PUT' && path === '/api/media/favorite')
       || (method === 'DELETE' && path.startsWith('/api/media?id=') && MEDIA_ID.test(mediaId));
     if (!['POST', 'PUT', 'DELETE'].includes(method) || typeof path !== 'string'
-      || (!path.startsWith('/api/marketplace/') && !(method === 'POST' && workerPath)
+      || (!path.startsWith('/api/marketplace/') && !workerPath && !workerRemovalPath
         && !mediaPath)) {
       throw new Error('Nepovolená akce katalogu.');
     }
@@ -73,7 +76,7 @@ class CatalogStore {
       ...(body == null ? {} : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }) });
     let result = {};
     try { result = await response.json(); } catch { /* HTTP status remains authoritative. */ }
-    if (!response.ok || result.ok === false || (!workerPath && result.ok !== true))
+    if (!response.ok || result.ok === false || (!workerPath && !workerRemovalPath && result.ok !== true))
       throw new Error(result.error || `Akce selhala (HTTP ${response.status}).`);
     return result;
   }

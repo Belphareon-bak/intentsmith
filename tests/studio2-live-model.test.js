@@ -887,24 +887,32 @@ test('project wizard treats lost mutation response as uncertain and never retrie
 
 test('worker detail runs only a verified M3 extension through its active route', async () => {
   const calls = [];
-  let enabled = true, rejectRun = false;
+  let enabled = true, rejectRun = false, installed = true, runStatus = 'success', runId = 0;
+  let recentRuns = [];
   const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335',
     fetchImpl: async (url, options = {}) => {
       const path = new URL(url).pathname;
       calls.push([options.method || 'GET', path]);
       if (path === '/api/agents') return { ok: true, json: async () => ({ agents: [
-        { id: 'worker-m3', name: 'Nový worker', enabled },
+        ...(installed ? [{ id: 'worker-m3', name: 'Nový worker', enabled }] : []),
         { id: 'legacy', name: 'Starý worker', enabled: true }] }) };
       if (path === '/api/agents/worker-m3') return { ok: true, json: async () => ({
-        id: 'worker-m3', enabled, definition: { m3_extension: { id: 'approved-extension' }, schedule: { type: 'manual' } }, recentRuns: [] }) };
+        id: 'worker-m3', enabled, definition: { m3_extension: { id: 'approved-extension' }, schedule: { type: 'manual' } }, recentRuns }) };
       if (path === '/api/agents/legacy') return { ok: true, json: async () => ({
         id: 'legacy', enabled: true, definition: { schedule: { type: 'manual' } }, recentRuns: [] }) };
       if (path === '/api/agent-extensions/instances/worker-m3/run') return rejectRun
         ? { ok: false, status: 409, json: async () => ({ error: 'Worker je zaneprázdněný.' }) }
-        : { ok: true, json: async () => ({ runId: 'run-1' }) };
+        : { ok: true, json: async () => { runId++;
+          recentRuns = [{ id: runId, status: runStatus }, ...recentRuns];
+          return { runId, status: runStatus, ...(runStatus === 'error' ? { error: 'Zdroj selhal.' } : {}) }; } };
       if (path === '/api/agent-extensions/instances/worker-m3/disable') {
         enabled = false;
         return { ok: true, json: async () => ({ id: 'worker-m3', enabled: false }) };
+      }
+      if (path === '/api/agent-extensions/approved-extension/instances/worker-m3') {
+        assert.equal(options.method, 'DELETE');
+        installed = false;
+        return { ok: true, json: async () => ({ removed: true, agentId: 'worker-m3' }) };
       }
       throw new Error('Unexpected request: ' + path);
     } });
@@ -919,9 +927,15 @@ test('worker detail runs only a verified M3 extension through its active route',
   assert.equal(await vm.onPrimary(), false);
   assert.match(widget.catalogActionError, /zaneprázdněný/);
   rejectRun = false;
+  runStatus = 'error';
+  assert.equal(await model.detailVM(model.st()).onPrimary(), false);
+  assert.match(widget.catalogActionError, /Zdroj selhal/);
+  runStatus = 'success';
   assert.equal(await model.detailVM(model.st()).onPrimary(), true);
   assert.equal(await model.detailVM(model.st()).secondary[0].go(), true);
   assert.equal(model.detailVM(model.st()).hasPrimary, false);
+  assert.equal(await model.detailVM(model.st()).secondary[1].go(), true, widget.catalogActionError);
+  assert.equal(model.st().detail.workers, null);
   await model.loadWorkerDetail('legacy');
   model.setState({ detail: { workers: 'legacy' } });
   vm = model.detailVM(model.st());
@@ -929,7 +943,7 @@ test('worker detail runs only a verified M3 extension through its active route',
   assert.deepEqual(vm.secondary, []);
   assert.match(JSON.stringify(vm.blocks), /legacy worker/);
   assert.equal(calls.some(([, path]) => path.startsWith('/api/agents/worker-m3/run')), false);
-  assert.equal(calls.filter(([method, path]) => method === 'POST' && path.includes('/worker-m3/run')).length, 2);
+  assert.equal(calls.filter(([method, path]) => method === 'POST' && path.includes('/worker-m3/run')).length, 3);
 });
 
 test('media history actions refresh real state and report deferred cancellation honestly', async () => {

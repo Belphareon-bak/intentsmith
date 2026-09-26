@@ -589,7 +589,8 @@ class LiveModel extends Component {
         hasPrimary: extension && enabled && !busy, primaryLabel: 'Spustit teď',
         onPrimary: () => this.pWorkerAction(item, 'run'),
         secondary: extension && !busy ? [{ label: enabled ? 'Pozastavit' : 'Obnovit',
-          icon: enabled ? I.pause : I.play, go: () => this.pWorkerAction(item, enabled ? 'disable' : 'enable') }] : [],
+          icon: enabled ? I.pause : I.play, go: () => this.pWorkerAction(item, enabled ? 'disable' : 'enable') },
+        { label: 'Odinstalovat', icon: I.trash, go: () => this.pWorkerAction(item, 'uninstall') }] : [],
         more: () => {}, hasTabs: false, tabs: [], hasDesc: !!item.description,
         desc: item.description, showProps: !!worker,
         props: worker ? [['ID', item.id, true], ['Zdroj', extension ? worker.definition.m3_extension.id : 'legacy'],
@@ -1111,19 +1112,54 @@ class LiveModel extends Component {
   async pWorkerAction(item, operation) {
     const id = item?.id, key = 'worker:' + id;
     const detail = this._workerDetails.get(id);
+    const extensionId = detail?.data?.definition?.m3_extension?.id;
     if (typeof id !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(id)
-      || !['run', 'enable', 'disable'].includes(operation) || !detail?.data?.definition?.m3_extension
+      || !['run', 'enable', 'disable', 'uninstall'].includes(operation)
+      || typeof extensionId !== 'string' || !/^[a-z0-9-]+$/.test(extensionId)
       || this._catalogBusy.has(key)) return false;
-    const verb = { run: 'Spustit', enable: 'Obnovit', disable: 'Pozastavit' }[operation];
+    const verb = { run: 'Spustit', enable: 'Obnovit', disable: 'Pozastavit', uninstall: 'Odinstalovat' }[operation];
     const confirmAction = this.widget.confirmAction || globalThis.confirm;
     if (typeof confirmAction !== 'function' || !confirmAction(`${verb} worker ${item.name} (${id})?`)) return false;
     this._catalogBusy.add(key);
     this.widget.catalogActionError = null;
     this.forceUpdate();
     try {
-      await this.widget.catalog.mutate('/api/agent-extensions/instances/' + encodeURIComponent(id) + '/' + operation, 'POST');
-      await Promise.all([this.loadWorkerDetail(id), this.widget.catalog.load('Workeři')]);
-      return this._workerDetails.get(id)?.status === 'ready';
+      const removal = operation === 'uninstall';
+      const route = removal ? '/api/agent-extensions/' + encodeURIComponent(extensionId)
+        + '/instances/' + encodeURIComponent(id)
+        : '/api/agent-extensions/instances/' + encodeURIComponent(id) + '/' + operation;
+      const receipt = await this.widget.catalog.mutate(route, removal ? 'DELETE' : 'POST');
+      if (removal && (receipt.removed !== true || receipt.agentId !== id))
+        throw Error('Backend nepotvrdil odinstalaci workeru.');
+      await Promise.all([removal ? Promise.resolve() : this.loadWorkerDetail(id),
+        this.widget.catalog.load('Workeři')]);
+      const catalog = this.widget.catalog.view('Workeři');
+      const updated = catalog.items.find(row => row.id === id);
+      const fresh = this._workerDetails.get(id);
+      if (catalog.status !== 'ready' || (removal ? !!updated
+        : !updated || fresh?.status !== 'ready'
+          || fresh.data.definition?.m3_extension?.id !== extensionId))
+        throw Error('Výsledek akce workeru nelze ověřit. Obnov katalog.');
+      if (removal) {
+        this._workerDetails.delete(id);
+        this.setState({ detail: this.merge(this.st(), 'detail', { workers: null }) });
+        return true;
+      }
+      if (operation === 'enable' || operation === 'disable') {
+        const target = operation === 'enable';
+        if (receipt.id !== id || receipt.enabled !== target
+          || !!fresh.data.enabled !== target || !!updated.raw.enabled !== target)
+          throw Error('Stav workeru neodpovídá potvrzení backendu. Obnov katalog.');
+      } else {
+        if (!Number.isSafeInteger(receipt.runId) || receipt.runId < 1
+          || !fresh.data.recentRuns?.some(run => run.id === receipt.runId))
+          throw Error('Běh workeru nelze ověřit v historii. Obnov detail.');
+        if (receipt.status !== 'success') {
+          this.widget.catalogActionError = receipt.error || `Běh skončil stavem ${receipt.status || 'nezjištěno'}.`;
+          return false;
+        }
+      }
+      return true;
     } catch (error) {
       this.widget.catalogActionError = error?.message || 'Akce workeru selhala.';
       return false;

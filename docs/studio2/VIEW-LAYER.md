@@ -39,8 +39,10 @@ M2 schválení, projektový strom, editor s ověřeným uložením, detail proje
 aktivace specialisty, audit konverzace a stavová lišta používají stávající
 služby. Detail Obchodu potvrzeně instaluje, aktualizuje a odinstaluje přes
 `/api/marketplace/*`, stav ověřuje novým načtením katalogu. Detail workeru
-načítá definici; spustit, pozastavit a obnovit lze pouze instanci s vazbou
-na rozšíření M3 přes `/api/agent-extensions/instances/:id/*`. Legacy worker
+načítá definici; spustit, pozastavit, obnovit a odinstalovat lze pouze instanci
+s ověřenou vazbou na rozšíření M3 přes `/api/agent-extensions/*`. Výsledek
+běhu se kontroluje v historii; HTTP úspěch s chybovým stavem běhu není úspěch.
+Legacy worker
 zůstává jen pro čtení, protože jeho mutační endpointy vracejí 410.
 
 Specialisté v katalogu zahrnují i vypnuté balíčky. Detail čte ověřený manifest,
