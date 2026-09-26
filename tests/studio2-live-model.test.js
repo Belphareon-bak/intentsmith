@@ -918,7 +918,11 @@ test('worker detail runs only a verified M3 extension through its active route',
         ...(installed ? [{ id: 'worker-m3', name: 'Nový worker', enabled }] : []),
         { id: 'legacy', name: 'Starý worker', enabled: true }] }) };
       if (path === '/api/agents/worker-m3') return { ok: true, json: async () => ({
-        id: 'worker-m3', enabled, definition: { m3_extension: { id: 'approved-extension' }, schedule: { type: 'manual' } }, recentRuns }) };
+        id: 'worker-m3', enabled, definition: { m3_extension: { id: 'approved-extension' }, schedule: { type: 'manual' },
+          sources: [{ id: 'health', type: 'project_context' }],
+          conditions: [{ id: 'changed', type: 'changed' }],
+          triggers: [{ id: 'on-change', condition_id: 'changed', cooldown: 60 }],
+          actions: [{ type: 'notify', trigger_id: 'on-change', config: { channel: 'in_app' } }] }, recentRuns }) };
       if (path === '/api/agents/legacy') return { ok: true, json: async () => ({
         id: 'legacy', enabled: true, definition: { schedule: { type: 'manual' } }, recentRuns: [] }) };
       if (path === '/api/agent-extensions/instances/worker-m3/run') return rejectRun
@@ -944,6 +948,13 @@ test('worker detail runs only a verified M3 extension through its active route',
   model.setState({ mode: 'section', section: 'workers', detail: { workers: 'worker-m3' } });
   let vm = model.detailVM(model.st());
   assert.equal(vm.hasPrimary, true);
+  assert.deepEqual(vm.tabs.map(tab => tab.label), ['Přehled', 'Zdroje', 'Běhy']);
+  vm.tabs.find(tab => tab.label === 'Zdroje').go();
+  vm = model.detailVM(model.st());
+  assert.deepEqual(vm.blocks.map(block => block.title), ['Zdroje', 'Podmínky', 'Spouštěče', 'Akce']);
+  assert.equal(vm.blocks[0].rows[0].t, 'health');
+  assert.equal(vm.blocks[3].rows[0].t, 'notify');
+  vm.tabs.find(tab => tab.label === 'Přehled').go();
   rejectRun = true;
   assert.equal(await vm.onPrimary(), false);
   assert.match(widget.catalogActionError, /zaneprázdněný/);
@@ -953,6 +964,10 @@ test('worker detail runs only a verified M3 extension through its active route',
   assert.match(widget.catalogActionError, /Zdroj selhal/);
   runStatus = 'success';
   assert.equal(await model.detailVM(model.st()).onPrimary(), true);
+  model.detailVM(model.st()).tabs.find(tab => tab.label === 'Běhy').go();
+  vm = model.detailVM(model.st());
+  assert.equal(vm.blocks[0].rows[0].t, '#2 · success');
+  vm.tabs.find(tab => tab.label === 'Přehled').go();
   assert.equal(await model.detailVM(model.st()).secondary[0].go(), true);
   assert.equal(model.detailVM(model.st()).hasPrimary, false);
   assert.equal(await model.detailVM(model.st()).secondary[1].go(), true, widget.catalogActionError);

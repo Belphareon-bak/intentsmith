@@ -582,6 +582,33 @@ class LiveModel extends Component {
       const enabled = worker?.enabled === true || worker?.enabled === 1;
       const busy = this._catalogBusy.has('worker:' + id);
       const runs = Array.isArray(worker?.recentRuns) ? worker.recentRuns : [];
+      const tab = s.dtab['workers:' + id] || 'prehled';
+      const sourceRows = Array.isArray(worker?.definition?.sources) ? worker.definition.sources.map(source => ({
+        t: String(source.id || source.type || 'Zdroj'), s: String(source.type || 'Neznámý typ'),
+        m: source.type === 'project_context' ? 'kontext projektu' : '' })) : [];
+      const conditionRows = Array.isArray(worker?.definition?.conditions) ? worker.definition.conditions.map(condition => ({
+        t: String(condition.id || condition.type || 'Podmínka'), s: String(condition.type || 'Neznámý typ') })) : [];
+      const triggerRows = Array.isArray(worker?.definition?.triggers) ? worker.definition.triggers.map(trigger => ({
+        t: String(trigger.id || 'Spouštěč'), s: String(trigger.condition_id || ''),
+        m: Number.isFinite(trigger.cooldown) ? `${trigger.cooldown} s` : '' })) : [];
+      const actionRows = Array.isArray(worker?.definition?.actions) ? worker.definition.actions.map(action => ({
+        t: String(action.type || 'Akce'), s: String(action.trigger_id || ''),
+        m: action.type === 'notify' ? String(action.config?.channel || 'in_app') : '' })) : [];
+      const blocks = detail.status !== 'ready'
+        ? [this.blockVM({ kind: 'empty', text: detail.status === 'error' ? detail.error : 'Načítám definici workeru…' })]
+        : tab === 'zdroje' ? [
+        this.blockVM({ kind: 'rows', title: 'Zdroje', rows: sourceRows, empty: 'Worker nemá zdroje.' }),
+        this.blockVM({ kind: 'rows', title: 'Podmínky', rows: conditionRows, empty: 'Worker nemá podmínky.' }),
+        this.blockVM({ kind: 'rows', title: 'Spouštěče', rows: triggerRows, empty: 'Worker nemá spouštěče.' }),
+        this.blockVM({ kind: 'rows', title: 'Akce', rows: actionRows, empty: 'Worker nemá akce.' })]
+        : tab === 'behy' ? [this.blockVM({ kind: 'rows', title: 'Poslední běhy',
+          rows: runs.slice(0, 30).map(run => ({ t: `#${run.id} · ${run.status || 'neznámý stav'}`,
+            s: String(run.started_at || ''),
+            m: typeof run.error === 'string' ? run.error : String(run.error?.message || run.error?.code || run.completed_at || '') })),
+          empty: 'Zatím žádný běh.' })]
+          : [this.blockVM({ kind: 'empty', text: busy ? 'Čekám na výsledek operace…'
+            : extension ? runs.length ? `Běhů v historii: ${runs.length}.` : 'Zatím žádný běh.'
+              : 'Tento legacy worker má vypnuté operace. Použij rozšíření agentů M3.' })];
       return { icon: this.sec(s.section).icon, tone: this.sec(s.section).tone,
         icls: '', title: item.name, type: 'Worker', idText: item.id, hasStatus: true,
         status: busy ? 'probíhá' : detail.status !== 'ready' ? 'nezjištěno' : enabled ? 'zapnutý' : 'pozastavený',
@@ -591,16 +618,15 @@ class LiveModel extends Component {
         secondary: extension && !busy ? [{ label: enabled ? 'Pozastavit' : 'Obnovit',
           icon: enabled ? I.pause : I.play, go: () => this.pWorkerAction(item, enabled ? 'disable' : 'enable') },
         { label: 'Odinstalovat', icon: I.trash, go: () => this.pWorkerAction(item, 'uninstall') }] : [],
-        more: () => {}, hasTabs: false, tabs: [], hasDesc: !!item.description,
+        more: () => {}, hasTabs: true, tabs: [['prehled', 'Přehled'], ['zdroje', 'Zdroje'], ['behy', 'Běhy']]
+          .map(([key, label]) => ({ label, n: key === 'behy' ? runs.length : '', hasN: key === 'behy' && runs.length > 0,
+            cls: key === tab ? 'on' : '', go: () => this.setState({ dtab: this.merge(this.st(), 'dtab', { ['workers:' + id]: key }) }) })),
+        hasDesc: tab === 'prehled' && !!item.description,
         desc: item.description, showProps: !!worker,
         props: worker ? [['ID', item.id, true], ['Zdroj', extension ? worker.definition.m3_extension.id : 'legacy'],
           ['Plán', worker.definition?.schedule?.type || '—'], ['Poslední běh', runs[0]?.started_at || '—']]
           .map(([k, v, mono]) => ({ k, v: String(v), cls: mono ? 'mono' : '' })) : [],
-        blocks: [this.blockVM({ kind: 'empty', text: busy ? 'Čekám na výsledek operace…'
-          : detail.status === 'loading' || detail.status === 'idle' ? 'Načítám definici workeru…'
-            : detail.status === 'error' ? detail.error
-              : extension ? runs.length ? `Běhů v historii: ${runs.length}.` : 'Zatím žádný běh.'
-                : 'Tento legacy worker má vypnuté operace. Použij rozšíření agentů M3.' })],
+        blocks,
         hasRelated: false, related: [], development: this.developmentVM(s), scmPolicy: this.scmPolicyVM(s, null) };
     }
     if (s.section === 'media') {
