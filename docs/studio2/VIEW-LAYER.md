@@ -102,9 +102,15 @@ počet položek v podstromu; backend porovná jeho revizi a odmítne chráněné
 položky, symbolické odkazy a jiné disky. Nejasný výsledek zápisu se neopakuje
 automaticky; strom se musí obnovit.
 
+M4 příkazy z klasického Studia jsou v novém skladateli vázané na přesné ID
+projektu. Odpovědi včetně pozorování, digestů a aktuálního výsledku se před
+zobrazením validují; při souběžném M1 tahu se příkaz neposílá. Párování M7 je
+v Nastavení → Zabezpečení → Přístup. Vydání lokálního pětiminutového kódu
+ověřuje přesnou smlouvu odpovědi a drží kód jen v paměti okna.
+
 **Zbývá před paritou S2-7:** kombinace expertýz a obecný průvodce workerem
 a další akce katalogů, úplných 12 kategorií nastavení,
-stahování modelů, role/hunt/governor/upgrady, M4/M7, vstupní obraz pro Multimédia
+stahování modelů, role/hunt/governor/upgrady, vstupní obraz pro Multimédia
 a automatické režimy gitu.
 Prototypové fixtury se stále používají u nenapojených částí nastavení;
 tyto části nesmějí být vydávány za živá data. Klasické UI proto zůstává dostupné.

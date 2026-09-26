@@ -1027,7 +1027,7 @@ class Component extends DCLogic {
       if (x.id === 'uloziste') return Object.assign(base, { primary: { label: 'Vacuum DB', go: () => ({}) }, blocks: { prehled: [{ kind: 'rows', title: 'Data', rows: [r('Konverzace', '46'), r('Projekty', '6'), r('Workeři', '6'), r('Generování médií', '0')] }] }, props: [['Databáze', 'data/c3.db', true], ['Velikost', '134 MiB'], ['Retence logů', '30 dní']] });
       if (x.id === 'vystup') return Object.assign(base, { blocks: { prehled: [{ kind: 'rows', title: 'Výstup', rows: [r('Code blocks ve výstupu', 'zapnuto'), r('Zvýrazňování syntaxe', 'zapnuto'), r('Markdown', 'zapnuto')] }] }, props: [['Úroveň logu', 'info'], ['Retence logů', '30 dní'], ['Max. velikost souboru', '1 MiB'], ['Limit požadavků', '120 / min']] });
       if (x.id === 'about') return Object.assign(base, { blocks: { prehled: [{ kind: 'rows', title: 'Stav', rows: [r('Backend', 'připojeno', '136.1.0'), r('Protokol', 'WebSocket v1'), r('Ollama', 'běží', '127.0.0.1:11434')] }] }, props: [['Aplikace', 'IntentSmith 2.0 (návrh)'], ['Backend', '136.1.0'], ['Rozhraní', 'ws :3335', true]] });
-      if (x.id === 'zabezpeceni') return Object.assign(base, { blocks: { prehled: [{ kind: 'rows', title: 'Ochrana', rows: [r('Schvalování změn souborů', 'Kontrola'), r('Auditní log', 'zapnutý'), r('Přístupové tokeny', '1 aktivní')] }] }, props: [['Výchozí režim úprav', 'Kontrola']] });
+      if (x.id === 'zabezpeceni') return Object.assign(base, { blocks: { prehled: [{ kind: 'rows', title: 'Ochrana', rows: [r('Schvalování změn souborů', 'Kontrola'), r('Auditní log', 'zapnutý'), r('Přístupové tokeny', '1 aktivní')] }], pristup: [{ kind: 'pairing' }] }, props: [['Výchozí režim úprav', 'Kontrola']] });
       if (x.id === 'pamet') return Object.assign(base, { blocks: { prehled: [{ kind: 'rows', title: 'Dlouhodobá paměť', rows: [r('Poločas zapomínání', '~69 dní'), r('Vkládání do kontextu', 'podle relevance'), r('Paměť projektů', 'zapnutá')] }] }, props: [['Stav', 'zapnutá']] });
       if (x.id === 'ucet') return Object.assign(base, { blocks: { prehled: [{ kind: 'rows', title: 'Chování', rows: [r('Jazyk rozhraní', 'čeština'), r('Po spuštění obnovit relace', 'zapnuto'), r('Varovat při zavření s běžícím agentem', 'zapnuto')] }] }, props: [['Jazyk', 'čeština']] });
       return Object.assign(base, { blocks: { prehled: [{ kind: 'empty', title: x.name, text: 'Tato záložka se připojuje k backendu.' }] }, props: [] });
@@ -1142,6 +1142,7 @@ class Component extends DCLogic {
       trs: (b.trs || []).map((r) => ({ cells: r.map((c) => (Array.isArray(c) ? { t: c[0], c: c[1] } : { t: c, c: 'inherit' })) })),
       isEmpty: kind === 'empty', empty: b.text || b.empty || '',
       isDevelopment: kind === 'development', isScmPolicy: kind === 'scmPolicy',
+      isPairing: kind === 'pairing', pairing: this.pairingVM(),
       isMediaForm: kind === 'mediaForm', mediaForm: this.mediaFormVM(this.st()),
       isMediaOutputs: kind === 'mediaOutputs', mediaOutputs: b.outputs || [],
       isProjectWizard: kind === 'projectWizard', projectWizard: this.projectWizardVM(this.st()),
@@ -1153,6 +1154,13 @@ class Component extends DCLogic {
   }
 
   mediaStatus() { return { status: 'preview', available: false, models: [], error: 'Prototyp ukazuje formulář; backend se připojuje až v IDE.' }; }
+
+  pairingVM() {
+    return { scopes: ['read:chat', 'read:projects', 'write:chat'].map((name) => ({ name, checked: name !== 'write:chat', disabled: false, toggle: () => {} })),
+      busy: false, disabled: true, issue: () => {}, hasError: false, error: '',
+      hasClaim: false, code: '', expiry: '', uri: '',
+      status: 'Prototyp ukazuje ovládání. Párovací kód vydává až lokální backend Studia.' };
+  }
 
   projectStatus() { return { busy: false, error: 'Prototyp ukazuje průvodce; backend se připojuje až v IDE.', defaultDir: '' }; }
 

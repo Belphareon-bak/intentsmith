@@ -10,6 +10,7 @@ const { ScmClient } = require('../scm-client');
 const { StatusClient } = require('../status-client');
 const { MEDIA_ID } = require('../catalog-store');
 const { IntentSmithBus } = require('@intentsmith/chat-panel/lib/browser/event-bus');
+const { COMMANDS: LEARNING_COMMANDS, runCommand: runLearningCommand } = require('../learning-commands');
 
 const CATALOG = Object.freeze({
   chats: 'Konverzace', projects: 'Projekty', specialists: 'Specialisté',
@@ -19,6 +20,10 @@ const LAYOUT_KEY = 'intentsmith-studio2-layout';
 const LAYOUT_FIELDS = Object.freeze(['mode', 'section', 'navOpen', 'navPin', 'navW', 'navExp',
   'rightOpen', 'rightPin', 'rightW', 'rightTab', 'bottomOpen', 'bottomH', 'btab',
   'detailW', 'view', 'size', 'colFr', 'treeClosed']);
+const PAIRING_SCOPES = Object.freeze(['read:approvals', 'read:chat', 'read:events', 'read:notifications',
+  'read:operations', 'read:projects', 'read:settings', 'read:stored_information',
+  'write:approvals', 'write:chat', 'write:notifications', 'write:operations',
+  'write:settings', 'write:stored_information']);
 
 function clock(ts) {
   if (!ts) return '';
@@ -84,6 +89,9 @@ class LiveModel extends Component {
     this._settingsResources = new Map();
     this._settingsBusy = false;
     this._settingsNotice = '';
+    this._pairing = { status: 'idle', error: '', claim: null, selectedScopes: PAIRING_SCOPES.filter(scope => scope.startsWith('read:')) };
+    this._pairingTimer = null;
+    this._pairingAlive = true;
     this.fetchImpl = widget.fetchImpl || fetch;
   }
 
@@ -115,6 +123,9 @@ class LiveModel extends Component {
   }
 
   componentWillUnmount() {
+    this._pairingAlive = false;
+    if (this._pairingTimer) clearTimeout(this._pairingTimer);
+    this._pairing.claim = null;
     for (const [name, listener] of this._mediaBusListeners.splice(0)) IntentSmithBus.off(name, listener);
     for (const output of this._mediaOutputUrls.values()) if (output.url) URL.revokeObjectURL(output.url);
     this._mediaOutputUrls.clear();
@@ -549,18 +560,22 @@ class LiveModel extends Component {
     const tab = (s.dtab || {})['settings:' + id] || 'prehled';
     const resource = this._settingsResources.get(id);
     const state = resource?.status || 'idle';
-    const connectedTab = (id === 'prepinace' && (tab === 'prehled' || tab === 'obnoveni')) ||
+    const connectedTab = (id === 'zabezpeceni' && tab === 'pristup') ||
+      (id === 'prepinace' && (tab === 'prehled' || tab === 'obnoveni')) ||
       ((id === 'modely' || id === 'uloziste') && tab === 'prehled');
     const unavailable = 'Tato část nastavení zatím nemá připojené ovládání.';
     vm.hasDesc = false; vm.desc = ''; vm.showProps = false; vm.props = [];
     vm.hasPrimary = false; vm.primaryLabel = ''; vm.secondary = [];
     vm.hasRelated = false; vm.related = [];
-    vm.status = !connectedTab ? 'nepřipojeno' : state === 'loading' ? 'načítání' : state === 'error' ? 'chyba' : state === 'ready' ? 'živá data' : 'nenačteno';
+    vm.status = !connectedTab ? 'nepřipojeno' : id === 'zabezpeceni' ? 'lokální párování'
+      : state === 'loading' ? 'načítání' : state === 'error' ? 'chyba' : state === 'ready' ? 'živá data' : 'nenačteno';
     vm.stCls = connectedTab && state === 'error' ? 'warn' : connectedTab && state === 'ready' ? 'ok' : 'idle';
     vm.hasStatus = true;
-    if (connectedTab && state !== 'loading') vm.secondary = [{ label: 'Obnovit', icon: this.data().I.refresh,
+    if (connectedTab && id !== 'zabezpeceni' && state !== 'loading') vm.secondary = [{ label: 'Obnovit', icon: this.data().I.refresh,
       go: () => this.loadSettingsResource(id, true) }];
-    if (id === 'prepinace' && tab === 'prehled') {
+    if (id === 'zabezpeceni' && tab === 'pristup') {
+      vm.blocks = [this.blockVM({ kind: 'pairing' })];
+    } else if (id === 'prepinace' && tab === 'prehled') {
       const features = resource?.data?.features;
       const rows = state === 'ready' && features ? Object.entries(features).sort(([a], [b]) => a.localeCompare(b))
         .map(([name, enabled]) => ({ t: name, s: 'Klikni pro změnu po potvrzení. Změna platí do restartu backendu.',
@@ -1461,9 +1476,124 @@ class LiveModel extends Component {
 
   developmentVM() { return this.development.vm(); }
 
+  pairingVM() {
+    const pairing = this._pairing, claim = pairing.claim;
+    return { scopes: PAIRING_SCOPES.map(name => ({ name, checked: pairing.selectedScopes.includes(name),
+      disabled: pairing.status === 'loading' || !!claim, toggle: () => this.togglePairingScope(name) })),
+      busy: pairing.status === 'loading', disabled: pairing.status === 'loading' || !!claim || !pairing.selectedScopes.length,
+      issue: () => this.issuePairingClaim(), hasError: !!pairing.error, error: pairing.error,
+      hasClaim: !!claim, code: claim?.claimCode || '',
+      expiry: claim ? new Date(claim.expiresAt).toLocaleTimeString('cs-CZ') : '',
+      uri: claim?.pairingUri || '', status: pairing.status === 'loading' ? 'Vytvářím jednorázový kód…'
+        : claim ? 'Kód opiš do telefonu. Zůstává pouze v paměti tohoto okna.'
+          : 'Kód se vydá jen z lokálně autentizovaného Studia; telefon se připojuje přes VPN.' };
+  }
+
+  togglePairingScope(name) {
+    const pairing = this._pairing;
+    if (!PAIRING_SCOPES.includes(name) || pairing.status === 'loading' || pairing.claim) return false;
+    const scopes = new Set(pairing.selectedScopes);
+    if (scopes.has(name)) scopes.delete(name); else scopes.add(name);
+    pairing.selectedScopes = [...scopes].sort();
+    pairing.error = '';
+    this.forceUpdate();
+    return true;
+  }
+
+  async issuePairingClaim() {
+    const pairing = this._pairing;
+    if (pairing.status === 'loading' || pairing.claim || !pairing.selectedScopes.length) return false;
+    const requestedScopes = [...pairing.selectedScopes].sort();
+    pairing.status = 'loading'; pairing.error = '';
+    this.forceUpdate();
+    try {
+      const base = this.widget.catalog.backendUrl();
+      if (typeof base !== 'string' || !/^https?:\/\//.test(base)) throw Error('backend-unavailable');
+      const response = await this.fetchImpl(base + '/api/m7/remote/pairing/claims', {
+        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scopes: requestedScopes }), signal: AbortSignal.timeout(10_000) });
+      const payload = await response.json();
+      if (!response.ok) throw Object.assign(Error('pairing-denied'), { code: payload?.code });
+      const expected = ['claimCode', 'claimId', 'contract', 'expiresAt', 'pairingUri', 'scopes', 'subjectId', 'version'].sort();
+      const expiresAtMs = Date.parse(payload?.expiresAt);
+      if (!payload || typeof payload !== 'object' || Array.isArray(payload)
+        || JSON.stringify(Object.keys(payload).sort()) !== JSON.stringify(expected)
+        || payload.contract !== 'M7LocalPairingClaim' || payload.version !== 1
+        || !/^[A-Za-z0-9_-]{22}$/.test(payload.claimCode || '')
+        || !/^pairing-claim:[A-Za-z0-9_-]{24}$/.test(payload.claimId || '')
+        || payload.pairingUri !== 'intentsmith://pair?code=' + payload.claimCode
+        || JSON.stringify(payload.scopes) !== JSON.stringify(requestedScopes)
+        || typeof payload.subjectId !== 'string' || !payload.subjectId
+        || !Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()
+        || expiresAtMs - Date.now() > 300_000) throw Error('pairing-response-invalid');
+      if (!this._pairingAlive) return false;
+      pairing.claim = Object.freeze({ ...payload, scopes: Object.freeze([...payload.scopes]) });
+      pairing.status = 'ready';
+      this._pairingTimer = setTimeout(() => {
+        pairing.claim = null; pairing.status = 'expired';
+        pairing.error = 'Platnost párovacího kódu vypršela. Vytvoř nový.';
+        this._pairingTimer = null; this.forceUpdate();
+      }, Math.max(1, expiresAtMs - Date.now()));
+      return true;
+    } catch (error) {
+      if (!this._pairingAlive) return false;
+      pairing.status = 'error';
+      pairing.error = error?.code === 'M7_LOCAL_PAIRING_NOT_ACTIVE'
+        ? 'VPN runtime zatím není aktivní. Připoj VPN a spusť M7 službu.'
+        : error?.code === 'M7_LOCAL_PAIRING_AUTH_REQUIRED'
+          ? 'Párování lze vydat pouze z autentizovaného lokálního Studia.'
+          : 'Párovací kód se nepodařilo bezpečně vytvořit.';
+      return false;
+    } finally { if (this._pairingAlive) this.forceUpdate(); }
+  }
+
+  runLearningCommand(session, text) {
+    const chat = session.chat;
+    const notify = (role, message, tag) => {
+      if (this.widget.store.find(session.id) !== session) return;
+      chat.msgs.push({ role, text: message, tag, ts: new Date().toISOString() });
+      this.widget.store.changed();
+    };
+    if (chat._m4Busy) { notify('system', 'M4 learning požadavek už běží.', 'M4_ERROR'); return; }
+    if (chat.attachments.length) {
+      notify('system', 'M4 learning příkazy nepřijímají přílohy. Odeber je před pokračováním.', 'M4_ERROR');
+      return;
+    }
+    const projectId = Number(session._projectId), conversationId = session._convId;
+    if (!Number.isSafeInteger(projectId) || projectId < 1) {
+      notify('system', 'M4 learning vyžaduje aktivní projekt s číselným ID.', 'M4_ERROR');
+      return;
+    }
+    chat._m4Busy = true;
+    chat._thinking = { text: 'M4 learning…', ts: Date.now() };
+    notify('user', text, 'M4');
+    Promise.resolve().then(() => runLearningCommand({ text, projectId,
+      backendUrl: () => this.widget.catalog.backendUrl(), fetchImpl: this.fetchImpl,
+      assertContext: () => {
+        if (this.widget.store.find(session.id) !== session || session._projectId !== String(projectId)
+          || session._convId !== conversationId) {
+          throw Object.assign(new Error('Studio projekt nebo konverzace se během M4 požadavku změnily.'),
+            { code: 'M4_STUDIO_CONTEXT_CHANGED' });
+        }
+      } })).then(result => { notify('assistant', result, 'M4'); }).catch(error => {
+      notify('system', 'M4 chyba [' + (error?.code || 'M4_STUDIO_REQUEST_FAILED')
+        + (error?.status ? ' HTTP ' + error.status : '') + ']: ' + (error?.message || String(error)), 'M4_ERROR');
+    }).finally(() => {
+      chat._m4Busy = false;
+      chat._thinking = null;
+      if (this.widget.store.find(session.id) === session) this.widget.store.changed();
+    });
+  }
+
   pSend(s, sid) {
     const session = this.widget.store.find(sid);
     if (!session) return null;
+    const text = (s.drafts[sid] || '').trim();
+    if (LEARNING_COMMANDS.has(text.split(/\s/, 1)[0])) {
+      if (session.chat._m4Busy || session.chat._thinking || this.widget.transport?.hasActiveM1Turn?.(session)) return null;
+      this.runLearningCommand(session, text);
+      return { drafts: this.merge(s, 'drafts', { [sid]: '' }) };
+    }
     const input = { value: s.drafts[sid] || '' };
     this.widget.send(session, input).then(() => {
       if (!input.value && this.widget.store.find(sid) === session && this.st().drafts[sid] === s.drafts[sid]) {

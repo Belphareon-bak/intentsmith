@@ -33,6 +33,73 @@ function setup({ workspace, m2, catalog: catalogOverride } = {}) {
 
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
+test('M4 composer commands stay in the project and never reach the ordinary chat transport', async () => {
+  const { model, store, calls } = setup();
+  const session = store.focusedSession();
+  session._projectId = '17'; session._convId = 'conversation-17';
+  const paths = [];
+  model.widget.catalog.backendUrl = () => 'http://127.0.0.1:3335';
+  model.fetchImpl = async url => {
+    paths.push(new URL(url).pathname);
+    return { ok: true, json: async () => ({ contract: 'LearningProposalReviewList', version: 1,
+      projectId: 17, stateFilter: 'pending', reviews: [] }) };
+  };
+  model.setState({ drafts: { [session.id]: '/m4-learning pending' } });
+  const patch = model.pSend(model.st(), session.id);
+  model.setState(patch);
+  await tick(); await tick();
+  assert.deepEqual(paths, ['/api/projects/17/learning/proposals']);
+  assert.equal(calls.length, 0);
+  assert.equal(model.st().drafts[session.id], '');
+  assert.deepEqual(session.chat.msgs.map(message => message.role), ['user', 'assistant']);
+  assert.match(session.chat.msgs[1].text, /Count: 0/);
+  session.chat._thinking = { text: 'M1 běží' };
+  model.setState({ drafts: { [session.id]: '/m4-learning pending' } });
+  assert.equal(model.pSend(model.st(), session.id), null);
+  assert.equal(paths.length, 1);
+  assert.equal(model.st().drafts[session.id], '/m4-learning pending');
+});
+
+test('M7 pairing in Security accepts only an exact short-lived local claim and keeps it out of storage', async () => {
+  const { model, widget, storage } = setup();
+  const calls = [];
+  widget.catalog.backendUrl = () => 'http://127.0.0.1:3335';
+  model.setState({ mode: 'section', section: 'settings', detail: { settings: 'zabezpeceni' },
+    dtab: { 'settings:zabezpeceni': 'pristup' } });
+  const vm = model.detailVM(model.st());
+  assert.equal(vm.blocks[0].isPairing, true);
+  assert.equal(vm.blocks[0].pairing.hasClaim, false);
+  const selected = model._pairing.selectedScopes.slice();
+  const code = 'A'.repeat(22);
+  model.fetchImpl = async (url, options) => {
+    calls.push([url, options]);
+    return { ok: true, json: async () => ({ claimCode: code, claimId: 'pairing-claim:' + 'B'.repeat(24),
+      contract: 'M7LocalPairingClaim', expiresAt: new Date(Date.now() + 120_000).toISOString(),
+      pairingUri: 'intentsmith://pair?code=' + code, scopes: selected,
+      subjectId: 'local-user', version: 1 }) };
+  };
+  try {
+    assert.equal(await vm.blocks[0].pairing.issue(), true);
+    assert.equal(calls.length, 1);
+    assert.equal(new URL(calls[0][0]).pathname, '/api/m7/remote/pairing/claims');
+    assert.equal(calls[0][1].credentials, 'same-origin');
+    assert.deepEqual(JSON.parse(calls[0][1].body), { scopes: selected });
+    assert.equal(model.pairingVM().code, code);
+    assert.equal(model.pairingVM().disabled, true, 'a live claim cannot be replaced or broadened');
+    assert.equal(model.togglePairingScope('write:chat'), false);
+    assert.equal(await model.issuePairingClaim(), false);
+    assert.equal(calls.length, 1);
+    assert.equal(['intentsmith-studio2-session-state', 'intentsmith-studio2-layout']
+      .some(key => storage.getItem(key)?.includes(code)), false);
+  } finally { model.componentWillUnmount(); }
+  const { model: malformed, widget: second } = setup();
+  second.catalog.backendUrl = () => 'http://127.0.0.1:3335';
+  malformed.fetchImpl = async () => ({ ok: true, json: async () => ({ claimCode: code }) });
+  assert.equal(await malformed.issuePairingClaim(), false);
+  assert.equal(malformed.pairingVM().hasClaim, false);
+  assert.match(malformed.pairingVM().error, /nepodařilo bezpečně/);
+});
+
 test('settings preserve twelve prototype categories and verify live feature changes against backend', async () => {
   let features = { skills: true, agents: false };
   let fail = false, approved = false;

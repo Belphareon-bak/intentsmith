@@ -770,6 +770,15 @@ textarea.fv-ed{font-family:var(--font-mono)}
 <sc-if value="{{b.isCode}}" hint-placeholder-val="{{false}}"><div class="code mono"><sc-for list="{{b.lines}}" as="ln" hint-placeholder-count="2"><div>{{ln.t}}</div></sc-for></div></sc-if>
 <sc-if value="{{b.isTable}}" hint-placeholder-val="{{false}}"><div class="tbl"><div class="trow th" style="grid-template-columns: {{b.grid}};"><sc-for list="{{b.cols}}" as="co" hint-placeholder-count="3"><span>{{co.t}}</span></sc-for></div><sc-for list="{{b.trs}}" as="tr" hint-placeholder-count="2"><div class="trow" style="grid-template-columns: {{b.grid}};"><sc-for list="{{tr.cells}}" as="ce" hint-placeholder-count="3"><span style="color: {{ce.c}};">{{ce.t}}</span></sc-for></div></sc-for></div></sc-if>
 <sc-if value="{{b.isEmpty}}" hint-placeholder-val="{{false}}"><div class="empty">{{b.empty}}</div></sc-if>
+<sc-if value="{{b.isPairing}}" hint-placeholder-val="{{false}}"><div class="aps" aria-label="Párování telefonu">
+<div class="blk-h"><span class="lbl-acc">Remote Companion · jednorázové párování</span></div>
+<p class="aph">Telefon se připojuje pouze přes tvoji VPN. Vyber oprávnění a vytvoř kód platný pět minut. Kód se neukládá do nastavení ani do historie.</p>
+<div class="pair-scopes"><sc-for list="{{b.pairing.scopes}}" as="scope" hint-placeholder-count="4"><label class="arow2"><span class="mono">{{scope.name}}</span><input type="checkbox" checked="{{scope.checked}}" disabled="{{scope.disabled}}" onChange="{{scope.toggle}}"></label></sc-for></div>
+<button class="btn btn-acc" disabled="{{b.pairing.disabled}}" onClick="{{b.pairing.issue}}">Vytvořit 5min kód</button>
+<p class="aph">{{b.pairing.status}}</p>
+<sc-if value="{{b.pairing.hasError}}" hint-placeholder-val="{{false}}"><div class="note" role="alert">{{b.pairing.error}}</div></sc-if>
+<sc-if value="{{b.pairing.hasClaim}}" hint-placeholder-val="{{false}}"><div class="note" aria-label="Párovací kód"><div class="dl"><span>Kód</span><strong class="mono">{{b.pairing.code}}</strong><span>Platí do</span><span>{{b.pairing.expiry}}</span><span>Odkaz do telefonu</span><code>{{b.pairing.uri}}</code></div><p class="aph">Po prvním použití nebo po vypršení kód už nefunguje.</p></div></sc-if>
+</div></sc-if>
 <sc-if value="{{b.isMediaOutputs}}" hint-placeholder-val="{{false}}"><div class="aps" aria-label="Výstupy generování"><div class="blk-h"><span class="lbl-acc">Výstupy</span></div><sc-for list="{{b.mediaOutputs}}" as="output" hint-placeholder-count="2"><div class="media-output"><span class="mono">{{output.name}}</span><sc-if value="{{output.ready}}" hint-placeholder-val="{{false}}"><sc-if value="{{output.isImage}}" hint-placeholder-val="{{true}}"><img src="{{output.url}}" alt="{{output.name}}"></sc-if><sc-if value="{{output.isVideo}}" hint-placeholder-val="{{false}}"><video src="{{output.url}}" controls="true"></video></sc-if></sc-if><sc-if value="{{output.hasStatus}}" hint-placeholder-val="{{false}}"><span class="aph">{{output.status}}</span></sc-if></div></sc-for></div></sc-if>
 <sc-if value="{{b.isMediaForm}}" hint-placeholder-val="{{false}}">
 <div class="aps" aria-label="Nové generování médií">
