@@ -1070,7 +1070,7 @@ function render(vm, h, F, rt) {
                                 h("label", { className: "arow2" },
                                   h("span", null,
                                     "Testovací dotaz (volitelný)"),
-                                  h("input", { value: $b.expertiseWizard.testQuestion, onChange: $b.expertiseWizard.setTestQuestion, placeholder: "Dotaz pro model" })),
+                                  h("input", { value: $b.expertiseWizard.testQuestion, onChange: $b.expertiseWizard.setTestQuestion, maxLength: "2000", placeholder: "Dotaz pro model" })),
                                 h("button", { className: "btn", disabled: $b.expertiseWizard.testDisabled, onClick: $b.expertiseWizard.test },
                                   "Spustit test modelu"),
                                 ($b.expertiseWizard.hasTestResult) ? h(F, null,

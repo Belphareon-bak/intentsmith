@@ -1191,6 +1191,7 @@ class Component extends DCLogic {
     let inheritanceValid = false;
     try { const parsed = JSON.parse(s.expertiseInheritance || '{}');
       inheritanceValid = !!parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        && Object.keys(parsed).every(key => !['__proto__', 'constructor', 'prototype'].includes(key))
         && Object.values(parsed).every(value => value === 'extend' || value === 'replace');
     } catch { /* invalid JSON is shown as invalid form */ }
     const valid = name.length >= 2 && name.length <= 64 && !!id && !/[\x00-\x1f]/.test(name)
@@ -1235,7 +1236,7 @@ class Component extends DCLogic {
       inheritance: s.expertiseInheritance, setInheritance: e => this.setState({ expertiseInheritance: e.target.value }),
       inheritanceValid, hasInheritanceError: !inheritanceValid, testQuestion: s.expertiseTestQuestion,
       setTestQuestion: e => this.setState({ expertiseTestQuestion: e.target.value }),
-      testDisabled: !valid || status.busy || !s.expertiseTestQuestion.trim(),
+      testDisabled: !valid || status.busy || !s.expertiseTestQuestion.trim() || s.expertiseTestQuestion.length > 2000,
       test: () => this.testExpertise(this.st()), testResult: status.testResult?.response || '',
       hasTestResult: !!status.testResult?.response,
       reviewName: name, reviewId: id, reviewDomain: s.expertiseDomain || 'custom',

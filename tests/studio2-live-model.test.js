@@ -369,6 +369,10 @@ test('advanced expertise rules are bounded and model test needs explicit approva
   model.setState({ expertiseInheritance: '{' });
   assert.equal(model.expertiseWizardVM(model.st()).submitDisabled, true);
   assert.equal(model.expertiseWizardVM(model.st()).hasTestResult, false);
+  model.setState({ expertiseInheritance: '{"__proto__":"extend"}' });
+  assert.equal(model.expertiseWizardVM(model.st()).submitDisabled, true);
+  model.setState({ expertiseInheritance: '{}', expertiseTestQuestion: 'x'.repeat(2001) });
+  assert.equal(model.expertiseWizardVM(model.st()).testDisabled, true);
 });
 
 test('project wizard treats lost mutation response as uncertain and never retries automatically', async () => {

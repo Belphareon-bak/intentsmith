@@ -872,7 +872,7 @@ textarea.fv-ed{font-family:var(--font-mono)}
 <sc-if value="{{b.expertiseWizard.hasInheritanceError}}" hint-placeholder-val="{{false}}"><div role="alert" class="note">Dědění musí být JSON objekt s hodnotami extend nebo replace.</div></sc-if>
 </sc-if>
 <sc-if value="{{b.expertiseWizard.hasPreview}}" hint-placeholder-val="{{false}}"><div class="code mono">{{b.expertiseWizard.previewText}}</div></sc-if>
-<label class="arow2"><span>Testovací dotaz (volitelný)</span><input value="{{b.expertiseWizard.testQuestion}}" onChange="{{b.expertiseWizard.setTestQuestion}}" placeholder="Dotaz pro model"></label>
+<label class="arow2"><span>Testovací dotaz (volitelný)</span><input value="{{b.expertiseWizard.testQuestion}}" onChange="{{b.expertiseWizard.setTestQuestion}}" maxLength="2000" placeholder="Dotaz pro model"></label>
 <button class="btn" disabled="{{b.expertiseWizard.testDisabled}}" onClick="{{b.expertiseWizard.test}}">Spustit test modelu</button>
 <sc-if value="{{b.expertiseWizard.hasTestResult}}" hint-placeholder-val="{{false}}"><div class="note">{{b.expertiseWizard.testResult}}</div></sc-if>
 <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onClick="{{b.expertiseWizard.back}}">Zpět</button><button class="btn" disabled="{{b.expertiseWizard.submitDisabled}}" onClick="{{b.expertiseWizard.preview}}">Náhled pravidel</button><button class="btn btn-acc" disabled="{{b.expertiseWizard.submitDisabled}}" onClick="{{b.expertiseWizard.submit}}">Potvrdit expertýzu</button></div>
