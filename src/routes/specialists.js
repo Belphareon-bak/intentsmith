@@ -282,15 +282,22 @@ export function createSpecialistRoutes(deps) {
     'POST /api/specialists': t(async (req, res) => {
       try {
         const body = await parseBody(req);
+        if (!body || typeof body !== 'object' || Array.isArray(body)) {
+          return sendJSON(res, 400, { ok: false, error: 'Specialist body must be an object' });
+        }
         const { name, domain, description, icon } = body;
 
-        if (!name || name.trim().length < 2) {
-          return sendJSON(res, 400, { ok: false, error: 'Name is required (min 2 chars)' });
+        if (typeof name !== 'string' || name.trim().length < 2 || name.length > 120 ||
+          domain != null && (typeof domain !== 'string' || domain.length > 80) ||
+          description != null && (typeof description !== 'string' || description.length > 4000) ||
+          icon != null && (typeof icon !== 'string' || icon.length > 16)) {
+          return sendJSON(res, 400, { ok: false, error: 'Invalid specialist name, domain, description or icon' });
         }
 
         const id = name.trim().toLowerCase()
           .replace(/\s+/g, '-')
           .replace(/[^a-z0-9-]/g, '')
+          .replace(/^-+|-+$/g, '')
           .substring(0, 32);
 
         if (!id) {
@@ -330,21 +337,23 @@ export function createSpecialistRoutes(deps) {
         };
 
         // Generate stub index.js
-        const safeId = id.replace(/-/g, '_');
         const safeName = name.trim();
-        const safeIcon = (icon || '🤖').substring(0, 4);
+        const safeIcon = Array.from(icon || '🤖').slice(0, 4).join('');
         const safeDomain = (domain || 'general').trim();
         const safeDesc = (description || '').trim();
+        // A generated JS module must quote every user field as a JS string.
+        // JSON literals preserve quotes, backslashes and newlines as data.
+        const jsString = value => JSON.stringify(value).replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
 
-        const indexJs = `// ${safeName} — Auto-generated specialist
+        const indexJs = `// Auto-generated specialist
 // ══════════════════════════════════════════════════════════════════════════════
 
 const EXPERTISE = {
-  id: '${id}',
-  name: '${safeName}',
-  icon: '${safeIcon}',
-  domain: '${safeDomain}',
-  description: '${safeDesc || safeName}',
+  id: ${jsString(id)},
+  name: ${jsString(safeName)},
+  icon: ${jsString(safeIcon)},
+  domain: ${jsString(safeDomain)},
+  description: ${jsString(safeDesc || safeName)},
   isCustom: true,
   primaryProblemTypes: ['procedural'],
   allowedRepresentations: ['structured', 'prose'],
@@ -363,7 +372,7 @@ const EXPERTISE = {
     vocabulary: [],
     antipatterns: [],
   },
-  systemPrompt: '${safeDesc ? safeDesc.replace(/'/g, "\\'") : 'Jsi specialista ' + safeName + '.'}',
+  systemPrompt: ${jsString(safeDesc || 'Jsi specialista ' + safeName + '.')},
 };
 
 export async function register(ctx) {
@@ -371,7 +380,7 @@ export async function register(ctx) {
 
   runtime.registerSpecialist({
     id: manifest.id,
-    domain: '${safeDomain}',
+    domain: ${jsString(safeDomain)},
     globalParamExtractor: null,
     tools: [],
   });
@@ -388,9 +397,9 @@ export async function register(ctx) {
 }
 
 export function unregister(ctx) {
-  try { ctx.runtime?.unregisterSpecialist?.('${id}'); } catch {}
-  try { ctx.registries?.expertise?.removeCustom('${id}'); } catch {}
-  try { ctx.registries?.capability?.unregisterBySpecialist?.('${id}'); } catch {}
+  try { ctx.runtime?.unregisterSpecialist?.(${jsString(id)}); } catch {}
+  try { ctx.registries?.expertise?.removeCustom(${jsString(id)}); } catch {}
+  try { ctx.registries?.capability?.unregisterBySpecialist?.(${jsString(id)}); } catch {}
 }
 `;
 

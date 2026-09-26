@@ -46,6 +46,8 @@ class Component extends DCLogic {
       mediaSteps: 20, mediaCfg: 7, mediaSeed: -1, mediaFrames: 49, mediaModel: '',
       projectMode: 'create', projectStep: 0, projectName: '', projectPath: '',
       projectDescription: '', projectType: 'general',
+      specialistStep: 0, specialistName: '', specialistDomain: 'general',
+      specialistDescription: '', specialistIcon: '',
       style: 'intentsmith', tmode: 'dark', fs: 13, ff: 'brand', ti: 70, ai: 100, bright: 100, pa: 80, ta: 80, bd: 30,
       sep: 'ramecky', density: 'komfortni', scale: '100', col: true, cacc: 0, caccHex: '#22c55e', cbg: 0, cbgHex: '#14141e', css: ''
     };
@@ -777,7 +779,8 @@ class Component extends DCLogic {
       title: SC.label, icon: SC.icon, tone: SC.tone, summary: sums[sec] || '', catalogError: '', hasCatalogError: false, primary: SC.newLabel, hasPrimary: !!SC.newLabel,
       onPrimary: this.run((s2) => (sec === 'chats' ? this.pNewSession(s2, {})
         : sec === 'media' ? this.pSelect(s2, 'media', '__new__')
-          : sec === 'projects' ? this.pSelect(s2, 'projects', '__new__') : null)),
+          : sec === 'projects' ? this.pSelect(s2, 'projects', '__new__')
+            : sec === 'specialists' ? this.pSelect(s2, 'specialists', '__new__') : null)),
       hasChips: f.chips.length > 1, chips: f.chips, items,
       isTiles: s.view === 'dlazdice' && items.length > 0, isList: s.view === 'seznam' && items.length > 0, isEmpty: items.length === 0,
       emptyTitle: empty.t, emptyText: empty.x, emptyIcon: empty.i,
@@ -805,6 +808,12 @@ class Component extends DCLogic {
       status: '', stCls: '', secondary: [], tabs: [['pruvodce', 'Průvodce']],
       blocks: { pruvodce: [{ kind: 'projectWizard' }] },
       desc: 'Založ nový projekt nebo zaregistruj existující složku.', props: [], related: []
+    };
+    if (sec === 'specialists' && id === '__new__') return {
+      icon: I.users, tone: 'violet', title: 'Nový specialista', type: 'Průvodce specialistou', idText: 'specialiste/novy',
+      status: '', stCls: '', secondary: [], tabs: [['pruvodce', 'Průvodce']],
+      blocks: { pruvodce: [{ kind: 'specialistWizard' }] },
+      desc: 'Vytvoří balíček specialisty s manifestem a základním modulem.', props: [], related: []
     };
     if (sec === 'media' && id === '__new__') return {
       icon: I.image, tone: 'violet', title: 'Nové generování', type: 'Multimédia', idText: 'ComfyUI',
@@ -1113,6 +1122,7 @@ class Component extends DCLogic {
       isMediaForm: kind === 'mediaForm', mediaForm: this.mediaFormVM(this.st()),
       isMediaOutputs: kind === 'mediaOutputs', mediaOutputs: b.outputs || [],
       isProjectWizard: kind === 'projectWizard', projectWizard: this.projectWizardVM(this.st()),
+      isSpecialistWizard: kind === 'specialistWizard', specialistWizard: this.specialistWizardVM(this.st()),
       isApObecne: kind === 'apObecne', isApPismo: kind === 'apPismo', isApBarvy: kind === 'apBarvy', isApRozvrzeni: kind === 'apRozvrzeni', isApCss: kind === 'apCss'
     };
   }
@@ -1122,6 +1132,35 @@ class Component extends DCLogic {
   projectStatus() { return { busy: false, error: 'Prototyp ukazuje průvodce; backend se připojuje až v IDE.', defaultDir: '' }; }
 
   submitProject() { return null; }
+
+  specialistStatus() { return { busy: false, error: 'Prototyp ukazuje průvodce; backend se připojuje až v IDE.' }; }
+
+  submitSpecialist() { return null; }
+
+  specialistWizardVM(s) {
+    const status = this.specialistStatus();
+    const name = s.specialistName.trim();
+    const id = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+      .replace(/^-+|-+$/g, '').slice(0, 32);
+    const domains = ['general', 'technology', 'business', 'creative', 'research', 'psychology', 'language', 'education', 'data'];
+    const valid = name.length >= 2 && name.length <= 120 && !!id && !/[\x00-\x1f]/.test(name)
+      && domains.includes(s.specialistDomain) && s.specialistDescription.length <= 4000
+      && Array.from(s.specialistIcon).length <= 4;
+    return {
+      step: s.specialistStep, isForm: s.specialistStep === 0, isReview: s.specialistStep === 1,
+      stepLabel: s.specialistStep === 0 ? 'Krok 1 ze 2 · Údaje' : 'Krok 2 ze 2 · Kontrola',
+      name: s.specialistName, setName: e => this.setState({ specialistName: e.target.value }),
+      domain: s.specialistDomain, domains: domains.map(value => ({ value, label: value })),
+      setDomain: e => this.setState({ specialistDomain: e.target.value }),
+      description: s.specialistDescription, setDescription: e => this.setState({ specialistDescription: e.target.value }),
+      icon: s.specialistIcon, setIcon: e => this.setState({ specialistIcon: e.target.value }),
+      reviewName: name, reviewId: id, reviewDomain: s.specialistDomain,
+      reviewDescription: s.specialistDescription || 'bez popisu', reviewIcon: s.specialistIcon || '🤖',
+      nextDisabled: !valid || status.busy, submitDisabled: !valid || status.busy || !!status.uncertain,
+      next: () => this.setState({ specialistStep: 1 }), back: () => this.setState({ specialistStep: 0 }),
+      submit: () => this.submitSpecialist(this.st()), status: status.error || '', hasStatus: !!status.error
+    };
+  }
 
   projectWizardVM(s) {
     const status = this.projectStatus();

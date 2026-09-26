@@ -66,6 +66,7 @@ class LiveModel extends Component {
     this._policyDrafts = new Map();
     this._projectConversations = new Map();
     this._projectWizardStatus = { busy: false, error: '', defaultDir: '', uncertain: false };
+    this._specialistWizardStatus = { busy: false, error: '', uncertain: false };
     this._workerDetails = new Map();
     this._mediaNotices = new Map();
     this._mediaEnvironment = { status: 'idle', available: false, models: [], error: '' };
@@ -374,12 +375,14 @@ class LiveModel extends Component {
       }
       vm.catalogError = this.widget.catalogActionError || view.error || '';
       vm.hasCatalogError = !!vm.catalogError;
-      vm.hasPrimary = ['chats', 'projects', 'media'].includes(s.section);
+      vm.hasPrimary = ['chats', 'projects', 'specialists', 'media'].includes(s.section);
       vm.primary = s.section === 'media' ? 'Nové generování'
-        : s.section === 'projects' ? 'Nový projekt' : 'Nová konverzace';
+        : s.section === 'projects' ? 'Nový projekt'
+          : s.section === 'specialists' ? 'Nový specialista' : 'Nová konverzace';
       vm.onPrimary = this.run(s2 => s.section === 'media'
         ? this.pSelect(s2, 'media', '__new__') : s.section === 'projects'
-          ? this.pSelect(s2, 'projects', '__new__') : this.pNewSession(s2, {}));
+          ? this.pSelect(s2, 'projects', '__new__') : s.section === 'specialists'
+            ? this.pSelect(s2, 'specialists', '__new__') : this.pNewSession(s2, {}));
     }
     return vm;
   }
@@ -389,6 +392,7 @@ class LiveModel extends Component {
     if (!id) return null;
     if (s.section === 'media' && id === '__new__') return super.detailVM(s);
     if (s.section === 'projects' && id === '__new__') return super.detailVM(s);
+    if (s.section === 'specialists' && id === '__new__') return super.detailVM(s);
     if (s.section === 'settings') return this.settingsDetailVM(s, id);
     if (s.section === 'projects') {
       const vm = super.detailVM(s);
@@ -829,6 +833,58 @@ class LiveModel extends Component {
 
   projectStatus() { return this._projectWizardStatus; }
 
+  specialistStatus() { return this._specialistWizardStatus; }
+
+  async submitSpecialist(s) {
+    const form = this.specialistWizardVM(s);
+    if (s.specialistStep !== 1 || form.submitDisabled || this._specialistWizardStatus.uncertain) return false;
+    const body = { name: s.specialistName.trim(), domain: s.specialistDomain,
+      description: s.specialistDescription.trim(), icon: s.specialistIcon || null };
+    this._specialistWizardStatus = { busy: true, error: '', uncertain: false };
+    this.widget.catalogActionError = null;
+    this.forceUpdate();
+    let accepted = null;
+    try {
+      const base = this.widget.catalog.backendUrl();
+      if (typeof base !== 'string' || !/^https?:\/\//.test(base)) throw Error('Backend není dostupný.');
+      const response = await this.fetchImpl(base + '/api/specialists', { method: 'POST',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(30000) });
+      let result = {};
+      try { result = await response.json(); } catch { /* A lost response leaves the effect uncertain. */ }
+      if (!response.ok) throw Object.assign(Error(result.error || `Specialistu nelze vytvořit (HTTP ${response.status}).`),
+        { status: response.status });
+      const specialist = result.specialist;
+      if (result.ok !== true || typeof specialist?.id !== 'string'
+        || !/^[a-z0-9][a-z0-9-]{0,31}$/.test(specialist.id))
+        throw Error('Backend nevrátil ověřitelného specialistu. Zkontroluj katalog.');
+      accepted = specialist;
+      const detail = await this.widget.catalog.get('/api/specialists/' + encodeURIComponent(specialist.id));
+      if (detail.ok !== true || detail.id !== specialist.id || detail.manifest?.name !== body.name
+        || detail.manifest?.domain !== body.domain)
+        throw Error('Detail nového specialisty neodpovídá potvrzenému plánu.');
+      await this.widget.catalog.load('Specialisté');
+      const view = this.widget.catalog.view('Specialisté');
+      const row = view.items.find(item => item.id === specialist.id);
+      if (view.status !== 'ready' || !row) {
+        this._specialistWizardStatus.error = `Backend vytvořil specialistu ${specialist.id}, ale katalog jej ještě neukazuje. Obnov seznam.`;
+        return true;
+      }
+      this.setState({ ...this.pSelect(this.st(), 'specialists', specialist.id),
+        specialistStep: 0, specialistName: '', specialistDescription: '', specialistIcon: '' });
+      return true;
+    } catch (error) {
+      this._specialistWizardStatus = { ...this._specialistWizardStatus,
+        uncertain: !accepted && !error?.status,
+        error: accepted ? `Backend vytvořil specialistu ${accepted.id}, ale další ověření selhalo. Obnov katalog.`
+          : (error?.message || 'Výsledek vytvoření není jistý. Zkontroluj katalog před dalším pokusem.') };
+      this.widget.catalogActionError = this._specialistWizardStatus.error;
+      return false;
+    } finally {
+      this._specialistWizardStatus.busy = false;
+      this.forceUpdate();
+    }
+  }
+
   async loadProjectDefaults() {
     try {
       const result = await this.widget.catalog.get('/api/projects/defaults');
@@ -1048,6 +1104,7 @@ class LiveModel extends Component {
       this._projectWizardStatus = { busy: false, error: '', defaultDir: '', uncertain: false };
       this.loadProjectDefaults();
     } else if (sec === 'projects') { this.scmClient.load(id); this.loadProjectConversations(id); }
+    if (sec === 'specialists' && id === '__new__') this._specialistWizardStatus = { busy: false, error: '', uncertain: false };
     if (sec === 'workers') this.loadWorkerDetail(id);
     if (sec === 'media') this.clearMediaOutputUrls(id === '__new__' ? '' : id);
     if (sec === 'media' && id === '__new__') this.loadMediaEnvironment();

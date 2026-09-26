@@ -170,6 +170,56 @@ test('project wizard confirms create or open only after backend response and cat
   assert.deepEqual(posts[2], ['/api/projects/open-folder', { folderPath: '/home/user/existing' }]);
 });
 
+test('specialist wizard creates reviewed package and verifies manifest before opening catalog detail', async () => {
+  let conflict = true, installed = false, postCount = 0;
+  const name = "Překladatelův 'asistent'";
+  const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335',
+    fetchImpl: async url => {
+      const path = new URL(url).pathname;
+      if (path === '/api/specialists') return { ok: true, json: async () => ({
+        specialists: installed ? [{ id: 'pekladatelv-asistent', name, status: 'enabled', domain: 'language' }] : [] }) };
+      if (path === '/api/specialists/pekladatelv-asistent') return { ok: true,
+        json: async () => ({ ok: true, id: 'pekladatelv-asistent', manifest: { name, domain: 'language' } }) };
+      throw Error('Unexpected request: ' + path);
+    } });
+  const { model } = setup({ catalog });
+  model.fetchImpl = async (url, options) => {
+    assert.equal(new URL(url).pathname, '/api/specialists');
+    assert.equal(options.method, 'POST');
+    assert.equal(JSON.parse(options.body).description, "Řádek 'jeden'\nDruhý řádek");
+    postCount++;
+    if (conflict) return { ok: false, status: 409, json: async () => ({ error: 'Již existuje' }) };
+    installed = true;
+    return { ok: true, json: async () => ({ ok: true, specialist: { id: 'pekladatelv-asistent' } }) };
+  };
+  model.setState({ mode: 'section', section: 'specialists', detail: { specialists: '__new__' },
+    specialistStep: 1, specialistName: name, specialistDomain: 'language',
+    specialistDescription: "Řádek 'jeden'\nDruhý řádek", specialistIcon: '🧠' });
+  assert.equal(model.specialistWizardVM(model.st()).reviewId, 'pekladatelv-asistent');
+  assert.equal(await model.submitSpecialist(model.st()), false);
+  assert.equal(model.specialistStatus().uncertain, false, 'explicit 409 permits correction');
+  conflict = false;
+  assert.equal(await model.submitSpecialist(model.st()), true);
+  assert.equal(model.st().detail.specialists, 'pekladatelv-asistent');
+  assert.equal(model.detailVM(model.st()).title, name);
+  assert.equal(postCount, 2);
+});
+
+test('specialist wizard never retries an uncertain package creation', async () => {
+  let postCount = 0;
+  const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335', fetchImpl: async () => {
+    throw Error('No readback expected after lost response');
+  } });
+  const { model } = setup({ catalog });
+  model.fetchImpl = async () => { postCount++; throw Error('Connection lost'); };
+  model.setState({ mode: 'section', section: 'specialists', detail: { specialists: '__new__' },
+    specialistStep: 1, specialistName: 'Analyst', specialistDomain: 'general' });
+  assert.equal(await model.submitSpecialist(model.st()), false);
+  assert.equal(model.specialistStatus().uncertain, true);
+  assert.equal(await model.submitSpecialist(model.st()), false);
+  assert.equal(postCount, 1);
+});
+
 test('project wizard treats lost mutation response as uncertain and never retries automatically', async () => {
   let posts = 0;
   const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335',

@@ -65,13 +65,19 @@ projekt nebo registruje existující složku přes stávající `/api/projects`
 a `/api/projects/open-folder`. Po odpovědi ověřuje projekt v katalogu;
 nejistý výsledek zápisu neopakuje automaticky.
 
+Průvodce specialistou je také v prototypu a generovaném pohledu. Před
+vytvořením ukáže ID, doménu, popis a soubory balíčku. IDE zapisuje přes
+existující `/api/specialists`, ověřuje manifest novým čtením a katalogem;
+nejistý výsledek neopakuje. Generator stubu v backendu byl při napojení
+opraven, aby vložené apostrofy a nové řádky zůstaly daty, nikoli JS kódem.
+
 Nastavení má nyní přesně 12 kategorií a záložky z UI-SPEC. Funkční přepínače
 se čtou z `/api/features`; zapnutí, vypnutí a obnovení výchozích hodnot
 vyžaduje potvrzení a ověřuje nový stav ze serveru. Lokální modely se čtou
 z Ollamy prostřednictvím backendu a velikost uložených příloh z backendu.
 Ostatní nepřipojené záložky jsou výslovně označené a neukazují ukázková data.
 
-**Zbývá před paritou S2-7:** průvodci specialistů, expertýz a workerů
+**Zbývá před paritou S2-7:** průvodci expertýz a workerů
 a další akce katalogů, vytvoření,
 přejmenování a smazání souborů ve stromu, úplných 12 kategorií nastavení,
 stahování modelů, role/hunt/governor/upgrady, M4/M7, vstupní obraz pro Multimédia

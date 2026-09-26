@@ -802,6 +802,24 @@ textarea.fv-ed{font-family:var(--font-mono)}
 <sc-if value="{{b.projectWizard.hasStatus}}" hint-placeholder-val="{{false}}"><div role="alert" class="note">{{b.projectWizard.status}}</div></sc-if>
 </div>
 </sc-if>
+<sc-if value="{{b.isSpecialistWizard}}" hint-placeholder-val="{{false}}">
+<div class="aps" aria-label="Průvodce specialistou">
+<div class="blk-h"><span class="lbl-acc">{{b.specialistWizard.stepLabel}}</span></div>
+<sc-if value="{{b.specialistWizard.isForm}}" hint-placeholder-val="{{true}}">
+<label class="arow2"><span>Název</span><input value="{{b.specialistWizard.name}}" onChange="{{b.specialistWizard.setName}}" maxLength="120" placeholder="Například Překladatel"></label>
+<label class="arow2"><span>Doména</span><select value="{{b.specialistWizard.domain}}" onChange="{{b.specialistWizard.setDomain}}"><sc-for list="{{b.specialistWizard.domains}}" as="option" hint-placeholder-count="3"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
+<label class="arow2"><span>Popis</span><textarea rows="4" value="{{b.specialistWizard.description}}" onChange="{{b.specialistWizard.setDescription}}" placeholder="Co specialista umí"></textarea></label>
+<label class="arow2"><span>Ikona</span><input value="{{b.specialistWizard.icon}}" onChange="{{b.specialistWizard.setIcon}}" placeholder="🤖"></label>
+<button class="btn btn-acc" disabled="{{b.specialistWizard.nextDisabled}}" onClick="{{b.specialistWizard.next}}">Pokračovat na kontrolu</button>
+</sc-if>
+<sc-if value="{{b.specialistWizard.isReview}}" hint-placeholder-val="{{false}}">
+<div class="dl"><span>Název</span><strong>{{b.specialistWizard.reviewName}}</strong><span>ID</span><code>{{b.specialistWizard.reviewId}}</code><span>Doména</span><span>{{b.specialistWizard.reviewDomain}}</span><span>Ikona</span><span>{{b.specialistWizard.reviewIcon}}</span><span>Popis</span><span>{{b.specialistWizard.reviewDescription}}</span></div>
+<p class="aph">Backend vytvoří balíček specialists/{{b.specialistWizard.reviewId}}/ s manifestem a základním modulem.</p>
+<div style="display:flex;gap:8px"><button class="btn" onClick="{{b.specialistWizard.back}}">Zpět</button><button class="btn btn-acc" disabled="{{b.specialistWizard.submitDisabled}}" onClick="{{b.specialistWizard.submit}}">Potvrdit vytvoření</button></div>
+</sc-if>
+<sc-if value="{{b.specialistWizard.hasStatus}}" hint-placeholder-val="{{false}}"><div role="alert" class="note">{{b.specialistWizard.status}}</div></sc-if>
+</div>
+</sc-if>
 <sc-if value="{{b.isScmPolicy}}" hint-placeholder-val="{{false}}">
 <div class="aps dev-panel" aria-label="Politika správy zdrojů">
 <sc-for list="{{dt.scmPolicy.fields}}" as="setting" hint-placeholder-count="2"><label class="arow2"><span>{{setting.label}}</span><select value="{{setting.value}}" onChange="{{setting.change}}"><sc-for list="{{setting.options}}" as="option" hint-placeholder-count="3"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label></sc-for>
