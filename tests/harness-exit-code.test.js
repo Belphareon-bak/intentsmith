@@ -433,7 +433,9 @@ try {
   // its first import is isolated-test-db.js and it owns every HTTP child server.
   // 134 -> 135: the Studio 2 specialist package test creates a temporary
   // directory and imports the isolation bootstrap before the route under test.
-  const expectedDatabaseReachableRootTests = 135;
+  // 135 -> 136: Studio 2 live-model tests now exercise the expertise route;
+  // its first import provides the same isolated database bootstrap.
+  const expectedDatabaseReachableRootTests = 136;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,

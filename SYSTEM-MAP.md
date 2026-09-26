@@ -740,7 +740,7 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 | | |
 |---|---:|
 | `src/**/*.js` | **231 037 ř.**, 671 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **252 660 ř.**, 551 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **252 663 ř.**, 551 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **555** (`461 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) v integračním manifestu; úplný profil má samostatný výsledek |
 | Tabulek v čerstvé DB / aplikovaných migrací | **185 / 107** |
 | HTTP rout | **Nezměřeno na integračním SHA**; hunt snapshot měl 246 statických deklarací |
