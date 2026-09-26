@@ -48,7 +48,7 @@ class Component extends DCLogic {
       openFiles: { 'src/main/sftp.js': true }, paused: {}, ran: {}, installed: {}, seq: 1,
       fileView: {}, fileMode: {}, fileDraft: {}, fileText: {}, fileGuard: null, userOpened: {}, treeClosed: {}, fileAction: null, fileActionNotice: '',
       specialistFiles: {}, specialistPreview: null, specialistFileNotice: '',
-      scm: {}, scmPlan: null, auditX: {}, ctxQ: '', atts: {}, cmds: {}, termX: {},
+      scm: {}, scmPlan: null, auditX: {}, ctxQ: '', stepsOpen: {}, atts: {}, cmds: {}, termX: {},
       mediaType: 'txt2img', mediaPrompt: '', mediaNegative: '', mediaWidth: 1024, mediaHeight: 1024,
       mediaSteps: 20, mediaCfg: 7, mediaSeed: -1, mediaFrames: 49, mediaModel: '',
       mediaInputName: '', mediaDenoise: 0.7,
@@ -173,7 +173,7 @@ class Component extends DCLogic {
         msgs: [
           { k: 'user', time: '14:02', text: 'Dokonči přenos souborů přes SFTP – obnovení přerušeného přenosu a ukazatel průběhu v panelu souborů. Vzhled neměň.' },
           { k: 'agent', time: '14:02 · 34 s', badge: 'BUILD', expert: 'Vývojář',
-            steps: [['Prošel 4 soubory v src/main', '1,2 s'], ['Naplánoval 3 změny a 1 nový test', '6,8 s'], ['Upravil src/main/sftp.js', '+48 −9'], ['Upravil src/renderer/js/files.js', '+21 −4'], ['Vytvořil test/sftp-resume.test.js', '+62'], ['Spustil npm test — všechny testy prošly', '11,4 s']],
+            key: 's1a', foldMeta: '2,1 s', steps: [['Volí postup', '', 'i'], ['Připravuje kontext', '0,6 s', 'i'], ['Prošel 4 soubory v src/main', '1,2 s'], ['Naplánoval 3 změny a 1 nový test', '6,8 s'], ['Upravil src/main/sftp.js', '+48 −9'], ['Upravil src/renderer/js/files.js', '+21 −4'], ['Vytvořil test/sftp-resume.test.js', '+62'], ['Spustil npm test — všechny testy prošly', '11,4 s']],
             paras: ['Přerušený přenos teď pokračuje od posledního potvrzeného bloku. Před zápisem se zjistí velikost souboru na serveru a čtení začne od téhle pozice.', 'Server musí umět zapisovat od posunu – OpenSSH to umí vždy. Když to server neumí, přenos začne znovu a v logu o tom zůstane záznam. Průběh se do panelu souborů posílá nejvýš čtyřikrát za sekundu.'],
             code: ['const offset = await remoteSize(sftp, target).catch(() => 0);', 'const stream = fs.createReadStream(local, { start: offset });'],
             approval: { files: 3, add: 131, del: 13 } }
@@ -199,6 +199,7 @@ class Component extends DCLogic {
         parts: [['Systém', 9, N], ['Historie', 6, A], ['Soubory', 3, V]],
         msgs: [
           { k: 'user', time: '11:32', text: 'Projdi aplikaci jako uživatel na ploše – spusť ji, proklikej přehled, detail a procesy a oprav, co nefunguje.' },
+          { k: 'note', tone: 'warn', time: '11:33', text: 'První sestavení selhalo (npm run build, exit 1). Agent pokračuje opravou.' },
           { k: 'agent', time: '11:40 · 7 min 42 s', badge: 'BUILD', expert: 'Vývojář',
             steps: [['Spustil aplikaci s ladicím portem', '4,1 s'], ['Prošel přehled, detail GPU a tabulku procesů', '2 min 10 s'], ['Našel 2 chyby: řazení podle disku, prázdný graf po startu', ''], ['Upravil src/renderer/js/processes.js', '+14 −3'], ['Upravil src/renderer/js/chart.js', '+9 −2'], ['Znovu sestavil a prošel všechny obrazovky', '1 min 48 s']],
             paras: ['Obě chyby jsou opravené. Řazení podle disku teď sčítá čtení i zápis a graf po startu nekreslí prázdnou osu, dokud nemá aspoň dva vzorky.'],
@@ -261,7 +262,8 @@ class Component extends DCLogic {
         parts: [['Systém', 4, N], ['Historie', 2, A], ['Soubory', 0, V]],
         msgs: [
           { k: 'user', time: 'včera 18:03', text: 'Co je to Docker?' },
-          { k: 'agent', time: 'včera 18:03 · 9 s', badge: 'CONVERSATION', expert: 'Výchozí',
+          { k: 'agent', time: 'včera 18:03 · 9 s', badge: 'CONVERSATION', expert: 'Výchozí', key: 's5a', foldMeta: '9,0 s',
+            steps: [['Volí postup', '', 'i'], ['Připravuje kontext', '0,4 s', 'i'], ['Odpověď modelu · qwen3.5:27b', '8,1 s', 'i'], ['Kontrola výstupu', '0,3 s', 'i']],
             paras: ['Docker je nástroj, který zabalí aplikaci i se vším, co potřebuje ke spuštění – knihovny, nastavení a runtime – do takzvaného kontejneru. Kontejner se pak spustí stejně na tvém počítači, na serveru i v cloudu.', 'Na rozdíl od virtuálního stroje nemá kontejner vlastní operační systém; sdílí jádro hostitele, takže startuje za sekundy a zabírá málo místa. Obraz (image) je předpis, kontejner je jeho běžící instance.'] }
         ],
         changes: [], ctxFiles: [], memory: [], tree: [],
@@ -1483,7 +1485,16 @@ class Component extends DCLogic {
     const I = this.data().I;
     const a = s.approved[sid];
     const stopped = !!(m.rid && s.stopped[m.rid]);
-    const steps = (m.steps || []).map((x) => ({ t: x[0], m: x[1] || '', cls: x[2] === 'run' ? (stopped ? 'stopped' : 'run') : '' }));
+    // Kroky: [text, meta, příznak]; příznak 'run' běží, 'err' chyba, 'i' interní krok zpracování.
+    // Interní kroky se sbalí do jednoho řádku, vidět zůstává skutečná práce.
+    const fkey = m.rid || m.key || '';
+    const all = m.steps || [];
+    const internal = all.filter((x) => x[2] === 'i' || x[2] === 'i-run');
+    const foldOpen = !!(fkey && s.stepsOpen[fkey]);
+    const steps = all.filter((x) => foldOpen || !(x[2] === 'i' || x[2] === 'i-run')).map((x) => ({ t: x[0], m: x[1] || '',
+      cls: x[2] === 'run' || x[2] === 'i-run' ? (stopped ? 'stopped' : 'run') : x[2] === 'err' ? 'err' : x[2] === 'i' ? 'int' : '' }));
+    const hasFold = internal.length > 0;
+    const foldWord = internal.length === 1 ? '1 krok' : internal.length <= 4 ? internal.length + ' kroky' : internal.length + ' kroků';
     let hasApproval = false, hasResult = false, resText = '', resColor = 'var(--ok)', resIcon = I.check;
     const ap = m.approval;
     if (ap) {
@@ -1501,6 +1512,11 @@ class Component extends DCLogic {
       author, authorIcon: b.kind === 'specialist' ? I.users : I.anvil,
       badge: m.badge || '', hasBadge: !!m.badge, expert: m.expert || '',
       steps, hasSteps: steps.length > 0, paras: (m.paras || []).map((t) => ({ t })),
+      hasFold, foldOpen: foldOpen ? 'true' : 'false', foldChev: foldOpen ? I.down : I.right,
+      foldText: (foldOpen ? 'Skrýt zpracování' : 'Zpracování') + ' · ' + foldWord, foldMeta: m.foldMeta || '',
+      toggleFold: () => { if (fkey) this.setState({ stepsOpen: this.merge(this.st(), 'stepsOpen', { [fkey]: !foldOpen }) }); },
+      isNote: m.k === 'note', noteCls: 'n-' + (m.tone || 'info'), noteRole: m.tone === 'err' ? 'alert' : 'status',
+      noteIcon: m.tone === 'err' ? I.x : m.tone === 'warn' ? I.info : m.tone === 'ok' ? I.check : I.info,
       code: (m.code || []).map((t) => ({ t })), hasCode: !!(m.code && m.code.length),
       hasMarkdown: false, noMarkdown: true, html: '',
       hasCopy: m.k === 'agent' && !!((m.paras || []).length || (m.code || []).length),
@@ -1509,6 +1525,7 @@ class Component extends DCLogic {
       isRunning: !!m.running && !stopped, runText: m.runText || 'Pracuje…',
       stop: () => this.setState({ stopped: this.merge(this.st(), 'stopped', { [m.rid]: true }) }),
       hasApproval, apprTitle: 'Změny čekají na schválení', apprSub: ap ? this.filesWord(ap.files) + ' · +' + ap.add + ' −' + ap.del + ' · režim ' + (mode === 'auto' ? 'Auto' : 'Kontrola') : '',
+      apprHint: ap && ap.hint ? ap.hint : '', hasApprHint: !!(ap && ap.hint), approveCls: ap && ap.canApprove === false ? 'soft' : '',
       approve: this.run((s2) => this.pApprove(s2, sid, 'ok')), reject: this.run((s2) => this.pApprove(s2, sid, 'no')),
       showChanges: () => this.setState({ rightOpen: true, rightPin: true, rightTab: 'zmeny', mode: 'sessions', focusCol: Math.max(0, this.colLayout(this.st()).indexOf(sid)) }),
       hasResult, resText, resColor, resIcon
@@ -1552,7 +1569,7 @@ class Component extends DCLogic {
         autoCls: mode === 'auto' ? 'on' : '', revCls: mode === 'kontrola' ? 'on' : '',
         setAuto: () => this.setState({ modes: this.merge(this.st(), 'modes', { [sid]: 'auto' }) }),
         setRev: () => this.setState({ modes: this.merge(this.st(), 'modes', { [sid]: 'kontrola' }) }),
-        ctx: this.ctxOf(sid, s),
+        ctx: this.ctxOf(sid, s), ctxLabel: this.ctxOf(sid, s) + ' %',
         multi: lay.length > 1,
         pick: this.showCtx('colpick', String(i), 'left'), pickCls: s.ctx && s.ctx.sec === 'colpick' && s.ctx.id === String(i) ? 'open' : '',
         closeCol: () => { const s2 = this.st(); const l2 = this.colLayout(s2); l2.splice(i, 1); const fr2 = s2.colFr.slice(); fr2.splice(i, 1); fr2.push(1); this.setState({ cols: Math.max(1, s2.cols - 1), colSids: l2, colFr: fr2, focusCol: Math.max(0, Math.min(s2.focusCol, l2.length - 1)) }); },
@@ -2520,6 +2537,9 @@ class Component extends DCLogic {
       toggleBottom: () => this.setState({ bottomOpen: !this.st().bottomOpen }),
       toggleRight: () => { const s2 = this.st(); if (rightVis) this.setState({ rightOpen: false, rightPin: false }); else this.setState({ rightOpen: true, rightPin: true, mode: 'sessions' }); },
       fullscreen: () => { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen(); } catch (e) {} },
+      // Okno: prototyp nemá hostitele, maximalizace = celá obrazovka; IDE je napojí na Electron.
+      winMin: () => {}, winClose: () => {}, winMaxLabel: 'Maximalizovat',
+      winMax: () => { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen(); } catch (e) {} },
       mainCols: navWidth + 'px ' + (navFull ? 4 : 0) + 'px minmax(0, 1fr) ' + (rightVis ? 4 : 0) + 'px ' + (rightVis ? s.rightW : 0) + 'px',
       dragNav: this.drag('nav'), dragRight: this.drag('right'), dragBottom: this.drag('bottom'), dragDetail: this.drag('detail'),
       navFull, navRail: !navFull,
@@ -2535,7 +2555,7 @@ class Component extends DCLogic {
       closeDetail: () => { const s2 = this.st(); this.setState({ detail: this.merge(s2, 'detail', { [s2.section]: null }) }); },
       ap: this.apVM(s, mode),
       ws: this.wsVM(s, fsid),
-      sb: { sessions: sessWord + ' · ' + nRun + ' pracuje · ' + nWait + ' čeká', ctx: fsid ? this.ctxOf(fsid, s) : 0, connection: 'Připojeno', dot: 'ok', backend: 'backend 136.1.0', ws: 'ws :3335', db: 'DB 134 MiB', gpu: 'GPU 18,3 / 24,0 GiB · 57 °C' }
+      sb: { sessions: sessWord + ' · ' + nRun + ' pracuje · ' + nWait + ' čeká', ctx: fsid ? this.ctxOf(fsid, s) : 0, ctxLabel: (fsid ? this.ctxOf(fsid, s) : 0) + ' %', connection: 'Připojeno', dot: 'ok', backend: 'backend 136.1.0', ws: 'ws :3335', db: 'DB 134 MiB', gpu: 'GPU 18,3 / 24,0 GiB · 57 °C' }
     };
   }
 }

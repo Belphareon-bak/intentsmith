@@ -49,7 +49,9 @@ const SCENES = {
   'motiv-matrix': () => ({ style: 'matrix', rightTab: 'scm' }),
   'motiv-nocturne-svetly': () => ({ style: 'nocturne', tmode: 'light', rightTab: 'soubory' }),
   'motiv-studio': () => ({ style: 'studio', cols: 3 }),
-  'terminal-a-prilohy': () => ({ atts: { s1: [['zadani.md', '2 kB'], ['chyba.log', '12 kB']] }, cmds: { s1: 'npm test -- --grep sftp' }, termX: { s1: [['$ git status --short', 'p'], [' M src/main/sftp.js', '']] } })
+  'terminal-a-prilohy': () => ({ atts: { s1: [['zadani.md', '2 kB'], ['chyba.log', '12 kB']] }, cmds: { s1: 'npm test -- --grep sftp' }, termX: { s1: [['$ git status --short', 'p'], [' M src/main/sftp.js', '']] } }),
+  'konverzace-sbalena': () => ({ cols: 2, colSids: ['s5', 's2'] }),
+  'konverzace-rozbalena': () => ({ cols: 1, colSids: ['s5'], stepsOpen: { s5a: true } }),
 };
 
 function pageHtml(markup) {

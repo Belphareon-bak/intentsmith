@@ -291,3 +291,32 @@ Vytvoření a odvolání tokenu vyžaduje potvrzení a zpětné čtení. Nový t
 zůstává jen v paměti obrazovky a po kopírování nebo zavření zmizí. Backendový
 počet WebSocket spojení je v aktuální route pouze placeholder, proto jej nové
 UI neprezentuje jako ověřený počet aktivních relací.
+
+## 8. Konverzace a okno (26. 9.)
+
+Konverzace mají vypadat jako v prototypu, proto `LiveModel.sess()` převádí
+zprávy relace takto (test `tests/studio2-conversation-view.test.js`):
+
+- Úvodní hláška klasického chatu („IntentSmith připraven…") se nezobrazuje;
+  prázdná relace má prázdný stav z prototypu.
+- Časová osa tahu ukazuje jen skutečnou práci (nástroje, soubory, chyby).
+  Interní kroky pipeline (`kind: 'step'`, `'model'`) jsou sbalené do řádku
+  „Zpracování · N kroků · čas"; opakovaný krok se sloučí. Čas odpovědi nese délku tahu.
+- Systémová zpráva M2 `awaiting_approval` s platnou vazbou plánu je karta
+  schválení (soubory, +/−, režim). Schválit je utlumené a otevře panel Změny,
+  dokud nebyl přesný plán zobrazen (pravidlo `m2-controller`). Chybí-li zpráva
+  (obnova relace), karta je na konci konverzace. Ostatní M2 stavy a chyby jsou
+  krátká hlášení (`cnote`, tóny `n-info/ok/warn/err`), bez `lifecycle` identifikátorů.
+- Čip expertýzy a modelu jsou zpět; model je tag z posledního tahu (ne role
+  jako „answer"), jinak model role CHAT z `/api/system/models` (`current_model`).
+- Zaplnění kontextu bez měření je „—". `POST /api/context` je v backendu jen
+  odhad podle počtu zpráv, UI ho proto nepoužívá.
+- Záložka s výchozím názvem „Relace N" dostane název podle prvního zadání.
+
+Okno: v režimu Studio 2 se skryje nativní menu Theie a okno se od dalšího startu
+přepne na bezrámové (`setTitleBarStyle('custom')`), protože Studio 2 má vlastní
+titulní lištu, nabídky i tlačítka okna (`winMin/winMax/winClose` → Electron).
+Horní panel Theie zůstává skrytý. Návrat do klasického režimu rám vrátí
+(`intentsmith-studio2-frame` v `localStorage`). Globální pravidla polí z klasického
+motivu (`intentsmith-theme.css`) v režimu Studio 2 neplatí; pole průvodců
+a nastavení mají styl z prototypu (`:where(.ide) …`, nulová specifičnost).

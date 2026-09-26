@@ -18,7 +18,8 @@ function identity(value) {
 }
 function messages(value) {
   return Array.isArray(value) ? value.slice(-100).filter(item => item && typeof item === 'object')
-    .map(item => ({ role: text(item.role, 'system'), text: text(item.text), tag: text(item.tag) })) : [];
+    .map(item => ({ role: text(item.role, 'system'), text: text(item.text), tag: text(item.tag),
+      ...(typeof item.ts === 'string' && !Number.isNaN(Date.parse(item.ts)) ? { ts: item.ts } : {}) })) : [];
 }
 function id() {
   if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') return globalThis.crypto.randomUUID();

@@ -547,6 +547,36 @@
 .intentsmith-studio2-widget .pal-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .intentsmith-studio2-widget .pal-s{font-size:11.5px;color:var(--faint);white-space:nowrap}
 .intentsmith-studio2-widget .pal-f{padding:8px 14px;border-top:1px solid var(--soft);font-size:11px;color:var(--faint)}
+.intentsmith-studio2-widget .dark{color-scheme:dark}
+.intentsmith-studio2-widget .light{color-scheme:light}
+.intentsmith-studio2-widget :where(.ide) :where(input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]),select,textarea){min-width:0;height:30px;padding:0 9px;border:1px solid var(--border);border-radius:5px;background:var(--bg2);color:var(--text);font-size:12.5px;outline:none}
+.intentsmith-studio2-widget :where(.ide) :where(textarea){height:auto;padding:7px 9px;line-height:1.45;resize:vertical}
+.intentsmith-studio2-widget :where(.ide) :where(input,select,textarea):focus{border-color:var(--acc)}
+.intentsmith-studio2-widget :where(.ide) :where(input,select,textarea):disabled{opacity:.55;cursor:default}
+.intentsmith-studio2-widget :where(.ide) :where(input,textarea)::placeholder{color:var(--faint)}
+.intentsmith-studio2-widget :where(.ide) :where(select option){background:var(--panel2);color:var(--text)}
+.intentsmith-studio2-widget :where(.ide) :where(input[type=checkbox],input[type=radio]){accent-color:var(--acc)}
+.intentsmith-studio2-widget .tl-fold{display:flex;align-items:center;gap:8px;width:100%;padding:2px 0;border:0;background:none;color:var(--faint);font-size:calc(var(--fc) - 2px);cursor:pointer;text-align:left}
+.intentsmith-studio2-widget .tl-fold:hover{color:var(--dim)}
+.intentsmith-studio2-widget .tl-i.int{color:var(--faint)}
+.intentsmith-studio2-widget .tl-i.int .tl-dot{background:var(--panel3);box-shadow:0 0 0 3px var(--base)}
+.intentsmith-studio2-widget .tl-i.err{color:var(--bad)}
+.intentsmith-studio2-widget .tl-i.err .tl-dot{background:var(--bad)}
+.intentsmith-studio2-widget .cnote{display:flex;align-items:flex-start;gap:9px;padding:7px 11px;border-left:2px solid var(--border);font-size:calc(var(--fc) - 1.5px);line-height:1.5;color:var(--dim);user-select:text}
+.intentsmith-studio2-widget .cnote>.ic{margin-top:2px;flex:0 0 auto}
+.intentsmith-studio2-widget .cnote-t{min-width:0;flex:1 1 auto;white-space:pre-wrap;overflow-wrap:anywhere}
+.intentsmith-studio2-widget .cnote-m{font-family:var(--font-mono);font-size:11px;color:var(--faint);white-space:nowrap}
+.intentsmith-studio2-widget .cnote.n-info>.ic{color:var(--info)}
+.intentsmith-studio2-widget .cnote.n-ok{border-left-color:var(--ok)}
+.intentsmith-studio2-widget .cnote.n-ok>.ic{color:var(--ok)}
+.intentsmith-studio2-widget .cnote.n-warn{border-left-color:var(--warn)}
+.intentsmith-studio2-widget .cnote.n-warn>.ic{color:var(--warn)}
+.intentsmith-studio2-widget .cnote.n-err{border-left-color:var(--bad);color:var(--text)}
+.intentsmith-studio2-widget .cnote.n-err>.ic{color:var(--bad)}
+.intentsmith-studio2-widget .appr-h{color:var(--warn) !important}
+.intentsmith-studio2-widget .btn-acc.soft{opacity:.55}
+.intentsmith-studio2-widget .tb{-webkit-app-region:drag}
+.intentsmith-studio2-widget .tb button,.intentsmith-studio2-widget .tb input,.intentsmith-studio2-widget .tb label,.intentsmith-studio2-widget .tb .dd,.intentsmith-studio2-widget .tb .mbar,.intentsmith-studio2-widget .tb .cmd,.intentsmith-studio2-widget .tb .seg,.intentsmith-studio2-widget .tb .sizer{-webkit-app-region:no-drag}
 .intentsmith-studio2-widget .scol{position:relative}
 .intentsmith-studio2-widget button.pane-t{display:inline-flex;align-items:center;gap:5px;border:0;background:none;padding:3px 6px;margin-left:-4px;border-radius:5px;cursor:pointer;font-family:inherit;max-width:100%}
 .intentsmith-studio2-widget button.pane-t:hover,.intentsmith-studio2-widget button.pane-t.open{background:var(--hover)}

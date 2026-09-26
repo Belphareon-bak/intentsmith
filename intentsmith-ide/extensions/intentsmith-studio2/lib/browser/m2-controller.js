@@ -106,7 +106,7 @@ class M2Controller {
     const entry = this.entry(session);
     entry.error = `M2 [${error.code || 'REQUEST_FAILED'}${error.status ? ' HTTP ' + error.status : ''}]: ${error.message}. Stav ověřte příkazem /m2-status; požadavek se automaticky neopakuje.`;
     if (!session._closed && this.store.find(session.id) === session) {
-      session.chat.msgs.push({ role: 'system', tag: 'M2_ERROR', text: entry.error });
+      session.chat.msgs.push({ role: 'system', ts: new Date().toISOString(), tag: 'M2_ERROR', text: entry.error });
       this.changed();
     }
   }
@@ -227,7 +227,7 @@ class M2Controller {
         : command === '/m2-status' ? 120000 : command === '/m2-cancel' ? 600000 : 990000);
       const id = expectedId || view.lifecycleId;
       const accepted = this.accept(session, view, capturedOrigin, id, expectedDigest);
-      session.chat.msgs.push({ role: 'system', tag: 'M2', text: TERMINAL.has(accepted.state)
+      session.chat.msgs.push({ role: 'system', ts: new Date().toISOString(), tag: 'M2', text: TERMINAL.has(accepted.state)
         ? `M2 ${accepted.state}: trvalý výsledek ${accepted.lifecycleId} byl ověřen. Podrobnosti jsou v panelu Změny.`
         : `M2 ${accepted.state}: plán ${accepted.lifecycleId}. Zkontrolujte přesný diff v panelu Změny.` });
       this.changed();
@@ -247,13 +247,13 @@ class M2Controller {
     const match = /^(\/m2-(?:draft|build|plan|status|approve|cancel))(?:\s+([\s\S]*))?$/.exec(text);
     const pending = pendingBinding(session._m2Pending);
     if (!match && pending && /^(?:ano|ok|spusť(?: to)?|spust(?: to)?|yes|approve)$/i.test(text.trim())) {
-      session.chat.msgs.push({ role: 'system', tag: 'M2_ERROR',
+      session.chat.msgs.push({ role: 'system', ts: new Date().toISOString(), tag: 'M2_ERROR',
         text: 'M2 approval nebyl proveden. Použijte pouze /m2-approve po kontrole plánu.' });
       this.changed();
       return true;
     }
     if (!match) return false;
-    session.chat.msgs.push({ role: 'user', tag: 'M2', text });
+    session.chat.msgs.push({ role: 'user', tag: 'M2', text, ts: new Date().toISOString() });
     this.changed();
     this.run(session, match[1], match[2] || '').catch(error => this.report(session, error));
     return true;

@@ -39,6 +39,63 @@ function clock(ts) {
   return Number.isNaN(date.getTime()) ? '' : date.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' });
 }
 
+// Úvodní hláška klasického chatu; Studio 2 místo ní ukazuje prázdný stav relace.
+const LEGACY_GREETING = 'IntentSmith připraven. Začni psát zprávu.';
+const DEFAULT_LABEL = /^Relace \d+$/;
+
+function seconds(ms) {
+  if (!Number.isFinite(ms) || ms <= 0) return '';
+  if (ms < 60_000) return (ms / 1000).toLocaleString('cs-CZ', { maximumFractionDigits: 1 }) + ' s';
+  const minutes = Math.floor(ms / 60_000);
+  return minutes + ' min ' + Math.round((ms % 60_000) / 1000) + ' s';
+}
+
+// Kroky práce agenta pro časovou osu: nástroje, soubory a chyby zůstávají vidět,
+// interní kroky zpracování (směrování, kontext, model, kontroly) se sbalí.
+function timeline(activity) {
+  const out = [];
+  for (const step of activity?.steps || []) {
+    const running = step.status === 'running';
+    const internal = step.kind === 'step' || step.kind === 'model';
+    const raw = step.kind === 'model' && typeof step.input === 'string' ? step.input.replace(/^Model \/ role:\s*/, '') : '';
+    const model = /^[\w.\-\/]+:[\w.\-]+$/.test(raw) ? raw : '';
+    const label = step.kind === 'model' ? 'Odpověď modelu' + (model ? ' · ' + model : '') : step.label || step.tool || 'Krok';
+    const meta = step.durationMs != null ? seconds(step.durationMs) : running ? 'probíhá' : '';
+    const flag = step.status === 'error' ? 'err' : internal ? (running ? 'i-run' : 'i') : running ? 'run' : '';
+    const last = out[out.length - 1];
+    // Stejný krok ohlášený dvakrát po sobě (událost a systémový krok) se sloučí.
+    if (last && last[0] === label && (!last[1] || !meta || last[1] === meta)) { if (meta) last[1] = meta; last[2] = flag; continue; }
+    out.push([label, meta, flag]);
+  }
+  return out;
+}
+
+function activityMs(activity) {
+  const steps = activity?.steps || [];
+  const start = steps.reduce((min, step) => (Number.isFinite(step.startedAt) && step.startedAt < min ? step.startedAt : min), Infinity);
+  const end = steps.reduce((max, step) => Math.max(max, Number.isFinite(step.endedAt) ? step.endedAt : 0), 0);
+  return Number.isFinite(start) && end > start ? end - start : 0;
+}
+
+function lastModel(msgs) {
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const step = [...(msgs[i]._activity?.steps || [])].reverse().find(item => item.kind === 'model' && typeof item.input === 'string');
+    // Krok nese model nebo jen roli („answer"); čip ukazuje jen skutečný tag modelu (název:verze).
+    const value = step ? step.input.replace(/^Model \/ role:\s*/, '') : '';
+    if (/^[\w.\-\/]+:[\w.\-]+$/.test(value)) return value;
+  }
+  return '';
+}
+
+function sessionTitle(session) {
+  const label = session._label || '';
+  if (!DEFAULT_LABEL.test(label)) return label;
+  const first = session.chat.msgs.find(msg => msg.role === 'user' && msg.tag !== 'M2' && typeof msg.text === 'string' && msg.text.trim());
+  if (!first) return label;
+  const text = first.text.trim().replace(/\s+/g, ' ');
+  return text.length > 48 ? text.slice(0, 47).trimEnd() + '…' : text;
+}
+
 function mediaOutputNames(raw) {
   let paths;
   try { paths = typeof raw?.outputs === 'string' ? JSON.parse(raw.outputs) : raw?.outputs; } catch { return []; }
@@ -326,26 +383,62 @@ class LiveModel extends Component {
     const workspace = this.widget.workspace.entry(session);
     const steps = chat.msgs.flatMap(msg => msg._activity?.steps || []);
     let pendingActivity = null;
-    const mapSteps = activity => (activity?.steps || []).map(step => [step.label || step.tool || 'Krok',
-      step.durationMs == null ? (step.status === 'running' ? 'probíhá' : '') : (step.durationMs / 1000).toFixed(1) + ' s',
-      step.status === 'running' ? 'run' : '']);
-    const msgs = chat.msgs.map(msg => {
+    const m2Exact = this.m2View(session);
+    const m2Pending = pendingBinding(session._m2Pending);
+    const m2Entry = this.widget.m2.entry(session);
+    const lastAwaiting = chat.msgs.reduce((found, msg, index) => (msg.role === 'system' && msg.tag === 'M2'
+      && /^M2 awaiting_approval/.test(msg.text || '') ? index : found), -1);
+    const msgs = [];
+    // Karta schválení: soubory a řádky z přesného plánu; schválit jde až po jeho zobrazení.
+    const approvalCard = (key, time, text) => {
+      const files = m2Exact ? m2Exact.diff.map(file => this.m2Change(file)) : [];
+      const presented = !!m2Exact && m2Entry.presentedView === m2Entry.view;
+      return { k: 'agent', key, time, author: 'IntentSmith', badge: 'M2', expert: chat.expertise || '',
+        paras: [], steps: [], rawText: text, approval: { files: files.length, add: files.reduce((n, f) => n + f.add, 0),
+          del: files.reduce((n, f) => n + f.del, 0), canApprove: presented && !m2Entry.busy,
+          hint: m2Entry.busy ? 'Probíhá…' : !m2Exact ? 'Plán se načítá – otevři Zobrazit změny.'
+            : !presented ? 'Před schválením zkontroluj změny v panelu Změny.' : '' } };
+    };
+    chat.msgs.forEach((msg, index) => {
       if (msg.role === 'user') pendingActivity = msg._activity || null;
       const activity = msg.role === 'assistant' ? pendingActivity : msg.role === 'user' ? null : msg._activity;
       if (msg.role === 'assistant') pendingActivity = null;
-      return { k: msg.role === 'user' ? 'user' : 'agent', time: clock(msg.ts),
-        text: msg.role === 'user' ? msg.text : '',
-        paras: msg.role === 'user' ? [] : [msg.text || ''], rawText: msg.text || '',
-        liveMarkdown: msg.role === 'assistant',
-        badge: msg.tag || (msg.role === 'system' ? 'SYSTÉM' : ''),
-        expert: msg.role === 'assistant' ? chat.expertise : '',
-        author: msg.role === 'system' ? 'Systém' : chat.specialist?.name || 'IntentSmith',
-        steps: mapSteps(activity), atts: [], running: false };
+      const key = session.id + ':' + index;
+      if (msg.role === 'system' && (msg.text || '').trim() === LEGACY_GREETING) return;
+      if (msg.role === 'user') {
+        msgs.push({ k: 'user', key, time: clock(msg.ts), text: msg.text || '', paras: [], rawText: msg.text || '', atts: [], steps: [] });
+        return;
+      }
+      if (msg.role === 'system') {
+        const text = msg.text || '';
+        if (msg.tag === 'M2' && index === lastAwaiting && m2Pending) {
+          msgs.push(approvalCard(key, clock(msg.ts), text));
+          return;
+        }
+        if (msg.tag === 'M2') {
+          const state = (/^M2 (\w+)/.exec(text) || [])[1] || '';
+          const note = { awaiting_approval: ['info', 'Návrh změn byl připraven.'], succeeded: ['ok', 'Změny jsou schválené a zapsané do projektu.'],
+            cancelled: ['warn', 'Návrh změn byl zamítnut, projekt zůstal beze změny.'], failed: ['err', 'Provedení změn selhalo. Podrobnosti jsou v panelu Změny.'] }[state];
+          msgs.push({ k: 'note', key, time: clock(msg.ts), tone: note ? note[0] : 'info', text: note ? note[1] : text, steps: [] });
+          return;
+        }
+        const tone = /ERROR|FAIL|CHYB/i.test(msg.tag || '') ? 'err' : msg.tag ? 'warn' : 'info';
+        msgs.push({ k: 'note', key, time: clock(msg.ts), tone, text, steps: [] });
+        return;
+      }
+      const ms = activityMs(activity);
+      const tag = String(msg.tag || '').trim();
+      msgs.push({ k: 'agent', key, time: clock(msg.ts) + (ms ? ' · ' + seconds(ms) : ''),
+        text: '', paras: [msg.text || ''], rawText: msg.text || '', liveMarkdown: true,
+        badge: tag ? tag.toUpperCase() : '', expert: chat.expertise || '',
+        author: chat.specialist?.name || 'IntentSmith', steps: timeline(activity), foldMeta: seconds(ms), atts: [], running: false });
     });
-    if (chat._thinking) msgs.push({ k: 'agent', time: 'teď', badge: 'PRACUJE',
+    // Čekající plán bez své zprávy (obnova relace) má kartu schválení na konci konverzace.
+    if (m2Pending && !msgs.some(msg => msg.approval)) msgs.push(approvalCard(session.id + ':m2', '', ''));
+    if (chat._thinking) msgs.push({ k: 'agent', key: session.id + ':active', time: 'teď', badge: '',
       expert: chat.expertise, paras: [], running: true,
       runText: chat._thinking.text || 'Zpracovává zadání…', rid: session.id + ':active',
-      steps: mapSteps(pendingActivity) });
+      steps: timeline(pendingActivity) });
     const term = session.term.map(line => [typeof line === 'string' ? line : line.text || '',
       line?.type === 'error' || line?.type === 'uncertain' ? 'err' : '']);
     const log = session.log.map(line => [clock(line.ts), line.level || 'INFO', 'var(--info)',
@@ -362,10 +455,10 @@ class LiveModel extends Component {
       return [path, count.added || count.add || 0, count.removed || count.del || 0, 'zapsáno'];
     });
     return {
-      title: session._label, short: session._label, kind: session._projectId ? 'project' : chat.specialist ? 'specialist' : 'chat',
+      title: sessionTitle(session), short: sessionTitle(session), kind: session._projectId ? 'project' : chat.specialist ? 'specialist' : 'chat',
       project: session._projectId, specialist: chat.specialist?.id || null,
       state: session._m2Pending ? 'wait' : chat._thinking ? 'run' : 'idle',
-      fresh: chat.msgs.length === 0, expert: chat.expertise || 'Výchozí', model: '',
+      fresh: msgs.length === 0, expert: chat.specialist?.name || chat.expertise || 'Výchozí', model: lastModel(chat.msgs),
       mode: chat.editMode === 'auto' ? 'auto' : 'kontrola', intent: '',
       ctx: Math.max(0, Math.min(100, Number(chat.ctx) || 0)), tokens: '',
       turns: chat.msgs.filter(msg => msg.role === 'user').length, parts: [],
@@ -427,7 +520,7 @@ class LiveModel extends Component {
     return this.sections().filter(section => section.id !== 'settings').map(section => {
       const id = section.id;
       const items = id === 'chats' ? this.widget.store.state.sessions.map(session => ({
-        id: session.id, name: session._label, meta: this.stLabel(this.sstate(session.id, s)),
+        id: session.id, name: sessionTitle(session), meta: this.stLabel(this.sstate(session.id, s)),
         state: this.sstate(session.id, s), number: session.number,
         go: this.run(s2 => this.pFocusSession(s2, session.id)), ctx: this.showCtx('chats', session.id)
       })) : this.entities(id, s).slice(0, id === 'projects' ? 4 : 3).map(row => ({
@@ -2860,6 +2953,8 @@ class LiveModel extends Component {
       const visible = s.rightPin || !s.col || width - nav - s.rightW - 12 >= this.colLayout(s).length * 360;
       if (s.rightTab === 'zmeny' && s.rightOpen && visible && vm.files.length === exact.diff.length) {
         vm.files.forEach(file => { file.open = true; });
+        // Karta schválení v chatu se počítá dřív než panel; po prvním zobrazení ji překresli.
+        if (entry.presentedView !== exact) setTimeout(() => this.forceUpdate(), 0);
         entry.presentedView = exact;
       }
     }
@@ -3065,11 +3160,25 @@ class LiveModel extends Component {
         const openAudit = auditTab.go;
         auditTab.go = () => { openAudit(); this.loadAudit(session); };
       }
-      column.hasModel = false; column.hasExpertPicker = false;
+      // Čipy skladatele: expertýza nebo specialista relace, model z posledního tahu nebo role CHAT.
+      column.hasExpertPicker = !session.chat.specialist;
+      column.expert = session.chat.expertise || 'Výchozí';
+      if (!column.model) {
+        const models = this._settingsResources.get('modely');
+        if (!models) this.loadSettingsResource('modely').catch(() => {});
+        column.model = models?.status === 'ready' ? models.data?.current_model || '' : '';
+      }
+      column.hasModel = !!column.model;
+      column.pickModel = this.run(state => { this.modelWorkspace.select('roles'); return this.pSelect(state, 'settings', 'modely'); });
+      // Zaplnění kontextu: backend ho posílá jen někdy; bez měření „—", ne vymyšlené číslo.
+      column.ctxLabel = session.chat.ctx > 0 ? Math.round(session.chat.ctx) + ' %' : '—';
       column.msgs.forEach(message => {
         message.stop = () => this.widget.transport?.cancel(session);
-        message.approve = () => {};
-        message.reject = () => {};
+        if (!message.hasApproval) return;
+        const openChanges = message.showChanges;
+        message.showChanges = () => { openChanges(); this.forceUpdate(); };
+        message.approve = message.approveCls === 'soft' ? message.showChanges : () => this.pApprove(this.st(), sid, 'ok');
+        message.reject = () => this.pApprove(this.st(), sid, 'no');
       });
     });
     vm.tabs.forEach((tab, index) => { tab.n = this.widget.store.state.sessions[index]?.number || index + 1; });
@@ -3077,6 +3186,17 @@ class LiveModel extends Component {
     vm.ws.fileError = focused ? this.widget.workspace.entry(focused).error || '' : '';
     vm.ws.hasFileError = !!vm.ws.fileError;
     Object.assign(vm.sb, this.statusClient.vm(this.widget.transport));
+    vm.sb.ctxLabel = focused && focused.chat.ctx > 0 ? Math.round(focused.chat.ctx) + ' %' : '—';
+    // Okno Electronu: Studio 2 kreslí vlastní titulní lištu, tlačítka ovládají skutečné okno.
+    const core = typeof window !== 'undefined' ? window.electronTheiaCore : null;
+    if (core) {
+      let maximized = false;
+      try { maximized = !!core.isMaximized(); } catch { /* starší hostitel */ }
+      vm.winMaxLabel = maximized ? 'Obnovit' : 'Maximalizovat';
+      vm.winMin = () => core.minimize();
+      vm.winMax = () => { if (maximized) core.unMaximize(); else core.maximize(); setTimeout(() => this.forceUpdate(), 150); };
+      vm.winClose = () => core.close();
+    }
     return vm;
   }
 }

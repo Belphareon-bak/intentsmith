@@ -156,7 +156,19 @@ function scopeCss(css) {
     }
     throw new Error('Neuzavřený CSS blok');
   };
-  const scopeSel = (sel) => sel.split(',').map((s) => {
+  // Čárky uvnitř :where(), :is(), :not() nejsou oddělovače seznamu selektorů.
+  const splitTop = (sel) => {
+    const parts = [];
+    let depth = 0, from = 0;
+    for (let k = 0; k < sel.length; k++) {
+      if (sel[k] === '(') depth++;
+      else if (sel[k] === ')') depth--;
+      else if (sel[k] === ',' && depth === 0) { parts.push(sel.slice(from, k)); from = k + 1; }
+    }
+    parts.push(sel.slice(from));
+    return parts;
+  };
+  const scopeSel = (sel) => splitTop(sel).map((s) => {
     const t = s.trim();
     if (!t) return t;
     if (/^(html|body)\b/.test(t)) return null;

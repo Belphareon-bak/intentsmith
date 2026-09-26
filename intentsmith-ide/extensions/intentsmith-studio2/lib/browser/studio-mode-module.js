@@ -6,6 +6,7 @@ const { WindowService } = require('@theia/core/lib/browser/window/window-service
 const { StopReason } = require('@theia/core/lib/common/frontend-application-state');
 
 const MODE_KEY = 'intentsmith-studio-ui-mode';
+const FRAME_KEY = 'intentsmith-studio2-frame';
 const MODE_CLASSIC = 'classic';
 const MODE_STUDIO2 = 'studio2';
 
@@ -24,6 +25,12 @@ async function selectMode(mode) {
   const container = window.theia?.container;
   if (!container) throw new Error('Theia container is unavailable for UI mode switch');
   if (!await container.get(WindowService).isSafeToShutDown(StopReason.Reload)) return false;
+  // Studio 2 switched the window to its own title bar; classic mode gets the frame back
+  // (Electron applies the frame on the next application start).
+  if (mode === MODE_CLASSIC && window.localStorage.getItem(FRAME_KEY) === 'managed') {
+    window.electronTheiaCore.setTitleBarStyle?.('native');
+    window.localStorage.removeItem(FRAME_KEY);
+  }
   window.localStorage.setItem(MODE_KEY, mode);
   window.electronTheiaCore.requestReload();
   return true;
@@ -53,4 +60,5 @@ module.exports = {
   }),
   currentMode,
   selectMode,
+  FRAME_KEY,
 };

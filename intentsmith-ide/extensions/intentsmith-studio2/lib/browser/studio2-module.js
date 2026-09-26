@@ -9,7 +9,7 @@ const { ContainerModule, decorate, injectable } = require('@theia/core/shared/in
 const browser = require('@theia/core/lib/browser');
 const { ReactWidget } = require('@theia/core/lib/browser/widgets/react-widget');
 const React = require('@theia/core/shared/react');
-const { currentMode } = require('./studio-mode-module');
+const { currentMode, FRAME_KEY } = require('./studio-mode-module');
 const { SessionStore } = require('./session-store');
 const { TransportAdapter } = require('./transport-adapter');
 const { renderSessionView } = require('./session-view');
@@ -317,6 +317,29 @@ class Studio2Contribution extends browser.AbstractViewContribution {
     }
     // Lumino keeps the hidden tab bar's height reserved until the dock layout refits.
     app.shell.mainPanel.fit();
+    this.adoptWindowChrome(app);
+  }
+
+  // Studio 2 draws its own title bar with the menu and window controls. The native
+  // Theia menu (File, Edit, Selection…) and the system frame would duplicate them.
+  async adoptWindowChrome(app) {
+    const core = window.electronTheiaCore;
+    if (!core) return;
+    // Hiding the menu resizes the web contents; the dock layout must refit to the new height.
+    // With the custom title style Theia shows its own top panel (menu, window controls);
+    // Studio 2 has both in its title bar, so the panel stays hidden.
+    const refit = () => setTimeout(() => { app.shell.topPanel.hide(); app.shell.mainPanel.fit(); app.shell.update(); }, 60);
+    window.addEventListener('resize', refit);
+    const hideMenu = () => { try { core.setMenuBarVisible(false); } catch { /* host without native menu */ } refit(); };
+    hideMenu();
+    // Theia shows the native menu again once its preferences settle; hide it after that too.
+    setTimeout(hideMenu, 1500);
+    try {
+      if (await core.getTitleBarStyleAtStartup() !== 'custom') {
+        core.setTitleBarStyle('custom');
+        window.localStorage.setItem(FRAME_KEY, 'managed');
+      }
+    } catch { /* keeps the native frame; the menu stays hidden */ }
   }
 }
 decorate(injectable(), Studio2Contribution);

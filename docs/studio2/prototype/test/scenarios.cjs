@@ -89,6 +89,20 @@ reset(); vm = R(); call(() => vm.columns[0].setCmd({ target: { value: 'cat src/m
 vm.columns[0].cmdKey({ key: 'Enter', preventDefault() {} }); vm = R('term enter'); if (vm.columns[0].cmd !== '' || !vm.columns[0].term.some((l) => l.t === '$ cat src/main/sftp.js')) fail('term enter');
 call(vm.columns[0].attach); call(R().columns[0].attach); vm = R('atts'); if (vm.columns[0].atts.length !== 2) fail('attach'); call(vm.columns[0].atts[0].remove); vm = R(); if (vm.columns[0].atts.length !== 1) fail('remove att');
 call(vm.columns[0].send, 'send att only'); vm = R('sent att'); { const last = vm.columns[0].msgs.filter((m) => m.isUser).pop(); if (!last.hasAtts || last.hasText) fail('att-only message'); } if (vm.columns[0].hasAtts) fail('atts not cleared');
+// konverzace: sbalené interní kroky, hlášení, nápověda karty schválení
+reset(); c.setState({ cols: 1, colSids: ['s5'] }); vm = R('fold');
+{ const m = vm.columns[0].msgs.find((x) => x.hasFold); if (!m) fail('no fold'); else {
+  if (m.steps.length !== 0 || m.foldOpen !== 'false') fail('fold not collapsed', m.steps.length);
+  call(m.toggleFold, 'toggle fold'); vm = R('fold open'); const m2 = vm.columns[0].msgs.find((x) => x.hasFold);
+  if (m2.foldOpen !== 'true' || m2.steps.length !== 4 || !m2.steps.every((x) => x.cls === 'int')) fail('fold open', m2.steps.map((x) => x.cls)); } }
+reset(); c.setState({ cols: 1, colSids: ['s1'] }); vm = R('work steps');
+{ const m = vm.columns[0].msgs.find((x) => x.hasFold); if (!m || m.steps.length !== 6) fail('work steps visible', m && m.steps.length); }
+reset(); c.setState({ cols: 1, colSids: ['s2'] }); vm = R('note');
+{ const n = vm.columns[0].msgs.find((x) => x.isNote); if (!n || n.noteCls !== 'n-warn' || n.noteRole !== 'status') fail('note', n && n.noteCls); }
+{ const ap = vm.columns[0].msgs.find((x) => x.hasApproval); if (ap) fail('s2 approval should be done'); }
+reset(); vm = R(); { const ap = vm.columns[0].msgs.find((x) => x.hasApproval); if (!ap || ap.hasApprHint || ap.approveCls !== '') fail('approval defaults'); }
+if (vm.columns[0].ctxLabel !== vm.columns[0].ctx + ' %' || !vm.sb.ctxLabel.endsWith('%')) fail('ctx label');
+if (typeof vm.winMin !== 'function' || typeof vm.winMax !== 'function' || !vm.winMaxLabel) fail('window controls');
 // klávesové zkratky
 reset(); vm = R(); c.onKey({ key: 'k', ctrlKey: true, preventDefault() {}, stopPropagation() {} }); vm = R('ctrl k'); if (!vm.palette) fail('ctrl+k');
 c.onKey({ key: 'Escape', preventDefault() {}, stopPropagation() {} }); vm = R(); if (vm.palette) fail('esc');
