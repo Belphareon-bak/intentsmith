@@ -16,6 +16,8 @@ const { ModelWorkspace } = require('../model-workspace');
 const { FeedbackWorkspace } = require('../feedback-workspace');
 const { SecurityWorkspace } = require('../security-workspace');
 const { ExpertiseSelectionClient } = require('../expertise-selection-client');
+const { createSpecialistFileStore } = require('../../../../../shared/specialist-files');
+const Attachments = require('../attachments');
 
 const CATALOG = Object.freeze({
   chats: 'Konverzace', projects: 'Projekty', specialists: 'Specialisté',
@@ -94,6 +96,11 @@ class LiveModel extends Component {
       preview: null, previewKey: '', testResult: null, testKey: '' };
     this._workerDetails = new Map();
     this._specialistDetails = new Map();
+    this.specialistFiles = widget.specialistFiles || (globalThis.indexedDB
+      ? createSpecialistFileStore(globalThis.indexedDB) : null);
+    this._specialistFileLists = new Map();
+    this._specialistFilePreview = new Map();
+    this._specialistFileShare = new Map();
     this._mediaNotices = new Map();
     this._mediaEnvironment = { status: 'idle', available: false, models: [], error: '' };
     this._mediaSubmitting = false;
@@ -2470,6 +2477,151 @@ class LiveModel extends Component {
     this.setState({ fileAction: null, fileActionNotice: scmLoaded && cancelled
       ? 'Operace provedena a ověřena.'
       : 'Souborová operace byla ověřena, ale stav gitu nebo jeho plán se nepodařilo obnovit. Před další git akcí obnov stav projektu.' });
+  }
+
+  async loadSpecialistFiles(owner) {
+    if (!this.specialistFiles || !owner || this._specialistFileLists.get(owner)?.status === 'loading') return false;
+    const request = Symbol(owner);
+    this._specialistFileLists.set(owner, { status: 'loading', rows: [], request });
+    this.forceUpdate();
+    try {
+      const rows = await this.specialistFiles.list(owner);
+      if (!Array.isArray(rows) || rows.some(row => typeof row.id !== 'string'
+        || typeof row.name !== 'string' || !Number.isFinite(row.size))) throw Error('Úložiště vrátilo neplatný seznam souborů.');
+      if (this._specialistFileLists.get(owner)?.request === request)
+        this._specialistFileLists.set(owner, { status: 'ready', rows });
+      return true;
+    } catch (error) {
+      if (this._specialistFileLists.get(owner)?.request === request)
+        this._specialistFileLists.set(owner, { status: 'error', rows: [], error: error?.message || 'Soubory nelze načíst.' });
+      return false;
+    } finally { this.forceUpdate(); }
+  }
+
+  async addSpecialistFiles(owner, files) {
+    if (!this.specialistFiles || !Array.isArray(files) || !files.length) return false;
+    try {
+      for (const file of files) await this.specialistFiles.put(owner, file);
+      return await this.loadSpecialistFiles(owner);
+    } catch (error) {
+      this._specialistFileLists.set(owner, { status: 'error', rows: [], error: error?.message || 'Soubor nelze uložit.' });
+      this.forceUpdate(); return false;
+    }
+  }
+
+  pickSpecialistFiles(owner) {
+    if (!this.specialistFiles || typeof document === 'undefined') return false;
+    const input = document.createElement('input');
+    input.type = 'file'; input.multiple = true; input.hidden = true;
+    document.body.appendChild(input);
+    input.oncancel = () => input.remove();
+    input.onchange = () => this.addSpecialistFiles(owner, [...input.files]).finally(() => input.remove());
+    input.click(); return true;
+  }
+
+  async previewSpecialistFile(owner, file) {
+    if (!this.specialistFiles || !file || file.size > 512 * 1024
+      || !(/^(text\/|application\/(json|xml))/.test(file.type || '')
+        || /\.(txt|md|js|ts|py|json|csv|log|css|html|yaml|yml)$/i.test(file.name))) {
+      this._specialistFilePreview.set(owner, { error: 'Náhled je dostupný jen pro textové soubory do 512 KiB.' });
+      this.forceUpdate(); return false;
+    }
+    try {
+      const row = await this.specialistFiles.get(owner, file.id);
+      if (row.size !== file.size || row.name !== file.name) throw Error('Soubor se změnil. Obnov seznam.');
+      const content = await row.blob.text();
+      if (content.length > 524288) throw Error('Textový náhled je příliš dlouhý.');
+      this._specialistFilePreview.set(owner, { name: row.name, content });
+      this.forceUpdate(); return true;
+    } catch (error) {
+      this._specialistFilePreview.set(owner, { error: error?.message || 'Náhled selhal.' });
+      this.forceUpdate(); return false;
+    }
+  }
+
+  async attachSpecialistFile(owner, file, session) {
+    if (!this.specialistFiles || !file || !session || session.chat.specialist?.id !== owner
+      || this.widget.store.find(session.id) !== session) return false;
+    try {
+      const row = await this.specialistFiles.get(owner, file.id);
+      const spec = Attachments.kind(row.name);
+      if (!spec || row.size > spec.max || session.chat.attachments.length >= 5)
+        throw Error(!spec ? 'Nepodporovaný typ přílohy.' : 'Soubor překračuje limit nebo je fronta plná.');
+      const attached = new File([row.blob], row.name, { type: spec.mime });
+      if (session.chat.specialist?.id !== owner || this.widget.store.find(session.id) !== session) return false;
+      session.chat.attachments.push({ name: row.name, size: attached.size, file: attached });
+      this.widget.store.changed(); return true;
+    } catch (error) {
+      this._specialistFilePreview.set(owner, { error: error?.message || 'Soubor nelze připojit.' });
+      this.forceUpdate(); return false;
+    }
+  }
+
+  async removeSpecialistFile(owner, file) {
+    if (!this.specialistFiles || !(this.widget.confirmAction || globalThis.confirm)?.(
+      `Odebrat uloženou kopii ${file.name} od specialisty? Původní soubor na disku zůstane.`)) return false;
+    try {
+      await this.specialistFiles.remove(owner, file.id);
+      this._specialistFilePreview.delete(owner);
+      return await this.loadSpecialistFiles(owner);
+    } catch (error) {
+      this._specialistFilePreview.set(owner, { error: error?.message || 'Soubor nelze odebrat.' });
+      this.forceUpdate(); return false;
+    }
+  }
+
+  async shareSpecialistFiles(owner) {
+    if (!this.specialistFiles) return false;
+    try {
+      const others = this.widget.catalog.view('Specialisté').items.filter(item => item.id !== owner);
+      const nested = await Promise.all(others.map(async item => ({ item, files: await this.specialistFiles.list(item.id) })));
+      this._specialistFileShare.set(owner, { choices: nested.flatMap(({ item, files }) => files.map(file => ({
+        owner: item.id, ownerName: item.name, file }))) });
+      this.forceUpdate(); return true;
+    } catch (error) {
+      this._specialistFileShare.set(owner, { choices: [], error: error?.message || 'Sdílení souborů nelze načíst.' });
+      this.forceUpdate(); return false;
+    }
+  }
+
+  async copySpecialistFile(owner, choice) {
+    if (!this.specialistFiles || !choice || choice.owner === owner) return false;
+    try {
+      await this.specialistFiles.share(choice.owner, owner, choice.file.id);
+      this._specialistFileShare.delete(owner);
+      return await this.loadSpecialistFiles(owner);
+    } catch (error) {
+      this._specialistFileShare.set(owner, { choices: [], error: error?.message || 'Soubor nelze sdílet.' });
+      this.forceUpdate(); return false;
+    }
+  }
+
+  specialistFilesVM(sid, _s, _b) {
+    const session = sid && this.widget.store.find(sid);
+    const owner = session?.chat.specialist?.id;
+    if (!owner) return super.specialistFilesVM(sid, _s, { specialist: null });
+    if (!this._specialistFileLists.has(owner)) {
+      this._specialistFileLists.set(owner, { status: 'queued', rows: [] });
+      queueMicrotask(() => { if (this._specialistFileLists.get(owner)?.status === 'queued') void this.loadSpecialistFiles(owner); });
+    }
+    const resource = this._specialistFileLists.get(owner);
+    const preview = this._specialistFilePreview.get(owner);
+    const share = this._specialistFileShare.get(owner);
+    const rows = resource.rows.map(file => ({ name: file.name, meta: `${Math.ceil(file.size / 1024)} KiB`,
+      preview: () => this.previewSpecialistFile(owner, file),
+      attach: () => this.attachSpecialistFile(owner, file, session),
+      remove: () => this.removeSpecialistFile(owner, file) }));
+    return { has: true, title: 'Soubory specialisty', count: rows.length, rows,
+      hasFiles: rows.length > 0, noFiles: resource.status === 'ready' && rows.length === 0,
+      refresh: () => this.loadSpecialistFiles(owner),
+      add: () => this.pickSpecialistFiles(owner), share: () => this.shareSpecialistFiles(owner),
+      notice: preview?.error || share?.error || resource.error || (['loading','queued'].includes(resource.status) ? 'Načítám uložené soubory…' : ''),
+      hasNotice: !!(preview?.error || share?.error || resource.error || ['loading','queued'].includes(resource.status)),
+      hasPreview: !!preview?.name, previewName: preview?.name || '', previewText: preview?.content || '',
+      closePreview: () => { this._specialistFilePreview.delete(owner); this.forceUpdate(); },
+      hasShare: !!share?.choices, shareChoices: (share?.choices || []).map(choice => ({
+        label: `${choice.file.name} · ${choice.ownerName}`, go: () => this.copySpecialistFile(owner, choice) })),
+      closeShare: () => { this._specialistFileShare.delete(owner); this.forceUpdate(); } };
   }
 
   filesVM(sid, s) {

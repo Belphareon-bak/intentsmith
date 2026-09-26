@@ -46,6 +46,7 @@ class Component extends DCLogic {
       view: 'dlazdice', size: 2, dtab: {}, approved: {}, stopped: {}, modes: {}, experts: {}, drafts: {}, extra: {}, sessions: {}, pinned: {},
       openFiles: { 'src/main/sftp.js': true }, paused: {}, ran: {}, installed: {}, seq: 1,
       fileView: {}, fileMode: {}, fileDraft: {}, fileText: {}, fileGuard: null, userOpened: {}, treeClosed: {}, fileAction: null, fileActionNotice: '',
+      specialistFiles: {}, specialistPreview: null, specialistFileNotice: '',
       scm: {}, scmPlan: null, auditX: {}, ctxQ: '', atts: {}, cmds: {}, termX: {},
       mediaType: 'txt2img', mediaPrompt: '', mediaNegative: '', mediaWidth: 1024, mediaHeight: 1024,
       mediaSteps: 20, mediaCfg: 7, mediaSeed: -1, mediaFrames: 49, mediaModel: '',
@@ -1876,7 +1877,7 @@ class Component extends DCLogic {
   filesVM(sid, s) {
     const I = this.data().I;
     const b = sid ? this.sess(sid, s) : null;
-    if (!b) return { edited: [], hasEdited: false, noEdited: true, opened: [], hasOpened: false, noOpened: true, tree: [], hasTree: false, noTree: true, treeTitle: 'Projekt', canManage: false, newFile: () => {}, newDirectory: () => {}, action: this.fileActionVM(sid, s), actionNotice: '', hasUncertain: false, refresh: () => {} };
+    if (!b) return { edited: [], hasEdited: false, noEdited: true, opened: [], hasOpened: false, noOpened: true, tree: [], hasTree: false, noTree: true, treeTitle: 'Projekt', canManage: false, newFile: () => {}, newDirectory: () => {}, action: this.fileActionVM(sid, s), actionNotice: '', hasUncertain: false, refresh: () => {}, specialistFiles: this.specialistFilesVM(sid, s, { specialist: null }) };
     const f = this.sessFiles(sid, s);
     const open = (path, from, mode) => this.run((s2) => this.pOpenFile(s2, sid, { path, from, mode }));
     const edited = f.edited.map((e) => {
@@ -1889,9 +1890,32 @@ class Component extends DCLogic {
     });
     const p = b.project ? this.proj(b.project) : null;
     const tree = this.treeVM(sid, s, b);
-    return { edited, hasEdited: edited.length > 0, noEdited: edited.length === 0, opened, hasOpened: opened.length > 0, noOpened: opened.length === 0, tree, hasTree: tree.length > 0, noTree: tree.length === 0, treeTitle: p ? 'Projekt ' + p.name : 'Projekt', canManage: !!b.project,
+    const specialistFiles = this.specialistFilesVM(sid, s, b);
+    return { edited, hasEdited: edited.length > 0, noEdited: edited.length === 0, opened, hasOpened: opened.length > 0, noOpened: opened.length === 0, tree, hasTree: tree.length > 0, noTree: tree.length === 0, treeTitle: p ? 'Projekt ' + p.name : 'Projekt', canManage: !!b.project, specialistFiles,
       newFile: () => this.startFileAction(sid, 'create_file'), newDirectory: () => this.startFileAction(sid, 'create_directory'),
       action: this.fileActionVM(sid, s), actionNotice: s.fileActionNotice || '', hasUncertain: false, refresh: () => {} };
+  }
+
+  specialistFilesVM(sid, s, b) {
+    if (!b.specialist) return { has: false, title: '', count: 0, hasFiles: false, noFiles: true,
+      rows: [], refresh: () => {}, add: () => {}, share: () => {}, notice: '', hasNotice: false,
+      hasShare: false, shareChoices: [], closeShare: () => {}, hasPreview: false,
+      previewName: '', previewText: '', closePreview: () => {} };
+    const owner = b.specialist;
+    const files = s.specialistFiles[owner] || [];
+    const preview = s.specialistPreview?.owner === owner ? s.specialistPreview : null;
+    return { has: true, title: 'Soubory specialisty', count: files.length,
+      hasFiles: files.length > 0, noFiles: files.length === 0, rows: files.map(file => ({ name: file.name, meta: file.size || '',
+        preview: () => this.setState({ specialistPreview: { owner, name: file.name, content: file.content || '' } }),
+        attach: () => this.setState({ specialistFileNotice: file.name + ' připojen do zprávy.' }),
+        remove: () => this.setState({ specialistFiles: this.merge(s, 'specialistFiles', { [owner]: files.filter(row => row.name !== file.name) }), specialistPreview: null }) })),
+      refresh: () => {},
+      add: () => this.setState({ specialistFiles: this.merge(s, 'specialistFiles', { [owner]: files.concat({ name: 'poznámky.txt', size: 'demo', content: 'Ukázkový soubor specialisty.' }) }) }),
+      share: () => this.setState({ specialistFileNotice: 'Vyber soubor jiného specialisty v reálném Studiu.' }),
+      notice: s.specialistFileNotice || '', hasNotice: !!s.specialistFileNotice,
+      hasShare: false, shareChoices: [], closeShare: () => {},
+      hasPreview: !!preview, previewName: preview?.name || '', previewText: preview?.content || '',
+      closePreview: () => this.setState({ specialistPreview: null }) };
   }
 
   // ---- Správa zdrojů (zadání 25. 9., bod 3) ----

@@ -11,7 +11,7 @@ const { WorkspaceFiles } = require('../intentsmith-ide/extensions/intentsmith-st
 const { CatalogStore } = require('../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/catalog-store');
 const { IntentSmithBus } = require('../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/event-bus');
 
-function setup({ workspace, m2, catalog: catalogOverride } = {}) {
+function setup({ workspace, m2, catalog: catalogOverride, specialistFiles } = {}) {
   const memory = new Map();
   const storage = { getItem: key => memory.has(key) ? memory.get(key) : null,
     setItem: (key, value) => memory.set(key, value) };
@@ -22,7 +22,7 @@ function setup({ workspace, m2, catalog: catalogOverride } = {}) {
     open: async () => false, save: async () => false, discard: () => {}, edit: () => {} };
   const controller = m2 || { entry: () => ({ view: null, presentedView: null, error: null }), run: async () => {}, report: () => {} };
   const calls = [];
-  const widget = { store, appearance, catalog, workspace: files, m2: controller,
+  const widget = { store, appearance, catalog, workspace: files, m2: controller, specialistFiles,
     send: async (session, input) => { calls.push(['send', session.id, input.value]); input.value = ''; },
     sendTerminal: async (session, input) => { calls.push(['terminal', session.id, input.value]); input.value = ''; },
     completeTerminal: async (session, input) => { calls.push(['complete', session.id, input.value]); input.value += '/'; },
@@ -33,6 +33,55 @@ function setup({ workspace, m2, catalog: catalogOverride } = {}) {
 }
 
 const tick = () => new Promise(resolve => setImmediate(resolve));
+
+test('specialist workspace files stay local until explicitly attached and can be shared or removed', async () => {
+  const rows = new Map([
+    ['alpha', [{ id: 'a1', owner: 'alpha', name: 'notes.txt', size: 7, type: 'text/plain', blob: new Blob(['private']) }]],
+    ['beta', [{ id: 'b1', owner: 'beta', name: 'guide.md', size: 5, type: 'text/plain', blob: new Blob(['guide']) }]],
+  ]);
+  const specialistFiles = {
+    list: async owner => (rows.get(owner) || []).map(({ blob, ...row }) => row),
+    get: async (owner, id) => {
+      const row = (rows.get(owner) || []).find(entry => entry.id === id);
+      if (!row) throw Error('Wrong owner');
+      return row;
+    },
+    share: async (from, to, id) => {
+      const row = await specialistFiles.get(from, id);
+      rows.get(to).push({ ...row, owner: to, id: 'copy' });
+    },
+    remove: async (owner, id) => rows.set(owner, rows.get(owner).filter(row => row.id !== id)),
+  };
+  const catalog = { view: section => section === 'Specialisté'
+    ? { status: 'ready', items: [{ id: 'alpha', name: 'Alpha' }, { id: 'beta', name: 'Beta' }] }
+    : { status: 'ready', items: [] }, load: async () => {}, subscribe: () => () => {} };
+  const { model, widget, store } = setup({ catalog, specialistFiles });
+  const session = store.focusedSession();
+  session.chat.specialist = { id: 'alpha', name: 'Alpha' };
+  widget.confirmAction = () => true;
+  let vm = model.filesVM(session.id, model.st()).specialistFiles;
+  assert.equal(vm.has, true);
+  await tick();
+  vm = model.filesVM(session.id, model.st()).specialistFiles;
+  assert.deepEqual(vm.rows.map(row => row.name), ['notes.txt']);
+  assert.equal(session.chat.attachments.length, 0);
+  assert.equal(await vm.rows[0].preview(), true);
+  assert.equal(model.filesVM(session.id, model.st()).specialistFiles.previewText, 'private');
+  assert.equal(session.chat.attachments.length, 0, 'preview must not attach or send content');
+  assert.equal(await model.attachSpecialistFile('beta', rows.get('beta')[0], session), false,
+    'a session cannot attach another specialist owner directly');
+  assert.equal(await vm.rows[0].attach(), true);
+  assert.equal(session.chat.attachments[0].name, 'notes.txt');
+  assert.equal(await vm.share(), true);
+  vm = model.filesVM(session.id, model.st()).specialistFiles;
+  assert.deepEqual(vm.shareChoices.map(choice => choice.label), ['guide.md · Beta']);
+  assert.equal(await vm.shareChoices[0].go(), true);
+  vm = model.filesVM(session.id, model.st()).specialistFiles;
+  assert.deepEqual(vm.rows.map(row => row.name), ['notes.txt', 'guide.md']);
+  assert.equal(await vm.rows[0].remove(), true);
+  assert.deepEqual(model.filesVM(session.id, model.st()).specialistFiles.rows.map(row => row.name), ['guide.md']);
+  model.componentWillUnmount();
+});
 
 test('model command in menu and palette opens live role assignments without a fixture model name', () => {
   const { model, store } = setup();

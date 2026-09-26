@@ -49,6 +49,10 @@ Specialisté v katalogu zahrnují i vypnuté balíčky. Detail čte ověřený m
 zobrazuje nástroje a konfiguraci. Zapnutí, vypnutí a aktualizaci potvrdí
 novým čtením detailu i katalogu; odinstalaci potvrdí zmizením z katalogu.
 Vypnutý balíček nelze otevřít jako relaci.
+Soubory pracovního prostoru specialisty používají stejný místní IndexedDB
+`intentsmith-specialist-files` jako klasické Studio. Pravý panel nabízí přidání,
+náhled textu do 512 KiB, výslovné připojení do zprávy, kopii mezi specialisty
+a odebrání uložené kopie. Náhled soubor nepřipojí ani neposílá modelu.
 
 Správa zdrojů používá nové `/api/scm/*` s plánem a potvrzením; i diff
 smazaného souboru je dostupný bez falešného editoru. Izolovaný průchod ve

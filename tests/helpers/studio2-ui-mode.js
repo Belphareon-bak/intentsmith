@@ -40,6 +40,9 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
       pickerItems: [...(root?.querySelectorAll('.dd.ctx.picker .dd-i .dd-t') || [])].map(node => node.textContent.trim()),
       catalogSection: root?.querySelector('.cat-t h1')?.textContent?.trim() || null,
       catalogStatus: root?.querySelector('.cat-t')?.textContent?.includes('položek z backendu') ? 'ready' : null,
+      specialistFileRows: [...(root?.querySelectorAll('.rp .fsec .frow .fr-n') || [])].map(node => node.textContent.trim()),
+      specialistPreview: root?.querySelector('.rp .file-action pre')?.textContent || null,
+      composerAttachments: [...(root?.querySelectorAll('.scol .comp .att-t') || [])].map(node => node.textContent.trim()),
     };
   })()`;
   const waitFor = async (predicate, label) => {
@@ -227,6 +230,58 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
   const screenshot = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
   if (!screenshot?.data) fail('studio2-screenshot-empty');
   await writeFile(path.join(artifactRoot, 'studio2-current.png'), Buffer.from(screenshot.data, 'base64'), { mode: 0o600 });
+  await evaluate(cdp, `(async () => {
+    const database = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('intentsmith-specialist-files', 1);
+      request.onupgradeneeded = () => request.result.createObjectStore('files', { keyPath: 'id' });
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    await new Promise((resolve, reject) => {
+      const tx = database.transaction('files', 'readwrite');
+      tx.objectStore('files').put({ id: 'studio2-e2e-file', owner: 'studio2-e2e-specialist',
+        name: 'studio2-e2e.txt', size: 7, type: 'text/plain', blob: new Blob(['private']) });
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+    database.close();
+    const key = 'intentsmith-studio2-session-state';
+    const saved = JSON.parse(localStorage.getItem(key));
+    const number = saved.nextNumber++;
+    saved.sessions.push({ id: 'studio2-e2e-session', number, label: 'Specialistický test',
+      specialistData: { id: 'studio2-e2e-specialist', name: 'Test' } });
+    saved.columns[0] = 'studio2-e2e-session';
+    saved.focusedColumn = 0;
+    localStorage.setItem(key, JSON.stringify(saved));
+    setTimeout(() => window.IntentSmithStudioMode.selectMode('classic'), 0);
+    return true;
+  })()`);
+  await waitFor(s => s.mode === 'classic' && s.classicChat && !s.studio2, 'specialist-storage-restart-classic');
+  await evaluate(cdp, `(() => { setTimeout(() => window.IntentSmithStudioMode.selectMode('studio2'), 0); return true; })()`);
+  await waitFor(s => s.mode === 'studio2' && s.columnSessions.includes('Specialistický test'), 'specialist-storage-restart-studio2');
+  await evaluate(cdp, `(() => {
+    const root = document.querySelector('#intentsmith-studio2 [data-studio-ui="studio2"]');
+    [...root.querySelectorAll('.rp .ptabs .ptab')].find(node => node.textContent.trim().startsWith('Soubory')).click();
+    return true;
+  })()`);
+  await waitFor(s => s.specialistFileRows.includes('studio2-e2e.txt'), 'specialist-indexeddb-file');
+  await evaluate(cdp, `(() => {
+    const root = document.querySelector('#intentsmith-studio2 [data-studio-ui="studio2"]');
+    const row = [...root.querySelectorAll('.rp .fsec .frow')]
+      .find(node => node.querySelector('.fr-n')?.textContent.trim() === 'studio2-e2e.txt');
+    [...row.querySelectorAll('button')].find(node => node.textContent.trim() === 'Náhled').click();
+    return true;
+  })()`);
+  const localPreview = await waitFor(s => s.specialistPreview === 'private'
+    && !s.composerAttachments.includes('studio2-e2e.txt'), 'specialist-preview-private');
+  await evaluate(cdp, `(() => {
+    const root = document.querySelector('#intentsmith-studio2 [data-studio-ui="studio2"]');
+    const row = [...root.querySelectorAll('.rp .fsec .frow')]
+      .find(node => node.querySelector('.fr-n')?.textContent.trim() === 'studio2-e2e.txt');
+    [...row.querySelectorAll('button')].find(node => node.textContent.trim() === 'Připojit').click();
+    return true;
+  })()`);
+  const localAttached = await waitFor(s => s.composerAttachments.includes('studio2-e2e.txt'), 'specialist-explicit-attachment');
   return Object.freeze({
     classicInitiallyAttached: classic.classicSidebar && classic.classicChat,
     studio2ExclusivelyAttached: studio2.studio2 && !studio2.classicSidebar && !studio2.classicChat,
@@ -249,5 +304,8 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
     pinnedSessionPersisted: persisted.pinnedTabs === 1 && persisted.firstTabTitle === pinnedTitle,
     projectCatalogLoaded: catalog.catalogSection === 'Projekty' && catalog.catalogStatus === 'ready',
     elevenThemesRendered: themes.length === 11 && themes.every(Boolean),
+    specialistLocalPreviewRequiresAttachment: localPreview.specialistPreview === 'private'
+      && !localPreview.composerAttachments.includes('studio2-e2e.txt')
+      && localAttached.composerAttachments.includes('studio2-e2e.txt'),
   });
 }

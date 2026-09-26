@@ -1941,6 +1941,7 @@ const STUDIO2_MODE_FIELDS = Object.freeze([
   'pinnedSessionPersisted',
   'projectCatalogLoaded',
   'elevenThemesRendered',
+  'specialistLocalPreviewRequiresAttachment',
 ]);
 
 export function successEvidence({
