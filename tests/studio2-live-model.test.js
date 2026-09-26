@@ -168,6 +168,83 @@ test('media history actions refresh real state and report deferred cancellation 
     ['POST', '/api/media/cancel?id=' + id], ['PUT', '/api/media/favorite'], ['DELETE', '/api/media?id=' + id]]);
 });
 
+test('media form verifies ComfyUI and checkpoint, validates inputs, and observes accepted generation in history', async () => {
+  const id = 'gen-1790400000001-4bcbd01a', requests = [];
+  let available = false, started = false, rejectGenerate = false;
+  const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335',
+    fetchImpl: async (url, options = {}) => {
+      const path = new URL(url).pathname, method = options.method || 'GET';
+      requests.push([method, path, options.body && JSON.parse(options.body)]);
+      if (path === '/api/media/health') return { ok: true, json: async () => ({ available }) };
+      if (path === '/api/media/models') return { ok: true, json: async () => ({ checkpoints: ['real-checkpoint.safetensors'] }) };
+      if (path === '/api/media/history') return { ok: true, json: async () => ({
+        generations: started ? [{ id, type: 'txt2img', prompt: 'Krajina', status: 'pending' }] : [] }) };
+      if (path === '/api/media/generate') {
+        if (rejectGenerate) return { ok: false, status: 502, json: async () => ({ error: 'ComfyUI odmítlo plán' }) };
+        started = true;
+        return { ok: true, json: async () => ({ ok: true, generationId: id }) };
+      }
+      throw Error('Unexpected request: ' + path);
+    } });
+  const { model, widget } = setup({ catalog });
+  await catalog.load('Multimédia');
+  model.setState(model.pSelect(model.st(), 'media', '__new__'));
+  await tick();
+  assert.equal(model.mediaFormVM(model.st()).disabled, true, 'offline ComfyUI blocks generation');
+  assert.equal(await model.submitMedia(model.st()), false);
+  available = true;
+  assert.equal(await model.loadMediaEnvironment(), true);
+  model.setState({ mediaPrompt: 'Krajina', mediaWidth: 63 });
+  assert.equal(model.mediaFormVM(model.st()).disabled, true, 'invalid dimensions block generation');
+  model.setState({ mediaWidth: 1024 });
+  const form = model.mediaFormVM(model.st());
+  assert.equal(form.model, 'real-checkpoint.safetensors');
+  assert.equal(form.disabled, false);
+  rejectGenerate = true;
+  assert.equal(await form.submit(), false);
+  assert.match(widget.catalogActionError, /ComfyUI odmítlo plán/);
+  assert.equal(model.st().detail.media, '__new__');
+  rejectGenerate = false;
+  assert.equal(await model.mediaFormVM(model.st()).submit(), true);
+  assert.equal(model.st().detail.media, id);
+  assert.equal(model.detailVM(model.st()).status, 'pending');
+  assert.deepEqual(requests.filter(([method]) => method === 'POST').at(-1)[2], {
+    type: 'txt2img', prompt: 'Krajina', negative_prompt: '',
+    params: { width: 1024, height: 1024, steps: 20, cfg_scale: 7, seed: -1, model: 'real-checkpoint.safetensors' }
+  });
+});
+
+test('completed media loads only safe output names as local object URLs', async () => {
+  const id = 'gen-1790400000002-c48a8dc7', requests = [];
+  const raw = { id, type: 'txt2img', prompt: 'Krajina', status: 'completed',
+    outputs: JSON.stringify([`/home/user/.intentsmith/media/images/${id}/result.png`,
+      `/home/user/.intentsmith/media/images/${id}/bad.html`,
+      `/home/user/.intentsmith/media/images/${id}/error.webp`]) };
+  const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335',
+    fetchImpl: async url => {
+      assert.equal(new URL(url).pathname, '/api/media/history');
+      return { ok: true, json: async () => ({ generations: [raw] }) };
+    } });
+  const { model } = setup({ catalog });
+  model.fetchImpl = async url => {
+    requests.push(url);
+    return { ok: true, blob: async () => new Blob(['fake'], { type: url.includes('error.webp') ? 'text/html' : 'image/png' }) };
+  };
+  await catalog.load('Multimédia');
+  const item = catalog.view('Multimédia').items[0];
+  await model.loadMediaOutputs(item);
+  model.setState({ mode: 'section', section: 'media', detail: { media: id } });
+  const outputs = model.detailVM(model.st()).blocks.find(block => block.isMediaOutputs).mediaOutputs;
+  assert.deepEqual(outputs.map(output => output.name), ['result.png', 'error.webp']);
+  assert.equal(outputs[0].ready, true);
+  assert.match(outputs[0].url, /^blob:/);
+  assert.equal(outputs[1].ready, false);
+  assert.match(outputs[1].status, /nepodporovaný formát/);
+  assert.equal(requests.length, 2);
+  assert.ok(requests.every(url => url.includes('/api/media/output?id=' + id)));
+  model.componentWillUnmount();
+});
+
 test('live view contains only actual sessions and messages, and swaps column ownership', () => {
   const { model, store } = setup();
   const first = store.focusedSession();

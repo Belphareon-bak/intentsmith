@@ -41,6 +41,8 @@ html,body{margin:0;height:100%;overflow:hidden}
 .btn:hover{border-color:var(--acc)}
 .btn-acc{background:var(--acc);border-color:var(--acc);color:var(--acc-fg);font-weight:600}
 .btn-acc:hover{filter:brightness(1.08)}
+.media-output{display:flex;flex-direction:column;gap:7px;margin:8px 0;padding:9px;border:1px solid var(--border);border-radius:7px;background:var(--panel2);min-width:0}
+.media-output img,.media-output video{display:block;width:100%;max-height:360px;object-fit:contain;border-radius:5px;background:var(--bg)}
 .chip{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 8px;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--dim);font-size:12px;cursor:pointer;white-space:nowrap;flex:0 0 auto;max-width:180px;overflow:hidden}
 .chip:hover{color:var(--text);border-color:var(--dim)}
 .seg{display:inline-flex;border:1px solid var(--border);border-radius:5px;overflow:hidden;background:var(--panel2);flex:0 0 auto}
@@ -763,6 +765,24 @@ textarea.fv-ed{font-family:var(--font-mono)}
 <sc-if value="{{b.isCode}}" hint-placeholder-val="{{false}}"><div class="code mono"><sc-for list="{{b.lines}}" as="ln" hint-placeholder-count="2"><div>{{ln.t}}</div></sc-for></div></sc-if>
 <sc-if value="{{b.isTable}}" hint-placeholder-val="{{false}}"><div class="tbl"><div class="trow th" style="grid-template-columns: {{b.grid}};"><sc-for list="{{b.cols}}" as="co" hint-placeholder-count="3"><span>{{co.t}}</span></sc-for></div><sc-for list="{{b.trs}}" as="tr" hint-placeholder-count="2"><div class="trow" style="grid-template-columns: {{b.grid}};"><sc-for list="{{tr.cells}}" as="ce" hint-placeholder-count="3"><span style="color: {{ce.c}};">{{ce.t}}</span></sc-for></div></sc-for></div></sc-if>
 <sc-if value="{{b.isEmpty}}" hint-placeholder-val="{{false}}"><div class="empty">{{b.empty}}</div></sc-if>
+<sc-if value="{{b.isMediaOutputs}}" hint-placeholder-val="{{false}}"><div class="aps" aria-label="Výstupy generování"><div class="blk-h"><span class="lbl-acc">Výstupy</span></div><sc-for list="{{b.mediaOutputs}}" as="output" hint-placeholder-count="2"><div class="media-output"><span class="mono">{{output.name}}</span><sc-if value="{{output.ready}}" hint-placeholder-val="{{false}}"><sc-if value="{{output.isImage}}" hint-placeholder-val="{{true}}"><img src="{{output.url}}" alt="{{output.name}}"></sc-if><sc-if value="{{output.isVideo}}" hint-placeholder-val="{{false}}"><video src="{{output.url}}" controls="true"></video></sc-if></sc-if><sc-if value="{{output.hasStatus}}" hint-placeholder-val="{{false}}"><span class="aph">{{output.status}}</span></sc-if></div></sc-for></div></sc-if>
+<sc-if value="{{b.isMediaForm}}" hint-placeholder-val="{{false}}">
+<div class="aps" aria-label="Nové generování médií">
+<div class="blk-h"><span class="lbl-acc">Zadání pro ComfyUI</span></div>
+<label class="arow2"><span>Druh</span><select value="{{b.mediaForm.type}}" onChange="{{b.mediaForm.setType}}"><sc-for list="{{b.mediaForm.types}}" as="option" hint-placeholder-count="2"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
+<label class="arow2"><span>Prompt</span><textarea rows="4" value="{{b.mediaForm.prompt}}" onChange="{{b.mediaForm.setPrompt}}" placeholder="Popiš, co chceš vytvořit"></textarea></label>
+<label class="arow2"><span>Negativní prompt</span><textarea rows="2" value="{{b.mediaForm.negative}}" onChange="{{b.mediaForm.setNegative}}" placeholder="Co má výsledek vynechat"></textarea></label>
+<label class="arow2"><span>Checkpoint</span><select value="{{b.mediaForm.model}}" onChange="{{b.mediaForm.setModel}}"><option value="">Vyber model</option><sc-for list="{{b.mediaForm.models}}" as="model" hint-placeholder-count="2"><option value="{{model.value}}">{{model.label}}</option></sc-for></select></label>
+<label class="arow2"><span>Šířka</span><input type="number" min="64" max="4096" step="8" value="{{b.mediaForm.width}}" onChange="{{b.mediaForm.setWidth}}"></label>
+<label class="arow2"><span>Výška</span><input type="number" min="64" max="4096" step="8" value="{{b.mediaForm.height}}" onChange="{{b.mediaForm.setHeight}}"></label>
+<label class="arow2"><span>Steps</span><input type="number" min="1" max="150" value="{{b.mediaForm.steps}}" onChange="{{b.mediaForm.setSteps}}"></label>
+<label class="arow2"><span>CFG</span><input type="number" min="0" max="30" step="0.5" value="{{b.mediaForm.cfg}}" onChange="{{b.mediaForm.setCfg}}"></label>
+<label class="arow2"><span>Seed</span><input type="number" min="-1" value="{{b.mediaForm.seed}}" onChange="{{b.mediaForm.setSeed}}"></label>
+<sc-if value="{{b.mediaForm.isVideo}}" hint-placeholder-val="{{false}}"><label class="arow2"><span>Počet snímků</span><input type="number" min="1" max="300" value="{{b.mediaForm.frames}}" onChange="{{b.mediaForm.setFrames}}"></label></sc-if>
+<p class="aph">{{b.mediaForm.status}}</p>
+<button class="btn btn-acc" disabled="{{b.mediaForm.disabled}}" onClick="{{b.mediaForm.submit}}">Generovat</button>
+</div>
+</sc-if>
 <sc-if value="{{b.isScmPolicy}}" hint-placeholder-val="{{false}}">
 <div class="aps dev-panel" aria-label="Politika správy zdrojů">
 <sc-for list="{{dt.scmPolicy.fields}}" as="setting" hint-placeholder-count="2"><label class="arow2"><span>{{setting.label}}</span><select value="{{setting.value}}" onChange="{{setting.change}}"><sc-for list="{{setting.options}}" as="option" hint-placeholder-count="3"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label></sc-for>

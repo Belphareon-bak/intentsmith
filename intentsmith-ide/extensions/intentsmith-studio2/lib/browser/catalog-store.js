@@ -59,6 +59,7 @@ class CatalogStore {
     const mediaId = path.startsWith('/api/media/cancel?id=') ? path.slice('/api/media/cancel?id='.length)
       : path.startsWith('/api/media?id=') ? path.slice('/api/media?id='.length) : '';
     const mediaPath = (method === 'POST' && path.startsWith('/api/media/cancel?id=') && MEDIA_ID.test(mediaId))
+      || (method === 'POST' && path === '/api/media/generate')
       || (method === 'PUT' && path === '/api/media/favorite')
       || (method === 'DELETE' && path.startsWith('/api/media?id=') && MEDIA_ID.test(mediaId));
     if (!['POST', 'PUT', 'DELETE'].includes(method) || typeof path !== 'string'

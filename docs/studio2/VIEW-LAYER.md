@@ -50,11 +50,18 @@ obnovy a jedenácti témat (`tests/studio2-exclusive-ui.e2e.js`).
 Historie Multimédií načítá skutečné záznamy; oblíbené, zrušení a smazání
 prochází backendem a znovunačtením stavu. Běžící úloha po požadavku na
 zrušení zůstává označená jako běžící, dokud backend neohlásí koncový stav.
+Nový formulář generování je součástí prototypu a generovaného pohledu.
+V IDE ověřuje dostupnost ComfyUI a checkpointu, validuje textové generování
+obrázku a videa, odesílá ho přes `/api/media/generate` a kontroluje přijetí
+v historii. Dokončené výstupy se načítají z `/api/media/output` do lokálních
+objektových URL; zamítají se nebezpečné názvy a neočekávané typy. Obraz → obraz
+zatím formulář nenabízí, protože backend nemá připojené nahrání zdrojového obrázku.
+Fyzické GPU generování nebylo v izolovaných testech spuštěno.
 
 **Zbývá před paritou S2-7:** průvodci a další akce katalogů, vytvoření,
 přejmenování a smazání souborů ve stromu, úplných 12 kategorií nastavení,
-modely/hunt/governor/upgrady, M4/M7, nové generování a otevření výstupů
-Multimédií a automatické režimy gitu.
+modely/hunt/governor/upgrady, M4/M7, vstupní obraz pro Multimédia
+a automatické režimy gitu.
 Prototypové fixtury se stále používají u nenapojených částí nastavení;
 tyto části nesmějí být vydávány za živá data. Klasické UI proto zůstává dostupné.
 

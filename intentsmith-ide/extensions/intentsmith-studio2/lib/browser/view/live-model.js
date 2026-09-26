@@ -25,6 +25,14 @@ function clock(ts) {
   return Number.isNaN(date.getTime()) ? '' : date.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' });
 }
 
+function mediaOutputNames(raw) {
+  let paths;
+  try { paths = typeof raw?.outputs === 'string' ? JSON.parse(raw.outputs) : raw?.outputs; } catch { return []; }
+  if (!Array.isArray(paths)) return [];
+  return [...new Set(paths.map(path => typeof path === 'string' ? path.split(/[\\/]/).pop() : '')
+    .filter(name => name && !name.includes('..') && /^[A-Za-z0-9_][A-Za-z0-9_. -]*\.(?:png|jpe?g|gif|webp|mp4|webm)$/i.test(name)))].slice(0, 8);
+}
+
 function safeLayout(storage) {
   let raw;
   try { raw = JSON.parse(storage.getItem(LAYOUT_KEY) || '{}'); } catch { raw = {}; }
@@ -58,6 +66,10 @@ class LiveModel extends Component {
     this._projectConversations = new Map();
     this._workerDetails = new Map();
     this._mediaNotices = new Map();
+    this._mediaEnvironment = { status: 'idle', available: false, models: [], error: '' };
+    this._mediaSubmitting = false;
+    this._mediaSubmitNotice = '';
+    this._mediaOutputUrls = new Map();
     this._audit = new Map();
     this._auditRequest = new Map();
     this._catalogBusy = new Set();
@@ -86,6 +98,8 @@ class LiveModel extends Component {
   }
 
   componentWillUnmount() {
+    for (const output of this._mediaOutputUrls.values()) if (output.url) URL.revokeObjectURL(output.url);
+    this._mediaOutputUrls.clear();
     for (const unlisten of this._unlisten.splice(0)) unlisten();
     this.development.destroy();
     this.scmClient.destroy();
@@ -347,9 +361,10 @@ class LiveModel extends Component {
       }
       vm.catalogError = this.widget.catalogActionError || view.error || '';
       vm.hasCatalogError = !!vm.catalogError;
-      vm.hasPrimary = s.section === 'chats';
-      vm.primary = 'Nová konverzace';
-      vm.onPrimary = this.run(s2 => this.pNewSession(s2, {}));
+      vm.hasPrimary = s.section === 'chats' || s.section === 'media';
+      vm.primary = s.section === 'media' ? 'Nové generování' : 'Nová konverzace';
+      vm.onPrimary = this.run(s2 => s.section === 'media'
+        ? this.pSelect(s2, 'media', '__new__') : this.pNewSession(s2, {}));
     }
     return vm;
   }
@@ -357,6 +372,7 @@ class LiveModel extends Component {
   detailVM(s) {
     const id = s.detail[s.section];
     if (!id) return null;
+    if (s.section === 'media' && id === '__new__') return super.detailVM(s);
     if (s.section === 'settings' && (id === 'vzhled' || id === 'system')) return super.detailVM(s);
     if (s.section === 'projects') {
       const vm = super.detailVM(s);
@@ -437,6 +453,13 @@ class LiveModel extends Component {
     if (s.section === 'media') {
       const raw = item.raw || {}, active = raw.status === 'pending' || raw.status === 'running';
       const busy = this._catalogBusy.has('media:' + id), favorite = raw.favorite === true || raw.favorite === 1;
+      const outputs = mediaOutputNames(raw).map(name => {
+        const cached = this._mediaOutputUrls.get(id + '|' + name) || { status: 'idle' };
+        const isImage = /\.(?:png|jpe?g|gif|webp)$/i.test(name);
+        return { name, ready: cached.status === 'ready', url: cached.url || '', isImage, isVideo: !isImage,
+          hasStatus: cached.status !== 'ready', status: cached.status === 'error' ? cached.error
+            : cached.status === 'loading' ? 'Načítám náhled…' : 'Náhled ještě není načtený.' };
+      });
       return { icon: this.sec(s.section).icon, tone: this.sec(s.section).tone,
         icls: '', title: item.name, type: 'Médium · ' + (raw.type || 'generování'), idText: id,
         hasStatus: true, status: busy ? 'probíhá' : raw.status || 'nezjištěno',
@@ -452,7 +475,8 @@ class LiveModel extends Component {
           ['Vytvořeno', raw.created_at || '—'], ['Stav', raw.status || '—']]
           .map(([k, v, mono]) => ({ k, v, cls: mono ? 'mono' : '' })),
         blocks: [this.blockVM({ kind: 'empty', text: busy ? 'Čekám na výsledek operace…'
-          : this._mediaNotices.get(id) || raw.error || 'Historie a stav se načítají z backendu.' })],
+          : this._mediaNotices.get(id) || raw.error || 'Historie a stav se načítají z backendu.' }),
+        ...(outputs.length ? [this.blockVM({ kind: 'mediaOutputs', outputs })] : [])],
         hasRelated: false, related: [], development: this.developmentVM(s), scmPolicy: this.scmPolicyVM(s, null) };
     }
     return { icon: this.sec(s.section).icon, tone: this.sec(s.section).tone,
@@ -579,13 +603,117 @@ class LiveModel extends Component {
         || (operation === 'cancel' && raw.status === 'pending' && updated.raw.status !== 'cancelled'))
         throw Error('Akce byla odeslána, ale aktuální stav média nelze ověřit. Obnov historii před dalším pokusem.');
       if (operation === 'cancel') this._mediaNotices.set(id, result.message || 'Požadavek na zrušení přijat.');
-      if (operation === 'delete') this._mediaNotices.delete(id);
+      if (operation === 'delete') {
+        this._mediaNotices.delete(id);
+        for (const [key, output] of this._mediaOutputUrls) if (key.startsWith(id + '|')) {
+          if (output.url) URL.revokeObjectURL(output.url);
+          this._mediaOutputUrls.delete(key);
+        }
+      }
       return true;
     } catch (error) {
       this.widget.catalogActionError = error?.message || 'Akce s médiem selhala.';
       return false;
     } finally {
       this._catalogBusy.delete(key);
+      this.forceUpdate();
+    }
+  }
+
+  async loadMediaOutputs(item) {
+    const id = item?.id;
+    if (!MEDIA_ID.test(id || '') || item.raw?.status !== 'completed') return false;
+    const names = mediaOutputNames(item.raw);
+    if (!names.length) return false;
+    await Promise.all(names.map(async name => {
+      const key = id + '|' + name;
+      if (this._mediaOutputUrls.has(key)) return;
+      this._mediaOutputUrls.set(key, { status: 'loading' });
+      this.forceUpdate();
+      try {
+        const base = this.widget.catalog.backendUrl();
+        if (typeof base !== 'string' || !/^https?:\/\//.test(base)) throw Error('Backend není dostupný.');
+        const response = await this.fetchImpl(base + '/api/media/output?id=' + encodeURIComponent(id)
+          + '&filename=' + encodeURIComponent(name), { signal: AbortSignal.timeout(15000) });
+        if (!response.ok) throw Error('Výstup nelze načíst (HTTP ' + response.status + ').');
+        const blob = await response.blob();
+        if (!/^(image\/(?:png|jpeg|gif|webp)|video\/(?:mp4|webm))$/.test(blob.type))
+          throw Error('Backend vrátil nepodporovaný formát výstupu.');
+        this._mediaOutputUrls.set(key, { status: 'ready', url: URL.createObjectURL(blob) });
+      } catch (error) {
+        this._mediaOutputUrls.set(key, { status: 'error', error: error?.message || 'Výstup nelze načíst.' });
+      }
+      this.forceUpdate();
+    }));
+    return true;
+  }
+
+  clearMediaOutputUrls(exceptId = '') {
+    for (const [key, output] of this._mediaOutputUrls) if (!exceptId || !key.startsWith(exceptId + '|')) {
+      if (output.url) URL.revokeObjectURL(output.url);
+      this._mediaOutputUrls.delete(key);
+    }
+  }
+
+  mediaStatus() {
+    return { ...this._mediaEnvironment,
+      status: this._mediaSubmitting ? 'loading' : this._mediaEnvironment.status,
+      error: this._mediaSubmitNotice || this._mediaEnvironment.error };
+  }
+
+  async loadMediaEnvironment() {
+    this._mediaEnvironment = { status: 'loading', available: false, models: [], error: '' };
+    this._mediaSubmitNotice = '';
+    this.forceUpdate();
+    try {
+      const [health, data] = await Promise.all([
+        this.widget.catalog.get('/api/media/health'),
+        this.widget.catalog.get('/api/media/models', 15000)
+      ]);
+      const models = Array.isArray(data.checkpoints) ? data.checkpoints.filter(name => typeof name === 'string' && name) : [];
+      const available = health.available === true && models.length > 0;
+      this._mediaEnvironment = { status: 'ready', available, models,
+        error: !health.available ? 'ComfyUI není dostupné.' : models.length === 0 ? 'ComfyUI nemá dostupný checkpoint.' : '' };
+    } catch (error) {
+      this._mediaEnvironment = { status: 'error', available: false, models: [],
+        error: error?.message || 'Nelze ověřit ComfyUI a modely.' };
+    }
+    this.forceUpdate();
+    return this._mediaEnvironment.available;
+  }
+
+  async submitMedia(s) {
+    const form = this.mediaFormVM(s);
+    if (this._mediaSubmitting || form.disabled || !['txt2img', 'txt2vid'].includes(s.mediaType)) return false;
+    this._mediaSubmitting = true;
+    this._mediaSubmitNotice = '';
+    this.widget.catalogActionError = null;
+    this.forceUpdate();
+    try {
+      const params = { width: s.mediaWidth, height: s.mediaHeight, steps: s.mediaSteps,
+        cfg_scale: s.mediaCfg, seed: s.mediaSeed, model: form.model };
+      if (s.mediaType === 'txt2vid') params.frames = s.mediaFrames;
+      const result = await this.widget.catalog.mutate('/api/media/generate', 'POST', {
+        type: s.mediaType, prompt: s.mediaPrompt.trim(), negative_prompt: s.mediaNegative.trim(), params
+      }, 30000);
+      if (!MEDIA_ID.test(result.generationId || '')) throw Error('Backend nevrátil platné ID generování. Zkontroluj historii.');
+      await this.widget.catalog.load('Multimédia');
+      const current = this.widget.catalog.view('Multimédia');
+      if (current.status === 'ready' && current.items.some(item => item.id === result.generationId)) {
+        const created = current.items.find(item => item.id === result.generationId);
+        this.clearMediaOutputUrls(result.generationId);
+        this.setState({ detail: this.merge(this.st(), 'detail', { media: result.generationId }),
+          mediaPrompt: '', mediaNegative: '' });
+        this.loadMediaOutputs(created);
+      } else {
+        this._mediaSubmitNotice = `Generování ${result.generationId} bylo přijato; historii zatím nelze ověřit.`;
+      }
+      return true;
+    } catch (error) {
+      this.widget.catalogActionError = error?.message || 'Generování se nepodařilo zahájit.';
+      return false;
+    } finally {
+      this._mediaSubmitting = false;
       this.forceUpdate();
     }
   }
@@ -688,6 +816,12 @@ class LiveModel extends Component {
   pSelect(s, sec, id) {
     if (sec === 'projects') { this.scmClient.load(id); this.loadProjectConversations(id); }
     if (sec === 'workers') this.loadWorkerDetail(id);
+    if (sec === 'media') this.clearMediaOutputUrls(id === '__new__' ? '' : id);
+    if (sec === 'media' && id === '__new__') this.loadMediaEnvironment();
+    if (sec === 'media' && id !== '__new__') {
+      const item = this.widget.catalog.view('Multimédia').items.find(row => row.id === id);
+      if (item) this.loadMediaOutputs(item);
+    }
     if (sec === 'settings' && id === 'system' && !this._developmentRequested) {
       this._developmentRequested = true; this.development.refresh();
     }

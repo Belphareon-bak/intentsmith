@@ -42,6 +42,8 @@ class Component extends DCLogic {
       openFiles: { 'src/main/sftp.js': true }, paused: {}, ran: {}, installed: {}, seq: 1,
       fileView: {}, fileMode: {}, fileDraft: {}, fileText: {}, fileGuard: null, userOpened: {}, treeClosed: {},
       scm: {}, scmPlan: null, auditX: {}, ctxQ: '', atts: {}, cmds: {}, termX: {},
+      mediaType: 'txt2img', mediaPrompt: '', mediaNegative: '', mediaWidth: 1024, mediaHeight: 1024,
+      mediaSteps: 20, mediaCfg: 7, mediaSeed: -1, mediaFrames: 49, mediaModel: '',
       style: 'intentsmith', tmode: 'dark', fs: 13, ff: 'brand', ti: 70, ai: 100, bright: 100, pa: 80, ta: 80, bd: 30,
       sep: 'ramecky', density: 'komfortni', scale: '100', col: true, cacc: 0, caccHex: '#22c55e', cbg: 0, cbgHex: '#14141e', css: ''
     };
@@ -770,7 +772,8 @@ class Component extends DCLogic {
       : { t: 'Nic nenalezeno', x: 'Zkus jiný filtr nebo hledaný výraz.', i: I.search };
     return {
       title: SC.label, icon: SC.icon, tone: SC.tone, summary: sums[sec] || '', catalogError: '', hasCatalogError: false, primary: SC.newLabel, hasPrimary: !!SC.newLabel,
-      onPrimary: this.run((s2) => (sec === 'chats' ? this.pNewSession(s2, {}) : null)),
+      onPrimary: this.run((s2) => (sec === 'chats' ? this.pNewSession(s2, {})
+        : sec === 'media' ? this.pSelect(s2, 'media', '__new__') : null)),
       hasChips: f.chips.length > 1, chips: f.chips, items,
       isTiles: s.view === 'dlazdice' && items.length > 0, isList: s.view === 'seznam' && items.length > 0, isEmpty: items.length === 0,
       emptyTitle: empty.t, emptyText: empty.x, emptyIcon: empty.i,
@@ -793,6 +796,13 @@ class Component extends DCLogic {
   detailSpec(sec, id, s) {
     const d = this.data(), I = d.I;
     const ok = 'var(--ok)';
+    if (sec === 'media' && id === '__new__') return {
+      icon: I.image, tone: 'violet', title: 'Nové generování', type: 'Multimédia', idText: 'ComfyUI',
+      status: '', stCls: '', secondary: [], tabs: [['formular', 'Zadání']],
+      blocks: { formular: [{ kind: 'mediaForm' }] },
+      desc: 'Zadej prompt, vyber model a parametry. Generování se zařadí do fronty backendu.',
+      props: [], related: []
+    };
     if (sec === 'chats') {
       const open = s.tabs.indexOf(id) >= 0;
       if (open) {
@@ -1091,7 +1101,43 @@ class Component extends DCLogic {
       trs: (b.trs || []).map((r) => ({ cells: r.map((c) => (Array.isArray(c) ? { t: c[0], c: c[1] } : { t: c, c: 'inherit' })) })),
       isEmpty: kind === 'empty', empty: b.text || b.empty || '',
       isDevelopment: kind === 'development', isScmPolicy: kind === 'scmPolicy',
+      isMediaForm: kind === 'mediaForm', mediaForm: this.mediaFormVM(this.st()),
+      isMediaOutputs: kind === 'mediaOutputs', mediaOutputs: b.outputs || [],
       isApObecne: kind === 'apObecne', isApPismo: kind === 'apPismo', isApBarvy: kind === 'apBarvy', isApRozvrzeni: kind === 'apRozvrzeni', isApCss: kind === 'apCss'
+    };
+  }
+
+  mediaStatus() { return { status: 'preview', available: false, models: [], error: 'Prototyp ukazuje formulář; backend se připojuje až v IDE.' }; }
+
+  submitMedia() { return null; }
+
+  mediaFormVM(s) {
+    const status = this.mediaStatus();
+    const models = Array.isArray(status.models) ? status.models : [];
+    const selectedModel = models.includes(s.mediaModel) ? s.mediaModel : models[0] || '';
+    const numbers = [s.mediaWidth, s.mediaHeight, s.mediaSteps, s.mediaCfg, s.mediaSeed];
+    const valid = numbers.every(Number.isFinite) && s.mediaWidth >= 64 && s.mediaWidth <= 4096 && s.mediaWidth % 8 === 0
+      && s.mediaHeight >= 64 && s.mediaHeight <= 4096 && s.mediaHeight % 8 === 0
+      && s.mediaSteps >= 1 && s.mediaSteps <= 150 && s.mediaCfg >= 0 && s.mediaCfg <= 30 && s.mediaSeed >= -1
+      && (s.mediaType !== 'txt2vid' || Number.isInteger(s.mediaFrames) && s.mediaFrames >= 1 && s.mediaFrames <= 300);
+    const setNumber = (key) => (e) => this.setState({ [key]: e.target.value === '' ? '' : Number(e.target.value) });
+    return {
+      types: [{ value: 'txt2img', label: 'Text → obraz' }, { value: 'txt2vid', label: 'Text → video' }],
+      type: s.mediaType, setType: (e) => this.setState({ mediaType: e.target.value,
+        mediaWidth: e.target.value === 'txt2vid' ? 848 : 1024,
+        mediaHeight: e.target.value === 'txt2vid' ? 480 : 1024,
+        mediaSteps: e.target.value === 'txt2vid' ? 30 : 20 }),
+      prompt: s.mediaPrompt, setPrompt: (e) => this.setState({ mediaPrompt: e.target.value }),
+      negative: s.mediaNegative, setNegative: (e) => this.setState({ mediaNegative: e.target.value }),
+      width: s.mediaWidth, setWidth: setNumber('mediaWidth'), height: s.mediaHeight, setHeight: setNumber('mediaHeight'),
+      steps: s.mediaSteps, setSteps: setNumber('mediaSteps'), cfg: s.mediaCfg, setCfg: setNumber('mediaCfg'),
+      seed: s.mediaSeed, setSeed: setNumber('mediaSeed'), frames: s.mediaFrames, setFrames: setNumber('mediaFrames'),
+      isVideo: s.mediaType === 'txt2vid', models: models.map((name) => ({ value: name, label: name })),
+      model: selectedModel, setModel: (e) => this.setState({ mediaModel: e.target.value }),
+      status: status.error || (status.status === 'loading' ? 'Ověřuji ComfyUI a modely…'
+        : status.available ? 'ComfyUI je dostupné.' : 'ComfyUI není dostupné.'),
+      disabled: !status.available || !selectedModel || !s.mediaPrompt.trim() || !valid || status.status === 'loading',
+      submit: () => this.submitMedia(this.st())
     };
   }
 
