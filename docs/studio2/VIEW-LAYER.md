@@ -68,8 +68,15 @@ nejistý výsledek zápisu neopakuje automaticky.
 Průvodce specialistou je také v prototypu a generovaném pohledu. Před
 vytvořením ukáže ID, doménu, popis a soubory balíčku. IDE zapisuje přes
 existující `/api/specialists`, ověřuje manifest novým čtením a katalogem;
-nejistý výsledek neopakuje. Generator stubu v backendu byl při napojení
+nejistý výsledek neopakuje. Generátor stubu v backendu byl při napojení
 opraven, aby vložené apostrofy a nové řádky zůstaly daty, nikoli JS kódem.
+
+Průvodce workerem v novém UI instaluje dostupné M3 rozšíření Project Health
+pro vybraný projekt, vždy nejprve jako vypnutou instanci. Po zápisu ověřuje
+vazbu rozšíření, ID projektu a katalog; ztracenou odpověď neopakuje. Starý
+obecný průvodce zdrojů, podmínek, spouštěčů a akcí zůstává otevřenou mezerou:
+jeho legacy mutační API vrací 410 a veřejné M3 API zatím nepopisuje schéma
+parametrů dalších rozšíření.
 
 Nastavení má nyní přesně 12 kategorií a záložky z UI-SPEC. Funkční přepínače
 se čtou z `/api/features`; zapnutí, vypnutí a obnovení výchozích hodnot
@@ -77,7 +84,7 @@ vyžaduje potvrzení a ověřuje nový stav ze serveru. Lokální modely se čto
 z Ollamy prostřednictvím backendu a velikost uložených příloh z backendu.
 Ostatní nepřipojené záložky jsou výslovně označené a neukazují ukázková data.
 
-**Zbývá před paritou S2-7:** průvodci expertýz a workerů
+**Zbývá před paritou S2-7:** průvodce expertýzou a obecný průvodce workerem
 a další akce katalogů, vytvoření,
 přejmenování a smazání souborů ve stromu, úplných 12 kategorií nastavení,
 stahování modelů, role/hunt/governor/upgrady, M4/M7, vstupní obraz pro Multimédia

@@ -220,6 +220,58 @@ test('specialist wizard never retries an uncertain package creation', async () =
   assert.equal(postCount, 1);
 });
 
+test('worker wizard installs only a disabled M3 project-health instance with exact readback', async () => {
+  let installed = false, postCount = 0;
+  const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335',
+    fetchImpl: async url => {
+      const path = new URL(url).pathname;
+      if (path === '/api/agent-extensions') return { ok: true, json: async () => ({ extensions: [
+        { id: 'project-health', name: 'Project Health', requiredCapabilities: ['code-intel.project-context.v1'] },
+        { id: 'unknown', name: 'Unknown', requiredCapabilities: [] }] }) };
+      if (path === '/api/projects') return { ok: true, json: async () => ({ projects: [{ id: 41, name: 'Repo' }] }) };
+      if (path === '/api/agents') return { ok: true, json: async () => ({ agents: installed ? [
+        { id: 'health-repo', name: 'Project Health', enabled: false }] : [] }) };
+      if (path === '/api/agents/health-repo') return { ok: true, json: async () => ({
+        id: 'health-repo', enabled: false, params: { project_id: 41 },
+        definition: { m3_extension: { id: 'project-health' }, schedule: { type: 'manual' } }, recentRuns: [] }) };
+      throw Error('Unexpected request: ' + path);
+    } });
+  const { model } = setup({ catalog });
+  model.fetchImpl = async (url, options) => {
+    postCount++;
+    assert.equal(new URL(url).pathname, '/api/agent-extensions/project-health/install');
+    assert.deepEqual(JSON.parse(options.body), { instanceId: 'health-repo', projectId: 41, enabled: false });
+    installed = true;
+    return { ok: true, json: async () => ({ id: 'health-repo', enabled: false,
+      definition: { m3_extension: { id: 'project-health' } } }) };
+  };
+  model.setState({ mode: 'section', section: 'workers', detail: { workers: '__new__' },
+    workerStep: 1, workerExtension: 'project-health', workerProject: '41', workerInstanceId: 'health-repo' });
+  assert.equal(model.workerWizardVM(model.st()).submitDisabled, true, 'unloaded extension cannot be installed');
+  await model.loadWorkerWizard();
+  assert.deepEqual(model.workerStatus().extensions.map(item => item.id), ['project-health']);
+  assert.equal(model.workerWizardVM(model.st()).submitDisabled, false);
+  assert.equal(await model.submitWorker(model.st()), true);
+  assert.equal(model.st().detail.workers, 'health-repo');
+  assert.equal(postCount, 1);
+});
+
+test('worker wizard never repeats installation after uncertain response', async () => {
+  let posts = 0;
+  const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335', fetchImpl: async () => ({
+    ok: true, json: async () => ({ extensions: [], projects: [] }) }) });
+  const { model } = setup({ catalog });
+  model._workerWizardStatus = { loading: false, busy: false, error: '', uncertain: false,
+    extensions: [{ id: 'project-health', name: 'Project Health' }], projects: [{ id: 41, name: 'Repo' }] };
+  model.fetchImpl = async () => { posts++; throw Error('Response lost'); };
+  model.setState({ mode: 'section', section: 'workers', detail: { workers: '__new__' },
+    workerStep: 1, workerExtension: 'project-health', workerProject: '41', workerInstanceId: 'health-repo' });
+  assert.equal(await model.submitWorker(model.st()), false);
+  assert.equal(model.workerStatus().uncertain, true);
+  assert.equal(await model.submitWorker(model.st()), false);
+  assert.equal(posts, 1);
+});
+
 test('project wizard treats lost mutation response as uncertain and never retries automatically', async () => {
   let posts = 0;
   const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335',

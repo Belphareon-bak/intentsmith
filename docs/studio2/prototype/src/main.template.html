@@ -820,6 +820,24 @@ textarea.fv-ed{font-family:var(--font-mono)}
 <sc-if value="{{b.specialistWizard.hasStatus}}" hint-placeholder-val="{{false}}"><div role="alert" class="note">{{b.specialistWizard.status}}</div></sc-if>
 </div>
 </sc-if>
+<sc-if value="{{b.isWorkerWizard}}" hint-placeholder-val="{{false}}">
+<div class="aps" aria-label="Průvodce workerem">
+<div class="blk-h"><span class="lbl-acc">{{b.workerWizard.stepLabel}}</span></div>
+<sc-if value="{{b.workerWizard.isForm}}" hint-placeholder-val="{{true}}">
+<label class="arow2"><span>Rozšíření M3</span><select value="{{b.workerWizard.extension}}" onChange="{{b.workerWizard.setExtension}}"><sc-for list="{{b.workerWizard.extensions}}" as="option" hint-placeholder-count="1"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
+<label class="arow2"><span>Projekt</span><select value="{{b.workerWizard.project}}" onChange="{{b.workerWizard.setProject}}"><option value="">Vyber projekt</option><sc-for list="{{b.workerWizard.projects}}" as="option" hint-placeholder-count="2"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
+<label class="arow2"><span>ID instance</span><input value="{{b.workerWizard.instanceId}}" onChange="{{b.workerWizard.setInstanceId}}" placeholder="project-health-muj-projekt"></label>
+<p class="aph">Dostupné rozšíření Project Health je lokální a deterministické. Nová instance zůstane vypnutá, dokud ji výslovně nepovolíš.</p>
+<button class="btn btn-acc" disabled="{{b.workerWizard.nextDisabled}}" onClick="{{b.workerWizard.next}}">Pokračovat na kontrolu</button>
+</sc-if>
+<sc-if value="{{b.workerWizard.isReview}}" hint-placeholder-val="{{false}}">
+<div class="dl"><span>Rozšíření</span><strong>{{b.workerWizard.reviewExtension}}</strong><span>Projekt</span><strong>{{b.workerWizard.reviewProject}}</strong><span>ID instance</span><code>{{b.workerWizard.reviewInstanceId}}</code><span>Výchozí stav</span><span>vypnuto</span></div>
+<p class="aph">Potvrzení uloží instanci workeru. Nespustí žádnou úlohu ani model.</p>
+<div style="display:flex;gap:8px"><button class="btn" onClick="{{b.workerWizard.back}}">Zpět</button><button class="btn btn-acc" disabled="{{b.workerWizard.submitDisabled}}" onClick="{{b.workerWizard.submit}}">Potvrdit instanci</button></div>
+</sc-if>
+<sc-if value="{{b.workerWizard.hasStatus}}" hint-placeholder-val="{{false}}"><div role="alert" class="note">{{b.workerWizard.status}}</div></sc-if>
+</div>
+</sc-if>
 <sc-if value="{{b.isScmPolicy}}" hint-placeholder-val="{{false}}">
 <div class="aps dev-panel" aria-label="Politika správy zdrojů">
 <sc-for list="{{dt.scmPolicy.fields}}" as="setting" hint-placeholder-count="2"><label class="arow2"><span>{{setting.label}}</span><select value="{{setting.value}}" onChange="{{setting.change}}"><sc-for list="{{setting.options}}" as="option" hint-placeholder-count="3"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label></sc-for>

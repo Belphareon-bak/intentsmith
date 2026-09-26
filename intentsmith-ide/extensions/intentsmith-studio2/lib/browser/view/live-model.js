@@ -67,6 +67,8 @@ class LiveModel extends Component {
     this._projectConversations = new Map();
     this._projectWizardStatus = { busy: false, error: '', defaultDir: '', uncertain: false };
     this._specialistWizardStatus = { busy: false, error: '', uncertain: false };
+    this._workerWizardStatus = { busy: false, loading: false, error: '', uncertain: false,
+      extensions: [], projects: [] };
     this._workerDetails = new Map();
     this._mediaNotices = new Map();
     this._mediaEnvironment = { status: 'idle', available: false, models: [], error: '' };
@@ -375,14 +377,16 @@ class LiveModel extends Component {
       }
       vm.catalogError = this.widget.catalogActionError || view.error || '';
       vm.hasCatalogError = !!vm.catalogError;
-      vm.hasPrimary = ['chats', 'projects', 'specialists', 'media'].includes(s.section);
+      vm.hasPrimary = ['chats', 'projects', 'specialists', 'workers', 'media'].includes(s.section);
       vm.primary = s.section === 'media' ? 'Nové generování'
         : s.section === 'projects' ? 'Nový projekt'
-          : s.section === 'specialists' ? 'Nový specialista' : 'Nová konverzace';
+          : s.section === 'specialists' ? 'Nový specialista'
+            : s.section === 'workers' ? 'Nový worker' : 'Nová konverzace';
       vm.onPrimary = this.run(s2 => s.section === 'media'
         ? this.pSelect(s2, 'media', '__new__') : s.section === 'projects'
           ? this.pSelect(s2, 'projects', '__new__') : s.section === 'specialists'
-            ? this.pSelect(s2, 'specialists', '__new__') : this.pNewSession(s2, {}));
+            ? this.pSelect(s2, 'specialists', '__new__') : s.section === 'workers'
+              ? this.pSelect(s2, 'workers', '__new__') : this.pNewSession(s2, {}));
     }
     return vm;
   }
@@ -393,6 +397,7 @@ class LiveModel extends Component {
     if (s.section === 'media' && id === '__new__') return super.detailVM(s);
     if (s.section === 'projects' && id === '__new__') return super.detailVM(s);
     if (s.section === 'specialists' && id === '__new__') return super.detailVM(s);
+    if (s.section === 'workers' && id === '__new__') return super.detailVM(s);
     if (s.section === 'settings') return this.settingsDetailVM(s, id);
     if (s.section === 'projects') {
       const vm = super.detailVM(s);
@@ -835,6 +840,86 @@ class LiveModel extends Component {
 
   specialistStatus() { return this._specialistWizardStatus; }
 
+  workerStatus() { return this._workerWizardStatus; }
+
+  async loadWorkerWizard() {
+    this._workerWizardStatus = { ...this._workerWizardStatus, loading: true, error: '' };
+    this.forceUpdate();
+    try {
+      const [available, list] = await Promise.all([
+        this.widget.catalog.get('/api/agent-extensions'),
+        this.widget.catalog.get('/api/projects?limit=100&status=active')
+      ]);
+      if (!Array.isArray(available?.extensions) || !Array.isArray(list?.projects))
+        throw Error('Backend nevrátil rozšíření M3 nebo projekty.');
+      // This is the only extension whose required project parameter is known
+      // by the current public API. Future extensions need a parameter schema.
+      const extensions = available.extensions.filter(item => item.id === 'project-health'
+        && Array.isArray(item.requiredCapabilities)
+        && item.requiredCapabilities.includes('code-intel.project-context.v1'));
+      if (!extensions.length) throw Error('Rozšíření Project Health není v backendu dostupné.');
+      const projects = list.projects.filter(item => Number.isSafeInteger(item.id) && item.id > 0
+        && typeof item.name === 'string');
+      this._workerWizardStatus = { ...this._workerWizardStatus, loading: false, extensions, projects,
+        error: projects.length ? '' : 'Nejdřív založ nebo otevři projekt.' };
+    } catch (error) {
+      this._workerWizardStatus = { ...this._workerWizardStatus, loading: false,
+        error: error?.message || 'Průvodce workerem nelze načíst.' };
+    }
+    this.forceUpdate();
+  }
+
+  async submitWorker(s) {
+    const form = this.workerWizardVM(s);
+    if (s.workerStep !== 1 || form.submitDisabled || this._workerWizardStatus.uncertain) return false;
+    const extensionId = s.workerExtension, instanceId = s.workerInstanceId.trim();
+    const projectId = Number(s.workerProject);
+    if (extensionId !== 'project-health' || !Number.isSafeInteger(projectId) || projectId <= 0) return false;
+    this._workerWizardStatus = { ...this._workerWizardStatus, busy: true, error: '' };
+    this.widget.catalogActionError = null;
+    this.forceUpdate();
+    let accepted = null;
+    try {
+      const base = this.widget.catalog.backendUrl();
+      if (typeof base !== 'string' || !/^https?:\/\//.test(base)) throw Error('Backend není dostupný.');
+      const response = await this.fetchImpl(base + '/api/agent-extensions/' + extensionId + '/install', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instanceId, projectId, enabled: false }), signal: AbortSignal.timeout(30000) });
+      let result = {};
+      try { result = await response.json(); } catch { /* A lost response leaves the effect uncertain. */ }
+      if (!response.ok) throw Object.assign(Error(result.error || `Worker nelze vytvořit (HTTP ${response.status}).`),
+        { status: response.status });
+      if (result.id !== instanceId || result.enabled !== false
+        || result.definition?.m3_extension?.id !== extensionId)
+        throw Error('Backend nevrátil ověřitelnou instanci workeru. Zkontroluj katalog.');
+      accepted = result;
+      const detail = await this.widget.catalog.get('/api/agents/' + encodeURIComponent(instanceId));
+      if (detail.id !== instanceId || detail.enabled !== false
+        || detail.definition?.m3_extension?.id !== extensionId
+        || Number(detail.params?.project_id) !== projectId)
+        throw Error('Detail workeru neodpovídá potvrzenému projektu a rozšíření.');
+      await this.widget.catalog.load('Workeři');
+      const view = this.widget.catalog.view('Workeři');
+      if (view.status !== 'ready' || !view.items.some(item => item.id === instanceId)) {
+        this._workerWizardStatus.error = `Backend vytvořil worker ${instanceId}, ale katalog jej ještě neukazuje. Obnov seznam.`;
+        return true;
+      }
+      this.setState({ ...this.pSelect(this.st(), 'workers', instanceId),
+        workerStep: 0, workerProject: '', workerInstanceId: '' });
+      return true;
+    } catch (error) {
+      this._workerWizardStatus = { ...this._workerWizardStatus,
+        uncertain: !accepted && !error?.status,
+        error: accepted ? `Backend vytvořil worker ${instanceId}, ale další ověření selhalo. Obnov katalog.`
+          : (error?.message || 'Výsledek vytvoření není jistý. Zkontroluj katalog před dalším pokusem.') };
+      this.widget.catalogActionError = this._workerWizardStatus.error;
+      return false;
+    } finally {
+      this._workerWizardStatus.busy = false;
+      this.forceUpdate();
+    }
+  }
+
   async submitSpecialist(s) {
     const form = this.specialistWizardVM(s);
     if (s.specialistStep !== 1 || form.submitDisabled || this._specialistWizardStatus.uncertain) return false;
@@ -1105,6 +1190,11 @@ class LiveModel extends Component {
       this.loadProjectDefaults();
     } else if (sec === 'projects') { this.scmClient.load(id); this.loadProjectConversations(id); }
     if (sec === 'specialists' && id === '__new__') this._specialistWizardStatus = { busy: false, error: '', uncertain: false };
+    if (sec === 'workers' && id === '__new__') {
+      this._workerWizardStatus = { busy: false, loading: false, error: '', uncertain: false,
+        extensions: [], projects: [] };
+      this.loadWorkerWizard();
+    }
     if (sec === 'workers') this.loadWorkerDetail(id);
     if (sec === 'media') this.clearMediaOutputUrls(id === '__new__' ? '' : id);
     if (sec === 'media' && id === '__new__') this.loadMediaEnvironment();

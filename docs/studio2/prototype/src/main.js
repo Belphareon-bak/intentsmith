@@ -48,6 +48,7 @@ class Component extends DCLogic {
       projectDescription: '', projectType: 'general',
       specialistStep: 0, specialistName: '', specialistDomain: 'general',
       specialistDescription: '', specialistIcon: '',
+      workerStep: 0, workerExtension: 'project-health', workerProject: '', workerInstanceId: '',
       style: 'intentsmith', tmode: 'dark', fs: 13, ff: 'brand', ti: 70, ai: 100, bright: 100, pa: 80, ta: 80, bd: 30,
       sep: 'ramecky', density: 'komfortni', scale: '100', col: true, cacc: 0, caccHex: '#22c55e', cbg: 0, cbgHex: '#14141e', css: ''
     };
@@ -780,7 +781,8 @@ class Component extends DCLogic {
       onPrimary: this.run((s2) => (sec === 'chats' ? this.pNewSession(s2, {})
         : sec === 'media' ? this.pSelect(s2, 'media', '__new__')
           : sec === 'projects' ? this.pSelect(s2, 'projects', '__new__')
-            : sec === 'specialists' ? this.pSelect(s2, 'specialists', '__new__') : null)),
+            : sec === 'specialists' ? this.pSelect(s2, 'specialists', '__new__')
+              : sec === 'workers' ? this.pSelect(s2, 'workers', '__new__') : null)),
       hasChips: f.chips.length > 1, chips: f.chips, items,
       isTiles: s.view === 'dlazdice' && items.length > 0, isList: s.view === 'seznam' && items.length > 0, isEmpty: items.length === 0,
       emptyTitle: empty.t, emptyText: empty.x, emptyIcon: empty.i,
@@ -814,6 +816,12 @@ class Component extends DCLogic {
       status: '', stCls: '', secondary: [], tabs: [['pruvodce', 'Průvodce']],
       blocks: { pruvodce: [{ kind: 'specialistWizard' }] },
       desc: 'Vytvoří balíček specialisty s manifestem a základním modulem.', props: [], related: []
+    };
+    if (sec === 'workers' && id === '__new__') return {
+      icon: I.bot, tone: 'mint', title: 'Nový worker', type: 'Instalace rozšíření M3', idText: 'workeri/novy',
+      status: '', stCls: '', secondary: [], tabs: [['pruvodce', 'Průvodce']],
+      blocks: { pruvodce: [{ kind: 'workerWizard' }] },
+      desc: 'Vyber projekt a vytvoř instanci dostupného deklarativního rozšíření.', props: [], related: []
     };
     if (sec === 'media' && id === '__new__') return {
       icon: I.image, tone: 'violet', title: 'Nové generování', type: 'Multimédia', idText: 'ComfyUI',
@@ -1123,6 +1131,7 @@ class Component extends DCLogic {
       isMediaOutputs: kind === 'mediaOutputs', mediaOutputs: b.outputs || [],
       isProjectWizard: kind === 'projectWizard', projectWizard: this.projectWizardVM(this.st()),
       isSpecialistWizard: kind === 'specialistWizard', specialistWizard: this.specialistWizardVM(this.st()),
+      isWorkerWizard: kind === 'workerWizard', workerWizard: this.workerWizardVM(this.st()),
       isApObecne: kind === 'apObecne', isApPismo: kind === 'apPismo', isApBarvy: kind === 'apBarvy', isApRozvrzeni: kind === 'apRozvrzeni', isApCss: kind === 'apCss'
     };
   }
@@ -1136,6 +1145,37 @@ class Component extends DCLogic {
   specialistStatus() { return { busy: false, error: 'Prototyp ukazuje průvodce; backend se připojuje až v IDE.' }; }
 
   submitSpecialist() { return null; }
+
+  workerStatus() { return { busy: false, error: 'Prototyp ukazuje průvodce; backend se připojuje až v IDE.',
+    extensions: [{ id: 'project-health', name: 'Project Health' }], projects: [{ id: 1, name: 'ShellSmith' }] }; }
+
+  submitWorker() { return null; }
+
+  workerWizardVM(s) {
+    const status = this.workerStatus();
+    const extensions = Array.isArray(status.extensions) ? status.extensions : [];
+    const projects = Array.isArray(status.projects) ? status.projects : [];
+    const extension = extensions.find(item => item.id === s.workerExtension);
+    const project = projects.find(item => String(item.id) === String(s.workerProject));
+    const instanceId = s.workerInstanceId.trim();
+    const valid = !!extension && !!project && /^[a-z0-9](?:[a-z0-9_-]{0,62}[a-z0-9])?$/.test(instanceId);
+    return {
+      stepLabel: s.workerStep === 0 ? 'Krok 1 ze 2 · Instance' : 'Krok 2 ze 2 · Kontrola',
+      isForm: s.workerStep === 0, isReview: s.workerStep === 1,
+      extensions: extensions.map(item => ({ value: item.id, label: item.name + ' · ' + item.id })),
+      extension: s.workerExtension, setExtension: e => this.setState({ workerExtension: e.target.value }),
+      projects: projects.map(item => ({ value: String(item.id), label: item.name })),
+      project: s.workerProject, setProject: e => this.setState({ workerProject: e.target.value }),
+      instanceId: s.workerInstanceId, setInstanceId: e => this.setState({ workerInstanceId: e.target.value }),
+      reviewExtension: extension?.name || '—', reviewProject: project?.name || '—', reviewInstanceId: instanceId,
+      nextDisabled: !valid || status.busy || status.loading,
+      submitDisabled: !valid || status.busy || status.loading || !!status.uncertain,
+      next: () => this.setState({ workerStep: 1 }), back: () => this.setState({ workerStep: 0 }),
+      submit: () => this.submitWorker(this.st()),
+      status: status.error || (status.loading ? 'Načítám rozšíření a projekty…' : ''),
+      hasStatus: !!status.error || !!status.loading
+    };
+  }
 
   specialistWizardVM(s) {
     const status = this.specialistStatus();
