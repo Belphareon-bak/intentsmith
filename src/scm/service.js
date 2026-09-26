@@ -304,6 +304,35 @@ export function createScmService({ db, clock = Date.now, idFactory = randomUUID 
       audit(row.plan_id,row.project_id,actorId,'cancelled',{});}) .immediate();
     return view(load(row.plan_id,actorId));
   }
+  const automaticActor = 'studio-scm-automatic';
+  async function runAutomatic(projectId,op) {
+    if (!Number.isSafeInteger(projectId) || projectId < 1
+      || !['init','fetch','pull'].includes(op)) throw scmError('SCM_INPUT_INVALID');
+    const current = policy(projectId);
+    if (current[op] !== 'automatic') return { state:'skipped', reason:'SCM_POLICY_NOT_AUTOMATIC' };
+    if (networkOps.has(op)) {
+      const last = db.prepare(`SELECT created_at FROM scm_operations
+        WHERE project_id=? AND actor_id=? AND op=? ORDER BY created_at DESC LIMIT 1`)
+        .get(projectId,automaticActor,op);
+      if (last && clock()-last.created_at < 300000)
+        return { state:'skipped', reason:'SCM_AUTOMATIC_INTERVAL' };
+    }
+    // Internal automation uses the exact same plan, revision and workspace
+    // comparison as an operator. A policy change during preparation fails closed.
+    const planned = await prepare({projectId,op},automaticActor);
+    if (policy(projectId)[op] !== 'automatic') {
+      cancel({planId:planned.planId},automaticActor);
+      return { state:'skipped', reason:'SCM_POLICY_CHANGED' };
+    }
+    return execute({planId:planned.planId,digest:planned.digest,confirm:true},automaticActor);
+  }
+  function automaticProjects() {
+    return db.prepare(`SELECT project_id AS projectId,pull_mode AS pullMode,fetch_mode AS fetchMode
+      FROM scm_project_policy JOIN projects ON projects.id=scm_project_policy.project_id
+      WHERE projects.status='active' AND (pull_mode='automatic' OR fetch_mode='automatic')
+      ORDER BY project_id`).all();
+  }
   return {policy,writePolicy,status,branches,log,diff,prepare,execute,cancel,
+    runAutomatic,automaticProjects,
     operations:(projectId,actorId)=>db.prepare('SELECT * FROM scm_operations WHERE project_id=? AND actor_id=? ORDER BY created_at DESC LIMIT 30').all(projectId,actorId).map(view)};
 }

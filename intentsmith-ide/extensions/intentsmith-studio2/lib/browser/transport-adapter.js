@@ -126,7 +126,8 @@ class TransportAdapter {
     this.changed();
   }
   send(session, content, attachments = []) {
-    if (!session || !content.trim() || session.chat._delivery?.status === 'DELIVERY_UNKNOWN') return false;
+    if (!session || !content.trim() || session.chat._selectingExpertise
+      || session.chat._delivery?.status === 'DELIVERY_UNKNOWN') return false;
     const index = this.slots.indexOf(session);
     if (index < 0 || window.IntentSmithWS.hasActiveM1Turn(session)) return false;
     const message = { role: 'user', text: content, ts: new Date().toISOString() };

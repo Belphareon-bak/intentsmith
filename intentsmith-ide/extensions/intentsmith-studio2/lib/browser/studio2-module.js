@@ -181,6 +181,10 @@ class Studio2Widget extends ReactWidget {
     } finally { session.chat._picking = false; this.store.changed(); }
   }
   async send(session, textarea) {
+    if (session.chat._selectingExpertise) {
+      session.chat._attachmentError = 'Čekám na potvrzení výběru expertýz; zpráva nebyla odeslána.';
+      this.store.changed(); return;
+    }
     const value = textarea.value.trim();
     if (session.chat.attachments.length && /^\/m2-(?:draft|build|plan|status|approve|cancel)(?:\s|$)/i.test(value)) {
       session.chat._attachmentError = 'M2 příkazy nepřijímají přílohy. Odeberte je před pokračováním.';

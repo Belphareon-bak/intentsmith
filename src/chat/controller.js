@@ -1846,6 +1846,27 @@ ChatController.handle = async function(request) {
     projectId: context.projectId || null,
   });
 
+  // Studio 2 chooses expertises through a separate, revision-checked durable
+  // route. M1's exact wire contract has no expertise field. Resolve IDs through
+  // the active registry on every turn so removed extensions fail closed.
+  const selectedRows = db.conversationExpertises.getExpertises(dbConversationId);
+  if (selectedRows.length > 3 || new Set(selectedRows.map(row => row.expertise_id)).size !== selectedRows.length
+    || selectedRows.some(row => !Number.isFinite(row.weight) || row.weight < 0.1 || row.weight > 1)) {
+    return { response: 'Uložený výběr expertýz je neplatný. Oprav ho před dalším tahem.',
+      mode: ChatMode.CONVERSATION, confidence: 1,
+      metadata: { error: 'EXPERTISE_SELECTION_CORRUPT', securityBlocked: true, fallbackSuppressed: true } };
+  }
+  const selectedExpertises = [];
+  for (const row of selectedRows) {
+    const registered = await resolveRegisteredExpertise(row.expertise_id);
+    if (!registered) {
+      return { response: `Vybraná expertýza ${row.expertise_id} už není dostupná. Uprav výběr v relaci.`,
+        mode: ChatMode.CONVERSATION, confidence: 1,
+        metadata: { error: 'EXPERTISE_UNAVAILABLE', securityBlocked: true, fallbackSuppressed: true } };
+    }
+    selectedExpertises.push({ ...registered, weight: row.weight });
+  }
+
   // INVARIANT: Persist user turn BEFORE processing
   const persistedUserTurn = store.appendTurn(dbConversationId, TurnRole.USER, message, {
     timestamp: Date.now(),
@@ -1958,7 +1979,8 @@ ChatController.handle = async function(request) {
       rejectedExpertiseId = state.expertise.id;
       state.clearExpertise();
     } else {
-      state.setExpertise(resolvedActive, {
+      state.setExpertise({ ...resolvedActive,
+        ...(state.expertise._source === 'studio2' ? { _source: 'studio2' } : {}) }, {
         locked: state.expertiseLocked,
         force: true,
       });
@@ -1981,6 +2003,13 @@ ChatController.handle = async function(request) {
         state.clearExpertise();
       }
     }
+  }
+
+  if (selectedExpertises.length) {
+    state.setExpertise({ ...selectedExpertises[0], _source: 'studio2' }, { locked: true, force: true });
+    if (selectedExpertises.length > 1) context.activeExpertises = selectedExpertises;
+  } else if (state.expertise?._source === 'studio2') {
+    state.clearExpertise();
   }
 
   // v87: Auto-select expertise when none is manually active.

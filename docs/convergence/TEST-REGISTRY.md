@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 559
+- Runnable programs: 561
 - Explicit support-module exclusions: 22
-- Profiles: offline=312, database=81, server=49, model=82, soak=15, manual=20
-- States: ACTIVE=465, HISTORICAL=15, BLOCKED=79
+- Profiles: offline=314, database=81, server=49, model=82, soak=15, manual=20
+- States: ACTIVE=467, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -557,10 +557,12 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-STUDIO2-ATTACHMENTS-TEST` | `tests/studio2-attachments.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-STUDIO2-CATALOG-STORE-TEST` | `tests/studio2-catalog-store.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T5-TESTS-STUDIO2-EXCLUSIVE-UI-E2E` | `tests/studio2-exclusive-ui.e2e.js` | `C3-001` | T5 | `server` | 2 min | 5 min | network:loopback, temp-db, toolchain:linux-user-network-namespace, toolchain:iproute2, toolchain:x11-display | yes | `ACTIVE` | — | WP-STUDIO-2 S2-0 |
+| `IS-T1-TESTS-STUDIO2-EXPERTISE-SELECTION-TEST` | `tests/studio2-expertise-selection.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-STUDIO2-FEEDBACK-TEST` | `tests/studio2-feedback.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-STUDIO2-LEARNING-TEST` | `tests/studio2-learning.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-STUDIO2-LIVE-MODEL-TEST` | `tests/studio2-live-model.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-STUDIO2-M2-TEST` | `tests/studio2-m2.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
+| `IS-T1-TESTS-STUDIO2-MEDIA-INPUT-TEST` | `tests/studio2-media-input.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-STUDIO2-MODEL-WORKSPACE-TEST` | `tests/studio2-model-workspace.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-STUDIO2-SECURITY-TEST` | `tests/studio2-security.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-STUDIO2-SESSION-STORE-TEST` | `tests/studio2-session-store.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |

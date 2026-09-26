@@ -15,6 +15,7 @@ const { SETTINGS_FIELDS, fieldsFor, validateValue } = require('../settings-prefe
 const { ModelWorkspace } = require('../model-workspace');
 const { FeedbackWorkspace } = require('../feedback-workspace');
 const { SecurityWorkspace } = require('../security-workspace');
+const { ExpertiseSelectionClient } = require('../expertise-selection-client');
 
 const CATALOG = Object.freeze({
   chats: 'Konverzace', projects: 'Projekty', specialists: 'Specialisté',
@@ -96,6 +97,8 @@ class LiveModel extends Component {
     this._mediaEnvironment = { status: 'idle', available: false, models: [], error: '' };
     this._mediaSubmitting = false;
     this._mediaSubmitNotice = '';
+    this._mediaInputFile = null;
+    this._mediaInputError = '';
     this._mediaOutputUrls = new Map();
     this._mediaBusListeners = [];
     this._audit = new Map();
@@ -128,6 +131,10 @@ class LiveModel extends Component {
       fetchImpl: (...args) => this.fetchImpl(...args),
       confirmAction: message => (widget.confirmAction || globalThis.confirm)?.(message) === true,
       onChange: () => this.forceUpdate() });
+    this.expertiseSelection = new ExpertiseSelectionClient({ store: widget.store, catalog: widget.catalog,
+      fetchImpl: (...args) => this.fetchImpl(...args),
+      confirmAction: message => (widget.confirmAction || globalThis.confirm)?.(message) === true,
+      onChange: () => this.forceUpdate() });
   }
 
   componentDidMount() {
@@ -148,11 +155,21 @@ class LiveModel extends Component {
       this._mediaBusListeners.push([name, callback]);
     }
     for (const source of [this.widget.store, this.widget.catalog, this.widget.appearance]) {
-      this._unlisten.push(source.subscribe(() => { if (source === this.widget.store) this.syncTrees(); this.forceUpdate(); }));
+      this._unlisten.push(source.subscribe(() => {
+        if (source === this.widget.store) {
+          this.syncTrees();
+          const focused = this.widget.store.focusedSession();
+          if (focused?._convId && this.expertiseSelection.entry(focused).status === 'idle')
+            this.expertiseSelection.load(focused);
+        }
+        this.forceUpdate();
+      }));
     }
     this.syncTrees();
     this.statusClient.start();
     if (this.state.mode === 'section' && CATALOG[this.state.section]) this.widget.catalog.load(CATALOG[this.state.section]);
+    const focused = this.widget.store.focusedSession();
+    if (focused?._convId) this.expertiseSelection.load(focused);
   }
 
   syncTrees() {
@@ -575,14 +592,16 @@ class LiveModel extends Component {
       return { icon: this.sec(s.section).icon, tone: this.sec(s.section).tone,
         icls: '', title: item.name, type: editable ? 'Vlastní expertýza' : 'Vestavěná expertýza',
         idText: id, hasStatus: false, status: '', stCls: '', hasPrimary: true,
-        primaryLabel: 'Použít v aktivní relaci', onPrimary: () => this.useExpertise(item),
-        secondary: editable ? [{ label: 'Upravit', icon: this.data().I.pen,
-          go: () => this.openExpertiseEdit(item) }] : [],
+        primaryLabel: 'Použít samostatně v relaci', onPrimary: () => this.useExpertise(item, 'single'),
+        secondary: [{ label: 'Přidat ke kombinaci', icon: this.data().I.cap,
+          go: () => this.useExpertise(item, 'add') },
+        ...(editable ? [{ label: 'Upravit', icon: this.data().I.pen,
+          go: () => this.openExpertiseEdit(item) }] : [])],
         more: () => {}, hasTabs: false, tabs: [], hasDesc: !!item.description,
         desc: item.description, showProps: true,
         props: [['ID', id, true], ['Doména', raw.domain || '—'], ['Teplota', String(raw.temperature ?? '—')]]
           .map(([k, v, mono]) => ({ k, v, cls: mono ? 'mono' : '' })),
-        blocks: [this.blockVM({ kind: 'text', items: [editable
+        blocks: [this.blockVM({ kind: 'expertiseSelection' }), this.blockVM({ kind: 'text', items: [editable
           ? 'Úprava načte aktuální konfiguraci z backendu a před uložením ověří její revizi.'
           : 'Vestavěnou expertýzu můžeš použít v aktivní relaci.'] })],
         hasRelated: false, related: [], development: this.developmentVM(s), scmPolicy: this.scmPolicyVM(s, null) };
@@ -596,7 +615,7 @@ class LiveModel extends Component {
       onPrimary: s.section === 'chats' ? this.run(state => this.pOpenSession(state, id))
         : s.section === 'specialists' ? this.run(state => this.pNewSession(state, { specialist: id })) : () => {},
       secondary: [],
-      more: () => {}, hasTabs: false, tabs: [], hasDesc: !!entry.description || !!entry.desc,
+      more: this.showCtx(s.section, id), hasTabs: false, tabs: [], hasDesc: !!entry.description || !!entry.desc,
       desc: entry.description || entry.desc || '', showProps: !!item,
       props: item ? [['ID', item.id, true], ['Stav', item.state || '—']] .map(row => ({ k: row[0], v: row[1], cls: row[2] ? 'mono' : '' })) : [],
       blocks: [this.blockVM({ kind: 'empty', text: 'Další akce této obrazovky zatím nejsou připojené.' })],
@@ -1113,7 +1132,21 @@ class LiveModel extends Component {
   mediaStatus() {
     return { ...this._mediaEnvironment,
       status: this._mediaSubmitting ? 'loading' : this._mediaEnvironment.status,
-      error: this._mediaSubmitNotice || this._mediaEnvironment.error };
+      error: this._mediaInputError || this._mediaSubmitNotice || this._mediaEnvironment.error };
+  }
+
+  pickMediaInput(event) {
+    const file = event?.target?.files?.[0] || null;
+    if (event?.target) event.target.value = '';
+    this._mediaInputFile = null;
+    this._mediaInputError = '';
+    if (file && (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)
+      || file.size < 24 || file.size > 3 * 1024 * 1024)) {
+      this._mediaInputError = 'Vyber PNG, JPEG nebo WebP o velikosti nejvýše 3 MiB.';
+      this.setState({ mediaInputName: '' }); return;
+    }
+    this._mediaInputFile = file;
+    this.setState({ mediaInputName: file?.name || '' });
   }
 
   projectStatus() { return { ...this._projectWizardStatus,
@@ -1540,7 +1573,8 @@ class LiveModel extends Component {
 
   async submitMedia(s) {
     const form = this.mediaFormVM(s);
-    if (this._mediaSubmitting || form.disabled || !['txt2img', 'txt2vid'].includes(s.mediaType)) return false;
+    if (this._mediaSubmitting || form.disabled || !['txt2img', 'img2img', 'txt2vid'].includes(s.mediaType)
+      || s.mediaType === 'img2img' && !this._mediaInputFile) return false;
     this._mediaSubmitting = true;
     this._mediaSubmitNotice = '';
     this.widget.catalogActionError = null;
@@ -1549,10 +1583,37 @@ class LiveModel extends Component {
       const params = { width: s.mediaWidth, height: s.mediaHeight, steps: s.mediaSteps,
         cfg_scale: s.mediaCfg, seed: s.mediaSeed, model: form.model };
       if (s.mediaType === 'txt2vid') params.frames = s.mediaFrames;
+      let inputId = null;
+      if (s.mediaType === 'img2img') {
+        const file = this._mediaInputFile;
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        if (file !== this._mediaInputFile || bytes.length !== file.size || bytes.length > 3 * 1024 * 1024
+          || this.st().mediaType !== 'img2img') throw Error('Zdrojový obraz se při čtení změnil. Zkus to znovu.');
+        let binary = '';
+        for (let i = 0; i < bytes.length; i += 8192)
+          binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+        const base = this.widget.catalog.backendUrl();
+        if (typeof base !== 'string' || !/^https?:\/\//.test(base)) throw Error('Backend není dostupný.');
+        const upload = await this.fetchImpl(base + '/api/media/input-image', {
+          method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dataUrl: `data:${file.type};base64,${btoa(binary)}` }),
+          signal: AbortSignal.timeout(30_000) });
+        let receipt = {};
+        try { receipt = await upload.json(); } catch { /* A lost upload receipt cannot authorize generation. */ }
+        if (!upload.ok || !/^input-[0-9a-f-]{36}$/i.test(receipt.inputId || ''))
+          throw Error(receipt.error || 'Zdrojový obraz nebyl potvrzen backendem.');
+        if (file !== this._mediaInputFile || this.st().mediaType !== s.mediaType
+          || this.st().mediaPrompt !== s.mediaPrompt || this.st().mediaModel !== s.mediaModel)
+          throw Error('Zadání se během nahrávání změnilo. Generování nebylo odesláno.');
+        inputId = receipt.inputId;
+        params.denoise = s.mediaDenoise;
+      }
       const result = await this.widget.catalog.mutate('/api/media/generate', 'POST', {
-        type: s.mediaType, prompt: s.mediaPrompt.trim(), negative_prompt: s.mediaNegative.trim(), params
+        type: s.mediaType, prompt: s.mediaPrompt.trim(), negative_prompt: s.mediaNegative.trim(),
+        params, ...(inputId ? { inputId } : {})
       }, 30000);
       if (!MEDIA_ID.test(result.generationId || '')) throw Error('Backend nevrátil platné ID generování. Zkontroluj historii.');
+      if (inputId) { this._mediaInputFile = null; this.setState({ mediaInputName: '' }); }
       await this.widget.catalog.load('Multimédia');
       const current = this.widget.catalog.view('Multimédia');
       if (current.status === 'ready' && current.items.some(item => item.id === result.generationId)) {
@@ -1605,12 +1666,33 @@ class LiveModel extends Component {
     return { mode: 'sessions' };
   }
 
-  useExpertise(item) {
+  expertiseSelectionVM() {
+    const session = this.widget.store.focusedSession();
+    const entry = this.expertiseSelection.entry(session);
+    const blocked = !session || session.chat._thinking || session.chat.specialist || session._projectId
+      || entry.busy || entry.uncertain;
+    const names = this.widget.catalog.view('Expertýzy').items || [];
+    return { status: !session ? 'Otevři relaci, pro kterou chceš expertýzu vybrat.'
+      : session.chat.specialist ? 'Relaci řídí specialista; pro vlastní kombinaci otevři běžnou relaci.'
+        : session._projectId ? 'Projektová relace používá projektový režim. Pro vlastní kombinaci otevři volnou relaci.'
+        : entry.error || (entry.busy ? 'Ověřuji výběr na backendu…'
+          : entry.uncertain ? 'Výsledek je nejistý. Obnov stav před další změnou.'
+            : entry.status === 'loading' ? 'Načítám vybrané expertýzy…'
+              : entry.expertises.length ? this.expertiseSelection.label(entry.expertises)
+                : 'Aktivní relace používá výchozí expertýzu.'),
+    rows: entry.expertises.map(row => ({ name: names.find(item => item.id === row.id)?.name || row.id,
+      weight: row.weight, disabled: blocked,
+      remove: () => this.expertiseSelection.change(session, 'remove', row.id) })),
+    clearDisabled: blocked || entry.expertises.length === 0,
+    clear: () => this.expertiseSelection.change(session, 'clear'),
+    refresh: () => session && this.expertiseSelection.load(session, true) };
+  }
+
+  async useExpertise(item, action = 'single') {
     const current = this.widget.catalog.view('Expertýzy').items.find(row => row.id === item?.id);
     const session = this.widget.store.focusedSession();
     if (!current || current.name !== item.name || !session || session.chat._thinking) return false;
-    session.chat.expertise = current.name;
-    this.widget.store.changed();
+    if (!await this.expertiseSelection.change(session, action, current.id)) return false;
     this.setState({ mode: 'sessions' });
     return true;
   }
@@ -1638,8 +1720,96 @@ class LiveModel extends Component {
 
   pCloseTab(s, sid) {
     const session = this.widget.store.find(sid);
-    if (session) this.widget.closeSession(session);
+    return session && this.widget.closeSession(session) ? {} : null;
+  }
+
+  closeTabsBeside(sid, direction) {
+    const sessions = this.widget.store.state.sessions;
+    const index = sessions.findIndex(session => session.id === sid);
+    if (index < 0) return null;
+    const targets = sessions.filter((session, position) => direction === 'others'
+      ? session.id !== sid : position > index);
+    // Check every target before closing any of them. An unsaved editor or an
+    // in-flight M2 decision must not leave a half-closed group of tabs.
+    const blocked = targets.find(session => this.widget.m2.entry(session).busy
+      || this.widget.workspace.entry(session).editor?.dirty);
+    if (blocked) {
+      this.widget.catalogActionError = `Relaci ${blocked.number} nelze zavřít: probíhá změna nebo obsahuje neuložený soubor.`;
+      this.forceUpdate();
+      return null;
+    }
+    for (const session of targets) {
+      if (!this.widget.closeSession(session)) return null;
+    }
+    this.widget.store.focusTab(sid);
     return {};
+  }
+
+  async conversationAction(id, action) {
+    if (!['rename', 'archive', 'delete'].includes(action)) return false;
+    const catalog = this.widget.catalog;
+    const item = catalog.view('Konverzace').items.find(row => row.id === String(id));
+    if (!item) return false;
+    const session = this.widget.store.state.sessions.find(row => row._convId === id || row.id === id);
+    if (session && (session.chat._thinking || this.widget.m2.entry(session).busy
+      || this.widget.workspace.entry(session).editor?.dirty)) {
+      this.widget.catalogActionError = 'Relace právě pracuje nebo obsahuje neuložený soubor.';
+      this.forceUpdate();
+      return false;
+    }
+    let title = null;
+    if (action === 'rename') {
+      const promptAction = this.widget.promptAction || globalThis.prompt;
+      title = typeof promptAction === 'function' ? promptAction('Nový název konverzace:', item.name) : null;
+      if (title === null) return false;
+      title = String(title).trim();
+      if (!title || title.length > 200) {
+        this.widget.catalogActionError = 'Název musí mít 1 až 200 znaků.';
+        this.forceUpdate();
+        return false;
+      }
+    } else {
+      const confirmAction = this.widget.confirmAction || globalThis.confirm;
+      if (typeof confirmAction !== 'function' || !confirmAction(
+        `${action === 'archive' ? 'Archivovat' : 'Přesunout do koše'} konverzaci ${item.name}?`)) return false;
+    }
+    this.widget.catalogActionError = null;
+    try {
+      const before = await catalog.get('/api/conversations/' + encodeURIComponent(id));
+      if (before?.conversation?.id !== id || before.conversation.state !== 'active')
+        throw Error('Konverzace se mezitím změnila. Obnov seznam.');
+      const route = '/api/conversations/' + encodeURIComponent(id);
+      const method = action === 'rename' ? 'PUT' : action === 'archive' ? 'PATCH' : 'DELETE';
+      const path = action === 'archive' ? route + '/archive' : route;
+      const base = catalog.backendUrl();
+      if (typeof base !== 'string' || !/^https?:\/\//.test(base)) throw Error('Backend není dostupný.');
+      const response = await this.fetchImpl(base + path, { method, credentials: 'same-origin',
+        signal: AbortSignal.timeout(10_000), ...(title === null ? {} : {
+          headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title }) }) });
+      let result = {};
+      try { result = await response.json(); } catch { /* Readback decides the result. */ }
+      if (!response.ok) throw Error(result.error || `Akce selhala (HTTP ${response.status}).`);
+      const observed = await catalog.get(route);
+      const expected = action === 'archive' ? 'archived' : action === 'delete' ? 'deleted' : 'active';
+      if (observed?.conversation?.id !== id || observed.conversation.state !== expected
+        || action === 'rename' && observed.conversation.title !== title)
+        throw Error('Výsledek operace nelze ověřit. Obnov seznam před opakováním.');
+      await catalog.load('Konverzace');
+      const refreshed = catalog.view('Konverzace');
+      const current = refreshed.items.find(row => row.id === id);
+      if (refreshed.status !== 'ready' || (action === 'rename' ? current?.name !== title : !!current))
+        throw Error('Katalog neodpovídá potvrzenému stavu. Obnov seznam.');
+      if (session && action === 'rename') {
+        session._label = title;
+        this.widget.store.changed();
+      } else if (session) this.widget.closeSession(session);
+      if (action !== 'rename') this.setState({ detail: this.merge(this.st(), 'detail', { chats: null }) });
+      return true;
+    } catch (error) {
+      this.widget.catalogActionError = error?.message || 'Akce konverzace selhala.';
+      this.forceUpdate();
+      return false;
+    }
   }
 
   pGo(s, sec) {
@@ -1693,6 +1863,10 @@ class LiveModel extends Component {
       this.loadWorkerWizard();
     }
     if (sec === 'workers') this.loadWorkerDetail(id);
+    if (sec === 'expertises') {
+      const focused = this.widget.store.focusedSession();
+      if (focused?._convId) this.expertiseSelection.load(focused);
+    }
     if (sec === 'media') this.clearMediaOutputUrls(id === '__new__' ? '' : id);
     if (sec === 'media' && id === '__new__') this.loadMediaEnvironment();
     if (sec === 'media' && id !== '__new__') {
@@ -2419,6 +2593,13 @@ class LiveModel extends Component {
 
   ctxVM(s) {
     const vm = super.ctxVM(s);
+    if (s.ctx?.sec === 'tab') {
+      const sid = s.ctx.id;
+      for (const item of vm.ctxItems) {
+        if (item.t === 'Zavřít ostatní') item.go = this.run(() => this.closeTabsBeside(sid, 'others'));
+        if (item.t === 'Zavřít vpravo') item.go = this.run(() => this.closeTabsBeside(sid, 'right'));
+      }
+    }
     if (s.ctx?.sec === 'branch') {
       const projectId = s.ctx.id;
       for (const item of vm.ctxItems) {
@@ -2433,9 +2614,13 @@ class LiveModel extends Component {
         }
       }
     }
-    const disabled = new Set(['Připnout', 'Přejmenovat…', 'Duplikovat', 'Archivovat',
-      'Smazat…', 'Zavřít ostatní', 'Zavřít vpravo', 'Nová konverzace se specialistou']);
-    for (const item of vm.ctxItems) if (disabled.has(item.t)) {
+    if (s.ctx?.sec === 'chats') for (const item of vm.ctxItems) {
+      const action = ({ 'Přejmenovat…': 'rename', 'Archivovat': 'archive', 'Smazat…': 'delete' })[item.t];
+      if (action) item.go = () => { this.setState({ ctx: null }); this.conversationAction(s.ctx.id, action); };
+    }
+    const disabled = new Set(['Připnout', 'Duplikovat']);
+    for (const item of vm.ctxItems) if (disabled.has(item.t)
+      || s.ctx?.sec !== 'chats' && ['Přejmenovat…', 'Archivovat', 'Smazat…'].includes(item.t)) {
       item.cls = 'dis'; item.go = () => {};
     }
     return vm;

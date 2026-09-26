@@ -221,6 +221,12 @@ export function validateParams(type, params) {
     }
   }
 
+  if (type === 'img2img' && (typeof p.input_image !== 'string'
+    || !/^[A-Za-z0-9][A-Za-z0-9_.()-]{0,127}\.(?:png|jpg|webp)$/.test(p.input_image)
+    || p.input_image.includes('..'))) {
+    errors.push('input_image must be an uploaded image filename');
+  }
+
   // Frames (video): 1–300
   if (type === 'txt2vid' && p.frames !== undefined) {
     if (typeof p.frames !== 'number' || p.frames < 1 || p.frames > 300) {

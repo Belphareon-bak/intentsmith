@@ -14,10 +14,15 @@ import { createGlobalAuthAuthority } from '../src/security/global-auth-policy.js
 
 const temp = await fs.mkdtemp(path.join(os.tmpdir(),'studio-scm-test-'));
 const dbs = [];
-after(async()=>{ for(const db of dbs) db.close(); await fs.rm(temp,{recursive:true,force:true}); });
+const externalRoots = [];
+after(async()=>{ for(const db of dbs) db.close(); await fs.rm(temp,{recursive:true,force:true});
+  for(const root of externalRoots) await fs.rm(root,{recursive:true,force:true}); });
 function rawGit(root,args) { return execFileSync('/usr/bin/git',args,{cwd:root,encoding:'utf8',env:{...process.env,GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null'}}).trim(); }
-async function fixture({repo=true}={}) {
-  const root=await fs.mkdtemp(path.join(temp,'project-'));
+async function fixture({repo=true,outside=false}={}) {
+  // The isolated test runtime itself lives below the worktree. A no-repo
+  // project must be outside that ancestor Git tree to exercise safe init.
+  const root=await fs.mkdtemp(outside?'/tmp/studio-scm-init-test-':path.join(temp,'project-'));
+  if(outside) externalRoots.push(root);
   const db=new Database(':memory:');dbs.push(db);
   db.exec(`PRAGMA foreign_keys=ON;
     CREATE TABLE projects(id INTEGER PRIMARY KEY,path TEXT NOT NULL,status TEXT NOT NULL);
@@ -47,6 +52,20 @@ test('SCM reads local status without invoking Git hooks or fetching',async()=>{
   assert.equal(f.db.prepare('SELECT count(*) AS n FROM scm_events').get().n,0,'reads add no effect audit');
   await f.service.prepare({projectId:1,op:'stage',args:{paths:['one.txt']}},'local-operator');
   assert.throws(()=>f.db.prepare("UPDATE scm_events SET kind='fake'").run(),/SCM_AUDIT_APPEND_ONLY/);
+});
+
+test('automatic SCM obeys project policy and executes init through an audited exact plan',async()=>{
+  const f=await fixture({repo:false,outside:true});
+  assert.equal((await f.service.runAutomatic(1,'fetch')).state,'skipped');
+  assert.equal((await f.service.runAutomatic(1,'init')).state,'succeeded');
+  assert.equal(f.git(['branch','--show-current']),'main');
+  const event=f.db.prepare("SELECT actor_id,kind FROM scm_events WHERE kind='succeeded'").get();
+  assert.deepEqual(event,{actor_id:'studio-scm-automatic',kind:'succeeded'});
+  const policy=f.service.writePolicy({...f.service.policy(1),init:'disabled',fetch:'automatic'},'local-operator');
+  assert.equal((await f.service.runAutomatic(1,'init')).reason,'SCM_POLICY_NOT_AUTOMATIC');
+  assert.deepEqual(f.service.automaticProjects(),[{projectId:1,pullMode:'ask',fetchMode:'automatic'}]);
+  await assert.rejects(f.service.runAutomatic(1,'fetch'),/SCM_HOST_DENIED/);
+  assert.equal(policy.push,'ask','automatic network policy must never broaden push');
 });
 
 test('SCM exact plans reject forged approval, stale tree and disabled policy without effects',async()=>{

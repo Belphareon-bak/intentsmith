@@ -817,6 +817,12 @@ textarea.fv-ed{font-family:var(--font-mono)}
 <p class="aph">{{b.security.webhook}}</p></sc-if>
 <sc-if value="{{b.security.isSessions}}" hint-placeholder-val="{{false}}"><p class="aph">{{b.security.sessions}}</p></sc-if>
 </div></sc-if>
+<sc-if value="{{b.isExpertiseSelection}}" hint-placeholder-val="{{false}}"><div class="aps" aria-label="Expertýzy aktivní relace">
+<div class="blk-h"><span class="lbl-acc">Expertýzy aktivní relace</span></div>
+<p class="aph" role="status">{{b.expertiseSelection.status}}</p>
+<div class="rows"><sc-for list="{{b.expertiseSelection.rows}}" as="row" hint-placeholder-count="2"><div class="row"><span class="row-tt"><strong class="row-t">{{row.name}}</strong><span class="row-s">Váha {{row.weight}}</span></span><button class="btn" disabled="{{row.disabled}}" onClick="{{row.remove}}">Odebrat</button></div></sc-for></div>
+<div style="display:flex;gap:8px"><button class="btn" onClick="{{b.expertiseSelection.refresh}}">Obnovit</button><button class="btn" disabled="{{b.expertiseSelection.clearDisabled}}" onClick="{{b.expertiseSelection.clear}}">Výchozí expertýza</button></div>
+</div></sc-if>
 <sc-if value="{{b.isProjectDirectory}}" hint-placeholder-val="{{false}}"><div class="aps" aria-label="Výchozí složka projektů">
 <div class="blk-h"><span class="lbl-acc">Výchozí složka nových projektů</span></div>
 <label class="arow2"><span>Absolutní cesta ve tvé domácí složce</span><input class="mono" value="{{b.projectDirectory.value}}" onChange="{{b.projectDirectory.change}}" placeholder="/home/user/Projects"></label>
@@ -860,6 +866,7 @@ textarea.fv-ed{font-family:var(--font-mono)}
 <label class="arow2"><span>Prompt</span><textarea rows="4" value="{{b.mediaForm.prompt}}" onChange="{{b.mediaForm.setPrompt}}" placeholder="Popiš, co chceš vytvořit"></textarea></label>
 <label class="arow2"><span>Negativní prompt</span><textarea rows="2" value="{{b.mediaForm.negative}}" onChange="{{b.mediaForm.setNegative}}" placeholder="Co má výsledek vynechat"></textarea></label>
 <label class="arow2"><span>Checkpoint</span><select value="{{b.mediaForm.model}}" onChange="{{b.mediaForm.setModel}}"><option value="">Vyber model</option><sc-for list="{{b.mediaForm.models}}" as="model" hint-placeholder-count="2"><option value="{{model.value}}">{{model.label}}</option></sc-for></select></label>
+<sc-if value="{{b.mediaForm.isImageToImage}}" hint-placeholder-val="{{false}}"><label class="arow2"><span>Zdrojový obraz (PNG, JPEG, WebP; do 3 MiB)</span><input type="file" accept="image/png,image/jpeg,image/webp" onChange="{{b.mediaForm.pickInput}}"></label><p class="aph">{{b.mediaForm.inputName}}</p><label class="arow2"><span>Míra změny</span><input type="number" min="0.01" max="1" step="0.05" value="{{b.mediaForm.denoise}}" onChange="{{b.mediaForm.setDenoise}}"></label></sc-if>
 <label class="arow2"><span>Šířka</span><input type="number" min="64" max="4096" step="8" value="{{b.mediaForm.width}}" onChange="{{b.mediaForm.setWidth}}"></label>
 <label class="arow2"><span>Výška</span><input type="number" min="64" max="4096" step="8" value="{{b.mediaForm.height}}" onChange="{{b.mediaForm.setHeight}}"></label>
 <label class="arow2"><span>Steps</span><input type="number" min="1" max="150" value="{{b.mediaForm.steps}}" onChange="{{b.mediaForm.setSteps}}"></label>

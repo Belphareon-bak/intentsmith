@@ -47,6 +47,13 @@ smazaného souboru je dostupný bez falešného editoru. Izolovaný průchod ve
 skutečném Electronu na `bd77c771` prošel včetně výměny sloupců, šesti relací,
 obnovy a jedenácti témat (`tests/studio2-exclusive-ui.e2e.js`).
 
+Po výslovném nastavení projektu na `automatic` backend každých pět minut
+zkontroluje povolený fetch nebo pull. Pull používá stejný plán, audit,
+ověření hostitele a `--ff-only` jako ruční akce. Služba má i auditovanou
+automatickou inicializaci, ale volání při importu složky zatím není zapojené;
+import stále zachovává dosavadní pravidlo bez zápisu do repozitáře. Politika
+automatického commitu po M2 se musí sladit s již existujícím commitem v M2.
+
 Historie Multimédií načítá skutečné záznamy; oblíbené, zrušení a smazání
 prochází backendem a znovunačtením stavu. Běžící úloha po požadavku na
 zrušení zůstává označená jako běžící, dokud backend neohlásí koncový stav.
@@ -56,14 +63,22 @@ obrázku a videa, odesílá ho přes `/api/media/generate` a kontroluje přijet�
 v historii. Průběh a konec přebírá z již existující sběrnice WebSocketu;
 konečný stav znovu ověří v historii. Dokončené výstupy se načítají z `/api/media/output` do lokálních
 objektových URL; zamítají se nebezpečné názvy a neočekávané typy. Obraz → obraz
-zatím formulář nenabízí, protože backend nemá připojené nahrání zdrojového obrázku.
-Fyzické GPU generování nebylo v izolovaných testech spuštěno.
+čte vybraný soubor jako bajty bez cesty, limituje PNG/JPEG/WebP na 3 MiB,
+přes backend nahraje zdroj do ComfyUI a generování přijme pouze jednorázovou
+serverovou stvrzenkou. Vstupní soubor se neposílá jako cesta ani volný název
+pro `LoadImage`. Izolované testy ověřily upload a přijetí úlohy se syntetickou
+GPU frontou. Fyzické GPU generování zatím nebylo spuštěno.
 
 Projektový průvodce je v prototypu a generovaném pohledu. V IDE načítá
 výchozí složku backendu, ukazuje kontrolu před potvrzením, zakládá nový
 projekt nebo registruje existující složku přes stávající `/api/projects`
 a `/api/projects/open-folder`. Po odpovědi ověřuje projekt v katalogu;
 nejistý výsledek zápisu neopakuje automaticky.
+
+Kontextová nabídka konverzace přejmenuje, archivuje nebo přesune záznam do
+koše přes backend a výsledek ověří novým čtením i katalogem. Zavření ostatních
+záložek a záložek vpravo mění skutečné uložené relace; před hromadným zavřením
+kontroluje všechny neuložené editory a běžící M2 rozhodnutí.
 
 Průvodce specialistou je také v prototypu a generovaném pohledu. Před
 vytvořením ukáže ID, doménu, popis a soubory balíčku. IDE zapisuje přes
@@ -87,7 +102,13 @@ stejnou konfiguraci a dotaz. Vlastní expertýzu lze otevřít k úpravě; UI na
 celou aktuální konfiguraci, ponechá původní ID, před zápisem ověří revizi a
 backend odmítne mezitím změněnou revizi. Zápis do DB je transakční a po chybě
 vrátí původní stav registru. Vestavěné expertýzy jsou jen ke čtení. Řízené
-kombinace více expertýz ještě chybí.
+Výběr jedné až tří expertýz pro volnou konverzaci používá samostatnou trvalou
+vazbu s revizí. Backend před zápisem ověří registr a kompatibilitu; klient
+potvrdí náhled, po zápisu znovu načte přesný výběr a neopakuje nejistý zápis.
+M1 schéma se nemění: controller pro každý další tah načte schválené ID ze
+své databáze a znovu je ověří v aktivním registru. Projektové relace zůstávají
+v projektovém režimu a nabídka výběru je tam výslovně zablokovaná, aby
+nepředstírala aplikování jiné persony.
 
 Nastavení má nyní přesně 12 kategorií a záložky z UI-SPEC. Funkční přepínače
 se čtou z `/api/features`; zapnutí, vypnutí a obnovení výchozích hodnot
@@ -118,8 +139,8 @@ zobrazením validují; při souběžném M1 tahu se příkaz neposílá. Párov�
 v Nastavení → Zabezpečení → Přístup. Vydání lokálního pětiminutového kódu
 ověřuje přesnou smlouvu odpovědi a drží kód jen v paměti okna.
 
-**Zbývá před paritou S2-7:** kombinace expertýz a obecný průvodce workerem,
-další akce katalogů, vstupní obraz pro Multimédia a automatické režimy gitu.
+**Zbývá před paritou S2-7:** použití výběru expertýz v projektových relacích,
+obecný průvodce workerem, další akce katalogů a automatický init/commit gitu.
 Nová obrazovka Nastavení pokrývá všech 12 kategorií; jednotlivé záložky
 vyžadují samostatnou kontrolu funkční parity.
 Prototypové fixtury se stále používají u nenapojených částí nastavení;

@@ -49,6 +49,7 @@ class Component extends DCLogic {
       scm: {}, scmPlan: null, auditX: {}, ctxQ: '', atts: {}, cmds: {}, termX: {},
       mediaType: 'txt2img', mediaPrompt: '', mediaNegative: '', mediaWidth: 1024, mediaHeight: 1024,
       mediaSteps: 20, mediaCfg: 7, mediaSeed: -1, mediaFrames: 49, mediaModel: '',
+      mediaInputName: '', mediaDenoise: 0.7,
       projectMode: 'create', projectStep: 0, projectName: '', projectPath: '',
       projectDescription: '', projectType: 'general',
       specialistStep: 0, specialistName: '', specialistDomain: 'general',
@@ -1151,6 +1152,7 @@ class Component extends DCLogic {
       isSettingsImport: kind === 'settingsImport', settingsImport: this.settingsImportVM(),
       isFeedback: kind === 'feedback', feedback: this.feedbackVM(),
       isSecurity: kind === 'security', security: this.securityVM(this.st()),
+      isExpertiseSelection: kind === 'expertiseSelection', expertiseSelection: this.expertiseSelectionVM(),
       isProjectDirectory: kind === 'projectDirectory', projectDirectory: this.projectDirectoryVM(),
       isPreferences: kind === 'preferences', preferences: this.preferencesVM(this.st()),
       isModelWorkspace: kind === 'modelWorkspace', modelWorkspace: this.modelWorkspaceVM(),
@@ -1199,6 +1201,11 @@ class Component extends DCLogic {
 
   projectDirectoryVM() {
     return { value: '', change: () => {}, status: 'Prototyp ukazuje lokální volbu; živé Studio ji převezme do průvodce projektem.' };
+  }
+
+  expertiseSelectionVM() {
+    return { status: 'Aktivní relace používá výchozí expertýzu.', rows: [],
+      clearDisabled: true, clear: () => {}, refresh: () => {} };
   }
 
   preferencesVM() {
@@ -1400,6 +1407,11 @@ class Component extends DCLogic {
 
   submitMedia() { return null; }
 
+  pickMediaInput(event) {
+    const file = event?.target?.files?.[0];
+    this.setState({ mediaInputName: file?.name || '' });
+  }
+
   mediaFormVM(s) {
     const status = this.mediaStatus();
     const models = Array.isArray(status.models) ? status.models : [];
@@ -1408,10 +1420,13 @@ class Component extends DCLogic {
     const valid = numbers.every(Number.isFinite) && s.mediaWidth >= 64 && s.mediaWidth <= 4096 && s.mediaWidth % 8 === 0
       && s.mediaHeight >= 64 && s.mediaHeight <= 4096 && s.mediaHeight % 8 === 0
       && s.mediaSteps >= 1 && s.mediaSteps <= 150 && s.mediaCfg >= 0 && s.mediaCfg <= 30 && s.mediaSeed >= -1
-      && (s.mediaType !== 'txt2vid' || Number.isInteger(s.mediaFrames) && s.mediaFrames >= 1 && s.mediaFrames <= 300);
+      && (s.mediaType !== 'txt2vid' || Number.isInteger(s.mediaFrames) && s.mediaFrames >= 1 && s.mediaFrames <= 300)
+      && (s.mediaType !== 'img2img' || Number.isFinite(s.mediaDenoise) && s.mediaDenoise > 0
+        && s.mediaDenoise <= 1 && !!s.mediaInputName);
     const setNumber = (key) => (e) => this.setState({ [key]: e.target.value === '' ? '' : Number(e.target.value) });
     return {
-      types: [{ value: 'txt2img', label: 'Text → obraz' }, { value: 'txt2vid', label: 'Text → video' }],
+      types: [{ value: 'txt2img', label: 'Text → obraz' }, { value: 'img2img', label: 'Obraz → obraz' },
+        { value: 'txt2vid', label: 'Text → video' }],
       type: s.mediaType, setType: (e) => this.setState({ mediaType: e.target.value,
         mediaWidth: e.target.value === 'txt2vid' ? 848 : 1024,
         mediaHeight: e.target.value === 'txt2vid' ? 480 : 1024,
@@ -1422,6 +1437,8 @@ class Component extends DCLogic {
       steps: s.mediaSteps, setSteps: setNumber('mediaSteps'), cfg: s.mediaCfg, setCfg: setNumber('mediaCfg'),
       seed: s.mediaSeed, setSeed: setNumber('mediaSeed'), frames: s.mediaFrames, setFrames: setNumber('mediaFrames'),
       isVideo: s.mediaType === 'txt2vid', models: models.map((name) => ({ value: name, label: name })),
+      isImageToImage: s.mediaType === 'img2img', inputName: s.mediaInputName,
+      pickInput: e => this.pickMediaInput(e), denoise: s.mediaDenoise, setDenoise: setNumber('mediaDenoise'),
       model: selectedModel, setModel: (e) => this.setState({ mediaModel: e.target.value }),
       status: status.error || (status.status === 'loading' ? 'Ověřuji ComfyUI a modely…'
         : status.available ? 'ComfyUI je dostupné.' : 'ComfyUI není dostupné.'),

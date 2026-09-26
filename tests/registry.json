@@ -16221,6 +16221,42 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-STUDIO2-EXPERTISE-SELECTION-TEST",
+      "path": "tests/studio2-expertise-selection.test.js",
+      "argv": ["node", "tests/studio2-expertise-selection.test.js"],
+      "capabilityId": "C3-005",
+      "tier": "T1",
+      "fixture": "isolated SQLite and mocked Studio expertise HTTP",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": { "network": "none", "database": true, "server": false, "ollama": false, "gpu": false },
+      "required": true,
+      "owner": "WP-STUDIO-2-20260925",
+      "state": "ACTIVE",
+      "lastGreen": { "commit": null, "artifact": null },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-STUDIO2-MEDIA-INPUT-TEST",
+      "path": "tests/studio2-media-input.test.js",
+      "argv": ["node", "tests/studio2-media-input.test.js"],
+      "capabilityId": "C3-005",
+      "tier": "T1",
+      "fixture": "isolated SQLite and mocked ComfyUI image upload",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": { "network": "none", "database": true, "server": false, "ollama": false, "gpu": false },
+      "required": true,
+      "owner": "WP-STUDIO-2-20260925",
+      "state": "ACTIVE",
+      "lastGreen": { "commit": null, "artifact": null },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-STUDIO2-SPECIALIST-CREATE-TEST",
       "path": "tests/studio2-specialist-create.test.js",
       "argv": [

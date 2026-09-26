@@ -105,6 +105,25 @@ export class ComfyUIConnector {
     return { promptId: data.prompt_id };
   }
 
+  async uploadInputImage(bytes, mime, extension) {
+    const name = `intentsmith-input-${randomUUID()}.${extension}`;
+    const form = new FormData();
+    form.append('image', new Blob([bytes], { type: mime }), name);
+    form.append('type', 'input');
+    form.append('overwrite', 'false');
+    const response = await fetch(`${this._baseUrl}/upload/image`, {
+      method: 'POST', body: form, signal: AbortSignal.timeout(30_000),
+    });
+    if (!response.ok) throw new Error(`ComfyUI input upload failed (HTTP ${response.status})`);
+    const result = await response.json();
+    if (result?.type !== 'input' || result?.subfolder !== ''
+      || typeof result.name !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_.()-]{0,127}$/.test(result.name)
+      || !result.name.startsWith('intentsmith-input-') || !result.name.endsWith('.' + extension)) {
+      throw new Error('ComfyUI returned an invalid input-image receipt');
+    }
+    return result.name;
+  }
+
   // ── Get result (single poll) ────────────────────────────────────────────────
 
   async getResult(promptId) {

@@ -34,6 +34,69 @@ function setup({ workspace, m2, catalog: catalogOverride } = {}) {
 
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
+test('tab context closes the real sessions, persists them, and keeps all tabs when an editor is dirty', () => {
+  const dirty = new Set();
+  const workspace = { entry: session => ({ editor: { dirty: dirty.has(session.id) } }) };
+  const { model, store, storage, widget } = setup({ workspace });
+  const first = store.focusedSession();
+  const second = store.addSession();
+  const third = store.addSession();
+  const fourth = store.addSession();
+  const choose = (sid, label) => {
+    model.setState({ ctx: { sec: 'tab', id: sid, x: 0, y: 0 } });
+    const item = model.ctxVM(model.st()).ctxItems.find(row => row.t === label);
+    assert.ok(item, label);
+    item.go();
+  };
+  dirty.add(fourth.id);
+  choose(second.id, 'Zavřít vpravo');
+  assert.deepEqual(store.state.sessions.map(session => session.id),
+    [first.id, second.id, third.id, fourth.id]);
+  assert.match(widget.catalogActionError, /neuložený soubor/);
+  dirty.clear();
+  choose(second.id, 'Zavřít vpravo');
+  assert.deepEqual(store.state.sessions.map(session => session.id), [first.id, second.id]);
+  assert.deepEqual(new SessionStore(storage).state.sessions.map(session => session.id), [first.id, second.id]);
+  choose(second.id, 'Zavřít ostatní');
+  assert.deepEqual(store.state.sessions.map(session => session.id), [second.id]);
+  assert.deepEqual(new SessionStore(storage).state.sessions.map(session => session.id), [second.id]);
+  model.componentWillUnmount();
+});
+
+test('conversation context renames and archives only after backend readback', async () => {
+  const record = { id: 'conv-context-1', title: 'Původní', state: 'active' };
+  let calls = 0;
+  const catalog = { backendUrl: () => 'http://127.0.0.1:3335',
+    subscribe: () => () => {}, view: name => ({ status: 'ready', items: name === 'Konverzace' && record.state === 'active'
+      ? [{ id: record.id, name: record.title, raw: { ...record } }] : [] }),
+    get: async path => { assert.equal(path, '/api/conversations/' + record.id);
+      return { conversation: { ...record } }; }, load: async () => {} };
+  const { model, widget, store } = setup({ catalog });
+  const session = store.focusedSession();
+  session._convId = record.id;
+  widget.promptAction = () => 'Nový název';
+  widget.confirmAction = () => true;
+  model.fetchImpl = async (url, options) => {
+    calls++;
+    assert.equal(new URL(url).pathname, '/api/conversations/' + record.id
+      + (options.method === 'PATCH' ? '/archive' : ''));
+    if (options.method === 'PUT') record.title = JSON.parse(options.body).title;
+    if (options.method === 'PATCH') record.state = 'archived';
+    return { ok: true, json: async () => ({ success: true }) };
+  };
+  model.setState({ ctx: { sec: 'chats', id: record.id, x: 0, y: 0 } });
+  const rename = model.ctxVM(model.st()).ctxItems.find(item => item.t === 'Přejmenovat…');
+  assert.notEqual(rename.cls, 'dis');
+  assert.equal(await model.conversationAction(record.id, 'rename'), true, widget.catalogActionError);
+  assert.equal(session._label, 'Nový název');
+  assert.equal(new SessionStore(store.storage).focusedSession()._label, 'Nový název');
+  assert.equal(await model.conversationAction(record.id, 'archive'), true, widget.catalogActionError);
+  assert.equal(calls, 2);
+  assert.equal(store.find(session.id), null);
+  assert.equal(record.state, 'archived');
+  model.componentWillUnmount();
+});
+
 test('M4 composer commands stay in the project and never reach the ordinary chat transport', async () => {
   const { model, store, calls } = setup();
   const session = store.focusedSession();
@@ -214,19 +277,34 @@ test('settings import previews a bounded JSON file and confirms backend readback
   assert.equal(model.settingsImportVM().disabled, true);
 });
 
-test('expertise detail applies catalog identity to the focused session and persists it', () => {
+test('expertise detail applies only a backend-confirmed catalog identity to the focused session', async () => {
   const item = { id: 'architect', name: 'Architekt', raw: { isCustom: false, domain: 'code' } };
   const catalog = { view: section => ({ status: 'ready', items: section === 'Expertýzy' ? [item] : [] }),
-    load: () => {}, subscribe: () => () => {} };
-  const { model, store, storage } = setup({ catalog });
+    load: () => {}, subscribe: () => () => {}, backendUrl: () => 'http://127.0.0.1:3335' };
+  const { model, store, storage, widget } = setup({ catalog });
+  widget.confirmAction = () => true;
+  const emptyRevision = '4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945';
+  let saved = [], revision = emptyRevision, conversationId = null;
+  model.fetchImpl = async (url, options = {}) => {
+    const path = new URL(url).pathname;
+    conversationId = decodeURIComponent(path.split('/')[3]);
+    if (options.method === 'PUT') {
+      const body = JSON.parse(options.body);
+      assert.equal(body.expectedRevision, emptyRevision);
+      saved = body.expertises; revision = 'a'.repeat(64);
+    }
+    return { ok: true, json: async () => ({ conversationId, expertises: saved, revision }) };
+  };
   model.setState({ mode: 'section', section: 'expertises', detail: { expertises: 'architect' } });
   const vm = model.detailVM(model.st());
-  assert.equal(vm.primaryLabel, 'Použít v aktivní relaci');
-  assert.equal(vm.onPrimary(), true);
+  assert.equal(vm.primaryLabel, 'Použít samostatně v relaci');
+  assert.equal(await vm.onPrimary(), true);
+  assert.deepEqual(saved, [{ id: 'architect', weight: 0.5 }]);
+  assert.equal(store.focusedSession()._convId, conversationId);
   assert.equal(store.focusedSession().chat.expertise, 'Architekt');
   assert.match(storage.getItem('intentsmith-studio2-session-state'), /Architekt/);
   assert.equal(model.st().mode, 'sessions');
-  assert.equal(model.useExpertise({ id: 'architect', name: 'Jiná' }), false);
+  assert.equal(await model.useExpertise({ id: 'architect', name: 'Jiná' }), false);
 });
 
 test('preference fields reject out-of-range values before POST', async () => {

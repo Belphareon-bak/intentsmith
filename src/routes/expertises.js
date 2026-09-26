@@ -4,6 +4,7 @@
 
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
+import { readConversationSelection, writeConversationSelection } from '../expertises/conversation-selection.js';
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -38,6 +39,24 @@ export function createExpertiseRoutes(deps) {
   }
 
   return {
+    'GET /api/conversations/:id/expertises': async (_req, res, params) => {
+      try {
+        sendJSON(res, 200, readConversationSelection(db, params.id));
+      } catch (error) {
+        sendJSON(res, error.status || 500, { error: error.message, code: error.code || 'EXPERTISE_SELECTION_ERROR' });
+      }
+    },
+
+    'PUT /api/conversations/:id/expertises': async (req, res, params) => {
+      try {
+        const body = await parseBody(req);
+        const result = writeConversationSelection(db, expertiseLayer?.expertiseRegistry, params.id, body);
+        sendJSON(res, 200, result);
+      } catch (error) {
+        sendJSON(res, error.status || 500, { error: error.message, code: error.code || 'EXPERTISE_SELECTION_ERROR' });
+      }
+    },
+
     // M3 local expertise extension lifecycle. Expertise definitions are
     // data-only: they can influence routing/prompting but cannot request a host
     // capability or create an effect.
