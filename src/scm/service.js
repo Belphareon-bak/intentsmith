@@ -7,7 +7,7 @@ import { git, isRepo, projectRoot, relativeFile, branchName, remoteInfo, remoteH
 const hash = value => 'sha256:' + createHash('sha256').update(value).digest('hex');
 const MODES = { init: ['ask','automatic','disabled'], commit: ['ask','automatic','disabled'],
   branch: ['ask','disabled'], fetch: ['ask','automatic','disabled'], pull: ['ask','automatic','disabled'], push: ['ask','disabled'] };
-const defaults = Object.freeze({ init: 'automatic', commit: 'ask', branch: 'ask', fetch: 'disabled', pull: 'ask', push: 'ask', remotes: [] });
+const defaults = Object.freeze({ init: 'ask', commit: 'ask', branch: 'ask', fetch: 'disabled', pull: 'ask', push: 'ask', remotes: [] });
 const keys = Object.freeze(['init','commit','branch','fetch','pull','push','remotes']);
 const networkOps = new Set(['fetch','pull','push']);
 const writeOps = new Set(['init','stage','unstage','commit','branch.create','checkout','pull']);

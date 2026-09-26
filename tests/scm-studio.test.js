@@ -57,6 +57,9 @@ test('SCM reads local status without invoking Git hooks or fetching',async()=>{
 test('automatic SCM obeys project policy and executes init through an audited exact plan',async()=>{
   const f=await fixture({repo:false,outside:true});
   assert.equal((await f.service.runAutomatic(1,'fetch')).state,'skipped');
+  assert.equal(f.service.policy(1).init,'ask','Decision 049 defaults init to approval');
+  assert.equal((await f.service.runAutomatic(1,'init')).state,'skipped');
+  f.service.writePolicy({...f.service.policy(1),init:'automatic'},'local-operator');
   assert.equal((await f.service.runAutomatic(1,'init')).state,'succeeded');
   assert.equal(f.git(['branch','--show-current']),'main');
   const event=f.db.prepare("SELECT actor_id,kind FROM scm_events WHERE kind='succeeded'").get();
@@ -136,6 +139,20 @@ test('HTTP SCM routes refuse forged local identity',async()=>{
   assert.equal((await routes['GET /api/scm/status'](req,{})).status,403);
   const local=createGlobalAuthAuthority({production:false}).authorize({routeKey:'POST /api/chat',headers:{},remoteAddress:'127.0.0.1'}).subject;
   assert.equal((await routes['GET /api/scm/status']({...req,authenticatedSubject:local},{})).status,200);
+});
+
+test('explicit automatic init policy creates a repository through the audited SCM route',async()=>{
+  const f=await fixture({repo:false,outside:true});
+  const local=createGlobalAuthAuthority({production:false}).authorize({routeKey:'POST /api/chat',headers:{},remoteAddress:'127.0.0.1'}).subject;
+  const input={...f.service.policy(1),init:'automatic'};
+  const routes=createScmRoutes({db:f.db,parseBody:async()=>input,
+    sendJSON:(_res,status,body)=>({status,body}),scmService:f.service});
+  const response=await routes['PUT /api/scm/policy']({authenticatedSubject:local},{});
+  assert.equal(response.status,200);
+  assert.equal(response.body.revision,1);
+  assert.deepEqual(response.body.automaticInit,{state:'succeeded'});
+  assert.equal((await f.service.status(1)).isRepo,true);
+  assert.equal(f.db.prepare("SELECT count(*) AS n FROM scm_events WHERE kind='succeeded' AND actor_id='studio-scm-automatic'").get().n,1);
 });
 
 test('SCM rejects local URL rewrites and malformed upstream branch before a network plan', async () => {

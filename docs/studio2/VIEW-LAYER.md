@@ -57,10 +57,11 @@ obnovy a jedenácti témat (`tests/studio2-exclusive-ui.e2e.js`).
 
 Po výslovném nastavení projektu na `automatic` backend každých pět minut
 zkontroluje povolený fetch nebo pull. Pull používá stejný plán, audit,
-ověření hostitele a `--ff-only` jako ruční akce. Služba má i auditovanou
-automatickou inicializaci, ale volání při importu složky zatím není zapojené;
-import stále zachovává dosavadní pravidlo bez zápisu do repozitáře. Politika
-automatického commitu po M2 se musí sladit s již existujícím commitem v M2.
+ověření hostitele a `--ff-only` jako ruční akce. Výchozí politika inicializace
+je podle Decision 049 `ask`; import složky do repozitáře nezapisuje. Pokud
+uživatel poté nastaví `init=automatic`, backend bez gitu provede auditovaný
+plán a vrátí zvlášť výsledek efektu. Politika automatického commitu po M2 se
+musí sladit s již existujícím commitem v M2.
 
 Historie Multimédií načítá skutečné záznamy; oblíbené, zrušení a smazání
 prochází backendem a znovunačtením stavu. Běžící úloha po požadavku na
@@ -150,7 +151,7 @@ v Nastavení → Zabezpečení → Přístup. Vydání lokálního pětiminutov�
 ověřuje přesnou smlouvu odpovědi a drží kód jen v paměti okna.
 
 **Zbývá před paritou S2-7:** použití výběru expertýz v projektových relacích,
-obecný průvodce workerem, další akce katalogů a automatický init/commit gitu.
+obecný průvodce workerem, další akce katalogů a automatický commit gitu.
 Nová obrazovka Nastavení pokrývá všech 12 kategorií; jednotlivé záložky
 vyžadují samostatnou kontrolu funkční parity.
 Prototypové fixtury se stále používají u nenapojených částí nastavení;

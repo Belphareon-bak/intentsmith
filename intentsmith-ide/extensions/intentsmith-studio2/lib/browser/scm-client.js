@@ -106,9 +106,22 @@ class ScmClient {
   async setPolicy(projectId, patch) {
     return this.action(projectId, async e => {
       if (!e.policy || String(e.policy.projectId) !== String(projectId)) throw Error('Nejdřív načti politiku projektu.');
-      const policy = await this.request('/api/scm/policy', { ...e.policy, ...patch, projectId: Number(projectId), revision: e.policy.revision }, 'PUT');
-      if (String(policy.projectId) !== String(projectId)) throw Error('Backend vrátil jinou politiku.');
-      e.policy = policy; e.plan = null;
+      let result;
+      try {
+        result = await this.request('/api/scm/policy', { ...e.policy, ...patch, projectId: Number(projectId), revision: e.policy.revision }, 'PUT');
+      } catch (error) {
+        await this.load(projectId, { refresh: true });
+        throw Error('Výsledek změny politiky není jistý. Stav projektu byl znovu načten; zkontroluj audit před opakováním: ' + error.message);
+      }
+      if (String(result.projectId) !== String(projectId) || !Number.isSafeInteger(result.revision))
+        throw Error('Backend vrátil jinou politiku.');
+      e.plan = null;
+      if (!await this.load(projectId, { refresh: true }) || e.policy.revision !== result.revision)
+        throw Error('Politika se mohla změnit, ale nový stav není ověřený. Obnov stav před opakováním.');
+      if (result.automaticInit?.state === 'error')
+        throw Error('Politika je uložená, ale automatická inicializace selhala (' + result.automaticInit.code + '). Zkontroluj audit a stav projektu.');
+      if (result.automaticInit?.state === 'succeeded' && !e.data.isRepo)
+        throw Error('Git mohl být inicializován, ale nový stav repozitáře není ověřený. Zkontroluj audit.');
     });
   }
   destroy() { for (const key of this.entries.keys()) this.requests.set(key, (this.requests.get(key) || 0) + 1); }

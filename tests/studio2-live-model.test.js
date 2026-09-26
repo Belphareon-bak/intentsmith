@@ -1404,6 +1404,34 @@ test('SCM execute never retries a lost response and reads durable terminal audit
   client.destroy();
 });
 
+test('lost SCM policy response reloads the committed policy without repeating automatic init', async () => {
+  let writes = 0;
+  let policy = { projectId: 17, revision: 0, init: 'ask', commit: 'ask', branch: 'ask',
+    fetch: 'disabled', pull: 'ask', push: 'ask', remotes: [] };
+  const reply = value => ({ ok: true, json: async () => value });
+  const client = new ScmClient({ backendUrl: () => 'http://127.0.0.1:3335', fetchImpl: async (url, options = {}) => {
+    const endpoint = new URL(url).pathname;
+    if (endpoint === '/api/scm/policy' && options.method === 'PUT') {
+      writes++;
+      policy = { ...policy, init: 'automatic', revision: 1 };
+      throw Error('response lost after effect');
+    }
+    if (endpoint === '/api/scm/policy') return reply(policy);
+    if (endpoint === '/api/scm/status') return reply({ projectId: 17, isRepo: true, files: [] });
+    if (endpoint === '/api/scm/branches') return reply({ branches: [] });
+    if (endpoint === '/api/scm/log') return reply({ commits: [] });
+    if (endpoint === '/api/scm/operations') return reply([]);
+    throw Error('Unexpected ' + endpoint);
+  } });
+  const entry = client.entry(17);
+  entry.status = 'ready'; entry.policy = policy;
+  assert.equal(await client.setPolicy(17, { init: 'automatic' }), false);
+  assert.equal(writes, 1);
+  assert.equal(entry.policy.revision, 1);
+  assert.equal(entry.data.isRepo, true);
+  assert.match(entry.error, /není jistý/);
+});
+
 test('prototype appearance controls persist every visible choice including 125 percent scale', () => {
   const { model, widget, storage } = setup();
   model.setState({ ff: 'inter', bright: 115, col: false, cacc: 'custom', caccHex: '#123456',

@@ -385,7 +385,7 @@ class Component extends DCLogic {
       'src/renderer/js/processes.js': [hk('@@ -1,6 +1,10 @@'), cx('1', '1', "import { sortBy } from './table.js';"), cx('2', '2', ''), ad('3', 'export function diskRate(p) {'), ad('4', '  return (p.readBps || 0) + (p.writeBps || 0);'), ad('5', '}'), ad('6', ''), cx('3', '7', 'export const COLUMNS = ['), dl('6', "  ['disk', 'Disk']"), ad('10', "  ['disk', 'Disk', diskRate]")],
       'src/renderer/js/chart.js': [hk('@@ -1,3 +1,3 @@'), cx('1', '1', 'export function draw(ctx, samples, opts) {'), dl('2', '  if (!samples.length) return;'), ad('2', '  if (samples.length < 2) return;'), cx('3', '3', '  const w = ctx.canvas.width, h = ctx.canvas.height;')]
     };
-    const POL = (o) => Object.assign({ init: 'automatic', commit: 'ask', branch: 'ask', fetch: 'ask', pull: 'ask', push: 'ask' }, o || {});
+    const POL = (o) => Object.assign({ init: 'ask', commit: 'ask', branch: 'ask', fetch: 'disabled', pull: 'ask', push: 'ask' }, o || {});
     const GIT = {
       shellsmith: { repo: true, branch: 'main', upstream: 'origin/main', ahead: 1, behind: 0, fetched: 'dnes 13:58', remote: 'origin', host: 'github.com', policy: POL(),
         branches: ['main', 'work/sftp-resume', 'release/1.1'], remoteBranches: ['origin/main', 'origin/release/1.1'],
@@ -905,7 +905,7 @@ class Component extends DCLogic {
       if (p.test) props.push(['Příkaz testů', p.test, true]);
       const g = this.gitVM(s, p.id);
       const POLK = [['init', 'Init repozitáře'], ['commit', 'Commit'], ['branch', 'Větve'], ['fetch', 'Fetch (síť)'], ['pull', 'Pull (--ff-only)'], ['push', 'Push (nikdy --force)']];
-      const pol = g ? g.policy : { init: 'automatic', commit: 'ask', branch: 'ask', fetch: 'disabled', pull: 'ask', push: 'ask' };
+      const pol = g ? g.policy : { init: 'ask', commit: 'ask', branch: 'ask', fetch: 'disabled', pull: 'ask', push: 'ask' };
       const scmBlocks = [
         g && g.repo ? { kind: 'rows', title: 'Repozitář', rows: [{ t: 'Větev ' + g.branch, m: g.upstream ? '↓' + g.behind + ' ↑' + g.ahead : 'bez upstreamu', icon: I.branch, mono: true }, { t: g.remote ? g.remote + ' · ' + g.host : 'bez vzdáleného repozitáře', m: g.remote ? 'povolený hostitel' : '', mc: ok, icon: I.globe }] } : { kind: 'empty', title: 'Repozitář', text: g ? 'Složka zatím nemá repozitář git. Inicializuješ ho v pravém panelu relace › Správa zdrojů.' : 'Stav repozitáře se načte z GET /api/scm/status.' },
         { kind: 'scmPolicy', title: 'Politika gitu' },
@@ -1048,7 +1048,7 @@ class Component extends DCLogic {
 
   scmPolicyVM(s, pid) {
     const g = pid ? this.gitVM(s, pid) : null;
-    const policy = g?.policy || { init: 'automatic', commit: 'ask', branch: 'ask', fetch: 'disabled', pull: 'ask', push: 'ask', remotes: [] };
+    const policy = g?.policy || { init: 'ask', commit: 'ask', branch: 'ask', fetch: 'disabled', pull: 'ask', push: 'ask', remotes: [] };
     const labels = [['init', 'Inicializace'], ['commit', 'Commit'], ['branch', 'Větve'], ['fetch', 'Fetch'], ['pull', 'Pull (--ff-only)'], ['push', 'Push']];
     return { fields: labels.map(([key, label]) => ({ key, label, value: policy[key],
       options: (key === 'branch' || key === 'push' ? ['ask', 'disabled'] : ['ask', 'automatic', 'disabled'])

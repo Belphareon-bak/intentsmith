@@ -32,7 +32,24 @@ export function createScmRoutes({ db, parseBody, sendJSON, scmService }) {
     'GET /api/scm/diff': wrap(req => { const q = query(req); return service.diff(id(q), {
       file: q.get('path'), staged: q.get('staged') === 'true' }); }),
     'GET /api/scm/policy': wrap(req => service.policy(id(query(req)))),
-    'PUT /api/scm/policy': wrap(async req => service.writePolicy(await parseBody(req), req.authenticatedSubject.actorId)),
+    'PUT /api/scm/policy': wrap(async req => {
+      const input = await parseBody(req);
+      const before = service.policy(input?.projectId);
+      const updated = service.writePolicy(input, req.authenticatedSubject.actorId);
+      if (before.init !== 'automatic' && updated.init === 'automatic') {
+        try {
+          if (!(await service.status(updated.projectId)).isRepo) {
+            const result = await service.runAutomatic(updated.projectId, 'init');
+            return { ...updated, automaticInit: { state: result.state } };
+          }
+        } catch (error) {
+          // Policy is already durable. Return that fact with an explicit failed
+          // effect; the caller must read the audit before attempting anything else.
+          return { ...updated, automaticInit: { state: 'error', code: error.code || 'SCM_INTERNAL_ERROR' } };
+        }
+      }
+      return updated;
+    }),
     'POST /api/scm/prepare': wrap(async req => service.prepare(await parseBody(req), req.authenticatedSubject.actorId)),
     'POST /api/scm/execute': wrap(async req => service.execute(await parseBody(req), req.authenticatedSubject.actorId)),
     'POST /api/scm/cancel': wrap(async req => service.cancel(await parseBody(req), req.authenticatedSubject.actorId)),

@@ -23,7 +23,7 @@ jen `PUT /api/scm/policy`, nikdy obecným nastavením.
 
 | Klíč | Hodnoty | Výchozí | Význam |
 |---|---|---|---|
-| `init` | `automatic` / `ask` / `disabled` | `automatic` | Nový projekt git dostane (dnešní chování). Otevřená složka bez gitu: `ask` nabídne init, `automatic` ho provede, `disabled` nic. |
+| `init` | `automatic` / `ask` / `disabled` | `ask` | Nový projekt git dostane v rámci schváleného vytvoření projektu (dnešní chování). Otevřená složka bez gitu: `ask` nabídne init, `automatic` ho provede po výslovném nastavení politiky, `disabled` nic. |
 | `commit` | `ask` / `automatic` / `disabled` | `ask` | `automatic` smí po schválené M2 změně vytvořit commit s popisem z plánu. |
 | `branch` | `ask` / `disabled` | `ask` | Zakládání a přepínání větví. |
 | `fetch` | `automatic` / `ask` / `disabled` | `disabled` | Síť; `automatic` jen s povoleným hostitelem, interval nejméně 5 minut. |
