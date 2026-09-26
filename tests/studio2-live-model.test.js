@@ -135,6 +135,30 @@ test('model command in menu and palette opens live role assignments without a fi
   model.componentWillUnmount();
 });
 
+test('project menu actions open the project wizard in the requested mode', () => {
+  const { model, store } = setup();
+  model.loadProjectDefaults = () => {};
+  const choose = label => {
+    const item = model.menusVM(model.st(), store.focusedSession().id)
+      .flatMap(menu => menu.items).find(row => row.t === label);
+    assert.ok(item);
+    item.go();
+    assert.equal(model.st().section, 'projects');
+    assert.equal(model.st().detail.projects, '__new__');
+  };
+  choose('Otevřít projekt…');
+  assert.equal(model.st().projectMode, 'open');
+  choose('Nový projekt…');
+  assert.equal(model.st().projectMode, 'create');
+  let prevented = false;
+  model.onKey({ key: 'o', ctrlKey: true, altKey: false, shiftKey: false,
+    preventDefault: () => { prevented = true; }, stopPropagation: () => {} });
+  assert.equal(prevented, true);
+  assert.equal(model.st().projectMode, 'open');
+  assert.equal(model.st().detail.projects, '__new__');
+  model.componentWillUnmount();
+});
+
 test('tab context closes the real sessions, persists them, and keeps all tabs when an editor is dirty', () => {
   const dirty = new Set();
   const workspace = { entry: session => ({ editor: { dirty: dirty.has(session.id) } }) };

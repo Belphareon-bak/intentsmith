@@ -26,6 +26,7 @@ class Component extends DCLogic {
     else if (ctrl && e.altKey && k === 'b') p = { rightOpen: !s.rightOpen, rightPin: !s.rightOpen };
     else if (ctrl && !e.altKey && k === 'j') p = { bottomOpen: !s.bottomOpen };
     else if (ctrl && !e.altKey && (k === 't' || k === 'n')) p = this.pNewSession(s, {});
+    else if (ctrl && !e.altKey && k === 'o') p = Object.assign({}, this.pSelect(s, 'projects', '__new__'), { projectMode: 'open', projectStep: 0 });
     else if (ctrl && k === ',') p = this.pGo(s, 'settings');
     else if (e.altKey && e.shiftKey && /^digit[1-3]$/.test((e.code || '').toLowerCase())) p = this.pSetCols(s, Number(e.code.slice(-1)));
     else if (e.altKey && !ctrl && !e.shiftKey && /^[1-9]$/.test(k) && s.tabs[Number(k) - 1]) p = this.pFocusSession(s, s.tabs[Number(k) - 1]);
@@ -2175,8 +2176,8 @@ class Component extends DCLogic {
     const defs = [
       ['soubor', 'Soubor', [
         it('Nová konverzace', 'Ctrl+N', (s2) => this.pNewSession(s2, {}), ic(I.plus)),
-        it('Nový projekt…', '', (s2) => this.pGo(s2, 'projects'), ic(I.folder)),
-        it('Otevřít projekt…', 'Ctrl+O', (s2) => this.pGo(s2, 'projects')),
+        it('Nový projekt…', '', (s2) => Object.assign({}, this.pSelect(s2, 'projects', '__new__'), { projectMode: 'create', projectStep: 0 }), ic(I.folder)),
+        it('Otevřít projekt…', 'Ctrl+O', (s2) => Object.assign({}, this.pSelect(s2, 'projects', '__new__'), { projectMode: 'open', projectStep: 0 })),
         sep(),
         it('Importovat konverzaci…', '', null, ic(I.download)),
         it('Exportovat projekt…', ''),
