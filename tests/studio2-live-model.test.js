@@ -63,6 +63,27 @@ test('tab context closes the real sessions, persists them, and keeps all tabs wh
   model.componentWillUnmount();
 });
 
+test('tab pin moves a real session first and survives store restoration', () => {
+  const { model, store, storage } = setup();
+  const first = store.focusedSession();
+  const second = store.addSession();
+  model.setState({ ctx: { sec: 'tab', id: second.id, x: 0, y: 0 } });
+  const pin = model.ctxVM(model.st()).ctxItems.find(item => item.t === 'Připnout');
+  assert.notEqual(pin.cls, 'dis');
+  pin.go();
+  assert.equal(store.state.sessions[0].id, second.id);
+  assert.equal(store.find(second.id)._pinned, true);
+  assert.match(model.tabsVM(model.st(), store.state.columns, second.id)[0].full, /Připnuto/);
+  const restored = new SessionStore(storage);
+  assert.equal(restored.state.sessions[0].id, second.id);
+  assert.equal(restored.find(second.id)._pinned, true);
+  model.setState({ ctx: { sec: 'tab', id: second.id, x: 0, y: 0 } });
+  model.ctxVM(model.st()).ctxItems.find(item => item.t === 'Odepnout').go();
+  assert.equal(store.find(second.id)._pinned, false);
+  assert.equal(store.find(first.id)._pinned, false);
+  model.componentWillUnmount();
+});
+
 test('conversation context renames and archives only after backend readback', async () => {
   const record = { id: 'conv-context-1', title: 'Původní', state: 'active' };
   let calls = 0;

@@ -33,6 +33,7 @@ function makeSession(number, source = {}) {
     _projectId: identity(raw._projectId ?? raw.projectId),
     _agentId: identity(raw._agentId ?? raw.agentId),
     _label: text(raw._label || raw.label) || `Relace ${number}`,
+    _pinned: raw._pinned === true || raw.pinned === true,
     _m2Pending: pendingBinding(raw._m2Pending || raw.m2Pending),
     _closed: false, _editor: { active: false, tabs: [], activeTabId: null, scrollRaf: null },
     _focusFiles: Array.isArray(raw._focusFiles || raw.focusFiles) ? (raw._focusFiles || raw.focusFiles).slice(0, 100) : [],
@@ -62,6 +63,7 @@ function snapshotSession(session) {
     id: session.id, number: session.number,
     convId: session._convId, projectId: session._projectId, agentId: session._agentId,
     label: session._label, m2Pending: pendingBinding(session._m2Pending),
+    pinned: session._pinned === true,
     focusFiles: session._focusFiles,
     openedFiles: session._openedFiles, modifiedFiles: session._modifiedFiles, fileChanges: session._fileChanges,
     recentMsgs: messages(session.chat.msgs).slice(-20),
@@ -164,6 +166,14 @@ class SessionStore {
   focusTab(sessionId) {
     const visible = this.state.columns.indexOf(sessionId);
     return this.selectInColumn(visible < 0 ? this.state.focusedColumn : visible, sessionId);
+  }
+  setPinned(sessionId, pinned) {
+    const session = this.find(sessionId);
+    if (!session || typeof pinned !== 'boolean') return false;
+    session._pinned = pinned;
+    this.state.sessions.sort((left, right) => Number(right._pinned) - Number(left._pinned));
+    this.changed();
+    return true;
   }
   setColumnCount(count) {
     if (!Number.isInteger(count) || count < 1 || count > MAX_COLUMNS) return false;

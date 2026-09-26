@@ -230,7 +230,9 @@ class LiveModel extends Component {
     const real = this.widget.store.state;
     const ap = this.widget.appearance.values;
     return Object.assign(s, {
-      tabs: real.sessions.map(session => session.id), cols: real.columns.length,
+      tabs: real.sessions.map(session => session.id),
+      pinned: Object.fromEntries(real.sessions.map(session => [session.id, session._pinned === true])),
+      cols: real.columns.length,
       colSids: real.columns.slice(), focusCol: real.focusedColumn,
       sessions: {}, extra: {}, approved: {}, stopped: {}, modes: {},
       fileText: {}, fileDraft: {}, termX: {}, auditX: s.auditX || {}, scm: s.scm || {}, scmPlan: null,
@@ -2715,6 +2717,10 @@ class LiveModel extends Component {
       for (const item of vm.ctxItems) {
         if (item.t === 'Zavřít ostatní') item.go = this.run(() => this.closeTabsBeside(sid, 'others'));
         if (item.t === 'Zavřít vpravo') item.go = this.run(() => this.closeTabsBeside(sid, 'right'));
+        if (item.t === 'Připnout' || item.t === 'Odepnout') item.go = () => {
+          this.widget.store.setPinned(sid, !(this.widget.store.find(sid)?._pinned));
+          this.setState({ ctx: null });
+        };
       }
     }
     if (s.ctx?.sec === 'branch') {
@@ -2735,8 +2741,8 @@ class LiveModel extends Component {
       const action = ({ 'Přejmenovat…': 'rename', 'Archivovat': 'archive', 'Smazat…': 'delete' })[item.t];
       if (action) item.go = () => { this.setState({ ctx: null }); this.conversationAction(s.ctx.id, action); };
     }
-    const disabled = new Set(['Připnout', 'Duplikovat']);
-    for (const item of vm.ctxItems) if (disabled.has(item.t)
+    for (const item of vm.ctxItems) if ((item.t === 'Připnout' && s.ctx?.sec !== 'tab')
+      || item.t === 'Duplikovat'
       || s.ctx?.sec !== 'chats' && ['Přejmenovat…', 'Archivovat', 'Smazat…'].includes(item.t)) {
       item.cls = 'dis'; item.go = () => {};
     }

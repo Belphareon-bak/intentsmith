@@ -153,6 +153,7 @@ html,body{margin:0;height:100%;overflow:hidden}
 .pro .tab.vis,.pro .tab.focus{background:rgb(var(--g1) / .6)}
 .tab-ic{color:var(--faint)}
 .tab.focus .tab-ic{color:var(--acct)}
+.tab-pin{color:var(--acct);flex:none}
 .tab-t{flex-grow:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tx{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border:0;border-radius:4px;background:none;color:var(--faint);cursor:pointer;opacity:0;flex:0 0 auto;padding:0}
 .tab:hover .tx,.tab.focus .tx{opacity:1}
@@ -634,6 +635,7 @@ textarea.fv-ed{font-family:var(--font-mono)}
 <div class="tab {{t.cls}}" title="{{t.full}}" onClick="{{t.go}}" onContextMenu="{{t.ctx}}">
 <span class="tnum {{t.numCls}}">{{t.n}}</span>
 <svg class="ic tab-ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{t.icon}}"></path></svg>
+<sc-if value="{{t.pinned}}" hint-placeholder-val="{{false}}"><svg class="ic tab-pin" width="10" height="10" viewBox="0 0 24 24" aria-label="Připnuto"><path d="{{I.pin}}"></path></svg></sc-if>
 <span class="tab-t">{{t.title}}</span>
 <span class="dot {{t.dot}}"></span>
 <button class="tx" aria-label="Zavřít relaci" onClick="{{t.close}}"><svg class="ic" width="11" height="11" viewBox="0 0 24 24"><path d="{{I.x}}"></path></svg></button>

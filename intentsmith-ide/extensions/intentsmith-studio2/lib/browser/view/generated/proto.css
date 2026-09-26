@@ -242,6 +242,7 @@
 .intentsmith-studio2-widget .pro .tab.vis,.intentsmith-studio2-widget .pro .tab.focus{background:rgb(var(--g1) / .6)}
 .intentsmith-studio2-widget .tab-ic{color:var(--faint)}
 .intentsmith-studio2-widget .tab.focus .tab-ic{color:var(--acct)}
+.intentsmith-studio2-widget .tab-pin{color:var(--acct);flex:none}
 .intentsmith-studio2-widget .tab-t{flex-grow:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .intentsmith-studio2-widget .tx{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border:0;border-radius:4px;background:none;color:var(--faint);cursor:pointer;opacity:0;flex:0 0 auto;padding:0}
 .intentsmith-studio2-widget .tab:hover .tx,.intentsmith-studio2-widget .tab.focus .tx{opacity:1}

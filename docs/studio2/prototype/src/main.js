@@ -38,7 +38,7 @@ class Component extends DCLogic {
       rightOpen: true, rightPin: false, rightW: 400, rightTab: 'zmeny',
       bottomOpen: true, bottomH: 190, btab: {}, detailW: 520,
       menu: null, palette: false, pq: '', ctx: null, q: '', chip: 'vse',
-      view: 'dlazdice', size: 2, dtab: {}, approved: {}, stopped: {}, modes: {}, experts: {}, drafts: {}, extra: {}, sessions: {},
+      view: 'dlazdice', size: 2, dtab: {}, approved: {}, stopped: {}, modes: {}, experts: {}, drafts: {}, extra: {}, sessions: {}, pinned: {},
       openFiles: { 'src/main/sftp.js': true }, paused: {}, ran: {}, installed: {}, seq: 1,
       fileView: {}, fileMode: {}, fileDraft: {}, fileText: {}, fileGuard: null, userOpened: {}, treeClosed: {}, fileAction: null, fileActionNotice: '',
       scm: {}, scmPlan: null, auditX: {}, ctxQ: '', atts: {}, cmds: {}, termX: {},
@@ -544,6 +544,11 @@ class Component extends DCLogic {
     const tabs = s.tabs.filter((t) => t !== sid);
     const colSids = s.colSids.map((x) => (x === sid ? null : x));
     return { tabs, colSids, focusCol: Math.max(0, Math.min(s.focusCol, Math.min(s.cols, tabs.length) - 1)) };
+  }
+
+  pTogglePinned(s, sid) {
+    const pinned = this.merge(s, 'pinned', { [sid]: !s.pinned[sid] });
+    return { pinned, tabs: s.tabs.filter(id => pinned[id]).concat(s.tabs.filter(id => !pinned[id])) };
   }
 
   pSetCols(s, n) {
@@ -1580,7 +1585,8 @@ class Component extends DCLogic {
       const foc = s.mode === 'sessions' && sid === fsid;
       return {
         n: i + 1, numCls: foc ? 'focus' : vis ? 'vis' : '', cls: foc ? 'focus' : vis ? 'vis' : '',
-        icon: this.kindIcon(b.kind), title: b.short, full: (i + 1) + ' · ' + b.title + ' · ' + this.stLabel(st), dot: st,
+        icon: this.kindIcon(b.kind), title: b.short, pinned: !!s.pinned[sid],
+        full: (i + 1) + ' · ' + b.title + ' · ' + this.stLabel(st) + (s.pinned[sid] ? ' · Připnuto' : ''), dot: st,
         go: this.run((s2) => this.pFocusSession(s2, sid)),
         close: (e) => { if (e && e.stopPropagation) e.stopPropagation(); const s2 = this.st(); this.setState(Object.assign({ ctx: null, menu: null }, this.pCloseTab(s2, sid))); },
         ctx: this.showCtx('tab', sid)
@@ -2284,7 +2290,7 @@ class Component extends DCLogic {
         it('Zavřít ostatní', '', (s2) => ({ tabs: [sid], colSids: [sid], cols: 1, focusCol: 0 })),
         it('Zavřít vpravo', '', (s2) => ({ tabs: s2.tabs.slice(0, s2.tabs.indexOf(sid) + 1) })),
         sep(),
-        it('Připnout', '', null, ic(I.pin))
+        it(s.pinned[sid] ? 'Odepnout' : 'Připnout', '', (s2) => this.pTogglePinned(s2, sid), ic(I.pin))
       ]);
     } else {
       const sc = this.sec(c.sec);

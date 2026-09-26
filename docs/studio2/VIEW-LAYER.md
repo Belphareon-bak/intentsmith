@@ -85,6 +85,8 @@ Kontextová nabídka konverzace přejmenuje, archivuje nebo přesune záznam do
 koše přes backend a výsledek ověří novým čtením i katalogem. Zavření ostatních
 záložek a záložek vpravo mění skutečné uložené relace; před hromadným zavřením
 kontroluje všechny neuložené editory a běžící M2 rozhodnutí.
+Připnutí záložky řadí připnuté relace před ostatní, značí je v záložce a
+zachovává volbu po restartu v uloženém stavu relací.
 
 Průvodce specialistou je také v prototypu a generovaném pohledu. Před
 vytvořením ukáže ID, doménu, popis a soubory balíčku. IDE zapisuje přes
