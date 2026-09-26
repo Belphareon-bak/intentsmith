@@ -29,6 +29,10 @@ try {
   await testAsync('discover native agent extension and install a disabled project instance', async () => {
     project = await createProject('m3-project-health', 'M3 local agent fixture');
     writeFileSync(path.join(project.path, 'index.js'), 'export const healthy = true;\n');
+    // The project wizard seeds src/index.mjs with console.log, which Project
+    // Health correctly counts as a finding. Keep this fixture's baseline clean
+    // so the later FIXME assertion has exactly one new finding.
+    writeFileSync(path.join(project.path, 'src', 'index.mjs'), 'export const template = true;\n');
 
     const extensions = await api('GET', '/api/agent-extensions');
     assertEqual(extensions.status, 200);
