@@ -237,3 +237,8 @@ obnova celé databáze zůstává offline podle backendového kontraktu.
 `feedback-workspace.js` odesílá zprávu a omezené přílohy přes existující API,
 volitelně poslední odpověď a serverový log. Nejistý výsledek odeslání se
 automaticky neopakuje.
+`security-workspace.js` čte audit, seznam API tokenů, uptime a stav webhooku.
+Vytvoření a odvolání tokenu vyžaduje potvrzení a zpětné čtení. Nový token
+zůstává jen v paměti obrazovky a po kopírování nebo zavření zmizí. Backendový
+počet WebSocket spojení je v aktuální route pouze placeholder, proto jej nové
+UI neprezentuje jako ověřený počet aktivních relací.

@@ -1145,6 +1145,7 @@ class Component extends DCLogic {
       isPairing: kind === 'pairing', pairing: this.pairingVM(),
       isSettingsImport: kind === 'settingsImport', settingsImport: this.settingsImportVM(),
       isFeedback: kind === 'feedback', feedback: this.feedbackVM(),
+      isSecurity: kind === 'security', security: this.securityVM(this.st()),
       isPreferences: kind === 'preferences', preferences: this.preferencesVM(this.st()),
       isModelWorkspace: kind === 'modelWorkspace', modelWorkspace: this.modelWorkspaceVM(),
       isMediaForm: kind === 'mediaForm', mediaForm: this.mediaFormVM(this.st()),
@@ -1177,6 +1178,17 @@ class Component extends DCLogic {
       files: [], chooseFiles: () => {}, attachLast: false, setAttachLast: () => {},
       attachLogs: false, setAttachLogs: () => {}, disabled: true, send: () => {},
       notice: 'Prototyp ukazuje formulář; skutečnou zprávu odesílá až živé Studio.' };
+  }
+
+  securityVM(s) {
+    const tab = s.dtab?.['settings:zabezpeceni'] || 'prehled';
+    return { isAudit: tab === 'prehled', isAccess: tab === 'pristup', isSessions: tab === 'relace',
+      status: 'Prototyp ukazuje rozvržení; bezpečnostní údaje načítá až živé Studio.',
+      auditTypes: ['ALL', 'CRE', 'MERGE', 'DRIFT', 'LLM'].map(label => ({ label, selected: label === 'ALL', go: () => {} })),
+      auditRows: [], tokens: [], tokenName: '', setTokenName: () => {}, scopes: [],
+      createDisabled: true, create: () => {}, hasOneTimeToken: false, oneTimeToken: '',
+      copyToken: () => {}, hideToken: () => {}, webhook: 'Načítání v živém Studiu.',
+      sessions: 'Načítání v živém Studiu.' };
   }
 
   preferencesVM() {

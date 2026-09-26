@@ -804,6 +804,19 @@ textarea.fv-ed{font-family:var(--font-mono)}
 <p class="aph" role="status">{{b.feedback.notice}}</p>
 <button class="btn btn-acc" disabled="{{b.feedback.disabled}}" onClick="{{b.feedback.send}}">Odeslat zpětnou vazbu</button>
 </div></sc-if>
+<sc-if value="{{b.isSecurity}}" hint-placeholder-val="{{false}}"><div class="aps" aria-label="Zabezpečení účtu">
+<p class="aph" role="status">{{b.security.status}}</p>
+<sc-if value="{{b.security.isAudit}}" hint-placeholder-val="{{true}}"><div class="model-actions"><sc-for list="{{b.security.auditTypes}}" as="type" hint-placeholder-count="5"><button class="btn" onClick="{{type.go}}">{{type.label}}</button></sc-for></div>
+<div class="rows"><sc-for list="{{b.security.auditRows}}" as="row" hint-placeholder-count="3"><div class="row"><span class="row-tt"><strong class="row-t">{{row.title}}</strong><span class="row-s">{{row.detail}}</span></span></div></sc-for></div></sc-if>
+<sc-if value="{{b.security.isAccess}}" hint-placeholder-val="{{false}}"><div class="blk-h"><span class="lbl-acc">API tokeny</span></div>
+<div class="rows"><sc-for list="{{b.security.tokens}}" as="token" hint-placeholder-count="2"><div class="row"><span class="row-tt"><strong class="row-t">{{token.name}}</strong><span class="row-s">{{token.meta}}</span></span><button class="btn" onClick="{{token.revoke}}">Odvolat</button></div></sc-for></div>
+<label class="arow2"><span>Název nového tokenu</span><input value="{{b.security.tokenName}}" onChange="{{b.security.setTokenName}}"></label>
+<div class="pair-scopes"><sc-for list="{{b.security.scopes}}" as="scope" hint-placeholder-count="5"><label class="arow2"><span class="mono">{{scope.name}}</span><input type="checkbox" checked="{{scope.checked}}" onChange="{{scope.toggle}}"></label></sc-for></div>
+<button class="btn btn-acc" disabled="{{b.security.createDisabled}}" onClick="{{b.security.create}}">Vytvořit token</button>
+<sc-if value="{{b.security.hasOneTimeToken}}" hint-placeholder-val="{{false}}"><div class="note"><p>Token se ukazuje pouze jednou:</p><code class="mono">{{b.security.oneTimeToken}}</code><button class="btn" onClick="{{b.security.copyToken}}">Zkopírovat a skrýt</button><button class="btn" onClick="{{b.security.hideToken}}">Skrýt</button></div></sc-if>
+<p class="aph">{{b.security.webhook}}</p></sc-if>
+<sc-if value="{{b.security.isSessions}}" hint-placeholder-val="{{false}}"><p class="aph">{{b.security.sessions}}</p></sc-if>
+</div></sc-if>
 <sc-if value="{{b.isModelWorkspace}}" hint-placeholder-val="{{false}}"><div class="aps" aria-label="Modelové pracoviště">
 <div class="blk-h"><span class="lbl-acc">Modely a inference</span></div>
 <div class="dtabs model-tabs"><sc-for list="{{b.modelWorkspace.tabs}}" as="tab" hint-placeholder-count="7"><button class="dtab {{tab.cls}}" onClick="{{tab.go}}">{{tab.label}}</button></sc-for></div>

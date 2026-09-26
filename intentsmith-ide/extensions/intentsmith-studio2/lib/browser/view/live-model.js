@@ -14,6 +14,7 @@ const { COMMANDS: LEARNING_COMMANDS, runCommand: runLearningCommand } = require(
 const { SETTINGS_FIELDS, fieldsFor, validateValue } = require('../settings-preferences');
 const { ModelWorkspace } = require('../model-workspace');
 const { FeedbackWorkspace } = require('../feedback-workspace');
+const { SecurityWorkspace } = require('../security-workspace');
 
 const CATALOG = Object.freeze({
   chats: 'Konverzace', projects: 'Projekty', specialists: 'Specialisté',
@@ -110,6 +111,10 @@ class LiveModel extends Component {
       version: () => this.statusClient.health?.version || null,
       lastResponse: () => this.widget.store.focusedSession()?.chat?.msgs?.slice().reverse()
         .find(message => message.role === 'assistant')?.text || '' });
+    this.securityWorkspace = new SecurityWorkspace({ backendUrl: () => widget.catalog.backendUrl(),
+      fetchImpl: (...args) => this.fetchImpl(...args),
+      confirmAction: message => (widget.confirmAction || globalThis.confirm)?.(message) === true,
+      onChange: () => this.forceUpdate() });
   }
 
   componentDidMount() {
@@ -162,6 +167,7 @@ class LiveModel extends Component {
     this.modelWorkspace.destroy();
     this.feedbackWorkspace.files = [];
     this.feedbackWorkspace.message = '';
+    this.securityWorkspace.destroy();
     super.componentWillUnmount();
   }
 
@@ -593,7 +599,7 @@ class LiveModel extends Component {
     const resource = this._settingsResources.get(resourceKey);
     const state = resource?.status || 'idle';
     const preferenceFields = fieldsFor(id, tab);
-    const connectedTab = preferenceFields.length > 0 || (id === 'zabezpeceni' && tab === 'pristup') ||
+    const connectedTab = preferenceFields.length > 0 || id === 'zabezpeceni' ||
       (id === 'prepinace' && (tab === 'prehled' || tab === 'obnoveni')) ||
       ((id === 'modely' || id === 'uloziste') && tab === 'prehled')
       || (id === 'uloziste' && tab === 'udrzba') || id === 'zalohy'
@@ -617,8 +623,9 @@ class LiveModel extends Component {
       vm.onPrimary = () => this.savePreferences(id);
       const notice = this._preferenceNotice.get(id);
       if (notice) vm.blocks.unshift(this.blockVM({ kind: 'text', items: [notice] }));
-    } else if (id === 'zabezpeceni' && tab === 'pristup') {
-      vm.blocks = [this.blockVM({ kind: 'pairing' })];
+    } else if (id === 'zabezpeceni') {
+      vm.blocks = [...(tab === 'pristup' ? [this.blockVM({ kind: 'pairing' })] : []),
+        this.blockVM({ kind: 'security' })];
     } else if (id === 'prepinace' && tab === 'prehled') {
       const features = resource?.data?.features;
       const rows = state === 'ready' && features ? Object.entries(features).sort(([a], [b]) => a.localeCompare(b))
@@ -1651,6 +1658,7 @@ class LiveModel extends Component {
       if (id === 'uloziste') this.loadSettingsResource('uloziste:system');
       if (id === 'modely') this.loadSettingsResource('modely:prefs');
       if (id === 'modely') this.modelWorkspace.load();
+      if (id === 'zabezpeceni') this.securityWorkspace.load();
     }
     if (CATALOG[sec] && this.widget.catalog.view(CATALOG[sec]).status === 'idle') this.widget.catalog.load(CATALOG[sec]);
     const patch = super.pSelect(s, sec, id);
@@ -1702,6 +1710,12 @@ class LiveModel extends Component {
   modelWorkspaceVM() { return this.modelWorkspace.vm(); }
 
   feedbackVM() { return this.feedbackWorkspace.vm(); }
+
+  securityVM(s) {
+    const tab = s.dtab?.['settings:zabezpeceni'] || 'prehled';
+    return { ...this.securityWorkspace.vm(tab), isAudit: tab === 'prehled',
+      isAccess: tab === 'pristup', isSessions: tab === 'relace' };
+  }
 
   preferencesVM(s) {
     const id = s.detail?.settings;
