@@ -1,3 +1,6 @@
 
 # Matplotlib SVG is a generated historical evidence artifact.
 docs/research/betting-20260912/evaluation.svg -whitespace
+
+# Preserve upstream SIL OFL license bytes alongside their font files.
+intentsmith-ide/extensions/intentsmith-studio2/lib/browser/styles/fonts/*-OFL.txt -whitespace
