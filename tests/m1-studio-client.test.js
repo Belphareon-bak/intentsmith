@@ -38,6 +38,7 @@ const require = createRequire(import.meta.url);
 const WorkActivity = require('../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/work-activity.js');
 const {
   REQUIRED_BUNDLE_MARKERS,
+  REQUIRED_ELECTRON_MAIN_MARKERS,
   REQUIRED_CONSUMER_FUNCTIONS,
   REQUIRED_PRELOAD_MARKERS,
   REQUIRED_PROTOCOL_FUNCTIONS,
@@ -45,6 +46,7 @@ const {
   probeConsumerRuntime,
   runCli,
   validateBundleSource,
+  validateElectronMainSource,
   validateConsumerRuntime,
   validatePreloadSource,
   validateProtocolRuntime,
@@ -79,6 +81,13 @@ const CANONICAL_BUNDLE_MARKERS = Object.freeze([
   'DELIVERY_UNKNOWN',
   'CONVERSATION_BUSY',
   'M1_CONNECTION_REPLACED',
+  '__intentSmithLegacyLocalFetchV1',
+]);
+const CANONICAL_ELECTRON_MAIN_MARKERS = Object.freeze([
+  'x-intentsmith-local-capability',
+  'sec-fetch-site',
+  'http://127.0.0.1/*',
+  'http://localhost/*',
 ]);
 
 function hostClone(value) {
@@ -337,6 +346,7 @@ test('postbuild requirements are pinned independently of guard implementation', 
   assert.deepEqual([...REQUIRED_CONSUMER_FUNCTIONS], [...CANONICAL_CONSUMER_FUNCTIONS]);
   assert.deepEqual([...REQUIRED_BUNDLE_MARKERS], [...CANONICAL_BUNDLE_MARKERS]);
   assert.deepEqual([...REQUIRED_PRELOAD_MARKERS], [...CANONICAL_PRELOAD_MARKERS]);
+  assert.deepEqual([...REQUIRED_ELECTRON_MAIN_MARKERS], [...CANONICAL_ELECTRON_MAIN_MARKERS]);
 });
 
 test('postbuild guard rejects every incomplete or non-v1 protocol surface', () => {
@@ -486,6 +496,16 @@ test('postbuild CLI returns nonzero with a stable failure prefix', () => {
     stderr,
     /^STUDIO_M1_BUILD_CONSUMER_FAIL generated protocol runtime is missing\n$/,
   );
+});
+
+test('postbuild guard rejects an Electron main bundle without local Origin protection', () => {
+  const complete = CANONICAL_ELECTRON_MAIN_MARKERS.join('\n');
+  assert.doesNotThrow(() => validateElectronMainSource(complete));
+  assert.throws(() => validateElectronMainSource(''), /Electron main bundle is empty/);
+  for (const marker of CANONICAL_ELECTRON_MAIN_MARKERS) {
+    const incomplete = CANONICAL_ELECTRON_MAIN_MARKERS.filter(item => item !== marker).join('\n');
+    assert.throws(() => validateElectronMainSource(incomplete), /missing local Origin marker/);
+  }
 });
 
 test('postbuild guard rejects a preload bundle that lost the byte bridge', () => {
@@ -657,6 +677,8 @@ test('postbuild CLI composes exact paths and byte-level evidence', () => {
     const consumerBytes = Buffer.from('module.exports = {};\n// consumer\n');
     const bundleBytes = Buffer.from(`${CANONICAL_BUNDLE_MARKERS.join('\n')}\nžluťoučký\n`);
     const preloadBytes = Buffer.from(`${CANONICAL_PRELOAD_MARKERS.join('\n')}\n`);
+    const mainBytes = Buffer.from(`${CANONICAL_ELECTRON_MAIN_MARKERS.join('\n')}\n`);
+    const ripgrepBytes = Buffer.from('ripgrep-fixture');
     const manifestBytes = Buffer.from(JSON.stringify({ dependencies: { '@intentsmith/chat-panel': '0.1.0' } }));
     const frontendBytes = Buffer.from("require('@intentsmith/chat-panel/lib/browser/chat-panel-module');\n");
     writePostbuildFile(studioRoot, 'applications/electron/package.json', manifestBytes);
@@ -681,6 +703,9 @@ test('postbuild CLI composes exact paths and byte-level evidence', () => {
       'applications/electron/lib/frontend/preload.js',
       preloadBytes,
     );
+    writePostbuildFile(studioRoot, 'applications/electron/lib/backend/electron-main.js', mainBytes);
+    const ripgrepPath = writePostbuildFile(studioRoot, 'applications/electron/lib/backend/native/rg', ripgrepBytes);
+    fs.chmodSync(ripgrepPath, 0o755);
 
     let stdout = '';
     let stderr = '';
@@ -702,6 +727,10 @@ test('postbuild CLI composes exact paths and byte-level evidence', () => {
       bundleSha256: createHash('sha256').update(bundleBytes).digest('hex'),
       preloadBytes: preloadBytes.length,
       preloadSha256: createHash('sha256').update(preloadBytes).digest('hex'),
+      mainBytes: mainBytes.length,
+      mainSha256: createHash('sha256').update(mainBytes).digest('hex'),
+      ripgrepBytes: ripgrepBytes.length,
+      ripgrepSha256: createHash('sha256').update(ripgrepBytes).digest('hex'),
       consumerBytes: consumerBytes.length,
       consumerSha256: createHash('sha256').update(consumerBytes).digest('hex'),
       protocolBytes: protocolBytes.length,

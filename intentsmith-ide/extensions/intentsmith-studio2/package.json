@@ -1,0 +1,15 @@
+{
+  "name": "@intentsmith-ide/intentsmith-studio2",
+  "version": "0.1.0",
+  "private": true,
+  "description": "IntentSmith Studio 2 renderer and exclusive UI mode switch",
+  "license": "MIT",
+  "main": "lib/browser/studio2-module.js",
+  "theiaExtensions": [
+    { "frontend": "lib/browser/studio-mode-module" },
+    { "frontend": "lib/browser/studio2-module" }
+  ],
+  "dependencies": {
+    "@theia/core": "1.76.0"
+  }
+}

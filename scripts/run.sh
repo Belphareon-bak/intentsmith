@@ -142,20 +142,20 @@ echo -e "${BOLD}── Pre-flight ──${NC}"
 
 # Node version — try nvm if system node is too old
 NODE_MAJOR=$(node -v 2>/dev/null | sed 's/v//' | cut -d. -f1 || echo "0")
-if [ "$NODE_MAJOR" -lt 22 ] 2>/dev/null; then
+if [ "$NODE_MAJOR" -ne 24 ] 2>/dev/null; then
   # Try loading nvm
   if [ -f "$HOME/.nvm/nvm.sh" ]; then
     export NVM_DIR="$HOME/.nvm"
     # shellcheck source=/dev/null
     . "$NVM_DIR/nvm.sh"
-    nvm use 22 >/dev/null 2>&1 || true
+    nvm use 24 >/dev/null 2>&1 || true
     NODE_MAJOR=$(node -v 2>/dev/null | sed 's/v//' | cut -d. -f1 || echo "0")
   fi
 fi
-if [ "$NODE_MAJOR" -ge 22 ] 2>/dev/null; then
+if [ "$NODE_MAJOR" -eq 24 ] 2>/dev/null; then
   ok "Node.js $(node -v)"
 else
-  fail "Node.js ≥ 22 required (found: $(node -v 2>/dev/null || echo 'none'))"
+  fail "Node.js 24 required (found: $(node -v 2>/dev/null || echo 'none'))"
   echo "       Run ./scripts/install.sh first"
   exit 1
 fi
@@ -163,8 +163,12 @@ fi
 # Check for stale port file
 if [ -f "$PORT_FILE" ]; then
   EXISTING_PID=$(node -e "try{console.log(JSON.parse(require('fs').readFileSync('$PORT_FILE','utf8')).pid)}catch(e){console.log('')}" 2>/dev/null || echo "")
-  EXISTING_CMD=$(ps -p "$EXISTING_PID" -o comm= 2>/dev/null || echo "")
-  if [ -n "$EXISTING_PID" ] && kill -0 "$EXISTING_PID" 2>/dev/null && [ "$EXISTING_CMD" = "node" ]; then
+  NODE_EXE=$(readlink -f "$(command -v node)")
+  EXISTING_EXE=""
+  if [[ "$EXISTING_PID" =~ ^[1-9][0-9]*$ ]] && kill -0 "$EXISTING_PID" 2>/dev/null; then
+    EXISTING_EXE=$(readlink -f "/proc/${EXISTING_PID}/exe" 2>/dev/null || true)
+  fi
+  if [ -n "$EXISTING_EXE" ] && [ "$EXISTING_EXE" = "$NODE_EXE" ]; then
     EXISTING_PORT=$(node -e "try{console.log(JSON.parse(require('fs').readFileSync('$PORT_FILE','utf8')).port)}catch(e){console.log('?')}" 2>/dev/null || echo "?")
     ASSIGNED_PORT=$(node -e 'const a=require("./intentsmith-ide/applications/electron/intentsmith-local-access.js").readLocalAccess();if(!a)process.exit(1);console.log(a.port)')
     if ! curl --max-time 3 -sf "http://127.0.0.1:${ASSIGNED_PORT}/api/health" >/dev/null; then
@@ -173,6 +177,9 @@ if [ -f "$PORT_FILE" ]; then
     fi
     ATTACHED_BACKEND=true
     ok "Connecting to existing backend (PID ${EXISTING_PID}, port ${ASSIGNED_PORT})"
+  elif [[ "$EXISTING_PID" =~ ^[1-9][0-9]*$ ]] && kill -0 "$EXISTING_PID" 2>/dev/null; then
+    fail "Existing backend process cannot be verified; its port file was left untouched"
+    exit 1
   else
     # Stale port file — remove it
     rm -f "$PORT_FILE"

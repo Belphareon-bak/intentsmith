@@ -96,65 +96,64 @@ echo ""
 ERRORS=0
 
 # ════════════════════════════════════════════════════════════════════════════
-# 1. Node.js 22.x
+# 1. Node.js 24.x (Theia 1.76 build and backend runtime)
 # ════════════════════════════════════════════════════════════════════════════
 echo -e "${BOLD}── Node.js ──${NC}"
 
-if command -v node >/dev/null 2>&1; then
-  NODE_VERSION=$(node -v | sed 's/v//')
-  NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
+node_is_24() {
+  command -v node >/dev/null 2>&1 || return 1
+  [ "$(node -v | sed 's/v//' | cut -d. -f1)" -eq 24 ] 2>/dev/null
+}
 
-  if [ "$NODE_MAJOR" -eq 22 ] 2>/dev/null && [ "$(echo "$NODE_VERSION" | cut -d. -f2)" -ge 12 ] 2>/dev/null; then
-    ok "Node.js v${NODE_VERSION}"
+if node_is_24; then
+  ok "Node.js $(node -v)"
+else
+  warn "Node.js $(node -v 2>/dev/null || echo missing) (need 24.x)"
+  # Verification is strictly read-only and never loads nvm or changes PATH.
+  if [ "$VERIFY_ONLY" = true ]; then
+    fail "Node.js 24.x required; verify-only never changes the active runtime"
+    ERRORS=$((ERRORS + 1))
   else
-    warn "Node.js v${NODE_VERSION} (need 22.12+ below 23)"
-    # Verification is a strictly read-only observation. It must never source or
-    # invoke nvm, even when nvm could repair the active shell.
-    if [ "$VERIFY_ONLY" = true ]; then
-      fail "Node.js 22.12+ below 23 required; verify-only never changes the active runtime"
-      ERRORS=$((ERRORS + 1))
-    # Interactive install may use the existing nvm remediation path.
-    elif command -v nvm >/dev/null 2>&1; then
-      info "Found nvm — installing Node 22..."
-      nvm install 22 && nvm use 22
-      NODE_VERSION=$(node -v | sed 's/v//')
-      NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
-      if [ "$NODE_MAJOR" -eq 22 ] 2>/dev/null && [ "$(echo "$NODE_VERSION" | cut -d. -f2)" -ge 12 ] 2>/dev/null; then
-        ok "Node.js v${NODE_VERSION} (via nvm)"
-      else
-        fail "nvm install failed"
-        ERRORS=$((ERRORS + 1))
-      fi
-    elif [ -f "$HOME/.nvm/nvm.sh" ]; then
-      info "Loading nvm..."
+    if ! command -v nvm >/dev/null 2>&1 && [ -f "$HOME/.nvm/nvm.sh" ]; then
       export NVM_DIR="$HOME/.nvm"
       # shellcheck source=/dev/null
       . "$NVM_DIR/nvm.sh"
-      nvm install 22 && nvm use 22
-      NODE_VERSION=$(node -v | sed 's/v//')
-      ok "Node.js v${NODE_VERSION} (via nvm)"
+    fi
+    if command -v nvm >/dev/null 2>&1; then
+      info "Installing and selecting Node 24 via nvm..."
+      if nvm install 24.21.0 && nvm use 24.21.0 && node_is_24; then
+        ok "Node.js $(node -v) (via nvm)"
+      else
+        fail "Node.js 24 installation failed"
+        ERRORS=$((ERRORS + 1))
+      fi
     else
-      fail "Node.js 22.12+ below 23 required. Install via:"
-      echo "       curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash"
-      echo "       nvm install 22"
+      fail "Node.js 24.x required. Install via nvm install 24"
       ERRORS=$((ERRORS + 1))
     fi
   fi
-else
-  fail "Node.js not found. Install via:"
-  echo "       curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash"
-  echo "       nvm install 22"
-  ERRORS=$((ERRORS + 1))
 fi
 
 # npm check
 if command -v npm >/dev/null 2>&1; then
   NPM_VERSION="$(npm -v)"
+  if [ "$NPM_VERSION" != "10.9.4" ] && [ "$VERIFY_ONLY" != true ] && [ "$OFFLINE" != true ]; then
+    NPM_GLOBAL_PREFIX="$(npm prefix -g 2>/dev/null || true)"
+    case "$NPM_GLOBAL_PREFIX" in
+      "$HOME"/.nvm/versions/node/*)
+        info "Selecting locked npm 10.9.4 inside the active nvm Node 24..."
+        if ! npm install -g npm@10.9.4 --no-audit --no-fund; then
+          warn "Could not select locked npm inside nvm; prerequisite check will fail"
+        fi
+        NPM_VERSION="$(npm -v)"
+        ;;
+    esac
+  fi
   if [ "$NPM_VERSION" = "10.9.4" ]; then
     ok "npm $NPM_VERSION"
   else
     fail "npm 10.9.4 required; found $NPM_VERSION"
-    echo "       Install: npm install -g npm@10.9.4"
+    echo "       Install inside Node 24: npm install -g npm@10.9.4"
     ERRORS=$((ERRORS + 1))
   fi
 else
@@ -483,7 +482,7 @@ else
   fi
 fi
 
-info "Building IntentSmith Studio from the tracked Theia webpack configuration..."
+info "Building IntentSmith Studio from the tracked Theia esbuild configuration..."
 if (cd intentsmith-ide && yarn build 2>&1 | tail -8); then
   ok "IntentSmith Studio build complete"
 else
