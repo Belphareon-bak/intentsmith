@@ -4,7 +4,7 @@
 .env.*.local
 
 # Dependencies
-node_modules/
+node_modules
 /.venv/
 __pycache__/
 *.py[cod]
@@ -71,6 +71,7 @@ intentsmith-ide/extensions/intentsmith-protocol/lib/
 intentsmith-ide/applications/electron/lib/
 intentsmith-ide/applications/electron/src-gen/
 intentsmith-ide/applications/electron/gen-webpack*.js
+intentsmith-ide/applications/electron/gen-esbuild*.mjs
 intentsmith-ide/applications/electron/dist/
 *.tsbuildinfo
 
