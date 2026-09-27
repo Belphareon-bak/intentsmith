@@ -1,10 +1,12 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**CHAT navázání, 27. 9.:** sběr je schválený. První pokus se zastavil na
-vadě kontroly jazykového opravného volání; zůstává `COLLECTION_PARTIAL`.
-Oprava kontroly a závěrečného auditu počítá s více voláními v jednom tahu.
-Nový běh v2 začne oba modely od začátku; původní data ani známky nepřebírá.
-[Přesný rozsah a oddělení všech tří běhů](docs/review/2026-09-27-HUNT-CHAT-CONTEXT-RECOVERY.md).
+**CHAT reference, 27. 9.:** nový sběr po opravě historie je úplný: 80 dialogů,
+233 volání, závěrečný audit PASS. Obnova doplnila jen dva chybějící dialogy
+do odděleného pokračování; původních 78 odpovědí i oba neúspěšné pokusy
+zůstaly zachované. Nový posudek Codexu má 320/320 kritérií a doloženou expozici.
+Druhý nový posudek chybí. Operátor má 10 prioritních testů s oběma odpověďmi,
+ne povinnost známkovat celý balíček. **ONE_REVIEW / REVIEW_PENDING / REAL_NO_GO.**
+[Výsledky, důkazy, předání druhému hodnotiteli a zbývající práce](docs/review/2026-09-27-HUNT-CHAT-REFERENCE-MILESTONE.md).
 
 **GPU hunt — dokončená simulace a kontrola vstupu, 27. 9. 2026:**
 Celý izolovaný průchod všech sedmi rolí zahrnuje dva posudky, rozsouzení,

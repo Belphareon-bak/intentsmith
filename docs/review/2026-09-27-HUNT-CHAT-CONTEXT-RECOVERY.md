@@ -1,10 +1,12 @@
 # CHAT — nový sběr po opravě historie
 
-**Stav: v2 zachoval 78/80 úplných dialogů; poslední dva se doplní odděleným pokračováním.**
+**Stav: 80/80 úplných dialogů, COLLECTION_AUDIT_PASS, první posudek 320/320 kritérií. Druhý posudek čeká.**
 Autorita: operátorovo „pokračuj“ po předání simulace huntu; závazná cesta
 HANDOFF §5 a dřívější zadání doplnit srovnatelné odpovědi před hodnocením.
 První pokus zachytil dva celé dialogy a jeden neúplný. Druhý běh skončil
-na chybě prostředí po 78 úplných dialozích. Z neúplných výstupů se známky nevydávají.
+na chybě prostředí po 78 úplných dialozích. Samostatně zamčené pokračování
+doplnilo právě dva chybějící dialogy. Z neúplných výstupů se známky nevydávají.
+Výsledky a aktuální cesta k GO: [uzavření sběru a první posudek](2026-09-27-HUNT-CHAT-REFERENCE-MILESTONE.md).
 
 ## Zmrazený rozsah
 
@@ -66,7 +68,7 @@ odpověď tahu musí být úplná; mezivýstupy zůstávají v syrových datech.
 | --- | --- | --- |
 | `hunt-chat-prod-sameday-20260926` | Původní odpovědi a oba posudky; vada historie | Zachovat, neslučovat s novým během |
 | `hunt-chat-context-fixed-20260927` | První nový pokus, `COLLECTION_PARTIAL` | Diagnostika guardu, bez převzetí odpovědí či známek |
-| `hunt-chat-context-fixed-20260927-v2` | Nový čistý běh po opravě kontroly | Oba modely od začátku, vlastní plán a audit |
+| `hunt-chat-context-fixed-20260927-v2` | Nové odpovědi po opravě kontroly, dokončeno 78 + 2 | Vlastní dva plány, odvozený pohled `complete-view`, společný závěrečný audit |
 
 Všechny adresáře leží v `/mnt/vi7000/intentsmith/evidence/`. Nejde o nová
 zadání: jejich SHA je stejná. Jde o nové odpovědi v opraveném provozním profilu.
@@ -74,8 +76,8 @@ zadání: jejich SHA je stejná. Jde o nové odpovědi v opraveném provozním p
 že se staré odpovědi ani posudky nezměnily. Nové odpovědi vyžadují nové známky
 navázané na nový SHA balíčku. Samotná shoda ID úlohy neopravňuje přenos známky.
 
-Po dokončení: závěrečný audit → jeden kanonický anonymní balíček → první
-posudek po všech 320 kritériích a samostatný druhý posudek → srovnání neshod.
+Dokončeno: závěrečný audit → jeden kanonický anonymní balíček → první
+posudek po všech 320 kritériích. Zbývá samostatný druhý posudek → srovnání neshod.
 Identitní klíč patří do `restricted/`; souhrn s identitami nepatří do pokynů
 pro slepého hodnotitele. Operátor dostane nejistoty a spory, nikoli povinnost
 známkovat všech 80 dialogů.
@@ -99,3 +101,17 @@ Regresní test provádí obnovu 78 + 2, ověří 80 odpovědí, uchování dvou
 selhání, správné opravné volání a odmítnutí změněného zdrojového reportu,
 nesprávného seznamu úloh i exportu bez auditu. Je to test nástroje, nikoli
 modelové měření.
+
+Pokračování na čistém `554f6612` dokončilo dva dialogy. Odvozený pohled
+zachovává všech 78 původních úplných odpovědí bitově; dva neúspěšné pokusy
+jsou evidované samostatně. Audit prošel nad **233 skutečnými voláními**
+(232 základních + 1 opravné) a **116 páry** systémových promptů a parametrů.
+U času se porovnává společné datum; konkrétní sekunda v systémovém promptu
+se normalizuje. Žádný převod chyby prostředí na známku neproběhl.
+
+„Úplná historie“ zde znamená přesné předchozí **uživatelské vstupy**.
+Předchozí odpovědi asistenta stále podléhají běžnému produkčnímu rozpočtu:
+z 229 výskytů v navazujících požadavcích je 111 celých, 98 výslovně
+zkrácených a 20 vynechaných. V posuzovaném balíčku jsou všechny výsledné
+odpovědi celé. Není to měření neomezeného kontextu ani důkaz, že veškerý
+minulý výstup asistenta zůstal dostupný modelu.

@@ -2,6 +2,10 @@
 
 Aktuální implementační důkaz (27. 9.): [simulovaný průchod a revizní matice](review/2026-09-27-HUNT-COMPLETION-SIMULATION.md). **SIMULATION_PASS není produkční GO.**
 
+Aktuální skutečné měření (27. 9.): [opravený CHAT, 80 dialogů a nový posudek](review/2026-09-27-HUNT-CHAT-REFERENCE-MILESTONE.md).
+První posudek je úplný, druhý nový posudek a přejímka zbývají. Staré
+CHAT známky z vadného předávání historie se nepřenášejí.
+
 **Datum:** 24. 9. 2026. **Adresát:** operátor a implementátor huntu.
 **Stav:** úplný návrh cílového provozu k revizi; **není implementační GO**.
 Kód pro srovnání se současností: `805148c5a7171654b9ef7c1d89a5d9a14b09db73`.
@@ -783,12 +787,18 @@ starou kvalifikaci. Systém ukáže rozsah zneplatnění a doměří jen potřeb
 část. Neúspěšná přejímka hodnotitele neruší samotnou existenci uložených
 odpovědí: lze je později posoudit správným měřidlem při zachování identity.
 
-## 14. Implementovaný stav a zbývající přejímka (25. 9. 2026)
+## 14. Implementovaný stav a zbývající přejímka (aktualizace 27. 9. 2026)
 
 Tato tabulka popisuje zdrojový kód a doložené podklady, nikoli automaticky
 stav nainstalované release. Syntetické testy dokazují chování brány, ne
 kvalitu konkrétního modelu. Podrobný předávací protokol je v
 [revizi dvojího hodnocení](review/2026-09-25-GPU-HUNT-DUAL-GRADING-MILESTONE.md).
+
+Datované inventáře níže z 25. 9. jsou historické snímky, nikoli dnešní živá
+DB. Aktuální referenční rozsah je vypsaný po rolích v
+[novém milníku](review/2026-09-27-HUNT-CHAT-REFERENCE-MILESTONE.md#co-zbývá-z-celého-workflow).
+Neplatí, že všechny ostatní role již mají úplnou matici deseti modelů
+ohodnocenou dvěma hodnotiteli a zbýval pouze CHAT.
 
 | Oblast | Doložený stav / zbývající mezera |
 |---|---|
@@ -799,7 +809,7 @@ kvalitu konkrétního modelu. Podrobný předávací protokol je v
 | Dvojí hodnocení uložených odpovědí | [grade-answer-collection.js](../src/eval/grade-answer-collection.js) nyní spouští dva přijaté hodnotitele postupně, ukládá každý posudek append-only a porovnává známky po kritériích. Jeden posudek, neshoda nebo chybějící fyzický záznam nevytvoří `COMPLETE`. [Read/decision brána](../src/eval/independent-grader-pair.js) ověřuje oba posudky a přesný zdroj. Manuální CLI může uložit jeden průzkumný posudek. |
 | Rozsouzení neshody | [Migrace 119](../src/db/migrations/2026_09_25_119_model_evaluation_adjudications.js) uchovává append-only lidské rozhodnutí pro každé sporné kritérium, oba původní posudky zůstávají nedotčené. [CLI](../scripts/adjudicate-model-collection.mjs) umí vydat anonymní podklad bez známek hodnotitelů a po doložené revizi zapsat rozsouzení se zálohou DB; shodná kritéria nelze přepsat. Není to automatický ani nezávisle přijatý posudek. |
 | Metoda rozhodnutí | Binární provozní schéma 1 zůstává na KL. [Spojitá metoda](../src/eval/continuous-paired-decision.js) schema 2 má kalibrovaný párový interval a plánovač, avšak není zapojená do přijaté provozní kvalifikace rolí. Kalibrace starých sad je průzkumná: CHAT `chat_v3` je pro aktuální runner zakázaná a ostatní role mají příliš málo nezávislých případů. Viz [M0](review/2026-09-24-HUNT-M0-DECISION-METHOD.md). |
-| Nový vícekolový CHAT v huntu | [chat-conversation-suite.js](../src/eval/chat-conversation-suite.js) je stále vývojový návrh mimo role plans (`measurementReady:false`), bez přijaté `gradeConversation`. Původní 1 200-dialogový panel nebyl veden skutečným produkčním systémovým promptem. [Oddělený dvoumodelový canary](review/2026-09-25-HUNT-CHAT-PRODUCTION-CANARY.md) již zachytil 4 z 40 scénářů přes produkční handler se shodným kontextem; je vývojový, jednou opakovaný a nemá nezávislé známky ani rozhodovací autoritu. |
+| Nový vícekolový CHAT v huntu | [chat-conversation-suite.js](../src/eval/chat-conversation-suite.js) zůstává vývojový návrh mimo role plans (`measurementReady:false`), bez přijaté `gradeConversation`. Původní 1 200-dialogový panel nepoužil produkční systémový prompt. Nový [sběr 27. 9.](review/2026-09-27-HUNT-CHAT-REFERENCE-MILESTONE.md) má přes produkční handler 80/80 úplných dialogů dvou modelů, audit skutečných požadavků a první posudek 320/320. Druhý nový posudek chybí; jde o známé scénáře a jediné opakování, bez rozhodovací autority. |
 | Rozhodovací autorita | [model-evaluation-acceptance.js](../src/upgrade/model-evaluation-acceptance.js) nyní pro sémantické role vyžaduje dvě platné přejímky hodnotitelů a fyzicky uložené dva shodné posudky. Staré jednosoudcovské běhy zůstávají v historii, autoritu nedostávají. Kvalifikovaný čerstvý provozní běh pro žádnou z těchto rolí z této změny nevznikl. |
 | Sestava rolí | [model-upgrade-prototype.js](../src/upgrade/model-upgrade-prototype.js) prosazuje maximum dvě role na artefakt, explicitní zákaz autorských/revizních dvojic a kontrolu digestu a uvedené lineage. Živá sestava s qwen3.8 v D2+CODE+R1 byla podle [M0](review/2026-09-24-HUNT-M0-DECISION-METHOD.md) v konfliktu; změna solveru ji sama neopraví. Sdílení role vyžaduje schválenou dvojici, jinak vrací nevyřešenou sestavu. |
 | Aktivace a návrat | Binding application existuje, ale přepnutí celé sedmirolové sestavy na podkladech nových sad, kontrola fallbacků a návrat celé sestavy nebyly fyzicky přijaty. |
