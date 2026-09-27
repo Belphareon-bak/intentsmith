@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 541
+- Runnable programs: 542
 - Explicit support-module exclusions: 21
-- Profiles: offline=297, database=79, server=48, model=82, soak=15, manual=20
-- States: ACTIVE=447, HISTORICAL=15, BLOCKED=79
+- Profiles: offline=298, database=79, server=48, model=82, soak=15, manual=20
+- States: ACTIVE=448, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -266,6 +266,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-GRAPH-SYNC-TEST` | `tests/graph-sync.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-HARNESS-EXIT-CODE-TEST` | `tests/harness-exit-code.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-HUGGINGFACE-CLIENT-TEST` | `tests/huggingface-client.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-HUNT-COMPLETION-SIMULATION-TEST` | `tests/hunt-completion-simulation.test.mjs` | `C3-010` | T1 | `offline` | 1 min | 3 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-HUNT-DECISION-FEASIBILITY-TEST` | `tests/hunt-decision-feasibility.test.mjs` | `C3-025` | T1 | `database` | 5 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-IDE-WORKSPACE-TEST` | `tests/ide-workspace.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-IMPACT-ANALYZER-TEST` | `tests/impact-analyzer.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

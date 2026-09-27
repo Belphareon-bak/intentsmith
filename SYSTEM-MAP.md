@@ -1,5 +1,15 @@
 # IntentSmith — mapa systému
 
+**GPU hunt — dokončená simulace a kontrola vstupu, 27. 9. 2026:**
+Celý izolovaný průchod všech sedmi rolí zahrnuje dva posudky, rozsouzení,
+provozní kvalifikaci, sestavu bez vlastní revize a virtuální rollback.
+Skutečný CHAT sběr nově kontroluje doručení historie před inferencí.
+Revizní matice odděluje kampaně, hodnotitele a technické komponenty.
+**SIMULATION_PASS / REVIEW_PENDING / REAL_NO_GO** — bez nových modelových
+odpovědí a bez živých změn rolí.
+[Revizní balíček, rozsah simulace a zbývající kroky](docs/review/2026-09-27-HUNT-COMPLETION-SIMULATION.md).
+
+
 **GPU hunt — druhý posudek a kontext CHAT, 26. 9. 2026:**
 Dva úplné vývojové posudky mají v D/R 5 sporů ze 66 kritérií a v CHATu 37
 z 320. Audit skutečných provider requestů zjistil, že ve třetím tahu 66 ze
@@ -746,9 +756,9 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **230 020 ř.**, 663 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **230 051 ř.**, 664 `.js` souborů v pracovním kandidátu |
 | `tests/**/*.js` | **249 972 ř.**, 536 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **541** (`447 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
+| Registrovaných testových programů | **542** (`448 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 106** |
 | HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |

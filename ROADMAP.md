@@ -1,5 +1,15 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**GPU hunt — dokončená simulace a kontrola vstupu, 27. 9. 2026:**
+Celý izolovaný průchod všech sedmi rolí zahrnuje dva posudky, rozsouzení,
+provozní kvalifikaci, sestavu bez vlastní revize a virtuální rollback.
+Skutečný CHAT sběr nově kontroluje doručení historie před inferencí.
+Revizní matice odděluje kampaně, hodnotitele a technické komponenty.
+**SIMULATION_PASS / REVIEW_PENDING / REAL_NO_GO** — bez nových modelových
+odpovědí a bez živých změn rolí.
+[Revizní balíček, rozsah simulace a zbývající kroky](docs/review/2026-09-27-HUNT-COMPLETION-SIMULATION.md).
+
+
 **GPU hunt — druhý posudek a věrnost CHAT historie, 26. 9. 2026:**
 D/R posudky jsou úplné pro 24 odpovědí jedné úlohy, ale mají 5 nerozsouzených
 sporů. CHAT posudky jsou úplné pro 80 dialogů, ale skutečné requesty ve třetím

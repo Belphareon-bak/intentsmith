@@ -1,5 +1,7 @@
 # GPU hunt — cílové workflow celého systému
 
+Aktuální implementační důkaz (27. 9.): [simulovaný průchod a revizní matice](review/2026-09-27-HUNT-COMPLETION-SIMULATION.md). **SIMULATION_PASS není produkční GO.**
+
 **Datum:** 24. 9. 2026. **Adresát:** operátor a implementátor huntu.
 **Stav:** úplný návrh cílového provozu k revizi; **není implementační GO**.
 Kód pro srovnání se současností: `805148c5a7171654b9ef7c1d89a5d9a14b09db73`.
