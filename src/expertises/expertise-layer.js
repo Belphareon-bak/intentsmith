@@ -1103,7 +1103,7 @@ export class ExpertiseAgent {
     this.dataUsagePolicy = config.dataUsagePolicy || DATA_USAGE.FORBIDDEN;
     this.outputBias = config.outputBias || OUTPUT_BIAS.ANALYTICAL;
     this.preferredModels = config.preferredModels || ['qwen3.5:27b'];
-    this.temperature = config.temperature || 0.5;
+    this.temperature = config.temperature ?? 0.5;
     this.systemPrompt = config.systemPrompt || '';
     this.chunkingStrategy = config.chunkingStrategy || null;
     this.memoryPolicy = config.memoryPolicy || 'standard';

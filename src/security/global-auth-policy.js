@@ -32,7 +32,7 @@ const PUBLIC_ROUTES = new Set([
 ]);
 
 const APPROVAL_ROUTE = /(?:\/approve|\/confirm|\/acknowledge)(?:\/|$|:)/;
-const ADMIN_ROUTE = /^(?:GET|POST|PUT|PATCH|DELETE) \/api\/(?:security(?:\/|$)|reset(?:\/|$)|features\/reset(?:\/|$)|workspace\/(?:file|directory|rename)(?:\/|$)|marketplace\/(?:install|update|installed)(?:\/|$)|system\/(?:backup|restore|shutdown-backup|vacuum|drain|clean|models\/pull|models)(?:\/|$))/;
+const ADMIN_ROUTE = /^(?:GET|POST|PUT|PATCH|DELETE) \/api\/(?:security(?:\/|$)|reset(?:\/|$)|features\/reset(?:\/|$)|workspace\/(?:file|directory|rename)(?:\/|$)|studio2\/workspace\/operation(?:\/|$)|marketplace\/(?:install|update|installed)(?:\/|$)|system\/(?:backup|restore|shutdown-backup|vacuum|drain|clean|models\/pull|models)(?:\/|$))/;
 const ROUTE_KEY = /^(GET|HEAD|POST|PUT|PATCH|DELETE) \/\S*$/;
 const LOOPBACK_PEERS = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1', '::ffff:7f00:1']);
 function decision(allowed, values = {}) {

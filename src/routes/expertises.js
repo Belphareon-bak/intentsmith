@@ -3,6 +3,8 @@
 // ════════════════════════════════════════════════════════════════════════════
 
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
+import { readConversationSelection, writeConversationSelection } from '../expertises/conversation-selection.js';
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -23,28 +25,38 @@ export function createExpertiseRoutes(deps) {
   const srcDir = path.resolve(__dirname, '..');
 
   function saveCustomExpertises() {
-    if (!expertiseLayer) return;
-
-    try {
-      const experts = expertiseLayer.expertiseRegistry.getCustom();
-
-      // Clear existing
+    if (!expertiseLayer) throw new Error('Expertise layer not loaded');
+    const experts = expertiseLayer.expertiseRegistry.getCustom();
+    db.db.transaction(() => {
       db.db.exec('DELETE FROM custom_expertises');
-
-      // Insert all
       const insert = db.db.prepare('INSERT INTO custom_expertises (id, config) VALUES (?, ?)');
       for (const expert of experts) {
         if (expertiseExtensionService?.get(expert.id)) continue;
         insert.run(expert.id, JSON.stringify(expert.toJSON()));
       }
-
-      logger.debug('Server', `Saved ${experts.length} custom experts`);
-    } catch (err) {
-      logger.warn('Server', `Could not save custom experts: ${err.message}`);
-    }
+    })();
+    logger.debug('Server', `Saved ${experts.length} custom experts`);
   }
 
   return {
+    'GET /api/conversations/:id/expertises': async (_req, res, params) => {
+      try {
+        sendJSON(res, 200, readConversationSelection(db, params.id));
+      } catch (error) {
+        sendJSON(res, error.status || 500, { error: error.message, code: error.code || 'EXPERTISE_SELECTION_ERROR' });
+      }
+    },
+
+    'PUT /api/conversations/:id/expertises': async (req, res, params) => {
+      try {
+        const body = await parseBody(req);
+        const result = writeConversationSelection(db, expertiseLayer?.expertiseRegistry, params.id, body);
+        sendJSON(res, 200, result);
+      } catch (error) {
+        sendJSON(res, error.status || 500, { error: error.message, code: error.code || 'EXPERTISE_SELECTION_ERROR' });
+      }
+    },
+
     // M3 local expertise extension lifecycle. Expertise definitions are
     // data-only: they can influence routing/prompting but cannot request a host
     // capability or create an effect.
@@ -471,7 +483,10 @@ export function createExpertiseRoutes(deps) {
         });
 
         // Save to database
-        saveCustomExpertises();
+        try { saveCustomExpertises(); } catch (error) {
+          expertiseLayer.expertiseRegistry.removeCustom(id);
+          throw error;
+        }
 
         sendJSON(res, 201, expert.toJSON());
       } catch (err) {
@@ -485,12 +500,18 @@ export function createExpertiseRoutes(deps) {
           return sendJSON(res, 500, { error: 'Expertise layer not loaded' });
         }
 
+        const existing = expertiseLayer.expertiseRegistry.get(params.id);
+        if (!existing?.isCustom) return sendJSON(res, 404, { error: 'Custom expertise not found' });
+        const revision = '"sha256:' + createHash('sha256').update(JSON.stringify(existing.toJSON())).digest('hex') + '"';
+        if (req.headers['if-match'] && req.headers['if-match'] !== revision)
+          return sendJSON(res, 412, { error: 'Expertise changed since it was opened' });
+
         const body = await parseBody(req);
 
         // v57.0 - Validate config before updating
         // Only validate fields that are being updated
         const { validateExpertiseConfig } = await import('../expertises/expertise-store.js');
-        const configToValidate = { name: body.name || 'placeholder', ...body };
+        const configToValidate = { ...body, id: params.id };
         const validation = validateExpertiseConfig(configToValidate);
         if (!validation.valid) {
           return sendJSON(res, 400, {
@@ -499,14 +520,17 @@ export function createExpertiseRoutes(deps) {
           });
         }
 
-        const expert = expertiseLayer.expertiseRegistry.updateCustom(params.id, body);
+        const expert = expertiseLayer.expertiseRegistry.updateCustom(params.id, configToValidate);
 
         if (!expert) {
           return sendJSON(res, 404, { error: 'Custom expertise not found' });
         }
 
         // Save to database
-        saveCustomExpertises();
+        try { saveCustomExpertises(); } catch (error) {
+          expertiseLayer.expertiseRegistry.register(existing);
+          throw error;
+        }
 
         sendJSON(res, 200, expert.toJSON());
       } catch (err) {
@@ -520,14 +544,18 @@ export function createExpertiseRoutes(deps) {
           return sendJSON(res, 500, { error: 'Expertise layer not loaded' });
         }
 
-        const deleted = expertiseLayer.expertiseRegistry.removeCustom(params.id);
+        const existing = expertiseLayer.expertiseRegistry.get(params.id);
+        const deleted = existing?.isCustom && expertiseLayer.expertiseRegistry.removeCustom(params.id);
 
         if (!deleted) {
           return sendJSON(res, 404, { error: 'Custom expertise not found' });
         }
 
         // Save to database
-        saveCustomExpertises();
+        try { saveCustomExpertises(); } catch (error) {
+          expertiseLayer.expertiseRegistry.register(existing);
+          throw error;
+        }
 
         sendJSON(res, 200, { success: true });
       } catch (err) {

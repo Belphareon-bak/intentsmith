@@ -4,6 +4,7 @@
 import { randomUUID } from 'crypto';
 import { broadcast } from '../ws-bridge/ws-server.js';
 import { sanitizePrompt, validateParams, getTemplate, substituteParams, validateWorkflow, getDefaultParams } from '../media/workflow-templates.js';
+import { decodeInputImage } from '../media/input-image.js';
 
 // ── Status transition helper ──────────────────────────────────────────────────
 
@@ -106,6 +107,11 @@ export function createMediaRoutes({ db, parseBody, sendJSON, safeError, logger, 
     }
     return modelDiscovery;
   };
+  const inputReceipts = new Map();
+  const pruneInputs = () => {
+    const now = Date.now();
+    for (const [id, receipt] of inputReceipts) if (receipt.expiresAt <= now) inputReceipts.delete(id);
+  };
 
   return {
     // ── Health check ────────────────────────────────────────────────────────
@@ -119,12 +125,33 @@ export function createMediaRoutes({ db, parseBody, sendJSON, safeError, logger, 
       }
     },
 
+    'POST /api/media/input-image': async (req, res) => {
+      try {
+        pruneInputs();
+        if (inputReceipts.size >= 32) return sendJSON(res, 429, { error: 'Too many pending input images' });
+        const body = await parseBody(req);
+        const { bytes, mime, extension } = decodeInputImage(body?.dataUrl);
+        const name = await comfyuiConnector.uploadInputImage(bytes, mime, extension);
+        const inputId = `input-${randomUUID()}`;
+        const expiresAt = Date.now() + 15 * 60_000;
+        inputReceipts.set(inputId, { name, expiresAt });
+        sendJSON(res, 200, { inputId, expiresAt: new Date(expiresAt).toISOString() });
+      } catch (error) {
+        sendJSON(res, error instanceof TypeError ? 400 : 502,
+          { error: error.message || 'Input image upload failed' });
+      }
+    },
+
     // ── Generate ────────────────────────────────────────────────────────────
 
     'POST /api/media/generate': async (req, res) => {
       try {
         const body = await parseBody(req);
         const { type, prompt, negative_prompt, params: userParams, model: bodyModel } = body;
+        if (userParams && (typeof userParams !== 'object' || Array.isArray(userParams))
+          || userParams && Object.hasOwn(userParams, 'input_image')) {
+          return sendJSON(res, 400, { error: 'Invalid parameters: input_image is server-owned' });
+        }
 
         // Validate required fields
         if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
@@ -147,6 +174,13 @@ export function createMediaRoutes({ db, parseBody, sendJSON, safeError, logger, 
         // Merge params with defaults
         const defaults = getDefaultParams(type);
         const mergedParams = { ...defaults, ...userParams };
+        let inputReceipt = null;
+        if (type === 'img2img') {
+          pruneInputs();
+          inputReceipt = typeof body.inputId === 'string' ? inputReceipts.get(body.inputId) : null;
+          if (!inputReceipt) return sendJSON(res, 409, { error: 'Upload a source image before generating' });
+          mergedParams.input_image = inputReceipt.name;
+        }
 
         // Model from top-level body field takes priority
         if (bodyModel) mergedParams.model = bodyModel;
@@ -162,12 +196,14 @@ export function createMediaRoutes({ db, parseBody, sendJSON, safeError, logger, 
         // Dedup check
         const existing = stmts.findDedup.get(cleanPrompt, paramsJson);
         if (existing) {
+          if (inputReceipt) inputReceipts.delete(body.inputId);
           return sendJSON(res, 200, { ok: true, generationId: existing.id, dedup: true });
         }
 
         // Create generation record
         const generationId = `gen-${Date.now()}-${randomUUID().slice(0, 8)}`;
         stmts.insert.run(generationId, type, cleanPrompt, cleanNeg, paramsJson, type);
+        if (inputReceipt) inputReceipts.delete(body.inputId);
 
         // Ack immediately
         sendJSON(res, 200, { ok: true, generationId });

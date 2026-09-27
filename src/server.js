@@ -164,8 +164,11 @@ import { createAgentPlatformRoutes } from './routes/agents.js';
 import { M3_LEGACY_AGENT_MUTATING_ROUTE_KEYS } from './agents/m3-legacy-agent-quarantine.js';
 import { createExpertiseRoutes, createLifecycleRoutes } from './routes/expertises.js';
 import { createProjectRoutes } from './routes/projects.js';
+import { createStudio2WorkspaceRoutes } from './routes/studio2-workspace.js';
 import { createChatRoutes } from './routes/chat.js';
 import { createDevelopmentRoutes } from './routes/development.js';
+import { createScmRoutes } from './routes/scm.js';
+import { createScmService } from './scm/service.js';
 import { createMiscRoutes } from './routes/misc.js';
 import { createSpecialistRoutes } from './routes/specialists.js';
 import { createQualityRoutes } from './routes/quality.js';
@@ -987,6 +990,7 @@ function checkWizardRateLimit(key, intervalMs) {
 }
 
 // H9: Build deps object for route modules
+const scmService = createScmService({ db: db.db });
 const routeDeps = {
   db, parseBody, sendJSON, sendHTML, sendStaticFile, safeError, safeParseInt,
   logger, config, path, fs, randomUUID,
@@ -999,7 +1003,7 @@ const routeDeps = {
   notificationRouter, notificationEmitter,
   comfyuiConnector, vramManager, mediaStorage,
   modelRegistry, modelBindingApplication,
-  conditionalSurfaces,
+  conditionalSurfaces, scmService,
 };
 
 // M2 small-project-change is the only effect-capable lifecycle surface. The
@@ -1008,6 +1012,7 @@ const routeDeps = {
 const m2LifecycleService = createDefaultM2LifecycleApplicationService({
   database: db.db,
   projects: db.projects,
+  scmCommitMode: projectId => scmService.policy(projectId).commit,
 });
 const learningService = createLearningApplicationService({
   repository: db.learningAuthority,
@@ -1190,6 +1195,7 @@ const routes = {
   ...createExpertiseRoutes(routeDeps),
   ...createLifecycleRoutes(routeDeps),
   ...createProjectRoutes(routeDeps),
+  ...createStudio2WorkspaceRoutes(routeDeps),
   // Spread last among lifecycle/project routes: the returned map contains the
   // authoritative M2 endpoints and a typed 410 overlay for every legacy
   // lifecycle mutator.
@@ -1213,6 +1219,7 @@ const routes = {
   }),
   ...createMiscRoutes(routeDeps),
   ...createDevelopmentRoutes(routeDeps),
+  ...createScmRoutes(routeDeps),
   ...createSpecialistRoutes(routeDeps),
   ...createQualityRoutes(routeDeps),
 
@@ -1767,6 +1774,28 @@ listenOnLegacyLoopback(server, config.server, async () => {
     } catch (err) {
       logger.debug('Server', `Autonomy init skipped: ${err.message}`);
     }
+  }
+
+  // Studio SCM: only projects with an explicit automatic network policy are
+  // polled. Read endpoints never initiate a fetch or pull.
+  {
+    let running = false;
+    const automaticScm = setInterval(async () => {
+      if (running) return;
+      running = true;
+      try {
+        for (const candidate of scmService.automaticProjects()) {
+          const op = candidate.pullMode === 'automatic' ? 'pull' : 'fetch';
+          try { await scmService.runAutomatic(candidate.projectId,op); }
+          catch (error) {
+            logger.warn('SCM', `Automatic ${op} skipped for project ${candidate.projectId}: ${error.code || 'SCM_FAILED'}`);
+          }
+        }
+      } catch (error) {
+        logger.warn('SCM', `Automatic policy scan failed: ${error.code || 'SCM_FAILED'}`);
+      } finally { running = false; }
+    }, 5 * 60 * 1000);
+    automaticScm.unref();
   }
 
   // v92: Configurable auto-clean + drain interval

@@ -229,6 +229,7 @@ await testAsync('typed service failures map to stable non-2xx classes and unknow
     ['M2_LIFECYCLE_INPUT_INVALID', 400],
     ['M2_LIFECYCLE_AUTH_FORBIDDEN', 403],
     ['M2_LIFECYCLE_CONTEXT_STALE', 409],
+    ['M2_LIFECYCLE_SCM_COMMIT_DISABLED', 409],
     ['PROJECT_CHANGE_AUTHORITY_INCOMPLETE', 409],
     ['M2_LIFECYCLE_NOT_FOUND', 404],
     ['M2_LIFECYCLE_UNAVAILABLE', 503],

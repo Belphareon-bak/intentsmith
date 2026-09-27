@@ -163,6 +163,9 @@ test('addCustom + updateCustom same ID → updated config', () => {
 
   assert(updated !== null, 'updateCustom returned null');
   assertEqual(updated.description, 'Verze 2');
+  const zeroTemperature = expertiseRegistry.updateCustom('test_gardener',
+    makeValidConfig({ description: 'Verze 3', temperature: 0 }));
+  assertEqual(zeroTemperature.toJSON().temperature, 0, 'zero is a valid exact temperature');
 
   // Registry should have only one entry
   const customs = expertiseRegistry.getCustom();

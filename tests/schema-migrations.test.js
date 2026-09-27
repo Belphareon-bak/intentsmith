@@ -216,6 +216,7 @@ const ALL_MIGRATIONS = [
   '2026_09_18_115_intentsmith_setting_names',
   '2026_09_19_116_model_evaluation_acceptance',
   '2026_09_23_117_development_installations',
+  '2026_09_25_120_studio_scm',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
@@ -270,6 +271,7 @@ const EXPECTED_TABLES = [
   'quality_scores',
   'registry_delta', 'roadmap_versions',
   'schema_migrations', 'skill_executions', 'skill_steps', 'specialist_expertises',
+  'scm_project_policy', 'scm_operations', 'scm_events',
   'specialist_memory', 'specialist_migrations', 'specialist_telemetry', 'specialists',
   'task_memory', 'tax_losses', 'telemetry_alerts', 'telemetry_improvements', 'telemetry_metrics',
   'telemetry_snapshots',
@@ -496,6 +498,7 @@ describe('T-SM0: Migration identity preflight', async () => {
   '2026_09_18_115_intentsmith_setting_names',
   '2026_09_19_116_model_evaluation_acceptance',
   '2026_09_23_117_development_installations',
+  '2026_09_25_120_studio_scm',
     ]);
     assert.strictEqual(db.prepare(`
       SELECT COUNT(*) AS count FROM schema_migrations
@@ -1562,9 +1565,10 @@ describe('T-SM11: Core / hunt branch upgrades converge without losing evidence',
         const settingNames = '2026_09_18_115_intentsmith_setting_names';
         const evaluationAcceptance = '2026_09_19_116_model_evaluation_acceptance';
         const developmentInstallations = '2026_09_23_117_development_installations';
+        const studioScm = '2026_09_25_120_studio_scm';
         assert.deepEqual(result.applied, origin === 'fresh' ? ALL_MIGRATIONS
-          : origin === 'base' ? [...huntVersions, canonicalWeb, repeatedMeasurement, settingNames, evaluationAcceptance, developmentInstallations]
-          : origin === 'web' ? [...huntVersions, repeatedMeasurement, settingNames, evaluationAcceptance, developmentInstallations] : [canonicalWeb, repeatedMeasurement, settingNames, evaluationAcceptance, developmentInstallations]);
+          : origin === 'base' ? [...huntVersions, canonicalWeb, repeatedMeasurement, settingNames, evaluationAcceptance, developmentInstallations, studioScm]
+          : origin === 'web' ? [...huntVersions, repeatedMeasurement, settingNames, evaluationAcceptance, developmentInstallations, studioScm] : [canonicalWeb, repeatedMeasurement, settingNames, evaluationAcceptance, developmentInstallations, studioScm]);
         assert.deepEqual(schema(db), expectedSchema);
         for (const [table, originalRows] of Object.entries(before)) assert.deepEqual(rows(db)[table], originalRows, `${origin}: ${table}`);
         assert.deepEqual(db.pragma('foreign_key_check'), []);
