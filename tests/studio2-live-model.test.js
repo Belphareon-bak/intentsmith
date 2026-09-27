@@ -439,6 +439,40 @@ test('user preferences use the prototype form and verify saved backend values', 
   assert.match(model._preferenceNotice.get('ucet'), /mezitím změnilo/);
 });
 
+test('notification settings read backend channels without claiming delivery or sending a test notification', async () => {
+  const paths = [];
+  let channels = { channels: [{ name: 'desktop', configured: true }, { name: 'email', configured: false }] };
+  const fetchImpl = async (url, options = {}) => {
+    const path = new URL(url).pathname;
+    paths.push([path, options.method || 'GET']);
+    return { ok: true, json: async () => path === '/api/settings'
+      ? { 'intentsmith.notif.desktopEnabled': true } : channels };
+  };
+  const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335', fetchImpl });
+  const { model } = setup({ catalog });
+  model.setState({ mode: 'section', section: 'settings', detail: { settings: 'oznameni' } });
+  await Promise.all([model.loadSettingsResource('oznameni'), model.loadSettingsResource('oznameni:channels')]);
+  let vm = model.detailVM(model.st());
+  let rows = vm.blocks.find(block => block.title === 'Kanály backendu').rows;
+  assert.deepEqual(rows.map(row => [row.t, row.m]), [
+    ['desktop', 'zaregistrován'], ['email', 'nenastaven']]);
+  assert.match(rows[0].s, /Doručení tím není ověřeno/);
+
+  channels = { channels: [{ name: 'email', configured: 'yes' }] };
+  await model.loadSettingsResource('oznameni:channels', true);
+  vm = model.detailVM(model.st());
+  assert.match(vm.blocks.find(block => block.isEmpty).empty, /neplatný seznam kanálů/);
+
+  channels = { channels: [{ name: 'email', configured: true }] };
+  vm.secondary.find(action => action.label === 'Obnovit').go();
+  await tick();
+  rows = model.detailVM(model.st()).blocks.find(block => block.title === 'Kanály backendu').rows;
+  assert.deepEqual(rows.map(row => [row.t, row.m]), [['email', 'zaregistrován']]);
+  assert.deepEqual(paths.map(([path]) => path), ['/api/settings', '/api/notifications/channels',
+    '/api/notifications/channels', '/api/settings', '/api/notifications/channels']);
+  assert.equal(paths.every(([, method]) => method === 'GET'), true);
+});
+
 test('storage and backup settings show backend data and verify a confirmed backup', async () => {
   let approve = false, backedUp = false;
   const calls = [];
@@ -543,6 +577,20 @@ test('expertise detail applies only a backend-confirmed catalog identity to the 
   assert.match(storage.getItem('intentsmith-studio2-session-state'), /Architekt/);
   assert.equal(model.st().mode, 'sessions');
   assert.equal(await model.useExpertise({ id: 'architect', name: 'Jiná' }), false);
+  const session = store.focusedSession();
+  session._projectId = 7;
+  model.setState({ mode: 'section', section: 'expertises', detail: { expertises: 'architect' } });
+  let blocked = model.detailVM(model.st());
+  assert.equal(blocked.hasPrimary, false);
+  assert.equal(blocked.secondary.some(action => action.label === 'Přidat ke kombinaci'), false);
+  assert.match(blocked.blocks.find(block => block.isExpertiseSelection).expertiseSelection.status, /projektový režim/);
+  assert.equal(await model.useExpertise(item), false);
+  session._projectId = null;
+  session.chat.specialist = { id: 'some-specialist' };
+  blocked = model.detailVM(model.st());
+  assert.equal(blocked.hasPrimary, false);
+  assert.match(blocked.blocks.find(block => block.isExpertiseSelection).expertiseSelection.status, /specialista/);
+  assert.deepEqual(saved, [{ id: 'architect', weight: 0.5 }]);
 });
 
 test('preference fields reject out-of-range values before POST', async () => {

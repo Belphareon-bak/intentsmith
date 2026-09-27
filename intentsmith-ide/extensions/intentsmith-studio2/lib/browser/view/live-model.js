@@ -783,12 +783,15 @@ class LiveModel extends Component {
     if (s.section === 'expertises') {
       const raw = item.raw || {};
       const editable = raw.isCustom === true;
+      const focused = this.widget.store.focusedSession();
+      const canSelect = !!focused && !focused._closed && !focused._projectId
+        && !focused.chat.specialist && !focused.chat._thinking;
       return { icon: this.sec(s.section).icon, tone: this.sec(s.section).tone,
         icls: '', title: item.name, type: editable ? 'Vlastní expertýza' : 'Vestavěná expertýza',
-        idText: id, hasStatus: false, status: '', stCls: '', hasPrimary: true,
+        idText: id, hasStatus: false, status: '', stCls: '', hasPrimary: canSelect,
         primaryLabel: 'Použít samostatně v relaci', onPrimary: () => this.useExpertise(item, 'single'),
-        secondary: [{ label: 'Přidat ke kombinaci', icon: this.data().I.cap,
-          go: () => this.useExpertise(item, 'add') },
+        secondary: [...(canSelect ? [{ label: 'Přidat ke kombinaci', icon: this.data().I.cap,
+          go: () => this.useExpertise(item, 'add') }] : []),
         ...(editable ? [{ label: 'Upravit', icon: this.data().I.pen,
           go: () => this.openExpertiseEdit(item) }] : [])],
         more: () => {}, hasTabs: false, tabs: [], hasDesc: !!item.description,
@@ -843,10 +846,21 @@ class LiveModel extends Component {
     vm.stCls = connectedTab && state === 'error' ? 'warn' : connectedTab && state === 'ready' ? 'ok' : 'idle';
     vm.hasStatus = true;
     if (connectedTab && id !== 'zabezpeceni' && state !== 'loading') vm.secondary = [{ label: 'Obnovit', icon: this.data().I.refresh,
-      go: () => this.loadSettingsResource(resourceKey, true) }];
+      go: () => { this.loadSettingsResource(resourceKey, true);
+        if (id === 'oznameni' && tab === 'prehled') this.loadSettingsResource('oznameni:channels', true); } }];
     if (preferenceFields.length) {
       const draft = this._preferenceDrafts.get(id) || {};
       vm.blocks = [this.blockVM({ kind: 'preferences' })];
+      if (id === 'oznameni' && tab === 'prehled') {
+        const channels = this._settingsResources.get('oznameni:channels');
+        const channelRows = channels?.status === 'ready' ? channels.data.channels.map(channel => ({
+          t: channel.name, m: channel.configured ? 'zaregistrován' : 'nenastaven',
+          s: channel.configured ? 'Doručení tím není ověřeno.' : 'Kanál není v backendu zaregistrován.' })) : [];
+        vm.blocks.push(this.blockVM(channelRows.length
+          ? { kind: 'rows', title: 'Kanály backendu', rows: channelRows }
+          : { kind: 'empty', text: channels?.status === 'error' ? channels.error
+            : channels?.status === 'ready' ? 'Backend nevrátil žádné kanály.' : 'Načítám kanály backendu…' }));
+      }
       vm.hasPrimary = state === 'ready' && !this._settingsBusy && Object.keys(draft).length > 0;
       vm.primaryLabel = 'Uložit změny';
       vm.onPrimary = () => this.savePreferences(id);
@@ -929,7 +943,8 @@ class LiveModel extends Component {
 
   async loadSettingsResource(id, refresh = false) {
     const paths = { prepinace: '/api/features', modely: '/api/system/models',
-      'uloziste:system': '/api/system/storage', zalohy: '/api/system/backups' };
+      'uloziste:system': '/api/system/storage', zalohy: '/api/system/backups',
+      'oznameni:channels': '/api/notifications/channels' };
     const preferenceCategory = id === 'modely:prefs' ? 'modely' : id;
     const path = SETTINGS_FIELDS[preferenceCategory] && id !== 'modely' ? '/api/settings' : paths[id];
     if (!path || !refresh && this._settingsResources.get(id)?.status === 'ready') return;
@@ -944,6 +959,10 @@ class LiveModel extends Component {
       if (id === 'uloziste:system' && (!Number.isFinite(data?.db_size_mb) || !Number.isSafeInteger(data?.messages_in_db)
         || !Number.isFinite(data?.history?.total_mb))) throw Error('Backend vrátil neplatný stav úložiště.');
       if (id === 'zalohy' && !Array.isArray(data?.backups)) throw Error('Backend vrátil neplatný seznam záloh.');
+      if (id === 'oznameni:channels' && (!Array.isArray(data?.channels) || data.channels.length > 20
+        || data.channels.some(channel => !channel || typeof channel.name !== 'string'
+          || !/^[a-z][a-z0-9_-]{0,39}$/i.test(channel.name) || typeof channel.configured !== 'boolean')))
+        throw Error('Backend vrátil neplatný seznam kanálů.');
       if (SETTINGS_FIELDS[preferenceCategory] && id !== 'modely'
         && (!data || typeof data !== 'object' || Array.isArray(data))) throw Error('Backend vrátil neplatné uživatelské nastavení.');
       if (this._settingsResources.get(id)?.request === request) this._settingsResources.set(id, { status: 'ready', data });
@@ -2010,7 +2029,8 @@ class LiveModel extends Component {
   async useExpertise(item, action = 'single') {
     const current = this.widget.catalog.view('Expertýzy').items.find(row => row.id === item?.id);
     const session = this.widget.store.focusedSession();
-    if (!current || current.name !== item.name || !session || session.chat._thinking) return false;
+    if (!current || current.name !== item.name || !session || session.chat._thinking
+      || session._projectId || session.chat.specialist) return false;
     if (!await this.expertiseSelection.change(session, action, current.id)) return false;
     this.setState({ mode: 'sessions' });
     return true;
@@ -2228,6 +2248,7 @@ class LiveModel extends Component {
     }
     if (sec === 'settings') {
       this.loadSettingsResource(id);
+      if (id === 'oznameni') this.loadSettingsResource('oznameni:channels');
       if (id === 'uloziste') this.loadSettingsResource('uloziste:system');
       if (id === 'modely') this.loadSettingsResource('modely:prefs');
       if (id === 'modely') this.modelWorkspace.load();

@@ -138,6 +138,8 @@ z Ollamy prostřednictvím backendu a velikost uložených příloh z backendu.
 Účet/Profil, Paměť, Oznámení, Výstup a tři systémové záložky používají
 prototypový formulář a existující `/api/settings`. Před zápisem se stav znovu
 čte kvůli souběžným úpravám, po zápisu se ověřují přesné uložené hodnoty.
+Přehled Oznámení navíc čte `/api/notifications/channels`; ukazuje, zda je
+kanál zaregistrovaný v backendu, nikoli zda byla doručena zkušební zpráva.
 Účet/Projekty ukládá místní výchozí složku, převádí dřívější volbu a předává
 ji průvodci při vytvoření projektu. Využití úložiště a zálohy se čtou z
 backendu; ruční záloha, export, import a návrat výchozích hodnot vyžadují
