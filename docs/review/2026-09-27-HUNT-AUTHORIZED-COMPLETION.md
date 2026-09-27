@@ -52,6 +52,16 @@ Ověřovač prohlížeče přijímá `PUPPETEER_EXECUTABLE_PATH`. Deníky a konk
 
 Zdrojové soubory, sqlite databáze a samostatné výsledky mají otisky; do manifestu nepatří měnitelné `-wal`/`-shm` soubory.
 
+### Finální ověřený výstup
+
+- Implementace běžela z čistého `ecc2fdf19e53a91d94f3408e664faf5493b99633`; navazující `bb84e8f4` opravuje jen formulaci aktuálního census v dokumentaci.
+- Cílené testy **251/251**: společná regresní sada 48, přejímky 17, read model 26, integrita artefaktů 160. Jde o cílené ověření změny, ne úplný audit release.
+- Celý životní cyklus **404/404**, přehrání skutečného CHATu **19/19**, Chromium **14/14**. Browser porovnal každý tah všech 40 dialogů zvoleného modelu s uloženými bajty; prověřil i váhy a štítek simulovaného rozsouzení.
+- Osm izolovaných databází prošlo `PRAGMA quick_check`; 58 souborů je v manifestu. Registr má 542 programů, modulová hranice 1 430 hran / 3 cykly / 28 členů.
+- První závěrečná kontrola dokumentace vrátila 159/160 kvůli formulaci počtu hran nerozpoznané census validátorem. Po opravě je 160/160; původní neúspěšný log zůstává v `verification/artifact-before-census-correction.log`.
+- [Manifest](</mnt/vi7000/intentsmith/evidence/hunt-authorized-completion-20260927-v2/manifest.json>) SHA256: `c4f5b974a3bfd9aa3af8fe424068f2e931dbc66d41e2f04f875ca5393409b27b`.
+- [Původ výsledků a přesný rozsah](</mnt/vi7000/intentsmith/evidence/hunt-authorized-completion-20260927-v2/provenance.json>) SHA256: `e690c53bcc4a3646e7ddd1ac80571f167fa217229268790f4ae88d3acf4d22de`.
+
 ## Co simulace nemůže prokázat
 
 | Oblast | Doložené nyní | Co ještě vyžaduje skutečnou evidenci |

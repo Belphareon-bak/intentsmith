@@ -1,0 +1,46 @@
+{
+  "status": "SIMULATION_COMPLETE_FOR_REVIEW",
+  "simulation": true,
+  "productionAuthority": false,
+  "runtimeRevision": "ecc2fdf19e53a91d94f3408e664faf5493b99633",
+  "documentationCensusRevision": "bb84e8f4c51c92435beb5400f27a0a96dcb056f2",
+  "actualSourceRoot": "/mnt/vi7000/intentsmith/evidence/hunt-chat-context-fixed-20260927-v2",
+  "realSourcePacketSha256": "fdb11f598a294a13fccd84fe78f26d7503a6c6c4de44ce34bd404367d31d7f5c",
+  "realFirstReviewSha256": "1f38bddb0b322446ddf356d4cb443913084ecfd6c1f1d6a2f0659693595fab70",
+  "actualCompleteDialogsReplayed": 80,
+  "newModelInferences": 0,
+  "fictionalModelCount": 14,
+  "fictionalNewModels": 4,
+  "cells": 98,
+  "visionNotApplicableCells": 8,
+  "simulatedSecondReview": true,
+  "simulatedOperatorApproval": true,
+  "realIndependentSecondReviewer": false,
+  "realOperatorGradeApproval": false,
+  "liveBindingWrites": 0,
+  "modelDeletions": 0,
+  "testCounts": {
+    "regressions": 48,
+    "acceptance": 17,
+    "read-model": 26,
+    "artifact": 160
+  },
+  "totalTestsPassed": 251,
+  "additionalChecksPassed": {
+    "lifecycle": 404,
+    "actualChatReplay": 19,
+    "browser": 14
+  },
+  "correctedValidationFailure": "First artifact check found roadmap current-edge wording not recognized by census; documentation corrected, final 160/160. Failed log retained separately.",
+  "notClaimed": [
+    "Deployment",
+    "Accepted local judges",
+    "Complete real ten-model seven-role matrix",
+    "Fresh operational holdout",
+    "Physical pull and rollback"
+  ],
+  "evidenceRoot": "/mnt/vi7000/intentsmith/evidence/hunt-authorized-completion-20260927-v2",
+  "manifestSha256": "c4f5b974a3bfd9aa3af8fe424068f2e931dbc66d41e2f04f875ca5393409b27b",
+  "provenanceSha256": "e690c53bcc4a3646e7ddd1ac80571f167fa217229268790f4ae88d3acf4d22de",
+  "nextReview": "Whole-package review; seven simulated criterion decisions are detailed in REVIEW.html. No real Opus/operator approval is asserted."
+}
