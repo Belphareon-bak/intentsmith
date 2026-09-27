@@ -189,6 +189,14 @@
 .intentsmith-studio2-widget .win{width:40px;height:100%;border:0;background:none;color:var(--dim);display:grid;place-items:center;cursor:pointer}
 .intentsmith-studio2-widget .win:hover{background:var(--hover);color:var(--text)}
 .intentsmith-studio2-widget .win.x:hover{background:#c0392b;color:#fff}
+@media (max-width:1200px){.intentsmith-studio2-widget .tb-m{padding:0 5px;align-items:center}
+.intentsmith-studio2-widget .tb-m .cmd{width:30px;min-width:30px;justify-content:center;padding:0}
+.intentsmith-studio2-widget .tb-m .cmd-t,.intentsmith-studio2-widget .tb-m .kbd{display:none}
+.intentsmith-studio2-widget .tb-r .sizer{display:none}
+.intentsmith-studio2-widget .tb-r .tb-sep{margin:0 4px}
+.intentsmith-studio2-widget .menu{padding:0 7px}
+
+}
 .intentsmith-studio2-widget .main{display:grid;min-height:0;min-width:0}
 .intentsmith-studio2-widget .navcol{min-width:0;min-height:0;overflow:hidden;background:var(--panel);border-right:1px solid var(--soft)}
 .intentsmith-studio2-widget .nav{display:flex;flex-direction:column;height:100%;min-width:0}

@@ -38,7 +38,7 @@ function render(vm, h, F, rt) {
                             h("span", { className: "dd-k" },
                               $mi.k))) : null)))) : null))))),
       h("div", { className: "tb-m" },
-        h("button", { className: "cmd", onClick: vm.openPalette },
+        h("button", { className: "cmd", "aria-label": "Hledat a spustit příkaz", title: "Hledat, přepnout relaci, spustit příkaz (Ctrl+K)", onClick: vm.openPalette },
           h("svg", { className: "ic", width: "13", height: "13", viewBox: "0 0 24 24" },
             h("path", { d: vm.I.search })),
           h("span", { className: "cmd-t" },
