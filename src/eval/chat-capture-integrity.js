@@ -10,10 +10,17 @@ export function auditChatCaptureHistory(messages, expectedUserInputs) {
     || typeof messages[1]?.content !== 'string') return fail('CHAT_CAPTURE_REQUEST_SHAPE');
   const prompt = messages[1].content;
   const delivered = [];
-  if (prompt.startsWith(marker)) {
-    const boundary=prompt.indexOf('\n\nUser: ',marker.length);
+  // Language/output retries prepend repair instructions. Only accept a history
+  // block before the current User field; a block quoted inside new input is not history.
+  const currentUser=/^User: /m.exec(prompt);
+  if (!currentUser) return fail('CHAT_CAPTURE_HISTORY_UNREADABLE');
+  const start=prompt.indexOf(marker);
+  const historyBeforeInput=start>=0 && currentUser && start<currentUser.index
+    && (start===0 || prompt.slice(start-2,start)==='\n\n');
+  if (historyBeforeInput) {
+    const boundary=prompt.indexOf('\n\nUser: ',start+marker.length);
     if (boundary<0) return fail('CHAT_CAPTURE_HISTORY_UNREADABLE');
-    for (const line of prompt.slice(marker.length,boundary).split('\n')) {
+    for (const line of prompt.slice(start+marker.length,boundary).split('\n')) {
       try {
         const row=JSON.parse(line);
         if (!['user','assistant','summary'].includes(row?.role) || typeof row.content!=='string')

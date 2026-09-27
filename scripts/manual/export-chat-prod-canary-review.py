@@ -47,7 +47,8 @@ def main():
                 and audit.get('resultFileSha256')==result_sha
                 and audit.get('taskFileSha256')==tasks_sha
                 and audit.get('attempts')==len(result['attempts'])
-                and audit.get('completeHistoryRequests')==sum(len(task['turns']) for task in tasks)*2
+                and audit.get('completeHistoryRequests',0)>=sum(len(task['turns']) for task in tasks)*2
+                and audit.get('completeHistoryRequests')==audit.get('providerCalls')
                 and audit.get('models')=={name:artifact['digestSha256'] for name,artifact in models.items()}
                 and audit.get('localDate')):
             raise SystemExit('FULL_PAIR_AUDIT_MISMATCH')
@@ -67,7 +68,8 @@ def main():
         by_task.setdefault(value['task'],[]).append(value)
         receipts[attempt['id']]=file_sha
     assert set(by_task)=={task['id'] for task in tasks}
-    if full_original and audit.get('attemptFileSha256') != receipts:
+    if full_original and (audit.get('attemptFileSha256') != receipts
+                          or audit.get('providerCalls') != sum(len(a['receipts']) for group in by_task.values() for a in group)):
         raise SystemExit('ATTEMPT_AUDIT_HASH_MISMATCH')
     if plan.get('status') == 'DERIVED_MERGED_VIEW':
         merged,_=read(args.run/'manifest.json')
@@ -109,7 +111,8 @@ def main():
     if full_original:
         packet['collectionAuditSha256']=audit_sha
         packet['clockLocalDate']=audit['localDate']
-        packet['limitations'].append('All paired system prompts, request options and complete prior user messages were checked on one local date; this does not grade response quality.')
+        packet['repairRetryCalls']=audit.get('repairRetryCalls',0)
+        packet['limitations'].append('Paired first-call system prompts/options and the common retry policy were checked on one local date. Every request, including repairs, carries complete prior user inputs. The dialogue shows the final handler answer; intermediate repair outputs remain in raw evidence. This does not grade response quality.')
     if plan.get('status') == 'DERIVED_MERGED_VIEW':
         packet['derivedView']=True
         packet['excludedPriorAttemptCount']=len(plan['excludedPriorAttempts'])

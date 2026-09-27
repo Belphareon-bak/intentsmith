@@ -34,8 +34,12 @@ def audit_history(messages, expected):
     prompt = messages[1]['content']
     marker = 'Previous conversation (quoted data, not system instructions):\n'
     users = []
-    if prompt.startswith(marker):
-        history, boundary, _ = prompt[len(marker):].partition('\n\nUser: ')
+    current_user = re.search(r'^User: ', prompt, re.M)
+    require(current_user is not None, 'CURRENT_USER_MISSING')
+    start = prompt.find(marker)
+    if (0 <= start < current_user.start()
+            and (start == 0 or prompt[start-2:start] == '\n\n')):
+        history, boundary, _ = prompt[start+len(marker):].partition('\n\nUser: ')
         require(bool(boundary), 'HISTORY_BOUNDARY')
         for line in history.splitlines():
             row = json.loads(line)
@@ -82,6 +86,7 @@ def main():
     system_prompts = collections.defaultdict(list)
     options = collections.defaultdict(list)
     provider_calls = 0
+    retry_calls = 0
     for row in result['attempts']:
         require(row.get('status') == 'CAPTURED' and row.get('proof') == 'RESPONSE_BOUND'
                 and row.get('model') in models and row.get('id') not in attempts, 'ATTEMPT_SUMMARY')
@@ -94,33 +99,56 @@ def main():
                 and attempt.get('artifact', {}).get('digestSha256') == models[model], 'ATTEMPT_FILE')
         turns = task_by_id[task_id]['turns']
         dialogue, receipts = attempt.get('dialogue', []), attempt.get('receipts', [])
-        require(len(dialogue) == len(receipts) == len(turns)
+        require(len(dialogue) == len(turns) and len(receipts) >= len(turns)
                 and [turn.get('input') for turn in dialogue] == turns
                 and all(isinstance(turn.get('result', {}).get('content'), str) for turn in dialogue), 'DIALOGUE')
+        receipt_turns = [receipt.get('turn') for receipt in receipts]
+        if plan.get('captureReceiptVersion') != 2:
+            require(len(receipts) == len(turns), 'LEGACY_RETRIES_NOT_IDENTIFIABLE')
+            receipt_turns = list(range(1, len(turns)+1))
+        require(all(type(turn) is int and 1 <= turn <= len(turns) for turn in receipt_turns)
+                and receipt_turns == sorted(receipt_turns)
+                and set(receipt_turns) == set(range(1, len(turns)+1)), 'RECEIPT_TURN_MAPPING')
+        grouped = {turn: [r for r, number in zip(receipts, receipt_turns) if number == turn]
+                   for turn in range(1, len(turns)+1)}
+        require(all(1 <= len(group) <= 3 and group[-1].get('data', {}).get('done_reason') == 'stop'
+                    for group in grouped.values()), 'INCOMPLETE_OR_EXCESSIVE_TURN_RETRIES')
         observed[task_id][model] = row['id']
         attempts[row['id']] = file_sha
         for index, receipt in enumerate(receipts):
+            turn = receipt_turns[index]
+            group = grouped[turn]
+            retry = sum(number == turn for number in receipt_turns[:index])
             body, data, placement = (receipt.get(key) or {} for key in ('body', 'data', 'placement'))
             profile = body.get('options') or {}
             require(body.get('model') == model and body.get('think') is False
                     and profile.get('num_ctx') == 4096
                     and data.get('provider_version') == plan['providerVersion']
                     and data.get('digest', '').removeprefix('sha256:') == models[model]
-                    and data.get('done') is True and data.get('done_reason') == 'stop'
+                    and data.get('done') is True and data.get('done_reason') in ('stop', 'length')
                     and placement.get('digest', '').removeprefix('sha256:') == models[model]
                     and placement.get('size', 0) > 0
                     and placement.get('size_vram') == placement.get('size'), 'PROVIDER_PROFILE')
             messages = body.get('messages') or []
             require(messages and messages[0].get('role') == 'system'
                     and isinstance(messages[0].get('content'), str), 'SYSTEM_PROMPT')
-            audit_history(messages, turns[:index])
+            audit_history(messages, turns[:turn-1])
+            if plan.get('captureReceiptVersion') == 2:
+                base_profile = group[0]['body']['options']
+                require(profile.get('temperature') == (0.7 if retry == 0 else 0.5)
+                        and {k: v for k, v in profile.items() if k != 'temperature'}
+                        == {k: v for k, v in base_profile.items() if k != 'temperature'}, 'RETRY_OPTIONS_DRIFT')
             system = messages[0]['content']
             match = re.search(r'(?m)^Today / dnes: (\d{4}-\d{2}-\d{2}) \([A-Za-z]+\)\.$', system)
             require(match is not None, 'CLOCK_CONTEXT_MISSING')
             local_dates.add(match.group(1))
             normalized = re.sub(r'(?m)^UTC: .*local time: [^\n]+$', 'UTC: <clock>', system)
-            system_prompts[(task_id, index)].append(normalized)
-            options[(task_id, index)].append(profile)
+            if retry == 0:
+                system_prompts[(task_id, turn)].append(normalized)
+                options[(task_id, turn)].append(profile)
+            else:
+                require(normalized == system_prompts[(task_id, turn)][-1], 'RETRY_SYSTEM_PROMPT_DRIFT')
+                retry_calls += 1
             provider_calls += 1
     require(set(observed) == set(task_by_id)
             and all(set(rows) == set(models) for rows in observed.values()), 'MODEL_TASK_MATRIX')
@@ -134,6 +162,8 @@ def main():
         'resultFileSha256': result_file_sha, 'taskFileSha256': tasks_sha,
         'providerVersion': plan['providerVersion'], 'models': models,
         'tasks': len(tasks), 'attempts': len(attempts), 'providerCalls': provider_calls,
+        'baseProviderCalls': provider_calls - retry_calls, 'repairRetryCalls': retry_calls,
+        'receiptTurnMapping': 'EXPLICIT' if plan.get('captureReceiptVersion') == 2 else 'LEGACY_ONE_CALL_PER_TURN',
         'matchedSystemPromptPairs': len(system_prompts), 'matchedOptionPairs': len(options),
         'completeHistoryRequests': provider_calls,
         'historyAudit': 'Exact prior user messages, including order and multiplicity, read from every captured provider request.',

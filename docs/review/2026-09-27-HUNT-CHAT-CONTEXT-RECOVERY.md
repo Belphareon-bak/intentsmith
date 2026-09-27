@@ -1,9 +1,9 @@
 # CHAT — nový sběr po opravě historie
 
-**Stav: PREFLIGHT_PASS / CAPTURE_NOT_STARTED / REVIEW_PENDING.**
+**Stav: první pokus COLLECTION_PARTIAL; oprava kontroly a nový oddělený běh v2.**
 Autorita: operátorovo „pokračuj“ po předání simulace huntu; závazná cesta
 HANDOFF §5 a dřívější zadání doplnit srovnatelné odpovědi před hodnocením.
-Žádné nové výsledky ani známky tento přípravný checkpoint netvrdí.
+První pokus zachytil dva celé dialogy a jeden neúplný. Známky se nevydávají.
 
 ## Zmrazený rozsah
 
@@ -44,16 +44,34 @@ Ověření:
   `HISTORY_USER_TURNS_INCOMPLETE`; staré důkazy se nezměnily.
 - `artifact-validation`: 160/160; registr: 542 validních programů.
 
-## Spuštění a předání
+## Spuštění, chyba kontroly a oddělení běhů
 
-Pracovní důkazy jsou v
-`/mnt/vi7000/intentsmith/evidence/hunt-chat-context-fixed-20260927/`.
-Vstupní `tasks.json` a `selection.json` už existují. Plán se pečetí z čistého
-commitu; launcher hlídá paměť, disk a vlastnictví GPU a nemá mazací krok.
-Před sběrem musí být dodržen dříve požadovaný příkon nebo nové rozhodnutí
-operátora: pokus o 175 W nyní skončil `Insufficient Permissions`, zůstává 350 W.
-Operátor dostal otázku, zda při současném limitu měřit; bez odpovědi se nový
-GPU sběr nespouští.
+Operátor 27. 9. schválil nový dvoumodelový sběr. Běh na čistém `2e1b9b23`
+se zastavil při třetím dialogu: produkční jazyková kontrola přidala před
+historii opravný pokyn. Historie byla úplná, ale guard očekával její hlavičku
+na začátku promptu. Tři transportní pokusy byly odmítnuté ještě před inferencí.
+Nejde o chybu modelu ani chybějící historii. Výsledkem jsou **2 úplné dialogy,
+1 neúplný, 8 skutečných odpovědí poskytovatele a 3 odmítnuté požadavky**.
+
+Oprava přijímá blok historie za opravným pokynem pouze před polem aktuálního
+uživatelského vstupu. Falešný blok citovaný uvnitř nového vstupu nepřijme.
+Každý receipt nově obsahuje číslo tahu (`captureReceiptVersion: 2`), takže
+závěrečný audit ověří historii i při opakování handleru a neplete další
+provider volání s dalším kolem dialogu. První volání má u obou modelů stejné
+parametry; opravné volání používá stávající produkční teplotu 0,5. Finální
+odpověď tahu musí být úplná; mezivýstupy zůstávají v syrových datech.
+
+| Běh | Účel a stav | Pravidlo použití |
+| --- | --- | --- |
+| `hunt-chat-prod-sameday-20260926` | Původní odpovědi a oba posudky; vada historie | Zachovat, neslučovat s novým během |
+| `hunt-chat-context-fixed-20260927` | První nový pokus, `COLLECTION_PARTIAL` | Diagnostika guardu, bez převzetí odpovědí či známek |
+| `hunt-chat-context-fixed-20260927-v2` | Nový čistý běh po opravě kontroly | Oba modely od začátku, vlastní plán a audit |
+
+Všechny adresáře leží v `/mnt/vi7000/intentsmith/evidence/`. Nejde o nová
+zadání: jejich SHA je stejná. Jde o nové odpovědi v opraveném provozním profilu.
+`lineage.json` váže plány, modely a zdroje; seznam původních hashů doloží,
+že se staré odpovědi ani posudky nezměnily. Nové odpovědi vyžadují nové známky
+navázané na nový SHA balíčku. Samotná shoda ID úlohy neopravňuje přenos známky.
 
 Po dokončení: závěrečný audit → jeden kanonický anonymní balíček → první
 posudek po všech 320 kritériích a samostatný druhý posudek → srovnání neshod.

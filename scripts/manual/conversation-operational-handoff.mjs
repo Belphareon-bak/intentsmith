@@ -60,7 +60,7 @@ if(args.includes('--prepare')){
    priorResultFileSha256:hash(priorResultBytes),preservedModel:first.model,
    preservedDigestSha256:first.artifact.digestSha256,preservedAttemptFileSha256:preservedFiles};
  }
- const plan={status:'SEALED',roles,providerVersion,createdAt:new Date().toISOString(),sourceRevision:git('rev-parse','HEAD'),workingTreeDirty:!!git('status','--porcelain'),sourceHashes:Object.fromEntries(sourceFiles.map(f=>[f,hash(fs.readFileSync(path.join(root,f)))])),tasks,pairs,benchmarkSha256:hash(fs.readFileSync(opt('benchmark'))),taskFileSha256:hash(fs.readFileSync(opt('tasks'))),repeats:1,totalBudgetMs:budgetMinutes*60000,continuationOf,decisionAuthority:false,operationPolicy:{productionImported:false,bindings:false,deletion:false,timer:false},profile:{CHAT:'actual handler/gateway settings, model-context cache fixed to 4096 for each captured candidate; 0.7 first-call temperature and handler retries',VISION:'actual analyzeImages /api/generate: context4096 output2048 temperature.3'},scope:'Actual answer handler including history, prompt, authorized gateway and output gates; actual vision bridge. Isolated configured model selection, no durable production binding and no whole Studio journey. Every provider response is captured passively; missing response digest blocks qualification rather than being replaced by inventory checks.',limitations:['No independently accepted semantic judge.','Clock context is supplied by the production bridge at call time and recorded.','A role stops on absent response attestation or CPU spill; remaining planned attempts stay explicitly unattempted.','Real report screenshots are controller-rendered documents, not live Studio captures.']};plan.planSha256=hash(plan);save('plan.json',plan);console.log('SEALED',plan.planSha256);process.exit(0);
+ const plan={status:'SEALED',captureReceiptVersion:2,roles,providerVersion,createdAt:new Date().toISOString(),sourceRevision:git('rev-parse','HEAD'),workingTreeDirty:!!git('status','--porcelain'),sourceHashes:Object.fromEntries(sourceFiles.map(f=>[f,hash(fs.readFileSync(path.join(root,f)))])),tasks,pairs,benchmarkSha256:hash(fs.readFileSync(opt('benchmark'))),taskFileSha256:hash(fs.readFileSync(opt('tasks'))),repeats:1,totalBudgetMs:budgetMinutes*60000,continuationOf,decisionAuthority:false,operationPolicy:{productionImported:false,bindings:false,deletion:false,timer:false},profile:{CHAT:'actual handler/gateway settings, model-context cache fixed to 4096 for each captured candidate; 0.7 first-call temperature and handler retries',VISION:'actual analyzeImages /api/generate: context4096 output2048 temperature.3'},scope:'Actual answer handler including history, prompt, authorized gateway and output gates; actual vision bridge. Isolated configured model selection, no durable production binding and no whole Studio journey. Every provider response is captured passively; missing response digest blocks qualification rather than being replaced by inventory checks.',limitations:['No independently accepted semantic judge.','Clock context is supplied by the production bridge at call time and recorded.','A role stops on absent response attestation or CPU spill; remaining planned attempts stay explicitly unattempted.','Real report screenshots are controller-rendered documents, not live Studio captures.']};plan.planSha256=hash(plan);save('plan.json',plan);console.log('SEALED',plan.planSha256);process.exit(0);
 }
 const plan=JSON.parse(fs.readFileSync(path.join(out,'plan.json'))),{planSha256,...mat}=plan;if(hash(mat)!==planSha256)throw Error('PLAN_DRIFT');if(git('status','--porcelain'))throw Error('DIRTY_SOURCE');
 for(const[f,h]of Object.entries(plan.sourceHashes))if(hash(fs.readFileSync(path.join(root,f)))!==h)throw Error('SOURCE_DRIFT:'+f);
@@ -92,15 +92,15 @@ try{
   let body;try{body=JSON.parse(init.body)}catch{};
   if(current?.role==='CHAT' && body?.model && /\/api\/(chat|generate)$/.test(String(url))) {
    const integrity=auditChatCaptureHistory(body.messages,current.expectedUserHistory);
-   (current.contextIntegrityChecks ||= []).push({...integrity,requestSha256:hash(body)});
+   (current.contextIntegrityChecks ||= []).push({...integrity,turn:current.turnIndex,requestSha256:hash(body)});
    if(!integrity.valid){current.captureIntegrityError=integrity.code;
-    current.receipts.push({url:String(url),body,error:integrity.code,providerCalled:false});
+    current.receipts.push({turn:current.turnIndex,url:String(url),body,error:integrity.code,providerCalled:false});
     throw Error(integrity.code);}
   }
   const samples=[];const sample=()=>{try{samples.push(execFileSync('nvidia-smi',['--query-gpu=memory.used,memory.total,utilization.gpu','--format=csv,noheader,nounits'],{encoding:'utf8',timeout:2000}).trim())}catch(e){samples.push({error:e.message})}};
   sample();const timer=setInterval(sample,1000),started=Date.now();
-  try{const response=await nativeFetch(url,init);if(body?.model && /\/api\/(chat|generate)$/.test(String(url))){const data=await response.clone().json();const placement=(await get('/api/ps')).models.find(x=>x.name===body.model);current.receipts.push({url:String(url),body,data,placement,samples,durationMs:Date.now()-started});}return response;}
-  catch(e){current.receipts.push({url:String(url),body,error:e.message,samples,durationMs:Date.now()-started});throw e;}finally{clearInterval(timer);sample();}
+  try{const response=await nativeFetch(url,init);if(body?.model && /\/api\/(chat|generate)$/.test(String(url))){const data=await response.clone().json();const placement=(await get('/api/ps')).models.find(x=>x.name===body.model);current.receipts.push({turn:current.turnIndex,url:String(url),body,data,placement,samples,durationMs:Date.now()-started});}return response;}
+  catch(e){current.receipts.push({turn:current.turnIndex,url:String(url),body,error:e.message,samples,durationMs:Date.now()-started});throw e;}finally{clearInterval(timer);sample();}
  };
  for(const role of plan.roles){
   let blocked=null;
@@ -114,7 +114,8 @@ try{
     try{if(role==='CHAT'){
       const decision={intent:'CONVERSATIONAL',type:'ANSWER',toJSON(){return {intent:this.intent,type:this.type};}};
       const history=structuredClone(t.history||[]);current.dialogue=[];
-      for(const input of t.turns||[t.input]){
+      for(const [turnIndex,input] of (t.turns||[t.input]).entries()){
+       current.turnIndex=turnIndex+1;
        current.expectedUserHistory=history.flatMap(item=>[
         ...(item.userInput?[item.userInput]:[]),
         ...(item.response?.tag?.speaker==='user'&&item.response.content?[item.response.content]:[])]);
@@ -134,7 +135,7 @@ try{
     current.finishedAt=new Date().toISOString();current.status=current.error?'OPERATIONAL_FAILURE':current.proof==='RESPONSE_UNVERIFIED'?'BLOCKED':current.fullGpu?'CAPTURED':'BLOCKED';
     if(!current.fullGpu)blocked='PROFILE_GPU_UNFIT';if(current.proof==='RESPONSE_UNVERIFIED')blocked='RESPONSE_UNVERIFIED';
     if(current.captureIntegrityError){current.error=current.captureIntegrityError;current.status='BLOCKED';blocked=current.error;}
-    delete current.expectedUserHistory;
+    delete current.expectedUserHistory;delete current.turnIndex;
     save('attempt-'+current.id+'.json',current);report.attempts.push({id:current.id,role,model:pair.model,status:current.status,proof:current.proof,error:current.error||null});flush();console.log(current.role,current.task,current.model,current.status,current.proof);
    }
    await unload();

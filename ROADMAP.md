@@ -1,9 +1,10 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**CHAT navázání, 27. 9.:** nový dvoumodelový sběr je připravený; závěrečný
-audit i export nově odmítají neúplnou historii a data změněná po auditu.
-Inference zatím neproběhla, čeká na vyřešení limitu příkonu.
-[Příprava, ověření a přesný rozsah](docs/review/2026-09-27-HUNT-CHAT-CONTEXT-RECOVERY.md).
+**CHAT navázání, 27. 9.:** sběr je schválený. První pokus se zastavil na
+vadě kontroly jazykového opravného volání; zůstává `COLLECTION_PARTIAL`.
+Oprava kontroly a závěrečného auditu počítá s více voláními v jednom tahu.
+Nový běh v2 začne oba modely od začátku; původní data ani známky nepřebírá.
+[Přesný rozsah a oddělení všech tří běhů](docs/review/2026-09-27-HUNT-CHAT-CONTEXT-RECOVERY.md).
 
 **GPU hunt — dokončená simulace a kontrola vstupu, 27. 9. 2026:**
 Celý izolovaný průchod všech sedmi rolí zahrnuje dva posudky, rozsouzení,
