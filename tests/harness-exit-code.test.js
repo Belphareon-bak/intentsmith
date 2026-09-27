@@ -439,7 +439,9 @@ try {
   // the isolated database bootstrap before their production database imports.
   // 138 -> 139: the workspace tree regression test resolves project_id through
   // the real database module after importing the isolated bootstrap first.
-  const expectedDatabaseReachableRootTests = 139;
+  // 139 -> 141: intent-clarity database and HTTP tests both bootstrap the
+  // isolated database before importing the production chat/server graph.
+  const expectedDatabaseReachableRootTests = 141;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,

@@ -87,7 +87,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-CHAT-CONVERSATION-CAPTURE-TEST-MJS` | `tests/chat-conversation-capture.test.mjs` | `C3-010` | T1 | `database` | 1 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST` | `tests/chat-export-budget.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none, toolchain:python-pdf-runtime | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CHAT-FIXES-TEST` | `tests/chat-fixes.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
-| `IS-T3-TESTS-CHAT-INTENT-CLARITY-HTTP-TEST` | `tests/chat-intent-clarity-http.test.js` | `C3-003` | T3 | `server` | 30 s | 3 min | network:loopback, temp-db, server | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-CHAT-INTENT-CLARITY-HTTP-TEST` | `tests/chat-intent-clarity-http.test.js` | `C3-003` | T3 | `server` | 30 s | 3 min | network:loopback, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-CHAT-INTENT-CLARITY-TEST` | `tests/chat-intent-clarity.test.js` | `C3-003` | T2 | `database` | 1 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CHAT-MEMORY-PRIVACY-TEST` | `tests/chat-memory-privacy.test.js` | `C3-015` | T1 | `database` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-REVIEW-REMEDIATION-20260917 |
 | `IS-T1-TESTS-CHAT-OUTPUT-QUALITY-TEST` | `tests/chat-output-quality.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

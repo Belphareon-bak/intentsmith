@@ -61,7 +61,8 @@ export function handleAskUserDecision(input, decision, context) {
  * v44.2 - Intent-specific templates instead of generic options
  */
 export function formatClarificationRequest(input, decision) {
-  if (decision.slots.includes('gpu_quantity') && typeof decision.metadata?.clarificationText === 'string') {
+  if ((decision.slots.includes('gpu_quantity') || decision.slots.includes('gpu_value'))
+      && typeof decision.metadata?.clarificationText === 'string') {
     return decision.metadata.clarificationText;
   }
   const shortInput = input.length > 60 ? input.substring(0, 60) + '...' : input;

@@ -32,9 +32,11 @@ for (const input of [
   'sniž GPU napětí na polovinu',
   'sniz gpu napeti o 50 %',
   'sniz gup napeti o 50 %',
+  'sniž GPU napětí o 10 %',
   'sniž GPU napětí a příkon',
   'sniž GPU na polovinu',
   'vyzkoušej místní modely a sniž GPU napětí na polovinu',
+  'vyzkousej localni modley jako hodnotitele a sniz gup napeti na polovinu',
 ]) {
   const { state, reached, process } = fixture();
   const result = await process(input);
@@ -42,8 +44,23 @@ for (const input of [
   assert.equal(result.tag.metadata.awaitingClarification, true, input);
   assert.equal(result.tag.canExecute, false, input);
   assert.match(result.content, /Napětí GPU a limit příkonu/, input);
+  assert.doesNotMatch(result.content, /hluk|stabilit/u, `${input}: invented motivation`);
   assert.deepEqual(reached, [], `${input}: handler or tool reached before clarification`);
   assert.deepEqual(state.awaitingSlots, ['gpu_quantity'], input);
+}
+
+{
+  const { state, reached, process } = fixture();
+  const invalid = await process('Sniž GPU příkon na -10 %');
+  assert.equal(invalid.tag.metadata.decision.type, DecisionType.ASK_USER);
+  assert.deepEqual(state.awaitingSlots, ['gpu_value']);
+  assert.match(invalid.content, /Procentní hodnota musí být/);
+  const stillInvalid = await process('-5 %');
+  assert.equal(stillInvalid.tag.metadata.decision.type, DecisionType.ASK_USER);
+  const valid = await process('50 %');
+  assert.match(valid.content, /Nic jsem nenastavil/);
+  assert.equal(state.awaitingClarification, false);
+  assert.deepEqual(reached, []);
 }
 
 {
@@ -108,6 +125,7 @@ for (const input of [
   'sniž GPU napětí na 1 volt',
   'nesnižuj GPU napětí',
   'nezměň GPU napětí',
+  'Nechci snižovat GPU napětí.',
 ]) {
   const { reached, process } = fixture();
   const result = await process(input);
@@ -122,6 +140,8 @@ for (const input of [
   'Jak snížit napětí GPU?',
   'Napiš kód, který sníží napětí GPU',
   'Napiš návod: sniž GPU napětí na polovinu',
+  'Můžeš mi říct, jak snížit napětí GPU?',
+  'Prosím napiš návod, jak snížit příkon GPU.',
 ]) {
   const { reached, process } = fixture();
   const result = await process(input);

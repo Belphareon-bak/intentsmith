@@ -493,7 +493,7 @@ export class ChatController {
     // and agent modes. A model classification must not turn a material hardware
     // word into a different operation or claim an unavailable effect succeeded.
     const state = context.sessionState;
-    const pendingGpuQuestion = state?.awaitingSlots?.includes('gpu_quantity') === true;
+    const pendingGpuQuestion = state?.awaitingSlots?.some(slot => slot === 'gpu_quantity' || slot === 'gpu_value') === true;
     const clarity = assessIntentClarity(context.originalUserMessage ?? input, state?.awaitingSlots || []);
     if (pendingGpuQuestion && clarity?.kind !== 'clarify') state.clearPendingDecision();
     if (clarity) {
@@ -503,7 +503,7 @@ export class ChatController {
         const decision = creDecisionEngine.overrideDecision({
           type: DecisionType.ASK_USER,
           intent: IntentType.AMBIGUOUS,
-          slots: ['gpu_quantity'],
+          slots: [clarity.slot],
           source: 'intent_clarity',
           reason: clarity.reason,
           confidence: 1,
