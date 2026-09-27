@@ -39,7 +39,7 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
       columnSessions: [...(root?.querySelectorAll('.cols .scol .pane-t .pane-tt') || [])].map(node => node.textContent.trim()),
       pickerItems: [...(root?.querySelectorAll('.dd.ctx.picker .dd-i .dd-t') || [])].map(node => node.textContent.trim()),
       catalogSection: root?.querySelector('.cat-t h1')?.textContent?.trim() || null,
-      catalogStatus: /\b\d+ polož(?:ka|ky|ek) z backendu/.test(root?.querySelector('.cat-t')?.textContent || '') ? 'ready' : null,
+      catalogStatus: /[0-9]+ polož(?:ka|ky|ek) z backendu/.test(root?.querySelector('.cat-t')?.textContent || '') ? 'ready' : null,
       specialistFileRows: [...(root?.querySelectorAll('.rp .fsec .frow .fr-n') || [])].map(node => node.textContent.trim()),
       specialistPreview: root?.querySelector('.rp .file-action pre')?.textContent || null,
       composerAttachments: [...(root?.querySelectorAll('.scol .comp .att-t') || [])].map(node => node.textContent.trim()),
