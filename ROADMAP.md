@@ -7,6 +7,8 @@ a úplný detail v rendereru Studia. Izolovaná zkouška má 14 fiktivních mode
 7 rolí a čtyři simulovaná stažení; odděleně zpracuje všech 80 skutečných nových
 CHAT odpovědí s prvním posudkem a jasně označenou simulací druhého.
 **SIMULATION_COMPLETE / REVIEW_PENDING / NOT_DEPLOYED / REAL_NO_GO.**
+Module graph: 1 430 hran, 3 cykly / 28 členů; přibyla jen vazba přejímky
+na konkrétní konverzační sadu, baseline zapsaná oficiálním nástrojem.
 [Celý výsledek, původ známek a meze simulace](docs/review/2026-09-27-HUNT-AUTHORIZED-COMPLETION.md).
 
 **CHAT reference, 27. 9.:** nový sběr po opravě historie je úplný: 80 dialogů,
