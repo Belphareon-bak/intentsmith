@@ -321,7 +321,7 @@ export function createProjectRoutes(deps) {
 
     'POST /api/projects/open-folder': async (req, res) => {
       const body = await parseBody(req);
-      const { folderPath, name } = body;
+        const { folderPath, name, renameConfirmation } = body;
 
       if (!folderPath) {
         return sendJSON(res, 400, { error: 'folderPath is required' });
@@ -354,8 +354,28 @@ export function createProjectRoutes(deps) {
         if (explicitName && (projectName.length > 120 || /[\x00-\x1f]/.test(projectName))) {
           return sendJSON(res, 400, { error: 'Invalid project name' });
         }
+        const existing = db.projects.findByPath.get(normalizedPath);
+        const needsRename = !!(existing && explicitName && existing.name !== projectName);
+        const confirmed = needsRename && renameConfirmation
+          && renameConfirmation.projectId === existing.id
+          && renameConfirmation.currentName === existing.name;
+        if (needsRename && !confirmed) {
+          return sendJSON(res, 409, {
+            code: renameConfirmation ? 'PROJECT_RENAME_PLAN_STALE' : 'PROJECT_RENAME_CONFIRMATION_REQUIRED',
+            error: renameConfirmation ? 'Projekt se mezitím změnil. Zkontroluj nový plán přejmenování.'
+              : 'Složka už je registrovaná. Přejmenování vyžaduje samostatné potvrzení.',
+            existingProject: { id: existing.id, name: existing.name, path: existing.path },
+            proposedName: projectName,
+          });
+        }
+        if (renameConfirmation && !needsRename) {
+          return sendJSON(res, 409, {
+            code: 'PROJECT_RENAME_PLAN_STALE',
+            error: 'Projekt se mezitím změnil. Zkontroluj nový plán přejmenování.',
+          });
+        }
         const { project, wasExisting, renamed } = db.projects.registerExternal(projectName, normalizedPath, '',
-          { renameExisting: explicitName });
+          { renameExisting: confirmed });
         let analysis = null;
         let analysisError = null;
         try {

@@ -599,21 +599,44 @@ test('expertise filters use backend categories while tiles show readable categor
     fetchImpl: async () => ({ ok: true, json: async () => ({ experts: [
       { id: 'writer', name: 'Spisovatel', domain: 'CREATIVE_WRITING' },
       { id: 'analyst', name: 'Analytik', domain: 'DATA_ANALYSIS' },
-      { id: 'mine', name: 'Vlastní', domain: 'custom', isCustom: true }],
+      ...['mine1', 'mine2', 'mine3', 'mine4'].map(id => ({ id, name: id, domain: 'custom', isCustom: true }))],
     categories: [{ id: 'creative', experts: ['writer'] },
-      { id: 'analytical', experts: ['analyst'] }, { id: 'custom', experts: ['mine'] }] }) }) });
+      { id: 'analytical', experts: ['analyst'] },
+      { id: 'custom', experts: ['mine1', 'mine2', 'mine3', 'mine4'] }] }) }) });
   await catalog.load('Expertýzy');
   const { model } = setup({ catalog });
   const rows = model.entities('expertises', model.st());
-  assert.deepEqual(rows.map(row => row.group), ['Tvůrčí & Narativní', 'Analyticko-rozhodovací', 'Vlastní']);
-  assert.deepEqual(rows.map(row => row.sub), ['CREATIVE_WRITING', 'DATA_ANALYSIS', 'custom']);
+  assert.deepEqual(rows.map(row => row.group), ['Tvůrčí & Narativní', 'Analyticko-rozhodovací',
+    'Vlastní', 'Vlastní', 'Vlastní', 'Vlastní']);
+  assert.deepEqual(rows.map(row => row.sub), ['CREATIVE_WRITING', 'DATA_ANALYSIS',
+    'custom', 'custom', 'custom', 'custom']);
   const chips = model.filtered('expertises', model.st()).chips;
   assert.equal(chips.find(chip => chip.label === 'Tvůrčí').n, 1);
   assert.equal(chips.find(chip => chip.label === 'Analytičtí').n, 1);
+  assert.equal(chips.find(chip => chip.label === 'Vlastní').n, 4);
+  assert.equal(chips.reduce((sum, chip) => sum + (chip.label === 'Vše' ? 0 : chip.n), 0), 6);
   model.setState({ mode: 'section', section: 'expertises' });
-  assert.equal(model.catalogVM(model.st()).summary, '3 položky z backendu');
+  assert.equal(model.catalogVM(model.st()).summary, '6 položek z backendu');
   catalog.views.set('Expertýzy', { status: 'ready', items: catalog.view('Expertýzy').items.slice(0, 1) });
   assert.equal(model.catalogVM(model.st()).summary, '1 položka z backendu');
+  model.componentWillUnmount();
+});
+
+test('project tiles translate backend status and unknown expertises have a visible filter', async () => {
+  const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335',
+    fetchImpl: async url => ({ ok: true, json: async () => new URL(url).pathname === '/api/projects'
+      ? { projects: [{ id: 7, name: 'Atlas', path: '/tmp/atlas', status: 'active' }] }
+      : { experts: [{ id: 'future', name: 'Nová expertýza', domain: 'FUTURE' }], categories: [] } }) });
+  await catalog.load('Projekty');
+  await catalog.load('Expertýzy');
+  const { model } = setup({ catalog });
+  const project = model.entities('projects', model.st())[0];
+  assert.deepEqual([project.tag, project.catLabel, project.state, project.tagCls],
+    ['aktivní', 'aktivní', 'aktivní', 'ok']);
+  const chips = model.filtered('expertises', model.st()).chips;
+  assert.equal(chips.find(chip => chip.label === 'Nezařazené').n, 1);
+  model.setState({ chip: 'uncategorized' });
+  assert.equal(model.filtered('expertises', model.st()).items.length, 1);
   model.componentWillUnmount();
 });
 
@@ -757,6 +780,16 @@ test('project wizard confirms create or open only after backend response and cat
     posts.push([path, body]);
     if (path === '/api/projects' && conflict) return { ok: false, status: 409,
       json: async () => ({ error: 'Projekt už existuje' }) };
+    const existing = path === '/api/projects/open-folder'
+      ? projects.find(item => item.path === body.folderPath) : null;
+    if (existing && body.name && body.name !== existing.name && !body.renameConfirmation)
+      return { ok: false, status: 409, json: async () => ({
+        code: 'PROJECT_RENAME_CONFIRMATION_REQUIRED', existingProject: existing,
+        proposedName: body.name }) };
+    if (body.renameConfirmation && (body.renameConfirmation.projectId !== existing?.id
+      || body.renameConfirmation.currentName !== existing?.name))
+      return { ok: false, status: 409, json: async () => ({
+        code: 'PROJECT_RENAME_PLAN_STALE', error: 'Projekt se mezitím změnil.' }) };
     const project = path === '/api/projects' ? { id: 41, name: body.name, path: '/home/user/projects/novy' }
       : { id: 42, name: body.name && honorOpenName ? body.name : 'Import', path: '/home/user/existing' };
     projects = [...projects.filter(item => item.id !== project.id), project];
@@ -783,12 +816,24 @@ test('project wizard confirms create or open only after backend response and cat
   assert.deepEqual(posts[2], ['/api/projects/open-folder', { folderPath: '/home/user/existing' }]);
   model.setState({ detail: { projects: '__new__' }, projectStep: 1, projectMode: 'open',
     projectName: 'Demo', projectPath: '/home/user/existing' });
-  assert.equal(await model.submitProject(model.st()), true);
+  assert.equal(await model.submitProject(model.st()), false);
   assert.deepEqual(posts[3], ['/api/projects/open-folder', { folderPath: '/home/user/existing', name: 'Demo' }]);
+  assert.equal(projects.find(item => item.id === 42).name, 'Import', 'first request must not rename');
+  assert.match(model.projectWizardVM(model.st()).renameNotice, /Import.*Demo/);
+  assert.equal(model.projectWizardVM(model.st()).submitLabel, 'Potvrdit přejmenování');
+  model.projectWizardVM(model.st()).setName({ target: { value: 'Jiný záměr' } });
+  assert.equal(model.projectWizardVM(model.st()).hasRenamePlan, false,
+    'changing the proposed name removes the approval plan');
+  model.projectWizardVM(model.st()).setName({ target: { value: 'Demo' } });
+  assert.equal(await model.submitProject(model.st()), false, 'the changed form requires a fresh plan');
+  assert.equal(await model.submitProject(model.st()), true);
+  assert.deepEqual(posts[5], ['/api/projects/open-folder', { folderPath: '/home/user/existing', name: 'Demo',
+    renameConfirmation: { projectId: 42, currentName: 'Import' } }]);
   assert.equal(model.detailVM(model.st()).title, 'Demo');
   honorOpenName = false;
   model.setState({ detail: { projects: '__new__' }, projectStep: 1, projectMode: 'open',
     projectName: 'Jiný', projectPath: '/home/user/existing' });
+  assert.equal(await model.submitProject(model.st()), false);
   assert.equal(await model.submitProject(model.st()), false);
   assert.match(widget.catalogActionError, /požadovaný název/);
   assert.equal(model.projectStatus().uncertain, true);

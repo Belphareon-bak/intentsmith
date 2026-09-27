@@ -47,6 +47,13 @@ globály `_sessions` a `_sessionActive`; routování zpět do relací zůstává
 | Vzdálený společník | `/api/m7/remote/pairing/claims` |
 | Stavová lišta | `GET /api/health`, WS `status`, `/api/system/gpu` |
 
+Při otevření už registrované složky s jiným názvem vrací
+`POST /api/projects/open-folder` nejprve `409 PROJECT_RENAME_CONFIRMATION_REQUIRED`
+s identitou projektu, starým a navrženým názvem. Průvodce ukáže plán a až
+další výslovné potvrzení pošle `renameConfirmation` s ID a původním názvem.
+Změněný projekt vrací `409 PROJECT_RENAME_PLAN_STALE`; soubory ve složce se
+při přejmenování záznamu nemění.
+
 ## 3. Mezery — co backend dnes nemá
 
 | # | Potřeba z UI | Stav dnes | Návrh | Etapa |

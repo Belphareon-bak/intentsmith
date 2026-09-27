@@ -845,20 +845,32 @@ await testAsync('POST /api/projects/open-folder idempotent (same folder twice)',
   }
 });
 
-await testAsync('POST /api/projects/open-folder honors an explicit name for an already registered folder', async () => {
+await testAsync('POST /api/projects/open-folder requires an exact second confirmation before renaming', async () => {
   const tmpDir = makeOwnedDir(PROJECT_FIXTURE_ROOT, 'intentsmith-rename-test');
   try {
-    const open = async name => {
+    const open = async (name, renameConfirmation) => {
       const response = await fetch(`${BASE}/api/projects/open-folder`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ folderPath: tmpDir, ...(name ? { name } : {}) }),
+        body: JSON.stringify({ folderPath: tmpDir, ...(name ? { name } : {}),
+          ...(renameConfirmation ? { renameConfirmation } : {}) }),
         signal: AbortSignal.timeout(10000),
       });
       return { response, body: await response.json() };
     };
     const initial = await open();
     assert(initial.response.ok, 'Initial folder registration should succeed');
-    const renamed = await open('Demo projektu');
+    const plan = await open('Demo projektu');
+    assertEqual(plan.response.status, 409, 'First rename request must not mutate');
+    assertEqual(plan.body.code, 'PROJECT_RENAME_CONFIRMATION_REQUIRED', 'Backend should return a reviewable plan');
+    assertEqual(plan.body.existingProject.id, initial.body.project.id, 'Plan must identify the existing project');
+    assertEqual(plan.body.existingProject.name, initial.body.project.name, 'Plan must show the original name');
+    const unchanged = await open();
+    assertEqual(unchanged.body.project.name, initial.body.project.name, 'Project name stays unchanged without consent');
+    const stale = await open('Demo projektu', { projectId: initial.body.project.id, currentName: 'stale' });
+    assertEqual(stale.response.status, 409, 'A stale plan must not rename the project');
+    assertEqual(stale.body.code, 'PROJECT_RENAME_PLAN_STALE', 'Stale plan should be explicit');
+    const renamed = await open('Demo projektu', {
+      projectId: initial.body.project.id, currentName: initial.body.project.name });
     assertEqual(renamed.response.status, 200, 'Existing folder should be reused');
     assertEqual(renamed.body.project.id, initial.body.project.id, 'Project identity should remain stable');
     assertEqual(renamed.body.project.name, 'Demo projektu', 'Requested name should be saved');

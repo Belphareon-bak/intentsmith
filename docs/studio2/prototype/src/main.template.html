@@ -929,8 +929,9 @@ textarea.fv-ed{font-family:var(--font-mono)}
 </sc-if>
 <sc-if value="{{b.projectWizard.isReview}}" hint-placeholder-val="{{false}}">
 <div class="dl"><span>Operace</span><strong>{{b.projectWizard.reviewMode}}</strong><span>Název</span><strong>{{b.projectWizard.reviewName}}</strong><span>Složka</span><code>{{b.projectWizard.reviewTarget}}</code><sc-if value="{{b.projectWizard.isCreate}}" hint-placeholder-val="{{true}}"><span>Typ</span><span>{{b.projectWizard.reviewType}}</span><span>Popis</span><span>{{b.projectWizard.reviewDescription}}</span></sc-if></div>
-<p class="aph">Nový projekt vytvoří složku a git repozitář. Otevření existující složky ji zaregistruje bez změny jejích souborů.</p>
-<div style="display:flex;gap:8px"><button class="btn" onClick="{{b.projectWizard.back}}">Zpět</button><button class="btn btn-acc" disabled="{{b.projectWizard.submitDisabled}}" onClick="{{b.projectWizard.submit}}">Potvrdit projekt</button></div>
+<p class="aph">{{b.projectWizard.reviewNote}}</p>
+<sc-if value="{{b.projectWizard.hasRenamePlan}}" hint-placeholder-val="{{false}}"><div role="alert" class="note">{{b.projectWizard.renameNotice}}</div></sc-if>
+<div style="display:flex;gap:8px"><button class="btn" onClick="{{b.projectWizard.back}}">Zpět</button><button class="btn btn-acc" disabled="{{b.projectWizard.submitDisabled}}" onClick="{{b.projectWizard.submit}}">{{b.projectWizard.submitLabel}}</button></div>
 </sc-if>
 <sc-if value="{{b.projectWizard.hasStatus}}" hint-placeholder-val="{{false}}"><div role="alert" class="note">{{b.projectWizard.status}}</div></sc-if>
 </div>

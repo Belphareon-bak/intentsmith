@@ -10,6 +10,7 @@ const ROUTES = Object.freeze({
   Multimédia: '/api/media/history?page=1&limit=20',
 });
 const MEDIA_ID = /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|gen-[0-9]{13}-[0-9a-f]{8})$/i;
+const EXPERTISE_CATEGORIES = new Set(['creative', 'analytical', 'normative', 'technical', 'domain', 'custom']);
 function str(value, fallback = '') { return typeof value === 'string' ? value : fallback; }
 function arrayFrom(section, data) {
   if (Array.isArray(data)) return data;
@@ -44,7 +45,8 @@ function normalizeCatalog(section, data) {
       if (typeof id === 'string' && !byExpertise.has(id)) byExpertise.set(id, category.id);
     }
   }
-  return items.map(item => ({ ...item, group: byExpertise.get(item.id) || item.group }));
+  return items.map(item => ({ ...item,
+    group: EXPERTISE_CATEGORIES.has(byExpertise.get(item.id)) ? byExpertise.get(item.id) : 'uncategorized' }));
 }
 
 class CatalogStore {

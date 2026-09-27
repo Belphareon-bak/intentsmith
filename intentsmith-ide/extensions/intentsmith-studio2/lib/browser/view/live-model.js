@@ -504,6 +504,8 @@ class LiveModel extends Component {
       const expertiseCategory = sec === 'expertises' ? this.data().CATS[item.group] : null;
       const expertiseLabel = expertiseCategory ? expertiseCategory[0]
         : item.group === 'custom' ? 'Vlastní' : 'Nezařazené';
+      const projectState = sec === 'projects' ? ({ active: 'aktivní', archived: 'archivovaný',
+        deleted: 'smazaný', specification: 'specifikace' })[item.state] || 'nezjištěno' : '';
       return { id: item.id, name: item.name,
       sub: sec === 'projects' ? item.raw.path || '' : sec === 'expertises' ? item.raw.domain || '' : item.group,
       desc: item.description, icon: ({ chats: I.chat, projects: I.folder,
@@ -512,12 +514,14 @@ class LiveModel extends Component {
         workers: 'mint', market: 'blue', media: 'blue' })[sec],
       groups: [sec === 'chats' ? (item.raw.project_id ? 'project' : 'free')
         : sec === 'expertises' ? item.group : item.state || item.group],
-      group: sec === 'expertises' ? expertiseLabel : item.group || section,
-      catLabel: sec === 'expertises' ? expertiseLabel : item.state || item.group,
+      group: sec === 'expertises' ? expertiseLabel : sec === 'projects' ? projectState : item.group || section,
+      catLabel: sec === 'expertises' ? expertiseLabel : sec === 'projects' ? projectState : item.state || item.group,
       meta: sec === 'expertises' && Number.isFinite(item.raw.temperature)
         ? 'teplota ' + String(item.raw.temperature).replace('.', ',') : '',
-      tag: sec === 'expertises' ? item.raw.isCustom ? 'vlastní' : 'vestavěná' : item.state || '',
-      state: item.state || '' };
+      tag: sec === 'expertises' ? item.raw.isCustom ? 'vlastní' : 'vestavěná'
+        : sec === 'projects' ? projectState : item.state || '',
+      tagCls: sec === 'projects' && item.state === 'active' ? 'ok' : '',
+      state: sec === 'projects' ? projectState : item.state || '' };
     });
     if (sec !== 'chats') return rows;
     const open = s.tabs.map((sid, index) => {
@@ -531,6 +535,12 @@ class LiveModel extends Component {
         catLabel: 'Relace ' + session.number, meta: this.stLabel(state), state: this.stLabel(state) };
     });
     return open.concat(rows.filter(row => !this.widget.store.state.sessions.some(session => session._convId === row.id)));
+  }
+
+  chipDefs(sec) {
+    const chips = super.chipDefs(sec);
+    return sec === 'expertises' && this.widget.catalog.view('Expertýzy').items.some(item => item.group === 'uncategorized')
+      ? chips.concat([['uncategorized', 'Nezařazené']]) : chips;
   }
 
   navVM(s, lay, fsid) {
@@ -1505,6 +1515,25 @@ class LiveModel extends Component {
   projectStatus() { return { ...this._projectWizardStatus,
     defaultDir: this._projectsDir || this._projectWizardStatus.defaultDir }; }
 
+  projectWizardVM(s) {
+    const vm = super.projectWizardVM(s);
+    const plan = this._projectWizardStatus.renamePlan;
+    const currentPlan = vm.mode === 'open' && plan
+      && plan.inputPath === s.projectPath.trim() && plan.inputName === s.projectName.trim() ? plan : null;
+    const clearPlan = () => {
+      this._projectWizardStatus = { ...this._projectWizardStatus, renamePlan: null, error: '' };
+      this.widget.catalogActionError = null;
+    };
+    return { ...vm, renamePlan: currentPlan, hasRenamePlan: !!currentPlan,
+      renameNotice: currentPlan
+        ? `Složka už patří projektu „${currentPlan.currentName}“ (ID ${currentPlan.projectId}). Potvrzením přejmenuješ záznam na „${currentPlan.inputName}“. Soubory se nezmění.` : '',
+      submitLabel: currentPlan ? 'Potvrdit přejmenování' : vm.submitLabel,
+      setMode: event => { clearPlan(); vm.setMode(event); },
+      setName: event => { clearPlan(); vm.setName(event); },
+      setPath: event => { clearPlan(); vm.setPath(event); },
+      back: () => { clearPlan(); vm.back(); } };
+  }
+
   projectDirectoryVM() {
     return { value: this._projectsDir, status: this._projectsDirNotice ||
       (this._projectsDir ? 'Složka je uložená lokálně. Nový projekt ji použije po kontrole backendem.'
@@ -1861,7 +1890,9 @@ class LiveModel extends Component {
     const body = mode === 'create'
       ? { name: s.projectName.trim(), description: s.projectDescription, type: s.projectType,
         ...(s.projectPath.trim() || this._projectsDir ? { path: form.reviewTarget } : {}) }
-      : { folderPath: s.projectPath.trim(), ...(s.projectName.trim() ? { name: s.projectName.trim() } : {}) };
+      : { folderPath: s.projectPath.trim(), ...(s.projectName.trim() ? { name: s.projectName.trim() } : {}),
+        ...(form.renamePlan ? { renameConfirmation: {
+          projectId: form.renamePlan.projectId, currentName: form.renamePlan.currentName } } : {}) };
     this._projectWizardStatus = { ...this._projectWizardStatus, busy: true, error: '' };
     this.widget.catalogActionError = null;
     this.forceUpdate();
@@ -1873,6 +1904,22 @@ class LiveModel extends Component {
         headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
         signal: AbortSignal.timeout(30000) });
       const result = await response.json();
+      if (mode === 'open' && response.status === 409
+        && result.code === 'PROJECT_RENAME_CONFIRMATION_REQUIRED') {
+        const existing = result.existingProject;
+        if (!body.name || result.proposedName !== body.name || !existing
+          || !Number.isSafeInteger(existing.id) || typeof existing.name !== 'string'
+          || typeof existing.path !== 'string' || !existing.path.startsWith('/')) {
+          throw Error('Backend vrátil neplatný plán přejmenování. Zkontroluj katalog projektů.');
+        }
+        this._projectWizardStatus = { ...this._projectWizardStatus, renamePlan: {
+          projectId: existing.id, currentName: existing.name, inputName: body.name,
+          inputPath: body.folderPath }, error: '', uncertain: false };
+        return false;
+      }
+      if (result.code === 'PROJECT_RENAME_PLAN_STALE') {
+        this._projectWizardStatus = { ...this._projectWizardStatus, renamePlan: null };
+      }
       if (!response.ok) throw Object.assign(Error(result.error || `Projekt nelze připravit (HTTP ${response.status}).`),
         { status: response.status });
       const project = result.project;

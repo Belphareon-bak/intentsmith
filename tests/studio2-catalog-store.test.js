@@ -27,6 +27,9 @@ assert.deepEqual(normalizeCatalog('Expertýzy', { experts: [
   categories: [{ id: 'creative', experts: ['writer'] },
     { id: 'analytical', experts: ['analyst'] }, { id: 'custom', experts: ['mine'] }] }).map(item => item.group),
 ['creative', 'analytical', 'custom'], 'backend categories drive expertise filters, not raw domains');
+assert.deepEqual(normalizeCatalog('Expertýzy', { experts: [
+  { id: 'unknown', name: 'Bez skupiny', domain: 'NEW_DOMAIN' }], categories: [] }).map(item => item.group),
+['uncategorized'], 'unmapped expertise remains filterable without exposing a raw domain as category');
 assert.deepEqual(normalizeCatalog('Obchod', { items: [
   { id: 'same', type: 'skill' }, { id: 'same', type: 'specialist' }] }).map(item => item.id),
 ['skill:same', 'specialist:same']);

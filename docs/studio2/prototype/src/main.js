@@ -307,7 +307,7 @@ class Component extends DCLogic {
       { id: 'sazeni', name: 'Sázkový analytik', version: '1.0.0', domain: 'sports_betting', type: 'domain', desc: 'Analýza sportovních sázek – porovnání kurzů, statistická analýza, value betting a sestavení tiketů.', tools: [['Porovnání kurzů', 'sazeni.odds_compare'], ['Analýza zápasu', 'sazeni.match_analysis'], ['Sestavení tiketu', 'sazeni.ticket_builder'], ['Value Bet Finder', 'sazeni.value_finder']], caps: ['betting.odds_compare', 'betting.match_analysis', 'betting.ticket_build', 'betting.value_find'], exps: [], market: 'sazeni' },
       { id: 'dummy-logger', name: 'Dummy Logger', version: '1.0.0', domain: 'utility', type: 'utility', engine: '>=65.0.0', desc: 'Minimální specialista pro integrační testy platformy. Zapisuje události s časovými značkami.', tools: [['Format Log Entry', 'logger.format_entry']], caps: [], exps: [] }
     ];
-    const CATS = { creative: ['Tvůrčí & Narativní', I.pen], analytical: ['Analyticko-rozhodovací', I.chart], normative: ['Normativní & Odpovědnostní', I.scale], technical: ['Technicko-odborní', I.tool], domain: ['Doménoví znalci', I.target] };
+    const CATS = { creative: ['Tvůrčí & Narativní', I.pen], analytical: ['Analyticko-rozhodovací', I.chart], normative: ['Normativní & Odpovědnostní', I.scale], technical: ['Technicko-odborní', I.tool], domain: ['Doménoví znalci', I.target], custom: ['Vlastní', I.cap] };
     const ex = (id, name, cat, domain, desc, temp, tone, plan, review, caps, rules) => ({ id, name, cat, domain, desc, temp, tone, plan, review, caps, rules });
     const EX = [
       ex('writer', 'Spisovatel', 'creative', 'creative_writing', 'Povídky, knihy, eseje, články, scénáře', '0,8', 'creative', 'DEEP', 'ITERATIVE', [40, 90, 10, 70, 90], ['Před psaním vždy navrhni strukturu (kapitoly, oblouk příběhu)', 'Udržuj konzistenci postav a světa napříč celým textem', 'Piš poutavě, s živými dialogy a popisy', 'Přizpůsob styl cílové skupině (děti, dospělí, žánr)']),
@@ -685,7 +685,7 @@ class Component extends DCLogic {
       chats: [['vse', 'Vše'], ['open', 'Otevřené'], ['project', 'S projektem'], ['specialist', 'Se specialistou'], ['free', 'Bez projektu']],
       projects: [['vse', 'Vše'], ['active', 'Aktivní'], ['spec', 'Specifikace']],
       specialists: [['vse', 'Vše'], ['domain', 'Doménoví'], ['utility', 'Pomocní']],
-      expertises: [['vse', 'Vše'], ['creative', 'Tvůrčí'], ['analytical', 'Analytičtí'], ['normative', 'Normativní'], ['technical', 'Techničtí'], ['domain', 'Doménoví']],
+      expertises: [['vse', 'Vše'], ['creative', 'Tvůrčí'], ['analytical', 'Analytičtí'], ['normative', 'Normativní'], ['technical', 'Techničtí'], ['domain', 'Doménoví'], ['custom', 'Vlastní']],
       workers: [['vse', 'Vše'], ['cron', 'Plánovaní'], ['interval', 'S intervalem'], ['paused', 'Pozastavení']],
       market: [['vse', 'Vše'], ['skill', 'Skilly'], ['expertise', 'Expertýzy'], ['specialist', 'Specialisté'], ['installed', 'Nainstalované']],
       media: [['vse', 'Vše']],
@@ -1402,6 +1402,9 @@ class Component extends DCLogic {
       reviewMode: mode === 'create' ? 'Vytvořit nový' : 'Otevřít existující',
       reviewName: name || '(název ze složky)', reviewTarget: target,
       reviewType: s.projectType, reviewDescription: s.projectDescription || 'bez popisu',
+      reviewNote: mode === 'create' ? 'Nový projekt vytvoří složku a git repozitář.'
+        : 'Otevření existující složky nemění její soubory. Pokud už je zaregistrovaná pod jiným názvem, přejmenování ukážeme zvlášť k potvrzení.',
+      hasRenamePlan: false, renameNotice: '', submitLabel: 'Potvrdit projekt',
       status: status.error || '', hasStatus: !!status.error,
       nextDisabled: !valid || status.busy || (mode === 'create' && !slug),
       submitDisabled: !valid || status.busy || !!status.uncertain || (mode === 'create' && !slug),
