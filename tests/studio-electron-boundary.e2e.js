@@ -2333,7 +2333,7 @@ async function runJourney({
     if (m1Journey) {
       if (!validateM1SoakLifecycle(soakMonitor)) fail('m1-soak-lifecycle-contract-failed');
     } else if (!validateSoakLifecycle(soakMonitor)) {
-      fail('soak-lifecycle-contract-failed');
+      fail('soak-lifecycle-contract-failed', Object.freeze({ soakMonitor }));
     }
     observationDurationMs = monotonicMs() - observationStarted;
     networkCaptureDurationMs = monotonicMs() - networkCaptureStarted;
