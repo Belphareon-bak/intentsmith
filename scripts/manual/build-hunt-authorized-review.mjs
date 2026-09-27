@@ -23,7 +23,7 @@ const source=readFileSync(sourcePath,'utf8');sources[sourcePath]=createHash('sha
 const renderer=source.slice(source.indexOf("var _evaluationRoleFilter='all'"),source.indexOf('function _renderEvaluationHistory()'));
 const esc=s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 const json=x=>JSON.stringify(x).replaceAll('<','\\u003c');
-const pct=x=>x.toFixed(2)+' %';
+const pct=x=>(Math.round(x*100+1e-8)/100).toFixed(2)+' %';
 const decisions=chat.models.flatMap((m,i)=>read(join(root,'reviewed-chat',`model-${i}-adjudication-SIMULATED.json`)).decisions
   .map(d=>({model:m.model,...d})));
 const doc=`<!doctype html><html lang="cs"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>GPU hunt — celý průchod k revizi</title>
