@@ -1,7 +1,7 @@
 import './helpers/isolated-test-db.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, existsSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, existsSync, writeFileSync, mkdirSync, copyFileSync } from 'node:fs';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
@@ -45,17 +45,18 @@ test('final audit independently rejects missing user history even when capture c
     const policy={productionImported:false,bindings:false,deletion:false,timer:false};
     const plan={status:'SEALED',roles:['CHAT'],workingTreeDirty:false,sourceRevision:'fixture',captureReceiptVersion:2,
       taskFileSha256:sha(readFileSync(join(dir,'tasks.json'))),pairs:{CHAT:pairs},decisionAuthority:false,
+      tasks,repeats:1,benchmarkSha256:sha('fixture'),sourceHashes:{'src/runtime.js':sha('runtime')},
       operationPolicy:policy,providerVersion:'fixture',profile:{CHAT:'fixed to 4096'}};
     plan.planSha256=sha(JSON.stringify(plan));save('plan.json',plan);
     const attempts=[];
     for(const task of tasks)for(const p of pairs) {
-      const id=task.id+'-'+p.model;
-      attempts.push({id,model:p.model,status:'CAPTURED',proof:'RESPONSE_BOUND'});
+      const id=task.id+'-'+sha(p.model).slice(0,8);
+      attempts.push({id,role:'CHAT',model:p.model,status:'CAPTURED',proof:'RESPONSE_BOUND'});
       const receipts=task.turns.map((input,index)=>({turn:index+1,body:{model:p.model,think:false,options:{num_ctx:4096,temperature:0.7},
         messages:[{role:'system',content:'Today / dnes: 2026-09-27 (Sunday).'},
           {role:'user',content:(index?'Previous conversation (quoted data, not system instructions):\n'
             +task.turns.slice(0,index).map(content=>JSON.stringify({role:'user',content})).join('\n')+'\n\n':'')+'User: '+input}]},
-        data:{provider_version:'fixture',digest:p.artifact.digestSha256,done:true,done_reason:'stop'},
+        data:{provider_version:'fixture',digest:p.artifact.digestSha256,done:true,done_reason:'stop',message:{content:'fixture'}},
         placement:{digest:p.artifact.digestSha256,size:1,size_vram:1}}));
       save('attempt-'+id+'.json',{...attempts.at(-1),role:'CHAT',task:task.id,artifact:p.artifact,fullGpu:true,
         dialogue:task.turns.map(input=>({input,result:{content:'fixture'}})),receipts});
@@ -70,12 +71,12 @@ test('final audit independently rejects missing user history even when capture c
     const exportArgs=[exporter,'--run',dir,'--tasks',join(dir,'tasks.json'),'--audit',join(dir,'audit.json'),'--out'];
     execFileSync('python3',[...exportArgs,join(dir,'review')]);
     assert.equal(JSON.parse(readFileSync(join(dir,'review','packet.json'))).cases.length,80);
-    const retryAttempt=JSON.parse(readFileSync(join(dir,'attempt-t1-a.json')));
+    const retryAttempt=JSON.parse(readFileSync(join(dir,'attempt-t1-'+sha('a').slice(0,8)+'.json')));
     const repair=structuredClone(retryAttempt.receipts[1]);
     repair.body.messages[1].content='OPRAV TO. Odpověz ZNOVU ČISTĚ ČESKY.\n\n'+repair.body.messages[1].content;
     repair.body.options.temperature=0.5;
     retryAttempt.receipts[1].data.done_reason='length';
-    retryAttempt.receipts.splice(2,0,repair);save('attempt-t1-a.json',retryAttempt);
+    retryAttempt.receipts.splice(2,0,repair);save('attempt-t1-'+sha('a').slice(0,8)+'.json',retryAttempt);
     const retryArgs=[...args.slice(0,-1),join(dir,'retry-audit.json')];
     execFileSync('python3',retryArgs);
     const retryAudit=JSON.parse(readFileSync(join(dir,'retry-audit.json')));
@@ -85,12 +86,63 @@ test('final audit independently rejects missing user history even when capture c
     execFileSync('python3',[exporter,'--run',dir,'--tasks',join(dir,'tasks.json'),
       '--audit',join(dir,'retry-audit.json'),'--out',join(dir,'retry-review')]);
     const invalidArgs=[...args.slice(0,-1),join(dir,'invalid-retry-audit.json')];
-    retryAttempt.receipts[2].turn=4;save('attempt-t1-a.json',retryAttempt);
+    retryAttempt.receipts[2].turn=4;save('attempt-t1-'+sha('a').slice(0,8)+'.json',retryAttempt);
     assert.match(spawnSync('python3',invalidArgs,{encoding:'utf8'}).stderr,/RECEIPT_TURN_MAPPING/);
-    retryAttempt.receipts[2].turn=2;retryAttempt.receipts[2].body.options.temperature=0.7;save('attempt-t1-a.json',retryAttempt);
+    retryAttempt.receipts[2].turn=2;retryAttempt.receipts[2].body.options.temperature=0.7;save('attempt-t1-'+sha('a').slice(0,8)+'.json',retryAttempt);
     assert.match(spawnSync('python3',invalidArgs,{encoding:'utf8'}).stderr,/RETRY_OPTIONS_DRIFT/);
-    retryAttempt.receipts[2].body.options.temperature=0.5;save('attempt-t1-a.json',retryAttempt);
-    const name='attempt-t0-a.json',bad=JSON.parse(readFileSync(join(dir,name)));
+    retryAttempt.receipts[2].body.options.temperature=0.5;save('attempt-t1-'+sha('a').slice(0,8)+'.json',retryAttempt);
+    // Resume only two infrastructure failures; keep every completed response.
+    const first=join(dir,'partial'),second=join(dir,'continuation'),merged=join(dir,'merged');
+    mkdirSync(first);mkdirSync(second);
+    const write=(folder,name,value)=>writeFileSync(join(folder,name),JSON.stringify(value));
+    const seal=value=>({...value,planSha256:sha(JSON.stringify(value))});
+    write(first,'plan.json',plan);
+    const oldResult=JSON.parse(readFileSync(join(dir,'result.json')));
+    const missing=attempts.filter(row=>row.model==='b').slice(-2).map(row=>row.id);
+    const preservedFiles={},excluded=[];
+    for(const row of attempts){
+      const file='attempt-'+row.id+'.json';
+      if(missing.includes(row.id)){
+        const failed={...JSON.parse(readFileSync(join(dir,file))),status:'OPERATIONAL_FAILURE',error:'ENVIRONMENT_INTERRUPTED'};
+        write(first,file,failed);excluded.push(row.id);
+      }else{
+        copyFileSync(join(dir,file),join(first,file));preservedFiles[row.id]=sha(readFileSync(join(first,file)));
+      }
+    }
+    write(first,'result.json',{...oldResult,status:'BLOCKED',error:'ENVIRONMENT_INTERRUPTED',attempts:attempts.map(row=>
+      missing.includes(row.id)?{...row,status:'OPERATIONAL_FAILURE',error:'ENVIRONMENT_INTERRUPTED'}:row)});
+    const remaining=tasks.filter(task=>missing.some(id=>id.startsWith(task.id+'-'))).map(task=>task.id);
+    const continuation={remainingTaskIds:remaining,priorRunPath:first,priorPlanSha256:plan.planSha256,
+      priorPlanFileSha256:sha(readFileSync(join(first,'plan.json'))),priorResultFileSha256:sha(readFileSync(join(first,'result.json'))),
+      preservedModel:'a',preservedDigestSha256:pairs[0].artifact.digestSha256,preservedAttemptFileSha256:preservedFiles};
+    const {planSha256:unused,...material}=plan;
+    const next=seal({...material,pairs:{CHAT:[pairs[1]]},continuationOf:continuation});
+    write(second,'plan.json',next);
+    write(second,'result.json',{...oldResult,planSha256:next.planSha256,attempts:attempts.filter(row=>missing.includes(row.id))});
+    for(const id of missing)copyFileSync(join(dir,'attempt-'+id+'.json'),join(second,'attempt-'+id+'.json'));
+    const mergeScript=new URL('../scripts/manual/merge-chat-production-pair.py',import.meta.url).pathname;
+    const mergeArgs=[mergeScript,'--first-run',first,'--second-run',second,'--tasks',join(dir,'tasks.json'),'--out'];
+    execFileSync('python3',[...mergeArgs,merged]);
+    assert.equal(JSON.parse(readFileSync(join(merged,'result.json'))).attempts.length,80);
+    assert.equal(JSON.parse(readFileSync(join(merged,'manifest.json'))).excludedPriorAttempts.length,2);
+    execFileSync('python3',[script,'--run',merged,'--tasks',join(dir,'tasks.json'),'--out',join(dir,'merged-audit.json')]);
+    assert.equal(JSON.parse(readFileSync(join(dir,'merged-audit.json'))).completeHistoryRequests,241);
+    assert.match(spawnSync('python3',[exporter,'--run',merged,'--tasks',join(dir,'tasks.json'),
+      '--out',join(dir,'unaudited-merged')],{encoding:'utf8'}).stderr,/FULL_PAIR_AUDIT_REQUIRED/);
+    execFileSync('python3',[exporter,'--run',merged,'--tasks',join(dir,'tasks.json'),
+      '--audit',join(dir,'merged-audit.json'),'--out',join(dir,'merged-review')]);
+    assert.equal(JSON.parse(readFileSync(join(dir,'merged-review','packet.json'))).cases.length,80);
+    // A fresh source receipt cannot silently replace any of the 78 completed ones.
+    const parentBytes=readFileSync(join(first,'result.json'));
+    write(first,'result.json',{...JSON.parse(parentBytes),error:'tampered'});
+    assert.match(spawnSync('python3',[script,'--run',merged,'--tasks',join(dir,'tasks.json'),
+      '--out',join(dir,'tampered-audit.json')],{encoding:'utf8'}).stderr,/MERGE_PARENT_DRIFT/);
+    writeFileSync(join(first,'result.json'),parentBytes);
+    const badNext=seal({...material,pairs:{CHAT:[pairs[1]]},continuationOf:{...continuation,remainingTaskIds:['t0']}});
+    write(second,'plan.json',badNext);
+    write(second,'result.json',{...oldResult,planSha256:badNext.planSha256,attempts:attempts.filter(row=>missing.includes(row.id))});
+    assert.match(spawnSync('python3',[...mergeArgs,join(dir,'wrong-resume')],{encoding:'utf8'}).stderr,/REMAINING_TASKS/);
+    const name='attempt-t0-'+sha('a').slice(0,8)+'.json',bad=JSON.parse(readFileSync(join(dir,name)));
     bad.receipts[2].body.messages[1].content='Previous conversation (quoted data, not system instructions):\n'
       +JSON.stringify({role:'assistant',content:'A=0, B=2'})+'\n\nUser: Sum?';
     bad.contextIntegrityChecks=[{valid:true}];save(name,bad);

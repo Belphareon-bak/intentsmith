@@ -43,20 +43,25 @@ if(args.includes('--prepare')){
   if(preserved.length!==tasks.filter(t=>t.role==='CHAT').length
     || preserved.some(row=>row.status!=='CAPTURED'||row.proof!=='RESPONSE_BOUND')
     || new Set(preserved.map(row=>row.id)).size!==preserved.length
-    || JSON.stringify(preserved.map(row=>row.id.slice(0,-9)).sort())!==JSON.stringify(tasks.filter(t=>t.role==='CHAT').map(t=>t.id).sort())
-    || priorResult.attempts.some(row=>row.model===onlyModel&&row.status==='CAPTURED'))
+    || JSON.stringify(preserved.map(row=>row.id.slice(0,-9)).sort())!==JSON.stringify(tasks.filter(t=>t.role==='CHAT').map(t=>t.id).sort()))
     throw Error('CONTINUATION_PARENT_INCOMPLETE');
+  const completed=priorResult.attempts.filter(row=>row.status==='CAPTURED');
   const preservedFiles={};
-  for(const row of preserved){
+  for(const row of completed){
+   const expectedPair=priorPlan.pairs.CHAT.find(pair=>pair.model===row.model);
+   if(!expectedPair||row.id!==row.id.slice(0,-9)+'-'+hash(row.model).slice(0,8)
+     || !tasks.some(t=>t.id===row.id.slice(0,-9))||preservedFiles[row.id])throw Error('CONTINUATION_PARENT_ATTEMPT_INVALID');
    const bytes=fs.readFileSync(path.join(continueFrom,'attempt-'+row.id+'.json'));
    const item=JSON.parse(bytes);
-   if(item.model!==first.model||item.task!==row.id.slice(0,-9)||item.status!=='CAPTURED'
+   if(item.model!==expectedPair.model||item.task!==row.id.slice(0,-9)||item.status!=='CAPTURED'
      || item.proof!=='RESPONSE_BOUND'||item.fullGpu!==true
-     || item.artifact.digestSha256!==first.artifact.digestSha256)
+     || item.artifact.digestSha256!==expectedPair.artifact.digestSha256)
      throw Error('CONTINUATION_PARENT_ATTEMPT_INVALID');
    preservedFiles[row.id]=hash(bytes);
   }
-  continuationOf={priorRunPath:continueFrom,priorPlanSha256:priorSha,priorPlanFileSha256:hash(priorPlanBytes),
+  const remainingTaskIds=tasks.filter(t=>!preservedFiles[t.id+'-'+hash(onlyModel).slice(0,8)]).map(t=>t.id);
+  if(!remainingTaskIds.length)throw Error('CONTINUATION_NOT_NEEDED');
+  continuationOf={remainingTaskIds,priorRunPath:continueFrom,priorPlanSha256:priorSha,priorPlanFileSha256:hash(priorPlanBytes),
    priorResultFileSha256:hash(priorResultBytes),preservedModel:first.model,
    preservedDigestSha256:first.artifact.digestSha256,preservedAttemptFileSha256:preservedFiles};
  }
@@ -107,7 +112,7 @@ try{
   for(const pair of plan.pairs[role]){
    config.models[role]=pair.model;if(role==='CHAT'){setNumCtx(pair.model,4096);if(getNumCtx(pair.model)!==4096)throw Error('CONTEXT_PROFILE_UNAVAILABLE');}
    const tag=(await get('/api/tags')).models.find(x=>x.name===pair.model);if(tag?.digest?.replace(/^sha256:/,'')!==pair.artifact.digestSha256)throw Error('ARTIFACT_CHANGED');
-   for(const t of plan.tasks.filter(x=>x.role===role)){
+   for(const t of plan.tasks.filter(x=>x.role===role && (!plan.continuationOf?.remainingTaskIds||plan.continuationOf.remainingTaskIds.includes(x.id)))){
     if(blocked){report.unattempted.push({role,id:t.id,model:pair.model,reason:blocked});continue;}
     if(cancel||Date.now()-Date.parse(report.startedAt)>plan.totalBudgetMs)throw Error('CANCELLED_OR_BUDGET');
     current={id:t.id+'-'+hash(pair.model).slice(0,8),role,task:t.id,model:pair.model,artifact:pair.artifact,receipts:[],startedAt:new Date().toISOString(),gradingStatus:'NOT_GRADED'};active=pair.model;

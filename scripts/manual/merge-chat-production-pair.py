@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Validate two sealed CHAT captures and build a derived view for blind review.
 
-The first run may be partial only because the second model was interrupted. The
-second run must be a sealed one-model continuation. Originals remain untouched.
+The first run may be partial because the second model was interrupted. The
+second run captures only its missing tasks, never replaces completed responses. Originals remain untouched.
 """
 import argparse
 import hashlib
@@ -62,7 +62,7 @@ def captured(run, rows, model, digest, tasks, provider):
             require(body.get('model') == model and body.get('options', {}).get('num_ctx') == 4096
                     and body.get('think') is False and data.get('provider_version') == provider
                     and (data.get('digest') or data.get('model_digest_sha256') or '').removeprefix('sha256:') == digest
-                    and data.get('done') is True and data.get('done_reason') == 'stop'
+                    and data.get('done') is True and data.get('done_reason') in ('stop', 'length')
                     and isinstance(data.get('message', {}).get('content'), str)
                     and placement.get('size', 0) > 0
                     and placement.get('size_vram', -1) >= placement.get('size', 0), 'RECEIPT_PROFILE')
@@ -116,11 +116,12 @@ def main():
     for file, digest in first_plan.get('sourceHashes', {}).items():
         if file != 'scripts/manual/conversation-operational-handoff.mjs':
             require(second_plan.get('sourceHashes', {}).get(file) == digest, 'HANDLER_CHANGED:' + file)
-    first_rows = [row for row in first_result['attempts'] if row.get('model') == first_pairs[0]['model']]
+    first_rows = [row for row in first_result['attempts'] if row.get('status') == 'CAPTURED']
     excluded_prior = []
     for row in first_result['attempts']:
-        if row.get('model') != second_pairs[0]['model']:
+        if row.get('status') == 'CAPTURED':
             continue
+        require(row.get('model') == second_pairs[0]['model'], 'FAILED_FIRST_MODEL')
         value, file_sha, _ = read(first / ('attempt-' + row['id'] + '.json'))
         require(value.get('id') == row['id'] and value.get('model') == row['model']
                 and value.get('status') == row.get('status') and row.get('status') != 'CAPTURED',
@@ -129,19 +130,30 @@ def main():
     second_rows = second_result['attempts']
     require(len(first_rows) + len(excluded_prior) == len(first_result['attempts'])
             and all(row.get('status') != 'CAPTURED' for row in excluded_prior)
-            and len(second_rows) == len(tasks), 'EXTRA_CAPTURE')
-    first_files = captured(first, first_rows, first_pairs[0]['model'], first_pairs[0]['artifact']['digestSha256'], tasks, first_plan['providerVersion'])
-    second_files = captured(second, second_rows, second_pairs[0]['model'], second_pairs[0]['artifact']['digestSha256'], tasks, first_plan['providerVersion'])
+            and len(first_rows) + len(second_rows) == 2 * len(tasks), 'EXTRA_CAPTURE')
+    first_files = {}
+    for pair in first_pairs:
+        rows = [row for row in first_rows if row['model'] == pair['model']]
+        selected = [task for task in tasks if task['id'] + '-' + sha(pair['model'].encode())[:8] in {row['id'] for row in rows}]
+        if pair == first_pairs[0]:
+            require(len(selected) == len(tasks), 'FIRST_MODEL_INCOMPLETE')
+        first_files.update(captured(first, rows, pair['model'], pair['artifact']['digestSha256'], selected, first_plan['providerVersion']))
+    remaining = [task for task in tasks if task['id'] + '-' + sha(second_pairs[0]['model'].encode())[:8] not in first_files]
+    require(continuation.get('remainingTaskIds', [task['id'] for task in tasks]) == [task['id'] for task in remaining], 'REMAINING_TASKS')
+    second_files = captured(second, second_rows, second_pairs[0]['model'], second_pairs[0]['artifact']['digestSha256'], remaining, first_plan['providerVersion'])
     require({key: row['sha256'] for key, row in first_files.items()} == continuation.get('preservedAttemptFileSha256'), 'PRESERVED_FILES_CHANGED')
     require(not set(first_files).intersection(second_files), 'ATTEMPT_ID_COLLISION')
     sources = [
-        {'kind': 'preserved_first_model', 'path': str(first), 'planSha256': first_plan['planSha256'],
+        {'kind': 'preserved_completed_attempts', 'path': str(first), 'planSha256': first_plan['planSha256'],
          'planFileSha256': first_plan_file_sha, 'resultFileSha256': first_result_sha},
         {'kind': 'one_model_continuation', 'path': str(second), 'planSha256': second_plan['planSha256'],
          'planFileSha256': second_plan_file_sha, 'resultFileSha256': second_result_sha},
     ]
     merged_plan = {'status': 'DERIVED_MERGED_VIEW', 'roles': ['CHAT'], 'providerVersion': first_plan['providerVersion'],
         'tasks': tasks, 'pairs': first_plan['pairs'], 'taskFileSha256': task_file_sha,
+        'captureReceiptVersion': first_plan.get('captureReceiptVersion'),
+        'workingTreeDirty': first_plan.get('workingTreeDirty') or second_plan.get('workingTreeDirty'),
+        'sourceRevision': second_plan.get('sourceRevision'),
         'benchmarkSha256': first_plan['benchmarkSha256'], 'sourceHashes': first_plan['sourceHashes'],
         'profile': first_plan['profile'], 'decisionAuthority': False,
         'operationPolicy': {'productionImported': False, 'bindings': False, 'deletion': False, 'timer': False},
@@ -149,6 +161,7 @@ def main():
     merged_plan['planSha256'] = sha(encoded(merged_plan))
     merged_result = {'status': 'COLLECTION_COMPLETE', 'derivedView': True,
         'planSha256': merged_plan['planSha256'], 'attempts': first_rows + second_rows,
+        'sourceRevision': second_plan.get('sourceRevision'), 'operationPolicy': merged_plan['operationPolicy'],
         'unattempted': [], 'decisionAuthority': False, 'sourceRunLineage': sources,
         'excludedPriorAttempts': excluded_prior}
     out.mkdir(mode=0o700)

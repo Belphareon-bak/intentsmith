@@ -62,7 +62,7 @@ def main():
     tasks, tasks_sha = read(args.tasks)
     material = {key: value for key, value in plan.items() if key != 'planSha256'}
     require(sha(json.dumps(material, ensure_ascii=False, separators=(',', ':')).encode()) == plan.get('planSha256'), 'PLAN_SEAL')
-    require(plan.get('status') == 'SEALED' and plan.get('roles') == ['CHAT']
+    require(plan.get('status') in ('SEALED', 'DERIVED_MERGED_VIEW') and plan.get('roles') == ['CHAT']
             and plan.get('workingTreeDirty') is False and plan.get('taskFileSha256') == tasks_sha
             and result.get('planSha256') == plan['planSha256']
             and result.get('sourceRevision') == plan.get('sourceRevision')
@@ -78,6 +78,42 @@ def main():
             and all(plan.get('operationPolicy', {}).get(key) is False
                     and result.get('operationPolicy', {}).get(key) is False
                     for key in ('productionImported', 'bindings', 'deletion', 'timer')), 'AUTHORITY')
+    if plan.get('status') == 'DERIVED_MERGED_VIEW':
+        manifest, _ = read(args.run / 'manifest.json')
+        require(result.get('derivedView') is True
+                and manifest.get('sourceRunLineage') == plan.get('sourceRunLineage') == result.get('sourceRunLineage')
+                and len(plan.get('sourceRunLineage', [])) == 2, 'MERGE_LINEAGE')
+        source_attempts = {}
+        excluded = []
+        for source in plan['sourceRunLineage']:
+            source_dir = Path(source['path'])
+            parent, parent_sha = read(source_dir / 'plan.json')
+            parent_result, parent_result_sha = read(source_dir / 'result.json')
+            parent_material = {key: value for key, value in parent.items() if key != 'planSha256'}
+            require(parent_sha == source.get('planFileSha256')
+                    and parent_result_sha == source.get('resultFileSha256')
+                    and parent.get('planSha256') == source.get('planSha256') == parent_result.get('planSha256')
+                    and sha(json.dumps(parent_material, ensure_ascii=False, separators=(',', ':')).encode()) == parent['planSha256']
+                    and parent.get('workingTreeDirty') is False
+                    and parent.get('providerVersion') == plan.get('providerVersion')
+                    and parent.get('taskFileSha256') == tasks_sha
+                    and parent.get('captureReceiptVersion') == plan.get('captureReceiptVersion'), 'MERGE_PARENT_DRIFT')
+            for name, digest in plan.get('sourceHashes', {}).items():
+                if name != 'scripts/manual/conversation-operational-handoff.mjs':
+                    require(parent.get('sourceHashes', {}).get(name) == digest, 'MERGE_RUNTIME_DRIFT')
+            for row in parent_result['attempts']:
+                value, digest = read(source_dir / ('attempt-' + row['id'] + '.json'))
+                require(value.get('id') == row['id'] and value.get('status') == row.get('status'), 'MERGE_PARENT_ATTEMPT')
+                if row['status'] == 'CAPTURED':
+                    require(row['id'] not in source_attempts, 'MERGE_REPLACED_COMPLETED_RESPONSE')
+                    source_attempts[row['id']] = digest
+                else:
+                    excluded.append({**row, 'attemptFileSha256': digest})
+        require(manifest.get('attemptFileSha256') == source_attempts
+                and manifest.get('excludedPriorAttempts') == plan.get('excludedPriorAttempts') == result.get('excludedPriorAttempts') == excluded
+                and set(source_attempts) == {row['id'] for row in result['attempts']}, 'MERGE_COVERAGE')
+        for attempt_id, digest in source_attempts.items():
+            require(read(args.run / ('attempt-' + attempt_id + '.json'))[1] == digest, 'MERGE_RESPONSE_DRIFT')
     models = {pair['model']: pair['artifact']['digestSha256'] for pair in pairs}
     task_by_id = {task['id']: task for task in tasks}
     observed = collections.defaultdict(dict)

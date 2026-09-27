@@ -1,9 +1,10 @@
 # CHAT — nový sběr po opravě historie
 
-**Stav: první pokus COLLECTION_PARTIAL; oprava kontroly a nový oddělený běh v2.**
+**Stav: v2 zachoval 78/80 úplných dialogů; poslední dva se doplní odděleným pokračováním.**
 Autorita: operátorovo „pokračuj“ po předání simulace huntu; závazná cesta
 HANDOFF §5 a dřívější zadání doplnit srovnatelné odpovědi před hodnocením.
-První pokus zachytil dva celé dialogy a jeden neúplný. Známky se nevydávají.
+První pokus zachytil dva celé dialogy a jeden neúplný. Druhý běh skončil
+na chybě prostředí po 78 úplných dialozích. Z neúplných výstupů se známky nevydávají.
 
 ## Zmrazený rozsah
 
@@ -78,3 +79,23 @@ posudek po všech 320 kritériích a samostatný druhý posudek → srovnání n
 Identitní klíč patří do `restricted/`; souhrn s identitami nepatří do pokynů
 pro slepého hodnotitele. Operátor dostane nejistoty a spory, nikoli povinnost
 známkovat všech 80 dialogů.
+
+## Obnova po přerušení prostředí
+
+Běh v2 na `24823996` zachytil 40 + 38 úplných dialogů. Poslední dvě úlohy
+druhého modelu skončily `OPERATIONAL_FAILURE`: timeout `nvidia-smi`, poté
+`CANCELLED_OR_BUDGET`; závěr obsahuje i `cleanupError: fetch failed`. Příčina
+se nesmí převést na nulu kvality. Původní `result.json` zůstává `BLOCKED`.
+
+Pokračování nově přebírá otisky všech dokončených odpovědí a zamkne seznam
+pouze chybějících úloh. Nemění produkční handler, zadání, poskytovatele ani
+parametry inference. V novém adresáři uloží pouze chybějící odpovědi.
+Odvozený pohled obsahuje původ obou běhů, oba neúspěšné pokusy i jejich hashe;
+není vydáván za jediný nepřerušený běh. Závěrečný audit znovu čte požadavky
+ze všech 80 dialogů a kontroluje také nezměněné zdroje a datum. Export
+plného formuláře vyžaduje tento audit i u odvozeného pohledu.
+
+Regresní test provádí obnovu 78 + 2, ověří 80 odpovědí, uchování dvou
+selhání, správné opravné volání a odmítnutí změněného zdrojového reportu,
+nesprávného seznamu úloh i exportu bez auditu. Je to test nástroje, nikoli
+modelové měření.

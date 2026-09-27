@@ -36,7 +36,7 @@ def main():
         raise SystemExit('PROFILE_NOT_COMPARABLE')
     assert plan['taskFileSha256']==tasks_sha and result['planSha256']==plan['planSha256']
     models={p['model']:p['artifact'] for p in plan['pairs']['CHAT']}
-    full_original=len(tasks)>4 and plan.get('status')!='DERIVED_MERGED_VIEW'
+    full_original=len(tasks)>4
     audit_sha=None
     if full_original:
         if args.audit is None: raise SystemExit('FULL_PAIR_AUDIT_REQUIRED')
