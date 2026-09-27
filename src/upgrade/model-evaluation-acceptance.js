@@ -7,7 +7,7 @@ import { decideRoleOperational } from '../eval/role-operational-decision.js';
 import { validateSemanticAcceptance } from '../eval/semantic-grader-acceptance.js';
 import { SEMANTIC_ROLE_SUITES } from '../eval/semantic-role-suites.js';
 import { chatConversationDraft } from '../eval/chat-conversation-suite.js';
-import { acceptedGraderPair, validStoredGradingPair } from '../eval/independent-grader-pair.js';
+import { acceptedGraderPair, validStoredGradingPair, simulatedEvidenceBlocked, isSimulatedEvaluationEvidence } from '../eval/independent-grader-pair.js';
 
 const roles = new Set(['D1','D2','CODE','R1','R2','CHAT','VISION']);
 const canonical = value => JSON.stringify(value, (_key, item) => item && typeof item === 'object'
@@ -108,6 +108,9 @@ export class ModelEvaluationAcceptanceStore {
 
   // Explicit reviewed input only; no inference runner calls this writer.
   record(record) {
+    // Revocation must remain possible even for an imported simulated receipt.
+    if (record?.kind !== 'REVOKE' && simulatedEvidenceBlocked(record,this.db))
+      throw Error('EVALUATION_SIMULATED_EVIDENCE');
     validateEnvelope(record);
     return this.db.transaction(() => {
       if (record.kind === 'OPERATIONAL') {
@@ -118,6 +121,7 @@ export class ModelEvaluationAcceptanceStore {
           ? record.evidence.graderAcceptanceIds : [record.evidence.graderAcceptanceId];
         const graders = references.map(id => this._rows(record.role, record.contractSha256).find(r => r.id === id));
         requireValue(graders.every(grader => grader?.kind === 'GRADER' && !grader.revoked
+          && !simulatedEvidenceBlocked(grader,this.db)
           && grader.evidence.runtimeSha256 === record.evidence.runtimeSha256), 'grader reference');
         if (SEMANTIC_ROLE_SUITES[record.role]) {
           const pair = acceptedGraderPair(graders.map(g => ({id:g.id,
@@ -155,7 +159,8 @@ export class ModelEvaluationAcceptanceStore {
     if (!this.db) return blocked('EVALUATION_ACCEPTANCE_DB_UNAVAILABLE');
     try {
       const rows = this._rows(role, suiteContractSha256);
-      const current = rows.filter(r => !r.revoked && r.evidence?.runtimeSha256 === runtimeSha256);
+      const current = rows.filter(r => !r.revoked && r.evidence?.runtimeSha256 === runtimeSha256
+        && !simulatedEvidenceBlocked(r,this.db));
       const names = [...taskNames].sort().join('\n');
       const graders = current.filter(r => r.kind === 'GRADER' && r.evidence.tasks.map(t => t.name).sort().join('\n') === names);
       const semanticRole = Boolean(SEMANTIC_ROLE_SUITES[role]);
@@ -168,7 +173,7 @@ export class ModelEvaluationAcceptanceStore {
             return {id,judge:g?.evidence.semanticAcceptance?.plan.judge};
           })) !== null
         : graders.some(g => g.id === r.evidence.graderAcceptanceId)))
-        .map(r => ({ id:r.id, payloadSha256:r.payloadSha256, graderId:r.evidence.graderAcceptanceId,
+        .map(r => ({ id:r.id, simulation:isSimulatedEvaluationEvidence(r), payloadSha256:r.payloadSha256, graderId:r.evidence.graderAcceptanceId,
           graderIds:r.evidence.graderAcceptanceIds || [r.evidence.graderAcceptanceId],
           review:r.review, planSha256:r.evidence.plan.planSha256,
           profileSha256:acceptanceHash(r.evidence.plan.profile), profile:r.evidence.plan.profile,
@@ -195,6 +200,7 @@ export class ModelEvaluationAcceptanceStore {
       const matches = (run,q,digest) => {
         const metadata = JSON.parse(run?.metadata_json || '{}'), hardware = JSON.parse(run?.hardware_json || '{}');
         return run?.status === 'COMPLETE' && run.role === plan.role
+          && !simulatedEvidenceBlocked({metadata,model_name:run.model_name},this.db)
           && run.suite_contract_sha256 === plan.suiteContractSha256
           && run.suite_name === plan.suiteName && run.suite_version === plan.suiteVersion
           && plan.suite.tests.every(t => [['num_ctx','numCtx'],['num_predict','numPredict'],['temperature','temperature'],['top_p','topP']]
@@ -217,6 +223,8 @@ export class ModelEvaluationAcceptanceStore {
 }
 
 export function acceptedOperationalDecision(qualification) {
+  // Even a sandbox qualification cannot escape into a production proposal.
+  if (isSimulatedEvaluationEvidence(qualification)) return null;
   const d = qualification?.decision;
   if (!d) return null;
   return { winner:d.verdict === 'ZMENIT' ? 'candidate' : d.verdict === 'PONECHAT' ? 'incumbent' : 'inconclusive',

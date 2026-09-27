@@ -106,6 +106,24 @@ function operation(f,graderId,secondId=null) {
 }
 const resign=e=>{e.review.evidenceSha256=acceptanceHash(e.evidence);return e;};
 
+test('production acceptance rejects simulation provenance at every authority layer',()=>{
+  const f=fixture();try {
+    for(const change of [e=>e.simulation=true,e=>e.evidence.simulation=true,
+      e=>e.review.simulated=true,e=>e.review.reviewer='SIMULATED operator',
+      e=>e.evidence.semanticAcceptance.plan.judge.modelName='sim-judge:a',
+      e=>e.evidence.semanticAcceptance.plan.judge.providerVersion='0.0.0-simulation-no-inference',
+      e=>e.evidence.semanticAcceptance.plan.labels.simulation=true]) {
+      const e=structuredClone(f.grader());change(e);
+      assert.throws(()=>f.store.record(resign(e)),/EVALUATION_SIMULATED_EVIDENCE/);
+    }
+    assert.equal(f.db.prepare('SELECT count(*) AS n FROM model_evaluation_acceptances').get().n,0);
+    // Ordinary task evidence can legitimately talk about a simulation.
+    const ordinary=f.grader();ordinary.review.reason='Reviewed a task about simulation';
+    const id=f.store.record(ordinary).id;
+    assert.equal(typeof id,'string');f.revoke(id);
+  }finally{f.db.close();}
+});
+
 for(const role of ['D1','D2','CODE','R1','R2','CHAT','VISION']) test(`${role}: real plans require both reviewed stages, preserve pair and close on revocation`,()=>{
   const f=fixture(role);try {
     assert.equal(f.plan.decisionReady,false);
@@ -214,6 +232,7 @@ test('stored answers are graded without generation, persist new rows, retain sou
     assert.equal(saved.metadata.grading.sourceCollectionRunId,source.runId);
     assert.equal(validStoredGradingPair(f.db,saved.metadata.grading,f.plan.acceptance.graders,
       A,f.plan.role,f.plan.suiteContractSha256,saved.score),true);
+
     assert.equal(validStoredGradingPair(f.db,saved.metadata.grading,f.plan.acceptance.graders,
       B,f.plan.role,f.plan.suiteContractSha256,saved.score),false,
       'a graded score cannot be reassigned to another answer artifact');
@@ -415,6 +434,12 @@ test('reviewed adjudication closes only exact criterion disputes and preserves b
           evidence:'Verified against the supplied task and captured response',
           reason:'The first judgement has direct supporting evidence'}))}))};
     const incomplete=structuredClone(basis);incomplete.decisions.pop();
+    for(const change of [d=>d.simulation=true,d=>d.review.simulated=true,
+      d=>d.review.reviewer='SIMULATED operator']) {
+      const simulated=structuredClone(basis);change(simulated);
+      assert.throws(()=>persistAdjudicatedCollection({history:f.history,plan:f.plan,
+        collection:source,decision:simulated}),/EVALUATION_SIMULATED_EVIDENCE/);
+    }
     assert.throws(()=>persistAdjudicatedCollection({history:f.history,plan:f.plan,
       collection:source,decision:incomplete}),/EVALUATION_ADJUDICATION_INCOMPLETE/);
     assert.equal(f.db.prepare('SELECT count(*) AS n FROM model_evaluation_grader_adjudications').get().n,0);
@@ -434,6 +459,22 @@ test('reviewed adjudication closes only exact criterion disputes and preserves b
     assert.equal(saved.metadata.grading.sourceContractSha256,B);
     assert.equal(validStoredGradingPair(f.db,saved.metadata.grading,f.plan.acceptance.graders,
       A,f.plan.role,f.plan.suiteContractSha256,saved.score),true);
+    // Import attack: valid hashes, real-looking identities and no simulation
+    // marker in run metadata. The authoritative adjudication still says true.
+    const copy=new Database(f.db.serialize());
+    try {
+      for(const t of copy.prepare("SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='model_evaluation_grader_adjudications'").all())
+        copy.exec('DROP TRIGGER "'+t.name.replaceAll('"','""')+'"');
+      const id=saved.metadata.grading.adjudication.id;
+      const decision=JSON.parse(copy.prepare('SELECT decision_json FROM model_evaluation_grader_adjudications WHERE adjudication_id=?').get(id).decision_json);
+      decision.simulation=true;
+      const sha=acceptanceHash(decision),grading=structuredClone(saved.metadata.grading);
+      copy.prepare('UPDATE model_evaluation_grader_adjudications SET decision_json=?,decision_sha256=? WHERE adjudication_id=?')
+        .run(JSON.stringify(decision),sha,id);
+      grading.adjudication.sha256=sha;
+      assert.equal(validStoredGradingPair(copy,grading,f.plan.acceptance.graders,
+        A,f.plan.role,f.plan.suiteContractSha256,saved.score),false);
+    }finally{copy.close();}
     assert.throws(()=>persistAdjudicatedCollection({history:f.history,plan:f.plan,
       collection:source,decision:basis}),/EVALUATION_ADJUDICATION_ALREADY_COMPLETE/);
     const row=f.db.prepare('SELECT adjudication_id FROM model_evaluation_grader_adjudications').get();

@@ -1,5 +1,7 @@
 # GPU hunt — úplný nový CHAT sběr a první referenční posudek
 
+Aktualizace: [skutečný druhý posudek, srovnání a zbývající spory](2026-09-27-HUNT-REAL-SECOND-REVIEW.md). Níže je zachovaný stav prvního milníku.
+
 **COLLECTION_AUDIT_PASS / ONE_REVIEW_COMPLETE / REVIEW_PENDING / REAL_NO_GO.**
 
 Nový CHAT sběr je dokončený a všech 80 dialogů má nový posudek Codexu po

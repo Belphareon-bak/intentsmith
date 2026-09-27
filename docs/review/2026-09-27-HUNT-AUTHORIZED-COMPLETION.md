@@ -1,5 +1,7 @@
 # GPU hunt: dokončený simulační průchod k celkové revizi
 
+Navazující opravy přejímky a **skutečné dva posudky**: [nový stav](2026-09-27-HUNT-REAL-SECOND-REVIEW.md). Níže zůstává historický rozsah simulace, původní balíček je nezměněný.
+
 Datum: 27. 9. 2026. Stav: `SIMULATION_COMPLETE`, skutečná rozhodovací autorita `false`, nenasazeno.
 
 Operátor výslovně povolil simulovat jeho i Opusovo posouzení, aby mohl zrevidovat celý výsledek. Toto povolení umožňuje dokončit zkoušku všech kroků; nedělá ze simulovaných známek skutečné nezávislé posudky. Původní odpovědi, posudky a manifesty se nemění.
@@ -55,7 +57,7 @@ Zdrojové soubory, sqlite databáze a samostatné výsledky mají otisky; do man
 ### Finální ověřený výstup
 
 - Implementace běžela z čistého `ecc2fdf19e53a91d94f3408e664faf5493b99633`; navazující `bb84e8f4` opravuje jen formulaci aktuálního census v dokumentaci.
-- Cílené testy **251/251**: společná regresní sada 48, přejímky 17, read model 26, integrita artefaktů 160. Jde o cílené ověření změny, ne úplný audit release.
+- Cílené testy **251/251**: 48 testů dohromady ve čtyřech souborech (`hunt-completion-simulation` 4, `evaluation-grading-acceptance` 23, `chat-conversation-capture` 7, `role-collection` 14), přejímky 17, read model 26, integrita artefaktů 160. Jde o cílené ověření změny, ne úplný audit release.
 - Celý životní cyklus **404/404**, přehrání skutečného CHATu **19/19**, Chromium **14/14**. Browser porovnal každý tah všech 40 dialogů zvoleného modelu s uloženými bajty; prověřil i váhy a štítek simulovaného rozsouzení.
 - Osm izolovaných databází prošlo `PRAGMA quick_check`; 58 souborů je v manifestu. Registr má 542 programů, modulová hranice 1 430 hran / 3 cykly / 28 členů.
 - První závěrečná kontrola dokumentace vrátila 159/160 kvůli formulaci počtu hran nerozpoznané census validátorem. Po opravě je 160/160; původní neúspěšný log zůstává v `verification/artifact-before-census-correction.log`.

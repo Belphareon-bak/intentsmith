@@ -5,6 +5,34 @@ import { createHash } from 'node:crypto';
 
 const hash = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
 
+// An explicit, connection-local rehearsal scope is never read from JSON, an
+// environment variable or the DB. It can only be installed before any schema
+// exists. Opening/copying a populated rehearsal DB defaults back to production.
+const simulationConnections = new WeakSet();
+export function registerEmptySimulationDatabase(db) {
+  if (!db?.open || db.readonly || db.prepare("SELECT count(*) AS n FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'").get().n !== 0)
+    throw Error('EVALUATION_SIMULATION_REQUIRES_EMPTY_DATABASE');
+  simulationConnections.add(db);
+}
+
+// Inspect provenance, never answer/rubric text. A model mentioning a simulation
+// in an ordinary answer must not turn that answer into simulated evidence.
+export function isSimulatedEvaluationEvidence(value) {
+  if (!value || typeof value !== 'object') return false;
+  if (Array.isArray(value)) return value.some(isSimulatedEvaluationEvidence);
+  if (value.simulation === true || value.simulated === true) return true;
+  const marker = /(?:^|[\s:/_-])sim(?:ulated|ulation)?(?:$|[\s:/_-])/i;
+  if (['modelName','model','model_name','providerVersion','version','reviewer','reference']
+    .some(key=>typeof value[key] === 'string' && marker.test(value[key]))) return true;
+  return ['metadata','grading','adjudication','review','evidence','semanticAcceptance','plan',
+    'judge','provider','profile','artifact','labels','graders','qualifications']
+    .some(key=>isSimulatedEvaluationEvidence(value[key]));
+}
+
+export function simulatedEvidenceBlocked(value, db = null) {
+  return !simulationConnections.has(db) && isSimulatedEvaluationEvidence(value);
+}
+
 export function independentGraderPair(left, right, answerDigestSha256 = null) {
   const a = left?.judge, b = right?.judge;
   const family = name => {
@@ -35,7 +63,8 @@ export function acceptedGraderPair(graders, answerDigestSha256 = null) {
 
 // A historical single-judge score remains visible in history, but it cannot
 // satisfy current collection readiness or qualify an operational decision.
-export function validGradingPair(grading, acceptedGraders, answerDigestSha256) {
+export function validGradingPair(grading, acceptedGraders, answerDigestSha256, db = null) {
+  if (simulatedEvidenceBlocked(grading,db) || simulatedEvidenceBlocked(acceptedGraders,db)) return false;
   if (grading?.version !== 2 || !Array.isArray(grading.graders)
     || grading.graders.length !== 2 || !grading.sourceCollectionRunId
     || !hash(grading.sourceCollectionSha256)) return false;
@@ -55,11 +84,12 @@ export function validGradingPair(grading, acceptedGraders, answerDigestSha256) {
 // path; it never silently falls back to one grader.
 export function validStoredGradingPair(db, grading, acceptedGraders, answerDigestSha256,
   role, contractSha256, score) {
-  if (!validGradingPair(grading,acceptedGraders,answerDigestSha256)) return false;
+  if (!validGradingPair(grading,acceptedGraders,answerDigestSha256,db)) return false;
   try {
     const source = db.prepare('SELECT * FROM model_evaluation_runs WHERE run_id=?')
       .get(grading.sourceCollectionRunId);
     const sourceMeta = JSON.parse(source?.metadata_json || '{}');
+    if (simulatedEvidenceBlocked(sourceMeta,db)) return false;
     if (source?.status !== 'BLOCKED' || source.role !== role
       || source.model_digest_sha256 !== answerDigestSha256
       || sourceMeta.collection?.status !== 'AWAITING_REVIEW'
@@ -76,6 +106,7 @@ export function validStoredGradingPair(db, grading, acceptedGraders, answerDiges
         || row.grader_acceptance_sha256 !== entry.payloadSha256
         || row.summary_sha256 !== entry.reviewSha256) return false;
       const summary = JSON.parse(row.summary_json);
+      if (simulatedEvidenceBlocked(summary,db)) return false;
       return digest(summary) === row.summary_sha256
         && (grading.adjudication ? Number.isFinite(summary.score) : summary.score === score)
         && summary.grading?.graderAcceptanceId === entry.id
@@ -94,6 +125,7 @@ export function validStoredGradingPair(db, grading, acceptedGraders, answerDiges
       || row.second_review_id !== grading.graders[1].reviewId
       || row.decision_sha256 !== a.sha256) return false;
     const decision = JSON.parse(row.decision_json);
+    if (simulatedEvidenceBlocked(decision,db)) return false;
     return digest(decision) === row.decision_sha256
       && decision.sourceRunId === grading.sourceCollectionRunId
       && decision.sourceSha256 === grading.sourceCollectionSha256

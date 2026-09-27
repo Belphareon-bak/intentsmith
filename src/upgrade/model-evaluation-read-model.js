@@ -4,7 +4,7 @@
 // versioned suite contract match. Timestamps are displayed, never converted
 // into an arbitrary freshness TTL. Legacy name-only rows cannot match.
 
-import { validStoredGradingPair } from '../eval/independent-grader-pair.js';
+import { validStoredGradingPair, simulatedEvidenceBlocked, isSimulatedEvaluationEvidence } from '../eval/independent-grader-pair.js';
 import {
   checkModelEvaluationApplicability,
   createRoleEvaluationPlans,
@@ -182,6 +182,7 @@ function decodeCurrentRow(row, includeTasks = true, includeResponses = false) {
       : row.error_code === 'EVALUATION_COLLECTION_PARTIAL' ? 'COLLECTION_PARTIAL' : row.status,
     collection: JSON.parse(row.metadata_json || '{}').collection || null,
     grading: JSON.parse(row.metadata_json || '{}').grading || null,
+    simulation:isSimulatedEvaluationEvidence({metadata:JSON.parse(row.metadata_json || '{}'),model_name:row.model_name}),
     providerVersion: row.provider_version || null,
     providerProvenance: row.provider_version ? 'RECORDED' : 'UNRECORDED',
     score: row.score == null ? null : Number(row.score),
@@ -231,6 +232,9 @@ function currentStatus(db, artifact, role, plan, providerVersion = null) {
   );
   if (row) {
     const result = decodeCurrentRow(row);
+    if (simulatedEvidenceBlocked({metadata:JSON.parse(row.metadata_json || '{}'),model_name:row.model_name},db))
+      return Object.freeze({...result,status:'BLOCKED',score:null,errorCode:'EVALUATION_SIMULATED_EVIDENCE',
+        errorMessage:'Simulované známky nejsou produkční evidence. Původní záznam zůstává v historii.'});
     if (plan.collectionOnly && row.status === 'COMPLETE') {
       const grading = JSON.parse(row.metadata_json || '{}').grading;
       if (!validStoredGradingPair(db,grading,plan.acceptance?.graders,artifact.digestSha256,role,
@@ -271,7 +275,8 @@ function decodeDecision(row, context) {
   ));
   let actionability = 'NOT_CANDIDATE_WIN';
   if (row.outcome === 'CANDIDATE') {
-    if (context.plan?.decisionReady !== true) actionability = 'EVALUATION_PROFILE_NOT_ACCEPTED';
+    if (isSimulatedEvaluationEvidence(details)) actionability = 'EVALUATION_SIMULATED_EVIDENCE';
+    else if (context.plan?.decisionReady !== true) actionability = 'EVALUATION_PROFILE_NOT_ACCEPTED';
     else if (typeof context.plan.qualificationForRuns === 'function' && (() => {
       const q = context.plan.qualificationForRuns({candidateRunId:row.candidate_run_id,incumbentRunId:row.incumbent_run_id});
       return !q || q.decision.verdict !== 'ZMENIT' || details.decision?.acceptanceId !== q.id

@@ -7,6 +7,10 @@ import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import vm from 'node:vm';
+import Database from 'better-sqlite3';
+import { ModelEvaluationHistory } from '../src/upgrade/model-evaluation-history.js';
+import { ModelEvaluationAcceptanceStore, acceptedOperationalDecision } from '../src/upgrade/model-evaluation-acceptance.js';
+import { registerEmptySimulationDatabase, validStoredGradingPair } from '../src/eval/independent-grader-pair.js';
 import { runHuntSimulation, ROLES } from '../scripts/manual/simulate-hunt-lifecycle.mjs';
 import { auditChatCaptureHistory } from '../src/eval/chat-capture-integrity.js';
 import { conversationGradingSuite } from '../src/eval/chat-conversation-suite.js';
@@ -64,6 +68,28 @@ test('whole transcript grading preserves cent scores, order identity, weighted a
     assert.equal(detail.grading.collectedAt,collection.completedAt);
     assert.equal(detail.grading.collectionDurationMs,collection.durationMs);
     assert.equal(detail.grading.adjudication.simulation,true);
+    // A copied/reopened rehearsal DB loses the connection-local exemption.
+    // Keep exact contracts, digests, hashes and scores: provenance alone closes
+    // authority, even if a caller supplies an otherwise accepted plan.
+    const copy=new Database(f.db.serialize());
+    try {
+      assert.throws(()=>registerEmptySimulationDatabase(copy),/REQUIRES_EMPTY_DATABASE/);
+      assert.throws(()=>new ModelEvaluationAcceptanceStore(copy).record(f.grader()),/EVALUATION_SIMULATED_EVIDENCE/);
+      const h=new ModelEvaluationHistory(copy);h.setProviderVersion(collection.metadata.provider.version);
+      assert.equal(h.getRun(final.runId).score,final.score);
+      assert.equal(h.getComplete({digestSha256:collection.artifact.digestSha256,role:'CHAT',
+        suiteName:f.plan.suiteName,suiteVersion:f.plan.suiteVersion,contractSha256:f.plan.suiteContractSha256}),null);
+      assert.equal(validStoredGradingPair(copy,detail.grading,f.plan.acceptance.graders,
+        collection.artifact.digestSha256,'CHAT',f.plan.suiteContractSha256,final.score),false);
+      const identity={role:'CHAT',suiteContractSha256:f.plan.suiteContractSha256,
+        taskNames:suite.tests.map(t=>t.name),runtimeSha256:f.plan.qualificationRuntimeSha256};
+      assert.equal(new ModelEvaluationAcceptanceStore(copy).resolve(identity).ready,false);
+      const copiedView=new ModelEvaluationReadModel(copy,{plans:{CHAT:f.plan}}).read({
+        inventory:[{name:collection.artifact.modelName,digestSha256:collection.artifact.digestSha256}]});
+      assert.equal(copiedView.models[0].evaluations.CHAT.score,null);
+      assert.equal(copiedView.models[0].evaluations.CHAT.errorCode,'EVALUATION_SIMULATED_EVIDENCE');
+      assert.equal(acceptedOperationalDecision({simulation:true,decision:{verdict:'ZMENIT'}}),null);
+    } finally {copy.close();}
     assert.equal(detail.tasks[0].details[0].conversation.transcript.length,6);
     assert.equal(typeof detail.tasks[0].details[0].adjudicationId,'string');
     assert.deepEqual(detail.tasks[0].details[0].criterionWeights,[.4,.3,.2,.1]);
@@ -114,6 +140,8 @@ test('final audit independently rejects missing user history even when capture c
     const tasks=Array.from({length:40},(_,i)=>({id:'t'+i,role:'CHAT',turns:['A='+i,'B=2','Sum?'],
       rubric:[{id:'sum',axis:'factual',requirement:'Compute sum',evidence:'Show calculation',excludes:'Format'}]}));
     save('tasks.json',tasks);
+    save('rubric-policy.json',{revision:'fixture-policy.1',instructions:['Fixture shared rule for both reviewers.']});
+    const policyArgs=['--rubric-policy',join(dir,'rubric-policy.json')];
     const pairs=['a','b'].map(model=>({model,artifact:{digestSha256:sha(model)}}));
     const policy={productionImported:false,bindings:false,deletion:false,timer:false};
     const plan={status:'SEALED',roles:['CHAT'],workingTreeDirty:false,sourceRevision:'fixture',captureReceiptVersion:2,
@@ -141,9 +169,16 @@ test('final audit independently rejects missing user history even when capture c
     execFileSync('python3',args);
     assert.equal(JSON.parse(readFileSync(join(dir,'audit.json'))).completeHistoryRequests,240);
     const exporter=new URL('../scripts/manual/export-chat-prod-canary-review.py',import.meta.url).pathname;
-    const exportArgs=[exporter,'--run',dir,'--tasks',join(dir,'tasks.json'),'--audit',join(dir,'audit.json'),'--out'];
+    const exportArgs=[exporter,...policyArgs,'--run',dir,'--tasks',join(dir,'tasks.json'),'--audit',join(dir,'audit.json'),'--out'];
     execFileSync('python3',[...exportArgs,join(dir,'review')]);
-    assert.equal(JSON.parse(readFileSync(join(dir,'review','packet.json'))).cases.length,80);
+    const exported=JSON.parse(readFileSync(join(dir,'review','packet.json')));
+    assert.equal(exported.cases.length,80);
+    assert.equal(exported.rubricPolicy.revision,'fixture-policy.1');
+    assert.equal(exported.rubricPolicy.instructions[0],'Fixture shared rule for both reviewers.');
+    assert.equal(JSON.parse(readFileSync(join(dir,'review','review-template.json'))).packetSha256,
+      sha(readFileSync(join(dir,'review','packet.json'))));
+    assert.match(readFileSync(join(dir,'review','review.html'),'utf8'),/Fixture shared rule for both reviewers/);
+    assert.match(readFileSync(join(dir,'review','REVIEWERS.md'),'utf8'),new RegExp(exported.rubricPolicySha256));
     const retryAttempt=JSON.parse(readFileSync(join(dir,'attempt-t1-'+sha('a').slice(0,8)+'.json')));
     const repair=structuredClone(retryAttempt.receipts[1]);
     repair.body.messages[1].content='OPRAV TO. Odpověz ZNOVU ČISTĚ ČESKY.\n\n'+repair.body.messages[1].content;
@@ -156,7 +191,7 @@ test('final audit independently rejects missing user history even when capture c
     assert.equal(retryAudit.completeHistoryRequests,241);
     assert.equal(retryAudit.baseProviderCalls,240);
     assert.equal(retryAudit.repairRetryCalls,1);
-    execFileSync('python3',[exporter,'--run',dir,'--tasks',join(dir,'tasks.json'),
+    execFileSync('python3',[exporter,...policyArgs,'--run',dir,'--tasks',join(dir,'tasks.json'),
       '--audit',join(dir,'retry-audit.json'),'--out',join(dir,'retry-review')]);
     const invalidArgs=[...args.slice(0,-1),join(dir,'invalid-retry-audit.json')];
     retryAttempt.receipts[2].turn=4;save('attempt-t1-'+sha('a').slice(0,8)+'.json',retryAttempt);
@@ -200,9 +235,9 @@ test('final audit independently rejects missing user history even when capture c
     assert.equal(JSON.parse(readFileSync(join(merged,'manifest.json'))).excludedPriorAttempts.length,2);
     execFileSync('python3',[script,'--run',merged,'--tasks',join(dir,'tasks.json'),'--out',join(dir,'merged-audit.json')]);
     assert.equal(JSON.parse(readFileSync(join(dir,'merged-audit.json'))).completeHistoryRequests,241);
-    assert.match(spawnSync('python3',[exporter,'--run',merged,'--tasks',join(dir,'tasks.json'),
+    assert.match(spawnSync('python3',[exporter,...policyArgs,'--run',merged,'--tasks',join(dir,'tasks.json'),
       '--out',join(dir,'unaudited-merged')],{encoding:'utf8'}).stderr,/FULL_PAIR_AUDIT_REQUIRED/);
-    execFileSync('python3',[exporter,'--run',merged,'--tasks',join(dir,'tasks.json'),
+    execFileSync('python3',[exporter,...policyArgs,'--run',merged,'--tasks',join(dir,'tasks.json'),
       '--audit',join(dir,'merged-audit.json'),'--out',join(dir,'merged-review')]);
     assert.equal(JSON.parse(readFileSync(join(dir,'merged-review','packet.json'))).cases.length,80);
     // A fresh source receipt cannot silently replace any of the 78 completed ones.
@@ -222,7 +257,7 @@ test('final audit independently rejects missing user history even when capture c
     const altered=spawnSync('python3',[...exportArgs,join(dir,'altered-review')],{encoding:'utf8'});
     assert.notEqual(altered.status,0);assert.match(altered.stderr,/ATTEMPT_AUDIT_HASH_MISMATCH/);
     const oldAudit=JSON.parse(readFileSync(join(dir,'audit.json')));delete oldAudit.completeHistoryRequests;save('old-audit.json',oldAudit);
-    const stale=spawnSync('python3',[exporter,'--run',dir,'--tasks',join(dir,'tasks.json'),
+    const stale=spawnSync('python3',[exporter,...policyArgs,'--run',dir,'--tasks',join(dir,'tasks.json'),
       '--audit',join(dir,'old-audit.json'),'--out',join(dir,'stale-review')],{encoding:'utf8'});
     assert.notEqual(stale.status,0);assert.match(stale.stderr,/FULL_PAIR_AUDIT_MISMATCH/);
     const rejected=spawnSync('python3',[...args.slice(0,-1),join(dir,'bad-audit.json')],{encoding:'utf8'});

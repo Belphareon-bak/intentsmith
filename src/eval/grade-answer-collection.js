@@ -2,7 +2,7 @@
 // never regenerates an answer, changes a binding or imports a user-supplied mean.
 import { acceptanceHash } from '../upgrade/model-evaluation-acceptance.js';
 import { randomUUID } from 'node:crypto';
-import { acceptedGraderPair } from './independent-grader-pair.js';
+import { acceptedGraderPair, simulatedEvidenceBlocked } from './independent-grader-pair.js';
 import { SemanticEvaluationJudge } from './semantic-evaluation-judge.js';
 
 const fail = code => { throw Object.assign(new Error(code), { code }); };
@@ -391,6 +391,7 @@ function persist({ history, plan, collection, summary }) {
 // disputed criterion. The two first judgements remain immutable. This path
 // never asks a model for a third opinion or guesses an average.
 export function persistAdjudicatedCollection({history,plan,collection,decision}) {
+  if (simulatedEvidenceBlocked(decision,history._db)) fail('EVALUATION_SIMULATED_EVIDENCE');
   const previousProviderVersion = history.providerVersion;
   try { return history._db.transaction(() => {
     const source = history.getRun(collection.runId);

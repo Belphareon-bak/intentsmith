@@ -3,8 +3,7 @@
 Aktuální implementační důkaz (27. 9.): [simulovaný průchod a revizní matice](review/2026-09-27-HUNT-COMPLETION-SIMULATION.md). **SIMULATION_PASS není produkční GO.**
 
 Aktuální skutečné měření (27. 9.): [opravený CHAT, 80 dialogů a nový posudek](review/2026-09-27-HUNT-CHAT-REFERENCE-MILESTONE.md).
-První posudek je úplný, druhý nový posudek a přejímka zbývají. Staré
-CHAT známky z vadného předávání historie se nepřenášejí.
+Oba skutečné externí posudky jsou úplné: [porovnání 320 kritérií a opravy přejímky](review/2026-09-27-HUNT-REAL-SECOND-REVIEW.md). Zbývá rozsouzení a přejímka lokální dvojice; nejde o finální pořadí. Staré CHAT známky z vadné historie se nepřenášejí.
 
 **Datum:** 24. 9. 2026. **Adresát:** operátor a implementátor huntu.
 **Stav:** úplný návrh cílového provozu k revizi; **není implementační GO**.

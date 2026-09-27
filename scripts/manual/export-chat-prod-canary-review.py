@@ -26,10 +26,19 @@ def main():
     parser.add_argument('--tasks',type=Path,required=True)
     parser.add_argument('--out',type=Path,required=True)
     parser.add_argument('--audit',type=Path)
+    parser.add_argument('--rubric-policy',type=Path,required=True,
+        help='Frozen shared rubric policy (or fixture containing rubricPolicy), identical for both reviewers')
     args=parser.parse_args()
     plan,plan_file_sha=read(args.run/'plan.json')
     result,result_sha=read(args.run/'result.json')
     tasks,tasks_sha=read(args.tasks)
+    policy_source,policy_source_sha=read(args.rubric_policy)
+    policy=policy_source.get('rubricPolicy',policy_source)
+    if not (isinstance(policy.get('revision'),str) and policy['revision'].strip()
+            and isinstance(policy.get('instructions'),list) and policy['instructions']
+            and all(isinstance(line,str) and line.strip() for line in policy['instructions'])):
+        raise SystemExit('SHARED_RUBRIC_POLICY_REQUIRED')
+    policy_sha=sha(json.dumps(policy,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode())
     if result['status']!='COLLECTION_COMPLETE' or len(result['attempts'])!=2*len(tasks) or result['unattempted']:
         raise SystemExit('CANARY_NOT_COMPLETE')
     if plan['profile']['CHAT'].find('fixed to 4096')<0 or len(plan['pairs']['CHAT'])!=2 or not tasks or len({t['id'] for t in tasks})!=len(tasks):
@@ -104,6 +113,8 @@ def main():
     packet={'schemaVersion':1,'status':'DEVELOPMENT_BLIND_REVIEW','decisionAuthority':False,
         'notFreshHoldout':True,'providerVersion':plan['providerVersion'],
         'sourcePlanSha256':plan['planSha256'],'sourceResultSha256':result_sha,
+        'reviewPolicyVersion':'chat-review-shared-policy.1',
+        'rubricPolicy':policy,'rubricPolicySha256':policy_sha,
         'limitations':['Known development scenarios; not a new holdout.',
             'Original unequal-context canary is diagnostic and is not pooled with these answers.',
             'Model-specific prior turns differ naturally; all user turns, handler code and request options are matched.'],
@@ -126,6 +137,8 @@ def main():
     body=['<!doctype html><html lang="cs"><meta charset="utf-8"><title>CHAT · produkční canary k hodnocení</title><style>body{background:#111;color:#eee;font:15px/1.5 system-ui;max-width:1150px;margin:auto;padding:24px}article{background:#1c1c1c;border:1px solid #554b3b;padding:16px;margin:20px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#090909;padding:16px;max-height:650px;overflow:auto}textarea,input{background:#292929;color:#fff;border:1px solid #8b7755;padding:6px}textarea{width:90%}label{display:block;margin:8px 0}button{background:#e6b665;padding:9px}</style><h1>CHAT · skutečný produkční handler</h1>',
         f'<p>{len(cases)} dialogů · dvě anonymní odpovědi na stejnou úlohu · stejné skutečné num_ctx=4096 · packet SHA256 <code>{packet_sha}</code>. Vývojové případy, bez rozhodovací autority. Pokud identitu či předchozí známku znáš, přiznej expozici v review.</p>',
         '<label>Hodnotitel <input id="reviewer"></label><label>Předchozí expozice identitám nebo známkám <textarea id="exposure" rows="2"></textarea></label><button id="export">Stáhnout posudek JSON</button>']
+    body.append(f'<h2>Společná verzovaná pravidla pro oba hodnotitele</h2><p>SHA256 {policy_sha}. Změna pravidel vyžaduje nový posudek, původní známky se nepřepisují.</p><pre>{html.escape(json.dumps(policy,ensure_ascii=False,indent=2))}</pre>')
+    if full_original: body.append(f'<p>Fakt sběru: místní datum systémových hodin {html.escape(audit["localDate"])}. Správnost konkrétních dat ověřte podle zadání a kalendáře.</p>')
     for c in cases:
         body.append(f"<article><h2>{html.escape(c['task'])} · odpověď {c['label']}</h2><small>{c['id']}</small><details><summary>Celé zadání</summary><pre>{html.escape(c['question'])}</pre></details><h3>Celý dialog</h3><pre>{html.escape(c['response'])}</pre>")
         for i,text in enumerate(c['rubric']):
@@ -136,6 +149,17 @@ def main():
     args.out.mkdir(mode=0o700)
     write_new(args.out/'packet.json',output)
     write_new(args.out/'review.html','\n'.join(body))
+    write_new(args.out/'review-template.json',json.dumps(review_template,ensure_ascii=False,indent=2)+'\n')
+    write_new(args.out/'REVIEWERS.md',f'''# Stejné podklady pro oba hodnotitele
+
+Použijte packet.json ({packet_sha}) a review-template.json.
+Celá rubrika je v cases[].rubric a rubricPolicy ({policy_sha}); stejný obsah zobrazuje review.html.
+Posuzujte samostatně, bez klíče identit a bez známek druhého hodnotitele.
+Přiznejte předchozí expozici. Ke každé známce připojte důvod a přesný tah/citaci.
+Nejasné pravidlo označte a zdůvodněte; nepřidávejte vlastní obecné pravidlo v průvodních instrukcích.
+Změna společné rubriky znamená nový packet SHA a nové, oddělené posudky pro oba hodnotitele.
+Staré známky se na tento packet nepřevádějí změnou jejich SHA.
+''')
     restricted=args.out/'restricted';restricted.mkdir(mode=0o700)
     identity={'packetSha256':packet_sha,'cases':key}
     if plan.get('status') == 'DERIVED_MERGED_VIEW':
@@ -146,6 +170,7 @@ def main():
     write_new(restricted/'identity-key.json',json.dumps(identity,indent=2)+'\n')
     write_new(args.out/'manifest.json',json.dumps({'status':'NOT_GRADED','packetSha256':packet_sha,
         'planFileSha256':plan_file_sha,'resultSha256':result_sha,'taskInputSha256':tasks_sha,
+        'rubricPolicySourceSha256':policy_source_sha,'rubricPolicySha256':policy_sha,
         'attemptFileSha256':receipts,'collectionAuditSha256':audit_sha,'decisionAuthority':False},indent=2)+'\n')
     print(json.dumps({'status':'EXPORTED_NOT_GRADED','cases':len(cases),'packetSha256':packet_sha,'out':str(args.out)}))
 

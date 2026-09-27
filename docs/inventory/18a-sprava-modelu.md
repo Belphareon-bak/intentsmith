@@ -1,5 +1,7 @@
 # Inventura #18a — Správa modelů
 
+**GPU hunt — skutečná dvojice CHAT posudků, 27. 9. 2026:** 80 dialogů / 320 kritérií u každého hodnotitele, 19 rozdílů nad 0,25. Nové exporty předávají oběma celou verzovanou rubriku. Produkční přejímka a rozhodovací cesta odmítají simulovanou evidenci; simulace zůstává dostupná jen v izolovaném spojení nad novou DB. **REVIEW_PENDING / NOT_DEPLOYED / REAL_NO_GO.** [Podklady a ověření](../review/2026-09-27-HUNT-REAL-SECOND-REVIEW.md).
+
 **GPU hunt — autorizované dokončení simulace, 27. 9. 2026:**
 Operátor povolil simulovat svůj i Opusův posudek pro celkovou revizi. Nově je
 implementované hodnocení celých CHAT rozhovorů, setinové rozsouzení s vahami

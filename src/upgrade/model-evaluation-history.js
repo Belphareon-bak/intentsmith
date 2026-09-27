@@ -7,7 +7,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { DEFAULT_MODEL_EVALUATION_OPTIONS } from '../eval/model-evaluation-runner.js';
 import { ModelEvaluationAcceptanceStore, qualificationRuntimeSha256 } from './model-evaluation-acceptance.js';
-import { validStoredGradingPair } from '../eval/independent-grader-pair.js';
+import { validStoredGradingPair, simulatedEvidenceBlocked } from '../eval/independent-grader-pair.js';
 import {
   canonicalModelName,
   normalizeModelDigestSha256,
@@ -218,6 +218,7 @@ export class ModelEvaluationHistory {
     `).all(digestSha256, suiteName, suiteVersion, contractSha256, role, this.providerVersion);
     for (const row of rows) {
       const decoded = this.#decode(row), grading = decoded.metadata?.grading;
+      if (simulatedEvidenceBlocked(decoded,this._db)) continue;
       if (grading) {
         const acceptance = new ModelEvaluationAcceptanceStore(this._db).resolve({role,
           suiteContractSha256:contractSha256,taskNames:decoded.tasks.map(t=>t.name),runtimeSha256:qualificationRuntimeSha256()});

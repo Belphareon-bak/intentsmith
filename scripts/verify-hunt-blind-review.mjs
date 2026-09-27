@@ -23,6 +23,15 @@ export function verifyHuntBlindReview(packetBytes, review) {
     && packet.notAHoldout === true;
   if ((!legacyPacket && !completePacket) || packet.decisionAuthority !== false
     || !Array.isArray(packet.cases) || packet.cases.length === 0) fail('PACKET_SCOPE');
+  if (packet.reviewPolicyVersion !== undefined) {
+    const policy=packet.rubricPolicy;
+    const canonical=JSON.stringify(policy,(_key,value)=>value && typeof value === 'object' && !Array.isArray(value)
+      ? Object.fromEntries(Object.keys(value).sort().map(key=>[key,value[key]])) : value);
+    if (packet.reviewPolicyVersion!=='chat-review-shared-policy.1' || !policy?.revision
+      || !Array.isArray(policy.instructions) || !policy.instructions.length
+      || policy.instructions.some(x=>typeof x!=='string' || !x.trim())
+      || sha256(canonical)!==packet.rubricPolicySha256) fail('SHARED_RUBRIC_POLICY');
+  }
   const legacyReview = review?.schemaVersion === 1
     && ['DRAFT_BLIND_REVIEW', 'DRAFT_EXPOSURE_RECORDED'].includes(review.status)
     && Array.isArray(review.cases) && review.cases.length === packet.cases.length;

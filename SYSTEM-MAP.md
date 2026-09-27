@@ -1,5 +1,7 @@
 # IntentSmith — mapa systému
 
+**GPU hunt — skutečná dvojice CHAT posudků, 27. 9. 2026:** 80 dialogů / 320 kritérií u každého hodnotitele, 19 rozdílů nad 0,25. Nové exporty předávají oběma celou verzovanou rubriku. Produkční přejímka a rozhodovací cesta odmítají simulovanou evidenci; simulace zůstává dostupná jen v izolovaném spojení nad novou DB. **REVIEW_PENDING / NOT_DEPLOYED / REAL_NO_GO.** [Podklady a ověření](docs/review/2026-09-27-HUNT-REAL-SECOND-REVIEW.md).
+
 **GPU hunt — autorizované dokončení simulace, 27. 9. 2026:**
 Operátor povolil simulovat svůj i Opusův posudek pro celkovou revizi. Nově je
 implementované hodnocení celých CHAT rozhovorů, setinové rozsouzení s vahami
@@ -767,7 +769,7 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **230 152 ř.**, 664 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **230 199 ř.**, 664 `.js` souborů v pracovním kandidátu |
 | `tests/**/*.js` | **249 972 ř.**, 536 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **542** (`448 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 106** |
@@ -775,7 +777,7 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
 
 Aktuální registry fingerprint je
-`127ed6e320f05fdb785b5e9066099ee79fa2a7dd866d26bb6b04ac2b3191b464`.
+`b266548edfcff284695899c29d7395576c5eab80e5ed3772a051d831b1ac645b`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 

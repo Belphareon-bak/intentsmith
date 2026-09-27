@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { verifyHuntBlindReview, compareHuntBlindReviews } from '../scripts/verify-hunt-blind-review.mjs';
+import { compareChatPair } from '../scripts/manual/compare-chat-review-pair.mjs';
 
 const packet=Buffer.from(JSON.stringify({schemaVersion:1,status:'DEVELOPMENT_BLIND_REVIEW',
   decisionAuthority:false,notFreshHoldout:true,cases:[
@@ -21,6 +22,39 @@ test('complete grounded draft validates but never becomes accepted evidence',()=
   assert.equal(result.criteria,3);
   assert.equal(result.decisionAuthority,false);
   assert.equal(result.acceptedGrader,false);
+});
+
+test('a shared grading policy is part of the packet identity and cannot be silently changed',()=>{
+  const value=JSON.parse(packet),r=review();
+  value.reviewPolicyVersion='chat-review-shared-policy.1';
+  value.rubricPolicy={instructions:['Both reviewers apply this rule.'],revision:'policy.1'};
+  value.rubricPolicySha256=createHash('sha256').update(JSON.stringify(value.rubricPolicy)).digest('hex');
+  let bytes=Buffer.from(JSON.stringify(value));
+  r.packetSha256=createHash('sha256').update(bytes).digest('hex');
+  assert.equal(verifyHuntBlindReview(bytes,r).cases,2);
+  assert.throws(()=>verifyHuntBlindReview(bytes,review()),/REVIEW_HEADER/);
+  value.rubricPolicy.instructions=['Changed rule'];bytes=Buffer.from(JSON.stringify(value));
+  r.packetSha256=createHash('sha256').update(bytes).digest('hex');
+  assert.throws(()=>verifyHuntBlindReview(bytes,r),/SHARED_RUBRIC_POLICY/);
+});
+
+test('external CHAT comparison keeps two scores, exact digests and priority reasons without granting authority',()=>{
+  const value=JSON.parse(packet);
+  value.cases=value.cases.map((c,i)=>({...c,role:'CHAT',task:'cs_example',label:i?'B':'A',
+    rubric:['factual','usefulness','conversation','communication'].map(axis=>`Test [${axis}]: evidence`)}));
+  const packetBytes=Buffer.from(JSON.stringify(value)),packetSha256=createHash('sha256').update(packetBytes).digest('hex');
+  const a={...review('A'),packetSha256,cases:value.cases.map(c=>({id:c.id,ratings:[1,.5,1,1],reasons:['a','b','c','d']}))};
+  const b=structuredClone(a);b.reviewer='B';b.cases[0].ratings[0]=.5;
+  const identities={packetSha256,cases:value.cases.map((c,i)=>({id:c.id,model:`model-${i}`,digestSha256:String(i).repeat(64)}))};
+  const result=compareChatPair({packetBytes,first:a,second:b,identities});
+  assert.equal(result.decisionAuthority,false);assert.equal(result.simulation,false);
+  assert.equal(result.comparison.disagreementAboveQuarter,1);
+  assert.equal(result.models[0].first.weighted,.85);
+  assert.equal(result.models[0].second.weighted,.65);
+  assert.equal(result.cases[0].priorityReasons[0].kind,'DISAGREEMENT');
+  assert.equal(result.cases[1].priorityReasons[0].kind,'POST_REVIEW_HASH_SAMPLE');
+  assert.throws(()=>compareChatPair({packetBytes,first:a,second:b,
+    identities:{...identities,packetSha256:'wrong'}}),/IDENTITY_MISMATCH/);
 });
 
 test('grounded hundredth-step grades are valid but arbitrary precision and out-of-range scores are rejected',()=>{

@@ -12,6 +12,7 @@ import { ModelEvaluationHistory, suiteContract } from '../../src/upgrade/model-e
 import { createRoleEvaluationPlans } from '../../src/eval/role-evaluation-plan.js';
 import { semanticAcceptancePlanHash, semanticGraderContract } from '../../src/eval/semantic-grader-acceptance.js';
 import { codePilotPlanHash } from '../../src/eval/code-pilot-decision.js';
+import { registerEmptySimulationDatabase } from '../../src/eval/independent-grader-pair.js';
 const A='a'.repeat(64), B='b'.repeat(64), H='c'.repeat(64), J='d'.repeat(64), K='e'.repeat(64);
 const provider='0.0.0-simulation-no-inference', judgeArtifact={modelName:'qwen2.5:simulation-judge-a',digestSha256:J,providerVersion:provider};
 const secondJudgeArtifact={modelName:'gemma2:simulation-judge-b',digestSha256:K,providerVersion:provider};
@@ -20,7 +21,7 @@ const review={reviewer:'SIMULATED operator, not a human review',reference:'fixtu
 const envelope=(kind,evidence)=>({schemaVersion:1,kind,role:evidence.role,contractSha256:evidence.contractSha256,evidence,
   review:{...review,evidenceSha256:acceptanceHash(evidence)}});
 function fixture(role='D1', databasePath=':memory:', customSuite=null, repeats=1) {
-  const db=new Database(databasePath);up(db);
+  const db=new Database(databasePath);registerEmptySimulationDatabase(db);up(db);
   db.exec(`CREATE TABLE model_evaluation_runs (run_id TEXT PRIMARY KEY,model_name TEXT,model_canonical_name TEXT,
     model_digest_sha256 TEXT,suite_name TEXT,suite_version TEXT,suite_contract_sha256 TEXT,role TEXT,status TEXT,
     score REAL,passed INTEGER,total INTEGER,repeats INTEGER,duration_ms INTEGER,tokens_per_second REAL,vram_bytes INTEGER,
