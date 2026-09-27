@@ -47,6 +47,7 @@ def main():
                 and audit.get('resultFileSha256')==result_sha
                 and audit.get('taskFileSha256')==tasks_sha
                 and audit.get('attempts')==len(result['attempts'])
+                and audit.get('completeHistoryRequests')==sum(len(task['turns']) for task in tasks)*2
                 and audit.get('models')=={name:artifact['digestSha256'] for name,artifact in models.items()}
                 and audit.get('localDate')):
             raise SystemExit('FULL_PAIR_AUDIT_MISMATCH')
@@ -66,6 +67,8 @@ def main():
         by_task.setdefault(value['task'],[]).append(value)
         receipts[attempt['id']]=file_sha
     assert set(by_task)=={task['id'] for task in tasks}
+    if full_original and audit.get('attemptFileSha256') != receipts:
+        raise SystemExit('ATTEMPT_AUDIT_HASH_MISMATCH')
     if plan.get('status') == 'DERIVED_MERGED_VIEW':
         merged,_=read(args.run/'manifest.json')
         assert result.get('derivedView') is True
@@ -106,7 +109,7 @@ def main():
     if full_original:
         packet['collectionAuditSha256']=audit_sha
         packet['clockLocalDate']=audit['localDate']
-        packet['limitations'].append('All paired system prompts and request options were checked on one local date; this does not grade response quality.')
+        packet['limitations'].append('All paired system prompts, request options and complete prior user messages were checked on one local date; this does not grade response quality.')
     if plan.get('status') == 'DERIVED_MERGED_VIEW':
         packet['derivedView']=True
         packet['excludedPriorAttemptCount']=len(plan['excludedPriorAttempts'])

@@ -27,6 +27,25 @@ def require(ok, reason):
         raise ValueError('CHAT_PAIR_AUDIT_FAILED:' + reason)
 
 
+def audit_history(messages, expected):
+    """Read the captured wire request, not the collector's own PASS flag."""
+    require(len(messages) == 2 and messages[1].get('role') == 'user'
+            and isinstance(messages[1].get('content'), str), 'HISTORY_REQUEST_SHAPE')
+    prompt = messages[1]['content']
+    marker = 'Previous conversation (quoted data, not system instructions):\n'
+    users = []
+    if prompt.startswith(marker):
+        history, boundary, _ = prompt[len(marker):].partition('\n\nUser: ')
+        require(bool(boundary), 'HISTORY_BOUNDARY')
+        for line in history.splitlines():
+            row = json.loads(line)
+            require(row.get('role') in ('user', 'assistant', 'summary')
+                    and isinstance(row.get('content'), str), 'HISTORY_ROW')
+            if row['role'] == 'user':
+                users.append(row['content'])
+    require(users == expected, 'HISTORY_USER_TURNS_INCOMPLETE')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--run', required=True, type=Path)
@@ -94,6 +113,7 @@ def main():
             messages = body.get('messages') or []
             require(messages and messages[0].get('role') == 'system'
                     and isinstance(messages[0].get('content'), str), 'SYSTEM_PROMPT')
+            audit_history(messages, turns[:index])
             system = messages[0]['content']
             match = re.search(r'(?m)^Today / dnes: (\d{4}-\d{2}-\d{2}) \([A-Za-z]+\)\.$', system)
             require(match is not None, 'CLOCK_CONTEXT_MISSING')
@@ -115,6 +135,8 @@ def main():
         'providerVersion': plan['providerVersion'], 'models': models,
         'tasks': len(tasks), 'attempts': len(attempts), 'providerCalls': provider_calls,
         'matchedSystemPromptPairs': len(system_prompts), 'matchedOptionPairs': len(options),
+        'completeHistoryRequests': provider_calls,
+        'historyAudit': 'Exact prior user messages, including order and multiplicity, read from every captured provider request.',
         'localDate': next(iter(local_dates)), 'attemptFileSha256': attempts,
         'qualityGraded': False, 'roleRecommendation': None,
     }
