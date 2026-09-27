@@ -243,6 +243,7 @@ záznamu selže v `artifact-validation`.
 | `2026_09_18_115_intentsmith_setting_names.js` | zadání operátora 2026-09-18 — přejmenování nastavení; staré klíče a explicitní nové hodnoty zachované |
 | `2026_09_19_116_model_evaluation_acceptance.js` | zadání operátora 2026-09-19 — odvozená rozhodovací způsobilost z přijaté evidence; append-only přejímky a odvolání |
 | `2026_09_23_117_development_installations.js` | 117 | Projektové instalace, explicitní policy a audit |
+| `2026_09_25_120_studio_scm.js` | 120 | Studio 2: projektová politika pro řízené operace Git |
 <!-- migration-source-manifest:end -->
 
 ## Navazující M7 rezervace 2026-08-29

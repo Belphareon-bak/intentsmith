@@ -12,10 +12,10 @@
     "clientProjection": "src/mobile/client/m7-runtime-contract-v1.js",
     "requirementsStage": "CANDIDATE_NOT_ACCEPTED"
   },
-  "routeDigest": "a42fa20fdf1f00440e1c5ca3bc8e74c0f3d753bdbf628a0e46f0897bab9e40cb",
-  "inventoryDigest": "d6f62a091765e382365d705afdc20f0bcd24a8c08eb6f5a647bce541f8001b24",
+  "routeDigest": "eb31d3ca0ee4dc6a8f65914e23fb674aa70b436fc06227a3087ba428357c3a09",
+  "inventoryDigest": "91691bb23dd20166759320a077b4d6f8064b4e544f5bd3a36dc2da6dc76a0231",
   "summary": {
-    "desktopRouteDeclarations": 258,
+    "desktopRouteDeclarations": 273,
     "legacyM1Declarations": 0,
     "m7TransportRoutes": 7,
     "m7Operations": 17,
@@ -344,6 +344,20 @@
       "path": "/api/conversations/:id/assign",
       "sources": [
         "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/conversations/:id/expertises",
+      "sources": [
+        "src/routes/expertises.js"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/conversations/:id/expertises",
+      "sources": [
+        "src/routes/expertises.js"
       ]
     },
     {
@@ -824,6 +838,13 @@
       ]
     },
     {
+      "method": "POST",
+      "path": "/api/media/input-image",
+      "sources": [
+        "src/routes/media.js"
+      ]
+    },
+    {
       "method": "GET",
       "path": "/api/media/models",
       "sources": [
@@ -1182,6 +1203,76 @@
     },
     {
       "method": "GET",
+      "path": "/api/scm/branches",
+      "sources": [
+        "src/routes/scm.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/scm/cancel",
+      "sources": [
+        "src/routes/scm.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/scm/diff",
+      "sources": [
+        "src/routes/scm.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/scm/execute",
+      "sources": [
+        "src/routes/scm.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/scm/log",
+      "sources": [
+        "src/routes/scm.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/scm/operations",
+      "sources": [
+        "src/routes/scm.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/scm/policy",
+      "sources": [
+        "src/routes/scm.js"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/scm/policy",
+      "sources": [
+        "src/routes/scm.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/scm/prepare",
+      "sources": [
+        "src/routes/scm.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/scm/status",
+      "sources": [
+        "src/routes/scm.js"
+      ]
+    },
+    {
+      "method": "GET",
       "path": "/api/security/audit",
       "sources": [
         "src/routes/security.js"
@@ -1451,6 +1542,20 @@
       "path": "/api/storage/info",
       "sources": [
         "src/routes/misc.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/studio2/workspace/entry",
+      "sources": [
+        "src/routes/studio2-workspace.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/studio2/workspace/operation",
+      "sources": [
+        "src/routes/studio2-workspace.js"
       ]
     },
     {

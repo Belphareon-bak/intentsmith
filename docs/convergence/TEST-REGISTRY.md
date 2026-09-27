@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 532
-- Explicit support-module exclusions: 21
-- Profiles: offline=289, database=78, server=48, model=82, soak=15, manual=20
-- States: ACTIVE=438, HISTORICAL=15, BLOCKED=79
+- Runnable programs: 552
+- Explicit support-module exclusions: 22
+- Profiles: offline=306, database=80, server=49, model=82, soak=15, manual=20
+- States: ACTIVE=458, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -510,6 +510,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-SCENARIO-ENGINE-TEST` | `tests/scenario-engine.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SCHEDULER-TEST` | `tests/scheduler.test.js` | `C3-015` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SCHEMA-MIGRATIONS-TEST` | `tests/schema-migrations.test.js` | `C3-024` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-SCM-STUDIO-TEST` | `tests/scm-studio.test.js` | `C3-005` | T1 | `database` | 2 s | 1 min | network:none, temp-db, toolchain:git | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-SCOPE-LIMITER-TEST` | `tests/scope-limiter.test.js` | `C3-007` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SEARCH-QUALITY-A123-TEST` | `tests/search-quality-a123.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SECURITY-HARDENING-V126-TEST` | `tests/security-hardening-v126.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
@@ -542,6 +543,24 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-STUDIO-ELECTRON-RUNNER-CONTRACT-TEST` | `tests/studio-electron-runner-contract.test.js` | `C3-001` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T5-TESTS-STUDIO-M1-ELECTRON-JOURNEY-E2E` | `tests/studio-m1-electron-journey.e2e.js` | `C3-001` | T5 | `server` | 2 min | 5 min | network:loopback, temp-db, toolchain:linux-user-network-namespace, toolchain:iproute2, toolchain:x11-display | yes | `ACTIVE` | — | primary implementer |
 | `IS-T5-TESTS-STUDIO-M2-COMPOSER-DOM-E2E` | `tests/studio-m2-composer-dom.e2e.js` | `C3-001` | T5 | `server` | 2 min | 5 min | network:loopback, temp-db, toolchain:linux-user-network-namespace, toolchain:iproute2, toolchain:x11-display | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-STUDIO2-APPEARANCE-TEST` | `tests/studio2-appearance.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
+| `IS-T1-TESTS-STUDIO2-ATTACHMENTS-TEST` | `tests/studio2-attachments.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
+| `IS-T1-TESTS-STUDIO2-CATALOG-STORE-TEST` | `tests/studio2-catalog-store.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
+| `IS-T1-TESTS-STUDIO2-CONVERSATION-VIEW-TEST` | `tests/studio2-conversation-view.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
+| `IS-T5-TESTS-STUDIO2-EXCLUSIVE-UI-E2E` | `tests/studio2-exclusive-ui.e2e.js` | `C3-001` | T5 | `server` | 2 min | 5 min | network:loopback, temp-db, toolchain:linux-user-network-namespace, toolchain:iproute2, toolchain:x11-display | yes | `ACTIVE` | — | WP-STUDIO-2 S2-0 |
+| `IS-T1-TESTS-STUDIO2-EXPERTISE-SELECTION-TEST` | `tests/studio2-expertise-selection.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
+| `IS-T1-TESTS-STUDIO2-FEEDBACK-TEST` | `tests/studio2-feedback.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
+| `IS-T1-TESTS-STUDIO2-LEARNING-TEST` | `tests/studio2-learning.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
+| `IS-T1-TESTS-STUDIO2-LIVE-MODEL-TEST` | `tests/studio2-live-model.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
+| `IS-T1-TESTS-STUDIO2-M2-TEST` | `tests/studio2-m2.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
+| `IS-T1-TESTS-STUDIO2-MEDIA-INPUT-TEST` | `tests/studio2-media-input.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
+| `IS-T1-TESTS-STUDIO2-MODEL-WORKSPACE-TEST` | `tests/studio2-model-workspace.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
+| `IS-T1-TESTS-STUDIO2-SECURITY-TEST` | `tests/studio2-security.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
+| `IS-T1-TESTS-STUDIO2-SESSION-STORE-TEST` | `tests/studio2-session-store.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
+| `IS-T1-TESTS-STUDIO2-SPECIALIST-CREATE-TEST` | `tests/studio2-specialist-create.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
+| `IS-T1-TESTS-STUDIO2-TRANSPORT-TEST` | `tests/studio2-transport.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
+| `IS-T1-TESTS-STUDIO2-VIEW-TEST` | `tests/studio2-view.test.js` | `C3-005` | T1 | `offline` | 5 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
+| `IS-T1-TESTS-STUDIO2-WORKSPACE-FILES-TEST` | `tests/studio2-workspace-files.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-SYMBOL-INDEX-TEST` | `tests/symbol-index.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-TASK-MEMORY-TEST` | `tests/task-memory.test.js` | `C3-016` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-TELEMETRY-AGGREGATION-VERSION-TEST` | `tests/telemetry-aggregation-version.test.js` | `C3-027` | T2 | `database` | 1 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
@@ -565,6 +584,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T3-TESTS-WORKFLOW-ORCHESTRATOR-TEST` | `tests/workflow-orchestrator.test.js` | `C3-027` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-WORKFLOW-TEST` | `tests/workflow.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-WORKSPACE-BUDGET-TEST` | `tests/workspace-budget.test.js` | `C3-027` | T1 | `offline` | 1 s | 30 s | network:none, toolchain:git | yes | `ACTIVE` | — | WP-WORKSPACE-BUDGET-INTEGRATION |
+| `IS-T1-TESTS-WORKSPACE-TREE-PROJECT-ID-TEST` | `tests/workspace-tree-project-id.test.js` | `C3-005` | T1 | `database` | 2 s | 1 min | network:none, temp-db, toolchain:git | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-WS-BRIDGE-TEST` | `tests/ws-bridge.test.js` | `C3-023` | T1 | `offline` | 30 s | 2 min | network:loopback | yes | `ACTIVE` | — | primary implementer |
 
 ## Explicit support-module exclusions
@@ -595,6 +615,7 @@ ledger.
 | `tests/helpers/m7-durable-rate-limit-racer.js` | Suite-owned cross-process SQLite race helper launched only by m7-durable-rate-limiter.test.js. |
 | `tests/helpers/ollama-loopback-fetch-boundary.js` | Imported fail-closed M6 model-test transport boundary, not a standalone test. |
 | `tests/helpers/studio-m2-composer-dom.js` | Explicit visual DOM probe invoked only by studio-m2-composer-dom.e2e.js through the shared Electron harness; not a standalone suite. |
+| `tests/helpers/studio2-ui-mode.js` | Imported Electron DOM mode-switch probe; its direct assertions run in studio2-exclusive-ui.e2e.js. |
 | `tests/run-all.js` | Aggregate compatibility entry point; registering it as a child suite would recurse into the registry runner. |
 
 Required fields per run: exact command and commit, clean-tree status, start/end

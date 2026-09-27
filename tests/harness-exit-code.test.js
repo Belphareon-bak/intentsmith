@@ -431,7 +431,15 @@ try {
   // 132 -> 133: sazeni-integration also starts with the isolation bootstrap.
   // 133 -> 134: project-collaboration imports the real project/controller graph;
   // its first import is isolated-test-db.js and it owns every HTTP child server.
-  const expectedDatabaseReachableRootTests = 134;
+  // 134 -> 135: the Studio 2 specialist package test creates a temporary
+  // directory and imports the isolation bootstrap before the route under test.
+  // 135 -> 136: Studio 2 live-model tests now exercise the expertise route;
+  // its first import provides the same isolated database bootstrap.
+  // 136 -> 138: Studio 2 expertise selection and media input tests both import
+  // the isolated database bootstrap before their production database imports.
+  // 138 -> 139: the workspace tree regression test resolves project_id through
+  // the real database module after importing the isolated bootstrap first.
+  const expectedDatabaseReachableRootTests = 139;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,
