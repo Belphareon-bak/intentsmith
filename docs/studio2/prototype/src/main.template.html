@@ -22,7 +22,7 @@ html,body{margin:0;height:100%;overflow:hidden}
 .ff-system{--font-ui:system-ui,-apple-system,"Segoe UI","Noto Sans",sans-serif}
 .fs-10{--fs:10px;--fc:11px;--rfs:8.5px}.fs-11{--fs:10.5px;--fc:12px;--rfs:8.5px}.fs-12{--fs:11.5px;--fc:13px;--rfs:8.6px}.fs-13{--fs:12.5px;--fc:14px;--rfs:9px}.fs-14{--fs:13.5px;--fc:15px;--rfs:9.4px}.fs-15{--fs:14.5px;--fc:16px;--rfs:9.8px}.fs-16{--fs:15.5px;--fc:17px;--rfs:10.2px}.fs-17{--fs:16.5px;--fc:18px;--rfs:10.6px}.fs-18{--fs:17.5px;--fc:19px;--rfs:11px}
 .pro{--base:var(--s1);--bg:transparent;--bg2:rgb(var(--g0) / var(--pa));--title:rgb(var(--g0) / .93);--panel:rgb(var(--g1) / var(--pa));--panel2:rgb(var(--g2) / var(--ta));--panel3:rgb(var(--g3) / var(--ta));--hover:rgb(var(--g3) / .75)}
-.pro .navcol,.pro .rp,.pro .tb,.pro .tabs,.pro .sb,.pro .dside,.pro .scol,.pro .comp,.pro .dd,.pro .pal,.pro .tile{-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
+.pro .navcol,.pro .rp,.pro .tb,.pro .sb,.pro .dside,.pro .scol,.pro .comp,.pro .dd,.pro .pal,.pro .tile{-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
 .pro .scol{background:var(--panel)}
 .th-japanese .dh-title,.th-japanese .cat-t h1{font-family:"Yuji Boku","Zen Kaku Gothic Antique",serif;font-weight:400}
 /*THEMES*/
@@ -151,29 +151,14 @@ html,body{margin:0;height:100%;overflow:hidden}
 .splx.hide{display:none}
 .sply{cursor:row-resize;background:var(--soft);touch-action:none;min-height:0}
 .sply:hover{background:var(--acc)}
-.ctr{display:grid;grid-template-rows:34px minmax(0,1fr);min-width:0;min-height:0}
-.tabs{display:flex;align-items:stretch;background:var(--title);border-bottom:1px solid var(--soft);min-width:0}
-.tabs-in{display:flex;align-items:stretch;min-width:0;overflow:hidden;flex:0 1 auto}
-.tab{display:flex;align-items:center;gap:7px;flex:0 1 215px;min-width:104px;padding:0 3px 0 9px;border-right:1px solid var(--soft);background:var(--panel);color:var(--dim);font-size:calc(var(--fs) - .5px);cursor:pointer}
-.tab:hover{color:var(--text)}
-.tab.vis{background:var(--bg);color:var(--text)}
-.tab.focus{background:var(--bg);color:var(--text);box-shadow:inset 0 2px 0 var(--acc)}
-.pro .tab.vis,.pro .tab.focus{background:rgb(var(--g1) / .6)}
-.tab-ic{color:var(--faint)}
-.tab.focus .tab-ic{color:var(--acct)}
-.tab-pin{color:var(--acct);flex:none}
-.tab-t{flex-grow:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tx{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border:0;border-radius:4px;background:none;color:var(--faint);cursor:pointer;opacity:0;flex:0 0 auto;padding:0}
-.tab:hover .tx,.tab.focus .tx{opacity:1}
-.tx:hover{background:var(--hover);color:var(--text)}
-.tabs-sp{flex:1 1 auto}
-.tabs-note{align-self:center;font-size:11px;color:var(--faint);padding:0 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ctr{display:grid;grid-template-rows:minmax(0,1fr);min-width:0;min-height:0}
 .view{position:relative;min-height:0;min-width:0;overflow:hidden}
 .fill{position:absolute;inset:0}
 .cols{position:absolute;inset:0;display:grid;min-height:0}
 .scol{display:grid;min-width:0;min-height:0;background:var(--bg);container-type:inline-size}
 .pane-h{display:flex;align-items:center;gap:8px;padding:0 8px 0 14px;border-bottom:1px solid var(--soft);font-size:12px;color:var(--dim);min-width:0;overflow:hidden;background:var(--title)}
-.scol.focus .pane-h{box-shadow:inset 0 2px 0 var(--acc)}
+.scol.focus .pane-h{box-shadow:inset 0 2px 0 var(--acc);background:linear-gradient(var(--acc-soft),var(--acc-soft)),var(--title)}
+.cols:has(.scol.focus) .scol:not(.focus) .pane-tt{color:var(--dim)}
 .pane-t{font-size:calc(var(--fs) + .5px);font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto}
 .pmeta{white-space:nowrap;flex:0 0 auto}
 .cmeter{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--dim);white-space:nowrap;flex:0 0 auto}
@@ -209,6 +194,16 @@ html,body{margin:0;height:100%;overflow:hidden}
 .appr-t span{color:var(--dim);font-size:12px}
 .running{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--dim);flex-wrap:wrap}
 .done{display:flex;align-items:center;gap:8px;font-size:12.5px}
+.mfoot{display:flex;align-items:center;gap:6px;margin-top:-3px}
+.mcopy{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 6px;margin-left:-6px;border:0;border-radius:5px;background:none;color:var(--faint);font-size:12px;cursor:pointer}
+.mcopy:hover{background:var(--hover);color:var(--text)}
+.mcopy.c-ok{color:var(--ok)}
+.mcopy.c-err{color:var(--bad)}
+.toast{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:30;display:flex;align-items:flex-start;gap:10px;max-width:min(560px,calc(100% - 32px));padding:10px 8px 10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--panel2);color:var(--text);font-size:12.5px;line-height:1.5;box-shadow:0 8px 28px rgb(0 0 0 / .35)}
+.toast>.ic{margin-top:2px;flex:0 0 auto;color:var(--ok)}
+.toast.t-warn{border-color:var(--warn)}
+.toast.t-warn>.ic{color:var(--warn)}
+.toast-t{flex:1 1 auto;min-width:0}
 .compw{padding:0 clamp(10px,2.4cqw,30px) 12px}
 .comp{border:1px solid var(--border);border-radius:12px;background:var(--panel);padding:9px 9px 7px 13px;display:flex;flex-direction:column;gap:7px}
 .comp:focus-within{border-color:var(--acc)}
@@ -457,8 +452,6 @@ html,body{margin:0;height:100%;overflow:hidden}
 :where(.ide) :where(input[type=checkbox],input[type=radio]){accent-color:var(--acc)}
 .tl-fold{display:flex;align-items:center;gap:8px;width:100%;padding:2px 0;border:0;background:none;color:var(--faint);font-size:calc(var(--fc) - 2px);cursor:pointer;text-align:left}
 .tl-fold:hover{color:var(--dim)}
-.tl-i.int{color:var(--faint)}
-.tl-i.int .tl-dot{background:var(--panel3);box-shadow:0 0 0 3px var(--base)}
 .tl-i.err{color:var(--bad)}
 .tl-i.err .tl-dot{background:var(--bad)}
 .cnote{display:flex;align-items:flex-start;gap:9px;padding:7px 11px;border-left:2px solid var(--border);font-size:calc(var(--fc) - 1.5px);line-height:1.5;color:var(--dim);user-select:text}
@@ -664,24 +657,6 @@ textarea.fv-ed{font-family:var(--font-mono)}
 <div class="splx" onPointerDown="{{dragNav.down}}" onPointerMove="{{dragNav.move}}" onPointerUp="{{dragNav.up}}" title="Táhnutím změníš šířku navigace"></div>
 
 <section class="ctr">
-<div class="tabs">
-<div class="tabs-in">
-<sc-for list="{{tabs}}" as="t" hint-placeholder-count="6">
-<div class="tab {{t.cls}}" title="{{t.full}}" onClick="{{t.go}}" onContextMenu="{{t.ctx}}">
-<span class="tnum {{t.numCls}}">{{t.n}}</span>
-<svg class="ic tab-ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{t.icon}}"></path></svg>
-<sc-if value="{{t.pinned}}" hint-placeholder-val="{{false}}"><svg class="ic tab-pin" width="10" height="10" viewBox="0 0 24 24" aria-label="Připnuto"><path d="{{I.pin}}"></path></svg></sc-if>
-<span class="tab-t">{{t.title}}</span>
-<span class="dot {{t.dot}}"></span>
-<button class="tx" aria-label="Zavřít relaci" onClick="{{t.close}}"><svg class="ic" width="11" height="11" viewBox="0 0 24 24"><path d="{{I.x}}"></path></svg></button>
-</div>
-</sc-for>
-</div>
-<button class="iconbtn" aria-label="Nová relace" title="Nová relace (Ctrl+T)" onClick="{{newSession}}" style="align-self: center; margin-left: 2px;"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="{{I.plus}}"></path></svg></button>
-<span class="tabs-sp"></span>
-<sc-if value="{{isSection}}" hint-placeholder-val="{{false}}"><span class="tabs-note">Katalog {{secLabel}} · relace čekají v záložkách</span></sc-if>
-</div>
-
 <div class="view">
 <sc-if value="{{isSessions}}" hint-placeholder-val="{{true}}">
 <div class="cols" style="grid-template-columns: {{colTpl}};">
@@ -698,7 +673,7 @@ textarea.fv-ed{font-family:var(--font-mono)}
 <sc-if value="{{c.hasIntent}}" hint-placeholder-val="{{true}}"><span class="pmeta badge">{{c.intent}}</span></sc-if>
 <span class="seg pseg" title="Režim úprav"><button class="{{c.autoCls}}" onClick="{{c.setAuto}}">Auto</button><button class="{{c.revCls}}" onClick="{{c.setRev}}">Kontrola</button></span>
 <span class="cmeter" title="Zaplnění kontextu"><span class="bar"><i style="width: {{c.ctx}}%;"></i></span><span class="num">{{c.ctxLabel}}</span></span>
-<sc-if value="{{c.multi}}" hint-placeholder-val="{{false}}"><button class="iconbtn" aria-label="Zavřít sloupec" title="Zavřít sloupec (relace zůstane v záložkách)" onClick="{{c.closeCol}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{I.x}}"></path></svg></button></sc-if>
+<button class="iconbtn" aria-label="Ukončit relaci" title="Ukončit relaci · konverzace zůstane v historii" onClick="{{c.closeCol}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{I.x}}"></path></svg></button>
 </div>
 <div class="msgs"><div class="mcol">
 <sc-if value="{{c.isFresh}}" hint-placeholder-val="{{false}}"><div class="empty" style="margin-top: 30px;"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="{{c.kindIcon}}"></path></svg><b style="color: var(--text);">{{c.freshTitle}}</b><span>{{c.freshText}}</span></div></sc-if>
@@ -707,7 +682,7 @@ textarea.fv-ed{font-family:var(--font-mono)}
 <sc-if value="{{m.isNote}}" hint-placeholder-val="{{false}}"><div class="cnote {{m.noteCls}}" role="{{m.noteRole}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{m.noteIcon}}"></path></svg><span class="cnote-t">{{m.text}}</span><span class="cnote-m">{{m.time}}</span></div></sc-if>
 <sc-if value="{{m.isAgent}}" hint-placeholder-val="{{false}}">
 <div class="msg">
-<div class="who"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" style="color: var(--acct);"><path d="{{m.authorIcon}}"></path></svg><b>{{m.author}}</b><sc-if value="{{m.hasBadge}}" hint-placeholder-val="{{true}}"><span class="badge">{{m.badge}}</span></sc-if><span>{{m.expert}}</span><span>{{m.time}}</span><sc-if value="{{m.hasCopy}}" hint-placeholder-val="{{false}}"><button class="iconbtn" aria-label="Kopírovat odpověď" title="Kopírovat odpověď" onClick="{{m.copy}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{I.copy}}"></path></svg></button></sc-if></div>
+<div class="who"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" style="color: var(--acct);"><path d="{{m.authorIcon}}"></path></svg><b>{{m.author}}</b><sc-if value="{{m.hasBadge}}" hint-placeholder-val="{{true}}"><span class="badge">{{m.badge}}</span></sc-if><span>{{m.expert}}</span><span>{{m.time}}</span></div>
 <sc-if value="{{m.hasSteps}}" hint-placeholder-val="{{true}}"><div class="tl"><span class="tl-line"></span><sc-for list="{{m.steps}}" as="s" hint-placeholder-count="4"><div class="tl-i {{s.cls}}"><span class="tl-dot"></span><span class="tl-t">{{s.t}}</span><span class="tl-m">{{s.m}}</span></div></sc-for></div></sc-if>
 <sc-if value="{{m.hasFold}}" hint-placeholder-val="{{false}}"><button class="tl-fold" aria-expanded="{{m.foldOpen}}" onClick="{{m.toggleFold}}"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{m.foldChev}}"></path></svg><span>{{m.foldText}}</span><span class="tl-m">{{m.foldMeta}}</span></button></sc-if>
 <sc-if value="{{m.hasMarkdown}}" hint-placeholder-val="{{false}}"><div class="md" data-html="{{m.html}}"></div></sc-if>
@@ -716,6 +691,7 @@ textarea.fv-ed{font-family:var(--font-mono)}
 <sc-if value="{{m.isRunning}}" hint-placeholder-val="{{false}}"><div class="running"><span class="spin"></span><span>{{m.runText}}</span><span class="grow"></span><button class="btn" onClick="{{m.stop}}"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{I.stop}}"></path></svg>Zastavit</button></div></sc-if>
 <sc-if value="{{m.hasApproval}}" hint-placeholder-val="{{false}}"><div class="appr"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" style="color: var(--warn);"><path d="{{I.shield}}"></path></svg><span class="appr-t"><b>{{m.apprTitle}}</b><span>{{m.apprSub}}</span><sc-if value="{{m.hasApprHint}}" hint-placeholder-val="{{false}}"><span class="appr-h">{{m.apprHint}}</span></sc-if></span><span class="grow"></span><button class="btn" onClick="{{m.showChanges}}">Zobrazit změny</button><button class="btn" onClick="{{m.reject}}">Zamítnout</button><button class="btn btn-acc {{m.approveCls}}" onClick="{{m.approve}}">Schválit</button></div></sc-if>
 <sc-if value="{{m.hasResult}}" hint-placeholder-val="{{false}}"><div class="done" style="color: {{m.resColor}};"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="{{m.resIcon}}"></path></svg><span>{{m.resText}}</span></div></sc-if>
+<sc-if value="{{m.hasCopy}}" hint-placeholder-val="{{true}}"><div class="mfoot"><button class="mcopy {{m.copyCls}}" aria-label="{{m.copyLabel}}" title="{{m.copyLabel}}" onClick="{{m.copy}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{m.copyIcon}}"></path></svg><sc-if value="{{m.hasCopyNote}}" hint-placeholder-val="{{false}}"><span role="status">{{m.copyNote}}</span></sc-if></button></div></sc-if>
 </div>
 </sc-if>
 </sc-for>
@@ -753,6 +729,7 @@ textarea.fv-ed{font-family:var(--font-mono)}
 <sc-if value="{{noSessions}}" hint-placeholder-val="{{false}}"><div class="fill" style="display: flex; align-items: center; justify-content: center;"><div class="cempty"><span class="tico"><svg class="ic" width="24" height="24" viewBox="0 0 24 24"><path d="{{I.anvil}}"></path></svg></span><b>Žádná otevřená relace</b><span>Otevři konverzaci z navigace nebo začni novou.</span><button class="btn btn-acc" onClick="{{newSession}}">Nová relace</button></div></div></sc-if>
 </sc-if>
 
+<sc-if value="{{hasToast}}" hint-placeholder-val="{{false}}"><div class="toast {{toastCls}}" role="status"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="{{toastIcon}}"></path></svg><span class="toast-t">{{toastText}}</span><button class="iconbtn sm" aria-label="Zavřít hlášení" title="Zavřít" onClick="{{closeToast}}"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{I.x}}"></path></svg></button></div></sc-if>
 <sc-if value="{{isSection}}" hint-placeholder-val="{{false}}">
 <div class="sect" style="grid-template-columns: {{sectCols}};">
 <div class="cat">
@@ -1074,7 +1051,7 @@ textarea.fv-ed{font-family:var(--font-mono)}
 </sc-if>
 <sc-if value="{{b.isApPismo}}" hint-placeholder-val="{{false}}">
 <div class="aps">
-<div class="aph">Platí pro všechen text: chat, navigaci, záložky, nastavení, soubory, terminál i log. Barvy stavů a kódu zůstávají odlišené.</div>
+<div class="aph">Platí pro všechen text: chat, navigaci, nastavení, soubory, terminál i log. Barvy stavů a kódu zůstávají odlišené.</div>
 <label class="arow"><span>Velikost písma</span><input type="range" min="10" max="18" step="1" value="{{ap.fs}}" onChange="{{ap.setFs}}"><span class="val">{{ap.fs}} px</span></label>
 <div><div class="blk-h"><span class="lbl-acc">Rodina písma</span></div><div class="rows"><sc-for list="{{ap.fonts}}" as="o" hint-placeholder-count="3"><button class="row link {{o.cls}}" onClick="{{o.pick}}"><span class="row-ic"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{o.icon}}"></path></svg></span><span class="row-tt"><span class="row-t" style="font-family: {{o.family}};">{{o.label}}</span></span><span class="row-m" style="color: var(--acct);">{{o.mark}}</span></button></sc-for></div></div>
 <sc-if value="{{ap.proNote}}" hint-placeholder-val="{{false}}"><div class="note">Styl {{ap.styleName}} používá vlastní písmo, volba rodiny písma platí pro ostatní styly.</div></sc-if>

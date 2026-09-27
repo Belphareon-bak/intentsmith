@@ -84,8 +84,15 @@ const count = (s, needle) => s.split(needle).length - 1;
 let out = html({});
 assert.equal(count(out, 'class="scol'), 2, 'dva sloupce relací');
 assert.equal(count(out, 'aria-haspopup="menu"'), 2, 'každý sloupec má výběr relace');
+assert.ok(!out.includes('class="tabs') && !out.includes('záložk'), 'bez lišty záložek');
+assert.equal(count(out, 'aria-label="Ukončit relaci"'), 2, '× v hlavičce sloupce ukončí relaci');
+assert.ok(out.includes('class="mcopy') && out.includes('aria-label="Kopírovat odpověď"'), 'kopírování pod odpovědí');
 out = html({ cols: 2, ctx: { sec: 'colpick', id: '1', x: 10, y: 10 } });
-assert.ok(out.includes('Relace ve sloupci 2') && out.includes('vymění se'), 'výběr relace nabízí výměnu');
+assert.ok(out.includes('Poslední relace') && out.includes('vymění se'), 'výběr relace nabízí výměnu');
+out = html({ cols: 1, colSids: ['s5'], stepsOpen: { s5a: true } });
+assert.ok(out.includes('Skrýt zpracování · 4 fáze') && out.includes('Generování odpovědi · qwen3.5:27b') && !out.includes('tl-i int'), 'fáze zpracování');
+out = html({ toast: { id: 't1', tone: 'info', t: 'Relace „X“ se zavřela' } });
+assert.ok(out.includes('class="toast') && out.includes('se zavřela'), 'hlášení o zavřené relaci');
 out = html({ rightTab: 'soubory' });
 for (const label of ['Upravené v relaci', 'Otevřené', 'Projekt ShellSmith']) assert.ok(out.includes(label), label);
 out = html({ rightTab: 'soubory', fileView: { s1: { path: 'src/main/sftp.js', from: 'soubory' } }, fileMode: { s1: 'upravy' }, fileDraft: { 'shellsmith|src/main/sftp.js': 'x' }, fileGuard: { sid: 's1', next: null } });
@@ -95,7 +102,7 @@ assert.ok(out.includes('Plán operace') && out.includes('git push') && out.inclu
 out = html({ rightTab: 'scm', colSids: ['s5'], cols: 1 });
 assert.ok(out.includes('Tahle relace nemá projekt'), 'relace bez projektu');
 out = html((c) => c.pSelect(c.st(), 'projects', 'shellsmith'));
-assert.ok(out.includes('class="cat') && out.includes('Nová relace v projektu'), 'katalog a detail');
+assert.ok(out.includes('class="cat') && out.includes('Otevřít v nové relaci'), 'katalog a detail');
 out = html({ mode: 'section', section: 'media', detail: { media: '__new__' } });
 for (const label of ['Nové generování', 'Zadání pro ComfyUI', 'Checkpoint', 'Generovat'])
   assert.ok(out.includes(label), 'formulář médií: ' + label);

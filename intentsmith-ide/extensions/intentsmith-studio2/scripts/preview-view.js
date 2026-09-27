@@ -52,6 +52,8 @@ const SCENES = {
   'terminal-a-prilohy': () => ({ atts: { s1: [['zadani.md', '2 kB'], ['chyba.log', '12 kB']] }, cmds: { s1: 'npm test -- --grep sftp' }, termX: { s1: [['$ git status --short', 'p'], [' M src/main/sftp.js', '']] } }),
   'konverzace-sbalena': () => ({ cols: 2, colSids: ['s5', 's2'] }),
   'konverzace-rozbalena': () => ({ cols: 1, colSids: ['s5'], stepsOpen: { s5a: true } }),
+  'konverzace-zkopirovano': () => ({ cols: 1, colSids: ['s5'], copied: { s5a: 'ok' } }),
+  'relace-strop-hlaseni': (c) => Object.assign(c.pOpenSession(c.st(), 'h1'), {}),
 };
 
 function pageHtml(markup) {

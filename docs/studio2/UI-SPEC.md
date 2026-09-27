@@ -21,10 +21,10 @@ prototyp liší, platí tento text.
 ```
 ┌ titulní lišta 38 px: značka · nabídka · paleta příkazů · ovládání zobrazení · okno ┐
 ├ navigace ┬──────────── střed ────────────┬ pravý panel ┤
-│ plná     │ záložky relací (34 px)        │ Změny       │
-│   nebo   ├───────────────────────────────┤ Soubory     │
-│ ikony    │ sloupce relací 1–3            │ Správa zdr. │
-│          │   nebo katalog + detail       │ Kontext     │
+│ plná     │ sloupce relací 1–3            │ Změny       │
+│   nebo   │   nebo katalog + detail       │ Soubory     │
+│ ikony    │                               │ Správa zdr. │
+│          │                               │ Kontext     │
 └──────────┴───────────────────────────────┴─────────────┘
 └ stavová lišta 24 px ┘
 ```
@@ -53,37 +53,62 @@ panelů je **jen** v titulní liště, v nabídce Zobrazení a v paletě (Decisi
   Multimédia**; dole **Nastavení**. U sekce počet; u Konverzací výstražná
   barva, když relace čeká na schválení.
 - Klik na sekci otevře její katalog uprostřed. Šipka rozbalí rychlé odkazy:
-  Konverzace — otevřené relace s čísly a stavem, pak tři nedávné; Projekty —
-  aktivní; Specialisté; Expertýzy — oblíbené. Nastavení rychlé odkazy nemá.
+  Konverzace — otevřené relace s čísly a stavem (§5), pak tři nedávné, nahoře
+  naposledy zavřené; Projekty — aktivní; Specialisté; Expertýzy — oblíbené.
+  Nastavení rychlé odkazy nemá.
 - Sbalování panelů (nastavení Rozvržení): při nedostatku místa se navigace
   zúží na ikony a pravý panel se skryje; ruční přepnutí má přednost.
 
-## 5. Záložky relací
+## 5. Otevřené relace (bez záložek)
 
-- Jen otevřené **konverzace** — projektová (ikona složky), se specialistou
-  (ikona lidí), volná (bublina). Počet není omezený.
-- Záložka: **číslo**, ikona druhu, krátký název, tečka stavu (pracuje /
-  čeká na schválení / hotovo / nečinná), zavření. Plné číslo = sloupec
-  s fokusem, obrysové = relace viditelná v jiném sloupci.
-- Klik: když je relace ve sloupci, dostane fokus; jinak se zobrazí ve sloupci
-  s fokusem. `+` založí novou relaci. Kontextové menu: přepnout, otevřít ve
-  vedlejším sloupci, zavřít, zavřít ostatní, zavřít vpravo, připnout.
-- Při přetečení se záložky zúží; úplný seznam je v paletě a v nabídce Relace.
+Rozhodnutí operátora z 28. 9.: lišta záložek relací není. Duplikovala levý
+seznam a přepínání přes ni působilo nepředvídatelně.
+
+- Otevřené relace jsou vidět v levé navigaci (Konverzace → Otevřené relace),
+  ve výběru v hlavičce sloupce (§6), v paletě a v nabídce Relace. Jde
+  o **konverzace** — projektovou (ikona složky), se specialistou (ikona lidí)
+  a volnou (bublina).
+- Položka: **číslo**, krátký název, tečka stavu (pracuje / čeká na schválení /
+  hotovo / nečinná). Číslo je pořadí v seznamu otevřených relací (1–5) a platí
+  pro Alt+1…5. Plné číslo = sloupec s fokusem, obrysové = relace viditelná
+  v jiném sloupci.
+- **Nejvýš 5 otevřených relací.** Při otevření další se sama zavře relace,
+  se kterou se nejdéle nepracovalo, pokud je skrytá už před otevřením, nepracuje,
+  nečeká na schválení, nemá neuložený soubor ani rozepsanou zprávu či přílohu
+  a neběží v ní příkaz terminálu; dole ve středu to oznámí
+  krátké hlášení. Když taková relace není, nová se neotevře a hlášení řekne
+  proč.
+- **Otevření** konverzace, projektu nebo specialisty: bez otevřené relace je
+  akce „Otevřít" a relace zabere jediný sloupec; jinak „Otevřít v nové relaci"
+  a relace se ukáže v novém sloupci vedle. Při třech plných sloupcích nahradí
+  sloupec, se kterým se nejdéle nepracovalo — nikdy sloupec s fokusem.
+  Už otevřená konverzace se jen přepne. Totéž platí pro Ctrl+T.
+- **Klik** na otevřenou relaci (levý seznam, výběr ve sloupci, Alt+N): je-li
+  ve sloupci, dostane fokus; jinak se zobrazí ve sloupci s fokusem.
+  **Ctrl+klik** ji zobrazí ve vedlejším sloupci.
+- Sloupec s fokusem je výrazně označený (akcentová linka, podbarvená hlavička,
+  plné číslo); u ostatních sloupců je název tlumený.
+- **Ukončení** relace: × v hlavičce sloupce, nabídka Relace nebo kontextové
+  menu v levém seznamu. Konverzace zůstává v historii. Sloupec zmizí; když byl
+  jediný, převezme ho naposledy použitá skrytá relace.
+- Připínání a „zavřít ostatní / vpravo" odpadají.
+- Víc než 3 sloupce (dvě řady, 6–8 relací podle rozlišení) je odložené na
+  pozdější rozhodnutí.
 
 ## 6. Sloupce relací
 
 **Počet a šířka.** 1–3 sloupce, výchozí stejná šířka, posuvník mezi sloupci,
 dvojklik srovná. Sloupců nikdy není víc než otevřených relací.
 
-**Výběr relace ve sloupci (zadání 25. 9., bod 1).** Hlavička sloupce má
-rozbalovací výběr se všemi otevřenými relacemi (číslo, název, stav). Volba
-zobrazí relaci v tomto sloupci; je-li už v jiném sloupci, sloupce si ji
-**vymění**. V nabídce je i „Nová relace". Tlačítko × zavře sloupec, relace
-zůstane v záložkách.
+**Výběr relace ve sloupci (zadání 25. 9., bod 1; 28. 9.).** Klik na název
+v hlavičce sloupce otevře výběr **Poslední relace**: otevřené relace od
+naposledy použité (číslo, název, stav, kde jsou). Volba zobrazí relaci v tomto
+sloupci; je-li už v jiném sloupci, sloupce si ji **vymění**. Dole je „Nová
+relace v tomto sloupci". Tlačítko × relaci ukončí (§5).
 
 **Hlavička:** číslo, ikona druhu, stav, název, čip projektu nebo specialisty
 (otevře jeho detail), značka záměru, režim úprav **Auto / Kontrola**, malý
-ukazatel kontextu, výběr relace, zavření sloupce. V úzkém sloupci mizí
+ukazatel kontextu, výběr relace, ukončení relace. V úzkém sloupci mizí
 postupně značka záměru, čip, ukazatel, výběr režimu (container queries).
 
 **Zprávy** vyplňují celou šířku sloupce (bez pevného maxima):
@@ -91,7 +116,15 @@ postupně značka záměru, čip, ukazatel, výběr režimu (container queries).
 - agent — autor (IntentSmith, u specialisty jeho jméno), značka záměru,
   expertýza, čas a délka; **časová osa kroků** (nástroj, model, čekání,
   schválení, zrušení, timeout, chyba — `work-activity.js`); odstavce přes
-  `renderMarkdown`; kód; při běhu indikátor a **Zastavit**;
+  `renderMarkdown`; kód; při běhu indikátor a **Zastavit**; pod dokončenou
+  odpovědí ikona **kopírování**, která po kliknutí krátce ukáže
+  „Zkopírováno", při chybě „Kopírování se nepovedlo";
+- interní zpracování backendu (desítky událostí) se v chatu ukazuje jako
+  nejvýš **4 fáze** — Porozumění zadání, Příprava kontextu, Generování
+  odpovědi (s modelem), Kontroly výstupu. Ve výchozím stavu jsou sbalené do
+  řádku „Zpracování · N fáze · čas"; rozbalená fáze má čas (do začátku dalšího
+  kroku) a po dokončení je zelená jako ostatní kroky. Skutečná práce (nástroje,
+  soubory, chyby) je vidět vždy. Úplný výpis událostí je v kartě Průběh;
 - **karta schválení** (počet souborů, +/−, režim): Zobrazit změny / Zamítnout
   / Schválit; výsledek jako řádek „Schváleno · … zapsáno" nebo „Zamítnuto".
 

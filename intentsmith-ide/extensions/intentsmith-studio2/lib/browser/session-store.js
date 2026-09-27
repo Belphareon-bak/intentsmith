@@ -3,6 +3,7 @@
 const V2_KEY = 'intentsmith-studio2-session-state';
 const V1_KEY = 'intentsmith-session-state';
 const MAX_COLUMNS = 3;
+const MAX_SESSIONS = 5;
 const { pendingBinding } = require('./m2-controller');
 
 function safeObject(value) {
@@ -78,6 +79,10 @@ function parse(storage, key) {
 }
 function restore(storage) {
   const saved = safeObject(parse(storage, V2_KEY));
+  if (saved.version === 2 && Array.isArray(saved.sessions) && saved.sessions.length === 0)
+    return { sessions: [], columns: [], focusedColumn: 0,
+      nextNumber: Number.isSafeInteger(saved.nextNumber) && saved.nextNumber > 0 ? saved.nextNumber : 1,
+      used: [], closed: Array.isArray(saved.closed) ? saved.closed.slice(0, 5) : [] };
   if (saved.version === 2 && Array.isArray(saved.sessions)) {
     const usedIds = new Set();
     const usedNumbers = new Set();
@@ -100,6 +105,8 @@ function restore(storage) {
         sessions, columns,
         focusedColumn: Number.isInteger(saved.focusedColumn) ? Math.max(0, Math.min(columns.length - 1, saved.focusedColumn)) : 0,
         nextNumber: Math.max(max + 1, Number.isSafeInteger(saved.nextNumber) ? saved.nextNumber : 1),
+        used: Array.isArray(saved.used) ? [...new Set(saved.used.filter(value => valid.has(value)))].concat(sessions.map(x => x.id).filter(value => !saved.used.includes(value))) : sessions.map(x => x.id),
+        closed: Array.isArray(saved.closed) ? saved.closed.filter(value => typeof value === 'string').slice(0, 5) : [],
       };
     }
   }
@@ -111,10 +118,11 @@ function restore(storage) {
     const wanted = Number.isInteger(legacy.sessionActive) ? legacy.sessionActive : 0;
     const activeIndex = open.findIndex(entry => entry.index === wanted);
     const active = activeIndex >= 0 ? activeIndex : 0;
-    return { sessions, columns: [sessions[active].id], focusedColumn: 0, nextNumber: sessions.length + 1 };
+    return { sessions, columns: [sessions[active].id], focusedColumn: 0, nextNumber: sessions.length + 1,
+      used: [sessions[active].id, ...sessions.filter((_, i) => i !== active).map(x => x.id)], closed: [] };
   }
   const first = makeSession(1);
-  return { sessions: [first], columns: [first.id], focusedColumn: 0, nextNumber: 2 };
+  return { sessions: [first], columns: [first.id], focusedColumn: 0, nextNumber: 2, used: [first.id], closed: [] };
 }
 
 class SessionStore {
@@ -133,25 +141,54 @@ class SessionStore {
     for (const listener of this.listeners) listener(this.state);
   }
   persist() {
-    const { sessions, columns, focusedColumn, nextNumber } = this.state;
+    const { sessions, columns, focusedColumn, nextNumber, used, closed } = this.state;
     try {
       this.storage.setItem(V2_KEY, JSON.stringify({
-        version: 2, sessions: sessions.map(snapshotSession), columns, focusedColumn, nextNumber,
+        version: 2, sessions: sessions.map(snapshotSession), columns, focusedColumn, nextNumber, used, closed,
       }));
     } catch { /* Storage quota must not stop a running session. */ }
   }
   find(sessionId) { return this.state.sessions.find(session => session.id === sessionId) || null; }
   focusedSession() { return this.find(this.state.columns[this.state.focusedColumn]); }
-  addSession(source = {}) {
+  recent() { return this.state.used.filter(id => this.find(id)); }
+  touch(sessionId) { this.state.used = [sessionId, ...this.state.used.filter(id => id !== sessionId)]; }
+  // Only a session hidden before opening can be evicted. Callers provide the
+  // effect guards (active turn, approval, editor, draft, terminal).
+  evictionCandidate(canClose = () => true) {
+    if (this.state.sessions.length < MAX_SESSIONS) return null;
+    const visible = new Set(this.state.columns);
+    return [...this.recent()].reverse().find(id => !visible.has(id) && canClose(this.find(id))) || null;
+  }
+  canAddSession(canClose = () => true) {
+    return this.state.sessions.length < MAX_SESSIONS || !!this.evictionCandidate(canClose);
+  }
+  nextSlot(slot) {
+    const columns = this.state.columns;
+    if (Number.isInteger(slot) && slot >= 0 && slot <= columns.length && slot < MAX_COLUMNS) return slot;
+    if (columns.length < MAX_COLUMNS) return columns.length;
+    const focus = this.state.focusedColumn;
+    const recent = this.recent();
+    return columns.map((id, index) => ({ index, rank: recent.indexOf(id) }))
+      .filter(row => row.index !== focus).sort((a, b) => b.rank - a.rank)[0].index;
+  }
+  addSession(source = {}, options = {}) {
+    const canClose = options.canClose || (() => true);
+    const evicted = this.evictionCandidate(canClose);
+    if (this.state.sessions.length >= MAX_SESSIONS && !evicted) return null;
+    if (evicted) this.closeSession(evicted);
     const session = makeSession(this.state.nextNumber++, source);
     this.state.sessions.push(session);
-    this.state.columns[this.state.focusedColumn] = session.id;
+    const slot = this.nextSlot(options.slot);
+    this.state.columns[slot] = session.id;
+    this.state.focusedColumn = slot;
+    this.touch(session.id);
     this.changed();
     return session;
   }
   focusColumn(index) {
     if (!Number.isInteger(index) || index < 0 || index >= this.state.columns.length) return false;
     this.state.focusedColumn = index;
+    this.touch(this.state.columns[index]);
     this.changed();
     return true;
   }
@@ -161,6 +198,7 @@ class SessionStore {
     if (other >= 0 && other !== index) this.state.columns[other] = this.state.columns[index];
     this.state.columns[index] = sessionId;
     this.state.focusedColumn = index;
+    this.touch(sessionId);
     this.changed();
     return true;
   }
@@ -185,7 +223,7 @@ class SessionStore {
       if (!spare) break;
       this.state.columns.push(spare.id);
     }
-    this.state.focusedColumn = Math.min(this.state.focusedColumn, this.state.columns.length - 1);
+    this.state.focusedColumn = Math.max(0, Math.min(this.state.focusedColumn, this.state.columns.length - 1));
     this.changed();
     return true;
   }
@@ -201,13 +239,15 @@ class SessionStore {
     if (index < 0) return false;
     this.state.sessions[index]._closed = true;
     this.state.sessions.splice(index, 1);
-    if (!this.state.sessions.length) this.state.sessions.push(makeSession(this.state.nextNumber++));
+    this.state.used = this.state.used.filter(id => id !== sessionId);
+    this.state.closed = [sessionId, ...this.state.closed.filter(id => id !== sessionId)].slice(0, 5);
+    const wasVisible = this.state.columns.includes(sessionId);
     this.state.columns = this.state.columns.filter(id => id !== sessionId);
-    if (!this.state.columns.length) this.state.columns.push(this.state.sessions[0].id);
-    this.state.focusedColumn = Math.min(this.state.focusedColumn, this.state.columns.length - 1);
+    if (wasVisible && !this.state.columns.length && this.state.sessions.length) this.state.columns.push(this.recent()[0]);
+    this.state.focusedColumn = Math.max(0, Math.min(this.state.focusedColumn, this.state.columns.length - 1));
     this.changed();
     return true;
   }
 }
 
-module.exports = { SessionStore, makeSession, restore, V1_KEY, V2_KEY };
+module.exports = { SessionStore, makeSession, restore, V1_KEY, V2_KEY, MAX_SESSIONS };

@@ -31,11 +31,11 @@ test('migrates legacy sessions without writing over the classic snapshot', () =>
   assert.equal(store.state.sessions[1]._m2Pending.origin.conversationId, 'conv-b');
 });
 
-test('six tabs in three columns swap an already visible session', () => {
+test('five sessions in three columns swap an already visible session', () => {
   const mem = storage();
   const store = new SessionStore(mem);
-  for (let i = 1; i < 6; i++) store.addSession({ label: `Session ${i + 1}`, convId: `conv-${i}` });
-  assert.equal(store.state.sessions.length, 6);
+  for (let i = 1; i < 5; i++) store.addSession({ label: `Session ${i + 1}`, convId: `conv-${i}` });
+  assert.equal(store.state.sessions.length, 5);
   assert.equal(store.setColumnCount(3), true);
   const before = [...store.state.columns];
   assert.equal(store.selectInColumn(0, before[1]), true);
@@ -46,7 +46,49 @@ test('six tabs in three columns swap an already visible session', () => {
   assert.equal(store.setColumnCount(4), false);
   const reboot = new SessionStore(mem);
   assert.deepEqual(reboot.state.columns, store.state.columns);
-  assert.equal(reboot.state.sessions.length, 6);
+  assert.equal(reboot.state.sessions.length, 5);
+});
+
+test('sixth session evicts only the oldest safe session hidden before opening', () => {
+  const mem = storage();
+  const store = new SessionStore(mem);
+  const first = store.focusedSession();
+  const second = store.addSession();
+  const third = store.addSession();
+  const fourth = store.addSession();
+  const fifth = store.addSession();
+  const hidden = store.state.sessions.filter(session => !store.state.columns.includes(session.id));
+  assert.equal(hidden.length, 2);
+  const oldestHidden = [...store.recent()].reverse().find(id => hidden.some(session => session.id === id));
+  const otherHidden = hidden.find(session => session.id !== oldestHidden);
+  const sixth = store.addSession({ label: 'Sixth' }, { canClose: session => session.id !== oldestHidden });
+  assert.ok(sixth);
+  assert.ok(store.find(oldestHidden));
+  assert.equal(store.find(otherHidden.id), null);
+  assert.equal(store.state.sessions.length, 5);
+  assert.equal(store.state.columns.includes(sixth.id), true);
+  assert.equal(new SessionStore(mem).state.sessions.length, 5);
+});
+
+test('all protected hidden sessions block opening without changing any session', () => {
+  const store = new SessionStore(storage());
+  for (let i = 0; i < 4; i++) store.addSession();
+  const before = store.state.sessions.map(session => session.id);
+  const columns = [...store.state.columns];
+  assert.equal(store.addSession({}, { canClose: () => false }), null);
+  assert.deepEqual(store.state.sessions.map(session => session.id), before);
+  assert.deepEqual(store.state.columns, columns);
+});
+
+test('closing the last session keeps an empty workspace across restart', () => {
+  const mem = storage();
+  const store = new SessionStore(mem);
+  store.closeSession(store.focusedSession().id);
+  assert.equal(store.state.sessions.length, 0);
+  assert.deepEqual(store.state.columns, []);
+  assert.equal(new SessionStore(mem).state.sessions.length, 0);
+  assert.ok(store.addSession());
+  assert.equal(store.state.columns.length, 1);
 });
 
 test('closing a column leaves its live session and conversation identity intact', () => {

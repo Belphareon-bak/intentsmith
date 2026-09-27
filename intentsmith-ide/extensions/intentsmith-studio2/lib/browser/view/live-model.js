@@ -41,7 +41,7 @@ function clock(ts) {
 
 // Úvodní hláška klasického chatu; Studio 2 místo ní ukazuje prázdný stav relace.
 const LEGACY_GREETING = 'IntentSmith připraven. Začni psát zprávu.';
-const DEFAULT_LABEL = /^Relace \d+$/;
+const DEFAULT_LABEL = /^(?:Relace \d+|Nová relace)$/;
 
 function seconds(ms) {
   if (!Number.isFinite(ms) || ms <= 0) return '';
@@ -56,25 +56,30 @@ function itemCount(count) {
 
 // Kroky práce agenta pro časovou osu: nástroje, soubory a chyby zůstávají vidět,
 // interní kroky zpracování (směrování, kontext, model, kontroly) se sbalí.
-function timeline(activity) {
-  const out = [];
-  for (const step of activity?.steps || []) {
-    const running = step.status === 'running';
-    const internal = step.kind === 'step' || step.kind === 'model';
+function phaseFor(step) {
+  if (step.kind === 'model') return 'generate';
+  if (step.kind !== 'step') return null;
+  if (/^(?:Připravuje kontext|Kontext připraven|Načítá kontext)/.test(step.label)) return 'context';
+  if (/^(?:Generuje odpověď|Odpověď vygenerována|Vysvětluje kód)/.test(step.label)) return 'generate';
+  if (/^(?:Kontroluje|Kontrola výstupu)/.test(step.label)) return 'check';
+  if (/^(?:Zpracovává zadání|Volí postup|Rozhodnutí|Směruje požadavek|Připravuje otázku|Předává specialistovi|Vybírá expertízu)/.test(step.label))
+    return 'understand';
+  return null;
+}
+function timeline(activity, model) {
+  const events = (activity?.steps || []).map(step => {
     const raw = step.kind === 'model' && typeof step.input === 'string' ? step.input.replace(/^Model \/ role:\s*/, '') : '';
-    const model = /^[\w.\-\/]+:[\w.\-]+$/.test(raw) ? raw : '';
-    const label = step.kind === 'model' ? 'Odpověď modelu' + (model ? ' · ' + model : '') : step.label || step.tool || 'Krok';
-    const meta = step.durationMs != null ? seconds(step.durationMs) : running ? 'probíhá' : '';
-    const flag = step.status === 'error' ? 'err' : internal ? (running ? 'i-run' : 'i') : running ? 'run' : '';
-    const last = out[out.length - 1];
-    // Stejný krok ohlášený dvakrát po sobě (událost a systémový krok) se sloučí.
-    if (last && last[0] === label && (!last[1] || !meta || last[1] === meta)) { if (meta) last[1] = meta; last[2] = flag; continue; }
-    out.push([label, meta, flag]);
-  }
-  return out;
+    const name = /^[\w.\-\/]+:[\w.\-]+$/.test(raw) ? raw : '';
+    return { phase: phaseFor(step), label: step.label || step.tool || 'Krok',
+      meta: step.durationMs != null ? seconds(step.durationMs) : '',
+      startedAt: step.startedAt, status: step.status, model: name };
+  });
+  return model.phaseSteps(events, activity?.endedAt || (activity?.status === 'running' ? null : Date.now()));
 }
 
 function activityMs(activity) {
+  if (Number.isFinite(activity?.startedAt) && Number.isFinite(activity?.endedAt))
+    return Math.max(0, activity.endedAt - activity.startedAt);
   const steps = activity?.steps || [];
   const start = steps.reduce((min, step) => (Number.isFinite(step.startedAt) && step.startedAt < min ? step.startedAt : min), Infinity);
   const end = steps.reduce((max, step) => Math.max(max, Number.isFinite(step.endedAt) ? step.endedAt : 0), 0);
@@ -304,6 +309,7 @@ class LiveModel extends Component {
     const ap = this.widget.appearance.values;
     return Object.assign(s, {
       tabs: real.sessions.map(session => session.id),
+      used: real.used.slice(), closed: real.closed.slice(),
       pinned: Object.fromEntries(real.sessions.map(session => [session.id, session._pinned === true])),
       cols: real.columns.length,
       colSids: real.columns.slice(), focusCol: real.focusedColumn,
@@ -439,14 +445,14 @@ class LiveModel extends Component {
       msgs.push({ k: 'agent', key, time: clock(msg.ts) + (ms ? ' · ' + seconds(ms) : ''),
         text: '', paras: [msg.text || ''], rawText: msg.text || '', liveMarkdown: true,
         badge: tag ? tag.toUpperCase() : '', expert: chat.expertise || '',
-        author: chat.specialist?.name || 'IntentSmith', steps: timeline(activity), foldMeta: seconds(ms), atts: [], running: false });
+        author: chat.specialist?.name || 'IntentSmith', steps: timeline(activity, this), foldMeta: seconds(ms), atts: [], running: false });
     });
     // Čekající plán bez své zprávy (obnova relace) má kartu schválení na konci konverzace.
     if (m2Pending && !msgs.some(msg => msg.approval)) msgs.push(approvalCard(session.id + ':m2', '', ''));
     if (chat._thinking) msgs.push({ k: 'agent', key: session.id + ':active', time: 'teď', badge: '',
       expert: chat.expertise, paras: [], running: true,
       runText: chat._thinking.text || 'Zpracovává zadání…', rid: session.id + ':active',
-      steps: timeline(pendingActivity) });
+      steps: timeline(pendingActivity, this) });
     const term = session.term.map(line => [typeof line === 'string' ? line : line.text || '',
       line?.type === 'error' || line?.type === 'uncertain' ? 'err' : '']);
     const log = session.log.map(line => [clock(line.ts), line.level || 'INFO', 'var(--info)',
@@ -549,8 +555,8 @@ class LiveModel extends Component {
       const id = section.id;
       const items = id === 'chats' ? this.widget.store.state.sessions.map(session => ({
         id: session.id, name: sessionTitle(session), meta: this.stLabel(this.sstate(session.id, s)),
-        state: this.sstate(session.id, s), number: session.number,
-        go: this.run(s2 => this.pFocusSession(s2, session.id)), ctx: this.showCtx('chats', session.id)
+        state: this.sstate(session.id, s), number: this.widget.store.state.sessions.indexOf(session) + 1,
+        go: this.run((s2, event) => this.pShowSession(s2, session.id, event)), ctx: this.showCtx('chats', session.id)
       })) : this.entities(id, s).slice(0, id === 'projects' ? 4 : 3).map(row => ({
         id: row.id, name: row.name, meta: row.meta || '', state: '', number: 0,
         go: this.run(s2 => this.pSelect(s2, id, row.id)), ctx: this.showCtx(id, row.id)
@@ -2062,19 +2068,18 @@ class LiveModel extends Component {
     return { mode: 'sessions', colFr: [1, 1, 1] };
   }
 
-  pNewSession(s, opts = {}) {
+  pNewSession(s, opts = {}, slot) {
     if (opts.specialist || opts.project) {
       const section = opts.specialist ? 'Specialisté' : 'Projekty';
       const id = String(opts.specialist || opts.project);
       const item = this.widget.catalog.view(section).items.find(row => row.id === id);
       if (!item) return null;
-      const action = opts.specialist ? this.widget.openSpecialist(item) : this.widget.openCatalogItem(section, item);
+      const action = opts.specialist ? this.widget.openSpecialist(item, slot) : this.widget.openCatalogItem(section, item, slot);
       Promise.resolve(action).then(ok => { if (ok) this.setState({ mode: 'sessions' }); else this.forceUpdate(); })
         .catch(error => { this.widget.catalogActionError = error.message || 'Relaci nelze otevřít.'; this.forceUpdate(); });
       return null;
     }
-    if (Number.isInteger(s.focusCol)) this.widget.store.focusColumn(s.focusCol);
-    this.widget.store.addSession();
+    this.widget.addSession(slot);
     return { mode: 'sessions' };
   }
 
@@ -2127,14 +2132,15 @@ class LiveModel extends Component {
     else if (store.state.columns.length < 3) {
       store.setColumnCount(store.state.columns.length + 1);
       store.selectInColumn(store.state.columns.length - 1, id);
-    } else store.selectInColumn((store.state.focusedColumn + 1) % 3, id);
+    } else store.selectInColumn(store.nextSlot(), id);
     return { mode: 'sessions' };
   }
 
-  pCloseTab(s, sid) {
+  pCloseSession(s, sid) {
     const session = this.widget.store.find(sid);
     return session && this.widget.closeSession(session) ? {} : null;
   }
+  pCloseTab(s, sid) { return this.pCloseSession(s, sid); }
 
   closeTabsBeside(sid, direction) {
     const sessions = this.widget.store.state.sessions;
@@ -3152,10 +3158,7 @@ class LiveModel extends Component {
         if (typeof html === 'string') { vm.hasMarkdown = true; vm.noMarkdown = false; vm.html = html; }
       } catch { /* Node and disconnected renderer fall back to escaped text. */ }
       vm.hasCopy = true;
-      vm.copy = () => {
-        if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText)
-          navigator.clipboard.writeText(message.rawText).catch(() => {});
-      };
+      vm.copy = () => this.copyText(message.key, message.rawText);
     }
     return vm;
   }
@@ -3254,9 +3257,9 @@ class LiveModel extends Component {
       const session = this.widget.store.find(lay[index]);
       if (!session) return;
       const sid = session.id;
-      column.n = session.number;
+      column.n = this.widget.store.state.sessions.indexOf(session) + 1;
       column.focus = () => this.widget.store.focusColumn(index);
-      column.closeCol = () => this.widget.store.closeColumn(index);
+      column.closeCol = () => this.widget.closeSession(session);
       column.setAuto = () => { session.chat.editMode = 'auto'; this.widget.store.changed(); };
       column.setRev = () => { session.chat.editMode = 'ask'; this.widget.store.changed(); };
       column.attach = () => this.widget.pickAttachments(session).catch(error => this.error(session, error));
@@ -3293,7 +3296,6 @@ class LiveModel extends Component {
         message.reject = () => this.pApprove(this.st(), sid, 'no');
       });
     });
-    vm.tabs.forEach((tab, index) => { tab.n = this.widget.store.state.sessions[index]?.number || index + 1; });
     const focused = this.widget.store.focusedSession();
     vm.ws.fileError = focused ? this.widget.workspace.entry(focused).error || '' : '';
     vm.ws.hasFileError = !!vm.ws.fileError;

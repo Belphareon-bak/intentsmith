@@ -23,6 +23,7 @@ function setup({ workspace, m2, catalog: catalogOverride, specialistFiles } = {}
   const controller = m2 || { entry: () => ({ view: null, presentedView: null, error: null }), run: async () => {}, report: () => {} };
   const calls = [];
   const widget = { store, appearance, catalog, workspace: files, m2: controller, specialistFiles,
+    addSession: slot => store.addSession({}, { slot }),
     send: async (session, input) => { calls.push(['send', session.id, input.value]); input.value = ''; },
     sendTerminal: async (session, input) => { calls.push(['terminal', session.id, input.value]); input.value = ''; },
     completeTerminal: async (session, input) => { calls.push(['complete', session.id, input.value]); input.value += '/'; },
@@ -180,53 +181,36 @@ test('project menu actions open the project wizard in the requested mode', () =>
   model.componentWillUnmount();
 });
 
-test('tab context closes the real sessions, persists them, and keeps all tabs when an editor is dirty', () => {
+test('column close ends the real session and leaves other conversations available', () => {
   const dirty = new Set();
   const workspace = { entry: session => ({ editor: { dirty: dirty.has(session.id) } }) };
   const { model, store, storage, widget } = setup({ workspace });
+  widget.closeSession = session => !dirty.has(session.id) && store.closeSession(session.id);
+  const first = store.focusedSession();
+  const second = store.addSession();
+  const third = store.addSession();
+  dirty.add(third.id);
+  assert.equal(model.renderVals().columns[2].closeCol(), false);
+  assert.equal(store.state.sessions.length, 3);
+  dirty.clear();
+  model.renderVals().columns[2].closeCol();
+  assert.deepEqual(store.state.sessions.map(session => session.id), [first.id, second.id]);
+  assert.deepEqual(new SessionStore(storage).state.sessions.map(session => session.id), [first.id, second.id]);
+  model.componentWillUnmount();
+});
+
+test('left navigation Ctrl click shows a hidden session beside the focused column', () => {
+  const { model, store, storage } = setup();
   const first = store.focusedSession();
   const second = store.addSession();
   const third = store.addSession();
   const fourth = store.addSession();
-  const choose = (sid, label) => {
-    model.setState({ ctx: { sec: 'tab', id: sid, x: 0, y: 0 } });
-    const item = model.ctxVM(model.st()).ctxItems.find(row => row.t === label);
-    assert.ok(item, label);
-    item.go();
-  };
-  dirty.add(fourth.id);
-  choose(second.id, 'Zavřít vpravo');
-  assert.deepEqual(store.state.sessions.map(session => session.id),
-    [first.id, second.id, third.id, fourth.id]);
-  assert.match(widget.catalogActionError, /neuložený soubor/);
-  dirty.clear();
-  choose(second.id, 'Zavřít vpravo');
-  assert.deepEqual(store.state.sessions.map(session => session.id), [first.id, second.id]);
-  assert.deepEqual(new SessionStore(storage).state.sessions.map(session => session.id), [first.id, second.id]);
-  choose(second.id, 'Zavřít ostatní');
-  assert.deepEqual(store.state.sessions.map(session => session.id), [second.id]);
-  assert.deepEqual(new SessionStore(storage).state.sessions.map(session => session.id), [second.id]);
-  model.componentWillUnmount();
-});
-
-test('tab pin moves a real session first and survives store restoration', () => {
-  const { model, store, storage } = setup();
-  const first = store.focusedSession();
-  const second = store.addSession();
-  model.setState({ ctx: { sec: 'tab', id: second.id, x: 0, y: 0 } });
-  const pin = model.ctxVM(model.st()).ctxItems.find(item => item.t === 'Připnout');
-  assert.notEqual(pin.cls, 'dis');
-  pin.go();
-  assert.equal(store.state.sessions[0].id, second.id);
-  assert.equal(store.find(second.id)._pinned, true);
-  assert.match(model.tabsVM(model.st(), store.state.columns, second.id)[0].full, /Připnuto/);
-  const restored = new SessionStore(storage);
-  assert.equal(restored.state.sessions[0].id, second.id);
-  assert.equal(restored.find(second.id)._pinned, true);
-  model.setState({ ctx: { sec: 'tab', id: second.id, x: 0, y: 0 } });
-  model.ctxVM(model.st()).ctxItems.find(item => item.t === 'Odepnout').go();
-  assert.equal(store.find(second.id)._pinned, false);
-  assert.equal(store.find(first.id)._pinned, false);
+  assert.equal(store.state.columns.includes(first.id), false);
+  model.pShowSession(model.st(), first.id, { ctrlKey: true });
+  assert.equal(store.state.columns.includes(first.id), true);
+  assert.equal(store.state.columns.length, 3);
+  assert.equal(store.state.sessions.length, 4);
+  assert.deepEqual(new SessionStore(storage).state.columns, store.state.columns);
   model.componentWillUnmount();
 });
 
@@ -1407,7 +1391,7 @@ test('live view contains only actual sessions and messages, and swaps column own
   store.setColumnCount(2);
   store.selectInColumn(0, first.id);
   let vm = model.renderVals();
-  assert.equal(vm.tabs.length, 2);
+  assert.equal(vm.columns.length, 2);
   assert.equal(vm.columns[0].title, first._label);
   assert.equal(vm.columns[0].msgs[0].text, 'Ahoj');
   assert.equal(vm.columns[0].msgs[1].paras[0].t, 'Odpověď');
@@ -1418,6 +1402,58 @@ test('live view contains only actual sessions and messages, and swaps column own
   assert.equal(vm.columns[0].title, second._label);
   assert.equal(vm.columns[1].title, first._label);
   assert.equal(vm.ws.scm.unavailable, false);
+});
+
+test('first message names a default session and live work collapses into timed phases', () => {
+  const { model, store } = setup();
+  const session = store.focusedSession();
+  session._label = 'Nová relace';
+  const activity = { startedAt: 1000, endedAt: 5100, status: 'done', steps: [
+    { kind: 'step', label: 'Zpracovává zadání', startedAt: 1000, status: 'observed' },
+    { kind: 'step', label: 'Volí postup', startedAt: 1200, status: 'observed' },
+    { kind: 'step', label: 'Připravuje kontext', startedAt: 2000, status: 'observed' },
+    { kind: 'tool', label: 'read_file', startedAt: 2300, durationMs: 100, status: 'done' },
+    { kind: 'model', label: 'Generuje odpověď', input: 'Model / role: test:1', startedAt: 2500, status: 'done' },
+    { kind: 'step', label: 'Odpověď vygenerována', startedAt: 4700, status: 'observed' },
+    { kind: 'step', label: 'Kontroluje jazyk', startedAt: 4900, status: 'observed' },
+  ] };
+  session.chat.msgs.push({ role: 'user', text: 'Oprav chybu v projektu', _activity: activity },
+    { role: 'assistant', text: 'Hotovo.' });
+  const vm = model.renderVals();
+  assert.equal(vm.columns[0].title, 'Oprav chybu v projektu');
+  assert.equal(vm.nav[0].kids[0].t, 'Oprav chybu v projektu');
+  const reply = vm.columns[0].msgs[1];
+  assert.equal(reply.hasFold, true);
+  assert.match(reply.foldText, /4 fáze/);
+  assert.equal(reply.hasSteps, true);
+  assert.deepEqual(reply.steps.map(step => step.t), ['read_file']);
+  reply.toggleFold();
+  const expanded = model.renderVals().columns[0].msgs[1];
+  assert.deepEqual(expanded.steps.map(step => step.t), [
+    'Porozumění zadání', 'Příprava kontextu', 'read_file', 'Generování odpovědi · test:1', 'Kontroly výstupu']);
+  assert.deepEqual(expanded.steps.map(step => step.m), ['1,0 s', '0,3 s', '0,1 s', '2,4 s', '0,2 s']);
+  model.componentWillUnmount();
+});
+
+test('answer copy uses full Markdown and reports success or failure below the reply', async () => {
+  const { model, store } = setup();
+  store.focusedSession().chat.msgs.push({ role: 'assistant', text: '## Nadpis\n\n`kód`' });
+  const previous = globalThis.navigator.clipboard;
+  const copied = [];
+  try {
+    globalThis.navigator.clipboard = { writeText: async value => { copied.push(value); } };
+    model.renderVals().columns[0].msgs[0].copy();
+    await tick();
+    assert.deepEqual(copied, ['## Nadpis\n\n`kód`']);
+    assert.equal(model.renderVals().columns[0].msgs[0].copyNote, 'Zkopírováno');
+    globalThis.navigator.clipboard = { writeText: async () => { throw Error('denied'); } };
+    model.renderVals().columns[0].msgs[0].copy();
+    await tick();
+    assert.equal(model.renderVals().columns[0].msgs[0].copyNote, 'Kopírování se nepovedlo');
+  } finally {
+    globalThis.navigator.clipboard = previous;
+    model.componentWillUnmount();
+  }
 });
 
 test('composer, attachment picker and terminal use widget services without prototype replies', async () => {

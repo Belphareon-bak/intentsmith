@@ -29,17 +29,19 @@ class Component extends DCLogic {
     if (e.preventDefault) e.preventDefault();
     if (e.stopPropagation) e.stopPropagation();
     this.setState(Object.assign({ menu: null, ctx: null }, p));
+    this.armToast(p);
   }
 
   defaults() {
     return {
       mode: 'sessions', section: 'projects', detail: {},
-      tabs: ['s1', 's2', 's3', 's4', 's5', 's6'], cols: 2, colSids: ['s1', 's3', 's2'], focusCol: 0, colFr: [1, 1, 1],
+      // tabs = otevřené relace (nejvýš maxSessions()), used = pořadí podle posledního použití.
+      tabs: ['s1', 's2', 's3', 's5', 's6'], used: ['s1', 's3', 's2', 's6', 's5'], cols: 2, colSids: ['s1', 's3', 's2'], focusCol: 0, colFr: [1, 1, 1],
       navOpen: true, navPin: false, navW: 248, navExp: { chats: true },
       rightOpen: true, rightPin: false, rightW: 400, rightTab: 'zmeny',
       bottomOpen: true, bottomH: 190, btab: {}, detailW: 520,
       menu: null, palette: false, pq: '', ctx: null, q: '', chip: 'vse',
-      view: 'dlazdice', size: 2, dtab: {}, approved: {}, stopped: {}, modes: {}, experts: {}, drafts: {}, extra: {}, sessions: {}, pinned: {},
+      view: 'dlazdice', size: 2, dtab: {}, approved: {}, stopped: {}, modes: {}, experts: {}, drafts: {}, extra: {}, sessions: {}, closed: [], toast: null, copied: {},
       openFiles: { 'src/main/sftp.js': true }, paused: {}, ran: {}, installed: {}, seq: 1,
       fileView: {}, fileMode: {}, fileDraft: {}, fileText: {}, fileGuard: null, userOpened: {}, treeClosed: {}, fileAction: null, fileActionNotice: '',
       specialistFiles: {}, specialistPreview: null, specialistFileNotice: '',
@@ -72,8 +74,16 @@ class Component extends DCLogic {
     return (e) => {
       const s = this.st();
       const p = fn(s, e);
-      if (p) this.setState(Object.assign({ menu: null, ctx: null, palette: false }, p));
+      if (p) { this.setState(Object.assign({ menu: null, ctx: null, palette: false }, p)); this.armToast(p); }
     };
+  }
+
+  // Krátké hlášení dole ve středu (např. automatické zavření relace); samo zmizí.
+  armToast(p) {
+    const t = p && p.toast;
+    if (!t || !t.id) return;
+    const timer = setTimeout(() => { const s2 = this.st(); if (s2.toast && s2.toast.id === t.id) this.setState({ toast: null }); }, t.tone === 'warn' ? 8000 : 6000);
+    if (timer && timer.unref) timer.unref();
   }
 
   chain(s, a, fb) {
@@ -168,7 +178,7 @@ class Component extends DCLogic {
         msgs: [
           { k: 'user', time: '14:02', text: 'Dokonči přenos souborů přes SFTP – obnovení přerušeného přenosu a ukazatel průběhu v panelu souborů. Vzhled neměň.' },
           { k: 'agent', time: '14:02 · 34 s', badge: 'BUILD', expert: 'Vývojář',
-            key: 's1a', foldMeta: '2,1 s', steps: [['Volí postup', '', 'i'], ['Připravuje kontext', '0,6 s', 'i'], ['Prošel 4 soubory v src/main', '1,2 s'], ['Naplánoval 3 změny a 1 nový test', '6,8 s'], ['Upravil src/main/sftp.js', '+48 −9'], ['Upravil src/renderer/js/files.js', '+21 −4'], ['Vytvořil test/sftp-resume.test.js', '+62'], ['Spustil npm test — všechny testy prošly', '11,4 s']],
+            key: 's1a', foldMeta: '1,0 s', steps: [['Porozumění zadání', '0,4 s', 'i'], ['Příprava kontextu', '0,6 s', 'i'], ['Prošel 4 soubory v src/main', '1,2 s'], ['Naplánoval 3 změny a 1 nový test', '6,8 s'], ['Upravil src/main/sftp.js', '+48 −9'], ['Upravil src/renderer/js/files.js', '+21 −4'], ['Vytvořil test/sftp-resume.test.js', '+62'], ['Spustil npm test — všechny testy prošly', '11,4 s']],
             paras: ['Přerušený přenos teď pokračuje od posledního potvrzeného bloku. Před zápisem se zjistí velikost souboru na serveru a čtení začne od téhle pozice.', 'Server musí umět zapisovat od posunu – OpenSSH to umí vždy. Když to server neumí, přenos začne znovu a v logu o tom zůstane záznam. Průběh se do panelu souborů posílá nejvýš čtyřikrát za sekundu.'],
             code: ['const offset = await remoteSize(sftp, target).catch(() => 0);', 'const stream = fs.createReadStream(local, { start: offset });'],
             approval: { files: 3, add: 131, del: 13 } }
@@ -258,7 +268,7 @@ class Component extends DCLogic {
         msgs: [
           { k: 'user', time: 'včera 18:03', text: 'Co je to Docker?' },
           { k: 'agent', time: 'včera 18:03 · 9 s', badge: 'CONVERSATION', expert: 'Výchozí', key: 's5a', foldMeta: '9,0 s',
-            steps: [['Volí postup', '', 'i'], ['Připravuje kontext', '0,4 s', 'i'], ['Odpověď modelu · qwen3.5:27b', '8,1 s', 'i'], ['Kontrola výstupu', '0,3 s', 'i']],
+            steps: [['Porozumění zadání', '0,2 s', 'i'], ['Příprava kontextu', '0,4 s', 'i'], ['Generování odpovědi · qwen3.5:27b', '8,1 s', 'i'], ['Kontroly výstupu', '0,3 s', 'i']],
             paras: ['Docker je nástroj, který zabalí aplikaci i se vším, co potřebuje ke spuštění – knihovny, nastavení a runtime – do takzvaného kontejneru. Kontejner se pak spustí stejně na tvém počítači, na serveru i v cloudu.', 'Na rozdíl od virtuálního stroje nemá kontejner vlastní operační systém; sdílí jádro hostitele, takže startuje za sekundy a zabírá málo místa. Obraz (image) je předpis, kontejner je jeho běžící instance.'] }
         ],
         changes: [], ctxFiles: [], memory: [], tree: [],
@@ -483,7 +493,7 @@ class Component extends DCLogic {
   }
 
   colLayout(s) {
-    const tabs = s.tabs;
+    const tabs = this.recent(s);
     const n = Math.min(s.cols, tabs.length);
     const out = [];
     for (let i = 0; i < n; i++) {
@@ -501,58 +511,117 @@ class Component extends DCLogic {
 
   focusSid(s) { const lay = this.colLayout(s); return lay.length ? lay[this.focusIdx(s, lay)] : null; }
 
+  maxSessions() { return 5; }
+
+  maxCols() { return 3; }
+
+  // Otevřené relace od naposledy použité; relace bez záznamu v `used` jsou nejstarší.
+  recent(s) {
+    const used = (s.used || []).filter((x, i, all) => s.tabs.indexOf(x) >= 0 && all.indexOf(x) === i);
+    return used.concat(s.tabs.filter((x) => used.indexOf(x) < 0));
+  }
+
+  touch(s, sid) { return [sid].concat((s.used || []).filter((x) => x !== sid)); }
+
+  // Sloupec pro další relaci: volný sloupec, jinak ten, se kterým se nejdéle nepracovalo – nikdy aktivní.
+  slotFor(s, lay) {
+    if (lay.length < this.maxCols()) return lay.length;
+    const f = this.focusIdx(s, lay);
+    const order = this.recent(s);
+    let slot = f, oldest = -1;
+    lay.forEach((sid, i) => { const r = order.indexOf(sid); if (i !== f && r > oldest) { oldest = r; slot = i; } });
+    return slot;
+  }
+
+  // Ukáže relaci ve sloupci `slot`; index za posledním sloupcem sloupec přidá.
+  showIn(s, lay, slot, sid) {
+    const next = lay.slice();
+    next[slot] = sid;
+    const grow = next.length !== lay.length;
+    return Object.assign({ mode: 'sessions', cols: Math.max(1, next.length), colSids: next, focusCol: slot, used: this.touch(s, sid) }, grow ? { colFr: [1, 1, 1] } : {});
+  }
+
+  // Automaticky zavřít jde jen relace, která nepracuje, nečeká na schválení a nemá neuložený soubor.
+  canAutoClose(sid, s) {
+    const st = this.sstate(sid, s);
+    return st !== 'run' && st !== 'wait' && !this.dirtyOf(sid, s)
+      && !(s.drafts[sid] || '').trim() && !(s.cmds[sid] || '').trim() && !(s.atts[sid] || []).length;
+  }
+
+  // Nová relace se otevře vedle ostatních. Při stropu maxSessions() se zavře nejdéle nepoužitá relace,
+  // která po otevření nebude vidět a jde bezpečně zavřít; když taková není, nová se neotevře.
+  pOpenNew(s, sid, patch, slot) {
+    const lay = this.colLayout(s);
+    const view = this.showIn(s, lay, slot == null ? this.slotFor(s, lay) : slot, sid);
+    let tabs = s.tabs, closed = null;
+    if (tabs.length >= this.maxSessions()) {
+      closed = this.recent(s).slice().reverse().find((x) => lay.indexOf(x) < 0 && this.canAutoClose(x, s)) || null;
+      if (!closed) return { toast: { id: 't' + s.seq, tone: 'warn', t: 'Otevřeno je ' + tabs.length + ' relací a žádnou nejde bezpečně zavřít – pracují, čekají na schválení nebo mají neuložený soubor. Nejdřív některou ukonči.' }, seq: s.seq + 1 };
+      tabs = tabs.filter((x) => x !== closed);
+    }
+    let toast = null;
+    if (closed) {
+      const b = this.sess(closed, s);
+      const empty = !!b.fresh && !(s.extra[closed] || []).length;
+      toast = { id: 't' + s.seq, tone: 'info', t: (empty ? 'Prázdná relace „' + b.short + '“ se zavřela' : 'Relace „' + b.short + '“ se zavřela') + ' – otevřených může být nejvýš ' + this.maxSessions() + '.' + (empty ? '' : ' Konverzace zůstává v historii.') };
+    }
+    return Object.assign({}, patch, view, { tabs: tabs.concat([sid]), used: view.used.filter((x) => x !== closed), closed: closed ? [closed].concat((s.closed || []).filter((x) => x !== closed)) : (s.closed || []).filter((x) => x !== sid), toast, seq: Math.max(patch.seq || 0, s.seq + 1) });
+  }
+
+  // Klik na otevřenou relaci (levý seznam, Poslední relace, Alt+N): když je vidět, jen se zaostří, jinak se ukáže v aktivním sloupci.
   pFocusSession(s, sid) {
     const lay = this.colLayout(s);
     const i = lay.indexOf(sid);
-    if (i >= 0) return { mode: 'sessions', focusCol: i, colSids: lay.slice() };
-    const next = lay.slice();
-    const f = this.focusIdx(s, lay);
-    if (!next.length) next.push(sid); else next[f] = sid;
-    return { mode: 'sessions', focusCol: next.indexOf(sid), colSids: next };
+    if (i >= 0) return { mode: 'sessions', focusCol: i, colSids: lay.slice(), used: this.touch(s, sid) };
+    return this.showIn(s, lay, lay.length ? this.focusIdx(s, lay) : 0, sid);
+  }
+
+  // Klik se stisknutým Ctrl ukáže relaci ve vedlejším sloupci.
+  pShowSession(s, sid, e) {
+    return e && (e.ctrlKey || e.metaKey) ? this.pOpenBeside(s, sid) : this.pFocusSession(s, sid);
   }
 
   pOpenSession(s, id) {
+    if (s.tabs.indexOf(id) >= 0) return this.pFocusSession(s, id);
     const d = this.data();
-    let sessions = s.sessions, tabs = s.tabs;
-    if (tabs.indexOf(id) < 0) {
-      if (!d.S[id] && !s.sessions[id]) sessions = Object.assign({}, s.sessions, { [id]: { hist: id } });
-      tabs = tabs.concat([id]);
-    }
-    return this.chain(s, { sessions, tabs }, (s2) => this.pFocusSession(s2, id));
+    const patch = !d.S[id] && !s.sessions[id] ? { sessions: Object.assign({}, s.sessions, { [id]: { hist: id } }) } : {};
+    return this.pOpenNew(s, id, patch);
   }
 
-  pNewSession(s, opts) {
+  // `slot` = konkrétní sloupec („Nová relace v tomto sloupci"), jinak vedle ostatních.
+  pNewSession(s, opts, slot) {
     const o = opts || {};
     const sid = 'n' + s.seq;
     const sessions = Object.assign({}, s.sessions, { [sid]: { fresh: true, project: o.project || null, specialist: o.specialist || null } });
-    return this.chain(s, { sessions, seq: s.seq + 1, tabs: s.tabs.concat([sid]) }, (s2) => this.pFocusSession(s2, sid));
+    return this.pOpenNew(s, sid, { sessions, seq: s.seq + 1 }, slot);
   }
+
+  // Popisek otevírací akce: první relace se otevře sama, další vedle ostatních.
+  openLabel(s) { return s.tabs.length ? 'Otevřít v nové relaci' : 'Otevřít'; }
 
   pOpenBeside(s, id) {
-    const base = s.tabs.indexOf(id) < 0 ? this.pOpenSession(s, id) : {};
-    const s1 = Object.assign({}, s, base);
-    const lay = this.colLayout(Object.assign({}, s1, { colSids: s.colSids }));
-    if (lay.indexOf(id) >= 0) return Object.assign(base, { mode: 'sessions', colSids: lay, focusCol: lay.indexOf(id) });
-    if (s1.cols < 3 && lay.length === s1.cols) {
-      const next = lay.concat([id]);
-      return Object.assign(base, { mode: 'sessions', cols: s1.cols + 1, colSids: next, focusCol: next.length - 1, colFr: [1, 1, 1] });
-    }
-    const next = lay.slice();
-    const f = this.focusIdx(s1, lay);
-    const slot = next.length > 1 ? (f + 1) % next.length : 0;
-    next[slot] = id;
-    return Object.assign(base, { mode: 'sessions', colSids: next, focusCol: slot });
+    if (s.tabs.indexOf(id) < 0) return this.pOpenSession(s, id);
+    const lay = this.colLayout(s);
+    if (lay.indexOf(id) >= 0) return this.pFocusSession(s, id);
+    return this.showIn(s, lay, this.slotFor(s, lay), id);
   }
 
-  pCloseTab(s, sid) {
+  // Ukončení relace (× v hlavičce sloupce): její sloupec zmizí; jediný sloupec převezme naposledy použitou skrytou relaci.
+  pCloseSession(s, sid) {
     const tabs = s.tabs.filter((t) => t !== sid);
-    const colSids = s.colSids.map((x) => (x === sid ? null : x));
-    return { tabs, colSids, focusCol: Math.max(0, Math.min(s.focusCol, Math.min(s.cols, tabs.length) - 1)) };
-  }
-
-  pTogglePinned(s, sid) {
-    const pinned = this.merge(s, 'pinned', { [sid]: !s.pinned[sid] });
-    return { pinned, tabs: s.tabs.filter(id => pinned[id]).concat(s.tabs.filter(id => !pinned[id])) };
+    const used = (s.used || []).filter((t) => t !== sid);
+    const closed = [sid].concat((s.closed || []).filter((t) => t !== sid));
+    const lay = this.colLayout(s);
+    const i = lay.indexOf(sid);
+    if (i < 0) return { tabs, used, closed };
+    if (lay.length > 1) {
+      const colSids = lay.filter((t) => t !== sid);
+      const colFr = s.colFr.slice(); colFr.splice(i, 1); colFr.push(1);
+      const f = s.focusCol > i ? s.focusCol - 1 : s.focusCol;
+      return { tabs, used, closed, cols: colSids.length, colSids, colFr, focusCol: Math.max(0, Math.min(f, colSids.length - 1)) };
+    }
+    const next = this.recent(Object.assign({}, s, { tabs, used }))[0];
+    return { tabs, used, closed, cols: 1, colSids: next ? [next] : [], focusCol: 0 };
   }
 
   pSetCols(s, n) {
@@ -578,7 +647,7 @@ class Component extends DCLogic {
     const rid = 'r' + s.seq;
     const msgs = (s.extra[sid] || []).concat([
       { k: 'user', time: 'teď', text, atts: atts.map((a) => a[0]) },
-      { k: 'agent', time: 'teď', badge: b.intent || (b.kind === 'specialist' ? 'SPECIALISTA' : 'CONVERSATION'), expert, author: b.kind === 'specialist' ? b.short : '', rid, running: true, runText: 'Model ' + b.model + ' odpovídá…', steps: [['Načetl kontext relace', '0,4 s'], ['Připravuje odpověď', '', 'run']] }
+      { k: 'agent', time: 'teď', badge: b.intent || (b.kind === 'specialist' ? 'SPECIALISTA' : 'CONVERSATION'), expert, author: b.kind === 'specialist' ? b.short : '', rid, running: true, runText: 'Model ' + b.model + ' odpovídá…', steps: [['Porozumění zadání', '0,2 s', 'i'], ['Příprava kontextu', '0,4 s', 'i'], ['Generování odpovědi · ' + b.model, '', 'i-run']] }
     ]);
     return { extra: this.merge(s, 'extra', { [sid]: msgs }), drafts: this.merge(s, 'drafts', { [sid]: '' }), atts: this.merge(s, 'atts', { [sid]: [] }), seq: s.seq + 1 };
   }
@@ -626,10 +695,22 @@ class Component extends DCLogic {
     const lay = this.colLayout(s);
     const next = lay.slice();
     const j = next.indexOf(sid);
-    if (j === i) return { mode: 'sessions', focusCol: i };
+    if (j === i) return { mode: 'sessions', focusCol: i, used: this.touch(s, sid) };
     if (j >= 0) next[j] = next[i];
     next[i] = sid;
-    return { mode: 'sessions', colSids: next, focusCol: i };
+    return { mode: 'sessions', colSids: next, focusCol: i, used: this.touch(s, sid) };
+  }
+
+  // Uložené konverzace: nedávno zavřené relace (nahoře) a historie, bez otevřených.
+  saved(s) {
+    const d = this.data();
+    const order = (s.closed || []).concat(Object.keys(d.S));
+    const closed = order.filter((id, i) => d.S[id] && s.tabs.indexOf(id) < 0 && order.indexOf(id) === i).map((id) => {
+      const b = d.S[id];
+      const last = b.msgs[b.msgs.length - 1];
+      return { id, t: b.title, day: 'Nedávno zavřené', when: last ? last.time.split(' · ')[0] : '', project: b.project };
+    });
+    return closed.concat(d.H.filter((h) => s.tabs.indexOf(h.id) < 0));
   }
 
   entities(sec, s) {
@@ -643,9 +724,9 @@ class Component extends DCLogic {
         const first = b.msgs.concat(s.extra[sid] || []).find((m) => m.k === 'user');
         return { id: sid, name: b.title, sub: sp ? 'specialista ' + sp.name : p ? p.name : 'bez projektu', desc: first ? first.text : 'Zatím bez zpráv.', icon: this.kindIcon(b.kind), tone: 'amber', dot: st, num: i + 1, groups: ['open', p ? 'project' : 'free'].concat(sp ? ['specialist'] : []), group: 'Otevřené relace', catLabel: 'Relace ' + (i + 1), meta: this.stLabel(st), metaColor: this.stColor(st), tag: '', state: this.stLabel(st) };
       });
-      const hist = d.H.filter((h) => s.tabs.indexOf(h.id) < 0).map((h) => {
+      const hist = this.saved(s).map((h) => {
         const p = h.project ? this.proj(h.project) : null;
-        return { id: h.id, name: h.t, sub: p ? p.name : 'bez projektu', desc: 'Uložená konverzace · otevře se jako nová relace.', icon: p ? I.folder : I.chat, tone: 'amber', groups: [p ? 'project' : 'free'], group: h.day, catLabel: h.day === 'Starší' ? h.when : h.day + ' ' + h.when, meta: h.when, tag: '', state: 'uložená' };
+        return { id: h.id, name: h.t, sub: p ? p.name : 'bez projektu', desc: 'Uložená konverzace · otevře se jako nová relace.', icon: p ? I.folder : I.chat, tone: 'amber', groups: [p ? 'project' : 'free'], group: h.day, catLabel: h.day === 'Starší' || h.day === 'Nedávno zavřené' ? h.when : h.day + ' ' + h.when, meta: h.when, tag: '', state: 'uložená' };
       });
       return open.concat(hist);
     }
@@ -714,13 +795,13 @@ class Component extends DCLogic {
           const b = this.sess(sid, s);
           const st = this.sstate(sid, s);
           const vis = lay.indexOf(sid) >= 0;
-          kids.push({ isItem: true, t: b.short, m: this.stLabel(st), mc: this.stColor(st), hasNum: true, num: i + 1, numCls: s.mode === 'sessions' && sid === fsid ? 'focus' : vis ? 'vis' : '', hasDot: true, dot: st, hasIcon: false, icon: '', cls: s.mode === 'sessions' && sid === fsid ? 'on' : '', go: this.run((s2) => this.pFocusSession(s2, sid)), ctx: this.showCtx('chats', sid) });
+          kids.push({ isItem: true, t: b.short, m: this.stLabel(st), mc: this.stColor(st), hasNum: true, num: i + 1, numCls: s.mode === 'sessions' && sid === fsid ? 'focus' : vis ? 'vis' : '', hasDot: true, dot: st, hasIcon: false, icon: '', cls: s.mode === 'sessions' && sid === fsid ? 'on' : '', go: this.run((s2, e) => this.pShowSession(s2, sid, e)), ctx: this.showCtx('chats', sid) });
         });
         kids.push({ isHead: true, t: 'Nedávné' });
-        d.H.filter((h) => s.tabs.indexOf(h.id) < 0).slice(0, 3).forEach((h) => {
+        this.saved(s).slice(0, 3).forEach((h) => {
           kids.push({ isItem: true, t: h.t, m: h.when, mc: 'var(--faint)', hasNum: false, num: 0, numCls: '', hasDot: false, dot: '', hasIcon: true, icon: I.chat, cls: '', go: this.run((s2) => this.pOpenSession(s2, h.id)), ctx: this.showCtx('chats', h.id) });
         });
-        more = 'Všechny konverzace (' + (s.tabs.length + d.H.filter((h) => s.tabs.indexOf(h.id) < 0).length) + ')';
+        more = 'Všechny konverzace (' + (s.tabs.length + this.saved(s).length) + ')';
       } else if (x.id === 'projects') {
         badge = String(d.P.length);
         d.P.filter((p) => p.status === 'active').slice(0, 4).forEach((p) => {
@@ -878,17 +959,17 @@ class Component extends DCLogic {
         if (sp) related.push({ t: sp.name, s: 'specialista', icon: I.users, go: (s2) => this.pSelect(s2, 'specialists', sp.id) });
         return { icon: this.kindIcon(b.kind), tone: 'amber', title: b.title, type: 'Konverzace', idText: 'relace ' + (s.tabs.indexOf(id) + 1), status: this.stLabel(st), stCls: st === 'wait' ? 'warn' : st === 'ok' ? 'ok' : st === 'run' ? 'acc' : 'idle',
           primary: { label: 'Přepnout na relaci', go: (s2) => this.pFocusSession(s2, id) },
-          secondary: [{ label: 'Otevřít vedle', icon: I.columns, go: (s2) => this.pOpenBeside(s2, id) }],
+          secondary: [{ label: 'Ukončit relaci', icon: I.x, go: (s2) => this.pCloseSession(s2, id) }],
           tabs: [['prehled', 'Přehled']], blocks: { prehled: blocks.length ? blocks : [{ kind: 'empty', title: 'Zprávy', text: 'Relace zatím nemá žádnou zprávu.' }] }, desc: '', props, related };
       }
-      const h = d.H.find((x) => x.id === id);
+      const h = this.saved(s).find((x) => x.id === id);
       if (!h) return null;
       const p = h.project ? this.proj(h.project) : null;
       return { icon: p ? I.folder : I.chat, tone: 'amber', title: h.t, type: 'Konverzace', idText: 'uložená · ' + h.when, status: 'uložená', stCls: 'idle',
-        primary: { label: 'Otevřít jako relaci', go: (s2) => this.pOpenSession(s2, id) },
-        secondary: [{ label: 'Otevřít vedle', icon: I.columns, go: (s2) => this.pOpenBeside(s2, id) }],
+        primary: { label: this.openLabel(s), go: (s2) => this.pOpenSession(s2, id) },
+        secondary: [],
         tabs: [['prehled', 'Přehled']], blocks: { prehled: [{ kind: 'empty', title: 'Zprávy', text: 'Obsah se načte po otevření jako relace.' }] }, desc: '',
-        props: [['Uloženo', h.day === 'Starší' ? h.when : h.day + ' ' + h.when], ['Projekt', p ? p.name : 'bez projektu']],
+        props: [['Uloženo', h.day === 'Starší' || h.day === 'Nedávno zavřené' ? h.when : h.day + ' ' + h.when], ['Projekt', p ? p.name : 'bez projektu']],
         related: p ? [{ t: p.name, s: 'projekt', icon: I.folder, go: (s2) => this.pSelect(s2, 'projects', p.id) }] : [] };
     }
     if (sec === 'projects') {
@@ -897,7 +978,7 @@ class Component extends DCLogic {
       const convRows = p.convs.map((c) => this.convRow(s, c));
       const recent = p.recent.map((f) => ({ t: f[0], m: '+' + f[1] + (f[2] ? ' −' + f[2] : ''), mc: ok, icon: I.file, mono: true }));
       const tree = (p.tree || []).map((t) => ({ t: ' '.repeat(t[0] * 4) + t[1], icon: t[2] ? I.folder : I.file, m: t[3] || '', mc: t[3] === 'A' ? ok : 'var(--warn)', mono: true }));
-      const prehled = [{ kind: 'rows', title: 'Relace a konverzace', rows: convRows, empty: 'Projekt zatím nemá žádnou konverzaci. Začni tlačítkem Nová relace v projektu.' }, { kind: 'rows', title: 'Nedávné změny', rows: recent, empty: 'Zatím žádné změny souborů.' }];
+      const prehled = [{ kind: 'rows', title: 'Relace a konverzace', rows: convRows, empty: 'Projekt zatím nemá žádnou konverzaci. Začni tlačítkem „' + this.openLabel(s) + '“.' }, { kind: 'rows', title: 'Nedávné změny', rows: recent, empty: 'Zatím žádné změny souborů.' }];
       if (p.memory && p.memory.length) prehled.push({ kind: 'list', title: 'Paměť projektu', items: p.memory });
       const props = [['Cesta', p.path, true], ['Stav', p.status === 'active' ? 'aktivní' : 'specifikace'], ['Poslední aktivita', p.last], ['Konverzací', String(p.convs.length)]];
       if (p.stack) props.push(['Technologie', p.stack]);
@@ -914,7 +995,7 @@ class Component extends DCLogic {
       if (p.code) related.push({ t: 'Code Reviewer', s: 'specialista', icon: I.users, go: (s2) => this.pSelect(s2, 'specialists', 'code-reviewer') });
       return {
         icon: I.folder, tone: 'rose', title: p.name, type: 'Projekt', idText: p.path, status: p.status === 'active' ? 'aktivní' : 'specifikace', stCls: p.status === 'active' ? 'ok' : 'idle',
-        primary: { label: 'Nová relace v projektu', go: (s2) => this.pNewSession(s2, { project: p.id }) },
+        primary: { label: this.openLabel(s), go: (s2) => this.pNewSession(s2, { project: p.id }) },
         secondary: [{ label: 'Otevřít složku', icon: I.ext }, { label: 'Upravit', icon: I.pen }],
         tabs: [['prehled', 'Přehled'], ['konverzace', 'Konverzace', p.convs.length], ['soubory', 'Soubory'], ['scm', 'Správa zdrojů']],
         blocks: {
@@ -933,13 +1014,13 @@ class Component extends DCLogic {
       if (x.caps.length) prehled.push({ kind: 'chips', title: 'Schopnosti', chips: x.caps });
       if (x.exps.length) prehled.push({ kind: 'chips', title: 'Expertýzy', chips: x.exps });
       const convs = s.tabs.filter((sid) => this.sess(sid, s).specialist === x.id);
-      prehled.push({ kind: 'rows', title: 'Konverzace se specialistou', rows: convs.map((c) => this.convRow(s, c)), empty: 'Zatím žádná. Začni tlačítkem Nová konverzace se specialistou.' });
+      prehled.push({ kind: 'rows', title: 'Konverzace se specialistou', rows: convs.map((c) => this.convRow(s, c)), empty: 'Zatím žádná. Začni tlačítkem „' + this.openLabel(s) + '“.' });
       const props = [['Verze', x.version], ['Doména', x.domain, true], ['Typ', x.type === 'domain' ? 'doménový' : 'pomocný'], ['Autor', 'c3-core']];
       if (x.engine) props.push(['Engine', x.engine, true]);
       props.push(['Výchozí stav', 'zapnutý']);
       return {
         icon: I.users, tone: 'violet', title: x.name, type: 'Specialista', idText: x.id, status: 'zapnutý', stCls: 'ok',
-        primary: { label: 'Nová konverzace se specialistou', go: (s2) => this.pNewSession(s2, { specialist: x.id }) },
+        primary: { label: this.openLabel(s), go: (s2) => this.pNewSession(s2, { specialist: x.id }) },
         secondary: [{ label: 'Vypnout', icon: I.pause }],
         tabs: [['prehled', 'Přehled'], ['konverzace', 'Konverzace', convs.length], ['nastroje', 'Nástroje', x.tools.length], ['nastaveni', 'Nastavení']],
         blocks: {
@@ -1479,20 +1560,62 @@ class Component extends DCLogic {
     };
   }
 
+  // Trvání pro časovou osu: „0,4 s", „14,6 s", „7 min 42 s".
+  secs(ms) {
+    if (!(ms >= 0)) return '';
+    if (ms < 60000) return (Math.round(ms / 100) / 10).toFixed(1).replace('.', ',') + ' s';
+    return Math.floor(ms / 60000) + ' min ' + Math.round((ms % 60000) / 1000) + ' s';
+  }
+
+  phaseName(id) { return { understand: 'Porozumění zadání', context: 'Příprava kontextu', generate: 'Generování odpovědi', check: 'Kontroly výstupu' }[id] || 'Zpracování'; }
+
+  // Časová osa odpovědi z událostí backendu. events: [{ phase, label, meta, startedAt, status, model }], kde
+  // phase je 'understand' | 'context' | 'generate' | 'check' pro interní krok zpracování a null pro viditelnou práci
+  // (nástroj, soubor, chyba – label a meta se převezmou). Po sobě jdoucí události stejné fáze se sloučí do jedné fáze;
+  // fáze trvá do začátku dalšího kroku, poslední do endAt. Bez endAt (odpověď běží) poslední fáze probíhá.
+  // Výstup je formát m.steps: [text, meta, příznak] s příznakem 'i' / 'i-run' pro fáze, '' / 'run' / 'err' pro práci.
+  phaseSteps(events, endAt) {
+    const rows = [];
+    (events || []).forEach((e) => {
+      const last = rows[rows.length - 1];
+      if (e.phase && last && last.phase === e.phase) { last.err = last.err || e.status === 'error'; last.model = e.model || last.model; return; }
+      rows.push({ phase: e.phase || null, label: e.label || '', meta: e.meta || '', start: e.startedAt, err: e.status === 'error', running: e.status === 'running', model: e.model || '' });
+    });
+    return rows.map((x, i) => {
+      if (!x.phase) return [x.label, x.meta, x.err ? 'err' : x.running ? 'run' : ''];
+      const end = rows[i + 1] ? rows[i + 1].start : endAt;
+      const done = Number.isFinite(end) && Number.isFinite(x.start);
+      const label = this.phaseName(x.phase) + (x.phase === 'generate' && x.model ? ' · ' + x.model : '');
+      return [label, done ? this.secs(Math.max(0, end - x.start)) : '', x.err ? 'err' : done ? 'i' : 'i-run'];
+    });
+  }
+
+  // Kopírování odpovědi: ikona se na chvíli změní na fajfku, chyba zůstane vidět déle.
+  copyText(key, value) {
+    const mark = (st) => {
+      this.setState({ copied: this.merge(this.st(), 'copied', { [key]: st }) });
+      const timer = setTimeout(() => { const s2 = this.st(); if (s2.copied[key] === st) this.setState({ copied: this.merge(s2, 'copied', { [key]: '' }) }); }, st === 'ok' ? 1600 : 4000);
+      if (timer && timer.unref) timer.unref();
+    };
+    try { Promise.resolve(navigator.clipboard.writeText(value)).then(() => mark('ok'), () => mark('err')); } catch (e) { mark('err'); }
+  }
+
   msgVM(m, sid, s, b) {
     const I = this.data().I;
     const a = s.approved[sid];
     const stopped = !!(m.rid && s.stopped[m.rid]);
-    // Kroky: [text, meta, příznak]; příznak 'run' běží, 'err' chyba, 'i' interní krok zpracování.
-    // Interní kroky se sbalí do jednoho řádku, vidět zůstává skutečná práce.
+    // Kroky: [text, meta, příznak]; příznak 'run' běží, 'err' chyba, 'i' / 'i-run' fáze zpracování (phaseSteps).
+    // Fáze se sbalí do jednoho řádku, vidět zůstává skutečná práce; dokončená fáze je zelená jako ostatní kroky.
     const fkey = m.rid || m.key || '';
     const all = m.steps || [];
     const internal = all.filter((x) => x[2] === 'i' || x[2] === 'i-run');
     const foldOpen = !!(fkey && s.stepsOpen[fkey]);
     const steps = all.filter((x) => foldOpen || !(x[2] === 'i' || x[2] === 'i-run')).map((x) => ({ t: x[0], m: x[1] || '',
-      cls: x[2] === 'run' || x[2] === 'i-run' ? (stopped ? 'stopped' : 'run') : x[2] === 'err' ? 'err' : x[2] === 'i' ? 'int' : '' }));
+      cls: x[2] === 'run' || x[2] === 'i-run' ? (stopped ? 'stopped' : 'run') : x[2] === 'err' ? 'err' : '' }));
     const hasFold = internal.length > 0;
-    const foldWord = internal.length === 1 ? '1 krok' : internal.length <= 4 ? internal.length + ' kroky' : internal.length + ' kroků';
+    const foldWord = internal.length === 1 ? '1 fáze' : internal.length <= 4 ? internal.length + ' fáze' : internal.length + ' fází';
+    const copyKey = fkey || sid + ':' + (m.time || '');
+    const copyState = s.copied[copyKey] || '';
     let hasApproval = false, hasResult = false, resText = '', resColor = 'var(--ok)', resIcon = I.check;
     const ap = m.approval;
     if (ap) {
@@ -1517,9 +1640,11 @@ class Component extends DCLogic {
       noteIcon: m.tone === 'err' ? I.x : m.tone === 'warn' ? I.info : m.tone === 'ok' ? I.check : I.info,
       code: (m.code || []).map((t) => ({ t })), hasCode: !!(m.code && m.code.length),
       hasMarkdown: false, noMarkdown: true, html: '',
-      hasCopy: m.k === 'agent' && !!((m.paras || []).length || (m.code || []).length),
-      copy: () => { const value = (m.paras || []).join('\n\n') + ((m.code || []).length ? '\n\n' + m.code.join('\n') : '');
-        if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) navigator.clipboard.writeText(value).catch(() => {}); },
+      hasCopy: m.k === 'agent' && !(m.running && !stopped) && !!((m.paras || []).length || (m.code || []).length),
+      copy: () => this.copyText(copyKey, (m.paras || []).join('\n\n') + ((m.code || []).length ? '\n\n' + m.code.join('\n') : '')),
+      copyCls: copyState ? 'c-' + copyState : '', copyIcon: copyState === 'ok' ? I.check : copyState === 'err' ? I.x : I.copy,
+      copyLabel: copyState === 'ok' ? 'Zkopírováno' : copyState === 'err' ? 'Kopírování se nepovedlo' : 'Kopírovat odpověď',
+      copyNote: copyState === 'ok' ? 'Zkopírováno' : copyState === 'err' ? 'Kopírování se nepovedlo' : '', hasCopyNote: !!copyState,
       isRunning: !!m.running && !stopped, runText: m.runText || 'Pracuje…',
       stop: () => this.setState({ stopped: this.merge(this.st(), 'stopped', { [m.rid]: true }) }),
       hasApproval, apprTitle: 'Změny čekají na schválení', apprSub: ap ? this.filesWord(ap.files) + ' · +' + ap.add + ' −' + ap.del + ' · režim ' + (mode === 'auto' ? 'Auto' : 'Kontrola') : '',
@@ -1560,7 +1685,7 @@ class Component extends DCLogic {
         n: s.tabs.indexOf(sid) + 1, numCls: i === fidx ? 'focus' : 'vis', cls: i === fidx && lay.length > 1 ? 'focus' : '',
         splitCls: i > 0 ? '' : 'hide', split: this.colDrag(i),
         rows: '40px minmax(0, 1fr) auto ' + (s.bottomOpen ? '4px ' + s.bottomH + 'px' : '0px 0px'),
-        focus: () => { const s2 = this.st(); if (s2.focusCol !== i) this.setState({ focusCol: i }); },
+        focus: () => { const s2 = this.st(); if (s2.focusCol !== i || (s2.used || [])[0] !== sid) this.setState({ focusCol: i, used: this.touch(s2, sid) }); },
         kindIcon: this.kindIcon(b.kind), dot: st, title: b.title,
         hasOwner: !!owner, ownerName: owner ? owner.name : '', ownerIcon: owner ? owner.icon : '', ownerTitle: owner ? owner.title : '', openOwner: this.run(owner ? owner.go : () => null),
         hasIntent: !!b.intent, intent: b.intent || '',
@@ -1568,9 +1693,8 @@ class Component extends DCLogic {
         setAuto: () => this.setState({ modes: this.merge(this.st(), 'modes', { [sid]: 'auto' }) }),
         setRev: () => this.setState({ modes: this.merge(this.st(), 'modes', { [sid]: 'kontrola' }) }),
         ctx: this.ctxOf(sid, s), ctxLabel: this.ctxOf(sid, s) + ' %',
-        multi: lay.length > 1,
         pick: this.showCtx('colpick', String(i), 'left'), pickCls: s.ctx && s.ctx.sec === 'colpick' && s.ctx.id === String(i) ? 'open' : '',
-        closeCol: () => { const s2 = this.st(); const l2 = this.colLayout(s2); l2.splice(i, 1); const fr2 = s2.colFr.slice(); fr2.splice(i, 1); fr2.push(1); this.setState({ cols: Math.max(1, s2.cols - 1), colSids: l2, colFr: fr2, focusCol: Math.max(0, Math.min(s2.focusCol, l2.length - 1)) }); },
+        closeCol: this.run((s2) => this.pCloseSession(s2, sid)),
         msgs: b.msgs.concat(extra).map((m) => this.msgVM(m, sid, s, b)),
         isFresh: fresh, freshTitle: sp ? 'Nová konverzace se specialistou ' + sp.name : p ? 'Nová relace v projektu ' + p.name : 'Nová konverzace',
         freshText: sp ? 'Specialista má k dispozici své nástroje. Napiš, co má udělat.' : p ? 'Agent zná strukturu projektu a jeho paměť. Napiš, co se má udělat.' : 'Zeptej se na cokoli, nebo připoj projekt přes paletu příkazů.',
@@ -1596,23 +1720,6 @@ class Component extends DCLogic {
         runs, hasRuns: runs.length > 0, noRuns: runs.length === 0, runGrid: '60px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr) 52px 76px',
         audit: (s.auditX[sid] || []).concat(b.audit || []).map((l) => ({ t: l[0], e: l[1], m: l[2] })),
         problems: probs, hasProblems: probs.length > 0, noProblems: probs.length === 0
-      };
-    });
-  }
-
-  tabsVM(s, lay, fsid) {
-    return s.tabs.map((sid, i) => {
-      const b = this.sess(sid, s);
-      const st = this.sstate(sid, s);
-      const vis = s.mode === 'sessions' && lay.indexOf(sid) >= 0;
-      const foc = s.mode === 'sessions' && sid === fsid;
-      return {
-        n: i + 1, numCls: foc ? 'focus' : vis ? 'vis' : '', cls: foc ? 'focus' : vis ? 'vis' : '',
-        icon: this.kindIcon(b.kind), title: b.short, pinned: !!s.pinned[sid],
-        full: (i + 1) + ' · ' + b.title + ' · ' + this.stLabel(st) + (s.pinned[sid] ? ' · Připnuto' : ''), dot: st,
-        go: this.run((s2) => this.pFocusSession(s2, sid)),
-        close: (e) => { if (e && e.stopPropagation) e.stopPropagation(); const s2 = this.st(); this.setState(Object.assign({ ctx: null, menu: null }, this.pCloseTab(s2, sid))); },
-        ctx: this.showCtx('tab', sid)
       };
     });
   }
@@ -2235,7 +2342,7 @@ class Component extends DCLogic {
       ]],
       ['relace', 'Relace', [
         it('Nová relace', 'Ctrl+T', (s2) => this.pNewSession(s2, {}), ic(I.plus)),
-        fsid ? it('Zavřít relaci', 'Ctrl+W', (s2) => this.pCloseTab(s2, fsid)) : dis('Zavřít relaci', 'Ctrl+W'),
+        fsid ? it('Ukončit relaci', 'Ctrl+W', (s2) => this.pCloseSession(s2, fsid)) : dis('Ukončit relaci', 'Ctrl+W'),
         sep(),
         it('Další relace', 'Ctrl+Tab', nextSess(1)),
         it('Předchozí relace', 'Ctrl+Shift+Tab', nextSess(-1)),
@@ -2243,7 +2350,7 @@ class Component extends DCLogic {
         head('Otevřené relace')
       ].concat(sessItems).concat([
         sep(),
-        it('Zavřít nečinné relace', '', (s2) => { let cur = s2; let p = {}; s2.tabs.slice().forEach((sid) => { if (this.sstate(sid, cur) === 'idle' && sid !== this.focusSid(cur)) { const q = this.pCloseTab(cur, sid); p = Object.assign(p, q); cur = Object.assign({}, cur, q); } }); return p; })
+        it('Ukončit nečinné relace', '', (s2) => { let cur = s2; let p = {}; s2.tabs.slice().forEach((sid) => { if (this.sstate(sid, cur) === 'idle' && sid !== this.focusSid(cur)) { const q = this.pCloseSession(cur, sid); p = Object.assign(p, q); cur = Object.assign({}, cur, q); } }); return p; })
       ])],
       ['agent', 'Agent', [
         runningNow ? it('Zastavit odpověď', 'Esc', (s2) => { const all = this.sess(fsid, s2).msgs.concat(s2.extra[fsid] || []); const stp = {}; all.forEach((m) => { if (m.running) stp[m.rid] = true; }); return { stopped: this.merge(s2, 'stopped', stp) }; }, ic(I.stop)) : dis('Zastavit odpověď', 'Esc'),
@@ -2289,15 +2396,16 @@ class Component extends DCLogic {
       const i = Number(c.id);
       const lay = this.colLayout(s);
       if (!(i >= 0 && i < lay.length)) return none;
-      title = 'Relace ve sloupci ' + (i + 1);
+      // Poslední relace: otevřené relace od naposledy použité (nejvýš maxSessions()).
+      title = 'Poslední relace';
       cls = 'picker';
-      items = s.tabs.map((sid, n) => {
+      items = this.recent(s).map((sid) => {
         const b = this.sess(sid, s);
         const st = this.sstate(sid, s);
         const j = lay.indexOf(sid);
         const where = j === i ? 'tady' : j >= 0 ? 'sloupec ' + (j + 1) + ' · vymění se' : this.stLabel(st);
-        return it(b.short, where, (s2) => this.pPickInCol(s2, i, sid), { hasNum: true, num: n + 1, numCls: j === i ? 'focus' : j >= 0 ? 'vis' : '', hasDot: true, dot: st, cls: j === i ? 'cur' : '' });
-      }).concat([sep(), it('Nová relace v tomto sloupci', 'Ctrl+T', (s2) => this.chain(s2, { focusCol: i }, (s3) => this.pNewSession(s3, {})), ic(I.plus))]);
+        return it(b.short, where, (s2) => this.pPickInCol(s2, i, sid), { hasNum: true, num: s.tabs.indexOf(sid) + 1, numCls: j === i ? 'focus' : j >= 0 ? 'vis' : '', hasDot: true, dot: st, cls: j === i ? 'cur' : '' });
+      }).concat([sep(), it('Nová relace v tomto sloupci', '', (s2) => this.chain(s2, { focusCol: i }, (s3) => this.pNewSession(s3, {}, i)), ic(I.plus))]);
       return { hasCtx: true, ctxItems: items, ctxX: c.x, ctxY: c.y, ctxTitle: title, ctxHasQ: false, ctxQ: '', ctxCls: cls };
     }
     if (c.sec === 'branch' || c.sec === 'commit') {
@@ -2324,35 +2432,22 @@ class Component extends DCLogic {
       }
       return { hasCtx: true, ctxItems: items, ctxX: c.x, ctxY: c.y, ctxTitle: title, ctxHasQ: hasQ, ctxQ: s.ctxQ || '', ctxCls: 'picker' };
     }
-    const sessCtx = (sid) => [
-      it('Přepnout na relaci', 'Enter', (s2) => this.pFocusSession(s2, sid), ic(I.chat)),
-      it('Otevřít ve vedlejším sloupci', '', (s2) => this.pOpenBeside(s2, sid), ic(I.columns))
-    ];
-    if (c.sec === 'tab') {
-      const sid = c.id;
-      title = 'Relace ' + (s.tabs.indexOf(sid) + 1);
-      items = sessCtx(sid).concat([
-        sep(),
-        it('Zavřít', 'Ctrl+W', (s2) => this.pCloseTab(s2, sid), ic(I.x)),
-        it('Zavřít ostatní', '', (s2) => ({ tabs: [sid], colSids: [sid], cols: 1, focusCol: 0 })),
-        it('Zavřít vpravo', '', (s2) => ({ tabs: s2.tabs.slice(0, s2.tabs.indexOf(sid) + 1) })),
-        sep(),
-        it(s.pinned[sid] ? 'Odepnout' : 'Připnout', '', (s2) => this.pTogglePinned(s2, sid), ic(I.pin))
-      ]);
+    const sc = this.sec(c.sec);
+    title = sc.label;
+    if (c.sec === 'chats') {
+      const open = s.tabs.indexOf(c.id) >= 0;
+      items = open ? [
+        it('Přepnout na relaci', 'Enter', (s2) => this.pFocusSession(s2, c.id), ic(I.chat)),
+        it('Zobrazit ve vedlejším sloupci', 'Ctrl+klik', (s2) => this.pOpenBeside(s2, c.id), ic(I.columns)),
+        it('Ukončit relaci', '', (s2) => this.pCloseSession(s2, c.id), ic(I.x))
+      ] : [it(this.openLabel(s), 'Enter', (s2) => this.pOpenSession(s2, c.id), ic(I.chat))];
+      items.push(it('Zobrazit detail', '', (s2) => this.pSelect(s2, 'chats', c.id), ic(I.info)));
     } else {
-      const sc = this.sec(c.sec);
-      title = sc.label;
-      if (c.sec === 'chats') {
-        const open = s.tabs.indexOf(c.id) >= 0;
-        items = open ? sessCtx(c.id) : [it('Otevřít jako relaci', 'Enter', (s2) => this.pOpenSession(s2, c.id), ic(I.chat)), it('Otevřít ve vedlejším sloupci', '', (s2) => this.pOpenBeside(s2, c.id), ic(I.columns))];
-        items.push(it('Zobrazit detail', '', (s2) => this.pSelect(s2, 'chats', c.id), ic(I.info)));
-      } else {
-        items = [it('Zobrazit detail', 'Enter', (s2) => this.pSelect(s2, c.sec, c.id), ic(I.info))];
-        if (c.sec === 'projects') items.push(it('Nová relace v projektu', '', (s2) => this.pNewSession(s2, { project: c.id }), ic(I.plus)));
-        if (c.sec === 'specialists') items.push(it('Nová konverzace se specialistou', '', (s2) => this.pNewSession(s2, { specialist: c.id }), ic(I.plus)));
-      }
-      items = items.concat([sep(), it('Připnout', '', null, ic(I.pin)), it('Přejmenovat…', 'F2', null, ic(I.pen)), it('Duplikovat', '', null, ic(I.copy)), sep(), it('Archivovat', '', null, ic(I.archive)), it('Smazat…', 'Del', null, Object.assign(ic(I.trash), { cls: 'danger' }))]);
+      items = [it('Zobrazit detail', 'Enter', (s2) => this.pSelect(s2, c.sec, c.id), ic(I.info))];
+      if (c.sec === 'projects') items.push(it(this.openLabel(s), '', (s2) => this.pNewSession(s2, { project: c.id }), ic(I.plus)));
+      if (c.sec === 'specialists') items.push(it(this.openLabel(s), '', (s2) => this.pNewSession(s2, { specialist: c.id }), ic(I.plus)));
     }
+    items = items.concat([sep(), it('Připnout', '', null, ic(I.pin)), it('Přejmenovat…', 'F2', null, ic(I.pen)), it('Duplikovat', '', null, ic(I.copy)), sep(), it('Archivovat', '', null, ic(I.archive)), it('Smazat…', 'Del', null, Object.assign(ic(I.trash), { cls: 'danger' }))]);
     return { hasCtx: true, ctxItems: items, ctxX: c.x, ctxY: c.y, ctxTitle: title, ctxHasQ: false, ctxQ: '', ctxCls: '' };
   }
 
@@ -2544,7 +2639,7 @@ class Component extends DCLogic {
       navFull, navRail: !navFull,
       nav: this.navVM(s, lay, fsid),
       navSet: { cls: !isSessions && s.section === 'settings' ? 'on' : '', go: this.run((s2) => this.pGo(s2, 'settings')) },
-      tabs: this.tabsVM(s, lay, fsid), newSession: this.run((s2) => this.pNewSession(s2, {})),
+      newSession: this.run((s2) => this.pNewSession(s2, {})),
       isSessions, isSection: !isSessions, secLabel: this.sec(s.section).label,
       columns: isSessions ? this.columnsVM(s, lay, fidx) : [], colTpl, noSessions: isSessions && lay.length === 0,
       sectCols: dt ? 'minmax(0, 1fr) 4px ' + s.detailW + 'px' : 'minmax(0, 1fr) 0px 0px',
@@ -2554,6 +2649,8 @@ class Component extends DCLogic {
       closeDetail: () => { const s2 = this.st(); this.setState({ detail: this.merge(s2, 'detail', { [s2.section]: null }) }); },
       ap: this.apVM(s, mode),
       ws: this.wsVM(s, fsid),
+      hasToast: !!s.toast, toastText: s.toast ? s.toast.t : '', toastCls: s.toast ? 't-' + (s.toast.tone || 'info') : '', toastIcon: s.toast && s.toast.tone === 'warn' ? I.info : I.check,
+      closeToast: () => this.setState({ toast: null }),
       sb: { sessions: sessWord + ' · ' + nRun + ' pracuje · ' + nWait + ' čeká', ctx: fsid ? this.ctxOf(fsid, s) : 0, ctxLabel: (fsid ? this.ctxOf(fsid, s) : 0) + ' %', connection: 'Připojeno', dot: 'ok', backend: 'backend 136.1.0', ws: 'ws :3335', db: 'DB 134 MiB', gpu: 'GPU 18,3 / 24,0 GiB · 57 °C' }
     };
   }

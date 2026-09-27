@@ -96,17 +96,43 @@ class Studio2Widget extends ReactWidget {
     super.dispose();
   }
 
-  addSession() { this.store.addSession(); this.section = 'Relace'; this.update(); }
+  closeBlockReason(session) {
+    if (!session || session.chat._thinking || this.transport?.hasActiveM1Turn(session)) return 'Relace právě odpovídá.';
+    if (session._m2Pending || this.m2.entry(session).busy) return 'Relace čeká na schválení nebo výsledek změny.';
+    if (this.transport?.isTerminalExecuting(session)) return 'V relaci běží příkaz terminálu.';
+    if (this.workspace.entry(session).editor?.dirty || this.model?.st().fileGuard?.sid === session.id)
+      return 'Relace má neuložený soubor.';
+    if ((this.model?.st().drafts?.[session.id] || '').trim() || session.chat.attachments?.length
+      || session.chat._pendingAttachments?.length || session.chat._preparing || session.chat._picking)
+      return 'Relace má rozepsanou zprávu nebo přílohy.';
+    if (session.chat._delivery?.status === 'DELIVERY_UNKNOWN') return 'Výsledek odeslání není známý.';
+    return null;
+  }
+  capacityAvailable() {
+    if (this.store.canAddSession(session => !this.closeBlockReason(session))) return true;
+    this.catalogActionError = 'Je otevřeno 5 relací. Skryté relace pracují, čekají na schválení nebo mají neuloženou práci; nejprve některou bezpečně ukonči.';
+    this.model?.setState({ toast: { id: 'cap-' + Date.now(), tone: 'warn', t: this.catalogActionError } });
+    this.update();
+    return false;
+  }
+  createSession(source = {}, slot) {
+    if (!this.capacityAvailable()) return null;
+    const previous = this.store.state.sessions.slice();
+    const session = this.store.addSession(source, { slot, canClose: item => !this.closeBlockReason(item) });
+    if (!session) return null;
+    const evicted = previous.find(item => !this.store.find(item.id));
+    if (evicted) {
+      const toast = { id: 'closed-' + Date.now(), tone: 'info',
+        t: `Relace „${evicted._label}“ se zavřela; její konverzace zůstává v historii.` };
+      this.model?.setState({ toast }); this.model?.armToast({ toast });
+    }
+    this.section = 'Relace'; this.update();
+    return session;
+  }
+  addSession(slot) { return this.createSession({}, slot); }
   closeSession(session) {
-    if (this.m2.entry(session).busy) {
-      window.alert('Počkejte na výsledek M2 nebo načtěte trvalý stav před zavřením relace.');
-      return false;
-    }
-    if (this.workspace.entry(session).editor?.dirty) {
-      this.sideMode = 'Soubory'; this.update();
-      window.alert('Nejprve uložte nebo zahoďte neuložené změny souboru.');
-      return false;
-    }
+    const reason = this.closeBlockReason(session);
+    if (reason) { window.alert(reason); return false; }
     return this.store.closeSession(session.id);
   }
   selectSection(name) {
@@ -114,13 +140,14 @@ class Studio2Widget extends ReactWidget {
     if (NAV.includes(name)) this.catalog.load(name);
     this.update();
   }
-  async openCatalogItem(section, item) {
+  async openCatalogItem(section, item, slot) {
     if (section !== 'Konverzace' && section !== 'Projekty') return;
     this.catalogActionError = null;
     try {
       if (section === 'Konverzace') {
         const existing = this.store.state.sessions.find(session => session._convId === item.id);
         if (existing) { this.store.focusTab(existing.id); this.section = 'Relace'; this.update(); return true; }
+        if (!this.capacityAvailable()) return false;
         const route = '/api/conversations/' + encodeURIComponent(item.id);
         const metadataBody = await this.catalog.get(route);
         const metadata = metadataBody.conversation || metadataBody;
@@ -128,9 +155,10 @@ class Studio2Widget extends ReactWidget {
         const body = await this.catalog.get(route + '/messages');
         const rows = Array.isArray(body) ? body : body.messages;
         if (!Array.isArray(rows)) throw new Error('Server nevrátil platnou historii.');
-        this.store.addSession({ convId: item.id, projectId: metadata.project_id, label: metadata.title || item.name,
-          recentMsgs: rows.map(row => ({ role: row.role, text: row.content || row.text || '' })) });
+        if (!this.createSession({ convId: item.id, projectId: metadata.project_id, label: metadata.title || item.name,
+          recentMsgs: rows.map(row => ({ role: row.role, text: row.content || row.text || '' })) }, slot)) return false;
       } else {
+        if (!this.capacityAvailable()) return false;
         const response = await fetch(this.catalog.backendUrl() + '/api/conversations', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ project_id: item.raw.id, title: item.name }), signal: AbortSignal.timeout(8000),
@@ -139,14 +167,15 @@ class Studio2Widget extends ReactWidget {
         if (!response.ok) throw new Error(body.error || `Vytvoření relace selhalo (HTTP ${response.status}).`);
         const conversation = body.conversation || body;
         if (!conversation.id || String(conversation.project_id) !== String(item.raw.id)) throw new Error('Server nepotvrdil správný projekt konverzace.');
-        const session = this.store.addSession({ convId: conversation.id, projectId: item.raw.id, label: item.name });
+        const session = this.createSession({ convId: conversation.id, projectId: item.raw.id, label: item.name }, slot);
+        if (!session) throw Error('Relaci nelze bezpečně otevřít. Konverzace je uložená v historii.');
         this.workspace.loadTree(session);
       }
       this.section = 'Relace'; this.update();
       return true;
     } catch (error) { this.catalogActionError = error.message || 'Relaci se nepodařilo otevřít.'; this.update(); return false; }
   }
-  async openSpecialist(item) {
+  async openSpecialist(item, slot) {
     this.catalogActionError = null;
     const id = item?.id === 'accountant' ? 'accountant-cz' : item?.id;
     if (!id) return false;
@@ -157,6 +186,7 @@ class Studio2Widget extends ReactWidget {
     }
     const existing = this.store.state.sessions.find(session => session.chat.specialist?.id === id);
     if (existing) { this.store.focusTab(existing.id); this.update(); return true; }
+    if (!this.capacityAvailable()) return false;
     const sessionId = 'studio-specialist-' + crypto.randomUUID();
     try {
       const response = await fetch(this.catalog.backendUrl() + '/api/chat/specialist', {
@@ -167,7 +197,8 @@ class Studio2Widget extends ReactWidget {
       if (!response.ok || body.ok !== true || body.specialistId !== id)
         throw new Error(body.error || 'Backend nepotvrdil specialistu.');
       const specialist = { ...item.raw, id, name: item.name };
-      this.store.addSession({ convId: sessionId, label: item.name, specialistData: specialist, expertiseName: item.name });
+      if (!this.createSession({ convId: sessionId, label: item.name, specialistData: specialist, expertiseName: item.name }, slot))
+        throw Error('Relaci nelze bezpečně otevřít.');
       this.section = 'Relace'; this.update(); return true;
     } catch (error) { this.catalogActionError = error.message || 'Specialistu nelze aktivovat.'; this.update(); return false; }
   }
@@ -181,6 +212,7 @@ class Studio2Widget extends ReactWidget {
       this.catalogActionError = 'Specialista je vypnutý. Zapni ho před obnovením konverzace.';
       this.update(); return false;
     }
+    if (!this.store.state.sessions.some(session => session._convId === item.id) && !this.capacityAvailable()) return false;
     try {
       const response = await fetch(this.catalog.backendUrl() + '/api/chat/specialist', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
