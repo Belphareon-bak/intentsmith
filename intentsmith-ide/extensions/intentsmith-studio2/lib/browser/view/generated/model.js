@@ -2100,6 +2100,7 @@ class Component extends DCLogic {
   graphRows(g) {
     let open1 = false, seen0 = false;
     const headLane = g.laneBranch && g.branch === g.laneBranch ? 1 : 0;
+    const explicitHead = g.log.some(row => (row[5] || []).some(ref => /^HEAD(?:\s*->|$)/.test(ref)));
     let headDone = false, baseDone = false, l0 = 0;
     return g.log.map((r, i) => {
       const lane = r[0] === 'b' ? 1 : 0;
@@ -2112,13 +2113,13 @@ class Component extends DCLogic {
         else if (open1) p1 = 'M21 0V26';
       }
       const refs = [];
-      if (!headDone && lane === headLane) { refs.push({ t: 'HEAD → ' + g.branch, cls: 'head' }); headDone = true; }
+      if (!explicitHead && !headDone && lane === headLane) { refs.push({ t: 'HEAD → ' + g.branch, cls: 'head' }); headDone = true; }
       if (lane === 0) {
         if (!baseDone && g.branch !== g.baseBranch) { refs.push({ t: g.baseBranch, cls: '' }); baseDone = true; }
         if (headLane === 0 && g.upstream && g.behind === 0 && l0 === g.ahead) refs.push({ t: g.upstream, cls: 'remote' });
         l0++;
       }
-      (r[5] || []).forEach((x) => { if (!(headLane === 1 && x === g.branch)) refs.push({ t: x, cls: /^v\d/.test(x) ? 'tag' : '' }); });
+      (r[5] || []).forEach((x) => { if (!(headLane === 1 && x === g.branch)) refs.push({ t: x.replace(/^HEAD -> /, 'HEAD → '), cls: /^HEAD(?:\s*->|$)/.test(x) ? 'head' : /^v\d/.test(x) ? 'tag' : '' }); });
       return { p0, p1, cx: lane ? 21 : 9, dc: lane ? 'var(--violet)' : 'var(--acct)', hash: r[1], s: r[2], who: r[3], when: r[4], refs, hasRefs: refs.length > 0, title: r[1] + ' · ' + r[3] + ' · ' + r[4] };
     });
   }

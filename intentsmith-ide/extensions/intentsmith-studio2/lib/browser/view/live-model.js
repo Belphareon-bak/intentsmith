@@ -50,6 +50,10 @@ function seconds(ms) {
   return minutes + ' min ' + Math.round((ms % 60_000) / 1000) + ' s';
 }
 
+function itemCount(count) {
+  return count + ' ' + (count === 1 ? 'položka' : count >= 2 && count <= 4 ? 'položky' : 'položek');
+}
+
 // Kroky práce agenta pro časovou osu: nástroje, soubory a chyby zůstávají vidět,
 // interní kroky zpracování (směrování, kontext, model, kontroly) se sbalí.
 function timeline(activity) {
@@ -496,15 +500,25 @@ class LiveModel extends Component {
     const section = CATALOG[sec];
     if (!section) return [];
     const list = this.widget.catalog.view(section).items;
-    const rows = list.map(item => ({ id: item.id, name: item.name,
-      sub: sec === 'projects' ? item.raw.path || '' : item.group,
+    const rows = list.map(item => {
+      const expertiseCategory = sec === 'expertises' ? this.data().CATS[item.group] : null;
+      const expertiseLabel = expertiseCategory ? expertiseCategory[0]
+        : item.group === 'custom' ? 'Vlastní' : 'Nezařazené';
+      return { id: item.id, name: item.name,
+      sub: sec === 'projects' ? item.raw.path || '' : sec === 'expertises' ? item.raw.domain || '' : item.group,
       desc: item.description, icon: ({ chats: I.chat, projects: I.folder,
         specialists: I.users, expertises: I.cap, workers: I.bot, market: I.bag, media: I.image })[sec],
       tone: ({ chats: 'amber', projects: 'rose', specialists: 'violet', expertises: 'cyan',
         workers: 'mint', market: 'blue', media: 'blue' })[sec],
-      groups: [sec === 'chats' ? (item.raw.project_id ? 'project' : 'free') : item.state || item.group],
-      group: item.group || section, catLabel: item.state || item.group,
-      meta: '', tag: item.state || '', state: item.state || '' }));
+      groups: [sec === 'chats' ? (item.raw.project_id ? 'project' : 'free')
+        : sec === 'expertises' ? item.group : item.state || item.group],
+      group: sec === 'expertises' ? expertiseLabel : item.group || section,
+      catLabel: sec === 'expertises' ? expertiseLabel : item.state || item.group,
+      meta: sec === 'expertises' && Number.isFinite(item.raw.temperature)
+        ? 'teplota ' + String(item.raw.temperature).replace('.', ',') : '',
+      tag: sec === 'expertises' ? item.raw.isCustom ? 'vlastní' : 'vestavěná' : item.state || '',
+      state: item.state || '' };
+    });
     if (sec !== 'chats') return rows;
     const open = s.tabs.map((sid, index) => {
       const session = this.widget.store.find(sid);
@@ -555,7 +569,7 @@ class LiveModel extends Component {
     if (s.section !== 'settings') {
       const view = this.widget.catalog.view(CATALOG[s.section]);
       vm.summary = view.status === 'loading' ? 'Načítání z backendu…' : view.status === 'error'
-        ? 'Načtení selhalo' : view.status === 'ready' ? view.items.length + ' položek z backendu' : 'Zatím nenačteno';
+        ? 'Načtení selhalo' : view.status === 'ready' ? itemCount(view.items.length) + ' z backendu' : 'Zatím nenačteno';
       if (vm.isEmpty) {
         vm.emptyTitle = view.status === 'loading' ? 'Načítání…' : view.status === 'error'
           ? 'Katalog se nepodařilo načíst' : 'Žádné položky';
@@ -800,7 +814,8 @@ class LiveModel extends Component {
           .map(([k, v, mono]) => ({ k, v, cls: mono ? 'mono' : '' })),
         blocks: [this.blockVM({ kind: 'expertiseSelection' }), this.blockVM({ kind: 'text', items: [editable
           ? 'Úprava načte aktuální konfiguraci z backendu a před uložením ověří její revizi.'
-          : 'Vestavěnou expertýzu můžeš použít v aktivní relaci.'] })],
+          : canSelect ? 'Vestavěnou expertýzu můžeš použít v této relaci.'
+            : 'Použití v této relaci není dostupné; projektový režim používá vlastní handler.'] })],
         hasRelated: false, related: [], development: this.developmentVM(s), scmPolicy: this.scmPolicyVM(s, null) };
     }
     return { icon: this.sec(s.section).icon, tone: this.sec(s.section).tone,
@@ -1864,9 +1879,21 @@ class LiveModel extends Component {
       if (!project || !Number.isSafeInteger(project.id) || typeof project.path !== 'string'
         || !project.path.startsWith('/')) throw Error('Backend nevrátil ověřitelný projekt. Zkontroluj katalog.');
       accepted = project;
+      if (mode === 'open' && body.name && project.name !== body.name) {
+        this._projectWizardStatus = { ...this._projectWizardStatus, uncertain: true,
+          error: `Složka je zaregistrovaná jako „${project.name || 'neznámý název'}“, ale požadovaný název „${body.name}“ nebyl potvrzen. Zkontroluj katalog projektů.` };
+        this.widget.catalogActionError = this._projectWizardStatus.error;
+        return false;
+      }
       await this.widget.catalog.load('Projekty');
       const view = this.widget.catalog.view('Projekty');
       const row = view.items.find(item => item.id === String(project.id) && item.raw.path === project.path);
+      if (mode === 'open' && body.name && row && row.name !== body.name) {
+        this._projectWizardStatus = { ...this._projectWizardStatus, uncertain: true,
+          error: `Katalog potvrdil složku, ale vrátil název „${row.name}“ místo „${body.name}“. Zkontroluj projekt před dalším pokusem.` };
+        this.widget.catalogActionError = this._projectWizardStatus.error;
+        return false;
+      }
       if (view.status !== 'ready' || !row) {
         this._projectWizardStatus = { ...this._projectWizardStatus,
           error: `Backend potvrdil projekt ${project.id}, ale katalog jej zatím neověřil. Obnov seznam projektů.` };

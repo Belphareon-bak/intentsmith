@@ -125,3 +125,8 @@ for (const style of c0().styleList().map((x) => x.id)) assert.ok(html({ style })
 console.log('PASS generated React view renders sessions, column picker, files, source control, catalog and all styles');
 
 function c0() { return new Component(); }
+const decoratedHead = c0().graphRows({ branch: 'main', baseBranch: 'main', laneBranch: '',
+  upstream: '', behind: 0, ahead: 0,
+  log: [['o', 'abc1234', 'Commit', 'Autor', 'dnes', ['HEAD -> main', 'main']]] });
+assert.equal(decoratedHead[0].refs.filter(ref => ref.cls === 'head').length, 1,
+  'Git history must not repeat HEAD when the backend already decorates it');

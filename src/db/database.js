@@ -336,7 +336,7 @@ export const projects = {
    * v59: Register external folder as project
    * Used by "Open Folder" feature - marks project as is_external=1
    */
-  registerExternal(name, projectPath, description = '') {
+  registerExternal(name, projectPath, description = '', { renameExisting = false } = {}) {
     // Check if already registered
     let project = this.findByPath.get(projectPath);
     if (project) {
@@ -352,6 +352,17 @@ export const projects = {
         project.name = safeName;
         project.status = 'active';
         return { project, wasExisting: true, reactivated: true };
+      }
+      if (renameExisting && name && project.name !== name) {
+        const conflict = this._findActiveByName.get(name);
+        if (conflict && conflict.id !== project.id) {
+          const error = new Error('Project name is already used');
+          error.code = 'PROJECT_NAME_CONFLICT';
+          throw error;
+        }
+        this.updateNameDesc.run(name, project.description || '', project.id);
+        project.name = name;
+        return { project, wasExisting: true, renamed: true };
       }
       this.updateLastActive.run(project.id);
       return { project, wasExisting: true };

@@ -845,6 +845,31 @@ await testAsync('POST /api/projects/open-folder idempotent (same folder twice)',
   }
 });
 
+await testAsync('POST /api/projects/open-folder honors an explicit name for an already registered folder', async () => {
+  const tmpDir = makeOwnedDir(PROJECT_FIXTURE_ROOT, 'intentsmith-rename-test');
+  try {
+    const open = async name => {
+      const response = await fetch(`${BASE}/api/projects/open-folder`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderPath: tmpDir, ...(name ? { name } : {}) }),
+        signal: AbortSignal.timeout(10000),
+      });
+      return { response, body: await response.json() };
+    };
+    const initial = await open();
+    assert(initial.response.ok, 'Initial folder registration should succeed');
+    const renamed = await open('Demo projektu');
+    assertEqual(renamed.response.status, 200, 'Existing folder should be reused');
+    assertEqual(renamed.body.project.id, initial.body.project.id, 'Project identity should remain stable');
+    assertEqual(renamed.body.project.name, 'Demo projektu', 'Requested name should be saved');
+    assertEqual(renamed.body.renamed, true, 'Response should report the rename');
+    const repeated = await open();
+    assertEqual(repeated.body.project.name, 'Demo projektu', 'Opening without a name must retain the saved name');
+  } finally {
+    removeOwnedDir(tmpDir);
+  }
+});
+
 suite('7. Chat with attachments — E2E');
 
 await testAsync('POST /chat with path-based attachment', async () => {

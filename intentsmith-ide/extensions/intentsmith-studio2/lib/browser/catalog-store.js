@@ -33,7 +33,18 @@ function normalize(section, raw) {
 }
 function normalizeCatalog(section, data) {
   if (!Object.hasOwn(ROUTES, section)) throw new Error('Neznámá sekce katalogu.');
-  return arrayFrom(section, data).map(item => normalize(section, item)).filter(Boolean);
+  const items = arrayFrom(section, data).map(item => normalize(section, item)).filter(Boolean);
+  if (section !== 'Expertýzy') return items;
+  // The backend owns expertise categories separately from each manifest's
+  // domain. A domain such as CREATIVE_WRITING is not a catalog filter key.
+  const byExpertise = new Map();
+  for (const category of Array.isArray(data?.categories) ? data.categories : []) {
+    if (!category || typeof category.id !== 'string' || !Array.isArray(category.experts)) continue;
+    for (const id of category.experts) {
+      if (typeof id === 'string' && !byExpertise.has(id)) byExpertise.set(id, category.id);
+    }
+  }
+  return items.map(item => ({ ...item, group: byExpertise.get(item.id) || item.group }));
 }
 
 class CatalogStore {

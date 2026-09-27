@@ -349,8 +349,13 @@ export function createProjectRoutes(deps) {
         }
 
         // Import never writes to the repository or executes repository code.
-        const projectName = typeof name === 'string' && name.trim() ? name.trim() : pathModule.basename(normalizedPath);
-        const { project, wasExisting } = db.projects.registerExternal(projectName, normalizedPath, '');
+        const explicitName = typeof name === 'string' && !!name.trim();
+        const projectName = explicitName ? name.trim() : pathModule.basename(normalizedPath);
+        if (explicitName && (projectName.length > 120 || /[\x00-\x1f]/.test(projectName))) {
+          return sendJSON(res, 400, { error: 'Invalid project name' });
+        }
+        const { project, wasExisting, renamed } = db.projects.registerExternal(projectName, normalizedPath, '',
+          { renameExisting: explicitName });
         let analysis = null;
         let analysisError = null;
         try {
@@ -363,14 +368,14 @@ export function createProjectRoutes(deps) {
           logger.warn('Projects', 'Open-folder analysis unavailable', { code: analysisError });
         }
         sendJSON(res, wasExisting ? 200 : 201, {
-          project, status: wasExisting ? 'already_registered' : 'registered',
+          project, status: wasExisting ? 'already_registered' : 'registered', renamed: renamed === true,
           welcomeMessage: importedProjectWelcome(project, analysis), analysis, analysisError,
           metadata: { bootstrapped: false, readmeCreated: false, roadmapCreated: false, analysisAvailable: !!analysis },
         });
 
       } catch (err) {
         logger.error('Server', `Open folder error: ${err.message}`);
-        sendJSON(res, 500, safeError(err));
+        sendJSON(res, err.code === 'PROJECT_NAME_CONFLICT' ? 409 : 500, safeError(err));
       }
     },
 

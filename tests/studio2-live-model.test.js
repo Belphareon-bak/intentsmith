@@ -584,6 +584,7 @@ test('expertise detail applies only a backend-confirmed catalog identity to the 
   assert.equal(blocked.hasPrimary, false);
   assert.equal(blocked.secondary.some(action => action.label === 'Přidat ke kombinaci'), false);
   assert.match(blocked.blocks.find(block => block.isExpertiseSelection).expertiseSelection.status, /projektový režim/);
+  assert.match(blocked.blocks.find(block => block.isText).items.map(item => item.t).join(' '), /není dostupné/);
   assert.equal(await model.useExpertise(item), false);
   session._projectId = null;
   session.chat.specialist = { id: 'some-specialist' };
@@ -591,6 +592,29 @@ test('expertise detail applies only a backend-confirmed catalog identity to the 
   assert.equal(blocked.hasPrimary, false);
   assert.match(blocked.blocks.find(block => block.isExpertiseSelection).expertiseSelection.status, /specialista/);
   assert.deepEqual(saved, [{ id: 'architect', weight: 0.5 }]);
+});
+
+test('expertise filters use backend categories while tiles show readable category names', async () => {
+  const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335',
+    fetchImpl: async () => ({ ok: true, json: async () => ({ experts: [
+      { id: 'writer', name: 'Spisovatel', domain: 'CREATIVE_WRITING' },
+      { id: 'analyst', name: 'Analytik', domain: 'DATA_ANALYSIS' },
+      { id: 'mine', name: 'Vlastní', domain: 'custom', isCustom: true }],
+    categories: [{ id: 'creative', experts: ['writer'] },
+      { id: 'analytical', experts: ['analyst'] }, { id: 'custom', experts: ['mine'] }] }) }) });
+  await catalog.load('Expertýzy');
+  const { model } = setup({ catalog });
+  const rows = model.entities('expertises', model.st());
+  assert.deepEqual(rows.map(row => row.group), ['Tvůrčí & Narativní', 'Analyticko-rozhodovací', 'Vlastní']);
+  assert.deepEqual(rows.map(row => row.sub), ['CREATIVE_WRITING', 'DATA_ANALYSIS', 'custom']);
+  const chips = model.filtered('expertises', model.st()).chips;
+  assert.equal(chips.find(chip => chip.label === 'Tvůrčí').n, 1);
+  assert.equal(chips.find(chip => chip.label === 'Analytičtí').n, 1);
+  model.setState({ mode: 'section', section: 'expertises' });
+  assert.equal(model.catalogVM(model.st()).summary, '3 položky z backendu');
+  catalog.views.set('Expertýzy', { status: 'ready', items: catalog.view('Expertýzy').items.slice(0, 1) });
+  assert.equal(model.catalogVM(model.st()).summary, '1 položka z backendu');
+  model.componentWillUnmount();
 });
 
 test('preference fields reject out-of-range values before POST', async () => {
@@ -717,7 +741,7 @@ test('marketplace detail uses confirmed backend mutations and never claims succe
 
 test('project wizard confirms create or open only after backend response and catalog readback', async () => {
   const posts = [];
-  let conflict = true, projects = [];
+  let conflict = true, honorOpenName = true, projects = [];
   const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335',
     fetchImpl: async url => {
       const path = new URL(url).pathname;
@@ -734,8 +758,8 @@ test('project wizard confirms create or open only after backend response and cat
     if (path === '/api/projects' && conflict) return { ok: false, status: 409,
       json: async () => ({ error: 'Projekt už existuje' }) };
     const project = path === '/api/projects' ? { id: 41, name: body.name, path: '/home/user/projects/novy' }
-      : { id: 42, name: 'Import', path: '/home/user/existing' };
-    projects = [...projects, project];
+      : { id: 42, name: body.name && honorOpenName ? body.name : 'Import', path: '/home/user/existing' };
+    projects = [...projects.filter(item => item.id !== project.id), project];
     return { ok: true, json: async () => ({ project }) };
   };
   await model.loadProjectDefaults();
@@ -757,6 +781,17 @@ test('project wizard confirms create or open only after backend response and cat
   assert.equal(await model.submitProject(model.st()), true);
   assert.equal(model.st().detail.projects, '42');
   assert.deepEqual(posts[2], ['/api/projects/open-folder', { folderPath: '/home/user/existing' }]);
+  model.setState({ detail: { projects: '__new__' }, projectStep: 1, projectMode: 'open',
+    projectName: 'Demo', projectPath: '/home/user/existing' });
+  assert.equal(await model.submitProject(model.st()), true);
+  assert.deepEqual(posts[3], ['/api/projects/open-folder', { folderPath: '/home/user/existing', name: 'Demo' }]);
+  assert.equal(model.detailVM(model.st()).title, 'Demo');
+  honorOpenName = false;
+  model.setState({ detail: { projects: '__new__' }, projectStep: 1, projectMode: 'open',
+    projectName: 'Jiný', projectPath: '/home/user/existing' });
+  assert.equal(await model.submitProject(model.st()), false);
+  assert.match(widget.catalogActionError, /požadovaný název/);
+  assert.equal(model.projectStatus().uncertain, true);
 });
 
 test('account project directory migrates locally, can be cleared, and shapes the reviewed create path', async () => {
