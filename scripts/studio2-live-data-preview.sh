@@ -82,6 +82,7 @@ export HOME="$PROFILE/home"
 export XDG_CONFIG_HOME="$PROFILE/config"
 export XDG_CACHE_HOME="$PROFILE/cache"
 export XDG_DATA_HOME="$PROFILE/data"
+export INTENTSMITH_STUDIO2_PREVIEW=1
 cd "$SOURCE_ROOT/intentsmith-ide/applications/electron"
 echo 'Opening Studio 2 with the currently running IntentSmith backend and its live data.'
 if [ -n "$APPIMAGE" ]; then

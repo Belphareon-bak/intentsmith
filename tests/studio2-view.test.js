@@ -6,11 +6,44 @@ import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import vm from 'node:vm';
 
 const require = createRequire(import.meta.url);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const EXT = path.join(ROOT, 'intentsmith-ide/extensions/intentsmith-studio2');
 const PROTO = path.join(ROOT, 'docs/studio2/prototype');
+
+// The private trial should open the new UI immediately. A saved classic choice
+// must still take precedence until S2-7 removes the old runtime.
+const browserEntry = readFileSync(path.join(ROOT,
+  'intentsmith-ide/applications/electron/intentsmith-browser-entry.js'), 'utf8');
+for (const [saved, preview, expected] of [
+  [null, true, 'studio2'], ['studio2', false, 'studio2'],
+  ['classic', true, 'classic'], [null, false, 'classic'],
+]) {
+  const loaded = [];
+  const window = { localStorage: { getItem: () => saved },
+    electronIntentSmith: { preferStudio2Preview: () => preview } };
+  const document = { documentElement: { dataset: {} } };
+  vm.runInNewContext(browserEntry, { window, document, require: name => loaded.push(name) });
+  assert.equal(window.__intentsmithStudioMode, expected);
+  assert.equal(document.documentElement.dataset.intentsmithStudioMode, expected);
+  assert.deepEqual(loaded, ['./intentsmith-local-http-bootstrap', './src-gen/frontend/index']);
+}
+const preloadSource = readFileSync(path.join(ROOT,
+  'intentsmith-ide/applications/electron/intentsmith-preload.js'), 'utf8');
+for (const value of ['1', '0']) {
+  let bridge;
+  const module = { exports: {} };
+  vm.runInNewContext(preloadSource, { module, exports: module.exports, window: {}, process: { env: { INTENTSMITH_STUDIO2_PREVIEW: value } },
+    console: { log() {} }, require: name => name === 'electron'
+      ? { contextBridge: { exposeInMainWorld: (_key, exposed) => { bridge = exposed; } }, ipcRenderer: {} }
+      : name === './intentsmith-local-access' ? { readLocalAccess: () => null }
+        : { createAttachmentBridge: () => ({}) } });
+  module.exports.preload();
+  assert.equal(bridge.preferStudio2Preview(), value === '1');
+}
+console.log('PASS Studio 2 trial default and explicit classic choice');
 
 // 1) Vizuální vrstva je vygenerovaná z prototypu a odpovídá mu bajtově.
 execFileSync(process.execPath, [path.join(EXT, 'scripts/build-view.js'), '--check'], { stdio: 'inherit' });

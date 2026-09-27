@@ -14,6 +14,9 @@ exports.preload = function preload() {
   const attachments = createAttachmentBridge();
 
   contextBridge.exposeInMainWorld('electronIntentSmith', {
+    // Opt-in for isolated Studio 2 previews. Expose only a boolean, not the
+    // renderer's process environment. An explicit saved mode still wins.
+    preferStudio2Preview: () => process.env.INTENTSMITH_STUDIO2_PREVIEW === '1',
     getBackendUrl: () => {
       const access = readLocalAccess({ requireCapability: false });
       return access ? access.backendUrl : null;
