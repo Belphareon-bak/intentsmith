@@ -32,6 +32,7 @@ import {
   throwIfTerminalChatFailure,
 } from '../core/chat-turn-error.js';
 import { finalizeChatResponse } from './response-finalizer.js';
+import { assessIntentClarity } from './intent-clarity.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Chat Mode Types
@@ -487,6 +488,49 @@ export class ChatController {
       logger.error('Safety', 'Safety pre-check failed', { error: e.message });
     }
     // ════════════════════════════════════════════════════════════════════════
+
+    // This runs before mode selection and every handler, including specialist
+    // and agent modes. A model classification must not turn a material hardware
+    // word into a different operation or claim an unavailable effect succeeded.
+    const state = context.sessionState;
+    const pendingGpuQuestion = state?.awaitingSlots?.includes('gpu_quantity') === true;
+    const clarity = assessIntentClarity(context.originalUserMessage ?? input, state?.awaitingSlots || []);
+    if (pendingGpuQuestion && clarity?.kind !== 'clarify') state.clearPendingDecision();
+    if (clarity) {
+      const { creDecisionEngine, DecisionType, IntentType } = await import('./cre-decision.js');
+      if (clarity.kind === 'clarify') {
+        const { handleAskUserDecision } = await import('./handlers/ask-user.js');
+        const decision = creDecisionEngine.overrideDecision({
+          type: DecisionType.ASK_USER,
+          intent: IntentType.AMBIGUOUS,
+          slots: ['gpu_quantity'],
+          source: 'intent_clarity',
+          reason: clarity.reason,
+          confidence: 1,
+          metadata: { clarificationText: clarity.question, intentClarityReason: clarity.reason },
+        });
+        return handleAskUserDecision(input, decision, context);
+      }
+      const decision = creDecisionEngine.overrideDecision({
+        type: DecisionType.ANSWER,
+        intent: IntentType.CONVERSATIONAL,
+        source: 'intent_clarity',
+        reason: clarity.reason,
+        confidence: 1,
+        metadata: { intentClarityReason: clarity.reason },
+      });
+      state?.recordDecision(decision, input);
+      return new TaggedResponse({
+        content: clarity.answer,
+        tag: new ResponseTag({
+          speaker: ResponseSpeaker.SYSTEM,
+          mode: this.#currentMode,
+          confidence: 1,
+          canExecute: false,
+          metadata: { decision: decision.toJSON(), intentClarityReason: clarity.reason },
+        }),
+      });
+    }
 
     // Detect mode
     let targetMode = this.#currentMode;
@@ -1759,6 +1803,7 @@ ChatController.handle = async function(request) {
     message, sessionId, userId, authenticatedSubject,
     project, expertise, signal, context = {},
   } = request;
+  const originalUserMessage = message;
 
   // Attachments are transport data, never ambient filesystem authority. Studio
   // already sends bounded inline bytes; accepting a caller-provided `path`
@@ -2079,6 +2124,7 @@ ChatController.handle = async function(request) {
 
   const fullContext = {
     ...context,
+    originalUserMessage,
     sessionId,
     conversationId: dbConversationId,
     turnId: durableTurnId,

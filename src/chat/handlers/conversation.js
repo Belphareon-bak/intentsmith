@@ -511,12 +511,10 @@ export async function conversationHandler(input, context) {
   } catch (_) {}
 
   // ════════════════════════════════════════════════════════════════════════════
-  // v44.8 FIX: NO ASK_USER ON FIRST TURN
   // v44.9 FIX B: NO SEARCH/TOOL_CALL FOR VAGUE INPUTS ON FIRST TURN
   // ════════════════════════════════════════════════════════════════════════════
-  // First message in conversation should NEVER be ASK_USER.
   // First message with vague input should NEVER be SEARCH.
-  // Instead: give optimistic conversational answer.
+  // ASK_USER remains available on the first turn for material uncertainty.
   // ════════════════════════════════════════════════════════════════════════════
   // First turn = no previous decision AND no pending decision AND not a clarification follow-up
   // v44.8: Also check wasClarificationFollowUp to handle cases where pendingDecision was just cleared
@@ -545,29 +543,6 @@ export async function conversationHandler(input, context) {
       metadata: {
         firstTurnOverride: true,
         vagueInputBlocked: true,
-        inputPreview: input.substring(0, 100),
-      },
-    });
-  }
-
-  if (isFirstTurn && decision.type === DecisionType.ASK_USER) {
-    logger.info('ConversationHandler', 'First turn ASK_USER blocked - forcing CREATIVE/CONVERSATIONAL answer', {
-      originalIntent: decision.intent,
-      input: input.substring(0, 50),
-    });
-
-    // Force CREATIVE if it looks like an ideation request, otherwise CONVERSATIONAL
-    const isIdeation = /vymyslet|navrh|nápad|inspirac|kampaň|kampan|příběh|pribeh/i.test(input);
-
-    decision = creDecisionEngine.overrideDecision({
-      type: DecisionType.ANSWER,
-      intent: isIdeation ? IntentType.CREATIVE : IntentType.CONVERSATIONAL,
-      source: 'first_turn_ask_user',
-      reason: 'First turn - optimistic answer instead of ASK_USER',
-      confidence: 0.7,
-      originalDecision: decision,
-      metadata: {
-        firstTurnOverride: true,
         inputPreview: input.substring(0, 100),
       },
     });

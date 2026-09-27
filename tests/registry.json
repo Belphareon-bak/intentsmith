@@ -1566,6 +1566,66 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T3-TESTS-CHAT-INTENT-CLARITY-HTTP-TEST",
+      "path": "tests/chat-intent-clarity-http.test.js",
+      "argv": [
+        "node",
+        "tests/chat-intent-clarity-http.test.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 180000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T2-TESTS-CHAT-INTENT-CLARITY-TEST",
+      "path": "tests/chat-intent-clarity.test.js",
+      "argv": [
+        "node",
+        "tests/chat-intent-clarity.test.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T2",
+      "fixture": "isolated-sqlite",
+      "profile": "database",
+      "timeoutMs": 300000,
+      "expectedDurationMs": 60000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T3-TESTS-CHAT-PIPELINE-TEST",
       "path": "tests/chat-pipeline.test.js",
       "argv": [
