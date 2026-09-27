@@ -1,5 +1,14 @@
 # IntentSmith — mapa systému
 
+**GPU hunt — autorizované dokončení simulace, 27. 9. 2026:**
+Operátor povolil simulovat svůj i Opusův posudek pro celkovou revizi. Nově je
+implementované hodnocení celých CHAT rozhovorů, setinové rozsouzení s vahami
+a úplný detail v rendereru Studia. Izolovaná zkouška má 14 fiktivních modelů,
+7 rolí a čtyři simulovaná stažení; odděleně zpracuje všech 80 skutečných nových
+CHAT odpovědí s prvním posudkem a jasně označenou simulací druhého.
+**SIMULATION_COMPLETE / REVIEW_PENDING / NOT_DEPLOYED / REAL_NO_GO.**
+[Celý výsledek, původ známek a meze simulace](docs/review/2026-09-27-HUNT-AUTHORIZED-COMPLETION.md).
+
 **GPU hunt — dokončená simulace a kontrola vstupu, 27. 9. 2026:**
 Celý izolovaný průchod všech sedmi rolí zahrnuje dva posudky, rozsouzení,
 provozní kvalifikaci, sestavu bez vlastní revize a virtuální rollback.
@@ -756,7 +765,7 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **230 058 ř.**, 664 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **230 150 ř.**, 664 `.js` souborů v pracovním kandidátu |
 | `tests/**/*.js` | **249 972 ř.**, 536 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **542** (`448 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 106** |

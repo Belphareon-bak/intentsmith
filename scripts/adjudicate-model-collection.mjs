@@ -39,7 +39,12 @@ export function buildBlindAdjudicationPacket(history, plan, collection) {
       if (!Array.isArray(criteria) || criteria.length !== row.firstParts.length)
         fail('EVALUATION_ADJUDICATION_CRITERIA_MISMATCH');
       return { task: row.task, repeat: row.repeat, prompt: source.input,
-        response: source.responses[row.repeat - 1], criteria };
+        response: source.responses[row.repeat - 1], criteria,
+        ...(source.details[row.repeat-1]?.conversation ? {
+          conversation: {transcript:source.details[row.repeat-1].conversation.transcript,
+            transcriptSha256:source.details[row.repeat-1].conversation.transcriptSha256},
+          gradingContext:test.gradingContext || {},criterionWeights:test.criterionWeights,
+        } : {}) };
     })
   };
 }

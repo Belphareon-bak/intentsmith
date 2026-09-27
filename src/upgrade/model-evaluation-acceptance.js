@@ -6,6 +6,7 @@ import { DEFAULT_MODEL_EVALUATION_OPTIONS } from '../eval/model-evaluation-runne
 import { decideRoleOperational } from '../eval/role-operational-decision.js';
 import { validateSemanticAcceptance } from '../eval/semantic-grader-acceptance.js';
 import { SEMANTIC_ROLE_SUITES } from '../eval/semantic-role-suites.js';
+import { chatConversationDraft } from '../eval/chat-conversation-suite.js';
 import { acceptedGraderPair, validStoredGradingPair } from '../eval/independent-grader-pair.js';
 
 const roles = new Set(['D1','D2','CODE','R1','R2','CHAT','VISION']);
@@ -62,9 +63,11 @@ function validateEnvelope(record) {
       && new Set(e.tasks.map(t => t.name)).size === e.tasks.length, 'grader tasks');
     for (const task of e.tasks) {
       requireValue(text(task.name) && ['T1','T2','T3','T4'].includes(task.tier), 'grader tier');
-      const actual = SEMANTIC_ROLE_SUITES[record.role]?.tests.find(t => t.name === task.name);
+      const suite = record.role === 'CHAT' && e.suiteName === 'chat_conversation_review'
+        ? chatConversationDraft : SEMANTIC_ROLE_SUITES[record.role];
+      const actual = suite?.tests.find(t => t.name === task.name);
       if (SEMANTIC_ROLE_SUITES[record.role]) requireValue(actual && actual.tier === task.tier
-        && (task.tier !== 'T4' || actual.semanticReference.criteria.length === task.criterionCount), 'actual grading tier');
+        && (task.tier !== 'T4' || (actual.semanticReference?.criteria.length || actual.rubric?.length) === task.criterionCount), 'actual grading tier');
       if (task.tier === 'T4') requireValue(text(task.taskType)
         && Number.isSafeInteger(task.criterionCount) && task.criterionCount > 0, 'semantic task');
       requireValue(Number.isFinite(task.floor) && task.floor >= 0 && task.floor <= (task.tier === 'T4' ? 0.25 : 0.1), 'grader floor');

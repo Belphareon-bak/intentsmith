@@ -103,6 +103,7 @@ function taskDetails(row, includeResponses = false) {
       outcome: d.outcome, valid: d.valid, timedOut: d.timedOut,
       targetedPassed: d.targetedPassed, targeted: d.targeted, regressions: d.regressions,
       schema: d.schema, parts: d.parts, graderReviews: d.graderReviews || [], penalties: d.penalties,
+      criterionWeights: d.criterionWeights, adjudicationId: d.adjudicationId,
       precision: d.precision, recall: d.recall, f1: d.f1,
       truePositive: d.truePositive, falsePositive: d.falsePositive, falseNegative: d.falseNegative,
       observed: d.observed, expected: d.expected,

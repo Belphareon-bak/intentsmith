@@ -9,6 +9,7 @@ import { createHash } from 'node:crypto';
 import Database from 'better-sqlite3';
 import { fixture, operation, resign, provider, judgeArtifact, secondJudgeArtifact } from './hunt-simulation-support.mjs';
 import { SemanticEvaluationJudge } from '../../src/eval/semantic-evaluation-judge.js';
+import { conversationGradingSuite } from '../../src/eval/chat-conversation-suite.js';
 import { gradeAnswerCollection, persistGradedCollection, gradeAcceptedCollection, persistAdjudicatedCollection } from '../../src/eval/grade-answer-collection.js';
 import { buildBlindAdjudicationPacket } from '../adjudicate-model-collection.mjs';
 import { ModelEvaluationHistory } from '../../src/upgrade/model-evaluation-history.js';
@@ -32,8 +33,11 @@ function simulatedCall(counters, disagree = false, malformed = false) {
       const score = match ? Number(match[1]) : 1;
       return {criterion:i+1,score:disagree && match?.[2]==='0' && match?.[3]==='0' && i===0 ? 0 : score,evidence};
     });
+    const graded=data.transcript ? {criteria:data.criteria.map(c=>({criterion:c.criterion,
+      score:Number(/^SIMULATION score=([\d.]+)/.exec(data.transcript.at(-1).content)?.[1]),evidence}))}
+      : {a:parts(data.a),b:parts(data.b)};
     return {done:true,doneReason:'stop',digestSha256:artifact.digestSha256,providerVersion:provider,
-      content:malformed ? 'SIMULATED BROKEN JUDGE RESPONSE' : JSON.stringify({a:parts(data.a),b:parts(data.b)})};
+      content:malformed ? 'SIMULATED BROKEN JUDGE RESPONSE' : JSON.stringify(graded)};
   };
 }
 
@@ -63,23 +67,30 @@ export async function runHuntSimulation(outputDirectory, onProgress = () => {}) 
     scope:'Production grading, persistence, read model, qualification and portfolio solver; fabricated model/judge/holdout evidence.',
     notProved:['Model quality','Independent grader acceptance','Operational predictive validity',
       'Physical model download, GPU inference or live binding activation/rollback',
-      'Multi-turn CHAT integration into the production role plan'],
+      'Default scheduled hunt activation of the reviewed multi-turn profile'],
     checks:[],roles:[],matrix:[],events:[]};
   const check=(name,condition,detail=null)=>{
     report.checks.push({name,passed:Boolean(condition),detail});
     assert.ok(condition,name);return condition;
   };
   const event=(phase,details={})=>{const row={at:new Date().toISOString(),phase,...details};report.events.push(row);onProgress(row);};
-  const models=Array.from({length:10},(_,i)=>({name:`sim-model-${String(i+1).padStart(2,'0')}:fixture`,
-    digestSha256:hash(['SIMULATED MODEL',i]),digest:hash(['SIMULATED MODEL',i]),capabilities:i>=6?['completion','vision']:['completion'],size:18000000000,
+  const models=Array.from({length:14},(_,i)=>({name:`sim-model-${String(i+1).padStart(2,'0')}:fixture`,
+    digestSha256:hash(['SIMULATED MODEL',i]),digest:hash(['SIMULATED MODEL',i]),capabilities:(i>=6&&i<10)||i>=12?['completion','vision']:['completion'],size:18000000000,
     details:{parameter_size:'27B',family:'llama'}}));
   const before=Object.fromEntries(ROLES.map((r,i)=>[r,models[i].name]));
   const proposedByRole={},contexts=[];
   const oldFetch=globalThis.fetch;
   globalThis.fetch=async()=>{report.networkCalls++;throw Error('SIMULATION_NETWORK_FORBIDDEN');};
   try {
+    // Four new candidates enter a fictional catalogue/pull queue. Only progress
+    // receipts are simulated here; this is not a physical download test.
+    report.candidateAcquisition=models.slice(10).map(model=>({model:model.name,digestSha256:model.digestSha256,
+      simulation:true,transport:'NONE',states:['DISCOVERED','MANIFEST','DOWNLOADING','VERIFIED','AVAILABLE'],
+      progress:[0,25,75,100],physicalBytesDownloaded:0}));
+    for(const candidate of report.candidateAcquisition)event('simulated-candidate-available',candidate);
     for(let ri=0;ri<ROLES.length;ri++) {
-      const role=ROLES[ri], dbPath=join(outputDirectory,`${role}.sqlite`),f=fixture(role,dbPath);
+      const role=ROLES[ri], dbPath=join(outputDirectory,`${role}.sqlite`),
+        f=fixture(role,dbPath,role==='CHAT'?conversationGradingSuite():null,3);
       contexts.push(f); chmodSync(dbPath,0o600);
       // Read-model SQL uses this production-shaped table; the rehearsal emits no decisions into it.
       f.db.exec(`CREATE TABLE model_evaluation_decisions (decision_id TEXT,role TEXT,incumbent_run_id TEXT,
@@ -91,7 +102,7 @@ export async function runHuntSimulation(outputDirectory, onProgress = () => {}) 
       const second=f.plan.collectionOnly?f.store.record(f.grader(secondJudgeArtifact)).id:null;
       check(`${role}: graders alone cannot qualify a role`,!f.plan.decisionReady);
       const roleRows=[],roleRuns=[];
-      const preferred=role==='VISION'?9:(ri+1)%7;
+      const preferred=({D1:11,CODE:10,R1:12,CHAT:13})[role] ?? (role==='VISION'?9:(ri+1)%7);
       for(let mi=0;mi<models.length;mi++) {
         const model=models[mi];
         if(role==='VISION'&&!model.capabilities.includes('vision')) {
@@ -155,9 +166,9 @@ export async function runHuntSimulation(outputDirectory, onProgress = () => {}) 
               details:Array.from({length:f.plan.repeats},()=>({reason:'SIMULATED_ORACLE_RESULT'}))}))}});
           check(`${role}/${mi}: deterministic-result storage`,final.status==='COMPLETE');
         }
-        const expectedScore=role==='CHAT'?score*f.plan.suite.tests.filter(t=>t.semanticReference).length/f.plan.taskCount:score;
+        const expectedScore=score;
         check(`${role}/${mi}: persisted expected grade`,Math.abs(final.score-expectedScore)<1e-10,
-          role==='CHAT'?'Current mixed CHAT plan: real mechanical checks reject synthetic prose; semantic criteria use stub judges.':null);
+          role==='CHAT'?'Full multi-turn transcript and draft axis weights; simulated judges, no model inference.':null);
         report.matrix.push({model:model.name,role,status:'SIMULATED',percent:final.score*100,
           runId:final.runId,suite:f.plan.suiteName,contractSha256:f.plan.suiteContractSha256,
           grading:f.plan.collectionOnly?'Production dual-judge path with stub judgements':'Stub oracle result; no oracle executed'});
@@ -214,7 +225,7 @@ export async function runHuntSimulation(outputDirectory, onProgress = () => {}) 
     check('Virtual stale baseline refuses apply',virtualApply({},portfolio.bindings,()=>true).status==='BASELINE_CHANGED');
     check('Virtual failed smoke restores baseline',virtualApply(before,portfolio.bindings,()=>false).status==='ROLLED_BACK'&&hash(virtualBindings)===hash(before));
     check('Virtual approved apply succeeds',virtualApply(before,portfolio.bindings,()=>true).status==='APPLIED_IN_SIMULATION');
-    const retained=await assessHuntRetention({modelName:models[1].name,inventory:models,bindings:portfolio.bindings,history:{providerVersion:provider}});
+    const retained=await assessHuntRetention({modelName:portfolio.bindings.D1,inventory:models,bindings:portfolio.bindings,history:{providerVersion:provider}});
     check('Bound simulated model retained',retained.reason==='RETENTION_BOUND');
     report.portfolio={before,proposed:portfolio,activation:'VIRTUAL_ONLY',realActivationAllowed:false,
       liveAuthorityStillBlocked:'The proposal was computed with accepted synthetic pairs, then all operational acceptances were revoked. No live authority exists.',

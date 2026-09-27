@@ -40,3 +40,25 @@ export const chatConversationDraft = Object.freeze({
   })))),
 });
 export const chatConversationDraftSha256=createHash('sha256').update(JSON.stringify(fixture)).digest('hex');
+
+// Explicit adapter for the reviewed multi-turn profile. It is not the default
+// hunt plan and does not grant acceptance. Callers must seal the actual capture
+// options/context; changing them creates a different collection contract.
+export function conversationGradingSuite({ options = null, gradingContext = {} } = {}) {
+  const tests = chatConversationDraft.tests.map(original => {
+    const rubric = original.rubric.map(c=>`${c.id} [${c.axis}]: ${c.requirement} Evidence: ${c.evidence} Excludes: ${c.excludes}`);
+    const weights = original.rubric.map(c=>fixture.rubricPolicy.weightsDraft[c.axis]);
+    const task = {...original,rubric,criterionWeights:weights,
+      conversationPolicy:structuredClone(fixture.rubricPolicy),gradingContext:structuredClone(gradingContext),
+      options:structuredClone(options || original.options),
+      contractMaterial:{...original.contractMaterial,gradingInputs:{...original.contractMaterial.gradingInputs,
+        weights,gradingContext,method:'full-transcript-two-criterion-orders-v1'}},
+      gradeConversation:async (conversation,context)=>context?.semanticJudge?.gradeConversation
+        ? context.semanticJudge.gradeConversation(task,conversation,{artifact:context.artifact})
+        : {valid:false,score:null,passed:false,detail:{reason:'CHAT_CONVERSATION_GRADER_NOT_ACCEPTED'}},
+    };
+    return Object.freeze(task);
+  });
+  return Object.freeze({...chatConversationDraft,name:'chat_conversation_review',
+    version:'chat-conversation.4-full-transcript-grading',tests:Object.freeze(tests)});
+}

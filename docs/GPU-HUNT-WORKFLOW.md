@@ -809,7 +809,7 @@ ohodnocenou dvěma hodnotiteli a zbýval pouze CHAT.
 | Dvojí hodnocení uložených odpovědí | [grade-answer-collection.js](../src/eval/grade-answer-collection.js) nyní spouští dva přijaté hodnotitele postupně, ukládá každý posudek append-only a porovnává známky po kritériích. Jeden posudek, neshoda nebo chybějící fyzický záznam nevytvoří `COMPLETE`. [Read/decision brána](../src/eval/independent-grader-pair.js) ověřuje oba posudky a přesný zdroj. Manuální CLI může uložit jeden průzkumný posudek. |
 | Rozsouzení neshody | [Migrace 119](../src/db/migrations/2026_09_25_119_model_evaluation_adjudications.js) uchovává append-only lidské rozhodnutí pro každé sporné kritérium, oba původní posudky zůstávají nedotčené. [CLI](../scripts/adjudicate-model-collection.mjs) umí vydat anonymní podklad bez známek hodnotitelů a po doložené revizi zapsat rozsouzení se zálohou DB; shodná kritéria nelze přepsat. Není to automatický ani nezávisle přijatý posudek. |
 | Metoda rozhodnutí | Binární provozní schéma 1 zůstává na KL. [Spojitá metoda](../src/eval/continuous-paired-decision.js) schema 2 má kalibrovaný párový interval a plánovač, avšak není zapojená do přijaté provozní kvalifikace rolí. Kalibrace starých sad je průzkumná: CHAT `chat_v3` je pro aktuální runner zakázaná a ostatní role mají příliš málo nezávislých případů. Viz [M0](review/2026-09-24-HUNT-M0-DECISION-METHOD.md). |
-| Nový vícekolový CHAT v huntu | [chat-conversation-suite.js](../src/eval/chat-conversation-suite.js) zůstává vývojový návrh mimo role plans (`measurementReady:false`), bez přijaté `gradeConversation`. Původní 1 200-dialogový panel nepoužil produkční systémový prompt. Nový [sběr 27. 9.](review/2026-09-27-HUNT-CHAT-REFERENCE-MILESTONE.md) má přes produkční handler 80/80 úplných dialogů dvou modelů, audit skutečných požadavků a první posudek 320/320. Druhý nový posudek chybí; jde o známé scénáře a jediné opakování, bez rozhodovací autority. |
+| Nový vícekolový CHAT v huntu | [chat-conversation-suite.js](../src/eval/chat-conversation-suite.js) zůstává vývojový návrh mimo role plans (`measurementReady:false`), s novým explicitním adaptérem `conversationGradingSuite` a implementovanou `gradeConversation` nad celým přepisem. Tato implementace není přijetí skutečného hodnotitele. Původní 1 200-dialogový panel nepoužil produkční systémový prompt. Nový [sběr 27. 9.](review/2026-09-27-HUNT-CHAT-REFERENCE-MILESTONE.md) má přes produkční handler 80/80 úplných dialogů dvou modelů, audit skutečných požadavků a první posudek 320/320. Skutečný druhý nový posudek chybí; byl simulován v autorizovaném průchodu níže. Jde o známé scénáře a jediné opakování, bez skutečné rozhodovací autority. |
 | Rozhodovací autorita | [model-evaluation-acceptance.js](../src/upgrade/model-evaluation-acceptance.js) nyní pro sémantické role vyžaduje dvě platné přejímky hodnotitelů a fyzicky uložené dva shodné posudky. Staré jednosoudcovské běhy zůstávají v historii, autoritu nedostávají. Kvalifikovaný čerstvý provozní běh pro žádnou z těchto rolí z této změny nevznikl. |
 | Sestava rolí | [model-upgrade-prototype.js](../src/upgrade/model-upgrade-prototype.js) prosazuje maximum dvě role na artefakt, explicitní zákaz autorských/revizních dvojic a kontrolu digestu a uvedené lineage. Živá sestava s qwen3.8 v D2+CODE+R1 byla podle [M0](review/2026-09-24-HUNT-M0-DECISION-METHOD.md) v konfliktu; změna solveru ji sama neopraví. Sdílení role vyžaduje schválenou dvojici, jinak vrací nevyřešenou sestavu. |
 | Aktivace a návrat | Binding application existuje, ale přepnutí celé sedmirolové sestavy na podkladech nových sad, kontrola fallbacků a návrat celé sestavy nebyly fyzicky přijaty. |
@@ -859,3 +859,24 @@ Hotový hunt nemusí v každém cyklu někoho vyměnit. Musí sám dokončit př
 postup, udržovat vhodnou nezávislou sestavu a doložit, proč něco změnil,
 ponechal nebo předal člověku. Operátor postupně řeší výjimky a kontrolní
 vzorky, nikoli každou běžnou známku.
+
+
+## 16. Operátorem autorizované dokončení simulace (27. 9. 2026)
+
+Operátor výslovně povolil simulovat svůj i Opusův souhlas a revidovat výsledek
+jako celek. [Dokončený balíček](review/2026-09-27-HUNT-AUTHORIZED-COMPLETION.md)
+proto prochází celý životní cyklus, včetně dvou posudků, rozsouzení, fiktivních
+přejímek, čtyř nových kandidátů a virtuálního rollbacku. Od předchozí zkoušky
+se liší zapojením celého vícekolového CHATu do společné hodnoticí cesty:
+přepis je kontrolovaný, hodnocený dvakrát v různém pořadí kritérií, oba
+posudky jsou uložené, setinové rozhodnutí respektuje váhy a Studio ukazuje
+celé odpovědi i původ známek.
+
+Simulace jsou označené `SIMULATED`; nejde o souhlas skutečného Opuse ani
+operátora s konkrétní známkou. Callback hodnotitele v této zkoušce přehrává
+známé známky. Přejímky, provozní případy a aktivace jsou fiktivní, izolované
+a přejímky po skončení odvolané. Skutečný první posudek a všech 80 nových
+CHAT rozhovorů jsou zvlášť identifikované a zachované beze změny. Výchozí
+plán automatického huntu se nepřepíná na tento kontrakt; instalace nebyla
+změněna. Nezávislá místní přejímka, kompletní skutečná matice a čerstvé
+provozní ověření zůstávají reálnými podmínkami produkčního GO.

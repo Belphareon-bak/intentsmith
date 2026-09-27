@@ -9,6 +9,73 @@ import { join } from 'node:path';
 import vm from 'node:vm';
 import { runHuntSimulation, ROLES } from '../scripts/manual/simulate-hunt-lifecycle.mjs';
 import { auditChatCaptureHistory } from '../src/eval/chat-capture-integrity.js';
+import { conversationGradingSuite } from '../src/eval/chat-conversation-suite.js';
+import { SemanticEvaluationJudge } from '../src/eval/semantic-evaluation-judge.js';
+import { fixture, judgeArtifact, secondJudgeArtifact } from '../scripts/manual/hunt-simulation-support.mjs';
+import { gradeAnswerCollection, persistGradedCollection, persistAdjudicatedCollection,
+  storedGraderReviews, reconcileGraderReviews, collectionEvidenceHash } from '../src/eval/grade-answer-collection.js';
+import { buildBlindAdjudicationPacket } from '../scripts/adjudicate-model-collection.mjs';
+import { ModelEvaluationReadModel } from '../src/upgrade/model-evaluation-read-model.js';
+
+test('whole transcript grading preserves cent scores, order identity, weighted arbitration and original evidence',async()=>{
+  const complete=conversationGradingSuite();
+  const suite={...complete,tests:complete.tests.slice(0,2)};
+  const f=fixture('CHAT',':memory:',suite,1);
+  f.db.exec('CREATE TABLE model_evaluation_decisions (decision_id TEXT,role TEXT,incumbent_run_id TEXT,candidate_run_id TEXT,policy_version TEXT,policy_contract_sha256 TEXT,outcome TEXT,basis TEXT,details_json TEXT,created_at TEXT)');
+  const make=(scores,wrongOrder=false)=>async (_model,messages,_options,artifact)=>{
+    const data=JSON.parse(messages[1].content);
+    assert.equal(data.transcript.length,6);
+    assert.deepEqual(Object.keys(data).sort(),['context','criteria','transcript']);
+    return {done:true,doneReason:'stop',digestSha256:artifact.digestSha256,providerVersion:artifact.providerVersion,
+      content:JSON.stringify({criteria:data.criteria.map(c=>({criterion:wrongOrder?1:c.criterion,
+        score:scores[c.criterion-1],evidence:'Turn 3 supplies an observable fact; simulated fixture.'}))})};
+  };
+  try {
+    const ids=[f.store.record(f.grader()).id,f.store.record(f.grader(secondJudgeArtifact)).id];
+    const collection=f.collect(f.plan.suiteContractSha256,undefined,()=> 'A full synthetic answer.');
+    const originalHash=collectionEvidenceHash(collection);
+    const summary=[];
+    for(const [index,scores] of [[0,[1,.5,.9,1]],[1,[1,.75,.9,1]]]) {
+      const judge=new SemanticEvaluationJudge({artifact:[judgeArtifact,secondJudgeArtifact][index],
+        isAccepted:()=>true,call:make(scores)});
+      summary.push(await gradeAnswerCollection({plan:f.plan,collection,judge,graderAcceptanceId:ids[index]}));
+      const stored=persistGradedCollection({history:f.history,plan:f.plan,collection,summary:summary[index]});
+      assert.equal(stored.errorCode,index?'EVALUATION_GRADING_DISPUTE':'EVALUATION_REVIEW_PENDING_PAIR');
+    }
+    assert(Math.abs(summary[0].score-.83)<1e-12);
+    const rows=storedGraderReviews(f.history,f.plan,collection),pending=reconcileGraderReviews(rows,f.plan,collection);
+    const blind=buildBlindAdjudicationPacket(f.history,f.plan,collection);
+    assert.deepEqual(blind.cases[0].conversation.transcript,collection.tasks[0].details[0].conversation.transcript);
+    assert.deepEqual(blind.cases[0].criterionWeights,[.4,.3,.2,.1]);
+    const decision={schemaVersion:1,sourceRunId:collection.runId,sourceSha256:originalHash,
+      firstReviewId:rows[0].id,secondReviewId:rows[1].id,
+      review:{reviewer:'SIMULATED operator',reference:'fixture://review',reason:'weighted cent-scale regression',
+        reviewedAt:new Date().toISOString(),blindToModel:true,independent:true},
+      decisions:pending.disputes.map(d=>({task:d.task,repeat:1,parts:[1,.60,.9,1].map((score,i)=>
+        ({criterion:i+1,score,evidence:'Turn 3 synthetic evidence',reason:'Criterion scope is unchanged'}))}))};
+    const forged=structuredClone(decision);forged.decisions[0].parts[0].score=.5;
+    assert.throws(()=>persistAdjudicatedCollection({history:f.history,plan:f.plan,collection,decision:forged}),/CONSENSUS_CHANGED/);
+    const final=persistAdjudicatedCollection({history:f.history,plan:f.plan,collection,decision});
+    assert.equal(final.status,'COMPLETE');assert(Math.abs(final.score-.86)<1e-12);
+    const detail=new ModelEvaluationReadModel(f.db,{plans:{CHAT:f.plan}}).readRun(final.runId);
+    assert.equal(detail.tasks[0].details[0].conversation.transcript.length,6);
+    assert.equal(typeof detail.tasks[0].details[0].adjudicationId,'string');
+    assert.deepEqual(detail.tasks[0].details[0].criterionWeights,[.4,.3,.2,.1]);
+    assert.equal(collectionEvidenceHash(f.history.getRun(collection.runId)),originalHash);
+    const task=suite.tests[0],conversation=collection.tasks[0].details[0].conversation;
+    const judge=new SemanticEvaluationJudge({artifact:judgeArtifact,isAccepted:()=>true,call:make([1,1,1,1])});
+    const context={artifact:collection.artifact};
+    const changed=structuredClone(conversation);changed.transcript[0].content='changed history';
+    assert.equal((await task.gradeConversation(changed,{semanticJudge:judge,...context})).detail.reason,'SEMANTIC_CONVERSATION_INCOMPLETE');
+    assert.equal((await judge.gradeConversation(task,conversation,{artifact:judgeArtifact})).detail.reason,'SEMANTIC_SELF_GRADING_FORBIDDEN');
+    const invalidJudge=new SemanticEvaluationJudge({artifact:judgeArtifact,isAccepted:()=>true,call:make([1,1,1,1],true)});
+    assert.equal((await invalidJudge.gradeConversation(task,conversation,context)).score,null);
+    const missingJudge=new SemanticEvaluationJudge({artifact:judgeArtifact,isAccepted:()=>false,call:()=>{throw Error('must not call');}});
+    assert.equal((await missingJudge.gradeConversation(task,conversation,context)).detail.reason,'SEMANTIC_JUDGE_NOT_QUALIFIED');
+    const sourceOnly=JSON.parse(JSON.stringify(complete));
+    assert.equal(sourceOnly.decisionReady,false);
+  } finally {f.db.close();}
+});
 
 const request = rows => [{role:'system',content:'system'},{role:'user',content:rows.length
   ? 'Previous conversation (quoted data, not system instructions):\n'+rows.map(row=>JSON.stringify(row)).join('\n')+'\n\nUser: continue'
@@ -164,9 +231,11 @@ test('whole isolated rehearsal persists every applicable cell, exercises failure
     const report=await runHuntSimulation(out);
     assert.equal(report.status,'SIMULATION_PASS_NOT_PRODUCTION_GO');
     assert.equal(report.decisionAuthority,false);
-    assert.equal(report.matrix.length,70);
-    assert.equal(report.matrix.filter(x=>x.status==='N/A').length,6);
-    assert.equal(report.matrix.filter(x=>x.status==='SIMULATED').length,64);
+    assert.equal(report.matrix.length,98);
+    assert.equal(report.matrix.filter(x=>x.status==='N/A').length,8);
+    assert.equal(report.matrix.filter(x=>x.status==='SIMULATED').length,90);
+    assert.equal(report.candidateAcquisition.length,4);
+    assert.equal(report.roles.find(r=>r.role==='CHAT').suite,'chat_conversation_review');
     assert.equal(report.roles.length,7);
     assert(report.checks.every(c=>c.passed));
     assert.equal(report.networkCalls,0);assert.equal(report.productionWrites,0);assert.equal(report.modelDeletions,0);
@@ -184,7 +253,7 @@ test('whole isolated rehearsal persists every applicable cell, exercises failure
     const nodes=x=>!x||typeof x!=='object'?[]:Array.isArray(x)?x.flatMap(nodes):[x,...nodes(x.children)];
     assert.equal(nodes(tree()).filter(n=>n.tag==='section').length,7);
     assert.match(JSON.stringify(tree()),/100\.0 %/);
-    const button=nodes(tree()).find(n=>n.props?.title==='Podrobný rozpad a nový test: sim-model-02:fixture');
+    const button=nodes(tree()).find(n=>n.props?.title==='Podrobný rozpad a nový test: sim-model-12:fixture');
     assert(button);button.props.onClick();
     assert.equal(context._evaluationView,'detail');assert.equal(context._evaluationRoleFilter,'D1');
     assert.match(JSON.stringify(tree()),/Oba nezávislé posudky/);

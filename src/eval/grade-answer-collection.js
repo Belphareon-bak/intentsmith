@@ -453,7 +453,8 @@ export function persistAdjudicatedCollection({history,plan,collection,decision})
         const parts = detail.parts.map((part,k) => {
           const counterpart = other.parts[k], chosen = selected.parts[k];
           if (acceptanceHash(part.id) !== acceptanceHash(counterpart?.id)
-            || chosen?.criterion !== k+1 || ![0,0.25,0.5,0.75,1].includes(chosen.score)
+            || chosen?.criterion !== k+1 || !Number.isFinite(chosen.score) || chosen.score<0 || chosen.score>1
+            || Math.abs(chosen.score*100-Math.round(chosen.score*100))>1e-8
             || typeof chosen.evidence !== 'string' || !chosen.evidence.trim()
             || typeof chosen.reason !== 'string' || !chosen.reason.trim())
             fail('EVALUATION_ADJUDICATION_INVALID');
@@ -465,7 +466,10 @@ export function persistAdjudicatedCollection({history,plan,collection,decision})
             rawScores:[part.score,counterpart.score],
             evidence:[chosen.evidence],adjudicationReason:chosen.reason};
         });
-        const score=mean(parts.map(part => part.score));
+        const weights=definition.criterionWeights;
+        if (weights && (weights.length!==parts.length || weights.some(w=>!Number.isFinite(w)||w<=0)
+          || Math.abs(weights.reduce((n,w)=>n+w,0)-1)>1e-10)) fail('EVALUATION_ADJUDICATION_INVALID');
+        const score=weights ? parts.reduce((n,part,k)=>n+part.score*weights[k],0) : mean(parts.map(part => part.score));
         return {...detail,score,valid:true,passed:score>=0.7,
           outcome:score>=0.7?'SUCCESS':'INCORRECT',parts,graderReviews,
           adjudicationId};

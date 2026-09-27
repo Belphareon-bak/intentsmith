@@ -118,6 +118,7 @@ export function suiteContract(suite, opts = {}) {
       promptAndGradingInputs: stableValue(test.contractMaterial),
       rubric: stableValue(test.rubric || []),
       grade: String(test.grade),
+      ...(typeof test.gradeConversation === 'function' ? {gradeConversation:String(test.gradeConversation)} : {}),
     };
   });
   const material = stableValue({

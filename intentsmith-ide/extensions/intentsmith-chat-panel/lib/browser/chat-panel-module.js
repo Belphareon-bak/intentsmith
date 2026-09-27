@@ -3568,6 +3568,7 @@ function _taskResultNotes(t){
     ((d.contractChecks&&d.contractChecks.checks)||[]).filter(function(c){return !c.passed;}).forEach(function(c){notes.push('Porušení kontraktu: '+c.name+(c.reason?' · '+c.reason:''));});
     (d.criteria||[]).filter(function(c){return c.score===0;}).forEach(function(c){notes.push(c.id+': očekáváno '+JSON.stringify(c.expected)+', vráceno '+JSON.stringify(c.observed));});
     var parts=d.parts||[];
+    if(Array.isArray(d.criterionWeights))notes.push('Váhy kritérií: '+d.criterionWeights.map(function(w){return Math.round(w*100)+' %';}).join(' / '));
     parts.filter(function(x){return Number.isFinite(x.score);}).forEach(function(x){notes.push(x.id+' · '+_taskScore(x.score)+' · '+(x.evidence||[]).join(' / '));});
     var checks=parts.filter(function(x){return typeof x.ok==='boolean';});
     if(checks.length)notes.push('Splněné kontroly: '+checks.filter(function(x){return x.ok;}).length+'/'+checks.length);
@@ -3598,9 +3599,12 @@ function _qualityDetail(row,rd){
             h('pre',{style:{whiteSpace:'pre-wrap',overflowWrap:'anywhere',maxHeight:450,overflow:'auto',background:C.bg1,padding:12}},answer||'(bez odpovědi)'));}));}));
   }
 
+  var fullRun=_historyDetails[row.runId];
+  if(fullRun&&Array.isArray(fullRun.tasks)&&fullRun.tasks.some(function(t){return Array.isArray(t.responses);}))row=Object.assign({},row,fullRun);
   var tasks=row.tasks||[],catalogs=row.taskCatalog||rd.tasks||[],counts=row.attemptCounts;
   return h('div',{'data-testid':'model-task-detail',style:{padding:'4px 0 12px'}},
     h('strong',null,row.model+' · výsledky '+tasks.length+' úloh'),
+    row.runId&&!tasks.some(function(t){return Array.isArray(t.responses);})?h('button',{'data-testid':'load-graded-answers',style:_modelButtonStyle(false,!!(fullRun&&fullRun.loading)),disabled:!!(fullRun&&fullRun.loading),onClick:function(){_historyExpanded[row.runId]=false;_loadHistoricalRun(row.runId);}},fullRun&&fullRun.loading?'Načítám celé odpovědi…':'Zobrazit celé odpovědi'):null,
     row.grading?h('p',{'data-testid':'grading-provenance',style:{color:C.tx3}},
       'Odpovědi pořízeny '+(row.grading.collectedAt?new Date(row.grading.collectedAt).toLocaleString('cs-CZ'):'(čas nezaznamenán)')+
       ' · sběr '+_huntDuration(row.grading.collectionDurationMs)+' · hodnocení '+_huntDuration(row.durationMs)+
@@ -3624,6 +3628,11 @@ function _qualityDetail(row,rd){
             h('p',{style:{color:C.tx3}},'Opakování: '+(t.scores||[]).map(_taskScore).join(' / ')),h('code',null,t.name)))),
         _modelCell(h('strong',{style:{color:!Number.isFinite(t.mean)?C.tx3:t.mean>=.8?C.success:t.mean<.5?C.amber:C.tx1,whiteSpace:'nowrap'}},_taskScore(t.mean))),
         _modelCell(h('div',null,
+          (t.details||[]).map(function(d,i){return d&&d.conversation&&Array.isArray(d.conversation.transcript)?h('details',{'data-testid':'graded-conversation',key:'conversation-'+i,style:{marginBottom:8}},
+            h('summary',{style:{cursor:'pointer',color:C.accent}},'Celý rozhovor · pokus '+(i+1)),
+            d.conversation.transcript.map(function(message,j){return h('div',{key:j,'data-testid':'graded-conversation-message'},
+              h('strong',null,(message.role==='user'?'Uživatel':'Model')+' · tah '+(Math.floor(j/2)+1)),
+              h('pre',{style:{whiteSpace:'pre-wrap',overflowWrap:'anywhere',maxHeight:450,overflow:'auto'}},message.content));})):null;}),
           notes.length?h('ul',{style:{margin:0,paddingLeft:17,lineHeight:1.5,maxWidth:320}},notes.map(function(n,i){return h('li',{key:i},n);})):h('span',{style:{color:C.tx3}},'Podrobné vyhodnocení nebylo uloženo.'),
           (t.details||[]).map(function(d,i){return d&&d.graderReviews&&d.graderReviews.length?h('details',{key:'review-'+i,style:{marginTop:8}},
             h('summary',{style:{cursor:'pointer',color:C.accent}},'Oba nezávislé posudky · pokus '+(i+1)),

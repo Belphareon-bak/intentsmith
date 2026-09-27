@@ -1,5 +1,14 @@
 # Inventura #18a — Správa modelů
 
+**GPU hunt — autorizované dokončení simulace, 27. 9. 2026:**
+Operátor povolil simulovat svůj i Opusův posudek pro celkovou revizi. Nově je
+implementované hodnocení celých CHAT rozhovorů, setinové rozsouzení s vahami
+a úplný detail v rendereru Studia. Izolovaná zkouška má 14 fiktivních modelů,
+7 rolí a čtyři simulovaná stažení; odděleně zpracuje všech 80 skutečných nových
+CHAT odpovědí s prvním posudkem a jasně označenou simulací druhého.
+**SIMULATION_COMPLETE / REVIEW_PENDING / NOT_DEPLOYED / REAL_NO_GO.**
+[Celý výsledek, původ známek a meze simulace](../review/2026-09-27-HUNT-AUTHORIZED-COMPLETION.md).
+
 **GPU hunt — cílový provoz se dvěma hodnotiteli, 24. 9. 2026:**
 Dokumentovaný výběr sestavy rolí, přejímka doplňující se dvojice, zákaz vlastní
 kontroly, spory, provozní ověření a řízená aktivace. Požadavek max. 2 role/model

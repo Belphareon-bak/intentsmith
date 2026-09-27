@@ -1,5 +1,14 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**GPU hunt — autorizované dokončení simulace, 27. 9. 2026:**
+Operátor povolil simulovat svůj i Opusův posudek pro celkovou revizi. Nově je
+implementované hodnocení celých CHAT rozhovorů, setinové rozsouzení s vahami
+a úplný detail v rendereru Studia. Izolovaná zkouška má 14 fiktivních modelů,
+7 rolí a čtyři simulovaná stažení; odděleně zpracuje všech 80 skutečných nových
+CHAT odpovědí s prvním posudkem a jasně označenou simulací druhého.
+**SIMULATION_COMPLETE / REVIEW_PENDING / NOT_DEPLOYED / REAL_NO_GO.**
+[Celý výsledek, původ známek a meze simulace](docs/review/2026-09-27-HUNT-AUTHORIZED-COMPLETION.md).
+
 **CHAT reference, 27. 9.:** nový sběr po opravě historie je úplný: 80 dialogů,
 233 volání, závěrečný audit PASS. Obnova doplnila jen dva chybějící dialogy
 do odděleného pokračování; původních 78 odpovědí i oba neúspěšné pokusy
