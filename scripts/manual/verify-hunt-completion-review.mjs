@@ -22,7 +22,8 @@ try {
   await page.click('[title="Podrobný rozpad a nový test: '+model.model+'"]');
   check('Native detail opened',await page.$eval('#native [data-testid="model-task-detail"]',()=>true));
   check('All forty whole dialogues available',await page.$$eval('#native [data-testid="graded-conversation"]',x=>x.length===40));
-  check('Both prior reviews and weights shown',await page.$eval('#native',x=>x.textContent.includes('Oba nezávislé posudky')&&x.textContent.includes('40 % / 30 % / 20 % / 10 %')));
+  check('Both prior reviews and weights shown',await page.$eval('#native',x=>x.textContent.includes('Oba uložené posudky')&&x.textContent.includes('40 % / 30 % / 20 % / 10 %')));
+  check('Simulated arbitration and actual collection date preserved',await page.$eval('#native',x=>x.textContent.includes('SIMULOVANÉ rozsouzení kritérií')&&!x.textContent.includes('(čas nezaznamenán)')));
   const actual=await page.$$eval('#native [data-testid="graded-conversation-message"] pre',x=>x.map(e=>e.textContent));
   const detail=JSON.parse(fs.readFileSync(path.join(out,'reviewed-chat','model-0-detail-SIMULATED.json')));
   const expected=detail.tasks.flatMap(t=>t.details.flatMap(d=>d.conversation.transcript.map(x=>x.content)));

@@ -4,12 +4,12 @@ Datum: 27. 9. 2026. Stav: `SIMULATION_COMPLETE`, skutečná rozhodovací autorit
 
 Operátor výslovně povolil simulovat jeho i Opusovo posouzení, aby mohl zrevidovat celý výsledek. Toto povolení umožňuje dokončit zkoušku všech kroků; nedělá ze simulovaných známek skutečné nezávislé posudky. Původní odpovědi, posudky a manifesty se nemění.
 
-Vstup k revizi: [celý průchod a proklikávací matice](</mnt/vi7000/intentsmith/evidence/hunt-authorized-completion-20260927/REVIEW.html>). Obsahuje skutečný renderer Studia nad izolovanými databázemi. Není to nasazená aplikace.
+Vstup k revizi: [celý průchod a proklikávací matice](</mnt/vi7000/intentsmith/evidence/hunt-authorized-completion-20260927-v2/REVIEW.html>). Obsahuje skutečný renderer Studia nad izolovanými databázemi. Není to nasazená aplikace.
 
 ## Dokončené milníky
 
 1. **Celý CHAT v hodnoticí cestě.** Explicitní adaptér `conversationGradingSuite` předává hodnotiteli všechny tahy, přesnou rubriku, kontext sběru a váhy. Kontroluje úplnost, pořadí a hash přepisu, totožnost odpovědi i hodnotitele. Jediná závěrečná odpověď už nenahrazuje rozhovor. Předchozí výchozí plán automatického huntu se tím nezapíná ani nepřijímá.
-2. **Dva posudky a rozsouzení.** Pořadí kritérií se při hodnocení obrací při zachování jejich identifikátorů; výsledek uvádí důvody. Rozsouzení přijímá setiny a pro CHAT používá váhy 40/30/20/10. Před rozhodnutím jsou dostupné celé rozhovory. Původní známky zůstávají samostatné.
+2. **Dva posudky a rozsouzení.** Pořadí kritérií se při hodnocení obrací při zachování jejich identifikátorů; výsledek uvádí důvody. Rozsouzení přijímá setiny a pro CHAT používá váhy 40/30/20/10. Před rozhodnutím jsou dostupné celé rozhovory. Původní známky zůstávají samostatné. Shoda i rozsouzení zachovávají čas a délku původního sběru.
 3. **Výsledek ve skutečném rendereru Studia.** Z hodnoceného řádku lze načíst úplný detail a rozbalit každý rozhovor, jeho oba posudky, váhy a rozsouzení. Přenosný balíček tento renderer používá s vypnutými mutacemi; skutečná aplikace ještě nebyla tímto balíčkem nasazena.
 4. **Celý životní cyklus.** Zkouška zahrnuje 14 fiktivních modelů × 7 rolí: 90 hodnocených buněk a 8 VISION N/A. Čtyři kandidáti projdou simulovaným nalezením a stažením s průběhem. Následují sběr, posudky, spor, rozsouzení, přejímky, provozní páry, sestava bez vlastní revize, virtuální aktivace, selhání, rollback a opětovné otevření DB. Modely se nemažou.
 5. **Skutečný nový CHAT v téže cestě.** Všech 80 rozhovorů z opraveného sběru 27. 9. projde produkčním zápisem sběru, hodnocení a rozsouzení do samostatné databáze. Skutečné odpovědi se nepřepisují; druhý hodnotitel a operátor jsou simulovaní.
@@ -48,7 +48,9 @@ node scripts/manual/build-hunt-authorized-review.mjs --out /nova/evidence
 node scripts/manual/verify-hunt-completion-review.mjs /nova/evidence --authorized
 ```
 
-Ověřovač prohlížeče přijímá `PUPPETEER_EXECUTABLE_PATH`. Deníky a konkrétní počty kontrol jsou součástí dokončeného balíčku. Zdrojové soubory, sqlite databáze a samostatné výsledky mají otisky; do manifestu nepatří měnitelné `-wal`/`-shm` soubory.
+Ověřovač prohlížeče přijímá `PUPPETEER_EXECUTABLE_PATH`. Deníky a konkrétní počty kontrol jsou součástí dokončeného balíčku. Finální balíček v2 navíc opravuje ztrátu času sběru v souhrnu dvojice a nepřesný štítek lidského rozsouzení v detailu. První simulační výstup zůstal odděleně, nové odpovědi ani nové modelové inference kvůli tomu nevznikly.
+
+Zdrojové soubory, sqlite databáze a samostatné výsledky mají otisky; do manifestu nepatří měnitelné `-wal`/`-shm` soubory.
 
 ## Co simulace nemůže prokázat
 

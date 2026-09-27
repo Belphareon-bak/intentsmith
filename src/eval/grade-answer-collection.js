@@ -284,6 +284,7 @@ export function reconcileGraderReviews(reviews, plan, collection) {
     startedAt:a.startedAt,
     completedAt:new Date().toISOString(),
     grading:{version:2,status:'GRADED',sourceCollectionRunId:collection.runId,
+      collectedAt:collection.completedAt,collectionDurationMs:collection.durationMs,
       sourceCollectionSha256:collectionEvidenceHash(collection),
       sourceContractSha256:collection.contractSha256,targetContractSha256:plan.suiteContractSha256,
       graders:reviews.map(row => ({id:row.accepted.id,payloadSha256:row.accepted.payloadSha256,
@@ -487,11 +488,12 @@ export function persistAdjudicatedCollection({history,plan,collection,decision})
       plan.suiteContractSha256,decision.sourceSha256,reviews[0].id,reviews[1].id,
       JSON.stringify(decision),digest,finalScore);
     const grading={version:2,status:'GRADED',
+      collectedAt:source.completedAt,collectionDurationMs:source.durationMs,
       sourceCollectionRunId:source.runId,sourceCollectionSha256:decision.sourceSha256,
       sourceContractSha256:source.contractSha256,targetContractSha256:plan.suiteContractSha256,
       graders:reviews.map(row=>({id:row.accepted.id,payloadSha256:row.accepted.payloadSha256,
         judge:row.accepted.judge,reviewId:row.id,reviewSha256:row.summarySha256})),
-      adjudication:{id:adjudicationId,sha256:digest}};
+      adjudication:{id:adjudicationId,sha256:digest,simulation:decision.simulation===true}};
     history.setProviderVersion(source.providerVersion);
     return history.recordComplete({artifact:source.artifact,role:plan.role,
       suiteName:plan.suiteName,suiteVersion:plan.suiteVersion,

@@ -44,10 +44,13 @@ test('whole transcript grading preserves cent scores, order identity, weighted a
     }
     assert(Math.abs(summary[0].score-.83)<1e-12);
     const rows=storedGraderReviews(f.history,f.plan,collection),pending=reconcileGraderReviews(rows,f.plan,collection);
+    const consensus=reconcileGraderReviews(rows.map(row=>({...row,summary:rows[0].summary})),f.plan,collection);
+    assert.equal(consensus.summary.grading.collectedAt,collection.completedAt);
+    assert.equal(consensus.summary.grading.collectionDurationMs,collection.durationMs);
     const blind=buildBlindAdjudicationPacket(f.history,f.plan,collection);
     assert.deepEqual(blind.cases[0].conversation.transcript,collection.tasks[0].details[0].conversation.transcript);
     assert.deepEqual(blind.cases[0].criterionWeights,[.4,.3,.2,.1]);
-    const decision={schemaVersion:1,sourceRunId:collection.runId,sourceSha256:originalHash,
+    const decision={schemaVersion:1,simulation:true,sourceRunId:collection.runId,sourceSha256:originalHash,
       firstReviewId:rows[0].id,secondReviewId:rows[1].id,
       review:{reviewer:'SIMULATED operator',reference:'fixture://review',reason:'weighted cent-scale regression',
         reviewedAt:new Date().toISOString(),blindToModel:true,independent:true},
@@ -58,6 +61,9 @@ test('whole transcript grading preserves cent scores, order identity, weighted a
     const final=persistAdjudicatedCollection({history:f.history,plan:f.plan,collection,decision});
     assert.equal(final.status,'COMPLETE');assert(Math.abs(final.score-.86)<1e-12);
     const detail=new ModelEvaluationReadModel(f.db,{plans:{CHAT:f.plan}}).readRun(final.runId);
+    assert.equal(detail.grading.collectedAt,collection.completedAt);
+    assert.equal(detail.grading.collectionDurationMs,collection.durationMs);
+    assert.equal(detail.grading.adjudication.simulation,true);
     assert.equal(detail.tasks[0].details[0].conversation.transcript.length,6);
     assert.equal(typeof detail.tasks[0].details[0].adjudicationId,'string');
     assert.deepEqual(detail.tasks[0].details[0].criterionWeights,[.4,.3,.2,.1]);
@@ -256,6 +262,6 @@ test('whole isolated rehearsal persists every applicable cell, exercises failure
     const button=nodes(tree()).find(n=>n.props?.title==='Podrobný rozpad a nový test: sim-model-12:fixture');
     assert(button);button.props.onClick();
     assert.equal(context._evaluationView,'detail');assert.equal(context._evaluationRoleFilter,'D1');
-    assert.match(JSON.stringify(tree()),/Oba nezávislé posudky/);
+    assert.match(JSON.stringify(tree()),/Oba uložené posudky/);
   } finally {rmSync(base,{recursive:true,force:true});}
 });

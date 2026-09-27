@@ -133,7 +133,7 @@ export async function runReviewedChatSimulation(sourceRoot, outputDirectory) {
       f.history.setProviderVersion(packet.providerVersion);
       const collection=f.history.recordCollection({artifact:{modelName:model.name,digestSha256:model.digestSha256},role:'CHAT',
         suiteName:f.plan.suiteName,suiteVersion:f.plan.suiteVersion,contractSha256:f.plan.suiteContractSha256,
-        summary:{score:null,runs:1,startedAt:selected[0].attempt.startedAt,completedAt:selected.at(-1).attempt.finishedAt,
+        summary:{score:null,runs:1,startedAt:selected.map(r=>r.attempt.startedAt).sort()[0],completedAt:selected.map(r=>r.attempt.finishedAt).sort().at(-1),
           collection:{status:'AWAITING_REVIEW',planned:40,observed:40,captured:40,budgetExhausted:0,invalid:0},
           tasks:suite.tests.map(t=>{
             const r=selected.find(x=>x.item.task===t.name);
