@@ -82,6 +82,13 @@ discover what the work is. Starting deep implementation without runtime
 observation and a delimited Work Package is forbidden by
 [`CONTRACT.md`](../../CONTRACT.md) §7.
 
+New Work Packages start from the freshly verified GitHub `main`, the shared
+development integration branch under the operator's 2026-09-28 decision
+([`CONTRACT.md`](../../CONTRACT.md) §6). Integrate approved milestones back
+after the relevant integration checks. Existing workers adopt that baseline
+at their own safe checkpoint; do not switch, reset or rebase a foreign checkout.
+Presence on `main` does not change an open review or establish release acceptance.
+
 ## 2. Authority
 
 The authoritative baseline is the set of existing normative sources:

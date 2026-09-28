@@ -184,6 +184,20 @@ Každý WP má pouze:
 Další board, registr ani evidence framework se pro běžný WP nezakládá. Stav se
 udržuje v roadmapě a příslušné inventuře.
 
+### Společná integrační větev
+
+**Rozhodnutí operátora, 2026-09-28.** `main` je společná vývojová a výchozí
+GitHub větev aktuálního IntentSmithu. Nové WP vycházejí z čerstvě ověřeného
+`main`; schválené milníky se po odpovídajícím integračním ověření průběžně
+začleňují zpět. Samotná přítomnost v `main` není veřejná release acceptance.
+Pracovní větve a jejich otevřené `REVIEW_PENDING`/`CHANGES_REQUIRED` se
+nesmějí hromadně prohlásit za přijaté při sjednocení historie.
+
+Rozpracovaný checkout se nepřepíná ani nerebasuje pod jiným workerem.
+Jeho vlastník převezme aktuální `main` při bezpečném integračním checkpointu
+a znovu ověří dotčené hranice. Původní samostatná historie GitHub `main`
+zůstává v archivu a v rodičích sjednocovacího merge; nejde o force-push.
+
 ### Kdy může práce běžet souběžně
 
 Paralelní zapisující WP jsou povolené, pouze když:
@@ -246,9 +260,9 @@ Samotná věta „po integraci se odstraní" se ukázala jako nevymahatelná —
   checkoutu nejsou paralelní práce — a právě proto pro ně nový worktree není.
 - **Konec worktree je měřitelný.** Worktree se odstraní, jakmile jiná živá
   větev obsahuje jeho commity celé
-  (`git merge-base --is-ancestor <větev> <jiná>`). Merge do `main` tou podmínkou
-  **není**: `main` se v tomhle projektu jako integrační cíl nepoužívá, takže
-  vázat na ni úklid znamená neuklízet nikdy. Odstraňuje se worktree, ne větev;
+  (`git merge-base --is-ancestor <větev> <jiná>`). Merge do `main` není jediný
+  způsob prokázání absorpce; platí i jiná živá integrační větev. Nadále se
+  ověřují dirty stav, procesy a chráněné důkazy. Odstraňuje se worktree, ne větev;
   commity, důkazy ani historie tím nemizí.
 - **Sandbox je vstup běhu, ne jeho důkaz.** Adresáře `runtime/`, `home/`,
   `repo/` a `node_modules/` pod `.intentsmith-artifacts/` jsou jednorázové.

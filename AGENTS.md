@@ -53,6 +53,9 @@ strom. Cizí nebo nejasně vlastněné změny zachovej. Potom sleduj skutečný 
 graph a podle potřeby spusť produkt; dokument ani název testu není náhradou za
 pozorované chování.
 
+Nové WP vycházejí z ověřeného GitHub `main`, společné integrační větve podle
+`CONTRACT.md §6`. Běžící cizí checkout se kvůli tomu nepřepíná ani nerebasuje.
+
 Součástí té kontroly je **rozpočet pracovní plochy** (`CONTRACT.md` §6). Neomezuje,
 kolik práce smí běžet — brání jen tomu, aby zůstávaly dokončené worktree a sandboxy.
 Prakticky: práce, která jen navazuje v čase, přepne větev v existujícím checkoutu;

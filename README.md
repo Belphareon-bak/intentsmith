@@ -1,5 +1,24 @@
 # IntentSmith
 
+**Aktuální vývojový základ — 28. 9. 2026:** `main` sjednocuje vývoj vycházející
+z C3 a zdroj právě používaného **IDE 2.0**. Základ `04f2be71` obsahuje backend
+`c84b88cd` a frontend `79c19096`; nasazení a jeho otevřené review popisují
+[aktuální provozní instrukce](docs/studio2/PRODUCTION.md).
+**IMPLEMENTATION_VERIFIED / REVIEW_PENDING; M5/M6 nejsou přijaté.**
+
+Nové pracovní větve vycházejí z `main`; schválené milníky se vždy pushují
+a po integračních kontrolách vracejí do společné větve. Původní samostatný
+pnpm/OpenCode projekt z GitHub `main` je zachován v
+[`archive/main-before-reconcile-20260928`](https://github.com/Belphareon-bak/intentsmith/tree/archive/main-before-reconcile-20260928)
+a v merge historii. [Rozsah sjednocení a ověření](docs/review/2026-09-28-MAIN-RECONCILIATION.md).
+Samostatné novější hunt/intent kandidáty toto sjednocení nepřijímá.
+
+GitHub CI ověřuje vývojový výřez registru, modulových hranic, soukromí a
+Studia 2; celý offline/database profil a fyzické release scénáře jsou
+samostatné důkazy. Starší checkpointy níže zůstávají historickou evidencí.
+
+## Historické checkpointy
+
 **GPU hunt, finální měření 19. 9.: NO-GO pro autonomní provoz.**
 Všech sedm rolí změřeno na `89531748`, přijatých profilů 0/7; produktová
 integrace a nezávislá kvalifikace nejsou dokončené. Timer zůstává vypnutý.
