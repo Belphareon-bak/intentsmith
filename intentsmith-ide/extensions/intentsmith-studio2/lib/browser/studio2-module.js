@@ -304,7 +304,8 @@ class Studio2Contribution extends browser.AbstractViewContribution {
     app.shell.mainPanel.findTabBar(widget?.title)?.hide();
     app.shell.statusBar.hide();
     // The host may restore built-in side views; they are not part of Studio 2.
-    for (const side of ['leftPanelHandler', 'rightPanelHandler', 'bottomPanelHandler']) {
+    for (const area of ['left', 'right', 'bottom']) await app.shell.collapsePanel(area);
+    for (const side of ['leftPanelHandler', 'rightPanelHandler']) {
       app.shell[side]?.container?.hide();
     }
     // Lumino keeps the hidden tab bar's height reserved until the dock layout refits.

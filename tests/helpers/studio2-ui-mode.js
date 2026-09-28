@@ -34,6 +34,8 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
       studioDark: Boolean(root?.classList.contains('th-studio-dark')),
       busListeners: window.IntentSmithBus?._debug?.() || {},
       sessionTabs: root?.querySelectorAll('.tabs-in .tab').length || 0,
+      hostBottomVisible: (() => { const panel = document.getElementById('theia-bottom-content-panel');
+        return !!panel && getComputedStyle(panel).display !== 'none' && panel.getBoundingClientRect().height > 0; })(),
       openSessions: root?.querySelector('nav .nkids')?.querySelectorAll('.nkid .tnum').length || 0,
       capacityToast: root?.querySelector('.toast')?.textContent?.trim() || '',
       columnSessions: [...(root?.querySelectorAll('.cols .scol .pane-t .pane-tt') || [])].map(node => node.textContent.trim()),
@@ -138,8 +140,13 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
   })()`);
   const closed = await waitFor(s => s.openSessions === 4 && s.columnSessions.length === 2
     && !s.columnSessions.includes(swapped.columnSessions[2]), 'header-ends-session');
+  // Reproduce a classic saved layout with the real Theia Problems command.
+  // After reload Studio must reclaim its full viewport, preserving sessions.
+  await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'M', code: 'KeyM', modifiers: 10, windowsVirtualKeyCode: 77 });
+  await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'M', code: 'KeyM', modifiers: 10, windowsVirtualKeyCode: 77 });
+  await waitFor(s => s.hostBottomVisible, 'classic-problems-layout-fixture');
   await evaluate(cdp, `(() => { localStorage.setItem('intentsmith-studio-ui-mode', 'classic'); localStorage.setItem('intentsmith-studio2-view', 'legacy'); window.__studio2ReloadProbe = true; setTimeout(() => window.electronTheiaCore.requestReload(), 0); return true; })()`);
-  const restored = await waitFor(s => !s.reloadPending && s.mode === 'studio2' && s.studio2 && !s.classicSidebar && !s.classicChat && !s.switchReady, 'legacy-flags-cannot-restore-classic');
+  const restored = await waitFor(s => !s.reloadPending && s.mode === 'studio2' && s.studio2 && !s.classicSidebar && !s.classicChat && !s.switchReady && !s.hostBottomVisible, 'legacy-flags-and-panels-cannot-restore-classic');
   const persisted = await waitFor(s => s.mode === 'studio2' && s.studio2 && !s.classicChat
     && s.sessionTabs === 0 && s.openSessions === 4
     && s.columnSessions.every((value, i) => value === closed.columnSessions[i]), 'session-restore');
@@ -311,7 +318,9 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
     attachmentPickerRendered: studio2.attachmentPicker,
     visuallyUncoveredStudio2: visible.centerInsideStudio,
     exclusiveWorkbenchChrome: visible.rootRect?.y === 0
+      && Math.abs(visible.rootRect.height - visible.innerHeight) <= 1
       && visible.theiaStatusVisible === false && visible.theiaTabVisible === false,
+    classicProblemsCollapsedAfterRestore: restored.hostBottomVisible === false,
     m2ReviewPanelRendered: m2Ui.m2Panel,
     backendEnvironmentLoaded: environment.environmentLoaded,
     commandPaletteNavigatesSession: palette.columnsVisible && !palette.paletteOpen,
