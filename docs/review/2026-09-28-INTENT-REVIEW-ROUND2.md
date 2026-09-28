@@ -1,6 +1,6 @@
 # IntentSmith — druhé kolo oprav intentu
 
-**IMPLEMENTED / REVIEW_PENDING / NOT_DEPLOYED.** Předchozí předání bylo operátorem odmítnuto; tento kandidát čeká na novou revizi. Žádné přijetí ani připravenost k nasazení se tímto reportem netvrdí.
+**CHANGES_REQUIRED / NOT_DEPLOYED — historické předání.** Operátor tento kandidát odmítl kvůli falešnému záporu bez cesty k upřesnění a doporučil pozitivní výběr obsahu k uložení. Aktuální kandidát a nové důkazy jsou ve [třetím kole oprav](2026-09-28-INTENT-REVIEW-ROUND3.md). Níže zůstává původní evidence druhého kola; ověřené vypnutí chatového učení v oddílu 4 tím není zrušeno.
 
 Čistý kandidát: `a97d74fa065e5da102a41d6ac1f84a2ba480f9b9`. Input: `b4045668d571b6f6be8afb475de3f2e49e764366`. Autorita: poslední operátorský review, nálezy 1–4; [vymezení práce](../wp/WP-INTENT-REVIEW-ROUND2-20260928.md). Větev `work/intent-resilience-20260928`, worktree `/home/belphareon/Projects/intentsmith-intent-resilience-20260928`.
 
