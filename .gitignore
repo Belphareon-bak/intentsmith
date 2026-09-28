@@ -1,21 +1,85 @@
-node_modules/
-dist/
-coverage/
+# Environment (secrets)
 .env
-.env.*
+.env.local
+.env.*.local
+
+# Dependencies
+node_modules
+/.venv/
+__pycache__/
+*.py[cod]
+
+# Package manager
+pnpm-lock.yaml
+pnpm-workspace.yaml
+
+# Database
+data/*.db*
+data/*.sql
+data/*.malformed
+data/*.pre-recover
+
+# Generated artifacts
+data/artifacts/
+data/backups/
+data/history/
+data/output/
+/.intentsmith-artifacts/
+/e2e-review/
+/test-reports/
+e2e-report.json
+e2e-latest.json
+e2e-quality-deep.json
+tests.zip
+src.zip
+*.zip
+
+# User projects (data, not code)
+projects/
+
+# Confirmed privacy-incident paths (user content, not product source)
+/chats/conv-*/attachments/
+/docs/archive/conversations/
+
+# E2E test transcripts
+test-transcripts/
+/tests/e2e-transcript-*.md
+
+# Known leaked generated-project paths from disputed final commit
+/login.html
+/templates/admin/dashboard.html
+/templates/products/detail.html
+
+# Temp files
+*.tmp
+*.tmp.*
+*.swp
+*.swo
+*~
+
+# Backups
+*-backup-*/
+*.ui-patch-backup-*/
+*.bak
+
+# IDE build artifacts
+intentsmith-ide/lib/
+intentsmith-ide/src-gen/
+intentsmith-ide/gen-webpack*.js
+intentsmith-ide/node_modules/
+intentsmith-ide/extensions/intentsmith-protocol/lib/
+intentsmith-ide/applications/electron/lib/
+intentsmith-ide/applications/electron/src-gen/
+intentsmith-ide/applications/electron/gen-webpack*.js
+intentsmith-ide/applications/electron/gen-esbuild*.mjs
+intentsmith-ide/applications/electron/dist/
+*.tsbuildinfo
+
+# Logs
 *.log
-tmp/
-artifacts/*
-!artifacts/phase-1-verification.json
-!artifacts/phase-1-1-verification.json
-!artifacts/phase-2-verification.json
-!artifacts/phase-3b-model-probe.json
-!artifacts/phase-3b-verification.json
-!artifacts/phase-3-2c-real-binary.json
-!artifacts/phase-3-verification.json
-runtime/
-.intentsmith/
-*.db
-*.db-shm
-*.db-wal
+/.intentsmith-backend.log*
+logs/
+
+# OS
 .DS_Store
+Thumbs.db

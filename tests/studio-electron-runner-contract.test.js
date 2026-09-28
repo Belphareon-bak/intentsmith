@@ -1,0 +1,908 @@
+#!/usr/bin/env node
+
+import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
+import fs from 'node:fs';
+
+import { suite, test, testAsync, summary } from './harness.js';
+import {
+  CdpClient,
+  actualPositiveBoundary,
+  exactStudioPageTarget,
+  observeSpawnCompletion,
+  processGroupFromStat,
+  runCleanupSequence,
+  safeInheritedEnvironment,
+  startModelProviderSentinel,
+  successEvidence,
+  theiaControlPlaneOriginFromEntrypoint,
+  validateFunctional,
+  validateM1Functional,
+  validateM1SoakLifecycle,
+  validateM2ComposerEvidence,
+  validateSoakLifecycle,
+  waitForM1StartupHttp,
+} from './studio-electron-boundary.e2e.js';
+import { createStudioCdpEvidenceReducer } from '../scripts/studio-cdp-evidence.js';
+
+const SHA = 'a'.repeat(40);
+const DIGEST = 'b'.repeat(64);
+
+function startupListFixture() {
+  const origin = 'http://127.0.0.1:47831';
+  const capability = 'A'.repeat(43);
+  const reducer = createStudioCdpEvidenceReducer({
+    backendOrigin: origin, controlPlaneOrigin: 'http://localhost:39001',
+    expectedCapability: capability,
+  });
+  const paths = ['/api/projects', '/api/conversations', '/api/expertises', '/api/agents', '/api/media/history', '/api/health', '/health'];
+  const begin = (requestId, pathname) => reducer.ingest('Network.requestWillBeSent', {
+    requestId, request: { url: origin + pathname, method: 'GET', headers: {} },
+  });
+  const response = (requestId, status = 200) => reducer.ingest('Network.responseReceived', {
+    requestId, response: { status, headers: {} },
+  });
+  const wire = (requestId, status = 200) => {
+    reducer.ingest('Network.requestWillBeSentExtraInfo', { requestId, headers: {
+      Origin: 'null', 'Sec-Fetch-Site': 'cross-site', 'X-IntentSmith-Local-Capability': capability,
+    } });
+    reducer.ingest('Network.responseReceivedExtraInfo', { requestId, statusCode: status,
+      headers: { 'Access-Control-Allow-Origin': 'null' } });
+  };
+  return { reducer, paths, begin, response, wire };
+}
+
+await testAsync('M1 waits for all startup HTTP routes and their delayed follow-up before listener restart', async () => {
+  const f = startupListFixture(); let clock = 0; let ticks = 0; let restarts = 0;
+  const captured = f.reducer;
+  const probe = waitForM1StartupHttp(captured, {
+    now: () => clock, timeoutMs: 3_000,
+    sleep: async ms => {
+      assert.equal(restarts, 0, 'restart must not race the delayed startup batch');
+      clock += ms; ticks++;
+      if (ticks === 1) f.paths.forEach((pathname, i) => f.begin(String(i), pathname));
+      if (ticks === 2) f.paths.forEach((_pathname, i) => f.response(String(i)));
+      if (ticks === 3) f.paths.slice(0, 6).forEach((_pathname, i) => f.wire(String(i)));
+      if (ticks === 4) f.wire('6');
+      if (clock === 400) f.begin('late-project', '/api/projects');
+      if (clock === 1_200) { f.response('late-project'); f.wire('late-project'); }
+    },
+  }).then(() => { restarts++; });
+  await probe;
+  assert(clock >= 1_950, 'even an in-flight duplicate lasting longer than the quiet window must finish');
+  assert.equal(restarts, 1);
+  assert.equal(captured.snapshot().http.reduce((n, row) => n + row.count, 0), 8);
+}, 1_000);
+
+await testAsync('M1 startup wait is bounded and cannot replace missing wire evidence with a base response', async () => {
+  const f = startupListFixture(); let clock = 0;
+  f.paths.forEach((pathname, i) => { f.begin(String(i), pathname); f.response(String(i)); });
+  await assert.rejects(waitForM1StartupHttp(f.reducer, {
+    now: () => clock, sleep: async ms => { clock += ms; }, timeoutMs: 100,
+  }), /m1-startup-http-timeout/);
+  assert.equal(clock, 100);
+}, 1_000);
+
+await testAsync('M1 rechecks failures arriving while startup HTTP settles', async () => {
+  const f = startupListFixture(); let clock = 0; let injected = false;
+  f.paths.forEach((pathname, i) => { f.begin(String(i), pathname); f.response(String(i)); f.wire(String(i)); });
+  await assert.rejects(waitForM1StartupHttp(f.reducer, {
+    now: () => clock, sleep: async ms => {
+      clock += ms;
+      if (!injected) {
+        injected = true; f.begin('late-failure', '/api/health');
+        f.reducer.ingest('Network.loadingFailed', { requestId: 'late-failure', errorText: 'net::ERR_CONNECTION_REFUSED' });
+      }
+    },
+  }), /m1-startup-http-failed/);
+  assert.equal(f.reducer.snapshot().http.filter(row => row.terminalClass === 'failed').length, 1);
+}, 1_000);
+
+for (const failure of ['connection-refused', 'canceled', 'http-error']) {
+  await testAsync(`M1 retains startup ${failure} even if a later request succeeds`, async () => {
+    const f = startupListFixture();
+    f.begin('failed', f.paths[0]);
+    if (failure === 'http-error') { f.response('failed', 503); f.wire('failed', 503); }
+    else f.reducer.ingest('Network.loadingFailed', { requestId: 'failed',
+      errorText: failure === 'canceled' ? 'net::ERR_ABORTED' : 'net::ERR_CONNECTION_REFUSED',
+      canceled: failure === 'canceled' });
+    f.paths.forEach((pathname, i) => { f.begin(String(i), pathname); f.response(String(i)); f.wire(String(i)); });
+    const before = f.reducer.snapshot();
+    await assert.rejects(waitForM1StartupHttp(f.reducer), /m1-startup-http-failed/);
+    assert.deepEqual(f.reducer.snapshot(), before, 'no capture reset or failed-request filtering');
+  }, 1_000);
+}
+
+function validFunctional(overrides = {}) {
+  return {
+    conversationCreated: true,
+    sent: true,
+    negotiated: true,
+    serverFeatures: ['workspace', 'm1-wire-v1'],
+    turnStarts: 1,
+    routingDecisions: 1,
+    conversationRouteDecisions: 1,
+    unexpectedRouteDecisions: 0,
+    unexpectedAgentEvents: 0,
+    terminals: 1,
+    terminalsOk: 1,
+    modelProviderRequestsDuringTurn: 0,
+    forbiddenEffects: 0,
+    errorSignals: 0,
+    assistantMatches: true,
+    assistantCorrelated: true,
+    assistantModeValid: true,
+    legacyMessages: 0,
+    legacySystems: 0,
+    disconnected: false,
+    spinnerCleared: true,
+    resultClass: 'terminal-ok',
+    ...overrides,
+  };
+}
+
+function validSoak(overrides = {}) {
+  return {
+    terminals: 1,
+    sendOk: 1,
+    sendNonOk: 0,
+    progress: 3,
+    m1Progress: 3,
+    legacyMessages: 0,
+    legacySystems: 0,
+    disconnects: 0,
+    turnStarts: 1,
+    routingDecisions: 1,
+    conversationRouteDecisions: 1,
+    unexpectedRouteDecisions: 0,
+    unexpectedAgentEvents: 0,
+    forbiddenEffects: 0,
+    agentErrors: 0,
+    idleSignals: 1,
+    ...overrides,
+  };
+}
+
+function validM1Functional(overrides = {}) {
+  const terminals = [
+    ['built-electron-success-B', 'send', 'ok', 1, true, null, 'Built Electron M1 response'],
+    ['built-electron-success-B', 'send', 'error', 1, false, 'LLM_PROVIDER_UNAVAILABLE', null],
+    ['built-electron-cancel-A', 'send', 'cancelled', 0, false, 'CHAT_CANCELLED', null],
+    ['built-electron-cancel-A', 'cancel', 'cancelled', 0, false, 'CHAT_CANCELLED', null],
+    ['built-electron-success-B', 'send', 'ok', 1, true, null, 'Built Electron M1 response'],
+  ].map((item, index) => ({
+    conversationId: item[0],
+    action: item[1],
+    status: item[2],
+    sessionIdx: item[3],
+    renderAssistant: item[4],
+    errorCode: item[5],
+    response: item[6],
+    requestId: `request-${index}`,
+    turnId: `turn-${index}`,
+  }));
+  return {
+    resultClass: 'complete',
+    negotiated: true,
+    serverFeatures: ['workspace', 'm1-wire-v1'],
+    terminals,
+    progress: [
+      { transport: 'm1', step: 'pending' },
+      { transport: 'm1', step: 'success' },
+      { transport: 'm1', step: 'success' },
+    ],
+    legacyMessages: 0,
+    legacySystems: 0,
+    disconnects: 1,
+    reconnects: 1,
+    readyAfterRestart: 1,
+    restartStatus: 202,
+    preRestart: {
+      paneAThinkingCleared: true,
+      paneBThinkingCleared: true,
+      paneAMessages: [{ role: 'system', text: 'cancelled', tag: 'CANCELLED' }],
+      paneBMessages: [
+        { role: 'assistant', text: 'Built Electron M1 response', tag: 'conversation' },
+        { role: 'system', text: 'provider unavailable', tag: 'ERROR' },
+      ],
+    },
+    paneA: {
+      thinking: true,
+      delivery: null,
+      messages: [{ role: 'user', text: 'M1_CANCEL_PENDING' }],
+    },
+    paneB: {
+      thinking: true,
+      delivery: null,
+      messages: [{ role: 'assistant', text: 'Built Electron M1 response' }],
+    },
+    ...overrides,
+  };
+}
+
+function validM1Soak(overrides = {}) {
+  return {
+    terminals: 5,
+    sendOk: 2,
+    sendCancelled: 1,
+    sendErrors: 1,
+    cancelCancelled: 1,
+    progress: 3,
+    m1Progress: 3,
+    legacyMessages: 0,
+    legacySystems: 0,
+    disconnects: 1,
+    reconnects: 1,
+    forbiddenEffects: 0,
+    terminalIdentities: Array.from({ length: 5 }, (_, index) => [
+      `request-${index}`,
+      `conversation-${index}`,
+      `turn-${index}`,
+      index % 2,
+      'send',
+      'ok',
+    ]),
+    ...overrides,
+  };
+}
+
+function validSnapshot(overrides = {}) {
+  return {
+    schemaVersion: 1,
+    counts: {
+      events: 20,
+      protectedHttp: 1,
+      websockets: 1,
+      ignored: 0,
+      malformed: 0,
+      ambiguous: 0,
+      orphaned: 0,
+      externalAttempts: 0,
+      otherLoopbackAttempts: 0,
+      unsupportedNetworkAttempts: 0,
+    },
+    http: [{
+      routeId: 'api-health',
+      targetClass: 'protected',
+      methodClass: 'GET',
+      status: 200,
+      statusClass: '2xx',
+      terminalClass: 'response',
+      originClass: 'opaque',
+      fetchSiteClass: 'cross-site',
+      capabilityClass: 'match',
+      preflightClass: 'not-preflight',
+      allowOriginClass: 'opaque',
+      headerSource: 'extra-info',
+      responseSource: 'extra-info',
+      redirected: false,
+      count: 1,
+    }],
+    websockets: [],
+    externalByScheme: { http: 0, https: 0, ws: 0, wss: 0 },
+    anomalies: [],
+    ...overrides,
+  };
+}
+
+function validExit(overrides = {}) {
+  return {
+    started: true,
+    exitCode: 0,
+    signal: null,
+    requestedSignal: 'none',
+    forced: false,
+    processGroupClean: true,
+    ...overrides,
+  };
+}
+
+suite('Studio Electron runner — non-visual contract');
+
+test('runner uses an explicit non-visual CDP surface and never observes UI state', () => {
+  const source = fs.readFileSync(
+    new URL('./studio-electron-boundary.e2e.js', import.meta.url),
+    'utf8',
+  );
+  for (const forbidden of [
+    'document.',
+    'document.querySelector',
+    'document.getElementById',
+    'getComputedStyle',
+    'innerText',
+    'textContent',
+    'Page.captureScreenshot',
+    'Page.getLayoutMetrics',
+    'DOM.enable',
+    'CSS.enable',
+    'Accessibility.enable',
+  ]) {
+    assert.equal(source.includes(forbidden), false, forbidden);
+  }
+  const literalCdpMethods = [
+    ...source.matchAll(/cdp\.send\('([^']+)'/g),
+  ].map(match => match[1]);
+  assert.deepEqual(
+    [...new Set(literalCdpMethods)].sort(),
+    [
+      'Browser.close',
+      'Network.enable',
+      'Page.enable',
+      'Page.navigate',
+      'Runtime.enable',
+      'Runtime.evaluate',
+    ],
+  );
+  assert.match(source, /window\.IntentSmithWS/);
+  assert.match(source, /window\.IntentSmithBus/);
+  assert.equal(source.includes('window._intentsmith'), false);
+  assert.match(source, /client\.sendChat/);
+  assert.doesNotMatch(source, /window\.IntentSmithWS\.send\('chat'/);
+  assert.match(source, /uiEvaluation: 'excluded-non-final-ui'/);
+});
+
+test('built M1 journey requires exact terminal, provider, cancel, and restart evidence', () => {
+  assert.equal(validateM1Functional(validM1Functional()), true);
+  assert.equal(
+    validateM1Functional(validM1Functional({ legacyMessages: 1 })),
+    false,
+  );
+  const reordered = validM1Functional();
+  [reordered.terminals[2], reordered.terminals[3]] = [
+    reordered.terminals[3],
+    reordered.terminals[2],
+  ];
+  assert.equal(validateM1Functional(reordered), false);
+  assert.equal(validateM1SoakLifecycle(validM1Soak()), true);
+  assert.equal(
+    validateM1SoakLifecycle(validM1Soak({ m1Progress: 2 })),
+    false,
+  );
+});
+
+test('runner rechecks source revision and cleanliness before PASS evidence', () => {
+  const source = fs.readFileSync(
+    new URL('./studio-electron-boundary.e2e.js', import.meta.url),
+    'utf8',
+  );
+  assert.equal(source.match(/await inspectSource\(\)/g)?.length, 2);
+  assert.match(source, /source-revision-changed-during-run/);
+  assert.match(
+    source,
+    /await inspectSource\(\)[\s\S]*await writePrivateJson\(paths\.evidence, evidence\)/,
+  );
+});
+
+test('child environment inherits only the explicit process-neutral allowlist', () => {
+  const original = {
+    DISPLAY: process.env.DISPLAY,
+    XAUTHORITY: process.env.XAUTHORITY,
+    XDG_RUNTIME_DIR: process.env.XDG_RUNTIME_DIR,
+    AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
+    ELECTRON_RUN_AS_NODE: process.env.ELECTRON_RUN_AS_NODE,
+  };
+  try {
+    process.env.DISPLAY = ':99';
+    process.env.XAUTHORITY = '/private/xauthority';
+    process.env.XDG_RUNTIME_DIR = '/private/runtime';
+    process.env.AWS_SECRET_ACCESS_KEY = 'PRIVATE_AWS_CANARY';
+    process.env.ELECTRON_RUN_AS_NODE = '1';
+    const selected = safeInheritedEnvironment();
+    assert.deepEqual(
+      Object.keys(selected).sort(),
+      ['PATH', 'LANG', 'LC_ALL', 'TZ']
+        .filter(key => process.env[key] !== undefined)
+        .sort(),
+    );
+    for (const forbidden of Object.keys(original)) {
+      assert.equal(Object.hasOwn(selected, forbidden), false, forbidden);
+    }
+  } finally {
+    for (const [key, value] of Object.entries(original)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
+test('process-group parser handles Linux command names containing spaces', () => {
+  assert.equal(
+    processGroupFromStat('123 (electron helper) S 100 77 77 0 -1 0'),
+    77,
+  );
+  assert.equal(processGroupFromStat('malformed'), null);
+});
+
+test('CDP target must be the exact built Studio file and debug authority', () => {
+  const target = {
+    type: 'page',
+    url: 'file:///repo/intentsmith-ide/applications/electron/lib/frontend/index.html?port=4567',
+    webSocketDebuggerUrl: 'ws://127.0.0.1:9222/devtools/page/fixture-id',
+  };
+  const expected = '/repo/intentsmith-ide/applications/electron/lib/frontend/index.html';
+  assert.equal(exactStudioPageTarget(target, 9222, expected), true);
+  assert.equal(exactStudioPageTarget({
+    ...target,
+    url: 'file:///repo/other/index.html',
+  }, 9222, expected), false);
+  assert.equal(exactStudioPageTarget({
+    ...target,
+    webSocketDebuggerUrl: 'ws://127.0.0.1:9223/devtools/page/fixture-id',
+  }, 9222, expected), false);
+});
+
+test('Theia control-plane authority is derived only from the exact file target', () => {
+  const expected = '/repo/intentsmith-ide/applications/electron/lib/frontend/index.html';
+  assert.equal(
+    theiaControlPlaneOriginFromEntrypoint(
+      `file://${expected}?port=4567`,
+      expected,
+    ),
+    'http://localhost:4567',
+  );
+  for (const url of [
+    `file://${expected}`,
+    `file://${expected}?port=0`,
+    `file://${expected}?port=4567&port=4568`,
+    `file://${expected}?port=4567&extra=1`,
+    'file:///repo/other/index.html?port=4567',
+    'https://localhost:4567/index.html?port=4567',
+  ]) {
+    assert.equal(theiaControlPlaneOriginFromEntrypoint(url, expected), null, url);
+  }
+});
+
+suite('Studio Electron runner — functional terminal contract');
+
+await testAsync('CDP connect errors reject instead of hanging', async () => {
+  class RejectingSocket extends EventTarget {
+    static OPEN = 1;
+    constructor() {
+      super();
+      this.readyState = 0;
+      queueMicrotask(() => this.dispatchEvent(new Event('error')));
+    }
+    close() {
+      this.readyState = 3;
+      this.dispatchEvent(new Event('close'));
+    }
+  }
+  const client = new CdpClient('ws://fixture.invalid', RejectingSocket, 100);
+  await assert.rejects(client.open(), /cdp-connect-error/);
+}, 1_000);
+
+await testAsync('malformed CDP callback state becomes a caught command failure', async () => {
+  class OpenSocket extends EventTarget {
+    static OPEN = 1;
+    constructor() {
+      super();
+      this.readyState = 0;
+      queueMicrotask(() => {
+        this.readyState = 1;
+        this.dispatchEvent(new Event('open'));
+      });
+    }
+    send() {}
+    close() {
+      this.readyState = 3;
+      this.dispatchEvent(new Event('close'));
+    }
+    malformed() {
+      const event = new Event('message');
+      Object.defineProperty(event, 'data', { value: '{malformed' });
+      this.dispatchEvent(event);
+    }
+  }
+  const client = new CdpClient('ws://fixture.invalid', OpenSocket, 100);
+  await client.open();
+  client.socket.malformed();
+  await assert.rejects(client.send('Runtime.enable'), /cdp-message-malformed/);
+}, 1_000);
+
+await testAsync('suite-owned model sentinel proves zero requests instead of provider failure', async () => {
+  const sentinel = await startModelProviderSentinel();
+  try {
+    assert.equal(sentinel.requestCount(), 0);
+    const response = await fetch(`${sentinel.origin}/api/generate`, {
+      method: 'POST',
+      body: '{}',
+    });
+    assert.equal(response.status, 503);
+    assert.equal(sentinel.requestCount(), 1);
+  } finally {
+    await sentinel.close();
+  }
+  const source = fs.readFileSync(
+    new URL('./studio-electron-boundary.e2e.js', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /OLLAMA_URL: modelProviderUrl/);
+  assert.match(source, /modelProviderRequestsDuringTurn/);
+}, 2_000);
+
+await testAsync('cleanup attempts every owned resource and preserves the first failure', async () => {
+  const calls = [];
+  const cleanup = await runCleanupSequence([
+    {
+      name: 'electron',
+      run: async () => {
+        calls.push('electron');
+        throw new Error('PRIVATE_ELECTRON_ERROR');
+      },
+      fallback: 'electron-fallback',
+    },
+    {
+      name: 'backend',
+      run: async () => {
+        calls.push('backend');
+        throw new Error('PRIVATE_BACKEND_ERROR');
+      },
+      fallback: 'backend-fallback',
+    },
+    {
+      name: 'sentinel',
+      run: async () => {
+        calls.push('sentinel');
+        return 'closed';
+      },
+      fallback: 'sentinel-fallback',
+    },
+    {
+      name: 'process-group',
+      run: async () => {
+        calls.push('process-group');
+        return true;
+      },
+      fallback: false,
+    },
+  ]);
+  assert.deepEqual(calls, ['electron', 'backend', 'sentinel', 'process-group']);
+  assert.equal(cleanup.error?.code, 'electron-cleanup-failed');
+  assert.equal(cleanup.results.electron, 'electron-fallback');
+  assert.equal(cleanup.results.backend, 'backend-fallback');
+  assert.equal(cleanup.results.sentinel, 'closed');
+  assert.equal(cleanup.results['process-group'], true);
+}, 1_000);
+
+await testAsync('namespace spawn errors resolve to a sanitized failure instead of rejecting', async () => {
+  const child = new EventEmitter();
+  const completionPromise = observeSpawnCompletion(child);
+  child.emit('error', new Error('PRIVATE_SPAWN_ERROR'));
+  child.emit('close', null, null);
+  assert.deepEqual(await completionPromise, {
+    code: null,
+    signal: null,
+    spawnError: true,
+  });
+}, 1_000);
+
+test('only the complete correlated deterministic WS turn passes', () => {
+  assert.equal(validateFunctional(validFunctional()), true);
+  const mutations = {
+    conversationCreated: false,
+    sent: false,
+    negotiated: false,
+    serverFeatures: ['workspace'],
+    turnStarts: 2,
+    routingDecisions: 2,
+    conversationRouteDecisions: 0,
+    unexpectedRouteDecisions: 1,
+    unexpectedAgentEvents: 1,
+    terminals: 2,
+    terminalsOk: 0,
+    modelProviderRequestsDuringTurn: 1,
+    forbiddenEffects: 1,
+    errorSignals: 1,
+    assistantMatches: false,
+    assistantCorrelated: false,
+    assistantModeValid: false,
+    legacyMessages: 1,
+    legacySystems: 1,
+    disconnected: true,
+    spinnerCleared: false,
+    resultClass: 'timeout',
+  };
+  for (const [field, value] of Object.entries(mutations)) {
+    assert.equal(validateFunctional(validFunctional({ [field]: value })), false, field);
+  }
+});
+
+test('full-soak lifecycle rejects every late duplicate, error, effect, or disconnect', () => {
+  assert.equal(validateSoakLifecycle(validSoak()), true);
+  const mutations = {
+    terminals: 2,
+    sendOk: 0,
+    sendNonOk: 1,
+    progress: 1,
+    m1Progress: 2,
+    legacyMessages: 1,
+    legacySystems: 1,
+    disconnects: 1,
+    turnStarts: 2,
+    routingDecisions: 2,
+    conversationRouteDecisions: 0,
+    unexpectedRouteDecisions: 1,
+    unexpectedAgentEvents: 1,
+    forbiddenEffects: 1,
+    agentErrors: 1,
+    idleSignals: 0,
+  };
+  for (const [field, value] of Object.entries(mutations)) {
+    assert.equal(validateSoakLifecycle(validSoak({ [field]: value })), false, field);
+  }
+});
+
+test('positive boundary requires actual opaque capability-protected API health', () => {
+  assert.equal(actualPositiveBoundary(validSnapshot()), 200);
+  assert.equal(actualPositiveBoundary(validSnapshot({ http: [] })), null);
+  const missingCapability = validSnapshot();
+  missingCapability.http[0].capabilityClass = 'missing';
+  assert.equal(actualPositiveBoundary(missingCapability), null);
+});
+
+suite('Studio Electron runner — sanitized evidence');
+
+test('success evidence drops incidental private fields and marks UI excluded', () => {
+  const evidence = successEvidence({
+    sourceRevision: SHA,
+    observationDurationMs: 65_050,
+    networkCaptureDurationMs: 78_050,
+    snapshot: validSnapshot(),
+    networkVerdict: { verdict: 'PASS', failures: [] },
+    negative: [
+      {
+        case: 'cross-site-no-origin-with-capability',
+        status: 403,
+        outcome: 'rejected',
+        privatePath: '/private/negative-canary',
+      },
+      {
+        case: 'opaque-origin-without-capability',
+        status: 403,
+        outcome: 'rejected',
+      },
+    ],
+    functional: validFunctional({ rawAnswer: 'PRIVATE_RESPONSE_CANARY' }),
+    byteBridge: {
+      exposed: true,
+      pick: 'function',
+      read: 'function',
+      forgedOk: false,
+      forgedCode: 'M1_BRIDGE_TOKEN_UNKNOWN',
+      pathApis: [],
+      privateProbePath: '/private/bridge-canary',
+    },
+    soakMonitor: validSoak({ privateEvent: 'PRIVATE_EVENT_CANARY' }),
+    positiveBoundaryStatus: 204,
+    buildDigests: {
+      electronMainSha256: DIGEST,
+      frontendBundleSha256: DIGEST,
+      frontendIndexSha256: DIGEST,
+      preloadSha256: DIGEST,
+      privateBuildPath: '/private/build-canary',
+    },
+    shutdown: {
+      electron: validExit({ privateLog: '/private/electron-canary' }),
+      backend: validExit({
+        requestedSignal: 'SIGTERM',
+        privateLog: '/private/backend-canary',
+      }),
+    },
+    portFileRemoved: true,
+    logDigests: { backend: DIGEST, electron: DIGEST },
+  });
+  const serialized = JSON.stringify(evidence);
+  for (const canary of [
+    '/private/negative-canary',
+    'PRIVATE_RESPONSE_CANARY',
+    '/private/electron-canary',
+    '/private/backend-canary',
+    'PRIVATE_EVENT_CANARY',
+    '/private/build-canary',
+    '/private/bridge-canary',
+  ]) {
+    assert.equal(serialized.includes(canary), false, canary);
+  }
+  assert.equal(evidence.uiEvaluation, 'excluded-non-final-ui');
+  assert.equal(
+    evidence.isolation.ambientRuntimeEnvironment,
+    'process-neutral-allowlist-only',
+  );
+  assert.equal(evidence.boundaryMatrix.length, 3);
+  assert.equal(evidence.boundaryMatrix[2].status, 204);
+  assert.equal(evidence.observation.requiredDurationMs, 65_000);
+  assert.equal(evidence.observation.actualDurationMs, 65_050);
+  assert.equal(evidence.observation.networkCaptureDurationMs, 78_050);
+  /* 021: the byte bridge is recorded as a verdict, and a forged token is
+     recorded as refused — the two facts a reviewer needs without re-running. */
+  assert.deepEqual(Object.keys(evidence.attachmentByteBridge).sort(), [
+    'exposed',
+    'forgedTokenAccepted',
+    'forgedTokenCode',
+    'pathTakingReadApis',
+    'pick',
+    'read',
+  ]);
+  assert.equal(evidence.attachmentByteBridge.forgedTokenAccepted, false);
+  assert.equal(evidence.attachmentByteBridge.pathTakingReadApis, 0);
+  assert.equal(Object.isFrozen(evidence), true);
+  assert.deepEqual(
+    Object.keys(evidence.shutdown.electron).sort(),
+    [
+      'exitCode',
+      'forced',
+      'processGroupClean',
+      'requestedSignal',
+      'signal',
+      'started',
+    ],
+  );
+});
+
+test('M1 evidence labels test-owned authority and serializes only bounded verdicts', () => {
+  const evidence = successEvidence({
+    sourceRevision: SHA,
+    observationDurationMs: 65_050,
+    networkCaptureDurationMs: 66_000,
+    snapshot: validSnapshot(),
+    networkVerdict: { verdict: 'PASS', reasons: [] },
+    negative: [
+      { case: 'cross-site-no-origin-with-capability', status: 403, outcome: 'rejected' },
+      { case: 'opaque-origin-without-capability', status: 403, outcome: 'rejected' },
+    ],
+    functional: validM1Functional({ privateValue: 'PRIVATE_M1_CANARY' }),
+    byteBridge: {
+      exposed: true,
+      pick: 'function',
+      read: 'function',
+      forgedOk: false,
+      forgedCode: 'M1_BRIDGE_TOKEN_UNKNOWN',
+      pathApis: [],
+    },
+    soakMonitor: validM1Soak({ privateValue: 'PRIVATE_SOAK_CANARY' }),
+    positiveBoundaryStatus: 200,
+    buildDigests: {
+      electronMainSha256: DIGEST,
+      frontendBundleSha256: DIGEST,
+      frontendIndexSha256: DIGEST,
+      preloadSha256: DIGEST,
+    },
+    shutdown: {
+      electron: validExit(),
+      backend: validExit({ requestedSignal: 'SIGTERM' }),
+    },
+    portFileRemoved: true,
+    logDigests: { backend: DIGEST, electron: DIGEST },
+    m1Journey: true,
+  });
+  const serialized = JSON.stringify(evidence);
+  assert.equal(evidence.evidenceType, 'intentsmith.studio-m1-electron-journey');
+  assert.equal(evidence.functional.transport, 'm1-wire-v1');
+  assert.equal(evidence.functional.backendAuthority, 'test-owned-production-ws-bridge');
+  assert.equal(evidence.functional.terminalCount, 5);
+  assert.equal(evidence.functional.listenerRestarts, 1);
+  assert.equal(evidence.soakLifecycle.m1Progress, 3);
+  assert.equal(serialized.includes('PRIVATE_M1_CANARY'), false);
+  assert.equal(serialized.includes('PRIVATE_SOAK_CANARY'), false);
+});
+
+test('M1 backend fixture uses production wire authority and durable identity storage', () => {
+  const source = fs.readFileSync(
+    new URL('./fixtures/studio-m1-electron-backend.js', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /attachWebSocketServer\(/);
+  assert.match(source, /m1WireSupported:\s*true/);
+  assert.match(source, /getConversationStore\(db\)/);
+  assert.match(source, /evaluateLegacyLocalAccess\(/);
+  assert.match(source, /writePrivatePortFile\(/);
+  assert.match(source, /request\.signal\.addEventListener/);
+  assert.match(source, /target\.pathname === '\/api\/system\/info'/);
+  assert.doesNotMatch(source, /\/api\/system-info/);
+  assert.doesNotMatch(source, /fetch\(/);
+  assert.doesNotMatch(source, /https?:\/\/(?!127\.0\.0\.1)/);
+});
+
+test('runner source has no soak-duration override or process.env spread', () => {
+  const source = fs.readFileSync(
+    new URL('./studio-electron-boundary.e2e.js', import.meta.url),
+    'utf8',
+  );
+  assert.equal(source.includes('INTENTSMITH_STUDIO_SOAK_MS'), false);
+  assert.equal(source.includes('...process.env'), false);
+  assert.match(source, /m1Journey \? STUDIO_M1_POLICY : STUDIO_M0_POLICY/);
+  assert.match(source, /networkPolicy\.requiredSoakMs/);
+  assert.match(source, /--user[\s\S]*--map-root-user[\s\S]*--net/);
+  assert.match(source, /detached: false/);
+});
+
+test('separate visual DOM journey requires explicit opt-in and keeps default M0/M1 evidence unchanged', () => {
+  const source = fs.readFileSync(new URL('./studio-electron-boundary.e2e.js', import.meta.url), 'utf8');
+  const entry = fs.readFileSync(new URL('./studio-m2-composer-dom.e2e.js', import.meta.url), 'utf8');
+  const probe = fs.readFileSync(new URL('./helpers/studio-m2-composer-dom.js', import.meta.url), 'utf8');
+  assert.match(entry, /await runStudioM2ComposerDomJourney\(\)/);
+  assert.match(source, /runStudioM2ComposerDomJourney\(\) \{\s*await outerMain\(\{ m2ComposerJourney: true \}\)/);
+  assert.match(source, /const m2ComposerJourney = options\.m2ComposerJourney === true/);
+  assert.match(source, /if \(m2ComposerJourney\) childEnv\[M2_COMPOSER_JOURNEY_ENV\] = '1'/);
+  assert.match(source, /const composerProbe = m2ComposerJourney\s*\? await import\('\.\/helpers\/studio-m2-composer-dom\.js'\)\s*: null/);
+  assert.match(source, /Number\(m1Journey\) \+ Number\(m2ComposerJourney\) \+ Number\(studio2ModeJourney\) > 1/);
+  assert.match(probe, /document\.querySelector/);
+  assert.match(probe, /HTMLTextAreaElement\.prototype/);
+  assert.match(probe, /dispatchEvent\(new Event\('input'/);
+  assert.doesNotMatch(probe, /window\._intentsmith|_m2HandleStudioCommand|_m2SubmitComposer|\.onClick\(|fetch\s*=/);
+});
+
+test('composer PASS evidence requires actual rejection, exact input, context checks and zero model or approval effects', () => {
+  const valid = {
+    "scope": "built-dom-production-authenticated-provider-rejection",
+    "status": 503,
+    "errorCode": "LLM_PROVIDER_UNAVAILABLE",
+    "fixtureRegistrationRequests": 3,
+    "draftRequests": 1,
+    "approvalRequests": 0,
+    "unexpectedMutationRequests": 0,
+    "modelProviderRequests": 0,
+    "originExact": true,
+    "literalArgvExact": true,
+    "contextInvalidated": true,
+    "discarded": true,
+    "inputRetained": true,
+    "focusRetained": true,
+    "ordinaryChatRetained": true,
+    "targetFilesAbsent": true
+  };
+  assert.equal(validateM2ComposerEvidence(valid), true);
+  assert.equal(validateM2ComposerEvidence(null), false);
+  for (const [key, value] of Object.entries(valid)) {
+    assert.equal(validateM2ComposerEvidence({ ...valid, [key]: typeof value === 'boolean' ? false : null }), false, key);
+  }
+  const args = {
+    sourceRevision: SHA, observationDurationMs: 65_050, networkCaptureDurationMs: 78_050,
+    snapshot: validSnapshot(), networkVerdict: { verdict: 'PASS', failures: [] },
+    negative: [], functional: validFunctional(),
+    byteBridge: { exposed: true, pick: 'function', read: 'function', forgedOk: false, forgedCode: 'M1_BRIDGE_TOKEN_UNKNOWN', pathApis: [] },
+    soakMonitor: validSoak(), positiveBoundaryStatus: 200,
+    buildDigests: { electronMainSha256: DIGEST, frontendBundleSha256: DIGEST, frontendIndexSha256: DIGEST, preloadSha256: DIGEST },
+    shutdown: { electron: validExit(), backend: validExit({ requestedSignal: 'SIGTERM' }) },
+    portFileRemoved: true, logDigests: { backend: DIGEST, electron: DIGEST },
+    buildComposer: { ...valid, rawPayload: 'PRIVATE_COMPOSER_CANARY' },
+  };
+  const ordinary = successEvidence(args);
+  assert.equal(ordinary.uiEvaluation, 'excluded-non-final-ui');
+  assert.equal(ordinary.evidenceType, 'intentsmith.studio-electron-boundary');
+  assert.equal(Object.hasOwn(ordinary, 'buildComposer'), false);
+  const evidence = successEvidence({ ...args, m2ComposerJourney: true });
+  assert.equal(evidence.evidenceType, 'intentsmith.studio-m2-composer-dom');
+  assert.equal(evidence.uiEvaluation, 'built-dom-composer-policy-rejection');
+  assert.deepEqual(evidence.buildComposer, valid);
+  assert.equal(JSON.stringify(evidence).includes('PRIVATE_COMPOSER_CANARY'), false);
+  assert.throws(() => successEvidence({ ...args, m2ComposerJourney: true, buildComposer: null }), /composer-evidence-contract-failed/);
+  assert.throws(() => successEvidence({ ...args, m2ComposerJourney: true, m1Journey: true }), /composer-evidence-contract-failed/);
+  const uiModes = {
+    studio2InitiallyAttached: true, studio2ExclusivelyAttached: true,
+    customFrameOnNativeProfile: true, noHostDialogOnStartOrReload: true,
+    oneReusedTransportInStudio2: true, legacyFlagsCannotRestoreClassic: true,
+    fiveSessionsWithoutTopTabs: true, visibleSessionSwap: true,
+    sixthSessionKeepsLimit: true, headerEndsSession: true,
+    capacityGuardProtectsDrafts: true, capacityNoticeExpires: true,
+    terminalPanelConnected: true, attachmentPickerRendered: true,
+    visuallyUncoveredStudio2: true, exclusiveWorkbenchChrome: true,
+    m2ReviewPanelRendered: true, backendEnvironmentLoaded: true,
+    commandPaletteNavigatesSession: true, sessionsPersistedAcrossReload: true,
+    projectCatalogLoaded: true, elevenThemesRendered: true,
+    specialistLocalPreviewRequiresAttachment: true,
+  };
+  const modeEvidence = successEvidence({ ...args, studio2ModeJourney: true,
+    uiModes: { ...uiModes, privateCanary: 'PRIVATE_STUDIO2_CANARY' } });
+  assert.equal(modeEvidence.evidenceType, 'intentsmith.studio2-exclusive-ui');
+  assert.deepEqual(modeEvidence.uiModes, uiModes);
+  assert.equal(JSON.stringify(modeEvidence).includes('PRIVATE_STUDIO2_CANARY'), false);
+  for (const key of Object.keys(uiModes)) {
+    assert.throws(() => successEvidence({ ...args, studio2ModeJourney: true,
+      uiModes: { ...uiModes, [key]: false } }), /studio2-mode-evidence-contract-failed/, key);
+  }
+  assert.throws(() => successEvidence({ ...args, studio2ModeJourney: true,
+    m2ComposerJourney: true, uiModes }), /studio2-mode-evidence-contract-failed/);
+});
+
+summary();

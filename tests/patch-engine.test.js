@@ -1,0 +1,1079 @@
+// tests/patch-engine.test.js — F1 Patch Engine Tests (v104)
+// ══════════════════════════════════════════════════════════════════════════════
+
+import { suite, test, testAsync, assert, assertEqual, assertIncludes, assertThrows, summary } from './harness.js';
+import fs, {
+  chmodSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { AnchorType, PatchType, normalizeNewlines, parsePatchFromDiff, parsePatchFromFullFile } from '../src/patch/patch-parser.js';
+import { PATCH_LIMITS, findAnchor, validatePatch, validatePatchSet } from '../src/patch/patch-validator.js';
+import {
+  applyPatch as applyPatchToProject,
+  applyPatchSet,
+  previewPatch,
+  rollbackPatch,
+} from '../src/patch/patch-engine.js';
+import {
+  applyPatch, saveBackup, revertPatch, hasBackup, clearBackups,
+  composePatchSet, computeMetrics, formatPatch,
+} from '../src/patch/patch-applier.js';
+
+// ─── Test Fixtures ──────────────────────────────────────────────────────────
+
+const SAMPLE_JS = `import { db } from './db.js';
+
+function login(user, password) {
+  return db.find(user);
+}
+
+function logout(session) {
+  session.destroy();
+}
+
+export { login, logout };
+`;
+
+const SAMPLE_PYTHON = `import os
+
+def login(user, password):
+    return db.find(user)
+
+def logout(session):
+    session.destroy()
+`;
+
+// ═══ Suite 1: Parser Constants ═════════════════════════════════════════════
+
+suite('Parser Constants');
+
+test('AnchorType has all expected types', () => {
+  assertEqual(AnchorType.FUNCTION, 'function');
+  assertEqual(AnchorType.CLASS, 'class');
+  assertEqual(AnchorType.METHOD, 'method');
+  assertEqual(AnchorType.IMPORT, 'import');
+  assertEqual(AnchorType.LINE, 'line');
+  assertEqual(AnchorType.INSERT_AFTER, 'insert_after');
+});
+
+test('AnchorType is frozen', () => {
+  assertThrows(() => { AnchorType.NEW_TYPE = 'new'; });
+});
+
+test('PatchType has all expected types', () => {
+  assertEqual(PatchType.FIX, 'fix');
+  assertEqual(PatchType.FEATURE, 'feature');
+  assertEqual(PatchType.REFACTOR, 'refactor');
+});
+
+// ═══ Suite 2: parsePatchFromDiff ═══════════════════════════════════════════
+
+suite('parsePatchFromDiff');
+
+test('parses simple single-file diff with one region', () => {
+  const input = '```diff\n--- a/src/auth/login.js\n@@ function login(user, password)\n- return db.find(user)\n+ if (!user) throw new Error("Missing user")\n+ return db.find(user)\n```';
+
+  const patches = parsePatchFromDiff(input);
+  assertEqual(patches.length, 1);
+  assertEqual(patches[0].file, 'src/auth/login.js');
+  assertEqual(patches[0].regions.length, 1);
+  assertEqual(patches[0].regions[0].anchor, 'login(user, password)');
+  assertEqual(patches[0].regions[0].anchorType, 'function');
+  assertEqual(patches[0].regions[0].old.length, 1);
+  assertEqual(patches[0].regions[0].new.length, 2);
+});
+
+test('parses multi-region diff for same file', () => {
+  const input = '```diff\n--- a/src/auth.js\n@@ function login()\n- old1\n+ new1\n@@ function logout()\n- old2\n+ new2\n```';
+
+  const patches = parsePatchFromDiff(input);
+  assertEqual(patches.length, 1);
+  assertEqual(patches[0].regions.length, 2);
+  assertEqual(patches[0].regions[0].anchor, 'login()');
+  assertEqual(patches[0].regions[1].anchor, 'logout()');
+});
+
+test('parses diff with explicit anchorType in @@ line', () => {
+  const input = '```diff\n--- a/src/models.js\n@@ class UserService\n- old line\n+ new line\n```';
+
+  const patches = parsePatchFromDiff(input);
+  assertEqual(patches[0].regions[0].anchorType, 'class');
+  assertEqual(patches[0].regions[0].anchor, 'UserService');
+});
+
+test('infers function anchorType from anchor text', () => {
+  const input = '```diff\n--- a/src/auth.js\n@@ async function processOrder(id)\n- old\n+ new\n```';
+
+  const patches = parsePatchFromDiff(input);
+  assertEqual(patches[0].regions[0].anchorType, 'function');
+});
+
+test('infers class anchorType from anchor text', () => {
+  const input = '```diff\n--- a/src/models.js\n@@ export class UserModel extends Base\n- old\n+ new\n```';
+
+  const patches = parsePatchFromDiff(input);
+  assertEqual(patches[0].regions[0].anchorType, 'class');
+});
+
+test('infers import anchorType from anchor text', () => {
+  const input = '```diff\n--- a/src/app.js\n@@ import { db } from \'./db.js\'\n- import { db } from \'./db.js\'\n+ import { db, cache } from \'./db.js\'\n```';
+
+  const patches = parsePatchFromDiff(input);
+  assertEqual(patches[0].regions[0].anchorType, 'import');
+});
+
+test('handles empty/malformed input gracefully', () => {
+  assertEqual(parsePatchFromDiff('').length, 0);
+  assertEqual(parsePatchFromDiff(null).length, 0);
+  assertEqual(parsePatchFromDiff('just some text').length, 0);
+  assertEqual(parsePatchFromDiff('```\nno diff content\n```').length, 0);
+});
+
+test('handles CRLF normalization', () => {
+  const input = '```diff\r\n--- a/src/app.js\r\n@@ function foo()\r\n- old\r\n+ new\r\n```';
+  const patches = parsePatchFromDiff(input);
+  assertEqual(patches.length, 1);
+  assertEqual(patches[0].regions[0].old[0], ' old');
+});
+
+test('handles fence with title attribute', () => {
+  const input = '```diff title="patch"\n--- a/src/app.js\n@@ function foo()\n- old\n+ new\n```';
+  const patches = parsePatchFromDiff(input);
+  assertEqual(patches.length, 1);
+});
+
+suite('Context-aware patch transport');
+test('two nonadjacent edits under one semantic anchor preserve intervening lines', () => {
+  const original = 'function work() {\n  first();\n  keep();\n  last();\n}\n';
+  const response = '--- app.js\n@@ function work\n   first();\n+  inserted();\n   keep();\n-  last();\n+  fixed();\n }';
+  const [patch] = parsePatchFromDiff(response);
+  assertEqual(validatePatch(patch, new Map([['app.js', original]])).valid, true);
+  assertEqual(applyPatch(patch, original).content,
+    'function work() {\n  first();\n  inserted();\n  keep();\n  fixed();\n}\n');
+});
+test('separate fenced patches do not consume each other', () => {
+  const response = '```diff\n--- a.js\n@@ function a\n-old\n+new\n```\nExplanation\n```diff\n--- b.js\n@@ function b\n-old\n+new\n```';
+  assertEqual(parsePatchFromDiff(response).map(p => p.file).join(','), 'a.js,b.js');
+});
+test('identical repeated proposals apply once', () => {
+  const proposal='--- x.js\n@@ line const x = 1;\n-const x = 1;\n+const x = 2;';
+  const [p]=parsePatchFromDiff(['```diff\n'+proposal+'\n```','```diff\n'+proposal+'\n```'].join('\n'));
+  assertEqual(p.regions.length,1);assertEqual(applyPatch(p,'const x = 1;\n').content,'const x = 2;\n');
+});
+
+test('literal Markdown fences inside source do not delimit raw or fenced patches', () => {
+  const original = "function clean() {\n  // Remove fences (```lang and ```)\n  return '```';\n}\n";
+  const response = "--- clean.js\n@@ function clean\n   // Remove fences (```lang and ```)\n-  return '```';\n+  return '';";
+  for (const answer of [response, '```diff\n'+response+'\n```', '````diff\n'+response+'\n````']) {
+    const [patch] = parsePatchFromDiff(answer);
+    assert(patch, 'must preserve the source patch');
+    assertEqual(validatePatch(patch,new Map([['clean.js',original]])).valid,true);
+    assertEqual(applyPatch(patch,original).content,original.replace("return '```'", "return ''"));
+  }
+});
+
+test('numeric unified hunks verify positions and counts before application', () => {
+  const original = 'function work() {\n  first();\n  keep();\n  last();\n}\n';
+  const response = 'diff --git a/app.js b/app.js\n--- a/app.js\n+++ b/app.js\n@@ -2,3 +2,3 @@\n   first();\n-  keep();\n+  fixed();\n   last();';
+  const [patch] = parsePatchFromDiff(response);
+  const files = new Map([['app.js', original]]);
+  assertEqual(validatePatch(patch, files).valid, true);
+  assertEqual(applyPatch(patch, original).content, original.replace('keep()', 'fixed()'));
+  assertEqual(validatePatch(parsePatchFromDiff(response.replace('-2,3', '-3,3'))[0], files).valid, false);
+  assertEqual(validatePatch(parsePatchFromDiff(response.replace('+2,3', '+2,4'))[0], files).valid, false);
+});
+test('repeated old text and stale context never choose an arbitrary match', () => {
+  const original = 'function work() {\n  old();\n  old();\n}\n';
+  const files = new Map([['app.js', original]]);
+  const response = '--- app.js\n@@ function work\n-  old();\n+  fixed();';
+  assertEqual(validatePatch(parsePatchFromDiff(response)[0], files).valid, false);
+  assertEqual(validatePatch(parsePatchFromDiff(response.replace('-  old();', '   stale();\n-  old();'))[0], files).valid, false);
+});
+test('context disambiguation must actually leave exactly one anchor', () => {
+  const p = {file:'app.js', regions:[{anchor:'old()', anchorType:'line', contextBefore:'same()', old:['old()'], new:['new()']}]};
+  assertEqual(validatePatch(p, new Map([['app.js','same()\nold()\nsame()\nold()\n']])).valid, false);
+});
+
+// ═══ Suite 3: parsePatchFromFullFile ══════════════════════════════════════
+
+suite('parsePatchFromFullFile');
+
+test('computes diff from original and new content', () => {
+  const original = 'function foo() {\n  return 1;\n}\n';
+  const modified = 'function foo() {\n  return 2;\n}\n';
+
+  const patch = parsePatchFromFullFile(original, modified, 'src/foo.js');
+  assert(patch !== null, 'Expected non-null patch');
+  assertEqual(patch.file, 'src/foo.js');
+  assert(patch.regions.length > 0, 'Expected at least one region');
+});
+
+test('returns null for identical files', () => {
+  const content = 'function foo() { return 1; }\n';
+  const patch = parsePatchFromFullFile(content, content, 'src/foo.js');
+  assertEqual(patch, null);
+});
+
+test('handles pure insertion (empty original)', () => {
+  const patch = parsePatchFromFullFile('', 'function foo() {\n  return 1;\n}\n', 'src/new.js');
+  assert(patch !== null, 'Expected non-null patch for new file');
+  assert(patch.regions.length > 0);
+});
+
+test('returns null when diff exceeds size limit', () => {
+  const original = '';
+  const modified = Array.from({ length: 400 }, (_, i) => `line ${i}`).join('\n');
+  const patch = parsePatchFromFullFile(original, modified, 'src/big.js');
+  assertEqual(patch, null);
+});
+
+// ═══ Suite 4: findAnchor ══════════════════════════════════════════════════
+
+suite('findAnchor');
+
+test('tier 1: exact match', () => {
+  const result = findAnchor(SAMPLE_JS, 'function login(user, password)', 'function');
+  assert(result !== null, 'Expected match');
+  assertEqual(result.tier, 'exact');
+  assertEqual(result.line, 2); // 0-indexed
+  assertEqual(result.matches, 1);
+});
+
+test('tier 1: exact match with contextBefore disambiguation', () => {
+  const content = 'function foo() { }\nfunction bar() { }\nfunction foo() { }\n';
+  // Two "foo" matches — contextBefore disambiguates
+  const result = findAnchor(content, 'function foo()', 'function', 'function bar()');
+  assert(result !== null);
+  assertEqual(result.line, 2); // The second foo (after bar)
+  assertEqual(result.tier, 'exact');
+});
+
+test('tier 1: ambiguous anchor returns matches > 1', () => {
+  const content = 'function foo() { }\nfunction foo() { }\n';
+  const result = findAnchor(content, 'function foo()', 'function');
+  assert(result !== null);
+  assertEqual(result.matches, 2);
+  assertEqual(result.line, 0); // Takes first match
+});
+
+test('tier 2: normalized match (extra whitespace)', () => {
+  const content = 'function   login(  user,  password  ) {\n';
+  const result = findAnchor(content, 'function login( user, password )', 'function');
+  assert(result !== null);
+  assertEqual(result.tier, 'normalized');
+});
+
+test('tier 2: normalized match with tabs', () => {
+  const content = '\tfunction\tlogin(user) {\n';
+  const result = findAnchor(content, 'function login(user)', 'function');
+  assert(result !== null);
+  assertEqual(result.tier, 'normalized');
+});
+
+test('returns null when anchor not found', () => {
+  const result = findAnchor(SAMPLE_JS, 'function nonexistent()', 'function');
+  assertEqual(result, null);
+});
+
+test('handles empty content', () => {
+  const result = findAnchor('', 'function foo()', 'function');
+  assertEqual(result, null);
+});
+
+test('handles empty anchor', () => {
+  const result = findAnchor(SAMPLE_JS, '', 'function');
+  assertEqual(result, null);
+});
+
+test('tier 3: AST-assisted via symbols parameter', () => {
+  // Simulate pre-extracted symbols from ast-analyzer
+  const symbols = [
+    { name: 'login', type: 'function', line: 3, endLine: 5, exported: true },
+    { name: 'logout', type: 'function', line: 7, endLine: 9, exported: true },
+  ];
+  const result = findAnchor('no match here', 'function login(user)', 'function', null, symbols);
+  assert(result !== null);
+  assertEqual(result.tier, 'ast');
+  assertEqual(result.line, 2); // symbol line 3 → 0-indexed = 2
+});
+
+// ═══ Suite 5: validatePatch ═══════════════════════════════════════════════
+
+suite('validatePatch');
+
+test('valid patch passes', () => {
+  const patch = {
+    file: 'src/auth.js',
+    regions: [{
+      anchor: 'function login(user, password)',
+      anchorType: 'function',
+      contextBefore: '',
+      old: ['  return db.find(user);'],
+      new: ['  if (!user) throw new Error("Missing");', '  return db.find(user);'],
+    }],
+    metadata: { type: 'fix', confidence: 0.8 },
+  };
+  const fileContents = new Map([['src/auth.js', SAMPLE_JS]]);
+  const result = validatePatch(patch, fileContents);
+  assertEqual(result.valid, true);
+});
+
+test('rejects patch for missing file with non-empty old lines', () => {
+  const patch = {
+    file: 'nonexistent.js',
+    regions: [{ anchor: 'function foo()', anchorType: 'function', old: ['old'], new: ['new'] }],
+  };
+  const result = validatePatch(patch, new Map());
+  assertEqual(result.valid, false);
+  assert(result.errors.some(e => e.includes('not found')));
+});
+
+test('allows pure insert on missing file', () => {
+  const patch = {
+    file: 'new-file.js',
+    regions: [{ anchor: 'line 1', anchorType: 'line', old: [], new: ['console.log("hello");'] }],
+  };
+  const result = validatePatch(patch, new Map());
+  assertEqual(result.valid, true);
+});
+
+test('rejects oversized patch', () => {
+  const regions = [{ anchor: 'function foo()', anchorType: 'function', old: Array(200).fill('x'), new: Array(200).fill('y') }];
+  const patch = { file: 'src/auth.js', regions };
+  const fileContents = new Map([['src/auth.js', SAMPLE_JS]]);
+  const result = validatePatch(patch, fileContents);
+  assertEqual(result.valid, false);
+  assert(result.errors.some(e => e.includes('lines')));
+});
+
+test('rejects too many regions', () => {
+  const regions = Array.from({ length: 25 }, (_, i) => ({
+    anchor: `anchor_${i}`, anchorType: 'line', old: ['x'], new: ['y'],
+  }));
+  const patch = { file: 'src/auth.js', regions };
+  const fileContents = new Map([['src/auth.js', SAMPLE_JS]]);
+  const result = validatePatch(patch, fileContents);
+  assertEqual(result.valid, false);
+  assert(result.errors.some(e => e.includes('regions')));
+});
+
+test('rejects stale patch (old lines mismatch)', () => {
+  const patch = {
+    file: 'src/auth.js',
+    regions: [{
+      anchor: 'function login(user, password)',
+      anchorType: 'function',
+      old: ['  return WRONG_LINE;'],
+      new: ['  return correct;'],
+    }],
+  };
+  const fileContents = new Map([['src/auth.js', SAMPLE_JS]]);
+  const result = validatePatch(patch, fileContents);
+  assertEqual(result.valid, false);
+  assert(result.errors.some(e => e.includes('stale')));
+});
+
+test('rejects ambiguous anchor without contextBefore', () => {
+  const content = 'function foo() { }\nfunction foo() { }\n';
+  const patch = {
+    file: 'dup.js',
+    regions: [{ anchor: 'function foo()', anchorType: 'function', old: [], new: ['// added'] }],
+  };
+  const fileContents = new Map([['dup.js', content]]);
+  const result = validatePatch(patch, fileContents);
+  assertEqual(result.valid, false);
+  assert(result.errors.some(e => e.includes('ambiguous')));
+});
+
+test('detects overlapping regions', () => {
+  // Two regions that resolve to the same line
+  const patch = {
+    file: 'src/auth.js',
+    regions: [
+      { anchor: 'function login(user, password)', anchorType: 'function', contextBefore: "import { db } from './db.js';", old: ['  return db.find(user);'], new: ['  return 1;'] },
+      { anchor: 'function login(user, password)', anchorType: 'function', contextBefore: "import { db } from './db.js';", old: ['  return db.find(user);'], new: ['  return 2;'] },
+    ],
+  };
+  const fileContents = new Map([['src/auth.js', SAMPLE_JS]]);
+  const result = validatePatch(patch, fileContents);
+  assertEqual(result.valid, false);
+  assert(result.errors.some(e => e.includes('overlap')));
+});
+
+// ═══ Suite 6: applyPatch (applier) ════════════════════════════════════════
+
+suite('applyPatch (applier)');
+
+test('applies simple replacement', () => {
+  const patch = {
+    file: 'src/auth.js',
+    regions: [{
+      anchor: 'function login(user, password)',
+      anchorType: 'function',
+      old: ['  return db.find(user);'],
+      new: ['  if (!user) throw new Error("Missing");', '  return db.find(user);'],
+    }],
+  };
+  const result = applyPatch(patch, SAMPLE_JS);
+  assertEqual(result.applied, 1);
+  assertEqual(result.skipped, 0);
+  assertIncludes(result.content, 'throw new Error("Missing")');
+  assertIncludes(result.content, 'return db.find(user)');
+});
+
+test('applies insert_after', () => {
+  const patch = {
+    file: 'src/auth.js',
+    regions: [{
+      anchor: "import { db } from './db.js';",
+      anchorType: 'insert_after',
+      old: [],
+      new: ["import { cache } from './cache.js';"],
+    }],
+  };
+  const result = applyPatch(patch, SAMPLE_JS);
+  assertEqual(result.applied, 1);
+  assertIncludes(result.content, "import { cache } from './cache.js';");
+  // Verify it's after the db import
+  const lines = result.content.split('\n');
+  const dbIdx = lines.findIndex(l => l.includes("import { db }"));
+  const cacheIdx = lines.findIndex(l => l.includes("import { cache }"));
+  assert(cacheIdx === dbIdx + 1, 'cache import should be right after db import');
+});
+
+test('applies deletion (empty new[])', () => {
+  const patch = {
+    file: 'src/auth.js',
+    regions: [{
+      anchor: "import { db } from './db.js';",
+      anchorType: 'import',
+      old: ["import { db } from './db.js';"],
+      new: [],
+    }],
+  };
+  const result = applyPatch(patch, SAMPLE_JS);
+  assertEqual(result.applied, 1);
+  assert(!result.content.includes("import { db }"), 'Import should be removed');
+});
+
+test('applies multiple regions bottom-up', () => {
+  const patch = {
+    file: 'src/auth.js',
+    regions: [
+      {
+        anchor: 'function login(user, password)',
+        anchorType: 'function',
+        old: ['  return db.find(user);'],
+        new: ['  return db.findOne(user);'],
+      },
+      {
+        anchor: 'function logout(session)',
+        anchorType: 'function',
+        old: ['  session.destroy();'],
+        new: ['  session.invalidate();'],
+      },
+    ],
+  };
+  const result = applyPatch(patch, SAMPLE_JS);
+  assertEqual(result.applied, 2);
+  assertIncludes(result.content, 'db.findOne(user)');
+  assertIncludes(result.content, 'session.invalidate()');
+});
+
+test('returns skipped count for unresolvable anchors', () => {
+  const patch = {
+    file: 'src/auth.js',
+    regions: [{
+      anchor: 'function nonexistent()',
+      anchorType: 'function',
+      old: ['old'],
+      new: ['new'],
+    }],
+  };
+  const result = applyPatch(patch, SAMPLE_JS);
+  assertEqual(result.applied, 0);
+  assertEqual(result.skipped, 1);
+});
+
+test('handles empty regions array', () => {
+  const patch = { file: 'src/auth.js', regions: [] };
+  const result = applyPatch(patch, SAMPLE_JS);
+  assertEqual(result.applied, 0);
+  assertEqual(result.skipped, 0);
+});
+
+test('preserves unmodified lines', () => {
+  const patch = {
+    file: 'src/auth.js',
+    regions: [{
+      anchor: 'function login(user, password)',
+      anchorType: 'function',
+      old: ['  return db.find(user);'],
+      new: ['  return db.findOne(user);'],
+    }],
+  };
+  const result = applyPatch(patch, SAMPLE_JS);
+  // logout function should be unchanged
+  assertIncludes(result.content, 'function logout(session)');
+  assertIncludes(result.content, 'session.destroy()');
+});
+
+test('ensures trailing newline', () => {
+  const content = 'function foo() { return 1; }'; // no trailing newline
+  const patch = {
+    file: 'test.js',
+    regions: [{
+      anchor: 'function foo()',
+      anchorType: 'function',
+      old: ['function foo() { return 1; }'],
+      new: ['function foo() { return 2; }'],
+    }],
+  };
+  const result = applyPatch(patch, content);
+  assert(result.content.endsWith('\n'), 'Content should end with newline');
+});
+
+// ═══ Suite 7: Backup/Revert ═══════════════════════════════════════════════
+
+suite('Backup/Revert');
+
+// Clean state before each suite
+clearBackups();
+
+test('saveBackup + revertPatch returns original', () => {
+  clearBackups();
+  saveBackup('test.js', 'original content');
+  const restored = revertPatch('test.js');
+  assertEqual(restored, 'original content');
+  // Backup consumed after revert
+  assertEqual(hasBackup('test.js'), false);
+});
+
+test('revertPatch returns null without backup', () => {
+  clearBackups();
+  const restored = revertPatch('nonexistent.js');
+  assertEqual(restored, null);
+});
+
+test('hasBackup returns correct state', () => {
+  clearBackups();
+  assertEqual(hasBackup('test.js'), false);
+  saveBackup('test.js', 'content');
+  assertEqual(hasBackup('test.js'), true);
+});
+
+test('clearBackups removes all entries', () => {
+  saveBackup('a.js', 'a');
+  saveBackup('b.js', 'b');
+  clearBackups();
+  assertEqual(hasBackup('a.js'), false);
+  assertEqual(hasBackup('b.js'), false);
+});
+
+// ═══ Suite 8: composePatchSet ═════════════════════════════════════════════
+
+suite('composePatchSet');
+
+test('passes through single-file patches', () => {
+  const patches = [
+    { file: 'a.js', regions: [{ anchor: 'foo', anchorType: 'function', old: [], new: ['x'] }], metadata: {} },
+    { file: 'b.js', regions: [{ anchor: 'bar', anchorType: 'function', old: [], new: ['y'] }], metadata: {} },
+  ];
+  const { composed, conflicts } = composePatchSet(patches);
+  assertEqual(composed.length, 2);
+  assertEqual(conflicts.length, 0);
+});
+
+test('merges regions for same file', () => {
+  const patches = [
+    { file: 'a.js', regions: [{ anchor: 'foo', anchorType: 'function', old: [], new: ['x'] }], metadata: { confidence: 0.5 } },
+    { file: 'a.js', regions: [{ anchor: 'bar', anchorType: 'function', old: [], new: ['y'] }], metadata: { confidence: 0.8 } },
+  ];
+  const { composed, conflicts } = composePatchSet(patches);
+  assertEqual(composed.length, 1);
+  assertEqual(composed[0].regions.length, 2);
+  assertEqual(conflicts.length, 0);
+});
+
+test('detects conflicts (same anchor targeted twice)', () => {
+  const patches = [
+    { file: 'a.js', regions: [{ anchor: 'foo', anchorType: 'function', old: [], new: ['x'] }], metadata: {} },
+    { file: 'a.js', regions: [{ anchor: 'foo', anchorType: 'function', old: [], new: ['y'] }], metadata: {} },
+  ];
+  const { conflicts } = composePatchSet(patches);
+  assertEqual(conflicts.length, 1);
+  assertEqual(conflicts[0].anchor, 'foo');
+});
+
+test('handles empty input', () => {
+  const { composed, conflicts } = composePatchSet([]);
+  assertEqual(composed.length, 0);
+  assertEqual(conflicts.length, 0);
+});
+
+// ═══ Suite 9: formatPatch ═════════════════════════════════════════════════
+
+suite('formatPatch');
+
+test('formats single region patch', () => {
+  const patch = {
+    file: 'src/auth.js',
+    regions: [{
+      anchor: 'function login()',
+      anchorType: 'function',
+      old: ['  return 1;'],
+      new: ['  return 2;'],
+    }],
+  };
+  const formatted = formatPatch(patch);
+  assertIncludes(formatted, '--- src/auth.js');
+  assertIncludes(formatted, '@@ function function login()');
+  assertIncludes(formatted, '-   return 1;');
+  assertIncludes(formatted, '+   return 2;');
+});
+
+test('formats multi-region patch', () => {
+  const patch = {
+    file: 'src/auth.js',
+    regions: [
+      { anchor: 'function foo()', anchorType: 'function', old: ['a'], new: ['b'] },
+      { anchor: 'function bar()', anchorType: 'function', old: ['c'], new: ['d'] },
+    ],
+  };
+  const formatted = formatPatch(patch);
+  assertIncludes(formatted, '@@ function function foo()');
+  assertIncludes(formatted, '@@ function function bar()');
+});
+
+// ═══ Suite 10: computeMetrics ═════════════════════════════════════════════
+
+suite('computeMetrics');
+
+test('computes correct metrics for replacement', () => {
+  const patch = {
+    file: 'test.js',
+    regions: [{ anchor: 'fn', anchorType: 'function', old: ['a', 'b'], new: ['c', 'd', 'e'] }],
+  };
+  const applyResult = { applied: 1, skipped: 0, details: [{ tier: 'exact' }] };
+  const metrics = computeMetrics(patch, applyResult);
+  assertEqual(metrics.linesModified, 3); // max(2, 3)
+  assertEqual(metrics.linesAdded, 0);
+  assertEqual(metrics.linesRemoved, 0);
+  assertEqual(metrics.anchorsResolved.exact, 1);
+  assertEqual(metrics.applied, 1);
+});
+
+test('computes correct metrics for insertion', () => {
+  const patch = {
+    file: 'test.js',
+    regions: [{ anchor: 'fn', anchorType: 'insert_after', old: [], new: ['a', 'b', 'c'] }],
+  };
+  const applyResult = { applied: 1, skipped: 0, details: [{ tier: 'normalized' }] };
+  const metrics = computeMetrics(patch, applyResult);
+  assertEqual(metrics.linesAdded, 3);
+  assertEqual(metrics.linesRemoved, 0);
+  assertEqual(metrics.linesModified, 0);
+  assertEqual(metrics.anchorsResolved.normalized, 1);
+});
+
+test('computes correct metrics for deletion', () => {
+  const patch = {
+    file: 'test.js',
+    regions: [{ anchor: 'fn', anchorType: 'function', old: ['a', 'b'], new: [] }],
+  };
+  const applyResult = { applied: 1, skipped: 0, details: [{ tier: 'ast' }] };
+  const metrics = computeMetrics(patch, applyResult);
+  assertEqual(metrics.linesRemoved, 2);
+  assertEqual(metrics.linesAdded, 0);
+  assertEqual(metrics.anchorsResolved.ast, 1);
+});
+
+// ═══ Suite 11: normalizeNewlines ══════════════════════════════════════════
+
+suite('normalizeNewlines');
+
+test('converts CRLF to LF', () => {
+  assertEqual(normalizeNewlines('a\r\nb\r\nc'), 'a\nb\nc');
+});
+
+test('handles null/empty', () => {
+  assertEqual(normalizeNewlines(''), '');
+  assertEqual(normalizeNewlines(null), '');
+});
+
+test('preserves pure LF', () => {
+  assertEqual(normalizeNewlines('a\nb\nc'), 'a\nb\nc');
+});
+
+// ═══ Suite 12: M2 project-path authority ══════════════════════════════════
+
+suite('M2 project-path authority');
+
+const pathRuntime = mkdtempSync(path.join(tmpdir(), 'is-m2-path-authority-'));
+const pathProject = path.join(pathRuntime, 'project');
+const PATH_SAMPLE = [
+  'function value() {',
+  '  return 1;',
+  '}',
+  '',
+].join('\n');
+
+function resetPathProject() {
+  clearBackups();
+  rmSync(pathProject, { recursive: true, force: true });
+  mkdirSync(pathProject, { recursive: true });
+  writeFileSync(path.join(pathProject, 'app.js'), PATH_SAMPLE, 'utf8');
+}
+
+function projectPatch(file = 'app.js') {
+  return {
+    file,
+    type: 'fix',
+    regions: [{
+      anchor: 'function value()',
+      anchorType: 'function',
+      old: ['  return 1;'],
+      new: ['  return 2;'],
+    }],
+  };
+}
+
+await testAsync('absolute path is rejected before write even when it points inside', async () => {
+  resetPathProject();
+  const target = path.join(pathProject, 'app.js');
+  const result = await applyPatchToProject(projectPatch(target), pathProject);
+
+  assertEqual(result.success, false);
+  assertEqual(result.state, 'project_path_violation');
+  assertEqual(result.pathAuthority.reason, 'absolute_path');
+  assertEqual(readFileSync(target, 'utf8'), PATH_SAMPLE);
+});
+
+await testAsync('traversal and symlink escape cannot change outside sentinels', async () => {
+  resetPathProject();
+  const traversalSentinel = path.join(pathRuntime, 'outside.js');
+  const symlinkSentinel = path.join(pathRuntime, 'symlink-outside.js');
+  writeFileSync(traversalSentinel, PATH_SAMPLE, 'utf8');
+  writeFileSync(symlinkSentinel, PATH_SAMPLE, 'utf8');
+  symlinkSync(symlinkSentinel, path.join(pathProject, 'link.js'));
+
+  const traversal = await applyPatchToProject(projectPatch('../outside.js'), pathProject);
+  const symlink = await applyPatchToProject(projectPatch('link.js'), pathProject);
+
+  assertEqual(traversal.state, 'project_path_violation');
+  assertEqual(traversal.pathAuthority.reason, 'traversal');
+  assertEqual(symlink.state, 'project_path_violation');
+  assertEqual(symlink.pathAuthority.reason, 'outside_project');
+  assertEqual(readFileSync(traversalSentinel, 'utf8'), PATH_SAMPLE);
+  assertEqual(readFileSync(symlinkSentinel, 'utf8'), PATH_SAMPLE);
+});
+
+await testAsync('in-project symlink alias cannot mutate a differently named target', async () => {
+  resetPathProject();
+  const secret = path.join(pathProject, 'secret.js');
+  const alias = path.join(pathProject, 'allowed.js');
+  writeFileSync(secret, PATH_SAMPLE, 'utf8');
+  symlinkSync(secret, alias);
+
+  const result = await applyPatchToProject(projectPatch('allowed.js'), pathProject);
+
+  assertEqual(result.success, false);
+  assertEqual(result.state, 'canonical_target_mismatch');
+  assertEqual(result.pathAuthority.reason, 'canonical_target_mismatch');
+  assertEqual(readFileSync(secret, 'utf8'), PATH_SAMPLE);
+  assertEqual(lstatSync(alias).isSymbolicLink(), true);
+});
+
+await testAsync('symlinked in-project directory is rejected without a containment incident', async () => {
+  resetPathProject();
+  const version = path.join(pathProject, 'v2');
+  mkdirSync(version);
+  writeFileSync(path.join(version, 'app.js'), PATH_SAMPLE, 'utf8');
+  symlinkSync('v2', path.join(pathProject, 'current'));
+
+  const result = await previewPatch(projectPatch('current/app.js'), pathProject);
+
+  assertEqual(result.valid, false);
+  assertEqual(result.state, 'canonical_target_mismatch');
+  assertEqual(result.pathAuthority.reason, 'canonical_target_mismatch');
+  assertEqual(readFileSync(path.join(version, 'app.js'), 'utf8'), PATH_SAMPLE);
+});
+
+await testAsync('directory and dangling symlink have distinct non-containment states', async () => {
+  resetPathProject();
+  mkdirSync(path.join(pathProject, 'directory.js'));
+  symlinkSync(path.join(pathProject, 'missing.js'), path.join(pathProject, 'dangling.js'));
+
+  const directory = await previewPatch(projectPatch('directory.js'), pathProject);
+  const dangling = await previewPatch(projectPatch('dangling.js'), pathProject);
+
+  assertEqual(directory.valid, false);
+  assertEqual(directory.state, 'not_a_file');
+  assertEqual(directory.pathAuthority.reason, 'not_regular_file');
+  assertEqual(dangling.valid, false);
+  assertEqual(dangling.state, 'symlink_unresolvable');
+});
+
+await testAsync('preview rejects traversal without returning file bytes', async () => {
+  resetPathProject();
+  const result = await previewPatch(projectPatch('../outside.js'), pathProject);
+
+  assertEqual(result.valid, false);
+  assertEqual(result.state, 'project_path_violation');
+  assert(!Object.hasOwn(result, 'preview'), 'rejected preview exposed content');
+});
+
+await testAsync('patch-set path preflight happens before its first write', async () => {
+  resetPathProject();
+  const outside = path.join(pathRuntime, 'set-outside.js');
+  writeFileSync(outside, PATH_SAMPLE, 'utf8');
+
+  const result = await applyPatchSet([
+    projectPatch('app.js'),
+    projectPatch('../set-outside.js'),
+  ], pathProject);
+
+  assertEqual(result.success, false);
+  assertEqual(result.state, 'project_path_violation');
+  assertEqual(result.results[0].file, '../set-outside.js');
+  assertEqual(readFileSync(path.join(pathProject, 'app.js'), 'utf8'), PATH_SAMPLE);
+  assertEqual(readFileSync(outside, 'utf8'), PATH_SAMPLE);
+});
+
+await testAsync('patch-set preflight retains contained alias rejection evidence', async () => {
+  resetPathProject();
+  const version = path.join(pathProject, 'set-v2');
+  mkdirSync(version);
+  writeFileSync(path.join(version, 'app.js'), PATH_SAMPLE, 'utf8');
+  symlinkSync('set-v2', path.join(pathProject, 'set-current'));
+
+  const result = await applyPatchSet([
+    projectPatch('app.js'),
+    projectPatch('set-current/app.js'),
+  ], pathProject);
+
+  assertEqual(result.success, false);
+  assertEqual(result.state, 'canonical_target_mismatch');
+  assertEqual(result.results[0].file, 'set-current/app.js');
+  assertEqual(result.results[0].pathAuthority.reason, 'canonical_target_mismatch');
+  assertEqual(readFileSync(path.join(pathProject, 'app.js'), 'utf8'), PATH_SAMPLE);
+  assertEqual(readFileSync(path.join(version, 'app.js'), 'utf8'), PATH_SAMPLE);
+});
+
+await testAsync('invalid rollback does not consume backup or write outside', async () => {
+  resetPathProject();
+  const outside = path.join(pathRuntime, 'rollback-outside.js');
+  writeFileSync(outside, 'sentinel\n', 'utf8');
+  saveBackup('../rollback-outside.js', 'backup\n');
+
+  const result = rollbackPatch('../rollback-outside.js', pathProject);
+
+  assertEqual(result.success, false);
+  assertEqual(result.state, 'project_path_violation');
+  assertEqual(hasBackup('../rollback-outside.js'), true);
+  assertEqual(readFileSync(outside, 'utf8'), 'sentinel\n');
+  clearBackups();
+});
+
+await testAsync('descriptor-pinned preview rejects a parent swap after open', async () => {
+  resetPathProject();
+  const inside = path.join(pathProject, 'inside');
+  const pinned = path.join(pathProject, 'inside-pinned');
+  const outside = path.join(pathRuntime, 'preview-outside');
+  mkdirSync(inside, { recursive: true });
+  mkdirSync(outside, { recursive: true });
+  writeFileSync(path.join(inside, 'app.js'), PATH_SAMPLE, 'utf8');
+  writeFileSync(path.join(outside, 'app.js'), 'OUTSIDE-PREVIEW-SECRET\n', 'utf8');
+
+  let swapped = false;
+  const racingFs = {
+    ...fs,
+    openSync(file, flags, mode) {
+      const descriptor = fs.openSync(file, flags, mode);
+      if (!swapped && file === path.join(inside, 'app.js')) {
+        swapped = true;
+        renameSync(inside, pinned);
+        symlinkSync(outside, inside);
+      }
+      return descriptor;
+    },
+  };
+
+  const result = await previewPatch(projectPatch('inside/app.js'), pathProject, {
+    fileSystem: racingFs,
+  });
+
+  assertEqual(swapped, true);
+  assertEqual(result.valid, false);
+  assertEqual(result.state, 'project_path_violation');
+  assertEqual(result.pathAuthority.reason, 'resolved_target_changed');
+  assert(!Object.hasOwn(result, 'preview'), 'raced preview exposed content');
+  assertEqual(readFileSync(path.join(outside, 'app.js'), 'utf8'), 'OUTSIDE-PREVIEW-SECRET\n');
+});
+
+await testAsync('ordinary read I/O failure stays read_failed, not path violation', async () => {
+  resetPathProject();
+  const target = path.join(pathProject, 'app.js');
+  const failingFs = {
+    ...fs,
+    openSync(file, flags, mode) {
+      if (file === target) {
+        const error = new Error('injected read failure');
+        error.code = 'EIO';
+        throw error;
+      }
+      return fs.openSync(file, flags, mode);
+    },
+  };
+
+  const result = await applyPatchToProject(projectPatch(), pathProject, {
+    fileSystem: failingFs,
+  });
+
+  assertEqual(result.success, false);
+  assertEqual(result.state, 'read_failed');
+  assertEqual(readFileSync(target, 'utf8'), PATH_SAMPLE);
+});
+
+await testAsync('parent swap immediately before write is rejected without outside effect', async () => {
+  resetPathProject();
+  const inside = path.join(pathProject, 'write-inside');
+  const pinned = path.join(pathProject, 'write-inside-pinned');
+  const outside = path.join(pathRuntime, 'write-outside');
+  mkdirSync(inside, { recursive: true });
+  mkdirSync(outside, { recursive: true });
+  writeFileSync(path.join(inside, 'app.js'), PATH_SAMPLE, 'utf8');
+  writeFileSync(path.join(outside, 'app.js'), 'OUTSIDE-WRITE-SENTINEL\n', 'utf8');
+
+  let swapped = false;
+  const racingFs = {
+    ...fs,
+    mkdirSync(directory, options) {
+      const result = fs.mkdirSync(directory, options);
+      if (!swapped && directory === inside) {
+        swapped = true;
+        renameSync(inside, pinned);
+        symlinkSync(outside, inside);
+      }
+      return result;
+    },
+  };
+
+  const result = await applyPatchToProject(projectPatch('write-inside/app.js'), pathProject, {
+    fileSystem: racingFs,
+  });
+
+  assertEqual(swapped, true);
+  assertEqual(result.success, false);
+  assertEqual(result.state, 'project_path_violation');
+  assertEqual(result.pathAuthority.reason, 'resolved_target_changed');
+  assertEqual(readFileSync(path.join(pinned, 'app.js'), 'utf8'), PATH_SAMPLE);
+  assertEqual(readFileSync(path.join(outside, 'app.js'), 'utf8'), 'OUTSIDE-WRITE-SENTINEL\n');
+});
+
+await testAsync('patch set propagates authority state from the apply phase', async () => {
+  resetPathProject();
+  const inside = path.join(pathProject, 'set-inside');
+  const pinned = path.join(pathProject, 'set-inside-pinned');
+  const outside = path.join(pathRuntime, 'set-apply-outside');
+  mkdirSync(inside, { recursive: true });
+  mkdirSync(outside, { recursive: true });
+  writeFileSync(path.join(inside, 'app.js'), PATH_SAMPLE, 'utf8');
+  writeFileSync(path.join(outside, 'app.js'), 'OUTSIDE-SET-APPLY-SENTINEL\n', 'utf8');
+
+  let opens = 0;
+  let swapped = false;
+  const racingFs = {
+    ...fs,
+    openSync(file, flags, mode) {
+      const descriptor = fs.openSync(file, flags, mode);
+      if (file === path.join(inside, 'app.js') && ++opens === 2) {
+        swapped = true;
+        renameSync(inside, pinned);
+        symlinkSync(outside, inside);
+      }
+      return descriptor;
+    },
+  };
+
+  const result = await applyPatchSet([projectPatch('set-inside/app.js')], pathProject, {
+    fileSystem: racingFs,
+  });
+
+  assertEqual(swapped, true);
+  assertEqual(result.success, false);
+  assertEqual(result.state, 'project_path_violation');
+  assertEqual(result.pathAuthority.reason, 'resolved_target_changed');
+  assertEqual(result.results[0].state, 'project_path_violation');
+  assertEqual(readFileSync(path.join(pinned, 'app.js'), 'utf8'), PATH_SAMPLE);
+  assertEqual(readFileSync(path.join(outside, 'app.js'), 'utf8'), 'OUTSIDE-SET-APPLY-SENTINEL\n');
+});
+
+await testAsync('ordinary patch remains atomic and preserves target mode', async () => {
+  resetPathProject();
+  const target = path.join(pathProject, 'app.js');
+  chmodSync(target, 0o640);
+
+  const result = await applyPatchToProject(projectPatch(), pathProject);
+
+  assertEqual(result.success, true);
+  assertEqual(result.state, 'written');
+  assertIncludes(readFileSync(target, 'utf8'), 'return 2;');
+  assertEqual(statSync(target).mode & 0o777, 0o640);
+});
+
+await testAsync('post-rename durability failure is compensated and never reported as no effect', async () => {
+  resetPathProject();
+  const target = path.join(pathProject, 'app.js');
+  let directoryFd = null;
+  let failedDirectorySync = false;
+  const durabilityFs = {
+    ...fs,
+    openSync(file, flags, mode) {
+      const descriptor = fs.openSync(file, flags, mode);
+      if (file === pathProject) directoryFd = descriptor;
+      return descriptor;
+    },
+    fsyncSync(descriptor) {
+      if (!failedDirectorySync && descriptor === directoryFd) {
+        failedDirectorySync = true;
+        const error = new Error('injected directory fsync failure');
+        error.code = 'EIO';
+        throw error;
+      }
+      return fs.fsyncSync(descriptor);
+    },
+  };
+
+  const result = await applyPatchToProject(projectPatch(), pathProject, {
+    fileSystem: durabilityFs,
+  });
+
+  assertEqual(failedDirectorySync, true);
+  assertEqual(result.success, false);
+  assertEqual(result.state, 'write_durability_unconfirmed');
+  assertEqual(result.effectApplied, true);
+  assertEqual(result.compensated, true);
+  assertEqual(result.orphaned, false);
+  assertEqual(result.written, false);
+  assertEqual(result.rollback.success, true);
+  assertEqual(readFileSync(target, 'utf8'), PATH_SAMPLE);
+  assertEqual(hasBackup('app.js'), false);
+});
+
+rmSync(pathRuntime, { recursive: true, force: true });
+
+// ═══════════════════════════════════════════════════════════════════════════
+
+const results = summary();
+process.exit(results.failed > 0 ? 1 : 0);

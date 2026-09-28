@@ -1,0 +1,2646 @@
+{
+  "schemaVersion": 1,
+  "status": "IMPLEMENTED_REVIEW_PENDING",
+  "runtimeRevision": "c52b03ffedd3417d4473ed2bfd82086ee8c7a45e",
+  "candidateRevision": "0534a11140ee03c9c170796c511348960f9775a2",
+  "launcherFollowupPending": true,
+  "sourceEquivalence": {
+    "runtime": "c52b03ffedd3417d4473ed2bfd82086ee8c7a45e",
+    "candidate": "0534a11140ee03c9c170796c511348960f9775a2",
+    "coreChanges": [],
+    "frontendExtensionChanges": [],
+    "launcherChanges": [
+      "intentsmith-ide/applications/electron/resolve-user-data.js",
+      "intentsmith-ide/applications/electron/scripts/launch.js"
+    ],
+    "bundleSha256": "9d6030a7cd7431b2225745c00e0af2dee245d3014fc34eb164c0d442ddc1cf49"
+  },
+  "profileCompatibility": {
+    "status": "PASS",
+    "kind": "compatibility profile alias",
+    "legacy": "/home/belphareon/.config/c3-ide-electron",
+    "canonical": "/home/belphareon/.config/intentsmith-ide-electron",
+    "originalDirectoryUnchanged": true,
+    "contentsCopied": false,
+    "backendRestarted": false
+  },
+  "reviewBase": "2ca3cca179d81f2c23dbf5d556142c678eb642e2",
+  "branch": "work/ide-workspace-20260918",
+  "registryPrograms": 525,
+  "selectedPrograms": 360,
+  "registryHash": "fbe1945675b7ccc36eeea1e86139b0c663254c45df77c775a240ae59213d2ea0",
+  "gates": [
+    {
+      "name": "gate",
+      "revision": "2328f649412c607cff89cd3efb2e68d4e92b570e",
+      "statusCounts": {
+        "PASS": 348,
+        "FAIL": 12,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "verdict": "FAIL",
+      "report": ".intentsmith-artifacts/ide-workspace-20260918/gate/ide-workspace-candidate/report.json",
+      "sha256": "ba934d630cc2fb561e8c0b6c2330f473c98cecf589bf7875b1e385853e45a6fa",
+      "nonPass": [
+        {
+          "path": "tests/artifact-validation.test.js",
+          "status": "FAIL"
+        },
+        {
+          "path": "tests/m1-model-failover-schema.test.js",
+          "status": "FAIL"
+        },
+        {
+          "path": "tests/m2-tool-broker-v1.test.js",
+          "status": "FAIL"
+        },
+        {
+          "path": "tests/m5-install-profile.test.js",
+          "status": "FAIL"
+        },
+        {
+          "path": "tests/m5-privacy-remediation.test.js",
+          "status": "FAIL"
+        },
+        {
+          "path": "tests/m6-runtime-evidence.test.js",
+          "status": "FAIL"
+        },
+        {
+          "path": "tests/mobile-android-release.test.js",
+          "status": "FAIL"
+        },
+        {
+          "path": "tests/mobile-remote-capability-contract.test.js",
+          "status": "FAIL"
+        },
+        {
+          "path": "tests/mobile-remote-session-contract.test.js",
+          "status": "FAIL"
+        },
+        {
+          "path": "tests/nightly-orchestrator-self-test.js",
+          "status": "FAIL"
+        },
+        {
+          "path": "tests/repository-hygiene.test.js",
+          "status": "FAIL"
+        },
+        {
+          "path": "tests/schema-migrations.test.js",
+          "status": "FAIL"
+        }
+      ]
+    },
+    {
+      "name": "gate-2",
+      "revision": "50e21e0f3389f02351fd6cfc7770e4370d96e1f4",
+      "statusCounts": {
+        "PASS": 359,
+        "FAIL": 1,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "verdict": "FAIL",
+      "report": ".intentsmith-artifacts/ide-workspace-20260918/gate-2/ide-workspace-remediated/report.json",
+      "sha256": "977f954d53b8344d8d18bf4697256ea7a82a0e767ff93053c60b766519e24501",
+      "nonPass": [
+        {
+          "path": "tests/nightly-orchestrator-self-test.js",
+          "status": "FAIL"
+        }
+      ]
+    },
+    {
+      "name": "gate-3",
+      "revision": "893d980691061a35e5562490eba2bcbac18233fe",
+      "statusCounts": {
+        "PASS": 358,
+        "FAIL": 2,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "verdict": "FAIL",
+      "report": ".intentsmith-artifacts/ide-workspace-20260918/gate-3/ide-workspace-integrated/report.json",
+      "sha256": "82617c7bf5570791fe9481aa9e33c2c5cd051e8843b04468a40b6ee8e5f985bb",
+      "nonPass": [
+        {
+          "path": "tests/nightly-orchestrator-self-test.js",
+          "status": "FAIL"
+        },
+        {
+          "path": "tests/repository-hygiene.test.js",
+          "status": "FAIL"
+        }
+      ]
+    },
+    {
+      "name": "gate-4",
+      "revision": "0dc5110a6a776b6057b65f1a4d8b212f64add06a",
+      "statusCounts": {
+        "PASS": 359,
+        "FAIL": 1,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "verdict": "FAIL",
+      "report": ".intentsmith-artifacts/ide-workspace-20260918/gate-4/ide-workspace-final/report.json",
+      "sha256": "b1f74ee7de6a95580d17e1b6b236ce517bb5bb093e8d16cb71b1a2f7ce9fea98",
+      "nonPass": [
+        {
+          "path": "tests/nightly-orchestrator-self-test.js",
+          "status": "FAIL"
+        }
+      ]
+    },
+    {
+      "name": "gate-5",
+      "revision": "cd1c6142296d2e677700500830a4d7684ab55819",
+      "statusCounts": {
+        "PASS": 359,
+        "FAIL": 1,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "verdict": "FAIL",
+      "report": ".intentsmith-artifacts/ide-workspace-20260918/gate-5/ide-workspace-release/report.json",
+      "sha256": "d2726f4f6ad64dc2dfcfe62b68b8bc3936eb222c7b8cfe3d902e658b0e366445",
+      "nonPass": [
+        {
+          "path": "tests/nightly-orchestrator-self-test.js",
+          "status": "FAIL"
+        }
+      ]
+    },
+    {
+      "name": "gate-6",
+      "revision": "51891604987fdd079642793d694dcca49f1f88ca",
+      "statusCounts": {
+        "PASS": 359,
+        "FAIL": 1,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "verdict": "FAIL",
+      "report": ".intentsmith-artifacts/ide-workspace-20260918/gate-6/ide-workspace-deployed/report.json",
+      "sha256": "3afcce86f0a0513e024d3bc504915a6ca00734735a435f4736690eb84df4776e",
+      "nonPass": [
+        {
+          "path": "tests/nightly-orchestrator-self-test.js",
+          "status": "FAIL"
+        }
+      ]
+    },
+    {
+      "name": "gate-7",
+      "revision": "d0d3995273e5b9f44cce23ef9831ee77342ef671",
+      "statusCounts": {
+        "PASS": 359,
+        "FAIL": 1,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "verdict": "FAIL",
+      "report": ".intentsmith-artifacts/ide-workspace-20260918/gate-7/ide-workspace-installed/report.json",
+      "sha256": "fe50072b208c8014882da9cf8478f0639f7b80a09baa0b8316f863e872db3fd8",
+      "nonPass": [
+        {
+          "path": "tests/nightly-orchestrator-self-test.js",
+          "status": "FAIL"
+        }
+      ]
+    },
+    {
+      "name": "gate-8",
+      "revision": "4ed8b5f9521e00ec8bff1ace8dd6cdd1a58bc04b",
+      "statusCounts": {
+        "PASS": 357,
+        "FAIL": 3,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "verdict": "FAIL",
+      "report": ".intentsmith-artifacts/ide-workspace-20260918/gate-8/ide-workspace-upgrade/report.json",
+      "sha256": "c5e2b080ac4e0a6a09e51131336f9396d198a5bb0868af116e4f43f0983dc94d",
+      "nonPass": [
+        {
+          "path": "tests/artifact-validation.test.js",
+          "status": "FAIL"
+        },
+        {
+          "path": "tests/harness-exit-code.test.js",
+          "status": "FAIL"
+        },
+        {
+          "path": "tests/nightly-orchestrator-self-test.js",
+          "status": "FAIL"
+        }
+      ]
+    },
+    {
+      "name": "gate-9",
+      "revision": "c52b03ffedd3417d4473ed2bfd82086ee8c7a45e",
+      "statusCounts": {
+        "PASS": 359,
+        "FAIL": 1,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "verdict": "FAIL",
+      "report": ".intentsmith-artifacts/ide-workspace-20260918/gate-9/ide-workspace-ready/report.json",
+      "sha256": "f3ac160f2e6c9d6b390f3a57acf95bb7458cfd81c111d272a97277b5942b993a",
+      "nonPass": [
+        {
+          "path": "tests/nightly-orchestrator-self-test.js",
+          "status": "FAIL"
+        }
+      ]
+    },
+    {
+      "name": "gate-10",
+      "revision": "0534a11140ee03c9c170796c511348960f9775a2",
+      "statusCounts": {
+        "PASS": 359,
+        "FAIL": 1,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "verdict": "FAIL",
+      "report": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/report.json",
+      "sha256": "c3a4acf7a2a9d3519dbe2aa9820d39257e769c4fb39fe8628e85d19427872280",
+      "nonPass": [
+        {
+          "path": "tests/nightly-orchestrator-self-test.js",
+          "status": "FAIL"
+        }
+      ]
+    }
+  ],
+  "focusedNodeTests": {
+    "pass": 106,
+    "fail": 0,
+    "scope": "8 explicitly selected files; nested custom harness counts are not added again"
+  },
+  "build": {
+    "applicationManifestSha256": "51996b682fabe1c73d6dd77fe5320bafb891f15bf20430fd8c05da138d1f5a90",
+    "frontendEntrySha256": "1685a6348d58a34537be015e5b0031fc3eb8d617fe0171dd287cf0c73b27c072",
+    "bundleBytes": 13031553,
+    "bundleSha256": "9d6030a7cd7431b2225745c00e0af2dee245d3014fc34eb164c0d442ddc1cf49",
+    "preloadBytes": 21915,
+    "preloadSha256": "68545bb53c9dfb92fbe34216a830987502d6d9506ee6a21b92a7e94266d52a74",
+    "consumerBytes": 50513,
+    "consumerSha256": "1849dd61fee8946c405b203d0f96be7e3179990323f8247d2faba5d78633146b",
+    "protocolBytes": 1179,
+    "protocolSha256": "810863842d1b883b9115fd9f62ae64010ff4d62e9e1e4953264f5c579ed24c37",
+    "protocolVersion": 1
+  },
+  "deployment": {
+    "status": "INSTALLED",
+    "previousRevision": "4ed8b5f9521e00ec8bff1ace8dd6cdd1a58bc04b",
+    "revision": "c52b03ffedd3417d4473ed2bfd82086ee8c7a45e",
+    "sourceRoot": "/home/belphareon/.local/share/intentsmith/releases/c52b03ffedd3417d4473ed2bfd82086ee8c7a45e",
+    "backup": "/home/belphareon/.local/state/intentsmith/installation-backups/2026-09-18T12-33-16-983Z",
+    "backend": "active",
+    "backendPid": 1334445,
+    "timer": "active",
+    "authenticatedHTTP": 200,
+    "uncredentialedHTTP": 401,
+    "administratorCredentialPreserved": true,
+    "quickCheck": "ok",
+    "foreignKeyErrors": 0,
+    "migrations": 105,
+    "unchangedTables": {
+      "projects": {
+        "rows": 11,
+        "sha256": "a9524b09221dfa54b0e71e955d233353eeabe7b088305fccd2cb127f3aa6d2ae"
+      },
+      "conversations": {
+        "rows": 35,
+        "sha256": "06f0461ed089fc9d1bccce73c6131e1a48a06dc077eee024f1bba61b963ea3ae"
+      },
+      "messages": {
+        "rows": 11,
+        "sha256": "20184ed6743cbb030f76fd8425dd86b0f296b8c301812fb0e7e5a0f96f75fc70"
+      },
+      "model_evaluation_runs": {
+        "rows": 516,
+        "sha256": "28fb1937cb5ac256c55f652bd698336183c2ac123d1cfa52b712e3e99025fd0d"
+      },
+      "model_evaluation_decisions": {
+        "rows": 234,
+        "sha256": "f9ee42981a89c4dc64b7b0420c679c295908052574ece38a3c118f240f05ab80"
+      },
+      "model_desired_bindings": {
+        "rows": 7,
+        "sha256": "87b51bcb23e16ffc453a82035d837eeee255d19002a1a4d06d0284301e348831"
+      },
+      "project_memory": {
+        "rows": 11,
+        "sha256": "58dc9fcb07a7a48a0a8d080dff23db52c12f3217441c089f042f95eb9af0b870"
+      },
+      "user_memory": {
+        "rows": 1,
+        "sha256": "99494ee5579e379fff9e8361de130b31ee8ac4a3fc5b96456dba41ba04f229ad"
+      },
+      "memory": {
+        "rows": 28,
+        "sha256": "7b7aba15baf2e9719a8a18ec114c718f708a0cba96d74265779551cf2e3e2132"
+      },
+      "global_memory": {
+        "rows": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      }
+    },
+    "verifiedAt": "2026-09-18T12:34:58.519840+00:00"
+  },
+  "privacy": {
+    "contract": "M5PrivacyScanEvidence",
+    "version": 2,
+    "treeScan": {
+      "contract": "PrivacyTreeScan",
+      "version": 1,
+      "candidateRevision": "0534a11140ee03c9c170796c511348960f9775a2",
+      "scannedFiles": 2538,
+      "contentReadFiles": 1166,
+      "distributionManifestDigest": "sha256:566565a7daa0237c976fd19f50858e701f3ee1fbbed99ade589db75fac24dcf7",
+      "findings": [],
+      "verdict": "PASS",
+      "secretValuesRecorded": false
+    },
+    "historyReachability": {
+      "checkedObjects": 15,
+      "reachableObjects": 15,
+      "unreachableObjects": 0,
+      "anyReachable": true,
+      "allReachable": true,
+      "declaredRefCount": 478,
+      "declaredRefDigest": "sha256:e8daec78171edd2da3dc5da10e70ae0657d9b012ea4ac46037c150b8d0c555cb",
+      "declaredDisposition": null,
+      "verdict": "HISTORY_REMEDIATION_REQUIRED",
+      "personalContentInspected": false,
+      "objectIdentitiesReported": false,
+      "secretValuesRecorded": false
+    },
+    "verdict": "PASS_CURRENT_TREE_HISTORY_REMEDIATION_REQUIRED",
+    "secretValuesRecorded": false
+  },
+  "gui": {
+    "kind": "private Electron, Xvfb, real HTTP/SQLite, provider unavailable",
+    "physicalModelJourney": false,
+    "cleanFinalShutdown": true,
+    "externalImport": {
+      "pass": true,
+      "filesUnchanged": true,
+      "files": [
+        "README.md",
+        "index.js",
+        "package.json"
+      ],
+      "scope": "literal GUI import; no model, install or execution"
+    },
+    "manualEditor": {
+      "pass": true,
+      "input": "CDP keyboard and mouse",
+      "path": "/home/belphareon/Projects/intentsmith-audit-20260911-FNF2jj/snapshot/.intentsmith-artifacts/ide-workspace-20260918/gui/runtime-5LkVay/home/projects/ide-column-a/README.md",
+      "savedPrefix": "GUI_EDITOR_CANARY",
+      "errors": []
+    },
+    "lateEvents": {
+      "pass": true,
+      "kind": "controlled renderer bus injection, no model or command execution",
+      "focusedInput": true,
+      "ownerLog": true,
+      "otherLog": false,
+      "ownerTerminal": true,
+      "otherTerminal": false,
+      "active": 1
+    },
+    "resize": [
+      {
+        "state": {
+          "width": 1400,
+          "columns": 2,
+          "bodyWidth": 1398
+        },
+        "heap": {
+          "usedSize": 46978988,
+          "totalSize": 48721920,
+          "embedderHeapUsedSize": 9501688,
+          "backingStorageSize": 16205217
+        },
+        "elapsedMs": 277
+      },
+      {
+        "state": {
+          "width": 1100,
+          "columns": 2,
+          "bodyWidth": 1098
+        },
+        "heap": {
+          "usedSize": 46997584,
+          "totalSize": 48721920,
+          "embedderHeapUsedSize": 9865864,
+          "backingStorageSize": 16206378
+        },
+        "elapsedMs": 273
+      },
+      {
+        "state": {
+          "width": 900,
+          "columns": 2,
+          "bodyWidth": 898
+        },
+        "heap": {
+          "usedSize": 47023960,
+          "totalSize": 48721920,
+          "embedderHeapUsedSize": 10135264,
+          "backingStorageSize": 16206383
+        },
+        "elapsedMs": 286
+      },
+      {
+        "state": {
+          "width": 1400,
+          "columns": 2,
+          "bodyWidth": 1398
+        },
+        "heap": {
+          "usedSize": 47035264,
+          "totalSize": 48721920,
+          "embedderHeapUsedSize": 10424064,
+          "backingStorageSize": 16206383
+        },
+        "elapsedMs": 283
+      },
+      {
+        "state": {
+          "width": 1000,
+          "columns": 2,
+          "bodyWidth": 998
+        },
+        "heap": {
+          "usedSize": 47046308,
+          "totalSize": 48721920,
+          "embedderHeapUsedSize": 10925192,
+          "backingStorageSize": 16206383
+        },
+        "elapsedMs": 281
+      },
+      {
+        "state": {
+          "width": 1400,
+          "columns": 2,
+          "bodyWidth": 1398
+        },
+        "heap": {
+          "usedSize": 47056476,
+          "totalSize": 48721920,
+          "embedderHeapUsedSize": 11324496,
+          "backingStorageSize": 16206383
+        },
+        "elapsedMs": 278
+      },
+      {
+        "menu": {
+          "workspace": 0,
+          "settings": true
+        }
+      }
+    ]
+  },
+  "limitations": [
+    "REVIEW_PENDING",
+    "GATE_0_REGISTRY_SEAL_MISMATCH",
+    "M5_HISTORY_REMEDIATION_REQUIRED",
+    "M2_SYSTEMD_APPARMOR_BLOCKED",
+    "PHYSICAL_MODEL_JOURNEY_NOT_RUN"
+  ],
+  "archive": {
+    "path": ".intentsmith-artifacts/ide-workspace-20260918/review-evidence.tar.gz",
+    "bytes": 1167393,
+    "sha256": "f65fced87f0a5a6ea8d9a9ca6a4489e8cacf62e348dd07c98fc5075b892d8304"
+  },
+  "evidenceFiles": [
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/boundary-profile.log",
+      "bytes": 740,
+      "sha256": "d02255f2189ba43e3b6c91fc6fda049667a68261c6eca86850787a40da04b505"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/build-deploy.log",
+      "bytes": 10359,
+      "sha256": "459c7142a103694b96eed944f8eddf4d35b7ef3138fddd4047f9833f03223c57"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/caption-regression.log",
+      "bytes": 2405,
+      "sha256": "c1d92a6bed7945078f549499d5bfb053a744c1a2ff4d50838e2744a82a9d69fb"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/deploy-before-download-fix.log",
+      "bytes": 4831,
+      "sha256": "e0605bac97c1bd41fc99320c352b75ca742531f675fb6f493278a7b74d1cd43e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/deploy-before-upgrade-fix.log",
+      "bytes": 5125,
+      "sha256": "9426379cd3d34c91fef1f1c0a899734b9e0ee47b5142ab7e883fa6d3d61edcca"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/deploy-probe-401-mismatch.log",
+      "bytes": 541,
+      "sha256": "d96510c4afb4f92ef077fafa19d017c895f4b517e549692fb3cfcb25c39e2556"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/deployment.json",
+      "bytes": 2004,
+      "sha256": "0d0ea2ab91e187fcf82f811479a2095f88abf5e67f5b87cbc8b996e9641adaf3"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate/ide-workspace-candidate/logs/tests_artifact-validation.test.js.9a54c027.log",
+      "bytes": 33162,
+      "sha256": "97add2c796c94f25e817f5edf6f45a967d36415266cc899f9ce4ea231aa82772"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate/ide-workspace-candidate/logs/tests_m1-model-failover-schema.test.js.48a6c16b.log",
+      "bytes": 12212,
+      "sha256": "8529541a11c8072383c4cef587f728ac0c0ca2dae23e1ef0dbddadcc638a2c52"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate/ide-workspace-candidate/logs/tests_m2-tool-broker-v1.test.js.ce3c9391.log",
+      "bytes": 4307,
+      "sha256": "8e3cba7dd87d4f751de2542b33d5da571695ec88559a3ae7e450306167239037"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate/ide-workspace-candidate/logs/tests_m5-install-profile.test.js.3197eac0.log",
+      "bytes": 39456,
+      "sha256": "53cf88a95b097bb380d9fc04ab35d79e91b61ee144b490b26a21e1f219275e6e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate/ide-workspace-candidate/logs/tests_m5-privacy-remediation.test.js.3f394ce8.log",
+      "bytes": 7096,
+      "sha256": "69ff33d6870203601d79b81750cdc9638bdd83e1c51e48cdcfe98a7d9d0bf045"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate/ide-workspace-candidate/logs/tests_m6-runtime-evidence.test.js.0db6f126.log",
+      "bytes": 1738,
+      "sha256": "7b0f5ebd6a5b5ba8b672290582afda4007a2752a7c92c50a4ea66d39bee4232e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate/ide-workspace-candidate/logs/tests_mobile-android-release.test.js.83cb5702.log",
+      "bytes": 13112,
+      "sha256": "2e9a403729b66a7b1e68375b6dbc1bcce75add13f7b595b0dc6c5548b9e910e0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate/ide-workspace-candidate/logs/tests_mobile-remote-capability-contract.test.js.e64c218a.log",
+      "bytes": 4256,
+      "sha256": "bcf76edd63084477f186b4e8abaf1982aa419fff5cf15fb0040fa41fd0ae8c5b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate/ide-workspace-candidate/logs/tests_mobile-remote-session-contract.test.js.bdd0f7a4.log",
+      "bytes": 1667,
+      "sha256": "0151c135f55009c42aac6faae836b6568d0f38f2b3a08f0ab7f0e08f8a8b3795"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate/ide-workspace-candidate/logs/tests_nightly-orchestrator-self-test.js.a5ce7dd7.log",
+      "bytes": 1130,
+      "sha256": "e6b9838dad0f85858ad714ecb6607aaf880f50749c1efc4df0e52ad20c3b278a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate/ide-workspace-candidate/logs/tests_repository-hygiene.test.js.a3416d42.log",
+      "bytes": 1056,
+      "sha256": "effbcd8d49cfe07a1804acad5f6c04a896a9aa2712c20946e516c755ef47c0c1"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate/ide-workspace-candidate/logs/tests_schema-migrations.test.js.923a63bd.log",
+      "bytes": 17690,
+      "sha256": "1a9cea3468a2d3cd764315bbee550027a0996168b076922279cf50a54a952678"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate/ide-workspace-candidate/report.json",
+      "bytes": 1527469,
+      "sha256": "ba934d630cc2fb561e8c0b6c2330f473c98cecf589bf7875b1e385853e45a6fa"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_accountant-e2e.test.js.5894dad6.log",
+      "bytes": 1871,
+      "sha256": "5bc9cfa2a30601bf94ca3000ba9b0b0092694cd534959cca6097760a9197848c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_accountant-self-contained.test.js.1403a6bb.log",
+      "bytes": 2728,
+      "sha256": "dcaed76a33a2785b601d91340fee44da3c848744ea4c8ee6576d596fffe891fa"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_accountant-tools.test.js.5ee165c9.log",
+      "bytes": 4587,
+      "sha256": "e3d69f0739510aef7358c68ef532b54e6bd6304576343de56309719ef338e9c1"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_accountant-workflow-integration.test.js.6d44c7da.log",
+      "bytes": 1946,
+      "sha256": "7c6b2ec107634e0c4b21c37aeb86878719c1a8f3dd6559054dec14d2ec18f58f"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_accountant-workflow.test.js.dd5f429c.log",
+      "bytes": 2980,
+      "sha256": "12ab7f171086dee858bc3a94fedb262e2c54ac28d0ba5223753a540e4cd3edb9"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_agent-log-ux.test.js.f748fd9e.log",
+      "bytes": 4030,
+      "sha256": "b736702bdb3b4537bc52942f789b94c71a3b7560a081618b9a8c8ab2773d1e4c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_agent-runner.test.js.7b7332cf.log",
+      "bytes": 6800,
+      "sha256": "44976d0293bb6ced50db7f1a11ca6fb8f6b196f2f0554c66c160b191d1b11044"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_agent-sources.test.js.b407225b.log",
+      "bytes": 2580,
+      "sha256": "b1052c9bec22fb8a5ff126ca6086ea65ec7c3461239a04b18c9fcb231bd3c869"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_agent-wizard.test.js.7f8b6590.log",
+      "bytes": 3530,
+      "sha256": "342363f3d40d3e32a68a131b5521a5be11c90ede691f315d393e151b52b449ab"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_api-contract-registry.test.js.c8533c3a.log",
+      "bytes": 2046,
+      "sha256": "8cf3fdac093e5cdbcf3a4b515ad8060bdbd7ce5f0c86707427aea77f4eb6e3a9"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_architect-smoke.test.js.ca5ac490.log",
+      "bytes": 1592,
+      "sha256": "30d7b4c8c33e67bf960ec9723ad5792b780194dfaa501f856e0b95d0c4be9ecd"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_architecture-check.test.js.d9613b1b.log",
+      "bytes": 1095,
+      "sha256": "91c9e48f5776b1a505f5f88928478bc95ab8d0df26caf128886f910b21fda87b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_architecture-detector.test.js.4c355f52.log",
+      "bytes": 2881,
+      "sha256": "c9575a635eef2cc3493e879141095d71f412fd1586e755e49ee783757e4105ea"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_architecture-governance.test.js.fa59f229.log",
+      "bytes": 1972,
+      "sha256": "5756af72e3f99bcaa2e68490864e87ccb18724871fa2801d5b16852ea54a83d0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_architecture-policy.test.js.d4a20908.log",
+      "bytes": 2804,
+      "sha256": "ba3a58f9f7cabc2fcd2c3c90343b5c533218621791b4cd002ae9d1e264e9e64b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_archive-lifecycle.test.js.8dae37af.log",
+      "bytes": 5023,
+      "sha256": "42739c1f40c5d1382891ba4a05c5ebbc7360dc928a68b591532c86e27e51412c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_artifact-validation.test.js.9a54c027.log",
+      "bytes": 13797,
+      "sha256": "f20247e799be0669d1262cf99a2fb02e93640bd8dad15831de75394ca1c4419b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_ast-analyzer.test.js.b4c16ce1.log",
+      "bytes": 2514,
+      "sha256": "47a0733eb84d8e7d5d304ac7350ca8acadb8d6144bc5056bc9a54c96b47f1594"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_audit-summary-self-test.js.20930c4d.log",
+      "bytes": 401,
+      "sha256": "55a7c73e13e4692f67a59c84f73382705776fb292350626b86cdd273dc4e0b51"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_auto-expertise-select.test.js.ee2c4f1a.log",
+      "bytes": 6783,
+      "sha256": "587dc3f972b99aa13663ae899a03cb0d2985ff01aa5609f777e77dfe792b62b9"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_build-handoff.test.js.5ce2d1af.log",
+      "bytes": 1533,
+      "sha256": "3608f82896dcff8fcd443ac5dda6de5e45a65d6d630078dcb0fbbb1c7b5451dc"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_build-patterns.test.js.b080ecfa.log",
+      "bytes": 2827,
+      "sha256": "eafb60011816e4b3369b9f2d382c027a5b75a27a34df8c67102eac47b93310f6"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_build-strategy.test.js.80fccc14.log",
+      "bytes": 3337,
+      "sha256": "a529b9cef3253f03af7b437d0f7a8f38872db32388c8e52295142a4c655268de"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_candidate-trial.test.js.6ee0db64.log",
+      "bytes": 4744,
+      "sha256": "e4bf402eeafd3a042cbf7a29a8b9b69b05f8a16b4f7b612c3e8a9e8eae690ae6"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_capability-01-server-behaviours.test.js.34508a22.log",
+      "bytes": 1642,
+      "sha256": "a8cf651089bad8acc0e2cebd49d80adb8131f65434abe53c7518a5f67b040c14"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_capability-02-cre-behaviours.test.js.b108029d.log",
+      "bytes": 2765,
+      "sha256": "8d59514d9c490f0425e8b15a0cd3fe98d98f394cff5802ac1c9e7ddb2277664a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_capability-enforcer.test.js.94d2683e.log",
+      "bytes": 9230,
+      "sha256": "8026fd60173e61c969e28692ee29e0a0f59e237a52c6e0ae9bebde7e7f58c27b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_capability-registry.test.js.650c678f.log",
+      "bytes": 2404,
+      "sha256": "171b50b8207f053b0c475fb1e2650a03127b4813ac9bb79670b2e53de20a71f0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_capability-sandbox.test.js.48ff887a.log",
+      "bytes": 5126,
+      "sha256": "1c70eec9e3934a2d5a32fd596c9983c52042566733be91bfc9dca3f623829483"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_catalog-metadata.test.js.25c6d790.log",
+      "bytes": 3240,
+      "sha256": "3d2ab17b5bae4ca9c42e0ef66038a70a48f54c3058dc28692fb638c358c269a5"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_chat-export-budget.test.js.56739be3.log",
+      "bytes": 7357,
+      "sha256": "2629e0850aa1c0514fc003220ff41c1c145760f92d2889411fbc81bf038cbb6c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_chat-fixes.test.js.baa9bbb9.log",
+      "bytes": 3730,
+      "sha256": "74edbf4504446b4271c3a93696f70a07502cf13d3c7297031561d339bc64e38a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_chat-memory-privacy.test.js.71ec8b73.log",
+      "bytes": 3172,
+      "sha256": "30e2e4e2f20b9662820a86da6c3870dc1b8285226e6e2d2c66f35801552b765e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_chat-output-quality.test.js.7ef60198.log",
+      "bytes": 5865,
+      "sha256": "ee820e35ef67ee79f4c06e15add345f0f4b33d79bb3f150849dd0263961664c4"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_chat-search-quality.test.js.8d05878c.log",
+      "bytes": 6895,
+      "sha256": "542a10fbb43b69f8dd8c1090e7e11817dccc49a7027ba79a43fd938d252b28ab"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_chat-synthesis-hardening.test.js.afbec6c0.log",
+      "bytes": 4030,
+      "sha256": "4fff3bb9c158d6dff11b34355eafcfbdfbe3dde66405568417545eb735520eb6"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_chunker.test.js.5cd49644.log",
+      "bytes": 1725,
+      "sha256": "33bbfbc8c8b6f0b4352bfa2fc90c9bfb2647578d207711582958eab588e68673"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_circuit-breaker-v55.test.js.3cfa0f99.log",
+      "bytes": 1477,
+      "sha256": "6a7ce4a9923e77d5b82ec49903cb875cc701d313abdbf96912d81b9dc26e745d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_code-analyzer.test.js.e14aa774.log",
+      "bytes": 3363,
+      "sha256": "9f6fa9d79e7f22e2fc6519dc00bf1f73080a4d7d6129966a3ea8cc4cadc79bf1"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_code-evolution.test.js.9588e102.log",
+      "bytes": 1930,
+      "sha256": "1832145f1e4e0202ce5271974e1d2aac9a390693f324767981ac1f77d33820a4"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_code-patch-runner.test.js.4e53faba.log",
+      "bytes": 4254,
+      "sha256": "a2da0090b170aab8bb132d3232ce167a3a88539d80b6ece85a9352681aff2081"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_code-patch-suite.test.js.3b160b71.log",
+      "bytes": 2621,
+      "sha256": "65940113dc3e27d937d66e76cfba46aaab834d6ae88f08b214b870d6ccad0fc1"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_code-search.test.js.ba05e7f6.log",
+      "bytes": 2182,
+      "sha256": "aa727504607d66df73b23b8128cd9090a2e4ce19dc15a7658dee549c05fa2ae4"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_code-task-extractor.test.js.b32be2e5.log",
+      "bytes": 2088,
+      "sha256": "98b9698f2deceb20a957954957c49873e5fe746edc316f68e738d825646ac4dc"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_concept-registry.test.js.7fb9b136.log",
+      "bytes": 4265,
+      "sha256": "9cc7cfad4fd554f72cb51cfd4e69d4791e8cde094b0fb2dd25e1f0ffb5abf5c4"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_context-builder.test.js.d92d331f.log",
+      "bytes": 1855,
+      "sha256": "b1d08073a6d93afc5ce1eafa5c56cb5ef3b5f8ebdda63a958db388adc009a23e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_context-compact-model-ctx.test.js.b50dda24.log",
+      "bytes": 1085,
+      "sha256": "e8ab94e026198be329531f54dd46c91d29d0cd926ff1d73db9358eed28231ded"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_context-delta.test.js.45374093.log",
+      "bytes": 3198,
+      "sha256": "41e46a38ab3ae6fccfe582eeb7eddf763807b5d7c9c7e00eb25809259378b7bd"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_context-engine.test.js.4fec1a25.log",
+      "bytes": 1754,
+      "sha256": "f61df21a1754e61c441c8aa00b9ebc0e14388c4b95547ed19b9caaefcd66bf0f"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_context-optimizer.test.js.8f41abad.log",
+      "bytes": 3720,
+      "sha256": "48aa598ae60c776327475ba2eb1b3b98d4f938b75b1c720e67946e935f1f24e8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_continuous-improvement.test.js.348117fa.log",
+      "bytes": 3393,
+      "sha256": "8bc97c412dc1a72685ef5993ea1066cfbfccf799ae6dc0afb539b3d2f729d2f5"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_conversation-web.test.js.9bd93c0a.log",
+      "bytes": 3035,
+      "sha256": "492594d96d1707125364258ed01a82477c1275581755154157497f3c3065621d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_cre-build-arbitration.test.js.5ba9f4c2.log",
+      "bytes": 4165,
+      "sha256": "09963c79adb61a2f7e3fbbe4132f5e342bb91316913b199ea8d6d9b904658a0e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_cre-file-reference-guard.test.js.97f62c4c.log",
+      "bytes": 1641,
+      "sha256": "1995b72537fa59b2abfe444368a7649d2f996b404d3506622954d6ed473211df"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_cre-gatekeeper.test.js.b49de5a1.log",
+      "bytes": 10060,
+      "sha256": "a302e00c952795e1674e2ab68d1b62021d38a1607805cc29062f8cd49bfa0336"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_cre-report-sticky-break.test.js.4c60541b.log",
+      "bytes": 417,
+      "sha256": "f8a1cc47a2f63fddf678eb1790d6b2873c96ea1e7e41b3bd279d5975f79f2631"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_create-expertise-integration.test.js.ae897e02.log",
+      "bytes": 5140,
+      "sha256": "58999c76ec8eb4a4ca036c03039a33c97eef8c4a54dbb994c0615950f7f21fe5"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_create-specialist-skill.test.js.11d6ccc1.log",
+      "bytes": 3693,
+      "sha256": "4f7c30ba279192195a1404af878f95c09f2d9524127ab289bfd5f4eaaef5b36d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_critic-agent.test.js.9695f52d.log",
+      "bytes": 2190,
+      "sha256": "abff67adf66b33f11478cb1a0dfb7e135a0e660e13ec4f9a7d51badda3d1220a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_cross-project-learner.test.js.4218a0bf.log",
+      "bytes": 3155,
+      "sha256": "ec844d1ac5453285b85926ca62a1c25854e2587b27d8257e0ad13be1712a8a20"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_db-autorepair.test.js.d1655e67.log",
+      "bytes": 1312,
+      "sha256": "2826526019720e0106e6791a8ab7e5795eb00fc29e7be751aaaa957431687ded"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_dead-code-detector.test.js.2e572168.log",
+      "bytes": 1414,
+      "sha256": "c5b3b3030bf65950179f22f9fa70fe389195b836535324f898b9ef158bc2e7f2"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_debug-agent.test.js.e8205e39.log",
+      "bytes": 1835,
+      "sha256": "6d342a649e1948385e89254fd04e7618db8ec5f2e7cdb59f56b0058e04ed7d81"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_dependency-manager.test.js.b48e6f16.log",
+      "bytes": 2608,
+      "sha256": "591795382aa5738ed19108a228dadece3f81ae8285da4787fedf5dd8b5664312"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_desktop-hunt.test.js.49df83af.log",
+      "bytes": 7865,
+      "sha256": "3fabe800e6dfb0a8c8db7304999428cb729f2bd4fda355ddf4b310f008027613"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_deterministic-answer-latency.test.js.9276f549.log",
+      "bytes": 750,
+      "sha256": "67ae3a6c3ccd504dcb01f6397b6196ed30ac3dc2792dd69de02998408389b3dc"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_domains.test.js.40d7987e.log",
+      "bytes": 1947,
+      "sha256": "e6690a550a802cb5f3ab9f159652fd41d4138b1534878f51166c0d5fc658a562"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_drift-detector.test.js.5bf78ec2.log",
+      "bytes": 2015,
+      "sha256": "e990d0ebba345853c57580c91956aed930994fe2d82f61d50455b38f3c44f542"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_e2e-harness-isolation.test.js.965b7f17.log",
+      "bytes": 1416,
+      "sha256": "c40db270268ea04e450b3ea14380c47f3b6b77b2086bba01c878ea4953b9fa5b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_e2e__helpers.self-check.js.f45fd526.log",
+      "bytes": 398,
+      "sha256": "2f9247ff1ffc0091043efc3ba0ef823b019815f13bbe1653ad81a3b8cad1b4c0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_error-normalizer.test.js.b713fc63.log",
+      "bytes": 4376,
+      "sha256": "ad657c4f4e236bd68c408d92f410e839922efce3e7a3e6d2196d29125effd8b8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_execution-graph.test.js.166af7ca.log",
+      "bytes": 1784,
+      "sha256": "926feecb89679bbe2589e4ad8a4717d26a76b5d48dffff2bc08c427e05c3e7d3"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_execution-loop.test.js.eca94dc0.log",
+      "bytes": 7511,
+      "sha256": "1b301700aca4a17a4ac8faade255e8b3bbf4289d08d615600d033aa94b11a297"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_execution-trace-stress.test.js.3884abfb.log",
+      "bytes": 5718,
+      "sha256": "a4b7796d654b7a840588d1c9c6d058ebcf19b511079da32fcb6b5b06824fb1e3"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_expertise-discovery.test.js.a4992039.log",
+      "bytes": 3074,
+      "sha256": "83b629df2a4ca391bda4f31b9b57252d3e489d723009fac831807e4c7ab2d1c6"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_expertise-integration.test.js.f04c0b04.log",
+      "bytes": 3987,
+      "sha256": "1c70f46ba86a4baa7a24c41c1670c2dad4da45522e2a7e0cd8956f20a0824b6c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_expertise-system.test.js.ad383929.log",
+      "bytes": 6840,
+      "sha256": "ef1486ac0a12926dfb1fab3b7cdc5bb1af268a44bcab1ac31bd2e5f0b9b87886"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_expertise-wizard.test.js.c6b93dcf.log",
+      "bytes": 4912,
+      "sha256": "1a4e1143c3a18d143138c1af02fcbb8db29111b1644b32d9472a58e330ec8569"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_exploration-agent.test.js.d64f8a78.log",
+      "bytes": 1569,
+      "sha256": "7e955872b03fc6afee9269c3182f992375839205c41d1453c402a949d7f3e49e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_export-pdf-docx.test.js.30056cec.log",
+      "bytes": 7476,
+      "sha256": "1c415981b0334a9f3b598058cbe50830688cbf7ab1e2ee7a49631a7e6dabf016"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_file-discovery.test.js.96264527.log",
+      "bytes": 2425,
+      "sha256": "f9fcd54f0156d18b8e98f7ee6d4db525316b46932ce5989d2af95f05d5edc6da"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_file-write-extract.test.js.2a88b307.log",
+      "bytes": 2399,
+      "sha256": "2892251d6e82d0c09d9c164fb5c2a0ab15c33c6483ffa80bd38a9c7190a56239"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_fix-strategy.test.js.c6fbfb8e.log",
+      "bytes": 3322,
+      "sha256": "f7f06456fa16640138ed79bd90fa489b9c0d7bea3d123fa1c4478f83d56a2ccc"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_function-span.test.js.731bd2c6.log",
+      "bytes": 2552,
+      "sha256": "b258753817631edc6398091373cdb545fd285bbe422702c8375fa366031579c0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_governor.test.js.cb9c8aef.log",
+      "bytes": 5140,
+      "sha256": "8b03972fbfcc7359b3bc0215ecac952b6b584b22c7122a114918da8bc2fb2c60"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_graph-query.test.js.debaf6cf.log",
+      "bytes": 2562,
+      "sha256": "d9dff44e11484be683cbcdb4c24d81abf8edfabe2b9c64f85485218f37a8e24e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_graph-retrieval.test.js.52fd7404.log",
+      "bytes": 2586,
+      "sha256": "02265b0165e85c4e83c081809ae9b2df303dde2c974e440a12e9e65f3555183d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_graph-sync.test.js.e6f547c7.log",
+      "bytes": 2725,
+      "sha256": "9b6f5f2e314c2a299b041fc43f773b926422da687dd3282d055193e983c6d75f"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_harness-exit-code.test.js.a34d228f.log",
+      "bytes": 649,
+      "sha256": "25653a1556a978be4601b4728ea8c56c8b610f235870aef57eea5d48ed22f459"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_huggingface-client.test.js.28b6ea99.log",
+      "bytes": 2573,
+      "sha256": "b05c492b9d99b3c099164779a802613ed50c43e015caa3fc1ca94a8251a770d2"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_ide-workspace.test.js.44571dba.log",
+      "bytes": 5670,
+      "sha256": "17f0e656d8b8d6c70314d6b884c7686f54353b533a59b87bba2eb1024ad806ae"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_impact-analyzer.test.js.610b1e67.log",
+      "bytes": 1678,
+      "sha256": "2047df7085471885ecf857a0042236d86a097da4684f2d208d0bbabb809d9005"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_import-map.test.js.4bf97966.log",
+      "bytes": 2260,
+      "sha256": "a7de13a132209164ac1baacb3da908d66ba644fb471fc167d3a90adc1a5fb4e1"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_improvement-loops.test.js.c93525e7.log",
+      "bytes": 2401,
+      "sha256": "3eb1bde1148fd32a256af80f692d2ad9b9a0da1b37180dbab4bc31520baa8493"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_intent-context.test.js.c509e386.log",
+      "bytes": 1641,
+      "sha256": "43c9c17f77755dd7259325c9079feace6e1bc962f9e3a62522ceea8f27001b3c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_knowledge-base.test.js.26010c8c.log",
+      "bytes": 2774,
+      "sha256": "82caff5dd2c8212e0df6949eb74b44b8a4db38c431f04817e4d2f11ff54bf816"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_knowledge-graph.test.js.253a294c.log",
+      "bytes": 1858,
+      "sha256": "dff6e5641ed22f8edd3443c4eba31bb0cd8e65d2d8aa8ebb7d243ee73700af8c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_large-project-scaling.test.js.843011ff.log",
+      "bytes": 3259,
+      "sha256": "449c1408715421a2f0b28fc323186ecfbc9327a8aef5597fcc435dda96be962d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_ledger-annual.test.js.778c0979.log",
+      "bytes": 3191,
+      "sha256": "297efcff39ba1d2d42fe256bb3d0b62d0989b2ea9ece159f82d75b90a3b5c011"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_ledger-compliance.test.js.177966a2.log",
+      "bytes": 2504,
+      "sha256": "45ccc9bc6a42f6234201731dca88d630e255b6bdfc0ecf8a6ff2c58414841506"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_ledger-core.test.js.59eacff6.log",
+      "bytes": 3663,
+      "sha256": "90cf4c7b64339b6e6bbd1132a96d9206adeab9077aede24d23d6f0e8ea890b7d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_ledger-insurance.test.js.26716931.log",
+      "bytes": 2364,
+      "sha256": "dc003110448c350091f481c9db4ce14b9e6451be6b00d59f6ffd77178e84ee4e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_ledger-reports.test.js.5240a784.log",
+      "bytes": 2106,
+      "sha256": "13341342a9211bbf2e45a9afee1ac907dc5d1e8f6d4ce118122b2c9b389d1627"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_ledger-rewire.test.js.fa095236.log",
+      "bytes": 2400,
+      "sha256": "265b94e9e598097e33b9b481bb622f7afbc7ff6ff53def9cb1b9142cc7f4477c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_ledger-vat.test.js.2d81aa9f.log",
+      "bytes": 3306,
+      "sha256": "431a62b721918ff9d596c1fdb649752e0db4ba4b112b50c407b87e19d01c169b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_lifecycle-blocked-milestone.test.js.094bea94.log",
+      "bytes": 3098,
+      "sha256": "349a92622c77786b305c29c90f819456d7e1a7d4de890777d6b1c81a8d9e3810"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_lifecycle-build.test.js.6a4c4eb0.log",
+      "bytes": 7251,
+      "sha256": "b96a86634929db501863277c4268284d76a97381e47a07a95f5159ca08c0538b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_lifecycle-conversation-e2e.test.js.ee4ca3a6.log",
+      "bytes": 29506,
+      "sha256": "ea208b28fa748dfc755999fc50a07cc3dce3c70392476b6aba2dabda92f16b55"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_lifecycle-db.test.js.14493c75.log",
+      "bytes": 3429,
+      "sha256": "6fd039c5a7ca28af5ff4189cf487a026341010395e244d07f9f59643ba3dafbc"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_lifecycle-e2e.test.js.7a764790.log",
+      "bytes": 7219,
+      "sha256": "00145ea69466c6fd0c3cb6d9906504a24daba86726f0128290bd193b34181546"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_lifecycle-handoff.test.js.d2704efb.log",
+      "bytes": 6052,
+      "sha256": "143b168d307acf8c74271ddc9cc49e0ccd915e1793bf9e8b451f5ae0f5656f69"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_lifecycle-human-friction.test.js.56124424.log",
+      "bytes": 7063,
+      "sha256": "8cc84b1031e859adaeb5f20dfb9cef07ac36e30f3ed60bee84fb0dc9f479132c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_lifecycle-invariants.test.js.36fc15aa.log",
+      "bytes": 16327,
+      "sha256": "a5bd7a972a43bd42a2eec89c570bc3218c157e065b4597a26e85ca0b8170c9f5"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_lifecycle-llm-realistic.test.js.5e88868a.log",
+      "bytes": 11354,
+      "sha256": "3650476ede31924b2d88cdacbbb26b465d0df36ea43cf77feedabcd76771b737"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_lifecycle-review-change.test.js.faa90132.log",
+      "bytes": 2497,
+      "sha256": "c3574d8e5fe7962820f45fbace226747101d9783d9c9578662306b9664d62685"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_lifecycle-stress-advanced.test.js.5ac1e452.log",
+      "bytes": 6605,
+      "sha256": "ac173ddf326cb084c953466e541710bb18c58178058eacccf64137fe60d9ffc5"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_lifecycle.test.js.52956fcb.log",
+      "bytes": 10181,
+      "sha256": "8a5f8b242386179789cf59e3d939b4cf6e735674968910000dbb0b9258c69189"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_llm-gateway-runtime-signal.test.js.0b940a7a.log",
+      "bytes": 2940,
+      "sha256": "6aeeac28e091b7a77aa3664719dfdb46a3398b6a3e8a9963610ae30750508a9e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_local-math-nonfinite.test.js.019feb01.log",
+      "bytes": 1188,
+      "sha256": "cdc4139583eca700c5f19543332a1fa9a07a8ade78a27ff7c7a99b5afb0d5b7d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m1-chat-contract.test.js.ca2e48b5.log",
+      "bytes": 3502,
+      "sha256": "b7e4416f9a0927fee00c89630f309fa5cde73b6f60f72ab3086441da862f13ea"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m1-contract.test.js.998aa76f.log",
+      "bytes": 2811,
+      "sha256": "320b885693ebacb853d2405f9bc43af306a1956324aa135bf3f68aab7fb6522e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m1-model-automation-policy.test.js.13f235f4.log",
+      "bytes": 2522,
+      "sha256": "bdd966de157bf38d7b33e0119d1f6e1413f38a539e5970e34f2bebef38ce1309"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m1-model-binding-application.test.js.96cefee4.log",
+      "bytes": 10352,
+      "sha256": "4ddd37a7e6d7acf4cd9f84cd33b225b65c53576da9ac302e33cdb459ad841261"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m1-model-binding-repository.test.js.6b2a3128.log",
+      "bytes": 4295,
+      "sha256": "1f07c841db8aff5464b69d74f526a1801e620d856d9e9c917436329878faf0f8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m1-model-binding-storage.test.js.d31f186e.log",
+      "bytes": 2087,
+      "sha256": "30d90081b47fbf5fd21e670fcb73225ac0ef32bd970036cc97a7097ff0701a37"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m1-model-contract.test.js.a8bcca69.log",
+      "bytes": 6643,
+      "sha256": "b5cf3e893a1afe8f9e83840e1a918976c2681e80e8665b5d40e18a6934ac5f3c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m1-model-failover-coordinator.test.js.30405fa4.log",
+      "bytes": 2199,
+      "sha256": "79c3503aad35a4a7aac439639b134bc0885b0aa18d3cb55ebc434fff7e65eb42"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m1-model-failover-detection-repository.test.js.8fe33847.log",
+      "bytes": 1245,
+      "sha256": "cc95f9d2f83ba6d2025f077545b6520560a5ee756cd45f75b7762ce375b2b4e8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m1-model-failover-proof-artifacts.test.js.fcc67211.log",
+      "bytes": 1333,
+      "sha256": "a1a60de1566eed687cbe20fff78e9332b7cd0fbbc598cf64180317b695becac6"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m1-model-failover-schema.test.js.48a6c16b.log",
+      "bytes": 3411,
+      "sha256": "eae632d8c3e8c8dea90eb43c48520fe5d69772a2ca9170b4c0f1ea08731ea0d6"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m1-model-settings.test.js.ec00af34.log",
+      "bytes": 2022,
+      "sha256": "12b47777b55276e7665738ab0cfd1fe8cfb5eefb55496fbe4bfb65cc693d4133"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m1-model-use-authority.test.js.1decaa60.log",
+      "bytes": 3699,
+      "sha256": "228604ad25db9188feaf525aeee906ad0864182cadcb18a9d35ff7c559ae552c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m1-quality-contract.test.js.48723e78.log",
+      "bytes": 1063,
+      "sha256": "34a0df36565b18243bc5a64d5c65bdabee2cd2ee688994b99fdecc4ab507d462"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m1-studio-client.test.js.a839f16b.log",
+      "bytes": 17822,
+      "sha256": "ea781b0b58e3e9105faf80532633a8055a17c80f01d58ffd1d86aec335c3a0c0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m1-vram-artifact-use.test.js.13f25518.log",
+      "bytes": 1605,
+      "sha256": "f9f4903ce4244cf49408f576806647cf20b575f52944dc06d417a9895a824ef3"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-effect-authority-repository.test.js.fbda346c.log",
+      "bytes": 4630,
+      "sha256": "bc542c56326194af71578be4c3f15711a6e29844a5066edfab80b055ed2c44cf"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-effect-broker-v1.test.js.606c7170.log",
+      "bytes": 6234,
+      "sha256": "099c09e4b476cbdb225a7f8843a44e15a0ce7397b2a7b443c2d115e994b82f9e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-effect-contract-v1.test.js.6dc251f9.log",
+      "bytes": 3276,
+      "sha256": "f4c27f81232657ff5c7849aae7b081adfff28a7e4944ec0897bcd42fceadab4c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-effect-execution-owner.test.js.a1097a45.log",
+      "bytes": 1296,
+      "sha256": "ec069fae21d9d83d152316768935e268d7109a48d49a69a3b58768f782b53c4d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-effect-file-consumer.test.js.351c4b65.log",
+      "bytes": 7775,
+      "sha256": "435262e14890e816de7f894a191f8194de484df7ef1affc6f3962d40ace26fb6"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-effect-file-runtime.test.js.598972ff.log",
+      "bytes": 3767,
+      "sha256": "0c3031595a5c0c1c0150e6fc48eba1531fd2f50d0646bdc6b8937fef41b50a94"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-execution-authority-repository.test.js.ed35dc26.log",
+      "bytes": 2096,
+      "sha256": "b95e23233d809d16040164aee4109308fb23565293cc79df0e9a6047e37e60cc"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-execution-contract-v1.test.js.62f3b9eb.log",
+      "bytes": 2802,
+      "sha256": "bd6e18ceeda31cabffb6823e0ad8fed00d9cd3b097a9cdaddb42aa35e9c8331a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-execution-git-preservation.test.js.11b275be.log",
+      "bytes": 2012,
+      "sha256": "4e8153144bd15c94b64f5ccad0d69e9fb2b7a81bf73cd4b934988a30a4937559"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-execution-process-supervision.test.js.acd09b66.log",
+      "bytes": 2024,
+      "sha256": "14b2c4f1e69adbba1742673abbf051696cbc88c7f0349bd9d92f5147bb337a57"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-execution-project-change.test.js.a53d03c7.log",
+      "bytes": 2844,
+      "sha256": "e4cd867e232a69737900736229443ca9a86e80d407c40ac047964d7187e64fce"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-governance-contract-v1.test.js.a877dfcd.log",
+      "bytes": 2068,
+      "sha256": "0b28a3cb58bd8dbddcf10df321bb540c136baf00c5b6a152c21dbe3b175f954c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-governance-evaluator.test.js.8ae217b6.log",
+      "bytes": 2676,
+      "sha256": "d76e1b6bd4d3f4ed5a5fcaba0c6431140b99c6449090584c7ab7e9dab00ceeab"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-lifecycle-application-service.test.js.1a72c253.log",
+      "bytes": 5104,
+      "sha256": "2e47afbfaec412bec12f9d7afba4f91dbd888918edff6f367b610da650fa65c5"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-lifecycle-authority-repository.test.js.a86849aa.log",
+      "bytes": 2066,
+      "sha256": "02755cd0905af154254e5a36ac92102d72b19b7553947c3634e471ab221ef16d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-lifecycle-contract-v1.test.js.b74c85da.log",
+      "bytes": 2152,
+      "sha256": "83cfe569b87e595e5df618d06b5defb8daaa1392440c4c19a060b8d1bb891b93"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-lifecycle-proposal-compiler.test.js.744ad0e4.log",
+      "bytes": 1925,
+      "sha256": "b7ff48cfca3ba97521ef047db3b8f4e24a43204b6ecc833d27f160ce2977fe93"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-lifecycle-routes.test.js.0c94ab24.log",
+      "bytes": 2281,
+      "sha256": "e2992e10d82c11c867de75c01e2148ce4688948cd546d0ccd8e5113b52053918"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-lifecycle-studio-surface.test.js.0e60553a.log",
+      "bytes": 9521,
+      "sha256": "130a17d2428e9f81bed42927e8593026a0497b909bbc439a779870be4cdfef69"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-lifecycle-surface-retirement.test.js.a7607ce4.log",
+      "bytes": 1617,
+      "sha256": "af86bde43eb8fd3491b68fbbe1b0689eb7d3e56aa1a7726f0e47014cf6672d3a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-negotiated-lifecycle-quarantine.test.js.73ba5d5d.log",
+      "bytes": 1627,
+      "sha256": "67018852f920ded92faf9aa0891c153392a70cd4c8bf61d60ff4d4d09825e324"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-project-context-boundary.test.js.4adfd6d4.log",
+      "bytes": 2094,
+      "sha256": "ff31e6f444909474b8a5b6de20e6f4f987c6010e4a9a8dc434be2a86757c5c1e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-project-context-consumer.test.js.94ff0a07.log",
+      "bytes": 3525,
+      "sha256": "dd6e40442ba1625f47a0ef53eba8a0df1e9b7a1da2191ee875e7f5d2dde38d74"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-project-context-contract.test.js.8a826e82.log",
+      "bytes": 2382,
+      "sha256": "1d3ea944654005b132a903e25d6addec43a9b7f09390dd8baa6e169972d12069"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-project-context-retrieval.test.js.3680830c.log",
+      "bytes": 1808,
+      "sha256": "4be3716ab35e06ce484280c8dba191634a7739114621254227acefa7b9d581e8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-remote-core-port-boundary.test.js.e818266d.log",
+      "bytes": 1859,
+      "sha256": "f5f451a24e4652c855e6634bcdf470495d3f975ec2b57a220ecba7027af6ee79"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-remote-core-port-contract-v1.test.js.331394d6.log",
+      "bytes": 2327,
+      "sha256": "14993c0e9526fb05a07a56d5aef292b5bd062a1fb071d611811b10085cede732"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-tool-authority-repository.test.js.2f54b988.log",
+      "bytes": 2954,
+      "sha256": "40eca4f0587d62829610b49cd12b04e67365a72b3ec75b5ad9b6ef14e5656f6e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-tool-broker-v1.test.js.ce3c9391.log",
+      "bytes": 3747,
+      "sha256": "6f6b8048a1dfa03c2c96c9e123186462e6f9b440b57693f435b9c7245f113dea"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-tool-contract-v1.test.js.20002f30.log",
+      "bytes": 1998,
+      "sha256": "4db2175628b7412085e7ad2f4adc61cb4d4b548416c19d655e2a564f82e31ac3"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m2-tool-production-consumer.test.js.97d359cd.log",
+      "bytes": 5756,
+      "sha256": "2b37cd754f5a1cab008778a6709ce4e5e45c7b9dd0266eecea8c3fe37f68002c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m3-code-review-specialist.test.js.69c5bf24.log",
+      "bytes": 1362,
+      "sha256": "d8f08acd52a534358767de3be2f4c342711d1e76c9ae64b78cedf8c18af0a323"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m3-expertise-extension.test.js.0cadd29f.log",
+      "bytes": 1433,
+      "sha256": "076098af4867d06ba61ecfca53671bd33f9ba4a23b22177a849cede364b61618"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m3-extension-contract-v1.test.js.6196d1c7.log",
+      "bytes": 2371,
+      "sha256": "80bdf0155b7f3b33f12f8482822711a9f16fb489037a55d2d12c272a5db3192b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m3-legacy-agent-surface-retirement.test.js.1f903705.log",
+      "bytes": 1980,
+      "sha256": "c44de5ce2381308727382b9355bb2bc9515341bc05ef0653c789c7646bed5720"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m3-project-health-agent.test.js.89ca5dbe.log",
+      "bytes": 1624,
+      "sha256": "e7150a99be5596d0f532e7590e1399d054d3eb4d55a90f5f9c36354ae31b2ded"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m3-skill-effect-authority.test.js.90d6abad.log",
+      "bytes": 2277,
+      "sha256": "003831ecc1f9de502dc0904668ee0e1f470396f1e9a3493182f15c64cb904de1"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m4-learning-api.test.js.d38d9233.log",
+      "bytes": 1570,
+      "sha256": "854fdae5217ef925755a5a9c41f14ec2a32c638e3349050120ce4b20a9bb3d01"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m4-learning-authority-repository.test.js.b4e8600c.log",
+      "bytes": 2075,
+      "sha256": "4571c91bd7ca95bca9f9070a292d8f94ded228de7d0b0dac630240f4edf89215"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m4-learning-contract-v1.test.js.a8e58962.log",
+      "bytes": 2172,
+      "sha256": "69ebd37c844fdd5fdcfd019debe859a59d730c1699f2a125c90231c471f681f1"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m4-learning-journey-e2e.test.js.f763a019.log",
+      "bytes": 1038,
+      "sha256": "968ed0c05bbc03169388d888865c3977b72c96f8f79c6a4f9f3224ec8b578326"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m4-learning-outcome-evaluator.test.js.9af5e10e.log",
+      "bytes": 1751,
+      "sha256": "931bab095fc662cb4a570bdcde3bfc6c84f64f504e76555d1d74dadaaeaf46aa"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m4-learning-pattern-producer.test.js.8c94c60b.log",
+      "bytes": 1723,
+      "sha256": "75a28bc6eb9c077a971cfc4fb8c8aa0927496fe07a0a15017a00d38d0e9fd6e8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m4-learning-studio-surface.test.js.2f719a0e.log",
+      "bytes": 2124,
+      "sha256": "90b10caed12792711c24d2d936b14dace181ad33086a99b63084e4f1a2c46f23"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m4-project-learning-context.test.js.fe2aa47a.log",
+      "bytes": 1482,
+      "sha256": "9e39ddcd40e4cbae2018f505ed1806c8b15978a50cd5ead6249772ad3a01749a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m5-conditional-surfaces.test.js.c10e5bf3.log",
+      "bytes": 1688,
+      "sha256": "cbbd2d2858d073592ac4d41b972dcbf2913449054982063f6974c4bc527b564b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m5-data-restore.test.js.abd1e68b.log",
+      "bytes": 5374,
+      "sha256": "913ab87c1c27ba170b108ba5d20a15b808fc218eb5d8b47851062cd534f1e9ef"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m5-install-profile.test.js.3197eac0.log",
+      "bytes": 2539,
+      "sha256": "fcf79e0a52cdfee57fd106407ffeea187d86dd4dfd43c56ade163c8135217508"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m5-observability.test.js.32ca3222.log",
+      "bytes": 1537,
+      "sha256": "6d2fdc7cc3fe63076c9132aae9c1768b38f73b286b4b42fdeda40dd3fa9b60d4"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m5-outbound-policy.test.js.efbd97d2.log",
+      "bytes": 1811,
+      "sha256": "39f5e11d8487a77a6aa188c9f15463e5ff312b74060015d483eeb66cbe89e482"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m5-performance-budget.test.js.e15e50b5.log",
+      "bytes": 2220,
+      "sha256": "fb6ec0ac0f2af53247db37e17011ee1beabe48643870dcd71a86ffe8be828749"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m5-privacy-remediation.test.js.3f394ce8.log",
+      "bytes": 6210,
+      "sha256": "9c9f9dcc6221c6917dcb31c6eb4e897a80d62ce1d5c8dd8d4701b4abb898c07b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m5-process-hardening.test.js.b964dd68.log",
+      "bytes": 1634,
+      "sha256": "f7c74c20ced18f313e0d8d4071ca035a47fef1a1807b3a7991222088178fc71f"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m5-remote-core-adapter.test.js.4328babc.log",
+      "bytes": 2084,
+      "sha256": "031f1e7163088bfe37e616864c43d2438b21977386ea1bb85134ba51a03b5286"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m6-acceptance-authority.test.js.4aadeacd.log",
+      "bytes": 1456,
+      "sha256": "f0636965fea49a585c6152671d5af0b283a74bde01c988f6862a6b733f7c5e6d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m6-candidate-plan.test.js.dc8c9ce7.log",
+      "bytes": 2640,
+      "sha256": "b8553a654323541261c7295c2760ca2ae86c8342f6af5c26b119254587e3d9b9"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m6-l0-evidence.test.js.b2ad5108.log",
+      "bytes": 1440,
+      "sha256": "f998f017a2b4f03356367e05f5eb3e06dd23e02fdcc5a9655ac30036b61657dc"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m6-model-artifact-authority.test.js.1cd51e21.log",
+      "bytes": 1837,
+      "sha256": "e24264fbddc412bd0b03995b5ba541c822e2c0e0db7d97b0784aa72b5d6bd39e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m6-model-discovery-journey.test.js.a03b9269.log",
+      "bytes": 1189,
+      "sha256": "e041d4ffd3eb7f506eb6ae48a11b77b50a821f723661a9b361767750bf5ba0d3"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m6-operator-demo.test.js.28fb911e.log",
+      "bytes": 1496,
+      "sha256": "ba8d235fd4206913e354d3047af064bc7bd52577ff83ca34684e77a84fae5860"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m6-platform-journey.test.js.74df06a5.log",
+      "bytes": 1020,
+      "sha256": "fb7f28635e07fa2914c44f9aebbb0b7ab9932588cef4779ad36b51d54ce34c1f"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m6-release-artifact.test.js.a2ff816b.log",
+      "bytes": 1306,
+      "sha256": "b6740456727679838ca0ee43066731ac4a050813aff7fdefddb59f21fc5b94aa"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m6-release-validation.test.js.8867f75b.log",
+      "bytes": 1952,
+      "sha256": "0aaad85e25bd080d5df7fbbcf7b98f5b233d7f5443d70118885fc0c4ff1d453d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m6-runtime-evidence.test.js.0db6f126.log",
+      "bytes": 1515,
+      "sha256": "d3b5404e59c35256b2ae405124d6806014f826d04aaee11df345a0f9f7c27ac9"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m6-technical-evidence.test.js.dbf843b8.log",
+      "bytes": 1637,
+      "sha256": "4110c6bb2e5453959258c1b7678f0ad8d0d34b6e2652cecc76e620538acda198"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m7-canonical-json-parity.test.js.779912b1.log",
+      "bytes": 1566,
+      "sha256": "eceab3b950f67d3f80b58588bafe42258e44dd11bea15e25be88254e6debd5f1"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m7-conversation-command-executor.test.js.d662a021.log",
+      "bytes": 1278,
+      "sha256": "22afe001dc729c86f7413d68bc9c424e92e8deb3ff7e176d0f74ccadda79bb9c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m7-conversation-core-adapters.test.js.d96c8b72.log",
+      "bytes": 1616,
+      "sha256": "cbed2251783a088ff7fc4c7cb44d624b963e187396176f1192fc034cf660845a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m7-core-composition.test.js.2b5e07db.log",
+      "bytes": 1676,
+      "sha256": "ebd1144e6e13b921402da24f85337b7e18e2d476c0b7fdf8af402f881e139375"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m7-disconnected-request-pipeline.test.js.4361f964.log",
+      "bytes": 1508,
+      "sha256": "cea85cdcc4bef25bcd312ccf5af1386c1a3095001dcc227b7f2d3c4cccadaae8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m7-durable-rate-limiter.test.js.32485a8e.log",
+      "bytes": 1799,
+      "sha256": "255b8cd99ceaf36576edadb5257285182968d9442254ecdc3110d3b61414a9f5"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m7-in-process-capability-provider.test.js.f8b9cde8.log",
+      "bytes": 1855,
+      "sha256": "b6840479c74b04d21298db884bc6a72855b29bb06b1d1af58f245514d8b0465b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m7-local-pairing-route.test.js.7e46b40b.log",
+      "bytes": 1263,
+      "sha256": "97c217443d5e8c8369b88657f47b9d8692ea4d2aebb2f6aee852c1080e0479d7"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m7-local-pairing-studio.test.js.572f7692.log",
+      "bytes": 1403,
+      "sha256": "e52d05fff3758b7fe567fbce35e4f13c2429c3af72ac7466ee86157b3dd510af"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m7-m2-approval-core-adapters.test.js.12c96c74.log",
+      "bytes": 1225,
+      "sha256": "49baba0883bbfe7b4668ac86966b9a0731228d4648228d4ad915f298a8b9ad84"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m7-mobile-app-runtime.test.js.6ad6d05e.log",
+      "bytes": 417,
+      "sha256": "bee638510675098292c61f3d32f2035550df8dacba49fa92012e7e96224e5ea8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m7-mobile-core-pin-integration.test.js.082d1156.log",
+      "bytes": 1239,
+      "sha256": "c1da95d94cc18c381436ddc2ae1014499b1f682fbc70541508c2b209cb91b139"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m7-mobile-ui-api-adapter.test.js.1a215f23.log",
+      "bytes": 1637,
+      "sha256": "d60b711cc6e7ff101d42e7791067ad11f183a9ca2bb5b8ce291a0766912f956b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m7-mutation-mediator.test.js.7b109ce6.log",
+      "bytes": 1305,
+      "sha256": "0cefbca57bd1e035d5c28ed8a7303d1c929e524fa46c0ee3f141c073b949e335"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m7-native-remote-client.test.js.5edc41e3.log",
+      "bytes": 1021,
+      "sha256": "e3418b0abc8627ad89fb77ccc28a8fe5e5b9aca17e18d2e08755bf1c344cdf04"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m7-notification-core-adapters.test.js.ef074412.log",
+      "bytes": 1524,
+      "sha256": "03c2dc5420fec5a41384cbac323aff5b44ece58365f02309f0d311451e35a5dc"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m7-operation-control-adapters.test.js.04d13ffc.log",
+      "bytes": 1508,
+      "sha256": "0c673df5976ac09fd2e3403ddad2fe95b360a270ea3fbdba5f55fce1a34e4423"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m7-operation-journal.test.js.5b628c4f.log",
+      "bytes": 1866,
+      "sha256": "e1e1cfce851676f398222d8f3dfd3835ee48b56ba07095ddedc05bc3bcb24826"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m7-project-core-adapters.test.js.eb2adf66.log",
+      "bytes": 1565,
+      "sha256": "e0807a5cd648c10e50bdf333c93e61e65b00a21253b9b4f46c702db57c3f2e52"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m7-remote-health-adapter.test.js.32985334.log",
+      "bytes": 1388,
+      "sha256": "df2f9a3aa73aa54c2f36ab4ab2992238de40b3f8b62e1a107a6ade3edc811b19"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m7-run-event-core-adapter.test.js.07053bd8.log",
+      "bytes": 1488,
+      "sha256": "0d1f7895e1ec5ca6b5b70da35165f3a21c5fe8a674f6e746e22cadcbd2fa93f3"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m7-session-authority.test.js.06f5a8e3.log",
+      "bytes": 1781,
+      "sha256": "1dc90a2d18df2e71bb7235235a4dec85b39ba9dd5c36aebede62d6a9d3823f44"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m7-settings-information-core-adapters.test.js.a71ce126.log",
+      "bytes": 1725,
+      "sha256": "242403b2cd01e722dbfaccd42e26f220bc6f97a932c9f5fc763f356b26f578c1"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m7-transport-admission-policy.test.js.5bd65e6e.log",
+      "bytes": 1665,
+      "sha256": "944d0a86a7505722eea171a8a008cc1161b90d47020ccb2b4f13e38c13241a06"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m7-vpn-production-runtime.test.js.dca7e897.log",
+      "bytes": 1366,
+      "sha256": "3b54e891c893179a1582ad38962c91ed469523ff7a9363cf125f4b00348a216a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m7-vpn-runtime-config.test.js.fde44a7e.log",
+      "bytes": 1976,
+      "sha256": "05fc44b945a046da85a813b7ed00de0321414138384a5573135ebd430ad75242"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_m7-vpn-tls-listener.test.js.21c4b96e.log",
+      "bytes": 1348,
+      "sha256": "fd07a172cb8790188c4162308c9ce1b96ac25ce65e08b5598ef7431d9eb41722"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_manifest-v2.test.js.3e768afb.log",
+      "bytes": 2311,
+      "sha256": "885b0a714f1c0f66c2b5f9961c924d8ab2a3fb34c0d1fc734bf2495067430c1d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_marketplace-catalog-v125.test.js.97de319e.log",
+      "bytes": 23529,
+      "sha256": "eb19a500efb2cc8ec3d2e39997c2a3f4121276f5c017388d40fbfbc3482d341e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_marketplace.test.js.145d7584.log",
+      "bytes": 4698,
+      "sha256": "26ee669c7d18b13ccbdb6651a600e2989b5a0b3eb20af590ccd35e9b4b64c65d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_merge-compatibility.test.js.5f130be0.log",
+      "bytes": 3177,
+      "sha256": "3a633ff45f7a163d1773003c85694d65e60147e68efedaaff30c15c3e6305c1b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_merge-enforcement-integration.test.js.0b068ac4.log",
+      "bytes": 4739,
+      "sha256": "f318f58b25a0770b0e2a4bbfccc2b6a48ca577deb67e4ecb519cddf50479ddae"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_merge-engine.test.js.823c00c2.log",
+      "bytes": 8705,
+      "sha256": "ef80838e32afe963f093e06ba3a4cf55f3a19d59d96c4fe2f7aecbf3730017cc"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_metrics-collector.test.js.d48129a5.log",
+      "bytes": 1271,
+      "sha256": "d5f8851d23bb8c907360458562ab93eb57960b24f3149252e3e9ae3c8f0c8dd3"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_milestone-size.test.js.6d7afcc7.log",
+      "bytes": 2508,
+      "sha256": "1ee445671d91a09b303fe6690a1f0fcf11a7d26f9a213d65c453a7efa4f2599a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_mobile-android-release.test.js.83cb5702.log",
+      "bytes": 1938,
+      "sha256": "6583b235acf128979811dcc4ea66568b7c9741c853954f6b89d864eebb2a6737"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_mobile-approval-lifecycle-regression.test.js.382f9ce2.log",
+      "bytes": 780,
+      "sha256": "8926dc9a00e917c13bb4c46fd4ac011f37455479acfafb63a390b6e0d349bc5d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_mobile-browser-a11y.test.js.1de6224d.log",
+      "bytes": 2317,
+      "sha256": "f73d863fde21f20f5877605b9bff3a0b0ddb71669c5200304042ac3774415283"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_mobile-capability-inventory.test.js.46fb71d6.log",
+      "bytes": 505,
+      "sha256": "e63d19044bad74e48191ca7bfcfeef14ffd66451ff8b236f84f6a1426a2ea1c0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_mobile-gate-self-test.js.8d8d09c3.log",
+      "bytes": 794,
+      "sha256": "6584a5054cad576cac78f1fa476c1081e658e6cd07402b8629445a2102a5d12c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_mobile-ms07-history.test.js.9079945f.log",
+      "bytes": 1701,
+      "sha256": "d156e61620b2a4d23075a98d21ffbaa22f054ac4cd63d04cb79274b47c416086"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_mobile-ms13-approvals.test.js.da425472.log",
+      "bytes": 4935,
+      "sha256": "f0e7e5f6b9f60cbd2c6fcca95ef8e02c1a89a323a00ad43ed1f045302508d623"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_mobile-ms14-decision.test.js.f6fb816a.log",
+      "bytes": 6182,
+      "sha256": "0ecac8570a9cc498cd6a9fc6b0f068e750f8d06574184c926ea2969a25031e88"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_mobile-ms20-ui.test.js.a0b9eb4f.log",
+      "bytes": 3904,
+      "sha256": "440937e97e75521e10afa7f591eeea6a79808bd81a749f4d5900f0edb70453f3"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_mobile-navbar-ring-turn.test.js.50271dbf.log",
+      "bytes": 1509,
+      "sha256": "18a2d9ef8a76a70abf0b97304e1c608619dfca994b0be8332ebd1c3bf70a0d60"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_mobile-navbar.test.js.7c4f1227.log",
+      "bytes": 2100,
+      "sha256": "25cec0d5f051173d2d4d9acb616d096a7d3d3572e821cbd2067bbd6c06b54968"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_mobile-overview.test.js.37551d17.log",
+      "bytes": 1841,
+      "sha256": "14bf332c512305a06ffd2624ce73afd9213921d0ccb0848138d7403360c85314"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_mobile-remote-capability-contract.test.js.e64c218a.log",
+      "bytes": 1357,
+      "sha256": "00db9b62e0c8311ebdeaf38997b486974ebba1486cfe2cebb87b8ec733f84636"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_mobile-remote-capability-provider-contract.test.js.778bf1cc.log",
+      "bytes": 1621,
+      "sha256": "ab9ac8a823d75bbafe279142bffa3278f9139971a8a31532eeb508fadf6f2bec"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_mobile-remote-core-simulator.test.js.79ba563d.log",
+      "bytes": 1739,
+      "sha256": "927fcc34b4f8f984cf6d535ecb2506517471322976adc795e4dc9c6dc0e9f2f5"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_mobile-remote-core-v1.test.js.d45ee5b2.log",
+      "bytes": 1026,
+      "sha256": "afaacbfc9f0228edacbd0f7a190d69b7e36d914bae32f357497ae05bc16cce1d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_mobile-remote-session-contract.test.js.bdd0f7a4.log",
+      "bytes": 1532,
+      "sha256": "afa9a8b6566679f770524e38653529df6137a5eea503cd2889b1de1db112bf7b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_mobile-run-silence.test.js.1924ac8e.log",
+      "bytes": 1434,
+      "sha256": "b04d0d6ce4f0b000faa3fc21fe582473e134074afbdc765254a839d61238ee8c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_mobile-secure-credential.test.js.a1f840f5.log",
+      "bytes": 2602,
+      "sha256": "7ea6f54714c7a3ebddfa9d041e09235a91c540064dd642201a829b40b4bd7659"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_mobile-trust-bar.test.js.ad6effc4.log",
+      "bytes": 1924,
+      "sha256": "c978082d38e6eac742da80b3f137c5f15399826b9876f4a2b60d544673f799dc"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_model-catalog-registry.test.js.a4208391.log",
+      "bytes": 2042,
+      "sha256": "c9c419efdc6ffca7a4c007ed322d31a57b1682367e0f2011130675e8909e6b6d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_model-ctx.test.js.c0c98746.log",
+      "bytes": 2272,
+      "sha256": "2384da40575900c1e638da3529a617c105c8ee83c5f873f186e6042a73be0233"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_model-evaluation-consolidation.test.js.d30bd50b.log",
+      "bytes": 2209,
+      "sha256": "f16f2d8e50464db8cbfaefd499a46c9e7e45788378602f65ccc4864918cf7845"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_model-evaluation-read-model.test.js.b8fc9f01.log",
+      "bytes": 2464,
+      "sha256": "9432a172af124220889d587ad5e4e0f5ff44f0150791c1b7d50adfdbc82bb17c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_model-evaluation-suites.test.js.27a3b5d4.log",
+      "bytes": 3181,
+      "sha256": "810764f263b7bc242a32d068b04be4433534c51a51d8e07c72e98aa1d55bd0e4"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_model-registry-current-authority.test.js.e3bf6cfd.log",
+      "bytes": 2909,
+      "sha256": "971fa79ddeafa4a78fbff5de5c410626f9a70c1a6d81addff88b1f6b9ec8e468"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_model-similarity.test.js.38b5a255.log",
+      "bytes": 1332,
+      "sha256": "9b3426204c33d1ba2c76ba6d93d06e22c32db833e2b18f82f47bbcc2119a2eed"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_model-sweep.test.js.15949b01.log",
+      "bytes": 4491,
+      "sha256": "b1ce796dd7dc6d7d3a38be8ebbc529ebb4bb3bef7605477ae7ac491016c0101d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_model-universe-store.test.js.e53440f2.log",
+      "bytes": 2052,
+      "sha256": "a7838d1ac2eac25e86a69d6ff1cc1be851d85f04e2fd6a86882154438c1d77da"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_model-upgrade.test.js.2c7522c3.log",
+      "bytes": 7987,
+      "sha256": "e7bed9e136652db408759fbee9cf1983f03de491a4f544fbe6cb309798e3b6e8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_module-boundary-ratchet.test.js.bcb6a2a7.log",
+      "bytes": 1907,
+      "sha256": "64600678317342a3dec720fb5f8891d10a90fb2422b8a0d08250dc624c5d56cb"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_modules.test.js.0d9853e3.log",
+      "bytes": 2286,
+      "sha256": "945514dbfe39d553b3d4de47afd7a17be1226edf84b5ef032841a212f310382d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_multi-source-integration.test.js.c7dc01b1.log",
+      "bytes": 4309,
+      "sha256": "3a19dfd73d834cadea54e8258e6bd994bdfe7dd675029f481b5f8af125a0f81b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_multimedia.test.js.e1b762ed.log",
+      "bytes": 5099,
+      "sha256": "839f02c03562a2ae36f9c4dc73dce805c1c188378a02cdc3c7efb80e030e3295"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_nightly-audit-runner-self-test.js.eaa62b18.log",
+      "bytes": 8253,
+      "sha256": "e6c170c3a7e3a34d5d68eb870ef243bd84a436cf3914df2f9fb45340638f8395"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_nightly-orchestrator-self-test.js.a5ce7dd7.log",
+      "bytes": 1130,
+      "sha256": "f418a36f4b6799b64b0e5e44845628a05274d4edeb0258bae7a7597f53699724"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_notifications.test.js.4e47e960.log",
+      "bytes": 3477,
+      "sha256": "12ffd003dcef4572cd94da164110b7abb64982a021412f49f08ff32b1f66a32c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_online-discovery.test.js.aa15fbb5.log",
+      "bytes": 3838,
+      "sha256": "c3dc29331cc7e43b16a4badddfc94218e1935c11c74b5a5ce402534deb113674"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_outbound-network-optin.test.js.940a735b.log",
+      "bytes": 1012,
+      "sha256": "5a2e43ab64bc69c2be105056874087871fe9db9f8ef39157812a015e65cb6db0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_output-gate.js.c0084381.log",
+      "bytes": 359,
+      "sha256": "1d249b129cd64b72587e9c0641d71bc64fdda52d229d35ea729894fc077e8c0f"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_pairwise-trial.test.js.c9619511.log",
+      "bytes": 3947,
+      "sha256": "624a22517ecd48ab3dcea3093f906a9fe1c09a97757af75e9c724ce52d43bb9d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_patch-engine.test.js.4a81491a.log",
+      "bytes": 6531,
+      "sha256": "0844b80434d86f052d8566ba99ae54bfccfadaba93bbd47ce0774d7aa0f3a81f"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_pattern-miner.test.js.b1a72d1b.log",
+      "bytes": 3199,
+      "sha256": "ca57e2dff004cf449c95a15c86e85d57d25b63a13fd036fdd2a7ce2a707210d5"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_perf-analyzer.test.js.210cd8d3.log",
+      "bytes": 3836,
+      "sha256": "d67098afd42b80aa7f12693e054c5a1d790c9df0b025f5d4190827554c8229c6"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_pilot-c1c2c3.test.js.ea164072.log",
+      "bytes": 11748,
+      "sha256": "e979c55f14dd92a4bdcfaf8102ca2ae4ec1a93ff90ef62733e371485d2b329b0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_pre082-upgrade-regression.test.js.05d1b506.log",
+      "bytes": 1038,
+      "sha256": "25405a3d095fa09bb93343e440f4dc3b76b11db621bf2705f8b01f9f32e821a0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_project-kb-decomposer.test.js.e12475a4.log",
+      "bytes": 2900,
+      "sha256": "06b8ba435e3fdeee150afe96c8c98d53bdfaeb045d71c6a139e834203b5497e9"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_project-lifecycle-change-mgmt.test.js.0b16d3c9.log",
+      "bytes": 3015,
+      "sha256": "4f46836f6c4702bab17df9903a4a70e723139c3b9a128943b1b3bb38be7d8564"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_project-lifecycle-entry.test.js.aec6f3b7.log",
+      "bytes": 3770,
+      "sha256": "8f56b283c8fd8996d781c8e85e753110da803f1e6d198474e05370bf9d005e71"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_project-lifecycle-expertise.test.js.4c8f42ae.log",
+      "bytes": 5084,
+      "sha256": "f20e609c92aba3528978f499996dd8bd3432be37d54e2e0c4a9eaaa6aa95e6b0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_project-lifecycle-happy-path.test.js.692206b9.log",
+      "bytes": 5287,
+      "sha256": "88cadd749c07f3b53f3111dfd80c89a91581663462b1fb04c607abcadcd6ed43"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_project-lifecycle-intercept.test.js.ee1f91f2.log",
+      "bytes": 2981,
+      "sha256": "9b5d0b8cfc5210ba55e2d5ae3fdec43c5f0c73ab36c5a4f0fbec0718f1dce31d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_project-lifecycle-interrupts.test.js.c2a0fe3c.log",
+      "bytes": 3069,
+      "sha256": "d86be4e556c268ab6ffc02c02cb678fa9ef06d4b45d529cb3bb9a0ef95a64811"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_project-lifecycle-klicenka.test.js.2e54d87a.log",
+      "bytes": 6904,
+      "sha256": "c527e5ae72d916a1f0036001ee16cf33f8f69cff56035d5a16f41068ef316b75"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_project-welcome.test.js.6737c372.log",
+      "bytes": 3834,
+      "sha256": "a31a35ee9e8b19e00630052899c1ae305688cbb1af340541481352cec01be0a1"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_prompt-builder.test.js.1f5d4f90.log",
+      "bytes": 3392,
+      "sha256": "28623e473db2e62f6f51d7c4b86817abce7fd0f4540950a7659e74304797a7f7"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_qg-idempotence.test.js.6cd4c52d.log",
+      "bytes": 4717,
+      "sha256": "d5df90e47f0a1ad749c333bdba981fd4c79eebdb6cd23bbb82c606f2c2556a06"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_quality-gate.test.js.aee41042.log",
+      "bytes": 3045,
+      "sha256": "38ae18d5ea7715bc500a132fda888c933864d6c1ba746628e6c04a0ba4410916"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_quality-gates.test.js.73c54b4f.log",
+      "bytes": 4133,
+      "sha256": "13ecc735dd1e4ac0bf7b91508ff8f13382196608e180b90be290cc4950cf4a72"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_quality-report.test.js.45224b34.log",
+      "bytes": 4877,
+      "sha256": "aa3d74c8bad34cd6c9bcba58872740a627e6a99869356753ba074babf15957c1"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_quality-score.test.js.7893f2bd.log",
+      "bytes": 5028,
+      "sha256": "c2456d22f7c79d94246e4760d12b1b1379dba30332058ab3e78cd3c60f88dac9"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_quality-sprint-q.test.js.ee20f99d.log",
+      "bytes": 16416,
+      "sha256": "824070047361b272eb738192f2d320b89e6c5c2b7d4ab5f3fecdba4a06442c44"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_quality-telemetry.test.js.14fa2429.log",
+      "bytes": 4419,
+      "sha256": "fbcd5656299b5c173e88dea12332082cef10499f3b865ac3e2744cc0a4253de3"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_query-expander.test.js.e465477c.log",
+      "bytes": 2479,
+      "sha256": "1a5dcbff497c8af7fabc07c0d0160999005ccec7d81fc3759b2d717edc243a03"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_refactor-agent.test.js.a157fcc0.log",
+      "bytes": 2176,
+      "sha256": "6136590de42b06814ad555d77d594b0218c8dfc65365ba2e65eee1be3e002b95"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_regression-predictor.test.js.ef5a75ef.log",
+      "bytes": 1497,
+      "sha256": "141fac44b368830d06c9882bd3b55b4fd1cf5257c1224b431b1d6dca9f4b7cf9"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_repository-hygiene.test.js.a3416d42.log",
+      "bytes": 432,
+      "sha256": "b130eaf4885a835509d5467a882052ff8209c7f86aec898e16c08a797a7b8544"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_response-scorer.test.js.9dd70714.log",
+      "bytes": 3440,
+      "sha256": "eef224fe8267707c10258b68ea3f5bda17d3e6d13215f248e59ee93a4987264f"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_risk-analyzer.test.js.d28a1095.log",
+      "bytes": 2486,
+      "sha256": "b145db41ce1664aebc465f3e2eab97b27de49e91fa8d890faff669445f176613"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_routes-smoke.test.js.29cdbe08.log",
+      "bytes": 2101,
+      "sha256": "d7e4444f1462639ac90868044eed2f14b7d9ce4a4fb473062d7fdd061c8b66a6"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_routing-accuracy.test.js.2de4c86a.log",
+      "bytes": 3776,
+      "sha256": "f7e7207189981cdd092506f57f67530acba7d88f6a2f026a807fc70ad3eeb5f9"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_rss-integration.test.js.2fce094c.log",
+      "bytes": 1978,
+      "sha256": "22e3a6d294aa46950d596a9a46865fd0bad669c171f6d1fbb1ad45f44da0ed39"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_runtime-feedback.test.js.d2024b96.log",
+      "bytes": 2436,
+      "sha256": "af665019ef4427831b5dfbc9a44be6884b9da3dd69e7efb24ca5f684e188953a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_sazeni-engine.test.js.7bc8a419.log",
+      "bytes": 2444,
+      "sha256": "df5d2e5e1cf1e5701979605835161cf819f99dc8db0c883d3056ce4ee0255da3"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_sazeni-integration.test.js.a6879b04.log",
+      "bytes": 2723,
+      "sha256": "bc61f002908a1ab89d5793526090c6de19e4f5b71e8d269ccf4bf04d67a118c7"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_scenario-engine.test.js.b8bcfe18.log",
+      "bytes": 4864,
+      "sha256": "c129bf5336efbbd79e73f3f75dc03c8fc538997b71cc3453ab0ef28ddcd40162"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_scheduler.test.js.773fbbe5.log",
+      "bytes": 992,
+      "sha256": "934eb7dee0666100d07b38b3efabfcea41913de2490f0d4c11d3bf7cd708f333"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_schema-migrations.test.js.923a63bd.log",
+      "bytes": 11166,
+      "sha256": "42e35999b63f17325f39f14f498b15c2a0880b59e5e6bde559c1bc0f6661e1c0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_scope-limiter.test.js.f75754fe.log",
+      "bytes": 3471,
+      "sha256": "6e60be70dbb39c2c86a9431ea1943915c566c89355751ac13675ca0a221d2180"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_search-quality-a123.test.js.9dbc0432.log",
+      "bytes": 9525,
+      "sha256": "7fc6f25b92b760e5b2b7a187ba7069bc4a6d172854069bd7943acc59756e2ea5"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_security-hardening-v126.test.js.773d902f.log",
+      "bytes": 4036,
+      "sha256": "41ad226c2bf7c1f754a2df8fa1a75e1bb89627c9f8c5d69ba8094323eaa8d910"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_security-hardening.test.js.42294018.log",
+      "bytes": 4587,
+      "sha256": "e707cfe934c87c3cc56b4e300a14aa7c8565148d9b90f2fc897a49f520c53451"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_self-critique.test.js.952c17f0.log",
+      "bytes": 3384,
+      "sha256": "edcf19d5cd94b570d4b1fbb3bba9b072b45c1958c78aea4177e0a6b299a1d191"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_semantic-index.test.js.cac8e58f.log",
+      "bytes": 2186,
+      "sha256": "319fe982d49059a601180bbe7d66421a2ff5dbabe73af4cc2092e7060cced617"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_server-shutdown.test.js.11b72456.log",
+      "bytes": 1157,
+      "sha256": "66dd71db686bbe2074f9a174c82864432d86b5f809be8bf73784c23cdf9f7b72"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_session-context.test.js.14a290a1.log",
+      "bytes": 3874,
+      "sha256": "6820efb0af9a974adf86c00bc4c0d347139de878695c7a204f6f4ddf2371a85a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_signature-cache.test.js.7275b5f4.log",
+      "bytes": 1455,
+      "sha256": "31abd663ad6abde556c12bfb1256f27590c38704bec0d3032e52158a874d9705"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_signature-map.test.js.4f903ced.log",
+      "bytes": 2085,
+      "sha256": "d7870ba1dc65a87f98b53413048c65c13ba387d5f23f5cff863de7f98184305b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_signed-authority-bundle.test.js.36ce9ab8.log",
+      "bytes": 2088,
+      "sha256": "3efb645cf08a9f5e6a116de2b264d3148b5e726d48e0d45ba8abe101a10633d9"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_signed-authority-receipt.test.js.13231b5b.log",
+      "bytes": 1283,
+      "sha256": "306ece3378e1574854d641dafa621773b17de2e41443ae94213bde41a3de4da0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_skill-meta-detection.test.js.31ea2408.log",
+      "bytes": 5400,
+      "sha256": "309df2e79dab8e5fecbc3378cef93d4102a217e8de1a145f1064e314f5c8634e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_smoke.test.js.035ee810.log",
+      "bytes": 2767,
+      "sha256": "7bbefcd4b9bf394fc9e44465b5dbf3a56be77e9082a0839025bf550f000e024a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_soak_attachment-heavy.test.js.028d4a9f.log",
+      "bytes": 3180,
+      "sha256": "ffe581666fdd687d79c12c40d7fdca1f2b0a4ef0b337b7d1467903490efaa219"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_soak_break-pattern-probe.test.js.32abfca0.log",
+      "bytes": 5024,
+      "sha256": "0a8cd98cac7a9e14c44397b960c52d352da3a2470f2c090a16f75e75664c0adf"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_soak_followup-load.test.js.9d0a2bbb.log",
+      "bytes": 3118,
+      "sha256": "b68d6edf894d2fb0dc6d3736548bfc30446bd133b08ca05225ef2afbbdffa0c4"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_soak_mixed-session-simulation.test.js.1854ca93.log",
+      "bytes": 5524,
+      "sha256": "e5952d19c6d949a3780d78c6a733d833457e82d1731146df97b53df04b14759a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_soak_short-input-stress.test.js.5c6da97c.log",
+      "bytes": 2213,
+      "sha256": "0416b9db056f0cf2bab780fe7588fb687343cb984527ba67ed5658ee9ae057fa"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_specialist-boundary-ratchet.test.js.fe5330e3.log",
+      "bytes": 2771,
+      "sha256": "31e0d407c0d8fac2c305c61d26f1aec373b1d91f1cdffc1ae3bd10f5adbf8187"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_specialist-handler.test.js.d87a4b91.log",
+      "bytes": 2129,
+      "sha256": "66308bd848b36c04e4272e6f3605686b2e04a6da7101af197d28ed28f3559bb6"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_specialist-loader.test.js.a3a77659.log",
+      "bytes": 18297,
+      "sha256": "4f784be036a67039b1b91ddf1939f6ca9a106d2d0bb4557a1bfa56706e2e22a5"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_specialist-registries.test.js.bf24136d.log",
+      "bytes": 2710,
+      "sha256": "0187b36b31baa2f634f0a27bbbe4e660bb682ecd01dd6436cb5cc7d6c08e6a2a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_specialist-runtime.test.js.a85c3247.log",
+      "bytes": 2068,
+      "sha256": "656234ac32e2821189b1995db4b28957259aac793b11d2c1bfb8086e9c24dddc"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_storage-architecture.test.js.ab625acc.log",
+      "bytes": 4929,
+      "sha256": "01e83de37b20f1310e83ea786768cee1e9ea6a1820e1d4101e5b1c909aa09d1f"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_studio-cdp-evidence.test.js.9c641f6c.log",
+      "bytes": 5498,
+      "sha256": "43f2c4423c58d43a698a8ad1ed9a808f0903893b963e5bdefcd5bc2900672ed9"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_studio-electron-runner-contract.test.js.6ca72b4c.log",
+      "bytes": 3290,
+      "sha256": "65a44294d8b4b643e98845cdb03b544fd75379808b99feb098df93ab0969bfb0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_symbol-index.test.js.3f5b6b47.log",
+      "bytes": 2767,
+      "sha256": "3fd27313f8273ab693cb5ffbce24f33c1a5af83d0f351f70214a2378a1196445"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_task-memory.test.js.fecbeace.log",
+      "bytes": 3521,
+      "sha256": "6823d630d844860bc865f17e2f4476092467b1aebbb06cd7b49dc71e5d892b97"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_telemetry-aggregation-version.test.js.cb07bde9.log",
+      "bytes": 739,
+      "sha256": "9151a817eb27be35bc3f3e32a5111b66f779d5185c056ceefe09be96158736f2"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_telemetry-soak.test.js.ce4d8b6f.log",
+      "bytes": 7930,
+      "sha256": "45419bfddd7973d92ecfab7be70f14f60ff845639b420b03f963af410932e2b6"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_telemetry.test.js.fc6a4cbb.log",
+      "bytes": 3197,
+      "sha256": "a67fa75c6e463a01d5b58caa1e3d2ce6835e6ecc099b46fe34152bcc7bedfde8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_test-coverage-explorer.test.js.6399b7e8.log",
+      "bytes": 1644,
+      "sha256": "58f35d7e9a8bc9b76f59935939d399acd1dd9454755aa51c6ced12776ca45b80"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_timeout-policy.test.js.d35141af.log",
+      "bytes": 1580,
+      "sha256": "22e64b06e024d8fefcadec2f0bd94e493527e91240244deef47fe461745e1625"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_tool-adapter.test.js.28116845.log",
+      "bytes": 4871,
+      "sha256": "ff704451a4e5499e2c033f5f6ca12ffd6986c61fe48c3a5a5b9ce2913650b190"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_tool-enforcement.test.js.4fdf838a.log",
+      "bytes": 2270,
+      "sha256": "aeb7390389da3697ef5dbc05f51da3a0b4002c31223594e96281c4431ff992e1"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_tool-registry-e2e.test.js.17b582ac.log",
+      "bytes": 7114,
+      "sha256": "3f025e8e5f16804954b01b24fd775d0299c7e32bc97304dbdffd6ca0aaf6f494"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_trust-feedback.test.js.2a3eab25.log",
+      "bytes": 2089,
+      "sha256": "07a9fdd7f3015cc6eaa03c558dc3d71d04daa22e5d2e394cd2b7c1d451d67876"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_upgrade-ux-v125.test.js.3c8c114b.log",
+      "bytes": 4507,
+      "sha256": "87b95c0891a9704e9318f87a0dadd7483700221c5941779f6b8c698735f01144"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_v583-tier1.test.js.7e11e0df.log",
+      "bytes": 2080,
+      "sha256": "8163007b8ba730cf79ebd0569c40b2a5ffd7943fba88442982e940cb1be03be4"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_vram-coordination.test.js.ce95bd63.log",
+      "bytes": 5928,
+      "sha256": "5689b3a5a738eacadcd79e732c82b6a8c37612447f4c280686f660aabff5fde3"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_vram-measurement.test.js.a8bd317d.log",
+      "bytes": 3041,
+      "sha256": "26ab26f4a80d76bbe504014949263b4b2943e128f00b82fbe43a5b2b00e20d0b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_whatllm-client.test.js.8c50c891.log",
+      "bytes": 1260,
+      "sha256": "f1a41a2747324b998c154a41512af488b96350425ec95fc6933ce73bfce1afa4"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_workers-phase-b.test.js.1401de1c.log",
+      "bytes": 11652,
+      "sha256": "61220ba6b11221bfbc315ed02b0919ccd6f81c2b92549c7303e274c145be2eca"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_workflow.test.js.fd67265b.log",
+      "bytes": 4594,
+      "sha256": "bb79129c91c66cf1a5d30bb10c4a0cf7c8730b8a9563780b2243bfff45550c58"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_workspace-budget.test.js.c7909519.log",
+      "bytes": 1007,
+      "sha256": "3da2b35a626721653b350d83aaf84e4517d71f3bb1139e0289248ae2822bd238"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/logs/tests_ws-bridge.test.js.5d681a8b.log",
+      "bytes": 7084,
+      "sha256": "06ddaba32e899ee7d203705d12561c45bec9e5e5639e8144c591641edb6abb13"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-10/ide-workspace-profile/report.json",
+      "bytes": 1531819,
+      "sha256": "c3a4acf7a2a9d3519dbe2aa9820d39257e769c4fb39fe8628e85d19427872280"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-2/ide-workspace-remediated/logs/tests_nightly-orchestrator-self-test.js.a5ce7dd7.log",
+      "bytes": 1130,
+      "sha256": "a2c1b16dec90d06009cd97697fd11657ffd3cebb48a8f35353e7420207fbf530"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-2/ide-workspace-remediated/report.json",
+      "bytes": 1540444,
+      "sha256": "977f954d53b8344d8d18bf4697256ea7a82a0e767ff93053c60b766519e24501"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-3/ide-workspace-integrated/logs/tests_nightly-orchestrator-self-test.js.a5ce7dd7.log",
+      "bytes": 1130,
+      "sha256": "3b15e486ee3b08f64e48f146ad31c6f636e0c2797a896818fe42a7810c40a95e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-3/ide-workspace-integrated/logs/tests_repository-hygiene.test.js.a3416d42.log",
+      "bytes": 1133,
+      "sha256": "8c42729e38fef54f6a3c93d32f25ca30fcc984ef9c61d8e3e676a5a4cbd235f8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-3/ide-workspace-integrated/report.json",
+      "bytes": 1540449,
+      "sha256": "82617c7bf5570791fe9481aa9e33c2c5cd051e8843b04468a40b6ee8e5f985bb"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-4/ide-workspace-final/logs/tests_nightly-orchestrator-self-test.js.a5ce7dd7.log",
+      "bytes": 1130,
+      "sha256": "425f082440d5e454b1de0b787d575eb7c4b2d10ac43614bdbbaa741c35be93bd"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-4/ide-workspace-final/report.json",
+      "bytes": 1518829,
+      "sha256": "b1f74ee7de6a95580d17e1b6b236ce517bb5bb093e8d16cb71b1a2f7ce9fea98"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-5/ide-workspace-release/logs/tests_nightly-orchestrator-self-test.js.a5ce7dd7.log",
+      "bytes": 1130,
+      "sha256": "98d481f097becd76f1a46d3264f49771127f11b777ea7d2d2e34a6e914b15a7a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-5/ide-workspace-release/report.json",
+      "bytes": 1527472,
+      "sha256": "d2726f4f6ad64dc2dfcfe62b68b8bc3936eb222c7b8cfe3d902e658b0e366445"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-6/ide-workspace-deployed/logs/tests_nightly-orchestrator-self-test.js.a5ce7dd7.log",
+      "bytes": 1130,
+      "sha256": "f3d9e55f6be9c95e880207fd30f75e56f85f140cc8620851270cc29ed751b925"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-6/ide-workspace-deployed/report.json",
+      "bytes": 1531807,
+      "sha256": "3afcce86f0a0513e024d3bc504915a6ca00734735a435f4736690eb84df4776e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-7/ide-workspace-installed/logs/tests_nightly-orchestrator-self-test.js.a5ce7dd7.log",
+      "bytes": 1130,
+      "sha256": "6b7a00ffa52f1b803c981283345ebaa1193428adfc3ddd1390427d31abf25a28"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-7/ide-workspace-installed/report.json",
+      "bytes": 1536131,
+      "sha256": "fe50072b208c8014882da9cf8478f0639f7b80a09baa0b8316f863e872db3fd8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-8/ide-workspace-upgrade/logs/tests_artifact-validation.test.js.9a54c027.log",
+      "bytes": 13953,
+      "sha256": "5b0bab7cf9bd8a2a91bcece5e290f72f07b264e5188d7b5ee3b3c76179c0252e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-8/ide-workspace-upgrade/logs/tests_harness-exit-code.test.js.a34d228f.log",
+      "bytes": 1156,
+      "sha256": "d1645d8dd02d2791f3c997970580c3b0469c861f0650e069cde590c09ddfaf8b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-8/ide-workspace-upgrade/logs/tests_nightly-orchestrator-self-test.js.a5ce7dd7.log",
+      "bytes": 1130,
+      "sha256": "80566fdde213d9db35ed3fa9ccbba2a807d7db3fb90b20e0fc0ea8fbe1c36d78"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-8/ide-workspace-upgrade/report.json",
+      "bytes": 1527477,
+      "sha256": "c5e2b080ac4e0a6a09e51131336f9396d198a5bb0868af116e4f43f0983dc94d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-9/ide-workspace-ready/logs/tests_nightly-orchestrator-self-test.js.a5ce7dd7.log",
+      "bytes": 1130,
+      "sha256": "e096b7f5d15ec4b15a10bdff74d76274cef43e7d5cc9eb6cdbb57c394127128c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gate-9/ide-workspace-ready/report.json",
+      "bytes": 1518872,
+      "sha256": "f3ac160f2e6c9d6b390f3a57acf95bb7458cfd81c111d272a97277b5942b993a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gui/editor-save.json",
+      "bytes": 293,
+      "sha256": "44627dec5b87e702ecf12ab23969c40504f1bbe82fd1f1176b97d36456d797c2"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gui/external-import.json",
+      "bytes": 179,
+      "sha256": "35ba48818cdcc1696ec8187ab9d39aba92510921268870e6b973c5d0a39bdaa2"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gui/late-events.json",
+      "bytes": 227,
+      "sha256": "7a78d60632fe02a059b5e7b70dbc93f5cc82454560646f83dd9f28270d70c432"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gui/resize-failed-before-focus-fix.json",
+      "bytes": 548,
+      "sha256": "9cf76445ad8f71403693d1820d592251f9c119915445751e66be4f6dd7af5591"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gui/resize-results.json",
+      "bytes": 1703,
+      "sha256": "33d3243ea48dd898ce176c7b461d4398b209378fb48dce620a4885b9d77e580e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gui/screen-1789733942574.png",
+      "bytes": 91074,
+      "sha256": "0bb89ed4364b5fcfdcb5ed2b69ff859c62f9c50a86a6785c88e43d093d9537f3"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gui/settings-final.png",
+      "bytes": 94133,
+      "sha256": "65f40c8146458904c2d3da0febdee01bf037b0e1942c272d9ea6d5dbdd14b4c3"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gui/transcript.log",
+      "bytes": 22527,
+      "sha256": "6ba6e4853ed20c5c624081fde50dce21f574eaa864ed08afec7b51cde3d7712f"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/gui-late-events.log",
+      "bytes": 122,
+      "sha256": "37e3e53a4dd7a5da6879c2d180736ebb60af023b43e22b2ebd6e6de8db02c769"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/install-final.log",
+      "bytes": 472,
+      "sha256": "5ca43c84df9fc197d0fad19e75f9bbd28e64f81e31c7bc9ff0446bdb6f909cae"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/launcher-check.log",
+      "bytes": 73,
+      "sha256": "b55c1aa25907a0e0dcaa4f30e71bd4818699b4bce716d7dd479145201621455a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/m5-model-caption-false-positive.log",
+      "bytes": 935,
+      "sha256": "4c6ba5224bd348aae006ddf0236dbe682951ee6ae91d581f2e211e843c7ca22e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/m5-profile.log",
+      "bytes": 870,
+      "sha256": "db08c98589647326f6a104a120444dbd938e36fb8334740153ee3b97ffcddcec"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/migration-upgrade-regression.log",
+      "bytes": 1114674,
+      "sha256": "a6afbe19cbac549af9bde60786fbfcd86f207ea9d5f8f86c5408de2b3ad39499"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/original-upgrade-data.log",
+      "bytes": 366,
+      "sha256": "68e3ac2f6096e266bddc87721262528918c388be80023a21f8de03b775bd2252"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/profile-compatibility.json",
+      "bytes": 282,
+      "sha256": "f1709778e7dc9ecaab5e216ce41aaaf52454151f67262267b35c984cc0036e7a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/profile-final-targeted.log",
+      "bytes": 88397,
+      "sha256": "bfe0242a44c17b303ff52304d1da3821ae1954716a34a7fca0239f297e6842c5"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/real-database-migration-probe.log",
+      "bytes": 502,
+      "sha256": "c50f358ab5cda098f22d37fefce99ef29ad6821720451da724f53d4acb675282"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/registry-deploy.log",
+      "bytes": 116,
+      "sha256": "497b806588c6f82da7033f07bd42dbfe20fe3140f2e7ddd25fba144283b0a2f0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/resize-deploy.log",
+      "bytes": 1106,
+      "sha256": "e0e543de3d2db0485e1c0e0bf760c980b7e8eec700c4b70b27a96413775bf796"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/runtime-source-equivalence.json",
+      "bytes": 416,
+      "sha256": "57b16f11d12eed8a85920f61c7a83bceda8f219af7f37f27941973a4c1099ea9"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-workspace-20260918/startup-recovery-targeted.log",
+      "bytes": 21367,
+      "sha256": "855cb6066612fc1dad1b53d5910e346a1a93a5e034ffc6d0201737ff8357a302"
+    }
+  ]
+}

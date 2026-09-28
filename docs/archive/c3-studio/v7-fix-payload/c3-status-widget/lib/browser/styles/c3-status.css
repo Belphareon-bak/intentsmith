@@ -1,0 +1,3 @@
+/* C3 Status Bar — v7 */
+.c3-status-connected { color: var(--c3-accent-text) !important; }
+.c3-status-disconnected { color: var(--c3-tx-4) !important; }

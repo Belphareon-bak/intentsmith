@@ -1,0 +1,183 @@
+/**
+ * IntentSmith Diff Viewer Styles
+ */
+
+/* ─── Toolbar above diff editor ─────────────────────────── */
+
+.intentsmith-diff-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: var(--theia-editor-background);
+  border-bottom: 1px solid var(--theia-panel-border);
+  flex-shrink: 0;
+}
+
+.intentsmith-diff-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.intentsmith-diff-toolbar-file {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--theia-foreground);
+  font-family: var(--theia-code-font-family);
+}
+
+.intentsmith-diff-toolbar-desc {
+  font-size: 12px;
+  color: var(--theia-descriptionForeground);
+  max-width: 400px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.intentsmith-diff-toolbar-stats {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  font-family: var(--theia-code-font-family);
+}
+
+.intentsmith-diff-stat-add {
+  color: #4ade80;
+}
+
+.intentsmith-diff-stat-del {
+  color: #f87171;
+}
+
+.intentsmith-diff-toolbar-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* ─── Action Buttons ────────────────────────────────────── */
+
+.intentsmith-diff-btn {
+  padding: 4px 12px;
+  border: 1px solid;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.15s;
+  font-family: var(--theia-ui-font-family);
+}
+
+.intentsmith-diff-btn.accept {
+  background: rgba(74, 222, 128, 0.12);
+  border-color: rgba(74, 222, 128, 0.3);
+  color: #4ade80;
+}
+
+.intentsmith-diff-btn.accept:hover {
+  background: rgba(74, 222, 128, 0.2);
+}
+
+.intentsmith-diff-btn.reject {
+  background: rgba(248, 113, 113, 0.12);
+  border-color: rgba(248, 113, 113, 0.3);
+  color: #f87171;
+}
+
+.intentsmith-diff-btn.reject:hover {
+  background: rgba(248, 113, 113, 0.2);
+}
+
+.intentsmith-diff-btn.edit {
+  background: rgba(96, 165, 250, 0.12);
+  border-color: rgba(96, 165, 250, 0.3);
+  color: #60a5fa;
+}
+
+.intentsmith-diff-btn.edit:hover {
+  background: rgba(96, 165, 250, 0.2);
+}
+
+.intentsmith-diff-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ─── Inline Diff Display (fallback when Monaco diff unavailable) ── */
+
+.intentsmith-diff-inline {
+  font-family: var(--theia-code-font-family);
+  font-size: var(--theia-code-font-size);
+  line-height: 1.5;
+  overflow: auto;
+  padding: 8px 12px;
+  background: var(--theia-editor-background);
+}
+
+.intentsmith-diff-line {
+  white-space: pre;
+  padding: 0 4px;
+}
+
+.intentsmith-diff-line.add {
+  background: rgba(74, 222, 128, 0.1);
+  color: #86efac;
+}
+
+.intentsmith-diff-line.del {
+  background: rgba(248, 113, 113, 0.1);
+  color: #fca5a5;
+}
+
+.intentsmith-diff-line.context {
+  color: var(--theia-descriptionForeground);
+}
+
+.intentsmith-diff-line.hunk-header {
+  color: #a78bfa;
+  background: rgba(167, 139, 250, 0.06);
+  font-weight: 500;
+}
+
+.intentsmith-diff-line-number {
+  display: inline-block;
+  width: 50px;
+  text-align: right;
+  padding-right: 8px;
+  color: var(--theia-editorLineNumber-foreground);
+  user-select: none;
+  opacity: 0.5;
+}
+
+/* ─── Status Badge (for review panel list) ──────────────── */
+
+.intentsmith-diff-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.intentsmith-diff-status-badge.pending {
+  color: #facc15;
+  background: rgba(250, 204, 21, 0.12);
+}
+
+.intentsmith-diff-status-badge.accepted {
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.12);
+}
+
+.intentsmith-diff-status-badge.rejected {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.12);
+}
+
+.intentsmith-diff-status-badge.edited {
+  color: #60a5fa;
+  background: rgba(96, 165, 250, 0.12);
+}

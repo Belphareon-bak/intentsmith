@@ -1,0 +1,50 @@
+{
+  "id": "brainstorm",
+  "version": 1,
+  "description": "Strukturovaný brainstorming s využitím kreativních technik SCAMPER a 6 myslitelských klobouků",
+  "parameters": {
+    "topic": {
+      "type": "string",
+      "required": true,
+      "description": "Téma nebo problém k brainstormingu (např. nový produkt, řešení problému, inovace)"
+    }
+  },
+  "steps": [
+    {
+      "id": "clarify",
+      "type": "ask",
+      "prompt": "Chystám se na strukturovaný brainstorming na téma **{{topic}}**.\n\nPůvodní zadání: {{input}}\n\nPotřebuji upřesnit:\n- Jaký je kontext? (startup, firma, osobní projekt, akademický výzkum)\n- Existují omezení? (rozpočet, čas, technologie, regulace)\n- Pro koho je výstup určen? (tým, investor, klient)\n- Preferuješ kreativní šíři (co nejvíc nápadů) nebo hlubší analýzu vybraných?\n- Jsou oblasti, které chceš vyloučit nebo naopak zdůraznit?"
+    },
+    {
+      "id": "draft",
+      "type": "llm",
+      "prompt": "Proveď strukturovaný brainstorming na téma: {{topic}}\n\nPůvodní zadání: {{input}}\nKontext a omezení: {{steps.clarify.output}}\n\nPoužij tyto kreativní techniky:\n\n**1. SCAMPER analýza:**\n- **S**ubstitute (nahradit) — co můžeme nahradit?\n- **C**ombine (kombinovat) — co můžeme spojit?\n- **A**dapt (přizpůsobit) — co můžeme adaptovat odjinud?\n- **M**odify (upravit) — co můžeme zvětšit, zmenšit, změnit?\n- **P**ut to other use (jiné využití) — k čemu jinému to lze použít?\n- **E**liminate (odstranit) — co můžeme vynechat?\n- **R**earrange (přeskupit) — co můžeme přeuspořádat?\n\n**2. 6 myslitelských klobouků (de Bono):**\n- Bílý: Fakta a data\n- Červený: Emoce a intuice\n- Černý: Rizika a kritika\n- Žlutý: Přínosy a optimismus\n- Zelený: Kreativní alternativy\n- Modrý: Proces a syntéza\n\nVygeneruj minimálně 10 nápadů. U každého uveď:\n- Stručný popis (1-2 věty)\n- Potenciální přínos\n- Hlavní riziko nebo překážka\n- Hodnocení proveditelnosti (nízká / střední / vysoká)\n\nNa závěr vyber TOP 3 nápady a zdůvodni výběr.",
+      "systemPrompt": "Jsi kreativní facilitátor a innovation coach. Generuješ originální nápady s využitím strukturovaných kreativních technik. Piš česky, energickým a inspirativním tónem.",
+      "format": "plain",
+      "temperature": 0.7,
+      "maxTokens": 4096
+    },
+    {
+      "id": "review",
+      "type": "review",
+      "content": "{{steps.draft.output}}",
+      "prompt": "Zkontroluj výsledky brainstormingu. Pokud jsou v pořádku, napiš **ano**. Pokud chceš úpravy, popiš co změnit (např. přidat nápady v určitém směru, rozvinout konkrétní nápad, změnit TOP 3):"
+    },
+    {
+      "id": "refine",
+      "type": "llm",
+      "prompt": "Uprav výsledky brainstormingu na téma {{topic}} podle zpětné vazby.\n\nZpětná vazba: {{steps.review.output}}\n\nPůvodní výstup:\n{{steps.draft.output}}\n\nPokud uživatel schválil beze změn, vrať původní text.\nPokud jsou požadované změny, zapracuj je — přidej nové nápady, rozviň vybrané nebo uprav TOP 3.\n\nVýstup musí být kompletní finální verze brainstormingu.",
+      "systemPrompt": "Jsi kreativní facilitátor. Zapracuj zpětnou vazbu a zachovej strukturovaný formát brainstormingu. Piš česky.",
+      "format": "plain",
+      "temperature": 0.5,
+      "maxTokens": 4096
+    },
+    {
+      "id": "validate",
+      "type": "validate",
+      "content": "{{steps.refine.output}}",
+      "criteria": "Výstup obsahuje minimálně 10 nápadů s popisem, přínosem a hodnocením proveditelnosti. Obsahuje TOP 3 výběr se zdůvodněním. Celkový rozsah min 800 znaků.",
+      "failMessage": "Brainstorming nesplňuje požadovaná kritéria — chybí dostatečný počet nápadů nebo TOP 3 výběr. Zkus skill spustit znovu."
+    }
+  ]
+}

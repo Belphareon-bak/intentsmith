@@ -1,317 +1,593 @@
 # IntentSmith
 
-**A local-first control plane for AI-assisted software work.**
+**Aktuální vývojový základ — 28. 9. 2026:** `main` sjednocuje vývoj vycházející
+z C3 a zdroj právě používaného **IDE 2.0**. Základ `04f2be71` obsahuje backend
+`c84b88cd` a frontend `79c19096`; nasazení a jeho otevřené review popisují
+[aktuální provozní instrukce](docs/studio2/PRODUCTION.md).
+**IMPLEMENTATION_VERIFIED / REVIEW_PENDING; M5/M6 nejsou přijaté.**
 
-IntentSmith turns a developer's intent into a controlled, inspectable workflow: plan the work, choose a local model or worker, enforce boundaries, collect evidence, and decide whether the result actually passed.
+Nové pracovní větve vycházejí z `main`; schválené milníky se vždy pushují
+a po integračních kontrolách vracejí do společné větve. Původní samostatný
+pnpm/OpenCode projekt z GitHub `main` je zachován v
+[`archive/main-before-reconcile-20260928`](https://github.com/Belphareon-bak/intentsmith/tree/archive/main-before-reconcile-20260928)
+a v merge historii. [Rozsah sjednocení a ověření](docs/review/2026-09-28-MAIN-RECONCILIATION.md).
+Samostatné novější hunt/intent kandidáty toto sjednocení nepřijímá.
 
-It is designed for developers who have capable local hardware and want useful coding agents without making a cloud subscription or remote inference a requirement.
+GitHub CI ověřuje vývojový výřez registru, modulových hranic, soukromí a
+Studia 2; celý offline/database profil a fyzické release scénáře jsou
+samostatné důkazy. Starší checkpointy níže zůstávají historickou evidencí.
 
-## What IntentSmith is
+## Historické checkpointy
 
-IntentSmith is the product and the control plane. It is not another chat wrapper and it is not a single all-powerful agent.
+**GPU hunt, finální měření 19. 9.: NO-GO pro autonomní provoz.**
+Všech sedm rolí změřeno na `89531748`, přijatých profilů 0/7; produktová
+integrace a nezávislá kvalifikace nejsou dokončené. Timer zůstává vypnutý.
+[Výsledky, konkrétní nedodělky a celý podklad pro review](docs/review/2026-09-19-GPU-HUNT-FINAL-REVIEW.md).
 
-| Concern | Owner |
-| --- | --- |
-| Task state, policy, approvals, audit and verdicts | IntentSmith Core |
-| Local inference | Provider adapters, beginning with Ollama |
-| Coding task execution | IntentSmith Workers, beginning with OpenCode |
-| Domain-aware response behaviour | IntentSmith Expertises |
-| Controlled repeatable workflows | IntentSmith Skills |
-| Tool-backed domain execution | IntentSmith Specialists |
-| Scheduled monitoring and automation | IntentSmith Autonomous Agents |
-| Visual development environment | IntentSmith Studio |
-| Desktop distribution | IntentSmith Forge Local |
-| Automation and scripting | `intentsmith` CLI |
+Nové rozvržení a ovládání: [pracovní prostory IDE](docs/IDE-WORKSPACE.md).
 
-`IntentSmith Forge Local` remains working naming until trademark, repository and
-domain checks are complete. The CLI package is `intentsmith`; the Core package
-is `intentsmith-core`.
+Nové projektové flow a import: [ověřený rozsah a provozní blok](docs/review/2026-09-18-PROJECT-FLOW.md). Nasazený kandidát `5e46fca7` ještě není production-ready.
 
-Phase 1 delivered the deterministic vertical slice. Phase 1.1 audited it and
-hardened the boundaries. Phase 2 added the first real local inference provider.
-Phase 3 delegates a coding task to a real external agent — the pinned
-`opencode-ai` binary, speaking ACP as a supervised child process — without
-giving it any authority. Inference reaches only a loopback gateway behind a
-token that dies with its run; a risky action needs a single-use approval bound
-to the exact payload; shell is denied outright; what changed is read from Git
-rather than believed; and an interrupted run is reconciled after a restart
-without a restart ever counting as consent.
+Local-first AI pracovní prostředí pro technického power usera: konverzace,
+porozumění projektům a řízené provádění práce na vlastním hardwaru. Cílem je
+žádný tichý outbound; operátorsky ponechané default-on model discovery prochází
+přesný origin/scope gate a append-only audit, zatímco všechny ostatní externí
+fetch cesty bez deklarované autority selžou před spojením. Současný
+autoritativní IntentSmith Studio runtime už neobsahuje implicitní Google Fonts egress.
+Studio používá Theia runtime s motivy a ovládáním IntentSmithu.
 
-Phase 3 is a **closure candidate**: complete and verified locally, published as
-PR #4, and green in CI on the integrated code tree. It is not merged or tagged.
-See `docs/STATUS.md`,
-`docs/testing/phase-3-results.md` and
-`docs/testing/phase-3-acceptance-matrix.md`, which records what is proven, what
-is only partly proven, and what the project deliberately does not claim.
-Earlier phases: `docs/testing/phase-1-1-results.md` and
-`docs/testing/phase-2-results.md`.
+**Verze:** 136.1.0, vývojový kandidát 1.0. Aktuální počty testovacích programů
+jsou v [generovaném registru](docs/convergence/TEST-REGISTRY.md):
+**552 registrovaných testovacích programů**
+(`458 ACTIVE`, `79 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).
 
-The control plane remains authoritative. Providers infer, workers propose and execute within an explicitly granted scope, and deterministic gates decide whether the evidence is sufficient.
+**Navazující M5 review, 2026-09-17:** historický inventář doplněn o zveřejněný
+TLS testovací klíč a certifikát: 15 známých objektů. Pár je trvale vyřazený;
+nový podpis vyžaduje čerstvé důkazy nad doplněným manifestem. [Remediace](docs/review/2026-09-17-M5-TLS-HISTORY-REMEDIATION.md).
+Osm starších instalací obsahuje zbytkové kopie páru; jsou inventarizované
+a ponechané beze změn. Aktivní `d4dea0bb` je bez starého páru. Restart hostu
+21:20 přerušil původní soak (FAIL/SIGTERM); nový 24h běh na `d4dea0bb`
+začal 21:26 CEST a není dosud PASS. Tato větev nemění živou instalaci.
 
-Expertises, Skills, Specialists and Autonomous Agents are separate product
-concepts. They are not aliases:
+**Předchozí instalace a validační checkpoint, 2026-09-17:** backend, Studio
+a hunt jsou sjednocené na `c2989a3e`. Úplný offline/database profil:
+**358 PASS / 1 FAIL / 0 BLOCKED**; jediný FAIL je neobnovená release pečeť.
+Dalších 6 HTTP programů / 134 kontrol, produkční Studio build a 5minutové
+měření health endpointu prošly. Skutečný 24hodinový test stability běží od
+18:29 CEST; výsledek dosud není známý. GPU testy blokuje nesoulad NVIDIA
+ovladače a knihoven. **Release není přijatý**: chybí zbývající M5/M6 důkazy
+a nezávislé review. [Přesný stav a reprodukce](docs/review/2026-09-17-PRODUCTION-CLOSEOUT.md),
+[aktuální větev](https://github.com/Belphareon-bak/intentsmith/tree/work/production-closeout-20260917).
 
-- an **Expertise** changes synthesis style, depth, vocabulary and caution without
-  changing the selected intent;
-- a **Skill** is a versioned workflow with explicit steps, checkpoints and a
-  result contract;
-- a **Specialist** is a self-contained plugin combining deterministic tools,
-  knowledge, scenarios and one or more referenced expertises;
-- an **Autonomous Agent** monitors sources and evaluates deterministic triggers
-  over time, creating Core-governed actions or tasks;
-- a **Worker** executes one task run through an adapter such as OpenCode.
+Přijaté milníky M0–M4 nejsou přijetím celého releasu. M5 ještě vyžaduje
+podepsané privacy podklady a správu operátorských klíčů. Ohraničený fyzický
+scénář Studio → model → schválení dvou souborů → test → restart → obnova DB
+prošel a jeho [review nemá blokující nález](docs/review/2026-09-12-PRODUCTION-JOURNEY-REVIEW-RECEIPT.md).
+M6 stále vyžaduje zbývající release důkazy a přijetí; tento scénář neprokazuje
+obecnou autonomní kvalitu rozsáhlých změn. Předchozí společné core/hunt změny
+mají celý gate **353/353 PASS** a produkční Studio build na `20e5a022`,
+jejich [nezávislé review zůstává otevřené](docs/review/2026-09-12-HUNT-REVIEW-FOLLOWUP.md).
+Opravy revize 17. 9.: přepínače automatické paměti mají skutečné konzumenty,
+legacy učení je projektově oddělené a agentí ovládání ověřuje native výsledek.
+Chat bez historie zůstává nepodporovaný a API jej už nepotvrzuje; dřívější
+vypnutí blokuje nové tahy. Následné re-review našlo únik do kompatibilního logu
+a chybějící kontrolu pracovní paměti; [navazující oprava a důkazy](docs/review/2026-09-17-PRIVACY-PANELS-REREVIEW.md)
+zachovávají původní verdikt `CHANGES_REQUIRED` do nového nezávislého přijetí.
+`memory.saveContext=false` blokuje automatické obnovení i zápis projektového
+cíle, aktivního souboru a artefaktu, také v otevřených relacích. Výslovně nově
+zadaný cíl může řídit aktuální relaci bez uložení do pracovní paměti. Dříve
+uložené položky se nemažou; existující historie chatu je samostatná funkce.
+Aktuální autorita:
+[PRODUCT](PRODUCT.md), [ROADMAP](ROADMAP.md), [SYSTEM-MAP](SYSTEM-MAP.md).
 
-See [Domain intelligence and autonomy](docs/product/domain-intelligence.md).
+**Předchozí integrační checkpoint specialistů `3f005fc0`:** původní větev
+`codex/specialists-studio-20260917`,
+[oprava seznamu, PDF/HEIC a dokumentového workflow](docs/review/2026-09-17-STUDIO-SPECIALISTS.md).
+Snapshot `3f005fc0` zachoval časový kontext i opravy soukromí
+a rozměrů panelů z `3bbf8bc1`; vše obsahuje aktuální instalace uvedená výše.
+Účetní výstupy vyžadují kontrolu; živý Sázkař má aktuálně nedostupný zdroj
+historie. Nezávislé review této integrace zůstává otevřené.
 
-## Current state
 
-Phase 2 is the current stable baseline:
+**Předchozí společný kandidát specialistů, soukromí a panelů:** větev
+[`work/privacy-panels-rereview-20260917`](https://github.com/Belphareon-bak/intentsmith/tree/work/privacy-panels-rereview-20260917),
+[opravy re-review a bočních panelů](docs/review/2026-09-17-PRIVACY-PANELS-REREVIEW.md).
+Zachovává [opravu obecného časového kontextu](docs/review/2026-09-17-CHAT-CLOCK-REVIEW.md).
+Obsahuje také [opravy soukromí a agentů](docs/review/2026-09-17-PRIVACY-AGENT-REMEDIATION.md).
+Předchozí desktopová revize zůstává na `work/desktop-hunt-20260917`.
+Předchozí společný core/hunt je na `work/hunt-review-followup-20260912`.
+[Publikační ověření z 2026-09-17](docs/execution/runs/github-publication-20260917.json)
+má **353/353 PASS** na `26a038db`; původní běh 352 PASS / 1 FAIL je zachovaný.
+Opravený test řídí čas kolem hranice stáří dat, produktová kontrola se nemění.
+Dokončený repo panel z 2026-09-12 má 12 kandidátů bez chyb rolí;
+13 z 38 duelů mělo nedostatečný důkaz. Doporučení Devstralu pro R2 samo
+binding neaktivuje. Přesné kontrakty, výsledky a omezení jsou v
+[modelové dokumentaci](docs/MODEL-SCORING-ACTIVATION.md).
 
-- a TypeScript/pnpm monorepo with runtime-validated contracts;
-- separate `Task` and `TaskRun` lifecycle records;
-- SQLite persistence with migrations, WAL, transactions and append-only audit;
-- evidence-based verdicts and deterministic verification;
-- a localhost-only Fastify API and `intentsmith` CLI;
-- a hardware director and an Ollama inference adapter;
-- a capability-scoped, loopback-only worker gateway that is disabled by default;
-- deterministic fake providers and workers for fast offline tests.
+**Historický instalační checkpoint (2026-09-17):** IntentSmith má ikonu,
+backendovou uživatelskou službu a záložku **Modely → GPU hunt** se stavem,
+poslední známou frontou, výsledkem a ovládáním. Backend, Studio i hunt běží
+ze stejného pinu `58d7cced` nad původní DB; timer má `Persistent=true`.
+Spuštění přes ikonu, opakované otevření, zavření okna, restart backendu,
+HTTP 401/200 a zrušení huntu jsou fyzicky ověřené. [Návod](docs/DESKTOP.md).
+Předchozí celý profil na `1da840c0`: **354 PASS / 1 FAIL** — pouze očekávaná
+release pečeť podle `CONTRACT.md §8`, nikoli úplný PASS. Nezávislé review
+nové delty zůstává otevřené. Kalibrační diagnostika rozlišila 7 duelů omezených
+variabilitou a 6 s malým rozdílem; nová GPU měření blokuje nesoulad načteného
+ovladače NVIDIA a nainstalovaných knihoven. Historie skóre i bindingy zůstaly
+beze změny. Podrobnosti a neúspěšné pokusy zachovává review packet.
 
-Phase 3 is complete through run 2F on a separate branch and is a closure
-candidate published for review. It adds the first external coding worker through
-ACP and OpenCode. Forced local configuration prevents the unconfigured
-cloud-backed default model from being selected for an IntentSmith run. Provider
-catalog network access remains disclosed and strict-offline operation remains
-NOT PROVEN. Phase 3 is not part of the stable product until the reviewed
-candidate is merged and tagged.
+**Časový kontext:** interaktivní modelové odpovědi dostávají aktuální datum,
+časové pásmo a kalendářní včera/dnes/zítra při každém dotazu, včetně expertiz,
+specialistů a vysvětlování souborů. Nainstalovaný model skutečně odpověděl
+správnými daty 16./17./18. září 2026 na obecný deníkový úkol. Úplný profil
+`58d7cced`: **353 PASS / 2 FAIL** (dokumentační text a release seal);
+dokumentační kontrola je následně opravená a ověřená samostatně.
+[Podrobnosti a limity](docs/review/2026-09-17-CHAT-CLOCK-REVIEW.md).
 
-See [project status](docs/STATUS.md) for exact evidence and [the roadmap](docs/ROADMAP.md) for sequencing.
+[Kontrakty rozšíření po 1.0](docs/post-release/README.md) popisují skutečné
+zlepšování modelu, porozumění rozsáhlému projektu, úplné agenty a odložené
+notifikace, marketplace, média a aktualizace. Jsou návrhem k review.
 
-## How it works
+---
 
-```mermaid
-flowchart TD
-    U["User / CLI / Studio"] --> C["IntentSmith Core"]
-    C --> P["Policy and approvals"]
-    C --> H["Hardware Director"]
-    H --> O["Local provider: Ollama"]
-    C --> W["Worker adapter"]
-    W --> G["Scoped localhost gateway"]
-    G --> O
-    W --> E["Workspace and deterministic gates"]
-    E --> C
-    C --> A["SQLite audit and evidence"]
+## Co je IntentSmith
+
+IntentSmith zachovává funkční backend a IntentSmith Studio IDE z IntentSmith a evolučně je
+zpevňuje. Produktový kontrakt, cílový uživatel a hranice 1.0 jsou v
+[PRODUCT.md](PRODUCT.md).
+
+### Konverzace a rozhodování
+- **CRE (Conversational Reasoning Engine)** — single-authority klasifikátor: každý vstup → 1 z 18 typů záměrů → specializovaný handler. 12 guard pravidel, auditní trail, Gatekeeper pattern.
+- **18 expertíz v současném runtime** — 14 vestavěných plus expertizy přidané specialisty. 5D capability vektory (reasoning, kreativita, determinismus, risk, verbosity); merge engine kombinuje až 3 expertizy.
+- **Quality Gate v2** — 4-vrstvý deterministický post-processing (structural → language → intent → content). Bez LLM.
+
+### Projekty a build
+- **Životní cyklus projektů** — SPEC → PLANNING → BUILD → REVIEW → CHANGE. Checkpointy (STRUCTURAL / FUNCTIONAL / SECURITY), automatický git commit, crash recovery.
+- **Execution Engine** — iterativní fix cyklus: generuj → testuj → diagnostikuj → patchuj → testuj → konverguj. Patch engine s 3-tier anchoring, error normalizer (14 kódů, root cause analýza), fix strategy selection (DETERMINISTIC / HEURISTIC / LLM_FULL / SKIP).
+- **Code Intelligence** — současný chat používá projektově omezený snapshot, manifest a lexikální výběr souborů s kontrolou revize. AST/index/graph moduly v repozitáři existují, ale úplné porozumění rozsáhlému projektu z nich nelze odvozovat; integraci a měření stanoví [nový kontrakt](docs/post-release/project-intelligence.md).
+
+### Agenti a automatizace
+- **Worker agenti** — existuje scheduler, podmínky a dílčí runtime. Úplný nativní cyklus zdroj → práce → výsledek → pause/resume/restart není přijatý. Externí RSS/HTTP/DB komunikaci neaktivuje samotné vytvoření agenta. Externí notifikace jsou v 1.0 `unsupported`; lokální desktop/in-app cesta zůstává.
+- **Skills** — deterministické workflow (JSON): 8 vykonávaných typů kroků (`llm`, `template`, `write`, `shell`, `ask`, `review`, `validate`, `transform`) a samostatná substitution helper vrstva. 14 skills včetně meta-skills a governed M3 project-note workflow.
+- **Specialisté** — rozšiřující balíčky s nástroji, expertízou, znalostní bází a scénáři. M3 candidate používá rozhodnutou strict-injection hranici, verzovaný manifest/context a rekurzivní fail-closed package scanner.
+
+### Paměť a učení
+- **Dlouhodobá paměť (LTM)** — confidence decay (poločas 69 dní), reinforcement, feedback detekce, cross-session pattern learning.
+- **Task Memory** — persistentní cross-milestone učení: co fungovalo, co selhalo, architektonická rozhodnutí.
+- **Cross-Project Learning** — modul pro podobnost a generalizaci existuje, ale produkční učící smyčka není prokázaná. Přechod mezi projekty musí být default off a pouze na explicitní opt-in.
+
+### Infrastruktura
+- **Modelová platforma** — factual discovery, versioned role-specific evaluace exact artefaktů, append-only run/decision historie a jediná ruční durable binding cesta.
+- **Marketplace** — legacy implementace katalogu a instalace existuje; veřejný katalog a externí instalace nejsou podporovaným 1.0 journey. [Dokončení po releasu](docs/post-release/marketplace.md).
+- **IntentSmith Studio IDE** — Theia + Electron, 32 rozšíření, chat panel, agent log, settings (12 sekcí), specialist focus mode, multimedia view.
+- **153 nástrojů** ve 35 kategoriích. Sandboxed execution, circuit breaker, risk assessment.
+
+Modelová inference používá lokální ověřený provider a persistence SQLite. Web bez projektu nabízí jeden viditelný HTTPS GET s přesným souhlasem: `načti web https://example.com/`, potom zobrazený příkaz `schválit web web:<digest>`. Schválení se nepřenáší na další adresu ani autonomního agenta. [Rozsah a limity](docs/decisions/044-conversation-web-approval.md). [Review webu a builderu na `e87b1ca2` nemá blokující nález](docs/review/2026-09-12-WEB-BUILDER-OPERATOR-REVIEW.md); pozdější delty mají samostatný review rozsah.
+
+---
+
+## Architektura
+
+Diagram ukazuje moduly repozitáře, včetně odložených oblastí. Podpora v 1.0
+se řídí popisem výše a SYSTEM-MAP, nikoli přítomností boxu v diagramu.
+
+```
+                    ┌──────────────────┐
+                    │   IntentSmith Studio IDE  │
+                    │  (Electron/Theia)│
+                    └────────┬─────────┘
+                             │ WebSocket + REST
+                             ▼
+┌─────────────────────────────────────────────────────────┐
+│                 IntentSmith Backend                    │
+│                                                         │
+│  ┌──────────┐  ┌───────────┐  ┌──────────────────────┐ │
+│  │   CRE    │→ │ Handlers  │→ │     LLM Gateway      │ │
+│  │ Decision │  │(18 types) │  │ (Ollama, 7 rolí)     │ │
+│  └──────────┘  └───────────┘  └──────────────────────┘ │
+│                                                         │
+│  ┌──────────┐ ┌────────────┐ ┌───────────────────────┐ │
+│  │Expertises│ │ Specialists│ │   Lifecycle Engine     │ │
+│  │ (14 + N) │ │ (plugins)  │ │ (SPEC→BUILD→REVIEW)   │ │
+│  └──────────┘ └────────────┘ └───────────────────────┘ │
+│                                                         │
+│  ┌──────────┐ ┌────────────┐ ┌───────────────────────┐ │
+│  │  Skills  │ │   Agents   │ │  Execution Engine     │ │
+│  │(workflow)│ │  (workers) │ │ (patch+loop+strategy) │ │
+│  └──────────┘ └────────────┘ └───────────────────────┘ │
+│                                                         │
+│  ┌──────────┐ ┌────────────┐ ┌───────────────────────┐ │
+│  │  Code    │ │   Memory   │ │   Model Upgrade       │ │
+│  │  Intel   │ │(LTM+task+  │ │ (discovery+approval)  │ │
+│  │(33 mod.) │ │ cross-proj)│ │                       │ │
+│  └──────────┘ └────────────┘ └───────────────────────┘ │
+│                                                         │
+│  ┌──────────┐ ┌────────────┐ ┌───────────────────────┐ │
+│  │ Quality  │ │   Tools    │ │    Notifications      │ │
+│  │ Gate v2  │ │(153,sandb.)│ │ (email,TG,ntfy,WH)   │ │
+│  └──────────┘ └────────────┘ └───────────────────────┘ │
+│                                                         │
+│  ┌──────────┐ ┌────────────┐                           │
+│  │Architect.│ │Marketplace │                           │
+│  │Governance│ │(remote pkg)│                           │
+│  └──────────┘ └────────────┘                           │
+│                                                         │
+│                SQLite (WAL, 80+ tabulek)                 │
+└─────────────────────────────────────────────────────────┘
+                             │
+                             ▼
+                    ┌──────────────────┐
+                    │      Ollama      │
+                    │  (lokální LLM)   │
+                    └──────────────────┘
 ```
 
-A typical run follows seven steps:
+---
 
-1. The user creates a task with an intent and workspace scope.
-2. Core validates policy and creates a distinct task run.
-3. The hardware director selects a compatible local inference profile.
-4. A worker receives only the capabilities and short-lived access required for that run.
-5. Proposed changes and worker events are captured as evidence.
-6. Deterministic gates inspect the resulting workspace.
-7. Core issues a verdict from evidence; a worker's success claim alone can never produce `pass`.
-
-## Local-first policy
-
-- The stable path does not silently fall back to a cloud model.
-- Core and the server bind to loopback interfaces only.
-- The worker gateway is opt-in, loopback-only and uses run-scoped revocable tokens.
-- Prompts and model responses are not written to the stable audit trail.
-- Hardware detection records a sanitized capability profile rather than device identifiers.
-- Degraded sandboxing is reported honestly; process controls are not presented as an operating-system security boundary.
-
-Local Ollama enforcement is in code, not convention:
-
-- only plain HTTP to a loopback address is accepted before any socket opens;
-  HTTPS, public and private addresses, arbitrary hostnames, userinfo and
-  `ollama.com` are rejected, and redirects are disabled;
-- authorization, cookies and API-key headers are never forwarded;
-- `remote_model` and `remote_host` metadata are checked during discovery,
-  before generation and on every stream record;
-- a `-cloud` suffix is advisory only;
-- `REMOTE_INFERENCE_FORBIDDEN` is never retried and never causes provider
-  fallback.
-
-IntentSmith does not install Ollama, sign in, use an API key, download a model
-or contact `ollama.com`.
-
-Local-first does not mean that every future third-party worker is automatically offline or safe. Each adapter must declare and prove its capabilities, and any network-enabled mode must be explicit.
-
-## Quick start
-
-Requirements:
-
-- Node.js 22
-- pnpm 11.17.0 through Corepack
-- Linux, macOS or Windows for the core packages
-- Ollama only for optional real local-inference tests
+## Quick Start
 
 ```bash
-corepack enable
-pnpm install --frozen-lockfile
-pnpm verify
+# 1. Klonování
+git clone --branch codex/intentsmith-1.0 --single-branch \
+  https://github.com/Belphareon-bak/intentsmith.git
+cd intentsmith
+
+# 2. Kanonická instalace backendu i IntentSmith Studio
+./scripts/install.sh --minimal
+
+# 3. Kanonické mapování portu a modelů
+cp .env.example .env
+
+# 4. Modely jsou externí artefakty; --minimal je nestahuje
+ollama pull qwen3.5:27b          # D1 + CODE + CHAT
+ollama pull qwen3.8:latest       # D2 + R1
+ollama pull qwen3:14b            # R2
+ollama pull llava-llama3:8b      # VISION
+
+# 5. Start backendu a IntentSmith Studio
+./scripts/run.sh
 ```
 
-`pnpm verify` runs frozen installation, typecheck, lint, deterministic tests
-with coverage gates, and the build. The deterministic tests and build require no
-Ollama, OpenCode, GPU, model or other external runtime. The measured Phase 3
-installation used an already populated pnpm store; network isolation and a
-cold-network installation were not proven.
+`install.sh` provádí frozen instalace, hash-locked PDF runtime, Electron ABI
+rebuild, Theia build a smoke test nativních artefaktů. Ruční `npm ci` nebo
+`yarn build` je pouze dílčí vývojový krok. Tagy Ollama modelů jsou proměnlivé;
+pro auditní běh vždy evidujte skutečný digest. Pro samostatný backend ve
+vývojovém režimu použijte `npm run dev`.
 
-Architecture rules are executable:
-`tools/architecture/boundaries.test.ts` enforces
-`docs/architecture/dependency-boundaries.md`, so crossing a package boundary
-fails verification.
+---
 
-Build and start the localhost API:
+## Prerekvizity
+
+| Požadavek | Verze | Účel |
+|-----------|-------|------|
+| Node.js | 22.x | Backend runtime (ESM, `node:crypto`, `fetch()`) |
+| npm | 10.9.4 | Frozen backend instalace z `package-lock.json` |
+| Ollama | latest | Lokální LLM inference |
+| CPython | 3.12 + `venv` | Hash-locked PDF runtime; také node-gyp |
+| DejaVu fonts | `fonts-dejavu-core` | PDF export s českou/slovenskou diakritikou |
+| build-essential | - | C++ kompilátor pro native moduly |
+| Git | 2.x+ | Lifecycle (auto-commit, diff, tagging) |
+| Yarn | 1.22.22 | Povinná frozen instalace IntentSmith Studio |
+| bubblewrap | system package | Linux namespace/seccomp sandbox pro governed focused test |
+| util-linux `prlimit` | system package | CPU, address-space, file-size, FD a core-dump limity procesu |
+| GPU | 12+ GB VRAM | Doporučeno pro 32B modely (8B modely běží na 8 GB) |
+
+Detailní pokyny: [docs/INSTALL.md](docs/INSTALL.md)
+
+---
+
+## Hlavní moduly
+
+### CRE — Conversational Reasoning Engine
+Centrální klasifikátor záměrů. Každý vstup projde přes `CRE.decide()`, který určí typ (CODE, SEARCH, CREATIVE, CONVERSATIONAL, PLAN, BUILD, FACTUAL, ...) a routuje na příslušný handler. Gatekeeper pattern — žádný kód nemůže CRE obejít.
+
+- 12 guard pravidel (follow-up, attachment, creative override, skill detection, build deferral, ...)
+- Auditní trail každého rozhodnutí v DB
+- [docs/AUTHORITY.md](docs/AUTHORITY.md) — Gatekeeper architektura
+
+### Expertýzy
+14 vestavěných doménových profilů; současný runtime registruje 18 po zapojení
+specialistických expertíz. Každá expertíza má 5D capability vektor ovlivňující
+tón, hloubku a styl odpovědí. Merge engine umožňuje kombinovat více expertíz.
+
+- [docs/EXPERTISES.md](docs/EXPERTISES.md) — legacy reference expertíz a merge engine; aktuální počty jsou výše
+
+### Specialisté
+Rozšiřující balíčky s nástroji, expertízou, znalostní bází a scénáři. Pět
+současných balíčků: `accountant-cz`, `translator`, `code-reviewer`, `sazeni` a
+`dummy-logger`. M3 candidate používá verzovaný `ExtensionManifest/Context`,
+strict capability injection a rekurzivní fail-closed package boundary; přímé
+importy do interního `src/**` už nejsou povolené. Nové specialisty lze vytvořit
+přes `create-specialist` skill nebo IDE.
+
+- [docs/SPECIALISTS.md](docs/SPECIALISTS.md) — architektura, API, průvodce vytvářením
+
+### Životní cyklus projektů
+Strukturovaný přístup k větším projektům. Fáze: specifikace → roadmapa → build (po milnících) → review → change management. Každý milník má checkpoint (STRUCTURAL / FUNCTIONAL / SECURITY), automatický git commit a tag.
+
+- [docs/PROJECT-SYSTEM.md](docs/PROJECT-SYSTEM.md) — lifecycle, checkpointy, recovery
+- [docs/STORAGE-ARCHITECTURE.md](docs/STORAGE-ARCHITECTURE.md) — persistence
+
+### Code Intelligence
+Produkční analýza používá verzovaný ProjectContext a lexikální výběr souborů. V `src/code-intel/` existují také search, symbol index, graph, AST a další analyzátory; jejich přítomnost není důkazem propojeného porozumění celému projektu. Rozsah integrace a kvalitativní oracle stanoví [Project Intelligence po 1.0](docs/post-release/project-intelligence.md).
+
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — architektura, code-intel moduly
+
+### Execution Engine
+Iterativní fix cyklus pro milníky: generuj → testuj → diagnostikuj → patchuj → testuj → opakuj do konvergence (max 8 iterací). Patch engine s 3-tier anchor matching, error normalizer (14 error kódů, root cause analýza), fix strategy selection, self-critique (LLM + knowledge graph validace), task memory.
+
+- `src/patch/` — parser, validator, applier, engine, scope limiter (1,505 řádků)
+- `src/executor/execution-loop.js` — hlavní fix loop
+
+### Skills
+Deterministické workflow definované v JSON. 8 vykonávaných typů kroků: `llm`,
+`template`, `write`, `shell`, `ask`, `review`, `validate`, `transform`; substitute
+je sdílená helper vrstva. 14 skills včetně meta-skills. `create-skill` umožňuje
+vytvářet nové skills konverzačně.
+
+- [docs/skills-v1.md](docs/skills-v1.md) — kompletní specifikace
+
+### Autonomní agenti
+Native M3 runtime a scheduler pokrývají přijaté dílčí scénáře. Úplné RSS/HTTP/DB workflow, řízení po restartu a externí výstupní kanály zatím nejsou přijaté; jejich dokončení určuje [kontrakt agentů](docs/post-release/agents.md). Starší WORKERS dokument popisuje také legacy možnosti.
+
+- [docs/WORKERS.md](docs/WORKERS.md) — architektura a konfigurace
+
+### Paměťový systém
+Tři vrstvy: LTM s confidence decay (λ=0.01, poločas 69 dní), task memory (cross-milestone, λ=0.005, poločas 139 dní), cross-project learning (stack similarity, pattern sharing) pouze s explicitním opt-in. Tyto paměťové mechanismy samy netrénují váhy modelu. Feedback detektor, injection ranker, pattern tracker.
+
+- [docs/MEMORY.md](docs/MEMORY.md) — architektura paměťového systému
+
+### Model Upgrade System
+Factual discovery (local, catalog, hints, online), role-specific versioned evaluace s exact digestem a timestampem, fail-closed důkazní minima a samostatný manual binding. Discovery ani chatové „ano“ nejsou doporučení nebo aktivační autorita.
+
+- `src/upgrade/` — 30 modulů, 17 209 řádků
+
+### Quality Gate v2
+4-vrstvý deterministický pipeline (structural → language → intent → content). Bez LLM — čistě pravidlová validace výstupů. SK→CZ transliterace (~160 pravidel), language drift detection.
+
+### Notifikace
+Pro 1.0 zůstává lokální in-app/desktop cesta. SMTP, Telegram, ntfy, webhook a další externí doručování jsou `unsupported`; existující moduly se zapojí až podle [kontraktu notifikací po releasu](docs/post-release/notifications.md).
+
+### Nástroje
+153 registrovaných nástrojů ve 35 kategoriích. Sandboxed execution s circuit breakerem (5 selhání / 30s → quarantine), auto-retry, health monitoring.
+
+- [docs/tools/REGISTRY.md](docs/tools/REGISTRY.md) — reference všech nástrojů
+- [docs/tools/EXECUTOR_CONTRACT.md](docs/tools/EXECUTOR_CONTRACT.md) — execution contract
+
+---
+
+## Tech Stack
+
+| Vrstva | Technologie | Detail |
+|--------|-------------|--------|
+| Runtime | Node.js 22 (ESM) | Žádný framework — raw `http` modul |
+| Databáze | SQLite | better-sqlite3, WAL mód, verzované migrace |
+| LLM | Ollama | Lokální inference, 7 modelových rolí (D1, D2, CODE, R1, R2, CHAT, VISION) |
+| IDE | IntentSmith Studio | Theia 1.74.1 + Electron 42.11.3, 32 vlastních rozšíření |
+| Frontend | React (lite) | Webpack bundle v chat-panel-module.js |
+| AST | tree-sitter | JS, Python, Go, Java — symbol extraction, structural analysis |
+| Závislosti | 13 produkčních | better-sqlite3, ws, dotenv, nodemailer, puppeteer, tree-sitter, chokidar, ... |
+
+---
+
+## Struktura projektu
+
+```
+intentsmith/
+├── src/                          # Backend
+│   ├── chat/                     #   CRE engine, handlery, quality pipeline
+│   │   ├── cre-decision.js       #     Klasifikátor záměrů
+│   │   ├── handlers/             #     Intent handlery + lifecycle router
+│   │   └── quality/              #     Quality Gate v2 (4 vrstvy)
+│   ├── code-intel/               #   Code Intelligence (33 modulů, 11 634 ř.)
+│   ├── planner/                  #   Lifecycle + sdílená governance (32 modulů, 14 382 ř.)
+│   ├── patch/                    #   Patch Engine (5 modulů, 1,505 ř.)
+│   ├── memory/                   #   LTM, task memory, cross-project (9 modulů)
+│   ├── upgrade/                  #   Model platform (30 modulů, 17 209 ř.)
+│   ├── expertises/               #   14 built-in expertíz, merge engine, ledger
+│   ├── agents/                   #   Worker agenti, scheduler, conditions
+│   ├── skills/                   #   Registry, resolver, runner, 8 step types + substitution helper
+│   ├── executor/                 #   Execution loop, tool executor, circuit breaker, sandbox
+│   ├── llm/                      #   Ollama gateway, web search, auth
+│   ├── notifications/            #   lokální kanály; externí delivery conditional/unsupported
+│   ├── routes/                   #   REST API (17 route modulů)
+│   ├── ws-bridge/                #   WebSocket bridge (IDE ↔ backend)
+│   ├── marketplace/              #   conditional modul, v M5 release unsupported/off
+│   ├── db/                       #   SQLite schema a verzované migrace
+│   ├── core/                     #   Logger, error handler, feature manager
+│   ├── domains/                  #   Scaffoldy (React, Vue, FastAPI, Flutter, ...)
+│   ├── specialists/              #   Specialist loader + plugin system
+│   ├── licensing/                #   HW fingerprint, 3 licence tiery
+│   ├── autonomy/                 #   Self-tuning (drift detection, thresholds)
+│   ├── telemetry/                #   Turn + specialist telemetrie
+│   ├── channels/                 #   Channel adapters (CLI, Web, API)
+│   ├── tools/                    #   Tool registry (153 nástrojů)
+│   ├── context/                  #   Kontextové utility
+│   ├── system/                   #   System info, health checks
+│   ├── architect/                #   Roadmap parser
+│   ├── setup/                    #   Setup wizard
+│   ├── packaging/                #   Electron packaging
+│   ├── ui/                       #   Architect web UI
+│   └── server.js                 #   Entry point (startup, routing, shutdown)
+│
+├── intentsmith-ide/                       # IDE (Theia + Electron)
+│   ├── extensions/               #   32 vlastních rozšíření
+│   │   └── intentsmith-chat-panel/        #     Hlavní chat widget (4,000+ ř.)
+│   └── applications/electron/    #   Electron wrapper + webpack
+│
+├── specialists/                  # Specialist balíčky (self-contained pluginy)
+│   ├── accountant-cz/            #   České účetnictví (DPH, daně, pojistné)
+│   ├── translator/               #   Překlad textů, detekce jazyka
+│   ├── code-reviewer/            #   Code review automatizace
+│   ├── sazeni/                   #   Doménový specialista
+│   └── dummy-logger/             #   Testovací utilita
+│
+├── skills/                       # Skill definice (14 JSON souborů)
+│   ├── create-skill.json         #   Meta-skill pro tvorbu nových skills
+│   ├── create-expertise.json     #   Meta-skill pro tvorbu expertýz
+│   ├── create-specialist.json    #   Meta-skill pro tvorbu specialistů
+│   ├── brainstorm.json           #   Brainstorming workflow
+│   ├── changelog-gen.json        #   Generování changelogu
+│   ├── code-refactor.json        #   Refaktoring kódu
+│   ├── email-composer.json       #   Psaní emailů
+│   ├── interview-prep.json       #   Příprava na pohovor
+│   ├── meeting-notes.json        #   Zápisy z meetingů
+│   ├── m3-project-note.json      #   Governed M2-backed project note
+│   ├── presentation.json         #   Tvorba prezentací
+│   ├── project-bootstrap.json    #   Bootstrap nového projektu
+│   ├── report-gen.json           #   Generování reportů
+│   └── summarizer.json           #   Sumarizace textu
+│
+├── tests/                        # Testy a kanonický registr 527 programů
+│   ├── harness.js                #   Custom ESM test harness
+│   ├── cre-*.test.js             #   CRE testy (401+)
+│   ├── lifecycle-*.test.js       #   Lifecycle testy (103+)
+│   ├── code-intel-*.test.js      #   Code Intelligence testy (339+)
+│   ├── execution-loop.test.js    #   Execution Engine testy (597+)
+│   ├── upgrade-*.test.js         #   Model Upgrade testy
+│   └── registry.json             #   Kanonický registr 527 programů
+│
+├── docs/                         # Aktivní dokumentace + archiv
+│   ├── ARCHITECTURE.md           #   Kompletní architektura
+│   ├── CHANGELOG.md              #   Historie verzí (v56–v136)
+│   ├── ROADMAP.md                #   Legacy roadmapa; aktuální je v kořeni
+│   ├── INSTALL.md                #   Instalační příručka
+│   ├── archive/                  #   Historické design dokumenty
+│   └── ...                       #   20+ dalších dokumentů
+│
+├── data/                         # Runtime data (gitignored)
+│   ├── intentsmith.db                     #   SQLite databáze
+│   ├── history/                  #   JSONL archiv konverzací
+│   └── backups/                  #   Automatické zálohy
+│
+└── .env.example                  # Vzorová konfigurace
+```
+
+---
+
+## Konfigurace
+
+Konfigurace používá environment proměnné. Quick Start kopíruje `.env.example`,
+který nastaví dokumentované porty a skutečné Ollama tagy. Bez `.env` se použijí
+vestavěné fallbacky z `src/config.js`.
+
+| Sekce | Klíčové proměnné | Vestavěný fallback |
+|-------|------------------|---------|
+| Server | `INTENTSMITH_PORT`, `INTENTSMITH_HOST` | `0` (dynamický), `127.0.0.1` |
+| Modely | `INTENTSMITH_MODEL_CHAT`, `INTENTSMITH_MODEL_CODE`, `INTENTSMITH_MODEL_D1` | qwen3.5:27b pro všechny tři role |
+| Databáze | `INTENTSMITH_DB_PATH` | `./data/intentsmith.db` |
+| Features | `INTENTSMITH_ENABLE_LIFECYCLE`, `INTENTSMITH_ENABLE_SKILLS`, ... | vše zapnuto |
+| Bezpečnost | `INTENTSMITH_ADMIN_TOKEN` | - (localhost bypass v dev) |
+| Notifikace | `INTENTSMITH_SMTP_*`, `INTENTSMITH_TELEGRAM_*`, `INTENTSMITH_NTFY_*` | - (volitelné) |
+
+Kompletní reference: [.env.example](.env.example)
+
+---
+
+## API
+
+Backend vystavuje REST API na `http://127.0.0.1:3335`:
+
+| Prefix | Modul | Popis |
+|--------|-------|-------|
+| `/api/chat` | Chat | Konverzace, zprávy, export |
+| `/api/projects` | Projects | Projekty, lifecycle, roadmapa |
+| `/api/expertises` | Expertises | CRUD, merge preview, schema |
+| `/api/agents` | Agents | Read-only legacy inventory; mutations return 410. Native control: `/api/agent-extensions/instances/:agentId/{run,enable,disable}` |
+| `/api/skills` | Skills | CRUD, reload, execution |
+| `/api/specialists` | Specialists | Enable/disable, discovery |
+| `/api/notifications` | Notifications | Kanály, test, trust |
+| `/api/system` | System | Health, storage, GPU, backup, modely |
+| `/api/security` | Security | Audit, tokeny, sessions |
+| `/api/settings` | Settings | Uživatelská nastavení |
+
+WebSocket na stejném portu — IDE ↔ backend real-time komunikace (chat, agent log, terminál, model upgrade progress).
+
+---
+
+## Testy
 
 ```bash
-pnpm build
-pnpm --filter @intentsmith/server start
+# Kanonický registry integrity check
+npm run test:registry
+
+# Povinné deterministické profily offline + database
+npm test
+
+# Kompatibilní historický agregátor; není release důkaz
+npm run test:all
+
+# Lokální real-model subset; celý model profil má další hard blockers
+node scripts/nightly-audit.js \
+  --suite=IS-T3-TESTS-LLM-INTEGRATION-TEST,IS-T3-TESTS-LLM-INTEGRATION-2-TEST,IS-T3-TESTS-EXPERTISE-AB-QUALITY-TEST \
+  --allow-blocker=ollama,gpu
 ```
 
-The server binds to `127.0.0.1:47831` by default. The local SQLite database is
-stored at `.intentsmith/intentsmith.db`. Set `INTENTSMITH_DB_PATH` to use a
-different development database.
+Kanonický seznam, profily, timeouty a prerequisites jsou v
+[`docs/convergence/TEST-REGISTRY.md`](docs/convergence/TEST-REGISTRY.md).
+Procesní návratový kód je součást testovacího kontraktu.
 
-## Local Inference
+---
 
-With a local Ollama daemon running, IntentSmith can inspect and use it:
+## Dokumentace
 
-```bash
-pnpm --filter intentsmith start inference health
-pnpm --filter intentsmith start inference models
-pnpm --filter intentsmith start inference model --model qwen3:14b
-pnpm --filter intentsmith start inference assess --model qwen3:14b --policy gpu_required
-pnpm --filter intentsmith start hardware show
-pnpm --filter intentsmith start runtime recovery
-```
+### Hlavní dokumenty
 
-Generation reads the prompt from stdin so it never enters shell history:
+| Dokument | Obsah |
+|----------|-------|
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Kompletní architektura systému, diagramy, design decisions |
+| [CHANGELOG.md](docs/CHANGELOG.md) | Historie všech verzí (v56–v136) |
+| [ROADMAP.md](ROADMAP.md) | Aktuální víceúrovňová roadmapa a dependency DAG |
+| [INSTALL.md](docs/INSTALL.md) | Reprodukovatelná instalace a známé platformní hranice |
 
-```bash
-echo "Explain this repository in one sentence." \
-  | pnpm --filter intentsmith start inference generate --model qwen3:14b
-```
+### Moduly a systémy
 
-`--prompt` exists but is documented as the less private option. Ctrl+C cancels
-the generation upstream rather than orphaning it.
+| Dokument | Obsah |
+|----------|-------|
+| [EXPERTISES.md](docs/EXPERTISES.md) | Legacy reference expertíz, 5D vektory a merge engine; aktuální počet je 14 built-in / 18 runtime |
+| [SPECIALISTS.md](docs/SPECIALISTS.md) | Specialist plugin architektura, runtime, KB, scénáře |
+| [WORKERS.md](docs/WORKERS.md) | Autonomní agenti, scheduler, triggers, notifikace |
+| [skills-v1.md](docs/skills-v1.md) | Skills systém, 8 step types, state machine, bezpečnost |
+| [MEMORY.md](docs/MEMORY.md) | 3-vrstvý paměťový systém (LTM, task memory, cross-project) |
+| [marketplace.md](docs/marketplace.md) | Marketplace architektura, catalog, install pipeline, security |
+| [followup-contract-v2.md](docs/followup-contract-v2.md) | Follow-up klasifikace, R1-R4 pravidla |
+| [STORAGE-ARCHITECTURE.md](docs/STORAGE-ARCHITECTURE.md) | SQLite schema, drain, backup, retention |
+| [tools/REGISTRY.md](docs/tools/REGISTRY.md) | 153 nástrojů, kategorie, risk assessment |
+| [PROJECT-SYSTEM.md](docs/PROJECT-SYSTEM.md) | Project management systém |
 
-IntentSmith does not download models. If one is missing it says so and tells you
-the `ollama pull` command to run yourself.
+### Kontrakty a protokoly
 
-### Optional real-Ollama verification
+| Dokument | Obsah |
+|----------|-------|
+| [AUTHORITY.md](docs/AUTHORITY.md) | CRE Gatekeeper, single authority pattern |
+| [WS-PROTOCOL.md](docs/WS-PROTOCOL.md) | WebSocket protokol |
+| [OPERABILITY.md](docs/OPERABILITY.md) | Operační kontrakty (immutabilita, determinismus) |
+| [tools/EXECUTOR_CONTRACT.md](docs/tools/EXECUTOR_CONTRACT.md) | Tool execution contract, retry policy |
 
-```bash
-INTENTSMITH_RUN_REAL_OLLAMA=1 \
-INTENTSMITH_OLLAMA_TEST_MODEL=<an-already-installed-model> \
-pnpm test:ollama
-```
+Historické design dokumenty (implementované RFC) → `docs/archive/`
 
-Never part of `pnpm verify` or CI. It never pulls a model, signs in or uses an
-API key, and reports BLOCKED rather than PASS when Ollama or the model is
-missing.
+---
 
-### Optional real-OpenCode verification
+## Licence
 
-The opt-in suite in `tools/opencode/` drives the executable server composition
-over loopback HTTP with the pinned real binary, the real gateway and real local
-inference:
+Systém licencí vázaný na hardware fingerprint (3 tiery: FREE / PRO / ENTERPRISE). Offline validace — žádný license server.
 
-```bash
-INTENTSMITH_RUN_REAL_OPENCODE=1 \
-INTENTSMITH_OPENCODE_BIN=/absolute/path/to/opencode \
-pnpm test:opencode
-```
+| Tier | Projekty | Agenti | Specialisté | Export |
+|------|----------|--------|-------------|--------|
+| FREE | 1 | - | - | md, txt |
+| PRO | neomezeně | ano | ano | md, txt, html, pdf, docx |
+| ENTERPRISE | neomezeně | ano | ano | vše + multi-user |
 
-IntentSmith never installs OpenCode: install exactly `opencode-ai@1.18.8`
-yourself, outside this repository, and point the variable at it. The suite
-reports BLOCKED rather than PASS when the binary, its pinned version, the local
-Ollama daemon, the model (`INTENTSMITH_OPENCODE_TEST_MODEL`, default
-`qwen3:14b`) or the NVIDIA GPU is missing, and it is never part of `pnpm verify`
-or CI. Set `INTENTSMITH_2C_EVIDENCE` to a file path to collect the sanitized
-scenario log the Phase 3 evidence artifact is built from.
+Malou změnu jednoho souboru lze ve Studiu připravit příkazem
+`/m2-draft src/app.js :: popis změny`. Vyžaduje připojený Git projekt s M2
+governance policy a soubor `.js`, `.mjs` či `.cjs` do 1600 bajtů. Studio ukáže
+celý původní i navržený obsah; `/m2-approve` schválí přesný plán, `/m2-cancel`
+zruší návrh. Výchozí kontrola ověřuje syntaxi, nikoli funkční správnost.
 
-## Worker Inference Gateway
-
-A loopback-only, OpenAI-shaped gateway exists so a future external worker can
-run inference under the same guarantees as the user's own API: same provider,
-same hardware and model-fit policy, same local-only checks, same scheduler.
-
-It is **off by default**, because no worker exists yet:
-
-```bash
-INTENTSMITH_GATEWAY=1 pnpm --filter @intentsmith/server start
-# optionally pin the port instead of using an ephemeral one
-INTENTSMITH_GATEWAY_PORT=41234 pnpm --filter @intentsmith/server start
-```
-
-Every route needs an IntentSmith-issued per-run bearer token even on loopback,
-because loopback is not an authorization boundary: any local process can reach
-the port. Tokens are scoped to one run, never persisted or logged, and revoked
-when the run ends or the server stops.
-
-## CLI
-
-In another terminal, the CLI talks only to the localhost API by default:
-
-```bash
-pnpm --filter intentsmith start version
-pnpm --filter intentsmith start health
-pnpm --filter intentsmith start project create --name demo --root /absolute/path
-pnpm --filter intentsmith start task create --project-id PROJECT_ID --goal "Run deterministic checks"
-pnpm --filter intentsmith start task start --task-id TASK_ID
-pnpm --filter intentsmith start task result --task-id TASK_ID --json
-pnpm --filter intentsmith start task audit --task-id TASK_ID --json
-```
-
-Set `INTENTSMITH_URL` to another allowed URL when the server uses a different
-port.
-
-## Development data
-
-Stop the server first. To delete only the default development database:
-
-```bash
-rm -f .intentsmith/intentsmith.db .intentsmith/intentsmith.db-shm .intentsmith/intentsmith.db-wal
-```
-
-This command does not touch project workspaces.
-
-## Repository map
-
-```text
-apps/
-  cli/                  command-line client
-  server/               localhost API and runtime composition
-packages/
-  contracts/            runtime schemas and public data contracts
-  core/                 lifecycle, policy, use cases and verdicts
-  persistence/          SQLite implementation and recovery
-  inference/            provider-neutral inference port
-  adapter-ollama/       local Ollama integration
-  hardware/             sanitized hardware discovery and selection
-  testing/              deterministic test doubles and fixtures
-docs/
-  product/              product vision and boundaries
-  architecture/         system design and contracts
-  adr/                  immutable architecture decisions
-  development/          contributor onboarding
-  security/             phase-specific threat models
-```
-
-Phase-specific packages that are not yet on `main` are documented in [STATUS.md](docs/STATUS.md), not advertised here as stable.
-
-## Documentation
-
-- [Documentation index](docs/README.md)
-- [Product vision](docs/product/vision.md)
-- [Architecture overview](docs/architecture/overview.md)
-- [Current status](docs/STATUS.md)
-- [Roadmap](docs/ROADMAP.md)
-- [Development guide](docs/development/getting-started.md)
-- [Security policy](SECURITY.md)
-- [Contributing](CONTRIBUTING.md)
-
-IntentSmith is pre-release software. Interfaces, package names and persistence schemas may still change before the first stable release.
+Malou změnu více souborů lze zadat jako
+`/m2-draft src/app.js, src/helper.js :: popis změny` (nejvýše tři JS soubory).
+Model připraví každý soubor postupně, Studio ukáže celý návrh a `/m2-approve`
+schválí jediný přesný plán. `/m2-cancel` funguje při přípravě i běžícím
+provedení. Výchozí kontrola ověřuje syntaxi všech vybraných souborů; funkční
+test lze explicitně dodat jako `draft.focusedTest` přes lifecycle API.

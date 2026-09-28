@@ -1,0 +1,252 @@
+{
+  "schemaVersion": 1,
+  "sourceRevision": "9f9ed33916a1062d4d28f4e2d2bd47aefd8e74b6",
+  "status": "INSTALLED_RECOVERY_VERIFIED",
+  "review": "REVIEW_PENDING",
+  "fullAudit": {
+    "pass": 357,
+    "fail": 2,
+    "blocked": 0,
+    "timeout": 0
+  },
+  "artifactRerun": {
+    "pass": 160,
+    "fail": 0
+  },
+  "remainingFailure": "IS-T1-TESTS-NIGHTLY-ORCHESTRATOR-SELF-TEST",
+  "controlled": {
+    "source": "/home/belphareon/.local/share/intentsmith/releases/9f9ed33916a1062d4d28f4e2d2bd47aefd8e74b6",
+    "started": "2026-09-18T10:42:26.991Z",
+    "cold": [
+      {
+        "tab": "Přehled",
+        "unavailableVisible": true,
+        "retryVisible": true
+      },
+      {
+        "tab": "Role (7)",
+        "unavailableVisible": true,
+        "retryVisible": true
+      },
+      {
+        "tab": "Evaluace",
+        "unavailableVisible": true,
+        "retryVisible": true
+      },
+      {
+        "tab": "GPU hunt",
+        "unavailableVisible": true,
+        "retryVisible": true
+      },
+      {
+        "tab": "Historie",
+        "unavailableVisible": true,
+        "retryVisible": true
+      },
+      {
+        "tab": "Kandidáti",
+        "unavailableVisible": true,
+        "retryVisible": true
+      },
+      {
+        "tab": "Správce",
+        "unavailableVisible": true,
+        "retryVisible": true
+      }
+    ],
+    "cycles": [
+      {
+        "tab": "Přehled",
+        "oldPort": 37619,
+        "newPort": 39943,
+        "capabilityRotated": true,
+        "staleCapabilityStatus": 403,
+        "restoredWithoutReload": true,
+        "elapsedMs": 3199
+      },
+      {
+        "tab": "Role (7)",
+        "oldPort": 39943,
+        "newPort": 37711,
+        "capabilityRotated": true,
+        "staleCapabilityStatus": 403,
+        "restoredWithoutReload": true,
+        "elapsedMs": 3151
+      },
+      {
+        "tab": "Evaluace",
+        "oldPort": 37711,
+        "newPort": 37407,
+        "capabilityRotated": true,
+        "staleCapabilityStatus": 403,
+        "restoredWithoutReload": true,
+        "elapsedMs": 3227
+      },
+      {
+        "tab": "GPU hunt",
+        "oldPort": 37407,
+        "newPort": 46379,
+        "capabilityRotated": true,
+        "staleCapabilityStatus": 403,
+        "restoredWithoutReload": true,
+        "elapsedMs": 3167
+      },
+      {
+        "tab": "Historie",
+        "oldPort": 46379,
+        "newPort": 35493,
+        "capabilityRotated": true,
+        "staleCapabilityStatus": 403,
+        "restoredWithoutReload": true,
+        "elapsedMs": 3142
+      },
+      {
+        "tab": "Kandidáti",
+        "oldPort": 35493,
+        "newPort": 38631,
+        "capabilityRotated": true,
+        "staleCapabilityStatus": 403,
+        "restoredWithoutReload": true,
+        "elapsedMs": 2733
+      },
+      {
+        "tab": "Správce",
+        "oldPort": 38631,
+        "newPort": 45655,
+        "capabilityRotated": true,
+        "staleCapabilityStatus": 403,
+        "restoredWithoutReload": true,
+        "elapsedMs": 4235
+      }
+    ],
+    "limitations": [
+      "controlled HTTP fixture with real product WS/server access boundary",
+      "NODE_ENV=test",
+      "diagnostic --no-sandbox",
+      "private Electron profile on current display",
+      "no GPU inference required for transport regression"
+    ],
+    "manualRetryRecovered": true,
+    "status": "PASS",
+    "finished": "2026-09-18T10:43:03.099Z"
+  },
+  "live": {
+    "source": "/home/belphareon/.local/share/intentsmith/releases/9f9ed33916a1062d4d28f4e2d2bd47aefd8e74b6",
+    "started": "2026-09-18T10:43:25.095Z",
+    "cold": [
+      {
+        "tab": "Přehled",
+        "loaded": true
+      },
+      {
+        "tab": "Role (7)",
+        "loaded": true
+      },
+      {
+        "tab": "Evaluace",
+        "loaded": true
+      },
+      {
+        "tab": "GPU hunt",
+        "loaded": true
+      },
+      {
+        "tab": "Historie",
+        "loaded": true
+      },
+      {
+        "tab": "Kandidáti",
+        "loaded": true
+      },
+      {
+        "tab": "Správce",
+        "loaded": true
+      }
+    ],
+    "cycles": [
+      {
+        "tab": "Přehled",
+        "restored": true
+      },
+      {
+        "tab": "Role (7)",
+        "restored": true
+      },
+      {
+        "tab": "Evaluace",
+        "restored": true
+      },
+      {
+        "tab": "GPU hunt",
+        "restored": true
+      },
+      {
+        "tab": "Historie",
+        "restored": true
+      },
+      {
+        "tab": "Kandidáti",
+        "restored": true
+      },
+      {
+        "tab": "Správce",
+        "restored": true
+      }
+    ],
+    "limitations": [
+      "installed production backend and database",
+      "NODE_ENV=production",
+      "diagnostic --no-sandbox",
+      "private Electron profile on current display",
+      "no GPU inference required for transport regression"
+    ],
+    "detailVisible": true,
+    "testConfirmationCancelledWithoutMutation": true,
+    "restart": {
+      "oldPid": 1035549,
+      "newPid": 1036930,
+      "oldPort": 46299,
+      "newPort": 46135,
+      "capabilityRotated": true
+    },
+    "status": "PASS",
+    "finished": "2026-09-18T10:43:43.238Z"
+  },
+  "preservation": {
+    "at": "2026-09-18T10:44:58.438652+00:00",
+    "revision": "9f9ed33916a1062d4d28f4e2d2bd47aefd8e74b6",
+    "pid": 1036930,
+    "port": 46135,
+    "tables": {
+      "model_evaluation_runs": {
+        "count": 516,
+        "sha256": "19f86d63427e5060cc3e55aa9254f7949e8a64469ded20f2e8301a1f2848bb1a",
+        "unchanged": true
+      },
+      "model_evaluation_decisions": {
+        "count": 234,
+        "sha256": "82611783e5d74c9fbe04d471522ee3a09a2732148cbf99d0c55c10ce488a6047",
+        "unchanged": true
+      },
+      "model_binding_operations": {
+        "count": 14,
+        "sha256": "0f75a8fe86c588fbe27a1272d11ab58bda5d5dee02028581aaf4bf785f44d6b4",
+        "unchanged": true
+      },
+      "model_desired_bindings": {
+        "count": 7,
+        "sha256": "a3a93f93645cb29d2b0d8a4a5dc1fdd838336426c4c24c711fdee2275d24f29c",
+        "unchanged": true
+      }
+    },
+    "quickCheck": "ok",
+    "foreignKeyErrors": 0
+  },
+  "evidenceArchive": {
+    "path": "/home/belphareon/Projects/coworker/intentsmith-model-reconnect-sha256-67e07ef601a880741d4d54963f6182cde791ce2b3d0f6427759ab43003c39fc0.tar.gz",
+    "sha256": "67e07ef601a880741d4d54963f6182cde791ce2b3d0f6427759ab43003c39fc0",
+    "bytes": 68813382,
+    "verifiedFiles": 509
+  },
+  "operatorWindow": "Original old frontend preserved; save and close it, reopen through installed desktop icon."
+}

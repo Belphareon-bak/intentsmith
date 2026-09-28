@@ -1,0 +1,254 @@
+{
+  "schemaVersion": "intentsmith-model-scoring-remediation-evidence-v2",
+  "status": "ACCEPTED_SYSTEM_PROVIDER_BLOCKED",
+  "candidateRevision": "53ded6620d9439acf854e92749c21aaf0b265a08",
+  "acceptanceRevision": "cbc8b87f92412dbd546e6509e6ed6d471366099d",
+  "scoringSourceRevision": "6ae5a3369838fb17f0040c9580a86614833ebf21",
+  "reviewState": "REVIEW_PASSED",
+  "systemProviderState": "BLOCKED_RESPONSE_ARTIFACT_ATTESTATION_UNAVAILABLE",
+  "acceptedReview": {
+    "baseRevision": "d6137d4cedafd09d8e6967b3620fd987237bcb4d",
+    "headRevision": "3f027938ce6eae25dc83bfdba588e46364d34a25",
+    "verdict": "REVIEW_PASSED",
+    "record": {
+      "path": "docs/review/2026-08-28-WP-MODEL-EVALUATION-EVIDENCE-REREVIEW.md",
+      "sha256": "afacfc26219f3fb68bf303e6888c34c4f88c538ed6633279eb93f772e18028ec"
+    }
+  },
+  "acceptanceGate": {
+    "command": "C3_LOG_LEVEL=error npm run test:deterministic",
+    "sourceRevision": "cbc8b87f92412dbd546e6509e6ed6d471366099d",
+    "runId": "2026-08-28T20-34-51-696Z",
+    "startedAt": "2026-08-28T20:34:51.725Z",
+    "endedAt": "2026-08-28T20:38:18.510Z",
+    "verdict": "PASS",
+    "statusCounts": {
+      "PASS": 279,
+      "FAIL": 0,
+      "TIMEOUT": 0,
+      "BLOCKED": 0,
+      "SKIPPED": 0
+    },
+    "requiredFailureCount": 0,
+    "requiredBlockedCount": 0,
+    "exitCode": 0,
+    "report": {
+      "path": ".intentsmith-artifacts/test-runs/2026-08-28T20-34-51-696Z/report.json",
+      "sha256": "46e841f1afaeea9dc8f39f9a2417852a660aac6fc194fed6aebc7109cb2fe6ec"
+    }
+  },
+  "database": {
+    "preRemediationSha256": "b524145d053059426c06de42597785f68b6091593ea9f5db01c4f0eb6d8d765d",
+    "postScoringSha256": "a3eafab1a2061eb83e59720220891d8b41f7a5548a3b20ecd86b8df86827fa8a",
+    "quickCheck": "ok"
+  },
+  "verifiedBackup": {
+    "path": "/home/belphareon/.local/share/intentsmith-private/model-scoring-remediation-20260828T172616Z/backup/c3-pre-remediation.db",
+    "sha256": "b524145d053059426c06de42597785f68b6091593ea9f5db01c4f0eb6d8d765d",
+    "byteIdentical": true,
+    "quickCheck": "ok"
+  },
+  "historicalPreMigrationBackup": {
+    "claimedSha256": "e22d580f26b9b467eb2bf3774524206b3d95a36cdcdbc3902a08046e9e12c088",
+    "status": "NOT_FOUND_NOT_PROVEN",
+    "candidateFilesHashed": 33,
+    "sqliteHeaderCount": 31,
+    "manifest": {
+      "path": "docs/execution/runs/model-evaluation-historical-backup-search-20260828-v2.json",
+      "sha256": "d0cc050898d2f4b365a0f78c2fb26362805af5108ce2e9f1549507fab07475f1",
+      "sourceRevision": "53ded6620d9439acf854e92749c21aaf0b265a08",
+      "schemaVersion": "intentsmith-model-evaluation-backup-search-v2",
+      "exactInvocationRecorded": true,
+      "sourceRevisionRepositoryBound": true
+    },
+    "originalSearchManifestAvailable": false
+  },
+  "scoringRun": {
+    "sha256": "c37b7964a82ddaba18dffe5739e92770a126db6395d485e14f362ae50e0e4c2d",
+    "allowRemoval": false,
+    "installedArtifacts": 13,
+    "newCompleteRuns": 15,
+    "materializedHardwareBlocks": 7,
+    "activatedBindings": 0,
+    "deletedModels": 0
+  },
+  "coverage": {
+    "total": 91,
+    "applicable": 79,
+    "notApplicable": 12,
+    "complete": 55,
+    "blocked": 24,
+    "failed": 0,
+    "applicableMissing": 0
+  },
+  "gate": {
+    "command": "C3_LOG_LEVEL=error npm run test:deterministic",
+    "sourceRevision": "53ded6620d9439acf854e92749c21aaf0b265a08",
+    "runId": "2026-08-28T20-11-17-080Z",
+    "startedAt": "2026-08-28T20:11:17.118Z",
+    "endedAt": "2026-08-28T20:14:36.636Z",
+    "verdict": "PASS",
+    "statusCounts": {
+      "PASS": 279,
+      "FAIL": 0,
+      "TIMEOUT": 0,
+      "BLOCKED": 0,
+      "SKIPPED": 0
+    },
+    "requiredFailureCount": 0,
+    "requiredBlockedCount": 0,
+    "exitCode": 0,
+    "report": {
+      "path": ".intentsmith-artifacts/test-runs/2026-08-28T20-11-17-080Z/report.json",
+      "sha256": "499575899ca805b8448fcb56f1c27cfb1ef4f849d7863fe0cd7ba40c2fe15aba"
+    },
+    "previousSuccessfulRuns": [
+      {
+        "sourceRevision": "ccf543774601f04eccc6091e6c58a71bb07b77f3",
+        "runId": "2026-08-28T19-30-37-899Z",
+        "startedAt": "2026-08-28T19:30:37.931Z",
+        "endedAt": "2026-08-28T19:34:17.204Z",
+        "verdict": "PASS",
+        "statusCounts": {
+          "PASS": 279,
+          "FAIL": 0,
+          "TIMEOUT": 0,
+          "BLOCKED": 0,
+          "SKIPPED": 0
+        },
+        "requiredFailureCount": 0,
+        "requiredBlockedCount": 0,
+        "exitCode": 0,
+        "report": {
+          "path": ".intentsmith-artifacts/test-runs/2026-08-28T19-30-37-899Z/report.json",
+          "sha256": "30d99e3468b8e934860068ba3ae166d471697efcf71ea77624d9d9687caf53fa"
+        }
+      },
+      {
+        "sourceRevision": "e82ecd474970f5b34a05a6b67ff429720adbc533",
+        "runId": "2026-08-28T18-22-53-719Z",
+        "startedAt": "2026-08-28T18:22:53.750Z",
+        "endedAt": "2026-08-28T18:26:33.104Z",
+        "verdict": "PASS",
+        "statusCounts": {
+          "PASS": 279,
+          "FAIL": 0,
+          "TIMEOUT": 0,
+          "BLOCKED": 0,
+          "SKIPPED": 0
+        },
+        "requiredFailureCount": 0,
+        "requiredBlockedCount": 0,
+        "exitCode": 0,
+        "report": {
+          "path": ".intentsmith-artifacts/test-runs/2026-08-28T18-22-53-719Z/report.json",
+          "sha256": "8317ce9f48447eea557bf40b66db7c1b1a41f068093ee777451c1ff913bb023e"
+        }
+      },
+      {
+        "sourceRevision": "031349313884d3427dc0df4784fb61efc23bbd6d",
+        "runId": "2026-08-28T18-12-18-428Z",
+        "startedAt": "2026-08-28T18:12:18.457Z",
+        "endedAt": "2026-08-28T18:15:47.128Z",
+        "verdict": "PASS",
+        "statusCounts": {
+          "PASS": 279,
+          "FAIL": 0,
+          "TIMEOUT": 0,
+          "BLOCKED": 0,
+          "SKIPPED": 0
+        },
+        "requiredFailureCount": 0,
+        "requiredBlockedCount": 0,
+        "exitCode": 0,
+        "report": {
+          "path": ".intentsmith-artifacts/test-runs/2026-08-28T18-12-18-428Z/report.json",
+          "sha256": "42bc2dd4fb3d5f914db96174e549355dd4f3f8dbdf33f94b903e8070fe9c5520"
+        }
+      }
+    ],
+    "previousFailedAttempts": [
+      {
+        "sourceRevision": "bffb4eccd9da12d9db2a5c52df8bf676f50bfe47",
+        "runId": "2026-08-28T18-06-38-496Z",
+        "startedAt": "2026-08-28T18:06:38.525Z",
+        "endedAt": "2026-08-28T18:10:05.457Z",
+        "verdict": "FAIL",
+        "statusCounts": {
+          "PASS": 277,
+          "FAIL": 2,
+          "TIMEOUT": 0,
+          "BLOCKED": 0,
+          "SKIPPED": 0
+        },
+        "requiredFailureCount": 2,
+        "requiredBlockedCount": 0,
+        "exitCode": 1,
+        "report": {
+          "path": ".intentsmith-artifacts/test-runs/2026-08-28T18-06-38-496Z/report.json",
+          "sha256": "b4ef32e863954e3d8cce0027143ed53aa48a8c2350b0e3c809016fccf19768f5"
+        }
+      }
+    ]
+  },
+  "priorIndependentReview": {
+    "candidateRevision": "d6137d4cedafd09d8e6967b3620fd987237bcb4d",
+    "verdict": "CHANGES_REQUIRED_NOT_ACCEPTED",
+    "blockingFinding": "SNAPSHOT_APPLICABILITY_PROJECTION_INCOMPLETE",
+    "independentGate": {
+      "runId": "2026-08-28T19-53-21-043Z",
+      "statusCounts": {
+        "PASS": 279,
+        "FAIL": 0,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "reportSha256": "8b04cc7e663696e860a831f10bcb62a5b9aa2c28bab71f725e325577ea171c17"
+    }
+  },
+  "postGateSnapshot": {
+    "path": "docs/execution/runs/model-evaluation-host-db-snapshot-20260828-remediation-post-gate-4.json",
+    "sha256": "a12c4b6585882bdcdffbb103c18d84b500af8bc661baa0bb51ff7082f7f94d5e",
+    "sourceRevision": "53ded6620d9439acf854e92749c21aaf0b265a08",
+    "schemaVersion": "intentsmith-model-evaluation-host-db-snapshot-v3",
+    "evidencePhase": "post-gate",
+    "databaseSha256": "a3eafab1a2061eb83e59720220891d8b41f7a5548a3b20ecd86b8df86827fa8a",
+    "databaseQuickCheck": "ok",
+    "inventoryProjection": {
+      "schemaVersion": "intentsmith-normalized-model-inventory-v1",
+      "sha256": "4100d182abf08aaf3c62a10fb7c48d87ed9a82668ef705e75a493c5c00e41bc5",
+      "artifactCount": 13,
+      "fields": [
+        "name",
+        "canonicalName",
+        "digestSha256",
+        "size",
+        "modifiedAt",
+        "params",
+        "family",
+        "category",
+        "capabilities"
+      ]
+    },
+    "completeIntervalIntegrity": {
+      "VERIFIED": 15,
+      "LEGACY_UNVERIFIED": 40
+    }
+  },
+  "postGateSnapshotReplay": {
+    "path": "docs/execution/runs/model-evaluation-host-db-snapshot-20260828-remediation-post-gate-4-replay.json",
+    "sha256": "d94e9f62026492a5a9abafc3700c3b413f79f3b675e8c4b6b44b9778aab453e4",
+    "sourceRevision": "53ded6620d9439acf854e92749c21aaf0b265a08",
+    "verdict": "PASS",
+    "providerContacted": false,
+    "databaseByteIdentical": true,
+    "summaryMatchesSnapshot": true,
+    "actual": {
+      "complete": 55,
+      "blocked": 24,
+      "applicableMissing": 0,
+      "notApplicable": 12
+    }
+  }
+}

@@ -1,0 +1,416 @@
+import { collectRoleAnswers } from '../eval/model-answer-collection.js';
+// Candidate Trial — fáze 2 až 4: stáhnout, změřit, prosít, utkat, rozhodnout
+// ══════════════════════════════════════════════════════════════════════════════
+//
+// Sériový trychtýř, kde je stahování poslední a nejužší krok:
+//
+//   2a  stáhnout kandidáta            (bez časového limitu — stahování se
+//                                      nikdy nepoužívá jako kritérium)
+//   2b  změřit umístění ve VRAM       nevejde se celý → konec pro tento profil
+//   2c  kontrola schopnostního minima  ~2 min, binární věci
+//   3   souboj se stávajícím po rolích tytéž prompty, marže
+//   4   rozhodnout, uklidit
+//
+// Proč je 2c jen „schopnostní minimum" a ne zkrácené hodnocení kvality:
+// nelze poctivě zaručit, že by krátká sada nevyřadila lepší model.  Proto smí
+// odmítnout jen to, co je pro roli objektivně nepoužitelné — model, který se
+// nenačte, neodpoví, nevrátí vyžádaný JSON nebo neumí česky.  Cokoli, co je
+// otázkou kvality, jde vždy do plného souboje.
+//
+// Kandidát se po souboji nemaže naslepo. Přesný digest zůstává v historii a
+// bounded retenci vlastní model-registry: teprve pod diskovým tlakem, po grace
+// period a jen s dokončeným scoringem smí odstranit nevázaný artefakt, který
+// není poslední rollback.
+//
+// ══════════════════════════════════════════════════════════════════════════════
+
+import { MODEL_ACTIVITY_OWNER, modelUseAuthority } from './model-use-authority.js';
+import { config } from '../config.js';
+import { logger } from '../core/logger.js';
+import { measureModel, drainResident, unloadModel } from './vram-measurement.js';
+import { trialRole, evaluateRole, createSuiteCache } from './pairwise-trial.js';
+import { parseModelNameExtended } from './model-family-extensions.js';
+import { ROLE_IMPROVEMENT_THRESHOLDS } from '../eval/role-evaluation-plan.js';
+import { checkRoleEligibility } from './candidate-eligibility.js';
+import { createRoleEvaluationPlans } from '../eval/role-evaluation-plan.js';
+
+const PROBE_TIMEOUT = 120_000;
+
+/** Candidate trials never authorize deletion. The separate retention assessment
+ * must establish exact-artifact loss across all applicable roles and protect
+ * bindings and rollback slots. Kept for callers that display the default. */
+export const REMOVAL_ENABLED_BY_DEFAULT = false;
+
+function baseUrl(opts = {}) {
+  return opts.baseUrl || config.ollama?.baseUrl || 'http://127.0.0.1:11434';
+}
+
+/**
+ * Stáhne model.  Stahování nemá kvalitativní význam a nesmí být kritériem —
+ * timeout je tu jen proto, aby se běh nezasekl navěky.
+ */
+export async function pullModel(modelName, opts = {}) {
+  if (typeof opts.pullModel !== 'function') {
+    throw Object.assign(new Error('Candidate pull requires the provider mutation authority'), {
+      code: 'MODEL_PULL_AUTHORITY_REQUIRED',
+    });
+  }
+  await opts.pullModel(modelName, opts.onProgress, {
+    baseUrl: baseUrl(opts), source: 'USER_REQUEST',
+  });
+  return true;
+}
+
+/**
+ * Smaže model z disku **cizí autoritou**, ne vlastní cestou.
+ *
+ * Mazání modelu vlastní `upgrade/model-registry.js` — jen ono ověří kanonickou
+ * identitu, přesný digest a proběhne pod exclusive mutation autoritou.  Vlastní
+ * vlastní volání Ollama delete endpointu tady tuhle ochranu obcházelo; guard M1
+ * v `tests/m1-model-binding-application.test.js` proto vyžaduje, aby ten endpoint
+ * byl v `src/**` zmíněný právě v jednom souboru.
+ *
+ * Funkce se sem nedostane importem, ale z runtime kontextu (`ctx.deleteModel`) —
+ * strict injection podle [rozhodnutí 019](../../docs/decisions/019-l0-8-specialist-boundary.md).
+ * Bez injektované autority se **nemaže**; fail-closed, ne tichý bypass.
+ */
+export async function removeModel(modelName, opts = {}) {
+  const deleteModel = opts.deleteModel;
+  if (typeof deleteModel !== 'function') {
+    logger.warn(
+      'CandidateTrial',
+      `Smazání ${modelName} zamítnuto: chybí injektovaná autorita mazání`,
+    );
+    return false;
+  }
+  try {
+    await deleteModel(modelName, { source: 'AUTO_CLEANUP' });
+    return true;
+  } catch (err) {
+    logger.warn('CandidateTrial', `Smazání ${modelName} selhalo: ${err.message}`);
+    return false;
+  }
+}
+
+async function ask(modelName, prompt, opts = {}) {
+  return modelUseAuthority.runShared({ modelName, owner: MODEL_ACTIVITY_OWNER.MODEL_VALIDATION }, async () => {
+    const res = await fetch(`${baseUrl(opts)}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: modelName,
+        messages: [{ role: 'user', content: prompt }],
+        stream: false,
+        think: false,
+        options: { temperature: 0.1, num_predict: 512, num_ctx: 4096 },
+      }),
+      signal: AbortSignal.timeout(opts.timeout ?? PROBE_TIMEOUT),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (opts.providerVersion && data.provider_version !== opts.providerVersion) throw new Error('Capability provider version mismatch');
+    return (data?.message?.content || '').trim();
+  });
+}
+
+/**
+ * Kontrola schopnostního minima.
+ *
+ * Každá položka je binární a jednoznačná — žádná z nich není soud o kvalitě,
+ * takže tenhle krok nemůže vyřadit model, který je „jen horší".
+ */
+export const CAPABILITY_FLOOR = Object.freeze([
+  {
+    id: 'responds',
+    prompt: 'Odpověz jedním slovem: ano.',
+    check: text => text.length > 0,
+    failure: 'model nevrátil žádnou odpověď',
+  },
+  {
+    id: 'json',
+    prompt: 'Vrať POUZE platný JSON bez komentáře a bez markdown bloku: {"stav":"ok","cislo":42}',
+    check: (text) => {
+      const match = text.match(/\{[\s\S]*\}/);
+      if (!match) return false;
+      try { JSON.parse(match[0]); return true; } catch { return false; }
+    },
+    failure: 'model nevrátil platný JSON, když o něj byl výslovně požádán',
+  },
+  {
+    id: 'czech',
+    prompt: 'Odpověz česky jednou větou: proč je obloha modrá?',
+    // Diakritika je nejspolehlivější signál — model, který odpoví anglicky
+    // nebo přepisem bez háčků, roli CHAT v češtině nezastane.
+    check: text => /[áčďéěíňóřšťúůýž]/i.test(text),
+    failure: 'model neodpověděl česky',
+  },
+]);
+
+export async function runCapabilityFloor(modelName, opts = {}) {
+  const failures = [];
+  const probes = opts.probes || CAPABILITY_FLOOR;
+  for (const [index, probe] of probes.entries()) {
+    opts.onStage?.('floor', modelName, { probe: probe.id, currentProbe: index + 1, totalProbes: probes.length });
+    try {
+      const answer = await ask(modelName, probe.prompt, opts);
+      if (!probe.check(answer)) failures.push({ id: probe.id, reason: probe.failure, answer: answer.slice(0, 120) });
+    } catch (err) {
+      failures.push({ id: probe.id, reason: `${probe.failure} (${err.message})`, answer: '', retryable: true });
+    }
+  }
+  return { passed: failures.length === 0, failures };
+}
+
+/**
+ * Kompletní zkouška jednoho kandidáta.
+ *
+ * @returns {Promise<{model, stage, accepted, measurement, floor, trials, decisions, removed, error}>}
+ */
+export async function tryCandidate(candidateName, ctx = {}) {
+  const {
+    runner,
+    roles = [],
+    bindings = {},
+    incumbentSpeed = {},
+    onStage = () => {},
+  } = ctx;
+
+  const out = {
+    model: candidateName,
+    stage: 'pull',
+    accepted: false,
+    inconclusive: false,
+    measurement: null,
+    floor: null,
+    trials: [],
+    roleErrors: [],
+    decisions: {},
+    removed: false,
+    keptReason: null,
+    error: null,
+    errorCode: null,
+  };
+
+  const evaluationPlans = ctx.evaluationPlans || createRoleEvaluationPlans();
+
+  // Suite readiness is known before download or GPU placement. Do not spend
+  // network, VRAM and capability probes on a candidate when none of its roles
+  // is allowed to make a decision yet.
+  const runnableRoles = [];
+  for (const role of roles) {
+    const plan = evaluationPlans[role] || null;
+    const minimumTaskCount = plan?.minimumTaskCount ?? null;
+    if (!plan) {
+      const reason = `role ${role} nemá explicitní current evaluation plan`;
+      out.trials.push({ role, skipped: true, reason });
+      onStage('roleSkipped', candidateName, { role, reason });
+    } else if (!(plan.measurementReady ?? plan.decisionReady) || plan.taskCount < minimumTaskCount) {
+      const reason = plan.runtimeBlockCode
+        ? `${plan.suiteName} je BLOCKED (${plan.runtimeBlockCode}): ${plan.runtimeBlockReason}`
+        : `${plan.suiteName} má ${plan.taskCount}/${minimumTaskCount} `
+          + 'požadovaných aktivních úloh — current contract není decision-ready';
+      out.trials.push({ role, skipped: true, reason });
+      onStage('roleSkipped', candidateName, { role, reason });
+    } else {
+      runnableRoles.push(role);
+    }
+  }
+  if (roles.length > 0 && runnableRoles.length === 0) {
+    out.stage = 'suite-readiness';
+    out.inconclusive = true;
+    out.keptReason = 'role nemá dostatečně rozlišující validační sadu';
+    return out;
+  }
+
+  let measurementStarted = false;
+  try {
+    if (ctx.skipPull === true) {
+      out.stage = 'measure';
+      onStage('pullSkipped', candidateName, { reason: 'already installed' });
+    } else {
+      onStage('pull', candidateName);
+      await pullModel(candidateName, ctx);
+    }
+
+    if (typeof ctx.beforeMeasure === 'function') ctx.expectedArtifact = await ctx.beforeMeasure(candidateName);
+    onStage('measure', candidateName);
+    out.stage = 'measure';
+    measurementStarted = true;
+    out.measurement = await measureModel(candidateName, ctx);
+
+    if (out.measurement.error) {
+      out.error = out.measurement.error;
+    } else if (!out.measurement.fits) {
+      const cpuGb = (out.measurement.placement?.cpuBytes || 0) / 2 ** 30;
+      out.error = `nevejde se do VRAM při ${out.measurement.numCtx} tokenech — ${cpuGb.toFixed(2)} GB by běželo na CPU`;
+    }
+    if (out.error) {
+      out.keptReason = 'samotný pokus neopravňuje k mazání; rozhoduje retence přes všechny role';
+      return out;
+    }
+
+    // Hlásí se hned, ne až po souboji — souboj trvá desítky minut a operátor
+    // má vědět, jestli se kandidát vůbec vešel a jak je rychlý.
+    onStage('measured', candidateName, {
+      fits: true,
+      tokensPerSecond: out.measurement.throughput?.tokensPerSecond ?? null,
+      vramBytes: out.measurement.placement?.vramBytes ?? 0,
+      sizeBytes: out.measurement.placement?.sizeBytes ?? 0,
+      numCtx: out.measurement.numCtx,
+    });
+
+    onStage('floor', candidateName);
+    out.stage = 'floor';
+    const reusable = typeof ctx.hasReusableEvaluation === 'function'
+      ? await ctx.hasReusableEvaluation(candidateName, runnableRoles)
+      : false;
+    // A mixed-role request must not discard raw answers on the basis of the
+    // old short language/JSON probes either. Graded roles run their full oracle.
+    const includesCollection = runnableRoles.some(role => evaluationPlans[role].collectionOnly);
+    out.floor = includesCollection ? { passed: true, failures: [], skipped: true, reason: 'raw collection has no quality prefilter' } : reusable
+      ? { passed: true, failures: [], reused: true }
+      : await runCapabilityFloor(candidateName, ctx);
+    if (!out.floor.passed) {
+      if (out.floor.failures.some(failure => failure.retryable)) out.errorCode = 'CANDIDATE_EVALUATION_RETRYABLE';
+      out.error = `neprošel schopnostním minimem: ${out.floor.failures.map(f => f.reason).join('; ')}`;
+      out.keptReason = 'samotný pokus neopravňuje k mazání; rozhoduje retence přes všechny role';
+      return out;
+    }
+
+    onStage(includesCollection ? 'floorSkipped' : 'floorPassed', candidateName, { probes: (ctx.probes || CAPABILITY_FLOOR).length });
+
+    // Vlastnosti kandidáta pro filtr způsobilosti. Volající je může dodat
+    // přesnější (z katalogu či HuggingFace); jinak se odvodí z názvu.
+    const parsed = parseModelNameExtended(candidateName);
+    const candidateProfile = {
+      name: candidateName,
+      params: ctx.candidateParams ?? parsed.params,
+      category: ctx.candidateCategory ?? parsed.category,
+      capabilities: ctx.candidateCapabilities ?? null,
+    };
+
+    out.stage = 'trial';
+    // Cache remains keyed by the exact role contract; collection never grades.
+    const suiteCache = createSuiteCache();
+    for (const role of runnableRoles) {
+      const incumbent = bindings[role];
+      if (!incumbent && !ctx.evaluationOnly && !evaluationPlans[role]?.collectionOnly) continue;
+      const evaluationPlan = evaluationPlans[role] || null;
+
+      // Nezpůsobilá role se nesoutěží.  Textový model nemá co dělat v souboji
+      // o VISION — jednak by tam nemohl vyhrát, jednak by to stálo šest běhů
+      // sady navíc. Způsobilost už jednou rozhodla, že tam nepatří.
+      const eligibility = checkRoleEligibility(candidateProfile, role);
+      if (!eligibility.eligible) {
+        out.trials.push({ role, skipped: true, reason: eligibility.reason });
+        onStage('roleSkipped', candidateName, { role, reason: eligibility.reason });
+        continue;
+      }
+      try {
+        const roleOptions = {
+          evaluationPlan,
+          threshold: ROLE_IMPROVEMENT_THRESHOLDS[role] ?? 0.05,
+          speed: {
+            candidate: out.measurement.throughput?.tokensPerSecond ?? 0,
+            incumbent: incumbentSpeed[incumbent] ?? 0,
+          },
+          between: async () => {
+            if (ctx.drain !== false && !await drainResident(ctx)) {
+              throw Object.assign(new Error('GPU drain did not complete before role evaluation'), {
+                code: 'HUNT_GPU_BUSY',
+              });
+            }
+          },
+          suiteCache,
+          ...ctx.trialOpts,
+          onProgress: value => ctx.trialOpts?.onProgress?.({ ...value, role }),
+        };
+        if (evaluationPlan.collectionOnly) {
+          const evaluation = await collectRoleAnswers(runner, role, candidateName, roleOptions);
+          let graded = null;
+          if (evaluation.collection.status === 'AWAITING_REVIEW' && ctx.gradeCollection)
+            graded = await ctx.gradeCollection(evaluation.historyRunId, evaluationPlan);
+          out.trials.push({ role, evaluation: graded?.status === 'COMPLETE'
+            ? { ...graded, historyRunId:graded.runId, grading:graded.metadata.grading } : evaluation });
+          if (graded && graded.status !== 'COMPLETE') out.roleErrors.push({role,
+            error:graded.errorMessage,code:graded.errorCode});
+          if (evaluation.collection.status !== 'AWAITING_REVIEW') out.roleErrors.push({ role,
+            error: 'Sběr byl přerušen; odpovědi jsou uložené bez skóre.', code: 'EVALUATION_COLLECTION_PARTIAL' });
+          onStage(graded?.status === 'COMPLETE' ? 'roleEvaluated' : 'roleCollected', candidateName,
+            { role, collection: graded?.status === 'COMPLETE' ? null : evaluation.collection,
+              score: graded?.score ?? null, reused: graded?.reused === true || (!graded && evaluation.reused === true) });
+          if (graded?.status === 'COMPLETE' && !ctx.evaluationOnly && incumbent && incumbent !== candidateName
+            && evaluationPlan.decisionReady && roleOptions.loadHistoricalSummary) {
+            // No unreviewed fallback inference. Only already graded, exact
+            // runs can reach the existing accepted pair/portfolio authority.
+            const cached = await roleOptions.loadHistoricalSummary({model:incumbent,role,
+              suiteName:evaluationPlan.suiteName,suiteVersion:evaluationPlan.suiteVersion,
+              suiteContractSha256:evaluationPlan.suiteContractSha256});
+            if (cached) {
+              const result = await trialRole(runner, role, candidateName, incumbent, {...roleOptions,fresh:false});
+              out.trials.push(result);out.decisions[role]=result.decision;
+              onStage('roleDecided',candidateName,{role,decision:result.decision});
+            }
+          }
+          continue;
+        }
+        if (ctx.evaluationOnly) {
+          const evaluation = await evaluateRole(runner, role, candidateName, roleOptions);
+          out.trials.push({ role, evaluation });
+          onStage('roleEvaluated', candidateName, { role, score: evaluation.score, reused: evaluation.reused === true });
+          continue;
+        }
+        const result = await trialRole(runner, role, candidateName, incumbent, roleOptions);
+        out.trials.push(result);
+        if (!result.skipped) {
+          out.decisions[role] = result.decision;
+          onStage('roleDecided', candidateName, { role, decision: result.decision });
+        }
+      } catch (error) {
+        const failure = {
+          role, candidate: candidateName, incumbent,
+          ...error.evaluationFailure,
+          error: error.message, code: error.code || 'CANDIDATE_EVALUATION_RETRYABLE',
+        };
+        out.roleErrors.push(failure);
+        out.trials.push({ role, failed: true, error: failure.error });
+        onStage('roleFailed', candidateName, failure);
+      }
+    }
+
+    out.accepted = Object.values(out.decisions).some(d => d.winner === 'candidate');
+    out.stage = 'done';
+
+    // „Prohrál" a „neumíme rozlišit" nejsou totéž.  Když sada nerozlišila,
+    // kandidát nebyl horší — jen to nešlo změřit, což je vlastnost sady, ne
+    // modelu.  Smazat kvůli tomu model s vyšším externím hodnocením je ztráta
+    // informace, takže se to aspoň musí rozlišit ve výstupu a jde to vypnout.
+    out.inconclusive = !out.accepted
+      && Object.values(out.decisions).length > 0
+      && Object.values(out.decisions).every(d => (
+        d.reasonCode === 'QUALITY_INCONCLUSIVE'
+        || d.reasonCode === 'INSUFFICIENT_EVIDENCE'
+        || d.reasonCode === 'EVALUATION_PROFILE_NOT_ACCEPTED'
+        || d.reasonCode === 'EVALUATION_PAIR_NOT_ACCEPTED'
+      ));
+
+    if (out.roleErrors.length) {
+      out.keptReason = 'neúplné měření rolí — ponechán k opakování';
+    } else if (!out.accepted) {
+      out.keptReason = 'samotný pokus neopravňuje k mazání; rozhoduje retence přes všechny role';
+    }
+  } catch (err) {
+    out.error = err.message;
+    out.errorCode = typeof err.code === 'string' ? err.code : null;
+    out.keptReason = 'provozní chyba — ponechán k opakování';
+  } finally {
+    if (measurementStarted) await unloadModel(candidateName, ctx).catch(() => {});
+  }
+
+  return out;
+}
+
+export default {
+  pullModel, removeModel, runCapabilityFloor, tryCandidate,
+  CAPABILITY_FLOOR, REMOVAL_ENABLED_BY_DEFAULT,
+};

@@ -1,0 +1,56 @@
+{
+  "contract": "ExtensionManifest",
+  "version": 1,
+  "kind": "specialist",
+  "id": "code-reviewer",
+  "moduleVersion": "1.1.0",
+  "coreContract": ">=136.0.0 <137.0.0",
+  "requiredCapabilities": [
+    "code-intel.project-context.v1",
+    "specialist.runtime.v1"
+  ],
+  "optionalCapabilities": [
+    "specialist.registry.auto-select.v1",
+    "specialist.registry.capability.v1",
+    "specialist.registry.cre.v1",
+    "specialist.registry.expertise.v1",
+    "specialist.registry.tool-executor.v1"
+  ],
+  "payload": {
+    "name": "Code Reviewer",
+    "description": "Systematické project-bound code review s přesnou ProjectContext provenance",
+    "author": "intentsmith-core",
+    "domain": "software_engineering",
+    "type": "domain",
+    "entry": "./index.js",
+    "tools": [
+      {
+        "id": "code-reviewer.analyze_code",
+        "name": "Analýza kódu",
+        "module": "./tools/review-project-context.js",
+        "function": "analyzeProjectContext"
+      },
+      {
+        "id": "code-reviewer.security_scan",
+        "name": "Security Scan",
+        "module": "./tools/review-project-context.js",
+        "function": "securityScanProjectContext"
+      }
+    ],
+    "providedCapabilities": [
+      "code.review",
+      "code.security_scan"
+    ],
+    "expertises": [
+      "code_reviewer"
+    ],
+    "knowledgePacks": [],
+    "migrations": [],
+    "settings": {
+      "deterministicPresentation": true,
+      "projectContextRequired": true
+    },
+    "dependencies": {},
+    "enabledByDefault": true
+  }
+}

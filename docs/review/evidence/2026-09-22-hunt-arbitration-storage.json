@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "status": "CONFIGURATION_VERIFIED_ARBITRATION_REVIEW_PENDING",
+  "sourceRevision": "de332d83a21d5b0110f22fa42040c6e0f16e229a",
+  "installedRevision": "cd5a6943379254b3ec0a769913fab2db1249b85b",
+  "evidenceRoot": "/home/belphareon/Projects/coworker/intentsmith-hunt-arbitration-20260922",
+  "archive": {
+    "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-arbitration-20260922.3d9214fc3afd70d68528b72130440d4a04ed87815920e877193c02b7942ec870.tar.gz",
+    "sha256": "3d9214fc3afd70d68528b72130440d4a04ed87815920e877193c02b7942ec870",
+    "bytes": 640555,
+    "membersVerified": 26
+  },
+  "storage": {
+    "status": "READ_ONLY_STORAGE_PARITY_PASS",
+    "filesystem": [
+      {
+        "path": "/mnt/vi7000/ollama/models",
+        "realPath": "/mnt/vi7000/ollama/models",
+        "device": "/dev/nvme0n1p1[/@data]",
+        "availableBytes": 810640347136
+      },
+      {
+        "path": "/home/belphareon/.local/share/intentsmith/releases",
+        "realPath": "/mnt/vi7000/intentsmith/releases",
+        "device": "/dev/nvme0n1p1[/@data]",
+        "availableBytes": 810640347136
+      },
+      {
+        "path": "/home/belphareon/Projects/intentsmith/data",
+        "realPath": "/home/belphareon/Projects/intentsmith/data",
+        "device": "/dev/nvme1n1p3[/@home]",
+        "availableBytes": 200665714688
+      },
+      {
+        "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-arbitration-20260922",
+        "realPath": "/home/belphareon/Projects/coworker/intentsmith-hunt-arbitration-20260922",
+        "device": "/dev/nvme1n1p3[/@home]",
+        "availableBytes": 200665714688
+      }
+    ],
+    "backend": {
+      "pid": 36100,
+      "modelsPath": "/mnt/vi7000/ollama/models"
+    },
+    "managerModelsPath": "/mnt/vi7000/ollama/models",
+    "generatorModelsPath": "/mnt/vi7000/ollama/models",
+    "transientModelsPath": "/mnt/vi7000/ollama/models",
+    "timer": "ActiveState=inactive\nUnitFileState=disabled",
+    "sidecarStopped": true,
+    "binarySha256": "2b98fceffbc6d5d97a6e96ddfd46c597cee4fa06a03d740fdb74dd9a34ff0f92"
+  },
+  "arbitration": {
+    "items": 10,
+    "largeNormalizedDisagreements": 9,
+    "scopeUnresolved": 1,
+    "blind": false,
+    "independentAcceptance": false,
+    "productionImported": false,
+    "itemsWithNewProposalsThisTurn": [
+      6,
+      12,
+      24
+    ],
+    "priorAuthorAmendmentConfirmed": [
+      17
+    ],
+    "profilesAccepted": 0
+  },
+  "releaseRetention": {
+    "count": 28,
+    "directlyReferenced": 26,
+    "unproven": [
+      "4b5eb2091d7d41da8ab6f7c8f5dcd90ee57fd46f",
+      "df7800ac-code-pilot"
+    ],
+    "deleted": 0,
+    "exhaustiveM6Audit": false
+  },
+  "validation": {
+    "controlFlowReproductions": "PASS",
+    "storageProbe": "PASS_AFTER_GENERATOR_NAME_CORRECTION",
+    "backendEndpoints": 4,
+    "consumerBuild": "PASS",
+    "arbitrationBrowser": "PASS_DIAGNOSTIC_NO_SANDBOX",
+    "fullProductTests": "NOT_RUN_NO_PRODUCT_CODE_CHANGED",
+    "inferenceCalls": 0
+  },
+  "limitations": [
+    "No new model ranking or held-out operational trial.",
+    "No new independent evaluator acceptance.",
+    "No reboot test; systemd environment generator and actual transient inheritance verified.",
+    "Legacy /etc/environment entries still old; open shells can retain old inherited path.",
+    "Headless browser validation covers arbitration HTML only; not a fresh full Studio journey."
+  ]
+}

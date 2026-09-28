@@ -1,0 +1,1044 @@
+{
+  "schemaVersion": 1,
+  "status": "LIVE_GUI_MODEL_JOURNEY_PASS_REVIEW_PENDING",
+  "implementation": "39cad5f1403c8da65c8534fa668b34f34054bd07",
+  "reviewBase": "1ee60d88",
+  "evaluationSource": "5f364979436ac47df9bc4817e437f7e4d6990e44",
+  "frontendSha256": "68362fffaa7cd3ee123a5488afde9f61f8b9016bbad66c989b22c480f6858764",
+  "gemma": {
+    "operationId": "mao1:ef3320c8-67ea-4096-abe6-b98c57206ab4",
+    "exactName": "gemma4:31b",
+    "canonicalName": "gemma4:31b",
+    "createdAtMs": 1789733261453,
+    "updatedAtMs": 1789737206210,
+    "state": "RECONCILED_SUCCEEDED",
+    "errorCode": null,
+    "model": "gemma4:31b",
+    "startedAt": "2026-09-18T12:07:41.453Z",
+    "updatedAt": "2026-09-18T13:13:26.210Z",
+    "status": "done",
+    "text": "Staženo",
+    "percent": null,
+    "etaSeconds": null
+  },
+  "evaluations": [
+    {
+      "model": "ornith-1.5:9b",
+      "score": 0.2571428571428572,
+      "runId": "eval_0ec502fc-538e-41f2-9a1b-1ada81d1c958",
+      "digestSha256": "e5df7dcdd8a263994df62d610317e07be0d6af23f96fcbd8543273058fce575e",
+      "testedAt": "2026-09-18T13:26:05.968Z",
+      "startedAt": "2026-09-18T13:23:58.539Z",
+      "durationMs": 127429,
+      "repeats": 3,
+      "contract": "82d70e89eb56d8393a8509b3e124aa87a8a1d8d86afe36b0746e3f6a56581812",
+      "providerVersion": "0.34.0-intentsmith.1",
+      "tasks": [
+        {
+          "name": "patch_8cae1b583963",
+          "language": null,
+          "mean": 0,
+          "spread": 0,
+          "scores": [
+            0,
+            0,
+            0
+          ],
+          "rubric": [],
+          "details": [
+            {
+              "reason": "splněno 0/1 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 1,
+              "regressions": 0
+            },
+            {
+              "reason": "splněno 0/1 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 1,
+              "regressions": 0
+            },
+            {
+              "reason": "splněno 0/1 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 1,
+              "regressions": 0
+            }
+          ]
+        },
+        {
+          "name": "patch_0fe346cc820c",
+          "language": null,
+          "mean": 0,
+          "spread": 0,
+          "scores": [
+            0,
+            0,
+            0
+          ],
+          "rubric": [],
+          "details": [
+            {
+              "reason": "splněno 0/59 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 59,
+              "regressions": 0
+            },
+            {
+              "reason": "splněno 0/59 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 59,
+              "regressions": 0
+            },
+            {
+              "reason": "splněno 0/59 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 59,
+              "regressions": 0
+            }
+          ]
+        },
+        {
+          "name": "patch_6fc5e4eb7dce",
+          "language": null,
+          "mean": 1,
+          "spread": 0,
+          "scores": [
+            1,
+            1,
+            1
+          ],
+          "rubric": [],
+          "details": [
+            {
+              "reason": null,
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 8,
+              "targeted": 8,
+              "regressions": 0
+            },
+            {
+              "reason": null,
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 8,
+              "targeted": 8,
+              "regressions": 0
+            },
+            {
+              "reason": null,
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 8,
+              "targeted": 8,
+              "regressions": 0
+            }
+          ]
+        },
+        {
+          "name": "patch_ef4ae48ec16e",
+          "language": null,
+          "mean": 0,
+          "spread": 0,
+          "scores": [
+            0,
+            0,
+            0
+          ],
+          "rubric": [],
+          "details": [
+            {
+              "reason": "oprava rozbila 2 jiných testů",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 3,
+              "regressions": 2
+            },
+            {
+              "reason": "oprava rozbila 1 jiných testů",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 3,
+              "regressions": 1
+            },
+            {
+              "reason": "splněno 0/3 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 3,
+              "regressions": 0
+            }
+          ]
+        },
+        {
+          "name": "patch_e8cdbe02e5de",
+          "language": null,
+          "mean": 0.8000000000000002,
+          "spread": 0,
+          "scores": [
+            0.8,
+            0.8,
+            0.8
+          ],
+          "rubric": [],
+          "details": [
+            {
+              "reason": "splněno 4/5 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 4,
+              "targeted": 5,
+              "regressions": 0
+            },
+            {
+              "reason": "splněno 4/5 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 4,
+              "targeted": 5,
+              "regressions": 0
+            },
+            {
+              "reason": "splněno 4/5 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 4,
+              "targeted": 5,
+              "regressions": 0
+            }
+          ]
+        },
+        {
+          "name": "patch_22149f55b861",
+          "language": null,
+          "mean": 0,
+          "spread": 0,
+          "scores": [
+            0,
+            0,
+            0
+          ],
+          "rubric": [],
+          "details": [
+            {
+              "reason": "splněno 0/1 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 1,
+              "regressions": 0
+            },
+            {
+              "reason": "splněno 0/1 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 1,
+              "regressions": 0
+            },
+            {
+              "reason": "splněno 0/1 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 1,
+              "regressions": 0
+            }
+          ]
+        },
+        {
+          "name": "patch_adb1258cfec0",
+          "language": null,
+          "mean": 0,
+          "spread": 0,
+          "scores": [
+            0,
+            0,
+            0
+          ],
+          "rubric": [],
+          "details": [
+            {
+              "reason": "splněno 0/1 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 1,
+              "regressions": 0
+            },
+            {
+              "reason": "splněno 0/1 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 1,
+              "regressions": 0
+            },
+            {
+              "reason": "splněno 0/1 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 1,
+              "regressions": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "model": "devstral-small-2:latest",
+      "score": 0.3238095238095238,
+      "runId": "eval_c11f7249-b14e-49c4-9838-cd0c37835b7e",
+      "digestSha256": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "testedAt": "2026-09-18T13:30:35.499Z",
+      "startedAt": "2026-09-18T13:26:56.817Z",
+      "durationMs": 218682,
+      "repeats": 3,
+      "contract": "82d70e89eb56d8393a8509b3e124aa87a8a1d8d86afe36b0746e3f6a56581812",
+      "providerVersion": "0.34.0-intentsmith.1",
+      "tasks": [
+        {
+          "name": "patch_8cae1b583963",
+          "language": null,
+          "mean": 0,
+          "spread": 0,
+          "scores": [
+            0,
+            0,
+            0
+          ],
+          "rubric": [],
+          "details": [
+            {
+              "reason": "splněno 0/1 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 1,
+              "regressions": 0
+            },
+            {
+              "reason": "splněno 0/1 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 1,
+              "regressions": 0
+            },
+            {
+              "reason": "splněno 0/1 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 1,
+              "regressions": 0
+            }
+          ]
+        },
+        {
+          "name": "patch_0fe346cc820c",
+          "language": null,
+          "mean": 1,
+          "spread": 0,
+          "scores": [
+            1,
+            1,
+            1
+          ],
+          "rubric": [],
+          "details": [
+            {
+              "reason": null,
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 59,
+              "targeted": 59,
+              "regressions": 0
+            },
+            {
+              "reason": null,
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 59,
+              "targeted": 59,
+              "regressions": 0
+            },
+            {
+              "reason": null,
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 59,
+              "targeted": 59,
+              "regressions": 0
+            }
+          ]
+        },
+        {
+          "name": "patch_6fc5e4eb7dce",
+          "language": null,
+          "mean": 1,
+          "spread": 0,
+          "scores": [
+            1,
+            1,
+            1
+          ],
+          "rubric": [],
+          "details": [
+            {
+              "reason": null,
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 8,
+              "targeted": 8,
+              "regressions": 0
+            },
+            {
+              "reason": null,
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 8,
+              "targeted": 8,
+              "regressions": 0
+            },
+            {
+              "reason": null,
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 8,
+              "targeted": 8,
+              "regressions": 0
+            }
+          ]
+        },
+        {
+          "name": "patch_ef4ae48ec16e",
+          "language": null,
+          "mean": 0,
+          "spread": 0,
+          "scores": [
+            0,
+            0,
+            0
+          ],
+          "rubric": [],
+          "details": [
+            {
+              "reason": "splněno 0/3 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 3,
+              "regressions": 0
+            },
+            {
+              "reason": "splněno 0/3 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 3,
+              "regressions": 0
+            },
+            {
+              "reason": "splněno 0/3 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 3,
+              "regressions": 0
+            }
+          ]
+        },
+        {
+          "name": "patch_e8cdbe02e5de",
+          "language": null,
+          "mean": 0.26666666666666666,
+          "spread": 0.8,
+          "scores": [
+            0,
+            0.8,
+            0
+          ],
+          "rubric": [],
+          "details": [
+            {
+              "reason": "splněno 0/5 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 5,
+              "regressions": 0
+            },
+            {
+              "reason": "splněno 4/5 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 4,
+              "targeted": 5,
+              "regressions": 0
+            },
+            {
+              "reason": "splněno 0/5 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 5,
+              "regressions": 0
+            }
+          ]
+        },
+        {
+          "name": "patch_22149f55b861",
+          "language": null,
+          "mean": 0,
+          "spread": 0,
+          "scores": [
+            0,
+            0,
+            0
+          ],
+          "rubric": [],
+          "details": [
+            {
+              "reason": "splněno 0/1 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 1,
+              "regressions": 0
+            },
+            {
+              "reason": "splněno 0/1 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 1,
+              "regressions": 0
+            },
+            {
+              "reason": "splněno 0/1 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 1,
+              "regressions": 0
+            }
+          ]
+        },
+        {
+          "name": "patch_adb1258cfec0",
+          "language": null,
+          "mean": 0,
+          "spread": 0,
+          "scores": [
+            0,
+            0,
+            0
+          ],
+          "rubric": [],
+          "details": [
+            {
+              "reason": "splněno 0/1 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 1,
+              "regressions": 0
+            },
+            {
+              "reason": "splněno 0/1 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 1,
+              "regressions": 0
+            },
+            {
+              "reason": "splněno 0/1 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 1,
+              "regressions": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "model": "qwen3.8:latest",
+      "score": 0.7142857142857143,
+      "runId": "eval_3bbef26b-3568-4a9e-8ad5-20241aae95b7",
+      "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "testedAt": "2026-09-18T13:34:38.066Z",
+      "startedAt": "2026-09-18T13:31:48.885Z",
+      "durationMs": 169181,
+      "repeats": 3,
+      "contract": "82d70e89eb56d8393a8509b3e124aa87a8a1d8d86afe36b0746e3f6a56581812",
+      "providerVersion": "0.34.0-intentsmith.1",
+      "tasks": [
+        {
+          "name": "patch_8cae1b583963",
+          "language": null,
+          "mean": 1,
+          "spread": 0,
+          "scores": [
+            1,
+            1,
+            1
+          ],
+          "rubric": [],
+          "details": [
+            {
+              "reason": null,
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 1,
+              "targeted": 1,
+              "regressions": 0
+            },
+            {
+              "reason": null,
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 1,
+              "targeted": 1,
+              "regressions": 0
+            },
+            {
+              "reason": null,
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 1,
+              "targeted": 1,
+              "regressions": 0
+            }
+          ]
+        },
+        {
+          "name": "patch_0fe346cc820c",
+          "language": null,
+          "mean": 1,
+          "spread": 0,
+          "scores": [
+            1,
+            1,
+            1
+          ],
+          "rubric": [],
+          "details": [
+            {
+              "reason": null,
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 59,
+              "targeted": 59,
+              "regressions": 0
+            },
+            {
+              "reason": null,
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 59,
+              "targeted": 59,
+              "regressions": 0
+            },
+            {
+              "reason": null,
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 59,
+              "targeted": 59,
+              "regressions": 0
+            }
+          ]
+        },
+        {
+          "name": "patch_6fc5e4eb7dce",
+          "language": null,
+          "mean": 1,
+          "spread": 0,
+          "scores": [
+            1,
+            1,
+            1
+          ],
+          "rubric": [],
+          "details": [
+            {
+              "reason": null,
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 8,
+              "targeted": 8,
+              "regressions": 0
+            },
+            {
+              "reason": null,
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 8,
+              "targeted": 8,
+              "regressions": 0
+            },
+            {
+              "reason": null,
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 8,
+              "targeted": 8,
+              "regressions": 0
+            }
+          ]
+        },
+        {
+          "name": "patch_ef4ae48ec16e",
+          "language": null,
+          "mean": 0.3333333333333333,
+          "spread": 0,
+          "scores": [
+            0.3333333333333333,
+            0.3333333333333333,
+            0.3333333333333333
+          ],
+          "rubric": [],
+          "details": [
+            {
+              "reason": "splněno 1/3 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 1,
+              "targeted": 3,
+              "regressions": 0
+            },
+            {
+              "reason": "splněno 1/3 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 1,
+              "targeted": 3,
+              "regressions": 0
+            },
+            {
+              "reason": "splněno 1/3 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 1,
+              "targeted": 3,
+              "regressions": 0
+            }
+          ]
+        },
+        {
+          "name": "patch_e8cdbe02e5de",
+          "language": null,
+          "mean": 0,
+          "spread": 0,
+          "scores": [
+            0,
+            0,
+            0
+          ],
+          "rubric": [],
+          "details": [
+            {
+              "reason": "splněno 0/5 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 5,
+              "regressions": 0
+            },
+            {
+              "reason": "splněno 0/5 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 5,
+              "regressions": 0
+            },
+            {
+              "reason": "splněno 0/5 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 5,
+              "regressions": 0
+            }
+          ]
+        },
+        {
+          "name": "patch_22149f55b861",
+          "language": null,
+          "mean": 0.6666666666666666,
+          "spread": 1,
+          "scores": [
+            0,
+            1,
+            1
+          ],
+          "rubric": [],
+          "details": [
+            {
+              "reason": "splněno 0/1 požadavků",
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 0,
+              "targeted": 1,
+              "regressions": 0
+            },
+            {
+              "reason": null,
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 1,
+              "targeted": 1,
+              "regressions": 0
+            },
+            {
+              "reason": null,
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 1,
+              "targeted": 1,
+              "regressions": 0
+            }
+          ]
+        },
+        {
+          "name": "patch_adb1258cfec0",
+          "language": null,
+          "mean": 1,
+          "spread": 0,
+          "scores": [
+            1,
+            1,
+            1
+          ],
+          "rubric": [],
+          "details": [
+            {
+              "reason": null,
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 1,
+              "targeted": 1,
+              "regressions": 0
+            },
+            {
+              "reason": null,
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 1,
+              "targeted": 1,
+              "regressions": 0
+            },
+            {
+              "reason": null,
+              "syntaxOk": true,
+              "applied": true,
+              "targetedPassed": 1,
+              "targeted": 1,
+              "regressions": 0
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "providerProof": [
+    {
+      "run_id": "eval_0ec502fc-538e-41f2-9a1b-1ada81d1c958",
+      "model_digest_sha256": "e5df7dcdd8a263994df62d610317e07be0d6af23f96fcbd8543273058fce575e",
+      "suite_contract_sha256": "82d70e89eb56d8393a8509b3e124aa87a8a1d8d86afe36b0746e3f6a56581812",
+      "status": "COMPLETE",
+      "provider": {
+        "name": "ollama",
+        "version": "0.34.0-intentsmith.1",
+        "proof": "RESPONSE_BOUND"
+      }
+    },
+    {
+      "run_id": "eval_c11f7249-b14e-49c4-9838-cd0c37835b7e",
+      "model_digest_sha256": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "suite_contract_sha256": "82d70e89eb56d8393a8509b3e124aa87a8a1d8d86afe36b0746e3f6a56581812",
+      "status": "COMPLETE",
+      "provider": {
+        "name": "ollama",
+        "version": "0.34.0-intentsmith.1",
+        "proof": "RESPONSE_BOUND"
+      }
+    },
+    {
+      "run_id": "eval_3bbef26b-3568-4a9e-8ad5-20241aae95b7",
+      "model_digest_sha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "suite_contract_sha256": "82d70e89eb56d8393a8509b3e124aa87a8a1d8d86afe36b0746e3f6a56581812",
+      "status": "COMPLETE",
+      "provider": {
+        "name": "ollama",
+        "version": "0.34.0-intentsmith.1",
+        "proof": "RESPONSE_BOUND"
+      }
+    }
+  ],
+  "completedTaskEvaluations": 63,
+  "choice": {
+    "best": "qwen3.8:latest",
+    "score": 0.7142857142857143,
+    "previous": "qwen3.8:latest",
+    "applied": false,
+    "reason": "Current model remains the strongest newly measured candidate; no downgrade."
+  },
+  "bindingsBefore": {
+    "D1": "qwen3.5:27b",
+    "D2": "qwen3.8:latest",
+    "CODE": "qwen3.8:latest",
+    "R1": "qwen3.8:latest",
+    "R2": "devstral-small-2:latest",
+    "CHAT": "qwen3.5:27b",
+    "VISION": "ornith-1.5:9b"
+  },
+  "bindingsAfter": {
+    "D1": "qwen3.5:27b",
+    "D2": "qwen3.8:latest",
+    "CODE": "qwen3.8:latest",
+    "R1": "qwen3.8:latest",
+    "R2": "devstral-small-2:latest",
+    "CHAT": "qwen3.5:27b",
+    "VISION": "ornith-1.5:9b"
+  },
+  "controlledDownload": {
+    "status": "PASS",
+    "transfer": true,
+    "recovered": true,
+    "completed": true,
+    "reload": true
+  },
+  "liveUi": {
+    "status": "PASS",
+    "tabs": [
+      "Přehled",
+      "Role (7)",
+      "Evaluace",
+      "GPU hunt",
+      "Historie",
+      "Kandidáti",
+      "Správce"
+    ],
+    "taskDetail": true,
+    "historyDetail": true,
+    "downloadVisible": true,
+    "pollPreservesScroll": true
+  },
+  "fullAudit": {
+    "sourceRevision": "5f364979436ac47df9bc4817e437f7e4d6990e44",
+    "verdict": "FAIL",
+    "statusCounts": {
+      "PASS": 359,
+      "FAIL": 1,
+      "TIMEOUT": 0,
+      "BLOCKED": 0,
+      "SKIPPED": 0
+    }
+  },
+  "subsequentFocusedTests": {
+    "binding": 109,
+    "artifact": 160
+  },
+  "verificationSource": "e3d1d36e28c84b4a71a3ab3fce066dd03f7ad29d",
+  "verificationRelease": {
+    "startedAt": "2026-09-18T13:36:05.746Z",
+    "observedAt": "2026-09-18T13:38:08.409Z",
+    "backendPid": 1469925,
+    "claims": [
+      {
+        "canonical_name": "qwen3.5:27b",
+        "owner": "BINDING_VERIFICATION",
+        "owner_pid": 1469925,
+        "acquired_at_ms": 1789738546963,
+        "released_at_ms": 1789738570745
+      },
+      {
+        "canonical_name": "qwen3.8",
+        "owner": "BINDING_VERIFICATION",
+        "owner_pid": 1469925,
+        "acquired_at_ms": 1789738570745,
+        "released_at_ms": 1789738578248
+      },
+      {
+        "canonical_name": "qwen3.5:27b",
+        "owner": "BINDING_VERIFICATION",
+        "owner_pid": 1469925,
+        "acquired_at_ms": 1789738578248,
+        "released_at_ms": 1789738601828
+      },
+      {
+        "canonical_name": "qwen3.8",
+        "owner": "BINDING_VERIFICATION",
+        "owner_pid": 1469925,
+        "acquired_at_ms": 1789738601828,
+        "released_at_ms": 1789738608414
+      },
+      {
+        "canonical_name": "qwen3.8",
+        "owner": "BINDING_VERIFICATION",
+        "owner_pid": 1469925,
+        "acquired_at_ms": 1789738608414,
+        "released_at_ms": 1789738613493
+      },
+      {
+        "canonical_name": "devstral-small-2",
+        "owner": "BINDING_VERIFICATION",
+        "owner_pid": 1469925,
+        "acquired_at_ms": 1789738613493,
+        "released_at_ms": 1789738674696
+      },
+      {
+        "canonical_name": "ornith-1.5:9b",
+        "owner": "BINDING_VERIFICATION",
+        "owner_pid": 1469925,
+        "acquired_at_ms": 1789738674696,
+        "released_at_ms": 1789738686428
+      }
+    ],
+    "residentModels": [],
+    "status": "PASS"
+  },
+  "limitations": [
+    "Seven JavaScript repair tasks repeated three times; not a full-project or broad coding benchmark.",
+    "Controlled download progress uses simulated NDJSON; actual Gemma success is a separate durable production receipt.",
+    "Physical Electron uses a private profile and diagnostic --no-sandbox.",
+    "Full audit retains the inherited Gate 0 registry hash failure.",
+    "User old Studio window remains open; new launch loads the installed frontend.",
+    "Review is pending."
+  ],
+  "evidenceRoot": "/home/belphareon/Projects/coworker/intentsmith-model-download-journey-20260918",
+  "archive": {
+    "name": "evidence.tar.gz",
+    "sha256": "6378d0167c2ec2423b4cd5a0fb2f7bd19af03af689e994ff9d6947f41637ef87",
+    "bytes": 6044243
+  },
+  "sourceBundleSha256": "137545c120d844492357cfa21a58418f4718479eb765c848b339297c2bcc459f",
+  "rawReceiptCorrection": {
+    "file": "live-code-1/receipt.json",
+    "field": "limitations[4]",
+    "correction": "Inherited text from controlled harness is inapplicable. This run used the installed production backend, DB and real GPU for three evaluations; Gemma was only observed, not downloaded again."
+  }
+}

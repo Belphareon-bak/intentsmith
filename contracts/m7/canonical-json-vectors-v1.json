@@ -1,0 +1,97 @@
+{
+  "contract": "M7CanonicalJsonVectorSet",
+  "version": 1,
+  "vectors": [
+    {
+      "id": "nfc-nested",
+      "valid": true,
+      "input": {
+        "z": [true, null, -12],
+        "e\u0301": "A\u030a",
+        "a": 7
+      },
+      "canonicalBase64": "eyJhIjo3LCJ6IjpbdHJ1ZSxudWxsLC0xMl0sIsOpIjoiw4UifQ=="
+    },
+    {
+      "id": "escaping-and-unicode",
+      "valid": true,
+      "input": {
+        "text": "quote\" slash\\ controls:\b\f\n\r\t\u0000\u001f café \u2028\u2029 😀"
+      },
+      "canonicalBase64": "eyJ0ZXh0IjoicXVvdGVcIiBzbGFzaFxcIGNvbnRyb2xzOlxiXGZcblxyXHRcdTAwMDBcdTAwMWYgY2Fmw6kg4oCo4oCpIPCfmIAifQ=="
+    },
+    {
+      "id": "utf8-key-order",
+      "valid": true,
+      "input": {
+        "𐀀": "astral",
+        "": "bmp-private",
+        "aa": 1,
+        "é": 2
+      },
+      "canonicalBase64": "eyJhYSI6MSwiw6kiOjIsIu6AgCI6ImJtcC1wcml2YXRlIiwi8JCAgCI6ImFzdHJhbCJ9"
+    },
+    {
+      "id": "safe-integer-bounds",
+      "valid": true,
+      "input": {
+        "max": 9007199254740991,
+        "min": -9007199254740991,
+        "zero": 0
+      },
+      "canonicalBase64": "eyJtYXgiOjkwMDcxOTkyNTQ3NDA5OTEsIm1pbiI6LTkwMDcxOTkyNTQ3NDA5OTEsInplcm8iOjB9"
+    },
+    {
+      "id": "lone-surrogates",
+      "valid": true,
+      "input": {
+        "high": "\ud800",
+        "low": "\udc00",
+        "pair": "😀"
+      },
+      "canonicalBase64": "eyJoaWdoIjoiXHVkODAwIiwibG93IjoiXHVkYzAwIiwicGFpciI6IvCfmIAifQ=="
+    },
+    {
+      "id": "nested-structure",
+      "valid": true,
+      "input": [
+        {
+          "beta": [
+            {
+              "y": false,
+              "x": null
+            }
+          ],
+          "alpha": []
+        },
+        "Å"
+      ],
+      "canonicalBase64": "W3siYWxwaGEiOltdLCJiZXRhIjpbeyJ4IjpudWxsLCJ5IjpmYWxzZX1dfSwiw4UiXQ=="
+    },
+    {
+      "id": "normalized-key-collision",
+      "valid": false,
+      "input": {
+        "é": 1,
+        "e\u0301": 2
+      },
+      "canonicalBase64": null
+    },
+    {
+      "id": "fractional-number",
+      "valid": false,
+      "input": {
+        "value": 1.5
+      },
+      "canonicalBase64": null
+    },
+    {
+      "id": "unsafe-integer",
+      "valid": false,
+      "input": {
+        "value": 9007199254740992
+      },
+      "canonicalBase64": null
+    }
+  ]
+}

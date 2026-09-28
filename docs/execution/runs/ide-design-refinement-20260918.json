@@ -1,0 +1,200 @@
+{
+  "schemaVersion": 1,
+  "kind": "IDE_DESIGN_REFINEMENT_EVIDENCE",
+  "authority": "operator 2026-09-18: substantially closer to LM Studio palette and sectional settings references",
+  "baseRevision": "be6d2ccadfe5af4b11346860cce3403bcf4199cc",
+  "previousInstalledRevision": "9ab808f197ffaf1032989743253153c745d48a3d",
+  "sourceRevision": "0ef67a564ecafd813ceac2a1690faf91cae48daa",
+  "runtimeStatus": "INSTALLED_RUNTIME_VERIFIED",
+  "reviewStatus": "REVIEW_PENDING",
+  "scope": [
+    "coordinated semantic Studio palette",
+    "colored navigation and model role badges",
+    "12 settings categories with compact icon cards and contextual overview",
+    "responsive two-column settings with live preview and theme thumbnails"
+  ],
+  "fullProfile": {
+    "counts": {
+      "PASS": 359,
+      "FAIL": 1,
+      "TIMEOUT": 0,
+      "BLOCKED": 0,
+      "SKIPPED": 0
+    },
+    "verdict": "FAIL",
+    "nonPass": [
+      {
+        "path": "tests/nightly-orchestrator-self-test.js",
+        "status": "FAIL"
+      }
+    ],
+    "reportSha256": "fa23af6800a23e0b4cc4f1bd0a4a1cf6cbe9c3762e1d4db6d5a7be0b5786fedd"
+  },
+  "focused": {
+    "nodeTests": 101,
+    "m1Assertions": 133,
+    "artifactAssertions": 160
+  },
+  "gui": {
+    "sourceCategoryAndThemeChecksPerWidth": 36,
+    "sourceLayoutAndPaletteChecksPerWidth": 14,
+    "widths": [
+      960,
+      1400
+    ],
+    "installedWorkspaceChecks": 4,
+    "installedIntensityChecks": 1,
+    "textSurfaces": 10,
+    "installedCandidatePalette": "PASS",
+    "installedCleanRestart": {
+      "settings": {
+        "theme": "dark",
+        "accentIdx": 0,
+        "activeInt": 100,
+        "passiveInt": 50,
+        "textIntensity": 0,
+        "fontSizeVal": 13,
+        "fontIdx": 0,
+        "custom1": null,
+        "custom2": null,
+        "bgIdx": 0,
+        "bgCustom1": null,
+        "bgCustom2": null,
+        "customCSS": "",
+        "visualMode": "borders",
+        "tileOpacity": 80,
+        "bgDim": 30,
+        "sidebarOpacity": 80,
+        "projectsDir": "",
+        "autoCollapse": true,
+        "restoreSession": true,
+        "lastView": "settings"
+      },
+      "appearance": "studio",
+      "fill": "color(srgb 0.913726 0.929412 0.956863 / 0.78)",
+      "beforePids": {
+        "backend": 1963197,
+        "studio": 1963283
+      },
+      "afterPids": {
+        "backend": 1964768,
+        "studio": 1964802
+      },
+      "cleanRestart": true
+    },
+    "bundleIdentity": "production bundle copied unchanged; consumer verifier PASS in source and installed copy"
+  },
+  "preservedConfigurationCallbacks": 58,
+  "deployment": {
+    "status": "INSTALLED",
+    "previousRevision": "9ab808f197ffaf1032989743253153c745d48a3d",
+    "revision": "0ef67a564ecafd813ceac2a1690faf91cae48daa",
+    "sourceRoot": "/home/belphareon/.local/share/intentsmith/releases/0ef67a564ecafd813ceac2a1690faf91cae48daa",
+    "backup": "/home/belphareon/.local/state/intentsmith/installation-backups/2026-09-18T20-11-08-896Z",
+    "backend": "active",
+    "backendPid": 1963529,
+    "timer": "active",
+    "authenticatedHTTP": 200,
+    "uncredentialedHTTP": 401,
+    "administratorCredentialPreserved": true,
+    "quickCheck": "ok",
+    "foreignKeyErrors": 0,
+    "migrations": 105,
+    "unchangedTables": {
+      "conversations": {
+        "rows": 35,
+        "sha256": "77671f3c3c2968b73cc1b9264020064177d7fa0373e1cb96dfc6c338e9e3b30a"
+      },
+      "messages": {
+        "rows": 9,
+        "sha256": "6e44a7fb70bfcf3f8e7418ba37ce0121d7321a05ee95347c0dab7b441f737224"
+      },
+      "model_evaluation_runs": {
+        "rows": 524,
+        "sha256": "70a45ac7abca76086e8df35500e941d0187d1087f29999614d641a96946def66"
+      },
+      "model_evaluation_decisions": {
+        "rows": 234,
+        "sha256": "f9ee42981a89c4dc64b7b0420c679c295908052574ece38a3c118f240f05ab80"
+      },
+      "model_desired_bindings": {
+        "rows": 7,
+        "sha256": "87b51bcb23e16ffc453a82035d837eeee255d19002a1a4d06d0284301e348831"
+      },
+      "project_memory": {
+        "rows": 11,
+        "sha256": "58dc9fcb07a7a48a0a8d080dff23db52c12f3217441c089f042f95eb9af0b870"
+      },
+      "user_memory": {
+        "rows": 1,
+        "sha256": "99494ee5579e379fff9e8361de130b31ee8ac4a3fc5b96456dba41ba04f229ad"
+      },
+      "memory": {
+        "rows": 28,
+        "sha256": "7b7aba15baf2e9719a8a18ec114c718f708a0cba96d74265779551cf2e3e2132"
+      },
+      "global_memory": {
+        "rows": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      }
+    },
+    "projects": {
+      "rows": 11,
+      "allFieldsExceptLastActiveUnchanged": true,
+      "operationalChanges": [
+        {
+          "projectId": 2,
+          "column": "last_active",
+          "before": "2026-09-18 19:38:30",
+          "after": "2026-09-18 20:11:10"
+        },
+        {
+          "projectId": 4,
+          "column": "last_active",
+          "before": "2026-09-18 19:38:30",
+          "after": "2026-09-18 20:11:10"
+        },
+        {
+          "projectId": 5,
+          "column": "last_active",
+          "before": "2026-09-18 19:38:30",
+          "after": "2026-09-18 20:11:10"
+        },
+        {
+          "projectId": 6,
+          "column": "last_active",
+          "before": "2026-09-18 19:38:30",
+          "after": "2026-09-18 20:11:10"
+        },
+        {
+          "projectId": 7,
+          "column": "last_active",
+          "before": "2026-09-18 19:38:30",
+          "after": "2026-09-18 20:11:10"
+        },
+        {
+          "projectId": 11,
+          "column": "last_active",
+          "before": "2026-09-18 19:38:30",
+          "after": "2026-09-18 20:11:10"
+        }
+      ],
+      "explanation": "Existing src/server.js project directory scan calls getOrCreate; it touches last_active when the stable default now resolves to the real projects directory. Only the existing startup scan may advance last_active for these six registered projects; all other project columns and nine protected tables must remain identical."
+    }
+  },
+  "archive": {
+    "path": ".intentsmith-artifacts/ide-design-refinement-20260918/ide-design-refinement-evidence.tar.gz",
+    "bytes": 5260110,
+    "sha256": "1ccb7d135f0b7c4581a2614d9dde15ace66114c7fb2c64e14de31a078d46bf73",
+    "manifestSha256": "055491879a1af0f04f81f418aabf6ecfe2887e86375bcef797b8d5d829c47cef",
+    "files": 453,
+    "testLogs": 360
+  },
+  "limitations": [
+    "Gate 0 remains FAIL; no operator reseal",
+    "Independent review pending",
+    "Private GUI DB/profile and unreachable model provider; no GPU evaluation",
+    "Four abnormal Electron terminations coincide with other desktop application restarts; preserved logs, cause not proven",
+    "Reference fidelity is qualitative, not a measured 80 percent score"
+  ]
+}

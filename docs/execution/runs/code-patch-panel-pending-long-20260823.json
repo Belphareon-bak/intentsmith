@@ -1,0 +1,97 @@
+{
+  "measuredAt": "2026-08-23T09:53:48.550Z",
+  "models": [
+    "qwen3-coder:latest",
+    "qwen3.5:27b",
+    "qwen3-30b-a3b:latest",
+    "qwen3:14b",
+    "llava:13b"
+  ],
+  "repeats": 3,
+  "tasks": [
+    {
+      "name": "patch_f18b9b453b5f",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_4db486d33c95",
+      "values": [
+        0,
+        0.333,
+        0,
+        0.778,
+        0
+      ],
+      "noise": 0.6666666666666667,
+      "verdict": "rozlišuje"
+    },
+    {
+      "name": "patch_4ae0131cd8b2",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_c1936094daaf",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_e2414b1b4dd8",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    }
+  ],
+  "scores": [
+    [
+      "qwen3:14b",
+      0.15560000000000002
+    ],
+    [
+      "qwen3.5:27b",
+      0.0666
+    ],
+    [
+      "qwen3-coder:latest",
+      0
+    ],
+    [
+      "qwen3-30b-a3b:latest",
+      0
+    ],
+    [
+      "llava:13b",
+      0
+    ]
+  ],
+  "discriminating": 1,
+  "total": 5
+}

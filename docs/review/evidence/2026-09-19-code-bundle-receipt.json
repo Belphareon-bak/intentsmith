@@ -1,0 +1,9 @@
+{
+  "archive": "/home/belphareon/Projects/coworker/intentsmith-code-decision-20260919/evidence.tar.gz",
+  "sha256": "35221181fe3b0a30c636e3080a568f0ad4b3a14f9a42aa93a51ea48cc7100062",
+  "bytes": 137720708,
+  "manifestSha256": "91a3b1b7c5c44c5712247874f86f58cb6937e03548dd7012af0114f87e9e31af",
+  "fileCount": 950,
+  "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+  "sourceRevision": "5b91bab88338ed456664d16260eceec6d76c1e15"
+}

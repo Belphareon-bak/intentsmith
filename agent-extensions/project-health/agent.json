@@ -1,0 +1,80 @@
+{
+  "contract": "ExtensionManifest",
+  "version": 1,
+  "kind": "agent",
+  "id": "project-health",
+  "moduleVersion": "1.0.0",
+  "coreContract": ">=1.0.0 <2.0.0",
+  "requiredCapabilities": [
+    "code-intel.project-context.v1"
+  ],
+  "optionalCapabilities": [],
+  "payload": {
+    "definition": {
+      "id": "project-health",
+      "name": "Project Health",
+      "description": "Lokální deterministická kontrola projektových signálů přes M2 ProjectContext.",
+      "icon": "🩺",
+      "schedule": {
+        "type": "manual"
+      },
+      "sources": [
+        {
+          "id": "project_health",
+          "type": "project_context",
+          "config": {
+            "project_id": "{{params.project_id}}",
+            "query": "TODO FIXME HACK console log only skip",
+            "max_files": 12,
+            "max_bytes": 49152,
+            "max_tokens": 12288
+          }
+        }
+      ],
+      "conditions": [
+        {
+          "id": "project_changed",
+          "type": "changed",
+          "field": "sources.project_health.data.workspace_revision"
+        }
+      ],
+      "triggers": [
+        {
+          "id": "health_changed",
+          "condition_id": "project_changed",
+          "edge": "rising",
+          "cooldown": 60,
+          "max_fires_per_day": 20
+        }
+      ],
+      "actions": [
+        {
+          "type": "notify",
+          "trigger_id": "health_changed",
+          "config": {
+            "channel": "in_app",
+            "title": "Project Health: {{sources.project_health.data.status}}",
+            "message": "Projekt {{sources.project_health.data.project_id}}: {{sources.project_health.data.issue_count}} signálů v {{sources.project_health.data.files_observed}} souborech. Revision {{sources.project_health.data.workspace_revision}}.",
+            "priority": "normal",
+            "use_llm": false,
+            "data": {
+              "projectId": "{{sources.project_health.data.project_id}}",
+              "workspaceRevision": "{{sources.project_health.data.workspace_revision}}",
+              "snapshotDigest": "{{sources.project_health.data.snapshot_digest}}",
+              "issueCount": "{{sources.project_health.data.issue_count}}",
+              "filesObserved": "{{sources.project_health.data.files_observed}}"
+            }
+          }
+        }
+      ],
+      "params": [
+        {
+          "name": "project_id",
+          "type": "number",
+          "label": "Project ID"
+        }
+      ]
+    },
+    "enabledByDefault": false
+  }
+}

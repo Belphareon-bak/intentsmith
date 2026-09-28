@@ -1,0 +1,106 @@
+{
+  "sourceRevision": "09cbd0d6f578c89327c9b5eab869b489d813550d",
+  "baseRevision": "c2989a3e1a36fe61c080aa57e4ce33b41f4d4735",
+  "generatedAt": "2026-09-17T16:47:51.119060+00:00",
+  "status": "IMPLEMENTED_INSTALLED_REVIEW_PENDING_GPU_BLOCKED",
+  "offlineDatabase": {
+    "PASS": 358,
+    "FAIL": 1,
+    "BLOCKED": 0,
+    "TIMEOUT": 0,
+    "failure": "nightly-orchestrator-self-test: registry hash differs from reviewed Gate 0 policy"
+  },
+  "electron": "PASS with controlled backend; NODE_ENV=test and diagnostic --no-sandbox; network capture begins after startup negotiation",
+  "liveSelectedTest": "HTTP 503 GPU_DRIVER_LIBRARY_MISMATCH; no inference",
+  "review": "REVIEW_PENDING",
+  "branch": "work/hunt-model-controls-20260917",
+  "evidenceRoot": "/home/belphareon/Projects/coworker/intentsmith-model-controls-20260917",
+  "archive": {
+    "path": "/home/belphareon/Projects/coworker/intentsmith-model-controls-evidence-sha256-d9ec6f7f84da7beb59e1a387141eb7245e1745f0dd6006a88b50fe17e83e9c69.tar.gz",
+    "sha256": "d9ec6f7f84da7beb59e1a387141eb7245e1745f0dd6006a88b50fe17e83e9c69"
+  },
+  "sourceBundleSha256": "d3203694fcb11801c49a02e201401b0a5278db60ada63c660430734e26ab0e0b",
+  "frontendBundleSha256": "8087e8c4501dcabb9f66a048817a1ba5c885a04ce8dd2ebf60477c1c28cdb849",
+  "dataPreservation": {
+    "generatedAt": "2026-09-17T16:46:27.310Z",
+    "backup": "/home/belphareon/.local/state/intentsmith/installation-backups/2026-09-17T16-45-23-007Z",
+    "quickCheck": "ok",
+    "foreignKeyErrors": 0,
+    "tables": [
+      {
+        "name": "model_evaluation_runs",
+        "beforeCount": 503,
+        "afterCount": 503,
+        "beforeSha256": "b64d59cd00446f00b8178215a097d583917906827ca4dc577ba89d01245fe4ec",
+        "afterSha256": "b64d59cd00446f00b8178215a097d583917906827ca4dc577ba89d01245fe4ec",
+        "unchanged": true
+      },
+      {
+        "name": "model_evaluation_decisions",
+        "beforeCount": 220,
+        "afterCount": 220,
+        "beforeSha256": "49753899625d56eadd271771b055370d969446135ee6eb4f0b7167dd355f9261",
+        "afterSha256": "49753899625d56eadd271771b055370d969446135ee6eb4f0b7167dd355f9261",
+        "unchanged": true
+      },
+      {
+        "name": "model_desired_bindings",
+        "beforeCount": 7,
+        "afterCount": 7,
+        "beforeSha256": "36243c823d0509e5676d594c3093d35d3d7bed0037de7a41058a614b71ea1244",
+        "afterSha256": "36243c823d0509e5676d594c3093d35d3d7bed0037de7a41058a614b71ea1244",
+        "unchanged": true
+      },
+      {
+        "name": "model_binding_operations",
+        "beforeCount": 11,
+        "afterCount": 11,
+        "beforeSha256": "e072cd3f61b93391a3ff5ae49aa1973c96d7019e8ec5e4a7960838f0ea81e4fd",
+        "afterSha256": "e072cd3f61b93391a3ff5ae49aa1973c96d7019e8ec5e4a7960838f0ea81e4fd",
+        "unchanged": true
+      }
+    ],
+    "startupAttempts": [
+      {
+        "operation_id": "op_257e0c1b-7435-4959-a47b-2758e4661d6b",
+        "attempt_kind": "VERIFICATION",
+        "outcome": "SUCCEEDED"
+      },
+      {
+        "operation_id": "op_70c4a67e-6fc6-4067-8d10-7c94d2979f8b",
+        "attempt_kind": "VERIFICATION",
+        "outcome": "SUCCEEDED"
+      },
+      {
+        "operation_id": "op_f62c742a-d28e-46b7-9fd5-ef050083e516",
+        "attempt_kind": "VERIFICATION",
+        "outcome": "SUCCEEDED"
+      },
+      {
+        "operation_id": "op_3cdbc649-8c3d-4940-877a-55e2d82e0d9c",
+        "attempt_kind": "VERIFICATION",
+        "outcome": "SUCCEEDED"
+      },
+      {
+        "operation_id": "op_faabc24e-037c-44e0-9cb9-5b61e2680ba4",
+        "attempt_kind": "VERIFICATION",
+        "outcome": "SUCCEEDED"
+      },
+      {
+        "operation_id": "op_194d92a3-7ac9-4e97-be03-2eb47803dac0",
+        "attempt_kind": "STARTUP_REHYDRATE",
+        "outcome": "SUCCEEDED"
+      },
+      {
+        "operation_id": "op_257e0c1b-7435-4959-a47b-2758e4661d6b",
+        "attempt_kind": "STARTUP_REHYDRATE",
+        "outcome": "SUCCEEDED"
+      },
+      {
+        "operation_id": "op_70c4a67e-6fc6-4067-8d10-7c94d2979f8b",
+        "attempt_kind": "STARTUP_REHYDRATE",
+        "outcome": "SUCCEEDED"
+      }
+    ]
+  }
+}

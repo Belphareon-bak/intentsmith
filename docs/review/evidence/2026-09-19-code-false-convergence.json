@@ -1,0 +1,27 @@
+{
+  "newInference": false,
+  "scoreRewritten": false,
+  "rows": [
+    {
+      "evidence": "attempt-expertise-categories-1-candidate.json",
+      "loopConverged": true,
+      "finalTestPassed": false,
+      "storedScore": 0,
+      "finalStderr": "node:internal/modules/run_main:123\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n    'analyst',\n    'trader',\n+   'accountant'\n  ]\n\n    at file:///work/pilot-test.mjs:5:8\n    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)\n    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:665:26)\n    at async file:///work/pilot-check.mjs:3:41 {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: [ 'analyst', 'trader', 'accountant' ],\n  expected: [ 'analyst', 'trader' ],\n  operator: 'deepStrictEqual',\n  diff: 'simple'\n}\n\nNode.js v22.21.1\n"
+    },
+    {
+      "evidence": "attempt-expertise-categories-2-candidate.json",
+      "loopConverged": true,
+      "finalTestPassed": false,
+      "storedScore": 0,
+      "finalStderr": "node:internal/modules/run_main:123\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n    'analyst',\n    'trader',\n+   'accountant'\n  ]\n\n    at file:///work/pilot-test.mjs:5:8\n    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)\n    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:665:26)\n    at async file:///work/pilot-check.mjs:3:41 {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: [ 'analyst', 'trader', 'accountant' ],\n  expected: [ 'analyst', 'trader' ],\n  operator: 'deepStrictEqual',\n  diff: 'simple'\n}\n\nNode.js v22.21.1\n"
+    },
+    {
+      "evidence": "attempt-expertise-categories-3-candidate.json",
+      "loopConverged": true,
+      "finalTestPassed": false,
+      "storedScore": 0,
+      "finalStderr": "node:internal/modules/run_main:123\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n    'analyst',\n    'trader',\n+   'accountant'\n  ]\n\n    at file:///work/pilot-test.mjs:5:8\n    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)\n    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:665:26)\n    at async file:///work/pilot-check.mjs:3:41 {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: [ 'analyst', 'trader', 'accountant' ],\n  expected: [ 'analyst', 'trader' ],\n  operator: 'deepStrictEqual',\n  diff: 'simple'\n}\n\nNode.js v22.21.1\n"
+    }
+  ]
+}

@@ -1,0 +1,99 @@
+{
+  "status": "REVIEW_RECONCILED_ADJUDICATION_OPEN",
+  "sourceCommit": "28039a208bb06758e52992ee7a2a00eef4d58781",
+  "archive": "/home/belphareon/Projects/coworker/intentsmith-hunt-adjudication-20260921.4b94e7d6708f6cbd809cf5118ad620a3291c012dfed0762412feecfeabd7e19a.tar.gz",
+  "archiveSha256": "4b94e7d6708f6cbd809cf5118ad620a3291c012dfed0762412feecfeabd7e19a",
+  "bytes": 1147821,
+  "verifiedFiles": 18,
+  "manifestSha256": "ea215fb294c56d838c1d3120359806609368c1a85f53381de954f53b3e34e9b6",
+  "oldGradingFreezeUnchanged": true,
+  "newInference": false,
+  "productionCodeChanged": false,
+  "comparison": {
+    "status": "AUTHOR_RECONCILIATION_REVIEW_PENDING",
+    "prior28": {
+      "n": 28,
+      "workerMean": 0.6330357142857143,
+      "claudeMean": 0.6933035714285715,
+      "withinPoint10": 11,
+      "atLeastPoint25": 8
+    },
+    "normalizedNumeric29": {
+      "n": 29,
+      "workerMean": 0.6370689655172413,
+      "claudeMean": 0.6866379310344828,
+      "withinPoint10": 11,
+      "atLeastPoint25": 9
+    },
+    "claudeAll30Mean": 0.6720833333333334,
+    "byRole": {
+      "CHAT": {
+        "n": 4,
+        "workerMean": 0.8125,
+        "claudeMean": 0.78125,
+        "withinPoint10": 3,
+        "atLeastPoint25": 0
+      },
+      "D1": {
+        "n": 5,
+        "workerMean": 0.5875,
+        "claudeMean": 0.875,
+        "withinPoint10": 0,
+        "atLeastPoint25": 4
+      },
+      "D2": {
+        "n": 5,
+        "workerMean": 0.5875,
+        "claudeMean": 0.5125,
+        "withinPoint10": 0,
+        "atLeastPoint25": 2
+      },
+      "R1": {
+        "n": 6,
+        "workerMean": 0.5,
+        "claudeMean": 0.5,
+        "withinPoint10": 1,
+        "atLeastPoint25": 1
+      },
+      "R2": {
+        "n": 5,
+        "workerMean": 0.6,
+        "claudeMean": 0.7,
+        "withinPoint10": 3,
+        "atLeastPoint25": 2
+      },
+      "VISION": {
+        "n": 4,
+        "workerMean": 0.8375,
+        "claudeMean": 0.8375,
+        "withinPoint10": 4,
+        "atLeastPoint25": 0
+      }
+    },
+    "missingWorkerScores": [
+      29
+    ],
+    "largeDifferences": [
+      1,
+      2,
+      6,
+      12,
+      17,
+      18,
+      20,
+      24,
+      30
+    ],
+    "limitations": [
+      "Purposive plus random sample; descriptive differences do not estimate population-level judge bias.",
+      "External file supplies overall scores and notes, not per-criterion points; decomposed differences cannot be uniquely reconstructed.",
+      "This reconciliation follows reading both assessors; not blind acceptance and no automatic averaging."
+    ]
+  },
+  "notes": [
+    "No original frozen grade was edited. Two author criterion amendments are appended for review.",
+    "reproduce.mjs runs standalone with copied exact model-identity source and built-in Node modules.",
+    "compare.py and annotate.py use previous evidence root for complete frozen grades; previous archive is referenced.",
+    "REVIEW.md predates the external archive receipt footer."
+  ]
+}

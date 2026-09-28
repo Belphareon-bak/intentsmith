@@ -1,0 +1,59 @@
+{
+  "id": "changelog-gen",
+  "version": 1,
+  "description": "Vygeneruje changelog z git commit\u016f \u2014 form\u00e1tovan\u00fd p\u0159ehled zm\u011bn",
+  "parameters": {
+    "range": {
+      "type": "string",
+      "required": false,
+      "description": "Git range, nap\u0159. v1.0..HEAD"
+    }
+  },
+  "steps": [
+    {
+      "id": "clarify",
+      "type": "ask",
+      "prompt": "Chyst\u00e1m se vygenerovat changelog z git historie.\n\nUp\u0159esni pros\u00edm:\n- Jak\u00fd rozsah commit\u016f? (nap\u0159. posledn\u00edch 20, od tagu v1.0, konkr\u00e9tn\u00ed range: {{range}})\n- Jak\u00fd form\u00e1t? (Keep a Changelog / bullet list / kategorizovan\u00fd)\n- M\u00e1 obsahovat autory a datumy?\n- Jak\u00fd jazyk? (\u010desky / anglicky)"
+    },
+    {
+      "id": "git_log",
+      "type": "shell",
+      "command": "git log --oneline --no-merges -50 {{range}}"
+    },
+    {
+      "id": "generate",
+      "type": "llm",
+      "prompt": "Vygeneruj form\u00e1tovan\u00fd changelog z n\u00e1sleduj\u00edc\u00edch git commit\u016f.\n\nGit log:\n{{steps.git_log.output}}\n\nPo\u017eadavky u\u017eivatele:\n{{steps.clarify.output}}\n\nPravidla:\n1. Seskup commity do kategori\u00ed: P\u0159id\u00e1no, Zm\u011bn\u011bno, Opraveno, Odebr\u00e1no.\n2. P\u0159epi\u0161 commit zpr\u00e1vy do srozumiteln\u00e9ho jazyka (ne technick\u00fd \u017eargon).\n3. Spoj souvisej\u00edc\u00ed commity do jednoho bodu.\n4. Pou\u017eij form\u00e1t Keep a Changelog, pokud u\u017eivatel neurci jinak.",
+      "systemPrompt": "Jsi expert na release management. Generuje\u0161 \u010diteln\u00e9, strukturovan\u00e9 changelogy. Pi\u0161 ve zvolen\u00e9m jazyce.",
+      "temperature": 0.3,
+      "maxTokens": 4096
+    },
+    {
+      "id": "review",
+      "type": "review",
+      "content": "{{steps.generate.output}}",
+      "prompt": "Zkontroluj n\u00e1vrh changelogu. Pokud je v po\u0159\u00e1dku, napi\u0161 **ano**. Pokud chce\u0161 \u00fapravy, popi\u0161 co zm\u011bnit:"
+    },
+    {
+      "id": "refine",
+      "type": "llm",
+      "prompt": "Uprav changelog podle zp\u011btn\u00e9 vazby.\n\nZp\u011btn\u00e1 vazba / schv\u00e1len\u00fd text:\n{{steps.review.output}}\n\nP\u016fvodn\u00ed n\u00e1vrh:\n{{steps.generate.output}}\n\nPokud u\u017eivatel schv\u00e1lil beze zm\u011bn, vra\u0165 p\u016fvodn\u00ed text.\nPokud jsou po\u017eadovan\u00e9 zm\u011bny, zapracuj je.",
+      "systemPrompt": "Zapracuj zp\u011btnou vazbu p\u0159esn\u011b. Zachovej form\u00e1t changelogu.",
+      "temperature": 0.3,
+      "maxTokens": 4096
+    },
+    {
+      "id": "validate",
+      "type": "validate",
+      "content": "{{steps.refine.output}}",
+      "criteria": "Changelog mus\u00ed obsahovat alespo\u0148 jednu kategorii zm\u011bn. Ka\u017ed\u00e1 polo\u017eka mus\u00ed b\u00fdt srozumiteln\u00e1. Form\u00e1t mus\u00ed b\u00fdt konzistentn\u00ed.",
+      "failMessage": "Changelog nespl\u0148uje krit\u00e9ria kvality. Zkus znovu s p\u0159esn\u011bj\u0161\u00edm zad\u00e1n\u00edm."
+    },
+    {
+      "id": "save",
+      "type": "write",
+      "path": "CHANGELOG-generated.md",
+      "content": "{{steps.refine.output}}"
+    }
+  ]
+}

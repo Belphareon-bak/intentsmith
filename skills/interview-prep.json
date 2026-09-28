@@ -1,0 +1,50 @@
+{
+  "id": "interview-prep",
+  "version": 1,
+  "description": "Příprava na pracovní pohovor — generování otázek, STAR odpovědi a strategie pro konkrétní pozici",
+  "parameters": {
+    "role": {
+      "type": "string",
+      "required": true,
+      "description": "Pozice, na kterou se připravuješ (např. frontend developer, product manager, účetní)"
+    }
+  },
+  "steps": [
+    {
+      "id": "clarify",
+      "type": "ask",
+      "prompt": "Chystám se připravit na pohovor na pozici **{{role}}**.\n\nPůvodní zadání: {{input}}\n\nPotřebuji upřesnit:\n- O jakou firmu se jedná? (typ, velikost, obor — pokud víš)\n- Jaká je tvoje úroveň zkušeností? (junior / mid / senior)\n- Jde o první kolo, technické kolo nebo finální pohovor?\n- Máš konkrétní oblasti, kde se cítíš nejistě?\n- Preferuješ přípravu v češtině nebo angličtině?"
+    },
+    {
+      "id": "draft",
+      "type": "llm",
+      "prompt": "Připrav komplexní přípravu na pohovor na pozici: {{role}}\n\nPůvodní zadání: {{input}}\nKontext: {{steps.clarify.output}}\n\nVygeneruj:\n\n**1. Typické otázky (min 15)**\nRozdělené do kategorií:\n- Behavioral otázky (5+) — zaměřené na chování a zkušenosti\n- Technické/odborné otázky (5+) — specifické pro pozici\n- Situační otázky (3+) — hypotetické scénáře\n- Otázky na motivaci a culture fit (2+)\n\n**2. Vzorové odpovědi metodou STAR (min 5)**\nPro nejdůležitější behavioral otázky:\n- **S**ituation — kontext a pozadí\n- **T**ask — tvůj úkol nebo odpovědnost\n- **A**ction — co konkrétně jsi udělal/a\n- **R**esult — měřitelný výsledek\n\n**3. Tipy pro pohovor**\n- Na co se zaměřit\n- Čemu se vyhnout\n- Jak se ptát (otázky pro zaměstnavatele)\n\n**4. Red flags**\n- Signály, na které si dát pozor u zaměstnavatele",
+      "systemPrompt": "Jsi kariérní poradce a expert na pracovní pohovory. Připravuješ kandidáty na úspěšné pohovory s konkrétními a praktickými radami. Piš česky.",
+      "format": "plain",
+      "temperature": 0.5,
+      "maxTokens": 4096
+    },
+    {
+      "id": "review",
+      "type": "review",
+      "content": "{{steps.draft.output}}",
+      "prompt": "Zkontroluj přípravu na pohovor. Pokud je v pořádku, napiš **ano**. Pokud chceš úpravy (přidat otázky z konkrétní oblasti, změnit úroveň, doplnit technické otázky), popiš co změnit:"
+    },
+    {
+      "id": "refine",
+      "type": "llm",
+      "prompt": "Uprav přípravu na pohovor na pozici {{role}} podle zpětné vazby.\n\nZpětná vazba: {{steps.review.output}}\n\nPůvodní příprava:\n{{steps.draft.output}}\n\nPokud uživatel schválil beze změn, vrať původní text.\nPokud jsou požadované změny, zapracuj je — doplň otázky, uprav STAR odpovědi nebo rozšiř sekce.\n\nVýstup musí být kompletní finální verze přípravy.",
+      "systemPrompt": "Jsi kariérní poradce. Zapracuj zpětnou vazbu a zachovej strukturovaný formát přípravy na pohovor. Piš česky.",
+      "format": "plain",
+      "temperature": 0.3,
+      "maxTokens": 4096
+    },
+    {
+      "id": "validate",
+      "type": "validate",
+      "content": "{{steps.refine.output}}",
+      "criteria": "Příprava obsahuje minimálně 15 otázek rozdělených do kategorií (behavioral, technické, situační, motivační). Obsahuje minimálně 5 STAR odpovědí s částmi Situation, Task, Action, Result. Obsahuje sekci Tipy. Celkový rozsah min 1500 znaků.",
+      "failMessage": "Příprava nesplňuje požadovaná kritéria — nedostatečný počet otázek nebo chybí STAR odpovědi. Zkus skill spustit znovu."
+    }
+  ]
+}

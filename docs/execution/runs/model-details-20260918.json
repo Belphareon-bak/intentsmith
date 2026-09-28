@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "sourceRevision": "2ca3cca179d81f2c23dbf5d556142c678eb642e2",
+  "status": "INSTALLED_DETAILS_VERIFIED",
+  "review": "REVIEW_PENDING",
+  "fullAudit": {
+    "sourceRevision": "2ca3cca179d81f2c23dbf5d556142c678eb642e2",
+    "statusCounts": {
+      "PASS": 358,
+      "FAIL": 1,
+      "TIMEOUT": 0,
+      "BLOCKED": 0,
+      "SKIPPED": 0
+    },
+    "verdict": "FAIL",
+    "remainingFailure": "IS-T1-TESTS-NIGHTLY-ORCHESTRATOR-SELF-TEST"
+  },
+  "live": {
+    "source": "/home/belphareon/.local/share/intentsmith/releases/2ca3cca179d81f2c23dbf5d556142c678eb642e2",
+    "started": "2026-09-18T11:54:27.873Z",
+    "cold": [
+      {
+        "tab": "Přehled",
+        "loaded": true
+      },
+      {
+        "tab": "Role (7)",
+        "loaded": true
+      },
+      {
+        "tab": "Evaluace",
+        "loaded": true
+      },
+      {
+        "tab": "GPU hunt",
+        "loaded": true
+      },
+      {
+        "tab": "Historie",
+        "loaded": true
+      },
+      {
+        "tab": "Kandidáti",
+        "loaded": true
+      },
+      {
+        "tab": "Správce",
+        "loaded": true
+      }
+    ],
+    "cycles": [],
+    "limitations": [
+      "installed backend",
+      "NODE_ENV=production",
+      "diagnostic --no-sandbox",
+      "private Electron profile on current display",
+      "no GPU inference required for transport regression"
+    ],
+    "roleSorting": true,
+    "alternativeLink": true,
+    "coderDetail": {
+      "score": 11.4,
+      "tasks": 7,
+      "failedTasks": 6,
+      "partialTaskScore": 80,
+      "seconds": 109
+    },
+    "qualitySorting": true,
+    "exactHistoricalDetail": true,
+    "vision2026": true,
+    "collectors": 6,
+    "confirmedSuiteScope": "Otestovat qwen3.8:latest pro roli CODE? Celá aktuální sada: 7 úloh × 3 opakování. Použije GPU, uloží skóre a ponechá přiřazení rolí. Provede nové měření; předchozí výsledky zůstanou v historii.",
+    "status": "PASS",
+    "finished": "2026-09-18T11:54:57.324Z"
+  },
+  "state": {
+    "at": "2026-09-18T11:56:16.349Z",
+    "revision": "2ca3cca179d81f2c23dbf5d556142c678eb642e2",
+    "backend": {
+      "pid": 1198467,
+      "port": 40295
+    },
+    "model_evaluation_runs": {
+      "count": 516,
+      "sha256": "5de316fed6e21334a9018d443fa70ac4a93d5b8ddb21dfeb4ed46424e5297d38",
+      "unchanged": true
+    },
+    "model_evaluation_decisions": {
+      "count": 234,
+      "sha256": "29baa9a24acfe0c7dcce10b3616a4f7c184bac1d9ea467c41d49be8d6fa8fd97",
+      "unchanged": true
+    },
+    "model_desired_bindings": {
+      "count": 7,
+      "sha256": "cdd5acdd76ecee67a92c32facc0738fcf65cbdd8df15b7416fda4a38fc08ccd4",
+      "unchanged": true
+    },
+    "candidates": {
+      "total": 82,
+      "vision": 26,
+      "year2026": 13,
+      "undated": 7
+    },
+    "collectors": {
+      "models": {
+        "status": "OBSERVED",
+        "collectorStatus": "READY",
+        "score": null
+      },
+      "cre": {
+        "status": "HEALTHY",
+        "collectorStatus": "READY",
+        "score": 1
+      },
+      "architecture": {
+        "status": "NO_ACTIVITY",
+        "collectorStatus": "READY",
+        "score": null
+      },
+      "builds": {
+        "status": "CRITICAL",
+        "collectorStatus": "READY",
+        "score": 0
+      },
+      "specialists": {
+        "status": "OBSERVED",
+        "collectorStatus": "READY",
+        "score": null
+      },
+      "upgrades": {
+        "status": "HEALTHY",
+        "collectorStatus": "READY",
+        "score": 1
+      }
+    }
+  },
+  "knownLimits": [
+    "No new inference in this change; scoring contracts unchanged",
+    "No quick/full benchmark split; complete current CODE suite has 7 tasks x 3 repeats",
+    "All six collectors available; architecture has no audit and specialists have no recent tool outcome",
+    "Seven discovery candidates still lack a verified release date",
+    "Diagnostic Electron uses --no-sandbox; user Studio and foreign soak remain running"
+  ],
+  "archive": {
+    "path": "/home/belphareon/Projects/coworker/intentsmith-model-details-sha256-ccc8f0122a7e008636406ec297840d6ccf81bb9e62bba205ab990f472d74c65e.tar.gz",
+    "sha256": "ccc8f0122a7e008636406ec297840d6ccf81bb9e62bba205ab990f472d74c65e",
+    "verifiedMembers": 858,
+    "sourceDeltaPrerequisite": "f5c5ccad6886c6e1467720e7c14f4ff0d8084fdb",
+    "includesCompleteSourceArchive": true
+  }
+}

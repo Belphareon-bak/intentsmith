@@ -1,0 +1,55 @@
+{
+  "id": "presentation",
+  "version": 1,
+  "description": "Tvorba prezentací a slide decků — od osnovy přes strukturu slajdů až po finální obsah v markdownu",
+  "parameters": {
+    "topic": {
+      "type": "string",
+      "required": true,
+      "description": "Téma prezentace (např. výroční zpráva, product pitch, školení)"
+    },
+    "slides": {
+      "type": "number",
+      "required": false,
+      "description": "Požadovaný počet slajdů (výchozí: 10-15)"
+    }
+  },
+  "steps": [
+    {
+      "id": "clarify",
+      "type": "ask",
+      "prompt": "Chystám se vytvořit prezentaci na téma **{{topic}}**.\n\nPůvodní zadání: {{input}}\n\nPotřebuji upřesnit:\n- Kdo je cílové publikum? (vedení, klienti, studenti, investoři, kolegové)\n- Jaký tón má prezentace mít? (formální / neformální / inspirativní / edukační)\n- Kolik času máš na prezentaci? (5 min / 15 min / 30 min / 60 min)\n- Má prezentace obsahovat data, grafy nebo vizuální prvky?\n- Je specifická klíčová zpráva (key takeaway), kterou si má publikum odnést?"
+    },
+    {
+      "id": "outline",
+      "type": "llm",
+      "prompt": "Vytvoř osnovu prezentace na téma: {{topic}}\n\nPůvodní zadání: {{input}}\nKontext od uživatele: {{steps.clarify.output}}\nPočet slajdů: {{slides}} (pokud neuvedeno, navrhni 10-15)\n\nOsnova musí obsahovat:\n- Název prezentace\n- Počet slajdů s názvem a stručným popisem obsahu každého (1-2 věty)\n- Logický flow: úvod → problém/kontext → hlavní obsah → závěr/CTA\n- Označení slajdů, kde doporučuješ vizuál (graf, obrázek, diagram)\n\nFormát: číslovaný seznam slajdů s názvem a popisem.",
+      "systemPrompt": "Jsi expert na tvorbu prezentací a vizuální komunikaci. Navrhuješ strukturované a poutavé prezentace. Piš česky.",
+      "format": "plain",
+      "temperature": 0.5,
+      "maxTokens": 2048
+    },
+    {
+      "id": "review",
+      "type": "review",
+      "content": "{{steps.outline.output}}",
+      "prompt": "Zkontroluj osnovu prezentace. Pokud je v pořádku, napiš **ano**. Pokud chceš úpravy (přidat/odebrat slajdy, změnit pořadí, jiný důraz), popiš co změnit:"
+    },
+    {
+      "id": "full_slides",
+      "type": "llm",
+      "prompt": "Na základě schválené osnovy vytvoř kompletní obsah prezentace na téma: {{topic}}\n\nOsnova (případně upravená dle zpětné vazby):\n{{steps.review.output}}\n\nPůvodní osnova:\n{{steps.outline.output}}\n\nPro každý slajd vygeneruj v markdownu:\n- **Název slajdu** (h2)\n- **Klíčové body** (odrážky, max 4-6 na slajd)\n- **Speaker notes** (co říct k tomuto slajdu, kurzívou pod oddělovačem)\n- **Vizuální doporučení** (pokud relevantní — typ grafu, obrázku)\n\nPravidla:\n- Max 6 odrážek na slajd (méně je více)\n- Krátké a úderné texty — ne celé věty, ale klíčová sdělení\n- Konzistentní styl napříč všemi slajdy\n- Úvodní slajd s názvem a jménem prezentujícího\n- Závěrečný slajd s CTA nebo Q&A\n- Odděluj slajdy horizontální čárou (---)",
+      "systemPrompt": "Jsi expert na prezentace a storytelling. Vytváříš vizuálně čisté slajdy s minimem textu a maximem dopadu. Piš česky.",
+      "format": "plain",
+      "temperature": 0.5,
+      "maxTokens": 4096
+    },
+    {
+      "id": "validate",
+      "type": "validate",
+      "content": "{{steps.full_slides.output}}",
+      "criteria": "Prezentace obsahuje minimálně 5 slajdů oddělených --- s nadpisy a odrážkami. Obsahuje úvodní a závěrečný slajd. Celkový rozsah min 1000 znaků.",
+      "failMessage": "Prezentace nesplňuje požadovanou strukturu — chybí dostatečný počet slajdů nebo povinné sekce (úvod, závěr). Zkus skill spustit znovu."
+    }
+  ]
+}

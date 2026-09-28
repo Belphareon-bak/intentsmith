@@ -1,0 +1,65 @@
+{
+  "revision": "3f005fc097c82cd9fef49ca946758d005ef00235",
+  "installed": true,
+  "registryVerified": true,
+  "accountant": {
+    "name": "Účetní",
+    "version": "2.1.0",
+    "tools": [
+      "accountant.compare_tax_entities",
+      "accountant.vat_calculator",
+      "accountant.salary_calculator",
+      "accountant.deadline_checker",
+      "accountant.tax_calculator",
+      "accountant.document_workflow"
+    ]
+  },
+  "betting": {
+    "name": "Sázkař",
+    "version": "3.2.0",
+    "tools": [
+      "sazeni.ticket_builder",
+      "sazeni.odds_compare",
+      "sazeni.match_analysis",
+      "sazeni.value_finder"
+    ]
+  },
+  "unauthenticatedStatus": 401,
+  "status": "INSTALLED_IMPLEMENTATION_VERIFIED_REVIEW_PENDING",
+  "previousRevision": "3bbf8bc1b354bbee187d5fe51a21b00072b4d3d9",
+  "installedAt": "2026-09-17T14:24:42.963Z",
+  "branch": "codex/specialists-studio-20260917",
+  "bundleSha256": "b9360142ae6043d984b56d49f36efba0a922442bc73ea95331d8e69b65f7177e",
+  "backup": "~/.local/state/intentsmith/installation-backups/2026-09-17T14-24-42-963Z",
+  "fullProfile": {
+    "revision": "be0f5d65ee176166b13be305bdece523a915a1f2",
+    "run": "2026-09-17T14-13-27-189Z",
+    "pass": 356,
+    "fail": 2,
+    "blocked": 1,
+    "notes": [
+      "release seal remains FAIL",
+      "document census punctuation corrected; subsequent artifact-validation PASS",
+      "accountant OCR run separately with its explicit runtime"
+    ]
+  },
+  "finalDelta": {
+    "run": "2026-09-17T14-22-33-240Z",
+    "pass": 6,
+    "fail": 0,
+    "blocked": 0
+  },
+  "freshCloneUI": {
+    "run": "run-qk1oy4",
+    "sourceCount": 2,
+    "draftCount": 7,
+    "renderedReply": true,
+    "followup": true,
+    "specialistsVisible": true,
+    "modelProvider": "disabled"
+  },
+  "bettingLive": "PROVIDER_BLOCKED: football-data.co.uk redirects to loopback",
+  "submittedFilings": false,
+  "placedBets": false,
+  "sentEmails": false
+}

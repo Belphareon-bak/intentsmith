@@ -1,0 +1,105 @@
+{
+  "schemaVersion": "intentsmith-model-removal-evidence-v1",
+  "status": "PASS",
+  "operation": "EXPLICIT_USER_AUTHORIZED_OVERSIZE_MODEL_REMOVAL",
+  "sourceRevision": "8a4794c774bd5d267e1c4aeaaa557dd8eb72a4ca",
+  "authority": "ModelRegistry.deleteModel",
+  "deletionSource": "USER_REQUEST",
+  "startedAt": "2026-08-28T21:45:08.857Z",
+  "endedAt": "2026-08-28T21:45:09.180Z",
+  "preflight": {
+    "exactDigestBound": true,
+    "allApplicableResultsBlocked": true,
+    "allBlockedScoresNull": true,
+    "activeDesiredOrRollbackBindingConflict": false,
+    "loadedOllamaModels": 0,
+    "gpuComputeProcesses": 0,
+    "protectedModels": [
+      "qwen3.5:27b",
+      "qwen3:14b",
+      "qwen3.8:latest",
+      "qwen3-30b-a3b:latest",
+      "llava-llama3:8b",
+      "llava:13b"
+    ]
+  },
+  "targets": [
+    {
+      "name": "qwen2.5:32b",
+      "digestSha256": "9f13ba1299afea09d9a956fc6a85becc99115a6d596fae201a5487a03bdc4368",
+      "inventorySizeBytes": 19851349669,
+      "result": "DELETED"
+    },
+    {
+      "name": "qwen2.5-coder:32b",
+      "digestSha256": "ccd10f08d93f089b72c28b98e78803d5608fbde74f38a3cf4f1ce3562a3f624e",
+      "inventorySizeBytes": 19851336281,
+      "result": "DELETED"
+    },
+    {
+      "name": "deepseek-r1-32b:latest",
+      "digestSha256": "8eb130aa133f0e36335ca74c37a2cf942788a658912e5be54b8af87b8942b3e5",
+      "inventorySizeBytes": 18784410147,
+      "result": "DELETED"
+    },
+    {
+      "name": "mistral-small:22b-instruct-2409-q6_k",
+      "digestSha256": "5113380707de9b21b6c726a98b4acf6a5b8367e7d4e78d2eba791285f6d36a85",
+      "inventorySizeBytes": 18252716205,
+      "result": "DELETED"
+    }
+  ],
+  "modelStorage": {
+    "path": "/usr/share/ollama/.ollama/models",
+    "beforeBytes": 197570158200,
+    "afterBytes": 120830342904,
+    "freedBytes": 76739815296,
+    "freedGiB": 71.469522356987,
+    "filesystemAvailableBeforeBytes": 111117799424,
+    "filesystemAvailableAfterBytes": 187869577216,
+    "filesystemAvailableIncreaseBytes": 76751777792
+  },
+  "database": {
+    "path": "/home/belphareon/Projects/intentsmith/data/c3.db",
+    "beforeSha256": "a3eafab1a2061eb83e59720220891d8b41f7a5548a3b20ecd86b8df86827fa8a",
+    "afterSha256": "a3eafab1a2061eb83e59720220891d8b41f7a5548a3b20ecd86b8df86827fa8a",
+    "byteIdentical": true,
+    "quickCheck": "ok",
+    "blockedHistoryRowsRetained": 55,
+    "blockedHistoryRowsWithNullScore": 55
+  },
+  "postRemovalReadModel": {
+    "installedArtifacts": 9,
+    "totalCells": 63,
+    "applicableCells": 55,
+    "notApplicableCells": 8,
+    "complete": 55,
+    "blocked": 0,
+    "failed": 0,
+    "applicableMissing": 0,
+    "bindings": {
+      "D1": "qwen3.5:27b",
+      "D2": "qwen3.8:latest",
+      "CODE": "qwen3.5:27b",
+      "R1": "qwen3.8:latest",
+      "R2": "qwen3:14b",
+      "CHAT": "qwen3.5:27b",
+      "VISION": "llava-llama3:8b"
+    },
+    "actionableDecisions": 0
+  },
+  "postRemovalRuntime": {
+    "timerEnabled": false,
+    "timerActive": false,
+    "serviceEnablement": "static",
+    "serviceActive": false,
+    "loadedOllamaModels": 0,
+    "gpuComputeProcesses": 0
+  },
+  "scope": {
+    "scoringHistoryDeleted": false,
+    "bindingsChanged": false,
+    "providerPatched": false,
+    "newScoringRunStarted": false
+  }
+}

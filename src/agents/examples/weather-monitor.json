@@ -1,0 +1,50 @@
+{
+  "id": "weather-frost-alert",
+  "name": "Frost Alert",
+  "description": "Monitors temperature via OpenMeteo API and sends Telegram alert when below 0°C",
+  "icon": "🌡️",
+  "schedule": {
+    "type": "interval",
+    "value": "1h"
+  },
+  "sources": [
+    {
+      "id": "weather",
+      "type": "http",
+      "config": {
+        "url": "https://api.open-meteo.com/v1/forecast?latitude=50.08&longitude=14.42&current=temperature_2m,weather_code&timezone=Europe/Prague",
+        "method": "GET"
+      }
+    }
+  ],
+  "conditions": [
+    {
+      "id": "freezing",
+      "type": "compare",
+      "field": "sources.weather.data.current.temperature_2m",
+      "operator": "<",
+      "value": 0
+    }
+  ],
+  "triggers": [
+    {
+      "id": "frost-trigger",
+      "condition_id": "freezing",
+      "edge": "rising",
+      "cooldown": 3600,
+      "max_fires_per_day": 3
+    }
+  ],
+  "actions": [
+    {
+      "type": "notify",
+      "trigger_id": "frost-trigger",
+      "config": {
+        "channel": "telegram",
+        "title": "Frost Alert — Praha",
+        "message": "Teplota klesla pod 0°C! Aktuální: {{sources.weather.data.current.temperature_2m}}°C",
+        "priority": "high"
+      }
+    }
+  ]
+}

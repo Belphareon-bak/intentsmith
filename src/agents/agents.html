@@ -1,0 +1,2893 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>p(AI)assistant v45.0.0 - Agents</title>
+  <style>
+    :root {
+      --bg-primary: #0a0a0f;
+      --bg-secondary: #12121a;
+      --bg-tertiary: #1a1a25;
+      --bg-hover: #22222f;
+      --border: #2a2a3a;
+      --text-primary: #e8e8f0;
+      --text-secondary: #888898;
+      --text-muted: #555565;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --error: #ef4444;
+      --info: #3b82f6;
+    }
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+    }
+    
+    /* ═══════════════════════════════════════════════════════════════════════
+       LAYOUT
+       ═══════════════════════════════════════════════════════════════════════ */
+    
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    
+    .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    
+    .back-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+    
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+    
+    .breadcrumb a {
+      color: var(--text-secondary);
+      text-decoration: none;
+    }
+    
+    .breadcrumb a:hover {
+      color: var(--accent);
+    }
+    
+    .breadcrumb .current {
+      color: var(--text-primary);
+    }
+    
+    .header-title {
+      font-size: 20px;
+      font-weight: 600;
+    }
+    
+    .main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+    }
+    
+    /* ═══════════════════════════════════════════════════════════════════════
+       AGENT LIST VIEW
+       ═══════════════════════════════════════════════════════════════════════ */
+    
+    .list-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+    
+    .list-title {
+      font-size: 28px;
+      font-weight: 700;
+    }
+    
+    .list-subtitle {
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+    
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+    }
+    
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: var(--accent-hover);
+    }
+    
+    .btn-secondary {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+    
+    .btn-secondary:hover {
+      background: var(--bg-hover);
+    }
+    
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-secondary);
+    }
+    
+    .btn-ghost:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+    
+    .btn-danger {
+      background: var(--error);
+      color: white;
+    }
+    
+    .btn-danger:hover {
+      background: #dc2626;
+    }
+    
+    /* Summary Cards */
+    .summary-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    
+    .summary-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+    
+    .summary-card-value {
+      font-size: 32px;
+      font-weight: 700;
+    }
+    
+    .summary-card-label {
+      color: var(--text-secondary);
+      font-size: 14px;
+      margin-top: 4px;
+    }
+    
+    /* Agent Cards */
+    .agent-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+      gap: 16px;
+    }
+    
+    .agent-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .agent-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+    
+    .agent-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    
+    .agent-card-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .agent-card-icon {
+      font-size: 28px;
+    }
+    
+    .agent-card-name {
+      font-weight: 600;
+      font-size: 16px;
+    }
+    
+    .agent-card-actions {
+      display: flex;
+      gap: 4px;
+    }
+    
+    .agent-card-description {
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+    
+    .agent-card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+    
+    .agent-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+    }
+    
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    
+    .status-active .status-dot { background: var(--success); }
+    .status-paused .status-dot { background: var(--warning); }
+    .status-error .status-dot { background: var(--error); }
+    .status-broken .status-dot { background: var(--error); animation: pulse 1s infinite; }
+    .status-degraded .status-dot { background: var(--warning); }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    .agent-pattern {
+      font-size: 12px;
+      color: var(--text-muted);
+      background: var(--bg-tertiary);
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+    
+    /* ═══════════════════════════════════════════════════════════════════════
+       CREATE VIEW
+       ═══════════════════════════════════════════════════════════════════════ */
+    
+    .create-container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    
+    .step-indicator {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-muted);
+    }
+    
+    .step.active {
+      color: var(--accent);
+    }
+    
+    .step.completed {
+      color: var(--success);
+    }
+    
+    .step-number {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--bg-tertiary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    
+    .step.active .step-number {
+      background: var(--accent);
+      color: white;
+    }
+    
+    .step.completed .step-number {
+      background: var(--success);
+      color: white;
+    }
+    
+    .step-line {
+      width: 40px;
+      height: 2px;
+      background: var(--border);
+    }
+    
+    .create-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+    }
+    
+    .create-title {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    
+    .create-subtitle {
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    .form-label {
+      display: block;
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+    
+    .form-input, .form-textarea {
+      width: 100%;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      color: var(--text-primary);
+      font-size: 14px;
+    }
+    
+    .form-input:focus, .form-textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    
+    .form-textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+    
+    .form-hint {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+    
+    .form-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      margin-top: 24px;
+    }
+    
+    /* Draft Review */
+    .draft-section {
+      margin-bottom: 24px;
+    }
+    
+    .draft-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    
+    .draft-section-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+    }
+    
+    .draft-item {
+      background: var(--bg-tertiary);
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 8px;
+    }
+    
+    .draft-item-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .draft-item-icon {
+      font-size: 20px;
+    }
+    
+    .draft-item-name {
+      font-weight: 500;
+    }
+    
+    .draft-item-desc {
+      color: var(--text-secondary);
+      font-size: 13px;
+      margin-top: 4px;
+      margin-left: 32px;
+    }
+    
+    .draft-explanation {
+      background: var(--bg-tertiary);
+      border-left: 3px solid var(--info);
+      padding: 16px;
+      border-radius: 0 8px 8px 0;
+      margin-top: 16px;
+    }
+    
+    .draft-explanation-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--info);
+      margin-bottom: 8px;
+    }
+    
+    .draft-explanation-text {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+    
+    /* ═══════════════════════════════════════════════════════════════════════
+       DETAIL VIEW
+       ═══════════════════════════════════════════════════════════════════════ */
+    
+    .detail-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+    
+    .detail-icon {
+      font-size: 48px;
+    }
+    
+    .detail-info {
+      flex: 1;
+    }
+    
+    .detail-name {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    
+    .detail-description {
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+    }
+    
+    .detail-badges {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .detail-actions {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .health-panel {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    
+    .health-item {
+      text-align: center;
+    }
+    
+    .health-value {
+      font-size: 24px;
+      font-weight: 700;
+    }
+    
+    .health-value.success {
+      color: var(--success);
+    }
+    
+    .health-label {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+    
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    
+    .tab {
+      padding: 10px 16px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    
+    .tab:hover {
+      background: var(--bg-hover);
+    }
+    
+    .tab.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    /* Logs */
+    .logs-filters {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    
+    .filter-btn {
+      padding: 6px 12px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 13px;
+    }
+    
+    .filter-btn:hover, .filter-btn.active {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+    
+    .log-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .log-entry {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    
+    .log-entry.latest {
+      border-color: var(--accent);
+    }
+    
+    .log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      cursor: pointer;
+    }
+    
+    .log-header:hover {
+      background: var(--bg-hover);
+    }
+    
+    .log-time {
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+    
+    .log-result {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .log-badge {
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    
+    .log-badge.success { background: rgba(34, 197, 94, 0.15); color: var(--success); }
+    .log-badge.error { background: rgba(239, 68, 68, 0.15); color: var(--error); }
+    .log-badge.triggered { background: rgba(99, 102, 241, 0.15); color: var(--accent); }
+    
+    .log-body {
+      display: none;
+      padding: 0 16px 16px;
+    }
+    
+    .log-entry.expanded .log-body {
+      display: block;
+    }
+    
+    .log-section {
+      margin-bottom: 16px;
+    }
+    
+    .log-section:last-child {
+      margin-bottom: 0;
+    }
+    
+    .log-section-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      letter-spacing: 0.5px;
+    }
+    
+    .log-detail {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: var(--bg-tertiary);
+      border-radius: 6px;
+      margin-bottom: 4px;
+    }
+    
+    .log-detail-label {
+      font-size: 13px;
+    }
+    
+    .log-detail-value {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    
+    .log-detail-value.success { color: var(--success); }
+    .log-detail-value.error { color: var(--error); }
+    
+    .log-raw {
+      background: var(--bg-tertiary);
+      border-radius: 6px;
+      padding: 12px;
+      font-family: monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      max-height: 300px;
+      overflow-y: auto;
+      color: var(--text-secondary);
+    }
+    
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+    }
+    
+    .empty-state-icon {
+      font-size: 64px;
+      margin-bottom: 16px;
+    }
+    
+    .empty-state-title {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    
+    .empty-state-desc {
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+    }
+    
+    /* Loading */
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 200px;
+    }
+    
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    /* Schema Status Badge */
+    .schema-error-badge {
+      cursor: help;
+    }
+
+    /* Settings Tab */
+    .settings-section {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    .settings-section-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .settings-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .settings-row:last-child {
+      border-bottom: none;
+    }
+
+    .settings-label {
+      font-size: 14px;
+    }
+
+    .settings-value {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    /* Danger Zone */
+    .danger-zone {
+      border-color: var(--error);
+      background: rgba(239, 68, 68, 0.05);
+    }
+
+    .danger-zone .settings-section-title {
+      color: var(--error);
+    }
+
+    /* Run Result Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      z-index: 1000;
+      max-width: 400px;
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    .toast.success {
+      border-color: var(--success);
+    }
+
+    .toast.error {
+      border-color: var(--error);
+    }
+
+    .toast-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .toast-title {
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .toast-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 18px;
+    }
+
+    .toast-body {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       v34: NEW STATUS STYLES
+       ═══════════════════════════════════════════════════════════════════════ */
+    
+    .agent-status.status-init {
+      background: rgba(99, 102, 241, 0.15);
+      color: #a5b4fc;
+    }
+
+    .agent-status.status-waiting {
+      background: rgba(59, 130, 246, 0.15);
+      color: #93c5fd;
+    }
+
+    .agent-status.status-monitoring {
+      background: rgba(20, 184, 166, 0.15);
+      color: #5eead4;
+    }
+
+    .health-value.muted {
+      color: var(--text-muted);
+      font-size: 20px;
+    }
+
+    .json-editor-warning {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px;
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: 6px;
+      margin-bottom: 12px;
+    }
+
+    .json-editor-warning .warning-icon {
+      font-size: 24px;
+    }
+
+    .json-editor-warning .warning-text {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .json-editor-warning .warning-text strong {
+      color: var(--warning);
+    }
+
+    .json-editor-toolbar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .validation-status {
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      margin-left: 8px;
+    }
+
+    .validation-status.success {
+      background: rgba(34, 197, 94, 0.2);
+      color: var(--success);
+    }
+
+    .validation-status.error {
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--error);
+    }
+
+    .json-error {
+      padding: 8px 12px;
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid var(--error);
+      border-radius: 4px;
+      color: var(--error);
+      font-size: 12px;
+      font-family: monospace;
+      margin-top: 8px;
+    }
+
+    .json-error.hidden {
+      display: none;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       v44.4 D-FIX-1: Form Editor Styles
+       ═══════════════════════════════════════════════════════════════════════ */
+
+    .draft-item.editable {
+      cursor: default;
+      position: relative;
+    }
+
+    .draft-item-actions {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      display: flex;
+      gap: 4px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .draft-item:hover .draft-item-actions {
+      opacity: 1;
+    }
+
+    .draft-item-action {
+      width: 24px;
+      height: 24px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .draft-item-action:hover {
+      background: var(--bg-hover);
+    }
+
+    .draft-item-action.danger:hover {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: var(--error);
+    }
+
+    /* Form editor modal */
+    .editor-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .editor-modal-content {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .editor-modal-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .editor-field {
+      margin-bottom: 16px;
+    }
+
+    .editor-field label {
+      display: block;
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .editor-field input,
+    .editor-field select,
+    .editor-field textarea {
+      width: 100%;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      color: var(--text-primary);
+      font-size: 14px;
+    }
+
+    .editor-field input:focus,
+    .editor-field select:focus,
+    .editor-field textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .editor-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 20px;
+    }
+
+    /* v44.4 D-FIX-3: Inline dryRun preview */
+    .dry-run-panel {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-top: 20px;
+      overflow: hidden;
+    }
+
+    .dry-run-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .dry-run-header h4 {
+      font-size: 14px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dry-run-body {
+      padding: 16px;
+    }
+
+    .dry-run-summary {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .dry-run-stat {
+      text-align: center;
+      padding: 12px;
+      background: var(--bg-secondary);
+      border-radius: 6px;
+    }
+
+    .dry-run-stat-value {
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .dry-run-stat-value.success { color: var(--success); }
+    .dry-run-stat-value.warning { color: var(--warning); }
+    .dry-run-stat-value.error { color: var(--error); }
+
+    .dry-run-stat-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .dry-run-log {
+      font-family: monospace;
+      font-size: 12px;
+      background: var(--bg-primary);
+      border-radius: 6px;
+      padding: 12px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .dry-run-log-entry {
+      padding: 4px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .dry-run-log-entry:last-child {
+      border-bottom: none;
+    }
+
+    .dry-run-log-time {
+      color: var(--text-muted);
+      margin-right: 8px;
+    }
+
+    .dry-run-pending {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 24px;
+      color: var(--text-secondary);
+    }
+
+    .settings-textarea.code {
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      tab-size: 2;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 6px;
+      font-size: 10px;
+      font-weight: 600;
+      border-radius: 4px;
+      margin-left: 8px;
+    }
+
+    .badge-warning {
+      background: rgba(245, 158, 11, 0.2);
+      color: var(--warning);
+    }
+
+  </style>
+</head>
+<body>
+  <div id="app" class="app">
+    <div class="loading"><div class="spinner"></div></div>
+  </div>
+  
+  <div id="toast-container"></div>
+  
+  <script>
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STATE
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const state = {
+      view: 'list', // list, create, detail, edit
+      agents: [],
+      notifications: [],
+      selectedAgent: null,
+      editingAgent: null,
+      createForm: {
+        step: 'describe', // describe, review
+        description: '',
+        definition: null,
+        explanation: null,
+        loading: false,
+        dryRunLoading: false,  // v44.4
+        dryRunResult: null     // v44.4
+      }
+    };
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // API
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const API = {
+      async listAgents(includeDisabled = true) {
+        const res = await fetch('/api/agents' + (includeDisabled ? '?all=true' : ''));
+        return res.json();
+      },
+      
+      async getAgent(id) {
+        const res = await fetch(`/api/agents/${id}`);
+        return res.json();
+      },
+      
+      async buildAgent(description) {
+        const res = await fetch('/api/agents/build', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ description })
+        });
+        return res.json();
+      },
+      
+      async confirmDraft(definition, params, forceCreate = false) {
+        const res = await fetch('/api/agents/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ definition, params, forceCreate })
+        });
+        return res.json();
+      },
+      
+      async updateAgent(id, data) {
+        const res = await fetch(`/api/agents/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        return res.json();
+      },
+      
+      async deleteAgent(id) {
+        const res = await fetch(`/api/agent-extensions/instances/${id}`, {
+          method: 'DELETE'
+        });
+        return res.json();
+      },
+      
+      async runAgent(id) {
+        const res = await fetch(`/api/agent-extensions/instances/${id}/run`, { method: 'POST' });
+        return res.json();
+      },
+      
+      async toggleAgent(id, enabled) {
+        const endpoint = enabled ? 'enable' : 'disable';
+        const res = await fetch(`/api/agent-extensions/instances/${id}/${endpoint}`, { method: 'POST' });
+        return res.json();
+      },
+      
+      async getNotifications() {
+        const res = await fetch('/api/notifications');
+        return res.json();
+      },
+      
+      async dryRun(definition) {
+        const res = await fetch('/api/agents/dry-run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ definition })
+        });
+        return res.json();
+      }
+    };
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // RENDER
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    function render() {
+      const app = document.getElementById('app');
+      
+      switch (state.view) {
+        case 'list':
+          app.innerHTML = renderListView();
+          break;
+        case 'create':
+          app.innerHTML = renderCreateView();
+          break;
+        case 'detail':
+          app.innerHTML = renderDetailView();
+          break;
+        case 'edit':
+          app.innerHTML = renderEditView();
+          break;
+      }
+      
+      attachEventListeners();
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LIST VIEW
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    function renderListView() {
+      const activeCount = state.agents.filter(a => a.enabled).length;
+      const errorCount = state.agents.filter(a => a.lastRun?.status === 'error').length;
+      
+      return `
+        <header class="header">
+          <div class="header-left">
+            <button class="back-btn" onclick="goBack()">
+              ← Zpět
+            </button>
+            <h1 class="header-title">⚡ Agents</h1>
+          </div>
+        </header>
+        
+        <main class="main">
+          <div class="list-header">
+            <div>
+              <h2 class="list-title">Moji agenti</h2>
+              <p class="list-subtitle">Automatizace, monitoring a notifikace</p>
+            </div>
+            <button class="btn btn-primary" onclick="startCreate()">
+              ✨ Nový agent
+            </button>
+          </div>
+          
+          <div class="summary-cards">
+            <div class="summary-card">
+              <div class="summary-card-value">${state.agents.length}</div>
+              <div class="summary-card-label">Celkem agentů</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-card-value" style="color: var(--success)">${activeCount}</div>
+              <div class="summary-card-label">Aktivních</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-card-value" style="color: var(--error)">${errorCount}</div>
+              <div class="summary-card-label">S chybou</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-card-value">${state.notifications.length}</div>
+              <div class="summary-card-label">Notifikací</div>
+            </div>
+          </div>
+          
+          ${state.agents.length === 0 ? renderEmptyState() : renderAgentGrid()}
+        </main>
+      `;
+    }
+    
+    function renderEmptyState() {
+      return `
+        <div class="empty-state">
+          <div class="empty-state-icon">🤖</div>
+          <h3 class="empty-state-title">Zatím nemáte žádné agenty</h3>
+          <p class="empty-state-desc">Vytvořte svého prvního agenta a nechte ho pracovat za vás.</p>
+          <button class="btn btn-primary" onclick="startCreate()">
+            ✨ Vytvořit agenta
+          </button>
+        </div>
+      `;
+    }
+    
+    function renderAgentGrid() {
+      return `
+        <div class="agent-grid">
+          ${state.agents.map(agent => `
+            <div class="agent-card" onclick="showDetail('${agent.id}')">
+              <div class="agent-card-header">
+                <div class="agent-card-title">
+                  <span class="agent-card-icon">${agent.icon || '⚡'}</span>
+                  <span class="agent-card-name">${agent.name}</span>
+                </div>
+                <div class="agent-card-actions" onclick="event.stopPropagation()">
+                  <button class="btn btn-ghost" onclick="runAgent('${agent.id}', event)" title="Spustit">▶</button>
+                </div>
+              </div>
+              <p class="agent-card-description">
+                ${agent.description || 'Bez popisu'}
+              </p>
+              <div class="agent-card-footer">
+                <div class="agent-status status-${agent.enabled ? 'active' : 'paused'}">
+                  <span class="status-dot"></span>
+                  ${agent.enabled ? 'Aktivní' : 'Pozastaven'}
+                </div>
+                <span class="agent-pattern">${agent.schedule?.type || 'Manual'}</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CREATE VIEW
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    function renderCreateView() {
+      const { step, loading } = state.createForm;
+      
+      return `
+        <header class="header">
+          <div class="header-left">
+            <button class="back-btn" onclick="goToList()">
+              ← Zpět
+            </button>
+            <nav class="breadcrumb">
+              <a href="#" onclick="goToList()">Agents</a>
+              <span>/</span>
+              <span class="current">Vytvořit agenta</span>
+            </nav>
+          </div>
+        </header>
+        
+        <main class="main">
+          <div class="create-container">
+            <div class="step-indicator">
+              <div class="step ${step === 'describe' ? 'active' : 'completed'}">
+                <span class="step-number">${step === 'describe' ? '1' : '✓'}</span>
+                <span>Popište</span>
+              </div>
+              <div class="step-line"></div>
+              <div class="step ${step === 'review' ? 'active' : ''}">
+                <span class="step-number">2</span>
+                <span>Zkontrolujte</span>
+              </div>
+            </div>
+            
+            ${step === 'describe' ? renderDescribeStep() : renderReviewStep()}
+          </div>
+        </main>
+      `;
+    }
+    
+    function renderDescribeStep() {
+      return `
+        <div class="create-card">
+          <h2 class="create-title">🎯 Popište svého agenta</h2>
+          <p class="create-subtitle">Řekněte mi, co má agent dělat. Já ho pro vás navrhnu.</p>
+          
+          <div class="form-group">
+            <label class="form-label">Co má agent dělat?</label>
+            <textarea 
+              class="form-textarea" 
+              id="agent-description"
+              placeholder="Např: Sleduj nové byty na Sreality v Praze do 5 milionů a pošli mi notifikaci když se objeví nový..."
+              rows="4"
+            >${state.createForm.description}</textarea>
+            <p class="form-hint">Čím přesněji popíšete, tím lepší návrh dostanete.</p>
+          </div>
+          
+          <div class="form-actions">
+            <button class="btn btn-secondary" onclick="goToList()">Zrušit</button>
+            <button class="btn btn-primary" id="generate-btn" onclick="generateAgent()" ${state.createForm.loading ? 'disabled' : ''}>
+              ${state.createForm.loading ? '⏳ Generuji...' : '✨ Navrhnout agenta'}
+            </button>
+          </div>
+        </div>
+      `;
+    }
+    
+    function renderReviewStep() {
+      const def = state.createForm.definition;
+      if (!def) return '<div class="loading"><div class="spinner"></div></div>';
+
+      // v44.4 - Parse schedule for interval picker
+      const schedule = def.schedule || { type: 'interval', interval: '1h' };
+      const interval = parseInterval(schedule.interval);
+
+      return `
+        <div class="create-card">
+          <h2 class="create-title">📋 Návrh agenta</h2>
+          <p class="create-subtitle">Zkontroluj a případně uprav vygenerovaný návrh</p>
+
+          <!-- v44.4 D-FIX-2: Interval picker in create view -->
+          <div class="form-group" style="margin-bottom: 24px;">
+            <label class="form-label">⏰ Interval kontroly</label>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <input type="number" class="form-input" id="create-interval-value"
+                     value="${interval.value}" min="1" style="width: 100px;"
+                     onchange="updateDefinitionInterval()">
+              <select class="form-input" id="create-interval-unit" style="width: 140px;"
+                      onchange="updateDefinitionInterval()">
+                <option value="s" ${interval.unit === 's' ? 'selected' : ''}>sekund</option>
+                <option value="m" ${interval.unit === 'm' ? 'selected' : ''}>minut</option>
+                <option value="h" ${interval.unit === 'h' ? 'selected' : ''}>hodin</option>
+                <option value="d" ${interval.unit === 'd' ? 'selected' : ''}>dnů</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="draft-section">
+            <div class="draft-section-header">
+              <h3 class="draft-section-title">🔌 ZDROJE DAT</h3>
+              <button class="btn btn-ghost" onclick="openSourceEditor()">+ Přidat</button>
+            </div>
+            ${(def.sources || []).map((s, i) => `
+              <div class="draft-item editable">
+                <div class="draft-item-actions">
+                  <button class="draft-item-action" onclick="editSource(${i})" title="Upravit">✏️</button>
+                  <button class="draft-item-action danger" onclick="removeSource(${i})" title="Odstranit">🗑️</button>
+                </div>
+                <div class="draft-item-header">
+                  <span class="draft-item-icon">🔗</span>
+                  <span class="draft-item-name">${s.id}</span>
+                </div>
+                <div class="draft-item-desc">${s.type}: ${s.config?.url || JSON.stringify(s.config)}</div>
+              </div>
+            `).join('')}
+          </div>
+
+          <div class="draft-section">
+            <div class="draft-section-header">
+              <h3 class="draft-section-title">🔍 PODMÍNKY</h3>
+              <button class="btn btn-ghost" onclick="openConditionEditor()">+ Přidat</button>
+            </div>
+            ${(def.conditions || []).map((c, i) => `
+              <div class="draft-item editable">
+                <div class="draft-item-actions">
+                  <button class="draft-item-action" onclick="editCondition(${i})" title="Upravit">✏️</button>
+                  <button class="draft-item-action danger" onclick="removeCondition(${i})" title="Odstranit">🗑️</button>
+                </div>
+                <div class="draft-item-header">
+                  <span class="draft-item-icon">⚙️</span>
+                  <span class="draft-item-name">${c.id}</span>
+                </div>
+                <div class="draft-item-desc">${c.type}: ${c.field} ${c.operator || ''} ${c.value !== undefined ? c.value : ''}</div>
+              </div>
+            `).join('')}
+          </div>
+
+          <div class="draft-section">
+            <div class="draft-section-header">
+              <h3 class="draft-section-title">⚡ TRIGGERY</h3>
+              <button class="btn btn-ghost" onclick="openTriggerEditor()">+ Přidat</button>
+            </div>
+            ${(def.triggers || []).map((t, i) => `
+              <div class="draft-item editable">
+                <div class="draft-item-actions">
+                  <button class="draft-item-action" onclick="editTrigger(${i})" title="Upravit">✏️</button>
+                  <button class="draft-item-action danger" onclick="removeTrigger(${i})" title="Odstranit">🗑️</button>
+                </div>
+                <div class="draft-item-header">
+                  <span class="draft-item-icon">🔔</span>
+                  <span class="draft-item-name">${t.id}</span>
+                </div>
+                <div class="draft-item-desc">Cond: ${t.condition_id}, Edge: ${t.edge}, Cooldown: ${t.cooldown}s</div>
+              </div>
+            `).join('')}
+          </div>
+
+          <div class="draft-section">
+            <div class="draft-section-header">
+              <h3 class="draft-section-title">🎬 AKCE</h3>
+              <button class="btn btn-ghost" onclick="openActionEditor()">+ Přidat</button>
+            </div>
+            ${(def.actions || []).map((a, i) => `
+              <div class="draft-item editable">
+                <div class="draft-item-actions">
+                  <button class="draft-item-action" onclick="editAction(${i})" title="Upravit">✏️</button>
+                  <button class="draft-item-action danger" onclick="removeAction(${i})" title="Odstranit">🗑️</button>
+                </div>
+                <div class="draft-item-header">
+                  <span class="draft-item-icon">📤</span>
+                  <span class="draft-item-name">${a.type}</span>
+                </div>
+                <div class="draft-item-desc">${a.config?.title || JSON.stringify(a.config)}</div>
+              </div>
+            `).join('')}
+          </div>
+
+          ${state.createForm.explanation ? `
+            <div class="draft-explanation">
+              <div class="draft-explanation-title">💡 Co agent bude dělat:</div>
+              <div class="draft-explanation-text">${state.createForm.explanation}</div>
+            </div>
+          ` : ''}
+
+          <!-- v44.4 D-FIX-3: Inline dryRun preview -->
+          <div class="dry-run-panel">
+            <div class="dry-run-header">
+              <h4>🧪 Testovací běh</h4>
+              <button class="btn btn-ghost" onclick="runDryRunInline()" id="dry-run-btn">
+                ${state.createForm.dryRunLoading ? '⏳ Testuji...' : '▶ Spustit test'}
+              </button>
+            </div>
+            <div class="dry-run-body" id="dry-run-body">
+              ${renderDryRunResult()}
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn btn-secondary" onclick="backToDescribe()">← Zpět</button>
+            <button class="btn btn-primary" onclick="confirmAndCreate()">
+              ✅ Vytvořit agenta
+            </button>
+          </div>
+        </div>
+
+        <!-- Editor Modal Container -->
+        <div id="editor-modal-container"></div>
+      `;
+    }
+
+    // v44.4 D-FIX-3: Render dry run result inline
+    function renderDryRunResult() {
+      const result = state.createForm.dryRunResult;
+
+      if (!result) {
+        return `
+          <div class="dry-run-pending">
+            <span>💡</span>
+            <span>Klikněte na "Spustit test" pro ověření konfigurace agenta</span>
+          </div>
+        `;
+      }
+
+      if (result.error) {
+        return `
+          <div style="color: var(--error); padding: 12px;">
+            ❌ Chyba: ${result.error}
+          </div>
+        `;
+      }
+
+      const summary = result.summary || {};
+      const sourcesOk = summary.sourcesOk || 0;
+      const sourcesTotal = summary.sources || 0;
+      const conditionsTrue = summary.conditionsTrue || 0;
+      const conditionsTotal = summary.conditions || 0;
+      const wouldTrigger = summary.wouldTrigger?.length || 0;
+
+      return `
+        <div class="dry-run-summary">
+          <div class="dry-run-stat">
+            <div class="dry-run-stat-value ${sourcesOk === sourcesTotal ? 'success' : 'error'}">${sourcesOk}/${sourcesTotal}</div>
+            <div class="dry-run-stat-label">Zdroje OK</div>
+          </div>
+          <div class="dry-run-stat">
+            <div class="dry-run-stat-value ${conditionsTrue > 0 ? 'success' : 'warning'}">${conditionsTrue}/${conditionsTotal}</div>
+            <div class="dry-run-stat-label">Podmínky splněny</div>
+          </div>
+          <div class="dry-run-stat">
+            <div class="dry-run-stat-value ${wouldTrigger > 0 ? 'success' : ''}">${wouldTrigger}</div>
+            <div class="dry-run-stat-label">Triggery by spustily</div>
+          </div>
+        </div>
+        ${result.log && result.log.length > 0 ? `
+          <div class="dry-run-log">
+            ${result.log.map(entry => `
+              <div class="dry-run-log-entry">
+                <span class="dry-run-log-time">[${entry.time}]</span>
+                <span>${entry.msg}</span>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+      `;
+    }
+
+    // v44.4 D-FIX-3: Run dryRun inline
+    async function runDryRunInline() {
+      state.createForm.dryRunLoading = true;
+      state.createForm.dryRunResult = null;
+      render();
+
+      try {
+        const result = await API.dryRun(state.createForm.definition);
+        state.createForm.dryRunResult = result;
+      } catch (err) {
+        state.createForm.dryRunResult = { error: err.message };
+      }
+
+      state.createForm.dryRunLoading = false;
+      render();
+    }
+
+    // v44.4 D-FIX-2: Update definition interval from form
+    function updateDefinitionInterval() {
+      const value = parseInt(document.getElementById('create-interval-value').value, 10) || 1;
+      const unit = document.getElementById('create-interval-unit').value || 'h';
+
+      if (!state.createForm.definition.schedule) {
+        state.createForm.definition.schedule = { type: 'interval' };
+      }
+      state.createForm.definition.schedule.interval = `${value}${unit}`;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // v44.4 D-FIX-1: Form Editors for Sources, Conditions, Triggers, Actions
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function showEditorModal(title, fields, onSave) {
+      const container = document.getElementById('editor-modal-container');
+      container.innerHTML = `
+        <div class="editor-modal" onclick="closeEditorModal(event)">
+          <div class="editor-modal-content" onclick="event.stopPropagation()">
+            <h3 class="editor-modal-title">${title}</h3>
+            ${fields.map(f => `
+              <div class="editor-field">
+                <label>${f.label}</label>
+                ${f.type === 'select' ? `
+                  <select id="editor-${f.name}">
+                    ${f.options.map(o => `<option value="${o.value}" ${f.value === o.value ? 'selected' : ''}>${o.label}</option>`).join('')}
+                  </select>
+                ` : f.type === 'textarea' ? `
+                  <textarea id="editor-${f.name}" rows="3">${f.value || ''}</textarea>
+                ` : `
+                  <input type="${f.type || 'text'}" id="editor-${f.name}" value="${f.value || ''}" placeholder="${f.placeholder || ''}">
+                `}
+              </div>
+            `).join('')}
+            <div class="editor-actions">
+              <button class="btn btn-secondary" onclick="closeEditorModal()">Zrušit</button>
+              <button class="btn btn-primary" onclick="saveEditorModal()">Uložit</button>
+            </div>
+          </div>
+        </div>
+      `;
+      container._onSave = onSave;
+      container._fields = fields;
+    }
+
+    function closeEditorModal(event) {
+      if (event && event.target !== event.currentTarget) return;
+      document.getElementById('editor-modal-container').innerHTML = '';
+    }
+
+    function saveEditorModal() {
+      const container = document.getElementById('editor-modal-container');
+      const fields = container._fields;
+      const values = {};
+
+      fields.forEach(f => {
+        const el = document.getElementById('editor-' + f.name);
+        values[f.name] = el.value;
+      });
+
+      container._onSave(values);
+      closeEditorModal();
+      render();
+    }
+
+    // ══════════════ SOURCES ══════════════
+
+    function openSourceEditor(index = -1) {
+      const def = state.createForm.definition;
+      const source = index >= 0 ? def.sources[index] : null;
+
+      const fields = [
+        { name: 'id', label: 'ID zdroje', value: source?.id || `source_${Date.now()}`, placeholder: 'unique_id' },
+        { name: 'type', label: 'Typ', type: 'select', value: source?.type || 'rss', options: [
+          { value: 'rss', label: 'RSS Feed' },
+          { value: 'http', label: 'HTTP API' },
+          { value: 'web_scrape', label: 'Web Scraping' },
+          { value: 'email', label: 'Email IMAP' }
+        ]},
+        { name: 'url', label: 'URL', value: source?.config?.url || '', placeholder: 'https://...' }
+      ];
+
+      showEditorModal(
+        index >= 0 ? 'Upravit zdroj' : 'Přidat zdroj',
+        fields,
+        (values) => {
+          const newSource = {
+            id: values.id,
+            type: values.type,
+            config: { url: values.url }
+          };
+
+          if (index >= 0) {
+            def.sources[index] = newSource;
+          } else {
+            if (!def.sources) def.sources = [];
+            def.sources.push(newSource);
+          }
+        }
+      );
+    }
+
+    function editSource(index) {
+      openSourceEditor(index);
+    }
+
+    function removeSource(index) {
+      if (confirm('Opravdu odstranit tento zdroj?')) {
+        state.createForm.definition.sources.splice(index, 1);
+        render();
+      }
+    }
+
+    // ══════════════ CONDITIONS ══════════════
+
+    function openConditionEditor(index = -1) {
+      const def = state.createForm.definition;
+      const cond = index >= 0 ? def.conditions[index] : null;
+
+      const fields = [
+        { name: 'id', label: 'ID podmínky', value: cond?.id || `cond_${Date.now()}`, placeholder: 'unique_id' },
+        { name: 'type', label: 'Typ', type: 'select', value: cond?.type || 'comparison', options: [
+          { value: 'comparison', label: 'Porovnání hodnoty' },
+          { value: 'contains', label: 'Obsahuje text' },
+          { value: 'regex', label: 'Regex match' },
+          { value: 'exists', label: 'Pole existuje' },
+          { value: 'new_items', label: 'Nové položky' }
+        ]},
+        { name: 'field', label: 'Pole', value: cond?.field || '', placeholder: 'data.price, title, ...' },
+        { name: 'operator', label: 'Operátor', type: 'select', value: cond?.operator || 'lt', options: [
+          { value: 'eq', label: '= rovná se' },
+          { value: 'neq', label: '≠ nerovná se' },
+          { value: 'lt', label: '< menší než' },
+          { value: 'lte', label: '≤ menší nebo rovno' },
+          { value: 'gt', label: '> větší než' },
+          { value: 'gte', label: '≥ větší nebo rovno' },
+          { value: 'contains', label: 'obsahuje' },
+          { value: 'matches', label: 'regex match' }
+        ]},
+        { name: 'value', label: 'Hodnota', value: cond?.value !== undefined ? cond.value : '', placeholder: '5000000' }
+      ];
+
+      showEditorModal(
+        index >= 0 ? 'Upravit podmínku' : 'Přidat podmínku',
+        fields,
+        (values) => {
+          const newCond = {
+            id: values.id,
+            type: values.type,
+            field: values.field,
+            operator: values.operator,
+            value: isNaN(values.value) ? values.value : Number(values.value)
+          };
+
+          if (index >= 0) {
+            def.conditions[index] = newCond;
+          } else {
+            if (!def.conditions) def.conditions = [];
+            def.conditions.push(newCond);
+          }
+        }
+      );
+    }
+
+    function editCondition(index) {
+      openConditionEditor(index);
+    }
+
+    function removeCondition(index) {
+      if (confirm('Opravdu odstranit tuto podmínku?')) {
+        state.createForm.definition.conditions.splice(index, 1);
+        render();
+      }
+    }
+
+    // ══════════════ TRIGGERS ══════════════
+
+    function openTriggerEditor(index = -1) {
+      const def = state.createForm.definition;
+      const trigger = index >= 0 ? def.triggers[index] : null;
+
+      // Build condition options
+      const condOptions = (def.conditions || []).map(c => ({
+        value: c.id,
+        label: c.id
+      }));
+      condOptions.unshift({ value: '', label: '-- vyberte podmínku --' });
+
+      const fields = [
+        { name: 'id', label: 'ID triggeru', value: trigger?.id || `trigger_${Date.now()}`, placeholder: 'unique_id' },
+        { name: 'condition_id', label: 'Podmínka', type: 'select', value: trigger?.condition_id || '', options: condOptions },
+        { name: 'edge', label: 'Hrana (edge)', type: 'select', value: trigger?.edge || 'rising', options: [
+          { value: 'rising', label: 'Rising (false → true)' },
+          { value: 'falling', label: 'Falling (true → false)' },
+          { value: 'any', label: 'Any change' },
+          { value: 'always', label: 'Always when true' }
+        ]},
+        { name: 'cooldown', label: 'Cooldown (sekundy)', type: 'number', value: trigger?.cooldown || 3600, placeholder: '3600' }
+      ];
+
+      showEditorModal(
+        index >= 0 ? 'Upravit trigger' : 'Přidat trigger',
+        fields,
+        (values) => {
+          const newTrigger = {
+            id: values.id,
+            condition_id: values.condition_id,
+            edge: values.edge,
+            cooldown: parseInt(values.cooldown, 10) || 3600
+          };
+
+          if (index >= 0) {
+            def.triggers[index] = newTrigger;
+          } else {
+            if (!def.triggers) def.triggers = [];
+            def.triggers.push(newTrigger);
+          }
+        }
+      );
+    }
+
+    function editTrigger(index) {
+      openTriggerEditor(index);
+    }
+
+    function removeTrigger(index) {
+      if (confirm('Opravdu odstranit tento trigger?')) {
+        state.createForm.definition.triggers.splice(index, 1);
+        render();
+      }
+    }
+
+    // ══════════════ ACTIONS ══════════════
+
+    function openActionEditor(index = -1) {
+      const def = state.createForm.definition;
+      const action = index >= 0 ? def.actions[index] : null;
+
+      const fields = [
+        { name: 'type', label: 'Typ akce', type: 'select', value: action?.type || 'notification', options: [
+          { value: 'notification', label: 'Push notifikace' },
+          { value: 'email', label: 'Email' },
+          { value: 'webhook', label: 'Webhook' },
+          { value: 'log', label: 'Pouze logovat' }
+        ]},
+        { name: 'title', label: 'Titulek', value: action?.config?.title || '', placeholder: 'Nový byt nalezen!' },
+        { name: 'body', label: 'Text zprávy', type: 'textarea', value: action?.config?.body || '', placeholder: '{{item.title}} - {{item.price}}' },
+        { name: 'url', label: 'URL (volitelné)', value: action?.config?.url || '', placeholder: '{{item.link}}' }
+      ];
+
+      showEditorModal(
+        index >= 0 ? 'Upravit akci' : 'Přidat akci',
+        fields,
+        (values) => {
+          const newAction = {
+            type: values.type,
+            config: {
+              title: values.title,
+              body: values.body
+            }
+          };
+          if (values.url) {
+            newAction.config.url = values.url;
+          }
+
+          if (index >= 0) {
+            def.actions[index] = newAction;
+          } else {
+            if (!def.actions) def.actions = [];
+            def.actions.push(newAction);
+          }
+        }
+      );
+    }
+
+    function editAction(index) {
+      openActionEditor(index);
+    }
+
+    function removeAction(index) {
+      if (confirm('Opravdu odstranit tuto akci?')) {
+        state.createForm.definition.actions.splice(index, 1);
+        render();
+      }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DETAIL VIEW
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    function renderDetailView() {
+      const agent = state.selectedAgent;
+      if (!agent) return '<div class="loading"><div class="spinner"></div></div>';
+      
+      const schemaStatus = agent.state?.schemaStatus;
+      const isFirstRun = !agent.state?._last_run;
+      const lastRunState = agent.recentRuns?.[0]?.run_state;
+      
+      let statusClass, statusText, statusDesc;
+      
+      // v34: Priority order for status with explicit waiting states
+      if (schemaStatus === 'broken') {
+        statusClass = 'broken';
+        statusText = 'Schema rozbité';
+        statusDesc = agent.state?.schemaError || 'Opravte definici agenta';
+      } else if (schemaStatus === 'degraded') {
+        statusClass = 'degraded';
+        statusText = 'Schema degradováno';
+        statusDesc = 'Některé podmínky nefungují';
+      } else if (!agent.enabled) {
+        statusClass = 'paused';
+        statusText = 'Pozastaveno';
+        statusDesc = 'Agent je pozastaven';
+      } else if (isFirstRun) {
+        // v34: Explicit waiting for initialization
+        statusClass = 'init';
+        statusText = 'Čeká na inicializaci';
+        statusDesc = 'Spusťte agenta pro nastavení baseline';
+      } else if (lastRunState === 'SUCCESS_NO_NEW') {
+        // v34: Waiting for new items
+        statusClass = 'waiting';
+        statusText = 'Sleduje změny';
+        statusDesc = 'Baseline nastaven - čeká na nové položky';
+      } else if (lastRunState === 'SUCCESS_NO_TRIGGER') {
+        // v34: Monitoring
+        statusClass = 'monitoring';
+        statusText = 'Monitoruje';
+        statusDesc = 'Čeká na splnění podmínek';
+      } else if (agent.lastRun?.status === 'error') {
+        statusClass = 'error';
+        statusText = 'Chyba';
+        statusDesc = agent.lastRun?.error || 'Poslední běh selhal';
+      } else {
+        statusClass = 'active';
+        statusText = 'Aktivní';
+        statusDesc = 'Agent běží normálně';
+      }
+      
+      return `
+        <header class="header">
+          <div class="header-left">
+            <button class="back-btn" onclick="goToList()">
+              ← Agenti
+            </button>
+            <nav class="breadcrumb">
+              <a href="#" onclick="goToList()">Agents</a>
+              <span>/</span>
+              <span class="current">${agent.name}</span>
+            </nav>
+          </div>
+        </header>
+        
+        <main class="main">
+          <div class="detail-header">
+            <span class="detail-icon">${agent.icon || '⚡'}</span>
+            <div class="detail-info">
+              <h1 class="detail-name">${agent.name}</h1>
+              <p class="detail-description">${agent.description || 'Bez popisu'}</p>
+              <div class="detail-badges">
+                <div class="agent-status status-${statusClass}">
+                  <span class="status-dot"></span>
+                  ${statusText}
+                </div>
+                ${agent.state?.schemaError ? `<span class="schema-error-badge" title="${agent.state.schemaError}">⚠️</span>` : ''}
+                <span class="agent-pattern">${agent.definition?.schedule?.type || 'Manual'}</span>
+              </div>
+            </div>
+            <div class="detail-actions">
+              ${(() => {
+                const isFirstRun = !agent.state?._last_run;
+                const isDisabled = !agent.enabled || agent.state?.schemaStatus === 'broken';
+                
+                if (isDisabled) {
+                  return '<button class="btn btn-primary" disabled title="Agent je pozastaven nebo má rozbité schema">▶ Nelze spustit</button>';
+                }
+                if (isFirstRun) {
+                  return '<button class="btn btn-primary" onclick="runAgent(\'' + agent.id + '\', event)" title="Spustí první kontrolu a nastaví baseline">🏁 Inicializovat</button>';
+                }
+                return '<button class="btn btn-primary" onclick="runAgent(\'' + agent.id + '\', event)" title="Manuální běh: zkontroluje zdroje">▶ Zkontrolovat</button>';
+              })()}
+              <button class="btn btn-secondary" onclick="toggleAgent('${agent.id}', ${!agent.enabled})">
+                ${agent.enabled ? '⏸ Pozastavit' : '▶ Aktivovat'}
+              </button>
+              <button class="btn btn-secondary" onclick="startEdit('${agent.id}')">
+                ✏️ Upravit
+              </button>
+            </div>
+          </div>
+          
+          <div class="health-panel">
+            <div class="health-item">
+              ${renderHealthValue(calculateSuccessRate(agent))}
+              <div class="health-label">Success Rate</div>
+            </div>
+            <div class="health-item">
+              <div class="health-value">${agent.recentRuns?.length || 0}</div>
+              <div class="health-label">Běhů celkem</div>
+            </div>
+            <div class="health-item">
+              <div class="health-value">${agent.notifications?.length || 0}</div>
+              <div class="health-label">Notifikací</div>
+            </div>
+            <div class="health-item">
+              <div class="health-value">${agent.schedule?.last_run ? formatTime(agent.schedule.last_run) : '-'}</div>
+              <div class="health-label">Poslední běh</div>
+            </div>
+          </div>
+          
+          <div class="tabs">
+            <button class="tab active" onclick="switchTab(this, 'logs')">📄 Logy</button>
+            <button class="tab" onclick="switchTab(this, 'notifications')">🔔 Výsledky</button>
+            <button class="tab" onclick="switchTab(this, 'settings')">⚙️ Nastavení</button>
+            <button class="tab" onclick="switchTab(this, 'advanced')">🔧 Pokročilé</button>
+          </div>
+          
+          <div id="tab-logs" class="tab-content active">
+            ${renderLogsTab(agent)}
+          </div>
+
+          <div id="tab-notifications" class="tab-content">
+            ${renderNotificationsTab(agent)}
+          </div>
+          
+          <div id="tab-settings" class="tab-content">
+            ${renderSettingsTab(agent)}
+          </div>
+          
+          <div id="tab-advanced" class="tab-content">
+            <pre style="background: var(--bg-tertiary); padding: 16px; border-radius: 8px; overflow: auto; font-size: 12px;">
+${JSON.stringify(agent.definition, null, 2)}
+            </pre>
+          </div>
+        </main>
+      `;
+    }
+    
+    function calculateSuccessRate(agent) {
+      const runs = agent.recentRuns || [];
+      
+      // v34: No runs = null (displayed as "—"), not fake 100%
+      if (runs.length === 0) {
+        return null;
+      }
+      
+      // Count success states
+      const successCount = runs.filter(r => 
+        r.status === 'success' || 
+        r.run_state === 'SUCCESS_TRIGGERED' || 
+        r.run_state === 'SUCCESS_NO_TRIGGER' ||
+        r.run_state === 'SUCCESS_NO_NEW' ||
+        r.run_state === 'INIT_BASELINE'
+      ).length;
+      
+      return Math.round((successCount / runs.length) * 100);
+    }
+    
+    // v34: Helper for health panel
+    function renderHealthValue(rate) {
+      if (rate === null) {
+        return '<div class="health-value muted">—</div>';
+      }
+      const colorClass = rate >= 80 ? 'success' : rate >= 50 ? 'warning' : 'error';
+      return '<div class="health-value ' + colorClass + '">' + rate + '%</div>';
+    }
+    
+    function renderLogsTab(agent) {
+      const runs = agent.recentRuns || [];
+      
+      if (runs.length === 0) {
+        return `
+          <div class="empty-state">
+            <div class="empty-state-icon">📭</div>
+            <h3 class="empty-state-title">Žádné logy</h3>
+            <p class="empty-state-desc">Agent ještě nebyl spuštěn</p>
+            <button class="btn btn-primary" onclick="runAgent('${agent.id}', event)">
+              ▶ Spustit poprvé
+            </button>
+          </div>
+        `;
+      }
+      
+      return `
+        <div class="logs-filters">
+          <button class="filter-btn active">Všechny</button>
+          <button class="filter-btn">Jen triggery</button>
+          <button class="filter-btn">Jen chyby</button>
+        </div>
+        
+        <div class="log-list">
+          ${runs.map((run, i) => `
+            <div class="log-entry ${i === 0 ? 'latest' : ''}" onclick="toggleLog(this)">
+              <div class="log-header">
+                <div class="log-time">${formatDateTime(run.started_at)}</div>
+                <div class="log-result">
+                  ${run.triggers_fired?.length > 0 ? '<span class="log-badge triggered">🔔 Triggered</span>' : ''}
+                  <span class="log-badge ${run.status === 'success' ? 'success' : 'error'}">
+                    ${run.status === 'success' ? '✓ OK' : '✗ Error'}
+                  </span>
+                </div>
+              </div>
+              <div class="log-body">
+                ${run.explain ? `
+                  <div class="log-section">
+                    <h5 class="log-section-title">Zdroje</h5>
+                    ${(run.explain.sources || []).map(s => `
+                      <div class="log-detail">
+                        <span class="log-detail-label">${s.id}</span>
+                        <span class="log-detail-value ${s.status === 'ok' ? 'success' : 'error'}">
+                          ${s.status}${s.count !== undefined ? ` (${s.count} položek)` : ''}
+                        </span>
+                      </div>
+                    `).join('')}
+                  </div>
+                  <div class="log-section">
+                    <h5 class="log-section-title">Podmínky</h5>
+                    ${(run.explain.conditions || []).map(c => `
+                      <div class="log-detail">
+                        <span class="log-detail-label">${c.id}</span>
+                        <span class="log-detail-value ${c.passed ? 'success' : ''}">
+                          ${c.passed ? '✓' : '○'} ${c.reason || ''}
+                        </span>
+                      </div>
+                    `).join('')}
+                  </div>
+                ` : ''}
+                ${run.triggers_fired?.length > 0 ? `
+                  <div class="log-section">
+                    <h5 class="log-section-title">Spuštěné triggery</h5>
+                    ${run.triggers_fired.map(t => `
+                      <div class="log-detail">
+                        <span class="log-detail-label">${t}</span>
+                        <span class="log-detail-value success">🔔 Fired</span>
+                      </div>
+                    `).join('')}
+                  </div>
+                ` : ''}
+                ${run.error ? `
+                  <div class="log-section">
+                    <h5 class="log-section-title">Chyba</h5>
+                    <div class="log-detail">
+                      <span class="log-detail-value error">${run.error}</span>
+                    </div>
+                  </div>
+                ` : ''}
+                ${run.log ? `
+                  <div class="log-section">
+                    <h5 class="log-section-title">Raw Log</h5>
+                    <div class="log-raw">${run.log}</div>
+                  </div>
+                ` : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function renderNotificationsTab(agent) {
+      const notifications = agent.notifications || [];
+      if (notifications.length === 0) {
+        return `
+          <div class="empty-state">
+            <div class="empty-state-icon">🔕</div>
+            <h3 class="empty-state-title">Žádné výsledky</h3>
+            <p class="empty-state-desc">Agent zatím nevytvořil žádnou in-app notifikaci.</p>
+          </div>
+        `;
+      }
+      return `
+        <div class="log-list">
+          ${notifications.map(notification => `
+            <div class="log-entry expanded">
+              <div class="log-header">
+                <strong>${escapeHtml(notification.title || 'Výsledek agenta')}</strong>
+                <span class="log-time">${formatDateTime(notification.created_at)}</span>
+              </div>
+              <div class="log-body" style="display:block">
+                <div class="log-section">
+                  <div class="log-detail-value">${escapeHtml(notification.body || '')}</div>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+    
+    function renderSettingsTab(agent) {
+      return `
+        <div class="settings-section">
+          <h3 class="settings-section-title">📋 Základní informace</h3>
+          <div class="settings-row">
+            <span class="settings-label">Název</span>
+            <span class="settings-value">${agent.name}</span>
+          </div>
+          <div class="settings-row">
+            <span class="settings-label">ID</span>
+            <span class="settings-value">${agent.id}</span>
+          </div>
+          <div class="settings-row">
+            <span class="settings-label">Popis</span>
+            <span class="settings-value">${agent.description || 'Bez popisu'}</span>
+          </div>
+          <div class="settings-row">
+            <span class="settings-label">Vytvořeno</span>
+            <span class="settings-value">${formatDateTime(agent.created_at)}</span>
+          </div>
+        </div>
+        
+        <div class="settings-section">
+          <h3 class="settings-section-title">⏰ Plánování</h3>
+          <div class="settings-row">
+            <span class="settings-label">Typ</span>
+            <span class="settings-value">${agent.definition?.schedule?.type || 'Manual'}</span>
+          </div>
+          <div class="settings-row">
+            <span class="settings-label">Interval</span>
+            <span class="settings-value">${agent.definition?.schedule?.value || '-'}</span>
+          </div>
+          <div class="settings-row">
+            <span class="settings-label">Příští běh</span>
+            <span class="settings-value">${agent.schedule?.next_run ? formatDateTime(agent.schedule.next_run) : '-'}</span>
+          </div>
+        </div>
+        
+        <div class="settings-section danger-zone">
+          <h3 class="settings-section-title">⚠️ Danger Zone</h3>
+          <div class="settings-row">
+            <span class="settings-label">Smazat agenta</span>
+            <button class="btn btn-danger" onclick="deleteAgent('${agent.id}')">
+              🗑️ Smazat
+            </button>
+          </div>
+        </div>
+      `;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EDIT VIEW
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    // v44.1 - Parse interval string to { value, unit }
+    function parseInterval(intervalStr) {
+      if (!intervalStr || typeof intervalStr !== 'string') {
+        return { value: 1, unit: 'h' };
+      }
+      const match = intervalStr.match(/^(\d+)(s|m|h|d)$/);
+      if (!match) {
+        return { value: 1, unit: 'h' };
+      }
+      return { value: parseInt(match[1], 10), unit: match[2] };
+    }
+
+    function renderEditView() {
+      const agent = state.editingAgent;
+      if (!agent) return '<div class="loading"><div class="spinner"></div></div>';
+
+      // v44.1 - Parse schedule for structured editing
+      const schedule = agent.definition?.schedule || { type: 'interval', interval: '1h' };
+      const interval = parseInterval(schedule.interval);
+
+      return `
+        <header class="header">
+          <div class="header-left">
+            <button class="back-btn" onclick="cancelEdit()">
+              ← Zpět
+            </button>
+            <nav class="breadcrumb">
+              <a href="#" onclick="goToList()">Agents</a>
+              <span>/</span>
+              <a href="#" onclick="showDetail('${agent.id}')">${agent.name}</a>
+              <span>/</span>
+              <span class="current">Upravit</span>
+            </nav>
+          </div>
+        </header>
+
+        <main class="main">
+          <div class="create-container">
+            <div class="create-card">
+              <h2 class="create-title">✏️ Upravit agenta</h2>
+              <p class="create-subtitle">Změňte nastavení agenta</p>
+
+              <div class="form-group">
+                <label class="form-label">Název</label>
+                <input type="text" class="form-input" id="edit-name" value="${agent.name}">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Popis</label>
+                <textarea class="form-textarea" id="edit-description" rows="3">${agent.description || ''}</textarea>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Ikona</label>
+                <input type="text" class="form-input" id="edit-icon" value="${agent.icon || '🤖'}" style="width: 80px;">
+              </div>
+
+              <!-- v44.1 - Structured Schedule Editor -->
+              <div class="form-group">
+                <label class="form-label">Interval spouštění</label>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                  <input type="number" class="form-input" id="edit-interval-value"
+                         value="${interval.value}" min="1" style="width: 100px;">
+                  <select class="form-input" id="edit-interval-unit" style="width: 140px;">
+                    <option value="s" ${interval.unit === 's' ? 'selected' : ''}>sekund</option>
+                    <option value="m" ${interval.unit === 'm' ? 'selected' : ''}>minut</option>
+                    <option value="h" ${interval.unit === 'h' ? 'selected' : ''}>hodin</option>
+                    <option value="d" ${interval.unit === 'd' ? 'selected' : ''}>dnů</option>
+                  </select>
+                </div>
+                <p class="form-hint">Jak často má agent kontrolovat zdroje.</p>
+              </div>
+
+              <!-- Collapsible JSON editor for advanced users -->
+              <details class="form-group" style="margin-top: 16px;">
+                <summary style="cursor: pointer; color: var(--text-secondary); font-size: 14px;">
+                  🔧 Rozšířené nastavení (JSON)
+                </summary>
+                <div style="margin-top: 12px;">
+                  <textarea class="form-textarea" id="edit-definition" rows="15"
+                            style="font-family: monospace; font-size: 12px;">${JSON.stringify(agent.definition, null, 2)}</textarea>
+                  <p class="form-hint">Upravte JSON definici agenta opatrně. Změny zde přepíší hodnoty z formuláře výše.</p>
+                </div>
+              </details>
+
+              <div class="form-actions">
+                <button class="btn btn-secondary" onclick="cancelEdit()">Zrušit</button>
+                <button class="btn btn-primary" onclick="saveEdit('${agent.id}')">
+                  💾 Uložit změny
+                </button>
+              </div>
+            </div>
+          </div>
+        </main>
+      `;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ACTIONS
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    function goBack() {
+      window.location.href = '/architect';
+    }
+    
+    function goToList() {
+      state.view = 'list';
+      state.selectedAgent = null;
+      state.editingAgent = null;
+      render();
+    }
+    
+    function startCreate() {
+      state.view = 'create';
+      state.createForm = {
+        step: 'describe',
+        description: '',
+        definition: null,
+        explanation: null,
+        loading: false,
+        dryRunLoading: false,  // v44.4
+        dryRunResult: null     // v44.4
+      };
+      render();
+    }
+    
+    function backToDescribe() {
+      state.createForm.step = 'describe';
+      render();
+    }
+    
+    async function generateAgent() {
+      const description = document.getElementById('agent-description').value.trim();
+      if (!description) {
+        alert('Zadejte popis agenta');
+        return;
+      }
+      
+      state.createForm.description = description;
+      state.createForm.loading = true;
+      render();
+      
+      try {
+        const result = await API.buildAgent(description);
+        
+        if (result.error) {
+          alert('Chyba: ' + result.error);
+          state.createForm.loading = false;
+          render();
+          return;
+        }
+        
+        state.createForm.definition = result.definition;
+        state.createForm.explanation = result.explanation;
+        state.createForm.step = 'review';
+        state.createForm.loading = false;
+        render();
+      } catch (err) {
+        alert('Chyba: ' + err.message);
+        state.createForm.loading = false;
+        render();
+      }
+    }
+    
+    async function confirmAndCreate(forceCreate = false) {
+      const definition = state.createForm.definition;
+      if (!definition) return;
+      
+      try {
+        console.log('Creating agent with definition:', definition);
+        const result = await API.confirmDraft(definition, {}, forceCreate);
+        
+        if (result.error) {
+          // Check if we can force create
+          if (result.canForce !== false && !forceCreate) {
+            if (confirm(`Varování: ${result.error}\n\nChcete přesto vytvořit agenta jako deaktivovaného?`)) {
+              return confirmAndCreate(true);
+            }
+          } else {
+            alert('Chyba: ' + result.error);
+          }
+          return;
+        }
+        
+        // Success - show warnings if any
+        if (result.warnings?.length > 0 || result.softErrors?.length > 0) {
+          alert(`Agent vytvořen s varováními:\n${[...(result.warnings || []), ...(result.softErrors || [])].join('\n')}`);
+        }
+        
+        await loadAgents();
+        showDetail(result.id);
+      } catch (err) {
+        alert('Chyba: ' + err.message);
+      }
+    }
+    
+    async function showDetail(id) {
+      state.view = 'detail';
+      state.selectedAgent = null;
+      render();
+      
+      try {
+        const result = await API.getAgent(id);
+        state.selectedAgent = result;
+        render();
+      } catch (err) {
+        alert('Chyba: ' + err.message);
+        goToList();
+      }
+    }
+    
+    async function startEdit(id) {
+      try {
+        const agent = await API.getAgent(id);
+        state.editingAgent = agent;
+        state.view = 'edit';
+        render();
+      } catch (err) {
+        alert('Chyba: ' + err.message);
+      }
+    }
+    
+    function cancelEdit() {
+      if (state.editingAgent) {
+        showDetail(state.editingAgent.id);
+      } else {
+        goToList();
+      }
+    }
+    
+    async function saveEdit(id) {
+      const name = document.getElementById('edit-name').value.trim();
+      const description = document.getElementById('edit-description').value.trim();
+      const icon = document.getElementById('edit-icon').value.trim();
+
+      // v44.1 - Get interval from structured form
+      const intervalValue = parseInt(document.getElementById('edit-interval-value').value, 10) || 1;
+      const intervalUnit = document.getElementById('edit-interval-unit').value || 'h';
+      const intervalString = `${intervalValue}${intervalUnit}`;
+
+      let definition;
+
+      try {
+        definition = JSON.parse(document.getElementById('edit-definition').value);
+      } catch (err) {
+        alert('Neplatný JSON v definici: ' + err.message);
+        return;
+      }
+
+      // v44.1 - Merge structured form values into definition
+      // This allows both form and JSON editing to coexist
+      if (definition.schedule) {
+        definition.schedule.interval = intervalString;
+      } else {
+        definition.schedule = { type: 'interval', interval: intervalString };
+      }
+
+      try {
+        const result = await API.updateAgent(id, {
+          name,
+          description,
+          icon,
+          definition
+        });
+
+        if (result.error) {
+          alert('Chyba: ' + result.error);
+          return;
+        }
+
+        showToast('success', 'Agent upraven', 'Změny byly uloženy.');
+        showDetail(id);
+      } catch (err) {
+        alert('Chyba: ' + err.message);
+      }
+    }
+    
+    async function deleteAgent(id) {
+      if (!confirm('Opravdu chcete smazat tohoto agenta? Tato akce je nevratná.')) {
+        return;
+      }
+      
+      try {
+        const result = await API.deleteAgent(id);
+        if (result.error) {
+          alert('Chyba: ' + result.error);
+          return;
+        }
+        
+        showToast('success', 'Agent smazán', 'Agent byl úspěšně odstraněn.');
+        await loadAgents();
+        goToList();
+      } catch (err) {
+        alert('Chyba: ' + err.message);
+      }
+    }
+    
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // v34: RUN_STATE UI MAPPING - Backend is source of truth
+    // UI only maps, never interprets
+    // ═══════════════════════════════════════════════════════════════════════
+    
+    const RUN_STATE_UI_MAP = {
+      'SUCCESS_TRIGGERED': {
+        icon: '🔔',
+        title: 'Triggery spuštěny',
+        type: 'success',
+        desc: (r) => `Trvání: ${r.duration}ms, Akce: ${r.actions?.length || 0}`
+      },
+      'SUCCESS_NO_TRIGGER': {
+        icon: '✓',
+        title: 'Podmínky nesplněny',
+        type: 'info',
+        desc: (r) => `Trvání: ${r.duration}ms - čeká na splnění podmínek`
+      },
+      'SUCCESS_NO_NEW': {
+        icon: '📭',
+        title: 'Žádné nové položky',
+        type: 'info',
+        desc: () => 'Čeká na nové položky ze zdroje'
+      },
+      'SKIP_DISABLED': {
+        icon: '⏸',
+        title: 'Agent pozastaven',
+        type: 'warning',
+        desc: () => 'Aktivujte agenta pro spuštění'
+      },
+      'SKIP_SCHEMA_BROKEN': {
+        icon: '⛔',
+        title: 'Schema rozbité',
+        type: 'error',
+        desc: () => 'Opravte definici agenta'
+      },
+      'SKIP_COOLDOWN': {
+        icon: '⏱',
+        title: 'Cooldown',
+        type: 'info',
+        desc: (r) => `Další běh: ${r.next_run ? formatTime(r.next_run) : 'brzy'}`
+      },
+      'ERROR_SOURCE': {
+        icon: '❌',
+        title: 'Chyba zdroje',
+        type: 'error',
+        desc: (r) => r.error || 'Nepodařilo se načíst data'
+      },
+      'ERROR_EXECUTION': {
+        icon: '❌',
+        title: 'Chyba akce',
+        type: 'error',
+        desc: (r) => r.error || 'Některé akce selhaly'
+      },
+      'ERROR_UNKNOWN': {
+        icon: '❌',
+        title: 'Neznámá chyba',
+        type: 'error',
+        desc: (r) => r.error || 'Neočekávaná chyba'
+      },
+      'INIT_BASELINE': {
+        icon: '🏁',
+        title: 'Baseline nastaven',
+        type: 'success',
+        desc: () => 'První běh - agent je připraven sledovat změny'
+      },
+      'SCHEMA_DEGRADED': {
+        icon: '⚠️',
+        title: 'Schema degradováno',
+        type: 'warning',
+        desc: () => 'Některé podmínky jsou neplatné'
+      },
+      'SCHEMA_BROKEN': {
+        icon: '⛔',
+        title: 'Schema rozbité',
+        type: 'error',
+        desc: () => 'Agent byl automaticky deaktivován'
+      }
+    };
+
+    async function runAgent(id, evt) {
+      try {
+        const btn = evt?.target;
+        const originalText = btn?.textContent;
+        if (btn) {
+          btn.textContent = '⏳';
+          btn.disabled = true;
+        }
+        
+        console.log('[runAgent] Starting run for:', id);
+        const result = await API.runAgent(id);
+        console.log('[runAgent] Result:', result);
+        
+        if (btn) {
+          btn.textContent = originalText || '▶';
+          btn.disabled = false;
+        }
+        
+        // v34: Use run_state from backend, not interpret status
+        const runState = result.run_state || 'ERROR_UNKNOWN';
+        const uiInfo = RUN_STATE_UI_MAP[runState] || RUN_STATE_UI_MAP['ERROR_UNKNOWN'];
+        
+        showToast(
+          uiInfo.type, 
+          `${uiInfo.icon} ${uiInfo.title}`,
+          uiInfo.desc(result)
+        );
+        
+        // Refresh UI
+        if (state.view === 'detail') {
+          await showDetail(id);
+        } else {
+          await loadAgents();
+          render();
+        }
+        
+      } catch (err) {
+        console.error('[runAgent] Error:', err);
+        showToast('error', '❌ Chyba', err.message);
+      }
+    }
+    
+    async function toggleAgent(id, enabled) {
+      try {
+        await API.toggleAgent(id, enabled);
+        
+        showToast('success', enabled ? 'Agent aktivován' : 'Agent pozastaven', '');
+        
+        await loadAgents();
+        
+        if (state.view === 'detail') {
+          await showDetail(id);
+        } else {
+          render();
+        }
+      } catch (err) {
+        alert('Chyba: ' + err.message);
+      }
+    }
+    
+    // v44.4: Old dryRun/toggleDryRun removed - replaced by runDryRunInline()
+
+    function switchTab(btn, tabId) {
+      // Update buttons
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      
+      // Update content
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      document.getElementById('tab-' + tabId).classList.add('active');
+    }
+    
+    function toggleLog(entry) {
+      entry.classList.toggle('expanded');
+    }
+    
+    function attachEventListeners() {
+      // Any dynamic event listeners
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TOAST
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    function showToast(type, title, body) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.innerHTML = `
+        <div class="toast-header">
+          <span class="toast-title">${type === 'success' ? '✅' : type === 'error' ? '❌' : '⚠️'} ${title}</span>
+          <button class="toast-close" onclick="this.parentElement.parentElement.remove()">×</button>
+        </div>
+        ${body ? `<div class="toast-body">${body}</div>` : ''}
+      `;
+      container.appendChild(toast);
+      
+      // Auto remove after 5s
+      setTimeout(() => {
+        if (toast.parentElement) {
+          toast.remove();
+        }
+      }, 5000);
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // HELPERS
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+      })[char]);
+    }
+
+    function formatDateTime(dateStr) {
+      if (!dateStr) return '-';
+      const date = new Date(dateStr);
+      return date.toLocaleString('cs-CZ');
+    }
+    
+    function formatTime(dateStr) {
+      if (!dateStr) return '-';
+      const date = new Date(dateStr);
+      return date.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' });
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // INIT
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    async function loadAgents() {
+      try {
+        const result = await API.listAgents();
+        state.agents = result.agents || [];
+      } catch (err) {
+        console.error('Failed to load agents:', err);
+        state.agents = [];
+      }
+    }
+    
+    async function loadNotifications() {
+      try {
+        const result = await API.getNotifications();
+        state.notifications = result.notifications || [];
+      } catch (err) {
+        console.error('Failed to load notifications:', err);
+        state.notifications = [];
+      }
+    }
+    
+    async function init() {
+      await Promise.all([
+        loadAgents(),
+        loadNotifications()
+      ]);
+      render();
+    }
+    
+    init();
+  </script>
+</body>
+</html>

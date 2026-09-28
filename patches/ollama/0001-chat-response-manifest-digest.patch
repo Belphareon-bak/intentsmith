@@ -1,0 +1,156 @@
+From 0cb3844557c2cbf0beac555da0147279eebd9488 Mon Sep 17 00:00:00 2001
+From: Belphareon <geofery.cz@gmail.com>
+Date: Fri, 28 Aug 2026 16:14:50 +0200
+Subject: [PATCH] server: return exact manifest digest in chat responses
+
+---
+ api/types.go                   |  3 +++
+ server/routes.go               |  6 ++++++
+ server/routes_generate_test.go | 35 ++++++++++++++++++++++++++++++++--
+ 3 files changed, 42 insertions(+), 2 deletions(-)
+
+diff --git a/api/types.go b/api/types.go
+index c0e771d4382988a115efa83a63944f3a037eb433..b499b317bd668c602043bf04feb0f3edf4f57057 100644
+--- a/api/types.go
++++ b/api/types.go
+@@ -521,6 +521,9 @@ type ChatResponse struct {
+ 	// Model is the model name that generated the response.
+ 	Model string `json:"model"`
+ 
++	// Digest is the exact local manifest digest selected for this response.
++	Digest string `json:"digest,omitempty"`
++
+ 	// RemoteModel is the name of the upstream model that generated the response.
+ 	RemoteModel string `json:"remote_model,omitempty"`
+ 
+diff --git a/server/routes.go b/server/routes.go
+index 3a027a9eaf87b6ac5d3cf42bde9f0cd0b415952d..8ed650ce964aa10cd786c2993d5d16c5a3489fc9 100644
+--- a/server/routes.go
++++ b/server/routes.go
+@@ -2489,6 +2489,7 @@ func (s *Server) ChatHandler(c *gin.Context) {
+ 
+ 		c.JSON(http.StatusOK, api.ChatResponse{
+ 			Model:      req.Model,
++			Digest:     m.Digest,
+ 			CreatedAt:  time.Now().UTC(),
+ 			Message:    api.Message{Role: "assistant"},
+ 			Done:       true,
+@@ -2627,6 +2628,7 @@ func (s *Server) ChatHandler(c *gin.Context) {
+ 	if len(req.Messages) == 0 {
+ 		c.JSON(http.StatusOK, api.ChatResponse{
+ 			Model:      req.Model,
++			Digest:     m.Digest,
+ 			CreatedAt:  time.Now().UTC(),
+ 			Message:    api.Message{Role: "assistant"},
+ 			Done:       true,
+@@ -2690,6 +2692,7 @@ func (s *Server) ChatHandler(c *gin.Context) {
+ 	if req.DebugRenderOnly {
+ 		c.JSON(http.StatusOK, api.ChatResponse{
+ 			Model:     req.Model,
++			Digest:    m.Digest,
+ 			CreatedAt: time.Now().UTC(),
+ 			DebugInfo: &api.DebugInfo{
+ 				RenderedTemplate: prompt,
+@@ -2766,6 +2769,7 @@ func (s *Server) ChatHandler(c *gin.Context) {
+ 			}, func(r llm.CompletionResponse) {
+ 				res := api.ChatResponse{
+ 					Model:     req.Model,
++					Digest:    m.Digest,
+ 					CreatedAt: time.Now().UTC(),
+ 					Message:   api.Message{Role: "assistant", Content: r.Content},
+ 					Done:      r.Done,
+@@ -2958,6 +2962,7 @@ func (s *Server) handleNativeChat(c *gin.Context, req api.ChatRequest, m *Model,
+ 
+ 		c.JSON(http.StatusOK, api.ChatResponse{
+ 			Model:     req.Model,
++			Digest:    m.Digest,
+ 			CreatedAt: time.Now().UTC(),
+ 			DebugInfo: &api.DebugInfo{
+ 				RenderedTemplate: prompt,
+@@ -2974,6 +2979,7 @@ func (s *Server) handleNativeChat(c *gin.Context, req api.ChatRequest, m *Model,
+ 		err := r.Chat(c.Request.Context(), nativeReq, func(r llm.ChatResponse) {
+ 			res := api.ChatResponse{
+ 				Model:     req.Model,
++				Digest:    m.Digest,
+ 				CreatedAt: time.Now().UTC(),
+ 				Message:   r.Message,
+ 				Done:      r.Done,
+diff --git a/server/routes_generate_test.go b/server/routes_generate_test.go
+index 5de22f78b0c8919c41bbb791bd169d5e4a356439..cf11bdd245077e45bb2fa36d0f31c103e7b44c8a 100644
+--- a/server/routes_generate_test.go
++++ b/server/routes_generate_test.go
+@@ -311,6 +311,17 @@ func TestChatHandlerChatTemplateRoute(t *testing.T) {
+ 	if err := json.Unmarshal(w.Body.Bytes(), &actual); err != nil {
+ 		t.Fatal(err)
+ 	}
++	existingName, err := getExistingName(model.ParseName("chat-template"))
++	if err != nil {
++		t.Fatal(err)
++	}
++	servedModel, err := GetModel(existingName.String())
++	if err != nil {
++		t.Fatal(err)
++	}
++	if actual.Digest != servedModel.Digest {
++		t.Fatalf("response digest = %q, want exact manifest digest %q", actual.Digest, servedModel.Digest)
++	}
+ 	if actual.Message.Content != "chat template response" {
+ 		t.Fatalf("expected chat template response, got %q", actual.Message.Content)
+ 	}
+@@ -828,6 +839,18 @@ func TestGenerateChat(t *testing.T) {
+ 	if w.Code != http.StatusOK {
+ 		t.Fatalf("expected status 200, got %d", w.Code)
+ 	}
++	expectedDigest := func(t *testing.T, modelName string) string {
++		t.Helper()
++		existingName, err := getExistingName(model.ParseName(modelName))
++		if err != nil {
++			t.Fatal(err)
++		}
++		servedModel, err := GetModel(existingName.String())
++		if err != nil {
++			t.Fatal(err)
++		}
++		return servedModel.Digest
++	}
+ 
+ 	t.Run("missing body", func(t *testing.T) {
+ 		w := createRequest(t, s.ChatHandler, nil)
+@@ -930,6 +953,10 @@ func TestGenerateChat(t *testing.T) {
+ 		if actual.Model != "test" {
+ 			t.Errorf("expected model test, got %s", actual.Model)
+ 		}
++		wantDigest := expectedDigest(t, "test")
++		if actual.Digest != wantDigest {
++			t.Errorf("response digest = %q, want exact manifest digest %q", actual.Digest, wantDigest)
++		}
+ 
+ 		if !actual.Done {
+ 			t.Errorf("expected done true, got false")
+@@ -940,7 +967,7 @@ func TestGenerateChat(t *testing.T) {
+ 		}
+ 	})
+ 
+-	checkChatResponse := func(t *testing.T, body io.Reader, model, content string) {
++	checkChatResponse := func(t *testing.T, body io.Reader, modelName, content string) {
+ 		t.Helper()
+ 
+ 		var actual api.ChatResponse
+@@ -948,9 +975,13 @@ func TestGenerateChat(t *testing.T) {
+ 			t.Fatal(err)
+ 		}
+ 
+-		if actual.Model != model {
++		if actual.Model != modelName {
+ 			t.Errorf("expected model test, got %s", actual.Model)
+ 		}
++		wantDigest := expectedDigest(t, modelName)
++		if actual.Digest != wantDigest {
++			t.Errorf("response digest = %q, want exact manifest digest %q", actual.Digest, wantDigest)
++		}
+ 
+ 		if !actual.Done {
+ 			t.Errorf("expected done false, got true")
+-- 
+2.43.0
+

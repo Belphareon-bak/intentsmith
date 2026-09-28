@@ -1,0 +1,331 @@
+'use strict';
+
+const V2_KEY = 'intentsmith-studio2-session-state';
+const V1_KEY = 'intentsmith-session-state';
+const MAX_COLUMNS = 3;
+const MAX_SESSIONS = 5;
+const { pendingBinding } = require('./m2-controller');
+const { normalizeForm, normalizeProposal } = require('./m2-composer');
+
+function safeObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+function text(value, fallback = '') {
+  return typeof value === 'string' ? value : fallback;
+}
+function identity(value) {
+  if (typeof value === 'string' && value.trim()) return value;
+  if (Number.isSafeInteger(value) && value > 0) return String(value);
+  return null;
+}
+function dateValue(value) {
+  return typeof value === 'string' && Number.isFinite(Date.parse(value)) ? value : null;
+}
+function messages(value) {
+  return Array.isArray(value) ? value.slice(-100).filter(item => item && typeof item === 'object')
+    .map(item => ({ role: text(item.role, 'system'), text: text(item.text), tag: text(item.tag), _gapChoice: item._gapChoice === true, _gapResolved: item._gapResolved === true,
+      ...(typeof item.ts === 'string' && !Number.isNaN(Date.parse(item.ts)) ? { ts: item.ts } : {}) })) : [];
+}
+function id() {
+  if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') return globalThis.crypto.randomUUID();
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+function makeSession(number, source = {}) {
+  const raw = safeObject(source);
+  const chat = safeObject(raw.chat);
+  return {
+    id: text(raw.id) || id(), number,
+    _uiId: text(raw._uiId) || id(), _convId: text(raw._convId || raw.convId) || null,
+    _projectId: identity(raw._projectId ?? raw.projectId),
+    _agentId: identity(raw._agentId ?? raw.agentId),
+    _createdAt: dateValue(raw.createdAt || raw._createdAt) || (!raw.id && !raw.convId && !raw._convId ? new Date().toISOString() : null),
+    _lastUsedAt: dateValue(raw.lastUsedAt || raw._lastUsedAt),
+    _label: text(raw._label || raw.label) || `Relace ${number}`,
+    _pinned: raw._pinned === true || raw.pinned === true,
+    _m2Pending: pendingBinding(raw._m2Pending || raw.m2Pending),
+    _m2Last: pendingBinding(raw._m2Last || raw.m2Last),
+    _closed: false, _editor: { active: false, tabs: [], activeTabId: null, scrollRaf: null },
+    _focusFiles: Array.isArray(raw._focusFiles || raw.focusFiles) ? (raw._focusFiles || raw.focusFiles).slice(0, 100) : [],
+    _openedFiles: Array.isArray(raw._openedFiles || raw.openedFiles) ? (raw._openedFiles || raw.openedFiles).filter(value => typeof value === 'string').slice(0, 30) : [],
+    _modifiedFiles: Array.isArray(raw._modifiedFiles || raw.modifiedFiles) ? (raw._modifiedFiles || raw.modifiedFiles).filter(value => typeof value === 'string').slice(0, 30) : [],
+    _fileChanges: safeObject(raw._fileChanges || raw.fileChanges),
+    _legacyEditor: raw.legacyEditor || raw._legacyEditor || null,
+    _conversationFocus: raw._conversationFocus === true,
+    chat: {
+      msgs: messages(chat.msgs || raw.recentMsgs),
+      _projectWorkProposal: normalizeProposal(raw.projectWorkProposal || chat._projectWorkProposal),
+      _m2Composer: normalizeForm(raw.m2Composer || chat._m2Composer),
+      _m2RevisionSource: normalizeForm(raw.m2RevisionSource || chat._m2RevisionSource),
+      ctx: Number.isFinite(chat.ctx) ? chat.ctx : 0,
+      expertise: text(chat.expertise || raw.expertiseName, 'Výchozí'),
+      specialist: chat.specialist || raw.specialistData || null,
+      editMode: chat.editMode === 'auto' || raw.editMode === 'auto' ? 'auto' : 'ask',
+      attachments: [], _pendingAttachments: [],
+      _thinking: null, _delivery: raw.delivery?.status === 'DELIVERY_UNKNOWN' ? {
+        status: 'DELIVERY_UNKNOWN',
+        text: 'Spojení skončilo po odeslání. Výsledek nelze bezpečně určit; požadavek se neopakuje automaticky.',
+      } : null,
+    },
+    bottom: text(raw.bottom || raw.bottomMode, 'agent'),
+    log: Array.isArray(raw.log) ? raw.log.slice(-300) : [],
+    term: Array.isArray(raw.term) ? raw.term.slice(-300) : [],
+  };
+}
+function snapshotSession(session) {
+  return {
+    id: session.id, number: session.number,
+    convId: session._convId, projectId: session._projectId, agentId: session._agentId,
+    createdAt: session._createdAt, lastUsedAt: session._lastUsedAt,
+    label: session._label, m2Pending: pendingBinding(session._m2Pending), m2Last: pendingBinding(session._m2Last),
+    pinned: session._pinned === true,
+    focusFiles: session._focusFiles,
+    openedFiles: session._openedFiles, modifiedFiles: session._modifiedFiles, fileChanges: session._fileChanges,
+    legacyEditor: session._legacyEditor,
+    projectWorkProposal: normalizeProposal(session.chat._projectWorkProposal),
+    m2Composer: normalizeForm(session.chat._m2Composer),
+    m2RevisionSource: normalizeForm(session.chat._m2RevisionSource),
+    recentMsgs: messages(session.chat.msgs).slice(-20),
+    expertiseName: session.chat.expertise, specialistData: session.chat.specialist,
+    editMode: session.chat.editMode, bottomMode: session.bottom,
+    delivery: session.chat._delivery?.status === 'DELIVERY_UNKNOWN' ? { status: 'DELIVERY_UNKNOWN' } : null,
+  };
+}
+function sessionCloseBlock(session, { activeTurn, m2Busy, terminalExecuting, editorDirty, state = {} } = {}) {
+  if (!session || session.chat._thinking || session.chat._autocomplete?.loading || activeTurn) return 'Relace právě odpovídá.';
+  if (session._m2Pending || m2Busy) return 'Relace čeká na schválení nebo výsledek změny.';
+  if (session.chat._m2Composer) return 'Relace má rozepsaný návrh změn.';
+  if (terminalExecuting) return 'V relaci běží příkaz terminálu.';
+  if (editorDirty || state.fileGuard?.sid === session.id) return 'Relace má neuložený soubor.';
+  if ((state.drafts?.[session.id] || '').trim() || (state.cmds?.[session.id] || '').trim()
+    || session.chat.attachments?.length || session.chat._pendingAttachments?.length
+    || session.chat._preparing || session.chat._picking) return 'Relace má rozepsanou zprávu, příkaz nebo přílohy.';
+  if (session.chat._delivery?.status === 'DELIVERY_UNKNOWN') return 'Výsledek odeslání není známý.';
+  return null;
+}
+function parse(storage, key) {
+  try { return JSON.parse(storage.getItem(key) || 'null'); } catch { return null; }
+}
+function restore(storage) {
+  const saved = safeObject(parse(storage, V2_KEY));
+  if (saved.version === 2 && Array.isArray(saved.sessions) && saved.sessions.length === 0)
+    return { sessions: [], columns: [], focusedColumn: 0,
+      nextNumber: Number.isSafeInteger(saved.nextNumber) && saved.nextNumber > 0 ? saved.nextNumber : 1,
+      used: [], closed: Array.isArray(saved.closed) ? saved.closed.slice(0, 5) : [] };
+  if (saved.version === 2 && Array.isArray(saved.sessions)) {
+    const usedIds = new Set();
+    const usedNumbers = new Set();
+    const sessions = [];
+    for (const raw of saved.sessions) {
+      const item = safeObject(raw);
+      if (!Number.isSafeInteger(item.number) || item.number < 1 || usedNumbers.has(item.number)) continue;
+      const session = makeSession(item.number, item);
+      if (usedIds.has(session.id)) continue;
+      usedIds.add(session.id);
+      usedNumbers.add(session.number);
+      sessions.push(session);
+    }
+    if (sessions.length) {
+      const valid = new Set(sessions.map(session => session.id));
+      const columns = Array.isArray(saved.columns) ? [...new Set(saved.columns.filter(value => valid.has(value)))].slice(0, MAX_COLUMNS) : [];
+      if (!columns.length) columns.push(sessions[0].id);
+      const max = Math.max(...sessions.map(session => session.number));
+      return {
+        sessions, columns,
+        focusedColumn: Number.isInteger(saved.focusedColumn) ? Math.max(0, Math.min(columns.length - 1, saved.focusedColumn)) : 0,
+        nextNumber: Math.max(max + 1, Number.isSafeInteger(saved.nextNumber) ? saved.nextNumber : 1),
+        used: Array.isArray(saved.used) ? [...new Set(saved.used.filter(value => valid.has(value)))].concat(sessions.map(x => x.id).filter(value => !saved.used.includes(value))) : sessions.map(x => x.id),
+        closed: Array.isArray(saved.closed) ? saved.closed.filter(value => typeof value === 'string').slice(0, 5) : [],
+      };
+    }
+  }
+  const legacy = safeObject(parse(storage, V1_KEY));
+  const old = Array.isArray(legacy.sessions) ? legacy.sessions : [];
+  const open = old.map((item, index) => ({ item, index })).filter(entry => safeObject(entry.item).closed !== true);
+  if (open.length) {
+    const editors = safeObject(parse(storage, 'intentsmith-editor-state'));
+    const workspaces = safeObject(parse(storage, 'intentsmith-specialist-workspaces'));
+    const sessions = open.map((entry, index) => {
+      const session = makeSession(index + 1, entry.item);
+      const editor = editors.version === 2 && Array.isArray(editors.sessions) ? editors.sessions[entry.index] : editors;
+      if (editor && Array.isArray(editor.openFiles)) session._legacyEditor = {
+        paths: editor.openFiles.slice(0, 30).map(file => file?.path).filter(path =>
+          typeof path === 'string' && path.startsWith('/') && path.length <= 4096 && !/[\x00-\x1f]/.test(path)),
+        activePath: typeof editor.activePath === 'string' ? editor.activePath : null,
+      };
+      const owner = session.chat.specialist?.id === 'accountant' ? 'accountant-cz' : session.chat.specialist?.id;
+      if (owner && !session._focusFiles.length && Array.isArray(workspaces[owner]?.files))
+        session._focusFiles = workspaces[owner].files.filter(value => typeof value === 'string').slice(0, 100);
+      return session;
+    });
+    const wanted = Number.isInteger(legacy.sessionActive) ? legacy.sessionActive : 0;
+    const activeIndex = open.findIndex(entry => entry.index === wanted);
+    const active = activeIndex >= 0 ? activeIndex : 0;
+    return { sessions, columns: [sessions[active].id], focusedColumn: 0, nextNumber: sessions.length + 1,
+      used: [sessions[active].id, ...sessions.filter((_, i) => i !== active).map(x => x.id)], closed: [] };
+  }
+  const first = makeSession(1);
+  return { sessions: [first], columns: [first.id], focusedColumn: 0, nextNumber: 2, used: [first.id], closed: [] };
+}
+
+class SessionStore {
+  specialistFiles(owner) {
+    const workspaces = safeObject(parse(this.storage, 'intentsmith-specialist-workspaces'));
+    return Array.isArray(workspaces[owner]?.files)
+      ? workspaces[owner].files.filter(value => typeof value === 'string').slice(0, 100) : [];
+  }
+  constructor(storage) {
+    this.storage = storage;
+    this.state = restore(storage);
+    this.conversationActivity = Object.fromEntries(Object.entries(safeObject(parse(storage, V2_KEY)?.conversationActivity))
+      .filter(([, value]) => dateValue(value)).slice(0, 500));
+    this.listeners = new Set();
+    // Older versions allowed unlimited sessions. Keep visible sessions and all
+    // unresolved work; only safe hidden sessions can be removed during migration.
+    while (this.state.sessions.length > MAX_SESSIONS) {
+      const candidate = this.evictionCandidate(session => !sessionCloseBlock(session));
+      if (!candidate) break;
+      this.closeSession(candidate);
+    }
+    this.persist();
+  }
+  subscribe(listener) {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+  changed() {
+    this.persist();
+    for (const listener of this.listeners) listener(this.state);
+  }
+  persist() {
+    const { sessions, columns, focusedColumn, nextNumber, used, closed } = this.state;
+    for (const session of sessions) if (session._convId && session._lastUsedAt
+      && (!this.conversationActivity[session._convId]
+        || Date.parse(session._lastUsedAt) > Date.parse(this.conversationActivity[session._convId])))
+      this.conversationActivity[session._convId] = session._lastUsedAt;
+    try {
+      this.storage.setItem(V2_KEY, JSON.stringify({
+        version: 2, sessions: sessions.map(snapshotSession), columns, focusedColumn, nextNumber, used, closed,
+        conversationActivity: this.conversationActivity,
+      }));
+    } catch { /* Storage quota must not stop a running session. */ }
+  }
+  find(sessionId) { return this.state.sessions.find(session => session.id === sessionId) || null; }
+  focusedSession() { return this.find(this.state.columns[this.state.focusedColumn]); }
+  recent() { return this.state.used.filter(id => this.find(id)); }
+  touch(sessionId) {
+    const session = this.find(sessionId);
+    if (!session) return false;
+    this.state.used = [sessionId, ...this.state.used.filter(id => id !== sessionId)];
+    session._lastUsedAt = new Date().toISOString();
+    if (session._convId) {
+      const entries = [[session._convId, session._lastUsedAt], ...Object.entries(this.conversationActivity)
+        .filter(([id]) => id !== session._convId)];
+      this.conversationActivity = Object.fromEntries(entries.slice(0, 500));
+    }
+    return true;
+  }
+  // Only a session hidden before opening can be evicted. Callers provide the
+  // effect guards (active turn, approval, editor, draft, terminal).
+  evictionCandidate(canClose = () => true) {
+    if (this.state.sessions.length < MAX_SESSIONS) return null;
+    const visible = new Set(this.state.columns);
+    return [...this.recent()].reverse().find(id => !visible.has(id) && canClose(this.find(id))) || null;
+  }
+  canAddSession(canClose = () => true) {
+    if (this.state.sessions.length > MAX_SESSIONS) return false;
+    return this.state.sessions.length < MAX_SESSIONS || !!this.evictionCandidate(canClose);
+  }
+  nextSlot(slot) {
+    const columns = this.state.columns;
+    if (Number.isInteger(slot) && slot >= 0 && slot <= columns.length && slot < MAX_COLUMNS) return slot;
+    if (columns.length < MAX_COLUMNS) return columns.length;
+    const focus = this.state.focusedColumn;
+    const recent = this.recent();
+    return columns.map((id, index) => ({ index, rank: recent.indexOf(id) }))
+      .filter(row => row.index !== focus).sort((a, b) => b.rank - a.rank)[0].index;
+  }
+  addSession(source = {}, options = {}) {
+    if (this.state.sessions.length > MAX_SESSIONS) return null;
+    const canClose = options.canClose || (() => true);
+    const evicted = this.evictionCandidate(canClose);
+    if (this.state.sessions.length >= MAX_SESSIONS && !evicted) return null;
+    if (evicted) this.closeSession(evicted);
+    const session = makeSession(this.state.nextNumber++, source);
+    this.state.sessions.push(session);
+    const slot = this.nextSlot(options.slot);
+    this.state.columns[slot] = session.id;
+    this.state.focusedColumn = slot;
+    this.touch(session.id);
+    this.changed();
+    return session;
+  }
+  focusColumn(index) {
+    if (!Number.isInteger(index) || index < 0 || index >= this.state.columns.length) return false;
+    this.state.focusedColumn = index;
+    this.touch(this.state.columns[index]);
+    this.changed();
+    return true;
+  }
+  selectInColumn(index, sessionId) {
+    if (!Number.isInteger(index) || index < 0 || index >= this.state.columns.length || !this.find(sessionId)) return false;
+    const other = this.state.columns.indexOf(sessionId);
+    if (other >= 0 && other !== index) this.state.columns[other] = this.state.columns[index];
+    this.state.columns[index] = sessionId;
+    this.state.focusedColumn = index;
+    this.touch(sessionId);
+    this.changed();
+    return true;
+  }
+  focusTab(sessionId) {
+    const visible = this.state.columns.indexOf(sessionId);
+    return this.selectInColumn(visible < 0 ? this.state.focusedColumn : visible, sessionId);
+  }
+  setPinned(sessionId, pinned) {
+    const session = this.find(sessionId);
+    if (!session || typeof pinned !== 'boolean') return false;
+    session._pinned = pinned;
+    this.state.sessions.sort((left, right) => Number(right._pinned) - Number(left._pinned));
+    this.changed();
+    return true;
+  }
+  setColumnCount(count) {
+    if (!Number.isInteger(count) || count < 1 || count > MAX_COLUMNS) return false;
+    const wanted = Math.min(count, this.state.sessions.length);
+    while (this.state.columns.length > wanted) this.state.columns.pop();
+    while (this.state.columns.length < wanted) {
+      const spare = this.state.sessions.find(session => !this.state.columns.includes(session.id));
+      if (!spare) break;
+      this.state.columns.push(spare.id);
+    }
+    this.state.focusedColumn = Math.max(0, Math.min(this.state.focusedColumn, this.state.columns.length - 1));
+    this.changed();
+    return true;
+  }
+  closeColumn(index) {
+    if (!Number.isInteger(index) || index < 0 || index >= this.state.columns.length || this.state.columns.length === 1) return false;
+    this.state.columns.splice(index, 1);
+    this.state.focusedColumn = Math.min(this.state.focusedColumn, this.state.columns.length - 1);
+    this.changed();
+    return true;
+  }
+  closeSession(sessionId) {
+    const index = this.state.sessions.findIndex(session => session.id === sessionId);
+    if (index < 0) return false;
+    const closing = this.state.sessions[index];
+    if (!closing._lastUsedAt) this.touch(sessionId);
+    if (closing._convId) this.conversationActivity[closing._convId] = closing._lastUsedAt;
+    const conversationId = this.state.sessions[index]._convId;
+    this.state.sessions[index]._closed = true;
+    this.state.sessions.splice(index, 1);
+    this.state.used = this.state.used.filter(id => id !== sessionId);
+    if (conversationId) this.state.closed = [conversationId, ...this.state.closed.filter(id => id !== conversationId)].slice(0, 5);
+    const wasVisible = this.state.columns.includes(sessionId);
+    this.state.columns = this.state.columns.filter(id => id !== sessionId);
+    if (wasVisible && !this.state.columns.length && this.state.sessions.length) this.state.columns.push(this.recent()[0]);
+    this.state.focusedColumn = Math.max(0, Math.min(this.state.focusedColumn, this.state.columns.length - 1));
+    this.changed();
+    return true;
+  }
+}
+
+module.exports = { SessionStore, makeSession, restore, V1_KEY, V2_KEY, MAX_SESSIONS, sessionCloseBlock };

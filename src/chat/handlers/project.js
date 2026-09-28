@@ -1,0 +1,479 @@
+// Project Handler — extracted from handlers.js
+// Handles PROJECT mode - code-focused work
+//
+// v56.2 Sprint D: Project-self query interceptor
+//   - "Jaký je stav projektu?" → working memory, NOT web search
+//   - Detected BEFORE CRE routing to avoid DDG search for internal queries
+
+import { ResponseTag, TaggedResponse, ResponseSpeaker, ChatMode } from '../controller.js';
+import {
+  creDecisionEngine,
+  DecisionType,
+  IntentType,
+  assertDecision,
+  extractFilePath,
+  isExplicitFileReadIntent,
+  isExplicitFileWriteIntent,
+} from '../cre-decision.js';
+import { logger } from '../../core/logger.js';
+import {
+  handleToolCallDecision,
+  handleAskUserDecision,
+  handleAnswerDecision,
+  handleRefuseDecision,
+} from './decisions.js';
+import { handleFileDecision, handleFileWriteDecision } from './file.js';
+import { handleLocalDecision } from './local.js';
+import { handleShellDecision } from './conversation.js';
+import { handleDesignDecision } from './design.js';
+import { config } from '../../config.js';
+import { preHandle } from './pre-handler.js';
+import { handleProjectCollaboration } from './project-collaboration.js';
+
+// ─── Post-CRE modules (lazy-loaded, null if feature disabled) ──────────────
+// Only handleBuildDetected is needed for the PLAN case — shared intercepts
+// (build handoff, lifecycle handoff, C4 auto-detect) are in pre-handler.js.
+let handleBuildDetected = null;
+
+if (config.features.lifecycle !== false) {
+  try {
+    const bh = await import('./build-handoff.js');
+    handleBuildDetected = bh.handleBuildDetected;
+  } catch (err) {
+    logger.warn('ProjectHandler', `Build handoff not available: ${err.message}`);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+// v56.2 Sprint D: PROJECT_SELF_PATTERNS (#8)
+// ════════════════════════════════════════════════════════════════════════════════
+// Queries about the project itself — status, goal, files, progress.
+// These should be answered from working memory, NOT from web search.
+// Must be checked BEFORE CRE routing.
+//
+// Examples:
+//   "Jaký je stav projektu?" → working memory
+//   "Co je cíl tohoto projektu?" → working memory
+//   "Na čem pracujeme?" → working memory
+//   "Najdi článek o X" → NOT intercepted, routes to CRE → web search
+// ════════════════════════════════════════════════════════════════════════════════
+
+const PROJECT_SELF_PATTERNS = [
+  // Czech: project status/info queries
+  /(?:jaký|jaká|jaké) je stav projektu/i,
+  /stav projektu/i,
+  /(?:co|jaký|jaká) je cíl (?:tohoto |)projektu/i,
+  /cíl projektu/i,
+  // v87: "v jaké fázi projektu jsme?" — lifecycle phase queries
+  /(?:v |)jak[ée] f[áa]zi (?:(?:tohoto |)projektu|jsme)/i,
+  /f[áa]z[ei] projektu/i,
+  /kde (?:jsme|se nach[áa]z[ií]me) (?:v |s |)projekt/i,
+  /(?:jak|kde) daleko jsme/i,
+  /na čem (?:pracujeme|děláme|pracuji)/i,
+  /(?:co|jak) (?:děláme|dělám) (?:v |na |)(?:tomto |)projekt/i,
+  /(?:shrň|shrnout|popiš) projekt/i,
+  /(?:info|informace) o projektu/i,
+  /co je (?:v |)(?:tomto |)projektu/i,
+  // v65.5: "o čem je (tento) projekt?" — locative form of "co"
+  /o\s+[čc][eě]m\s+je\s+(?:tento\s+|ten\s+|tenhle\s+)?projekt/i,
+  /[čc][eě]mu\s+se\s+(?:tento\s+|ten\s+|tenhle\s+)?projekt\s+v[eě]nuje/i,
+  /[čc][ií]m\s+se\s+(?:tento\s+|ten\s+|tenhle\s+)?projekt\s+zab[ýy]v[áa]/i,
+  /aktivní soubor/i,
+  /na jakém souboru/i,
+  // English: project status/info queries
+  /(?:what is |what's )(?:the )?(?:project |)status/i,
+  /(?:what is |what's )(?:the )?(?:project |)goal/i,
+  /what are we (?:working on|doing)/i,
+  /(?:project |)(?:summary|overview|info)/i,
+  /(?:describe|summarize) (?:the |this |)project/i,
+  /active file/i,
+  /which files? (?:are|is)/i,
+];
+
+/**
+ * Check if input is a project-self query (about the project itself).
+ * @param {string} input
+ * @returns {boolean}
+ */
+function isProjectSelfQuery(input) {
+  return PROJECT_SELF_PATTERNS.some(p => p.test(input));
+}
+
+/**
+ * Build a response from project working memory + project info.
+ * No web search, no LLM call — pure data assembly.
+ *
+ * @param {string} input - User query
+ * @param {Object} project - Project object { id, name, path, scope }
+ * @param {Object} workingMemory - { goal, activeFile, lastArtifactId, driftCount }
+ * @param {Object} context - Full context
+ * @returns {TaggedResponse}
+ */
+function buildProjectStatusResponse(input, project, workingMemory, context) {
+  const parts = [];
+
+  parts.push(`📂 **${project.name}**`);
+  if (project.path) parts.push(`Cesta: \`${project.path}\``);
+  if (project.scope) parts.push(`Scope: ${project.scope}`);
+
+  if (workingMemory?.goal) {
+    parts.push(`\n🎯 **Cíl:** ${workingMemory.goal}`);
+  } else {
+    parts.push(`\n🎯 **Cíl:** Zatím nenastavený. Zadejte cíl pro lepší navigaci.`);
+  }
+
+  if (workingMemory?.activeFile) {
+    parts.push(`📄 **Aktivní soubor:** \`${workingMemory.activeFile}\``);
+  }
+
+  if (workingMemory?.lastArtifactId) {
+    parts.push(`🔧 **Poslední artefakt:** ${workingMemory.lastArtifactId}`);
+  }
+
+  if (workingMemory?.driftCount > 0) {
+    parts.push(`⚠️ **Drift count:** ${workingMemory.driftCount} (odchylky od cíle)`);
+  }
+
+  // v88.2: Enrich with cached project analysis (structure, stack, git, etc.)
+  if (context.projectAnalysis) {
+    // Extract key sections from the analysis text for a concise summary
+    const analysis = context.projectAnalysis;
+    const structureMatch = analysis.match(/### Source Structure\n([\s\S]*?)(?=\n###|$)/);
+    const gitMatch = analysis.match(/### Git\n([\s\S]*?)(?=\n###|$)/);
+    const pkgMatch = analysis.match(/### package\.json\n([\s\S]*?)(?=\n###|$)/);
+
+    const analysisParts = [];
+    if (pkgMatch) analysisParts.push(pkgMatch[1].trim());
+    if (structureMatch) analysisParts.push(structureMatch[1].trim());
+    if (gitMatch) analysisParts.push(gitMatch[1].trim());
+
+    if (analysisParts.length > 0) {
+      parts.push(`\n📊 **Analýza projektu:**\n${analysisParts.join('\n')}`);
+    }
+  }
+
+  // History summary if available
+  const historyLen = context.history?.length || 0;
+  if (historyLen > 0) {
+    parts.push(`\n💬 **Konverzace:** ${historyLen} zpráv v této session`);
+  }
+
+  const tag = new ResponseTag({
+    speaker: ResponseSpeaker.SYSTEM,
+    mode: ChatMode.PROJECT,
+    confidence: 1.0,
+    canExecute: false,
+    metadata: {
+      decision: { type: 'ANSWER', reason: 'PROJECT_SELF_QUERY' },
+      source: 'working_memory',
+      intercepted: true,  // v56.2: marks that CRE was bypassed
+    },
+  });
+
+  return new TaggedResponse({
+    content: parts.join('\n'),
+    tag,
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+// FILE INTENT HEURISTIC — lexical detection (replaces static CRE phrases)
+// ════════════════════════════════════════════════════════════════════════════════
+// This classifier is lexical only. It must never enumerate the project before
+// the resulting file.read request crosses M2 authority.
+//
+//   "co je v readme?"  → token "readme" matches README.md → FILE_READ
+//   "co za soubory je v tomto projektu?" → file-signal + project ref → dir listing
+//   "najdi článek o AI" → no file match, no signal → falls through to CRE
+// ════════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Detect only lexical directory-list intent without touching the filesystem.
+ *
+ * @param {string} input
+ * @returns {{ detected: boolean, filePath: string|null, reason: string|null }}
+ */
+export function detectFileIntent(input) {
+  const stripped = input.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+  // A write request may contain both a concrete filename and generic words
+  // such as "soubor" and "projekt". It must reach CRE/FILE_WRITE instead of
+  // being captured by the directory-list heuristic below. A path is still
+  // only input; this guard does not grant write authority.
+  if (isExplicitFileWriteIntent(input)) {
+    return { detected: false, filePath: null, reason: 'explicit-file-write' };
+  }
+
+  // Exact lexical filenames outrank the directory-list heuristic. In
+  // particular, `PROJECT-NOTE.txt` must not make the `project` substring look
+  // like a request to enumerate the project root. A path alone does not grant
+  // this pre-CRE override: only the canonical READ/EXPLAIN grammar may bypass
+  // CRE, so writes, edits and code requests remain available to their routes.
+  const explicitFilePath = extractFilePath(input);
+  if (
+    explicitFilePath
+    && explicitFilePath !== '.'
+    && isExplicitFileReadIntent(input)
+  ) {
+    return { detected: true, filePath: explicitFilePath, reason: 'explicit-file-path' };
+  }
+
+  // NFD normalize + strip diacritics for token matching
+  const tokens = stripped.split(/[\s,;:!?.()[\]{}"']+/).filter(Boolean);
+
+  // "list files/contents" + project reference → a durable file.read request.
+  const hasFileSignal = /soubor|obsah|struktur|adres|slozk|files|directory|contents|folder|tree|listing/i.test(stripped);
+  const hasProjectRef = tokens.some(token => /^(?:projekt[a-z]*|project[a-z]*|tomto|tady|zde|here|this)$/.test(token));
+  const requestsListing = /^(?:(?:prosim|please)\s+)?(?:vypis|vyjmenuj|ukaz|zobraz|list|show|what|jake|ktere|co|najdi)(?:\s|$)/.test(stripped.trim()) && tokens.length <= 30;
+
+  if (hasFileSignal && hasProjectRef && requestsListing) {
+    return { detected: true, filePath: '.', reason: 'file-signal+project-ref' };
+  }
+
+  // "co je v" / "what's in" + project reference (no explicit file word)
+  if (/co\s+je|co\s+tam|what'?s?\s+in|ukaz|zobraz|show|list/i.test(stripped) &&
+      hasProjectRef && tokens.length <= 10) {
+    return { detected: true, filePath: '.', reason: 'content-query+project-ref' };
+  }
+
+  return { detected: false, filePath: null, reason: null };
+}
+
+export async function projectHandler(input, context) {
+  const { sessionId, project } = context;
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // CASE 1: Project IS selected - route through CRE with CODE context
+  // ════════════════════════════════════════════════════════════════════════════
+
+  if (project && project.id) {
+    logger.info('ProjectHandler', `Project active: ${project.name}`, {
+      projectId: project.id,
+      scope: project.scope || 'project',
+    });
+
+    // ════════════════════════════════════════════════════════════════════════
+    // v93.1: Shared intercept chain — build handoff, C4 lifecycle auto-detect,
+    // lifecycle handoff, feedback detection, session resume, attachment guard
+    // ════════════════════════════════════════════════════════════════════════
+    const pre = await preHandle(input, context, 'PROJECT');
+    if (pre.handled) return pre.response;
+
+    // ════════════════════════════════════════════════════════════════════════
+    // v56.2 Sprint D: PROJECT-SELF QUERY INTERCEPTOR (#8)
+    // ════════════════════════════════════════════════════════════════════════
+    // "Jaký je stav projektu?" → working memory response, NO web search.
+    // Must run BEFORE CRE routing — otherwise CRE classifies as SEARCH
+    // and DDG gets "Jaký je stav projektu?" (nonsense web query).
+    // ════════════════════════════════════════════════════════════════════════
+    if (isProjectSelfQuery(input) && context.m2LifecycleOnly === true) {
+      return handleProjectCollaboration(input, context);
+    }
+    if (isProjectSelfQuery(input)) {
+      logger.info('ProjectHandler', 'Project-self query intercepted (bypassing CRE)', {
+        input: input.substring(0, 60),
+        projectId: project.id,
+      });
+      return buildProjectStatusResponse(
+        input,
+        project,
+        context.projectWorkingMemory || {},
+        context
+      );
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // FILE INTENT HEURISTIC — pre-CRE lexical detection
+    // ════════════════════════════════════════════════════════════════════════
+    // Extracts only text present in the request; it never enumerates project
+    // files. "přečti src/app.js" → "src/app.js" → FILE_READ.
+    // Runs BEFORE CRE to avoid misclassification of file queries.
+    // ════════════════════════════════════════════════════════════════════════
+    if (project.path) {
+      const fileDetect = detectFileIntent(input);
+      if (fileDetect.detected) {
+        logger.info('ProjectHandler', 'File intent detected by heuristic (bypassing CRE)', {
+          input: input.substring(0, 60),
+          filePath: fileDetect.filePath,
+          reason: fileDetect.reason,
+        });
+
+        const toolId = fileDetect.filePath === '.' ? 'file.list' : 'file.read';
+        const fileDecision = creDecisionEngine.overrideDecision({
+          type: DecisionType.LOCAL,
+          intent: IntentType.FILE_READ,
+          tools: [toolId],
+          source: 'project_file_heuristic',
+          reason: fileDetect.reason,
+          confidence: 0.9,
+          metadata: {
+            handler: toolId,
+            filePath: fileDetect.filePath,
+            projectScope: { projectPath: project.path },
+          },
+        });
+
+        return await handleFileDecision(input, fileDecision, {
+          ...context,
+          hasActiveProject: true,
+          project: project,
+          projectPath: project.path,
+        });
+      }
+    }
+
+    // Get CRE decision with project context
+    // v71: decide() is now async (LLM-first classification)
+    const decision = await creDecisionEngine.decide(input, {
+      ...context,
+      hasActiveProject: true,
+      projectId: project.id,
+      projectName: project.name,
+      projectScope: project.scope || 'project',
+    });
+
+    assertDecision(decision);
+
+    logger.info('ProjectHandler', `CRE Decision: ${decision.type}`, {
+      intent: decision.intent,
+      tools: decision.tools,
+    });
+
+    // v94: CODE_ANALYSIS priority override — BEFORE switch
+    // Runs its own pipeline (search→context→LLM), does not need standard tool routing
+    if (decision.intent === IntentType.CODE_ANALYSIS) {
+      const { handleCodeAnalysisDecision } = await import('./code-analysis.js');
+      return await handleCodeAnalysisDecision(input, decision, {
+        ...context,
+        hasActiveProject: true,
+        project: project,
+        projectPath: project.path,
+      });
+    }
+
+    // CRE still owns routing and refusals. Planning and conversational follow-ups
+    // are read-only collaboration, not entry to the quarantined legacy writer.
+    if (context.m2LifecycleOnly === true && (
+      [DecisionType.PLAN, DecisionType.ASK_USER, DecisionType.ANSWER].includes(decision.type)
+      || (decision.type === DecisionType.TOOL_CALL && decision.intent === IntentType.CODE && !decision.metadata?.filePath)
+    )) return handleProjectCollaboration(input, context);
+
+    // Handle based on decision
+    switch (decision.type) {
+      // ════════════════════════════════════════════════════════════════════
+      // LOCAL: FILE_READ, FILE_EXPLAIN, SHELL, date/calendar computations
+      // ════════════════════════════════════════════════════════════════════
+      case DecisionType.LOCAL:
+        if (decision.intent === IntentType.FILE_READ || decision.intent === IntentType.FILE_EXPLAIN) {
+          return await handleFileDecision(input, decision, {
+            ...context,
+            hasActiveProject: true,
+            project: project,
+            projectPath: project.path,
+          });
+        }
+        // v70: FILE_WRITE intent → write content to file
+        if (decision.intent === IntentType.FILE_WRITE) {
+          return await handleFileWriteDecision(input, decision, {
+            ...context,
+            hasActiveProject: true,
+            project: project,
+            projectPath: project.path,
+          });
+        }
+        // v70: SHELL intent → route to terminal execution
+        if (decision.intent === IntentType.SHELL) {
+          return handleShellDecision(input, decision, context);
+        }
+        return await handleLocalDecision(input, decision, context);
+
+      // ════════════════════════════════════════════════════════════════════
+      // v87: BUILD → PLAN: Handoff to Planner pipeline
+      // Previously missing → fell to default → REFUSE dead end
+      // ════════════════════════════════════════════════════════════════════
+      case DecisionType.PLAN:
+        if (handleBuildDetected) {
+          return handleBuildDetected(input, decision, {
+            ...context,
+            hasActiveProject: true,
+            project: project,
+            projectPath: project.path,
+          });
+        }
+        // Phase C not loaded — fall through to ANSWER with project context
+        return await handleAnswerDecision(input, decision, context);
+
+      case DecisionType.TOOL_CALL:
+        // v87: CODE intent without explicit file path → route to ANSWER (inline synthesis).
+        // Prevents "FILE_WRITE: No file path specified" error when user says
+        // "zacni s psanim kodu" without specifying a target file.
+        if (decision.intent === IntentType.CODE && !decision.metadata?.filePath) {
+          logger.info('ProjectHandler', 'CODE without file path → inline ANSWER', {
+            input: input.substring(0, 60),
+            projectId: project.id,
+          });
+          return await handleAnswerDecision(input, decision, {
+            ...context,
+            hasActiveProject: true,
+            project: project,
+            projectPath: project.path,
+          });
+        }
+        // v44.2 - Ensure project context is fully propagated for sandbox
+        return await handleToolCallDecision(input, decision, {
+          ...context,
+          hasActiveProject: true,
+          project: project, // Explicit project for ToolExecutor sandbox
+          projectPath: project.path, // Explicit path for backward compatibility
+        });
+
+      case DecisionType.ASK_USER:
+        return handleAskUserDecision(input, decision, context);
+
+      case DecisionType.ANSWER:
+        // v123.3: DESIGN gets specialized handler (structured synthesis)
+        if (decision.intent === IntentType.DESIGN) {
+          return await handleDesignDecision(input, decision, {
+            ...context,
+            hasActiveProject: true,
+            project: project,
+            projectPath: project.path,
+          });
+        }
+        // In project mode, even CONVERSATIONAL gets project context
+        return await handleAnswerDecision(input, decision, context);
+
+      case DecisionType.REFUSE:
+        return handleRefuseDecision(input, decision, context);
+
+      default:
+        return handleRefuseDecision(input, decision, context);
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // CASE 2: No project selected - ASK_USER (no text description!)
+  // ════════════════════════════════════════════════════════════════════════════
+
+  logger.info('ProjectHandler', 'No project selected - asking user');
+
+  const tag = new ResponseTag({
+    speaker: ResponseSpeaker.SYSTEM,
+    mode: ChatMode.PROJECT,
+    confidence: 1.0,
+    canExecute: false,
+    metadata: {
+      decision: { type: 'ASK_USER', reason: 'PROJECT_REQUIRED' },
+      slots: ['project'],
+      awaitingSelection: true,
+    },
+  });
+
+  // This is ASK_USER behavior, not "chatty" text
+  return new TaggedResponse({
+    content: `💻 **Vyber projekt**\n\nPro práci s kódem potřebuji znát kontext projektu.\n\n` +
+             `**Váš požadavek:** "${input.substring(0, 100)}${input.length > 100 ? '...' : ''}"\n\n` +
+             `Vyberte projekt z nabídky nebo vytvořte nový.`,
+    tag,
+  });
+}

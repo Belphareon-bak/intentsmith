@@ -1,0 +1,1285 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<title>IntentSmith 2.0 · prototyp</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;family=Share+Tech+Mono&amp;family=Zen+Kaku+Gothic+Antique:wght@400;500;700&amp;family=Yuji+Boku&amp;display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;height:100%;overflow:hidden}
+.ide{--base:var(--s0);--bg:var(--s0);--bg2:color-mix(in srgb,var(--s0),#000 var(--shd));--title:color-mix(in srgb,var(--s0) 45%,var(--s1));--panel:var(--s1);--panel2:var(--s2);--panel3:var(--s3);--hover:var(--s2);--border:var(--bd2);--soft:var(--bd1);--text:color-mix(in srgb,color-mix(in srgb,var(--tx),var(--ink) var(--tb)) var(--tip),var(--base));--dim:color-mix(in srgb,color-mix(in srgb,var(--dm),var(--ink) var(--tb)) var(--tip),var(--base));--acc:color-mix(in srgb,var(--accF) var(--aip),var(--accD));--acc-soft:rgb(var(--accR) / calc(var(--asa) * var(--aia)));--font-mono:"JetBrains Mono","DejaVu Sans Mono",monospace;font-family:var(--font-ui);font-size:13px;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased;box-sizing:border-box;overflow:hidden;position:relative;isolation:isolate;display:grid;grid-template-rows:38px minmax(0,1fr) 24px;user-select:none}
+.ide *{box-sizing:border-box}
+.ide button,.ide input,.ide textarea,.ide select{font-family:inherit;color:inherit}
+.dark{--shd:22%;--ink:#ffffff;--shadow:rgba(0,0,0,.55)}
+.light{--shd:4%;--ink:#000000;--shadow:rgba(40,30,10,.18)}
+.ff-brand{--font-ui:"Plus Jakarta Sans","Inter","Noto Sans",system-ui,sans-serif}
+.ff-inter{--font-ui:"Inter","Noto Sans",system-ui,sans-serif}
+.ff-system{--font-ui:system-ui,-apple-system,"Segoe UI","Noto Sans",sans-serif}
+.fs-10{--fs:10px;--fc:11px;--rfs:8.5px}.fs-11{--fs:10.5px;--fc:12px;--rfs:8.5px}.fs-12{--fs:11.5px;--fc:13px;--rfs:8.6px}.fs-13{--fs:12.5px;--fc:14px;--rfs:9px}.fs-14{--fs:13.5px;--fc:15px;--rfs:9.4px}.fs-15{--fs:14.5px;--fc:16px;--rfs:9.8px}.fs-16{--fs:15.5px;--fc:17px;--rfs:10.2px}.fs-17{--fs:16.5px;--fc:18px;--rfs:10.6px}.fs-18{--fs:17.5px;--fc:19px;--rfs:11px}
+.pro{--base:var(--s1);--bg:transparent;--bg2:rgb(var(--g0) / var(--pa));--title:rgb(var(--g0) / .93);--panel:rgb(var(--g1) / var(--pa));--panel2:rgb(var(--g2) / var(--ta));--panel3:rgb(var(--g3) / var(--ta));--hover:rgb(var(--g3) / .75)}
+.pro .navcol,.pro .rp,.pro .tb,.pro .sb,.pro .dside,.pro .scol,.pro .comp,.pro .dd,.pro .pal,.pro .tile{-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
+.pro .scol{background:var(--panel)}
+.th-japanese .dh-title,.th-japanese .cat-t h1{font-family:"Yuji Boku","Zen Kaku Gothic Antique",serif;font-weight:400}
+/*THEMES*/
+.mono{font-family:var(--font-mono)}
+.num{font-variant-numeric:tabular-nums}
+.grow{flex-grow:1}
+.faint{color:var(--faint)}
+/* Semantic category colors stay distinct from the theme accent and status colors. */
+.dark{--cat-chat:#facc15;--cat-project:#ff7373;--cat-specialist:#b18aff;--cat-expertise:#60a5fa;--cat-worker:#4ade80;--cat-market:#fb923c;--cat-media:#2dd4bf;--set-ucet:#8fa6ba;--set-modely:#a0a8dc;--set-pamet:#7cbab0;--set-oznameni:#c7b77e;--set-vystup:#84b0c7;--set-vzhled:#b39bc9;--set-system:#a6afb9;--set-uloziste:#c5a080;--set-zalohy:#a5b47d;--set-prepinace:#aba2c4;--set-zabezpeceni:#8ab697;--set-about:#849cbe}
+.light{--cat-chat:#855700;--cat-project:#b91c1c;--cat-specialist:#6d28d9;--cat-expertise:#1d4ed8;--cat-worker:#15733a;--cat-market:#a93c04;--cat-media:#0d6963;--set-ucet:#4c6378;--set-modely:#595f94;--set-pamet:#396f67;--set-oznameni:#756330;--set-vystup:#3f6b82;--set-vzhled:#72558b;--set-system:#5e6771;--set-uloziste:#865d3a;--set-zalohy:#5d7035;--set-prepinace:#6e5f85;--set-zabezpeceni:#3f7450;--set-about:#446389}
+.tone-amber{--tc:var(--cat-chat)}.tone-red,.tone-rose{--tc:var(--cat-project)}.tone-violet{--tc:var(--cat-specialist)}.tone-cyan{--tc:var(--cat-media)}.tone-mint{--tc:var(--cat-worker)}.tone-blue{--tc:var(--cat-expertise)}.tone-orange{--tc:var(--cat-market)}.tone-none{--tc:var(--acct)}
+.tone-set-ucet{--tc:var(--set-ucet)} .tone-set-modely{--tc:var(--set-modely)} .tone-set-pamet{--tc:var(--set-pamet)} .tone-set-oznameni{--tc:var(--set-oznameni)} .tone-set-vystup{--tc:var(--set-vystup)} .tone-set-vzhled{--tc:var(--set-vzhled)} .tone-set-system{--tc:var(--set-system)} .tone-set-uloziste{--tc:var(--set-uloziste)} .tone-set-zalohy{--tc:var(--set-zalohy)} .tone-set-prepinace{--tc:var(--set-prepinace)} .tone-set-zabezpeceni{--tc:var(--set-zabezpeceni)} .tone-set-about{--tc:var(--set-about)}
+.category-badges{display:flex;align-items:center;flex-wrap:wrap;gap:5px;min-width:0}
+.category-label{display:inline-flex;align-items:center;gap:4px;border:1px solid color-mix(in srgb,var(--tc) 42%,transparent);border-radius:5px;padding:2px 6px;font-size:10.5px;font-weight:600;line-height:15px;color:var(--tc);background:color-mix(in srgb,var(--tc) 9%,var(--s0));white-space:nowrap;text-transform:none;letter-spacing:0}
+.last-used{display:inline-flex;align-items:center;gap:4px;color:var(--dim);font-size:11px;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pane-categories{flex:0 1 auto;overflow:hidden;flex-wrap:nowrap}
+@container (max-width: 680px){.pane-categories .category-label{padding:2px 4px}.pane-categories .category-label span{display:none}}
+
+.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto;display:block}
+.lbl{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}
+.lbl-acc{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--acct)}
+.iconbtn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:5px;border:0;background:none;color:var(--dim);cursor:pointer;padding:0;flex:0 0 auto}
+.iconbtn:hover{background:var(--hover);color:var(--text)}
+.iconbtn.on{color:var(--acct);background:var(--acc-soft)}
+.btn{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;font-size:12px;white-space:nowrap;flex:0 0 auto}
+.btn:hover{border-color:var(--acc)}
+.btn-acc{background:var(--acc);border-color:var(--acc);color:var(--acc-fg);font-weight:600}
+.btn-acc:hover{filter:brightness(1.08)}
+.media-output{display:flex;flex-direction:column;gap:7px;margin:8px 0;padding:9px;border:1px solid var(--border);border-radius:7px;background:var(--panel2);min-width:0}
+.media-output img,.media-output video{display:block;width:100%;max-height:360px;object-fit:contain;border-radius:5px;background:var(--bg)}
+.chip{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 8px;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--dim);font-size:12px;cursor:pointer;white-space:nowrap;flex:0 0 auto;max-width:180px;overflow:hidden}
+.chip:hover{color:var(--text);border-color:var(--dim)}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:5px;overflow:hidden;background:var(--panel2);flex:0 0 auto}
+.seg button{border:0;background:none;color:var(--dim);font-size:12px;padding:0 10px;height:24px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.seg button:hover{color:var(--text)}
+.seg button.on{background:var(--acc-soft);color:var(--acct);font-weight:600}
+.badge{font-family:var(--font-mono);font-size:10px;letter-spacing:.04em;padding:1px 5px;border-radius:3px;background:var(--acc-soft);color:var(--acct);white-space:nowrap}
+.cnt{font-size:10px;padding:0 5px;border-radius:8px;background:var(--panel3);color:var(--dim);line-height:16px}
+.kbd{font-family:var(--font-mono);font-size:10.5px;color:var(--faint);padding:0 5px;border:1px solid var(--border);border-radius:4px;line-height:16px;white-space:nowrap}
+.kbd:empty{display:none}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--faint);flex:0 0 auto;display:inline-block}
+.dot.ok{background:var(--ok)}
+.dot.wait{background:var(--warn)}
+.dot.run{background:var(--acc);animation:pulse 1.6s ease-out infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 var(--acc)}70%{box-shadow:0 0 0 5px transparent}100%{box-shadow:0 0 0 0 transparent}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{width:13px;height:13px;border-radius:50%;border:2px solid var(--panel3);border-top-color:var(--acc);animation:spin .8s linear infinite;flex:0 0 auto}
+.bar{height:6px;border-radius:3px;background:var(--panel3);overflow:hidden;display:flex}
+.bar i{display:block;height:100%;background:var(--acc)}
+.sw{width:8px;height:8px;border-radius:2px;display:inline-block}
+.tnum{font-family:var(--font-mono);font-size:10px;min-width:17px;height:17px;padding:0 3px;border-radius:4px;display:inline-grid;place-items:center;border:1px solid var(--border);color:var(--dim);flex:0 0 auto;line-height:1}
+.tnum.vis{border-color:var(--acc);color:var(--acct)}
+.tnum.focus{background:var(--acc);border-color:var(--acc);color:var(--acc-fg)}
+.tb{position:relative;z-index:45;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:stretch;background:var(--title);border-bottom:1px solid var(--soft)}
+.tb-l{display:flex;align-items:stretch;min-width:0}
+.brand{display:flex;align-items:center;padding:0 10px 0 13px;color:var(--acct)}
+.mbar{display:flex;align-items:stretch}
+.mwrap{position:relative;display:flex}
+.menu{background:none;border:0;color:var(--dim);padding:0 10px;font-size:12.5px;cursor:pointer;white-space:nowrap}
+.menu:hover,.menu.on{background:var(--hover);color:var(--text)}
+.mbg{position:fixed;inset:0;z-index:40}
+.dd{position:absolute;top:100%;left:0;min-width:280px;padding:5px;background:var(--panel2);border:1px solid var(--border);border-radius:7px;box-shadow:0 14px 36px var(--shadow);z-index:50}
+.pro .dd,.pro .pal{background:rgb(var(--g1) / .96)}
+.dd.ctx{position:fixed;top:0;left:0;z-index:61;min-width:240px}
+.dd-i{display:grid;grid-template-columns:16px minmax(0,1fr) auto;align-items:center;gap:9px;width:100%;height:28px;padding:0 8px;border:0;border-radius:5px;background:none;color:var(--text);font-size:12.5px;text-align:left;cursor:pointer;white-space:nowrap}
+.dd-i:hover{background:var(--acc-soft)}
+.dd-i.dis{color:var(--faint);cursor:default}
+.dd-i.dis:hover{background:none}
+.dd-i.danger{color:var(--bad)}
+.dd-ic{display:flex;color:var(--acct)}
+.dd-t{overflow:hidden;text-overflow:ellipsis}
+.dd-k{font-family:var(--font-mono);font-size:10.5px;color:var(--faint)}
+.dd-sep{height:1px;background:var(--soft);margin:4px 6px}
+.dd-head{font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);padding:7px 8px 3px}
+.cmd{display:flex;align-items:center;gap:8px;width:100%;max-width:420px;min-width:0;height:26px;align-self:center;padding:0 8px 0 10px;border:1px solid var(--border);border-radius:6px;background:var(--panel);color:var(--faint);font-size:12px;cursor:pointer}
+.cmd:hover{border-color:var(--dim);color:var(--dim)}
+.cmd-t{flex-grow:1;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb-m{display:flex;justify-content:center;min-width:0;padding:0 14px}
+.tb-r{display:flex;align-items:center;justify-content:flex-end;gap:4px;min-width:0}
+.tb-sep{width:1px;height:16px;background:var(--border);margin:0 7px}
+.sizer{display:flex;align-items:center;gap:6px;color:var(--faint)}
+.sizer input{width:74px}
+.tb-r .seg button{height:24px;padding:0 8px;min-width:26px}
+.tb-r .dimmed{opacity:.55}
+.win{width:40px;height:100%;border:0;background:none;color:var(--dim);display:grid;place-items:center;cursor:pointer}
+.win:hover{background:var(--hover);color:var(--text)}
+.win.x:hover{background:#c0392b;color:#fff}
+@media (max-width:1200px){
+  .tb-m{padding:0 5px;align-items:center}
+  .tb-m .cmd{width:30px;min-width:30px;justify-content:center;padding:0}
+  .tb-m .cmd-t,.tb-m .kbd{display:none}
+  .tb-r .sizer{display:none}
+  .tb-r .tb-sep{margin:0 4px}
+  .menu{padding:0 7px}
+}
+.main{display:grid;min-height:0;min-width:0}
+.navcol{min-width:0;min-height:0;overflow:hidden;background:var(--panel);border-right:1px solid var(--soft)}
+.nav{display:flex;flex-direction:column;height:100%;min-width:0}
+.nav-l{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;padding:8px 6px;min-height:0}
+.nav-b{border-top:1px solid var(--soft);padding:6px}
+.nrow{display:flex;align-items:center;border-radius:6px;min-width:0}
+.nrow:hover{background:var(--hover)}
+.nrow.on{background:var(--acc-soft)}
+.nbtn{flex:1 1 auto;display:flex;align-items:center;gap:10px;min-height:36px;padding:0 6px;border:0;background:none;color:var(--text);font-size:var(--fs);cursor:pointer;text-align:left;min-width:0}
+.nrow.on .nbtn{color:var(--acct);font-weight:600}
+.nico{display:grid;place-items:center;width:26px;height:26px;border-radius:6px;flex:0 0 auto;color:var(--dim)}
+.nrow.on .nico,.rail.on .nico{color:var(--acct)}
+.toned .nico,.toned .nrow .nico,.toned .rail .nico{color:var(--tc);background:color-mix(in srgb,var(--tc) 12%,transparent)}
+.nlbl{flex:1 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.nbadge{font-size:10.5px;padding:0 6px;border-radius:9px;background:var(--panel3);color:var(--dim);line-height:17px;font-weight:500;flex:0 0 auto}
+.nbadge.warn{background:color-mix(in srgb,var(--warn) 20%,transparent);color:var(--warn)}
+.nexp{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;margin-right:4px;border:0;border-radius:5px;background:none;color:var(--faint);cursor:pointer;flex:0 0 auto}
+.nexp:hover{color:var(--text);background:var(--hover)}
+.nkids{display:flex;flex-direction:column;padding:2px 0 8px 16px;min-width:0}
+.nkid{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:center;min-height:28px;padding:0 8px;border:0;border-radius:5px;background:none;color:var(--text);font-size:calc(var(--fs) - .5px);cursor:pointer;text-align:left;min-width:0;width:100%}
+.nkid:hover{background:var(--hover)}
+.nkid.on{background:var(--acc-soft)}
+.nk-l{display:inline-flex;align-items:center;gap:6px}
+.nk-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nk-m{font-size:10.5px;white-space:nowrap;color:var(--faint)}
+.nkhead{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);padding:8px 8px 3px}
+.nmore{border:0;background:none;color:var(--acct);font-size:11.5px;text-align:left;padding:4px 8px;cursor:pointer}
+.den-kompaktni .nbtn{min-height:30px}
+.den-kompaktni .nkid{min-height:24px}
+.den-minimalni .nbtn{min-height:26px}
+.den-minimalni .nkid{min-height:21px}
+.railw{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0;height:100%;background:var(--bg2)}
+.rail{position:relative;width:calc(100% - 8px);min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:0;background:none;color:var(--faint);border-radius:6px;cursor:pointer;padding:3px 2px}
+.rail:hover{background:var(--hover);color:var(--text)}
+.rail.on{background:var(--panel)}
+.rail-lbl{font-family:"Inter","Noto Sans",system-ui,sans-serif;font-size:var(--rfs);letter-spacing:-.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.rail.on .rail-lbl{color:var(--acct)}
+.rb{position:absolute;top:6px;right:8px;width:7px;height:7px;border-radius:50%;background:var(--warn);box-shadow:0 0 0 2px var(--bg2)}
+.splx{cursor:col-resize;background:var(--soft);touch-action:none;min-width:0}
+.splx:hover{background:var(--acc)}
+.splx.hide{display:none}
+.sply{cursor:row-resize;background:var(--soft);touch-action:none;min-height:0}
+.sply:hover{background:var(--acc)}
+.ctr{display:grid;grid-template-rows:minmax(0,1fr);min-width:0;min-height:0}
+.view{position:relative;min-height:0;min-width:0;overflow:hidden}
+.fill{position:absolute;inset:0}
+.cols{position:absolute;inset:0;display:grid;min-height:0}
+.scol{display:grid;min-width:0;min-height:0;background:var(--bg);container-type:inline-size}
+.pane-h{display:flex;align-items:center;gap:8px;padding:0 8px 0 14px;border-bottom:1px solid var(--soft);font-size:12px;color:var(--dim);min-width:0;overflow:hidden;background:var(--title)}
+.scol.focus .pane-h{box-shadow:inset 0 2px 0 var(--acc);background:linear-gradient(var(--acc-soft),var(--acc-soft)),var(--title)}
+.cols:has(.scol.focus) .scol:not(.focus) .pane-tt{color:var(--dim)}
+.pane-t{font-size:calc(var(--fs) + .5px);font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto}
+.pmeta{white-space:nowrap;flex:0 0 auto}
+.cmeter{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--dim);white-space:nowrap;flex:0 0 auto}
+.cmeter .bar{width:46px;height:4px}
+@container (max-width: 640px){.pmeta,.pchip{display:none}}
+@container (max-width: 520px){.cmeter .bar,.hint,.mchip,.psw{display:none}}
+@container (max-width: 400px){.pseg{display:none}}
+.msgs{display:flex;flex-direction:column-reverse;overflow-y:auto;min-height:0}
+.mcol{width:100%;padding:22px clamp(14px,3cqw,44px) 14px;display:flex;flex-direction:column;gap:20px}
+.den-kompaktni .mcol{gap:14px;padding-top:14px}
+.den-minimalni .mcol{gap:9px;padding-top:9px}
+.msg{display:flex;flex-direction:column;gap:9px;min-width:0}
+.who{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--faint);flex-wrap:wrap}
+.who b{color:var(--dim);font-weight:600}
+.ubox{font-size:var(--fc);line-height:1.6;background:var(--panel2);border-radius:10px;padding:10px 14px;white-space:pre-wrap;user-select:text}
+.para{margin:0;font-size:var(--fc);line-height:1.66;user-select:text}
+.md{font-size:var(--fc);line-height:1.66;overflow-wrap:anywhere;user-select:text}
+.md p{margin:0 0 9px}.md p:last-child{margin-bottom:0}.md h1,.md h2,.md h3,.md h4{color:var(--text);margin:14px 0 7px;line-height:1.35}.md h1{font-size:1.35em}.md h2{font-size:1.2em}.md h3{font-size:1.1em}.md ul,.md ol{padding-left:22px;margin:7px 0}.md li{margin:3px 0}.md pre{overflow-x:auto;background:var(--bg2);border:1px solid var(--soft);border-radius:7px;padding:10px 12px}.md code{font-family:var(--font-mono);font-size:.9em}.md :not(pre)>code{background:var(--bg2);padding:1px 4px;border-radius:3px}.md table{display:block;overflow-x:auto;border-collapse:collapse;max-width:100%;margin:10px 0}.md th,.md td{border:1px solid var(--soft);padding:6px 9px;text-align:left;white-space:nowrap}.md th{color:var(--text);background:var(--panel2)}.md blockquote{margin:8px 0;padding-left:12px;border-left:2px solid var(--acct);color:var(--dim)}.md a{color:var(--info)}
+.tl{position:relative;display:flex;flex-direction:column;gap:6px;padding-left:20px}
+.tl-line{position:absolute;left:4px;top:7px;bottom:7px;width:1px;background:var(--border)}
+.tl-i{position:relative;display:flex;align-items:center;gap:10px;font-size:calc(var(--fc) - 1.5px);color:var(--dim);min-width:0}
+.tl-dot{position:absolute;left:-20px;top:50%;margin-top:-4.5px;width:9px;height:9px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px var(--base)}
+.tl-i.run{color:var(--text)}
+.tl-i.run .tl-dot{background:var(--acc);animation:pulse 1.6s ease-out infinite}
+.tl-i.stopped .tl-dot{background:var(--faint)}
+.tl-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.tl-m{margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--faint);white-space:nowrap}
+.code{background:var(--bg2);border:1px solid var(--soft);border-radius:7px;padding:9px 12px;font-size:12px;line-height:1.6;color:var(--text);overflow:hidden;user-select:text}
+.code div{white-space:pre;overflow:hidden;text-overflow:ellipsis}
+.appr{display:flex;align-items:center;gap:10px;padding:10px 12px 10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--panel);flex-wrap:wrap}
+.sep-linky .appr{border:0;border-top:1px solid var(--soft);border-bottom:1px solid var(--soft);border-radius:0;background:none;padding-left:0;padding-right:0}
+.appr-t{display:flex;flex-direction:column;gap:1px;font-size:12.5px;min-width:0}
+.appr-t span{color:var(--dim);font-size:12px}
+.running{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--dim);flex-wrap:wrap}
+.done{display:flex;align-items:center;gap:8px;font-size:12.5px}
+.mfoot{display:flex;align-items:center;gap:6px;margin-top:-3px}
+.mcopy{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 6px;margin-left:-6px;border:0;border-radius:5px;background:none;color:var(--faint);font-size:12px;cursor:pointer}
+.mcopy:hover{background:var(--hover);color:var(--text)}
+.mcopy.c-ok{color:var(--ok)}
+.mcopy.c-err{color:var(--bad)}
+.toast{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:30;display:flex;align-items:flex-start;gap:10px;max-width:min(560px,calc(100% - 32px));padding:10px 8px 10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--panel2);color:var(--text);font-size:12.5px;line-height:1.5;box-shadow:0 8px 28px rgb(0 0 0 / .35)}
+.toast>.ic{margin-top:2px;flex:0 0 auto;color:var(--ok)}
+.toast.t-warn{border-color:var(--warn)}
+.toast.t-warn>.ic{color:var(--warn)}
+.toast-t{flex:1 1 auto;min-width:0}
+.compw{padding:0 clamp(10px,2.4cqw,30px) 12px}
+.comp{border:1px solid var(--border);border-radius:12px;background:var(--panel);padding:9px 9px 7px 13px;display:flex;flex-direction:column;gap:7px}
+.comp:focus-within{border-color:var(--acc)}
+.comp textarea{width:100%;height:42px;resize:none;border:0;background:none;color:var(--text);font:inherit;font-size:var(--fc);line-height:1.5;outline:none;padding:0}
+.comp textarea::placeholder{color:var(--faint)}
+.comp-r{display:flex;align-items:center;gap:6px;min-width:0;overflow:hidden}
+.hint{font-size:11px;color:var(--faint);white-space:nowrap}
+.sbot{display:grid;grid-template-rows:30px minmax(0,1fr);min-height:0;background:var(--bg2);overflow:hidden}
+.btabs{display:flex;align-items:stretch;background:var(--title);border-bottom:1px solid var(--soft);padding-left:4px;min-width:0;overflow-x:auto;scrollbar-width:none}
+.bp-b{overflow:auto;min-height:0;padding:6px 12px}
+.term div{font-size:calc(var(--fs) - .5px);line-height:1.7;white-space:pre}
+.term .p{color:var(--acct)}
+.term .ok{color:var(--ok)}
+.term .err{color:var(--bad)}
+.term-in{display:flex;align-items:center;gap:8px;cursor:text;position:sticky;bottom:-6px;padding-bottom:4px;background:var(--bg2)}
+.term-in input{flex:1;min-width:0;border:0;background:none;outline:none;padding:0;font-family:var(--font-mono);font-size:calc(var(--fs) - .5px);line-height:1.7;color:var(--text)}
+.term-in input::placeholder{color:var(--faint)}
+.atts{display:flex;flex-wrap:wrap;gap:6px}
+.msg .atts{margin-top:6px}
+.chip.att{cursor:default;color:var(--text);gap:6px;max-width:260px}
+.att-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.att-x{display:inline-flex;border:0;background:none;padding:0;color:var(--faint);cursor:pointer}
+.att-x:hover{color:var(--text)}
+.log{display:grid;grid-template-columns:62px 42px 104px minmax(0,1fr);gap:8px;font-size:11.5px;line-height:1.75;white-space:nowrap}
+.log span{overflow:hidden;text-overflow:ellipsis}
+.lm{color:var(--dim)}
+.ptab{display:flex;align-items:center;gap:6px;padding:0 10px;border:0;background:none;color:var(--dim);font-size:12px;cursor:pointer;white-space:nowrap;flex:0 0 auto}
+.ptab:hover{color:var(--text)}
+.ptab.on{color:var(--text);box-shadow:inset 0 -2px 0 var(--acc)}
+.sect{position:absolute;inset:0;display:grid;min-height:0}
+.cat{overflow-y:auto;min-width:0;min-height:0;container-type:inline-size}
+.cat-h{display:flex;align-items:center;gap:10px;padding:18px 24px 10px;flex-wrap:wrap}
+.cat-t{flex:1 1 220px;min-width:0}
+.cat-t h1{margin:0;font-size:19px;font-weight:600;display:flex;align-items:center;gap:10px}
+.cat-t div{font-size:12px;color:var(--faint);margin-top:3px}
+.search{display:flex;align-items:center;gap:6px;height:28px;padding:0 8px;border:1px solid var(--border);border-radius:5px;background:var(--panel);color:var(--faint)}
+.search:focus-within{border-color:var(--acc)}
+.search input{flex-grow:1;min-width:0;border:0;background:none;color:var(--text);font:inherit;font-size:12px;outline:none}
+.cchips{display:flex;flex-wrap:wrap;gap:8px;padding:0 24px 12px;border-bottom:1px solid var(--soft)}
+.cchip{display:inline-flex;align-items:center;gap:7px;height:27px;padding:0 11px;border:1px solid var(--border);border-radius:14px;background:none;color:var(--dim);font-size:12px;cursor:pointer}
+.cchip:hover{color:var(--text);border-color:var(--dim)}
+.cchip span{font-size:10.5px;color:var(--faint)}
+.cchip.on{background:var(--acc-soft);border-color:var(--acc);color:var(--acct);font-weight:600}
+.cchip.on span{color:var(--acct)}
+.cat-b{padding:16px 24px 28px}
+.tiles{display:grid;gap:12px}
+.tile{display:flex;flex-direction:column;gap:6px;text-align:left;padding:13px 14px 11px;border:1px solid var(--soft);border-radius:9px;background:var(--panel);color:var(--text);cursor:pointer;min-width:0}
+.tile:hover{border-color:var(--border);background:var(--panel2)}
+.tile.on{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
+.den-kompaktni .tile{padding:9px 11px 8px;gap:4px}
+.den-minimalni .tile{padding:6px 9px;gap:2px}
+.den-minimalni .tile-d{display:none}
+.sep-linky .tiles{gap:0 18px}
+.sep-linky .tile{border:0;border-bottom:1px solid var(--soft);border-radius:0;background:none;box-shadow:none}
+.sep-linky .tile.on{background:var(--acc-soft)}
+.tile-top{display:flex;align-items:center;gap:8px}
+.tico{width:32px;height:32px;border-radius:7px;background:var(--acc-soft);color:var(--acct);display:grid;place-items:center;flex:0 0 auto}
+.toned .tico,.tico.always{color:var(--tc);background:color-mix(in srgb,var(--tc) 12%,transparent)}
+.tag{font-size:10px;color:var(--faint);border:1px solid var(--border);border-radius:3px;padding:0 5px;line-height:16px;white-space:nowrap}
+.tag.ok{color:var(--ok);border-color:var(--ok)}
+.tile-n{font-size:calc(var(--fs) + 1.5px);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile-s{font-family:var(--font-mono);font-size:11px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile-d{font-size:calc(var(--fs) - .5px);line-height:1.45;color:var(--dim);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.9em}
+.tile-f{display:flex;align-items:center;gap:8px;margin-top:4px;padding-top:8px;border-top:1px solid var(--soft);font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);min-width:0}
+.tile-f span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ltbl{border:1px solid var(--soft);border-radius:9px;overflow:hidden;background:var(--panel)}
+.sep-linky .ltbl{border:0;border-radius:0;background:none;border-top:1px solid var(--soft)}
+.lrow{display:grid;grid-template-columns:30px minmax(0,1.1fr) 160px 150px minmax(0,1.5fr) 110px;gap:14px;align-items:center;width:100%;padding:0 14px;min-height:42px;border:0;border-bottom:1px solid var(--soft);background:none;color:var(--text);text-align:left;font-size:var(--fs);cursor:pointer}
+.lrow:hover{background:var(--hover)}
+.lrow.on{background:var(--acc-soft)}
+.lrow.th{min-height:30px;cursor:default;font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);background:var(--title)}
+.lrow.th:hover{background:var(--title)}
+@container (max-width: 820px){.lrow{grid-template-columns:30px minmax(0,1fr) 130px 100px}.lrow .c-sub,.lrow .c-desc{display:none}}
+.den-kompaktni .lrow{min-height:32px}
+.den-minimalni .lrow{min-height:26px}
+.cell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lico{width:26px;height:26px;border-radius:6px;background:var(--acc-soft);color:var(--acct);display:grid;place-items:center}
+.toned .lico,.lico.always{color:var(--tc);background:color-mix(in srgb,var(--tc) 12%,transparent)}
+.cempty{display:flex;flex-direction:column;align-items:center;gap:10px;padding:70px 20px;text-align:center;color:var(--faint)}
+.cempty b{color:var(--text);font-size:15px}
+.cempty .tico{width:52px;height:52px;border-radius:12px}
+.dside{min-width:0;min-height:0;overflow-y:auto;overflow-x:hidden;background:var(--panel)}
+.dh{display:flex;align-items:flex-start;gap:12px;padding:16px 12px 10px 18px}
+.dico{width:40px;height:40px;border-radius:9px;background:var(--acc-soft);color:var(--acct);display:grid;place-items:center;flex:0 0 auto}
+.toned .dico,.dico.always{color:var(--tc);background:color-mix(in srgb,var(--tc) 12%,transparent)}
+.dh-m{min-width:0;flex:1 1 auto}
+.dh-title{font-size:17px;font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.dh-sub{font-size:12px;color:var(--faint);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dact{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:0 18px 12px}
+.st{font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:9px;border:1px solid currentColor;white-space:nowrap}
+.st.ok{color:var(--ok)}
+.st.warn{color:var(--warn)}
+.st.idle{color:var(--faint)}
+.st.acc{color:var(--acct)}
+.dtabs{display:flex;gap:2px;padding:0 10px;border-bottom:1px solid var(--soft);overflow-x:auto;scrollbar-width:none}
+.dtab{height:34px;padding:0 10px;border:0;background:none;color:var(--dim);font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;flex:0 0 auto}
+.dtab:hover{color:var(--text)}
+.dtab.on{color:var(--text);box-shadow:inset 0 -2px 0 var(--acc)}
+.dbody{padding:16px 18px 30px;display:flex;flex-direction:column;gap:18px}
+.ddesc{margin:0;font-size:var(--fc);line-height:1.6;user-select:text}
+.blk-h{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.rows{border:1px solid var(--soft);border-radius:9px;overflow:hidden;background:var(--panel2)}
+.sep-linky .rows{border:0;border-top:1px solid var(--soft);border-radius:0;background:none}
+.row{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;min-height:36px;padding:6px 11px;border:0;border-bottom:1px solid var(--soft);background:none;color:var(--text);text-align:left;font-size:var(--fs)}
+.row:last-child{border-bottom:0}
+.row.link{cursor:pointer}
+.row.link:hover{background:var(--hover)}
+.row.sel{background:var(--acc-soft)}
+.den-kompaktni .row{min-height:30px;padding:3px 11px}
+.den-minimalni .row{min-height:25px;padding:1px 11px}
+.row-ic{display:flex;justify-content:center;color:var(--faint)}
+.row-tt{display:flex;flex-direction:column;min-width:0}
+.row-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-s{font-size:11px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-m{font-size:11.5px;white-space:nowrap;font-family:var(--font-mono)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.tagchip{font-family:var(--font-mono);font-size:11.5px;padding:3px 8px;border-radius:5px;background:var(--panel2);border:1px solid var(--soft);color:var(--dim)}
+.bul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:7px}
+.bul li{position:relative;padding-left:16px;font-size:var(--fs);line-height:1.5}
+.bul li::before{content:'';position:absolute;left:3px;top:.6em;width:5px;height:5px;border-radius:50%;background:var(--acc)}
+.bars{display:flex;flex-direction:column;gap:4px}
+.brow{display:grid;grid-template-columns:130px minmax(0,1fr) 30px;gap:12px;align-items:center;font-size:12.5px;height:24px}
+.tbl{border:1px solid var(--soft);border-radius:9px;overflow:hidden;background:var(--panel2)}
+.trow{display:grid;gap:10px;align-items:center;padding:0 11px;min-height:30px;border-bottom:1px solid var(--soft);font-size:12px}
+.trow:last-child{border-bottom:0}
+.trow span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trow.th{min-height:26px;font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);background:var(--title)}
+.empty{display:flex;flex-direction:column;align-items:center;gap:8px;padding:22px 14px;border:1px dashed var(--border);border-radius:9px;color:var(--faint);font-size:12.5px;text-align:center;line-height:1.5}
+.info{background:var(--panel2);border:1px solid var(--soft);border-radius:9px;padding:10px 12px 11px;display:flex;flex-direction:column;gap:8px}
+.sep-linky .info{background:none;border:0;border-top:1px solid var(--soft);border-radius:0;padding-left:0;padding-right:0}
+.dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:5px 12px;margin:0;font-size:12px}
+.dl dt{color:var(--dim)}
+.dl dd{margin:0;text-align:right;color:var(--text);overflow-wrap:anywhere;user-select:text}
+.dl dd.mono{font-size:11.5px}
+.rel{display:flex;align-items:center;gap:8px;width:100%;padding:5px 0;border:0;background:none;color:var(--text);font-size:12.5px;text-align:left;cursor:pointer}
+.rel:hover{color:var(--acct)}
+.rel-s{margin-left:auto;font-size:11px;color:var(--faint)}
+.aps{display:flex;flex-direction:column;gap:16px}
+.model-tabs{padding:0;flex-wrap:wrap;overflow:visible}
+.model-actions,.model-row-actions{display:flex;gap:6px;flex-wrap:wrap}
+.model-row{display:flex;flex-wrap:wrap;gap:5px 10px;border:1px solid var(--soft);border-radius:6px;margin:4px 0}
+.model-row .row-tt{flex:1 1 220px}
+.model-row .row-m{white-space:normal;text-align:right}
+.model-row .row-s{display:block}
+.model-row-actions{flex:1 0 100%;justify-content:flex-end}
+.dev-panel>div{display:flex;flex-direction:column;align-items:flex-start;gap:9px;padding:11px 12px;background:var(--panel2);border:1px solid var(--soft);border-radius:8px;max-width:100%}
+.dev-panel .blk-h{width:100%}
+.dev-panel .dev-facts{width:100%;overflow-wrap:anywhere}
+.dev-panel .dev-facts>span:nth-child(odd){color:var(--dim)}
+.dev-panel .dev-facts>strong,.dev-panel .dev-facts>code{min-width:0;overflow-wrap:anywhere}
+.dev-panel .arow2{width:100%;gap:12px;align-items:center}
+.dev-panel select,.dev-panel input{min-width:0;max-width:220px;padding:5px 7px;background:var(--panel);border:1px solid var(--border);border-radius:5px;font-size:12px}
+.dev-panel .note{width:100%;overflow-wrap:anywhere}
+.dev-panel button:disabled{opacity:.5;cursor:default}
+.dev-panel .row{width:100%}
+.tcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.tcard{display:flex;flex-direction:column;gap:6px;padding:6px 6px 8px;border:1px solid var(--border);border-radius:9px;background:var(--panel2);text-align:left;cursor:pointer;color:var(--text);min-width:0}
+.tcard.on{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
+.mini{display:flex;height:50px;border-radius:5px;overflow:hidden;border:1px solid rgba(128,128,128,.25);background:var(--s0)}
+.mini i{display:block;border-radius:2px}
+.mini .m1{width:12px;background:color-mix(in srgb,var(--s0) 70%,transparent)}
+.mini .m2{width:36px;background:color-mix(in srgb,var(--s1) 85%,transparent);display:flex;flex-direction:column;gap:4px;padding:7px 5px}
+.mini .m3{flex-grow:1;padding:7px 8px;display:flex;flex-direction:column;gap:5px}
+.mini .ma{height:4px;background:var(--accF)}
+.mini .mb{height:4px;background:var(--bd2)}
+.mini .mt{height:5px;width:70%;background:var(--tx)}
+.mini .md{height:4px;background:var(--dm);opacity:.6}
+.mini .mdot{display:flex;gap:3px;margin-top:auto}
+.mini .mdot i{width:6px;height:6px;border-radius:50%}
+.tname{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;padding:0 2px}
+.ttag{font-size:10px;font-weight:500;color:var(--faint);border:1px solid var(--border);border-radius:3px;padding:0 4px}
+.tdesc{font-size:10.5px;line-height:1.35;color:var(--faint);padding:0 2px}
+.apills{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+.cdot{width:24px;height:24px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;box-shadow:inset 0 0 0 1px rgba(128,128,128,.35)}
+.cdot.on{border-color:var(--text)}
+.cpick{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--dim)}
+.cpick input{width:30px;height:26px;border:1px solid var(--border);border-radius:5px;background:none;padding:1px;cursor:pointer}
+.arow{display:grid;grid-template-columns:minmax(110px,160px) minmax(0,1fr) 50px;align-items:center;gap:12px;min-height:32px;font-size:12.5px}
+.arow2{display:grid;grid-template-columns:minmax(110px,150px) minmax(0,1fr);align-items:center;gap:12px;min-height:34px;font-size:12.5px}
+.val{text-align:right;font-family:var(--font-mono);font-size:11.5px;color:var(--dim)}
+.ide input[type=range]{width:100%;accent-color:var(--acc);margin:0}
+.switch{width:34px;height:20px;border-radius:10px;border:0;background:var(--panel3);position:relative;cursor:pointer;padding:0;flex:0 0 auto}
+.switch i{position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:var(--dim);transition:left .15s}
+.switch.on{background:var(--acc)}
+.switch.on i{left:17px;background:var(--acc-fg)}
+.aph{font-size:12px;color:var(--faint);line-height:1.5}
+.note{font-size:12px;color:var(--dim);line-height:1.5;padding:9px 11px;border:1px solid var(--soft);border-radius:8px;background:var(--panel2);display:flex;gap:10px;align-items:center}
+.cssbox{width:100%;height:140px;resize:vertical;font-family:var(--font-mono);font-size:12px;line-height:1.5;padding:8px 10px;border:1px solid var(--border);border-radius:7px;background:var(--bg2);color:var(--text);outline:none;user-select:text}
+.cssbox:focus{border-color:var(--acc)}
+.rp{display:grid;grid-template-rows:34px minmax(0,1fr) auto;min-width:0;min-height:0;background:var(--panel);overflow:hidden}
+.ptabs{display:flex;align-items:stretch;border-bottom:1px solid var(--soft);padding-left:4px;min-width:0;background:var(--title)}
+.wss{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--faint);white-space:nowrap;overflow:hidden;padding:0 10px 0 4px;min-width:0}
+.rp-b{overflow-y:auto;min-height:0}
+.fh{display:flex;align-items:center;gap:8px;width:100%;height:34px;padding:0 10px 0 12px;border:0;border-bottom:1px solid var(--soft);background:var(--panel2);color:var(--text);font-size:12px;cursor:pointer;text-align:left}
+.fh:hover{background:var(--hover)}
+.fh-p{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px}
+.newtag{font-size:10px;color:var(--ok);border:1px solid var(--ok);border-radius:3px;padding:0 4px;line-height:15px}
+.plus{color:var(--ok)}
+.minus{color:var(--bad)}
+.diff{background:var(--bg2);padding:3px 0;border-bottom:1px solid var(--soft)}
+.dfl{display:grid;grid-template-columns:34px 34px 14px minmax(0,1fr);font-size:11.5px;line-height:21px}
+.dfl span{white-space:pre;overflow:hidden}
+.dfl .ln{color:var(--faint);text-align:right;padding-right:7px}
+.dfl .cd{color:var(--text)}
+.dfl.add{background:color-mix(in srgb,var(--ok) 13%,transparent)}
+.dfl.add .sg{color:var(--ok)}
+.dfl.del{background:color-mix(in srgb,var(--bad) 13%,transparent)}
+.dfl.del .sg{color:var(--bad)}
+.dfl.hunk .cd{color:var(--faint)}
+.rp-empty{display:flex;flex-direction:column;align-items:center;gap:8px;padding:48px 20px;text-align:center;color:var(--faint);font-size:12.5px;line-height:1.5}
+.rp-empty b{color:var(--text);font-size:13px}
+.rp-f{display:flex;align-items:center;gap:8px;padding:9px 12px;border-top:1px solid var(--soft);background:var(--title);font-size:12px;color:var(--dim)}
+.kx{padding:14px;display:flex;flex-direction:column;gap:9px}
+.kx .bar{height:8px;border-radius:4px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;color:var(--dim)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.kx .row{min-height:30px;padding:4px 10px;font-size:12px}
+.tree{padding:6px 0}
+.tree-r{display:flex;align-items:center;gap:7px;height:24px;font-size:12px;padding-right:12px}
+.tree-r:hover{background:var(--hover)}
+.tmod{color:var(--text);font-weight:500}
+.mk{font-size:10.5px;font-weight:600}
+.sb{display:flex;align-items:center;gap:14px;padding:0 10px;background:var(--title);border-top:1px solid var(--soft);font-size:11.5px;color:var(--dim);white-space:nowrap;overflow:hidden}
+.sbi{display:inline-flex;align-items:center;gap:6px}
+.sbbar{width:44px;height:4px}
+.sbb{display:inline-flex;border:0;background:none;color:var(--dim);cursor:pointer;padding:2px}
+.pal-bg{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:70}
+.pal{position:fixed;top:64px;left:50%;transform:translateX(-50%);width:660px;max-width:calc(100% - 32px);background:var(--panel2);border:1px solid var(--border);border-radius:10px;box-shadow:0 24px 60px var(--shadow);z-index:71;overflow:hidden}
+.pal-in{display:flex;align-items:center;gap:10px;height:46px;padding:0 14px;border-bottom:1px solid var(--soft);color:var(--faint)}
+.pal-in input{flex-grow:1;min-width:0;border:0;background:none;color:var(--text);font:inherit;font-size:14px;outline:none}
+.pal-l{max-height:430px;overflow-y:auto;padding:4px 6px 8px}
+.pal-i{display:grid;grid-template-columns:18px minmax(0,1fr) auto auto;align-items:center;gap:10px;width:100%;height:32px;padding:0 8px;border:0;border-radius:6px;background:none;color:var(--text);font-size:13px;text-align:left;cursor:pointer}
+.pal-i:hover{background:var(--acc-soft)}
+.pal-i .ic{color:var(--faint)}
+.pal-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pal-s{font-size:11.5px;color:var(--faint);white-space:nowrap}
+.pal-f{padding:8px 14px;border-top:1px solid var(--soft);font-size:11px;color:var(--faint)}
+/* Formulářová pole průvodců a nastavení: nulová specifičnost, konkrétní styly (skladatel, paleta, hledání) mají přednost. */
+.dark{color-scheme:dark}.light{color-scheme:light}
+:where(.ide) :where(input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]),select,textarea){min-width:0;height:30px;padding:0 9px;border:1px solid var(--border);border-radius:5px;background:var(--bg2);color:var(--text);font-size:12.5px;outline:none}
+:where(.ide) :where(textarea){height:auto;padding:7px 9px;line-height:1.45;resize:vertical}
+:where(.ide) :where(input,select,textarea):focus{border-color:var(--acc)}
+:where(.ide) :where(input,select,textarea):disabled{opacity:.55;cursor:default}
+:where(.ide) :where(input,textarea)::placeholder{color:var(--faint)}
+:where(.ide) :where(select option){background:var(--panel2);color:var(--text)}
+:where(.ide) :where(input[type=checkbox],input[type=radio]){accent-color:var(--acc)}
+.tl-fold{display:flex;align-items:center;gap:8px;width:100%;padding:2px 0;border:0;background:none;color:var(--faint);font-size:calc(var(--fc) - 2px);cursor:pointer;text-align:left}
+.tl-fold:hover{color:var(--dim)}
+.tl-i.err{color:var(--bad)}
+.tl-i.err .tl-dot{background:var(--bad)}
+.cnote{display:flex;align-items:flex-start;gap:9px;padding:7px 11px;border-left:2px solid var(--border);font-size:calc(var(--fc) - 1.5px);line-height:1.5;color:var(--dim);user-select:text}
+.cnote>.ic{margin-top:2px;flex:0 0 auto}
+.cnote-t{min-width:0;flex:1 1 auto;white-space:pre-wrap;overflow-wrap:anywhere}
+.cnote-m{font-family:var(--font-mono);font-size:11px;color:var(--faint);white-space:nowrap}
+.cnote.n-info>.ic{color:var(--info)}
+.cnote.n-ok{border-left-color:var(--ok)}.cnote.n-ok>.ic{color:var(--ok)}
+.cnote.n-warn{border-left-color:var(--warn)}.cnote.n-warn>.ic{color:var(--warn)}
+.cnote.n-err{border-left-color:var(--bad);color:var(--text)}.cnote.n-err>.ic{color:var(--bad)}
+.appr-h{color:var(--warn) !important}
+.btn-acc.soft{opacity:.55}
+.tb{-webkit-app-region:drag}
+.tb button,.tb input,.tb label,.tb .dd,.tb .mbar,.tb .cmd,.tb .seg,.tb .sizer{-webkit-app-region:no-drag}
+/* zadání 25. 9. bod 1: výběr relace ve sloupci */
+.scol{position:relative}
+button.pane-t{display:inline-flex;align-items:center;gap:5px;border:0;background:none;padding:3px 6px;margin-left:-4px;border-radius:5px;cursor:pointer;font-family:inherit;max-width:100%}
+button.pane-t:hover,button.pane-t.open{background:var(--hover)}
+button.pane-t .ic{color:var(--faint);flex:0 0 auto}
+.pane-tt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.dd.picker{min-width:280px;max-width:340px}
+.dd.picker .dd-k{font-family:var(--font-ui);font-size:11px}
+.ide .btn-acc{color:var(--acc-fg)}
+.rp{container-type:inline-size}
+.rp .ptab{padding:0 8px}
+@container (max-width: 470px){.wss-t{display:none}}
+.dd.picker .dd-i{grid-template-columns:20px minmax(0,1fr) auto}
+.dd.picker .dd-t{display:flex;align-items:center;gap:7px}
+.dd-i.cur{background:var(--acc-soft)}
+.dd-i .tnum{min-width:17px}
+.dd-q{display:flex;align-items:center;gap:7px;margin:2px 3px 5px;padding:0 8px;height:28px;border:1px solid var(--border);border-radius:5px;background:var(--bg2);color:var(--faint)}
+.dd-q input{flex:1;min-width:0;border:0;background:none;outline:none;font-size:12.5px;color:var(--text)}
+/* zadání 25. 9. bod 2: soubory relace */
+.fsec{border-bottom:1px solid var(--soft);padding-bottom:6px}
+.fsec-h{display:flex;align-items:center;gap:7px;height:32px;padding:0 10px 0 12px}
+.fsec-e{padding:2px 12px 8px;font-size:12px;color:var(--faint)}
+.frow{display:flex;align-items:center;gap:7px;width:100%;height:26px;padding:0 10px 0 12px;border:0;background:none;color:var(--text);font-size:12px;text-align:left;cursor:pointer;min-width:0}
+.frow:hover{background:var(--hover)}
+.frow>.ic{color:var(--faint);flex:0 0 auto}
+.fr-n{white-space:nowrap;flex:0 0 auto;max-width:60%;overflow:hidden;text-overflow:ellipsis}
+.fr-d{font-size:10.5px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto}
+.fr-c{font-size:11px;white-space:nowrap;flex:0 0 auto}
+.fr-s{font-size:11px;color:var(--dim);white-space:nowrap;flex:0 0 auto}
+.stt{font-size:10.5px;line-height:16px;padding:0 6px;border-radius:8px;white-space:nowrap;flex:0 0 auto;background:var(--panel3);color:var(--dim)}
+.stt.ok{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
+.stt.warn{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+.stt.acc{background:var(--acc-soft);color:var(--acct)}
+.stt.idle{color:var(--faint)}
+button.tree-r{width:100%;border:0;background:none;color:var(--dim);cursor:pointer;text-align:left;font-family:inherit}
+.tree-r.sel{background:var(--acc-soft);color:var(--text)}
+.tree-entry{display:flex;align-items:center;min-width:0}.tree-entry>.tree-r{flex:1;min-width:0}
+.tree-entry .tree-actions{display:none;align-items:center;padding-right:5px}.tree-entry:hover .tree-actions,.tree-entry:focus-within .tree-actions{display:flex}
+.file-action{padding:10px 12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:7px}
+.file-action input{width:100%;min-width:0;background:var(--surface);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:6px;font:inherit}
+.file-action .file-action-buttons{display:flex;gap:6px;justify-content:flex-end}
+.tchev{width:11px;display:flex;color:var(--faint);flex:0 0 auto}
+.tn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fv{display:grid;grid-template-rows:auto auto auto minmax(0,1fr);height:100%;min-height:0}
+.fv-h{display:flex;align-items:center;gap:6px;height:38px;padding:0 6px;border-bottom:1px solid var(--soft);min-width:0}
+.fv-p{display:flex;align-items:baseline;gap:7px;min-width:0;overflow:hidden;white-space:nowrap}
+.fv-p b{font-size:12px;font-weight:600}
+.fv-p span{font-size:10.5px;overflow:hidden;text-overflow:ellipsis}
+.fv-dirty{width:8px;height:8px;border-radius:50%;background:var(--warn);flex:0 0 auto}
+.fv-h .seg button.off{opacity:.4;cursor:default}
+.fv-m{display:flex;align-items:center;gap:8px;padding:5px 12px;font-size:11px;color:var(--faint);border-bottom:1px solid var(--soft)}
+.fv-g{display:flex;align-items:center;gap:8px;padding:8px 10px 8px 12px;background:color-mix(in srgb,var(--warn) 12%,var(--panel));border-bottom:1px solid var(--soft);font-size:12px;color:var(--text)}
+.fv-g>.ic{color:var(--warn)}
+.cv{overflow:auto;background:var(--bg2);padding:4px 0;min-height:0;user-select:text}
+.cvl{display:grid;grid-template-columns:40px minmax(0,1fr);font-size:11.5px;line-height:20px}
+.cvl .ln{color:var(--faint);text-align:right;padding-right:10px;user-select:none}
+.cvl .cd{white-space:pre;color:var(--text)}
+.fv-d{overflow:auto;min-height:0;border-bottom:0}
+textarea.fv-ed{font-family:var(--font-mono)}
+.fv-ed{width:100%;height:100%;min-height:0;resize:none;border:0;outline:none;padding:8px 12px;background:var(--bg2);color:var(--text);font-size:11.5px;line-height:20px;tab-size:2;white-space:pre;user-select:text}
+.rp-b:has(.fv){overflow:hidden}
+/* zadání 25. 9. bod 3: správa zdrojů */
+.scm-h{display:flex;align-items:center;gap:6px;padding:10px 10px 0 12px}
+.scm-br{max-width:220px;height:26px;color:var(--text)}
+.scm-br .mono{font-size:11.5px;overflow:hidden;text-overflow:ellipsis}
+.scm-sync{height:26px;padding:0 9px}
+.scm-sync{gap:3px}
+.scm-sync .num{font-size:11.5px;margin-right:4px}
+.scm-sync .num:last-child{margin-right:0}
+.scm-sync.dis{opacity:.5;cursor:default}
+.scm-s{padding:5px 12px 0;font-size:11px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scm-c{padding:10px 12px 8px;border-bottom:1px solid var(--soft)}
+.scm-c textarea{display:block;width:100%;min-height:54px;resize:vertical;padding:7px 9px;border:1px solid var(--border);border-radius:5px;background:var(--bg2);color:var(--text);font-size:12.5px;line-height:1.45;outline:none}
+.scm-c textarea:focus{border-color:var(--acc)}
+.scm-cb{display:flex;margin-top:7px}
+.scm-go{flex:1;justify-content:center;border-radius:5px 0 0 5px}
+.scm-more{padding:0 8px;border-radius:0 5px 5px 0;border-left:1px solid color-mix(in srgb,var(--acc-fg) 25%,transparent)}
+.scm-go.soft,.scm-more.soft{opacity:.55}
+.scm-hint{margin-top:7px;font-size:11.5px;color:var(--warn)}
+.scm-gh{margin-top:4px}
+.iconbtn.sm{width:22px;height:22px}
+.scm-r{padding:0 6px 0 0;cursor:default}
+.scm-o{display:flex;align-items:center;gap:7px;flex:1;min-width:0;height:100%;padding:0 4px 0 12px;border:0;background:none;color:inherit;font-size:12px;text-align:left;cursor:pointer}
+.scm-x{width:14px;font-family:var(--font-mono);font-size:10.5px;font-weight:700;text-align:center;flex:0 0 auto}
+.scm-x.x-M{color:var(--warn)}.scm-x.x-A,.scm-x.x-U{color:var(--ok)}.scm-x.x-D,.scm-x.x-C{color:var(--bad)}
+.plan{margin:10px 10px 4px;border:1px solid var(--acc);border-radius:9px;background:var(--panel2);overflow:hidden}
+.plan-h{display:flex;align-items:flex-start;gap:9px;padding:10px 12px 6px}
+.plan-h>.ic{color:var(--acct);margin-top:2px}
+.plan-h>.grow{display:flex;flex-direction:column;gap:3px;min-width:0}
+.plan-h b{font-size:12.5px;font-weight:600}
+.plan-r{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:4px 12px;padding:4px 12px 10px;font-size:12px}
+.plan-r .mono{font-size:11.5px;overflow-wrap:anywhere}
+.plan-k{color:var(--faint)}
+.plan-b{margin:0 12px 10px;padding:7px 10px;border-radius:5px;background:color-mix(in srgb,var(--bad) 13%,transparent);color:var(--text);font-size:12px;line-height:1.45;border-left:2px solid var(--bad)}
+.plan-f{display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid var(--soft);background:var(--title);font-size:11.5px}
+.glog{padding:0 0 10px}
+.gl-r{display:flex;align-items:center;gap:6px;height:26px;padding:0 10px 0 6px;font-size:12px;min-width:0}
+.gl-r:hover{background:var(--hover)}
+.gl-g{flex:0 0 auto;overflow:visible}
+.gl-g path{fill:none;stroke-width:1.6}
+.gl-s{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1 1 auto}
+.gref{font-size:10px;line-height:15px;padding:0 5px;border-radius:3px;border:1px solid var(--border);color:var(--dim);white-space:nowrap;flex:0 0 auto;font-family:var(--font-mono)}
+.gref.head{border-color:var(--acc);color:var(--acct);background:var(--acc-soft)}
+.gref.remote{border-color:var(--info);color:var(--info)}
+.gref.tag{border-color:var(--warn);color:var(--warn)}
+.gl-m{font-size:10.5px;color:var(--faint);white-space:nowrap;flex:0 0 auto}
+</style>
+</helmet>
+<div class="{{rootCls}}" data-studio-ui="studio2" style="width: {{rootW}}; height: {{rootH}}; zoom: {{zoom}}; filter: {{filter}};">
+<sc-if value="{{hasDynCss}}" hint-placeholder-val="{{false}}"><style>{{dynCss}}</style></sc-if>
+
+<sc-if value="{{menuOpen}}" hint-placeholder-val="{{false}}"><div class="mbg" onClick="{{closeMenus}}"></div></sc-if>
+
+<header class="tb">
+<div class="tb-l">
+<span class="brand"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="{{I.anvilSpark}}"></path></svg></span>
+<nav class="mbar" aria-label="Hlavní nabídka">
+<sc-for list="{{menus}}" as="mn" hint-placeholder-count="6">
+<div class="mwrap">
+<button class="menu {{mn.cls}}" onClick="{{mn.toggle}}" onMouseEnter="{{mn.enter}}">{{mn.label}}</button>
+<sc-if value="{{mn.open}}" hint-placeholder-val="{{false}}">
+<div class="dd" role="menu">
+<sc-for list="{{mn.items}}" as="mi" hint-placeholder-count="6">
+<sc-if value="{{mi.isSep}}" hint-placeholder-val="{{false}}"><div class="dd-sep"></div></sc-if>
+<sc-if value="{{mi.isHead}}" hint-placeholder-val="{{false}}"><div class="dd-head">{{mi.t}}</div></sc-if>
+<sc-if value="{{mi.isItem}}" hint-placeholder-val="{{true}}"><button class="dd-i {{mi.cls}}" role="menuitem" onClick="{{mi.go}}"><span class="dd-ic"><sc-if value="{{mi.hasIcon}}" hint-placeholder-val="{{false}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{mi.icon}}"></path></svg></sc-if></span><span class="dd-t">{{mi.t}}</span><span class="dd-k">{{mi.k}}</span></button></sc-if>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</nav>
+</div>
+<div class="tb-m"><button class="cmd" aria-label="Hledat a spustit příkaz" title="Hledat, přepnout relaci, spustit příkaz (Ctrl+K)" onClick="{{openPalette}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{I.search}}"></path></svg><span class="cmd-t">Hledat, přepnout relaci, spustit příkaz…</span><span class="kbd">Ctrl K</span></button></div>
+<div class="tb-r">
+<span class="seg {{tbar.viewDim}}" title="Katalogy jako dlaždice nebo seznam"><button class="{{tbar.tilesCls}}" aria-label="Dlaždice" title="Katalogy jako dlaždice" onClick="{{tbar.showTiles}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{I.grid}}"></path></svg></button><button class="{{tbar.listCls}}" aria-label="Seznam" title="Katalogy jako seznam" onClick="{{tbar.showList}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{I.list}}"></path></svg></button></span>
+<label class="sizer {{tbar.viewDim}}" title="Velikost dlaždic"><svg class="ic" width="10" height="10" viewBox="0 0 24 24"><path d="M5 5h14v14H5z"></path></svg><input type="range" min="1" max="3" step="1" value="{{size}}" onChange="{{setSize}}" aria-label="Velikost dlaždic"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="M3 3h18v18H3z"></path></svg></label>
+<span class="tb-sep"></span>
+<span class="seg {{tbar.colDim}}" title="Počet relací vedle sebe"><sc-for list="{{tbar.cols}}" as="o" hint-placeholder-count="3"><button class="{{o.cls}}" aria-label="{{o.label}}" title="{{o.label}}" onClick="{{o.pick}}">{{o.n}}</button></sc-for></span>
+<span class="tb-sep"></span>
+<button class="iconbtn {{tbar.navCls}}" aria-label="Navigace" title="Navigace – plná nebo jen ikony (Ctrl+B)" onClick="{{toggleNav}}"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="{{I.pl}}"></path></svg></button>
+<button class="iconbtn {{tbar.bottomCls}}" aria-label="Terminály relací" title="Terminály relací (Ctrl+J)" onClick="{{toggleBottom}}"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="{{I.pb}}"></path></svg></button>
+<button class="iconbtn {{tbar.rightCls}}" aria-label="Pracovní plocha" title="Pracovní plocha (Ctrl+Alt+B)" onClick="{{toggleRight}}"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="{{I.pr}}"></path></svg></button>
+<span class="tb-sep"></span>
+<button class="win" aria-label="Minimalizovat" title="Minimalizovat" onClick="{{winMin}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="M5 12h14"></path></svg></button>
+<button class="win" aria-label="{{winMaxLabel}}" title="{{winMaxLabel}}" onClick="{{winMax}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="M5 5h14v14H5z"></path></svg></button>
+<button class="win x" aria-label="Zavřít" title="Zavřít" onClick="{{winClose}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{I.x}}"></path></svg></button>
+</div>
+</header>
+
+<div class="main" style="grid-template-columns: {{mainCols}};">
+
+<div class="navcol">
+<sc-if value="{{navFull}}" hint-placeholder-val="{{true}}">
+<nav class="nav" aria-label="Sekce">
+<div class="nav-l">
+<sc-for list="{{nav}}" as="r" hint-placeholder-count="7">
+<div class="nrow {{r.cls}}">
+<button class="nbtn" onClick="{{r.go}}" title="{{r.label}}"><span class="nico tone-{{r.tone}}"><svg class="ic" width="16" height="16" viewBox="0 0 24 24"><path d="{{r.icon}}"></path></svg></span><span class="nlbl">{{r.label}}</span><sc-if value="{{r.hasBadge}}" hint-placeholder-val="{{true}}"><span class="nbadge {{r.badgeCls}}">{{r.badge}}</span></sc-if></button>
+<sc-if value="{{r.hasKids}}" hint-placeholder-val="{{false}}"><button class="nexp" aria-label="{{r.expLabel}}" title="{{r.expLabel}}" onClick="{{r.toggle}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{r.chev}}"></path></svg></button></sc-if>
+</div>
+<sc-if value="{{r.open}}" hint-placeholder-val="{{false}}">
+<div class="nkids">
+<sc-for list="{{r.kids}}" as="k" hint-placeholder-count="3">
+<sc-if value="{{k.isHead}}" hint-placeholder-val="{{false}}"><div class="nkhead">{{k.t}}</div></sc-if>
+<sc-if value="{{k.isItem}}" hint-placeholder-val="{{true}}"><button class="nkid {{k.cls}}" onClick="{{k.go}}" onContextMenu="{{k.ctx}}" title="{{k.t}}"><span class="nk-l"><sc-if value="{{k.hasNum}}" hint-placeholder-val="{{false}}"><span class="tnum {{k.numCls}}">{{k.num}}</span></sc-if><sc-if value="{{k.hasDot}}" hint-placeholder-val="{{false}}"><span class="dot {{k.dot}}"></span></sc-if><sc-if value="{{k.hasIcon}}" hint-placeholder-val="{{true}}"><svg class="ic faint" width="13" height="13" viewBox="0 0 24 24"><path d="{{k.icon}}"></path></svg></sc-if></span><span class="nk-t">{{k.t}}</span><span class="nk-m" style="color: {{k.mc}};">{{k.m}}</span></button></sc-if>
+</sc-for>
+<sc-if value="{{r.hasMore}}" hint-placeholder-val="{{false}}"><button class="nmore" onClick="{{r.go}}">{{r.moreLabel}}</button></sc-if>
+</div>
+</sc-if>
+</sc-for>
+</div>
+<div class="nav-b">
+<div class="nrow {{navSet.cls}}"><button class="nbtn" onClick="{{navSet.go}}"><span class="nico tone-none"><svg class="ic" width="16" height="16" viewBox="0 0 24 24"><path d="{{I.gear}}"></path></svg></span><span class="nlbl">Nastavení</span></button></div>
+</div>
+</nav>
+</sc-if>
+<sc-if value="{{navRail}}" hint-placeholder-val="{{false}}">
+<nav class="railw" aria-label="Sekce">
+<sc-for list="{{nav}}" as="r" hint-placeholder-count="7">
+<button class="rail {{r.cls}}" aria-label="{{r.label}}" title="{{r.label}}" onClick="{{r.go}}"><span class="nico tone-{{r.tone}}"><svg class="ic" width="17" height="17" viewBox="0 0 24 24"><path d="{{r.icon}}"></path></svg></span><span class="rail-lbl">{{r.short}}</span><sc-if value="{{r.hasAlert}}" hint-placeholder-val="{{false}}"><span class="rb"></span></sc-if></button>
+</sc-for>
+<span class="grow"></span>
+<button class="rail {{navSet.cls}}" aria-label="Nastavení" title="Nastavení" onClick="{{navSet.go}}"><span class="nico tone-none"><svg class="ic" width="17" height="17" viewBox="0 0 24 24"><path d="{{I.gear}}"></path></svg></span><span class="rail-lbl">Nastavení</span></button>
+</nav>
+</sc-if>
+</div>
+
+<div class="splx" onPointerDown="{{dragNav.down}}" onPointerMove="{{dragNav.move}}" onPointerUp="{{dragNav.up}}" title="Táhnutím změníš šířku navigace"></div>
+
+<section class="ctr">
+<div class="view">
+<sc-if value="{{isSessions}}" hint-placeholder-val="{{true}}">
+<div class="cols" style="grid-template-columns: {{colTpl}};">
+<sc-for list="{{columns}}" as="c" hint-placeholder-count="1">
+<div class="splx {{c.splitCls}}" onPointerDown="{{c.split.down}}" onPointerMove="{{c.split.move}}" onPointerUp="{{c.split.up}}" onDoubleClick="{{c.split.reset}}" title="Táhnutím změníš šířku sloupců, dvojklikem je srovnáš"></div>
+<div class="scol {{c.cls}}" style="grid-template-rows: {{c.rows}};" onMouseDown="{{c.focus}}">
+<div class="pane-h">
+<span class="tnum {{c.numCls}}">{{c.n}}</span>
+<svg class="ic tone-{{c.kindTone}}" width="13" height="13" viewBox="0 0 24 24" style="color: var(--tc);"><path d="{{c.kindIcon}}"></path></svg>
+<span class="dot {{c.dot}}"></span>
+<button class="pane-t {{c.pickCls}}" onClick="{{c.pick}}" aria-haspopup="menu" title="{{c.title}} · vybrat relaci pro tento sloupec"><span class="pane-tt">{{c.title}}</span><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{I.down}}"></path></svg></button>
+<span class="category-badges pane-categories"><sc-for list="{{c.badges}}" as="badge" hint-placeholder-count="1"><span class="category-label tone-{{badge.tone}}" title="{{badge.title}}"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{badge.icon}}"></path></svg><span>{{badge.label}}</span></span></sc-for></span>
+<sc-if value="{{c.hasOwner}}" hint-placeholder-val="{{true}}"><button class="chip pchip" onClick="{{c.openOwner}}" title="{{c.ownerTitle}}"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{c.ownerIcon}}"></path></svg>{{c.ownerName}}</button></sc-if>
+<span class="grow"></span>
+<sc-if value="{{c.hasIntent}}" hint-placeholder-val="{{true}}"><span class="pmeta badge">{{c.intent}}</span></sc-if>
+<span class="seg pseg" title="Režim úprav"><button class="{{c.autoCls}}" onClick="{{c.setAuto}}">Auto</button><button class="{{c.revCls}}" onClick="{{c.setRev}}">Kontrola</button></span>
+<span class="cmeter" title="Zaplnění kontextu"><span class="bar"><i style="width: {{c.ctx}}%;"></i></span><span class="num">{{c.ctxLabel}}</span></span>
+<button class="iconbtn" aria-label="Ukončit relaci" title="Ukončit relaci · konverzace zůstane v historii" onClick="{{c.closeCol}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{I.x}}"></path></svg></button>
+</div>
+<div class="msgs"><div class="mcol">
+<sc-if value="{{c.isFresh}}" hint-placeholder-val="{{false}}"><div class="empty" style="margin-top: 30px;"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="{{c.kindIcon}}"></path></svg><b style="color: var(--text);">{{c.freshTitle}}</b><span>{{c.freshText}}</span></div></sc-if>
+<sc-for list="{{c.msgs}}" as="m" hint-placeholder-count="2">
+<sc-if value="{{m.isUser}}" hint-placeholder-val="{{true}}"><div class="msg"><div class="who"><b>Ty</b><span>{{m.time}}</span></div><sc-if value="{{m.hasText}}" hint-placeholder-val="{{true}}"><div class="ubox">{{m.text}}</div></sc-if><sc-if value="{{m.hasAtts}}" hint-placeholder-val="{{false}}"><div class="atts"><sc-for list="{{m.atts}}" as="a" hint-placeholder-count="1"><span class="chip att"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{I.clip}}"></path></svg><span class="att-t">{{a.t}}</span></span></sc-for></div></sc-if></div></sc-if>
+<sc-if value="{{m.isNote}}" hint-placeholder-val="{{false}}"><div class="cnote {{m.noteCls}}" role="{{m.noteRole}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{m.noteIcon}}"></path></svg><span class="cnote-t">{{m.text}}</span><span class="cnote-m">{{m.time}}</span></div></sc-if>
+<sc-if value="{{m.isAgent}}" hint-placeholder-val="{{false}}">
+<div class="msg">
+<div class="who"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" style="color: var(--acct);"><path d="{{m.authorIcon}}"></path></svg><b>{{m.author}}</b><sc-if value="{{m.hasBadge}}" hint-placeholder-val="{{true}}"><span class="badge">{{m.badge}}</span></sc-if><span>{{m.expert}}</span><span>{{m.time}}</span></div>
+<sc-if value="{{m.hasSteps}}" hint-placeholder-val="{{true}}"><div class="tl"><span class="tl-line"></span><sc-for list="{{m.steps}}" as="s" hint-placeholder-count="4"><div class="tl-i {{s.cls}}"><span class="tl-dot"></span><span class="tl-t">{{s.t}}</span><span class="tl-m">{{s.m}}</span></div></sc-for></div></sc-if>
+<sc-if value="{{m.hasFold}}" hint-placeholder-val="{{false}}"><button class="tl-fold" aria-expanded="{{m.foldOpen}}" onClick="{{m.toggleFold}}"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{m.foldChev}}"></path></svg><span>{{m.foldText}}</span><span class="tl-m">{{m.foldMeta}}</span></button></sc-if>
+<sc-if value="{{m.hasMarkdown}}" hint-placeholder-val="{{false}}"><div class="md" data-html="{{m.html}}"></div></sc-if>
+<sc-if value="{{m.noMarkdown}}" hint-placeholder-val="{{true}}"><sc-for list="{{m.paras}}" as="pa" hint-placeholder-count="1"><p class="para">{{pa.t}}</p></sc-for></sc-if>
+<sc-if value="{{m.hasCode}}" hint-placeholder-val="{{false}}"><div class="code mono"><sc-for list="{{m.code}}" as="ln" hint-placeholder-count="2"><div>{{ln.t}}</div></sc-for></div></sc-if>
+<sc-if value="{{m.hasGap}}" hint-placeholder-val="{{false}}"><div class="comp-r"><button class="btn" onClick="{{m.gapCreate}}">Vytvořit expertýzu</button><button class="btn" onClick="{{m.gapFallback}}">Odpovědět bez ní</button></div></sc-if>
+<sc-if value="{{m.isRunning}}" hint-placeholder-val="{{false}}"><div class="running"><span class="spin"></span><span>{{m.runText}}</span><span class="grow"></span><button class="btn" onClick="{{m.stop}}"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{I.stop}}"></path></svg>Zastavit</button></div></sc-if>
+<sc-if value="{{m.hasApproval}}" hint-placeholder-val="{{false}}"><div class="appr"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" style="color: var(--warn);"><path d="{{I.shield}}"></path></svg><span class="appr-t"><b>{{m.apprTitle}}</b><span>{{m.apprSub}}</span><sc-if value="{{m.hasApprHint}}" hint-placeholder-val="{{false}}"><span class="appr-h">{{m.apprHint}}</span></sc-if></span><span class="grow"></span><button class="btn" onClick="{{m.showChanges}}">Zobrazit změny</button><button class="btn" onClick="{{m.reject}}">Zamítnout</button><button class="btn btn-acc {{m.approveCls}}" onClick="{{m.approve}}">Schválit</button></div></sc-if>
+<sc-if value="{{m.hasResult}}" hint-placeholder-val="{{false}}"><div class="done" style="color: {{m.resColor}};"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="{{m.resIcon}}"></path></svg><span>{{m.resText}}</span></div></sc-if>
+<sc-if value="{{m.hasCopy}}" hint-placeholder-val="{{true}}"><div class="mfoot"><button class="mcopy {{m.copyCls}}" aria-label="{{m.copyLabel}}" title="{{m.copyLabel}}" onClick="{{m.copy}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{m.copyIcon}}"></path></svg><sc-if value="{{m.hasCopyNote}}" hint-placeholder-val="{{false}}"><span role="status">{{m.copyNote}}</span></sc-if></button></div></sc-if>
+</div>
+</sc-if>
+</sc-for>
+</div></div>
+<div class="compw">
+<sc-if value="{{c.m2.open}}" hint-placeholder-val="{{false}}"><section class="comp m2-composer" aria-label="Připravit změnu projektu" style="max-height: 46vh; overflow-y: auto; margin-bottom: 10px; padding: 12px;">
+<div class="comp-r"><b>Připravit změnu projektu</b><span class="grow"></span><button class="btn" onClick="{{c.m2.hide}}">Skrýt</button></div>
+<p class="faint">Příprava vytvoří návrh. Zápis vyžaduje samostatné schválení po kontrole změn.</p>
+<sc-if value="{{c.m2.hasError}}" hint-placeholder-val="{{false}}"><div class="fsec-e" role="alert">{{c.m2.error}}</div></sc-if>
+<label class="field">Celkové zadání<textarea aria-label="Celkové zadání změny" value="{{c.m2.instruction}}" onChange="{{c.m2.setInstruction}}" disabled="{{c.m2.busy}}"></textarea></label>
+<sc-for list="{{c.m2.files}}" as="f" hint-placeholder-count="1"><fieldset style="border: 1px solid var(--border); border-radius: 7px; padding: 10px; margin: 8px 0;"><legend>Soubor</legend>
+<label class="field">Cesta v projektu<input aria-label="Cesta souboru v plánu" value="{{f.path}}" onChange="{{f.setPath}}" disabled="{{c.m2.busy}}" /></label>
+<label class="field">Zadání pro soubor<textarea aria-label="Zadání pro soubor" value="{{f.instruction}}" onChange="{{f.setInstruction}}" disabled="{{c.m2.busy}}"></textarea></label>
+<label class="field">Závislosti · jedna cesta na řádek<textarea value="{{f.dependencies}}" onChange="{{f.setDependencies}}" disabled="{{c.m2.busy}}"></textarea></label>
+<label class="field">Kontextové soubory · jedna cesta na řádek<textarea value="{{f.contextFiles}}" onChange="{{f.setContext}}" disabled="{{c.m2.busy}}"></textarea></label>
+<sc-if value="{{f.hasReuse}}" hint-placeholder-val="{{false}}"><label><input type="checkbox" checked="{{f.reuse}}" onChange="{{f.setReuse}}" disabled="{{c.m2.busy}}" /> Zachovat přesný obsah z předchozího návrhu</label></sc-if>
+<button class="btn" disabled="{{f.removeDisabled}}" onClick="{{f.remove}}">Odebrat soubor</button></fieldset></sc-for>
+<button class="btn" disabled="{{c.m2.addDisabled}}" onClick="{{c.m2.add}}">Přidat soubor</button>
+<label class="field">Program testu · úplná cesta<input aria-label="Program cíleného testu" value="{{c.m2.binary}}" onChange="{{c.m2.setBinary}}" disabled="{{c.m2.busy}}" /></label>
+<label class="field">Argumenty testu · JSON pole doslovných řetězců<textarea aria-label="Argumenty cíleného testu" value="{{c.m2.argv}}" onChange="{{c.m2.setArgv}}" disabled="{{c.m2.busy}}"></textarea></label>
+<label class="field">Časový limit testu v ms<input value="{{c.m2.timeout}}" onChange="{{c.m2.setTimeout}}" disabled="{{c.m2.busy}}" /></label>
+<div class="comp-r"><button class="btn" disabled="{{c.m2.discardDisabled}}" onClick="{{c.m2.discard}}">Zahodit návrh</button><span class="grow"></span><sc-if value="{{c.m2.generating}}" hint-placeholder-val="{{false}}"><button class="btn" onClick="{{c.m2.cancel}}">Zastavit přípravu</button></sc-if><button class="btn btn-acc" disabled="{{c.m2.busy}}" onClick="{{c.m2.submit}}">Připravit návrh bez schválení</button></div>
+</section></sc-if><div class="comp">
+<sc-if value="{{c.hasAttachmentError}}" hint-placeholder-val="{{false}}"><div class="fsec-e" role="alert">{{c.attachmentError}}</div></sc-if>
+<sc-if value="{{c.hasDelivery}}" hint-placeholder-val="{{false}}"><div class="fsec-e" role="alert">{{c.deliveryText}}<sc-if value="{{c.deliveryUnknown}}" hint-placeholder-val="{{false}}"><button class="btn" onClick="{{c.acknowledge}}">Pokračovat bez opakování</button></sc-if></div></sc-if>
+<sc-if value="{{c.hasAtts}}" hint-placeholder-val="{{false}}"><div class="atts"><sc-for list="{{c.atts}}" as="a" hint-placeholder-count="1"><span class="chip att"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{I.clip}}"></path></svg><span class="att-t">{{a.t}}</span><span class="faint">{{a.s}}</span><button class="att-x" aria-label="Odebrat přílohu {{a.t}}" onClick="{{a.remove}}"><svg class="ic" width="11" height="11" viewBox="0 0 24 24"><path d="{{I.x}}"></path></svg></button></span></sc-for></div></sc-if>
+<textarea aria-label="Zpráva pro relaci {{c.n}}" placeholder="Napiš, co má IntentSmith udělat…" value="{{c.draft}}" onChange="{{c.setDraft}}" onKeyDown="{{c.keyDown}}"></textarea>
+<sc-if value="{{c.hasAutocomplete}}" hint-placeholder-val="{{false}}"><div class="comp-r" aria-label="Doplnění zprávy"><span class="faint">{{c.autocompleteText}}</span><span class="grow"></span><button class="btn" onClick="{{c.autocompleteApply}}">Použít · Tab</button><button class="btn" onClick="{{c.autocompleteClear}}">Zahodit</button></div></sc-if>
+<div class="comp-r">
+<button class="iconbtn" aria-label="Připojit soubor" title="Připojit soubor" onClick="{{c.attach}}"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="{{I.clip}}"></path></svg></button>
+<sc-if value="{{c.hasExpertPicker}}" hint-placeholder-val="{{true}}"><button class="chip" onClick="{{c.pickExpert}}" title="Změnit expertýzu"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{I.cap}}"></path></svg>{{c.expert}}<svg class="ic" width="11" height="11" viewBox="0 0 24 24"><path d="{{I.down}}"></path></svg></button></sc-if>
+<sc-if value="{{c.hasModel}}" hint-placeholder-val="{{true}}"><button class="chip mchip" onClick="{{c.pickModel}}" title="Změnit model"><span class="mono" style="font-size: 11px;">{{c.model}}</span><svg class="ic" width="11" height="11" viewBox="0 0 24 24"><path d="{{I.down}}"></path></svg></button></sc-if>
+<span class="grow"></span>
+<sc-if value="{{c.hasProjectComposer}}" hint-placeholder-val="{{false}}"><button class="chip" onClick="{{c.m2.show}}">Připravit změnu</button><sc-if value="{{c.m2.hasRevision}}" hint-placeholder-val="{{false}}"><button class="chip" onClick="{{c.m2.revise}}">Opravit předchozí návrh</button></sc-if></sc-if>
+<span class="hint">Ctrl+Enter odešle</span>
+<button class="btn btn-acc" aria-label="Odeslat" title="Odeslat" onClick="{{c.send}}" style="width: 34px; height: 30px; padding: 0; justify-content: center; border-radius: 7px;"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="{{I.send}}"></path></svg></button>
+</div>
+</div></div>
+<div class="sply" onPointerDown="{{dragBottom.down}}" onPointerMove="{{dragBottom.move}}" onPointerUp="{{dragBottom.up}}" title="Táhnutím změníš výšku terminálů"></div>
+<div class="sbot">
+<div class="btabs">
+<sc-for list="{{c.btabs}}" as="t" hint-placeholder-count="5"><button class="ptab {{t.cls}}" onClick="{{t.go}}">{{t.label}}<sc-if value="{{t.hasN}}" hint-placeholder-val="{{false}}"><span class="cnt">{{t.n}}</span></sc-if></button></sc-for>
+</div>
+<div class="bp-b">
+<sc-if value="{{c.isTerm}}" hint-placeholder-val="{{true}}"><div class="term mono"><sc-for list="{{c.term}}" as="l" hint-placeholder-count="4"><div class="{{l.cls}}">{{l.t}}</div></sc-for><label class="term-in"><span class="p">$</span><input aria-label="Příkaz terminálu relace {{c.n}}" spellcheck="false" placeholder="příkaz · Tab doplní cestu" value="{{c.cmd}}" onChange="{{c.setCmd}}" onKeyDown="{{c.cmdKey}}"></label></div></sc-if>
+<sc-if value="{{c.isLog}}" hint-placeholder-val="{{false}}"><div class="mono"><sc-for list="{{c.log}}" as="l" hint-placeholder-count="5"><div class="log"><span class="faint">{{l.t}}</span><span style="color: {{l.c}};">{{l.lv}}</span><span>{{l.e}}</span><span class="lm">{{l.m}}</span></div></sc-for></div></sc-if>
+<sc-if value="{{c.isRuns}}" hint-placeholder-val="{{false}}"><sc-if value="{{c.hasRuns}}" hint-placeholder-val="{{true}}"><div><div class="trow th" style="grid-template-columns: {{c.runGrid}}; background: none; padding: 0 2px;"><span>Čas</span><span>Krok</span><span>Nástroj</span><span>Cíl</span><span>Trvání</span><span>Stav</span></div><sc-for list="{{c.runs}}" as="r" hint-placeholder-count="4"><div class="trow" style="grid-template-columns: {{c.runGrid}}; padding: 0 2px; min-height: 26px;"><span class="mono faint">{{r.t}}</span><span>{{r.step}}</span><span class="mono" style="color: var(--dim);">{{r.tool}}</span><span class="mono">{{r.target}}</span><span class="num">{{r.dur}}</span><span style="color: {{r.c}};">{{r.st}}</span></div></sc-for></div></sc-if><sc-if value="{{c.noRuns}}" hint-placeholder-val="{{false}}"><div class="rp-empty" style="padding: 20px;">Relace zatím nespustila žádný krok.</div></sc-if></sc-if>
+<sc-if value="{{c.isAudit}}" hint-placeholder-val="{{false}}"><div class="mono"><sc-for list="{{c.audit}}" as="l" hint-placeholder-count="3"><div class="log" style="grid-template-columns: 70px 120px minmax(0, 1fr);"><span class="faint">{{l.t}}</span><span style="color: var(--violet);">{{l.e}}</span><span class="lm">{{l.m}}</span></div></sc-for></div></sc-if>
+<sc-if value="{{c.isProb}}" hint-placeholder-val="{{false}}"><sc-if value="{{c.hasProblems}}" hint-placeholder-val="{{false}}"><div><sc-for list="{{c.problems}}" as="pb" hint-placeholder-count="1"><div class="log" style="grid-template-columns: 62px 60px minmax(0, 1fr); white-space: normal;"><span class="faint mono">{{pb.t}}</span><span style="color: var(--bad);">{{pb.k}}</span><span>{{pb.m}}</span></div></sc-for></div></sc-if><sc-if value="{{c.noProblems}}" hint-placeholder-val="{{true}}"><div class="rp-empty" style="padding: 20px;">Žádné problémy.</div></sc-if></sc-if>
+</div>
+</div>
+</div>
+</sc-for>
+</div>
+<sc-if value="{{noSessions}}" hint-placeholder-val="{{false}}"><div class="fill" style="display: flex; align-items: center; justify-content: center;"><div class="cempty"><span class="tico"><svg class="ic" width="24" height="24" viewBox="0 0 24 24"><path d="{{I.anvil}}"></path></svg></span><b>Žádná otevřená relace</b><span>Otevři konverzaci z navigace nebo začni novou.</span><button class="btn btn-acc" onClick="{{newSession}}">Nová relace</button></div></div></sc-if>
+</sc-if>
+
+<sc-if value="{{hasToast}}" hint-placeholder-val="{{false}}"><div class="toast {{toastCls}}" role="status"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="{{toastIcon}}"></path></svg><span class="toast-t">{{toastText}}</span><button class="iconbtn sm" aria-label="Zavřít hlášení" title="Zavřít" onClick="{{closeToast}}"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{I.x}}"></path></svg></button></div></sc-if>
+<sc-if value="{{isSection}}" hint-placeholder-val="{{false}}">
+<div class="sect" style="grid-template-columns: {{sectCols}};">
+<div class="cat">
+<div class="cat-h">
+<div class="cat-t"><h1><span class="nico tone-{{cg.tone}}" style="width: 30px; height: 30px;"><svg class="ic" width="17" height="17" viewBox="0 0 24 24"><path d="{{cg.icon}}"></path></svg></span>{{cg.title}}</h1><div>{{cg.summary}}</div></div>
+<label class="search" style="width: 230px;"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{I.search}}"></path></svg><input aria-label="Hledat v katalogu" placeholder="Hledat…" value="{{q}}" onChange="{{setQ}}"></label>
+<sc-if value="{{cg.hasPrimary}}" hint-placeholder-val="{{true}}"><button class="btn btn-acc" style="height: 28px;" onClick="{{cg.onPrimary}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{I.plus}}"></path></svg>{{cg.primary}}</button></sc-if>
+</div>
+<sc-if value="{{cg.hasCatalogError}}" hint-placeholder-val="{{false}}"><div class="fsec-e" role="alert">{{cg.catalogError}}</div></sc-if>
+<sc-if value="{{cg.hasChips}}" hint-placeholder-val="{{true}}"><div class="cchips"><sc-for list="{{cg.chips}}" as="ch" hint-placeholder-count="4"><button class="cchip {{ch.cls}}" onClick="{{ch.go}}">{{ch.label}}<span>{{ch.n}}</span></button></sc-for></div></sc-if>
+<div class="cat-b">
+<sc-if value="{{cg.isEmpty}}" hint-placeholder-val="{{false}}"><div class="cempty"><span class="tico"><svg class="ic" width="24" height="24" viewBox="0 0 24 24"><path d="{{cg.emptyIcon}}"></path></svg></span><b>{{cg.emptyTitle}}</b><span style="max-width: 420px; line-height: 1.5;">{{cg.emptyText}}</span><sc-if value="{{cg.hasPrimary}}" hint-placeholder-val="{{true}}"><button class="btn btn-acc" onClick="{{cg.onPrimary}}">{{cg.primary}}</button></sc-if></div></sc-if>
+<sc-if value="{{cg.isTiles}}" hint-placeholder-val="{{true}}">
+<div class="tiles" style="grid-template-columns: repeat(auto-fill, minmax({{cg.minW}}px, 1fr));">
+<sc-for list="{{cg.items}}" as="e" hint-placeholder-count="8">
+<button class="tile {{e.cls}}" onClick="{{e.go}}" onDoubleClick="{{e.dbl}}" onContextMenu="{{e.ctx}}">
+<span class="tile-top"><span class="tico tone-{{e.tone}} {{e.icls}}"><svg class="ic" width="17" height="17" viewBox="0 0 24 24"><path d="{{e.icon}}"></path></svg></span><span class="grow"></span><sc-if value="{{e.hasUsed}}" hint-placeholder-val="{{false}}"><span class="last-used" title="{{e.usedTitle}}"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{I.clock}}"></path></svg>{{e.usedText}}</span></sc-if><sc-if value="{{e.hasNum}}" hint-placeholder-val="{{false}}"><span class="tnum {{e.numCls}}">{{e.num}}</span></sc-if><sc-if value="{{e.hasDot}}" hint-placeholder-val="{{false}}"><span class="dot {{e.dot}}"></span></sc-if><sc-if value="{{e.hasTag}}" hint-placeholder-val="{{true}}"><span class="tag {{e.tagCls}}">{{e.tag}}</span></sc-if></span>
+<span class="tile-n">{{e.name}}</span>
+<sc-if value="{{e.hasBadges}}" hint-placeholder-val="{{false}}"><span class="category-badges"><sc-for list="{{e.badges}}" as="badge" hint-placeholder-count="1"><span class="category-label tone-{{badge.tone}}" title="{{badge.title}}"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{badge.icon}}"></path></svg>{{badge.label}}</span></sc-for></span></sc-if>
+<span class="tile-s">{{e.sub}}</span>
+<span class="tile-d">{{e.desc}}</span>
+<span class="tile-f"><span class="grow">{{e.catLabel}}</span><span style="color: {{e.mc}}; text-transform: none; letter-spacing: 0; font-weight: 500;">{{e.meta}}</span></span>
+</button>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{cg.isList}}" hint-placeholder-val="{{false}}">
+<div class="ltbl">
+<div class="lrow th"><span></span><span>Název</span><span>Skupina</span><span class="c-sub">Podrobnosti</span><span class="c-desc">Popis</span><span>{{cg.stateHeading}}</span></div>
+<sc-for list="{{cg.items}}" as="e" hint-placeholder-count="8">
+<button class="lrow {{e.cls}}" onClick="{{e.go}}" onDoubleClick="{{e.dbl}}" onContextMenu="{{e.ctx}}"><span class="lico tone-{{e.tone}} {{e.icls}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{e.icon}}"></path></svg></span><span class="cell" style="font-weight: 600;">{{e.name}}</span><span class="cell"><sc-if value="{{e.hasBadges}}" hint-placeholder-val="{{false}}"><span class="category-badges"><sc-for list="{{e.badges}}" as="badge" hint-placeholder-count="1"><span class="category-label tone-{{badge.tone}}" title="{{badge.title}}">{{badge.label}}</span></sc-for></span></sc-if><sc-if value="{{e.noBadges}}" hint-placeholder-val="{{true}}">{{e.catLabel}}</sc-if></span><span class="cell mono c-sub" style="font-size: 11.5px; color: var(--faint);">{{e.sub}}</span><span class="cell c-desc" style="color: var(--dim);">{{e.desc}}</span><span class="cell"><sc-if value="{{e.hasUsed}}" hint-placeholder-val="{{false}}"><span class="last-used" title="{{e.usedTitle}}">{{e.usedText}}</span></sc-if><sc-if value="{{e.noUsed}}" hint-placeholder-val="{{true}}">{{e.state}}</sc-if></span></button>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</div>
+<div class="splx" onPointerDown="{{dragDetail.down}}" onPointerMove="{{dragDetail.move}}" onPointerUp="{{dragDetail.up}}" title="Táhnutím změníš šířku detailu"></div>
+<aside class="dside" aria-label="Detail">
+<sc-if value="{{hasDetail}}" hint-placeholder-val="{{false}}">
+<div class="dh">
+<span class="dico tone-{{dt.tone}} {{dt.icls}}"><svg class="ic" width="20" height="20" viewBox="0 0 24 24"><path d="{{dt.icon}}"></path></svg></span>
+<div class="dh-m"><div class="dh-title">{{dt.title}}<sc-if value="{{dt.hasStatus}}" hint-placeholder-val="{{true}}"><span class="st {{dt.stCls}}">{{dt.status}}</span></sc-if></div><div class="dh-sub">{{dt.type}} · <span class="mono">{{dt.idText}}</span></div></div>
+<button class="iconbtn" aria-label="Zavřít detail" title="Zavřít detail" onClick="{{closeDetail}}"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="{{I.x}}"></path></svg></button>
+</div>
+<sc-if value="{{dt.hasBadges}}" hint-placeholder-val="{{false}}"><div class="category-badges" style="padding: 0 18px 10px;"><sc-for list="{{dt.badges}}" as="badge" hint-placeholder-count="1"><span class="category-label tone-{{badge.tone}}" title="{{badge.title}}"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{badge.icon}}"></path></svg>{{badge.label}}</span></sc-for></div></sc-if>
+<div class="dact">
+<sc-if value="{{dt.hasPrimary}}" hint-placeholder-val="{{true}}"><button class="btn btn-acc" onClick="{{dt.onPrimary}}">{{dt.primaryLabel}}</button></sc-if>
+<sc-for list="{{dt.secondary}}" as="b" hint-placeholder-count="2"><button class="btn" onClick="{{b.go}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{b.icon}}"></path></svg>{{b.label}}</button></sc-for>
+<button class="iconbtn" aria-label="Další akce" title="Další akce" onClick="{{dt.more}}"><svg class="ic" width="16" height="16" viewBox="0 0 24 24"><path d="{{I.more}}"></path></svg></button>
+</div>
+<sc-if value="{{dt.hasTabs}}" hint-placeholder-val="{{true}}"><div class="dtabs"><sc-for list="{{dt.tabs}}" as="tb" hint-placeholder-count="3"><button class="dtab {{tb.cls}}" onClick="{{tb.go}}">{{tb.label}}<sc-if value="{{tb.hasN}}" hint-placeholder-val="{{false}}"><span class="cnt">{{tb.n}}</span></sc-if></button></sc-for></div></sc-if>
+<div class="dbody">
+<sc-if value="{{dt.hasDesc}}" hint-placeholder-val="{{true}}"><p class="ddesc">{{dt.desc}}</p></sc-if>
+<sc-if value="{{dt.showProps}}" hint-placeholder-val="{{true}}"><div class="info"><span class="lbl-acc">Vlastnosti</span><dl class="dl"><sc-for list="{{dt.props}}" as="pr" hint-placeholder-count="4"><dt>{{pr.k}}</dt><dd class="{{pr.cls}}">{{pr.v}}</dd></sc-for></dl></div></sc-if>
+<sc-for list="{{dt.blocks}}" as="b" hint-placeholder-count="2">
+<section>
+<sc-if value="{{b.hasTitle}}" hint-placeholder-val="{{true}}"><div class="blk-h"><span class="lbl-acc">{{b.title}}</span><sc-if value="{{b.hasN}}" hint-placeholder-val="{{false}}"><span class="cnt">{{b.n}}</span></sc-if></div></sc-if>
+<sc-if value="{{b.isRows}}" hint-placeholder-val="{{true}}"><div class="rows"><sc-for list="{{b.rows}}" as="r" hint-placeholder-count="3"><button class="row {{r.cls}}" onClick="{{r.go}}"><span class="row-ic"><sc-if value="{{r.hasDot}}" hint-placeholder-val="{{false}}"><span class="dot {{r.dot}}"></span></sc-if><sc-if value="{{r.hasIcon}}" hint-placeholder-val="{{true}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{r.icon}}"></path></svg></sc-if></span><span class="row-tt"><span class="row-t {{r.tcls}}">{{r.t}}</span><sc-if value="{{r.hasS}}" hint-placeholder-val="{{false}}"><span class="row-s">{{r.s}}</span></sc-if></span><span class="row-m" style="color: {{r.mc}};">{{r.m}}</span></button></sc-for></div></sc-if>
+<sc-if value="{{b.isText}}" hint-placeholder-val="{{false}}"><div style="display: flex; flex-direction: column; gap: 8px;"><sc-for list="{{b.items}}" as="li" hint-placeholder-count="1"><p class="para" style="font-size: var(--fs);">{{li.t}}</p></sc-for></div></sc-if>
+<sc-if value="{{b.isChips}}" hint-placeholder-val="{{false}}"><div class="chips"><sc-for list="{{b.chips}}" as="ch" hint-placeholder-count="3"><span class="tagchip">{{ch.t}}</span></sc-for></div></sc-if>
+<sc-if value="{{b.isList}}" hint-placeholder-val="{{false}}"><ul class="bul"><sc-for list="{{b.items}}" as="li" hint-placeholder-count="3"><li>{{li.t}}</li></sc-for></ul></sc-if>
+<sc-if value="{{b.isBars}}" hint-placeholder-val="{{false}}"><div class="bars"><sc-for list="{{b.bars}}" as="x" hint-placeholder-count="5"><div class="brow"><span>{{x.label}}</span><span class="bar"><i style="width: {{x.v}}%;"></i></span><span class="mono num" style="font-size: 11.5px; color: var(--dim); text-align: right;">{{x.v}}</span></div></sc-for></div></sc-if>
+<sc-if value="{{b.isCode}}" hint-placeholder-val="{{false}}"><div class="code mono"><sc-for list="{{b.lines}}" as="ln" hint-placeholder-count="2"><div>{{ln.t}}</div></sc-for></div></sc-if>
+<sc-if value="{{b.isTable}}" hint-placeholder-val="{{false}}"><div class="tbl"><div class="trow th" style="grid-template-columns: {{b.grid}};"><sc-for list="{{b.cols}}" as="co" hint-placeholder-count="3"><span>{{co.t}}</span></sc-for></div><sc-for list="{{b.trs}}" as="tr" hint-placeholder-count="2"><div class="trow" style="grid-template-columns: {{b.grid}};"><sc-for list="{{tr.cells}}" as="ce" hint-placeholder-count="3"><span style="color: {{ce.c}};">{{ce.t}}</span></sc-for></div></sc-for></div></sc-if>
+<sc-if value="{{b.isEmpty}}" hint-placeholder-val="{{false}}"><div class="empty">{{b.empty}}</div></sc-if>
+<sc-if value="{{b.isPairing}}" hint-placeholder-val="{{false}}"><div class="aps" aria-label="Párování telefonu">
+<div class="blk-h"><span class="lbl-acc">Remote Companion · jednorázové párování</span></div>
+<p class="aph">Telefon se připojuje pouze přes tvoji VPN. Vyber oprávnění a vytvoř kód platný pět minut. Kód se neukládá do nastavení ani do historie.</p>
+<div class="pair-scopes"><sc-for list="{{b.pairing.scopes}}" as="scope" hint-placeholder-count="4"><label class="arow2"><span class="mono">{{scope.name}}</span><input type="checkbox" checked="{{scope.checked}}" disabled="{{scope.disabled}}" onChange="{{scope.toggle}}"></label></sc-for></div>
+<button class="btn btn-acc" disabled="{{b.pairing.disabled}}" onClick="{{b.pairing.issue}}">Vytvořit 5min kód</button>
+<p class="aph">{{b.pairing.status}}</p>
+<sc-if value="{{b.pairing.hasError}}" hint-placeholder-val="{{false}}"><div class="note" role="alert">{{b.pairing.error}}</div></sc-if>
+<sc-if value="{{b.pairing.hasClaim}}" hint-placeholder-val="{{false}}"><div class="note" aria-label="Párovací kód"><div class="dl"><span>Kód</span><strong class="mono">{{b.pairing.code}}</strong><span>Platí do</span><span>{{b.pairing.expiry}}</span><span>Odkaz do telefonu</span><code>{{b.pairing.uri}}</code></div><p class="aph">Po prvním použití nebo po vypršení kód už nefunguje.</p></div></sc-if>
+</div></sc-if>
+<sc-if value="{{b.isSettingsImport}}" hint-placeholder-val="{{false}}"><div class="aps" aria-label="Import nastavení">
+<div class="blk-h"><span class="lbl-acc">Import nastavení z JSON</span></div>
+<p class="aph">Soubor se před změnou zkontroluje. Modelová automatizace má samostatnou politiku.</p>
+<input type="file" accept=".json,application/json" disabled="{{b.settingsImport.busy}}" onChange="{{b.settingsImport.choose}}">
+<p class="aph">{{b.settingsImport.fileName}}</p><p class="aph" role="status">{{b.settingsImport.status}}</p>
+<button class="btn btn-acc" disabled="{{b.settingsImport.disabled}}" onClick="{{b.settingsImport.submit}}">Importovat nastavení</button>
+</div></sc-if>
+<sc-if value="{{b.isFeedback}}" hint-placeholder-val="{{false}}"><div class="aps" aria-label="Zpětná vazba">
+<div class="blk-h"><span class="lbl-acc">Zpětná vazba</span></div>
+<label class="arow2"><span>Kategorie</span><select value="{{b.feedback.category}}" onChange="{{b.feedback.setCategory}}"><sc-for list="{{b.feedback.categories}}" as="option" hint-placeholder-count="5"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
+<label class="arow2"><span>Zpráva (max. 2000 znaků)</span><textarea rows="5" maxlength="2000" value="{{b.feedback.message}}" onChange="{{b.feedback.setMessage}}"></textarea></label>
+<label class="arow2"><span>Přiložit poslední odpověď asistenta</span><input type="checkbox" checked="{{b.feedback.attachLast}}" onChange="{{b.feedback.setAttachLast}}"></label>
+<label class="arow2"><span>Přiložit serverové logy</span><input type="checkbox" checked="{{b.feedback.attachLogs}}" onChange="{{b.feedback.setAttachLogs}}"></label>
+<label class="arow2"><span>Přílohy (2 MiB na soubor, 5 MiB celkem)</span><input type="file" multiple="true" onChange="{{b.feedback.chooseFiles}}"></label>
+<div class="rows"><sc-for list="{{b.feedback.files}}" as="file" hint-placeholder-count="2"><div class="row"><span class="row-tt"><strong class="row-t">{{file.name}}</strong></span><span class="row-m">{{file.size}}</span><button class="btn" onClick="{{file.remove}}">Odebrat</button></div></sc-for></div>
+<p class="aph" role="status">{{b.feedback.notice}}</p>
+<button class="btn btn-acc" disabled="{{b.feedback.disabled}}" onClick="{{b.feedback.send}}">Odeslat zpětnou vazbu</button>
+</div></sc-if>
+<sc-if value="{{b.isSecurity}}" hint-placeholder-val="{{false}}"><div class="aps" aria-label="Zabezpečení účtu">
+<p class="aph" role="status">{{b.security.status}}</p>
+<sc-if value="{{b.security.isAudit}}" hint-placeholder-val="{{true}}"><div class="model-actions"><sc-for list="{{b.security.auditTypes}}" as="type" hint-placeholder-count="5"><button class="btn" onClick="{{type.go}}">{{type.label}}</button></sc-for></div>
+<div class="rows"><sc-for list="{{b.security.auditRows}}" as="row" hint-placeholder-count="3"><div class="row"><span class="row-tt"><strong class="row-t">{{row.title}}</strong><span class="row-s">{{row.detail}}</span></span></div></sc-for></div></sc-if>
+<sc-if value="{{b.security.isAccess}}" hint-placeholder-val="{{false}}"><div class="blk-h"><span class="lbl-acc">API tokeny</span></div>
+<div class="rows"><sc-for list="{{b.security.tokens}}" as="token" hint-placeholder-count="2"><div class="row"><span class="row-tt"><strong class="row-t">{{token.name}}</strong><span class="row-s">{{token.meta}}</span></span><button class="btn" onClick="{{token.revoke}}">Odvolat</button></div></sc-for></div>
+<label class="arow2"><span>Název nového tokenu</span><input value="{{b.security.tokenName}}" onChange="{{b.security.setTokenName}}"></label>
+<div class="pair-scopes"><sc-for list="{{b.security.scopes}}" as="scope" hint-placeholder-count="5"><label class="arow2"><span class="mono">{{scope.name}}</span><input type="checkbox" checked="{{scope.checked}}" onChange="{{scope.toggle}}"></label></sc-for></div>
+<button class="btn btn-acc" disabled="{{b.security.createDisabled}}" onClick="{{b.security.create}}">Vytvořit token</button>
+<sc-if value="{{b.security.hasOneTimeToken}}" hint-placeholder-val="{{false}}"><div class="note"><p>Token se ukazuje pouze jednou:</p><code class="mono">{{b.security.oneTimeToken}}</code><button class="btn" onClick="{{b.security.copyToken}}">Zkopírovat a skrýt</button><button class="btn" onClick="{{b.security.hideToken}}">Skrýt</button></div></sc-if>
+<p class="aph">{{b.security.webhook}}</p></sc-if>
+<sc-if value="{{b.security.isSessions}}" hint-placeholder-val="{{false}}"><p class="aph">{{b.security.sessions}}</p></sc-if>
+</div></sc-if>
+<sc-if value="{{b.isExpertiseSelection}}" hint-placeholder-val="{{false}}"><div class="aps" aria-label="Expertýzy aktivní relace">
+<div class="blk-h"><span class="lbl-acc">Expertýzy aktivní relace</span></div>
+<p class="aph" role="status">{{b.expertiseSelection.status}}</p>
+<div class="rows"><sc-for list="{{b.expertiseSelection.rows}}" as="row" hint-placeholder-count="2"><div class="row"><span class="row-tt"><strong class="row-t">{{row.name}}</strong><span class="row-s">Váha {{row.weight}}</span></span><button class="btn" disabled="{{row.disabled}}" onClick="{{row.remove}}">Odebrat</button></div></sc-for></div>
+<div style="display:flex;gap:8px"><button class="btn" onClick="{{b.expertiseSelection.refresh}}">Obnovit</button><button class="btn" disabled="{{b.expertiseSelection.clearDisabled}}" onClick="{{b.expertiseSelection.clear}}">Výchozí expertýza</button></div>
+</div></sc-if>
+<sc-if value="{{b.isProjectDirectory}}" hint-placeholder-val="{{false}}"><div class="aps" aria-label="Výchozí složka projektů">
+<div class="blk-h"><span class="lbl-acc">Výchozí složka nových projektů</span></div>
+<label class="arow2"><span>Absolutní cesta ve tvé domácí složce</span><input class="mono" value="{{b.projectDirectory.value}}" onChange="{{b.projectDirectory.change}}" placeholder="/home/user/Projects"></label>
+<p class="aph" role="status">{{b.projectDirectory.status}}</p>
+</div></sc-if>
+<sc-if value="{{b.isModelWorkspace}}" hint-placeholder-val="{{false}}"><div class="aps" aria-label="Modelové pracoviště">
+<div class="blk-h"><span class="lbl-acc">Modely a inference</span></div>
+<div class="dtabs model-tabs"><sc-for list="{{b.modelWorkspace.tabs}}" as="tab" hint-placeholder-count="7"><button class="dtab {{tab.cls}}" onClick="{{tab.go}}">{{tab.label}}</button></sc-for></div>
+<p class="aph" role="status">{{b.modelWorkspace.status}}</p>
+<sc-if value="{{b.modelWorkspace.verifyWarning}}" hint-placeholder-val="{{false}}"><div class="note" role="alert">{{b.modelWorkspace.verifyWarning}} <sc-if value="{{b.modelWorkspace.hasRollback}}" hint-placeholder-val="{{false}}"><button class="btn" onClick="{{b.modelWorkspace.rollback}}">Vrátit předchozí model</button></sc-if></div></sc-if>
+<sc-if value="{{b.modelWorkspace.hasPolicyForm}}" hint-placeholder-val="{{false}}"><div class="note" aria-label="Politika automatizace modelů">
+<label class="arow2"><span>Automatické přepnutí při výpadku</span><input type="checkbox" checked="{{b.modelWorkspace.policyFailover}}" onChange="{{b.modelWorkspace.setPolicyFailover}}"></label>
+<label class="arow2"><span>Automatický úklid nepoužívaných modelů</span><input type="checkbox" checked="{{b.modelWorkspace.policyCleanup}}" onChange="{{b.modelWorkspace.setPolicyCleanup}}"></label>
+<label class="arow2"><span>Úklid po dnech</span><input type="number" min="1" max="3650" value="{{b.modelWorkspace.policyDays}}" onChange="{{b.modelWorkspace.setPolicyDays}}"></label>
+</div></sc-if>
+<sc-if value="{{b.modelWorkspace.hasRoleForm}}" hint-placeholder-val="{{false}}"><div class="note">
+<label class="arow2"><span>Role</span><select value="{{b.modelWorkspace.selectedRole}}" onChange="{{b.modelWorkspace.setRole}}"><sc-for list="{{b.modelWorkspace.roleOptions}}" as="option" hint-placeholder-count="7"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
+<label class="arow2"><span>Model</span><select value="{{b.modelWorkspace.selectedModel}}" onChange="{{b.modelWorkspace.setModel}}"><sc-for list="{{b.modelWorkspace.modelOptions}}" as="option" hint-placeholder-count="4"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
+<button class="btn btn-acc" disabled="{{b.modelWorkspace.applyRoleDisabled}}" onClick="{{b.modelWorkspace.applyRole}}">Přiřadit model roli</button>
+</div></sc-if>
+<div class="model-actions"><sc-for list="{{b.modelWorkspace.buttons}}" as="action" hint-placeholder-count="2"><button class="btn" disabled="{{action.disabled}}" onClick="{{action.go}}">{{action.label}}</button></sc-for></div>
+<div class="rows"><sc-for list="{{b.modelWorkspace.rows}}" as="row" hint-placeholder-count="3"><div class="row model-row"><span class="row-tt"><strong class="row-t">{{row.title}}</strong><span class="row-s">{{row.subtitle}}</span></span><span class="row-m">{{row.meta}}</span><span class="model-row-actions"><sc-for list="{{row.actions}}" as="action" hint-placeholder-count="2"><button class="btn" disabled="{{action.disabled}}" onClick="{{action.go}}">{{action.label}}</button></sc-for></span></div></sc-for></div>
+</div></sc-if>
+<sc-if value="{{b.isPreferences}}" hint-placeholder-val="{{false}}"><div class="aps" aria-label="Uživatelské nastavení">
+<div class="blk-h"><span class="lbl-acc">Uživatelské volby</span></div>
+<sc-for list="{{b.preferences.fields}}" as="field" hint-placeholder-count="3"><label class="arow2"><span>{{field.label}}</span>
+<sc-if value="{{field.isToggle}}" hint-placeholder-val="{{false}}"><input type="checkbox" checked="{{field.checked}}" disabled="{{field.disabled}}" onChange="{{field.change}}"></sc-if>
+<sc-if value="{{field.isText}}" hint-placeholder-val="{{false}}"><input value="{{field.value}}" disabled="{{field.disabled}}" onChange="{{field.change}}"></sc-if>
+<sc-if value="{{field.isTextarea}}" hint-placeholder-val="{{false}}"><textarea rows="3" value="{{field.value}}" disabled="{{field.disabled}}" onChange="{{field.change}}"></textarea></sc-if>
+<sc-if value="{{field.isNumber}}" hint-placeholder-val="{{false}}"><input type="number" min="{{field.min}}" max="{{field.max}}" step="{{field.step}}" value="{{field.value}}" disabled="{{field.disabled}}" onChange="{{field.change}}"></sc-if>
+<sc-if value="{{field.isTime}}" hint-placeholder-val="{{false}}"><input type="time" value="{{field.value}}" disabled="{{field.disabled}}" onChange="{{field.change}}"></sc-if>
+<sc-if value="{{field.isSelect}}" hint-placeholder-val="{{false}}"><select value="{{field.value}}" disabled="{{field.disabled}}" onChange="{{field.change}}"><sc-for list="{{field.options}}" as="option" hint-placeholder-count="2"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></sc-if>
+</label></sc-for>
+<p class="aph">{{b.preferences.status}}</p>
+</div></sc-if>
+<sc-if value="{{b.isMediaOutputs}}" hint-placeholder-val="{{false}}"><div class="aps" aria-label="Výstupy generování"><div class="blk-h"><span class="lbl-acc">Výstupy</span></div><sc-for list="{{b.mediaOutputs}}" as="output" hint-placeholder-count="2"><div class="media-output"><span class="mono">{{output.name}}</span><sc-if value="{{output.ready}}" hint-placeholder-val="{{false}}"><sc-if value="{{output.isImage}}" hint-placeholder-val="{{true}}"><img src="{{output.url}}" alt="{{output.name}}"></sc-if><sc-if value="{{output.isVideo}}" hint-placeholder-val="{{false}}"><video src="{{output.url}}" controls="true"></video></sc-if></sc-if><sc-if value="{{output.hasStatus}}" hint-placeholder-val="{{false}}"><span class="aph">{{output.status}}</span></sc-if></div></sc-for></div></sc-if>
+<sc-if value="{{b.isMediaForm}}" hint-placeholder-val="{{false}}">
+<div class="aps" aria-label="Nové generování médií">
+<div class="blk-h"><span class="lbl-acc">Zadání pro ComfyUI</span></div>
+<label class="arow2"><span>Druh</span><select value="{{b.mediaForm.type}}" onChange="{{b.mediaForm.setType}}"><sc-for list="{{b.mediaForm.types}}" as="option" hint-placeholder-count="2"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
+<label class="arow2"><span>Prompt</span><textarea rows="4" value="{{b.mediaForm.prompt}}" onChange="{{b.mediaForm.setPrompt}}" placeholder="Popiš, co chceš vytvořit"></textarea></label>
+<label class="arow2"><span>Negativní prompt</span><textarea rows="2" value="{{b.mediaForm.negative}}" onChange="{{b.mediaForm.setNegative}}" placeholder="Co má výsledek vynechat"></textarea></label>
+<label class="arow2"><span>Checkpoint</span><select value="{{b.mediaForm.model}}" onChange="{{b.mediaForm.setModel}}"><option value="">Vyber model</option><sc-for list="{{b.mediaForm.models}}" as="model" hint-placeholder-count="2"><option value="{{model.value}}">{{model.label}}</option></sc-for></select></label>
+<sc-if value="{{b.mediaForm.isImageToImage}}" hint-placeholder-val="{{false}}"><label class="arow2"><span>Zdrojový obraz (PNG, JPEG, WebP; do 3 MiB)</span><input type="file" accept="image/png,image/jpeg,image/webp" onChange="{{b.mediaForm.pickInput}}"></label><p class="aph">{{b.mediaForm.inputName}}</p><label class="arow2"><span>Míra změny</span><input type="number" min="0.01" max="1" step="0.05" value="{{b.mediaForm.denoise}}" onChange="{{b.mediaForm.setDenoise}}"></label></sc-if>
+<label class="arow2"><span>Šířka</span><input type="number" min="64" max="4096" step="8" value="{{b.mediaForm.width}}" onChange="{{b.mediaForm.setWidth}}"></label>
+<label class="arow2"><span>Výška</span><input type="number" min="64" max="4096" step="8" value="{{b.mediaForm.height}}" onChange="{{b.mediaForm.setHeight}}"></label>
+<label class="arow2"><span>Steps</span><input type="number" min="1" max="150" value="{{b.mediaForm.steps}}" onChange="{{b.mediaForm.setSteps}}"></label>
+<label class="arow2"><span>CFG</span><input type="number" min="0" max="30" step="0.5" value="{{b.mediaForm.cfg}}" onChange="{{b.mediaForm.setCfg}}"></label>
+<label class="arow2"><span>Seed</span><input type="number" min="-1" value="{{b.mediaForm.seed}}" onChange="{{b.mediaForm.setSeed}}"></label>
+<sc-if value="{{b.mediaForm.isVideo}}" hint-placeholder-val="{{false}}"><label class="arow2"><span>Počet snímků</span><input type="number" min="1" max="300" value="{{b.mediaForm.frames}}" onChange="{{b.mediaForm.setFrames}}"></label></sc-if>
+<p class="aph">{{b.mediaForm.status}}</p>
+<button class="btn btn-acc" disabled="{{b.mediaForm.disabled}}" onClick="{{b.mediaForm.submit}}">Generovat</button>
+</div>
+</sc-if>
+<sc-if value="{{b.isProjectWizard}}" hint-placeholder-val="{{false}}">
+<div class="aps" aria-label="Průvodce projektem">
+<div class="blk-h"><span class="lbl-acc">{{b.projectWizard.stepLabel}}</span></div>
+<sc-if value="{{b.projectWizard.isForm}}" hint-placeholder-val="{{true}}">
+<label class="arow2"><span>Postup</span><select value="{{b.projectWizard.mode}}" onChange="{{b.projectWizard.setMode}}"><sc-for list="{{b.projectWizard.modes}}" as="option" hint-placeholder-count="2"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
+<label class="arow2"><span>Název</span><input value="{{b.projectWizard.name}}" onChange="{{b.projectWizard.setName}}" maxLength="120" placeholder="Název projektu"></label>
+<label class="arow2"><span>{{b.projectWizard.pathLabel}}</span><input value="{{b.projectWizard.path}}" onChange="{{b.projectWizard.setPath}}" placeholder="Prázdné = výchozí složka; pro otevření zadej absolutní cestu"></label>
+<sc-if value="{{b.projectWizard.isCreate}}" hint-placeholder-val="{{true}}"><label class="arow2"><span>Typ</span><select value="{{b.projectWizard.type}}" onChange="{{b.projectWizard.setType}}"><sc-for list="{{b.projectWizard.types}}" as="type" hint-placeholder-count="6"><option value="{{type.value}}">{{type.label}}</option></sc-for></select></label>
+<label class="arow2"><span>Popis</span><textarea rows="3" value="{{b.projectWizard.description}}" onChange="{{b.projectWizard.setDescription}}" placeholder="Co má projekt řešit"></textarea></label></sc-if>
+<button class="btn btn-acc" disabled="{{b.projectWizard.nextDisabled}}" onClick="{{b.projectWizard.next}}">Pokračovat na kontrolu</button>
+</sc-if>
+<sc-if value="{{b.projectWizard.isReview}}" hint-placeholder-val="{{false}}">
+<div class="dl"><span>Operace</span><strong>{{b.projectWizard.reviewMode}}</strong><span>Název</span><strong>{{b.projectWizard.reviewName}}</strong><span>Složka</span><code>{{b.projectWizard.reviewTarget}}</code><sc-if value="{{b.projectWizard.isCreate}}" hint-placeholder-val="{{true}}"><span>Typ</span><span>{{b.projectWizard.reviewType}}</span><span>Popis</span><span>{{b.projectWizard.reviewDescription}}</span></sc-if></div>
+<p class="aph">{{b.projectWizard.reviewNote}}</p>
+<sc-if value="{{b.projectWizard.hasRenamePlan}}" hint-placeholder-val="{{false}}"><div role="alert" class="note">{{b.projectWizard.renameNotice}}</div></sc-if>
+<div style="display:flex;gap:8px"><button class="btn" onClick="{{b.projectWizard.back}}">Zpět</button><button class="btn btn-acc" disabled="{{b.projectWizard.submitDisabled}}" onClick="{{b.projectWizard.submit}}">{{b.projectWizard.submitLabel}}</button></div>
+</sc-if>
+<sc-if value="{{b.projectWizard.hasStatus}}" hint-placeholder-val="{{false}}"><div role="alert" class="note">{{b.projectWizard.status}}</div></sc-if>
+</div>
+</sc-if>
+<sc-if value="{{b.isSpecialistWizard}}" hint-placeholder-val="{{false}}">
+<div class="aps" aria-label="Průvodce specialistou">
+<div class="blk-h"><span class="lbl-acc">{{b.specialistWizard.stepLabel}}</span></div>
+<sc-if value="{{b.specialistWizard.isForm}}" hint-placeholder-val="{{true}}">
+<label class="arow2"><span>Název</span><input value="{{b.specialistWizard.name}}" onChange="{{b.specialistWizard.setName}}" maxLength="120" placeholder="Například Překladatel"></label>
+<label class="arow2"><span>Doména</span><select value="{{b.specialistWizard.domain}}" onChange="{{b.specialistWizard.setDomain}}"><sc-for list="{{b.specialistWizard.domains}}" as="option" hint-placeholder-count="3"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
+<label class="arow2"><span>Popis</span><textarea rows="4" value="{{b.specialistWizard.description}}" onChange="{{b.specialistWizard.setDescription}}" placeholder="Co specialista umí"></textarea></label>
+<label class="arow2"><span>Ikona</span><input value="{{b.specialistWizard.icon}}" onChange="{{b.specialistWizard.setIcon}}" placeholder="🤖"></label>
+<button class="btn btn-acc" disabled="{{b.specialistWizard.nextDisabled}}" onClick="{{b.specialistWizard.next}}">Pokračovat na kontrolu</button>
+</sc-if>
+<sc-if value="{{b.specialistWizard.isReview}}" hint-placeholder-val="{{false}}">
+<div class="dl"><span>Název</span><strong>{{b.specialistWizard.reviewName}}</strong><span>ID</span><code>{{b.specialistWizard.reviewId}}</code><span>Doména</span><span>{{b.specialistWizard.reviewDomain}}</span><span>Ikona</span><span>{{b.specialistWizard.reviewIcon}}</span><span>Popis</span><span>{{b.specialistWizard.reviewDescription}}</span></div>
+<p class="aph">Backend vytvoří balíček specialists/{{b.specialistWizard.reviewId}}/ s manifestem a základním modulem.</p>
+<div style="display:flex;gap:8px"><button class="btn" onClick="{{b.specialistWizard.back}}">Zpět</button><button class="btn btn-acc" disabled="{{b.specialistWizard.submitDisabled}}" onClick="{{b.specialistWizard.submit}}">Potvrdit vytvoření</button></div>
+</sc-if>
+<sc-if value="{{b.specialistWizard.hasStatus}}" hint-placeholder-val="{{false}}"><div role="alert" class="note">{{b.specialistWizard.status}}</div></sc-if>
+</div>
+</sc-if>
+<sc-if value="{{b.isWorkerWizard}}" hint-placeholder-val="{{false}}">
+<div class="aps" aria-label="Průvodce workerem">
+<div class="blk-h"><span class="lbl-acc">{{b.workerWizard.stepLabel}}</span></div>
+<sc-if value="{{b.workerWizard.isForm}}" hint-placeholder-val="{{true}}">
+<label class="arow2"><span>Rozšíření M3</span><select value="{{b.workerWizard.extension}}" onChange="{{b.workerWizard.setExtension}}"><sc-for list="{{b.workerWizard.extensions}}" as="option" hint-placeholder-count="1"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
+<sc-if value="{{b.workerWizard.needsProject}}" hint-placeholder-val="{{true}}"><label class="arow2"><span>Projekt</span><select value="{{b.workerWizard.project}}" onChange="{{b.workerWizard.setProject}}"><option value="">Vyber projekt</option><sc-for list="{{b.workerWizard.projects}}" as="option" hint-placeholder-count="2"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label></sc-if>
+<label class="arow2"><span>ID instance</span><input value="{{b.workerWizard.instanceId}}" onChange="{{b.workerWizard.setInstanceId}}" placeholder="project-health-muj-projekt"></label>
+<sc-if value="{{b.workerWizard.hasParameters}}" hint-placeholder-val="{{false}}"><pre>{{b.workerWizard.parameterSchema}}</pre><label class="arow2"><span>Parametry JSON</span><textarea value="{{b.workerWizard.params}}" onChange="{{b.workerWizard.setParams}}"></textarea></label></sc-if>
+<p class="aph">Nová instance zůstane vypnutá, dokud ji výslovně nepovolíš.</p>
+<button class="btn btn-acc" disabled="{{b.workerWizard.nextDisabled}}" onClick="{{b.workerWizard.next}}">Pokračovat na kontrolu</button>
+</sc-if>
+<sc-if value="{{b.workerWizard.isReview}}" hint-placeholder-val="{{false}}">
+<div class="dl"><span>Rozšíření</span><strong>{{b.workerWizard.reviewExtension}}</strong><span>Projekt</span><strong>{{b.workerWizard.reviewProject}}</strong><span>ID instance</span><code>{{b.workerWizard.reviewInstanceId}}</code><span>Výchozí stav</span><span>vypnuto</span></div>
+<p class="aph">Potvrzení uloží instanci workeru. Nespustí žádnou úlohu ani model.</p>
+<sc-if value="{{b.workerWizard.hasDefinition}}" hint-placeholder-val="{{false}}"><details><summary>Zdroje, podmínky, spouštěče a akce</summary><pre>{{b.workerWizard.definitionText}}</pre></details></sc-if>
+<button class="btn" disabled="{{b.workerWizard.previewDisabled}}" onClick="{{b.workerWizard.preview}}">Ověřit konfiguraci bez spuštění</button>
+<sc-if value="{{b.workerWizard.hasPreview}}" hint-placeholder-val="{{false}}"><p class="aph">{{b.workerWizard.previewText}}</p></sc-if>
+<div style="display:flex;gap:8px"><button class="btn" onClick="{{b.workerWizard.back}}">Zpět</button><button class="btn btn-acc" disabled="{{b.workerWizard.submitDisabled}}" onClick="{{b.workerWizard.submit}}">Potvrdit instanci</button></div>
+</sc-if>
+<sc-if value="{{b.workerWizard.hasStatus}}" hint-placeholder-val="{{false}}"><div role="alert" class="note">{{b.workerWizard.status}}</div></sc-if>
+</div>
+</sc-if>
+<sc-if value="{{b.isExpertiseWizard}}" hint-placeholder-val="{{false}}">
+<div class="aps" aria-label="Průvodce expertýzou">
+<div class="blk-h"><span class="lbl-acc">{{b.expertiseWizard.stepLabel}}</span></div>
+<sc-if value="{{b.expertiseWizard.isProfile}}" hint-placeholder-val="{{true}}">
+<label class="arow2"><span>Název</span><input value="{{b.expertiseWizard.name}}" onChange="{{b.expertiseWizard.setName}}" maxLength="64" placeholder="Například Právní poradce"></label>
+<label class="arow2"><span>Doména</span><input value="{{b.expertiseWizard.domain}}" onChange="{{b.expertiseWizard.setDomain}}" maxLength="64" placeholder="například pravo"></label>
+<label class="arow2"><span>Ikona</span><input value="{{b.expertiseWizard.icon}}" onChange="{{b.expertiseWizard.setIcon}}" placeholder="👤"></label>
+<label class="arow2"><span>Popis</span><textarea rows="3" value="{{b.expertiseWizard.description}}" onChange="{{b.expertiseWizard.setDescription}}" placeholder="Co expertýza umí"></textarea></label>
+<button class="btn btn-acc" disabled="{{b.expertiseWizard.nextDisabled}}" onClick="{{b.expertiseWizard.next}}">Pokračovat na ladění</button>
+</sc-if>
+<sc-if value="{{b.expertiseWizard.isReview}}" hint-placeholder-val="{{false}}">
+<div class="dl"><span>Název</span><strong>{{b.expertiseWizard.reviewName}}</strong><span>ID</span><code>{{b.expertiseWizard.reviewId}}</code><span>Doména</span><span>{{b.expertiseWizard.reviewDomain}}</span></div>
+<label class="arow2"><span>Kreativita · {{b.expertiseWizard.creativity}}</span><input type="range" min="0" max="100" value="{{b.expertiseWizard.creativity}}" onChange="{{b.expertiseWizard.setCreativity}}"></label>
+<label class="arow2"><span>Analytičnost · {{b.expertiseWizard.reasoning}}</span><input type="range" min="0" max="100" value="{{b.expertiseWizard.reasoning}}" onChange="{{b.expertiseWizard.setReasoning}}"></label>
+<label class="arow2"><span>Konzistence · {{b.expertiseWizard.determinism}}</span><input type="range" min="0" max="100" value="{{b.expertiseWizard.determinism}}" onChange="{{b.expertiseWizard.setDeterminism}}"></label>
+<label class="arow2"><span>Tón</span><select value="{{b.expertiseWizard.tone}}" onChange="{{b.expertiseWizard.setTone}}"><sc-for list="{{b.expertiseWizard.tones}}" as="option" hint-placeholder-count="3"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
+<label class="arow2"><span>Teplota · {{b.expertiseWizard.temperature}}</span><input type="range" min="0" max="1" step="0.05" value="{{b.expertiseWizard.temperature}}" onChange="{{b.expertiseWizard.setTemperature}}"></label>
+<label class="arow2"><span>System prompt</span><textarea rows="4" value="{{b.expertiseWizard.systemPrompt}}" onChange="{{b.expertiseWizard.setSystemPrompt}}" placeholder="Volitelné instrukce"></textarea></label>
+<button class="btn" onClick="{{b.expertiseWizard.toggleAdvanced}}">Pokročilé moduly a capability</button>
+<sc-if value="{{b.expertiseWizard.advanced}}" hint-placeholder-val="{{false}}">
+<label class="arow2"><span>Tolerance rizika · {{b.expertiseWizard.riskTolerance}}</span><input type="range" min="0" max="100" value="{{b.expertiseWizard.riskTolerance}}" onChange="{{b.expertiseWizard.setRiskTolerance}}"></label>
+<label class="arow2"><span>Podrobnost · {{b.expertiseWizard.verbosity}}</span><input type="range" min="0" max="100" value="{{b.expertiseWizard.verbosity}}" onChange="{{b.expertiseWizard.setVerbosity}}"></label>
+<p class="aph">V modulech piš jedno pravidlo na řádek. Dědění je JSON objekt s hodnotami extend nebo replace.</p>
+<label class="arow2"><span>Pravidla domény</span><textarea rows="3" value="{{b.expertiseWizard.domainRules}}" onChange="{{b.expertiseWizard.setDomainRules}}"></textarea></label>
+<label class="arow2"><span>Důrazy</span><textarea rows="3" value="{{b.expertiseWizard.emphasis}}" onChange="{{b.expertiseWizard.setEmphasis}}"></textarea></label>
+<label class="arow2"><span>Omezení</span><textarea rows="3" value="{{b.expertiseWizard.constraints}}" onChange="{{b.expertiseWizard.setConstraints}}"></textarea></label>
+<label class="arow2"><span>Slovník</span><textarea rows="3" value="{{b.expertiseWizard.vocabulary}}" onChange="{{b.expertiseWizard.setVocabulary}}"></textarea></label>
+<label class="arow2"><span>Nežádoucí vzory</span><textarea rows="3" value="{{b.expertiseWizard.antipatterns}}" onChange="{{b.expertiseWizard.setAntipatterns}}"></textarea></label>
+<label class="arow2"><span>Upozornění</span><textarea rows="2" value="{{b.expertiseWizard.disclaimer}}" onChange="{{b.expertiseWizard.setDisclaimer}}"></textarea></label>
+<label class="arow2"><span>Zakázané fráze</span><textarea rows="3" value="{{b.expertiseWizard.forbiddenPhrases}}" onChange="{{b.expertiseWizard.setForbiddenPhrases}}"></textarea></label>
+<label class="arow2"><span>Dědění (JSON)</span><textarea rows="3" class="mono" value="{{b.expertiseWizard.inheritance}}" onChange="{{b.expertiseWizard.setInheritance}}"></textarea></label>
+<sc-if value="{{b.expertiseWizard.hasInheritanceError}}" hint-placeholder-val="{{false}}"><div role="alert" class="note">Dědění musí být JSON objekt s hodnotami extend nebo replace.</div></sc-if>
+</sc-if>
+<sc-if value="{{b.expertiseWizard.hasPreview}}" hint-placeholder-val="{{false}}"><div class="code mono">{{b.expertiseWizard.previewText}}</div></sc-if>
+<label class="arow2"><span>Testovací dotaz (volitelný)</span><input value="{{b.expertiseWizard.testQuestion}}" onChange="{{b.expertiseWizard.setTestQuestion}}" maxLength="2000" placeholder="Dotaz pro model"></label>
+<button class="btn" disabled="{{b.expertiseWizard.testDisabled}}" onClick="{{b.expertiseWizard.test}}">Spustit test modelu</button>
+<sc-if value="{{b.expertiseWizard.hasTestResult}}" hint-placeholder-val="{{false}}"><div class="note">{{b.expertiseWizard.testResult}}</div></sc-if>
+<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onClick="{{b.expertiseWizard.back}}">Zpět</button><button class="btn" disabled="{{b.expertiseWizard.submitDisabled}}" onClick="{{b.expertiseWizard.preview}}">Náhled pravidel</button><button class="btn btn-acc" disabled="{{b.expertiseWizard.submitDisabled}}" onClick="{{b.expertiseWizard.submit}}">{{b.expertiseWizard.submitLabel}}</button></div>
+</sc-if>
+<sc-if value="{{b.expertiseWizard.hasStatus}}" hint-placeholder-val="{{false}}"><div role="alert" class="note">{{b.expertiseWizard.status}}</div></sc-if>
+</div>
+</sc-if>
+<sc-if value="{{b.isScmPolicy}}" hint-placeholder-val="{{false}}">
+<div class="aps dev-panel" aria-label="Politika správy zdrojů">
+<sc-for list="{{dt.scmPolicy.fields}}" as="setting" hint-placeholder-count="2"><label class="arow2"><span>{{setting.label}}</span><select value="{{setting.value}}" onChange="{{setting.change}}"><sc-for list="{{setting.options}}" as="option" hint-placeholder-count="3"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label></sc-for>
+<div><div class="blk-h"><span class="lbl-acc">Povolené vzdálené hostitele</span></div>
+<sc-for list="{{dt.scmPolicy.remotes}}" as="remote" hint-placeholder-count="1"><div class="arow2"><span>{{remote.name}} · {{remote.host}}</span><button class="btn" onClick="{{remote.remove}}">Odebrat</button></div></sc-for>
+<label class="arow2"><span>Název remote</span><input value="{{dt.scmPolicy.remoteName}}" onChange="{{dt.scmPolicy.setRemoteName}}" placeholder="origin"></label>
+<label class="arow2"><span>Hostitel</span><input value="{{dt.scmPolicy.remoteHost}}" onChange="{{dt.scmPolicy.setRemoteHost}}" placeholder="github.com"></label>
+<button class="btn" onClick="{{dt.scmPolicy.addRemote}}">Přidat hostitele</button>
+<p class="aph">Push se nikdy nespouští automaticky. Pull slučuje historii jen rychlým posunem. IntentSmith neukládá git přihlašovací údaje.</p></div>
+<sc-if value="{{dt.scmPolicy.hasError}}" hint-placeholder-val="{{false}}"><div role="alert" class="note">{{dt.scmPolicy.error}}</div></sc-if>
+<button class="btn btn-acc" disabled="{{dt.scmPolicy.disabled}}" onClick="{{dt.scmPolicy.save}}">Uložit politiku projektu</button>
+</div>
+</sc-if>
+<sc-if value="{{b.isDevelopment}}" hint-placeholder-val="{{false}}">
+<div class="aps dev-panel" aria-label="Prostředí a závislosti">
+<sc-if value="{{dt.development.hasError}}" hint-placeholder-val="{{false}}"><div class="note" role="alert">{{dt.development.error}}</div></sc-if>
+<div><div class="blk-h"><span class="lbl-acc">Skutečné prostředí backendu</span></div>
+<div class="dl dev-facts"><span>Operační systém</span><strong>{{dt.development.os}}</strong><span>Architektura</span><span>{{dt.development.arch}}</span><span>Node.js</span><span>{{dt.development.node}}</span><span>Dostupné nástroje</span><span>{{dt.development.tools}}</span></div>
+<p class="aph">{{dt.development.observation}}</p><button class="btn" onClick="{{dt.development.refresh}}">Obnovit prostředí a historii</button></div>
+<div><div class="blk-h"><span class="lbl-acc">Oprávnění k instalacím</span></div>
+<label class="arow2"><span>Závislosti projektu</span><select value="{{dt.development.projectMode}}" onChange="{{dt.development.setProjectMode}}"><sc-for list="{{dt.development.modes}}" as="option" hint-placeholder-count="3"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
+<label class="arow2"><span>SDK pro projekt</span><select value="{{dt.development.sdkMode}}" onChange="{{dt.development.setSdkMode}}"><sc-for list="{{dt.development.modes}}" as="option" hint-placeholder-count="3"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
+<p class="aph">Výchozí režim vyžaduje potvrzení. Automatika platí jen pro konkrétní povolený plán. Systémové balíčky a sudo se instalují ručně.</p>
+<button class="btn" disabled="{{dt.development.policyDisabled}}" onClick="{{dt.development.savePolicy}}">Uložit oprávnění</button></div>
+<div><div class="blk-h"><span class="lbl-acc">Připravit potřebné závislosti</span></div>
+<label class="arow2"><span>Projekt</span><select value="{{dt.development.projectId}}" onChange="{{dt.development.setProject}}"><option value="">Vyber projekt</option><sc-for list="{{dt.development.projects}}" as="project" hint-placeholder-count="2"><option value="{{project.id}}">{{project.name}}</option></sc-for></select></label>
+<label class="arow2"><span>Instalace</span><select value="{{dt.development.kind}}" onChange="{{dt.development.setKind}}"><option value="npm">npm — package-lock.json</option><option value="dotnet">.NET SDK — přesná verze</option></select></label>
+<sc-if value="{{dt.development.isDotnet}}" hint-placeholder-val="{{false}}"><label class="arow2"><span>Verze SDK</span><input value="{{dt.development.version}}" onChange="{{dt.development.setVersion}}" placeholder="Přesná verze"></label></sc-if>
+<button class="btn" disabled="{{dt.development.prepareDisabled}}" onClick="{{dt.development.prepare}}">Připravit instalační plán</button></div>
+<sc-if value="{{dt.development.hasPlan}}" hint-placeholder-val="{{false}}"><div class="note" aria-label="Průběh instalace"><div class="blk-h"><span class="lbl-acc">{{dt.development.planState}}</span></div>
+<div class="dl dev-facts"><span>Cíl</span><code>{{dt.development.planTarget}}</code><span>Příkaz</span><code>{{dt.development.planCommand}}</code></div>
+<p class="aph">{{dt.development.planLimitations}}</p><sc-for list="{{dt.development.planSources}}" as="source" hint-placeholder-count="2"><p class="mono aph">{{source.text}}</p></sc-for>
+<sc-if value="{{dt.development.canExecute}}" hint-placeholder-val="{{false}}"><button class="btn btn-acc" onClick="{{dt.development.execute}}">Potvrdit tento plán</button></sc-if>
+<sc-if value="{{dt.development.canCancel}}" hint-placeholder-val="{{false}}"><button class="btn" onClick="{{dt.development.cancel}}">Zrušit instalaci</button></sc-if>
+<sc-for list="{{dt.development.planEvents}}" as="event" hint-placeholder-count="2"><p class="aph">{{event.text}}</p></sc-for></div></sc-if>
+<div><div class="blk-h"><span class="lbl-acc">Poslední instalace</span></div><sc-for list="{{dt.development.history}}" as="operation" hint-placeholder-count="2"><button class="row link" onClick="{{operation.open}}"><span class="row-tt"><span class="row-t">{{operation.name}}</span></span><span class="row-m">{{operation.state}}</span></button></sc-for></div>
+</div>
+</sc-if>
+<sc-if value="{{b.isApObecne}}" hint-placeholder-val="{{false}}">
+<div class="aps">
+<div><div class="blk-h"><span class="lbl-acc">Téma</span></div><span class="seg"><sc-for list="{{ap.tmodes}}" as="o" hint-placeholder-count="3"><button class="{{o.cls}}" onClick="{{o.pick}}" style="height: 28px; padding: 0 14px;">{{o.label}}</button></sc-for></span><sc-if value="{{ap.proNote}}" hint-placeholder-val="{{false}}"><div class="aph" style="margin-top: 6px;">Matrix, Japanese a Midnight jsou jen tmavé – volba Téma se uplatní po přepnutí na jiný styl.</div></sc-if></div>
+<div><div class="blk-h"><span class="lbl-acc">Styl vzhledu</span></div>
+<div class="tcards">
+<sc-for list="{{ap.styles}}" as="th" hint-placeholder-count="7">
+<button class="tcard {{th.cls}}" aria-pressed="{{th.pressed}}" onClick="{{th.pick}}">
+<div class="mini {{th.mcls}}"><div class="m1"></div><div class="m2"><i class="ma"></i><i class="mb"></i><i class="mb"></i></div><div class="m3"><i class="mt"></i><i class="md" style="width: 92%;"></i><i class="md" style="width: 50%;"></i><span class="mdot"><i style="background: var(--warn);"></i><i style="background: var(--bad);"></i><i style="background: var(--cyan);"></i><i style="background: var(--ok);"></i></span></div></div>
+<div class="tname">{{th.name}}<sc-if value="{{th.hasTag}}" hint-placeholder-val="{{false}}"><span class="ttag">{{th.tag}}</span></sc-if></div>
+<div class="tdesc">{{th.desc}}</div>
+</button>
+</sc-for>
+</div></div>
+<div><div class="blk-h"><span class="lbl-acc">Intenzita a čitelnost</span></div>
+<label class="arow"><span>Výraznost veškerého textu</span><input type="range" min="0" max="100" step="10" value="{{ap.ti}}" onChange="{{ap.setTi}}"><span class="val">{{ap.ti}} %</span></label>
+<label class="arow"><span>Zvýraznění aktivních prvků</span><input type="range" min="10" max="100" step="10" value="{{ap.ai}}" onChange="{{ap.setAi}}"><span class="val">{{ap.ai}} %</span></label>
+<label class="arow"><span>Jas rozhraní</span><input type="range" min="80" max="120" step="5" value="{{ap.b}}" onChange="{{ap.setB}}"><span class="val">{{ap.b}} %</span></label>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{b.isApPismo}}" hint-placeholder-val="{{false}}">
+<div class="aps">
+<div class="aph">Platí pro všechen text: chat, navigaci, nastavení, soubory, terminál i log. Barvy stavů a kódu zůstávají odlišené.</div>
+<label class="arow"><span>Velikost písma</span><input type="range" min="10" max="18" step="1" value="{{ap.fs}}" onChange="{{ap.setFs}}"><span class="val">{{ap.fs}} px</span></label>
+<div><div class="blk-h"><span class="lbl-acc">Rodina písma</span></div><div class="rows"><sc-for list="{{ap.fonts}}" as="o" hint-placeholder-count="3"><button class="row link {{o.cls}}" onClick="{{o.pick}}"><span class="row-ic"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{o.icon}}"></path></svg></span><span class="row-tt"><span class="row-t" style="font-family: {{o.family}};">{{o.label}}</span></span><span class="row-m" style="color: var(--acct);">{{o.mark}}</span></button></sc-for></div></div>
+<sc-if value="{{ap.proNote}}" hint-placeholder-val="{{false}}"><div class="note">Styl {{ap.styleName}} používá vlastní písmo, volba rodiny písma platí pro ostatní styly.</div></sc-if>
+</div>
+</sc-if>
+<sc-if value="{{b.isApBarvy}}" hint-placeholder-val="{{false}}">
+<div class="aps">
+<sc-if value="{{ap.isClean}}" hint-placeholder-val="{{false}}">
+<div><div class="blk-h"><span class="lbl-acc">Akcent</span></div><div class="apills"><sc-for list="{{ap.caccs}}" as="o" hint-placeholder-count="8"><button class="cdot {{o.cls}}" aria-label="{{o.label}}" title="{{o.label}}" onClick="{{o.pick}}" style="background: {{o.hex}};"></button></sc-for><label class="cpick" title="Vlastní akcent"><input type="color" value="{{ap.caccHex}}" onChange="{{ap.setCaccHex}}" aria-label="Vlastní barva akcentu">vlastní</label></div></div>
+<div><div class="blk-h"><span class="lbl-acc">Pozadí</span></div><div class="apills"><sc-for list="{{ap.cbgs}}" as="o" hint-placeholder-count="3"><button class="cdot {{o.cls}}" aria-label="{{o.label}}" title="{{o.label}}" onClick="{{o.pick}}" style="background: {{o.hex}};"></button></sc-for><label class="cpick" title="Vlastní pozadí"><input type="color" value="{{ap.cbgHex}}" onChange="{{ap.setCbgHex}}" aria-label="Vlastní barva pozadí">vlastní</label></div><sc-if value="{{ap.lightNote}}" hint-placeholder-val="{{false}}"><div class="aph" style="margin-top: 6px;">Předvolby pozadí jsou tmavé, uplatní se v tématu Tmavé.</div></sc-if></div>
+</sc-if>
+<sc-if value="{{ap.notClean}}" hint-placeholder-val="{{true}}"><div class="note"><span class="apills"><sc-for list="{{ap.swatches}}" as="o" hint-placeholder-count="3"><span style="width: 12px; height: 12px; border-radius: 50%; display: inline-block; background: {{o.hex}};"></span></sc-for></span><span>{{ap.paletteNote}}</span></div></sc-if>
+<sc-if value="{{ap.isPro}}" hint-placeholder-val="{{false}}">
+<div><div class="blk-h"><span class="lbl-acc">Průhlednost</span></div>
+<label class="arow"><span>Dlaždice</span><input type="range" min="0" max="100" step="10" value="{{ap.ta}}" onChange="{{ap.setTa}}"><span class="val">{{ap.ta}} %</span></label>
+<label class="arow"><span>Ztlumení pozadí</span><input type="range" min="0" max="80" step="10" value="{{ap.bd}}" onChange="{{ap.setBd}}"><span class="val">{{ap.bd}} %</span></label>
+<label class="arow"><span>Panely</span><input type="range" min="10" max="100" step="10" value="{{ap.pa}}" onChange="{{ap.setPa}}"><span class="val">{{ap.pa}} %</span></label>
+</div>
+</sc-if>
+</div>
+</sc-if>
+<sc-if value="{{b.isApRozvrzeni}}" hint-placeholder-val="{{false}}">
+<div class="aps">
+<div class="arow2"><span>Hustota</span><span><span class="seg"><sc-for list="{{ap.densities}}" as="o" hint-placeholder-count="3"><button class="{{o.cls}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></span></span></div>
+<div class="arow2"><span>Měřítko rozhraní</span><span><span class="seg"><sc-for list="{{ap.scales}}" as="o" hint-placeholder-count="4"><button class="{{o.cls}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></span></span></div>
+<div class="arow2"><span>Oddělení prvků</span><span><span class="seg"><sc-for list="{{ap.seps}}" as="o" hint-placeholder-count="2"><button class="{{o.cls}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></span></span></div>
+<div class="arow2"><span>Panely</span><span style="display: flex; align-items: center; gap: 10px;"><button class="switch {{ap.colCls}}" role="switch" aria-checked="{{ap.colAria}}" aria-label="Automaticky sbalovat panely" onClick="{{ap.toggleCol}}"><i></i></button><span class="aph">Levá navigace se zúží na ikony, pravý panel se při nedostatku místa skryje</span></span></div>
+<div class="aph">Dlaždice, seznam, velikost dlaždic, počet sloupců a panely se přepínají v horní liště.</div>
+</div>
+</sc-if>
+<sc-if value="{{b.isApCss}}" hint-placeholder-val="{{false}}">
+<div class="aps">
+<div class="aph">Platí pro celé rozhraní (kořen .ide). Změny se projeví hned.</div>
+<textarea class="cssbox" aria-label="Vlastní CSS" placeholder=".tile { border-radius: 12px; }" value="{{ap.css}}" onChange="{{ap.setCss}}"></textarea>
+</div>
+</sc-if>
+</section>
+</sc-for>
+<sc-if value="{{dt.hasRelated}}" hint-placeholder-val="{{false}}"><div class="info"><span class="lbl-acc">Souvislosti</span><div><sc-for list="{{dt.related}}" as="rl" hint-placeholder-count="2"><button class="rel" onClick="{{rl.go}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" style="color: var(--faint);"><path d="{{rl.icon}}"></path></svg>{{rl.t}}<span class="rel-s">{{rl.s}}</span></button></sc-for></div></div></sc-if>
+</div>
+</sc-if>
+<sc-if value="{{noDetail}}" hint-placeholder-val="{{false}}"><div class="rp-empty"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="{{I.info}}"></path></svg><b>Vyber položku</b><span>Detail se otevře tady, katalog zůstane vlevo.</span></div></sc-if>
+</aside>
+</div>
+</sc-if>
+</div>
+</section>
+
+<div class="splx" onPointerDown="{{dragRight.down}}" onPointerMove="{{dragRight.move}}" onPointerUp="{{dragRight.up}}" title="Táhnutím změníš šířku pracovní plochy"></div>
+
+<aside class="rp" aria-label="Pracovní plocha">
+<div class="ptabs">
+<sc-for list="{{ws.tabs}}" as="t" hint-placeholder-count="3"><button class="ptab {{t.cls}}" onClick="{{t.go}}">{{t.label}}<sc-if value="{{t.hasN}}" hint-placeholder-val="{{false}}"><span class="cnt">{{t.n}}</span></sc-if></button></sc-for>
+<span class="grow"></span>
+<span class="wss" title="{{ws.label}}"><span class="tnum">{{ws.n}}</span><span class="dot {{ws.dot}}"></span><span class="wss-t">{{ws.label}}</span></span>
+</div>
+<div class="rp-b">
+<sc-if value="{{ws.isZmeny}}" hint-placeholder-val="{{true}}">
+<sc-if value="{{ws.m2Pending}}" hint-placeholder-val="{{false}}"><div class="fsec"><div class="fsec-h"><span class="lbl">Změna projektu</span></div><div class="fsec-e mono">Stav: {{ws.m2State}} · Plán: {{ws.m2Lifecycle}} · digest: {{ws.m2Digest}} · governance: {{ws.m2Governance}}</div><sc-if value="{{ws.m2Test}}" hint-placeholder-val="{{false}}"><div class="fsec-e">Test: {{ws.m2Test}} · {{ws.m2Git}}</div></sc-if><button class="btn" onClick="{{ws.m2Refresh}}">Načíst trvalý stav a plán</button></div></sc-if>
+<sc-if value="{{ws.m2HasEvidence}}" hint-placeholder-val="{{false}}"><details class="fsec"><summary>Úplný výsledek, test a audit</summary><pre class="code mono" style="white-space: pre-wrap; overflow-wrap: anywhere;">{{ws.m2Evidence}}</pre></details></sc-if>
+<sc-if value="{{ws.m2HasError}}" hint-placeholder-val="{{false}}"><div class="fsec-e" role="alert">{{ws.m2Error}}</div></sc-if>
+<sc-if value="{{ws.hasChanges}}" hint-placeholder-val="{{true}}">
+<sc-for list="{{ws.files}}" as="f" hint-placeholder-count="3">
+<button class="fh" onClick="{{f.toggle}}"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{f.chev}}"></path></svg><span class="mono fh-p">{{f.path}}</span><sc-if value="{{f.isNew}}" hint-placeholder-val="{{false}}"><span class="newtag">nový</span></sc-if><span class="grow"></span><span class="mono num" style="font-size: 11.5px;"><span class="plus">{{f.addText}}</span> <span class="minus">{{f.delText}}</span></span></button>
+<sc-if value="{{f.open}}" hint-placeholder-val="{{false}}"><div class="diff"><sc-for list="{{f.lines}}" as="l" hint-placeholder-count="6"><div class="dfl mono {{l.cls}}"><span class="ln">{{l.o}}</span><span class="ln">{{l.n}}</span><span class="sg">{{l.sign}}</span><span class="cd">{{l.code}}</span></div></sc-for></div></sc-if>
+</sc-for>
+</sc-if>
+<sc-if value="{{ws.noChanges}}" hint-placeholder-val="{{false}}"><div class="rp-empty"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="{{ws.emptyIcon}}"></path></svg><b>{{ws.emptyTitle}}</b><span>{{ws.emptyText}}</span></div></sc-if>
+</sc-if>
+<sc-if value="{{ws.isKontext}}" hint-placeholder-val="{{false}}">
+<div class="kx">
+<div style="display: flex; align-items: baseline;"><span class="lbl-acc grow">Zaplnění kontextu</span><span class="num" style="font-size: 16px; font-weight: 600;">{{ws.ctx}} %</span></div>
+<div class="bar"><sc-for list="{{ws.parts}}" as="pt" hint-placeholder-count="3"><i style="width: {{pt.v}}%; background: {{pt.c}};"></i></sc-for></div>
+<div class="legend"><sc-for list="{{ws.parts}}" as="pt" hint-placeholder-count="3"><span><span class="sw" style="background: {{pt.c}};"></span>{{pt.label}} {{pt.v}} %</span></sc-for></div>
+<span class="num faint" style="font-size: 11px;">{{ws.tokens}} tokenů · {{ws.turns}} tahů</span>
+<span class="lbl-acc" style="margin-top: 8px;">V kontextu</span>
+<sc-if value="{{ws.hasCtxFiles}}" hint-placeholder-val="{{true}}"><div class="rows"><sc-for list="{{ws.ctxFiles}}" as="cf" hint-placeholder-count="3"><div class="row"><span class="row-ic"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{I.file}}"></path></svg></span><span class="row-tt"><span class="row-t mono" style="font-size: 11.5px;">{{cf.p}}</span></span><span class="row-m faint">{{cf.s}}</span></div></sc-for></div></sc-if>
+<sc-if value="{{ws.noCtxFiles}}" hint-placeholder-val="{{false}}"><div class="empty">Relace zatím nepracuje se soubory.</div></sc-if>
+<sc-if value="{{ws.hasMemory}}" hint-placeholder-val="{{true}}"><span class="lbl-acc" style="margin-top: 8px;">Paměť projektu</span><ul class="bul"><sc-for list="{{ws.memory}}" as="mm" hint-placeholder-count="3"><li style="font-size: 12px;">{{mm.t}}</li></sc-for></ul></sc-if>
+</div>
+</sc-if>
+<sc-if value="{{ws.hasFileError}}" hint-placeholder-val="{{false}}"><div class="fsec-e" role="alert">{{ws.fileError}}</div></sc-if>
+<sc-if value="{{ws.isSouboryList}}" hint-placeholder-val="{{false}}">
+<div class="fsec"><div class="fsec-h"><span class="lbl">Upravené v relaci</span><sc-if value="{{ws.fl.hasEdited}}" hint-placeholder-val="{{true}}"><span class="cnt">{{ws.fl.edited.length}}</span></sc-if></div>
+<sc-for list="{{ws.fl.edited}}" as="f" hint-placeholder-count="3"><button class="frow" onClick="{{f.go}}" title="{{f.path}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{I.file}}"></path></svg><span class="fr-n">{{f.name}}</span><span class="fr-d mono">{{f.dir}}</span><span class="grow"></span><span class="stt {{f.stCls}}">{{f.st}}</span><span class="mono num fr-c"><span class="plus">{{f.addText}}</span> <span class="minus">{{f.delText}}</span></span></button></sc-for>
+<sc-if value="{{ws.fl.noEdited}}" hint-placeholder-val="{{false}}"><div class="fsec-e">Relace zatím nic neupravila.</div></sc-if></div>
+<div class="fsec"><div class="fsec-h"><span class="lbl">Otevřené</span><sc-if value="{{ws.fl.hasOpened}}" hint-placeholder-val="{{true}}"><span class="cnt">{{ws.fl.opened.length}}</span></sc-if></div>
+<sc-for list="{{ws.fl.opened}}" as="f" hint-placeholder-count="3"><button class="frow" onClick="{{f.go}}" title="{{f.path}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{f.icon}}"></path></svg><span class="fr-n">{{f.name}}</span><span class="fr-d mono">{{f.dir}}</span><span class="grow"></span><span class="fr-s">{{f.src}}</span><span class="mono fr-c faint">{{f.meta}}</span></button></sc-for>
+<sc-if value="{{ws.fl.noOpened}}" hint-placeholder-val="{{false}}"><div class="fsec-e">Relace zatím nečetla žádný soubor.</div></sc-if></div>
+<sc-if value="{{ws.fl.specialistFiles.has}}" hint-placeholder-val="{{false}}"><div class="fsec"><div class="fsec-h"><span class="lbl">{{ws.fl.specialistFiles.title}}</span><span class="cnt">{{ws.fl.specialistFiles.count}}</span><span class="grow"></span><button class="btn" onClick="{{ws.fl.specialistFiles.refresh}}">Obnovit</button><button class="btn" onClick="{{ws.fl.specialistFiles.add}}">Přidat</button><button class="btn" onClick="{{ws.fl.specialistFiles.share}}">Sdílet…</button></div>
+<sc-if value="{{ws.fl.specialistFiles.hasNotice}}" hint-placeholder-val="{{false}}"><div class="fsec-e" role="status">{{ws.fl.specialistFiles.notice}}</div></sc-if>
+<sc-if value="{{ws.fl.specialistFiles.hasShare}}" hint-placeholder-val="{{false}}"><div class="file-action"><div class="fsec-h"><b>Převzít kopii od jiného specialisty</b><span class="grow"></span><button class="btn" onClick="{{ws.fl.specialistFiles.closeShare}}">Zavřít</button></div><sc-for list="{{ws.fl.specialistFiles.shareChoices}}" as="choice" hint-placeholder-count="1"><button class="frow" onClick="{{choice.go}}">{{choice.label}}</button></sc-for></div></sc-if>
+<sc-for list="{{ws.fl.specialistFiles.rows}}" as="f" hint-placeholder-count="1"><div class="frow"><span class="fr-n">{{f.name}}</span><span class="fr-d mono">{{f.meta}}</span><span class="grow"></span><button class="btn" onClick="{{f.preview}}">Náhled</button><button class="btn" onClick="{{f.attach}}">Připojit</button><button class="iconbtn sm" aria-label="Odebrat {{f.name}}" title="Odebrat kopii" onClick="{{f.remove}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{I.trash}}"></path></svg></button></div></sc-for>
+<sc-if value="{{ws.fl.specialistFiles.hasPreview}}" hint-placeholder-val="{{false}}"><div class="file-action"><div class="fsec-h"><b>{{ws.fl.specialistFiles.previewName}}</b><span class="grow"></span><button class="btn" onClick="{{ws.fl.specialistFiles.closePreview}}">Zavřít</button></div><pre class="mono" style="max-height: 240px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;">{{ws.fl.specialistFiles.previewText}}</pre></div></sc-if>
+<sc-if value="{{ws.fl.specialistFiles.noFiles}}" hint-placeholder-val="{{false}}"><div class="fsec-e">Přidej soubor do pracovního prostoru specialisty. Model ho uvidí až po volbě Připojit.</div></sc-if></div></sc-if>
+<div class="fsec"><div class="fsec-h"><span class="lbl">{{ws.fl.treeTitle}}</span><span class="grow"></span><sc-if value="{{ws.fl.canManage}}" hint-placeholder-val="{{true}}"><button class="iconbtn sm" aria-label="Nový soubor" title="Nový soubor" onClick="{{ws.fl.newFile}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{I.plus}}"></path></svg></button><button class="iconbtn sm" aria-label="Nová složka" title="Nová složka" onClick="{{ws.fl.newDirectory}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{I.folder}}"></path></svg></button></sc-if></div>
+<sc-if value="{{ws.fl.action.has}}" hint-placeholder-val="{{false}}"><div class="file-action"><b>{{ws.fl.action.title}}</b><sc-if value="{{ws.fl.action.isDelete}}" hint-placeholder-val="{{false}}"><span class="mono">{{ws.fl.action.plan}}</span><span>{{ws.fl.action.impact}}</span></sc-if><sc-if value="{{ws.fl.action.needsTarget}}" hint-placeholder-val="{{true}}"><input aria-label="Cesta položky v projektu" value="{{ws.fl.action.target}}" onChange="{{ws.fl.action.setTarget}}" placeholder="Relativní cesta v projektu" /></sc-if><div class="file-action-buttons"><button class="btn" onClick="{{ws.fl.action.cancel}}">Zrušit</button><button class="btn btn-acc" onClick="{{ws.fl.action.submit}}">Potvrdit</button></div></div></sc-if>
+<sc-if value="{{ws.fl.actionNotice}}" hint-placeholder-val="{{false}}"><div class="fsec-e" role="status">{{ws.fl.actionNotice}}</div></sc-if>
+<sc-if value="{{ws.fl.hasUncertain}}" hint-placeholder-val="{{false}}"><div class="file-action"><span>Výsledek operace není jistý.</span><button class="btn" onClick="{{ws.fl.refresh}}">Obnovit strom a ověřit stav</button></div></sc-if>
+<sc-if value="{{ws.fl.hasTree}}" hint-placeholder-val="{{true}}"><div class="tree"><sc-for list="{{ws.fl.tree}}" as="f" hint-placeholder-count="8"><div class="tree-entry"><button class="tree-r {{f.cls}}" style="padding-left: {{f.pad}}px;" onClick="{{f.go}}" title="{{f.path}}"><span class="tchev"><sc-if value="{{f.hasChev}}" hint-placeholder-val="{{false}}"><svg class="ic" width="11" height="11" viewBox="0 0 24 24"><path d="{{f.chev}}"></path></svg></sc-if></span><svg class="ic" width="13" height="13" viewBox="0 0 24 24" style="color: {{f.ic}};"><path d="{{f.icon}}"></path></svg><span class="tn">{{f.name}}</span><span class="grow"></span><span class="mono mk" style="color: {{f.mc}};">{{f.mark}}</span></button><div class="tree-actions"><button class="iconbtn sm" aria-label="Přejmenovat {{f.path}}" title="Přejmenovat" onClick="{{f.rename}}"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{I.type}}"></path></svg></button><button class="iconbtn sm" aria-label="Smazat {{f.path}}" title="Smazat" onClick="{{f.remove}}"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{I.trash}}"></path></svg></button></div></div></sc-for></div></sc-if>
+<sc-if value="{{ws.fl.noTree}}" hint-placeholder-val="{{false}}"><div class="fsec-e">Tahle relace nemá připojený projekt, takže nemá ani strom souborů.</div></sc-if></div>
+</sc-if>
+<sc-if value="{{ws.isSouboryFile}}" hint-placeholder-val="{{false}}">
+<div class="fv">
+<div class="fv-h"><button class="iconbtn" aria-label="Zpět na seznam" title="Zpět" onClick="{{ws.fvS.back}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{I.back}}"></path></svg></button><span class="fv-p" title="{{ws.fvS.path}}"><b class="mono">{{ws.fvS.name}}</b><span class="mono faint">{{ws.fvS.dir}}</span></span><sc-if value="{{ws.fvS.dirty}}" hint-placeholder-val="{{false}}"><span class="fv-dirty" title="Neuložené změny"></span></sc-if><span class="grow"></span><span class="seg"><sc-for list="{{ws.fvS.modes}}" as="md" hint-placeholder-count="3"><button class="{{md.cls}}" onClick="{{md.pick}}">{{md.label}}</button></sc-for></span><button class="iconbtn" aria-label="Rozšířit panel" title="Rozšířit nebo zúžit panel" onClick="{{ws.fvS.widen}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{I.widen}}"></path></svg></button></div>
+<div class="fv-m"><span class="num">{{ws.fvS.meta}}</span><sc-if value="{{ws.fvS.hasSt}}" hint-placeholder-val="{{true}}"><span class="stt {{ws.fvS.stCls}}">{{ws.fvS.stText}}</span></sc-if></div>
+<sc-if value="{{ws.fvS.hasGuard}}" hint-placeholder-val="{{false}}"><div class="fv-g"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="{{I.info}}"></path></svg><span class="grow">Soubor má neuložené změny.</span><button class="btn" onClick="{{ws.fvS.guardStay}}">Zpět k úpravám</button><button class="btn" onClick="{{ws.fvS.guardDiscard}}">Zahodit</button><button class="btn btn-acc" onClick="{{ws.fvS.guardSave}}">Uložit</button></div></sc-if>
+<sc-if value="{{ws.fvS.isPreview}}" hint-placeholder-val="{{true}}"><div class="cv mono"><sc-for list="{{ws.fvS.lines}}" as="ln" hint-placeholder-count="12"><div class="cvl"><span class="ln">{{ln.n}}</span><span class="cd">{{ln.t}}</span></div></sc-for></div></sc-if>
+<sc-if value="{{ws.fvS.isDiff}}" hint-placeholder-val="{{false}}"><div class="diff fv-d"><sc-for list="{{ws.fvS.diff}}" as="l" hint-placeholder-count="6"><div class="dfl mono {{l.cls}}"><span class="ln">{{l.o}}</span><span class="ln">{{l.n}}</span><span class="sg">{{l.sign}}</span><span class="cd">{{l.code}}</span></div></sc-for></div></sc-if>
+<sc-if value="{{ws.fvS.isEdit}}" hint-placeholder-val="{{false}}"><textarea class="fv-ed mono" spellcheck="false" aria-label="Obsah souboru {{ws.fvS.path}}" value="{{ws.fvS.draft}}" onChange="{{ws.fvS.setDraft}}" onKeyDown="{{ws.fvS.editKey}}"></textarea></sc-if>
+</div>
+</sc-if>
+<sc-if value="{{ws.isScmMain}}" hint-placeholder-val="{{false}}">
+<sc-if value="{{ws.scm.unavailable}}" hint-placeholder-val="{{false}}"><div class="rp-empty"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="{{I.branch}}"></path></svg><b>Správa zdrojů</b><span>{{ws.scm.unavailableText}}</span></div></sc-if>
+<sc-if value="{{ws.scm.noProject}}" hint-placeholder-val="{{false}}"><div class="rp-empty"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="{{I.branch}}"></path></svg><b>Tahle relace nemá projekt</b><span>Správa zdrojů patří projektu. Volná konverzace ani specialista bez projektu repozitář nemají.</span></div></sc-if>
+<sc-if value="{{ws.scm.noRepo}}" hint-placeholder-val="{{false}}"><div class="rp-empty"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="{{I.branch}}"></path></svg><b>{{ws.scm.projectName}} nemá repozitář</b><span>{{ws.scm.initText}}</span><button class="btn" onClick="{{ws.scm.init}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{I.plus}}"></path></svg>Inicializovat repozitář…</button></div></sc-if>
+<sc-if value="{{ws.scm.plan.has}}" hint-placeholder-val="{{false}}"><div class="plan"><div class="plan-h"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="{{I.shield}}"></path></svg><span class="grow"><span class="lbl-acc">Plán operace</span><b class="mono">{{ws.scm.plan.title}}</b></span></div><div class="plan-r"><sc-for list="{{ws.scm.plan.rows}}" as="r" hint-placeholder-count="3"><span class="plan-k">{{r.k}}</span><span class="{{r.cls}}">{{r.v}}</span></sc-for></div><sc-if value="{{ws.scm.plan.blocked}}" hint-placeholder-val="{{false}}"><div class="plan-b">{{ws.scm.plan.reason}}</div></sc-if><div class="plan-f"><span class="faint">Zatím se nic nestalo.</span><span class="grow"></span><button class="btn" onClick="{{ws.scm.plan.cancel}}">Zrušit</button><sc-if value="{{ws.scm.plan.canRun}}" hint-placeholder-val="{{true}}"><button class="btn btn-acc" onClick="{{ws.scm.plan.run}}">{{ws.scm.plan.runLabel}}</button></sc-if></div></div></sc-if>
+<sc-if value="{{ws.scm.isRepo}}" hint-placeholder-val="{{true}}">
+<div class="scm-h"><button class="chip scm-br" onClick="{{ws.scm.branchMenu}}" title="Přepnout nebo založit větev"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{I.branch}}"></path></svg><span class="mono">{{ws.scm.branch}}</span><svg class="ic" width="11" height="11" viewBox="0 0 24 24"><path d="{{I.down}}"></path></svg></button><span class="grow"></span><button class="iconbtn" aria-label="Načíst ze vzdáleného repozitáře" title="Načíst ze vzdáleného repozitáře (fetch)" onClick="{{ws.scm.fetch}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{I.refresh}}"></path></svg></button><button class="btn scm-sync {{ws.scm.syncCls}}" onClick="{{ws.scm.sync}}" title="{{ws.scm.syncTitle}}"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{I.dn}}"></path></svg><span class="num">{{ws.scm.behind}}</span><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{I.up}}"></path></svg><span class="num">{{ws.scm.ahead}}</span></button></div>
+<div class="scm-s">{{ws.scm.sub}}</div>
+<div class="scm-c"><textarea aria-label="Zpráva commitu" placeholder="Zpráva commitu (Ctrl+Enter potvrdí)" value="{{ws.scm.msg}}" onChange="{{ws.scm.setMsg}}" onKeyDown="{{ws.scm.msgKey}}"></textarea><div class="scm-cb"><button class="btn btn-acc scm-go {{ws.scm.commitCls}}" onClick="{{ws.scm.commit}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{I.check}}"></path></svg>Potvrdit</button><button class="btn btn-acc scm-more {{ws.scm.commitCls}}" aria-label="Další možnosti potvrzení" title="Commit a push, potvrdit vše" onClick="{{ws.scm.commitMenu}}"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{I.down}}"></path></svg></button></div><sc-if value="{{ws.scm.hasHint}}" hint-placeholder-val="{{false}}"><div class="scm-hint">{{ws.scm.hint}}</div></sc-if></div>
+<sc-for list="{{ws.scm.groups}}" as="gr" hint-placeholder-count="2">
+<div class="fsec-h scm-gh"><span class="lbl">{{gr.label}}</span><span class="cnt">{{gr.n}}</span><span class="grow"></span><button class="iconbtn sm" aria-label="{{gr.allLabel}}" title="{{gr.allLabel}}" onClick="{{gr.all}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{gr.allIcon}}"></path></svg></button></div>
+<sc-for list="{{gr.rows}}" as="f" hint-placeholder-count="3"><div class="frow scm-r"><button class="scm-o" onClick="{{f.open}}" title="Otevřít změny"><span class="scm-x {{f.xCls}}">{{f.x}}</span><span class="fr-n">{{f.name}}</span><span class="fr-d mono">{{f.dir}}</span><span class="grow"></span><span class="mono num fr-c"><span class="plus">{{f.addText}}</span> <span class="minus">{{f.delText}}</span></span></button><button class="iconbtn sm" aria-label="{{f.actLabel}}" title="{{f.actLabel}}" onClick="{{f.act}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{f.actIcon}}"></path></svg></button></div></sc-for>
+</sc-for>
+<sc-if value="{{ws.scm.clean}}" hint-placeholder-val="{{false}}"><div class="fsec-e">Pracovní strom je čistý – nic k potvrzení.</div></sc-if>
+<div class="fsec-h scm-gh"><span class="lbl">Historie</span></div>
+<div class="glog"><sc-for list="{{ws.scm.graph}}" as="r" hint-placeholder-count="6"><div class="gl-r" title="{{r.title}}"><svg class="gl-g" width="30" height="26" viewBox="0 0 30 26" aria-hidden="true"><path d="{{r.p1}}" stroke="var(--violet)"></path><path d="{{r.p0}}" stroke="var(--acct)"></path><circle cx="{{r.cx}}" cy="13" r="3.6" fill="{{r.dc}}"></circle></svg><span class="gl-s">{{r.s}}</span><sc-for list="{{r.refs}}" as="rf" hint-placeholder-count="1"><span class="gref {{rf.cls}}">{{rf.t}}</span></sc-for><span class="gl-m mono">{{r.hash}} · {{r.when}}</span></div></sc-for></div>
+</sc-if>
+</sc-if>
+<sc-if value="{{ws.isScmFile}}" hint-placeholder-val="{{false}}">
+<div class="fv">
+<div class="fv-h"><button class="iconbtn" aria-label="Zpět na seznam" title="Zpět" onClick="{{ws.fvG.back}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{I.back}}"></path></svg></button><span class="fv-p" title="{{ws.fvG.path}}"><b class="mono">{{ws.fvG.name}}</b><span class="mono faint">{{ws.fvG.dir}}</span></span><sc-if value="{{ws.fvG.dirty}}" hint-placeholder-val="{{false}}"><span class="fv-dirty" title="Neuložené změny"></span></sc-if><span class="grow"></span><span class="seg"><sc-for list="{{ws.fvG.modes}}" as="md" hint-placeholder-count="3"><button class="{{md.cls}}" onClick="{{md.pick}}">{{md.label}}</button></sc-for></span><button class="iconbtn" aria-label="Rozšířit panel" title="Rozšířit nebo zúžit panel" onClick="{{ws.fvG.widen}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{I.widen}}"></path></svg></button></div>
+<div class="fv-m"><span class="num">{{ws.fvG.meta}}</span><sc-if value="{{ws.fvG.hasSt}}" hint-placeholder-val="{{true}}"><span class="stt {{ws.fvG.stCls}}">{{ws.fvG.stText}}</span></sc-if></div>
+<sc-if value="{{ws.fvG.hasGuard}}" hint-placeholder-val="{{false}}"><div class="fv-g"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="{{I.info}}"></path></svg><span class="grow">Soubor má neuložené změny.</span><button class="btn" onClick="{{ws.fvG.guardStay}}">Zpět k úpravám</button><button class="btn" onClick="{{ws.fvG.guardDiscard}}">Zahodit</button><button class="btn btn-acc" onClick="{{ws.fvG.guardSave}}">Uložit</button></div></sc-if>
+<sc-if value="{{ws.fvG.isPreview}}" hint-placeholder-val="{{true}}"><div class="cv mono"><sc-for list="{{ws.fvG.lines}}" as="ln" hint-placeholder-count="12"><div class="cvl"><span class="ln">{{ln.n}}</span><span class="cd">{{ln.t}}</span></div></sc-for></div></sc-if>
+<sc-if value="{{ws.fvG.isDiff}}" hint-placeholder-val="{{false}}"><div class="diff fv-d"><sc-for list="{{ws.fvG.diff}}" as="l" hint-placeholder-count="6"><div class="dfl mono {{l.cls}}"><span class="ln">{{l.o}}</span><span class="ln">{{l.n}}</span><span class="sg">{{l.sign}}</span><span class="cd">{{l.code}}</span></div></sc-for></div></sc-if>
+<sc-if value="{{ws.fvG.isEdit}}" hint-placeholder-val="{{false}}"><textarea class="fv-ed mono" spellcheck="false" aria-label="Obsah souboru {{ws.fvG.path}}" value="{{ws.fvG.draft}}" onChange="{{ws.fvG.setDraft}}" onKeyDown="{{ws.fvG.editKey}}"></textarea></sc-if>
+</div>
+</sc-if>
+</div>
+<sc-if value="{{ws.editFoot}}" hint-placeholder-val="{{false}}"><div class="rp-f"><span class="num">{{ws.fv.path}}</span><span class="grow"></span><button class="btn" onClick="{{ws.fv.discard}}">Zahodit</button><button class="btn btn-acc" onClick="{{ws.fv.save}}">Uložit</button></div></sc-if>
+<sc-if value="{{ws.showFoot}}" hint-placeholder-val="{{true}}"><div class="rp-f"><span class="num">{{ws.sum}}</span><span class="grow"></span><button class="btn" onClick="{{ws.reject}}">Zamítnout vše</button><button class="btn btn-acc" onClick="{{ws.approve}}">Schválit vše</button></div></sc-if>
+</aside>
+</div>
+
+<footer class="sb">
+<span class="sbi"><span class="dot {{sb.dot}}"></span>{{sb.connection}}</span>
+<span>{{sb.backend}}</span>
+<span class="mono" style="font-size: 11px;">{{sb.ws}}</span>
+<span class="sbi">{{sb.sessions}}</span>
+<span class="grow"></span>
+<span class="sbi" title="Zaplnění kontextu relace v aktivním sloupci">kontext<span class="bar sbbar"><i style="width: {{sb.ctx}}%;"></i></span><span class="num">{{sb.ctxLabel}}</span></span>
+<span class="sbi" title="Velikost databáze"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{I.db}}"></path></svg>{{sb.db}}</span>
+<span class="num">{{sb.gpu}}</span>
+<button class="sbb" aria-label="Oznámení" title="Oznámení"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{I.bell}}"></path></svg></button>
+</footer>
+
+<sc-if value="{{palette}}" hint-placeholder-val="{{false}}">
+<div class="pal-bg" onClick="{{closePalette}}"></div>
+<div class="pal" role="dialog" aria-label="Paleta příkazů">
+<label class="pal-in"><svg class="ic" width="16" height="16" viewBox="0 0 24 24"><path d="{{I.search}}"></path></svg><input aria-label="Příkaz nebo hledání" placeholder="Napiš příkaz, relaci nebo položku…" value="{{pq}}" onChange="{{setPq}}" onKeyDown="{{palKey}}"><span class="kbd">Esc</span></label>
+<div class="pal-l">
+<sc-for list="{{pal}}" as="g" hint-placeholder-count="3">
+<div class="dd-head">{{g.label}}</div>
+<sc-for list="{{g.items}}" as="it" hint-placeholder-count="3"><button class="pal-i" onClick="{{it.go}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{it.icon}}"></path></svg><span class="pal-t">{{it.t}}</span><span class="pal-s">{{it.s}}</span><span class="kbd">{{it.k}}</span></button></sc-for>
+</sc-for>
+<sc-if value="{{palEmpty}}" hint-placeholder-val="{{false}}"><div class="rp-empty" style="padding: 24px;">Nic nenalezeno.</div></sc-if>
+</div>
+<div class="pal-f">Enter spustí první výsledek · Esc zavře</div>
+</div>
+</sc-if>
+
+<sc-if value="{{hasCtx}}" hint-placeholder-val="{{false}}">
+<div class="mbg" style="z-index: 60;" onClick="{{closeCtx}}" onContextMenu="{{closeCtx}}"></div>
+<div class="dd ctx {{ctxCls}}" role="menu" style="left: {{ctxX}}px; top: {{ctxY}}px;">
+<div class="dd-head">{{ctxTitle}}</div>
+<sc-if value="{{ctxHasQ}}" hint-placeholder-val="{{false}}"><label class="dd-q"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{I.search}}"></path></svg><input aria-label="Hledat větev" placeholder="Hledat nebo nový název…" value="{{ctxQ}}" onChange="{{setCtxQ}}"></label></sc-if>
+<sc-for list="{{ctxItems}}" as="mi" hint-placeholder-count="5">
+<sc-if value="{{mi.isSep}}" hint-placeholder-val="{{false}}"><div class="dd-sep"></div></sc-if>
+<sc-if value="{{mi.isHead}}" hint-placeholder-val="{{false}}"><div class="dd-head">{{mi.t}}</div></sc-if>
+<sc-if value="{{mi.isItem}}" hint-placeholder-val="{{true}}"><button class="dd-i {{mi.cls}}" role="menuitem" onClick="{{mi.go}}"><span class="dd-ic"><sc-if value="{{mi.hasIcon}}" hint-placeholder-val="{{false}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{mi.icon}}"></path></svg></sc-if><sc-if value="{{mi.hasNum}}" hint-placeholder-val="{{false}}"><span class="tnum {{mi.numCls}}">{{mi.num}}</span></sc-if></span><span class="dd-t"><sc-if value="{{mi.hasDot}}" hint-placeholder-val="{{false}}"><span class="dot {{mi.dot}}"></span></sc-if>{{mi.t}}</span><span class="dd-k">{{mi.k}}</span></button></sc-if>
+</sc-for>
+</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1600,"height":960}}'>
+/*SCRIPT*/
+</script>
+</body>
+</html>

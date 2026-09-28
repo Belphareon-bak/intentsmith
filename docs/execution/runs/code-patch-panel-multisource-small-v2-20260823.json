@@ -1,0 +1,181 @@
+{
+  "measuredAt": "2026-08-23T00:39:16.363Z",
+  "models": [
+    "qwen3-coder:latest",
+    "qwen3.5:27b",
+    "qwen3-30b-a3b:latest",
+    "qwen3:14b",
+    "llava:13b"
+  ],
+  "repeats": 3,
+  "tasks": [
+    {
+      "name": "patch_2c702a2a5997",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_8cae1b583963",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_8e48b3cf8012",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_4003af52e8bd",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_a0bcfd802dd5",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_14ebe01fa15f",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_0fe346cc820c",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_6fc5e4eb7dce",
+      "values": [
+        0,
+        1,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "rozlišuje"
+    },
+    {
+      "name": "patch_727092a465f2",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_18fd66257fb3",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_8b7557d1f9f5",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_e8cdbe02e5de",
+      "values": [
+        0.8,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "rozlišuje"
+    }
+  ],
+  "scores": [
+    [
+      "qwen3.5:27b",
+      0.08333333333333333
+    ],
+    [
+      "qwen3-coder:latest",
+      0.06666666666666667
+    ],
+    [
+      "qwen3-30b-a3b:latest",
+      0
+    ],
+    [
+      "qwen3:14b",
+      0
+    ],
+    [
+      "llava:13b",
+      0
+    ]
+  ],
+  "discriminating": 2,
+  "total": 12
+}

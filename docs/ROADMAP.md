@@ -1,360 +1,308 @@
-# Roadmap
+# IntentSmith — Roadmapa 1.0 (nahrazeno)
 
-The roadmap is ordered by product dependency, not calendar promises. A phase closes only when its stated evidence and safety gates pass on a clean clone.
+> **⚠️ Tenhle dokument už není platná roadmapa.**
+> Platí [`ROADMAP.md`](../ROADMAP.md) v kořeni repozitáře.
+>
+> Důvod: tahle verze řídí projekt přes Gate 0 / Gate 1, což operátor
+> **2026-08-02 zrušil pro vývoj** — attestace platí jen u releasu
+> (`CONTRACT.md` §8). Zůstává jako historický kontext a jako zdroj
+> inventáře rizik; **nerozhoduje.**
 
-## Phase 0 — foundation ✅
+**Verze kódu:** 135.0.0
+**Datum:** 2026-07-31
+**Stav:** historický dokument
+**Autorita pro verdikty:** [convergence/GATE-CRITERIA.md](convergence/GATE-CRITERIA.md) — platí u releasu
 
-Goal: establish the product boundary before implementation.
+---
 
-- Define local-first policy and component ownership.
-- Research reusable open-source components and protocols.
-- Record core architecture decisions.
-- Define the monorepo and dependency boundaries.
+## Co se změnilo proti C3 roadmapě v17
 
-Exit evidence: ADRs, component research and a reviewable implementation plan.
+Tento dokument nahrazuje roadmapu C3-Agent v17. Historická verze je
+v [archive/ROADMAP-v17-C3.md](archive/ROADMAP-v17-C3.md).
 
-## Phase 1 — deterministic core ✅
+Předchozí roadmapa uváděla „~98 % celkové vize hotovo", čtyři pilíře na 100 %
+a „~3 600+ verified tests". Gate 0 tato tvrzení nepotvrdil. Nešlo o to, že by
+kód nefungoval — šlo o to, že **pro ta tvrzení neexistoval ověřitelný podklad**:
 
-Goal: build an offline, deterministic control plane without a real model or external agent.
+- 30 z 30 schopností v [CAPABILITY-MATRIX.md](convergence/CAPABILITY-MATRIX.md)
+  je `UNVERIFIED` nebo `BASELINE_RED`;
+- původní audit našel 25 `KNOWN_DEFECTIVE` a 54 `BLOCKED`; položková oprava a
+  klasifikace nyní ponechává 0 `KNOWN_DEFECTIVE` a 79 konkrétně
+  prerekvizitami blokovaných programů — blokovaný stav není zelený důkaz;
+- test harness hlásil zelenou i tam, kde běh selhal;
+- registr testů byl neúplný — část spustitelných programů v něm nebyla.
 
-- Runtime contracts and lifecycle.
-- Separate tasks and task runs.
-- SQLite persistence, audit and migrations.
-- Fake worker with success, failure, pause, resume, cancel and invalid-event scenarios.
-- Localhost API and CLI.
-- Evidence-based verdict.
+Roadmapa proto **přestává měřit procenta hotovosti a začíná měřit stav důkazů.**
+Procentní ukazatele typu „Pilíř 1 — 100 %" jsou z dokumentu odstraněny, protože
+nebyly odvozené z ničeho měřitelného. Nahrazuje je evidenční stav per schopnost,
+který má definovaný způsob výpočtu.
 
-Exit evidence: 54 tests and all quality gates passing.
+To není degradace rozsahu produktu. Vize i pilíře zůstávají. Mění se jen to, co
+smí být označeno za hotové.
 
-## Phase 1.1 — contract stabilization ✅
+---
 
-Goal: prove that the Phase 1 guarantees survive concurrency, malformed adapters and restart boundaries.
+## Základní pravidlo
 
-- Shared worker and provider contract suites.
-- Transaction serialization and per-store context isolation.
-- Conservative interrupted-run recovery.
-- Virtual-time timeout tests.
-- Boundary enforcement and clean-tree verification.
-- Remediation of all audit findings.
+> **Nejdřív důkaz, potom funkce.**
+>
+> Žádná schopnost není hotová, dokud pro ni neexistuje důkaz reprodukovatelný
+> třetí stranou ze samotného commitu. Žádná fáze se neotevírá, dokud předchozí
+> gate nedrží.
 
-Exit evidence: 202 tests, coverage gates and clean-clone verification.
+Důsledky, které jsou v 1.0 nezpochybnitelné:
 
-## Phase 2 — local inference ✅
+1. Deterministický `required` failure znamená FAIL, ať je zeleného cokoli.
+2. `KNOWN_DEFECTIVE` sada se nikdy nepočítá jako zelený důkaz.
+3. Blokovaná sada musí pojmenovat **konkrétní** chybějící prerekvizitu.
+4. Verdikt platí ke commitu a fingerprintu registru; jakákoli změna ho ruší.
+5. Evidence se generuje, nepíše.
 
-Goal: provide a useful local model path without weakening Core.
+---
 
-- Sanitized hardware discovery.
-- Hardware/model fit policy and explicit `MODEL_TOO_LARGE`.
-- Ollama provider adapter.
-- Timeout, cancellation and single-GPU semaphore.
-- Optional real-Ollama verification.
-- Scoped loopback worker gateway, off by default.
+## Kde jsme skutečně
 
-Exit evidence: `phase-2` tag, 410 tests, real-Ollama evidence and unchanged quality thresholds.
+Čísla níže jsou odvozená z `tests/registry.json` a validátorů, ne odhadnutá.
+Reprodukce: `node scripts/validate-test-registry.js`,
+`node scripts/validate-final-disposition.js`.
 
-## Phase 3 — first coding worker, closure candidate
+| Ukazatel | Hodnota |
+|---|---:|
+| Registrované spustitelné programy | 350 |
+| Explicitní support/aggregate výjimky | 8 |
+| `ACTIVE` | 256 |
+| `BLOCKED` (konkrétní prerekvizity) | 79 |
+| `KNOWN_DEFECTIVE` | 0 |
+| `HISTORICAL` | 15 |
+| Rozsah G0-C5 (`offline` + `database`, required) | **199** |
+| Klasifikované dispoziční záznamy | 225 (validní) |
+| Schopnosti s aktuálním akceptačním důkazem | **0 z 30** |
 
-Status: complete through run 2F, integrated with current `main` in PR #4, and
-green in CI on the integrated code tree. Not merged and not tagged.
+Dříve známý deterministický failure `tests/pilot-c1c2c3.test.js` A9 (quality
+engine označoval všech 10 výstupů jako `EXCELLENT`) je **opravený v `f38f5e8`** —
+sada hlásí 44 passed, 0 failed, exit 0.
 
-Goal: run a real open-source coding worker while keeping lifecycle, permissions and verdict authority in Core.
+Gate 0 už měl čistý kandidát se 199 zelenými deterministickými sadami a
+nezávisle schválené review. Při standardní promotion ale vyšel najevo
+`G0-R031`: normalizace `git status --porcelain` znemožňovala přijmout přesně
+čtyři generované výstupy. Oprava i disposition pěti review nálezů změnily
+kandidátní commit. Předchozí evidence proto zůstává historicky platná jen pro
+svůj SHA; současná větev potřebuje nový čistý běh, attestation, review receipt
+a promotion. `G0-R014` je uzavřený a není zbývajícím blockerem.
 
-Delivered:
+---
 
-- shared worker SDK and unchanged behavioural contract suite;
-- supervised, no-shell external processes;
-- official ACP SDK with explicit initialization and hard protocol-version negotiation;
-- real `opencode-ai` capability/configuration and network-behaviour probe;
-- generated forced-local configuration that selects only the IntentSmith gateway provider/model;
-- truthful capability and sandbox reporting;
-- run-scoped gateway tokens, redaction and revocation;
-- persisted approval requests, decisions and expiry;
-- git-backed `ProposedChangeSet`;
-- deterministic gate execution;
-- cancellation, timeout, failure and restart recovery;
-- API and CLI surface;
-- opt-in real-OpenCode integration suite.
+## Gate ladder
 
-Exit gates:
+Gate 0 se netýká kvality produktu. Týká se toho, jestli lze čemukoli o produktu
+věřit. Teprve gaty po něm mluví o produktu.
 
-- one terminal outcome per run;
-- no adapter writes Core state or persistence;
-- no token survives a terminal path;
-- unsupported capability is rejected, never simulated;
-- an unconfigured cloud model can never be selected for an IntentSmith run;
-- unavoidable provider-catalog traffic is either disabled or explicitly disclosed and policy-gated;
-- degraded isolation is clearly blocked or explicitly limited to disposable fixtures;
-- a real worker produces an inspectable change set and deterministic verdict;
-- default tests and build stay deterministic and independent of external
-  runtimes; strict network isolation and a cold-network install remain separate
-  evidence questions.
+```
+Gate 0  DŮVĚRA V MĚŘENÍ        ← nový kandidát čeká na vlastní C→E→R→A
+        ├─ čistý strom, oba validátory zelené
+        ├─ čistá instalace reprodukovatelná
+        ├─ 199 deterministických required T1/T2 sad prochází
+        ├─ žádná KNOWN_DEFECTIVE jako zelený důkaz
+        ├─ risk-impact policy nemá otevřený repository blocker
+        └─ evidence generovaná z verdiktního commitu
+              ↓
+Gate 1  AKCEPTAČNÍ DŮKAZ       0 z 30 schopností
+        └─ každý řádek CAPABILITY-MATRIX dostane vlastní důkaz, po jednom
+              ↓
+Gate 2  PRAVDIVÉ E2E           0 z 78 sad aktivováno
+        └─ izolace → pravdivé exity → skutečný běh, per sada
+              ↓
+Gate 3  RELEASE                blokováno otevřeným privacy incidentem
+        └─ P-001..P-003 uzavřeny
+```
 
-## Phase 4 — context and code intelligence
+Žádné hromadné povyšování. Řádek matice se posouvá jednotlivě, s vlastním
+důkazním záznamem.
 
-Goal: give workers useful project context without turning context services into authorities.
+---
 
-- MCP client boundary and protocol validation.
-- Serena adapter for code navigation and semantic tooling.
-- capability discovery and least-authority tool exposure;
-- bounded context budgets and cancellation;
-- audit metadata without persisting sensitive payloads;
-- contract and opt-in real-integration suites.
+## Vize — 6 pilířů
 
-Exit gates:
+Pilíře se nemění. Mění se jen sloupec „stav".
 
-- no MCP server can change Core lifecycle directly;
-- every tool call is attributed to a task run and policy decision;
-- context failure degrades clearly and cannot create a pass;
-- external tools remain replaceable adapters.
+### Pilíř 1: CHAT — náhrada ChatGPT
+Kvalitní konverzační AI s generováním dokumentů a expertise specializací.
+CRE jako jediná autorita nad routingem, 19 typů záměrů, deterministický
+Quality Gate v2.
 
-## Cross-cutting track — C3 semantic inheritance
+### Pilíř 2: PROJEKTY — stavění věcí
+Lifecycle engine SPEC → PLANNING → BUILD → REVIEW → CHANGE → COMPLETED,
+execution engine s iterativním fix cyklem, Code Intelligence.
 
-Goal: retain the mature product model proven across C3's long development
-history without importing its monolithic implementation or weakening
-IntentSmith Core.
+### Pilíř 3: WORKERI — autonomní hlídací psi
+24/7 monitoring s notifikacemi (email, Telegram, ntfy, webhook, desktop, push).
 
-The normative intake and progress record is the
-[C3 Capability & Lifecycle Ledger](migration/c3-capability-lifecycle-ledger.md).
-Roadmap work derived from C3 is not ready until its ledger entry identifies the
-source evidence, invariants, test families, ownership and migration decision.
+### Pilíř 4: SPECIALISTÉ — komplexní on-demand agenti
+Self-contained pluginové balíčky, `ctx.registries`, N:M capability routing.
 
-This track begins before Phase 4 and supplies contracts to later phases:
+### Pilíř 5: IDE — vlastní vývojové prostředí
+C3 Studio: Theia 1.65.2 + Electron 37, custom panely.
 
-1. **Semantic ledger** — inventory definitions, invariants, tests, failure modes
-   and version history for Expertises, Skills, Specialists, Autonomous Agents
-   and project lifecycle.
-2. **Contract ADRs** — freeze boundaries and resolve naming/ownership
-   ambiguities before writing runtime code.
-3. **Expertise contracts** — read-only synthesis profiles, deterministic
-   selection, 5D compatibility, inheritance and max-three composition.
-4. **Skill contracts** — versioned workflow definitions, persisted execution
-   state, interactive checkpoints and validation outcomes.
-5. **Specialist contracts** — self-contained manifests, capability routing,
-   deterministic ToolAdapters, knowledge provenance, scenarios, memory,
-   telemetry, dependency ordering and rollback-ready updates.
-6. **Autonomous-agent contracts** — schedules, sources, deterministic
-   conditions, edge triggers, cooldowns, crash-safe deduplication and
-   Core-governed actions.
-7. **Lifecycle extraction** — preserve specification, planning, milestone
-   scope, deterministic gates, checkpoint modes, bounded repair, drift review,
-   change management and recovery as policies over `Task`/`TaskRun`.
+### Pilíř 6: PRODUKT — balíčkování a ochrana
+Installer, licence, auto-update, setup wizard.
 
-Exit gates:
+### Evidenční stav pilířů
 
- - no layer is collapsed into another for implementation convenience;
- - every migrated invariant has a contract or negative test;
- - C3 code is not copied wholesale;
- - Core remains the only authority for state, approvals and verdicts;
- - legacy behaviour is classified as preserve, redesign, replace with open
-   source, or retire, with recorded evidence.
+Stav = stav důkazů, ne odhad hotovosti. Mapování na
+[CAPABILITY-MATRIX.md](convergence/CAPABILITY-MATRIX.md).
 
-## Phase 3 integration record
+| Pilíř | Schopnosti | Nejhorší stav v pilíři | Co chybí k Gate 1 |
+|---|---|---|---|
+| 1 CHAT | C3-002..004, C3-008, C3-011 | `BASELINE_RED` | chybí kandidátní `lastGreen` a per-capability behavior artifact |
+| 2 PROJEKTY | C3-005..007, C3-009, C3-018, C3-019 | `BASELINE_RED` | chybí kandidátní lifecycle, executor a code-intelligence evidence |
+| 3 WORKERI | C3-015, C3-021 | `UNVERIFIED` | chybí kandidátní scheduler/notification evidence |
+| 4 SPECIALISTÉ | C3-012..014, C3-022 | `BASELINE_RED` | opravené Gate 0 testy ještě nejsou capability acceptance evidence |
+| 5 IDE | C3-001, C3-023 | `UNVERIFIED` | chybí digest-bound production build a runtime UI flow; C3-001 blokuje `G0-R030` |
+| 6 PRODUKT | C3-026, C3-028..030 | `BASELINE_RED` | chybí kandidátní evidence dokumentace, izolace, approvals a Git verdictu |
 
-Entry gate (satisfied): Phase 2 is merged into `main` (`ec87dd0`, PR #2), the
-annotated `phase-2` tag exists, and CI for that merge completed successfully
-(workflow run `30337726989`).
+---
 
-### Runs
+## Plán 1.0 podle gatů
 
-| Run | Subject |
+### Gate 0 — zbývá
+
+| # | Úkol | Priorita | Stav |
+|---|---|---|---|
+| G0-1 | Izolace E2E na runner-owned root (7 posledních sad) | 🔴 P0 | ✅ hotovo |
+| G0-2 | Doplnit registr na úplnost (2 neregistrované programy) | 🔴 P0 | ✅ hotovo |
+| G0-3 | Opravit `pilot-c1c2c3` A9 — quality engine nerozlišuje kvalitu | 🔴 P0 | ✅ hotovo (`f38f5e8`) |
+| G0-4 | Izolovat autoritativní běhy přes `C3_DB_PATH` a zavřít implicitní produktový DB import (`G0-R012`) | 🔴 P0 | ✅ explicitní cesta fail-closed; server bootstrap zachovává projektový default; pozitivní i negativní self-test |
+| G0-5 | Discovery registru podle spustitelnosti, ne názvu; explicitní výjimky (`G0-R013`) | 🟡 P1 | ✅ 350 programů + 8 explicitních výjimek; meta-test dokazuje nekonvenční název |
+| G0-6 | Generátor evidence — status, index, baseline report a review packet z čistého kandidáta (`D-020`) | 🔴 P0 | ✅ implementováno; nový kandidát čeká na vlastní běh |
+| G0-7 | Každý `REBUILD` záznam do koncového stavu (`D-018`) | 🟡 P1 | ✅ 60 `REPAIRED`, 32 `DEFERRED(<konkrétní prerequisite>)`; validator 225/225 |
+| G0-8 | Každý registry-`BLOCKED` řádek s konkrétní prerekvizitou (G0-C7) | 🟡 P1 | ✅ 0 řádků bez server/external/Ollama/GPU důvodu |
+| G0-9 | Čistá instalace + celý rozsah G0-C5 z výsledného commitu | 🔴 P0 | 🔄 předchozí kandidát prošel; po opravě promotion se musí standardně přegenerovat |
+| G0-10 | Uzavřít direct-run/T1 filesystem izolaci (`G0-R014`) | 🔴 P0 | ✅ uzavřeno runner-owned bootstrapem a clean-candidate důkazem |
+| G0-11 | Obnovit poškozenou českou dokumentaci bez ztráty novějších informací (`G0-R017`) | 🟡 P1 | ✅ obnoveno; registrovaný test hlídá diakritiku, code fences a lokální odkazy |
+| G0-12 | Připnout přesný model/GPU/context kontrakt pro sady 57–59 a 88 (`G0-R020`) | 🔴 P0 | ✅ schema v3 + fail-closed preflight; sady zůstávají `BLOCKED`, žádný modelový green claim |
+| G0-13 | Zavřít false-green síťové/procesní chyby obou npm audit aliasů (`G0-R027`) | 🔴 P0 | ✅ sdílený shell-free runner + registrované offline pozitivní/negativní fixture |
+| G0-14 | Opravit promotion writer, který ořezal první porcelain status sloupec (`G0-R031`) | 🔴 P0 | ✅ `trimEnd()` kontrakt + pozitivní a mutační test |
+
+### Gate 1 — akceptační důkaz per schopnost
+
+Po jednom řádku matice. Pořadí podle rizika, ne podle snadnosti:
+
+Akceptační evidence neznamená pouhou vazbu na registrovanou sadu. Každý odkaz
+z acceptance záznamu musí mířit na skutečně spuštěnou registrovanou sadu s
+neprázdným `lastGreen`, jehož commit je přesný Gate 1 kandidát a jehož artifact
+je reprodukovatelně vázaný. Doplnění chybějících 13 capabilities prázdnými
+registry řádky ani 30 ručně přepsaných statusů proto nemůže vytvořit zelený
+Gate 1.
+
+1. **C3-024** SQLite a migrace — je pod tím všechno ostatní; Gate 0 odstranil
+   implicitní import-side-effect, ale akceptační důkaz schopnosti teprve chybí.
+2. **C3-003** CRE routing — jediná autorita nad chováním celého chatu.
+3. **C3-008** deterministické quality gates — bez nich nelze měřit nic dalšího
+   a je to zdroj `pilot-c1c2c3` failure.
+4. **C3-005 / C3-006** lifecycle a workflow.
+5. **C3-018 / C3-019** Code Intelligence a symbol backend.
+6. Zbytek podle závislostí.
+
+### Gate 2 — postupná aktivace E2E
+
+78 obnovených sad, po jedné, tři podmínky per sada (izolace → pravdivé exity →
+skutečný běh). Rozpad práce:
+
+Následující kategorie shrnují aktuální koncový stav. Sedm přepojených sad je
+podmnožinou 78 blokovaných E2E; 0 `KNOWN_DEFECTIVE` neznamená 78 zelených sad.
+
+| Osa | Počet | Co je potřeba |
+|---|---:|---|
+| Izolace přepojena na runner-owned root | 7 | ✅ hotovo; sady dál čekají na své prostředí |
+| Registrový stav `KNOWN_DEFECTIVE` | 0 | žádný takový řádek se nesmí počítat zeleně |
+| Obnovené E2E v registrovém stavu `BLOCKED` | 78 | splnit deklarované server/network/model/GPU prerekvizity po jedné |
+
+Autoritativní je registrový stav a dispoziční ledger, ne tahle souhrnná tabulka.
+Klasifikace `D-018` je dokončená: 60 položek je `REPAIRED` a 32 je
+`DEFERRED(<konkrétní prerequisite>)`. Gate 2 tyto odklady aktivuje po jedné;
+nemění je zpětně na Gate 0 zelený důkaz.
+
+Sada, která splní izolaci a pravdivé exity, ale nemůže běžet z environmentálních
+důvodů, se uzavírá jako `REBUILD/DEFERRED(<prerekvizita>)`. To je koncový stav,
+ne nedodělek.
+
+### Gate 3 — release
+
+Blokováno otevřeným privacy incidentem. Vyžaduje uzavření operátorských
+rozhodnutí `P-001` (viditelnost repozitáře), `P-002` (rotace credentials),
+`P-003` (remediace veřejné historie).
+
+Privacy incident **není** položka v seznamu prerekvizit a CONDITIONAL PASS ho
+nepohlcuje. Má vlastní verdikt.
+
+---
+
+## Paralelní bezpečnostní track — vzdálená hranice
+
+Tento track není mobilní implementace. S-1 je Gate 0 containment: vynucuje
+podmínku, pod kterou je `G0-R018` klasifikováno jako later-gate riziko. S-2 až
+S-4 platí pro současný server bez ohledu na budoucího vzdáleného klienta a
+mohou pokračovat až po Gate 0. Do té doby se stávající listener nesmí bindovat
+mimo loopback.
+
+| # | Úkol | Priorita | Stav |
+|---|---|---|---|
+| S-1 | `G0-R018` — zdokumentovat a zachovat lokální hranici současného listeneru | 🔴 P0 | ✅ numerický bind, HTTP/WS guard, Electron HTTP/media klient a živý negativní test hotové; `G0-R018` zůstává podle D-024 otevřeným later-gate rizikem pro oddělenou vzdálenou hranici |
+| S-2 | Navrhnout oddělený listener pro vzdálený přístup; legacy `/api/*` a `/c3/ws` zůstávají pouze na loopbacku | 🔴 P0 | ❌ |
+| S-3 | Zavést autentizaci a scope enforcement pouze na oddělené vzdálené hranici | 🔴 P0 | ❌ |
+| S-4 | Přidat negativní testy dokazující, že vzdálený peer neobejde hranici přes legacy API ani WS terminál | 🔴 P0 | ❌ |
+
+Pairing, mobilní kontrakt a mobilní UI nejsou součástí tohoto tracku ani Gate 0.
+
+---
+
+## Odloženo na 1.1
+
+| Co | Důvod | Rozhodnutí |
+|---|---|---|
+| OpenCode a Serena benchmarky | nesouvisí s obnovou baseline | `D-007` |
+| Náhrada C3 executoru | C3 executor zůstává 1.0 incumbent | `D-006` |
+| Náhrada C3 Code Intelligence | totéž | `D-006` |
+| IDE Settings Phase 3b (OAuth, GitHub Gist sync) | rozšiřuje security surface před uzavřením incidentu | — |
+| IDE Settings Phase 4 (GPU wizard, model auto-download) | závisí na Gate 1 pro C3-010 | — |
+| Electron builder, installer dist | závisí na Gate 3 | — |
+| Kalibrace quality score na reálných datech | závisí na opravě C3-008 | — |
+
+---
+
+## Co bylo z roadmapy odstraněno a proč
+
+| Odstraněno | Důvod |
 |---|---|
-| 2A | fail-closed OpenCode configuration, evidence-bounded protocol retries, Git-backed evidence required for code verdicts, permission-pending lifecycle cleanup |
-| 2B | executable authority stack, run-scoped approval decision surface, structured lifecycle and protocol evidence, trusted verdict provenance |
-| 2C | pinned real `opencode-ai@1.18.8` with real local `qwen3:14b` on an RTX 3090: approved edit plus four terminal paths |
-| 2D | authenticated remote access for a single operator over a private VPN (ADR 0020) |
-| 2E | security closure audit, ADR 0020, process-level refusal proof, acceptance matrix |
-| 2F | restart recovery on the OpenCode composition, focused real-binary regression, wording corrections, closure documents and gates |
+| „~98 % celkové vize hotovo" | neodvozené z měřitelného podkladu |
+| „Pilíř 1/2/4 — 100 % ✅" | 0 z 30 schopností má akceptační důkaz |
+| „~3 600+ verified tests" | při auditu bylo 25 sad `KNOWN_DEFECTIVE` a 54 `BLOCKED`; jejich pozdější oprava/reklasifikace původní tvrzení zpětně nedokazuje |
+| Sprint 1–6 s ✅ značkami | sprinty popisovaly C3 historii, ne směr IntentSmithu; nahradil je gate ladder |
+| Timeline s progress bary | procenta bez definice výpočtu |
+| Detailní specifikace IDE Settings (~350 řádků) | je to produktová specifikace, ne roadmapa — patří do vlastního dokumentu |
+| Fáze H hardening tabulka | uzavřená C3 historie, přesunuto do archivu |
+| Quality Score architektura (~70 řádků) | duplikovala [ARCHITECTURE.md](ARCHITECTURE.md); roadmapa na ni jen odkazuje |
 
-Runs 2A-2F are complete. The requirement-level audit against this specification
-is `docs/testing/phase-3-acceptance-matrix.md`, and the closure evidence is
-`docs/testing/phase-3-results.md` with `artifacts/phase-3-verification.json`.
+Nic z odstraněného obsahu není smazané — historická roadmapa zůstává
+v [archive/ROADMAP-v17-C3.md](archive/ROADMAP-v17-C3.md) a je dohledatelná
+v Git historii.
 
-### Phase 3 closure work, and what closed it
+---
 
-1. **Restart recovery on the OpenCode composition** — closed by
-   `apps/server/src/opencode/restart-recovery.process.test.ts`, which SIGKILLs a
-   real Core running the production composition at a pending approval and proves
-   the next Core reconciles everything it left behind and can do useful work.
-   No production defect was found and no production code changed.
-2. **Five identical deterministic full-suite runs** — recorded in the results
-   document.
-3. **Clean-clone `pnpm verify`** — recorded in the results document.
-4. **`docs/testing/phase-3-results.md` and `artifacts/phase-3-verification.json`**
-   — produced, in the shape every previous phase produced.
-5. **README "Current State"** — updated.
-6. **CI status** — the entry gate's run is recorded and green. PR #4 then ran
-   workflow `30481867726` against integrated commit `64eabbd` and completed
-   successfully, promoting G7 from NOT PROVEN to PASS.
-7. **Two wording corrections** — made in `docs/test-matrix-phase-1-to-4.md`.
-   Neither promoted a verdict: the rows stay PARTIAL because what changed was
-   the specification's accuracy, not the evidence behind it.
+## Související dokumenty
 
-Phase 3 is a **closure candidate** in PR #4 with green CI. It is not merged or
-tagged; final integration still requires the reviewed PR head to remain green.
+| Dokument | Role |
+|---|---|
+| [convergence/GATE-CRITERIA.md](convergence/GATE-CRITERIA.md) | normativní definice verdiktů |
+| [convergence/STATUS.md](convergence/STATUS.md) | který verdikt platí a ke kterému commitu |
+| [convergence/CAPABILITY-MATRIX.md](convergence/CAPABILITY-MATRIX.md) | evidenční stav 30 schopností |
+| [convergence/RISK-REGISTER.md](convergence/RISK-REGISTER.md) | otevřená rizika |
+| [convergence/DECISIONS.md](convergence/DECISIONS.md) | uzamčená rozhodnutí a čekající operátorská |
+| [convergence/TEST-REGISTRY.md](convergence/TEST-REGISTRY.md) | generovaný ledger testů |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | technická architektura |
 
-## Phase 3B - Tool Capability Mediation
+---
 
-Inserted between H and I after the H checkpoint proved that an inference-only
-OpenCode integration is not a finished Phase 3, and that closing Phase 3 there
-would have moved the problem silently into Phase 4.
-
-Gate: a contract spike against the pinned real binary, run before any
-implementation. Verdict PASS, conditional on an IntentSmith-generated permission
-config (`docs/testing/phase-3b-tool-mediation-spike.md`).
-
-Delivered:
-
-- capability and lifecycle ledger for every observed tool;
-- bounded tool-calling gateway path that translates and never executes;
-- single-use, payload-bound approvals with append-only audit;
-- vendor-neutral permission bridge that cannot grant standing access;
-- git-backed change capture, and a verdict that refuses a success it cannot
-  corroborate;
-- Core-owned model profiles and single-GPU residency scheduling.
-
-ADRs 0017, 0018, 0019. Evidence in `artifacts/phase-3b-verification.json`.
-
-## Phase 3 run 2D - Remote Operator Access
-
-Delivered: the main API can be bound to a private VPN interface behind one
-operator bearer token, supplied at runtime. The loopback default is unchanged
-and requires no configuration and no credential.
-
-Remote mode is an explicit opt-in that fails closed before anything is opened: a
-non-loopback bind without the opt-in, the opt-in without a credential, a weak
-credential, a credential nothing would enforce, an unsupported opt-in value, a
-wildcard bind and a hostname are all startup errors. Authentication is one
-`onRequest` hook registered before any route, so no route can forget to ask, and
-in remote mode nothing is public. The worker inference gateway stays
-loopback-only with its own per-run tokens.
-
-Transport confidentiality is entirely the VPN's; IntentSmith terminates no TLS,
-and direct public-internet exposure is unsupported. Accepted alpha limits:
-rotation is a restart, no accounts, no roles, no rate limiting.
-
-ADR 0020. Documented in `docs/security/remote-vpn-access.md`.
-
-## Post-Phase-3 - Local Validation and Soak Testing
-
-A validation stage, not a development phase. It runs **after** Phase 3 is closed
-and **before** Phase 3.1 begins. Nothing in it is implemented yet, and this
-section is a specification only.
-
-Its purpose is to find out what a week of real use does to a system that has so
-far been proven one scenario at a time. Phase 3 proved that each guarantee holds
-once. This stage asks whether they hold repeatedly, overnight, and under a real
-model's variability.
-
-Environment, pinned:
-
-- real `opencode-ai@1.18.8`, installed outside this repository, version-checked
-  before every session;
-- local Ollama serving `qwen3:14b` on the RTX 3090;
-- disposable managed workspaces, created and destroyed per run, never a real
-  project;
-- an isolated `HOME` and `XDG_*` per run, so nothing inherits or leaves behind
-  developer state.
-
-Method:
-
-- an overnight runner with checkpoint and resume, so an interrupted night is
-  resumable evidence rather than a discarded one;
-- **deterministic gates** (exit codes, schema-valid artifacts, invariant checks)
-  evaluated separately from **behavioural evidence** (what the model and the
-  agent actually did), because the second is not reproducible and must never be
-  scored as though it were;
-- every scenario classified **PASS**, **FAIL** or **BLOCKED**, with BLOCKED
-  reserved for a missing precondition and never used to hide a failure;
-- comparison against a recorded baseline, so a regression is a difference rather
-  than an opinion;
-- machine-readable artifacts as the primary output, with prose derived from them
-  and never the other way round.
-
-Leak checks, run after every session:
-
-- **resources** — file descriptors, sockets, temporary directories, disk;
-- **processes** — no orphan in any run's process group, no surviving child;
-- **tokens** — no gateway or operator credential in any artifact, log, audit
-  record, database row or error message;
-- **approvals** — no grant outliving its run, no standing permission, no waiter
-  left suspended.
-
-Constraints:
-
-- the runner **never changes production code automatically**. It reports; a
-  human decides;
-- **no claim of strict-offline operation** unless network activity is actually
-  observed and the observation is part of the artifact. "No cloud traffic seen"
-  is not "cloud traffic impossible", and the distinction has already been
-  recorded once in Phase 3B.
-
-Carried into this stage from Phase 3: strict-offline behaviour, sandboxed
-(`preferSandbox`) execution, degraded-sandbox runs, real-hardware single-GPU
-model switching, and model default selection.
-
-## Phase 5 — multi-worker orchestration and hardening
-
-Goal: support more than one worker without creating implicit or unreviewable authority.
-
-- OpenHands feasibility/adapter work.
-- explicit routing policy based on capability, hardware and task type;
-- retry and multi-run orchestration;
-- approval escalation and expiry;
-- stronger platform-specific isolation profiles;
-- resource budgets and backpressure;
-- multi-process design decision before Studio needs a second writer.
-
-## Phase 6 — domain intelligence, evaluation and observability
-
-Goal: make successful workflows reusable and measurable.
-
-- versioned IntentSmith Expertises and deterministic composition;
-- controlled IntentSmith Skills with checkpoints;
-- self-contained IntentSmith Specialists;
-- governed IntentSmith Autonomous Agents;
-- local evaluation corpus and regression harness;
-- structured performance and quality evidence;
-- privacy-preserving local diagnostics;
-- explicit project memory with retention and deletion controls.
-
-The evaluation harness will be designed from the staged research recorded in
-[Local model evaluation strategy](testing/local-model-evaluation-strategy.md):
-transport eligibility first, varied tool-selection and repair scenarios second,
-long finalist coding runs and GPU switching evidence after that, followed by
-carefully weighted empirical outcomes. This records direction, not final
-weights, thresholds or model assignments; those require an ADR.
-
-## Phase 7 — IntentSmith Studio
-
-Goal: provide a visual Theia-based experience over the same Core APIs.
-
-- project and task views;
-- plan, approval and change-set review;
-- run timeline and gate evidence;
-- local model and hardware settings;
-- worker/skill management;
-- no privileged Studio-only lifecycle path.
-
-## Phase 8 — IntentSmith Forge Local
-
-Goal: package the complete local product for developers who do not want to assemble the monorepo.
-
-- desktop installer and updates;
-- guided hardware/model setup;
-- local service lifecycle;
-- diagnostics, backup and export;
-- signed artifacts and dependency provenance;
-- clear offline and optional-network modes.
-
-## Cross-phase rules
-
-Every phase must:
-
-- keep stable contracts runtime-validated;
-- preserve deterministic offline tests;
-- avoid silent cloud fallback;
-- keep vendor shapes out of Core;
-- add or update threat models for new trust boundaries;
-- record architectural decisions before they become expensive to reverse;
-- publish exact evidence and known limitations;
-- avoid lowering quality gates to make a phase pass.
+*Roadmapa 1.0. Nahrazuje C3-Agent roadmapu v17. Stav odvozen z registru
+a validátorů k 2026-07-30; není to verdikt — ten definuje `GATE-CRITERIA.md`
+a nese ho `STATUS.md`.*

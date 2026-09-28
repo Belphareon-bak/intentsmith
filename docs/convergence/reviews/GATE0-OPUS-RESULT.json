@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "gate": "Gate 0",
+  "candidateSha": "da485841c7016887c9bd4f969271e0d365020b2f",
+  "pendingAttestationSha": "a067989f5df393db861caa36b3c7729e18ddd97e",
+  "registryFingerprintAlgorithm": "sha256-json-stringify-v1",
+  "registryFingerprint": "21992f9fcc1625c14baa0a7d53771a88e4f704e97e4c276f4d4b8fd9ea08cd73",
+  "reviewRange": "f11026f062e5d2e75fe6802a3e4e2ad38a6c9dab..da485841c7016887c9bd4f969271e0d365020b2f",
+  "packetPath": "docs/convergence/reviews/GATE0-OPUS-REVIEW.md",
+  "packetSha256": "3abf75278ac1daacb9959e4160e2c4263dd4cb8cb5d24241856464e4c869561a",
+  "reviewRequiredRisks": [
+    "G0-R015: OPEN"
+  ],
+  "reviewerRole": "Opus 5",
+  "reviewMethod": "independent-read-only",
+  "completedAt": "2026-07-31T15:16:03.827Z",
+  "decision": "APPROVED",
+  "findings": [
+    {
+      "id": "G0-REV-006",
+      "severity": "MEDIUM",
+      "blocking": false,
+      "summary": "The self-classification pattern recorded as G0-REV-001 repeats for the blocker that changed this candidate. Commit 0991b55 adds the G0-R031 row to RISK-REGISTER.md and writes its own gateImpact into GATE0-RISK-IMPACT.json plus the GATE-CRITERIA.md prose in one commit. evaluateGate0RiskPolicy only proves that every register row has exactly one valid entry, so it cannot detect a candidate grading itself. Here the self-assigned class is the strictest one (G0_FAIL) and the row is MITIGATED, so the choice cannot suppress a blocker and reopening the defect becomes a repository-local blocker. Accepted as explicit reviewer judgement, not as validator coverage."
+    },
+    {
+      "id": "G0-REV-007",
+      "severity": "LOW",
+      "blocking": false,
+      "summary": "G0-R015 stays OPEN inside the artifact that will claim PASS. deriveGateOutcome consumes reviewRequiredRisks for reporting only; the verdict flips from CONDITIONAL PASS to PASS solely because reviewStatus becomes APPROVED. This is correct by construction, since closing the row in the tree would change the candidate and require a further review, but the promoted PASS attestation therefore ships a register row reading OPEN for the exact risk the review discharges. The review result, not the register state, is the evidence that its condition was met."
+    },
+    {
+      "id": "G0-REV-008",
+      "severity": "LOW",
+      "blocking": false,
+      "summary": "Confirmed the acknowledged CORS echo residual and its direction. src/server.js sets res._corsOrigin from the raw Origin header once evaluateLegacyLocalAccess admits the request, not from the canonical parse. parseRuntimeLocalHttpOrigin accepts a trailing slash, so Origin http://127.0.0.1:3335/ is authorized and then echoed verbatim in Access-Control-Allow-Origin. A browser compares that header to its own serialized origin, does not match, and blocks the read, so the divergence fails closed. No wildcard remains anywhere in src/, getCorsOrigin denies by default, and the former Access-Control-Allow-Origin: * in sendStaticFile is gone."
+    },
+    {
+      "id": "G0-REV-009",
+      "severity": "LOW",
+      "blocking": false,
+      "summary": "A request carrying neither Origin nor Sec-Fetch-Site is admitted as NATIVE_LOOPBACK_CLIENT. That is required for native loopback clients, but it also admits a cross-site subresource request from any browser that omits Sec-Fetch-Metadata. Reads stay protected because no Access-Control-Allow-Origin is emitted for such a request, and DNS rebinding is blocked because parseTargetOrigin pins Host to 127.0.0.1 or localhost at the exact listening port. The residual is limited to side-effecting GET endpoints reached from a non-metadata browser, and the shipped Chromium and Electron surfaces always send Sec-Fetch-Site."
+    },
+    {
+      "id": "G0-REV-010",
+      "severity": "INFO",
+      "blocking": false,
+      "summary": "The registry fingerprint is not a byte-level pin. sha256-json-stringify-v1 hashes JSON.stringify of the parsed tests/registry.json, so whitespace changes and duplicate keys collapse before hashing. No evidence gap follows, because the candidate commit SHA binds the exact blob and the validator recomputes the fingerprint from the candidate parent, but the fingerprint alone must not be cited as proof of registry bytes."
+    },
+    {
+      "id": "G0-REV-011",
+      "severity": "INFO",
+      "blocking": false,
+      "summary": "Answering packet question 7: the remaining G0-R012 surface is scripts/start-workers.js, which opens better-sqlite3 on a hardcoded ../data/c3.db and bypasses the explicit C3_DB_PATH requirement of src/db/database.js. It is referenced by no test, no npm script and no source module, and appears in neither the registry nor its exclusions, so no Gate 0 measurement can reach it and the invariant that no source or test run touches the operator database holds. The G0-R012 mitigation statement is module-scoped rather than repository-scoped; the other direct better-sqlite3 uses in src/tools/registry.js take a caller-supplied dbPath and have no implicit fallback. This should not prevent operator acceptance of Gate 0."
+    }
+  ]
+}

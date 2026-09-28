@@ -1,0 +1,346 @@
+{
+  "provenance": {
+    "kind": "captured-public-offer",
+    "sourceSnapshots": [
+      {
+        "url": "https://api.ifortuna.cz/offer/structure/api/v1_0/tournament/ufo:tour:00-03m/matches?timeFilter=all",
+        "status": 200,
+        "retrievedAt": "2026-09-12T08:50:38.745Z",
+        "serverDate": "Sat, 12 Sep 2026 08:50:38 GMT",
+        "cacheControl": null,
+        "age": null,
+        "bytes": 16839,
+        "sha256": "9f167cf2901a5df98b857c375510dbeccdbd275a091854625958b3989f240560",
+        "file": "E0.json"
+      },
+      {
+        "url": "https://api.ifortuna.cz/offer/markets/api/v1_0/fixtures/markets/overview?fixtureIds=ufo%3Amtch%3A1vy-0cf&fixtureIds=ufo%3Amtch%3A1vy-0cg&fixtureIds=ufo%3Amtch%3A1vy-0ch&fixtureIds=ufo%3Amtch%3A1vy-0ci&fixtureIds=ufo%3Amtch%3A1vy-0cj&fixtureIds=ufo%3Amtch%3A1vy-0cd&fixtureIds=ufo%3Amtch%3A1vy-0ce&fixtureIds=ufo%3Amtch%3A1vz-09o&fixtureIds=ufo%3Amtch%3A1vz-09p&fixtureIds=ufo%3Amtch%3A1w0-023",
+        "status": 200,
+        "retrievedAt": "2026-09-12T08:50:42.762Z",
+        "serverDate": "Sat, 12 Sep 2026 08:50:42 GMT",
+        "cacheControl": null,
+        "age": null,
+        "bytes": 40021,
+        "sha256": "aa890f84a3d09ada0aa88f61f0eb868b9776a83f6732b361b7afd6eb2665f11e",
+        "file": "markets-batch.json"
+      }
+    ]
+  },
+  "listing": {
+    "tournament": {
+      "id": "ufo:tour:00-03m",
+      "sportId": "ufo:sprt:00",
+      "categoryId": "ufo:ctgr:00-00",
+      "name": "1. Anglie",
+      "sportSeoName": "fotbal",
+      "categorySeoName": "anglie-4",
+      "seoName": "1-anglie",
+      "icon": "default.png",
+      "sportOrder": 3,
+      "categoryOrder": 5,
+      "order": 5,
+      "fixturesCount": 21,
+      "listUnderSport": true,
+      "filters": [
+        "tomorrow",
+        "all",
+        "tomorrow_1",
+        "today"
+      ],
+      "sportradarIds": [
+        "17"
+      ],
+      "features": [
+        "MATCHES",
+        "OUTRIGHTS",
+        "STATISTICS"
+      ]
+    },
+    "fixtures": [
+      {
+        "id": "ufo:mtch:1vy-0cg",
+        "sportId": "ufo:sprt:00",
+        "categoryId": "ufo:ctgr:00-00",
+        "tournamentId": "ufo:tour:00-03m",
+        "sportradarIds": [
+          "72221264"
+        ],
+        "kind": "PREMATCH",
+        "name": "Liverpool - Fulham",
+        "sportSeoName": "fotbal",
+        "categorySeoName": "anglie-4",
+        "tournamentSeoName": "1-anglie",
+        "seoName": "liverpool-fulham",
+        "sportOrder": 3,
+        "categoryOrder": 5,
+        "tournamentOrder": 5,
+        "order": 1000000,
+        "participants": [
+          {
+            "id": "ufo:team:00-048v",
+            "name": "Fulham",
+            "type": "AWAY",
+            "icon": "63beee07b70ef7053567d3fd-1.png"
+          },
+          {
+            "id": "ufo:team:00-04dm",
+            "name": "Liverpool",
+            "type": "HOME",
+            "icon": "63beee0cb70ef7053567d44a-1.png"
+          }
+        ],
+        "startDatetime": 1789221600000,
+        "sportcastId": 547840,
+        "totalMarketCount": 1,
+        "features": [
+          "BETBUILDER",
+          "OPTA",
+          "LIVE_TRANSITION",
+          "STATISTICS",
+          "BB_EPS",
+          "ANALYSIS"
+        ],
+        "marketTypeIds": [
+          "ufo:mtyp:00-00",
+          "ufo:mtyp:00-01",
+          "ufo:mtyp:00-0u"
+        ],
+        "hasMarkets": true,
+        "status": "ACTIVE"
+      },
+      {
+        "id": "ufo:mtch:1vy-0ch",
+        "sportId": "ufo:sprt:00",
+        "categoryId": "ufo:ctgr:00-00",
+        "tournamentId": "ufo:tour:00-03m",
+        "sportradarIds": [
+          "72221260"
+        ],
+        "kind": "PREMATCH",
+        "name": "Crystal Palace - Ipswich",
+        "sportSeoName": "fotbal",
+        "categorySeoName": "anglie-4",
+        "tournamentSeoName": "1-anglie",
+        "seoName": "crystal-palace-ipswich",
+        "sportOrder": 3,
+        "categoryOrder": 5,
+        "tournamentOrder": 5,
+        "order": 1000000,
+        "participants": [
+          {
+            "id": "ufo:team:00-02rl",
+            "name": "Ipswich",
+            "type": "AWAY",
+            "icon": "63fce8caaf1c233a8c3054b4-1.png"
+          },
+          {
+            "id": "ufo:team:00-06fs",
+            "name": "Crystal Palace",
+            "type": "HOME",
+            "icon": "63beee04b70ef7053567d3cd-1.png"
+          }
+        ],
+        "startDatetime": 1789221600000,
+        "sportcastId": 547839,
+        "totalMarketCount": 1,
+        "features": [
+          "BETBUILDER",
+          "OPTA",
+          "LIVE_TRANSITION",
+          "STATISTICS",
+          "BB_EPS",
+          "ANALYSIS"
+        ],
+        "marketTypeIds": [
+          "ufo:mtyp:00-00",
+          "ufo:mtyp:00-01",
+          "ufo:mtyp:00-0u"
+        ],
+        "hasMarkets": true,
+        "status": "ACTIVE"
+      }
+    ]
+  },
+  "markets": {
+    "ufo:mtch:1vy-0ch": [
+      {
+        "id": "ufo:mkt:1vy-0ch-001",
+        "fixtureId": "ufo:mtch:1vy-0ch",
+        "marketTypeId": "ufo:mtyp:00-00",
+        "chips": [
+          "ufo:tag:00003"
+        ],
+        "tournamentStageIds": [],
+        "kind": "PREMATCH",
+        "variant": "STANDARD",
+        "specifiers": null,
+        "name": "Výsledek zápasu",
+        "marketTypeName": "Výsledek zápasu",
+        "marketTypeDesc": "Sázka na výsledek zápasu v základní hrací době.",
+        "order": 600009999,
+        "supportGroup": 0,
+        "supportGroupEx": 0,
+        "syntheticGroupKey": "match",
+        "stakeSplit": true,
+        "orderByFirstOdds": false,
+        "overview": true,
+        "outcomes": [
+          {
+            "id": "ufo:opt:1vy-0ch-001-00",
+            "marketId": "ufo:mkt:1vy-0ch-001",
+            "name": "1",
+            "longName": "Crystal Palace",
+            "odds": 1.87,
+            "previousOdds": 1.89,
+            "order": {
+              "rowOrder": 1,
+              "columnOrder": 0
+            },
+            "displayType": "OPEN",
+            "specifiers": null,
+            "badges": [],
+            "features": [
+              "OFFER",
+              "BB_EPS"
+            ],
+            "optionTypeId": "ufo:otyp:00-3q"
+          },
+          {
+            "id": "ufo:opt:1vy-0ch-001-01",
+            "marketId": "ufo:mkt:1vy-0ch-001",
+            "name": "0",
+            "longName": "Remíza",
+            "odds": 3.85,
+            "previousOdds": 3.8,
+            "order": {
+              "rowOrder": 2,
+              "columnOrder": 0
+            },
+            "displayType": "OPEN",
+            "specifiers": null,
+            "badges": [],
+            "features": [
+              "OFFER",
+              "BB_EPS"
+            ],
+            "optionTypeId": "ufo:otyp:00-3r"
+          },
+          {
+            "id": "ufo:opt:1vy-0ch-001-02",
+            "marketId": "ufo:mkt:1vy-0ch-001",
+            "name": "2",
+            "longName": "Ipswich",
+            "odds": 4.1,
+            "previousOdds": 4.0,
+            "order": {
+              "rowOrder": 3,
+              "columnOrder": 0
+            },
+            "displayType": "OPEN",
+            "specifiers": null,
+            "badges": [],
+            "features": [
+              "OFFER",
+              "BB_EPS"
+            ],
+            "optionTypeId": "ufo:otyp:00-3s"
+          }
+        ],
+        "features": [
+          "OFFER",
+          "BB_EPS"
+        ]
+      }
+    ],
+    "ufo:mtch:1vy-0cg": [
+      {
+        "id": "ufo:mkt:1vy-0cg-002",
+        "fixtureId": "ufo:mtch:1vy-0cg",
+        "marketTypeId": "ufo:mtyp:00-00",
+        "chips": [
+          "ufo:tag:00003"
+        ],
+        "tournamentStageIds": [],
+        "kind": "PREMATCH",
+        "variant": "STANDARD",
+        "specifiers": null,
+        "name": "Výsledek zápasu",
+        "marketTypeName": "Výsledek zápasu",
+        "marketTypeDesc": "Sázka na výsledek zápasu v základní hrací době.",
+        "order": 600009999,
+        "supportGroup": 0,
+        "supportGroupEx": 0,
+        "syntheticGroupKey": "match",
+        "stakeSplit": true,
+        "orderByFirstOdds": false,
+        "overview": true,
+        "outcomes": [
+          {
+            "id": "ufo:opt:1vy-0cg-002-00",
+            "marketId": "ufo:mkt:1vy-0cg-002",
+            "name": "1",
+            "longName": "Liverpool",
+            "odds": 1.51,
+            "previousOdds": 1.52,
+            "order": {
+              "rowOrder": 1,
+              "columnOrder": 0
+            },
+            "displayType": "OPEN",
+            "specifiers": null,
+            "badges": [],
+            "features": [
+              "OFFER",
+              "BB_EPS"
+            ],
+            "optionTypeId": "ufo:otyp:00-3q"
+          },
+          {
+            "id": "ufo:opt:1vy-0cg-002-02",
+            "marketId": "ufo:mkt:1vy-0cg-002",
+            "name": "0",
+            "longName": "Remíza",
+            "odds": 4.7,
+            "previousOdds": 4.8,
+            "order": {
+              "rowOrder": 2,
+              "columnOrder": 0
+            },
+            "displayType": "OPEN",
+            "specifiers": null,
+            "badges": [],
+            "features": [
+              "OFFER",
+              "BB_EPS"
+            ],
+            "optionTypeId": "ufo:otyp:00-3r"
+          },
+          {
+            "id": "ufo:opt:1vy-0cg-002-01",
+            "marketId": "ufo:mkt:1vy-0cg-002",
+            "name": "2",
+            "longName": "Fulham",
+            "odds": 6.2,
+            "previousOdds": 6.0,
+            "order": {
+              "rowOrder": 3,
+              "columnOrder": 0
+            },
+            "displayType": "OPEN",
+            "specifiers": null,
+            "badges": [],
+            "features": [
+              "OFFER",
+              "BB_EPS"
+            ],
+            "optionTypeId": "ufo:otyp:00-3s"
+          }
+        ],
+        "features": [
+          "OFFER",
+          "BB_EPS"
+        ]
+      }
+    ]
+  }
+}

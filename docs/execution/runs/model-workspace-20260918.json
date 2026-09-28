@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-18T09:29:09.866239+00:00",
+  "sourceRevision": "9298ef46e776e59cee01dc5e4354ae1b0d552c4e",
+  "baseRevision": "03597d1d557fb4fa1e6686a732a72fdbf5e5e926",
+  "status": "INSTALLED_LIVE_GUI_CODE_MEASUREMENT_PASS_REVIEW_PENDING",
+  "offlineDatabase": {
+    "pass": 358,
+    "fail": 1,
+    "blocked": 0,
+    "timeout": 0,
+    "verdict": "FAIL",
+    "knownFailure": "IS-T1-TESTS-NIGHTLY-ORCHESTRATOR-SELF-TEST / reviewed Gate 0 registry seal"
+  },
+  "physicalElectron": "STUDIO_ELECTRON_BOUNDARY_PASS",
+  "frontendSha256": "da111b7be5b7941f7e153a0fd53806ec6beef403f059508b32531f27c43b8061",
+  "liveModels": [
+    {
+      "model_name": "qwen3.5:27b",
+      "run_id": "eval_705a17a7-97ac-4f25-93de-27b7295871b7",
+      "score": 0.3333333333333333,
+      "repeats": 3,
+      "duration_ms": 299061,
+      "started_at": "2026-09-18T09:05:12.820Z",
+      "completed_at": "2026-09-18T09:10:11.881Z",
+      "model_digest_sha256": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+      "suite_contract_sha256": "6ee5ab47cbc4a42649835cac02d6cca82ad43d97ba12a9fbaa84276fe6fc7035"
+    },
+    {
+      "model_name": "qwen3.8:latest",
+      "run_id": "eval_5bfef5f3-8eb4-4781-b466-b94d4f933ffb",
+      "score": 0.7142857142857143,
+      "repeats": 3,
+      "duration_ms": 179381,
+      "started_at": "2026-09-18T09:12:07.633Z",
+      "completed_at": "2026-09-18T09:15:07.014Z",
+      "model_digest_sha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "suite_contract_sha256": "6ee5ab47cbc4a42649835cac02d6cca82ad43d97ba12a9fbaa84276fe6fc7035"
+    },
+    {
+      "model_name": "qwen3-coder:latest",
+      "run_id": "eval_51da4e2a-7465-4837-b310-41305e890ccf",
+      "score": 0.11428571428571431,
+      "repeats": 3,
+      "duration_ms": 109278,
+      "started_at": "2026-09-18T09:17:49.204Z",
+      "completed_at": "2026-09-18T09:19:38.482Z",
+      "model_digest_sha256": "06c1097efce0431c2045fe7b2e5108366e43bee1b4603a7aded8f21689e90bca",
+      "suite_contract_sha256": "6ee5ab47cbc4a42649835cac02d6cca82ad43d97ba12a9fbaa84276fe6fc7035"
+    }
+  ],
+  "liveTaskExecutions": 63,
+  "providerVersion": "0.34.0-intentsmith.1",
+  "providerProof": "RESPONSE_BOUND",
+  "preservation": {
+    "model_evaluation_runs": {
+      "beforeCount": 513,
+      "afterCount": 516,
+      "oldRowsPreserved": true,
+      "beforeSha256": "98994a187c73ca215dcbbc5f3ab3c18f8187c4685503dd98a28dfbfd4532d418",
+      "matchingOldRowsSha256": "98994a187c73ca215dcbbc5f3ab3c18f8187c4685503dd98a28dfbfd4532d418",
+      "addedIds": [
+        "eval_51da4e2a-7465-4837-b310-41305e890ccf",
+        "eval_5bfef5f3-8eb4-4781-b466-b94d4f933ffb",
+        "eval_705a17a7-97ac-4f25-93de-27b7295871b7"
+      ],
+      "changedIds": []
+    },
+    "model_evaluation_decisions": {
+      "beforeCount": 234,
+      "afterCount": 234,
+      "oldRowsPreserved": true,
+      "beforeSha256": "8c9663d5a6c2c5a1debf36d06d47835cca876ee03c6fb39f5faff787a9fa86fd",
+      "matchingOldRowsSha256": "8c9663d5a6c2c5a1debf36d06d47835cca876ee03c6fb39f5faff787a9fa86fd",
+      "addedIds": [],
+      "changedIds": [],
+      "unchanged": true
+    },
+    "model_desired_bindings": {
+      "beforeCount": 7,
+      "afterCount": 7,
+      "oldRowsPreserved": true,
+      "beforeSha256": "909f7993dc3b16a7104476b357452f1597914aa6a7a6d5216e99eb286ad5e91a",
+      "matchingOldRowsSha256": "909f7993dc3b16a7104476b357452f1597914aa6a7a6d5216e99eb286ad5e91a",
+      "addedIds": [],
+      "changedIds": [],
+      "unchanged": true
+    },
+    "model_binding_operations": {
+      "beforeCount": 14,
+      "afterCount": 14,
+      "oldRowsPreserved": true,
+      "beforeSha256": "1af2b339227e6b352d0e75e3c68485c9a179181be9ece33170e61eb082869846",
+      "matchingOldRowsSha256": "1af2b339227e6b352d0e75e3c68485c9a179181be9ece33170e61eb082869846",
+      "addedIds": [],
+      "changedIds": [],
+      "unchanged": true
+    }
+  },
+  "archive": {
+    "file": "/home/belphareon/Projects/coworker/intentsmith-model-workspace-sha256-8f64ea4356e0927727227b087a02e00f6f01c72844c83bd3ff899228c0a39c57.tar.gz",
+    "bytes": 73082662,
+    "sha256": "8f64ea4356e0927727227b087a02e00f6f01c72844c83bd3ff899228c0a39c57",
+    "verifiedFiles": 2024,
+    "productionCredentialsFound": false,
+    "excludedProductionDatabase": true
+  },
+  "evidenceRoot": "/home/belphareon/Projects/coworker/intentsmith-model-workspace-20260918",
+  "limitations": [
+    "Independent review pending",
+    "Known inherited release seal failure",
+    "Seven repository CODE tasks, not a general project-success rate",
+    "Historical catalog release dates are not newly audited"
+  ]
+}

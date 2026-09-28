@@ -1,0 +1,453 @@
+#!/usr/bin/env node
+
+import { createHash } from 'node:crypto';
+import {
+  chmodSync,
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+import {
+  MOBILE_RELEASE_TRANSPORT,
+  classifyMobileReleaseArtifact,
+  describeMobileReleaseSourceProvenanceV1,
+} from './mobile-release-policy.mjs';
+import {
+  MOBILE_RELEASE_EXACT_SOURCE_ASSETS,
+  MOBILE_RELEASE_SOURCE_MANIFEST_ASSET,
+  validateMobileReleaseArtifactBindingV1,
+  validateMobileNetworkSecurityTreeV1,
+} from './mobile-release-artifact-binding.mjs';
+import {
+  parseAabReleaseObservationV1,
+  parseApkReleaseObservationV1,
+  validateMobileAndroidObservationsV1,
+} from './mobile-release-android-observation.mjs';
+import {
+  buildCurrentMobileReleaseSourceManifestV1,
+  readMobileAndroidSourceMetadataV1,
+} from './mobile-release-source-manifest.mjs';
+import { readMobileM7RuntimeEvidenceV1 } from './mobile-m7-runtime-evidence.mjs';
+
+const ROOT = fileURLToPath(new URL('../', import.meta.url));
+const ANDROID = path.join(ROOT, 'mobile-app/android');
+const APK = path.join(ANDROID, 'app/build/outputs/apk/release/app-release.apk');
+const AAB = path.join(ANDROID, 'app/build/outputs/bundle/release/app-release.aab');
+const allowDebugSigner = process.argv.includes('--allow-debug-signer');
+const allowDirty = process.argv.includes('--allow-dirty');
+function stringFlag(name) {
+  const indexes = process.argv.flatMap((value, index) => value === name ? [index] : []);
+  if (indexes.length > 1) throw new Error(`${name} may be provided only once`);
+  if (indexes.length === 0) return null;
+  const value = process.argv[indexes[0] + 1];
+  if (!value || value.startsWith('--')) throw new Error(`${name} requires a path`);
+  return value;
+}
+
+function signerFlag(primary, alias = null) {
+  const primaryIndex = process.argv.indexOf(primary);
+  const aliasIndex = alias === null ? -1 : process.argv.indexOf(alias);
+  if (primaryIndex !== -1 && aliasIndex !== -1) throw new Error(`${primary} and ${alias} conflict`);
+  const index = primaryIndex === -1 ? aliasIndex : primaryIndex;
+  const value = index === -1 ? null : String(process.argv[index + 1] || '').toLowerCase();
+  if (index !== -1 && !/^[a-f0-9]{64}$/.test(value)) {
+    throw new Error(`${primary} requires exactly 64 hexadecimal characters`);
+  }
+  return value;
+}
+
+const expectedApkSigner = signerFlag('--expected-apk-signer-sha256', '--expected-signer-sha256');
+const expectedAabSigner = signerFlag('--expected-aab-signer-sha256');
+const runtimeEvidencePath = stringFlag('--runtime-evidence');
+const taskHome = os.homedir();
+const sdk = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT
+  || path.join(taskHome, 'toolchain/android-sdk');
+const javaHome = process.env.JAVA_HOME || path.join(taskHome, 'toolchain/jdk21');
+
+function run(command, args, { cwd = ROOT, allowFailure = false, env = {} } = {}) {
+  const result = spawnSync(command, args, {
+    cwd, encoding: 'utf8',
+    env: { ...process.env, JAVA_HOME: javaHome, ANDROID_HOME: sdk, ANDROID_SDK_ROOT: sdk, ...env },
+  });
+  const output = `${result.stdout || ''}${result.stderr || ''}`;
+  if (!allowFailure && result.status !== 0) {
+    throw new Error(`${command} ${args.join(' ')} failed (${result.status}):\n${output}`);
+  }
+  return { status: result.status, output };
+}
+
+function digest(file) {
+  return createHash('sha256').update(readFileSync(file)).digest('hex');
+}
+
+function textDigest(value) {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function bundledText(archive, member) {
+  return run('unzip', ['-p', archive, member]).output;
+}
+
+function bundletool() {
+  const output = run('./gradlew', ['-q', 'intentsmithBundletoolClasspath'], { cwd: ANDROID }).output;
+  const marker = output.split('\n').find(line => line.startsWith('INTENTSMITH_BUNDLETOOL_CLASSPATH='));
+  if (!marker) throw new Error('Gradle did not expose the pinned bundletool classpath');
+  const classpath = marker.slice('INTENTSMITH_BUNDLETOOL_CLASSPATH='.length);
+  const bundletoolJar = classpath.split(path.delimiter).find(item => /bundletool-1\.18\.1\.jar$/u.test(item));
+  if (!bundletoolJar || digest(bundletoolJar) !== 'a73341a7945abcb0e6b8971c7b1b2801bd765006447ca0d2437a4260d572ceac') {
+    throw new Error('bundletool 1.18.1 artifact is missing or does not match its SHA-256 pin');
+  }
+  return Object.freeze({ classpath, jar: bundletoolJar, version: '1.18.1' });
+}
+
+function bundletoolRun(tool, args) {
+  return run(path.join(javaHome, 'bin/java'), [
+    '-cp', tool.classpath,
+    'com.android.tools.build.bundletool.BundleToolMain',
+    ...args,
+  ]).output;
+}
+
+function networkSecurityObservation(aapt2, artifact) {
+  const resources = run(aapt2, ['dump', 'resources', artifact]).output;
+  const resource = resources.match(
+    /resource 0x[0-9a-f]+ xml\/network_security_config\s+\(\) \(file\) (res\/[^\s]+\.xml) type=XML/u,
+  )?.[1] || null;
+  if (!resource) throw new Error('network security config resource could not be resolved');
+  const tree = run(aapt2, ['dump', 'xmltree', '--file', resource, artifact]).output;
+  return Object.freeze({ resource, tree });
+}
+
+function latestBuildTool(name) {
+  const root = path.join(sdk, 'build-tools');
+  const versions = readdirSync(root).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  if (!versions.length) throw new Error(`no Android build-tools under ${root}`);
+  return path.join(root, versions.at(-1), name);
+}
+
+const commit = run('git', ['rev-parse', 'HEAD']).output.trim();
+const candidateTreeSha = run('git', ['rev-parse', 'HEAD^{tree}']).output.trim();
+const dirty = run('git', ['status', '--porcelain']).output.trim().split('\n').filter(Boolean);
+if (dirty.length && !allowDirty) {
+  throw new Error('working tree is dirty; build evidence cannot be bound to HEAD (use --allow-dirty only for throwaway proof)');
+}
+const sourceProvenance = describeMobileReleaseSourceProvenanceV1({
+  baseRevision: commit,
+  sourceDirty: dirty.length > 0,
+});
+if (dirty.length && allowDirty && (
+  allowDebugSigner !== true
+  || expectedApkSigner !== null
+  || expectedAabSigner !== null
+  || runtimeEvidencePath !== null
+)) {
+  throw new Error('--allow-dirty is restricted to unsigned throwaway debug evidence');
+}
+const outputParent = path.join(ROOT, '.intentsmith-artifacts/mobile-release');
+mkdirSync(outputParent, { recursive: true, mode: 0o700 });
+chmodSync(outputParent, 0o700);
+const outputDir = mkdtempSync(path.join(outputParent, `${commit.slice(0, 12)}-`));
+
+const apksigner = latestBuildTool('apksigner');
+const aapt = latestBuildTool('aapt');
+const aapt2 = latestBuildTool('aapt2');
+const signer = run(apksigner, ['verify', '--verbose', '--print-certs', APK]).output;
+const badging = run(aapt, ['dump', 'badging', APK]).output;
+const manifestTree = run(aapt, ['dump', 'xmltree', APK, 'AndroidManifest.xml']).output;
+const bundleSignature = run(path.join(javaHome, 'bin/jarsigner'), ['-verify', '-verbose', '-certs', AAB]).output;
+const aabSignerOutput = run(path.join(javaHome, 'bin/keytool'), ['-printcert', '-jarfile', AAB]).output;
+const bundletoolAuthority = bundletool();
+const aabManifest = bundletoolRun(bundletoolAuthority, [
+  'dump', 'manifest', `--bundle=${AAB}`, '--module=base',
+]);
+const androidExpected = { ...readMobileAndroidSourceMetadataV1(), sourceRevision: commit };
+const apkObservation = parseApkReleaseObservationV1({
+  badging,
+  manifestTree,
+  signerOutput: signer,
+});
+const aabObservation = parseAabReleaseObservationV1({
+  manifestXml: aabManifest,
+  signerOutput: aabSignerOutput,
+});
+validateMobileAndroidObservationsV1({
+  expected: androidExpected,
+  apk: apkObservation,
+  aab: aabObservation,
+  expectedApkSignerSha256: expectedApkSigner,
+  expectedAabSignerSha256: expectedAabSigner,
+});
+const gradleVersion = run('./gradlew', ['--version'], { cwd: ANDROID }).output;
+const gradleDependencies = run('./gradlew', [
+  '--no-daemon', ':app:dependencies', '--configuration', 'releaseRuntimeClasspath',
+], { cwd: ANDROID }).output;
+
+const auditRun = run('npm', ['audit', '--prefix', 'mobile-app', '--omit=dev', '--json'], { allowFailure: true });
+const audit = JSON.parse(auditRun.output);
+const runtimeVulnerabilities = audit.metadata?.vulnerabilities?.total ?? -1;
+if (auditRun.status !== 0 || runtimeVulnerabilities !== 0) {
+  throw new Error(`mobile runtime audit is not clean (${runtimeVulnerabilities} findings)`);
+}
+const sbomText = run('npm', [
+  'sbom', '--prefix', 'mobile-app', '--omit=dev', '--sbom-format', 'cyclonedx',
+]).output;
+const sbom = JSON.parse(sbomText);
+
+const lock = JSON.parse(readFileSync(path.join(ROOT, 'mobile-app/package-lock.json'), 'utf8'));
+const licenses = Object.entries(lock.packages)
+  .filter(([name, data]) => name.startsWith('node_modules/') && !data.dev)
+  .map(([name, data]) => {
+    const packageName = name.slice('node_modules/'.length);
+    let license = null;
+    try {
+      license = JSON.parse(readFileSync(path.join(ROOT, 'mobile-app', name, 'package.json'), 'utf8')).license || null;
+    } catch { /* missing metadata remains explicit */ }
+    return { name: packageName, version: data.version, license };
+  });
+
+const debugSigned = /CN=Android Debug/.test(signer);
+if (debugSigned && !allowDebugSigner) {
+  throw new Error('debug signer detected; rerun only for explicit proof with --allow-debug-signer');
+}
+const signerSha256 = apkObservation.signerSha256;
+if (!signerSha256) throw new Error('APK signer SHA-256 could not be read');
+
+const sourceCapacitorConfig = readFileSync(
+  path.join(ROOT, 'mobile-app/capacitor.config.json'),
+  'utf8',
+);
+const apkCapacitorConfig = bundledText(APK, 'assets/capacitor.config.json');
+const aabCapacitorConfig = bundledText(AAB, 'base/assets/capacitor.config.json');
+const apkPlugins = bundledText(APK, 'assets/capacitor.plugins.json');
+const aabPlugins = bundledText(AAB, 'base/assets/capacitor.plugins.json');
+const apkSourceManifest = bundledText(APK, `assets/${MOBILE_RELEASE_SOURCE_MANIFEST_ASSET}`);
+const aabSourceManifest = bundledText(AAB, `base/assets/${MOBILE_RELEASE_SOURCE_MANIFEST_ASSET}`);
+const apkRuntimeConfig = bundledText(APK, 'assets/public/runtime-config.js');
+const aabRuntimeConfig = bundledText(AAB, 'base/assets/public/runtime-config.js');
+const apkIndex = bundledText(APK, 'assets/public/index.html');
+const aabIndex = bundledText(AAB, 'base/assets/public/index.html');
+const sourceClientRoot = path.join(ROOT, 'src/mobile/client');
+const sourceAssets = Object.fromEntries(MOBILE_RELEASE_EXACT_SOURCE_ASSETS.map(asset => [
+  asset,
+  readFileSync(path.join(sourceClientRoot, asset), 'utf8'),
+]));
+const apkAssets = Object.fromEntries(MOBILE_RELEASE_EXACT_SOURCE_ASSETS.map(asset => [
+  asset,
+  bundledText(APK, `assets/public/${asset}`),
+]));
+const aabAssets = Object.fromEntries(MOBILE_RELEASE_EXACT_SOURCE_ASSETS.map(asset => [
+  asset,
+  bundledText(AAB, `base/assets/public/${asset}`),
+]));
+const expectedSourceManifest = buildCurrentMobileReleaseSourceManifestV1({
+  sourceRevision: commit,
+  generatedRuntimeConfig: apkRuntimeConfig,
+});
+const artifactBinding = validateMobileReleaseArtifactBindingV1({
+  sourceCapacitorConfig,
+  apkCapacitorConfig,
+  aabCapacitorConfig,
+  sourceRuntimeConfig: readFileSync(path.join(sourceClientRoot, 'runtime-config.js'), 'utf8'),
+  apkRuntimeConfig,
+  aabRuntimeConfig,
+  sourceIndex: readFileSync(path.join(sourceClientRoot, 'index.html'), 'utf8'),
+  apkIndex,
+  aabIndex,
+  sourceAssets,
+  apkAssets,
+  aabAssets,
+  sourcePackageJson: readFileSync(path.join(ROOT, 'mobile-app/package.json'), 'utf8'),
+  sourcePackageLock: readFileSync(path.join(ROOT, 'mobile-app/package-lock.json'), 'utf8'),
+  apkPlugins,
+  aabPlugins,
+  expectedSourceManifest,
+  apkSourceManifest,
+  aabSourceManifest,
+});
+const {
+  capacitorConfig: config,
+  gatewayUrl,
+  transportMode,
+  descriptorDigest,
+  adapterManifestDigest,
+  serverIdentityPin,
+  serverOrigin,
+  nativeHttpPatchEnabled,
+} = artifactBinding;
+const apkNetworkSecurity = networkSecurityObservation(aapt2, APK);
+const networkSecurityCleartextDomains = validateMobileNetworkSecurityTreeV1({
+  gatewayUrl,
+  xmlTree: apkNetworkSecurity.tree,
+});
+const derivedRoot = mkdtempSync(path.join(os.tmpdir(), 'intentsmith-aab-proof-'));
+let aabNetworkSecurity;
+try {
+  const apks = path.join(derivedRoot, 'release.apks');
+  bundletoolRun(bundletoolAuthority, [
+    'build-apks', `--bundle=${AAB}`, `--output=${apks}`, `--aapt2=${aapt2}`,
+    '--mode=universal', '--overwrite',
+  ]);
+  run('unzip', ['-q', apks, 'universal.apk', '-d', derivedRoot]);
+  aabNetworkSecurity = networkSecurityObservation(aapt2, path.join(derivedRoot, 'universal.apk'));
+  validateMobileNetworkSecurityTreeV1({ gatewayUrl, xmlTree: aabNetworkSecurity.tree });
+  if (aabNetworkSecurity.tree !== apkNetworkSecurity.tree) {
+    throw new Error('APK and AAB network security trees differ');
+  }
+} finally {
+  rmSync(derivedRoot, { recursive: true, force: true });
+}
+const runtimeEvidence = runtimeEvidencePath === null ? null : readMobileM7RuntimeEvidenceV1({
+  evidencePath: runtimeEvidencePath,
+  expected: {
+    aabSha256: digest(AAB),
+    aabSignerSha256: aabObservation.signerSha256,
+    adapterManifestDigest,
+    apkSha256: digest(APK),
+    apkSignerSha256: apkObservation.signerSha256,
+    candidateSha: commit,
+    candidateTreeSha,
+    descriptorDigest,
+    serverIdentityPin,
+    serverOrigin,
+    sourceManifestSha256: textDigest(expectedSourceManifest),
+  },
+});
+const releasePolicy = classifyMobileReleaseArtifact({
+  debugSigned,
+  sourceDirty: sourceProvenance.sourceDirty,
+  expectedSigner: expectedApkSigner,
+  expectedAabSigner,
+  aabSignerVerified: expectedAabSigner !== null
+    && aabObservation.signerSha256 === expectedAabSigner,
+  transportMode,
+  descriptorDigest,
+  adapterManifestDigest,
+  serverIdentityPin,
+  serverOrigin,
+  nativeHttpPatchEnabled,
+  runtimeEvidenceVerified: runtimeEvidence?.verified === true,
+});
+const expectedConnectDirective = transportMode === MOBILE_RELEASE_TRANSPORT.PRODUCTION
+  ? "connect-src 'self'"
+  : `connect-src 'self' ${new URL(gatewayUrl).origin}`;
+const connectDirective = apkIndex.match(/connect-src\s+[^;"]+/)?.[0] || null;
+if (connectDirective !== expectedConnectDirective) {
+  throw new Error(`bundled CSP does not pin the selected gateway origin: ${connectDirective || 'missing'}`);
+}
+const retainedQualifier = releasePolicy.classification.toLowerCase().replaceAll('_', '-');
+const retainedApkName = `IntentSmith-${commit.slice(0, 12)}-${retainedQualifier}.apk`;
+const retainedAabName = `IntentSmith-${commit.slice(0, 12)}-${retainedQualifier}.aab`;
+const retainedApk = path.join(outputDir, retainedApkName);
+const retainedAab = path.join(outputDir, retainedAabName);
+copyFileSync(APK, retainedApk);
+copyFileSync(AAB, retainedAab);
+chmodSync(retainedApk, 0o600);
+chmodSync(retainedAab, 0o600);
+const manifest = {
+  schemaVersion: 1,
+  createdAt: new Date().toISOString(),
+  // commit is the Git base, not a verified source claim for a dirty build.
+  commit,
+  dirty,
+  source: sourceProvenance,
+  classification: releasePolicy.classification,
+  artifacts: {
+    apk: {
+      path: path.relative(ROOT, APK),
+      retainedPath: path.relative(ROOT, retainedApk),
+      sha256: digest(retainedApk),
+    },
+    aab: {
+      path: path.relative(ROOT, AAB),
+      retainedPath: path.relative(ROOT, retainedAab),
+      sha256: digest(retainedAab),
+    },
+  },
+  android: {
+    apk: {
+      ...apkObservation,
+      declaredSourceRevision: apkObservation.sourceRevision,
+      sourceRevision: sourceProvenance.sourceRevision,
+      expectedSignerSha256: expectedApkSigner,
+      networkSecurityResource: apkNetworkSecurity.resource,
+      networkSecurityTreeSha256: textDigest(apkNetworkSecurity.tree),
+    },
+    aab: {
+      ...aabObservation,
+      declaredSourceRevision: aabObservation.sourceRevision,
+      sourceRevision: sourceProvenance.sourceRevision,
+      expectedSignerSha256: expectedAabSigner,
+      networkSecurityResource: aabNetworkSecurity.resource,
+      networkSecurityTreeSha256: textDigest(aabNetworkSecurity.tree),
+    },
+    // The embedded declaration is preserved; dirty bytes are not Git evidence.
+    sourceManifestSha256: textDigest(expectedSourceManifest),
+    sourceManifestRevisionVerified: !sourceProvenance.sourceDirty,
+  },
+  client: {
+    bundledWebDir: config.webDir,
+    serverUrl: config.server?.url || null,
+    gatewayOrigin: new URL(gatewayUrl).origin,
+    connectSrc: connectDirective,
+    webContentsDebuggingEnabled: config.android?.webContentsDebuggingEnabled,
+    transportMode,
+    remoteCoreDescriptorDigest: descriptorDigest,
+    remoteCoreAdapterManifestDigest: adapterManifestDigest,
+    remoteCoreServerIdentityPin: serverIdentityPin ?? null,
+    remoteCoreServerOrigin: serverOrigin ?? null,
+    remoteCoreModuleSha256: textDigest(apkAssets['remote-core-v1.js']),
+    nativeHttpPatchEnabled,
+    networkSecurityCleartextDomains,
+    releaseTransportReady: releasePolicy.releaseTransportReady,
+  },
+  releaseBlockers: releasePolicy.releaseBlockers,
+  runtimeEvidence: runtimeEvidence === null ? null : {
+    contract: runtimeEvidence.record.contract,
+    rawSha256: runtimeEvidence.rawSha256,
+    recordedAtMs: runtimeEvidence.record.recordedAtMs,
+    verified: runtimeEvidence.verified,
+  },
+  supplyChain: {
+    bundletoolVersion: bundletoolAuthority.version,
+    bundletoolSha256: digest(bundletoolAuthority.jar),
+    npmRuntimeVulnerabilities: runtimeVulnerabilities,
+    sbomFormat: `${sbom.bomFormat} ${sbom.specVersion}`,
+    npmRuntimeComponents: sbom.components?.length || 0,
+    npmLicensesWithoutIdentity: licenses.filter(item => !item.license).map(item => item.name),
+  },
+};
+
+function writePrivate(name, bytes) {
+  writeFileSync(path.join(outputDir, name), bytes, { flag: 'wx', mode: 0o600 });
+}
+
+writePrivate('manifest.json', `${JSON.stringify(manifest, null, 2)}\n`);
+writePrivate('apksigner.txt', signer);
+writePrivate('aapt-badging.txt', badging);
+writePrivate('aapt-manifest.txt', manifestTree);
+writePrivate('aapt-network-security.txt', apkNetworkSecurity.tree);
+writePrivate('aab-network-security.txt', aabNetworkSecurity.tree);
+writePrivate('aab-jarsigner.txt', bundleSignature);
+writePrivate('aab-keytool-signer.txt', aabSignerOutput);
+writePrivate('aab-manifest.xml', aabManifest);
+writePrivate(MOBILE_RELEASE_SOURCE_MANIFEST_ASSET, expectedSourceManifest);
+writePrivate('gradle-version.txt', gradleVersion);
+writePrivate('gradle-release-dependencies.txt', gradleDependencies);
+writePrivate('npm-audit-runtime.json', `${JSON.stringify(audit, null, 2)}\n`);
+writePrivate('mobile-app-sbom.cdx.json', `${JSON.stringify(sbom, null, 2)}\n`);
+writePrivate('npm-runtime-licenses.json', `${JSON.stringify(licenses, null, 2)}\n`);
+
+console.log(`Mobile release evidence: ${manifest.classification}`);
+console.log(`  ${outputDir}`);
+console.log(`  APK ${manifest.artifacts.apk.sha256}`);
+console.log(`  AAB ${manifest.artifacts.aab.sha256}`);
+console.log(`  runtime audit ${runtimeVulnerabilities} vulnerabilities`);

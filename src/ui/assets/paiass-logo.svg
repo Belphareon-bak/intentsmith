@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="bubbleGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#ec4899"/>
+      <stop offset="40%" style="stop-color:#a855f7"/>
+      <stop offset="100%" style="stop-color:#38bdf8"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Main chat bubble outline -->
+  <path d="M256 56C150.4 56 64 142.4 64 248c0 37.2 10.7 71.9 29.1 101.2L64 456l106.8-29.1C200.1 445.3 234.8 456 272 456h-16c105.6 0 192-86.4 192-192S361.6 56 256 56z" 
+        stroke="url(#bubbleGradient)" 
+        stroke-width="36" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"
+        fill="none"/>
+  
+  <!-- Inner circle -->
+  <circle cx="256" cy="248" r="88" 
+          stroke="url(#bubbleGradient)" 
+          stroke-width="32" 
+          fill="none"/>
+  
+  <!-- Two dots (eyes) -->
+  <circle cx="224" cy="248" r="14" fill="url(#bubbleGradient)"/>
+  <circle cx="288" cy="248" r="14" fill="url(#bubbleGradient)"/>
+</svg>

@@ -1,0 +1,74 @@
+{
+  "id": "accountant-cz",
+  "version": "2.1.0",
+  "manifestVersion": 2,
+  "name": "Účetní",
+  "description": "OSVC danova evidence, DPH, pojistne, compliance, reporty",
+  "author": "intentsmith-core",
+  "domain": "finance",
+  "type": "domain",
+  "engine": ">=121.0.0",
+  "entry": "./index.js",
+  "requiredCapabilities": [
+    "specialist.runtime.v1",
+    "specialist.tool-adapter.v1"
+  ],
+  "tools": [
+    {
+      "id": "accountant.document_workflow",
+      "name": "Doklady a přiznání",
+      "module": "./tools/document-workflow.js",
+      "function": "runDocumentWorkflow"
+    },
+    {
+      "id": "accountant.tax_calculator",
+      "name": "Danova kalkulacka",
+      "module": "./tools/tax-calc.js",
+      "function": "calculateTax"
+    },
+    {
+      "id": "accountant.vat_calculator",
+      "name": "Kalkulacka DPH",
+      "module": "./tools/vat-calc.js",
+      "function": "calculateVAT"
+    },
+    {
+      "id": "accountant.salary_calculator",
+      "name": "Mzdova kalkulacka",
+      "module": "./tools/salary-calc.js",
+      "function": "calculateSalary"
+    },
+    {
+      "id": "accountant.deadline_checker",
+      "name": "Danove terminy",
+      "module": "./tools/deadline-checker.js",
+      "function": "checkDeadlines"
+    },
+    {
+      "id": "accountant.compare_tax_entities",
+      "name": "Porovnani OSVC vs s.r.o.",
+      "module": "./tools/tax-calc.js",
+      "function": "compareTaxEntities"
+    }
+  ],
+  "capabilities": [
+    "tax.calculate",
+    "tax.compare",
+    "vat.compute",
+    "salary.compute",
+    "deadline.check"
+  ],
+  "expertises": [
+    "accountant"
+  ],
+  "defaultExpertise": "./expertise.json",
+  "knowledge_packs": [
+    "tax-rates"
+  ],
+  "migrations": [],
+  "settings": {
+    "default_entity_type": "osvc",
+    "default_tax_regime": "actual"
+  },
+  "enabledByDefault": true
+}

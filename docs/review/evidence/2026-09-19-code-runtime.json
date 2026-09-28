@@ -1,0 +1,21 @@
+{
+  "capturedAt": "2026-09-19T07:57:15.412066+00:00",
+  "runtime": "/home/belphareon/.local/share/intentsmith/evaluation-provider/0.34.0-intentsmith.2",
+  "nativePayload": "/home/belphareon/.local/share/intentsmith/evaluation-provider/0.34.0-intentsmith.1/lib",
+  "nativeManifestSha256": "72ac8cd383111c2332b8b342e53bc23c6bdb0cfaa2bda7ff28f89b1d9de88254",
+  "binarySha256": "3c22a0cfb46a9ea38fd4dba6746a022be04f5ada21a529e83c9380a5f0547b9d",
+  "node": "v22.21.1",
+  "gpu": "NVIDIA GeForce RTX 3090, GPU-6de9a35c-7400-3e74-9053-eed7e5105cc0, 595.91.07, 24576 MiB",
+  "freshCheckout": "fresh-v3",
+  "sourceRevision": "5b91bab88338ed456664d16260eceec6d76c1e15",
+  "dependencyReuse": "node_modules symlink to existing checkout; no new dependency install",
+  "trackedSourceDirty": false,
+  "observedNativeProfile": {
+    "kvCache": "f16 K/V, provider log",
+    "flashAttention": "native llama-server auto; Go config false, both preserved in raw log",
+    "numParallel": 1,
+    "numCtx": 16384,
+    "apiThink": false,
+    "apiSystemMessage": "none supplied; frozen C3 fix prompt in user message; model template bound to artifact digest"
+  }
+}

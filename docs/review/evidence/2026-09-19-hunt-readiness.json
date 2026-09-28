@@ -1,0 +1,329 @@
+{
+  "checkedAt": "2026-09-19T11:49:45+02:00",
+  "inputRevision": "6d085f743dc627d311c5327d84a3d41218e8e59c",
+  "installedRevision": "d22f64ac2328f1c0b109b2fce94c5f7943448033",
+  "databaseReadOnly": true,
+  "newInference": false,
+  "bindingChanges": false,
+  "modelDeletion": false,
+  "diskAvailableBytes": 55545786368,
+  "huntTimer": [
+    "ActiveState=inactive",
+    "UnitFileState=disabled"
+  ],
+  "updateTimer": [
+    "ActiveState=active",
+    "UnitFileState=enabled"
+  ],
+  "bootstrap": [
+    [
+      1,
+      "2026-09-11T20:26:28.369Z"
+    ]
+  ],
+  "catalogCohorts": [
+    [
+      "BOOTSTRAP",
+      183
+    ]
+  ],
+  "huntAttempts": [
+    [
+      "BLOCKED",
+      3
+    ],
+    [
+      "COMPLETE",
+      15
+    ],
+    [
+      "RETRYABLE",
+      7
+    ]
+  ],
+  "automationPolicy": [
+    [
+      1,
+      0,
+      0
+    ]
+  ],
+  "provider": {
+    "version": "0.34.0-intentsmith.1"
+  },
+  "installedArtifactCount": 13,
+  "residentModels": {
+    "models": []
+  },
+  "lastRecordedProviderCheck": {
+    "schemaVersion": 1,
+    "checkedAt": "2026-09-18T22:07:50.335Z",
+    "status": "UPDATE_AVAILABLE",
+    "installed": {
+      "version": "0.34.0-intentsmith.1",
+      "baseVersion": "0.34.0",
+      "origin": "http://127.0.0.1:11434"
+    },
+    "latest": {
+      "version": "0.34.2",
+      "tag": "v0.34.2",
+      "publishedAt": "2026-09-15T21:21:07Z",
+      "url": "https://github.com/ollama/ollama/releases/tag/v0.34.2"
+    },
+    "errors": [],
+    "compatibility": {
+      "status": "UNVERIFIED",
+      "reasonCode": "RESPONSE_DIGEST_REQUIRES_RUNTIME_QUALIFICATION"
+    },
+    "automaticInstall": false
+  },
+  "governorInstalled": {
+    "checkedAt": "2026-09-19T09:49:00.788Z",
+    "readOnly": true,
+    "sourceRevision": "d22f64ac2328f1c0b109b2fce94c5f7943448033",
+    "overallHealth": "CRITICAL",
+    "overallScore": 0.357,
+    "dimensions": {
+      "models": {
+        "score": null,
+        "status": "OBSERVED",
+        "collectorStatus": "READY",
+        "details": {
+          "source": "model_usage",
+          "note": "Potvrzená dokončená volání za 30 dní; samotný počet není úspěšnost.",
+          "requests": 437,
+          "models": 3,
+          "last_event_at": "2026-09-19 06:43:12"
+        },
+        "trend": 0,
+        "trendDirection": "stable",
+        "dataCompleteness": 0
+      },
+      "cre": {
+        "score": 1,
+        "status": "HEALTHY",
+        "details": {
+          "total": 4,
+          "outcomes": 1,
+          "unrecorded_outcomes": 3,
+          "success": 1,
+          "override_count": 0,
+          "override_rate": 0,
+          "avg_latency_ms": 16031
+        },
+        "trend": 0.357,
+        "trendDirection": "improving",
+        "dataCompleteness": 0.04,
+        "collectorStatus": "READY"
+      },
+      "architecture": {
+        "score": null,
+        "status": "NO_ACTIVITY",
+        "collectorStatus": "READY",
+        "details": {
+          "source": "architecture_state",
+          "note": "Záznamy jsou dostupné, ale žádný projekt zatím neprošel kontrolou architektury."
+        },
+        "trend": 0,
+        "trendDirection": "stable",
+        "dataCompleteness": 0
+      },
+      "builds": {
+        "score": 0,
+        "status": "CRITICAL",
+        "collectorStatus": "READY",
+        "trend": 0,
+        "trendDirection": "stable",
+        "dataCompleteness": 0.05,
+        "details": {
+          "source": "m2_execution_results",
+          "note": "Skutečné výstupní kódy testů změn projektu za 30 dní.",
+          "tested": 1,
+          "passed": 0,
+          "failed": 1,
+          "total": 1,
+          "last_event_at": "2026-09-18T10:10:21.246Z"
+        }
+      },
+      "specialists": {
+        "score": null,
+        "status": "OBSERVED",
+        "collectorStatus": "READY",
+        "details": {
+          "source": "specialist_telemetry",
+          "note": "Sběr běží; za 7 dní nebyl dokončen nástroj specialisty. Prohlížení seznamu není test specialisty.",
+          "total": 3545,
+          "events": [
+            {
+              "event_type": "api.request",
+              "n": 3506
+            },
+            {
+              "event_type": "lifecycle.boot",
+              "n": 39
+            }
+          ]
+        },
+        "trend": 0,
+        "trendDirection": "stable",
+        "dataCompleteness": 0
+      },
+      "upgrades": {
+        "score": 0.2857142857142857,
+        "status": "CRITICAL",
+        "details": {
+          "current_evaluation_complete": 2,
+          "current_evaluation_missing_roles": [
+            "CHAT",
+            "D1",
+            "D2",
+            "R1",
+            "R2"
+          ],
+          "current_evaluation_failed_roles": [],
+          "current_evaluation_blocked_roles": [],
+          "durable_binding_count": 7,
+          "expected_role_count": 7
+        },
+        "trend": -0.64,
+        "trendDirection": "declining",
+        "dataCompleteness": 1,
+        "collectorStatus": "READY"
+      }
+    },
+    "summary": "Kritický stav: builds, upgrades. Doporučena okamžitá akce."
+  },
+  "governorCurrentSource": {
+    "checkedAt": "2026-09-19T09:48:47.675Z",
+    "readOnly": true,
+    "source": "working branch",
+    "overallHealth": "CRITICAL",
+    "overallScore": 0.3,
+    "dimensions": {
+      "models": {
+        "score": null,
+        "status": "OBSERVED",
+        "collectorStatus": "READY",
+        "details": {
+          "source": "model_usage",
+          "note": "Potvrzená dokončená volání za 30 dní; samotný počet není úspěšnost.",
+          "requests": 437,
+          "models": 3,
+          "last_event_at": "2026-09-19 06:43:12"
+        },
+        "trend": 0,
+        "trendDirection": "stable",
+        "dataCompleteness": 0
+      },
+      "cre": {
+        "score": 1,
+        "status": "HEALTHY",
+        "details": {
+          "total": 4,
+          "outcomes": 1,
+          "unrecorded_outcomes": 3,
+          "success": 1,
+          "override_count": 0,
+          "override_rate": 0,
+          "avg_latency_ms": 16031
+        },
+        "trend": 0.357,
+        "trendDirection": "improving",
+        "dataCompleteness": 0.04,
+        "collectorStatus": "READY"
+      },
+      "architecture": {
+        "score": null,
+        "status": "NO_ACTIVITY",
+        "collectorStatus": "READY",
+        "details": {
+          "source": "architecture_state",
+          "note": "Záznamy jsou dostupné, ale žádný projekt zatím neprošel kontrolou architektury."
+        },
+        "trend": 0,
+        "trendDirection": "stable",
+        "dataCompleteness": 0
+      },
+      "builds": {
+        "score": 0,
+        "status": "CRITICAL",
+        "collectorStatus": "READY",
+        "trend": 0,
+        "trendDirection": "stable",
+        "dataCompleteness": 0.05,
+        "details": {
+          "source": "m2_execution_results",
+          "note": "Skutečné výstupní kódy testů změn projektu za 30 dní.",
+          "tested": 1,
+          "passed": 0,
+          "failed": 1,
+          "total": 1,
+          "last_event_at": "2026-09-18T10:10:21.246Z"
+        }
+      },
+      "specialists": {
+        "score": null,
+        "status": "OBSERVED",
+        "collectorStatus": "READY",
+        "details": {
+          "source": "specialist_telemetry",
+          "note": "Sběr běží; za 7 dní nebyl dokončen nástroj specialisty. Prohlížení seznamu není test specialisty.",
+          "total": 3545,
+          "events": [
+            {
+              "event_type": "api.request",
+              "n": 3506
+            },
+            {
+              "event_type": "lifecycle.boot",
+              "n": 39
+            }
+          ]
+        },
+        "trend": 0,
+        "trendDirection": "stable",
+        "dataCompleteness": 0
+      },
+      "upgrades": {
+        "score": 0,
+        "status": "CRITICAL",
+        "details": {
+          "current_evaluation_complete": 0,
+          "current_evaluation_missing_roles": [
+            "CHAT",
+            "CODE",
+            "D1",
+            "D2",
+            "R1",
+            "R2",
+            "VISION"
+          ],
+          "current_evaluation_failed_roles": [],
+          "current_evaluation_blocked_roles": [],
+          "durable_binding_count": 7,
+          "expected_role_count": 7
+        },
+        "trend": -0.926,
+        "trendDirection": "declining",
+        "dataCompleteness": 1,
+        "collectorStatus": "READY"
+      }
+    },
+    "summary": "Kritický stav: builds, upgrades. Doporučena okamžitá akce."
+  },
+  "regression": {
+    "before": {
+      "pass": 63,
+      "fail": 4
+    },
+    "after": {
+      "pass": 67,
+      "fail": 0
+    },
+    "lifecycleBuild": {
+      "pass": 114,
+      "fail": 0
+    },
+    "scope": "loop convergence, report, fix memory, operational telemetry; archived C3 and pilot measurements unchanged"
+  }
+}

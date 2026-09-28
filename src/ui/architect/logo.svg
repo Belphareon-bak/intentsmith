@@ -1,0 +1,78 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+
+  <defs>
+    <!-- Background -->
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1b0033"></stop>
+      <stop offset="100%" stop-color="#0f001f"></stop>
+    </linearGradient>
+
+    <!-- Accent gradient -->
+    <linearGradient id="aiGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffb65e"></stop>
+      <stop offset="45%" stop-color="#ff5fa2"></stop>
+      <stop offset="100%" stop-color="#4cc9ff"></stop>
+    </linearGradient>
+
+    <!-- Helmet fill -->
+    <linearGradient id="helmetFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2a0f4f" stop-opacity="0.7"></stop>
+      <stop offset="50%" stop-color="#2e1360" stop-opacity="0.7"></stop>
+      <stop offset="100%" stop-color="#1a0c3d" stop-opacity="0.7"></stop>
+    </linearGradient>
+
+    <!-- Eyes -->
+    <radialGradient id="eyePink">
+      <stop offset="0%" stop-color="#ffb1df"></stop>
+      <stop offset="100%" stop-color="#ff5fa2"></stop>
+    </radialGradient>
+
+    <radialGradient id="eyeBlue">
+      <stop offset="0%" stop-color="#bfe9ff"></stop>
+      <stop offset="100%" stop-color="#4cc9ff"></stop>
+    </radialGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="100%" height="100%" fill="url(#bg)"></rect>
+
+  <!-- FULL ANTENNA (goes INTO helmet) -->
+  <line x1="512" y1="260" x2="512" y2="150" stroke="url(#aiGrad)" stroke-width="8" stroke-linecap="round"></line>
+
+  <circle cx="512" cy="135" r="12" fill="url(#aiGrad)"></circle>
+
+  <!-- HELMET (drawn AFTER antenna -> covers lower part) -->
+  <path d="
+    M360 350
+    C360 260 455 230 512 230
+    C569 230 664 260 664 350
+    V420
+    C664 500 580 540 512 540
+    C455 540 410 510 388 490
+    L350 525
+    V420
+    C350 380 360 375 360 350
+    Z" fill="url(#helmetFill)" stroke="url(#aiGrad)" stroke-width="18" stroke-linejoin="round"></path>
+
+  <!-- Ears -->
+  <ellipse cx="345" cy="395" rx="28" ry="32" fill="url(#helmetFill)" stroke="url(#aiGrad)" stroke-width="6"></ellipse>
+  <ellipse cx="679" cy="395" rx="28" ry="32" fill="url(#helmetFill)" stroke="url(#aiGrad)" stroke-width="6"></ellipse>
+
+  <!-- Visor -->
+  <rect x="420" y="365" width="184" height="92" rx="46" fill="none" stroke="url(#aiGrad)" stroke-width="14"></rect>
+
+  <!-- Eyes -->
+  <circle cx="465" cy="410" r="13" fill="url(#eyePink)"></circle>
+  <circle cx="559" cy="410" r="13" fill="url(#eyeBlue)"></circle>
+
+  <!-- Text -->
+  <text x="512" y="700" text-anchor="middle" font-family="Inter, Segoe UI, system-ui, sans-serif" font-size="64" fill="#ffffff">
+    Personal
+  </text>
+
+  <text x="512" y="785" text-anchor="middle" font-family="Inter, Segoe UI, system-ui, sans-serif" font-size="76" letter-spacing="2">
+    <tspan fill="url(#aiGrad)">AI </tspan>
+    <tspan font-weight="800" fill="url(#aiGrad)">ASS</tspan><tspan fill="url(#aiGrad)">ISTANT</tspan>
+  </text>
+
+</svg>

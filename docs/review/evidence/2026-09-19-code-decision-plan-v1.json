@@ -1,0 +1,212 @@
+{
+  "schemaVersion": 1,
+  "role": "CODE",
+  "metric": "completed_without_repair_help",
+  "lockedAt": "2026-09-19T07:24:35.876Z",
+  "bindingDb": "/home/belphareon/Projects/intentsmith/data/c3.db",
+  "bindingAtLock": {
+    "role": "CODE",
+    "model": "qwen3.8:latest",
+    "model_digest_sha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+    "verification_status": "VERIFIED",
+    "binding_operation_id": "op_4e6c3cf8-c8d3-45d2-bc4f-a18def25b619",
+    "applied_at": "2026-09-19 06:29:13"
+  },
+  "c3Revision": "379c2e4b6dea0fd0cd0fb19df67c3454c267fd49",
+  "independenceStatus": "ASSUMED_GROUPS_NOT_PROVEN_INDEPENDENCE",
+  "scope": "Localized historical C3 repair using its unchanged execution loop; no Studio journey or whole-project success claim.",
+  "incumbent": {
+    "model": "qwen3.8:latest",
+    "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643"
+  },
+  "candidate": {
+    "model": "devstral-small-2:latest",
+    "digest": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8"
+  },
+  "candidateSelection": "Runner-up from closed exploratory series; incumbent verified from production model_overrides before lock.",
+  "repeats": 3,
+  "budget": {
+    "attemptMs": 600000,
+    "totalMs": 14400000,
+    "maxIterations": 3
+  },
+  "decision": {
+    "method": "hoeffding-kl-bounded-groups",
+    "alpha": 0.05,
+    "minimumBenefit": 0.05,
+    "nonInferiorityMargin": 0.05,
+    "minimumSpeedup": 1.25,
+    "allowSpeedDecision": false
+  },
+  "profile": {
+    "numCtx": 16384,
+    "numPredict": 4096,
+    "temperature": 0.1,
+    "topP": 0.9,
+    "callTimeoutMs": 300000,
+    "providerVersion": "0.34.0-intentsmith.1",
+    "parallelism": 1,
+    "maxVramBytes": 22000000000,
+    "vramScope": "whole_device_including_desktop",
+    "minimumPromptTokens": 10000,
+    "minimumGeneratedTokens": 2048,
+    "samplingMs": 250,
+    "requiredGpuPlacement": "size_vram >= size",
+    "nativeAst": "C3 built-in native safety fallback; every changed JS file additionally checked by Node 22 before all executable oracles.",
+    "promptSha256": "57c886512bfc6ebb1977b20b9fa87a72ecdd12f19845ca4f7ac2b35cd48ef3ec"
+  },
+  "oracleAcceptanceSha256": "73f4a6cdbbad8278c744dcf2806f2c2132293d2f670a5ca2f5cd6c5d2d4e9800",
+  "sourceHashes": {
+    "scripts/manual/c3-code-pilot.mjs": "3d3a59c3874a053dce8a177d3f206f0b9a50ce600cc38e3ccd1b5080441716da",
+    "scripts/manual/c3-code-pilot-fixtures.mjs": "a534aa8ba469ec6aebc7b48d6419b3610d23275762987906678dbf2ce68e4b36",
+    "src/eval/code-pilot-decision.js": "502aeb57e78b53e53f2d4165563d5aabff07d14326311dfef55d904bf5818a0b",
+    "src/eval/model-evaluation-runner.js": "83b6cb29a438811d0533ec1ff0f0b7117a516cde882f63f77eefdac55b56a095",
+    "scripts/run-model-hunt-provider.js": "462e0140816020e7548d266e8967e396f3358eabacae63fda648e2cceb526882"
+  },
+  "node": {
+    "version": "v22.21.1",
+    "sha256": "92181daccf61361e7c54d6404a3e2c2307a916d076492e3c0b388e6e5f86a854"
+  },
+  "c3LockSha256": "753b8bf5df6359f353ad2749bac8006aa0cad63617dc2bc6119ba95c5b802532",
+  "scenarios": [
+    {
+      "id": "search-report",
+      "fixCommit": "cc4bc3e7cb0052ee0cac5c7c1c55c65a323c0ccd",
+      "files": [
+        "src/chat/cre-decision.js"
+      ],
+      "requirement": "Czech requests to find something, with or without accents, must start SEARCH even after REPORT. Preserve stop-report handling and diagnostic initial/final intent; do not turn ordinary conversation into SEARCH.",
+      "independenceGroup": "cre-routing",
+      "groupRationale": "Shared CRE routing component: search and arbitration counted as one group.",
+      "sourceHashes": {
+        "src/chat/cre-decision.js": "565b596cf2c608c832754b1c9fe0586174b570bea4e743e38b67ec6f5376b7aa"
+      },
+      "testSha256": "f3d0967ecff28900e8a7c2a8dd6704e7616e169317267415cc8a39e0f70ebae4",
+      "bootstrapSha256": "013efcd530ed365a9aa1da3ab2206d45472a46b440943200472893acff2f5783",
+      "contextSha256": "9a6878fcbfbb781df166cfae69cb9d6e291fbfce76b31b8a5e19eee4e989e3f4",
+      "contentSha256": "8e9f38b6311e6942252349218229ce1bf167facf9f1da682e4a9e34a6e452a42"
+    },
+    {
+      "id": "build-arbitration",
+      "fixCommit": "faf6fa570c0b69743994666d1ac79301b5ab5875",
+      "files": [
+        "src/chat/cre-decision.js"
+      ],
+      "requirement": "A strong deterministic BUILD request must override an accepted conflicting LLM intent and return PLAN. Audit exactly one override with source llm_to_build_deterministic_arbitration and preserve original LLM intent. Ordinary discussion or design about deployment stays non-BUILD.",
+      "independenceGroup": "cre-routing",
+      "groupRationale": "Shared CRE routing component: search and arbitration counted as one group.",
+      "sourceHashes": {
+        "src/chat/cre-decision.js": "56eb4a541c69e38a0f9a971ed5d0708ab4ce95e624256a5f26912af03a17726a"
+      },
+      "testSha256": "625dd51cdd4e554c62171f1214cf42aa49219a5983370bd961e0075faf829aa6",
+      "bootstrapSha256": "2bba5b9f6be78bd0250644dcfbb6822f90a0ab6a4fb17436b5525ce4027041c5",
+      "contextSha256": "ef4d20029f748f4460c7e4fcad1e6087d5188ff0a1bea891061ddedcd26f9822",
+      "contentSha256": "06e72cf9301293b348e8e05f621297be4269d34c408c87560085b7887978b7a5"
+    },
+    {
+      "id": "manual-scheduler",
+      "fixCommit": "e55b6af09ce3a7b08bff6313380521bbaa13b3f9",
+      "files": [
+        "src/agents/scheduler.js"
+      ],
+      "requirement": "triggerAgent must mark a manual execution in flight until its promise settles, reject duplicate manual execution, and make checkDue skip the running agent. Clear the guard on success and rejection. Preserve force:true and isManual:true.",
+      "independenceGroup": "scheduler-concurrency",
+      "groupRationale": "Distinct historical defect and subsystem; independence remains an assumption.",
+      "sourceHashes": {
+        "src/agents/scheduler.js": "974ff6ac1d6dbf806c4222e99b6d237528f5a198131c7622813a3ad5b9582740"
+      },
+      "testSha256": "8783759ca2d7016394ef609cb165a2006fa03faf1ac6474709fa9be393f313b2",
+      "bootstrapSha256": "01f8cc5e2257221f879a3e554b55bec895b4dfb15dfcc29ee4892c5a27cc2ef1",
+      "contextSha256": "6db0ac9e2c78a9704565e1b9bc12fcfffb1fede6fd0ce0550e058605deda2f21",
+      "contentSha256": "8cbf797f1defa266655a0e8dbdca42cc2b36965b3fa301dcb4db02b71e3660c3"
+    },
+    {
+      "id": "specialist-cleanup",
+      "fixCommit": "64421529199aed1d20a4869f490bf0bf98ac36ce",
+      "files": [
+        "src/expertises/scenario-engine.js",
+        "src/specialists/specialist-loader.js"
+      ],
+      "requirement": "Disabling a specialist must remove its tools and scenarios even when unregister throws or is incomplete. Respect the primary expertise ID in its manifest. Add ScenarioRegistry.unregisterBySpecialist(id), SpecialistLoader.setScenarioRegistry(registry), and checkIntegrity() returning {ok,issues}, detecting missing and ghost registrations. Repeated boot/disable must be safe; re-enabling restores the tools.",
+      "independenceGroup": "specialist-lifecycle",
+      "groupRationale": "Distinct historical defect and subsystem; independence remains an assumption.",
+      "sourceHashes": {
+        "src/expertises/scenario-engine.js": "539a13c9f9b2ee29f82a7f1bfd7c068d1cc6f47dde25e7b4164369eed28455b3",
+        "src/specialists/specialist-loader.js": "d648def728ee5f9c7bcf966e0734d00350a57eb6d3cd466b3622b61ea47a83dc"
+      },
+      "testSha256": "c9edc2a2f57b1d3caddf72b7eebd33bcc7b90346b2af6793fe4e2cf205e478c2",
+      "bootstrapSha256": "a50238e8627f2cf7df72c3d52cc76eae28c5e899a73b403bad46fce0a86c4d77",
+      "contextSha256": "0f1e38e718aed77f2d2234f37cfc806480e1e1ad970fcfa1cdd701c0df2658f4",
+      "contentSha256": "5d211af92112f8367d9b00f23d9aec0e2e040cab3b842f36387c4676da70c9d4"
+    },
+    {
+      "id": "expertise-categories",
+      "fixCommit": "c1707671ebb21b77591da281bf9ff60408083631",
+      "files": [
+        "src/expertises/expertise-layer.js"
+      ],
+      "requirement": "getExpertiseCategories must not advertise a built-in expertise which is absent from BUILTIN_EXPERTISES. Preserve category IDs, labels, and all existing valid members; accountant is an optional specialist, not a built-in. Do not invent a built-in accountant.",
+      "independenceGroup": "audit-c170",
+      "groupRationale": "Different defects from one audit commit, conservatively one group.",
+      "sourceHashes": {
+        "src/expertises/expertise-layer.js": "74d9e0b00414eb7940d86e4c67196d938e1e3b4ef0681e2dfa91e985eba291fc"
+      },
+      "testSha256": "f9725e82f2dd9b973acee60caae2528fa2a7162bf15e9ddf54fa10551e29a1bb",
+      "bootstrapSha256": "2089b517c45f03b779e38a04b9dd6e3db1f45ed568e9439f54ef57af415e569b",
+      "contextSha256": "4c65177d43d2f60aa8686e2a0d2cfdc51493dd2510f9dd07a1ca833649c6aced",
+      "contentSha256": "cefdc229276378634c1419a88c0eb94bcfc5725349630b574285edf95a2ee6d5"
+    },
+    {
+      "id": "java-javadoc",
+      "fixCommit": "2c5f1756d7f584dd387c9040f268e7a5eb0d4c8d",
+      "files": [
+        "src/planner/quality-gate.js"
+      ],
+      "requirement": "Java structural quality checks must match the real declaration instead of the word class inside Javadoc. Accept public final classes, abstract classes, interfaces and enums with matching filename; continue rejecting filename mismatch, missing package and unbalanced braces. This is structural validation, not a Java compiler.",
+      "independenceGroup": "java-structural-validation",
+      "groupRationale": "Distinct historical defect and subsystem; independence remains an assumption.",
+      "sourceHashes": {
+        "src/planner/quality-gate.js": "c20217862575d99b74c4ee65b7d51a645731fd129067f5b3d6cf57e3d911a918"
+      },
+      "testSha256": "faa051a656726d9253da0e67945d0389e7f73e164f51d6186fd35c0842174377",
+      "bootstrapSha256": "7e15c6bdc12c1041112c2c240984fe684f50f5395cc6d82e666223ca2ab607c7",
+      "contextSha256": "c999d929ac051a181075e0b17f6c71c380ad7cfc947222fefaf4ddfff3aef94a",
+      "contentSha256": "8b62da3fde8c9709d69d0f3c1999b15aff7430f26a69bacef1ec6b5714f645cd"
+    },
+    {
+      "id": "structured-code",
+      "fixCommit": "486b55602e6ebedb8267b0a55d94b1b81f7bb291",
+      "files": [
+        "src/planner/code-cleaner.js"
+      ],
+      "requirement": "stripCodeFences must extract code from a string, an array of string/text/content parts, or an object with text/content/message. Preserve plain-string fence removal and null/empty behavior; fallback to String for other inputs. repairCode must pass structured model content through this same extraction, not stringify it first.",
+      "independenceGroup": "structured-provider-content",
+      "groupRationale": "Distinct historical defect and subsystem; independence remains an assumption.",
+      "sourceHashes": {
+        "src/planner/code-cleaner.js": "6a4237cc9afb7c811323e801fb1536be7f660ffc01163e15168e0b664a72c358"
+      },
+      "testSha256": "d598d65fd63070d078c25748989808ecca11b39d0bfdcc0f56f3d77d8f3f2bed",
+      "bootstrapSha256": "93aa032bd04abf673830419b39de2ba9a4c3feb1b02fe41b0e858472e2ce8afe",
+      "contextSha256": "1ca11fd1264fb8010e112b097a74dd845b9449bd9aad47fcb42db6aa8a8a42ea",
+      "contentSha256": "b2f6c1a287927840128e3fefc2c1f1a5f943a55bb6cac8e12df91cb796f7f482"
+    },
+    {
+      "id": "optional-legacy-table",
+      "fixCommit": "c1707671ebb21b77591da281bf9ff60408083631",
+      "files": [
+        "src/db/migrations/2026_02_20_008_v69_expert_to_expertise.js"
+      ],
+      "requirement": "Migration 008 must work when the optional old custom_experts table is absent. If present, preserve its rows in custom_expertises. Retain old tables, expert records, memory and bindings. Applying the migration twice must be safe.",
+      "independenceGroup": "audit-c170",
+      "groupRationale": "Different defects from one audit commit, conservatively one group.",
+      "sourceHashes": {
+        "src/db/migrations/2026_02_20_008_v69_expert_to_expertise.js": "4b1d995e96319d49c94b4c0a767911a54f3fdfd7918d4b7b7eab55d1f82dc704"
+      },
+      "testSha256": "6a8cacc35b15d6e64f5bf692645298852be828bad638b348f01162452f476813",
+      "bootstrapSha256": "bf325b8888aa5d8d24b9a1b6cc54e0c3ee34b4d634afd5649ed70d899cc44fb4",
+      "contextSha256": "ac5d7ed7277ce01861dde455df089422efa99a4e387a6b8478920a76d56b2a5e",
+      "contentSha256": "50b4ff296bb87341f3d157ab596b06719120b89f0a0018cae0a70ef91c52079d"
+    }
+  ],
+  "planSha256": "537ae6d68a7c9105528a49e1e9a1a7f5c0e18090dac3e10550d109e17d95d82e"
+}

@@ -1,0 +1,113 @@
+{
+  "status": "HASH_VERIFIED",
+  "file": "evidence-d04d0d5fcf27fbbb5819ceb34f0f606d516e675f3ca66f39670034d37345a164.tar.gz",
+  "sha256": "d04d0d5fcf27fbbb5819ceb34f0f606d516e675f3ca66f39670034d37345a164",
+  "bytes": 74961524,
+  "members": 93,
+  "manifestSha256": "e2aed6053219e4263dafc3c6b0bd215a509f59ea5fd79ab1f33459e73795f6c0",
+  "sourceRevision": "cd5a6943379254b3ec0a769913fab2db1249b85b",
+  "schemaVersion": 1,
+  "acceptance": "REVIEW_PENDING",
+  "autonomousSelection": "NO_GO",
+  "acceptedDecisionProfiles": 0,
+  "evidenceRoot": "/home/belphareon/Projects/coworker/intentsmith-hunt-supervised-20260921",
+  "reviewDocument": "docs/review/2026-09-21-HUNT-SUPERVISED-COLLECTION.md",
+  "reviewDocumentSha256": "67f901af7610ee3bf5c9fdf4e18b262f9e80fa41d033955686660d24f355ab9b",
+  "measurements": [
+    {
+      "model": "qwen3.8:latest",
+      "roles": 7,
+      "attempts": 306,
+      "completeOpenResponses": 215,
+      "outputBudgetExhausted": 1,
+      "sourceRevision": "be32d679b66c9d6d1317298457100237c9486eac",
+      "run": "run-Ig7qPU",
+      "openRoleScore": null,
+      "codeScore": 1,
+      "visionScore": 0.772463768115942
+    },
+    {
+      "model": "devstral-small-2:latest",
+      "roles": [
+        "CODE"
+      ],
+      "attempts": 21,
+      "success": 11,
+      "incorrect": 10,
+      "score": 0.5238095238095238,
+      "sourceRevision": "cd5a6943379254b3ec0a769913fab2db1249b85b",
+      "run": "run-8cBExc"
+    }
+  ],
+  "validation": {
+    "fullOfflineDatabase": {
+      "sourceRevision": "be32d679b66c9d6d1317298457100237c9486eac",
+      "pass": 363,
+      "fail": 1,
+      "failure": "tests/nightly-orchestrator-self-test.js: registry hash does not match accepted Gate 0 seal"
+    },
+    "oracleControls": {
+      "pass": 62,
+      "tasks": 7,
+      "declaredGroups": 5
+    },
+    "desktopTimerChecks": 37,
+    "guiFinalRevisionVerified": "cd5a6943379254b3ec0a769913fab2db1249b85b"
+  },
+  "postRebootHandoff": {
+    "checkedAt": "2026-09-22T19:37:21.738406+00:00",
+    "bootTime": "2026-09-22 21:29:01",
+    "backend": "MainPID=2126\nActiveState=active",
+    "timer": "Persistent=no\nActiveState=inactive",
+    "availableDiskBytes": 32135696384,
+    "gpuComputeProcesses": "",
+    "memoryAvailableBytes": 27510276096,
+    "installedRevision": "cd5a6943379254b3ec0a769913fab2db1249b85b",
+    "inventoryUnchanged": true,
+    "inventoryCount": 12,
+    "preservedTables": {
+      "model_desired_bindings": {
+        "beforeRows": 7,
+        "afterRows": 7,
+        "unchanged": true,
+        "beforeSha256": "ddbdfce82570a121c0ab869b1377f00af147af7b7a3724e9a56435c77ed0cfca",
+        "afterSha256": "ddbdfce82570a121c0ab869b1377f00af147af7b7a3724e9a56435c77ed0cfca"
+      },
+      "model_evaluation_decisions": {
+        "beforeRows": 234,
+        "afterRows": 234,
+        "unchanged": true,
+        "beforeSha256": "29baa9a24acfe0c7dcce10b3616a4f7c184bac1d9ea467c41d49be8d6fa8fd97",
+        "afterSha256": "29baa9a24acfe0c7dcce10b3616a4f7c184bac1d9ea467c41d49be8d6fa8fd97"
+      },
+      "model_binding_operations": {
+        "beforeRows": 16,
+        "afterRows": 16,
+        "unchanged": true,
+        "beforeSha256": "9621fe8afd48832a2cefcea1cf989ca6c7c4f66f7728d74a32e6c1f08dbedd44",
+        "afterSha256": "9621fe8afd48832a2cefcea1cf989ca6c7c4f66f7728d74a32e6c1f08dbedd44"
+      },
+      "model_binding_application_attempts": {
+        "beforeRows": 741,
+        "afterRows": 783,
+        "unchanged": false,
+        "beforeSha256": "b59383b898d4ca2135e430e6f9946c4b5e21d23f16a76bbc55078b6a30ff994f",
+        "afterSha256": "756c0f214c0f14e0019597964acd413b73eb1fc6c3651869e03e6c29fe5eb910"
+      }
+    },
+    "automationPolicy": {
+      "status": "VALID",
+      "valid": true,
+      "reason": null,
+      "revision": 1,
+      "lastEventId": "policy-event-migration-061",
+      "policy": {
+        "autoFailoverEnabled": false,
+        "autoCleanupEnabled": false,
+        "autoCleanupDays": 14
+      }
+    },
+    "timerEnabled": "disabled",
+    "auditSha256": "2e43c0d94d5b2f181a62e74a1d97c3dfbc1075c9c63a8337e9a0362e854d2aa7"
+  }
+}

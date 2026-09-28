@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The client's own palette (UI-DESIGN §2), so the lock does not look like a
+     different application than the one behind it. -->
+<resources>
+    <color name="lock_background">#1F1E1D</color>
+    <color name="lock_foreground">#F5F4EF</color>
+    <color name="lock_muted">#A5A39C</color>
+    <color name="lock_field">#2A2825</color>
+    <color name="lock_accent">#C96442</color>
+    <color name="lock_on_accent">#FFFFFF</color>
+</resources>

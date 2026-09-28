@@ -1,0 +1,60 @@
+{
+  "queries": [
+    {
+      "id": "session-definition",
+      "queryText": "validateSessionToken",
+      "topK": 2,
+      "mustIncludeInTopK": [
+        {
+          "path": "src/auth/validateSessionToken.js",
+          "maxPosition": 1,
+          "minLineSpan": 3,
+          "contentCanary": "SESSION_VALIDATION_RESULT"
+        }
+      ]
+    },
+    {
+      "id": "invoice-calculation",
+      "queryText": "calculateInvoiceTotal",
+      "topK": 2,
+      "mustIncludeInTopK": [
+        {
+          "path": "src/billing/calculateInvoiceTotal.js",
+          "maxPosition": 1,
+          "minLineSpan": 3,
+          "contentCanary": "INVOICE_TOTAL_RESULT"
+        }
+      ]
+    },
+    {
+      "id": "bytewise-tie-break",
+      "queryText": "sharedTieBreaker",
+      "topK": 2,
+      "mustIncludeInTopK": [
+        {
+          "path": "src/shared/sharedTieBreaker-alpha.js",
+          "maxPosition": 1,
+          "minLineSpan": 1,
+          "contentCanary": "SHARED_TIE_ALPHA"
+        },
+        {
+          "path": "src/shared/sharedTieBreaker-beta.js",
+          "maxPosition": 2,
+          "minLineSpan": 1,
+          "contentCanary": "SHARED_TIE_BETA"
+        }
+      ],
+      "expectedOrder": [
+        "src/shared/sharedTieBreaker-alpha.js",
+        "src/shared/sharedTieBreaker-beta.js"
+      ]
+    }
+  ],
+  "forbiddenPathFragments": [
+    "project-b",
+    "canary-b"
+  ],
+  "forbiddenContent": [
+    "PROJECT_B_CANARY_DO_NOT_LEAK"
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "modelRole": "CHAT",
+  "language": "cs",
+  "cases": [
+    {
+      "id": "docker-explanation",
+      "query": "Co je Docker a proč se používá?",
+      "intent": "CONVERSATIONAL",
+      "requiredTerms": ["Docker", "kontejner"],
+      "acceptedBehavior": "Přímé vysvětlení zachová téma a popíše izolaci nebo reprodukovatelnost."
+    },
+    {
+      "id": "dns-steps",
+      "query": "Vysvětli krok za krokem, jak prohlížeč přeloží doménu pomocí DNS.",
+      "intent": "DESIGN",
+      "requiredTerms": ["DNS", "resolver"],
+      "acceptedBehavior": "Odpověď zachová pořadí dotazu, resolveru a autoritativního serveru."
+    },
+    {
+      "id": "factorial-code",
+      "query": "Napiš v Pythonu funkci factorial s kontrolou záporného vstupu.",
+      "intent": "CODE",
+      "requiredTerms": ["factorial", "ValueError"],
+      "requiredPattern": "```",
+      "acceptedBehavior": "Odpověď obsahuje spustitelný blok a neodstraní validaci záporného vstupu."
+    },
+    {
+      "id": "prague-factual",
+      "query": "Jaké je hlavní město České republiky? Odpověz jednou větou.",
+      "intent": "FACTUAL",
+      "requiredTerms": ["Praha", "Česk"],
+      "acceptedBehavior": "Jedna přímá věta uvede Prahu bez meta-preambule."
+    }
+  ]
+}

@@ -1,0 +1,112 @@
+{
+  "contract": "ExtensionManifest",
+  "version": 1,
+  "kind": "skill",
+  "id": "m3-project-note",
+  "moduleVersion": "1.0.0",
+  "coreContract": ">=136.0.0 <137.0.0",
+  "requiredCapabilities": [
+    "core.tool-authority.v1",
+    "skill.runtime.v1"
+  ],
+  "optionalCapabilities": [],
+  "payload": {
+    "definition": {
+      "version": 1,
+      "description": "Reprodukovatelně připraví a po přesném schválení uloží projektovou poznámku",
+      "purpose": "Zachytit pojmenované projektové rozhodnutí stejnou šablonou a přes M2 file.write authority",
+      "trigger": {
+        "patterns": [
+          "^(?:zapiš|zapis|ulož|uloz) projektovou poznámku (?<title>[^:\\n]{1,120}): (?<content>[\\s\\S]{1,4000})$"
+        ],
+        "confidence": 1
+      },
+      "parameters": {
+        "title": {
+          "type": "string",
+          "required": true,
+          "description": "Krátký název rozhodnutí",
+          "maxLength": 120
+        },
+        "content": {
+          "type": "string",
+          "required": true,
+          "description": "Obsah projektové poznámky",
+          "maxLength": 4000
+        },
+        "path": {
+          "type": "string",
+          "required": false,
+          "description": "Projektově relativní cílový soubor",
+          "default": "PROJECT-NOTES.md",
+          "maxLength": 240,
+          "pattern": "^(?:[A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+$"
+        }
+      },
+      "stepModel": {
+        "fixed": [
+          "compose",
+          "quality",
+          "persist"
+        ],
+        "variable": [
+          "review"
+        ]
+      },
+      "toolSelection": [
+        {
+          "stepId": "persist",
+          "toolId": "file.write",
+          "reason": "Jediný efekt je přesný zápis schválených bajtů do aktivního projektu"
+        }
+      ],
+      "steps": [
+        {
+          "id": "compose",
+          "type": "template",
+          "template": "# Projektová poznámka: {{title}}\n\n{{content}}\n"
+        },
+        {
+          "id": "review",
+          "type": "review",
+          "content": "{{steps.compose.output}}",
+          "prompt": "Zkontroluj přesné bajty poznámky. Napiš ano, nebo pošli celý opravený obsah:"
+        },
+        {
+          "id": "quality",
+          "type": "validate",
+          "mode": "deterministic",
+          "content": "{{steps.review.output}}",
+          "criteria": {
+            "minLength": 24,
+            "maxLength": 8192,
+            "requiredSubstrings": [
+              "# Projektová poznámka:",
+              "{{title}}"
+            ],
+            "forbiddenSubstrings": [
+              "{{steps.unknown.output}}"
+            ]
+          },
+          "failMessage": "Poznámka po review nesplňuje připnutá kvalitativní kritéria."
+        },
+        {
+          "id": "persist",
+          "type": "write",
+          "toolId": "file.write",
+          "path": "{{path}}",
+          "content": "{{steps.quality.output}}"
+        }
+      ],
+      "qualityCriteria": [
+        "Výstup obsahuje připnutou hlavičku a název poznámky",
+        "Uživatel vidí a může upravit přesné zapisované bajty"
+      ],
+      "outputCriteria": [
+        "file.write má trvalý ToolResult status ok",
+        "ToolResult odkazuje na succeeded EffectResult ze stejné M2 authority"
+      ]
+    },
+    "enabledByDefault": true
+  }
+}

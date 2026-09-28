@@ -1,0 +1,126 @@
+{
+  "schemaVersion": "intentsmith-repo-scoring-followup-v1",
+  "checkedAt": "2026-09-12T16:14:40.526375+00:00",
+  "sourceRevision": "9d5e207a60b7157275e6b10900ae89b68698bdf8",
+  "baseExclusive": "a0b73c474dee182010e8fec429a7fa7736dda4f5",
+  "status": [
+    "QUALITY_PILOT_COMPLETE",
+    "STUDIO_SCORING_VISIBLE",
+    "INSTALLED_PANEL_RUNNING",
+    "REVIEW_PENDING"
+  ],
+  "gate": {
+    "sourceRevision": "414142a66253621f1491e4f64a85e2feb1cf0eb9",
+    "pass": 352,
+    "fail": 0,
+    "blocked": 0,
+    "logHashesVerified": 352,
+    "subsequentChange": "remove duplicate legacy sidebar dependency; validated by production build and owned Electron scoring journey"
+  },
+  "initialGate": {
+    "pass": 343,
+    "fail": 1,
+    "blocked": 8,
+    "reason": "stale source/test LOC census and omitted explicit toolchain prerequisites"
+  },
+  "pilot": {
+    "candidates": [
+      "phi4:14b",
+      "devstral-small-2:latest"
+    ],
+    "roles": [
+      "R1",
+      "R2"
+    ],
+    "completeSummaries": 6,
+    "roleErrors": 0,
+    "provider": "0.34.0-intentsmith.1",
+    "proof": "RESPONSE_BOUND",
+    "newDownloads": 0,
+    "bindingChanges": 0
+  },
+  "studio": {
+    "evidence": "intentsmith.studio-m1-electron-journey",
+    "backend": "owned-controlled-fixture",
+    "sourceRevision": "9d5e207a60b7157275e6b10900ae89b68698bdf8",
+    "scoring": {
+      "first": "scoring-fixture-2",
+      "second": "scoring-fixture-3",
+      "refreshed": true,
+      "providerShown": true,
+      "unknownVersionShown": true,
+      "scoreShown": true,
+      "blockedShown": true,
+      "runtimeUnverifiedShown": true
+    },
+    "notClaimed": [
+      "production database attached to Electron",
+      "independent acceptance",
+      "IDE hunt start/cancel controls"
+    ]
+  },
+  "panel": {
+    "unit": "intentsmith-hunt-repo-panel-queued-20260912.service",
+    "checkpoint": {
+      "at": "2026-09-12T16:09:53.656Z",
+      "status": "RUNNING",
+      "attempt": 1,
+      "report": "/home/belphareon/Projects/coworker/intentsmith-hunt-repo-scoring-20260912/panel-attempt-1.json"
+    },
+    "roles": [
+      "D1",
+      "D2",
+      "R1",
+      "R2"
+    ],
+    "installedOnly": true,
+    "maxWaitHours": 2,
+    "unitRuntimeMaxHours": 6
+  },
+  "artifacts": [
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-repo-scoring-20260912/gate-initial.json",
+      "sha256": "e447b39ab355e0d0f73f5c89f6cab5acbb85b8a70be4d30079cf4abef0bd7f06"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-repo-scoring-20260912/gate-352-pass.json",
+      "sha256": "b73f7894e1c8f7dcf914b9bbca23e0fa0bc655dd29531e682e26cf0159852f85"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-repo-scoring-20260912/calibration.json",
+      "sha256": "5cffb262f3f4953db1b4effb8a356c1d6202f985f694958292a382cc43d06c37"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-repo-scoring-20260912/calibration-db-read.json",
+      "sha256": "801446213febce95af0d1134d5eab2df6124c23dc3bd81cd8f9cf74991644fdf"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-repo-scoring-20260912/studio-electron-boundary.json",
+      "sha256": "458c44a3ee61e15ebaafe16fdafd5167170e0af973a6fda425c5529df232e843"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-repo-scoring-20260912/studio-scoring.json",
+      "sha256": "ae71c464ca3abc77de395d93b0e2efc085040b7c7d1f8cbfedb2f983450ad16b"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-repo-scoring-20260912/studio-scoring.png",
+      "sha256": "8c02a0603a4d1e0a56d693f51b050422be5629644b80ee7c4e7be706ea2322b4"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-repo-scoring-20260912/studio-sidebar-build-cwd.log",
+      "sha256": "8c502a3a891f999e5230da97de8c2ecbe96ae56449441ccb4895025943fb7a5a"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-repo-scoring-20260912/run-panel-when-idle.mjs",
+      "sha256": "e5ba8195acb8ca96fd4ab1590019b1a73029d806868a0551516270d18fe0692a"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-repo-scoring-20260912/visual-harness/scoring-journey-v7.mjs",
+      "sha256": "acaf79c9f907638f54314894572c16e762e8243c54836a4659e68c84f153276d"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-repo-scoring-20260912/visual-harness/scoring-backend-v7.mjs",
+      "sha256": "8fc7fb92325b9f48079de6255eb9d5a6df428460b8f72890202b2987ea762fe2"
+    }
+  ]
+}

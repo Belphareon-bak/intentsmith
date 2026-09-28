@@ -1,0 +1,41 @@
+{
+  "status": "RAW_COLLECTION_COMPLETE_HUMAN_REVIEW_PENDING",
+  "sourceRevision": "6f93294fe567cfa938b234bacf2833f79dcd81eb",
+  "attempts": 573,
+  "capturedStop": 572,
+  "outputBudgetExhausted": 1,
+  "independentHumanReview": false,
+  "productionImported": false,
+  "applyBindings": false,
+  "removeModels": false,
+  "timerEnabled": false,
+  "archives": {
+    "blind-review": {
+      "path": "blind-review-1cd4bf01ef9a1f2c.tar.gz",
+      "sha256": "1cd4bf01ef9a1f2cf92e0bf4e660de868bfc0401b7001edca60681af32ee701c",
+      "bytes": 1262130
+    },
+    "separate-assessment": {
+      "path": "separate-assessment-6724fe689df3a08f.tar.gz",
+      "sha256": "6724fe689df3a08ffc9da05840b2687304ce66a59e553b2941ea46ae76a7974a",
+      "bytes": 870507
+    },
+    "complete-evidence": {
+      "path": "evidence-f185d63817929858.tar.gz",
+      "sha256": "f185d63817929858aa284f84c9f2d2de813fc9805dfa4ae9352e43096d43af13",
+      "bytes": 33662249
+    }
+  },
+  "evidenceRoot": "/home/belphareon/Projects/coworker/intentsmith-hunt-raw-pairs-20260919",
+  "receipts": {
+    "collection-integrity.json": "487744087ea82e39552a110005eb4b7d0d05813af3952ecf97849af8e5517ad4",
+    "hardware-audit.json": "af3357dea52778e92e15d129693b1bf4d473bdb4039c3b8f2f176170f458ab4c",
+    "review-ui.json": "97a9e6e9b4f23a093ab6c8c62d9bdd5c45ed51c3be5ea6c08d175f6cabf3832a",
+    "archive-verification.json": "7e36655c07c1e55db1de0c9a645b7bd0eccbadc455c589a527c87690e1200a23",
+    "host-after.json": "471806d2d7438761173139e8a88eef34b85dc367777b855a4a4edaa3eb22a548",
+    "answers-for-review.json": "5c40f4f54d73c3de4f15c5b5efac54243b5a1dc55a9b573357484cbb746bb637",
+    "assistant-assessment.json": "1eb266bc5906a2a8df6b973e45b7ae80f001a604fff6c53c1d48b5723d3cd561",
+    "review-sample.json": "262c1813c4e7380b673f2b80332114a19a7048d25dd220547a6433a61115075d",
+    "source-closeout-before-docs.json": "b606e85d7ac65610f05e22f6dab895d3946d84cb5a265fa789764ddaffb70262"
+  }
+}

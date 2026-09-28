@@ -1,0 +1,393 @@
+#!/usr/bin/env node
+// Gate 0 tracked-file and reproducible-install guard. It never opens runtime data.
+
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { existsSync, lstatSync, readdirSync, readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const listed = spawnSync('git', ['ls-files', '-z'], {
+  cwd: repoRoot,
+  encoding: 'utf8',
+});
+
+assert.equal(listed.error, undefined, String(listed.error));
+assert.equal(listed.status, 0, listed.stderr);
+
+const tracked = listed.stdout.split('\0').filter(Boolean);
+const trackedSet = new Set(tracked);
+const forbiddenStudioFontHosts = /fonts\.(?:googleapis|gstatic)\.com/i;
+for (const relative of tracked) {
+  const isRunnableStudioAsset = (
+    relative.startsWith('intentsmith-ide/')
+    || relative.startsWith('docs/archive/intentsmith-studio/v7-fix-payload/')
+  ) && /\.(?:css|html|js)$/.test(relative);
+  if (!isRunnableStudioAsset) continue;
+  assert.doesNotMatch(
+    readFileSync(resolve(repoRoot, relative), 'utf8'),
+    forbiddenStudioFontHosts,
+    `tracked Studio asset must not load a remote Google font: ${relative}`,
+  );
+}
+for (const lockPath of [
+  'package-lock.json',
+  'intentsmith-ide/yarn.lock',
+  'requirements/pdf-export.lock',
+]) {
+  assert.equal(trackedSet.has(lockPath), true, `required dependency lock is not tracked: ${lockPath}`);
+}
+assert.equal(
+  trackedSet.has('intentsmith-ide/applications/electron/esbuild.mjs'),
+  true,
+  'tracked IntentSmith Studio esbuild hardening config is missing',
+);
+assert.equal(
+  trackedSet.has('intentsmith-ide/applications/electron/intentsmith-local-http-bootstrap.js'),
+  true,
+  'tracked IntentSmith Studio local HTTP bootstrap is missing',
+);
+assert.equal(
+  trackedSet.has('intentsmith-ide/applications/electron/intentsmith-local-access.js'),
+  true,
+  'tracked IntentSmith Studio private local-access reader is missing',
+);
+assert.equal(
+  trackedSet.has('intentsmith-ide/applications/electron/intentsmith-local-origin-normalizer.js'),
+  true,
+  'tracked IntentSmith Studio opaque-origin normalizer is missing',
+);
+assert.equal(
+  trackedSet.has('intentsmith-ide/shared/legacy-local-object-url-cache.js'),
+  true,
+  'tracked legacy local media object-URL cache is missing',
+);
+assert.equal(
+  trackedSet.has('intentsmith-ide/extensions/intentsmith-chat-panel/scripts/authoritative-lib-contract.cjs'),
+  true,
+  'tracked IntentSmith Studio authoritative-lib contract is missing',
+);
+assert.equal(
+  trackedSet.has('docs/archive/c3-studio/c3-chat-panel-ts-prototype/README.md'),
+  true,
+  'archived chat-panel prototype provenance is missing',
+);
+assert.equal(
+  tracked.some(file => file.startsWith('intentsmith-ide/extensions/intentsmith-chat-panel/src/')),
+  false,
+  'stale chat-panel TypeScript must not remain in the active workspace',
+);
+assert.equal(
+  trackedSet.has('intentsmith-ide/extensions/intentsmith-chat-panel/tsconfig.json'),
+  false,
+  'stale chat-panel TypeScript build config must not remain active',
+);
+assert.equal(
+  trackedSet.has('intentsmith-ide/lib/utils/cn.ts'),
+  false,
+  'orphaned chat-panel TypeScript support must not remain in generated lib',
+);
+
+const rootPackage = JSON.parse(readFileSync(resolve(repoRoot, 'package.json'), 'utf8'));
+const idePackage = JSON.parse(readFileSync(resolve(repoRoot, 'intentsmith-ide/package.json'), 'utf8'));
+const electronPackage = JSON.parse(readFileSync(
+  resolve(repoRoot, 'intentsmith-ide/applications/electron/package.json'),
+  'utf8',
+));
+const chatPanelPackage = JSON.parse(readFileSync(
+  resolve(repoRoot, 'intentsmith-ide/extensions/intentsmith-chat-panel/package.json'),
+  'utf8',
+));
+const installer = readFileSync(resolve(repoRoot, 'scripts/install.sh'), 'utf8');
+const electronEsbuild = readFileSync(
+  resolve(repoRoot, 'intentsmith-ide/applications/electron/esbuild.mjs'),
+  'utf8',
+);
+const electronBrowserEntry = readFileSync(
+  resolve(repoRoot, 'intentsmith-ide/applications/electron/intentsmith-browser-entry.js'), 'utf8',
+);
+const electronMainEntry = readFileSync(
+  resolve(repoRoot, 'intentsmith-ide/applications/electron/intentsmith-electron-main-entry.js'), 'utf8',
+);
+const electronPreloadEntry = readFileSync(
+  resolve(repoRoot, 'intentsmith-ide/applications/electron/intentsmith-preload-entry.js'), 'utf8',
+);
+const electronLocalHttpBootstrap = readFileSync(
+  resolve(
+    repoRoot,
+    'intentsmith-ide/applications/electron/intentsmith-local-http-bootstrap.js',
+  ),
+  'utf8',
+);
+const electronLocalAccess = readFileSync(
+  resolve(repoRoot, 'intentsmith-ide/applications/electron/intentsmith-local-access.js'),
+  'utf8',
+);
+const electronLocalOriginNormalizer = readFileSync(
+  resolve(repoRoot, 'intentsmith-ide/applications/electron/intentsmith-local-origin-normalizer.js'),
+  'utf8',
+);
+const electronPreload = readFileSync(
+  resolve(repoRoot, 'intentsmith-ide/applications/electron/intentsmith-preload.js'),
+  'utf8',
+);
+const chatPanelRuntime = readFileSync(
+  resolve(
+    repoRoot,
+    'intentsmith-ide/extensions/intentsmith-studio2/lib/browser/view/live-model.js',
+  ),
+  'utf8',
+);
+const centerViewsRuntime = readFileSync(
+  resolve(
+    repoRoot,
+    'intentsmith-ide/extensions/intentsmith-studio2/lib/browser/studio2-module.js',
+  ),
+  'utf8',
+);
+const localObjectUrlCache = readFileSync(
+  resolve(repoRoot, 'intentsmith-ide/shared/legacy-local-object-url-cache.js'),
+  'utf8',
+);
+const ideLock = readFileSync(resolve(repoRoot, 'intentsmith-ide/yarn.lock'), 'utf8');
+assert.equal(rootPackage.packageManager, 'npm@10.9.4');
+assert.equal(rootPackage.engines?.node, '>=24 <25');
+assert.equal(idePackage.packageManager, 'yarn@1.22.22');
+assert.equal(idePackage.engines?.node, '>=24 <25');
+assert.equal(idePackage.resolutions?.['@vscode/ripgrep'], '1.18.0');
+for (const removed of ['terser-webpack-plugin', 'webpack', 'webpack-cli']) {
+  assert.equal(Object.hasOwn(electronPackage.devDependencies, removed), false);
+}
+assert.equal(electronPackage.dependencies?.react, '19.3.0');
+assert.equal(electronPackage.dependencies?.['react-dom'], '19.3.0');
+assert.equal(chatPanelPackage.main, 'lib/browser/ws-client.js');
+assert.deepEqual(chatPanelPackage.theiaExtensions, []);
+assert.deepEqual(chatPanelPackage.files, ['lib', 'README.md', 'scripts']);
+assert.equal(Object.hasOwn(chatPanelPackage, 'typings'), false);
+assert.equal(Object.hasOwn(chatPanelPackage, 'devDependencies'), false);
+assert.deepEqual(chatPanelPackage.scripts, {
+  build: 'node scripts/authoritative-lib-contract.cjs verify',
+  watch: 'node scripts/authoritative-lib-contract.cjs reject-watch',
+  clean: 'node scripts/authoritative-lib-contract.cjs preserve-clean',
+});
+assert.doesNotMatch(
+  JSON.stringify(chatPanelPackage.scripts),
+  /\b(?:tsc|rimraf|rm)\b/,
+  'chat-panel package scripts must not compile over or delete authoritative lib',
+);
+
+const chatPanelRuntimeFiles = [
+  'lib/browser/agent-client.js',
+  'lib/browser/agent-log-renderer.js',
+  'lib/browser/event-bus.js',
+  'lib/browser/terminal-client.js',
+  'lib/browser/ws-client.js',
+];
+const chatPanelRoot = resolve(repoRoot, 'intentsmith-ide/extensions/intentsmith-chat-panel');
+const authoritativeLibContract = resolve(
+  chatPanelRoot,
+  'scripts/authoritative-lib-contract.cjs',
+);
+
+function chatPanelRuntimeDigest() {
+  const digest = createHash('sha256');
+  for (const relative of chatPanelRuntimeFiles) {
+    const absolute = resolve(chatPanelRoot, relative);
+    const stat = lstatSync(absolute);
+    assert.equal(stat.isFile(), true, `${relative} must remain a regular file`);
+    assert.equal(stat.isSymbolicLink(), false, `${relative} must not be a symlink`);
+    digest.update(relative);
+    digest.update(String(stat.mode & 0o777));
+    digest.update(readFileSync(absolute));
+  }
+  return digest.digest('hex');
+}
+
+for (const [mode, expectedStatus] of [
+  ['verify', 0],
+  ['preserve-clean', 0],
+  ['reject-watch', 2],
+]) {
+  const before = chatPanelRuntimeDigest();
+  const result = spawnSync(process.execPath, [authoritativeLibContract, mode], {
+    cwd: chatPanelRoot,
+    encoding: 'utf8',
+  });
+  assert.equal(result.error, undefined, String(result.error));
+  assert.equal(
+    result.status,
+    expectedStatus,
+    `authoritative-lib ${mode} failed: ${result.stderr || result.stdout}`,
+  );
+  assert.equal(
+    chatPanelRuntimeDigest(),
+    before,
+    `authoritative-lib ${mode} modified committed runtime`,
+  );
+}
+
+for (const retiredFixer of [
+  'intentsmith-ide/fix-extensions.sh',
+  'intentsmith-ide/fixes/apply-fixes.sh',
+]) {
+  const result = spawnSync('bash', [resolve(repoRoot, retiredFixer)], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+  });
+  assert.equal(result.error, undefined, String(result.error));
+  assert.equal(result.status, 2, `${retiredFixer} must fail closed`);
+  assert.match(result.stderr, /retired/i);
+}
+for (const workspaceKind of ['applications', 'extensions']) {
+  const workspaceRoot = resolve(repoRoot, 'intentsmith-ide', workspaceKind);
+  for (const workspaceName of readdirSync(workspaceRoot)) {
+    const packagePath = resolve(workspaceRoot, workspaceName, 'package.json');
+    if (!existsSync(packagePath)) {
+      continue;
+    }
+    const workspacePackage = JSON.parse(readFileSync(packagePath, 'utf8'));
+    for (const dependencySet of [
+      workspacePackage.dependencies ?? {},
+      workspacePackage.devDependencies ?? {},
+    ]) {
+      for (const [dependency, version] of Object.entries(dependencySet)) {
+        if (dependency.startsWith('@theia/')) {
+          assert.equal(
+            version,
+            // Monaco core follows the VS Code version pinned by Theia 1.76.0.
+            dependency === '@theia/monaco-editor-core' ? '1.108.201' : '1.76.0',
+            `${workspaceKind}/${workspaceName} drifts ${dependency} to ${version}`,
+          );
+        }
+      }
+    }
+  }
+}
+assert.match(installer, /\bnpm ci\b/);
+assert.match(installer, /export COREPACK_ENABLE_DOWNLOAD_PROMPT=0/);
+assert.match(installer, /yarn install --frozen-lockfile --non-interactive/);
+assert.match(installer, /YARN_VERSION="\$\(cd intentsmith-ide && yarn --version\)"/);
+assert.match(installer, /\(cd intentsmith-ide && yarn build /);
+assert.match(installer, /intentsmith-ide\/node_modules\/\.bin\/electron-rebuild/);
+assert.match(installer, /find-git-repositories,drivelist,keytar,ssh2,cpu-features/);
+assert.match(installer, /ELECTRON_RUN_AS_NODE=1/);
+assert.match(installer, /ripgrep 15\.0\.0/);
+assert.doesNotMatch(installer, /\bnpx\b/);
+assert.doesNotMatch(installer, /npm install --legacy-peer-deps/);
+assert.doesNotMatch(installer, /trying without/i);
+assert.doesNotMatch(installer, /non-critical modules/i);
+assert.doesNotMatch(installer, /ollama pull "\$PRIMARY" \|\|/);
+assert.doesNotMatch(installer, /ollama pull "\$REASONING" \|\|/);
+assert.match(installer, /grep -Fqx -- "\$1"/);
+assert.match(installer, /Unknown argument: \$arg/);
+assert.match(electronEsbuild, /replaceEntry\(browserOptions, 'bundle',/);
+assert.match(electronEsbuild, /replaceEntry\(nodeOptions, 'electron-main',/);
+assert.match(electronEsbuild, /replaceEntry\(electronOptions, 'preload',/);
+const bootstrapAt = electronBrowserEntry.indexOf("require('./intentsmith-local-http-bootstrap');");
+const frontendAt = electronBrowserEntry.indexOf("require('./src-gen/frontend/index');");
+assert.ok(bootstrapAt >= 0 && frontendAt > bootstrapAt, 'local capability bootstrap must precede Theia modules');
+const beforeFrontend = electronBrowserEntry.slice(bootstrapAt + "require('./intentsmith-local-http-bootstrap');".length, frontendAt);
+assert.doesNotMatch(beforeFrontend, /require\(/g, 'UI mode selection must not load modules before the mode is fixed');
+assert.match(beforeFrontend, /window\.__intentsmithStudioMode = 'studio2'/);
+assert.match(electronEsbuild, /Retired Studio frontend registered/);
+assert.doesNotMatch(electronBrowserEntry, /selectMode|studioMode = 'classic'/);
+assert.match(electronEsbuild, /Studio 2 frontend registration changed/);
+assert.match(electronMainEntry, /require\('\.\/intentsmith-local-origin-normalizer'\);\s*require\('\.\/src-gen\/backend\/electron-main'\)/);
+assert.match(electronPreloadEntry, /require\('\.\/src-gen\/frontend\/preload'\);\s*require\('\.\/intentsmith-preload'\)\.preload\(\)/);
+assert.match(electronPreload, /require\('\.\/intentsmith-local-access'\)/);
+assert.match(electronPreload, /readLocalAccess\(\)/);
+assert.match(electronLocalAccess, /fs\.constants\.O_NOFOLLOW/);
+assert.match(electronLocalAccess, /\(stat\.mode\s*&\s*0o777\)\s*!==\s*0o600/);
+assert.match(electronLocalOriginNormalizer, /Origin:\s*'null'/);
+assert.match(electronLocalOriginNormalizer, /crypto\.timingSafeEqual/);
+assert.match(electronLocalOriginNormalizer, /details\.resourceType\s*!==\s*'xhr'/);
+assert.doesNotMatch(electronLocalOriginNormalizer, /console\./);
+assert.match(
+  electronLocalHttpBootstrap,
+  /resolved\.url\.origin\s*===\s*access\.backendUrl/,
+);
+assert.match(
+  electronLocalHttpBootstrap,
+  /headers\.delete\(LEGACY_LOCAL_CAPABILITY_HEADER\)/,
+);
+assert.doesNotMatch(chatPanelRuntime, /\b_apiBase\b/);
+assert.doesNotMatch(chatPanelRuntime, /window\._intentsmithBackendUrl/);
+assert.doesNotMatch(
+  chatPanelRuntime,
+  /src:\s*(?:_backendBase|_backendUrl\(\))\s*\+\s*['"]\/api\/media\/output/,
+);
+assert.doesNotMatch(
+  centerViewsRuntime,
+  /window\.open\(\s*['"]\/api\/media\/output/,
+);
+assert.doesNotMatch(
+  centerViewsRuntime,
+  /const thumbUrl\s*=\s*firstFile\s*\?\s*['"]\/api\/media\/output/,
+);
+assert.doesNotMatch(chatPanelRuntime, /_mediaObjectUrls|_mediaObjectLoads/);
+assert.doesNotMatch(centerViewsRuntime, /_mmObjectUrls|_mmObjectUrlLoads/);
+assert.match(chatPanelRuntime, /loadMediaOutputs\(item\)/);
+assert.match(chatPanelRuntime, /URL\.createObjectURL/);
+assert.match(chatPanelRuntime, /URL\.revokeObjectURL/);
+assert.match(chatPanelRuntime, /comfyui:complete/);
+assert.match(chatPanelRuntime, /comfyui:progress/);
+assert.doesNotMatch(centerViewsRuntime, /renderLegacy|legacyView|renderSessionView/);
+assert.match(localObjectUrlCache, /record\.active\s*&&\s*pending\.get\(key\)\s*===\s*record/);
+assert.match(localObjectUrlCache, /record\.controller\.abort\(\)/);
+assert.doesNotMatch(
+  electronEsbuild,
+  /require\.resolve\([`'"]@vscode\/ripgrep\/bin\/rg/,
+);
+for (const platformPackage of [
+  '@vscode/ripgrep-darwin-arm64@1.18.0',
+  '@vscode/ripgrep-darwin-x64@1.18.0',
+  '@vscode/ripgrep-linux-arm@1.18.0',
+  '@vscode/ripgrep-linux-arm64@1.18.0',
+  '@vscode/ripgrep-linux-ia32@1.18.0',
+  '@vscode/ripgrep-linux-ppc64@1.18.0',
+  '@vscode/ripgrep-linux-riscv64@1.18.0',
+  '@vscode/ripgrep-linux-s390x@1.18.0',
+  '@vscode/ripgrep-linux-x64@1.18.0',
+  '@vscode/ripgrep-win32-arm64@1.18.0',
+  '@vscode/ripgrep-win32-ia32@1.18.0',
+  '@vscode/ripgrep-win32-x64@1.18.0',
+]) {
+  const escaped = platformPackage.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  assert.match(
+    ideLock,
+    new RegExp(`"${escaped}":\\n  version "1\\.18\\.0"\\n  resolved "[^"]+"\\n  integrity sha512-`),
+  );
+}
+assert.doesNotMatch(ideLock, /1\.15\.14/);
+
+const exactGeneratedLeaks = new Set([
+  '.intentsmith-backend.log.old',
+  'login.html',
+  'templates/admin/dashboard.html',
+  'templates/products/detail.html',
+  'tests/e2e-transcript-all-2026-04-13.md',
+  'tests/test_auth.py',
+  'tests/test_models.py',
+  'tests/intent-classifier.test.js',
+]);
+
+const prohibited = tracked.filter(path => (
+  exactGeneratedLeaks.has(path)
+  || path.startsWith('projects/')
+  || /^chats\/conv-[^/]+\/attachments\//i.test(path)
+  || path.startsWith('docs/archive/conversations/')
+  || path.startsWith('e2e-review/')
+  || path.startsWith('test-reports/')
+  || /^data\/.*\.(?:db(?:[.-].*)?|sql|malformed|pre-recover)$/i.test(path)
+  || /^tests\/e2e-transcript-.*\.md$/i.test(path)
+));
+
+assert.deepEqual(
+  prohibited,
+  [],
+  `tracked runtime/private/generated paths: ${prohibited.join(', ')}`,
+);
+
+console.log(`Repository hygiene guard passed (${tracked.length} tracked paths checked)`);

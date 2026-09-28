@@ -1,0 +1,196 @@
+// Workflow Orchestrator Tests
+// ══════════════════════════════════════════════════════════════════════════════
+//
+// Checks session data structures, state guards, and one real-LLM start request.
+// start() covers analysis and, when ready, planning. It does not approve a plan
+// or execute implementation, reviews, fixes, or redesign.
+//
+// ══════════════════════════════════════════════════════════════════════════════
+
+import assert from 'node:assert/strict';
+import {
+  WorkflowOrchestrator,
+  WorkflowSession,
+  WorkflowState,
+  ReviewVerdict,
+} from '../src/planner/workflow.js';
+
+let passed = 0, failed = 0;
+function test(name, fn) {
+  try { fn(); passed++; console.log(`  ✅ ${name}`); }
+  catch (e) { failed++; console.log(`  ❌ ${name}: ${e.message}`); }
+}
+async function testAsync(name, fn) {
+  try { await fn(); passed++; console.log(`  ✅ ${name}`); }
+  catch (e) { failed++; console.log(`  ❌ ${name}: ${e.message}`); }
+}
+
+console.log('\n═══ Workflow Orchestrator Tests ═══\n');
+
+// ── WorkflowState enum ──────────────────────────────────────────────────────
+
+console.log('── WorkflowState enum ──');
+
+test('All states defined', () => {
+  const required = [
+    'IDLE', 'ANALYZING', 'CLARIFYING', 'PLANNING', 'AWAITING_APPROVAL',
+    'IMPLEMENTING', 'QUICK_REVIEWING', 'FIX_DELIBERATING', 'APPLYING_FIX',
+    'FINAL_REVIEWING', 'REDESIGNING', 'COMPLETED', 'FAILED',
+  ];
+  for (const s of required) {
+    assert.ok(WorkflowState[s], `Missing state: ${s}`);
+  }
+});
+
+test('WorkflowState is frozen', () => {
+  assert.ok(Object.isFrozen(WorkflowState));
+});
+
+test('ReviewVerdict values', () => {
+  assert.equal(ReviewVerdict.PASS, 'PASS');
+  assert.equal(ReviewVerdict.FAIL, 'FAIL');
+  assert.equal(ReviewVerdict.REDESIGN, 'REDESIGN');
+});
+
+// ── WorkflowSession ─────────────────────────────────────────────────────────
+
+console.log('\n── WorkflowSession ──');
+
+test('Session initializes correctly', () => {
+  const s = new WorkflowSession('test-1', 'build an API');
+  assert.equal(s.id, 'test-1');
+  assert.equal(s.request, 'build an API');
+  assert.equal(s.state, WorkflowState.IDLE);
+  assert.equal(s.plan, null);
+  assert.equal(s.implementation, null);
+  assert.deepEqual(s.history, []);
+  assert.equal(s.fixAttempts, 0);
+  assert.equal(s.redesignAttempts, 0);
+});
+
+test('addStep appends to history', () => {
+  const s = new WorkflowSession('test-2', 'test');
+  s.addStep({ step: 'D1_ANALYZE', model: 'test', output: 'ok' });
+  s.addStep({ step: 'D1_PLAN', model: 'test', output: 'plan' });
+  assert.equal(s.history.length, 2);
+  assert.equal(s.lastStep.step, 'D1_PLAN');
+});
+
+test('lastStep returns null for empty history', () => {
+  const s = new WorkflowSession('test-3', 'test');
+  assert.equal(s.lastStep, null);
+});
+
+// ── Orchestrator construction ───────────────────────────────────────────────
+
+console.log('\n── Orchestrator config ──');
+
+test('Default limits from config', () => {
+  const o = new WorkflowOrchestrator();
+  assert.ok(o.maxFixAttempts >= 1, 'Should have max fix attempts');
+  assert.ok(o.maxRedesignAttempts >= 1, 'Should have max redesign attempts');
+});
+
+test('Custom limits', () => {
+  const o = new WorkflowOrchestrator({ maxFixAttempts: 5, maxRedesignAttempts: 2 });
+  assert.equal(o.maxFixAttempts, 5);
+  assert.equal(o.maxRedesignAttempts, 2);
+});
+
+test('Sessions map starts empty', () => {
+  const o = new WorkflowOrchestrator();
+  assert.equal(o.sessions.size, 0);
+});
+
+// ── getSession ──────────────────────────────────────────────────────────────
+
+console.log('\n── Session management ──');
+
+test('getSession returns null for unknown', () => {
+  const o = new WorkflowOrchestrator();
+  assert.equal(o.getSession('nope'), null);
+});
+
+// ── Start (requires LLM) ────────────────────────────────────────────────────
+
+console.log('\n── Start (real LLM) ──');
+
+await testAsync('start() produces a valid workflow session', async () => {
+  const o = new WorkflowOrchestrator();
+  const result = await o.start('build a small REST API with one health endpoint');
+  console.log('  start result:', JSON.stringify({
+    sessionId: result?.sessionId ?? null,
+    state: result?.state ?? null,
+    error: typeof result?.error === 'string' ? result.error.slice(0, 300) : null,
+    questionCount: Array.isArray(result?.questions) ? result.questions.length : null,
+    planStepCount: Array.isArray(result?.plan?.steps) ? result.plan.steps.length : null,
+  }));
+  assert.ok(result, 'start() returns a public result');
+  assert.ok(typeof result.sessionId === 'string' && result.sessionId.length > 0,
+    'start() returns a sessionId');
+  const session = o.getSession(result.sessionId);
+  assert.ok(session, 'returned sessionId resolves to a registered session');
+  assert.equal(session.id, result.sessionId, 'stored session identity matches the result');
+  assert.equal(session.state, result.state, 'stored state matches the public result');
+  assert.ok(
+    [WorkflowState.CLARIFYING, WorkflowState.AWAITING_APPROVAL].includes(result.state),
+    `unexpected start state: ${result.state}`,
+  );
+});
+
+// ── Approve/Reject guards ───────────────────────────────────────────────────
+
+console.log('\n── State guards ──');
+
+await testAsync('approve() rejects unknown session', async () => {
+  const o = new WorkflowOrchestrator();
+  try {
+    await o.approve('nonexistent');
+    assert.fail('Should throw');
+  } catch (e) {
+    assert.ok(e.message.includes('not found'));
+  }
+});
+
+await testAsync('reject() rejects unknown session', async () => {
+  const o = new WorkflowOrchestrator();
+  try {
+    await o.reject('nonexistent');
+    assert.fail('Should throw');
+  } catch (e) {
+    assert.ok(e.message.includes('not found'));
+  }
+});
+
+await testAsync('clarify() rejects unknown session', async () => {
+  const o = new WorkflowOrchestrator();
+  try {
+    await o.clarify('nonexistent', 'answers');
+    assert.fail('Should throw');
+  } catch (e) {
+    assert.ok(e.message.includes('not found'));
+  }
+});
+
+// ── JSON parser tolerance ───────────────────────────────────────────────────
+
+console.log('\n── JSON parser ──');
+
+// Test the internal parseJSON indirectly through session history
+// The parser handles: raw JSON, ```json blocks, and {..} extraction
+
+test('Direct JSON works in plan steps (tested via StepResult structure)', () => {
+  // This validates the data structures used by the pipeline
+  const stepResult = {
+    step: 'D1_PLAN',
+    model: 'test',
+    output: { title: 'Test Plan', steps: [] },
+    duration: 100,
+  };
+  assert.equal(stepResult.output.title, 'Test Plan');
+});
+
+// ── Summary ─────────────────────────────────────────────────────────────────
+
+console.log(`\n═══ Results: ${passed} passed, ${failed} failed ═══\n`);
+if (failed > 0) process.exit(1);

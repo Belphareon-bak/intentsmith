@@ -1,0 +1,183 @@
+{
+  "invalidated": true,
+  "invalidReason": "multi-source tasks shared patch_<commit8> runtime identities; replaced by taskFingerprint identities and the small-v2 report",
+  "measuredAt": "2026-08-22T23:41:57.449Z",
+  "models": [
+    "qwen3-coder:latest",
+    "qwen3.5:27b",
+    "qwen3-30b-a3b:latest",
+    "qwen3:14b",
+    "llava:13b"
+  ],
+  "repeats": 3,
+  "tasks": [
+    {
+      "name": "patch_3547ab8f",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_da95ab15",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_e5352e30",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_2f36b516",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_7c4aa73c",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_56d97704",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_0bf2e11d",
+      "values": [
+        0,
+        0.333,
+        0,
+        0,
+        0
+      ],
+      "noise": 1,
+      "verdict": "nestabilní"
+    },
+    {
+      "name": "patch_51936ee1",
+      "values": [
+        0,
+        1,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "rozlišuje"
+    },
+    {
+      "name": "patch_0a6bde54",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_ffea2654",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_66ddd5f2",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_71769051",
+      "values": [
+        0.8,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "rozlišuje"
+    }
+  ],
+  "scores": [
+    [
+      "qwen3.5:27b",
+      0.11108333333333333
+    ],
+    [
+      "qwen3-coder:latest",
+      0.06666666666666667
+    ],
+    [
+      "qwen3-30b-a3b:latest",
+      0
+    ],
+    [
+      "qwen3:14b",
+      0
+    ],
+    [
+      "llava:13b",
+      0
+    ]
+  ],
+  "discriminating": 2,
+  "total": 12
+}

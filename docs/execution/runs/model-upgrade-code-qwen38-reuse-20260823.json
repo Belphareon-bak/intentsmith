@@ -1,0 +1,562 @@
+{
+  "generatedAt": "2026-08-23T12:44:17.740Z",
+  "gpu": {
+    "vramMb": 24576,
+    "model": "NVIDIA GeForce RTX 3090",
+    "igpu": false,
+    "numCtx": 32768
+  },
+  "perRole": {
+    "CODE": []
+  },
+  "queue": [
+    {
+      "name": "qwen3-coder:latest",
+      "family": "qwen-coder",
+      "category": "code",
+      "version": "3",
+      "params": 30,
+      "quantization": "Q4_K_M",
+      "sizeBytes": 18556700761,
+      "sizeGB": 17.3,
+      "modifiedAt": "2026-08-20T00:56:20.005274296+02:00",
+      "installed": true,
+      "source": "local",
+      "digest": "06c1097efce0431c2045fe7b2e5108366e43bee1b4603a7aded8f21689e90bca",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "qwen3moe",
+        "families": [
+          "qwen3moe"
+        ],
+        "parameter_size": "30.5B",
+        "quantization_level": "Q4_K_M",
+        "context_length": 262144,
+        "embedding_length": 2048
+      },
+      "artifact": {
+        "modelName": "qwen3-coder:latest",
+        "canonicalName": "qwen3-coder",
+        "digestSha256": "06c1097efce0431c2045fe7b2e5108366e43bee1b4603a7aded8f21689e90bca",
+        "sizeBytes": null,
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "qwen3moe",
+          "families": [
+            "qwen3moe"
+          ],
+          "parameter_size": "30.5B",
+          "quantization_level": "Q4_K_M",
+          "context_length": 262144,
+          "embedding_length": 2048
+        }
+      },
+      "roles": [
+        "CODE"
+      ],
+      "evaluationState": {
+        "state": "scored",
+        "missing": 0,
+        "rejected": 0,
+        "perRole": {
+          "CODE": "scored"
+        }
+      },
+      "priority": 15.75,
+      "reasons": [
+        "already installed",
+        "current contract already scored"
+      ]
+    },
+    {
+      "name": "phi4:14b",
+      "family": "phi",
+      "category": "general",
+      "version": "4",
+      "params": 14,
+      "quantization": "Q4_K_M",
+      "sizeBytes": 9053116391,
+      "sizeGB": 8.4,
+      "modifiedAt": "2026-08-23T09:08:36.746287184+02:00",
+      "installed": true,
+      "source": "local",
+      "digest": "ac896e5b8b34a1f4efa7b14d7520725140d5512484457fab45d2a4ea14c69dba",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "phi3",
+        "families": [
+          "phi3"
+        ],
+        "parameter_size": "14.7B",
+        "quantization_level": "Q4_K_M",
+        "context_length": 16384,
+        "embedding_length": 5120
+      },
+      "artifact": {
+        "modelName": "phi4:14b",
+        "canonicalName": "phi4:14b",
+        "digestSha256": "ac896e5b8b34a1f4efa7b14d7520725140d5512484457fab45d2a4ea14c69dba",
+        "sizeBytes": null,
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "phi3",
+          "families": [
+            "phi3"
+          ],
+          "parameter_size": "14.7B",
+          "quantization_level": "Q4_K_M",
+          "context_length": 16384,
+          "embedding_length": 5120
+        }
+      },
+      "roles": [
+        "CODE"
+      ],
+      "evaluationState": {
+        "state": "unseen",
+        "missing": 1,
+        "rejected": 0,
+        "perRole": {
+          "CODE": "unseen"
+        }
+      },
+      "priority": 7.75,
+      "reasons": [
+        "already installed",
+        "1 current suite(s) unseen"
+      ]
+    },
+    {
+      "name": "qwen3-30b-a3b:latest",
+      "family": "qwen",
+      "category": "general",
+      "version": "3",
+      "params": 30,
+      "quantization": "Q4_K_S",
+      "sizeBytes": 17456010185,
+      "sizeGB": 16.3,
+      "modifiedAt": "2026-01-04T14:58:52.584237151+01:00",
+      "installed": true,
+      "source": "local",
+      "digest": "dc0b52b99d0e4310b0e74d1b5c0b4af3459537614523b84d94ce62a7c5f99201",
+      "details": {
+        "parent_model": "/usr/share/ollama/.ollama/models/blobs/sha256-fa0c96bed61759800bcab82a8a44a8effcd92cdd8bced06b8195232237390b4a",
+        "format": "gguf",
+        "family": "qwen3moe",
+        "families": [
+          "qwen3moe"
+        ],
+        "parameter_size": "30.5B",
+        "quantization_level": "Q4_K_S",
+        "context_length": 40960,
+        "embedding_length": 2048
+      },
+      "artifact": {
+        "modelName": "qwen3-30b-a3b:latest",
+        "canonicalName": "qwen3-30b-a3b",
+        "digestSha256": "dc0b52b99d0e4310b0e74d1b5c0b4af3459537614523b84d94ce62a7c5f99201",
+        "sizeBytes": null,
+        "details": {
+          "parent_model": "/usr/share/ollama/.ollama/models/blobs/sha256-fa0c96bed61759800bcab82a8a44a8effcd92cdd8bced06b8195232237390b4a",
+          "format": "gguf",
+          "family": "qwen3moe",
+          "families": [
+            "qwen3moe"
+          ],
+          "parameter_size": "30.5B",
+          "quantization_level": "Q4_K_S",
+          "context_length": 40960,
+          "embedding_length": 2048
+        }
+      },
+      "roles": [
+        "CODE"
+      ],
+      "evaluationState": {
+        "state": "scored",
+        "missing": 0,
+        "rejected": 0,
+        "perRole": {
+          "CODE": "scored"
+        }
+      },
+      "priority": 7.75,
+      "reasons": [
+        "already installed",
+        "current contract already scored"
+      ]
+    },
+    {
+      "name": "qwen3.8:latest",
+      "family": "qwen",
+      "category": "general",
+      "version": "3.8",
+      "params": 27,
+      "quantization": "Q4_K_M",
+      "sizeBytes": 17741872154,
+      "sizeGB": 16.5,
+      "modifiedAt": "2026-08-23T01:35:22.827575346+02:00",
+      "installed": true,
+      "source": "local",
+      "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "details": {
+        "parent_model": "qwen3.8:27b-q4_K_M",
+        "format": "gguf",
+        "family": "qwen35",
+        "families": [
+          "qwen35"
+        ],
+        "parameter_size": "27.3B",
+        "quantization_level": "Q4_K_M",
+        "context_length": 262144,
+        "embedding_length": 5120
+      },
+      "artifact": {
+        "modelName": "qwen3.8:latest",
+        "canonicalName": "qwen3.8",
+        "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+        "sizeBytes": null,
+        "details": {
+          "parent_model": "qwen3.8:27b-q4_K_M",
+          "format": "gguf",
+          "family": "qwen35",
+          "families": [
+            "qwen35"
+          ],
+          "parameter_size": "27.3B",
+          "quantization_level": "Q4_K_M",
+          "context_length": 262144,
+          "embedding_length": 5120
+        }
+      },
+      "roles": [
+        "CODE"
+      ],
+      "evaluationState": {
+        "state": "scored",
+        "missing": 0,
+        "rejected": 0,
+        "perRole": {
+          "CODE": "scored"
+        }
+      },
+      "priority": 7.38,
+      "reasons": [
+        "already installed",
+        "current contract already scored"
+      ]
+    },
+    {
+      "name": "qwen3:14b",
+      "family": "qwen",
+      "category": "general",
+      "version": "3",
+      "params": 14,
+      "quantization": "Q4_K_M",
+      "sizeBytes": 9276198565,
+      "sizeGB": 8.6,
+      "modifiedAt": "2026-03-18T16:26:13.50361838+01:00",
+      "installed": true,
+      "source": "local",
+      "digest": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "qwen3",
+        "families": [
+          "qwen3"
+        ],
+        "parameter_size": "14.8B",
+        "quantization_level": "Q4_K_M",
+        "context_length": 40960,
+        "embedding_length": 5120
+      },
+      "artifact": {
+        "modelName": "qwen3:14b",
+        "canonicalName": "qwen3:14b",
+        "digestSha256": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+        "sizeBytes": null,
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "qwen3",
+          "families": [
+            "qwen3"
+          ],
+          "parameter_size": "14.8B",
+          "quantization_level": "Q4_K_M",
+          "context_length": 40960,
+          "embedding_length": 5120
+        }
+      },
+      "roles": [
+        "CODE"
+      ],
+      "evaluationState": {
+        "state": "scored",
+        "missing": 0,
+        "rejected": 0,
+        "perRole": {
+          "CODE": "scored"
+        }
+      },
+      "priority": 5.75,
+      "reasons": [
+        "already installed",
+        "current contract already scored"
+      ]
+    }
+  ],
+  "results": [
+    {
+      "model": "qwen3.8:latest",
+      "stage": "done",
+      "accepted": true,
+      "inconclusive": false,
+      "measurement": {
+        "model": "qwen3.8:latest",
+        "numCtx": 32768,
+        "placement": {
+          "loaded": true,
+          "sizeBytes": 17399734598,
+          "vramBytes": 17399734598,
+          "cpuBytes": 0,
+          "fullyOnGpu": true
+        },
+        "throughput": {
+          "tokensPerSecond": 36.5,
+          "tokens": 160
+        },
+        "fits": true,
+        "error": null
+      },
+      "floor": {
+        "passed": true,
+        "failures": [],
+        "reused": true
+      },
+      "trials": [
+        {
+          "role": "CODE",
+          "suite": "code_patch",
+          "comparison": {
+            "suite": "code_patch",
+            "tasks": [
+              {
+                "name": "patch_8cae1b583963",
+                "language": null,
+                "candidateScore": 1,
+                "incumbentScore": 0,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 1,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "patch_4db486d33c95",
+                "language": null,
+                "candidateScore": 1,
+                "incumbentScore": 0.333,
+                "candidateSpread": 0,
+                "incumbentSpread": 0.6666666666666667,
+                "delta": 0.667,
+                "noise": 0.6666666666666667,
+                "discriminating": false
+              },
+              {
+                "name": "patch_0fe346cc820c",
+                "language": null,
+                "candidateScore": 1,
+                "incumbentScore": 0,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 1,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "patch_6fc5e4eb7dce",
+                "language": null,
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "patch_ef4ae48ec16e",
+                "language": null,
+                "candidateScore": 0.333,
+                "incumbentScore": 0,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0.333,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "patch_e8cdbe02e5de",
+                "language": null,
+                "candidateScore": 0,
+                "incumbentScore": 0,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "patch_22149f55b861",
+                "language": null,
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "patch_adb1258cfec0",
+                "language": null,
+                "candidateScore": 1,
+                "incumbentScore": 0,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 1,
+                "noise": 0,
+                "discriminating": true
+              }
+            ],
+            "discriminating": 4,
+            "candidateWins": 4,
+            "incumbentWins": 0,
+            "margin": 0.8333,
+            "inconclusive": false,
+            "candidateSuiteScore": 0.791625,
+            "incumbentSuiteScore": 0.291625,
+            "repeats": 3,
+            "unstableTasks": [
+              "patch_4db486d33c95"
+            ]
+          },
+          "decision": {
+            "winner": "candidate",
+            "basis": "kvalita",
+            "confidence": "vysoká",
+            "detail": "marže 0.833 ≥ práh 0.05 na 4 rozlišujících úlohách (4:0), jistota vysoká"
+          },
+          "skipped": false
+        }
+      ],
+      "decisions": {
+        "CODE": {
+          "winner": "candidate",
+          "basis": "kvalita",
+          "confidence": "vysoká",
+          "detail": "marže 0.833 ≥ práh 0.05 na 4 rozlišujících úlohách (4:0), jistota vysoká"
+        }
+      },
+      "removed": false,
+      "keptReason": null,
+      "error": null
+    }
+  ],
+  "bindings": {
+    "D1": "qwen3.5:27b",
+    "D2": "qwen3.8:latest",
+    "CODE": "qwen3.5:27b",
+    "R1": "qwen3.8:latest",
+    "R2": "qwen3:14b",
+    "CHAT": "qwen3.5:27b",
+    "VISION": "llava-llama3:8b"
+  },
+  "applicationOutcomes": [],
+  "portfolio": {
+    "bindings": {
+      "D1": "qwen3.5:27b",
+      "D2": "qwen3.8:latest",
+      "CODE": "qwen3.5:27b",
+      "R1": "qwen3.8:latest",
+      "R2": "qwen3:14b",
+      "CHAT": "qwen3.5:27b",
+      "VISION": "llava-llama3:8b"
+    },
+    "choices": {
+      "D1": {
+        "model": "qwen3.5:27b",
+        "score": null,
+        "source": "unmeasured-incumbent",
+        "changed": false
+      },
+      "D2": {
+        "model": "qwen3.8:latest",
+        "score": null,
+        "source": "unmeasured-incumbent",
+        "changed": false
+      },
+      "CODE": {
+        "model": "qwen3.5:27b",
+        "score": 0.291625,
+        "source": "incumbent-evaluation",
+        "changed": false
+      },
+      "R1": {
+        "model": "qwen3.8:latest",
+        "score": null,
+        "source": "unmeasured-incumbent",
+        "changed": false
+      },
+      "R2": {
+        "model": "qwen3:14b",
+        "score": null,
+        "source": "unmeasured-incumbent",
+        "changed": false
+      },
+      "CHAT": {
+        "model": "qwen3.5:27b",
+        "score": null,
+        "source": "unmeasured-incumbent",
+        "changed": false
+      },
+      "VISION": {
+        "model": "llava-llama3:8b",
+        "score": null,
+        "source": "unmeasured-incumbent",
+        "changed": false
+      }
+    },
+    "audit": {
+      "compliant": true,
+      "violations": [],
+      "assignments": {
+        "qwen3.5:27b": [
+          "D1",
+          "CODE",
+          "CHAT"
+        ],
+        "qwen3.8": [
+          "D2",
+          "R1"
+        ],
+        "qwen3:14b": [
+          "R2"
+        ],
+        "llava-llama3:8b": [
+          "VISION"
+        ]
+      }
+    },
+    "utility": 0.291625,
+    "changedRoles": [],
+    "feasible": true,
+    "repairMode": false
+  }
+}

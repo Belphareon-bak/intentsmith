@@ -1,0 +1,118 @@
+From 4b548b3d49c8bb79b08673bfebc3c2f1f8468fd7 Mon Sep 17 00:00:00 2001
+From: Belphareon <geofery.cz@gmail.com>
+Date: Sat, 19 Sep 2026 07:45:00 +0000
+Subject: [PATCH] llm: preserve repeated code tokens and require terminal
+ completion
+
+---
+ llm/llama_server.go      | 19 ++++-----------
+ llm/llama_server_test.go | 52 ++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 56 insertions(+), 15 deletions(-)
+
+diff --git a/llm/llama_server.go b/llm/llama_server.go
+index fc3edfb..b99fb7d 100644
+--- a/llm/llama_server.go
++++ b/llm/llama_server.go
+@@ -1664,8 +1664,6 @@ func (s *llamaServerRunner) Completion(ctx context.Context, req CompletionReques
+ 	buf := make([]byte, 0, llamaServerStreamInitialBufferSize)
+ 	scanner.Buffer(buf, llamaServerStreamMaxBufferSize)
+ 
+-	var lastToken string
+-	var tokenRepeat int
+ 	var finalResp CompletionResponse
+ 	var hasFinalResp bool
+ 
+@@ -1692,18 +1690,9 @@ func (s *llamaServerRunner) Completion(ctx context.Context, req CompletionReques
+ 				return fmt.Errorf("error unmarshalling llama-server response: %v", err)
+ 			}
+ 
+-			// Token repeat detection
+-			switch {
+-			case strings.TrimSpace(lsResp.Content) == lastToken:
+-				tokenRepeat++
+-			default:
+-				lastToken = strings.TrimSpace(lsResp.Content)
+-				tokenRepeat = 0
+-			}
+-			if tokenRepeat > 30 {
+-				slog.Debug("prediction aborted, token repeat limit reached")
+-				return ctx.Err()
+-			}
++			// Repeated tokens can be valid source text (e.g. a comment separator).
++			// boundedNumPredict and the request context already bound generation.
++			// Never terminate successfully before a terminal response is received.
+ 
+ 			if lsResp.Content != "" && !lsResp.Stop {
+ 				resp := CompletionResponse{Content: lsResp.Content}
+@@ -1777,7 +1766,7 @@ func (s *llamaServerRunner) Completion(ctx context.Context, req CompletionReques
+ 		return fmt.Errorf("error reading llama-server response: %v", err)
+ 	}
+ 
+-	return nil
++	return errors.New("llama-server completion ended without a terminal response")
+ }
+ 
+ func llamaServerStreamLimitError(label string, err error) error {
+diff --git a/llm/llama_server_test.go b/llm/llama_server_test.go
+index 4d4300b..7d040f5 100644
+--- a/llm/llama_server_test.go
++++ b/llm/llama_server_test.go
+@@ -3768,3 +3768,55 @@ func fakeRunningCmd() *exec.Cmd {
+ 	// SIGKILL children when the test process exits.
+ 	return cmd
+ }
++
++// Regression: a long code-comment separator used to return ctx.Err() == nil
++// after 31 repeated chunks, silently losing Done and the generation metrics.
++func TestLlamaServerCompletionRepeatedCodeTokens(t *testing.T) {
++	for _, terminal := range []bool{false, true} {
++		t.Run(fmt.Sprint(terminal), func(t *testing.T) {
++			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++				switch r.URL.Path {
++				case "/health":
++					fmt.Fprint(w, `{"status":"ok"}`)
++				case "/tokenize":
++					fmt.Fprint(w, `{"tokens":[1,2,3]}`)
++				case "/completion":
++					w.Header().Set("Content-Type", "text/event-stream")
++					for range 40 {
++						fmt.Fprintln(w, `data: {"content":"═","stop":false}`)
++					}
++					if terminal {
++						fmt.Fprintln(w, `data: {"content":"","stop":true,"stop_type":"limit","timings":{"prompt_n":3,"prompt_ms":1,"predicted_n":40,"predicted_ms":1}}`)
++					}
++				default:
++					t.Errorf("unexpected path: %s", r.URL.Path)
++				}
++			}))
++			defer srv.Close()
++			parts := strings.Split(srv.URL, ":")
++			var port int
++			fmt.Sscanf(parts[len(parts)-1], "%d", &port)
++			runner := &llamaServerRunner{port: port, cmd: fakeRunningCmd(), sem: semaphore.NewWeighted(1), options: api.Options{Runner: api.Runner{NumCtx: 2048}}}
++			opts := api.DefaultOptions()
++			opts.NumPredict = 40
++			var content strings.Builder
++			var final CompletionResponse
++			err := runner.Completion(t.Context(), CompletionRequest{Prompt: "code separator", Options: &opts}, func(r CompletionResponse) {
++				content.WriteString(r.Content)
++				if r.Done {
++					final = r
++				}
++			})
++			if content.String() != strings.Repeat("═", 40) {
++				t.Fatalf("lost valid repeated code: %q", content.String())
++			}
++			if terminal {
++				if err != nil || !final.Done || final.EvalCount != 40 || final.DoneReason != DoneReasonLength {
++					t.Fatalf("missing terminal proof: %v %+v", err, final)
++				}
++			} else if err == nil || final.Done {
++				t.Fatalf("missing terminal event accepted: %v %+v", err, final)
++			}
++		})
++	}
++}
+-- 
+2.43.0
+

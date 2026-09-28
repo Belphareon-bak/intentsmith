@@ -1,0 +1,48 @@
+{
+  "id": "summarizer",
+  "version": 1,
+  "description": "Sumarizace dokumentu nebo textu \u2014 vytvo\u0159\u00ed stru\u010dn\u00fd souhrn s kl\u00ed\u010dov\u00fdmi body",
+  "parameters": {
+    "text": {
+      "type": "string",
+      "required": true,
+      "description": "Text k sumarizaci"
+    }
+  },
+  "steps": [
+    {
+      "id": "clarify",
+      "type": "ask",
+      "prompt": "Chyst\u00e1m se sumarizovat tento text:\n\n{{text}}\n\nUp\u0159esni pros\u00edm:\n- Jak\u00e1 d\u00e9lka souhrnu? (1 odstavec / 5 bod\u016f / p\u016fl str\u00e1nky)\n- Jak\u00fd styl? (form\u00e1ln\u00ed / neform\u00e1ln\u00ed / technick\u00fd / executive summary)\n- Je n\u011bco, na co se m\u00e1m zvl\u00e1\u0161\u0165 zam\u011b\u0159it?"
+    },
+    {
+      "id": "draft",
+      "type": "llm",
+      "prompt": "Vytvo\u0159 souhrn n\u00e1sleduj\u00edc\u00edho textu.\n\nP\u016fvodn\u00ed text:\n{{text}}\n\nPo\u017eadavky u\u017eivatele:\n{{steps.clarify.output}}\n\nPravidla:\n1. Zachovej kl\u00ed\u010dov\u00e9 informace a hlavn\u00ed my\u0161lenky.\n2. Nep\u0159id\u00e1vej informace, kter\u00e9 v p\u016fvodn\u00edm textu nejsou.\n3. Pou\u017eij jasn\u00fd, stru\u010dn\u00fd jazyk.\n4. Strukturuj v\u00fdstup podle po\u017eadovan\u00e9ho form\u00e1tu.",
+      "systemPrompt": "Jsi expert na sumarizaci text\u016f. Pi\u0161 \u010desky, stru\u010dn\u011b a v\u011bcn\u011b.",
+      "temperature": 0.3,
+      "maxTokens": 2048
+    },
+    {
+      "id": "review",
+      "type": "review",
+      "content": "{{steps.draft.output}}",
+      "prompt": "Zkontroluj n\u00e1vrh souhrnu. Pokud je v po\u0159\u00e1dku, napi\u0161 **ano**. Pokud chce\u0161 \u00fapravy, popi\u0161 co zm\u011bnit:"
+    },
+    {
+      "id": "refine",
+      "type": "llm",
+      "prompt": "Uprav souhrn podle zp\u011btn\u00e9 vazby.\n\nZp\u011btn\u00e1 vazba / schv\u00e1len\u00fd text:\n{{steps.review.output}}\n\nP\u016fvodn\u00ed n\u00e1vrh:\n{{steps.draft.output}}\n\nPokud u\u017eivatel schv\u00e1lil beze zm\u011bn, vra\u0165 p\u016fvodn\u00ed text.\nPokud jsou po\u017eadovan\u00e9 zm\u011bny, zapracuj je.",
+      "systemPrompt": "Zapracuj zp\u011btnou vazbu p\u0159esn\u011b. Pi\u0161 \u010desky.",
+      "temperature": 0.3,
+      "maxTokens": 2048
+    },
+    {
+      "id": "validate",
+      "type": "validate",
+      "content": "{{steps.refine.output}}",
+      "criteria": "Souhrn mus\u00ed obsahovat kl\u00ed\u010dov\u00e9 body p\u016fvodn\u00edho textu. Nesm\u00ed b\u00fdt del\u0161\u00ed ne\u017e polovina p\u016fvodn\u00edho textu. Mus\u00ed b\u00fdt srozumiteln\u00fd bez znalosti origin\u00e1lu.",
+      "failMessage": "Souhrn nespl\u0148uje krit\u00e9ria kvality. Zkus skill spustit znovu s p\u0159esn\u011bj\u0161\u00edmi po\u017eadavky."
+    }
+  ]
+}

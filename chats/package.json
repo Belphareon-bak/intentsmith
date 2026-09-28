@@ -1,0 +1,35 @@
+{
+  "name": "c3-agent",
+  "version": "36.5.0",
+  "type": "module",
+  "description": "C.3 Agent - CRE v36.5 (Capability Registry + System Slots + Truthful LLM)",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    
+    "test": "npm run test:unit && npm run test:e2e && npm run test:workflow && npm run test:simulation && npm run test:integration && npm run test:guards",
+    "test:all": "npm run test:unit && npm run test:e2e && npm run test:workflow && npm run test:simulation && npm run test:integration && npm run test:guards && npm run test:llm:mock",
+    
+    "test:unit": "node src/tests/cre-v2.test.js",
+    "test:e2e": "node src/tests/cre-v36-e2e.test.js",
+    "test:workflow": "node src/tests/workflow-e2e.test.js",
+    "test:simulation": "node src/tests/real-user-simulation.test.js",
+    "test:integration": "node src/tests/full-integration.test.js",
+    "test:guards": "node src/tests/e2e-scenarios.js && node src/tests/chat-e2e.js && node src/tests/chat-e2e-v2.js && node src/tests/correction-enforcer.test.js",
+    
+    "test:llm": "node src/tests/llm-behavior.test.js",
+    "test:llm:mock": "MOCK_LLM=1 node src/tests/llm-behavior.test.js",
+    "test:llm:live": "node src/tests/llm-behavior.test.js",
+    
+    "test:arch": "node src/tests/e2e-scenarios.js",
+    "test:chat": "node src/tests/chat-e2e.js",
+    "test:chat:v2": "node src/tests/chat-e2e-v2.js",
+    "test:correction": "node src/tests/correction-enforcer.test.js",
+    "test:cre": "node src/tests/cre-v2.test.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.0.0",
+    "puppeteer": "^21.0.0"
+  }
+}

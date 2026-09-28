@@ -1,0 +1,137 @@
+# Ollama response identity — konkrétní návrh provozního kroku
+
+Stav: `ACTIVATED_HEALTH_VERIFIED / CONTROLLED_GATEWAY_VERIFIED / FULL_M6_REQUIRED`.
+Datum inventury a autorizovaného pokusu: 2026-09-09. Operátor následně
+výslovně přijal tento návrh slovy „ano potvrzuji“. [Výsledek pokusu a další
+ověření](provider-activation-20260909.md) jsou samostatnou evidencí provedení.
+
+## Problém a připravená změna
+
+IntentSmith požaduje digest modelu skutečně obsluhujícího odpověď. Systémová
+Ollama 0.32.14 jej neposkytuje; současné fail-closed chyby jsou popsány v
+[model-evaluation-final-integration-20260826.md](../model-evaluation-final-integration-20260826.md).
+Pouhé porovnání inventáře před a po dotazu tuto autoritu nenahrazuje.
+
+Připravený kandidát z čistého source
+`0cb3844557c2cbf0beac555da0147279eebd9488` doplňuje `Model.Digest` ze stejného
+modelu, který `scheduleRunner` předává scheduleru, do běžné i native chat
+odpovědi. Změna zachová službu `ollama`, uživatele/skupinu `ollama`, model store
+`/usr/share/ollama/.ollama/models`, origin `http://127.0.0.1:11434` a stávající
+nativní knihovny. Nemění model bindings, scoring historii ani zapnutí hunt timeru.
+
+| Objekt | Přesná identita SHA-256 |
+|---|---|
+| Připravený `~/.local/opt/ollama-intentsmith-0.32.14.1/bin/ollama` | `72580ab98c5c82afe9cf73e5b7400b1d3cd94ec0777f961d1aefab878146878a` |
+| Původní `/usr/local/bin/ollama` | `d0758d38ac5882a2c68fd930d0c1220af1952469fa9f30c268746d4021709bf4` |
+| Původní `/etc/systemd/system/ollama.service` | `e5cab49b2d7316a4f9b333f525034c08f4aca28ea36c585a6b308d671ffd5e4e` |
+| Stávající `/usr/local/lib/ollama/llama-server` | `234b05b2138264f8fb263c3205e85f4c290e8afe5067e280a4f6f90cdac5696b` |
+
+Lokální podklady jsou v
+`.intentsmith-artifacts/core-completion-20260909/provider-proposal/`.
+`manifest.json` navíc připíná 50 položek nativních knihoven; nezávislý reviewer
+znovu spočítal všech 54 identit a všechny souhlasily. Candidate binary má
+embedded source revision shodnou s čistým checkoutem a `vcs.modified=false`.
+
+Nezávislé statické review a nově zkompilované mock regrese prošly: přesný
+source `0cb3844557c2cbf0beac555da0147279eebd9488`, ověřený Go 1.26.7,
+`TestChatHandlerChatTemplateRoute` a `TestGenerateChat` včetně 15 subtestů,
+exit 0. Testy běžely bez sítě/GPU/živého store v bwrap. Příkazy, izolace a
+výstupy jsou v `toolchain/evidence/` pod uvedeným artifact kořenem.
+Nejde o nové runtime ověření existující candidate binárky s nativním runnerem.
+
+Finální nový soubor `/etc/systemd/system/ollama.service.d/50-intentsmith-response-digest.conf`
+je připravený se skutečnými bajty:
+
+```ini
+[Service]
+ExecStart=
+ExecStart=/usr/local/bin/ollama-intentsmith-0.32.14.1 serve
+```
+
+Nová binárka i tento drop-in při inventuře chyběly. Staging unit prošla
+`systemd-analyze verify`, ale odkazovala na existující uživatelskou candidate
+binárku. Jde o parser/source-executable staging check; ověření finálního
+root-owned `ExecStart` musí proběhnout po instalaci a před restartem.
+
+**Aktualizace po skutečném pokusu 12:20 UTC:** admin autentizace prošla a
+kandidát se spustil, ale chybná očekávaná verze v instalačním skriptu vyvolala
+rollback. Přesná schválená binárka hlásí `0.32.14-intentsmith.1`; adresářový
+suffix `0.32.14.1` není runtime version. Potvrdil to skutečný systemd journal
+i izolovaná GET sonda stejného binary hashe. Původní služba 0.32.14 byla
+obnovena, drop-in odstraněn a exact root-owned kandidát zůstal neaktivní.
+Opravený v2 postup níže bezpečně připouští opětovné použití tohoto souboru;
+nemění schválenou binárku ani modely. Přesné hashe v2 a nový launcher jsou v
+[navazujícím run záznamu](provider-activation-20260909.md).
+
+## Přesné pořadí v povoleném provozním okně
+
+1. Znovu ověřit všech 54 identit, aktuální unit/drop-in stav, nepřítomnost
+   drop-inu a absenci target binárky nebo její přesnou schválenou root-owned
+   identitu z předchozího pokusu, prázdné `/api/ps` a žádný NVIDIA compute proces. Při změně
+   identity nebo cizí aktivitě zastavit závislý krok; nic cizího neukončovat.
+2. Se správcovským potvrzením vytvořit nový root-only rollback adresář pod
+   `/var/backups/` a uložit původní unit, původní binárku, inventář a ověřené
+   hashe. Existující cesty se nepřepisují.
+3. Nainstalovat přesně připnutou candidate binárku jako nový root-owned `0755`
+   `/usr/local/bin/ollama-intentsmith-0.32.14.1`, nebo bezpečně znovu použít
+   stejný již přítomný soubor bez zápisu. V2 vyžaduje `O_NOFOLLOW`, shodné
+   lstat/fstat, root:root 0755, jediný link, hash a stabilní inode až do health.
+   Vytvořit připravený root-owned `0644` drop-in. Původní binárka a hlavní unit
+   zůstávají na místě. Znovu ověřit
+   nainstalované bajty a finální unit včetně drop-inu.
+4. `systemctl daemon-reload` a `systemctl restart ollama.service`; ověřit
+   výsledný `ExecStart`, UID, pouze loopback listener a `/api/version` přesně
+   `0.32.14-intentsmith.1`. Uložit úplné pozorování před verzovou asercí.
+   Při neúspěchu použít níže uvedený rollback a zachovat chybovou evidenci.
+5. V tomtéž výslovně povoleném sériovém modelovém okně provést přesně dvě
+   omezené operace na připnutém existujícím modelu: nejprve typed
+   `verifyExact` s jedním `/api/chat`, pak IntentSmith gateway s druhým
+   `/api/chat`. Porovnat response digest se skutečným artefaktem a uchovat
+   request/response JSON identity i nový durable usage/claim stav privátní DB.
+   Žádný model se nevybírá ani neaktivuje na základě skóre.
+6. `SYSTEM_PROVIDER_BLOCKED` změnit teprve podle této skutečné evidence.
+   Úspěšný restart ani statické review tento stav samy neuzavírají. Další
+   modelové release testy a 24h soak následují podle přesného M6 plánu.
+
+Rollback: po opětovném ověření přesných vlastních bajtů odstranit pouze nově
+vytvořený `50-intentsmith-response-digest.conf`, provést `daemon-reload` a
+restart původní služby. Ověřit původní `ExecStart`, binární hash a loopback
+health. Ponechat evidence/backup a nepřepisovat DB, model store či bindings.
+Návrat na původní provider opět znamená `SYSTEM_PROVIDER_BLOCKED`.
+
+## Autorita a potřebná součinnost
+
+[WP-M6-RELEASE](../../../wp/WP-M6-RELEASE.md) uchovává historický operátorský
+odklad živých LLM validačních běhů. Následné explicitní povolení tohoto
+konkrétního restartu a sériového živého modelového okna je zaznamenané v
+[navazujícím scope](../../../wp/WP-CORE-COMPLETION-20260909.md).
+Další souhlas s tímto rozsahem není potřeba.
+
+Read-only preflight prokázal UID 1000 a `sudo -n true` skončilo exit 1 s
+`a password is required`. První autorizovaný pokus přes `pkexec` dne 2026-09-09
+v 11:11 UTC skončil exit 127: `Not authorized`. Root bootstrap nezačal;
+binárka/drop-in tehdy nebyly instalované a původní služba běžela. Jde o autentizaci
+správce na hostu, nikoli chybějící uživatelský souhlas nebo zamítnutí nástroje
+automatickým approval review. Připravený ověřený terminálový launcher vyžádá
+heslo pouze prostřednictvím systémového `sudo`; heslo nepatří do chatu.
+Operátorův následný terminálový pokus v 12:20 autentizaci prokazatelně
+dokončil; výše popsaný rollback vyvolala naše chybná kontrola verze. Nový
+grafický v2 pokus 12:31–12:36 zůstal čekat na autentizaci a byl ukončen před
+root bootstrapem. Pro opakování je připraven reviewed terminálový launcher v2.
+M7 VPN, firewall, TLS/HMAC klíče, telefon, M5 externí rotace,
+history disposition a release podpisy nejsou součástí tohoto zásahu.
+
+Alternativa pro jednorázové měření je dosavadní izolovaný sidecar; jeho
+výsledek ale neověří systémový origin. Pro core release je proto doporučený
+výše uvedený verzovaný systémový provider se zachovanou návratovou cestou.
+
+## Dokončená aktivace a první modelová kvalifikace
+
+Druhý terminálový pokus v 12:38 UTC skončil exit 0 a
+`ACTIVATED_HEALTH_VERIFIED`: přesný target byl znovu použit bez zápisu a běží
+jako systémová služba. V 12:42 UTC prošly dvě řízené operace pro
+`qwen3.5:27b`: typed exact verification a gateway, včetně provider response
+digestu, jednoho usage řádku a dvou uvolněných claims v soukromé DB. Živé
+bindings zůstaly zachované. Tento provozní krok už není blokovaný admin
+autentizací. Původní neúspěchy výše jsou historické; přesné aktuální důkazy
+a rozsah jsou v [run evidenci](provider-activation-20260909.md).

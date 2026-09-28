@@ -1,0 +1,1087 @@
+// H9: Projects, Workspace & Attachments routes
+import { ensureReadme } from '../chat/handlers/utils/readme-generator.js';
+import { generateNewProjectWelcome } from '../chat/handlers/utils/welcome-generator.js';
+
+import { initializeNewProject, inspectProject, importedProjectWelcome } from '../planner/project-onboarding.js';
+import { readChatMemoryPolicy } from '../db/user-settings.js';
+
+export function createProjectRoutes(deps) {
+  const { db, parseBody, sendJSON, safeError, safeParseInt, sendStaticFile, logger, path, config } = deps;
+
+  return {
+    // ══════════════════════════════════════════════════════════════════════════
+    // Legacy routes (non-API)
+    // ══════════════════════════════════════════════════════════════════════════
+
+    'GET /projects': (req, res) => {
+      const projects = db.projects.list.all(50);
+      sendJSON(res, 200, { projects });
+    },
+
+    'POST /projects': async (req, res) => {
+      const body = await parseBody(req);
+      const { name, path: projPath, description } = body;
+
+      if (!name || !projPath) {
+        return sendJSON(res, 400, { error: 'name and path are required' });
+      }
+
+      const project = db.projects.getOrCreate(name, projPath, description || '');
+      sendJSON(res, 200, { project });
+    },
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // Projects CRUD
+    // ══════════════════════════════════════════════════════════════════════════
+
+    'GET /api/projects/defaults': async (req, res) => {
+      try {
+        const pathModule = await import('path');
+        const { config } = await import('../config.js');
+        const defaultDir = pathModule.resolve(config.projects.defaultDir);
+        sendJSON(res, 200, { defaultDir });
+      } catch (err) {
+        sendJSON(res, 500, safeError(err));
+      }
+    },
+
+    'GET /api/projects': async (req, res) => {
+      const url = new URL(req.url, `http://${req.headers.host}`);
+      const limit = parseInt(url.searchParams.get('limit')) || 10;
+      const status = url.searchParams.get('status'); // active | archived | deleted | all
+
+      try {
+        let projects;
+        if (status === 'archived') {
+          projects = db.projects.listArchived.all(limit);
+        } else if (status === 'deleted') {
+          projects = db.projects.listDeleted.all(limit);
+        } else if (status === 'all') {
+          projects = db.projects.listNotDeleted.all(limit);
+        } else {
+          // Default: active only (uses listActive if column exists, falls back to listRecent)
+          projects = (db.projects.listActive?.all(limit)) ?? db.projects.listRecent.all(limit);
+        }
+        sendJSON(res, 200, { projects });
+      } catch (err) {
+        sendJSON(res, 500, safeError(err));
+      }
+    },
+
+    'POST /api/projects': async (req, res) => {
+      const body = await parseBody(req);
+      const { name, description = '', type = 'general', path: customPath } = body;
+      if (typeof name !== 'string' || !name.trim() || name.length > 120
+          || /[\x00-\x1f]/.test(name) || typeof description !== 'string' || description.length > 4000
+          || !['general', 'desktop', 'webapp', 'api', 'automation', 'data'].includes(type)
+          || (customPath != null && typeof customPath !== 'string')) {
+        return sendJSON(res, 400, { error: 'Zadej název, popis a podporovaný typ projektu.' });
+      }
+      try {
+        const fs = await import('node:fs/promises');
+        const pathModule = await import('node:path');
+        const os = await import('node:os');
+        const projectName = name.trim();
+        // All collisions are checked BEFORE creating or writing anything.
+        const collision = db.projects.findByName.get(projectName);
+        if (collision && !['archived', 'deleted'].includes(collision.status)) {
+          return sendJSON(res, 409, { error: 'Projekt tohoto názvu už existuje.', existingProject: collision });
+        }
+        const slug = projectName.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase();
+        if (!slug) return sendJSON(res, 400, { error: 'Název musí obsahovat písmeno nebo číslici.' });
+        const requested = customPath?.trim()
+          ? pathModule.resolve(customPath.trim())
+          : pathModule.resolve(config.projects.defaultDir, slug);
+        // Resolve the parent rather than following an existing target symlink.
+        // The normal default directory may be created; a custom parent must exist.
+        if (!customPath?.trim()) await fs.mkdir(pathModule.dirname(requested), { recursive: true });
+        const parent = await fs.realpath(pathModule.dirname(requested));
+        const home = await fs.realpath(os.homedir());
+        if (customPath?.trim() && parent !== home && !parent.startsWith(home + pathModule.sep)) {
+          return sendJSON(res, 400, { error: 'Project path must be within home directory' });
+        }
+        const projectPath = pathModule.join(parent, pathModule.basename(requested));
+        if (db.projects.findByPath.get(projectPath)) return sendJSON(res, 409, { error: 'Cesta už patří projektu. Použij Otevřít složku.' });
+        const scaffold = await initializeNewProject(projectPath, { name: projectName, description, type });
+        const project = db.projects.getOrCreate(projectName, projectPath, description);
+        if (project._nameConflict) return sendJSON(res, 409, { error: 'Název mezitím obsadil jiný projekt.', path: projectPath });
+        sendJSON(res, 201, { id: project.id, project, path: projectPath, type,
+          lifecycle: 'SPEC', scaffold, welcomeMessage: generateNewProjectWelcome({ name: projectName, description, type }) });
+      } catch (err) {
+        const conflict = err.code === 'EEXIST';
+        sendJSON(res, conflict ? 409 : 500, conflict
+          ? { error: 'Složka už existuje. Pro existující projekt použij Otevřít složku; jeho soubory nebyly změněné.' }
+          : { ...safeError(err), ...(err.projectPath ? { path: err.projectPath, incompleteCreation: true } : {}) });
+      }
+    },
+
+    'GET /api/projects/:id': async (req, res, params) => {
+      try {
+        const project = db.projects.findById.get(safeParseInt(params.id));
+
+        if (!project) {
+          return sendJSON(res, 404, { error: 'Project not found' });
+        }
+
+        sendJSON(res, 200, { project });
+      } catch (err) {
+        sendJSON(res, 500, safeError(err));
+      }
+    },
+
+    'PUT /api/projects/:id': async (req, res, params) => {
+      const body = await parseBody(req);
+      try {
+        const id = safeParseInt(params.id);
+        const project = db.projects.findById.get(id);
+        if (!project) return sendJSON(res, 404, { error: 'Project not found' });
+
+        const updates = [];
+        const values = [];
+        if (body.name !== undefined && body.name.trim()) { updates.push('name = ?'); values.push(body.name.trim()); }
+        if (body.path !== undefined && body.path.trim()) { updates.push('path = ?'); values.push(body.path.trim()); }
+        if (body.description !== undefined) { updates.push('description = ?'); values.push(body.description); }
+        if (updates.length === 0) return sendJSON(res, 400, { error: 'No fields to update' });
+
+        updates.push('last_active = CURRENT_TIMESTAMP');
+        db.db.prepare(`UPDATE projects SET ${updates.join(', ')} WHERE id = ?`).run(...values, id);
+
+        const updated = db.projects.findById.get(id);
+        sendJSON(res, 200, { project: updated });
+      } catch (err) {
+        sendJSON(res, 500, safeError(err));
+      }
+    },
+
+    'GET /api/projects/:id/conversations': async (req, res, params) => {
+      const url = new URL(req.url, `http://${req.headers.host}`);
+      const limit = parseInt(url.searchParams.get('limit')) || 10;
+      const status = url.searchParams.get('status'); // active | all
+
+      try {
+        let conversations;
+        if (status === 'all') {
+          conversations = db.conversations.listRecentByProject.all(safeParseInt(params.id), limit);
+        } else {
+          // Default: active only
+          conversations = (db.conversations.listActiveByProject?.all(safeParseInt(params.id), limit))
+            ?? db.conversations.listRecentByProject.all(safeParseInt(params.id), limit);
+        }
+        sendJSON(res, 200, { conversations });
+      } catch (err) {
+        sendJSON(res, 500, safeError(err));
+      }
+    },
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // v65.2: Get active lifecycle state for a project (used by IDE project opener)
+    // ══════════════════════════════════════════════════════════════════════════
+
+    'GET /api/projects/:id/lifecycle': async (req, res, params) => {
+      try {
+        const projectId = safeParseInt(params.id);
+        const lc = db.lifecycles.findActiveByProject.get(projectId);
+
+        if (!lc) {
+          return sendJSON(res, 200, { lifecycle: null });
+        }
+
+        // Count milestones by status
+        const statusRows = db.milestones.countByStatus.all(lc.id);
+        const milestones = { total: 0 };
+        for (const row of statusRows) {
+          milestones[row.status] = row.count;
+          milestones.total += row.count;
+        }
+
+        // Resolve project path from projects table (project_lifecycles has no path column)
+        const proj = db.projects.findById.get(lc.project_id);
+        sendJSON(res, 200, {
+          lifecycle: {
+            id: lc.id,
+            phase: lc.phase,
+            activeSessionId: lc.active_session_id || null,
+            projectPath: proj?.path || null,
+            milestones,
+          },
+        });
+      } catch (err) {
+        sendJSON(res, 500, safeError(err));
+      }
+    },
+
+    // v65.2: Bind session to active lifecycle (double-bind guard + COMPLETED guard)
+    'POST /api/projects/:id/lifecycle/bind': async (req, res, params) => {
+      const body = await parseBody(req);
+      const { sessionId } = body;
+
+      if (!sessionId) {
+        return sendJSON(res, 400, { error: 'sessionId is required' });
+      }
+
+      try {
+        const projectId = safeParseInt(params.id);
+        const { getLcStateByProject, bindSessionToLifecycle, setLcState } = await import('../chat/handlers/lifecycle-state.js');
+
+        // Guard: double bind — another session already owns this lifecycle
+        const existing = getLcStateByProject(projectId);
+        if (existing && existing.sessionId !== sessionId) {
+          return sendJSON(res, 409, { error: 'Lifecycle already bound', activeSession: existing.sessionId });
+        }
+
+        const lc = db.lifecycles.findActiveByProject.get(projectId);
+        if (!lc) {
+          return sendJSON(res, 200, { ok: false, reason: 'No active lifecycle' });
+        }
+
+        // Guard: COMPLETED/FAILED — no point binding
+        if (lc.phase === 'COMPLETED' || lc.phase === 'FAILED') {
+          return sendJSON(res, 200, { ok: false, reason: 'Lifecycle is ' + lc.phase });
+        }
+
+        // Bind session to lifecycle
+        bindSessionToLifecycle(sessionId, lc.id);
+
+        // Resolve project path from projects table (project_lifecycles has no path column)
+        const proj = db.projects.findById.get(projectId);
+
+        // Set lifecycle state in RAM for conversation handler
+        setLcState(sessionId, {
+          phase: lc.phase,
+          lifecycleId: lc.id,
+          currentMilestoneId: null,
+          originalRequest: '',
+          projectId,
+          projectPath: proj?.path || null,
+        });
+
+        logger.info('Projects', `Lifecycle bound: session=${sessionId} lifecycle=${lc.id} phase=${lc.phase}`);
+
+        sendJSON(res, 200, { ok: true, phase: lc.phase, lifecycleId: lc.id });
+      } catch (err) {
+        sendJSON(res, 500, safeError(err));
+      }
+    },
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // v65: Start lifecycle for a project (called from IDE wizard)
+    // ══════════════════════════════════════════════════════════════════════════
+
+    'POST /api/projects/lifecycle/start': async (req, res) => {
+      const body = await parseBody(req);
+      const { projectId, projectPath, projectName, description, type, sessionId } = body;
+
+      if (!sessionId) {
+        return sendJSON(res, 400, { error: 'sessionId is required' });
+      }
+
+      try {
+        const { setLcState, bindSessionToLifecycle } = await import('../chat/handlers/lifecycle-state.js');
+
+        const lcId = `lc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+        // Create lifecycle record in DB
+        try {
+          const specData = { name: projectName, type: type || 'general', description: description || '', goals: [], requirements: [] };
+          // Validate projectId FK before insert
+          const safeProjectId = projectId ? (db.projects.findById.get(projectId) ? projectId : null) : null;
+          db.db.prepare(
+            'INSERT OR IGNORE INTO project_lifecycles (id, project_id, phase, spec, config, active_session_id) VALUES (?, ?, ?, ?, ?, ?)'
+          ).run(lcId, safeProjectId, 'SPEC', JSON.stringify(specData), '{}', sessionId);
+        } catch (e) {
+          logger.warn('Projects', `Lifecycle DB insert failed: ${e.message}`);
+        }
+
+        // Activate lifecycle on session — phase SPEC
+        setLcState(sessionId, {
+          phase: 'SPEC',
+          lifecycleId: lcId,
+          currentMilestoneId: null,
+          originalRequest: description || ('Nový projekt: ' + (projectName || '')),
+          projectId: projectId || null,
+          projectPath: projectPath || null,
+        });
+        bindSessionToLifecycle(sessionId, lcId);
+
+        logger.info('Projects', `Lifecycle started for project ${projectName} (session: ${sessionId})`);
+
+        sendJSON(res, 200, {
+          ok: true,
+          phase: 'SPEC',
+          message: 'Lifecycle aktivován. Popište specifikaci projektu.',
+        });
+      } catch (err) {
+        sendJSON(res, 500, safeError(err));
+      }
+    },
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // v59: Open Folder - Register existing filesystem folder as project
+    // ══════════════════════════════════════════════════════════════════════════
+
+    'POST /api/projects/open-folder': async (req, res) => {
+      const body = await parseBody(req);
+        const { folderPath, name, renameConfirmation } = body;
+
+      if (!folderPath) {
+        return sendJSON(res, 400, { error: 'folderPath is required' });
+      }
+
+      try {
+        const fsPromises = await import('fs/promises');
+        const pathModule = await import('path');
+
+        // 1. Normalize path (resolve to absolute, follow symlinks)
+        let normalizedPath;
+        try {
+          normalizedPath = await fsPromises.realpath(folderPath);
+        } catch (err) {
+          return sendJSON(res, 400, {
+            error: 'Path does not exist or is not accessible',
+            details: err.message
+          });
+        }
+
+        // 2. Validate it's a directory
+        const stats = await fsPromises.stat(normalizedPath);
+        if (!stats.isDirectory()) {
+          return sendJSON(res, 400, { error: 'Path is not a directory' });
+        }
+
+        // Import never writes to the repository or executes repository code.
+        const explicitName = typeof name === 'string' && !!name.trim();
+        const projectName = explicitName ? name.trim() : pathModule.basename(normalizedPath);
+        if (explicitName && (projectName.length > 120 || /[\x00-\x1f]/.test(projectName))) {
+          return sendJSON(res, 400, { error: 'Invalid project name' });
+        }
+        const existing = db.projects.findByPath.get(normalizedPath);
+        const needsRename = !!(existing && explicitName && existing.name !== projectName);
+        const confirmed = needsRename && renameConfirmation
+          && renameConfirmation.projectId === existing.id
+          && renameConfirmation.currentName === existing.name;
+        if (needsRename && !confirmed) {
+          return sendJSON(res, 409, {
+            code: renameConfirmation ? 'PROJECT_RENAME_PLAN_STALE' : 'PROJECT_RENAME_CONFIRMATION_REQUIRED',
+            error: renameConfirmation ? 'Projekt se mezitím změnil. Zkontroluj nový plán přejmenování.'
+              : 'Složka už je registrovaná. Přejmenování vyžaduje samostatné potvrzení.',
+            existingProject: { id: existing.id, name: existing.name, path: existing.path },
+            proposedName: projectName,
+          });
+        }
+        if (renameConfirmation && !needsRename) {
+          return sendJSON(res, 409, {
+            code: 'PROJECT_RENAME_PLAN_STALE',
+            error: 'Projekt se mezitím změnil. Zkontroluj nový plán přejmenování.',
+          });
+        }
+        const { project, wasExisting, renamed } = db.projects.registerExternal(projectName, normalizedPath, '',
+          { renameExisting: confirmed });
+        let analysis = null;
+        let analysisError = null;
+        try {
+          analysis = await inspectProject(project);
+          if (readChatMemoryPolicy(db.db).context) {
+            db.projectMemory.set.run(project.id, 'last_analysis', JSON.stringify(analysis), 'system');
+          }
+        } catch (err) {
+          analysisError = err.code || 'PROJECT_ANALYSIS_UNAVAILABLE';
+          logger.warn('Projects', 'Open-folder analysis unavailable', { code: analysisError });
+        }
+        sendJSON(res, wasExisting ? 200 : 201, {
+          project, status: wasExisting ? 'already_registered' : 'registered', renamed: renamed === true,
+          welcomeMessage: importedProjectWelcome(project, analysis), analysis, analysisError,
+          metadata: { bootstrapped: false, readmeCreated: false, roadmapCreated: false, analysisAvailable: !!analysis },
+        });
+
+      } catch (err) {
+        logger.error('Server', `Open folder error: ${err.message}`);
+        sendJSON(res, err.code === 'PROJECT_NAME_CONFLICT' ? 409 : 500, safeError(err));
+      }
+    },
+
+    // Archive project (soft — read-only, hidden from default list)
+    // v88.1: Adds timestamp suffix to name to free it for reuse
+    'PATCH /api/projects/:id/archive': async (req, res, params) => {
+      try {
+        const project = db.projects.findById.get(safeParseInt(params.id));
+        if (!project) return sendJSON(res, 404, { error: 'Project not found' });
+
+        db.projects.archive.run(safeParseInt(params.id));
+
+        // Also archive all active conversations in this project
+        const convs = db.conversations.findByProject.all(safeParseInt(params.id));
+        for (const c of convs) {
+          if (c.state === 'active') {
+            db.conversations.archive.run(c.id);
+          }
+        }
+
+        sendJSON(res, 200, { success: true, status: 'archived', archivedConversations: convs.length });
+      } catch (err) {
+        sendJSON(res, 500, safeError(err));
+      }
+    },
+
+    // Restore project from archive
+    // v88.1: Strips suffix, warns on name collision
+    'PATCH /api/projects/:id/restore': async (req, res, params) => {
+      try {
+        const project = db.projects.findById.get(safeParseInt(params.id));
+        if (!project) return sendJSON(res, 404, { error: 'Project not found' });
+
+        const restoreResult = db.projects.restore.run(safeParseInt(params.id));
+
+        // Also restore archived conversations in this project
+        const convs = db.conversations.findByProject.all(safeParseInt(params.id));
+        for (const c of convs) {
+          if (c.state === 'archived') {
+            db.conversations.restore.run(c.id);
+          }
+        }
+
+        const response = { success: true, status: 'active', restoredConversations: convs.length };
+        if (restoreResult?.conflict) {
+          response.warning = `Název "${restoreResult.originalName}" je již obsazený jiným projektem. Projekt obnoven pod původním názvem "${restoreResult.restoredName}".`;
+          response.nameConflict = true;
+        }
+        sendJSON(res, 200, response);
+      } catch (err) {
+        sendJSON(res, 500, safeError(err));
+      }
+    },
+
+    // Soft-delete project (moves to trash, hard-deletable later)
+    'DELETE /api/projects/:id': async (req, res, params) => {
+      try {
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        const hard = url.searchParams.get('hard') === 'true';
+
+        const project = db.projects.findById.get(safeParseInt(params.id));
+        if (!project) return sendJSON(res, 404, { error: 'Project not found' });
+
+        if (hard) {
+          // Hard delete (irreversible) — only for already soft-deleted projects
+          if (project.status !== 'deleted') {
+            return sendJSON(res, 400, { error: 'Only soft-deleted projects can be hard-deleted. Use DELETE ?hard=true on a deleted project.' });
+          }
+          db.projects.delete.run(safeParseInt(params.id));
+          sendJSON(res, 200, { success: true, deleted: params.id, mode: 'hard' });
+        } else {
+          // Soft delete (default)
+          db.projects.softDelete.run(safeParseInt(params.id));
+
+          // Also soft-delete conversations in this project
+          const convs = db.conversations.findByProject.all(safeParseInt(params.id));
+          for (const c of convs) {
+            if (c.state !== 'deleted') {
+              db.conversations.softDelete.run(c.id);
+            }
+          }
+
+          sendJSON(res, 200, { success: true, deleted: params.id, mode: 'soft' });
+        }
+      } catch (err) {
+        sendJSON(res, 500, safeError(err));
+      }
+    },
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // Conversation assignment & Project roadmap
+    // ══════════════════════════════════════════════════════════════════════════
+
+    // Assign conversation to project
+    'POST /api/conversations/:id/assign': async (req, res, params) => {
+      const body = await parseBody(req);
+      const { project_id } = body;
+
+      if (!project_id) {
+        return sendJSON(res, 400, { error: 'project_id is required' });
+      }
+
+      try {
+        db.conversations.assignToProject.run(project_id, params.id);
+        sendJSON(res, 200, { success: true });
+      } catch (err) {
+        sendJSON(res, 500, safeError(err));
+      }
+    },
+
+    // Project roadmap
+    'GET /api/projects/:id/roadmap': async (req, res, params) => {
+      try {
+        const project = db.projects.findById.get(safeParseInt(params.id));
+
+        if (!project) {
+          return sendJSON(res, 404, { error: 'Project not found' });
+        }
+
+        const fs = await import('fs/promises');
+        const pathModule = await import('path');
+
+        // Try to read roadmap/main.md
+        const roadmapPath = pathModule.join(project.path, 'roadmap', 'main.md');
+
+        try {
+          const roadmap = await fs.readFile(roadmapPath, 'utf-8');
+          sendJSON(res, 200, { roadmap });
+        } catch {
+          // No roadmap yet
+          sendJSON(res, 200, { roadmap: null });
+        }
+      } catch (err) {
+        sendJSON(res, 500, safeError(err));
+      }
+    },
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // Attachments
+    // ══════════════════════════════════════════════════════════════════════════
+
+    'POST /api/attachments': async (req, res) => {
+      try {
+        const fs = await import('fs/promises');
+        const pathModule = await import('path');
+        const crypto = await import('crypto');
+
+        // Parse multipart form data
+        const boundary = req.headers['content-type']?.split('boundary=')[1];
+
+        if (!boundary) {
+          return sendJSON(res, 400, { error: 'Invalid content type' });
+        }
+
+        const chunks = [];
+        for await (const chunk of req) {
+          chunks.push(chunk);
+        }
+        const buffer = Buffer.concat(chunks);
+
+        // Simple multipart parser
+        const parts = buffer.toString('binary').split('--' + boundary);
+        let fileData = null;
+        let filename = '';
+        let mimeType = '';
+        let conversationId = '';
+        let projectId = '';
+
+        for (const part of parts) {
+          if (part.includes('filename="')) {
+            const filenameMatch = part.match(/filename="([^"]+)"/);
+            const contentTypeMatch = part.match(/Content-Type: ([^\r\n]+)/);
+
+            if (filenameMatch) {
+              filename = filenameMatch[1];
+              mimeType = contentTypeMatch ? contentTypeMatch[1] : 'application/octet-stream';
+
+              // Extract file data (after double CRLF)
+              const dataStart = part.indexOf('\r\n\r\n') + 4;
+              const dataEnd = part.lastIndexOf('\r\n');
+              fileData = Buffer.from(part.substring(dataStart, dataEnd), 'binary');
+            }
+          } else if (part.includes('name="conversation_id"')) {
+            const dataStart = part.indexOf('\r\n\r\n') + 4;
+            conversationId = part.substring(dataStart).trim().replace(/\r\n--$/, '');
+          } else if (part.includes('name="project_id"')) {
+            const dataStart = part.indexOf('\r\n\r\n') + 4;
+            projectId = part.substring(dataStart).trim().replace(/\r\n--$/, '');
+          }
+        }
+
+        if (!fileData || !filename) {
+          return sendJSON(res, 400, { error: 'No file uploaded' });
+        }
+
+        // Generate hash
+        const hash = crypto.createHash('sha256').update(fileData).digest('hex').substring(0, 16);
+        const ext = pathModule.extname(filename);
+        const storedFilename = `${hash}${ext}`;
+
+        // Determine storage path
+        let attachmentsDir;
+        if (projectId) {
+          const project = db.projects.findById.get(safeParseInt(projectId, 'projectId'));
+          if (project) {
+            attachmentsDir = pathModule.join(project.path, 'attachments');
+          }
+        }
+
+        if (!attachmentsDir && conversationId) {
+          // v126: Sanitize conversationId — reject path separators, traversal, null bytes
+          if (/[\/\\]|\.\.|\0/.test(conversationId)) {
+            return sendJSON(res, 400, { error: 'Invalid conversation ID' });
+          }
+          attachmentsDir = pathModule.join(process.cwd(), 'chats', conversationId, 'attachments');
+        }
+
+        if (!attachmentsDir) {
+          attachmentsDir = pathModule.join(process.cwd(), 'data', 'attachments');
+        }
+
+        await fs.mkdir(attachmentsDir, { recursive: true });
+
+        const filePath = pathModule.join(attachmentsDir, storedFilename);
+        await fs.writeFile(filePath, fileData);
+
+        // Save to DB
+        const id = db.attachments.create(
+          conversationId || null,
+          projectId ? parseInt(projectId) : null,
+          storedFilename,
+          filename,
+          mimeType,
+          fileData.length,
+          hash,
+          filePath
+        );
+
+        // Check total storage
+        const totalSize = db.attachments.getTotalSize.get();
+        const totalMB = (totalSize?.total || 0) / (1024 * 1024);
+
+        sendJSON(res, 201, {
+          id,
+          filename: storedFilename,
+          originalName: filename,
+          size: fileData.length,
+          totalStorageMB: totalMB.toFixed(1),
+          warning: totalMB > 80 ? 'Storage approaching 100MB limit' : null
+        });
+
+      } catch (err) {
+        logger.error('Server', `Attachment upload error: ${err.message}`);
+        sendJSON(res, 500, safeError(err));
+      }
+    },
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // v34.2: ARTIFACT DOWNLOAD
+    // ══════════════════════════════════════════════════════════════════════════
+
+    'GET /api/artifacts/:filename': async (req, res, params) => {
+      try {
+        const fsPromises = await import('fs/promises');
+        const pathModule = await import('path');
+
+        const artifactsDir = pathModule.default.resolve(
+          pathModule.default.dirname(config.db.path),
+          'artifacts',
+        );
+        const filepath = pathModule.default.resolve(artifactsDir, params.filename);
+
+        // Path traversal guard
+        if (!filepath.startsWith(artifactsDir + pathModule.default.sep) && filepath !== artifactsDir) {
+          return sendJSON(res, 400, { error: 'Invalid filename' });
+        }
+
+        // Check if file exists
+        try {
+          await fsPromises.access(filepath);
+        } catch {
+          return sendJSON(res, 404, { error: 'Artifact not found' });
+        }
+
+        // Determine content type from extension
+        let contentType, disposition;
+
+        if (params.filename.endsWith('.pdf')) {
+          contentType = 'application/pdf';
+          disposition = 'inline';
+        } else if (params.filename.endsWith('.xlsx')) {
+          contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+          disposition = 'attachment';
+        } else if (params.filename.endsWith('.csv')) {
+          contentType = 'text/csv; charset=utf-8';
+          disposition = 'attachment';
+        } else if (params.filename.endsWith('.json')) {
+          contentType = 'application/json; charset=utf-8';
+          disposition = 'attachment';
+        } else if (params.filename.endsWith('.html')) {
+          contentType = 'text/html; charset=utf-8';
+          disposition = 'inline';
+        } else {
+          contentType = 'application/octet-stream';
+          disposition = 'attachment';
+        }
+
+        // Read file
+        const content = await fsPromises.readFile(filepath);
+
+        // Create safe ASCII filename + UTF-8 encoded original
+        // RFC 5987: filename*=UTF-8''encoded_name for non-ASCII
+        const safeFilename = params.filename.replace(/[^\x00-\x7F]/g, '_');
+        const encodedFilename = encodeURIComponent(params.filename);
+
+        res.writeHead(200, {
+          'Content-Type': contentType,
+          'Content-Disposition': `${disposition}; filename="${safeFilename}"; filename*=UTF-8''${encodedFilename}`,
+          'Content-Length': content.length,
+          'Cache-Control': 'private, max-age=3600'
+        });
+        res.end(content);
+
+      } catch (err) {
+        logger.error('Server', `Artifact download error: ${err.message}`);
+        sendJSON(res, 500, safeError(err));
+      }
+    },
+
+    // Get attachment
+    'GET /api/attachments/:id': async (req, res, params) => {
+      try {
+        const fs = await import('fs/promises');
+
+        const attachment = db.attachments.findById.get(safeParseInt(params.id));
+
+        if (!attachment) {
+          return sendJSON(res, 404, { error: 'Attachment not found' });
+        }
+
+        const data = await fs.readFile(attachment.path);
+
+        // Safe filename for non-ASCII characters
+        const safeFilename = attachment.original_name.replace(/[^\x00-\x7F]/g, '_');
+        const encodedFilename = encodeURIComponent(attachment.original_name);
+
+        res.writeHead(200, {
+          'Content-Type': attachment.mime_type,
+          'Content-Disposition': `inline; filename="${safeFilename}"; filename*=UTF-8''${encodedFilename}`,
+          'Content-Length': data.length,
+        });
+        res.end(data);
+
+      } catch (err) {
+        sendJSON(res, 500, safeError(err));
+      }
+    },
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // Workspace routes
+    // ══════════════════════════════════════════════════════════════════════════
+
+    'GET /api/workspace/tree': async (req, res) => {
+      try {
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        const projectId = url.searchParams.get('project_id');
+        let projectPath = url.searchParams.get('path');
+
+        if (projectId) {
+          const proj = db.projects.findById.get(projectId);
+          if (proj) projectPath = proj.path;
+        }
+        if (!projectPath) {
+          sendJSON(res, 400, { error: 'Missing project_id or path parameter' });
+          return;
+        }
+
+        const fsP = await import('fs/promises');
+
+        async function readTree(dir, depth, maxDepth) {
+          if (depth > maxDepth) return [];
+          const entries = await fsP.readdir(dir, { withFileTypes: true });
+          const result = [];
+          for (const entry of entries) {
+            if (['node_modules', '.git', '.intentsmith', '__pycache__', '.next'].includes(entry.name)) continue;
+            const fullPath = path.join(dir, entry.name);
+            const relPath = path.relative(projectPath, fullPath);
+            if (entry.isDirectory()) {
+              const children = await readTree(fullPath, depth + 1, maxDepth);
+              result.push({ n: entry.name, d: true, i: depth, p: path.dirname(relPath) === '.' ? undefined : path.dirname(relPath), children });
+            } else {
+              result.push({ n: entry.name, d: false, i: depth, p: path.dirname(relPath) === '.' ? undefined : path.dirname(relPath) });
+            }
+          }
+          return result.sort((a, b) => (b.d ? 1 : 0) - (a.d ? 1 : 0) || a.n.localeCompare(b.n));
+        }
+
+        const maxDepth = config?.limits?.maxTreeDepth || 5;
+        const tree = await readTree(projectPath, 0, maxDepth);
+        sendJSON(res, 200, { tree, root: projectPath });
+      } catch (err) {
+        sendJSON(res, 500, { error: err.message });
+      }
+    },
+
+    // Terminal Tab-completion: list directory entries with optional prefix filter
+    'GET /api/workspace/ls': async (req, res) => {
+      try {
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        const dirPath = url.searchParams.get('path');
+        const prefix = url.searchParams.get('prefix') || '';
+        if (!dirPath) { sendJSON(res, 400, { error: 'Missing path' }); return; }
+
+        const fsP = await import('fs/promises');
+        const resolved = path.resolve(dirPath);
+        const entries = await fsP.readdir(resolved, { withFileTypes: true });
+
+        const filtered = entries
+          .filter(e => !prefix || e.name.startsWith(prefix))
+          .filter(e => !e.name.startsWith('.') || prefix.startsWith('.'))
+          .slice(0, 50)
+          .map(e => ({ name: e.name, isDir: e.isDirectory() }))
+          .sort((a, b) => (b.isDir ? 1 : 0) - (a.isDir ? 1 : 0) || a.name.localeCompare(b.name));
+
+        sendJSON(res, 200, { entries: filtered });
+      } catch (err) {
+        sendJSON(res, 200, { entries: [] }); // graceful: empty on error
+      }
+    },
+
+    'GET /api/workspace/file': async (req, res) => {
+      try {
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        const filePath = url.searchParams.get('path');
+        const projectRoot = url.searchParams.get('root');
+        if (!filePath) { sendJSON(res, 400, { error: 'Missing path' }); return; }
+
+        const resolved = path.resolve(projectRoot || '.', filePath);
+        if (projectRoot && !resolved.startsWith(path.resolve(projectRoot) + path.sep) && resolved !== path.resolve(projectRoot)) {
+          sendJSON(res, 403, { error: 'Path traversal blocked' }); return;
+        }
+
+        const fsP = await import('fs/promises');
+        const stat = await fsP.stat(resolved);
+        const maxSize = config?.limits?.maxFileSize || 1048576;
+        if (stat.size > maxSize) { sendJSON(res, 413, { error: `File too large (max ${Math.round(maxSize/1024/1024)}MB)` }); return; }
+
+        const content = await fsP.readFile(resolved, 'utf-8');
+        const { createHash } = await import('crypto');
+        const hash = createHash('sha256').update(content).digest('hex').substring(0, 16);
+
+        sendJSON(res, 200, { content, hash, path: filePath });
+      } catch (err) {
+        sendJSON(res, err.code === 'ENOENT' ? 404 : 500, { error: err.message });
+      }
+    },
+
+    'POST /api/workspace/file': async (req, res) => {
+      let body = '';
+      req.on('data', c => { body += c; if (body.length > 3 * 1024 * 1024) { req.destroy(); } });
+      req.on('end', async () => {
+        try {
+          const data = JSON.parse(body);
+          if (!data.path) { sendJSON(res, 400, { error: 'Missing path' }); return; }
+
+          const root = data.root || '.';
+          const absRoot = path.resolve(root);
+          const resolved = path.resolve(root, data.path);
+          if (!resolved.startsWith(absRoot + path.sep) && resolved !== absRoot) {
+            sendJSON(res, 403, { error: 'Path traversal blocked' }); return;
+          }
+
+          const fsP = await import('fs/promises');
+
+          /* Optimistic locking */
+          if (data.expectedHash) {
+            try {
+              const current = await fsP.readFile(resolved, 'utf-8');
+              const { createHash } = await import('crypto');
+              const currentHash = createHash('sha256').update(current).digest('hex').substring(0, 16);
+              if (currentHash !== data.expectedHash) {
+                sendJSON(res, 409, { error: 'File modified externally', currentContent: current, currentHash, yourHash: data.expectedHash });
+                return;
+              }
+            } catch { /* file doesn't exist yet -- ok */ }
+          }
+
+          await fsP.mkdir(path.dirname(resolved), { recursive: true });
+          await fsP.writeFile(resolved, data.content || '', 'utf-8');
+          sendJSON(res, 200, { ok: true, path: data.path });
+        } catch (err) {
+          sendJSON(res, 500, { error: err.message });
+        }
+      });
+    },
+
+    'POST /api/workspace/directory': async (req, res) => {
+      let body = '';
+      req.on('data', c => { body += c; });
+      req.on('end', async () => {
+        try {
+          const data = JSON.parse(body);
+          if (!data.path) { sendJSON(res, 400, { error: 'Missing path' }); return; }
+          const root = data.root || '.';
+          const absRoot = path.resolve(root);
+          const resolved = path.resolve(root, data.path);
+          if (!resolved.startsWith(absRoot + path.sep) && resolved !== absRoot) {
+            sendJSON(res, 403, { error: 'Path traversal blocked' }); return;
+          }
+          const fsP = await import('fs/promises');
+          await fsP.mkdir(resolved, { recursive: true });
+          sendJSON(res, 200, { ok: true, path: data.path });
+        } catch (err) {
+          sendJSON(res, 500, { error: err.message });
+        }
+      });
+    },
+
+    'PUT /api/workspace/rename': async (req, res) => {
+      let body = '';
+      req.on('data', c => { body += c; });
+      req.on('end', async () => {
+        try {
+          const data = JSON.parse(body);
+          if (!data.from || !data.to) { sendJSON(res, 400, { error: 'Missing from/to' }); return; }
+          const root = data.root || '.';
+          const fromResolved = path.resolve(root, data.from);
+          const toResolved = path.resolve(root, data.to);
+          const absRoot = path.resolve(root);
+          if (!fromResolved.startsWith(absRoot + path.sep) || !toResolved.startsWith(absRoot + path.sep)) {
+            sendJSON(res, 403, { error: 'Path traversal blocked' }); return;
+          }
+          const fsP = await import('fs/promises');
+          await fsP.rename(fromResolved, toResolved);
+          sendJSON(res, 200, { ok: true, from: data.from, to: data.to });
+        } catch (err) {
+          sendJSON(res, 500, { error: err.message });
+        }
+      });
+    },
+
+    'DELETE /api/workspace/file': async (req, res) => {
+      const url = new URL(req.url, `http://${req.headers.host}`);
+      const filePath = url.searchParams.get('path');
+      const root = url.searchParams.get('root') || '.';
+      if (!filePath) { sendJSON(res, 400, { error: 'Missing path' }); return; }
+
+      const resolved = path.resolve(root, filePath);
+      if (!resolved.startsWith(path.resolve(root) + path.sep)) {
+        sendJSON(res, 403, { error: 'Path traversal blocked' }); return;
+      }
+
+      try {
+        const fsP = await import('fs/promises');
+        const stat = await fsP.stat(resolved);
+        if (stat.isDirectory()) {
+          await fsP.rm(resolved, { recursive: true });
+        } else {
+          await fsP.unlink(resolved);
+        }
+        sendJSON(res, 200, { ok: true, path: filePath });
+      } catch (err) {
+        sendJSON(res, err.code === 'ENOENT' ? 404 : 500, { error: err.message });
+      }
+    },
+
+    'GET /api/workspace/git-status': async (req, res) => {
+      try {
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        const projectId = url.searchParams.get('project_id');
+        let projectPath = url.searchParams.get('path');
+
+        if (projectId) {
+          const proj = db.projects.findById.get(projectId);
+          if (proj) projectPath = proj.path;
+        }
+        if (!projectPath) { sendJSON(res, 400, { error: 'Missing project_id or path' }); return; }
+
+        const { spawn } = await import('child_process');
+
+        const results = await Promise.allSettled([
+          new Promise((resolve, reject) => {
+            let out = '';
+            const p = spawn('git', ['status', '--porcelain'], { cwd: projectPath });
+            const timer = setTimeout(() => { p.kill('SIGTERM'); reject(new Error('timeout')); }, 1500);
+            p.stdout.on('data', d => { out += d; });
+            p.on('close', () => { clearTimeout(timer); resolve(out); });
+            p.on('error', reject);
+          }),
+          new Promise((resolve, reject) => {
+            let out = '';
+            const p = spawn('git', ['branch', '--show-current'], { cwd: projectPath });
+            const timer = setTimeout(() => { p.kill('SIGTERM'); reject(new Error('timeout')); }, 1500);
+            p.stdout.on('data', d => { out += d; });
+            p.on('close', () => { clearTimeout(timer); resolve(out.trim()); });
+            p.on('error', reject);
+          })
+        ]);
+
+        const files = {};
+        if (results[0].status === 'fulfilled') {
+          results[0].value.split('\n').filter(Boolean).forEach(line => {
+            files[line.substring(3)] = line.substring(0, 2).trim();
+          });
+        }
+        const branch = results[1].status === 'fulfilled' ? results[1].value : null;
+
+        sendJSON(res, 200, { files, branch });
+      } catch (err) {
+        sendJSON(res, 500, { error: err.message });
+      }
+    },
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // v67.0: Memory Bank — Project-Scoped Persistent Memory
+    // ══════════════════════════════════════════════════════════════════════════
+
+    'GET /api/projects/:id/memory': (req, res) => {
+      const projectId = safeParseInt(req.params?.id);
+      if (!projectId) return sendJSON(res, 400, { error: 'Invalid project ID' });
+
+      const category = req.query?.category || null;
+      const entries = db.projectMemory.listByProject.all(projectId);
+      const filtered = category
+        ? entries.filter(e => e.category === category)
+        : entries;
+
+      sendJSON(res, 200, {
+        projectId,
+        entries: (filtered || []).map(e => ({
+          key: e.key,
+          value: _parseValue(e.value),
+          category: e.category,
+          updated_at: e.updated_at,
+        })),
+      });
+    },
+
+    'PUT /api/projects/:id/memory': async (req, res) => {
+      const projectId = safeParseInt(req.params?.id);
+      if (!projectId) return sendJSON(res, 400, { error: 'Invalid project ID' });
+
+      const body = await parseBody(req);
+      const { key, value, category } = body;
+      if (!key) return sendJSON(res, 400, { error: 'key is required' });
+
+      try {
+        db.projectMemory.setValue(projectId, key, value, category || 'general');
+        sendJSON(res, 200, { stored: true, key, category: category || 'general' });
+      } catch (err) {
+        sendJSON(res, 500, { error: err.message });
+      }
+    },
+
+    // v67.0: README-first — generate/regenerate README.md for a project
+    'POST /api/projects/:id/readme': (req, res) => {
+      const projectId = safeParseInt(req.params?.id);
+      if (!projectId) return sendJSON(res, 400, { error: 'Invalid project ID' });
+
+      try {
+        const project = db.projects.findById.get(projectId);
+        if (!project || !project.path) return sendJSON(res, 404, { error: 'Project not found or has no path' });
+
+        const result = ensureReadme(project.path, { name: project.name, description: project.description || '' });
+        sendJSON(res, 200, result);
+      } catch (err) {
+        sendJSON(res, 500, { error: err.message });
+      }
+    },
+
+    'DELETE /api/projects/:id/memory/:key': (req, res) => {
+      const projectId = safeParseInt(req.params?.id);
+      const key = req.params?.key;
+      if (!projectId || !key) return sendJSON(res, 400, { error: 'Invalid project ID or key' });
+
+      try {
+        db.projectMemory.delete.run(projectId, decodeURIComponent(key));
+        sendJSON(res, 200, { deleted: true, key });
+      } catch (err) {
+        sendJSON(res, 500, { error: err.message });
+      }
+    },
+  };
+}
+
+function _parseValue(raw) {
+  if (raw === null || raw === undefined) return null;
+  try { return JSON.parse(raw); } catch { return raw; }
+}

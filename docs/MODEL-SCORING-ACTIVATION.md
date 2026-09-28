@@ -1,0 +1,225 @@
+# Modelové evaluace a aktivace
+
+**Stav:** současný kontrakt v136.1 · **Aktualizováno:** 2026-09-17
+**Implementace:** `WP-MODEL-EVALUATION-CONSOLIDATION` · **Přijetí:**
+coverage je implementačně kompletní a čistý finální gate na `53ded662` prošel
+`279/279`; evidence rereview rozsahu `d6137d4c..3f027938` skončilo
+[`REVIEW_PASSED`](review/2026-08-28-WP-MODEL-EVALUATION-EVIDENCE-REREVIEW.md),
+srpnový scoring/evidence balík byl přijat jako `ACCEPTED / SYSTEM_PROVIDER_BLOCKED`.
+
+**Provozní checkpoint 2026-09-09:** Systémová Ollama `0.32.14-intentsmith.1` byla aktivována a nezávisle
+ověřena. Na čistém `ceb8de93` prošly dvě řízené operace pro `qwen3.5:27b`,
+digest `7653528b…8ec06e`: typed exact verification a gateway s usage/claim
+evidencí v soukromé kopii DB. Původní absence response digestu již není
+blokátorem tohoto ověřeného rozsahu. Celý modelový panel, startup serveru,
+koordinace přes živou DB a release acceptance tím ověřeny nejsou.
+[Run a přesné identity](execution/runs/m6/provider-activation-20260909.md).
+
+**Provozní checkpoint 2026-09-11 — REVIEW_PENDING:** reprodukovatelný provider
+`0.34.0-intentsmith.1` je instalován systémově a jako podporovaný ephemeral
+sidecar. Skutečná user service dokončila CODE duel nad provozní DB; oba nové
+COMPLETE řádky nesou provider verzi a response-bound digest. Verdikt je
+INCONCLUSIVE, role se nezměnila. Denní autocheck a noční bounded hunt jsou
+zapnuté. Tím není uděleno nezávislé acceptance nové delty ani přeměřen celý
+panel. [Rozsah, důkazy a omezení pro review](review/2026-09-11-GPU-HUNT-PRODUCTION-REVIEW-PACKET.md).
+
+**Provozní checkpoint 2026-09-12 18:53 CEST — REVIEW_PENDING:** repo panel
+D1/D2/R1/R2 dokončil 12 kandidátů bez roleErrors. Aktuální historie má
+30 reasoning a 12 review COMPLETE; 38 panelových duelů obsahuje 13 případů
+INSUFFICIENT_EVIDENCE. Portfolio doporučilo Devstral pro R2; bindingy hunt
+neaktivuje. Společný core kandidát prošel úplným 353/353 gate a produkčním
+Studio buildem včetně ochrany před dvojím sidebar widgetem.
+[Přesné revize, FAILED historie a evidence](review/2026-09-12-HUNT-REVIEW-FOLLOWUP.md).
+
+**Provozní checkpoint 2026-09-17 — REVIEW_PENDING:** aplikace i hunt nyní
+sdílejí instalaci `9d13bb53` a původní DB. Studio nabízí lokální start/stop,
+pause/resume, stav, poslední známou frontu a výsledky; timer je persistentní.
+Všech 503 evaluation runs, 21 hunt attempts a 7 desired bindings zůstalo
+zachovaných. Aktuální diagnostika rozlišuje 7 neprůkazných duelů s variabilitou
+a 6 s malým rozdílem. Nové fyzické přeměření blokuje NVIDIA/NVML mismatch;
+žádné staré skóre se nepovyšuje na jiný kontrakt. [Desktop/hunt review](review/2026-09-17-DESKTOP-HUNT-REVIEW.md).
+
+Název souboru zůstává kvůli existujícím odkazům. IntentSmith už ale nemá
+samostatný „scoring“ runtime. Existuje jedna autoritativní cesta pro modelové
+evaluace a oddělená, ručně autorizovaná cesta pro změnu bindingu.
+
+## Jedna autoritativní cesta
+
+1. `src/eval/role-evaluation-plan.js` mapuje všech sedm rolí na versioned suite,
+   contract SHA, počet opakování, fail-closed minima a explicitní versioned
+   technický applicability kontrakt.
+2. `scripts/model-upgrade-hunt.js` spouští role-specific párové měření na
+   přesných Ollama artefaktech. Měření je sériové a předpokládá volný GPU slot.
+3. `model_evaluation_runs` je append-only historie. Aktuální je pouze řádek se
+   shodným digestem artefaktu, rolí, suite name, suite version a dnešním suite
+   contract SHA a verzí obsluhující Ollamy. Historické řádky bez zaznamenané
+   verze se na aktuálním provideru znovu nepoužijí; jejich historii nemažeme.
+4. `model_evaluation_decisions` je append-only rozhodnutí odkazující na oba
+   přesné COMPLETE runy a na použitou politiku.
+5. `ModelEvaluationReadModel` je jediný reader pro API, CLI, Studio, governor a
+   model registry; CLI a Studio zobrazují všechna rozhodnutí role.
+6. Skutečnou změnu role provádí výhradně manual binding application. Evaluace
+   sama konfiguraci ani durable binding nemění.
+7. Každá nakonfigurovaná role má durable exact-artifact baseline. Startup
+   doplní pouze chybějící řádek z installed inventory; existující autoritu
+   nepřepisuje, ale vždy ji znovu porovná s runtime jménem a installed exact
+   digestem. Selhání rehydratace zastaví startup. Nedostupný provider, runtime
+   mismatch nebo digest mismatch ponechá nemodelové route dostupné, ale
+   zveřejní binding autoritu `DEGRADED`; žádné candidate rozhodnutí pak není
+   akční a jinak připravený kandidát nese `BINDING_AUTHORITY_DEGRADED`.
+   Gateway před POST pod model-use lease kontroluje očekávaný exact digest
+   proti inventory, ale skutečně obsloužený artefakt přijme pouze z digestu
+   přímo v téže provider response. Mutable inventory po odpovědi není důkaz.
+   Neattestovaná nebo driftující odpověď se nevrátí ani nezapíše jako úspěšný
+   usage.
+8. Stejná response atestace platí pro nové autoritativní scoring běhy. Runner
+   dostane očekávaný `(model name, digest, providerVersion)`; chybějící nebo
+   jiný response digest či provider version vyhodí typovanou terminální chybu
+   a nesmí vytvořit `COMPLETE` řádek.
+
+Suite contract nehashuje zdroj wrapper closure. Hashuje explicitní skutečný
+prompt, language, rubric, grader a jeho uzavřené vstupy, options a repeats.
+VISION přidává SHA-256 dekódovaných image bytes a CODE přesný výstup
+`buildPrompt()` i grading inputs. Úloha bez explicitního `contractMaterial`
+zastaví sestavení plánu; starý run se proto po sémantické změně promptu nemůže
+znovu vydávat za current.
+
+CODE od `332e7d3d` navíc připíná SHA256 konkrétních bytes sedmi souborů:
+`code-patch-suite.js`, `code-patch-runner.js`, `function-span.js`,
+`code-task-extractor.js`, `build-code-suite.js`, `model-evaluation-runner.js`
+a kořenového `package-lock.json`, spolu s verzí Node. Chybějící soubor blokuje
+sestavení kontraktu; samotné přidání CODE runtime pinů ostatních šest rolí
+nemění. Společná integrace s huntem navíc zahrnuje skutečné efektivní inference
+options do kontraktu všech rolí; změna těchto options může vyžadovat nové
+měření libovolné role. Historie zůstává zachovaná. Parser i spouštěný
+test od `834b134a` používají `process.execPath`. Lock hash není sám o sobě
+attestací nainstalovaných dependencies; instalace musí odpovídat locku.
+
+Staré CODE COMPLETE se neztrácí, ale změněný grading runtime vyžaduje nové
+měření. `src/eval/import-code-panel-history.js` odmítá historický agregovaný
+panel chybou `CODE_PANEL_HISTORY_PROVENANCE_REQUIRED` ještě před DB/provider
+bootstrapem: tento formát nemá původní grader kontrakt a přesnou artefaktovou
+provenienci. Diagnostická kalibrace a existující DB historie zůstávají dostupné.
+[Rozsah opravy a důkazy](review/2026-09-12-BUILD-COMPOSER-CODE-REVIEW-PACKET.md)
+nejsou novým GPU měřením, aktivací bindingu ani přijetím celé evaluace.
+
+Discovery prior je pouze levné pořadí kandidátů. Katalog, universe, raw runtime
+telemetry ani externí benchmark se neukládají jako lokální quality score a
+nesmějí být zobrazeny jako důkaz kvality. Telemetry nesmí vytvářet blacklist,
+veto bindingu ani discovery filtr; starou derived guard tabulku odstraňuje
+migrace 099.
+
+## Co lze číst
+
+```bash
+npm run report:model-evaluations
+npm run report:model-evaluations -- --json
+curl -s http://127.0.0.1:3335/api/system/models/evaluations
+```
+
+Serverové API a Studio mohou hlásit `DURABLE` pouze po úspěšném startup
+ověření všech sedmi runtime bindingů a exact digestů. Samostatný CLI proces
+runtime serveru nepozoruje, proto poctivě hlásí `UNVERIFIED_RUNTIME` a nikdy
+nevydá `READY_FOR_MANUAL_BINDING`; skóre, digesty, contracty a timestampy tím
+zůstávají plně čitelné.
+
+Každá role/artifact položka uvádí stav `COMPLETE`, `FAILED`, `BLOCKED` nebo
+`MISSING`, přesný digest, suite/version/contract, `providerVersion`, `score` a `testedAt` tam, kde
+existuje COMPLETE běh. Timestamp se zobrazuje; neexistuje 14denní TTL, které by
+staré či name-only skóre automaticky prohlásilo za současné.
+
+Časová evidence má vlastní explicitní provenienci. Reader zveřejní
+`startedAt`, `durationMs` a `intervalIntegrity=VERIFIED` jen pokud start, konec
+a uložená délka tvoří konzistentní interval. U 40 starších current-contract
+řádků je interval nekonzistentní: `startedAt` a `durationMs` proto zůstávají
+`null`, `intervalIntegrity=LEGACY_UNVERIFIED` a `testedAt` je pouze historický
+recorded-at údaj. DB historie se kvůli kosmetice nepřepisuje. Chybějící měření
+má `intervalIntegrity=NOT_AVAILABLE`.
+
+Status a applicability jsou dvě různé osy. `MISSING` se nepřepisuje na umělý
+výsledek. Read model i scoring queue používají
+`technical-role-compatibility-v1`: všechny technicky kompatibilní páry se
+měří, zatímco `preferredCategories` pouze řadí discovery kandidáty. Přijatý
+13artefaktový scoring snapshot má 55 COMPLETE, 24 BLOCKED a 12 raw MISSING;
+všech 12 raw MISSING je `NOT_APPLICABLE`, takže mezi 79 technicky
+kompatibilními páry je `applicable MISSING=0`. Po explicitně autorizovaném
+odstranění čtyř VRAM-blocked artefaktů měla inventory ve snapshotu 2026-08-28 devět
+artefaktů, 55 COMPLETE, 0 BLOCKED, 8 N/A a 0 applicable MISSING. Odstraněné
+exact digesty zůstávají v append-only DB historii; jde o tehdejší snapshot
+z 2026-08-28, nikoli dnešní census nebo měření nového CODE kontraktu. Důkaz odstranění je v
+[`model-removal-live-20260828.json`](execution/runs/model-removal-live-20260828.json).
+Přesná data a timestampy jsou v
+[`model-scoring-live-20260828.md`](execution/runs/model-scoring-live-20260828.md).
+Commitnutý snapshot nese SHA-bound normalizovanou inventory projekci včetně
+`params`, `family`, `category` a `capabilities`. Offline replay používá pouze
+tuto projekci a stejnou read-only DB; bez kontaktu s Ollamou musí reprodukovat
+55 COMPLETE, 24 BLOCKED, 0 applicable MISSING a 12 N/A, jinak selže.
+
+## Decision-ready minima
+
+| Role | Suite | Aktivních úloh nejméně | Stabilně rozlišujících nejméně |
+|---|---|---:|---:|
+| D1, D2, R1 | `reasoning_v2` | 8 | 3 |
+| CODE | `code_patch` | 6 | 2 |
+| R2 | `review_v2` | 6 | 3 |
+| CHAT | `chat_v3` | 40 | 7, z toho EN 3 a CS 4 |
+| VISION | `vision_v2` | 5 | 2 |
+
+Nesplněné minimum, jiný digest, jiný contract, chybějící run nebo DB chyba
+blokují candidate decision. I pro průkazného vítěze zůstává rozhodnutí
+neakční, dokud celý portfolio solver nepotvrdí segregaci odpovědností a uložený
+decision nemá `activationEligible=true`. Jedna šťastná úloha nemůže změnit
+binding.
+
+CODE prompt fixture je commitnutý snapshot a stejný contract lze sestavit i v
+shallow/package checkoutu. Samotný skrytý historický oracle vyžaduje dosažitelné
+commity; pokud chybějí, role nese `CODE_FIXTURE_RUNTIME_UNAVAILABLE`, není
+decision-ready a hunt skončí před pull/GPU. Infrastrukturní nedostupnost se
+nikdy nepřepočítá na nulu modelu.
+
+## Odstraněná cesta
+
+Runtime soubor `src/upgrade/validation-suites.js`, jeho HTTP/WS/UI povrch,
+`model-scoring-report.js` a oddělené v123 proof-measurement skripty neexistují.
+Migrace 082 před dropem starých tabulek kontroluje import, jejich obsah ukládá
+do `model_evaluation_import_evidence` a teprve potom odstraňuje
+`validation_results` a `validation_suite_scores`. Historické migrace a review
+dokumenty zůstávají reprodukovatelnou auditní stopou, nikoli fallbackem.
+Souhrny zapsané legitimně mezi migracemi 070 a 082 se nejprve doplní jako
+nepoužitelnou `BLOCKED / LEGACY_EXACT_IDENTITY_UNKNOWN` evidenci; server kvůli
+nim při upgradu nespadne.
+
+## Bezpečný provoz
+
+- Report a API jsou read-only a GPU nepoužívají.
+- Hunt spouštěj jen s prázdným `ollama ps`, bez cizího NVIDIA compute procesu,
+  s dostatečnou VRAM a 40 GiB rezervou po pullu. CPU/RAM offload je zakázaný;
+  artefakt, který se celý nevejde do VRAM, končí `BLOCKED` bez score.
+- Exact-digest placement block je artifact-wide, ale lze jej převzít pouze na
+  shodném GPU a shodném context window. Installed panel jej materializuje pro
+  chybějící current role bez dalšího modelového loadu; jiný hardware nebo
+  kontext vyžaduje nové měření.
+- `FAILED`, `BLOCKED`, `MISSING`, nerozhodný výsledek ani implementační green
+  nejsou PASS.
+- Rychlost zůstává provozní metrika. Při nedostatečném kvalitativním důkazu
+  nesmí vyrobit vítěze; decision outcome používá stabilní `reasonCode`, ne
+  porovnání lokalizovaného textu `basis`.
+- Usage digest se bere pouze z přímé provider response. Exact `/api/tags`
+  inventory pod aktivním model-use lease dokládá očekávání, nikoli obslouženou
+  identitu. Desired binding ani druhý inventory snapshot nejsou důkaz.
+  Neověřitelná či driftující odpověď není úspěch, nevrátí se klientovi a
+  nevytvoří kladný usage záznam; cleanup dál fail-close nemaže.
+- Veřejné repository writery automatického failover/proof lifecycle jsou
+  odstraněné. Jejich případné budoucí obnovení vyžaduje nové rozhodnutí,
+  implementaci a current-contract review.
+
+Při srpnovém měření systémová Ollama 0.32.14 ani její publikované
+`ChatResponse` schema neposkytují digest obslouženého artefaktu. Systémová
+služba proto tehdy zůstala beze změny a durable runtime fail-closed. Pro
+autorizovaný live scoring byl z přesného upstream tagu `v0.32.14` sestaven
+izolovaný loopback sidecar s minimálním patchem, který vrací exact manifest
+digest v téže `/api/chat` response. Patch prošel Go testy a reálný preflight
+ověřil současně shodu digestu i `size_vram == size`. Sidecar umožnil bezpečně
+dokončit scoring, po běhu byl zastaven a nepředstírá systémové nasazení.
+Podrobnosti, commity a SHA jsou v
+[`model-scoring-live-20260828.md`](execution/runs/model-scoring-live-20260828.md).

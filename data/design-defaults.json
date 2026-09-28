@@ -1,0 +1,55 @@
+{
+  "mobile_app": {
+    "label": "Mobilní aplikace",
+    "frontend": "Flutter (Dart)",
+    "frontend_reason": "1 codebase, native výkon, výborný pro chat UI",
+    "frontend_alt": ["React Native", "Kotlin Multiplatform"],
+    "networking": "REST + SSE streaming",
+    "vpn": "WireGuard",
+    "vpn_reason": "Nízká latence, stabilní na mobilech, oficiální klienti Android/iOS",
+    "storage": "SQLite (Drift), Secure Storage (Keystore/Keychain)",
+    "ci": "GitHub Actions",
+    "testing": "Unit → Widget → Integration → Manual",
+    "deployment_android": "Play Console (Internal testing → Production)",
+    "deployment_ios": "TestFlight → App Store"
+  },
+  "web_app": {
+    "label": "Webová aplikace",
+    "frontend": "Next.js (React, TypeScript)",
+    "frontend_reason": "SSR/SSG, API routes, výborný ekosystém",
+    "frontend_alt": ["Nuxt.js (Vue)", "SvelteKit"],
+    "backend": "Node.js + Fastify",
+    "database": "PostgreSQL + Redis",
+    "auth": "NextAuth.js / Lucia",
+    "deployment": "Docker + Nginx reverse proxy",
+    "ci": "GitHub Actions",
+    "testing": "Vitest (unit) → Playwright (e2e)"
+  },
+  "backend_api": {
+    "label": "Backend API / služba",
+    "runtime": "Node.js + Fastify",
+    "runtime_reason": "Vysoký výkon, schema validation, TypeScript podpora",
+    "runtime_alt": ["Python FastAPI", "Go + Chi"],
+    "database": "PostgreSQL",
+    "cache": "Redis",
+    "auth": "JWT + refresh tokens",
+    "deployment": "Docker Compose → PM2",
+    "ci": "GitHub Actions",
+    "testing": "Vitest (unit) → Supertest (integration)"
+  },
+  "ai_agent": {
+    "label": "AI agent / pipeline",
+    "llm": "Qwen 2.5 (local via Ollama) / Claude API (cloud fallback)",
+    "llm_reason": "Lokální = žádné API náklady, plná kontrola, nízká latence",
+    "orchestration": "Custom state machine (deterministický řadič + LLM reasoning)",
+    "storage": "SQLite + vector store (pokud RAG)",
+    "streaming": "SSE",
+    "deployment": "PM2 / systemd",
+    "ci": "GitHub Actions",
+    "testing": "Unit → integration → smoke (end-to-end prompt tests)"
+  },
+  "generic": {
+    "label": "Obecný projekt",
+    "note": "Bez specifického defaultního stacku — rozhodnutí na základě požadavků"
+  }
+}

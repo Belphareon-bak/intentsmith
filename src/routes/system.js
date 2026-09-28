@@ -1,0 +1,1445 @@
+// System Routes — GPU detection, model info, system diagnostics, storage management
+// ══════════════════════════════════════════════════════════════════════════════
+
+import { getSystemProfile, computeSessionCapacity } from '../system/gpu-detector.js';
+import { recommend, checkCompatibility, getModelTiers, getVRAMRecommendations } from '../system/model-compatibility.js';
+import { logger } from '../core/logger.js';
+import config from '../config.js';
+import os from 'os';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { getCurrentVersion } from '../packaging/auto-updater.js';
+import { getStorageConfig, validateStorageConfig, autoClean } from '../db/data-retention.js';
+import { drainMessages, getHistoryStats } from '../core/history-drain.js';
+import { createStateBackup, listBackups, pruneBackups, getBackupStats } from '../core/db-backup.js';
+import { upgradeManager, UpgradeManager } from '../upgrade/upgrade-manager.js';
+import { canonicalModelName } from '../upgrade/model-identity.js';
+import { broadcast, getWebSocketBridgeHealth } from '../ws-bridge/ws-server.js';
+import { getOutboundDiagnostics } from '../network/outbound-policy.js';
+import { modelUniverseStore } from '../upgrade/model-universe-store.js';
+import { createHuntControl } from '../system/hunt-control.js';
+import { readNvidiaDisplayCapacity } from '../upgrade/model-hunt-diagnostics.js';
+import { ModelHuntState } from '../upgrade/model-hunt-state.js';
+import { TYPICAL_VRAM_OVERHEAD } from '../upgrade/model-sweep.js';
+import { isLocalOperatorTransportSubject } from '../security/global-auth-policy.js';
+import { ModelEvaluationHistory } from '../upgrade/model-evaluation-history.js';
+import { createRoleEvaluationPlans } from '../eval/role-evaluation-plan.js';
+import { collectionGradingOptions } from '../eval/grade-answer-collection.js';
+import {
+  POLICY_SOURCE,
+  readModelAutomationPolicy,
+  updateModelAutomationPolicy,
+} from '../db/model-policy.js';
+
+const FEATURE_UNIVERSE_ENABLED = ((process.env.INTENTSMITH_MODEL_UNIVERSE_ENABLED ?? process.env['C3_MODEL_UNIVERSE_ENABLED']) || 'true') !== 'false';
+const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const FEATURE_UNIVERSE_MIRROR = ((process.env.INTENTSMITH_DISCOVERY_MIRROR_DISCOVERED_MODELS ?? process.env['C3_DISCOVERY_MIRROR_DISCOVERED_MODELS']) || 'true') !== 'false';
+const SHOW_ATTEMPT_TIMEOUT_MS = parseInt((process.env.INTENTSMITH_MODEL_SHOW_ATTEMPT_TIMEOUT_MS ?? process.env['C3_MODEL_SHOW_ATTEMPT_TIMEOUT_MS']) || '2000', 10);
+const SHOW_MAX_TOTAL_MS = parseInt((process.env.INTENTSMITH_MODEL_SHOW_MAX_TOTAL_MS ?? process.env['C3_MODEL_SHOW_MAX_TOTAL_MS']) || '5000', 10);
+const SHOW_RETRY_DELAY_MS = parseInt((process.env.INTENTSMITH_MODEL_SHOW_RETRY_DELAY_MS ?? process.env['C3_MODEL_SHOW_RETRY_DELAY_MS']) || '250', 10);
+const MAX_SHOW_ATTEMPTS = parseInt((process.env.INTENTSMITH_MODEL_SHOW_MAX_ATTEMPTS ?? process.env['C3_MODEL_SHOW_MAX_ATTEMPTS']) || '3', 10);
+const CONTEXT_TOLERANCE = parseFloat((process.env.INTENTSMITH_MODEL_CONTEXT_TOLERANCE ?? process.env['C3_MODEL_CONTEXT_TOLERANCE']) || '0.05');
+const PARTIAL_MAX_AGE_MS = parseInt((process.env.INTENTSMITH_MODEL_PARTIAL_MAX_AGE_MS ?? process.env['C3_MODEL_PARTIAL_MAX_AGE_MS']) || String(60 * 60 * 1000), 10);
+const RECOMPUTE_DELAY_MS = parseInt((process.env.INTENTSMITH_MODEL_RECOMPUTE_DELAY_MS ?? process.env['C3_MODEL_RECOMPUTE_DELAY_MS']) || '15000', 10);
+const RECOMPUTE_RETRY_MS = parseInt((process.env.INTENTSMITH_MODEL_RECOMPUTE_RETRY_MS ?? process.env['C3_MODEL_RECOMPUTE_RETRY_MS']) || String(5 * 60 * 1000), 10);
+const CRITICAL_FIELDS = ['model', 'parameters', 'context_length', 'quantization', 'modality'];
+const MODEL_BINDING_HTTP_STATUS = Object.freeze({
+  MODEL_BINDING_APPLICATION_INPUT_INVALID: 400,
+  MODEL_BINDING_APPLICATION_AUTHORITY_OVERRIDE_REJECTED: 400,
+  MODEL_BINDING_PROVIDER_UNAVAILABLE: 503,
+  MODEL_BINDING_PROVIDER_RECONCILIATION_REQUIRED: 503,
+  MODEL_BINDING_PROVIDER_OUTCOME_UNRESOLVED: 503,
+  MODEL_BINDING_PROVIDER_PULL_FAILED: 502,
+  MODEL_BINDING_PROVIDER_RESUME_CAS_MISMATCH: 409,
+  MODEL_BINDING_PROVIDER_RESUME_AMBIGUOUS: 409,
+  MODEL_BINDING_PROVIDER_ORIGIN_MISMATCH: 409,
+  MODEL_BINDING_PROVIDER_OPERATION_IN_PROGRESS: 409,
+  MODEL_BINDING_PROVIDER_UNRESOLVED_SUCCESS: 409,
+  MODEL_BINDING_PROVIDER_COMMAND_SUPERSEDED: 409,
+  MODEL_BINDING_PROVIDER_CLAIM_STALE: 409,
+  MODEL_BINDING_PROVIDER_CLAIM_MISSING: 409,
+  MODEL_BINDING_APPLICATION_BUSY: 409,
+  MODEL_BINDING_APPLICATION_PENDING_OPERATION: 409,
+  MODEL_BINDING_APPLICATION_NONRETRYABLE_TERMINAL: 409,
+  MODEL_BINDING_TARGET_AMBIGUOUS: 409,
+  MODEL_BINDING_TARGET_DIGEST_MISSING: 409,
+  MODEL_BINDING_TARGET_DIGEST_DRIFT: 409,
+  MODEL_BINDING_TARGET_NOT_INSTALLED: 404,
+  MODEL_BINDING_OVERRIDE_NOT_FOUND: 404,
+  MODEL_BINDING_LEGACY_ROLLBACK_REQUIRES_REBIND: 409,
+  MODEL_FAILOVER_STALE_DESIRED: 409,
+});
+
+function modelBindingHttpStatus(error) {
+  if (Number.isInteger(error?.httpStatus) && error.httpStatus >= 400 && error.httpStatus <= 599) {
+    return error.httpStatus;
+  }
+  return MODEL_BINDING_HTTP_STATUS[error?.code] || 500;
+}
+
+function isExactModelRole(profiles, role) {
+  return typeof role === 'string'
+    && Object.prototype.hasOwnProperty.call(profiles, role);
+}
+
+function _parseBoolFlag(v, fallback = false) {
+  if (v == null || v === '') return fallback;
+  const s = String(v).trim().toLowerCase();
+  if (['1', 'true', 'yes', 'y', 'on'].includes(s)) return true;
+  if (['0', 'false', 'no', 'n', 'off'].includes(s)) return false;
+  return fallback;
+}
+
+function _normalizeUniverseStateParam(value) {
+  const s = String(value || '').trim().toLowerCase();
+  if (!s) return null;
+  if (s === 'stable' || s === 'validated' || s === 'valid') return 'STABLE';
+  if (s === 'partial') return 'PARTIAL';
+  if (s === 'unstable') return 'UNSTABLE';
+  return null;
+}
+
+function _sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function _parseParams(modelName, showData) {
+  const fromShow = String(showData?.details?.parameter_size || '').toLowerCase();
+  let m = fromShow.match(/(\d+(?:\.\d+)?)\s*b/);
+  if (m) return parseFloat(m[1]);
+  const fromName = String(modelName || '').toLowerCase();
+  m = fromName.match(/[:\-](\d+(?:\.\d+)?)b/);
+  if (m) return parseFloat(m[1]);
+  return null;
+}
+
+function _parseContextLength(showData) {
+  const mi = showData?.model_info || {};
+  for (const [k, v] of Object.entries(mi)) {
+    if (/context_length|num_ctx/i.test(k)) {
+      const n = Number(v);
+      if (Number.isFinite(n) && n > 0) return Math.round(n);
+    }
+  }
+  const paramsText = String(showData?.parameters || '');
+  const p = paramsText.match(/num_ctx\s+(\d+)/i);
+  if (p) return parseInt(p[1], 10);
+  return null;
+}
+
+function _parseQuantization(modelName, showData) {
+  const q = String(showData?.details?.quantization_level || '').trim();
+  if (q) return q.toUpperCase();
+  const n = String(modelName || '');
+  const m = n.match(/(q\d[_\w]*)/i);
+  return m ? m[1].toUpperCase() : null;
+}
+
+function _parseModality(modelName, showData) {
+  const families = Array.isArray(showData?.details?.families) ? showData.details.families.map(x => String(x).toLowerCase()) : [];
+  const lowerName = String(modelName || '').toLowerCase();
+  if (families.some(f => /llava|vision|clip|qwen2\.5vl|qwen2\.5-vl/.test(f))) return 'vision';
+  if (/llava|vision|vl/.test(lowerName)) return 'vision';
+  return 'text';
+}
+
+function _buildSnapshot(modelName, showData) {
+  return {
+    model: String(modelName || '').toLowerCase(),
+    parameters: _parseParams(modelName, showData),
+    context_length: _parseContextLength(showData),
+    quantization: _parseQuantization(modelName, showData),
+    modality: _parseModality(modelName, showData),
+    raw: showData || {},
+  };
+}
+
+function _hasCritical(snapshot) {
+  return CRITICAL_FIELDS.every(k => snapshot?.[k] != null && snapshot[k] !== '');
+}
+
+function _contextStable(a, b) {
+  if (a == null || b == null) return false;
+  if (a === b) return true;
+  const max = Math.max(Math.abs(a), Math.abs(b), 1);
+  return Math.abs(a - b) / max <= CONTEXT_TOLERANCE;
+}
+
+function _snapshotsStable(a, b) {
+  if (!a || !b) return false;
+  if (a.parameters !== b.parameters) return false;
+  if (a.quantization !== b.quantization) return false;
+  if (a.modality !== b.modality) return false;
+  if (!_contextStable(a.context_length, b.context_length)) return false;
+  return true;
+}
+
+async function _fetchShowSnapshot(ollamaBaseUrl, modelName) {
+  const resp = await fetch(`${ollamaBaseUrl}/api/show`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: modelName }),
+    signal: AbortSignal.timeout(SHOW_ATTEMPT_TIMEOUT_MS),
+  });
+  if (!resp.ok) throw new Error(`show HTTP ${resp.status}`);
+  const data = await resp.json();
+  return _buildSnapshot(modelName, data);
+}
+
+async function fetchShowWithStability(ollamaBaseUrl, modelName) {
+  const started = Date.now();
+  const snapshots = [];
+  const errors = [];
+
+  for (let attempt = 1; attempt <= MAX_SHOW_ATTEMPTS; attempt++) {
+    if (Date.now() - started > SHOW_MAX_TOTAL_MS) break;
+    try {
+      const snap = await _fetchShowSnapshot(ollamaBaseUrl, modelName);
+      snapshots.push(snap);
+      if (snapshots.length >= 2 && _snapshotsStable(snapshots[snapshots.length - 2], snapshots[snapshots.length - 1]) && _hasCritical(snap)) {
+        break;
+      }
+    } catch (err) {
+      errors.push(err.message);
+    }
+    if (attempt < MAX_SHOW_ATTEMPTS) await _sleep(SHOW_RETRY_DELAY_MS);
+  }
+
+  const latest = snapshots[snapshots.length - 1] || null;
+  let metadataState = 'PARTIAL';
+  let unstable = false;
+  for (let i = 1; i < snapshots.length; i++) {
+    if (!_snapshotsStable(snapshots[i - 1], snapshots[i])) {
+      unstable = true;
+      break;
+    }
+  }
+  if (unstable) metadataState = 'UNSTABLE';
+  else if (latest && _hasCritical(latest)) metadataState = 'STABLE';
+
+  return {
+    snapshot: latest,
+    metadataState,
+    attempts: snapshots.length + errors.length,
+    errors,
+    unstable,
+    elapsedMs: Date.now() - started,
+  };
+}
+
+/**
+ * @param {{ db: import('better-sqlite3').Database, sendJSON: Function, parseBody: Function }} deps
+ */
+export function createSystemRoutes({
+  db,
+  sendJSON,
+  parseBody,
+  modelRegistry,
+  modelBindingApplication = null,
+  broadcastValidation = broadcast,
+  productionObservability = null,
+  m2LifecycleService = null,
+  conditionalSurfaces = null,
+  huntControl = createHuntControl({ readInventory: getSystemProfile }),
+}) {
+  const rawDb = db.db || db; // unwrap: db wrapper → raw better-sqlite3 instance
+  const dataDir = config.db?.path ? path.dirname(path.resolve(config.db.path)) : path.resolve('./data');
+  const recomputeQueue = new Map(); // model_name -> { queuedAt, attempts, timer }
+
+  const enqueueUniverseRecompute = (modelName, reason = 'PARTIAL') => {
+    const normalizedModel = String(modelName || '').trim().toLowerCase();
+    if (!normalizedModel || recomputeQueue.has(normalizedModel)) return false;
+
+    const task = { queuedAt: Date.now(), attempts: 0, reason, timer: null };
+    recomputeQueue.set(normalizedModel, task);
+
+    const runTask = async () => {
+      const current = recomputeQueue.get(normalizedModel);
+      if (!current) return;
+      current.attempts++;
+
+      try {
+        const showResult = await fetchShowWithStability(config.ollama.baseUrl, normalizedModel);
+        if (FEATURE_UNIVERSE_ENABLED && showResult.snapshot) {
+          const snapshot = showResult.snapshot;
+          const entry = {
+            modelName: normalizedModel,
+            tag: normalizedModel.includes(':') ? normalizedModel.split(':')[1] : '',
+            source: 'local',
+            metadataState: showResult.metadataState,
+            parameters: snapshot.parameters,
+            contextLength: snapshot.context_length,
+            quantization: snapshot.quantization,
+            modality: snapshot.modality,
+            metadata: {
+              show: snapshot.raw,
+              showAttempts: showResult.attempts,
+              showErrors: showResult.errors,
+              queuedReason: reason,
+            },
+            lastVerifiedAt: new Date().toISOString(),
+          };
+          modelUniverseStore.persistRawWithFallback(entry, {
+            mirrorEnabled: FEATURE_UNIVERSE_MIRROR,
+            scheduleRecompute: false,
+          });
+          try {
+            modelUniverseStore.reconcileAndRecompute(normalizedModel, entry.tag, { reasonCode: 'metadata_refresh' });
+          } catch (reconcileErr) {
+            logger.warn('ModelUniverse', `Reconcile after metadata refresh failed for ${normalizedModel}: ${reconcileErr.message}`);
+          }
+        }
+
+        const age = Date.now() - current.queuedAt;
+        if (showResult.metadataState === 'STABLE' || age >= PARTIAL_MAX_AGE_MS) {
+          recomputeQueue.delete(normalizedModel);
+          logger.info('ModelUniverse', `Recompute done for ${normalizedModel} (state=${showResult.metadataState}, attempts=${current.attempts})`);
+          return;
+        }
+      } catch (err) {
+        const age = Date.now() - current.queuedAt;
+        if (age >= PARTIAL_MAX_AGE_MS) {
+          recomputeQueue.delete(normalizedModel);
+          logger.warn('ModelUniverse', `Recompute forced-stop for ${normalizedModel} after max age: ${err.message}`);
+          return;
+        }
+      }
+
+      const next = recomputeQueue.get(normalizedModel);
+      if (!next) return;
+      next.timer = setTimeout(runTask, RECOMPUTE_RETRY_MS);
+      next.timer.unref?.();
+    };
+
+    task.timer = setTimeout(runTask, RECOMPUTE_DELAY_MS);
+    task.timer.unref?.();
+    return true;
+  };
+
+  return {
+    'GET /api/system/models/grading/:runId': async (req, res) => {
+      try {
+        const runId = req.params?.runId || decodeURIComponent(req.url.split('?')[0].split('/').pop());
+        return sendJSON(res, 200, collectionGradingOptions(new ModelEvaluationHistory(rawDb), createRoleEvaluationPlans({db:rawDb}), runId));
+      } catch (error) { return sendJSON(res, 409, {code:error.code || 'MODEL_GRADING_UNAVAILABLE',error:error.message}); }
+    },
+    'POST /api/system/models/grade': async (req, res) => {
+      if (!isLocalOperatorTransportSubject(req.authenticatedSubject))
+        return sendJSON(res, 403, {code:'HUNT_LOCAL_TRANSPORT_REQUIRED'});
+      try {
+        const body = await parseBody(req);
+        const preview = collectionGradingOptions(new ModelEvaluationHistory(rawDb), createRoleEvaluationPlans({db:rawDb}), body?.runId);
+        return sendJSON(res, 202, await huntControl.grade(body, preview));
+      } catch (error) { return sendJSON(res, error.httpStatus || 409, {code:error.code || 'MODEL_GRADING_UNAVAILABLE',error:error.message}); }
+    },
+    'GET /api/system/models/hunt': async (req, res) => {
+      if (!isLocalOperatorTransportSubject(req.authenticatedSubject)) {
+        return sendJSON(res, 403, { code: 'HUNT_LOCAL_TRANSPORT_REQUIRED' });
+      }
+      try { return sendJSON(res, 200, await huntControl.status()); }
+      catch (error) { return sendJSON(res, 503, { code: 'HUNT_UNAVAILABLE', error: error.message }); }
+    },
+    'POST /api/system/models/evaluate': async (req, res) => {
+      if (!isLocalOperatorTransportSubject(req.authenticatedSubject)) {
+        return sendJSON(res, 403, { code: 'HUNT_LOCAL_TRANSPORT_REQUIRED' });
+      }
+      try {
+        const body = await parseBody(req);
+        return sendJSON(res, 202, await huntControl.evaluate(body, await modelRegistry.getEvaluations()));
+      } catch (error) { return sendJSON(res, error.httpStatus || 503, { code: error.code || 'MODEL_EVALUATION_FAILED', error: error.message }); }
+    },
+    'POST /api/system/models/hunt/control': async (req, res) => {
+      if (!isLocalOperatorTransportSubject(req.authenticatedSubject)) {
+        return sendJSON(res, 403, { code: 'HUNT_LOCAL_TRANSPORT_REQUIRED' });
+      }
+      try {
+        const body = await parseBody(req);
+        if (!body || Object.keys(body).length !== 1 || typeof body.action !== 'string') {
+          return sendJSON(res, 400, { code: 'HUNT_ACTION_INVALID' });
+        }
+        return sendJSON(res, 202, await huntControl.control(body.action));
+      } catch (error) { return sendJSON(res, error.httpStatus || 503, { code: 'HUNT_CONTROL_FAILED', error: error.message }); }
+    },
+    'GET /api/system/diagnostics': (_req, res) => {
+      if (!productionObservability || typeof productionObservability.snapshot !== 'function'
+        || !m2LifecycleService || typeof m2LifecycleService.getRecoveryCensusStatus !== 'function') {
+        return sendJSON(res, 503, {
+          error: 'Production diagnostics are unavailable',
+          code: 'PRODUCTION_DIAGNOSTICS_UNAVAILABLE',
+        });
+      }
+      let databaseReady = false;
+      try {
+        databaseReady = rawDb.prepare('SELECT 1 AS ready').get()?.ready === 1;
+      } catch { /* typed boolean below is the complete public fact */ }
+      return sendJSON(res, 200, {
+        ...productionObservability.snapshot(),
+        readiness: {
+          database: databaseReady,
+          lifecycleRecovery: m2LifecycleService.getRecoveryCensusStatus(),
+        },
+        outbound: getOutboundDiagnostics(),
+        conditionalSurfaces,
+        websocket: getWebSocketBridgeHealth(),
+      });
+    },
+
+    // ── GPU & System Profile ──────────────────────────────────────────────
+    'GET /api/system/gpu': (req, res) => {
+      try {
+        const profile = getSystemProfile();
+        const primaryGPU = profile.gpus[0] || {};
+        const recommendation = recommend(primaryGPU.vram_mb || 0, primaryGPU.is_igpu || false);
+        const capacity = computeSessionCapacity(profile);
+
+        sendJSON(res, 200, {
+          profile,
+          recommendation,
+          sessionCapacity: capacity,
+        });
+      } catch (err) {
+        logger.error('SystemRoutes', `GPU detection failed: ${err.message}`);
+        sendJSON(res, 500, { error: 'GPU detection failed' });
+      }
+    },
+
+    // Force refresh GPU detection
+    'POST /api/system/gpu/refresh': (req, res) => {
+      try {
+        const profile = getSystemProfile(true);
+        const primaryGPU = profile.gpus[0] || {};
+        const recommendation = recommend(primaryGPU.vram_mb || 0, primaryGPU.is_igpu || false);
+
+        sendJSON(res, 200, {
+          profile,
+          recommendation,
+        });
+      } catch (err) {
+        sendJSON(res, 500, { error: 'GPU refresh failed' });
+      }
+    },
+
+    // ── Model Compatibility ───────────────────────────────────────────────
+    'GET /api/system/models/compatibility': (req, res) => {
+      try {
+        const profile = getSystemProfile();
+        const primaryGPU = profile.gpus[0] || {};
+        const vramMb = primaryGPU.vram_mb || 0;
+        const isIGPU = primaryGPU.is_igpu || false;
+
+        const tiers = getModelTiers().map(tier => ({
+          ...tier,
+          compatible: tier.real_vram_mb <= (isIGPU ? vramMb * 0.6 : vramMb) || vramMb === 0,
+          current: config.models.CHAT === tier.model,
+        }));
+
+        sendJSON(res, 200, {
+          vram_mb: vramMb,
+          is_igpu: isIGPU,
+          tiers,
+          recommendations: getVRAMRecommendations(),
+        });
+      } catch (err) {
+        sendJSON(res, 500, { error: 'Compatibility check failed' });
+      }
+    },
+
+    // Check specific model compatibility
+    'GET /api/system/models/check': (req, res) => {
+      const url = new URL(req.url, `http://${req.headers.host}`);
+      const modelName = url.searchParams.get('model');
+
+      if (!modelName) {
+        return sendJSON(res, 400, { error: 'Missing ?model= parameter' });
+      }
+
+      try {
+        const profile = getSystemProfile();
+        const primaryGPU = profile.gpus[0] || {};
+        const result = checkCompatibility(
+          modelName,
+          primaryGPU.vram_mb || 0,
+          primaryGPU.is_igpu || false
+        );
+
+        sendJSON(res, 200, result);
+      } catch (err) {
+        sendJSON(res, 500, { error: 'Check failed' });
+      }
+    },
+
+    // ── Ollama Models (proxy) ─────────────────────────────────────────────
+    'GET /api/system/models': async (req, res) => {
+      try {
+        const ollamaUrl = config.ollama.baseUrl;
+        const resp = await fetch(`${ollamaUrl}/api/tags`, {
+          signal: AbortSignal.timeout(5000),
+        });
+
+        if (!resp.ok) {
+          return sendJSON(res, 502, { error: `Ollama returned ${resp.status}` });
+        }
+
+        const data = await resp.json();
+        const models = (data.models || []).map(m => ({
+          name: m.name,
+          size: m.size,
+          modified_at: m.modified_at,
+          digest: m.digest,
+          details: m.details || {},
+        }));
+
+        sendJSON(res, 200, {
+          models,
+          ollama_url: ollamaUrl,
+          current_model: config.models.CHAT,
+        });
+      } catch (err) {
+        if (err.name === 'TimeoutError' || err.code === 'ECONNREFUSED') {
+          return sendJSON(res, 502, {
+            error: 'Ollama not reachable',
+            ollama_url: config.ollama.baseUrl,
+          });
+        }
+        sendJSON(res, 500, { error: `Failed to list models: ${err.message}` });
+      }
+    },
+
+    // Model detail (proxy to Ollama show)
+    'GET /api/system/models/info': async (req, res) => {
+      const url = new URL(req.url, `http://${req.headers.host}`);
+      const modelName = url.searchParams.get('model');
+
+      if (!modelName) {
+        return sendJSON(res, 400, { error: 'Missing ?model= parameter' });
+      }
+
+      try {
+        const ollamaUrl = config.ollama.baseUrl;
+        const resp = await fetch(`${ollamaUrl}/api/show`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: modelName }),
+          signal: AbortSignal.timeout(5000),
+        });
+
+        if (!resp.ok) {
+          return sendJSON(res, 502, { error: `Ollama returned ${resp.status}` });
+        }
+
+        const data = await resp.json();
+        sendJSON(res, 200, {
+          name: modelName,
+          modelfile: data.modelfile,
+          parameters: data.parameters,
+          template: data.template,
+          details: data.details || {},
+        });
+      } catch (err) {
+        sendJSON(res, 500, { error: `Failed to get model info: ${err.message}` });
+      }
+    },
+
+    // Model universe list (paged, sortable, filterable)
+    'GET /api/system/models/universe': (req, res) => {
+      try {
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        const limit = Number.parseInt(url.searchParams.get('limit') || '50', 10);
+        const offset = Number.parseInt(url.searchParams.get('offset') || '0', 10);
+        const state = _normalizeUniverseStateParam(url.searchParams.get('state'));
+        const sort = String(url.searchParams.get('sort') || 'confidence').trim().toLowerCase();
+        const order = String(url.searchParams.get('order') || 'desc').trim().toLowerCase();
+
+        const listed = modelUniverseStore.listUniverse({
+          limit,
+          offset,
+          state,
+          sort,
+          order,
+        });
+
+        if (!listed.ok && !listed.disabled) {
+          return sendJSON(res, 500, {
+            error: 'Universe list failed',
+            reason: listed.reason || 'unknown',
+          });
+        }
+
+        sendJSON(res, 200, {
+          models: listed.models || [],
+          total: listed.total || 0,
+          limit: listed.limit || Math.max(1, Math.min(200, limit || 50)),
+          offset: listed.offset || Math.max(0, offset || 0),
+          snapshot_id: listed.snapshotId || null,
+          sort: { by: listed.sortBy || sort || 'confidence', order: listed.order || (order === 'asc' ? 'asc' : 'desc') },
+          filters: {
+            state: listed.state || state || null,
+          },
+          unavailable: listed.disabled ? (listed.reason || 'feature_disabled') : null,
+        });
+      } catch (err) {
+        sendJSON(res, 500, { error: `Failed to list model universe: ${err.message}` });
+      }
+    },
+
+    // Model universe detail (lazy detail fetch for one model)
+    'GET /api/system/models/universe/:name': (req, res, params) => {
+      try {
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        const modelName = params?.name || '';
+        const tag = String(url.searchParams.get('tag') || '').trim();
+        const includeSignals = _parseBoolFlag(url.searchParams.get('include_signals'), false);
+        const signalLimit = Number.parseInt(url.searchParams.get('signal_limit') || '20', 10);
+        const sourceLimit = Number.parseInt(url.searchParams.get('source_limit') || '30', 10);
+
+        const detail = modelUniverseStore.getUniverseModelDetails(modelName, {
+          tag,
+          includeSignals,
+          signalLimit,
+          sourceLimit,
+        });
+
+        if (!detail.ok && !detail.disabled) {
+          return sendJSON(res, 500, {
+            error: 'Universe detail failed',
+            reason: detail.reason || 'unknown',
+          });
+        }
+        if (!detail.model) {
+          return sendJSON(res, 404, {
+            error: 'Model not found in universe',
+            model: modelName,
+          });
+        }
+
+        sendJSON(res, 200, {
+          model: detail.model,
+          sources: detail.sources || [],
+          signals: detail.signals || [],
+          snapshot_id: detail.snapshotId || null,
+          unavailable: detail.disabled ? (detail.reason || 'feature_disabled') : null,
+        });
+      } catch (err) {
+        sendJSON(res, 500, { error: `Failed to load model universe detail: ${err.message}` });
+      }
+    },
+
+    // ── System Info ───────────────────────────────────────────────────────
+    'GET /api/system/info': (req, res) => {
+      try {
+        // DB size
+        let dbSizeMb = 0;
+        try {
+          const pragma = rawDb.pragma('page_count');
+          const pageSize = rawDb.pragma('page_size');
+          if (pragma[0] && pageSize[0]) {
+            dbSizeMb = Math.round((pragma[0].page_count * pageSize[0].page_size) / (1024 * 1024) * 100) / 100;
+          }
+        } catch (_) {}
+
+        // Table counts
+        let tableCounts = {};
+        try {
+          const tables = ['messages', 'sessions', 'memory', 'skill_executions', 'workflow_patterns'];
+          for (const table of tables) {
+            try {
+              const row = rawDb.prepare(`SELECT COUNT(*) as cnt FROM ${table}`).get();
+              tableCounts[table] = row?.cnt || 0;
+            } catch (_) {}
+          }
+        } catch (_) {}
+
+        // Migration count
+        let migrationCount = 0;
+        try {
+          const row = rawDb.prepare('SELECT COUNT(*) as cnt FROM schema_migrations').get();
+          migrationCount = row?.cnt || 0;
+        } catch (_) {}
+
+        sendJSON(res, 200, {
+          version: getCurrentVersion(),
+          platform: os.platform(),
+          arch: os.arch(),
+          node_version: process.version,
+          uptime_seconds: Math.round(process.uptime()),
+          memory: {
+            total_mb: Math.round(os.totalmem() / (1024 * 1024)),
+            free_mb: Math.round(os.freemem() / (1024 * 1024)),
+            process_mb: Math.round(process.memoryUsage().heapUsed / (1024 * 1024)),
+          },
+          db: {
+            size_mb: dbSizeMb,
+            migrations: migrationCount,
+            tables: tableCounts,
+          },
+          config: {
+            chat_model: config.models.CHAT,
+            ollama_url: config.ollama.baseUrl,
+            features: config.features,
+            provider: config.providers?.active || 'ollama',
+          },
+          sessions: {
+            maxConcurrentLLM: config.sessions?.maxConcurrentLLM || 1,
+            gpuAutoScale: config.sessions?.gpuAutoScale || false,
+          },
+        });
+      } catch (err) {
+        sendJSON(res, 500, { error: 'System info failed' });
+      }
+    },
+
+    // ── Storage Info (enhanced with history + backup stats) ───────────────
+    'GET /api/system/storage': (req, res) => {
+      try {
+        let dbSizeMb = 0;
+        try {
+          const pageCount = rawDb.pragma('page_count', { simple: true });
+          const pageSize = rawDb.pragma('page_size', { simple: true });
+          dbSizeMb = Math.round((pageCount * pageSize) / (1024 * 1024) * 100) / 100;
+        } catch (_) {}
+
+        let messageCount = 0;
+        try {
+          const row = rawDb.prepare("SELECT COUNT(*) as cnt FROM messages").get();
+          messageCount = row?.cnt || 0;
+        } catch (_) {}
+
+        const history = getHistoryStats(dataDir);
+        const backups = getBackupStats(dataDir);
+
+        sendJSON(res, 200, {
+          db_size_mb: dbSizeMb,
+          messages_in_db: messageCount,
+          history: {
+            total_mb: Math.round(history.totalBytes / (1024 * 1024) * 100) / 100,
+            conversations: history.conversations,
+            lifecycle: history.lifecycle,
+            memory: history.memory,
+          },
+          backups,
+        });
+      } catch (err) {
+        sendJSON(res, 500, { error: 'Storage info failed' });
+      }
+    },
+
+    // ── Storage Settings ─────────────────────────────────────────────────
+    'GET /api/system/storage/settings': (req, res) => {
+      try {
+        const storageConfig = getStorageConfig(rawDb);
+        sendJSON(res, 200, storageConfig);
+      } catch (err) {
+        sendJSON(res, 500, { error: 'Failed to read storage settings' });
+      }
+    },
+
+    'PUT /api/system/storage/settings': async (req, res) => {
+      try {
+        const body = await parseBody(req);
+        const validated = validateStorageConfig(body);
+
+        // Read current user_settings, merge storage section
+        let currentSettings = {};
+        try {
+          const row = rawDb.prepare('SELECT data FROM user_settings WHERE id = 1').get();
+          if (row) currentSettings = JSON.parse(row.data);
+        } catch (_) {}
+
+        currentSettings.storage = validated;
+
+        rawDb.prepare(
+          'INSERT OR REPLACE INTO user_settings (id, data, updated_at) VALUES (1, ?, datetime(\'now\'))'
+        ).run(JSON.stringify(currentSettings));
+
+        sendJSON(res, 200, validated);
+      } catch (err) {
+        sendJSON(res, 500, { error: `Failed to update storage settings: ${err.message}` });
+      }
+    },
+
+    // ── Manual Drain ─────────────────────────────────────────────────────
+    'POST /api/system/drain': (req, res) => {
+      try {
+        const storageConfig = getStorageConfig(rawDb);
+        const result = drainMessages(rawDb, dataDir, {
+          cutoffHours: storageConfig.drain.cutoff_hours,
+        });
+        sendJSON(res, 200, result);
+      } catch (err) {
+        sendJSON(res, 500, { error: `Drain failed: ${err.message}` });
+      }
+    },
+
+    // ── Manual Clean ─────────────────────────────────────────────────────
+    'POST /api/system/clean': (req, res) => {
+      try {
+        const storageConfig = getStorageConfig(rawDb);
+        const result = autoClean(rawDb, dataDir, { config: storageConfig });
+        sendJSON(res, 200, {
+          db_rows_pruned: result.db?.totalDeleted || 0,
+          history_files_pruned: result.history?.deleted || 0,
+          jsonl_cleaned: result.jsonlCleaned || 0,
+          pressure: result.db?.pressure || 'normal',
+        });
+      } catch (err) {
+        sendJSON(res, 500, { error: `Clean failed: ${err.message}` });
+      }
+    },
+
+    // ── Manual Backup ────────────────────────────────────────────────────
+    'POST /api/system/backup': (req, res) => {
+      try {
+        const result = createStateBackup(rawDb, dataDir, {
+          dbPath: config.db?.path,
+          projectRoot: PROJECT_ROOT,
+        });
+        if (result.error) {
+          return sendJSON(res, 500, { error: result.error });
+        }
+        // Prune old backups after creating new one
+        const storageConfig = getStorageConfig(rawDb);
+        pruneBackups(dataDir, {
+          maxDaily: storageConfig.backup.max_daily,
+          maxWeekly: storageConfig.backup.max_weekly,
+        });
+        sendJSON(res, 200, {
+          ok: true,
+          name: result.name,
+          files: result.files,
+          size_kb: Math.round(result.size / 1024),
+        });
+      } catch (err) {
+        sendJSON(res, 500, { error: `Backup failed: ${err.message}` });
+      }
+    },
+
+    // State restore is intentionally offline-only. An in-process SQLite swap
+    // would leave repositories and prepared statements bound to stale bytes.
+    'POST /api/system/restore': (_req, res) => {
+      sendJSON(res, 409, {
+        ok: false,
+        code: 'DATABASE_RESTORE_REQUIRES_OFFLINE',
+        error: 'Stop IntentSmith and use the offline restore command',
+        command: 'node scripts/restore-state-backup.js --data-dir <ABSOLUTE_DATA_DIR> --backup <BACKUP_NAME>',
+      });
+    },
+
+    // ── List Backups ─────────────────────────────────────────────────────
+    'GET /api/system/backups': (req, res) => {
+      try {
+        const backupList = listBackups(dataDir);
+        sendJSON(res, 200, {
+          backups: backupList.map(b => ({
+            name: b.name,
+            created_at: b.created_at,
+            version: b.version,
+            format_version: b.format_version,
+            restorable: b.restorable,
+            schema_version: b.schema_version,
+            migration_fingerprint: b.migration_fingerprint,
+            db_size_mb: Math.round(b.db_size_bytes / (1024 * 1024) * 100) / 100,
+            total_size_mb: Math.round(b.total_size_bytes / (1024 * 1024) * 100) / 100,
+          })),
+        });
+      } catch (err) {
+        sendJSON(res, 500, { error: 'Failed to list backups' });
+      }
+    },
+
+    // ── Shutdown Backup (drain + backup — called from FE on IDE close) ──
+    'POST /api/system/shutdown-backup': (req, res) => {
+      try {
+        const storageConfig = getStorageConfig(rawDb);
+
+        // 1. Drain messages
+        let drainResult = { drained: 0 };
+        if (storageConfig.drain.enabled) {
+          drainResult = drainMessages(rawDb, dataDir, {
+            cutoffHours: storageConfig.drain.cutoff_hours,
+          });
+        }
+
+        // 2. State backup
+        let backupResult = { name: null, error: null };
+        if (storageConfig.backup.on_shutdown) {
+          backupResult = createStateBackup(rawDb, dataDir, {
+            dbPath: config.db?.path,
+            projectRoot: PROJECT_ROOT,
+          });
+          pruneBackups(dataDir, {
+            maxDaily: storageConfig.backup.max_daily,
+            maxWeekly: storageConfig.backup.max_weekly,
+          });
+        }
+
+        sendJSON(res, 200, {
+          ok: true,
+          drained: drainResult.drained,
+          backup: backupResult.name,
+          backup_error: backupResult.error,
+        });
+      } catch (err) {
+        sendJSON(res, 500, { error: `Shutdown backup failed: ${err.message}` });
+      }
+    },
+
+    // ── DB Vacuum ────────────────────────────────────────────────────────
+    'POST /api/system/vacuum': (req, res) => {
+      try {
+        rawDb.pragma('wal_checkpoint(TRUNCATE)');
+        rawDb.exec('VACUUM');
+        sendJSON(res, 200, { ok: true, message: 'Database vacuumed successfully' });
+      } catch (err) {
+        sendJSON(res, 500, { error: `Vacuum failed: ${err.message}` });
+      }
+    },
+
+    // Discovery status. Candidate metadata is never a quality decision.
+    'GET /api/system/upgrades': (req, res) => {
+      try {
+        const { discovery, ollamaUpdate } = upgradeManager.getLastResults();
+        sendJSON(res, 200, {
+          authority: {
+            discoveryOnly: true,
+            qualityRecommendation: false,
+            evaluationsEndpoint: '/api/system/models/evaluations',
+          },
+          discovery: discovery ? {
+            ollamaAvailable: discovery.ollamaAvailable,
+            candidateCount: discovery.candidates.length,
+            hintsCount: discovery.hints.size,
+            timestamp: discovery.timestamp,
+          } : null,
+          lastCheckTime: upgradeManager._lastCheckTime,
+          ollamaUpdate: ollamaUpdate ?? null,
+          history: upgradeManager.getHistory(),
+        });
+      } catch (err) {
+        sendJSON(res, 500, { error: `Upgrade check failed: ${err.message}` });
+      }
+    },
+
+    // Force re-check upgrades
+    'POST /api/system/upgrades/check': async (req, res) => {
+      try {
+        const body = await parseBody(req).catch(() => ({}));
+        const opts = { checkProvider: true };
+        if (body.fullCycle) opts.fullCycle = true;
+        const { discovery, ollamaUpdate } = await upgradeManager.checkForUpgrades(opts);
+        sendJSON(res, 200, {
+          ollamaUpdate: ollamaUpdate ?? null,
+          authority: {
+            discoveryOnly: true,
+            qualityRecommendation: false,
+            evaluationsEndpoint: '/api/system/models/evaluations',
+          },
+          discovery: {
+            ollamaAvailable: discovery.ollamaAvailable,
+            candidateCount: discovery.candidates.length,
+            hintsCount: discovery.hints.size,
+            timestamp: discovery.timestamp,
+            l4Count: discovery.candidates.filter(c => c.provisional || c.source === 'L4').length,
+          },
+        });
+      } catch (err) {
+        sendJSON(res, 500, { error: `Upgrade check failed: ${err.message}` });
+      }
+    },
+
+    // ── Model Upgrade Apply/Rollback (durable start before HTTP success; BG verify) ──
+    'POST /api/system/upgrades/apply': async (req, res) => {
+      try {
+        const body = await parseBody(req);
+        const { role, targetModel } = body;
+
+        if (!role || !targetModel) {
+          return sendJSON(res, 400, { error: 'Missing required fields: role, targetModel' });
+        }
+
+        // Quick validation before going async
+        const { MODEL_PROFILES: profiles } = await import('../upgrade/model-profiles.js');
+        if (!isExactModelRole(profiles, role)) {
+          return sendJSON(res, 400, { error: `Invalid role: ${role}` });
+        }
+
+        if (!modelBindingApplication) {
+          throw Object.assign(
+            new Error('Model binding application service is required'),
+            { code: 'MODEL_BINDING_APPLICATION_SERVICE_REQUIRED' },
+          );
+        }
+
+        if (typeof modelBindingApplication.beginManualBinding !== 'function') {
+          throw Object.assign(
+            new Error('Model binding application start port is required'),
+            { code: 'MODEL_BINDING_APPLICATION_START_PORT_REQUIRED' },
+          );
+        }
+
+        // The existing Studio contract remains asynchronous, but 200 is now
+        // emitted only after a durable binding operation or provider-pull
+        // intent exists. The completion promise stays server-owned.
+        const started = await modelBindingApplication.beginManualBinding({ role, targetModel });
+
+        sendJSON(res, 200, { ok: true, status: 'started', role, targetModel });
+
+        void started.completion.catch(err => {
+          logger.warn('ModelBindingApplication', `HTTP apply completion failed: ${err.message}`);
+        });
+      } catch (err) {
+        logger.warn('ModelBindingApplication', `HTTP apply failed: ${err.message}`);
+        sendJSON(res, modelBindingHttpStatus(err), { error: err.message });
+      }
+    },
+
+    'POST /api/system/upgrades/rollback': async (req, res) => {
+      try {
+        const body = await parseBody(req);
+        // Decision 022/A: the recovery identity is passed through exactly as the
+        // client sent it. No trimming, no canonicalisation, no {role}-only
+        // fallback — an incomplete identity is a 400, never a wider rollback.
+        const { role, operationId, committedBindingRevision, failedAttemptRevision } = body;
+
+        if (!role) {
+          return sendJSON(res, 400, { error: 'Missing required field: role' });
+        }
+
+        // Reject an invalid authority domain before interpreting recovery
+        // identity fields. Otherwise an invalid role can be disguised as an
+        // incomplete rollback request and the public error contract depends on
+        // unrelated field presence.
+        const { MODEL_PROFILES: profiles } = await import('../upgrade/model-profiles.js');
+        if (!isExactModelRole(profiles, role)) {
+          return sendJSON(res, 400, { error: `Invalid role: ${role}` });
+        }
+
+        if (operationId === undefined
+          || committedBindingRevision === undefined
+          || failedAttemptRevision === undefined) {
+          return sendJSON(res, 400, {
+            error: 'Missing required rollback identity: operationId, '
+              + 'committedBindingRevision, failedAttemptRevision',
+          });
+        }
+
+        if (!modelBindingApplication) {
+          throw Object.assign(
+            new Error('Model binding application service is required'),
+            { code: 'MODEL_BINDING_APPLICATION_SERVICE_REQUIRED' },
+          );
+        }
+        const result = await modelBindingApplication.rollbackManualBinding({
+          role,
+          operationId,
+          committedBindingRevision,
+          failedAttemptRevision,
+        });
+        sendJSON(res, 200, {
+          ok: result.ok,
+          role: result.role,
+          from: result.from,
+          to: result.to,
+          configVersion: result.configVersion,
+        });
+      } catch (err) {
+        sendJSON(res, modelBindingHttpStatus(err), { error: err.message });
+      }
+    },
+
+    // ── Model Delete (v133: via ModelRegistry with safety guards) ──────
+    'DELETE /api/system/models': async (req, res) => {
+      try {
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        const modelName = url.searchParams.get('name');
+        if (!modelName) return sendJSON(res, 400, { error: 'Missing ?name= parameter' });
+
+        if (!modelRegistry) {
+          return sendJSON(res, 503, {
+            error: 'Model deletion authority is unavailable',
+          });
+        }
+        const result = await modelRegistry.deleteModel(modelName, { source: 'USER_HTTP' });
+        return sendJSON(res, 200, {
+          ok: result.ok,
+          deleted: result.deleted,
+          freedGB: result.freedGB,
+        });
+      } catch (err) {
+        const status = Number.isInteger(err?.httpStatus) ? err.httpStatus : 500;
+        sendJSON(res, status, { error: err.message });
+      }
+    },
+
+    'GET /api/system/upgrades/bindings': (req, res) => {
+      try {
+        const bindings = {};
+        for (const role of Object.keys(config.models)) {
+          bindings[role] = config.models[role];
+        }
+
+        const overrides = {};
+        if (upgradeManager._db) {
+          try {
+            const rows = upgradeManager._db.prepare(
+              'SELECT role, previous_model, applied_by, applied_at FROM model_overrides'
+            ).all();
+            for (const r of rows) {
+              overrides[r.role] = {
+                previousModel: r.previous_model,
+                appliedBy: r.applied_by,
+                appliedAt: r.applied_at,
+              };
+            }
+          } catch (_) { /* DB not ready */ }
+        }
+
+        sendJSON(res, 200, { bindings, overrides, configVersion: upgradeManager._configVersion });
+      } catch (err) {
+        sendJSON(res, 500, { error: err.message });
+      }
+    },
+
+    // ── Factual model catalog ────────────────────────────────────────
+    'GET /api/system/catalog': async (req, res) => {
+      try {
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        const role = url.searchParams.get('role');
+        const family = url.searchParams.get('family');
+
+        const { CATALOG, CATALOG_VERSION, CATALOG_HASH } = await import('../upgrade/model-catalog.js');
+
+        let entries = CATALOG;
+        if (role) {
+          const { MODEL_PROFILES } = await import('../upgrade/model-profiles.js');
+          if (!Object.hasOwn(MODEL_PROFILES, role)) {
+            return sendJSON(res, 400, { error: `Unknown role: ${role}` });
+          }
+          const { checkRoleEligibility } = await import('../upgrade/candidate-eligibility.js');
+          entries = entries.filter(entry => checkRoleEligibility(entry, role).eligible);
+        }
+        if (family) {
+          entries = entries.filter(e => e.family === family);
+        }
+
+        sendJSON(res, 200, {
+          entries,
+          total: entries.length,
+          catalogVersion: CATALOG_VERSION,
+          catalogHash: CATALOG_HASH,
+        });
+      } catch (err) {
+        sendJSON(res, 500, { error: err.message });
+      }
+    },
+
+    // v121.1: List all L4 discovered models with confidence scores
+    'GET /api/system/upgrades/discovered': async (req, res) => {
+      try {
+        const { onlineDiscovery } = await import('../upgrade/online-discovery.js');
+        const models = await onlineDiscovery.getDiscoveredModels();
+        sendJSON(res, 200, { models, count: models.length });
+      } catch (err) {
+        sendJSON(res, 200, { models: [], count: 0, error: err.message });
+      }
+    },
+
+    'GET /api/system/models/downloads': async (_req, res) => {
+      try { sendJSON(res, 200, { downloads: upgradeManager.getModelPulls() }); }
+      catch (error) { sendJSON(res, 503, { error: error.message }); }
+    },
+
+    // Pull model and hydrate factual metadata. Quality evaluation is a
+    // separate exact-contract workflow owned by model-upgrade-hunt.
+    'POST /api/system/models/pull': async (req, res) => {
+      try {
+        const body = await parseBody(req);
+        const { name } = body;
+        if (!name) return sendJSON(res, 400, { error: 'Missing required field: name' });
+
+        const existing = upgradeManager.getModelPulls().find(row => row.canonicalName === canonicalModelName(name));
+        if (existing && !['done', 'error'].includes(existing.status)) {
+          return sendJSON(res, 200, { ok: true, started: false, model: name, download: existing });
+        }
+        const authority = existing && ['INTENT_ONLY', 'ORPHANED'].includes(existing.state)
+          ? { source: 'RECOVERY', recoveryOperationId: existing.operationId } : { source: 'USER_HTTP' };
+        const pull = upgradeManager.pullModel(name, progress => {
+          broadcast('control', { action: 'model_pull_progress', model: name, ...progress });
+        }, authority);
+        const accepted = upgradeManager.getModelPulls().find(row =>
+          row.canonicalName === canonicalModelName(name) && !['done', 'error'].includes(row.status));
+        // Claim/identity failures happen before provider I/O and are returned
+        // to the caller rather than falsely acknowledging a started download.
+        if (!accepted) await pull;
+        sendJSON(res, 200, { ok: true, started: true, model: name, download: accepted });
+
+        (async () => {
+          try {
+            await pull;
+
+            broadcast('control', { action: 'model_pull_progress', model: name, status: 'pulled', percent: 100, text: `${name} — Staženo. Načítám metadata...` });
+
+            try {
+              const showResult = await fetchShowWithStability(config.ollama.baseUrl, name);
+              const snapshot = showResult.snapshot;
+              const metadataState = showResult.metadataState;
+
+              // Persist raw model facts immediately (primary universe, fallback discovered mirror)
+              let writeSource = 'none';
+              let reconcileResult = null;
+              if (FEATURE_UNIVERSE_ENABLED && snapshot) {
+                try {
+                  const persist = modelUniverseStore.persistRawWithFallback({
+                    modelName: name,
+                    tag: name.includes(':') ? name.split(':')[1] : '',
+                    source: 'local',
+                    metadataState,
+                    parameters: snapshot.parameters,
+                    contextLength: snapshot.context_length,
+                    quantization: snapshot.quantization,
+                    modality: snapshot.modality,
+                    metadata: {
+                      show: snapshot.raw,
+                      showAttempts: showResult.attempts,
+                      showErrors: showResult.errors,
+                      elapsedMs: showResult.elapsedMs,
+                    },
+                    lastVerifiedAt: new Date().toISOString(),
+                  }, {
+                    mirrorEnabled: FEATURE_UNIVERSE_MIRROR,
+                    scheduleRecompute: false,
+                  });
+                  writeSource = persist.writeSource || 'universe';
+                  try {
+                    reconcileResult = modelUniverseStore.reconcileAndRecompute(name, name.includes(':') ? name.split(':')[1] : '', {
+                      reasonCode: 'post_pull',
+                    });
+                  } catch (reconcileErr) {
+                    logger.warn('SystemRoutes', `Model universe reconcile failed for ${name}: ${reconcileErr.message}`);
+                  }
+                } catch (persistErr) {
+                  logger.warn('SystemRoutes', `Model universe persist failed for ${name}: ${persistErr.message}`);
+                  writeSource = 'error';
+                }
+              }
+
+              if (metadataState !== 'STABLE') {
+                const queued = enqueueUniverseRecompute(name, metadataState);
+                if (queued) {
+                  broadcast('control', {
+                    action: 'model_pull_progress',
+                    model: name,
+                    status: 'recompute_queued',
+                    percent: 100,
+                    text: `${name} — Metadata ${metadataState}, plánuju background recompute`,
+                  });
+                }
+              }
+              broadcast('control', {
+                action: 'model_pull_progress', model: name, status: 'done', percent: 100,
+                text: `${name} — Staženo; metadata ${metadataState}`,
+                metadataState, writeSource,
+                reconcile: reconcileResult?.ok ? {
+                  metadataState: reconcileResult.metadataState,
+                  changedFields: reconcileResult.changedFields,
+                  confidence: reconcileResult.derived?.confidence,
+                } : null,
+              });
+            } catch (metadataErr) {
+              broadcast('control', { action: 'model_pull_progress', model: name, status: 'done', percent: 100,
+                text: `${name} — Staženo (metadata se nepodařilo načíst: ${metadataErr.message})` });
+            }
+          } catch (pullErr) {
+            broadcast('control', { action: 'model_pull_progress', model: name, status: 'error', percent: -1,
+              text: `${name} — Chyba: ${pullErr.message}` });
+          }
+        })();
+      } catch (err) {
+        sendJSON(res, 500, { error: err.message });
+      }
+    },
+
+    // Candidate inventory merges curated catalog metadata with online
+    // discovery. It intentionally omits benchmark-derived quality labels.
+    'GET /api/system/models/candidates': async (req, res) => {
+      try {
+        const [{ CATALOG }, { onlineDiscovery }, { MODEL_PROFILES }, { checkRoleEligibility }] = await Promise.all([
+          import('../upgrade/model-catalog.js'),
+          import('../upgrade/online-discovery.js'),
+          import('../upgrade/model-profiles.js'),
+          import('../upgrade/candidate-eligibility.js'),
+        ]);
+        const discovered = await onlineDiscovery.getDiscoveredModels();
+        const huntCatalog = new ModelHuntState(db.db).catalogSnapshot();
+        const huntCandidates = huntCatalog.candidates.map(candidate => ({ ...candidate,
+          baseVramMb: candidate.sizeGB ? Math.round(candidate.sizeGB * 1024 * TYPICAL_VRAM_OVERHEAD) : null }));
+        const installedByCanonical = new Set();
+        try {
+          const response = await fetch(`${config.ollama.baseUrl}/api/tags`, {
+            signal: AbortSignal.timeout(5000),
+          });
+          const payload = await response.json();
+          for (const model of payload.models || []) {
+            const canonical = canonicalModelName(model.name);
+            if (canonical) installedByCanonical.add(canonical);
+          }
+        } catch (error) {
+          logger.warn('System', `Cannot fetch installed candidates from Ollama: ${error.message}`);
+        }
+
+        let gpuVramMb = 0, gpuInventory = null;
+        try {
+          const profile = await getSystemProfile();
+          gpuInventory = profile;
+          gpuVramMb = Math.max(0, ...(profile.gpus || []).map(gpu => gpu.vram_mb || 0));
+        } catch (_) {}
+        let gpuCapacitySource = gpuVramMb > 0 ? 'system-profile' : null;
+        if (!(gpuVramMb > 0)) {
+          const displayCapacity = await readNvidiaDisplayCapacity();
+          if (displayCapacity) {
+            gpuVramMb = displayCapacity.vramMb;
+            gpuCapacitySource = displayCapacity.source;
+          }
+        }
+        const vramBudgetMb = gpuVramMb > 0 ? Math.round(gpuVramMb * 0.8) : null;
+
+        const merged = new Map();
+        for (const [source, entries] of [['GPU_HUNT', huntCandidates], ['ONLINE_DISCOVERY', discovered], ['CATALOG', CATALOG]]) {
+          for (const entry of entries || []) {
+            if (/(?:-cloud|-mlx)(?:$|:)/i.test(entry.name)) continue;
+            const canonical = canonicalModelName(entry.name);
+            if (!canonical) continue;
+            const previous = merged.get(canonical);
+            merged.set(canonical, {
+              ...(previous || {}),
+              name: previous?.name || entry.name,
+              canonicalName: canonical,
+              family: entry.family || previous?.family || null,
+              category: entry.category || previous?.category || null,
+              params: entry.params ?? previous?.params ?? null,
+              sizeGB: entry.sizeGB ?? previous?.sizeGB ?? null,
+              vramMb: entry.effectiveVramMb ?? entry.baseVramMb ?? previous?.vramMb ?? null,
+              contextWindow: entry.contextWindow ?? previous?.contextWindow ?? null,
+              capabilities: entry.capabilities || previous?.capabilities || [],
+              releaseDate: entry.releaseDate || previous?.releaseDate || null,
+              releaseDateSource: entry.releaseDateSource || previous?.releaseDateSource || null,
+              metadataVerifiedAt: entry.metadataVerifiedAt || previous?.metadataVerifiedAt || null,
+              discoveredAt: entry.discoveredAt || previous?.discoveredAt || null,
+              sources: [...new Set([...(previous?.sources || []), source])],
+            });
+          }
+        }
+
+        const candidates = [...merged.values()].map(candidate => ({
+          ...candidate,
+          installed: installedByCanonical.has(candidate.canonicalName),
+          fitsVram: vramBudgetMb === null || !candidate.vramMb
+            ? null
+            : candidate.vramMb <= vramBudgetMb,
+          eligibleRoles: Object.keys(MODEL_PROFILES).filter(role => (
+            checkRoleEligibility(candidate, role).eligible
+          )),
+          qualityStatus: 'NOT_EVALUATED',
+        })).sort((a, b) => a.name.localeCompare(b.name));
+
+        sendJSON(res, 200, {
+          schemaVersion: 1,
+          authority: {
+            discoveryOnly: true,
+            qualityRecommendation: false,
+            evaluationsEndpoint: '/api/system/models/evaluations',
+          },
+          gpuVramMb,
+          gpuCapacitySource, gpuInventory,
+          vramBudgetMb,
+          discoveryCoverage: { source: huntCatalog.source, scope: huntCatalog.scope,
+            huntModels: huntCandidates.length, huntFamilies: new Set(huntCandidates.map(c => c.name.split(':')[0])).size,
+            observedRevisions: huntCatalog.observedRevisions, invalidRows: huntCatalog.invalidRows,
+            latestFirstSeenAt: huntCatalog.latestFirstSeenAt },
+          candidates,
+        });
+      } catch (err) {
+        sendJSON(res, 500, { error: err.message });
+      }
+    },
+
+    // ── v133: Model Overview (consolidated view) ──────────────────────
+    // Decision 020/E: the only supported way to change automation policy.
+    'GET /api/system/models/policy': async (req, res) => {
+      const state = readModelAutomationPolicy(db.db);
+      sendJSON(res, 200, {
+        status: state.status,
+        valid: state.valid,
+        reason: state.reason,
+        revision: state.revision,
+        policy: state.policy,
+      });
+    },
+
+    'PUT /api/system/models/policy': async (req, res) => {
+      try {
+        const body = await parseBody(req);
+        if (!body || typeof body !== 'object' || Array.isArray(body)) {
+          return sendJSON(res, 400, { error: 'Policy body must be an object' });
+        }
+        const { expectedRevision, ...values } = body;
+        if (!Number.isInteger(expectedRevision)) {
+          return sendJSON(res, 400, { error: 'expectedRevision is required' });
+        }
+        const result = updateModelAutomationPolicy(db.db, {
+          values,
+          expectedRevision,
+          actor: 'user:typed-route',
+          source: POLICY_SOURCE.TYPED_ROUTE,
+        });
+        return sendJSON(res, 200, {
+          ok: true,
+          revision: result.revision,
+          policy: result.policy,
+        });
+      } catch (err) {
+        return sendJSON(res, err?.httpStatus || 500, {
+          error: err.message,
+          code: err?.code || null,
+        });
+      }
+    },
+
+    'GET /api/system/models/overview': async (req, res) => {
+      try {
+        if (!modelRegistry) {
+          return sendJSON(res, 501, { error: 'ModelRegistry not initialized' });
+        }
+        const overview = await modelRegistry.getOverview();
+        sendJSON(res, 200, overview);
+      } catch (err) {
+        sendJSON(res, 500, { error: err.message });
+      }
+    },
+
+    'GET /api/system/models/evaluations/:runId': async (req, res) => {
+      try {
+        if (!modelRegistry) return sendJSON(res, 503, { error: 'Evaluation history authority unavailable' });
+        const runId = req.params?.runId || decodeURIComponent(req.url.split('?')[0].split('/').pop());
+        return sendJSON(res, 200, modelRegistry.getEvaluationRun(runId));
+      } catch (error) {
+        sendJSON(res, error.httpStatus || 503, { error: error.message, code: error.code });
+      }
+    },
+
+    'GET /api/system/models/evaluations': async (req, res) => {
+      try {
+        if (!modelRegistry) {
+          return sendJSON(res, 503, { error: 'Model evaluation read authority is unavailable' });
+        }
+        const evaluations = await modelRegistry.getEvaluations();
+        sendJSON(res, 200, evaluations);
+      } catch (err) {
+        sendJSON(res, err?.httpStatus || 500, {
+          error: err.message,
+          code: err?.code || null,
+        });
+      }
+    },
+
+  };
+}

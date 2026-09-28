@@ -1,0 +1,308 @@
+import { fixture as studioFixture } from './helpers/studio2-live-harness.js';
+import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
+import assert from 'node:assert/strict';
+import { after, test } from 'node:test';
+import { mkdirSync, readFileSync } from 'node:fs';
+import vm from 'node:vm';
+import Database from 'better-sqlite3';
+
+process.env.INTENTSMITH_ENABLE_LIFECYCLE = 'false';
+process.env.INTENTSMITH_ENABLE_AGENTS = 'false';
+process.env.INTENTSMITH_ENABLE_SKILLS = 'false';
+process.env.INTENTSMITH_ENABLE_ONLINE_DISCOVERY = 'false';
+process.env.OLLAMA_URL = 'invalid://privacy-regression-no-provider';
+const { default: database } = await import('../src/db/database.js');
+const { longTermMemory } = await import('../src/memory/long-term.js');
+const { chatMemory } = await import('../src/memory/chat-memory.js');
+const { updateUserSettings, readChatMemoryPolicy } = await import('../src/db/user-settings.js');
+const { preHandle } = await import('../src/chat/handlers/pre-handler.js');
+const { ChatController, ChatMode, SessionState, createTaggedResponse } = await import('../src/chat/controller.js');
+const { getConversationStore } = await import('../src/chat/conversation-store.js');
+longTermMemory.db = database.db;
+longTermMemory.init();
+const store = getConversationStore(database);
+function settings(value) {
+  database.db.prepare('INSERT OR REPLACE INTO user_settings (id,data) VALUES (1,?)').run(JSON.stringify(value));
+}
+function project(name) {
+  const path = `${isolatedTestRuntime.projects}/${name}`;
+  mkdirSync(path, { recursive: true });
+  return Number(database.projects.create.run(name, path, '').lastInsertRowid);
+}
+const a = project('privacy-A'), b = project('privacy-B');
+for (const [id, projectId] of [['privacy:A', a], ['privacy:A2', a], ['privacy:B', b], ['privacy:free1', null], ['privacy:free2', null]]) {
+  store.ensureConversation(id, { projectId });
+}
+const context = id => ({ conversationId: id, sessionId: id,
+  sessionState: { lastDecision: { type: 'ANSWER' }, lastIntent: 'CODE', lastUserInput: 'old private input' } });
+const count = () => database.db.prepare('SELECT count(*) AS n FROM memory').get().n;
+after(() => { ChatController.stopCleanup(); database.close(); });
+
+test('unsupported history opt-out is rejected atomically by the shared writer', () => {
+  settings({ retained: 'sentinel' });
+  assert.throws(() => updateUserSettings(database.db, d => ({ ...d, memory: { saveHistory: false } })),
+    { code: 'CHAT_EPHEMERAL_UNSUPPORTED' });
+  assert.deepEqual(JSON.parse(database.db.prepare('SELECT data FROM user_settings').get().data), { retained: 'sentinel' });
+  for (const invalid of ['false', null, 0]) {
+    assert.throws(() => updateUserSettings(database.db, () => ({ 'intentsmith.memory.ltmEnabled': invalid })),
+      { code: 'MEMORY_SETTINGS_INVALID' });
+  }
+});
+
+test('persisted disabled history blocks a real controller turn before any content persistence', async () => {
+  settings({ memory: { saveHistory: false } });
+  await assert.rejects(ChatController.handle({ message: 'DO_NOT_PERSIST_PRIVATE_CANARY', sessionId: 'privacy:blocked', conversationId: 'privacy:blocked' }),
+    { code: 'CHAT_PRIVACY_UNAVAILABLE' });
+  assert.equal(store.getConversation('privacy:blocked'), null);
+  assert.equal(database.db.prepare('SELECT count(*) AS n FROM messages WHERE content LIKE ?').get('%DO_NOT_PERSIST_PRIVATE_CANARY%').n, 0);
+});
+
+test('Studio rejects disabled history before emitting content to progress observers', async () => {
+  settings({ memory: { saveHistory: false } });
+  const { createSessionAdapter } = await import('../src/ws-bridge/session-adapter.js');
+  const frames = [], observed = [];
+  let calls = 0;
+  const adapter = createSessionAdapter({
+    send: raw => frames.push(JSON.parse(raw)),
+    assertChatAllowed: () => ChatController.assertPersistence(),
+    handleRequest: () => { calls++; throw new Error('must not execute'); },
+    authenticatedSubject: { actorType: 'user', actorId: 'local-operator' },
+    observeCoreEvent: event => observed.push(event),
+    logger: { info() {}, warn() {}, error() {} },
+  });
+  try {
+    await adapter.processM1Command({ command: { contract: 'ConversationCommand', version: 1,
+      requestId: 'privacy:ws:request', conversationId: 'privacy:ws', turnId: 'privacy:ws:turn',
+      action: 'send', input: 'PRIVATE_WS_CANARY' },
+    context: { editMode: 'ask', agentId: null, projectId: null, attachments: [] } });
+    assert.equal(calls, 0);
+    assert.match(JSON.stringify(frames), /CHAT_PRIVACY_UNAVAILABLE/);
+    assert.doesNotMatch(JSON.stringify([frames, observed]), /PRIVATE_WS_CANARY/);
+  } finally { adapter.cleanup(); }
+});
+
+test('Studio settings save rejects failed HTTP and reloads persisted values', async () => {
+  const f = studioFixture(), persisted = { 'intentsmith.memory.ltmEnabled': true };
+  f.widget.catalog.get = async () => persisted;
+  f.model._settingsResources.set('pamet', { status: 'ready', data: persisted });
+  f.model._preferenceDrafts.set('pamet', { 'intentsmith.memory.ltmEnabled': false });
+  f.model.fetchImpl = async () => ({ ok: false, status: 400, json: async () => ({ error: 'Rejected settings' }) });
+  assert.equal(await f.model.savePreferences('pamet'), false);
+  assert.equal(f.model._settingsResources.get('pamet').data['intentsmith.memory.ltmEnabled'], true);
+  assert.match(f.model._preferenceNotice.get('pamet'), /Rejected settings/);
+  assert.equal(f.model._preferenceDrafts.get('pamet')['intentsmith.memory.ltmEnabled'], false);
+});
+
+test('each learning opt-out prevents the real feedback intercept from writing a correction', async () => {
+  for (const disabled of [
+    { memory: { saveContext: false } }, { 'intentsmith.memory.ltmEnabled': false },
+    { 'intentsmith.memory.learningEnabled': false }, { 'intentsmith.memory.feedbackDetection': false },
+  ]) {
+    settings(disabled);
+    const before = count();
+    await preHandle('actually I meant MUST_NOT_LEARN', context('privacy:A'), ChatMode.PROJECT);
+    assert.equal(count(), before, JSON.stringify(disabled));
+  }
+});
+
+test('malformed storage fails closed and disabled pattern tracking drops buffered input', () => {
+  settings({ 'intentsmith.memory.patternTracking': false });
+  assert.equal(chatMemory(context('privacy:A')).patterns, null);
+  settings({ memory: { saveContext: false } });
+  assert.equal(chatMemory(context('privacy:A')).ltm, null);
+  const malformed = new Database(':memory:');
+  malformed.exec("CREATE TABLE user_settings (id INTEGER, data TEXT); INSERT INTO user_settings VALUES (1,'[]')");
+  assert.equal(readChatMemoryPolicy(malformed).history, false);
+  assert.equal(readChatMemoryPolicy(malformed).feedback, false);
+  malformed.close();
+});
+
+test('real correction is durable only in its project; old unscoped memories stay quarantined', async () => {
+  settings({});
+  longTermMemory.write({ kind: 'correction', key: 'historical', value: { corrected: 'UNSCOPED_PRIVATE_CANARY' } });
+  await preHandle('actually I meant PROJECT_A_PRIVATE_CANARY', context('privacy:A'), ChatMode.PROJECT);
+  const rows = database.db.prepare("SELECT user_id,value FROM memory WHERE kind='correction'").all();
+  const own = rows.find(r => r.value.includes('PROJECT_A_PRIVATE_CANARY'));
+  assert.ok(own);
+  assert.deepEqual(JSON.parse(own.value).provenance, { conversationId: 'privacy:A', scope: ['project', a] });
+  const reopened = new Database(isolatedTestRuntime.database, { readonly: true });
+  assert.equal(reopened.prepare('SELECT value FROM memory WHERE user_id = ?').get(own.user_id).value, own.value);
+  reopened.close();
+
+  const observed = [];
+  const handler = async (_input, ctx) => {
+    const budget = await ctx.buildBudgetedContext('CONVERSATIONAL');
+    observed.push({ context: ctx.ltmContext, budget: JSON.stringify(budget) });
+    return createTaggedResponse(ctx.ltmContext || 'No project memory', { speaker: 'system', mode: ctx.mode, confidence: 1 });
+  };
+  ChatController.configure({ handlers: { [ChatMode.CONVERSATION]: handler, [ChatMode.PROJECT]: handler } });
+  for (const [id, expected] of [['privacy:A2', true], ['privacy:B', false], ['privacy:free1', false]]) {
+    const response = await ChatController.handle({ message: 'show scoped context', sessionId: id, conversationId: id });
+    assert.equal(response.response.includes('PROJECT_A_PRIVATE_CANARY'), expected, id);
+    const last = observed.at(-1);
+    assert.equal(last.context.includes('PROJECT_A_PRIVATE_CANARY'), expected, id);
+    assert.equal(last.budget.includes('PROJECT_A_PRIVATE_CANARY'), expected, id);
+    assert.equal(JSON.stringify(last).includes('UNSCOPED_PRIVATE_CANARY'), false, id);
+  }
+  // Caller-supplied project IDs cannot rebind a conversation's memory scope.
+  const forged = chatMemory({ conversationId: 'privacy:B', projectId: a });
+  assert.equal(JSON.stringify(forged.ltm.queryByKind('correction')).includes('PROJECT_A_PRIVATE_CANARY'), false);
+});
+
+test('projectless learning stays in the same conversation and disabling LTM removes context', async () => {
+  settings({});
+  await preHandle('actually I meant FREE_PRIVATE_CANARY', context('privacy:free1'), ChatMode.CONVERSATION);
+  assert.match(JSON.stringify(chatMemory(context('privacy:free1')).ltm.queryByKind('correction')), /FREE_PRIVATE_CANARY/);
+  assert.doesNotMatch(JSON.stringify(chatMemory(context('privacy:free2')).ltm.queryByKind('correction')), /FREE_PRIVATE_CANARY/);
+  settings({ 'intentsmith.memory.ltmEnabled': false });
+  const response = await ChatController.handle({ message: 'no learned memory', sessionId: 'privacy:A2', conversationId: 'privacy:A2' });
+  assert.equal(response.response, 'No project memory');
+});
+
+test('context opt-out suppresses project working memory in fresh, warm and restored sessions without deleting it', async () => {
+  const { projectHandler } = await import('../src/chat/handlers/project.js');
+  settings({});
+  SessionState.initProjectMemoryDb(database.projectMemory);
+  ChatController.configure({ handlers: { [ChatMode.PROJECT]: projectHandler, [ChatMode.CONVERSATION]: projectHandler } });
+  const pid = project('working-memory-privacy');
+  const fields = { goal: 'SAVED_WORKING_GOAL_CANARY', activeFile: 'SAVED_WORKING_FILE_CANARY', lastArtifactId: 'SAVED_WORKING_ARTIFACT_CANARY' };
+  for (const [field, value] of Object.entries(fields)) database.projectMemory.set.run(pid, `wm:${field}`, value, 'working_memory');
+  const savedRows = () => database.projectMemory.listByCategory.all(pid, 'working_memory');
+  const before = savedRows();
+  const ask = id => ChatController.handle({ message: 'Jaký je stav projektu?', sessionId: id, conversationId: id, context: { projectId: pid } });
+  const enabled = await ask('privacy:wm:warm');
+  for (const value of Object.values(fields)) assert.ok(enabled.response.includes(value), 'positive control uses the actual project handler');
+  const storedState = store.loadSessionState('privacy:wm:warm');
+  assert.ok(storedState.includes(fields.goal));
+
+  updateUserSettings(database.db, () => ({ memory: { saveContext: false } }));
+  for (const id of ['privacy:wm:warm', 'privacy:wm:fresh']) {
+    const result = await ask(id);
+    assert.doesNotMatch(JSON.stringify(result), /SAVED_WORKING_/, id);
+    assert.doesNotMatch(store.loadSessionState(id), /SAVED_WORKING_/, 'serialized session must not carry hidden working memory');
+  }
+  store.ensureConversation('privacy:wm:restored', { projectId: pid });
+  store.saveSessionState('privacy:wm:restored', JSON.stringify({ ...JSON.parse(storedState), sessionId: 'privacy:wm:restored' }));
+  assert.doesNotMatch(JSON.stringify(await ask('privacy:wm:restored')), /SAVED_WORKING_/);
+  assert.deepEqual(savedRows(), before, 'restoration and opt-out neither rewrite nor delete saved project rows');
+
+  // An explicit goal still guides this live session (including drift checks),
+  // but cannot become persisted context while saving context is disabled.
+  const live = ChatController.getState('privacy:wm:fresh');
+  live.setProjectGoal('EXPLICIT_VOLATILE_GOAL').setActiveFile('EXPLICIT_VOLATILE_FILE').setLastArtifact('EXPLICIT_VOLATILE_ARTIFACT');
+  live.incrementDriftCount();
+  const explicit = await ask('privacy:wm:fresh');
+  assert.match(explicit.response, /EXPLICIT_VOLATILE_GOAL/);
+  assert.equal(live.shouldBlockDrift(), true);
+  assert.deepEqual(savedRows(), before);
+  assert.doesNotMatch(store.loadSessionState('privacy:wm:fresh'), /EXPLICIT_VOLATILE_/);
+  const reloaded = SessionState.loadFromStorage('privacy:wm:fresh');
+  assert.equal(reloaded.projectGoal, null);
+  assert.equal(reloaded.activeFile, null);
+
+  updateUserSettings(database.db, () => ({ memory: { saveContext: true } }));
+  const reenabled = await ask('privacy:wm:fresh');
+  for (const value of Object.values(fields)) assert.ok(reenabled.response.includes(value));
+  assert.doesNotMatch(reenabled.response, /EXPLICIT_VOLATILE_/);
+  assert.deepEqual(savedRows(), before);
+});
+
+test('session info and direct serialization honor context opt-out without touching lifecycle or creating sessions', () => {
+  const realNow = Date.now;
+  let now = 1_800_000_000_000;
+  const id = 'privacy:info:warm';
+  try {
+    Date.now = () => now;
+    settings({ memory: { saveContext: true } });
+    ChatController.getSessionManager().getSession(id);
+    const live = ChatController.getState(id);
+    live.setProject({ id: a, name: 'privacy-A' });
+    live.setProjectGoal('INFO_CONTEXT_GOAL').setActiveFile('INFO_CONTEXT_FILE').setLastArtifact('INFO_CONTEXT_ARTIFACT');
+    live.incrementDriftCount();
+    live.saveToStorage();
+    const persisted = store.loadSessionState(id);
+    const projectRows = database.projectMemory.listByCategory.all(a, 'working_memory');
+    const before = ChatController.getSessionInfo(id);
+    assert.match(JSON.stringify(before), /INFO_CONTEXT_GOAL/);
+    const active = ChatController.getActiveSessions();
+
+    settings({ memory: { saveContext: false } });
+    now += 1000;
+    const hidden = ChatController.getSessionInfo(id); // no getState or new chat turn
+    assert.equal(hidden.exists, true);
+    assert.equal(Object.hasOwn(hidden.state, 'projectWorkingMemory'), false);
+    assert.doesNotMatch(JSON.stringify(hidden), /INFO_CONTEXT_/);
+    assert.equal(hidden.state.updatedAt, before.state.updatedAt);
+    assert.deepEqual(hidden.lifecycle, { ...before.lifecycle,
+      idleMs: before.lifecycle.idleMs + 1000, ageMs: before.lifecycle.ageMs + 1000,
+      expiresIn: before.lifecycle.expiresIn - 1000 });
+    assert.equal(Object.hasOwn(live.toJSON(), 'projectWorkingMemory'), false);
+    assert.doesNotMatch(JSON.stringify(live), /INFO_CONTEXT_/);
+    assert.equal(live.projectGoal, 'INFO_CONTEXT_GOAL', 'inspection does not mutate cached state');
+    assert.equal(store.loadSessionState(id), persisted, 'inspection does not rewrite serialized storage');
+    assert.deepEqual(database.projectMemory.listByCategory.all(a, 'working_memory'), projectRows);
+    assert.deepEqual(ChatController.getSessionInfo('privacy:info:missing'),
+      { exists: false, mode: null, state: null, lifecycle: null });
+    assert.deepEqual(ChatController.getActiveSessions(), active);
+
+    settings({ memory: { saveContext: 'invalid' } });
+    assert.equal(Object.hasOwn(ChatController.getSessionInfo(id).state, 'projectWorkingMemory'), false);
+    settings({ memory: { saveContext: true } });
+    assert.deepEqual(ChatController.getSessionInfo(id).state.projectWorkingMemory, before.state.projectWorkingMemory);
+  } finally {
+    Date.now = realNow;
+    settings({});
+    ChatController.removeSession(id);
+  }
+});
+
+test('shipped Studio handler uses native routes, reports actual outcomes and preserves enabled state', async () => {
+  const { AgentRepository, initAgentTables } = await import('../src/agents/repository.js');
+  initAgentTables(database.db);
+  const { AgentExtensionService } = await import('../src/extensions/agent-extension-service.js');
+  const { AgentRunner } = await import('../src/agents/runner.js');
+  const { AgentScheduler } = await import('../src/agents/scheduler.js');
+  const { createAgentProjectContextBridge } = await import('../src/extensions/agent-project-context.js');
+  const { createAgentPlatformRoutes } = await import('../src/routes/agents.js');
+  const repository = new AgentRepository(database.db);
+  const bridge = createAgentProjectContextBridge({ projects: database.projects });
+  const service = new AgentExtensionService({ repository,
+    hostCapabilities: { 'code-intel.project-context.v1': bridge.capability } });
+  service.discover();
+  const logger = { info() {}, warn() {}, error() {} };
+  const runner = new AgentRunner({ repository, extensionService: service, projectContextBridge: bridge, logger });
+  const scheduler = new AgentScheduler({ repository, runner, logger });
+  service.attachScheduler(scheduler);
+  service.install('project-health', { instanceId: 'privacy-native', params: { project_id: a }, enabled: false });
+  let routeResponse;
+  const routes = createAgentPlatformRoutes({ agentExtensionService: service,
+    sendJSON: (_res, status, body) => { routeResponse = { status, body }; } });
+  const f = studioFixture(); let calls = [], override = null;
+  const worker = { id: 'privacy-native', name: 'Scoped agent', native: true };
+  f.widget.catalog.get = async () => ({ ...repository.getAgent(worker.id), recentRuns: repository.getRunHistory(worker.id) });
+  f.widget.catalog.view = () => ({ status: 'ready', items: [{ ...worker, raw: repository.getAgent(worker.id) }] });
+  f.widget.catalog.mutate = async (path, method) => {
+    calls.push(path);
+    if (!override) await routes[`${method} /api/agent-extensions/instances/:agentId/${path.split('/').at(-1)}`]({}, {}, { agentId: worker.id });
+    const response = override || routeResponse;
+    if (response.status < 200 || response.status >= 300) throw Error(response.body.error);
+    return response.body;
+  };
+  await f.model.loadWorkerDetail(worker.id);
+  assert.equal(await f.model.pWorkerAction(worker, 'run'), false); assert.match(f.widget.catalogActionError, /skipped/);
+  assert.equal(await f.model.pWorkerAction(worker, 'enable'), true);
+  assert.equal(await f.model.pWorkerAction(worker, 'run'), true);
+  assert.equal(await f.model.pWorkerAction(worker, 'disable'), true);
+  const reopened = new Database(isolatedTestRuntime.database, { readonly: true });
+  assert.equal(reopened.prepare('SELECT enabled FROM agents_v33 WHERE id = ?').get(worker.id).enabled, 0); reopened.close();
+  for (const response of [{ status: 410, body: { error: 'LEGACY_AGENT_MUTATION_RETIRED' } },
+    { status: 200, body: { status: 'error' } }, { status: 200, body: { status: 'partial' } }, { status: 200, body: {} }]) {
+    override = response; assert.equal(await f.model.pWorkerAction(worker, 'run'), false); assert.ok(f.widget.catalogActionError);
+  }
+  override = { status: 200, body: { id: worker.id, enabled: true } };
+  assert.equal(await f.model.pWorkerAction(worker, 'disable'), false); assert.match(f.widget.catalogActionError, /neodpovídá/);
+  worker.native = false;
+  f.model._workerDetails.set(worker.id, { status: 'ready', data: { definition: {} } });
+  const before = calls.length; assert.equal(await f.model.pWorkerAction(worker, 'run'), false); assert.equal(calls.length, before);
+  assert.ok(calls.every(path => path.startsWith('/api/agent-extensions/instances/')));
+});

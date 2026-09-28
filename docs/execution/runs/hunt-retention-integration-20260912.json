@@ -1,0 +1,56 @@
+{
+  "recordedAt": "2026-09-12T12:09:40.423621+00:00",
+  "status": "IMPLEMENTATION_VERIFIED / REVIEW_PENDING / PHYSICAL_MODEL_JOURNEY_UNPROVEN / ACCEPTANCE_BLOCKED",
+  "inputs": [
+    "16fed51f019d684441f9714bd655024150851fdf",
+    "ee4472d568f8caa762890e734ddea29f0d22e73f"
+  ],
+  "mergeCommit": "7d33e6315ad2dcf5f7315c91dab95bab022e9bbd",
+  "sourceRevision": "ed595ad3748766dba644a5e4c19df990ea0d70de",
+  "deterministic": {
+    "report": ".intentsmith-artifacts/audit/hunt-retention-integration-20260912-01/report.json",
+    "sha256": "a94f430742756311297ea857fcf87feec912d8b4c227c7e2c5b47067ad2d33d1",
+    "counts": {
+      "PASS": 353,
+      "FAIL": 0,
+      "TIMEOUT": 0,
+      "BLOCKED": 0,
+      "SKIPPED": 0
+    }
+  },
+  "http": {
+    "report": ".intentsmith-artifacts/run-suites/2026-09-12T12-06-40-202Z/report.json",
+    "steps": {
+      "lifecycle": 75,
+      "web": 7
+    },
+    "realProcessRestarts": 2
+  },
+  "studio": {
+    "report": ".intentsmith-artifacts/hunt-retention-studio-runtime-20260912-01/result.json",
+    "programs": 3,
+    "pass": 3,
+    "priorM1CaptureFailure": "Retained at 71968508; cause remains unproven. Current run is not a root-cause fix."
+  },
+  "focused": {
+    "runId": "2026-09-12T11-56-35-050Z",
+    "sourceRevision": "7d33e6315ad2dcf5f7315c91dab95bab022e9bbd",
+    "modelUpgrade": 99,
+    "registryAuthority": 20,
+    "schema": 61,
+    "cdpEvidence": 63
+  },
+  "registry": {
+    "count": 516,
+    "sha256": "162b890b97142127fdd4859bc48a02056a837b3fd2773e26d8a130e0e55f4deb"
+  },
+  "graph": {
+    "edges": 1330,
+    "cycles": 3,
+    "membersInCycles": 28,
+    "addedEdges": 7,
+    "removedEdges": 0
+  },
+  "runtimeChanges": "None to foreign checkout, live provider/GPU/models/bindings/services/databases",
+  "reviewPacket": "docs/review/2026-09-12-HUNT-RETENTION-INTEGRATION-REVIEW-PACKET.md"
+}

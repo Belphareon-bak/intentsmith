@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+# Build only: no install, service restart, model load or change to role bindings.
+set -euo pipefail
+
+if [[ $# != 1 || -z "$1" ]]; then
+  echo "Usage: GO_BIN=/path/to/go $0 /new/output/directory" >&2
+  exit 2
+fi
+script_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+go_bin=$(command -v "${GO_BIN:-go}") || {
+  echo "Go 1.26.7 is required; set GO_BIN to its executable." >&2
+  exit 2
+}
+[[ "$("$go_bin" version)" == "go version go1.26.7 linux/amd64" ]] || {
+  echo "Expected Go 1.26.7 for linux/amd64." >&2
+  exit 2
+}
+provider_tag=${OLLAMA_PROVIDER_TAG:-v0.34.2}
+provider_revision=${OLLAMA_PROVIDER_REVISION:-$([[ "$provider_tag" == v0.34.0 ]] && echo 2 || echo 1)}
+[[ "$provider_revision" == 1 || ( ( "$provider_tag" == v0.34.0 || "$provider_tag" == v0.34.2 ) && "$provider_revision" == 2 ) ]] || {
+  echo "Unsupported provider revision." >&2; exit 2
+}
+case "$provider_tag" in
+v0.32.14)
+provider_version=0.32.14-intentsmith.1
+expected_base=d67ad83426633195089509347ffd4fe795120198
+expected_source=0cb3844557c2cbf0beac555da0147279eebd9488
+# This build recipe has its own identity. The historically installed binary
+# is 72580ab98c5c82afe9cf73e5b7400b1d3cd94ec0777f961d1aefab878146878a.
+expected_binary=bdd8ca1320a1332b6977a3d7bc4b26d370e4e36c10188b6983998632568b1e20
+patch_name=0001-chat-response-manifest-digest.patch
+source_epoch=1787926490
+;;
+v0.34.0)
+provider_version=0.34.0-intentsmith.1
+expected_base=d8ab4b4f0ca24b51d3a46b3bf4f462e58ce66b1f
+expected_source=e8c2d86c3a056b58031c77ec5141a8ecd7cf923a
+expected_binary=8883245b864485a74ecccf62c4ce17d4538816cde4e37ea2107c2204d1d04ca7
+patch_name=0002-v0.34.0-chat-digest-provider-version.patch
+source_epoch=1789160400
+;;
+v0.34.2)
+provider_version=0.34.2-intentsmith.1
+expected_base=dfabde4539e42ba1e1eab50a3a50b88aea7958a0
+expected_source=cd1553287618f6583c793fc4e5f9199b5bd8e894
+expected_binary=2b98fceffbc6d5d97a6e96ddfd46c597cee4fa06a03d740fdb74dd9a34ff0f92
+patch_name=0004-v0.34.2-attested-complete-responses.patch
+source_epoch=1789825500
+;;
+*) echo "Unsupported provider tag: $provider_tag" >&2; exit 2 ;;
+esac
+if [[ "$provider_revision" == 2 && "$provider_tag" == v0.34.0 ]]; then
+  provider_version=0.34.0-intentsmith.2
+  expected_source=4b548b3d49c8bb79b08673bfebc3c2f1f8468fd7
+  expected_binary=3c22a0cfb46a9ea38fd4dba6746a022be04f5ada21a529e83c9380a5f0547b9d
+fi
+if [[ "$provider_revision" == 2 && "$provider_tag" == v0.34.2 ]]; then
+  provider_version=0.34.2-intentsmith.2
+  expected_source=2206cee85bf2cbe12ea69101aa7d76b91cd8cbb4
+  expected_binary=351d992d509eb4c0d97dea75111de1b91d1bec8643dd46a88355fd0b7f11cef3
+  source_epoch=1789940160
+fi
+mkdir -- "$1"
+output=$(cd -- "$1" && pwd)
+source_dir="$output/source"
+patch_file="$script_root/patches/ollama/$patch_name"
+git -c core.hooksPath=/dev/null clone --no-local --depth=1 --single-branch \
+  --branch "$provider_tag" "${OLLAMA_SOURCE_URL:-https://github.com/ollama/ollama.git}" "$source_dir"
+[[ "$(git -C "$source_dir" rev-parse HEAD)" == "$expected_base" ]] || {
+  echo "Ollama tag identity mismatch." >&2
+  exit 1
+}
+git -C "$source_dir" -c core.hooksPath=/dev/null -c commit.gpgSign=false \
+  -c user.name=Belphareon -c user.email=geofery.cz@gmail.com \
+  am --committer-date-is-author-date "$patch_file"
+if [[ "$provider_revision" == 2 && "$provider_tag" == v0.34.0 ]]; then
+  git -C "$source_dir" -c core.hooksPath=/dev/null -c commit.gpgSign=false \
+    -c user.name=Belphareon -c user.email=geofery.cz@gmail.com \
+    am --committer-date-is-author-date "$script_root/patches/ollama/0003-v0.34.0-complete-repeated-code-tokens.patch"
+fi
+if [[ "$provider_revision" == 2 && "$provider_tag" == v0.34.2 ]]; then
+  git -C "$source_dir" -c core.hooksPath=/dev/null -c commit.gpgSign=false \
+    -c user.name=Belphareon -c user.email=geofery.cz@gmail.com \
+    am --committer-date-is-author-date "$script_root/patches/ollama/0005-v0.34.2-generate-response-digest.patch"
+fi
+[[ "$(git -C "$source_dir" rev-parse HEAD)" == "$expected_source" ]] || {
+  echo "Patched source identity mismatch." >&2
+  exit 1
+}
+[[ -z "$(git -C "$source_dir" status --porcelain)" ]] || exit 1
+
+export GOTOOLCHAIN=local GOENV=off GOTELEMETRY=off
+export GOOS=linux GOARCH=amd64 GOAMD64=v1 CGO_ENABLED=1
+# mlx/dynamic.h embeds __DATE__/__TIME__. GCC honors SOURCE_DATE_EPOCH,
+# but Go's cgo cache does not key on it: each reproduction needs a fresh cache.
+export SOURCE_DATE_EPOCH="$source_epoch"
+export GOCACHE="$output/gocache"
+export GOMODCACHE="${GOMODCACHE:-$output/gomodcache}"
+(
+  cd -- "$source_dir"
+  "$go_bin" build -mod=readonly -p=2 -trimpath \
+    "-ldflags=-s -w -X github.com/ollama/ollama/version.Version=$provider_version" \
+    -o "$output/ollama" .
+)
+"$go_bin" version -m "$output/ollama" > "$output/build-info.txt"
+sha256sum "$output/ollama" > "$output/actual.sha256"
+printf '%s  %s\n' "$expected_binary" "$output/ollama" | sha256sum --check
+[[ -z "$(git -C "$source_dir" status --porcelain)" ]] || exit 1
+echo "BUILD_VERIFIED: $output/ollama (runtime qualification and native payload required)"

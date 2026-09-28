@@ -1,0 +1,55 @@
+[
+  {
+    "form": "DPHKH1",
+    "url": "https://adisspr.mfcr.cz/adis/jepo/schema/dphkh1_epo2.xsd",
+    "descriptionUrl": "https://adisspr.mfcr.cz/dpr/adis/idpr_pub/epo2_info/popis_struktury_detail.faces?zkratka=DPHKH1",
+    "retrievedAt": "2026-09-12",
+    "sha256": "addb0763b4d710120726751ebd2025949414842ac574982925183dfeee96f923",
+    "bytes": 122058
+  },
+  {
+    "form": "DPHDP3",
+    "url": "https://adisspr.mfcr.cz/adis/jepo/schema/dphdp3_epo2.xsd",
+    "descriptionUrl": "https://adisspr.mfcr.cz/dpr/adis/idpr_pub/epo2_info/popis_struktury_detail.faces?zkratka=DPHDP3",
+    "retrievedAt": "2026-09-12",
+    "sha256": "1373ad0c719123228b8bfe75f019338ba53ce12494c80dda9fc9e3682eb4fde7",
+    "bytes": 132755
+  },
+  {
+    "form": "DPFDP7",
+    "url": "https://adisspr.mfcr.cz/adis/jepo/schema/dpfdp7_epo2.xsd",
+    "descriptionUrl": "https://adisspr.mfcr.cz/dpr/adis/idpr_pub/epo2_info/popis_struktury_detail.faces?zkratka=DPFDP7",
+    "retrievedAt": "2026-09-12",
+    "sha256": "139c8e8f6ad6f141695cb94754c0734f39de41e8a56fdf495d08b16ba5e82917",
+    "bytes": 257702
+  },
+  {
+    "form": "osvc25.xsd",
+    "url": "https://www.cssz.gov.cz/documents/20143/3201321/OSVC25.xsd/5d467add-4c11-0e56-4d54-d455b56c15c9",
+    "retrievedAt": "2026-09-12",
+    "sha256": "6abb40752f9fe5a06dfcdec9a362a2b74b86da6baaf1d3c6227a68fc3422f2b9",
+    "bytes": 17528
+  },
+  {
+    "form": "osvc25-example.xml",
+    "url": "https://www.cssz.gov.cz/documents/20143/3201321/OSVC25+vzor.xml/e2a3c68f-e8f1-f701-ede0-30dabb8c4b35",
+    "retrievedAt": "2026-09-12",
+    "sha256": "4ae374b099ebad1f914dff7f9d8bfd7f8084f12a1b7883aa62c4553e94be479d",
+    "bytes": 3063
+  },
+  {
+    "form": "ozp-prehled_OSVC_2025_v5_1.xsd",
+    "url": "https://www.ozp.cz/web/files/formulare/prehled_OSVC_2025_v5_1.zip?251204",
+    "member": "prehled_OSVC_2025_v5_1.xsd",
+    "retrievedAt": "2026-09-12",
+    "sha256": "2fba4a29fea04a57fbddf7a7b8649080beed52f4bc105790219c0ac2a250e5a2",
+    "bytes": 26077
+  },
+  {
+    "form": "baseTypes2.xsd",
+    "url": "https://www.cssz.gov.cz/documents/20143/99647/baseTypes2.xsd/9f54f063-f1de-2ce6-ae8c-4d2dc7542af4",
+    "retrievedAt": "2026-09-12",
+    "sha256": "579888e1dd29a60eb66b26dcf32031658ead51618c74f9f96fabf8d7a1305747",
+    "bytes": 13581
+  }
+]

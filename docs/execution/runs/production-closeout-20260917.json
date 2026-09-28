@@ -1,0 +1,2821 @@
+{
+  "schemaVersion": 1,
+  "status": "INSTALLED_REVIEW_REQUIRED_RELEASE_NOT_ACCEPTED",
+  "capturedAt": "2026-09-17T16:33:59.785461+00:00",
+  "candidateRevision": "c2989a3e1a36fe61c080aa57e4ce33b41f4d4735",
+  "branch": "work/production-closeout-20260917",
+  "reviewBase": "9b031278f6eb7c7cc2771057fbd86c2783dc5206",
+  "merge": {
+    "revision": "adcccef8235190f7c43bca403e4cb292ac73a671",
+    "parents": [
+      "9b031278f6eb7c7cc2771057fbd86c2783dc5206",
+      "023af4dd877c0477496e041c50b3c3ba4d2ed56d"
+    ]
+  },
+  "documentationCommitIsSeparate": true,
+  "releaseAcceptance": false,
+  "independentReview": "PENDING",
+  "priorIndependentVerdict": "CHANGES_REQUIRED",
+  "artifactRoot": "/home/belphareon/Projects/intentsmith-audit-20260911-FNF2jj/snapshot/.intentsmith-artifacts/production-closeout-20260917",
+  "installedArtifactRoot": "/home/belphareon/.local/share/intentsmith/releases/c2989a3e1a36fe61c080aa57e4ce33b41f4d4735/.intentsmith-artifacts/production-closeout-20260917",
+  "deterministic": {
+    "sourceRevision": "c2989a3e1a36fe61c080aa57e4ce33b41f4d4735",
+    "registryHash": "f0358f4af7bc6b702b2c8b08f10c472364c9cf0a699bfe3f76c7189cb1c777f1",
+    "startedAt": "2026-09-17T16:16:17.831Z",
+    "endedAt": "2026-09-17T16:20:42.989Z",
+    "statusCounts": {
+      "PASS": 358,
+      "FAIL": 1,
+      "TIMEOUT": 0,
+      "BLOCKED": 0,
+      "SKIPPED": 0
+    },
+    "verdict": "FAIL",
+    "exitCode": 1,
+    "options": {
+      "concurrency": 1,
+      "failFast": false,
+      "timeoutMs": 600000,
+      "deadlineMs": 28800000,
+      "profiles": [
+        "database",
+        "offline"
+      ],
+      "ids": [],
+      "exclude": [],
+      "allowBlockers": [
+        "toolchain:accountant-ocr-runtime",
+        "toolchain:bubblewrap",
+        "toolchain:bwrap",
+        "toolchain:git",
+        "toolchain:prlimit",
+        "toolchain:python-pdf-runtime",
+        "toolchain:systemd-analyze"
+      ],
+      "noBlock": false
+    },
+    "report": {
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/report.json",
+      "sha256": "bb124a32f298c73263a36a504d49e78817c89461d2225037f23e5ba2896b3db8"
+    },
+    "verifiedLogs": 359,
+    "nonPass": [
+      {
+        "id": "IS-T1-TESTS-NIGHTLY-ORCHESTRATOR-SELF-TEST",
+        "status": "FAIL"
+      }
+    ],
+    "knownFailure": "Sealed registry differs from accepted Gate 0 policy; CONTRACT section 8; seal unchanged."
+  },
+  "deterministicSuiteLogs": [
+    {
+      "id": "IS-T1-TESTS-ACCOUNTANT-E2E-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_accountant-e2e.test.js.5894dad6.log",
+      "sha256": "f37ae9351712343bbe57063e2f0e3849107acfa7085182b10de222fd0feae34f"
+    },
+    {
+      "id": "IS-T1-TESTS-ACCOUNTANT-SELF-CONTAINED-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_accountant-self-contained.test.js.1403a6bb.log",
+      "sha256": "540a789708dc983ab44c4737e16c6a2064bd3c6e268830cc2d76a6197e0d13b1"
+    },
+    {
+      "id": "IS-T1-TESTS-ACCOUNTANT-TOOLS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_accountant-tools.test.js.5ee165c9.log",
+      "sha256": "b0baa27448594842267da629eba1fa72c4a44da001a4b11a07880142db33917b"
+    },
+    {
+      "id": "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-INTEGRATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_accountant-workflow-integration.test.js.6d44c7da.log",
+      "sha256": "04706d12b6fdc1abc23b25aeb447d401663962733345eef967e59050aac9d62b"
+    },
+    {
+      "id": "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_accountant-workflow.test.js.dd5f429c.log",
+      "sha256": "9c3eb71f3df9694cb9bdc46f866eee94d61a2dbe821e9e32aa9517021b9d34f0"
+    },
+    {
+      "id": "IS-T1-TESTS-AGENT-LOG-UX-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_agent-log-ux.test.js.f748fd9e.log",
+      "sha256": "3670fe37de37c8a5c131b3e7a7b34819210b38c024e3a36ec715ad3a350fa8b7"
+    },
+    {
+      "id": "IS-T1-TESTS-AGENT-RUNNER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_agent-runner.test.js.7b7332cf.log",
+      "sha256": "50a62be261679e408bf9c78cd6b96bafeb63888b8d5b0678329900129d026e4a"
+    },
+    {
+      "id": "IS-T1-TESTS-AGENT-SOURCES-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_agent-sources.test.js.b407225b.log",
+      "sha256": "1cd01c4bdb9895570681038c72a1c51296eaff1e08b6b8c1a9a8eb8687c567a5"
+    },
+    {
+      "id": "IS-T1-TESTS-AGENT-WIZARD-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_agent-wizard.test.js.7f8b6590.log",
+      "sha256": "cc2a5fd8d360400a6ef614cd2eed8d36089078c3632eefc6e2dd8883a36dec05"
+    },
+    {
+      "id": "IS-T1-TESTS-API-CONTRACT-REGISTRY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_api-contract-registry.test.js.c8533c3a.log",
+      "sha256": "e8c003ace9f6264276a04a2199a1a2ed647132f92548e8ea457149af98020817"
+    },
+    {
+      "id": "IS-T1-TESTS-ARCHITECT-SMOKE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_architect-smoke.test.js.ca5ac490.log",
+      "sha256": "e1b1a19a35b84055f9597631cd921bf59ecb76addedf9d1cad33f289bdb87b3e"
+    },
+    {
+      "id": "IS-T1-TESTS-ARCHITECTURE-CHECK-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_architecture-check.test.js.d9613b1b.log",
+      "sha256": "39751c8d3076ad465085313f34be1c50c7928116132db2ce66820843d60b7033"
+    },
+    {
+      "id": "IS-T1-TESTS-ARCHITECTURE-DETECTOR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_architecture-detector.test.js.4c355f52.log",
+      "sha256": "ff75b8ff303247656d9054f119edb659a2c27b8216919876af1770505ba46a91"
+    },
+    {
+      "id": "IS-T1-TESTS-ARCHITECTURE-GOVERNANCE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_architecture-governance.test.js.fa59f229.log",
+      "sha256": "89c5c96d0c35225b8ee44d0814fbdc35e3b995bc8225f8769806b4ed3468be5d"
+    },
+    {
+      "id": "IS-T1-TESTS-ARCHITECTURE-POLICY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_architecture-policy.test.js.d4a20908.log",
+      "sha256": "216c2df97395446ce7b58c49c6f5a3e74d5f0e70c2903c5f12f6240fc5a6890d"
+    },
+    {
+      "id": "IS-T2-TESTS-ARCHIVE-LIFECYCLE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_archive-lifecycle.test.js.8dae37af.log",
+      "sha256": "09eaf98e65301201b18807f9a159d25293caa407311db0347d19476f344c534a"
+    },
+    {
+      "id": "IS-T1-TESTS-ARTIFACT-VALIDATION",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_artifact-validation.test.js.9a54c027.log",
+      "sha256": "b307cf7e174b356a924e31dcc02674cc6da383410270836cada5da98fd12c3a9"
+    },
+    {
+      "id": "IS-T1-TESTS-AST-ANALYZER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_ast-analyzer.test.js.b4c16ce1.log",
+      "sha256": "f043c3d42e2b97b65ed0984bebfaa1dc3967c15a4e569d77d4153549dbea271f"
+    },
+    {
+      "id": "IS-T1-TESTS-AUDIT-SUMMARY-SELF-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_audit-summary-self-test.js.20930c4d.log",
+      "sha256": "c0cf2928df9241837ca08a00c39ae255c2b4fdc6aee44642c118f078951c9f83"
+    },
+    {
+      "id": "IS-T1-TESTS-AUTO-EXPERTISE-SELECT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_auto-expertise-select.test.js.ee2c4f1a.log",
+      "sha256": "a125b54bbfc66128024d8131cc43551c388a9df77903ca449d1b21a52505f5ed"
+    },
+    {
+      "id": "IS-T1-TESTS-BUILD-HANDOFF-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_build-handoff.test.js.5ce2d1af.log",
+      "sha256": "e07d98eb27586ccc83dd092662e57a2e74e5b883ef584ff6c12a395e2a9a5034"
+    },
+    {
+      "id": "IS-T1-TESTS-BUILD-PATTERNS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_build-patterns.test.js.b080ecfa.log",
+      "sha256": "be68f0ba579c6d8ebdd61cb929e45f0bda1e7671224ca2a6cb3b7d8d3fa9a7cb"
+    },
+    {
+      "id": "IS-T1-TESTS-BUILD-STRATEGY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_build-strategy.test.js.80fccc14.log",
+      "sha256": "2e9e0437abca5e824aaa0b438ad1e8215922eebde05e6a0d0afd88ad94d1b97d"
+    },
+    {
+      "id": "IS-T1-TESTS-CANDIDATE-TRIAL-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_candidate-trial.test.js.6ee0db64.log",
+      "sha256": "30c0a383a31cee667461db1d59097b8f20f952d218cdd996f3791e1c11ab2d69"
+    },
+    {
+      "id": "IS-T1-TESTS-CAPABILITY-01-SERVER-BEHAVIOURS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_capability-01-server-behaviours.test.js.34508a22.log",
+      "sha256": "3578d262f8b09d270e12756dd98cbb1821b0eca1a5e4e41f07a72e7c5a4dfe33"
+    },
+    {
+      "id": "IS-T1-TESTS-CAPABILITY-02-CRE-BEHAVIOURS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_capability-02-cre-behaviours.test.js.b108029d.log",
+      "sha256": "4dc5dc31864ac0a5864e6b707951f4dd707c4512c40454f6291afa375392bcc3"
+    },
+    {
+      "id": "IS-T1-TESTS-CAPABILITY-ENFORCER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_capability-enforcer.test.js.94d2683e.log",
+      "sha256": "f096a5cb790fbfa9fab1d6cee1ad7ae66b5c19caf0223c608c1c74f4a6f0753e"
+    },
+    {
+      "id": "IS-T1-TESTS-CAPABILITY-REGISTRY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_capability-registry.test.js.650c678f.log",
+      "sha256": "eb52f582ef95791729a7c6e7940b25225c87c44280eeb7ac7b1bf02a855f3c5a"
+    },
+    {
+      "id": "IS-T1-TESTS-CAPABILITY-SANDBOX-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_capability-sandbox.test.js.48ff887a.log",
+      "sha256": "7ac1c015c151570b91688e829c8fee831776232df0ea0e3400dce085c196f144"
+    },
+    {
+      "id": "IS-T1-TESTS-CATALOG-METADATA-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_catalog-metadata.test.js.25c6d790.log",
+      "sha256": "b6debcfe5a0aae7994987cf1ca9d1756cecbd224dc7df3e385ddffc92da9fc28"
+    },
+    {
+      "id": "IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_chat-export-budget.test.js.56739be3.log",
+      "sha256": "f3064842536b60f81c1a1cb76f8266e966dd49a68e571ffe53469714e56adeb4"
+    },
+    {
+      "id": "IS-T1-TESTS-CHAT-FIXES-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_chat-fixes.test.js.baa9bbb9.log",
+      "sha256": "52cf42457e7d8e352c693bdba1f860026b293afb04120d37ed2ad332d5f08ce7"
+    },
+    {
+      "id": "IS-T1-TESTS-CHAT-MEMORY-PRIVACY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_chat-memory-privacy.test.js.71ec8b73.log",
+      "sha256": "957d16582059cfd09ce9915535043dfa9d30bdf249f67660a2cd2f727ea79277"
+    },
+    {
+      "id": "IS-T1-TESTS-CHAT-OUTPUT-QUALITY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_chat-output-quality.test.js.7ef60198.log",
+      "sha256": "b64e4067dfaa1fe89c6c7709fcba4315ac9aeedd2e629fb910eb3f6f850cd8c5"
+    },
+    {
+      "id": "IS-T1-TESTS-CHAT-SEARCH-QUALITY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_chat-search-quality.test.js.8d05878c.log",
+      "sha256": "c4429ff3032ebddc6b40e040bf4ab8e133acf4ed770dcef1c8d3e4fe6bc245bf"
+    },
+    {
+      "id": "IS-T1-TESTS-CHAT-SYNTHESIS-HARDENING-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_chat-synthesis-hardening.test.js.afbec6c0.log",
+      "sha256": "4e36b24bbb412f5b31079752ac715437325558f3104c136de8060194fc9875ff"
+    },
+    {
+      "id": "IS-T1-TESTS-CHUNKER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_chunker.test.js.5cd49644.log",
+      "sha256": "34c3f8292bd784266c693c1908971625bcbe85f601fd644b84f2b01471e8d059"
+    },
+    {
+      "id": "IS-T1-TESTS-CIRCUIT-BREAKER-V55-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_circuit-breaker-v55.test.js.3cfa0f99.log",
+      "sha256": "fef8b49b7fedc13bad8321c7a8af324f74258bba3ecdcc425679daed63f6764b"
+    },
+    {
+      "id": "IS-T1-TESTS-CODE-ANALYZER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_code-analyzer.test.js.e14aa774.log",
+      "sha256": "39689f4d415207672988b5a7a890d04a54d481454781e22f1bc15c327866ae07"
+    },
+    {
+      "id": "IS-T1-TESTS-CODE-EVOLUTION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_code-evolution.test.js.9588e102.log",
+      "sha256": "260c98f8b12d4cebc4239ffa1d126180d5744c8543c34e85e96325944c613e29"
+    },
+    {
+      "id": "IS-T1-TESTS-CODE-PATCH-RUNNER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_code-patch-runner.test.js.4e53faba.log",
+      "sha256": "e59559c48e7eba404c6d0474472e5d6fec40aa695b66719dfd091d0eca7bca73"
+    },
+    {
+      "id": "IS-T1-TESTS-CODE-PATCH-SUITE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_code-patch-suite.test.js.3b160b71.log",
+      "sha256": "aae7f533d5a5eea63547dce8110bc7e4d37be3750fdcdb0ed788eff03dd5ae7b"
+    },
+    {
+      "id": "IS-T1-TESTS-CODE-SEARCH-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_code-search.test.js.ba05e7f6.log",
+      "sha256": "1f0913a0027e2100d2777f022554361db50c92172dd8a2abbd79c03c3edb92da"
+    },
+    {
+      "id": "IS-T1-TESTS-CODE-TASK-EXTRACTOR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_code-task-extractor.test.js.b32be2e5.log",
+      "sha256": "3e71006692d1b349648b2e6ef835674fb3ebc123f235cc98b43ca680458e09a3"
+    },
+    {
+      "id": "IS-T1-TESTS-CONCEPT-REGISTRY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_concept-registry.test.js.7fb9b136.log",
+      "sha256": "43e18c599b538949ecb328c548cb69e58695300d82c24c7365a9c6358153d59f"
+    },
+    {
+      "id": "IS-T1-TESTS-CONTEXT-BUILDER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_context-builder.test.js.d92d331f.log",
+      "sha256": "8f30e41ce8d57d6e62b6d64f5b3d87ad757c108e837dd74e8f1672f705301416"
+    },
+    {
+      "id": "IS-T1-TESTS-CONTEXT-COMPACT-MODEL-CTX-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_context-compact-model-ctx.test.js.b50dda24.log",
+      "sha256": "bcbddbc2106c1982fe1b6bee8b7d74d9f706af221f05d444d500fb55dcf166da"
+    },
+    {
+      "id": "IS-T1-TESTS-CONTEXT-DELTA-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_context-delta.test.js.45374093.log",
+      "sha256": "573df0fc1dcad4a65669212a3935c0582a09ab9a0addf6eda8aee0e7385b8cb0"
+    },
+    {
+      "id": "IS-T1-TESTS-CONTEXT-ENGINE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_context-engine.test.js.4fec1a25.log",
+      "sha256": "e594a5c801b921390ea659f45c741bb6397d74c6271c2a98cef339827f7e042a"
+    },
+    {
+      "id": "IS-T1-TESTS-CONTEXT-OPTIMIZER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_context-optimizer.test.js.8f41abad.log",
+      "sha256": "78615fed3b0f903ebf22429e40652d0f1e4797a06f401635cc55b4f2b834311a"
+    },
+    {
+      "id": "IS-T1-TESTS-CONTINUOUS-IMPROVEMENT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_continuous-improvement.test.js.348117fa.log",
+      "sha256": "0bc2a11b035f3270ed55e974e7180b36384ec823b223714557cb73e42c74bb2a"
+    },
+    {
+      "id": "IS-T1-TESTS-CONVERSATION-WEB-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_conversation-web.test.js.9bd93c0a.log",
+      "sha256": "175402730feb39a2df37092f1b00d3598cc5bf070f6acd9160dded6ca85a4690"
+    },
+    {
+      "id": "IS-T3-TESTS-CRE-BUILD-ARBITRATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_cre-build-arbitration.test.js.5ba9f4c2.log",
+      "sha256": "e3c5200db8e887a0dd65308083c6dc69c59ca294583b01aaf8ac1e45030fbe71"
+    },
+    {
+      "id": "IS-T3-TESTS-CRE-FILE-REFERENCE-GUARD-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_cre-file-reference-guard.test.js.97f62c4c.log",
+      "sha256": "4dd5c9bc1f3fdfe4716ccdcc0eb09f9fbe450dfd513c6363e006dcb254f88c02"
+    },
+    {
+      "id": "IS-T1-TESTS-CRE-GATEKEEPER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_cre-gatekeeper.test.js.b49de5a1.log",
+      "sha256": "3d04b8b50aa12aa4c1350259d08266d7aaa62278e9d06b905cf16be7f1c907a7"
+    },
+    {
+      "id": "IS-T3-TESTS-CRE-REPORT-STICKY-BREAK-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_cre-report-sticky-break.test.js.4c60541b.log",
+      "sha256": "becf3d4dc74ee1db58736f25e5c9659e9b3554b746ed12ad47f6c526ce60bdb5"
+    },
+    {
+      "id": "IS-T1-TESTS-CREATE-EXPERTISE-INTEGRATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_create-expertise-integration.test.js.ae897e02.log",
+      "sha256": "19deea9d2fa6a0e8761c31f9b057c907a1834ce793c95ab68125b5ea71c91a7e"
+    },
+    {
+      "id": "IS-T1-TESTS-CREATE-SPECIALIST-SKILL-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_create-specialist-skill.test.js.11d6ccc1.log",
+      "sha256": "8bfd81e2188ac53562e2d51db8eba599731aa4cf9cd3ebc57e844ded36afa504"
+    },
+    {
+      "id": "IS-T1-TESTS-CRITIC-AGENT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_critic-agent.test.js.9695f52d.log",
+      "sha256": "a0e7427491a3686730b02c92850a7c3673672e2d80f610ac4784a29126b52483"
+    },
+    {
+      "id": "IS-T1-TESTS-CROSS-PROJECT-LEARNER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_cross-project-learner.test.js.4218a0bf.log",
+      "sha256": "8d715c7fe98c8efa3a3cd6571bde602c1cda8f7b75bcd3e3ac2d4d17b411f3c6"
+    },
+    {
+      "id": "IS-T1-TESTS-DB-AUTOREPAIR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_db-autorepair.test.js.d1655e67.log",
+      "sha256": "2c0aeee3cb0448cfa020a3723c7924986fd3fbc9ba2f2e9c1415450941d8e9d2"
+    },
+    {
+      "id": "IS-T1-TESTS-DEAD-CODE-DETECTOR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_dead-code-detector.test.js.2e572168.log",
+      "sha256": "ffe47aa7e23f8eeff626cbebe3673c79b997bb383fbce87304de39ef15fefb4b"
+    },
+    {
+      "id": "IS-T1-TESTS-DEBUG-AGENT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_debug-agent.test.js.e8205e39.log",
+      "sha256": "6de20824ce17555268fb4930a4eb33dc3ef73073055996b9f905f14812fcebdc"
+    },
+    {
+      "id": "IS-T1-TESTS-DEPENDENCY-MANAGER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_dependency-manager.test.js.b48e6f16.log",
+      "sha256": "28fcca8376b7e465c3cf9285d3c371d3aad7654a6229b56ebb4861bd495aa98d"
+    },
+    {
+      "id": "IS-T1-TESTS-DESKTOP-HUNT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_desktop-hunt.test.js.49df83af.log",
+      "sha256": "18d8cf552726d954b4ad287783350b967429e82fb53bd79ad3a3238618d2022b"
+    },
+    {
+      "id": "IS-T1-TESTS-DETERMINISTIC-ANSWER-LATENCY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_deterministic-answer-latency.test.js.9276f549.log",
+      "sha256": "9bf9115435abf28bcd0932e3bdba41e5213cc7d54771aac54d885b8cfc39d085"
+    },
+    {
+      "id": "IS-T1-TESTS-DOMAINS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_domains.test.js.40d7987e.log",
+      "sha256": "9800d63566d1f1f2d9710768ead04b69cb21269d448bf9d45c0e207b698cb7d8"
+    },
+    {
+      "id": "IS-T1-TESTS-DRIFT-DETECTOR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_drift-detector.test.js.5bf78ec2.log",
+      "sha256": "61001efb49b3dac7af563374551e161e37e41e465d026a7c783b401e740c5a30"
+    },
+    {
+      "id": "IS-T2-TESTS-E2E-HARNESS-ISOLATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_e2e-harness-isolation.test.js.965b7f17.log",
+      "sha256": "3201abf9b39e1eba98158636703cae0fbb5e69dad0bb58dd207c8b96a6109e0e"
+    },
+    {
+      "id": "IS-T1-E2E-HELPERS-SELF-CHECK",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_e2e__helpers.self-check.js.f45fd526.log",
+      "sha256": "fd8a20a622c1845fc3213dfc9adf6b6cf7c28745dcc6a86bc63a64dfd084931a"
+    },
+    {
+      "id": "IS-T1-TESTS-ERROR-NORMALIZER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_error-normalizer.test.js.b713fc63.log",
+      "sha256": "82713411ecf84b0c2545bd094bd6e589b25fb7ffe8be03ae1ed419856036260b"
+    },
+    {
+      "id": "IS-T1-TESTS-EXECUTION-GRAPH-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_execution-graph.test.js.166af7ca.log",
+      "sha256": "68cf2aaf0b634d8dcb0d650b40e33e50900efc1dc2db70edda133fd075f73b88"
+    },
+    {
+      "id": "IS-T1-TESTS-EXECUTION-LOOP-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_execution-loop.test.js.eca94dc0.log",
+      "sha256": "0985b0db19965dbc3551aa4cd46a7916234c11bb88990da95048fe3b52a2202a"
+    },
+    {
+      "id": "IS-T1-TESTS-EXECUTION-TRACE-STRESS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_execution-trace-stress.test.js.3884abfb.log",
+      "sha256": "9484c14f872405744870213a3238dd55a7714c05087e8aee42e585f38171ac83"
+    },
+    {
+      "id": "IS-T1-TESTS-EXPERTISE-DISCOVERY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_expertise-discovery.test.js.a4992039.log",
+      "sha256": "5d479240320b6aa96e59f1272d6ca197c7f7fe2eaab29224c2ccad7cbb7ab064"
+    },
+    {
+      "id": "IS-T1-TESTS-EXPERTISE-INTEGRATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_expertise-integration.test.js.f04c0b04.log",
+      "sha256": "7414ab00f172a531a66f06f42855d6a13cab52fb3514d3e17eb987acb05ac9f9"
+    },
+    {
+      "id": "IS-T1-TESTS-EXPERTISE-SYSTEM-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_expertise-system.test.js.ad383929.log",
+      "sha256": "d851abbfcd235a7294e0f792f9dd90f1de360d1015ea99b5eb463007757b12cf"
+    },
+    {
+      "id": "IS-T1-TESTS-EXPERTISE-WIZARD-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_expertise-wizard.test.js.c6b93dcf.log",
+      "sha256": "b62269b9565d53476ca2110567cf3686c5c59cd082d9638d9764a4c75b2cb0d8"
+    },
+    {
+      "id": "IS-T1-TESTS-EXPLORATION-AGENT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_exploration-agent.test.js.d64f8a78.log",
+      "sha256": "6abbd9094a1104141ac9d27006d7cade5b284f4dbb4ac4acff9a8ee78c303306"
+    },
+    {
+      "id": "IS-T1-TESTS-EXPORT-PDF-DOCX-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_export-pdf-docx.test.js.30056cec.log",
+      "sha256": "b96c1b49c539e4dd84ce3a12c67720095c6fca8c20b7ac868c2c5a5f689d8604"
+    },
+    {
+      "id": "IS-T1-TESTS-FILE-DISCOVERY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_file-discovery.test.js.96264527.log",
+      "sha256": "39ad8a433b86a4a086919c269b4d29a993084c994423e83f32db542bf2b1e108"
+    },
+    {
+      "id": "IS-T1-TESTS-FILE-WRITE-EXTRACT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_file-write-extract.test.js.2a88b307.log",
+      "sha256": "fb6fb729fe6e5b0934f1b9d3d97aef11a230753abab7fbea14772b91270c254a"
+    },
+    {
+      "id": "IS-T1-TESTS-FIX-STRATEGY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_fix-strategy.test.js.c6fbfb8e.log",
+      "sha256": "0b9607b0bf27717514adc1b7caaaedd060e5543ce8feea6222b4b9ba3cbc7d31"
+    },
+    {
+      "id": "IS-T1-TESTS-FUNCTION-SPAN-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_function-span.test.js.731bd2c6.log",
+      "sha256": "c3e5a16866336ca2aff675628a7590b20e890822ff90f19731fde659dbd3c9e0"
+    },
+    {
+      "id": "IS-T1-TESTS-GOVERNOR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_governor.test.js.cb9c8aef.log",
+      "sha256": "27bf00a8cdba6b285b083efc72a1b0907a8ed05e51d91bf56465d8c86bb86ec5"
+    },
+    {
+      "id": "IS-T1-TESTS-GRAPH-QUERY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_graph-query.test.js.debaf6cf.log",
+      "sha256": "de096a331670ff830fe952db69e1ac5825f915ac6a30830455808c71a2a47985"
+    },
+    {
+      "id": "IS-T1-TESTS-GRAPH-RETRIEVAL-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_graph-retrieval.test.js.52fd7404.log",
+      "sha256": "8b455448cb53ff0be42dda1cc48dbe1ceccc4dcb66bf696db533578311932d44"
+    },
+    {
+      "id": "IS-T1-TESTS-GRAPH-SYNC-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_graph-sync.test.js.e6f547c7.log",
+      "sha256": "b1e9d2b618ef9c67990fc7a0703372f48a10dddc2e4ab11805f7bfffbd318f5d"
+    },
+    {
+      "id": "IS-T1-TESTS-HARNESS-EXIT-CODE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_harness-exit-code.test.js.a34d228f.log",
+      "sha256": "8acb3c7ee57885fea632466085c6d24ebe2f3f86fdda02bd9c0d7d1a4779c116"
+    },
+    {
+      "id": "IS-T1-TESTS-HUGGINGFACE-CLIENT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_huggingface-client.test.js.28b6ea99.log",
+      "sha256": "bae902a9501c6dd84399b2368fdcce99bacd80fca31a4e3eab7efcf2ec53efd7"
+    },
+    {
+      "id": "IS-T1-TESTS-IMPACT-ANALYZER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_impact-analyzer.test.js.610b1e67.log",
+      "sha256": "1fef41e0bb4689480c4843e3559e2a27c1206a4b5809ba7384c49cedc89539dc"
+    },
+    {
+      "id": "IS-T1-TESTS-IMPORT-MAP-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_import-map.test.js.4bf97966.log",
+      "sha256": "1990c741cfccd482f34776f2512cf5efd5a51429babb5157b6581a744b89a715"
+    },
+    {
+      "id": "IS-T1-TESTS-IMPROVEMENT-LOOPS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_improvement-loops.test.js.c93525e7.log",
+      "sha256": "22e755959164406e9576be12cabfbba45580b70cd24ada252dc611dbdf533e03"
+    },
+    {
+      "id": "IS-T1-TESTS-INTENT-CONTEXT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_intent-context.test.js.c509e386.log",
+      "sha256": "b58befbee167489651df4bf74da8bf646815223417669e13d79a84f8c0755085"
+    },
+    {
+      "id": "IS-T1-TESTS-KNOWLEDGE-BASE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_knowledge-base.test.js.26010c8c.log",
+      "sha256": "62f5056a04efb531616b61c61d3c14bf54bb38af739bf6996a35cd6f4f1b1068"
+    },
+    {
+      "id": "IS-T1-TESTS-KNOWLEDGE-GRAPH-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_knowledge-graph.test.js.253a294c.log",
+      "sha256": "f5005d4dd1dd79d3ac58e18c4d6f1280f80eed9afdd7e9966f5549f9c6bcf431"
+    },
+    {
+      "id": "IS-T1-TESTS-LARGE-PROJECT-SCALING-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_large-project-scaling.test.js.843011ff.log",
+      "sha256": "e5c38d6a2bd79610ac2656bc04cc75e2239aa81bf2d4d02934c84d9f9f169649"
+    },
+    {
+      "id": "IS-T1-TESTS-LEDGER-ANNUAL-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_ledger-annual.test.js.778c0979.log",
+      "sha256": "5bf50b2de21b79782cbe7a7d64b99151b1f5f545ff782a570b6a3adf661c8727"
+    },
+    {
+      "id": "IS-T1-TESTS-LEDGER-COMPLIANCE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_ledger-compliance.test.js.177966a2.log",
+      "sha256": "ffe366ea38e7d79fa4ddd4686279e05a7ba6f92fc54a41a7e8e5d87d060fb64a"
+    },
+    {
+      "id": "IS-T1-TESTS-LEDGER-CORE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_ledger-core.test.js.59eacff6.log",
+      "sha256": "43f063c8fb3586223c8982020d10e4e8fcc799edaf47502a84131361e30f212e"
+    },
+    {
+      "id": "IS-T1-TESTS-LEDGER-INSURANCE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_ledger-insurance.test.js.26716931.log",
+      "sha256": "719014284c286384f51e6e3b0bc84bace022693a09900d90bde6da9534746bdb"
+    },
+    {
+      "id": "IS-T1-TESTS-LEDGER-REPORTS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_ledger-reports.test.js.5240a784.log",
+      "sha256": "650e8a81c101871b9f9440028521a774373e1a99354d8c33a950625cf741cd30"
+    },
+    {
+      "id": "IS-T1-TESTS-LEDGER-REWIRE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_ledger-rewire.test.js.fa095236.log",
+      "sha256": "bd9e3d0bf2ad0945fd7d77ec09014b23fb834ecf1d811c599636f86f5fa56d3c"
+    },
+    {
+      "id": "IS-T1-TESTS-LEDGER-VAT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_ledger-vat.test.js.2d81aa9f.log",
+      "sha256": "30220dc8bf8ccfe897fde4bc3f0deed0b21dc5f3233b85ef393aee464ae85f37"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-BLOCKED-MILESTONE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_lifecycle-blocked-milestone.test.js.094bea94.log",
+      "sha256": "e1de0b4afae89b78c4fa2fd711146c4320f1a54866cc64fe6ce26954bc95e150"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-BUILD-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_lifecycle-build.test.js.6a4c4eb0.log",
+      "sha256": "81ac5df5a84803e1dab694850b1c17434d08e1c2f1ae4b3d94821880f66cb2f9"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-CONVERSATION-E2E-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_lifecycle-conversation-e2e.test.js.ee4ca3a6.log",
+      "sha256": "ccb428b1b18802b731d0f31dd565e23c993e7a31964e0e0e61a0839e28012d5b"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-DB-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_lifecycle-db.test.js.14493c75.log",
+      "sha256": "7e88a7ea3c45e6037159359c1f20fba88e0bf0709a47f67d4a7d908b6b055fb0"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-E2E-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_lifecycle-e2e.test.js.7a764790.log",
+      "sha256": "a887604f017220e500ba8249d4e5e2f106f9c2e93713f64795751bf7002695c8"
+    },
+    {
+      "id": "IS-T1-TESTS-LIFECYCLE-HANDOFF-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_lifecycle-handoff.test.js.d2704efb.log",
+      "sha256": "78281580314f0a8b7f5f1c3d64f50d72a37103a92a32c8624f3dc2de1cab22cd"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-HUMAN-FRICTION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_lifecycle-human-friction.test.js.56124424.log",
+      "sha256": "fcf9842623e7fc867c80e6e6579b00eada8ff9a41378405b19c4f1ed27e9a37c"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-INVARIANTS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_lifecycle-invariants.test.js.36fc15aa.log",
+      "sha256": "3ef69a558a9d717311734069773527e89512382d8bf7b880405bd8010caecf2f"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-LLM-REALISTIC-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_lifecycle-llm-realistic.test.js.5e88868a.log",
+      "sha256": "28342e6639ba27e20b3bab955284d294345f308762a6200032c94ebd7894851a"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-REVIEW-CHANGE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_lifecycle-review-change.test.js.faa90132.log",
+      "sha256": "68426adaf3c9f742b79d85f108f52f3b74bc0d6af8e675dea0041c103f42ecb5"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-STRESS-ADVANCED-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_lifecycle-stress-advanced.test.js.5ac1e452.log",
+      "sha256": "b428d76cd05bfed1a3171f99bd15f099f39937146fb9377550e215b8cdb43114"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_lifecycle.test.js.52956fcb.log",
+      "sha256": "e974d6fc4a4f0aa995d10deed7073a8229927335743395eaa19ad2260fb4a381"
+    },
+    {
+      "id": "IS-T1-TESTS-LLM-GATEWAY-RUNTIME-SIGNAL-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_llm-gateway-runtime-signal.test.js.0b940a7a.log",
+      "sha256": "c68569300482214a9a7d26ca77ecfde57274c740b7236c017247fb24231865b0"
+    },
+    {
+      "id": "IS-T1-TESTS-LOCAL-MATH-NONFINITE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_local-math-nonfinite.test.js.019feb01.log",
+      "sha256": "850ea97bbebcd854420858de568ef06069d2e609be098b60126a2ca5b949aa57"
+    },
+    {
+      "id": "IS-T2-TESTS-M1-CHAT-CONTRACT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m1-chat-contract.test.js.ca2e48b5.log",
+      "sha256": "7cdbd5b3f726eed9f7b6d5357ca5ab0849075ac075fb0d8df4bffef61ce1589f"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-CONTRACT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m1-contract.test.js.998aa76f.log",
+      "sha256": "b4593a986243465b9276f0058cd54f43871bef721730de1e5c8630b9a5b4c332"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-AUTOMATION-POLICY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m1-model-automation-policy.test.js.13f235f4.log",
+      "sha256": "c3a434baeb92f668b9b8936fe68c6d0e458c42d8cde2b03362ea96ef3d20fb69"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-BINDING-APPLICATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m1-model-binding-application.test.js.96cefee4.log",
+      "sha256": "d41392f905ce8e3b78b9f58251a9ec452ed13a764acc3f25bf537eb70ff7eb1c"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-BINDING-REPOSITORY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m1-model-binding-repository.test.js.6b2a3128.log",
+      "sha256": "a31dd1a09c297d39cbed0dd02fb78a3ce0c1643bb083732cbb4f716459da7c17"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-BINDING-STORAGE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m1-model-binding-storage.test.js.d31f186e.log",
+      "sha256": "7204bb549c4f8f4063badb645c5d63e64a58dcb42e117227f0112c1e2566ef0a"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-CONTRACT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m1-model-contract.test.js.a8bcca69.log",
+      "sha256": "43275169552ccc6a2b6420cdad30efb03b5cbdc969f7fac9803bc89def556067"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-COORDINATOR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m1-model-failover-coordinator.test.js.30405fa4.log",
+      "sha256": "1729ccc0e905f48f8ee59f1b6054951fb220c5f35d3be1fc985f60657e2bc428"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-DETECTION-REPOSITORY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m1-model-failover-detection-repository.test.js.8fe33847.log",
+      "sha256": "51b8a974dcd358a52c319edc0eb0863a410f64e7680e3ebc79ffc6aa7a147ce8"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-PROOF-ARTIFACTS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m1-model-failover-proof-artifacts.test.js.fcc67211.log",
+      "sha256": "c796d3a4118e6d0ebe924ad06e147d22a7aef1b5d9ddfff3e4f9ff52ec01a5de"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m1-model-failover-schema.test.js.48a6c16b.log",
+      "sha256": "eac2913e6841db1c670c77689470bf329b82835b8150da8f4afba85bd29a90d5"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-SETTINGS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m1-model-settings.test.js.ec00af34.log",
+      "sha256": "ab2559fccb65b98ebe03f4379880cc8f5cee8328374c585bf0f25d41d8668e22"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-USE-AUTHORITY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m1-model-use-authority.test.js.1decaa60.log",
+      "sha256": "a416b79f40a8cdc164aa881d1089d7d8a7983da8af5ddb813aa0cc0459e5d0f1"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-QUALITY-CONTRACT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m1-quality-contract.test.js.48723e78.log",
+      "sha256": "a32923ec92d14b22a6497100b52b380f45961149476a568445cc08d4aa793fe2"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-STUDIO-CLIENT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m1-studio-client.test.js.a839f16b.log",
+      "sha256": "71939515c4dc591508df157e1b7f0fedc90db9e220f3a1d012c29513f07cc06f"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-VRAM-ARTIFACT-USE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m1-vram-artifact-use.test.js.13f25518.log",
+      "sha256": "20ea0cd9f84cf96e1af28ebefd1fcbe2dd7a953305da01c2a55a54b071c682d4"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EFFECT-AUTHORITY-REPOSITORY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-effect-authority-repository.test.js.fbda346c.log",
+      "sha256": "a41ad882cc9b076318a80fe3cdc7fda6e8192ac80ac8e293cea345ac3de8a7f5"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EFFECT-BROKER-V1-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-effect-broker-v1.test.js.606c7170.log",
+      "sha256": "41ebb1ad52cbbe4f11e9a81288d007f7d04d443954faff65a34d3a03c437f86e"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EFFECT-CONTRACT-V1-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-effect-contract-v1.test.js.6dc251f9.log",
+      "sha256": "96bbe5f6e42043eeab2599c09fb868bcdfb986428c6ac79bd9e84eb449f8e368"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EFFECT-EXECUTION-OWNER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-effect-execution-owner.test.js.a1097a45.log",
+      "sha256": "96b3154f0a78bc0cd07831a86dcf3a0005bc11d22a6e3ba819653ffc72c13605"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EFFECT-FILE-CONSUMER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-effect-file-consumer.test.js.351c4b65.log",
+      "sha256": "d4c235debdf5fd55e221e9aaeffe6913ec8e4a2288fb34c2c9d015bb1bfcdcf5"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EFFECT-FILE-RUNTIME-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-effect-file-runtime.test.js.598972ff.log",
+      "sha256": "29bca65184d8d072510d0e8a5db45f8d86cb761d7c738de75172fc52bf8e3833"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EXECUTION-AUTHORITY-REPOSITORY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-execution-authority-repository.test.js.ed35dc26.log",
+      "sha256": "99a9739288efc924b56c0476e1bf50f460e5f0515e8b452456128e3b58221ef0"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EXECUTION-CONTRACT-V1-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-execution-contract-v1.test.js.62f3b9eb.log",
+      "sha256": "6d7fe5508a41a0802ad913afb24eeb20dca5ab5a8a1a8aacb01562a96ea04bdb"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EXECUTION-GIT-PRESERVATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-execution-git-preservation.test.js.11b275be.log",
+      "sha256": "f1521eaf0764607dbbd4763be4e7401f11d0f97e9cd8a4136b5298751cb118c4"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EXECUTION-PROCESS-SUPERVISION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-execution-process-supervision.test.js.acd09b66.log",
+      "sha256": "cf80e67340527711150fa4bd469a3877f63bfcd3325563e4f5584abae21733a4"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EXECUTION-PROJECT-CHANGE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-execution-project-change.test.js.a53d03c7.log",
+      "sha256": "8267a5cca76e650bc895d6faa17eab57c1fc9dec96e05527f3093bd3be5d7316"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-GOVERNANCE-CONTRACT-V1-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-governance-contract-v1.test.js.a877dfcd.log",
+      "sha256": "0289d62db3791cfda6ec0c08e3582cecbcedc6ef95d1cb2a9541010802ae436d"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-GOVERNANCE-EVALUATOR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-governance-evaluator.test.js.8ae217b6.log",
+      "sha256": "fa1d10959c8440e4ae00d04606f151ab4e0c0f9e7833ab1cf3a0b7984543a706"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-LIFECYCLE-APPLICATION-SERVICE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-lifecycle-application-service.test.js.1a72c253.log",
+      "sha256": "5767b214a0de8b30392fbf9ee6249b281f3b4e136a1acb75447dd75b752bd20a"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-LIFECYCLE-AUTHORITY-REPOSITORY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-lifecycle-authority-repository.test.js.a86849aa.log",
+      "sha256": "8304323999df747e85da4b39816be8cbc2aac631e88738af481bcd8ece1fe384"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-LIFECYCLE-CONTRACT-V1-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-lifecycle-contract-v1.test.js.b74c85da.log",
+      "sha256": "6f0db53b9340d111966c73ebaec3add764a02397a7c99baa7202f4630025a285"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-LIFECYCLE-PROPOSAL-COMPILER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-lifecycle-proposal-compiler.test.js.744ad0e4.log",
+      "sha256": "e9a68ef1eba5b978ac5ecf7fec781f27be09abc010cb012e4360994035935904"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-LIFECYCLE-ROUTES-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-lifecycle-routes.test.js.0c94ab24.log",
+      "sha256": "7a08b1a0ce0240745172cb761f2b06bd42ed17ae84262151efc54bb47a9d7656"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-LIFECYCLE-STUDIO-SURFACE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-lifecycle-studio-surface.test.js.0e60553a.log",
+      "sha256": "569195856fdb64f238a01973ecaaf580456ccc3bfcff5205f5a79bb9a868dba5"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-LIFECYCLE-SURFACE-RETIREMENT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-lifecycle-surface-retirement.test.js.a7607ce4.log",
+      "sha256": "7d8827ea4eb0ea00ccdd63c5bac91204e869fb3031e98c4b1d75c1981984272a"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-NEGOTIATED-LIFECYCLE-QUARANTINE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-negotiated-lifecycle-quarantine.test.js.73ba5d5d.log",
+      "sha256": "a5c8f3e9de0ff8579e8b814aa622d04a0127f16edff33538c7973b66a1825536"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-PROJECT-CONTEXT-BOUNDARY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-project-context-boundary.test.js.4adfd6d4.log",
+      "sha256": "1e86021021bbd90aafb5063b5391b5e46d3f4409e6edbf13a35dd7ac9fb57190"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-PROJECT-CONTEXT-CONSUMER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-project-context-consumer.test.js.94ff0a07.log",
+      "sha256": "862f61aaecef4fefca02783288790965805796335828ff16dd1f63a7f656c01a"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-PROJECT-CONTEXT-CONTRACT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-project-context-contract.test.js.8a826e82.log",
+      "sha256": "549a298551460261e34e885305dda73b2f4c93f06f37d41aef9a8de3808e8148"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-PROJECT-CONTEXT-RETRIEVAL-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-project-context-retrieval.test.js.3680830c.log",
+      "sha256": "bb7cb1937c9d072b493147f2b37d85d51b4a7906cf82934c6e12274a39a4119d"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-REMOTE-CORE-PORT-BOUNDARY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-remote-core-port-boundary.test.js.e818266d.log",
+      "sha256": "492f3c114a827d76786db942764c53b5915f40a3790b960ec5ceb3f206c0e008"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-REMOTE-CORE-PORT-CONTRACT-V1-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-remote-core-port-contract-v1.test.js.331394d6.log",
+      "sha256": "abc74086c25f7c1eed49cd7b5d6a348f1694481f3da2b4f459ba1f7494133a27"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-TOOL-AUTHORITY-REPOSITORY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-tool-authority-repository.test.js.2f54b988.log",
+      "sha256": "b471de82ef93e2ed7607d3179680ea41d0a5ba72d66ef4a9ff60a9371ce95d61"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-TOOL-BROKER-V1-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-tool-broker-v1.test.js.ce3c9391.log",
+      "sha256": "56ba5116046e51f789eb05302cb740a76d2d4440aca7ae938805e3661c5a2a72"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-TOOL-CONTRACT-V1-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-tool-contract-v1.test.js.20002f30.log",
+      "sha256": "d0a024da6bef74401aaeecdb391b49ef4f45c9043db8c7d4c00741e9c1ff6e3b"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-TOOL-PRODUCTION-CONSUMER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m2-tool-production-consumer.test.js.97d359cd.log",
+      "sha256": "be2f053e2c4b87408075ba4de178814f87e19a203f88eeedb81bedd1b0f69997"
+    },
+    {
+      "id": "IS-T1-TESTS-M3-CODE-REVIEW-SPECIALIST-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m3-code-review-specialist.test.js.69c5bf24.log",
+      "sha256": "515693f388ac9560b0e71f377f8c007edd441c455e3e9c6a2c566eaf93459f9c"
+    },
+    {
+      "id": "IS-T1-TESTS-M3-EXPERTISE-EXTENSION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m3-expertise-extension.test.js.0cadd29f.log",
+      "sha256": "23a51363258e9eaf219019f178d33c0f7912d74b0e6d7a56a5e6ae8b8d9789b8"
+    },
+    {
+      "id": "IS-T1-TESTS-M3-EXTENSION-CONTRACT-V1-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m3-extension-contract-v1.test.js.6196d1c7.log",
+      "sha256": "19f6b165da73c64d3b25f538dc4d72a8fc58e79d8ffd1a40bd212f4c5caaaa64"
+    },
+    {
+      "id": "IS-T1-TESTS-M3-LEGACY-AGENT-SURFACE-RETIREMENT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m3-legacy-agent-surface-retirement.test.js.1f903705.log",
+      "sha256": "0e3f13a8ce2273a3e3fb8bbecae0588007b8afe32940404cc5a4aaa3026f0bdd"
+    },
+    {
+      "id": "IS-T1-TESTS-M3-PROJECT-HEALTH-AGENT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m3-project-health-agent.test.js.89ca5dbe.log",
+      "sha256": "a4956b504c65d25eedb1fd0f680e97899403590bdcb3838b3d5488e6f5984bcc"
+    },
+    {
+      "id": "IS-T1-TESTS-M3-SKILL-EFFECT-AUTHORITY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m3-skill-effect-authority.test.js.90d6abad.log",
+      "sha256": "c24c341515a6463a8af37dc050a3aa1084aef30925a2d6c74fe3d0f79e9eecc5"
+    },
+    {
+      "id": "IS-T1-TESTS-M4-LEARNING-API-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m4-learning-api.test.js.d38d9233.log",
+      "sha256": "411888794e8b3dbc64b34b37f0b5debee9b44ff8dffd08f1afd9abdf390a9173"
+    },
+    {
+      "id": "IS-T1-TESTS-M4-LEARNING-AUTHORITY-REPOSITORY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m4-learning-authority-repository.test.js.b4e8600c.log",
+      "sha256": "9f682f1b59fa881c4a3975a1e6f8718d9b78e7ae1fca3b5b64a05e7c7ca05831"
+    },
+    {
+      "id": "IS-T1-TESTS-M4-LEARNING-CONTRACT-V1-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m4-learning-contract-v1.test.js.a8e58962.log",
+      "sha256": "8463dafd6719bc92f757f7d107a4b85a162360397138e0cff50ca45375eea161"
+    },
+    {
+      "id": "IS-T3-TESTS-M4-LEARNING-JOURNEY-E2E-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m4-learning-journey-e2e.test.js.f763a019.log",
+      "sha256": "36d3bac0aa1c9caa2d6203348bf3b5edc755d768aaf4bdabb9a2ec6159c42b6d"
+    },
+    {
+      "id": "IS-T1-TESTS-M4-LEARNING-OUTCOME-EVALUATOR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m4-learning-outcome-evaluator.test.js.9af5e10e.log",
+      "sha256": "226c35ebcc89e1e74369785c17408bc1ecdd8cae408b7c0bd3aab6c1b584076b"
+    },
+    {
+      "id": "IS-T1-TESTS-M4-LEARNING-PATTERN-PRODUCER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m4-learning-pattern-producer.test.js.8c94c60b.log",
+      "sha256": "288651fcb117113b061a47be61cbdb3009818cc7095dfc1034d4b9c8d1199eee"
+    },
+    {
+      "id": "IS-T1-TESTS-M4-LEARNING-STUDIO-SURFACE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m4-learning-studio-surface.test.js.2f719a0e.log",
+      "sha256": "63b2af59cf081da907897d3b25dbbfaa751fb5a4c3d7fa32c55e20eff6f1ccad"
+    },
+    {
+      "id": "IS-T1-TESTS-M4-PROJECT-LEARNING-CONTEXT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m4-project-learning-context.test.js.fe2aa47a.log",
+      "sha256": "741d4d78743270327768caea2e264b2ad3a5c101ce1a4074fb16c9dfb3294fd4"
+    },
+    {
+      "id": "IS-T1-TESTS-M5-CONDITIONAL-SURFACES-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m5-conditional-surfaces.test.js.c10e5bf3.log",
+      "sha256": "7f2f3bb097ca91c749c1877992b40078a6826408508a74f124210fd44118ac6e"
+    },
+    {
+      "id": "IS-T1-TESTS-M5-DATA-RESTORE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m5-data-restore.test.js.abd1e68b.log",
+      "sha256": "82a5ae9c17c99ed025efdf79f691fcb8516d3f58df4acfbb0d23ad136ef09ef4"
+    },
+    {
+      "id": "IS-T1-TESTS-M5-INSTALL-PROFILE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m5-install-profile.test.js.3197eac0.log",
+      "sha256": "4cd49b350f30ebe0d7e5fea345a269d2e2e2b65f7e941f1b96b14dc644944c6d"
+    },
+    {
+      "id": "IS-T1-TESTS-M5-OBSERVABILITY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m5-observability.test.js.32ca3222.log",
+      "sha256": "47b095581f3ea2ed5663efbf168dcb8ce2158208f1062956991c18afd67c209e"
+    },
+    {
+      "id": "IS-T1-TESTS-M5-OUTBOUND-POLICY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m5-outbound-policy.test.js.efbd97d2.log",
+      "sha256": "c72dcbe626c819de0f8d4f75fa8fa62415e11515df3da8ad9acc796aa55ff2d2"
+    },
+    {
+      "id": "IS-T1-TESTS-M5-PERFORMANCE-BUDGET-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m5-performance-budget.test.js.e15e50b5.log",
+      "sha256": "6524c1cf526d942a2c40d040792c863cfa13cf91d174dbb9637ee1a0a3cce278"
+    },
+    {
+      "id": "IS-T1-TESTS-M5-PRIVACY-REMEDIATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m5-privacy-remediation.test.js.3f394ce8.log",
+      "sha256": "0d996aa9241daab71e695880a649128401b212789cb1b1bfa122e9b4d9cb1432"
+    },
+    {
+      "id": "IS-T1-TESTS-M5-PROCESS-HARDENING-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m5-process-hardening.test.js.b964dd68.log",
+      "sha256": "1ee12c7de11d3956d25c25ab62091af79a242b718de45aa3a38e3dc1c2ea529d"
+    },
+    {
+      "id": "IS-T1-TESTS-M5-REMOTE-CORE-ADAPTER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m5-remote-core-adapter.test.js.4328babc.log",
+      "sha256": "52f84c9ca4bb4cf0326a0b49be0bcad38b29b00a864b5748e08bd8c6aa4df0d2"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-ACCEPTANCE-AUTHORITY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m6-acceptance-authority.test.js.4aadeacd.log",
+      "sha256": "10e490eee548629ff8888949f358bc8721160222721604afddfdf107f8c9f56e"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-CANDIDATE-PLAN-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m6-candidate-plan.test.js.dc8c9ce7.log",
+      "sha256": "6620c2e8f55cee69b8938190ff5e90a5776d3c019e09f3d6e9ab6323fbf412ae"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-L0-EVIDENCE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m6-l0-evidence.test.js.b2ad5108.log",
+      "sha256": "bc13d8a0a3a72d7bc2860888b3553d8e97f05955d7e64788290aec690e482d5f"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-MODEL-ARTIFACT-AUTHORITY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m6-model-artifact-authority.test.js.1cd51e21.log",
+      "sha256": "ad80014235bf6a5547e8c6ec82f797289e5bc363d9f1551e436ff90338c0dbc0"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-MODEL-DISCOVERY-JOURNEY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m6-model-discovery-journey.test.js.a03b9269.log",
+      "sha256": "8ebb314e31e5f17433c40433b9e6ef163030abcbb139edbf6bd37106459324bc"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-OPERATOR-DEMO-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m6-operator-demo.test.js.28fb911e.log",
+      "sha256": "d5f981ac3d1effbde1cbc88b6dd70c209665fed7d3ce80fc4db9ad732e09fc2d"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-PLATFORM-JOURNEY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m6-platform-journey.test.js.74df06a5.log",
+      "sha256": "6263a68d53d567e3b60f840c8e3c03d2415761da5eb54ad41a4eacf1d846ad9c"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-RELEASE-ARTIFACT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m6-release-artifact.test.js.a2ff816b.log",
+      "sha256": "0d526c0d1115f664e36550824e3e3739a61e0c30fa9e9a0d8e0294f06f2bbcc1"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-RELEASE-VALIDATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m6-release-validation.test.js.8867f75b.log",
+      "sha256": "826c26532ce685bc561af38376f72715f5d907c2f762280b4893f13569cdc780"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m6-runtime-evidence.test.js.0db6f126.log",
+      "sha256": "d4d3c30ca3945d4de47ff43aca8e132f69ba5b6e8ae1d08ae068e61f4995ecb2"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-TECHNICAL-EVIDENCE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m6-technical-evidence.test.js.dbf843b8.log",
+      "sha256": "e0ead9b2a837ddc7f7e9e146ba03ff9bbb813d9441865b12d31bd6bf366ad001"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-CANONICAL-JSON-PARITY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m7-canonical-json-parity.test.js.779912b1.log",
+      "sha256": "3333ab300d8eccd22beb0adb34ea77d5158b7d02de073f915b08faae7d9174e3"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-CONVERSATION-COMMAND-EXECUTOR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m7-conversation-command-executor.test.js.d662a021.log",
+      "sha256": "c3f1e2d36fccdfebc9a34a5906c46bd6e39613391873e15c94bd73960c5a1dca"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-CONVERSATION-CORE-ADAPTERS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m7-conversation-core-adapters.test.js.d96c8b72.log",
+      "sha256": "b54cc30891d7728beae7f33e2697b59a1917e477db2f65aca77f3add61207215"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-CORE-COMPOSITION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m7-core-composition.test.js.2b5e07db.log",
+      "sha256": "17f53e3f699e91ddcef270b048dc7ce00ddd8a1df3632fdbe98f97206d617098"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-DISCONNECTED-REQUEST-PIPELINE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m7-disconnected-request-pipeline.test.js.4361f964.log",
+      "sha256": "496e66000bd67927f80e903ee41ed3b56e2f21a8201713759a789b50cd2055f8"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-DURABLE-RATE-LIMITER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m7-durable-rate-limiter.test.js.32485a8e.log",
+      "sha256": "3cf6de923021dbd6eb5673bb05bd0d24cb2f63142e00535aa0c98b68a51bf37b"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-IN-PROCESS-CAPABILITY-PROVIDER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m7-in-process-capability-provider.test.js.f8b9cde8.log",
+      "sha256": "4980779820991fb4b0e3ede701e9a533d45b251b952dab2a12f8a0ce6a985217"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-LOCAL-PAIRING-ROUTE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m7-local-pairing-route.test.js.7e46b40b.log",
+      "sha256": "779b1c613deb3265b78acd651243cff7c927ccb831d405a46454cb912416f891"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-LOCAL-PAIRING-STUDIO-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m7-local-pairing-studio.test.js.572f7692.log",
+      "sha256": "153fdb9971ec2fe06623c98cbb59378837063878d9b2af79a49d39882643bdfc"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-M2-APPROVAL-CORE-ADAPTERS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m7-m2-approval-core-adapters.test.js.12c96c74.log",
+      "sha256": "250f9e27ea01450125812f3b57530f00c65b201116bf3c8e2ae011da19c2f1fa"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-MOBILE-APP-RUNTIME-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m7-mobile-app-runtime.test.js.6ad6d05e.log",
+      "sha256": "d2579206289a63ea6aa47bda0644d127aeb57ee7ab9cecdb4976a5451a366993"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-MOBILE-CORE-PIN-INTEGRATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m7-mobile-core-pin-integration.test.js.082d1156.log",
+      "sha256": "236cd502da65cfc85d419b8e55603c82bc0ce9fc226cdb9d2553353e0f516da5"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-MOBILE-UI-API-ADAPTER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m7-mobile-ui-api-adapter.test.js.1a215f23.log",
+      "sha256": "b4e11ea8e798c662ce54a0b98e04f633e5cf2d402ce94f307c1021a85a5b2fec"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-MUTATION-MEDIATOR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m7-mutation-mediator.test.js.7b109ce6.log",
+      "sha256": "5767bd6eef3aa3e113aff098f4af3090c22060dc4126b1666e52afb8a54024fa"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-NATIVE-REMOTE-CLIENT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m7-native-remote-client.test.js.5edc41e3.log",
+      "sha256": "15e55290f6bcc640ba1a0ee619a36b6c2ca6370c798f0b50c458fad71bf275ff"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-NOTIFICATION-CORE-ADAPTERS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m7-notification-core-adapters.test.js.ef074412.log",
+      "sha256": "80e3f247dfe613be096da69250766fef2caf69f30bde562f4847905d9c0fda61"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-OPERATION-CONTROL-ADAPTERS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m7-operation-control-adapters.test.js.04d13ffc.log",
+      "sha256": "4af9998c7d8eda2d61ee1bceba9f10b185dee78ce6ce5ce70330b4e07bd985a2"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-OPERATION-JOURNAL-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m7-operation-journal.test.js.5b628c4f.log",
+      "sha256": "1816f9cb376cfcb2b48f3a22ed8ee7aad38497fcbff9ae1786b8a2ed145307d9"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-PROJECT-CORE-ADAPTERS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m7-project-core-adapters.test.js.eb2adf66.log",
+      "sha256": "856b74461370ee5f0ac9ad4a5f2007db2fab8e074901e9067c1d9c592de6ecdd"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-REMOTE-HEALTH-ADAPTER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m7-remote-health-adapter.test.js.32985334.log",
+      "sha256": "cb144efce12284ec5571dcf2f232088af2e1388d0a31f64a22788e80caf258c6"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-RUN-EVENT-CORE-ADAPTER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m7-run-event-core-adapter.test.js.07053bd8.log",
+      "sha256": "46e71e5e4e51e91319d07c2171055d1ecec3043bd5f89981a1595056e448ba27"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-SESSION-AUTHORITY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m7-session-authority.test.js.06f5a8e3.log",
+      "sha256": "66e437b69a9cac6b59f64989f666f8e4ee8711d8b5addad5e23fd47da62aafa4"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-SETTINGS-INFORMATION-CORE-ADAPTERS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m7-settings-information-core-adapters.test.js.a71ce126.log",
+      "sha256": "ae1d1e36c2df03f5a70eeb0b59308e5d0d432d25c29f9e878b388187e1ed2b52"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-TRANSPORT-ADMISSION-POLICY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m7-transport-admission-policy.test.js.5bd65e6e.log",
+      "sha256": "e8c737b4699453acaa2dd129273d0a8cd35d75e2a50b069d01696b8f210b05ad"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-VPN-PRODUCTION-RUNTIME-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m7-vpn-production-runtime.test.js.dca7e897.log",
+      "sha256": "32a72dbdf4ab1c0ad349b64a06e2847e8ea0f6f7f0cd8897c88a2f3518cd595a"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-VPN-RUNTIME-CONFIG-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m7-vpn-runtime-config.test.js.fde44a7e.log",
+      "sha256": "7d3d6caa22987f003e5fd1cf3724b9820fac5b3a882db474f4b69cee96e17344"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-VPN-TLS-LISTENER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_m7-vpn-tls-listener.test.js.21c4b96e.log",
+      "sha256": "51b9519becb2c4321f52f62a4a990fccc2dd01d4e858730824fafcd0c6048c9b"
+    },
+    {
+      "id": "IS-T1-TESTS-MANIFEST-V2-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_manifest-v2.test.js.3e768afb.log",
+      "sha256": "a33add21260e1b0b5609c63d2083a79b08a8930fa44633322cf1b16f08fbcc8e"
+    },
+    {
+      "id": "IS-T1-TESTS-MARKETPLACE-CATALOG-V125-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_marketplace-catalog-v125.test.js.97de319e.log",
+      "sha256": "56000b77fba9de7d92b7466a4ed480f8274769c38e147f57e59d116843403e13"
+    },
+    {
+      "id": "IS-T1-TESTS-MARKETPLACE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_marketplace.test.js.145d7584.log",
+      "sha256": "383c182e409fdd743f520ef55fd397c4b15d4323576e4c3e35010ab5ed9343d2"
+    },
+    {
+      "id": "IS-T1-TESTS-MERGE-COMPATIBILITY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_merge-compatibility.test.js.5f130be0.log",
+      "sha256": "826157e6d93a0393203571444c5cde8ef5d40d61b3c9a6dd4b0c308fda848109"
+    },
+    {
+      "id": "IS-T1-TESTS-MERGE-ENFORCEMENT-INTEGRATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_merge-enforcement-integration.test.js.0b068ac4.log",
+      "sha256": "e0d2b1ae96f194046239bef06212e17016014d773a0359e0e56cf35eff58a668"
+    },
+    {
+      "id": "IS-T1-TESTS-MERGE-ENGINE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_merge-engine.test.js.823c00c2.log",
+      "sha256": "da42848d9a643ac1ca198bb27ebd23582a0808f928934dc060c51b59974ccfa7"
+    },
+    {
+      "id": "IS-T1-TESTS-METRICS-COLLECTOR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_metrics-collector.test.js.d48129a5.log",
+      "sha256": "4e25b79140f2431269ce840126cb8311178583b29f0eaf7da8cbe6fdc49bac8c"
+    },
+    {
+      "id": "IS-T1-TESTS-MILESTONE-SIZE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_milestone-size.test.js.6d7afcc7.log",
+      "sha256": "c65f92470e0e3e891f2ad163ba2fa04d4a27b5fc2945f7d8598b6a768650f0f1"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-ANDROID-RELEASE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_mobile-android-release.test.js.83cb5702.log",
+      "sha256": "25a80d12ff8704eff70070e85de9eceb876db39945c98499bcb48d44f6c01984"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-APPROVAL-LIFECYCLE-REGRESSION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_mobile-approval-lifecycle-regression.test.js.382f9ce2.log",
+      "sha256": "6dc0f80c5e61fceeb157820dc1b01702be206db2b4c4b9053af7d9aa6b21ce60"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-BROWSER-A11Y-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_mobile-browser-a11y.test.js.1de6224d.log",
+      "sha256": "0cb36d4e6fb6b771d7779ac922574f5d607928eeff1a25a62e822be327512061"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-CAPABILITY-INVENTORY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_mobile-capability-inventory.test.js.46fb71d6.log",
+      "sha256": "f6b436cf83b9ac903c944ba0235bd49fc009e1a52d17b622db68d50509f458fb"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-GATE-SELF-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_mobile-gate-self-test.js.8d8d09c3.log",
+      "sha256": "5c8090723ccef47b3d8380d0cff874d91c5b7780daac9db1b392b2b91485c7a9"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-MS07-HISTORY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_mobile-ms07-history.test.js.9079945f.log",
+      "sha256": "50004a9463e5c397a2fc5628d47e39398bd1a34c369f1a28a1ca5bb8da3ef519"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-MS13-APPROVALS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_mobile-ms13-approvals.test.js.da425472.log",
+      "sha256": "ab303cc8da164a1fbbb964a95329eb5fb609a87e678daccc322b21667b39166e"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-MS14-DECISION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_mobile-ms14-decision.test.js.f6fb816a.log",
+      "sha256": "23f98c7e798bfde86d9315371c9a00e5e9b3b9ee96f40ea17937e39cf56f8f58"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-MS20-UI-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_mobile-ms20-ui.test.js.a0b9eb4f.log",
+      "sha256": "817f559f88db52276e94911f32d88fc6601c2f7918f861ae59db6918c6036482"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-NAVBAR-RING-TURN-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_mobile-navbar-ring-turn.test.js.50271dbf.log",
+      "sha256": "0b8325ceae2ef9ae2df9d72073a05ff450e593446d4f785bd281d8e694f07ce3"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-NAVBAR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_mobile-navbar.test.js.7c4f1227.log",
+      "sha256": "60c91eac8686eefc8d9fb50667d8d7a03e7123520b9c90344bf79de55d21a2c1"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-OVERVIEW-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_mobile-overview.test.js.37551d17.log",
+      "sha256": "8cd7a654ed91ac250b4d590734c0a840389376d0361b21a3073114a3441bc157"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-REMOTE-CAPABILITY-CONTRACT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_mobile-remote-capability-contract.test.js.e64c218a.log",
+      "sha256": "4092c565ebe87ae31d59c57e08f48725324cdcded39c86a9e66bcf714644304f"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-REMOTE-CAPABILITY-PROVIDER-CONTRACT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_mobile-remote-capability-provider-contract.test.js.778bf1cc.log",
+      "sha256": "92bd6157859618585316f35b15634cb3f907628e7bea0111d2147c7a26a483e9"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-REMOTE-CORE-SIMULATOR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_mobile-remote-core-simulator.test.js.79ba563d.log",
+      "sha256": "2ba83f1910605ddd6f995e90cf5d8951356309632f39dbbca39f8dbd6e586e03"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-REMOTE-CORE-V1-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_mobile-remote-core-v1.test.js.d45ee5b2.log",
+      "sha256": "63a258c05f080ecb321d9ad1fa34073194c665d162b36e448609b2a2ddf821ee"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-REMOTE-SESSION-CONTRACT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_mobile-remote-session-contract.test.js.bdd0f7a4.log",
+      "sha256": "dafa4ba0065660b19990f7f76496758a4b52900ec99e1bd1d0dee32202ff3b00"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-RUN-SILENCE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_mobile-run-silence.test.js.1924ac8e.log",
+      "sha256": "cb416d27f4437f684104bcd8db010a7f50a51e419e60aa214ac8a7ad30cc6e38"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-SECURE-CREDENTIAL-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_mobile-secure-credential.test.js.a1f840f5.log",
+      "sha256": "69ba0b2101e8790fb911169cc71510fdc11962ee8d58126ed98c766e4e211954"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-TRUST-BAR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_mobile-trust-bar.test.js.ad6effc4.log",
+      "sha256": "1a5f60bfbde7cf5a33905d91f16b8999683149758ab224643fd1245bc9580a36"
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-CATALOG-REGISTRY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_model-catalog-registry.test.js.a4208391.log",
+      "sha256": "431a8c8d3ca2bfc6bfea5ad89ac96754fe8767c4b2484c3b5551d3103c0f3fdd"
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-CTX-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_model-ctx.test.js.c0c98746.log",
+      "sha256": "9a515586cace68babcf8970ca0c38cd49a6161c7b218947d0ccf2a0b1f2ad929"
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-EVALUATION-CONSOLIDATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_model-evaluation-consolidation.test.js.d30bd50b.log",
+      "sha256": "da3ab0c41daa83f144b5dd96414a2d2256306c2eeb808824ae51159a52e6e2cc"
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-EVALUATION-READ-MODEL-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_model-evaluation-read-model.test.js.b8fc9f01.log",
+      "sha256": "e59d59d8591417770a0d564096e87b3683f0e04f6f0f8d14eddc9e44dd95b1fa"
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-EVALUATION-SUITES-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_model-evaluation-suites.test.js.27a3b5d4.log",
+      "sha256": "7118375d295cae307902f49b1c48b3b36a12cce60b20214cb87ced9b7a6351cc"
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-REGISTRY-CURRENT-AUTHORITY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_model-registry-current-authority.test.js.e3bf6cfd.log",
+      "sha256": "973d0b83b6e3de277c7bf2fa66923de9df09cfabbda08ee7aa6df7f6fb0cb690"
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-SIMILARITY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_model-similarity.test.js.38b5a255.log",
+      "sha256": "ebde30158194530e7d4a41d7cf4a30f8b0b40517cc3dc12e39bdeac643b6fe4a"
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-SWEEP-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_model-sweep.test.js.15949b01.log",
+      "sha256": "ae70f85f912aff43ac5d277d466b891406434b0fd4266df13a94e1bf22b31e20"
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-UNIVERSE-STORE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_model-universe-store.test.js.e53440f2.log",
+      "sha256": "1234cb9ec7f9cb92c0ac1c48d6dfd061d2e40fe9ef00f4a0a1719b65df55744f"
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-UPGRADE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_model-upgrade.test.js.2c7522c3.log",
+      "sha256": "6299c658e57103d5eb5679f9cfe534ab3e80961f5a9a7811bbef9892b64a9289"
+    },
+    {
+      "id": "IS-T1-TESTS-MODULE-BOUNDARY-RATCHET-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_module-boundary-ratchet.test.js.bcb6a2a7.log",
+      "sha256": "7185e070602c167f44ba8b52373280fbecf654807a0635f9f8e16efdfd1c595e"
+    },
+    {
+      "id": "IS-T1-TESTS-MODULES-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_modules.test.js.0d9853e3.log",
+      "sha256": "d05602a2da0080a735527888904557e38ae490df6fb6390a41a3be368c3a5911"
+    },
+    {
+      "id": "IS-T1-TESTS-MULTI-SOURCE-INTEGRATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_multi-source-integration.test.js.c7dc01b1.log",
+      "sha256": "2a7e7523a2f19b239e59889368c86ed31656c8e87e8609212cfd614467c17f1e"
+    },
+    {
+      "id": "IS-T1-TESTS-MULTIMEDIA-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_multimedia.test.js.e1b762ed.log",
+      "sha256": "cc5e66635fb60373ec1dad3996710125730951a5b593d1aaabbfdcaa8a6828a2"
+    },
+    {
+      "id": "IS-T1-TESTS-NIGHTLY-AUDIT-RUNNER-SELF-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_nightly-audit-runner-self-test.js.eaa62b18.log",
+      "sha256": "0c07e4ac94358f52c3f4200584f45ac903373aada5c8ebfe0c247d811e7cd670"
+    },
+    {
+      "id": "IS-T1-TESTS-NIGHTLY-ORCHESTRATOR-SELF-TEST",
+      "status": "FAIL",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_nightly-orchestrator-self-test.js.a5ce7dd7.log",
+      "sha256": "bfa1a0ecd828439e4d1f073a239df1ac6a01169b6c019951d48c9f2141c45645"
+    },
+    {
+      "id": "IS-T1-TESTS-NOTIFICATIONS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_notifications.test.js.4e47e960.log",
+      "sha256": "b273e362dd0b8833f86cbe36f6c8c1c5503b9c5be5110a68cfc5bf3af7008e8e"
+    },
+    {
+      "id": "IS-T1-TESTS-ONLINE-DISCOVERY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_online-discovery.test.js.aa15fbb5.log",
+      "sha256": "33b14fc654c45ff1838e94841ebfef207b8edffc2b5075ef77561b4cc60c0871"
+    },
+    {
+      "id": "IS-T1-TESTS-OUTBOUND-NETWORK-OPTIN-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_outbound-network-optin.test.js.940a735b.log",
+      "sha256": "91613e78723ce395e7306be1bd65759f9d52106190799c8c628f32191b43a172"
+    },
+    {
+      "id": "IS-T1-TESTS-OUTPUT-GATE",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_output-gate.js.c0084381.log",
+      "sha256": "940436ce3607bf390ac4780953d54f6cc5272a85862cf89b524752c85cce77de"
+    },
+    {
+      "id": "IS-T1-TESTS-PAIRWISE-TRIAL-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_pairwise-trial.test.js.c9619511.log",
+      "sha256": "b12a949671d763f3ebf8b21f9f1baafaf865af781e3987de29aabd629cb44764"
+    },
+    {
+      "id": "IS-T1-TESTS-PATCH-ENGINE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_patch-engine.test.js.4a81491a.log",
+      "sha256": "ec1f795f1f3b3fe6ada72b4013c4981793001cb03197faa79cbe39b429c6ae21"
+    },
+    {
+      "id": "IS-T1-TESTS-PATTERN-MINER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_pattern-miner.test.js.b1a72d1b.log",
+      "sha256": "39ea9e9a486294c606b807403c5c26977f925f208f3de0f872c64d31420e8c2e"
+    },
+    {
+      "id": "IS-T1-TESTS-PERF-ANALYZER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_perf-analyzer.test.js.210cd8d3.log",
+      "sha256": "d718a8562b26f371869fadb0ddafdfa17c664e39c5f1fb2799d206c6ab8d9dd8"
+    },
+    {
+      "id": "IS-T2-TESTS-PILOT-C1C2C3-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_pilot-c1c2c3.test.js.ea164072.log",
+      "sha256": "60c2d1d178de4b5bd0c01e03a6ce850945a0d4b9a8f0c0a7269e3bca4239508b"
+    },
+    {
+      "id": "IS-T1-TESTS-PRE082-UPGRADE-REGRESSION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_pre082-upgrade-regression.test.js.05d1b506.log",
+      "sha256": "1b6e576d2d947a4e8ee0e0ef261d904b6b2d7102e5766d118eac487e9ac68b5c"
+    },
+    {
+      "id": "IS-T1-TESTS-PROJECT-KB-DECOMPOSER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_project-kb-decomposer.test.js.e12475a4.log",
+      "sha256": "ed13097bc069a10af64e296ab95b4e26eed4e1fdfa417bb6ceb2e4f8bd2dad22"
+    },
+    {
+      "id": "IS-T2-TESTS-PROJECT-LIFECYCLE-CHANGE-MGMT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_project-lifecycle-change-mgmt.test.js.0b16d3c9.log",
+      "sha256": "75ccb9f8b8fc0b3fbabe715174699cade40436e284a9e9bf781d1473121306d8"
+    },
+    {
+      "id": "IS-T2-TESTS-PROJECT-LIFECYCLE-ENTRY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_project-lifecycle-entry.test.js.aec6f3b7.log",
+      "sha256": "99a8f792b11aa9b20a30b5ba3234d0e04a4efb9f09c431ce0043a90c5c387b7c"
+    },
+    {
+      "id": "IS-T2-TESTS-PROJECT-LIFECYCLE-EXPERTISE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_project-lifecycle-expertise.test.js.4c8f42ae.log",
+      "sha256": "ad760ce98f10b3786f4b0673e1cc3ea0a7f1b84e99613f7b7ef52aad70b8b3b3"
+    },
+    {
+      "id": "IS-T2-TESTS-PROJECT-LIFECYCLE-HAPPY-PATH-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_project-lifecycle-happy-path.test.js.692206b9.log",
+      "sha256": "d0a4f643ebb55a5c3e5fe95dad13af31b1a21265651cffa1bc3da713492a4247"
+    },
+    {
+      "id": "IS-T2-TESTS-PROJECT-LIFECYCLE-INTERCEPT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_project-lifecycle-intercept.test.js.ee1f91f2.log",
+      "sha256": "8dedc2c35cde06af5d8868ca85e9588fabbb2063edcd0a34fb4a6c05215e1d83"
+    },
+    {
+      "id": "IS-T2-TESTS-PROJECT-LIFECYCLE-INTERRUPTS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_project-lifecycle-interrupts.test.js.c2a0fe3c.log",
+      "sha256": "de5c5300fbc7aedb9422a56ab2e321dc1dd2dacb40133bd736cb42b40cdd766f"
+    },
+    {
+      "id": "IS-T2-TESTS-PROJECT-LIFECYCLE-KLICENKA-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_project-lifecycle-klicenka.test.js.2e54d87a.log",
+      "sha256": "be32920534201df609661e4c2f1dad3afdfec8981ee931aa357176f9f87e7bdc"
+    },
+    {
+      "id": "IS-T1-TESTS-PROJECT-WELCOME-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_project-welcome.test.js.6737c372.log",
+      "sha256": "f5294a3adc8f8d55d56202f2f29de8166d01885c58981b6ff7a6aba33d87472b"
+    },
+    {
+      "id": "IS-T1-TESTS-PROMPT-BUILDER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_prompt-builder.test.js.1f5d4f90.log",
+      "sha256": "f8fb22dc5df28d4e99b125c233f8fae7a6ad727e2b1e386d25b6dfed4dfd6b33"
+    },
+    {
+      "id": "IS-T1-TESTS-QG-IDEMPOTENCE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_qg-idempotence.test.js.6cd4c52d.log",
+      "sha256": "e4997d8d69e37bc7279dcb4cab633dde20eed09bd0ae340700e7e24be362e147"
+    },
+    {
+      "id": "IS-T1-TESTS-QUALITY-GATE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_quality-gate.test.js.aee41042.log",
+      "sha256": "9fd31994d705c0416e9671c2777d90bc92a4ee9965fb01bb678007cc9b7321f8"
+    },
+    {
+      "id": "IS-T1-TESTS-QUALITY-GATES-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_quality-gates.test.js.73c54b4f.log",
+      "sha256": "749824b07bb217b0ebff0cceab011172794382bff26654438103769c2493d5ca"
+    },
+    {
+      "id": "IS-T2-TESTS-QUALITY-REPORT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_quality-report.test.js.45224b34.log",
+      "sha256": "59dfb8c46c689d8efa1f90383ceb8c601610eb26b61baf0418516766db51a2eb"
+    },
+    {
+      "id": "IS-T1-TESTS-QUALITY-SCORE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_quality-score.test.js.7893f2bd.log",
+      "sha256": "c2f0223ed659e46cfda109465e36e46445d75805679714f16fc9ddfb21533efb"
+    },
+    {
+      "id": "IS-T1-TESTS-QUALITY-SPRINT-Q-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_quality-sprint-q.test.js.ee20f99d.log",
+      "sha256": "100c656bde3937811da8ddb4fe2461996532248137e0d1a4a00536008863f41b"
+    },
+    {
+      "id": "IS-T2-TESTS-QUALITY-TELEMETRY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_quality-telemetry.test.js.14fa2429.log",
+      "sha256": "c17d95e15490595b15407666b1e5ca09427e5481eb9c2510a3b9d4ab69a60322"
+    },
+    {
+      "id": "IS-T1-TESTS-QUERY-EXPANDER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_query-expander.test.js.e465477c.log",
+      "sha256": "8c59f3fbb7a4c79f2d6dc9041b17cf3cab15c95ac08f6fe3bef73dbde18ad3d4"
+    },
+    {
+      "id": "IS-T1-TESTS-REFACTOR-AGENT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_refactor-agent.test.js.a157fcc0.log",
+      "sha256": "dac4b2ef4609ee60ed27c533900881a79e3a734387def602b0aa2aecd4b60b6b"
+    },
+    {
+      "id": "IS-T1-TESTS-REGRESSION-PREDICTOR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_regression-predictor.test.js.ef5a75ef.log",
+      "sha256": "31da09c2754d048b92887ffc0271767752f529be689faac65299ccef3af88da2"
+    },
+    {
+      "id": "IS-T1-TESTS-REPOSITORY-HYGIENE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_repository-hygiene.test.js.a3416d42.log",
+      "sha256": "4d2cfdee560a93a20b965bb7dae7541fb164fd65ff7acd22843b489338c07150"
+    },
+    {
+      "id": "IS-T1-TESTS-RESPONSE-SCORER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_response-scorer.test.js.9dd70714.log",
+      "sha256": "c4f3a1b27b9c7de6734de2050e4189fa6f29c901324f90ec32ddeb8b381bd931"
+    },
+    {
+      "id": "IS-T1-TESTS-RISK-ANALYZER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_risk-analyzer.test.js.d28a1095.log",
+      "sha256": "6e2c455e86de1df3f70c3a356d55413e259f1bcb04c5c3819bd577ced7a533ca"
+    },
+    {
+      "id": "IS-T1-TESTS-ROUTES-SMOKE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_routes-smoke.test.js.29cdbe08.log",
+      "sha256": "e66b3701fc8f5f8bef5e5a5e9c2af58f12abc70513c6a224cb9e6d2bd782fa5c"
+    },
+    {
+      "id": "IS-T1-TESTS-ROUTING-ACCURACY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_routing-accuracy.test.js.2de4c86a.log",
+      "sha256": "a2403fb273ca784e4d8981be11e339dd1936a41598318b939c6b50e923c16c31"
+    },
+    {
+      "id": "IS-T1-TESTS-RSS-INTEGRATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_rss-integration.test.js.2fce094c.log",
+      "sha256": "758c05209ea555bd5eb7a877f02bfd53334f1594bcf3d2277433fa14762c8ad7"
+    },
+    {
+      "id": "IS-T1-TESTS-RUNTIME-FEEDBACK-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_runtime-feedback.test.js.d2024b96.log",
+      "sha256": "aff6ed8fe700e1d7f9a616e26766ed40fe78bd8db946c41e7d9df8e4f74ddca0"
+    },
+    {
+      "id": "IS-T1-TESTS-SAZENI-ENGINE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_sazeni-engine.test.js.7bc8a419.log",
+      "sha256": "458ca3530ce62a51fef863ed723190e8f0819ff6fc63d58daaf1a87d521a463b"
+    },
+    {
+      "id": "IS-T1-TESTS-SAZENI-INTEGRATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_sazeni-integration.test.js.a6879b04.log",
+      "sha256": "4ee19c3df16682768fd09e98eef720e76baafdd722af3a7ea3a796ff188953d2"
+    },
+    {
+      "id": "IS-T1-TESTS-SCENARIO-ENGINE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_scenario-engine.test.js.b8bcfe18.log",
+      "sha256": "6dd9b52ef11353cef755bb6e38d8c432bbaee8a53a3c58e2c5270edf4911b509"
+    },
+    {
+      "id": "IS-T1-TESTS-SCHEDULER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_scheduler.test.js.773fbbe5.log",
+      "sha256": "395cb221213ee270756c5b9d405dad996eacff996a927eadf741c9f7e284eb9c"
+    },
+    {
+      "id": "IS-T1-TESTS-SCHEMA-MIGRATIONS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_schema-migrations.test.js.923a63bd.log",
+      "sha256": "ebe0f9670edfa3f055583a2a84210ff0590ba75eb75809df33efc5a951a0c31a"
+    },
+    {
+      "id": "IS-T1-TESTS-SCOPE-LIMITER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_scope-limiter.test.js.f75754fe.log",
+      "sha256": "c0acbf4db3d77ddf95fa30ca42d1bb1455c453603522d21d9fa06ad5468af439"
+    },
+    {
+      "id": "IS-T1-TESTS-SEARCH-QUALITY-A123-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_search-quality-a123.test.js.9dbc0432.log",
+      "sha256": "b9e37b5eaecad115c6169d0c981402337a7080066d591a0e5bb51640d1b38e25"
+    },
+    {
+      "id": "IS-T1-TESTS-SECURITY-HARDENING-V126-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_security-hardening-v126.test.js.773d902f.log",
+      "sha256": "9f1a0ce856bfc78cbd57c3fb145b215897edc2f9b3965a78d48ab868ea656954"
+    },
+    {
+      "id": "IS-T1-TESTS-SECURITY-HARDENING-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_security-hardening.test.js.42294018.log",
+      "sha256": "968dfd17c8bd86aa9c45a6372f182e59d80c0b4d71c0632b47899a1773d5728c"
+    },
+    {
+      "id": "IS-T1-TESTS-SELF-CRITIQUE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_self-critique.test.js.952c17f0.log",
+      "sha256": "221bc482d77b4d3564ce7b34e2f40bbe3b45796df27228be551db14cf1408314"
+    },
+    {
+      "id": "IS-T1-TESTS-SEMANTIC-INDEX-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_semantic-index.test.js.cac8e58f.log",
+      "sha256": "4e40b92a495f6d94e2813ffa97259f6c668237cb961b996a010fa09b4eea5556"
+    },
+    {
+      "id": "IS-T1-TESTS-SERVER-SHUTDOWN-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_server-shutdown.test.js.11b72456.log",
+      "sha256": "76b33f63510df2a31cde05ca23d1cd8698da4937688067009d22672ffc1c294f"
+    },
+    {
+      "id": "IS-T1-TESTS-SESSION-CONTEXT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_session-context.test.js.14a290a1.log",
+      "sha256": "dd9abd878447ef2a2a18f9e45ac710ffce52ff75ea750ec212ef6078045d0df5"
+    },
+    {
+      "id": "IS-T1-TESTS-SIGNATURE-CACHE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_signature-cache.test.js.7275b5f4.log",
+      "sha256": "3515d336235b564224d1589ca7218af38aa11f7f7767f8420ae5a676c50bcf10"
+    },
+    {
+      "id": "IS-T1-TESTS-SIGNATURE-MAP-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_signature-map.test.js.4f903ced.log",
+      "sha256": "ff00b3fd449be10d23aa27bfaeb625b9fe8e77087eb48adbca483fc7fe6bc284"
+    },
+    {
+      "id": "IS-T1-TESTS-SIGNED-AUTHORITY-BUNDLE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_signed-authority-bundle.test.js.36ce9ab8.log",
+      "sha256": "b3f10d711f568641105dd08de7b580adf511010c4ffee3eae971960ec2ebdc9c"
+    },
+    {
+      "id": "IS-T1-TESTS-SIGNED-AUTHORITY-RECEIPT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_signed-authority-receipt.test.js.13231b5b.log",
+      "sha256": "6be49d2c44d68c6dba225b1ca3d773425477cb89ade5c6379983e5cfd36a4579"
+    },
+    {
+      "id": "IS-T1-TESTS-SKILL-META-DETECTION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_skill-meta-detection.test.js.31ea2408.log",
+      "sha256": "037f72e84a3f2d7ad898add7419dd6d5baae1f30461b51acb95b9ecb95feb6cc"
+    },
+    {
+      "id": "IS-T2-TESTS-SMOKE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_smoke.test.js.035ee810.log",
+      "sha256": "9ee528ac201db4733bba855739bae997867bf5ea1177e74b1d57f2fb37ea5788"
+    },
+    {
+      "id": "IS-T5-TESTS-SOAK-ATTACHMENT-HEAVY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_soak_attachment-heavy.test.js.028d4a9f.log",
+      "sha256": "cb81d57a8ea8f152956871eaeacebd4410527740a88ea70ef4f3392a779d911a"
+    },
+    {
+      "id": "IS-T5-TESTS-SOAK-BREAK-PATTERN-PROBE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_soak_break-pattern-probe.test.js.32abfca0.log",
+      "sha256": "01a41c45869d14dd8375279a8ee58fcdc4932e791072810893e04a1530b5a8aa"
+    },
+    {
+      "id": "IS-T5-TESTS-SOAK-FOLLOWUP-LOAD-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_soak_followup-load.test.js.9d0a2bbb.log",
+      "sha256": "90f8dae2d03efa7c695ce9a989368eab39969d52e7820aea076b40098efc7ada"
+    },
+    {
+      "id": "IS-T5-TESTS-SOAK-MIXED-SESSION-SIMULATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_soak_mixed-session-simulation.test.js.1854ca93.log",
+      "sha256": "2a22102284a207950f40fd6fc6b214926955ed35c7f83b9fe34dee040cd18d66"
+    },
+    {
+      "id": "IS-T5-TESTS-SOAK-SHORT-INPUT-STRESS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_soak_short-input-stress.test.js.5c6da97c.log",
+      "sha256": "f1f555bf05f5d5b21bab65400f787f51aa6b607962d33f8fa803f3eb370f846a"
+    },
+    {
+      "id": "IS-T1-TESTS-SPECIALIST-BOUNDARY-RATCHET-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_specialist-boundary-ratchet.test.js.fe5330e3.log",
+      "sha256": "bd07f506faf11e71b072a5e70a27f2172a1202773944d7eba23bbd10b605849b"
+    },
+    {
+      "id": "IS-T1-TESTS-SPECIALIST-HANDLER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_specialist-handler.test.js.d87a4b91.log",
+      "sha256": "2458abbba24d8488ab22696ffb131dcda2bbf07259eeecef5efad050a3b444a1"
+    },
+    {
+      "id": "IS-T1-TESTS-SPECIALIST-LOADER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_specialist-loader.test.js.a3a77659.log",
+      "sha256": "242df35607e5e7cddba5c89362fb1f037d05f502f9e10c8045e30eb3f9bd4c7c"
+    },
+    {
+      "id": "IS-T1-TESTS-SPECIALIST-REGISTRIES-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_specialist-registries.test.js.bf24136d.log",
+      "sha256": "5174966f1d3e0dc7e410326dfccadf6045ccb385d29ce425dd952dae3af59094"
+    },
+    {
+      "id": "IS-T1-TESTS-SPECIALIST-RUNTIME-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_specialist-runtime.test.js.a85c3247.log",
+      "sha256": "4a3e885791948a20bbfef2ddefc151d9d9b9d90989263c953ec7bd9adf8cabeb"
+    },
+    {
+      "id": "IS-T1-TESTS-STORAGE-ARCHITECTURE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_storage-architecture.test.js.ab625acc.log",
+      "sha256": "52e9a220de86b1c3cca709ea7ca4be7c0ceb4ceb7fece33f17a95729c045cfc7"
+    },
+    {
+      "id": "IS-T1-TESTS-STUDIO-CDP-EVIDENCE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_studio-cdp-evidence.test.js.9c641f6c.log",
+      "sha256": "02cfdae63ef9ab2105ffeab1ff3f4d52038102bf2399d454ba534e966bcc09bd"
+    },
+    {
+      "id": "IS-T1-TESTS-STUDIO-ELECTRON-RUNNER-CONTRACT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_studio-electron-runner-contract.test.js.6ca72b4c.log",
+      "sha256": "5743f0cd578624f5749d413aaca2ec3447effda8ef5b52b0099daece078091bb"
+    },
+    {
+      "id": "IS-T1-TESTS-SYMBOL-INDEX-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_symbol-index.test.js.3f5b6b47.log",
+      "sha256": "59a77e32b253c8b53577c7863262a2b52bd7fe4df0109b23b24efc18210f83ed"
+    },
+    {
+      "id": "IS-T1-TESTS-TASK-MEMORY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_task-memory.test.js.fecbeace.log",
+      "sha256": "ba338eea4e37d0b65d3edce237447ae3b4ad28e533ff9f94235d53dc479956c3"
+    },
+    {
+      "id": "IS-T2-TESTS-TELEMETRY-AGGREGATION-VERSION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_telemetry-aggregation-version.test.js.cb07bde9.log",
+      "sha256": "ec744797356b8038c4ccc2e4c5e2b8ce5aa044bc5636e484e15b9e1fac30b513"
+    },
+    {
+      "id": "IS-T1-TESTS-TELEMETRY-SOAK-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_telemetry-soak.test.js.ce4d8b6f.log",
+      "sha256": "73c53b167d6cf2422418d51f91b18851f18e8bf2aaaaed27ede22e7e5fb00264"
+    },
+    {
+      "id": "IS-T1-TESTS-TELEMETRY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_telemetry.test.js.fc6a4cbb.log",
+      "sha256": "4d4af5e0e38a4bcc39d2458ceb37b6669fcc1e233a8030aaf50c659da54aa0be"
+    },
+    {
+      "id": "IS-T1-TESTS-TEST-COVERAGE-EXPLORER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_test-coverage-explorer.test.js.6399b7e8.log",
+      "sha256": "27029cdc3fad2d5905cb5c9c741c08db53c9b1592a639a15b75b73a8654efd29"
+    },
+    {
+      "id": "IS-T1-TESTS-TIMEOUT-POLICY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_timeout-policy.test.js.d35141af.log",
+      "sha256": "f1ebe6230162f2914d972d32ccb73e4e331a1e716ae6c40da12e8849521844c6"
+    },
+    {
+      "id": "IS-T1-TESTS-TOOL-ADAPTER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_tool-adapter.test.js.28116845.log",
+      "sha256": "056c54eb6770b11b9022532a79612c7e5b5f2d63b183f65796d03080f83c774d"
+    },
+    {
+      "id": "IS-T1-TESTS-TOOL-ENFORCEMENT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_tool-enforcement.test.js.4fdf838a.log",
+      "sha256": "d064252aac42e39ea19234cc314801034f72d6252acc9f89d6fd40bdb0dc9d7e"
+    },
+    {
+      "id": "IS-T1-TESTS-TOOL-REGISTRY-E2E-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_tool-registry-e2e.test.js.17b582ac.log",
+      "sha256": "102e03dcc00cde0d1924f564ad75f7070e51157286d88043ef0c99c73207b502"
+    },
+    {
+      "id": "IS-T1-TESTS-TRUST-FEEDBACK-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_trust-feedback.test.js.2a3eab25.log",
+      "sha256": "c55bc6e4461f96893f5af0639ed9e91afc8e9802282b088e595b8681011f73b7"
+    },
+    {
+      "id": "IS-T1-TESTS-UPGRADE-UX-V125-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_upgrade-ux-v125.test.js.3c8c114b.log",
+      "sha256": "56fd8adfc73aff343e6c709625f75b230d3dac571224c1a38812f57267f94d72"
+    },
+    {
+      "id": "IS-T1-TESTS-V583-TIER1-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_v583-tier1.test.js.7e11e0df.log",
+      "sha256": "7b987aa2de05318274e7e05c16c37025f55b84304262ce4fbae8c0e0f35b7d77"
+    },
+    {
+      "id": "IS-T3-TESTS-VRAM-COORDINATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_vram-coordination.test.js.ce95bd63.log",
+      "sha256": "fe05b76ba311c185f77cb74e3ba9091ad0ec962638a3d433db51ebd8be4d269c"
+    },
+    {
+      "id": "IS-T1-TESTS-VRAM-MEASUREMENT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_vram-measurement.test.js.a8bd317d.log",
+      "sha256": "c775e24b79fabea1681afccd1976e39212f5d35fbbbb39ae19a87fc3c17b03c4"
+    },
+    {
+      "id": "IS-T1-TESTS-WHATLLM-CLIENT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_whatllm-client.test.js.8c50c891.log",
+      "sha256": "8b8377f6e64b0047bd8dc5dd78f8d10f5516fceb42e60740e08ee099de96ae16"
+    },
+    {
+      "id": "IS-T1-TESTS-WORKERS-PHASE-B-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_workers-phase-b.test.js.1401de1c.log",
+      "sha256": "bf46f80e48da48773df35b2f8354bef4a3036f067453b3b12cd9b4776c0b0080"
+    },
+    {
+      "id": "IS-T1-TESTS-WORKFLOW-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_workflow.test.js.fd67265b.log",
+      "sha256": "e49be969ba016ab2ea6a6b96f87693505f6877d31f516d3595c0dd16645e035a"
+    },
+    {
+      "id": "IS-T1-TESTS-WORKSPACE-BUDGET-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_workspace-budget.test.js.c7909519.log",
+      "sha256": "ff77525418fc1a1cef9d235a1956549a6a47df0384a461982e0afd6932c296bf"
+    },
+    {
+      "id": "IS-T1-TESTS-WS-BRIDGE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/production-closeout-20260917/deterministic/c2989a3e/logs/tests_ws-bridge.test.js.5d681a8b.log",
+      "sha256": "b0e76de8cdb766758e74ffb2bb48560f405171ff553e5ff059ad2eb320e4d487"
+    }
+  ],
+  "http": {
+    "candidate": "c2989a3e1a36fe61c080aa57e4ce33b41f4d4735",
+    "startedBy": "production-closeout-20260917",
+    "modelProgramsRun": false,
+    "releaseAcceptance": false,
+    "results": [
+      {
+        "program": "tests/conversation-web-http.test.js",
+        "code": 0,
+        "signal": null,
+        "checks": 7,
+        "log": {
+          "path": ".intentsmith-artifacts/production-closeout-20260917/candidate-conversation-web-http.test.js.log",
+          "sha256": "2c81e16a2dca06f0d6727629f278dc43a7fa232cd79cce2c2dd15bd94cd416b5"
+        }
+      },
+      {
+        "program": "tests/attachments-projects.test.js",
+        "code": 0,
+        "signal": null,
+        "checks": 38,
+        "log": {
+          "path": ".intentsmith-artifacts/production-closeout-20260917/candidate-attachments-projects.test.js.log",
+          "sha256": "12239d875e6040fa74a99fa71148a8991b429ac30ca88953d6fab436a8457bbd"
+        }
+      },
+      {
+        "program": "tests/m2-lifecycle-http-e2e.test.js",
+        "code": 0,
+        "signal": null,
+        "checks": 75,
+        "log": {
+          "path": ".intentsmith-artifacts/production-closeout-20260917/candidate-m2-lifecycle-http-e2e.test.js.log",
+          "sha256": "c7f3fd1c328d229135454be4ad9a48d157f8b8db4bc7cdae6ec657e0392d47f2"
+        }
+      },
+      {
+        "program": "tests/e2e/64-m3-project-health-agent.e2e.js",
+        "code": 0,
+        "signal": null,
+        "checks": 6,
+        "log": {
+          "path": ".intentsmith-artifacts/production-closeout-20260917/candidate-64-m3-project-health-agent.e2e.js.log",
+          "sha256": "358b83dffd147bf82d26160cde15de62f03d9e1147c4a77c8829b83e3dd4e39e"
+        }
+      },
+      {
+        "program": "tests/e2e/83-m3-expertise-extension.e2e.js",
+        "code": 0,
+        "signal": null,
+        "checks": 3,
+        "log": {
+          "path": ".intentsmith-artifacts/production-closeout-20260917/candidate-83-m3-expertise-extension.e2e.js.log",
+          "sha256": "b6ed14d1a3321cf4d2ba18cb0785a07bcb33f2d2d419d381c7d85c9732114ffa"
+        }
+      },
+      {
+        "program": "tests/e2e/84-m3-code-review-specialist.e2e.js",
+        "code": 0,
+        "signal": null,
+        "checks": 5,
+        "log": {
+          "path": ".intentsmith-artifacts/production-closeout-20260917/candidate-84-m3-code-review-specialist.e2e.js.log",
+          "sha256": "6b3a303d9c82c3f0903a04fe6cbcaf5c5b36cb0237708dd7110572f2da1c05e2"
+        }
+      }
+    ],
+    "checksPassed": 134,
+    "completeM6ServerPhase": false,
+    "isolatedBackendDatabaseAndHome": true
+  },
+  "privacy": {
+    "contract": "M5PrivacyScanEvidence",
+    "version": 2,
+    "treeScan": {
+      "contract": "PrivacyTreeScan",
+      "version": 1,
+      "candidateRevision": "c2989a3e1a36fe61c080aa57e4ce33b41f4d4735",
+      "scannedFiles": 2551,
+      "contentReadFiles": 1177,
+      "distributionManifestDigest": "sha256:31511d3f244aa1b8afc63a456c864c597731d2d914573a5692150cfc1a493893",
+      "findings": [],
+      "verdict": "PASS",
+      "secretValuesRecorded": false
+    },
+    "historyReachability": {
+      "checkedObjects": 13,
+      "reachableObjects": 13,
+      "unreachableObjects": 0,
+      "anyReachable": true,
+      "allReachable": true,
+      "declaredRefCount": 388,
+      "declaredRefDigest": "sha256:e489f228faf8c9abcf644d9ae9251b165276c972288b4d76508c0dcad73b2a36",
+      "declaredDisposition": "retain_and_rotate",
+      "verdict": "HISTORY_RETAINED_AS_DECLARED",
+      "personalContentInspected": false,
+      "objectIdentitiesReported": false,
+      "secretValuesRecorded": false
+    },
+    "verdict": "PASS_CURRENT_TREE_HISTORY_RETAINED_AS_DECLARED",
+    "secretValuesRecorded": false,
+    "raw": {
+      "path": ".intentsmith-artifacts/production-closeout-20260917/privacy-scan-c2989a3e.json",
+      "sha256": "82bcf8c1a6942b9d6e327dec01d90aa8eb14e643b168d1428b29e6b636a4b72c"
+    },
+    "signedHistoryAcceptance": false
+  },
+  "boundary": {
+    "edges": 1358,
+    "cycles": 3,
+    "cycleMembers": 28,
+    "newEdges": 0,
+    "raw": {
+      "path": ".intentsmith-artifacts/production-closeout-20260917/boundary-779f4f5a.log",
+      "sha256": "259f418cb99396e5af8204f49d396f4e26ce47a7622af196c0ab3c5636920776"
+    }
+  },
+  "studioBuild": {
+    "candidate": "c2989a3e1a36fe61c080aa57e4ce33b41f4d4735",
+    "status": "PASS",
+    "cleanDetachedSource": true,
+    "dependencies": "Reused verified source dependencies; not fresh npm ci/download proof",
+    "bundleSha256": "10800af83ec0b6b8bd83720e8c3e9f7c9e29da618dffcc9808916121990a20a3",
+    "files": 7,
+    "manifest": {
+      "path": "/home/belphareon/.local/share/intentsmith/releases/c2989a3e1a36fe61c080aa57e4ce33b41f4d4735/.intentsmith-artifacts/m6/candidate-c2989a3e1a36fe61c080aa57e4ce33b41f4d4735/release/manifest.json",
+      "sha256": "52fcc6b474ae0d5dbdb877e83b6ab3866177034079a1e0eebda77e5c1bc5f561"
+    },
+    "log": {
+      "path": "/home/belphareon/.local/share/intentsmith/releases/c2989a3e1a36fe61c080aa57e4ce33b41f4d4735/.intentsmith-artifacts/production-closeout-20260917/fresh-studio-build.log",
+      "sha256": "056b6b896f5d6668f5ecd16ebd677668262483088c76489b2ee668656a0dcb4b"
+    },
+    "consumerGuardLog": {
+      "path": "/home/belphareon/.local/share/intentsmith/releases/c2989a3e1a36fe61c080aa57e4ce33b41f4d4735/.intentsmith-artifacts/production-closeout-20260917/fresh-build-guard.log",
+      "sha256": "b04fc3a568c8aec7e9ce42fdf78b73c974df3b39036c94ce9cfae7aa1429ee95"
+    }
+  },
+  "installation": {
+    "installed": true,
+    "revision": "c2989a3e1a36fe61c080aa57e4ce33b41f4d4735",
+    "dbPath": "/home/belphareon/Projects/intentsmith/data/c3.db",
+    "backup": "/home/belphareon/.local/state/intentsmith/installation-backups/2026-09-17T16-22-23-895Z",
+    "launcher": "/home/belphareon/.local/share/applications/intentsmith.desktop",
+    "desktopCache": {
+      "refreshed": [
+        "/usr/bin/update-desktop-database",
+        "/usr/bin/kbuildsycoca5"
+      ],
+      "warnings": []
+    },
+    "sourceRoot": "/home/belphareon/.local/share/intentsmith/releases/c2989a3e1a36fe61c080aa57e4ce33b41f4d4735",
+    "backendPidAtCapture": 867658,
+    "normalStudioPidAtCapture": 872227,
+    "normalStudioWithoutRemoteDebugging": true,
+    "physicalPanels": {
+      "revision": "c2989a3e1a36fe61c080aa57e4ce33b41f4d4735",
+      "startedAt": "2026-09-17T16:24:06.958Z",
+      "checkpoints": [
+        {
+          "stage": "settings",
+          "panels": [
+            {
+              "side": "left",
+              "parentWidth": 240,
+              "widgetWidth": 239,
+              "widgetHeight": 924,
+              "insideViewport": true,
+              "hit": true,
+              "parentStyle": "position: absolute; contain: strict; min-width: 0px; min-height: 135px; top: 0px; left: 0px; width: 240px; height: 924px;"
+            },
+            {
+              "side": "right",
+              "parentWidth": 416,
+              "widgetWidth": 416,
+              "widgetHeight": 924,
+              "insideViewport": true,
+              "hit": true,
+              "parentStyle": "position: absolute; contain: strict; top: 0px; left: 1608px; width: 416px; height: 924px; min-width: 0px; min-height: 135px;"
+            }
+          ],
+          "inputs": [
+            {
+              "width": 356,
+              "height": 27.5625,
+              "hit": true
+            }
+          ],
+          "preload": false
+        },
+        {
+          "stage": "reload",
+          "panels": [
+            {
+              "side": "left",
+              "parentWidth": 240,
+              "widgetWidth": 239,
+              "widgetHeight": 924,
+              "insideViewport": true,
+              "hit": true,
+              "parentStyle": "position: absolute; contain: strict; min-width: 0px; min-height: 135px; top: 0px; left: 0px; width: 240px; height: 924px;"
+            },
+            {
+              "side": "right",
+              "parentWidth": 416,
+              "widgetWidth": 416,
+              "widgetHeight": 924,
+              "insideViewport": true,
+              "hit": true,
+              "parentStyle": "position: absolute; contain: strict; top: 0px; left: 1608px; width: 416px; height: 924px; min-width: 0px; min-height: 135px;"
+            }
+          ],
+          "inputs": [
+            {
+              "width": 356,
+              "height": 27.5625,
+              "hit": true
+            }
+          ],
+          "preload": false
+        }
+      ],
+      "status": "PASS",
+      "endedAt": "2026-09-17T16:24:12.307Z"
+    },
+    "api": {
+      "revision": "c2989a3e1a36fe61c080aa57e4ce33b41f4d4735",
+      "unauthenticated": 401,
+      "authenticated": 200
+    },
+    "databasePreservation": {
+      "scope": "Selected tables only; not full database byte equality",
+      "before": {
+        "path": ".intentsmith-artifacts/production-closeout-20260917/db-preinstall-summary.json",
+        "sha256": "bfdc017ad00ecf747b11051aab6ce534195a337c023e5250781e0ffd5ec490d2"
+      },
+      "after": {
+        "path": ".intentsmith-artifacts/production-closeout-20260917/db-postinstall-summary.json",
+        "sha256": "44a09a9ef84c32dda8d4b3124f1c0a883f343613d57c8d96a992a9d0f760f4d0"
+      },
+      "tablesUnchanged": true,
+      "quickCheck": "ok",
+      "foreignKeyViolations": 0,
+      "tables": {
+        "project_memory": {
+          "count": 10,
+          "sha256": "43d05e05f99eb1701328046c7103b60a8ec07a1a0cf97e5b6e7fd17e7098b53b"
+        },
+        "user_settings": {
+          "count": 1,
+          "sha256": "6ebfcc9f261447188d2fb91c9897c11aa5a35b113518a50d54797a6e5cd6280f"
+        },
+        "memory": {
+          "count": 28,
+          "sha256": "71dd9cece02ba86b5c20563a4b9fa0d42f4bbdd360376e9c7b11a62de536beb5"
+        },
+        "model_desired_bindings": {
+          "count": 7,
+          "sha256": "40b3178fc481a804eb91b9deceaf68a8f618b0c6ef0f61b0200f2abf73faad2b"
+        },
+        "model_evaluation_runs": {
+          "count": 503,
+          "sha256": "59fc0d9c7836203a5d5f60e8bc51b36222540290b421847bd1697d60b5531639"
+        },
+        "model_hunt_attempts": {
+          "count": 21,
+          "sha256": "3eae0aece52cd870078c87744a2decd0b4a869ab1346ebab86c1e79336cd8a01"
+        }
+      }
+    }
+  },
+  "maximumThroughput": {
+    "status": "PASS",
+    "report": {
+      "path": "/home/belphareon/.local/share/intentsmith/releases/c2989a3e1a36fe61c080aa57e4ce33b41f4d4735/.intentsmith-artifacts/production-closeout-20260917/performance/c2989a3e-throughput-local/report.json",
+      "sha256": "b8073b39637ef75c8f0d26fee5db9f1b51be85ce27d707fc082d1bc2ecbf06ac"
+    },
+    "log": {
+      "path": "/home/belphareon/.local/share/intentsmith/releases/c2989a3e1a36fe61c080aa57e4ce33b41f4d4735/.intentsmith-artifacts/production-closeout-20260917/performance/c2989a3e-throughput-local/logs/tests_m6-max-throughput.e2e.js.699504db.log",
+      "sha256": "56cdeb227c94161e5bba59ac510a1c5a478c2b9e3898d50234183b226c6c1e62"
+    },
+    "receipt": {
+      "contract": "M6MaxThroughputReceipt",
+      "version": 1,
+      "candidateSha": "c2989a3e1a36fe61c080aa57e4ce33b41f4d4735",
+      "durationMs": 300108,
+      "surface": "production-public-health-http",
+      "concurrencyLevels": [
+        1,
+        8,
+        32,
+        128,
+        512,
+        1024
+      ],
+      "selectedConcurrency": 1024,
+      "saturationObserved": false,
+      "ceilingReached": true,
+      "probeErrorCount": 0,
+      "stages": [
+        {
+          "concurrency": 1,
+          "durationMs": 15000,
+          "successes": 293324,
+          "errorCount": 0,
+          "requestsPerSecond": 19554.933,
+          "latency": {
+            "samples": 293324,
+            "p50Ms": 1,
+            "p95Ms": 1,
+            "p99Ms": 1,
+            "maxMs": 34
+          },
+          "stable": true,
+          "sustained": false
+        },
+        {
+          "concurrency": 8,
+          "durationMs": 15000,
+          "successes": 811132,
+          "errorCount": 0,
+          "requestsPerSecond": 54075.467,
+          "latency": {
+            "samples": 811132,
+            "p50Ms": 1,
+            "p95Ms": 1,
+            "p99Ms": 1,
+            "maxMs": 2
+          },
+          "stable": true,
+          "sustained": false
+        },
+        {
+          "concurrency": 32,
+          "durationMs": 15000,
+          "successes": 806723,
+          "errorCount": 0,
+          "requestsPerSecond": 53781.533,
+          "latency": {
+            "samples": 806723,
+            "p50Ms": 1,
+            "p95Ms": 2,
+            "p99Ms": 2,
+            "maxMs": 5
+          },
+          "stable": true,
+          "sustained": false
+        },
+        {
+          "concurrency": 128,
+          "durationMs": 15001,
+          "successes": 832229,
+          "errorCount": 0,
+          "requestsPerSecond": 55478.235,
+          "latency": {
+            "samples": 832229,
+            "p50Ms": 3,
+            "p95Ms": 4,
+            "p99Ms": 5,
+            "maxMs": 52
+          },
+          "stable": true,
+          "sustained": false
+        },
+        {
+          "concurrency": 512,
+          "durationMs": 15007,
+          "successes": 700337,
+          "errorCount": 0,
+          "requestsPerSecond": 46667.355,
+          "latency": {
+            "samples": 700337,
+            "p50Ms": 11,
+            "p95Ms": 14,
+            "p99Ms": 21,
+            "maxMs": 193
+          },
+          "stable": true,
+          "sustained": false
+        },
+        {
+          "concurrency": 1024,
+          "durationMs": 15020,
+          "successes": 506085,
+          "errorCount": 0,
+          "requestsPerSecond": 33694.075,
+          "latency": {
+            "samples": 506085,
+            "p50Ms": 27,
+            "p95Ms": 56,
+            "p99Ms": 83,
+            "maxMs": 155
+          },
+          "stable": true,
+          "sustained": false
+        },
+        {
+          "concurrency": 1024,
+          "durationMs": 210016,
+          "successes": 8076697,
+          "errorCount": 0,
+          "requestsPerSecond": 38457.532,
+          "latency": {
+            "samples": 8076697,
+            "p50Ms": 26,
+            "p95Ms": 37,
+            "p99Ms": 48,
+            "maxMs": 130
+          },
+          "stable": true,
+          "sustained": true
+        }
+      ],
+      "sustained": {
+        "durationMs": 210016,
+        "requests": 8076697,
+        "errorCount": 0,
+        "requestsPerSecond": 38457.532,
+        "latency": {
+          "samples": 8076697,
+          "p50Ms": 26,
+          "p95Ms": 37,
+          "p99Ms": 48,
+          "maxMs": 130
+        }
+      },
+      "rss": {
+        "startMiB": 180.645,
+        "peakMiB": 217.691,
+        "endMiB": 217.332,
+        "growthMiB": 36.688,
+        "measurementError": null
+      },
+      "diagnostics": {
+        "activeRequests": 1,
+        "completedRequests": 12026527,
+        "http5xx": 0,
+        "outboundDecisionCount": 0,
+        "databaseReady": true,
+        "lifecycleRecoveryComplete": true
+      },
+      "networkScope": "linux-user-network-namespace-loopback-only",
+      "namespaceInterfaces": [
+        "lo"
+      ],
+      "serverCleanShutdown": true,
+      "forcedShutdown": false,
+      "budgets": {
+        "maximumP95Ms": 100,
+        "maximumP99Ms": 250,
+        "maximumRssMiB": 1536,
+        "maximumRssGrowthMiB": 512,
+        "minimumSustainedRequestsPerSecond": 500
+      },
+      "verdict": "PASS"
+    },
+    "limitation": "Public health endpoint only; no model/chat throughput claim; concurrency ceiling reached without observed saturation."
+  },
+  "longSoak": {
+    "status": "RUNNING_NOT_PASS",
+    "stateAtCapture": {
+      "candidate": "c2989a3e1a36fe61c080aa57e4ce33b41f4d4735",
+      "startedAt": "2026-09-17T16:24:06.851Z",
+      "pid": 870665,
+      "results": [
+        {
+          "id": "IS-T5-TESTS-M6-MAX-THROUGHPUT-E2E",
+          "runId": "c2989a3e-throughput-local",
+          "startedAt": "2026-09-17T16:24:06.851Z",
+          "argv": [
+            "scripts/nightly-audit.js",
+            "--suite=IS-T5-TESTS-M6-MAX-THROUGHPUT-E2E",
+            "--allow-blocker=server,toolchain:linux-user-network-namespace,toolchain:iproute2",
+            "--timeout-minutes=1500",
+            "--deadline-hours=30",
+            "--concurrency=1",
+            "--out-dir=.intentsmith-artifacts/production-closeout-20260917/performance",
+            "--run-id=c2989a3e-throughput-local"
+          ],
+          "code": 0,
+          "signal": null,
+          "endedAt": "2026-09-17T16:29:38.029Z"
+        }
+      ],
+      "current": {
+        "id": "IS-T5-TESTS-M6-LONG-SOAK-E2E",
+        "runId": "c2989a3e-soak24h-local",
+        "startedAt": "2026-09-17T16:29:38.030Z",
+        "argv": [
+          "scripts/nightly-audit.js",
+          "--suite=IS-T5-TESTS-M6-LONG-SOAK-E2E",
+          "--allow-blocker=server,toolchain:linux-user-network-namespace,toolchain:iproute2",
+          "--timeout-minutes=1500",
+          "--deadline-hours=30",
+          "--concurrency=1",
+          "--out-dir=.intentsmith-artifacts/production-closeout-20260917/performance",
+          "--run-id=c2989a3e-soak24h-local"
+        ]
+      }
+    },
+    "stateFile": "/home/belphareon/.local/share/intentsmith/releases/c2989a3e1a36fe61c080aa57e4ce33b41f4d4735/.intentsmith-artifacts/production-closeout-20260917/performance-job-local.json",
+    "supervisor": "/home/belphareon/.local/share/intentsmith/releases/c2989a3e1a36fe61c080aa57e4ce33b41f4d4735/.intentsmith-artifacts/production-closeout-20260917/performance-job-local.mjs",
+    "logRoot": "/home/belphareon/.local/share/intentsmith/releases/c2989a3e1a36fe61c080aa57e4ce33b41f4d4735/.intentsmith-artifacts/production-closeout-20260917/performance/c2989a3e-soak24h-local",
+    "serverPidAtCapture": 883280,
+    "networkNamespaceDifferentFromHost": true,
+    "interfacesAtCapture": [
+      "lo"
+    ],
+    "durationRequiredMs": 86400000,
+    "survivesHostRestart": false,
+    "expectedCompletionNotBefore": "2026-09-18T16:29:38Z"
+  },
+  "releaseValidator": {
+    "contract": "M6ReleaseValidation",
+    "version": 1,
+    "valid": true,
+    "verdict": "BLOCKED",
+    "exitCode": 2,
+    "errors": [],
+    "reasonCode": "M6_RELEASE_EVIDENCE_NOT_FOUND",
+    "candidateSha": "c2989a3e1a36fe61c080aa57e4ce33b41f4d4735",
+    "evidenceHeadSha": "c2989a3e1a36fe61c080aa57e4ce33b41f4d4735",
+    "registryFingerprint": "f0358f4af7bc6b702b2c8b08f10c472364c9cf0a699bfe3f76c7189cb1c777f1",
+    "evidencePath": "docs/execution/runs/m6/M6-RELEASE-EVIDENCE-INDEX.json",
+    "raw": {
+      "path": ".intentsmith-artifacts/production-closeout-20260917/release-validator-c2989a3e.json",
+      "sha256": "c3274ac5ae9b62208c525ab2ce3c99b650c06247713140ad6b544cee62211db5"
+    }
+  },
+  "openBlockers": [
+    {
+      "id": "GPU_DRIVER_LIBRARY_MISMATCH",
+      "loadedKernel": "595.84",
+      "installedKernel": "595.91.07",
+      "effect": "GPU/model/hunt evidence blocked; no new binding or model deletion",
+      "raw": [
+        {
+          "path": ".intentsmith-artifacts/production-closeout-20260917/nvidia-loaded.txt",
+          "sha256": "810241cf5ef47a80deac2205aa1a5353a736c030421513688fb7403dd4d2b6b0"
+        },
+        {
+          "path": ".intentsmith-artifacts/production-closeout-20260917/nvidia-installed.txt",
+          "sha256": "49741c0c35f7bcaa6796594b11893c82eb4a1e851e32e7722c883294010e6454"
+        },
+        {
+          "path": ".intentsmith-artifacts/production-closeout-20260917/nvidia-smi.log",
+          "sha256": "a80e854a4a28c93c94a79d0790de1c72eb269530fc9e155a6366e79370b278d6"
+        }
+      ]
+    },
+    {
+      "id": "FOOTBALL_HISTORY_PROVIDER_BLOCKED",
+      "reason": "Public HTTPS origin redirected to private HTTP loopback; redirect not followed."
+    },
+    {
+      "id": "M5_CUSTODY_AND_SIGNED_RESOLUTIONS",
+      "operatorNeverUsedCredentialsFactAlreadyRecorded": true,
+      "nonexistentCredentialsDoNotNeedRotation": true,
+      "secondOfflineOperatorBackupAndReviewerRecoveryOutstanding": true,
+      "privateSignersAccessed": false
+    },
+    {
+      "id": "M6_COMPLETE_EVIDENCE_AND_INDEPENDENT_ACCEPTANCE",
+      "required": true
+    }
+  ],
+  "negativeEvidencePreserved": {
+    "priorFullProfiles": [
+      {
+        "revision": "964b61ad",
+        "counts": {
+          "PASS": 357,
+          "FAIL": 2,
+          "BLOCKED": 0
+        }
+      },
+      {
+        "revision": "779f4f5a",
+        "counts": {
+          "PASS": 357,
+          "FAIL": 2,
+          "BLOCKED": 0
+        }
+      }
+    ],
+    "transientSystemdNamespaceAttempt": {
+      "status": "FAIL",
+      "reason": "unshare uid_map operation not permitted",
+      "state": {
+        "path": "/home/belphareon/.local/share/intentsmith/releases/c2989a3e1a36fe61c080aa57e4ce33b41f4d4735/.intentsmith-artifacts/production-closeout-20260917/performance-job.json",
+        "sha256": "9c598621b3df336727a61e35efd5391f4f66237ef4b97f0164024ccdde2efef9"
+      },
+      "isolationPolicyChanged": false
+    },
+    "manualM3InitialWrongFilenames": "Preserved in server-subset logs; corrected final six programs passed."
+  }
+}

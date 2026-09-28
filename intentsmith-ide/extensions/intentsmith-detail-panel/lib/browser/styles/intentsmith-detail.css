@@ -1,0 +1,137 @@
+/* IntentSmith Detail Panel — v8 */
+.intentsmith-detail-widget {
+  overflow: hidden !important;
+  min-width: 280px;
+}
+
+.intentsmith-det {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--intentsmith-bg-1);
+  font-family: var(--intentsmith-font);
+}
+.intentsmith-det-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--intentsmith-tx-4);
+  font-size: 12px;
+}
+.intentsmith-det-head {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--intentsmith-border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.intentsmith-det-head h3 {
+  font-size: 13.5px;
+  font-weight: 700;
+  flex: 1;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--intentsmith-tx-1);
+}
+.intentsmith-det-close { width: 24px; height: 24px; }
+.intentsmith-det-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px;
+}
+.intentsmith-det-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 0;
+  font-size: 12px;
+  border-bottom: 1px solid var(--intentsmith-border);
+}
+.intentsmith-det-row span:first-child { color: var(--intentsmith-tx-3); }
+.intentsmith-det-row span:last-child { color: var(--intentsmith-tx-2); font-family: var(--intentsmith-mono); font-size: 11px; }
+.intentsmith-det-section { margin-top: 12px; }
+.intentsmith-det-section h4 {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--intentsmith-tx-4);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 6px;
+}
+.intentsmith-det-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.intentsmith-det-tag {
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--intentsmith-bg-4);
+  font-size: 10px;
+  color: var(--intentsmith-tx-2);
+}
+.intentsmith-det-actions {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.intentsmith-det-btn {
+  padding: 5px 12px;
+  border-radius: var(--intentsmith-r-xs);
+  border: 1px solid var(--intentsmith-border-2);
+  background: var(--intentsmith-bg-3);
+  color: var(--intentsmith-tx-2);
+  font-family: var(--intentsmith-font);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+.intentsmith-det-btn:hover {
+  border-color: var(--intentsmith-accent);
+  color: var(--intentsmith-accent-text);
+  background: var(--intentsmith-accent-bg);
+}
+.intentsmith-det-btn.primary {
+  background: var(--intentsmith-accent);
+  color: #fff;
+  border-color: transparent;
+}
+.intentsmith-det-btn.primary:hover {
+  background: var(--intentsmith-accent-dim);
+}
+
+/* v63.0: Capability bars */
+.intentsmith-det-cap-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+.intentsmith-det-cap-bar label {
+  width: 80px;
+  font-size: 10px;
+  color: var(--intentsmith-tx-3);
+  flex-shrink: 0;
+}
+.intentsmith-det-cap-bar .bar {
+  flex: 1;
+  height: 4px;
+  background: var(--intentsmith-bg-4);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.intentsmith-det-cap-bar .bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--intentsmith-accent);
+  transition: width 0.3s ease;
+}
+.intentsmith-det-cap-bar .bar-val {
+  width: 24px;
+  text-align: right;
+  font-size: 10px;
+  font-family: var(--intentsmith-mono);
+  color: var(--intentsmith-tx-2);
+}

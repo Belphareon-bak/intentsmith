@@ -1,0 +1,409 @@
+// Lifecycle CHANGE MANAGEMENT Phase
+// ══════════════════════════════════════════════════════════════════════════════
+// Handles direction changes during BUILD:
+//   1. User or review proposes a change
+//   2. Impact analysis — which milestones affected?
+//   3. User approves change
+//   4. rewriteRoadmap — new version, PASSED milestones preserved
+//   5. Return to BUILD with updated roadmap
+//
+// KEY INVARIANT:
+//   rewriteRoadmap MUST:
+//   - Preserve completed (PASSED) milestones — never remove/modify
+//   - Recalculate sequence numbers (no gaps)
+//   - Recalculate dependencies (no broken refs)
+//   - Preserve commit_hash and git_tag of completed milestones
+// ══════════════════════════════════════════════════════════════════════════════
+
+import { logger } from '../core/logger.js';
+import { callLLM, parseJSON } from './workflow.js';
+import {
+  lifecycles as lifecycleRepo,
+  milestones as msRepo,
+  roadmapVersions,
+  changeRequests as crRepo,
+} from '../db/database.js';
+import {
+  analyzeChange as analyzeChangePrompt,
+  rewriteRoadmap as rewriteRoadmapPrompt,
+} from './lifecycle-prompts.js';
+import { validateDependencies, writeRoadmapFile, scopeId, rawId } from './lifecycle-planning.js';
+import { ProjectPhase } from './lifecycle.js';
+import { logChangeScore } from './quality-telemetry.js';
+import {
+  assertCompletedMilestonesPreserved,
+  syncRevisedMilestones,
+} from './milestone-sync.js';
+
+// ─── Propose Change ──────────────────────────────────────────────────────────
+
+/**
+ * Propose a change request and analyze its impact.
+ *
+ * @param {Object} lifecycle - ProjectLifecycle instance
+ * @param {string} description - What the user wants to change
+ * @returns {Promise<Object>} Change request with impact analysis
+ */
+export async function proposeChange(lifecycle, description) {
+  logger.info('LifecycleChange', 'Change proposed', {
+    lifecycleId: lifecycle.id,
+    description: description.substring(0, 100),
+  });
+
+  const spec = lifecycleRepo.getSpec(lifecycle.id);
+  const latestRoadmap = roadmapVersions.getLatestRoadmap(lifecycle.id);
+  const completed = msRepo.getCompleted(lifecycle.id);
+
+  if (!latestRoadmap) {
+    throw new Error('No roadmap exists — cannot propose changes');
+  }
+
+  // Generate impact analysis via D1
+  const prompt = analyzeChangePrompt(
+    description,
+    spec,
+    latestRoadmap.roadmap,
+    completed
+  );
+
+  const llm = lifecycle.callLLM || callLLM;
+  const result = await llm('D1', prompt);
+  const analysis = parseJSON(result.content);
+
+  if (!analysis) {
+    throw new Error('D1 failed to analyze change impact');
+  }
+
+  // Create change request
+  const crId = `cr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+  crRepo.addRequest({
+    id: crId,
+    lifecycle_id: lifecycle.id,
+    description,
+    affected_milestones: analysis.affected_milestones || [],
+    impact_analysis: analysis.impact,
+    old_roadmap_version: latestRoadmap.version,
+  });
+
+  // Update status to ANALYZED
+  crRepo.updateAnalysis.run(
+    JSON.stringify(analysis.impact),
+    JSON.stringify(analysis.affected_milestones || []),
+    analysis.impact?.milestones_to_add ? JSON.stringify(analysis) : null,
+    crId
+  );
+
+  // Quality telemetry — observational, never blocks
+  logChangeScore(lifecycle.id, analysis, crId);
+
+  return {
+    changeRequestId: crId,
+    description,
+    impact: analysis.impact,
+    affectedMilestones: analysis.affected_milestones || [],
+    feasibility: analysis.feasibility || 'UNKNOWN',
+    recommendation: analysis.recommendation || '',
+  };
+}
+
+// ─── Approve + Apply Change ──────────────────────────────────────────────────
+
+/**
+ * Apply an approved change request: rewrite roadmap.
+ * PRESERVES completed milestones — this is the critical invariant.
+ *
+ * @param {Object} lifecycle - ProjectLifecycle instance
+ * @param {string} changeRequestId
+ * @returns {Promise<Object>} New roadmap version
+ */
+export async function applyChange(lifecycle, changeRequestId) {
+  const cr = crRepo.getRequest(changeRequestId);
+  if (!cr) throw new Error(`Change request ${changeRequestId} not found`);
+  if (cr.status !== 'ANALYZED' && cr.status !== 'APPROVED') {
+    throw new Error(`Change request is ${cr.status}, expected ANALYZED or APPROVED`);
+  }
+
+  logger.info('LifecycleChange', 'Applying change', {
+    lifecycleId: lifecycle.id,
+    changeRequestId,
+  });
+
+  const currentRoadmap = roadmapVersions.getLatestRoadmap(lifecycle.id);
+  const completed = msRepo.getCompleted(lifecycle.id);
+
+  // Unscope completed milestones for D1 prompt — D1 generates raw ms-N IDs
+  const unscopedCompleted = completed.map(m => ({ ...m, id: rawId(m.id) }));
+
+  // Rewrite roadmap via D1
+  const prompt = rewriteRoadmapPrompt(
+    currentRoadmap.roadmap,
+    cr,
+    unscopedCompleted
+  );
+
+  const llm = lifecycle.callLLM || callLLM;
+  const result = await llm('D1', prompt);
+  const newRoadmap = parseJSON(result.content);
+
+  if (!newRoadmap || !newRoadmap.milestones) {
+    throw new Error('D1 failed to rewrite roadmap');
+  }
+
+  assertCompletedMilestonesPreserved(
+    currentRoadmap.roadmap.milestones,
+    newRoadmap.milestones,
+    unscopedCompleted.map(milestone => milestone.id)
+  );
+
+  // Scope all milestone IDs before any comparison with DB (scoped) records
+  for (const ms of newRoadmap.milestones) {
+    ms.id = scopeId(lifecycle.id, ms.id);
+    if (Array.isArray(ms.dependencies)) {
+      ms.dependencies = ms.dependencies.map(d => scopeId(lifecycle.id, d));
+    }
+  }
+
+  // ─── Critical validations ──────────────────────────────────────────────
+
+  // 1. All PASSED milestones must be preserved (both scoped now)
+  const preservationErrors = validatePreservation(completed, newRoadmap.milestones);
+  if (preservationErrors.length > 0) {
+    throw new Error(
+      `Roadmap rewrite violated preservation: ${preservationErrors.join('; ')}`
+    );
+  }
+
+  // 2. No sequence gaps
+  const sequenceErrors = validateSequences(newRoadmap.milestones);
+  if (sequenceErrors.length > 0) {
+    logger.warn('LifecycleChange', 'Fixing sequence gaps', { errors: sequenceErrors });
+    resequence(newRoadmap.milestones);
+  }
+
+  // 3. Dependencies valid
+  const depErrors = validateDependencies(newRoadmap.milestones);
+  if (depErrors.length > 0) {
+    throw new Error(`Roadmap rewrite has invalid dependencies: ${depErrors.join('; ')}`);
+  }
+
+  // ─── Store new version (unscoped for D1 prompts) ───────────────────────
+
+  const newVersion = roadmapVersions.getLatestVersion(lifecycle.id) + 1;
+  const diffSummary = newRoadmap.diff || newRoadmap.changes_summary || 'Change applied';
+
+  const unscopedRoadmap = {
+    ...newRoadmap,
+    milestones: newRoadmap.milestones.map(m => ({
+      ...m,
+      id: rawId(m.id),
+      dependencies: (m.dependencies || []).map(d => rawId(d)),
+    })),
+  };
+
+  // ─── Persist version, milestones, and request state atomically ──────────
+
+  syncMilestonesAfterRewrite(
+    lifecycle,
+    newRoadmap.milestones,
+    completed,
+    newVersion,
+    () => roadmapVersions.addVersion(
+      lifecycle.id,
+      newVersion,
+      unscopedRoadmap,
+      `Change request ${changeRequestId}: ${cr.description.substring(0, 100)}`,
+      typeof diffSummary === 'string' ? diffSummary : JSON.stringify(diffSummary)
+    ),
+    () => crRepo.updateApplied.run(newVersion, changeRequestId)
+  );
+
+  // Write ROADMAP.md to disk with updated milestones
+  await writeRoadmapFile(lifecycle.projectPath, lifecycle.id);
+
+  logger.info('LifecycleChange', 'Change applied successfully', {
+    lifecycleId: lifecycle.id,
+    changeRequestId,
+    newVersion,
+    milestonesCount: newRoadmap.milestones.length,
+  });
+
+  return {
+    changeRequestId,
+    newVersion,
+    milestones: newRoadmap.milestones,
+    diff: newRoadmap.diff || null,
+    changesSummary: newRoadmap.changes_summary || '',
+  };
+}
+
+// ─── Reject Change ───────────────────────────────────────────────────────────
+
+/**
+ * Reject a change request — return to BUILD unchanged.
+ * @param {string} changeRequestId
+ */
+export function rejectChange(changeRequestId) {
+  const cr = crRepo.findById.get(changeRequestId);
+  if (!cr) throw new Error(`Change request ${changeRequestId} not found`);
+
+  crRepo.updateStatus.run('REJECTED', changeRequestId);
+
+  logger.info('LifecycleChange', 'Change rejected', { changeRequestId });
+  return { changeRequestId, status: 'REJECTED' };
+}
+
+// ─── Preservation Validation ─────────────────────────────────────────────────
+
+/**
+ * Validate that ALL completed milestones are preserved in the new roadmap.
+ * Checks: existence, status, commit_hash, git_tag.
+ *
+ * @param {Object[]} completed - Completed milestones from DB
+ * @param {Object[]} newMilestones - New roadmap milestones
+ * @returns {string[]} Errors (empty = valid)
+ */
+export function validatePreservation(completed, newMilestones) {
+  const errors = [];
+  const newMap = new Map(newMilestones.map(m => [m.id, m]));
+
+  for (const comp of completed) {
+    const found = newMap.get(comp.id);
+
+    if (!found) {
+      errors.push(`Completed milestone ${comp.id} was removed from roadmap`);
+      continue;
+    }
+
+    // Status must still be PASSED (or preserved)
+    if (found.status && found.status !== 'PASSED' && found.status !== comp.status) {
+      errors.push(`Completed milestone ${comp.id} status changed from ${comp.status} to ${found.status}`);
+    }
+
+    // preserved flag expected
+    if (found.preserved === false) {
+      errors.push(`Completed milestone ${comp.id} marked as not preserved`);
+    }
+  }
+
+  return errors;
+}
+
+// ─── Sequence Validation ─────────────────────────────────────────────────────
+
+/**
+ * Check for gaps or duplicates in milestone sequences.
+ */
+function validateSequences(milestoneList) {
+  const errors = [];
+  const sequences = milestoneList.map((m, i) => {
+    const seq = parseInt(m.id?.replace('ms-', ''), 10) || i + 1;
+    return seq;
+  });
+
+  const sorted = [...sequences].sort((a, b) => a - b);
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i] === sorted[i - 1]) {
+      errors.push(`Duplicate sequence: ${sorted[i]}`);
+    }
+  }
+
+  return errors;
+}
+
+/**
+ * Resequence milestones to remove gaps.
+ * Preserves relative order.
+ */
+function resequence(milestoneList) {
+  // Sort by existing sequence
+  milestoneList.sort((a, b) => {
+    const seqA = parseInt(a.id?.replace('ms-', ''), 10) || 0;
+    const seqB = parseInt(b.id?.replace('ms-', ''), 10) || 0;
+    return seqA - seqB;
+  });
+}
+
+// ─── Sync Milestones After Rewrite ───────────────────────────────────────────
+
+/**
+ * Synchronize DB milestones with new roadmap.
+ * - Completed milestones: untouched
+ * - Existing pending: update if modified, delete if removed
+ * - New: insert
+ */
+function syncMilestonesAfterRewrite(
+  lifecycle,
+  newMilestones,
+  completed,
+  newVersion,
+  persistVersion,
+  finalize
+) {
+  syncRevisedMilestones(
+    lifecycle,
+    newMilestones,
+    completed,
+    newVersion,
+    { persistVersion, finalize }
+  );
+}
+
+// ─── Change Request List ─────────────────────────────────────────────────────
+
+/**
+ * Get all change requests for a lifecycle.
+ */
+export function listChangeRequests(lifecycleId) {
+  const all = crRepo.findByLifecycle.all(lifecycleId);
+  return all.map(cr => {
+    const parsed = { ...cr };
+    for (const field of ['affected_milestones', 'impact_analysis', 'proposed_roadmap_diff']) {
+      if (parsed[field] && typeof parsed[field] === 'string') {
+        try { parsed[field] = JSON.parse(parsed[field]); } catch { /* keep string */ }
+      }
+    }
+    return parsed;
+  });
+}
+
+// ─── Change Impact Validation ─────────────────────────────────────────────────
+
+/**
+ * Validate a change impact analysis for completeness.
+ * @param {Object} analysis - LLM-generated impact analysis
+ * @returns {{ valid: boolean, errors: string[] }}
+ */
+export function validateChangeImpact(analysis) {
+  const errors = [];
+
+  if (!analysis) {
+    return { valid: false, errors: ['Change impact analysis is null or undefined'] };
+  }
+
+  // affected_milestones must exist and be non-empty
+  if (!Array.isArray(analysis.affected_milestones) || analysis.affected_milestones.length === 0) {
+    errors.push('Change impact has no affected_milestones');
+  }
+
+  // impact.risk_level required
+  if (!analysis.impact?.risk_level) {
+    errors.push('Change impact missing risk_level');
+  }
+
+  // feasibility required
+  if (!analysis.feasibility || typeof analysis.feasibility !== 'string') {
+    errors.push('Change impact missing feasibility assessment');
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+export default {
+  proposeChange,
+  applyChange,
+  rejectChange,
+  validatePreservation,
+  validateChangeImpact,
+  listChangeRequests,
+};

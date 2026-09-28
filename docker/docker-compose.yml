@@ -1,0 +1,93 @@
+# IntentSmith-Agent Docker Compose
+# ══════════════════════════════════════════════════════════════════════════════
+# UNSUPPORTED LEGACY DISPOSITION:
+# No service starts under the default Compose profile. The explicit
+# `unsupported` profile exists only for repository archaeology and must not be
+# represented as a supported production deployment.
+# ══════════════════════════════════════════════════════════════════════════════
+
+version: '3.8'
+
+services:
+  # ─── Ollama LLM Server ───────────────────────────────────────────────────
+  ollama:
+    profiles: ["unsupported"]
+    image: ollama/ollama:latest
+    container_name: intentsmith-ollama
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ─── Ollama Model Pull (init) ────────────────────────────────────────────
+  ollama-init:
+    profiles: ["unsupported"]
+    image: ollama/ollama:latest
+    container_name: intentsmith-ollama-init
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "🔄 Pulling IntentSmith models..."
+        ollama pull qwen3.5:27b
+        ollama pull qwen3.8:latest
+        ollama pull qwen3:14b
+        ollama pull llava-llama3:8b
+        echo "✅ All models ready"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: "no"
+
+  # ─── IntentSmith-Agent Backend ────────────────────────────────────────────────────
+  intentsmith:
+    profiles: ["unsupported"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: intentsmith-agent
+    ports:
+      - "${INTENTSMITH_PORT:-3335}:3335"
+    environment:
+      - INTENTSMITH_PORT=3335
+      - INTENTSMITH_HOST=127.0.0.1
+      - OLLAMA_URL=http://ollama:11434
+      - INTENTSMITH_DB_PATH=/data/intentsmith.db
+      - INTENTSMITH_LOG_LEVEL=${INTENTSMITH_LOG_LEVEL:-info}
+      - NODE_ENV=production
+    volumes:
+      - intentsmith_data:/data
+      - intentsmith_projects:/projects
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3335/api/health').then(r => process.exit(r.ok ? 0 : 1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  ollama_data:
+    name: intentsmith-ollama-data
+  intentsmith_data:
+    name: intentsmith-agent-data
+  intentsmith_projects:
+    name: intentsmith-projects

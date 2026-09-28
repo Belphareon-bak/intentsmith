@@ -1,0 +1,7 @@
+{
+  "specialists/sazeni/models/football.js": "26b846c4331a4f51b9b20f0d3212fee6046ac8a4ff7e74b9f64bab58a2b09b9a",
+  "specialists/sazeni/providers/football-data.js": "2680f87e635f574428af423beae9507f3984d7a71d77160a2c22fae111534034",
+  "scripts/betting/benchmark.mjs": "e28ad4d21e5440a51ddfba3688b85938e5a97c852e10f613f258f0eaf9fddb1c",
+  "scripts/betting/research-ml.py": "7af8568af12dcf9d13c0a0dfe7725158bf0347ee43af3fc3957dd8ec99ee7b25",
+  "scripts/betting/verify-scipy.py": "81f7157fe1f4b7854642eaeaafcc88714522b94c31d42daada38f44e21057e4a"
+}

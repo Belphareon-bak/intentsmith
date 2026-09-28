@@ -1,0 +1,231 @@
+From e8c2d86c3a056b58031c77ec5141a8ecd7cf923a Mon Sep 17 00:00:00 2001
+From: Belphareon <geofery.cz@gmail.com>
+Date: Fri, 11 Sep 2026 21:00:00 +0000
+Subject: [PATCH] server: attest chat manifest digest and serving provider
+ version
+
+---
+ api/types.go                   |  6 ++++
+ server/routes.go               | 60 ++++++++++++++++++++--------------
+ server/routes_generate_test.go | 45 +++++++++++++++++++++++--
+ 3 files changed, 85 insertions(+), 26 deletions(-)
+
+diff --git a/api/types.go b/api/types.go
+index 7ea9022..beeeb85 100644
+--- a/api/types.go
++++ b/api/types.go
+@@ -521,6 +521,12 @@ type ChatResponse struct {
+ 	// Model is the model name that generated the response.
+ 	Model string `json:"model"`
+ 
++	// Digest is the exact local manifest digest selected for this response.
++	Digest string `json:"digest,omitempty"`
++
++	// ProviderVersion identifies the Ollama build serving this response.
++	ProviderVersion string `json:"provider_version,omitempty"`
++
+ 	// RemoteModel is the name of the upstream model that generated the response.
+ 	RemoteModel string `json:"remote_model,omitempty"`
+ 
+diff --git a/server/routes.go b/server/routes.go
+index 9b73139..eed328d 100644
+--- a/server/routes.go
++++ b/server/routes.go
+@@ -2520,11 +2520,13 @@ func (s *Server) ChatHandler(c *gin.Context) {
+ 		s.sched.expireRunner(m)
+ 
+ 		c.JSON(http.StatusOK, api.ChatResponse{
+-			Model:      req.Model,
+-			CreatedAt:  time.Now().UTC(),
+-			Message:    api.Message{Role: "assistant"},
+-			Done:       true,
+-			DoneReason: "unload",
++			Digest:          m.Digest,
++			ProviderVersion: version.Version,
++			Model:           req.Model,
++			CreatedAt:       time.Now().UTC(),
++			Message:         api.Message{Role: "assistant"},
++			Done:            true,
++			DoneReason:      "unload",
+ 		})
+ 		return
+ 	}
+@@ -2658,11 +2660,13 @@ func (s *Server) ChatHandler(c *gin.Context) {
+ 
+ 	if len(req.Messages) == 0 {
+ 		c.JSON(http.StatusOK, api.ChatResponse{
+-			Model:      req.Model,
+-			CreatedAt:  time.Now().UTC(),
+-			Message:    api.Message{Role: "assistant"},
+-			Done:       true,
+-			DoneReason: "load",
++			Digest:          m.Digest,
++			ProviderVersion: version.Version,
++			Model:           req.Model,
++			CreatedAt:       time.Now().UTC(),
++			Message:         api.Message{Role: "assistant"},
++			Done:            true,
++			DoneReason:      "load",
+ 		})
+ 		return
+ 	}
+@@ -2721,8 +2725,10 @@ func (s *Server) ChatHandler(c *gin.Context) {
+ 	// If debug mode is enabled, return the rendered template instead of calling the model
+ 	if req.DebugRenderOnly {
+ 		c.JSON(http.StatusOK, api.ChatResponse{
+-			Model:     req.Model,
+-			CreatedAt: time.Now().UTC(),
++			Digest:          m.Digest,
++			ProviderVersion: version.Version,
++			Model:           req.Model,
++			CreatedAt:       time.Now().UTC(),
+ 			DebugInfo: &api.DebugInfo{
+ 				RenderedTemplate: prompt,
+ 				ImageCount:       len(media),
+@@ -2823,12 +2829,14 @@ func (s *Server) ChatHandler(c *gin.Context) {
+ 				}
+ 
+ 				res := api.ChatResponse{
+-					Model:     req.Model,
+-					CreatedAt: time.Now().UTC(),
+-					Message:   api.Message{Role: "assistant", Content: r.Content},
+-					Done:      r.Done,
+-					Metrics:   metrics,
+-					Logprobs:  toAPILogprobs(r.Logprobs),
++					Digest:          m.Digest,
++					ProviderVersion: version.Version,
++					Model:           req.Model,
++					CreatedAt:       time.Now().UTC(),
++					Message:         api.Message{Role: "assistant", Content: r.Content},
++					Done:            r.Done,
++					Metrics:         metrics,
++					Logprobs:        toAPILogprobs(r.Logprobs),
+ 				}
+ 
+ 				if r.Done {
+@@ -3015,8 +3023,10 @@ func (s *Server) handleNativeChat(c *gin.Context, req api.ChatRequest, m *Model,
+ 		}
+ 
+ 		c.JSON(http.StatusOK, api.ChatResponse{
+-			Model:     req.Model,
+-			CreatedAt: time.Now().UTC(),
++			Digest:          m.Digest,
++			ProviderVersion: version.Version,
++			Model:           req.Model,
++			CreatedAt:       time.Now().UTC(),
+ 			DebugInfo: &api.DebugInfo{
+ 				RenderedTemplate: prompt,
+ 				ImageCount:       countChatImages(msgs),
+@@ -3031,10 +3041,12 @@ func (s *Server) handleNativeChat(c *gin.Context, req api.ChatRequest, m *Model,
+ 
+ 		err := r.Chat(c.Request.Context(), nativeReq, func(r llm.ChatResponse) {
+ 			res := api.ChatResponse{
+-				Model:     req.Model,
+-				CreatedAt: time.Now().UTC(),
+-				Message:   r.Message,
+-				Done:      r.Done,
++				Digest:          m.Digest,
++				ProviderVersion: version.Version,
++				Model:           req.Model,
++				CreatedAt:       time.Now().UTC(),
++				Message:         r.Message,
++				Done:            r.Done,
+ 				Metrics: api.Metrics{
+ 					PromptEvalCount:       r.PromptEvalCount,
+ 					PromptEvalCachedCount: r.PromptEvalCachedCount,
+diff --git a/server/routes_generate_test.go b/server/routes_generate_test.go
+index f3decb8..3f81d9a 100644
+--- a/server/routes_generate_test.go
++++ b/server/routes_generate_test.go
+@@ -4,6 +4,7 @@ import (
+ 	"bytes"
+ 	"context"
+ 	"encoding/json"
++	"github.com/ollama/ollama/version"
+ 	"io"
+ 	"net/http"
+ 	"net/http/httptest"
+@@ -312,6 +313,20 @@ func TestChatHandlerChatTemplateRoute(t *testing.T) {
+ 	if err := json.Unmarshal(w.Body.Bytes(), &actual); err != nil {
+ 		t.Fatal(err)
+ 	}
++	existingName, err := getExistingName(model.ParseName("chat-template"))
++	if err != nil {
++		t.Fatal(err)
++	}
++	servedModel, err := GetModel(existingName.String())
++	if err != nil {
++		t.Fatal(err)
++	}
++	if actual.ProviderVersion != version.Version {
++		t.Fatalf("provider version = %q, want %q", actual.ProviderVersion, version.Version)
++	}
++	if actual.Digest != servedModel.Digest {
++		t.Fatalf("response digest = %q, want exact manifest digest %q", actual.Digest, servedModel.Digest)
++	}
+ 	if actual.Message.Content != "chat template response" {
+ 		t.Fatalf("expected chat template response, got %q", actual.Message.Content)
+ 	}
+@@ -833,6 +848,18 @@ func TestGenerateChat(t *testing.T) {
+ 	if w.Code != http.StatusOK {
+ 		t.Fatalf("expected status 200, got %d", w.Code)
+ 	}
++	expectedDigest := func(t *testing.T, modelName string) string {
++		t.Helper()
++		existingName, err := getExistingName(model.ParseName(modelName))
++		if err != nil {
++			t.Fatal(err)
++		}
++		servedModel, err := GetModel(existingName.String())
++		if err != nil {
++			t.Fatal(err)
++		}
++		return servedModel.Digest
++	}
+ 
+ 	t.Run("missing body", func(t *testing.T) {
+ 		w := createRequest(t, s.ChatHandler, nil)
+@@ -935,6 +962,13 @@ func TestGenerateChat(t *testing.T) {
+ 		if actual.Model != "test" {
+ 			t.Errorf("expected model test, got %s", actual.Model)
+ 		}
++		wantDigest := expectedDigest(t, "test")
++		if actual.ProviderVersion != version.Version {
++			t.Fatalf("provider version = %q, want %q", actual.ProviderVersion, version.Version)
++		}
++		if actual.Digest != wantDigest {
++			t.Errorf("response digest = %q, want exact manifest digest %q", actual.Digest, wantDigest)
++		}
+ 
+ 		if !actual.Done {
+ 			t.Errorf("expected done true, got false")
+@@ -945,7 +979,7 @@ func TestGenerateChat(t *testing.T) {
+ 		}
+ 	})
+ 
+-	checkChatResponse := func(t *testing.T, body io.Reader, model, content string) {
++	checkChatResponse := func(t *testing.T, body io.Reader, modelName, content string) {
+ 		t.Helper()
+ 
+ 		var actual api.ChatResponse
+@@ -953,9 +987,16 @@ func TestGenerateChat(t *testing.T) {
+ 			t.Fatal(err)
+ 		}
+ 
+-		if actual.Model != model {
++		if actual.Model != modelName {
+ 			t.Errorf("expected model test, got %s", actual.Model)
+ 		}
++		wantDigest := expectedDigest(t, modelName)
++		if actual.ProviderVersion != version.Version {
++			t.Fatalf("provider version = %q, want %q", actual.ProviderVersion, version.Version)
++		}
++		if actual.Digest != wantDigest {
++			t.Errorf("response digest = %q, want exact manifest digest %q", actual.Digest, wantDigest)
++		}
+ 
+ 		if !actual.Done {
+ 			t.Errorf("expected done false, got true")
+-- 
+2.43.0
+

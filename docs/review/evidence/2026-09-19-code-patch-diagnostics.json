@@ -1,0 +1,531 @@
+{
+  "generatedAt": "2026-09-19T08:28:08.162Z",
+  "readOnly": true,
+  "newInference": false,
+  "scoreRewritten": false,
+  "rows": [
+    {
+      "evidence": "attempt-search-report-1-incumbent.json",
+      "responseSha256": "485db105a7f84cf4a052f010542acc26a66a5e31671b85f935c0621184e06c78",
+      "parsedFiles": 0,
+      "previews": [],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-search-report-1-candidate.json",
+      "responseSha256": "db26d1c66da779d3137a3abeda3f376183a72fec55425089e48b93eed8ad82f5",
+      "parsedFiles": 0,
+      "previews": [],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-build-arbitration-1-candidate.json",
+      "responseSha256": "607caa6e9b901108cf3616264d98791e7a767dec5878de95c54708c6584c7928",
+      "parsedFiles": 0,
+      "previews": [],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-manual-scheduler-1-incumbent.json",
+      "responseSha256": "c0ea3c20a55db49ca1fdd967a7632934149c0ba90fd140ad44f517cdd1631feb",
+      "parsedFiles": 1,
+      "previews": [
+        {
+          "file": "src/agents/scheduler.js",
+          "regions": 2,
+          "valid": false,
+          "errors": [
+            "Region 1: stale patch — old line 0 mismatch at anchor \"triggerAgent\" (expected \"return this.runner.execute(agentId, { force: true, isManual: true });\", got \"if (this.runningAgents.has(agentId)) {\")"
+          ],
+          "warnings": []
+        }
+      ],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-manual-scheduler-1-candidate.json",
+      "responseSha256": "b78e06f614f52e68b02944f1045ba4b08cbf9cba4b544e48bc9ac017355f61b5",
+      "parsedFiles": 1,
+      "previews": [
+        {
+          "file": "src/agents/scheduler.js",
+          "regions": 2,
+          "valid": false,
+          "errors": [
+            "Region 1: ambiguous anchor \"checkDue\" (3 matches, no contextBefore for disambiguation)"
+          ],
+          "warnings": []
+        }
+      ],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-specialist-cleanup-1-candidate.json",
+      "responseSha256": "5b0d3a71cc7b96eaa6b3c8f7a2ed02cd512a515665effb8c67dd7173c8d8b48a",
+      "parsedFiles": 0,
+      "previews": [],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-expertise-categories-1-incumbent.json",
+      "responseSha256": "1321e86999c30fe6f520995f71225b589d9e74754cd010900bb006924e9197e5",
+      "parsedFiles": 1,
+      "previews": [
+        {
+          "file": "src/expertises/expertise-layer.js",
+          "regions": 1,
+          "valid": false,
+          "errors": [
+            "Region 0: ambiguous anchor \"getExpertiseCategories\" (2 matches, no contextBefore for disambiguation)"
+          ],
+          "warnings": []
+        }
+      ],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-java-javadoc-1-candidate.json",
+      "responseSha256": "d5044438b7d3b3904d80993cf1a06d5127e869a19ec718f738d7f3703bb94880",
+      "parsedFiles": 1,
+      "previews": [
+        {
+          "file": "src/planner/quality-gate.js",
+          "regions": 2,
+          "valid": false,
+          "errors": [
+            "Region 0: ambiguous anchor \"validateJavaStructure\" (2 matches, no contextBefore for disambiguation)",
+            "Region 1: ambiguous anchor \"validateJavaStructure\" (2 matches, no contextBefore for disambiguation)"
+          ],
+          "warnings": []
+        }
+      ],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-java-javadoc-1-incumbent.json",
+      "responseSha256": "6179b41349e3b55ef5fe9b77c3836b425789415d5cfd51392ec1d3da8d6bb60b",
+      "parsedFiles": 1,
+      "previews": [
+        {
+          "file": "src/planner/quality-gate.js",
+          "regions": 1,
+          "valid": false,
+          "errors": [
+            "Region 0: stale patch — old line 0 mismatch at anchor \"validateJavaStructure\" (expected \"const classMatch = code.match(/(?:public\\s+)?(?:abstract\\s+)?(?:class|interface|enum)\\s+(\\w+)/);\", got \"let code;\")"
+          ],
+          "warnings": []
+        }
+      ],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-structured-code-1-incumbent.json",
+      "responseSha256": "bfa4956377fe11172603773a134f6e61743d445f482337206d2bbc381c9ef0ec",
+      "parsedFiles": 1,
+      "previews": [
+        {
+          "file": "src/planner/code-cleaner.js",
+          "regions": 1,
+          "valid": false,
+          "errors": [
+            "Region 0: stale patch — old line 0 mismatch at anchor \"stripCodeFences\" (expected \"// Guard: content might be array (Ollama response) or object\", got \"\")"
+          ],
+          "warnings": []
+        }
+      ],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-structured-code-1-candidate.json",
+      "responseSha256": "3469c09b3e1690d6a381d89f49e3ad1c6824c4af486e5bc0d06d3eac7ea2e0d4",
+      "parsedFiles": 0,
+      "previews": [],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-optional-legacy-table-1-candidate.json",
+      "responseSha256": "c6f4cd4c2e08f0e70b36d7ad2fb66420804980933245f9ebb3994b27a67c7bd2",
+      "parsedFiles": 0,
+      "previews": [],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-optional-legacy-table-1-incumbent.json",
+      "responseSha256": "88dc538d1798a80f7c7b6cfc72849252c266d769fe7d97f3d2329f3bff000c8a",
+      "parsedFiles": 1,
+      "previews": [
+        {
+          "file": "src/db/migrations/2026_02_20_008_v69_expert_to_expertise.js",
+          "regions": 1,
+          "valid": false,
+          "errors": [
+            "Region 0: stale patch — old line 0 mismatch at anchor \"up\" (expected \"db.exec(`\", got \"// ═══════════════════════════════════════════════════════════════\")"
+          ],
+          "warnings": []
+        }
+      ],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-search-report-2-candidate.json",
+      "responseSha256": "54a2476697438ac7f81de2d4f5e8241710d20d6314c71b47b795b844edc88a76",
+      "parsedFiles": 0,
+      "previews": [],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-search-report-2-incumbent.json",
+      "responseSha256": "c23359daa3cf59c43774149b2a9e90f3d614651a501391976dd03c5d04307e5a",
+      "parsedFiles": 0,
+      "previews": [],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-build-arbitration-2-candidate.json",
+      "responseSha256": "c17e3bc7550751c4735ae0f41ccb80b4f666cee43616391260a4dad0c23e7180",
+      "parsedFiles": 0,
+      "previews": [],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-manual-scheduler-2-candidate.json",
+      "responseSha256": "7ec7079e66c418e3bb02b0df84b53c5c311e5feb8e3a8d8f852ea3b3219314ba",
+      "parsedFiles": 1,
+      "previews": [
+        {
+          "file": "src/agents/scheduler.js",
+          "regions": 2,
+          "valid": false,
+          "errors": [
+            "Region 1: ambiguous anchor \"checkDue\" (3 matches, no contextBefore for disambiguation)"
+          ],
+          "warnings": []
+        }
+      ],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-manual-scheduler-2-incumbent.json",
+      "responseSha256": "c0ea3c20a55db49ca1fdd967a7632934149c0ba90fd140ad44f517cdd1631feb",
+      "parsedFiles": 1,
+      "previews": [
+        {
+          "file": "src/agents/scheduler.js",
+          "regions": 2,
+          "valid": false,
+          "errors": [
+            "Region 1: stale patch — old line 0 mismatch at anchor \"triggerAgent\" (expected \"return this.runner.execute(agentId, { force: true, isManual: true });\", got \"if (this.runningAgents.has(agentId)) {\")"
+          ],
+          "warnings": []
+        }
+      ],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-specialist-cleanup-2-candidate.json",
+      "responseSha256": "9b419806f87182f749114fada4ba575816be3a243cfe8d9adbaa99fde4465093",
+      "parsedFiles": 0,
+      "previews": [],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-expertise-categories-2-incumbent.json",
+      "responseSha256": "1321e86999c30fe6f520995f71225b589d9e74754cd010900bb006924e9197e5",
+      "parsedFiles": 1,
+      "previews": [
+        {
+          "file": "src/expertises/expertise-layer.js",
+          "regions": 1,
+          "valid": false,
+          "errors": [
+            "Region 0: ambiguous anchor \"getExpertiseCategories\" (2 matches, no contextBefore for disambiguation)"
+          ],
+          "warnings": []
+        }
+      ],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-java-javadoc-2-incumbent.json",
+      "responseSha256": "d3aea3fa0635e8bac2792c98ed4e8d514ac48b2da5584bbf417bb9f1979c8b40",
+      "parsedFiles": 1,
+      "previews": [
+        {
+          "file": "src/planner/quality-gate.js",
+          "regions": 1,
+          "valid": false,
+          "errors": [
+            "Region 0: stale patch — old line 0 mismatch at anchor \"validateJavaStructure\" (expected \"const classMatch = code.match(/(?:public\\s+)?(?:abstract\\s+)?(?:class|interface|enum)\\s+(\\w+)/);\", got \"let code;\")"
+          ],
+          "warnings": []
+        }
+      ],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-java-javadoc-2-candidate.json",
+      "responseSha256": "0fac9f3d6ed128778ceb0d93d0069f6e206a32cbbeefdd5b372c90a466e680de",
+      "parsedFiles": 1,
+      "previews": [
+        {
+          "file": "src/planner/quality-gate.js",
+          "regions": 1,
+          "valid": false,
+          "errors": [
+            "Region 0: ambiguous anchor \"validateJavaStructure\" (2 matches, no contextBefore for disambiguation)"
+          ],
+          "warnings": []
+        }
+      ],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-structured-code-2-candidate.json",
+      "responseSha256": "93597c991c70d03201d672a29b084c1a468be32770f8fe1c0271b17792857624",
+      "parsedFiles": 0,
+      "previews": [],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-structured-code-2-incumbent.json",
+      "responseSha256": "bfa4956377fe11172603773a134f6e61743d445f482337206d2bbc381c9ef0ec",
+      "parsedFiles": 1,
+      "previews": [
+        {
+          "file": "src/planner/code-cleaner.js",
+          "regions": 1,
+          "valid": false,
+          "errors": [
+            "Region 0: stale patch — old line 0 mismatch at anchor \"stripCodeFences\" (expected \"// Guard: content might be array (Ollama response) or object\", got \"\")"
+          ],
+          "warnings": []
+        }
+      ],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-optional-legacy-table-2-incumbent.json",
+      "responseSha256": "88dc538d1798a80f7c7b6cfc72849252c266d769fe7d97f3d2329f3bff000c8a",
+      "parsedFiles": 1,
+      "previews": [
+        {
+          "file": "src/db/migrations/2026_02_20_008_v69_expert_to_expertise.js",
+          "regions": 1,
+          "valid": false,
+          "errors": [
+            "Region 0: stale patch — old line 0 mismatch at anchor \"up\" (expected \"db.exec(`\", got \"// ═══════════════════════════════════════════════════════════════\")"
+          ],
+          "warnings": []
+        }
+      ],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-optional-legacy-table-2-candidate.json",
+      "responseSha256": "20f8d04d1afeae54dd99602c344d766c6b4ba31c0f922255a720de1a82ab4a05",
+      "parsedFiles": 0,
+      "previews": [],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-search-report-3-incumbent.json",
+      "responseSha256": "701223bf6f88922d60c93b8fa987c434fc27b78ea6da8497feb17f71927826dd",
+      "parsedFiles": 0,
+      "previews": [],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-search-report-3-candidate.json",
+      "responseSha256": "10c212cb79e416a2555c742c88b2106d4671e61119d10763d6b755b06e3ef084",
+      "parsedFiles": 0,
+      "previews": [],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-build-arbitration-3-candidate.json",
+      "responseSha256": "c17e3bc7550751c4735ae0f41ccb80b4f666cee43616391260a4dad0c23e7180",
+      "parsedFiles": 0,
+      "previews": [],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-manual-scheduler-3-incumbent.json",
+      "responseSha256": "c0ea3c20a55db49ca1fdd967a7632934149c0ba90fd140ad44f517cdd1631feb",
+      "parsedFiles": 1,
+      "previews": [
+        {
+          "file": "src/agents/scheduler.js",
+          "regions": 2,
+          "valid": false,
+          "errors": [
+            "Region 1: stale patch — old line 0 mismatch at anchor \"triggerAgent\" (expected \"return this.runner.execute(agentId, { force: true, isManual: true });\", got \"if (this.runningAgents.has(agentId)) {\")"
+          ],
+          "warnings": []
+        }
+      ],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-manual-scheduler-3-candidate.json",
+      "responseSha256": "5100e07e0928d1bf65cdd42945ea3348895fa02d5e16279c9bfc2fe462b2f47f",
+      "parsedFiles": 1,
+      "previews": [
+        {
+          "file": "src/agents/scheduler.js",
+          "regions": 2,
+          "valid": false,
+          "errors": [
+            "Region 1: ambiguous anchor \"checkDue\" (3 matches, no contextBefore for disambiguation)"
+          ],
+          "warnings": []
+        }
+      ],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-specialist-cleanup-3-candidate.json",
+      "responseSha256": "b14ce53819438be930fea1293cae909fb5472334e08f6a0778630373bb64554d",
+      "parsedFiles": 0,
+      "previews": [],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-expertise-categories-3-incumbent.json",
+      "responseSha256": "1321e86999c30fe6f520995f71225b589d9e74754cd010900bb006924e9197e5",
+      "parsedFiles": 1,
+      "previews": [
+        {
+          "file": "src/expertises/expertise-layer.js",
+          "regions": 1,
+          "valid": false,
+          "errors": [
+            "Region 0: ambiguous anchor \"getExpertiseCategories\" (2 matches, no contextBefore for disambiguation)"
+          ],
+          "warnings": []
+        }
+      ],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-java-javadoc-3-candidate.json",
+      "responseSha256": "c2df3d48a83fce2a6fe6ec54dba567d93ae840ee951a03ab5c1b84df85a46047",
+      "parsedFiles": 1,
+      "previews": [
+        {
+          "file": "src/planner/quality-gate.js",
+          "regions": 1,
+          "valid": false,
+          "errors": [
+            "Region 0: stale patch — old line 0 mismatch at anchor \"validateJavaStructure\" (expected \"const classMatch = code.match(/(?:public\\s+)?(?:abstract\\s+)?(?:class|interface|enum)\\s+(\\w+)/);\", got \"let code;\")"
+          ],
+          "warnings": []
+        }
+      ],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-java-javadoc-3-incumbent.json",
+      "responseSha256": "d3aea3fa0635e8bac2792c98ed4e8d514ac48b2da5584bbf417bb9f1979c8b40",
+      "parsedFiles": 1,
+      "previews": [
+        {
+          "file": "src/planner/quality-gate.js",
+          "regions": 1,
+          "valid": false,
+          "errors": [
+            "Region 0: stale patch — old line 0 mismatch at anchor \"validateJavaStructure\" (expected \"const classMatch = code.match(/(?:public\\s+)?(?:abstract\\s+)?(?:class|interface|enum)\\s+(\\w+)/);\", got \"let code;\")"
+          ],
+          "warnings": []
+        }
+      ],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-structured-code-3-incumbent.json",
+      "responseSha256": "bfa4956377fe11172603773a134f6e61743d445f482337206d2bbc381c9ef0ec",
+      "parsedFiles": 1,
+      "previews": [
+        {
+          "file": "src/planner/code-cleaner.js",
+          "regions": 1,
+          "valid": false,
+          "errors": [
+            "Region 0: stale patch — old line 0 mismatch at anchor \"stripCodeFences\" (expected \"// Guard: content might be array (Ollama response) or object\", got \"\")"
+          ],
+          "warnings": []
+        }
+      ],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-structured-code-3-candidate.json",
+      "responseSha256": "d5fb42bc9683dc99d019a1208985b5951dae4014e144a545d7608ffc3768e312",
+      "parsedFiles": 0,
+      "previews": [],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-optional-legacy-table-3-candidate.json",
+      "responseSha256": "0586879635c8db70445a7e0fb00dd99a04e46bb61da227b8cc0b45f45221869c",
+      "parsedFiles": 0,
+      "previews": [],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    },
+    {
+      "evidence": "attempt-optional-legacy-table-3-incumbent.json",
+      "responseSha256": "88dc538d1798a80f7c7b6cfc72849252c266d769fe7d97f3d2329f3bff000c8a",
+      "parsedFiles": 1,
+      "previews": [
+        {
+          "file": "src/db/migrations/2026_02_20_008_v69_expert_to_expertise.js",
+          "regions": 1,
+          "valid": false,
+          "errors": [
+            "Region 0: stale patch — old line 0 mismatch at anchor \"up\" (expected \"db.exec(`\", got \"// ═══════════════════════════════════════════════════════════════\")"
+          ],
+          "warnings": []
+        }
+      ],
+      "qualityOutcomeUnchanged": "INCORRECT",
+      "qualityScoreUnchanged": 0
+    }
+  ]
+}

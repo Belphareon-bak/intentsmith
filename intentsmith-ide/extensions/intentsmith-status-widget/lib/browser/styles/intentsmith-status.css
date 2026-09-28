@@ -1,0 +1,3 @@
+/* IntentSmith Status Bar — v7 */
+.intentsmith-status-connected { color: var(--intentsmith-accent-text) !important; }
+.intentsmith-status-disconnected { color: var(--intentsmith-tx-4) !important; }

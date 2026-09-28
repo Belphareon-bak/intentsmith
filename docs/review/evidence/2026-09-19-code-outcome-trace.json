@@ -1,0 +1,55 @@
+{
+  "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3",
+  "trackedSource": "5b91bab88338ed456664d16260eceec6d76c1e15",
+  "paths": [
+    {
+      "layer": "response completion",
+      "source": "src/eval/model-evaluation-runner.js",
+      "checks": "done true + stop/length + response-bound model/digest/provider; missing terminal proof throws; incomplete HTTP200 never reaches grader",
+      "test": "tests/model-evaluation-suites.test.js",
+      "observed": "33 PASS"
+    },
+    {
+      "layer": "actual C3 state",
+      "source": "scripts/manual/c3-code-pilot.mjs:attempt",
+      "checks": "fresh broken initial state, readonly test sandbox, final executable checks decide; verified budget 0; provider-invalid null",
+      "test": "accepted-v3/oracle-acceptance.json",
+      "observed": "8 cases, 24 direct controls, 27 C3 runtime controls PASS"
+    },
+    {
+      "layer": "durable production score guard",
+      "source": "src/upgrade/model-evaluation-history.js",
+      "checks": "COMPLETE refuses null/undefined/coerced score; terminal BLOCKED keeps NULL; immutable rows",
+      "test": "tests/model-evaluation-consolidation.test.js",
+      "observed": "18 PASS; pilot writes separate immutable JSON evidence, not production DB"
+    },
+    {
+      "layer": "existing repeated comparison",
+      "source": "src/upgrade/pairwise-trial.js",
+      "checks": "incomplete runs fail; attempted, invalid and missing counts retained; verified operational failure remains denominator",
+      "test": "tests/pairwise-trial.test.js",
+      "observed": "46 PASS including locked CODE decision"
+    },
+    {
+      "layer": "bounded pilot decision",
+      "source": "src/eval/code-pilot-decision.js",
+      "checks": "all planned pairs and valid outcomes; aggregate repetitions inside scenarios then groups; qualification both sides; no activation method",
+      "test": "tests/pairwise-trial.test.js",
+      "observed": "same 46 PASS"
+    },
+    {
+      "layer": "retention",
+      "source": "src/upgrade/model-hunt-retention.js",
+      "checks": "context-specific memory overflow is not deletion evidence",
+      "test": "tests/model-upgrade.test.js",
+      "observed": "103 PASS including final regression; no profile-based deletion"
+    }
+  ],
+  "productionImported": false,
+  "postMeasurementClassificationCorrection": {
+    "rawScoresUnchanged": true,
+    "decisionUnchanged": true,
+    "controls": "classification-oracles/oracle-acceptance.json",
+    "runtimeControls": 28
+  }
+}

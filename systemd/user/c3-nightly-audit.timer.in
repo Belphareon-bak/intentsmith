@@ -1,0 +1,10 @@
+[Unit]
+Description=Run IntentSmith safe local nightly audit daily
+
+[Timer]
+OnCalendar=*-*-* 00:30:00 Europe/Prague
+Persistent=false
+Unit=intentsmith-nightly-audit.service
+
+[Install]
+WantedBy=timers.target

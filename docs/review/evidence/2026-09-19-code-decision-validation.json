@@ -1,0 +1,39 @@
+{
+  "sourceRevision": "5b91bab88338ed456664d16260eceec6d76c1e15",
+  "initialHarnessRun": {
+    "path": "deterministic-v3/code-decision-5b91bab8/report.json",
+    "status": "FAIL",
+    "reason": "Output root lacked required .intentsmith-artifacts component; preserved"
+  },
+  "fullPass": {
+    "PASS": 355,
+    "FAIL": 2,
+    "TIMEOUT": 0,
+    "BLOCKED": 3,
+    "SKIPPED": 0
+  },
+  "followups": {
+    "modelUpgradeFixture": "103 PASS with explicit done:true/stop in fake response; patch retained outside measured checkout until run ends",
+    "pdf": "2 PASS on configured installed PDF runtime",
+    "ocr": "1 PASS on configured installed OCR/PDF runtimes"
+  },
+  "effectiveSuites": {
+    "PASS": 359,
+    "FAIL": 1,
+    "BLOCKED": 0
+  },
+  "remainingFailure": {
+    "id": "IS-T1-TESTS-NIGHTLY-ORCHESTRATOR-SELF-TEST",
+    "reason": "Reviewed Gate 0 registry fingerprint differs; preexisting files unchanged from 58cc7316; not rebaselined"
+  },
+  "verdict": "BASELINE_FAIL_REMAINS",
+  "freshInstall": false,
+  "dependencies": "existing shared node_modules",
+  "finalFocused": {
+    "modelUpgrade": 103,
+    "pairwise": 46,
+    "artifact": 160,
+    "protocol": 33
+  },
+  "manualSourceMatchesTestedCorrection": true
+}

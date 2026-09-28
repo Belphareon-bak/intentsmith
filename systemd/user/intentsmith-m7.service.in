@@ -1,0 +1,31 @@
+[Unit]
+Description=IntentSmith M7 VPN-only Remote Companion
+Documentation=file:@PROJECT_ROOT@/docs/mobile/TRYING-IT.md
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=simple
+WorkingDirectory=@PROJECT_ROOT@
+Environment=NODE_ENV=production
+Environment=INTENTSMITH_M7_REMOTE_ENABLED=true
+Environment=INTENTSMITH_M7_VPN_INTERFACE=@VPN_INTERFACE@
+Environment=INTENTSMITH_M7_BIND_ADDRESS=@BIND_ADDRESS@
+Environment=INTENTSMITH_M7_SERVER_ORIGIN=@SERVER_ORIGIN@
+Environment=INTENTSMITH_M7_SERVER_SPKI_SHA256=@SERVER_SPKI_SHA256@
+LoadCredentialEncrypted=intentsmith-m7-tls-certificate.pem:@TLS_CERTIFICATE_CREDENTIAL@
+LoadCredentialEncrypted=intentsmith-m7-tls-private-key.pem:@TLS_PRIVATE_KEY_CREDENTIAL@
+LoadCredentialEncrypted=intentsmith-m7-rate-limit-hmac.bin:@RATE_LIMIT_HMAC_CREDENTIAL@
+ExecStart=@NODE_BIN@ @PROJECT_ROOT@/src/server.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillSignal=SIGTERM
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

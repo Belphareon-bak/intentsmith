@@ -1,0 +1,16 @@
+{
+  "incumbent": true,
+  "candidate": true,
+  "scenarios": true,
+  "decision": true,
+  "repeats": true,
+  "budget": true,
+  "candidateSelection": true,
+  "profileChanges": {
+    "providerVersion": {
+      "before": "0.34.0-intentsmith.1",
+      "after": "0.34.0-intentsmith.2"
+    }
+  },
+  "initialContextHashesUnchanged": true
+}

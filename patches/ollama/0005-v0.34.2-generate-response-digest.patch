@@ -1,0 +1,236 @@
+From 2206cee85bf2cbe12ea69101aa7d76b91cd8cbb4 Mon Sep 17 00:00:00 2001
+From: Belphareon <geofery.cz@gmail.com>
+Date: Sun, 20 Sep 2026 21:36:00 +0000
+Subject: [PATCH] server: attest local generate responses with selected
+ manifest identity
+
+---
+ api/types.go                   |  6 +++
+ server/routes.go               | 38 ++++++++------
+ server/routes_generate_test.go | 95 ++++++++++++++++++++++++++++++++++
+ 3 files changed, 124 insertions(+), 15 deletions(-)
+
+diff --git a/api/types.go b/api/types.go
+index ab0fb5b..4f8e581 100644
+--- a/api/types.go
++++ b/api/types.go
+@@ -930,6 +930,12 @@ type GenerateResponse struct {
+ 	// Model is the model name that generated the response.
+ 	Model string `json:"model"`
+ 
++	// Digest is the exact local manifest selected for this response, not a later tag lookup.
++	Digest string `json:"digest,omitempty"`
++
++	// ProviderVersion identifies the serving build.
++	ProviderVersion string `json:"provider_version,omitempty"`
++
+ 	// RemoteModel is the name of the upstream model that generated the response.
+ 	RemoteModel string `json:"remote_model,omitempty"`
+ 
+diff --git a/server/routes.go b/server/routes.go
+index 77f2e55..44b6d9a 100644
+--- a/server/routes.go
++++ b/server/routes.go
+@@ -413,11 +413,13 @@ func (s *Server) GenerateHandler(c *gin.Context) {
+ 		s.sched.expireRunner(m)
+ 
+ 		c.JSON(http.StatusOK, api.GenerateResponse{
+-			Model:      req.Model,
+-			CreatedAt:  time.Now().UTC(),
+-			Response:   "",
+-			Done:       true,
+-			DoneReason: "unload",
++			Digest:          m.Digest,
++			ProviderVersion: version.Version,
++			Model:           req.Model,
++			CreatedAt:       time.Now().UTC(),
++			Response:        "",
++			Done:            true,
++			DoneReason:      "unload",
+ 		})
+ 		return
+ 	}
+@@ -485,10 +487,12 @@ func (s *Server) GenerateHandler(c *gin.Context) {
+ 	// load the model
+ 	if req.Prompt == "" {
+ 		c.JSON(http.StatusOK, api.GenerateResponse{
+-			Model:      req.Model,
+-			CreatedAt:  time.Now().UTC(),
+-			Done:       true,
+-			DoneReason: "load",
++			Digest:          m.Digest,
++			ProviderVersion: version.Version,
++			Model:           req.Model,
++			CreatedAt:       time.Now().UTC(),
++			Done:            true,
++			DoneReason:      "load",
+ 		})
+ 		return
+ 	}
+@@ -630,8 +634,10 @@ func (s *Server) GenerateHandler(c *gin.Context) {
+ 	// If debug mode is enabled, return the rendered template instead of calling the model
+ 	if req.DebugRenderOnly {
+ 		c.JSON(http.StatusOK, api.GenerateResponse{
+-			Model:     req.Model,
+-			CreatedAt: time.Now().UTC(),
++			Digest:          m.Digest,
++			ProviderVersion: version.Version,
++			Model:           req.Model,
++			CreatedAt:       time.Now().UTC(),
+ 			DebugInfo: &api.DebugInfo{
+ 				RenderedTemplate: prompt,
+ 				ImageCount:       len(media),
+@@ -677,10 +683,12 @@ func (s *Server) GenerateHandler(c *gin.Context) {
+ 			LeadingBOS:      leadingBOS,
+ 		}, func(cr llm.CompletionResponse) {
+ 			res := api.GenerateResponse{
+-				Model:     req.Model,
+-				CreatedAt: time.Now().UTC(),
+-				Response:  cr.Content,
+-				Done:      cr.Done,
++				Digest:          m.Digest,
++				ProviderVersion: version.Version,
++				Model:           req.Model,
++				CreatedAt:       time.Now().UTC(),
++				Response:        cr.Content,
++				Done:            cr.Done,
+ 				Metrics: api.Metrics{
+ 					PromptEvalCount:       cr.PromptEvalCount,
+ 					PromptEvalCachedCount: cr.PromptEvalCachedCount,
+diff --git a/server/routes_generate_test.go b/server/routes_generate_test.go
+index 89b285d..1383f40 100644
+--- a/server/routes_generate_test.go
++++ b/server/routes_generate_test.go
+@@ -4,6 +4,7 @@ import (
+ 	"bytes"
+ 	"context"
+ 	"encoding/json"
++	"fmt"
+ 	"github.com/ollama/ollama/version"
+ 	"io"
+ 	"net/http"
+@@ -1745,6 +1746,14 @@ func TestGenerate(t *testing.T) {
+ 			t.Errorf("expected done true, got false")
+ 		}
+ 
++		selected, err := GetModel("test")
++		if err != nil {
++			t.Fatal(err)
++		}
++		if actual.Digest != selected.Digest || actual.ProviderVersion != version.Version {
++			t.Fatal("load response lacks selected identity")
++		}
++
+ 		if actual.DoneReason != "load" {
+ 			t.Errorf("expected done reason load, got %s", actual.DoneReason)
+ 		}
+@@ -1758,6 +1767,14 @@ func TestGenerate(t *testing.T) {
+ 			t.Fatal(err)
+ 		}
+ 
++		selected, err := GetModel(model)
++		if err != nil {
++			t.Fatal(err)
++		}
++		if actual.Digest != selected.Digest || actual.ProviderVersion != version.Version {
++			t.Fatalf("missing/wrong generate identity: %#v", actual)
++		}
++
+ 		if actual.Model != model {
+ 			t.Errorf("expected model test, got %s", actual.Model)
+ 		}
+@@ -1803,6 +1820,76 @@ func TestGenerate(t *testing.T) {
+ 		}
+ 	}
+ 
++	t.Run("attestation remains bound during local tag replacement", func(t *testing.T) {
++		w := createRequest(t, s.CreateHandler, api.CreateRequest{Model: "replacement", From: "test", System: "different manifest"})
++		if w.Code != http.StatusOK {
++			t.Fatalf("replacement: %d %s", w.Code, w.Body.String())
++		}
++		if err := CopyModel(model.ParseName("test"), model.ParseName("saved-test")); err != nil {
++			t.Fatal(err)
++		}
++		for _, streamed := range []bool{false, true} {
++			t.Run(fmt.Sprintf("stream=%v", streamed), func(t *testing.T) {
++				if err := CopyModel(model.ParseName("saved-test"), model.ParseName("test")); err != nil {
++					t.Fatal(err)
++				}
++				defer CopyModel(model.ParseName("saved-test"), model.ParseName("test"))
++				selected, err := GetModel("test")
++				if err != nil {
++					t.Fatal(err)
++				}
++				mock.CompletionFn = func(ctx context.Context, req llm.CompletionRequest, fn func(llm.CompletionResponse)) error {
++					if err := CopyModel(model.ParseName("replacement"), model.ParseName("test")); err != nil {
++						return err
++					}
++					fn(llm.CompletionResponse{Content: "image", Done: false})
++					fn(llm.CompletionResponse{Content: " read", Done: true, DoneReason: llm.DoneReasonStop})
++					return nil
++				}
++				defer func() { mock.CompletionFn = nil }()
++				w := createRequest(t, s.GenerateHandler, api.GenerateRequest{Model: "test", Prompt: "Read image", Images: []api.ImageData{[]byte("fixture-image")}, Stream: &streamed})
++				if w.Code != http.StatusOK {
++					t.Fatalf("generate: %d %s", w.Code, w.Body.String())
++				}
++				now, err := GetModel("test")
++				if err != nil {
++					t.Fatal(err)
++				}
++				if now.Digest == selected.Digest {
++					t.Fatal("negative control did not replace the manifest")
++				}
++				decoder := json.NewDecoder(w.Body)
++				count := 0
++				done := false
++				for {
++					var got api.GenerateResponse
++					err := decoder.Decode(&got)
++					if err == io.EOF {
++						break
++					}
++					if err != nil {
++						t.Fatal(err)
++					}
++					if got.Digest != selected.Digest || got.Digest == now.Digest {
++						t.Fatalf("digest %q, served %q, later tag %q", got.Digest, selected.Digest, now.Digest)
++					}
++					if got.ProviderVersion != version.Version {
++						t.Fatalf("provider %q want %q", got.ProviderVersion, version.Version)
++					}
++					done = got.Done
++					count++
++				}
++				want := 1
++				if streamed {
++					want = 2
++				}
++				if count != want || !done {
++					t.Fatalf("chunks=%d done=%v", count, done)
++				}
++			})
++		}
++	})
++
+ 	mock.CompletionResponse.Content = "Hi!"
+ 	t.Run("prompt", func(t *testing.T) {
+ 		w := createRequest(t, s.GenerateHandler, api.GenerateRequest{
+@@ -3221,6 +3308,14 @@ func TestGenerateUnload(t *testing.T) {
+ 			t.Fatalf("failed to unmarshal response: %v", err)
+ 		}
+ 
++		selected, err := GetModel("test")
++		if err != nil {
++			t.Fatal(err)
++		}
++		if resp.Digest != selected.Digest || resp.ProviderVersion != version.Version {
++			t.Fatal("unload response lacks selected identity")
++		}
++
+ 		if resp.DoneReason != "unload" {
+ 			t.Errorf("expected done_reason 'unload', got %q", resp.DoneReason)
+ 		}
+-- 
+2.43.0
+

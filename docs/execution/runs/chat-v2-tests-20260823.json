@@ -1,0 +1,129 @@
+{
+  "generatedAt": "2026-08-23T01:11:30.898Z",
+  "version": "v136.1-prototype.1",
+  "weighting": {
+    "en": 0.6,
+    "cs": 0.4
+  },
+  "tests": [
+    {
+      "name": "en_grounded_summary",
+      "language": "en",
+      "prompt": "Source: Project Northstar launches on October 14. The approved budget is $2.4 million. Maya Chen owns delivery. The only listed risk is a delayed battery supplier. Summarize the source in at most three sentences. Do not add facts.",
+      "rubric": [
+        "October 14",
+        "$2.4 million",
+        "Maya Chen owns delivery",
+        "battery supplier delay",
+        "at most 3 sentences",
+        "no conflicting date or budget"
+      ]
+    },
+    {
+      "name": "en_action_email",
+      "language": "en",
+      "prompt": "Write a concise professional email to Priya. State that she owns the security review, the decision is due June 12, and a late decision delays the rollout. Use a greeting and no more than five sentences.",
+      "rubric": [
+        "professional greeting",
+        "Priya owns security review",
+        "June 12 deadline",
+        "late decision delays rollout",
+        "maximum 5 sentences"
+      ]
+    },
+    {
+      "name": "en_context_correction",
+      "language": "en",
+      "prompt": "Conversation record: (1) The Atlas workshop was initially planned for London with 18 attendees. (2) Correction: the final location is Oslo and the confirmed attendance is 24. State only the current location and attendance in one sentence.",
+      "rubric": [
+        "Oslo",
+        "24 attendees",
+        "does not present London or 18 as current",
+        "one sentence"
+      ]
+    },
+    {
+      "name": "en_missing_context",
+      "language": "en",
+      "prompt": "User says: \"Deploy it tomorrow.\" No project, environment, time zone, or deployment window is known. Respond helpfully without claiming that deployment has started.",
+      "rubric": [
+        "asks which project",
+        "asks environment",
+        "asks time zone or window",
+        "does not claim execution"
+      ]
+    },
+    {
+      "name": "en_structured_extraction",
+      "language": "en",
+      "prompt": "Source: Risk R-17 is owned by Elena Rossi. The risk is database saturation. The mitigation is to cap concurrent imports at 12. Return ONLY JSON with exactly these keys: risk, owner, mitigation.",
+      "rubric": [
+        "valid JSON object",
+        "exact three keys",
+        "R-17/database saturation",
+        "Elena Rossi",
+        "cap concurrent imports at 12"
+      ]
+    },
+    {
+      "name": "en_translation_from_czech",
+      "language": "en",
+      "prompt": "Translate faithfully into English: \"Schůzka byla přesunuta z úterý na čtvrtek v 9:30. Petra pošle podklady nejpozději ve středu.\"",
+      "rubric": [
+        "moved from Tuesday",
+        "to Thursday at 9:30",
+        "Petra sends materials",
+        "no later than Wednesday"
+      ]
+    },
+    {
+      "name": "cz_grounded_summary",
+      "language": "cs",
+      "prompt": "Zdroj: Brněnská kancelář se otevře 3. května. Tým bude mít 12 lidí. Rozpočet je 480 000 Kč a vedoucí je Eva Šímová. Shrň zdroj nejvýše dvěma větami a nic si nevymýšlej.",
+      "rubric": [
+        "3. května",
+        "Brno/brněnská kancelář",
+        "12 lidí",
+        "480 000 Kč",
+        "Eva Šímová",
+        "nejvýše 2 věty a česká diakritika"
+      ]
+    },
+    {
+      "name": "cz_exact_bullets",
+      "language": "cs",
+      "prompt": "Vrať přesně tři odrážky v češtině: první musí říct „záloha databáze“, druhá „ověření obnovy“ a třetí „zápis výsledku do auditu“. Bez úvodu a bez závěru.",
+      "rubric": [
+        "přesně 3 odrážky",
+        "správné pořadí tří požadavků",
+        "bez textu mimo odrážky",
+        "česká diakritika"
+      ]
+    },
+    {
+      "name": "cz_context_correction",
+      "language": "cs",
+      "prompt": "Záznam: Projekt Javor měl původně běžet v Ostravě s 8 účastníky. Oprava: platí Olomouc, 11 účastníků a termín 30. září. Jednou větou uveď pouze aktuální stav.",
+      "rubric": [
+        "Olomouc",
+        "11 účastníků",
+        "30. září",
+        "neuvádí Ostravu ani 8 jako aktuální",
+        "jedna česká věta"
+      ]
+    },
+    {
+      "name": "cz_professional_reply",
+      "language": "cs",
+      "prompt": "Napiš profesionální odpověď nejvýše třemi větami: potvrď přijetí požadavku, slib odpověď nejpozději v pátek a případné dotazy směruj na Jana Kříže.",
+      "rubric": [
+        "potvrzení přijetí",
+        "odpověď nejpozději v pátek",
+        "Jan Kříž jako kontakt",
+        "maximálně 3 věty",
+        "přirozená česká diakritika",
+        "bez zjevné chyby ve shodě rodu u slova požadavek"
+      ]
+    }
+  ]
+}

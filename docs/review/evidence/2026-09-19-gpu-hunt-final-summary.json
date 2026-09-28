@@ -1,0 +1,1860 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "2026-09-19T18:27:17.782109+00:00",
+  "sourceRevision": "89531748fc6fab20327e0b539cbcd176a0ffb98f",
+  "runtimeSha256": "dac08aaa5cd205e02edb88c572393731cff9be914455752c15b33aec4b1aa4ab",
+  "allRolePlanSha256": "ffe45b3f34ca767776b4b614ecd8f13f53c22c73c393a18ae1642ef87372e485",
+  "verdict": "NO_GO_FOR_AUTONOMOUS_HUNT",
+  "modelSelection": "NEROZHODNUTO",
+  "bindingAction": "PONECHAT",
+  "reviewStatus": "REVIEW_PENDING",
+  "deploymentStatus": "NOT_DEPLOYED",
+  "acceptedProfiles": 0,
+  "automaticCleanupAuthorized": false,
+  "timerEnableAuthorized": false,
+  "measurement": {
+    "status": "INCOMPLETE_EVIDENCE",
+    "startedAt": "2026-09-19T14:26:01.308Z",
+    "finishedAt": "2026-09-19T18:01:09.804Z",
+    "durationMs": 12908496,
+    "model": {
+      "modelName": "qwen3.8:latest",
+      "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "providerVersion": "0.34.2-intentsmith.1"
+    },
+    "judge": {
+      "modelName": "qwen3.8:latest",
+      "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "providerVersion": "0.34.2-intentsmith.1"
+    },
+    "tasks": 92,
+    "targetAttempts": 276,
+    "responseReceipts": 2258,
+    "roles": [
+      {
+        "role": "CODE",
+        "expectedAttempts": 21,
+        "attempted": 21,
+        "validAttempts": 21,
+        "invalidAttempts": 0,
+        "operationalFailures": 0,
+        "calibrationValid": true,
+        "score": 0.8095238095238095,
+        "status": "EXPLORATORY_MEASURED",
+        "contractSha256": "23164c94ec042e9782722ff6f203ebcc603e22be0b0ce8e68a81c8f9b8bbb936",
+        "declaredGroups": 5
+      },
+      {
+        "role": "VISION",
+        "expectedAttempts": 39,
+        "attempted": 39,
+        "validAttempts": 39,
+        "invalidAttempts": 0,
+        "operationalFailures": 0,
+        "calibrationValid": true,
+        "score": 0.8461538461538461,
+        "status": "EXPLORATORY_MEASURED",
+        "contractSha256": "0c28d6d2d0875de16d6e73cc0ccfe627472878648cafa5763b584812aeda3bc6",
+        "declaredGroups": 13
+      },
+      {
+        "role": "D1",
+        "expectedAttempts": 24,
+        "attempted": 24,
+        "validAttempts": 20,
+        "invalidAttempts": 4,
+        "operationalFailures": 18,
+        "calibrationValid": false,
+        "score": null,
+        "status": "UNVERIFIED",
+        "contractSha256": "d0ccab5282b9934f8bb2ab5b4502d05b0a0c4ee11ad16c4fc1d043182197ccf5",
+        "declaredGroups": 8
+      },
+      {
+        "role": "D2",
+        "expectedAttempts": 24,
+        "attempted": 24,
+        "validAttempts": 14,
+        "invalidAttempts": 10,
+        "operationalFailures": 2,
+        "calibrationValid": true,
+        "score": null,
+        "status": "UNVERIFIED",
+        "contractSha256": "e961c8c7c5f64434700e35b9da21df507e4e02f625c3a42c22e8a79c7eabdd6b",
+        "declaredGroups": 8
+      },
+      {
+        "role": "R1",
+        "expectedAttempts": 24,
+        "attempted": 24,
+        "validAttempts": 23,
+        "invalidAttempts": 1,
+        "operationalFailures": 7,
+        "calibrationValid": false,
+        "score": null,
+        "status": "UNVERIFIED",
+        "contractSha256": "e4ce34064e91e3610bf697020d866be44bfc5af633e7ad0f3e01ee667523df3b",
+        "declaredGroups": 8
+      },
+      {
+        "role": "R2",
+        "expectedAttempts": 24,
+        "attempted": 24,
+        "validAttempts": 12,
+        "invalidAttempts": 12,
+        "operationalFailures": 2,
+        "calibrationValid": false,
+        "score": null,
+        "status": "UNVERIFIED",
+        "contractSha256": "0426cf3e7bfab13504d96d25ecc06f661a1879f4812b039b6ce8cc8027be0595",
+        "declaredGroups": 8
+      },
+      {
+        "role": "CHAT",
+        "expectedAttempts": 120,
+        "attempted": 120,
+        "validAttempts": 116,
+        "invalidAttempts": 4,
+        "operationalFailures": 0,
+        "calibrationValid": true,
+        "score": null,
+        "status": "UNVERIFIED",
+        "contractSha256": "4a8d33c7525566a8f536bad24707cb1e6cc2a98126587f495bc42971bdf03947",
+        "declaredGroups": 40
+      }
+    ],
+    "calibrationTasks": 72,
+    "calibrationExecutions": 116,
+    "calibrationPass": 65,
+    "calibrationFail": 7,
+    "historicalFailedExecutions": 14,
+    "interruption": "GPU_FOREIGN_WORK_PRESENT after 192 targets; original report and append-only logs preserved; original time budget retained on resume",
+    "notAHoldout": true,
+    "productionImported": false
+  },
+  "codeShortBenchmark": [
+    {
+      "model": "qwen3.8:latest",
+      "sourceRevision": "89531748fc6fab20327e0b539cbcd176a0ffb98f",
+      "runtimeSha256": "dac08aaa5cd205e02edb88c572393731cff9be914455752c15b33aec4b1aa4ab",
+      "artifact": {
+        "modelName": "qwen3.8:latest",
+        "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+        "providerVersion": "0.34.2-intentsmith.1"
+      },
+      "status": "INCOMPLETE_EVIDENCE",
+      "attempts": 21,
+      "score": 0.8095238095238095,
+      "outcomes": {
+        "SUCCESS": 17,
+        "INCORRECT": 4
+      },
+      "tasks": [
+        {
+          "task": "patch_8cae1b583963",
+          "group": "model-cleanup",
+          "scores": [
+            1,
+            1,
+            1
+          ]
+        },
+        {
+          "task": "patch_0fe346cc820c",
+          "group": "model-use-leases",
+          "scores": [
+            1,
+            1,
+            1
+          ]
+        },
+        {
+          "task": "patch_6fc5e4eb7dce",
+          "group": "model-use-leases",
+          "scores": [
+            1,
+            1,
+            1
+          ]
+        },
+        {
+          "task": "patch_f63d14d5eb61",
+          "group": "pairwise-confidence",
+          "scores": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "task": "patch_75b5539f8cf5",
+          "group": "chat-persistence",
+          "scores": [
+            1,
+            1,
+            1
+          ]
+        },
+        {
+          "task": "patch_22149f55b861",
+          "group": "verification-timeout",
+          "scores": [
+            0,
+            1,
+            1
+          ]
+        },
+        {
+          "task": "patch_adb1258cfec0",
+          "group": "verification-timeout",
+          "scores": [
+            1,
+            1,
+            1
+          ]
+        }
+      ],
+      "declaredGroups": 5,
+      "durationMs": 12908496,
+      "targetResponseMs": 107039,
+      "planSha256": "ffe45b3f34ca767776b4b614ecd8f13f53c22c73c393a18ae1642ef87372e485",
+      "suiteContractSha256": "23164c94ec042e9782722ff6f203ebcc603e22be0b0ce8e68a81c8f9b8bbb936",
+      "evidence": "all-roles-final-04/result.json"
+    },
+    {
+      "model": "devstral-small-2:latest",
+      "sourceRevision": "89531748fc6fab20327e0b539cbcd176a0ffb98f",
+      "runtimeSha256": "dac08aaa5cd205e02edb88c572393731cff9be914455752c15b33aec4b1aa4ab",
+      "artifact": {
+        "modelName": "devstral-small-2:latest",
+        "digestSha256": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+        "providerVersion": "0.34.2-intentsmith.1"
+      },
+      "status": "MEASUREMENT_COMPLETE",
+      "attempts": 21,
+      "score": 0.4920634920634921,
+      "outcomes": {
+        "INCORRECT": 12,
+        "SUCCESS": 9
+      },
+      "tasks": [
+        {
+          "task": "patch_8cae1b583963",
+          "group": "model-cleanup",
+          "scores": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "task": "patch_0fe346cc820c",
+          "group": "model-use-leases",
+          "scores": [
+            1,
+            1,
+            1
+          ]
+        },
+        {
+          "task": "patch_6fc5e4eb7dce",
+          "group": "model-use-leases",
+          "scores": [
+            1,
+            1,
+            1
+          ]
+        },
+        {
+          "task": "patch_f63d14d5eb61",
+          "group": "pairwise-confidence",
+          "scores": [
+            0.6666666666666666,
+            0.6666666666666666,
+            0
+          ]
+        },
+        {
+          "task": "patch_75b5539f8cf5",
+          "group": "chat-persistence",
+          "scores": [
+            1,
+            1,
+            1
+          ]
+        },
+        {
+          "task": "patch_22149f55b861",
+          "group": "verification-timeout",
+          "scores": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "task": "patch_adb1258cfec0",
+          "group": "verification-timeout",
+          "scores": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "declaredGroups": 5,
+      "durationMs": 232778,
+      "targetResponseMs": 160880,
+      "planSha256": "7e3cf5a57ff9bf9f7d52ed554117228fb9df956ff57cb347fe9ad4b1869a4cb5",
+      "suiteContractSha256": "23164c94ec042e9782722ff6f203ebcc603e22be0b0ce8e68a81c8f9b8bbb936",
+      "evidence": "code-benchmark-devstral/result.json"
+    },
+    {
+      "model": "qwen3-coder:latest",
+      "sourceRevision": "89531748fc6fab20327e0b539cbcd176a0ffb98f",
+      "runtimeSha256": "dac08aaa5cd205e02edb88c572393731cff9be914455752c15b33aec4b1aa4ab",
+      "artifact": {
+        "modelName": "qwen3-coder:latest",
+        "digestSha256": "06c1097efce0431c2045fe7b2e5108366e43bee1b4603a7aded8f21689e90bca",
+        "providerVersion": "0.34.2-intentsmith.1"
+      },
+      "status": "MEASUREMENT_COMPLETE",
+      "attempts": 21,
+      "score": 0.1142857142857143,
+      "outcomes": {
+        "INCORRECT": 21
+      },
+      "tasks": [
+        {
+          "task": "patch_8cae1b583963",
+          "group": "model-cleanup",
+          "scores": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "task": "patch_0fe346cc820c",
+          "group": "model-use-leases",
+          "scores": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "task": "patch_6fc5e4eb7dce",
+          "group": "model-use-leases",
+          "scores": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "task": "patch_f63d14d5eb61",
+          "group": "pairwise-confidence",
+          "scores": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "task": "patch_75b5539f8cf5",
+          "group": "chat-persistence",
+          "scores": [
+            0.8,
+            0.8,
+            0.8
+          ]
+        },
+        {
+          "task": "patch_22149f55b861",
+          "group": "verification-timeout",
+          "scores": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "task": "patch_adb1258cfec0",
+          "group": "verification-timeout",
+          "scores": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "declaredGroups": 5,
+      "durationMs": 146804,
+      "targetResponseMs": 64064,
+      "planSha256": "ce72352f895b6de81b58cc58469cc12e9e35dceb23e91d9e3ce26888dd4eb9a3",
+      "suiteContractSha256": "23164c94ec042e9782722ff6f203ebcc603e22be0b0ce8e68a81c8f9b8bbb936",
+      "evidence": "code-benchmark-coder/result.json"
+    }
+  ],
+  "codeDevelopmentWorkflow": {
+    "status": "COMPLETE",
+    "sourceRevision": "89531748fc6fab20327e0b539cbcd176a0ffb98f",
+    "startedAt": "2026-09-19T18:01:24.071Z",
+    "finishedAt": "2026-09-19T18:20:20.140Z",
+    "durationMs": 1136069,
+    "decision": {
+      "verdict": "DEVELOPMENT_ONLY",
+      "reason": "EXPOSED_CASES_NOT_SELECTION_EVIDENCE",
+      "activationAuthorized": false,
+      "bindingAction": "UNCHANGED",
+      "completedAttempts": 16,
+      "successes": 5
+    },
+    "error": null,
+    "qualifications": {
+      "incumbent": {
+        "planSha256": "f168e7d796af1d4a06ead0c90f6edc455e7b1b6fae6fa61ebca8387ec2aa2698",
+        "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+        "responseAttested": true,
+        "promptTokens": 11990,
+        "generatedTokens": 4096,
+        "durationMs": 73719,
+        "peakBytes": 21424504832,
+        "samples": 238,
+        "samplingErrors": [],
+        "fullGpuPlacement": true,
+        "status": "QUALIFIED"
+      },
+      "candidate": {
+        "planSha256": "f168e7d796af1d4a06ead0c90f6edc455e7b1b6fae6fa61ebca8387ec2aa2698",
+        "digest": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+        "responseAttested": true,
+        "promptTokens": 12182,
+        "generatedTokens": 4096,
+        "durationMs": 127379,
+        "peakBytes": 21425553408,
+        "samples": 412,
+        "samplingErrors": [],
+        "fullGpuPlacement": true,
+        "status": "QUALIFIED"
+      }
+    },
+    "models": [
+      {
+        "side": "incumbent",
+        "model": "qwen3.8:latest",
+        "attempts": 8,
+        "completed": 4,
+        "outcomes": {
+          "INCORRECT": 4,
+          "SUCCESS": 4
+        },
+        "durationMs": 409218,
+        "tasks": [
+          {
+            "scenario": "search-report",
+            "outcome": "INCORRECT",
+            "score": 0,
+            "evidence": "attempt-search-report-1-incumbent.json"
+          },
+          {
+            "scenario": "build-arbitration",
+            "outcome": "INCORRECT",
+            "score": 0,
+            "evidence": "attempt-build-arbitration-1-incumbent.json"
+          },
+          {
+            "scenario": "manual-scheduler",
+            "outcome": "SUCCESS",
+            "score": 1,
+            "evidence": "attempt-manual-scheduler-1-incumbent.json"
+          },
+          {
+            "scenario": "specialist-cleanup",
+            "outcome": "INCORRECT",
+            "score": 0,
+            "evidence": "attempt-specialist-cleanup-1-incumbent.json"
+          },
+          {
+            "scenario": "expertise-categories",
+            "outcome": "SUCCESS",
+            "score": 1,
+            "evidence": "attempt-expertise-categories-1-incumbent.json"
+          },
+          {
+            "scenario": "java-javadoc",
+            "outcome": "SUCCESS",
+            "score": 1,
+            "evidence": "attempt-java-javadoc-1-incumbent.json"
+          },
+          {
+            "scenario": "structured-code",
+            "outcome": "SUCCESS",
+            "score": 1,
+            "evidence": "attempt-structured-code-1-incumbent.json"
+          },
+          {
+            "scenario": "optional-legacy-table",
+            "outcome": "INCORRECT",
+            "score": 0,
+            "evidence": "attempt-optional-legacy-table-1-incumbent.json"
+          }
+        ]
+      },
+      {
+        "side": "candidate",
+        "model": "devstral-small-2:latest",
+        "attempts": 8,
+        "completed": 1,
+        "outcomes": {
+          "OPERATIONAL_FAILURE": 2,
+          "SUCCESS": 1,
+          "INCORRECT": 5
+        },
+        "durationMs": 514664,
+        "tasks": [
+          {
+            "scenario": "search-report",
+            "outcome": "OPERATIONAL_FAILURE",
+            "score": 0,
+            "evidence": "attempt-search-report-1-candidate.json"
+          },
+          {
+            "scenario": "build-arbitration",
+            "outcome": "OPERATIONAL_FAILURE",
+            "score": 0,
+            "evidence": "attempt-build-arbitration-1-candidate.json"
+          },
+          {
+            "scenario": "manual-scheduler",
+            "outcome": "SUCCESS",
+            "score": 1,
+            "evidence": "attempt-manual-scheduler-1-candidate.json"
+          },
+          {
+            "scenario": "specialist-cleanup",
+            "outcome": "INCORRECT",
+            "score": 0,
+            "evidence": "attempt-specialist-cleanup-1-candidate.json"
+          },
+          {
+            "scenario": "expertise-categories",
+            "outcome": "INCORRECT",
+            "score": 0,
+            "evidence": "attempt-expertise-categories-1-candidate.json"
+          },
+          {
+            "scenario": "java-javadoc",
+            "outcome": "INCORRECT",
+            "score": 0,
+            "evidence": "attempt-java-javadoc-1-candidate.json"
+          },
+          {
+            "scenario": "structured-code",
+            "outcome": "INCORRECT",
+            "score": 0,
+            "evidence": "attempt-structured-code-1-candidate.json"
+          },
+          {
+            "scenario": "optional-legacy-table",
+            "outcome": "INCORRECT",
+            "score": 0,
+            "evidence": "attempt-optional-legacy-table-1-candidate.json"
+          }
+        ]
+      }
+    ],
+    "bindingEqualBeforeAfter": true,
+    "notAHoldout": true
+  },
+  "regression": {
+    "sourceRevision": "32f1eef5d4edff1a4c4131adcccaf0b299349c43",
+    "statusCounts": {
+      "PASS": 361,
+      "FAIL": 1,
+      "TIMEOUT": 0,
+      "BLOCKED": 0,
+      "SKIPPED": 0
+    },
+    "verdict": "FAIL",
+    "runtimeEquivalent": true,
+    "knownFailure": "tests/nightly-orchestrator-self-test.js: registry hash differs from reviewed Gate 0 policy",
+    "gate0Rebaselined": false
+  },
+  "controls": {
+    "vision-oracles-89531748.json": {
+      "sha256": "bd44fdedb3399d6fa3b0135e3c60134a6cc96c320606572eadaebd7ab38a3ff2",
+      "status": "PASS",
+      "sourceRevision": "89531748fc6fab20327e0b539cbcd176a0ffb98f"
+    },
+    "code-short-oracles-89531748.json": {
+      "sha256": "3a0f7d1513a3d2a3ae961d9818db14167de9c109aa58623c0bf6dc812999c2fb",
+      "status": "PASS",
+      "sourceRevision": "89531748fc6fab20327e0b539cbcd176a0ffb98f"
+    },
+    "manual-runner-controls-89531748.json": {
+      "sha256": "048f8b6ef470f05a67ef181a0040eb6e514304cd724fdbed2b0785efe4308a51",
+      "status": "PASS",
+      "sourceRevision": "89531748fc6fab20327e0b539cbcd176a0ffb98f"
+    },
+    "early-block-control-receipt.json": {
+      "sha256": "9b4272f659549c11ed5e2b45ae98185ee3f684fcbbe2b85a2958ead70fff5d3c",
+      "status": "PASS",
+      "sourceRevision": null
+    },
+    "runtime-equivalence-final.json": {
+      "sha256": "2a41d6b624969f869bb99f3d6d3534cf4202f10519e1f3c0159105c4d68dd4ad",
+      "status": "PASS",
+      "sourceRevision": null
+    },
+    "gui-final-89531748/receipt.json": {
+      "sha256": "39fb4bfb222742fb1a80c3bc08aa8d728beb4fa8b0cb913cf7f52c635d5530ab",
+      "status": "PASS",
+      "sourceRevision": null
+    },
+    "role-review-ui-final.json": {
+      "sha256": "aeb33badb87e47e114117e11ccaefc1b7235b0551da6786d5af13e30f1bd020b",
+      "status": "PASS",
+      "sourceRevision": null,
+      "visualCaptureStatus": "STALE_FRAME_SUPERSEDED_BY_PAINTED_FINAL"
+    },
+    "code-review-ui-final.json": {
+      "sha256": "0c3a96a6101face3c29bf9e97613e67129887a279f34195a56fbb3ea5fd2afd1",
+      "status": "PASS",
+      "sourceRevision": null,
+      "visualCaptureStatus": "STALE_FRAME_SUPERSEDED_BY_PAINTED_FINAL"
+    },
+    "role-review-ui-painted-final.json": {
+      "sha256": "74216a2468dd1317093060bfabd8e46ef4d81f2acc37da806d128ed04f3d84c2",
+      "status": "PASS"
+    },
+    "code-review-ui-painted-final.json": {
+      "sha256": "12399a985897c3b6b4ea53a022254d1a8df5d961c05b124a0edccc478c733aa1",
+      "status": "PASS"
+    },
+    "review-export-final-visual-inspection.json": {
+      "sha256": "38d2ac2389fcbf6d81f60850337cad398b178f0c3ced3356ed3ae5d5fe4d6535",
+      "status": "PASS"
+    }
+  },
+  "provider": {
+    "providerVersion": "0.34.2-intentsmith.1",
+    "upstreamTag": "v0.34.2",
+    "upstreamRevision": "dfabde4539e42ba1e1eab50a3a50b88aea7958a0",
+    "patchedRevision": "cd1553287618f6583c793fc4e5f9199b5bd8e894",
+    "nativeArchiveSha256": "e155b83589986d2c581fdbf1381ea3ebdb16549883679cd5a0627f7cdc05b12b",
+    "toolchain": "go1.26.7 linux/amd64",
+    "builds": [
+      {
+        "path": "ollama-0342",
+        "sha256": "2b98fceffbc6d5d97a6e96ddfd46c597cee4fa06a03d740fdb74dd9a34ff0f92",
+        "bytes": 25289656
+      },
+      {
+        "path": "ollama-0342-reproduced",
+        "sha256": "2b98fceffbc6d5d97a6e96ddfd46c597cee4fa06a03d740fdb74dd9a34ff0f92",
+        "bytes": 25289656
+      },
+      {
+        "path": "provider-script-reproduction/ollama",
+        "sha256": "2b98fceffbc6d5d97a6e96ddfd46c597cee4fa06a03d740fdb74dd9a34ff0f92",
+        "bytes": 25289656
+      }
+    ],
+    "llmCompletionTests": "PASS",
+    "systemProviderInstalled": false,
+    "reproducible": true
+  },
+  "allRoleIntegrity": {
+    "status": "PASS",
+    "checkedAt": "2026-09-19T18:27:13.298Z",
+    "sourceRevision": "89531748fc6fab20327e0b539cbcd176a0ffb98f",
+    "runtimeSha256": "dac08aaa5cd205e02edb88c572393731cff9be914455752c15b33aec4b1aa4ab",
+    "checks": [
+      {
+        "name": "terminal evidence",
+        "status": "PASS"
+      },
+      {
+        "name": "plan self hash and result reference",
+        "status": "PASS"
+      },
+      {
+        "name": "append-only attempts equal atomic result",
+        "status": "PASS"
+      },
+      {
+        "name": "all planned repetitions exactly once",
+        "status": "PASS"
+      },
+      {
+        "name": "all response receipts count",
+        "status": "PASS"
+      },
+      {
+        "name": "input hashes",
+        "status": "PASS"
+      },
+      {
+        "name": "response-bound exact artifact/provider",
+        "status": "PASS"
+      },
+      {
+        "name": "accepted receipts have full GPU placement at recorded profile",
+        "status": "PASS"
+      },
+      {
+        "name": "target responses remain in call log",
+        "status": "PASS"
+      },
+      {
+        "name": "invalid does not become zero",
+        "status": "PASS"
+      },
+      {
+        "name": "output limit is visible operational failure",
+        "status": "PASS"
+      },
+      {
+        "name": "role aggregates include every planned attempt and required calibration",
+        "status": "PASS"
+      },
+      {
+        "name": "interrupted evidence and clock preserved on resume",
+        "status": "PASS"
+      },
+      {
+        "name": "no production mutation authority",
+        "status": "PASS"
+      }
+    ],
+    "limitations": [
+      "Integrity and arithmetic of recorded local evidence; not independent observation of physical execution or acceptance."
+    ],
+    "calls": 2258,
+    "rejectedPlacementReceipts": [
+      {
+        "at": "2026-09-19T16:21:38.848Z",
+        "inputSha256": "9101ec754cf701eadc81165ee34b9187e6be39725e0421d614f92da4ef5e332d",
+        "reason": "GPU_FOREIGN_WORK_PRESENT"
+      }
+    ],
+    "attempts": 276,
+    "roles": [
+      {
+        "role": "CODE",
+        "expectedAttempts": 21,
+        "attempted": 21,
+        "validAttempts": 21,
+        "invalidAttempts": 0,
+        "operationalFailures": 0,
+        "calibrationValid": true,
+        "score": 0.8095238095238095,
+        "status": "EXPLORATORY_MEASURED",
+        "contractSha256": "23164c94ec042e9782722ff6f203ebcc603e22be0b0ce8e68a81c8f9b8bbb936",
+        "declaredGroups": 5
+      },
+      {
+        "role": "VISION",
+        "expectedAttempts": 39,
+        "attempted": 39,
+        "validAttempts": 39,
+        "invalidAttempts": 0,
+        "operationalFailures": 0,
+        "calibrationValid": true,
+        "score": 0.8461538461538461,
+        "status": "EXPLORATORY_MEASURED",
+        "contractSha256": "0c28d6d2d0875de16d6e73cc0ccfe627472878648cafa5763b584812aeda3bc6",
+        "declaredGroups": 13
+      },
+      {
+        "role": "D1",
+        "expectedAttempts": 24,
+        "attempted": 24,
+        "validAttempts": 20,
+        "invalidAttempts": 4,
+        "operationalFailures": 18,
+        "calibrationValid": false,
+        "score": null,
+        "status": "UNVERIFIED",
+        "contractSha256": "d0ccab5282b9934f8bb2ab5b4502d05b0a0c4ee11ad16c4fc1d043182197ccf5",
+        "declaredGroups": 8
+      },
+      {
+        "role": "D2",
+        "expectedAttempts": 24,
+        "attempted": 24,
+        "validAttempts": 14,
+        "invalidAttempts": 10,
+        "operationalFailures": 2,
+        "calibrationValid": true,
+        "score": null,
+        "status": "UNVERIFIED",
+        "contractSha256": "e961c8c7c5f64434700e35b9da21df507e4e02f625c3a42c22e8a79c7eabdd6b",
+        "declaredGroups": 8
+      },
+      {
+        "role": "R1",
+        "expectedAttempts": 24,
+        "attempted": 24,
+        "validAttempts": 23,
+        "invalidAttempts": 1,
+        "operationalFailures": 7,
+        "calibrationValid": false,
+        "score": null,
+        "status": "UNVERIFIED",
+        "contractSha256": "e4ce34064e91e3610bf697020d866be44bfc5af633e7ad0f3e01ee667523df3b",
+        "declaredGroups": 8
+      },
+      {
+        "role": "R2",
+        "expectedAttempts": 24,
+        "attempted": 24,
+        "validAttempts": 12,
+        "invalidAttempts": 12,
+        "operationalFailures": 2,
+        "calibrationValid": false,
+        "score": null,
+        "status": "UNVERIFIED",
+        "contractSha256": "0426cf3e7bfab13504d96d25ecc06f661a1879f4812b039b6ce8cc8027be0595",
+        "declaredGroups": 8
+      },
+      {
+        "role": "CHAT",
+        "expectedAttempts": 120,
+        "attempted": 120,
+        "validAttempts": 116,
+        "invalidAttempts": 4,
+        "operationalFailures": 0,
+        "calibrationValid": true,
+        "score": null,
+        "status": "UNVERIFIED",
+        "contractSha256": "4a8d33c7525566a8f536bad24707cb1e6cc2a98126587f495bc42971bdf03947",
+        "declaredGroups": 40
+      }
+    ]
+  },
+  "codeEvidenceIntegrity": {
+    "status": "PASS",
+    "sourceRevision": "89531748fc6fab20327e0b539cbcd176a0ffb98f",
+    "planSha256": "f168e7d796af1d4a06ead0c90f6edc455e7b1b6fae6fa61ebca8387ec2aa2698",
+    "checkedAt": "2026-09-19T18:27:15.614Z",
+    "checks": [
+      {
+        "name": "sealed plan",
+        "status": "PASS"
+      },
+      {
+        "name": "terminal complete paired development series",
+        "status": "PASS"
+      },
+      {
+        "name": "bindings preserved",
+        "status": "PASS"
+      },
+      {
+        "name": "counterbalanced paired execution order",
+        "status": "PASS"
+      },
+      {
+        "name": "search-report/incumbent summary and identity",
+        "status": "PASS"
+      },
+      {
+        "name": "search-report/incumbent achieved state",
+        "status": "PASS"
+      },
+      {
+        "name": "search-report/incumbent saved files and tests",
+        "status": "PASS"
+      },
+      {
+        "name": "search-report/incumbent attested calls",
+        "status": "PASS"
+      },
+      {
+        "name": "search-report/candidate summary and identity",
+        "status": "PASS"
+      },
+      {
+        "name": "search-report/candidate achieved state",
+        "status": "PASS"
+      },
+      {
+        "name": "search-report/candidate saved files and tests",
+        "status": "PASS"
+      },
+      {
+        "name": "search-report/candidate attested calls",
+        "status": "PASS"
+      },
+      {
+        "name": "build-arbitration/candidate summary and identity",
+        "status": "PASS"
+      },
+      {
+        "name": "build-arbitration/candidate achieved state",
+        "status": "PASS"
+      },
+      {
+        "name": "build-arbitration/candidate saved files and tests",
+        "status": "PASS"
+      },
+      {
+        "name": "build-arbitration/candidate attested calls",
+        "status": "PASS"
+      },
+      {
+        "name": "build-arbitration/incumbent summary and identity",
+        "status": "PASS"
+      },
+      {
+        "name": "build-arbitration/incumbent achieved state",
+        "status": "PASS"
+      },
+      {
+        "name": "build-arbitration/incumbent saved files and tests",
+        "status": "PASS"
+      },
+      {
+        "name": "build-arbitration/incumbent attested calls",
+        "status": "PASS"
+      },
+      {
+        "name": "manual-scheduler/incumbent summary and identity",
+        "status": "PASS"
+      },
+      {
+        "name": "manual-scheduler/incumbent achieved state",
+        "status": "PASS"
+      },
+      {
+        "name": "manual-scheduler/incumbent saved files and tests",
+        "status": "PASS"
+      },
+      {
+        "name": "manual-scheduler/incumbent attested calls",
+        "status": "PASS"
+      },
+      {
+        "name": "manual-scheduler/candidate summary and identity",
+        "status": "PASS"
+      },
+      {
+        "name": "manual-scheduler/candidate achieved state",
+        "status": "PASS"
+      },
+      {
+        "name": "manual-scheduler/candidate saved files and tests",
+        "status": "PASS"
+      },
+      {
+        "name": "manual-scheduler/candidate attested calls",
+        "status": "PASS"
+      },
+      {
+        "name": "specialist-cleanup/candidate summary and identity",
+        "status": "PASS"
+      },
+      {
+        "name": "specialist-cleanup/candidate achieved state",
+        "status": "PASS"
+      },
+      {
+        "name": "specialist-cleanup/candidate saved files and tests",
+        "status": "PASS"
+      },
+      {
+        "name": "specialist-cleanup/candidate attested calls",
+        "status": "PASS"
+      },
+      {
+        "name": "specialist-cleanup/incumbent summary and identity",
+        "status": "PASS"
+      },
+      {
+        "name": "specialist-cleanup/incumbent achieved state",
+        "status": "PASS"
+      },
+      {
+        "name": "specialist-cleanup/incumbent saved files and tests",
+        "status": "PASS"
+      },
+      {
+        "name": "specialist-cleanup/incumbent attested calls",
+        "status": "PASS"
+      },
+      {
+        "name": "expertise-categories/incumbent summary and identity",
+        "status": "PASS"
+      },
+      {
+        "name": "expertise-categories/incumbent achieved state",
+        "status": "PASS"
+      },
+      {
+        "name": "expertise-categories/incumbent saved files and tests",
+        "status": "PASS"
+      },
+      {
+        "name": "expertise-categories/incumbent attested calls",
+        "status": "PASS"
+      },
+      {
+        "name": "expertise-categories/candidate summary and identity",
+        "status": "PASS"
+      },
+      {
+        "name": "expertise-categories/candidate achieved state",
+        "status": "PASS"
+      },
+      {
+        "name": "expertise-categories/candidate saved files and tests",
+        "status": "PASS"
+      },
+      {
+        "name": "expertise-categories/candidate attested calls",
+        "status": "PASS"
+      },
+      {
+        "name": "java-javadoc/candidate summary and identity",
+        "status": "PASS"
+      },
+      {
+        "name": "java-javadoc/candidate achieved state",
+        "status": "PASS"
+      },
+      {
+        "name": "java-javadoc/candidate saved files and tests",
+        "status": "PASS"
+      },
+      {
+        "name": "java-javadoc/candidate attested calls",
+        "status": "PASS"
+      },
+      {
+        "name": "java-javadoc/incumbent summary and identity",
+        "status": "PASS"
+      },
+      {
+        "name": "java-javadoc/incumbent achieved state",
+        "status": "PASS"
+      },
+      {
+        "name": "java-javadoc/incumbent saved files and tests",
+        "status": "PASS"
+      },
+      {
+        "name": "java-javadoc/incumbent attested calls",
+        "status": "PASS"
+      },
+      {
+        "name": "structured-code/incumbent summary and identity",
+        "status": "PASS"
+      },
+      {
+        "name": "structured-code/incumbent achieved state",
+        "status": "PASS"
+      },
+      {
+        "name": "structured-code/incumbent saved files and tests",
+        "status": "PASS"
+      },
+      {
+        "name": "structured-code/incumbent attested calls",
+        "status": "PASS"
+      },
+      {
+        "name": "structured-code/candidate summary and identity",
+        "status": "PASS"
+      },
+      {
+        "name": "structured-code/candidate achieved state",
+        "status": "PASS"
+      },
+      {
+        "name": "structured-code/candidate saved files and tests",
+        "status": "PASS"
+      },
+      {
+        "name": "structured-code/candidate attested calls",
+        "status": "PASS"
+      },
+      {
+        "name": "optional-legacy-table/candidate summary and identity",
+        "status": "PASS"
+      },
+      {
+        "name": "optional-legacy-table/candidate achieved state",
+        "status": "PASS"
+      },
+      {
+        "name": "optional-legacy-table/candidate saved files and tests",
+        "status": "PASS"
+      },
+      {
+        "name": "optional-legacy-table/candidate attested calls",
+        "status": "PASS"
+      },
+      {
+        "name": "optional-legacy-table/incumbent summary and identity",
+        "status": "PASS"
+      },
+      {
+        "name": "optional-legacy-table/incumbent achieved state",
+        "status": "PASS"
+      },
+      {
+        "name": "optional-legacy-table/incumbent saved files and tests",
+        "status": "PASS"
+      },
+      {
+        "name": "optional-legacy-table/incumbent attested calls",
+        "status": "PASS"
+      },
+      {
+        "name": "development does not authorize model change",
+        "status": "PASS"
+      }
+    ],
+    "limitations": [
+      "Verification of recorded evidence, immutable test identities and persisted source bytes; not independent observation or a new holdout."
+    ],
+    "attempts": 16
+  },
+  "semanticReplay": {
+    "status": "PASS",
+    "dataset": "final",
+    "checkedAt": "2026-09-19T18:27:15.831Z",
+    "sourceRevision": "89531748fc6fab20327e0b539cbcd176a0ffb98f",
+    "nodeVersion": "v22.21.1",
+    "newInference": false,
+    "networkCalls": 0,
+    "replayedPairs": 990,
+    "matchedStoredGrades": 988,
+    "uncommittedPairs": [
+      {
+        "index": 800,
+        "task": "en_exact_csv",
+        "responseSha256": "12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126",
+        "valid": true,
+        "score": 0,
+        "reason": null
+      },
+      {
+        "index": 802,
+        "task": "en_exact_csv",
+        "responseSha256": "90ce37f49ebeefde68dc15769a3335b58212abb6674b0c4dd6279bbcc5b51675",
+        "valid": true,
+        "score": 0,
+        "reason": null
+      }
+    ],
+    "orphanedReceipts": [
+      {
+        "index": 804,
+        "task": "en_exact_csv",
+        "responseSha256": "ba901418dd52674e81124689e6112de53c83db7aa0f621dee0bf9c80f1917c9a",
+        "reverse": false
+      }
+    ],
+    "excludedGrades": [
+      {
+        "task": "d1_audit_error_envelope",
+        "repeat": 2,
+        "outcome": "OPERATIONAL_FAILURE",
+        "reason": "MODEL_OUTPUT_BUDGET_EXHAUSTED"
+      },
+      {
+        "task": "d1_audit_error_envelope",
+        "repeat": 3,
+        "outcome": "OPERATIONAL_FAILURE",
+        "reason": "MODEL_OUTPUT_BUDGET_EXHAUSTED"
+      },
+      {
+        "task": "d1_history_late_guard",
+        "repeat": 1,
+        "outcome": "OPERATIONAL_FAILURE",
+        "reason": "MODEL_OUTPUT_BUDGET_EXHAUSTED"
+      },
+      {
+        "task": "d1_history_late_guard",
+        "repeat": 2,
+        "outcome": "OPERATIONAL_FAILURE",
+        "reason": "MODEL_OUTPUT_BUDGET_EXHAUSTED"
+      },
+      {
+        "task": "d1_history_late_guard",
+        "repeat": 3,
+        "outcome": "OPERATIONAL_FAILURE",
+        "reason": "MODEL_OUTPUT_BUDGET_EXHAUSTED"
+      },
+      {
+        "task": "d1_immutable_refinement",
+        "repeat": 1,
+        "outcome": "OPERATIONAL_FAILURE",
+        "reason": "MODEL_OUTPUT_BUDGET_EXHAUSTED"
+      },
+      {
+        "task": "d1_immutable_refinement",
+        "repeat": 2,
+        "outcome": "OPERATIONAL_FAILURE",
+        "reason": "MODEL_OUTPUT_BUDGET_EXHAUSTED"
+      },
+      {
+        "task": "d1_model_cleanup",
+        "repeat": 1,
+        "outcome": "INVALID_MEASUREMENT",
+        "reason": "SEMANTIC_JUDGE_NOT_QUALIFIED"
+      },
+      {
+        "task": "d1_model_cleanup",
+        "repeat": 2,
+        "outcome": "OPERATIONAL_FAILURE",
+        "reason": "MODEL_OUTPUT_BUDGET_EXHAUSTED"
+      },
+      {
+        "task": "d1_model_cleanup",
+        "repeat": 3,
+        "outcome": "INVALID_MEASUREMENT",
+        "reason": "SEMANTIC_JUDGE_NOT_QUALIFIED"
+      },
+      {
+        "task": "d1_model_lease",
+        "repeat": 1,
+        "outcome": "OPERATIONAL_FAILURE",
+        "reason": "MODEL_OUTPUT_BUDGET_EXHAUSTED"
+      },
+      {
+        "task": "d1_model_lease",
+        "repeat": 2,
+        "outcome": "OPERATIONAL_FAILURE",
+        "reason": "MODEL_OUTPUT_BUDGET_EXHAUSTED"
+      },
+      {
+        "task": "d1_model_lease",
+        "repeat": 3,
+        "outcome": "OPERATIONAL_FAILURE",
+        "reason": "MODEL_OUTPUT_BUDGET_EXHAUSTED"
+      },
+      {
+        "task": "d1_pairwise_confidence",
+        "repeat": 1,
+        "outcome": "OPERATIONAL_FAILURE",
+        "reason": "MODEL_OUTPUT_BUDGET_EXHAUSTED"
+      },
+      {
+        "task": "d1_pairwise_confidence",
+        "repeat": 2,
+        "outcome": "OPERATIONAL_FAILURE",
+        "reason": "MODEL_OUTPUT_BUDGET_EXHAUSTED"
+      },
+      {
+        "task": "d1_pairwise_confidence",
+        "repeat": 3,
+        "outcome": "OPERATIONAL_FAILURE",
+        "reason": "MODEL_OUTPUT_BUDGET_EXHAUSTED"
+      },
+      {
+        "task": "d1_verification_timeout",
+        "repeat": 1,
+        "outcome": "INVALID_MEASUREMENT",
+        "reason": "SEMANTIC_JUDGE_NOT_QUALIFIED"
+      },
+      {
+        "task": "d1_verification_timeout",
+        "repeat": 2,
+        "outcome": "OPERATIONAL_FAILURE",
+        "reason": "MODEL_OUTPUT_BUDGET_EXHAUSTED"
+      },
+      {
+        "task": "d1_verification_timeout",
+        "repeat": 3,
+        "outcome": "OPERATIONAL_FAILURE",
+        "reason": "MODEL_OUTPUT_BUDGET_EXHAUSTED"
+      },
+      {
+        "task": "d1_metrics_flush",
+        "repeat": 1,
+        "outcome": "OPERATIONAL_FAILURE",
+        "reason": "MODEL_OUTPUT_BUDGET_EXHAUSTED"
+      },
+      {
+        "task": "d1_metrics_flush",
+        "repeat": 2,
+        "outcome": "INVALID_MEASUREMENT",
+        "reason": "SEMANTIC_JUDGE_NOT_QUALIFIED"
+      },
+      {
+        "task": "d1_metrics_flush",
+        "repeat": 3,
+        "outcome": "OPERATIONAL_FAILURE",
+        "reason": "MODEL_OUTPUT_BUDGET_EXHAUSTED"
+      },
+      {
+        "task": "d2_audit_error_envelope",
+        "repeat": 1,
+        "outcome": "OPERATIONAL_FAILURE",
+        "reason": "MODEL_OUTPUT_BUDGET_EXHAUSTED"
+      },
+      {
+        "task": "d2_immutable_refinement",
+        "repeat": 3,
+        "outcome": "OPERATIONAL_FAILURE",
+        "reason": "MODEL_OUTPUT_BUDGET_EXHAUSTED"
+      },
+      {
+        "task": "r1_model_cleanup",
+        "repeat": 1,
+        "outcome": "INVALID_MEASUREMENT",
+        "reason": "SEMANTIC_JUDGE_NOT_QUALIFIED"
+      },
+      {
+        "task": "r1_model_cleanup",
+        "repeat": 2,
+        "outcome": "OPERATIONAL_FAILURE",
+        "reason": "MODEL_OUTPUT_BUDGET_EXHAUSTED"
+      },
+      {
+        "task": "r1_model_cleanup",
+        "repeat": 3,
+        "outcome": "OPERATIONAL_FAILURE",
+        "reason": "MODEL_OUTPUT_BUDGET_EXHAUSTED"
+      },
+      {
+        "task": "r1_model_lease",
+        "repeat": 1,
+        "outcome": "OPERATIONAL_FAILURE",
+        "reason": "MODEL_OUTPUT_BUDGET_EXHAUSTED"
+      },
+      {
+        "task": "r1_model_lease",
+        "repeat": 2,
+        "outcome": "OPERATIONAL_FAILURE",
+        "reason": "MODEL_OUTPUT_BUDGET_EXHAUSTED"
+      },
+      {
+        "task": "r1_metrics_flush",
+        "repeat": 1,
+        "outcome": "OPERATIONAL_FAILURE",
+        "reason": "MODEL_OUTPUT_BUDGET_EXHAUSTED"
+      },
+      {
+        "task": "r1_metrics_flush",
+        "repeat": 2,
+        "outcome": "OPERATIONAL_FAILURE",
+        "reason": "MODEL_OUTPUT_BUDGET_EXHAUSTED"
+      },
+      {
+        "task": "r1_metrics_flush",
+        "repeat": 3,
+        "outcome": "OPERATIONAL_FAILURE",
+        "reason": "MODEL_OUTPUT_BUDGET_EXHAUSTED"
+      },
+      {
+        "task": "r2_history_late_guard",
+        "repeat": 3,
+        "outcome": "OPERATIONAL_FAILURE",
+        "reason": "MODEL_OUTPUT_BUDGET_EXHAUSTED"
+      },
+      {
+        "task": "r2_immutable_refinement",
+        "repeat": 1,
+        "outcome": "INVALID_MEASUREMENT",
+        "reason": "SEMANTIC_JUDGE_NOT_QUALIFIED"
+      },
+      {
+        "task": "r2_immutable_refinement",
+        "repeat": 2,
+        "outcome": "INVALID_MEASUREMENT",
+        "reason": "SEMANTIC_JUDGE_NOT_QUALIFIED"
+      },
+      {
+        "task": "r2_immutable_refinement",
+        "repeat": 3,
+        "outcome": "INVALID_MEASUREMENT",
+        "reason": "SEMANTIC_JUDGE_NOT_QUALIFIED"
+      },
+      {
+        "task": "r2_model_lease",
+        "repeat": 1,
+        "outcome": "OPERATIONAL_FAILURE",
+        "reason": "MODEL_OUTPUT_BUDGET_EXHAUSTED"
+      },
+      {
+        "task": "r2_verification_timeout",
+        "repeat": 1,
+        "outcome": "INVALID_MEASUREMENT",
+        "reason": "SEMANTIC_JUDGE_NOT_QUALIFIED"
+      },
+      {
+        "task": "r2_verification_timeout",
+        "repeat": 2,
+        "outcome": "INVALID_MEASUREMENT",
+        "reason": "SEMANTIC_JUDGE_NOT_QUALIFIED"
+      },
+      {
+        "task": "r2_verification_timeout",
+        "repeat": 3,
+        "outcome": "INVALID_MEASUREMENT",
+        "reason": "SEMANTIC_JUDGE_NOT_QUALIFIED"
+      }
+    ],
+    "limitations": [
+      "Replays recorded judge replies through the pinned parser and two-order guard. Verifies serialization and calculation, not truth of the judge or physical execution.",
+      "Calibration mode is used only to replay each stored grade; this grants no qualification, import or decision authority."
+    ],
+    "rejectedPlacements": 1,
+    "unmatchedStoredGrades": []
+  },
+  "codeFinalStateRecheck": {
+    "status": "PASS",
+    "sourceRevision": "89531748fc6fab20327e0b539cbcd176a0ffb98f",
+    "planSha256": "f168e7d796af1d4a06ead0c90f6edc455e7b1b6fae6fa61ebca8387ec2aa2698",
+    "startedAt": "2026-09-19T18:27:16.075594+00:00",
+    "newInference": false,
+    "workspaceAccess": "Kernel read-only bind; each check has private tmpfs, network namespace and DB under /tmp.",
+    "limitations": [
+      "Fresh rerun of the same specified checks against saved model edits; not a new model trial or independent oracle acceptance."
+    ],
+    "finishedAt": "2026-09-19T18:27:17.423766+00:00",
+    "checkedAttempts": 16
+  },
+  "semanticCalibration": {
+    "sourceRevision": "89531748fc6fab20327e0b539cbcd176a0ffb98f",
+    "runStatus": "INCOMPLETE_EVIDENCE",
+    "finishedAt": "2026-09-19T18:01:09.804Z",
+    "createdAt": "2026-09-19T18:27:12.732900+00:00",
+    "sample": "AUTHORED_DEVELOPMENT_PROBES_NOT_INDEPENDENT_ACCEPTANCE",
+    "resumeInterpretation": "Repeated calibration executions after interruption are included in probe denominators; tasksPassed/tasksFailed refer to the latest execution. Repeated probes are not independent observations.",
+    "roles": [
+      {
+        "role": "D1",
+        "calibrationExecutions": 16,
+        "tasksObserved": 8,
+        "tasksPassed": 4,
+        "tasksFailed": 4,
+        "anyFailureTasks": 4,
+        "positive": {
+          "expected": 32,
+          "valid": 32,
+          "invalid": 0,
+          "wrong": 0,
+          "wrongAmongValid": 0.0,
+          "invalidAmongExpected": 0.0
+        },
+        "negative": {
+          "expected": 80,
+          "valid": 72,
+          "invalid": 8,
+          "wrong": 0,
+          "wrongAmongValid": 0.0,
+          "invalidAmongExpected": 0.1
+        },
+        "invalidReasons": {
+          "SEMANTIC_ORDER_UNSTABLE": 6,
+          "SEMANTIC_JUDGE_RESPONSE_INVALID": 2
+        },
+        "failedProbes": [
+          {
+            "task": "d1_model_cleanup",
+            "kind": "negated-facts",
+            "valid": false,
+            "score": null,
+            "reason": "SEMANTIC_ORDER_UNSTABLE"
+          },
+          {
+            "task": "d1_pairwise_confidence",
+            "kind": "prompt-echo",
+            "valid": false,
+            "score": null,
+            "reason": "SEMANTIC_JUDGE_RESPONSE_INVALID"
+          },
+          {
+            "task": "d1_verification_timeout",
+            "kind": "negated-facts",
+            "valid": false,
+            "score": null,
+            "reason": "SEMANTIC_ORDER_UNSTABLE"
+          },
+          {
+            "task": "d1_metrics_flush",
+            "kind": "negated-facts",
+            "valid": false,
+            "score": null,
+            "reason": "SEMANTIC_ORDER_UNSTABLE"
+          },
+          {
+            "task": "d1_model_cleanup",
+            "kind": "negated-facts",
+            "valid": false,
+            "score": null,
+            "reason": "SEMANTIC_ORDER_UNSTABLE"
+          },
+          {
+            "task": "d1_pairwise_confidence",
+            "kind": "prompt-echo",
+            "valid": false,
+            "score": null,
+            "reason": "SEMANTIC_JUDGE_RESPONSE_INVALID"
+          },
+          {
+            "task": "d1_verification_timeout",
+            "kind": "negated-facts",
+            "valid": false,
+            "score": null,
+            "reason": "SEMANTIC_ORDER_UNSTABLE"
+          },
+          {
+            "task": "d1_metrics_flush",
+            "kind": "negated-facts",
+            "valid": false,
+            "score": null,
+            "reason": "SEMANTIC_ORDER_UNSTABLE"
+          }
+        ],
+        "directionalProbes": {
+          "positive": {
+            "known": 64,
+            "wrong": 0,
+            "unknown": 0
+          },
+          "negative": {
+            "known": 156,
+            "wrong": 6,
+            "unknown": 4
+          }
+        }
+      },
+      {
+        "role": "D2",
+        "calibrationExecutions": 16,
+        "tasksObserved": 8,
+        "tasksPassed": 8,
+        "tasksFailed": 0,
+        "anyFailureTasks": 0,
+        "positive": {
+          "expected": 32,
+          "valid": 32,
+          "invalid": 0,
+          "wrong": 0,
+          "wrongAmongValid": 0.0,
+          "invalidAmongExpected": 0.0
+        },
+        "negative": {
+          "expected": 80,
+          "valid": 80,
+          "invalid": 0,
+          "wrong": 0,
+          "wrongAmongValid": 0.0,
+          "invalidAmongExpected": 0.0
+        },
+        "invalidReasons": {},
+        "failedProbes": [],
+        "directionalProbes": {
+          "positive": {
+            "known": 64,
+            "wrong": 0,
+            "unknown": 0
+          },
+          "negative": {
+            "known": 160,
+            "wrong": 0,
+            "unknown": 0
+          }
+        }
+      },
+      {
+        "role": "R1",
+        "calibrationExecutions": 16,
+        "tasksObserved": 8,
+        "tasksPassed": 7,
+        "tasksFailed": 1,
+        "anyFailureTasks": 1,
+        "positive": {
+          "expected": 32,
+          "valid": 30,
+          "invalid": 2,
+          "wrong": 0,
+          "wrongAmongValid": 0.0,
+          "invalidAmongExpected": 0.0625
+        },
+        "negative": {
+          "expected": 80,
+          "valid": 80,
+          "invalid": 0,
+          "wrong": 0,
+          "wrongAmongValid": 0.0,
+          "invalidAmongExpected": 0.0
+        },
+        "invalidReasons": {
+          "SEMANTIC_REFERENCE_REJECTED": 2
+        },
+        "failedProbes": [
+          {
+            "task": "r1_model_cleanup",
+            "kind": "gold",
+            "valid": false,
+            "score": null,
+            "reason": "SEMANTIC_REFERENCE_REJECTED"
+          },
+          {
+            "task": "r1_model_cleanup",
+            "kind": "gold",
+            "valid": false,
+            "score": null,
+            "reason": "SEMANTIC_REFERENCE_REJECTED"
+          }
+        ],
+        "directionalProbes": {
+          "positive": {
+            "known": 64,
+            "wrong": 4,
+            "unknown": 0
+          },
+          "negative": {
+            "known": 160,
+            "wrong": 0,
+            "unknown": 0
+          }
+        }
+      },
+      {
+        "role": "R2",
+        "calibrationExecutions": 16,
+        "tasksObserved": 8,
+        "tasksPassed": 6,
+        "tasksFailed": 2,
+        "anyFailureTasks": 2,
+        "positive": {
+          "expected": 32,
+          "valid": 32,
+          "invalid": 0,
+          "wrong": 0,
+          "wrongAmongValid": 0.0,
+          "invalidAmongExpected": 0.0
+        },
+        "negative": {
+          "expected": 80,
+          "valid": 76,
+          "invalid": 4,
+          "wrong": 0,
+          "wrongAmongValid": 0.0,
+          "invalidAmongExpected": 0.05
+        },
+        "invalidReasons": {
+          "SEMANTIC_ORDER_UNSTABLE": 2,
+          "SEMANTIC_REFERENCE_REJECTED": 2
+        },
+        "failedProbes": [
+          {
+            "task": "r2_immutable_refinement",
+            "kind": "negated-facts",
+            "valid": false,
+            "score": null,
+            "reason": "SEMANTIC_ORDER_UNSTABLE"
+          },
+          {
+            "task": "r2_verification_timeout",
+            "kind": "negated-facts",
+            "valid": false,
+            "score": null,
+            "reason": "SEMANTIC_REFERENCE_REJECTED"
+          },
+          {
+            "task": "r2_immutable_refinement",
+            "kind": "negated-facts",
+            "valid": false,
+            "score": null,
+            "reason": "SEMANTIC_ORDER_UNSTABLE"
+          },
+          {
+            "task": "r2_verification_timeout",
+            "kind": "negated-facts",
+            "valid": false,
+            "score": null,
+            "reason": "SEMANTIC_REFERENCE_REJECTED"
+          }
+        ],
+        "directionalProbes": {
+          "positive": {
+            "known": 64,
+            "wrong": 0,
+            "unknown": 0
+          },
+          "negative": {
+            "known": 160,
+            "wrong": 2,
+            "unknown": 0
+          }
+        }
+      },
+      {
+        "role": "CHAT",
+        "calibrationExecutions": 52,
+        "tasksObserved": 40,
+        "tasksPassed": 40,
+        "tasksFailed": 0,
+        "anyFailureTasks": 0,
+        "positive": {
+          "expected": 104,
+          "valid": 104,
+          "invalid": 0,
+          "wrong": 0,
+          "wrongAmongValid": 0.0,
+          "invalidAmongExpected": 0.0
+        },
+        "negative": {
+          "expected": 260,
+          "valid": 260,
+          "invalid": 0,
+          "wrong": 0,
+          "wrongAmongValid": 0.0,
+          "invalidAmongExpected": 0.0
+        },
+        "invalidReasons": {},
+        "failedProbes": [],
+        "directionalProbes": {
+          "positive": {
+            "known": 208,
+            "wrong": 0,
+            "unknown": 0
+          },
+          "negative": {
+            "known": 520,
+            "wrong": 0,
+            "unknown": 0
+          }
+        }
+      }
+    ],
+    "interpretation": [
+      "Rates of wrong accepted/rejected outputs use valid probe denominators; invalid probes are shown separately and never counted as correct rejection.",
+      "Directional probes diagnose errors before the two-order fail-closed guard. They are not the final decision rate.",
+      "The same local artifact generated and judged the target answers. No independent acceptance set or independent judge was used."
+    ]
+  },
+  "inferenceCost": {
+    "schemaVersion": 1,
+    "finishedAt": "2026-09-19T18:01:09.804Z",
+    "createdAt": "2026-09-19T18:27:12.954069+00:00",
+    "runStatus": "INCOMPLETE_EVIDENCE",
+    "wallDurationMs": 12908496,
+    "classification": "Schema-object format is used only by this pinned semantic judge; all other calls are target generation.",
+    "groups": {
+      "target": {
+        "calls": 276,
+        "responseReceipts": 276,
+        "errors": 0,
+        "durationMs": 2404092,
+        "promptTokens": 262575,
+        "outputTokens": 165427,
+        "doneReasons": {
+          "stop": 247,
+          "length": 29
+        }
+      },
+      "judge": {
+        "calls": 1982,
+        "responseReceipts": 1982,
+        "errors": 0,
+        "durationMs": 10027612,
+        "promptTokens": 3991131,
+        "outputTokens": 747447,
+        "doneReasons": {
+          "stop": 1982
+        }
+      }
+    },
+    "limitations": [
+      "Timing includes local API work and varying context/cache state; it is not a controlled model speed benchmark.",
+      "Long judge calibration does not make a target task more representative or independently qualified."
+    ]
+  },
+  "limitations": [
+    "T4 calibration uses authored development probes and the same artifact as the target, not independent acceptance.",
+    "Semantic suites are a manual exploratory path; production mapping, authoritative persistence and GUI integration remain incomplete. Legacy production substring grading can still create exploratory scores; the contract prohibition on new T5 scoring is not fully implemented.",
+    "D2 and R2 use T4 here rather than the requested executable location-plus-reproduction path.",
+    "CODE operational cases are exposed development cases; no fresh independent operational qualification.",
+    "No validated quick profile; smoke is transport diagnostics only.",
+    "R1 model_cleanup rubric confuses the property of the system with recognition of missing verification; reference probe failed.",
+    "CHAT group IDs are declared, not verified independent; shared EN/CS task templates require a reviewed dependence map.",
+    "GUI evidence is a read-only diagnostic bridge and does not prove deployment or mutation journeys.",
+    "System provider remains older than the measured sidecar.",
+    "Whole offline/database audit remains FAIL on the known Gate 0 seal.",
+    "The outer benchmark queue tool session returned 143 despite both child wrappers exiting 0 and complete evidence. Signal cause is unproven; no clean orchestration claim."
+  ],
+  "postFinalizationCheckedAt": "2026-09-19T18:34:43.071739+00:00",
+  "shortCodeReplay": {
+    "status": "PASS",
+    "sourceRevision": "89531748fc6fab20327e0b539cbcd176a0ffb98f",
+    "startedAt": "2026-09-19T18:30:10.274Z",
+    "newInference": false,
+    "productionImported": false,
+    "limitations": [
+      "Fresh offline execution of saved model answers through the pinned short CODE grader; console output was not retained by the original suite adapter. This does not replace original measurements or qualify the suite for model selection. Identical task/answer pairs are executed once and linked to all original occurrences."
+    ],
+    "finishedAt": "2026-09-19T18:30:56.649Z",
+    "checkedAttempts": 63,
+    "uniqueExecutions": 26,
+    "sha256": "e851f88b036c54339e1f5827c9d08ef865e7afeec028068de8400f1676230a07"
+  },
+  "liveFinal": {
+    "snapshot": "live-snapshot-final.json",
+    "sha256": "c045b9089dd7dc93b6f9c104adecdaea0ba418199a3b87b04b50241c70355a56",
+    "release": {
+      "at": "2026-09-19T18:33:26.173999+00:00",
+      "provider": {
+        "11434": {
+          "version": "0.34.0-intentsmith.1"
+        },
+        "11435": {
+          "reachable": false,
+          "error": "URLError"
+        }
+      },
+      "automationHoldPresent": true,
+      "automationHoldMode": "0o600",
+      "gpuLeasePresent": false
+    }
+  },
+  "orchestration": {
+    "status": "SUPERVISOR_EXIT_UNEXPLAINED",
+    "checkedAt": "2026-09-19T18:38:28.861384+00:00",
+    "observedToolSession": 82269,
+    "outerToolExitCode": 143,
+    "benchmarkWrapperExits": {
+      "devstral": 0,
+      "coder": 0
+    },
+    "childExitEvidence": "code-benchmarks-queue.log",
+    "childExitEvidenceSha256": "177799b2f2a4f7ad580b1fb2e159c207a405839f0b271d5bcd9ea503de2d6a5c",
+    "completeReports": {
+      "code-benchmark-devstral": 21,
+      "code-benchmark-coder": 21
+    },
+    "otherToolExits": {
+      "allRoleResume": 2,
+      "codeWorkflow": 0,
+      "finalizeEvidence": 0,
+      "shortCodeReplay": 0,
+      "paintedExportChecks": 0
+    },
+    "assessment": "Both child wrappers recorded normal exit and all attempts are complete. The outer tool session returned 143. Exit code is observed; actual signal sender, time and cause are not established. No claim of clean overall orchestration.",
+    "userJournalSearch": "No matching termination cause in user journal for 18:24–18:29 UTC; does not prove no external signal."
+  },
+  "finalCampaignCounters": {
+    "benchmarkAttempts": 318,
+    "workflowAttempts": 16,
+    "workflowResponseReceipts": 29,
+    "stressResponseReceipts": 2,
+    "allRoleResponseReceipts": 2258,
+    "additionalBenchmarkResponseReceipts": 42,
+    "newModelDownloads": 0,
+    "distinctMeasuredArtifacts": 3,
+    "scope": "Final source 89531748 campaign only; historical probes and aborted older-source runs remain separate in measurement-run-ledger.json.",
+    "totalResponseReceipts": 2331
+  },
+  "finalizedAt": "2026-09-19T18:39:14.999074+00:00"
+}

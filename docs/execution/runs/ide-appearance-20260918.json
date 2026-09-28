@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 1,
+  "kind": "IDE_APPEARANCE_EVIDENCE",
+  "authority": "operator 2026-09-18: all text, not secondary text",
+  "baseRevision": "585e9ece7e37974432ef8347732be37558fef703",
+  "integratedInstalledRevision": "230778adfe8b64c27c8d84e157bffa42d43fdd62",
+  "mergeRevision": "cc8f4ace042912b223f67e3568d7384160e8ff79",
+  "sourceRevision": "9ab808f197ffaf1032989743253153c745d48a3d",
+  "runtimeStatus": "INSTALLED_RUNTIME_VERIFIED",
+  "reviewStatus": "REVIEW_PENDING",
+  "scope": [
+    "graphical workspace layout selection",
+    "12 settings categories with 33 thematic tabs",
+    "global DOM text intensity including Monaco and per-session outputs",
+    "optional Studio color palette"
+  ],
+  "fullProfile": {
+    "counts": {
+      "PASS": 359,
+      "FAIL": 1,
+      "TIMEOUT": 0,
+      "BLOCKED": 0,
+      "SKIPPED": 0
+    },
+    "verdict": "FAIL",
+    "nonPass": [
+      {
+        "path": "tests/nightly-orchestrator-self-test.js",
+        "status": "FAIL"
+      }
+    ],
+    "reportSha256": "3283247aeccdcf23a2f4e72284697dd308f857c0a79c9ee38a96b7237d30835e"
+  },
+  "focused": {
+    "nodeTests": 101,
+    "m1Assertions": 133,
+    "artifactAssertions": 160
+  },
+  "literalInstalledGUI": {
+    "categoryAndThemeChecks": 36,
+    "workspaceChecks": 4,
+    "textIntensityMatrixChecks": 1,
+    "textSurfaces": 10,
+    "restartChecks": 1,
+    "widths": [
+      960,
+      1400
+    ],
+    "backendRestart": {
+      "previousBackendPid": 1896201,
+      "previousStudioPid": 1896230,
+      "backendPid": 1904419,
+      "studioPid": 1904450,
+      "backendCwd": "/home/belphareon/.local/share/intentsmith/releases/9ab808f197ffaf1032989743253153c745d48a3d",
+      "appearance": "studio",
+      "textIntensity": 0,
+      "fill": "color(srgb 0.929412 0.945098 0.980392 / 0.78)"
+    }
+  },
+  "preservedConfigurationCallbacks": 58,
+  "deployment": {
+    "status": "INSTALLED",
+    "previousRevision": "230778adfe8b64c27c8d84e157bffa42d43fdd62",
+    "revision": "9ab808f197ffaf1032989743253153c745d48a3d",
+    "sourceRoot": "/home/belphareon/.local/share/intentsmith/releases/9ab808f197ffaf1032989743253153c745d48a3d",
+    "backup": "/home/belphareon/.local/state/intentsmith/installation-backups/2026-09-18T19-38-28-836Z",
+    "backend": "active",
+    "backendPid": 1911076,
+    "timer": "active",
+    "authenticatedHTTP": 200,
+    "uncredentialedHTTP": 401,
+    "administratorCredentialPreserved": true,
+    "quickCheck": "ok",
+    "foreignKeyErrors": 0,
+    "migrations": 105,
+    "unchangedTables": {
+      "conversations": {
+        "rows": 35,
+        "sha256": "77671f3c3c2968b73cc1b9264020064177d7fa0373e1cb96dfc6c338e9e3b30a"
+      },
+      "messages": {
+        "rows": 9,
+        "sha256": "6e44a7fb70bfcf3f8e7418ba37ce0121d7321a05ee95347c0dab7b441f737224"
+      },
+      "model_evaluation_runs": {
+        "rows": 524,
+        "sha256": "70a45ac7abca76086e8df35500e941d0187d1087f29999614d641a96946def66"
+      },
+      "model_evaluation_decisions": {
+        "rows": 234,
+        "sha256": "f9ee42981a89c4dc64b7b0420c679c295908052574ece38a3c118f240f05ab80"
+      },
+      "model_desired_bindings": {
+        "rows": 7,
+        "sha256": "87b51bcb23e16ffc453a82035d837eeee255d19002a1a4d06d0284301e348831"
+      },
+      "project_memory": {
+        "rows": 11,
+        "sha256": "58dc9fcb07a7a48a0a8d080dff23db52c12f3217441c089f042f95eb9af0b870"
+      },
+      "user_memory": {
+        "rows": 1,
+        "sha256": "99494ee5579e379fff9e8361de130b31ee8ac4a3fc5b96456dba41ba04f229ad"
+      },
+      "memory": {
+        "rows": 28,
+        "sha256": "7b7aba15baf2e9719a8a18ec114c718f708a0cba96d74265779551cf2e3e2132"
+      },
+      "global_memory": {
+        "rows": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      }
+    },
+    "projects": {
+      "rows": 11,
+      "allFieldsExceptLastActiveUnchanged": true,
+      "operationalChanges": [
+        {
+          "projectId": 2,
+          "column": "last_active",
+          "before": "2026-09-18 18:58:15",
+          "after": "2026-09-18 19:38:30"
+        },
+        {
+          "projectId": 4,
+          "column": "last_active",
+          "before": "2026-09-18 18:58:15",
+          "after": "2026-09-18 19:38:30"
+        },
+        {
+          "projectId": 5,
+          "column": "last_active",
+          "before": "2026-09-18 18:58:15",
+          "after": "2026-09-18 19:38:30"
+        },
+        {
+          "projectId": 6,
+          "column": "last_active",
+          "before": "2026-09-18 18:58:15",
+          "after": "2026-09-18 19:38:30"
+        },
+        {
+          "projectId": 7,
+          "column": "last_active",
+          "before": "2026-09-18 18:58:15",
+          "after": "2026-09-18 19:38:30"
+        },
+        {
+          "projectId": 11,
+          "column": "last_active",
+          "before": "2026-09-18 18:58:15",
+          "after": "2026-09-18 19:38:30"
+        }
+      ],
+      "explanation": "Existing src/server.js project directory scan calls getOrCreate; it touches last_active when the stable default now resolves to the real projects directory. Only the existing startup scan may advance last_active for these six registered projects; all other project columns and nine protected tables must remain identical."
+    }
+  },
+  "archive": {
+    "path": ".intentsmith-artifacts/ide-appearance-20260918/ide-appearance-evidence.tar.gz",
+    "bytes": 2031079,
+    "sha256": "49299dd0e2f6652284ad0a3615e3390eff71364b14476fe4d061b0e323be7d07",
+    "manifestSha256": "85848c2fa29cb21954b10cf71a478fde062f3945620feaf86911909e6666901f",
+    "files": 423,
+    "testLogs": 360
+  },
+  "limitations": [
+    "Gate 0 remains FAIL; no operator reseal",
+    "Independent review pending",
+    "Literal Studio uses a private DB/profile and unavailable model provider; no GPU inference or model qualification",
+    "Text intensity controls rendered IDE glyphs, not native OS window chrome, images or embedded PDF contents"
+  ]
+}

@@ -1,0 +1,219 @@
+# Jak spustit M7 mobilního kandidáta
+
+Vývojový vstup je [README](README.md); merge a locale evidence jsou v
+[integračním ledgeru](../execution/runs/mobile/mobile-convergence-20260909.md).
+
+Tento runbook popisuje aktuální produkční cestu `remote-core-v1`: fyzický
+Android telefon se připojuje přímo k dedikovanému TLS 1.3 listeneru přes VPN.
+Nejde o release verdikt. Bez produkčních credentials, VPN bindu, candidate
+signeru a vyplněné fyzické matice zůstává stav `RUNTIME_EVIDENCE_BLOCKED`.
+
+Legacy `/m1` gateway přes `adb reverse` je nadále pouze vývojová cesta. Nesmí
+se použít jako důkaz M7 transportu.
+
+## 1. Bezpečný preflight
+
+Pracuj z čistého checkoutu připnutého na kandidáta:
+
+```bash
+git status --short
+git rev-parse HEAD
+npm ci --offline
+npm --prefix mobile-app ci --offline
+npm run mobile:android:doctor
+npm run test:mobile
+npm run test:registry
+```
+
+Produkční M7 klient vyžaduje Android API 29+, JDK 21, Android SDK 36, Gradle
+wrapper 8.14.3 a fyzický telefon se systémovým zámkem. Browser ani emulátor
+nejsou autoritou pro AndroidKeyStore, SPKI pin, Doze nebo fyzickou VPN.
+
+## 2. Připravit VPN listener bez jeho aktivace
+
+Decision 042 vyžaduje jednu konkrétní VPN adresu, port `7443` a systemd
+credentials. Server čte pouze tyto názvy:
+
+| Credential | Obsah |
+|---|---|
+| `intentsmith-m7-tls-certificate.pem` | platný X.509 certifikát pro zvolený VPN origin |
+| `intentsmith-m7-tls-private-key.pem` | odpovídající private key |
+| `intentsmith-m7-rate-limit-hmac.bin` | přesně 32 náhodných bajtů |
+
+Privátní key ani HMAC key nesmí být v repozitáři, SQLite, serverovém env,
+argumentech, logu nebo evidence artefaktu. Produkční materiál se nevyrábí
+buildem ani testem. Systemd unit musí materiál předat přes `LoadCredential=`
+nebo `LoadCredentialEncrypted=` tak, aby proces dostal přesný adresář
+`/run/credentials/intentsmith-m7.service` (system unit) nebo
+`/run/user/<uid>/credentials/intentsmith-m7.service` (user unit).
+
+Než unit spustíš, nezávisle si poznamenej:
+
+```bash
+ip -brief address show dev tailscale0
+ss -ltnp
+```
+
+`tailscale0` nahraď schváleným `wg*` nebo `tun*`, pokud používáš jinou VPN.
+Wi-Fi/LAN adresa, loopback, wildcard a veřejná adresa jsou zakázané.
+
+Konfigurační env neobsahuje secrets:
+
+```text
+INTENTSMITH_M7_REMOTE_ENABLED=true
+INTENTSMITH_M7_VPN_INTERFACE=tailscale0
+INTENTSMITH_M7_BIND_ADDRESS=<exact-vpn-ip>
+INTENTSMITH_M7_SERVER_ORIGIN=https://<vpn-name-or-ip>:7443
+INTENTSMITH_M7_SERVER_SPKI_SHA256=sha256:<64-lowercase-hex>
+```
+
+Reviewovatelnou user unit lze vyrenderovat bez čtení credential bytes. Všechny
+tři vstupy jsou cesty k výstupům `systemd-creds encrypt`, nikoli plaintext:
+
+```bash
+node scripts/render-m7-systemd-service.mjs \
+  --project-root="$PWD" \
+  --node-bin="$(readlink -f "$(command -v node)")" \
+  --vpn-interface=tailscale0 \
+  --bind-address=<exact-vpn-ip> \
+  --server-origin=https://<vpn-name-or-ip>:7443 \
+  --server-spki-sha256=sha256:<64-lowercase-hex> \
+  --tls-certificate-credential=/absolute/encrypted/certificate.cred \
+  --tls-private-key-credential=/absolute/encrypted/private-key.cred \
+  --rate-limit-hmac-credential=/absolute/encrypted/rate-limit-hmac.cred \
+  > /tmp/intentsmith-m7.service
+systemd-analyze --user verify /tmp/intentsmith-m7.service
+```
+
+Generátor zapisuje unit pouze na stdout, nečte credential soubory, nevolá
+`systemctl` a nic neinstaluje. Vygenerovaná unit používá výhradně
+`LoadCredentialEncrypted=`. Její instalace a aktivace zůstává samostatným
+operátorským krokem.
+
+Aktivace musí selhat, pokud interface/adresa zmizí, credential directory nebo
+mode nesedí, certifikát neodpovídá key, SPKI digest nesedí nebo HMAC nemá 32
+bajtů. Tento runbook sám systemd ani firewall nemění.
+
+Selhání M7 aktivace je záměrně terminální pro celý server, takže dočasně shodí
+i lokální Studio. Bezpečný recovery postup je odstranit proměnnou
+`INTENTSMITH_M7_REMOTE_ENABLED` z konfigurace unity (nenechávat ji prázdnou ani
+ji nenahrazovat hodnotou `1`), provést `systemctl --user daemon-reload` a
+restartovat příslušnou user unit. U system unity proveď stejné kroky bez
+`--user`. Nejdřív ověř lokální loopback health; teprve potom oprav VPN interface,
+adresu a credentials a M7 znovu explicitně zapni. Recovery neotevírá LAN ani
+public listener a nesmí obcházet validační preflight.
+
+## 3. Postavit přesně připnutý Android kandidát
+
+Server používá proměnnou `INTENTSMITH_M7_SERVER_SPKI_SHA256`, Android build
+záměrně používá `INTENTSMITH_M7_SERVER_SPKI_PIN`. Hodnoty musí být bajtově stejné.
+
+```bash
+INTENTSMITH_MOBILE_TRANSPORT_MODE=remote-core-v1 \
+INTENTSMITH_MOBILE_APP_URL=https://<vpn-name-or-ip>:7443 \
+INTENTSMITH_M7_SERVER_SPKI_PIN=sha256:<64-lowercase-hex> \
+npm run mobile:android:build
+```
+
+Release build bez externího `mobile-app/android/keystore.properties` a
+candidate signing key selže. `npm run mobile:android:keystore` vytváří pouze
+interní prototypový klíč a nesmí se použít pro release.
+
+Na testovaný telefon instaluj přesně vzniklý APK; `remote-core-v1` nikdy
+neotevírá `adb reverse`:
+
+```bash
+INTENTSMITH_MOBILE_TRANSPORT_MODE=remote-core-v1 npm run mobile:android:run
+```
+
+## 4. Vydat jednorázové párování
+
+Listener musí být už úspěšně navázaný. Teprve potom se v lokálním Studiu stane
+dostupnou autentizovaná route:
+
+```text
+POST /api/m7/remote/pairing/claims
+{"scopes":[...seřazený explicitní seznam...]}
+```
+
+Route přijme výhradně skutečný `local-capability` user subject. Actor se
+nepřebírá z body. Odpověď obsahuje single-use `intentsmith://pair?code=...`
+claim s přesnou platností pět minut a `Cache-Control: no-store`. Kód nevydávej
+na vzdáleném listeneru a neukládej ho do evidence.
+
+## 5. Provést fyzickou matici
+
+Postup a přesné názvy třinácti release checků jsou v
+[DEVICE-MATRIX-RUN.md](DEVICE-MATRIX-RUN.md). Každý PASS/FAIL musí odkazovat na
+alespoň jeden privátní observation artifact. Zakázané jsou zejména secrets,
+pairing claim, private keys, HMAC key, auth headers a obsah uživatelského chatu.
+
+Evidence directory musí být kanonický nesymlinkovaný adresář s mode `0700`;
+index i artefakty musí mít mode `0600`. `MobileM7RuntimeEvidence@1` váže:
+
+- candidate SHA a tree;
+- přesný APK, AAB, oba signery a source manifest;
+- origin, SPKI, descriptor a adapter manifest;
+- fyzický device/API/build;
+- přesně seřazenou množinu checků a content-addressed artefakty.
+
+Červený, ale strukturálně validní záznam je pravdivá evidence a release dál
+blokuje. Pretty-printed, nekanonický, symlinkovaný, world-readable, příliš velký
+nebo změněný soubor fail-closed.
+
+## 6. Vytvořit release evidence
+
+Po fyzickém běhu musí být stejné APK/AAB stále v Gradle outputu. Evidence je
+odmítne, pokud jejich bytes, signer, source revision nebo runtime binding
+nesedí:
+
+```bash
+npm run mobile:android:evidence -- \
+  --expected-apk-signer-sha256 <64-hex> \
+  --expected-aab-signer-sha256 <64-hex> \
+  --runtime-evidence /absolute/private/path/runtime-evidence.json
+```
+
+Výstup je non-clobbering adresář
+`.intentsmith-artifacts/mobile-release/<sha12>-<run>/` s mode `0700`; kopie APK,
+AAB a evidence soubory mají mode `0600`. Manifest nese retained paths i jejich
+digesty. Samotná klasifikace `CANDIDATE_SIGNED_UNREVIEWED` není acceptance.
+
+`--allow-dirty` je povolen jen společně s `--allow-debug-signer`, bez signer
+pinů a bez runtime evidence. Takový výstup je throwaway důkaz sestavitelnosti,
+nikoli kandidát. Klasifikace je `THROWAWAY_DIRTY_SOURCE`, ověřený
+`sourceRevision` je `null` a `releaseTransportReady` musí zůstat `false`.
+Deklarovaný SHA uvnitř archivu se uchovává odděleně; není ověřenou proveniencí.
+
+## 7. Co zůstává externím gate
+
+- systemd credential ceremony a skutečná aktivace unity;
+- VPN/firewall pozorování bez public/LAN ingressu;
+- candidate signing custody a distribuční rozhodnutí;
+- fyzická matice včetně TalkBack/200 % fontu;
+- nezávislé review přesného product candidate a evidence;
+- M5/M6 operátorské receipts a release promotion.
+
+Dokud tyto kroky neproběhnou, správný stav je
+`IMPLEMENTATION_GREEN / REAL_VPN_DEVICE_EVIDENCE_BLOCKED / NOT_ACCEPTED`.
+
+## 8. Kontroly před handoffem
+
+```bash
+LC_ALL=C npm run test:mobile
+npm run test:registry
+npm run test:deterministic
+git diff --check
+(cd mobile-app/android && ./gradlew --offline --no-daemon :app:testDebugUnitTest :app:lintRelease)
+```
+
+Pojmenované lokální toolchains se pro úplný deterministic běh povolují explicitně
+podle kandidátního plánu; chybějící autorita zůstává BLOCKED, ne skip. Přesný
+příkaz a výsledek drží integrační ledger. Subshell zachovává kořen pro následné
+npm příkazy. Debug signer je jen důkaz sestavitelnosti, nikoli device evidence.
+
+Donorové obrazovky se převádějí na B DTO jednotlivě. Workers, specialisté a
+správa zařízení stále vyžadují BE-owned capabilities; samotný scope je nenahrazuje.
+`/m1` gateway ani její migrace se při konvergenci neobnovují. Locale inventory
+odděluje desktop HTTP routy, M7 transportní routy a M7 operace; není autoritou
+pro aktivaci ani dostupnost capability v konkrétní session.

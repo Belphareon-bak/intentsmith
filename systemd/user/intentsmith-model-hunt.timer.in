@@ -1,0 +1,12 @@
+[Unit]
+Description=Score up to two unseen IntentSmith model candidates nightly
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+RandomizedDelaySec=15m
+AccuracySec=5m
+Persistent=false
+Unit=intentsmith-model-hunt.service
+
+[Install]
+WantedBy=timers.target

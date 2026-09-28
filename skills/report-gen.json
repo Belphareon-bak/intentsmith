@@ -1,0 +1,50 @@
+{
+  "id": "report-gen",
+  "version": 1,
+  "description": "Generování strukturovaných reportů s executive summary, zjištěními, doporučeními a závěrem",
+  "parameters": {
+    "topic": {
+      "type": "string",
+      "required": true,
+      "description": "Téma nebo oblast reportu (např. analýza trhu, technický audit, výroční zpráva)"
+    }
+  },
+  "steps": [
+    {
+      "id": "clarify",
+      "type": "ask",
+      "prompt": "Chystám se vytvořit report na téma **{{topic}}**.\n\nPůvodní zadání: {{input}}\n\nPotřebuji upřesnit několik věcí:\n- Pro koho je report určen? (vedení, klient, tým, veřejnost)\n- Jaký je rozsah a hloubka? (stručný přehled / detailní analýza)\n- Máš konkrétní data nebo zdroje, které mám zahrnout?\n- Jaký formát preferuješ? (formální / méně formální)\n- Jsou specifické oblasti, na které se mám zaměřit?"
+    },
+    {
+      "id": "draft",
+      "type": "llm",
+      "prompt": "Vytvoř strukturovaný report na téma: {{topic}}\n\nPůvodní zadání: {{input}}\nUpřesnění: {{steps.clarify.output}}\n\nStruktura reportu:\n1. **Executive Summary** — shrnutí klíčových zjištění a doporučení (max 200 slov)\n2. **Úvod** — kontext, cíl reportu, metodika\n3. **Zjištění** — hlavní body analýzy s podpůrnými argumenty, čísly a příklady\n4. **Doporučení** — konkrétní akční kroky seřazené podle priority\n5. **Závěr** — shrnutí a další kroky\n6. **Přílohy** (volitelné) — tabulky, grafy, reference\n\nPokyny:\n- Piš jasně, stručně a profesionálně\n- Používej odrážky a číslované seznamy pro přehlednost\n- U každého zjištění uveď dopad a relevanci\n- Doporučení musí být konkrétní a akční (kdo, co, kdy)\n- Používej nadpisy a podnadpisy pro snadnou navigaci",
+      "systemPrompt": "Jsi expert na tvorbu profesionálních reportů a analýz. Píšeš strukturovaně, jasně a s důrazem na akční doporučení. Piš česky.",
+      "format": "plain",
+      "temperature": 0.5,
+      "maxTokens": 4096
+    },
+    {
+      "id": "review",
+      "type": "review",
+      "content": "{{steps.draft.output}}",
+      "prompt": "Zkontroluj návrh reportu. Pokud je v pořádku, napiš **ano**. Pokud chceš úpravy, popiš co změnit (např. přidat sekci, změnit tón, rozšířit doporučení):"
+    },
+    {
+      "id": "refine",
+      "type": "llm",
+      "prompt": "Uprav report na téma {{topic}} podle zpětné vazby.\n\nZpětná vazba: {{steps.review.output}}\n\nPůvodní report:\n{{steps.draft.output}}\n\nPokud uživatel schválil beze změn, vrať původní text.\nPokud jsou požadované změny, zapracuj je a zachovej strukturu reportu.\n\nVýstup musí být kompletní finální verze reportu.",
+      "systemPrompt": "Jsi editor profesionálních reportů. Zapracuj zpětnou vazbu a zachovej konzistentní strukturu a tón. Piš česky.",
+      "format": "plain",
+      "temperature": 0.3,
+      "maxTokens": 4096
+    },
+    {
+      "id": "validate",
+      "type": "validate",
+      "content": "{{steps.refine.output}}",
+      "criteria": "Report obsahuje: Executive Summary, Zjištění (min 3 body), Doporučení (min 2 konkrétní akční kroky) a Závěr. Celkový rozsah min 500 znaků.",
+      "failMessage": "Report nesplňuje požadovanou strukturu. Chybí některá povinná sekce (Executive Summary, Zjištění, Doporučení nebo Závěr). Zkus skill spustit znovu."
+    }
+  ]
+}
