@@ -207,7 +207,8 @@ if (process.argv.includes('--offline')) {
   console.log(JSON.stringify({ status: 'OFFLINE_CORPUS_VALIDATED', cases: corpus.length, modelCalls: 0 }));
   return;
 }
-const manifest = { revision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+const dirtyStatus = execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim();
+const manifest = { revision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), sourceClean: dirtyStatus.length === 0, dirtyStatus,
   corpusSha256: createHash('sha256').update(fs.readFileSync(corpusFile)).digest('hex'),
   runnerSha256: createHash('sha256').update(fs.readFileSync(self)).digest('hex'), model,
   providerUrl: 'http://127.0.0.1:11434', node: process.version, inferenceSerial: true, networkIsolation: 'kernel namespace plus explicit Unix provider relay' };
@@ -287,7 +288,7 @@ if(process.argv.includes('--inside')) {
  if(!process.argv.includes('--live'))throw new Error('explicit --live required');
  fs.mkdirSync(out,{recursive:true,mode:0o700});
  const {acquireGpuEvaluationLock}=await import(path.join(root,'src/upgrade/gpu-evaluation-lock.js'));
- const lease=acquireGpuEvaluationLock({command:'CHAT resilience initial A/B pilot'});
+ let lease;
  const wire=[];let child,proxy;
  const socketDir=fs.mkdtempSync('/tmp/is-chat-live-'); const socket=path.join(socketDir,'provider.sock');
  try{
