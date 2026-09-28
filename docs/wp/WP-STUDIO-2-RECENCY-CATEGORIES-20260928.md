@@ -22,7 +22,8 @@ backend `c84b88cd`. Tento WP popisuje implementaci zadání.
 ## Vlastněné cesty
 
 `docs/studio2/prototype/{src,test}/**`, `docs/studio2/VIEW-LAYER.md`,
-`docs/studio2/UI-SPEC.md`, `docs/studio2/design/**` dle potřeby,
+`docs/studio2/UI-SPEC.md`, `docs/studio2/PRODUCTION.md`,
+`docs/studio2/design/**` dle potřeby,
 `intentsmith-ide/extensions/intentsmith-studio2/**`, odpovídající
 `tests/studio2-*.test.js`, tento WP, report, změřený stav v `SYSTEM-MAP.md`
 a `ROADMAP.md`. Generovaná vrstva pouze přes `scripts/build-view.js`.
@@ -46,3 +47,12 @@ frontend v existující instalaci a ponechat Legacy.
 
 Stop podmínka: rozšíření oprávnění, změna vazeb M1/M2, ztráta neuložené práce
 nebo regresní start. Nezávislé review je oddělené od implementačního ověření.
+
+## Ověřený stav
+
+Místně nasazený frontend `79c19096`, backend `c84b88cd` zachován.
+**LOCAL_PRODUCTION_DEPLOYED / IMPLEMENTATION_VERIFIED / REVIEW_PENDING.**
+Finální celý profil 385 PASS / 1 zděděný FAIL Gate 0; finální tři Electron
+scénáře, AppImage nad původními daty, obnova, běžné spuštění a 11 kombinací
+motivů PASS. Náhledy, SHA a limity jsou v
+[reportu](../review/2026-09-28-STUDIO2-RECENCY-CATEGORIES.md).

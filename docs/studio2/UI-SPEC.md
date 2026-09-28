@@ -69,8 +69,9 @@ seznam a přepínání přes ni působilo nepředvídatelně.
   o **konverzace** — projektovou (ikona složky), se specialistou (ikona lidí)
   a volnou (bublina).
 - Položka: **číslo**, krátký název, tečka stavu (pracuje / čeká na schválení /
-  hotovo / nečinná). Číslo je pořadí v seznamu otevřených relací (1–5) a platí
-  pro Alt+1…5. Plné číslo = sloupec s fokusem, obrysové = relace viditelná
+  hotovo / nečinná). Číslo je pořadí podle posledního použití (1–5),
+  nejnovější nahoře. Otevření a přijaté odeslání posune relaci na 1; ID zůstává.
+  Stejné pořadí platí pro Alt+1…5. Plné číslo = sloupec s fokusem, obrysové = relace viditelná
   v jiném sloupci.
 - **Nejvýš 5 otevřených relací.** Při otevření další se sama zavře relace,
   se kterou se nejdéle nepracovalo, pokud je skrytá už před otevřením, nepracuje,

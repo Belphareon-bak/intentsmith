@@ -1,6 +1,6 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**IDE 2.0 — místně nasazené, 2026-09-28:** frontend `16318bf8`, backend `c84b88cd`;
+**IDE 2.0 — místně nasazené, 2026-09-28:** frontend `79c19096`, backend `c84b88cd`;
 IntentSmith Legacy zůstává samostatně nad stejnou původní DB. Finální profil
 385 PASS / 1 zděděný FAIL Gate 0; skutečné Electron/model/M2/SCM, instalovaný
 chat, Legacy a restart PASS. Nezávislé přijetí delta změn je REVIEW_PENDING,
@@ -9,6 +9,12 @@ veřejné M5/M6 gate se nemění.
 [Oprava restartového dialogu a pádu na původních přílohách](docs/review/2026-09-28-STUDIO2-STARTUP-FIX.md):
 skutečný profil se čtyřmi relacemi, další start, Legacy a tři Electron scénáře
 PASS; finální profil 385 PASS / 1 zděděný FAIL Gate 0. Backend se nerestartoval.
+
+**Poslední relace a kategorie, 2026-09-28:** MRU 1–5, štítky a časy
+napojené na původní data, výrazné kategorie a samostatné tlumené nastavení.
+Finální AppImage, tři Electron scénáře a 11 kombinací motivů PASS; celý profil
+385 PASS / 1 zděděný FAIL Gate 0. Místně nasazeno, REVIEW_PENDING.
+[Report a náhledy](docs/review/2026-09-28-STUDIO2-RECENCY-CATEGORIES.md).
 
 **Studio 2, dokončení parity 2026-09-28:** nový frontend a backendové konektory
 jsou v oddělené větvi; klasický frontend je odstraněný. Přesný module graph má 1 433 hran,

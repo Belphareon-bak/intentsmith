@@ -394,6 +394,7 @@ Katalog spojuje existující globální, projektové a specialistické GET konek
 (`CatalogStore.conversationIndex`, nejvýš čtyři souběžné požadavky).
 Projektové konverzace se neztrácejí zavřením relace; identita se deduplikuje.
 Neúplné načtení má viditelné upozornění. Specialistická vazba je popis historie;
+samotné otevření obecné historie specialistu neaktivuje. Explicitní
 obnovení specialisty zůstává na existujícím řízeném konektoru.
 
 `LiveModel.conversationMeta` spojuje skutečné vazby a data; sdílené prototypové
