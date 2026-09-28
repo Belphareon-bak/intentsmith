@@ -606,6 +606,7 @@ export class ToolExecutor {
     const descriptor = getCurrentM2ToolDescriptor(toolId);
     const mismatch = verifyToolIntent(context.intentEvidence, toolId, input, {
       effectful: ['write', 'exec', 'destructive'].includes(descriptor?.riskClass),
+      deriveSearchQuery: source => canonicalizeQuery(sanitizeSearchQuery(source)).query,
     });
     if (mismatch) throw Object.assign(new Error(mismatch.message), {
       code: 'M2_TOOL_INTENT_MISMATCH', intentClarityReason: mismatch.reason,
@@ -675,11 +676,17 @@ export class ToolExecutor {
       });
     }
 
-    // Validate the entire proposed batch before the first tool can run.
+    // Snapshot the entire typed batch before the first tool can run.
+    const batchTools = [...decision.tools];
+    const batch = batchTools.map(toolId => {
+      const rawQuery = context.input || context.query;
+      const query = ['search', 'web.search'].includes(toolId)
+        ? canonicalizeQuery(sanitizeSearchQuery(rawQuery)).query : rawQuery;
+      const params = { ...context, query, intent: decision.intent, metadata: decision.metadata };
+      return { params, input: structuredClone(projectLegacyToolInput(toolId, params)) };
+    });
     try {
-      for (const toolId of decision.tools) this.assertIntentInput(toolId, projectLegacyToolInput(toolId, {
-        ...context, metadata: decision.metadata,
-      }), context);
+      for (const [index, toolId] of batchTools.entries()) this.assertIntentInput(toolId, batch[index].input, context);
     } catch (error) {
       return new ExecutionResult({
         status: ExecutionStatus.FAILED,
@@ -712,7 +719,7 @@ export class ToolExecutor {
     let hasSuccess = false;
     let retryableFailures = [];
 
-    for (const toolType of decision.tools) {
+    for (const [toolIndex, toolType] of batchTools.entries()) {
       const handler = this.toolHandlers.get(toolType);
 
       if (!handler) {
@@ -769,47 +776,14 @@ export class ToolExecutor {
         // Raw user input → cleaned search query (strips instructions, dedupes)
         // Only for search-type tools; scrape/file tools use original input.
         // ════════════════════════════════════════════════════════════════════
-        const rawQuery = context.input || context.query;
-        const isSearchTool = toolType === 'search' || toolType === 'web.search';
-
-        let effectiveQuery = rawQuery;
-        if (isSearchTool) {
-          // Phase 1: Sanitize (strip instructions, dedupe, truncate)
-          const sanitized = sanitizeSearchQuery(rawQuery);
-
-          if (sanitized !== rawQuery) {
-            logger.info('ToolExecutor', 'Search query sanitized', {
-              original: rawQuery.substring(0, 80),
-              sanitized: sanitized.substring(0, 80),
-              trimmed: rawQuery.length - sanitized.length,
-            });
-          }
-
-          // Phase 2: Canonicalize (strip connective noise left by sanitizer)
-          const canonical = canonicalizeQuery(sanitized);
-          effectiveQuery = canonical.query;
-
-          if (canonical.changed) {
-            logger.info('ToolExecutor', 'Search query canonicalized', {
-              sanitized: sanitized.substring(0, 80),
-              canonical: canonical.query.substring(0, 80),
-              stripped: canonical.stripped.join(', '),
-            });
-          }
-        }
-
-        const handlerParams = {
-          ...context,
-          query: effectiveQuery,  // v56.2: MUST be AFTER ...context to override context.query
-          intent: decision.intent,
-          metadata: decision.metadata,
-        };
+        const handlerParams = batch[toolIndex].params;
+        const toolInput = batch[toolIndex].input;
         let result;
         if (this.m2ToolBroker) {
-          this.assertIntentInput(toolType, projectLegacyToolInput(toolType, handlerParams), context);
+          this.assertIntentInput(toolType, toolInput, context);
           const m2Execution = await this.m2ToolBroker.execute({
             toolId: toolType,
-            input: projectLegacyToolInput(toolType, handlerParams),
+            input: toolInput,
             context,
             timeoutMs: this.timeout,
             invoke: (authoritySignal, authorityInput) => circuitOpen

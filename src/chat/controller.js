@@ -501,7 +501,7 @@ export class ChatController {
       ? { clarity: { kind: 'no_effect', reason: 'user_cancelled', answer: 'Rozumím. Pozastavený požadavek ruším a nic nespouštím.' } }
       : request.unresolved
         ? { clarity: { kind: 'clarify', slot: 'intent_meaning', reason: 'acknowledgement_does_not_resolve_choice', question: request.question, options: request.options }, understanding: pending.metadata.intentUnderstanding }
-        : await creDecisionEngine.inspectRequest(request.source, context, { supersededSources: request.supersededSources });
+        : await creDecisionEngine.inspectRequest(request.source, context, { supersededSpans: request.supersededSpans, resolvedGpuQuantity: request.resolvedGpuQuantity });
     throwIfAborted(context.signal);
     const clarity = inspected.clarity;
     if (pending && clarity?.kind !== 'clarify') state.clearPendingDecision();
@@ -517,9 +517,10 @@ export class ChatController {
           confidence: 1,
           metadata: {
             clarificationText: clarity.question, clarificationOptions: clarity.options || [],
+            gpuQuantityPending: clarity.reason === 'gpu_quantity_ambiguous' || (request.unresolved === true && pending?.metadata?.gpuQuantityPending === true),
             intentClarityReason: clarity.reason, intentSource: request.source || pending.metadata.intentSource,
             intentUnderstanding: inspected.understanding || null,
-            unresolvedName: clarity.unresolvedName || pending?.metadata?.unresolvedName || null,
+            unresolvedSpan: clarity.unresolvedSpan || pending?.metadata?.unresolvedSpan || null,
           },
         });
         return handleAskUserDecision(input, decision, context);

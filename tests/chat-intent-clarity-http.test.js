@@ -10,6 +10,9 @@ import { creDecisionEngine } from '../src/chat/cre-decision.js';
 import { validateConversationResult } from '../contracts/m1/index.js';
 import { llmGateway } from '../src/llm/gateway.js';
 
+import { config } from '../src/config.js';
+config.ollama.baseUrl = 'invalid://intent-http-no-provider';
+
 const slot = (role, source, value = source) => ({ role, source, value, name: role });
 let handlerCalls = 0;
 let modelCalls = 0;
@@ -73,7 +76,15 @@ try {
   assert.equal(lastProof.classification.fileTarget, 'notes.md');
   const hardware = await send('Sniž GPU napětí na polovinu', 4, 'general-intent-hardware');
   assert.equal(hardware.response.metadata.decision.type, 'ASK_USER');
-  assert.match(hardware.response.content, /napětí, nebo příkon/);
+  assert.match(hardware.response.content, /napětí, nebo limit příkonu/);
+  const prefixed = await send('Díky moc, a teď sniž napětí GPU na polovinu', 5, 'prefixed-hardware');
+  assert.equal(prefixed.response.metadata.decision.type, 'ASK_USER');
+  assert.equal(prefixed.response.metadata.decision.reason, 'gpu_quantity_ambiguous');
+  const acknowledged = await send('ano', 6, 'prefixed-hardware');
+  assert.equal(acknowledged.response.metadata.decision.type, 'ASK_USER');
+  const quantity = await send('příkon', 7, 'prefixed-hardware');
+  assert.equal(quantity.response.metadata.decision.reason, 'gpu_control_unavailable');
+  assert.equal(classificationCalls, 2, 'hardware never reaches classifier');
   assert.equal(handlerCalls, 1);
   assert.equal(modelCalls, 0);
   assert.deepEqual(getConversationStore().getAllTurns(conversationId).filter(turn => turn.role === 'user').map(turn => turn.content), ['Ulož odpověď do notes.md', 'ano', 'notes.md']);

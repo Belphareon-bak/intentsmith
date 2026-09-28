@@ -484,7 +484,10 @@ export async function conversationHandler(input, context) {
 
   // v65.4: Enrich CRE input with project hint for better intent classification
   const projectHint = buildProjectHint(context);
-  const creInput = projectHint ? input + projectHint : input;
+  // A core-inspected turn already carries project context separately. Keep
+  // the actual classified source unchanged so CRE can verify exact equality.
+  const hasInspectedInput = context.intentEvidence && input === context.intentSourceText;
+  const creInput = projectHint && !hasInspectedInput ? input + projectHint : input;
   // v71: decide() is now async (LLM-first classification)
   let decision = await creDecisionEngine.decide(creInput, decisionContext);
 

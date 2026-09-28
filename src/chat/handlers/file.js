@@ -12,6 +12,7 @@
 //   - Max file size: 512KB (prevent memory issues)
 // ══════════════════════════════════════════════════════════════════════════════
 
+import { latestAssistantContent } from '../intent-clarity.js';
 import { ResponseTag, TaggedResponse, ResponseSpeaker, ChatMode } from '../controller.js';
 import { IntentType } from '../cre-decision.js';
 import { logger } from '../../core/logger.js';
@@ -913,19 +914,7 @@ export async function handleFileWriteDecision(input, decision, context, dependen
   //    User turns have speaker='user', assistant turns have speaker='system'.
   //    The current user message is ALREADY in history (appended before handler),
   //    so we MUST filter by speaker to avoid writing the user's own request.
-  let content = '';
-  if (context.history?.length > 0) {
-    for (let i = context.history.length - 1; i >= 0; i--) {
-      const entry = context.history[i];
-      // Skip user turns — only pick assistant (speaker='system') responses
-      if (entry.response?.tag?.speaker === 'user') continue;
-      const resp = entry.response?.content || entry.content;
-      if (resp) {
-        content = resp;
-        break;
-      }
-    }
-  }
+  let content = latestAssistantContent(context.history) || '';
 
   // v131: Fallback — extract content from user's own message when no assistant
   // response exists. Handles compound intent: content + save command in one message.

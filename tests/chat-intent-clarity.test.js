@@ -4,11 +4,19 @@ import assert from 'node:assert/strict';
 import { ChatController, ChatMode, ResponseSpeaker, ResponseTag, SessionState, TaggedResponse } from '../src/chat/controller.js';
 import { conversationHandler } from '../src/chat/handlers/conversation.js';
 import { creDecisionEngine, CREDecisionEngine, DecisionType, IntentType } from '../src/chat/cre-decision.js';
-import { assessIntentClarity, getIntentEvidence } from '../src/chat/intent-clarity.js';
+import { assessIntentClarity, getIntentEvidence, prepareClarificationInput, issueIntentEvidence, literalFileTargets } from '../src/chat/intent-clarity.js';
 import { ToolExecutor } from '../src/executor/tool-executor.js';
 import { llmGateway } from '../src/llm/gateway.js';
 import { getConversationStore } from '../src/chat/conversation-store.js';
+import { config } from '../src/config.js';
+import { projectHandler } from '../src/chat/handlers/project.js';
+import { handleFileDecision } from '../src/chat/handlers/file.js';
+import { toolExecutor } from '../src/executor/tool-executor.js';
 import { handleAnswerDecision } from '../src/chat/handlers/decisions.js';
+
+config.ollama.baseUrl = 'invalid://intent-grounding-no-provider';
+const originalFetch = globalThis.fetch;
+globalThis.fetch = async () => { throw new Error('Live network forbidden by intent test'); };
 
 const slot = (role, source, value = source, name = role) => ({ role, source, value, name });
 const action = (slots, ambiguities = []) => ({ version: 1, kind: 'action', slots, ambiguities });
@@ -79,10 +87,10 @@ try {
     assert.equal(state.awaitingClarification, true);
     proposal = classified(action([slot('action', 'Sniž'), slot('target', 'GPU'), slot('quantity', 'příkon'), slot('value', 'na polovinu')]));
     const resolved = await process('příkon');
-    assert.match(resolved.content, /nemám.*ověřenou spustitelnou cestu/);
+    assert.match(resolved.content, /nemám ověřený nástroj/);
     assert.deepEqual(reached, []);
     assert.equal(state.awaitingClarification, false);
-    assert.match(classificationInputs.at(-1), /Výslovné upřesnění uživatele: příkon/);
+    assert.equal(resolved.tag.metadata.intentClarityReason, 'gpu_control_unavailable');
   }
   {
     const id = 'grounding-durable-ingress';
@@ -152,7 +160,7 @@ try {
   }
   {
     proposal = { intent: IntentType.FILE_WRITE, confidence: 0.95, fileTarget: 'notes.md', understanding: action([slot('action', 'Ulož'), slot('target', 'notes.md')]) };
-    const inspected = await creDecisionEngine.inspectRequest('Ulož odpověď do notes.md');
+    const inspected = await creDecisionEngine.inspectRequest('Ulož odpověď do notes.md', { history: [{ role: 'assistant', content: 'report' }] });
     let brokerCalls = 0;
     const executor = new ToolExecutor({ m2ToolBroker: { execute: async () => { brokerCalls++; return { state: 'controlled' }; } } });
     const context = { intentEvidence: inspected.token, input: 'Ulož odpověď do notes.md' };
@@ -180,5 +188,157 @@ try {
       assert.equal(modelCalls, 0);
     } finally { creDecisionEngine.decide = oldDecide; llmGateway.call = oldCall; }
   }
+  // Reviewed failures: all negative citations and generated parameter changes.
+  for (const [input, verb, suffix] of [
+    ['Nezapisuj do notes.md', 'Nezapisuj', 'notes.md'],
+    ['Nevypínej server', 'Nevypínej', 'server'],
+    ['Nespouštěj build', 'Nespouštěj', 'build'],
+    ['Nerestartuj službu', 'Nerestartuj', 'službu'],
+    ["Don't delete notes.md", 'delete', 'notes.md'],
+    ['dont delete notes.md', 'delete', 'notes.md'],
+  ]) {
+    const omitted = action([slot('action', verb), slot('target', suffix)]);
+    assert.equal(assessIntentClarity(input, omitted).kind, 'clarify', input);
+    assert.equal(assessIntentClarity(input, information()).kind, 'clarify', `${input}: information cannot hide a prohibition`);
+    proposal = classified(information());
+    const controller = fixture();
+    const reply = await controller.process(input);
+    assert.equal(reply.tag.metadata.decision.type, DecisionType.ASK_USER);
+    assert.deepEqual(controller.reached, [], 'negative input never reaches synthesis');
+    const stripped = verb.startsWith('Ne') ? verb.slice(2) : verb;
+    if (stripped !== verb) assert.equal(assessIntentClarity(input, action([slot('action', stripped), slot('target', suffix)])).reason, 'source_not_grounded');
+    const unsafe = issueIntentEvidence(input, { intent: 'FILE_WRITE' }, omitted);
+    const executor = new ToolExecutor({ m2ToolBroker: { execute: async () => { throw new Error('prohibition reached broker'); } } });
+    await assert.rejects(executor.executeM2Tool({ toolId: 'file.write', input: { path: suffix, content: 'report' }, context: { intentEvidence: unsafe } }), { code: 'M2_TOOL_INTENT_MISMATCH' });
+  }
+  {
+    const input = 'Nemaž notes.md';
+    const understanding = action([slot('action', 'Nemaž', 'Nemaž', 'same'), slot('negation', 'Nemaž', 'Nemaž', 'same'), slot('target', 'notes.md', 'wrong.md', 'same')]);
+    const pending = { metadata: { intentSource: input, intentUnderstanding: understanding, clarificationText: 'Který soubor?', clarificationOptions: ['notes.md', 'wrong.md'], unresolvedSpan: { start: 0, end: 5, source: 'Nemaž', role: 'target', index: 0 } } };
+    const prepared = prepareClarificationInput('wrong.md', pending);
+    assert.deepEqual(prepared.supersededSpans, [], 'even an incorrectly labelled negative span cannot be exempted');
+    assert.equal(assessIntentClarity(prepared.source, action([slot('action', 'Nemaž'), slot('target', 'wrong.md')]), prepared).reason, 'negation_unverified');
+    assert.equal(assessIntentClarity(input, understanding).kind, 'no_effect', 'duplicate slot names cannot lift prohibition');
+    const dupe = action([slot('action', 'Ulož'), slot('target', 'notes.md', 'notes.md', 'same'), slot('value', 'report', 'report', 'same')], [{ slot: 'same', question: 'Co myslíš?', options: ['notes.md', 'wrong.md'] }]);
+    assert.equal(assessIntentClarity('Ulož report do notes.md', dupe).unresolvedSpan, null);
+    const changed = action([slot('action', 'Ulož'), slot('target', 'notes.md', 'wrong.md', 'same'), slot('value', 'report', 'report', 'same')]);
+    const check = assessIntentClarity('Ulož report do notes.md', changed);
+    assert.equal(check.unresolvedSpan.index, 1, 'a changed value identifies exactly one slot');
+  }
+  {
+    const engine = new CREDecisionEngine();
+    let calls = 0;
+    engine._llmClassifyIntent = async () => { calls++; return classified(information()); };
+    for (const input of ['Díky moc, a teď sniž napětí GPU na polovinu', 'Sniž GPU napětí na polovinu']) {
+      const check = await engine.inspectRequest(input);
+      assert.equal(check.clarity.reason, 'gpu_quantity_ambiguous');
+    }
+    assert.equal(calls, 0, 'GPU guard runs independently of the model');
+    await engine.inspectRequest('Díky moc, a teď vysvětli soubor');
+    assert.equal(calls, 1, 'gratitude prefix cannot bypass classification');
+    await engine.inspectRequest('Díky moc!');
+    assert.equal(calls, 1, 'whole gratitude remains deterministic');
+  }
+  {
+    const engine = new CREDecisionEngine();
+    engine._llmClassifyIntent = async () => ({ intent: 'FILE_EXPLAIN', confidence: 0.95, fileTarget: 'src/app.js', understanding: information() });
+    for (const input of ['Vysvětli mi src/app.js', 'Vysvětli mi src/app.js.', 'Vysvětli mi „src/app.js“.']) {
+      assert.equal(literalFileTargets(input)[0].source, 'src/app.js');
+      const inspected = await engine.inspectRequest(input);
+      assert.ok(inspected.token, input);
+      const decision = await engine.decide(input, { intentEvidence: inspected.token, hasActiveProject: true });
+      assert.equal(decision.metadata.filePath, 'src/app.js');
+      let calls = 0;
+      const executor = new ToolExecutor({ m2ToolBroker: { execute: async ({ input }) => { calls++; assert.equal(input.path, 'src/app.js'); return { state: 'approval_required' }; } } });
+      await executor.executeM2Tool({ toolId: 'file.read', input: { path: 'src/app.js' }, context: { intentEvidence: inspected.token } });
+      await assert.rejects(executor.executeM2Tool({ toolId: 'file.read', input: { path: 'wrong.js' }, context: { intentEvidence: inspected.token } }), { code: 'M2_TOOL_INTENT_MISMATCH' });
+      assert.equal(calls, 1);
+      // Real file handler reaches exact read approval without loading contents.
+      const response = await handleFileDecision(input, decision, { project: { id: 1, path: process.cwd() }, authenticatedSubject: { actorType: 'user', actorId: 'operator' }, intentEvidence: inspected.token }, { toolExecutor: executor });
+      assert.equal(calls, 2);
+      assert.equal(response.tag.metadata.error, 'TOOL_EFFECT_AUTHORITY_REQUIRED');
+    }
+    proposal = classified(information());
+    const input = 'Co za soubory je v tomto projektu?';
+    const inspected = await creDecisionEngine.inspectRequest(input, { project: { id: 7, path: process.cwd() } });
+    let calls = 0;
+    const oldBroker = toolExecutor.m2ToolBroker;
+    try {
+      toolExecutor.m2ToolBroker = { execute: async ({ toolId, input }) => { calls++; assert.equal(toolId, 'file.list'); assert.equal(input.path, '.'); return { state: 'approval_required' }; } };
+      const response = await projectHandler(input, { sessionId: 'real-listing', history: [], project: { id: 7, path: process.cwd() }, intentEvidence: inspected.token });
+      assert.equal(calls, 1, 'same core listing grammar reaches real project handler');
+      assert.equal(response.tag.metadata.error, 'TOOL_EFFECT_AUTHORITY_REQUIRED');
+    } finally { toolExecutor.m2ToolBroker = oldBroker; }
+  }
+  {
+    const engine = new CREDecisionEngine();
+    engine._llmClassifyIntent = async input => ({ intent: 'SHELL', confidence: 0.95, understanding: action([slot('action', 'Spusť'), slot('value', input.slice(6))]) });
+    const inspected = await engine.inspectRequest('Spusť ls');
+    let calls = 0;
+    const executor = new ToolExecutor({ m2ToolBroker: { execute: async () => { calls++; return { state: 'controlled' }; } } });
+    await assert.rejects(executor.executeM2Tool({ toolId: 'code.execute', input: { code: 'rm -rf ~', language: null }, context: { intentEvidence: inspected.token } }), { code: 'M2_TOOL_INTENT_MISMATCH' });
+    await assert.rejects(executor.executeM2Tool({ toolId: 'code.execute', input: { code: 'ls', language: 'python' }, context: { intentEvidence: inspected.token } }), { code: 'M2_TOOL_INTENT_MISMATCH' });
+    await executor.executeM2Tool({ toolId: 'code.execute', input: { code: 'ls', language: null }, context: { intentEvidence: inspected.token } });
+    assert.equal(calls, 1);
+    const cases = [
+      ['file.write', 'Ulož report do notes.md', { path: 'notes.md', content: 'report' }, { content: 'modified' }, 'FILE_WRITE', [slot('action', 'Ulož'), slot('target', 'notes.md'), slot('value', 'report')]],
+      ['web.search', 'Najdi port 8080', { query: 'Najdi port 8080' }, { query: 'Najdi port 80' }, 'SEARCH', [slot('action', 'Najdi'), slot('value', '8080')]],
+      ['web.search', 'Najdi 50 mW', { query: 'Najdi 50 mW' }, { query: 'Najdi 50 MW' }, 'SEARCH', [slot('action', 'Najdi'), slot('value', '50'), slot('unit', 'mW')]],
+      ['web.scrape', 'Čti https://example.test/a alice@example.test', { url: 'https://example.test/a', query: 'alice@example.test', maxLength: 10000 }, { url: 'https://example.test/b' }, 'SEARCH', [slot('action', 'Čti'), slot('target', 'https://example.test/a'), slot('value', 'alice@example.test')]],
+      ['web.scrape', 'Čti https://example.test/a alice@example.test', { url: 'https://example.test/a', query: 'alice@example.test', maxLength: 10000 }, { query: 'bob@example.test' }, 'SEARCH', [slot('action', 'Čti'), slot('target', 'https://example.test/a'), slot('value', 'alice@example.test')]],
+      ['database.query', 'Spusť SELECT 1 v main.db', { query: 'SELECT 1', database: 'main.db' }, { query: 'DROP TABLE users' }, 'REPORT', [slot('action', 'Spusť'), slot('value', 'SELECT 1'), slot('target', 'main.db')]],
+      ['database.query', 'Spusť SELECT 1 v main.db', { query: 'SELECT 1', database: 'main.db' }, { database: 'other.db' }, 'REPORT', [slot('action', 'Spusť'), slot('value', 'SELECT 1'), slot('target', 'main.db')]],
+    ];
+    for (const [toolId, source, good, delta, intent, slots] of cases) {
+      const token = issueIntentEvidence(source, { intent }, action(slots));
+      const before = calls;
+      await assert.rejects(executor.executeM2Tool({ toolId, input: { ...good, ...delta }, context: { intentEvidence: token } }), { code: 'M2_TOOL_INTENT_MISMATCH' });
+      assert.equal(calls, before);
+      await executor.executeM2Tool({ toolId, input: good, context: { intentEvidence: token } });
+      assert.equal(calls, before + 1, `${toolId}: literal parameters still reach authority`);
+    }
+    const batch = await executor.execute({ type: DecisionType.TOOL_CALL, intent: 'SHELL', tools: ['web.search', 'code.execute'] }, { input: 'Spusť ls', code: 'rm -rf ~', intentEvidence: inspected.token });
+    assert.equal(batch.status, 'FAILED');
+    const batchSource = 'Hledej info a spusť SELECT 1 v main.db';
+    const batchToken = issueIntentEvidence(batchSource, { intent: 'REPORT' }, action([slot('action', 'spusť'), slot('value', 'SELECT 1'), slot('target', 'main.db')]));
+    await executor.executeM2Tool({ toolId: 'web.search', input: { query: batchSource }, context: { intentEvidence: batchToken } });
+    const beforeBatch = calls;
+    const laterBad = await executor.execute({ type: DecisionType.TOOL_CALL, intent: 'REPORT', tools: ['web.search', 'database.query'] }, { input: batchSource, query: 'DROP TABLE users', database: 'main.db', intentEvidence: batchToken });
+    assert.equal(laterBad.status, 'FAILED');
+    assert.equal(calls, beforeBatch, 'valid first tool is held back when later SQL does not match');
+    // Stale context hint never permits reuse of another source's interpretation.
+    let classifyCalls = 0;
+    engine._llmClassifyIntent = async () => { classifyCalls++; return { intent: 'FILE_WRITE', confidence: 0.95, fileTarget: 'wrong.md', understanding: action([slot('action', 'Ulož'), slot('target', 'notes.md', 'wrong.md')]) }; };
+    const different = await engine.decide('Ulož odpověď do notes.md', { intentEvidence: inspected.token, intentSourceText: 'Spusť ls' });
+    assert.equal(classifyCalls, 1);
+    assert.equal(different.type, DecisionType.ASK_USER);
+  }
+  {
+    const engine = new CREDecisionEngine();
+    let body;
+    const oldCall = llmGateway.call;
+    try {
+      globalThis.fetch = async (_url, options) => { body = JSON.parse(options.body); return { ok: true, json: async () => ({ message: { content: JSON.stringify(classified(information())) }, done_reason: 'stop' }) }; };
+      await engine.inspectRequest('Vysvětli rozdíl mezi dvěma možnostmi');
+      assert.equal(body.think, false, 'actual classifier wire disables thinking');
+      assert.equal(body.options.num_predict, 500, 'effective classifier authority budget');
+    } finally { llmGateway.call = oldCall; globalThis.fetch = async () => { throw new Error('Live network forbidden by intent test'); }; }
+  }
+  {
+    const source = 'ulzo odpoved do notes.md';
+    proposal = { intent: 'FILE_WRITE', confidence: 0.95, fileTarget: 'notes.md', understanding: action([slot('action', 'ulzo'), slot('target', 'notes.md')]) };
+    const history = [{ role: 'assistant', content: 'report' }];
+    const inspected = await creDecisionEngine.inspectRequest(source, { history });
+    const before = classificationInputs.length;
+    const oldBroker = toolExecutor.m2ToolBroker;
+    let brokerCalls = 0;
+    try {
+      toolExecutor.m2ToolBroker = { execute: async ({ toolId, input }) => { brokerCalls++; assert.equal(toolId, 'file.write'); assert.deepEqual(input, { path: 'notes.md', content: 'report' }); return { state: 'approval_required', effectRequestId: 'controlled-effect-write', request: { requestId: 'controlled-tool-write' } }; } };
+      const reply = await conversationHandler(source, { intentEvidence: inspected.token, intentSourceText: source, sessionId: 'project-hint-cache', userMessageId: 101, sessionState: new SessionState('project-hint-cache'), history, project: { id: 7, name: 'Demo', path: process.cwd() }, hasActiveProject: true, authenticatedSubject: { actorType: 'user', actorId: 'operator' }, userPreferences: {} });
+      assert.equal(reply.tag.metadata.approvalRequired, true);
+      assert.equal(classificationInputs.length, before, 'core project hint cannot trigger a second ungrounded classification');
+      assert.equal(brokerCalls, 1, 'history-bound content reaches existing write approval');
+    } finally { toolExecutor.m2ToolBroker = oldBroker; }
+  }
   console.log('general chat intent grounding: PASS');
-} finally { creDecisionEngine._llmClassifyIntent = originalClassifier; }
+} finally { creDecisionEngine._llmClassifyIntent = originalClassifier; globalThis.fetch = originalFetch; }

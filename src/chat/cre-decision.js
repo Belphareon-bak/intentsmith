@@ -37,7 +37,7 @@ import { featureManager } from '../core/feature-manager.js';
 import { throwIfAborted } from '../core/abort-error.js';
 import { isChatTurnError, LLMProviderUnavailableError, ModelResponseTruncatedError } from '../core/chat-turn-error.js';
 import { buildProjectHint } from './handlers/utils/project-context-prompt.js';
-import { assessIntentClarity, issueIntentEvidence, getIntentEvidence } from './intent-clarity.js';
+import { assessIntentClarity, assessGpuIntent, literalFileTargets, latestAssistantContent, issueIntentEvidence, getIntentEvidence } from './intent-clarity.js';
 
 // v73: Lazy import to avoid circular dependency (followup.js → intent.js → cre-decision.js)
 let _detectFollowUpType = null;
@@ -808,6 +808,52 @@ const DETERMINISTIC_INLINE_CODE_PATTERNS = [
 
 // Explicit project listings select the existing file handler; they do not
 // grant filesystem authority. Bare topics and project summaries stay outside.
+export function detectProjectFileIntent(input) {
+  const stripped = input.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+  // A write request may contain both a concrete filename and generic words
+  // such as "soubor" and "projekt". It must reach CRE/FILE_WRITE instead of
+  // being captured by the directory-list heuristic below. A path is still
+  // only input; this guard does not grant write authority.
+  if (isExplicitFileWriteIntent(input)) {
+    return { detected: false, filePath: null, reason: 'explicit-file-write' };
+  }
+
+  // Exact lexical filenames outrank the directory-list heuristic. In
+  // particular, `PROJECT-NOTE.txt` must not make the `project` substring look
+  // like a request to enumerate the project root. A path alone does not grant
+  // this pre-CRE override: only the canonical READ/EXPLAIN grammar may bypass
+  // CRE, so writes, edits and code requests remain available to their routes.
+  const explicitFilePath = extractFilePath(input);
+  if (
+    explicitFilePath
+    && explicitFilePath !== '.'
+    && isExplicitFileReadIntent(input)
+  ) {
+    return { detected: true, filePath: explicitFilePath, reason: 'explicit-file-path' };
+  }
+
+  // NFD normalize + strip diacritics for token matching
+  const tokens = stripped.split(/[\s,;:!?.()[\]{}"']+/).filter(Boolean);
+
+  // "list files/contents" + project reference → a durable file.read request.
+  const hasFileSignal = /soubor|obsah|struktur|adres|slozk|files|directory|contents|folder|tree|listing/i.test(stripped);
+  const hasProjectRef = tokens.some(token => /^(?:projekt[a-z]*|project[a-z]*|tomto|tady|zde|here|this)$/.test(token));
+  const requestsListing = /^(?:(?:prosim|please)\s+)?(?:vypis|vyjmenuj|ukaz|zobraz|list|show|what|jake|ktere|co|najdi)(?:\s|$)/.test(stripped.trim()) && tokens.length <= 30;
+
+  if (hasFileSignal && hasProjectRef && requestsListing) {
+    return { detected: true, filePath: '.', reason: 'file-signal+project-ref' };
+  }
+
+  // "co je v" / "what's in" + project reference (no explicit file word)
+  if (/co\s+je|co\s+tam|what'?s?\s+in|ukaz|zobraz|show|list/i.test(stripped) &&
+      hasProjectRef && tokens.length <= 10) {
+    return { detected: true, filePath: '.', reason: 'content-query+project-ref' };
+  }
+
+  return { detected: false, filePath: null, reason: null };
+}
+
 const DETERMINISTIC_PROJECT_LISTING_PATTERNS = [
   /^(?:jak[eé]|kter[eé]|co\s+za)\s+soubory\s+(?:jsou\s+)?v\s+(?:(?:tomto|tom|aktivn[ií]m)\s+)?projektu\s*[?!.]?$/iu,
   /^(?:vypi[sš]|uka[zž]|zobraz)\s+(?:mi\s+)?(?:obsah|soubory|strukturu)\s+projektu\s*[?!.]?$/iu,
@@ -1511,6 +1557,9 @@ const KNOWN_EXTENSIONLESS_FILENAME_RE = /^(readme|makefile|dockerfile|vagrantfil
 // v63.0: Extract file path from user input
 // Looks for quoted paths, paths with extensions, or common filename patterns
 export function extractFilePath(input) {
+  // Exact filenames outrank directory heuristics; punctuation is outside the path.
+  const literalFiles = literalFileTargets(input);
+  if (literalFiles.length) return literalFiles.at(-1).source;
   // 0. Project-content queries → return "." for directory listing
   if (/(?:co|jak[ée])\s+(?:je\s+)?(?:sou[cč][áa]st[ií]|v)\s+(?:tohoto\s+|toho\s+)?projekt/i.test(input) ||
       /vypi[sš]\s+(?:mi\s+)?(?:obsah|soubory|adres[áa][rř]|slo[zž]ku)/i.test(input) ||
@@ -2211,6 +2260,8 @@ export class CREDecisionEngine {
 
   /** One semantic inspection for the whole chat turn, before any mode handler. */
   async inspectRequest(input, context = {}, options = {}) {
+    const gpu = assessGpuIntent(input, options);
+    if (gpu) return { clarity: gpu };
     const deterministicIntent = this.classifyIntent(input);
     // Local computations cannot produce an external/state-changing effect.
     // Explicit slash commands already have a literal parser and exact authority.
@@ -2220,10 +2271,19 @@ export class CREDecisionEngine {
         version: 1, kind: literalCommand ? 'action' : 'information',
         slots: literalCommand ? [{ role: 'action', name: 'příkaz', source: input, value: input }] : [], ambiguities: [],
       };
-      return { token: issueIntentEvidence(input, null, understanding), understanding, classification: null };
+      const fixed = deterministicIntent === IntentType.LOCAL
+        ? Object.fromEntries(['local.date', 'local.calendar', 'local.math'].map(tool => [tool, { query: input }])) : {};
+      return { token: issueIntentEvidence(input, null, understanding, fixed), understanding, classification: null };
     }
     const classification = await this._llmClassifyIntent(input, context, { strictFailure: true });
     const understanding = classification?.understanding;
+    // Reads are informational but still need literal targets. The core lexer
+    // binds exact file citations even when an informational proposal omits slots.
+    const files = literalFileTargets(input);
+    if (understanding?.kind === 'information' && Array.isArray(understanding.slots)) {
+      for (const file of files) if (!understanding.slots.some(slot => slot.role === 'target' && slot.source === file.source))
+        understanding.slots.push({ role: 'target', name: 'fileTarget', source: file.source, value: file.source });
+    }
     const clarity = assessIntentClarity(input, understanding, options);
     if (clarity) return { clarity, understanding, classification };
     if (!classification || !Object.values(IntentType).includes(classification.intent)
@@ -2232,15 +2292,18 @@ export class CREDecisionEngine {
     }
     // A material filename suggested by a model must be a cited target, never
     // an invented replacement that merely passes filesystem syntax checks.
-    const projectListing = Boolean(context.project?.id || context.hasActiveProject)
-      && classification.intent === IntentType.FILE_READ
-      && DETERMINISTIC_PROJECT_LISTING_PATTERNS.some(pattern => pattern.test(input))
-      && this.classifyIntent(input) === IntentType.FILE_READ && extractFilePath(input) === '.';
+    const lexical = detectProjectFileIntent(input);
+    const projectListing = Boolean(context.project?.id || context.hasActiveProject) && lexical.detected && lexical.filePath === '.';
     if (classification.fileTarget && !(projectListing && classification.fileTarget === '.')
         && !understanding.slots.some(slot => slot.role === 'target' && slot.value === classification.fileTarget)) {
       return { clarity: { kind: 'clarify', slot: 'intent_meaning', reason: 'target_not_grounded', question: `Jaký přesný soubor chceš použít? Navržený cíl „${classification.fileTarget}“ není doložen zadáním. Nic nespouštím.` }, understanding };
     }
-    return { token: issueIntentEvidence(input, classification, understanding, projectListing ? { 'file.list': { path: '.' } } : {}), understanding, classification };
+    const fixed = projectListing ? { 'file.list': { path: '.' } } : {};
+    if (lexical.detected && lexical.filePath !== '.') fixed['file.read'] = { path: lexical.filePath };
+    if (classification.intent === IntentType.SHELL) fixed['code.execute'] = { code: extractShellCommand(input), language: null };
+    const content = latestAssistantContent(context.history);
+    if (classification.intent === IntentType.FILE_WRITE && content) fixed['file.write'] = { content };
+    return { token: issueIntentEvidence(input, classification, understanding, fixed), understanding, classification };
   }
 
   /**
@@ -2502,7 +2565,8 @@ export class CREDecisionEngine {
 
 POROZUMĚNÍ:
 - kind information = vysvětlení, návrh nebo obsah; kind action = skutečně provést operaci.
-- Každá požadovaná akce má slots: {"role":"action|target|quantity|value|unit|negation|scope|recipient","name":"název údaje","source":"přesný citát ze vstupu","value":"stejný původní údaj"}.
+- Každý záměr, i information, má slots pro konkrétní soubory, URL a další materiální údaje. Akce navíc cituje sloveso. Tvar slotu: {"role":"action|target|quantity|value|unit|negation|scope|recipient","name":"název údaje","source":"přesný citát ze vstupu","value":"stejný původní údaj"}.
+- FILE_READ/FILE_EXPLAIN jsou information; jejich fileTarget musí mít target slot (např. Vysvětli mi src/app.js → target source=value src/app.js).
 - U akce cituj sloveso a všechny podstatné cíle, veličiny, čísla, jednotky, adresáty, rozsah a zákazy. source i value musí být shodná doslovná část vstupu, také u překlepů. Překlep zohledni při klasifikaci intent; žádný citovaný údaj nepřepisuj.
 - Pokud je požadavek nesmyslný, sporný nebo má více významů, přidej ambiguities: {"slot":"název údaje","question":"jedna konkrétní otázka","options":["první význam","druhý význam"]}. Nehádej motiv a nevybírej význam za uživatele.
 - Výslovné upřesnění uživatele má přednost jen pro upřesněný údaj. Ostatní údaje zachovej. Obecné ano neřeší volbu mezi významy.
@@ -2543,8 +2607,9 @@ PRAVIDLA:
         model: config.models?.FAST || config.models?.CHAT,
         format: 'json',
         temperature: 0.1,
-        // Budget includes source-cited slots and clarification alternatives.
-        maxTokens: 768,
+        // WORKFLOW_CLASSIFIER authority currently caps the wire output at 500.
+        // Larger semantic responses need a separate accepted budget change.
+        maxTokens: 500,
         // Keep the existing configured classification runner shape.
         ...(classificationNumCtx === null ? {} : { num_ctx: classificationNumCtx }),
         signal: context.signal,
@@ -3295,7 +3360,9 @@ PRAVIDLA:
           : stableConversationOverride
             ? IntentType.CONVERSATIONAL
             : deterministicIntent;
-    const isDeterministic =
+    const candidate = getIntentEvidence(context.intentEvidence);
+    const inspected = candidate?.source === input ? candidate : null;
+    const isDeterministic = !inspected?.classification && (
       (resolvedDeterministicIntent === IntentType.CONVERSATIONAL
         && !mayRequireLocalAuthority
         && !creativeKnowledgeNeedsArbitration
@@ -3312,7 +3379,7 @@ PRAVIDLA:
       isLowInformation ||
       isAmbiguousTechnologyTopic ||
       // v72: ITEM_LOOKUP is purely pattern-based (count + thing) — skip LLM
-      resolvedDeterministicIntent === IntentType.ITEM_LOOKUP;
+      resolvedDeterministicIntent === IntentType.ITEM_LOOKUP);
 
     if (isDeterministic) {
       const _classStart = performance.now();
@@ -3321,8 +3388,7 @@ PRAVIDLA:
     } else {
       // Phase 1: LLM structured classification (primary)
       const _classStart = performance.now();
-      const inspected = getIntentEvidence(context.intentEvidence);
-      const llmResult = inspected?.classification && (input === inspected.source || context.intentSourceText === inspected.source)
+      const llmResult = inspected?.classification
         ? inspected.classification
         : await this._llmClassifyIntent(input, context);
       _classificationTimeMs = Math.round(performance.now() - _classStart);
@@ -3340,7 +3406,7 @@ PRAVIDLA:
           metadata: {
             clarificationText: semanticIssue?.question || `Jaký přesný soubor chceš použít? Navržený cíl „${llmResult.fileTarget}“ mění původní zadání. Nic nespouštím.`,
             clarificationOptions: semanticIssue?.options || [], intentSource: input,
-            intentUnderstanding: llmResult?.understanding || null, unresolvedName: semanticIssue?.unresolvedName || null,
+            intentUnderstanding: llmResult?.understanding || null, unresolvedSpan: semanticIssue?.unresolvedSpan || null,
           },
         });
       }

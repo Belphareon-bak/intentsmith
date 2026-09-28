@@ -12,6 +12,7 @@ import {
   IntentType,
   assertDecision,
   extractFilePath,
+  detectProjectFileIntent as detectFileIntent,
   isExplicitFileReadIntent,
   isExplicitFileWriteIntent,
 } from '../cre-decision.js';
@@ -193,51 +194,7 @@ function buildProjectStatusResponse(input, project, workingMemory, context) {
  * @param {string} input
  * @returns {{ detected: boolean, filePath: string|null, reason: string|null }}
  */
-export function detectFileIntent(input) {
-  const stripped = input.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
-  // A write request may contain both a concrete filename and generic words
-  // such as "soubor" and "projekt". It must reach CRE/FILE_WRITE instead of
-  // being captured by the directory-list heuristic below. A path is still
-  // only input; this guard does not grant write authority.
-  if (isExplicitFileWriteIntent(input)) {
-    return { detected: false, filePath: null, reason: 'explicit-file-write' };
-  }
-
-  // Exact lexical filenames outrank the directory-list heuristic. In
-  // particular, `PROJECT-NOTE.txt` must not make the `project` substring look
-  // like a request to enumerate the project root. A path alone does not grant
-  // this pre-CRE override: only the canonical READ/EXPLAIN grammar may bypass
-  // CRE, so writes, edits and code requests remain available to their routes.
-  const explicitFilePath = extractFilePath(input);
-  if (
-    explicitFilePath
-    && explicitFilePath !== '.'
-    && isExplicitFileReadIntent(input)
-  ) {
-    return { detected: true, filePath: explicitFilePath, reason: 'explicit-file-path' };
-  }
-
-  // NFD normalize + strip diacritics for token matching
-  const tokens = stripped.split(/[\s,;:!?.()[\]{}"']+/).filter(Boolean);
-
-  // "list files/contents" + project reference → a durable file.read request.
-  const hasFileSignal = /soubor|obsah|struktur|adres|slozk|files|directory|contents|folder|tree|listing/i.test(stripped);
-  const hasProjectRef = tokens.some(token => /^(?:projekt[a-z]*|project[a-z]*|tomto|tady|zde|here|this)$/.test(token));
-  const requestsListing = /^(?:(?:prosim|please)\s+)?(?:vypis|vyjmenuj|ukaz|zobraz|list|show|what|jake|ktere|co|najdi)(?:\s|$)/.test(stripped.trim()) && tokens.length <= 30;
-
-  if (hasFileSignal && hasProjectRef && requestsListing) {
-    return { detected: true, filePath: '.', reason: 'file-signal+project-ref' };
-  }
-
-  // "co je v" / "what's in" + project reference (no explicit file word)
-  if (/co\s+je|co\s+tam|what'?s?\s+in|ukaz|zobraz|show|list/i.test(stripped) &&
-      hasProjectRef && tokens.length <= 10) {
-    return { detected: true, filePath: '.', reason: 'content-query+project-ref' };
-  }
-
-  return { detected: false, filePath: null, reason: null };
-}
+export { detectFileIntent };
 
 export async function projectHandler(input, context) {
   const { sessionId, project } = context;
