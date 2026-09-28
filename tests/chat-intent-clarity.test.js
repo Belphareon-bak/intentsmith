@@ -53,6 +53,15 @@ try {
   assert.equal(prepareClarificationInput('ano', { metadata: { ...singleProposal.metadata, clarificationOptions: ['notes.md', 'backup.md'] } }).unresolved, true);
   assert.match(prepareClarificationInput('MW', { metadata: { ...singleProposal.metadata, clarificationOptions: ['mW', 'MW'] } }).source, /uživatele: MW$/u);
   {
+    const oldCall = llmGateway.call;
+    try {
+      llmGateway.call = async () => ({ content: 'Paměť drží data pro právě běžící programy. Po vypnutí je ztratí.', finishReason: 'stop' });
+      const decision = creDecisionEngine.overrideDecision({ type: 'ANSWER', intent: 'CONVERSATIONAL', source: 'test', reason: 'brief answer authority', confidence: 1 });
+      const answer = await handleAnswerDecision('vysvetli mi jka funguje pamet pocitace, kratce', decision, { history: [] });
+      assert.ok(answer.tag.metadata.answerBudget.maxTokens <= 256, 'explicit brevity does not request thousands of output tokens');
+    } finally { llmGateway.call = oldCall; }
+  }
+  {
     const engine = new CREDecisionEngine();
     engine._llmClassifyIntent = async () => ({ intent: 'FILE_WRITE', confidence: 0.95, fileTarget: 'backup.md', understanding: action([slot('action', 'Ulož')]) });
     const inspected = await engine.inspectRequest('Ulož text "Ahoj" do backup.md, notes.md nemaž.');
