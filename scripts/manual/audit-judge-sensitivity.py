@@ -44,7 +44,7 @@ def read_rows(root):
                 if a is None or b is None:continue
                 scored=receipt and receipt['parsed']['valid']
                 row=receipt['parsed']['rows'][i] if scored else None
-                rows.append(dict(model=m['name'],caseId=cid,criterion=i+1,group=c['group'],task=c['task'],role=c['role'],language=c.get('language'),
+                rows.append(dict(model=m['name'],caseId=cid,criterion=i+1,sourceCriterion=c.get('sourceCriterion',i+1),sourceAnswerId=c.get('sourceAnswerId',cid),group=c['group'],task=c['task'],role=c['role'],language=c.get('language'),
                     sourceStage=c.get('sourceStage',c['stage']),dataset=c.get('dataset','captured'),
                     author=ref['answerModel'],authorFamily=ref.get('answerFamily'),referenceKind=ref.get('referenceKind','TWO_EXTERNAL_DRAFTS'),first=a,second=b,score=row['score'] if row else None,
                     evidence=row['evidence'] if row else None,receiptValid=bool(scored),
@@ -66,8 +66,8 @@ def summarize(rows):
     # Within-task/criterion pairs avoid confounding author with missing hard tasks.
     matched={}
     for a,b in itertools.combinations(sorted(residual),2):
-        av={(r['task'],r['criterion']):r for r in valid if r['author']==a}
-        bv={(r['task'],r['criterion']):r for r in valid if r['author']==b}
+        av={(r['task'],r.get('sourceCriterion',r['criterion'])):r for r in valid if r['author']==a}
+        bv={(r['task'],r.get('sourceCriterion',r['criterion'])):r for r in valid if r['author']==b}
         keys=sorted(av.keys()&bv.keys())
         matched[a+' minus '+b]={'criteriaPairs':len(keys),
             'first':avg((av[k]['score']-av[k]['first'])-(bv[k]['score']-bv[k]['first']) for k in keys),
@@ -117,7 +117,7 @@ def author_gap_filter(rows, policy):
     vectors={a:{} for a in authors}
     for r in rows:
         if r['author'] not in vectors: continue
-        k=(r['group'],r['task'],r['criterion'])
+        k=(r['group'],r['task'],r.get('sourceCriterion',r['criterion']))
         if k in vectors[r['author']]: raise ValueError('DUPLICATE_AUTHOR_PAIR')
         vectors[r['author']][k]=r
     a,b=(vectors[x] for x in authors)

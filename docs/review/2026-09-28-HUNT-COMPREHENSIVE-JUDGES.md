@@ -1,6 +1,10 @@
 # Rozšířené hodnocení místních hodnotitelů
 
-28. 9. 2026 · **PREPARED_NOT_RUN / POWER_BLOCKED / NO_GO**
+28. 9. 2026 · **DVA PILOTY DOKONČENY / STOP_CHAT / NO_GO**
+
+Aktuální [výsledky 146 dokončených volání](2026-09-28-HUNT-JUDGE-PILOT-RESULTS.md):
+pět kandidátů v první variantě, tři ve druhé; žádný nesplnil záchyt chyb.
+Níže zůstává původní plán a jeho předem stanovené meze.
 
 ## Aktuální pořadí po připomínkách operátora
 
@@ -159,11 +163,9 @@ naivní součet timeoutů je 114,6 hodiny, takže stopka může vytvořit část
 checkpoint. Zbývající volání zůstanou viditelná. Uříznutý posudek není známka.
 Průběh ukazuje model, úlohu, počet hotových volání a odhad ze skutečných časů.
 
-Aktuálně je GPU nastavena na **250 W**, poslední schválený limit tohoto
-experimentu je **175 W**. Operátor má otevřenou otázku na obnovení 175 W
-nebo použití 250 W. Žádná nová inference při 250 W neproběhla. Nedostupnost
-změny příkonu bez hesla správce je skutečnou překážkou spuštění, ne výsledkem
-hodnotitelů. Předchozí souhlas s inferencí se znovu nevyžaduje.
+Původní příprava měla limit 175 W. Operátor následně výslovně povolil
+250 W a spravuje příkon sám. Tato překážka již neplatí; nové oddělené
+piloty skutečně proběhly, viz aktuální výsledkový dokument nahoře.
 
 ## Ověření přípravy
 

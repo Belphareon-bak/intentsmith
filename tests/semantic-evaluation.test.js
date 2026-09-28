@@ -411,4 +411,18 @@ test('focused judge checks one original criterion with complete dialogue and str
   assert.match(parseJudge(result([{criterion:1,score:1,evidence:'Checked'}]),1,EVIDENCE_FOCUSED).reason,/PRECEDE/);
   assert.equal(parseJudge(result([{criterion:1,evidence:'Checked',score:1,requirement:'copied'}]),1,EVIDENCE_FOCUSED).valid,false);
 });
+test('single-criterion grading keeps original criterion identity when comparing authors',()=>{
+  const script=`import importlib.util
+s=importlib.util.spec_from_file_location('a','scripts/manual/audit-judge-sensitivity.py');a=importlib.util.module_from_spec(s);s.loader.exec_module(a)
+rows=[]
+for g in range(4):
+ for criterion in [1,3]:
+  for author in ['a','b']:
+   rows.append(dict(group=str(g),task=str(g),criterion=1,sourceCriterion=criterion,author=author,first=.75,second=.75,score=.75,caseId=str(g)+author+str(criterion)))
+x=a.author_gap_filter(rows,dict(authors=['a','b'],maximumAbsoluteDistortion=.02,minimumGroups=4))
+assert x['passed'] and x['criteriaPairs']==8,x
+assert a.summarize(rows)['matchedAuthorResidualAll']['a minus b']['criteriaPairs']==8
+`;
+  const r=spawnSync('python3',['-c',script],{encoding:'utf8'});assert.equal(r.status,0,r.stderr);
+});
 summary();
