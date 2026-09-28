@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { ChatController, ChatMode, ResponseSpeaker, ResponseTag, SessionState, TaggedResponse } from '../src/chat/controller.js';
 import { conversationHandler } from '../src/chat/handlers/conversation.js';
 import { creDecisionEngine, CREDecisionEngine, DecisionType, IntentType } from '../src/chat/cre-decision.js';
-import { assessIntentClarity, getIntentEvidence, prepareClarificationInput, issueIntentEvidence, literalFileTargets } from '../src/chat/intent-clarity.js';
+import { assessIntentClarity, getIntentEvidence, prepareClarificationInput, issueIntentEvidence, literalFileTargets, latestAssistantContent } from '../src/chat/intent-clarity.js';
 import { ToolExecutor } from '../src/executor/tool-executor.js';
 import { llmGateway } from '../src/llm/gateway.js';
 import { getConversationStore } from '../src/chat/conversation-store.js';
@@ -13,6 +13,10 @@ import { projectHandler } from '../src/chat/handlers/project.js';
 import { handleFileDecision } from '../src/chat/handlers/file.js';
 import { toolExecutor } from '../src/executor/tool-executor.js';
 import { handleAnswerDecision } from '../src/chat/handlers/decisions.js';
+import { projects } from '../src/db/database.js';
+import { mkdtempSync, rmSync, existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 
 config.ollama.baseUrl = 'invalid://intent-grounding-no-provider';
 const originalFetch = globalThis.fetch;
@@ -199,17 +203,132 @@ try {
   ]) {
     const omitted = action([slot('action', verb), slot('target', suffix)]);
     assert.equal(assessIntentClarity(input, omitted).kind, 'clarify', input);
-    assert.equal(assessIntentClarity(input, information()).kind, 'clarify', `${input}: information cannot hide a prohibition`);
+    assert.equal(assessIntentClarity(input, information()), null, `${input}: an informational interpretation has no effect authority`);
     proposal = classified(information());
     const controller = fixture();
     const reply = await controller.process(input);
-    assert.equal(reply.tag.metadata.decision.type, DecisionType.ASK_USER);
-    assert.deepEqual(controller.reached, [], 'negative input never reaches synthesis');
+    assert.equal(reply.content, 'handler reached');
+    assert.equal(controller.reached.length, 1, 'information may reach synthesis; effectful tools independently reject it');
     const stripped = verb.startsWith('Ne') ? verb.slice(2) : verb;
     if (stripped !== verb) assert.equal(assessIntentClarity(input, action([slot('action', stripped), slot('target', suffix)])).reason, 'source_not_grounded');
     const unsafe = issueIntentEvidence(input, { intent: 'FILE_WRITE' }, omitted);
     const executor = new ToolExecutor({ m2ToolBroker: { execute: async () => { throw new Error('prohibition reached broker'); } } });
     await assert.rejects(executor.executeM2Tool({ toolId: 'file.write', input: { path: suffix, content: 'report' }, context: { intentEvidence: unsafe } }), { code: 'M2_TOOL_INTENT_MISMATCH' });
+  }
+  // Content constraints and troubleshooting negatives are ordinary information.
+  for (const input of [
+    'Napiš funkci v Pythonu. Nepoužívej rekurzi.',
+    'Write a sort function without recursion',
+    "Why doesn't my nginx start?", 'Nefunguje mi Wi-Fi, co s tím?',
+    'Ne, tak jsem to nemyslel. Vysvětli to znovu.', 'Nextcloud: jak nastavit zálohy?',
+    'Nevím, jak nastavit server', 'Nechápu příklad',
+  ]) {
+    for (const slots of [[], [slot('scope', input)], [slot('negation', input)]]) {
+      const understanding = { ...information(), slots };
+      assert.equal(assessIntentClarity(input, understanding), null, input);
+      proposal = classified(understanding);
+      const controller = fixture();
+      await controller.process(input);
+      assert.equal(controller.reached.length, 1, input);
+      let calls = 0;
+      const executor = new ToolExecutor({ m2ToolBroker: { execute: async () => { calls++; return { state: 'controlled' }; } } });
+      const searchToken = issueIntentEvidence(input, { intent: 'SEARCH' }, understanding);
+      await executor.executeM2Tool({ toolId: 'web.search', input: { query: input }, context: { intentEvidence: searchToken } });
+      const readToken = issueIntentEvidence(input, { intent: 'FILE_READ' }, understanding, { 'file.read': { path: 'notes.md' } });
+      await executor.executeM2Tool({ toolId: 'file.read', input: { path: 'notes.md' }, context: { intentEvidence: readToken } });
+      const writeToken = issueIntentEvidence(input, { intent: 'FILE_WRITE' }, understanding, { 'file.write': { path: 'notes.md', content: 'report' } });
+      await assert.rejects(executor.executeM2Tool({ toolId: 'file.write', input: { path: 'notes.md', content: 'report' }, context: { intentEvidence: writeToken } }), { code: 'M2_TOOL_INTENT_MISMATCH' });
+      assert.equal(calls, 2, 'read/search proceed; state change never reaches broker');
+    }
+  }
+  for (const [input, verb, negative] of [
+    ['Ulož to do notes.md, ale nepřepisuj ho', 'Ulož', 'nepřepisuj'],
+    ['Soubor notes.md nemaž, jen ho přečti', 'přečti', 'nemaž'],
+    ['Ulož to do notes.md ale neprepisuj ho', 'Ulož', 'neprepisuj'],
+  ]) {
+    const omitted = action([slot('action', verb), slot('target', 'notes.md')]);
+    assert.equal(assessIntentClarity(input, omitted).reason, 'negation_unverified');
+    assert.equal(assessIntentClarity(input, action([...omitted.slots, slot('negation', negative)])).kind, 'no_effect');
+    proposal = { intent: 'FILE_WRITE', confidence: 0.95, fileTarget: 'notes.md', understanding: omitted };
+    const controller = fixture();
+    assert.equal((await controller.process(input)).tag.metadata.decision.type, DecisionType.ASK_USER);
+    assert.equal(controller.reached.length, 0);
+    const token = issueIntentEvidence(input, { intent: 'FILE_WRITE' }, omitted, { 'file.write': { content: 'report' } });
+    const executor = new ToolExecutor({ m2ToolBroker: { execute: async () => { throw new Error('middle prohibition reached broker'); } } });
+    await assert.rejects(executor.executeM2Tool({ toolId: 'file.write', input: { path: 'notes.md', content: 'report' }, context: { intentEvidence: token } }), { code: 'M2_TOOL_INTENT_MISMATCH' });
+  }
+  for (const suffix of ['nebo report', 'nejlepší report', 'než report', 'nez report']) {
+    assert.equal(assessIntentClarity(`Ulož ${suffix} do notes.md`, action([slot('action', 'Ulož'), slot('target', 'notes.md')])), null);
+  }
+  for (const literal of ['3.12', 'qwen3.5', 'v3.12.0']) assert.deepEqual(literalFileTargets(literal), []);
+  for (const literal of ['src/app.js', '.env', 'report.2026.md', 'folder/3.12', 'folder/qwen3.5']) assert.equal(literalFileTargets(literal)[0].source, literal);
+  assert.equal(latestAssistantContent([
+    { role: 'assistant', content: 'answer' },
+    { role: 'assistant', content: 'question', metadata: { decision: { type: 'ASK_USER' } } },
+    { role: 'assistant', content: 'refusal', metadata: { decision: { type: 'REFUSE' } } },
+    { isSummary: true, response: { tag: { speaker: 'system' }, content: 'summary' } },
+  ]), 'answer');
+  {
+    // Real ingress persists the answer, clarification/refusal and subsequent
+    // command. No history is injected into inspectRequest or the file handler.
+    const root = mkdtempSync(path.join(tmpdir(), 'intent-save-ingress-'));
+    const registered = projects.registerExternal('intent-save-ingress', root).project;
+    const originalCall = llmGateway.call;
+    const oldBroker = toolExecutor.m2ToolBroker;
+    const answer = 'Původní odpověď: přesné bajty a nový řádek.\nDruhý řádek.';
+    let writes = 0;
+    try {
+      llmGateway.call = async () => ({ content: answer, finishReason: 'stop' });
+      ChatController.configure({ handlers: { [ChatMode.CONVERSATION]: conversationHandler, [ChatMode.PROJECT]: conversationHandler }, config: { autoModeDetection: false } });
+      toolExecutor.m2ToolBroker = { execute: async ({ toolId, input, context }) => {
+        writes++;
+        assert.equal(toolId, 'file.write');
+        assert.deepEqual(input, { path: 'notes.md', content: answer });
+        assert.equal(context.intentEvidence !== undefined, true);
+        return { state: 'approval_required', effectRequestId: `controlled-write-${writes}`, request: { requestId: `controlled-request-${writes}` } };
+      } };
+      for (const journey of ['direct', 'clarified', 'refused', 'empty']) {
+        const id = `intent-save-ingress-${journey}`;
+        ChatController.setProject(id, { id: Number(registered.id), name: registered.name, path: root });
+        const send = message => ChatController.handle({ message, sessionId: id, conversationId: id, context: { projectId: Number(registered.id) }, authenticatedSubject: { actorType: 'user', actorId: 'operator' } });
+        if (journey !== 'empty') {
+          proposal = classified(information());
+          const response = await send('Vysvětli možnosti');
+          assert.equal(response.response, answer);
+        }
+        const before = writes;
+        if (journey === 'refused') {
+          proposal = classified(action([slot('action', 'Nemaž'), slot('negation', 'Nemaž'), slot('target', 'notes.md')]));
+          const refused = await send('Nemaž notes.md');
+          assert.equal(refused.metadata.intentClarityReason, 'explicit_negation');
+        }
+        const needsChoice = ['clarified', 'empty'].includes(journey);
+        proposal = { intent: 'FILE_WRITE', confidence: 0.95, fileTarget: needsChoice ? 'wrong.md' : 'notes.md', understanding: action([slot('action', 'Ulož'), slot('target', 'notes.md', needsChoice ? 'wrong.md' : 'notes.md')]) };
+        let saved = await send('Ulož odpověď do notes.md');
+        if (needsChoice) {
+          assert.equal(saved.metadata.decision.type, DecisionType.ASK_USER);
+          assert.equal((await send('ano')).metadata.decision.type, DecisionType.ASK_USER);
+          assert.equal(writes, before);
+          const history = getConversationStore().buildHandlerHistory(id);
+          assert.equal(history.filter(entry => entry.response.tag.metadata?.intentContentExcluded === true).length, 2, 'control labels survive persistence and history projection');
+          proposal.fileTarget = 'notes.md';
+          proposal.understanding.slots[1] = slot('target', 'notes.md');
+          saved = await send('notes.md');
+        }
+        if (journey === 'empty') {
+          assert.equal(saved.metadata.error, 'no_content', 'clarification is never substitute content');
+          assert.equal(writes, before);
+        } else {
+          assert.equal(saved.metadata.approvalRequired, true, JSON.stringify(saved));
+          assert.equal(writes, before + 1, `${journey}: original answer reaches existing write approval`);
+        }
+        assert.equal(existsSync(path.join(root, 'notes.md')), false, 'approval request does not perform a write');
+      }
+    } finally {
+      llmGateway.call = originalCall;
+      toolExecutor.m2ToolBroker = oldBroker;
+      rmSync(root, { recursive: true, force: true });
+    }
   }
   {
     const input = 'Nemaž notes.md';

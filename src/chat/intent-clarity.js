@@ -24,19 +24,19 @@ export function literalFileTargets(input) {
     .map(match => ({ start: match.index, end: match.index + match[0].length }));
   return [...input.matchAll(/(?<![\p{L}\d_./@-])(?:[\p{L}\d_/-][\p{L}\d_./-]*\.[\p{L}\d_-]+|\.[\p{L}\d_-]+)(?![\p{L}\d_/-])/gu)]
     .map(match => ({ start: match.index, end: match.index + match[0].length, source: match[0] }))
-    .filter(span => !otherTargets.some(other => other.start <= span.start && other.end >= span.end));
+    .filter(span => !otherTargets.some(other => other.start <= span.start && other.end >= span.end))
+    // Bare decimal/version literals have no filename extension. Explicit paths
+    // and dotfiles retain their literal meaning, including numeric basenames.
+    .filter(span => span.source.includes('/') || span.source.startsWith('.') || !/\.\d+(?:\.\d+)*$/u.test(span.source));
 }
 
-function negations(input, slots = []) {
+function negations(input) {
   const explicit = [...input.matchAll(/(?<![\p{L}\d_])(?:not|never|without|do\s+not|dont|[\p{L}]+n['’]t|ne|nikdy|nechci)(?![\p{L}\d_])/giu)];
-  // Czech ne- is productive. A clause-initial ne-word, or a cited action with
-  // that prefix, needs a preserved prohibition; no finite verb-root whitelist.
-  const leading = [...input.matchAll(/(?:^|[,;.!?]\s*|\b(?:a|pak|potom|prosím|prosim|teď|ted)\s+)(ne[\p{L}]{3,})/giu)]
-    .map(match => ({ 0: match[1], index: match.index + match[0].lastIndexOf(match[1]) }));
-  const actionWords = slots.filter(slot => slot?.role === 'action' && typeof slot.source === 'string')
-    .flatMap(slot => [...slot.source.matchAll(/(?<![\p{L}])ne[\p{L}]{3,}/giu)].flatMap(match => citations(input, match[0])));
-  return [...explicit, ...leading, ...actionWords].map(match => ({ start: match.start ?? match.index, end: match.end ?? match.index + match[0].length, source: match.source ?? match[0] }))
-    .filter(span => !/^(?:nebo|nej[\p{L}]*)$/iu.test(span.source));
+  // Czech ne- is productive and can follow the object or an adversative clause.
+  // This conservative scan gates action proposals, not informational chat.
+  const prefixed = [...input.matchAll(/(?<![\p{L}\d_])ne[\p{L}]+(?![\p{L}\d_])/giu)];
+  return [...explicit, ...prefixed].map(match => ({ start: match.index, end: match.index + match[0].length, source: match[0] }))
+    .filter(span => !/^(?:nebo|nej[\p{L}]*|než|nez)$/iu.test(span.source));
 }
 
 function protectedLiterals(input) {
@@ -68,11 +68,13 @@ export function assessIntentClarity(input, understanding, { supersededSpans = []
       return question('source_not_grounded', 'Interpretace obsahuje údaj, který nemohu doložit celým citátem z původního zadání. Upřesni prosím přesný cíl a parametry akce. Zatím nic nespouštím.');
     }
   }
-  const negative = negations(input, slots);
-  const missingNegation = negative.find(span => !slots.some(slot => slot.role === 'negation' && citations(input, slot.source).some(c => covers(c, span))));
-  if (missingNegation) return question('negation_unverified', `V zadání je možný zákaz „${missingNegation.source}“, který interpretace nezachovává jako zákaz. Která akce je zakázaná? Zatím nic nespouštím.`);
-  // A prohibition is never suspended by an alternative selection or label.
-  if (negative.length || slots.some(slot => slot.role === 'negation')) return { kind: 'no_effect', reason: 'explicit_negation', answer: 'Rozpoznal jsem zákaz akce a tento požadavek nespouštím. Pokud chceš provést jinou část, zadej ji samostatně.' };
+  const negative = negations(input);
+  if (understanding.kind === 'action') {
+    const missingNegation = negative.find(span => !slots.some(slot => slot.role === 'negation' && citations(input, slot.source).some(c => covers(c, span))));
+    if (missingNegation) return question('negation_unverified', `V zadání je možný zákaz „${missingNegation.source}“, který interpretace nezachovává jako zákaz. Která akce je zakázaná? Zatím nic nespouštím.`);
+    // A prohibition is never suspended by an alternative selection or label.
+    if (negative.length || slots.some(slot => slot.role === 'negation')) return { kind: 'no_effect', reason: 'explicit_negation', answer: 'Rozpoznal jsem zákaz akce a tento požadavek nespouštím. Pokud chceš provést jinou část, zadej ji samostatně.' };
+  }
   for (const [index, slot] of slots.entries()) {
     if (slot.source !== slot.value) return { ...question('material_meaning_changed', `V zadání je „${slot.source}“, interpretace uvádí „${slot.value}“. Co má platit pro ${slot.name}? Zatím nic nespouštím.`, [slot.source, slot.value]), unresolvedSpan: reference(input, slot, index) };
   }
@@ -98,6 +100,9 @@ export function latestAssistantContent(history = []) {
   for (let i = history.length - 1; i >= 0; i--) {
     const entry = history[i];
     if (!(entry.response?.tag?.speaker === 'system' || entry.role === 'assistant' || entry.speaker === 'system')) continue;
+    const metadata = entry.response?.tag?.metadata ?? entry.metadata ?? {};
+    if (entry.isSummary || metadata.intentContentExcluded === true || ['ASK_USER', 'REFUSE'].includes(metadata.decision?.type)
+        || metadata.decision?.source === 'intent_clarity' || metadata.intentClarityReason) continue;
     const content = entry.response?.content || entry.content;
     if (typeof content === 'string' && content) return content;
   }
@@ -145,7 +150,7 @@ export function verifyToolIntent(token, toolId, input, { effectful = false, deri
   const proof = evidence.get(token);
   const mismatch = () => ({ reason: 'tool_intent_mismatch', message: `Parametry nástroje ${toolId} nemohu doložit ověřeným zadáním. Nic nespouštím.` });
   if (!proof || !input || typeof input !== 'object' || Array.isArray(input) || Object.getPrototypeOf(input) !== Object.prototype) return mismatch();
-  if (negations(proof.source, proof.understanding.slots).length || proof.understanding.slots.some(slot => slot.role === 'negation')) return mismatch();
+  if (effectful && (negations(proof.source).length || proof.understanding.slots.some(slot => slot.role === 'negation'))) return mismatch();
   if (effectful && proof.understanding.kind !== 'action') return mismatch();
   const intent = proof.classification?.intent;
   const expected = { FILE_WRITE: ['file.write'], FILE_READ: ['file.read', 'file.list'], FILE_EXPLAIN: ['file.read'], SHELL: ['code.execute'], SEARCH: ['web.search', 'web.scrape'], REPORT: ['web.search', 'web.scrape', 'database.query'], CODE: ['code.execute', 'file.read', 'file.write'], LOCAL: ['local.date', 'local.calendar', 'local.math'] }[intent] || [];

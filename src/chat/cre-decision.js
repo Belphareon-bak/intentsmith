@@ -2301,7 +2301,7 @@ export class CREDecisionEngine {
     const fixed = projectListing ? { 'file.list': { path: '.' } } : {};
     if (lexical.detected && lexical.filePath !== '.') fixed['file.read'] = { path: lexical.filePath };
     if (classification.intent === IntentType.SHELL) fixed['code.execute'] = { code: extractShellCommand(input), language: null };
-    const content = latestAssistantContent(context.history);
+    const content = latestAssistantContent(context.dbHistory ?? context.history);
     if (classification.intent === IntentType.FILE_WRITE && content) fixed['file.write'] = { content };
     return { token: issueIntentEvidence(input, classification, understanding, fixed), understanding, classification };
   }
