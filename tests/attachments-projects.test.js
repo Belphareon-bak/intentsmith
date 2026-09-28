@@ -486,7 +486,7 @@ if (BOUNDARY_SELF_CHECK) {
 } else {
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Frontend patterns (extracted from chat-panel-module.js for testing)
+// Legacy HTTP attachment compatibility fixtures. Active Studio 2 byte grants and M1 DTOs are tested in studio2-attachments.
 // ═══════════════════════════════════════════════════════════════════════════════
 const TEXT_EXTS = /\.(js|ts|jsx|tsx|py|json|md|txt|css|html|yaml|yml|xml|csv|sql|sh|env|cfg|ini|log|toml|rs|go|java|c|cpp|h|rb|php|swift|kt|r|lua|pl|ex|erl|hs|ml|vue|svelte)$/i;
 const IMG_EXTS = /\.(png|jpg|jpeg|gif|webp|svg|bmp)$/i;

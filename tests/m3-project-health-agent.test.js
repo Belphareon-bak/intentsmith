@@ -181,6 +181,21 @@ try {
     assert.equal(runtime.repository.getNotifications({ agentId: installed.id }).length, 0);
   });
 
+  await test('wizard preview validates exact trusted parameters without persisting or executing', async () => {
+    const service = runtime.extensionService;
+    assert.equal(service.configuration('project-health').definition.params[0].name, 'project_id');
+    const before = runtime.repository.getAllAgents(true).length;
+    const preview = service.preview('project-health', { instanceId: 'preview-only', params: { project_id: 1 } });
+    assert.equal(preview.effectsExecuted, false);
+    assert.equal(preview.validation.valid, true);
+    assert.equal(runtime.repository.getAllAgents(true).length, before);
+    assert.throws(() => service.preview('project-health', { instanceId: 'preview-only', params: { project_id: '../foreign' } }));
+    assert.throws(() => service.preview('project-health', { instanceId: 'preview-only', params: { project_id: 1, shell: 'whoami' } }));
+    assert.throws(() => service.install('project-health', { instanceId: 'preview-only', params: { project_id: 1 },
+      expectedDefinitionDigest: 'sha256:' + '0'.repeat(64) }), { code: 'M3_AGENT_EXTENSION_STALE' });
+    assert.equal(runtime.repository.getAgent('preview-only'), null);
+  });
+
   await test('first enabled run persists an exact workspace baseline without notification', async () => {
     runtime.repository.updateAgent('project-health-fixture', { enabled: true });
     const result = await runtime.scheduler.triggerAgent('project-health-fixture');

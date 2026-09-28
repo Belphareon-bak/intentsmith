@@ -1924,10 +1924,10 @@ export function validateM2ComposerEvidence(value) {
 }
 
 const STUDIO2_MODE_FIELDS = Object.freeze([
-  'classicInitiallyAttached',
+  'studio2InitiallyAttached',
   'studio2ExclusivelyAttached',
   'oneReusedTransportInStudio2',
-  'classicRestored',
+  'legacyFlagsCannotRestoreClassic',
   'fiveSessionsWithoutTopTabs',
   'sixthSessionKeepsLimit',
   'capacityGuardProtectsDrafts',

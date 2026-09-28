@@ -136,14 +136,14 @@ const electronPreload = readFileSync(
 const chatPanelRuntime = readFileSync(
   resolve(
     repoRoot,
-    'intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js',
+    'intentsmith-ide/extensions/intentsmith-studio2/lib/browser/view/live-model.js',
   ),
   'utf8',
 );
 const centerViewsRuntime = readFileSync(
   resolve(
     repoRoot,
-    'intentsmith-ide/extensions/intentsmith-center-views/lib/browser/center-views-module.js',
+    'intentsmith-ide/extensions/intentsmith-studio2/lib/browser/studio2-module.js',
   ),
   'utf8',
 );
@@ -162,10 +162,8 @@ for (const removed of ['terser-webpack-plugin', 'webpack', 'webpack-cli']) {
 }
 assert.equal(electronPackage.dependencies?.react, '19.3.0');
 assert.equal(electronPackage.dependencies?.['react-dom'], '19.3.0');
-assert.equal(chatPanelPackage.main, 'lib/browser/chat-panel-module.js');
-assert.deepEqual(chatPanelPackage.theiaExtensions, [
-  { frontend: 'lib/browser/chat-panel-module' },
-]);
+assert.equal(chatPanelPackage.main, 'lib/browser/ws-client.js');
+assert.deepEqual(chatPanelPackage.theiaExtensions, []);
 assert.deepEqual(chatPanelPackage.files, ['lib', 'README.md', 'scripts']);
 assert.equal(Object.hasOwn(chatPanelPackage, 'typings'), false);
 assert.equal(Object.hasOwn(chatPanelPackage, 'devDependencies'), false);
@@ -183,10 +181,7 @@ assert.doesNotMatch(
 const chatPanelRuntimeFiles = [
   'lib/browser/agent-client.js',
   'lib/browser/agent-log-renderer.js',
-  'lib/browser/chat-panel-module.js',
   'lib/browser/event-bus.js',
-  'lib/browser/styles/intentsmith-chat.css',
-  'lib/browser/styles/intentsmith-theme.css',
   'lib/browser/terminal-client.js',
   'lib/browser/ws-client.js',
 ];
@@ -295,10 +290,10 @@ const frontendAt = electronBrowserEntry.indexOf("require('./src-gen/frontend/ind
 assert.ok(bootstrapAt >= 0 && frontendAt > bootstrapAt, 'local capability bootstrap must precede Theia modules');
 const beforeFrontend = electronBrowserEntry.slice(bootstrapAt + "require('./intentsmith-local-http-bootstrap');".length, frontendAt);
 assert.doesNotMatch(beforeFrontend, /require\(/g, 'UI mode selection must not load modules before the mode is fixed');
-assert.match(beforeFrontend, /window\.__intentsmithStudioMode = studioMode/);
-assert.match(electronEsbuild, /gateFrontendModule\(source, specifier/);
-assert.match(electronEsbuild, /window\.__intentsmithStudioMode === 'classic'/);
-assert.match(electronEsbuild, /window\.__intentsmithStudioMode === 'studio2'/);
+assert.match(beforeFrontend, /window\.__intentsmithStudioMode = 'studio2'/);
+assert.match(electronEsbuild, /Retired Studio frontend registered/);
+assert.doesNotMatch(electronBrowserEntry, /selectMode|studioMode = 'classic'/);
+assert.match(electronEsbuild, /Studio 2 frontend registration changed/);
 assert.match(electronMainEntry, /require\('\.\/intentsmith-local-origin-normalizer'\);\s*require\('\.\/src-gen\/backend\/electron-main'\)/);
 assert.match(electronPreloadEntry, /require\('\.\/src-gen\/frontend\/preload'\);\s*require\('\.\/intentsmith-preload'\)\.preload\(\)/);
 assert.match(electronPreload, /require\('\.\/intentsmith-local-access'\)/);
@@ -333,33 +328,12 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(chatPanelRuntime, /_mediaObjectUrls|_mediaObjectLoads/);
 assert.doesNotMatch(centerViewsRuntime, /_mmObjectUrls|_mmObjectUrlLoads/);
-assert.match(
-  chatPanelRuntime,
-  /_mediaOutputCache\.load\(_mediaOutputTarget\(id,filename\)\)/,
-);
-assert.match(chatPanelRuntime, /_mediaOutputCache\.invalidateWhere/);
-assert.match(chatPanelRuntime, /_mediaOutputCache\.retain\(activeTargets\)/);
-assert.match(
-  chatPanelRuntime,
-  /IntentSmithBus\.on\('comfyui:complete',function\(ev\)\{[\s\S]*?_mediaRevokeOutputUrls\(ev\.generationId\);[\s\S]*?MediaAPI\.loadData\(\);/,
-);
-assert.match(
-  centerViewsRuntime,
-  /this\._mmOutputCache\.load\(target\)/,
-);
-assert.match(centerViewsRuntime, /this\._mmOutputCache\.invalidateWhere/);
-assert.match(centerViewsRuntime, /this\._mmOutputCache\.retain\(activeTargets\)/);
-assert.match(
-  centerViewsRuntime,
-  /window\.IntentSmithBus\.on\('comfyui:complete', function\(d\) \{[\s\S]*?self\._mmRevokeOutputUrls\(d\.generationId\);[\s\S]*?self\._mmFetchHistory\(\);/,
-);
-assert.match(centerViewsRuntime, /dispose\(\)\s*\{\s*this\._mmOutputCache\.clear\(\)/);
-assert.match(centerViewsRuntime, /\?\s*h\('img',\s*\{\s*src:\s*thumbUrl/);
-assert.match(chatPanelRuntime, /thumbUrl\s*\?\s*h\('img',\s*\{\s*src:\s*thumbUrl/);
-assert.match(
-  centerViewsRuntime,
-  /_mmOpenFull\(gen\)[\s\S]*this\._mmOutputCache\.peek\(target\)[\s\S]*window\.open\(existing,[\s\S]*this\._mmEnsureOutputUrl\(gen\.id,\s*outputs\[0\]\)[\s\S]*pendingWindow\.location\.replace\(objectUrl\)/,
-);
+assert.match(chatPanelRuntime, /loadMediaOutputs\(item\)/);
+assert.match(chatPanelRuntime, /URL\.createObjectURL/);
+assert.match(chatPanelRuntime, /URL\.revokeObjectURL/);
+assert.match(chatPanelRuntime, /comfyui:complete/);
+assert.match(chatPanelRuntime, /comfyui:progress/);
+assert.doesNotMatch(centerViewsRuntime, /renderLegacy|legacyView|renderSessionView/);
 assert.match(localObjectUrlCache, /record\.active\s*&&\s*pending\.get\(key\)\s*===\s*record/);
 assert.match(localObjectUrlCache, /record\.controller\.abort\(\)/);
 assert.doesNotMatch(

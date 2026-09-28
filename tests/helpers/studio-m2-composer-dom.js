@@ -21,8 +21,8 @@ export async function rendererBuildComposerProbe({ cdp, paths, requests, evaluat
   const draft = {
     instruction: 'Připrav  změnu.\nZachovej přesné zadání.',
     files: [
-      { path: 'app.js', instruction: 'Použij  hodnotu z helperu.', dependsOn: ['helper.js'] },
-      { path: 'helper.js', instruction: 'Exportuj hodnotu.', dependsOn: [] },
+      { path: 'app.js', instruction: 'Použij  hodnotu z helperu.', dependsOn: ['helper.js'], contextFiles: [] },
+      { path: 'helper.js', instruction: 'Exportuj hodnotu.', dependsOn: [], contextFiles: [] },
     ],
     focusedTest: { binary: '/usr/bin/node',
       argv: ['-e', "const s = 'a  b';\tif (s.length !== 4) throw Error('bad spacing');", ''],
@@ -54,8 +54,20 @@ export async function rendererBuildComposerProbe({ cdp, paths, requests, evaluat
     pane._convId = conversationA.id; pane._projectId = projectId; pane._agentId = null;
     pane._conversationFocus = false; pane.chat._thinking = null; pane.chat.attachments = [];
     window.IntentSmithBus.emit('session:changed', { idx: 0 });
-    const prefix = 'm2-build-0-';
-    const element = id => document.getElementById(prefix + id);
+    const root = () => document.querySelector('#intentsmith-studio2 [data-studio-ui="studio2"]');
+    const button = (scope, text) => [...(scope?.querySelectorAll('button') || [])].find(node => node.textContent.trim() === text);
+    const element = id => {
+      const form = section();
+      const controls = { open: () => button(root(), 'Připravit změnu'), submit: () => button(form, 'Připravit návrh bez schválení'),
+        'add-file': () => button(form, 'Přidat soubor'), instruction: () => form?.querySelector('[aria-label="Celkové zadání změny"]'),
+        binary: () => form?.querySelector('[aria-label="Program cíleného testu"]'), argv: () => form?.querySelector('[aria-label="Argumenty cíleného testu"]'),
+        timeout: () => [...(form?.querySelectorAll('label') || [])].find(label => label.textContent.startsWith('Časový limit'))?.querySelector('input') };
+      if (controls[id]) return controls[id]();
+      const match = /^file-(\d+)-(path|instruction|dependencies)$/.exec(id);
+      const fieldset = match && form?.querySelectorAll('fieldset')[Number(match[1])];
+      if (!fieldset) return null;
+      return match[2] === 'path' ? fieldset.querySelector('input') : fieldset.querySelectorAll('textarea')[match[2] === 'instruction' ? 0 : 1];
+    };
     const section = () => document.querySelector('section[aria-label="Připravit změnu projektu"]');
     const click = async id => { const el = element(id); check(el && !el.disabled, 'click-' + id); el.click(); await pause(); };
     const change = async (id, value) => {
@@ -68,7 +80,7 @@ export async function rendererBuildComposerProbe({ cdp, paths, requests, evaluat
       check(document.activeElement === element(id), 'focus-' + id);
     };
     await waitFor(() => element('open'), 'open-button');
-    const chat = document.getElementById('intentsmith-chat-ta-0');
+    const chat = root()?.querySelector('[aria-label^="Zpráva pro relaci"]');
     check(chat, 'ordinary-chat-input');
     const chatDraft = 'Rozepsaný chat  zůstává.';
     Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(chat, chatDraft);
@@ -79,7 +91,7 @@ export async function rendererBuildComposerProbe({ cdp, paths, requests, evaluat
     check(element('submit')?.disabled === true, 'changed-context-disabled');
     check(section()?.textContent.includes('Konverzace nebo projekt se změnily'), 'changed-context-visible');
     check(element('instruction')?.value === 'První rozepsané zadání.', 'changed-context-retains-input');
-    const discard = [...section().querySelectorAll('button')].find(button => button.textContent === 'Zahodit zadání');
+    const discard = [...section().querySelectorAll('button')].find(button => button.textContent.trim() === 'Zahodit návrh');
     check(discard && !discard.disabled, 'discard-button'); discard.click(); await pause();
     check(!section(), 'discard-closed');
     await click('open');
@@ -94,14 +106,12 @@ export async function rendererBuildComposerProbe({ cdp, paths, requests, evaluat
       await change('file-' + index + '-dependencies', file.dependsOn.join('\n'));
     }
     await change('binary', draft.focusedTest.binary);
-    for (let index = 0; index < draft.focusedTest.argv.length; index++) {
-      await click('add-arg'); await change('arg-' + index, draft.focusedTest.argv[index]);
-    }
+    await change('argv', JSON.stringify(draft.focusedTest.argv));
     await change('timeout', String(draft.focusedTest.timeoutMs));
     check(!pane._m2Pending && !pane.chat._m2Busy, 'no-implicit-draft-or-approval');
-    check(document.getElementById('intentsmith-chat-ta-0').value === chatDraft, 'ordinary-chat-preserved-before-submit');
+    check(root()?.querySelector('[aria-label^="Zpráva pro relaci"]').value === chatDraft, 'ordinary-chat-preserved-before-submit');
     await click('submit');
-    await waitFor(() => !pane.chat._m2Busy && section()?.textContent.includes('M2_LIFECYCLE_POLICY_UNAVAILABLE'), 'production-policy-rejection');
+    await waitFor(() => !pane.chat._m2Busy && section()?.textContent.includes('M2_LIFECYCLE_POLICY_UNAVAILABLE') && element('submit')?.disabled === false, 'production-policy-rejection');
     check(section().textContent.includes('HTTP 503'), 'typed-http-error-visible');
     check(element('instruction')?.value === draft.instruction, 'goal-preserved-after-rejection');
     check(element('binary')?.value === draft.focusedTest.binary, 'binary-preserved-after-rejection');
@@ -111,10 +121,8 @@ export async function rendererBuildComposerProbe({ cdp, paths, requests, evaluat
       check(element('file-' + index + '-instruction')?.value === draft.files[index].instruction, 'file-instruction-preserved-after-rejection');
       check(element('file-' + index + '-dependencies')?.value === draft.files[index].dependsOn.join('\n'), 'dependencies-preserved-after-rejection');
     }
-    for (let index = 0; index < draft.focusedTest.argv.length; index++) {
-      check(element('arg-' + index)?.value === draft.focusedTest.argv[index], 'argv-preserved-after-rejection');
-    }
-    check(document.getElementById('intentsmith-chat-ta-0').value === chatDraft, 'ordinary-chat-preserved-after-rejection');
+    check(element('argv')?.value === JSON.stringify(draft.focusedTest.argv), 'argv-preserved-after-rejection');
+    check(root()?.querySelector('[aria-label^="Zpráva pro relaci"]').value === chatDraft, 'ordinary-chat-preserved-after-rejection');
     check(!pane._m2Pending && !pane.chat._m2Busy && !element('submit').disabled, 'no-pending-approval-or-stuck-busy');
     check(!document.querySelector('[aria-label="Akce připravené změny"]'), 'no-approval-actions-after-rejection');
     return { projectId, conversationId: conversationB.id, contextInvalidated: true,

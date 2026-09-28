@@ -688,6 +688,7 @@ textarea.fv-ed{font-family:var(--font-mono)}
 <sc-if value="{{m.hasMarkdown}}" hint-placeholder-val="{{false}}"><div class="md" data-html="{{m.html}}"></div></sc-if>
 <sc-if value="{{m.noMarkdown}}" hint-placeholder-val="{{true}}"><sc-for list="{{m.paras}}" as="pa" hint-placeholder-count="1"><p class="para">{{pa.t}}</p></sc-for></sc-if>
 <sc-if value="{{m.hasCode}}" hint-placeholder-val="{{false}}"><div class="code mono"><sc-for list="{{m.code}}" as="ln" hint-placeholder-count="2"><div>{{ln.t}}</div></sc-for></div></sc-if>
+<sc-if value="{{m.hasGap}}" hint-placeholder-val="{{false}}"><div class="comp-r"><button class="btn" onClick="{{m.gapCreate}}">Vytvořit expertýzu</button><button class="btn" onClick="{{m.gapFallback}}">Odpovědět bez ní</button></div></sc-if>
 <sc-if value="{{m.isRunning}}" hint-placeholder-val="{{false}}"><div class="running"><span class="spin"></span><span>{{m.runText}}</span><span class="grow"></span><button class="btn" onClick="{{m.stop}}"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{I.stop}}"></path></svg>Zastavit</button></div></sc-if>
 <sc-if value="{{m.hasApproval}}" hint-placeholder-val="{{false}}"><div class="appr"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" style="color: var(--warn);"><path d="{{I.shield}}"></path></svg><span class="appr-t"><b>{{m.apprTitle}}</b><span>{{m.apprSub}}</span><sc-if value="{{m.hasApprHint}}" hint-placeholder-val="{{false}}"><span class="appr-h">{{m.apprHint}}</span></sc-if></span><span class="grow"></span><button class="btn" onClick="{{m.showChanges}}">Zobrazit změny</button><button class="btn" onClick="{{m.reject}}">Zamítnout</button><button class="btn btn-acc {{m.approveCls}}" onClick="{{m.approve}}">Schválit</button></div></sc-if>
 <sc-if value="{{m.hasResult}}" hint-placeholder-val="{{false}}"><div class="done" style="color: {{m.resColor}};"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="{{m.resIcon}}"></path></svg><span>{{m.resText}}</span></div></sc-if>
@@ -696,16 +697,36 @@ textarea.fv-ed{font-family:var(--font-mono)}
 </sc-if>
 </sc-for>
 </div></div>
-<div class="compw"><div class="comp">
+<div class="compw">
+<sc-if value="{{c.m2.open}}" hint-placeholder-val="{{false}}"><section class="comp m2-composer" aria-label="Připravit změnu projektu" style="max-height: 46vh; overflow-y: auto; margin-bottom: 10px; padding: 12px;">
+<div class="comp-r"><b>Připravit změnu projektu</b><span class="grow"></span><button class="btn" onClick="{{c.m2.hide}}">Skrýt</button></div>
+<p class="faint">Příprava vytvoří návrh. Zápis vyžaduje samostatné schválení po kontrole změn.</p>
+<sc-if value="{{c.m2.hasError}}" hint-placeholder-val="{{false}}"><div class="fsec-e" role="alert">{{c.m2.error}}</div></sc-if>
+<label class="field">Celkové zadání<textarea aria-label="Celkové zadání změny" value="{{c.m2.instruction}}" onChange="{{c.m2.setInstruction}}" disabled="{{c.m2.busy}}"></textarea></label>
+<sc-for list="{{c.m2.files}}" as="f" hint-placeholder-count="1"><fieldset style="border: 1px solid var(--border); border-radius: 7px; padding: 10px; margin: 8px 0;"><legend>Soubor</legend>
+<label class="field">Cesta v projektu<input aria-label="Cesta souboru v plánu" value="{{f.path}}" onChange="{{f.setPath}}" disabled="{{c.m2.busy}}" /></label>
+<label class="field">Zadání pro soubor<textarea aria-label="Zadání pro soubor" value="{{f.instruction}}" onChange="{{f.setInstruction}}" disabled="{{c.m2.busy}}"></textarea></label>
+<label class="field">Závislosti · jedna cesta na řádek<textarea value="{{f.dependencies}}" onChange="{{f.setDependencies}}" disabled="{{c.m2.busy}}"></textarea></label>
+<label class="field">Kontextové soubory · jedna cesta na řádek<textarea value="{{f.contextFiles}}" onChange="{{f.setContext}}" disabled="{{c.m2.busy}}"></textarea></label>
+<sc-if value="{{f.hasReuse}}" hint-placeholder-val="{{false}}"><label><input type="checkbox" checked="{{f.reuse}}" onChange="{{f.setReuse}}" disabled="{{c.m2.busy}}" /> Zachovat přesný obsah z předchozího návrhu</label></sc-if>
+<button class="btn" disabled="{{f.removeDisabled}}" onClick="{{f.remove}}">Odebrat soubor</button></fieldset></sc-for>
+<button class="btn" disabled="{{c.m2.addDisabled}}" onClick="{{c.m2.add}}">Přidat soubor</button>
+<label class="field">Program testu · úplná cesta<input aria-label="Program cíleného testu" value="{{c.m2.binary}}" onChange="{{c.m2.setBinary}}" disabled="{{c.m2.busy}}" /></label>
+<label class="field">Argumenty testu · JSON pole doslovných řetězců<textarea aria-label="Argumenty cíleného testu" value="{{c.m2.argv}}" onChange="{{c.m2.setArgv}}" disabled="{{c.m2.busy}}"></textarea></label>
+<label class="field">Časový limit testu v ms<input value="{{c.m2.timeout}}" onChange="{{c.m2.setTimeout}}" disabled="{{c.m2.busy}}" /></label>
+<div class="comp-r"><button class="btn" disabled="{{c.m2.discardDisabled}}" onClick="{{c.m2.discard}}">Zahodit návrh</button><span class="grow"></span><sc-if value="{{c.m2.generating}}" hint-placeholder-val="{{false}}"><button class="btn" onClick="{{c.m2.cancel}}">Zastavit přípravu</button></sc-if><button class="btn btn-acc" disabled="{{c.m2.busy}}" onClick="{{c.m2.submit}}">Připravit návrh bez schválení</button></div>
+</section></sc-if><div class="comp">
 <sc-if value="{{c.hasAttachmentError}}" hint-placeholder-val="{{false}}"><div class="fsec-e" role="alert">{{c.attachmentError}}</div></sc-if>
 <sc-if value="{{c.hasDelivery}}" hint-placeholder-val="{{false}}"><div class="fsec-e" role="alert">{{c.deliveryText}}<sc-if value="{{c.deliveryUnknown}}" hint-placeholder-val="{{false}}"><button class="btn" onClick="{{c.acknowledge}}">Pokračovat bez opakování</button></sc-if></div></sc-if>
 <sc-if value="{{c.hasAtts}}" hint-placeholder-val="{{false}}"><div class="atts"><sc-for list="{{c.atts}}" as="a" hint-placeholder-count="1"><span class="chip att"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{I.clip}}"></path></svg><span class="att-t">{{a.t}}</span><span class="faint">{{a.s}}</span><button class="att-x" aria-label="Odebrat přílohu {{a.t}}" onClick="{{a.remove}}"><svg class="ic" width="11" height="11" viewBox="0 0 24 24"><path d="{{I.x}}"></path></svg></button></span></sc-for></div></sc-if>
 <textarea aria-label="Zpráva pro relaci {{c.n}}" placeholder="Napiš, co má IntentSmith udělat…" value="{{c.draft}}" onChange="{{c.setDraft}}" onKeyDown="{{c.keyDown}}"></textarea>
+<sc-if value="{{c.hasAutocomplete}}" hint-placeholder-val="{{false}}"><div class="comp-r" aria-label="Doplnění zprávy"><span class="faint">{{c.autocompleteText}}</span><span class="grow"></span><button class="btn" onClick="{{c.autocompleteApply}}">Použít · Tab</button><button class="btn" onClick="{{c.autocompleteClear}}">Zahodit</button></div></sc-if>
 <div class="comp-r">
 <button class="iconbtn" aria-label="Připojit soubor" title="Připojit soubor" onClick="{{c.attach}}"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="{{I.clip}}"></path></svg></button>
 <sc-if value="{{c.hasExpertPicker}}" hint-placeholder-val="{{true}}"><button class="chip" onClick="{{c.pickExpert}}" title="Změnit expertýzu"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{I.cap}}"></path></svg>{{c.expert}}<svg class="ic" width="11" height="11" viewBox="0 0 24 24"><path d="{{I.down}}"></path></svg></button></sc-if>
 <sc-if value="{{c.hasModel}}" hint-placeholder-val="{{true}}"><button class="chip mchip" onClick="{{c.pickModel}}" title="Změnit model"><span class="mono" style="font-size: 11px;">{{c.model}}</span><svg class="ic" width="11" height="11" viewBox="0 0 24 24"><path d="{{I.down}}"></path></svg></button></sc-if>
 <span class="grow"></span>
+<sc-if value="{{c.hasProjectComposer}}" hint-placeholder-val="{{false}}"><button class="chip" onClick="{{c.m2.show}}">Připravit změnu</button><sc-if value="{{c.m2.hasRevision}}" hint-placeholder-val="{{false}}"><button class="chip" onClick="{{c.m2.revise}}">Opravit předchozí návrh</button></sc-if></sc-if>
 <span class="hint">Ctrl+Enter odešle</span>
 <button class="btn btn-acc" aria-label="Odeslat" title="Odeslat" onClick="{{c.send}}" style="width: 34px; height: 30px; padding: 0; justify-content: center; border-radius: 7px;"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="{{I.send}}"></path></svg></button>
 </div>
@@ -936,14 +957,18 @@ textarea.fv-ed{font-family:var(--font-mono)}
 <div class="blk-h"><span class="lbl-acc">{{b.workerWizard.stepLabel}}</span></div>
 <sc-if value="{{b.workerWizard.isForm}}" hint-placeholder-val="{{true}}">
 <label class="arow2"><span>Rozšíření M3</span><select value="{{b.workerWizard.extension}}" onChange="{{b.workerWizard.setExtension}}"><sc-for list="{{b.workerWizard.extensions}}" as="option" hint-placeholder-count="1"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
-<label class="arow2"><span>Projekt</span><select value="{{b.workerWizard.project}}" onChange="{{b.workerWizard.setProject}}"><option value="">Vyber projekt</option><sc-for list="{{b.workerWizard.projects}}" as="option" hint-placeholder-count="2"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
+<sc-if value="{{b.workerWizard.needsProject}}" hint-placeholder-val="{{true}}"><label class="arow2"><span>Projekt</span><select value="{{b.workerWizard.project}}" onChange="{{b.workerWizard.setProject}}"><option value="">Vyber projekt</option><sc-for list="{{b.workerWizard.projects}}" as="option" hint-placeholder-count="2"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label></sc-if>
 <label class="arow2"><span>ID instance</span><input value="{{b.workerWizard.instanceId}}" onChange="{{b.workerWizard.setInstanceId}}" placeholder="project-health-muj-projekt"></label>
-<p class="aph">Dostupné rozšíření Project Health je lokální a deterministické. Nová instance zůstane vypnutá, dokud ji výslovně nepovolíš.</p>
+<sc-if value="{{b.workerWizard.hasParameters}}" hint-placeholder-val="{{false}}"><pre>{{b.workerWizard.parameterSchema}}</pre><label class="arow2"><span>Parametry JSON</span><textarea value="{{b.workerWizard.params}}" onChange="{{b.workerWizard.setParams}}"></textarea></label></sc-if>
+<p class="aph">Nová instance zůstane vypnutá, dokud ji výslovně nepovolíš.</p>
 <button class="btn btn-acc" disabled="{{b.workerWizard.nextDisabled}}" onClick="{{b.workerWizard.next}}">Pokračovat na kontrolu</button>
 </sc-if>
 <sc-if value="{{b.workerWizard.isReview}}" hint-placeholder-val="{{false}}">
 <div class="dl"><span>Rozšíření</span><strong>{{b.workerWizard.reviewExtension}}</strong><span>Projekt</span><strong>{{b.workerWizard.reviewProject}}</strong><span>ID instance</span><code>{{b.workerWizard.reviewInstanceId}}</code><span>Výchozí stav</span><span>vypnuto</span></div>
 <p class="aph">Potvrzení uloží instanci workeru. Nespustí žádnou úlohu ani model.</p>
+<sc-if value="{{b.workerWizard.hasDefinition}}" hint-placeholder-val="{{false}}"><details><summary>Zdroje, podmínky, spouštěče a akce</summary><pre>{{b.workerWizard.definitionText}}</pre></details></sc-if>
+<button class="btn" disabled="{{b.workerWizard.previewDisabled}}" onClick="{{b.workerWizard.preview}}">Ověřit konfiguraci bez spuštění</button>
+<sc-if value="{{b.workerWizard.hasPreview}}" hint-placeholder-val="{{false}}"><p class="aph">{{b.workerWizard.previewText}}</p></sc-if>
 <div style="display:flex;gap:8px"><button class="btn" onClick="{{b.workerWizard.back}}">Zpět</button><button class="btn btn-acc" disabled="{{b.workerWizard.submitDisabled}}" onClick="{{b.workerWizard.submit}}">Potvrdit instanci</button></div>
 </sc-if>
 <sc-if value="{{b.workerWizard.hasStatus}}" hint-placeholder-val="{{false}}"><div role="alert" class="note">{{b.workerWizard.status}}</div></sc-if>
@@ -1110,7 +1135,8 @@ textarea.fv-ed{font-family:var(--font-mono)}
 </div>
 <div class="rp-b">
 <sc-if value="{{ws.isZmeny}}" hint-placeholder-val="{{true}}">
-<sc-if value="{{ws.m2Pending}}" hint-placeholder-val="{{false}}"><div class="fsec"><div class="fsec-h"><span class="lbl">Trvalý plán M2</span></div><div class="fsec-e mono">Plán: {{ws.m2Lifecycle}} · digest: {{ws.m2Digest}} · governance: {{ws.m2Governance}}</div><sc-if value="{{ws.m2Test}}" hint-placeholder-val="{{false}}"><div class="fsec-e">Test: {{ws.m2Test}} · {{ws.m2Git}}</div></sc-if><button class="btn" onClick="{{ws.m2Refresh}}">Načíst trvalý stav a plán</button></div></sc-if>
+<sc-if value="{{ws.m2Pending}}" hint-placeholder-val="{{false}}"><div class="fsec"><div class="fsec-h"><span class="lbl">Změna projektu</span></div><div class="fsec-e mono">Stav: {{ws.m2State}} · Plán: {{ws.m2Lifecycle}} · digest: {{ws.m2Digest}} · governance: {{ws.m2Governance}}</div><sc-if value="{{ws.m2Test}}" hint-placeholder-val="{{false}}"><div class="fsec-e">Test: {{ws.m2Test}} · {{ws.m2Git}}</div></sc-if><button class="btn" onClick="{{ws.m2Refresh}}">Načíst trvalý stav a plán</button></div></sc-if>
+<sc-if value="{{ws.m2HasEvidence}}" hint-placeholder-val="{{false}}"><details class="fsec"><summary>Úplný výsledek, test a audit</summary><pre class="code mono" style="white-space: pre-wrap; overflow-wrap: anywhere;">{{ws.m2Evidence}}</pre></details></sc-if>
 <sc-if value="{{ws.m2HasError}}" hint-placeholder-val="{{false}}"><div class="fsec-e" role="alert">{{ws.m2Error}}</div></sc-if>
 <sc-if value="{{ws.hasChanges}}" hint-placeholder-val="{{true}}">
 <sc-for list="{{ws.files}}" as="f" hint-placeholder-count="3">

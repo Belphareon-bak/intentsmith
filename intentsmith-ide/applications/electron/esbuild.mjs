@@ -21,10 +21,7 @@ replaceEntry(browserOptions, 'bundle', './src-gen/frontend/index.js', './intents
 replaceEntry(nodeOptions, 'electron-main', './src-gen/backend/electron-main', './intentsmith-electron-main-entry.js');
 replaceEntry(electronOptions, 'preload', './src-gen/frontend/preload', './intentsmith-preload-entry.js');
 
-// The generated frontend loads every extension by default. The classic module
-// starts transport and event listeners at require-time, so the mode guard must
-// wrap the require itself, before either UI can run. Fail if Theia changes the
-// generated entry shape instead of silently loading both interfaces.
+// A retired UI must never reappear through generated Theia registrations.
 const classicModules = Object.freeze([
     '@intentsmith/chat-panel/lib/browser/chat-panel-module',
     '@intentsmith/agent-panel/lib/browser/agent-panel-module',
@@ -45,23 +42,13 @@ const classicModules = Object.freeze([
     '@intentsmith-ide/intentsmith-detail-panel/lib/browser/detail-panel-module',
 ]);
 const studio2Module = '@intentsmith-ide/intentsmith-studio2/lib/browser/studio2-module';
-const modeModule = '@intentsmith-ide/intentsmith-studio2/lib/browser/studio-mode-module';
-function gateFrontendModule(source, specifier, condition) {
-    const call = `await load(container, require('${specifier}'));`;
-    if (source.split(call).length !== 2) {
-        throw new Error(`Theia frontend load changed for ${specifier}; review Studio UI mode gate`);
-    }
-    return source.replace(call, `if (${condition}) ${call}`);
-}
 function gateFrontend(source) {
-    const modeCall = `await load(container, require('${modeModule}'));`;
-    if (source.split(modeCall).length !== 2) {
-        throw new Error('Theia frontend mode switch load changed; review Studio UI mode gate');
-    }
     for (const specifier of classicModules) {
-        source = gateFrontendModule(source, specifier, "window.__intentsmithStudioMode === 'classic'");
+        if (source.includes(specifier)) throw new Error(`Retired Studio frontend registered: ${specifier}`);
     }
-    return gateFrontendModule(source, studio2Module, "window.__intentsmithStudioMode === 'studio2'");
+    const call = `await load(container, require('${studio2Module}'));`;
+    if (source.split(call).length !== 2) throw new Error('Studio 2 frontend registration changed');
+    return source;
 }
 browserOptions.plugins.unshift({
     name: 'intentsmith-exclusive-studio-ui',

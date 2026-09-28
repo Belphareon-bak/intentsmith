@@ -2087,6 +2087,9 @@ ChatController.handle = async function(request) {
     authenticatedSubject: authenticatedSubject || null,
     // Persistent state from session (survives across requests)
     project: state.project,
+    // Only server-resolved durable selections reach project reasoning. Project
+    // mode and M2 approval authority remain in charge of every proposed effect.
+    projectExpertises: state.hasActiveProject ? selectedExpertises : [],
     expertise: state.expertise,
     // v44.3 - Expertise lock info for CRE
     expertiseLocked: state.expertiseLocked,

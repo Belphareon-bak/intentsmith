@@ -2,7 +2,7 @@
   "private": true,
   "name": "intentsmith-ide-electron",
   "version": "0.1.0",
-  "description": "IntentSmith Studio — Electron application",
+  "description": "IntentSmith Studio \u2014 Electron application",
   "main": "lib/backend/electron-main.js",
   "license": "MIT",
   "theia": {
@@ -21,7 +21,8 @@
         },
         "electron": {
           "windowOptions": {
-            "icon": "resources/intentsmith-icon.png"
+            "icon": "resources/intentsmith-icon.png",
+            "frame": false
           },
           "splashScreenOptions": {
             "content": "resources/splash.html",
@@ -56,32 +57,16 @@
     "@intentsmith/protocol": "0.1.0",
     "@intentsmith/backend-bridge": "0.1.0",
     "@intentsmith/chat-panel": "0.1.0",
-    "@intentsmith/agent-panel": "0.1.0",
     "@intentsmith/shell-bridge": "0.1.0",
     "@intentsmith/project-store": "0.1.0",
     "@intentsmith/audit-trail": "0.1.0",
-    "@intentsmith/status-widget": "0.1.0",
-    "@intentsmith/command-palette": "0.1.0",
-    "@intentsmith/context-menu": "0.1.0",
-    "@intentsmith/design-viewer": "0.1.0",
-    "@intentsmith/keybindings": "0.1.0",
-    "@intentsmith/notifications": "0.1.0",
-    "@intentsmith/diff-viewer": "0.1.0",
     "@intentsmith/git-integration": "0.1.0",
-    "@intentsmith/review-panel": "0.1.0",
     "@intentsmith/error-recovery": "0.1.0",
-    "@intentsmith/onboarding": "0.1.0",
     "@intentsmith/project-export": "0.1.0",
-    "@intentsmith/settings": "0.1.0",
-    "@intentsmith/chat-search": "0.1.0",
-    "@intentsmith/multi-project": "0.1.0",
-    "@intentsmith/token-dashboard": "0.1.0",
     "@intentsmith/process-isolation": "0.1.0",
     "@intentsmith/security-audit": "0.1.0",
     "@intentsmith/shell-security": "0.1.0",
     "@intentsmith/ws-security": "0.1.0",
-    "@intentsmith-ide/intentsmith-center-views": "*",
-    "@intentsmith-ide/intentsmith-detail-panel": "*",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "@intentsmith-ide/intentsmith-studio2": "*"

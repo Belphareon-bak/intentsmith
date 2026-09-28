@@ -73,7 +73,7 @@ class ExpertiseSelectionClient {
   async change(session, action, expertiseId = null) {
     const entry = this.entry(session);
     if (!session || entry.busy || entry.uncertain || session._closed || session.chat._thinking
-      || session.chat.specialist || session._projectId || this.store.find(session.id) !== session) return false;
+      || session.chat.specialist || this.store.find(session.id) !== session) return false;
     if (action !== 'clear' && !this.catalog.view('Expertýzy').items.some(item => item.id === expertiseId)) return false;
     entry.busy = true; entry.error = ''; session.chat._selectingExpertise = true; this.onChange();
     const conversationId = session._convId || entry.pendingId || 'studio-' + globalThis.crypto.randomUUID();

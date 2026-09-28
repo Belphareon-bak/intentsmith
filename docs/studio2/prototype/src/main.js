@@ -21,6 +21,8 @@ class Component extends DCLogic {
     else if (ctrl && e.altKey && k === 'b') p = { rightOpen: !s.rightOpen, rightPin: !s.rightOpen };
     else if (ctrl && !e.altKey && k === 'j') p = { bottomOpen: !s.bottomOpen };
     else if (ctrl && !e.altKey && (k === 't' || k === 'n')) p = this.pNewSession(s, {});
+    else if (ctrl && !e.altKey && k === 'w' && this.focusSid(s)) p = this.pCloseSession(s, this.focusSid(s));
+    else if (ctrl && !e.altKey && k === 'q') p = this.pCloseWindow(s);
     else if (ctrl && !e.altKey && k === 'o') p = Object.assign({}, this.pSelect(s, 'projects', '__new__'), { projectMode: 'open', projectStep: 0 });
     else if (ctrl && k === ',') p = this.pGo(s, 'settings');
     else if (e.altKey && e.shiftKey && /^digit[1-3]$/.test((e.code || '').toLowerCase())) p = this.pSetCols(s, Number(e.code.slice(-1)));
@@ -41,7 +43,7 @@ class Component extends DCLogic {
       rightOpen: true, rightPin: false, rightW: 400, rightTab: 'zmeny',
       bottomOpen: true, bottomH: 190, btab: {}, detailW: 520,
       menu: null, palette: false, pq: '', ctx: null, q: '', chip: 'vse',
-      view: 'dlazdice', size: 2, dtab: {}, approved: {}, stopped: {}, modes: {}, experts: {}, drafts: {}, extra: {}, sessions: {}, closed: [], toast: null, copied: {},
+      view: 'dlazdice', size: 2, dtab: {}, approved: {}, stopped: {}, modes: {}, experts: {}, drafts: {}, m2Forms: {}, extra: {}, sessions: {}, closed: [], toast: null, copied: {},
       openFiles: { 'src/main/sftp.js': true }, paused: {}, ran: {}, installed: {}, seq: 1,
       fileView: {}, fileMode: {}, fileDraft: {}, fileText: {}, fileGuard: null, userOpened: {}, treeClosed: {}, fileAction: null, fileActionNotice: '',
       specialistFiles: {}, specialistPreview: null, specialistFileNotice: '',
@@ -53,7 +55,7 @@ class Component extends DCLogic {
       projectDescription: '', projectType: 'general',
       specialistStep: 0, specialistName: '', specialistDomain: 'general',
       specialistDescription: '', specialistIcon: '',
-      workerStep: 0, workerExtension: 'project-health', workerProject: '', workerInstanceId: '',
+      workerStep: 0, workerExtension: 'project-health', workerProject: '', workerInstanceId: '', workerParams: '{}',
       expertiseStep: 0, expertiseEditingId: '', expertiseName: '', expertiseDomain: '', expertiseDescription: '', expertiseIcon: '👤',
       expertiseTone: 'professional', expertiseTemperature: 0.5, expertiseSystemPrompt: '',
       expertiseCreativity: 50, expertiseReasoning: 50, expertiseDeterminism: 50,
@@ -1326,6 +1328,8 @@ class Component extends DCLogic {
     extensions: [{ id: 'project-health', name: 'Project Health' }], projects: [{ id: 1, name: 'ShellSmith' }] }; }
 
   submitWorker() { return null; }
+  previewWorker() { return null; }
+  pCloseWindow() { return {}; }
 
   expertiseStatus() { return { busy: false, error: 'Prototyp ukazuje průvodce; backend se připojuje až v IDE.',
     preview: null }; }
@@ -1412,7 +1416,13 @@ class Component extends DCLogic {
     const extension = extensions.find(item => item.id === s.workerExtension);
     const project = projects.find(item => String(item.id) === String(s.workerProject));
     const instanceId = s.workerInstanceId.trim();
-    const valid = !!extension && !!project && /^[a-z0-9](?:[a-z0-9_-]{0,62}[a-z0-9])?$/.test(instanceId);
+    const fields = extension?.definition?.params || [{ name: 'project_id', type: 'number', label: 'Projekt' }];
+    const needsProject = fields.some(field => field.name === 'project_id');
+    let params = null;
+    try { params = JSON.parse(s.workerParams); } catch (_) {}
+    const valid = !!extension && (!needsProject || !!project) && params && typeof params === 'object'
+      && !Array.isArray(params) && s.workerParams.length <= 4096
+      && /^[a-z0-9](?:[a-z0-9_-]{0,62}[a-z0-9])?$/.test(instanceId);
     return {
       stepLabel: s.workerStep === 0 ? 'Krok 1 ze 2 · Instance' : 'Krok 2 ze 2 · Kontrola',
       isForm: s.workerStep === 0, isReview: s.workerStep === 1,
@@ -1420,10 +1430,21 @@ class Component extends DCLogic {
       extension: s.workerExtension, setExtension: e => this.setState({ workerExtension: e.target.value }),
       projects: projects.map(item => ({ value: String(item.id), label: item.name })),
       project: s.workerProject, setProject: e => this.setState({ workerProject: e.target.value }),
+      needsProject, params: s.workerParams, setParams: e => this.setState({ workerParams: e.target.value }),
+      parameterSchema: JSON.stringify(fields.filter(field => field.name !== 'project_id'), null, 2),
+      hasParameters: fields.some(field => field.name !== 'project_id'),
+      definitionText: extension?.definition ? JSON.stringify({ sources: extension.definition.sources,
+        conditions: extension.definition.conditions, triggers: extension.definition.triggers,
+        actions: extension.definition.actions }, null, 2) : '',
+      hasDefinition: !!extension?.definition,
       instanceId: s.workerInstanceId, setInstanceId: e => this.setState({ workerInstanceId: e.target.value }),
       reviewExtension: extension?.name || '—', reviewProject: project?.name || '—', reviewInstanceId: instanceId,
       nextDisabled: !valid || status.busy || status.loading,
       submitDisabled: !valid || status.busy || status.loading || !!status.uncertain,
+      previewDisabled: !valid || status.busy || status.loading,
+      preview: () => this.previewWorker(this.st()),
+      previewText: status.preview?.validation?.valid ? 'Konfigurace je platná. Ověření nespustilo zdroje, akce ani model.' : '',
+      hasPreview: !!status.preview?.validation?.valid,
       next: () => this.setState({ workerStep: 1 }), back: () => this.setState({ workerStep: 0 }),
       submit: () => this.submitWorker(this.st()),
       status: status.error || (status.loading ? 'Načítám rozšíření a projekty…' : ''),
@@ -1603,6 +1624,8 @@ class Component extends DCLogic {
     try { Promise.resolve(navigator.clipboard.writeText(value)).then(() => mark('ok'), () => mark('err')); } catch (e) { mark('err'); }
   }
 
+  pGapChoice(s, sid, key, choice) { return null; }
+
   msgVM(m, sid, s, b) {
     const I = this.data().I;
     const a = s.approved[sid];
@@ -1631,6 +1654,7 @@ class Component extends DCLogic {
     const mode = s.modes[sid] || b.mode;
     const author = m.author || (b.kind === 'specialist' && m.k === 'agent' ? b.short : 'IntentSmith');
     return {
+      hasGap: !!m.gap, gapCreate: this.run(s2 => this.pGapChoice(s2, sid, m.key, 'create')), gapFallback: this.run(s2 => this.pGapChoice(s2, sid, m.key, 'fallback')),
       isUser: m.k === 'user', isAgent: m.k === 'agent', text: m.text || '', hasText: !!m.text, time: m.time || '',
       hasAtts: !!(m.atts && m.atts.length), atts: (m.atts || []).map((a) => ({ t: a })),
       author, authorIcon: b.kind === 'specialist' ? I.users : I.anvil,
@@ -1656,6 +1680,54 @@ class Component extends DCLogic {
       showChanges: () => this.setState({ rightOpen: true, rightPin: true, rightTab: 'zmeny', mode: 'sessions', focusCol: Math.max(0, this.colLayout(this.st()).indexOf(sid)) }),
       hasResult, resText, resColor, resIcon
     };
+  }
+
+  pAutocomplete(s, sid) { return null; }
+  pClearAutocomplete(s, sid) { return null; }
+  composerKey(e, sid) {
+    if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault(); const p = this.pAutocomplete(this.st(), sid); if (p) this.setState(p);
+    } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault(); const p = this.pSend(this.st(), sid); if (p) this.setState(p);
+    }
+  }
+  m2Form(sid, s) { return s.m2Forms[sid] || null; }
+  m2Locked(sid) { return false; }
+  pM2Open(s, sid, revision) {
+    const form = this.m2Form(sid, s) || { instruction: s.drafts[sid] || '', files: [{ path: '', instruction: '', dependencies: '', contextFiles: '' }], binary: '', argv: '[]', timeoutMs: '30000' };
+    return { m2Forms: this.merge(s, 'm2Forms', { [sid]: Object.assign({}, form, { open: true }) }) };
+  }
+  m2Field(sid, key, value, index) {
+    const s = this.st(), form = this.m2Form(sid, s); if (!form) return;
+    const next = Object.assign({}, form, { error: null });
+    if (index == null) next[key] = value;
+    else next.files = form.files.map((file, i) => i === index ? Object.assign({}, file, { [key]: value }) : file);
+    this.setState({ m2Forms: this.merge(s, 'm2Forms', { [sid]: next }) });
+  }
+  pM2File(s, sid, index) {
+    const form = this.m2Form(sid, s); if (!form) return null;
+    const files = index == null ? form.files.concat([{ path: '', instruction: '', dependencies: '', contextFiles: '' }]) : form.files.filter((file, i) => i !== index);
+    return { m2Forms: this.merge(s, 'm2Forms', { [sid]: Object.assign({}, form, { files }) }) };
+  }
+  pM2Discard(s, sid) { return { m2Forms: this.merge(s, 'm2Forms', { [sid]: null }) }; }
+  pM2Submit(s, sid) { return { toast: { id: 'm2-' + Date.now(), t: 'V živém IDE se zde připraví návrh bez schválení.', tone: 'info' } }; }
+  pM2Hide(s, sid) { this.m2Field(sid, 'open', false); return null; }
+  pM2Cancel(s, sid) { return null; }
+  m2ComposerVM(sid, s) {
+    const form = this.m2Form(sid, s), busy = this.m2Locked(sid);
+    const field = (key, index) => e => this.m2Field(sid, key, e.target.value, index);
+    return { open: !!form && form.open, busy, generating: busy, discardDisabled: busy, error: form && form.error || '', hasError: !!form && !!form.error,
+      instruction: form && form.instruction || '', binary: form && form.binary || '', argv: form && form.argv || '[]', timeout: form && form.timeoutMs || '30000',
+      setInstruction: field('instruction'), setBinary: field('binary'), setArgv: field('argv'), setTimeout: field('timeoutMs'),
+      files: form ? form.files.map((file, i) => ({ path: file.path, instruction: file.instruction, dependencies: file.dependencies, contextFiles: file.contextFiles,
+        setPath: field('path', i), setInstruction: field('instruction', i), setDependencies: field('dependencies', i), setContext: field('contextFiles', i),
+        removeDisabled: busy || form.files.length <= 1, remove: this.run(s2 => this.pM2File(s2, sid, i)),
+        hasReuse: !!form.revisionOf, reuse: !!file.reusePrevious, setReuse: e => this.m2Field(sid, 'reusePrevious', e.target.checked, i) })) : [],
+      addDisabled: !form || busy || form.files.length >= 32,
+      add: this.run(s2 => this.pM2File(s2, sid)), show: this.run(s2 => this.pM2Open(s2, sid)),
+      revise: this.run(s2 => this.pM2Open(s2, sid, true)), hasRevision: false,
+      hide: this.run(s2 => this.pM2Hide(s2, sid)), discard: this.run(s2 => this.pM2Discard(s2, sid)),
+      submit: this.run(s2 => this.pM2Submit(s2, sid)), cancel: this.run(s2 => this.pM2Cancel(s2, sid)) };
   }
 
   columnsVM(s, lay, fidx) {
@@ -1704,9 +1776,11 @@ class Component extends DCLogic {
         expert: s.experts[sid] || b.expert, model: b.model,
         hasAttachmentError: false, attachmentError: '', hasDelivery: false, deliveryText: '',
         deliveryUnknown: false, acknowledge: () => {}, hasModel: true, hasExpertPicker: true,
+        hasProjectComposer: !!b.project, m2: this.m2ComposerVM(sid, s),
         draft: s.drafts[sid] || '',
         setDraft: (e) => this.setState({ drafts: this.merge(this.st(), 'drafts', { [sid]: e.target.value }) }),
-        keyDown: (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); const p2 = this.pSend(this.st(), sid); if (p2) this.setState(p2); } },
+        keyDown: e => this.composerKey(e, sid),
+        hasAutocomplete: false, autocompleteText: '', autocompleteApply: this.run(s2 => this.pAutocomplete(s2, sid)), autocompleteClear: this.run(s2 => this.pClearAutocomplete(s2, sid)),
         send: this.run((s2) => this.pSend(s2, sid)),
         pickExpert: this.run((s2) => this.pGo(s2, 'expertises')),
         pickModel: this.run((s2) => this.pSelect(s2, 'settings', 'modely')),
@@ -1738,7 +1812,7 @@ class Component extends DCLogic {
     const fvG = this.fileViewVM(fsid, s, 'scm');
     const common = {
       fl, scm, fvS, fvG, m2Pending: false, m2Digest: '', m2Lifecycle: '', m2Governance: '', m2Test: '', m2Git: '',
-      m2Refresh: () => {}, m2HasError: false, m2Error: '', hasFileError: false, fileError: '', isSouboryList: s.rightTab === 'soubory' && !fvS.isOpen, isSouboryFile: s.rightTab === 'soubory' && fvS.isOpen,
+      m2State: '', m2HasEvidence: false, m2Evidence: '', m2Refresh: () => {}, m2HasError: false, m2Error: '', hasFileError: false, fileError: '', isSouboryList: s.rightTab === 'soubory' && !fvS.isOpen, isSouboryFile: s.rightTab === 'soubory' && fvS.isOpen,
       isScm: s.rightTab === 'scm', isScmMain: s.rightTab === 'scm' && !fvG.isOpen, isScmFile: s.rightTab === 'scm' && fvG.isOpen,
       editFoot: (s.rightTab === 'soubory' && fvS.showFoot) || (s.rightTab === 'scm' && fvG.showFoot)
     };

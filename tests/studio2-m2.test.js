@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { SessionStore } = require('../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/session-store.js');
 const { M2Controller, validateView } = require('../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/m2-controller.js');
-const { renderM2Changes, renderM2ApprovalCard } = require('../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/m2-view.js');
+import { fixture as liveFixture } from './helpers/studio2-live-harness.js';
 
 const memory = new Map();
 const storage = { getItem: key => memory.get(key) || null, setItem: (key, value) => memory.set(key, value) };
@@ -66,19 +66,15 @@ await assert.rejects(reboot.run(rebootSession, '/m2-approve'), /Nejdřív načt�
 assert.equal(requests.length, 1);
 await reboot.run(rebootSession, '/m2-status');
 assert.equal(reboot.entry(rebootSession).view.state, 'awaiting_approval');
-const h = (type, props, ...children) => ({ type, props: props || {}, children: children.flat(Infinity) });
-const descendants = node => !node || typeof node !== 'object' ? []
-  : [node, ...node.children.flatMap(descendants)];
-const widget = { m2: reboot, sideMode: 'Soubory', update: () => {} };
-let card = renderM2ApprovalCard(widget, rebootSession, h);
-let button = label => descendants(card).find(node => node.type === 'button' && node.children.join('') === label);
-assert.equal(button('Schválit').props.disabled, true);
-assert.match(descendants(card).flatMap(node => node.children.filter(child => typeof child === 'string')).join(' '), /\+1 \/ −1/);
-button('Zobrazit změny').props.onClick();
-assert.equal(widget.sideMode, 'Změny');
-renderM2Changes(widget, rebootSession, h);
-card = renderM2ApprovalCard(widget, rebootSession, h);
-assert.equal(button('Schválit').props.disabled, false);
+const live = liveFixture().model;
+live.widget.store = rebootStore; live.widget.m2 = reboot;
+let card = live.renderVals().columns[0].msgs.find(message => message.hasApproval);
+assert.equal(card.approveCls, 'soft'); assert.match(card.apprSub, /\+1 −1/);
+card.showChanges();
+const changes = live.renderVals().ws;
+assert.equal(changes.isZmeny, true); assert.equal(changes.files[0].open, true);
+card = live.renderVals().columns[0].msgs.find(message => message.hasApproval);
+assert.equal(card.approveCls, '');
 nextResponse = { ...complete, planDigest: 'sha256:' + 'b'.repeat(64) };
 await assert.rejects(reboot.run(rebootSession, '/m2-approve'), /cizí M2 status/);
 assert.equal(rebootSession._m2Pending.planDigest, digest);

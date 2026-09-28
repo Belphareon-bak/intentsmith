@@ -19,11 +19,12 @@ function flattenTree(nodes, prefix = '', depth = 0) {
   return result;
 }
 class WorkspaceFiles {
-  constructor({ backendUrl, fetchImpl = fetch, onChange = () => {}, onVerifiedChange = () => {} } = {}) {
+  constructor({ backendUrl, fetchImpl = fetch, onChange = () => {}, onVerifiedChange = () => {}, onRestored = () => {} } = {}) {
     this.backendUrl = backendUrl || (() => window.electronIntentSmith.getBackendUrl());
     this.fetchImpl = fetchImpl;
     this.onChange = onChange;
     this.onVerifiedChange = onVerifiedChange;
+    this.onRestored = onRestored;
     this.entries = new Map();
   }
   entry(session) {
@@ -51,6 +52,18 @@ class WorkspaceFiles {
       state.root = data.root;
       state.tree = flattenTree(data.tree);
       state.loading = false;
+      if (session._legacyEditor && !state.editor) {
+        const saved = session._legacyEditor;
+        const relative = value => typeof value === 'string' && value.startsWith(state.root.replace(/\/$/, '') + '/')
+          ? value.slice(state.root.replace(/\/$/, '').length + 1) : null;
+        const valid = value => typeof value === 'string' && state.tree.some(item => item.path === value && !item.directory);
+        const paths = Array.isArray(saved.paths) ? saved.paths.slice(0, 30).map(relative).filter(valid) : [];
+        session._openedFiles = [...new Set([...session._openedFiles, ...paths])].slice(-30);
+        session._legacyEditor = null;
+        const active = relative(saved.activePath);
+        if (valid(active)) await this.open(session, active);
+        this.onRestored(session);
+      }
       this.changed();
       return true;
     } catch (error) {

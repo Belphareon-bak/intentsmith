@@ -192,22 +192,24 @@ function validatePreloadSource(preloadSource) {
 // The legacy workspace remains as historical source. Loading it alongside
 // @intentsmith/chat-panel registers intentsmith-sidebar twice and hides the current navigation.
 function validateSidebarComposition(manifest, frontendSource) {
-  const owner = '@intentsmith/chat-panel';
+  const owner = '@intentsmith-ide/intentsmith-studio2';
   const legacy = '@intentsmith-ide/intentsmith-sidebar';
   if (!manifest?.dependencies?.[owner]) {
-    throw new Error('Studio sidebar owner @intentsmith/chat-panel is missing');
+    throw new Error('Studio sidebar owner Studio 2 is missing');
   }
   for (const section of ['dependencies', 'devDependencies', 'optionalDependencies']) {
     if (Object.hasOwn(manifest[section] || {}, legacy)) {
       throw new Error('Studio application loads the legacy duplicate sidebar');
     }
   }
-  if (!frontendSource.includes(`${owner}/lib/browser/chat-panel-module`)) {
+  if (!frontendSource.includes(`${owner}/lib/browser/studio2-module`)) {
     throw new Error('Studio generated frontend is missing the current sidebar module');
   }
   if (frontendSource.includes(legacy)) {
     throw new Error('Studio generated frontend loads the legacy duplicate sidebar');
   }
+  if (frontendSource.includes('@intentsmith/chat-panel/lib/browser/chat-panel-module')
+    || frontendSource.includes('studio-mode-module')) throw new Error('Studio generated frontend loads the retired UI');
 }
 
 function validateConsumerRuntime(consumer) {
@@ -325,6 +327,8 @@ function verifyM1ConsumerBuild(options = {}) {
   if (bundleSource.includes('[IntentSmith] SidebarWidget created')) {
     throw new Error('Studio production bundle contains the legacy duplicate sidebar');
   }
+  if (bundleSource.includes('class IntentSmithSidebarWidget') || bundleSource.includes('chat-panel-module.js')
+    || bundleSource.includes('IntentSmithStudioMode')) throw new Error('Studio production bundle contains the retired UI');
   return Object.freeze({
     applicationManifestSha256: sha256(manifestBytes),
     frontendEntrySha256: sha256(frontendBytes),

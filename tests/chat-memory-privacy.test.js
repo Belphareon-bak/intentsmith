@@ -1,3 +1,4 @@
+import { fixture as studioFixture } from './helpers/studio2-live-harness.js';
 import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
@@ -81,24 +82,15 @@ test('Studio rejects disabled history before emitting content to progress observ
 });
 
 test('Studio settings save rejects failed HTTP and reloads persisted values', async () => {
-  const source = readFileSync(new URL('../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js', import.meta.url), 'utf8');
-  const start = source.indexOf('var _bCfgSaveVersion=');
-  const end = source.indexOf('\nfunction _bVal', start);
-  const persisted = { 'intentsmith.memory.ltmEnabled': true };
-  const logs = [];
-  const sandbox = vm.createContext({ _bCfg: { 'intentsmith.memory.ltmEnabled': false }, _bCfgSaveTimer: null,
-    _backendUrl: () => 'http://controlled', AbortSignal, renderCenter() {}, clearTimeout() {},
-    setTimeout(fn) { fn(); }, window: { _intentsmith: { agentLog: (_kind, message) => logs.push(message) } },
-    fetch: async (_url, options) => options.method === 'POST'
-      ? { ok: false, status: 400, json: async () => ({ error: 'Rejected settings' }) }
-      : { ok: true, status: 200, json: async () => persisted },
-  });
-  vm.runInContext(source.slice(start, end), sandbox);
-  vm.runInContext('_saveBCfg()', sandbox);
-  await sandbox._bCfgSaveChain;
-  assert.equal(sandbox._bCfg['intentsmith.memory.ltmEnabled'], true);
-  assert.match(sandbox._bCfgError, /nebylo uloženo/);
-  assert.match(logs.join('\n'), /Rejected settings/);
+  const f = studioFixture(), persisted = { 'intentsmith.memory.ltmEnabled': true };
+  f.widget.catalog.get = async () => persisted;
+  f.model._settingsResources.set('pamet', { status: 'ready', data: persisted });
+  f.model._preferenceDrafts.set('pamet', { 'intentsmith.memory.ltmEnabled': false });
+  f.model.fetchImpl = async () => ({ ok: false, status: 400, json: async () => ({ error: 'Rejected settings' }) });
+  assert.equal(await f.model.savePreferences('pamet'), false);
+  assert.equal(f.model._settingsResources.get('pamet').data['intentsmith.memory.ltmEnabled'], true);
+  assert.match(f.model._preferenceNotice.get('pamet'), /Rejected settings/);
+  assert.equal(f.model._preferenceDrafts.get('pamet')['intentsmith.memory.ltmEnabled'], false);
 });
 
 test('each learning opt-out prevents the real feedback intercept from writing a correction', async () => {
@@ -285,49 +277,32 @@ test('shipped Studio handler uses native routes, reports actual outcomes and pre
   let routeResponse;
   const routes = createAgentPlatformRoutes({ agentExtensionService: service,
     sendJSON: (_res, status, body) => { routeResponse = { status, body }; } });
-  const source = readFileSync(new URL('../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js', import.meta.url), 'utf8');
-  const start = source.indexOf('function _detailActionHandler(d,a){');
-  const end = source.indexOf('function _assignConvToProject(', start);
-  assert.ok(start >= 0 && end > start);
-  let calls = [], logs = [], override = null;
+  const f = studioFixture(); let calls = [], override = null;
   const worker = { id: 'privacy-native', name: 'Scoped agent', native: true };
-  const sandbox = vm.createContext({ window: { _intentsmith: { agentLog: (_type, message) => logs.push(message) } },
-    WORKERS: [worker], _backendUrl: () => 'http://controlled', AbortSignal,
-    fetchBackendData() {}, encodeURIComponent,
-    fetch: async (url, options) => {
-      const path = new URL(url).pathname;
-      calls.push(path);
-      const action = path.split('/').at(-1);
-      if (!override) await routes[`${options.method} /api/agent-extensions/instances/:agentId/${action}`]({}, {}, { agentId: worker.id });
-      const response = override || routeResponse;
-      return { ok: response.status >= 200 && response.status < 300, status: response.status, json: async () => response.body };
-    },
-  });
-  vm.runInContext(source.slice(start, end), sandbox);
-  const act = async action => {
-    logs = []; sandbox.action = action;
-    await vm.runInContext('_detailActionHandler({_itemId:"privacy-native",name:"Scoped agent"},action)', sandbox);
-    return logs.join('\n');
+  f.widget.catalog.get = async () => ({ ...repository.getAgent(worker.id), recentRuns: repository.getRunHistory(worker.id) });
+  f.widget.catalog.view = () => ({ status: 'ready', items: [{ ...worker, raw: repository.getAgent(worker.id) }] });
+  f.widget.catalog.mutate = async (path, method) => {
+    calls.push(path);
+    if (!override) await routes[`${method} /api/agent-extensions/instances/:agentId/${path.split('/').at(-1)}`]({}, {}, { agentId: worker.id });
+    const response = override || routeResponse;
+    if (response.status < 200 || response.status >= 300) throw Error(response.body.error);
+    return response.body;
   };
-  assert.match(await act('Spustit'), /nebyl úspěšně dokončen: skipped/);
-  assert.match(await act('Povolit'), /Plánování agenta Scoped agent povoleno/);
-  assert.match(await act('Spustit'), /Agent Scoped agent dokončil běh/);
-  assert.match(await act('Pozastavit'), /Plánování agenta Scoped agent pozastaveno/);
+  await f.model.loadWorkerDetail(worker.id);
+  assert.equal(await f.model.pWorkerAction(worker, 'run'), false); assert.match(f.widget.catalogActionError, /skipped/);
+  assert.equal(await f.model.pWorkerAction(worker, 'enable'), true);
+  assert.equal(await f.model.pWorkerAction(worker, 'run'), true);
+  assert.equal(await f.model.pWorkerAction(worker, 'disable'), true);
   const reopened = new Database(isolatedTestRuntime.database, { readonly: true });
-  assert.equal(reopened.prepare('SELECT enabled FROM agents_v33 WHERE id = ?').get(worker.id).enabled, 0);
-  reopened.close();
+  assert.equal(reopened.prepare('SELECT enabled FROM agents_v33 WHERE id = ?').get(worker.id).enabled, 0); reopened.close();
   for (const response of [{ status: 410, body: { error: 'LEGACY_AGENT_MUTATION_RETIRED' } },
-    { status: 200, body: { status: 'error' } }, { status: 200, body: { status: 'partial' } },
-    { status: 200, body: {} }]) {
-    override = response;
-    const log = await act('Spustit');
-    assert.match(log, /❌/); assert.doesNotMatch(log, /dokončil běh/);
+    { status: 200, body: { status: 'error' } }, { status: 200, body: { status: 'partial' } }, { status: 200, body: {} }]) {
+    override = response; assert.equal(await f.model.pWorkerAction(worker, 'run'), false); assert.ok(f.widget.catalogActionError);
   }
   override = { status: 200, body: { id: worker.id, enabled: true } };
-  assert.match(await act('Pozastavit'), /Server nepotvrdil/);
+  assert.equal(await f.model.pWorkerAction(worker, 'disable'), false); assert.match(f.widget.catalogActionError, /neodpovídá/);
   worker.native = false;
-  const before = calls.length;
-  assert.match(await act('Spustit'), /pouze ke čtení/);
-  assert.equal(calls.length, before);
+  f.model._workerDetails.set(worker.id, { status: 'ready', data: { definition: {} } });
+  const before = calls.length; assert.equal(await f.model.pWorkerAction(worker, 'run'), false); assert.equal(calls.length, before);
   assert.ok(calls.every(path => path.startsWith('/api/agent-extensions/instances/')));
 });

@@ -207,6 +207,22 @@ export function createAgentPlatformRoutes(deps) {
       sendJSON(res, 200, { extensions: agentExtensionService.list() });
     },
 
+    'GET /api/agent-extensions/:id': async (req, res, params) => {
+      try { sendJSON(res, 200, agentExtensionService.configuration(params.id)); }
+      catch (error) { sendJSON(res, 404, { error: error.message, code: error.code }); }
+    },
+
+    'POST /api/agent-extensions/:id/preview': async (req, res, params) => {
+      try {
+        const body = await parseBody(req);
+        const preview = agentExtensionService.preview(params.id, body);
+        sendJSON(res, 200, preview);
+      } catch (error) {
+        sendJSON(res, error.code === 'M3_AGENT_EXTENSION_CONFLICT' ? 409 : 400,
+          { error: error.message, code: error.code || 'M3_AGENT_EXTENSION_INVALID' });
+      }
+    },
+
     'POST /api/agent-extensions/:id/install': async (req, res, params) => {
       try {
         const body = await parseBody(req);
@@ -218,6 +234,7 @@ export function createAgentPlatformRoutes(deps) {
           instanceId: body.instanceId || params.id,
           params: extensionParams,
           enabled: body.enabled,
+          expectedDefinitionDigest: body.expectedDefinitionDigest,
         });
         sendJSON(res, 201, agent);
       } catch (error) {

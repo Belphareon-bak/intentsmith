@@ -10,10 +10,7 @@ const packageFile = path.join(packageRoot, 'package.json');
 const requiredRuntimeFiles = Object.freeze([
   'lib/browser/agent-client.js',
   'lib/browser/agent-log-renderer.js',
-  'lib/browser/chat-panel-module.js',
   'lib/browser/event-bus.js',
-  'lib/browser/styles/intentsmith-chat.css',
-  'lib/browser/styles/intentsmith-theme.css',
   'lib/browser/terminal-client.js',
   'lib/browser/ws-client.js',
 ]);
@@ -41,15 +38,11 @@ function walkFiles(root) {
 
 function verify() {
   const manifest = JSON.parse(fs.readFileSync(packageFile, 'utf8'));
-  if (manifest.main !== 'lib/browser/chat-panel-module.js') {
-    fail('main must point to lib/browser/chat-panel-module.js');
+  if (manifest.main !== 'lib/browser/ws-client.js') {
+    fail('main must point to lib/browser/ws-client.js');
   }
-  if (
-    !Array.isArray(manifest.theiaExtensions)
-    || manifest.theiaExtensions.length !== 1
-    || manifest.theiaExtensions[0]?.frontend !== 'lib/browser/chat-panel-module'
-  ) {
-    fail('Theia frontend must point to lib/browser/chat-panel-module');
+  if (!Array.isArray(manifest.theiaExtensions) || manifest.theiaExtensions.length !== 0) {
+    fail('shared clients must not register a frontend UI');
   }
   if (Object.prototype.hasOwnProperty.call(manifest, 'typings')) {
     fail('typings must not advertise a declaration file that does not exist');

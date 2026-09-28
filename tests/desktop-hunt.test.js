@@ -1,3 +1,4 @@
+import { execFileSync as runStudio2BehaviorTests } from 'node:child_process';
 import './helpers/isolated-test-db.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -107,43 +108,7 @@ test('latest completed manual evaluation is not overridden by an older failed hu
   assert.equal((await control.status()).resources.code,'HUNT_RESOURCE_STATE_UNAVAILABLE');
 });
 
-test('Studio progress exposes real task counts and ETA, with raw failures only in collapsed details',async()=>{
-  const source=await readFile(join(ROOT,'intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
-  const helpers=source.slice(source.indexOf('function _modelButtonStyle('),source.indexOf('var _huntSubmittedAt='));
-  const render=source.slice(source.indexOf('function _renderRecentHunts('),source.indexOf('var _discoveredData='));
-  const context=vm.createContext({C:{},_fs:n=>n,h:(tag,props,...children)=>({tag,props,children}),
-    _huntActionPending:false,_huntError:null,_huntLoading:false,_loadHuntStatus(){}});
-  vm.runInContext(helpers+render,context);
-  context._huntData={state:'RUNNING',timer:{},current:{status:'RUNNING',startedAt:new Date(Date.now()-60000).toISOString(),request:{kind:'evaluation',model:'fixture',role:'CODE'}},
-    progress:{phase:'tasks',activeModel:'fixture',updatedAt:new Date().toISOString(),detail:{role:'CODE',testName:'patch_real_fix',repeat:2,repeats:3,completedTests:3,totalTests:9,etaMs:120000}}};
-  const tree=()=>vm.runInContext('_renderHuntTab()',context);
-  const nodes=(node)=>!node||typeof node!=='object'?[]:Array.isArray(node)?node.flatMap(nodes):[node,...nodes(node.children)];
-  const progress=nodes(tree()).find(n=>n.tag==='progress');
-  assert.equal(progress.props.value,33);assert.match(JSON.stringify(tree()),/3 \/ 9 provedených/);
-  assert.match(JSON.stringify(tree()),/patch_real_fix/);assert.match(JSON.stringify(tree()),/do konce této sady/);
-  context._huntData.progress.detail={};
-  assert.equal(nodes(tree()).find(n=>n.tag==='progress').props.value,undefined);
-  context._huntData.state='FAILED';context._huntData.current={status:'FAILED',code:'MODEL_EVALUATION_ARTIFACT_CHANGED',error:'Error: MODEL_EVALUATION_ARTIFACT_CHANGED\nprivate-stack.js:673'};
-  assert.equal(nodes(tree()).filter(n=>n.tag==='progress').length,0);
-  const details=nodes(tree()).find(n=>n.tag==='details'&&JSON.stringify(n).includes('private-stack.js:673'));
-  assert.ok(details);assert.notEqual(details.props.open,true);
-  assert.match(JSON.stringify(tree()),/Obnov seznam modelů/);
-  // systemd can be active before the wrapper replaces the previous summary.
-  context._huntData.state='RUNNING';
-  context._huntData.current={status:'COMPLETE',startedAt:'2020-01-01T00:00:00Z',request:{kind:'evaluation',model:'fixture',role:'D1,CODE,VISION'}};
-  assert.match(JSON.stringify(tree()),/Čekám na potvrzení začátku běhu/);
-  assert.doesNotMatch(JSON.stringify(tree()),/Uplynulo/);
-  Object.assign(context,{_loadEvaluationData(){},renderCenter(){}});
-  const resultButton=nodes(tree()).find(n=>n.tag==='button'&&n.children.includes('Zobrazit výsledky'));
-  assert.ok(resultButton);resultButton.props.onClick();
-  assert.equal(context._evaluationRoleFilter,'all');
-  assert.equal(context._evaluationModelFilter,'fixture');
-  context._huntData.resources={memoryAvailableBytes:10*2**30,disks:[{availableBytes:32*2**30},{availableBytes:20*2**30}],minimumMemoryBytes:4*2**30,minimumDiskBytes:12*2**30};
-  const resourceText=JSON.stringify(nodes(tree()).find(n=>n.props?.['data-testid']==='hunt-resources'));
-  assert.match(resourceText,/RAM 10\.0 GiB/);assert.match(resourceText,/disku 20\.0 GiB/);
-  context._huntData.resources={ready:null};
-  assert.match(JSON.stringify(tree()),/stav nelze ověřit/);
-});
+
 test('calibration diagnostic separates a stable near-tie from noise without overriding decisions',()=>{
   const data=[{model:'fixture',trials:[{role:'D1',decision:{reasonCode:'INSUFFICIENT_EVIDENCE'},
     policy:{minimumDiscriminatingTasks:3},comparison:{discriminating:2,tasks:[
@@ -306,20 +271,7 @@ test('legacy launcher preserves attached backend and its port file on Studio fai
   assert.equal(await readFile(port,'utf8'),data);assert.doesNotThrow(()=>process.kill(process.pid,0));
 });
 
-test('Studio hunt renders queue and skip reason, and cancelled confirmation sends no control request',async()=>{
-  const source=await readFile(join(ROOT,'intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
-  const start=source.indexOf('var _huntData='),end=source.indexOf('\n}',source.indexOf('function _renderHuntTab()'))+2;
-  let fetches=0;
-  const context=vm.createContext({setInterval(){},confirm:()=>false,fetch:()=>{fetches++;},
-    _backendUrl:()=> 'http://fixture',_centerState:{view:'upgrades'},_upgradeTab:'hunt',renderCenter(){},
-    _fs:n=>n,C:{tx3:'#888',border:'#333'},h:(tag,props,...children)=>({tag,props,children})});
-  const helpers=source.slice(source.indexOf('function _modelButtonStyle('),source.indexOf('var _huntData='));
-  vm.runInContext(helpers+source.slice(start,end),context);
-  vm.runInContext("_huntData={state:'WAITING',timer:{ActiveState:'active'},installation:{revision:'abcdef123456'},current:{status:'SCHEDULED_SKIPPED',reasons:['GPU_BUSY']},queue:[{name:'candidate',roles:['CODE'],state:'PENDING'}]};_controlHunt('start');",context);
-  assert.equal(fetches,0);
-  const rendered=JSON.stringify(vm.runInContext('_renderHuntTab()',context));
-  assert.match(rendered,/GPU_BUSY/);assert.match(rendered,/candidate/);assert.match(rendered,/Přeskočeno/);
-});
+
 
 test('GPU mismatch and unknown probe are actionable blockers, never zero-VRAM success',async()=>{
   const mismatch=await inspectHuntGpu({run:async()=>{throw Object.assign(new Error('exit 18'),{stdout:'Failed to initialize NVML: Driver/library version mismatch\n'});}});
@@ -415,24 +367,7 @@ test('grading launches only an exact reviewed source, with the same resource lim
   assert.ok(launched[0].includes('--property=MemoryMax=75%'));assert.ok(!launched[0].includes('--evaluate-installed'));
 });
 
-test('Studio grading handles absent acceptance and pins a confirmed source without requesting a new test',async()=>{
-  const source=await readFile(join(ROOT,'intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
-  const start=source.indexOf('function _gradeStoredAnswers('),end=source.indexOf('\nsetInterval(',start);
-  for(const approved of [false,true]) {
-    const calls=[],context=vm.createContext({AbortSignal,confirm:()=>true,renderCenter(){},_loadHuntStatus(){},
-      _modelTestPending:false,_backendUrl:()=> 'http://fixture',fetch:async(url,options)=>{
-        calls.push({url,options});return {ok:true,json:async()=>url.includes('/grading/')?
-          {model:'candidate',role:'D1',sourceSha256:'s',code:'EVALUATION_GRADER_ACCEPTANCE_MISSING',
-            graders:approved?[{id:'accept_exact',judge:{modelName:'other-model'}}]:[]}:{accepted:true}};
-      }});
-    vm.runInContext(source.slice(start,end)+';_gradeStoredAnswers("eval_exact");',context);
-    await new Promise(r=>setImmediate(r));
-    assert.equal(calls.length,approved?2:1);assert.equal(context._modelTestPending,false);
-    if(approved){assert.ok(calls[1].url.endsWith('/models/grade'));assert.deepEqual(JSON.parse(calls[1].options.body),
-      {runId:'eval_exact',graderAcceptanceId:'accept_exact',sourceSha256:'s'});}
-    else assert.match(context._modelTestMessage,/nový test není potřeba/);
-  }
-});
+
 
 test('historical HTTP detail delegates to the injected read authority with the exact run ID',async()=>{
   const calls=[];
@@ -443,69 +378,11 @@ test('historical HTTP detail delegates to the injected read authority with the e
   assert.equal((await unavailable['GET /api/system/models/evaluations/:runId']({params:{runId:'x'}},{})).status,503);
 });
 
-test('candidate filtering keeps estimates separate from unknown capacity and sorts numeric values',async()=>{
-  const source=await readFile(join(ROOT,'intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
-  const start=source.indexOf('var _candidateFilter='),end=source.indexOf('function _renderDiscoveredTab()',start);
-  const context=vm.createContext({});vm.runInContext(source.slice(start,end),context);
-  context.data={vramBudgetMb:20*1024,candidates:[
-    {name:'large',params:30,vramMb:25*1024},{name:'small',params:7,vramMb:5*1024},
-    {name:'medium',params:14,vramMb:10*1024},{name:'unknown',params:null,vramMb:null},
-  ]};
-  assert.equal(vm.runInContext('_filteredCandidates(data).rows.map(m=>m.name).join(",")',context),'medium,small');
-  vm.runInContext('_candidateFilter.sort="params-asc"',context);
-  assert.equal(vm.runInContext('_filteredCandidates(data).rows.map(m=>m.name).join(",")',context),'small,medium');
-  vm.runInContext('_candidateFilter.role="VISION"',context);
-  assert.equal(vm.runInContext('_filteredCandidates(data).rows.length',context),0);
-  context.data.candidates[1].eligibleRoles=['VISION'];
-  assert.equal(vm.runInContext('_filteredCandidates(data).rows[0].name',context),'small');
-  vm.runInContext('_candidateFilter.role="all"',context);
-  context.data.vramBudgetMb=null;
-  assert.equal(vm.runInContext('_filteredCandidates(data).rows.length',context),4);
-  assert.equal(vm.runInContext('_filteredCandidates(data).fitUnavailable',context),true);
-  for(const invalid of ['-1','0','Infinity','bad']) {
-    context.invalid=invalid;vm.runInContext('_candidateFilter.budgetGiB=invalid',context);
-    assert.equal(vm.runInContext('_filteredCandidates(data).budgetMb',context),null);
-    assert.equal(vm.runInContext('_filteredCandidates(data).rows.length',context),4);
-  }
-  vm.runInContext('_candidateFilter.budgetGiB="24"',context);
-  assert.equal(vm.runInContext('_filteredCandidates(data).rows.length',context),2);
-  assert.equal(vm.runInContext('_filteredCandidates(data).fitUnavailable',context),false);
-  vm.runInContext('_candidateFilter.budgetGiB="1"',context);
-  assert.equal(vm.runInContext('_filteredCandidates(data).rows.length',context),0);
-  vm.runInContext('_candidateFilter.fit="all"',context);
-  assert.equal(vm.runInContext('_filteredCandidates(data).rows.at(-1).name',context),'unknown');
-});
 
-test('Studio selected test sends the current exact artifact and role, no arbitrary arguments',async()=>{
-  const source=await readFile(join(ROOT,'intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
-  const start=source.indexOf('function _testInstalledModel('),end=source.indexOf('\nsetInterval(',start);
-  const calls=[];const context=vm.createContext({AbortSignal,confirm:()=>true,renderCenter(){},_loadHuntStatus(){},
-    _modelTestPending:false,_modelTestMessage:null,_backendUrl:()=> 'http://fixture',_canonicalModelIdentity:n=>n,
-    fetch:async(url,options)=>{calls.push({url,options});return {ok:true,json:async()=>url.endsWith('/evaluations')?{roles:{CODE:{suiteContractSha256:'e'.repeat(64),artifacts:[{model:'fixture:7b',digestSha256:'d'.repeat(64)}]}}}:{accepted:true}};}});
-  vm.runInContext(source.slice(start,end)+';_testInstalledModel("fixture:7b","CODE");_testInstalledModel("fixture:7b","CODE");',context);
-  await new Promise(r=>setImmediate(r));assert.equal(calls.length,2);
-  assert.ok(calls[1].url.endsWith('/models/evaluate'));
-  assert.deepEqual(JSON.parse(calls[1].options.body),{model:'fixture:7b',role:'CODE',digestSha256:'d'.repeat(64),suiteContractSha256:'e'.repeat(64)});
-  assert.equal(context._modelTestPending,false);assert.equal(context._upgradeTab,'hunt');
-});
 
-test('selected test failure stays next to the selected model and role with its actual GPU reason',async()=>{
-  const source=await readFile(join(ROOT,'intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
-  const start=source.indexOf('function _testInstalledModel('),end=source.indexOf('\nsetInterval(',start);
-  const helpers=source.slice(source.indexOf('function _modelButtonStyle('),source.indexOf('var _huntData='));
-  const context=vm.createContext({AbortSignal,confirm:()=>true,renderCenter(){},_modelTestPending:false,
-    _backendUrl:()=> 'http://fixture',_canonicalModelIdentity:n=>n,_upgradeTab:'evaluations',C:{},_fs:n=>n,
-    h:(tag,props,...children)=>({tag,props,children}),fetch:async url=>url.endsWith('/evaluations')
-      ?{ok:true,json:async()=>({roles:{CODE:{suiteContractSha256:'e'.repeat(64),artifacts:[{model:'qwen3.5:27b',digestSha256:'d'.repeat(64)}]}}})}
-      :{ok:false,status:503,json:async()=>({code:'GPU_DRIVER_LIBRARY_MISMATCH',error:'NVIDIA a NVML mají rozdílné verze; restartuj počítač.'})}});
-  vm.runInContext(helpers+source.slice(start,end)+';_testInstalledModel("qwen3.5:27b","CODE");',context);
-  await new Promise(r=>setImmediate(r));
-  assert.equal(context._modelTestPending,false);assert.equal(context._upgradeTab,'evaluations');
-  const feedback=vm.runInContext('_modelTestFeedback("qwen3.5:27b","CODE")',context);
-  assert.equal(feedback.props.role,'alert');assert.match(feedback.children.join(''),/qwen3\.5:27b \(CODE\).*nespustil.*NVML.*restartuj/);
-  assert.equal(vm.runInContext('_modelTestFeedback("different:7b","CODE")',context),null);
-  assert.equal(vm.runInContext('_modelTestFeedback("qwen3.5:27b","D1")',context),null);
-});
+
+
+
 
 
 test('GPU inventory survives restart and refreshes daily without discarding last known capacity on failure', async t => {
@@ -543,88 +420,14 @@ test('hunt retains the last five results and does not present an old plan as que
   await control.status();assert.equal(probes,1);await control.status({freshGpu:true});assert.equal(probes,2);
 });
 
-test('open model workspace follows a rotated backend and never renders failed reads as empty data', async()=>{
-  const source=await readFile(join(ROOT,'intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
-  const fn=name=>{const start=source.indexOf('function '+name+'(');assert.ok(start>=0,name);return source.slice(start,source.indexOf('\n}',start)+2);};
-  let endpoint='http://127.0.0.1:41001',fail=false;
-  const calls=[];
-  const context=vm.createContext({window:{electronIntentSmith:{getBackendUrl:()=>endpoint}},AbortSignal,
-    C:{},_fs:n=>n,h:(tag,props,...children)=>({tag,props,children}),renderCenter(){},
-    _modelReadEpoch:0,_evaluationData:null,_evaluationLoading:false,_modelOverview:null,
-    _governorData:null,_governorProposals:null,_governorLoading:false,_governorError:null,
-    _huntData:null,_huntError:null,_huntLoading:false,_huntSubmittedAt:0,_huntRefreshedRunId:null,
-    fetch:async(url,options)=>{calls.push({url,method:options.method||'GET'});if(fail)throw new TypeError('Failed to fetch');
-      return{ok:true,json:async()=>url.endsWith('/proposals')?{proposals:[]}:url.endsWith('/report')?{dimensions:{cre:{status:'HEALTHY',score:1}}}:{roles:{CODE:{binding:'coder',artifacts:[]}},current:null}};}});
-  vm.runInContext(['_backendUrl','_modelButtonStyle','_modelReadError','_modelLoadFailure','_readModelResource','_loadEvaluationData','_loadGovernorData','_loadHuntStatus','_renderRolesTab','_renderGovernorTab','_renderEvaluationHistory','_renderEvaluationsTab','_renderHuntTab'].map(fn).join('\n'),context);
-  await vm.runInContext('_loadEvaluationData()',context);
-  assert.equal(calls.at(-1).url,endpoint+'/api/system/models/evaluations');
-  endpoint='http://127.0.0.1:41002';
-  await vm.runInContext('_loadEvaluationData()',context);
-  assert.equal(calls.at(-1).url,endpoint+'/api/system/models/evaluations');
-  fail=true;
-  await vm.runInContext('Promise.all([_loadEvaluationData(),_loadGovernorData(),_loadHuntStatus()])',context);
-  for(const render of ['_renderRolesTab','_renderGovernorTab','_renderEvaluationHistory','_renderEvaluationsTab','_renderHuntTab']){
-    const text=JSON.stringify(vm.runInContext(render+'()',context));
-    assert.match(text,/Backend není dostupný/);assert.match(text,/Zkusit znovu/);
-    assert.doesNotMatch(text,/Načítám role|Chybí data|Žádné dokončené|Žádná otevřená|posledních 0/);
-  }
-  fail=false;
-  await vm.runInContext('Promise.all([_loadEvaluationData(),_loadGovernorData(),_loadHuntStatus()])',context);
-  assert.equal(context._evaluationData.roles.CODE.binding,'coder');assert.equal(context._governorData.dimensions.cre.score,1);
-  assert.equal(context._huntError,null);assert.ok(calls.every(c=>c.method==='GET'));
-  endpoint=null;assert.equal(vm.runInContext('_backendUrl()',context),'','missing private endpoint must use capability-guarded relative transport, never a guessed port');
-});
-
-test('late model reads from the disconnected epoch cannot overwrite the recovered result',async()=>{
-  const source=await readFile(join(ROOT,'intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
-  const fn=name=>{const start=source.indexOf('function '+name+'(');return source.slice(start,source.indexOf('\n}',start)+2);};
-  let finishOld;
-  const context=vm.createContext({AbortSignal,_modelReadEpoch:0,_evaluationData:null,_evaluationLoading:false,
-    _backendUrl:()=> 'http://127.0.0.1:42000',renderCenter(){},
-    fetch:()=>new Promise(resolve=>{finishOld=()=>resolve({ok:true,json:async()=>({source:'old'})});})});
-  vm.runInContext(['_modelReadError','_readModelResource','_loadEvaluationData'].map(fn).join('\n'),context);
-  const old=vm.runInContext('_loadEvaluationData()',context);
-  context._modelReadEpoch++;context._evaluationLoading=false;
-  context.fetch=async()=>({ok:true,json:async()=>({source:'new'})});
-  await vm.runInContext('_loadEvaluationData()',context);finishOld();await old;
-  assert.equal(context._evaluationData.source,'new');assert.equal(context._evaluationLoading,false);
-});
-
-test('LLM settings reject error objects as inventory and keep model management reachable before inventory loads',async()=>{
-  const source=await readFile(join(ROOT,'intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
-  const fn=name=>{const start=source.indexOf('function '+name+'(');return source.slice(start,source.indexOf('\n}',start)+2);};
-  const context=vm.createContext({AbortSignal,_modelReadEpoch:0,_settingsModelsLoading:false,_settingsModelsError:null,_ollamaModels:null,
-    _backendUrl:()=> 'http://127.0.0.1:42000',renderCenter(){},fetch:async()=>({ok:false,status:503,json:async()=>({error:'down'})})});
-  vm.runInContext(['_modelReadError','_readModelResource','_loadSettingsModels'].map(fn).join('\n'),context);
-  await vm.runInContext('_loadSettingsModels()',context);
-  assert.match(context._settingsModelsError,/HTTP 503/);assert.ok(Array.isArray(context._ollamaModels));
-  context.fetch=async()=>({ok:true,json:async()=>({models:[{name:'installed'}]})});
-  await vm.runInContext('_loadSettingsModels()',context);assert.equal(context._ollamaModels[0].name,'installed');assert.equal(context._settingsModelsError,null);
-  const settings=fn('settingsLLM');assert.ok(settings.indexOf('Spravovat role a modely')<settings.indexOf('if(!_roleBindings)'));
-});
 
 
-test('download panel polls missed websocket events, shows rate and ETA, and marks stale progress',async()=>{
-  const source=await readFile(join(ROOT,'intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
-  const code=source.slice(source.indexOf('var _downloadsLoading='),source.indexOf('function _loadDiscoveredData()'));
-  let fail=false,done=false;
-  const context=vm.createContext({Date,Number,Object,String,Math,AbortSignal,C:{},_fs:n=>n,
-    _pullState:{},_centerState:{view:'upgrades'},_upgradeTab:'discovered',_modelButtonStyle:()=>({}),
-    _huntDuration:n=>n+'ms',h:(tag,props,...children)=>({tag,props,children}),setInterval(){},renderCenter(){},
-    _modelReadError:e=>e.message,_backendUrl:()=> 'http://127.0.0.1:1',_loadDiscoveredData(){},_loadModelOverview(){},
-    fetch:async()=>{if(fail)throw Error('offline');return {ok:true,json:async()=>({downloads:[{model:'fixture:latest',operationId:'operation',status:done?'done':'downloading',text:done?'Staženo':'Stahuji vrstvy modelu',startedAt:new Date().toISOString(),updatedAt:new Date().toISOString(),percent:50,completedBytes:2**30,totalBytes:2**31,bytesPerSecond:2**20,etaSeconds:1024}]})};},
-  });
-  vm.runInContext(code,context);await vm.runInContext('_loadDownloads()',context);
-  const tree=()=>vm.runInContext('_renderDownloads()',context);
-  assert.match(JSON.stringify(tree()),/1.0 MiB\/s/);assert.match(JSON.stringify(tree()),/Odhad do konce/);
-  assert.equal(vm.runInContext('_downloadState("fixture").percent',context),50);
-  fail=true;await vm.runInContext('_loadDownloads()',context);
-  assert.match(JSON.stringify(tree()),/Stav stahování není ověřen/);
-  assert.match(JSON.stringify(tree()),/Čekám na aktuální zprávu/);
-  assert.doesNotMatch(JSON.stringify(tree()),/1.0 MiB\/s/);
-  fail=false;done=true;await vm.runInContext('_loadDownloads()',context);
-  assert.match(JSON.stringify(tree()),/Staženo/);assert.doesNotMatch(JSON.stringify(tree()),/"tag":"progress"/);
-});
+
+
+
+
+
+
 
 test('complete evaluation preflights every role and launches one serial service with distinct contract pins',async t=>{
   const {config,file}=await fixture(t),launched=[];
@@ -684,4 +487,10 @@ test('automation hold is visible and refuses start/resume while preserving manua
     artifacts:[{model:request.model,digestSha256:request.digestSha256,applicable:true}]}}};
   assert.equal((await control.evaluate(request,evaluations)).accepted,true);assert.equal(effects.length,1);
   assert.equal(effects[0][0],'launch');
+});
+
+// Active Studio 2 adapters replace source extraction from the retired React monolith.
+test('desktop-hunt: active Studio 2 integration coverage', () => {
+  const output = runStudio2BehaviorTests(process.execPath, ['--test', '--test-reporter=tap', 'tests/studio2-model-workspace.test.js', 'tests/studio2-live-model.test.js'], { cwd: new URL('..', import.meta.url), encoding: 'utf8', timeout: 120000, env: { ...process.env, NODE_TEST_CONTEXT: undefined } });
+  if (!/# fail 0/.test(output)) throw new Error('Active Studio 2 tests did not complete: ' + output);
 });

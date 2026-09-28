@@ -593,11 +593,9 @@ test('expertise detail applies only a backend-confirmed catalog identity to the 
   session._projectId = 7;
   model.setState({ mode: 'section', section: 'expertises', detail: { expertises: 'architect' } });
   let blocked = model.detailVM(model.st());
-  assert.equal(blocked.hasPrimary, false);
-  assert.equal(blocked.secondary.some(action => action.label === 'Přidat ke kombinaci'), false);
-  assert.match(blocked.blocks.find(block => block.isExpertiseSelection).expertiseSelection.status, /projektový režim/);
-  assert.match(blocked.blocks.find(block => block.isText).items.map(item => item.t).join(' '), /není dostupné/);
-  assert.equal(await model.useExpertise(item), false);
+  assert.equal(blocked.hasPrimary, true);
+  assert.equal(blocked.secondary.some(action => action.label === 'Přidat ke kombinaci'), true);
+  assert.equal(await model.useExpertise(item), true);
   session._projectId = null;
   session.chat.specialist = { id: 'some-specialist' };
   blocked = model.detailVM(model.st());
@@ -933,18 +931,26 @@ test('worker wizard installs only a disabled M3 project-health instance with exa
         { id: 'project-health', name: 'Project Health', requiredCapabilities: ['code-intel.project-context.v1'] },
         { id: 'unknown', name: 'Unknown', requiredCapabilities: [] }] }) };
       if (path === '/api/projects') return { ok: true, json: async () => ({ projects: [{ id: 41, name: 'Repo' }] }) };
+      if (path === '/api/agent-extensions/project-health') return { ok: true, json: async () => ({ id: 'project-health',
+        definition: { params: [{ name: 'project_id', type: 'number', label: 'Projekt' }], sources: [], actions: [] } }) };
       if (path === '/api/agents') return { ok: true, json: async () => ({ agents: installed ? [
         { id: 'health-repo', name: 'Project Health', enabled: false }] : [] }) };
       if (path === '/api/agents/health-repo') return { ok: true, json: async () => ({
         id: 'health-repo', enabled: false, params: { project_id: 41 },
-        definition: { m3_extension: { id: 'project-health' }, schedule: { type: 'manual' } }, recentRuns: [] }) };
+        definition: { m3_extension: { id: 'project-health', definitionDigest: 'sha256:' + 'a'.repeat(64) }, schedule: { type: 'manual' } }, recentRuns: [] }) };
       throw Error('Unexpected request: ' + path);
     } });
   const { model } = setup({ catalog });
   model.fetchImpl = async (url, options) => {
+    if (new URL(url).pathname.endsWith('/preview')) {
+      const draft = JSON.parse(options.body);
+      return { ok: true, json: async () => ({ ...draft, id: 'project-health', effectsExecuted: false,
+        definitionDigest: 'sha256:' + 'a'.repeat(64), validation: { valid: true } }) };
+    }
     postCount++;
     assert.equal(new URL(url).pathname, '/api/agent-extensions/project-health/install');
-    assert.deepEqual(JSON.parse(options.body), { instanceId: 'health-repo', projectId: 41, enabled: false });
+    assert.deepEqual(JSON.parse(options.body), { instanceId: 'health-repo', params: { project_id: 41 }, enabled: false,
+      expectedDefinitionDigest: 'sha256:' + 'a'.repeat(64) });
     installed = true;
     return { ok: true, json: async () => ({ id: 'health-repo', enabled: false,
       definition: { m3_extension: { id: 'project-health' } } }) };
@@ -954,7 +960,12 @@ test('worker wizard installs only a disabled M3 project-health instance with exa
   assert.equal(model.workerWizardVM(model.st()).submitDisabled, true, 'unloaded extension cannot be installed');
   await model.loadWorkerWizard();
   assert.deepEqual(model.workerStatus().extensions.map(item => item.id), ['project-health']);
+  assert.equal(model.workerWizardVM(model.st()).submitDisabled, true, 'preview is required before install');
+  assert.equal(await model.previewWorker(model.st()), true);
   assert.equal(model.workerWizardVM(model.st()).submitDisabled, false);
+  model.setState({ workerInstanceId: 'changed' });
+  assert.equal(model.workerWizardVM(model.st()).submitDisabled, true, 'changing a reviewed field invalidates preview');
+  model.setState({ workerInstanceId: 'health-repo' });
   assert.equal(await model.submitWorker(model.st()), true);
   assert.equal(model.st().detail.workers, 'health-repo');
   assert.equal(postCount, 1);
@@ -966,7 +977,10 @@ test('worker wizard never repeats installation after uncertain response', async 
     ok: true, json: async () => ({ extensions: [], projects: [] }) }) });
   const { model } = setup({ catalog });
   model._workerWizardStatus = { loading: false, busy: false, error: '', uncertain: false,
-    extensions: [{ id: 'project-health', name: 'Project Health' }], projects: [{ id: 41, name: 'Repo' }] };
+    extensions: [{ id: 'project-health', name: 'Project Health', definition: {
+      params: [{ name: 'project_id', type: 'number' }] } }], projects: [{ id: 41, name: 'Repo' }],
+    preview: { validation: { valid: true }, definitionDigest: 'sha256:' + 'a'.repeat(64), params: { project_id: 41 } },
+    previewKey: JSON.stringify(['project-health', { instanceId: 'health-repo', params: { project_id: 41 } }]) };
   model.fetchImpl = async () => { posts++; throw Error('Response lost'); };
   model.setState({ mode: 'section', section: 'workers', detail: { workers: '__new__' },
     workerStep: 1, workerExtension: 'project-health', workerProject: '41', workerInstanceId: 'health-repo' });
@@ -1639,7 +1653,9 @@ test('M2 approval needs the bound digest and rendered changes panel', async () =
   session._m2Pending = { lifecycleId: 'life-17', planDigest: digest,
     origin: { surface: 'studio', sessionId: 'conv-17', conversationId: 'conv-17', projectId: 17 } };
   entry.view = { state: 'awaiting_approval', lifecycleId: 'life-17', planDigest: digest,
-    plan: { focusedTest: { binary: 'node', argv: ['test.js'] }, gitCommit: false },
+    plan: { identity: { lifecycleId: 'life-17' }, state: 'awaiting_approval', origin: session._m2Pending.origin,
+      changes: [{ path: 'app.txt' }], focusedTest: { binary: '/usr/bin/node', argv: ['test.js'], timeoutMs: 30000 }, gitCommit: false },
+    audit: { governanceDecision: { verdict: 'allow' } },
     diff: [{ path: 'app.txt', before: { content: 'a' }, after: { content: 'b' } }] };
   model.pApprove(model.st(), session.id, 'ok');
   assert.deepEqual(calls, []);
@@ -2020,4 +2036,48 @@ test('deleted tracked file opens its Git diff without presenting an empty editab
   assert.equal(file.diff[1].code, 'old');
   assert.equal(file.modes.find(mode => mode.label === 'Upravit').cls, 'off');
   assert.equal(model.renderVals().ws.fvS.isOpen, false);
+});
+
+test('chat Tab completes only on explicit input, scopes its request, and second Tab accepts without another model call', async () => {
+  const { fixture } = await import('./helpers/studio2-live-harness.js');
+  const f = fixture(), sid = f.session.id;
+  f.model.setState({ drafts: { [sid]: 'Napiš test' } });
+  f.model.fetchImpl = async (url, options) => { f.calls.push({ url, options }); return { ok: true, json: async () => ({ suggestion: ' pro součet' }) }; };
+  assert.equal(f.calls.length, 0);
+  assert.equal(await f.model.completeChat(sid, 'Napiš test'), true);
+  assert.equal(f.calls.length, 1); assert.match(f.calls[0].url, /\/api\/autocomplete$/);
+  assert.equal(JSON.parse(f.calls[0].options.body).partial, 'Napiš test');
+  assert.equal(f.model.st().drafts[sid], 'Napiš test');
+  assert.equal(await f.model.completeChat(sid, 'Napiš test'), true);
+  assert.equal(f.model.st().drafts[sid], 'Napiš test pro součet'); assert.equal(f.calls.length, 1);
+  assert.equal(f.session.chat._autocomplete, null);
+});
+
+test('late autocomplete cannot attach to a changed conversation, input or project, and failed HTTP does not supply text', async () => {
+  const { fixture } = await import('./helpers/studio2-live-harness.js');
+  for (const change of [f => { f.session._projectId = '28'; }, f => { f.session._convId = 'different'; },
+    f => { f.model.setState({ drafts: { [f.session.id]: 'new text' } }); }]) {
+    const f = fixture(); f.model.setState({ drafts: { [f.session.id]: 'Napiš test' } }); let resolve;
+    f.model.fetchImpl = () => new Promise(done => { resolve = done; });
+    const pending = f.model.completeChat(f.session.id, 'Napiš test'); change(f);
+    resolve({ ok: true, json: async () => ({ suggestion: 'FOREIGN CANARY' }) });
+    assert.equal(await pending, false); assert.equal(f.session.chat._autocomplete?.suggestion, undefined);
+    assert.equal(JSON.stringify(f.model.renderVals()).includes('FOREIGN CANARY'), false);
+  }
+  const f = fixture(); f.model.setState({ drafts: { [f.session.id]: 'Napiš test' } });
+  f.model.fetchImpl = async () => ({ ok: false, status: 503 });
+  assert.equal(await f.model.completeChat(f.session.id, 'Napiš test'), false);
+  assert.match(f.session.chat._autocomplete.notice, /HTTP 503/); assert.equal(f.model.st().drafts[f.session.id], 'Napiš test');
+});
+
+test('regenerate asks once, sends the last user request as a new turn and refuses busy, dirty or changed owners', async () => {
+  const { fixture } = await import('./helpers/studio2-live-harness.js');
+  const f = fixture(); f.session.chat.msgs = [{ role: 'user', text: 'Spočítej součet' }, { role: 'assistant', text: 'Výsledek' }];
+  assert.equal(await f.model.regenerateAnswer(f.session), true); assert.equal(f.calls.length, 1);
+  assert.equal(f.calls[0].send, 'Spočítej součet'); assert.equal(f.control.confirmations.length, 1);
+  f.control.active = true; assert.equal(await f.model.regenerateAnswer(f.session), false); assert.equal(f.calls.length, 1);
+  f.control.active = false; f.model.setState({ drafts: { [f.session.id]: 'rozepsáno' } });
+  assert.equal(await f.model.regenerateAnswer(f.session), false); assert.equal(f.calls.length, 1);
+  f.model.setState({ drafts: {} }); f.widget.confirmAction = () => { f.store.closeSession(f.session.id); return true; };
+  assert.equal(await f.model.regenerateAnswer(f.session), false); assert.equal(f.calls.length, 1);
 });

@@ -1,7 +1,5 @@
 'use strict';
 
-require('./styles/tokens.css');
-require('./styles/studio2.css');
 require('./view/view.css');
 require('./view/generated/proto.css');
 
@@ -9,27 +7,19 @@ const { ContainerModule, decorate, injectable } = require('@theia/core/shared/in
 const browser = require('@theia/core/lib/browser');
 const { ReactWidget } = require('@theia/core/lib/browser/widgets/react-widget');
 const React = require('@theia/core/shared/react');
-const { currentMode, FRAME_KEY } = require('./studio-mode-module');
+const FRAME_KEY = 'intentsmith-studio2-frame';
 const { SessionStore, sessionCloseBlock } = require('./session-store');
 const { TransportAdapter } = require('./transport-adapter');
-const { renderSessionView } = require('./session-view');
 const { CatalogStore } = require('./catalog-store');
-const { renderCatalog } = require('./catalog-view');
 const { AppearanceStore } = require('./appearance-store');
-const { renderSettings } = require('./settings-view');
 const { WorkspaceFiles } = require('./workspace-files');
 const { M2Controller } = require('./m2-controller');
-const { renderPalette } = require('./command-palette');
-const { renderChrome, renderNavigation } = require('./chrome-view');
 const Attachments = require('./attachments');
 const { StudioRoot, createModel } = require('./view/studio-root');
 
 const WIDGET_ID = 'intentsmith-studio2';
 const h = React.createElement;
 const NAV = ['Konverzace', 'Projekty', 'Specialisté', 'Expertýzy', 'Workeři', 'Obchod', 'Multimédia'];
-// Vizuální vrstva z prototypu (view/) je výchozí. Původní ruční render zůstává jen
-// po dobu integrace pro porovnání: localStorage 'intentsmith-studio2-view' = 'legacy'.
-const VIEW_KEY = 'intentsmith-studio2-view';
 
 class Studio2Widget extends ReactWidget {
   constructor() {
@@ -49,10 +39,12 @@ class Studio2Widget extends ReactWidget {
       void this.model.scmClient.load(session._projectId, { refresh: true });
     };
     this.workspace = new WorkspaceFiles({ onChange: () => { this.model?.forceUpdate(); this.update(); },
+      onRestored: () => this.store.changed(),
       onVerifiedChange: refreshVerifiedProject });
     this.m2 = new M2Controller(this.store, { onChange: () => { this.model?.forceUpdate(); this.update(); },
       onVerifiedChange: refreshVerifiedProject,
-      activeTurn: session => !!session.chat._thinking || !!this.transport?.hasActiveM1Turn(session) });
+      onOpenComposer: session => this.model?.pM2Open(this.model.st(), session.id),
+      activeTurn: session => !!session.chat._thinking || !!session.chat._preparing || !!session.chat._picking || !!session.chat._selectingExpertise || !!this.transport?.hasActiveM1Turn(session) });
     this.appearance = new AppearanceStore(window.localStorage, () => window.matchMedia('(prefers-color-scheme: light)').matches);
     this.unlistenAppearance = this.appearance.subscribe(() => this.update());
     this.systemTheme = window.matchMedia('(prefers-color-scheme: light)');
@@ -65,29 +57,19 @@ class Studio2Widget extends ReactWidget {
     this.unlistenCatalog = this.catalog.subscribe(() => this.update());
     this.paletteOpen = false; this.paletteQuery = ''; this.menuOpen = null;
     this.navVisible = true; this.bottomVisible = true; this.rightVisible = true;
-    this.onPaletteKey = event => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault(); event.stopPropagation(); this.paletteOpen = true; this.paletteQuery = ''; this.update();
-      } else if (event.key === 'Escape' && (this.paletteOpen || this.menuOpen)) {
-        event.preventDefault(); this.paletteOpen = false; this.menuOpen = null; this.update();
-      }
-    };
     this.sideMode = 'Soubory';
     this.bottomMode = 'Průběh';
     this.unlistenStore = this.store.subscribe(() => this.update());
-    this.legacyView = window.localStorage.getItem(VIEW_KEY) === 'legacy';
-    this.model = this.legacyView ? null : createModel(this);
+    this.model = createModel(this);
   }
 
   onAfterAttach(message) {
     super.onAfterAttach(message);
     if (!this.transport) this.transport = new TransportAdapter(this.store, this.workspace);
-    if (this.legacyView) window.addEventListener('keydown', this.onPaletteKey, true);
     this.update();
   }
 
   dispose() {
-    window.removeEventListener('keydown', this.onPaletteKey, true);
     if (this.transport) { this.transport.destroy(); this.transport = null; }
     if (this.unlistenStore) { this.unlistenStore(); this.unlistenStore = null; }
     if (this.unlistenCatalog) { this.unlistenCatalog(); this.unlistenCatalog = null; }
@@ -197,7 +179,8 @@ class Studio2Widget extends ReactWidget {
       if (!response.ok || body.ok !== true || body.specialistId !== id)
         throw new Error(body.error || 'Backend nepotvrdil specialistu.');
       const specialist = { ...item.raw, id, name: item.name };
-      if (!this.createSession({ convId: sessionId, label: item.name, specialistData: specialist, expertiseName: item.name }, slot))
+      if (!this.createSession({ convId: sessionId, label: item.name, specialistData: specialist, expertiseName: item.name,
+        focusFiles: this.store.specialistFiles(id) }, slot))
         throw Error('Relaci nelze bezpečně otevřít.');
       this.section = 'Relace'; this.update(); return true;
     } catch (error) { this.catalogActionError = error.message || 'Specialistu nelze aktivovat.'; this.update(); return false; }
@@ -290,36 +273,8 @@ class Studio2Widget extends ReactWidget {
     } finally { session.chat._preparing = false; this.store.changed(); }
   }
 
-  render() {
-    if (!this.legacyView) return h(StudioRoot, { model: this.model });
-    return this.renderLegacy();
-  }
+  render() { return h(StudioRoot, { model: this.model }); }
 
-  renderLegacy() {
-    const state = this.store.state;
-    const view = renderSessionView(this, h);
-    const appearance = this.appearance.values;
-    const font = appearance.style === 'matrix' ? 'Share Tech Mono, JetBrains Mono, monospace'
-      : appearance.style === 'japanese' ? 'Zen Kaku Gothic Antique, system-ui, sans-serif'
-      : appearance.style === 'midnight' ? 'Inter, system-ui, sans-serif'
-      : appearance.fontIdx === 1 ? 'Inter, system-ui, sans-serif'
-      : appearance.fontIdx === 2 ? 'system-ui, sans-serif' : 'Plus Jakarta Sans, system-ui, sans-serif';
-    return h('div', { className: `intentsmith-studio2-root intentsmith-root ide ${this.appearance.classes()}`,
-      style: { fontSize: `${appearance.fontSizeVal * Number(appearance.uiScale)}px`, fontFamily: font }, 'data-studio-ui': 'studio2' },
-      renderChrome(this, h, NAV),
-      h('div', { className: 'intentsmith-studio2-main' },
-        renderNavigation(this, h, NAV),
-        h('main', { className: 'intentsmith-studio2-center' },
-          view.tabs,
-          this.section === 'Relace' ? view.columns : NAV.includes(this.section) ? renderCatalog(this, h)
-            : renderSettings(this, h)),
-        this.section === 'Relace' && this.rightVisible ? view.right : null),
-      renderPalette(this, h),
-      h('footer', { className: 'intentsmith-studio2-foot' },
-        h('span', null, view.connection),
-        h('span', null, this.transport?.serverVersion ? `Backend ${this.transport.serverVersion}` : 'Backend není potvrzený'),
-        h('span', null, `${state.sessions.length} relací`)));
-  }
 }
 decorate(injectable(), Studio2Widget);
 
@@ -328,7 +283,6 @@ class Studio2Contribution extends browser.AbstractViewContribution {
     super({ widgetId: WIDGET_ID, widgetName: 'Studio 2', defaultWidgetOptions: { area: 'main' } });
   }
   async initializeLayout(app) {
-    if (currentMode() !== 'studio2') throw new Error('Studio 2 widget loaded in classic mode');
     await this.openView({ activate: true, reveal: true });
   }
   onWillStop() {
@@ -341,7 +295,6 @@ class Studio2Contribution extends browser.AbstractViewContribution {
     } };
   }
   async onDidInitializeLayout(app) {
-    if (currentMode() !== 'studio2') throw new Error('Studio 2 widget restored in classic mode');
     // A saved classic layout skips initializeLayout; attach the selected UI
     // after restoration without ever registering the classic widget factory.
     await this.openView({ activate: true, reveal: true });

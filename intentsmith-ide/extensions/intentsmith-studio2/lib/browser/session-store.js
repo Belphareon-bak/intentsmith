@@ -5,6 +5,7 @@ const V1_KEY = 'intentsmith-session-state';
 const MAX_COLUMNS = 3;
 const MAX_SESSIONS = 5;
 const { pendingBinding } = require('./m2-controller');
+const { normalizeForm, normalizeProposal } = require('./m2-composer');
 
 function safeObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
@@ -19,7 +20,7 @@ function identity(value) {
 }
 function messages(value) {
   return Array.isArray(value) ? value.slice(-100).filter(item => item && typeof item === 'object')
-    .map(item => ({ role: text(item.role, 'system'), text: text(item.text), tag: text(item.tag),
+    .map(item => ({ role: text(item.role, 'system'), text: text(item.text), tag: text(item.tag), _gapChoice: item._gapChoice === true, _gapResolved: item._gapResolved === true,
       ...(typeof item.ts === 'string' && !Number.isNaN(Date.parse(item.ts)) ? { ts: item.ts } : {}) })) : [];
 }
 function id() {
@@ -37,14 +38,19 @@ function makeSession(number, source = {}) {
     _label: text(raw._label || raw.label) || `Relace ${number}`,
     _pinned: raw._pinned === true || raw.pinned === true,
     _m2Pending: pendingBinding(raw._m2Pending || raw.m2Pending),
+    _m2Last: pendingBinding(raw._m2Last || raw.m2Last),
     _closed: false, _editor: { active: false, tabs: [], activeTabId: null, scrollRaf: null },
     _focusFiles: Array.isArray(raw._focusFiles || raw.focusFiles) ? (raw._focusFiles || raw.focusFiles).slice(0, 100) : [],
     _openedFiles: Array.isArray(raw._openedFiles || raw.openedFiles) ? (raw._openedFiles || raw.openedFiles).filter(value => typeof value === 'string').slice(0, 30) : [],
     _modifiedFiles: Array.isArray(raw._modifiedFiles || raw.modifiedFiles) ? (raw._modifiedFiles || raw.modifiedFiles).filter(value => typeof value === 'string').slice(0, 30) : [],
     _fileChanges: safeObject(raw._fileChanges || raw.fileChanges),
+    _legacyEditor: raw.legacyEditor || raw._legacyEditor || null,
     _conversationFocus: raw._conversationFocus === true,
     chat: {
       msgs: messages(chat.msgs || raw.recentMsgs),
+      _projectWorkProposal: normalizeProposal(raw.projectWorkProposal || chat._projectWorkProposal),
+      _m2Composer: normalizeForm(raw.m2Composer || chat._m2Composer),
+      _m2RevisionSource: normalizeForm(raw.m2RevisionSource || chat._m2RevisionSource),
       ctx: Number.isFinite(chat.ctx) ? chat.ctx : 0,
       expertise: text(chat.expertise || raw.expertiseName, 'Výchozí'),
       specialist: chat.specialist || raw.specialistData || null,
@@ -64,10 +70,14 @@ function snapshotSession(session) {
   return {
     id: session.id, number: session.number,
     convId: session._convId, projectId: session._projectId, agentId: session._agentId,
-    label: session._label, m2Pending: pendingBinding(session._m2Pending),
+    label: session._label, m2Pending: pendingBinding(session._m2Pending), m2Last: pendingBinding(session._m2Last),
     pinned: session._pinned === true,
     focusFiles: session._focusFiles,
     openedFiles: session._openedFiles, modifiedFiles: session._modifiedFiles, fileChanges: session._fileChanges,
+    legacyEditor: session._legacyEditor,
+    projectWorkProposal: normalizeProposal(session.chat._projectWorkProposal),
+    m2Composer: normalizeForm(session.chat._m2Composer),
+    m2RevisionSource: normalizeForm(session.chat._m2RevisionSource),
     recentMsgs: messages(session.chat.msgs).slice(-20),
     expertiseName: session.chat.expertise, specialistData: session.chat.specialist,
     editMode: session.chat.editMode, bottomMode: session.bottom,
@@ -75,8 +85,9 @@ function snapshotSession(session) {
   };
 }
 function sessionCloseBlock(session, { activeTurn, m2Busy, terminalExecuting, editorDirty, state = {} } = {}) {
-  if (!session || session.chat._thinking || activeTurn) return 'Relace právě odpovídá.';
+  if (!session || session.chat._thinking || session.chat._autocomplete?.loading || activeTurn) return 'Relace právě odpovídá.';
   if (session._m2Pending || m2Busy) return 'Relace čeká na schválení nebo výsledek změny.';
+  if (session.chat._m2Composer) return 'Relace má rozepsaný návrh změn.';
   if (terminalExecuting) return 'V relaci běží příkaz terminálu.';
   if (editorDirty || state.fileGuard?.sid === session.id) return 'Relace má neuložený soubor.';
   if ((state.drafts?.[session.id] || '').trim() || (state.cmds?.[session.id] || '').trim()
@@ -125,7 +136,21 @@ function restore(storage) {
   const old = Array.isArray(legacy.sessions) ? legacy.sessions : [];
   const open = old.map((item, index) => ({ item, index })).filter(entry => safeObject(entry.item).closed !== true);
   if (open.length) {
-    const sessions = open.map((entry, index) => makeSession(index + 1, entry.item));
+    const editors = safeObject(parse(storage, 'intentsmith-editor-state'));
+    const workspaces = safeObject(parse(storage, 'intentsmith-specialist-workspaces'));
+    const sessions = open.map((entry, index) => {
+      const session = makeSession(index + 1, entry.item);
+      const editor = editors.version === 2 && Array.isArray(editors.sessions) ? editors.sessions[entry.index] : editors;
+      if (editor && Array.isArray(editor.openFiles)) session._legacyEditor = {
+        paths: editor.openFiles.slice(0, 30).map(file => file?.path).filter(path =>
+          typeof path === 'string' && path.startsWith('/') && path.length <= 4096 && !/[\x00-\x1f]/.test(path)),
+        activePath: typeof editor.activePath === 'string' ? editor.activePath : null,
+      };
+      const owner = session.chat.specialist?.id === 'accountant' ? 'accountant-cz' : session.chat.specialist?.id;
+      if (owner && !session._focusFiles.length && Array.isArray(workspaces[owner]?.files))
+        session._focusFiles = workspaces[owner].files.filter(value => typeof value === 'string').slice(0, 100);
+      return session;
+    });
     const wanted = Number.isInteger(legacy.sessionActive) ? legacy.sessionActive : 0;
     const activeIndex = open.findIndex(entry => entry.index === wanted);
     const active = activeIndex >= 0 ? activeIndex : 0;
@@ -137,6 +162,11 @@ function restore(storage) {
 }
 
 class SessionStore {
+  specialistFiles(owner) {
+    const workspaces = safeObject(parse(this.storage, 'intentsmith-specialist-workspaces'));
+    return Array.isArray(workspaces[owner]?.files)
+      ? workspaces[owner].files.filter(value => typeof value === 'string').slice(0, 100) : [];
+  }
   constructor(storage) {
     this.storage = storage;
     this.state = restore(storage);

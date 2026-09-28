@@ -1,18 +1,14 @@
 {
   "name": "@intentsmith/chat-panel",
   "version": "0.1.0",
-  "description": "IntentSmith Chat Panel — authoritative committed Studio runtime",
-  "main": "lib/browser/chat-panel-module.js",
+  "description": "IntentSmith shared M1 transport, activity and terminal clients",
+  "main": "lib/browser/ws-client.js",
   "files": [
     "lib",
     "README.md",
     "scripts"
   ],
-  "theiaExtensions": [
-    {
-      "frontend": "lib/browser/chat-panel-module"
-    }
-  ],
+  "theiaExtensions": [],
   "dependencies": {
     "@theia/core": "1.76.0",
     "@intentsmith/protocol": "0.1.0",

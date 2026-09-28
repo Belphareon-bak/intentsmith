@@ -3,6 +3,10 @@
   "classificationBasis": "Gate 0 path-by-path source inspection at 3a6efa6e41701d85060e7ce1568e4a950fdc1dd7 plus same-commit test-trust repairs",
   "exclusions": [
     {
+      "path": "tests/helpers/studio2-live-harness.js",
+      "reason": "Imported actual Studio 2 adapter harness; its assertions run in studio2-m2 and m2-lifecycle-studio-surface suites."
+    },
+    {
       "path": "tests/helpers/studio2-ui-mode.js",
       "reason": "Imported Electron DOM mode-switch probe; its direct assertions run in studio2-exclusive-ui.e2e.js."
     },

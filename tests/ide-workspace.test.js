@@ -1,3 +1,4 @@
+import { execFileSync as runStudio2BehaviorTests } from 'node:child_process';
 import './helpers/isolated-test-db.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -6,49 +7,45 @@ import fs from 'node:fs';
 import Database from 'better-sqlite3';
 import { up } from '../src/db/migrations/2026_09_18_115_intentsmith_setting_names.js';
 
-const source=fs.readFileSync(new URL('../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js',import.meta.url),'utf8');
-function fn(name){const start=source.indexOf('function '+name+'(');assert.ok(start>=0,name);let end=source.indexOf('\nfunction ',start+1);const next=source.indexOf('\nvar ',start+1);if(next>=0&&(end<0||next<end))end=next;return source.slice(start,end<0?undefined:end);}
-function harness(){
-  const context=vm.createContext({Date,Math,Array,Number,JSON,alert(){},confirm:()=>true,
-    _sessionActive:0,_sessionCount:3,_perSessionTree:{},_wtRoot:'/old',_wtRawTree:null,FILES:[],
-    _persistSessionState(){},_renderAll(){},renderCenter(){},renderChat(){},_rememberSpecialistFiles(){},
-    _showWorkspace(){},_chatCancelPreparedSend(){return false;},_chatInvalidatePreparedSends(st){st._sendContextToken={};},
-    IntentSmithWS:{hasActiveM1Turn:s=>!!s.busy},IntentSmithTerminal:{isExecuting:()=>false},IntentSmithAgent:{isExecuting:()=>false},
-  });
-  for(const name of ['_mkSession','_workspaceSessionIndices','_workspaceBusy','_closeWorkspaceConversation','_closeWorkspaceSession','_normalizePersistedSessionState'])vm.runInContext(fn(name),context);
-  context._sessions=[context._mkSession(),context._mkSession(),context._mkSession()];
-  context._editorState=context._sessions[0]._editor;
-  context._switchSession=idx=>{context._sessionActive=idx;context._editorState=context._sessions[idx]._editor;};
-  return context;
-}
-test('closing a conversation keeps its column, file editor and other session identities',()=>{
-  const c=harness(),closed=c._sessions[0],other=c._sessions[1],editor=closed._editor,token=closed.chat._sendContextToken;
-  closed._convId='private-conversation';closed._projectId=17;closed.chat.specialist={id:'accountant-cz'};closed.chat._delivery={status:'NOT_SENT'};
-  editor.tabs.push({id:'file',content:'unsaved file',dirty:true});
-  assert.equal(c._closeWorkspaceConversation(0),true);
-  assert.equal(c._sessionCount,3);assert.equal(c._sessions[0]._closed,false);assert.equal(c._sessions[0]._convId,null);
-  assert.equal(c._sessions[0]._projectId,null);assert.equal(c._sessions[0].chat.specialist,null);
-  assert.equal(c._sessions[0]._editor,editor);assert.equal(c._sessions[1],other);
-  assert.notEqual(closed.chat._sendContextToken,token);assert.equal(c._sessions[0].chat._delivery,null);
+test('Studio 2 copies committed WAL data without migrating or replacing user databases', async () => {
+  const { createRequire } = await import('node:module');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { copyUserData } = createRequire(import.meta.url)('../scripts/studio2-copy-user-data.cjs');
+  const folder = fs.mkdtempSync(join(tmpdir(), 'studio2-data-copy-'));
+  const source = join(folder, 'original.sqlite'), target = join(folder, 'studio2.sqlite');
+  const db = new Database(source);
+  try {
+    db.pragma('journal_mode = WAL');
+    db.exec('CREATE TABLE conversations(id INTEGER PRIMARY KEY, title TEXT)');
+    db.prepare('INSERT INTO conversations(title) VALUES(?)').run('Původní práce');
+    const original = fs.readFileSync(source), wal = fs.readFileSync(source + '-wal');
+    await copyUserData(source, target);
+    assert.deepEqual(fs.readFileSync(source), original);
+    assert.deepEqual(fs.readFileSync(source + '-wal'), wal);
+    const snapshot = new Database(target);
+    try {
+      assert.equal(snapshot.prepare('SELECT title FROM conversations').get().title, 'Původní práce');
+      snapshot.prepare('INSERT INTO conversations(title) VALUES(?)').run('Nová práce');
+    } finally { snapshot.close(); }
+    assert.equal(db.prepare('SELECT count(*) AS n FROM conversations').get().n, 1);
+    assert.equal(fs.statSync(target).mode & 0o777, 0o600);
+    const existing = fs.readFileSync(target);
+    await assert.rejects(copyUserData(source, target));
+    await assert.rejects(copyUserData(source, source));
+    await assert.rejects(copyUserData(join(folder, 'missing'), join(folder, 'other.sqlite')));
+    assert.deepEqual(fs.readFileSync(target), existing);
+    assert.equal(fs.readdirSync(folder).some(name => name.includes('.backup-')), false);
+  } finally { db.close(); fs.rmSync(folder, { recursive: true, force: true }); }
 });
-test('closing a tab never moves another active transport into its index',()=>{
-  const c=harness();c._sessionActive=2;const owner=c._sessions[2];owner.busy=true;owner._convId='other-active';
-  assert.equal(c._closeWorkspaceSession(0),true);assert.equal(c._sessions[2],owner);assert.equal(c._sessionActive,2);
-  assert.equal(c._sessions[0]._closed,true);assert.equal(c._sessionCount,3);
-  assert.equal(c._closeWorkspaceSession(2),false);assert.equal(c._sessions[2]._convId,'other-active');
-});
-test('closing the last tab retains an empty workspace and dirty editor close is cancellable',()=>{
-  const c=harness();c._sessions[1]._closed=true;c._sessions[2]._closed=true;
-  c._sessions[0]._editor.tabs.push({dirty:true});c.confirm=()=>false;
-  assert.equal(c._closeWorkspaceSession(0),false);assert.equal(c._sessions[0]._closed,false);
-  c.confirm=()=>true;assert.equal(c._closeWorkspaceSession(0),true);
-  assert.equal(c._sessions[0]._closed,false);assert.equal(c._sessionActive,0);
-});
-test('new session editors, output modes and attachment queues are independent',()=>{
-  const c=harness(),a=c._sessions[0],b=c._sessions[1];
-  a._editor.tabs.push({id:'a'});a.chat.attachments.push({name:'private'});a.log.push({text:'log a'});a.term.push({text:'output a'});
-  assert.equal(b._editor.tabs.length,0);assert.equal(b.chat.attachments.length,0);assert.equal(b.log.length,0);assert.equal(b.term.length,1);
-});
+
+
+
+
+
+
+
+
 test('settings migration preserves old values, explicit canonical overrides and timestamps',()=>{
   const db=new Database(':memory:');try{
     db.exec('CREATE TABLE user_settings(id INTEGER PRIMARY KEY,data TEXT,updated_at TEXT)');
@@ -59,12 +56,7 @@ test('settings migration preserves old values, explicit canonical overrides and 
     assert.equal(data['intentsmith.notif.emailRecipient'],'local-test');assert.equal(data['memory.saveContext'],false);assert.equal(row.updated_at,'original');
   }finally{db.close();}
 });
-test('history and menu surfaces contain no second copy of chat or output panels',()=>{
-  assert.match(fn('ChatApp'),/WorkspaceContextApp/);
-  assert.doesNotMatch(fn('ChatApp'),/_chatPaneUI|_bottomPane/);
-  assert.match(fn('CenterApp'),/if\(_workspaceShown\(\)\)return WorkspaceApp\(\)/);
-  assert.match(fn('_bottomPane'),/\['terminal','agent','audit'\]/);
-});
+
 
 test('old and new WebSocket capability names share strict duplicate rejection',async()=>{
   const {parseLegacyLocalWebSocketCapability}=await import('../src/security/legacy-local-access-policy.js');
@@ -85,35 +77,10 @@ test('canonical environment values win; an old installation remains readable',as
     assert.deepEqual(result,canonical?{path:'/canonical/project.sqlite',agents:false}:{path:'/legacy/project.sqlite',agents:true});
   }
 });
-test('draft snapshots cannot copy a closed conversation draft into its replacement',()=>{
-  const c=harness();vm.runInContext(fn('_snapshotWorkspaceDrafts'),c);
-  const old=c._sessions[0];c._workspaceTextareas={0:{session:old,node:{value:'private draft'}}};
-  c._snapshotWorkspaceDrafts();assert.equal(old.chat._draft,'private draft');
-  c._closeWorkspaceConversation(0);c._snapshotWorkspaceDrafts();assert.equal(c._sessions[0].chat._draft,undefined);
-});
-test('opening another entity cannot consume an untouched specialist, draft, attachment, file or terminal workspace',()=>{
-  const c=harness();vm.runInContext(fn('_isSessionEmpty'),c);
-  assert.equal(c._isSessionEmpty(c._mkSession()),true);
-  for(const fill of [s=>s.chat.specialist={id:'accountant-cz'},s=>s.chat._draft='draft',s=>s.chat.attachments.push({name:'notes'}),s=>s._editor.tabs.push({id:'file'}),s=>s.term.push({text:'command output'}),s=>s.chat.msgs=[{role:'user',text:'question'}]]){
-    const owner=c._mkSession();fill(owner);assert.equal(c._isSessionEmpty(owner),false);
-  }
-});
-test('catalog navigation takes the center even while the owning session keeps an open editor',()=>{
-  const c=vm.createContext({_workspaceShown:()=>false,_centerState:{view:'projects',detail:null},_editorState:{active:true},
-    _expertiseWizard:{active:false},_agentWizard:{active:false},_projectWizard:{active:false},_specialistWizard:{active:false},
-    C:{},React:{Fragment:'fragment'},h:(tag,props,...children)=>({tag,props,children}),centerProjects:()=> 'PROJECT_CATALOG',centerEditor:()=>{throw Error('editor stole catalog');}});
-  vm.runInContext(fn('CenterApp'),c);assert.match(JSON.stringify(c.CenterApp()),/PROJECT_CATALOG/);assert.equal(c._editorState.active,true);
-});
-test('late project tree responses stay with their owner and cannot replace the selected session tree',async()=>{
-  const c=harness(),pending=[];Object.assign(c,{_backendUrl: () => 'http://fixture',AbortSignal,_collapsedDirs:{},renderSidebar(){},_fetchGitStatus(){},fetch:()=>new Promise(resolve=>pending.push(resolve))});
-  for(const name of ['_flattenTree','_loadTreeState','_loadWorkspaceTree'])vm.runInContext(fn(name),c);
-  const first=c._loadWorkspaceTree('/first',0);c._sessionActive=1;const second=c._loadWorkspaceTree('/second',1);
-  pending[1]({ok:true,json:async()=>({root:'/second',tree:[{n:'second.txt',d:false}]})});await second;
-  pending[0]({ok:true,json:async()=>({root:'/first',tree:[{n:'first.txt',d:false}]})});await first;
-  assert.equal(c._wtRoot,'/second');assert.equal(c.FILES[0].n,'second.txt');assert.equal(c._perSessionTree[0].files[0].n,'first.txt');
-  const third=c._loadWorkspaceTree('/stale',0);c._sessions[0]=c._mkSession();pending[2]({ok:true,json:async()=>({root:'/stale',tree:[{n:'private.txt'}]})});await third;
-  assert.equal(c._wtRoot,'/second');assert.equal(c._perSessionTree[0].files.length,0);
-});
+
+
+
+
 test('desktop upgrades preserve the exact administrator credential under the canonical name',async()=>{
   const {normalizeAdminEnvironment,renderDesktopInstallation}=await import('../scripts/desktop-runtime.mjs');
   const token='D'.repeat(43);
@@ -122,62 +89,15 @@ test('desktop upgrades preserve the exact administrator credential under the can
   const config={sourceRoot:'/source',node:'/node',dbPath:'/data/legacy.db',stateDirectory:'/state',configDirectory:'/config',icon:'/icon.png'};
   const env=renderDesktopInstallation(config).environment;assert.match(env,/INTENTSMITH_HOST=127\.0\.0\.1/);assert.match(env,/INTENTSMITH_PORT=0/);assert.doesNotMatch(env,/\nC3_/);
 });
-test('manual file save refuses an externally changed file and retains the unsaved editor',async()=>{
-  const writes=[];const c=vm.createContext({window:{_intentsmithFileService:{read:async()=>({value:'external edit'}),write:async(...args)=>writes.push(args)}},require:()=>({default:class URI{constructor(path){this.path=path;}}}),renderCenter(){},_fetchGitStatus(){}});
-  vm.runInContext('async '+fn('_saveWorkspaceFile'),c);
-  const tab={type:'file',path:'/project/file.js',originalContent:'original',content:'my edit',dirty:true};await c._saveWorkspaceFile(tab);
-  assert.equal(writes.length,0);assert.equal(tab.dirty,true);assert.equal(tab.content,'my edit');assert.match(tab._saveError,/změnil na disku/);
-});
-test('manual save keeps edits made while the previous save is still in flight',async()=>{
-  let finish,write;const c=vm.createContext({window:{_intentsmithFileService:{read:async()=>({value:'original',mtime:123,etag:'exact-read',encoding:'utf8'}),write:async(uri,content,opts)=>{write={uri,content,opts};await new Promise(resolve=>finish=resolve);}}},require:()=>({default:class URI{constructor(path){this.path=path;}}}),renderCenter(){},_fetchGitStatus(){}});
-  vm.runInContext('async '+fn('_saveWorkspaceFile'),c);const tab={type:'file',path:'/project/file.js',originalContent:'original',content:'first edit',dirty:true};
-  const pending=c._saveWorkspaceFile(tab);await new Promise(resolve=>setImmediate(resolve));tab.content='newer edit';finish();await pending;
-  assert.equal(write.uri.path,'/project/file.js');assert.equal(write.content,'first edit');assert.equal(write.opts.etag,'exact-read');assert.equal(write.opts.mtime,123);
-  assert.equal(tab.originalContent,'first edit');assert.equal(tab.content,'newer edit');assert.equal(tab.dirty,true);assert.equal(tab._saving,false);
-});
 
-test('split terminal rendering never steals focus; explicit focus stays with its live active owner',()=>{
-  const c=harness(),timers=[],focused=[];Object.assign(c,{C:{},_fs:x=>x,
-    h:(tag,props,...children)=>({tag,props:props||{},children}),setTimeout:cb=>timers.push(cb),
-    document:{getElementById:id=>({focus:()=>focused.push(id)})}});
-  for(const name of ['_terminalContent','_focusTerminalInput'])vm.runInContext(fn(name),c);
-  function mount(node){if(!node||typeof node!=='object')return;if(Array.isArray(node)){node.forEach(mount);return;}
-    assert.notEqual(node.props.autoFocus,true);if(node.props.ref)node.props.ref({focus:()=>focused.push('render')});node.children.forEach(mount);}
-  for(let n=0;n<5;n++){mount(c._terminalContent(c._sessions[0],0));mount(c._terminalContent(c._sessions[1],1));}
-  assert.equal(timers.length,0);assert.equal(focused.length,0);
-  c._focusTerminalInput(0,c._sessions[0]);c._sessionActive=1;timers.shift()();assert.equal(focused.length,0);
-  c._focusTerminalInput(1,c._sessions[1]);c._sessions[1]=c._mkSession();timers.shift()();assert.equal(focused.length,0);
-  c._focusTerminalInput(1,c._sessions[1]);timers.shift()();assert.deepEqual(focused,['intentsmith-term-input-1']);
-});
 
-test('restoring an inactive project reloads its missing tree exactly once on activation',()=>{
-  const c=harness(),reads=[];Object.assign(c,{PROJECTS:[{id:17,path:'/project'}],
-    _loadWorkspaceTree:(root,idx)=>{reads.push({root,idx});c._sessions[idx]._treeLoading=true;}});
-  vm.runInContext(fn('_ensureWorkspaceTree'),c);
-  c._sessions[1]._projectId=17;c._perSessionTree[1]={wtRoot:'/project',rawTree:null,files:[]};
-  c._ensureWorkspaceTree(1);c._ensureWorkspaceTree(1);assert.deepEqual(reads,[{root:'/project',idx:1}]);
-  c._sessions[1]._treeLoading=false;c._perSessionTree[1].rawTree=[];c._ensureWorkspaceTree(1);assert.equal(reads.length,1);
-  c._perSessionTree[1].rawTree=null;c._sessions[1]._closed=true;c._ensureWorkspaceTree(1);assert.equal(reads.length,1);
-});
 
-test('late system logs belong to the sender, never the currently selected or a closed session',()=>{
-  const c=harness();c.renderAgent=()=>{};c._sessionActive=1;vm.runInContext(fn('_appendSessionLog'),c);
-  const start=source.indexOf("IntentSmithBus.on('chat:system'");const end=source.indexOf('\n  });',start)+6;
-  c.IntentSmithBus={on:(_name,handler)=>c.handler=handler};vm.runInContext(source.slice(start,end),c);
-  c.handler({sessionIdx:0,content:'background session message'});
-  assert.equal(c._sessions[0].log[0].text,'background session message');assert.equal(c._sessions[1].log.length,0);
-  c._sessions[0]._closed=true;c.handler({sessionIdx:0,content:'late'});c.handler({sessionIdx:99,content:'unknown'});
-  assert.equal(c._sessions[0].log.length,1);assert.equal(c._sessions[1].log.length,0);
-});
-test('a background terminal completion cannot move focus out of the selected session',()=>{
-  const terminal=fs.readFileSync(new URL('../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/terminal-client.js',import.meta.url),'utf8');
-  const start=terminal.indexOf('function _refocusTermInput('),end=terminal.indexOf('/* ─── Helpers',start);
-  const callbacks=[],focused=[];const c=harness();Object.assign(c,{requestAnimationFrame:cb=>callbacks.push(cb),
-    window:{_intentsmith:{getSessionActive:()=>c._sessionActive}},document:{getElementById:id=>({focus:()=>focused.push(id)})}});
-  vm.runInContext(terminal.slice(start,end),c);c._refocusTermInput(0);c._sessionActive=1;callbacks.shift()();assert.equal(focused.length,0);
-  c._refocusTermInput(1);c._sessions[1]=c._mkSession();callbacks.shift()();assert.equal(focused.length,0);
-  c._refocusTermInput(1);callbacks.shift()();assert.deepEqual(focused,['intentsmith-term-input-1']);
-});
+
+
+
+
+
+
 
 test('settings upgrade on a reopened database preserves the real M5 trigger and existing values',async()=>{
   const {tmpdir}=await import('node:os');const {join}=await import('node:path');
@@ -223,72 +143,18 @@ test('renaming Studio keeps existing user data without replacing an explicit or 
 
 // Operator regression: restored Settings occupied the whole window; the main
 // navigation had a hidden dock despite its outer container being visible.
-test('navigation reveal repairs the dock and collapsing retains an icon rail',()=>{
-  const calls=[],nav={_collapsed:false},dock={hidden:true},container={hidden:false,show(){this.hidden=false;}};
-  const c=vm.createContext({_sidebarWidget:nav,INTENTSMITH_SIDEBAR_ID:'intentsmith-sidebar',
-    _intentsmithLastLeftW:260,_intentsmithSnapLock:false,renderSidebar(){calls.push('render');},setTimeout:fn=>fn(),
-    window:{_intentsmithApp:{shell:{leftPanelHandler:{container,expand(id){assert.equal(id,'intentsmith-sidebar');dock.hidden=false;}},resize(w,side){calls.push({w,side});}}}}});
-  vm.runInContext(fn('_setSidebarCollapsed'),c);
-  c._setSidebarCollapsed(false);
-  assert.equal(dock.hidden,false);assert.equal(container.hidden,false);assert.equal(nav._collapsed,false);
-  assert.deepEqual(calls[0],{w:260,side:'left'});
-  calls.length=0;c._setSidebarCollapsed(true);
-  assert.equal(nav._collapsed,true);assert.equal(dock.hidden,false);assert.equal(container.hidden,false);
-  assert.deepEqual(calls[0],{w:48,side:'left'});
-});
-test('navigation is reopened after saved layout restoration without changing the selected page',async()=>{
-  const start=source.indexOf('class IntentSmithSidebarContrib '),end=source.indexOf('\ninversify_1.decorate(',start);
-  const events=[],settings={view:'settings'},sessions=[{draft:'keep me'}];let expanded=false;
-  class View {async openView(options){assert.deepEqual(JSON.parse(JSON.stringify(options)),{activate:false,reveal:true});expanded=true;events.push('reveal');}}
-  const shell={get pendingUpdates(){events.push('settle');return Promise.resolve();}};
-  const c=vm.createContext({browser_1:{AbstractViewContribution:View},INTENTSMITH_SIDEBAR_ID:'intentsmith-sidebar',
-    window:{},_centerState:settings,_sessions:sessions,_workspacePanelMode:false,_syncWorkspacePanels(){events.push('panels');},_setSidebarCollapsed(value){assert.equal(value,false);assert.equal(expanded,true);events.push('size');}});
-  vm.runInContext(source.slice(start,end)+';globalThis.navigation=new IntentSmithSidebarContrib();',c);
-  // A saved layout may collapse or omit the old-named navigation widget.
-  expanded=false;await c.navigation.onDidInitializeLayout({shell});
-  assert.deepEqual(events,['reveal','size','settle','panels']);assert.equal(expanded,true);
-  assert.equal(settings.view,'settings');assert.equal(sessions[0].draft,'keep me');
-});
 
-test('a restored right panel cannot leave blank space beside a catalogue or Settings',()=>{
-  let workspace=false,hidden=false,resizes=0;
-  const right={container:{show(){hidden=false;},hide(){hidden=true;}}};
-  const c=vm.createContext({_workspacePanelMode:false,_workspaceShown:()=>workspace,
-    window:{_intentsmithApp:{shell:{rightPanelHandler:right,resize(){resizes++;}}}}});
-  vm.runInContext(fn('_syncWorkspacePanels'),c);
-  c._syncWorkspacePanels();assert.equal(hidden,true);assert.equal(resizes,0);
-  // Shell refresh restores it while our selected menu is unchanged.
-  hidden=false;c._syncWorkspacePanels();assert.equal(hidden,true);
-  workspace=true;c._syncWorkspacePanels();assert.equal(hidden,false);assert.equal(resizes,1);
-  c._syncWorkspacePanels();assert.equal(resizes,1);
-  workspace=false;c._syncWorkspacePanels();assert.equal(hidden,true);
-});
 
-test('closing a session reduces displayed columns without reindexing another owner',()=>{
-  const c=harness(),third=c._sessions[2];
-  assert.equal(c._workspaceSessionIndices().length,3);
-  c._closeWorkspaceSession(1);
-  assert.deepEqual(Array.from(c._workspaceSessionIndices()),[0,2]);assert.equal(c._sessions[2],third);
-});
-test('file arrows select adjacent files only in their owning session and stay bounded',()=>{
-  const c=harness();vm.runInContext(fn('_stepWorkspaceFile'),c);
-  const first=c._sessions[0]._editor,second=c._sessions[1]._editor;
-  first.tabs=[{id:'a'},{id:'b'},{id:'c'}];first.activeTabId='b';second.tabs=[{id:'foreign'}];second.activeTabId='foreign';
-  c._setActiveTab=id=>{c._sessions[c._sessionActive]._editor.activeTabId=id;};
-  c._stepWorkspaceFile(0,1);assert.equal(first.activeTabId,'c');c._stepWorkspaceFile(0,1);assert.equal(first.activeTabId,'c');
-  c._stepWorkspaceFile(0,-1);assert.equal(first.activeTabId,'b');assert.equal(second.activeTabId,'foreign');
-});
-test('workspace labels have a Unicode character budget without truncating stored identity',()=>{
-  const c=vm.createContext({});vm.runInContext(fn('_workspaceTabLabel'),c);
-  assert.equal(c._workspaceTabLabel('Účetní'),'Účetní');
-  const full='🧠'.repeat(40);assert.equal(Array.from(c._workspaceTabLabel(full)).length,28);assert.ok(c._workspaceTabLabel(full).endsWith('…'));assert.equal(Array.from(full).length,40);
-});
-test('evaluation matrix keeps missing values distinct from zero and includes every task and total',()=>{
-  const c=vm.createContext({Number,Math,C:{tx3:'#888',border:'#333',bg2:'#111'},_fs:n=>n,h:(tag,props,...children)=>({tag,props,children}),
-    _modelTable:(heads,rows)=>({heads,rows}),_modelSortHeader:(_s,_c,label)=>label,_modelStatus:r=>r.status,_modelCell:(v,p)=>({v,p}),_qualityExpanded:{},renderCenter(){}});
-  for(const name of ['_evaluationScoreCell','_evaluationTaskHeading','_renderEvaluationMatrix'])vm.runInContext(fn(name),c);
-  const matrix=c._renderEvaluationMatrix('CODE',{tasks:[{name:'bug',label:'Oprava chyby',context:'Měří regresní opravu',requirements:['Testy projdou']}]},[
-    {model:'failed',status:'FAILED',score:0,tasks:[]},{model:'measured',status:'COMPLETE',score:0,tasks:[{name:'bug',mean:0,spread:0}]}]);
-  assert.equal(matrix.heads.at(-1),'Celkem');const text=JSON.stringify(matrix);assert.match(text,/Měří regresní opravu/);assert.match(text,/0\.0 %/);assert.match(text,/—/);
-  assert.ok(!JSON.stringify(matrix.rows[0]).includes('0.0 %'));
+
+
+
+
+
+
+
+
+// Active Studio 2 adapters replace source extraction from the retired React monolith.
+test('ide-workspace: active Studio 2 integration coverage', () => {
+  const output = runStudio2BehaviorTests(process.execPath, ['--test', '--test-reporter=tap', 'tests/studio2-session-store.test.js', 'tests/studio2-transport.test.js', 'tests/studio2-attachments.test.js', 'tests/studio2-workspace-files.test.js', 'tests/studio2-appearance.test.js', 'tests/studio2-live-model.test.js'], { cwd: new URL('..', import.meta.url), encoding: 'utf8', timeout: 120000, env: { ...process.env, NODE_TEST_CONTEXT: undefined } });
+  if (!/# fail 0/.test(output)) throw new Error('Active Studio 2 tests did not complete: ' + output);
 });

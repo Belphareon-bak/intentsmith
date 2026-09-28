@@ -133,10 +133,9 @@ opraven, aby vložené apostrofy a nové řádky zůstaly daty, nikoli JS kódem
 
 Průvodce workerem v novém UI instaluje dostupné M3 rozšíření Project Health
 pro vybraný projekt, vždy nejprve jako vypnutou instanci. Po zápisu ověřuje
-vazbu rozšíření, ID projektu a katalog; ztracenou odpověď neopakuje. Starý
-obecný průvodce zdrojů, podmínek, spouštěčů a akcí zůstává otevřenou mezerou:
-jeho legacy mutační API vrací 410 a veřejné M3 API zatím nepopisuje schéma
-parametrů dalších rozšíření.
+vazbu rozšíření, ID projektu a katalog; ztracenou odpověď neopakuje. Obecný průvodce nyní používá deklarované parametry ověřených rozšíření M3;
+zdroje, podmínky, spouštěče a akce ukazuje ze schématu bez vlastní shellové
+autority. Legacy mutační API nadále vrací 410.
 
 Průvodce expertýzou přebírá profil a ladění 5D ze starého UI.
 Před zápisem čte náhled pravidel z `/api/merge-preview`; uloženou expertýzu
@@ -186,12 +185,28 @@ zobrazením validují; při souběžném M1 tahu se příkaz neposílá. Párov�
 v Nastavení → Zabezpečení → Přístup. Vydání lokálního pětiminutového kódu
 ověřuje přesnou smlouvu odpovědi a drží kód jen v paměti okna.
 
-**Zbývá před paritou S2-7:** použití výběru expertýz v projektových relacích,
-obecný průvodce workerem a další akce katalogů.
-Nová obrazovka Nastavení pokrývá všech 12 kategorií; jednotlivé záložky
-vyžadují samostatnou kontrolu funkční parity.
-Prototypové fixtury se stále používají u nenapojených částí nastavení;
-tyto části nesmějí být vydávány za živá data. Klasické UI proto zůstává dostupné.
+**Integrace parity dokončené 28. 9.:** projektová relace používá vybrané
+expertýzy při zachování priority PROJECT a samostatného schválení změn.
+Obecný průvodce workerem čte ověřenou definici M3, provede kontrolu parametrů
+bez spuštění a instaluje instanci vypnutou s vazbou na digest definice.
+Všech 12 kategorií nastavení používá skutečné adaptéry. Tab ve skladateli
+volá stávající autocomplete až na výslovný vstup; odpověď je vázaná na
+konverzaci, projekt, rozepsaný text a historii. Menu dokumentace, opakování
+zadání a klávesy Ctrl+W/Ctrl+Q jsou zapojené.
+
+Projektový chat uchová `ProjectWorkProposal@1` pro editovatelný souborový
+plán. Soubory, závislosti, kontext a doslovné argv se kontrolují před HTTP;
+příprava nikdy neschvaluje. Zrušení generování ponechá formulář, oprava
+neprovedeného návrhu nemá zděděné schválení. Průběh M2 čte jen přesný
+lifecycle/origin/digest, pozorování nemůže nahradit vlastní HTTP výsledek.
+Výsledek, cílený test, přesné obsahy a audit zůstávají dostupné i po restartu.
+
+Studio 2 je jediný frontend. Sdílený chat-panel poskytuje původní klienty
+bez Theia UI registrace. Klasický JS entrypoint byl po inventuře odstraněn;
+uložené klasické přepínače nemohou obnovit staré UI. Testy čtení monolitu jsou
+převedené podle [TEST-MIGRATION](TEST-MIGRATION.md). Historický stav zůstává
+v Gitu. Finální runtime a balík dokumentuje
+[ověřovací report](../review/2026-09-28-STUDIO2-PARITY-DELIVERY.md).
 
 ## 2. Jak to funguje
 
@@ -209,11 +224,8 @@ lib/browser/studio2-module.js     Studio2Widget.render() → StudioRoot
   (`p*` metody), `renderVals()` z nich skládá view model a šablona ho jen zobrazí.
 - Generované soubory se **needitují**. Změna vzhledu nebo chování UI = změna
   prototypu, pak přegenerovat (§3).
-- Původní ruční render zůstává dočasně pro porovnání:
-  `localStorage.setItem('intentsmith-studio2-view', 'legacy')` a reload. Po integraci
-  se smaže i s `chrome-view.js`, `session-view.js`, `catalog-view.js`, `settings-view.js`,
-  `workspace-view.js`, `m2-view.js`, `command-palette.js`, `styles/studio2.css`
-  a duplicitním `styles/tokens.css` (tapety jsou teď v bundlu dvakrát).
+- Původní ruční render i dočasné přepínání byly odstraněny. Jediná vrstva
+  vzhledu je generovaná z prototypu; uložená volba `legacy` se ignoruje.
 
 ## 3. Postup při změně vzhledu
 
@@ -271,17 +283,11 @@ expert, model, mode ('auto'|'kontrola'), intent, ctx, tokens, turns, parts, msgs
 changes, edited, ctxFiles, attach, memory, tree, term, log, runs, audit, problems`.
 Fixtury v `data()` jsou úplný vzor každého pole.
 
-## 5. Co prototyp nemá a integrace to potřebuje
+## 5. Doplněné části prototypu
 
-Tyto obrazovky nejsou v předloze; před napojením se navrhnou v prototypu
-(bloky detailu `rows`, `list`, `chips`, `bars`, `table`, `text`, `empty` pokryjí
-většinu) a přegenerují:
-
-- průvodci projektu, specialisty, expertýzy a workeru v rozšířeném detailu (UI-SPEC §9);
-- úplné kategorie nastavení a jejich záložky (UI-SPEC §10 chce původních 12 kategorií;
-  prototyp má 10 s ukázkovým obsahem a funkční jen Vzhled);
-- obsah Multimédií (generování, historie, oblíbené), modely/hunt/upgrady, M4/M7;
-- stav „odpojeno" a chybové stavy konektorů (UI-SPEC §1: odpojení musí být vidět).
+Průvodci, zbývající nastavení, Multimédia a provozní/chybové stavy byly
+postupně doplněny do zdroje prototypu a jeho generované vrstvy. Živé modely,
+M4/M7, souborový plán M2 a jeho audit dodává LiveModel přes stávající API.
 
 ## 6. Známé dopady na testy
 
@@ -302,7 +308,7 @@ hodnocení uložených odpovědí používá `runId`, přijatého hodnotitele a 
 zdroje. Politika automatizace se ukládá přes revizní CAS a potvrzené zpětné
 čtení; neplatná politika zůstává vypnutá. Rollback tlačítko se objeví pouze
 po WS události s úplnou identitou operace. Testy používají simulovaný backend,
-neprovádějí skutečné GPU efekty. Úplné UI-SPEC §13 a S2-7 zatím splněné nejsou.
+neprovádějí skutečné GPU efekty. Stav parity a skutečných runtime kontrol je v ověřovacím reportu; testy adaptéru nenahrazují živé GPU měření.
 
 Nastavení Úložiště čte `/api/system/storage`; optimalizace vyžaduje potvrzení
 a nové čtení. Zálohy čtou backendový seznam, vytvoření zálohy potvrzuje její

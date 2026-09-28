@@ -33,6 +33,7 @@ const mockRequire = name => {
   if (name.endsWith('/work-activity')) return { createActivity: id => ({id}), applyEvent() {}, finishActivity() {} };
   if (name.endsWith('/ws-client')) return {};
   if (name.endsWith('/terminal-client')) return terminalModule.exports;
+  if (name.startsWith('./')) return require('../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/' + name.slice(2));
   throw new Error(name);
 };
 vm.runInContext(`(function(require,module,exports){${source}\n})`, context)(mockRequire,module,module.exports);

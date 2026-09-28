@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { execFileSync as runStudio2BehaviorTests } from 'node:child_process';
 
 import Database from 'better-sqlite3';
 import assert from 'node:assert/strict';
@@ -105,14 +106,8 @@ const WS_CLIENT = new URL(
   '../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/ws-client.js',
   import.meta.url,
 );
-const CHAT_PANEL = new URL(
-  '../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js',
-  import.meta.url,
-);
-const STUDIO_THEME = new URL(
-  '../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/styles/intentsmith-theme.css',
-  import.meta.url,
-);
+
+
 const ANDROID_LIFECYCLE = new URL(
   './lifecycle-android-app-e2e.test.js',
   import.meta.url,
@@ -177,16 +172,7 @@ test('root Studio build and watch share one protocol preparation contract', () =
   );
 });
 
-test('settings never invent installed models from the default portfolio', () => {
-  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
-  assert.doesNotMatch(source, /if\(models\.length===0\)models=\[/);
-  assert.match(source, /function _isInstalledModel\(models,target\)/);
-  assert.match(source, /var installed=_isInstalledModel\(models,m\)/);
-  const roles = source.slice(source.indexOf('function _renderRolesTab('),source.indexOf('function centerUpgrades('));
-  assert.match(roles,/rows=\(rd.artifacts\|\|\[\]\)/);
-  assert.match(roles,/Model není v místním inventáři/);
-  assert.match(roles,/bound\?h\('button'/);
-});
+
 
 test('required Android T3 portfolio preflight fails when any exact model is missing', () => {
   const source = fs.readFileSync(ANDROID_LIFECYCLE, 'utf8');
@@ -200,120 +186,7 @@ test('required Android T3 portfolio preflight fails when any exact model is miss
   assert.match(preflight, /return missing\.length === 0/);
 });
 
-test('history renders every decision and unverified interval while quality stays role specific', () => {
-  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
-  const start = source.indexOf('var _evaluationRoleFilter=');
-  const end = source.indexOf('/* ═══════════════════════════════════════════════════════════', start);
-  assert.notEqual(start, -1);
-  assert.notEqual(end, -1);
-  const context = {
-    module: { exports: null },
-    C: {
-      accent: '#0f0',
-      bg2: '#222',
-      border: '#333',
-      font: 'sans',
-      mono: 'mono',
-      tx1: '#fff',
-      tx2: '#ddd',
-      tx3: '#aaa',
-      tx4: '#777',
-    },
-    _fs: value => value, _rgba: () => 'rgba(255,255,255,.22)',
-    _settingsVals: {}, _huntDuration:()=> '2 min',
-    _evaluationLoading: false,
-    _evaluationModelFilter: '', _modelTestPending: false, _modelTestTarget: null,
-    _assigningRole: null,
-    _assignModel: () => {},
-    _evaluationData: {
-      coverage: {
-        applicableTotal: 1,
-        notApplicable: 1,
-        applicableStatusCounts: { COMPLETE: 1, FAILED: 0, BLOCKED: 0, MISSING: 0 },
-      },
-      bindingAuthority: {
-        status: 'DEGRADED',
-        reason: 'MODEL_BINDING_STARTUP_BASELINE_FAILED',
-      },
-      roles: {
-        CODE: {
-          binding: 'qwen3.5:27b',
-          suiteName: 'code_patch',
-          suiteVersion: 'code-patch-v2',
-          suiteContractSha256: 'a'.repeat(64),
-          decisions: [
-            {
-              decisionId: 'candidate-win',
-              outcome: 'CANDIDATE',
-              incumbentModel: 'qwen3.5:27b',
-              candidateModel: 'qwen3.8:latest',
-              createdAt: '2026-08-25T21:31:11.743Z',
-              actionability: 'PORTFOLIO_NOT_APPROVED',
-            },
-            {
-              decisionId: 'later-incumbent',
-              outcome: 'INCUMBENT',
-              incumbentModel: 'qwen3.5:27b',
-              candidateModel: 'qwen3-coder:latest',
-              createdAt: '2026-08-25T21:31:11.745Z',
-              actionability: 'NOT_CANDIDATE_WIN',
-            },
-          ],
-          artifacts: [{
-            model: 'text-only:7b',
-            digestSha256: 'b'.repeat(64),
-            status: 'MISSING',
-            applicable: false,
-            applicabilityReasonCode: 'MODEL_VISION_CAPABILITY_REQUIRED',
-            applicabilityReason: 'model neumí zpracovat obraz',
-            score: null,
-            testedAt: null,
-            isCurrentBinding: false,
-          }, {
-            model: 'qwen3.5:27b',
-            digestSha256: 'c'.repeat(64),
-            status: 'COMPLETE',
-            applicable: true,
-            score: 0.5,
-            testedAt: '2026-08-24T18:01:00.000Z',
-            startedAt: null,
-            durationMs: null,
-            intervalIntegrity: 'LEGACY_UNVERIFIED',
-            testedAtProvenance: 'LEGACY_RECORDED_AT_ONLY',
-            isCurrentBinding: true,
-          }],
-        },
-      },
-    },
-    h: (tag, props, ...children) => ({ tag, props, children }),
-  };
-  context._evaluationData.decisions=context._evaluationData.roles.CODE.decisions;
-  context._evaluationData.history=[{...context._evaluationData.roles.CODE.artifacts[1],runId:'history-row',role:'CODE',durationMs:null}];
-  const helpers = source.slice(source.indexOf('function _modelButtonStyle('), source.indexOf('var _huntData='));
-  vm.runInNewContext(
-    `${helpers}${source.slice(start, end)}\nmodule.exports={quality:_renderEvaluationsTab(),history:_renderEvaluationHistory()};`,
-    context,
-    { filename: `${CHAT_PANEL.pathname}#evaluation-render` },
-  );
-  const flatten = value => {
-    if (value == null) return '';
-    if (typeof value === 'string' || typeof value === 'number') return String(value);
-    if (Array.isArray(value)) return value.map(flatten).join(' ');
-    return flatten(value.children);
-  };
-  const rendered = flatten(context.module.exports.history);
-  assert.match(rendered, /Lepší kandidát/);
-  assert.match(rendered, /qwen3\.8:latest/);
-  assert.match(rendered, /Zůstává současný/);
-  assert.match(rendered, /qwen3-coder:latest/);
-  assert.match(rendered, /historické \/ nelze přímo použít/);
-  assert.match(rendered, /Neověřený interval/);
-  const quality=flatten(context.module.exports.quality);
-  assert.match(quality,/qwen3\.5:27b/);
-  assert.doesNotMatch(quality,/text-only:7b/,'inapplicable artifact cannot be offered for this role');
-  assert.doesNotMatch(quality,/← Přiřadit/);
 
-});
 
 function validPostbuildProtocol() {
   return {
@@ -529,8 +402,8 @@ test('postbuild guard rejects a preload bundle that lost the byte bridge', () =>
 });
 
 test('postbuild refuses the duplicate sidebar in either manifest or generated frontend', () => {
-  const manifest = { dependencies: { '@intentsmith/chat-panel': '0.1.0' } };
-  const frontend = "await load(container, require('@intentsmith/chat-panel/lib/browser/chat-panel-module'));";
+  const manifest = { dependencies: { '@intentsmith-ide/intentsmith-studio2': '0.1.0' } };
+  const frontend = "await load(container, require('@intentsmith-ide/intentsmith-studio2/lib/browser/studio2-module'));";
   assert.doesNotThrow(() => validateSidebarComposition(manifest, frontend));
   for (const section of ['dependencies', 'devDependencies', 'optionalDependencies']) {
     assert.throws(() => validateSidebarComposition({ ...manifest,
@@ -543,125 +416,11 @@ test('postbuild refuses the duplicate sidebar in either manifest or generated fr
   assert.throws(() => validateSidebarComposition(manifest, ''), /missing the current sidebar/);
 });
 
-test('sidebar startup preserves narrow content panels while hiding activity bars', () => {
-  const source = fs.readFileSync(new URL(
-    '../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js', import.meta.url,
-  ), 'utf8');
-  const start = source.indexOf('class IntentSmithSidebarWidget extends ');
-  const end = source.indexOf('inversify_1.decorate(', start);
-  assert.ok(start >= 0 && end > start, 'actual sidebar lifecycle is available');
-  for (const width of [0, 32, 240, 420]) {
-    const originalStyle = `position:absolute;top:0;left:0;width:${width}px;height:910px;`;
-    const parents = ['left', 'right'].map(side => ({
-      id: `theia-${side}-content-panel`,
-      style: { width: `${width}px`, cssText: originalStyle },
-      classList: { contains: name => name === 'lm-SplitPanel-child' },
-      getBoundingClientRect: () => ({ width }),
-    }));
-    const activityBars = parents.map(parentElement => ({
-      parentElement,
-      style: { cssText: '', setProperty(name, value) { this[name] = value; } },
-    }));
-    const callbacks = [];
-    const context = {
-      react_widget_1: { ReactWidget: class {
-        constructor() { this.node = { style: {} }; this.title = {}; }
-      } },
-      INTENTSMITH_SIDEBAR_ID: 'intentsmith-sidebar', _sidebarWidget: null, _centerContainer: null,
-      _createRoot: () => ({ render() {} }), h() {}, SidebarApp() {},
-      setTimeout: callback => callbacks.push(callback), setInterval() {}, clearInterval() {},
-      document: {
-        getElementById: id => id === 'theia-main-content-panel' ? null : {},
-        querySelectorAll: selector => selector === '.theia-app-sidebar-container' ? activityBars : [],
-      },
-    };
-    vm.runInNewContext(`${source.slice(start, end)}\nnew IntentSmithSidebarWidget().onAfterAttach();`, context);
-    assert.equal(callbacks.length, 1);
-    callbacks[0]();
-    for (const parent of parents) {
-      assert.equal(parent.style.cssText, originalStyle, `${parent.id}: preserve layout at ${width}px`);
-    }
-    for (const bar of activityBars) {
-      assert.equal(bar.style.display, 'none', 'activity bar is still hidden');
-    }
-  }
-});
 
-test('default Studio identity uses the accessible IntentSmith brand system', () => {
-  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
-  const css = fs.readFileSync(STUDIO_THEME, 'utf8');
-  const palette = {
-    canvas: '#09090b',
-    panel: '#141416',
-    text: '#f4f1ea',
-    muted: '#8c7d67',
-    accent: '#d4a85f',
-    onAccent: '#17120a',
-    success: '#5ecf91',
-  };
-  const luminance = hex => hex.match(/[\da-f]{2}/gi).map(value => {
-    const channel = Number.parseInt(value, 16) / 255;
-    return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-  }).reduce((total, channel, index) => total + channel * [0.2126, 0.7152, 0.0722][index], 0);
-  const contrast = (left, right) => {
-    const values = [luminance(left), luminance(right)].sort((a, b) => b - a);
-    return (values[0] + 0.05) / (values[1] + 0.05);
-  };
 
-  assert.ok(contrast(palette.text, palette.canvas) >= 7, 'primary copy is AAA on the canvas');
-  assert.ok(contrast(palette.muted, palette.canvas) >= 4.5, 'quiet copy stays readable');
-  assert.ok(contrast(palette.accent, palette.canvas) >= 7, 'brand accent is readable on the canvas');
-  assert.ok(contrast(palette.onAccent, palette.accent) >= 7, 'primary actions use dark copy on gold');
-  assert.notEqual(palette.accent, palette.success, 'brand selection and success remain different meanings');
 
-  for (const token of Object.values(palette)) {
-    assert.ok(source.includes(token), `runtime owns brand token ${token}`);
-    assert.ok(css.includes(token), `Theia chrome owns brand token ${token}`);
-  }
-  assert.match(source, /Active:\{b:C\.successBg,c:C\.success\}/);
-  assert.match(source, /row.status==='COMPLETE'\?C\.success/);
-  assert.match(source, /id:'intentsmith',label:'IntentSmith',desc:'Výchozí brand'/);
-  assert.match(source, /id:'clean',label:'Clean',desc:'Původní přizpůsobitelný'/);
-  assert.match(source, /'Styl vzhledu'/);
-  assert.match(source, /localStorage\.getItem\('intentsmith-theme-mode'\)\|\|'intentsmith'/,
-    'new profiles select the visible IntentSmith appearance');
-  assert.match(source, /accentDim:'#9b6b32'/);
-  assert.match(source, /text:_theme\.accentText/,
-    'the explicit brand mode keeps the reviewed logo accent text token at runtime');
-  assert.match(fs.readFileSync(new URL('../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/work-activity.js', import.meta.url), 'utf8'), /a\?'IntentSmith':'Systém'/);
-  assert.match(source, /widgetName:'IntentSmith Navigation'/);
-  assert.match(source, /widgetName:'IntentSmith Chat'/);
-  assert.match(source, /label:'IntentSmith: Toggle Sidebar',category:'IntentSmith'/);
-  assert.match(source, /label:'IntentSmith: Toggle Chat',category:'IntentSmith'/);
-  assert.doesNotMatch(source, /linear-gradient\(135deg,#22c55e,#16a34a\)/,
-    'assistant identity no longer uses the old green brand gradient');
-});
 
-test('IntentSmith and Clean keep independent palettes and background authority', () => {
-  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
-  const css = fs.readFileSync(STUDIO_THEME, 'utf8');
-  const brand = source.match(/var _C_DEFAULT=\{[\s\S]*?\};/u)?.[0] || '';
-  const clean = source.match(/var _C_CLEAN=\{[\s\S]*?\};/u)?.[0] || '';
 
-  assert.match(brand, /bg0:'#09090b',bg1:'#141416',bg2:'#1b1b1e'/,
-    'brand surfaces are neutral near-black, with panels visibly above the canvas');
-  assert.match(brand, /accent:'#d4a85f',accentText:'#e7c27a'/,
-    'IntentSmith retains the logo-derived gold accent');
-  assert.match(clean, /bg0:'#0c0c0f',bg1:'#111114',bg2:'#18181c'/,
-    'Clean restores its original dark surface ramp');
-  assert.match(clean, /tx3:'#5e8a6d',tx4:'#436b52'/,
-    'Clean restores its original passive copy colors');
-  assert.match(clean, /accent:'#22c55e',accentText:'#4ade80',accentDim:'#16a34a'/,
-    'Clean restores its original green default accent');
-  assert.match(source, /if\(isClean\)\{[\s\S]*?_bgPresets\[bi\][\s\S]*?C\.bg1=_cl\(baseBg,bt,0\.04\)/u,
-    'only Clean consumes the saved customizable background');
-  assert.match(source, /\}else\{\s*C\.bg0=tc\.bg0;C\.bg1=tc\.bg1;C\.bg2=tc\.bg2/u,
-    'IntentSmith uses its owned surface ramp instead of the saved Clean background');
-  assert.match(source, /appearanceMode==='clean'\?h\(React\.Fragment/u,
-    'editable accent and background controls are explicitly scoped to Clean');
-  assert.match(css, /html\[data-intentsmith-appearance="intentsmith"\] #theia-left-side-panel/u,
-    'brand-only chrome details are scoped away from Clean');
-});
 
 test('the shipped preload bundle really carries the byte bridge', () => {
   /* lib/ is a build artifact, so this only asserts when a build is present:
@@ -679,8 +438,8 @@ test('postbuild CLI composes exact paths and byte-level evidence', () => {
     const preloadBytes = Buffer.from(`${CANONICAL_PRELOAD_MARKERS.join('\n')}\n`);
     const mainBytes = Buffer.from(`${CANONICAL_ELECTRON_MAIN_MARKERS.join('\n')}\n`);
     const ripgrepBytes = Buffer.from('ripgrep-fixture');
-    const manifestBytes = Buffer.from(JSON.stringify({ dependencies: { '@intentsmith/chat-panel': '0.1.0' } }));
-    const frontendBytes = Buffer.from("require('@intentsmith/chat-panel/lib/browser/chat-panel-module');\n");
+    const manifestBytes = Buffer.from(JSON.stringify({ dependencies: { '@intentsmith-ide/intentsmith-studio2': '0.1.0' } }));
+    const frontendBytes = Buffer.from("await load(container, require('@intentsmith-ide/intentsmith-studio2/lib/browser/studio2-module'));\n");
     writePostbuildFile(studioRoot, 'applications/electron/package.json', manifestBytes);
     writePostbuildFile(studioRoot, 'applications/electron/src-gen/frontend/index.js', frontendBytes);
     writePostbuildFile(
@@ -807,16 +566,7 @@ test('protocol package resolves generated index and source index re-exports M1',
   assert.match(source, /export \* from ['"]\.\/m1['"]/);
 });
 
-test('authoritative panel hard-requires the generated protocol consumer', () => {
-  const client = fs.readFileSync(WS_CLIENT, 'utf8');
-  const panel = fs.readFileSync(CHAT_PANEL, 'utf8');
-  assert.match(client, /require\(['"]@intentsmith\/protocol['"]\)/);
-  assert.match(panel, /require\(["']\.\/ws-client["']\);/);
-  assert.doesNotMatch(
-    panel,
-    /try\s*\{\s*require\(["']\.\/ws-client["']\)/,
-  );
-});
+
 
 function loadClient(sessions, options = {}) {
   const busEvents = [];
@@ -1143,125 +893,7 @@ function session(conversationId = null) {
   };
 }
 
-function panelSendHarness({ FileReaderClass = null, mode = 'unavailable', input = '', sessionIndex = 0 } = {}) {
-  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
-  const start = source.indexOf('var _TEXT_EXTS=');
-  const end = source.indexOf('function _chatPaneUI', start);
-  assert.ok(start >= 0 && end > start, 'authoritative panel send slice is missing');
 
-  const textarea = {
-    scrollHeight: 37,
-    style: { height: '22px' },
-    value: input,
-  };
-  const counters = {
-    fetch: 0,
-    filesystem: 0,
-    provider: 0,
-    render: 0,
-    scroll: 0,
-    shell: 0,
-    timers: [],
-    tool: 0,
-    wsSend: [],
-  };
-  const pane = {
-    _agentId: null,
-    _convId: 'studio-send-test',
-    _focusFiles: [],
-    _projectId: null,
-    chat: {
-      _delivery: null,
-      _pendingAttachments: null,
-      _thinking: null,
-      acSuggestion: null,
-      attachments: [],
-      editMode: 'ask',
-      editingIdx: null,
-      editOriginalText: null,
-      expertise: 'Výchozí',
-      msgs: [],
-      specialist: null,
-    },
-  };
-  const sessions = Array.from({ length: sessionIndex + 1 }, () => session());
-  sessions[sessionIndex] = pane;
-
-  const context = vm.createContext({
-    IntentSmithWS: {
-      isReady: () => mode !== 'unavailable',
-      sendCancel() {
-        counters.remoteCancel = (counters.remoteCancel || 0) + 1;
-        return true;
-      },
-      sendChat(content, selectedPane, index) {
-        counters.wsSend.push({
-          content,
-          index,
-          pendingAttachments: selectedPane.chat._pendingAttachments
-            ? JSON.parse(JSON.stringify(selectedPane.chat._pendingAttachments))
-            : null,
-          selectedPane,
-        });
-        if (mode === 'throw') throw new Error('synthetic transport failure');
-        return mode !== 'false';
-      },
-    },
-    Date,
-    FileReader: FileReaderClass || class UnexpectedFileReader {
-      constructor() {
-        throw new Error('binary attachment unexpectedly used FileReader');
-      }
-    },
-    Math,
-    _focusFileExists: () => false,
-    _persistSessionState() {},
-    _pollContext: () => { counters.provider++; },
-    _sessionActive: sessionIndex,
-    _sessionCount: sessions.length,
-    _sessions: sessions,
-    console,
-    document: {
-      getElementById(id) {
-        return id === `intentsmith-chat-ta-${sessionIndex}` ? textarea : null;
-      },
-    },
-    fetch: async (_url, options = {}) => {
-      counters.fetch++;
-      /* Legacy /chat is effect-capable regardless of what the renderer predicts. */
-      counters.provider++;
-      counters.filesystem++;
-      counters.shell++;
-      counters.tool++;
-      return { ok: true, json: async () => ({ response: 'must not render' }) };
-    },
-    isFocusActive: () => false,
-    module: { exports: {} },
-    renderAgent() {},
-    renderChat: () => { counters.render++; },
-    setTimeout(callback, delay) {
-      counters.timers.push({ callback, delay });
-      return counters.timers.length;
-    },
-    window: { require: undefined },
-    _chatScrollPane: () => { counters.scroll++; },
-  });
-
-  vm.runInContext(
-    source.slice(start, end)
-      + '\nmodule.exports={_chatCancelPreparedSend,_chatGapChoice,_chatInvalidatePreparedSends,_chatSendPane,_chatSendContextIsCurrent,_chatTryWsSend};',
-    context,
-    { filename: `${CHAT_PANEL.pathname}#send-slice` },
-  );
-
-  return {
-    counters,
-    context,
-    functions: context.module.exports,
-    pane,
-    textarea,
-  };
-}
 
 function controlledFileReaderClass() {
   const readers = [];
@@ -1301,38 +933,7 @@ function assertNoFallbackEffects(harness, expectedAssistantCount = 0) {
   assert.equal(harness.counters.timers.length, 0, 'NOT_SENT scheduled an automatic retry');
 }
 
-function terminalPanelHarness(pane = session('panel-terminal')) {
-  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
-  const start = source.indexOf('function _initBusSubscriptions()');
-  const end = source.indexOf('/* ── Health state ──', start);
-  assert.ok(start >= 0 && end > start, 'terminal subscription slice is missing');
-  const listeners = Object.create(null);
-  const counters = { agentRender: 0, persist: 0, render: 0, scroll: 0 };
-  if (!Array.isArray(pane.log)) pane.log = [];
-  const context = vm.createContext({
-    WorkActivity,
-    IntentSmithBus: {
-      on(name, callback) { listeners[name] = callback; },
-    },
-    _sessions: [pane],
-    _maybeRefreshExpertises() {},
-    _persistSessionState() { counters.persist++; },
-    _chatScrollPane() { counters.scroll++; },
-    console,
-    module: { exports: {} },
-    renderAgent() { counters.agentRender++; },
-    renderCenter() {},
-    renderChat() { counters.render++; },
-    renderSidebar() {},
-    window: {},
-  });
-  vm.runInContext(
-    source.slice(start, end) + '\n_initBusSubscriptions();',
-    context,
-    { filename: `${CHAT_PANEL.pathname}#terminal-subscription` },
-  );
-  return { counters, listeners, pane };
-}
+
 
 function agentStateHarness(sessions = []) {
   const listeners = Object.create(null);
@@ -1752,60 +1353,7 @@ test('reconnect interrupts a pending M1 turn without resend or legacy downgrade'
   assert.equal(interrupted.payload.renderAssistant, false);
 });
 
-await testAsync('connection interruption remains visible after authoritative history replacement', async () => {
-  const pane = session();
-  pane.chat.msgs = [{ role: 'system', text: 'before send' }];
-  const panel = terminalPanelHarness(pane);
-  const { client, handshake, socket, sockets } = loadClient([pane], {
-    autoHandshake: false,
-    fetch: async () => ({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        messages: [{
-          role: 'assistant',
-          content: 'authoritative history',
-          metadata: JSON.stringify({ mode: 'conversation' }),
-        }],
-      }),
-    }),
-    onBusEmit(name, payload) {
-      if (name === 'chat:terminal') panel.listeners['chat:terminal'](payload);
-    },
-  });
-  handshake(socket, ['m1-wire-v1']);
-  assert.equal(client.wsSendChat('outcome may be unknown', pane, 0), true);
-  const oldChatFrames = socket.sent.filter(message => message.channel === 'chat').length;
 
-  client.wsConnect();
-  assert.equal(pane.chat._delivery.status, 'DELIVERY_UNKNOWN');
-  assert.equal(pane.chat._delivery.retryable, false);
-  assert.equal(pane.chat._delivery.reason, 'M1_CONNECTION_REPLACED');
-  assert.equal(
-    socket.sent.filter(message => message.channel === 'chat').length,
-    oldChatFrames,
-  );
-
-  const replacement = sockets[1];
-  handshake(replacement, ['m1-wire-v1']);
-  sendCompleteRehydrateAck(replacement, {
-    validIds: [pane._convId],
-    invalidIds: [],
-  });
-  await drainMicrotasks();
-
-  assert.deepEqual(hostClone(pane.chat.msgs), [{
-    role: 'assistant',
-    text: 'authoritative history',
-    tag: 'conversation',
-  }]);
-  assert.equal(pane.chat._delivery.status, 'DELIVERY_UNKNOWN');
-  assert.equal(pane.chat._delivery.retryable, false);
-  assert.equal(
-    pane.chat.msgs.some(message => message.text === 'outcome may be unknown'),
-    false,
-  );
-});
 
 test('bounded terminal tombstones do not permanently exhaust the M1 ledger', () => {
   const pane = session();
@@ -1897,116 +1445,9 @@ test('aggregate stream limit is enforced in UTF-8 bytes, not UTF-16 units', () =
   assert.equal(socket.closeCode, 1008);
 });
 
-test('one panel terminal seam renders only ok as assistant and ends every spinner', () => {
-  const ok = terminalPanelHarness();
-  ok.listeners['chat:terminal']({
-    sessionIdx: 0,
-    action: 'send',
-    status: 'ok',
-    renderAssistant: true,
-    result: {
-      status: 'ok',
-      response: { content: 'exact ok', metadata: { mode: 'conversation' } },
-    },
-  });
-  assert.equal(ok.pane.chat._thinking, null);
-  assert.equal(ok.pane.chat.msgs.at(-1).role, 'assistant');
-  assert.equal(ok.pane.chat.msgs.at(-1).text, 'exact ok');
 
-  const failed = terminalPanelHarness();
-  failed.listeners['chat:terminal']({
-    sessionIdx: 0,
-    action: 'send',
-    status: 'error',
-    renderAssistant: false,
-    result: { status: 'error', error: { code: 'CHAT_FAILED', message: 'exact failure' } },
-  });
-  assert.equal(failed.pane.chat._thinking, null);
-  assert.equal(failed.pane.chat.msgs.at(-1).role, 'system');
-  assert.equal(failed.pane.chat.msgs.at(-1).text, 'exact failure');
-  assert.equal(
-    failed.pane.chat.msgs.some(message => message.role === 'assistant'),
-    false,
-  );
 
-  const cancelAck = terminalPanelHarness();
-  const before = cancelAck.pane.chat.msgs.length;
-  const thinkingBeforeCancelAck = cancelAck.pane.chat._thinking;
-  cancelAck.listeners['chat:terminal']({
-    sessionIdx: 0,
-    action: 'cancel',
-    status: 'cancelled',
-    renderAssistant: false,
-    result: { status: 'cancelled', error: { code: 'CHAT_CANCELLED', message: 'cancelled' } },
-  });
-  assert.equal(cancelAck.pane.chat._thinking, thinkingBeforeCancelAck);
-  assert.equal(cancelAck.pane.chat.msgs.length, before);
-  assert.equal(cancelAck.pane.log.at(-1).text, 'Zrušení potvrzeno.');
 
-  const cancelFailed = terminalPanelHarness();
-  const thinkingBeforeCancelFailure = cancelFailed.pane.chat._thinking;
-  cancelFailed.listeners['chat:terminal']({
-    sessionIdx: 0,
-    action: 'cancel',
-    status: 'timeout',
-    renderAssistant: false,
-    result: { status: 'timeout', error: { code: 'CHAT_TIMEOUT', message: 'not confirmed' } },
-  });
-  assert.equal(cancelFailed.pane.chat._thinking, thinkingBeforeCancelFailure);
-  assert.equal(cancelFailed.pane.chat.msgs.at(-1).role, 'system');
-  assert.equal(cancelFailed.pane.chat.msgs.at(-1).text, 'not confirmed');
-});
-
-test('canonical send terminal follows conversation ownership after a pane swap', () => {
-  const paneA = session('agent-state-A');
-  const paneB = session('agent-state-B');
-  const sessions = [paneA, paneB];
-  const harness = agentStateHarness(sessions);
-  harness.listeners['agent:event']({
-    sessionIdx: 1,
-    event: {
-      conversationId: 'agent-state-B',
-      transport: 'm1',
-      type: 'turn_start',
-      payload: {},
-    },
-  });
-  assert.equal(harness.client.isAgentExecuting(1), true);
-  sessions[0] = paneB;
-  sessions[1] = paneA;
-  assert.equal(harness.client.isAgentExecuting(0), true);
-  assert.equal(harness.client.isAgentExecuting(1), false);
-  harness.listeners['chat:terminal']({
-    sessionIdx: 0,
-    action: 'send',
-    conversationId: 'agent-state-B',
-    status: 'ok',
-  });
-  harness.listeners['status:update']({
-    sessionIdx: 1,
-    transport: 'm1',
-    data: { agentStatus: 'executing', conversationId: 'agent-state-B' },
-  });
-  assert.equal(harness.client.isAgentExecuting(0), false);
-  assert.equal(harness.client.isAgentExecuting(1), false);
-  assert.deepEqual(
-    hostClone(harness.busEvents.at(-1)),
-    {
-      name: 'agent:state',
-      payload: {
-        sessionIdx: 0,
-        conversationId: 'agent-state-B',
-        executing: false,
-      },
-    },
-  );
-
-  const panel = terminalPanelHarness();
-  assert.equal(typeof panel.listeners['agent:state'], 'function');
-  const rendersBefore = panel.counters.agentRender;
-  panel.listeners['agent:state']({ executing: false });
-  assert.equal(panel.counters.agentRender, rendersBefore + 1);
-});
 
 suite('M1 Studio client — actual producer/adapter/ledger composition');
 
@@ -2803,663 +2244,33 @@ test('missing or malformed target cannot fall back to cancel-all', () => {
   assert.equal(socket.sent.length, before);
 });
 
-test('authoritative panel passes the selected session into cancel', () => {
-  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
-  const cancelStart = source.indexOf('function _cancelExecution(idx)');
-  const cancelEnd = source.indexOf('/* split mode:', cancelStart);
-  assert.ok(cancelStart >= 0 && cancelEnd > cancelStart);
-  const cancelSource = source.slice(cancelStart, cancelEnd);
-  assert.match(cancelSource, /IntentSmithWS\.sendCancel\(s\)/);
-  assert.match(source, /_chatCancelPreparedSend\(_sessionActive,activeSession\)/);
-  assert.match(source, /IntentSmithWS\.sendCancel\(activeSession\)/);
-  assert.doesNotMatch(source, /IntentSmithWS\.sendCancel\(\s*\)/);
-});
+
 
 suite('M1 Studio client — fail-closed send authority');
 
-test('all three send call sites use one WebSocket-only seam and expose NOT_SENT', () => {
-  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
-  const start = source.indexOf('function _chatSendPane');
-  const end = source.indexOf('function _chatPaneUI', start);
-  assert.ok(start >= 0 && end > start);
-  const sendSource = source.slice(start, end);
 
-  assert.equal((sendSource.match(/_chatTryWsSend\(/g) || []).length, 3);
-  assert.doesNotMatch(sendSource, /fetch\s*\(/);
-  assert.doesNotMatch(sendSource, /IntentSmithWS\.(?:isReady|sendChat)/);
-  assert.match(source, /_chatGapChoice\(idx,'create',i\)/);
-  assert.match(source, /_chatGapChoice\(idx,'fallback',i\)/);
-  assert.match(source, /NOT_SENT · Zpráva nebyla odeslána/);
-});
 
-await testAsync('normal and edited sends fail closed for every transport failure and effect-capable prompt', async () => {
-  const failureModes = [
-    ['unavailable', 'WS_UNAVAILABLE', 0],
-    ['false', 'WS_SEND_REJECTED', 1],
-    ['throw', 'WS_SEND_FAILED', 1],
-  ];
-  const effectPrompts = [
-    'Vytvoř soubor /owned/m1.txt s obsahem test',
-    'Spusť příkaz touch /owned/m1-shell',
-    'Použij nástroj pro změnu projektu',
-  ];
 
-  for (const [mode, reason, expectedWsCalls] of failureModes) {
-    for (const prompt of effectPrompts) {
-      const normal = panelSendHarness({ mode, input: prompt });
-      const attachment = {
-        file: { path: '/owned/evidence.bin', size: 128 },
-        name: 'evidence.bin',
-        size: '1 KB',
-      };
-      normal.pane.chat.attachments.push(attachment);
-      normal.functions._chatSendPane(0);
-      await drainMicrotasks();
 
-      assert.equal(normal.counters.wsSend.length, expectedWsCalls);
-      assert.equal(normal.pane.chat._thinking, null);
-      assert.equal(normal.pane.chat._pendingAttachments, null);
-      assert.equal(normal.pane.chat._delivery.status, 'NOT_SENT');
-      assert.equal(normal.pane.chat._delivery.retryable, true);
-      assert.equal(normal.pane.chat._delivery.reason, reason);
-      assert.equal(normal.pane.chat.msgs.length, 1);
-      assert.equal(normal.pane.chat.msgs[0].role, 'user');
-      assert.equal(normal.pane.chat.msgs[0].tag, 'NOT_SENT');
-      assert.equal(normal.pane.chat.msgs[0].retryable, true);
-      assert.equal(normal.textarea.value, prompt);
-      assert.equal(normal.pane.chat.attachments.length, 1);
-      assert.equal(normal.pane.chat.attachments[0], attachment);
-      assertNoFallbackEffects(normal);
 
-      const edited = panelSendHarness({ mode, input: prompt });
-      const originalTimeline = [
-        { id: 'edit-user', role: 'user', text: 'původní dotaz' },
-        { id: 'edit-assistant', role: 'assistant', text: 'původní odpověď' },
-      ];
-      edited.pane.chat.msgs = originalTimeline.map(message => ({ ...message }));
-      edited.pane.chat.editingIdx = 0;
-      edited.pane.chat.editOriginalText = 'původní dotaz';
-      edited.functions._chatSendPane(0);
-      await drainMicrotasks();
 
-      assert.equal(edited.counters.wsSend.length, expectedWsCalls);
-      assert.equal(JSON.stringify(edited.pane.chat.msgs), JSON.stringify(originalTimeline));
-      assert.equal(edited.pane.chat.editingIdx, 0);
-      assert.equal(edited.pane.chat.editOriginalText, 'původní dotaz');
-      assert.equal(edited.textarea.value, prompt);
-      assert.equal(edited.pane.chat._thinking, null);
-      assert.equal(edited.pane.chat._delivery.status, 'NOT_SENT');
-      assert.equal(edited.pane.chat._delivery.reason, reason);
-      assertNoFallbackEffects(edited, 1);
-    }
-  }
-});
 
-await testAsync('gap choice failures re-enable the exact choice and never create a fallback effect', async () => {
-  const failureModes = [
-    ['unavailable', 'WS_UNAVAILABLE', 0],
-    ['false', 'WS_SEND_REJECTED', 1],
-    ['throw', 'WS_SEND_FAILED', 1],
-  ];
 
-  for (const [mode, reason, expectedWsCalls] of failureModes) {
-    for (const choice of ['create', 'fallback']) {
-      const harness = panelSendHarness({ mode });
-      harness.pane.chat.msgs = [{
-        _gapChoice: true,
-        _gapResolved: false,
-        role: 'assistant',
-        text: 'Vyberte další postup',
-      }];
-      harness.functions._chatGapChoice(0, choice, 0);
-      await drainMicrotasks();
 
-      assert.equal(harness.counters.wsSend.length, expectedWsCalls);
-      assert.equal(harness.pane.chat.msgs[0]._gapResolved, false);
-      assert.equal(harness.pane.chat.msgs.length, 2);
-      assert.equal(harness.pane.chat.msgs[1].role, 'user');
-      assert.equal(harness.pane.chat.msgs[1].tag, 'NOT_SENT');
-      assert.equal(harness.pane.chat.msgs[1].retryable, true);
-      assert.equal(harness.pane.chat._thinking, null);
-      assert.equal(harness.pane.chat._delivery.status, 'NOT_SENT');
-      assert.equal(harness.pane.chat._delivery.reason, reason);
-      assertNoFallbackEffects(harness, 1);
-    }
-  }
-});
 
-test('busy gap choices remain visible and create no user or wire effect', () => {
-  for (const mode of ['active-turn', 'prepared-send']) {
-    const harness = panelSendHarness({ mode: 'ready' });
-    harness.pane.chat.msgs = [{
-      _gapChoice: true,
-      _gapResolved: false,
-      role: 'assistant',
-      text: 'Vyberte další postup',
-    }];
-    if (mode === 'active-turn') {
-      harness.context.IntentSmithWS.hasActiveM1Turn = () => true;
-    } else {
-      harness.pane.chat._preparedSend = { owned: true };
-    }
 
-    assert.equal(harness.functions._chatGapChoice(0, 'create', 0), false);
-    assert.equal(harness.pane.chat.msgs[0]._gapResolved, false);
-    assert.equal(harness.pane.chat.msgs.length, 1);
-    assert.equal(harness.counters.wsSend.length, 0);
-    assert.equal(harness.counters.timers.length, 0);
-    assert.equal(harness.pane.chat._delivery.status, 'BUSY');
-    assert.equal(harness.pane.chat._delivery.retryable, true);
-    assert.equal(
-      harness.pane.chat._delivery.reason,
-      mode === 'active-turn' ? 'CONVERSATION_BUSY' : 'SEND_PREPARING',
-    );
-    assertNoFallbackEffects(harness, 1);
-  }
-});
 
-await testAsync('failed async attachment send preserves exact original and newer draft independently', async () => {
-  const { ControlledFileReader, readers } = controlledFileReaderClass();
-  const rawDraft = '  původní text  \n';
-  const exact = panelSendHarness({ input: rawDraft, mode: 'unavailable' });
-  exact.functions._chatSendPane(0);
-  await drainMicrotasks();
-  assert.equal(exact.textarea.value, rawDraft);
-  assert.equal(exact.pane.chat._delivery.draft, rawDraft);
-  assertNoFallbackEffects(exact);
 
-  const harness = panelSendHarness({
-    FileReaderClass: ControlledFileReader,
-    input: rawDraft,
-    mode: 'unavailable',
-  });
-  const attachment = {
-    file: { path: '/owned/evidence.txt', size: 128 },
-    name: 'evidence.txt',
-    size: '1 KB',
-  };
-  harness.pane.chat.attachments.push(attachment);
-  harness.functions._chatSendPane(0);
-  assert.equal(readers.length, 1);
-  assert.equal(harness.counters.wsSend.length, 0);
 
-  harness.textarea.value = 'novější rozepsaná zpráva';
-  readers[0].result = 'attachment contents';
-  readers[0].onload();
-  await drainMicrotasks();
 
-  assert.equal(harness.textarea.value, 'novější rozepsaná zpráva');
-  assert.equal(harness.pane.chat._delivery.status, 'NOT_SENT');
-  assert.equal(harness.pane.chat._delivery.draft, rawDraft);
-  assert.equal(harness.pane.chat.msgs[0].tag, 'NOT_SENT');
-  assert.equal(harness.pane.chat.attachments.length, 1);
-  assert.equal(harness.pane.chat.attachments[0], attachment);
-  assertNoFallbackEffects(harness);
-});
 
-await testAsync('stale attachment callbacks cannot cross reset, replacement, or identity boundaries', async () => {
-  const beginPendingSend = () => {
-    const { ControlledFileReader, readers } = controlledFileReaderClass();
-    const harness = panelSendHarness({
-      FileReaderClass: ControlledFileReader,
-      input: 'Vytvoř soubor /owned/stale.txt',
-      mode: 'ready',
-    });
-    harness.pane.chat.attachments.push({
-      file: { path: '/owned/evidence.txt', size: 128 },
-      name: 'evidence.txt',
-      size: '1 KB',
-    });
-    harness.functions._chatSendPane(0);
-    assert.equal(readers.length, 1);
-    return { harness, reader: readers[0] };
-  };
-  const finishRead = async reader => {
-    reader.result = 'attachment contents';
-    reader.onload();
-    await drainMicrotasks();
-  };
 
-  const resetCase = beginPendingSend();
-  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
-  const resetStart = source.indexOf('function _resetSessionToClean');
-  const resetEnd = source.indexOf('function _newChatInProject', resetStart);
-  vm.runInContext(source.slice(resetStart, resetEnd), resetCase.harness.context);
-  resetCase.harness.context._resetSessionToClean(resetCase.harness.pane);
-  await finishRead(resetCase.reader);
-  assert.equal(resetCase.harness.counters.wsSend.length, 0);
-  assert.equal(resetCase.harness.pane.chat.msgs.length, 1);
-  assert.equal(resetCase.harness.pane.chat.msgs[0].text, 'Nový chat.');
-  assert.equal(resetCase.harness.pane.chat._thinking, null);
-  assert.equal(resetCase.harness.pane.chat._delivery, null);
-  assertNoFallbackEffects(resetCase.harness);
 
-  const replacementCase = beginPendingSend();
-  const replacement = {
-    _agentId: null,
-    _convId: null,
-    _projectId: null,
-    chat: { msgs: [{ role: 'system', text: 'replacement' }] },
-  };
-  replacementCase.harness.context._sessions[0] = replacement;
-  await finishRead(replacementCase.reader);
-  assert.equal(replacementCase.harness.counters.wsSend.length, 0);
-  assert.equal(replacement.chat.msgs.length, 1);
-  assert.equal(replacement.chat.msgs[0].text, 'replacement');
-  assertNoFallbackEffects(replacementCase.harness);
 
-  const identityCase = beginPendingSend();
-  identityCase.harness.pane._projectId = 'new-project';
-  identityCase.harness.pane.chat.msgs = [{ role: 'system', text: 'new project' }];
-  await finishRead(identityCase.reader);
-  assert.equal(identityCase.harness.counters.wsSend.length, 0);
-  assert.equal(identityCase.harness.pane.chat.msgs.length, 1);
-  assert.equal(identityCase.harness.pane.chat.msgs[0].text, 'new project');
-  assertNoFallbackEffects(identityCase.harness);
 
-  const multiReader = controlledFileReaderClass();
-  const multi = panelSendHarness({
-    FileReaderClass: multiReader.ControlledFileReader,
-    input: 'two attachments',
-    mode: 'ready',
-  });
-  multi.pane.chat.attachments.push(
-    { file: { size: 1 }, name: 'first.txt', size: '1 B' },
-    { file: { size: 1 }, name: 'second.txt', size: '1 B' },
-  );
-  multi.functions._chatSendPane(0);
-  assert.equal(multiReader.readers.length, 2);
-  await finishControlledReader(multiReader.readers[0]);
-  multi.functions._chatInvalidatePreparedSends(multi.pane.chat);
-  await finishControlledReader(multiReader.readers[1]);
-  assert.equal(multi.counters.wsSend.length, 0);
-  assertNoFallbackEffects(multi);
-});
 
-await testAsync('attachment preparation is single-flight and gap choices cannot overtake it', async () => {
-  const { ControlledFileReader, readers } = controlledFileReaderClass();
-  const harness = panelSendHarness({
-    FileReaderClass: ControlledFileReader,
-    input: 'old draft',
-    mode: 'ready',
-  });
-  harness.pane.chat.msgs.push({
-    _gapChoice: true,
-    _gapResolved: false,
-    role: 'assistant',
-    text: 'choose',
-  });
-  harness.pane.chat.attachments.push({
-    file: { path: '/owned/old.txt', size: 128 },
-    name: 'old.txt',
-    size: '1 KB',
-  });
-  harness.functions._chatSendPane(0);
-  assert.equal(readers.length, 1);
-  assert.equal(harness.pane.chat.msgs.length, 2);
 
-  harness.textarea.value = 'new draft';
-  harness.functions._chatSendPane(0);
-  harness.functions._chatGapChoice(0, 'create', 0);
-  assert.equal(readers.length, 1);
-  assert.equal(harness.pane.chat.msgs.length, 2);
-  assert.equal(harness.textarea.value, 'new draft');
-  assert.equal(harness.pane.chat.msgs[0]._gapResolved, false);
 
-  await finishControlledReader(readers[0]);
-  assert.equal(harness.counters.wsSend.length, 1);
-  assert.equal(harness.counters.wsSend[0].content, 'old draft\n📎 old.txt');
-  assert.equal(harness.textarea.value, 'new draft');
-  assert.equal(harness.pane.chat._preparedSend, null);
-});
-
-await testAsync('pre-wire cancel restores owned input and makes late reader completion inert', async () => {
-  for (const outcome of ['load', 'error']) {
-    const { ControlledFileReader, readers } = controlledFileReaderClass();
-    const harness = panelSendHarness({
-      FileReaderClass: ControlledFileReader,
-      input: 'original draft',
-      mode: 'ready',
-    });
-    const originalAttachment = {
-      file: { path: '/owned/original.txt', size: 128 },
-      name: 'original.txt',
-      size: '1 KB',
-    };
-    const newerAttachment = {
-      file: { path: '/owned/newer.txt', size: 128 },
-      name: 'newer.txt',
-      size: '1 KB',
-    };
-    harness.pane.chat.attachments.push(originalAttachment);
-    harness.functions._chatSendPane(0);
-    harness.textarea.value = 'newer draft';
-    harness.pane.chat.attachments.push(newerAttachment);
-
-    if (outcome === 'load') {
-      const source = fs.readFileSync(CHAT_PANEL, 'utf8');
-      const cancelStart = source.indexOf('function _cancelExecution');
-      const cancelEnd = source.indexOf('/* split mode:', cancelStart);
-      harness.pane.log = [];
-      harness.context.IntentSmithTerminal = { cancel() {} };
-      vm.runInContext(source.slice(cancelStart, cancelEnd), harness.context);
-      harness.context._cancelExecution(0);
-    } else {
-      assert.equal(harness.functions._chatCancelPreparedSend(0, harness.pane), true);
-    }
-    assert.equal(harness.counters.wsSend.length, 0);
-    assert.equal(harness.counters.remoteCancel || 0, 0);
-    assert.equal(harness.textarea.value, 'newer draft');
-    assert.equal(
-      harness.pane.chat.attachments.map(item => item.name).join('|'),
-      'original.txt|newer.txt',
-    );
-    assert.equal(harness.pane.chat.msgs[0].tag, 'NOT_SENT');
-    assert.equal(harness.pane.chat.msgs[0].deliveryReason, 'CANCELLED_BEFORE_SEND');
-    assert.equal(harness.pane.chat.msgs[0].retryable, true);
-    assert.equal(harness.pane.chat._thinking, null);
-    assert.equal(harness.pane.chat._delivery.reason, 'CANCELLED_BEFORE_SEND');
-
-    await finishControlledReader(readers[0], outcome);
-    assert.equal(harness.counters.wsSend.length, 0);
-    assert.equal(harness.counters.remoteCancel || 0, 0);
-  }
-});
-
-await testAsync('hidden panes, route drift, and focus switches cannot misroute a prepared send', async () => {
-  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
-  const setCountStart = source.indexOf('function _setSessionCount');
-  const setCountEnd = source.indexOf('/* ── Focus Mode', setCountStart);
-  assert.ok(setCountStart >= 0 && setCountEnd > setCountStart);
-
-  const hiddenReader = controlledFileReaderClass();
-  const hidden = panelSendHarness({
-    FileReaderClass: hiddenReader.ControlledFileReader,
-    input: 'hidden send',
-    mode: 'ready',
-    sessionIndex: 2,
-  });
-  hidden.pane.chat.attachments.push({ file: { size: 1 }, name: 'hidden.txt', size: '1 B' });
-  hidden.functions._chatSendPane(2);
-  hidden.context._sessionCount = 2;
-  await finishControlledReader(hiddenReader.readers[0]);
-  assert.equal(hidden.counters.wsSend.length, 0);
-
-  const shrinkReader = controlledFileReaderClass();
-  const shrink = panelSendHarness({
-    FileReaderClass: shrinkReader.ControlledFileReader,
-    input: 'shrink send',
-    mode: 'ready',
-    sessionIndex: 2,
-  });
-  shrink.pane.chat.attachments.push({ file: { size: 1 }, name: 'shrink.txt', size: '1 B' });
-  shrink.functions._chatSendPane(2);
-  shrink.context._ensureSessions = () => {};
-  vm.runInContext(source.slice(setCountStart, setCountEnd), shrink.context);
-  shrink.context._setSessionCount(2);
-  shrink.context._setSessionCount(3);
-  await finishControlledReader(shrinkReader.readers[0]);
-  assert.equal(shrink.counters.wsSend.length, 0);
-
-  const driftReader = controlledFileReaderClass();
-  const drift = panelSendHarness({
-    FileReaderClass: driftReader.ControlledFileReader,
-    input: 'route drift',
-    mode: 'ready',
-  });
-  drift.pane.chat.attachments.push({ file: { size: 1 }, name: 'drift.txt', size: '1 B' });
-  drift.functions._chatSendPane(0);
-  const newerThinking = { text: 'newer operation' };
-  drift.pane.chat._thinking = newerThinking;
-  drift.pane.chat.editMode = 'auto';
-  await finishControlledReader(driftReader.readers[0]);
-  assert.equal(drift.counters.wsSend.length, 0);
-  assert.equal(drift.pane.chat.msgs[0].tag, 'NOT_SENT');
-  assert.equal(drift.pane.chat._delivery.reason, 'CONTEXT_CHANGED_BEFORE_SEND');
-  assert.equal(drift.pane.chat._thinking, newerThinking);
-
-  const appendReader = controlledFileReaderClass();
-  const append = panelSendHarness({
-    FileReaderClass: appendReader.ControlledFileReader,
-    input: 'owned pending turn',
-    mode: 'ready',
-  });
-  const appendAttachment = { file: { size: 1 }, name: 'append.txt', size: '1 B' };
-  append.pane.chat.attachments.push(appendAttachment);
-  append.functions._chatSendPane(0);
-  append.pane.chat.msgs.push({ role: 'assistant', text: 'older turn completed' });
-  await finishControlledReader(appendReader.readers[0]);
-  assert.equal(append.counters.wsSend.length, 0);
-  assert.equal(append.pane.chat.msgs.length, 2);
-  assert.equal(append.pane.chat.msgs[0].tag, 'NOT_SENT');
-  assert.equal(append.pane.chat.msgs[1].text, 'older turn completed');
-  assert.equal(append.textarea.value, 'owned pending turn');
-  assert.equal(append.pane.chat.attachments[0], appendAttachment);
-  assert.equal(append.pane.chat._delivery.reason, 'CONTEXT_CHANGED_BEFORE_SEND');
-
-  const focusReader = controlledFileReaderClass();
-  const focus = panelSendHarness({
-    FileReaderClass: focusReader.ControlledFileReader,
-    input: 'focused send',
-    mode: 'ready',
-    sessionIndex: 1,
-  });
-  focus.pane._conversationFocus = true;
-  focus.pane.chat.attachments.push({ file: { size: 1 }, name: 'focus.txt', size: '1 B' });
-  focus.functions._chatSendPane(1);
-  focus.context._sessionActive = 0;
-  await finishControlledReader(focusReader.readers[0]);
-  assert.equal(focus.counters.wsSend.length, 1);
-  assert.equal(focus.counters.wsSend[0].index, 1);
-  assert.deepEqual(focus.pane._focusFiles.map(item => item.name), ['focus.txt']);
-
-  const closeReader = controlledFileReaderClass();
-  const close = panelSendHarness({
-    FileReaderClass: closeReader.ControlledFileReader,
-    input: 'moved pane send',
-    mode: 'ready',
-    sessionIndex: 2,
-  });
-  close.pane.chat.attachments.push({ file: { size: 1 }, name: 'move.txt', size: '1 B' });
-  close.functions._chatSendPane(2);
-  close.context._sessions[0].log = [];
-  close.context._sessions[0].term = [];
-  close.context._sessions[2].log = [];
-  close.context._sessions[2].term = [];
-  close.context._closeDialog = { idx: 0 };
-  close.context._perSessionTree = [null, null, null];
-  close.context._wtRoot = '';
-  close.context._wtRawTree = null;
-  close.context.FILES = [];
-  close.context.renderSidebar = () => {};
-  close.context._ensureSessions = () => {};
-  vm.runInContext(source.slice(setCountStart, setCountEnd), close.context);
-  const closeStart = source.indexOf('function _closeDialogAction');
-  const closeEnd = source.indexOf('var _chatContainer', closeStart);
-  const mkStart = source.indexOf('function _mkSession');
-  const mkEnd = source.indexOf('var _sessions=', mkStart);
-  const helpersStart = source.indexOf('function _workspaceBusy');
-  const helpersEnd = source.indexOf('function _workspaceResize', helpersStart);
-  close.context._rememberSpecialistFiles = () => {};
-  close.context._renderAll = () => {};
-  close.context._workspaceSessionIndices = () => close.context._sessions.map((s,i)=>s._closed?-1:i).filter(i=>i>=0);
-  close.context.IntentSmithWS.hasActiveM1Turn = () => false;
-  close.context.alert = message => { throw new Error(message); };
-  vm.runInContext(source.slice(mkStart,mkEnd)+source.slice(helpersStart,helpersEnd)+source.slice(closeStart, closeEnd), close.context);
-  close.context._closeDialogAction('pane');
-  assert.equal(close.context._sessions[2], close.pane, 'closing another tab preserves transport indices');
-  assert.equal(close.context._sessions[0]._closed, true);
-  await finishControlledReader(closeReader.readers[0]);
-  assert.equal(close.counters.wsSend.length, 1, 'unrelated prepared send continues in its own tab');
-  assert.equal(close.counters.wsSend[0].index, 2);
-});
-
-test('all destructive session transitions invalidate prepared sends before reuse', () => {
-  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
-  const smartStart = source.indexOf('function _smartRouteToRelay');
-  const smartEnd = source.indexOf('/* v91: Open-target', smartStart);
-  const showStart = source.indexOf('function _showOpenDialog');
-  const showEnd = source.indexOf('function _openTargetDialogAction', showStart);
-  const closeStart = source.indexOf('function _closeDialogAction');
-  const closeEnd = source.indexOf('var _chatContainer', closeStart);
-  const invalidStart = source.indexOf("IntentSmithBus.on('session:invalidated'");
-  const invalidEnd = source.indexOf('/* ── Health state', invalidStart);
-  const escapeStart = source.indexOf("case 'Escape':");
-  const escapeEnd = source.indexOf('/* Excluded:', escapeStart);
-  const cancelStart = source.indexOf('function _cancelExecution');
-  const cancelEnd = source.indexOf('/* split mode:', cancelStart);
-
-  assert.equal(
-    (source.slice(smartStart, smartEnd).match(/_chatPrepareRelayTarget/g) || []).length,
-    1,
-  );
-  assert.match(source.slice(showStart, showEnd), /_chatPrepareRelayTarget\(idx\)/);
-  assert.match(source.slice(closeStart, closeEnd), /_closeWorkspaceConversation\(idx\)/);
-  const closeHelper=source.slice(source.indexOf('function _closeWorkspaceConversation'),source.indexOf('function _workspaceResize'));
-  assert.match(closeHelper, /_chatCancelPreparedSend\(idx,s\)/);
-  assert.match(closeHelper, /_chatInvalidatePreparedSends\(s\.chat\)/);
-  assert.match(source.slice(invalidStart, invalidEnd), /_chatInvalidatePreparedSends\(s\.chat\)/);
-  assert.match(source.slice(escapeStart, escapeEnd), /if\(_chatCancelPreparedSend\(_sessionActive,activeSession\)\)/);
-  assert.match(source.slice(cancelStart, cancelEnd), /if \(!localPreparedCancelled && typeof IntentSmithWS/);
-  assert.match(source, /captured\.idx>=0&&captured\.idx<_sessionCount/);
-  assert.match(source, /captured\.chat\.editMode===captured\.editMode/);
-});
-
-test('new and closed sessions cannot inherit a prior NOT_SENT banner', () => {
-  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
-  const context = vm.createContext({ Date, module: { exports: {} } });
-  const mkStart = source.indexOf('function _mkSession');
-  const mkEnd = source.indexOf('var _sessions=', mkStart);
-  const resetStart = source.indexOf('function _resetSessionToClean');
-  const resetEnd = source.indexOf('function _newChatInProject', resetStart);
-  const invalidateStart = source.indexOf('function _chatInvalidatePreparedSends');
-  const invalidateEnd = source.indexOf('function _chatCaptureSendContext', invalidateStart);
-  assert.ok(mkStart >= 0 && mkEnd > mkStart && resetStart >= 0 && resetEnd > resetStart);
-  assert.ok(invalidateStart >= 0 && invalidateEnd > invalidateStart);
-  vm.runInContext(
-    source.slice(mkStart, mkEnd)
-      + source.slice(resetStart, resetEnd)
-      + source.slice(invalidateStart, invalidateEnd)
-      + '\nmodule.exports={_mkSession,_resetSessionToClean};',
-    context,
-  );
-  const clean = context.module.exports._mkSession();
-  assert.equal(clean.chat._delivery, null);
-  assert.ok(clean.chat._sendContextToken);
-  assert.ok(clean.chat._sendTurnToken);
-  clean.chat._delivery = { status: 'NOT_SENT' };
-  context.module.exports._resetSessionToClean(clean);
-  assert.equal(clean.chat._delivery, null);
-  assert.match(source.slice(resetStart, resetEnd), /_chatInvalidatePreparedSends\(s&&s\.chat\)/);
-
-  const newActionStart = source.indexOf('function _newChatDialogAction');
-  const newActionEnd = source.indexOf('/* v70: Close-pane', newActionStart);
-  const closeStart = source.indexOf('function _closeDialogAction');
-  const closeEnd = source.indexOf('var _chatContainer', closeStart);
-  assert.ok(newActionStart >= 0 && newActionEnd > newActionStart);
-  assert.ok(closeStart >= 0 && closeEnd > closeStart);
-  assert.equal(
-    (source.slice(newActionStart, newActionEnd).match(/chat\._delivery=null/g) || []).length,
-    2,
-  );
-  assert.match(
-    source.slice(newActionStart, newActionEnd),
-    /_chatInvalidatePreparedSends\(s\.chat\)/,
-  );
-  const closeHelper=source.slice(source.indexOf('function _closeWorkspaceConversation'),source.indexOf('function _workspaceResize'));
-  assert.match(closeHelper, /_sessions\[idx\]=_mkSession\(\)/);
-  assert.match(closeHelper, /_chatInvalidatePreparedSends\(s\.chat\)/);
-  const openStart = source.indexOf('function _openTargetDialogAction');
-  const openEnd = source.indexOf('/* v64.4: New-chat', openStart);
-  assert.match(
-    source.slice(openStart, openEnd),
-    /_chatInvalidatePreparedSends\(_sessions\[idx\]&&_sessions\[idx\]\.chat\)/,
-  );
-});
-
-test('ready WebSocket queues each call site once without claiming server acknowledgement', () => {
-  const seam = panelSendHarness({ mode: 'ready' });
-  const seamResult = seam.functions._chatTryWsSend('hello', seam.pane, 0);
-  assert.deepEqual(
-    JSON.parse(JSON.stringify(seamResult)),
-    {
-      reason: null,
-      retryable: false,
-      serverAcknowledged: false,
-      status: 'QUEUED_WS',
-    },
-  );
-
-  const normal = panelSendHarness({ mode: 'ready', input: 'hello' });
-  normal.pane.chat.attachments.push({
-    file: { path: '/owned/evidence.bin', size: 128 },
-    name: 'evidence.bin',
-    size: '1 KB',
-  });
-  normal.functions._chatSendPane(0);
-  assert.equal(normal.counters.wsSend.length, 1);
-  assert.equal(normal.counters.wsSend[0].content, 'hello\n📎 evidence.bin');
-  assert.equal(normal.counters.wsSend[0].index, 0);
-  assert.equal(normal.counters.wsSend[0].selectedPane, normal.pane);
-  assert.deepEqual(normal.counters.wsSend[0].pendingAttachments, [{
-    content: null,
-    name: 'evidence.bin',
-    path: '/owned/evidence.bin',
-    size: '1 KB',
-    type: 'binary',
-  }]);
-  assert.equal(normal.counters.fetch, 0);
-  assert.equal(normal.textarea.value, '');
-  assert.equal(normal.pane.chat.attachments.length, 0);
-  assert.equal(normal.pane.chat._pendingAttachments, null);
-  assert.equal(normal.pane.chat._delivery, null);
-  assert.equal(normal.pane.chat._thinking.text, 'Zpracovávám...');
-  assert.deepEqual(normal.counters.timers.map(timer => timer.delay), [2000]);
-
-  const edited = panelSendHarness({ mode: 'ready', input: 'nová větev' });
-  edited.pane.chat.msgs = [
-    {
-      deliveryStatus: 'NOT_SENT',
-      retryable: true,
-      role: 'user',
-      tag: 'NOT_SENT',
-      text: 'stará větev',
-    },
-    { role: 'assistant', text: 'stará odpověď' },
-  ];
-  edited.pane.chat.editingIdx = 0;
-  edited.functions._chatSendPane(0);
-  assert.equal(edited.counters.wsSend.length, 1);
-  assert.equal(edited.counters.wsSend[0].content, 'nová větev');
-  assert.equal(edited.counters.wsSend[0].index, 0);
-  assert.equal(edited.counters.wsSend[0].selectedPane, edited.pane);
-  assert.equal(edited.counters.fetch, 0);
-  assert.equal(edited.pane.chat.msgs.length, 1);
-  assert.equal(edited.pane.chat.msgs[0].text, 'nová větev');
-  assert.equal(edited.pane.chat.msgs[0].tag, undefined);
-  assert.equal(edited.pane.chat.msgs[0].deliveryStatus, undefined);
-  assert.equal(edited.pane.chat.msgs[0].retryable, undefined);
-  assert.equal(edited.pane.chat.editingIdx, null);
-  assert.deepEqual(edited.counters.timers.map(timer => timer.delay), [2000]);
-
-  const gap = panelSendHarness({ mode: 'ready' });
-  gap.pane.chat.msgs = [{
-    _gapChoice: true,
-    _gapResolved: false,
-    role: 'assistant',
-    text: 'Vyberte další postup',
-  }];
-  gap.functions._chatGapChoice(0, 'create', 0);
-  assert.equal(gap.counters.wsSend.length, 1);
-  assert.equal(gap.counters.wsSend[0].content, 'Vytvoř expertízu');
-  assert.equal(gap.counters.wsSend[0].index, 0);
-  assert.equal(gap.counters.wsSend[0].selectedPane, gap.pane);
-  assert.equal(gap.counters.fetch, 0);
-  assert.equal(gap.pane.chat.msgs[0]._gapResolved, true);
-  assert.equal(gap.pane.chat.msgs[1].text, 'Vytvoř expertízu');
-  assert.equal(gap.pane.chat._delivery, null);
-  assert.equal(gap.counters.timers.length, 0);
-});
 
 suite('M1 Studio client — acknowledged race-safe rehydrate');
 
@@ -4374,65 +3185,9 @@ await testAsync('missing ACK times out without clearing the local snapshot and i
   );
 });
 
-test('panel persists only an exact transport-owned invalidation', () => {
-  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
-  const start = source.indexOf("IntentSmithBus.on('session:invalidated'");
-  const end = source.indexOf('\n  });', start);
-  assert.ok(start >= 0 && end > start);
-  const handler = source.slice(start, end);
-  assert.match(handler, /_sessions\[ev\.idx\]!==ev\.sessionRef/);
-  assert.match(handler, /ev\.sessionRef\._convId!==null/);
-  assert.doesNotMatch(handler, /_convId=null/);
-  assert.match(handler, /_chatInvalidatePreparedSends\(s\.chat\)/);
-  assert.match(handler, /_persistSessionState\(\)/);
-});
 
-test('persisted Studio bounds are normalized by the function used during restore', () => {
-  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
-  const start = source.indexOf('function _normalizePersistedSessionState');
-  const end = source.indexOf('/* ── Restore session state', start);
-  assert.ok(start >= 0 && end > start);
-  const context = vm.createContext({ module: { exports: {} }, Number, Math, Array });
-  vm.runInContext(
-    `${source.slice(start, end)}\nmodule.exports = _normalizePersistedSessionState;`,
-    context,
-  );
-  const normalize = context.module.exports;
-  const plain = value => JSON.parse(JSON.stringify(value));
 
-  assert.deepEqual(
-    plain(normalize({
-      sessionCount: 40,
-      sessionActive: 39,
-      sessions: [{ id: 0 }, { id: 1 }, { id: 2 }, { id: 3 }],
-    })),
-    {
-      sessionCount: 24,
-      sessionActive: 23,
-      sessions: [{ id: 0 }, { id: 1 }, { id: 2 }, { id: 3 }],
-    },
-  );
-  assert.deepEqual(
-    plain(normalize({ sessionCount: -4, sessionActive: -9, sessions: [] })),
-    { sessionCount: 1, sessionActive: 0, sessions: [] },
-  );
-  for (const invalidCount of ['3', null, 2.5]) {
-    assert.deepEqual(
-      plain(normalize({
-        sessionCount: invalidCount,
-        sessionActive: '1',
-        sessions: 'not-an-array',
-      })),
-      { sessionCount: 1, sessionActive: 0, sessions: [] },
-    );
-  }
 
-  const restore = source.slice(end, source.indexOf('/* ── Initialize transport', end));
-  assert.match(restore, /var normalizedSaved=_normalizePersistedSessionState\(saved\)/);
-  assert.match(restore, /normalizedSaved\.sessions\.forEach/);
-  assert.match(restore, /if\(!ss\|\|typeof ss!==['"]object['"]\|\|Array\.isArray\(ss\)\)return/);
-  assert.doesNotMatch(restore, /\(saved\.sessions \|\| \[\]\)\.forEach/);
-});
 
 suite('M1 Studio client — bounded visible reconnect');
 
@@ -4725,17 +3480,7 @@ test('destroy cancels a pending CONNECTING timeout and its callback is inert', (
   assert.equal(busEvents.some(event => event.name === 'ws:reconnect_exhausted'), false);
 });
 
-test('panel makes reconnect exhaustion visible and keeps health offline', () => {
-  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
-  const start = source.indexOf("IntentSmithBus.on('ws:reconnect_exhausted'");
-  const end = source.indexOf('\n  });', start);
-  assert.ok(start >= 0 && end > start);
-  const handler = source.slice(start, end);
-  assert.match(handler, /_serverHealth\.wsConnected = false/);
-  assert.match(handler, /_serverHealth\.status = 'offline'/);
-  assert.match(handler, /agentLog/);
-  assert.match(handler, /renderSidebar\(\);_updateStatusIndicator\(\)/);
-});
+
 
 // ── Decision 022/A — operation-bound recovery in the Studio client ─────────
 //
@@ -4743,38 +3488,7 @@ test('panel makes reconnect exhaustion visible and keeps health offline', () => 
 // replayed event: the panel must then warn and never offer an action it cannot
 // bind to one operation.
 
-function recoveryContext(options = {}) {
-  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
-  const start = source.indexOf('function _exactRecoveryIdentity');
-  const end = source.indexOf('function _discoverNewModels', start);
-  assert.ok(start >= 0 && end > start, 'recovery helpers are present in the panel');
-  const renders = [];
-  const context = vm.createContext({
-    AbortSignal,
-    JSON,
-    Number,
-    fetch: options.fetch || (async () => ({
-      status: 200,
-      json: async () => ({ ok: true, role: 'CHAT' }),
-    })),
-    setTimeout: () => Symbol('timeout'),
-    renderCenter: () => renders.push(1),
-    module: { exports: {} },
-  });
-  vm.runInContext(
-    'function _backendUrl(){return "http://127.0.0.1:7071";}'
-    + 'var _verifyFailure=null;var _rollbackConfirm=false;'
-    + 'var _rollbackInFlight=null;var _rollbackToken=0;'
-    + 'var _upgradeMsg=null;var _roleBindings={CHAT:1};var _modelOverview={x:1};'
-    + source.slice(start, end)
-    + '\nmodule.exports={_exactRecoveryIdentity,_rollbackBinding,'
-    + 'state:function(){return {verifyFailure:_verifyFailure,upgradeMsg:_upgradeMsg,'
-    + 'inFlight:_rollbackInFlight,bindings:_roleBindings};},'
-    + 'seed:function(v){_verifyFailure=v;},bump:function(){_rollbackToken++;}};',
-    context,
-  );
-  return { api: context.module.exports, source, renders };
-}
+
 
 const COMPLETE_EVENT = Object.freeze({
   role: 'CHAT',
@@ -4785,124 +3499,17 @@ const COMPLETE_EVENT = Object.freeze({
   text: 'Varování',
 });
 
-test('a complete failure event becomes an exact actionable identity', () => {
-  const { api } = recoveryContext();
-  const identity = api._exactRecoveryIdentity(COMPLETE_EVENT);
-  assert.equal(
-    Object.keys(identity).sort().join(','),
-    'committedBindingRevision,failedAttemptRevision,operationId,role',
-  );
-  assert.equal(identity.operationId, COMPLETE_EVENT.operationId);
-  assert.equal(identity.committedBindingRevision, 4);
-  assert.equal(identity.failedAttemptRevision, 3);
-});
 
-test('an incomplete or non-exact event is never actionable', () => {
-  const { api } = recoveryContext();
-  const rejected = [
-    { ...COMPLETE_EVENT, operationId: undefined },
-    { ...COMPLETE_EVENT, committedBindingRevision: undefined },
-    { ...COMPLETE_EVENT, failedAttemptRevision: undefined },
-    { ...COMPLETE_EVENT, role: '' },
-    { ...COMPLETE_EVENT, operationId: 'too-short' },
-    { ...COMPLETE_EVENT, committedBindingRevision: '4' },
-    { ...COMPLETE_EVENT, failedAttemptRevision: 0 },
-    { ...COMPLETE_EVENT, failedAttemptRevision: 1.5 },
-    { role: 'CHAT', text: 'older server payload' },
-    null,
-  ];
-  for (const event of rejected) {
-    assert.equal(
-      api._exactRecoveryIdentity(event),
-      null,
-      `event must stay warning-only: ${JSON.stringify(event)}`,
-    );
-  }
-});
 
-await testAsync('the rollback request carries exactly the identity and nothing else', async () => {
-  const sent = [];
-  const { api } = recoveryContext({
-    fetch: async (url, init) => {
-      sent.push({ url, init });
-      return { status: 200, json: async () => ({ ok: true, role: 'CHAT' }) };
-    },
-  });
-  const identity = api._exactRecoveryIdentity(COMPLETE_EVENT);
-  api.seed({ role: 'CHAT', text: 'Varování', identity });
-  await api._rollbackBinding(identity);
 
-  assert.equal(sent.length, 1);
-  assert.match(sent[0].url, /\/api\/system\/upgrades\/rollback$/);
-  assert.equal(sent[0].init.method, 'POST');
-  assert.equal(sent[0].init.body, JSON.stringify(identity));
-});
 
-await testAsync('a double click sends exactly one rollback', async () => {
-  const sent = [];
-  let release;
-  const gate = new Promise((resolve) => { release = resolve; });
-  const { api } = recoveryContext({
-    fetch: async (url, init) => {
-      sent.push(init);
-      await gate;
-      return { status: 200, json: async () => ({ ok: true, role: 'CHAT' }) };
-    },
-  });
-  const identity = api._exactRecoveryIdentity(COMPLETE_EVENT);
-  api.seed({ role: 'CHAT', text: 'Varování', identity });
 
-  const first = api._rollbackBinding(identity);
-  api._rollbackBinding(identity);
-  assert.equal(sent.length, 1, 'the second click was swallowed by single-flight');
-  release();
-  await first;
-  assert.equal(sent.length, 1);
-});
 
-await testAsync('a refused rollback keeps the warning and does not retry', async () => {
-  const sent = [];
-  const { api } = recoveryContext({
-    fetch: async (url, init) => {
-      sent.push(init);
-      return {
-        status: 409,
-        json: async () => ({ error: 'Rollback no longer matches' }),
-      };
-    },
-  });
-  const identity = api._exactRecoveryIdentity(COMPLETE_EVENT);
-  api.seed({ role: 'CHAT', text: 'Varování', identity });
-  await api._rollbackBinding(identity);
 
-  const state = api.state();
-  assert.equal(sent.length, 1, 'no automatic retry');
-  assert.ok(state.verifyFailure, 'the warning stays — nothing was rolled back');
-  assert.equal(state.upgradeMsg.ok, false);
-  assert.match(state.upgradeMsg.text, /409/);
-  assert.equal(state.bindings !== null, true, 'no cache was invalidated on refusal');
-});
 
-await testAsync('a response that arrives after the action was superseded is ignored', async () => {
-  let release;
-  const gate = new Promise((resolve) => { release = resolve; });
-  const { api } = recoveryContext({
-    fetch: async () => {
-      await gate;
-      return { status: 200, json: async () => ({ ok: true, role: 'CHAT' }) };
-    },
-  });
-  const identity = api._exactRecoveryIdentity(COMPLETE_EVENT);
-  api.seed({ role: 'CHAT', text: 'Varování', identity });
-  const pending = api._rollbackBinding(identity);
-  api.bump();
-  release();
-  await pending;
 
-  const state = api.state();
-  assert.ok(state.verifyFailure, 'a stale success cannot clear a newer warning');
-  assert.equal(state.upgradeMsg, null, 'a stale response writes no toast');
-});
+
+
 
 test('the clear event reaches the panel through the WS consumer', () => {
   const consumer = fs.readFileSync(
@@ -4917,22 +3524,7 @@ test('the clear event reaches the panel through the WS consumer', () => {
   );
 });
 
-test('the panel never rolls back automatically', () => {
-  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
-  const start = source.indexOf("IntentSmithBus.on('upgrade:verify_failed'");
-  const end = source.indexOf("IntentSmithBus.on('model:deleted'", start);
-  assert.ok(start >= 0 && end > start);
-  const handler = source.slice(start, end);
-  assert.ok(
-    !/_rollbackBinding\(/.test(handler),
-    'the failure handler must not call the rollback itself',
-  );
-  assert.match(handler, /_exactRecoveryIdentity\(ev\)/);
-  assert.match(handler, /upgrade:verify_cleared/);
-  // The action is reachable only behind the explicit confirmation step.
-  assert.match(source, /_rollbackConfirm=true;renderCenter\(\);\}\},'Rollback'\)/);
-  assert.match(source, /onClick:function\(\)\{_rollbackBinding\(_verifyFailure\.identity\);\}/);
-});
+
 
 
 await testAsync('a turn needing the legacy shell effect ends as a typed error, not ok', async () => {
@@ -5356,47 +3948,7 @@ test('the bridge reports only the media types the attachment policy accepts as i
 
 /* The picker lives in the same authoritative slice as _readAttachments, so the
    round trip below is the real one: pick → File → FileReader → wire DTO. */
-function panelPickHarness({ picked = null, reads = new Map(), rejectPick = null } = {}) {
-  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
-  const start = source.indexOf('var _TEXT_EXTS=');
-  const end = source.indexOf('function _chatPaneUI', start);
-  assert.ok(start >= 0 && end > start, 'authoritative panel attachment slice is missing');
 
-  const calls = { pick: [], read: [] };
-  const bridge = {
-    pickAttachmentFiles(options) {
-      calls.pick.push(options);
-      if (rejectPick) return Promise.reject(rejectPick);
-      return Promise.resolve(picked);
-    },
-    readAttachmentBytes(token, maxBytes) {
-      calls.read.push({ token, maxBytes });
-      return reads.has(token)
-        ? reads.get(token)
-        : { ok: false, code: 'M1_BRIDGE_TOKEN_UNKNOWN' };
-    },
-  };
-
-  const context = vm.createContext({
-    Blob,
-    File,
-    FileReader: nodeFileReaderClass(),
-    Math,
-    TextEncoder,
-    console,
-    module: { exports: {} },
-    window: { require: undefined },
-  });
-  vm.runInContext(
-    source.slice(start, end)
-      + '\nmodule.exports={_chatPickAttachments,_readAttachments,_attachCeilingFor};',
-    context,
-    { filename: `${CHAT_PANEL.pathname}#attach-slice` },
-  );
-
-  const st = { attachments: [], _delivery: null, _lastAttachDir: null };
-  return { bridge, calls, st, functions: context.module.exports };
-}
 
 /* Node has no FileReader; this is the minimum of the Web API the panel uses. */
 function nodeFileReaderClass() {
@@ -5429,149 +3981,23 @@ function pickAttachments(harness) {
   });
 }
 
-await testAsync('a dialog pick produces a real File the existing reader can read', async () => {
-  const harness = panelPickHarness({
-    picked: { directory: '/home/u/proj', files: [{ token: 't1', name: 'notes.txt', size: HELLO.length, type: 'text/plain' }] },
-    reads: new Map([['t1', { ok: true, bytes: new Uint8Array(HELLO), size: HELLO.length }]]),
-  });
 
-  const added = await pickAttachments(harness);
-  assert.equal(added.length, 1);
-  assert.equal(harness.st.attachments.length, 1);
-  assert.equal(harness.st._delivery, null, 'a clean pick reports nothing');
-  assert.equal(harness.st._lastAttachDir, '/home/u/proj', 'the pick directory is remembered');
 
-  const [attachment] = harness.st.attachments;
-  assert.ok(attachment.file instanceof File, 'the dialog branch yields a real File, not a stub');
-  assert.equal(attachment.file.size, HELLO.length, 'the File carries bytes, not a fabricated 1024');
 
-  /* The regression in one assertion: this used to be content:null, which the
-     inline-only policy refuses, so a file the user had just chosen came back
-     NOT_SENT. */
-  const read = await new Promise(resolve => harness.functions._readAttachments(harness.st.attachments, resolve));
-  assert.equal(read[0].type, 'text');
-  assert.equal(read[0].content, 'ahoj světe');
-  assert.equal(read[0].path, null, 'no path reaches the wire DTO mapper');
-});
 
-await testAsync('a picked image round-trips as a data URL the policy accepts', async () => {
-  const png = Buffer.from('89504e470d0a1a0a', 'hex');
-  const harness = panelPickHarness({
-    picked: { directory: '/w', files: [{ token: 't1', name: 'shot.png', size: png.length, type: 'image/png' }] },
-    reads: new Map([['t1', { ok: true, bytes: new Uint8Array(png), size: png.length }]]),
-  });
 
-  await pickAttachments(harness);
-  const read = await new Promise(resolve => harness.functions._readAttachments(harness.st.attachments, resolve));
-  assert.equal(read[0].type, 'image');
-  assert.match(read[0].content, /^data:image\/png;base64,/);
 
-  const verdict = validateM1Attachments(
-    [{ name: read[0].name, type: 'image/png', content: read[0].content }],
-    createM1AttachmentLimits({}),
-  );
-  assert.equal(verdict.ok, true, 'what the picker produces is what the policy accepts');
-});
 
-await testAsync('the read is asked for the ceiling that kind of file will actually face', async () => {
-  const harness = panelPickHarness({
-    picked: {
-      directory: '/w',
-      files: [
-        { token: 't1', name: 'notes.txt', size: 10, type: 'text/plain' },
-        { token: 't2', name: 'shot.png', size: 10, type: 'image/png' },
-      ],
-    },
-    reads: new Map([
-      ['t1', { ok: true, bytes: new Uint8Array(10), size: 10 }],
-      ['t2', { ok: true, bytes: new Uint8Array(10), size: 10 }],
-    ]),
-  });
 
-  await pickAttachments(harness);
-  /* Passing one blanket ceiling would read a 4 MiB .txt in full and only then
-     discard it against the 1 MiB text limit — exactly what moving the limit to
-     the read was meant to stop. */
-  assert.deepEqual(harness.calls.read, [
-    { token: 't1', maxBytes: 1024 * 1024 },
-    { token: 't2', maxBytes: 5 * 1024 * 1024 },
-  ]);
-});
 
-await testAsync('an oversized pick is refused by name and never enters the attachment list', async () => {
-  const harness = panelPickHarness({
-    picked: {
-      directory: '/w',
-      files: [
-        { token: 't1', name: 'huge.txt', size: 4 * 1024 * 1024, type: 'text/plain' },
-        { token: 't2', name: 'ok.txt', size: 4, type: 'text/plain' },
-      ],
-    },
-    reads: new Map([['t2', { ok: true, bytes: new Uint8Array([104, 101, 106, 33]), size: 4 }]]),
-  });
 
-  const added = await pickAttachments(harness);
-  assert.deepEqual(Array.from(added, a => a.name), ['ok.txt'], 'the legal file still attaches');
-  assert.deepEqual(harness.calls.read, [{ token: 't2', maxBytes: 1024 * 1024 }],
-    'the oversized file is dropped on its reported size, without spending its grant');
-  assert.equal(harness.st._delivery.status, 'ATTACH_REFUSED');
-  assert.match(harness.st._delivery.text, /huge\.txt/, 'the user is told which file, not just that one failed');
-  assert.match(harness.st._delivery.text, /M1_BRIDGE_ITEM_TOO_LARGE/);
-});
 
-await testAsync('a refused read is surfaced rather than attached as an unsendable stub', async () => {
-  const harness = panelPickHarness({
-    picked: { directory: '/w', files: [{ token: 't1', name: 'gone.txt', size: 4, type: 'text/plain' }] },
-    reads: new Map([['t1', { ok: false, code: 'M1_BRIDGE_READ_FAILED' }]]),
-  });
 
-  const added = await pickAttachments(harness);
-  assert.equal(added.length, 0);
-  assert.equal(harness.st.attachments.length, 0, 'a stub would only fail again at send');
-  assert.equal(harness.st._delivery.status, 'ATTACH_REFUSED');
-  assert.match(harness.st._delivery.text, /gone\.txt \(M1_BRIDGE_READ_FAILED\)/);
-});
 
-await testAsync('a cancelled dialog attaches nothing and reports nothing', async () => {
-  const harness = panelPickHarness({ picked: { directory: null, files: [] } });
-  const added = await pickAttachments(harness);
-  assert.equal(added.length, 0);
-  assert.equal(harness.st.attachments.length, 0);
-  assert.equal(harness.st._delivery, null, 'cancelling is not an error the user needs told about');
-  assert.deepEqual(harness.calls.read, []);
-});
 
-await testAsync('the pick asks the dialog to open where the last one ended', async () => {
-  const harness = panelPickHarness({ picked: { directory: '/w/next', files: [] } });
-  harness.st._lastAttachDir = '/w/previous';
-  await pickAttachments(harness);
-  assert.equal(harness.calls.pick[0].defaultPath, '/w/previous');
-  assert.equal(harness.calls.pick[0].selectMany, true);
-  assert.equal(harness.st._lastAttachDir, '/w/next', 'and remembers where this one ended');
-});
 
-await testAsync('without the bridge the picker declines instead of inventing attachments', async () => {
-  const harness = panelPickHarness({ picked: { directory: null, files: [] } });
-  const added = await new Promise(resolve => {
-    harness.functions._chatPickAttachments(harness.st, null, resolve);
-  });
-  assert.equal(added, null, 'the caller can tell "no bridge" from "nothing picked"');
-  assert.equal(harness.st.attachments.length, 0);
 
-  const halfBridge = { pickAttachmentFiles: () => Promise.resolve({ files: [] }) };
-  const partial = await new Promise(resolve => {
-    harness.functions._chatPickAttachments(harness.st, halfBridge, resolve);
-  });
-  assert.equal(partial, null, 'a bridge that cannot deliver bytes is not used to pick');
-});
 
-await testAsync('a dialog that throws leaves the pane untouched', async () => {
-  const harness = panelPickHarness({ rejectPick: new Error('synthetic dialog failure') });
-  const added = await pickAttachments(harness);
-  assert.equal(added, null);
-  assert.equal(harness.st.attachments.length, 0);
-  assert.equal(harness.st._delivery, null);
-});
 
 test('the shipped preload exposes the byte bridge and no path-taking read', () => {
   const source = fs.readFileSync(
@@ -5590,29 +4016,10 @@ test('the shipped preload exposes the byte bridge and no path-taking read', () =
 });
 
 
-await testAsync('Studio specialist list uses enabled package IDs independently of expertise flags', async () => {
-  const source=fs.readFileSync(CHAT_PANEL,'utf8');const start=source.indexOf('function _fetchSpecialists(){'),end=source.indexOf('function _fetchExpertises(){',start);
-  const calls=[];const context=vm.createContext({AbortSignal,console,_backendUrl:()=> 'http://127.0.0.1:1',SPECIALISTS:[],NAV:[{},{},{},{}],renderCenter(){},
-    fetch:async url=>{calls.push(url);return {ok:true,json:async()=>({ok:true,specialists:[{id:'accountant-cz',name:'Účetní',status:'enabled',type:'domain'},{id:'sazeni',name:'Sázkař',status:'enabled',type:'domain'},{id:'disabled',name:'Zakázaný',status:'disabled',type:'domain'},{id:'utility',status:'enabled',type:'utility'}]})};}});
-  vm.runInContext(source.slice(start,end),context);await context._fetchSpecialists();
-  assert.equal(calls[0],'http://127.0.0.1:1/api/specialists');assert.deepEqual(Array.from(context.SPECIALISTS,s=>s.id),['accountant-cz','sazeni']);assert.equal(context.NAV[2].badge,2);
-});
-await testAsync('PDF and large HEIC picked by the native byte bridge become complete inline documents',async()=>{
-  for(const [name,mime,size] of [['invoice.pdf','application/pdf',33000],['receipts.heic','image/heic',6715*1024]]){
-    const bytes=new Uint8Array(size);const harness=panelPickHarness({picked:{files:[{name,token:'doc',size,type:mime}]},reads:new Map([['doc',{ok:true,bytes,size}]])});
-    await new Promise(resolve=>harness.functions._chatPickAttachments(harness.st,harness.bridge,resolve));
-    const read=await new Promise(resolve=>harness.functions._readAttachments(harness.st.attachments,resolve));
-    assert.equal(read[0].type,'document');assert(read[0].content.startsWith('data:'+mime+';base64,'));assert.equal(Buffer.from(read[0].content.split(',')[1],'base64').length,size);
-  }
-});
 
-test('specialist focus repaints the center conversation on chat changes',()=>{
-  const source=fs.readFileSync(CHAT_PANEL,'utf8'),a=source.indexOf('function renderChat(){'),b=source.indexOf('function _chatScrollPane',a);let focus=true,center=0,side=0;
-  const ctx=vm.createContext({_workspaceShown:()=>focus,renderCenter:()=>center++,_chatContainer:{},_chatRoot:{render:()=>side++},h:()=>null,ChatApp:()=>null});
-  vm.runInContext(source.slice(a,b),ctx);ctx.renderChat();assert.equal(center,1);assert.equal(side,1);
-  focus=false;ctx.renderChat();assert.equal(center,1);assert.equal(side,2);
-  focus=true;ctx._chatContainer=null;ctx.renderChat();assert.equal(center,2);
-});
+
+
+
 
 
 suite('Studio transparent work activity');
@@ -5649,18 +4056,7 @@ test('question, approval, cancellation and timeout have distinct terminal presen
     assert.equal(a.status,expected);assert.ok(a.endedAt);
   }
 });
-test('actual panel subscriptions bind activity to the owner turn and reject another conversation', () => {
-  const pane=session('activity-conversation');pane._convId='activity-conversation';pane.chat.msgs=[{role:'user',text:'Own request'}];
-  const h=terminalPanelHarness(pane);
-  const event=(type,seq,conversationId='activity-conversation')=>({sessionIdx:0,event:{transport:'m1',turnId:'activity-turn',conversationId,seq,type,payload:{model:'answer'}}});
-  h.listeners['agent:event'](event('turn_start',1,'other'));
-  assert.equal(pane.chat.msgs[0]._activity,undefined);
-  h.listeners['agent:event'](event('turn_start',1));h.listeners['agent:event'](event('llm_start',2));
-  assert.equal(pane.chat.msgs[0]._activity.steps[0].status,'running');
-  h.listeners['chat:terminal']({sessionIdx:0,action:'send',turnId:'activity-turn',status:'cancelled',result:{error:{message:'cancelled'}}});
-  assert.equal(pane.chat.msgs[0]._activity.status,'cancelled');
-  assert.equal(pane.chat.msgs[0]._activity.steps[0].status,'unconfirmed');
-});
+
 test('line statistics count actual added and removed lines, including new files and newline-only changes', () => {
   for(const [before,after,added,removed] of [[null,'a\nb\n',2,0],['a\nb\nc\n','a\nB\nc\n',1,1],['a\n','',0,1],['','',0,0],['a\nb','a\nb',0,0],['a\nb\nc','a\nc',0,1],['a\na\n','a\n',0,1]]){
     const c=WorkActivity.lineCounts(before,after);assert.equal(c.added,added);assert.equal(c.removed,removed);
@@ -5677,4 +4073,10 @@ test('prepared and failed M2 views cannot claim applied changes; success require
   assert.equal(WorkActivity.changeSummary({...view,state:'failed',terminal:{state:'failed'},result:{terminalStatus:'failed'}}).applied,false);
 });
 
+
+// Active Studio 2 adapters replace source extraction from the retired React monolith.
+test('m1-studio-client: active Studio 2 integration coverage', () => {
+  const output = runStudio2BehaviorTests(process.execPath, ['--test', '--test-reporter=tap', 'tests/studio2-transport.test.js', 'tests/studio2-attachments.test.js', 'tests/studio2-session-store.test.js', 'tests/studio2-appearance.test.js', 'tests/studio2-model-workspace.test.js', 'tests/studio2-live-model.test.js', 'tests/studio2-conversation-view.test.js'], { cwd: new URL('..', import.meta.url), encoding: 'utf8', timeout: 120000, env: { ...process.env, NODE_TEST_CONTEXT: undefined } });
+  if (!/# fail 0/.test(output)) throw new Error('Active Studio 2 tests did not complete: ' + output);
+});
 summary();

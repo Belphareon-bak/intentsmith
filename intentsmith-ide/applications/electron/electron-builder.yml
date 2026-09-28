@@ -18,6 +18,10 @@ files:
   - "!**/tests/**"
   - "!**/*.map"
   - "!**/*.d.ts"
+  - "!**/chat-panel-module.js"
+  - "!node_modules/@intentsmith/center-views/**"
+  - "!node_modules/@intentsmith/detail-panel/**"
+  - "!node_modules/@intentsmith-ide/intentsmith-sidebar/**"
 
 # asar disabled: Theia monorepo symlinks (yarn workspaces) resolve outside app dir
 # which breaks asar packing. Re-enable when migrating to flat layout.

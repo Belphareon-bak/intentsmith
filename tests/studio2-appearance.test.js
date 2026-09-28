@@ -35,7 +35,7 @@ assert.equal(appearance.effectiveTheme(), 'dark');
 assert.equal(appearance.set('fontSizeVal', 200), false);
 console.log('PASS old settings migrate without overwrite and invalid values fail closed');
 
-const css = readFileSync(new URL('../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/styles/tokens.css', import.meta.url), 'utf8');
+const css = readFileSync(new URL('../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/view/generated/proto.css', import.meta.url), 'utf8');
 function lum(hex) { const rgb = [1,3,5].map(index => parseInt(hex.slice(index, index + 2), 16) / 255)
   .map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4);
 return rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722; }
@@ -53,11 +53,11 @@ for (const name of STYLES) {
     }
   }
 }
-assert.equal(css.split('\n').filter(line => /^\.th-(?:intentsmith|studio|clean|matrix|japanese|midnight|nocturne)(?:-(?:dark|light))?\{/.test(line)).length, 11);
+assert.equal(css.split('\n').filter(line => /^\.intentsmith-studio2-widget \.th-(?:intentsmith|studio|clean|matrix|japanese|midnight|nocturne)(?:-(?:dark|light))?\{/.test(line)).length, 11);
 assert.doesNotMatch(css, /fonts\.googleapis\.com|https?:\/\//);
 console.log('PASS 11 local theme token sets keep 4.5:1 contrast on primary surfaces');
 
-const source = readFileSync(new URL('../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/styles/studio2.css', import.meta.url), 'utf8');
+const source = css;
 const manifest = readFileSync(new URL('../docs/studio2/FONT-SOURCES.md', import.meta.url), 'utf8');
 for (const family of ['Inter','JetBrains Mono','Plus Jakarta Sans','Share Tech Mono','Zen Kaku Gothic Antique','Yuji Boku']) {
   assert.match(source, new RegExp(`font-family: "${family}"`));

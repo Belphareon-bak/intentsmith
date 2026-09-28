@@ -15,7 +15,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 ## Inventory
 
 - Runnable programs: 552
-- Explicit support-module exclusions: 22
+- Explicit support-module exclusions: 23
 - Profiles: offline=306, database=80, server=49, model=82, soak=15, manual=20
 - States: ACTIVE=458, HISTORICAL=15, BLOCKED=79
 
@@ -615,6 +615,7 @@ ledger.
 | `tests/helpers/m7-durable-rate-limit-racer.js` | Suite-owned cross-process SQLite race helper launched only by m7-durable-rate-limiter.test.js. |
 | `tests/helpers/ollama-loopback-fetch-boundary.js` | Imported fail-closed M6 model-test transport boundary, not a standalone test. |
 | `tests/helpers/studio-m2-composer-dom.js` | Explicit visual DOM probe invoked only by studio-m2-composer-dom.e2e.js through the shared Electron harness; not a standalone suite. |
+| `tests/helpers/studio2-live-harness.js` | Imported actual Studio 2 adapter harness; its assertions run in studio2-m2 and m2-lifecycle-studio-surface suites. |
 | `tests/helpers/studio2-ui-mode.js` | Imported Electron DOM mode-switch probe; its direct assertions run in studio2-exclusive-ui.e2e.js. |
 | `tests/run-all.js` | Aggregate compatibility entry point; registering it as a child suite would recurse into the registry runner. |
 

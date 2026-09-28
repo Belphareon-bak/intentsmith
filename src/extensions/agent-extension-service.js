@@ -161,10 +161,49 @@ export class AgentExtensionService {
     return this.extensions.get(extensionId) || null;
   }
 
+  configuration(extensionId) {
+    const extension = this.get(extensionId);
+    if (!extension) fail(`Unknown agent extension: ${extensionId}`, 'M3_AGENT_EXTENSION_NOT_FOUND');
+    return { id: extensionId, moduleVersion: extension.manifest.moduleVersion,
+      definition: structuredClone(extension.manifest.payload.definition) };
+  }
+
+  preview(extensionId, { instanceId = extensionId, params = {} } = {}) {
+    const extension = this.get(extensionId);
+    if (!extension) fail(`Unknown agent extension: ${extensionId}`, 'M3_AGENT_EXTENSION_NOT_FOUND');
+    if (typeof instanceId !== 'string' || !INSTANCE_ID_PATTERN.test(instanceId)) fail('Invalid instance ID');
+    if (!params || typeof params !== 'object' || Array.isArray(params)
+      || Buffer.byteLength(JSON.stringify(params)) > 4096) fail('Invalid extension parameters');
+    const fields = extension.manifest.payload.definition.params || [];
+    if (Object.keys(params).some(key => !fields.some(field => field.name === key))) fail('Unknown extension parameter');
+    const values = {};
+    for (const field of fields) {
+      const value = Object.hasOwn(params, field.name) ? params[field.name] : field.default;
+      const optionValues = (field.options || []).map(option => typeof option === 'object' ? option.value : option);
+      const valid = field.type === 'number' ? typeof value === 'number' && Number.isFinite(value)
+        : field.type === 'boolean' ? typeof value === 'boolean'
+          : field.type === 'select' ? optionValues.includes(value)
+            : field.type === 'multiselect' ? Array.isArray(value) && value.every(item => optionValues.includes(item))
+              : field.type === 'location' ? value && typeof value === 'object' && !Array.isArray(value)
+                && Number.isFinite(value.lat) && Number.isFinite(value.lon) && Math.abs(value.lat) <= 90 && Math.abs(value.lon) <= 180
+                : typeof value === 'string' && value.length <= 2000
+                  && (field.type !== 'date' || /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value)));
+      if (!/^[a-z][a-z0-9_]{0,63}$/.test(field.name) || !valid
+        || field.name === 'project_id' && (!Number.isSafeInteger(value) || value < 1)) fail(`Invalid parameter: ${field.name}`);
+      values[field.name] = structuredClone(value);
+    }
+    if (this.repository.getAgent(instanceId)) fail(`Agent extension instance already exists: ${instanceId}`, 'M3_AGENT_EXTENSION_CONFLICT');
+    const definition = cloneDefinition(extension.manifest, instanceId);
+    return { id: extensionId, instanceId, params: values, definition,
+      definitionDigest: definition.m3_extension.definitionDigest, effectsExecuted: false,
+      validation: validateAgentDefinition(definition) };
+  }
+
   install(extensionId, {
     instanceId = extensionId,
     params = {},
     enabled,
+    expectedDefinitionDigest,
   } = {}) {
     const extension = this.get(extensionId);
     if (!extension) fail(`Unknown agent extension: ${extensionId}`, 'M3_AGENT_EXTENSION_NOT_FOUND');
@@ -177,7 +216,10 @@ export class AgentExtensionService {
     if (this.repository.getAgent(instanceId)) {
       fail(`Agent extension instance already exists: ${instanceId}`, 'M3_AGENT_EXTENSION_CONFLICT');
     }
-    const definition = cloneDefinition(extension.manifest, instanceId);
+    const preview = this.preview(extensionId, { instanceId, params });
+    if (expectedDefinitionDigest !== undefined && expectedDefinitionDigest !== preview.definitionDigest)
+      fail('Extension changed since preview', 'M3_AGENT_EXTENSION_STALE');
+    const definition = preview.definition;
     const validation = validateAgentDefinition(definition);
     if (!validation.valid) {
       fail(
@@ -192,7 +234,7 @@ export class AgentExtensionService {
       description: definition.description,
       icon: definition.icon || '🤖',
       definition,
-      params: structuredClone(params),
+      params: preview.params,
       enabled: isEnabled,
     });
     if (agent.enabled && definition.schedule?.type !== 'manual') {

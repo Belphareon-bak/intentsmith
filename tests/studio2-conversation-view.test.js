@@ -67,11 +67,13 @@ test('agent turn folds internal processing and keeps real work visible', () => {
 });
 
 test('pending M2 plan becomes an approval card that requires the plan to be seen first', () => {
-  const view = { state: 'awaiting_approval', lifecycleId: 'lc-1', planDigest: DIGEST, plan: { focusedTest: null, gitCommit: null },
+  const view = { state: 'awaiting_approval', lifecycleId: 'lc-1', planDigest: DIGEST, plan: { identity: { lifecycleId: 'lc-1' }, state: 'awaiting_approval', origin: { surface: 'studio', sessionId: 'c-1', conversationId: 'c-1', projectId: 1 },
+      changes: [{ path: 'src/a.js' }], focusedTest: { binary: '/usr/bin/node', argv: ['test.js'], timeoutMs: 30000 }, gitCommit: null }, audit: { governanceDecision: { verdict: 'allow' } },
     diff: [{ path: 'src/a.js', before: { content: 'a\n' }, after: { content: 'a\nb\n' } }] };
   const entry = { view, presentedView: null, error: null, busy: false };
   const { model, store } = setup(entry);
   const session = store.focusedSession();
+  session._convId = 'c-1'; session._projectId = '1';
   session._m2Pending = { lifecycleId: 'lc-1', planDigest: DIGEST,
     origin: { surface: 'studio', sessionId: 'c-1', conversationId: 'c-1', projectId: 1 } };
   session.chat.msgs = [
@@ -102,7 +104,8 @@ test('M2 results and errors are readable notes, not raw lifecycle text', () => {
 });
 
 test('a pending plan restored without its chat message still shows the approval card', () => {
-  const view = { state: 'awaiting_approval', lifecycleId: 'lc-3', planDigest: DIGEST, plan: { focusedTest: null, gitCommit: null },
+  const view = { state: 'awaiting_approval', lifecycleId: 'lc-3', planDigest: DIGEST, plan: { identity: { lifecycleId: 'lc-1' }, state: 'awaiting_approval', origin: { surface: 'studio', sessionId: 'c-1', conversationId: 'c-1', projectId: 1 },
+      changes: [{ path: 'src/a.js' }], focusedTest: { binary: '/usr/bin/node', argv: ['test.js'], timeoutMs: 30000 }, gitCommit: null }, audit: { governanceDecision: { verdict: 'allow' } },
     diff: [{ path: 'src/b.js', before: { content: '' }, after: { content: 'x\n' } }] };
   const { model, store } = setup({ view, presentedView: null, error: null, busy: false });
   const session = store.focusedSession();

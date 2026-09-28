@@ -1,3 +1,4 @@
+import { execFileSync as runStudio2BehaviorTests } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import Database from 'better-sqlite3';
@@ -611,138 +612,26 @@ test('historical detail uses the exact requested run and preserves failed gradin
   assertEqual(missing.httpStatus,404);db.close();
 });
 
-const studioSource = readFileSync(new URL('../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js', import.meta.url), 'utf8');
-function studioFunction(name, endMarker) {
-  const start = studioSource.indexOf('function ' + name + '(');
-  const end = studioSource.indexOf(endMarker, start);
-  assert(start >= 0 && end > start, 'literal shipped Studio function must exist');
-  return studioSource.slice(start, end);
-}
 
-test('§4: shipped Studio detail renders an invalid attempt as missing, with its count and reason', () => {
-  const render = studioSource.slice(studioSource.indexOf('var _evaluationRoleFilter='),studioSource.indexOf('/* ═',studioSource.indexOf('var _evaluationRoleFilter=')));
-  const row = { model: 'candidate', status: 'FAILED', suiteName: 'code_patch', score: null,
-    attemptCounts: { planned: 6, observed: 3, notAttempted: 3, invalid: 1, operationalFailure: 1 },
-    tasks: [{ name: 'invalid', repeat: 2, mean: null, scores: [null], details: [
-      { valid: false, outcome: 'ENVIRONMENT_INVALID', reason: 'fixture missing' },
-    ] }] };
-  const view = JSON.stringify(runInNewContext(render+';_qualityDetail(row,{})', {
-    row, C:{}, _rgba:()=>'', _fs:n=>n, h:(tag,props,...children)=>({tag,props,children}),
-  }));
-  assert(view.includes('Celkové skóre chybí')); assert(view.includes('neplatné prostředí 1'));
-  assert(view.includes('nezahájeno 3')); assert(view.includes('pokus 2'));
-  assert(view.includes('fixture missing')); assert(view.includes('Opakování: —'));
-  assert(!view.includes('0.0 %'), 'null must never be shown as a zero-quality repair');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Active Studio 2 adapters replace source extraction from the retired React monolith.
+test('model-evaluation-read-model: active Studio 2 integration coverage', () => {
+  const output = runStudio2BehaviorTests(process.execPath, ['--test', '--test-reporter=tap', 'tests/studio2-model-workspace.test.js'], { cwd: new URL('..', import.meta.url), encoding: 'utf8', timeout: 120000, env: { ...process.env, NODE_TEST_CONTEXT: undefined } });
+  if (!/# fail 0/.test(output)) throw new Error('Active Studio 2 tests did not complete: ' + output);
 });
-
-test('quality tables separate role scores from chronological provider evidence', () => {
-  const render = studioSource.slice(studioSource.indexOf('var _evaluationRoleFilter='),studioSource.indexOf('/* ═',studioSource.indexOf('var _evaluationRoleFilter=')));
-  const context = {
-    _evaluationLoading:false,_assigningRole:null,_evaluationModelFilter:'',_modelTestPending:false,_modelTestTarget:null,
-    _huntDuration:()=> '2 min',_settingsVals:{},
-    _evaluationData:{history:[{runId:'new',model:'measured:1',role:'R2',status:'COMPLETE',score:.75,providerVersion:'0.34.0-intentsmith.1'},
-      {runId:'old',model:'historical:1',role:'R2',status:'BLOCKED',score:null}],roles:{R2:{suiteName:'review_v2',tasks:[{name:'alpha',label:'Review actual defect'}],
-      artifacts:[{model:'measured:1',status:'COMPLETE',score:.75,tasks:[{name:'alpha',mean:.75,spread:0,scores:[.75,.75,.75]}]},
-        {model:'historical:1',status:'BLOCKED',score:null}]}}},
-    C:{},_rgba:()=>'',_fs:n=>n,h:(tag,props,...children)=>({tag,props,children}),
-  };
-  const helpers=studioSource.slice(studioSource.indexOf('function _modelButtonStyle('),studioSource.indexOf('var _huntData='));
-  const quality=JSON.stringify(runInNewContext(helpers+render+';_renderEvaluationsTab()',context));
-  assert(quality.includes('75.0 %'));assert(quality.includes('Blokováno'));assert(quality.includes('Review actual defect'));assert(quality.includes('measured:1')&&quality.includes('historical:1'));
-  assert(!quality.includes('0.34.0-intentsmith.1'),'provider metadata belongs to History');
-  const history=JSON.stringify(runInNewContext(helpers+render+';_renderEvaluationHistory()',context));
-  assert(history.includes('0.34.0-intentsmith.1'));assert(history.includes('Nezaznamenána'));assert(history.includes('Blokováno'));
-});
-
-await testAsync('scoring refresh rejects HTTP errors and recovers on the next explicit read', async () => {
-  const source = studioSource.slice(studioSource.indexOf('function _modelReadError('),studioSource.indexOf('function _resetModelReads(')) + studioFunction('_loadEvaluationData', '/* Installed models cache');
-  let succeed = false; let calls = 0;
-  const context = {
-    _evaluationLoading: false, _evaluationData: null, _backendUrl: () => 'http://127.0.0.1:1234', _modelReadEpoch: 0,
-    AbortSignal, renderCenter() {},
-    fetch: async url => {
-      assertEqual(url, 'http://127.0.0.1:1234/api/system/models/evaluations'); calls++;
-      return { ok: succeed, status: succeed ? 200 : 503, json: async () => ({ providerVersion: 'exact', roles: {} }) };
-    },
-  };
-  runInNewContext(source + ';_loadEvaluationData();_loadEvaluationData()', context);
-  await new Promise(resolve => setImmediate(resolve));
-  assertEqual(calls, 1);
-  assertEqual(context._evaluationData.error, 'Načtení dat selhalo (HTTP 503).');
-  succeed = true;
-  runInNewContext('_loadEvaluationData()', context);
-  await new Promise(resolve => setImmediate(resolve));
-  assertEqual(calls, 2);
-  assertEqual(context._evaluationData.providerVersion, 'exact');
-  assertEqual(context._evaluationLoading, false);
-});
-
-
-test('shipped score detail exposes preservation failures and separates content from format', () => {
-  const body=studioSource.slice(studioSource.indexOf('var _evaluationRoleFilter='),studioSource.indexOf('/* ═',studioSource.indexOf('var _evaluationRoleFilter=')));
-  const t={details:[{targeted:8,targetedPassed:8,contentScore:1,formatScore:0,contractChecks:{passed:false,checks:[{name:'shared reader MODEL_VALIDATION',passed:false,reason:'owner rejected'}]},criteria:[{id:'count',score:0,expected:12,observed:8}]}]};
-  const notes=runInNewContext(body+';_taskResultNotes(t)',{t});
-  assert(notes.some(n=>n.includes('MODEL_VALIDATION')&&n.includes('owner rejected')));
-  assert(notes.some(n=>n.includes('Obsah: 100.0 %')));
-  assert(notes.some(n=>n.includes('formát nesplněn')));
-  assert(notes.some(n=>n.includes('count: očekáváno 12, vráceno 8')));
-});
-
-test('Studio displays captured answers on demand without inventing a grade or rendering answer HTML', () => {
-  const render=studioSource.slice(studioSource.indexOf('var _evaluationRoleFilter='),studioSource.indexOf('/* ═',studioSource.indexOf('var _evaluationRoleFilter=')));
-  const helpers=studioSource.slice(studioSource.indexOf('function _modelButtonStyle('),studioSource.indexOf('var _huntData='));
-  const label=studioFunction('_huntEvaluationText','function _huntDuration(');
-  const row={runId:'raw',role:'D1',model:'fixture',status:'AWAITING_REVIEW',score:null,
-    collection:{status:'AWAITING_REVIEW',observed:3,planned:3,budgetExhausted:1},tasks:[{name:'t',mean:null}]};
-  const detail={...row,tasks:[{name:'t',input:{text:'Actual prompt'},rubric:['Required evidence'],
-    responses:['<img src=x onerror=alert(1)>','answer two','unfinished'],details:[{captureStatus:'CAPTURED'},{captureStatus:'CAPTURED'},{captureStatus:'OUTPUT_BUDGET_EXHAUSTED'}]}]};
-  let loaded=null;
-  const context={row,C:{},_rgba:()=>'',_fs:n=>n,h:(tag,props,...children)=>({tag,props,children}),
-    _modelTestPending:false,_historyExpanded:{},renderCenter(){},_readModelResource:(url,done)=>{loaded=url;done(detail);}};
-  const tree=runInNewContext(helpers+label+render+';_qualityDetail(row,{})',context);
-  const nodes=n=>!n||typeof n!=='object'?[]:Array.isArray(n)?n.flatMap(nodes):[n,...nodes(n.children)];
-  const load=nodes(tree).find(n=>n.tag==='button'&&n.children.includes('Zobrazit uložené odpovědi'));assert(load);
-  load.props.onClick();assertEqual(loaded,'/api/system/models/evaluations/raw');
-  context.row=detail;
-  const full=runInNewContext(helpers+label+render+';_qualityDetail(row,{})',context);
-  const text=JSON.stringify(full);assert(text.includes('3/3 odpovědí'));assert(text.includes('čeká na posouzení'));
-  assert(text.includes('Actual prompt'));assert(text.includes('Required evidence'));assert(text.includes('Vyčerpán limit výstupu'));
-  assert(nodes(full).some(n=>n.tag==='pre'&&n.children.includes('<img src=x onerror=alert(1)>')));
-  assert(!nodes(full).some(n=>n.tag==='img'||n.props?.dangerouslySetInnerHTML));
-  assert(!text.includes('0.0 %'));assert(!text.includes('skóre 0 %'));
-});
-
-await testAsync('stored-answer grading shows missing acceptance in History and clears a cancelled preview', async () => {
-  const handler = studioFunction('_gradeStoredAnswers', 'setInterval(');
-  const toastStart = studioSource.indexOf("_modelTestMessage&&(_upgradeTab");
-  const toast = studioSource.slice(toastStart, studioSource.indexOf('/* body */', toastStart)).trim().replace(/,$/, '');
-  let accepted = false;
-  const calls = [];
-  const context = {
-    _modelTestPending: false, _modelTestMessage: null, _modelTestFailed: false, _upgradeTab: 'history',
-    _backendUrl: () => 'http://127.0.0.1:1234', renderCenter() {}, AbortSignal, confirm: () => false,
-    C: {}, _fs: n => n, h: (tag, props, ...children) => ({tag, props, children}),
-    fetch: async (url, options) => {
-      calls.push({url, method: options.method || 'GET'});
-      return {ok: true, json: async () => ({model: 'fixture', role: 'D1',
-        graders: accepted ? [{id: 'accepted', judge: {modelName: 'judge'}}] : [],
-        code: accepted ? null : 'EVALUATION_GRADER_ACCEPTANCE_MISSING'})};
-    },
-  };
-  runInNewContext(handler + ';_gradeStoredAnswers("raw")', context);
-  await new Promise(resolve => setImmediate(resolve));
-  let rendered = runInNewContext(toast, context);
-  assertEqual(rendered.props.role, 'alert');
-  assert(rendered.children[0].includes('nový test není potřeba'));
-  assertEqual(context._modelTestPending, false);
-  accepted = true;
-  runInNewContext('_gradeStoredAnswers("raw")', context);
-  await new Promise(resolve => setImmediate(resolve));
-  rendered = runInNewContext(toast, context);
-  assertEqual(rendered.props.role, 'status');
-  assertEqual(rendered.children[0], 'Hodnocení nebylo spuštěno.');
-  assert(calls.every(c => c.method === 'GET'), 'neither refusal may launch GPU work');
-});
-
 const results = summary();
 process.exit(results.failed > 0 ? 1 : 0);

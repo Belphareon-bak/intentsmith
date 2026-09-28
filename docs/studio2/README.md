@@ -1,7 +1,7 @@
 # Studio 2.0
 
-Nové UI Studia nad stávajícím backendem a Theia hostitelem. Stav: **návrh
-kontraktu**, viz [Decision 049](../decisions/049-studio-2-ui-and-source-control.md)
+Nové UI Studia nad stávajícím backendem a Theia hostitelem. Implementace a
+ověření parity: [předávací report](../review/2026-09-28-STUDIO2-PARITY-DELIVERY.md). Autority: [Decision 049](../decisions/049-studio-2-ui-and-source-control.md)
 a [WP-STUDIO-2](../wp/WP-STUDIO-2-20260925.md).
 
 | Dokument | Obsah |

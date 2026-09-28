@@ -4,6 +4,8 @@ const { IntentSmithBus } = require('@intentsmith/chat-panel/lib/browser/event-bu
 const WorkActivity = require('@intentsmith/chat-panel/lib/browser/work-activity');
 const TerminalClient = require('@intentsmith/chat-panel/lib/browser/terminal-client');
 require('@intentsmith/chat-panel/lib/browser/ws-client');
+const { normalizeProposal } = require('./m2-composer');
+const { origin } = require('./m2-controller');
 
 class TransportAdapter {
   constructor(store, workspace) {
@@ -68,7 +70,8 @@ class TransportAdapter {
       if (!session) return;
       if (event.metadata?.conversationId && !session._convId) session._convId = event.metadata.conversationId;
       if (Number.isFinite(event.metadata?.contextPercent)) session.chat.ctx = event.metadata.contextPercent;
-      this.append(event.sessionIdx, 'assistant', event.content, event.tag);
+      this.captureProposal(session, event.metadata);
+      this.append(event.sessionIdx, 'assistant', event.content, event.tag, event.metadata);
     });
     this.on('chat:terminal', event => this.terminal(event));
     this.on('agent:event', event => this.activity(event));
@@ -82,10 +85,10 @@ class TransportAdapter {
   }
   on(name, fn) { IntentSmithBus.on(name, fn); this.subscriptions.push([name, fn]); }
   changed() { this.store.changed(); }
-  append(index, role, value, tag = '') {
+  append(index, role, value, tag = '', metadata = {}) {
     const session = this.session(index);
     if (!session) return;
-    session.chat.msgs.push({ role, text: String(value || ''), tag, ts: new Date().toISOString() });
+    session.chat.msgs.push({ role, text: String(value || ''), tag, _gapChoice: metadata?.awaitingGapChoice === true, ts: new Date().toISOString() });
     this.changed();
   }
   activity({ sessionIdx, event }) {
@@ -97,6 +100,11 @@ class TransportAdapter {
     if (!owner._activity) owner._activity = WorkActivity.createActivity(event.turnId, 'Zpracovává zadání');
     WorkActivity.applyEvent(owner._activity, event);
     this.changed();
+  }
+  captureProposal(session, metadata) {
+    let bound = null;
+    try { bound = normalizeProposal({ origin: origin(session), proposal: metadata?.projectWorkProposal }); } catch {}
+    session.chat._projectWorkProposal = bound;
   }
   terminal(event) {
     const session = this.session(event.sessionIdx);
@@ -117,13 +125,26 @@ class TransportAdapter {
     else if (event.status === 'ok') session.chat._delivery = null;
     if (event.status === 'ok' && event.renderAssistant === true && result.response) {
       const metadata = result.response.metadata || {};
-      session.chat.msgs.push({ role: 'assistant', text: String(result.response.content || ''), tag: metadata.mode || 'LLM', ts: new Date().toISOString() });
+      this.captureProposal(session, metadata);
+      session.chat.msgs.push({ role: 'assistant', text: String(result.response.content || ''), tag: metadata.mode || 'LLM', _gapChoice: metadata.awaitingGapChoice === true, ts: new Date().toISOString() });
       if (Number.isFinite(metadata.contextPercent)) session.chat.ctx = metadata.contextPercent;
     } else {
       const reason = result.error?.message || (event.status === 'cancelled' ? 'Zpracování zrušeno.' : event.status === 'timeout' ? 'Zpracování vypršelo.' : 'Zpracování selhalo.');
       session.chat.msgs.push({ role: 'system', text: reason, tag: String(event.status || 'error').toUpperCase() });
     }
     this.changed();
+  }
+  gapChoice(session, message, choice) {
+    if (!session || session._closed || !session.chat.msgs.includes(message) || !message._gapChoice || message._gapResolved
+      || !['create', 'fallback'].includes(choice)) return false;
+    if (this.hasActiveM1Turn(session) || session.chat._preparing || session.chat._selectingExpertise || session.chat._delivery?.status === 'DELIVERY_UNKNOWN') {
+      session.chat._delivery = { status: 'BUSY', reason: 'CONVERSATION_BUSY', text: 'Nejdřív dokonči nebo zruš běžící požadavek.' };
+      this.changed(); return false;
+    }
+    message._gapResolved = true;
+    const sent = this.send(session, choice === 'create' ? 'Vytvoř expertízu' : 'Bez ní, odpověz rovnou');
+    if (!sent) message._gapResolved = false;
+    this.changed(); return sent;
   }
   send(session, content, attachments = []) {
     if (!session || !content.trim() || session.chat._selectingExpertise

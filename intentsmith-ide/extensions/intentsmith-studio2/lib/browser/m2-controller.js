@@ -1,6 +1,8 @@
 'use strict';
 
-const { lineCounts } = require('@intentsmith/chat-panel/lib/browser/work-activity');
+const WorkActivity = require('@intentsmith/chat-panel/lib/browser/work-activity');
+const { lineCounts } = WorkActivity;
+const { validateBlueprint, createForm } = require('./m2-composer');
 
 const TERMINAL = new Set(['succeeded', 'failed', 'cancelled', 'timed_out', 'orphaned', 'blocked']);
 const DIGEST = /^sha256:[0-9a-f]{64}$/;
@@ -88,13 +90,13 @@ function parseObject(text, label) {
 
 class M2Controller {
   constructor(store, { backendUrl, fetchImpl = fetch, onChange = () => {},
-    onVerifiedChange = () => {}, activeTurn = () => false } = {}) {
+    onVerifiedChange = () => {}, activeTurn = () => false, schedule = setTimeout, unschedule = clearTimeout, onOpenComposer = () => {} } = {}) {
     this.store = store;
     this.backendUrl = backendUrl || (() => window.electronIntentSmith.getBackendUrl());
     this.fetchImpl = fetchImpl;
     this.onChange = onChange;
     this.onVerifiedChange = onVerifiedChange;
-    this.activeTurn = activeTurn;
+    this.activeTurn = activeTurn; this.schedule = schedule; this.unschedule = unschedule; this.onOpenComposer = onOpenComposer;
     this.entries = new Map();
   }
   entry(session) {
@@ -142,6 +144,7 @@ class M2Controller {
     }
     const firstVerifiedSuccess = view.state === 'succeeded'
       && !(entry.view?.lifecycleId === view.lifecycleId && entry.view.state === 'succeeded');
+    session._m2Last = pendingBinding({ lifecycleId: view.lifecycleId, planDigest: view.planDigest, origin: capturedOrigin });
     entry.view = view;
     entry.presentedView = null;
     if (view.state === 'awaiting_approval') {
@@ -187,12 +190,14 @@ class M2Controller {
       if (bound) throw new Error('Nejdřív schvalte nebo zrušte uložený plán.');
       if (session.chat.attachments.length) throw new Error('M2 plán nepřijímá přílohy.');
       const payload = command === '/m2-draft' ? { draft: parseDraft(argument) }
-        : command === '/m2-build' ? { draft: parseObject(argument, 'Souborový plán') }
+        : command === '/m2-build' ? { draft: validateBlueprint(parseObject(argument, 'Souborový plán')) }
           : { proposal: parseObject(argument, 'Návrh') };
       path = command === '/m2-plan' ? '/api/m2/lifecycle/prepare' : '/api/m2/lifecycle/draft';
       options = { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectId: capturedOrigin.projectId, origin: capturedOrigin, ...payload }) };
     } else if (command === '/m2-status') {
+      const last = pendingBinding(session._m2Last);
+      if (!bound && !argument.trim() && last && sameOrigin(last.origin, capturedOrigin)) { expectedId = last.lifecycleId; expectedDigest = last.planDigest; }
       expectedId = argument.trim() || expectedId;
       if (!expectedId || /\s/.test(expectedId)) throw new Error('Použití: /m2-status [lifecycleId]');
       if (bound && expectedId !== bound.lifecycleId) throw new Error('Nejdřív dokončete uložený plán této relace.');
@@ -201,7 +206,7 @@ class M2Controller {
         projectId: String(capturedOrigin.projectId) });
       path = '/api/m2/lifecycle/status?' + query;
       options = { method: 'GET' };
-      if (expectedId !== bound?.lifecycleId) expectedDigest = null;
+      if (expectedId !== bound?.lifecycleId && expectedId !== last?.lifecycleId) expectedDigest = null;
     } else if (command === '/m2-approve') {
       if (argument.trim()) throw new Error('Použití: /m2-approve');
       if (!bound) throw new Error('Není uložen žádný přesný M2 plán.');
@@ -226,14 +231,44 @@ class M2Controller {
     } else throw new Error('Neznámý příkaz M2.');
 
     const operation = entry.busy ? entry.operation : { command, cancelIssued: false };
+    if (!entry.busy) {
+      operation.activity = WorkActivity.createActivity('m2-' + Date.now(), command);
+      const last = session.chat.msgs.at(-1);
+      const alreadyRecorded = last?.role === 'user' && last.tag === 'M2' && last.text === command + (argument ? ' ' + argument : '');
+      const owner = alreadyRecorded ? last : { role: 'user', tag: 'M2', text: command, ts: new Date().toISOString() };
+      owner._activity = operation.activity;
+      if (!alreadyRecorded) session.chat.msgs.push(owner);
+      if (command === '/m2-draft' || command === '/m2-build') {
+        operation.controller = new AbortController();
+        options.signal = AbortSignal.any([operation.controller.signal, AbortSignal.timeout(990000)]);
+      }
+    }
     if (!entry.busy) { entry.busy = true; entry.operation = operation; }
     entry.error = null;
     this.changed();
+    if (command === '/m2-approve') this.observe(session, operation, bound);
     try {
       const view = await this.request(path, options, command === '/m2-approve' ? 3600000
         : command === '/m2-status' ? 120000 : command === '/m2-cancel' ? 600000 : 990000);
       const id = expectedId || view.lifecycleId;
       const accepted = this.accept(session, view, capturedOrigin, id, expectedDigest);
+      WorkActivity.applyM2View(operation.activity, accepted);
+      WorkActivity.finishActivity(operation.activity, accepted.state === 'succeeded' || accepted.state === 'awaiting_approval' ? 'ok' : accepted.state === 'timed_out' ? 'timeout' : accepted.state, accepted.state === 'awaiting_approval' ? { webStatus: 'pending' } : {});
+      const form = session.chat._m2Composer;
+      if (accepted.state === 'awaiting_approval' && form && sameOrigin(form.origin, capturedOrigin)) form.open = false;
+      if (TERMINAL.has(accepted.state)) {
+        session.chat._m2RevisionSource = null;
+        if (['cancelled', 'failed', 'timed_out', 'blocked'].includes(accepted.state) && accepted.diff?.length) {
+          session.chat._m2RevisionSource = createForm(capturedOrigin, {
+            instruction: form?.instruction || 'Oprav předchozí návrh podle připomínek a zachovej fungující chování.',
+            files: accepted.diff.map(file => { const old = form?.files?.find(item => item.path === file.path);
+              return { path: file.path, instruction: old?.instruction || 'Oprav soubor podle celkového zadání.',
+                dependsOn: old?.dependencies?.split('\n').filter(Boolean) || [], contextFiles: old?.contextFiles?.split('\n').filter(Boolean) || [] }; }),
+            focusedTest: accepted.plan.focusedTest, gitCommit: form?.gitCommit,
+            revisionOf: { lifecycleId: accepted.lifecycleId, planDigest: accepted.planDigest } });
+        }
+        session.chat._m2Composer = null; session.chat._projectWorkProposal = null;
+      }
       session.chat.msgs.push({ role: 'system', ts: new Date().toISOString(), tag: 'M2', text: TERMINAL.has(accepted.state)
         ? `M2 ${accepted.state}: trvalý výsledek ${accepted.lifecycleId} byl ověřen. Podrobnosti jsou v panelu Změny.`
         : `M2 ${accepted.state}: plán ${accepted.lifecycleId}. Zkontrolujte přesný diff v panelu Změny.` });
@@ -243,12 +278,37 @@ class M2Controller {
       this.report(session, error);
       throw error;
     } finally {
-      if (entry.operation === operation && !isCancel) { entry.busy = false; entry.operation = null; }
+      if (entry.operation === operation && !isCancel) { this.unschedule(operation.progressTimer); entry.busy = false; entry.operation = null; }
       else if (entry.operation === operation && isCancel && operation.command !== '/m2-approve') {
         entry.busy = false; entry.operation = null;
       }
       this.changed();
     }
+  }
+  abortGeneration(session) {
+    const operation = this.entry(session).operation;
+    if (operation?.controller) { operation.controller.abort(); return true; }
+    return false;
+  }
+  observe(session, operation, bound) {
+    if (!bound) return;
+    const query = new URLSearchParams({ id: bound.lifecycleId, ...bound.origin });
+    const poll = async () => {
+      if (this.entry(session).operation !== operation) return;
+      try {
+        this.owns(session, bound.origin);
+        const view = await this.request('/api/m2/lifecycle/status?' + query, { method: 'GET' }, 5000);
+        if (this.entry(session).operation !== operation) return;
+        this.owns(session, bound.origin);
+        validateView(view, bound.lifecycleId, bound.origin, bound.planDigest);
+        WorkActivity.applyM2View(operation.activity, view);
+        this.changed();
+      } catch { /* Observations cannot approve, settle or replace the owning response. */ }
+      finally {
+        if (this.entry(session).operation === operation) operation.progressTimer = this.schedule(poll, 2000);
+      }
+    };
+    operation.progressTimer = this.schedule(poll, 2000);
   }
   handleText(session, text) {
     const match = /^(\/m2-(?:draft|build|plan|status|approve|cancel))(?:\s+([\s\S]*))?$/.exec(text);
@@ -260,6 +320,8 @@ class M2Controller {
       return true;
     }
     if (!match) return false;
+    if (match[1] === '/m2-build' && !match[2]?.trim()) { this.onOpenComposer(session); return true; }
+    if (match[1] === '/m2-cancel' && this.entry(session).operation?.controller) { this.abortGeneration(session); return true; }
     session.chat.msgs.push({ role: 'user', tag: 'M2', text, ts: new Date().toISOString() });
     this.changed();
     this.run(session, match[1], match[2] || '').catch(error => this.report(session, error));

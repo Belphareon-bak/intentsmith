@@ -75,22 +75,14 @@ export function writeConversationSelection(database, registry, conversationId, r
     || !database.projects.findById.get(projectId))) {
     throw new ConversationSelectionError('Unknown project', 404, 'PROJECT_NOT_FOUND');
   }
-  if (projectId !== null) {
-    throw new ConversationSelectionError('Project conversations currently use the project handler', 409,
-      'EXPERTISE_PROJECT_MODE_UNSUPPORTED');
-  }
   const commit = database.db.transaction(() => {
     const before = readConversationSelection(database, conversationId);
     if (before.revision !== request.expectedRevision) {
       throw new ConversationSelectionError('Expertise selection changed; reload before saving', 409, 'EXPERTISE_REVISION_CONFLICT');
     }
     const conversation = database.conversations.findById.get(conversationId);
-    if (conversation?.project_id != null && projectId !== null && Number(conversation.project_id) !== projectId) {
+    if (conversation && (conversation.project_id == null ? null : Number(conversation.project_id)) !== projectId) {
       throw new ConversationSelectionError('Conversation belongs to another project', 409, 'CONVERSATION_PROJECT_CONFLICT');
-    }
-    if (conversation?.project_id != null) {
-      throw new ConversationSelectionError('Project conversations currently use the project handler', 409,
-        'EXPERTISE_PROJECT_MODE_UNSUPPORTED');
     }
     if (!conversation) database.conversations.create.run(conversationId, projectId, null, null);
     database.conversationExpertises.setExpertises(conversationId,

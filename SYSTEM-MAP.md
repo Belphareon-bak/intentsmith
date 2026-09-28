@@ -1,5 +1,15 @@
 # IntentSmith — mapa systému
 
+**Studio 2 — dokončení parity, 2026-09-28:** nový frontend je jediný registrovaný
+vstup; klasický monolit a dočasné ruční obrazovky jsou odstraněné. Vzhled se
+generuje z prototypu, sdílený WS/M1 klient zůstává byte-for-byte. Doplněny
+projektové expertýzy, obecný ověřovaný M3 průvodce, M2 souborový plán včetně
+revize/zrušení a úplného výsledku po restartu, Tab doplnění, migrace editoru
+a balík s konzistentní kopií původních dat. Přesný graph má 1 433 hran,
+3 cykly / 28 členů; nové dvě hrany pouze skládají existující expertýzový prompt.
+**IMPLEMENTATION_COMPLETE / VERIFICATION_RUNNING / REVIEW_PENDING**.
+[Rozsah a závěrečné důkazy](docs/review/2026-09-28-STUDIO2-PARITY-DELIVERY.md).
+
 **Studio: průběh práce a prostředí, 2026-09-23:** konkrétní tahy, nástroje,
 čekání, souborové diffy/+− a kopírování formátované odpovědi. Přidáno skutečné
 prostředí backendu a explicitní potvrzované/automatické instalace npm a .NET SDK
@@ -590,8 +600,8 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **229 708 ř.**, 659 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **254 570 ř.**, 559 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **229 771 ř.**, 659 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **252 000 ř.**, 560 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **552** (`458 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **181 / 105** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |

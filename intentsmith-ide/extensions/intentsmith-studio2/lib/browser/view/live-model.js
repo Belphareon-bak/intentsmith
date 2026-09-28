@@ -4,7 +4,8 @@
 // This adapter supplies real state and effects without changing its template.
 const { Component } = require('./generated/model');
 const { lineCounts, renderMarkdown } = require('@intentsmith/chat-panel/lib/browser/work-activity');
-const { pendingBinding } = require('../m2-controller');
+const { pendingBinding, validateView: validateM2View, origin: m2Origin, sameOrigin: sameM2Origin } = require('../m2-controller');
+const { normalizeProposal, createForm, composerDraft } = require('../m2-composer');
 const { DevelopmentClient } = require('../development-client');
 const { ScmClient } = require('../scm-client');
 const { StatusClient } = require('../status-client');
@@ -353,9 +354,8 @@ class LiveModel extends Component {
   m2View(session) {
     const binding = pendingBinding(session._m2Pending);
     const view = this.widget.m2.entry(session).view;
-    return binding && view?.state === 'awaiting_approval'
-      && view.lifecycleId === binding.lifecycleId && view.planDigest === binding.planDigest
-      && Array.isArray(view.diff) ? view : null;
+    if (!binding || view?.state !== 'awaiting_approval') return null;
+    try { return validateM2View(view, binding.lifecycleId, m2Origin(session), binding.planDigest); } catch { return null; }
   }
 
   async loadAudit(session) {
@@ -458,7 +458,7 @@ class LiveModel extends Component {
       const ms = activityMs(activity);
       const tag = String(msg.tag || '').trim();
       msgs.push({ k: 'agent', key, time: clock(msg.ts) + (ms ? ' · ' + seconds(ms) : ''),
-        text: '', paras: [msg.text || ''], rawText: msg.text || '', liveMarkdown: true,
+        gap: msg._gapChoice === true && !msg._gapResolved, text: '', paras: [msg.text || ''], rawText: msg.text || '', liveMarkdown: true,
         badge: tag ? tag.toUpperCase() : '', expert: chat.expertise || '',
         author: chat.specialist?.name || 'IntentSmith', steps: timeline(activity, this, Date.parse(msg.ts)), foldMeta: seconds(ms), atts: [], running: false });
     });
@@ -839,7 +839,7 @@ class LiveModel extends Component {
       const raw = item.raw || {};
       const editable = raw.isCustom === true;
       const focused = this.widget.store.focusedSession();
-      const canSelect = !!focused && !focused._closed && !focused._projectId
+      const canSelect = !!focused && !focused._closed
         && !focused.chat.specialist && !focused.chat._thinking;
       return { icon: this.sec(s.section).icon, tone: this.sec(s.section).tone,
         icls: '', title: item.name, type: editable ? 'Vlastní expertýza' : 'Vestavěná expertýza',
@@ -856,7 +856,7 @@ class LiveModel extends Component {
         blocks: [this.blockVM({ kind: 'expertiseSelection' }), this.blockVM({ kind: 'text', items: [editable
           ? 'Úprava načte aktuální konfiguraci z backendu a před uložením ověří její revizi.'
           : canSelect ? 'Vestavěnou expertýzu můžeš použít v této relaci.'
-            : 'Použití v této relaci není dostupné; projektový režim používá vlastní handler.'] })],
+            : 'Nejdřív dokonči běžící požadavek nebo otevři relaci bez specialisty.'] })],
         hasRelated: false, related: [], development: this.developmentVM(s), scmPolicy: this.scmPolicyVM(s, null) };
     }
     return { icon: this.sec(s.section).icon, tone: this.sec(s.section).tone,
@@ -990,6 +990,14 @@ class LiveModel extends Component {
         { t: 'Backend', m: health?.version ? String(health.version) : 'nepotvrzený' },
         { t: 'Stav', m: health?.ready === true ? 'připravený' : 'neověřený' },
         { t: 'Rozhraní', m: 'Studio 2' }] })];
+      if (s.showHelp) vm.blocks.push(this.blockVM({ kind: 'text', items: [
+        'Relace jsou vlevo. Ctrl+T otevře novou vedle aktivní; posledních pět najdeš také v hlavičce sloupce. × ukončí relaci a zachová konverzaci v historii.',
+        'Projekty → Nový projekt založí pracovní prostor; Otevřít projekt zaregistruje existující složku. Soubory, editor a Správa zdrojů jsou vpravo.',
+        'Změny projektu projdou návrhem M2. Nejdřív zobraz změny, potom je schval nebo zamítni. Git má zvlášť plán a projektovou politiku.',
+        'Specialistu otevři z katalogu. Expertýzu nebo kombinaci vyber čipem skladatele. Workera ověř v průvodci; nová instance je vypnutá a běh se spouští výslovně.',
+        'Ctrl+K: příkazy a hledání; Ctrl+B: navigace; Ctrl+J: výstupy; Ctrl+Alt+B: pravý panel; Alt+1 až 5: relace; Alt+Shift+1 až 3: sloupce; Ctrl+W: ukončení relace.',
+        'Nastavení → Systém → Prostředí a závislosti ukazuje skutečné dostupné nástroje a řízené instalace. Modely, hunt, hodnocení a role jsou v Nastavení → Modely a inference.'
+      ] }));
     } else {
       vm.blocks = [this.blockVM({ kind: 'empty', text: unavailable })];
     }
@@ -1391,13 +1399,13 @@ class LiveModel extends Component {
           || !!fresh.data.enabled !== target || !!updated.raw.enabled !== target)
           throw Error('Stav workeru neodpovídá potvrzení backendu. Obnov katalog.');
       } else {
-        if (!Number.isSafeInteger(receipt.runId) || receipt.runId < 1
-          || !fresh.data.recentRuns?.some(run => run.id === receipt.runId))
-          throw Error('Běh workeru nelze ověřit v historii. Obnov detail.');
         if (receipt.status !== 'success') {
           this.widget.catalogActionError = receipt.error || `Běh skončil stavem ${receipt.status || 'nezjištěno'}.`;
           return false;
         }
+        if (!Number.isSafeInteger(receipt.runId) || receipt.runId < 1
+          || !fresh.data.recentRuns?.some(run => run.id === receipt.runId))
+          throw Error('Běh workeru nelze ověřit v historii. Obnov detail.');
       }
       return true;
     } catch (error) {
@@ -1783,12 +1791,17 @@ class LiveModel extends Component {
       ]);
       if (!Array.isArray(available?.extensions) || !Array.isArray(list?.projects))
         throw Error('Backend nevrátil rozšíření M3 nebo projekty.');
-      // This is the only extension whose required project parameter is known
-      // by the current public API. Future extensions need a parameter schema.
-      const extensions = available.extensions.filter(item => item.id === 'project-health'
+      const extensions = await Promise.all(available.extensions.filter(item =>
+        typeof item.id === 'string' && /^[a-z0-9][a-z0-9_-]{0,63}$/.test(item.id)
         && Array.isArray(item.requiredCapabilities)
-        && item.requiredCapabilities.includes('code-intel.project-context.v1'));
-      if (!extensions.length) throw Error('Rozšíření Project Health není v backendu dostupné.');
+        && item.requiredCapabilities.includes('code-intel.project-context.v1')).map(async item => {
+        const config = await this.widget.catalog.get('/api/agent-extensions/' + encodeURIComponent(item.id));
+        if (config.id !== item.id || !config.definition || !Array.isArray(config.definition.params || [])
+          || !Array.isArray(config.definition.sources) || !Array.isArray(config.definition.actions))
+          throw Error('Backend nevrátil schéma rozšíření.');
+        return { ...item, ...config };
+      }));
+      if (!extensions.length) throw Error('Backend nenabízí žádné dostupné rozšíření workeru.');
       const projects = list.projects.filter(item => Number.isSafeInteger(item.id) && item.id > 0
         && typeof item.name === 'string');
       this._workerWizardStatus = { ...this._workerWizardStatus, loading: false, extensions, projects,
@@ -1800,12 +1813,55 @@ class LiveModel extends Component {
     this.forceUpdate();
   }
 
+  workerDraft(s) {
+    const extension = this._workerWizardStatus.extensions.find(item => item.id === s.workerExtension);
+    if (!extension) throw Error('Rozšíření není dostupné.');
+    const supplied = JSON.parse(s.workerParams || '{}');
+    if (!supplied || typeof supplied !== 'object' || Array.isArray(supplied)) throw Error('Parametry musí být objekt JSON.');
+    const fields = extension.definition?.params || [];
+    if (Object.keys(supplied).some(key => !fields.some(field => field.name === key))) throw Error('Neznámý parametr rozšíření.');
+    const params = Object.fromEntries(fields.map(field => [field.name, field.name === 'project_id'
+      ? Number(s.workerProject) : Object.hasOwn(supplied, field.name) ? supplied[field.name] : field.default])
+      .filter(([, value]) => value !== undefined));
+    return { instanceId: s.workerInstanceId.trim(), params };
+  }
+
+  workerWizardVM(s) {
+    const vm = super.workerWizardVM(s);
+    let key = '';
+    try { key = JSON.stringify([s.workerExtension, this.workerDraft(s)]); } catch (_) {}
+    vm.submitDisabled = vm.submitDisabled || this._workerWizardStatus.previewKey !== key
+      || this._workerWizardStatus.preview?.validation?.valid !== true;
+    vm.hasPreview = !!key && this._workerWizardStatus.previewKey === key && vm.hasPreview;
+    return vm;
+  }
+
+  async previewWorker(s) {
+    if (this._workerWizardStatus.busy || this.workerWizardVM(s).previewDisabled) return false;
+    const draft = this.workerDraft(s), key = JSON.stringify([s.workerExtension, draft]);
+    this._workerWizardStatus.busy = true; this._workerWizardStatus.error = ''; this.forceUpdate();
+    try {
+      const response = await this.fetchImpl(this.widget.catalog.backendUrl() + '/api/agent-extensions/'
+        + encodeURIComponent(s.workerExtension) + '/preview', { method: 'POST',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(draft), signal: AbortSignal.timeout(10000) });
+      const result = await response.json();
+      if (!response.ok || result.id !== s.workerExtension || result.instanceId !== draft.instanceId
+        || JSON.stringify(result.params) !== JSON.stringify(draft.params) || result.effectsExecuted !== false
+        || !/^sha256:[a-f0-9]{64}$/.test(result.definitionDigest) || result.validation?.valid !== true)
+        throw Error(result.error || 'Konfigurace neprošla ověřením.');
+      Object.assign(this._workerWizardStatus, { preview: result, previewKey: key });
+      return true;
+    } catch (error) {
+      Object.assign(this._workerWizardStatus, { preview: null, previewKey: '', error: error.message });
+      return false;
+    } finally { this._workerWizardStatus.busy = false; this.forceUpdate(); }
+  }
+
   async submitWorker(s) {
     const form = this.workerWizardVM(s);
     if (s.workerStep !== 1 || form.submitDisabled || this._workerWizardStatus.uncertain) return false;
     const extensionId = s.workerExtension, instanceId = s.workerInstanceId.trim();
-    const projectId = Number(s.workerProject);
-    if (extensionId !== 'project-health' || !Number.isSafeInteger(projectId) || projectId <= 0) return false;
+    const draft = this.workerDraft(s);
     this._workerWizardStatus = { ...this._workerWizardStatus, busy: true, error: '' };
     this.widget.catalogActionError = null;
     this.forceUpdate();
@@ -1813,9 +1869,10 @@ class LiveModel extends Component {
     try {
       const base = this.widget.catalog.backendUrl();
       if (typeof base !== 'string' || !/^https?:\/\//.test(base)) throw Error('Backend není dostupný.');
-      const response = await this.fetchImpl(base + '/api/agent-extensions/' + extensionId + '/install', {
+      const response = await this.fetchImpl(base + '/api/agent-extensions/' + encodeURIComponent(extensionId) + '/install', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ instanceId, projectId, enabled: false }), signal: AbortSignal.timeout(30000) });
+        body: JSON.stringify({ ...draft, enabled: false,
+          expectedDefinitionDigest: this._workerWizardStatus.preview.definitionDigest }), signal: AbortSignal.timeout(30000) });
       let result = {};
       try { result = await response.json(); } catch { /* A lost response leaves the effect uncertain. */ }
       if (!response.ok) throw Object.assign(Error(result.error || `Worker nelze vytvořit (HTTP ${response.status}).`),
@@ -1827,7 +1884,8 @@ class LiveModel extends Component {
       const detail = await this.widget.catalog.get('/api/agents/' + encodeURIComponent(instanceId));
       if (detail.id !== instanceId || detail.enabled !== false
         || detail.definition?.m3_extension?.id !== extensionId
-        || Number(detail.params?.project_id) !== projectId)
+        || JSON.stringify(detail.params) !== JSON.stringify(this._workerWizardStatus.preview.params)
+        || detail.definition?.m3_extension?.definitionDigest !== this._workerWizardStatus.preview.definitionDigest)
         throw Error('Detail workeru neodpovídá potvrzenému projektu a rozšíření.');
       await this.widget.catalog.load('Workeři');
       const view = this.widget.catalog.view('Workeři');
@@ -2111,12 +2169,11 @@ class LiveModel extends Component {
   expertiseSelectionVM() {
     const session = this.widget.store.focusedSession();
     const entry = this.expertiseSelection.entry(session);
-    const blocked = !session || session.chat._thinking || session.chat.specialist || session._projectId
+    const blocked = !session || session.chat._thinking || session.chat.specialist
       || entry.busy || entry.uncertain;
     const names = this.widget.catalog.view('Expertýzy').items || [];
     return { status: !session ? 'Otevři relaci, pro kterou chceš expertýzu vybrat.'
       : session.chat.specialist ? 'Relaci řídí specialista; pro vlastní kombinaci otevři běžnou relaci.'
-        : session._projectId ? 'Projektová relace používá projektový režim. Pro vlastní kombinaci otevři volnou relaci.'
         : entry.error || (entry.busy ? 'Ověřuji výběr na backendu…'
           : entry.uncertain ? 'Výsledek je nejistý. Obnov stav před další změnou.'
             : entry.status === 'loading' ? 'Načítám vybrané expertýzy…'
@@ -2134,7 +2191,7 @@ class LiveModel extends Component {
     const current = this.widget.catalog.view('Expertýzy').items.find(row => row.id === item?.id);
     const session = this.widget.store.focusedSession();
     if (!current || current.name !== item.name || !session || session.chat._thinking
-      || session._projectId || session.chat.specialist) return false;
+      || session.chat.specialist) return false;
     if (!await this.expertiseSelection.change(session, action, current.id)) return false;
     this.setState({ mode: 'sessions' });
     return true;
@@ -2490,6 +2547,7 @@ class LiveModel extends Component {
       this._preferenceNotice.set(id, 'Změny byly ověřeny v backendu.');
       return true;
     } catch (error) {
+      await this.loadSettingsResource(key, true);
       this._preferenceNotice.set(id, error?.message || 'Uložení nastavení selhalo.');
       return false;
     } finally { this._settingsBusy = false; this.forceUpdate(); }
@@ -2602,6 +2660,127 @@ class LiveModel extends Component {
       chat._thinking = null;
       if (this.widget.store.find(session.id) === session) this.widget.store.changed();
     });
+  }
+
+  pClearAutocomplete(s, sid) {
+    const session = this.widget.store.find(sid); if (!session) return null;
+    session.chat._autocomplete?.controller?.abort(); session.chat._autocomplete = null;
+    this.widget.store.changed(); return null;
+  }
+  pAutocomplete(s, sid) { this.completeChat(sid, s.drafts[sid] || ''); return null; }
+  async completeChat(sid, text) {
+    const session = this.widget.store.find(sid);
+    if (!session || text.trim().length < 3 || text.startsWith('/') || text.length > 16000
+      || session.chat._thinking || session.chat._preparing || session.chat._selectingExpertise || session._m2Pending
+      || this.widget.m2.entry(session).busy || this.widget.transport?.hasActiveM1Turn?.(session)) return false;
+    const previous = session.chat._autocomplete;
+    const sameContext = request => request && this.widget.store.find(sid) === session && !session._closed
+      && request.convId === session._convId && request.projectId === session._projectId && request.agentId === session._agentId
+      && request.expertise === session.chat.expertise && request.messages === session.chat.msgs && request.messageCount === session.chat.msgs.length && this.st().drafts[sid] === text;
+    if (previous?.suggestion && previous.source === text && sameContext(previous)) {
+      this.setState({ drafts: this.merge(this.st(), 'drafts', { [sid]: text + previous.suggestion }) });
+      session.chat._autocomplete = null; this.widget.store.changed(); return true;
+    }
+    previous?.controller?.abort();
+    const request = { source: text, convId: session._convId, projectId: session._projectId,
+      agentId: session._agentId, expertise: session.chat.expertise, messages: session.chat.msgs, messageCount: session.chat.msgs.length, controller: new AbortController(), loading: true };
+    session.chat._autocomplete = request; this.widget.store.changed();
+    try {
+      const base = this.widget.catalog.backendUrl();
+      if (typeof base !== 'string' || !/^https?:\/\//.test(base)) throw Error('Backend není dostupný.');
+      const response = await this.fetchImpl(base + '/api/autocomplete', { method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.any([request.controller.signal, AbortSignal.timeout(30000)]),
+        body: JSON.stringify({ partial: text, expertise: session.chat.expertise,
+          context: session.chat.msgs.slice(-6).map(message => ({ role: message.role, text: message.text })) }) });
+      if (!response.ok) throw Error('Doplnění se nepovedlo (HTTP ' + response.status + ').');
+      const body = await response.json();
+      if (session.chat._autocomplete !== request || !sameContext(request)) return false;
+      if (body.suggestion !== null && typeof body.suggestion !== 'string') throw Error('Backend vrátil neplatné doplnění.');
+      if (typeof body.suggestion === 'string' && body.suggestion.length > 16000) throw Error('Doplnění je příliš dlouhé.');
+      request.suggestion = body.suggestion || ''; request.notice = request.suggestion || 'Žádné doplnění.';
+      return !!request.suggestion;
+    } catch (error) {
+      if (session.chat._autocomplete === request && sameContext(request) && !request.controller.signal.aborted) request.notice = error.message;
+      return false;
+    } finally {
+      request.loading = false;
+      if (session.chat._autocomplete === request && !sameContext(request)) session.chat._autocomplete = null;
+      if (this.widget.store.find(sid) === session) this.widget.store.changed();
+    }
+  }
+
+  pGapChoice(s, sid, key, choice) {
+    const session = this.widget.store.find(sid);
+    const message = session?.chat.msgs.find((item, i) => session.id + ':' + i === key);
+    if (message) this.widget.transport?.gapChoice(session, message, choice);
+    return null;
+  }
+  m2Form(sid) { return this.widget.store.find(sid)?.chat._m2Composer || null; }
+  m2Locked(sid) {
+    const session = this.widget.store.find(sid);
+    if (!session) return true;
+    const form = session.chat._m2Composer;
+    let stale = false; try { stale = !!form && !sameM2Origin(form.origin, m2Origin(session)); } catch { stale = true; }
+    return stale || this.widget.m2.entry(session).busy || !!session._m2Pending
+      || !!session.chat._thinking || !!session.chat._preparing || !!session.chat._selectingExpertise
+      || !!this.widget.transport?.hasActiveM1Turn?.(session);
+  }
+  pM2Open(s, sid, revision = false) {
+    const session = this.widget.store.find(sid); if (!session) return null;
+    try {
+      const captured = m2Origin(session);
+      if (this.m2Locked(sid) || session.chat.attachments.length) throw new Error('Nejdřív dokonči běžící požadavek, plán nebo práci s přílohami.');
+      const offered = normalizeProposal(session.chat._projectWorkProposal);
+      if (revision) {
+        const previous = session.chat._m2RevisionSource;
+        if (!previous || !sameM2Origin(previous.origin, captured)) throw new Error('Předchozí návrh není dostupný pro tuto relaci.');
+        session.chat._m2Composer = JSON.parse(JSON.stringify(previous));
+      } else if (!session.chat._m2Composer) {
+        session.chat._m2Composer = createForm(captured, offered && sameM2Origin(offered.origin, captured) ? offered.proposal.draft : null, s.drafts[sid]?.trim() === '/m2-build' ? '' : s.drafts[sid] || '');
+      }
+      session.chat._m2Composer.open = true;
+      this.widget.store.changed();
+    } catch (error) { this.widget.m2.report(session, error); }
+    return null;
+  }
+  m2Field(sid, key, value, index) {
+    const session = this.widget.store.find(sid), form = session?.chat._m2Composer;
+    if (!form || (key !== 'open' && this.m2Locked(sid))) return;
+    const target = index == null ? form : form.files[index];
+    if (!target) return;
+    target[key] = value; form.error = null; this.widget.store.changed();
+  }
+  pM2File(s, sid, index) {
+    const form = this.m2Form(sid); if (!form || this.m2Locked(sid)) return null;
+    if (index == null && form.files.length < 32) form.files.push({ path: '', instruction: '', dependencies: '', contextFiles: '', reusePrevious: false });
+    else if (index != null && form.files.length > 1) form.files.splice(index, 1);
+    this.widget.store.changed(); return null;
+  }
+  pM2Discard(s, sid) {
+    const session = this.widget.store.find(sid); if (!session || this.widget.m2.entry(session).busy) return null;
+    session.chat._m2Composer = null; this.widget.store.changed(); return null;
+  }
+  pM2Submit(s, sid) {
+    const session = this.widget.store.find(sid), form = session?.chat._m2Composer;
+    if (!form) return null;
+    try {
+      if (this.m2Locked(sid) || session.chat.attachments.length || !sameM2Origin(form.origin, m2Origin(session))) throw new Error('Návrh není v aktuálním kontextu připravený k odeslání.');
+      const draft = composerDraft(form); form.error = null;
+      this.widget.m2.run(session, '/m2-build', JSON.stringify(draft)).catch(error => {
+        if (session.chat._m2Composer === form) { form.error = (error.code ? '[' + error.code + (error.status ? ' HTTP ' + error.status : '') + '] ' : '') + error.message; this.widget.store.changed(); }
+      });
+    } catch (error) { form.error = (error.code ? '[' + error.code + (error.status ? ' HTTP ' + error.status : '') + '] ' : '') + error.message; this.widget.store.changed(); }
+    return null;
+  }
+  pM2Cancel(s, sid) { const session = this.widget.store.find(sid); if (session) this.widget.m2.abortGeneration(session); return null; }
+  m2ComposerVM(sid, s) {
+    const vm = super.m2ComposerVM(sid, s);
+    vm.hasRevision = !!this.widget.store.find(sid)?.chat._m2RevisionSource;
+    const session = this.widget.store.find(sid), form = session?.chat._m2Composer;
+    vm.discardDisabled = !!session && this.widget.m2.entry(session).busy;
+    vm.generating = !!session && !!this.widget.m2.entry(session).operation?.controller;
+    try { if (form && !sameM2Origin(form.origin, m2Origin(session))) { vm.hasError = true; vm.error = 'Konverzace nebo projekt se změnily. Zahodit návrh a otevřít nový; původní zadání zůstalo zachované.'; } } catch {}
+    return vm;
   }
 
   pSend(s, sid) {
@@ -3079,9 +3258,15 @@ class LiveModel extends Component {
     const pending = pendingBinding(session._m2Pending);
     const entry = this.widget.m2.entry(session);
     const exact = this.m2View(session);
-    vm.m2Pending = !!pending;
-    vm.m2Digest = exact?.planDigest || pending?.planDigest || '';
-    vm.m2Lifecycle = exact?.lifecycleId || pending?.lifecycleId || '';
+    const last = pendingBinding(session._m2Last);
+    let latest = null;
+    try { if (last && entry.view) latest = validateM2View(entry.view, last.lifecycleId, m2Origin(session), last.planDigest); } catch {}
+    vm.m2Pending = !!pending || !!last;
+    vm.m2State = latest?.state || (pending ? 'čeká na načtení' : 'výsledek čeká na načtení');
+    vm.m2Evidence = latest ? JSON.stringify({ terminal: latest.terminal || null, result: latest.result || null, audit: latest.audit, diff: latest.diff }, null, 2) : '';
+    vm.m2HasEvidence = !!vm.m2Evidence;
+    vm.m2Digest = exact?.planDigest || last?.planDigest || pending?.planDigest || '';
+    vm.m2Lifecycle = exact?.lifecycleId || last?.lifecycleId || pending?.lifecycleId || '';
     vm.m2Governance = exact?.audit?.governanceDecision?.verdict || '';
     vm.m2Error = entry.error || '';
     vm.m2HasError = !!entry.error;
@@ -3092,9 +3277,12 @@ class LiveModel extends Component {
       vm.emptyTitle = 'Plán čeká na načtení';
       vm.emptyText = 'Načti trvalý stav a zkontroluj přesný plán před schválením.';
     }
+    if (exact || latest) {
+      const shown = exact || latest;
+      vm.m2Test = JSON.stringify(shown.plan.focusedTest);
+      vm.m2Git = shown.plan.gitCommit ? JSON.stringify(shown.plan.gitCommit) : 'Bez commitu';
+    }
     if (exact) {
-      vm.m2Test = (exact.plan.focusedTest?.binary || '') + ' ' + JSON.stringify(exact.plan.focusedTest?.argv || []);
-      vm.m2Git = exact.plan.gitCommit ? 'Git commit je součástí plánu' : 'Bez commitu';
       const width = (typeof window !== 'undefined' && window.innerWidth ? window.innerWidth : 1600) / (Number(s.scale) / 100 || 1);
       const nav = s.navOpen ? s.navW : 62;
       const visible = s.rightPin || !s.col || width - nav - s.rightW - 12 >= this.colLayout(s).length * 360;
@@ -3190,11 +3378,16 @@ class LiveModel extends Component {
 
   menusVM(s, fsid) {
     const menus = super.menusVM(s, fsid);
-    const disabled = new Set(['Importovat konverzaci…', 'Exportovat projekt…', 'Ukončit',
-      'Znovu vygenerovat', 'Dokumentace']);
+    const disabled = new Set(['Importovat konverzaci…', 'Exportovat projekt…']);
     const session = fsid && this.widget.store.find(fsid);
     for (const menu of menus) for (const item of menu.items) {
       if (disabled.has(item.t)) { item.cls = 'dis'; item.go = () => {}; }
+      if (item.t === 'Ukončit') item.go = () => this.pCloseWindow();
+      if (item.t === 'Dokumentace') item.go = this.run(state => ({ ...this.pSelect(state, 'settings', 'about'), showHelp: true }));
+      if (item.t === 'Znovu vygenerovat') {
+        if (!this.canRegenerate(session)) item.cls = 'dis';
+        item.go = () => this.regenerateAnswer(session);
+      }
       if (item.t === 'Zastavit odpověď' && session) item.go = () => this.widget.transport?.cancel(session);
       if (item.t === 'Auto – změny se zapíšou hned' && session) item.go = () => {
         session.chat.editMode = 'auto'; this.widget.store.changed(); this.setState({ menu: null });
@@ -3213,6 +3406,30 @@ class LiveModel extends Component {
       });
     }
     return menus;
+  }
+
+  pCloseWindow() {
+    if (typeof window !== 'undefined') window.electronTheiaCore?.close();
+    return {};
+  }
+
+  canRegenerate(session) {
+    return !!session && !session._closed && !session.chat._thinking && !session._m2Pending
+      && !session.chat._preparing && !session.chat._selectingExpertise && !session.chat.attachments.length
+      && session.chat._delivery?.status !== 'DELIVERY_UNKNOWN'
+      && !this.widget.transport?.hasActiveM1Turn?.(session)
+      && !(this.st().drafts?.[session.id] || '').trim()
+      && session.chat.msgs.some(message => message.role === 'user' && typeof message.text === 'string' && message.text.trim());
+  }
+
+  async regenerateAnswer(session) {
+    if (!this.canRegenerate(session)) return false;
+    const message = [...session.chat.msgs].reverse().find(item => item.role === 'user' && item.text?.trim());
+    const confirmAction = this.widget.confirmAction || globalThis.confirm;
+    if (typeof confirmAction !== 'function' || confirmAction('Znovu odeslat poslední zadání jako nový tah?\n\n' + message.text.slice(0, 500)) !== true
+      || this.widget.store.find(session.id) !== session || !this.canRegenerate(session)) return false;
+    await this.widget.send(session, { value: message.text });
+    return true;
   }
 
   ctxVM(s) {
@@ -3293,6 +3510,12 @@ class LiveModel extends Component {
         session.chat.attachments.splice(i, 1); this.widget.store.changed();
       } }));
       column.hasAtts = column.atts.length > 0;
+      const completion = session.chat._autocomplete;
+      column.hasAutocomplete = !!completion && completion.convId === session._convId && completion.projectId === session._projectId
+        && completion.agentId === session._agentId && completion.expertise === session.chat.expertise && completion.source === this.st().drafts[sid];
+      column.autocompleteText = completion?.loading ? 'Připravuji doplnění…' : completion?.notice || '';
+      const setDraft = column.setDraft;
+      column.setDraft = event => { this.pClearAutocomplete(this.st(), sid); setDraft(event); };
       column.hasAttachmentError = !!session.chat._attachmentError;
       column.attachmentError = session.chat._attachmentError || '';
       column.hasDelivery = !!session.chat._delivery;

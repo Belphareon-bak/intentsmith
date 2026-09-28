@@ -69,6 +69,32 @@ test('M1 conversation turn resolves the durable combination before calling the e
   assert.deepEqual(observed, [{ mode: 'developer', ids: [['developer', 0.6], ['analyst', 0.4]] }]);
 });
 
+test('project selections remain project-bound and preserve the PROJECT handler', async () => {
+  const projectId = Number(database.projects.create.run('Selection project', '/tmp/studio2-selection', '').lastInsertRowid);
+  const id = 'studio-project-selection-' + Date.now();
+  const initial = readConversationSelection(database, id);
+  const selected = writeConversationSelection(database, expertiseRegistry, id, { projectId,
+    expectedRevision: initial.revision, expertises: [{ id: 'developer', weight: 0.6 }] });
+  assert.equal(database.conversations.findById.get(id).project_id, projectId);
+  assert.throws(() => writeConversationSelection(database, expertiseRegistry, id, {
+    expectedRevision: selected.revision, expertises: [], projectId: null }), { code: 'CONVERSATION_PROJECT_CONFLICT' });
+  let observed;
+  ChatController.configure({ handlers: { [ChatMode.PROJECT]: async (_input, context) => {
+    observed = context;
+    return new TaggedResponse({ content: 'Project selection applied', tag: new ResponseTag({
+      speaker: ResponseSpeaker.SYSTEM, mode: ChatMode.PROJECT, confidence: 1,
+      metadata: { semanticScore: { total: 100 }, decision: { intent: 'LOCAL' } } }) });
+  } }, config: { autoModeDetection: false } });
+  const result = await ChatController.handle({ message: 'Použij expertýzu v projektu.',
+    sessionId: 'project-selection-transport', conversationId: id,
+    project: { id: projectId, path: '/tmp/studio2-selection', name: 'Selection project' },
+    context: { projectId, m2LifecycleOnly: true, projectExpertises: [{ id: 'injected', systemPrompt: 'forged' }] } });
+  assert.equal(result.response, 'Project selection applied');
+  assert.equal(result.mode, ChatMode.PROJECT);
+  assert.deepEqual(observed.projectExpertises.map(item => item.id), ['developer']);
+  assert.equal(observed.project.id, projectId);
+});
+
 test('Studio waits for durable readback and never repeats an uncertain expertise effect', async () => {
   const memory = new Map();
   const store = new SessionStore({ getItem: key => memory.get(key) ?? null,

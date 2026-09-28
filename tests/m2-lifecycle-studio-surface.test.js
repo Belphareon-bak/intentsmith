@@ -1,798 +1,150 @@
-import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
+import './helpers/isolated-test-db.js';
 import test from 'node:test';
-import vm from 'node:vm';
-import { createRequire } from 'node:module';
-const WorkActivity = createRequire(import.meta.url)('../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/work-activity.js');
-import { fileURLToPath } from 'node:url';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fixture, tick, terminal, digest, SessionStore, createForm, composerDraft, normalizeProposal, validateBlueprint, validateView, parseDraft } from './helpers/studio2-live-harness.js';
+const blueprint = () => ({ instruction: 'Uprav výpočet.', files: [{ path: 'src/a.js', instruction: 'Oprav výpočet.', dependsOn: [], contextFiles: ['README.md'] }], focusedTest: { binary: '/usr/bin/node', argv: ['--check', 'src/a.js', 'literal value', '$(no-shell)'], timeoutMs: 30000 } });
+async function pending(f) { await f.m2.run(f.session, '/m2-draft', 'src/a.js :: změna'); return f.m2.entry(f.session); }
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const studioPath = path.join(
-  root,
-  'intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js',
-);
-const source = await readFile(studioPath, 'utf8');
-
-function count(needle) {
-  return source.split(needle).length - 1;
-}
-
-function functionSlice(name, nextName) {
-  const start = source.indexOf(`function ${name}`);
-  assert.notEqual(start, -1, `${name} must exist`);
-  const end = nextName ? source.indexOf(`function ${nextName}`, start + 1) : source.length;
-  assert.notEqual(end, -1, `${nextName} must exist after ${name}`);
-  return source.slice(start, end);
-}
-
-test('Studio has exactly one explicit M2 transport surface and no mutating legacy lifecycle calls', () => {
-  for (const endpoint of [
-    '/api/m2/lifecycle/draft',
-    '/api/m2/lifecycle/prepare',
-    '/api/m2/lifecycle/approve',
-    '/api/m2/lifecycle/cancel',
-    '/api/m2/lifecycle/status',
-  ]) {
-    assert.equal(count(endpoint), 1, endpoint);
-  }
-
-  assert.doesNotMatch(source, /api\/projects\/lifecycle\/start/);
-  assert.doesNotMatch(source, /lifecycle\/bind/);
-  assert.doesNotMatch(source, /Lifecycle aktivovan|Lifecycle obnoven|Lifecycle: SPEC|Lifecycle: faze/);
-  assert.match(source, /Popište cíl v chatu\./);
+test('one explicit M2 surface preserves strict payloads, literal JSON and numeric stable origin', async () => {
+  const f = fixture(); await f.m2.run(f.session, '/m2-build', JSON.stringify(blueprint()));
+  assert.equal(f.calls.length, 1); assert.match(f.calls[0].url, /\/api\/m2\/lifecycle\/draft$/);
+  assert.deepEqual(JSON.parse(f.calls[0].options.body), { projectId: 27, origin: f.captured, draft: blueprint() });
+  assert.equal(f.calls.some(call => call.url.includes('approve')), false); assert.equal(f.session._m2Pending.planDigest, digest);
+  const source = readFileSync(new URL('../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/m2-controller.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /\/api\/(?:lifecycle|execute|fs\/write)/);
+  const invalid = fixture(); invalid.session._projectId = 'not-numeric';
+  await assert.rejects(invalid.m2.run(invalid.session, '/m2-plan', '{}'), /aktivní projekt/); assert.equal(invalid.calls.length, 0);
 });
-
-test('all Studio lifecycle HTTP success is gated by Response.ok and typed errors retain status/code', () => {
-  const transport = functionSlice('_m2FetchJSON', '_m2RequireStatusView');
-  assert.match(transport, /if\(!r\.ok\)/);
-  assert.match(transport, /payload\.code/);
-  assert.match(transport, /status:r\.status/);
-  assert.match(transport, /credentials:'same-origin'/);
-  assert.doesNotMatch(transport, /ok:true/);
-
-  const handler = functionSlice('_m2HandleStudioCommand', '_m4LearningProject');
-  assert.equal((handler.match(/_m2FetchJSON\(/g) || []).length, 4);
-  assert.equal((handler.match(/_m2RequireStatusView\(/g) || []).length, 4);
+for (const status of [400, 500]) test(`HTTP ${status} preserves typed failure, form and pending state`, async () => {
+  const f = fixture(); f.session.chat._m2Composer = createForm(f.captured, blueprint());
+  f.control.status = status; f.control.response = { code: 'CONTROLLED_FAILURE', error: 'rejected' };
+  f.model.pM2Submit(f.model.st(), f.session.id); await tick();
+  assert.equal(f.session._m2Pending, null); assert.equal(f.m2.entry(f.session).busy, false);
+  assert.match(f.m2.entry(f.session).error, new RegExp('CONTROLLED_FAILURE.*HTTP ' + status));
+  assert.match(f.session.chat._m2Composer.error, /rejected/); assert.equal(f.calls.length, 1);
 });
-
-test('prepare is strict JSON over numeric project and stable string Studio origin', () => {
-  const origin = functionSlice('_m2StudioOrigin', '_m2SameOrigin');
-  assert.match(origin, /Number\.isSafeInteger\(projectId\)/);
-  assert.match(origin, /String\(s\._convId\)\.trim\(\)/);
-  assert.match(origin, /surface:'studio',sessionId:conversationId,conversationId:conversationId,projectId:projectId/);
-
-  const handler = functionSlice('_m2HandleStudioCommand', '_m4LearningProject');
-  assert.match(handler, /proposal=JSON\.parse\(arg\)/);
-  assert.match(handler, /if\(!_m2IsRecord\(proposal\)\)/);
-  assert.match(handler, /projectId:origin\.projectId,origin:origin,proposal:proposal/);
-  assert.doesNotMatch(handler, /projectPath|actor:/);
-  assert.match(handler, /M2_STUDIO_ATTACHMENTS_NOT_ALLOWED/);
+test('approval requires loading and displaying the exact digest and forwards only the durable binding', async () => {
+  const f = fixture(), entry = await pending(f); await assert.rejects(f.m2.run(f.session, '/m2-approve'), /Otevřete panel/);
+  entry.presentedView = entry.view; const original = entry.view;
+  entry.view = { ...entry.view, planDigest: 'sha256:' + 'b'.repeat(64) };
+  await assert.rejects(f.m2.run(f.session, '/m2-approve'), /Otevřete panel|přesný/);
+  entry.view = original; entry.presentedView = original; f.control.response = terminal(f.view, 'succeeded');
+  await f.m2.run(f.session, '/m2-approve', '', original);
+  assert.deepEqual(JSON.parse(f.calls.at(-1).options.body), { lifecycleId: f.view.lifecycleId, planDigest: digest, origin: f.captured });
+  assert.equal(f.session._m2Pending, null); assert.deepEqual(f.session._modifiedFiles, ['src/a.js']);
 });
-
-test('approval forwards only the stored exact lifecycle, plan digest and origin with a long timeout', () => {
-  const handler = functionSlice('_m2HandleStudioCommand', '_m4LearningProject');
-  assert.match(
-    handler,
-    /JSON\.stringify\(\{lifecycleId:pending\.lifecycleId,planDigest:pending\.planDigest,origin:pending\.origin\}\)\},3600000/,
-  );
-  assert.match(handler, /if\(arg\).*M2_STUDIO_APPROVAL_ARGUMENTS_FORBIDDEN/);
-  assert.match(handler, /_m2AssertCurrentContext\(idx,s,pending\.origin\)/);
-  assert.match(handler, /view\.planDigest,origin:view\.plan\.origin/);
-  assert.match(handler, /s\._m2Pending=null/);
+test('status, cancellation and restart preserve durable origin without inherited display approval', async () => {
+  const f = fixture(); await pending(f); f.store.changed();
+  const reboot = new SessionStore(f.storage); assert.deepEqual(reboot.focusedSession()._m2Pending, f.session._m2Pending);
+  await f.m2.run(f.session, '/m2-status'); const url = new URL(f.calls.at(-1).url);
+  for (const [key, value] of Object.entries(f.captured)) assert.equal(url.searchParams.get(key), String(value));
+  f.control.response = terminal(f.view); await f.m2.run(f.session, '/m2-cancel', 'user reason');
+  assert.deepEqual(JSON.parse(f.calls.at(-1).options.body), { lifecycleId: f.view.lifecycleId, reason: 'user reason', origin: f.captured });
+  assert.equal(f.session._m2Pending, null);
 });
-
-test('status and cancel preserve the durable origin binding', () => {
-  const handler = functionSlice('_m2HandleStudioCommand', '_m4LearningProject');
-  assert.match(handler, /lifecycleId:pending\.lifecycleId,reason:arg\|\|'user_cancelled',origin:pending\.origin/);
-  for (const field of ['surface', 'sessionId', 'conversationId', 'projectId']) {
-    assert.match(handler, new RegExp(`encodeURIComponent\\(origin\\.${field}\\)`));
-  }
-  assert.match(handler, /pending&&pending\.lifecycleId===lifecycleId\?pending\.origin:_m2StudioOrigin\(s\)/);
+test('generic acknowledgement and active chat cannot approve; cancellation stays available', async () => {
+  const f = fixture(), entry = await pending(f); entry.presentedView = entry.view;
+  assert.equal(f.m2.handleText(f.session, 'ano'), true); assert.equal(f.calls.length, 1);
+  f.control.active = true; await assert.rejects(f.m2.run(f.session, '/m2-approve'), /běžící/);
+  f.control.response = terminal(f.view); await f.m2.run(f.session, '/m2-cancel'); assert.match(f.calls.at(-1).url, /\/cancel$/);
 });
-
-test('pending approval persists and restores only its exact normalized binding', () => {
-  const normalizer = functionSlice('_m2NormalizePending', '_m2StudioOrigin');
-  for (const field of ['lifecycleId', 'planDigest', 'sessionId', 'conversationId', 'projectId']) {
-    assert.match(normalizer, new RegExp(field));
-  }
-  assert.match(normalizer, /origin\.surface!=='studio'/);
-  assert.equal(count('m2Pending: _m2NormalizePending(s._m2Pending)'), 2);
-  assert.equal(count('_sessions[i]._m2Pending=_m2NormalizePending(ss.m2Pending)'), 1);
+test('project proposal opens editable composer without HTTP or consuming chat draft; preparation is explicit', async () => {
+  const f = fixture(), draft = blueprint(); f.model.state.drafts = { [f.session.id]: 'Ordinary draft stays' };
+  f.session.chat._projectWorkProposal = normalizeProposal({ origin: f.captured, proposal: { kind: 'ProjectWorkProposal@1', projectId: 27, draft } });
+  f.model.pM2Open(f.model.st(), f.session.id); assert.equal(f.calls.length, 0); assert.equal(f.session.chat._m2Composer.instruction, draft.instruction);
+  f.model.m2Field(f.session.id, 'instruction', 'Upravené zadání'); f.model.pM2Submit(f.model.st(), f.session.id); await tick();
+  assert.equal(f.calls.length, 1); assert.equal(JSON.parse(f.calls[0].options.body).draft.instruction, 'Upravené zadání');
+  assert.deepEqual(JSON.parse(f.calls[0].options.body).draft.focusedTest.argv, draft.focusedTest.argv);
+  assert.equal(f.model.st().drafts[f.session.id], 'Ordinary draft stays'); assert.equal(f.session.chat._m2Composer.open, false);
 });
-
-test('plan renderer exposes exact change/test/Git/governance evidence and exact approval command', () => {
-  const renderer = functionSlice('_m2RenderPlan', '_m2RenderTerminal');
-  for (const label of [
-    'Plan digest:',
-    'Request digest:',
-    'Patch-set digest:',
-    'Authority-set digest:',
-    'beforeDigest:',
-    'afterDigest:',
-    'Focused test argv:',
-    'Focused test timeoutMs:',
-    'Git intent:',
-    'Governance verdict:',
-    'Governance decision digest:',
-    'Schválení přesně tohoto plánu: /m2-approve',
-  ]) {
-    assert.match(renderer, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-  }
-  assert.match(renderer, /Před approval nebyl spuštěn žádný M2 efekt\./);
+test('composer survives restart and rejects stale project or conversation without HTTP', () => {
+  const f = fixture(); f.session.chat._m2Composer = createForm(f.captured, blueprint()); f.store.changed();
+  assert.deepEqual(new SessionStore(f.storage).focusedSession().chat._m2Composer, f.session.chat._m2Composer);
+  f.session._convId = 'another'; f.model.pM2Submit(f.model.st(), f.session.id);
+  assert.equal(f.calls.length, 0); assert.match(f.session.chat._m2Composer.error, /kontextu/);
+  assert.equal(normalizeProposal({ origin: { ...f.captured, projectId: 28 }, proposal: { kind: 'ProjectWorkProposal@1', projectId: 27, draft: blueprint() } }), null);
 });
-
-test('terminal renderer exposes canonical terminal/result/test/Git/diff/audit evidence', () => {
-  const renderer = functionSlice('_m2RenderTerminal', '_m2RenderStatus');
-  for (const label of [
-    'M2 CANONICAL TERMINAL',
-    'Terminal state:',
-    'Terminal result digest:',
-    'Result terminal status:',
-    'Diff paths:',
-    'Diff digest:',
-    'Focused test terminal status:',
-    'Focused test stdout digest:',
-    'Git status:',
-    'Git foreign dirt preserved:',
-    'Audit governance verdict:',
-    'Audit governance receipt ID:',
-    'Audit lifecycle event count:',
-    'Audit evidence refs:',
-    'Exact diff material:',
-  ]) {
-    assert.match(renderer, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+for (const [label, mutate] of [
+  ['empty', d => { d.files = []; }], ['duplicate', d => { d.files.push({ ...d.files[0] }); }], ['cyclic', d => { d.files[0].dependsOn = ['src/a.js']; }],
+  ['oversized', d => { d.instruction = 'ě'.repeat(257); }], ['foreign dependency', d => { d.files[0].dependsOn = ['outside.js']; }],
+  ['traversal', d => { d.files[0].path = '../outside.js'; }], ['shell arguments', d => { d.focusedTest.argv = 'node --check'; }],
+  ['context collision', d => { d.files[0].contextFiles = ['src/a.js']; }],
+]) test(`composer rejects ${label} before generation`, async () => {
+  const f = fixture(), draft = blueprint(); mutate(draft); assert.throws(() => validateBlueprint(draft));
+  await assert.rejects(f.m2.run(f.session, '/m2-build', JSON.stringify(draft))); assert.equal(f.calls.length, 0);
+});
+test('draft shorthand rejects empty, repeated and over-limit paths before HTTP', () => {
+  for (const value of ['', 'a :: ', 'a,a :: change', 'a,b,c,d :: change']) assert.throws(() => parseDraft(value));
+  assert.deepEqual(parseDraft('a,b,c :: change'), { paths: ['a', 'b', 'c'], instruction: 'change' });
+});
+test('composer cancellation preserves form; errors cannot alter a newer form or the normal chat draft', async () => {
+  const f = fixture(), form = createForm(f.captured, blueprint()); f.session.chat._m2Composer = form;
+  f.model.state.drafts = { [f.session.id]: 'keep me' };
+  f.control.handler = (_url, options) => new Promise((resolve, reject) => options.signal.addEventListener('abort', () => reject(new Error('cancelled')), { once: true }));
+  f.model.pM2Submit(f.model.st(), f.session.id); assert.equal(f.m2.entry(f.session).busy, true);
+  assert.equal(f.m2.abortGeneration(f.session), true); const newer = createForm(f.captured, blueprint()); f.session.chat._m2Composer = newer;
+  await tick(); assert.equal(f.session.chat._m2Composer, newer); assert.equal(newer.error, null); assert.equal(f.session._m2Pending, null);
+  assert.equal(f.calls.length, 1); assert.equal(f.model.st().drafts[f.session.id], 'keep me');
+});
+test('composer respects pending plan, attachments and active/preparing send boundaries', () => {
+  for (const mutate of [f => { f.session._m2Pending = { lifecycleId: f.view.lifecycleId, planDigest: digest, origin: f.captured }; },
+    f => { f.session.chat.attachments.push({ name: 'a' }); }, f => { f.control.active = true; }, f => { f.session.chat._preparing = true; }]) {
+    const f = fixture(); mutate(f); f.model.pM2Open(f.model.st(), f.session.id); assert.equal(f.session.chat._m2Composer, null); assert.equal(f.calls.length, 0);
   }
 });
-
-test('generic acknowledgement is guarded before edit or ordinary chat send', () => {
-  const send = functionSlice('_chatSendPane', '_chatGapChoice');
-  const guard = send.indexOf('_m2IsGenericApproval(t)');
-  const edit = send.indexOf('Edit mode — replace message');
-  const ordinarySend = send.indexOf('_chatTryWsSend(txt,s,idx)');
-  assert.ok(guard >= 0 && guard < edit && guard < ordinarySend);
-  assert.match(send, /M2 approval nebyl proveden\./);
-  assert.match(send, /použijte pouze \/m2-approve/);
-
-  const generic = functionSlice('_m2IsGenericApproval', '_m2HandleStudioCommand');
-  for (const acknowledgement of ['ano', 'ok', 'spusť']) {
-    assert.match(generic, new RegExp(acknowledgement));
-  }
+test('cancelled proposal offers revision with exact retained file/test inputs and fresh approval', async () => {
+  const f = fixture(); f.session.chat._m2Composer = createForm(f.captured, blueprint()); await pending(f);
+  f.control.response = terminal(f.view); await f.m2.run(f.session, '/m2-cancel'); assert.equal(f.session._m2Pending, null);
+  f.model.pM2Open(f.model.st(), f.session.id, true); const form = f.session.chat._m2Composer;
+  assert.deepEqual(form.revisionOf, { lifecycleId: f.view.lifecycleId, planDigest: digest }); assert.deepEqual(form.files.map(file => file.path), ['src/a.js']);
+  form.files[0].reusePrevious = true; assert.equal(composerDraft(form).files[0].reusePrevious, true);
+  assert.equal(f.calls.filter(call => call.url.endsWith('/approve')).length, 0);
+  f.session._convId = 'foreign'; f.model.pM2Open(f.model.st(), f.session.id, true); assert.equal(f.session.chat._m2Composer, form);
+});
+test('observations are bound, read-only and deduplicated; only owning response settles the turn', async () => {
+  const f = fixture(), entry = await pending(f); entry.presentedView = entry.view; let settle;
+  const observed = { ...f.view, state: 'running', audit: { ...f.view.audit, executionEvents: [{ eventId: 'e1', type: 'phase_intent', path: 'src/a.js' }] } };
+  f.control.handler = async url => url.includes('/status?') ? { ok: true, json: async () => observed } : new Promise(resolve => { settle = resolve; });
+  const run = f.m2.run(f.session, '/m2-approve'), activity = entry.operation.activity;
+  await f.timers.shift()(); await f.timers.shift()(); assert.equal(activity.steps.filter(step => step.id === 'e1').length, 1);
+  assert.equal(activity.status, 'running'); assert.equal(entry.view.state, 'awaiting_approval'); assert.equal(entry.busy, true);
+  observed.planDigest = 'sha256:' + 'b'.repeat(64); observed.audit.executionEvents.push({ eventId: 'foreign', type: 'phase_applied' });
+  await f.timers.shift()(); assert.equal(activity.steps.some(step => step.id === 'foreign'), false);
+  settle({ ok: true, json: async () => terminal(f.view, 'succeeded') }); await run;
+  assert.equal(activity.status, 'done'); assert.equal(entry.busy, false); assert.equal(f.timers.length, 0);
+});
+for (const order of ['cancel-first', 'approve-first']) test(`concurrent cancellation preserves canonical ownership: ${order}`, async () => {
+  const f = fixture(), entry = await pending(f); entry.presentedView = entry.view; let approve, cancel;
+  f.control.handler = url => new Promise(resolve => { if (url.endsWith('/approve')) approve = resolve; else cancel = resolve; });
+  const approval = f.m2.run(f.session, '/m2-approve'), cancellation = f.m2.run(f.session, '/m2-cancel'), cancelled = terminal(f.view);
+  if (order === 'cancel-first') { cancel({ ok: true, json: async () => cancelled }); await cancellation; assert.equal(entry.busy, true); approve({ ok: true, json: async () => cancelled }); }
+  else { approve({ ok: true, json: async () => cancelled }); await approval; cancel({ ok: true, json: async () => cancelled }); }
+  await Promise.all([approval, cancellation]); assert.equal(entry.busy, false); assert.equal(f.session._m2Pending, null); assert.equal(entry.view.state, 'cancelled');
+});
+test('cancel failure preserves approval; conflicting late canonical response fails visibly', async () => {
+  const f = fixture(), entry = await pending(f); entry.presentedView = entry.view; let complete;
+  f.control.handler = url => url.endsWith('/cancel') ? Promise.reject(new Error('network uncertain')) : new Promise(resolve => { complete = resolve; });
+  const approval = f.m2.run(f.session, '/m2-approve'); await assert.rejects(f.m2.run(f.session, '/m2-cancel'), /network uncertain/);
+  assert.equal(entry.busy, true); assert.equal(f.session._m2Pending.planDigest, digest);
+  complete({ ok: true, json: async () => terminal(f.view) }); await approval;
+  f.control.handler = async () => ({ ok: true, json: async () => terminal(f.view, 'succeeded') });
+  await assert.rejects(f.m2.run(f.session, '/m2-status', f.view.lifecycleId), /konfliktní/); assert.equal(entry.view.state, 'cancelled'); assert.match(entry.error, /konfliktní/);
+});
+test('malformed plan and false success cannot pass canonical evidence verification', () => {
+  const f = fixture(); for (const view of [{ ...f.view, diff: [] }, { ...f.view, audit: {} }, { ...terminal(f.view, 'succeeded'), result: {} },
+    { ...terminal(f.view), terminal: { state: 'cancelled' } }, { ...f.view, plan: { ...f.view.plan, origin: { ...f.captured, conversationId: 'foreign' } } }])
+    assert.throws(() => validateView(view, f.view.lifecycleId, f.captured, digest));
 });
 
-
-test('Studio draft command renders complete bytes and never auto-approves the model output', async () => {
-  const session = { _projectId: 27, _convId: 'conversation-27' };
-  const pane = { msgs: [], attachments: [] };
-  const calls = [];
-  const origin = { surface: 'studio', sessionId: 'conversation-27', conversationId: 'conversation-27', projectId: 27 };
-  const view = {
-    lifecycleId: 'draft-27', state: 'awaiting_approval', planDigest: 'sha256:' + 'a'.repeat(64),
-    plan: { identity: { lifecycleId: 'draft-27' }, state: 'awaiting_approval', origin,
-      changes: [{ path: 'src/app.js', afterDigest: 'sha256:after', afterBytes: 23 }],
-      focusedTest: { binary: '/usr/bin/node', argv: ['--check', 'src/app.js'], timeoutMs: 30000 }, gitCommit: null },
-    audit: { governanceDecision: { verdict: 'allow' } },
-    diff: [{ path: 'src/app.js', before: { content: 'export const value=1;', digest: 'sha256:before' },
-      after: { content: 'export const value=42;', digest: 'sha256:after' } }],
-  };
-  const sandbox = vm.createContext({
-    WorkActivity, setTimeout, clearTimeout,
-    _sessions: [session], _backendUrl: () => 'http://fixture.invalid',
-    _M2_TERMINAL_STATES: { succeeded: true, failed: true, cancelled: true },
-    _sessionActive: 0, _persistSessionState() {}, _showWorkspace() {}, renderChat() {}, _chatScrollPane() {},
-    AbortSignal, AbortController,
-    async fetch(url, options) { calls.push({ url, options }); return { ok: true, json: async () => view }; },
-  });
-  vm.runInContext(source.slice(source.indexOf('function _m2IsRecord'), source.indexOf('/* ── M4 learning')), sandbox);
-  assert.equal(sandbox._m2HandleStudioCommand(0, session, pane, null,
-    '/m2-draft src/app.js :: Change value to 42', '/m2-draft', 'src/app.js :: Change value to 42'), true);
-  await new Promise(resolve => setImmediate(resolve));
-  assert.equal(calls.length, 1, 'only draft request; no prepare/approval side request');
-  assert.equal(calls[0].url, 'http://fixture.invalid/api/m2/lifecycle/draft');
-  assert.deepEqual(JSON.parse(calls[0].options.body).draft, { path: 'src/app.js', instruction: 'Change value to 42' });
-  assert.equal(session._m2Pending.planDigest, view.planDigest);
-  assert.match(pane.msgs.at(-1).text, /export const value=1;/);
-  assert.match(pane.msgs.at(-1).text, /export const value=42;/);
-  assert.match(pane.msgs.at(-1).text, /pouze syntaxi/);
-  assert.match(pane.msgs.at(-1).text, /\/m2-approve/);
-  assert.equal(pane._m2Busy, false);
-});
-
-
-test('Studio can cancel an active draft without sending approval or a legacy mutation', async () => {
-  const session = { _projectId: 27, _convId: 'conversation-27' };
-  const pane = { msgs: [], attachments: [] };
-  const calls = [];
-  const sandbox = vm.createContext({
-    WorkActivity, setTimeout, clearTimeout,
-    _sessions: [session], _backendUrl: () => 'http://fixture.invalid', _M2_TERMINAL_STATES: {},
-    _sessionActive: 0, _persistSessionState() {}, _showWorkspace() {}, renderChat() {}, _chatScrollPane() {}, AbortSignal, AbortController, TextEncoder,
-    fetch(url, options) {
-      calls.push({ url, options });
-      return new Promise((_resolve, reject) => options.signal.addEventListener('abort',
-        () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })), { once: true }));
-    },
-  });
-  vm.runInContext(source.slice(source.indexOf('function _m2IsRecord'), source.indexOf('/* ── M4 learning')), sandbox);
-  sandbox._m2HandleStudioCommand(0, session, pane, null, '/m2-draft', '/m2-draft', 'src/app.js :: Change value');
-  assert.equal(pane._m2Busy, true);
-  sandbox._m2HandleStudioCommand(0, session, pane, null, '/m2-cancel', '/m2-cancel', '');
-  await new Promise(resolve => setImmediate(resolve));
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].options.signal.aborted, true);
-  assert.equal(pane._m2Busy, false);
-  assert.equal(session._m2Pending, null);
-  assert.match(pane.msgs.at(-1).text, /M2_STUDIO_DRAFT_CANCELLED/);
-});
-
-function controlledStudio({ pending = true, paths = ['src/app.js'], activeM1 = true, manualTimers = false } = {}) {
-  const origin = { surface: 'studio', sessionId: 'conversation-27', conversationId: 'conversation-27', projectId: 27 };
-  const planDigest = 'sha256:' + 'a'.repeat(64);
-  const session = { _projectId: 27, _convId: origin.conversationId,
-    _m2Pending: pending ? { lifecycleId: 'draft-27', planDigest, origin } : null };
-  const pane = { msgs: [], attachments: [] };
-  session.chat = pane;
-  const textarea = { value: '', style: {} };
-  const calls = [];
-  const timers = new Map(); let timerId = 0;
-  const view = {
-    lifecycleId: 'draft-27', state: 'awaiting_approval', planDigest,
-    plan: { identity: { lifecycleId: 'draft-27' }, state: 'awaiting_approval', origin,
-      changes: paths.map(file => ({ path: file, afterDigest: 'sha256:after', afterBytes: 23 })),
-      focusedTest: { binary: '/usr/bin/node', argv: ['--check', paths[0]], timeoutMs: 30000 }, gitCommit: null },
-    audit: { governanceDecision: { verdict: 'allow' } },
-    diff: paths.map(file => ({ path: file, before: { content: 'export const value=1;', digest: 'sha256:before' },
-      after: { content: 'export const value=42;', digest: 'sha256:after' } })),
-  };
-  const sandbox = vm.createContext({
-    WorkActivity,
-    setTimeout: manualTimers ? callback => { timers.set(++timerId, callback);return timerId; } : setTimeout,
-    clearTimeout: manualTimers ? id => timers.delete(id) : clearTimeout,
-    _sessions: [session], _backendUrl: () => 'http://fixture.invalid',
-    _M2_TERMINAL_STATES: { succeeded: true, failed: true, cancelled: true },
-    _sessionActive: 0, _persistSessionState() {}, _showWorkspace() {}, renderChat() {}, _chatScrollPane() {}, AbortSignal, AbortController, TextEncoder,
-    document: { getElementById() { return textarea; } }, IntentSmithWS: { hasActiveM1Turn(value) { assert.equal(value, session);return activeM1; } },
-    C: {}, _fs: value => value, h: (type, props, ...children) => ({ type, props, children }),
-    fetch(url, options) {
-      return new Promise((resolve, reject) => calls.push({ url, options, reject,
-        resolve(payload, status = 200) { resolve({ ok: status === 200, status, json: async () => payload }); } }));
-    },
-  });
-  vm.runInContext(source.slice(source.indexOf('function _m2IsRecord'), source.indexOf('/* ── M4 learning')), sandbox);
-  vm.runInContext(functionSlice('_chatSendPane', '_chatGapChoice'), sandbox);
-  return { session, pane, calls, view, textarea,
-    timers,
-    tick() { const [id, callback] = timers.entries().next().value; timers.delete(id); callback(); },
-    setActiveM1(value) { activeM1 = value; },
-    openComposer() { sandbox._m2OpenComposer(0); return pane._m2Composer; },
-    normalizeWorkProposal(value) { return sandbox._m2NormalizeWorkProposal(value); },
-    submitComposer(form = pane._m2Composer) { sandbox._m2SubmitComposer(0, session, pane, form); },
-    actionButtons() {
-      const buttons = [];const visit = node => { if (!node || typeof node !== 'object') return;
-        if (node.type === 'button') buttons.push(node);(node.children || []).forEach(visit); };
-      visit(sandbox._m2ActionsUI(0, session, pane));return buttons;
-    },
-    command(cmd, arg = '') { sandbox._m2HandleStudioCommand(0, session, pane, null, cmd + ' ' + arg, cmd, arg); },
-    chatSend(text) { textarea.value = text; sandbox._chatSendPane(0); },
-    terminal(state = 'cancelled') { return { ...view, state,
-      terminal: { state, identity: { lifecycleId: view.lifecycleId }, planDigest } }; },
-  };
-}
-
-const flushStudio = () => new Promise(resolve => setImmediate(resolve));
-
-test('live execution observations are read-only, deduplicated and cannot finish or approve a turn', async () => {
-  const studio = controlledStudio({ activeM1: false, manualTimers: true });
-  studio.command('/m2-approve');
-  const activity = studio.pane.msgs[0]._activity;
-  const observed = { ...studio.view, state: 'executing', audit: { executionEvents: [
-    { eventId: 'write-a', type: 'phase_applied', path: 'src/app.js' },
-    { eventId: 'test-start', type: 'process_started' },
-  ] } };
-  studio.tick();
-  assert.equal(studio.calls[1].options.method, 'GET');
-  assert.match(studio.calls[1].url, /id=draft-27&surface=studio&sessionId=conversation-27/);
-  studio.calls[1].resolve(observed);await flushStudio();
-  assert.equal(activity.steps.length, 3);
-  assert.match(activity.steps[2].input, /--check/);
-  assert.equal(activity.status, 'running');
-  assert.equal(studio.session._m2PresentedPlan, undefined, 'poll cannot grant a displayed approval binding');
-  studio.tick();studio.calls[2].resolve(observed);await flushStudio();
-  assert.equal(activity.steps.length, 3, 'same durable audit events appear once');
-  studio.tick();
-  studio.calls[0].resolve(studio.terminal());await flushStudio();
-  assert.equal(activity.status, 'cancelled');
-  studio.calls[3].resolve({ ...observed, audit: { executionEvents: [{ eventId: 'late', type: 'git_ref_updated' }] } });
-  await flushStudio();
-  assert.equal(activity.steps.length, 3, 'late poll cannot change the completed turn');
-  assert.equal(studio.timers.size, 0);
-});
-
-test('foreign lifecycle, changed digest and changed conversation observations never reach the visible activity', async () => {
-  for (const scenario of ['lifecycle', 'digest', 'conversation', 'read-failure']) {
-    const studio = controlledStudio({ activeM1: false, manualTimers: true });
-    studio.command('/m2-approve');studio.tick();
-    const activity = studio.pane.msgs[0]._activity;
-    const view = { ...studio.view, audit: { executionEvents: [{ eventId: 'foreign', type: 'phase_applied', path: 'PRIVATE_FILE' }] } };
-    if (scenario === 'lifecycle') view.lifecycleId = 'foreign';
-    if (scenario === 'digest') view.planDigest = 'sha256:' + 'c'.repeat(64);
-    if (scenario === 'conversation') studio.session._convId = 'foreign';
-    if (scenario === 'read-failure') studio.calls[1].reject(new Error('offline'));
-    else studio.calls[1].resolve(view);
-    await flushStudio();
-    assert.equal(activity.steps.length, 1);
-    assert.equal(activity.status, 'running', 'read failure is not a successful main terminal');
-    studio.calls[0].reject(new Error('controlled main failure'));await flushStudio();
-    assert.equal(activity.status, 'error');assert.equal(studio.timers.size, 0);
-  }
-});
-
-test('cancelled proposal can be revised with exact retained files but no inherited approval', async () => {
-  const studio = controlledStudio({ pending: false, activeM1: false, paths: ['src/app.js', 'src/helper.js'] });
-  fillComposer(studio);studio.submitComposer();
-  studio.calls[0].resolve(studio.view);await flushStudio();
-  studio.command('/m2-cancel');studio.calls[1].resolve(studio.terminal());await flushStudio();
-  assert.equal(studio.pane._m2Composer, null);
-  assert.equal(studio.session._m2Pending, null);
-  const revise = studio.actionButtons().find(button => button.children.includes('Opravit předchozí návrh'));
-  assert.ok(revise);revise.props.onClick();
-  const form = studio.pane._m2Composer;
-  assert.equal(form.files[0].dependencies, 'src/helper.js');
-  form.files[1].reusePrevious = true;form.files[0].instruction = 'Correct one defect, preserve the remaining code.';
-  assert.equal(studio.calls.length, 2, 'opening repair never generates or approves');
-  studio.submitComposer();
-  const sent = JSON.parse(studio.calls[2].options.body);
-  assert.deepEqual(sent.draft.revisionOf, { lifecycleId: studio.view.lifecycleId, planDigest: studio.view.planDigest });
-  assert.equal(sent.draft.files[1].reusePrevious, true);
-  assert.equal(sent.draft.files[0].reusePrevious, false);
-  assert.equal(sent.approval, undefined);
-  assert.match(studio.calls[2].url, /\/draft$/);
-  studio.calls[2].reject(new Error('controlled stop'));await flushStudio();
-});
-
-test('revision button rejects changed conversation without reusing previous file context', async () => {
-  const studio = controlledStudio({ activeM1: false });
-  studio.command('/m2-cancel');studio.calls[0].resolve(studio.terminal());await flushStudio();
-  const revise = studio.actionButtons().find(button => button.children.includes('Opravit předchozí návrh'));
-  assert.ok(revise);studio.session._convId = 'another-conversation';revise.props.onClick();
-  assert.equal(studio.pane._m2Composer, null);assert.equal(studio.calls.length, 1);
-  assert.match(studio.pane.msgs.at(-1).text, /jiné konverzaci/);
-});
-
-test('project chat proposal opens an editable composer and submits only on explicit preparation', async () => {
-  const studio = controlledStudio({ pending: false, activeM1: false,
-    paths: ['src/index.mjs', 'test/acceptance.test.mjs'] });
-  const offered = { origin: studio.view.plan.origin, proposal: { kind: 'ProjectWorkProposal@1', projectId: 27,
-    workspaceRevision: 'wsr1:fixture', draft: { instruction: 'Show RPM history', files: [
-      { path: 'src/index.mjs', instruction: 'Implement history', dependsOn: [] },
-      { path: 'test/acceptance.test.mjs', instruction: 'Assert history eviction', dependsOn: ['src/index.mjs'] },
-    ], focusedTest: { binary: '/usr/bin/node', argv: ['--test', 'test/acceptance.test.mjs'], timeoutMs: 30000 },
-    gitCommit: { message: 'Reviewed step', identity: { authorName: 'Test' } } } } };
-  studio.pane._projectWorkProposal = studio.normalizeWorkProposal(JSON.parse(JSON.stringify(offered)));
-  const form = studio.openComposer();
-  assert.equal(form.instruction, 'Show RPM history');
-  assert.equal(form.files[1].dependencies, 'src/index.mjs');
-  assert.equal(studio.calls.length, 0, 'opening/reloading a suggestion never sends effects');
-  form.instruction = 'Show RPM history with unavailable sensor state';
-  studio.submitComposer(form);
-  assert.equal(studio.calls.length, 1);
-  const body = JSON.parse(studio.calls[0].options.body);
-  assert.equal(body.draft.instruction, form.instruction);
-  assert.deepEqual(body.draft.gitCommit, offered.proposal.draft.gitCommit);
-  assert.match(studio.calls[0].url, /\/draft$/);
-  studio.calls[0].resolve(studio.view); await flushStudio();
-  assert.equal(studio.session._m2Pending.lifecycleId, studio.view.lifecycleId);
-  assert.equal(studio.calls.length, 1, 'generation does not approve execution');
-
-  const foreign = controlledStudio({ pending: false, activeM1: false });
-  foreign.pane._projectWorkProposal = { ...offered, origin: { ...offered.origin, conversationId: 'another' } };
-  assert.equal(foreign.openComposer().instruction, '');
-  assert.equal(foreign.calls.length, 0);
-  assert.equal(foreign.normalizeWorkProposal({ proposal: {}, origin: {} }), null);
-});
-
-test('actual chat entry dispatches M2 cancel despite an active M1 turn and prepared send', async () => {
-  const studio = controlledStudio();
-  studio.command('/m2-approve');
-  studio.pane._preparedSend = { unrelated: true };
-  studio.chatSend('/m2-cancel stop_from_chat_entry');
-  assert.equal(studio.calls.length, 2);
-  assert.equal(studio.calls[1].url, 'http://fixture.invalid/api/m2/lifecycle/cancel');
-  assert.equal(JSON.parse(studio.calls[1].options.body).reason, 'stop_from_chat_entry');
-  assert.equal(studio.pane._preparedSend.unrelated, true, 'M2 cancel does not alter unrelated M1 ownership');
-  studio.calls[0].resolve(studio.terminal());
-  studio.calls[1].resolve(studio.terminal());
-  await flushStudio();
-  assert.equal(studio.pane._m2Busy, false);
-  assert.equal(studio.session._m2Pending, null);
-});
-
-for (const first of ['approve', 'cancel']) {
-  test(`Studio durable cancel during approval keeps both requests owned (${first} response first)`, async () => {
-    const studio = controlledStudio();
-    studio.command('/m2-approve');
-    studio.command('/m2-cancel', 'operator_stop');
-    studio.command('/m2-cancel', 'duplicate');
-    assert.equal(studio.calls.length, 2, 'one approval and one durable cancellation; no duplicate cancel');
-    assert.equal(studio.calls[1].url, 'http://fixture.invalid/api/m2/lifecycle/cancel');
-    assert.deepEqual(JSON.parse(studio.calls[1].options.body), {
-      lifecycleId: studio.view.lifecycleId, reason: 'operator_stop', origin: studio.view.plan.origin,
-    });
-    assert.equal(studio.calls[0].options.signal.aborted, false, 'durable cancel must not abort approval transport');
-    const firstIndex = first === 'approve' ? 0 : 1;
-    studio.calls[firstIndex].resolve(studio.terminal());
-    await flushStudio();
-    assert.equal(studio.pane._m2Busy, true, 'remaining request still owns the busy state');
-    assert.equal(studio.session._m2Pending, null);
-    studio.command('/m2-draft', 'src/next.js :: New request');
-    assert.equal(studio.calls.length, 2, 'late completion cannot race a newly accepted command');
-    studio.calls[1 - firstIndex].resolve(studio.terminal());
-    await flushStudio();
-    assert.equal(studio.pane._m2Busy, false);
-    assert.equal(studio.pane._m2Operation, null);
-    assert.equal(studio.session._m2Pending, null);
-    assert.match(studio.pane.msgs.at(-1).text, /Terminal state: cancelled/);
-  });
-}
-
-test('Studio late older approval view cannot reopen a cancelled plan', async () => {
-  const studio = controlledStudio();
-  studio.command('/m2-approve');
-  studio.command('/m2-cancel');
-  studio.calls[1].resolve(studio.terminal());
-  await flushStudio();
-  studio.calls[0].resolve(studio.view);
-  await flushStudio();
-  assert.equal(studio.session._m2Pending, null);
-  assert.equal(studio.pane._m2Busy, false);
-  assert.match(studio.pane.msgs.at(-1).text, /Terminal state: cancelled/);
-});
-
-test('Studio cancel transport failure preserves the running approval and pending binding', async () => {
-  const studio = controlledStudio();
-  studio.command('/m2-approve');
-  studio.command('/m2-cancel');
-  studio.calls[1].reject(new Error('controlled transport failure'));
-  await flushStudio();
-  assert.equal(studio.pane._m2Busy, true);
-  assert.equal(studio.session._m2Pending.planDigest, studio.view.planDigest);
-  assert.match(studio.pane.msgs.at(-1).text, /controlled transport failure/);
-  studio.calls[0].resolve(studio.terminal('failed'));
-  await flushStudio();
-  assert.equal(studio.pane._m2Busy, false);
-  assert.equal(studio.session._m2Pending, null);
-  assert.match(studio.pane.msgs.at(-1).text, /Terminal state: failed/);
-});
-
-test('Studio concurrent cancellation cannot use a changed origin', async () => {
-  const studio = controlledStudio();
-  studio.command('/m2-approve');
-  studio.session._convId = 'different-conversation';
-  studio.command('/m2-cancel');
-  assert.equal(studio.calls.length, 1);
-  assert.match(studio.pane.msgs.at(-1).text, /M2_STUDIO_CONTEXT_CHANGED/);
-  assert.equal(studio.pane._m2Operation.cancelIssued, false);
-  studio.calls[0].resolve(studio.terminal());
-  await flushStudio();
-  assert.equal(studio.pane._m2Busy, false);
-  assert.match(studio.pane.msgs.at(-1).text, /M2_STUDIO_CONTEXT_CHANGED/);
-});
-
-test('Studio conflicting canonical responses fail visibly without restoring pending approval', async () => {
-  const studio = controlledStudio();
-  studio.command('/m2-approve');
-  studio.command('/m2-cancel');
-  studio.calls[1].resolve(studio.terminal());
-  await flushStudio();
-  studio.calls[0].resolve(studio.terminal('failed'));
-  await flushStudio();
-  assert.equal(studio.session._m2Pending, null);
-  assert.equal(studio.pane._m2Busy, false);
-  assert.match(studio.pane.msgs.at(-1).text, /M2_STUDIO_CONFLICTING_TERMINAL/);
-});
-
-for (const paths of [['src/app.js', 'src/other.js'], ['src/app.js', 'src/other.js', 'src/third.cjs']]) {
-  test(`Studio serializes ${paths.length} explicit draft paths and previews every result`, async () => {
-    const studio = controlledStudio({ pending: false, paths });
-    studio.command('/m2-draft', paths.join(', ') + ' :: Change values together');
-    assert.equal(studio.calls.length, 1);
-    assert.deepEqual(JSON.parse(studio.calls[0].options.body).draft,
-      { paths, instruction: 'Change values together' });
-    studio.calls[0].resolve(studio.view);
-    await flushStudio();
-    for (const file of paths) assert.ok(studio.pane.msgs.at(-1).text.includes('Navržený úplný obsah ' + file));
-    assert.equal(studio.session._m2Pending.planDigest, studio.view.planDigest);
-  });
-}
-
-test('Studio rejects empty, duplicate and over-limit draft path lists before HTTP', () => {
-  for (const paths of ['src/app.js,', 'src/app.js, src/app.js', 'a.js,b.js,c.js,d.js']) {
-    const studio = controlledStudio({ pending: false });
-    studio.command('/m2-draft', paths + ' :: Change values together');
-    assert.equal(studio.calls.length, 0);
-    assert.match(studio.pane.msgs.at(-1).text, /M2_STUDIO_DRAFT_INPUT_INVALID/);
-  }
-});
-
-
-for (const command of ['/m2-build', '/m2-plan']) {
-  test(`actual chat entry preserves JSON whitespace for ${command} and awaits exact approval`, async () => {
-    const paths = ['src/app.js', 'src/cli.js', 'src/domain.js', 'src/store.js'];
-    const studio = controlledStudio({ pending: false, paths, activeM1: false });
-    const focusedTest = { binary: '/usr/bin/node', argv: ['-e', "assert.equal(value, 'a  b');\tassert.equal(tab, '\\t');"],
-      environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' }, timeoutMs: 30000 };
-    const payload = command === '/m2-build'
-      ? { instruction: 'Preserve  two spaces.', files: paths.map(path => ({ path, instruction: 'Return the exact text.', dependsOn: [] })), focusedTest }
-      : { intent: 'Preserve  two spaces.', changes: paths.map(path => ({ path, afterContent: 'a  b\t\n' })), focusedTest };
-    studio.view.plan.focusedTest = focusedTest;
-    studio.chatSend(command.toUpperCase() + '   ' + JSON.stringify(payload, null, 2));
-    assert.equal(studio.calls.length, 1);
-    const sent = JSON.parse(studio.calls[0].options.body);
-    assert.deepEqual(sent[command === '/m2-build' ? 'draft' : 'proposal'], payload);
-    assert.deepEqual(sent.origin, studio.view.plan.origin);
-    assert.equal(studio.calls[0].url, 'http://fixture.invalid/api/m2/lifecycle/' + (command === '/m2-build' ? 'draft' : 'prepare'));
-    assert.equal(studio.session._m2Pending, null, 'no approval authority before response');
-    studio.calls[0].resolve(studio.view);
-    await flushStudio();
-    assert.equal(studio.session._m2Pending.planDigest, studio.view.planDigest);
-    for (const path of paths) assert.ok(studio.pane.msgs.at(-1).text.includes(path));
-    assert.ok(studio.pane.msgs.at(-1).text.includes(JSON.stringify(focusedTest.argv)));
-    assert.equal(studio.calls.length, 1, 'neither generation nor preview auto-approves');
-    studio.chatSend('/m2-approve');
-    assert.deepEqual(JSON.parse(studio.calls[1].options.body), { lifecycleId: studio.view.lifecycleId,
-      planDigest: studio.view.planDigest, origin: studio.view.plan.origin });
-    studio.calls[1].resolve(studio.terminal('failed'));
-    await flushStudio();
-    assert.equal(studio.session._m2Pending, null);
-    assert.equal(studio.pane._m2Busy, false);
-  });
-}
-
-test('Studio rejects malformed blueprint locally and can cancel a running build', async () => {
-  const studio = controlledStudio({ pending: false });
-  for (const input of ['{', '[]', '{"path":"src/app.js"}']) {
-    studio.command('/m2-build', input);
-    assert.equal(studio.calls.length, 0);
-    assert.match(studio.pane.msgs.at(-1).text, /M2_STUDIO_DRAFT_INPUT_INVALID/);
-  }
-  studio.command('/m2-build', JSON.stringify({ instruction: 'Build.', files: [], focusedTest: {} }));
-  assert.equal(studio.calls.length, 1, 'strict field validation remains server-owned');
-  studio.command('/m2-cancel');
-  assert.equal(studio.calls[0].options.signal.aborted, true);
-  studio.calls[0].reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
-  await flushStudio();
-  assert.match(studio.pane.msgs.at(-1).text, /M2_STUDIO_DRAFT_CANCELLED/);
-  assert.equal(studio.session._m2Pending, null);
-  assert.equal(studio.calls.length, 1);
-});
-
-function fillComposer(studio) {
-  const form = studio.openComposer();
-  Object.assign(form, { instruction: 'Keep a  b and\ttabs.', binary: '/usr/bin/node',
-    argv: ['--input-type=module', '-e', 'assert.equal("a  b", "a  b");\n// $HOME; $(false)', ''],
-    files: [
-      { path: 'src/app.js', instruction: 'Export the helper.', dependencies: 'src/helper.js' },
-      { path: 'src/helper.js', instruction: 'Keep the value.', dependencies: '' },
-    ] });
-  return form;
-}
-
-test('build composer opens without HTTP or consuming the ordinary chat draft', () => {
-  const studio = controlledStudio({ pending: false, activeM1: false });
-  studio.textarea.value = 'Popis změny s  mezerami';
-  studio.command('/m2-build');
-  assert.equal(studio.pane._m2Composer.instruction, studio.textarea.value);
-  assert.equal(studio.pane._m2ComposerOpen, true);
-  assert.equal(studio.calls.length, 0);
-  assert.equal(studio.pane.msgs.length, 0);
-  assert.doesNotMatch(source, /Lifecycle: PROPOSED → SPEC|lifecycle SPEC\. Popište/);
-});
-
-test('composer sends literal file/test inputs through the existing draft surface and never auto-approves', async () => {
-  const studio = controlledStudio({ pending: false, activeM1: false, paths: ['src/app.js', 'src/helper.js'] });
-  const form = fillComposer(studio);
-  form.files[0].contextFiles = 'src/previous-step.js\npublic/schema.json';
-  studio.textarea.value = 'ordinary draft';
-  studio.submitComposer();
-  assert.equal(studio.calls.length, 1);
-  const call = studio.calls[0];
-  assert.equal(call.url, 'http://fixture.invalid/api/m2/lifecycle/draft');
-  const body = JSON.parse(call.options.body);
-  assert.deepEqual(body.origin, studio.view.plan.origin);
-  assert.equal(body.draft.instruction, form.instruction);
-  assert.deepEqual(body.draft.focusedTest.argv, form.argv);
-  assert.equal(body.draft.focusedTest.binary, '/usr/bin/node');
-  assert.deepEqual(body.draft.files[0].dependsOn, ['src/helper.js']);
-  assert.deepEqual(body.draft.files[0].contextFiles, ['src/previous-step.js', 'public/schema.json']);
-  assert.equal(studio.textarea.value, 'ordinary draft');
-  call.resolve(studio.view);
-  await flushStudio();
-  assert.match(studio.pane.msgs.at(-1).text, /Původní obsah src\/helper.js/);
-  assert.match(studio.pane.msgs.at(-1).text, /Navržený úplný obsah src\/app.js/);
-  assert.equal(studio.pane._m2ComposerOpen, false);
-  assert.equal(studio.pane._m2Composer, form, 'retain operator input');
-  studio.chatSend('ano');
-  assert.equal(studio.calls.length, 1, 'ordinary yes does not approve');
-  studio.command('/m2-approve');
-  assert.equal(studio.calls[1].url, 'http://fixture.invalid/api/m2/lifecycle/approve');
-  assert.equal(JSON.parse(studio.calls[1].options.body).planDigest, studio.view.planDigest);
-  studio.calls[1].resolve(studio.terminal());
-  await flushStudio();
-});
-
-for (const status of [400, 409, 503]) {
-  test(`composer retains every field after HTTP ${status}, and retry requires a new submit`, async () => {
-    const studio = controlledStudio({ pending: false, activeM1: false });
-    const form = fillComposer(studio);
-    const before = JSON.stringify({ ...form, error: null });
-    studio.submitComposer();
-    studio.calls[0].resolve({ code: 'M2_LIFECYCLE_POLICY_UNAVAILABLE', error: 'Policy unavailable' }, status);
-    await flushStudio();
-    assert.match(form.error, /M2_LIFECYCLE_POLICY_UNAVAILABLE/);
-    assert.equal(JSON.stringify({ ...form, error: null }), before);
-    assert.equal(studio.pane._m2ComposerOpen, true);
-    assert.equal(studio.pane._m2Busy, false);
-    assert.equal(studio.calls.length, 1);
-  });
-}
-
-test('composer refuses stale conversation/project context without sending or rebinding its input', () => {
-  for (const field of ['_convId', '_projectId']) {
-    const studio = controlledStudio({ pending: false, activeM1: false });
-    const form = fillComposer(studio);
-    studio.session[field] = field === '_convId' ? 'other-conversation' : 99;
-    studio.submitComposer();
-    assert.equal(studio.calls.length, 0);
-    assert.match(form.error, /kontext.*změnil/);
-    assert.deepEqual(JSON.parse(JSON.stringify(form.origin)), studio.view.plan.origin);
-  }
-});
-
-test('composer rejects incomplete, cyclic and oversized input before generation', () => {
-  for (const mutate of [
-    form => { form.binary = ''; },
-    form => { form.instruction = 'ž'.repeat(257); },
-    form => { form.files[1].dependencies = 'src/app.js'; },
-    form => { form.files[0].dependencies = 'src/missing.js'; },
-    form => { form.files[1].path = form.files[0].path; },
-    form => { form.timeoutMs = 'Infinity'; },
-  ]) {
-    const studio = controlledStudio({ pending: false, activeM1: false });
-    const form = fillComposer(studio);mutate(form);studio.submitComposer();
-    assert.equal(studio.calls.length, 0);
-    assert.equal(typeof form.error, 'string');
-    assert.equal(studio.pane._m2Composer, form);
-  }
-});
-
-test('composer cancellation and late error keep new form and normal chat input intact', async () => {
-  const studio = controlledStudio({ pending: false, activeM1: false });
-  const oldForm = fillComposer(studio);studio.submitComposer();
-  studio.command('/m2-cancel');
-  assert.equal(studio.calls[0].options.signal.aborted, true);
-  const replacement = { ...oldForm, instruction: 'New input', error: null };
-  studio.pane._m2Composer = replacement;
-  studio.calls[0].reject(new Error('cancelled'));
-  await flushStudio();
-  assert.equal(replacement.error, null);
-  assert.equal(studio.pane._m2Composer, replacement);
-  assert.equal(studio.pane._m2Busy, false);
-  assert.equal(studio.session._m2Pending, null);
-});
-
-test('composer does not bypass existing pending-plan, attachment or active-send boundaries', () => {
-  for (const options of [{ pending: true, activeM1: false }, { pending: false, activeM1: true }]) {
-    const studio = controlledStudio(options);studio.openComposer();
-    assert.equal(studio.pane._m2Composer, undefined);
-    assert.equal(studio.calls.length, 0);
-  }
-  const studio = controlledStudio({ pending: false, activeM1: false });
-  const form = fillComposer(studio);
-  studio.pane._preparedSend = {};studio.submitComposer();
-  assert.equal(studio.calls.length, 0);
-  assert.match(form.error, /probíhající/);
-  studio.pane._preparedSend = null;studio.pane.attachments.push({ name: 'other.txt' });
-  studio.submitComposer();
-  assert.equal(studio.calls.length, 0);
-  assert.match(studio.pane.msgs.at(-1).text, /M2_STUDIO_ATTACHMENTS_NOT_ALLOWED/);
-});
-
-test('restored approval button requires loading and displaying its exact plan before becoming enabled', async () => {
-  const studio = controlledStudio({ activeM1: false });
-  let buttons = studio.actionButtons();
-  assert.equal(buttons[1].props.disabled, true, 'persisted binding alone does not enable the button');
-  buttons[0].props.onClick();
-  assert.match(studio.calls[0].url, /\/api\/m2\/lifecycle\/status\?/);
-  studio.calls[0].resolve(studio.view);await flushStudio();
-  buttons = studio.actionButtons();
-  assert.equal(buttons[1].props.disabled, false);
-  assert.match(studio.pane.msgs.at(-1).text, /Navržený úplný obsah/);
-  buttons[1].props.onClick();
-  assert.equal(studio.calls.length, 2);
-  assert.equal(studio.calls[1].url, 'http://fixture.invalid/api/m2/lifecycle/approve');
-  assert.equal(JSON.parse(studio.calls[1].options.body).planDigest, studio.view.planDigest);
-  assert.equal(studio.actionButtons()[1].props.disabled, true);
-  studio.calls[1].resolve(studio.terminal());await flushStudio();
-  assert.deepEqual(studio.actionButtons().map(button => button.children[0]), ['Opravit předchozí návrh']);
-  assert.equal(studio.session._m2Pending, null, 'repair action cannot approve the cancelled plan');
-});
-
-test('changing a loaded plan digest disables its approval button', async () => {
-  const studio = controlledStudio({ activeM1: false });
-  studio.command('/m2-status');studio.calls[0].resolve(studio.view);await flushStudio();
-  const oldApprove = studio.actionButtons()[1];
-  studio.session._m2Pending = { ...studio.session._m2Pending, planDigest: 'sha256:' + 'b'.repeat(64) };
-  assert.equal(studio.actionButtons()[1].props.disabled, true);
-  studio.session._m2PresentedPlan = studio.session._m2Pending;
-  assert.equal(studio.actionButtons()[1].props.disabled, false, 'new render belongs to the new exact binding');
-  oldApprove.props.onClick();
-  assert.equal(studio.calls.length, 1);
-  assert.match(studio.pane.msgs.at(-1).text, /Zobrazený plán se změnil/);
-});
-
-test('action buttons preserve chat/attachment send exclusion even when the rendered button is stale', async () => {
-  for (const kind of ['model-turn', 'prepared-attachment']) {
-    const studio = controlledStudio({ activeM1: false });
-    studio.command('/m2-status');studio.calls[0].resolve(studio.view);await flushStudio();
-    const oldButtons = studio.actionButtons();
-    if (kind === 'model-turn') studio.setActiveM1(true);else studio.pane._preparedSend = {};
-    assert.equal(studio.actionButtons()[0].props.disabled, true);
-    assert.equal(studio.actionButtons()[1].props.disabled, true);
-    oldButtons[0].props.onClick();oldButtons[1].props.onClick();
-    assert.equal(studio.calls.length, 1, 'no status or approval overlaps the pending send');
-    const cancel = studio.actionButtons()[2];
-    assert.equal(cancel.props.disabled, false, 'cancel remains usable');
-    cancel.props.onClick();assert.match(studio.calls[1].url, /\/cancel$/);
-    studio.calls[1].resolve(studio.terminal());await flushStudio();
-  }
-});
-
-test('project wizard preserves the draft and current sessions when creation is rejected or unconfirmed', async () => {
-  for (const [status, payload] of [[409, { error: 'Projekt tohoto názvu už existuje.' }], [500, { error: 'Storage unavailable' }], [201, { path: '/unconfirmed' }]]) {
-    const data = { name: 'Fan', pathMode: 'auto', path: '', description: 'RPM widget', type: 'general' };
-    const wizard = { active: true, step: 5, data, saving: false, defaultDir: '/stale/default' };
-    let routes = 0; const logs = []; const requests = [];
-    const context = vm.createContext({
-    WorkActivity, setTimeout, clearTimeout, _projectWizard: wizard, AbortSignal, _backendUrl: () => '',
-      _showWorkspace() {}, renderCenter() {}, _wizardRestoreLayout() { throw Error('must preserve form'); },
-      _smartRouteToRelay() { routes++; }, window: { _intentsmith: { agentLog: (...args) => logs.push(args) } },
-      fetch: async (url, options) => { requests.push({ url, body: JSON.parse(options.body) });
-        return { ok: status < 300, status, json: async () => payload }; },
-    });
-    vm.runInContext(functionSlice('_wizardSubmit', 'centerProjectWizard'), context);
-    await vm.runInContext('_wizardSubmit()', context);
-    assert.equal(wizard.active, true); assert.equal(wizard.saving, false);
-    assert.equal(wizard.data, data); assert.ok(wizard.error);
-    assert.equal(routes, 0, 'failed creation must not relabel or detach any existing conversation');
-    assert.equal(requests.length, 1); assert.equal(requests[0].body.path, null, 'backend owns automatic default directory');
-    assert.equal(logs.some(row => row.join(' ').includes('Projekt vytvořen:')), false);
-  }
-});
-
-test('opening a registered project clears foreign context and ignores stale asynchronous responses', async () => {
-  const calls = [];
-  const session = { _projectId: 1, _convId: 'old-conversation', _agentId: 'old-agent',
-    chat: { msgs: [], _projectWorkProposal: { old: true }, _m2Composer: { old: true } } };
-  const context = vm.createContext({
-    WorkActivity, setTimeout, clearTimeout, _sessions: [session], _backendUrl: () => '', AbortSignal,
-    _showWorkspace() {}, _chatInvalidatePreparedSends() {}, _loadWorkspaceTree() {}, _syncFocusClass() {}, _persistSessionState() {},
-    renderChat() {}, _chatScrollPane() {}, requestAnimationFrame(fn) { fn(); },
-    fetch(url) { return new Promise(resolve => calls.push({ url, resolve(body, status = 200) {
-      resolve({ ok: status >= 200 && status < 300, status, json: async () => body });
-    } })); },
-  });
-  vm.runInContext(functionSlice('_openRegisteredProject', '_wizardCanNext'), context);
-  const first = vm.runInContext('_openRegisteredProject(0,{id:2,name:"External",path:"/external"})', context);
-  assert.equal(session._convId, null); assert.equal(session._agentId, null);
-  assert.equal(session.chat._projectWorkProposal, null); assert.equal(session.chat._m2Composer, null);
-  const second = vm.runInContext('_openRegisteredProject(0,{id:3,name:"Next",path:"/next"})', context);
-  calls[0].resolve({ conversations: [{ id: 'stale', project_id: 2 }] }); await first;
-  assert.equal(calls.length, 2, 'stale response must not even load another history');
-  calls[1].resolve({ conversations: [{ id: 'current', project_id: 3 }] }); await flushStudio();
-  calls[2].resolve([{ role: 'user', content: 'Existing project goal' }]); await second;
-  assert.equal(session._convId, 'current'); assert.equal(session.chat.msgs.at(-1).text, 'Existing project goal');
-  const failed = vm.runInContext('_openRegisteredProject(0,{id:4,name:"Failed",path:"/failed"})', context);
-  calls[3].resolve({ error: 'HTTP failure' }, 500); await failed;
-  assert.equal(session._convId, null); assert.equal(session.chat.msgs.at(-1).tag, 'ERROR');
-  assert.match(session.chat.msgs.at(-1).text, /HTTP failure/);
+test('canonical terminal survives restart through a bound durable read and exposes result, test, exact diff and audit', async () => {
+  const f = fixture(), entry = await pending(f); entry.presentedView = entry.view;
+  f.control.response = terminal(f.view, 'succeeded'); await f.m2.run(f.session, '/m2-approve');
+  let vm = f.model.wsVM(f.model.st(), f.session.id);
+  assert.equal(vm.m2State, 'succeeded'); assert.equal(vm.m2HasEvidence, true);
+  for (const field of ['terminal', 'result', 'focusedTest', 'git', 'governanceReceipt', 'src/a.js', 'before', 'after']) assert.ok(vm.m2Evidence.includes(field));
+  assert.deepEqual(new SessionStore(f.storage).focusedSession()._m2Last, f.session._m2Last);
+  entry.view = null; await f.m2.run(f.session, '/m2-status');
+  assert.equal(new URL(f.calls.at(-1).url).searchParams.get('id'), f.view.lifecycleId);
+  vm = f.model.wsVM(f.model.st(), f.session.id); assert.equal(vm.m2State, 'succeeded'); assert.equal(f.session._m2Pending, null);
 });

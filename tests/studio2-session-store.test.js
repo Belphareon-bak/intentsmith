@@ -49,6 +49,28 @@ test('five sessions in three columns swap an already visible session', () => {
   assert.equal(reboot.state.sessions.length, 5);
 });
 
+test('legacy editor and specialist workspace keep their original session owners and keys', () => {
+  const sessions = JSON.stringify({ sessionActive: 2, sessions: [
+    { convId: 'closed', closed: true }, { convId: 'project', projectId: 9 },
+    { convId: 'specialist', specialistData: { id: 'accountant-cz' } }] });
+  const editors = JSON.stringify({ version: 2, sessions: [
+    { openFiles: [{ path: '/closed/private' }] },
+    { openFiles: [{ path: '/project/notes.txt' }], activePath: '/project/notes.txt' }, { openFiles: [] }] });
+  const workspaces = JSON.stringify({ 'accountant-cz': { files: ['ledger.txt'], conversations: [{ id: 'specialist' }] } });
+  const memory = storage({ [V1_KEY]: sessions, 'intentsmith-editor-state': editors,
+    'intentsmith-specialist-workspaces': workspaces });
+  const store = new SessionStore(memory);
+  assert.deepEqual(store.state.sessions[0]._legacyEditor, { paths: ['/project/notes.txt'], activePath: '/project/notes.txt' });
+  assert.deepEqual(store.state.sessions[1]._focusFiles, ['ledger.txt']);
+  assert.equal(store.focusedSession()._convId, 'specialist');
+  assert.deepEqual(store.specialistFiles('accountant-cz'), ['ledger.txt']);
+  assert.deepEqual(store.specialistFiles('unknown'), []);
+  assert.equal(memory.getItem('intentsmith-editor-state'), editors);
+  assert.equal(memory.getItem('intentsmith-specialist-workspaces'), workspaces);
+  assert.equal(memory.getItem(V1_KEY), sessions);
+  assert.deepEqual(new SessionStore(memory).state.sessions[0]._legacyEditor, store.state.sessions[0]._legacyEditor);
+});
+
 test('sixth session evicts only the oldest safe session hidden before opening', () => {
   const mem = storage();
   const store = new SessionStore(mem);

@@ -826,7 +826,7 @@ test('separate visual DOM journey requires explicit opt-in and keeps default M0/
   assert.match(source, /if \(m2ComposerJourney\) childEnv\[M2_COMPOSER_JOURNEY_ENV\] = '1'/);
   assert.match(source, /const composerProbe = m2ComposerJourney\s*\? await import\('\.\/helpers\/studio-m2-composer-dom\.js'\)\s*: null/);
   assert.match(source, /Number\(m1Journey\) \+ Number\(m2ComposerJourney\) \+ Number\(studio2ModeJourney\) > 1/);
-  assert.match(probe, /document\.getElementById/);
+  assert.match(probe, /document\.querySelector/);
   assert.match(probe, /HTMLTextAreaElement\.prototype/);
   assert.match(probe, /dispatchEvent\(new Event\('input'/);
   assert.doesNotMatch(probe, /window\._intentsmith|_m2HandleStudioCommand|_m2SubmitComposer|\.onClick\(|fetch\s*=/);
@@ -879,8 +879,8 @@ test('composer PASS evidence requires actual rejection, exact input, context che
   assert.throws(() => successEvidence({ ...args, m2ComposerJourney: true, buildComposer: null }), /composer-evidence-contract-failed/);
   assert.throws(() => successEvidence({ ...args, m2ComposerJourney: true, m1Journey: true }), /composer-evidence-contract-failed/);
   const uiModes = {
-    classicInitiallyAttached: true, studio2ExclusivelyAttached: true,
-    oneReusedTransportInStudio2: true, classicRestored: true,
+    studio2InitiallyAttached: true, studio2ExclusivelyAttached: true,
+    oneReusedTransportInStudio2: true, legacyFlagsCannotRestoreClassic: true,
     fiveSessionsWithoutTopTabs: true, visibleSessionSwap: true,
     sixthSessionKeepsLimit: true, headerEndsSession: true,
     capacityGuardProtectsDrafts: true, capacityNoticeExpires: true,

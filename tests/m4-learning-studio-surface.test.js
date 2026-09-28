@@ -1,117 +1,87 @@
-import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
-
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const studioPath = path.join(
-  root,
-  'intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js',
-);
-const source = await readFile(studioPath, 'utf8');
-
-function functionSlice(name, nextName) {
-  const start = source.indexOf(`function ${name}`);
-  assert.notEqual(start, -1, `${name} must exist`);
-  const end = source.indexOf(`function ${nextName}`, start + 1);
-  assert.notEqual(end, -1, `${nextName} must exist after ${name}`);
-  return source.slice(start, end);
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { readFile } from 'node:fs/promises';
+const require = createRequire(import.meta.url);
+const { COMMANDS, parseCommand, validateReview, validateList, renderReview, runCommand } =
+  require('../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/learning-commands');
+const ID = 'lpr1:' + 'a'.repeat(64);
+function review() {
+  return { contract: 'LearningProposalReview', version: 1, projectId: 17, state: 'pending',
+    proposal: { projectId: 17, proposalId: ID, title: 'Title', rationale: 'Evidence', confidenceBps: 7000,
+      adaptation: { key: 'style', value: { concise: true }, changesPermissions: false, changesCode: false, changesConfig: false },
+      retention: { ttlMs: 1000 }, observationIds: ['o1', 'o2'] },
+    observations: ['o1', 'o2'].map(observationId => ({ contract: 'LearningObservation', projectId: 17, observationId,
+      evidence: [{ evidenceId: 'e', digest: 'sha256:' + 'b'.repeat(64), workspaceRevision: 'wsr1:' + 'c'.repeat(64) }] })),
+    currentOutcome: null };
 }
-
 test('Studio exposes only explicit project-bound M4 learning commands', () => {
-  const handler = functionSlice('_m4HandleLearningCommand', '_chatSendPane');
-  for (const command of [
-    '/m4-learning',
-    '/m4-learning-show',
-    '/m4-learning-approve',
-    '/m4-learning-reject',
-    '/m4-learning-weaken',
-    '/m4-learning-rollback',
-    '/m4-learning-delete',
-  ]) assert.match(source, new RegExp(command.replaceAll('/', '\\/')));
-  assert.match(handler, /\/api\/projects\/'\+encodeURIComponent\(projectId\)\+'\/learning\/proposals/);
-  assert.match(handler, /_m4LearningProject\(s\)/);
-  assert.match(handler, /_m4AssertCurrentProject\(idx,s,projectId\)/);
-  assert.doesNotMatch(handler, /projectPath|actorId|authenticatedSubject/);
-  assert.match(handler, /M4_STUDIO_ATTACHMENTS_NOT_ALLOWED/);
+  assert.deepEqual([...COMMANDS].sort(), ['/m4-learning', '/m4-learning-show', '/m4-learning-approve',
+    '/m4-learning-reject', '/m4-learning-weaken', '/m4-learning-rollback', '/m4-learning-delete'].sort());
+  for (const project of [null, 0, -1, 1.5, '17']) assert.throws(() => parseCommand('/m4-learning', project));
+  assert.equal(parseCommand('/m4-learning', 17).path, '/api/projects/17/learning/proposals?state=pending&limit=50');
+  assert.equal(parseCommand('ano', 17), null);
 });
-
-test('all M4 HTTP success is gated by Response.ok and typed failures retain code and status', () => {
-  const transport = functionSlice('_m4LearningFetchJSON', '_m4LearningProposalId');
-  assert.match(transport, /credentials:'same-origin'/);
-  assert.match(transport, /if\(!r\.ok\)/);
-  assert.match(transport, /payload\.code/);
-  assert.match(transport, /status:r\.status/);
-  assert.doesNotMatch(transport, /ok:true/);
+test('all M4 HTTP success is gated by Response.ok and typed failures retain code and status', async () => {
+  await assert.rejects(runCommand({ text: '/m4-learning', projectId: 17, backendUrl: () => 'http://local',
+    assertContext: () => assert.fail('failed HTTP must not render'), fetchImpl: async (_url, options) => {
+      assert.equal(options.credentials, 'same-origin');
+      return { ok: false, status: 409, json: async () => ({ code: 'M4_CONFLICT', error: 'conflict' }) };
+    } }), { code: 'M4_CONFLICT', status: 409 });
 });
-
 test('Studio validates exact proposal, same-project observations, digests and current outcome', () => {
-  const validator = functionSlice('_m4RequireLearningReview', '_m4RequireLearningList');
-  for (const evidence of [
-    "view.contract!=='LearningProposalReview'",
-    'view.version!==1',
-    'view.projectId!==projectId',
-    'observation.projectId!==projectId',
-    'observation.observationId!==view.proposal.observationIds[i]',
-    "!/^sha256:[0-9a-f]{64}$/.test(evidence.digest)",
-    "!/^wsr1:[0-9a-f]{64}$/.test(evidence.workspaceRevision)",
-    'view.currentOutcome.proposalId!==view.proposal.proposalId',
-  ]) assert.ok(validator.includes(evidence), evidence);
-  const listValidator = functionSlice('_m4RequireLearningList', '_m4LearningDisplay');
-  assert.match(listValidator, /LearningProposalReviewList/);
-  assert.match(listValidator, /view\.reviews\.length>100/);
-  assert.match(listValidator, /_m4RequireLearningReview/);
+  assert.equal(validateReview(review(), 17, ID).projectId, 17);
+  for (const mutate of [v => v.version = 2, v => v.projectId = 18, v => v.proposal.projectId = 18,
+    v => v.proposal.proposalId = 'other', v => v.observations[0].projectId = 18,
+    v => v.observations[0].observationId = 'other', v => v.observations[0].evidence[0].digest = 'bad',
+    v => v.observations[0].evidence[0].workspaceRevision = 'bad', v => v.currentOutcome = {},
+    v => { v.state = 'active'; v.currentOutcome = { projectId: 17, proposalId: 'other', status: 'approved' }; }]) {
+    const value = review(); mutate(value); assert.throws(() => validateReview(value, 17, ID));
+  }
+  const list = { contract: 'LearningProposalReviewList', version: 1, projectId: 17, stateFilter: 'pending', reviews: [review()] };
+  assert.equal(validateList(list, 17, 'pending'), list);
+  assert.throws(() => validateList({ ...list, reviews: Array(101).fill(review()) }, 17, 'pending'));
+  assert.throws(() => validateList(list, 18, 'pending'));
 });
-
 test('proposal rendering shows rationale, adaptation, retention, provenance and explicit user gates', () => {
-  const renderer = functionSlice('_m4RenderLearningReview', '_m4RenderLearningList');
-  for (const label of [
-    'Proposal ID:',
-    'Rationale:',
-    'Pattern key:',
-    'Pattern value:',
-    'Changes permissions/code/config:',
-    'TTL ms:',
-    'Observation IDs:',
-    'Exact evidence:',
-    'digest:',
-    'workspaceRevision:',
-    'Explicit approval:',
-    'Explicit rejection:',
-    'Obecné „ano“ tento proposal nikdy neschválí.',
-    'Rollback:',
-    'Delete tombstone:',
-  ]) assert.ok(renderer.includes(label), label);
+  const text = renderReview(review());
+  for (const label of ['Proposal ID:', 'Rationale:', 'Pattern key:', 'Pattern value:', 'Changes permissions/code/config:',
+    'TTL ms:', 'Observation IDs:', 'Exact evidence:', 'digest:', 'workspaceRevision:', 'Explicit approval:', 'Explicit rejection:',
+    'Obecné „ano“ tento návrh nikdy neschválí.']) assert.ok(text.includes(label), label);
+  const active = review(); active.state = 'active'; active.currentOutcome = { proposalId: ID, projectId: 17, status: 'approved' };
+  for (const label of ['Rollback:', 'Delete tombstone:']) assert.ok(renderReview(active).includes(label));
 });
-
 test('mutating commands require exact proposal ID plus reason or exact weaken JSON', () => {
-  const reasonParser = functionSlice('_m4ParseIdReason', '_m4ParseWeaken');
-  assert.match(reasonParser, /lpr1:\[0-9a-f\]\{64\}/);
-  assert.match(reasonParser, /length>4096/);
-  const weakenParser = functionSlice('_m4ParseWeaken', '_m4BeginLearningCommand');
-  assert.match(weakenParser, /JSON\.parse/);
-  assert.match(weakenParser, /confidenceBps,reason,value/);
-  assert.match(weakenParser, /Number\.isSafeInteger\(body\.confidenceBps\)/);
-  assert.match(weakenParser, /body:\{confidenceBps:body\.confidenceBps,reason:body\.reason\.trim\(\),value:body\.value\}/);
+  for (const action of ['approve', 'reject', 'rollback', 'delete']) {
+    const command = '/m4-learning-' + action;
+    assert.throws(() => parseCommand(command + ' ' + ID, 17));
+    assert.throws(() => parseCommand(command + ' ' + ID + ' ' + 'x'.repeat(4097), 17));
+    assert.deepEqual(parseCommand(command + ' ' + ID + ' explicit reason ', 17).body, { reason: 'explicit reason' });
+  }
+  assert.deepEqual(parseCommand('/m4-learning-weaken ' + ID + ' {"confidenceBps":5000,"reason":" why ","value":{}}', 17).body,
+    { confidenceBps: 5000, reason: 'why', value: {} });
+  for (const body of ['{}', '{"confidenceBps":1.5,"reason":"why","value":{}}',
+    '{"confidenceBps":5000,"reason":"why","value":{},"actorId":"forged"}'])
+    assert.throws(() => parseCommand('/m4-learning-weaken ' + ID + ' ' + body, 17));
 });
-
-test('handler sends only bounded derived bodies and revalidates every response after context check', () => {
-  const handler = functionSlice('_m4HandleLearningCommand', '_chatSendPane');
-  assert.match(handler, /body=\{reason:parsed\.reason\}/);
-  assert.match(handler, /body=weaken\.body/);
-  assert.match(handler, /options\.body=JSON\.stringify\(body\)/);
-  assert.match(handler, /_m4AssertCurrentProject\(idx,s,projectId\)/);
-  assert.match(handler, /_m4RequireLearningList\(view,projectId,state\)/);
-  assert.match(handler, /_m4RequireLearningReview\(view,projectId,proposalId\)/);
-  assert.doesNotMatch(handler, /\bfetch\(/);
+test('handler sends only bounded derived bodies and revalidates every response after context check', async () => {
+  const calls = [];
+  const options = { text: '/m4-learning-approve ' + ID + ' confirmed', projectId: 17,
+    backendUrl: () => 'http://local', assertContext: () => calls.push('context'),
+    fetchImpl: async (url, opts) => { calls.push('request');
+      assert.equal(url, 'http://local/api/projects/17/learning/proposals/' + encodeURIComponent(ID) + '/approve');
+      assert.deepEqual(JSON.parse(opts.body), { reason: 'confirmed' });
+      return { ok: true, json: async () => review() }; } };
+  assert.match(await runCommand(options), /Exact evidence:/);
+  assert.deepEqual(calls, ['request', 'context']);
+  await assert.rejects(runCommand({ ...options, assertContext: () => { throw Error('changed project'); } }), /changed project/);
+  await assert.rejects(runCommand({ ...options, fetchImpl: async () => ({ ok: true, json: async () => ({}) }) }));
 });
-
-test('M4 commands dispatch before edit mode and ordinary WebSocket chat send', () => {
-  const send = functionSlice('_chatSendPane', '_chatGapChoice');
-  const dispatch = send.indexOf('_m4HandleLearningCommand(idx,s,st,ta,t,cmd,arg)');
-  const edit = send.indexOf("if(cmd==='/edit')");
-  const ordinarySend = send.indexOf('_chatTryWsSend(txt,s,idx)');
-  assert.ok(dispatch >= 0 && dispatch < edit && dispatch < ordinarySend);
-  assert.match(send, /if\(_m4HandleLearningCommand\(idx,s,st,ta,t,cmd,arg\)\)return/);
+test('M4 commands dispatch before ordinary WebSocket chat send and reject attachments', async () => {
+  const source = await readFile(new URL('../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/view/live-model.js', import.meta.url), 'utf8');
+  const send = source.slice(source.indexOf('  pSend('), source.indexOf('  pApprove('));
+  assert.ok(send.indexOf('LEARNING_COMMANDS') < send.indexOf('this.widget.send('));
+  const start = source.indexOf('  runLearningCommand('), handler = source.slice(start, source.indexOf('  ', start + 30));
+  assert.match(source.slice(start), /chat\.attachments\.length/);
+  assert.match(source.slice(start), /M4_STUDIO_CONTEXT_CHANGED/);
 });

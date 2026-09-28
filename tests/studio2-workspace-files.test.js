@@ -31,6 +31,20 @@ const files = new WorkspaceFiles({ backendUrl: () => 'http://127.0.0.1:1234',
   return { ok: true, json: async () => ({ path: 'src/main.js', content: saved ? 'new' : 'old', hash: saved ? 'new-hash' : 'old-hash' }) };
 } });
 assert.equal(await files.loadTree(session), true);
+const migrated = { id: 'legacy-editor', _projectId: 5, _openedFiles: [], _legacyEditor: {
+  paths: ['/tmp/project/src/main.js', '/tmp/project-other/private', '/tmp/project/../private'],
+  activePath: '/tmp/project/src/main.js' } };
+assert.equal(await files.loadTree(migrated), true);
+assert.deepEqual(migrated._openedFiles, ['src/main.js']);
+assert.equal(files.entry(migrated).editor.path, 'src/main.js');
+assert.equal(migrated._legacyEditor, null);
+const escaped = { id: 'escaped-editor', _projectId: 5, _openedFiles: [], _legacyEditor: {
+  paths: ['/tmp/project-other/private'], activePath: '/tmp/project-other/private' } };
+const readsBefore = calls.length;
+assert.equal(await files.loadTree(escaped), true);
+assert.deepEqual(escaped._openedFiles, []);
+assert.equal(files.entry(escaped).editor, null);
+assert.equal(calls.length, readsBefore + 1, 'foreign files are not read during migration');
 assert.equal(await files.open(session, '../escape'), false);
 assert.equal(await files.open(session, 'src/main.js'), true);
 assert.deepEqual(verifiedProjects, [], 'opening a file must not refresh SCM');

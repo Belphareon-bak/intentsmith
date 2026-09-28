@@ -27,6 +27,23 @@ function plan() {
 }
 function generated(value) { return { content: JSON.stringify(value), finishReason: 'stop' }; }
 
+test('project discussion includes verified expertise guidance without granting effects', async t => {
+  const project = await fixture(t);
+  const { expertiseRegistry } = await import('../src/expertises/expertise-layer.js');
+  const expert = expertiseRegistry.get('developer').toJSON();
+  const response = await discussProject('Zhodnoť projekt.', { project,
+    projectExpertises: [{ ...expert, weight: 0.5 }] }, { generate: async ({ prompt }) => {
+      const value = JSON.parse(prompt);
+      assert.ok(value.expertiseGuidance.length > 20);
+      assert.match(fitProjectDiscussionPrompt(prompt, 8192).systemPrompt, /cannot override.*approval requirements/);
+      return generated({ reply: 'Odborné posouzení', plan: null });
+    } });
+  assert.equal(response.metadata.mode, 'PROJECT');
+  assert.equal(response.metadata.canExecute, false);
+  assert.deepEqual(response.metadata.expertiseIds, ['developer']);
+  assert.equal(response.metadata.projectWorkProposal, null);
+});
+
 test('incremental project plans run both a new test file and the preserved acceptance suite', async t => {
   const project = await fixture(t);
   const previous = 'import test from "node:test"; test("existing behavior", () => {});\n';
@@ -38,7 +55,7 @@ test('incremental project plans run both a new test file and the preserved accep
     generate: async () => generated({ reply: 'A separate tested increment.', plan: next }),
   });
   const profile = response.metadata.projectWorkProposal.draft.focusedTest;
-  const run = () => execFileSync(profile.binary, profile.argv, { cwd: project.path, encoding: 'utf8',
+  const run = () => execFileSync(profile.binary, ['--test-reporter=tap', ...profile.argv], { cwd: project.path, encoding: 'utf8',
     env: Object.fromEntries(Object.entries(process.env).filter(([key]) => key !== 'NODE_TEST_CONTEXT')) });
   await fs.writeFile(path.join(project.path, 'test/io.test.mjs'), 'import test from "node:test"; test("new behavior", () => { throw Error("new regression"); });\n');
   assert.throws(run, error => error.status === 1 && error.stdout.includes('new regression'));
@@ -441,7 +458,9 @@ test('actual HTTP creation/import preserves foreign files, rejects collisions an
 test('open-folder route works read-only and refreshes an already registered repository', async t => {
   const project = await fixture(t);
   const calls = [];
-  const deps = { db: { projects: { registerExternal: () => ({ project, wasExisting: true }) } },
+  const deps = { db: { projects: { findByPath: { get: () => project },
+    registerExternal: () => ({ project, wasExisting: true }) },
+    db: { prepare: () => ({ get: () => ({ value: 'false' }) }) } },
     parseBody: async () => ({ folderPath: project.path }), sendJSON: (_res, status, value) => calls.push({ status, value }),
     safeError: e => ({ error: e.message }), logger: { warn() {}, error() {} } };
   const routes = createProjectRoutes(deps);

@@ -2,7 +2,7 @@
 
 // Renderer receives only one-use grants from preload. Keep the selected bytes
 // in File objects; neither the M1 DTO nor persisted session state contains paths.
-const TEXT = /\.(js|ts|jsx|tsx|mjs|cjs|py|json|md|txt|css|scss|html|htm|yaml|yml|xml|csv|tsv|sql|sh|bash|zsh|env|cfg|ini|log|toml|rs|go|java|c|cpp|h|hpp|cs|rb|php|swift|kt|r|lua|vue|svelte|dart|graphql|gql|proto|tf|dockerfile|makefile|cmake|properties|conf|lock|gitignore|gitattributes|dockerignore|npmrc|nvmrc|rst|adoc|tex|org|nix|diff|patch)$/i;
+const TEXT = /\.(js|ts|jsx|tsx|mjs|cjs|py|json|md|txt|css|scss|html|htm|yaml|yml|xml|csv|tsv|sql|sh|bash|zsh|env|cfg|ini|log|toml|rs|go|java|c|cpp|h|hpp|cs|rb|php|swift|kt|r|lua|pl|ex|erl|hs|ml|vue|svelte|dart|graphql|gql|proto|tf|dockerfile|makefile|cmake|properties|conf|lock|gitignore|gitattributes|dockerignore|npmrc|nvmrc|rst|adoc|tex|org|nix|diff|patch)$/i;
 const MIME = Object.freeze({ png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', pdf: 'application/pdf', heic: 'image/heic', heif: 'image/heif' });
 const TEXT_MAX = 1024 * 1024;
 const IMAGE_MAX = 5 * 1024 * 1024;

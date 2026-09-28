@@ -12,6 +12,7 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
     const facts = panel?.querySelector('.dev-facts strong')?.textContent?.trim();
     const activeSide = root?.querySelector('.rp .ptabs .ptab.on')?.textContent?.trim();
     return {
+      reloadPending: Boolean(window.__studio2ReloadProbe),
       mode: window.__intentsmithStudioMode || null,
       switchReady: typeof window.IntentSmithStudioMode?.selectMode === 'function',
       classicSidebar: Boolean(document.getElementById('intentsmith-sidebar')),
@@ -58,9 +59,6 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
     }
     fail('studio2-mode-timeout', { stage: label, last });
   };
-  const classic = await waitFor(s => s.mode === 'classic' && s.switchReady
-    && s.classicSidebar && s.classicChat && !s.studio2 && s.transport, 'initial-classic');
-  await evaluate(cdp, `(() => { setTimeout(() => window.IntentSmithStudioMode.selectMode('studio2'), 0); return true; })()`);
   const studio2 = await waitFor(s => s.mode === 'studio2' && s.studio2
     && !s.classicSidebar && !s.classicChat && s.transport && s.bus && !s.classicFacade
     && s.busListeners['chat:message'] === 1 && s.busListeners['chat:terminal'] === 1
@@ -140,9 +138,8 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
   })()`);
   const closed = await waitFor(s => s.openSessions === 4 && s.columnSessions.length === 2
     && !s.columnSessions.includes(swapped.columnSessions[2]), 'header-ends-session');
-  await evaluate(cdp, `(() => { setTimeout(() => window.IntentSmithStudioMode.selectMode('classic'), 0); return true; })()`);
-  const restored = await waitFor(s => s.mode === 'classic' && s.classicSidebar && s.classicChat && !s.studio2, 'classic-restored');
-  await evaluate(cdp, `(() => { setTimeout(() => window.IntentSmithStudioMode.selectMode('studio2'), 0); return true; })()`);
+  await evaluate(cdp, `(() => { localStorage.setItem('intentsmith-studio-ui-mode', 'classic'); localStorage.setItem('intentsmith-studio2-view', 'legacy'); window.__studio2ReloadProbe = true; setTimeout(() => window.electronTheiaCore.requestReload(), 0); return true; })()`);
+  const restored = await waitFor(s => !s.reloadPending && s.mode === 'studio2' && s.studio2 && !s.classicSidebar && !s.classicChat && !s.switchReady, 'legacy-flags-cannot-restore-classic');
   const persisted = await waitFor(s => s.mode === 'studio2' && s.studio2 && !s.classicChat
     && s.sessionTabs === 0 && s.openSessions === 4
     && s.columnSessions.every((value, i) => value === closed.columnSessions[i]), 'session-restore');
@@ -267,12 +264,12 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
     saved.columns[0] = 'studio2-e2e-session';
     saved.focusedColumn = 0;
     localStorage.setItem(key, JSON.stringify(saved));
-    setTimeout(() => window.IntentSmithStudioMode.selectMode('classic'), 0);
+    window.__studio2ReloadProbe = true;
+    setTimeout(() => window.electronTheiaCore.requestReload(), 0);
     return true;
   })()`);
-  await waitFor(s => s.mode === 'classic' && s.classicChat && !s.studio2, 'specialist-storage-restart-classic');
-  await evaluate(cdp, `(() => { setTimeout(() => window.IntentSmithStudioMode.selectMode('studio2'), 0); return true; })()`);
-  await waitFor(s => s.mode === 'studio2' && s.columnSessions.includes('Specialistický test'), 'specialist-storage-restart-studio2');
+
+  await waitFor(s => !s.reloadPending && s.mode === 'studio2' && s.columnSessions.includes('Specialistický test'), 'specialist-storage-restart-studio2');
   await evaluate(cdp, `(() => {
     const root = document.querySelector('#intentsmith-studio2 [data-studio-ui="studio2"]');
     [...root.querySelectorAll('.rp .ptabs .ptab')].find(node => node.textContent.trim().startsWith('Soubory')).click();
@@ -297,13 +294,13 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
   })()`);
   const localAttached = await waitFor(s => s.composerAttachments.includes('studio2-e2e.txt'), 'specialist-explicit-attachment');
   return Object.freeze({
-    classicInitiallyAttached: classic.classicSidebar && classic.classicChat,
+    studio2InitiallyAttached: studio2.studio2 && !studio2.classicSidebar && !studio2.classicChat,
     studio2ExclusivelyAttached: studio2.studio2 && !studio2.classicSidebar && !studio2.classicChat,
     oneReusedTransportInStudio2: studio2.transport && studio2.bus
       && studio2.busListeners['chat:message'] === 1 && studio2.busListeners['chat:terminal'] === 1
       && studio2.busListeners['terminal:output'] === 1 && studio2.busListeners['terminal:line'] === 1
       && studio2.terminalClient && !studio2.classicFacade,
-    classicRestored: restored.classicSidebar && restored.classicChat && !restored.studio2,
+    legacyFlagsCannotRestoreClassic: restored.studio2 && !restored.classicSidebar && !restored.classicChat && !restored.switchReady,
     fiveSessionsWithoutTopTabs: five.sessionTabs === 0 && five.openSessions === 5 && five.columnSessions.length === 3,
     sixthSessionKeepsLimit: capped.openSessions === 5 && capped.columnSessions.length === 3,
     capacityGuardProtectsDrafts: blocked.openSessions === 5 && blocked.capacityToast.includes('nejprve'),

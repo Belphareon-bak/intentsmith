@@ -290,7 +290,7 @@ await testAsync('port 0 is valid for dynamic allocation', async () => {
 });
 
 test('FE _backendBase discovery pattern (window.electronIntentSmith)', () => {
-  // Simulate the FE discovery pattern used in chat-panel-module.js
+  // Historical bridge URL compatibility; active CatalogStore requires the verified preload backend URL.
   const globalObj = {};
 
   // Case 1: electronIntentSmith available

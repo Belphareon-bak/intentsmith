@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { execFileSync as runStudio2BehaviorTests } from 'node:child_process';
 //
 // Decision 020/E — model automation policy has its own storage.
 //
@@ -455,28 +456,7 @@ await testAsync('the failover coordinator reads only this authority', async () =
   });
 });
 
-test('the Studio backup surface no longer treats a failure as success', () => {
-  const fs = require('node:fs');
-  const source = fs.readFileSync(
-    new URL('../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js', import.meta.url),
-    'utf8',
-  );
-  const start = source.indexOf("'Zálohujte svá nastavení");
-  const end = source.indexOf('/* v91: Feature Flags panel */', start);
-  assert(start >= 0 && end > start, 'the backup panel is present');
-  const panel = source.slice(start, end);
 
-  // Import goes through the explicit versioned adapter and checks the status.
-  assert(/\/api\/settings\/import/.test(panel), 'import uses the explicit adapter');
-  assert(/version:1,settings:data/.test(panel), 'import declares its version');
-  // Reset goes through the audited path.
-  assert(/\/api\/reset/.test(panel), 'reset uses the audited path');
-  assertEqual(
-    (panel.match(/if\(!r\.ok\)throw new Error/g) || []).length,
-    2,
-    'both import and reset check response.ok',
-  );
-});
 
 
 suite('M1 model automation policy — preserved 061 upgrade authority');
@@ -650,4 +630,10 @@ await testAsync('unknown extensions of either policy schema fail closed without 
   }
 });
 
+
+// Active Studio 2 adapters replace source extraction from the retired React monolith.
+test('m1-model-automation-policy: active Studio 2 integration coverage', () => {
+  const output = runStudio2BehaviorTests(process.execPath, ['--test', '--test-reporter=tap', 'tests/studio2-model-workspace.test.js', 'tests/studio2-live-model.test.js'], { cwd: new URL('..', import.meta.url), encoding: 'utf8', timeout: 120000, env: { ...process.env, NODE_TEST_CONTEXT: undefined } });
+  if (!/# fail 0/.test(output)) throw new Error('Active Studio 2 tests did not complete: ' + output);
+});
 summary();

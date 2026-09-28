@@ -291,3 +291,13 @@ listeneru. Reprodukovaný souběh je pokryt řízeným před/po experimentem,
 Produkt, UI a síťová policy se nemění. Historický 71968508 má shodnou chybovou
 signaturu, ale chybí časování pro jistou zpětnou atribuci. Stav REVIEW_PENDING.
 [Samostatný review rozsah](../review/2026-09-12-STUDIO-M1-RESTART-REVIEW-PACKET.md).
+
+## Studio 2 — změna frontend graphu 28. 9. 2026
+
+Aktivní frontend je `intentsmith-studio2/lib/browser/studio2-module.js` a
+React vrstva generovaná z `docs/studio2/prototype/src`. `LiveModel` napojuje
+stávající API. `intentsmith-chat-panel` poskytuje WS klienta, sběrnici,
+aktivitu, klienta agenta a terminálu bez UI registrace. Historické poznámky
+o ručním `chat-panel-module.js` výše popisují dřívější verzi; tento klasický
+JS entrypoint je odstraněn. Jeho konzumenti jsou převedeni a inventarizováni
+v `docs/studio2/TEST-MIGRATION.md`; postbuild a balík odmítají starý renderer.

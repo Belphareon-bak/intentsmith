@@ -19,6 +19,14 @@ const OUT = path.join(EXT, 'lib', 'browser', 'view', 'generated');
 const SCOPE = '.intentsmith-studio2-widget';
 // Tapety jsou na plátně prototypu nahrané jako assety; rozšíření má vlastní kopie.
 const WALLPAPERS = { matrix: '../../styles/bg-matrix.jpg', japanese: '../../styles/bg-japanese.jpg', midnight: '../../styles/bg-midnight.jpg' };
+const LOCAL_FONTS = [
+  ['Inter', 'inter-Inter-opsz-wght.ttf', '100 900'],
+  ['JetBrains Mono', 'jetbrainsmono-JetBrainsMono-wght.ttf', '100 800'],
+  ['Plus Jakarta Sans', 'plusjakartasans-PlusJakartaSans-wght.ttf', '200 800'],
+  ['Share Tech Mono', 'sharetechmono-ShareTechMono-Regular.ttf', '400'],
+  ['Zen Kaku Gothic Antique', 'zenkakugothicantique-ZenKakuGothicAntique-Regular.ttf', '400'],
+  ['Yuji Boku', 'yujiboku-YujiBoku-Regular.ttf', '400'],
+];
 
 const HEADER = '// VYGENEROVÁNO scripts/build-view.js z docs/studio2/prototype – needitovat ručně.\n';
 
@@ -199,7 +207,10 @@ function buildCss(template) {
   });
   if (/\/_blob\//.test(tokens)) throw new Error('V motivech zůstal odkaz na asset plátna');
   const css = decode(style.replace('/*THEMES*/', tokens)).replace(/\/\*[\s\S]*?\*\//g, '');
-  return scopeCss(css).replace(/animation:(\s*)(pulse|spin)\b/g, 'animation:$1s2-$2');
+  // Replace the prototype's remote font links with the pinned local assets.
+  const fonts = LOCAL_FONTS.map(([family, file, weight]) =>
+    `@font-face { font-family: "${family}"; src: url("../../styles/fonts/${file}") format("truetype"); font-style: normal; font-weight: ${weight}; font-display: swap; }`).join('\n');
+  return fonts + '\n' + scopeCss(css).replace(/animation:(\s*)(pulse|spin)\b/g, 'animation:$1s2-$2');
 }
 
 // ---------- výstup ----------

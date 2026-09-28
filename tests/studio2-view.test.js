@@ -13,13 +13,12 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const EXT = path.join(ROOT, 'intentsmith-ide/extensions/intentsmith-studio2');
 const PROTO = path.join(ROOT, 'docs/studio2/prototype');
 
-// The private trial should open the new UI immediately. A saved classic choice
-// must still take precedence until S2-7 removes the old runtime.
+// Studio 2 is the sole renderer, including profiles saved by classic Studio.
 const browserEntry = readFileSync(path.join(ROOT,
   'intentsmith-ide/applications/electron/intentsmith-browser-entry.js'), 'utf8');
 for (const [saved, preview, expected] of [
   [null, true, 'studio2'], ['studio2', false, 'studio2'],
-  ['classic', true, 'classic'], [null, false, 'classic'],
+  ['classic', true, 'studio2'], [null, false, 'studio2'],
 ]) {
   const loaded = [];
   const window = { localStorage: { getItem: () => saved },
@@ -43,7 +42,7 @@ for (const value of ['1', '0']) {
   module.exports.preload();
   assert.equal(bridge.preferStudio2Preview(), value === '1');
 }
-console.log('PASS Studio 2 trial default and explicit classic choice');
+console.log('PASS Studio 2 is the sole renderer for new and existing profiles');
 
 // 1) Vizuální vrstva je vygenerovaná z prototypu a odpovídá mu bajtově.
 execFileSync(process.execPath, [path.join(EXT, 'scripts/build-view.js'), '--check'], { stdio: 'inherit' });
