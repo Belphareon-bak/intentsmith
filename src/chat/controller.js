@@ -467,6 +467,7 @@ export class ChatController {
    * @returns {Promise<TaggedResponse>}
    */
   async process(input, context = {}) {
+    throwIfAborted(context.signal);
     // ═══ Safety Pre-Check ═══════════════════════════════════════════════════
     try {
       const safetyVerdict = SafetyEngine.check(input, context);
@@ -501,6 +502,7 @@ export class ChatController {
       : request.unresolved
         ? { clarity: { kind: 'clarify', slot: 'intent_meaning', reason: 'acknowledgement_does_not_resolve_choice', question: request.question, options: request.options }, understanding: pending.metadata.intentUnderstanding }
         : await creDecisionEngine.inspectRequest(request.source, context, { supersededSources: request.supersededSources });
+    throwIfAborted(context.signal);
     const clarity = inspected.clarity;
     if (pending && clarity?.kind !== 'clarify') state.clearPendingDecision();
     if (clarity) {

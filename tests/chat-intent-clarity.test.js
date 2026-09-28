@@ -40,6 +40,7 @@ try {
     ['Ulož odpověď do notes.md', action([slot('action', 'Ulož'), slot('target', 'notes.md', 'Notes.md')])],
     ['Pošli zprávu alice@example.test', action([slot('action', 'Pošli'), slot('recipient', 'alice@example.test', 'bob@example.test')])],
     ['Neulož nic do notes.md', action([slot('action', 'ulož'), slot('target', 'notes.md')])],
+    ['Nesmaž notes.md', action([slot('action', 'Nesmaž'), slot('target', 'notes.md')])],
     ['zapni službu', action([slot('action', 'zapni', 'vypni'), slot('target', 'službu')])],
   ];
   for (const [input, understanding] of changes) {
@@ -128,6 +129,15 @@ try {
       const answer = await handleAnswerDecision('Nesmaž notes.md', negation, {});
       assert.match(answer.content, /zákaz akce/);
       assert.equal(calls, 1, 'negation does not reach answer synthesis');
+      delete engine._llmClassifyIntent;
+      llmGateway.call = async () => { throw new Error('controlled provider failure'); };
+      await assert.rejects(engine.inspectRequest('ulzo odpoved do notes.md'), { code: 'LLM_PROVIDER_UNAVAILABLE' });
+      llmGateway.call = async () => ({ content: '' });
+      await assert.rejects(engine.inspectRequest('ulzo odpoved do notes.md'), { code: 'LLM_PROVIDER_UNAVAILABLE' });
+      llmGateway.call = async () => ({ content: JSON.stringify({ intent: IntentType.FILE_WRITE, confidence: 0.95, fileTarget: 'notes.md', understanding }), finishReason: 'length' });
+      await assert.rejects(engine.inspectRequest('ulzo odpoved do notes.md'), { code: 'MODEL_RESPONSE_TRUNCATED' });
+      llmGateway.call = async () => ({ content: 'invalid JSON', finishReason: 'stop' });
+      assert.equal((await engine.inspectRequest('ulzo odpoved do notes.md')).clarity.kind, 'clarify');
     } finally { llmGateway.call = oldCall; }
   }
   {

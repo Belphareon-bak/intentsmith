@@ -35,6 +35,7 @@ import { extractJSON } from '../llm/client.js';
 import { config } from '../config.js';
 import { featureManager } from '../core/feature-manager.js';
 import { throwIfAborted } from '../core/abort-error.js';
+import { isChatTurnError, LLMProviderUnavailableError, ModelResponseTruncatedError } from '../core/chat-turn-error.js';
 import { buildProjectHint } from './handlers/utils/project-context-prompt.js';
 import { assessIntentClarity, issueIntentEvidence, getIntentEvidence } from './intent-clarity.js';
 
@@ -2221,7 +2222,7 @@ export class CREDecisionEngine {
       };
       return { token: issueIntentEvidence(input, null, understanding), understanding, classification: null };
     }
-    const classification = await this._llmClassifyIntent(input, context);
+    const classification = await this._llmClassifyIntent(input, context, { strictFailure: true });
     const understanding = classification?.understanding;
     const clarity = assessIntentClarity(input, understanding, options);
     if (clarity) return { clarity, understanding, classification };
@@ -2468,7 +2469,7 @@ export class CREDecisionEngine {
    * @returns {Promise<{intent: string, confidence: number, fileTarget?: string} | null>}
    *          Parsed classification or null on failure
    */
-  async _llmClassifyIntent(input, context = {}) {
+  async _llmClassifyIntent(input, context = {}, { strictFailure = false } = {}) {
     const VALID_INTENTS = Object.values(IntentType);
 
     // v72: Conversation context REMOVED from classification prompt.
@@ -2549,8 +2550,10 @@ PRAVIDLA:
         signal: context.signal,
       });
 
+      if (strictFailure && result?.finishReason === 'length') throw new ModelResponseTruncatedError();
       if (!result?.content) {
         logger.warn('CRE:LLM', 'LLM classifier returned empty response');
+        if (strictFailure) throw new LLMProviderUnavailableError('INTENT_CLASSIFIER_EMPTY');
         return null;
       }
 
@@ -2675,6 +2678,7 @@ PRAVIDLA:
       if (context.signal?.aborted) {
         throwIfAborted(context.signal);
       }
+      if (strictFailure) throw isChatTurnError(err) ? err : new LLMProviderUnavailableError('INTENT_CLASSIFIER_FAILED');
       logger.warn('CRE:LLM', `LLM intent classification failed: ${err.message}`, {
         input: input.substring(0, 60),
       });

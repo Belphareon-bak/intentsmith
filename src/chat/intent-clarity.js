@@ -5,6 +5,7 @@ const evidence = new WeakMap();
 const ROLES = new Set(['action', 'target', 'quantity', 'value', 'unit', 'negation', 'scope', 'recipient']);
 const fold = value => String(value).normalize('NFD').replace(/[\u0300-\u036f]/gu, '').toLowerCase().replace(/\s+/gu, ' ').trim();
 const bounded = (value, max = 512) => typeof value === 'string' && value.trim().length > 0 && value.length <= max;
+const NEGATION_PATTERN = /\b(?:not|never|without|do\s+not|ne|nikdy|nechci|ne(?:pis|posil|maz|smaz|men|zmen|nastav|spust|sniz|zvys|uklad|uloz|prepis|odesil|odesli)[a-z]*)\b/gu;
 
 const question = (reason, text, options = []) => ({ kind: 'clarify', reason, slot: 'intent_meaning', question: text, options });
 
@@ -14,7 +15,7 @@ function protectedLiterals(input) {
     /[\p{L}\d._%+-]+@[\p{L}\d.-]+\.[\p{L}]{2,}/gu,
     /(?:^|\s)(?:[\p{L}\d_./-]+\.[\p{L}\d_-]+)(?=$|[\s,;!?])/gu,
     /[+-]?\d+(?:[.,]\d+)?\s*[%°]?/gu,
-    /\b(?:not|never|without|do\s+not|ne|nikdy|nechci|ne(?:pis|posil|maz|smaz|men|zmen|nastav|spust|sniz|zvys|uklad|uloz|prepis|odesil|odesli)[a-z]*)\b/gu,
+    NEGATION_PATTERN,
   ];
   return [...new Set(patterns.flatMap(pattern => [...fold(input).matchAll(pattern)].map(match => match[0].trim())))];
 }
@@ -46,6 +47,10 @@ export function assessIntentClarity(input, understanding, { supersededSources = 
   }
   if (understanding.kind === 'action') {
     if (!understanding.slots.some(slot => slot.role === 'action')) return question('action_missing', 'Jakou konkrétní akci chceš provést? Zatím nic nespouštím.');
+    const missingNegation = [...fold(input).matchAll(NEGATION_PATTERN)].map(match => match[0]).find(literal =>
+      !understanding.slots.some(slot => slot.role === 'negation' && fold(slot.source).includes(literal))
+      && !supersededSources.some(value => fold(value).includes(literal)));
+    if (missingNegation) return question('negation_unverified', `V zadání je zákaz „${missingNegation}“, který interpretace nezachovává jako zákaz. Která akce je zakázaná? Zatím nic nespouštím.`);
     const omitted = protectedLiterals(input).find(literal => !understanding.slots.some(slot => fold(slot.source).includes(literal))
       && !supersededSources.some(value => fold(value).includes(literal)));
     if (omitted) return question('material_value_omitted', `V interpretaci chybí údaj „${omitted}“. Jak má být v požadované akci použit? Zatím nic nespouštím.`);

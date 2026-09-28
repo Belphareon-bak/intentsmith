@@ -68,6 +68,11 @@ import {
   normalizeLegacyLocalOrigins,
 } from '../src/security/legacy-local-access-policy.js';
 import { createGlobalAuthAuthority } from '../src/security/global-auth-policy.js';
+import { config } from '../src/config.js';
+
+// This offline protocol suite must never contact a real model provider,
+// including through a newly introduced classifier or future handler hook.
+config.ollama.baseUrl = 'invalid://ws-bridge-no-provider';
 
 let passed = 0;
 let failed = 0;
@@ -788,6 +793,10 @@ console.log('\n🧠 Controller Hook Emission');
 
 // Import ChatController components
 import { ChatController, ChatMode, ResponseSpeaker, ResponseTag, TaggedResponse } from '../src/chat/controller.js';
+import { creDecisionEngine } from '../src/chat/cre-decision.js';
+const originalClassifier = creDecisionEngine._llmClassifyIntent;
+creDecisionEngine._llmClassifyIntent = async () => ({ intent: 'CONVERSATIONAL', confidence: 1,
+  understanding: { version: 1, kind: 'information', slots: [], ambiguities: [] } });
 
 await asyncTest('T13: ChatController.process calls onCREDecision hook', async () => {
   let hookCalled = false;
@@ -3760,6 +3769,7 @@ test('T40: production server explicitly activates the accepted M1 wire', () => {
 // Results
 // ═════════════════════════════════════════════════════════════════════════════
 
+creDecisionEngine._llmClassifyIntent = originalClassifier;
 console.log(`\n${'═'.repeat(60)}`);
 console.log(`WS Bridge Tests: ${passed} passed, ${failed} failed, ${passed + failed} total`);
 console.log(`${'═'.repeat(60)}\n`);
