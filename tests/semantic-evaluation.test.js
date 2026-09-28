@@ -9,7 +9,7 @@ import { SemanticEvaluationJudge, parseSemanticJudgement, semanticTask, calibrat
 import { SEMANTIC_ROLE_SUITES } from '../src/eval/semantic-role-suites.js';
 import { ModelEvaluationRunner } from '../src/eval/model-evaluation-runner.js';
 import { RoleQualityEvaluationRunner } from '../src/eval/role-quality-suites.js';
-import { hash, judgeMessages, parseJudge, referenceErrors, assertNotSelf, assertJudgeFamily, panelJobs, verifyPanelReceipt, EVIDENCE_FIRST, EVIDENCE_CHECKED, declaredEvidenceScores, checkPower } from '../scripts/manual/judge-panel-protocol.mjs';
+import { hash, judgeMessages, parseJudge, referenceErrors, assertNotSelf, assertJudgeFamily, panelJobs, verifyPanelReceipt, EVIDENCE_FIRST, EVIDENCE_CHECKED, EVIDENCE_FOCUSED, declaredEvidenceScores, checkPower } from '../scripts/manual/judge-panel-protocol.mjs';
 import { assertResumableReceipt, finalizeJudgePanel } from '../scripts/manual/judge-panel-lifecycle.mjs';
 
 const artifact={modelName:'fixture:latest',digestSha256:'a'.repeat(64),providerVersion:'test-provider'};
@@ -397,5 +397,18 @@ test('large CHAT collector is blocked before GPU use without a verified pilot',(
       '--out='+directory,'--stage=screen','--expected-plan='+hash(plan)],{encoding:'utf8',timeout:10000});
     assert.equal(run.status,1);assert.match(run.stderr,/CHAT_PILOT_REQUIRED/);assert.doesNotMatch(run.stderr,/QUIET_POWER_LIMIT_REQUIRED/);
   } finally {rmSync(directory,{recursive:true,force:true});}
+});
+test('focused judge checks one original criterion with complete dialogue and strict evidence output',()=>{
+  const item={role:'CHAT',question:'Original task',response:'Turn 1 wrong; turn 2 corrected',rubric:['Factual accuracy'],context:{calendarFacts:[{date:'2026-09-28',weekday:'Monday'}],otherCriterionBoundaries:['Tone']}};
+  const messages=judgeMessages(item,false,EVIDENCE_FOCUSED),payload=JSON.parse(messages[1].content);
+  assert.equal(payload.answer,item.response);assert.equal(payload.question,item.question);
+  assert.equal(payload.criterionToGrade,item.rubric[0]);assert.deepEqual(payload.context,item.context);
+  assert.equal(payload.criteria,undefined);
+  assert.throws(()=>judgeMessages({...item,rubric:['One','Two']},false,EVIDENCE_FOCUSED),/SINGLE_CRITERION/);
+  const result=rows=>({done:true,doneReason:'stop',content:JSON.stringify({criteria:rows})});
+  assert.equal(parseJudge(result([{criterion:1,evidence:'Turn 1 is unsupported; turn 2 corrects it.',score:.5}]),1,EVIDENCE_FOCUSED).valid,true);
+  assert.match(parseJudge(result([{criterion:1,evidence:'Score 1.0',score:0}]),1,EVIDENCE_FOCUSED).reason,/CONTRADICTORY/);
+  assert.match(parseJudge(result([{criterion:1,score:1,evidence:'Checked'}]),1,EVIDENCE_FOCUSED).reason,/PRECEDE/);
+  assert.equal(parseJudge(result([{criterion:1,evidence:'Checked',score:1,requirement:'copied'}]),1,EVIDENCE_FOCUSED).valid,false);
 });
 summary();
