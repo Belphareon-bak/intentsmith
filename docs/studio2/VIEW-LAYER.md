@@ -414,3 +414,8 @@ Navazující oprava: `conversationMeta` a prototyp používají pro ikony
 v existujícím profilu SessionStore uchovává použití i po zavření. Projektový
 a konverzační detail sdílí formát `dateText`. Pro větší nastavení jsou
 pravidla stále v prototypu, nikoli ruční změna generované React vrstvy.
+
+Po odmítnutí A/B/C operátorem je konec palety azurový / mátový / zelený,
+bez olivové podobné žlutému chatu. Nastavení používá plné podklady s
+kontrastní kresbou (`--set-ink`) a dvanáct různých symbolů z prototypu.
+Není přidán nový přepínač palety ani nové nastavení produktu.

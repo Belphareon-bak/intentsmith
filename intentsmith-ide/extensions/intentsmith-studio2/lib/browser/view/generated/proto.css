@@ -119,8 +119,8 @@
 .intentsmith-studio2-widget .num{font-variant-numeric:tabular-nums}
 .intentsmith-studio2-widget .grow{flex-grow:1}
 .intentsmith-studio2-widget .faint{color:var(--faint)}
-.intentsmith-studio2-widget .dark{--cat-chat:#facc15;--cat-project:#ff7373;--cat-specialist:#b18aff;--cat-expertise:#60a5fa;--cat-worker:#54ccb9;--cat-market:#7fd798;--cat-media:#b1cf77;--set-ucet:#67c1e8;--set-modely:#aa9cf6;--set-pamet:#65cbaa;--set-oznameni:#e3c064;--set-vystup:#80adeb;--set-vzhled:#c69bea;--set-system:#80bbc1;--set-uloziste:#dfa66f;--set-zalohy:#b6cd79;--set-prepinace:#9badda;--set-zabezpeceni:#69c790;--set-about:#b7a5d3}
-.intentsmith-studio2-widget .light{--cat-chat:#855700;--cat-project:#b91c1c;--cat-specialist:#6d28d9;--cat-expertise:#1d4ed8;--cat-worker:#136f62;--cat-market:#236d36;--cat-media:#587326;--set-ucet:#226b8c;--set-modely:#6250b2;--set-pamet:#247759;--set-oznameni:#8e6818;--set-vystup:#3e64a2;--set-vzhled:#8451a8;--set-system:#386b75;--set-uloziste:#956028;--set-zalohy:#5f7627;--set-prepinace:#4e6693;--set-zabezpeceni:#29794b;--set-about:#70558c}
+.intentsmith-studio2-widget .dark{--cat-chat:#facc15;--cat-project:#ff7373;--cat-specialist:#b18aff;--cat-expertise:#60a5fa;--cat-worker:#50c7d6;--cat-market:#55c99e;--cat-media:#7abf62;--set-ink:#10141b;--set-ucet:#53b6e8;--set-modely:#9b8bed;--set-pamet:#49baa8;--set-oznameni:#dcaf42;--set-vystup:#8e9cca;--set-vzhled:#b18ad7;--set-system:#c89e78;--set-uloziste:#6eafbf;--set-zalohy:#8cbd79;--set-prepinace:#cf916e;--set-zabezpeceni:#56b483;--set-about:#9cabc8}
+.intentsmith-studio2-widget .light{--cat-chat:#855700;--cat-project:#b91c1c;--cat-specialist:#6d28d9;--cat-expertise:#1d4ed8;--cat-worker:#176b7a;--cat-market:#216e51;--cat-media:#396b24;--set-ink:#ffffff;--set-ucet:#235f7e;--set-modely:#665093;--set-pamet:#236c61;--set-oznameni:#825f17;--set-vystup:#435576;--set-vzhled:#79568e;--set-system:#856343;--set-uloziste:#2f6574;--set-zalohy:#4c703d;--set-prepinace:#875938;--set-zabezpeceni:#286346;--set-about:#516273}
 .intentsmith-studio2-widget .tone-amber{--tc:var(--cat-chat)}
 .intentsmith-studio2-widget .tone-red,.intentsmith-studio2-widget .tone-rose{--tc:var(--cat-project)}
 .intentsmith-studio2-widget .tone-violet{--tc:var(--cat-specialist)}
@@ -427,7 +427,7 @@
 .intentsmith-studio2-widget .dico{width:40px;height:40px;border-radius:9px;background:var(--acc-soft);color:var(--acct);display:grid;place-items:center;flex:0 0 auto}
 .intentsmith-studio2-widget .toned .dico,.intentsmith-studio2-widget .dico.always{color:var(--tc);background:color-mix(in srgb,var(--tc) 12%,transparent)}
 .intentsmith-studio2-widget .tico.neutral,.intentsmith-studio2-widget .lico.neutral,.intentsmith-studio2-widget .dico.neutral{color:var(--dim);background:var(--panel3)}
-.intentsmith-studio2-widget .tico[class*="tone-set-"],.intentsmith-studio2-widget .lico[class*="tone-set-"],.intentsmith-studio2-widget .dico[class*="tone-set-"]{color:var(--tc);background:color-mix(in srgb,var(--tc) 16%,var(--panel));border:1px solid color-mix(in srgb,var(--tc) 35%,var(--border))}
+.intentsmith-studio2-widget .tico[class*="tone-set-"],.intentsmith-studio2-widget .lico[class*="tone-set-"],.intentsmith-studio2-widget .dico[class*="tone-set-"]{color:var(--set-ink);background:var(--tc);border:1px solid color-mix(in srgb,var(--tc) 75%,var(--text))}
 .intentsmith-studio2-widget .tico[class*="tone-set-"]{width:40px;height:40px;border-radius:10px}
 .intentsmith-studio2-widget .tico[class*="tone-set-"] .ic{width:22px;height:22px;stroke-width:1.9}
 .intentsmith-studio2-widget .lico[class*="tone-set-"] .ic{width:17px;height:17px;stroke-width:1.9}
