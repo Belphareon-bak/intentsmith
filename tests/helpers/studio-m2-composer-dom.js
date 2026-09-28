@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 
 // Visual DOM probe, invoked only by the explicit studio-m2-composer-dom journey.
 // Session assignment below is fixture setup; all form actions use DOM events.
@@ -140,7 +141,9 @@ export async function rendererBuildComposerProbe({ cdp, paths, requests, evaluat
     origin: { surface: 'studio', sessionId: result.conversationId, conversationId: result.conversationId, projectId: result.projectId }, draft };
   let actual;
   try { actual = JSON.parse(drafts[0].postData); } catch { fail('composer-request-payload-unavailable'); }
-  if (JSON.stringify(actual) !== JSON.stringify(expected)) fail('composer-request-payload-changed');
+  // Object key order is not part of the HTTP JSON contract. Array order and
+  // every character of instructions and literal argv remain exact.
+  if (!isDeepStrictEqual(actual, expected)) fail('composer-request-payload-changed', { actual, expected });
   if (fs.existsSync(path.join(projectPath, '.intentsmith/m2-governance-policy.json'))
     || draft.files.some(file => fs.existsSync(path.join(projectPath, file.path)))) fail('composer-rejection-mutated-project');
   return Object.freeze({ scope: 'built-dom-production-authenticated-provider-rejection',
