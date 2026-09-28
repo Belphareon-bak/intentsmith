@@ -534,6 +534,31 @@ posunuté požadavky, stav akceptace před a teď, odstraněné a zbylé blocker
 zavlečené nebo nalezené regrese, rozhodnutí, která operátor skutečně musí
 udělat, a další nejcennější spustitelný krok. Ne počty commitů a testů.
 
+### Povinná publikace schváleného milníku
+
+**Rozhodnutí operátora, 2026-09-28.** Každý schválený milník se před
+závěrečným handoffem commituje a pushne do GitHub repozitáře IntentSmithu.
+Agent k tomuto pushi nevyžaduje další jednotlivé potvrzení. Commit zahrnuje
+vlastněné změny a dokumentaci výsledku; cizí necommitnutou práci nepřebírá.
+
+Publikuje se konkrétní větev a přesný schválený commit. Pokud už větev
+obsahuje další rozpracované commity, schválený bod musí zůstat dosažitelný
+z publikované větve a handoff jej výslovně pojmenuje. Push novějšího
+kandidáta nemění jeho `REVIEW_PENDING`, `CHANGES_REQUIRED` ani jiný stav.
+Publikace není merge do `main`, nasazení ani release acceptance.
+
+Po pushi agent znovu načte stav vzdálené větve z GitHubu a ověří shodu SHA
+nebo dosažitelnost schváleného commitu z jejího novějšího HEAD. Lokální
+remote-tracking ref ani úspěšný commit nejsou důkazem publikace. Handoff
+obsahuje větev, přesné SHA schváleného bodu, odkaz na GitHub a výsledek
+ověření. Milník se nesmí předat jako kompletně uzavřený, pokud jeho publikace
+nebyla ověřena; při neúspěchu se uvede `PUBLISH_BLOCKED`, konkrétní důvod a
+zachová se samostatně skutečný stav technické přejímky.
+
+Push nesmí přepisovat vzdálenou historii. Případná divergence se řeší
+integrací, nikoli automatickým force-pushem. Výjimkou z povinné publikace
+je pouze explicitní pokyn operátora pro konkrétní výstup, že se nemá pushovat.
+
 ### Podle čeho se milníky berou
 
 `ROADMAP.md §13` — závazná Gate 1 fronta. Sedmá položka, autorizovaný GPU
