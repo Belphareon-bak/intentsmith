@@ -1141,6 +1141,14 @@ function buildFailureFallback(input, decision, executionResult, context) {
 async function handleAnswerDecision(input, decision, context) {
   const { sessionId } = context;
 
+  if (decision.reason === 'explicit_negation' && decision.metadata?.deterministicAnswer) {
+    return new TaggedResponse({
+      content: decision.metadata.deterministicAnswer,
+      tag: new ResponseTag({ speaker: ResponseSpeaker.SYSTEM, mode: context.mode || ChatMode.CONVERSATION,
+        confidence: 1, canExecute: false, metadata: { decision: decision.toJSON() } }),
+    });
+  }
+
   try {
     // Lazy import CRE bridge to avoid circular dependencies
     const creBridge = await import('../../llm/cre-bridge.js');

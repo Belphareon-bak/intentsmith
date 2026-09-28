@@ -36,6 +36,7 @@ import { config } from '../config.js';
 import { featureManager } from '../core/feature-manager.js';
 import { throwIfAborted } from '../core/abort-error.js';
 import { buildProjectHint } from './handlers/utils/project-context-prompt.js';
+import { assessIntentClarity, issueIntentEvidence, getIntentEvidence } from './intent-clarity.js';
 
 // v73: Lazy import to avoid circular dependency (followup.js → intent.js → cre-decision.js)
 let _detectFollowUpType = null;
@@ -826,14 +827,13 @@ const DETERMINISTIC_LIVE_SEARCH_PATTERNS = [
 const EXPLICIT_SEARCH_COMMAND_PATTERN = /(?:vyhledej|najdi\s+(?:na\s+)?internetu|hledej\s+na\s+webu|search\s+(?:the\s+)?web|look\s+up|google)/iu;
 
 // Ollama treats a context-size change as a different runner configuration.
-// Forcing 1024 on the same artifact used by CHAT therefore evicts and reloads
-// a large model between classification and answer generation. Preserve the
-// compact context only when the operator configured a genuinely separate FAST
-// artifact; otherwise let the shared model use its registered context.
+// A different context on the CHAT artifact evicts and reloads its runner.
+// A separate FAST runner needs room for cited slots and JSON output; the
+// shared model retains its registered context.
 function classifierNumCtxOverride() {
   const fastModel = config.models?.FAST;
   if (typeof fastModel !== 'string' || fastModel.length === 0) return null;
-  return fastModel === config.models?.CHAT ? null : 1024;
+  return fastModel === config.models?.CHAT ? null : 4096;
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -2208,6 +2208,40 @@ export class CREDecisionEngine {
     this._overrideThreshold = 0.85;
   }
 
+  /** One semantic inspection for the whole chat turn, before any mode handler. */
+  async inspectRequest(input, context = {}, options = {}) {
+    const deterministicIntent = this.classifyIntent(input);
+    // Local computations cannot produce an external/state-changing effect.
+    // Explicit slash commands already have a literal parser and exact authority.
+    const literalCommand = /^\/[a-z][a-z0-9-]*(?:\s|$)/u.test(input);
+    if (deterministicIntent === IntentType.LOCAL || isGratitudeOrFarewell(input) || literalCommand) {
+      const understanding = {
+        version: 1, kind: literalCommand ? 'action' : 'information',
+        slots: literalCommand ? [{ role: 'action', name: 'příkaz', source: input, value: input }] : [], ambiguities: [],
+      };
+      return { token: issueIntentEvidence(input, null, understanding), understanding, classification: null };
+    }
+    const classification = await this._llmClassifyIntent(input, context);
+    const understanding = classification?.understanding;
+    const clarity = assessIntentClarity(input, understanding, options);
+    if (clarity) return { clarity, understanding, classification };
+    if (!classification || !Object.values(IntentType).includes(classification.intent)
+        || !Number.isFinite(classification.confidence) || classification.confidence < 0.7 || classification.confidence > 1) {
+      return { clarity: { kind: 'clarify', slot: 'intent_meaning', reason: 'classification_uncertain', question: 'Jakou konkrétní akci nebo odpověď potřebuješ? Interpretace zatím není dostatečně jistá; nic nespouštím.' }, understanding };
+    }
+    // A material filename suggested by a model must be a cited target, never
+    // an invented replacement that merely passes filesystem syntax checks.
+    const projectListing = Boolean(context.project?.id || context.hasActiveProject)
+      && classification.intent === IntentType.FILE_READ
+      && DETERMINISTIC_PROJECT_LISTING_PATTERNS.some(pattern => pattern.test(input))
+      && this.classifyIntent(input) === IntentType.FILE_READ && extractFilePath(input) === '.';
+    if (classification.fileTarget && !(projectListing && classification.fileTarget === '.')
+        && !understanding.slots.some(slot => slot.role === 'target' && slot.value === classification.fileTarget)) {
+      return { clarity: { kind: 'clarify', slot: 'intent_meaning', reason: 'target_not_grounded', question: `Jaký přesný soubor chceš použít? Navržený cíl „${classification.fileTarget}“ není doložen zadáním. Nic nespouštím.` }, understanding };
+    }
+    return { token: issueIntentEvidence(input, classification, understanding, projectListing ? { 'file.list': { path: '.' } } : {}), understanding, classification };
+  }
+
   /**
    * Bind a DB prepared statement set for persistent override/intercept logging.
    * Called from server.js after DB init.
@@ -2463,7 +2497,14 @@ export class CREDecisionEngine {
       ? `\n- Aktivní expertíza: ${_exp.id} (${_exp.outputBias || 'neutral'}). Při nejednoznačnosti preferuj CONVERSATIONAL interpretaci.`
       : '';
 
-    const systemPrompt = `Klasifikuj záměr uživatele. Vrať JSON: {"intent":"X","confidence":0.9,"fileTarget":null}
+    const systemPrompt = `Klasifikuj záměr uživatele. Vrať JSON: {"intent":"X","confidence":0.9,"fileTarget":null,"understanding":{"version":1,"kind":"information","slots":[],"ambiguities":[]}}
+
+POROZUMĚNÍ:
+- kind information = vysvětlení, návrh nebo obsah; kind action = skutečně provést operaci.
+- Každá požadovaná akce má slots: {"role":"action|target|quantity|value|unit|negation|scope|recipient","name":"název údaje","source":"přesný citát ze vstupu","value":"stejný původní údaj"}.
+- U akce cituj sloveso a všechny podstatné cíle, veličiny, čísla, jednotky, adresáty, rozsah a zákazy. source i value musí být shodná doslovná část vstupu, také u překlepů. Překlep zohledni při klasifikaci intent; žádný citovaný údaj nepřepisuj.
+- Pokud je požadavek nesmyslný, sporný nebo má více významů, přidej ambiguities: {"slot":"název údaje","question":"jedna konkrétní otázka","options":["první význam","druhý význam"]}. Nehádej motiv a nevybírej význam za uživatele.
+- Výslovné upřesnění uživatele má přednost jen pro upřesněný údaj. Ostatní údaje zachovej. Obecné ano neřeší volbu mezi významy.
 
 ZÁMĚRY:
 FILE_WRITE: uložit/zapsat do souboru
@@ -2484,7 +2525,7 @@ AMBIGUOUS: nejasný záměr
 PRAVIDLA:
 - "ulož/zapiš/hoď to do souboru" → FILE_WRITE
 - "napiš kód" → CODE (ne FILE_WRITE)
-- Soubor jako cíl → extrahuj do fileTarget (POUZE název, bez cest)
+- Soubor jako cíl → extrahuj do fileTarget přesný název nebo projektovou relativní cestu ze vstupu
 - Český "rust" = růst → CONVERSATIONAL/SEARCH, ne CODE
 - DESIGN = POUZE softwarová architektura/IT projekty. Itinerář, jídelníček, tréninkový plán, výlet → CREATIVE, ne DESIGN
 - "spusť skill/recept/proceduru X" → SKILL. "vytvořit/přidat expertizu" → SKILL. SKILL = spuštění existujícího postupu nebo vytvoření nové expertizy${projectHint}${expertiseHint}`;
@@ -2501,10 +2542,9 @@ PRAVIDLA:
         model: config.models?.FAST || config.models?.CHAT,
         format: 'json',
         temperature: 0.1,
-        // v72: maxTokens 150→80 (actual output ~30-40 tokens without reasoning)
-        maxTokens: 80,
-        // A dedicated FAST artifact needs <500 prompt tokens and can keep a
-        // compact runner. A shared CHAT artifact must retain one runner shape.
+        // Budget includes source-cited slots and clarification alternatives.
+        maxTokens: 768,
+        // Keep the existing configured classification runner shape.
         ...(classificationNumCtx === null ? {} : { num_ctx: classificationNumCtx }),
         signal: context.signal,
       });
@@ -3277,8 +3317,32 @@ PRAVIDLA:
     } else {
       // Phase 1: LLM structured classification (primary)
       const _classStart = performance.now();
-      const llmResult = await this._llmClassifyIntent(input, context);
+      const inspected = getIntentEvidence(context.intentEvidence);
+      const llmResult = inspected?.classification && (input === inspected.source || context.intentSourceText === inspected.source)
+        ? inspected.classification
+        : await this._llmClassifyIntent(input, context);
       _classificationTimeMs = Math.round(performance.now() - _classStart);
+
+      const semanticIssue = !inspected && llmResult?.understanding
+        ? assessIntentClarity(input, llmResult.understanding) : null;
+      const extractedTarget = llmResult?.intent === IntentType.FILE_WRITE
+        ? extractWriteFilePath(input) : null;
+      const inventedTarget = llmResult?.fileTarget && !inspected
+        && (!input.includes(llmResult.fileTarget) || (extractedTarget && extractedTarget !== llmResult.fileTarget));
+      if (semanticIssue?.kind === 'clarify' || inventedTarget) {
+        return _makeDecision({
+          type: DecisionType.ASK_USER, intent: IntentType.AMBIGUOUS, slots: ['intent_meaning'],
+          reason: semanticIssue?.reason || 'target_not_grounded', confidence: 1,
+          metadata: {
+            clarificationText: semanticIssue?.question || `Jaký přesný soubor chceš použít? Navržený cíl „${llmResult.fileTarget}“ mění původní zadání. Nic nespouštím.`,
+            clarificationOptions: semanticIssue?.options || [], intentSource: input,
+            intentUnderstanding: llmResult?.understanding || null, unresolvedName: semanticIssue?.unresolvedName || null,
+          },
+        });
+      }
+      if (semanticIssue?.kind === 'no_effect') {
+        return _makeDecision({ type: DecisionType.ANSWER, intent: IntentType.CONVERSATIONAL, reason: semanticIssue.reason, confidence: 1, metadata: { deterministicAnswer: semanticIssue.answer } });
+      }
 
       // v71.1: Confidence AND required fields validation
       // LLM confidence alone is not enough — action intents need valid metadata.

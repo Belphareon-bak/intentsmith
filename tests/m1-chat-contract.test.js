@@ -668,6 +668,12 @@ await testAsync('timeout at the last pre-persistence seam stays timeout and cann
 
 suite('M1 chat — conversation-owned state and terminal handler failures');
 
+// These cases isolate terminal handler/persistence behavior. Supply a valid
+// controlled interpretation so the new pre-handler gate reaches that boundary.
+const terminalClassifier = creDecisionEngine._llmClassifyIntent;
+creDecisionEngine._llmClassifyIntent = async () => ({ intent: 'CONVERSATIONAL', confidence: 1,
+  understanding: { version: 1, kind: 'information', slots: [], ambiguities: [] } });
+
 await testAsync('two conversations sharing one transport cannot share state or turns', async () => {
   resetConversationStore();
   const store = getConversationStore(null);
@@ -855,6 +861,8 @@ await testAsync('handler truncation cannot cross the controller persistence boun
     resetConversationStore();
   }
 });
+
+creDecisionEngine._llmClassifyIntent = terminalClassifier;
 
 test('serialized conversation fields survive a SessionState round-trip', () => {
   const original = new SessionState('m1-state-round-trip');

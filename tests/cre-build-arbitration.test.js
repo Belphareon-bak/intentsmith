@@ -41,7 +41,7 @@ await testAsync('classification context stays resident when FAST shares the CHAT
     config.models.FAST = config.models.CHAT;
     assertEqual(_testCREInternals.classifierNumCtxOverride(), null);
     config.models.FAST = 'dedicated-fast:1b';
-    assertEqual(_testCREInternals.classifierNumCtxOverride(), 1024);
+    assertEqual(_testCREInternals.classifierNumCtxOverride(), 4096);
   } finally {
     if (hadFast) config.models.FAST = originalFast;
     else delete config.models.FAST;

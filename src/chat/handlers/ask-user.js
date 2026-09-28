@@ -61,7 +61,7 @@ export function handleAskUserDecision(input, decision, context) {
  * v44.2 - Intent-specific templates instead of generic options
  */
 export function formatClarificationRequest(input, decision) {
-  if ((decision.slots.includes('gpu_quantity') || decision.slots.includes('gpu_value'))
+  if (decision.slots.includes('intent_meaning')
       && typeof decision.metadata?.clarificationText === 'string') {
     return decision.metadata.clarificationText;
   }

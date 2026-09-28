@@ -25,7 +25,8 @@ import { searchWeb, fetchPage, getProviderStatus } from '../llm/web-search.js';
 import { CircuitBreaker, CircuitState } from './circuit-breaker.js';
 import { canonicalizeQuery } from './query-canonicalizer.js';
 import { M2_TOOL_TERMINAL_STATUS } from '../../contracts/m2/tool-v1.js';
-import { projectLegacyToolInput } from '../tools/m2-tool-registry.js';
+import { projectLegacyToolInput, getCurrentM2ToolDescriptor } from '../tools/m2-tool-registry.js';
+import { verifyToolIntent } from '../chat/intent-clarity.js';
 import { computeCalendar, computeMath } from '../tools/local-computations.js';
 // v121: Accountant expert tool imports removed — tools now registered dynamically
 //       by specialist packages via registerToolHandler() during register(ctx).
@@ -592,12 +593,23 @@ export class ToolExecutor {
   }
 
   async executeM2Tool({ toolId, input, context = {}, timeoutMs = this.timeout } = {}) {
+    this.assertIntentInput(toolId, input, context);
     if (!this.m2ToolBroker || typeof this.m2ToolBroker.execute !== 'function') {
       throw Object.assign(new Error('Durable M2 tool authority is unavailable'), {
         code: 'TOOL_EFFECT_AUTHORITY_UNAVAILABLE',
       });
     }
     return this.m2ToolBroker.execute({ toolId, input, context, timeoutMs });
+  }
+
+  assertIntentInput(toolId, input, context) {
+    const descriptor = getCurrentM2ToolDescriptor(toolId);
+    const mismatch = verifyToolIntent(context.intentEvidence, toolId, input, {
+      effectful: ['write', 'exec', 'destructive'].includes(descriptor?.riskClass),
+    });
+    if (mismatch) throw Object.assign(new Error(mismatch.message), {
+      code: 'M2_TOOL_INTENT_MISMATCH', intentClarityReason: mismatch.reason,
+    });
   }
 
   async settleM2Effect({ effectId, context = {} } = {}) {
@@ -660,6 +672,19 @@ export class ToolExecutor {
         status: ExecutionStatus.FAILED,
         error: 'TOOL_CALL decision has no tools to execute',
         duration: Date.now() - startTime,
+      });
+    }
+
+    // Validate the entire proposed batch before the first tool can run.
+    try {
+      for (const toolId of decision.tools) this.assertIntentInput(toolId, projectLegacyToolInput(toolId, {
+        ...context, metadata: decision.metadata,
+      }), context);
+    } catch (error) {
+      return new ExecutionResult({
+        status: ExecutionStatus.FAILED,
+        toolResults: [ToolResult.failed({ type: decision.tools[0], error: error.message, errorCode: error.code, meta: { m2AuthorityFailure: true } })],
+        error: error.message, duration: Date.now() - startTime,
       });
     }
 
@@ -781,6 +806,7 @@ export class ToolExecutor {
         };
         let result;
         if (this.m2ToolBroker) {
+          this.assertIntentInput(toolType, projectLegacyToolInput(toolType, handlerParams), context);
           const m2Execution = await this.m2ToolBroker.execute({
             toolId: toolType,
             input: projectLegacyToolInput(toolType, handlerParams),

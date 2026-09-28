@@ -17,6 +17,12 @@ const { updateUserSettings, readChatMemoryPolicy } = await import('../src/db/use
 const { preHandle } = await import('../src/chat/handlers/pre-handler.js');
 const { ChatController, ChatMode, SessionState, createTaggedResponse } = await import('../src/chat/controller.js');
 const { getConversationStore } = await import('../src/chat/conversation-store.js');
+const { creDecisionEngine } = await import('../src/chat/cre-decision.js');
+// Privacy fixtures exercise real scoped context consumers, independently of
+// model availability, after a valid controlled informational interpretation.
+const originalClassifier = creDecisionEngine._llmClassifyIntent;
+creDecisionEngine._llmClassifyIntent = async () => ({ intent: 'CONVERSATIONAL', confidence: 1,
+  understanding: { version: 1, kind: 'information', slots: [], ambiguities: [] } });
 longTermMemory.db = database.db;
 longTermMemory.init();
 const store = getConversationStore(database);
@@ -35,7 +41,7 @@ for (const [id, projectId] of [['privacy:A', a], ['privacy:A2', a], ['privacy:B'
 const context = id => ({ conversationId: id, sessionId: id,
   sessionState: { lastDecision: { type: 'ANSWER' }, lastIntent: 'CODE', lastUserInput: 'old private input' } });
 const count = () => database.db.prepare('SELECT count(*) AS n FROM memory').get().n;
-after(() => { ChatController.stopCleanup(); database.close(); });
+after(() => { creDecisionEngine._llmClassifyIntent = originalClassifier; ChatController.stopCleanup(); database.close(); });
 
 test('unsupported history opt-out is rejected atomically by the shared writer', () => {
   settings({ retained: 'sentinel' });

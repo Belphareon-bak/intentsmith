@@ -32,7 +32,7 @@ import {
   throwIfTerminalChatFailure,
 } from '../core/chat-turn-error.js';
 import { finalizeChatResponse } from './response-finalizer.js';
-import { assessIntentClarity } from './intent-clarity.js';
+import { getIntentEvidence, prepareClarificationInput } from './intent-clarity.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Chat Mode Types
@@ -489,15 +489,21 @@ export class ChatController {
     }
     // ════════════════════════════════════════════════════════════════════════
 
-    // This runs before mode selection and every handler, including specialist
-    // and agent modes. A model classification must not turn a material hardware
-    // word into a different operation or claim an unavailable effect succeeded.
+    // One source-grounded semantic inspection precedes every mode/handler.
+    // The resulting core-issued evidence is reused by CRE and checked at tools.
     const state = context.sessionState;
-    const pendingGpuQuestion = state?.awaitingSlots?.some(slot => slot === 'gpu_quantity' || slot === 'gpu_value') === true;
-    const clarity = assessIntentClarity(context.originalUserMessage ?? input, state?.awaitingSlots || []);
-    if (pendingGpuQuestion && clarity?.kind !== 'clarify') state.clearPendingDecision();
+    const rawInput = context.originalUserMessage ?? input;
+    const pending = state?.awaitingSlots?.includes('intent_meaning') ? state.pendingDecision : null;
+    const request = prepareClarificationInput(rawInput, pending);
+    const { creDecisionEngine, DecisionType, IntentType } = await import('./cre-decision.js');
+    const inspected = request.cancelled
+      ? { clarity: { kind: 'no_effect', reason: 'user_cancelled', answer: 'Rozumím. Pozastavený požadavek ruším a nic nespouštím.' } }
+      : request.unresolved
+        ? { clarity: { kind: 'clarify', slot: 'intent_meaning', reason: 'acknowledgement_does_not_resolve_choice', question: request.question, options: request.options }, understanding: pending.metadata.intentUnderstanding }
+        : await creDecisionEngine.inspectRequest(request.source, context, { supersededSources: request.supersededSources });
+    const clarity = inspected.clarity;
+    if (pending && clarity?.kind !== 'clarify') state.clearPendingDecision();
     if (clarity) {
-      const { creDecisionEngine, DecisionType, IntentType } = await import('./cre-decision.js');
       if (clarity.kind === 'clarify') {
         const { handleAskUserDecision } = await import('./handlers/ask-user.js');
         const decision = creDecisionEngine.overrideDecision({
@@ -507,7 +513,12 @@ export class ChatController {
           source: 'intent_clarity',
           reason: clarity.reason,
           confidence: 1,
-          metadata: { clarificationText: clarity.question, intentClarityReason: clarity.reason },
+          metadata: {
+            clarificationText: clarity.question, clarificationOptions: clarity.options || [],
+            intentClarityReason: clarity.reason, intentSource: request.source || pending.metadata.intentSource,
+            intentUnderstanding: inspected.understanding || null,
+            unresolvedName: clarity.unresolvedName || pending?.metadata?.unresolvedName || null,
+          },
         });
         return handleAskUserDecision(input, decision, context);
       }
@@ -529,6 +540,24 @@ export class ChatController {
           canExecute: false,
           metadata: { decision: decision.toJSON(), intentClarityReason: clarity.reason },
         }),
+      });
+    }
+    const proof = getIntentEvidence(inspected.token);
+    context = { ...context, intentEvidence: inspected.token, intentSourceText: proof.source };
+    if (request.source !== rawInput) input = request.source;
+
+    // An actionable interpretation without an executable CRE route must not
+    // become an invented "done" answer from a conversation model.
+    if (proof.understanding.kind === 'action' && proof.classification?.intent === IntentType.CONVERSATIONAL) {
+      const decision = creDecisionEngine.overrideDecision({
+        type: DecisionType.ANSWER, intent: IntentType.CONVERSATIONAL,
+        source: 'intent_clarity', reason: 'action_route_unavailable', confidence: 1,
+        metadata: { intentClarityReason: 'action_route_unavailable', intentSourceDigest: proof.digest },
+      });
+      state?.recordDecision(decision, rawInput);
+      return new TaggedResponse({
+        content: 'Rozpoznal jsem požadavek na provedení akce, ale nemám pro něj ověřenou spustitelnou cestu. Nic jsem neprovedl ani nenastavil.',
+        tag: new ResponseTag({ speaker: ResponseSpeaker.SYSTEM, mode: this.#currentMode, confidence: 1, canExecute: false, metadata: { decision: decision.toJSON() } }),
       });
     }
 

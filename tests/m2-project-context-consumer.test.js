@@ -25,6 +25,7 @@ import { llmGateway } from '../src/llm/gateway.js';
 import { finalizeChatResponse } from '../src/chat/response-finalizer.js';
 import { ChatController } from '../src/chat/controller.js';
 import { throwIfTerminalChatFailure } from '../src/core/chat-turn-error.js';
+import { creDecisionEngine } from '../src/chat/cre-decision.js';
 
 const fixtureRoot = fileURLToPath(
   new URL('./fixtures/m2-project-context/', import.meta.url),
@@ -316,9 +317,14 @@ for (const scenario of [
         sessionId: 'analysis-regression', config: { autoModeDetection: false },
         handlers: { project: async () => response },
       });
-      await assert.rejects(controller.process('validateSessionToken', {
-        forceMode: 'project', project: { id: 1701 }, hasActiveProject: true,
-      }), { code: scenario.code });
+      const originalClassifier = creDecisionEngine._llmClassifyIntent;
+      creDecisionEngine._llmClassifyIntent = async () => ({ intent: 'CODE_ANALYSIS', confidence: 1,
+        understanding: { version: 1, kind: 'information', slots: [], ambiguities: [] } });
+      try {
+        await assert.rejects(controller.process('validateSessionToken', {
+          forceMode: 'project', project: { id: 1701 }, hasActiveProject: true,
+        }), { code: scenario.code });
+      } finally { creDecisionEngine._llmClassifyIntent = originalClassifier; }
     });
   });
 }

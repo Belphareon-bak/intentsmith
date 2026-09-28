@@ -167,7 +167,7 @@ export function handleShellDecision(input, decision, context) {
   });
 
   // v67.0: Script discovery — check project scripts before ad-hoc execution
-  let content = `⚡ Spouštím: \`${command}\``;
+  let content = `Rozpoznal jsem příkaz: \`${command}\`. Tento chatový tok nemá ověřenou exekuční cestu pro shell; nic jsem nespustil.`;
   try {
     const projectPath = context.project?.path;
     if (projectPath) {
