@@ -238,6 +238,8 @@ try {
     assert.equal(calls, 1, 'gratitude prefix cannot bypass classification');
     await engine.inspectRequest('Díky moc!');
     assert.equal(calls, 1, 'whole gratitude remains deterministic');
+    await engine.inspectRequest('Thanks for the info. What do you think about the future of AI?');
+    assert.equal(calls, 2, 'mixed English gratitude also requires classification');
   }
   {
     const engine = new CREDecisionEngine();

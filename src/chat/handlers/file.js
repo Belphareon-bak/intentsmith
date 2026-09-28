@@ -909,6 +909,41 @@ export async function handleFileWriteDecision(input, decision, context, dependen
     filePath = `output-${ts}.md`;
   }
 
+  // Check write authority before selecting or inspecting any content.
+  // M2 writes require a registered active project and authenticated caller.
+  // There is deliberately no output-directory escape hatch on this path: every
+  // production write is an EffectRequest and needs an exact ApprovalGrant.
+  const projectId = Number(context.project?.id ?? context.projectId);
+  const authenticatedSubject = context.authenticatedSubject;
+  const hasMessageIdentity = Number.isSafeInteger(context.userMessageId) && context.userMessageId > 0;
+  if (
+    !projectPath
+    || !Number.isSafeInteger(projectId)
+    || projectId <= 0
+    || !hasMessageIdentity
+    || authenticatedSubject?.actorType !== 'user'
+    || !authenticatedSubject.actorId
+  ) {
+    const msg = lang === 'cs'
+      ? '🔒 Zápis vyžaduje aktivní registrovaný projekt a ověřeného uživatele.'
+      : '🔒 Writing requires an active registered project and authenticated user.';
+    return new TaggedResponse({
+      content: msg,
+      tag: new ResponseTag({
+        speaker: ResponseSpeaker.SYSTEM,
+        mode: ChatMode.CONVERSATION,
+        confidence: 1,
+        canExecute: false,
+        metadata: {
+          decision: decision.toJSON(),
+          handler: 'file.write',
+          securityBlocked: true,
+          error: 'effect_authority_required',
+        },
+      }),
+    });
+  }
+
   // 2. Get content to write — last ASSISTANT message from conversation history
   //    IMPORTANT: history contains both user and assistant turns.
   //    User turns have speaker='user', assistant turns have speaker='system'.
@@ -943,40 +978,6 @@ export async function handleFileWriteDecision(input, decision, context, dependen
         confidence: 0.9,
         canExecute: false,
         metadata: { decision: decision.toJSON(), handler: 'file.write', error: 'no_content' },
-      }),
-    });
-  }
-
-  // 3. M2 writes require a registered active project and authenticated caller.
-  // There is deliberately no output-directory escape hatch on this path: every
-  // production write is an EffectRequest and needs an exact ApprovalGrant.
-  const projectId = Number(context.project?.id ?? context.projectId);
-  const authenticatedSubject = context.authenticatedSubject;
-  const hasMessageIdentity = Number.isSafeInteger(context.userMessageId) && context.userMessageId > 0;
-  if (
-    !projectPath
-    || !Number.isSafeInteger(projectId)
-    || projectId <= 0
-    || !hasMessageIdentity
-    || authenticatedSubject?.actorType !== 'user'
-    || !authenticatedSubject.actorId
-  ) {
-    const msg = lang === 'cs'
-      ? '🔒 Zápis vyžaduje aktivní registrovaný projekt a ověřeného uživatele.'
-      : '🔒 Writing requires an active registered project and authenticated user.';
-    return new TaggedResponse({
-      content: msg,
-      tag: new ResponseTag({
-        speaker: ResponseSpeaker.SYSTEM,
-        mode: ChatMode.CONVERSATION,
-        confidence: 1,
-        canExecute: false,
-        metadata: {
-          decision: decision.toJSON(),
-          handler: 'file.write',
-          securityBlocked: true,
-          error: 'effect_authority_required',
-        },
       }),
     });
   }

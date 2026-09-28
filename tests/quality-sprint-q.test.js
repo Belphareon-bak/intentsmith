@@ -211,9 +211,10 @@ section('Q2.1 — Exact reproduction of conv-english bugs');
     'Thanks for the info. What do you think about the future of AI?',
   ];
   for (const phrase of bugPhrases) {
-    t(`"${phrase}" → gratitude (was: SEARCH)`, () => {
-      ok(isGratitudeOrFarewell(phrase),
-        `Expected gratitude detection for "${phrase}"`);
+    const pureGratitude = !phrase.includes('What do you think');
+    t(`"${phrase}" → ${pureGratitude ? 'whole gratitude' : 'mixed request requires classification'}`, () => {
+      eq(isGratitudeOrFarewell(phrase), pureGratitude,
+        'Operator review: only the entire gratitude message may bypass classification.');
     });
   }
 }
@@ -567,16 +568,10 @@ section('Q6 — Nodiacritics tolerance in language instruction');
 
 section('Edge: Gratitude + question combo');
 {
-  t('"Thanks! What about quantum computing?" — contains question → depends on length', () => {
-    // This is a borderline case. "Thanks!" + follow-up question.
-    // In conv-english, "Thanks for the info. What do you think about the future of AI?"
-    // triggers SEARCH — but it SHOULD be split: gratitude acknowledgement + new query.
-    // For now, we only check the gratitude detection (CRE will re-classify the question part).
-    const short = 'Thanks! What about quantum computing?';
-    // Under 100 chars, contains positive word, no question at start → could go either way
-    // The important thing is that PURE gratitude messages are caught.
-    // Combo messages can go to either — the main fix is for terminal "Thanks!" messages
-    ok(true, 'Edge case documented — combo handling is acceptable either way');
+  t('gratitude followed by a question requires classification', () => {
+    // Operator CHANGES_REQUIRED: a gratitude prefix cannot consume the turn.
+    ok(!isGratitudeOrFarewell('Thanks! What about quantum computing?'));
+    ok(!isGratitudeOrFarewell('Díky moc, a teď sniž napětí GPU na polovinu'));
   });
 }
 
@@ -596,8 +591,8 @@ section('Edge: "Thanks to..." is NOT gratitude');
 section('Regression: conv-english patterns that triggered bugs');
 {
   // Conv 1, step 15: "Thanks for the info. What do you think about the future of AI?"
-  t('conv1.15: "Thanks for the info..." → gratitude detected', () => {
-    ok(isGratitudeOrFarewell('Thanks for the info. What do you think about the future of AI?'));
+  t('conv1.15: gratitude plus question requires classification', () => {
+    ok(!isGratitudeOrFarewell('Thanks for the info. What do you think about the future of AI?'));
   });
 
   // Conv 2, step 15: "Thanks, that was interesting!"

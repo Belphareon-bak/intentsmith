@@ -22,7 +22,7 @@
 
 // Full-message matches only; exported patterns obey the same rule as the helper.
 export const GRATITUDE_FAREWELL_PATTERNS = [
-  /^(?:(?:thanks?|thank you|thx|cheers|much appreciated)(?: (?:a lot|so much|very much|for (?:the )?(?:tips|help|motivation|conversation)))?|(?:great|awesome|perfect|nice|cool)(?:[,! ]+thanks?)?|(?:diky|dekuji|dekuju)(?: (?:moc|ti|za (?:pomoc|tipy|motivaci)))?|(?:super|skvele|vyborne)(?:[,! ]+diky)?|parada|wonderful|excellent|bye|goodbye|see you|later|good night|take care|nashledanou|na shledanou|nashle|cau|ahoj|pa pa|papa|mej se)[\s.!]*$/u,
+  /^(?:(?:thanks?|thank you|thx|cheers|much appreciated)(?: (?:a lot|so much|very much|for (?:the )?(?:tips|help|motivation|conversation|info|everything|that)))?(?:[, ]+that was (?:interesting|educational|helpful))?|(?:great|awesome|perfect|nice|cool)(?:[,! ]+thanks?)?|(?:diky|dekuji|dekuju)(?: (?:moc|ti|za (?:pomoc|tipy|motivaci)))?|(?:super|skvele|vyborne)(?:[,! ]+diky)?|parada|wonderful|excellent|bye|goodbye|see you|later|good night|good luck|have a (?:good|great|nice) (?:day|evening|night|weekend)|take care|nashledanou|na shledanou|nashle|cau|ahoj|pa pa|papa|mej se)[\s.!]*$/u,
 ];
 export function isGratitudeOrFarewell(input) {
   const text = input.trim().normalize('NFD').replace(/[\u0300-\u036f]/gu, '').toLowerCase();
