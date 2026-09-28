@@ -432,3 +432,8 @@ Naměřeno 2026-08-21 na pěti modelech (3 opakování × 7 úloh, 105 běhů, 4
 zapisuje každé úloze `status`; běžné měření jede jen přes `active`, rezervy se
 nemažou, protože dnešní podlaha je zítřejší strop. Zásoba je úzká — z 29
 kandidátů padá 18 na tom, že mění řádky mimo funkce.
+
+
+### Rozšířená zkouška místních hodnotitelů (28. 9. 2026)
+
+[Nový plán](../review/2026-09-28-HUNT-COMPREHENSIVE-JUDGES.md) připravuje 1 375 volání nad 239 úplnými odpověďmi. Předem odděluje verze sběru, neplatné posudky, vlastní rodinu, původní reference a konstrukční kontroly. Doplněné záchyty chyb, baseline a přínos každého člena dvojice nenahrazují přejímku. Stav PREPARED_NOT_RUN / POWER_BLOCKED; produkční bindingy beze změny.

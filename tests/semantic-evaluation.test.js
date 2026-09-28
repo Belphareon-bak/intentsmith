@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -9,7 +9,7 @@ import { SemanticEvaluationJudge, parseSemanticJudgement, semanticTask, calibrat
 import { SEMANTIC_ROLE_SUITES } from '../src/eval/semantic-role-suites.js';
 import { ModelEvaluationRunner } from '../src/eval/model-evaluation-runner.js';
 import { RoleQualityEvaluationRunner } from '../src/eval/role-quality-suites.js';
-import { hash, judgeMessages, parseJudge, referenceErrors, assertNotSelf, assertJudgeFamily, EVIDENCE_FIRST, checkPower } from '../scripts/manual/judge-panel-protocol.mjs';
+import { hash, judgeMessages, parseJudge, referenceErrors, assertNotSelf, assertJudgeFamily, panelJobs, verifyPanelReceipt, EVIDENCE_FIRST, checkPower } from '../scripts/manual/judge-panel-protocol.mjs';
 import { assertResumableReceipt, finalizeJudgePanel } from '../scripts/manual/judge-panel-lifecycle.mjs';
 
 const artifact={modelName:'fixture:latest',digestSha256:'a'.repeat(64),providerVersion:'test-provider'};
@@ -305,5 +305,43 @@ assert m.summarize(boundary)['groupMAE'] is not None
 `;
   const result=spawnSync('python3',['-c',script],{encoding:'utf8'});
   assert.equal(result.status,0,result.stderr);
+});
+test('broad panels record family exclusions instead of silently grading self or counting missing scores',()=>{
+  const models=[{name:'q1',family:'q',artifact:{digestSha256:'a'}},{name:'m1',family:'m',artifact:{digestSha256:'b'}}];
+  const inputs=[{id:'x',role:'CHAT',reverse:true},{id:'y',role:'D2',reverse:false}];
+  const refs={x:{answerDigest:'a',answerFamily:'q'},y:{answerDigest:'c',answerFamily:'q'}};
+  const p=panelJobs(models,inputs,refs,'plan','exclude-author-family-recorded');
+  assert.equal(p.jobs.length,3);assert.equal(new Set(p.jobs.map(j=>j.key)).size,3);
+  assert.deepEqual(p.exclusions.map(e=>e.reason),['SELF_ARTIFACT','RELATED_AUTHOR_FAMILY']);
+  assert.ok(p.jobs.every(j=>j.model.name==='m1'));
+  assert.throws(()=>panelJobs(models,inputs,{...refs,y:{answerDigest:'c'}},'plan','exclude-author-family-recorded'),/FAMILY_UNKNOWN/);
+  assert.throws(()=>panelJobs(models,inputs,refs,'plan','unrecognized'),/UNKNOWN_FAMILY_POLICY/);
+  assert.throws(()=>panelJobs(models,inputs,{},'plan','exact-digest'),/IDENTITY_MISSING/);
+});
+test('archived judge scores are checked against raw output, full task payload and exact artifact',()=>{
+  const model={name:'fixture',family:'test',artifact};
+  const item={id:'case',role:'CHAT',stage:'screen',question:'What is 2+2?',response:'4',rubric:['Correct sum']};
+  const job=panelJobs([model],[item],{case:{answerDigest:'other'}},'plan').jobs[0];
+  const plan={maxPowerWatts:175,judgeProfile:EVIDENCE_FIRST};
+  const messages=judgeMessages(item,false,EVIDENCE_FIRST);
+  const result={...proof,doneReason:'stop',content:JSON.stringify({criteria:[{criterion:1,evidence:'2+2=4',score:1}]})};
+  const receipt={planSha256:'plan',caseId:'case',stage:'screen',reverse:false,judge:artifact,messages,inputSha256:hash(messages),simulation:false,decisionAuthority:false,
+    beforePower:{limitWatts:175},result,parsed:parseJudge(result,1,EVIDENCE_FIRST)};
+  const post={planSha256:'plan',key:job.key,afterPower:{limitWatts:175},after:{placement:[{digest:artifact.digestSha256,size:1,size_vram:1,context_length:16384}]}};
+  assert.equal(verifyPanelReceipt(receipt,post,job,plan,'plan').valid,true);
+  const changed=structuredClone(receipt);changed.parsed.rows[0].score=0;
+  assert.throws(()=>verifyPanelReceipt(changed,post,job,plan,'plan'),/STORED_GRADE/);
+  assert.throws(()=>verifyPanelReceipt({...receipt,messages:[]},post,job,plan,'plan'),/CONTENT_MISMATCH/);
+  assert.throws(()=>verifyPanelReceipt({...receipt,beforePower:{limitWatts:250}},post,job,plan,'plan'),/QUIET_POWER/);
+  assert.throws(()=>verifyPanelReceipt({...receipt,result:{...result,digestSha256:'wrong'}},post,job,plan,'plan'),/ARTIFACT/);
+});
+test('authored technical controls reproduce executable facts and retain partial-credit cases',()=>{
+  const controls=JSON.parse(readFileSync(new URL('../scripts/manual/judge-controls-20260928.json',import.meta.url),'utf8'));
+  assert.equal(controls.length,12);assert.equal(new Set(controls.map(c=>c.group)).size,12);
+  for(const c of controls){
+    assert.equal(c.rubric.length,2);assert.deepEqual(c.variants.map(v=>v.expected),[[1,1],[1,0],[0,0]]);
+    const r=spawnSync(process.execPath,['--input-type=module','-e',c.verification.script],{encoding:'utf8',timeout:5000});
+    assert.equal(r.status,0,c.group+': '+r.stderr);assert.equal(r.stdout.trim(),c.verification.expectedStdout,c.group);
+  }
 });
 summary();

@@ -28,21 +28,25 @@ def read_rows(root):
         key=(r['judge']['modelName'],r['caseId']);assert key not in receipts
         receipts[key]=r
     rows=[]
+    comprehensive=plan.get('status')=='FROZEN_COMPREHENSIVE_DEVELOPMENT_PANEL'
     for m in plan['models']:
-        if not any(n==m['name'] for n,c in receipts):continue
+        if not comprehensive and not any(n==m['name'] for n,c in receipts):continue
         for cid,c in cases.items():
-            if c['role']!='CHAT':continue
-            if not any(n==m['name'] and r['stage']==c['stage'] for (n,k),r in receipts.items()):continue
+            if c['role']!='CHAT' and not comprehensive:continue
+            if not comprehensive and not any(n==m['name'] and r['stage']==c['stage'] for (n,k),r in receipts.items()):continue
             ref=refs[cid]
             if m['artifact']['digestSha256']==ref['answerDigest']:continue
+            if plan.get('familyPolicy')=='exclude-author-family-recorded':
+                assert m.get('family') and ref.get('answerFamily'), 'UNKNOWN_FAMILY'
+                if m['family']==ref['answerFamily']:continue
             receipt=receipts.get((m['name'],cid))
             for i,(a,b) in enumerate(zip(ref['first'],ref['second'])):
                 if a is None or b is None:continue
                 scored=receipt and receipt['parsed']['valid']
                 row=receipt['parsed']['rows'][i] if scored else None
-                rows.append(dict(model=m['name'],caseId=cid,criterion=i+1,group=c['group'],task=c['task'],
+                rows.append(dict(model=m['name'],caseId=cid,criterion=i+1,group=c['group'],task=c['task'],role=c['role'],language=c.get('language'),
                     sourceStage=c.get('sourceStage',c['stage']),dataset=c.get('dataset','captured'),
-                    author=ref['answerModel'],referenceKind=ref.get('referenceKind','TWO_EXTERNAL_DRAFTS'),first=a,second=b,score=row['score'] if row else None,
+                    author=ref['answerModel'],authorFamily=ref.get('answerFamily'),referenceKind=ref.get('referenceKind','TWO_EXTERNAL_DRAFTS'),first=a,second=b,score=row['score'] if row else None,
                     evidence=row['evidence'] if row else None,receiptValid=bool(scored),
                     problem=receipt['parsed'].get('reason') if receipt and not scored else ('MISSING' if not receipt else None)))
     return rows,ignored
@@ -68,11 +72,20 @@ def summarize(rows):
         matched[a+' minus '+b]={'criteriaPairs':len(keys),
             'first':avg((av[k]['score']-av[k]['first'])-(bv[k]['score']-bv[k]['first']) for k in keys),
             'second':avg((av[k]['score']-av[k]['second'])-(bv[k]['score']-bv[k]['second']) for k in keys)}
-    return dict(criteria=len(rows),validCriteria=len(valid),missingCriteria=len(rows)-len(valid),
+    mid=[r for r in rows if 25<cents(r['first'])<75 and 25<cents(r['second'])<75]
+    baseline=lambda v:group_mean(consensus,lambda r:(abs(v-r['first'])+abs(v-r['second']))/2)
+    return dict(criteria=len(rows),cases=len({r['caseId'] for r in rows}),groups=len({r['group'] for r in rows}),validCriteria=len(valid),missingCriteria=len(rows)-len(valid),
+        consensusCriteria=len(consensus),referenceDisputedCriteria=sum(abs(cents(r['first'])-cents(r['second']))>25 for r in rows),
         lowTotal=len(low),lowCaught=sum(r['score'] is not None and cents(r['score'])<=50 for r in low),
+        lowGroups=len({r['group'] for r in low}),lowRecall=sum(r['score'] is not None and cents(r['score'])<=50 for r in low)/len(low) if low else None,
         lowInvalid=sum(r['score'] is None for r in low),lowOverconfident=sum(r['score'] is not None and cents(r['score'])>=90 for r in low),
         highTotal=len(high),highIncorrectlyRejected=sum(r['score'] is not None and cents(r['score'])<=50 for r in high),
+        highFalseRejectionRate=sum(r['score'] is not None and cents(r['score'])<=50 for r in high)/len(high) if high else None,
+        severeFalseAccepts=sum(r['score'] is not None and cents(r['score'])>=75 and max(cents(r['first']),cents(r['second']))<=25 for r in rows),
+        intermediateReferenceCriteria=len(mid),intermediateScoredCriteria=sum(r['score'] is not None and 0<r['score']<1 for r in mid),
+        scoreDistribution=dict(collections.Counter(str(cents(r['score'])) for r in valid)),
         groupMAE=group_mean(consensus,error),
+        constantBaselinesMatched={'0.50':baseline(.5),'0.75':baseline(.75),'1.00':baseline(1)},
         alwaysOneGroupMAEMatched=group_mean(consensus,lambda r:((1-r['first'])+(1-r['second']))/2),
         alwaysOneGroupMAEFull=group_mean(eligible_consensus,lambda r:((1-r['first'])+(1-r['second']))/2),
         referenceHalfDistance=group_mean(consensus,lambda r:abs(r['first']-r['second'])/2),
@@ -91,7 +104,7 @@ def pair_summaries(rows):
             caughtEither=sum(caught(x,k) or caught(y,k) for k in low),
             onlyA=sum(caught(x,k) and not caught(y,k) for k in low),onlyB=sum(caught(y,k) and not caught(x,k) for k in low),
             invalidEither=sum(x[k]['score'] is None or y[k]['score'] is None for k in low),
-            commonCriteria=len(common),silentJointErrors=sum(outside(x[k])>.250000001 and outside(y[k])>.250000001 and abs(cents(x[k]['score'])-cents(y[k]['score']))<=25 for k in common)))
+            commonPlannedCriteria=len(ks),commonCriteria=len(common),silentJointErrors=sum(outside(x[k])>.250000001 and outside(y[k])>.250000001 and abs(cents(x[k]['score'])-cents(y[k]['score']))<=25 for k in common)))
     return pairs
 
 def main():
@@ -103,6 +116,10 @@ def main():
         for stage in ['all']+sorted({r['sourceStage'] for r in rows if r['dataset']==dataset}):
             rs=[r for r in rows if r['dataset']==dataset and (stage=='all' or r['sourceStage']==stage)]
             panels[dataset+':'+stage]={'referenceKinds':sorted({r['referenceKind'] for r in rs}),'models':{m:summarize([r for r in rs if r['model']==m]) for m in sorted({r['model'] for r in rs})},'pairs':pair_summaries(rs)}
+            for role in sorted({r['role'] for r in rs}):
+                rr=[r for r in rs if r['role']==role]
+                panels[dataset+':'+role+':'+stage]={'referenceKinds':sorted({r['referenceKind'] for r in rr}),
+                    'models':{m:summarize([r for r in rr if r['model']==m]) for m in sorted({r['model'] for r in rr})},'pairs':pair_summaries(rr)}
     report=dict(status='DESCRIPTIVE_REANALYSIS_NOT_ACCEPTANCE',simulation=False,decisionAuthority=False,source=str(a.source),
         planSha256=sha(a.source/'plan.json'),analysisSourceSha256=sha(pathlib.Path(__file__)),unverifiedReceipts=ignored,panels=panels,
         limitations=['Two exposed external draft references; no merged gold score.',

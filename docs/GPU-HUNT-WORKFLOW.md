@@ -1,5 +1,7 @@
 # GPU hunt — cílové workflow celého systému
 
+Rozšířené hodnocení místních kandidátů: [179 skutečných a 60 kontrolních odpovědí, 1 375 plánovaných volání](review/2026-09-28-HUNT-COMPREHENSIVE-JUDGES.md). Stav **připraveno, nové inference blokuje nepotvrzený příkon GPU**; nejde o hotové výsledky.
+
 Aktuální revize místních hodnotitelů (28. 9.): **doporučení Devstral + Qwen3.6 je stažené**. Nízká průměrná odchylka zakryla slabý záchyt chyb a druhý člen nepřidal žádný záchyt v ověřovací části. [Přepočet, rodiny autorů a opravný experiment](review/2026-09-28-HUNT-LOCAL-JUDGES-REVISION.md). Žádný místní hodnotitel není přijatý pro rozhodování mezi současnými CHAT kandidáty.
 
 Aktuální implementační důkaz (27. 9.): [simulovaný průchod a revizní matice](review/2026-09-27-HUNT-COMPLETION-SIMULATION.md). **SIMULATION_PASS není produkční GO.**

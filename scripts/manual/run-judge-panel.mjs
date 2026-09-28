@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { holdGpuEvaluationLock } from '../../src/upgrade/gpu-evaluation-lock.js';
 import { createStageProvider } from '../../src/eval/collection-stage-provider.js';
-import { hash, judgeMessages, parseJudge, assertNotSelf, assertJudgeFamily, checkPower, OPTIONS } from './judge-panel-protocol.mjs';
+import { hash, judgeMessages, parseJudge, assertNotSelf, panelJobs, checkPower, OPTIONS } from './judge-panel-protocol.mjs';
 import { assertResumableReceipt, finalizeJudgePanel } from './judge-panel-lifecycle.mjs';
 
 const opt=Object.fromEntries(process.argv.slice(2).map(x=>{const i=x.indexOf('=');return [x.slice(2,i),x.slice(i+1)];}));
@@ -25,12 +25,7 @@ if(opt.stage==='confirm') {
   if(s.planSha256!==planSha256 || s.decisionAuthority!==false || s.models.length>4)throw Error('JUDGE_SHORTLIST_INVALID');
   models=s.models.map(n=>{const m=plan.models.find(m=>m.name===n);if(!m)throw Error('JUDGE_SHORTLIST_MODEL');return m;});
 }
-const jobs=[];
-for(const model of models)for(const item of inputs.filter(x=>x.stage===opt.stage))for(const reverse of item.reverse?[false,true]:[false]){
-  assertJudgeFamily(model,references[item.id],plan.familyPolicy);
-  if(model.artifact.digestSha256===references[item.id].answerDigest)continue;
-  jobs.push({model,item,reverse,key:hash([planSha256,model.artifact.digestSha256,item.id,reverse]).slice(0,32)});
-}
+const {jobs,exclusions}=panelJobs(models,inputs.filter(x=>x.stage===opt.stage),references,planSha256,plan.familyPolicy);
 const receiptPath=key=>path.join(opt.out,'receipts',key+'.json');
 const prior=fs.readdirSync(path.join(opt.out,'receipts')).filter(f=>f.endsWith('.json')&&!f.endsWith('.post.json')).map(f=>{
   const receipt=read('receipts/'+f),key=f.slice(0,-5),postFile='receipts/'+key+'.post.json';
@@ -39,7 +34,9 @@ const prior=fs.readdirSync(path.join(opt.out,'receipts')).filter(f=>f.endsWith('
 });
 let totalTokens=prior.reduce((s,r)=>s+(r.result?.evalCount || 0),0),totalMs=prior.reduce((s,r)=>s+(r.result?.durationMs || 0),0),newCalls=0;
 let done=jobs.filter(j=>fs.existsSync(receiptPath(j.key))).length;
+for(const [key,value] of Object.entries(OPTIONS))if(plan.options?.[key]!==value)throw Error('JUDGE_OPTIONS_CHANGED:'+key);
 const write=(file,obj)=>{const p=path.join(opt.out,file);fs.writeFileSync(p+'.tmp',JSON.stringify(obj,null,2)+'\n',{mode:0o600});fs.renameSync(p+'.tmp',p);};
+write(opt.stage+'-eligibility.json',{planSha256,eligibleCalls:jobs.length,exclusions});
 const power=()=>{const [uuid,limit,draw,temp]=execFileSync('nvidia-smi',['--query-gpu=uuid,power.limit,power.draw,temperature.gpu','--format=csv,noheader,nounits'],{encoding:'utf8',timeout:5000}).trim().split(',').map(s=>s.trim());
   const p={uuid,limitWatts:Number(limit),drawWatts:Number(draw),temperatureC:Number(temp)};checkPower(p,plan.maxPowerWatts);return p;};
 power();
@@ -47,18 +44,19 @@ const lease=holdGpuEvaluationLock({command:'local judge panel '+planSha256});
 const cancel=new AbortController();process.once('SIGINT',()=>cancel.abort());process.once('SIGTERM',()=>cancel.abort());
 const provider=createStageProvider({plan,directory:opt.out});
 let finalStatus='PARTIAL',failure=null,finalized=null;
-const log=[];
+const log=[],sessionStart=Date.now();
 const progress=extra=>{const value={status:'RUNNING',stage:opt.stage,planSha256,completed:done,total:jobs.length,percent:100*done/jobs.length,totalOutputTokens:totalTokens,
+  estimatedRemainingMinutes:done?Math.round((totalMs/done)*(jobs.length-done)/60000):null,etaBasis:'Observed inference time; excludes future loading and guard overhead.',
   updatedAt:new Date().toISOString(),...extra};write('progress.json',value);console.log(JSON.stringify(value));
   log.push(value);const escape=s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
-  fs.writeFileSync(path.join(opt.out,'progress.html'),'<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="10"><title>Test místních hodnotitelů</title><style>body{font:18px system-ui;background:#16191d;color:#eee;max-width:1000px;margin:40px auto}progress{width:100%;height:32px}pre{white-space:pre-wrap;font-size:14px}</style><h1>Test místních hodnotitelů</h1><p>'+escape(extra.model || '')+' · '+escape(extra.task || '')+' · '+escape(extra.phase || '')+'</p><progress max="'+jobs.length+'" value="'+done+'"></progress><p>'+done+' / '+jobs.length+' volání v kole '+opt.stage+' · limit 175 W</p><p>Vývojové porovnání, bez přepínání rolí. Aktualizace '+escape(value.updatedAt)+'</p><pre>'+log.slice(-8).map(v=>escape(v.updatedAt+' '+v.model+' '+v.task+' '+v.order+' '+v.phase)).join('\n')+'</pre>',{mode:0o600});
+  fs.writeFileSync(path.join(opt.out,'progress.html'),'<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="10"><title>Test místních hodnotitelů</title><style>body{font:18px system-ui;background:#16191d;color:#eee;max-width:1000px;margin:40px auto}progress{width:100%;height:32px}pre{white-space:pre-wrap;font-size:14px}</style><h1>Test místních hodnotitelů</h1><p>'+escape(extra.model || '')+' · '+escape(extra.task || '')+' · '+escape(extra.phase || '')+'</p><progress max="'+jobs.length+'" value="'+done+'"></progress><p>'+done+' / '+jobs.length+' volání v kole '+opt.stage+' · limit '+plan.maxPowerWatts+' W</p><p>Odhad zbývající inference: '+(value.estimatedRemainingMinutes??'zatím neznámý')+' min; načítání modelů a kontroly přidají čas.</p><p>Vývojové porovnání, bez přepínání rolí. Aktualizace '+escape(value.updatedAt)+'</p><pre>'+log.slice(-8).map(v=>escape(v.updatedAt+' '+v.model+' '+v.task+' '+v.order+' '+v.phase)).join('\n')+'</pre>',{mode:0o600});
 };
 try {
   for(const job of jobs) {
     if(fs.existsSync(receiptPath(job.key)))continue;
     if(cancel.signal.aborted){finalStatus='CANCELLED';break;}
     if(prior.length+newCalls>=plan.budget.maximumCalls || totalTokens+OPTIONS.num_predict>plan.budget.maximumOutputTokens
-      || totalMs>=plan.budget.maximumHours*3600000){finalStatus='BUDGET_STOP';break;}
+      || Math.max(totalMs,Date.now()-sessionStart)>=plan.budget.maximumHours*3600000){finalStatus='BUDGET_STOP';break;}
     const {model,item,reverse}=job,full={...item,answerDigest:references[item.id].answerDigest};
     assertNotSelf(model,full);
     const beforePower=power(),task={options:OPTIONS};
