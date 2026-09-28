@@ -5,6 +5,24 @@ Nezakládá nový požadavek; požadavky jsou v [UI-SPEC](UI-SPEC.md), [SCM](SCM
 a [CONNECTORS](CONNECTORS.md). Popisuje, jak je vzhled Studia 2 postavený a kde
 se na něj napojuje backend.
 
+## Aktualizace 28. 9. — převzatá práce po limitu vizuálního workera
+
+Horní záložky relací jsou odstraněné v prototypu i generovaném Reactu.
+`SessionStore` drží otevřené relace, rozložení a pořadí použití; `LiveModel`
+napojuje levý seznam, Ctrl+klik, výběr ve sloupci a × na tento jediný stav.
+Nová relace vzniká vedle; šestá může ukončit jen bezpečnou relaci skrytou už
+před otevřením. Kontrola chrání M1, M2, terminál, editor, rozepsanou zprávu,
+přílohy i neurčitý výsledek odeslání. Konverzace se z databáze nemaže.
+Starší snapshot s více než pěti relacemi se zmenší jen o bezpečné skryté relace;
+pokud všechny chrání neurčitý výsledek nebo schválení, zachová je a zablokuje
+otevření dalších do jejich bezpečného vyřešení.
+
+Interní události z `work-activity.js` se v chatu sloučí do fází z prototypu;
+skutečné nástroje a chyby zůstávají viditelné. Trvání se počítá z klientských
+časů událostí, úplný seznam zůstává v Průběhu. Kopírování celé Markdown
+odpovědi používá stav úspěchu/chyby prototypu. Výchozí název relace se po první
+zprávě aktualizuje i v hlavičce a levé navigaci.
+
 ## 1. Co je hotové
 
 - **Vzhled = prototyp.** Rozšíření `intentsmith-studio2` vykresluje přímo šablonu

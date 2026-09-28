@@ -56,14 +56,14 @@ test('agent turn folds internal processing and keeps real work visible', () => {
   assert.match(answer.time, /· 9,3 s$/);
   assert.deepEqual(answer.steps.map(step => step.t), ['run_tests'], 'only real work stays visible');
   assert.equal(answer.hasFold, true);
-  assert.match(answer.foldText, /Zpracování · 2 kroky/, 'duplicate internal step is merged');
+  assert.match(answer.foldText, /Zpracování · 2 fáze/, 'duplicate internal step is merged');
   assert.equal(col.model === 'answer', false, 'a role is not shown as a model');
   assert.equal(col.title.startsWith('Uprav README'), true, 'default label becomes the first request');
   assert.equal(col.ctxLabel, '—', 'unmeasured context is not shown as 0 %');
   answer.toggleFold();
   const open = column(model).msgs.find(msg => msg.isAgent);
   assert.equal(open.steps.length, 3);
-  assert.equal(open.steps.filter(step => step.cls === 'int').length, 2);
+  assert.equal(open.steps.every(step => step.cls === ''), true, 'completed phases use the green work style');
 });
 
 test('pending M2 plan becomes an approval card that requires the plan to be seen first', () => {

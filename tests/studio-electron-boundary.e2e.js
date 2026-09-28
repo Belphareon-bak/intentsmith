@@ -1929,6 +1929,8 @@ const STUDIO2_MODE_FIELDS = Object.freeze([
   'oneReusedTransportInStudio2',
   'classicRestored',
   'fiveSessionsWithoutTopTabs',
+  'sixthSessionKeepsLimit',
+  'headerEndsSession',
   'visibleSessionSwap',
   'terminalPanelConnected',
   'attachmentPickerRendered',

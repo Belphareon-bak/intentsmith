@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
-const { SessionStore, V1_KEY, V2_KEY } = require('../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/session-store.js');
+const { SessionStore, V1_KEY, V2_KEY, sessionCloseBlock } = require('../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/session-store.js');
 
 function storage(seed = {}) {
   const values = new Map(Object.entries(seed));
@@ -80,6 +80,28 @@ test('all protected hidden sessions block opening without changing any session',
   assert.deepEqual(store.state.columns, columns);
 });
 
+test('session close policy preserves active turns, approval, editor, drafts, attachments and terminal work', () => {
+  const store = new SessionStore(storage());
+  const session = store.focusedSession();
+  assert.equal(sessionCloseBlock(session), null);
+  for (const flags of [{ activeTurn: true }, { m2Busy: true }, { editorDirty: true },
+    { terminalExecuting: true }, { state: { drafts: { [session.id]: 'Rozepsaná zpráva' } } },
+    { state: { cmds: { [session.id]: 'npm test' } } }]) assert.ok(sessionCloseBlock(session, flags));
+  session._m2Pending = { lifecycleId: 'pending' };
+  assert.ok(sessionCloseBlock(session));
+  session._m2Pending = null;
+  session.chat.attachments.push({ name: 'notes.txt' });
+  assert.ok(sessionCloseBlock(session));
+  session.chat.attachments = [];
+  session.chat._thinking = { text: 'pracuje' };
+  assert.ok(sessionCloseBlock(session));
+  session.chat._thinking = null;
+  session.chat._delivery = { status: 'DELIVERY_UNKNOWN' };
+  assert.ok(sessionCloseBlock(session));
+  session.chat._delivery = null;
+  assert.equal(sessionCloseBlock(session), null);
+});
+
 test('closing the last session keeps an empty workspace across restart', () => {
   const mem = storage();
   const store = new SessionStore(mem);
@@ -89,6 +111,20 @@ test('closing the last session keeps an empty workspace across restart', () => {
   assert.equal(new SessionStore(mem).state.sessions.length, 0);
   assert.ok(store.addSession());
   assert.equal(store.state.columns.length, 1);
+});
+
+test('unlimited legacy snapshot migrates to five without dropping visible or unresolved sessions', () => {
+  const sessions = Array.from({ length: 6 }, (_, i) => ({ id: 's' + i, number: i + 1, convId: 'c' + i }));
+  const seed = { version: 2, sessions, columns: ['s0', 's1', 's2'], used: ['s0', 's1', 's2', 's3', 's4', 's5'] };
+  const store = new SessionStore(storage({ [V2_KEY]: JSON.stringify(seed) }));
+  assert.equal(store.state.sessions.length, 5);
+  assert.equal(store.find('s5'), null);
+  assert.deepEqual(store.state.columns, ['s0', 's1', 's2']);
+  seed.sessions = sessions.map(session => ({ ...session, delivery: { status: 'DELIVERY_UNKNOWN' } }));
+  const protectedStore = new SessionStore(storage({ [V2_KEY]: JSON.stringify(seed) }));
+  assert.equal(protectedStore.state.sessions.length, 6, 'uncertain work must not disappear during migration');
+  assert.equal(protectedStore.canAddSession(), false);
+  assert.equal(protectedStore.addSession(), null);
 });
 
 test('closing a column leaves its live session and conversation identity intact', () => {

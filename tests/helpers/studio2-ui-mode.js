@@ -75,7 +75,13 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
   })()`);
   const five = await waitFor(s => s.sessionTabs === 0 && s.openSessions === 5
     && s.columnSessions.length === 3, 'five-sessions-no-tabs');
-  const original = [...five.columnSessions];
+  await evaluate(cdp, `(() => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 't', ctrlKey: true, bubbles: true, cancelable: true }));
+    return true;
+  })()`);
+  const capped = await waitFor(s => s.openSessions === 5 && s.columnSessions.length === 3
+    && s.columnSessions.some(title => !${JSON.stringify(five.columnSessions)}.includes(title)), 'sixth-session-safe-eviction');
+  const original = [...capped.columnSessions];
   await evaluate(cdp, `(() => {
     const root = document.querySelector('#intentsmith-studio2 [data-studio-ui="studio2"]');
     root.querySelectorAll('.cols .scol .pane-t')[0].click();
@@ -105,12 +111,18 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
     return true;
   })()`);
   const m2Ui = await waitFor(s => s.m2Panel, 'm2-review-panel');
+  await evaluate(cdp, `(() => {
+    document.querySelectorAll('#intentsmith-studio2 .scol [aria-label="Ukončit relaci"]')[2].click();
+    return true;
+  })()`);
+  const closed = await waitFor(s => s.openSessions === 4 && s.columnSessions.length === 2
+    && !s.columnSessions.includes(${JSON.stringify(swapped.columnSessions[2])}), 'header-ends-session');
   await evaluate(cdp, `(() => { setTimeout(() => window.IntentSmithStudioMode.selectMode('classic'), 0); return true; })()`);
   const restored = await waitFor(s => s.mode === 'classic' && s.classicSidebar && s.classicChat && !s.studio2, 'classic-restored');
   await evaluate(cdp, `(() => { setTimeout(() => window.IntentSmithStudioMode.selectMode('studio2'), 0); return true; })()`);
   const persisted = await waitFor(s => s.mode === 'studio2' && s.studio2 && !s.classicChat
-    && s.sessionTabs === 0 && s.openSessions === 5
-    && s.columnSessions.every((value, i) => value === swapped.columnSessions[i]), 'session-restore');
+    && s.sessionTabs === 0 && s.openSessions === 4
+    && s.columnSessions.every((value, i) => value === closed.columnSessions[i]), 'session-restore');
   await evaluate(cdp, `(() => {
     const root = document.querySelector('#intentsmith-studio2 [data-studio-ui="studio2"]');
     [...root.querySelectorAll('nav[aria-label="Sekce"] .nbtn, nav[aria-label="Sekce"] .rail')]
@@ -270,6 +282,8 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
       && studio2.terminalClient && !studio2.classicFacade,
     classicRestored: restored.classicSidebar && restored.classicChat && !restored.studio2,
     fiveSessionsWithoutTopTabs: five.sessionTabs === 0 && five.openSessions === 5 && five.columnSessions.length === 3,
+    sixthSessionKeepsLimit: capped.openSessions === 5 && capped.columnSessions.length === 3,
+    headerEndsSession: closed.openSessions === 4 && closed.columnSessions.length === 2,
     visibleSessionSwap: swapped.columnSessions[0] === original[1] && swapped.columnSessions[1] === original[0],
     terminalPanelConnected: terminalUi.terminalInput && terminalUi.terminalClient,
     attachmentPickerRendered: studio2.attachmentPicker,
@@ -279,7 +293,7 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
     m2ReviewPanelRendered: m2Ui.m2Panel,
     backendEnvironmentLoaded: environment.environmentLoaded,
     commandPaletteNavigatesSession: palette.columnsVisible && !palette.paletteOpen,
-    sessionsPersistedAcrossReload: persisted.sessionTabs === 0 && persisted.openSessions === 5 && persisted.columnSessions.length === 3,
+    sessionsPersistedAcrossReload: persisted.sessionTabs === 0 && persisted.openSessions === 4 && persisted.columnSessions.length === 2,
     projectCatalogLoaded: catalog.catalogSection === 'Projekty' && catalog.catalogStatus === 'ready',
     elevenThemesRendered: themes.length === 11 && themes.every(Boolean),
     specialistLocalPreviewRequiresAttachment: localPreview.specialistPreview === 'private'

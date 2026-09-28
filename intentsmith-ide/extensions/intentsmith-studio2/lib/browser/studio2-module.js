@@ -10,7 +10,7 @@ const browser = require('@theia/core/lib/browser');
 const { ReactWidget } = require('@theia/core/lib/browser/widgets/react-widget');
 const React = require('@theia/core/shared/react');
 const { currentMode, FRAME_KEY } = require('./studio-mode-module');
-const { SessionStore } = require('./session-store');
+const { SessionStore, sessionCloseBlock } = require('./session-store');
 const { TransportAdapter } = require('./transport-adapter');
 const { renderSessionView } = require('./session-view');
 const { CatalogStore } = require('./catalog-store');
@@ -97,20 +97,15 @@ class Studio2Widget extends ReactWidget {
   }
 
   closeBlockReason(session) {
-    if (!session || session.chat._thinking || this.transport?.hasActiveM1Turn(session)) return 'Relace právě odpovídá.';
-    if (session._m2Pending || this.m2.entry(session).busy) return 'Relace čeká na schválení nebo výsledek změny.';
-    if (this.transport?.isTerminalExecuting(session)) return 'V relaci běží příkaz terminálu.';
-    if (this.workspace.entry(session).editor?.dirty || this.model?.st().fileGuard?.sid === session.id)
-      return 'Relace má neuložený soubor.';
-    if ((this.model?.st().drafts?.[session.id] || '').trim() || session.chat.attachments?.length
-      || session.chat._pendingAttachments?.length || session.chat._preparing || session.chat._picking)
-      return 'Relace má rozepsanou zprávu nebo přílohy.';
-    if (session.chat._delivery?.status === 'DELIVERY_UNKNOWN') return 'Výsledek odeslání není známý.';
-    return null;
+    return sessionCloseBlock(session, {
+      activeTurn: this.transport?.hasActiveM1Turn(session), m2Busy: this.m2.entry(session).busy,
+      terminalExecuting: this.transport?.isTerminalExecuting(session),
+      editorDirty: this.workspace.entry(session).editor?.dirty, state: this.model?.st() || {},
+    });
   }
   capacityAvailable() {
     if (this.store.canAddSession(session => !this.closeBlockReason(session))) return true;
-    this.catalogActionError = 'Je otevřeno 5 relací. Skryté relace pracují, čekají na schválení nebo mají neuloženou práci; nejprve některou bezpečně ukonči.';
+    this.catalogActionError = `Je otevřeno ${this.store.state.sessions.length} relací. Skryté relace pracují, čekají na schválení nebo mají neuloženou práci; nejprve některou bezpečně ukonči.`;
     this.model?.setState({ toast: { id: 'cap-' + Date.now(), tone: 'warn', t: this.catalogActionError } });
     this.update();
     return false;

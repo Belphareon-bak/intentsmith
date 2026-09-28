@@ -74,6 +74,17 @@ function snapshotSession(session) {
     delivery: session.chat._delivery?.status === 'DELIVERY_UNKNOWN' ? { status: 'DELIVERY_UNKNOWN' } : null,
   };
 }
+function sessionCloseBlock(session, { activeTurn, m2Busy, terminalExecuting, editorDirty, state = {} } = {}) {
+  if (!session || session.chat._thinking || activeTurn) return 'Relace právě odpovídá.';
+  if (session._m2Pending || m2Busy) return 'Relace čeká na schválení nebo výsledek změny.';
+  if (terminalExecuting) return 'V relaci běží příkaz terminálu.';
+  if (editorDirty || state.fileGuard?.sid === session.id) return 'Relace má neuložený soubor.';
+  if ((state.drafts?.[session.id] || '').trim() || (state.cmds?.[session.id] || '').trim()
+    || session.chat.attachments?.length || session.chat._pendingAttachments?.length
+    || session.chat._preparing || session.chat._picking) return 'Relace má rozepsanou zprávu, příkaz nebo přílohy.';
+  if (session.chat._delivery?.status === 'DELIVERY_UNKNOWN') return 'Výsledek odeslání není známý.';
+  return null;
+}
 function parse(storage, key) {
   try { return JSON.parse(storage.getItem(key) || 'null'); } catch { return null; }
 }
@@ -130,6 +141,13 @@ class SessionStore {
     this.storage = storage;
     this.state = restore(storage);
     this.listeners = new Set();
+    // Older versions allowed unlimited sessions. Keep visible sessions and all
+    // unresolved work; only safe hidden sessions can be removed during migration.
+    while (this.state.sessions.length > MAX_SESSIONS) {
+      const candidate = this.evictionCandidate(session => !sessionCloseBlock(session));
+      if (!candidate) break;
+      this.closeSession(candidate);
+    }
     this.persist();
   }
   subscribe(listener) {
@@ -160,6 +178,7 @@ class SessionStore {
     return [...this.recent()].reverse().find(id => !visible.has(id) && canClose(this.find(id))) || null;
   }
   canAddSession(canClose = () => true) {
+    if (this.state.sessions.length > MAX_SESSIONS) return false;
     return this.state.sessions.length < MAX_SESSIONS || !!this.evictionCandidate(canClose);
   }
   nextSlot(slot) {
@@ -172,6 +191,7 @@ class SessionStore {
       .filter(row => row.index !== focus).sort((a, b) => b.rank - a.rank)[0].index;
   }
   addSession(source = {}, options = {}) {
+    if (this.state.sessions.length > MAX_SESSIONS) return null;
     const canClose = options.canClose || (() => true);
     const evicted = this.evictionCandidate(canClose);
     if (this.state.sessions.length >= MAX_SESSIONS && !evicted) return null;
@@ -250,4 +270,4 @@ class SessionStore {
   }
 }
 
-module.exports = { SessionStore, makeSession, restore, V1_KEY, V2_KEY, MAX_SESSIONS };
+module.exports = { SessionStore, makeSession, restore, V1_KEY, V2_KEY, MAX_SESSIONS, sessionCloseBlock };
