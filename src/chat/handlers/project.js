@@ -30,6 +30,7 @@ import { handleDesignDecision } from './design.js';
 import { config } from '../../config.js';
 import { preHandle } from './pre-handler.js';
 import { handleProjectCollaboration } from './project-collaboration.js';
+import { getIntentEvidence } from '../intent-clarity.js';
 
 // ─── Post-CRE modules (lazy-loaded, null if feature disabled) ──────────────
 // Only handleBuildDetected is needed for the PLAN case — shared intercepts
@@ -310,6 +311,15 @@ export async function projectHandler(input, context) {
 
     // Ordinary content does not become a repository plan merely because Studio
     // has an active project. This answer route cannot execute project effects.
+    if (context.m2LifecycleOnly === true && decision.intent === IntentType.CODE
+      && context.intentEvidence && getIntentEvidence(context.intentEvidence)?.understanding.kind === 'information') {
+      const inline = creDecisionEngine.overrideDecision({
+        type: DecisionType.ANSWER, intent: IntentType.CODE,
+        source: 'inline_content', reason: 'Code content requested without execution authority',
+        confidence: decision.confidence, metadata: { inlineCode: true },
+      }, decision);
+      return handleAnswerDecision(input, inline, context);
+    }
     if (context.m2LifecycleOnly === true && decision.type === DecisionType.ANSWER
       && [IntentType.CONVERSATIONAL, IntentType.CODE, IntentType.CREATIVE].includes(decision.intent)) {
       return handleAnswerDecision(input, decision, context);

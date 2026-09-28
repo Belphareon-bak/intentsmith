@@ -2280,10 +2280,21 @@ export class CREDecisionEngine {
     // Reads are informational but still need literal targets. The core lexer
     // binds exact file citations even when an informational proposal omits slots.
     const files = literalFileTargets(input);
+    if (understanding?.kind === 'information' && Array.isArray(understanding.slots)) {
+      // A model's role label cannot turn a language/topic into a filesystem
+      // target. Concrete tool targets still bind to literal identifiers below.
+      understanding.slots = understanding.slots.filter(slot => slot?.role !== 'target'
+        || literalFileTargets(slot.source ?? '').length || /https?:\/\/|[\w.+-]+@[\w.-]+/u.test(slot.source ?? ''));
+    }
     if (Array.isArray(understanding?.slots)) {
       for (const file of files) if (!understanding.slots.some(slot => slot.role === 'target' && slot.source === file.source))
         if (understanding.kind === 'information' || classification.fileTarget === file.source)
           understanding.slots.push({ role: 'target', name: 'fileTarget', source: file.source, value: file.source });
+      // The route expresses the requested activity; a separate model-generated
+      // verb citation adds no authority. Bind the unchanged request instead.
+      if (understanding.kind === 'action' && understanding.ambiguities?.length === 0
+        && !understanding.slots.some(slot => slot.role === 'action'))
+        understanding.slots.push({ role: 'action', name: 'request', source: input, value: input });
     }
     const clarity = assessIntentClarity(input, understanding, options);
     if (clarity) return { clarity, understanding, classification };

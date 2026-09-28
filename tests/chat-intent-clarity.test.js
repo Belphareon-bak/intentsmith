@@ -56,9 +56,9 @@ try {
     const oldCall = llmGateway.call;
     const engine = new CREDecisionEngine();
     const cases = [
-      ['Napiš krátkou funkci v Pythonu. Nepoužívej rekurzi.', 'CODE', null, action([slot('action', 'Napiš'), slot('unit', 'v Pythonu', 'Pythonu')]), 'information'],
+      ['Napiš krátkou funkci v Pythonu. Nepoužívej rekurzi.', 'CODE', null, action([slot('action', 'Napiš'), slot('target', 'v Pythonu', 'Pythonu')]), 'information'],
       ['Soubor notes.md nemaž, jen ho přečti.', 'FILE_READ', slot('target', 'notes.md'), action([slot('action', 'přečti'), slot('target', 'Soubor notes.md', 'notes.md')]), 'information'],
-      ['Ulož text "Ahoj" do new-notes.md.', 'FILE_WRITE', slot('target', 'new-notes.md'), action([slot('action', 'Ulož')]), 'action'],
+      ['Ulož text "Ahoj" do new-notes.md.', 'FILE_WRITE', slot('target', 'new-notes.md'), action([]), 'action'],
     ];
     try {
       for (const [input, intent, fileTarget, understanding, kind] of cases) {
