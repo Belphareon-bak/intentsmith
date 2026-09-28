@@ -1,10 +1,14 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktuální integrační kandidát, 28. 9. 2026:** současný module graph má 1 457 hran,
+**Aktuální integrační kandidát, 28. 9. 2026:** současný module graph má 1 458 hran,
 3 cykly a 28 souborů v cyklech. Pět přesných SCM hran a jedna hrana pro
 projektové operace se soubory byly přijaty po ověření bez růstu cyklů. Čtyři
 další hrany propojují výběr expertýz, mediální vstup a SCM se serverem;
 jejich přesný seznam je v připnutém modulovém baseline.
+Oprava po CHANGES_REQUIRED přidává jedinou hranu `file.js -> intent-clarity.js`
+pro společný výběr obsahu předchozí odpovědi. Jde o strukturální baseline;
+funkční přijetí oprav je stále REVIEW_PENDING.
+
 Tři dřívější hrany propojují kontrolu významu s chat controllerem. Obecná oprava
 na `d0875564` přidává dvě přesné hrany z CRE a executor do intent-clarity
 a navazující oprava jednu hranu z CRE do sdílených terminálních chyb;

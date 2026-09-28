@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "3bfc5035d7bd70662ebfe0c60fab5d0928fabb19",
-  "sourceTree": "ba6b6375dde2a29a93cbec2ca818bcb72c959b0b",
+  "sourceRevision": "32d2e98f89aa84ec31390e23f8e74d6c8d2e70a5",
+  "sourceTree": "9501e27075477a27400a719f80ea375e8f6772e4",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "a111646c052627fd0803fc881838f58d7d5fd8dc",
@@ -236,6 +236,7 @@
     "src/chat/handlers/file.js -> src/chat/handlers/utils/file-explain.js",
     "src/chat/handlers/file.js -> src/chat/handlers/utils/language.js",
     "src/chat/handlers/file.js -> src/chat/handlers/utils/synthesis.js",
+    "src/chat/handlers/file.js -> src/chat/intent-clarity.js",
     "src/chat/handlers/file.js -> src/config.js",
     "src/chat/handlers/file.js -> src/core/abort-error.js",
     "src/chat/handlers/file.js -> src/core/logger.js",
