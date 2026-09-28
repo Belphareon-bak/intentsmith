@@ -401,6 +401,24 @@ expended. An unfinished `schopnost` must never be recorded as done
 Artifact counts, test counts, commits, token usage and elapsed time are
 secondary metrics and are never the headline.
 
+**Publish every approved milestone before final handoff**, per the operator's
+2026-09-28 decision in [`CONTRACT.md`](../../CONTRACT.md) §11. Commit the owned
+changes and result documentation, then push the named branch to the
+IntentSmith GitHub repository without asking for another per-push approval.
+Preserve foreign uncommitted work. If the branch also contains later candidate
+work, name the exact approved commit and retain the later work's actual review
+state; publication does not approve it or authorise a merge, deployment or
+release.
+
+Read the remote branch from GitHub after pushing and verify the approved SHA
+is its HEAD or an ancestor of that HEAD. A local tracking ref is insufficient.
+Include the branch, approved SHA, GitHub link and verification result in the
+handoff. Do not claim complete closeout while publication is unverified:
+report `PUBLISH_BLOCKED` and its concrete cause, keeping technical acceptance
+separate. Never force-push to resolve divergence. Only an explicit operator
+instruction withholding publication for the specific output overrides this
+requirement.
+
 Handoff also **leaves the workspace within budget** ([`CONTRACT.md`](../../CONTRACT.md)
 §6). Before reporting completion:
 

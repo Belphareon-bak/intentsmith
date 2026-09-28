@@ -66,3 +66,8 @@ výstup aktivního Work Package, položku `ROADMAP.md §12`, schopnost ze
 `SYSTEM-MAP.md`, přijaté a neimplementované rozhodnutí z `docs/decisions/`,
 otevřenou regresi, nebo explicitní zadání operátora. Když ji pojmenovat nelze,
 zeptej se. Nezahajuj práci proto, abys zjistil, co ta práce je.
+
+Při uzavření schváleného milníku platí **povinný commit a push na GitHub bez
+dalšího jednotlivého potvrzení**, včetně ověření vzdáleného SHA. Závazný
+postup a rozlišení publikace od přejímky jsou v `CONTRACT.md §11` a
+`docs/development/agent-protocol.md §14` (rozhodnutí operátora 2026-09-28).
