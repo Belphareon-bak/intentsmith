@@ -117,7 +117,7 @@ class CatalogStore {
   }
 
   // Classic's global list excludes project conversations. Read the existing
-  // project and specialist history connectors to build a complete UI index.
+  // project and specialist history connectors to build a unified UI index.
   // Specialist membership is descriptive; activation still uses its own API.
   async conversationIndex(data) {
     const rows = new Map(arrayFrom('Konverzace', data).filter(row => row?.id != null)

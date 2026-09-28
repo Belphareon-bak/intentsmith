@@ -2137,6 +2137,7 @@ test('conversation tiles, list and details use real context, newest use and UTC 
   const { model, store } = setup({ catalog });
   store.closeSession(store.focusedSession().id);
   let s = { ...model.st(), mode: 'section', section: 'chats', detail: { chats: 'work' } };
+  assert.match(model.catalogVM(s).summary, /0 otevřených relací/);
   const rows = model.entities('chats', s);
   assert.deepEqual(rows.map(row => row.id), ['work', 'old', 'invalid']);
   assert.deepEqual(rows[0].badges.map(row => [row.label, row.tone]), [['Projekt', 'red'], ['Specialista', 'violet']]);
@@ -2157,6 +2158,7 @@ test('conversation tiles, list and details use real context, newest use and UTC 
   assert.equal(model.entities('chats', s)[0].id, 'old', 'opening time promotes saved conversations');
   const session = store.addSession({ convId: 'work', projectId: 7, specialistData: { id: 'reviewer', name: 'Reviewer' } });
   s = { ...s, ...model.st(), section: 'chats', detail: { chats: session.id } };
+  assert.match(model.catalogVM(s).summary, /1 otevřená relace/);
   detail = model.detailVM(s);
   assert.deepEqual(detail.badges.map(row => row.label), ['Projekt', 'Specialista']);
   assert.ok(detail.props.some(prop => prop.k === 'Vytvořeno'));

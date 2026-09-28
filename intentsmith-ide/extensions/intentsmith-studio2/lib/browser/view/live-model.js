@@ -675,7 +675,8 @@ class LiveModel extends Component {
       }
       vm.catalogError = this.widget.catalogActionError || view.error || view.warning || '';
       if (s.section === 'chats' && view.status === 'ready') vm.summary = itemCount(this.entities('chats', s).length)
-        + ' · ' + s.tabs.length + ' otevřených relací · od poslední aktivity';
+        + ' · ' + s.tabs.length + (s.tabs.length === 1 ? ' otevřená relace'
+          : s.tabs.length >= 2 && s.tabs.length <= 4 ? ' otevřené relace' : ' otevřených relací') + ' · od poslední aktivity';
       vm.hasCatalogError = !!vm.catalogError;
       vm.hasPrimary = ['chats', 'projects', 'specialists', 'expertises', 'workers', 'media'].includes(s.section);
       vm.primary = s.section === 'media' ? 'Nové generování'
