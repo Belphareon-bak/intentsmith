@@ -1,7 +1,7 @@
 # IntentSmith — mapa systému
 
-**IDE 2.0 — místní produkční instalace, 2026-09-28:** snapshot `c84b88cd`
-je výchozí desktop, původní frontend je zvlášť jako IntentSmith Legacy nad
+**IDE 2.0 — místní produkční instalace, 2026-09-28:** frontend `16318bf8`, backend `c84b88cd`;
+IDE 2.0 je výchozí desktop, původní frontend je zvlášť jako IntentSmith Legacy nad
 stejným spravovaným backendem a původní DB. Trvalý Node 24, kontrolovaný
 AppImage, zachované prostředí/profily/hold i všech sedm vazeb modelů.
 Celý finální offline/database profil **385 PASS / 1 FAIL Gate 0 / 0 BLOCKED**;
@@ -9,6 +9,10 @@ tři Electron scénáře, živý model/M2/SCM nad kopií DB a instalovaný chat,
 Legacy, celá výška UI a restart PASS. **LOCAL_PRODUCTION_DEPLOYED /
 IMPLEMENTATION_VERIFIED / REVIEW_PENDING**; veřejná M5/M6 přejímka se nemění.
 [Nasazení, ověření a zbývající omezení](docs/review/2026-09-28-STUDIO2-PRODUCTION.md).
+[Následná oprava startu](docs/review/2026-09-28-STUDIO2-STARTUP-FIX.md) odstranila
+restartovou synchronizaci sdíleného rámu i pád na metadatech původních příloh.
+Finální 385 PASS / 1 FAIL Gate 0, tři Electron PASS, čtyři AppImage starty PASS
+a skutečný uživatelský profil bez CDP se zachovanými přílohami v Kontextu.
 
 **Studio 2 — dokončení parity, 2026-09-28:** nový frontend je jediný registrovaný
 vstup; klasický monolit a dočasné ruční obrazovky jsou odstraněné. Vzhled se

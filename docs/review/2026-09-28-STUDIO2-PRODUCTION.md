@@ -1,5 +1,9 @@
 # IDE 2.0 — místní produkční instalace a Legacy
 
+**Následná oprava startu:** operátor odkryl restartový dialog a pád na
+uložených přílohách. Výchozí frontend je nyní `16318bf8`; backend tohoto
+historického nasazení zůstává. [Oprava a nové důkazy](2026-09-28-STUDIO2-STARTUP-FIX.md).
+
 Autorita: výslovné zadání operátora 28. 9. 2026: „vše otestuj a pak nové IDE
 dej do produkčního stavu a staré jako legacy“. Rozsah:
 [WP-STUDIO-2-PRODUCTION](../wp/WP-STUDIO-2-PRODUCTION-20260928.md).

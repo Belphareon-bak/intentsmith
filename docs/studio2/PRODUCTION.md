@@ -3,10 +3,12 @@
 Autorita: operátor 28. 9. 2026 a
 [WP-STUDIO-2-PRODUCTION](../wp/WP-STUDIO-2-PRODUCTION-20260928.md).
 
-Nasazeno 28. 9. 2026: čistý snapshot `c84b88cd`, ověřený AppImage,
+Nasazeno 28. 9. 2026: backend `c84b88cd`, opravený frontend `16318bf8`, ověřený AppImage,
 původní DB a zachované vazby modelů. **LOCAL_PRODUCTION_DEPLOYED /
 IMPLEMENTATION_VERIFIED / REVIEW_PENDING**. Přesné součty, živé zkoušky,
 backupy a omezení jsou v [reportu](../review/2026-09-28-STUDIO2-PRODUCTION.md).
+Start s původním profilem a přílohami, vlastní rám a soukromou evidenci
+řeší [následná oprava](../review/2026-09-28-STUDIO2-STARTUP-FIX.md).
 
 ## Instalace
 
