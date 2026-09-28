@@ -518,6 +518,7 @@ export class ChatController {
           metadata: {
             clarificationText: clarity.question, clarificationOptions: clarity.options || [],
             gpuQuantityPending: clarity.reason === 'gpu_quantity_ambiguous' || (request.unresolved === true && pending?.metadata?.gpuQuantityPending === true),
+            fileTargetPending: clarity.reason === 'file_target_missing' || (request.unresolved === true && pending?.metadata?.fileTargetPending === true),
             intentClarityReason: clarity.reason, intentSource: request.source || pending.metadata.intentSource,
             intentUnderstanding: inspected.understanding || null,
             unresolvedSpan: clarity.unresolvedSpan || (request.unresolved ? pending?.metadata?.unresolvedSpan : null) || null,

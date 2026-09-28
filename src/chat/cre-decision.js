@@ -37,7 +37,7 @@ import { featureManager } from '../core/feature-manager.js';
 import { throwIfAborted } from '../core/abort-error.js';
 import { isChatTurnError, LLMProviderUnavailableError, ModelResponseTruncatedError } from '../core/chat-turn-error.js';
 import { buildProjectHint } from './handlers/utils/project-context-prompt.js';
-import { assessIntentClarity, assessGpuIntent, literalFileTargets, latestAssistantContent, literalWriteContent, issueIntentEvidence, getIntentEvidence } from './intent-clarity.js';
+import { assessIntentClarity, assessGpuIntent, literalFileTargets, latestAssistantContent, literalWriteContent, resolveContextFileTarget, issueIntentEvidence, getIntentEvidence } from './intent-clarity.js';
 
 // v73: Lazy import to avoid circular dependency (followup.js → intent.js → cre-decision.js)
 let _detectFollowUpType = null;
@@ -2281,6 +2281,13 @@ export class CREDecisionEngine {
     // Reads are informational but still need literal targets. The core lexer
     // binds exact file citations even when an informational proposal omits slots.
     const files = literalFileTargets(input);
+    const contextTarget = ['FILE_READ', 'FILE_EXPLAIN', 'FILE_WRITE'].includes(classification?.intent)
+      ? resolveContextFileTarget(input, classification.fileTarget, context.dbHistory ?? context.history) : null;
+    if (classification) classification.contextTarget = contextTarget;
+    if (contextTarget && Array.isArray(understanding?.slots)) {
+      understanding.slots = understanding.slots.filter(slot => slot?.role !== 'target'
+        || !contextTarget.candidates.includes(slot.value));
+    }
     if (understanding?.kind === 'information' && Array.isArray(understanding.slots)) {
       // A model's role label cannot turn a language/topic into a filesystem
       // target. Concrete tool targets still bind to literal identifiers below.
@@ -2303,6 +2310,9 @@ export class CREDecisionEngine {
         || !Number.isFinite(classification.confidence) || classification.confidence < 0.7 || classification.confidence > 1) {
       return { clarity: { kind: 'clarify', slot: 'intent_meaning', reason: 'classification_uncertain', question: 'Jakou konkrétní akci nebo odpověď potřebuješ? Interpretace zatím není dostatečně jistá; nic nespouštím.' }, understanding };
     }
+    if (classification.intent === IntentType.FILE_WRITE && !classification.fileTarget) {
+      return { clarity: { kind: 'clarify', slot: 'intent_meaning', reason: 'file_target_missing', question: 'Do jakého souboru mám obsah uložit? Zadej přesný název nebo relativní cestu v projektu.', options: [] }, understanding };
+    }
     // A material filename suggested by a model must be a cited target, never
     // an invented replacement that merely passes filesystem syntax checks.
     const lexical = detectProjectFileIntent(input);
@@ -2310,7 +2320,7 @@ export class CREDecisionEngine {
     if (classification.fileTarget != null && typeof classification.fileTarget !== 'string') {
       return { clarity: { kind: 'clarify', slot: 'intent_meaning', reason: 'target_not_grounded', question: 'Jaký přesný soubor chceš použít? Cíl zatím není jednoznačně doložen zadáním. Nic nespouštím.' }, understanding };
     }
-    if (classification.fileTarget && !(projectListing && classification.fileTarget === '.')
+    if (classification.fileTarget && !(projectListing && classification.fileTarget === '.') && !contextTarget
         && !understanding.slots.some(slot => slot.role === 'target' && slot.value === classification.fileTarget)) {
       return { clarity: { kind: 'clarify', slot: 'intent_meaning', reason: 'target_not_grounded', question: `Jaký přesný soubor chceš použít? Navržený cíl „${classification.fileTarget}“ není doložen zadáním. Nic nespouštím.` }, understanding };
     }
@@ -3660,7 +3670,8 @@ PRAVIDLA:
         && extractedFileRef === '.';
       const hasKnownFilenameRef = typeof extractedFileRef === 'string'
         && KNOWN_EXTENSIONLESS_FILENAME_RE.test(extractedFileRef);
-      const hasFileRef = hasProjectListingRef || hasKnownFilenameRef
+      const verifiedReference = getIntentEvidence(context.intentEvidence)?.classification?.contextTarget;
+      const hasFileRef = Boolean(verifiedReference && verifiedReference.target === llmMeta?.fileTarget) || hasProjectListingRef || hasKnownFilenameRef
         || FILE_EXT_RE.test(input)                      // file.ext
         || /[\\/][\w.-]+/.test(input)                                 // path/file
         || /otev[rř]i|open/i.test(input)                             // explicit open verb

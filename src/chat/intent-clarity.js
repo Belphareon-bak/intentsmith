@@ -143,6 +143,27 @@ export function latestAssistantContent(history = []) {
   return null;
 }
 
+/** Exact identity from the most recent persisted file reference/list. */
+export function resolveContextFileTarget(input, target, history = []) {
+  if (typeof target !== 'string' || literalFileTargets(input).some(file => file.source === target)) return null;
+  const ordinals = [...fold(input).matchAll(/\b(prvni|druhy|treti|first|second|third)\b/gu)];
+  for (const entry of [...history].reverse()) {
+    const speaker = entry.response?.tag?.speaker ?? entry.role ?? entry.speaker;
+    const metadata = entry.response?.tag?.metadata ?? entry.metadata ?? {};
+    if (entry.isSummary || (speaker !== 'user' && metadata.intentContentEligible !== true)) continue;
+    const content = entry.response?.content ?? entry.content;
+    if (typeof content !== 'string' || content === input) continue;
+    const candidates = [...new Set(literalFileTargets(content).map(file => file.source))];
+    if (!candidates.length) continue;
+    const index = candidates.length === 1 ? 0 : ordinals.length === 1
+      ? { prvni: 0, first: 0, druhy: 1, second: 1, treti: 2, third: 2 }[ordinals[0][1]] : -1;
+    if (index < 0 || candidates[index] !== target) return null;
+    return { target, candidates, index, sourceRole: speaker, sourceContent: content,
+      sourceDigest: `sha256:${createHash('sha256').update(content, 'utf8').digest('hex')}` };
+  }
+  return null;
+}
+
 /** One explicitly quoted literal; preserve its bytes and never guess among two. */
 export function literalWriteContent(input, fileTarget) {
   const quoted = [...String(input).matchAll(QUOTED_LITERAL_PATTERN)]
@@ -175,7 +196,13 @@ export function prepareClarificationInput(input, pending) {
   const exact = options.find(option => option === input.trim());
   const folded = options.filter(option => !literalFileTargets(option).length && fold(option) === answer);
   const selected = affirmative ? options[0] : exact ?? (folded.length === 1 ? folded[0] : null);
-  if (!selected) return { source: input, supersededSpans: [] };
+  if (!selected) {
+    const files = literalFileTargets(input);
+    if ((metadata.fileTargetPending === true || metadata.intentClarityReason === 'file_target_missing') && files.length === 1
+      && input.trim().replace(/^[„"']|[“"']$/gu, '') === files[0].source)
+      return { source: `${metadata.intentSource}\n\nVýslovné upřesnění uživatele: ${input}`, supersededSpans: metadata.intentSupersededSpans || [] };
+    return { source: input, supersededSpans: [] };
+  }
   const span = metadata.unresolvedSpan;
   if (metadata.negationChoice === true && span) {
     const choices = validNegationDecisions(metadata.intentSource, metadata.intentNegationDecisions || []);

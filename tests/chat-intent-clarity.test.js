@@ -7,18 +7,20 @@ import { creDecisionEngine, CREDecisionEngine, DecisionType, IntentType } from '
 import { assessIntentClarity, getIntentEvidence, prepareClarificationInput, issueIntentEvidence, literalFileTargets, latestAssistantContent, literalWriteContent, verifyToolIntent } from '../src/chat/intent-clarity.js';
 import { ToolExecutor } from '../src/executor/tool-executor.js';
 import { llmGateway } from '../src/llm/gateway.js';
-import { getConversationStore } from '../src/chat/conversation-store.js';
+import { getConversationStore, resetConversationStore } from '../src/chat/conversation-store.js';
 import { config } from '../src/config.js';
 import { projectHandler } from '../src/chat/handlers/project.js';
 import { handleFileDecision } from '../src/chat/handlers/file.js';
 import { toolExecutor } from '../src/executor/tool-executor.js';
 import { handleAnswerDecision, handleAskUserDecision } from '../src/chat/handlers/decisions.js';
-import { projects } from '../src/db/database.js';
-import { mkdtempSync, rmSync, existsSync } from 'node:fs';
+import database, { projects } from '../src/db/database.js';
+import { mkdtempSync, rmSync, existsSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 config.ollama.baseUrl = 'invalid://intent-grounding-no-provider';
+resetConversationStore();
+getConversationStore(database); // Same persistent composition as server.js.
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async () => { throw new Error('Live network forbidden by intent test'); };
 
@@ -598,6 +600,57 @@ try {
       assert.equal(body.think, false, 'actual classifier wire disables thinking');
       assert.equal(body.options.num_predict, 500, 'effective classifier authority budget');
     } finally { llmGateway.call = oldCall; globalThis.fetch = async () => { throw new Error('Live network forbidden by intent test'); }; }
+  }
+  {
+    const root = mkdtempSync(path.join(tmpdir(), 'intent-reference-ingress-'));
+    writeFileSync(path.join(root, 'alpha.md'), 'PRVNÍ\n');
+    writeFileSync(path.join(root, 'beta.md'), 'DRUHÝ\n');
+    const project = projects.registerExternal('intent-reference-ingress', root).project;
+    const oldCall = llmGateway.call;
+    const id = 'intent-reference-real-store';
+    try {
+      getConversationStore().ensureConversation(id, { projectId: Number(project.id) });
+      ChatController.configure({ handlers: { [ChatMode.CONVERSATION]: conversationHandler, [ChatMode.PROJECT]: projectHandler }, config: { autoModeDetection: false } });
+      ChatController.setProject(id, { id: Number(project.id), name: project.name, path: root });
+      const send = message => ChatController.handle({ message, sessionId: id, conversationId: id,
+        context: { m2LifecycleOnly: true, projectId: Number(project.id) }, authenticatedSubject: { actorType: 'user', actorId: 'operator' } });
+      llmGateway.call = async () => ({ content: 'První soubor je alpha.md. Druhý soubor je beta.md.', finishReason: 'stop' });
+      proposal = classified(information());
+      await send('Vysvětli dvě možnosti');
+      proposal = { intent: 'FILE_READ', confidence: 0.95, fileTarget: 'beta.md', understanding: information([slot('target', 'ten druhý', 'beta.md')]) };
+      const pending = await send('Přečti ten druhý soubor.');
+      assert.equal(pending.metadata.approvalRequired, true);
+      assert.equal(pending.metadata.filePath, 'beta.md');
+      const approved = await send(`schválit efekt ${pending.metadata.effectId}`);
+      assert.equal(approved.metadata.fileOperation, true);
+      assert.match(approved.response, /DRUHÝ/u);
+      assert.doesNotMatch(approved.response, /PRVNÍ/u);
+      proposal.fileTarget = 'alpha.md';
+      const wrong = await send('Přečti ten druhý soubor.');
+      assert.equal(wrong.metadata.decision.type, 'ASK_USER', 'wrong historical identity is never silently accepted');
+      const saveId = 'intent-target-real-store';
+      getConversationStore().ensureConversation(saveId, { projectId: Number(project.id) });
+      ChatController.setProject(saveId, { id: Number(project.id), name: project.name, path: root });
+      const saveTurn = message => ChatController.handle({ message, sessionId: saveId, conversationId: saveId,
+        context: { m2LifecycleOnly: true, projectId: Number(project.id) }, authenticatedSubject: { actorType: 'user', actorId: 'operator' } });
+      proposal = classified(information());
+      const original = await saveTurn('Vysvětli dvě možnosti');
+      proposal = { intent: 'FILE_WRITE', confidence: 0.95, fileTarget: null, understanding: action([slot('action', 'Ulož')]) };
+      assert.equal((await saveTurn('Ulož odpověď')).metadata.decision.reason, 'file_target_missing');
+      assert.equal((await saveTurn('ano')).metadata.decision.type, 'ASK_USER');
+      proposal.fileTarget = 'copy.md';
+      proposal.understanding.slots.push(slot('target', 'copy.md'));
+      const write = await saveTurn('copy.md');
+      assert.equal(write.metadata.approvalRequired, true);
+      const written = await saveTurn(`schválit efekt ${write.metadata.effectId}`);
+      assert.equal(written.metadata.effectResult, 'succeeded');
+      assert.equal(readFileSync(path.join(root, 'copy.md'), 'utf8'), original.response);
+      proposal.fileTarget = 'backup.md'; proposal.understanding.slots = [slot('action', 'Ulož'), slot('target', 'backup.md')];
+      const backup = await saveTurn('Ulož ji i do backup.md');
+      assert.equal(backup.metadata.approvalRequired, true);
+      assert.equal((await saveTurn(`schválit efekt ${backup.metadata.effectId}`)).metadata.effectResult, 'succeeded');
+      assert.equal(readFileSync(path.join(root, 'backup.md'), 'utf8'), original.response, 'approval notice is never stored as content');
+    } finally { llmGateway.call = oldCall; rmSync(root, { recursive: true, force: true }); }
   }
   {
     const source = 'ulzo odpoved do notes.md';
