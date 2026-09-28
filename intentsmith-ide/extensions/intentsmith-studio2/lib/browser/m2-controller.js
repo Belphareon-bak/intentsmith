@@ -90,7 +90,8 @@ function parseObject(text, label) {
 
 class M2Controller {
   constructor(store, { backendUrl, fetchImpl = fetch, onChange = () => {},
-    onVerifiedChange = () => {}, activeTurn = () => false, schedule = setTimeout, unschedule = clearTimeout, onOpenComposer = () => {} } = {}) {
+    onVerifiedChange = () => {}, activeTurn = () => false,
+    schedule = (callback, delay) => setTimeout(callback, delay), unschedule = timer => clearTimeout(timer), onOpenComposer = () => {} } = {}) {
     this.store = store;
     this.backendUrl = backendUrl || (() => window.electronIntentSmith.getBackendUrl());
     this.fetchImpl = fetchImpl;
