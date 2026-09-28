@@ -1,14 +1,20 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**IDE 2.0 — místně nasazené, 2026-09-28:** frontend `79c19096`, backend `c84b88cd`;
-IntentSmith Legacy zůstává samostatně nad stejnou původní DB. Finální profil
-385 PASS / 1 zděděný FAIL Gate 0; skutečné Electron/model/M2/SCM, instalovaný
+**IDE 2.0 — místně nasazené, 2026-09-28:** frontend `32361710`, backend `c84b88cd`;
+IntentSmith Legacy zůstává samostatně nad stejnou původní DB. Integrační profil
+na `b5fda0f1` má 385 PASS / 1 zděděný FAIL Gate 0; skutečné Electron/model/M2/SCM, instalovaný
 chat, Legacy a restart PASS. Nezávislé přijetí delta změn je REVIEW_PENDING,
 veřejné M5/M6 gate se nemění.
 [Report nasazení](docs/review/2026-09-28-STUDIO2-PRODUCTION.md).
 [Oprava restartového dialogu a pádu na původních přílohách](docs/review/2026-09-28-STUDIO2-STARTUP-FIX.md):
 skutečný profil se čtyřmi relacemi, další start, Legacy a tři Electron scénáře
 PASS; finální profil 385 PASS / 1 zděděný FAIL Gate 0. Backend se nerestartoval.
+
+**Oprava podle následných připomínek operátora:** neutrální konverzační ikony,
+projektové časy, zelený konec palety a plné, rozlišitelné ikony nastavení.
+Finální `32361710`: AppImage, tři Electron scénáře a všech 11 motivů PASS;
+běžný desktopový start bez CDP PASS. Backend a původní DB zachovány.
+[Náhledy před/po, testové identity a omezení](docs/review/2026-09-28-STUDIO2-PALETTE-PROJECT-DATES.md).
 
 **Poslední relace a kategorie, 2026-09-28:** MRU 1–5, štítky a časy
 napojené na původní data, výrazné kategorie a samostatné tlumené nastavení.

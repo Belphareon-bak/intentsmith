@@ -1,10 +1,10 @@
 # IntentSmith — mapa systému
 
-**IDE 2.0 — místní produkční instalace, 2026-09-28:** frontend `79c19096`, backend `c84b88cd`;
+**IDE 2.0 — místní produkční instalace, 2026-09-28:** frontend `32361710`, backend `c84b88cd`;
 IDE 2.0 je výchozí desktop, původní frontend je zvlášť jako IntentSmith Legacy nad
 stejným spravovaným backendem a původní DB. Trvalý Node 24, kontrolovaný
 AppImage, zachované prostředí/profily/hold i všech sedm vazeb modelů.
-Celý finální offline/database profil **385 PASS / 1 FAIL Gate 0 / 0 BLOCKED**;
+Integrační offline/database profil na `b5fda0f1`: **385 PASS / 1 FAIL Gate 0 / 0 BLOCKED**;
 tři Electron scénáře, živý model/M2/SCM nad kopií DB a instalovaný chat,
 Legacy, celá výška UI a restart PASS. **LOCAL_PRODUCTION_DEPLOYED /
 IMPLEMENTATION_VERIFIED / REVIEW_PENDING**; veřejná M5/M6 přejímka se nemění.
@@ -13,6 +13,16 @@ IMPLEMENTATION_VERIFIED / REVIEW_PENDING**; veřejná M5/M6 přejímka se neměn
 restartovou synchronizaci sdíleného rámu i pád na metadatech původních příloh.
 Finální 385 PASS / 1 FAIL Gate 0, tři Electron PASS, čtyři AppImage starty PASS
 a skutečný uživatelský profil bez CDP se zachovanými přílohami v Kontextu.
+
+**Následná oprava vzhledu a projektových časů, 2026-09-28:** konverzace mají
+neutrální ikony a barevné pouze štítky; projekty skutečné Vytvořeno a Poslední
+aktivita; konec navigace je azurový / mátový / zelený. Nastavení má plné
+barevné podklady a dvanáct různých symbolů ve všech třech zobrazeních.
+Finální `32361710`: tři Electron scénáře, AppImage, běžný start bez CDP
+a 11 kombinací motivů PASS. Celý profil na integračně shodném `b5fda0f1`
+385 PASS / 1 zděděný FAIL Gate 0; rozdíl pouze vizuál/test/docs je doložený.
+Místně nasazeno, REVIEW_PENDING.
+[Ověření, porovnání před/po a přesné identity](docs/review/2026-09-28-STUDIO2-PALETTE-PROJECT-DATES.md).
 
 **Poslední relace a kategorie, 2026-09-28:** jedno MRU pořadí 1–5, barevné
 štítky kontextu, skutečná projektová historie a časy posledního použití.

@@ -80,3 +80,13 @@ nastavení plné barevné podklady a různé významové symboly. Ověřit nejen
 jedinečnost barev, ale i kontrast symbolů a totožný vzhled v dlaždici,
 seznamu a detailu. Celý profil byl spuštěn na `b5fda0f1`; navazující změny
 jsou omezené na paletu, symboly a jejich kanonické renderování.
+
+
+### Stav navazující opravy
+
+Frontend `32361710` je místně nasazený, backend `c84b88cd` zůstal aktivní.
+**LOCAL_PRODUCTION_DEPLOYED / IMPLEMENTATION_VERIFIED / REVIEW_PENDING.**
+Finální AppImage, tři Electron scénáře, běžný start a 11 kombinací motivů
+PASS; LiveModel 72/72, SessionStore 14 skupin, prototyp 1916 kontrol bez chyby.
+Celý profil na integračně shodném `b5fda0f1` 385 PASS / 1 zděděný FAIL Gate 0.
+[Náhledy před/po, přesné identity a meze](../review/2026-09-28-STUDIO2-PALETTE-PROJECT-DATES.md).
