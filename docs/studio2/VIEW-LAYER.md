@@ -303,7 +303,7 @@ zprávy relace takto (test `tests/studio2-conversation-view.test.js`):
   prázdná relace má prázdný stav z prototypu.
 - Časová osa tahu ukazuje jen skutečnou práci (nástroje, soubory, chyby).
   Interní kroky pipeline (`kind: 'step'`, `'model'`) jsou sbalené do řádku
-  „Zpracování · N kroků · čas"; opakovaný krok se sloučí. Čas odpovědi nese délku tahu.
+  „Zpracování · N fáze · čas" (od 28. 9. fáze, viz §9). Čas odpovědi nese délku tahu.
 - Systémová zpráva M2 `awaiting_approval` s platnou vazbou plánu je karta
   schválení (soubory, +/−, režim). Schválit je utlumené a otevře panel Změny,
   dokud nebyl přesný plán zobrazen (pravidlo `m2-controller`). Chybí-li zpráva
@@ -313,7 +313,7 @@ zprávy relace takto (test `tests/studio2-conversation-view.test.js`):
   jako „answer"), jinak model role CHAT z `/api/system/models` (`current_model`).
 - Zaplnění kontextu bez měření je „—". `POST /api/context` je v backendu jen
   odhad podle počtu zpráv, UI ho proto nepoužívá.
-- Záložka s výchozím názvem „Relace N" dostane název podle prvního zadání.
+- Relace s výchozím názvem („Relace N", „Nová relace") dostane název podle prvního zadání.
 
 Okno: v režimu Studio 2 se skryje nativní menu Theie a okno se od dalšího startu
 přepne na bezrámové (`setTitleBarStyle('custom')`), protože Studio 2 má vlastní
@@ -322,3 +322,32 @@ Horní panel Theie zůstává skrytý. Návrat do klasického režimu rám vrát
 (`intentsmith-studio2-frame` v `localStorage`). Globální pravidla polí z klasického
 motivu (`intentsmith-theme.css`) v režimu Studio 2 neplatí; pole průvodců
 a nastavení mají styl z prototypu (`:where(.ide) …`, nulová specifičnost).
+
+## 9. Relace bez záložek, fáze zpracování, kopírování (28. 9.)
+
+Rozhodnutí operátora, požadavky v [UI-SPEC](UI-SPEC.md) §5 a §6. Vizuál
+a sémantika jsou v prototypu (`main.js`), napojení v `session-store.js`,
+`studio2-module.js` a `live-model.js`.
+
+- **Lišta záložek není.** Otevřené relace ukazuje levá navigace, výběr
+  „Poslední relace" v hlavičce sloupce (`recent(s)` podle `s.used`), paleta
+  a nabídka Relace. Číslo relace = pořadí v seznamu (1–5), platí pro Alt+N.
+  Připínání a „zavřít ostatní / vpravo" odpadly (`tabsVM`, `pTogglePinned`,
+  kontext `'tab'`); `pCloseTab` je v live modelu jen alias `pCloseSession`.
+- **Strop 5 relací** (`maxSessions()`, `MAX_SESSIONS`). Nová relace jde do
+  volného sloupce, jinak nahradí sloupec, se kterým se nejdéle nepracovalo,
+  nikdy aktivní (`slotFor` / `SessionStore.nextSlot`). Při stropu se zavře
+  nejdéle nepoužitá skrytá relace, kterou jde bezpečně zavřít
+  (`canAutoClose` / `Studio2Widget.closeBlockReason`); jinak se nová neotevře.
+  Obojí oznámí hlášení `s.toast = { id, tone, t }`, které po `armToast` samo zmizí.
+- **× v hlavičce sloupce ukončí relaci** (`pCloseSession` / `closeSession`).
+  Sloupec zmizí, jediný sloupec převezme naposledy použitou relaci; zavřené
+  relace jsou v „Nedávné" nahoře (`s.closed`).
+- **Fáze zpracování.** `phaseSteps(events, endAt)` v prototypu složí události
+  do nejvýš čtyř fází (Porozumění zadání, Příprava kontextu, Generování
+  odpovědi, Kontroly výstupu). Trvání fáze = do začátku dalšího kroku.
+  Live `timeline()` mapuje štítky `WorkActivity` na fáze (`phaseFor`).
+  Dokončená fáze je zelená, sbalení zůstává výchozí.
+- **Kopírování** je pod dokončenou odpovědí (`.mcopy`). `copyText(key, text)`
+  ukáže „Zkopírováno" (1,6 s) nebo „Kopírování se nepovedlo" (4 s).
+- Náhledy: `preview-view.js` scény `konverzace-zkopirovano` a `relace-strop-hlaseni`.

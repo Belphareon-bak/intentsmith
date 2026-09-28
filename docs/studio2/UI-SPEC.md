@@ -173,9 +173,9 @@ stav), **Souvislosti**.
 
 | Sekce | Hlavní akce | Záložky |
 |---|---|---|
-| Konverzace | Přepnout na relaci / Otevřít jako relaci; Otevřít vedle | Přehled |
-| Projekt | Nová relace v projektu | Přehled, Konverzace, Soubory, Správa zdrojů (politika gitu) |
-| Specialista | Nová konverzace se specialistou | Přehled, Nástroje, Nastavení |
+| Konverzace | Přepnout na relaci; Ukončit relaci / Otevřít nebo Otevřít v nové relaci (§5) | Přehled |
+| Projekt | Otevřít / Otevřít v nové relaci (§5) | Přehled, Konverzace, Soubory, Správa zdrojů (politika gitu) |
+| Specialista | Otevřít / Otevřít v nové relaci (§5) | Přehled, Nástroje, Nastavení |
 | Expertýza | Použít v aktivní relaci | Přehled (profil 5D), Pravidla |
 | Worker | Spustit teď; Pozastavit; Upravit definici | Přehled, Zdroje, Běhy |
 | Balíček | Nainstalovat / Odinstalovat / Aktualizovat | Přehled, Verze |
