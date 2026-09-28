@@ -2104,6 +2104,20 @@ test('regenerate asks once, sends the last user request as a new turn and refuse
   assert.equal(await f.model.regenerateAnswer(f.session), false); assert.equal(f.calls.length, 1);
 });
 
+test('generic conversation history does not activate a specialist from descriptive membership', async () => {
+  const item = { id: 'history', name: 'Historie', raw: { specialist_id: 'reviewer', specialist_name: 'Reviewer' } };
+  const catalog = { view: () => ({ status: 'ready', items: [item] }), load() {}, subscribe: () => () => {} };
+  const { model, widget } = setup({ catalog });
+  const opened = [];
+  widget.openCatalogItem = async (section, row) => { opened.push([section, row.id]); return true; };
+  widget.openSpecialistConversation = () => { throw Error('Display metadata must not select a backend role'); };
+  model.pOpenSession(model.st(), item.id);
+  await tick();
+  assert.deepEqual(opened, [['Konverzace', 'history']]);
+  assert.equal(widget.store.focusedSession().chat.specialist, null);
+  model.componentWillUnmount();
+});
+
 test('all session controls show contiguous MRU ranks and Alt+5 selects the same stable owner', () => {
   const { model, store } = setup();
   for (let i = 1; i < 5; i++) store.addSession({ label: 'Práce ' + i });

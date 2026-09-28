@@ -2263,9 +2263,9 @@ class LiveModel extends Component {
   pOpenSession(s, id) {
     if (this.widget.store.find(id)) return this.pFocusSession(s, id);
     const item = this.widget.catalog.view('Konverzace').items.find(row => row.id === String(id));
-    if (item) (item.raw?.specialist_id && this.widget.openSpecialistConversation
-      ? this.widget.openSpecialistConversation(item, item.raw.specialist_id)
-      : this.widget.openCatalogItem('Konverzace', item)).then(ok => {
+    // Historical specialist membership is a display label, not an activation
+    // request. Explicit specialist opening keeps its separate connector.
+    if (item) this.widget.openCatalogItem('Konverzace', item).then(ok => {
       if (ok) this.setState({ mode: 'sessions' }); else this.forceUpdate();
     }).catch(error => { this.widget.catalogActionError = error.message || 'Konverzaci nelze otevřít.'; this.forceUpdate(); });
     return null;
