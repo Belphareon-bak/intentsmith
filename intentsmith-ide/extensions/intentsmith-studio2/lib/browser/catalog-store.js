@@ -101,14 +101,65 @@ class CatalogStore {
     this.views.set(section, { ...this.view(section), status: 'loading', error: null });
     this.changed();
     try {
-      const data = await this.get(route);
+      let data = await this.get(route);
+      let warning = '';
+      if (section === 'Konverzace') {
+        const combined = await this.conversationIndex(data);
+        data = combined.data; warning = combined.warning;
+      }
       if (token !== this.requestIds.get(section)) return;
-      this.views.set(section, { status: 'ready', items: normalizeCatalog(section, data), error: null });
+      this.views.set(section, { status: 'ready', items: normalizeCatalog(section, data), error: null, warning });
     } catch (error) {
       if (token !== this.requestIds.get(section)) return;
       this.views.set(section, { ...this.view(section), status: 'error', error: error.message || 'Načtení selhalo.' });
     }
     this.changed();
+  }
+
+  // Classic's global list excludes project conversations. Read the existing
+  // project and specialist history connectors to build a complete UI index.
+  // Specialist membership is descriptive; activation still uses its own API.
+  async conversationIndex(data) {
+    const rows = new Map(arrayFrom('Konverzace', data).filter(row => row?.id != null)
+      .map(row => [String(row.id), { ...row }]));
+    const warnings = [];
+    const catalogs = await Promise.allSettled(['Projekty', 'Specialisté'].map(section =>
+      this.view(section).status === 'ready' ? this.view(section).items :
+        this.get(ROUTES[section]).then(body => normalizeCatalog(section, body))));
+    const projects = catalogs[0].status === 'fulfilled' ? catalogs[0].value : [];
+    const specialists = catalogs[1].status === 'fulfilled' ? catalogs[1].value : [];
+    catalogs.forEach((result, index) => { if (result.status === 'rejected')
+      warnings.push(index ? 'Nelze načíst vazby specialistů.' : 'Nelze načíst projektové konverzace.'); });
+    const tasks = [
+      ...projects.map(project => ({ project, route: '/api/projects/' + encodeURIComponent(project.id) + '/conversations?limit=50&status=active' })),
+      ...specialists.map(specialist => ({ specialist, route: '/api/conversations?limit=100&specialistId=' + encodeURIComponent(specialist.id) })),
+    ];
+    // Bound concurrent reads; catalog expansion must not flood the live server.
+    for (let offset = 0; offset < tasks.length; offset += 4) {
+      const batch = tasks.slice(offset, offset + 4);
+      const responses = await Promise.allSettled(batch.map(task => this.get(task.route)));
+      responses.forEach((response, index) => {
+        const task = batch[index];
+        if (response.status === 'rejected') { warnings.push('Část historie se nepodařila načíst.'); return; }
+        const history = Array.isArray(response.value) ? response.value : response.value?.conversations;
+        if (!Array.isArray(history)) { warnings.push('Část historie má neplatnou odpověď.'); return; }
+        for (const row of history) {
+          if (row?.id == null || (row.state && row.state !== 'active')) continue;
+          if (task.project && String(row.project_id) !== task.project.id) {
+            warnings.push('Projektová historie vrátila jiný projekt.'); continue;
+          }
+          const id = String(row.id), previous = rows.get(id);
+          const next = { ...previous, ...row };
+          if (task.project) { next.project_id = task.project.id; next.project_name = task.project.name; }
+          if (task.specialist) {
+            next.specialist_id = previous?.specialist_id || task.specialist.id;
+            next.specialist_name = previous?.specialist_name || task.specialist.name;
+          }
+          rows.set(id, next);
+        }
+      });
+    }
+    return { data: { conversations: [...rows.values()] }, warning: [...new Set(warnings)].join(' ') };
   }
 }
 module.exports = { CatalogStore, normalizeCatalog, ROUTES, MEDIA_ID };

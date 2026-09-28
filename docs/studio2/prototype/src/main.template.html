@@ -30,7 +30,17 @@ html,body{margin:0;height:100%;overflow:hidden}
 .num{font-variant-numeric:tabular-nums}
 .grow{flex-grow:1}
 .faint{color:var(--faint)}
-.tone-amber{--tc:var(--warn)}.tone-rose{--tc:var(--bad)}.tone-violet{--tc:var(--acct)}.tone-cyan{--tc:var(--cyan)}.tone-mint{--tc:var(--ok)}.tone-blue{--tc:var(--info)}.tone-none{--tc:var(--acct)}
+/* Semantic category colors stay distinct from the theme accent and status colors. */
+.dark{--cat-chat:#facc15;--cat-project:#ff7373;--cat-specialist:#b18aff;--cat-expertise:#60a5fa;--cat-worker:#4ade80;--cat-market:#fb923c;--cat-media:#2dd4bf;--set-ucet:#8fa6ba;--set-modely:#a0a8dc;--set-pamet:#7cbab0;--set-oznameni:#c7b77e;--set-vystup:#84b0c7;--set-vzhled:#b39bc9;--set-system:#a6afb9;--set-uloziste:#c5a080;--set-zalohy:#a5b47d;--set-prepinace:#aba2c4;--set-zabezpeceni:#8ab697;--set-about:#849cbe}
+.light{--cat-chat:#976300;--cat-project:#b91c1c;--cat-specialist:#6d28d9;--cat-expertise:#1d4ed8;--cat-worker:#15733a;--cat-market:#b94708;--cat-media:#0f766e;--set-ucet:#4c6378;--set-modely:#595f94;--set-pamet:#396f67;--set-oznameni:#756330;--set-vystup:#3f6b82;--set-vzhled:#72558b;--set-system:#5e6771;--set-uloziste:#865d3a;--set-zalohy:#5d7035;--set-prepinace:#6e5f85;--set-zabezpeceni:#3f7450;--set-about:#446389}
+.tone-amber{--tc:var(--cat-chat)}.tone-red,.tone-rose{--tc:var(--cat-project)}.tone-violet{--tc:var(--cat-specialist)}.tone-cyan{--tc:var(--cat-media)}.tone-mint{--tc:var(--cat-worker)}.tone-blue{--tc:var(--cat-expertise)}.tone-orange{--tc:var(--cat-market)}.tone-none{--tc:var(--acct)}
+.tone-set-ucet{--tc:var(--set-ucet)} .tone-set-modely{--tc:var(--set-modely)} .tone-set-pamet{--tc:var(--set-pamet)} .tone-set-oznameni{--tc:var(--set-oznameni)} .tone-set-vystup{--tc:var(--set-vystup)} .tone-set-vzhled{--tc:var(--set-vzhled)} .tone-set-system{--tc:var(--set-system)} .tone-set-uloziste{--tc:var(--set-uloziste)} .tone-set-zalohy{--tc:var(--set-zalohy)} .tone-set-prepinace{--tc:var(--set-prepinace)} .tone-set-zabezpeceni{--tc:var(--set-zabezpeceni)} .tone-set-about{--tc:var(--set-about)}
+.category-badges{display:flex;align-items:center;flex-wrap:wrap;gap:5px;min-width:0}
+.category-label{display:inline-flex;align-items:center;gap:4px;border:1px solid color-mix(in srgb,var(--tc) 42%,transparent);border-radius:5px;padding:2px 6px;font-size:10.5px;font-weight:600;line-height:15px;color:var(--tc);background:color-mix(in srgb,var(--tc) 9%,var(--s0));white-space:nowrap;text-transform:none;letter-spacing:0}
+.last-used{display:inline-flex;align-items:center;gap:4px;color:var(--dim);font-size:11px;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pane-categories{flex:0 1 auto;overflow:hidden;flex-wrap:nowrap}
+@container (max-width: 680px){.pane-categories .category-label{padding:2px 4px}.pane-categories .category-label span{display:none}}
+
 .ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto;display:block}
 .lbl{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}
 .lbl-acc{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--acct)}
@@ -120,7 +130,7 @@ html,body{margin:0;height:100%;overflow:hidden}
 .nrow.on .nbtn{color:var(--acct);font-weight:600}
 .nico{display:grid;place-items:center;width:26px;height:26px;border-radius:6px;flex:0 0 auto;color:var(--dim)}
 .nrow.on .nico,.rail.on .nico{color:var(--acct)}
-.toned .nico{color:var(--tc);background:color-mix(in srgb,var(--tc) 12%,transparent)}
+.toned .nico,.toned .nrow .nico,.toned .rail .nico{color:var(--tc);background:color-mix(in srgb,var(--tc) 12%,transparent)}
 .nlbl{flex:1 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .nbadge{font-size:10.5px;padding:0 6px;border-radius:9px;background:var(--panel3);color:var(--dim);line-height:17px;font-weight:500;flex:0 0 auto}
 .nbadge.warn{background:color-mix(in srgb,var(--warn) 20%,transparent);color:var(--warn)}
@@ -665,9 +675,10 @@ textarea.fv-ed{font-family:var(--font-mono)}
 <div class="scol {{c.cls}}" style="grid-template-rows: {{c.rows}};" onMouseDown="{{c.focus}}">
 <div class="pane-h">
 <span class="tnum {{c.numCls}}">{{c.n}}</span>
-<svg class="ic" width="13" height="13" viewBox="0 0 24 24" style="color: var(--faint);"><path d="{{c.kindIcon}}"></path></svg>
+<svg class="ic tone-{{c.kindTone}}" width="13" height="13" viewBox="0 0 24 24" style="color: var(--tc);"><path d="{{c.kindIcon}}"></path></svg>
 <span class="dot {{c.dot}}"></span>
 <button class="pane-t {{c.pickCls}}" onClick="{{c.pick}}" aria-haspopup="menu" title="{{c.title}} · vybrat relaci pro tento sloupec"><span class="pane-tt">{{c.title}}</span><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{I.down}}"></path></svg></button>
+<span class="category-badges pane-categories"><sc-for list="{{c.badges}}" as="badge" hint-placeholder-count="1"><span class="category-label tone-{{badge.tone}}" title="{{badge.title}}"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{badge.icon}}"></path></svg><span>{{badge.label}}</span></span></sc-for></span>
 <sc-if value="{{c.hasOwner}}" hint-placeholder-val="{{true}}"><button class="chip pchip" onClick="{{c.openOwner}}" title="{{c.ownerTitle}}"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{c.ownerIcon}}"></path></svg>{{c.ownerName}}</button></sc-if>
 <span class="grow"></span>
 <sc-if value="{{c.hasIntent}}" hint-placeholder-val="{{true}}"><span class="pmeta badge">{{c.intent}}</span></sc-if>
@@ -767,8 +778,9 @@ textarea.fv-ed{font-family:var(--font-mono)}
 <div class="tiles" style="grid-template-columns: repeat(auto-fill, minmax({{cg.minW}}px, 1fr));">
 <sc-for list="{{cg.items}}" as="e" hint-placeholder-count="8">
 <button class="tile {{e.cls}}" onClick="{{e.go}}" onDoubleClick="{{e.dbl}}" onContextMenu="{{e.ctx}}">
-<span class="tile-top"><span class="tico tone-{{e.tone}} {{e.icls}}"><svg class="ic" width="17" height="17" viewBox="0 0 24 24"><path d="{{e.icon}}"></path></svg></span><span class="grow"></span><sc-if value="{{e.hasNum}}" hint-placeholder-val="{{false}}"><span class="tnum {{e.numCls}}">{{e.num}}</span></sc-if><sc-if value="{{e.hasDot}}" hint-placeholder-val="{{false}}"><span class="dot {{e.dot}}"></span></sc-if><sc-if value="{{e.hasTag}}" hint-placeholder-val="{{true}}"><span class="tag {{e.tagCls}}">{{e.tag}}</span></sc-if></span>
+<span class="tile-top"><span class="tico tone-{{e.tone}} {{e.icls}}"><svg class="ic" width="17" height="17" viewBox="0 0 24 24"><path d="{{e.icon}}"></path></svg></span><span class="grow"></span><sc-if value="{{e.hasUsed}}" hint-placeholder-val="{{false}}"><span class="last-used" title="{{e.usedTitle}}"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{I.clock}}"></path></svg>{{e.usedText}}</span></sc-if><sc-if value="{{e.hasNum}}" hint-placeholder-val="{{false}}"><span class="tnum {{e.numCls}}">{{e.num}}</span></sc-if><sc-if value="{{e.hasDot}}" hint-placeholder-val="{{false}}"><span class="dot {{e.dot}}"></span></sc-if><sc-if value="{{e.hasTag}}" hint-placeholder-val="{{true}}"><span class="tag {{e.tagCls}}">{{e.tag}}</span></sc-if></span>
 <span class="tile-n">{{e.name}}</span>
+<sc-if value="{{e.hasBadges}}" hint-placeholder-val="{{false}}"><span class="category-badges"><sc-for list="{{e.badges}}" as="badge" hint-placeholder-count="1"><span class="category-label tone-{{badge.tone}}" title="{{badge.title}}"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{badge.icon}}"></path></svg>{{badge.label}}</span></sc-for></span></sc-if>
 <span class="tile-s">{{e.sub}}</span>
 <span class="tile-d">{{e.desc}}</span>
 <span class="tile-f"><span class="grow">{{e.catLabel}}</span><span style="color: {{e.mc}}; text-transform: none; letter-spacing: 0; font-weight: 500;">{{e.meta}}</span></span>
@@ -778,9 +790,9 @@ textarea.fv-ed{font-family:var(--font-mono)}
 </sc-if>
 <sc-if value="{{cg.isList}}" hint-placeholder-val="{{false}}">
 <div class="ltbl">
-<div class="lrow th"><span></span><span>Název</span><span>Skupina</span><span class="c-sub">Podrobnosti</span><span class="c-desc">Popis</span><span>Stav</span></div>
+<div class="lrow th"><span></span><span>Název</span><span>Skupina</span><span class="c-sub">Podrobnosti</span><span class="c-desc">Popis</span><span>{{cg.stateHeading}}</span></div>
 <sc-for list="{{cg.items}}" as="e" hint-placeholder-count="8">
-<button class="lrow {{e.cls}}" onClick="{{e.go}}" onDoubleClick="{{e.dbl}}" onContextMenu="{{e.ctx}}"><span class="lico tone-{{e.tone}} {{e.icls}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{e.icon}}"></path></svg></span><span class="cell" style="font-weight: 600;">{{e.name}}</span><span class="cell" style="color: var(--dim);">{{e.catLabel}}</span><span class="cell mono c-sub" style="font-size: 11.5px; color: var(--faint);">{{e.sub}}</span><span class="cell c-desc" style="color: var(--dim);">{{e.desc}}</span><span class="cell" style="color: {{e.mc}};">{{e.state}}</span></button>
+<button class="lrow {{e.cls}}" onClick="{{e.go}}" onDoubleClick="{{e.dbl}}" onContextMenu="{{e.ctx}}"><span class="lico tone-{{e.tone}} {{e.icls}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{e.icon}}"></path></svg></span><span class="cell" style="font-weight: 600;">{{e.name}}</span><span class="cell"><sc-if value="{{e.hasBadges}}" hint-placeholder-val="{{false}}"><span class="category-badges"><sc-for list="{{e.badges}}" as="badge" hint-placeholder-count="1"><span class="category-label tone-{{badge.tone}}" title="{{badge.title}}">{{badge.label}}</span></sc-for></span></sc-if><sc-if value="{{e.noBadges}}" hint-placeholder-val="{{true}}">{{e.catLabel}}</sc-if></span><span class="cell mono c-sub" style="font-size: 11.5px; color: var(--faint);">{{e.sub}}</span><span class="cell c-desc" style="color: var(--dim);">{{e.desc}}</span><span class="cell"><sc-if value="{{e.hasUsed}}" hint-placeholder-val="{{false}}"><span class="last-used" title="{{e.usedTitle}}">{{e.usedText}}</span></sc-if><sc-if value="{{e.noUsed}}" hint-placeholder-val="{{true}}">{{e.state}}</sc-if></span></button>
 </sc-for>
 </div>
 </sc-if>
@@ -794,6 +806,7 @@ textarea.fv-ed{font-family:var(--font-mono)}
 <div class="dh-m"><div class="dh-title">{{dt.title}}<sc-if value="{{dt.hasStatus}}" hint-placeholder-val="{{true}}"><span class="st {{dt.stCls}}">{{dt.status}}</span></sc-if></div><div class="dh-sub">{{dt.type}} · <span class="mono">{{dt.idText}}</span></div></div>
 <button class="iconbtn" aria-label="Zavřít detail" title="Zavřít detail" onClick="{{closeDetail}}"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="{{I.x}}"></path></svg></button>
 </div>
+<sc-if value="{{dt.hasBadges}}" hint-placeholder-val="{{false}}"><div class="category-badges" style="padding: 0 18px 10px;"><sc-for list="{{dt.badges}}" as="badge" hint-placeholder-count="1"><span class="category-label tone-{{badge.tone}}" title="{{badge.title}}"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{badge.icon}}"></path></svg>{{badge.label}}</span></sc-for></div></sc-if>
 <div class="dact">
 <sc-if value="{{dt.hasPrimary}}" hint-placeholder-val="{{true}}"><button class="btn btn-acc" onClick="{{dt.onPrimary}}">{{dt.primaryLabel}}</button></sc-if>
 <sc-for list="{{dt.secondary}}" as="b" hint-placeholder-count="2"><button class="btn" onClick="{{b.go}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{b.icon}}"></path></svg>{{b.label}}</button></sc-for>

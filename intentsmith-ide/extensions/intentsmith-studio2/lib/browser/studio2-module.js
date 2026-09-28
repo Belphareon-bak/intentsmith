@@ -138,7 +138,8 @@ class Studio2Widget extends ReactWidget {
         const rows = Array.isArray(body) ? body : body.messages;
         if (!Array.isArray(rows)) throw new Error('Server nevrátil platnou historii.');
         if (!this.createSession({ convId: item.id, projectId: metadata.project_id, label: metadata.title || item.name,
-          recentMsgs: rows.map(row => ({ role: row.role, text: row.content || row.text || '' })) }, slot)) return false;
+          createdAt: metadata.created_at,
+          recentMsgs: rows.map(row => ({ role: row.role, text: row.content || row.text || '', ts: row.created_at })) }, slot)) return false;
       } else {
         if (!this.capacityAvailable()) return false;
         const response = await fetch(this.catalog.backendUrl() + '/api/conversations', {
@@ -149,7 +150,8 @@ class Studio2Widget extends ReactWidget {
         if (!response.ok) throw new Error(body.error || `Vytvoření relace selhalo (HTTP ${response.status}).`);
         const conversation = body.conversation || body;
         if (!conversation.id || String(conversation.project_id) !== String(item.raw.id)) throw new Error('Server nepotvrdil správný projekt konverzace.');
-        const session = this.createSession({ convId: conversation.id, projectId: item.raw.id, label: item.name }, slot);
+        const session = this.createSession({ convId: conversation.id, projectId: item.raw.id, label: item.name,
+          createdAt: conversation.created_at }, slot);
         if (!session) throw Error('Relaci nelze bezpečně otevřít. Konverzace je uložená v historii.');
         this.workspace.loadTree(session);
       }
@@ -247,7 +249,7 @@ class Studio2Widget extends ReactWidget {
       session.chat._attachmentError = 'M2 příkazy nepřijímají přílohy. Odeberte je před pokračováním.';
       this.store.changed(); return;
     }
-    if (value && this.m2.handleText(session, value)) { textarea.value = ''; return; }
+    if (value && this.m2.handleText(session, value)) { this.store.touch(session.id); this.store.changed(); textarea.value = ''; return; }
     const selected = session.chat.attachments.slice();
     if ((!value && !selected.length) || session.chat._preparing || session.chat._picking) return;
     const identity = { convId: session._convId, projectId: session._projectId, agentId: session._agentId,

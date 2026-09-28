@@ -18,6 +18,9 @@ function identity(value) {
   if (Number.isSafeInteger(value) && value > 0) return String(value);
   return null;
 }
+function dateValue(value) {
+  return typeof value === 'string' && Number.isFinite(Date.parse(value)) ? value : null;
+}
 function messages(value) {
   return Array.isArray(value) ? value.slice(-100).filter(item => item && typeof item === 'object')
     .map(item => ({ role: text(item.role, 'system'), text: text(item.text), tag: text(item.tag), _gapChoice: item._gapChoice === true, _gapResolved: item._gapResolved === true,
@@ -35,6 +38,8 @@ function makeSession(number, source = {}) {
     _uiId: text(raw._uiId) || id(), _convId: text(raw._convId || raw.convId) || null,
     _projectId: identity(raw._projectId ?? raw.projectId),
     _agentId: identity(raw._agentId ?? raw.agentId),
+    _createdAt: dateValue(raw.createdAt || raw._createdAt) || (!raw.id && !raw.convId && !raw._convId ? new Date().toISOString() : null),
+    _lastUsedAt: dateValue(raw.lastUsedAt || raw._lastUsedAt),
     _label: text(raw._label || raw.label) || `Relace ${number}`,
     _pinned: raw._pinned === true || raw.pinned === true,
     _m2Pending: pendingBinding(raw._m2Pending || raw.m2Pending),
@@ -70,6 +75,7 @@ function snapshotSession(session) {
   return {
     id: session.id, number: session.number,
     convId: session._convId, projectId: session._projectId, agentId: session._agentId,
+    createdAt: session._createdAt, lastUsedAt: session._lastUsedAt,
     label: session._label, m2Pending: pendingBinding(session._m2Pending), m2Last: pendingBinding(session._m2Last),
     pinned: session._pinned === true,
     focusFiles: session._focusFiles,
@@ -170,6 +176,8 @@ class SessionStore {
   constructor(storage) {
     this.storage = storage;
     this.state = restore(storage);
+    this.conversationActivity = Object.fromEntries(Object.entries(safeObject(parse(storage, V2_KEY)?.conversationActivity))
+      .filter(([, value]) => dateValue(value)).slice(0, 500));
     this.listeners = new Set();
     // Older versions allowed unlimited sessions. Keep visible sessions and all
     // unresolved work; only safe hidden sessions can be removed during migration.
@@ -190,16 +198,32 @@ class SessionStore {
   }
   persist() {
     const { sessions, columns, focusedColumn, nextNumber, used, closed } = this.state;
+    for (const session of sessions) if (session._convId && session._lastUsedAt
+      && (!this.conversationActivity[session._convId]
+        || Date.parse(session._lastUsedAt) > Date.parse(this.conversationActivity[session._convId])))
+      this.conversationActivity[session._convId] = session._lastUsedAt;
     try {
       this.storage.setItem(V2_KEY, JSON.stringify({
         version: 2, sessions: sessions.map(snapshotSession), columns, focusedColumn, nextNumber, used, closed,
+        conversationActivity: this.conversationActivity,
       }));
     } catch { /* Storage quota must not stop a running session. */ }
   }
   find(sessionId) { return this.state.sessions.find(session => session.id === sessionId) || null; }
   focusedSession() { return this.find(this.state.columns[this.state.focusedColumn]); }
   recent() { return this.state.used.filter(id => this.find(id)); }
-  touch(sessionId) { this.state.used = [sessionId, ...this.state.used.filter(id => id !== sessionId)]; }
+  touch(sessionId) {
+    const session = this.find(sessionId);
+    if (!session) return false;
+    this.state.used = [sessionId, ...this.state.used.filter(id => id !== sessionId)];
+    session._lastUsedAt = new Date().toISOString();
+    if (session._convId) {
+      const entries = [[session._convId, session._lastUsedAt], ...Object.entries(this.conversationActivity)
+        .filter(([id]) => id !== session._convId)];
+      this.conversationActivity = Object.fromEntries(entries.slice(0, 500));
+    }
+    return true;
+  }
   // Only a session hidden before opening can be evicted. Callers provide the
   // effect guards (active turn, approval, editor, draft, terminal).
   evictionCandidate(canClose = () => true) {
@@ -287,6 +311,9 @@ class SessionStore {
   closeSession(sessionId) {
     const index = this.state.sessions.findIndex(session => session.id === sessionId);
     if (index < 0) return false;
+    const closing = this.state.sessions[index];
+    if (!closing._lastUsedAt) this.touch(sessionId);
+    if (closing._convId) this.conversationActivity[closing._convId] = closing._lastUsedAt;
     const conversationId = this.state.sessions[index]._convId;
     this.state.sessions[index]._closed = true;
     this.state.sessions.splice(index, 1);

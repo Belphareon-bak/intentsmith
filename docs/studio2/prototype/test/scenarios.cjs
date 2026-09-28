@@ -31,7 +31,7 @@ const openKids = (v) => { const r = v.nav.find((x) => x.label === c.sec('chats')
 const titles = (v) => v.columns.map((x) => x.title);
 if ('tabs' in vm) fail('tab bar still in view model');
 if (openKids(vm).length !== 5 || c.st().tabs.length !== c.maxSessions()) fail('open sessions', openKids(vm).length);
-openKids(vm).forEach((k, i) => { reset(); let v = R(); openKids(v)[i].go(ev0); v = R('nav open ' + i); const sid = c.st().tabs[i]; if (!v.columns.some((col) => col.numCls === 'focus' && col.title === c.sess(sid, c.st()).title)) fail('nav focus', i); if (c.st().used[0] !== sid) fail('nav touch', i); });
+openKids(vm).forEach((k, i) => { reset(); let v = R(); openKids(v)[i].go(ev0); v = R('nav open ' + i); const sid = c.recent(c.defaults())[i]; if (!v.columns.some((col) => col.numCls === 'focus' && col.title === c.sess(sid, c.st()).title)) fail('nav focus', i); if (c.st().used[0] !== sid) fail('nav touch', i); });
 // Ctrl+klik na skrytou relaci = vedlejší sloupec
 reset(); vm = R(); { const hidden = openKids(vm).find((k) => !k.numCls); hidden.go(ev); vm = R('ctrl click'); if (vm.columns.length !== 3 || !vm.columns[2].cls.includes('focus')) fail('ctrl click beside', vm.columns.length); }
 // uložená konverzace při otevřených relacích: nový sloupec, strop zavře nejdéle nepoužitou skrytou
@@ -155,7 +155,7 @@ if (typeof vm.winMin !== 'function' || typeof vm.winMax !== 'function' || !vm.wi
 reset(); vm = R(); c.onKey({ key: 'k', ctrlKey: true, preventDefault() {}, stopPropagation() {} }); vm = R('ctrl k'); if (!vm.palette) fail('ctrl+k');
 c.onKey({ key: 'Escape', preventDefault() {}, stopPropagation() {} }); vm = R(); if (vm.palette) fail('esc');
 c.onKey({ key: '3', code: 'Digit3', altKey: true, shiftKey: true, preventDefault() {}, stopPropagation() {} }); vm = R(); if (vm.columns.length !== 3) fail('alt+shift+3');
-c.onKey({ key: '5', altKey: true, preventDefault() {}, stopPropagation() {} }); vm = R(); if (!vm.columns.some((col) => col.numCls === 'focus' && col.n === 5)) fail('alt+5');
+const alt5Sid = c.recent(c.st())[4]; c.onKey({ key: '5', altKey: true, preventDefault() {}, stopPropagation() {} }); vm = R(); if (c.focusSid(c.st()) !== alt5Sid || !vm.columns.some((col) => col.numCls === 'focus' && col.n === 1)) fail('alt+5');
 c.onKey({ key: 'b', ctrlKey: true, preventDefault() {}, stopPropagation() {} }); vm = R(); if (!vm.navRail) fail('ctrl+b');
 c.onKey({ key: 'x', preventDefault() {}, stopPropagation() {} }); R('plain key');
 // nav + sections + details

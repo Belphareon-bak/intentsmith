@@ -119,13 +119,35 @@
 .intentsmith-studio2-widget .num{font-variant-numeric:tabular-nums}
 .intentsmith-studio2-widget .grow{flex-grow:1}
 .intentsmith-studio2-widget .faint{color:var(--faint)}
-.intentsmith-studio2-widget .tone-amber{--tc:var(--warn)}
-.intentsmith-studio2-widget .tone-rose{--tc:var(--bad)}
-.intentsmith-studio2-widget .tone-violet{--tc:var(--acct)}
-.intentsmith-studio2-widget .tone-cyan{--tc:var(--cyan)}
-.intentsmith-studio2-widget .tone-mint{--tc:var(--ok)}
-.intentsmith-studio2-widget .tone-blue{--tc:var(--info)}
+.intentsmith-studio2-widget .dark{--cat-chat:#facc15;--cat-project:#ff7373;--cat-specialist:#b18aff;--cat-expertise:#60a5fa;--cat-worker:#4ade80;--cat-market:#fb923c;--cat-media:#2dd4bf;--set-ucet:#8fa6ba;--set-modely:#a0a8dc;--set-pamet:#7cbab0;--set-oznameni:#c7b77e;--set-vystup:#84b0c7;--set-vzhled:#b39bc9;--set-system:#a6afb9;--set-uloziste:#c5a080;--set-zalohy:#a5b47d;--set-prepinace:#aba2c4;--set-zabezpeceni:#8ab697;--set-about:#849cbe}
+.intentsmith-studio2-widget .light{--cat-chat:#976300;--cat-project:#b91c1c;--cat-specialist:#6d28d9;--cat-expertise:#1d4ed8;--cat-worker:#15733a;--cat-market:#b94708;--cat-media:#0f766e;--set-ucet:#4c6378;--set-modely:#595f94;--set-pamet:#396f67;--set-oznameni:#756330;--set-vystup:#3f6b82;--set-vzhled:#72558b;--set-system:#5e6771;--set-uloziste:#865d3a;--set-zalohy:#5d7035;--set-prepinace:#6e5f85;--set-zabezpeceni:#3f7450;--set-about:#446389}
+.intentsmith-studio2-widget .tone-amber{--tc:var(--cat-chat)}
+.intentsmith-studio2-widget .tone-red,.intentsmith-studio2-widget .tone-rose{--tc:var(--cat-project)}
+.intentsmith-studio2-widget .tone-violet{--tc:var(--cat-specialist)}
+.intentsmith-studio2-widget .tone-cyan{--tc:var(--cat-media)}
+.intentsmith-studio2-widget .tone-mint{--tc:var(--cat-worker)}
+.intentsmith-studio2-widget .tone-blue{--tc:var(--cat-expertise)}
+.intentsmith-studio2-widget .tone-orange{--tc:var(--cat-market)}
 .intentsmith-studio2-widget .tone-none{--tc:var(--acct)}
+.intentsmith-studio2-widget .tone-set-ucet{--tc:var(--set-ucet)}
+.intentsmith-studio2-widget .tone-set-modely{--tc:var(--set-modely)}
+.intentsmith-studio2-widget .tone-set-pamet{--tc:var(--set-pamet)}
+.intentsmith-studio2-widget .tone-set-oznameni{--tc:var(--set-oznameni)}
+.intentsmith-studio2-widget .tone-set-vystup{--tc:var(--set-vystup)}
+.intentsmith-studio2-widget .tone-set-vzhled{--tc:var(--set-vzhled)}
+.intentsmith-studio2-widget .tone-set-system{--tc:var(--set-system)}
+.intentsmith-studio2-widget .tone-set-uloziste{--tc:var(--set-uloziste)}
+.intentsmith-studio2-widget .tone-set-zalohy{--tc:var(--set-zalohy)}
+.intentsmith-studio2-widget .tone-set-prepinace{--tc:var(--set-prepinace)}
+.intentsmith-studio2-widget .tone-set-zabezpeceni{--tc:var(--set-zabezpeceni)}
+.intentsmith-studio2-widget .tone-set-about{--tc:var(--set-about)}
+.intentsmith-studio2-widget .category-badges{display:flex;align-items:center;flex-wrap:wrap;gap:5px;min-width:0}
+.intentsmith-studio2-widget .category-label{display:inline-flex;align-items:center;gap:4px;border:1px solid color-mix(in srgb,var(--tc) 42%,transparent);border-radius:5px;padding:2px 6px;font-size:10.5px;font-weight:600;line-height:15px;color:var(--tc);background:color-mix(in srgb,var(--tc) 9%,var(--s0));white-space:nowrap;text-transform:none;letter-spacing:0}
+.intentsmith-studio2-widget .last-used{display:inline-flex;align-items:center;gap:4px;color:var(--dim);font-size:11px;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
+.intentsmith-studio2-widget .pane-categories{flex:0 1 auto;overflow:hidden;flex-wrap:nowrap}
+@container (max-width: 680px){.intentsmith-studio2-widget .pane-categories .category-label{padding:2px 4px}
+.intentsmith-studio2-widget .pane-categories .category-label span{display:none}
+}
 .intentsmith-studio2-widget .ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto;display:block}
 .intentsmith-studio2-widget .lbl{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}
 .intentsmith-studio2-widget .lbl-acc{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--acct)}
@@ -215,7 +237,7 @@
 .intentsmith-studio2-widget .nrow.on .nbtn{color:var(--acct);font-weight:600}
 .intentsmith-studio2-widget .nico{display:grid;place-items:center;width:26px;height:26px;border-radius:6px;flex:0 0 auto;color:var(--dim)}
 .intentsmith-studio2-widget .nrow.on .nico,.intentsmith-studio2-widget .rail.on .nico{color:var(--acct)}
-.intentsmith-studio2-widget .toned .nico{color:var(--tc);background:color-mix(in srgb,var(--tc) 12%,transparent)}
+.intentsmith-studio2-widget .toned .nico,.intentsmith-studio2-widget .toned .nrow .nico,.intentsmith-studio2-widget .toned .rail .nico{color:var(--tc);background:color-mix(in srgb,var(--tc) 12%,transparent)}
 .intentsmith-studio2-widget .nlbl{flex:1 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .intentsmith-studio2-widget .nbadge{font-size:10.5px;padding:0 6px;border-radius:9px;background:var(--panel3);color:var(--dim);line-height:17px;font-weight:500;flex:0 0 auto}
 .intentsmith-studio2-widget .nbadge.warn{background:color-mix(in srgb,var(--warn) 20%,transparent);color:var(--warn)}

@@ -362,11 +362,42 @@ class LiveModel extends Component {
 
   saved(s) {
     const open = new Set(this.widget.store.state.sessions.map(session => session._convId));
-    const recent = s.closed || [];
     return this.widget.catalog.view('Konverzace').items.filter(item => !open.has(item.id))
-      .map((item, index) => ({ id: item.id, t: item.name, when: clock(item.raw?.updated_at),
-        rank: recent.includes(item.id) ? recent.indexOf(item.id) : recent.length + index }))
-      .sort((left, right) => left.rank - right.rank);
+      .map(item => { const meta = this.conversationMeta(null, item); return {
+        id: item.id, t: item.name, when: this.ageText(meta.lastUsedAt), lastUsedAt: meta.lastUsedAt,
+        project: meta.projectId, specialist: meta.specialistId }; })
+      .sort((a, b) => this.timestamp(b.lastUsedAt) - this.timestamp(a.lastUsedAt));
+  }
+
+  conversationMeta(session, item) {
+    const raw = item?.raw || {};
+    const projectId = session ? session._projectId : raw.project_id;
+    const specialistId = session ? session.chat.specialist?.id : raw.specialist_id;
+    const project = projectId ? this.proj(projectId) : null;
+    const specialist = specialistId ? this.spec(specialistId) : null;
+    const projectName = projectId ? project?.name || raw.project_name || 'Projekt' : '';
+    const specialistName = specialistId ? session?.chat.specialist?.name || specialist?.name
+      || raw.specialist_name || 'Specialista' : '';
+    const candidates = [raw.updated_at, session?._lastUsedAt,
+      this.widget.store.conversationActivity?.[session?._convId || item?.id],
+      ...(session?.chat.msgs || []).filter(message => message.tag !== 'NOT_SENT').map(message => message.ts)];
+    const lastUsedAt = candidates.filter(value => this.timestamp(value))
+      .sort((a, b) => this.timestamp(b) - this.timestamp(a))[0] || '';
+    const createdAt = raw.created_at || session?._createdAt || '';
+    const badges = this.conversationBadges(projectName, specialistName);
+    return { projectId, specialistId, projectName, specialistName, createdAt, lastUsedAt, badges,
+      icon: projectId ? this.data().I.folder : specialistId ? this.data().I.users : this.data().I.chat,
+      tone: projectId ? 'red' : specialistId ? 'violet' : 'amber',
+      sub: [projectName, specialistName].filter(Boolean).join(' · ') || 'Samostatná konverzace' };
+  }
+
+  conversationDetail(vm, session, item) {
+    const meta = this.conversationMeta(session, item);
+    return { ...vm, icon: meta.icon, tone: meta.tone, icls: 'always', badges: meta.badges,
+      hasBadges: true, type: 'Konverzace',
+      props: (vm.props || []).filter(prop => !['Druh', 'Vytvořeno', 'Poslední aktivita'].includes(prop.k))
+        .concat([{ k: 'Vytvořeno', v: this.dateText(meta.createdAt), cls: '' },
+          { k: 'Poslední aktivita', v: this.dateText(meta.lastUsedAt), cls: '' }]), showProps: true };
   }
 
   m2View(session) {
@@ -502,6 +533,7 @@ class LiveModel extends Component {
       return [path, count.added || count.add || 0, count.removed || count.del || 0, 'zapsáno'];
     });
     return {
+      ...this.conversationMeta(session, this.widget.catalog.view('Konverzace').items.find(item => item.id === session._convId)),
       title: sessionTitle(session), short: sessionTitle(session), kind: session._projectId ? 'project' : chat.specialist ? 'specialist' : 'chat',
       project: session._projectId, specialist: chat.specialist?.id || null,
       state: session._m2Pending ? 'wait' : chat._thinking ? 'run' : 'idle',
@@ -525,13 +557,13 @@ class LiveModel extends Component {
 
   proj(id) {
     const item = this.widget.catalog.view('Projekty').items.find(row => row.id === String(id));
-    return item ? { id: item.id, name: item.name, path: item.raw.path || '',
+    return item ? { id: item.id, name: item.name, path: item.raw?.path || '',
       desc: item.description, status: item.state || 'active', convs: [], tree: [], recent: [], memory: [], last: '' } : null;
   }
 
   spec(id) {
     const item = this.widget.catalog.view('Specialisté').items.find(row => row.id === String(id));
-    return item ? { id: item.id, name: item.name, desc: item.description, tools: item.raw.tools || [] } : null;
+    return item ? { id: item.id, name: item.name, desc: item.description, tools: item.raw?.tools || [] } : null;
   }
 
   entities(sec, s) {
@@ -546,12 +578,16 @@ class LiveModel extends Component {
         : item.group === 'custom' ? 'Vlastní' : 'Nezařazené';
       const projectState = sec === 'projects' ? ({ active: 'aktivní', archived: 'archivovaný',
         deleted: 'smazaný', specification: 'specifikace' })[item.state] || 'nezjištěno' : '';
+      const meta = sec === 'chats' ? this.conversationMeta(null, item) : null;
+      if (meta) return { id: item.id, name: item.name, sub: meta.sub, desc: item.description,
+        ...meta, icls: 'always', groups: [meta.projectId ? 'project' : 'free', ...(meta.specialistId ? ['specialist'] : [])],
+        group: 'Uložené konverzace', catLabel: 'Uložená konverzace', meta: '', state: 'uložená', tag: '',
+        usedText: this.ageText(meta.lastUsedAt), usedTitle: 'Poslední aktivita: ' + this.dateText(meta.lastUsedAt) };
       return { id: item.id, name: item.name,
-      sub: sec === 'projects' ? item.raw.path || '' : sec === 'expertises' ? item.raw.domain || '' : item.group,
+      sub: sec === 'projects' ? item.raw?.path || '' : sec === 'expertises' ? item.raw.domain || '' : item.group,
       desc: item.description, icon: ({ chats: I.chat, projects: I.folder,
         specialists: I.users, expertises: I.cap, workers: I.bot, market: I.bag, media: I.image })[sec],
-      tone: ({ chats: 'amber', projects: 'rose', specialists: 'violet', expertises: 'cyan',
-        workers: 'mint', market: 'blue', media: 'blue' })[sec],
+      tone: this.sec(sec).tone,
       groups: [sec === 'chats' ? (item.raw.project_id ? 'project' : 'free')
         : sec === 'expertises' ? item.group : item.state || item.group],
       group: sec === 'expertises' ? expertiseLabel : sec === 'projects' ? projectState : item.group || section,
@@ -564,17 +600,20 @@ class LiveModel extends Component {
       state: sec === 'projects' ? projectState : item.state || '' };
     });
     if (sec !== 'chats') return rows;
-    const open = s.tabs.map((sid, index) => {
-      const session = this.widget.store.find(sid);
-      const b = this.sess(sid, s);
-      const state = this.sstate(sid, s);
-      return { id: sid, name: b.title, sub: session._projectId ? 'projekt ' + session._projectId : 'bez projektu',
-        desc: b.msgs.find(msg => msg.k === 'user')?.text || 'Zatím bez zpráv.',
-        icon: I.chat, tone: 'amber', dot: state, num: session.number || index + 1,
-        groups: ['open', session._projectId ? 'project' : 'free'], group: 'Otevřené relace',
-        catLabel: 'Relace ' + session.number, meta: this.stLabel(state), state: this.stLabel(state) };
+    const open = this.recent(s).map(sid => {
+      const session = this.widget.store.find(sid), b = this.sess(sid, s), state = this.sstate(sid, s);
+      const item = list.find(row => row.id === session._convId);
+      const meta = this.conversationMeta(session, item);
+      return { id: sid, name: b.title, sub: meta.sub,
+        desc: b.msgs.find(msg => msg.k === 'user')?.text || item?.description || 'Zatím bez zpráv.',
+        ...meta, icls: 'always', dot: state, num: this.sessionNumber(sid, s),
+        groups: ['open', meta.projectId ? 'project' : 'free', ...(meta.specialistId ? ['specialist'] : [])],
+        group: 'Otevřené relace', catLabel: 'Otevřená relace', meta: this.stLabel(state), state: this.stLabel(state),
+        usedText: this.ageText(meta.lastUsedAt), usedTitle: 'Poslední aktivita: ' + this.dateText(meta.lastUsedAt) };
     });
-    return open.concat(rows.filter(row => !this.widget.store.state.sessions.some(session => session._convId === row.id)));
+    return open.concat(rows.filter(row => !this.widget.store.state.sessions.some(session => session._convId === row.id)))
+      .sort((a, b) => this.timestamp(b.lastUsedAt) - this.timestamp(a.lastUsedAt)
+        || (a.num || 999) - (b.num || 999));
   }
 
   chipDefs(sec) {
@@ -587,9 +626,9 @@ class LiveModel extends Component {
     const I = this.data().I;
     return this.sections().filter(section => section.id !== 'settings').map(section => {
       const id = section.id;
-      const items = id === 'chats' ? this.widget.store.state.sessions.map(session => ({
+      const items = id === 'chats' ? this.recent(s).map(sid => this.widget.store.find(sid)).map(session => ({
         id: session.id, name: sessionTitle(session), meta: this.stLabel(this.sstate(session.id, s)),
-        state: this.sstate(session.id, s), number: this.widget.store.state.sessions.indexOf(session) + 1,
+        state: this.sstate(session.id, s), number: this.sessionNumber(session.id, s),
         go: this.run((s2, event) => this.pShowSession(s2, session.id, event)), ctx: this.showCtx('chats', session.id)
       })) : this.entities(id, s).slice(0, id === 'projects' ? 4 : 3).map(row => ({
         id: row.id, name: row.name, meta: row.meta || '', state: '', number: 0,
@@ -634,7 +673,9 @@ class LiveModel extends Component {
           ? 'Katalog se nepodařilo načíst' : 'Žádné položky';
         vm.emptyText = view.error || (view.status === 'ready' ? 'Backend nevrátil žádné položky.' : 'Otevři katalog pro načtení.');
       }
-      vm.catalogError = this.widget.catalogActionError || view.error || '';
+      vm.catalogError = this.widget.catalogActionError || view.error || view.warning || '';
+      if (s.section === 'chats' && view.status === 'ready') vm.summary = itemCount(this.entities('chats', s).length)
+        + ' · ' + s.tabs.length + ' otevřených relací · od poslední aktivity';
       vm.hasCatalogError = !!vm.catalogError;
       vm.hasPrimary = ['chats', 'projects', 'specialists', 'expertises', 'workers', 'media'].includes(s.section);
       vm.primary = s.section === 'media' ? 'Nové generování'
@@ -662,7 +703,8 @@ class LiveModel extends Component {
     if (s.section === 'expertises' && id === '__new__') return super.detailVM(s);
     if (s.section === 'expertises' && id === '__edit__') return super.detailVM(s);
     if (s.section === 'settings') return this.settingsDetailVM(s, id);
-    if (s.section === 'chats' && this.widget.store.find(id)) return super.detailVM(s);
+    if (s.section === 'chats' && this.widget.store.find(id)) return this.conversationDetail(super.detailVM(s),
+      this.widget.store.find(id), this.widget.catalog.view('Konverzace').items.find(item => item.id === this.widget.store.find(id)._convId));
     if (s.section === 'projects') {
       const vm = super.detailVM(s);
       if (!vm) return null;
@@ -878,7 +920,7 @@ class LiveModel extends Component {
             : 'Nejdřív dokonči běžící požadavek nebo otevři relaci bez specialisty.'] })],
         hasRelated: false, related: [], development: this.developmentVM(s), scmPolicy: this.scmPolicyVM(s, null) };
     }
-    return { icon: this.sec(s.section).icon, tone: this.sec(s.section).tone,
+    const result = { icon: this.sec(s.section).icon, tone: this.sec(s.section).tone,
       icls: '', title: entry.name, type: this.sec(s.section).label,
       idText: item ? item.id : '', hasStatus: false, status: '', stCls: '',
       hasPrimary: s.section === 'chats' || s.section === 'specialists',
@@ -892,6 +934,7 @@ class LiveModel extends Component {
       props: item ? [['ID', item.id, true], ['Stav', item.state || '—']] .map(row => ({ k: row[0], v: row[1], cls: row[2] ? 'mono' : '' })) : [],
       blocks: [this.blockVM({ kind: 'empty', text: 'Obsah konverzace se načte po otevření relace.' })],
       hasRelated: false, related: [], development: this.developmentVM(s), scmPolicy: this.scmPolicyVM(s, null) };
+    return s.section === 'chats' ? this.conversationDetail(result, null, item) : result;
   }
 
   settingsDetailVM(s, id) {
@@ -2219,7 +2262,9 @@ class LiveModel extends Component {
   pOpenSession(s, id) {
     if (this.widget.store.find(id)) return this.pFocusSession(s, id);
     const item = this.widget.catalog.view('Konverzace').items.find(row => row.id === String(id));
-    if (item) this.widget.openCatalogItem('Konverzace', item).then(ok => {
+    if (item) (item.raw?.specialist_id && this.widget.openSpecialistConversation
+      ? this.widget.openSpecialistConversation(item, item.raw.specialist_id)
+      : this.widget.openCatalogItem('Konverzace', item)).then(ok => {
       if (ok) this.setState({ mode: 'sessions' }); else this.forceUpdate();
     }).catch(error => { this.widget.catalogActionError = error.message || 'Konverzaci nelze otevřít.'; this.forceUpdate(); });
     return null;
@@ -3523,7 +3568,7 @@ class LiveModel extends Component {
       const session = this.widget.store.find(lay[index]);
       if (!session) return;
       const sid = session.id;
-      column.n = this.widget.store.state.sessions.indexOf(session) + 1;
+      column.n = this.sessionNumber(session.id, s);
       column.focus = () => this.widget.store.focusColumn(index);
       column.closeCol = () => this.widget.closeSession(session);
       column.setAuto = () => { session.chat.editMode = 'auto'; this.widget.store.changed(); };

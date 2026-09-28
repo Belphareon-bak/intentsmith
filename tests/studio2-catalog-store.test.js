@@ -55,3 +55,34 @@ await failing.load('Konverzace');
 assert.equal(failing.view('Konverzace').status, 'error');
 assert.match(failing.view('Konverzace').error, /503/);
 console.log('PASS API error remains visible');
+
+const indexed = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:1234', fetchImpl: async url => {
+  const body = url.includes('/api/projects?') ? { projects: [{ id: 7, name: 'Atlas', path: '/atlas' }] }
+    : url.endsWith('/api/specialists') ? { specialists: [{ id: 'reviewer', name: 'Reviewer', type: 'domain' }] }
+      : url.includes('/api/projects/7/conversations?') ? { conversations: [{ id: 'work', title: 'Project chat', project_id: 7, state: 'active' },
+        { id: 'archived', title: 'Archived', state: 'archived' }] }
+        : url.includes('specialistId=reviewer') ? { conversations: [{ id: 'work', title: 'Project chat', project_id: 7, state: 'active' }] }
+          : { conversations: [{ id: 'plain', title: 'Plain chat', state: 'active' }] };
+  return { ok: true, json: async () => body };
+} });
+await indexed.load('Konverzace');
+assert.equal(indexed.view('Konverzace').warning, '');
+assert.deepEqual(indexed.view('Konverzace').items.map(item => item.id), ['plain', 'work']);
+const work = indexed.view('Konverzace').items[1].raw;
+assert.equal(work.project_name, 'Atlas');
+assert.equal(work.specialist_id, 'reviewer');
+assert.equal(work.specialist_name, 'Reviewer');
+console.log('PASS project and specialist history are merged through existing read connectors without duplicate conversations');
+
+const incomplete = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:1234', fetchImpl: async url => {
+  const body = url.includes('/api/projects?') ? { projects: [{ id: 7, name: 'Atlas', path: '/atlas' }] }
+    : url.endsWith('/api/specialists') ? { specialists: [] }
+      : url.includes('/api/projects/7/conversations?') ? { conversations: [{ id: 'foreign', project_id: 8 }] }
+        : { conversations: [{ id: 'plain', title: 'Safe chat', state: 'active' }] };
+  return { ok: true, json: async () => body };
+} });
+await incomplete.load('Konverzace');
+assert.equal(incomplete.view('Konverzace').status, 'ready');
+assert.deepEqual(incomplete.view('Konverzace').items.map(item => item.id), ['plain']);
+assert.match(incomplete.view('Konverzace').warning, /jiný projekt/);
+console.log('PASS mismatched project history stays excluded and incomplete history is visibly reported');

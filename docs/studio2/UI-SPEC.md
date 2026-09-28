@@ -245,3 +245,17 @@ v novém UI, jinak se výchozí nepřepne (Decision 049 D2):
 
 Vlastní Electron shell místo Theie (Decision 049 D1), nové typy balíčků
 v obchodě, změny modelových rolí a měření, jakákoli nová schopnost shellu.
+
+## Doplnění operátora 28. 9. — aktivita a kategorie
+
+- „Poslední relace“: posledních pět otevřených relací podle použití, čísla
+  1–5 od nejnovější nahoře. Otevření a přijaté odeslání zprávy přesouvá na 1.
+  Stejná čísla v navigaci, sloupci, paletě, nabídce a Alt+N; ID se nemění.
+- Konverzace ukazují barevný štítek a ikonu Chat / Projekt / Specialista.
+  Dvojí vazba má oba štítky. Dlaždice i seznam jsou od nejnovější aktivity,
+  s relativním časem `3m`, `5h`, `6d`. Detail má Vytvořeno a Poslední aktivita.
+- Kategorie: chat žlutá, projekt červená, specialista fialová, expertýza
+  modrá, worker zelená, obchod oranžová, multimédia tyrkysová. Syté odstíny
+  mají tmavou a světlou variantu. Růžová se pro kategorie nepoužívá.
+- Nastavení má tlumenější vlastní tóny, sousední Úložiště a Zálohy nejsou
+  stejné. Monochromatická navigace tématu nemění barvy kategorií ve štítcích.

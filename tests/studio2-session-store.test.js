@@ -197,3 +197,33 @@ test('uncertain delivery survives restart and never becomes success', () => {
   assert.equal(reboot.state.sessions[0].chat._delivery.status, 'DELIVERY_UNKNOWN');
   assert.match(reboot.state.sessions[0].chat._delivery.text, /neopakuje automaticky/);
 });
+
+test('recent activity reorders display ranks while IDs, slots and approval bindings remain stable after restart', () => {
+  const mem = storage(), store = new SessionStore(mem);
+  for (let i = 1; i < 5; i++) store.addSession({ convId: 'rank-' + i });
+  const ids = store.state.sessions.map(session => session.id);
+  const fifth = store.find(store.recent()[4]);
+  fifth._convId = 'rank-oldest';
+  const binding = { lifecycleId: 'unchanged', planDigest: 'sha256:' + 'a'.repeat(64),
+    origin: { surface: 'studio', sessionId: 'rank-oldest', conversationId: 'rank-oldest', projectId: null } };
+  fifth._m2Pending = binding;
+  const before = [...store.recent()], number = fifth.number, uiId = fifth._uiId;
+  assert.equal(store.touch(fifth.id), true);
+  store.changed();
+  assert.deepEqual(store.recent(), [fifth.id, ...before.slice(0, 4)]);
+  assert.deepEqual(store.state.sessions.map(session => session.id), ids);
+  assert.equal(fifth.number, number);
+  assert.equal(fifth._uiId, uiId);
+  assert.deepEqual(fifth._m2Pending, binding);
+  assert.ok(Number.isFinite(Date.parse(fifth._lastUsedAt)));
+  const restored = new SessionStore(mem);
+  assert.deepEqual(restored.recent(), store.recent());
+  assert.equal(restored.find(fifth.id)._lastUsedAt, fifth._lastUsedAt);
+  assert.equal(restored.conversationActivity['rank-oldest'], fifth._lastUsedAt);
+  const unchanged = mem.getItem(V2_KEY);
+  assert.equal(store.touch('missing'), false);
+  store.persist();
+  assert.equal(mem.getItem(V2_KEY), unchanged);
+  store.closeSession(fifth.id);
+  assert.equal(new SessionStore(mem).conversationActivity['rank-oldest'], fifth._lastUsedAt);
+});

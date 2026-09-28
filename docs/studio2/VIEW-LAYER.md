@@ -361,7 +361,8 @@ a sémantika jsou v prototypu (`main.js`), napojení v `session-store.js`,
 
 - **Lišta záložek není.** Otevřené relace ukazuje levá navigace, výběr
   „Poslední relace" v hlavičce sloupce (`recent(s)` podle `s.used`), paleta
-  a nabídka Relace. Číslo relace = pořadí v seznamu (1–5), platí pro Alt+N.
+  a nabídka Relace. Číslo relace = pořadí podle posledního použití (1–5), platí pro Alt+N.
+  Otevření i přijaté odeslání posouvá relaci na 1; ID a transportní slot se nemění.
   Připínání a „zavřít ostatní / vpravo" odpadly (`tabsVM`, `pTogglePinned`,
   kontext `'tab'`); `pCloseTab` je v live modelu jen alias `pCloseSession`.
 - **Strop 5 relací** (`maxSessions()`, `MAX_SESSIONS`). Nová relace jde do
@@ -381,3 +382,27 @@ a sémantika jsou v prototypu (`main.js`), napojení v `session-store.js`,
 - **Kopírování** je pod dokončenou odpovědí (`.mcopy`). `copyText(key, text)`
   ukáže „Zkopírováno" (1,6 s) nebo „Kopírování se nepovedlo" (4 s).
 - Náhledy: `preview-view.js` scény `konverzace-zkopirovano` a `relace-strop-hlaseni`.
+
+## 10. Kategorie a poslední použití (28. 9.)
+
+Explicitní zadání operátora: stejné MRU číslování v roletce, navigaci,
+sloupcích, paletě, nabídce a Alt+N. `SessionStore.touch` uloží čas použití;
+`TransportAdapter.send` jej změní pouze po přijatém odeslání. Backendové
+události nezmění pořadí relací. Zavřená konverzace zachová čas v profilu.
+
+Katalog spojuje existující globální, projektové a specialistické GET konektory
+(`CatalogStore.conversationIndex`, nejvýš čtyři souběžné požadavky).
+Projektové konverzace se neztrácejí zavřením relace; identita se deduplikuje.
+Neúplné načtení má viditelné upozornění. Specialistická vazba je popis historie;
+obnovení specialisty zůstává na existujícím řízeném konektoru.
+
+`LiveModel.conversationMeta` spojuje skutečné vazby a data; sdílené prototypové
+`conversationBadges`, `timestamp`, `dateText`, `ageText` je zobrazují.
+SQLite časy bez zóny jsou UTC. Dlaždice i seznam nesou štítky Chat / Projekt /
+Specialista, poslední použití (`3m`, `5h`, `6d`); detail vytvoření a poslední
+aktivitu. Neznámý čas je „—“. Projekt se specialistou má oba štítky.
+
+Paleta kategorií je samostatná od akcentu tématu a stavů. Navigace zůstává
+monochromatická v motivech, které ji tak navrhují; štítky zůstávají barevné.
+Nastavení má vlastní, tlumenější, vzájemně odlišné tóny `tone-set-*`.
+Zdroj vzhledu je stále prototyp, generované soubory se ručně neupravují.

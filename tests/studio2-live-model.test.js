@@ -2103,3 +2103,64 @@ test('regenerate asks once, sends the last user request as a new turn and refuse
   f.model.setState({ drafts: {} }); f.widget.confirmAction = () => { f.store.closeSession(f.session.id); return true; };
   assert.equal(await f.model.regenerateAnswer(f.session), false); assert.equal(f.calls.length, 1);
 });
+
+test('all session controls show contiguous MRU ranks and Alt+5 selects the same stable owner', () => {
+  const { model, store } = setup();
+  for (let i = 1; i < 5; i++) store.addSession({ label: 'Práce ' + i });
+  const ids = store.state.sessions.map(session => session.id), recent = store.recent();
+  model.setState({ ctx: { sec: 'colpick', id: '0', x: 10, y: 10 } });
+  const menu = model.ctxVM(model.st()).ctxItems.filter(item => item.hasNum);
+  assert.deepEqual(menu.map(item => item.num), [1, 2, 3, 4, 5]);
+  assert.deepEqual(menu.map(item => item.t), recent.map(id => store.find(id)._label));
+  const fifth = recent[4];
+  model.onKey({ key: '5', altKey: true, preventDefault() {}, stopPropagation() {} });
+  assert.equal(store.focusedSession().id, fifth);
+  assert.deepEqual(store.recent(), [fifth, ...recent.slice(0, 4)]);
+  assert.deepEqual(store.state.sessions.map(session => session.id), ids);
+  const vm = model.renderVals();
+  const kids = vm.nav[0].kids.filter(row => row.hasNum);
+  assert.deepEqual(kids.map(row => row.num), [1, 2, 3, 4, 5]);
+  assert.equal(kids[0].t, store.find(fifth)._label);
+  assert.equal(vm.columns.find(column => column.numCls === 'focus').n, 1);
+  model.componentWillUnmount();
+});
+
+test('conversation tiles, list and details use real context, newest use and UTC backend dates', () => {
+  const catalog = { view: section => ({ status: 'ready', items: section === 'Konverzace' ? [
+    { id: 'old', name: 'Starší chat', raw: { created_at: '2026-09-20 10:00:00', updated_at: '2026-09-22 10:00:00', state: 'active' } },
+    { id: 'work', name: 'Projekt se specialistou', raw: { project_id: 7, project_name: 'Atlas', specialist_id: 'reviewer',
+      specialist_name: 'Reviewer', created_at: '2026-09-23 10:00:00', updated_at: '2026-09-28 10:00:00' } },
+    { id: 'invalid', name: 'Bez času', raw: { created_at: 'invalid', updated_at: null } },
+  ] : section === 'Projekty' ? [{ id: '7', name: 'Atlas', raw: { path: '/atlas' } }]
+    : section === 'Specialisté' ? [{ id: 'reviewer', name: 'Reviewer', raw: {} }] : [] }),
+    load: () => {}, subscribe: () => () => {} };
+  const { model, store } = setup({ catalog });
+  store.closeSession(store.focusedSession().id);
+  let s = { ...model.st(), mode: 'section', section: 'chats', detail: { chats: 'work' } };
+  const rows = model.entities('chats', s);
+  assert.deepEqual(rows.map(row => row.id), ['work', 'old', 'invalid']);
+  assert.deepEqual(rows[0].badges.map(row => [row.label, row.tone]), [['Projekt', 'red'], ['Specialista', 'violet']]);
+  assert.equal(rows[0].sub, 'Atlas · Reviewer');
+  assert.equal(rows[1].badges[0].label, 'Chat');
+  assert.equal(rows[2].usedText, '—');
+  assert.equal(model.timestamp('2026-09-28 10:00:00'), Date.parse('2026-09-28T10:00:00Z'));
+  const when = Date.parse('2026-09-28T12:00:00Z');
+  assert.equal(model.ageText('2026-09-28T11:57:00Z', when), '3m');
+  assert.equal(model.ageText('2026-09-28T07:00:00Z', when), '5h');
+  assert.equal(model.ageText('2026-09-22T12:00:00Z', when), '6d');
+  assert.equal(model.ageText('invalid', when), '—');
+  let detail = model.detailVM(s);
+  assert.deepEqual(detail.badges.map(row => row.label), ['Projekt', 'Specialista']);
+  assert.equal(detail.props.find(prop => prop.k === 'Vytvořeno').v, model.dateText('2026-09-23T10:00:00Z'));
+  assert.equal(detail.props.find(prop => prop.k === 'Poslední aktivita').v, model.dateText('2026-09-28T10:00:00Z'));
+  store.conversationActivity.old = '2026-09-28T12:00:00Z';
+  assert.equal(model.entities('chats', s)[0].id, 'old', 'opening time promotes saved conversations');
+  const session = store.addSession({ convId: 'work', projectId: 7, specialistData: { id: 'reviewer', name: 'Reviewer' } });
+  s = { ...s, ...model.st(), section: 'chats', detail: { chats: session.id } };
+  detail = model.detailVM(s);
+  assert.deepEqual(detail.badges.map(row => row.label), ['Projekt', 'Specialista']);
+  assert.ok(detail.props.some(prop => prop.k === 'Vytvořeno'));
+  assert.equal(model.entities('chats', s).filter(row => row.name === 'Projekt se specialistou').length, 0);
+  assert.equal(model.entities('chats', s).filter(row => row.id === session.id).length, 1);
+  model.componentWillUnmount();
+});

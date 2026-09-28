@@ -167,7 +167,7 @@ class TransportAdapter {
         ? `Zpráva nebyla odeslána (${session.chat._m1AttachmentRejection}). Přílohy zůstaly zachované.`
         : 'Zpráva nebyla odeslána. Zkontrolujte připojení.' };
     }
-    if (sent) session.chat._delivery = null;
+    if (sent) { session.chat._delivery = null; this.store.touch(session.id); }
     this.changed();
     return sent;
   }
