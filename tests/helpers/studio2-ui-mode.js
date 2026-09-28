@@ -80,7 +80,7 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
     return true;
   })()`);
   const capped = await waitFor(s => s.openSessions === 5 && s.columnSessions.length === 3
-    && s.columnSessions.some(title => !${JSON.stringify(five.columnSessions)}.includes(title)), 'sixth-session-safe-eviction');
+    && s.columnSessions.some(title => !five.columnSessions.includes(title)), 'sixth-session-safe-eviction');
   const original = [...capped.columnSessions];
   await evaluate(cdp, `(() => {
     const root = document.querySelector('#intentsmith-studio2 [data-studio-ui="studio2"]');
@@ -116,7 +116,7 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
     return true;
   })()`);
   const closed = await waitFor(s => s.openSessions === 4 && s.columnSessions.length === 2
-    && !s.columnSessions.includes(${JSON.stringify(swapped.columnSessions[2])}), 'header-ends-session');
+    && !s.columnSessions.includes(swapped.columnSessions[2]), 'header-ends-session');
   await evaluate(cdp, `(() => { setTimeout(() => window.IntentSmithStudioMode.selectMode('classic'), 0); return true; })()`);
   const restored = await waitFor(s => s.mode === 'classic' && s.classicSidebar && s.classicChat && !s.studio2, 'classic-restored');
   await evaluate(cdp, `(() => { setTimeout(() => window.IntentSmithStudioMode.selectMode('studio2'), 0); return true; })()`);
