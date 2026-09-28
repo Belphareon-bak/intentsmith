@@ -6,7 +6,7 @@ Volba pracovních modelů nemusí čekat na automatické místní hodnotitele. M
 oddělené externí posudky, které lze použít pro operátorský návrh a konkrétní kontrolu.
 Nemáme však doložené optimum celé sestavy ani aktuální desetimodelovou matici všech rolí.
 
-## Matice model × role
+## Matice model × role — novější vybrané podklady
 
 **Všechny hodnoty jsou v procentech. D1/D2/R1/R2/CHAT: Codex / Opus, dva samostatné posudky, nikoli jejich průměr.**
 CODE a VISION mají odlišný druh důkazu uvedený pod tabulkou. Matice je přehled dostupných podkladů k 28. 9., ne úplné hodnocení všech buněk ani součet do celkového žebříčku.
@@ -14,23 +14,68 @@ CODE a VISION mají odlišný druh důkazu uvedený pod tabulkou. Matice je pře
 | Model | D1 | D2 | CODE — technická část* | R1 | R2 | CHAT | VISION — orákulum |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | qwen3.8:latest | 72,6 / 73,2 | 64,2 / 64,9 | 100,0* | 58,0 / 53,0 | 82,1 / 79,8 | 86,3 / 85,7 | 77,2 |
-| qwen3.5:27b | 66,4 / 66,1 | — | — | — | — | 84,2 / 79,1 | — |
-| qwen3.6:27b | 69,3 / 66,4 | 69,2 / 62,2 | — | 53,9 / 51,2 | 73,8 / 70,2 | — | — |
-| gemma4:26b | — | 58,9 / 52,7 | — | 45,0 / 37,5 | — | — | 75,7 |
-| devstral-small-2:latest | — | — | 71,4* | 34,0 / 29,2 | 51,2 / 41,7 | — | — |
-| ornith-1.5:9b | — | — | — | — | — | — | 77,6 |
-| qwen3-30b-a3b:latest | — | — | — | — | — | — | — |
-| qwen3-coder:latest | — | — | — | — | — | — | — |
-| qwen3:14b | — | — | — | — | — | — | — |
-| phi4:14b | — | — | — | — | — | — | — |
+| qwen3.5:27b | 66,4 / 66,1 | A | A | A (část) | A | 84,2 / 79,1 | A |
+| qwen3.6:27b | 69,3 / 66,4 | 69,2 / 62,2 | A | 53,9 / 51,2 | 73,8 / 70,2 | A / B | A |
+| gemma4:26b | A | 58,9 / 52,7 | A | 45,0 / 37,5 | A | A / B | 75,7 |
+| devstral-small-2:latest | A | A | 71,4* | 34,0 / 29,2 | 51,2 / 41,7 | A / B | A |
+| ornith-1.5:9b | A (část) | A (část) | A | A (část) | A (část) | A (část) / B | 77,6 |
+| qwen3-30b-a3b:latest | A | A | A | A | A | A / B | — |
+| qwen3-coder:latest | A | A | A | A | A | A / B | — |
+| qwen3:14b | A | A | A | A | A (část) | A / B | — |
+| phi4:14b | A | A | A | A | A | A / B | — |
 
+- **B** odkazuje na samostatný vícekolový CHAT panel níže.
+- **A** znamená **hodnocení existuje ve starší sadě**; jeho procenta jsou v samostatné matici A níže. Nejde o neotestovaný model.
 - **—** znamená, že zde nemáme srovnatelnou známku z uvedeného podkladu. Není to nula, potvrzené N/A ani tvrzení, že model nikdy žádným testem neprošel. Starší odlišné sady/profily tyto mezery automaticky nevyplňují.
 - **D/R:** sedm stejných případů × tři opakování na buňku; starý vadný `model_cleanup` je vyřazen všem. Rozpad a reprodukční zdroje jsou níže.
 - **CHAT:** pouze nový produkční sběr 27. 9. s opravenou historií, 40 dialogů na model. Původní desetimodelový panel se sem nemíchá.
 - **\* CODE:** jen technická komponenta 21 uložených oprav; plné skóre CODE zůstává `null`. Nejde o 100% úspěšnost v roli.
 - **VISION:** deterministické obsahové skóre 23 úloh, nikoli dva LLM posudky.
 
-Celkem **20 zobrazených hodnotových buněk**: 13 D/R, 2 CHAT, 2 technické komponenty CODE a 3 VISION. Čtyři poslední modely mají v těchto konkrétních podkladech celý řádek bez známky; jejich starší výsledky nebyly doplněny z nesrovnatelných běhů.
+Celkem **20 zobrazených hodnotových buněk**: 13 D/R, 2 CHAT, 2 technické komponenty CODE a 3 VISION. Původní známky dalších modelů jsou přístupné přes označení A a oddělené tabulky níže. Nelze je přímo porovnávat s novějšími čísly v horní tabulce.
+
+## A — existující výsledky původní celopanelové sady
+
+**Sběr 20. 9., archivní přehled 23. 9. Všechna čísla v procentech.** Tyto známky existují a nesmějí zmizet z evidence jen proto, že pozdější sběr měl méně kandidátů. Patří k jiné verzi zadání a posouzení než tabulka nahoře.
+Původní podklad kombinuje přímé posouzení Codexem a mechanické kontroly; **nejde o dvojici úplných posudků Codex / Opus**. Obsahuje později zjištěné vady sad. Slouží k dohledání výsledků, nikoli k doplnění novějšího pořadí.
+
+| Model | D1 | D2 | CODE původní† | CODE techn. replay* | R1 | R2 | CHAT | VISION |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| qwen3.8:latest | 62,0 | 58,3 | 100,0 | 100,0 | 54,2 | 71,9 | 80,7 | 77,2 |
+| qwen3.5:27b | 63,5 | 67,7 | 84,1 | 85,7 | 41,4 (část) | 72,9 | 85,4 | 88,6 |
+| qwen3.6:27b | 59,1 | 72,9 | 71,4 | 85,7 | 48,4 | 70,8 | 81,3 | 83,0 |
+| gemma4:26b | 59,6 | 56,0 | 85,7 | 85,7 | 35,9 | 59,4 | 84,1 | 75,7 |
+| devstral-small-2:latest | 50,3 | 51,6 | 57,1 | 71,4 | 28,1 | 42,7 | 79,7 | 63,5 |
+| ornith-1.5:9b | 59,2 (část) | 43,9 (část) | 47,6 | 61,9 | 29,7 (část) | 37,5 (část) | 71,0 (část) | 81,9 |
+| qwen3-30b-a3b:latest | 41,7 | 49,7 | 28,6 | 42,9 | 20,8 | 34,4 | 77,8 | — |
+| qwen3-coder:latest | 51,0 | 58,6 | 63,5 | 71,4 | 37,0 | 43,8 | 77,3 | — |
+| qwen3:14b | 40,1 | 52,9 | 57,1 | 57,1 | 32,3 | 36,5 (část) | 82,4 | — |
+| phi4:14b | 40,1 | 54,2 | 47,6 | 61,9 | 28,1 | 38,5 | 87,3 | — |
+
+**(část)** je průměr jen dostupných známek, nikoli úplné skóre; obsahuje neohodnocené nebo provozně selhané pokusy. Nelze ho řadit proti úplnému průměru.
+
+† Původní CODE orákulum má doložené vady; tato historická známka není přijatý výsledek. * Technický replay je jen oddělená spustitelná komponenta, nikoli plné skóre role. Prázdná buňka znamená chybějící úplný průměr v tomto exportu, ne nulovou schopnost.
+[Původní úplná matice se zdroji a SHA](/mnt/vi7000/intentsmith/evidence/hunt-milestones-20260923/full-matrix.json). Všech pět otisků jejích zdrojů bylo znovu ověřeno 28. 9.
+
+## B — vícekolový CHAT, Opusův první úplný průchod úlohami
+
+**Panel 23.–24. 9., 40 hodnocených dialogů na model.** Jeden Opusův posudek, standardně první opakování; přerušený dialog Phi4 byl nahrazen dalším opakováním. Průměr je přes uložená obsahová skóre. Není to hodnocení všech 120 dialogů modelu ani nový produkční profil z 27. 9. Panel běžel bez produkčního systémového promptu a s `think:false`.
+
+| Model | CHAT — Opus | Hodnoceno |
+|---|---:|---:|
+| qwen3.8:latest | 95,3 | 40 |
+| qwen3.5:27b | 88,4 | 40 |
+| qwen3.6:27b | 90,9 | 40 |
+| gemma4:26b | 92,1 | 40 |
+| devstral-small-2:latest | 66,6 | 40 |
+| ornith-1.5:9b | 86,3 | 40 |
+| qwen3-30b-a3b:latest | 80,2 | 40 |
+| qwen3-coder:latest | 74,5 | 40 |
+| qwen3:14b | 76,4 | 40 |
+| phi4:14b | 64,9 | 40 |
+
+[Uložené známky všech 400 dialogů](/mnt/vi7000/intentsmith/evidence/hunt-chat-panel-20260923/opus-grading-20260924/scores-unblinded.json) · [okolnosti a omezení panelu](2026-09-24-HUNT-M0-DECISION-METHOD.md).
+Můj tehdejší první blok u Phi4 hodnotil šest běžných dialogů a šest JSON dialogů; neměl úplné skóre panelu. [Podrobný rozpad prvního posouzení](/mnt/vi7000/intentsmith/evidence/hunt-chat-panel-20260923/assessment-20260924/REVIEW.md).
 
 ## Co je nyní skutečně nastavené
 
