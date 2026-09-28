@@ -9,7 +9,7 @@ import { SemanticEvaluationJudge, parseSemanticJudgement, semanticTask, calibrat
 import { SEMANTIC_ROLE_SUITES } from '../src/eval/semantic-role-suites.js';
 import { ModelEvaluationRunner } from '../src/eval/model-evaluation-runner.js';
 import { RoleQualityEvaluationRunner } from '../src/eval/role-quality-suites.js';
-import { hash, judgeMessages, parseJudge, referenceErrors, assertNotSelf, assertJudgeFamily, panelJobs, verifyPanelReceipt, EVIDENCE_FIRST, checkPower } from '../scripts/manual/judge-panel-protocol.mjs';
+import { hash, judgeMessages, parseJudge, referenceErrors, assertNotSelf, assertJudgeFamily, panelJobs, verifyPanelReceipt, EVIDENCE_FIRST, EVIDENCE_CHECKED, declaredEvidenceScores, checkPower } from '../scripts/manual/judge-panel-protocol.mjs';
 import { assertResumableReceipt, finalizeJudgePanel } from '../scripts/manual/judge-panel-lifecycle.mjs';
 
 const artifact={modelName:'fixture:latest',digestSha256:'a'.repeat(64),providerVersion:'test-provider'};
@@ -343,5 +343,59 @@ test('authored technical controls reproduce executable facts and retain partial-
     const r=spawnSync(process.execPath,['--input-type=module','-e',c.verification.script],{encoding:'utf8',timeout:5000});
     assert.equal(r.status,0,c.group+': '+r.stderr);assert.equal(r.stdout.trim(),c.verification.expectedStdout,c.group);
   }
+});
+test('v3 rejects contradictory explicit numeric verdicts without grading prose by keywords',()=>{
+  const response=(evidence,score)=>({done:true,doneReason:'stop',content:JSON.stringify({criteria:[{criterion:1,evidence,score}]})});
+  for(const evidence of ['No error. Score 1.0','Failure. Final score: 100%','Chybně. Známka: 0,75'])
+    assert.match(parseJudge(response(evidence,0),1,EVIDENCE_CHECKED).reason,/CONTRADICTORY_DECLARED_SCORE/);
+  for(const evidence of ['Checked. Score: 0.75','The answer says "Score 1.0". It is wrong.',
+      '2 + 2 = 4; 75% of items were valid.','Not a score of 1.0: one requirement fails.','An unearned score 1.0 is inappropriate.'])
+    assert.equal(parseJudge(response(evidence,.75),1,EVIDENCE_CHECKED).valid,true,evidence);
+  assert.deepEqual(declaredEvidenceScores('Evidence. Score 0.75 because of a missing fact.'),[]);
+  assert.deepEqual(declaredEvidenceScores('Evidence. Score 0.75.'),[.75]);
+  assert.equal(parseJudge(response('Wrong. Score 1.0',0),1,EVIDENCE_FIRST).valid,true,'Archived v2 semantics unchanged');
+  const item={role:'CHAT',question:'Task',response:'Answer',rubric:['Correctness']};
+  assert.equal(judgeMessages(item,false,EVIDENCE_CHECKED)[1].content,judgeMessages(item,false,EVIDENCE_FIRST)[1].content);
+});
+test('pilot gate stops low-recall, incomplete and all-zero judges; author-gap filter is binding',()=>{
+  const script=`import importlib.util
+s=importlib.util.spec_from_file_location('pilot','scripts/manual/pilot-judge-gate.py');p=importlib.util.module_from_spec(s);s.loader.exec_module(p)
+rows=[]
+for g in range(4):
+ for i in range(8):
+  low=i<3
+  rows.append(dict(group=str(g),task=str(g),caseId=str(g),criterion=i,model='judge',author='a',first=0 if low else 1,second=0 if low else 1,score=0 if low else 1))
+assert p.metrics_gate(rows,True,p.POLICY)['passed']
+assert not p.metrics_gate(rows,False,p.POLICY)['passed']
+assert not p.metrics_gate([dict(r,score=1) for r in rows],True,p.POLICY)['passed']
+assert not p.metrics_gate([dict(r,score=0) for r in rows],True,p.POLICY)['passed']
+assert not p.metrics_gate([dict(r,score=None) for r in rows],True,p.POLICY)['passed']
+policy=dict(authors=['a','b'],maximumAbsoluteDistortion=.02,minimumGroups=4)
+paired=[]
+for r in rows:
+ for a in ['a','b']:paired.append(dict(r,author=a,first=.75,second=.75,score=.77 if a=='a' else .75))
+f=p.audit.author_gap_filter
+assert f(paired,policy)['passed'],f(paired,policy)
+assert not f([dict(r,score=.78 if r['author']=='a' else r['score']) for r in paired],policy)['passed']
+assert not f([dict(r,score=None) if i==0 else r for i,r in enumerate(paired)],policy)['passed']
+conflict=[dict(r,second=.8 if r['author']=='a' else .75) for r in paired]
+assert 'AUTHOR_GAP_REFERENCE_ARBITRATION_REQUIRED' in f(conflict,policy)['reasons']
+assert not f([r for r in paired if r['group']=='0'],policy)['passed']
+`;
+  const r=spawnSync('python3',['-c',script],{encoding:'utf8'});assert.equal(r.status,0,r.stderr);
+});
+test('large CHAT collector is blocked before GPU use without a verified pilot',()=>{
+  const directory=mkdtempSync(join(tmpdir(),'judge-pilot-gate-'));
+  try {
+    mkdirSync(join(directory,'receipts'));mkdirSync(join(directory,'restricted'));
+    const inputs=JSON.stringify([{id:'c',stage:'screen',role:'CHAT',dataset:'chat-context-fixed'}]);
+    const refs=JSON.stringify({c:{answerDigest:'other',answerFamily:'qwen'}});
+    writeFileSync(join(directory,'inputs.json'),inputs);writeFileSync(join(directory,'restricted/references.json'),refs);
+    const plan=JSON.stringify({models:[{name:'j',family:'other',artifact:{digestSha256:'judge'}}],sourceHashes:{},inputsSha256:hash(inputs),referencesSha256:hash(refs),judgeProfile:EVIDENCE_CHECKED});
+    writeFileSync(join(directory,'plan.json'),plan);
+    const run=spawnSync(process.execPath,[new URL('../scripts/manual/run-judge-panel.mjs',import.meta.url).pathname,
+      '--out='+directory,'--stage=screen','--expected-plan='+hash(plan)],{encoding:'utf8',timeout:10000});
+    assert.equal(run.status,1);assert.match(run.stderr,/CHAT_PILOT_REQUIRED/);assert.doesNotMatch(run.stderr,/QUIET_POWER_LIMIT_REQUIRED/);
+  } finally {rmSync(directory,{recursive:true,force:true});}
 });
 summary();

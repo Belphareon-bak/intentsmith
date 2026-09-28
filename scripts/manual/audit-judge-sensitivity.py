@@ -107,6 +107,37 @@ def pair_summaries(rows):
             commonPlannedCriteria=len(ks),commonCriteria=len(common),silentJointErrors=sum(outside(x[k])>.250000001 and outside(y[k])>.250000001 and abs(cents(x[k]['score'])-cents(y[k]['score']))<=25 for k in common)))
     return pairs
 
+def author_gap_filter(rows, policy):
+    """Paired author-gap distortion, equal case-group weights, two references.
+
+    Exclude reference disputes before looking at judge scores. Missing scores
+    block, rather than selecting an easier author-specific matched subset.
+    """
+    authors=policy['authors']; limit=policy['maximumAbsoluteDistortion']; minimum=policy['minimumGroups']
+    vectors={a:{} for a in authors}
+    for r in rows:
+        if r['author'] not in vectors: continue
+        k=(r['group'],r['task'],r['criterion'])
+        if k in vectors[r['author']]: raise ValueError('DUPLICATE_AUTHOR_PAIR')
+        vectors[r['author']][k]=r
+    a,b=(vectors[x] for x in authors)
+    keys=sorted(k for k in a.keys()&b.keys() if all(abs(cents(r['first'])-cents(r['second']))<=25 for r in [a[k],b[k]]))
+    groups=collections.defaultdict(list)
+    for k in keys: groups[k[0]].append(k)
+    reference={ref:avg(avg(a[k][ref]-b[k][ref] for k in ks) for ks in groups.values()) for ref in ['first','second']}
+    complete=bool(keys) and all(a[k]['score'] is not None and b[k]['score'] is not None for k in keys)
+    observed=avg(avg(a[k]['score']-b[k]['score'] for k in ks) for ks in groups.values()) if complete else None
+    residual={ref:observed-value if observed is not None else None for ref,value in reference.items()}
+    failures=[]
+    if len(groups)<minimum: failures.append('AUTHOR_GAP_TOO_FEW_GROUPS')
+    if not complete: failures.append('AUTHOR_GAP_MISSING_PAIRED_GRADES')
+    if all(v is not None for v in reference.values()) and abs(reference['first']-reference['second'])>2*limit+1e-10:
+        failures.append('AUTHOR_GAP_REFERENCE_ARBITRATION_REQUIRED')
+    if any(v is not None and abs(v)>limit+1e-10 for v in residual.values()): failures.append('AUTHOR_GAP_EXCEEDS_LIMIT')
+    return dict(passed=not failures,reasons=failures,authors=authors,groups=len(groups),criteriaPairs=len(keys),
+                referenceGaps=reference,judgeGap=observed,distortion=residual,maximumAbsoluteDistortion=limit,
+                interpretation='Descriptive matched residual, not proof of causal family favoritism or statistical acceptance.')
+
 def main():
     ap=argparse.ArgumentParser();ap.add_argument('--source',type=pathlib.Path,required=True);ap.add_argument('--out',type=pathlib.Path,required=True);a=ap.parse_args()
     if a.out.resolve()==a.source.resolve() or a.source.resolve() in a.out.resolve().parents:raise ValueError('WRITE_SEPARATE_AUDIT_DIRECTORY')

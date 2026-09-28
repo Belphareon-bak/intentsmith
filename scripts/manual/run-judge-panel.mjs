@@ -26,6 +26,10 @@ if(opt.stage==='confirm') {
   models=s.models.map(n=>{const m=plan.models.find(m=>m.name===n);if(!m)throw Error('JUDGE_SHORTLIST_MODEL');return m;});
 }
 const {jobs,exclusions}=panelJobs(models,inputs.filter(x=>x.stage===opt.stage),references,planSha256,plan.familyPolicy);
+if(plan.judgeProfile==='evidence-first.3' && jobs.some(j=>j.item.role==='CHAT' && j.item.dataset!=='authored-control')
+  && plan.experimentKind!=='CHAT_LOW_CRITERION_PILOT_V1') {
+  execFileSync('python3',[path.join(root,'scripts/manual/pilot-judge-gate.py'),'--check-expansion',opt.out],{stdio:'pipe'});
+}
 const receiptPath=key=>path.join(opt.out,'receipts',key+'.json');
 const prior=fs.readdirSync(path.join(opt.out,'receipts')).filter(f=>f.endsWith('.json')&&!f.endsWith('.post.json')).map(f=>{
   const receipt=read('receipts/'+f),key=f.slice(0,-5),postFile='receipts/'+key+'.post.json';

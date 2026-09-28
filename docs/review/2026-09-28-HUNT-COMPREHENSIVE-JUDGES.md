@@ -2,6 +2,60 @@
 
 28. 9. 2026 · **PREPARED_NOT_RUN / POWER_BLOCKED / NO_GO**
 
+## Aktuální pořadí po připomínkách operátora
+
+Plán 1 375 volání níže je zachovaný nespuštěný podklad. **Nespouští se rovnou.**
+Nová příprava je v `/mnt/vi7000/intentsmith/evidence/hunt-judge-pilot-20260928/`;
+její plány a receipts se se starým experimentem nemíchají.
+
+1. **Krátký pilot:** 16 celých CHAT dialogů, čtyři skupiny se souhlasně nízkými
+   kritérii, vždy oba autoři a oba jazyky. Skupiny se vybírají pouze ze screening
+   části podle počtu nízkých kritérií; shodu pořadí rozhoduje pevný SHA klíč.
+   Gemma4, Devstral a Phi4: 48 volání, nejvýš hodina a 98 304 výstupních tokenů.
+   V každém modelu je 11 nízkých kritérií. Potřebuje zachytit nejméně 6/11,
+   mít nejméně 90 % platných kritérií a neprávem odmítnout nejvýš 10 % vysokých.
+   Pilot musí být úplný. Neplatná známka se nepočítá jako zachycená chyba.
+2. **Samostatný pilot nových rodin:** Selene Mini (Llama) a Granite, tentýž
+   vzorek, samostatný plán 32 volání a hodinová stopka. Stažení není přejímka.
+   Selene je specializovaný hodnotitel; výrobce češtinu mezi podporovanými
+   jazyky neuvádí. Granite má češtinu doloženou, ale hodnoticí schopnost se
+   teprve změří. Zdroje: [Atla](https://huggingface.co/AtlaAI/Selene-1-Mini-Llama-3.1-8B),
+   [IBM](https://huggingface.co/ibm-granite/granite-4.0-h-small).
+3. **Zastavení nebo další vývoj:** pokud žádný kandidát pilotu neprojde,
+   velký CHAT se nespustí. Neúspěšný kandidát nesmí do rozšíření ani tehdy,
+   když prošel jiný. Jedna úspěšná rodina ještě nevytváří nezávislou dvojici.
+   Nový prompt dostane nový plán; žádné opravné přepsání receipts. Potvrzovací
+   část zůstává při ladění nepoužitá. Maximálně tři vývojové verze pilotu,
+   potom revize příčiny, nikoli další ladění až do vynuceného úspěchu.
+
+`evidence-first.3` doplňuje kontrolu výslovně napsané číselné známky proti
+poli `score`. Například pole 0 a závěr „Score 1.0“ posudek zneplatní. Citace
+ve dvojitých uvozovkách/backticku a běžné výpočty nejsou známky hodnotitele.
+Jde o omezenou syntaktickou kontrolu, **ne přejatý extraktor významu prózy**:
+rozpor bez výslovného číselného verdiktu musí zachytit obsahová přejímka.
+Interpretace archivovaných profilů `.1` a `.2` se nemění.
+
+**Filtr odchylky podle autora:** vývojová CHAT nominace má navíc mez 2 p. b.
+pro rozdíl chyb qwen3.8 − qwen3.5 vůči každé referenci zvlášť. Předem se vyberou
+shodné úlohy a kritéria, u nichž se reference u obou autorů liší nejvýš o 25 p. b.;
+skupiny mají stejnou váhu. Nutných je alespoň 15 skupin úplných párových známek.
+Filtr se uplatní na celý rozšířený CHAT, ne na záměrně obtížný pilot. Chybějící
+párové známky blokují výběr; pokud reference vyžadují neslučitelné meze,
+výsledkem je `AUTHOR_GAP_REFERENCE_ARBITRATION_REQUIRED`. Práh se při výsledku
+neuvolňuje. Je to popisná odchylka, nikoli důkaz příčinného zvýhodňování rodiny.
+
+Rozšíření ověřuje SHA pilotu, skutečné receipts, jejich výstupy a prostředí,
+identitu modelů, stejný prompt/profil i nezměněné zadání, rubriku a reference.
+Uložený příznak PASS samo o sobě nepřijme. Modely Qwen zůstávají z hodnocení
+skutečného CHATu vyloučené. Nové modely vyžadují vlastní pilot s přesným digestem.
+
+Ověření této úpravy: **35/35 semantic-evaluation, 6/6 collection-stage-provider,
+160/160 artifact-validation**, registr 542 programů. První kontrola census
+zachytila chybnou interpunkci v SYSTEM-MAP; oprava i původní FAIL mají log.
+To jsou testy nástrojů, nikoli inference nebo kvalifikace modelů.
+
+## Původní širší plán (před pilotní revizí)
+
 Tento dokument popisuje nový experiment, nikoli výsledky nových inferencí.
 Původních 536 posudků ani jejich stažené doporučení se nepřejmenovávají na
 nový běh. Předchozí nespuštěný návrh 204 volání nahrazuje širší plán níže.

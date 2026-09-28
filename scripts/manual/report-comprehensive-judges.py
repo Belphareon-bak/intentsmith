@@ -27,6 +27,7 @@ def main():
   for role in sorted({c['role'] for c in cases if c['dataset']==dataset}):
    for m in plan['models']:
     failures=[]
+    author_gap=None
     for part in ['screen','confirm']:
      x=panels[':'.join([dataset,role,part])]['models'][m['name']]
      if not x['criteria']:failures.append(part+':NO_ELIGIBLE_CAPTURE');continue
@@ -35,8 +36,14 @@ def main():
      if x['lowRecall'] is None or x['lowRecall']<.7:failures.append(part+':LOW_RECALL_BELOW_70_PERCENT')
      if x['highFalseRejectionRate'] is None or x['highFalseRejectionRate']>.1:failures.append(part+':HIGH_FALSE_REJECTION')
      if x['groupMAE'] is None or x['groupMAE']>=x['alwaysOneGroupMAEMatched']:failures.append(part+':NOT_BETTER_THAN_ALWAYS_ONE')
+    if role=='CHAT':
+     policy=plan.get('selection',{}).get('authorGap')
+     if not policy:failures.append('AUTHOR_GAP_POLICY_NOT_LOCKED')
+     else:
+      author_gap=audit.author_gap_filter([r for r in rows if r['dataset']==dataset and r['role']==role and r['model']==m['name']],policy)
+      failures.extend(author_gap['reasons'])
     if v['status']!='CAPTURE_COMPLETE':failures.append('PANEL_INCOMPLETE')
-    decisions.append({'dataset':dataset,'role':role,'model':m['name'],'developmentFilterPassed':not failures,'reasons':failures,'decisionAuthority':False})
+    decisions.append({'dataset':dataset,'role':role,'model':m['name'],'developmentFilterPassed':not failures,'reasons':failures,'authorGap':author_gap,'decisionAuthority':False})
  report={'status':v['status'],'simulation':False,'decisionAuthority':False,'planSha256':v['planSha256'],'sources':plan['sources'],
   'analysisSourceSha256':hashlib.sha256(pathlib.Path(__file__).read_bytes()).hexdigest(),'panels':panels,'developmentNominations':decisions,
   'orderProbes':v['order'],'limitations':plan['limitations']}
