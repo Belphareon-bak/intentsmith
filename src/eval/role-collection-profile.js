@@ -12,8 +12,14 @@ export function collectionCoverage(attempts, expectedAttempts) {
   return { captured, complete: attempts.length === expectedAttempts && captured === expectedAttempts };
 }
 
-export function collectionSuite(role, suite) {
-  return { ...suite, version: `${suite.version}+${COLLECTION_PROFILE}`, tests: suite.tests.map(original => {
+export function collectionSuite(role, suite, { responseWindow = 'standard' } = {}) {
+  if (!['standard','extended'].includes(responseWindow)
+    || (responseWindow === 'extended' && !['D1','D2','R1','R2'].includes(role))) {
+    throw new Error('COLLECTION_RESPONSE_WINDOW_INVALID');
+  }
+  const profileVersion = responseWindow === 'extended'
+    ? `${COLLECTION_PROFILE}+long-output-common16k.1` : COLLECTION_PROFILE;
+  return { ...suite, version: `${suite.version}+${profileVersion}`, tests: suite.tests.map(original => {
     const additions = [];
     if (original.contractMaterial?.gradingInputs?.oracleCase === 'f63d14d5eb61') additions.push(
       'Upřesnění veřejného API: confidence je řetězec, nikoli číslo. Pro comparison.discriminating === 1 vrať přesně "nízká (jediná úloha)", pro 2 "střední", pro 3 a více "vysoká". Platí pro výhru i prohru založenou na kvalitě.');
@@ -33,10 +39,12 @@ export function collectionSuite(role, suite) {
       ...(role === 'R1' && original.name === 'r1_model_cleanup'
         ? { num_ctx: 24576, num_predict: 16384, timeout: 900000 } : {}),
       ...(role === 'VISION' ? { num_predict: 1024 } : {}),
+      ...(responseWindow === 'extended'
+        ? { num_ctx: 16384, num_predict: 12288, timeout: 900000 } : {}),
     };
     return { ...original, prompt, options, contractMaterial: {
       ...original.contractMaterial,
-      collectionProfile: { version: COLLECTION_PROFILE, additions, options,
+      collectionProfile: { version: profileVersion, additions, options,
         judge: null, scoring: false, tools: [], think: false },
     } };
   }) };

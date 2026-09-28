@@ -252,3 +252,31 @@ test('CODE capture preflight stops on a failing executable control', () => {
   assert.equal(result.code, 'CODE_CAPTURE_FIXTURE_UNAVAILABLE');
   assert.equal(result.failures[0].test, 'broken-fixture');
 });
+
+test('extended raw D/R capture preserves every public prompt and uses a separate common context contract', async () => {
+  for (const role of ['D1','D2','R1','R2']) {
+    const standard=collectionSuite(role,SEMANTIC_ROLE_SUITES[role]);
+    const extended=collectionSuite(role,SEMANTIC_ROLE_SUITES[role],{responseWindow:'extended'});
+    assert.notEqual(suiteContract(standard,{repeats:3}).sha256,suiteContract(extended,{repeats:3}).sha256);
+    for (const [index,task] of extended.tests.entries()) {
+      assert.deepEqual(task.prompt(),standard.tests[index].prompt());
+      assert.deepEqual(task.rubric,standard.tests[index].rubric);
+      assert.equal(task.options.num_ctx,16384);
+      assert.equal(task.options.num_predict,12288);
+      assert.equal(task.options.timeout,900000);
+      assert.equal(task.options.temperature,standard.tests[index].options.temperature);
+      const answer=await collectAnswer(task,'fixture',{},async (_model,_messages,options)=>{
+        assert.deepEqual(options,task.options);
+        return {content:'complete response',doneReason:'stop'};
+      });
+      assert.equal(answer.captureStatus,'CAPTURED');
+      assert.equal(answer.gradingStatus,'NOT_GRADED');
+      assert.equal(Object.hasOwn(answer,'score'),false);
+    }
+  }
+});
+test('extended capture rejects other roles and unknown response windows', () => {
+  for (const role of ['CHAT','VISION','CODE']) assert.throws(()=>
+    collectionSuite(role,{tests:[]},{responseWindow:'extended'}),/COLLECTION_RESPONSE_WINDOW_INVALID/);
+  assert.throws(()=>collectionSuite('D1',{tests:[]},{responseWindow:'typo'}),/COLLECTION_RESPONSE_WINDOW_INVALID/);
+});

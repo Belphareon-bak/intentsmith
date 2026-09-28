@@ -44,4 +44,38 @@ tohoto doplnění. Evidence: `/mnt/vi7000/intentsmith/evidence/hunt-matrix-compl
 - `hunt-completion-simulation`: 5/5; včetně celého fiktivního desetimodelového
   sběru, exportu 400 odpovědí a odmítnutí odlišného profilu / hodin.
 - `m1-model-contract`: 34/34; produkční kontext hodin zůstává živý.
-- Závěrečný audit skutečného sběru a skutečné posudky zatím nevznikly.
+- Skutečný CHAT: 400/400 dialogů, 1 163 volání, audit úplné historie a
+  116 společných systémových promptů mezi deseti modely PASS. Paket má SHA
+  `05a33f2075ba83e9d978738d689df21fcbc2e1c6b72813c8c93b6970d16f783e`.
+  Společné systémové instrukce a referenční hodiny jsou zvlášť doložené
+  v `chat/review/SHARED-CONTEXT.md`; oba hodnotitelé je musí dostat.
+- První nový posudek D/R doplňku je dokončený: 554/554 odpovědí,
+  1 545/1 545 kritérií, validátor PASS. Jde o exponovaného externího
+  hodnotitele, nikoli lidskou referenci nebo přejímku. Druhý posudek čeká.
+- První posudek CHAT: průběžný deník, dosud 260/400 celých rozhovorů.
+  Nejde o hotové pořadí ani druhý nezávislý posudek.
+
+## Doplnění profilu po ověření podpory kontextu
+
+D1/D2/R2 `model_cleanup` doplněno: 72 nových úplných odpovědí (8 modelů
+× 3 role × 3 pokusy), vedle 18 existujících kotevních odpovědí. Dalších
+šest nových R1 odpovědí na starém profilu zůstává oddělených. Phi4
+požadovaných 24 576 tokenů kontextu nepodporuje: poskytovatel přidělí 16 384.
+Původní blokace nebyla důkaz nedostatku GPU paměti. Runner nyní odlišuje
+`MODEL_PROFILE_CONTEXT_MISMATCH` od `MODEL_PROFILE_NOT_FULL_GPU`.
+
+Devět dotčených slotů dostává nový společný profil všech deseti modelů:
+16 384 kontext, 12 288 výstup, 900 s na volání, stejné prompty/rubriky a
+teplota 0,1. Osm slotů pokrývá původní neúplné odpovědi a devátý je
+R1/model_cleanup. Celkem 270 nových odpovědí, tři pokusy. Staré výsledky
+se zachovají, ale celý srovnávaný slot se vyhodnotí v novém profilu.
+
+CODE confidence v2 má veřejně jednoznačné podmínky ve všech větvích kvality;
+30 nových odpovědí bude samostatnou verzí zadání. Technické kontroly mají
+výstupy gold=1, alternative=1 a broken=4/24; **plné sémantické skóre
+nevydávají**. Ostatních šest CODE úloh má doloženou shodu veřejných vstupů,
+profilu a spustitelného replay ze září; jejich technické komponenty se
+nezaměňují za úspěšnost celého opravného workflow.
+
+Doplnění většího profilu a CODE v2 je připravené ke sběru; počty provedených
+pokusů dokládají až jednotlivé result.json, nikoli tento plán.

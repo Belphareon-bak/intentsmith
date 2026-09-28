@@ -8,6 +8,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { collectAnswer, collectionCoverage, collectionSuite, MAX_MODEL_BYTES } from './role-collection-profile.mjs';
 import { inspectCodeCaptureSuite } from '../../src/eval/code-capture-preflight.js';
+import { confidenceV2Task, confidenceV2Contract, confidenceV2References, assessConfidenceV2Technical } from '../../src/eval/code-confidence-v2.js';
 import { ModelEvaluationRunner } from '../../src/eval/model-evaluation-runner.js';
 import { CodePatchEvaluationRunner, codePatchSuite } from '../../src/eval/code-patch-suite.js';
 import { visionV2Suite } from '../../src/eval/role-quality-suites.js';
@@ -21,19 +22,35 @@ const args = process.argv.slice(2);
 const flag = name => args.includes(`--${name}`);
 const option = (name, fallback = null) => args.find(a => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? fallback;
 if (!args.length || flag('help')) {
-  console.log('Usage: all-role-evaluation.mjs --prepare|--run --out=/absolute/new-directory [--model=qwen3.8:latest] [--judge=qwen3.8:latest] [--roles=D1,D2,CODE,R1,R2,CHAT,VISION] [--profile=full|smoke] [--budget-minutes=240] [--collect-only] [--calibrate-only] [--resume]');
+  console.log('Usage: all-role-evaluation.mjs --prepare|--run --out=/absolute/new-directory [--model=qwen3.8:latest] [--judge=qwen3.8:latest] [--roles=D1,D2,CODE,R1,R2,CHAT,VISION] [--profile=full|smoke] [--budget-minutes=240] [--collect-only] [--calibrate-only] [--resume] [--response-window=standard|extended] [--code-confidence-v2]');
   process.exit(0);
 }
-const allowed = /^(?:--(?:prepare|run|collect-only|calibrate-only|resume)|--(?:out|model|judge|roles|profile|report|task|budget-minutes)=.+)$/;
+const allowed = /^(?:--(?:prepare|run|collect-only|calibrate-only|resume|code-confidence-v2)|--(?:out|model|judge|roles|profile|report|task|budget-minutes|response-window)=.+)$/;
 if (args.some(a => !allowed.test(a)) || flag('prepare') === flag('run')) throw new Error('Invalid measurement arguments');
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const out = option('out');
 if (!out || !path.isAbsolute(out)) throw new Error('An absolute evidence directory is required');
 const collectOnly = flag('collect-only');
 if (collectOnly && (flag('calibrate-only') || option('judge'))) throw new Error('Collection cannot use a judge');
-const originals = { ...SEMANTIC_ROLE_SUITES, CODE: codePatchSuite, VISION: visionV2Suite };
-const suites = collectOnly ? Object.fromEntries(Object.entries(originals).map(([role, suite]) => [role, collectionSuite(role, suite)])) : originals;
-const selected = option('roles', 'D1,D2,CODE,R1,R2,CHAT,VISION').split(',');
+const responseWindow = option('response-window', 'standard');
+const requestedRoles = option('roles', 'D1,D2,CODE,R1,R2,CHAT,VISION').split(',');
+if (!['standard','extended'].includes(responseWindow)
+  || (responseWindow === 'extended' && (!collectOnly || requestedRoles.some(r => !['D1','D2','R1','R2'].includes(r)))))
+  throw new Error('Extended response window is only for raw D/R collection');
+const confidenceCapture = flag('code-confidence-v2');
+if (confidenceCapture && (!collectOnly || requestedRoles.join(',') !== 'CODE'))
+  throw new Error('Confidence v2 is only for separate raw CODE collection');
+const confidenceSuite = { name: 'code_confidence_all_quality_v2', version: '2', tests: [{
+  name: confidenceV2Task.name, description: 'All quality branches: executable API plus separate explanation review',
+  tier: 'T1+T4', language: confidenceV2Task.language, independenceGroup: confidenceV2Task.independenceGroup,
+  prompt: () => ({ messages: structuredClone(confidenceV2Task.turns) }), options: confidenceV2Task.options,
+  rubric: confidenceV2Task.rubric.map(c => `${c.id} [${c.axis}]: ${c.requirement}`),
+  contractMaterial: { taskContractSha256: confidenceV2Task.taskContractSha256,
+    publicContract: confidenceV2Contract, gradingStatus: 'SEPARATE_TECHNICAL_AND_SEMANTIC_REVIEW' },
+}] };
+const originals = { ...SEMANTIC_ROLE_SUITES, CODE: confidenceCapture ? confidenceSuite : codePatchSuite, VISION: visionV2Suite };
+const suites = collectOnly ? Object.fromEntries(Object.entries(originals).map(([role, suite]) => [role, collectionSuite(role, suite, {responseWindow: requestedRoles.includes(role) ? responseWindow : 'standard'})])) : originals;
+const selected = requestedRoles;
 if (new Set(selected).size !== selected.length || selected.some(r => !suites[r])) throw new Error('Unknown or duplicate role');
 const profile = option('profile', 'full');
 if (!['full','smoke'].includes(profile)) throw new Error('Quick quality estimates require an accepted full profile; use smoke only for transport diagnostics');
@@ -53,6 +70,8 @@ const plan = { schemaVersion: 1, sourceRevision, runtimeSha256, workingTreeDirty
   collectionModuleSha256: collectOnly ? hash(fs.readFileSync(new URL('./role-collection-profile.mjs',import.meta.url))) : null,
   profile, repeats, budgetMinutes, model: option('model', 'qwen3.8:latest'), judge: collectOnly ? null : option('judge', 'qwen3.8:latest'),
   collectOnly, maxModelBytes: collectOnly ? MAX_MODEL_BYTES : null,
+  ...(responseWindow === 'extended' ? {responseWindow:'long-output-common16k.1'} : {}),
+  ...(confidenceCapture ? {codeProfile:confidenceV2Contract.version} : {}),
   calibratedOnly: flag('calibrate-only'), taskFilter: option('task'),
   roles: selected.map(role => ({ role, suite: suites[role].name,
     contractSha256: suiteContract(suites[role],{repeats}).sha256,
@@ -148,9 +167,11 @@ const call=async(model,messages,options,artifact)=>{
   try {
     assertOwnership();
     placement=(await get('/api/ps')).models?.find(m=>m.name===model) || null;
-    if(!result.error && (!placement || placement.size_vram<placement.size
-      || placement.context_length!==options.num_ctx
-      || (collectOnly && placement.size_vram>MAX_MODEL_BYTES)))throw new Error('MODEL_PROFILE_NOT_FULL_GPU');
+    if(!result.error) {
+      if(!placement || placement.size_vram<placement.size
+        || (collectOnly && placement.size_vram>MAX_MODEL_BYTES))throw new Error('MODEL_PROFILE_NOT_FULL_GPU');
+      if(placement.context_length!==options.num_ctx)throw new Error('MODEL_PROFILE_CONTEXT_MISMATCH');
+    }
   } catch(error) { placementError=error.message; }
   report.inferenceCalls++;
   const receipt={at:new Date().toISOString(),model,artifact,options,inputSha256:hash(messages),messages,result,placement,placementError,placementEvidence: { status: 'REQUIRES_PROVIDER_LOG_AUDIT', apiMemoryIsNotIndependentProof: true },gpuSamples,requestSettings:{stream:false,think:false,tools:[]}};
@@ -187,7 +208,18 @@ try {
       report.phase='oracle';report.current={role:rolePlan.role,task:task.name};flush();
       let calibrated=collectOnly?null:true;
       if(collectOnly && rolePlan.role==='CODE') {
-        const preflight=inspectCodeCaptureSuite({tests:[task]});
+        // The new task is a separate contract, never a lexical patch to old grades.
+        // Only author executable controls run here; explanation acceptance stays pending.
+        const preflight=confidenceCapture ? (() => {
+          const controls=Object.entries(confidenceV2References).map(([name,response]) => {
+            const result=assessConfidenceV2Technical(response), expected=name==='broken'?4/24:1;
+            return {name,expectedTechnicalScore:expected,observedTechnicalScore:result.technical.score,
+              ok:result.score===null && result.technical.valid===true && result.technical.score===expected};
+          });
+          return {ready:controls.every(c=>c.ok),checked:1,task:task.name,controls,
+            code:controls.every(c=>c.ok)?null:'CONFIDENCE_V2_EXECUTABLE_CONTROL_FAILED',
+            fullOracleAccepted:false,semanticAcceptance:false};
+        })() : inspectCodeCaptureSuite({tests:[task]});
         report.capturePreflights.push(preflight);
         fs.appendFileSync(path.join(out,'capture-preflights.jsonl'),JSON.stringify(preflight)+'\n',{mode:0o600});flush();
         if(!preflight.ready)throw new Error('CODE_CAPTURE_FIXTURE_UNAVAILABLE:'+task.name);
