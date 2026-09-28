@@ -257,10 +257,11 @@ class SessionStore {
   closeSession(sessionId) {
     const index = this.state.sessions.findIndex(session => session.id === sessionId);
     if (index < 0) return false;
+    const conversationId = this.state.sessions[index]._convId;
     this.state.sessions[index]._closed = true;
     this.state.sessions.splice(index, 1);
     this.state.used = this.state.used.filter(id => id !== sessionId);
-    this.state.closed = [sessionId, ...this.state.closed.filter(id => id !== sessionId)].slice(0, 5);
+    if (conversationId) this.state.closed = [conversationId, ...this.state.closed.filter(id => id !== conversationId)].slice(0, 5);
     const wasVisible = this.state.columns.includes(sessionId);
     this.state.columns = this.state.columns.filter(id => id !== sessionId);
     if (wasVisible && !this.state.columns.length && this.state.sessions.length) this.state.columns.push(this.recent()[0]);

@@ -33,7 +33,8 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
       studioDark: Boolean(root?.classList.contains('th-studio-dark')),
       busListeners: window.IntentSmithBus?._debug?.() || {},
       sessionTabs: root?.querySelectorAll('.tabs-in .tab').length || 0,
-      openSessions: root?.querySelector('nav .nkids')?.querySelectorAll('.nkid').length || 0,
+      openSessions: root?.querySelector('nav .nkids')?.querySelectorAll('.nkid .tnum').length || 0,
+      capacityToast: root?.querySelector('.toast')?.textContent?.trim() || '',
       columnSessions: [...(root?.querySelectorAll('.cols .scol .pane-t .pane-tt') || [])].map(node => node.textContent.trim()),
       pickerItems: [...(root?.querySelectorAll('.dd.ctx.picker .dd-i .dd-t') || [])].map(node => node.textContent.trim()),
       catalogSection: root?.querySelector('.cat-t h1')?.textContent?.trim() || null,
@@ -81,7 +82,29 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
   })()`);
   const capped = await waitFor(s => s.openSessions === 5 && s.columnSessions.length === 3
     && s.columnSessions.some(title => !five.columnSessions.includes(title)), 'sixth-session-safe-eviction');
-  const original = [...capped.columnSessions];
+  const setDrafts = value => evaluate(cdp, `(async () => {
+    const root = document.querySelector('#intentsmith-studio2 [data-studio-ui="studio2"]');
+    const rows = [...root.querySelector('nav .nkids').querySelectorAll('.nkid')].filter(row => row.querySelector('.tnum'));
+    for (const row of rows) {
+      row.click();
+      await new Promise(resolve => setTimeout(resolve, 40));
+      const input = root.querySelector('.scol.focus .comp textarea');
+      if (!input) throw Error('Missing focused composer');
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, ${JSON.stringify(value)});
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      await new Promise(resolve => setTimeout(resolve, 40));
+    }
+    return true;
+  })()`);
+  await setDrafts('Neodeslaný koncept pro kontrolu bezpečného zavírání');
+  await evaluate(cdp, `(() => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 't', ctrlKey: true, bubbles: true, cancelable: true }));
+    return true;
+  })()`);
+  const blocked = await waitFor(s => s.openSessions === 5 && s.capacityToast.includes('nejprve'), 'drafts-prevent-eviction');
+  const noticeExpired = await waitFor(s => s.capacityToast === '', 'capacity-notice-expires');
+  await setDrafts('');
+  const original = [...(await evaluate(cdp, inspect)).columnSessions];
   await evaluate(cdp, `(() => {
     const root = document.querySelector('#intentsmith-studio2 [data-studio-ui="studio2"]');
     root.querySelectorAll('.cols .scol .pane-t')[0].click();
@@ -283,6 +306,8 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
     classicRestored: restored.classicSidebar && restored.classicChat && !restored.studio2,
     fiveSessionsWithoutTopTabs: five.sessionTabs === 0 && five.openSessions === 5 && five.columnSessions.length === 3,
     sixthSessionKeepsLimit: capped.openSessions === 5 && capped.columnSessions.length === 3,
+    capacityGuardProtectsDrafts: blocked.openSessions === 5 && blocked.capacityToast.includes('nejprve'),
+    capacityNoticeExpires: noticeExpired.capacityToast === '',
     headerEndsSession: closed.openSessions === 4 && closed.columnSessions.length === 2,
     visibleSessionSwap: swapped.columnSessions[0] === original[1] && swapped.columnSessions[1] === original[0],
     terminalPanelConnected: terminalUi.terminalInput && terminalUi.terminalClient,

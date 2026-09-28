@@ -106,20 +106,23 @@ class Studio2Widget extends ReactWidget {
   capacityAvailable() {
     if (this.store.canAddSession(session => !this.closeBlockReason(session))) return true;
     this.catalogActionError = `Je otevřeno ${this.store.state.sessions.length} relací. Skryté relace pracují, čekají na schválení nebo mají neuloženou práci; nejprve některou bezpečně ukonči.`;
-    this.model?.setState({ toast: { id: 'cap-' + Date.now(), tone: 'warn', t: this.catalogActionError } });
+    const toast = { id: 'cap-' + Date.now(), tone: 'warn', t: this.catalogActionError };
+    this.model?.setState({ toast }); this.model?.armToast({ toast });
     this.update();
     return false;
   }
   createSession(source = {}, slot) {
     if (!this.capacityAvailable()) return null;
     const previous = this.store.state.sessions.slice();
+    const names = new Map(previous.map(item => [item.id, this.model?.sess(item.id)?.short || item._label]));
     const session = this.store.addSession(source, { slot, canClose: item => !this.closeBlockReason(item) });
     if (!session) return null;
     const evicted = previous.find(item => !this.store.find(item.id));
     if (evicted) {
       const toast = { id: 'closed-' + Date.now(), tone: 'info',
-        t: `Relace „${evicted._label}“ se zavřela; její konverzace zůstává v historii.` };
+        t: `Relace „${names.get(evicted.id)}“ se zavřela; její konverzace zůstává v historii.` };
       this.model?.setState({ toast }); this.model?.armToast({ toast });
+      void this.catalog.load('Konverzace');
     }
     this.section = 'Relace'; this.update();
     return session;
@@ -128,7 +131,9 @@ class Studio2Widget extends ReactWidget {
   closeSession(session) {
     const reason = this.closeBlockReason(session);
     if (reason) { window.alert(reason); return false; }
-    return this.store.closeSession(session.id);
+    const closed = this.store.closeSession(session.id);
+    if (closed) void this.catalog.load('Konverzace');
+    return closed;
   }
   selectSection(name) {
     this.section = name; this.catalogSearch = ''; this.catalogSelection = null; this.catalogActionError = null;

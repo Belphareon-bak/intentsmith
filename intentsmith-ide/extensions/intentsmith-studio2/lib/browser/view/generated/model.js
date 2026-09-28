@@ -1576,15 +1576,18 @@ class Component extends DCLogic {
 
   // Časová osa odpovědi z událostí backendu. events: [{ phase, label, meta, startedAt, status, model }], kde
   // phase je 'understand' | 'context' | 'generate' | 'check' pro interní krok zpracování a null pro viditelnou práci
-  // (nástroj, soubor, chyba – label a meta se převezmou). Po sobě jdoucí události stejné fáze se sloučí do jedné fáze;
+  // (nástroj, soubor, chyba – label a meta se převezmou). Události stejné fáze se sloučí, i když je dělí jiné kroky;
   // fáze trvá do začátku dalšího kroku, poslední do endAt. Bez endAt (odpověď běží) poslední fáze probíhá.
   // Výstup je formát m.steps: [text, meta, příznak] s příznakem 'i' / 'i-run' pro fáze, '' / 'run' / 'err' pro práci.
   phaseSteps(events, endAt) {
     const rows = [];
+    const phases = new Map();
     (events || []).forEach((e) => {
-      const last = rows[rows.length - 1];
-      if (e.phase && last && last.phase === e.phase) { last.err = last.err || e.status === 'error'; last.model = e.model || last.model; return; }
-      rows.push({ phase: e.phase || null, label: e.label || '', meta: e.meta || '', start: e.startedAt, err: e.status === 'error', running: e.status === 'running', model: e.model || '' });
+      const previous = e.phase && phases.get(e.phase);
+      if (previous) { previous.err = previous.err || e.status === 'error'; previous.model = e.model || previous.model; return; }
+      const row = { phase: e.phase || null, label: e.label || '', meta: e.meta || '', start: e.startedAt, err: e.status === 'error', running: e.status === 'running', model: e.model || '' };
+      rows.push(row);
+      if (e.phase) phases.set(e.phase, row);
     });
     return rows.map((x, i) => {
       if (!x.phase) return [x.label, x.meta, x.err ? 'err' : x.running ? 'run' : ''];

@@ -35,6 +35,34 @@ function setup({ workspace, m2, catalog: catalogOverride, specialistFiles } = {}
 
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
+test('conversation and specialist opening labels follow session state and an open session can be ended from its detail', () => {
+  const catalog = { view: section => ({ status: 'ready', items: section === 'Konverzace'
+    ? [{ id: 'saved', name: 'Uložená práce' }] : section === 'Specialisté'
+      ? [{ id: 'alpha', name: 'Alpha', raw: { status: 'enabled' } }] : [] }),
+    load: () => {}, subscribe: () => () => {} };
+  const { model, store } = setup({ catalog });
+  const first = store.focusedSession();
+  first.chat.msgs = [{ role: 'user', text: 'Moje práce' }];
+  let state = { ...model.st(), section: 'chats', detail: { chats: first.id } };
+  const open = model.detailVM(state);
+  assert.equal(open.primaryLabel, 'Přepnout na relaci');
+  assert.equal(open.title, 'Moje práce');
+  assert.equal(open.secondary[0].label, 'Ukončit relaci');
+  state = { ...model.st(), section: 'chats', detail: { chats: 'saved' } };
+  assert.equal(model.detailVM(state).primaryLabel, 'Otevřít v nové relaci');
+  assert.equal(model.detailVM({ ...state, section: 'specialists', detail: { specialists: 'alpha' } }).primaryLabel,
+    'Otevřít v nové relaci');
+  first._convId = 'saved';
+  assert.equal(model.detailVM(state).primaryLabel, 'Přepnout na relaci');
+  open.secondary[0].go();
+  assert.equal(store.state.sessions.length, 0);
+  state = { ...model.st(), section: 'chats', detail: { chats: 'saved' } };
+  assert.equal(model.detailVM(state).primaryLabel, 'Otevřít');
+  assert.equal(model.detailVM({ ...state, section: 'specialists', detail: { specialists: 'alpha' } }).primaryLabel,
+    'Otevřít');
+  model.componentWillUnmount();
+});
+
 test('specialist workspace files stay local until explicitly attached and can be shared or removed', async () => {
   const rows = new Map([
     ['alpha', [{ id: 'a1', owner: 'alpha', name: 'notes.txt', size: 7, type: 'text/plain', blob: new Blob(['private']) }]],
@@ -1421,7 +1449,7 @@ test('first message names a default session and live work collapses into timed p
     { role: 'assistant', text: 'Hotovo.' });
   const vm = model.renderVals();
   assert.equal(vm.columns[0].title, 'Oprav chybu v projektu');
-  assert.equal(vm.nav[0].kids[0].t, 'Oprav chybu v projektu');
+  assert.equal(vm.nav[0].kids.find(item => item.hasNum).t, 'Oprav chybu v projektu');
   const reply = vm.columns[0].msgs[1];
   assert.equal(reply.hasFold, true);
   assert.match(reply.foldText, /4 fáze/);
@@ -1454,6 +1482,46 @@ test('answer copy uses full Markdown and reports success or failure below the re
     globalThis.navigator.clipboard = previous;
     model.componentWillUnmount();
   }
+});
+
+test('attachment guard is context preparation and a completed phase never grows without an activity end', () => {
+  const { model, store } = setup();
+  const session = store.focusedSession();
+  session.chat.msgs.push({ role: 'user', text: 'Přečti přílohu', _activity: { status: 'done', steps: [
+    { kind: 'step', label: 'Kontroluje přílohy', startedAt: 1000, status: 'observed' },
+    { kind: 'step', label: 'Volí postup', startedAt: 1200, status: 'observed' },
+    { kind: 'step', label: 'Připravuje kontext', startedAt: 1500, status: 'observed' },
+    { kind: 'model', label: 'Generuje odpověď', startedAt: 2000, status: 'done' },
+  ] } }, { role: 'assistant', text: 'Přečteno.', ts: '1970-01-01T00:00:04.000Z' });
+  model.renderVals().columns[0].msgs[1].toggleFold();
+  const first = model.renderVals().columns[0].msgs[1].steps;
+  assert.equal(first[0].t, 'Příprava kontextu');
+  assert.equal(first.filter(step => step.t === 'Příprava kontextu').length, 1);
+  assert.equal(first.at(-1).m, '2,0 s');
+  const now = Date.now;
+  try {
+    Date.now = () => 999_999;
+    assert.deepEqual(model.renderVals().columns[0].msgs[1].steps, first);
+  } finally { Date.now = now; model.componentWillUnmount(); }
+});
+
+test('closed backend conversation appears first in Recent and can be reopened with its identity', async () => {
+  const catalog = { view: section => ({ status: 'ready', items: section === 'Konverzace' ? [
+    { id: 'older', name: 'Jiná konverzace' }, { id: 'closed-conv', name: 'Moje práce' },
+  ] : [] }), load: () => {}, subscribe: () => () => {} };
+  const { model, store, widget, storage } = setup({ catalog });
+  const session = store.focusedSession();
+  session._convId = 'closed-conv';
+  store.closeSession(session.id);
+  assert.deepEqual(new SessionStore(storage).state.closed, ['closed-conv']);
+  const recent = model.renderVals().nav[0].kids.filter(item => item.isItem);
+  assert.equal(recent[0].t, 'Moje práce');
+  const opened = [];
+  widget.openCatalogItem = async (section, item) => { opened.push([section, item.id]); return true; };
+  recent[0].go();
+  await tick();
+  assert.deepEqual(opened, [['Konverzace', 'closed-conv']]);
+  model.componentWillUnmount();
 });
 
 test('composer, attachment picker and terminal use widget services without prototype replies', async () => {

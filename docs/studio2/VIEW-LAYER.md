@@ -23,6 +23,14 @@ skutečné nástroje a chyby zůstávají viditelné. Trvání se počítá z kl
 odpovědi používá stav úspěchu/chyby prototypu. Výchozí název relace se po první
 zprávě aktualizuje i v hlavičce a levé navigaci.
 
+Předané integrační nálezy jsou opravené: i blokované otevření spustí časovač
+hlášení; kontrola příloh patří do přípravy kontextu; hlášení zavření používá
+název z živého pohledu. Hotová odpověď bez konce aktivity použije čas zprávy
+nebo poslední události, nikoli aktuální čas. Opakované interní události tvoří
+nejvýš čtyři fáze. „Nedávné“ čtou skutečný katalog konverzací a uchovávají
+identitu ukončené konverzace; zavření i automatické uvolnění obnoví katalog.
+Specifikace §5 a implementace shodně chrání relace viditelné před otevřením.
+
 ## 1. Co je hotové
 
 - **Vzhled = prototyp.** Rozšíření `intentsmith-studio2` vykresluje přímo šablonu
@@ -113,11 +121,9 @@ a `/api/projects/open-folder`. Po odpovědi ověřuje projekt v katalogu;
 nejistý výsledek zápisu neopakuje automaticky.
 
 Kontextová nabídka konverzace přejmenuje, archivuje nebo přesune záznam do
-koše přes backend a výsledek ověří novým čtením i katalogem. Zavření ostatních
-záložek a záložek vpravo mění skutečné uložené relace; před hromadným zavřením
-kontroluje všechny neuložené editory a běžící M2 rozhodnutí.
-Připnutí záložky řadí připnuté relace před ostatní, značí je v záložce a
-zachovává volbu po restartu v uloženém stavu relací.
+koše přes backend a výsledek ověří novým čtením i katalogem. Historické akce
+připínání a hromadného zavírání záložek byly z pohledu odstraněné rozhodnutím
+28. 9. (§9). Ukončení konkrétní relace používá společné bezpečnostní stráže.
 
 Průvodce specialistou je také v prototypu a generovaném pohledu. Před
 vytvořením ukáže ID, doménu, popis a soubory balíčku. IDE zapisuje přes

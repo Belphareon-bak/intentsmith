@@ -883,6 +883,7 @@ test('composer PASS evidence requires actual rejection, exact input, context che
     oneReusedTransportInStudio2: true, classicRestored: true,
     fiveSessionsWithoutTopTabs: true, visibleSessionSwap: true,
     sixthSessionKeepsLimit: true, headerEndsSession: true,
+    capacityGuardProtectsDrafts: true, capacityNoticeExpires: true,
     terminalPanelConnected: true, attachmentPickerRendered: true,
     visuallyUncoveredStudio2: true, exclusiveWorkbenchChrome: true,
     m2ReviewPanelRendered: true, backendEnvironmentLoaded: true,

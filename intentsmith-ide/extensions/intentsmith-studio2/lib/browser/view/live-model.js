@@ -59,14 +59,14 @@ function itemCount(count) {
 function phaseFor(step) {
   if (step.kind === 'model') return 'generate';
   if (step.kind !== 'step') return null;
-  if (/^(?:Připravuje kontext|Kontext připraven|Načítá kontext)/.test(step.label)) return 'context';
+  if (/^(?:Připravuje kontext|Kontext připraven|Načítá kontext|Kontroluje přílohy)/.test(step.label)) return 'context';
   if (/^(?:Generuje odpověď|Odpověď vygenerována|Vysvětluje kód)/.test(step.label)) return 'generate';
   if (/^(?:Kontroluje|Kontrola výstupu)/.test(step.label)) return 'check';
   if (/^(?:Zpracovává zadání|Volí postup|Rozhodnutí|Směruje požadavek|Připravuje otázku|Předává specialistovi|Vybírá expertízu)/.test(step.label))
     return 'understand';
   return null;
 }
-function timeline(activity, model) {
+function timeline(activity, model, completedAt) {
   const events = (activity?.steps || []).map(step => {
     const raw = step.kind === 'model' && typeof step.input === 'string' ? step.input.replace(/^Model \/ role:\s*/, '') : '';
     const name = /^[\w.\-\/]+:[\w.\-]+$/.test(raw) ? raw : '';
@@ -74,7 +74,12 @@ function timeline(activity, model) {
       meta: step.durationMs != null ? seconds(step.durationMs) : '',
       startedAt: step.startedAt, status: step.status, model: name };
   });
-  return model.phaseSteps(events, activity?.endedAt || (activity?.status === 'running' ? null : Date.now()));
+  const end = Number.isFinite(activity?.endedAt) ? activity.endedAt
+    : Number.isFinite(completedAt) ? completedAt
+      : activity?.status === 'running' ? null
+        : (activity?.steps || []).reduce((last, step) => Math.max(last,
+          Number.isFinite(step.endedAt) ? step.endedAt : Number.isFinite(step.startedAt) ? step.startedAt : 0), 0) || null;
+  return model.phaseSteps(events, end);
 }
 
 function activityMs(activity) {
@@ -243,6 +248,7 @@ class LiveModel extends Component {
       }));
     }
     this.syncTrees();
+    if (typeof this.widget.catalog.load === 'function') void this.widget.catalog.load('Konverzace');
     this.statusClient.start();
     this.loadChatModel();
     if (this.state.mode === 'section' && CATALOG[this.state.section]) this.widget.catalog.load(CATALOG[this.state.section]);
@@ -333,6 +339,15 @@ class LiveModel extends Component {
         MODELS: [], FILES: {}, DIFFS: {}, GIT: {}, SET: base.SET });
     }
     return this._liveData;
+  }
+
+  saved(s) {
+    const open = new Set(this.widget.store.state.sessions.map(session => session._convId));
+    const recent = s.closed || [];
+    return this.widget.catalog.view('Konverzace').items.filter(item => !open.has(item.id))
+      .map((item, index) => ({ id: item.id, t: item.name, when: clock(item.raw?.updated_at),
+        rank: recent.includes(item.id) ? recent.indexOf(item.id) : recent.length + index }))
+      .sort((left, right) => left.rank - right.rank);
   }
 
   m2View(session) {
@@ -445,7 +460,7 @@ class LiveModel extends Component {
       msgs.push({ k: 'agent', key, time: clock(msg.ts) + (ms ? ' · ' + seconds(ms) : ''),
         text: '', paras: [msg.text || ''], rawText: msg.text || '', liveMarkdown: true,
         badge: tag ? tag.toUpperCase() : '', expert: chat.expertise || '',
-        author: chat.specialist?.name || 'IntentSmith', steps: timeline(activity, this), foldMeta: seconds(ms), atts: [], running: false });
+        author: chat.specialist?.name || 'IntentSmith', steps: timeline(activity, this, Date.parse(msg.ts)), foldMeta: seconds(ms), atts: [], running: false });
     });
     // Čekající plán bez své zprávy (obnova relace) má kartu schválení na konci konverzace.
     if (m2Pending && !msgs.some(msg => msg.approval)) msgs.push(approvalCard(session.id + ':m2', '', ''));
@@ -567,6 +582,15 @@ class LiveModel extends Component {
         hasDot: id === 'chats', dot: item.state, hasIcon: id !== 'chats',
         icon: section.icon, cls: item.id === fsid && s.mode === 'sessions' ? 'on' : '',
         go: item.go, ctx: item.ctx }));
+      if (id === 'chats') {
+        if (children.length) children.unshift({ isHead: true, isItem: false, t: 'Otevřené relace' });
+        const recent = this.saved(s).slice(0, 3);
+        if (recent.length) children.push({ isHead: true, isItem: false, t: 'Nedávné' }, ...recent.map(item => ({
+          isHead: false, isItem: true, t: item.t, m: item.when, mc: 'var(--faint)',
+          hasNum: false, num: 0, numCls: '', hasDot: false, dot: '', hasIcon: true,
+          icon: I.chat, cls: '', go: this.run(state => this.pOpenSession(state, item.id)), ctx: this.showCtx('chats', item.id),
+        })));
+      }
       const count = id === 'chats' ? items.length : this.widget.catalog.view(CATALOG[id]).items.length;
       const open = children.length > 0 && !!s.navExp[id];
       return { label: section.label, short: section.short, icon: section.icon, tone: section.tone,
@@ -619,6 +643,7 @@ class LiveModel extends Component {
     if (s.section === 'expertises' && id === '__new__') return super.detailVM(s);
     if (s.section === 'expertises' && id === '__edit__') return super.detailVM(s);
     if (s.section === 'settings') return this.settingsDetailVM(s, id);
+    if (s.section === 'chats' && this.widget.store.find(id)) return super.detailVM(s);
     if (s.section === 'projects') {
       const vm = super.detailVM(s);
       if (!vm) return null;
@@ -677,7 +702,7 @@ class LiveModel extends Component {
         icls: '', title: item.name, type: 'Specialista', idText: id,
         hasStatus: true, status: busy ? 'probíhá' : raw.status || 'nezjištěno',
         stCls: enabled ? 'ok' : 'idle', hasPrimary: enabled && !busy,
-        primaryLabel: 'Nová konverzace se specialistou',
+        primaryLabel: this.openLabel(s),
         onPrimary: () => this.pNewSession(s, { specialist: id }),
         secondary: ['enabled','disabled'].includes(raw.status) && !busy
           ? [{ label: enabled ? 'Vypnout' : 'Zapnout', icon: enabled ? I.pause : I.play,
@@ -838,15 +863,15 @@ class LiveModel extends Component {
       icls: '', title: entry.name, type: this.sec(s.section).label,
       idText: item ? item.id : '', hasStatus: false, status: '', stCls: '',
       hasPrimary: s.section === 'chats' || s.section === 'specialists',
-      primaryLabel: s.section === 'chats' ? 'Otevřít jako relaci'
-        : s.section === 'specialists' ? 'Nová konverzace se specialistou' : '',
+      primaryLabel: s.section === 'chats' && this.widget.store.state.sessions.some(session => session._convId === id)
+        ? 'Přepnout na relaci' : this.openLabel(s),
       onPrimary: s.section === 'chats' ? this.run(state => this.pOpenSession(state, id))
         : s.section === 'specialists' ? this.run(state => this.pNewSession(state, { specialist: id })) : () => {},
       secondary: [],
       more: this.showCtx(s.section, id), hasTabs: false, tabs: [], hasDesc: !!entry.description || !!entry.desc,
       desc: entry.description || entry.desc || '', showProps: !!item,
       props: item ? [['ID', item.id, true], ['Stav', item.state || '—']] .map(row => ({ k: row[0], v: row[1], cls: row[2] ? 'mono' : '' })) : [],
-      blocks: [this.blockVM({ kind: 'empty', text: 'Další akce této obrazovky zatím nejsou připojené.' })],
+      blocks: [this.blockVM({ kind: 'empty', text: 'Obsah konverzace se načte po otevření relace.' })],
       hasRelated: false, related: [], development: this.developmentVM(s), scmPolicy: this.scmPolicyVM(s, null) };
   }
 
