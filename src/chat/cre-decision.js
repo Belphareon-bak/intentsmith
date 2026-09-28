@@ -2265,7 +2265,8 @@ export class CREDecisionEngine {
     const deterministicIntent = this.classifyIntent(input);
     // Local computations cannot produce an external/state-changing effect.
     // Explicit slash commands already have a literal parser and exact authority.
-    const literalCommand = /^\/[a-z][a-z0-9-]*(?:\s|$)/u.test(input);
+    const { parseExactEffectApproval } = await import('./handlers/pre-handler.js');
+    const literalCommand = /^\/[a-z][a-z0-9-]*(?:\s|$)/u.test(input) || Boolean(parseExactEffectApproval(input));
     if (deterministicIntent === IntentType.LOCAL || isGratitudeOrFarewell(input) || literalCommand) {
       const understanding = {
         version: 1, kind: literalCommand ? 'action' : 'information',

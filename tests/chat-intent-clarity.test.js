@@ -58,6 +58,12 @@ try {
   {
     const oldCall = llmGateway.call;
     const engine = new CREDecisionEngine();
+    let approvalClassifications = 0;
+    engine._llmClassifyIntent = async () => { approvalClassifications++; throw new Error('Exact approval must use its parser'); };
+    const approved = await engine.inspectRequest('schválit efekt effect:' + 'a'.repeat(64));
+    assert.ok(approved.token);
+    assert.equal(approvalClassifications, 0);
+    delete engine._llmClassifyIntent;
     const cases = [
       ['Napiš krátkou funkci v Pythonu. Nepoužívej rekurzi.', 'CODE', null, action([slot('action', 'Napiš'), slot('target', 'v Pythonu', 'Pythonu')]), 'information'],
       ['Soubor notes.md nemaž, jen ho přečti.', 'FILE_READ', slot('target', 'notes.md'), action([slot('action', 'přečti'), slot('target', 'Soubor notes.md', 'notes.md')]), 'information'],

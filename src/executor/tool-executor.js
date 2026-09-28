@@ -1612,18 +1612,30 @@ function broadenSearchQuery(query) {
 // Every selected tool therefore crosses the typed M2 boundary. Pure local
 // tools can run directly; all read/write/exec/network tools fail closed until
 // an exact EffectRequest adapter is installed.
+let productionM2Runtime = null;
+async function loadProductionM2Runtime() {
+  const { m2ToolRuntime } = await import('../tools/m2-tool-runtime.js');
+  productionM2Runtime = m2ToolRuntime;
+  return m2ToolRuntime;
+}
+function loadedProductionM2Runtime() {
+  if (!productionM2Runtime) throw Object.assign(new Error('Durable M2 content runtime has not been initialized'), {
+    code: 'TOOL_EFFECT_AUTHORITY_UNAVAILABLE',
+  });
+  return productionM2Runtime;
+}
 const productionM2ToolBroker = Object.freeze({
   async execute(input) {
     // Lazy loading preserves the existing module-only test boundary while the
     // production server, whose database is already migrated, gets durable
     // exact-replay ToolRequest/ToolResult authority on first use.
-    const { m2ToolRuntime } = await import('../tools/m2-tool-runtime.js');
-    return m2ToolRuntime.execute(input);
+    return (await loadProductionM2Runtime()).execute(input);
   },
   async settleEffect(input) {
-    const { m2ToolRuntime } = await import('../tools/m2-tool-runtime.js');
-    return m2ToolRuntime.settleEffect(input);
+    return (await loadProductionM2Runtime()).settleEffect(input);
   },
+  resolveFileReadContent(input) { return loadedProductionM2Runtime().resolveFileReadContent(input); },
+  resolveFileListContent(input) { return loadedProductionM2Runtime().resolveFileListContent(input); },
 });
 
 export const toolExecutor = new ToolExecutor({ m2ToolBroker: productionM2ToolBroker });
