@@ -111,7 +111,7 @@ export async function rendererBuildComposerProbe({ cdp, paths, requests, evaluat
     check(!pane._m2Pending && !pane.chat._m2Busy, 'no-implicit-draft-or-approval');
     check(root()?.querySelector('[aria-label^="Zpráva pro relaci"]').value === chatDraft, 'ordinary-chat-preserved-before-submit');
     await click('submit');
-    await waitFor(() => !pane.chat._m2Busy && section()?.textContent.includes('M2_LIFECYCLE_POLICY_UNAVAILABLE') && element('submit')?.disabled === false, 'production-policy-rejection');
+    await waitFor(() => !pane.chat._m2Busy && section()?.textContent.includes('LLM_PROVIDER_UNAVAILABLE') && element('submit')?.disabled === false, 'production-provider-rejection');
     check(section().textContent.includes('HTTP 503'), 'typed-http-error-visible');
     check(element('instruction')?.value === draft.instruction, 'goal-preserved-after-rejection');
     check(element('binary')?.value === draft.focusedTest.binary, 'binary-preserved-after-rejection');
@@ -142,7 +142,7 @@ export async function rendererBuildComposerProbe({ cdp, paths, requests, evaluat
   if (fs.existsSync(path.join(projectPath, '.intentsmith/m2-governance-policy.json'))
     || draft.files.some(file => fs.existsSync(path.join(projectPath, file.path)))) fail('composer-rejection-mutated-project');
   return Object.freeze({ scope: 'built-dom-production-authenticated-policy-rejection',
-    status: 503, errorCode: 'M2_LIFECYCLE_POLICY_UNAVAILABLE', fixtureRegistrationRequests: 3, draftRequests: 1, approvalRequests: 0,
+    status: 503, errorCode: 'LLM_PROVIDER_UNAVAILABLE', fixtureRegistrationRequests: 3, draftRequests: 1, approvalRequests: 0,
     unexpectedMutationRequests: 0, originExact: true, literalArgvExact: true,
     contextInvalidated: result.contextInvalidated, discarded: result.discarded,
     inputRetained: result.inputRetained, focusRetained: result.focusRetained,

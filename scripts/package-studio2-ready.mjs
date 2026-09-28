@@ -4,6 +4,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { homedir } from 'node:os';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 if (process.argv[2] === '--seal') {
   const folder = path.resolve(process.argv[3]);
@@ -25,6 +26,15 @@ await fs.cp(await fs.realpath(path.join(root, 'node_modules')), path.join(source
 await fs.mkdir(path.join(output, 'runtime', 'bin'), { recursive: true });
 await fs.copyFile(process.execPath, path.join(output, 'runtime', 'bin', 'node'));
 await fs.chmod(path.join(output, 'runtime', 'bin', 'node'), 0o755);
+// Include the existing pinned local document runtimes. Never install globally
+// or depend on the launcher's isolated HOME finding an old user environment.
+const pdfPython = process.env.INTENTSMITH_PDF_PYTHON || path.join(homedir(), '.local/share/intentsmith/python/pdf/bin/python');
+const pdfRuntime = path.dirname(path.dirname(pdfPython));
+const accountantRuntime = process.env.UCETNI_RUNTIME_DIR || path.join(homedir(), '.local/share/ucetni');
+run(pdfPython, ['-c', 'import importlib.metadata as m; assert [m.version(x) for x in ("reportlab","pillow","charset-normalizer")] == ["5.0.0","12.3.0","3.4.4"]'], { env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
+run(path.join(accountantRuntime, 'venv/bin/python'), ['-c', 'import tesserocr,pypdf,PIL,lxml,reportlab,pillow_heif'], { env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
+await fs.cp(pdfRuntime, path.join(output, 'runtime/pdf'), { recursive: true, dereference: true });
+await fs.cp(accountantRuntime, path.join(output, 'runtime/accountant'), { recursive: true, dereference: true });
 await fs.copyFile(path.join(root, 'intentsmith-ide/applications/electron/dist/IntentSmith-0.1.0.AppImage'), path.join(output, 'IntentSmith-Studio2.AppImage'));
 await fs.chmod(path.join(output, 'IntentSmith-Studio2.AppImage'), 0o755);
 for (const [from, to] of [['studio2-run-trial.sh', 'run-trial.sh'], ['studio2-run-with-data.sh', 'run-with-data.sh']]) {

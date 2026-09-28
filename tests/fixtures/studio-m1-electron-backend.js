@@ -21,9 +21,9 @@ import {
 } from '../../src/security/legacy-local-access-policy.js';
 import { attachWebSocketServer } from '../../src/ws-bridge/ws-server.js';
 
-const portFile = process.env.C3_PORT_FILE;
+const portFile = process.env.INTENTSMITH_PORT_FILE ?? process.env.C3_PORT_FILE;
 if (typeof portFile !== 'string' || !portFile.startsWith('/')) {
-  throw new Error('C3_PORT_FILE must be an absolute path');
+  throw new Error('INTENTSMITH_PORT_FILE must be an absolute path');
 }
 
 const capability = createLegacyLocalCapability();
@@ -162,7 +162,7 @@ const server = http.createServer((request, response) => {
     return;
   }
   if (request.method === 'GET' && target.pathname === '/api/expertises') {
-    sendJson(request, response, 200, { expertises: [] });
+    sendJson(request, response, 200, { experts: [], categories: [] });
     return;
   }
   if (request.method === 'GET' && target.pathname === '/api/agents') {
@@ -175,6 +175,18 @@ const server = http.createServer((request, response) => {
   }
   if (request.method === 'GET' && target.pathname === '/api/system/info') {
     sendJson(request, response, 200, { platform: process.platform });
+    return;
+  }
+  if (request.method === 'GET' && target.pathname === '/api/specialists') {
+    sendJson(request, response, 200, { specialists: [] });
+    return;
+  }
+  if (request.method === 'GET' && target.pathname === '/api/system/gpu') {
+    sendJson(request, response, 200, { profile: { gpus: [] } });
+    return;
+  }
+  if (request.method === 'GET' && target.pathname === '/api/system/upgrades/bindings') {
+    sendJson(request, response, 200, { bindings: {} });
     return;
   }
   if (target.pathname === '/api/settings') {

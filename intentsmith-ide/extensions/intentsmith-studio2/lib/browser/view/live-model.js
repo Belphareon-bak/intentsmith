@@ -252,7 +252,8 @@ class LiveModel extends Component {
     // Navigation badges must show the real catalogs from the first render,
     // including sections the user has not visited yet. These are read-only.
     if (typeof this.widget.catalog.load === 'function') {
-      for (const section of Object.values(CATALOG)) void this.widget.catalog.load(section);
+      // Marketplace is an optional backend surface and is loaded on entry.
+      for (const section of Object.values(CATALOG).filter(name => name !== 'Obchod')) void this.widget.catalog.load(section);
     }
     this.statusClient.start();
     this.loadChatModel();
