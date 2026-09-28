@@ -109,6 +109,7 @@ export function assessIntentClarity(input, understanding, { supersededSpans = []
   }
   const slots = understanding.slots;
   for (const slot of slots) {
+    if (understanding.kind === 'information' && slot && !['target', 'recipient'].includes(slot.role)) continue;
     if (!slot || !ROLES.has(slot.role) || !bounded(slot.name, 80) || !bounded(slot.source) || !bounded(slot.value) || !citations(input, slot.source).length) {
       return question('source_not_grounded', 'Interpretace obsahuje údaj, který nemohu doložit celým citátem z původního zadání. Upřesni prosím přesný cíl a parametry akce. Zatím nic nespouštím.');
     }

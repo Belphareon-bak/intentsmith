@@ -47,6 +47,7 @@ try {
   for (const [input, roles] of [
     ['Nefunguje mi Wi-Fi. Jaké tři věci mám zkontrolovat?', [slot('quantity', 'tři věci', 'tři')]],
     ['Napiš krátkou funkci v Pythonu. Nepoužívej rekurzi.', [slot('unit', 'v Pythonu', 'Pythonu'), slot('negation', 'Nepoužívej rekurzi')]],
+    ['Vysvětli ve dvou větách rozdíl mezi RAM a diskem.', [slot('quantity', 've dvou větech', 'dvě věty')]],
   ]) assert.equal(assessIntentClarity(input, information(roles)), null, 'content wording is not effect authority');
   assert.equal(assessIntentClarity('Přečti notes.md', information([slot('target', 'notes.md', 'other.md')])).reason, 'material_meaning_changed');
   const changes = [
