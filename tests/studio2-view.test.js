@@ -65,6 +65,32 @@ for (const savedFlag of [undefined, '0', '1']) {
 assert.equal(manifest.theia.frontend.config.preferences['window.titleBarStyle'], 'custom');
 console.log('PASS source and packaged startup choose the custom frame before Theia');
 
+// An inherited native-title preference must not trigger a startup restart or
+// be overwritten for Legacy. Other Theia restart/security handlers stay intact.
+class HostMenu {
+  constructor(factory) { this.factory = factory; }
+  handleRequiredRestart() { return 'host restart'; }
+}
+const menuModule = { exports: {} };
+const chromeCalls = [];
+vm.runInNewContext(readFileSync(path.join(EXT, 'lib/browser/studio2-electron-menu.js'), 'utf8'), {
+  module: menuModule,
+  window: { electronTheiaCore: { setMenuBarVisible: value => chromeCalls.push(['visible', value]) } },
+  require: name => name.endsWith('inversify')
+    ? { decorate() {}, injectable: () => () => {}, inject: () => () => {} }
+    : name.endsWith('electron-menu-contribution') ? { ElectronMenuContribution: HostMenu }
+      : { ElectronMainMenuFactory: class {} },
+});
+const menu = new menuModule.exports.Studio2ElectronMenuContribution({ setMenuBar: () => chromeCalls.push(['menu']) });
+menu.preferenceService = { get: () => 'native', set: () => { throw Error('Legacy preference overwritten'); } };
+menu.handleTitleBarStyling({ shell: { topPanel: { hide: () => chromeCalls.push(['hide']) } } });
+menu.attachMenuBarVisibilityListener();
+menu.handleToggleMaximized();
+assert.equal(menu.titleBarStyle, 'custom');
+assert.deepEqual(chromeCalls, [['menu'], ['hide'], ['visible', false]]);
+assert.equal(menu.handleRequiredRestart(), 'host restart');
+console.log('PASS custom window initialization preserves Legacy preferences and host restart handlers');
+
 // 1) Vizuální vrstva je vygenerovaná z prototypu a odpovídá mu bajtově.
 execFileSync(process.execPath, [path.join(EXT, 'scripts/build-view.js'), '--check'], { stdio: 'inherit' });
 

@@ -15,6 +15,7 @@ const { WorkspaceFiles } = require('./workspace-files');
 const { M2Controller } = require('./m2-controller');
 const Attachments = require('./attachments');
 const { StudioRoot, createModel } = require('./view/studio-root');
+const { Studio2ElectronMenuContribution, ElectronMenuContribution } = require('./studio2-electron-menu');
 
 const WIDGET_ID = 'intentsmith-studio2';
 const h = React.createElement;
@@ -333,7 +334,8 @@ class Studio2Contribution extends browser.AbstractViewContribution {
 decorate(injectable(), Studio2Contribution);
 
 module.exports = {
-  default: new ContainerModule(bind => {
+  default: new ContainerModule((bind, _unbind, _isBound, rebind) => {
+    rebind(ElectronMenuContribution).to(Studio2ElectronMenuContribution).inSingletonScope();
     bind(Studio2Widget).toSelf();
     bind(browser.WidgetFactory).toDynamicValue(ctx => ({
       id: WIDGET_ID,

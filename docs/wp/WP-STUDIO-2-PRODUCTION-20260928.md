@@ -30,6 +30,8 @@ nezakládá attestaci veřejného releasu IntentSmith 1.0 ani přijetí M5/M6.
 - Oprava nahlášená operátorem po nasazení: Electron `package.json`,
   `electron-builder.yml` a `scripts/electron-main.js` nastaví vlastní rám před
   vytvořením okna. `studio2-module.js` jej už nepřepíná po obnově rozložení.
+  `studio2-electron-menu.js` ponechá Theia příkazy a vlastní restartové
+  handlery, ale pro Studio 2 nesynchronizuje sdílené preference rámu Legacy.
   `tests/{studio2-view.test,studio-electron-boundary.e2e}.js`, helper
   `studio2-ui-mode.js` a skutečný AppImage ověří první i opakovaný start
   s uloženým nativním rámem, bez překrývajícího dialogu Restart.
