@@ -1621,6 +1621,8 @@ test('file tree actions bind the prototype form to project-scoped verified opera
   const { model, store } = setup({ workspace });
   const session = store.focusedSession(); session._projectId = '17';
   session._modifiedFiles = ['src/main.js'];
+  const attachment = { name: 'scan.heic', type: 'attachment', size: '6715 KB' };
+  session._focusFiles = [attachment, { name: 'main.js', path: 'src/main.js' }];
   session._fileChanges = { 'src/main.js': { added: 2, removed: 1 } };
   const scmEntry = model.scmClient.entry('17');
   scmEntry.diffs.set('unstaged|src/main.js', 'old diff');
@@ -1637,6 +1639,7 @@ test('file tree actions bind the prototype form to project-scoped verified opera
   assert.deepEqual(operations, [{ op: 'rename', path: 'src/main.js', to: 'src/renamed.js', expectedRevision: revision }]);
   assert.equal(model.st().fileAction, null);
   assert.deepEqual(session._modifiedFiles, ['src/renamed.js']);
+  assert.deepEqual(session._focusFiles, [attachment, { name: 'main.js', path: 'src/renamed.js' }]);
   assert.deepEqual(session._fileChanges, { 'src/renamed.js': { added: 2, removed: 1 } });
   assert.equal(scmEntry.diffs.size, 0);
   state.editor = { path: 'src/main.js', dirty: true };
@@ -1653,6 +1656,7 @@ test('file tree actions bind the prototype form to project-scoped verified opera
   await model.renderVals().ws.fl.action.submit();
   assert.deepEqual(operations[1], { op: 'delete', path: 'src', to: '', expectedRevision: revision });
   assert.deepEqual(session._modifiedFiles, []);
+  assert.deepEqual(session._focusFiles, [attachment]);
   assert.deepEqual(session._fileChanges, {});
   assert.equal(scmLoads, 2);
   assert.equal(scmCancels, 1);

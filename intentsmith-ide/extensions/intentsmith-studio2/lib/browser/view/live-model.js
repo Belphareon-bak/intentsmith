@@ -2928,13 +2928,16 @@ class LiveModel extends Component {
     const ok = await this.widget.workspace.operate(session, { op, path, to, expectedRevision: revision });
     if (this.widget.store.find(sid) !== session || this.st().fileAction !== pending) return;
     if (!ok) { this.setState({ fileAction: { ...action, busy: false } }); return; }
-    const affects = value => value === path || value.startsWith(path + '/');
+    const affects = value => typeof value === 'string' && (value === path || value.startsWith(path + '/'));
     const rewrite = value => op === 'rename' && affects(value) ? to + value.slice(path.length) : value;
     if (op === 'rename' || op === 'delete') {
       const views = { ...this.st().fileView };
       for (const item of projectSessions) {
         for (const key of ['_openedFiles', '_modifiedFiles', '_focusFiles']) {
-          if (Array.isArray(item[key])) item[key] = item[key].filter(value => op !== 'delete' || !affects(value)).map(rewrite);
+          if (Array.isArray(item[key])) item[key] = item[key]
+            .filter(value => op !== 'delete' || !affects(focusFileEntry(value)?.path))
+            .map(value => typeof value === 'string' ? rewrite(value)
+              : affects(focusFileEntry(value)?.path) ? { ...value, path: rewrite(value.path) } : value);
         }
         if (item._fileChanges && typeof item._fileChanges === 'object') {
           item._fileChanges = Object.fromEntries(Object.entries(item._fileChanges)
