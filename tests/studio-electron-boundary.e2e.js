@@ -1931,6 +1931,8 @@ export function validateM2ComposerEvidence(value) {
 
 const STUDIO2_MODE_FIELDS = Object.freeze([
   'studio2InitiallyAttached',
+  'customFrameOnNativeProfile',
+  'noHostDialogOnStartOrReload',
   'studio2ExclusivelyAttached',
   'oneReusedTransportInStudio2',
   'legacyFlagsCannotRestoreClassic',
@@ -2171,6 +2173,14 @@ async function runJourney({
   if (Number(m1Journey) + Number(m2ComposerJourney) + Number(studio2ModeJourney) > 1) fail('studio-journey-mode-conflict');
   const paths = makeRuntimePaths(artifactRoot);
   await prepareRuntime(paths);
+  if (studio2ModeJourney) {
+    // Reproduce an upgraded classic profile, not just a fresh custom-frame one.
+    await mkdir(path.join(paths.home, '.theia'), { recursive: true });
+    await writeFile(path.join(paths.home, '.theia/settings.json'),
+      JSON.stringify({ 'window.titleBarStyle': 'native', 'window.menuBarVisibility': 'visible' }));
+    await writeFile(path.join(paths.electronData, 'config.json'),
+      JSON.stringify({ windowstate: { frame: true, width: 1600, height: 1000, isMaximized: false } }));
+  }
   const buildDigests = await captureBuildDigests();
   let modelProviderSentinel;
   let backend;

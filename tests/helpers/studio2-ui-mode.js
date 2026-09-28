@@ -31,6 +31,8 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
       paletteOpen: Boolean(root?.querySelector('[role="dialog"][aria-label="Paleta příkazů"]')),
       columnsVisible: Boolean(root?.querySelector('.cols .scol')),
       centerInsideStudio: Boolean(root?.contains(document.elementFromPoint(innerWidth / 2, innerHeight / 2))),
+      hostDialogVisible: [...document.querySelectorAll('.dialogOverlay')].some(node =>
+        getComputedStyle(node).display !== 'none' && node.getBoundingClientRect().height > 0),
       studioDark: Boolean(root?.classList.contains('th-studio-dark')),
       busListeners: window.IntentSmithBus?._debug?.() || {},
       sessionTabs: root?.querySelectorAll('.tabs-in .tab').length || 0,
@@ -65,7 +67,10 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
     && !s.classicSidebar && !s.classicChat && s.transport && s.bus && !s.classicFacade
     && s.busListeners['chat:message'] === 1 && s.busListeners['chat:terminal'] === 1
     && s.busListeners['terminal:output'] === 1 && s.busListeners['terminal:line'] === 1
-    && s.terminalClient && s.attachmentPicker, 'studio2-only');
+    && s.terminalClient && s.attachmentPicker && s.centerInsideStudio
+    && !s.hostDialogVisible, 'studio2-only-uncovered');
+  const startupFrame = await evaluate(cdp, 'window.electronTheiaCore.getTitleBarStyleAtStartup()');
+  if (startupFrame !== 'custom') fail('studio2-native-frame-restored');
   await evaluate(cdp, `(async () => {
     for (let i = 0; i < 4; i++) {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 't', ctrlKey: true, bubbles: true, cancelable: true }));
@@ -282,7 +287,9 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
     return true;
   })()`);
 
-  await waitFor(s => !s.reloadPending && s.mode === 'studio2' && s.columnSessions.includes('Specialistický test'), 'specialist-storage-restart-studio2');
+  const reloaded = await waitFor(s => !s.reloadPending && s.mode === 'studio2'
+    && s.columnSessions.includes('Specialistický test') && s.centerInsideStudio
+    && !s.hostDialogVisible, 'specialist-storage-restart-studio2');
   await evaluate(cdp, `(() => {
     const root = document.querySelector('#intentsmith-studio2 [data-studio-ui="studio2"]');
     [...root.querySelectorAll('.rp .ptabs .ptab')].find(node => node.textContent.trim().startsWith('Soubory')).click();
@@ -308,6 +315,8 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
   const localAttached = await waitFor(s => s.composerAttachments.includes('studio2-e2e.txt'), 'specialist-explicit-attachment');
   return Object.freeze({
     studio2InitiallyAttached: studio2.studio2 && !studio2.classicSidebar && !studio2.classicChat,
+    customFrameOnNativeProfile: startupFrame === 'custom',
+    noHostDialogOnStartOrReload: !studio2.hostDialogVisible && !reloaded.hostDialogVisible,
     studio2ExclusivelyAttached: studio2.studio2 && !studio2.classicSidebar && !studio2.classicChat,
     oneReusedTransportInStudio2: studio2.transport && studio2.bus
       && studio2.busListeners['chat:message'] === 1 && studio2.busListeners['chat:terminal'] === 1

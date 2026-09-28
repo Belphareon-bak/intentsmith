@@ -7,7 +7,6 @@ const { ContainerModule, decorate, injectable } = require('@theia/core/shared/in
 const browser = require('@theia/core/lib/browser');
 const { ReactWidget } = require('@theia/core/lib/browser/widgets/react-widget');
 const React = require('@theia/core/shared/react');
-const FRAME_KEY = 'intentsmith-studio2-frame';
 const { SessionStore, sessionCloseBlock } = require('./session-store');
 const { TransportAdapter } = require('./transport-adapter');
 const { CatalogStore } = require('./catalog-store');
@@ -315,7 +314,7 @@ class Studio2Contribution extends browser.AbstractViewContribution {
 
   // Studio 2 draws its own title bar with the menu and window controls. The native
   // Theia menu (File, Edit, Selection…) and the system frame would duplicate them.
-  async adoptWindowChrome(app) {
+  adoptWindowChrome(app) {
     const core = window.electronTheiaCore;
     if (!core) return;
     // Hiding the menu resizes the web contents; the dock layout must refit to the new height.
@@ -327,12 +326,8 @@ class Studio2Contribution extends browser.AbstractViewContribution {
     hideMenu();
     // Theia shows the native menu again once its preferences settle; hide it after that too.
     setTimeout(hideMenu, 1500);
-    try {
-      if (await core.getTitleBarStyleAtStartup() !== 'custom') {
-        core.setTitleBarStyle('custom');
-        window.localStorage.setItem(FRAME_KEY, 'managed');
-      }
-    } catch { /* keeps the native frame; the menu stays hidden */ }
+    // The Electron entry chooses the frame before startup. Changing it here
+    // races Theia's preference initialization and requests a blocking restart.
   }
 }
 decorate(injectable(), Studio2Contribution);

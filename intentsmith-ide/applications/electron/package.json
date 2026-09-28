@@ -3,7 +3,7 @@
   "name": "intentsmith-ide-electron",
   "version": "0.1.0",
   "description": "IntentSmith Studio \u2014 Electron application",
-  "main": "lib/backend/electron-main.js",
+  "main": "scripts/electron-main.js",
   "license": "MIT",
   "theia": {
     "target": "electron",
@@ -17,7 +17,8 @@
           "terminal.integrated.fontSize": 13,
           "workbench.colorTheme": "dark",
           "files.enableTrash": false,
-          "window.menuBarVisibility": "visible"
+          "window.menuBarVisibility": "hidden",
+          "window.titleBarStyle": "custom"
         },
         "electron": {
           "windowOptions": {

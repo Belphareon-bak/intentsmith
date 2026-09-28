@@ -27,6 +27,12 @@ nezakládá attestaci veřejného releasu IntentSmith 1.0 ani přijetí M5/M6.
 - Instalovaný snapshot v `/mnt/vi7000/intentsmith/releases/<SHA>`, existující
   uživatelská konfigurace instalace a dvě desktopové položky. Produkční DB
   zůstává `/home/belphareon/Projects/intentsmith/data/c3.db`.
+- Oprava nahlášená operátorem po nasazení: Electron `package.json`,
+  `electron-builder.yml` a `scripts/electron-main.js` nastaví vlastní rám před
+  vytvořením okna. `studio2-module.js` jej už nepřepíná po obnově rozložení.
+  `tests/{studio2-view.test,studio-electron-boundary.e2e}.js`, helper
+  `studio2-ui-mode.js` a skutečný AppImage ověří první i opakovaný start
+  s uloženým nativním rámem, bez překrývajícího dialogu Restart.
 
 ## Ověření a nasazení
 

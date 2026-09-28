@@ -44,6 +44,27 @@ for (const value of ['1', '0']) {
 }
 console.log('PASS Studio 2 is the sole renderer for new and existing profiles');
 
+// Packaged and source launches must enter the same pre-window bootstrap.
+const appDir = path.join(ROOT, 'intentsmith-ide/applications/electron');
+const manifest = JSON.parse(readFileSync(path.join(appDir, 'package.json'), 'utf8'));
+assert.equal(manifest.main, 'scripts/electron-main.js');
+assert.match(readFileSync(path.join(appDir, 'electron-builder.yml'), 'utf8'),
+  /main: "scripts\/electron-main\.js"/);
+for (const savedFlag of [undefined, '0', '1']) {
+  const process = { env: { THEIA_ELECTRON_DISABLE_NATIVE_ELEMENTS: savedFlag } };
+  const loaded = [];
+  vm.runInNewContext(readFileSync(path.join(appDir, manifest.main), 'utf8'), {
+    process, require: name => {
+      // Inspect the flag at import time, when Theia begins creating windows.
+      loaded.push(name);
+      assert.equal(process.env.THEIA_ELECTRON_DISABLE_NATIVE_ELEMENTS, '1');
+    },
+  });
+  assert.deepEqual(loaded, ['../lib/backend/electron-main.js']);
+}
+assert.equal(manifest.theia.frontend.config.preferences['window.titleBarStyle'], 'custom');
+console.log('PASS source and packaged startup choose the custom frame before Theia');
+
 // 1) Vizuální vrstva je vygenerovaná z prototypu a odpovídá mu bajtově.
 execFileSync(process.execPath, [path.join(EXT, 'scripts/build-view.js'), '--check'], { stdio: 'inherit' });
 

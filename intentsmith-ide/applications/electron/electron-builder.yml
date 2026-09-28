@@ -28,7 +28,7 @@ files:
 asar: false
 
 extraMetadata:
-  main: "lib/backend/electron-main.js"
+  main: "scripts/electron-main.js"
 
 linux:
   icon: resources/intentsmith-icon.png
