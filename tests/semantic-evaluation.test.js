@@ -1,10 +1,16 @@
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { suite, test, testAsync, summary } from './harness.js';
 import { SemanticEvaluationJudge, parseSemanticJudgement, semanticTask, calibrationProbeMetrics } from '../src/eval/semantic-evaluation-judge.js';
 import { SEMANTIC_ROLE_SUITES } from '../src/eval/semantic-role-suites.js';
 import { ModelEvaluationRunner } from '../src/eval/model-evaluation-runner.js';
 import { RoleQualityEvaluationRunner } from '../src/eval/role-quality-suites.js';
+import { hash, judgeMessages, parseJudge, referenceErrors, assertNotSelf, checkPower } from '../scripts/manual/judge-panel-protocol.mjs';
+import { assertResumableReceipt, finalizeJudgePanel } from '../scripts/manual/judge-panel-lifecycle.mjs';
 
 const artifact={modelName:'fixture:latest',digestSha256:'a'.repeat(64),providerVersion:'test-provider'};
 const proof={done:true,digestSha256:artifact.digestSha256,providerVersion:artifact.providerVersion};
@@ -202,5 +208,70 @@ await testAsync('transport errors remain distinct from incorrect answers',async(
   const runner=new ModelEvaluationRunner('');runner._callModel=async()=>({error:'ECONNRESET',durationMs:1});
   const row=await runner._runTest({name:'network',prompt:()=>'',grade:()=>{throw new Error('Must not grade');}},'fixture');
   assert.equal(row.valid,false);assert.equal(row.score,null);assert.equal(row.error,'ECONNRESET');
+});
+suite('exploratory judge panel boundaries');
+test('judge payload excludes identities, other grades and source metadata',()=>{
+  const item={role:'CHAT',question:'Task',response:'Answer',rubric:['A','B'],model:'secret-model',answerDigest:'secret-digest',first:[.1,.2],second:[.3,.4]};
+  const normal=judgeMessages(item),reverse=judgeMessages(item,true);
+  assert.ok(!JSON.stringify(normal).includes('secret'));
+  assert.deepEqual(Object.keys(JSON.parse(normal[1].content)),['role','question','criteria','context','answer']);
+  assert.deepEqual(JSON.parse(reverse[1].content).criteria.map(x=>x.criterion),[2,1]);
+});
+test('incomplete generation, duplicate IDs, nonfinite scores and missing evidence never become grades',()=>{
+  const result={done:true,doneReason:'stop',content:JSON.stringify({criteria:rows(.5)})};
+  assert.equal(parseJudge(result,2).valid,true);
+  for(const broken of [{...result,doneReason:'length'},{...result,content:JSON.stringify({criteria:[rows(1)[0],rows(1)[0]]})},
+    {...result,content:JSON.stringify({criteria:rows(1).map(r=>({...r,score:null}))})},
+    {...result,content:JSON.stringify({criteria:rows(1).map(r=>({...r,evidence:''}))})}])assert.equal(parseJudge(broken,2).valid,false);
+});
+test('unresolved reference disagreements remain separate and never manufacture a gold average',()=>{
+  const r=referenceErrors(.5,0,1);assert.equal(r.referenceDispute,true);assert.equal(r.outsideBand,0);
+  assert.equal(r.exactAnchor,false);assert.equal(r.anchorError,null);assert.equal(r.first,.5);assert.equal(r.second,.5);
+  assert.equal(referenceErrors(.9,0,.25).falseAccept,true);assert.equal(referenceErrors(null,0,0),null);
+});
+test('self grading and full power both stop exploratory inference',()=>{
+  assert.throws(()=>assertNotSelf({artifact},{answerDigest:artifact.digestSha256}),/SELF_GRADING/);
+  assert.doesNotThrow(()=>assertNotSelf({artifact},{answerDigest:answerArtifact.digestSha256}));
+  assert.throws(()=>checkPower({limitWatts:350}),/QUIET_POWER/);assert.throws(()=>checkPower({}),/QUIET_POWER/);
+  assert.doesNotThrow(()=>checkPower({limitWatts:175}));
+});
+test('resume refuses a captured response without its matching post-call environmental receipt',()=>{
+  const expected={planSha256:'plan-a',key:'job-a'},receipt={planSha256:'plan-a',judge:{digestSha256:'digest'}};
+  const post={...expected,after:{placement:[{digest:'digest'}]},afterPower:{limitWatts:175}};
+  assert.throws(()=>assertResumableReceipt(receipt,null,expected),/POSTCHECK_MISSING/);
+  assert.throws(()=>assertResumableReceipt(receipt,{...expected,key:'job-b'},expected),/POSTCHECK_MISMATCH/);
+  assert.throws(()=>assertResumableReceipt({planSha256:'plan-b'},expected,expected),/PLAN_MIX/);
+  assert.throws(()=>assertResumableReceipt(receipt,expected,expected),/POSTCHECK_INCOMPLETE/);
+  assert.doesNotThrow(()=>assertResumableReceipt(receipt,post,expected));
+});
+await testAsync('cleanup failures preserve the collection error and always write the final blocked checkpoint',async()=>{
+  const events=[];
+  const result=await finalizeJudgePanel({status:'COMPLETE',failure:new Error('ownership query failed'),
+    close:async()=>{events.push('close');throw Error('provider unavailable');},
+    release:()=>{events.push('release');throw Error('lock release failed');},
+    checkpoint:r=>{events.push('checkpoint');assert.equal(r.status,'BLOCKED');assert.equal(r.failures.length,3);}});
+  assert.deepEqual(events,['close','release','checkpoint']);
+  assert.deepEqual(result.failures.map(f=>f.stage),['collection','provider-close','lease-release']);
+  assert.equal(result.failures[0].message,'ownership query failed');
+});
+await testAsync('normal finalization preserves complete and budget-stop states',async()=>{
+  for(const status of ['COMPLETE','BUDGET_STOP']){
+    let saved;
+    const result=await finalizeJudgePanel({status,close:async()=>{},release:()=>{},checkpoint:r=>{saved=r;}});
+    assert.equal(saved.status,status);assert.equal(result,saved);assert.deepEqual(result.failures,[]);
+  }
+});
+test('the collector CLI rejects an orphan receipt before probing or leasing any GPU',()=>{
+  const directory=mkdtempSync(join(tmpdir(),'judge-orphan-'));
+  try {
+    mkdirSync(join(directory,'receipts'));mkdirSync(join(directory,'restricted'));
+    writeFileSync(join(directory,'inputs.json'),'[]');writeFileSync(join(directory,'restricted/references.json'),'{}');
+    const plan=JSON.stringify({models:[],sourceHashes:{},inputsSha256:hash('[]'),referencesSha256:hash('{}')});
+    writeFileSync(join(directory,'plan.json'),plan);
+    writeFileSync(join(directory,'receipts/orphan.json'),JSON.stringify({planSha256:hash(plan)}));
+    const run=spawnSync(process.execPath,[new URL('../scripts/manual/run-judge-panel.mjs',import.meta.url).pathname,
+      '--out='+directory,'--stage=screen','--expected-plan='+hash(plan)],{encoding:'utf8',timeout:5000,env:{...process.env,PATH:''}});
+    assert.equal(run.status,1);assert.match(run.stderr,/JUDGE_RECEIPT_POSTCHECK_MISSING:orphan/);
+  } finally {rmSync(directory,{recursive:true,force:true});}
 });
 summary();
