@@ -1568,7 +1568,8 @@ export class ModelFailoverRepository {
             previous_model = excluded.previous_model,
             score = excluded.score,
             applied_by = excluded.applied_by,
-            applied_at = excluded.applied_at,
+            applied_at = CASE WHEN model_overrides.binding_operation_id = excluded.binding_operation_id
+              THEN model_overrides.applied_at ELSE excluded.applied_at END,
             verified = 0,
             binding_operation_id = excluded.binding_operation_id,
             model_canonical_name = excluded.model_canonical_name,

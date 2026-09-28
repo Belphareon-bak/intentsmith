@@ -3028,6 +3028,28 @@ await testAsync('retry and restart rehydrate invalidate only the prior runtime v
   });
 });
 
+await testAsync('startup preserves the original binding timestamp while auditing the new verification generation', async () => {
+  await withRepository(async ({ firstDb }) => {
+    const runtime = createRuntime('preserve-binding-time');
+    const repository = createModelFailoverRepository(firstDb, runtime.options);
+    observeChat(repository);
+    runtime.setNow(2000);
+    const operationId = applyChat(repository).operation.operationId;
+    runtime.setNow(3000);
+    repository.recordManualRuntimeApplied({ operationId, expectedAttemptRevision: 0,
+      observedModelName: 'candidate', observedDigestSha256: DIGEST_B, runtimeChanged: true });
+    finalizeRuntime(repository, operationId, 1);
+    const originalTime = firstDb.prepare("SELECT applied_at FROM model_overrides WHERE role='CHAT'").get().applied_at;
+    runtime.setNow(30000);
+    repository.recordManualStartupRehydrated({ operationId, expectedAttemptRevision: 1,
+      observedModelName: 'candidate', observedDigestSha256: DIGEST_B, runtimeChanged: false });
+    finalizeRuntime(repository, operationId, 2, 1);
+    assertEqual(firstDb.prepare("SELECT applied_at FROM model_overrides WHERE role='CHAT'").get().applied_at, originalTime);
+    assertEqual(repository.getBindingApplicationState(operationId).verificationStatus, 'NOT_VERIFIED');
+    assertEqual(firstDb.prepare("SELECT created_at_ms FROM model_binding_application_attempts WHERE operation_id=? AND attempt_kind='STARTUP_REHYDRATE'").get(operationId).created_at_ms, 30000);
+  });
+});
+
 await testAsync('startup rehydrate closes runtime apply for the same operation generation', async () => {
   await withRepository(async ({ firstDb }) => {
     const runtime = createRuntime('application-rehydrate-generation');

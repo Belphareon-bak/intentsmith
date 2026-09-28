@@ -11,6 +11,9 @@ nezakládá attestaci veřejného releasu IntentSmith 1.0 ani přijetí M5/M6.
   Node 24, samostatná volba Legacy nad jedním spravovaným backendem.
 - `tests/{desktop-hunt,ide-workspace}.test.js`: skutečný výběr spouštěče,
   zachování profilu a politiky sandboxu, instalace a obnovení služby.
+- `src/upgrade/model-failover.js` a `tests/m1-model-binding-repository.test.js`:
+  zachování původního `applied_at` stejné vazby při restartu; živá migrační
+  zkouška odhalila přepis času. Nová verification generace se nadále audituje.
 - Tento WP, `docs/INSTALL.md`, `docs/studio2/PRODUCTION.md`, záznam
   nasazení v `docs/review/`, `ROADMAP.md` a `SYSTEM-MAP.md`.
 - Instalovaný snapshot v `/mnt/vi7000/intentsmith/releases/<SHA>`, existující
