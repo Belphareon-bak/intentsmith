@@ -52,6 +52,29 @@ První pokus správně selhal na chybějících IDE workspace závislostech; dop
 instalace z nezměněného Yarn lockfile a sestavení protokolu. Neúspěšné logy jsou
 zachované. Produktové soubory a oba dependency lockfiles se nezměnily.
 
-Soukromé logy se uchovávají mimo produktový checkout; uživatelská DB, služby,
-profily, modelové vazby a běžící okna se při sjednocení nemění. Celý profil
-a vzdálené CI mají samostatný přesný výsledek při předání integračního commitu.
+Sjednocovací commit je `966cc4689f8c6d0131b19c87f06bfab7ee54f117`.
+[GitHub CI na tomto commitu](https://github.com/Belphareon-bak/intentsmith/actions/runs/36476201566)
+prošlo včetně čisté instalace npm/Yarn závislostí, sestavení protokolu a
+kontroly čistého pracovního stromu. Tento závěrečný dodatek mění pouze report.
+
+Celý nový offline/database běh na `966cc468` skončil **385 PASS / 1 FAIL /
+0 TIMEOUT / 0 BLOCKED / 0 SKIPPED**, verdict **FAIL**. Přesný non-PASS seznam
+se shoduje s nasazeným `79c19096`: jediný
+`IS-T1-TESTS-NIGHTLY-ORCHESTRATOR-SELF-TEST` kvůli Gate 0 pečeti.
+Všech 386 výsledných logů bylo ověřeno proti SHA-256 z reportu.
+Registr ani pečeť se kvůli výsledku neměnily; nejde o zelenou release gate.
+
+Běh je `2026-09-28T20-03-39-517Z`, izolovaný pomocí `bwrap --unshare-net`.
+Po 241 PASS byl ukončen SIGTERM během hostitelského nedostatku paměti;
+ve stejném čase earlyoom ukončoval procesy. Po obnovení dostupné paměti
+runner navázal ze svého ověřeného checkpointu na stejném SHA a se stejnými
+volbami. Přerušený browser log i checkpoint před navázáním jsou zachované.
+Dřívější chybně nastavený artifact root a záměrně přerušená příprava
+toolchainu mají vlastní neúspěšné výsledky, ne nahrazené PASS.
+
+Report: `/mnt/vi7000/.intentsmith-artifacts/main-reconcile/2026-09-28T20-03-39-517Z/report.json`.
+Soukromé logy a srovnání jsou v
+`/home/belphareon/Projects/intentsmith-push-audit-20260928/main-reconcile/`.
+Uživatelská DB, služby, profily, modelové vazby a běžící okna se při sjednocení
+neměnily. Aktuální `main` je vývojový integrační bod; novější pracovní větve
+a jejich otevřené review zůstávají samostatné.
