@@ -6,6 +6,32 @@ Volba pracovních modelů nemusí čekat na automatické místní hodnotitele. M
 oddělené externí posudky, které lze použít pro operátorský návrh a konkrétní kontrolu.
 Nemáme však doložené optimum celé sestavy ani aktuální desetimodelovou matici všech rolí.
 
+## Matice model × role
+
+**Všechny hodnoty jsou v procentech. D1/D2/R1/R2/CHAT: Codex / Opus, dva samostatné posudky, nikoli jejich průměr.**
+CODE a VISION mají odlišný druh důkazu uvedený pod tabulkou. Matice je přehled dostupných podkladů k 28. 9., ne úplné hodnocení všech buněk ani součet do celkového žebříčku.
+
+| Model | D1 | D2 | CODE — technická část* | R1 | R2 | CHAT | VISION — orákulum |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| qwen3.8:latest | 72,6 / 73,2 | 64,2 / 64,9 | 100,0* | 58,0 / 53,0 | 82,1 / 79,8 | 86,3 / 85,7 | 77,2 |
+| qwen3.5:27b | 66,4 / 66,1 | — | — | — | — | 84,2 / 79,1 | — |
+| qwen3.6:27b | 69,3 / 66,4 | 69,2 / 62,2 | — | 53,9 / 51,2 | 73,8 / 70,2 | — | — |
+| gemma4:26b | — | 58,9 / 52,7 | — | 45,0 / 37,5 | — | — | 75,7 |
+| devstral-small-2:latest | — | — | 71,4* | 34,0 / 29,2 | 51,2 / 41,7 | — | — |
+| ornith-1.5:9b | — | — | — | — | — | — | 77,6 |
+| qwen3-30b-a3b:latest | — | — | — | — | — | — | — |
+| qwen3-coder:latest | — | — | — | — | — | — | — |
+| qwen3:14b | — | — | — | — | — | — | — |
+| phi4:14b | — | — | — | — | — | — | — |
+
+- **—** znamená, že zde nemáme srovnatelnou známku z uvedeného podkladu. Není to nula, potvrzené N/A ani tvrzení, že model nikdy žádným testem neprošel. Starší odlišné sady/profily tyto mezery automaticky nevyplňují.
+- **D/R:** sedm stejných případů × tři opakování na buňku; starý vadný `model_cleanup` je vyřazen všem. Rozpad a reprodukční zdroje jsou níže.
+- **CHAT:** pouze nový produkční sběr 27. 9. s opravenou historií, 40 dialogů na model. Původní desetimodelový panel se sem nemíchá.
+- **\* CODE:** jen technická komponenta 21 uložených oprav; plné skóre CODE zůstává `null`. Nejde o 100% úspěšnost v roli.
+- **VISION:** deterministické obsahové skóre 23 úloh, nikoli dva LLM posudky.
+
+Celkem **20 zobrazených hodnotových buněk**: 13 D/R, 2 CHAT, 2 technické komponenty CODE a 3 VISION. Čtyři poslední modely mají v těchto konkrétních podkladech celý řádek bez známky; jejich starší výsledky nebyly doplněny z nesrovnatelných běhů.
+
 ## Co je nyní skutečně nastavené
 
 Čtení živé SQLite `data/c3.db`, tabulek `model_desired_bindings` a `model_overrides`
