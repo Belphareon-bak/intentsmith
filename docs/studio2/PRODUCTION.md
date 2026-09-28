@@ -3,6 +3,11 @@
 Autorita: operátor 28. 9. 2026 a
 [WP-STUDIO-2-PRODUCTION](../wp/WP-STUDIO-2-PRODUCTION-20260928.md).
 
+Nasazeno 28. 9. 2026: čistý snapshot `c84b88cd`, ověřený AppImage,
+původní DB a zachované vazby modelů. **LOCAL_PRODUCTION_DEPLOYED /
+IMPLEMENTATION_VERIFIED / REVIEW_PENDING**. Přesné součty, živé zkoušky,
+backupy a omezení jsou v [reportu](../review/2026-09-28-STUDIO2-PRODUCTION.md).
+
 ## Instalace
 
 Použije se čistý oddělený instalovaný snapshot, sestavený AppImage a trvalý
@@ -22,6 +27,8 @@ backupem. Hold a stav plánování GPU se zachovají.
 - **IntentSmith IDE 2.0** je výchozí položka `intentsmith.desktop`.
 - **IntentSmith Legacy** je samostatná položka `intentsmith-legacy.desktop`.
   Spouští původní uložený frontend proti témuž spravovanému backendu a DB.
+- Z terminálu: `gtk-launch intentsmith`, případně `gtk-launch intentsmith-legacy`.
+  Dříve otevřená stará okna zavřete; zkušební archiv `b0603b24` se nepřepisoval.
 - Nové UI používá `~/.config/intentsmith-studio2`. Při prvním přechodu se do
   něj přenesou původní místní preference, relace a IndexedDB. Původní profil
   zůstává pro Legacy. Zámky procesů ani síťové cache se nekopírují.
@@ -31,6 +38,6 @@ backupem. Hold a stav plánování GPU se zachovají.
 
 Existující politika Chromium sandboxu platí pro obě varianty. Instalace
 nepřidává shellová oprávnění, nemění vazby modelů ani nezapíná držený hunt.
-Původní backendový snapshot se uchová pro návrat. Přesné SHA, backup a
-výsledky živých kontrol budou v reportu nasazení; L1, místní nasazení a
+Původní backendový snapshot se uchovává pro návrat. Přesné SHA, backup a
+výsledky živých kontrol jsou v reportu nasazení; L1, místní nasazení a
 nezávislé přijetí zůstávají odlišné výsledky.

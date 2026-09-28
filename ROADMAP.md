@@ -1,5 +1,12 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**IDE 2.0 — místně nasazené, 2026-09-28:** `c84b88cd` je výchozí desktop;
+IntentSmith Legacy zůstává samostatně nad stejnou původní DB. Finální profil
+385 PASS / 1 zděděný FAIL Gate 0; skutečné Electron/model/M2/SCM, instalovaný
+chat, Legacy a restart PASS. Nezávislé přijetí delta změn je REVIEW_PENDING,
+veřejné M5/M6 gate se nemění.
+[Report nasazení](docs/review/2026-09-28-STUDIO2-PRODUCTION.md).
+
 **Studio 2, dokončení parity 2026-09-28:** nový frontend a backendové konektory
 jsou v oddělené větvi; klasický frontend je odstraněný. Přesný module graph má 1 433 hran,
 3 cykly / 28 členů. Závěrečné měření a nezávislé přijetí mají
