@@ -7,6 +7,7 @@ const fold = value => String(value).normalize('NFD').replace(/[\u0300-\u036f]/gu
 const bounded = (value, max = 512) => typeof value === 'string' && value.trim().length > 0 && value.length <= max;
 const word = char => !!char && /[\p{L}\p{N}_]/u.test(char);
 const question = (reason, text, options = []) => ({ kind: 'clarify', reason, slot: 'intent_meaning', question: text, options });
+const QUOTED_LITERAL_PATTERN = /"((?:\\.|[^"\\])*)"|„([^“]*)“|‘([^’]*)’|'([^']*)'/gu;
 
 // Exact source offsets and Unicode word boundaries, never substring evidence.
 function citations(input, source) {
@@ -30,57 +31,42 @@ export function literalFileTargets(input, { includeNumericSuffixes = false } = {
     .filter(span => includeNumericSuffixes || span.source.includes('/') || span.source.startsWith('.') || !/\.\d+(?:\.\d+)*$/u.test(span.source));
 }
 
-function nonNegativeWord(source) {
-  return /^(?:nebo|nebot|nej[\p{L}]*|nez|nekdo|neco|nekde|nekdy|nekam|nekolik|nech(?:am|as|a|ame|ate|aji|at|al[\p{L}]*|ej[\p{L}]*|te)|new(?:er|est)?|next|need(?:s|ed|ing)?|net(?:work(?:s|ing)?|flix|beans)?)$/u.test(fold(source));
-}
 function targetSpans(input) {
-  return [...literalFileTargets(input, { includeNumericSuffixes: true }), ...[...input.matchAll(/https?:\/\/[^\s„“"']+|[\p{L}\d._%+-]+@[\p{L}\d.-]+\.[\p{L}]{2,}/gu)]
+  return [...literalFileTargets(input, { includeNumericSuffixes: true }),
+    ...[...input.matchAll(QUOTED_LITERAL_PATTERN)].map(match => ({ start: match.index, end: match.index + match[0].length })),
+    ...[...input.matchAll(/https?:\/\/[^\s„“"']+|[\p{L}\d._%+-]+@[\p{L}\d.-]+\.[\p{L}]{2,}/gu)]
     .map(match => ({ start: match.index, end: match.index + match[0].length }))];
 }
 function negations(input) {
-  const explicit = [...input.matchAll(/(?<![\p{L}\d_])(?:not|never|without|do\s+not|dont|[\p{L}]+n['’]t|ne|nikdy|nechci)(?![\p{L}\d_])/giu)];
-  // Czech ne- is productive and can follow the object or an adversative clause.
-  // This conservative scan gates action proposals, not informational chat.
-  const prefixed = [...input.matchAll(/(?<![\p{L}\d_])ne[\p{L}]+(?![\p{L}\d_])/giu)];
+  // A fallback for explicit operations the tool boundary recognizes. Ordinary
+  // Czech words and content constraints are understood by the model/context;
+  // productive ne- and English "without" are not a global language veto.
+  const operational = /(?<![\p{L}\d_])(?:ne(?:ma[zž]|sma[zž]|ulo[zž]|ukl[aá]d|zapi[sš]|zapis|p[rř]epi[sš]|p[rř]epis|spou[sš]t|spus[tť]|restart|vyp[ií]n|vypni|zap[ií]n|zapni|pos[ií]l|po[sš]li|odes[ií]l|ode[sš]li|nastav|sni[zž]|prov[aá]d)[\p{L}]*|(?:do\s+not|don['’]?t|never)\s+(?:write|save|overwrite|delete|remove|run|execute|restart|stop|send|change|touch)\b|jen\s+(?:(?:ho|to|jej)\s+)?p[rř]e[cč]ti|only\s+read)(?![\p{L}\d_])/giu;
   const targets = targetSpans(input);
-  const spans = new Map();
-  for (const [matches, uncertain] of [[explicit, false], [prefixed, true]]) {
-    for (const match of matches) {
-      const span = { start: match.index, end: match.index + match[0].length, source: match[0], uncertain };
-      const key = `${span.start}:${span.end}`;
-      if (!nonNegativeWord(span.source) && !targets.some(target => covers(target, span)) && !spans.has(key)) spans.set(key, span);
-    }
-  }
-  return [...spans.values()];
+  return [...input.matchAll(operational)].map(match => {
+    const source = match[0], normalized = fold(source);
+    const tools = /^(?:nemaz|nesmaz)|\b(?:delete|remove)$/u.test(normalized) ? ['file.delete', 'code.execute']
+      : /^(?:neuloz|neuklad|nezapis|neprepis)|\b(?:write|save|overwrite|touch)$/u.test(normalized) ? ['file.write', 'code.execute']
+      : /^(?:jen|only)/u.test(normalized) ? ['file.write', 'code.execute'] : null;
+    return { start: match.index, end: match.index + source.length, source, uncertain: false, tools };
+  }).filter(span => !targets.some(target => covers(target, span)));
 }
 function validNegationDecisions(input, decisions = []) {
   if (!Array.isArray(decisions)) return [];
   return decisions.filter(span => span && typeof span.prohibited === 'boolean' && Number.isInteger(span.start) && Number.isInteger(span.end)
     && input.slice(span.start, span.end) === span.source && citations(input, span.source).some(c => c.start === span.start && c.end === span.end));
 }
-function prohibitions(input, slots, decisions = []) {
-  const scanned = negations(input), targets = targetSpans(input);
-  const proposed = slots.filter(slot => slot.role === 'negation').flatMap(slot => citations(input, slot.source))
-    .filter(span => !nonNegativeWord(span.source) && !targets.some(target => covers(target, span))
-      && !scanned.some(candidate => covers(span, candidate)))
-    .map(span => ({ ...span, uncertain: true }));
+function prohibitions(input, slots, decisions = [], toolId = null) {
+  const scanned = negations(input);
   const choices = validNegationDecisions(input, decisions);
-  return [...scanned, ...proposed].flatMap(span => {
+  return scanned.filter(span => !toolId || !span.tools || span.tools.includes(toolId)).flatMap(span => {
     const choice = choices.find(c => c.start === span.start && c.end === span.end && c.source === span.source);
-    return choice?.prohibited === false ? [] : [{ ...span, confirmed: choice?.prohibited === true }];
+    return choice?.prohibited === false ? [] : [{ ...span, confirmed: true }];
   });
 }
-function assessProhibition(input, slots, decisions) {
-  const negative = prohibitions(input, slots, decisions);
-  const unresolved = negative.find(span => !span.confirmed && (span.uncertain
-    || !slots.some(slot => slot.role === 'negation' && citations(input, slot.source).some(c => covers(c, span)))));
-  if (!negative.some(span => span.confirmed) && unresolved) {
-    const occurrences = citations(input, unresolved.source);
-    const occurrence = occurrences.length > 1 ? ` (${occurrences.findIndex(span => span.start === unresolved.start) + 1}. výskyt)` : '';
-    return { ...question('negation_unverified', `Je „${unresolved.source}“${occurrence} v tomto požadavku zákaz akce? Vyber „je to zákaz“, nebo „není to zákaz“. Zatím nic nespouštím.`, ['je to zákaz', 'není to zákaz']),
-      negationChoice: true, unresolvedSpan: { start: unresolved.start, end: unresolved.end, source: unresolved.source, role: 'negation' } };
-  }
-  if (negative.length) return { kind: 'no_effect', reason: 'explicit_negation', answer: 'Rozpoznal jsem zákaz akce a tento požadavek nespouštím. Pokud chceš provést jinou část, zadej ji samostatně.' };
+function assessProhibition(input, slots, decisions, toolId) {
+  const negative = prohibitions(input, slots, decisions, toolId);
+  if (negative.length) return { kind: 'no_effect', reason: 'explicit_negation', answer: 'Rozumím zákazu. Tuto operaci neprovádím.' };
   return null;
 }
 
@@ -100,7 +86,7 @@ function reference(input, slot, index) {
 }
 
 /** Model labels never issue a user's decision about a source span. */
-export function assessIntentClarity(input, understanding, { supersededSpans = [], negationDecisions = [] } = {}) {
+export function assessIntentClarity(input, understanding, { supersededSpans = [], negationDecisions = [], toolId = null } = {}) {
   input = String(input);
   if (!understanding || understanding.version !== 1 || !['information', 'action'].includes(understanding.kind)
       || !Array.isArray(understanding.slots) || understanding.slots.length > 24
@@ -116,7 +102,7 @@ export function assessIntentClarity(input, understanding, { supersededSpans = []
   }
   const negative = prohibitions(input, slots, negationDecisions);
   if (understanding.kind === 'action') {
-    const prohibition = assessProhibition(input, slots, negationDecisions);
+    const prohibition = assessProhibition(input, slots, negationDecisions, toolId);
     if (prohibition) return prohibition;
   }
   for (const [index, slot] of slots.entries()) {
@@ -129,7 +115,7 @@ export function assessIntentClarity(input, understanding, { supersededSpans = []
   }
   for (const ambiguity of understanding.ambiguities) {
     if (!ambiguity || !bounded(ambiguity.slot, 80) || !bounded(ambiguity.question) || !Array.isArray(ambiguity.options)
-        || ambiguity.options.length < 2 || ambiguity.options.length > 4 || !ambiguity.options.every(option => bounded(option, 160))) return question('ambiguity_invalid', 'Význam požadavku zůstává nejasný. Upřesni prosím akci, cíl a hodnoty; zatím nic nespouštím.');
+        || ambiguity.options.length < 1 || ambiguity.options.length > 4 || !ambiguity.options.every(option => bounded(option, 160))) return question('ambiguity_invalid', 'Význam požadavku zůstává nejasný. Upřesni prosím akci, cíl a hodnoty; zatím nic nespouštím.');
   }
   if (understanding.kind === 'action') {
     if (!slots.some(slot => slot.role === 'action')) return question('action_missing', 'Jakou konkrétní akci chceš provést? Zatím nic nespouštím.');
@@ -159,7 +145,7 @@ export function latestAssistantContent(history = []) {
 
 /** One explicitly quoted literal; preserve its bytes and never guess among two. */
 export function literalWriteContent(input, fileTarget) {
-  const quoted = [...String(input).matchAll(/"((?:\\.|[^"\\])*)"|„([^“]*)“|‘([^’]*)’|'([^']*)'/gu)]
+  const quoted = [...String(input).matchAll(QUOTED_LITERAL_PATTERN)]
     .map(match => match.slice(1).find(value => value !== undefined))
     .filter(value => value !== fileTarget);
   return quoted.length === 1 ? quoted[0] : null;
@@ -183,8 +169,12 @@ export function prepareClarificationInput(input, pending) {
   if (!metadata?.intentSource || !metadata?.clarificationText) return { source: input, supersededSpans: [] };
   const answer = fold(input).replace(/[.!?]+$/u, '').trim();
   if (/^(?:ne|zrus|zrusit|stop|cancel|nechci|nic)$/u.test(answer)) return { cancelled: true };
-  if (/^(?:ano|jo|ok|yes|potvrzuji|schvaluji)$/u.test(answer)) return { unresolved: true, question: metadata.clarificationText, options: metadata.clarificationOptions || [] };
-  const selected = (metadata.clarificationOptions || []).find(option => fold(option) === answer);
+  const options = metadata.clarificationOptions || [];
+  const affirmative = /^(?:ano|jo|ok|yes|potvrzuji|schvaluji)$/u.test(answer);
+  if (affirmative && options.length !== 1) return { unresolved: true, question: metadata.clarificationText, options };
+  const exact = options.find(option => option === input.trim());
+  const folded = options.filter(option => !literalFileTargets(option).length && fold(option) === answer);
+  const selected = affirmative ? options[0] : exact ?? (folded.length === 1 ? folded[0] : null);
   if (!selected) return { source: input, supersededSpans: [] };
   const span = metadata.unresolvedSpan;
   if (metadata.negationChoice === true && span) {
@@ -195,7 +185,7 @@ export function prepareClarificationInput(input, pending) {
       negationDecisions: [...choices.filter(c => c.start !== span.start || c.end !== span.end), ...choice] };
   }
   const supersededSpans = span ? safeSuperseded(metadata.intentSource, [span], prohibitions(metadata.intentSource, metadata.intentUnderstanding?.slots || [], metadata.intentNegationDecisions || [])) : [];
-  return { source: `${metadata.intentSource}\n\nVýslovné upřesnění uživatele: ${input}`, supersededSpans,
+  return { source: `${metadata.intentSource}\n\nVýslovné upřesnění uživatele: ${affirmative ? selected : input}`, supersededSpans,
     negationDecisions: validNegationDecisions(metadata.intentSource, metadata.intentNegationDecisions || []),
     resolvedGpuQuantity: metadata.gpuQuantityPending === true };
 }
@@ -215,7 +205,7 @@ export function verifyToolIntent(token, toolId, input, { effectful = false, deri
   const proof = evidence.get(token);
   const mismatch = () => ({ reason: 'tool_intent_mismatch', message: `Parametry nástroje ${toolId} nemohu doložit ověřeným zadáním. Nic nespouštím.` });
   if (!proof || !input || typeof input !== 'object' || Array.isArray(input) || Object.getPrototypeOf(input) !== Object.prototype) return mismatch();
-  if (effectful && prohibitions(proof.source, proof.understanding.slots, proof.negationDecisions).length) return mismatch();
+  if (effectful && prohibitions(proof.source, proof.understanding.slots, proof.negationDecisions, toolId).length) return mismatch();
   if (effectful && proof.understanding.kind !== 'action') return mismatch();
   const intent = proof.classification?.intent;
   const expected = { FILE_WRITE: ['file.write'], FILE_READ: ['file.read', 'file.list'], FILE_EXPLAIN: ['file.read'], SHELL: ['code.execute'], SEARCH: ['web.search', 'web.scrape'], REPORT: ['web.search', 'web.scrape', 'database.query'], CODE: ['code.execute', 'file.read', 'file.write'], LOCAL: ['local.date', 'local.calendar', 'local.math'] }[intent] || [];

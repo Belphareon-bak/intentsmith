@@ -2289,15 +2289,15 @@ export class CREDecisionEngine {
     }
     if (Array.isArray(understanding?.slots)) {
       for (const file of files) if (!understanding.slots.some(slot => slot.role === 'target' && slot.source === file.source))
-        if (understanding.kind === 'information' || classification.fileTarget === file.source)
-          understanding.slots.push({ role: 'target', name: 'fileTarget', source: file.source, value: file.source });
+        understanding.slots.push({ role: 'target', name: 'fileReference', source: file.source, value: file.source });
       // The route expresses the requested activity; a separate model-generated
       // verb citation adds no authority. Bind the unchanged request instead.
-      if (understanding.kind === 'action' && understanding.ambiguities?.length === 0
+      if (understanding.kind === 'action'
         && !understanding.slots.some(slot => slot.role === 'action'))
         understanding.slots.push({ role: 'action', name: 'request', source: input, value: input });
     }
-    const clarity = assessIntentClarity(input, understanding, options);
+    const toolId = { FILE_WRITE: 'file.write', SHELL: 'code.execute' }[classification?.intent] ?? null;
+    const clarity = assessIntentClarity(input, understanding, { ...options, toolId });
     if (clarity) return { clarity, understanding, classification };
     if (!classification || !Object.values(IntentType).includes(classification.intent)
         || !Number.isFinite(classification.confidence) || classification.confidence < 0.7 || classification.confidence > 1) {
@@ -2315,10 +2315,13 @@ export class CREDecisionEngine {
       return { clarity: { kind: 'clarify', slot: 'intent_meaning', reason: 'target_not_grounded', question: `Jaký přesný soubor chceš použít? Navržený cíl „${classification.fileTarget}“ není doložen zadáním. Nic nespouštím.` }, understanding };
     }
     const fixed = projectListing ? { 'file.list': { path: '.' } } : {};
-    if (lexical.detected && lexical.filePath !== '.') fixed['file.read'] = { path: lexical.filePath };
+    if (classification.fileTarget && classification.fileTarget !== '.' && ['FILE_READ', 'FILE_EXPLAIN'].includes(classification.intent)) fixed['file.read'] = { path: classification.fileTarget };
+    else if (lexical.detected && lexical.filePath !== '.') fixed['file.read'] = { path: lexical.filePath };
     if (classification.intent === IntentType.SHELL) fixed['code.execute'] = { code: extractShellCommand(input), language: null };
     const content = literalWriteContent(input, classification.fileTarget) ?? latestAssistantContent(context.dbHistory ?? context.history);
-    if (classification.intent === IntentType.FILE_WRITE && content) fixed['file.write'] = { content };
+    if (classification.intent === IntentType.FILE_WRITE) fixed['file.write'] = {
+      ...(classification.fileTarget ? { path: classification.fileTarget } : {}), ...(content ? { content } : {}),
+    };
     return { token: issueIntentEvidence(input, classification, understanding, fixed, options), understanding, classification };
   }
 
