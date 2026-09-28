@@ -37,6 +37,10 @@ nezakládá attestaci veřejného releasu IntentSmith 1.0 ani přijetí M5/M6.
   s uloženým nativním rámem, bez překrývajícího dialogu Restart.
   `tests/studio-electron-runner-contract.test.js` vyžaduje oba nové důkazy
   v pozitivní fixture a ověřuje odmítnutí každého nepravdivého příznaku.
+- Tentýž screenshot odkryl pád na původních uložených přílohách:
+  `view/live-model.js` převádí smíšené focus záznamy do kontextu a souborů,
+  `tests/studio2-live-model.test.js` hlídá zachování jejich metadat i zákaz
+  vydávat název přílohy za cestu projektu. Převod neodstraňuje uživatelská data.
 
 ## Ověření a nasazení
 

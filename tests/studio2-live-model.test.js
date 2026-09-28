@@ -35,6 +35,22 @@ function setup({ workspace, m2, catalog: catalogOverride, specialistFiles } = {}
 
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
+test('classic attachment metadata survives restart without becoming a project file or crashing the view', () => {
+  const { model, store } = setup();
+  const session = store.focusedSession();
+  const legacy = [{ name: 'scan.heic', size: '6715 KB', addedAt: 123, type: 'attachment' },
+    { name: 'report.pdf', size: '33 KB', type: 'attachment', path: 'private/report.pdf' },
+    { name: 'notes.txt', path: 'docs/notes.txt' }, 'src/main.js', null, 42, { path: false }];
+  session._focusFiles = legacy;
+  store.changed();
+  assert.deepEqual(new SessionStore(store.storage).focusedSession()._focusFiles, legacy);
+  assert.doesNotThrow(() => model.renderVals());
+  assert.deepEqual(model.sess(session.id).ctxFiles, [['scan.heic', 'Příloha · 6715 KB'],
+    ['report.pdf', 'Příloha · 33 KB'], ['docs/notes.txt', ''], ['src/main.js', '']]);
+  assert.deepEqual(model.filesVM(session.id, model.st()).opened.map(file => file.path),
+    ['docs/notes.txt', 'src/main.js']);
+});
+
 test('conversation and specialist opening labels follow session state and an open session can be ended from its detail', () => {
   const catalog = { view: section => ({ status: 'ready', items: section === 'Konverzace'
     ? [{ id: 'saved', name: 'Uložená práce' }] : section === 'Specialisté'

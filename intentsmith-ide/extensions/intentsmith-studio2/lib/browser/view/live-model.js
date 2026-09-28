@@ -20,6 +20,19 @@ const { ExpertiseSelectionClient } = require('../expertise-selection-client');
 const { createSpecialistFileStore } = require('../../../../../shared/specialist-files');
 const Attachments = require('../attachments');
 
+function focusFileEntry(value) {
+  if (typeof value === 'string' && value) return { path: value, label: value, meta: '' };
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  // Classic Studio stores attachment metadata in this list alongside paths.
+  // A filename alone does not authorize opening it as a project file.
+  const path = value.type !== 'attachment' && typeof value.path === 'string' ? value.path : '';
+  const label = path || (typeof value.name === 'string' ? value.name : '');
+  if (!label) return null;
+  const meta = [value.type === 'attachment' ? 'Příloha' : '',
+    typeof value.size === 'string' ? value.size : ''].filter(Boolean).join(' · ');
+  return { path, label, meta };
+}
+
 const CATALOG = Object.freeze({
   chats: 'Konverzace', projects: 'Projekty', specialists: 'Specialisté',
   expertises: 'Expertýzy', workers: 'Workeři', market: 'Obchod', media: 'Multimédia'
@@ -496,7 +509,8 @@ class LiveModel extends Component {
       mode: chat.editMode === 'auto' ? 'auto' : 'kontrola', intent: '',
       ctx: Math.max(0, Math.min(100, Number(chat.ctx) || 0)), tokens: '',
       turns: chat.msgs.filter(msg => msg.role === 'user').length, parts: [],
-      msgs, changes, edited, ctxFiles: (session._focusFiles || []).map(path => [path, '']),
+      msgs, changes, edited, ctxFiles: (session._focusFiles || []).map(focusFileEntry)
+        .filter(Boolean).map(file => [file.label, file.meta]),
       attach: [], memory: [], tree, term, log, runs, audit: [
         ...(this._audit.get(String(session._convId))?.rows || []),
         ...(this._audit.get(String(session._convId))?.status === 'error'
@@ -2846,7 +2860,9 @@ class LiveModel extends Component {
       if (!seen.has(path)) opened.push({ path, src: 'otevřel jsi', meta: '' });
       seen.add(path);
     }
-    for (const path of session._focusFiles || []) {
+    for (const item of session._focusFiles || []) {
+      const path = focusFileEntry(item)?.path;
+      if (!path) continue;
       if (!seen.has(path)) opened.push({ path, src: 'četl agent', meta: '' });
       seen.add(path);
     }
