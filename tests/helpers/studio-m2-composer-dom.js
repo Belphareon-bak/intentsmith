@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
+import { createHash } from 'node:crypto';
 
 // Visual DOM probe, invoked only by the explicit studio-m2-composer-dom journey.
 // Session assignment below is fixture setup; all form actions use DOM events.
@@ -31,7 +32,23 @@ export async function rendererBuildComposerProbe({ cdp, paths, requests, evaluat
   };
   const projectPath = path.join(paths.home, 'composer-dom-project');
   const input = { projectPath, draft };
-  const result = await evaluate(cdp, '(' + (async function ({ projectPath, draft }) {
+  const snapshot = () => {
+    const entries = [];
+    const visit = relative => {
+      const absolute = path.join(projectPath, relative), stat = fs.lstatSync(absolute);
+      if (stat.isSymbolicLink()) entries.push([relative, 'symlink', fs.readlinkSync(absolute)]);
+      else if (stat.isDirectory()) {
+        entries.push([relative, 'directory', stat.mode & 0o777]);
+        for (const name of fs.readdirSync(absolute).sort()) visit(path.join(relative, name));
+      } else entries.push([relative, 'file', stat.mode & 0o777,
+        createHash('sha256').update(fs.readFileSync(absolute)).digest('hex')]);
+    };
+    visit('');
+    return entries;
+  };
+  // Registration legitimately initializes project governance. Capture the real
+  // filesystem after registration and immediately before the draft request.
+  const pending = evaluate(cdp, '(' + (async function ({ projectPath, draft }) {
     const pause = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     const check = (value, label) => { if (!value) throw new Error('composer-dom:' + label); };
     const waitFor = async (predicate, label) => {
@@ -113,6 +130,8 @@ export async function rendererBuildComposerProbe({ cdp, paths, requests, evaluat
     await change('timeout', String(draft.focusedTest.timeoutMs));
     check(!pane._m2Pending && !pane.chat._m2Busy, 'no-implicit-draft-or-approval');
     check(root()?.querySelector('[aria-label^="Zpráva pro relaci"]').value === chatDraft, 'ordinary-chat-preserved-before-submit');
+    window.__studio2ComposerBeforeDraft = true;
+    await waitFor(() => window.__studio2ComposerDraftAllowed === true, 'filesystem-baseline');
     await click('submit');
     await waitFor(() => !pane.chat._m2Busy && section()?.textContent.includes('LLM_PROVIDER_UNAVAILABLE') && element('submit')?.disabled === false, 'production-provider-rejection');
     check(section().textContent.includes('HTTP 503'), 'typed-http-error-visible');
@@ -130,7 +149,23 @@ export async function rendererBuildComposerProbe({ cdp, paths, requests, evaluat
     check(!document.querySelector('[aria-label="Akce připravené změny"]'), 'no-approval-actions-after-rejection');
     return { projectId, conversationId: conversationB.id, contextInvalidated: true,
       discarded: true, inputRetained: true, focusRetained: true, ordinaryChatRetained: true };
-  }).toString() + ')(' + JSON.stringify(input) + ')', 45000);
+  }).toString() + ')(' + JSON.stringify(input) + ')', 45000)
+    .then(result => ({ result }), error => ({ error }));
+  const deadline = Date.now() + 30000;
+  let before;
+  while (Date.now() < deadline) {
+    if (await evaluate(cdp, 'window.__studio2ComposerBeforeDraft === true')) {
+      before = snapshot();
+      if (draft.files.some(file => fs.existsSync(path.join(projectPath, file.path)))) fail('composer-fixture-target-already-exists');
+      await evaluate(cdp, 'window.__studio2ComposerDraftAllowed = true');
+      break;
+    }
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  const settled = await pending;
+  if (settled.error) throw settled.error;
+  if (!before) fail('composer-filesystem-baseline-unavailable');
+  const result = settled.result;
   const observed = [...requests.values()];
   const drafts = observed.filter(request => request.pathname === '/api/m2/lifecycle/draft');
   const registrations = observed.filter(request => request.pathname === '/api/projects' || request.pathname === '/api/conversations');
@@ -144,7 +179,7 @@ export async function rendererBuildComposerProbe({ cdp, paths, requests, evaluat
   // Object key order is not part of the HTTP JSON contract. Array order and
   // every character of instructions and literal argv remain exact.
   if (!isDeepStrictEqual(actual, expected)) fail('composer-request-payload-changed', { actual, expected });
-  if (fs.existsSync(path.join(projectPath, '.intentsmith/m2-governance-policy.json'))
+  if (!isDeepStrictEqual(snapshot(), before)
     || draft.files.some(file => fs.existsSync(path.join(projectPath, file.path)))) fail('composer-rejection-mutated-project');
   return Object.freeze({ scope: 'built-dom-production-authenticated-provider-rejection',
     status: 503, errorCode: 'LLM_PROVIDER_UNAVAILABLE', fixtureRegistrationRequests: 3, draftRequests: 1, approvalRequests: 0,
