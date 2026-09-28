@@ -260,3 +260,17 @@ v obchodě, změny modelových rolí a měření, jakákoli nová schopnost shel
   mají tmavou a světlou variantu. Růžová se pro kategorie nepoužívá.
 - Nastavení má tlumenější vlastní tóny, sousední Úložiště a Zálohy nejsou
   stejné. Monochromatická navigace tématu nemění barvy kategorií ve štítcích.
+
+## Navazující připomínky operátora — klidnější konverzace a projektové časy
+
+- Barevný kontext konverzace zůstává pouze v kategoriálním štítku. Ikony
+  a podklady v hlavičce, dlaždicích, seznamu a detailu jsou neutrální;
+  funkční stavové značky zachovávají své významy.
+- Projektový detail má stejně jako konverzace Vytvořeno a Poslední aktivita.
+  Backendové `created_at` / `last_active` doplňuje skutečné poslední použití
+  v místním profilu, i po zavření relace. Neznámý čas je „—“.
+- Obchod a Multimédia mají navazovat na chladný konec navigace. Předložené
+  palety A/B/C jsou možnosti, nikoli nové kategorie nebo nastavení produktu.
+- Nastavení potřebuje viditelně čitelnější ikony: větší kresba, jasnější
+  odlišné odstíny a rozpoznatelný podklad, který nezávisí na barevnosti
+  hlavní navigace.

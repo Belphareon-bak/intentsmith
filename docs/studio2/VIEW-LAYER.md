@@ -407,3 +407,10 @@ Paleta kategorií je samostatná od akcentu tématu a stavů. Navigace zůstáv�
 monochromatická v motivech, které ji tak navrhují; štítky zůstávají barevné.
 Nastavení má vlastní, tlumenější, vzájemně odlišné tóny `tone-set-*`.
 Zdroj vzhledu je stále prototyp, generované soubory se ručně neupravují.
+
+Navazující oprava: `conversationMeta` a prototyp používají pro ikony
+`neutral`, barevná je jen `conversationBadges`. `proj` přebírá skutečné
+`created_at` a `last_active`, místo prázdného `last`; `projectActivity`
+v existujícím profilu SessionStore uchovává použití i po zavření. Projektový
+a konverzační detail sdílí formát `dateText`. Pro větší nastavení jsou
+pravidla stále v prototypu, nikoli ruční změna generované React vrstvy.

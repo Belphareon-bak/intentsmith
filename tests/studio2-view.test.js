@@ -189,6 +189,12 @@ out = html({ mode: 'section', section: 'chats', detail: { chats: 's1' } });
 for (const text of ['category-label tone-amber', 'category-label tone-red',
   'category-label tone-violet', 'last-used', 'Vytvořeno', 'Poslední aktivita'])
   assert.ok(out.includes(text), text);
+assert.ok(out.includes('tico tone-neutral neutral') && out.includes('dico tone-neutral neutral'));
+for (const tone of ['amber', 'red', 'violet'])
+  assert.ok(!out.includes('tico tone-' + tone) && !out.includes('dico tone-' + tone),
+    'conversation color belongs to its label only');
+const projectDetail = html({ mode: 'section', section: 'projects', detail: { projects: 'shellsmith' } });
+assert.ok(projectDetail.includes('Vytvořeno') && projectDetail.includes('Poslední aktivita'));
 const categoryModel = new Component();
 assert.deepEqual(categoryModel.sections().slice(0, 7).map(row => row.tone),
   ['amber', 'red', 'violet', 'blue', 'mint', 'orange', 'cyan']);

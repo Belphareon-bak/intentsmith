@@ -119,8 +119,8 @@
 .intentsmith-studio2-widget .num{font-variant-numeric:tabular-nums}
 .intentsmith-studio2-widget .grow{flex-grow:1}
 .intentsmith-studio2-widget .faint{color:var(--faint)}
-.intentsmith-studio2-widget .dark{--cat-chat:#facc15;--cat-project:#ff7373;--cat-specialist:#b18aff;--cat-expertise:#60a5fa;--cat-worker:#4ade80;--cat-market:#fb923c;--cat-media:#2dd4bf;--set-ucet:#8fa6ba;--set-modely:#a0a8dc;--set-pamet:#7cbab0;--set-oznameni:#c7b77e;--set-vystup:#84b0c7;--set-vzhled:#b39bc9;--set-system:#a6afb9;--set-uloziste:#c5a080;--set-zalohy:#a5b47d;--set-prepinace:#aba2c4;--set-zabezpeceni:#8ab697;--set-about:#849cbe}
-.intentsmith-studio2-widget .light{--cat-chat:#855700;--cat-project:#b91c1c;--cat-specialist:#6d28d9;--cat-expertise:#1d4ed8;--cat-worker:#15733a;--cat-market:#a93c04;--cat-media:#0d6963;--set-ucet:#4c6378;--set-modely:#595f94;--set-pamet:#396f67;--set-oznameni:#756330;--set-vystup:#3f6b82;--set-vzhled:#72558b;--set-system:#5e6771;--set-uloziste:#865d3a;--set-zalohy:#5d7035;--set-prepinace:#6e5f85;--set-zabezpeceni:#3f7450;--set-about:#446389}
+.intentsmith-studio2-widget .dark{--cat-chat:#facc15;--cat-project:#ff7373;--cat-specialist:#b18aff;--cat-expertise:#60a5fa;--cat-worker:#54ccb9;--cat-market:#7fd798;--cat-media:#b1cf77;--set-ucet:#67c1e8;--set-modely:#aa9cf6;--set-pamet:#65cbaa;--set-oznameni:#e3c064;--set-vystup:#80adeb;--set-vzhled:#c69bea;--set-system:#80bbc1;--set-uloziste:#dfa66f;--set-zalohy:#b6cd79;--set-prepinace:#9badda;--set-zabezpeceni:#69c790;--set-about:#b7a5d3}
+.intentsmith-studio2-widget .light{--cat-chat:#855700;--cat-project:#b91c1c;--cat-specialist:#6d28d9;--cat-expertise:#1d4ed8;--cat-worker:#136f62;--cat-market:#236d36;--cat-media:#587326;--set-ucet:#226b8c;--set-modely:#6250b2;--set-pamet:#247759;--set-oznameni:#8e6818;--set-vystup:#3e64a2;--set-vzhled:#8451a8;--set-system:#386b75;--set-uloziste:#956028;--set-zalohy:#5f7627;--set-prepinace:#4e6693;--set-zabezpeceni:#29794b;--set-about:#70558c}
 .intentsmith-studio2-widget .tone-amber{--tc:var(--cat-chat)}
 .intentsmith-studio2-widget .tone-red,.intentsmith-studio2-widget .tone-rose{--tc:var(--cat-project)}
 .intentsmith-studio2-widget .tone-violet{--tc:var(--cat-specialist)}
@@ -426,6 +426,12 @@
 .intentsmith-studio2-widget .dh{display:flex;align-items:flex-start;gap:12px;padding:16px 12px 10px 18px}
 .intentsmith-studio2-widget .dico{width:40px;height:40px;border-radius:9px;background:var(--acc-soft);color:var(--acct);display:grid;place-items:center;flex:0 0 auto}
 .intentsmith-studio2-widget .toned .dico,.intentsmith-studio2-widget .dico.always{color:var(--tc);background:color-mix(in srgb,var(--tc) 12%,transparent)}
+.intentsmith-studio2-widget .tico.neutral,.intentsmith-studio2-widget .lico.neutral,.intentsmith-studio2-widget .dico.neutral{color:var(--dim);background:var(--panel3)}
+.intentsmith-studio2-widget .tico[class*="tone-set-"],.intentsmith-studio2-widget .lico[class*="tone-set-"],.intentsmith-studio2-widget .dico[class*="tone-set-"]{color:var(--tc);background:color-mix(in srgb,var(--tc) 16%,var(--panel));border:1px solid color-mix(in srgb,var(--tc) 35%,var(--border))}
+.intentsmith-studio2-widget .tico[class*="tone-set-"]{width:40px;height:40px;border-radius:10px}
+.intentsmith-studio2-widget .tico[class*="tone-set-"] .ic{width:22px;height:22px;stroke-width:1.9}
+.intentsmith-studio2-widget .lico[class*="tone-set-"] .ic{width:17px;height:17px;stroke-width:1.9}
+.intentsmith-studio2-widget .dico[class*="tone-set-"] .ic{width:23px;height:23px;stroke-width:1.9}
 .intentsmith-studio2-widget .dh-m{min-width:0;flex:1 1 auto}
 .intentsmith-studio2-widget .dh-title{font-size:17px;font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .intentsmith-studio2-widget .dh-sub{font-size:12px;color:var(--faint);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

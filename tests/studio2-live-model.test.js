@@ -2155,6 +2155,7 @@ test('conversation tiles, list and details use real context, newest use and UTC 
   const rows = model.entities('chats', s);
   assert.deepEqual(rows.map(row => row.id), ['work', 'old', 'invalid']);
   assert.deepEqual(rows[0].badges.map(row => [row.label, row.tone]), [['Projekt', 'red'], ['Specialista', 'violet']]);
+  assert.ok(rows.every(row => row.tone === 'neutral' && row.icls === 'neutral'));
   assert.equal(rows[0].sub, 'Atlas · Reviewer');
   assert.equal(rows[1].badges[0].label, 'Chat');
   assert.equal(rows[2].usedText, '—');
@@ -2166,6 +2167,8 @@ test('conversation tiles, list and details use real context, newest use and UTC 
   assert.equal(model.ageText('invalid', when), '—');
   let detail = model.detailVM(s);
   assert.deepEqual(detail.badges.map(row => row.label), ['Projekt', 'Specialista']);
+  assert.equal(detail.tone, 'neutral');
+  assert.equal(detail.icls, 'neutral');
   assert.equal(detail.props.find(prop => prop.k === 'Vytvořeno').v, model.dateText('2026-09-23T10:00:00Z'));
   assert.equal(detail.props.find(prop => prop.k === 'Poslední aktivita').v, model.dateText('2026-09-28T10:00:00Z'));
   store.conversationActivity.old = '2026-09-28T12:00:00Z';
@@ -2178,5 +2181,25 @@ test('conversation tiles, list and details use real context, newest use and UTC 
   assert.ok(detail.props.some(prop => prop.k === 'Vytvořeno'));
   assert.equal(model.entities('chats', s).filter(row => row.name === 'Projekt se specialistou').length, 0);
   assert.equal(model.entities('chats', s).filter(row => row.id === session.id).length, 1);
+  model.componentWillUnmount();
+});
+
+test('project detail carries real creation and activity dates and keeps unknown times unknown', () => {
+  const projects = [{ id: '7', name: 'Atlas', state: 'active', raw: { path: '/atlas',
+    created_at: '2026-09-20 08:30:00', last_active: '2026-09-28 09:00:00' } },
+    { id: '8', name: 'Bez času', state: 'active', raw: { path: '/unknown', created_at: 'invalid' } }];
+  const catalog = { view: section => ({ status: 'ready', items: section === 'Projekty' ? projects : [] }),
+    load() {}, subscribe: () => () => {} };
+  const { model, store } = setup({ catalog });
+  const state = { ...model.st(), mode: 'section', section: 'projects', detail: { projects: '7' } };
+  const detail = model.detailVM(state);
+  assert.equal(detail.props.find(p => p.k === 'Vytvořeno').v, model.dateText('2026-09-20T08:30:00Z'));
+  assert.equal(detail.props.find(p => p.k === 'Poslední aktivita').v, model.dateText('2026-09-28T09:00:00Z'));
+  store.projectActivity['7'] = '2026-09-28T12:00:00Z';
+  assert.equal(model.detailVM(state).props.find(p => p.k === 'Poslední aktivita').v,
+    model.dateText('2026-09-28T12:00:00Z'));
+  const unknown = model.detailVM({ ...state, detail: { projects: '8' } });
+  assert.equal(unknown.props.find(p => p.k === 'Vytvořeno').v, '—');
+  assert.equal(unknown.props.find(p => p.k === 'Poslední aktivita').v, '—');
   model.componentWillUnmount();
 });
