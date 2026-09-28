@@ -4,39 +4,68 @@
 
 Volba pracovních modelů nemusí čekat na automatické místní hodnotitele. Máme dva
 oddělené externí posudky, které lze použít pro operátorský návrh a konkrétní kontrolu.
-Nemáme však doložené optimum celé sestavy ani aktuální desetimodelovou matici všech rolí.
+Nemáme však doložené optimum celé sestavy ani úplně přehodnocenou desetimodelovou matici všech rolí.
 
-## Matice model × role — novější vybrané podklady
+## Proč matice ještě není úplná — opravený audit pokrytí
+
+**Téměř plná matice byla požadovaný výstup. Omezený výběr pozdějších běhů jej nenahradil.**
+Předchozí verze tohoto dokumentu navíc příliš široce tvrdila, že starší podklady mají jiné zadání.
+Kontrola skutečných požadavků ukázala: u všech sedmi ponechaných D/R případů jsou zadání,
+parametry inference i verze poskytovatele stejné; změnila se hodnoticí rubrika.
+Všech deset přesných modelových digestů je stále nainstalovaných.
+
+| Role / část | Co skutečně existuje | Co chybí k úplnému srovnání |
+|---|---|---|
+| D1/D2/R1/R2, sedm ponechaných případů | Dva posudky pro 13 ze 40 buněk. Pro zbývajících 27 buněk je uloženo 567 pokusů; **554 úplných odpovědí je přímo použitelných k přehodnocení**. | Dva posudky podle sjednocené rubriky pro těch 27 buněk. Ve 21 buňkách je sběr už celý; v dalších šesti je dohromady 13 odpovědí ukončených výstupním limitem. |
+| D/R, opravený `model_cleanup` | Samostatný nový profil a 24 úplných odpovědí dvou kotevních modelů, s dvěma posudky. | Doplnit ostatní modely ve stejném profilu; tento případ není součástí sedmipřípadových průměrů. |
+| CHAT, opravená produkční historie | 80 dialogů dvou modelů, oba posudky úplné. Starší desetimodelový vícekolový panel existuje zvlášť. | Produkční sběr a dva posudky pro osm zbývajících modelů; starý panel běžel v jiných podmínkách. |
+| CODE | Všech deset modelů má 21 uložených oprav a samostatné technické skóre. | Dokončit a přijmout celé orákulum; technická komponenta není celková známka. |
+| VISION | **Všech šest podporovaných modelů má 23 úloh.** Nyní znovu přepočteno současným orákulem nad původními odpověďmi po kontrole vstupů a podmínek. | Nechybí buňky obsahového srovnání. Zbývá jeho přejímka a provozní kvalifikace. Čtyři další modely VISION nedeklarují. |
+
+Třináct neúplných D/R pokusů: Ornith 11, Qwen3:14b 1 a Qwen3.5 1.
+Nejsou skryté ani nahrazené nulou. Zvětšení limitu by vyžadovalo nový společný profil;
+nelze jen jednomu modelu přidat rozpočet a výsledek přimíchat k ostatním.
+
+[Audit každé uložené odpovědi, otisky zdrojů a přesné identity](/mnt/vi7000/intentsmith/evidence/hunt-role-allocation-20260928/matrix-coverage-audit.json) ·
+[verzovaný souhrn pokrytí](evidence/2026-09-28-hunt-matrix-coverage.json) ·
+[konkrétních 567 položek k dokončení D/R](/mnt/vi7000/intentsmith/evidence/hunt-role-allocation-20260928/dr-grading-backlog.json) ·
+[reprodukce auditu](/mnt/vi7000/intentsmith/evidence/hunt-role-allocation-20260928/audit-matrix-coverage.py).
+Seznam obsahuje identity, není to zaslepený formulář; neobsahuje nové ani simulované známky.
+Kontrola ověřila všech 39 otisků zdrojů, 567 jedinečných ID nedokončeného D/R
+hodnocení a každou z deseti technických CODE a šesti VISION hodnot v tabulce.
+Jde o audit podkladů a deterministický replay, nikoli nový sběr či přejímku huntu.
+
+## Matice model × role — doložené podklady po rolích
 
 **Všechny hodnoty jsou v procentech. D1/D2/R1/R2/CHAT: Codex / Opus, dva samostatné posudky, nikoli jejich průměr.**
-CODE a VISION mají odlišný druh důkazu uvedený pod tabulkou. Matice je přehled dostupných podkladů k 28. 9., ne úplné hodnocení všech buněk ani součet do celkového žebříčku.
+CODE a VISION mají odlišný druh důkazu uvedený pod tabulkou. Matice je přehled dostupných podkladů k 28. 9., ne úplné hodnocení všech buněk ani součet do celkového žebříčku. VISION nyní používá jeden společný původní panel šesti modelů přepočtený současným orákulem, ne výběr tří později měřených modelů.
 
 | Model | D1 | D2 | CODE — technická část* | R1 | R2 | CHAT | VISION — orákulum |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | qwen3.8:latest | 72,6 / 73,2 | 64,2 / 64,9 | 100,0* | 58,0 / 53,0 | 82,1 / 79,8 | 86,3 / 85,7 | 77,2 |
-| qwen3.5:27b | 66,4 / 66,1 | A | A | A (část) | A | 84,2 / 79,1 | A |
-| qwen3.6:27b | 69,3 / 66,4 | 69,2 / 62,2 | A | 53,9 / 51,2 | 73,8 / 70,2 | A / B | A |
-| gemma4:26b | A | 58,9 / 52,7 | A | 45,0 / 37,5 | A | A / B | 75,7 |
-| devstral-small-2:latest | A | A | 71,4* | 34,0 / 29,2 | 51,2 / 41,7 | A / B | A |
-| ornith-1.5:9b | A (část) | A (část) | A | A (část) | A (část) | A (část) / B | 77,6 |
-| qwen3-30b-a3b:latest | A | A | A | A | A | A / B | — |
-| qwen3-coder:latest | A | A | A | A | A | A / B | — |
-| qwen3:14b | A | A | A | A | A (část) | A / B | — |
-| phi4:14b | A | A | A | A | A | A / B | — |
+| qwen3.5:27b | 66,4 / 66,1 | A | 85,7* | A (část) | A | 84,2 / 79,1 | 88,6 |
+| qwen3.6:27b | 69,3 / 66,4 | 69,2 / 62,2 | 85,7* | 53,9 / 51,2 | 73,8 / 70,2 | A / B | 83,0 |
+| gemma4:26b | A | 58,9 / 52,7 | 85,7* | 45,0 / 37,5 | A | A / B | 75,7 |
+| devstral-small-2:latest | A | A | 71,4* | 34,0 / 29,2 | 51,2 / 41,7 | A / B | 63,5 |
+| ornith-1.5:9b | A (část) | A (část) | 61,9* | A (část) | A (část) | A (část) / B | 81,9 |
+| qwen3-30b-a3b:latest | A | A | 42,9* | A | A | A / B | N/A |
+| qwen3-coder:latest | A | A | 71,4* | A | A | A / B | N/A |
+| qwen3:14b | A | A | 57,1* | A | A (část) | A / B | N/A |
+| phi4:14b | A | A | 61,9* | A | A | A / B | N/A |
 
 - **B** odkazuje na samostatný vícekolový CHAT panel níže.
-- **A** znamená **hodnocení existuje ve starší sadě**; jeho procenta jsou v samostatné matici A níže. Nejde o neotestovaný model.
-- **—** znamená, že zde nemáme srovnatelnou známku z uvedeného podkladu. Není to nula, potvrzené N/A ani tvrzení, že model nikdy žádným testem neprošel. Starší odlišné sady/profily tyto mezery automaticky nevyplňují.
+- **A** znamená **starší hodnocení existuje**; jeho procenta jsou v samostatné matici A níže. U D/R chybí přehodnocení sjednocenou rubrikou, nikoli automaticky nový test. U CHAT jde i o jiná zadání a profil.
+- **N/A** u VISION znamená chybějící deklarovanou podporu obrazu pro přesný instalovaný artefakt, ověřenou proti inventáři původního panelu a dnešnímu digestu. Není to známka nula.
 - **D/R:** sedm stejných případů × tři opakování na buňku; starý vadný `model_cleanup` je vyřazen všem. Rozpad a reprodukční zdroje jsou níže.
 - **CHAT:** pouze nový produkční sběr 27. 9. s opravenou historií, 40 dialogů na model. Původní desetimodelový panel se sem nemíchá.
-- **\* CODE:** jen technická komponenta 21 uložených oprav; plné skóre CODE zůstává `null`. Nejde o 100% úspěšnost v roli.
-- **VISION:** deterministické obsahové skóre 23 úloh, nikoli dva LLM posudky.
+- **\* CODE:** jen technická komponenta 21 uložených oprav každého z deseti modelů; plné skóre CODE zůstává `null`. Nejde o 100% úspěšnost v roli. Rozšíření sloupce zpřístupňuje již existující komponenty, nevytváří novou známku.
+- **VISION:** deterministické obsahové skóre 23 úloh, nikoli dva LLM posudky. [Nový replay šesti modelů](/mnt/vi7000/intentsmith/evidence/hunt-role-allocation-20260928/vision-six-model-replay.json) kontroluje 414 původních odpovědí; celkem jde o 144 různých výstupů ve 138 dvojicích model/úloha. Opakování se nepovažují za nezávislé případy. Původní odpovědi a známky se nepřepisovaly, GPU inference neproběhla.
 
-Celkem **20 zobrazených hodnotových buněk**: 13 D/R, 2 CHAT, 2 technické komponenty CODE a 3 VISION. Původní známky dalších modelů jsou přístupné přes označení A a oddělené tabulky níže. Nelze je přímo porovnávat s novějšími čísly v horní tabulce.
+Celkem **31 zobrazených hodnotových buněk**: 13 D/R, 2 CHAT, 10 technických komponent CODE a 6 VISION; dalších 4 je N/A. To stále není 31 přijatých výsledků rolí. Zbývajících 35 buněk má staré známky, ale potřebuje sjednocené hodnocení (27 D/R) nebo nový produkční CHAT (8). Původní známky jsou přístupné přes A/B níže; nelze je přímo doplnit do novějších hodnoticích sloupců.
 
 ## A — existující výsledky původní celopanelové sady
 
-**Sběr 20. 9., archivní přehled 23. 9. Všechna čísla v procentech.** Tyto známky existují a nesmějí zmizet z evidence jen proto, že pozdější sběr měl méně kandidátů. Patří k jiné verzi zadání a posouzení než tabulka nahoře.
+**Sběr 20. 9., archivní přehled 23. 9. Všechna čísla v procentech.** Tyto známky existují a nesmějí zmizet z evidence jen proto, že pozdější sběr měl méně kandidátů. U D/R se změnila rubrika a vyřazuje se starý `model_cleanup`; u CHAT také zadání a profil. Přehled nahoře již přebírá technické komponenty CODE a ověřený replay VISION.
 Původní podklad kombinuje přímé posouzení Codexem a mechanické kontroly; **nejde o dvojici úplných posudků Codex / Opus**. Obsahuje později zjištěné vady sad. Slouží k dohledání výsledků, nikoli k doplnění novějšího pořadí.
 
 | Model | D1 | D2 | CODE původní† | CODE techn. replay* | R1 | R2 | CHAT | VISION |
@@ -128,9 +157,12 @@ Ani tři opakování nejsou tři nezávislé historické případy.
   uložených oprav má 100 % proti 71,43 % Devstralu; **plné skóre úlohy je null**.
   Toto není celková známka CODE ani nové měření provozní dokončenosti.
   [Audit komponenty](evidence/2026-09-25-hunt-code-components.json).
-- **VISION:** ponechat Ornith. Na 23 deterministických úlohách má 77,61 %, Qwen3.8
-  77,25 % a Gemma4 75,72 %. Rozdíl je příliš malý na tvrzení o lepším modelu;
-  Ornith uvolní Qwen pro jiné role. [Podklad](2026-09-25-GPU-HUNT-ISOLATED-CAMPAIGN.md).
+- **VISION:** doporučení nelze opřít jen o tři pozdější běhy. Společný původní panel
+  přepočtený současným orákulem řadí bodově Qwen3.5 88,62 %, Qwen3.6 83,04 %,
+  Ornith 81,88 %, Qwen3.8 77,25 %, Gemma4 75,72 % a Devstral 63,48 %.
+  Pozdější Ornith vyšel 77,61 %; tento jiný výstup zůstává samostatně doložený
+  v [kampani 25. 9.](2026-09-25-GPU-HUNT-ISOLATED-CAMPAIGN.md).
+  Ponechání Ornithu může být kompromis celé sestavy, ale není to vítězství v úplném panelu.
 
 ## Doporučení a konflikty, které se nesmějí skrýt
 
@@ -148,9 +180,11 @@ Ani tři opakování nejsou tři nezávislé historické případy.
 4. **D2 zatím bez jasného vítěze.** Codex upřednostnil Qwen3.6, Opus Qwen3.8.
    Gemma je v obou posudcích níž. Dosadit ji jen kvůli volnému slotu by byl
    vědomý kompromis, nikoli zlepšení doložené testem.
-5. **Úzké místo je alternativní technický model**, zejména R1. Slabé výsledky
-   Gemmy a Devstralu v R1 nelze napravit přidělením role. Prioritou doplnění
-   je další kandidát pro R1/D2, nikoli další velký CHAT panel.
+5. **Před nákupem dalšího sběru dokončit porovnání existujících modelů.**
+   Pro dalších 27 D/R buněk leží 554 použitelných úplných odpovědí na disku;
+   doplnění jednotného hodnocení má přednost před závěrem, že v panelu vhodná
+   alternativa pro R1/D2 neexistuje. Slabé výsledky dosud vybraných kandidátů
+   neopravňují vyřadit ostatní bez srovnatelného posouzení.
 
 Například úplná pracovní sestava D1=Qwen3.5, D2=Gemma4, CODE+CHAT=Qwen3.8,
 R1=Qwen3.6, R2=Devstral, VISION=Ornith odstraní přímou vlastní revizi a
@@ -159,7 +193,9 @@ platí se nižším D2 a slabým R2, sdílení CODE+CHAT není přijaté a rodin
 nezávislost Qwenů není prokázaná. Varianta s Qwen3.6 v R2 má naopak díru v R1.
 Nelze to vyřešit pouhým seřazením procent nebo jejich součtem napříč rolemi.
 
-Praktická priorita: při operátorském sestavování nejprve oddělit CODE od jeho
-revizí, preferovat Qwen3.8 v CODE/CHAT a Ornith ve VISION, pak doplnit měření
-alternativ R1/D2 a cíleně rozsoudit D2. Automatická přejímka místních hodnotitelů
-je souběžná práce a nemá tuto otázku pracovních modelů odsunout.
+Praktická priorita: doplnit dva posudky 554 úplných uložených D/R odpovědí,
+uzavřít 13 vyčerpání rozpočtu a doplnit opravený `model_cleanup`, potom osm
+chybějících produkčních CHAT buněk. CODE držet jako technickou komponentu,
+dokud nebude celé orákulum způsobilé. Teprve nad tímto širším podkladem sestavit
+návrh oddělující CODE od jeho revizí. Automatická přejímka místních hodnotitelů
+nesmí znovu odsunout dokončení základní matice pracovních modelů.
