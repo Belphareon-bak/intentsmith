@@ -1,6 +1,6 @@
 # Inventura #18a — Správa modelů
 
-**Místní hodnotitelé, 28. 9. 2026:** dokončené porovnání deseti modelů při 175 W, 536 zachycených hodnoticích volání; dvě přerušené žádosti jsou oddělené. Doporučená pracovní dvojice pro CHAT je Devstral Small 2 + Qwen3.6 27B. D/R pokrývá jeden historický případ; Devstral navíc neprošel dvěma autorskými kontrolami. Produkční přejímka není udělená. Opravené obnovení/finalizace experimentálního sběrače: 192 cílených testů a skutečný smoke 4/4 dokončených volání mimo pořadí. **EXPERIMENT_COMPLETE / REVIEW_PENDING / NO_AUTONOMOUS_GO.** [Posudek a meze doporučení](../review/2026-09-28-HUNT-LOCAL-JUDGES.md).
+**Místní hodnotitelé, revize 28. 9. 2026:** původní doporučení Devstral + Qwen3.6 je stažené. Devstral zachytí 1/18 nízkých referenčních kritérií, Qwen3.6 9/18; na ověřovací části dvojice nepřidá nic k samotnému Qwenovi. Hodnocení není přijato. Původních 536 zachycených volání a jejich pečeť zůstávají zachované. **RECOMMENDATION_WITHDRAWN / NO_AUTONOMOUS_GO.** [Přepočet a další zkouška](../review/2026-09-28-HUNT-LOCAL-JUDGES-REVISION.md).
 
 **GPU hunt — skutečná dvojice CHAT posudků, 27. 9. 2026:** 80 dialogů / 320 kritérií u každého hodnotitele, 19 rozdílů nad 0,25. Nové exporty předávají oběma celou verzovanou rubriku. Produkční přejímka a rozhodovací cesta odmítají simulovanou evidenci; simulace zůstává dostupná jen v izolovaném spojení nad novou DB. **REVIEW_PENDING / NOT_DEPLOYED / REAL_NO_GO.** [Podklady a ověření](../review/2026-09-27-HUNT-REAL-SECOND-REVIEW.md).
 

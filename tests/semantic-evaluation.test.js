@@ -9,7 +9,7 @@ import { SemanticEvaluationJudge, parseSemanticJudgement, semanticTask, calibrat
 import { SEMANTIC_ROLE_SUITES } from '../src/eval/semantic-role-suites.js';
 import { ModelEvaluationRunner } from '../src/eval/model-evaluation-runner.js';
 import { RoleQualityEvaluationRunner } from '../src/eval/role-quality-suites.js';
-import { hash, judgeMessages, parseJudge, referenceErrors, assertNotSelf, checkPower } from '../scripts/manual/judge-panel-protocol.mjs';
+import { hash, judgeMessages, parseJudge, referenceErrors, assertNotSelf, assertJudgeFamily, EVIDENCE_FIRST, checkPower } from '../scripts/manual/judge-panel-protocol.mjs';
 import { assertResumableReceipt, finalizeJudgePanel } from '../scripts/manual/judge-panel-lifecycle.mjs';
 
 const artifact={modelName:'fixture:latest',digestSha256:'a'.repeat(64),providerVersion:'test-provider'};
@@ -273,5 +273,37 @@ test('the collector CLI rejects an orphan receipt before probing or leasing any 
       '--out='+directory,'--stage=screen','--expected-plan='+hash(plan)],{encoding:'utf8',timeout:5000,env:{...process.env,PATH:''}});
     assert.equal(run.status,1);assert.match(run.stderr,/JUDGE_RECEIPT_POSTCHECK_MISSING:orphan/);
   } finally {rmSync(directory,{recursive:true,force:true});}
+});
+test('evidence-first profile preserves task data and requires evidence before the numerical score',()=>{
+  const item={role:'CHAT',question:'Task',response:'Answer',rubric:['Check facts']};
+  const before=judgeMessages(item),after=judgeMessages(item,false,EVIDENCE_FIRST);
+  assert.equal(before[1].content,after[1].content);
+  assert.match(after[0].content,/evidence BEFORE score/);
+  const response=criteria=>({done:true,doneReason:'stop',content:JSON.stringify({criteria})});
+  assert.equal(parseJudge(response([{criterion:1,evidence:'Verified',score:1}]),1,EVIDENCE_FIRST).valid,true);
+  assert.equal(parseJudge(response([{criterion:1,score:1,evidence:'Verified'}]),1,EVIDENCE_FIRST).valid,false);
+  assert.throws(()=>judgeMessages(item,false,'unknown'),/UNKNOWN_JUDGE_PROFILE/);
+});
+test('family exclusions block related authors and absent provenance independently of exact digest',()=>{
+  assert.throws(()=>assertJudgeFamily({family:'qwen'},{answerFamily:'qwen'},'exclude-author-family'),/RELATED_AUTHOR/);
+  assert.throws(()=>assertJudgeFamily({family:'mistral'},{},'exclude-author-family'),/FAMILY_UNKNOWN/);
+  assert.doesNotThrow(()=>assertJudgeFamily({family:'mistral'},{answerFamily:'qwen'},'exclude-author-family'));
+});
+test('sensitivity audit retains missing low grades and separates author residual from raw grade',()=>{
+  const script=`import importlib.util
+s=importlib.util.spec_from_file_location('audit','scripts/manual/audit-judge-sensitivity.py')
+m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+base=dict(group='g',task='t',caseId='c',criterion=1,first=.25,second=.5,author='a',score=None,model='j1')
+x=m.summarize([base,dict(base,criterion=2,first=1,second=1,score=1)])
+assert x['lowTotal']==1 and x['lowCaught']==0 and x['lowInvalid']==1
+assert x['groupMAE']==0 and x['alwaysOneGroupMAEMatched']==0 and x['alwaysOneGroupMAEFull']>0
+rows=[dict(base,score=.5),dict(base,model='j2',score=1)]
+p=m.pair_summaries(rows)[0]
+assert p['caughtEither']==1 and p['onlyA']==1 and p['onlyB']==0
+boundary=[dict(base,first=.54,second=.29,score=.54)]
+assert m.summarize(boundary)['groupMAE'] is not None
+`;
+  const result=spawnSync('python3',['-c',script],{encoding:'utf8'});
+  assert.equal(result.status,0,result.stderr);
 });
 summary();

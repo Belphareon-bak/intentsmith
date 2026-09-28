@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { holdGpuEvaluationLock } from '../../src/upgrade/gpu-evaluation-lock.js';
 import { createStageProvider } from '../../src/eval/collection-stage-provider.js';
-import { hash, judgeMessages, parseJudge, assertNotSelf, checkPower, OPTIONS } from './judge-panel-protocol.mjs';
+import { hash, judgeMessages, parseJudge, assertNotSelf, assertJudgeFamily, checkPower, OPTIONS } from './judge-panel-protocol.mjs';
 import { assertResumableReceipt, finalizeJudgePanel } from './judge-panel-lifecycle.mjs';
 
 const opt=Object.fromEntries(process.argv.slice(2).map(x=>{const i=x.indexOf('=');return [x.slice(2,i),x.slice(i+1)];}));
@@ -27,6 +27,7 @@ if(opt.stage==='confirm') {
 }
 const jobs=[];
 for(const model of models)for(const item of inputs.filter(x=>x.stage===opt.stage))for(const reverse of item.reverse?[false,true]:[false]){
+  assertJudgeFamily(model,references[item.id],plan.familyPolicy);
   if(model.artifact.digestSha256===references[item.id].answerDigest)continue;
   jobs.push({model,item,reverse,key:hash([planSha256,model.artifact.digestSha256,item.id,reverse]).slice(0,32)});
 }
@@ -63,10 +64,10 @@ try {
     const beforePower=power(),task={options:OPTIONS};
     progress({model:model.name,role:item.role,task:item.task,order:reverse?'reverse':'forward',phase:'guard'});
     const before=await provider.guard({model,task,phase:'before'});
-    const messages=judgeMessages(item,reverse),startedAt=new Date().toISOString();
+    const messages=judgeMessages(item,reverse,plan.judgeProfile),startedAt=new Date().toISOString();
     progress({model:model.name,role:item.role,task:item.task,order:reverse?'reverse':'forward',phase:'inference'});
     const result=await provider.call(model.name,messages,{...OPTIONS,signal:cancel.signal},model.artifact);
-    const parsed=parseJudge(result,item.rubric.length);
+    const parsed=parseJudge(result,item.rubric.length,plan.judgeProfile);
     // Attested provider result and complete JSON are both necessary. Truncation is never a grade.
     if(result.promptEvalCount>=OPTIONS.num_ctx-OPTIONS.num_predict){parsed.valid=false;parsed.reason='CONTEXT_LIMIT_RISK';}
     const receipt={schemaVersion:1,simulation:false,decisionAuthority:false,planSha256,stage:opt.stage,caseId:item.id,

@@ -1,16 +1,14 @@
 # Místní hodnotitelé — skutečné porovnání deseti modelů
 
-**28. 9. 2026 · EXPERIMENT_COMPLETE / PAIR_RECOMMENDED_FOR_SUPERVISED_CHAT / ACCEPTANCE_NOT_GRANTED.**
+**28. 9. 2026 · EXPERIMENT_COMPLETE / RECOMMENDATION_WITHDRAWN_AFTER_REVIEW / ACCEPTANCE_NOT_GRANTED.**
 
 Autorita: přímé zadání operátora vyzkoušet místní hodnotitele, vybrat dva nejlepší a měřit při polovičním příkonu. Toto je nové **hodnocení uložených odpovědí**; není to další sběr odpovědí modelů pro role ani přepis původních známek.
 
-## Doporučení
+## Oprava doporučení po revizi
 
-Pro další hodnocení CHAT pod dohledem doporučuji **Devstral Small 2 + Qwen3.6 27B**. Na předem oddělené ověřovací části měly nejmenší odchylku od dvou externích posudků a jejich dvojice méně společných přehlédnutí než ostatní kombinace finalistů. Jde o odborný výběr podle tohoto experimentu, ne statisticky prokázané univerzální prvenství.
+**Původní doporučení Devstral Small 2 + Qwen3.6 27B stahuji.** Ověřovací MAE proti dvěma posudkům bylo spočítané správně, ale nestačilo pro výběr: baseline „všemu 1“ má 13,12 p. b.; Devstral zachytí jen 1/18 nízkých kritérií. V ověřovací části nepřidá dvojici nic k samotnému Qwen3.6. Stažené je také doporučení Gemmy pro předběžné třídění. [Úplný přepočet všech dvojic a odchylek podle autora](2026-09-28-HUNT-LOCAL-JUDGES-REVISION.md).
 
-**Plnou autonomii této dvojici nedoporučuji.** Devstral v kontrolní úloze přijal chybný výklad kódu. Qwen3.6 dvakrát zapsal nulu do pole skóre, přestože jeho vlastní vysvětlení skončilo závěrem „Score 1.0“. Společně přehlédly i skutečné věcné chyby v dlouhém rozhovoru. Žádný přijatý profil, změna přiřazení nebo oprávnění mazat modely tím nevzniká.
-
-**Gemma4 26B je rychlá alternativa pro předběžné třídění.** Ve všech 12 jednoduchých kontrolách uspěla stejně jako Qwen3.6, ale v celých rozhovorech měla vyšší odchylku a více společných přehlédnutí s druhým hodnotitelem. Phi4 zůstává kandidát k doladění protokolu; její nízký průměr v prvním kole sám nestačil, protože přehlížela stejné chyby jako Devstral.
+Tento dokument dál uchovává původní naměřená čísla a omezení. Historický neměnný balíček obsahuje původní návrh; jeho `recommendation.json` je nyní **překonaný**, nikoli přijatá autorita. Žádné původní známky se nezměnily.
 
 ## Výsledky ověřovací části
 
@@ -35,10 +33,12 @@ Použitelná dvojice zde znamená dva platné výstupy bez rozdílu jednotlivéh
 | Devstral + Phi4 | 1 | 4 |
 | Devstral + Gemma4 | 1 | 4 |
 | Phi4 + Gemma4 | 0 | 6 |
+| Gemma4 + Qwen3.6 | 3 | 3 |
+| Phi4 + Qwen3.6 | 3 | 3 |
 
 „Skrytá odchylka“ znamená, že se dvojice shodne do 0,25, ale oba jsou o více než 0,25 mimo rozsah obou externích známek. Ne každá taková odchylka je kritická věcná chyba; část se týká měřítka komunikace. Ani externí posudky nejsou přijatá lidská pravda.
 
-V úvodním kole daly Devstral a Phi4 společně vysoké skóre všem čtyřem kritériím, která obě reference hodnotily nejvýš 0,25. Devstral + Qwen3.6 společně přehlédly jedno z těchto čtyř. Qwenova dvě chybná nízká hodnocení výpočtu naopak s Devstralem vytvoří spor, který lze předat k revizi. To je důvod pro doplňující se dvojici místo dvojice s největší shodou.
+V úvodním kole daly Devstral a Phi4 společně vysoké skóre všem čtyřem kritériím, která obě reference hodnotily nejvýš 0,25. Devstral + Qwen3.6 společně přehlédly jedno z těchto čtyř. Qwenova dvě chybná nízká hodnocení výpočtu naopak s Devstralem vytvoří spor, který lze předat k revizi. Toto původně vedlo k návrhu dvojice, ale další přepočet jej vyvrací: na záchytu nízkých kritérií Devstral k Qwen3.6 nic nepřidal.
 
 ## Celý úvodní panel
 
@@ -83,7 +83,7 @@ Autorské kontroly mají čtyři skupiny: vážený průměr, pořadí `filter/m
 
 D/R jsou **jediný historický případ `model_cleanup`** se čtyřmi různými rolemi. Nedokládají schopnost hodnotit celé sady D1/D2/R1/R2. CHAT pochází pouze z opraveného sběru 27. 9.; zdrojové poskytovatele CHAT a D/R neslučuji do jedné role. CODE orákula ani obrazové hodnocení VISION tento pokus nenahrazuje.
 
-Ověřovací skupiny byly oddělené před inferencí. Reference jsou dva skutečné externí LLM posudky s přiznanou expozicí, nikoli přijatá lidská kotva. Zde se nepřijímá místní hodnotitel pro jiný prompt, profil nebo roli. **Doporučení dvojice je hotové; produkční přejímka zůstává otevřená.**
+Ověřovací skupiny byly oddělené před inferencí. Reference jsou dva skutečné externí LLM posudky s přiznanou expozicí, nikoli přijatá lidská kotva. Zde se nepřijímá místní hodnotitel pro jiný prompt, profil nebo roli. **Doporučení dvojice je po revizi stažené; produkční přejímka zůstává otevřená.**
 
 ## Provozní opravy a reprodukce
 
