@@ -35,6 +35,8 @@ nezakládá attestaci veřejného releasu IntentSmith 1.0 ani přijetí M5/M6.
   `tests/{studio2-view.test,studio-electron-boundary.e2e}.js`, helper
   `studio2-ui-mode.js` a skutečný AppImage ověří první i opakovaný start
   s uloženým nativním rámem, bez překrývajícího dialogu Restart.
+  `tests/studio-electron-runner-contract.test.js` vyžaduje oba nové důkazy
+  v pozitivní fixture a ověřuje odmítnutí každého nepravdivého příznaku.
 
 ## Ověření a nasazení
 

@@ -880,6 +880,7 @@ test('composer PASS evidence requires actual rejection, exact input, context che
   assert.throws(() => successEvidence({ ...args, m2ComposerJourney: true, m1Journey: true }), /composer-evidence-contract-failed/);
   const uiModes = {
     studio2InitiallyAttached: true, studio2ExclusivelyAttached: true,
+    customFrameOnNativeProfile: true, noHostDialogOnStartOrReload: true,
     oneReusedTransportInStudio2: true, legacyFlagsCannotRestoreClassic: true,
     fiveSessionsWithoutTopTabs: true, visibleSessionSwap: true,
     sixthSessionKeepsLimit: true, headerEndsSession: true,
