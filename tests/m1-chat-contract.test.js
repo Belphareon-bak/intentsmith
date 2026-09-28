@@ -277,16 +277,16 @@ test('ANSWER model generation receives the request cancellation signal', () => {
 test('ANSWER token budgets bound short chat without constraining richer intents below authority', () => {
   assert.equal(selectAnswerTokenBudget('OK', 'CONVERSATIONAL'), 64);
   assert.equal(selectAnswerTokenBudget('Jak se máš?', 'CONVERSATIONAL'), 128);
-  assert.equal(selectAnswerTokenBudget('Co si myslíš o Pythonu?', 'CONVERSATIONAL'), 1200);
+  assert.equal(selectAnswerTokenBudget('Co si myslíš o Pythonu?', 'CONVERSATIONAL'), 768);
   for (const topic of ['Python', '?', 'DNS', 'Co je AI?']) {
-    assert.equal(selectAnswerTokenBudget(topic, 'CONVERSATIONAL'), 1200);
+    assert.equal(selectAnswerTokenBudget(topic, 'CONVERSATIONAL'), 768);
     assert.doesNotMatch(buildStandardConversationInstruction(topic, 'en', 'CONVERSATIONAL'), /45 words|2–3 sentences/u);
     assert.equal(buildBriefReplyInstruction(topic, 'en'), '');
   }
   assert.equal(selectAnswerTokenBudget('Thanks', 'CONVERSATIONAL'), 64);
   assert.equal(selectAnswerTokenBudget('How are you?', 'CONVERSATIONAL'), 128);
-  assert.equal(selectAnswerTokenBudget('x'.repeat(10), 'CONVERSATIONAL'), 1200);
-  assert.equal(selectAnswerTokenBudget('x'.repeat(160), 'CONVERSATIONAL'), 1200);
+  assert.equal(selectAnswerTokenBudget('x'.repeat(10), 'CONVERSATIONAL'), 768);
+  assert.equal(selectAnswerTokenBudget('x'.repeat(160), 'CONVERSATIONAL'), 768);
   assert.equal(selectAnswerTokenBudget('x'.repeat(161), 'CONVERSATIONAL'), 2048);
   assert.equal(selectAnswerTokenBudget('Napiš haiku o kávě', 'CREATIVE'), 256);
   assert.equal(selectAnswerTokenBudget('Pomoz mi napsat email', 'CREATIVE'), 768);
@@ -396,7 +396,7 @@ await testAsync('truncated conversational output retries without raising authori
       const result = await handleAnswerDecision('co je docker?', decision,
         { sessionId: 'completion-regression', sessionState: new SessionState('completion-regression'), history: [], signal: abort.signal });
       assert.equal(calls.length, recover ? 2 : 3);
-      assert(calls.every(call => call.options._authToken.maxTokens === 1200 && call.options.signal === abort.signal));
+      assert(calls.every(call => call.options._authToken.maxTokens === 768 && call.options.signal === abort.signal));
       assert.match(calls[1].prompt, /technický limit/);
       assert.equal(result.tag.metadata.answerRetries, recover ? 1 : 2);
       if (recover) { assert.equal(result.content, complete); assert.equal(result.tag.metadata.finishReason, 'stop'); }

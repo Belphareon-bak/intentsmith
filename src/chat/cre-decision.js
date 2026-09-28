@@ -38,6 +38,7 @@ import { throwIfAborted } from '../core/abort-error.js';
 import { isChatTurnError, LLMProviderUnavailableError, ModelResponseTruncatedError } from '../core/chat-turn-error.js';
 import { buildProjectHint } from './handlers/utils/project-context-prompt.js';
 import { assessIntentClarity, assessGpuIntent, literalFileTargets, latestAssistantContent, literalWriteContent, resolveContextFileTarget, issueIntentEvidence, getIntentEvidence } from './intent-clarity.js';
+export { getIntentEvidence };
 
 // v73: Lazy import to avoid circular dependency (followup.js → intent.js → cre-decision.js)
 let _detectFollowUpType = null;

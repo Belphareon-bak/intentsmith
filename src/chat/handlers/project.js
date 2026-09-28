@@ -15,6 +15,7 @@ import {
   detectProjectFileIntent as detectFileIntent,
   isExplicitFileReadIntent,
   isExplicitFileWriteIntent,
+  getIntentEvidence,
 } from '../cre-decision.js';
 import { logger } from '../../core/logger.js';
 import {
@@ -30,7 +31,6 @@ import { handleDesignDecision } from './design.js';
 import { config } from '../../config.js';
 import { preHandle } from './pre-handler.js';
 import { handleProjectCollaboration } from './project-collaboration.js';
-import { getIntentEvidence } from '../intent-clarity.js';
 
 // ─── Post-CRE modules (lazy-loaded, null if feature disabled) ──────────────
 // Only handleBuildDetected is needed for the PLAN case — shared intercepts
