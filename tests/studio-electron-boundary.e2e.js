@@ -1900,7 +1900,7 @@ function sanitizedExit(value) {
 }
 
 const M2_COMPOSER_EXPECTED = Object.freeze({
-  "scope": "built-dom-production-authenticated-policy-rejection",
+  "scope": "built-dom-production-authenticated-provider-rejection",
   "status": 503,
   "errorCode": "LLM_PROVIDER_UNAVAILABLE",
   "fixtureRegistrationRequests": 3,

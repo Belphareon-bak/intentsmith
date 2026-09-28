@@ -7,7 +7,7 @@ projektové expertýzy, obecný ověřovaný M3 průvodce, M2 souborový plán v
 revize/zrušení a úplného výsledku po restartu, Tab doplnění, migrace editoru
 a balík s konzistentní kopií původních dat. Přesný graph má 1 433 hran,
 3 cykly / 28 členů; nové dvě hrany pouze skládají existující expertýzový prompt.
-**IMPLEMENTATION_COMPLETE / VERIFICATION_RUNNING / REVIEW_PENDING**.
+**IMPLEMENTATION_COMPLETE / REVIEW_PENDING**; závěrečné měření je v manifestu balíku.
 [Rozsah a závěrečné důkazy](docs/review/2026-09-28-STUDIO2-PARITY-DELIVERY.md).
 
 **Studio: průběh práce a prostředí, 2026-09-23:** konkrétní tahy, nástroje,

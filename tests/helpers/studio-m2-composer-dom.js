@@ -141,7 +141,7 @@ export async function rendererBuildComposerProbe({ cdp, paths, requests, evaluat
   if (JSON.stringify(actual) !== JSON.stringify(expected)) fail('composer-request-payload-changed');
   if (fs.existsSync(path.join(projectPath, '.intentsmith/m2-governance-policy.json'))
     || draft.files.some(file => fs.existsSync(path.join(projectPath, file.path)))) fail('composer-rejection-mutated-project');
-  return Object.freeze({ scope: 'built-dom-production-authenticated-policy-rejection',
+  return Object.freeze({ scope: 'built-dom-production-authenticated-provider-rejection',
     status: 503, errorCode: 'LLM_PROVIDER_UNAVAILABLE', fixtureRegistrationRequests: 3, draftRequests: 1, approvalRequests: 0,
     unexpectedMutationRequests: 0, originExact: true, literalArgvExact: true,
     contextInvalidated: result.contextInvalidated, discarded: result.discarded,

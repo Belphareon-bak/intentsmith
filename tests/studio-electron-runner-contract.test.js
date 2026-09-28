@@ -834,7 +834,7 @@ test('separate visual DOM journey requires explicit opt-in and keeps default M0/
 
 test('composer PASS evidence requires actual rejection, exact input, context checks and zero model or approval effects', () => {
   const valid = {
-    "scope": "built-dom-production-authenticated-policy-rejection",
+    "scope": "built-dom-production-authenticated-provider-rejection",
     "status": 503,
     "errorCode": "LLM_PROVIDER_UNAVAILABLE",
     "fixtureRegistrationRequests": 3,

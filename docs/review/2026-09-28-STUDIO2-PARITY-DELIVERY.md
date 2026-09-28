@@ -2,8 +2,9 @@
 
 Zdroj: větev `work/studio2-sessions-visual-20260928`; přesný commit,
 kontrolní součty a výsledky běhů jsou v `TEST-RESULTS.json` předaného balíku.
-Základ: `8c3fb85b`. Stav před závěrečnými běhy: **IMPLEMENTATION_COMPLETE,
-VERIFICATION_RUNNING**. Tento text není release Gate 0 pečeť ani nezávislé review.
+Základ: `8c3fb85b`. Implementace: **IMPLEMENTATION_COMPLETE**. Výsledek
+závěrečného měření je svázaný s přesným commitem v test manifestu balíku.
+Nezávislé přijetí: **REVIEW_PENDING**; release Gate 0 pečeť se neměnila.
 
 ## Implementace
 
@@ -44,6 +45,18 @@ Electron proces. Ověřují skutečné DOM události, restart, migrovaný profil
 M1, M2, exkluzivní UI a obsah AppImage. Produkční databáze, cizí procesy
 ani běžící GPU hunt se při ověřování nemění.
 
+## Spuštění
+
+Balík obsahuje AppImage, backend, Node 24 a oddělené PDF/OCR prostředí.
+`run-with-data.sh` při prvním spuštění provede konzistentní SQLite backup
+původní databáze, včetně WAL. Existující cílovou databázi nikdy nepřepíše.
+Původní DB se nemigruje; nová práce se ukládá do profilu Studia 2.
+Původní cesty projektů jsou skutečné, schválené operace se provedou v nich.
+`run-trial.sh` umí prázdný vlastní profil; `run-live-preview.sh` připojí UI
+k původnímu backendu. Starší backend tím nové funkce nedostane.
+PDF/OCR používají přibalené Python balíčky; hostitel musí mít CPython 3.12
+a systémové PDF utility, jako ověřovaná stanice. Žádná instalace se sudo.
+
 ## Hranice předání
 
 Čtvrtý typ balíčku toolchain a nové schopnosti shellu jsou mimo tento WP.
@@ -51,7 +64,10 @@ Import konverzace a export projektu jsou navíc v prototypu, bez existujícího
 UI konektoru; zůstávají vypnuté. Legacy mutace workerů se neobnovují.
 Modelová inference a skutečné GPU instalace mají dosavadní serverovou
 politiku; integrační testy místo nich používají řízené fixture odpovědi.
-Nové GPU měření se nespouští souběžně s cizím huntem.
+Závěrečné GPU operace jsou řízené fixture bez fyzické inference. Jeden dřívější
+běh legacy `attachments-projects` přes `run-suites` použil výchozí lokální Ollamu
+a skončil timeoutem; není vykázaný jako PASS. Samostatný opakovaný běh má
+vlastní HTTP fixture a vlastní backend; přesný rozsah je v test manifestu.
 
 Gate 0 pečeť původní linie neodpovídá vývojovým změnám. Její inherited FAIL
 se nepřepisuje na PASS. Přesné baseline/regrese a případné environment
