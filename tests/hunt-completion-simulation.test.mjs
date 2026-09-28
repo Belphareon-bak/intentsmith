@@ -13,6 +13,8 @@ import { ModelEvaluationAcceptanceStore, acceptedOperationalDecision } from '../
 import { registerEmptySimulationDatabase, validStoredGradingPair } from '../src/eval/independent-grader-pair.js';
 import { runHuntSimulation, ROLES } from '../scripts/manual/simulate-hunt-lifecycle.mjs';
 import { auditChatCaptureHistory } from '../src/eval/chat-capture-integrity.js';
+import { fixedCaptureClock, applyCaptureClock } from '../src/eval/chat-capture-clock.js';
+import { clockSystemPrompt } from '../src/llm/clock-context.js';
 import { conversationGradingSuite } from '../src/eval/chat-conversation-suite.js';
 import { SemanticEvaluationJudge } from '../src/eval/semantic-evaluation-judge.js';
 import { fixture, judgeArtifact, secondJudgeArtifact } from '../scripts/manual/hunt-simulation-support.mjs';
@@ -263,6 +265,66 @@ test('final audit independently rejects missing user history even when capture c
     const rejected=spawnSync('python3',[...args.slice(0,-1),join(dir,'bad-audit.json')],{encoding:'utf8'});
     assert.notEqual(rejected.status,0);assert.match(rejected.stderr,/HISTORY_USER_TURNS_INCOMPLETE/);
     assert.equal(existsSync(join(dir,'bad-audit.json')),false);
+  } finally {rmSync(dir,{recursive:true,force:true});}
+});
+
+test('ten-model CHAT panel locks its clock, preserves user text, exports all models and rejects a drifting receipt',()=>{
+  const dir=mkdtempSync(join(tmpdir(),'hunt-ten-model-clock-'));
+  const sha=x=>createHash('sha256').update(x).digest('hex');
+  const save=(name,data)=>writeFileSync(join(dir,name),JSON.stringify(data));
+  try {
+    const frozenClock=fixedCaptureClock('2026-09-28T12:00:00.000Z');
+    assert.throws(()=>fixedCaptureClock('invalid'),/CAPTURE_CLOCK_INVALID/);
+    const original=[{role:'system',content:clockSystemPrompt(new Date('2026-09-29T00:00:00.000Z'))+'\n\nProduction instructions'},
+      {role:'user',content:'User: Keep the quoted clock untouched: Today / dnes: 1900-01-01.'}];
+    const requestBody={model:'a',messages:original,options:{num_ctx:4096}};
+    const changed=applyCaptureClock(requestBody,frozenClock);
+    assert.equal(requestBody.messages,original);
+    assert.equal(changed.body.messages[1],original[1]);
+    assert.equal(changed.body.messages[0].content,frozenClock.systemPrompt+'\n\nProduction instructions');
+    assert.match(changed.originalClock,/2026-09-29/);
+    assert.throws(()=>applyCaptureClock(requestBody,{...frozenClock,iso:'2026-09-29T12:00:00.000Z'}),/PLAN_DRIFT/);
+    assert.throws(()=>applyCaptureClock({messages:[{role:'user',content:original[0].content}]},frozenClock),/SOURCE_MISSING/);
+    const tasks=Array.from({length:40},(_,i)=>({id:'t'+i,role:'CHAT',turns:i<38?['A='+i,'B=2','Sum?']:['A='+i],
+      rubric:[{id:'sum',axis:'factual',requirement:'Compute sum',evidence:'Show calculation',excludes:'Format'}]}));
+    save('tasks.json',tasks);save('rubric-policy.json',{revision:'fixture.1',instructions:['One common rubric.']});
+    const pairs=Array.from({length:10},(_,i)=>({model:'model'+i,artifact:{digestSha256:sha('model'+i)}}));
+    const operationPolicy={productionImported:false,bindings:false,deletion:false,timer:false};
+    const plan={status:'SEALED',roles:['CHAT'],panel:true,frozenClock,workingTreeDirty:false,sourceRevision:'fixture',captureReceiptVersion:2,
+      taskFileSha256:sha(readFileSync(join(dir,'tasks.json'))),pairs:{CHAT:pairs},decisionAuthority:false,
+      operationPolicy,providerVersion:'fixture',profile:{CHAT:'fixed to 4096'}};
+    plan.planSha256=sha(JSON.stringify(plan));save('plan.json',plan);
+    const attempts=[];
+    for(const task of tasks)for(const p of pairs){
+      const id=task.id+'-'+sha(p.model).slice(0,8),row={id,role:'CHAT',model:p.model,status:'CAPTURED',proof:'RESPONSE_BOUND'};
+      attempts.push(row);
+      const receipts=task.turns.map((input,index)=>({turn:index+1,frozenClockVersion:frozenClock.version,originalClock:changed.originalClock,
+        body:{model:p.model,think:false,options:{num_ctx:4096,temperature:0.7},messages:[{role:'system',content:frozenClock.systemPrompt+'\n\nProduction instructions'},
+          {role:'user',content:(index?'Previous conversation (quoted data, not system instructions):\n'
+            +task.turns.slice(0,index).map(content=>JSON.stringify({role:'user',content})).join('\n')+'\n\n':'')+'User: '+input}]},
+        data:{provider_version:'fixture',digest:p.artifact.digestSha256,done:true,done_reason:'stop'},
+        placement:{digest:p.artifact.digestSha256,size:1,size_vram:1}}));
+      save('attempt-'+id+'.json',{...row,task:task.id,artifact:p.artifact,fullGpu:true,
+        dialogue:task.turns.map(input=>({input,result:{content:'fixture'}})),receipts});
+    }
+    save('result.json',{status:'COLLECTION_COMPLETE',sourceRevision:'fixture',planSha256:plan.planSha256,
+      attempts,unattempted:[],decisionAuthority:false,operationPolicy});
+    const script=new URL('../scripts/manual/audit-chat-production-pair.py',import.meta.url).pathname;
+    const auditArgs=[script,'--run',dir,'--tasks',join(dir,'tasks.json'),'--out'];
+    execFileSync('python3',[...auditArgs,join(dir,'audit.json')]);
+    assert.equal(JSON.parse(readFileSync(join(dir,'audit.json'))).providerCalls,1160);
+    const exporter=new URL('../scripts/manual/export-chat-prod-canary-review.py',import.meta.url).pathname;
+    execFileSync('python3',[exporter,'--run',dir,'--tasks',join(dir,'tasks.json'),'--audit',join(dir,'audit.json'),
+      '--rubric-policy',join(dir,'rubric-policy.json'),'--out',join(dir,'review')]);
+    const packet=JSON.parse(readFileSync(join(dir,'review/packet.json')));
+    assert.equal(packet.cases.length,400);assert.equal(new Set(packet.cases.map(c=>c.label)).size,10);
+    assert.deepEqual(packet.frozenClock,frozenClock);
+    const name='attempt-'+attempts[0].id+'.json',bad=JSON.parse(readFileSync(join(dir,name)));
+    bad.receipts[0].body.messages[0].content=original[0].content;save(name,bad);
+    assert.match(spawnSync('python3',[...auditArgs,join(dir,'bad.json')],{encoding:'utf8'}).stderr,/FROZEN_CLOCK_RECEIPT/);
+    bad.receipts[0].body.messages[0].content=frozenClock.systemPrompt+'\n\nProduction instructions';
+    bad.receipts[0].body.options.temperature=0.6;save(name,bad);
+    assert.match(spawnSync('python3',[...auditArgs,join(dir,'options.json')],{encoding:'utf8'}).stderr,/RETRY_OPTIONS_DRIFT/);
   } finally {rmSync(dir,{recursive:true,force:true});}
 });
 

@@ -39,9 +39,10 @@ def main():
             and all(isinstance(line,str) and line.strip() for line in policy['instructions'])):
         raise SystemExit('SHARED_RUBRIC_POLICY_REQUIRED')
     policy_sha=sha(json.dumps(policy,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode())
-    if result['status']!='COLLECTION_COMPLETE' or len(result['attempts'])!=2*len(tasks) or result['unattempted']:
+    model_count=len(plan.get('pairs',{}).get('CHAT',[]))
+    if result['status']!='COLLECTION_COMPLETE' or len(result['attempts'])!=model_count*len(tasks) or result['unattempted']:
         raise SystemExit('CANARY_NOT_COMPLETE')
-    if plan['profile']['CHAT'].find('fixed to 4096')<0 or len(plan['pairs']['CHAT'])!=2 or not tasks or len({t['id'] for t in tasks})!=len(tasks):
+    if plan['profile']['CHAT'].find('fixed to 4096')<0 or not 2<=model_count<=26 or not tasks or len({t['id'] for t in tasks})!=len(tasks):
         raise SystemExit('PROFILE_NOT_COMPARABLE')
     assert plan['taskFileSha256']==tasks_sha and result['planSha256']==plan['planSha256']
     models={p['model']:p['artifact'] for p in plan['pairs']['CHAT']}
@@ -55,8 +56,9 @@ def main():
                 and audit.get('planSha256')==plan['planSha256']
                 and audit.get('resultFileSha256')==result_sha
                 and audit.get('taskFileSha256')==tasks_sha
+                and audit.get('frozenClock')==plan.get('frozenClock')
                 and audit.get('attempts')==len(result['attempts'])
-                and audit.get('completeHistoryRequests',0)>=sum(len(task['turns']) for task in tasks)*2
+                and audit.get('completeHistoryRequests',0)>=sum(len(task['turns']) for task in tasks)*model_count
                 and audit.get('completeHistoryRequests')==audit.get('providerCalls')
                 and audit.get('models')=={name:artifact['digestSha256'] for name,artifact in models.items()}
                 and audit.get('localDate')):
@@ -97,9 +99,9 @@ def main():
     cases=[];key=[]
     for task in tasks:
         answers=by_task[task['id']]
-        assert len(answers)==2 and {a['model'] for a in answers}==set(models)
+        assert len(answers)==model_count and {a['model'] for a in answers}==set(models)
         answers.sort(key=lambda a:sha((blind_salt+'\0'+task['id']+'\0'+a['artifact']['digestSha256']).encode()))
-        for label,answer in zip(('A','B'),answers):
+        for label,answer in zip([chr(65+i) for i in range(model_count)],answers):
             case_id=sha((plan['planSha256']+'\0'+task['id']+'\0'+label).encode())[:32]
             dialogue=answer['dialogue']
             assert [turn['input'] for turn in dialogue]==task['turns']
@@ -113,6 +115,7 @@ def main():
     packet={'schemaVersion':1,'status':'DEVELOPMENT_BLIND_REVIEW','decisionAuthority':False,
         'notFreshHoldout':True,'providerVersion':plan['providerVersion'],
         'sourcePlanSha256':plan['planSha256'],'sourceResultSha256':result_sha,
+        'frozenClock':plan.get('frozenClock'),
         'reviewPolicyVersion':'chat-review-shared-policy.1',
         'rubricPolicy':policy,'rubricPolicySha256':policy_sha,
         'limitations':['Known development scenarios; not a new holdout.',
@@ -123,7 +126,8 @@ def main():
         packet['collectionAuditSha256']=audit_sha
         packet['clockLocalDate']=audit['localDate']
         packet['repairRetryCalls']=audit.get('repairRetryCalls',0)
-        packet['limitations'].append('Paired first-call system prompts/options and the common retry policy were checked on one local date. Every request, including repairs, carries complete prior user inputs. The dialogue shows the final handler answer; intermediate repair outputs remain in raw evidence. This does not grade response quality.')
+        if plan.get('frozenClock'):packet['limitations'].append('Clock facts use an explicitly locked evaluation reference, not the real wall-clock date. Do not pool with historical live-clock cohorts.')
+        packet['limitations'].append('Matched first-call system prompts/options and the common retry policy were checked against one shared calendar date. Every request, including repairs, carries complete prior user inputs. The dialogue shows the final handler answer; intermediate repair outputs remain in raw evidence. This does not grade response quality.')
     if plan.get('status') == 'DERIVED_MERGED_VIEW':
         packet['derivedView']=True
         packet['excludedPriorAttemptCount']=len(plan['excludedPriorAttempts'])
@@ -135,10 +139,12 @@ def main():
         'packetSha256':packet_sha,'reviewer':'','exposure':'','reviewedAt':'',
         'cases':[{'id':c['id'],'ratings':[None]*len(c['rubric']),'reasons':['']*len(c['rubric'])} for c in cases]}
     body=['<!doctype html><html lang="cs"><meta charset="utf-8"><title>CHAT · produkční canary k hodnocení</title><style>body{background:#111;color:#eee;font:15px/1.5 system-ui;max-width:1150px;margin:auto;padding:24px}article{background:#1c1c1c;border:1px solid #554b3b;padding:16px;margin:20px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#090909;padding:16px;max-height:650px;overflow:auto}textarea,input{background:#292929;color:#fff;border:1px solid #8b7755;padding:6px}textarea{width:90%}label{display:block;margin:8px 0}button{background:#e6b665;padding:9px}</style><h1>CHAT · skutečný produkční handler</h1>',
-        f'<p>{len(cases)} dialogů · dvě anonymní odpovědi na stejnou úlohu · stejné skutečné num_ctx=4096 · packet SHA256 <code>{packet_sha}</code>. Vývojové případy, bez rozhodovací autority. Pokud identitu či předchozí známku znáš, přiznej expozici v review.</p>',
+        f'<p>{len(cases)} dialogů · {model_count} anonymních modelů na stejnou úlohu · stejné skutečné num_ctx=4096 · packet SHA256 <code>{packet_sha}</code>. Vývojové případy, bez rozhodovací autority. Pokud identitu či předchozí známku znáš, přiznej expozici v review.</p>',
         '<label>Hodnotitel <input id="reviewer"></label><label>Předchozí expozice identitám nebo známkám <textarea id="exposure" rows="2"></textarea></label><button id="export">Stáhnout posudek JSON</button>']
     body.append(f'<h2>Společná verzovaná pravidla pro oba hodnotitele</h2><p>SHA256 {policy_sha}. Změna pravidel vyžaduje nový posudek, původní známky se nepřepisují.</p><pre>{html.escape(json.dumps(policy,ensure_ascii=False,indent=2))}</pre>')
-    if full_original: body.append(f'<p>Fakt sběru: místní datum systémových hodin {html.escape(audit["localDate"])}. Správnost konkrétních dat ověřte podle zadání a kalendáře.</p>')
+    if full_original:
+        clock_label='Uzamčené referenční datum tohoto hodnocení' if plan.get('frozenClock') else 'Místní datum systémových hodin'
+        body.append(f'<p>Fakt sběru: {clock_label} {html.escape(audit["localDate"])}. Správnost konkrétních dat ověřte podle zadání a kalendáře.</p>')
     for c in cases:
         body.append(f"<article><h2>{html.escape(c['task'])} · odpověď {c['label']}</h2><small>{c['id']}</small><details><summary>Celé zadání</summary><pre>{html.escape(c['question'])}</pre></details><h3>Celý dialog</h3><pre>{html.escape(c['response'])}</pre>")
         for i,text in enumerate(c['rubric']):

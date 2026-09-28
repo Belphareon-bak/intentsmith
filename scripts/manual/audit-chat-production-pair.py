@@ -10,6 +10,8 @@ import collections
 import hashlib
 import json
 import re
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 
@@ -72,8 +74,16 @@ def main():
             and len({task['id'] for task in tasks}) == 40
             and all(task.get('role') == 'CHAT' and len(task.get('turns', [])) in (1, 3) for task in tasks), 'TASK_SET')
     pairs = plan.get('pairs', {}).get('CHAT', [])
-    require(len(pairs) == 2 and len({pair['model'] for pair in pairs}) == 2
-            and len(result.get('attempts', [])) == 2 * len(tasks), 'PAIR_COVERAGE')
+    model_count = len(pairs)
+    require(2 <= model_count <= 26 and len({pair['model'] for pair in pairs}) == model_count
+            and (model_count == 2 or plan.get('panel') is True)
+            and len(result.get('attempts', [])) == model_count * len(tasks), 'PAIR_COVERAGE')
+    frozen = plan.get('frozenClock')
+    if frozen:
+        instant = datetime.fromisoformat(frozen['iso'].replace('Z', '+00:00')).astimezone(ZoneInfo(frozen['timeZone']))
+        expected_day = instant.strftime('%Y-%m-%d (%A)')
+        require(frozen.get('version') == 'fixed-capture-clock.1' and frozen.get('productionRealtime') is False
+                and ('Today / dnes: ' + expected_day + '.') in frozen.get('systemPrompt', ''), 'FROZEN_CLOCK_PLAN')
     require(plan.get('decisionAuthority') is False and result.get('decisionAuthority') is False
             and all(plan.get('operationPolicy', {}).get(key) is False
                     and result.get('operationPolicy', {}).get(key) is False
@@ -175,6 +185,10 @@ def main():
                         and {k: v for k, v in profile.items() if k != 'temperature'}
                         == {k: v for k, v in base_profile.items() if k != 'temperature'}, 'RETRY_OPTIONS_DRIFT')
             system = messages[0]['content']
+            if frozen:
+                require(system.startswith(frozen['systemPrompt'] + '\n\n')
+                        and receipt.get('frozenClockVersion') == frozen['version']
+                        and receipt.get('originalClock', '').startswith('[Current clock — supplied by IntentSmith for this request]\n'), 'FROZEN_CLOCK_RECEIPT')
             match = re.search(r'(?m)^Today / dnes: (\d{4}-\d{2}-\d{2}) \([A-Za-z]+\)\.$', system)
             require(match is not None, 'CLOCK_CONTEXT_MISSING')
             local_dates.add(match.group(1))
@@ -189,14 +203,15 @@ def main():
     require(set(observed) == set(task_by_id)
             and all(set(rows) == set(models) for rows in observed.values()), 'MODEL_TASK_MATRIX')
     require(len(local_dates) == 1, 'CLOCK_CONTEXT_CHANGED_DAY')
-    require(all(len(items) == 2 and items[0] == items[1] for items in system_prompts.values()), 'SYSTEM_PROMPT_DIFFERENCE')
-    require(all(len(items) == 2 and items[0] == items[1] for items in options.values()), 'REQUEST_OPTIONS_DIFFERENCE')
+    require(all(len(items) == model_count and all(item == items[0] for item in items) for items in system_prompts.values()), 'SYSTEM_PROMPT_DIFFERENCE')
+    require(all(len(items) == model_count and all(item == items[0] for item in items) for items in options.values()), 'REQUEST_OPTIONS_DIFFERENCE')
     report = {
         'schemaVersion': 1, 'status': 'COLLECTION_AUDIT_PASS', 'decisionAuthority': False,
         'notAHoldout': True, 'sourceRevision': plan['sourceRevision'],
         'planSha256': plan['planSha256'], 'planFileSha256': plan_file_sha,
         'resultFileSha256': result_file_sha, 'taskFileSha256': tasks_sha,
-        'providerVersion': plan['providerVersion'], 'models': models,
+        'providerVersion': plan['providerVersion'], 'models': models, 'frozenClock': frozen,
+        'clockMeaning': 'LOCKED_EVALUATION_REFERENCE' if frozen else 'LIVE_REQUEST_CLOCK',
         'tasks': len(tasks), 'attempts': len(attempts), 'providerCalls': provider_calls,
         'baseProviderCalls': provider_calls - retry_calls, 'repairRetryCalls': retry_calls,
         'receiptTurnMapping': 'EXPLICIT' if plan.get('captureReceiptVersion') == 2 else 'LEGACY_ONE_CALL_PER_TURN',

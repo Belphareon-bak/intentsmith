@@ -2,21 +2,27 @@
 // Production CHAT handler and VISION bridge in a disposable process, no product DB or role application.
 import fs from 'node:fs';import path from 'node:path';import {fileURLToPath} from 'node:url';import{execFileSync}from'node:child_process';import{createHash}from'node:crypto';
 import {auditChatCaptureHistory} from '../../src/eval/chat-capture-integrity.js';
+import {fixedCaptureClock,applyCaptureClock} from '../../src/eval/chat-capture-clock.js';
 const root=fileURLToPath(new URL('../../',import.meta.url)),args=process.argv.slice(2),opt=n=>args.find(x=>x.startsWith('--'+n+'='))?.slice(n.length+3),hash=x=>createHash('sha256').update(typeof x==='string'||Buffer.isBuffer(x)?x:JSON.stringify(x)).digest('hex');
-if(!args.length){console.log('--prepare|--run --out=/absolute/path --tasks=/absolute/tasks.json --benchmark=/absolute/model-role-results.json [--budget-minutes=30] [--only-model=name --continue-from=/absolute/previous-run] [--report=/absolute/file]');process.exit(0);}
-if(args.some(x=>!/^--(?:prepare|run)$|^--(?:out|tasks|benchmark|report|roles|budget-minutes|only-model|continue-from)=.+$/.test(x))||args.includes('--prepare')===args.includes('--run'))throw Error('INVALID_ARGUMENTS');
+if(!args.length){console.log('--prepare|--run --out=/absolute/path --tasks=/absolute/tasks.json --benchmark=/absolute/model-role-results.json [--budget-minutes=30] [--only-model=name --continue-from=/absolute/previous-run] [--all-models --clock-iso=2026-09-28T12:00:00.000Z --unload-every=4] [--report=/absolute/file]');process.exit(0);}
+if(args.some(x=>!/^--(?:prepare|run|all-models)$|^--(?:out|tasks|benchmark|report|roles|budget-minutes|only-model|continue-from|clock-iso|unload-every)=.+$/.test(x))||args.includes('--prepare')===args.includes('--run'))throw Error('INVALID_ARGUMENTS');
 const roles=(opt('roles')||'CHAT,VISION').split(',');if(!roles.length||new Set(roles).size!==roles.length||roles.some(r=>!['CHAT','VISION'].includes(r)))throw Error('INVALID_ROLES');
 const budgetMinutes=Number(opt('budget-minutes')||'30');if(!Number.isInteger(budgetMinutes)||budgetMinutes<1||budgetMinutes>720)throw Error('BUDGET_INVALID');
 const providerVersion='0.34.2-intentsmith.2';
+const allModels=args.includes('--all-models'),unloadEvery=Number(opt('unload-every')||'4');
+if(!Number.isInteger(unloadEvery)||unloadEvery<1||unloadEvery>40)throw Error('UNLOAD_BATCH_INVALID');
+const frozenClock=opt('clock-iso')?fixedCaptureClock(opt('clock-iso')):null;
+if(allModels&&!frozenClock)throw Error('PANEL_REQUIRES_COMMON_CLOCK');
 const out=opt('out');if(!path.isAbsolute(out||''))throw Error('ABSOLUTE_OUT_REQUIRED');
 const onlyModel=opt('only-model'),continueFrom=opt('continue-from');
 if(!!onlyModel!==!!continueFrom || (continueFrom && (!path.isAbsolute(continueFrom)||roles.length!==1||roles[0]!=='CHAT')))throw Error('CONTINUATION_ARGUMENTS_INVALID');
 const save=(n,x)=>{const p=path.join(out,n);fs.writeFileSync(p+'.tmp',JSON.stringify(x,null,2)+'\n',{mode:0o600});fs.renameSync(p+'.tmp',p);},git=(...a)=>execFileSync('git',['-C',root,...a],{encoding:'utf8'}).trim();
-const sourceFiles=['src/chat/handlers/decisions.js','src/eval/chat-capture-integrity.js','src/llm/model-ctx.js','src/llm/model-runtime-profile.js','src/llm/cre-bridge.js','src/llm/gateway.js','src/llm/client.js','src/llm/auth-types.js','scripts/manual/conversation-operational-handoff.mjs'];
+const sourceFiles=['src/chat/handlers/decisions.js','src/eval/chat-capture-integrity.js','src/eval/chat-capture-clock.js','src/llm/clock-context.js','src/llm/model-ctx.js','src/llm/model-runtime-profile.js','src/llm/cre-bridge.js','src/llm/gateway.js','src/llm/client.js','src/llm/auth-types.js','scripts/manual/conversation-operational-handoff.mjs'];
 if(args.includes('--prepare')){
  for(const key of ['tasks','benchmark'])if(!path.isAbsolute(opt(key)||''))throw Error('ABSOLUTE_'+key+'_REQUIRED');
  fs.mkdirSync(out,{mode:0o700});const tasks=JSON.parse(fs.readFileSync(opt('tasks'))),benchmark=JSON.parse(fs.readFileSync(opt('benchmark'))),pairs={};
- for(const role of roles)pairs[role]=benchmark.rows.filter(x=>x.role===role && (!onlyModel||x.model===onlyModel)).sort((a,b)=>b.utilityMean-a.utilityMean).slice(0,onlyModel?1:2).map(x=>({model:x.model,artifact:x.artifact,benchmarkScore:x.utilityMean}));
+ for(const role of roles)pairs[role]=benchmark.rows.filter(x=>x.role===role && (!onlyModel||x.model===onlyModel)).sort((a,b)=>b.utilityMean-a.utilityMean).slice(0,onlyModel?1:allModels?undefined:2).map(x=>({model:x.model,artifact:x.artifact,benchmarkScore:x.utilityMean}));
+ for(const role of roles)if(!pairs[role].length||new Set(pairs[role].map(p=>p.model)).size!==pairs[role].length||new Set(pairs[role].map(p=>p.artifact.digestSha256)).size!==pairs[role].length)throw Error('DUPLICATE_OR_EMPTY_PANEL');
  if(onlyModel && pairs.CHAT.length!==1)throw Error('CONTINUATION_MODEL_NOT_FOUND');
  for(const t of tasks){if(!['CHAT','VISION'].includes(t.role))throw Error('BAD_ROLE');
   if(t.role==='CHAT' && t.turns && (!Array.isArray(t.turns)||t.turns.length<1||t.turns.length>4||t.turns.some(turn=>typeof turn!=='string'||!turn.trim())))throw Error('BAD_CHAT_TURNS');
@@ -65,7 +71,7 @@ if(args.includes('--prepare')){
    priorResultFileSha256:hash(priorResultBytes),preservedModel:first.model,
    preservedDigestSha256:first.artifact.digestSha256,preservedAttemptFileSha256:preservedFiles};
  }
- const plan={status:'SEALED',captureReceiptVersion:2,roles,providerVersion,createdAt:new Date().toISOString(),sourceRevision:git('rev-parse','HEAD'),workingTreeDirty:!!git('status','--porcelain'),sourceHashes:Object.fromEntries(sourceFiles.map(f=>[f,hash(fs.readFileSync(path.join(root,f)))])),tasks,pairs,benchmarkSha256:hash(fs.readFileSync(opt('benchmark'))),taskFileSha256:hash(fs.readFileSync(opt('tasks'))),repeats:1,totalBudgetMs:budgetMinutes*60000,continuationOf,decisionAuthority:false,operationPolicy:{productionImported:false,bindings:false,deletion:false,timer:false},profile:{CHAT:'actual handler/gateway settings, model-context cache fixed to 4096 for each captured candidate; 0.7 first-call temperature and handler retries',VISION:'actual analyzeImages /api/generate: context4096 output2048 temperature.3'},scope:'Actual answer handler including history, prompt, authorized gateway and output gates; actual vision bridge. Isolated configured model selection, no durable production binding and no whole Studio journey. Every provider response is captured passively; missing response digest blocks qualification rather than being replaced by inventory checks.',limitations:['No independently accepted semantic judge.','Clock context is supplied by the production bridge at call time and recorded.','A role stops on absent response attestation or CPU spill; remaining planned attempts stay explicitly unattempted.','Real report screenshots are controller-rendered documents, not live Studio captures.']};plan.planSha256=hash(plan);save('plan.json',plan);console.log('SEALED',plan.planSha256);process.exit(0);
+ const plan={status:'SEALED',captureReceiptVersion:2,roles,providerVersion,frozenClock,unloadEvery,panel:allModels,createdAt:new Date().toISOString(),sourceRevision:git('rev-parse','HEAD'),workingTreeDirty:!!git('status','--porcelain'),sourceHashes:Object.fromEntries(sourceFiles.map(f=>[f,hash(fs.readFileSync(path.join(root,f)))])),tasks,pairs,benchmarkSha256:hash(fs.readFileSync(opt('benchmark'))),taskFileSha256:hash(fs.readFileSync(opt('tasks'))),repeats:1,totalBudgetMs:budgetMinutes*60000,continuationOf,decisionAuthority:false,operationPolicy:{productionImported:false,bindings:false,deletion:false,timer:false},profile:{CHAT:'actual handler/gateway settings, model-context cache fixed to 4096 for each captured candidate; 0.7 first-call temperature and handler retries',VISION:'actual analyzeImages /api/generate: context4096 output2048 temperature.3'},scope:'Actual answer handler including history, prompt, authorized gateway and output gates; actual vision bridge. Isolated configured model selection, no durable production binding and no whole Studio journey. Every provider response is captured passively; missing response digest blocks qualification rather than being replaced by inventory checks.',limitations:['No independently accepted semantic judge.',frozenClock?'Panel clock is explicitly frozen before collection; production prompt and all user history are preserved; not pooled with live-clock cohorts.':'Clock context is supplied by the production bridge at call time and recorded.','A role stops on absent response attestation or CPU spill; remaining planned attempts stay explicitly unattempted.','Real report screenshots are controller-rendered documents, not live Studio captures.']};plan.planSha256=hash(plan);save('plan.json',plan);console.log('SEALED',plan.planSha256);process.exit(0);
 }
 const plan=JSON.parse(fs.readFileSync(path.join(out,'plan.json'))),{planSha256,...mat}=plan;if(hash(mat)!==planSha256)throw Error('PLAN_DRIFT');if(git('status','--porcelain'))throw Error('DIRTY_SOURCE');
 for(const[f,h]of Object.entries(plan.sourceHashes))if(hash(fs.readFileSync(path.join(root,f)))!==h)throw Error('SOURCE_DRIFT:'+f);
@@ -95,6 +101,10 @@ try{
   if(!String(url).startsWith(endpoint+'/api/'))throw Error('UNEXPECTED_NETWORK:'+url);
   owned();if(cancel||Date.now()-Date.parse(report.startedAt)>plan.totalBudgetMs)throw Error('CANCELLED_OR_BUDGET');
   let body;try{body=JSON.parse(init.body)}catch{};
+  let originalClock=null;
+  if(current?.role==='CHAT'&&body?.model&&plan.frozenClock){
+   const frozen=applyCaptureClock(body,plan.frozenClock);body=frozen.body;originalClock=frozen.originalClock;init={...init,body:JSON.stringify(body)};
+  }
   if(current?.role==='CHAT' && body?.model && /\/api\/(chat|generate)$/.test(String(url))) {
    const integrity=auditChatCaptureHistory(body.messages,current.expectedUserHistory);
    (current.contextIntegrityChecks ||= []).push({...integrity,turn:current.turnIndex,requestSha256:hash(body)});
@@ -104,7 +114,7 @@ try{
   }
   const samples=[];const sample=()=>{try{samples.push(execFileSync('nvidia-smi',['--query-gpu=memory.used,memory.total,utilization.gpu','--format=csv,noheader,nounits'],{encoding:'utf8',timeout:2000}).trim())}catch(e){samples.push({error:e.message})}};
   sample();const timer=setInterval(sample,1000),started=Date.now();
-  try{const response=await nativeFetch(url,init);if(body?.model && /\/api\/(chat|generate)$/.test(String(url))){const data=await response.clone().json();const placement=(await get('/api/ps')).models.find(x=>x.name===body.model);current.receipts.push({turn:current.turnIndex,url:String(url),body,data,placement,samples,durationMs:Date.now()-started});}return response;}
+  try{const response=await nativeFetch(url,init);if(body?.model && /\/api\/(chat|generate)$/.test(String(url))){const data=await response.clone().json();const placement=(await get('/api/ps')).models.find(x=>x.name===body.model);current.receipts.push({turn:current.turnIndex,url:String(url),body,data,placement,samples,durationMs:Date.now()-started,...(originalClock?{originalClock,frozenClockVersion:plan.frozenClock.version}:{})});}return response;}
   catch(e){current.receipts.push({turn:current.turnIndex,url:String(url),body,error:e.message,samples,durationMs:Date.now()-started});throw e;}finally{clearInterval(timer);sample();}
  };
  for(const role of plan.roles){
@@ -112,6 +122,7 @@ try{
   for(const pair of plan.pairs[role]){
    config.models[role]=pair.model;if(role==='CHAT'){setNumCtx(pair.model,4096);if(getNumCtx(pair.model)!==4096)throw Error('CONTEXT_PROFILE_UNAVAILABLE');}
    const tag=(await get('/api/tags')).models.find(x=>x.name===pair.model);if(tag?.digest?.replace(/^sha256:/,'')!==pair.artifact.digestSha256)throw Error('ARTIFACT_CHANGED');
+   let batchCount=0;
    for(const t of plan.tasks.filter(x=>x.role===role && (!plan.continuationOf?.remainingTaskIds||plan.continuationOf.remainingTaskIds.includes(x.id)))){
     if(blocked){report.unattempted.push({role,id:t.id,model:pair.model,reason:blocked});continue;}
     if(cancel||Date.now()-Date.parse(report.startedAt)>plan.totalBudgetMs)throw Error('CANCELLED_OR_BUDGET');
@@ -136,12 +147,14 @@ try{
     current.fullGpu=actual.length>0&&actual.every(x=>x.placement&&x.placement.size_vram>=x.placement.size);
     if(role==='CHAT'&&actual.some(x=>x.body?.options?.num_ctx!==4096))current.error='PROFILE_CONTEXT_DRIFT';
     if(current.result?.tag?.metadata?.error)current.error='PRODUCTION_HANDLER_ERROR';
-    if(actual.at(-1)?.data?.done_reason==='length')current.error='OUTPUT_BUDGET_EXHAUSTED';
+    // A later complete answer must not hide a truncated earlier turn.
+    if(current.dialogue?.some((_,index)=>actual.filter(call=>call.turn===index+1).at(-1)?.data?.done_reason==='length')||(!current.dialogue&&actual.at(-1)?.data?.done_reason==='length'))current.error='OUTPUT_BUDGET_EXHAUSTED';
     current.finishedAt=new Date().toISOString();current.status=current.error?'OPERATIONAL_FAILURE':current.proof==='RESPONSE_UNVERIFIED'?'BLOCKED':current.fullGpu?'CAPTURED':'BLOCKED';
     if(!current.fullGpu)blocked='PROFILE_GPU_UNFIT';if(current.proof==='RESPONSE_UNVERIFIED')blocked='RESPONSE_UNVERIFIED';
     if(current.captureIntegrityError){current.error=current.captureIntegrityError;current.status='BLOCKED';blocked=current.error;}
     delete current.expectedUserHistory;delete current.turnIndex;
     save('attempt-'+current.id+'.json',current);report.attempts.push({id:current.id,role,model:pair.model,status:current.status,proof:current.proof,error:current.error||null});flush();console.log(current.role,current.task,current.model,current.status,current.proof);
+    if(++batchCount>= (plan.unloadEvery||40)){await unload();batchCount=0;}
    }
    await unload();
   }
