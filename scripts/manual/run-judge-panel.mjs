@@ -14,6 +14,8 @@ if(!path.isAbsolute(opt.out || '') || !['screen','confirm'].includes(opt.stage) 
 const root=fileURLToPath(new URL('../../',import.meta.url)),read=f=>JSON.parse(fs.readFileSync(path.join(opt.out,f),'utf8'));
 const planRaw=fs.readFileSync(path.join(opt.out,'plan.json'),'utf8'),plan=JSON.parse(planRaw),planSha256=hash(planRaw);
 if(planSha256!==opt['expected-plan'])throw Error('JUDGE_PANEL_PLAN_CHANGED');
+if(plan.unloadAfterCalls!==undefined && (!Number.isInteger(plan.unloadAfterCalls) || plan.unloadAfterCalls<1 || plan.unloadAfterCalls>8))
+  throw Error('JUDGE_BATCH_SIZE_INVALID');
 for(const [f,expected] of Object.entries(plan.sourceHashes))if(hash(fs.readFileSync(path.join(root,f),'utf8'))!==expected)throw Error('JUDGE_PANEL_SOURCE_CHANGED:'+f);
 for(const [f,expected] of [['inputs.json',plan.inputsSha256],['restricted/references.json',plan.referencesSha256]])
   if(hash(fs.readFileSync(path.join(opt.out,f),'utf8'))!==expected)throw Error('JUDGE_PANEL_INPUT_CHANGED');
@@ -82,6 +84,12 @@ try {
     write('receipts/'+job.key+'.post.json',{planSha256,key:job.key,after,afterPower});
     done++;
     progress({model:model.name,role:item.role,task:item.task,phase:'captured',valid:parsed.valid,reason:parsed.reason || null});
+    // Bound native runner host-memory growth without weakening the RAM floor.
+    // Only this provider's resident model is unloaded; inference inputs stay fixed.
+    if(plan.unloadAfterCalls && newCalls%plan.unloadAfterCalls===0) {
+      progress({model:model.name,role:item.role,task:item.task,phase:'batch-unload'});
+      await provider.close();
+    }
   }
   if(done===jobs.length)finalStatus='COMPLETE';
 } catch(error) {
