@@ -37,7 +37,7 @@ import { featureManager } from '../core/feature-manager.js';
 import { throwIfAborted } from '../core/abort-error.js';
 import { isChatTurnError, LLMProviderUnavailableError, ModelResponseTruncatedError } from '../core/chat-turn-error.js';
 import { buildProjectHint } from './handlers/utils/project-context-prompt.js';
-import { assessIntentClarity, assessGpuIntent, literalFileTargets, latestAssistantContent, issueIntentEvidence, getIntentEvidence } from './intent-clarity.js';
+import { assessIntentClarity, assessGpuIntent, literalFileTargets, latestAssistantContent, literalWriteContent, issueIntentEvidence, getIntentEvidence } from './intent-clarity.js';
 
 // v73: Lazy import to avoid circular dependency (followup.js → intent.js → cre-decision.js)
 let _detectFollowUpType = null;
@@ -2316,7 +2316,7 @@ export class CREDecisionEngine {
     const fixed = projectListing ? { 'file.list': { path: '.' } } : {};
     if (lexical.detected && lexical.filePath !== '.') fixed['file.read'] = { path: lexical.filePath };
     if (classification.intent === IntentType.SHELL) fixed['code.execute'] = { code: extractShellCommand(input), language: null };
-    const content = latestAssistantContent(context.dbHistory ?? context.history);
+    const content = literalWriteContent(input, classification.fileTarget) ?? latestAssistantContent(context.dbHistory ?? context.history);
     if (classification.intent === IntentType.FILE_WRITE && content) fixed['file.write'] = { content };
     return { token: issueIntentEvidence(input, classification, understanding, fixed, options), understanding, classification };
   }

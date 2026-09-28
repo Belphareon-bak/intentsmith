@@ -157,6 +157,14 @@ export function latestAssistantContent(history = []) {
   return null;
 }
 
+/** One explicitly quoted literal; preserve its bytes and never guess among two. */
+export function literalWriteContent(input, fileTarget) {
+  const quoted = [...String(input).matchAll(/"((?:\\.|[^"\\])*)"|„([^“]*)“|‘([^’]*)’|'([^']*)'/gu)]
+    .map(match => match.slice(1).find(value => value !== undefined))
+    .filter(value => value !== fileTarget);
+  return quoted.length === 1 ? quoted[0] : null;
+}
+
 export function issueIntentEvidence(source, classification, understanding, fixedParameters = {}, { negationDecisions = [] } = {}) {
   const token = Object.freeze({});
   const snapshot = structuredClone({ source, classification, understanding, fixedParameters,

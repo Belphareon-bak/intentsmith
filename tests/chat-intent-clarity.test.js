@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { ChatController, ChatMode, ResponseSpeaker, ResponseTag, SessionState, TaggedResponse } from '../src/chat/controller.js';
 import { conversationHandler } from '../src/chat/handlers/conversation.js';
 import { creDecisionEngine, CREDecisionEngine, DecisionType, IntentType } from '../src/chat/cre-decision.js';
-import { assessIntentClarity, getIntentEvidence, prepareClarificationInput, issueIntentEvidence, literalFileTargets, latestAssistantContent, verifyToolIntent } from '../src/chat/intent-clarity.js';
+import { assessIntentClarity, getIntentEvidence, prepareClarificationInput, issueIntentEvidence, literalFileTargets, latestAssistantContent, literalWriteContent, verifyToolIntent } from '../src/chat/intent-clarity.js';
 import { ToolExecutor } from '../src/executor/tool-executor.js';
 import { llmGateway } from '../src/llm/gateway.js';
 import { getConversationStore } from '../src/chat/conversation-store.js';
@@ -44,6 +44,9 @@ function fixture() {
 }
 
 try {
+  assert.equal(literalWriteContent('Ulož text "Ahoj" do new-notes.md.', 'new-notes.md'), 'Ahoj');
+  assert.equal(literalWriteContent('Ulož odpověď do „notes.md“.', 'notes.md'), null);
+  assert.equal(literalWriteContent('Ulož "A" a "B" do notes.md.', 'notes.md'), null);
   for (const [input, roles] of [
     ['Nefunguje mi Wi-Fi. Jaké tři věci mám zkontrolovat?', [slot('quantity', 'tři věci', 'tři')]],
     ['Napiš krátkou funkci v Pythonu. Nepoužívej rekurzi.', [slot('unit', 'v Pythonu', 'Pythonu'), slot('negation', 'Nepoužívej rekurzi')]],
@@ -67,6 +70,10 @@ try {
         assert.ok(inspected.token, input);
         assert.equal(getIntentEvidence(inspected.token).understanding.kind, kind);
         if (fileTarget) assert.equal(getIntentEvidence(inspected.token).classification.fileTarget, fileTarget.value);
+        if (intent === 'FILE_WRITE') {
+          assert.equal(verifyToolIntent(inspected.token, 'file.write', { path: 'new-notes.md', content: 'Ahoj' }, { effectful: true }), null);
+          assert.equal(verifyToolIntent(inspected.token, 'file.write', { path: 'new-notes.md', content: 'OLD ANSWER' }, { effectful: true }).reason, 'tool_intent_mismatch');
+        }
         if (kind === 'information') assert.equal(verifyToolIntent(inspected.token, 'file.write', { path: 'notes.md', content: 'forbidden' }, { effectful: true }).reason, 'tool_intent_mismatch');
       }
     } finally { llmGateway.call = oldCall; }
