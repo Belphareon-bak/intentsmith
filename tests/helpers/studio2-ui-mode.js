@@ -142,8 +142,14 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
     && !s.columnSessions.includes(swapped.columnSessions[2]), 'header-ends-session');
   // Reproduce a classic saved layout with the real Theia Problems command.
   // After reload Studio must reclaim its full viewport, preserving sessions.
-  await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'M', code: 'KeyM', modifiers: 10, windowsVirtualKeyCode: 77 });
-  await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'M', code: 'KeyM', modifiers: 10, windowsVirtualKeyCode: 77 });
+  await evaluate(cdp, `(async () => {
+    const container = window.theia.container;
+    const service = [...container._bindingDictionary._map.keys()]
+      .find(key => typeof key === 'symbol' && key.description === 'CommandService');
+    if (!service) throw Error('Theia CommandService missing');
+    await container.get(service).executeCommand('problemsView:toggle');
+    return true;
+  })()`);
   await waitFor(s => s.hostBottomVisible, 'classic-problems-layout-fixture');
   await evaluate(cdp, `(() => { localStorage.setItem('intentsmith-studio-ui-mode', 'classic'); localStorage.setItem('intentsmith-studio2-view', 'legacy'); window.__studio2ReloadProbe = true; setTimeout(() => window.electronTheiaCore.requestReload(), 0); return true; })()`);
   const restored = await waitFor(s => !s.reloadPending && s.mode === 'studio2' && s.studio2 && !s.classicSidebar && !s.classicChat && !s.switchReady && !s.hostBottomVisible, 'legacy-flags-and-panels-cannot-restore-classic');

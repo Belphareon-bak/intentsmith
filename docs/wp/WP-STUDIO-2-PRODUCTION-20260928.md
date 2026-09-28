@@ -18,6 +18,10 @@ nezakládá attestaci veřejného releasu IntentSmith 1.0 ani přijetí M5/M6.
   a `tests/helpers/studio2-ui-mode.js`: veřejné Theia API pro sbalení původních
   panelů po obnově rozložení; živé ověření uloženého panelu Problems a celé
   výšky nového UI. Prototyp ani generované React obrazovky se nemění.
+- `intentsmith-ide/extensions/intentsmith-studio2/lib/browser/transport-adapter.js`
+  a `tests/studio2-transport.test.js`: souběžné terminály nesmějí sdílet časový
+  reqId původního nezměněného WS klienta; profil odkryl přechod hodin mezi
+  kontrolou adaptéru a odesláním. Regrese vynutí tento přechod i předčasný timer.
 - Tento WP, `docs/INSTALL.md`, `docs/studio2/PRODUCTION.md`, záznam
   nasazení v `docs/review/`, `ROADMAP.md` a `SYSTEM-MAP.md`.
 - Instalovaný snapshot v `/mnt/vi7000/intentsmith/releases/<SHA>`, existující

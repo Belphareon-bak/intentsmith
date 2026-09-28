@@ -17,13 +17,28 @@ const bus = {
 let sends = 0;
 let destroys = 0;
 const terminalFrames = [];
+let terminalClock = null;
+class FixtureDate extends Date {
+  static now() { return terminalClock?.ms ?? Date.now(); }
+}
+const fixtureTimer = (callback, delay) => {
+  if (!terminalClock) return setTimeout(callback, delay);
+  // The first timer wakes early; the adapter must recheck the actual clock.
+  if (++terminalClock.timers > 1) terminalClock.ms += delay;
+  return setTimeout(callback, 0);
+};
 const fakeWS = { connect() {}, destroy() { destroys++; }, isReady: () => true, hasActiveM1Turn: () => false,
   sendChat() { sends++; return true; }, sendCancel: () => true,
-  sendTerminal(command, session, index) { terminalFrames.push({ command, session, index, sentAt: Date.now() }); return true; } };
+  sendTerminal(command, session, index) {
+    // Reproduce a clock tick after the adapter check, before the pinned reqId.
+    if (terminalClock?.tickBeforeReqId) { terminalClock.ms++; terminalClock.tickBeforeReqId = false; }
+    terminalFrames.push({ command, session, index, sentAt: FixtureDate.now() });
+    return true;
+  } };
 const window = { IntentSmithWS: fakeWS };
 const terminalModule = { exports: {} };
 const terminalSource = readFileSync(new URL('../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/terminal-client.js', import.meta.url),'utf8');
-const context = vm.createContext({ window, Date, console, setTimeout, requestAnimationFrame() {}, IntentSmithBus: bus, IntentSmithWS: fakeWS });
+const context = vm.createContext({ window, Date: FixtureDate, console, setTimeout: fixtureTimer, requestAnimationFrame() {}, IntentSmithBus: bus, IntentSmithWS: fakeWS });
 Object.defineProperty(context, '_sessions', { get: () => window._sessions });
 vm.runInContext(`(function(module,exports){${terminalSource}\n})`, context)(terminalModule, terminalModule.exports);
 const source = readFileSync(new URL('../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/transport-adapter.js', import.meta.url),'utf8');
@@ -83,12 +98,15 @@ assert.equal(window._sessions[2], third);
 assert.equal(await adapter.sendTerminal(third, 'pwd'), false);
 assert.equal(terminalFrames.length, 2);
 roots.set(third.id, '/project/third');
+terminalClock = { ms: Date.now() + 10, tickBeforeReqId: true, timers: 0 };
 assert.deepEqual(await Promise.all([
   adapter.sendTerminal(second, 'echo two'),
   adapter.sendTerminal(third, 'echo three'),
 ]), [true, true]);
 assert.ok(terminalFrames.at(-1).sentAt > terminalFrames.at(-2).sentAt,
   'pinned Date.now reqIds must be distinct for simultaneous sessions');
+assert.equal(terminalClock.timers, 2, 'an early timer must not reuse the preceding reqId clock');
+terminalClock = null;
 adapter.destroy();
 assert.equal(destroys, 1);
 assert.equal(handlers.get('chat:terminal').size, 0);

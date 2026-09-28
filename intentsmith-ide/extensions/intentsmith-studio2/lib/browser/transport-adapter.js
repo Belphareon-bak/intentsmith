@@ -195,14 +195,19 @@ class TransportAdapter {
     // across sessions with distinct milliseconds so simultaneous commands cannot
     // overwrite each other's reqId-to-session mapping.
     const run = this.terminalTail.then(async () => {
-      const delay = this.lastTerminalSendMs + 1 - Date.now();
-      if (delay > 0) await new Promise(resolve => setTimeout(resolve, delay));
+      while (this.lastTerminalSendMs >= Date.now()) {
+        const delay = this.lastTerminalSendMs + 1 - Date.now();
+        await new Promise(resolve => setTimeout(resolve, Math.max(1, delay)));
+      }
       if (session._closed || this.slots[index] !== session || !window.IntentSmithWS.isReady()
         || TerminalClient.isTermExecuting(index)) return false;
       const current = this.workspace.entry(session);
       if (session._projectId && (!current.root || current.projectId !== String(session._projectId))) return false;
+      const sent = TerminalClient.termSend(index, value);
+      // Anchor after the pinned client reads its reqId clock. A tick between
+      // our check and its send must not let the next session reuse that tick.
       this.lastTerminalSendMs = Date.now();
-      return TerminalClient.termSend(index, value);
+      return sent;
     });
     this.terminalTail = run.then(() => {}, () => {});
     return run;
