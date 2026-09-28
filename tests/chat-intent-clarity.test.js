@@ -24,7 +24,7 @@ globalThis.fetch = async () => { throw new Error('Live network forbidden by inte
 
 const slot = (role, source, value = source, name = role) => ({ role, source, value, name });
 const action = (slots, ambiguities = []) => ({ version: 1, kind: 'action', slots, ambiguities });
-const information = () => ({ version: 1, kind: 'information', slots: [], ambiguities: [] });
+const information = (slots = []) => ({ version: 1, kind: 'information', slots, ambiguities: [] });
 const classified = understanding => ({ intent: IntentType.CONVERSATIONAL, confidence: 0.95, understanding });
 const originalClassifier = creDecisionEngine._llmClassifyIntent;
 let proposal = classified(information());
@@ -44,6 +44,11 @@ function fixture() {
 }
 
 try {
+  for (const [input, roles] of [
+    ['Nefunguje mi Wi-Fi. Jaké tři věci mám zkontrolovat?', [slot('quantity', 'tři věci', 'tři')]],
+    ['Napiš krátkou funkci v Pythonu. Nepoužívej rekurzi.', [slot('unit', 'v Pythonu', 'Pythonu'), slot('negation', 'Nepoužívej rekurzi')]],
+  ]) assert.equal(assessIntentClarity(input, information(roles)), null, 'content wording is not effect authority');
+  assert.equal(assessIntentClarity('Přečti notes.md', information([slot('target', 'notes.md', 'other.md')])).reason, 'material_meaning_changed');
   const changes = [
     ['Sniž GPU napětí na polovinu', action([slot('action', 'Sniž'), slot('target', 'GPU'), slot('quantity', 'napětí', 'příkon'), slot('value', 'na polovinu')])],
     ['Nastav port na 8080', action([slot('action', 'Nastav'), slot('quantity', 'port'), slot('value', '8080', '80')])],
@@ -368,7 +373,7 @@ try {
     let expectedPath = 'notes.md';
     try {
       llmGateway.call = async () => ({ content: answer, finishReason: 'stop' });
-      ChatController.configure({ handlers: { [ChatMode.CONVERSATION]: conversationHandler, [ChatMode.PROJECT]: conversationHandler }, config: { autoModeDetection: false } });
+      ChatController.configure({ handlers: { [ChatMode.CONVERSATION]: conversationHandler, [ChatMode.PROJECT]: projectHandler }, config: { autoModeDetection: false } });
       toolExecutor.m2ToolBroker = { execute: async ({ toolId, input, context }) => {
         writes++;
         assert.equal(toolId, 'file.write');
@@ -380,7 +385,7 @@ try {
         const id = `intent-save-ingress-${journey}`;
         ChatController.setProject(id, { id: Number(registered.id), name: registered.name, path: root });
         let requestProjectId = Number(registered.id);
-        const send = message => ChatController.handle({ message, sessionId: id, conversationId: id, context: requestProjectId ? { projectId: requestProjectId } : {}, authenticatedSubject: { actorType: 'user', actorId: 'operator' } });
+        const send = message => ChatController.handle({ message, sessionId: id, conversationId: id, context: { m2LifecycleOnly: true, ...(requestProjectId ? { projectId: requestProjectId } : {}) }, authenticatedSubject: { actorType: 'user', actorId: 'operator' } });
         expectedPath = 'notes.md';
         if (!['empty', 'legacy'].includes(journey)) {
           proposal = classified(information());
@@ -413,7 +418,9 @@ try {
           saved = await send('není to zákaz');
         }
         if (journey === 'authority') {
-          assert.equal(saved.metadata.error, 'effect_authority_required');
+          assert.equal(saved.metadata.decision.type, 'ASK_USER');
+          assert.equal(saved.metadata.decision.reason, 'PROJECT_REQUIRED');
+          assert.equal(getConversationStore().getAllTurns(id).at(-1).metadata.intentContentEligible, false);
           assert.equal(writes, before);
           ChatController.setProject(id, { id: Number(registered.id), name: registered.name, path: root });
           requestProjectId = Number(registered.id);

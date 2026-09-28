@@ -308,6 +308,13 @@ export async function projectHandler(input, context) {
       });
     }
 
+    // Ordinary content does not become a repository plan merely because Studio
+    // has an active project. This answer route cannot execute project effects.
+    if (context.m2LifecycleOnly === true && decision.type === DecisionType.ANSWER
+      && [IntentType.CONVERSATIONAL, IntentType.CODE, IntentType.CREATIVE].includes(decision.intent)) {
+      return handleAnswerDecision(input, decision, context);
+    }
+
     // CRE still owns routing and refusals. Planning and conversational follow-ups
     // are read-only collaboration, not entry to the quarantined legacy writer.
     if (context.m2LifecycleOnly === true && (

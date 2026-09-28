@@ -119,7 +119,9 @@ export function assessIntentClarity(input, understanding, { supersededSpans = []
     if (prohibition) return prohibition;
   }
   for (const [index, slot] of slots.entries()) {
-    if (slot.source !== slot.value) return { ...question('material_meaning_changed', `V zadání je „${slot.source}“, interpretace uvádí „${slot.value}“. Co má platit pro ${slot.name}? Zatím nic nespouštím.`, [slot.source, slot.value]), unresolvedSpan: reference(input, slot, index) };
+    // A wording summary in an explanation grants no effect authority. Literal
+    // identity remains mandatory for actions and concrete read/recipient targets.
+    if (slot.source !== slot.value && (understanding.kind === 'action' || ['target', 'recipient'].includes(slot.role))) return { ...question('material_meaning_changed', `V zadání je „${slot.source}“, interpretace uvádí „${slot.value}“. Co má platit pro ${slot.name}? Zatím nic nespouštím.`, [slot.source, slot.value]), unresolvedSpan: reference(input, slot, index) };
   }
   for (const ambiguity of understanding.ambiguities) {
     if (!ambiguity || !bounded(ambiguity.slot, 80) || !bounded(ambiguity.question) || !Array.isArray(ambiguity.options)
