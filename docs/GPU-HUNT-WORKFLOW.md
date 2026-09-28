@@ -1,5 +1,7 @@
 # GPU hunt — cílové workflow celého systému
 
+Aktuální pokus s místními hodnotiteli (28. 9.): [deset modelů, skutečné hodnocení a doporučená dvojice](review/2026-09-28-HUNT-LOCAL-JUDGES.md). Pro další CHAT review pod dohledem vychází Devstral Small 2 + Qwen3.6 27B. Společná přehlédnutí a neúspěšné kontrolní případy zůstávají doložené; **výběr kandidátů není přejímka ani produkční GO**.
+
 Aktuální implementační důkaz (27. 9.): [simulovaný průchod a revizní matice](review/2026-09-27-HUNT-COMPLETION-SIMULATION.md). **SIMULATION_PASS není produkční GO.**
 
 Aktuální skutečné měření (27. 9.): [opravený CHAT, 80 dialogů a nový posudek](review/2026-09-27-HUNT-CHAT-REFERENCE-MILESTONE.md).
