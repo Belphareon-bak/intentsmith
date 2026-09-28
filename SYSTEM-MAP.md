@@ -1254,6 +1254,16 @@ aktuální stav je samostatný řádek `Model failover opt-in surface`.
 | Manual binding finalize reconciliation | **FRESH-CLONE VERIFIED na `7c4aa73c`:** review jednotka `0a6bde54..7c4aa73c` prošla nezávislým read-only code/evidence review. Migrace 054 nepovyšuje historický success, přidává append-only `DIRECT_CONFIRMED`/`RECOVERED_BY` receipt a DB blokuje verification/notification bez potvrzení nejnovější runtime generace. Před první mutací navíc vyžaduje úplnou pre-054 trigger autoritu a právě jeden přesný legacy history řádek pro každý změněný `RUNTIME_APPLY`; chybějící i duplicitní stopa fail-close zastaví upgrade. Repository před receipt odvozuje interní `RUNTIME_RECONCILIATION_REQUIRED` s `runtimeFinalizeStatus: UNKNOWN`; veřejný stav zůstává kompatibilně `PENDING` / `NOT_APPLIED`. Application zapisuje receipt po synchronním runtime commitu a před proposal/broadcast/verification; nejasné commit/receipt okno řeší operation-scoped exact startup generation bez druhého pullu nebo nového user-provider intentu. Recovery znovu čte exact provider identitu. Nová post-054 `upgrade_history` vzniká s přímým nebo recovery-confirmed receiptem; pre-054 změněný `RUNTIME_APPLY` musí mít svou původní atomickou history stopu. Čistý lokální klon prošel `npm ci --offline`, focused/compatibility sadami, registry 376 programů, hygiene 1 527 cest a ratchetem 1 016/1 016 hran. Neúspěšný startup recovery nemá schválenou veřejnou degraded/fail-fast policy. Operationless legacy override je dál name-only `LEGACY_UNVERIFIED`; celý M1/Gate 1 zůstává otevřený. |
 | Rate limiter je na loopbacku mrtvý kód | Vědomě ponecháno |
 
+**Aktuální paměťová evidence, 28. 9. 2026:** historické M4 přijetí výše
+prokazuje testovanou komponentní smyčku. [Read-only audit běžícího releasu
+72247a49](docs/review/2026-09-28-MEMORY-SELF-LEARNING-AUDIT.md) zjistil chybějící
+produkční volající producenta/evaluátoru a nepředané LTM do chatového promptu;
+operátorská revize audit věcně potvrdila. Samostatná [změna nastavení
+v 08:49:02 UTC](docs/review/2026-09-28-INTENT-REVIEW-ROUND2.md#4-paměť)
+vypnula automatické chatové učení (`learningEnabled=false`), zachovala historii,
+context, LTM čtení i všechna ostatní nastavení. Scoped chatová paměť měla 0 → 0
+záznamů. M4 autorita je nezávislá; runtime mezery tím opravené nejsou.
+
 ---
 
 ## Co je zastaralé

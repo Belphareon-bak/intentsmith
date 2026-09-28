@@ -1,6 +1,6 @@
 # IntentSmith — opravy po CHANGES_REQUIRED
 
-**IMPLEMENTED / REVIEW_PENDING / NOT_DEPLOYED.** Původní kandidát `f167cf98` byl operátorskou revizí odmítnut. Tento dokument předává opravy k nové revizi; nepředjímá jejich přijetí.
+**CHANGES_REQUIRED / NOT_DEPLOYED — historické předání.** Původní kandidát `f167cf98` i následné opravy v tomto předání byly operátorskou revizí odmítnuty. Nové nálezy jsou opravené v [druhém kole předání k revizi](2026-09-28-INTENT-REVIEW-ROUND2.md); jeho přijetí zůstává otevřené. Níže jsou zachované důkazy tehdejšího kandidáta.
 
 Čistý ověřovaný kandidát: `1e5a9e35533a0fe4e9ab825085defd617735a0c9`. Hlavní oprava: `32d2e98f`; samostatná strukturální baseline: `ebf1cff2`; následná korekce úplných poděkování a pořadí kontroly write authority: `1e5a9e35`. Rozsah opravy: `464793f1..1e5a9e35`. Větev/worktree: `work/intent-resilience-20260928`, `/home/belphareon/Projects/intentsmith-intent-resilience-20260928`. Autorita: konkrétní operátorské nálezy 1–6 v této session, [vymezení práce](../wp/WP-INTENT-REVIEW-FIXES-20260928.md). Žádný merge, push, nasazení ani zápis do živé DB.
 

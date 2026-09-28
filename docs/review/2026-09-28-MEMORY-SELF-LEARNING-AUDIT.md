@@ -4,6 +4,8 @@
 
 ## Přímý závěr
 
+Operátorská revize věrohodnost tohoto auditu potvrdila. **Následná samostatná změna 28. 9. v 08:49:02 UTC:** automatické chatové učení je vypnuté přes `learningEnabled=false`; historie, context a LTM čtení zůstávají zapnuté. [Výsledek, zachování ostatních nastavení a rollback](2026-09-28-INTENT-REVIEW-ROUND2.md#4-paměť). Níže uvedené read-only snapshoty a stav nastavení popisují okamžik původního auditu, před tímto zásahem. Nálezy implementace zůstávají otevřené.
+
 Paměť ukládá historii, pracovní stav projektu, poznámky, opravy, preference a některé odvozené vzory. Self-learning zde upravuje uložená data a kontext pro příští odpověď/plán; v těchto cestách jsem nenašel trénování vah LLM.
 
 Současné zapojení má podstatné mezery: běžná odpověď nepředává připravené korekce LTM do modelového promptu; česká negativní zpětná vazba se může stát pozitivním signálem; uložené chatové vzory nemají produkčního konzumenta. M4 má funkční schválení, rollback a předání kontextu plánovači, ale jeho producent pozorování a vyhodnocovač výsledků nejsou v nalezené produkční kompozici volané. Zelený řízený test této smyčky není důkazem automatického provozu.
