@@ -1,18 +1,18 @@
 # IntentSmith: obecné ověření interpretace — k revizi
 
-**IMPLEMENTED / REVIEW_PENDING / NOT_DEPLOYED.**
+**CHANGES_REQUIRED / NOT_DEPLOYED — historický kandidát.** Operátorská revize odmítla tento kandidát kvůli konkrétním průchodům kolem kontrol a přehnaným coverage tvrzením. [Opravy a nový balík k revizi](2026-09-28-INTENT-REVIEW-CORRECTIONS.md). Čísla starých běhů níže zůstávají historickým důkazem.
 
 Větev: `work/intent-resilience-20260928`; kandidát `f167cf980c597c90d24d88edb8f8effe4a506bef`. Obecná oprava: `fff2811397ae700b351032f64ddbe849b7fd917d..f167cf98`; celý vlastní kandidát: `2572fe0504f53385628ea043d37f8cb207af4e74..f167cf98`. Běžící produkce zůstává na `72247a4983abcb12d42f6da6cc5b27af8f2212fd`. Tento report nahrazuje závěr o rozsahu GPU guardu v `docs/wp/WP-INTENT-RESILIENCE-20260928.md`; staré měření zůstává historickým důkazem. Autorita změny je výslovný požadavek operátora. Nejde o nezávislé review ani release acceptance.
 
 ## Co je opraveno
 
-Původní řešení bylo úzké. Nová kontrola není postavená na GPU slovníku: klasifikátor vrací strukturovanou interpretaci s přesnými citáty vstupu a alternativami významu. Core ověří citace, shodu hodnot a pokrytí rozpoznatelných čísel, cest, adresátů a zákazů. Materiální změna nebo chybějící interpretace vrací ASK_USER před všemi režimovými handlery. Tolerance překlepů je klasifikace zachovaného vstupu; edit distance nesmí změnit sloveso, jednotku nebo název souboru.
+Historický návrh vracel strukturovanou interpretaci s citacemi vstupu a alternativami významu. Revize ukázala, že citace byly přijímány i uvnitř slova, negace závisela na neúplném seznamu a kontrola některých údajů pouze na modelovém `kind: action`. Odstranění spodního GPU guardu proto nebylo oprávněné. Tento kandidát se nepovažuje za odolnou náhradu GPU guardu.
 
-Původní uživatelský text zůstává v historii. Obecné „ano“ neřeší nevybranou alternativu. Výslovná volba vytvoří vstup obsahující původní text i doslovné upřesnění; neprovádí tiché nahrazení. Text přílohy se nepočítá jako původní uživatelské oprávnění. CRE používá stejné ověřené rozhodnutí bez druhého volání klasifikátoru.
+Původní uživatelský text zůstával v historii. Samotné „ano“ nevybíralo alternativu. Výjimka při upřesnění ale používala modelové jméno slotu a mohla vyjmout i zákaz. Podmínka opakovaného použití CRE výkladu byla příliš široká. Obě chyby jsou uvedené a opravené v navazujícím reportu.
 
-ToolExecutor před první operací ověří celou dávku i konkrétní parametry před brokerem. Ověřené údaje mají neprůhledný core token a digest zdroje, ne modelově podvrhnutelný JSON. Nesoulad názvu/case souboru, hodnoty nebo operace je terminální `M2_TOOL_INTENT_MISMATCH`; neotevře retry ani modelový fallback. Konstanta `.` pro výpis aktivního projektu má úzkou core vazbu přes již existující deterministický parser a stále podléhá M2 projektové autoritě. Existující přesné schválení efektu se nezměnilo.
+**Oprava reportu:** kontrola dávky před první operací existovala, ale z reálných materiálních polí M2 nástrojů ověřovala jen `path`. Neověřovala `content`, `code`, `language`, `query`, `url` ani `database`. Testy portu, jednotky a adresáta byly důkazem kontroly slotů, nikoli parametrů těchto nástrojů. Původní tvrzení o kontrole všech parametrů bylo nesprávné. Přesné M2 schválení efektu zůstávalo zachované.
 
-Neproveditelná akce nemůže spadnout do běžné konverzační odpovědi s vymyšleným „hotovo“. Shell handler nyní pravdivě uvádí, že příkaz nespustil.
+Ochrana proti vymyšlenému „hotovo“ platila jen při akčním výstupu klasifikátoru. Nesprávné `information` a prefix poděkování ji obcházely. Shell handler sám příkaz pravdivě nespouštěl, ale tím nebyl chráněný každý konverzační průchod.
 
 ## Reprodukce a důkaz
 
@@ -25,8 +25,8 @@ Testy zahrnují skutečný ChatController, původní classifier/JSON bridge s ř
 - **Real model quality / latency: NOT_RUN.** Sdílenou GPU používá jiné hodnocení. Řízená zkouška kvality konkrétního modelu nebyla provedena. Neplánované volání živého poskytovatele během prvního auditu je popsáno samostatně níže. GPU setting, live DB write, restart, merge nebo deploy nebyly provedeny.
 - Úplnost citovaných slotů a rozpoznání věcné nejasnosti stále závisí na klasifikátoru. Syntaktický validator nerozumí celé fyzice nebo všem jazykům a nemůže odhalit každou chybně navrženou, ale doslovně citovanou interpretaci.
 - Při zákazu nebo nejasné části je zastaven celý tah; nezávislé části se samostatně neplánují.
-- Parametry se vážou přes konkrétní material fields; generovaný obsah/kód a obohacené vyhledávací dotazy mají nadále původní M2 autoritu. Core token je dodatečné ověření přirozeného chatového vstupu, nikoli náhrada capability/approval kontraktu ani trvalá M2 evidence. Přímí typovaní volající bez tokenu používají existující M2 autoritu.
-- Neplatný classifier JSON vrací otázku. Prázdný výsledek nebo výpadek poskytovatele zůstává LLM_PROVIDER_UNAVAILABLE, neúplný modelový výsledek MODEL_RESPONSE_TRUNCATED. Zrušení během klasifikace brání vstupu do handleru. To může přidat otázky a klasifikaci i do dříve deterministických konverzačních toků. Počet a latence na skutečných modelech nejsou změřené. Budget klasifikace je 768 output tokens; samostatný FAST kontext 4096, sdílený CHAT zachovává vlastní kontext.
+- Historická chatová kontrola vázala skutečný `path`; obsah, kód a vyhledávací dotaz zůstávaly pouze pod původní M2 autoritou. Core token je dodatečné ověření přirozeného chatového vstupu, nikoli náhrada capability/approval kontraktu ani trvalá M2 evidence. Přímí typovaní volající bez tokenu používají existující M2 autoritu.
+- Neplatný classifier JSON vrací otázku. Prázdný výsledek nebo výpadek poskytovatele zůstává LLM_PROVIDER_UNAVAILABLE, neúplný modelový výsledek MODEL_RESPONSE_TRUNCATED. Zrušení během klasifikace brání vstupu do handleru. To může přidat otázky a klasifikaci i do dříve deterministických konverzačních toků. Počet a latence na skutečných modelech nejsou změřené. Historický kód žádal 768 output tokens, skutečná role ale omezovala wire na 500 (opravený report výše); samostatný FAST kontext 4096, sdílený CHAT zachovává vlastní kontext.
 - Testové fixtury pro M1 terminal failures, M2 project-context consumer, privacy a WS bridge nyní poskytují validní řízenou interpretaci, aby nadále ověřovaly skutečnou cílovou hranici. Assertions nebyly vypnuty.
 
 ## Doporučená revize
