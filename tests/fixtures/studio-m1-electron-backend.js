@@ -161,6 +161,12 @@ const server = http.createServer((request, response) => {
     sendJson(request, response, 200, { conversations: [] });
     return;
   }
+  const selection = /^\/api\/conversations\/([^/]+)\/expertises$/.exec(target.pathname);
+  if (request.method === 'GET' && selection) {
+    sendJson(request, response, 200, { conversationId: decodeURIComponent(selection[1]),
+      projectId: null, expertises: [], revision: '0'.repeat(64) });
+    return;
+  }
   if (request.method === 'GET' && target.pathname === '/api/expertises') {
     sendJson(request, response, 200, { experts: [], categories: [] });
     return;

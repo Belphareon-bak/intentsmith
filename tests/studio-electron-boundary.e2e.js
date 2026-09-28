@@ -1385,6 +1385,12 @@ async function rendererFunctionalWsProbe(cdp) {
 async function rendererM1FunctionalWsProbe(cdp) {
   return evaluate(cdp, `(async () => {
     const client = window.IntentSmithWS;
+    // Studio 2 starts with one session. Open the second through its public
+    // keyboard action before exercising the two-owner wire contract.
+    if (window._sessions?.length === 1) {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 't', ctrlKey: true, bubbles: true, cancelable: true }));
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
     const sessions = window._sessions;
     if (!client?.isReady?.() || !client?.isM1WireNegotiated?.()) {
       return { resultClass: 'm1-not-negotiated' };
@@ -2303,7 +2309,7 @@ async function runJourney({
       (modelProviderSentinel?.requestCount() || 0) - modelProviderRequestsBeforeTurn
     );
     if (m1Journey) {
-      if (!validateM1Functional(functional)) fail('functional-m1-websocket-probe-failed');
+      if (!validateM1Functional(functional)) fail('functional-m1-websocket-probe-failed', { functional });
     } else if (!validateFunctional(functional)) {
       fail('functional-websocket-probe-failed');
     }

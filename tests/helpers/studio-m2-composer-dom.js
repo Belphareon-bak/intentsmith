@@ -36,7 +36,9 @@ export async function rendererBuildComposerProbe({ cdp, paths, requests, evaluat
     const waitFor = async (predicate, label) => {
       const deadline = Date.now() + 15000;
       while (Date.now() < deadline) { if (predicate()) return; await pause(); }
-      throw new Error('composer-dom-timeout:' + label);
+      throw new Error('composer-dom-timeout:' + label + ' ' + JSON.stringify({
+        formError: pane?.chat?._m2Composer?.error, open: !!section(), submitDisabled: element('submit')?.disabled,
+        text: section()?.textContent?.slice(-1200) }));
     };
     const post = async (url, body) => {
       const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
