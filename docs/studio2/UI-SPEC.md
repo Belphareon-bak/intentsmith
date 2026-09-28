@@ -274,3 +274,10 @@ v obchodě, změny modelových rolí a měření, jakákoli nová schopnost shel
 - Nastavení potřebuje viditelně čitelnější ikony: větší kresba, jasnější
   odlišné odstíny a rozpoznatelný podklad, který nezávisí na barevnosti
   hlavní navigace.
+- Operátor odmítl palety A/B/C; nejblíže byla B, ale Multimédia nesmějí
+  připomínat žluté Konverzace. Chladný závěr proto přechází od modré přes
+  azurovou a mátovou k zelené, bez žlutozeleného konce.
+- Nastavení má vlastní plné barevné podklady, kontrastní kresbu a dvanáct
+  různých významových symbolů. Účet je osoba, Paměť kniha, Výstup dokument,
+  Systém ozubené kolo a Zálohy obnova s hodinami. Čip patří jen Modelům,
+  disk jen Úložišti. Změna se projeví i v seznamu a detailu.

@@ -73,3 +73,10 @@ a neutrálních ikon na ní nezávisí. Vlastněné cesty zůstávají výše, n
 Ověření: záporně žádné barevné dekorace ikon v konverzacích a žádné domyšlené
 datum; kladně projektová data, přežití lokální aktivity po zavření/obnově,
 kanonický prototyp a skutečný AppImage v tmavých/světlých motivech.
+
+Aktualizace podle odpovědi operátora: A/B/C odmítnuty; B byla nejblíže,
+ale žlutozelená Multimédia se podobala chatu. Oprava má zelený konec,
+nastavení plné barevné podklady a různé významové symboly. Ověřit nejen
+jedinečnost barev, ale i kontrast symbolů a totožný vzhled v dlaždici,
+seznamu a detailu. Celý profil byl spuštěn na `b5fda0f1`; navazující změny
+jsou omezené na paletu, symboly a jejich kanonické renderování.

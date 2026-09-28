@@ -31,8 +31,8 @@ html,body{margin:0;height:100%;overflow:hidden}
 .grow{flex-grow:1}
 .faint{color:var(--faint)}
 /* Semantic category colors stay distinct from the theme accent and status colors. */
-.dark{--cat-chat:#facc15;--cat-project:#ff7373;--cat-specialist:#b18aff;--cat-expertise:#60a5fa;--cat-worker:#54ccb9;--cat-market:#7fd798;--cat-media:#b1cf77;--set-ucet:#67c1e8;--set-modely:#aa9cf6;--set-pamet:#65cbaa;--set-oznameni:#e3c064;--set-vystup:#80adeb;--set-vzhled:#c69bea;--set-system:#80bbc1;--set-uloziste:#dfa66f;--set-zalohy:#b6cd79;--set-prepinace:#9badda;--set-zabezpeceni:#69c790;--set-about:#b7a5d3}
-.light{--cat-chat:#855700;--cat-project:#b91c1c;--cat-specialist:#6d28d9;--cat-expertise:#1d4ed8;--cat-worker:#136f62;--cat-market:#236d36;--cat-media:#587326;--set-ucet:#226b8c;--set-modely:#6250b2;--set-pamet:#247759;--set-oznameni:#8e6818;--set-vystup:#3e64a2;--set-vzhled:#8451a8;--set-system:#386b75;--set-uloziste:#956028;--set-zalohy:#5f7627;--set-prepinace:#4e6693;--set-zabezpeceni:#29794b;--set-about:#70558c}
+.dark{--cat-chat:#facc15;--cat-project:#ff7373;--cat-specialist:#b18aff;--cat-expertise:#60a5fa;--cat-worker:#50c7d6;--cat-market:#55c99e;--cat-media:#7abf62;--set-ink:#10141b;--set-ucet:#53b6e8;--set-modely:#9b8bed;--set-pamet:#49baa8;--set-oznameni:#dcaf42;--set-vystup:#8e9cca;--set-vzhled:#b18ad7;--set-system:#c89e78;--set-uloziste:#6eafbf;--set-zalohy:#8cbd79;--set-prepinace:#cf916e;--set-zabezpeceni:#56b483;--set-about:#9cabc8}
+.light{--cat-chat:#855700;--cat-project:#b91c1c;--cat-specialist:#6d28d9;--cat-expertise:#1d4ed8;--cat-worker:#176b7a;--cat-market:#216e51;--cat-media:#396b24;--set-ink:#ffffff;--set-ucet:#235f7e;--set-modely:#665093;--set-pamet:#236c61;--set-oznameni:#825f17;--set-vystup:#435576;--set-vzhled:#79568e;--set-system:#856343;--set-uloziste:#2f6574;--set-zalohy:#4c703d;--set-prepinace:#875938;--set-zabezpeceni:#286346;--set-about:#516273}
 .tone-amber{--tc:var(--cat-chat)}.tone-red,.tone-rose{--tc:var(--cat-project)}.tone-violet{--tc:var(--cat-specialist)}.tone-cyan{--tc:var(--cat-media)}.tone-mint{--tc:var(--cat-worker)}.tone-blue{--tc:var(--cat-expertise)}.tone-orange{--tc:var(--cat-market)}.tone-none{--tc:var(--acct)}
 .tone-set-ucet{--tc:var(--set-ucet)} .tone-set-modely{--tc:var(--set-modely)} .tone-set-pamet{--tc:var(--set-pamet)} .tone-set-oznameni{--tc:var(--set-oznameni)} .tone-set-vystup{--tc:var(--set-vystup)} .tone-set-vzhled{--tc:var(--set-vzhled)} .tone-set-system{--tc:var(--set-system)} .tone-set-uloziste{--tc:var(--set-uloziste)} .tone-set-zalohy{--tc:var(--set-zalohy)} .tone-set-prepinace{--tc:var(--set-prepinace)} .tone-set-zabezpeceni{--tc:var(--set-zabezpeceni)} .tone-set-about{--tc:var(--set-about)}
 .category-badges{display:flex;align-items:center;flex-wrap:wrap;gap:5px;min-width:0}
@@ -301,8 +301,8 @@ html,body{margin:0;height:100%;overflow:hidden}
 .toned .dico,.dico.always{color:var(--tc);background:color-mix(in srgb,var(--tc) 12%,transparent)}
 /* Conversation context is colored only inside its label. */
 .tico.neutral,.lico.neutral,.dico.neutral{color:var(--dim);background:var(--panel3)}
-/* Settings form their own quieter palette, with a legible stroke and plate. */
-.tico[class*="tone-set-"],.lico[class*="tone-set-"],.dico[class*="tone-set-"]{color:var(--tc);background:color-mix(in srgb,var(--tc) 16%,var(--panel));border:1px solid color-mix(in srgb,var(--tc) 35%,var(--border))}
+/* Settings use solid, quieter plates and distinct semantic glyphs. */
+.tico[class*="tone-set-"],.lico[class*="tone-set-"],.dico[class*="tone-set-"]{color:var(--set-ink);background:var(--tc);border:1px solid color-mix(in srgb,var(--tc) 75%,var(--text))}
 .tico[class*="tone-set-"]{width:40px;height:40px;border-radius:10px}
 .tico[class*="tone-set-"] .ic{width:22px;height:22px;stroke-width:1.9}
 .lico[class*="tone-set-"] .ic{width:17px;height:17px;stroke-width:1.9}
