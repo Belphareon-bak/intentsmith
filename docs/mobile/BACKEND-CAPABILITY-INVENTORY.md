@@ -12,14 +12,14 @@ remote-health.read is a public GET /remote/v1/health prerequisite, not one of th
 The underlying requirements retain their own candidate stage. Availability and scopes must
 still be validated against the actual server/session; desktop route existence grants no remote authority.
 
-- Desktop route declarations: 273
+- Desktop route declarations: 275
 - Legacy /m1 declarations: 0
 - M7 HTTP routes: 7
 - M7 invocation operations: 17
 - Capability areas: approvals, conversations, events, notifications, projects, settings, stored_information
 - Control-plane operations (not another capability): 3
-- Desktop route digest: `eb31d3ca0ee4dc6a8f65914e23fb674aa70b436fc06227a3087ba428357c3a09`
-- Combined inventory digest: `91691bb23dd20166759320a077b4d6f8064b4e544f5bd3a36dc2da6dc76a0231`
+- Desktop route digest: `8798ce81cfebacf9a3051a46c0cb90505114b90ac2a13aebab48caba4ddb04a8`
+- Combined inventory digest: `a00eaab933d8baab0b7fabe03b00231860c574ad3a53a19d712f35a0820f408a`
 
 Workers, specialists and device management have no M7 operation in this projection.
 Their desktop route declarations must not be mistaken for a mobile capability.
@@ -63,8 +63,10 @@ Their desktop route declarations must not be mistaken for a mobile capability.
 | Method | Path | Source |
 |---|---|---|
 | GET | `/api/agent-extensions` | src/routes/agents.js |
+| GET | `/api/agent-extensions/:id` | src/routes/agents.js |
 | POST | `/api/agent-extensions/:id/install` | src/routes/agents.js |
 | DELETE | `/api/agent-extensions/:id/instances/:agentId` | src/routes/agents.js |
+| POST | `/api/agent-extensions/:id/preview` | src/routes/agents.js |
 | DELETE | `/api/agent-extensions/instances/:agentId` | src/routes/agents.js |
 | POST | `/api/agent-extensions/instances/:agentId/disable` | src/routes/agents.js |
 | POST | `/api/agent-extensions/instances/:agentId/enable` | src/routes/agents.js |

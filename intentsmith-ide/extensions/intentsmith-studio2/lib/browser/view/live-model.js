@@ -249,7 +249,11 @@ class LiveModel extends Component {
       }));
     }
     this.syncTrees();
-    if (typeof this.widget.catalog.load === 'function') void this.widget.catalog.load('Konverzace');
+    // Navigation badges must show the real catalogs from the first render,
+    // including sections the user has not visited yet. These are read-only.
+    if (typeof this.widget.catalog.load === 'function') {
+      for (const section of Object.values(CATALOG)) void this.widget.catalog.load(section);
+    }
     this.statusClient.start();
     this.loadChatModel();
     if (this.state.mode === 'section' && CATALOG[this.state.section]) this.widget.catalog.load(CATALOG[this.state.section]);

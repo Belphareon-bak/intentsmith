@@ -2281,6 +2281,13 @@ async function runJourney({
     const networkCaptureStarted = monotonicMs();
     await cdp.send('Page.navigate', { url: originalLocation });
     await waitForRendererTransport(cdp);
+    // Studio 2 uses /api/health for its status line. Exercise the separate
+    // protected root health surface explicitly, keeping the full M0 policy.
+    const rootHealth = await evaluate(cdp, `(async () => {
+      const response = await fetch('/health');
+      return { status: response.status, ok: response.ok };
+    })()`);
+    if (rootHealth?.status !== 200 || rootHealth?.ok !== true) fail('renderer-root-health-failed');
     if (m1Journey) await waitForM1StartupHttp(reducer);
     if (m1Journey) await installM1SoakLifecycleMonitor(cdp);
     else await installSoakLifecycleMonitor(cdp);

@@ -12,10 +12,10 @@
     "clientProjection": "src/mobile/client/m7-runtime-contract-v1.js",
     "requirementsStage": "CANDIDATE_NOT_ACCEPTED"
   },
-  "routeDigest": "eb31d3ca0ee4dc6a8f65914e23fb674aa70b436fc06227a3087ba428357c3a09",
-  "inventoryDigest": "91691bb23dd20166759320a077b4d6f8064b4e544f5bd3a36dc2da6dc76a0231",
+  "routeDigest": "8798ce81cfebacf9a3051a46c0cb90505114b90ac2a13aebab48caba4ddb04a8",
+  "inventoryDigest": "a00eaab933d8baab0b7fabe03b00231860c574ad3a53a19d712f35a0820f408a",
   "summary": {
-    "desktopRouteDeclarations": 273,
+    "desktopRouteDeclarations": 275,
     "legacyM1Declarations": 0,
     "m7TransportRoutes": 7,
     "m7Operations": 17,
@@ -39,6 +39,13 @@
       ]
     },
     {
+      "method": "GET",
+      "path": "/api/agent-extensions/:id",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
       "method": "POST",
       "path": "/api/agent-extensions/:id/install",
       "sources": [
@@ -48,6 +55,13 @@
     {
       "method": "DELETE",
       "path": "/api/agent-extensions/:id/instances/:agentId",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent-extensions/:id/preview",
       "sources": [
         "src/routes/agents.js"
       ]
