@@ -415,6 +415,8 @@ class Component extends DCLogic {
     const demoNow = Date.now();
     Object.keys(S).forEach((id, index) => { S[id].createdAt = new Date(demoNow - (index + 2) * 86400000).toISOString();
       S[id].lastUsedAt = new Date(demoNow - (index + 1) * 180000).toISOString(); });
+    P.forEach((row, index) => { row.createdAt = new Date(demoNow - (index + 12) * 86400000).toISOString();
+      row.lastUsedAt = new Date(demoNow - (index + 1) * 3600000).toISOString(); });
     H.forEach((row, index) => { row.createdAt = new Date(demoNow - (index + 8) * 86400000).toISOString();
       row.lastUsedAt = new Date(demoNow - (index + 1) * 18000000).toISOString(); });
     this._d = { I, S, H, P, SP, CATS, EX, WK, MK, SET, MODELS, FILES, DIFFS, GIT };
@@ -761,11 +763,11 @@ class Component extends DCLogic {
         const p = b.project ? this.proj(b.project) : null;
         const sp = b.specialist ? this.spec(b.specialist) : null;
         const first = b.msgs.concat(s.extra[sid] || []).find((m) => m.k === 'user');
-        return { id: sid, name: b.title, sub: sp ? 'specialista ' + sp.name : p ? p.name : 'bez projektu', desc: first ? first.text : 'Zatím bez zpráv.', badges: this.conversationBadges(p ? p.name : '', sp ? sp.name : ''), lastUsedAt: s.usedAt[sid] || b.lastUsedAt, usedText: this.ageText(s.usedAt[sid] || b.lastUsedAt), usedTitle: 'Poslední aktivita: ' + this.dateText(s.usedAt[sid] || b.lastUsedAt), icon: this.kindIcon(b.kind), tone: p ? 'red' : sp ? 'violet' : 'amber', dot: st, num: i + 1, groups: ['open', p ? 'project' : 'free'].concat(sp ? ['specialist'] : []), group: 'Otevřené relace', catLabel: 'Relace ' + (i + 1), meta: this.stLabel(st), metaColor: this.stColor(st), tag: '', state: this.stLabel(st) };
+        return { id: sid, name: b.title, sub: sp ? 'specialista ' + sp.name : p ? p.name : 'bez projektu', desc: first ? first.text : 'Zatím bez zpráv.', badges: this.conversationBadges(p ? p.name : '', sp ? sp.name : ''), lastUsedAt: s.usedAt[sid] || b.lastUsedAt, usedText: this.ageText(s.usedAt[sid] || b.lastUsedAt), usedTitle: 'Poslední aktivita: ' + this.dateText(s.usedAt[sid] || b.lastUsedAt), icon: this.kindIcon(b.kind), tone: 'neutral', icls: 'neutral', dot: st, num: i + 1, groups: ['open', p ? 'project' : 'free'].concat(sp ? ['specialist'] : []), group: 'Otevřené relace', catLabel: 'Relace ' + (i + 1), meta: this.stLabel(st), metaColor: this.stColor(st), tag: '', state: this.stLabel(st) };
       });
       const hist = this.saved(s).map((h) => {
         const p = h.project ? this.proj(h.project) : null;
-        return { id: h.id, name: h.t, sub: p ? p.name : 'bez projektu', desc: 'Uložená konverzace · otevře se jako nová relace.', badges: this.conversationBadges(p ? p.name : '', ''), lastUsedAt: s.usedAt[h.id] || h.lastUsedAt, usedText: this.ageText(s.usedAt[h.id] || h.lastUsedAt), usedTitle: 'Poslední aktivita: ' + this.dateText(s.usedAt[h.id] || h.lastUsedAt), icon: p ? I.folder : I.chat, tone: p ? 'red' : 'amber', groups: [p ? 'project' : 'free'], group: h.day, catLabel: h.day === 'Starší' || h.day === 'Nedávno zavřené' ? h.when : h.day + ' ' + h.when, meta: h.when, tag: '', state: 'uložená' };
+        return { id: h.id, name: h.t, sub: p ? p.name : 'bez projektu', desc: 'Uložená konverzace · otevře se jako nová relace.', badges: this.conversationBadges(p ? p.name : '', ''), lastUsedAt: s.usedAt[h.id] || h.lastUsedAt, usedText: this.ageText(s.usedAt[h.id] || h.lastUsedAt), usedTitle: 'Poslední aktivita: ' + this.dateText(s.usedAt[h.id] || h.lastUsedAt), icon: p ? I.folder : I.chat, tone: 'neutral', icls: 'neutral', groups: [p ? 'project' : 'free'], group: h.day, catLabel: h.day === 'Starší' || h.day === 'Nedávno zavřené' ? h.when : h.day + ' ' + h.when, meta: h.when, tag: '', state: 'uložená' };
       });
       return open.concat(hist).sort((a, b) => this.timestamp(b.lastUsedAt) - this.timestamp(a.lastUsedAt));
     }
@@ -996,7 +998,7 @@ class Component extends DCLogic {
         const related = [];
         if (p) related.push({ t: p.name, s: 'projekt', icon: I.folder, go: (s2) => this.pSelect(s2, 'projects', p.id) });
         if (sp) related.push({ t: sp.name, s: 'specialista', icon: I.users, go: (s2) => this.pSelect(s2, 'specialists', sp.id) });
-        return { badges: this.conversationBadges(p ? p.name : '', sp ? sp.name : ''), icon: this.kindIcon(b.kind), tone: p ? 'red' : sp ? 'violet' : 'amber', title: b.title, type: 'Konverzace', idText: 'relace ' + (this.sessionNumber(id, s)), status: this.stLabel(st), stCls: st === 'wait' ? 'warn' : st === 'ok' ? 'ok' : st === 'run' ? 'acc' : 'idle',
+        return { badges: this.conversationBadges(p ? p.name : '', sp ? sp.name : ''), icon: this.kindIcon(b.kind), tone: 'neutral', icls: 'neutral', title: b.title, type: 'Konverzace', idText: 'relace ' + (this.sessionNumber(id, s)), status: this.stLabel(st), stCls: st === 'wait' ? 'warn' : st === 'ok' ? 'ok' : st === 'run' ? 'acc' : 'idle',
           primary: { label: 'Přepnout na relaci', go: (s2) => this.pFocusSession(s2, id) },
           secondary: [{ label: 'Ukončit relaci', icon: I.x, go: (s2) => this.pCloseSession(s2, id) }],
           tabs: [['prehled', 'Přehled']], blocks: { prehled: blocks.length ? blocks : [{ kind: 'empty', title: 'Zprávy', text: 'Relace zatím nemá žádnou zprávu.' }] }, desc: '', props, related };
@@ -1004,7 +1006,7 @@ class Component extends DCLogic {
       const h = this.saved(s).find((x) => x.id === id);
       if (!h) return null;
       const p = h.project ? this.proj(h.project) : null;
-      return { badges: this.conversationBadges(p ? p.name : '', ''), icon: p ? I.folder : I.chat, tone: p ? 'red' : 'amber', title: h.t, type: 'Konverzace', idText: 'uložená · ' + h.when, status: 'uložená', stCls: 'idle',
+      return { badges: this.conversationBadges(p ? p.name : '', ''), icon: p ? I.folder : I.chat, tone: 'neutral', icls: 'neutral', title: h.t, type: 'Konverzace', idText: 'uložená · ' + h.when, status: 'uložená', stCls: 'idle',
         primary: { label: this.openLabel(s), go: (s2) => this.pOpenSession(s2, id) },
         secondary: [],
         tabs: [['prehled', 'Přehled']], blocks: { prehled: [{ kind: 'empty', title: 'Zprávy', text: 'Obsah se načte po otevření jako relace.' }] }, desc: '',
@@ -1019,7 +1021,7 @@ class Component extends DCLogic {
       const tree = (p.tree || []).map((t) => ({ t: ' '.repeat(t[0] * 4) + t[1], icon: t[2] ? I.folder : I.file, m: t[3] || '', mc: t[3] === 'A' ? ok : 'var(--warn)', mono: true }));
       const prehled = [{ kind: 'rows', title: 'Relace a konverzace', rows: convRows, empty: 'Projekt zatím nemá žádnou konverzaci. Začni tlačítkem „' + this.openLabel(s) + '“.' }, { kind: 'rows', title: 'Nedávné změny', rows: recent, empty: 'Zatím žádné změny souborů.' }];
       if (p.memory && p.memory.length) prehled.push({ kind: 'list', title: 'Paměť projektu', items: p.memory });
-      const props = [['Cesta', p.path, true], ['Stav', p.status === 'active' ? 'aktivní' : 'specifikace'], ['Poslední aktivita', p.last], ['Konverzací', String(p.convs.length)]];
+      const props = [['Cesta', p.path, true], ['Stav', p.status === 'active' ? 'aktivní' : 'specifikace'], ['Vytvořeno', this.dateText(p.createdAt)], ['Poslední aktivita', this.dateText(p.lastUsedAt)], ['Konverzací', String(p.convs.length)]];
       if (p.stack) props.push(['Technologie', p.stack]);
       if (p.test) props.push(['Příkaz testů', p.test, true]);
       const g = this.gitVM(s, p.id);

@@ -165,7 +165,7 @@ function render(vm, h, F, rt) {
                     h("div", { className: "pane-h" },
                       h("span", { className: "tnum " + S($c.numCls) },
                         $c.n),
-                      h("svg", { className: "ic tone-" + S($c.kindTone), width: "13", height: "13", viewBox: "0 0 24 24", style: css("color: var(--tc);") },
+                      h("svg", { className: "ic pane-kind", width: "13", height: "13", viewBox: "0 0 24 24", style: css("color: var(--dim);") },
                         h("path", { d: $c.kindIcon })),
                       h("span", { className: "dot " + S($c.dot) }),
                       h("button", { className: "pane-t " + S($c.pickCls), onClick: $c.pick, "aria-haspopup": "menu", title: S($c.title) + " · vybrat relaci pro tento sloupec" },
