@@ -120,7 +120,7 @@
 .intentsmith-studio2-widget .grow{flex-grow:1}
 .intentsmith-studio2-widget .faint{color:var(--faint)}
 .intentsmith-studio2-widget .dark{--cat-chat:#facc15;--cat-project:#ff7373;--cat-specialist:#b18aff;--cat-expertise:#60a5fa;--cat-worker:#4ade80;--cat-market:#fb923c;--cat-media:#2dd4bf;--set-ucet:#8fa6ba;--set-modely:#a0a8dc;--set-pamet:#7cbab0;--set-oznameni:#c7b77e;--set-vystup:#84b0c7;--set-vzhled:#b39bc9;--set-system:#a6afb9;--set-uloziste:#c5a080;--set-zalohy:#a5b47d;--set-prepinace:#aba2c4;--set-zabezpeceni:#8ab697;--set-about:#849cbe}
-.intentsmith-studio2-widget .light{--cat-chat:#976300;--cat-project:#b91c1c;--cat-specialist:#6d28d9;--cat-expertise:#1d4ed8;--cat-worker:#15733a;--cat-market:#b94708;--cat-media:#0f766e;--set-ucet:#4c6378;--set-modely:#595f94;--set-pamet:#396f67;--set-oznameni:#756330;--set-vystup:#3f6b82;--set-vzhled:#72558b;--set-system:#5e6771;--set-uloziste:#865d3a;--set-zalohy:#5d7035;--set-prepinace:#6e5f85;--set-zabezpeceni:#3f7450;--set-about:#446389}
+.intentsmith-studio2-widget .light{--cat-chat:#855700;--cat-project:#b91c1c;--cat-specialist:#6d28d9;--cat-expertise:#1d4ed8;--cat-worker:#15733a;--cat-market:#a93c04;--cat-media:#0d6963;--set-ucet:#4c6378;--set-modely:#595f94;--set-pamet:#396f67;--set-oznameni:#756330;--set-vystup:#3f6b82;--set-vzhled:#72558b;--set-system:#5e6771;--set-uloziste:#865d3a;--set-zalohy:#5d7035;--set-prepinace:#6e5f85;--set-zabezpeceni:#3f7450;--set-about:#446389}
 .intentsmith-studio2-widget .tone-amber{--tc:var(--cat-chat)}
 .intentsmith-studio2-widget .tone-red,.intentsmith-studio2-widget .tone-rose{--tc:var(--cat-project)}
 .intentsmith-studio2-widget .tone-violet{--tc:var(--cat-specialist)}

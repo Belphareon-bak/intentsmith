@@ -183,3 +183,15 @@ const decoratedHead = c0().graphRows({ branch: 'main', baseBranch: 'main', laneB
   log: [['o', 'abc1234', 'Commit', 'Autor', 'dnes', ['HEAD -> main', 'main']]] });
 assert.equal(decoratedHead[0].refs.filter(ref => ref.cls === 'head').length, 1,
   'Git history must not repeat HEAD when the backend already decorates it');
+
+// Operator's semantic categories remain visible even in monochrome navigation.
+out = html({ mode: 'section', section: 'chats', detail: { chats: 's1' } });
+for (const text of ['category-label tone-amber', 'category-label tone-red',
+  'category-label tone-violet', 'last-used', 'Vytvořeno', 'Poslední aktivita'])
+  assert.ok(out.includes(text), text);
+const categoryModel = new Component();
+assert.deepEqual(categoryModel.sections().slice(0, 7).map(row => row.tone),
+  ['amber', 'red', 'violet', 'blue', 'mint', 'orange', 'cyan']);
+assert.equal(new Set(categoryModel.data().SET.map(row => row.tone)).size, 12);
+assert.ok(categoryModel.data().SET.every(row => row.tone.startsWith('set-')));
+console.log('PASS category labels, activity dates and distinct settings palette survive canonical rendering');
