@@ -12,7 +12,7 @@ import { config } from '../src/config.js';
 import { projectHandler } from '../src/chat/handlers/project.js';
 import { handleFileDecision } from '../src/chat/handlers/file.js';
 import { toolExecutor } from '../src/executor/tool-executor.js';
-import { handleAnswerDecision } from '../src/chat/handlers/decisions.js';
+import { handleAnswerDecision, handleAskUserDecision } from '../src/chat/handlers/decisions.js';
 import { projects } from '../src/db/database.js';
 import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -68,7 +68,7 @@ try {
   for (const understanding of [null, {}, action([slot('action', 'invented')]), action([slot('action', 'Nastav')])]) {
     assert.equal(assessIntentClarity('Nastav port na 8080', understanding).kind, 'clarify');
   }
-  assert.equal(assessIntentClarity('Nesmaž notes.md', action([slot('action', 'Nesmaž'), slot('negation', 'Nesmaž'), slot('target', 'notes.md')])).kind, 'no_effect');
+  assert.equal(assessIntentClarity('Nesmaž notes.md', action([slot('action', 'Nesmaž'), slot('negation', 'Nesmaž'), slot('target', 'notes.md')])).kind, 'clarify');
 
   for (const input of ['vyzkousej lokalni modley jako hodnotitele', 'Můžeš mi říct, jak snížit napětí GPU?', 'Prosím napiš návod, jak snížit příkon GPU.']) {
     proposal = classified(information());
@@ -138,8 +138,9 @@ try {
       engine._llmClassifyIntent = async () => ({ intent: IntentType.CONVERSATIONAL, confidence: 1,
         understanding: action([slot('action', 'Nesmaž'), slot('negation', 'Nesmaž'), slot('target', 'notes.md')]) });
       const negation = await engine.decide('Nesmaž notes.md');
-      const answer = await handleAnswerDecision('Nesmaž notes.md', negation, {});
-      assert.match(answer.content, /zákaz akce/);
+      assert.equal(negation.type, DecisionType.ASK_USER);
+      const answer = await handleAskUserDecision('Nesmaž notes.md', negation, {});
+      assert.match(answer.content, /Je „Nesmaž“/);
       assert.equal(calls, 1, 'negation does not reach answer synthesis');
       delete engine._llmClassifyIntent;
       llmGateway.call = async () => { throw new Error('controlled provider failure'); };
@@ -164,7 +165,7 @@ try {
   }
   {
     proposal = { intent: IntentType.FILE_WRITE, confidence: 0.95, fileTarget: 'notes.md', understanding: action([slot('action', 'Ulož'), slot('target', 'notes.md')]) };
-    const inspected = await creDecisionEngine.inspectRequest('Ulož odpověď do notes.md', { history: [{ role: 'assistant', content: 'report' }] });
+    const inspected = await creDecisionEngine.inspectRequest('Ulož odpověď do notes.md', { history: [{ role: 'assistant', content: 'report', metadata: { intentContentEligible: true } }] });
     let brokerCalls = 0;
     const executor = new ToolExecutor({ m2ToolBroker: { execute: async () => { brokerCalls++; return { state: 'controlled' }; } } });
     const context = { intentEvidence: inspected.token, input: 'Ulož odpověď do notes.md' };
@@ -248,7 +249,7 @@ try {
   ]) {
     const omitted = action([slot('action', verb), slot('target', 'notes.md')]);
     assert.equal(assessIntentClarity(input, omitted).reason, 'negation_unverified');
-    assert.equal(assessIntentClarity(input, action([...omitted.slots, slot('negation', negative)])).kind, 'no_effect');
+    assert.equal(assessIntentClarity(input, action([...omitted.slots, slot('negation', negative)])).kind, 'clarify');
     proposal = { intent: 'FILE_WRITE', confidence: 0.95, fileTarget: 'notes.md', understanding: omitted };
     const controller = fixture();
     assert.equal((await controller.process(input)).tag.metadata.decision.type, DecisionType.ASK_USER);
@@ -260,14 +261,101 @@ try {
   for (const suffix of ['nebo report', 'nejlepší report', 'než report', 'nez report']) {
     assert.equal(assessIntentClarity(`Ulož ${suffix} do notes.md`, action([slot('action', 'Ulož'), slot('target', 'notes.md')])), null);
   }
+  // Reviewed false positives: neither literal targets nor affirmative words
+  // become prohibitions, including a model's incorrect negation label.
+  for (const target of ['new-notes.md', 'next.config.js', 'network.md', 'never.md', 'neon.2', 'notes-nepřepisuj.md']) {
+    const input = `Ulož report do ${target}`;
+    for (const extra of [[], [slot('negation', target)]]) {
+      const understanding = action([slot('action', 'Ulož'), slot('target', target), slot('value', 'report'), ...extra]);
+      assert.equal(assessIntentClarity(input, understanding), null, input);
+      proposal = { intent: 'FILE_WRITE', confidence: 0.95, fileTarget: target, understanding };
+      const controller = fixture();
+      await controller.process(input);
+      assert.equal(controller.reached.length, 1);
+      const executor = new ToolExecutor({ m2ToolBroker: { execute: async ({ input: args }) => { assert.deepEqual(args, { path: target, content: 'report' }); return { state: 'controlled' }; } } });
+      await executor.executeM2Tool({ toolId: 'file.write', input: { path: target, content: 'report' }, context: { intentEvidence: issueIntentEvidence(input, { intent: 'FILE_WRITE' }, understanding) } });
+    }
+  }
+  for (const word of ['neboť', 'nebot', 'necham', 'nechám', 'nekdo', 'neco', 'new', 'next', 'need', 'network', 'net']) {
+    const input = `Ulož report do notes.md, ${word} ji potřebuju`;
+    for (const extra of [[], [slot('negation', word)]]) {
+      const understanding = action([slot('action', 'Ulož'), slot('target', 'notes.md'), slot('value', 'report'), ...extra]);
+      assert.equal(assessIntentClarity(input, understanding), null, input);
+      const token = issueIntentEvidence(input, { intent: 'FILE_WRITE' }, understanding);
+      const executor = new ToolExecutor({ m2ToolBroker: { execute: async () => ({ state: 'controlled' }) } });
+      await executor.executeM2Tool({ toolId: 'file.write', input: { path: 'notes.md', content: 'report' }, context: { intentEvidence: token } });
+    }
+  }
+  for (const target of ['https://example.test/nepis/new', 'never@example.test']) {
+    const input = `Ulož report o ${target} do notes.md`;
+    const understanding = action([slot('action', 'Ulož'), slot('target', target), slot('target', 'notes.md'), slot('value', 'report'), slot('negation', target)]);
+    assert.equal(assessIntentClarity(input, understanding), null);
+    const executor = new ToolExecutor({ m2ToolBroker: { execute: async () => ({ state: 'controlled' }) } });
+    await executor.executeM2Tool({ toolId: 'file.write', input: { path: 'notes.md', content: 'report' }, context: { intentEvidence: issueIntentEvidence(input, { intent: 'FILE_WRITE' }, understanding) } });
+  }
+  // An explicit choice is bound to one occurrence and survives into tool proof.
+  for (const cited of [false, true]) {
+    const source = 'Ulož report pro neon do notes.md';
+    const understanding = action([slot('action', 'Ulož'), slot('target', 'notes.md'), slot('value', 'report'), ...(cited ? [slot('negation', 'neon')] : [])]);
+    proposal = { intent: 'FILE_WRITE', confidence: 0.95, fileTarget: 'notes.md', understanding };
+    const controller = fixture();
+    const first = await controller.process(source);
+    assert.deepEqual(first.tag.metadata.decision.metadata.clarificationOptions, ['je to zákaz', 'není to zákaz']);
+    const span = controller.state.pendingDecision.metadata.unresolvedSpan;
+    assert.equal(span.source, 'neon');
+    const fakeModelChoice = structuredClone(understanding);
+    fakeModelChoice.negationDecisions = [{ ...span, prohibited: false }];
+    assert.equal(assessIntentClarity(source, fakeModelChoice).reason, 'negation_unverified', 'model JSON cannot issue the user decision');
+    const otherConversation = fixture();
+    assert.equal((await otherConversation.process('není to zákaz')).tag.metadata.decision.type, DecisionType.ASK_USER);
+    assert.equal(otherConversation.reached.length, 0, 'a bare choice in another conversation has no original span');
+    await controller.process('ano');
+    assert.equal(controller.reached.length, 0);
+    await controller.process('není to zákaz');
+    assert.equal(controller.reached.length, 1, 'even a model-cited false prohibition can be resolved');
+    const proof = controller.reached[0].proof;
+    assert.equal(proof.source, source, 'choice text is not inserted as a new negation into the source');
+    assert.deepEqual(proof.negationDecisions, [{ ...span, prohibited: false }]);
+    const inspected = await creDecisionEngine.inspectRequest(source, {}, { negationDecisions: proof.negationDecisions });
+    const executor = new ToolExecutor({ m2ToolBroker: { execute: async () => ({ state: 'controlled' }) } });
+    await executor.executeM2Tool({ toolId: 'file.write', input: { path: 'notes.md', content: 'report' }, context: { intentEvidence: inspected.token } });
+    await assert.rejects(executor.executeM2Tool({ toolId: 'file.write', input: { path: 'backup.md', content: 'report' }, context: { intentEvidence: inspected.token } }), { code: 'M2_TOOL_INTENT_MISMATCH' });
+    await assert.rejects(executor.executeM2Tool({ toolId: 'file.write', input: { path: 'notes.md', content: 'report' }, context: { intentEvidence: issueIntentEvidence(source, { intent: 'FILE_WRITE' }, understanding) } }), { code: 'M2_TOOL_INTENT_MISMATCH' });
+    const prohibited = fixture();
+    await prohibited.process(source);
+    assert.equal((await prohibited.process('je to zákaz')).tag.metadata.intentClarityReason, 'explicit_negation');
+    assert.equal(prohibited.reached.length, 0);
+  }
+  for (const second of ['neon', 'nepřepisuj']) {
+    const source = `Ulož report pro neon do notes.md, ale ${second} ho`;
+    proposal = { intent: 'FILE_WRITE', confidence: 0.95, fileTarget: 'notes.md', understanding: action([slot('action', 'Ulož'), slot('target', 'notes.md'), slot('value', 'report')]) };
+    const controller = fixture();
+    await controller.process(source);
+    const firstSpan = controller.state.pendingDecision.metadata.unresolvedSpan;
+    await controller.process('není to zákaz');
+    const secondSpan = controller.state.pendingDecision.metadata.unresolvedSpan;
+    assert.ok(secondSpan.start > firstSpan.start);
+    assert.equal(secondSpan.source, second);
+    if (second === 'neon') assert.match(controller.state.pendingDecision.metadata.clarificationText, /2\. výskyt/);
+    assert.equal(controller.reached.length, 0, 'one choice cannot exempt a later occurrence/prohibition');
+    await controller.process('ano');
+    assert.equal(controller.reached.length, 0);
+    assert.equal((await controller.process('je to zákaz')).tag.metadata.intentClarityReason, 'explicit_negation');
+    assert.equal(controller.reached.length, 0);
+  }
+  for (const forbidden of ['nechci', 'netiskni', 'nemaž', 'nepřepisuj', "don't"]) {
+    const source = `Ulož report do notes.md, ale ${forbidden}`;
+    assert.equal(assessIntentClarity(source, action([slot('action', 'Ulož'), slot('target', 'notes.md'), slot('value', 'report')])).reason, 'negation_unverified');
+  }
   for (const literal of ['3.12', 'qwen3.5', 'v3.12.0']) assert.deepEqual(literalFileTargets(literal), []);
   for (const literal of ['src/app.js', '.env', 'report.2026.md', 'folder/3.12', 'folder/qwen3.5']) assert.equal(literalFileTargets(literal)[0].source, literal);
   assert.equal(latestAssistantContent([
-    { role: 'assistant', content: 'answer' },
+    { role: 'assistant', content: 'answer', metadata: { intentContentEligible: true } },
     { role: 'assistant', content: 'question', metadata: { decision: { type: 'ASK_USER' } } },
     { role: 'assistant', content: 'refusal', metadata: { decision: { type: 'REFUSE' } } },
-    { isSummary: true, response: { tag: { speaker: 'system' }, content: 'summary' } },
+    { isSummary: true, response: { tag: { speaker: 'system', metadata: { intentContentEligible: true } }, content: 'summary' } },
   ]), 'answer');
+  assert.equal(latestAssistantContent([{ role: 'assistant', content: 'legacy answer' }]), null, 'unmarked historical content is ineligible');
   {
     // Real ingress persists the answer, clarification/refusal and subsequent
     // command. No history is injected into inspectRequest or the file handler.
@@ -277,52 +365,97 @@ try {
     const oldBroker = toolExecutor.m2ToolBroker;
     const answer = 'Původní odpověď: přesné bajty a nový řádek.\nDruhý řádek.';
     let writes = 0;
+    let expectedPath = 'notes.md';
     try {
       llmGateway.call = async () => ({ content: answer, finishReason: 'stop' });
       ChatController.configure({ handlers: { [ChatMode.CONVERSATION]: conversationHandler, [ChatMode.PROJECT]: conversationHandler }, config: { autoModeDetection: false } });
       toolExecutor.m2ToolBroker = { execute: async ({ toolId, input, context }) => {
         writes++;
         assert.equal(toolId, 'file.write');
-        assert.deepEqual(input, { path: 'notes.md', content: answer });
+        assert.deepEqual(input, { path: expectedPath, content: answer });
         assert.equal(context.intentEvidence !== undefined, true);
         return { state: 'approval_required', effectRequestId: `controlled-write-${writes}`, request: { requestId: `controlled-request-${writes}` } };
       } };
-      for (const journey of ['direct', 'clarified', 'refused', 'empty']) {
+      for (const journey of ['direct', 'clarified', 'refused', 'empty', 'backup', 'authority', 'legacy', 'nonnegative', 'resolved']) {
         const id = `intent-save-ingress-${journey}`;
         ChatController.setProject(id, { id: Number(registered.id), name: registered.name, path: root });
-        const send = message => ChatController.handle({ message, sessionId: id, conversationId: id, context: { projectId: Number(registered.id) }, authenticatedSubject: { actorType: 'user', actorId: 'operator' } });
-        if (journey !== 'empty') {
+        let requestProjectId = Number(registered.id);
+        const send = message => ChatController.handle({ message, sessionId: id, conversationId: id, context: requestProjectId ? { projectId: requestProjectId } : {}, authenticatedSubject: { actorType: 'user', actorId: 'operator' } });
+        expectedPath = 'notes.md';
+        if (!['empty', 'legacy'].includes(journey)) {
           proposal = classified(information());
           const response = await send('Vysvětli možnosti');
           assert.equal(response.response, answer);
         }
+        if (journey === 'legacy') getConversationStore().appendTurn(id, 'assistant', 'Historická odpověď bez pozitivní značky.', { model: 'historical-model' });
         const before = writes;
         if (journey === 'refused') {
           proposal = classified(action([slot('action', 'Nemaž'), slot('negation', 'Nemaž'), slot('target', 'notes.md')]));
           const refused = await send('Nemaž notes.md');
-          assert.equal(refused.metadata.intentClarityReason, 'explicit_negation');
+          assert.equal(refused.metadata.decision.type, DecisionType.ASK_USER);
+          assert.equal((await send('je to zákaz')).metadata.intentClarityReason, 'explicit_negation');
         }
         const needsChoice = ['clarified', 'empty'].includes(journey);
         proposal = { intent: 'FILE_WRITE', confidence: 0.95, fileTarget: needsChoice ? 'wrong.md' : 'notes.md', understanding: action([slot('action', 'Ulož'), slot('target', 'notes.md', needsChoice ? 'wrong.md' : 'notes.md')]) };
-        let saved = await send('Ulož odpověď do notes.md');
+        if (journey === 'authority') { requestProjectId = null; ChatController.setProject(id, null); }
+        if (journey === 'nonnegative') {
+          expectedPath = 'new-notes.md';
+          proposal.fileTarget = expectedPath;
+          proposal.understanding.slots[1] = slot('target', expectedPath);
+          proposal.understanding.slots.push(slot('negation', expectedPath));
+        }
+        if (journey === 'resolved') proposal.understanding.slots.push(slot('negation', 'neon'));
+        let saved = await send(journey === 'resolved' ? 'Ulož odpověď pro neon do notes.md' : `Ulož odpověď do ${expectedPath}`);
+        if (journey === 'resolved') {
+          assert.equal(saved.metadata.decision.type, DecisionType.ASK_USER);
+          assert.equal((await send('ano')).metadata.decision.type, DecisionType.ASK_USER);
+          assert.equal(writes, before);
+          saved = await send('není to zákaz');
+        }
+        if (journey === 'authority') {
+          assert.equal(saved.metadata.error, 'effect_authority_required');
+          assert.equal(writes, before);
+          ChatController.setProject(id, { id: Number(registered.id), name: registered.name, path: root });
+          requestProjectId = Number(registered.id);
+          saved = await send('Ulož odpověď do notes.md');
+        }
         if (needsChoice) {
           assert.equal(saved.metadata.decision.type, DecisionType.ASK_USER);
           assert.equal((await send('ano')).metadata.decision.type, DecisionType.ASK_USER);
           assert.equal(writes, before);
           const history = getConversationStore().buildHandlerHistory(id);
-          assert.equal(history.filter(entry => entry.response.tag.metadata?.intentContentExcluded === true).length, 2, 'control labels survive persistence and history projection');
+          assert.equal(history.filter(entry => entry.response.tag.speaker === 'system' && entry.response.tag.metadata?.intentContentEligible === false).length, 2, 'only model content remains eligible after persistence and history projection');
           proposal.fileTarget = 'notes.md';
           proposal.understanding.slots[1] = slot('target', 'notes.md');
           saved = await send('notes.md');
         }
-        if (journey === 'empty') {
+        if (['empty', 'legacy'].includes(journey)) {
           assert.equal(saved.metadata.error, 'no_content', 'clarification is never substitute content');
           assert.equal(writes, before);
         } else {
           assert.equal(saved.metadata.approvalRequired, true, JSON.stringify(saved));
           assert.equal(writes, before + 1, `${journey}: original answer reaches existing write approval`);
         }
+        if (journey === 'backup') {
+          expectedPath = 'backup.md';
+          proposal.fileTarget = expectedPath;
+          proposal.understanding.slots[1] = slot('target', expectedPath);
+          const backup = await send('Ulož ji i do backup.md');
+          assert.equal(backup.metadata.approvalRequired, true);
+          assert.equal(writes, before + 2, 'save after approval notice still uses the original model answer');
+        }
+        if (journey === 'nonnegative') {
+          for (const target of ['next.config.js', 'network.md']) {
+            expectedPath = target;
+            proposal.fileTarget = target;
+            proposal.understanding.slots[1] = slot('target', target);
+            proposal.understanding.slots[2] = slot('negation', target);
+            assert.equal((await send(`Ulož ji i do ${target}`)).metadata.approvalRequired, true);
+          }
+          assert.equal(writes, before + 3);
+        }
         assert.equal(existsSync(path.join(root, 'notes.md')), false, 'approval request does not perform a write');
+        assert.equal(existsSync(path.join(root, 'backup.md')), false);
       }
     } finally {
       llmGateway.call = originalCall;
@@ -337,7 +470,7 @@ try {
     const prepared = prepareClarificationInput('wrong.md', pending);
     assert.deepEqual(prepared.supersededSpans, [], 'even an incorrectly labelled negative span cannot be exempted');
     assert.equal(assessIntentClarity(prepared.source, action([slot('action', 'Nemaž'), slot('target', 'wrong.md')]), prepared).reason, 'negation_unverified');
-    assert.equal(assessIntentClarity(input, understanding).kind, 'no_effect', 'duplicate slot names cannot lift prohibition');
+    assert.equal(assessIntentClarity(input, understanding).kind, 'clarify', 'duplicate slot names cannot lift prohibition');
     const dupe = action([slot('action', 'Ulož'), slot('target', 'notes.md', 'notes.md', 'same'), slot('value', 'report', 'report', 'same')], [{ slot: 'same', question: 'Co myslíš?', options: ['notes.md', 'wrong.md'] }]);
     assert.equal(assessIntentClarity('Ulož report do notes.md', dupe).unresolvedSpan, null);
     const changed = action([slot('action', 'Ulož'), slot('target', 'notes.md', 'wrong.md', 'same'), slot('value', 'report', 'report', 'same')]);
@@ -448,7 +581,7 @@ try {
   {
     const source = 'ulzo odpoved do notes.md';
     proposal = { intent: 'FILE_WRITE', confidence: 0.95, fileTarget: 'notes.md', understanding: action([slot('action', 'ulzo'), slot('target', 'notes.md')]) };
-    const history = [{ role: 'assistant', content: 'report' }];
+    const history = [{ role: 'assistant', content: 'report', metadata: { intentContentEligible: true } }];
     const inspected = await creDecisionEngine.inspectRequest(source, { history });
     const before = classificationInputs.length;
     const oldBroker = toolExecutor.m2ToolBroker;

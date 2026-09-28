@@ -1123,6 +1123,7 @@ await asyncTest('Decision 024/C: finalizer never calls a post-answer model', asy
         semanticScore: { total: 60 },
         decision: { intent: 'CONVERSATIONAL' },
         model: 'test-model',
+        intentContentEligible: true,
       },
     }),
   });
@@ -1166,6 +1167,7 @@ await asyncTest('Decision 024/C: finalizer never calls a post-answer model', asy
       confidence: 0.9,
       model: 'test-model',
       intent: 'CONVERSATIONAL',
+      intentContentEligible: true,
     },
   }], 'assistant persistence must receive the original final content');
   assert.equal(finalized.response, original, 'returned response must remain unchanged');

@@ -23,6 +23,10 @@ const originalClassifier = creDecisionEngine._llmClassifyIntent;
 llmGateway.call = async () => { modelCalls++; throw new Error('unapproved synthesis'); };
 creDecisionEngine._llmClassifyIntent = async source => {
   classificationCalls++;
+  if (source.includes('neon')) return {
+    intent: 'FILE_WRITE', confidence: 0.95, fileTarget: 'notes.md',
+    understanding: { version: 1, kind: 'action', slots: [slot('action', 'Ulož'), slot('target', 'notes.md'), slot('negation', 'neon')], ambiguities: [] },
+  };
   if (source.includes('GPU')) return {
     intent: 'CONVERSATIONAL', confidence: 0.95,
     understanding: { version: 1, kind: 'action', slots: [slot('action', 'Sniž'), slot('target', 'GPU'), slot('quantity', 'napětí'), slot('value', 'na polovinu')], ambiguities: [{ slot: 'quantity', question: 'Myslíš napětí, nebo příkon?', options: ['napětí', 'příkon'] }] },
@@ -88,6 +92,34 @@ try {
   assert.equal(handlerCalls, 1);
   assert.equal(modelCalls, 0);
   assert.deepEqual(getConversationStore().getAllTurns(conversationId).filter(turn => turn.role === 'user').map(turn => turn.content), ['Ulož odpověď do notes.md', 'ano', 'notes.md']);
+  const source = 'Ulož odpověď pro neon do notes.md';
+  const suspected = await send(source, 8, 'negation-choice-http');
+  assert.deepEqual(suspected.response.metadata.decision.metadata.clarificationOptions, ['je to zákaz', 'není to zákaz']);
+  const countBeforeYes = classificationCalls;
+  assert.equal((await send('ano', 9, 'negation-choice-http')).response.metadata.decision.type, 'ASK_USER');
+  assert.equal(classificationCalls, countBeforeYes);
+  assert.equal(handlerCalls, 1);
+  const released = await send('není to zákaz', 10, 'negation-choice-http');
+  assert.equal(released.status, 'ok');
+  assert.equal(handlerCalls, 2);
+  assert.equal(lastProof.source, source);
+  assert.equal(lastProof.negationDecisions.length, 1);
+  assert.equal(lastProof.negationDecisions[0].prohibited, false);
+  assert.deepEqual(getConversationStore().getAllTurns('negation-choice-http').filter(turn => turn.role === 'user').map(turn => turn.content), [source, 'ano', 'není to zákaz']);
+  await send(source, 11, 'negation-confirmed-http');
+  const prohibited = await send('je to zákaz', 12, 'negation-confirmed-http');
+  assert.equal(prohibited.response.metadata.intentClarityReason, 'explicit_negation');
+  assert.equal(handlerCalls, 2);
+  const duplicate = 'Ulož odpověď pro neon do notes.md, další neon';
+  await send(duplicate, 13, 'negation-duplicate-http');
+  const stillPending = await send('není to zákaz', 14, 'negation-duplicate-http');
+  assert.equal(stillPending.response.metadata.decision.type, 'ASK_USER');
+  assert.equal(stillPending.response.metadata.decision.metadata.intentNegationDecisions.length, 1);
+  assert.ok(stillPending.response.metadata.decision.metadata.unresolvedSpan.start > lastProof.negationDecisions[0].start);
+  assert.equal(handlerCalls, 2);
+  await send('je to zákaz', 15, 'negation-duplicate-http');
+  assert.equal(handlerCalls, 2);
+  assert.equal(modelCalls, 0);
   console.log('general intent grounding HTTP: PASS');
 } finally {
   llmGateway.call = originalModelCall;

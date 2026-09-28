@@ -447,6 +447,7 @@ export async function handleDesignDecision(input, decision, context) {
         duration: result.duration,
         decision: decision.toJSON?.() || decision,
         designProject: { type: projectType, phase: 'design' },
+        intentContentEligible: true,
       },
     });
 
@@ -572,6 +573,7 @@ export async function handleDesignContinue(input, decision, context) {
         duration: result.duration,
         decision: decision.toJSON?.() || decision,
         designProject: { type: project.type, phase: project.phase, turn: project.turnCount },
+        intentContentEligible: true,
       },
     });
 

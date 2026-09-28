@@ -461,6 +461,7 @@ Odpovídej v češtině.`;
         specialist: { id: specialist.id, name: specialist.name, domain: specialist.domain },
         expertiseSource: 'fallback',
         model: result.model,
+        intentContentEligible: !context.toolClarification,
       },
     });
 

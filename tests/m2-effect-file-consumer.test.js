@@ -32,7 +32,7 @@ function context(projectRoot, overrides = {}) {
     sessionId: 'session-1',
     conversationId: 'conversation-1',
     history: [
-      { response: { content: 'authoritative assistant content\n', tag: { speaker: 'system' } } },
+      { response: { content: 'authoritative assistant content\n', tag: { speaker: 'system', metadata: { intentContentEligible: true } } } },
       { response: { content: 'ulož to do notes/result.md', tag: { speaker: 'user' } } },
     ],
     langCtx: { language: 'en' },

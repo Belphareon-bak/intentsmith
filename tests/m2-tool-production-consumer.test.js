@@ -300,7 +300,7 @@ await testAsync('project path routing keeps writes on FILE_WRITE and root listin
         project: { id: Number(registered.id), path: projectRoot, name: 'routing' },
         projectId: Number(registered.id),
         history: [
-          { response: { content: `durable content ${index}\n`, tag: { speaker: 'system' } } },
+          { response: { content: `durable content ${index}\n`, tag: { speaker: 'system', metadata: { intentContentEligible: true } } } },
           { response: { content: input, tag: { speaker: 'user' } } },
         ],
         sessionState: { recordDecision() {}, setActiveFile() {} },
@@ -955,7 +955,7 @@ await testAsync('production file.write persists request/link, approval settles o
     input: 'save it to result.md',
     query: 'save it to result.md',
     history: [
-      { response: { content: 'durable tool content\n', tag: { speaker: 'system' } } },
+      { response: { content: 'durable tool content\n', tag: { speaker: 'system', metadata: { intentContentEligible: true } } } },
       { response: { content: 'save it to result.md', tag: { speaker: 'user' } } },
     ],
     langCtx: { language: 'en' },
@@ -1035,7 +1035,7 @@ await testAsync('workspace drift before approval settles both effect and tool as
     input: 'save it to stale.md',
     query: 'save it to stale.md',
     history: [
-      { response: { content: 'must not be written\n', tag: { speaker: 'system' } } },
+      { response: { content: 'must not be written\n', tag: { speaker: 'system', metadata: { intentContentEligible: true } } } },
       { response: { content: 'save it to stale.md', tag: { speaker: 'user' } } },
     ],
     langCtx: { language: 'en' },
@@ -1107,7 +1107,7 @@ await testAsync('file.write does not smuggle an unauthorized parent-directory cr
     input: 'save it to missing/result.md',
     query: 'save it to missing/result.md',
     history: [
-      { response: { content: 'bounded content\n', tag: { speaker: 'system' } } },
+      { response: { content: 'bounded content\n', tag: { speaker: 'system', metadata: { intentContentEligible: true } } } },
       { response: { content: 'save it to missing/result.md', tag: { speaker: 'user' } } },
     ],
     langCtx: { language: 'en' },

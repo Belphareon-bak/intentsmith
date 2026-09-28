@@ -452,6 +452,7 @@ async function handleToolCallDecision(input, decision, context) {
           followUpType: followUp.type,
           reusedPreviousData: true,
           synthesized: true,
+          intentContentEligible: synthesizedResponse.intentContentEligible === true,
         },
       });
 
@@ -774,6 +775,7 @@ async function handleToolCallDecision(input, decision, context) {
         searchResults: searchData?.data?.results?.length || 0,
         scrapedUrls: urls.length,
         synthesisModel: synthesisResult.model,
+        intentContentEligible: synthesisResult.intentContentEligible === true,
         semanticScore: synthesisResult.semanticScore || null, // v126.1
       },
     });
@@ -1018,6 +1020,7 @@ async function handleToolCallDecision(input, decision, context) {
       ...tag.metadata,
       synthesized: true,
       synthesisModel: synthesizedResponse.model,
+      intentContentEligible: synthesizedResponse.intentContentEligible === true,
       synthesisConfidence: synthesizedResponse.confidence,
       followUpType: followUp?.type,
       semanticScore: synthesizedResponse.semanticScore || null, // v126.1
@@ -1368,6 +1371,7 @@ Délku, strukturu a počet příkladů přizpůsob zadání. Přiznej nejistotu;
       canExecute: false,
       metadata: {
         model: result.model,
+        intentContentEligible: true,
         duration: result.duration,
         finishReason: result.finishReason || null,
         answerBudget: { maxTokens: answerContext.maxTokens, numCtx: answerContext.numCtx, historyTurns: answerContext.historyTurns },

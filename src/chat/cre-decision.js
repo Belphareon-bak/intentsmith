@@ -2303,7 +2303,7 @@ export class CREDecisionEngine {
     if (classification.intent === IntentType.SHELL) fixed['code.execute'] = { code: extractShellCommand(input), language: null };
     const content = latestAssistantContent(context.dbHistory ?? context.history);
     if (classification.intent === IntentType.FILE_WRITE && content) fixed['file.write'] = { content };
-    return { token: issueIntentEvidence(input, classification, understanding, fixed), understanding, classification };
+    return { token: issueIntentEvidence(input, classification, understanding, fixed, options), understanding, classification };
   }
 
   /**
@@ -3407,6 +3407,7 @@ PRAVIDLA:
             clarificationText: semanticIssue?.question || `Jaký přesný soubor chceš použít? Navržený cíl „${llmResult.fileTarget}“ mění původní zadání. Nic nespouštím.`,
             clarificationOptions: semanticIssue?.options || [], intentSource: input,
             intentUnderstanding: llmResult?.understanding || null, unresolvedSpan: semanticIssue?.unresolvedSpan || null,
+            negationChoice: semanticIssue?.negationChoice === true,
           },
         });
       }

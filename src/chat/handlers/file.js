@@ -488,6 +488,7 @@ export async function completeM2FileRead(execution, context, {
         filePath: read.output.path, fileSize: read.bytes.length,
         contentRef: read.output.contentRef, contentDigest: read.output.contentDigest,
         explanationPending: false, explanationComplete: true, explanationReplayed: replayed,
+        intentContentEligible: true,
         model, finishReason: 'stop', truncated: false, error: null, m2FileExplain: marker,
         ...(decision ? { decision: decision.toJSON() } : {}),
       },
@@ -792,6 +793,7 @@ export async function handleFileDecision(input, decision, context, dependencies 
             handler: 'file.explain',
             fileName: filename,
             semanticScore: synthesized.semanticScore || null, // v126.1
+            intentContentEligible: synthesized.intentContentEligible === true,
           },
         }),
       });

@@ -467,7 +467,7 @@ export class ConversationStore {
     const history = turns.map(t => ({
       response: {
         tag: { speaker: t.role === 'assistant' ? 'system' : t.role,
-          metadata: { intentContentExcluded: t.metadata?.intentContentExcluded === true } },
+          metadata: { intentContentEligible: t.metadata?.intentContentEligible === true } },
         content: t.content,
       },
       timestamp: new Date(t.created_at).getTime(),

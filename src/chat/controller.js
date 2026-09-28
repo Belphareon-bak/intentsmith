@@ -501,7 +501,7 @@ export class ChatController {
       ? { clarity: { kind: 'no_effect', reason: 'user_cancelled', answer: 'Rozumím. Pozastavený požadavek ruším a nic nespouštím.' } }
       : request.unresolved
         ? { clarity: { kind: 'clarify', slot: 'intent_meaning', reason: 'acknowledgement_does_not_resolve_choice', question: request.question, options: request.options }, understanding: pending.metadata.intentUnderstanding }
-        : await creDecisionEngine.inspectRequest(request.source, context, { supersededSpans: request.supersededSpans, resolvedGpuQuantity: request.resolvedGpuQuantity });
+        : await creDecisionEngine.inspectRequest(request.source, context, { supersededSpans: request.supersededSpans, negationDecisions: request.negationDecisions, resolvedGpuQuantity: request.resolvedGpuQuantity });
     throwIfAborted(context.signal);
     const clarity = inspected.clarity;
     if (pending && clarity?.kind !== 'clarify') state.clearPendingDecision();
@@ -520,7 +520,10 @@ export class ChatController {
             gpuQuantityPending: clarity.reason === 'gpu_quantity_ambiguous' || (request.unresolved === true && pending?.metadata?.gpuQuantityPending === true),
             intentClarityReason: clarity.reason, intentSource: request.source || pending.metadata.intentSource,
             intentUnderstanding: inspected.understanding || null,
-            unresolvedSpan: clarity.unresolvedSpan || pending?.metadata?.unresolvedSpan || null,
+            unresolvedSpan: clarity.unresolvedSpan || (request.unresolved ? pending?.metadata?.unresolvedSpan : null) || null,
+            negationChoice: clarity.negationChoice === true || (request.unresolved === true && pending?.metadata?.negationChoice === true),
+            intentNegationDecisions: request.negationDecisions || (request.unresolved ? pending?.metadata?.intentNegationDecisions : []) || [],
+            intentSupersededSpans: request.supersededSpans || (request.unresolved ? pending?.metadata?.intentSupersededSpans : []) || [],
           },
         });
         return handleAskUserDecision(input, decision, context);

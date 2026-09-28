@@ -1122,6 +1122,7 @@ export async function synthesizeWithLLM({
 
       return {
         content: finalContent,
+        intentContentEligible: true,
         confidence: finalConfidence,
         model: result.model,
         duration: result.duration,

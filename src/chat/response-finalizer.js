@@ -140,9 +140,7 @@ export async function finalizeChatResponse({
       confidence: result.confidence,
       model: metadata.model,
       intent: metadata.decision?.intent,
-      ...(['ASK_USER', 'REFUSE'].includes(metadata.decision?.type)
-        || metadata.decision?.source === 'intent_clarity' || metadata.intentClarityReason
-        ? { intentContentExcluded: true } : {}),
+      intentContentEligible: metadata.intentContentEligible === true,
       ...(isIssuedFileExplainContinuation(metadata.m2FileExplain)
         ? { m2FileExplain: metadata.m2FileExplain } : {}),
       ...(turnId === null ? {} : { m7: { turnId, status: 'ok' } }),

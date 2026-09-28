@@ -18,7 +18,7 @@ function citations(input, source) {
   return spans;
 }
 
-export function literalFileTargets(input) {
+export function literalFileTargets(input, { includeNumericSuffixes = false } = {}) {
   input = String(input);
   const otherTargets = [...input.matchAll(/https?:\/\/[^\s„“"']+|[\p{L}\d._%+-]+@[\p{L}\d.-]+\.[\p{L}]{2,}/gu)]
     .map(match => ({ start: match.index, end: match.index + match[0].length }));
@@ -27,16 +27,61 @@ export function literalFileTargets(input) {
     .filter(span => !otherTargets.some(other => other.start <= span.start && other.end >= span.end))
     // Bare decimal/version literals have no filename extension. Explicit paths
     // and dotfiles retain their literal meaning, including numeric basenames.
-    .filter(span => span.source.includes('/') || span.source.startsWith('.') || !/\.\d+(?:\.\d+)*$/u.test(span.source));
+    .filter(span => includeNumericSuffixes || span.source.includes('/') || span.source.startsWith('.') || !/\.\d+(?:\.\d+)*$/u.test(span.source));
 }
 
+function nonNegativeWord(source) {
+  return /^(?:nebo|nebot|nej[\p{L}]*|nez|nekdo|neco|nekde|nekdy|nekam|nekolik|nech(?:am|as|a|ame|ate|aji|at|al[\p{L}]*|ej[\p{L}]*|te)|new(?:er|est)?|next|need(?:s|ed|ing)?|net(?:work(?:s|ing)?|flix|beans)?)$/u.test(fold(source));
+}
+function targetSpans(input) {
+  return [...literalFileTargets(input, { includeNumericSuffixes: true }), ...[...input.matchAll(/https?:\/\/[^\s„“"']+|[\p{L}\d._%+-]+@[\p{L}\d.-]+\.[\p{L}]{2,}/gu)]
+    .map(match => ({ start: match.index, end: match.index + match[0].length }))];
+}
 function negations(input) {
   const explicit = [...input.matchAll(/(?<![\p{L}\d_])(?:not|never|without|do\s+not|dont|[\p{L}]+n['’]t|ne|nikdy|nechci)(?![\p{L}\d_])/giu)];
   // Czech ne- is productive and can follow the object or an adversative clause.
   // This conservative scan gates action proposals, not informational chat.
   const prefixed = [...input.matchAll(/(?<![\p{L}\d_])ne[\p{L}]+(?![\p{L}\d_])/giu)];
-  return [...explicit, ...prefixed].map(match => ({ start: match.index, end: match.index + match[0].length, source: match[0] }))
-    .filter(span => !/^(?:nebo|nej[\p{L}]*|než|nez)$/iu.test(span.source));
+  const targets = targetSpans(input);
+  const spans = new Map();
+  for (const [matches, uncertain] of [[explicit, false], [prefixed, true]]) {
+    for (const match of matches) {
+      const span = { start: match.index, end: match.index + match[0].length, source: match[0], uncertain };
+      const key = `${span.start}:${span.end}`;
+      if (!nonNegativeWord(span.source) && !targets.some(target => covers(target, span)) && !spans.has(key)) spans.set(key, span);
+    }
+  }
+  return [...spans.values()];
+}
+function validNegationDecisions(input, decisions = []) {
+  if (!Array.isArray(decisions)) return [];
+  return decisions.filter(span => span && typeof span.prohibited === 'boolean' && Number.isInteger(span.start) && Number.isInteger(span.end)
+    && input.slice(span.start, span.end) === span.source && citations(input, span.source).some(c => c.start === span.start && c.end === span.end));
+}
+function prohibitions(input, slots, decisions = []) {
+  const scanned = negations(input), targets = targetSpans(input);
+  const proposed = slots.filter(slot => slot.role === 'negation').flatMap(slot => citations(input, slot.source))
+    .filter(span => !nonNegativeWord(span.source) && !targets.some(target => covers(target, span))
+      && !scanned.some(candidate => covers(span, candidate)))
+    .map(span => ({ ...span, uncertain: true }));
+  const choices = validNegationDecisions(input, decisions);
+  return [...scanned, ...proposed].flatMap(span => {
+    const choice = choices.find(c => c.start === span.start && c.end === span.end && c.source === span.source);
+    return choice?.prohibited === false ? [] : [{ ...span, confirmed: choice?.prohibited === true }];
+  });
+}
+function assessProhibition(input, slots, decisions) {
+  const negative = prohibitions(input, slots, decisions);
+  const unresolved = negative.find(span => !span.confirmed && (span.uncertain
+    || !slots.some(slot => slot.role === 'negation' && citations(input, slot.source).some(c => covers(c, span)))));
+  if (!negative.some(span => span.confirmed) && unresolved) {
+    const occurrences = citations(input, unresolved.source);
+    const occurrence = occurrences.length > 1 ? ` (${occurrences.findIndex(span => span.start === unresolved.start) + 1}. výskyt)` : '';
+    return { ...question('negation_unverified', `Je „${unresolved.source}“${occurrence} v tomto požadavku zákaz akce? Vyber „je to zákaz“, nebo „není to zákaz“. Zatím nic nespouštím.`, ['je to zákaz', 'není to zákaz']),
+      negationChoice: true, unresolvedSpan: { start: unresolved.start, end: unresolved.end, source: unresolved.source, role: 'negation' } };
+  }
+  if (negative.length) return { kind: 'no_effect', reason: 'explicit_negation', answer: 'Rozpoznal jsem zákaz akce a tento požadavek nespouštím. Pokud chceš provést jinou část, zadej ji samostatně.' };
+  return null;
 }
 
 function protectedLiterals(input) {
@@ -54,8 +99,8 @@ function reference(input, slot, index) {
   return matches.length === 1 ? { ...matches[0], role: slot.role, index } : null;
 }
 
-/** Validate a proposal; model labels never exempt a literal prohibition. */
-export function assessIntentClarity(input, understanding, { supersededSpans = [] } = {}) {
+/** Model labels never issue a user's decision about a source span. */
+export function assessIntentClarity(input, understanding, { supersededSpans = [], negationDecisions = [] } = {}) {
   input = String(input);
   if (!understanding || understanding.version !== 1 || !['information', 'action'].includes(understanding.kind)
       || !Array.isArray(understanding.slots) || understanding.slots.length > 24
@@ -68,12 +113,10 @@ export function assessIntentClarity(input, understanding, { supersededSpans = []
       return question('source_not_grounded', 'Interpretace obsahuje údaj, který nemohu doložit celým citátem z původního zadání. Upřesni prosím přesný cíl a parametry akce. Zatím nic nespouštím.');
     }
   }
-  const negative = negations(input);
+  const negative = prohibitions(input, slots, negationDecisions);
   if (understanding.kind === 'action') {
-    const missingNegation = negative.find(span => !slots.some(slot => slot.role === 'negation' && citations(input, slot.source).some(c => covers(c, span))));
-    if (missingNegation) return question('negation_unverified', `V zadání je možný zákaz „${missingNegation.source}“, který interpretace nezachovává jako zákaz. Která akce je zakázaná? Zatím nic nespouštím.`);
-    // A prohibition is never suspended by an alternative selection or label.
-    if (negative.length || slots.some(slot => slot.role === 'negation')) return { kind: 'no_effect', reason: 'explicit_negation', answer: 'Rozpoznal jsem zákaz akce a tento požadavek nespouštím. Pokud chceš provést jinou část, zadej ji samostatně.' };
+    const prohibition = assessProhibition(input, slots, negationDecisions);
+    if (prohibition) return prohibition;
   }
   for (const [index, slot] of slots.entries()) {
     if (slot.source !== slot.value) return { ...question('material_meaning_changed', `V zadání je „${slot.source}“, interpretace uvádí „${slot.value}“. Co má platit pro ${slot.name}? Zatím nic nespouštím.`, [slot.source, slot.value]), unresolvedSpan: reference(input, slot, index) };
@@ -101,17 +144,17 @@ export function latestAssistantContent(history = []) {
     const entry = history[i];
     if (!(entry.response?.tag?.speaker === 'system' || entry.role === 'assistant' || entry.speaker === 'system')) continue;
     const metadata = entry.response?.tag?.metadata ?? entry.metadata ?? {};
-    if (entry.isSummary || metadata.intentContentExcluded === true || ['ASK_USER', 'REFUSE'].includes(metadata.decision?.type)
-        || metadata.decision?.source === 'intent_clarity' || metadata.intentClarityReason) continue;
+    if (entry.isSummary || metadata.intentContentEligible !== true) continue;
     const content = entry.response?.content || entry.content;
     if (typeof content === 'string' && content) return content;
   }
   return null;
 }
 
-export function issueIntentEvidence(source, classification, understanding, fixedParameters = {}) {
+export function issueIntentEvidence(source, classification, understanding, fixedParameters = {}, { negationDecisions = [] } = {}) {
   const token = Object.freeze({});
-  const snapshot = structuredClone({ source, classification, understanding, fixedParameters });
+  const snapshot = structuredClone({ source, classification, understanding, fixedParameters,
+    negationDecisions: validNegationDecisions(source, negationDecisions) });
   snapshot.digest = `sha256:${createHash('sha256').update(source, 'utf8').digest('hex')}`;
   evidence.set(token, snapshot);
   return token;
@@ -130,8 +173,16 @@ export function prepareClarificationInput(input, pending) {
   const selected = (metadata.clarificationOptions || []).find(option => fold(option) === answer);
   if (!selected) return { source: input, supersededSpans: [] };
   const span = metadata.unresolvedSpan;
-  const supersededSpans = span ? safeSuperseded(metadata.intentSource, [span], negations(metadata.intentSource, metadata.intentUnderstanding?.slots || [])) : [];
+  if (metadata.negationChoice === true && span) {
+    const choices = validNegationDecisions(metadata.intentSource, metadata.intentNegationDecisions || []);
+    const choice = validNegationDecisions(metadata.intentSource, [{ ...span, prohibited: fold(selected) === 'je to zakaz' }]);
+    if (!choice.length) return { unresolved: true, question: metadata.clarificationText, options: metadata.clarificationOptions };
+    return { source: metadata.intentSource, supersededSpans: metadata.intentSupersededSpans || [],
+      negationDecisions: [...choices.filter(c => c.start !== span.start || c.end !== span.end), ...choice] };
+  }
+  const supersededSpans = span ? safeSuperseded(metadata.intentSource, [span], prohibitions(metadata.intentSource, metadata.intentUnderstanding?.slots || [], metadata.intentNegationDecisions || [])) : [];
   return { source: `${metadata.intentSource}\n\nVýslovné upřesnění uživatele: ${input}`, supersededSpans,
+    negationDecisions: validNegationDecisions(metadata.intentSource, metadata.intentNegationDecisions || []),
     resolvedGpuQuantity: metadata.gpuQuantityPending === true };
 }
 
@@ -150,7 +201,7 @@ export function verifyToolIntent(token, toolId, input, { effectful = false, deri
   const proof = evidence.get(token);
   const mismatch = () => ({ reason: 'tool_intent_mismatch', message: `Parametry nástroje ${toolId} nemohu doložit ověřeným zadáním. Nic nespouštím.` });
   if (!proof || !input || typeof input !== 'object' || Array.isArray(input) || Object.getPrototypeOf(input) !== Object.prototype) return mismatch();
-  if (effectful && (negations(proof.source).length || proof.understanding.slots.some(slot => slot.role === 'negation'))) return mismatch();
+  if (effectful && prohibitions(proof.source, proof.understanding.slots, proof.negationDecisions).length) return mismatch();
   if (effectful && proof.understanding.kind !== 'action') return mismatch();
   const intent = proof.classification?.intent;
   const expected = { FILE_WRITE: ['file.write'], FILE_READ: ['file.read', 'file.list'], FILE_EXPLAIN: ['file.read'], SHELL: ['code.execute'], SEARCH: ['web.search', 'web.scrape'], REPORT: ['web.search', 'web.scrape', 'database.query'], CODE: ['code.execute', 'file.read', 'file.write'], LOCAL: ['local.date', 'local.calendar', 'local.math'] }[intent] || [];
@@ -177,14 +228,14 @@ export function verifyToolIntent(token, toolId, input, { effectful = false, deri
 
 // Deterministic GPU fallback retained from 9203266f. It runs before the model,
 // including if the model would call an operation "information".
-export function assessGpuIntent(input, { resolvedGpuQuantity = false } = {}) {
+export function assessGpuIntent(input, { resolvedGpuQuantity = false, negationDecisions = [] } = {}) {
   const text = fold(input);
   if (!/\b(?:gpu|gup|grafik(?:a|y|u|ou)|grafick(?:a|e|ou|ych)?\s+kart(?:a|u|y|ou)|graphics?\s+card)\b/u.test(text)) return null;
   const change = /\b(?:sniz|snizte|snizit|nastav|nastavte|nastavit|omez|omezte|omezit|zmen|zmente|zmenit|uprav|upravte|upravit|set|reduce|lower|limit|undervolt)\b/u;
   const info = /^(?:prosim\s+|please\s+)?(?:jak|co|proc|vysvetli|popis|napis|naprogramuj|navrhni|analyzuj|porad|what|how|explain|write|describe|(?:muzes|muzete)\s+(?:mi\s+)?(?:rict|vysvetlit|popsat|poradit|ukazat))\b/u;
   const later = /\b(?:a|pak|potom|and|then)\s+(?:ted\s+)?(?:mi\s+)?(?:sniz|nastav|omez|zmen|uprav|set|reduce|lower|limit)\b/u;
   if (!resolvedGpuQuantity && info.test(text) && !later.test(text)) return null;
-  if (negations(input).length) return { kind: 'no_effect', reason: 'negated_gpu_change', answer: 'Rozumím. Nastavení GPU neměním.' };
+  if (prohibitions(input, [], negationDecisions).length) return { kind: 'no_effect', reason: 'negated_gpu_change', answer: 'Rozumím. Nastavení GPU neměním.' };
   if (!change.test(text)) return null;
   const unsupported = { kind: 'no_effect', reason: 'gpu_control_unavailable', answer: 'Požadavek na změnu nastavení GPU jsem rozpoznal, ale nemám ověřený nástroj, který by ji v IntentSmith provedl. Nic jsem nenastavil. Původní požadavek zůstává neprovedený.' };
   if (resolvedGpuQuantity) return unsupported;
