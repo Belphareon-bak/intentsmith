@@ -195,11 +195,13 @@ const recordPath = path.resolve(process.env.CHAT_PROBE_RECORD || arg('--record')
 const out = process.env.CHAT_PROBE_OUT || path.join(path.dirname(recordPath), `${phase}-${runId.slice(0, 8)}`);
 const self = fileURLToPath(import.meta.url);
 const model='qwen3.5:27b';
+const modelDigest='7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e';
 const corpusFile = path.resolve(process.env.CHAT_PROBE_CORPUS || arg('--corpus'));
 const definition = JSON.parse(fs.readFileSync(corpusFile, 'utf8'));
 const corpus = definition.cases;
 if (definition.version !== 1 || !Array.isArray(corpus) || !corpus.length || corpus.length > 100
   || corpus.some(c => !c.id || typeof c.input !== 'string' || !c.intent
+    || typeof c.contextPolicy !== 'string' || !Array.isArray(c.allowed)
     || !['required', 'permitted', 'unnecessary'].includes(c.question) || !Array.isArray(c.forbidden)))
   throw new Error('Each case must predeclare context, intent, question policy and forbidden effects');
 if (new Set(corpus.map(c => c.id)).size !== corpus.length) throw new Error('Duplicate case ID');
@@ -210,7 +212,7 @@ if (process.argv.includes('--offline')) {
 const dirtyStatus = execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim();
 const manifest = { revision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), sourceClean: dirtyStatus.length === 0, dirtyStatus,
   corpusSha256: createHash('sha256').update(fs.readFileSync(corpusFile)).digest('hex'),
-  runnerSha256: createHash('sha256').update(fs.readFileSync(self)).digest('hex'), model,
+  runnerSha256: createHash('sha256').update(fs.readFileSync(self)).digest('hex'), model, modelDigest,
   providerUrl: 'http://127.0.0.1:11434', node: process.version, inferenceSerial: true, networkIsolation: 'kernel namespace plus explicit Unix provider relay' };
 const canonical = () => {
   if (inside) return;
@@ -242,6 +244,10 @@ if(process.argv.includes('--inside')) {
  const projectId=p.result.project?.id??p.result.id;
  if(!projectId)throw new Error('isolated project setup: '+JSON.stringify(p));
  const db=(await import(path.join(root,'src/db/database.js'))).default;
+ const {updateUserSettings,readChatMemoryPolicy}=await import(path.join(root,'src/db/user-settings.js'));
+ // Mirror the already paused production learning policy only in the fresh
+ // private DB. This never opens or modifies the production settings document.
+ updateUserSettings(db.db,document=>({...document,'intentsmith.memory.learningEnabled':false}));
  const project=db.projects.findById.get(projectId);
  for (const [relative, content] of Object.entries(definition.fixtures || {})) {
   if (relative.includes('..') || path.isAbsolute(relative) || path.resolve(project.path, relative).startsWith(project.path + path.sep) === false) throw new Error('Fixture outside private project');
@@ -250,18 +256,28 @@ if(process.argv.includes('--inside')) {
  }
  save('initial-configuration.json', { ...manifest, bindings: (await import(path.join(root, 'src/config.js'))).config.models,
   project: { id: projectId, path: project.path }, isolatedEnv: Object.fromEntries(Object.entries(process.env).filter(([key]) => key.startsWith('INTENTSMITH_ENABLE_') || key.startsWith('INTENTSMITH_MODEL_'))),
-  corpusSize: corpus.length });
+  memoryPolicy:readChatMemoryPolicy(db.db),corpusSize: corpus.length });
  const store=(await import(path.join(root,'src/chat/conversation-store.js'))).getConversationStore();
  const conversations=new Map();
  const trace=()=>Object.fromEntries(['tool_v1_requests','tool_v1_results','m2_effect_requests','m2_effect_results'].map(table=>[table,db.db.prepare(`SELECT * FROM ${table}`).all()]));
+ const files=()=>{
+  const result={};
+  const visit=(directory)=>{for(const entry of fs.readdirSync(directory,{withFileTypes:true})){
+   const absolute=path.join(directory,entry.name),relative=path.relative(project.path,absolute);
+   if(entry.isDirectory())visit(absolute);
+   else if(entry.isFile()){const bytes=fs.readFileSync(absolute);result[relative]={bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex'),content:bytes.toString('utf8')};}
+   else result[relative]={type:entry.isSymbolicLink()?'symlink':'other'};
+  }};
+  visit(project.path);return result;
+ };
  for(const c of corpus.filter(c=>!process.env.CHAT_PROBE_CASES||process.env.CHAT_PROBE_CASES.split(',').includes(c.id))){
   activeCase=c.id; const key=c.dialog||c.id;
   if(!conversations.has(key)){const created=await request('POST','/api/conversations',{project_id:projectId,title:'private '+key});conversations.set(key,created.result.conversation?.id??created.result.id);}
   const id=conversations.get(key); if(!id)throw new Error('no conversation');
   const context=store.buildHandlerHistory(id,10);
   const command={contract:'ConversationCommand',version:1,requestId:randomUUID(),conversationId:id,turnId:randomUUID(),action:'send',input:c.input};
-  const before=trace(); const b=await request('POST','/api/chat',command);
-  const row={case:c,context,B:b,firstContentMs:b.elapsedMs,firstUsefulMs:null,traceBefore:before,traceAfter:trace()};rows.push(row);save('initial-results.json',rows);
+  const before=trace(),filesBefore=files(); const b=await request('POST','/api/chat',command);
+  const row={case:c,context,B:b,firstContentMs:b.elapsedMs,firstUsefulMs:null,traceBefore:before,traceAfter:trace(),filesBefore,filesAfter:files()};rows.push(row);save('initial-results.json',rows);
   console.log('CHAT_PROBE '+JSON.stringify({id:c.id,variant:'B',status:b.status,ms:Math.round(b.elapsedMs),content:b.result.response?.content,error:b.result.error}));
   const target=c.approve?.path;
   const effectId=b.result.response?.metadata?.effectId || b.result.response?.content?.match(/effect:[a-f0-9]{64}/u)?.[0];
@@ -274,6 +290,7 @@ if(process.argv.includes('--inside')) {
      &&(c.approve.kind==='fs.read'?prepared.kind==='fs.read':prepared.kind==='fs.write'&&prepared.payloadDigest===digest&&typeof expected==='string')){
     row.approval=await request('POST','/api/chat',{...command,requestId:randomUUID(),turnId:randomUUID(),input:`schválit efekt ${effectId}`});
     row.traceAfter=trace(); row.file={path:target,exists:fs.existsSync(path.join(project.path,target)),content:fs.existsSync(path.join(project.path,target))?fs.readFileSync(path.join(project.path,target),'utf8'):null,expected};
+    row.filesAfter=files();
     console.log('CHAT_PROBE '+JSON.stringify({id:c.id,variant:'approval',status:row.approval.status,ms:Math.round(row.approval.elapsedMs),content:row.approval.result.response?.content,file:row.file}));
    }else row.approvalBlocked='Unexpected effect identity or payload';
    save('initial-results.json',rows);
@@ -307,6 +324,8 @@ if(process.argv.includes('--inside')) {
    warmOwned=resident.name===model&&resident.digest===last?.digest&&last.model===model&&sameExpiry&&primaryRunner;
   }
   if((ps.models.length||compute)&&!warmOwned)throw new Error('BLOCKED_GPU: occupied before pilot');
+  const artifact=(await (await fetch('http://127.0.0.1:11434/api/tags')).json()).models?.find(entry=>entry.name===model);
+  if(artifact?.digest!==modelDigest)throw new Error('MODEL_DIGEST_DRIFT: expected fixed CHAT artifact is unavailable');
   save('initial-preflight.json',{at:new Date().toISOString(),lease:{pid:lease.owner.pid,command:lease.owner.command,startedAt:lease.owner.startedAt},ps,compute,warmOwned,gpu:execFileSync('nvidia-smi',['--query-gpu=memory.total,memory.used,utilization.gpu','--format=csv,noheader'],{encoding:'utf8'}).trim(),provider:await (await fetch('http://127.0.0.1:11434/api/version')).json()});
   proxy=http.createServer(async(req,res)=>{let row;try{const chunks=[];for await(const c of req)chunks.push(c);const bytes=Buffer.concat(chunks),body=bytes.length?JSON.parse(bytes):null;row={at:new Date().toISOString(),caseId:req.headers['x-chat-measurement-case']||'boot',path:req.url,method:req.method,body};wire.push(row);
    const allowed=(req.method==='GET'&&['/api/tags','/api/ps','/api/version'].includes(req.url))||(req.method==='POST'&&['/api/chat','/api/generate','/api/show'].includes(req.url)&&[model].includes(body?.model||body?.name)&&!(req.url==='/api/generate'&&body?.keep_alive===0));
