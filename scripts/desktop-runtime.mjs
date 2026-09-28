@@ -1,4 +1,6 @@
-import { readFile, writeFile, rename, mkdir, mkdtemp, rm, lstat, stat, chmod } from 'node:fs/promises';
+import { readFile, writeFile, rename, mkdir, mkdtemp, rm, lstat, stat, chmod, cp, copyFile } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createRequire } from 'node:module';
@@ -46,6 +48,7 @@ export function renderDesktopInstallation(config) {
     INTENTSMITH_INSTALLATION_FILE: join(configDirectory, 'installation.json'),
     INTENTSMITH_HUNT_STATE_DIR: join(stateDirectory, 'model-hunt'),
     INTENTSMITH_PDF_PYTHON: config.pdfPython,
+    UCETNI_RUNTIME_DIR: config.accountantRuntime,
   }).filter(([,v]) => v).map(([k,v]) => `${k}=${quotedPath(v)}`).join('\n') + '\nNODE_ENV=production\nINTENTSMITH_HOST=127.0.0.1\nINTENTSMITH_PORT=0\n';
   // These directives consume a single literal path, not ExecStart's argv grammar.
   // Quoting them becomes part of the path and systemd rejects/ignores the value.
@@ -55,9 +58,73 @@ export function renderDesktopInstallation(config) {
     backend: `[Unit]\nDescription=IntentSmith backend\nStartLimitIntervalSec=120\nStartLimitBurst=3\n\n[Service]\nType=simple\n${common}EnvironmentFile=${join(configDirectory,'admin.env')}\nExecStart=${quotedPath(node)} ${quotedPath(join(sourceRoot,'src/server.js'))}\nRestart=on-failure\nRestartSec=3\nTimeoutStopSec=30\n\n[Install]\nWantedBy=default.target\n`,
     hunt: `[Unit]\nDescription=IntentSmith bounded GPU hunt\n\n[Service]\nType=oneshot\n${common}ExecStart=${quotedPath(node)} ${quotedPath(join(sourceRoot,'scripts/run-model-hunt-provider.js'))} --run --limit=2 --keep-inconclusive --scheduled\nTimeoutStartSec=12h\nTimeoutStopSec=15s\nMemoryHigh=60%\nMemoryMax=75%\nMemorySwapMax=1G\nOOMPolicy=stop\nNoNewPrivileges=true\nNice=10\n`,
     timer: '[Unit]\nDescription=IntentSmith nightly model hunt\n\n[Timer]\nOnCalendar=*-*-* 03:00:00\nRandomizedDelaySec=15m\nAccuracySec=5m\nPersistent=false\nUnit=intentsmith-model-hunt.service\n\n[Install]\nWantedBy=timers.target\n',
-    desktop: `[Desktop Entry]\nType=Application\nName=IntentSmith\nComment=Lokální AI pracovní prostředí\nExec=${quotedPath(node)} ${quotedPath(join(sourceRoot,'scripts/desktop-runtime.mjs'))}\nIcon=${icon}\nTerminal=false\nCategories=Development;Utility;\nStartupNotify=true\nStartupWMClass=IntentSmith\n`,
+    desktop: `[Desktop Entry]\nType=Application\nName=${config.studioAppImage ? 'IntentSmith IDE 2.0' : 'IntentSmith'}\nComment=Lokální AI pracovní prostředí\nExec=${quotedPath(node)} ${quotedPath(join(sourceRoot,'scripts/desktop-runtime.mjs'))}\nIcon=${icon}\nTerminal=false\nCategories=Development;Utility;\nStartupNotify=true\nStartupWMClass=IntentSmith\n`,
+    ...(config.legacy ? { legacyDesktop: `[Desktop Entry]\nType=Application\nName=IntentSmith Legacy\nComment=Původní IDE nad stejným spravovaným backendem\nExec=${quotedPath(node)} ${quotedPath(join(sourceRoot,'scripts/desktop-runtime.mjs'))} --legacy\nIcon=${config.legacy.icon || icon}\nTerminal=false\nCategories=Development;Utility;\nStartupNotify=true\nStartupWMClass=IntentSmithLegacy\n` } : {}),
     apparmor: `# IntentSmith Electron profile for this exact installed revision.\nabi <abi/4.0>,\ninclude <tunables/global>\n\nprofile intentsmith ${quotedPath(join(sourceRoot,'intentsmith-ide/node_modules/electron/dist/electron'))} flags=(unconfined) {\n  userns,\n  include if exists <local/intentsmith>\n}\n`,
   };
+}
+
+export async function hashDesktopExecutable(file) {
+  const metadata = await lstat(file);
+  if (!metadata.isFile() || !(metadata.mode & 0o111)) throw new Error('DESKTOP_EXECUTABLE_INVALID');
+  const hash = createHash('sha256');
+  for await (const chunk of createReadStream(file)) hash.update(chunk);
+  return hash.digest('hex');
+}
+
+export async function resolveDesktopLaunch(config, { legacy = false, sandboxArgs = [], diagnostics = [] } = {}) {
+  const target = legacy ? config.legacy : config;
+  if (!target) throw new Error('LEGACY_NOT_INSTALLED');
+  const profileArgs = target.userDataDirectory ? ['--user-data-dir=' + target.userDataDirectory] : [];
+  const args = ['--class=' + (legacy ? 'IntentSmithLegacy' : 'IntentSmith'), ...profileArgs, ...sandboxArgs, ...diagnostics];
+  if (!legacy && config.studioAppImage) {
+    const { path: appImage, sha256 } = config.studioAppImage;
+    quotedPath(appImage);
+    if (!/^[a-f0-9]{64}$/.test(sha256 || '') || await hashDesktopExecutable(appImage) !== sha256) throw new Error('STUDIO2_APPIMAGE_DIGEST_MISMATCH');
+    return { executable: appImage, args: ['--appimage-extract-and-run', ...args], cwd: config.sourceRoot };
+  }
+  for (const p of [target.node, target.sourceRoot]) quotedPath(p);
+  return { executable: target.node, args: [join(target.sourceRoot, 'intentsmith-ide/applications/electron/scripts/launch.js'), ...args], cwd: target.sourceRoot };
+}
+
+export async function seedDesktopProfile(source, destination) {
+  try {
+    const existing = await lstat(destination);
+    if (!existing.isDirectory() || existing.isSymbolicLink()) throw new Error('DESKTOP_PROFILE_TARGET_INVALID');
+    return { copied: false, existing: true };
+  } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  try { if (!(await stat(source)).isDirectory()) throw new Error('DESKTOP_PROFILE_SOURCE_INVALID'); }
+  catch (error) { if (error.code === 'ENOENT') return { copied: false, existing: false }; throw error; }
+  // Copy persisted user state only. Process locks, network state and caches do
+  // not belong to the new browser process. The old profile stays untouched.
+  await mkdir(dirname(destination), { recursive: true, mode: 0o700 });
+  const temporary = await mkdtemp(destination + '.seed-');
+  try {
+    for (const name of ['Local Storage', 'IndexedDB', 'Session Storage', 'Preferences', 'Local State', 'config.json']) {
+      const from = join(source, name);
+      try {
+        const metadata = await lstat(from);
+        if (metadata.isSymbolicLink()) throw new Error('DESKTOP_PROFILE_STATE_LINK');
+        await cp(from, join(temporary, name), { recursive: true, dereference: false, errorOnExist: true, force: false });
+      } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    }
+    await rename(temporary, destination);
+    return { copied: true, existing: false };
+  } finally { await rm(temporary, { recursive: true, force: true }); }
+}
+
+export async function restoreDesktopInstallation(backup, previous, { config, run, verify = waitForBackend }) {
+  await run(['stop', 'intentsmith-backend.service']);
+  for (const entry of previous) {
+    if (entry.backup) { await copyFile(join(backup, entry.backup), entry.file); await chmod(entry.file, entry.mode); }
+    else await rm(entry.file, { force: true });
+  }
+  await run(['daemon-reload']);
+  if (config) {
+    await run(['reset-failed', 'intentsmith-backend.service']);
+    await run(['start', 'intentsmith-backend.service']);
+    await verify(config);
+  }
 }
 
 export async function verifyDesktopUnits(files) {
@@ -197,12 +264,14 @@ async function main() {
     const env = { ...process.env, INTENTSMITH_PORT_FILE: join(config.stateDirectory,'backend.port.json'),
       INTENTSMITH_INSTALLATION_FILE: installationFile };
     delete env.ELECTRON_RUN_AS_NODE;
-    const sandboxArgs = await resolveElectronSandboxArgs(config, { env });
+    const legacy = process.argv.includes('--legacy');
+    const sandboxConfig = legacy ? { ...config, sourceRoot: config.legacy?.sourceRoot || config.sourceRoot } : config;
+    const sandboxArgs = await resolveElectronSandboxArgs(sandboxConfig, { env });
     // Explicit local diagnostics only; the ordinary desktop launch has no CDP listener.
     const diagnostics = process.env.INTENTSMITH_STUDIO_INSPECT === '1'
       ? ['--remote-debugging-address=127.0.0.1', '--remote-debugging-port=0'] : [];
-    const child = spawn(config.node, [join(config.sourceRoot,'intentsmith-ide/applications/electron/scripts/launch.js'), '--class=IntentSmith', ...sandboxArgs, ...diagnostics],
-      { cwd: config.sourceRoot, env, stdio: 'inherit' });
+    const launch = await resolveDesktopLaunch(config, { legacy, sandboxArgs, diagnostics });
+    const child = spawn(launch.executable, launch.args, { cwd: launch.cwd, env, stdio: 'inherit' });
     for (const signal of ['SIGINT','SIGTERM']) process.once(signal, () => child.kill(signal));
     const code = await new Promise((ok, fail) => { child.once('error', fail); child.once('exit', code => ok(code ?? 1)); });
     if (code) throw new Error(`Studio skončilo s chybou ${code}. Backend zůstává spravovaný službou.`);

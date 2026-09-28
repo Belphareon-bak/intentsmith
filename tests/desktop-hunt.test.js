@@ -17,10 +17,65 @@ import { analyzeHuntDecisions, inspectHuntGpu, readNvidiaDisplayCapacity, inspec
 import { acquireGpuEvaluationLock, waitForGpuReadiness } from '../src/upgrade/gpu-evaluation-lock.js';
 import { createGlobalAuthAuthority } from '../src/security/global-auth-policy.js';
 import { createSystemRoutes } from '../src/routes/system.js';
-import { ROOT, refreshDesktopCaches, renderDesktopInstallation, restoreHuntTimerState, resolveElectronSandboxArgs, verifyDesktopUnits, waitForBackend, writePrivate } from '../scripts/desktop-runtime.mjs';
+import { ROOT, hashDesktopExecutable, refreshDesktopCaches, renderDesktopInstallation, resolveDesktopLaunch, restoreDesktopInstallation, restoreHuntTimerState, resolveElectronSandboxArgs, seedDesktopProfile, verifyDesktopUnits, waitForBackend, writePrivate } from '../scripts/desktop-runtime.mjs';
 const exec = promisify(execFile);
 const revision = 'a'.repeat(40);
 const capability = 'c'.repeat(43);
+test('production selects pinned Studio 2 while Legacy shares the backend and keeps its own original profile', async t => {
+  const directory = await mkdtemp(join(tmpdir(),'is-studio2-launch-'));
+  t.after(()=>rm(directory,{recursive:true,force:true}));
+  const appImage = join(directory,'Studio2.AppImage');
+  await writeFile(appImage,'verified application',{mode:0o700});
+  const config = { sourceRoot: ROOT, node: process.execPath, dbPath: '/data/original.sqlite',
+    configDirectory: '/home/user/.config/intentsmith', stateDirectory: '/home/user/.local/state/intentsmith', icon: '/icons/app.png',
+    studioAppImage: {path:appImage,sha256:await hashDesktopExecutable(appImage)}, userDataDirectory: '/home/user/.config/studio2',
+    legacy: {sourceRoot:'/previous/installation',node:'/previous/node',userDataDirectory:'/home/user/.config/classic'} };
+  const current = await resolveDesktopLaunch(config,{sandboxArgs:['--no-sandbox']});
+  assert.equal(current.executable,appImage);
+  assert.deepEqual(current.args,['--appimage-extract-and-run','--class=IntentSmith','--user-data-dir=/home/user/.config/studio2','--no-sandbox']);
+  assert(!current.args.some(arg=>arg.includes('debugging')));
+  const legacy = await resolveDesktopLaunch(config,{legacy:true});
+  assert.equal(legacy.executable,'/previous/node');
+  assert.equal(legacy.cwd,'/previous/installation');
+  assert(legacy.args.includes('--user-data-dir=/home/user/.config/classic'));
+  const files = renderDesktopInstallation(config);
+  assert.match(files.desktop,/Name=IntentSmith IDE 2\.0/);
+  assert.match(files.legacyDesktop,/Name=IntentSmith Legacy/);
+  assert.match(files.legacyDesktop,/desktop-runtime\.mjs" --legacy/);
+  await writeFile(appImage,'changed application');
+  await assert.rejects(resolveDesktopLaunch(config),/DIGEST_MISMATCH/);
+  await assert.rejects(resolveDesktopLaunch({...config,legacy:undefined},{legacy:true}),/LEGACY_NOT_INSTALLED/);
+});
+test('profile migration preserves original preferences and local data, excludes locks, and never overwrites an existing profile', async t => {
+  const directory = await mkdtemp(join(tmpdir(),'is-studio2-profile-'));
+  t.after(()=>rm(directory,{recursive:true,force:true}));
+  const source = join(directory,'classic'), destination = join(directory,'studio2');
+  await mkdir(join(source,'Local Storage'),{recursive:true});
+  await writeFile(join(source,'Local Storage/state'),'original persisted state');
+  await writeFile(join(source,'Preferences'),'original preferences');
+  await symlink('host-123',join(source,'SingletonLock'));
+  await seedDesktopProfile(source,destination);
+  assert.equal(await readFile(join(destination,'Local Storage/state'),'utf8'),'original persisted state');
+  assert.equal(await readFile(join(source,'Preferences'),'utf8'),'original preferences');
+  await assert.rejects(lstat(join(destination,'SingletonLock')),{code:'ENOENT'});
+  await writeFile(join(destination,'Preferences'),'new preferences');
+  assert.equal((await seedDesktopProfile(source,destination)).existing,true);
+  assert.equal(await readFile(join(destination,'Preferences'),'utf8'),'new preferences');
+});
+test('failed activation restores exact configuration and permissions, removes the new menu and verifies the original backend', async t => {
+  const directory = await mkdtemp(join(tmpdir(),'is-studio2-rollback-'));
+  t.after(()=>rm(directory,{recursive:true,force:true}));
+  const backup = join(directory,'backup'), installed = join(directory,'runtime.env'), menu = join(directory,'legacy.desktop');
+  await mkdir(backup); await writeFile(join(backup,'0.txt'),'original environment');
+  await writeFile(installed,'new environment',{mode:0o755}); await writeFile(menu,'new menu');
+  const config = {revision,dbPath:'/original/live.sqlite'}, calls=[];
+  await restoreDesktopInstallation(backup,[{file:installed,backup:'0.txt',mode:0o600},{file:menu,backup:null}],{
+    config,run:async args=>calls.push(args),verify:async previous=>{assert.equal(previous,config);calls.push(['verified-original']);}});
+  assert.equal(await readFile(installed,'utf8'),'original environment');
+  assert.equal((await lstat(installed)).mode&0o777,0o600);
+  await assert.rejects(lstat(menu),{code:'ENOENT'});
+  assert.deepEqual(calls.map(args=>args[0]),['stop','daemon-reload','reset-failed','start','verified-original']);
+});
 test('resource reserve uses available RAM, all filesystems, and fails closed on unknown capacity', () => {
   const GiB=2**30;
   const check=(memory,free,starting=false)=>inspectHuntResources(['/state','/models'],{

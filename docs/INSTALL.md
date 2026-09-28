@@ -1,9 +1,12 @@
 # IntentSmith — instalacni prirucka
 
 **Rozsah:** vývojový kandidát 1.0, dosud bez publikovaného release
-**Aktualizace:** 2026-09-18
+**Aktualizace:** 2026-09-28
 
 ---
+
+Lokální výchozí IDE 2.0 a samostatné Legacy popisuje
+[Studio 2 — produkční desktop](studio2/PRODUCTION.md).
 
 ## Obsah
 
@@ -36,7 +39,7 @@
 
 | Prerekvizita | Verze | Ucel |
 |-------------|-------|------|
-| Node.js | 22.21.1 z `.nvmrc`; minimum 22.12.0, méně než 23 | Backend + IDE build |
+| Node.js | 24.21.0 z `.nvmrc`; řada 24 | Backend + IDE build |
 | npm | 10.9.4 | Frozen instalace BE zavislosti |
 | Yarn | 1.22.22 | Frozen IDE build (Theia workspaces) |
 | Ollama | `0.34.0-intentsmith.1`, přesně ověřený build podle Decision 048 | LLM inference a ověřená identita artefaktu |
@@ -50,11 +53,11 @@
 ### Instalace prerekvizit (Ubuntu/Debian)
 
 ```bash
-# Node.js 22 pres nvm (doporuceno)
+# Node.js 24 pres nvm (doporuceno)
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
 source ~/.nvm/nvm.sh
-nvm install 22.21.1
-nvm use 22.21.1
+nvm install 24.21.0
+nvm use 24.21.0
 npm install -g npm@10.9.4
 
 # Systemove zavislosti
@@ -71,11 +74,11 @@ npm install -g yarn@1.22.22
 ### Instalace prerekvizit (Fedora/RHEL)
 
 ```bash
-# Node.js 22 pres nvm
+# Node.js 24 pres nvm
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
 source ~/.nvm/nvm.sh
-nvm install 22.21.1
-nvm use 22.21.1
+nvm install 24.21.0
+nvm use 24.21.0
 npm install -g npm@10.9.4
 
 # Systemove zavislosti

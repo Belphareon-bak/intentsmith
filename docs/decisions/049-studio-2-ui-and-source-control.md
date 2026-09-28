@@ -94,3 +94,11 @@ k shellu nevzniká; `terminal → exec` zůstává pod `validateCommand()` a L0-
   zpracovává souběžně a tutéž konverzaci serializuje (`docs/WS-PROTOCOL.md`).
 - Návrh balíčků nástrojů v obchodě (git, bash, Python, Docker) je mimo tento
   rozsah: [MARKETPLACE-TOOLCHAINS](../studio2/MARKETPLACE-TOOLCHAINS.md).
+
+## Doplnění operátora 2026-09-28 — výchozí IDE a Legacy
+
+Po ověření se nové IDE nasadí pro každodenní použití jako výchozí. Původní
+frontend zůstane samostatně dostupný jako IntentSmith Legacy v uchované
+instalaci. Obě položky používají jeden spravovaný backend a původní produkční
+DB. Nový hostitel tím nezíská zpět klasické kontribuce ani přepínač UI.
+Provedení: [WP-STUDIO-2-PRODUCTION](../wp/WP-STUDIO-2-PRODUCTION-20260928.md).
