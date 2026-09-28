@@ -2280,9 +2280,10 @@ export class CREDecisionEngine {
     // Reads are informational but still need literal targets. The core lexer
     // binds exact file citations even when an informational proposal omits slots.
     const files = literalFileTargets(input);
-    if (understanding?.kind === 'information' && Array.isArray(understanding.slots)) {
+    if (Array.isArray(understanding?.slots)) {
       for (const file of files) if (!understanding.slots.some(slot => slot.role === 'target' && slot.source === file.source))
-        understanding.slots.push({ role: 'target', name: 'fileTarget', source: file.source, value: file.source });
+        if (understanding.kind === 'information' || classification.fileTarget === file.source)
+          understanding.slots.push({ role: 'target', name: 'fileTarget', source: file.source, value: file.source });
     }
     const clarity = assessIntentClarity(input, understanding, options);
     if (clarity) return { clarity, understanding, classification };
@@ -2294,6 +2295,9 @@ export class CREDecisionEngine {
     // an invented replacement that merely passes filesystem syntax checks.
     const lexical = detectProjectFileIntent(input);
     const projectListing = Boolean(context.project?.id || context.hasActiveProject) && lexical.detected && lexical.filePath === '.';
+    if (classification.fileTarget != null && typeof classification.fileTarget !== 'string') {
+      return { clarity: { kind: 'clarify', slot: 'intent_meaning', reason: 'target_not_grounded', question: 'Jaký přesný soubor chceš použít? Cíl zatím není jednoznačně doložen zadáním. Nic nespouštím.' }, understanding };
+    }
     if (classification.fileTarget && !(projectListing && classification.fileTarget === '.')
         && !understanding.slots.some(slot => slot.role === 'target' && slot.value === classification.fileTarget)) {
       return { clarity: { kind: 'clarify', slot: 'intent_meaning', reason: 'target_not_grounded', question: `Jaký přesný soubor chceš použít? Navržený cíl „${classification.fileTarget}“ není doložen zadáním. Nic nespouštím.` }, understanding };
@@ -2634,6 +2638,18 @@ PRAVIDLA:
       if (!VALID_INTENTS.includes(parsed.intent)) {
         logger.warn('CRE:LLM', `LLM returned unknown intent: ${parsed.intent}`);
         return null;
+      }
+
+      // These existing routes produce content or bounded reads, never an
+      // implicit file write or execution. Tool risk is still checked at M2.
+      if ([IntentType.CODE, IntentType.CREATIVE, IntentType.FILE_READ, IntentType.FILE_EXPLAIN].includes(parsed.intent)
+        && parsed.understanding?.version === 1) parsed.understanding.kind = 'information';
+
+      // Some providers emit the requested target citation object in fileTarget.
+      // Accept only its exact literal identifier; never stringify or infer it.
+      if (parsed.fileTarget && typeof parsed.fileTarget === 'object' && !Array.isArray(parsed.fileTarget)) {
+        const value = parsed.fileTarget.value;
+        if (typeof value === 'string' && literalFileTargets(input).some(file => file.source === value)) parsed.fileTarget = value;
       }
 
       // Normalize confidence

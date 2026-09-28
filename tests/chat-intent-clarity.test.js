@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { ChatController, ChatMode, ResponseSpeaker, ResponseTag, SessionState, TaggedResponse } from '../src/chat/controller.js';
 import { conversationHandler } from '../src/chat/handlers/conversation.js';
 import { creDecisionEngine, CREDecisionEngine, DecisionType, IntentType } from '../src/chat/cre-decision.js';
-import { assessIntentClarity, getIntentEvidence, prepareClarificationInput, issueIntentEvidence, literalFileTargets, latestAssistantContent } from '../src/chat/intent-clarity.js';
+import { assessIntentClarity, getIntentEvidence, prepareClarificationInput, issueIntentEvidence, literalFileTargets, latestAssistantContent, verifyToolIntent } from '../src/chat/intent-clarity.js';
 import { ToolExecutor } from '../src/executor/tool-executor.js';
 import { llmGateway } from '../src/llm/gateway.js';
 import { getConversationStore } from '../src/chat/conversation-store.js';
@@ -50,6 +50,27 @@ try {
     ['Vysvětli ve dvou větách rozdíl mezi RAM a diskem.', [slot('quantity', 've dvou větech', 'dvě věty')]],
   ]) assert.equal(assessIntentClarity(input, information(roles)), null, 'content wording is not effect authority');
   assert.equal(assessIntentClarity('Přečti notes.md', information([slot('target', 'notes.md', 'other.md')])).reason, 'material_meaning_changed');
+  assert.equal(assessIntentClarity('Soubor notes.md jen přečti', information([slot('target', 'Soubor notes.md', 'notes.md')])), null);
+  assert.equal(assessIntentClarity('Přečti src/notes.md', information([slot('target', 'src/notes.md', 'notes.md')])).reason, 'material_meaning_changed');
+  {
+    const oldCall = llmGateway.call;
+    const engine = new CREDecisionEngine();
+    const cases = [
+      ['Napiš krátkou funkci v Pythonu. Nepoužívej rekurzi.', 'CODE', null, action([slot('action', 'Napiš'), slot('unit', 'v Pythonu', 'Pythonu')]), 'information'],
+      ['Soubor notes.md nemaž, jen ho přečti.', 'FILE_READ', slot('target', 'notes.md'), action([slot('action', 'přečti'), slot('target', 'Soubor notes.md', 'notes.md')]), 'information'],
+      ['Ulož text "Ahoj" do new-notes.md.', 'FILE_WRITE', slot('target', 'new-notes.md'), action([slot('action', 'Ulož')]), 'action'],
+    ];
+    try {
+      for (const [input, intent, fileTarget, understanding, kind] of cases) {
+        llmGateway.call = async () => ({ content: JSON.stringify({ intent, confidence: 0.95, fileTarget, understanding }), finishReason: 'stop' });
+        const inspected = await engine.inspectRequest(input);
+        assert.ok(inspected.token, input);
+        assert.equal(getIntentEvidence(inspected.token).understanding.kind, kind);
+        if (fileTarget) assert.equal(getIntentEvidence(inspected.token).classification.fileTarget, fileTarget.value);
+        if (kind === 'information') assert.equal(verifyToolIntent(inspected.token, 'file.write', { path: 'notes.md', content: 'forbidden' }, { effectful: true }).reason, 'tool_intent_mismatch');
+      }
+    } finally { llmGateway.call = oldCall; }
+  }
   const changes = [
     ['Sniž GPU napětí na polovinu', action([slot('action', 'Sniž'), slot('target', 'GPU'), slot('quantity', 'napětí', 'příkon'), slot('value', 'na polovinu')])],
     ['Nastav port na 8080', action([slot('action', 'Nastav'), slot('quantity', 'port'), slot('value', '8080', '80')])],

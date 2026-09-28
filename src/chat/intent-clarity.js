@@ -122,7 +122,10 @@ export function assessIntentClarity(input, understanding, { supersededSpans = []
   for (const [index, slot] of slots.entries()) {
     // A wording summary in an explanation grants no effect authority. Literal
     // identity remains mandatory for actions and concrete read/recipient targets.
-    if (slot.source !== slot.value && (understanding.kind === 'action' || ['target', 'recipient'].includes(slot.role))) return { ...question('material_meaning_changed', `V zadání je „${slot.source}“, interpretace uvádí „${slot.value}“. Co má platit pro ${slot.name}? Zatím nic nespouštím.`, [slot.source, slot.value]), unresolvedSpan: reference(input, slot, index) };
+    const citedFiles = slot.role === 'target' ? literalFileTargets(slot.source) : [];
+    const exactFile = citedFiles.length === 1 && citedFiles[0].source === slot.value
+      && literalFileTargets(input).some(file => file.source === slot.value);
+    if (slot.source !== slot.value && !exactFile && (understanding.kind === 'action' || ['target', 'recipient'].includes(slot.role))) return { ...question('material_meaning_changed', `V zadání je „${slot.source}“, interpretace uvádí „${slot.value}“. Co má platit pro ${slot.name}? Zatím nic nespouštím.`, [slot.source, slot.value]), unresolvedSpan: reference(input, slot, index) };
   }
   for (const ambiguity of understanding.ambiguities) {
     if (!ambiguity || !bounded(ambiguity.slot, 80) || !bounded(ambiguity.question) || !Array.isArray(ambiguity.options)
