@@ -1,5 +1,9 @@
 # IntentSmith — mapa systému
 
+**GPU hunt — doplněná desetimodelová matice, 29. 9. 2026:** 1 984 pokusů v 70 buňkách model × role; 63 relevantních buněk má úplný první výsledek, 3 jsou částečné kvůli čtyřem vyčerpáním limitu, 4 VISION jsou N/A. Nový CHAT 400/400, rozšířený D/R 266/270, nový CODE 30/30; kompatibilní zachované vstupy a nové posudky jsou oddělené. D/R+CHAT má 1 356 skutečně posouzených celých odpovědí / 4 235 kritérií. Druhý skutečný posudek existuje pouze pro 213 zachovaných odpovědí; dalších 1 173 sémantických odpovědí je připravených zvlášť. **FIRST_REVIEW_COMPLETE_WITH_EXPLICIT_CAPTURE_FAILURES / REVIEW_PENDING / REAL_NO_GO.** [Aktuální matice, důvody známek, původ a zbývající přejímka](docs/review/2026-09-28-HUNT-MATRIX-COMPLETION.md).
+
+Aktuální module graph má 1 431 hran, 3 cykly / 28 členů. Nová přesná vazba `src/eval/chat-capture-clock.js → src/llm/clock-context.js` sdílí formát hodin pro uzamčený sběr; byla zapsaná oficiálním ratchet nástrojem bez růstu cyklů.
+
 **GPU hunt — skutečná dvojice CHAT posudků, 27. 9. 2026:** 80 dialogů / 320 kritérií u každého hodnotitele, 19 rozdílů nad 0,25. Nové exporty předávají oběma celou verzovanou rubriku. Produkční přejímka a rozhodovací cesta odmítají simulovanou evidenci; simulace zůstává dostupná jen v izolovaném spojení nad novou DB. **REVIEW_PENDING / NOT_DEPLOYED / REAL_NO_GO.** [Podklady a ověření](docs/review/2026-09-27-HUNT-REAL-SECOND-REVIEW.md).
 
 **GPU hunt — autorizované dokončení simulace, 27. 9. 2026:**

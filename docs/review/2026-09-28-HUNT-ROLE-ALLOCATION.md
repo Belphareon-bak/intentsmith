@@ -1,5 +1,7 @@
 # Rozdělení pracovních rolí — aktuální podklad pro operátora
 
+> **Aktualizace 29. 9.: níže je zachovaný historický stav před doplněním.** Aktuální panel všech deseti modelů je v [dokončení matice](2026-09-28-HUNT-MATRIX-COMPLETION.md) a v [procentní matici s celými odpověďmi](/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/matrix/comparison.html). Má 63 úplných výsledkových buněk, 3 částečné a 4 N/A. Jde o první skutečné posouzení; pokrytí druhým posudkem je uvedené zvlášť. Staré návrhy sestavy níže nejsou novým doporučením.
+
 28. 9. 2026. **Pracovní doporučení, nikoli přijatá sestava. Žádné vazby změněny.**
 
 Volba pracovních modelů nemusí čekat na automatické místní hodnotitele. Máme dva

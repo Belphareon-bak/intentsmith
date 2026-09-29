@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "fab12a37d89b6d223f7f796cdb412b11bbb0dcbb",
-  "sourceTree": "e27c11b24b6d0f276555361f01822317f40449f4",
+  "sourceRevision": "c3d3e5ac2de6163d53071ccc04778804c97bbf36",
+  "sourceTree": "19e7e9c5c3cfe8665efa54955d95805a66294d1a",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "a111646c052627fd0803fc881838f58d7d5fd8dc",
@@ -619,6 +619,7 @@
     "src/eval/build-code-suite.js -> src/eval/code-task-extractor.js",
     "src/eval/calibrate-code-suite.js -> src/eval/build-code-suite.js",
     "src/eval/calibrate-code-suite.js -> src/eval/discrimination-report.js",
+    "src/eval/chat-capture-clock.js -> src/llm/clock-context.js",
     "src/eval/code-capture-preflight.js -> src/eval/code-technical-replay.js",
     "src/eval/code-confidence-v2.js -> src/eval/code-patch-runner.js",
     "src/eval/code-patch-runner.js -> src/eval/code-task-extractor.js",
