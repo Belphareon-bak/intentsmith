@@ -1,5 +1,13 @@
 # IntentSmith — mapa systému
 
+**Aktuální vizuál IDE 2.0, 2026-09-29:** místně instalovaný frontend
+`fddfe996` používá schválenou paletu nastavení B s 20% nárůstem sytosti,
+obrysovými symboly a jemnými podklady. Reálný AppImage, Electron UI gate,
+obyčejný start a 11 motivů PASS; původní DB i backend `c84b88cd` zachovány.
+Integrační audit na předchozím `b5fda0f1` měl 385 PASS / 1 zděděný FAIL Gate 0.
+**LOCAL_PRODUCTION_DEPLOYED / IMPLEMENTATION_VERIFIED / REVIEW_PENDING.**
+[Aktuální identita a důkazy](docs/review/2026-09-29-STUDIO2-SETTINGS-PALETTE-B.md).
+
 **IDE 2.0 — místní produkční instalace, 2026-09-28:** frontend `32361710`, backend `c84b88cd`;
 IDE 2.0 je výchozí desktop, původní frontend je zvlášť jako IntentSmith Legacy nad
 stejným spravovaným backendem a původní DB. Trvalý Node 24, kontrolovaný

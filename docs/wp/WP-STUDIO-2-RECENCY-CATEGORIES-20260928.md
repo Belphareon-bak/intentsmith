@@ -109,3 +109,12 @@ produkční build / AppImage, finální skutečný Electron/UI a soukromý AppIm
 nad existujícími GET konektory ve všech jedenácti kombinacích motivů.
 Celý předchozí integrační audit se nepředkládá jako nový běh této vizuální
 změny. Stop podmínky a samostatné nezávislé review zůstávají výše.
+
+### Výsledek volby B + 20 %
+
+Frontend `fddfe996` je místně nasazený, backend `c84b88cd` zachovaný.
+**LOCAL_PRODUCTION_DEPLOYED / IMPLEMENTATION_VERIFIED / REVIEW_PENDING.**
+Reálný AppImage, Electron UI gate, obyčejný start a všech 11 motivů PASS;
+prototyp 1916 kontrol, LiveModel 72/72, SessionStore 14 skupin,
+dokumentační validace 160/160. Instalovaný pin, původní DB a přesný
+výsledek jsou v [reportu](../review/2026-09-29-STUDIO2-SETTINGS-PALETTE-B.md).

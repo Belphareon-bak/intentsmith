@@ -1,5 +1,11 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**Aktuální instalace IDE 2.0, 2026-09-29:** frontend `fddfe996` s operátorem
+schválenou paletou nastavení B + 20 % je místně nasazený; AppImage,
+Electron UI gate, běžný start a 11 motivů PASS. Backend a původní DB zachovány;
+nezávislé review čeká. Zděděný celý profil na `b5fda0f1` má 385 PASS /
+1 FAIL Gate 0. [Report a skutečné náhledy](docs/review/2026-09-29-STUDIO2-SETTINGS-PALETTE-B.md).
+
 **IDE 2.0 — místně nasazené, 2026-09-28:** frontend `32361710`, backend `c84b88cd`;
 IntentSmith Legacy zůstává samostatně nad stejnou původní DB. Integrační profil
 na `b5fda0f1` má 385 PASS / 1 zděděný FAIL Gate 0; skutečné Electron/model/M2/SCM, instalovaný

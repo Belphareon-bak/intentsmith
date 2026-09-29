@@ -15,10 +15,16 @@ a ověřený frontend bez výměny backendu popisuje
 [předchozí report](../review/2026-09-28-STUDIO2-RECENCY-CATEGORIES.md).
 
 Neutrální konverzační ikony, skutečné projektové časy, upravenou navigaci
-a plné, rozlišitelné symboly nastavení v aktuálním `32361710` popisuje
+a dřívější plné symboly nastavení ve frontendu `32361710` popisuje
 [následné ověření a náhledy před/po](../review/2026-09-28-STUDIO2-PALETTE-PROJECT-DATES.md).
 Finální AppImage, tři Electron scénáře a 11 motivů PASS; celý integračně
 shodný profil na `b5fda0f1` má 385 PASS / 1 zděděný FAIL Gate 0.
+
+**Aktuálně instalovaný frontend `fddfe996`, 29. 9. 2026:** nastavení má
+operátorem vybranou tlumenou paletu B, stejné obrysové symboly a podklady
+s o 20 % sytější kresbou. AppImage, 11 motivů, reálný Electron a běžný
+start PASS. Backend `c84b88cd`, původní DB a Legacy zachovány.
+[Aktuální náhledy, identita a testy](../review/2026-09-29-STUDIO2-SETTINGS-PALETTE-B.md).
 
 ## Instalace
 
