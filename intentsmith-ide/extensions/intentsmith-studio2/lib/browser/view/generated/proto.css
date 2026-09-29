@@ -119,8 +119,8 @@
 .intentsmith-studio2-widget .num{font-variant-numeric:tabular-nums}
 .intentsmith-studio2-widget .grow{flex-grow:1}
 .intentsmith-studio2-widget .faint{color:var(--faint)}
-.intentsmith-studio2-widget .dark{--cat-chat:#facc15;--cat-project:#ff7373;--cat-specialist:#b18aff;--cat-expertise:#60a5fa;--cat-worker:#50c7d6;--cat-market:#55c99e;--cat-media:#7abf62;--set-ink:#10141b;--set-ucet:#53b6e8;--set-modely:#9b8bed;--set-pamet:#49baa8;--set-oznameni:#dcaf42;--set-vystup:#8e9cca;--set-vzhled:#b18ad7;--set-system:#c89e78;--set-uloziste:#6eafbf;--set-zalohy:#8cbd79;--set-prepinace:#cf916e;--set-zabezpeceni:#56b483;--set-about:#9cabc8}
-.intentsmith-studio2-widget .light{--cat-chat:#855700;--cat-project:#b91c1c;--cat-specialist:#6d28d9;--cat-expertise:#1d4ed8;--cat-worker:#176b7a;--cat-market:#216e51;--cat-media:#396b24;--set-ink:#ffffff;--set-ucet:#235f7e;--set-modely:#665093;--set-pamet:#236c61;--set-oznameni:#825f17;--set-vystup:#435576;--set-vzhled:#79568e;--set-system:#856343;--set-uloziste:#2f6574;--set-zalohy:#4c703d;--set-prepinace:#875938;--set-zabezpeceni:#286346;--set-about:#516273}
+.intentsmith-studio2-widget .dark{--cat-chat:#facc15;--cat-project:#ff7373;--cat-specialist:#b18aff;--cat-expertise:#60a5fa;--cat-worker:#50c7d6;--cat-market:#55c99e;--cat-media:#7abf62;--set-ucet:oklch(0.68 0.084 65);--set-modely:oklch(0.68 0.084 35);--set-pamet:oklch(0.68 0.084 300);--set-oznameni:oklch(0.68 0.084 280);--set-vystup:oklch(0.68 0.084 260);--set-vzhled:oklch(0.68 0.084 240);--set-system:oklch(0.68 0.084 220);--set-uloziste:oklch(0.68 0.084 200);--set-zalohy:oklch(0.68 0.084 180);--set-prepinace:oklch(0.68 0.084 160);--set-zabezpeceni:oklch(0.68 0.084 140);--set-about:oklch(0.68 0.084 115)}
+.intentsmith-studio2-widget .light{--cat-chat:#855700;--cat-project:#b91c1c;--cat-specialist:#6d28d9;--cat-expertise:#1d4ed8;--cat-worker:#176b7a;--cat-market:#216e51;--cat-media:#396b24;--set-ucet:oklch(0.46 0.07812 65);--set-modely:oklch(0.46 0.07812 35);--set-pamet:oklch(0.46 0.07812 300);--set-oznameni:oklch(0.46 0.07812 280);--set-vystup:oklch(0.46 0.07812 260);--set-vzhled:oklch(0.46 0.07812 240);--set-system:oklch(0.46 0.07812 220);--set-uloziste:oklch(0.46 0.07812 200);--set-zalohy:oklch(0.46 0.07812 180);--set-prepinace:oklch(0.46 0.07812 160);--set-zabezpeceni:oklch(0.46 0.07812 140);--set-about:oklch(0.46 0.07812 115)}
 .intentsmith-studio2-widget .tone-amber{--tc:var(--cat-chat)}
 .intentsmith-studio2-widget .tone-red,.intentsmith-studio2-widget .tone-rose{--tc:var(--cat-project)}
 .intentsmith-studio2-widget .tone-violet{--tc:var(--cat-specialist)}
@@ -427,11 +427,11 @@
 .intentsmith-studio2-widget .dico{width:40px;height:40px;border-radius:9px;background:var(--acc-soft);color:var(--acct);display:grid;place-items:center;flex:0 0 auto}
 .intentsmith-studio2-widget .toned .dico,.intentsmith-studio2-widget .dico.always{color:var(--tc);background:color-mix(in srgb,var(--tc) 12%,transparent)}
 .intentsmith-studio2-widget .tico.neutral,.intentsmith-studio2-widget .lico.neutral,.intentsmith-studio2-widget .dico.neutral{color:var(--dim);background:var(--panel3)}
-.intentsmith-studio2-widget .tico[class*="tone-set-"],.intentsmith-studio2-widget .lico[class*="tone-set-"],.intentsmith-studio2-widget .dico[class*="tone-set-"]{color:var(--set-ink);background:var(--tc);border:1px solid color-mix(in srgb,var(--tc) 75%,var(--text))}
-.intentsmith-studio2-widget .tico[class*="tone-set-"]{width:40px;height:40px;border-radius:10px}
-.intentsmith-studio2-widget .tico[class*="tone-set-"] .ic{width:22px;height:22px;stroke-width:1.9}
-.intentsmith-studio2-widget .lico[class*="tone-set-"] .ic{width:17px;height:17px;stroke-width:1.9}
-.intentsmith-studio2-widget .dico[class*="tone-set-"] .ic{width:23px;height:23px;stroke-width:1.9}
+.intentsmith-studio2-widget .tico[class*="tone-set-"],.intentsmith-studio2-widget .lico[class*="tone-set-"],.intentsmith-studio2-widget .dico[class*="tone-set-"]{color:var(--tc);background:color-mix(in srgb,var(--tc) 10%,var(--panel));border:0}
+.intentsmith-studio2-widget .tico[class*="tone-set-"]{width:32px;height:32px;border-radius:7px}
+.intentsmith-studio2-widget .tico[class*="tone-set-"] .ic{width:17px;height:17px;stroke-width:1.7}
+.intentsmith-studio2-widget .lico[class*="tone-set-"] .ic{width:14px;height:14px;stroke-width:1.7}
+.intentsmith-studio2-widget .dico[class*="tone-set-"] .ic{width:20px;height:20px;stroke-width:1.7}
 .intentsmith-studio2-widget .dh-m{min-width:0;flex:1 1 auto}
 .intentsmith-studio2-widget .dh-title{font-size:17px;font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .intentsmith-studio2-widget .dh-sub{font-size:12px;color:var(--faint);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

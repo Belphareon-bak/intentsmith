@@ -281,3 +281,15 @@ v obchodě, změny modelových rolí a měření, jakákoli nová schopnost shel
   různých významových symbolů. Účet je osoba, Paměť kniha, Výstup dokument,
   Systém ozubené kolo a Zálohy obnova s hodinami. Čip patří jen Modelům,
   disk jen Úložišti. Změna se projeví i v seznamu a detailu.
+
+## Přijatá volba operátora 29. 9. — tlumené nastavení B + 20 %
+
+Operátor odmítl plné svítící podklady a vybral B z galerie
+`studio2-settings-options-20260928-34b424c3`: měděná / cihlová / fialová /
+modrá / tyrkysová / zelená. Sytost zvýšit o 20 % vůči tomuto konkrétnímu
+náhledu, zachovat navazující odstíny, původní obrysové ikony a jemný podklad.
+V OKLCH se násobí pouze chroma 1,2: tmavá 0,070 → 0,084, světlá
+0,0651 → 0,07812. Světlost a odstíny se nemění, podklad zůstává 10% směsí.
+Tato volba nahrazuje předchozí návrh plných podkladů a nových symbolů;
+stejné tóny platí pro dlaždice, seznam a detail. Levý panel a barevné
+kategoriální štítky mají své dosavadní barvy.

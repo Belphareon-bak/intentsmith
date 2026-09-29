@@ -139,10 +139,6 @@ class Component extends DCLogic {
       db: 'M3 5a9 3 0 1 0 18 0a9 3 0 1 0-18 0M3 5v14a9 3 0 0 0 18 0V5M3 12a9 3 0 0 0 18 0',
       bell: 'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0',
       drive: 'M22 12H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11zM6 16h.01M10 16h.01',
-      user: 'M8 7a4 4 0 1 0 8 0a4 4 0 1 0-8 0M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2',
-      book: 'M12 5c-3-2-6-2-10-1v15c4-1 7-1 10 1 3-2 6-2 10-1V4c-4-1-7-1-10 1zM12 5v15M5 8h4M5 12h4M15 8h4M15 12h4',
-      document: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM14 2v6h6M8 12h8M8 16h8',
-      backup: 'M3 3v6h6M3 9a9 9 0 1 1 0 6M12 7v5l3 2',
       toggle: 'M8 5h8a7 7 0 0 1 0 14H8A7 7 0 0 1 8 5zM5 12a3 3 0 1 0 6 0a3 3 0 1 0-6 0',
       code: 'm16 18 6-6-6-6M8 6l-6 6 6 6',
       info: 'M2 12a10 10 0 1 0 20 0a10 10 0 1 0-20 0M12 16v-4M12 8h.01',
@@ -374,15 +370,15 @@ class Component extends DCLogic {
       mk('sazeni', 'specialist', 'Sázkový analytik', '1.0.0', 'Porovnání kurzů, analýza zápasů, value betting a sestavení tiketů.', true)
     ];
     const SET = [
-      { id: 'ucet', name: 'Účet', icon: I.user, tone: 'set-ucet', desc: 'Profil a projekty.', tabs: [['prehled', 'Profil'], ['projekty', 'Projekty']] },
+      { id: 'ucet', name: 'Účet', icon: I.sliders, tone: 'set-ucet', desc: 'Profil a projekty.', tabs: [['prehled', 'Profil'], ['projekty', 'Projekty']] },
       { id: 'modely', name: 'Modely a inference', icon: I.cpu, tone: 'set-modely', desc: 'Modely, inference, připojení a hardware.', tabs: [['prehled', 'Lokální modely'], ['inference', 'Inference'], ['pripojeni', 'Připojení'], ['hardware', 'Hardware']] },
-      { id: 'pamet', name: 'Paměť', icon: I.book, tone: 'set-pamet', desc: 'Historie, kontext a automatické učení.', tabs: [['prehled', 'Historie a kontext'], ['uceni', 'Paměť a učení'], ['retence', 'Kapacita a retence']] },
+      { id: 'pamet', name: 'Paměť', icon: I.db, tone: 'set-pamet', desc: 'Historie, kontext a automatické učení.', tabs: [['prehled', 'Historie a kontext'], ['uceni', 'Paměť a učení'], ['retence', 'Kapacita a retence']] },
       { id: 'oznameni', name: 'Oznámení', icon: I.bell, tone: 'set-oznameni', desc: 'Kanály oznámení a čas pro soustředění.', tabs: [['prehled', 'Kanály'], ['ticho', 'Tiché hodiny']] },
-      { id: 'vystup', name: 'Výstup', icon: I.document, tone: 'set-vystup', desc: 'Formátování a délka odpovědi.', tabs: [['prehled', 'Formátování'], ['delka', 'Délka odpovědi']] },
+      { id: 'vystup', name: 'Výstup', icon: I.code, tone: 'set-vystup', desc: 'Formátování a délka odpovědi.', tabs: [['prehled', 'Formátování'], ['delka', 'Délka odpovědi']] },
       { id: 'vzhled', name: 'Vzhled', icon: I.palette, tone: 'set-vzhled', desc: 'Paleta, písmo a rozvržení pracovního prostředí.', tabs: [['obecne', 'Obecné'], ['pismo', 'Písmo'], ['barvy', 'Barvy a prvky'], ['rozvrzeni', 'Rozvržení'], ['css', 'Vlastní CSS']] },
-      { id: 'system', name: 'Systém', icon: I.gear, tone: 'set-system', desc: 'Prostředí, spouštění, diagnostika a limity.', tabs: [['prostredi', 'Prostředí a závislosti'], ['spousteni', 'Spouštění'], ['diagnostika', 'Diagnostika'], ['limity', 'Limity']] },
+      { id: 'system', name: 'Systém', icon: I.cpu, tone: 'set-system', desc: 'Prostředí, spouštění, diagnostika a limity.', tabs: [['prostredi', 'Prostředí a závislosti'], ['spousteni', 'Spouštění'], ['diagnostika', 'Diagnostika'], ['limity', 'Limity']] },
       { id: 'uloziste', name: 'Úložiště', icon: I.drive, tone: 'set-uloziste', desc: 'Přehled databáze a údržba.', tabs: [['prehled', 'Databáze'], ['udrzba', 'Údržba']] },
-      { id: 'zalohy', name: 'Zálohy', icon: I.backup, tone: 'set-zalohy', desc: 'Export, obnova a výchozí hodnoty.', tabs: [['prehled', 'Export'], ['obnova', 'Obnova'], ['vychozi', 'Výchozí hodnoty']] },
+      { id: 'zalohy', name: 'Zálohy', icon: I.drive, tone: 'set-zalohy', desc: 'Export, obnova a výchozí hodnoty.', tabs: [['prehled', 'Export'], ['obnova', 'Obnova'], ['vychozi', 'Výchozí hodnoty']] },
       { id: 'prepinace', name: 'Funkční přepínače', icon: I.toggle, tone: 'set-prepinace', desc: 'Dostupné subsystémy a jejich běhové přepínače.', tabs: [['prehled', 'Přepínače'], ['obnoveni', 'Obnovení']] },
       { id: 'zabezpeceni', name: 'Zabezpečení', icon: I.shield, tone: 'set-zabezpeceni', desc: 'Audit, přístup a relace.', tabs: [['prehled', 'Audit'], ['pristup', 'Přístup'], ['relace', 'Relace']] },
       { id: 'about', name: 'O aplikaci', icon: I.info, tone: 'set-about', desc: 'Verze aplikace, protokol a stav backendu.', tabs: [['prehled', 'Aplikace'], ['zpetna_vazba', 'Zpětná vazba']] }
