@@ -90,3 +90,22 @@ Finální AppImage, tři Electron scénáře, běžný start a 11 kombinací mot
 PASS; LiveModel 72/72, SessionStore 14 skupin, prototyp 1916 kontrol bez chyby.
 Celý profil na integračně shodném `b5fda0f1` 385 PASS / 1 zděděný FAIL Gate 0.
 [Náhledy před/po, přesné identity a meze](../review/2026-09-28-STUDIO2-PALETTE-PROJECT-DATES.md).
+
+## Přijatá navazující volba B + 20 % — 29. 9.
+
+Autorita: operátor vybral B v galerii `studio2-settings-options-20260928-34b424c3`
+a požádal o 20 % vyšší sytost. Výchozí čistý zdroj `34b424c3`, instalovaný
+frontend `32361710`, backend `c84b88cd`. Výsledek: stejné obrysové ikony,
+10% jemné podklady, stejné pořadí odstínů; násobit chroma 1,2 při stejné
+světlosti. Vlastněné a zakázané cesty platí výše, doplněný report nasazení.
+
+Ukázka: nastavení vedle navigace, dlaždice / seznam / detail, tmavé a světlé
+motivy. Kladně přesná shoda s B + 20 %, čitelnost a běžný start finálního
+AppImage; záporně bez plných barevných podkladů, bez změny hlavní palety,
+datových konektorů, původní DB a běžícího backendu. Ověřovací příkazy:
+`node tests/studio2-view.test.js`, generátor `--check`,
+`node tests/studio2-live-model.test.js`, `node tests/artifact-validation.test.js`,
+produkční build / AppImage, finální skutečný Electron/UI a soukromý AppImage
+nad existujícími GET konektory ve všech jedenácti kombinacích motivů.
+Celý předchozí integrační audit se nepředkládá jako nový běh této vizuální
+změny. Stop podmínky a samostatné nezávislé review zůstávají výše.

@@ -419,3 +419,9 @@ Po odmítnutí A/B/C operátorem je konec palety azurový / mátový / zelený,
 bez olivové podobné žlutému chatu. Nastavení používá plné podklady s
 kontrastní kresbou (`--set-ink`) a dvanáct různých symbolů z prototypu.
 Není přidán nový přepínač palety ani nové nastavení produktu.
+
+29. 9. operátor vybral tlumenou paletu B z následné galerie a požádal
+o +20 % sytosti. Aktuální prototyp má obrysové ikony ze schváleného náhledu,
+10% podklady a chroma 0,084 / 0,07812 v tmavém / světlém režimu. Hue a
+světlost zůstávají stejné jako v B. Předchozí plné podklady a nové symboly
+jsou tím nahrazeny; jedinečnost dvanácti glyphů není aktuální požadavek.
