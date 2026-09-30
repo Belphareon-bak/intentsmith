@@ -177,6 +177,15 @@ await asyncTest('T5: runner uses the validated schedule value for preview and co
     JSON.stringify(preview.errors));
   assert.deepEqual(preview.preview.schedule,
     { type: 'interval', interval: '5m', description: 'Run every 5m' });
+  const cronDefinition = structuredClone(definition);
+  cronDefinition.schedule = { type: 'cron', value: '0 8 * * *' };
+  const cronSchemaValidation = validateAgentDefinition(cronDefinition);
+  assert.equal(cronSchemaValidation.valid, true, JSON.stringify(cronSchemaValidation.errors));
+  const cronPreview = await runner.dryRun(cronDefinition);
+  assert.equal(cronPreview.errors.some(error => error.field === 'schedule'), false,
+    JSON.stringify(cronPreview.errors));
+  assert.deepEqual(cronPreview.preview.schedule,
+    { type: 'cron', cron: '0 8 * * *', description: 'Cron: 0 8 * * *' });
   assert.deepEqual(runner.validateSchedule(schedule), { valid: true });
   assert.equal(runner.validateSchedule({ type: 'interval', value: '1m' }).valid, false);
   assert.deepEqual(runner.validateSchedule({ type: 'cron', value: '0 8 * * *' }), { valid: true });

@@ -25,12 +25,28 @@ počítal výchozí jednu minutu.
 - Regrese v `IS-T1-TESTS-SCHEDULER-TEST` používá skutečné SQLite schéma,
   repozitář a scheduler: splatný, budoucí, vypnutý a poškozený plán,
   novou instanci scheduleru nad uloženým plánem, validní interval/cron
-  a hranici cooldownu. Před opravou nové kontroly selhaly 2/2; po opravě
-  je celá sada 6/6.
+  a hranici cooldownu. Kontroluje také, že finální náhled cron plánu
+  uvádí `cron`, nikoli `interval`. Před časovou opravou nové kontroly
+  selhaly 2/2; před opravou náhledu selhala cron regrese. Po opravách je
+  celá sada 6/6.
 - Registrované sady scheduleru, Project Health, trvalého HTTP průchodu
-  a produktového HTTP průchodu prošly 4/4 v lokálním kandidátním běhu
-  `.intentsmith-artifacts/run-suites/2026-09-30T22-19-17-709Z/report.json`.
-  Registr má nadále 573 sad; změněná sada nyní správně uvádí DB profil.
+  a produktového HTTP průchodu prošly 4/4 na čistém předchozím kandidátu
+  `fe9e4392` v běhu
+  `.intentsmith-artifacts/run-suites/2026-09-30T22-22-07-794Z/report.json`.
+  Tento report nepokrývá následnou opravu cron náhledu; její čistý běh
+  musí být doložen zvlášť. Registr má nadále 573 sad; změněná sada nyní
+  správně uvádí DB profil.
+
+## Výkonnostní mez
+
+`julianday(s.next_run)` zajišťuje správný výběr i pro původní textový
+formát, ale SQLite pro podmínku nepoužije rozsah indexu
+`idx_agent_schedule_next`: `EXPLAIN QUERY PLAN` ukázal `SCAN s USING INDEX`
+místo původního `SEARCH s USING INDEX (next_run<?)`. Kontrola je tedy
+lineární v počtu plánů. V read-only inventuře instalované DB 30. 9. 2026
+bylo **6** řádků `agent_schedule_v33` a **6** řádků `agents_v33`; při této
+velikosti nemáme důkaz provozního problému. Výkon pro větší registr agentů
+nebyl benchmarkován a zůstává otevřenou škálovací hranicí.
 
 Nativní Project Health má stále `schedule: {type: "manual"}` a instaluje
 se vypnutý. Tento kandidát sám nezapíná autonomní monitoring a neprokazuje

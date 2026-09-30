@@ -301,7 +301,8 @@ export class AgentRunner {
       }
       validation.preview.schedule = {
         type: def.schedule.type,
-        interval: def.schedule.value,
+        ...(def.schedule.type === 'interval' ? { interval: def.schedule.value } : {}),
+        ...(def.schedule.type === 'cron' ? { cron: def.schedule.value } : {}),
         description: this.describeSchedule(def.schedule)
       };
     }
