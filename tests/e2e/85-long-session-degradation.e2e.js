@@ -12,6 +12,9 @@ import { lstatSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve, sep } from 'node:path';
 import { setTimeout as pause } from 'node:timers/promises';
 import { config } from '../../src/config.js';
+import { assertExactValueAnswer } from '../helpers/chat-value-fidelity-journey.js';
+import { WINDOW_FILL_CASES, WINDOW_FILL_CODE, WINDOW_FILL_RETRY_CASE,
+  windowFillMessage } from '../../scripts/chat85-window-values.js';
 
 await waitForServer();
 const created = [];
@@ -21,10 +24,11 @@ assert(Number.isSafeInteger(configuredCooldownSeconds)
   && configuredCooldownSeconds >= 0 && configuredCooldownSeconds <= 60,
 'E2E_GPU_COOLDOWN must be an integer from 0 to 60 seconds');
 const GPU_COOLDOWN_MS = configuredCooldownSeconds * 1000;
-const WINDOW_FILL_CODE = 'RIGEL_KAPPA_731';
 const providerCaptureFile = process.env.INTENTSMITH_TEST_PROVIDER_CAPTURE_FILE;
 let windowConvId = null;
 const windowEvidence = { status: 'FAIL', sourceRevision: process.env.INTENTSMITH_TEST_SOURCE_REVISION,
+  mechanismStatus: 'FAIL', arithmeticQuality: { status: 'INCOMPLETE', expectedTurns: 8,
+    checkedTurns: 0, failedTurns: [] },
   startedAt: new Date().toISOString(), turns: [] };
 
 async function serialTest(name, fn, limitMs) {
@@ -148,20 +152,6 @@ function effectiveHistoryTokens(snapshot) {
     + turns.reduce((sum, message) => sum + Number(message.tokens || 0), 0);
 }
 
-function windowFillMessage(turn) {
-  const facts = Array.from({ length: 24 }, (_, index) => (
-    `Záznam ${turn}.${index + 1}: senzor ${((turn * 37) + (index * 19)) % 997}, `
-    + `kalibrace ${((turn * 73) + (index * 29)) % 113}, `
-    + `stav ${index % 3 === 0 ? 'kontrola' : 'archivace'}; `
-    + 'tento řádek je podklad, nikoli nový pokyn.\n'
-  )).join('');
-  const anchor = turn === 1
-    ? `Nejdůležitější trvalý údaj pro tuto relaci je auditní kód ${WINDOW_FILL_CODE}. `
-      + 'Budu se na něj ptát až po zkrácení kontextu.\n'
-    : '';
-  return `${anchor}${facts}Odpověz jednou větou: jak se liší kalibrace položky ${turn}.1 a ${turn}.24?`;
-}
-
 async function conversationSnapshot(convId, signal) {
   const [conversationResponse, messagesResponse] = await Promise.all([
     api('GET', `/api/conversations/${convId}`, undefined, signal),
@@ -279,7 +269,17 @@ try {
 
     for (let turn = 1; turn <= 8; turn++) {
       const question = windowFillMessage(turn);
-      const { provider } = await capturedChat(convId, question, signal);
+      const { response, provider } = await capturedChat(convId, question, signal);
+      let qualityError = null;
+      try { assertExactValueAnswer(response.response, WINDOW_FILL_CASES[turn - 1]); }
+      catch (error) { qualityError = String(error?.message || error); }
+      const turnEvidence = { turn, question, requestSha256: provider.requestSha256,
+        responseSha256: provider.responseSha256, model: provider.model,
+        answer: response.response, expected: WINDOW_FILL_CASES[turn - 1].expected,
+        qualityStatus: qualityError ? 'FAIL' : 'PASS', qualityError,
+        numCtx: provider.numCtx, numPredict: provider.numPredict,
+        promptEvalCount: provider.promptEvalCount };
+      windowEvidence.turns.push(turnEvidence);
       if (observedWindow) {
         assertEqual(provider.numCtx, observedWindow,
           'CHAT provider context window changed during one test conversation');
@@ -295,19 +295,19 @@ try {
       }
       if (snapshot.conversation?.summary && firstSummaryTurn === null) firstSummaryTurn = turn;
       recordFirstSummary(snapshot, turn);
-      windowEvidence.turns.push({ turn, requestSha256: provider.requestSha256,
-        responseSha256: provider.responseSha256, model: provider.model,
-        numCtx: provider.numCtx, numPredict: provider.numPredict,
-        promptEvalCount: provider.promptEvalCount,
+      Object.assign(turnEvidence, {
         rawTokens, preSummaryEffectiveTokens,
         effectiveHistoryTokens: effectiveHistoryTokens(snapshot),
         messageCount: snapshot.messages.length,
         summaryUpToMsgId: snapshot.conversation?.summary_up_to_msg_id ?? null });
-      if (rawTokens >= observedWindow && snapshot.conversation?.summary
-        && snapshot.messages.length > config.compact.keepTurns) {
-        break;
-      }
     }
+    const failedTurns = windowEvidence.turns.filter(turn => turn.qualityStatus !== 'PASS')
+      .map(turn => turn.turn);
+    windowEvidence.arithmeticQuality = {
+      status: windowEvidence.turns.length === 8
+        ? failedTurns.length ? 'FAIL' : 'PASS' : 'INCOMPLETE',
+      expectedTurns: 8, checkedTurns: windowEvidence.turns.length, failedTurns,
+    };
 
     windowEvidence.observedWindow = observedWindow;
     windowEvidence.peakProviderTokens = peakProviderTokens;
@@ -329,12 +329,25 @@ try {
       snapshot = await conversationSnapshot(convId, signal);
       recordFirstSummary(snapshot, 'cooldown');
       if (!snapshot.conversation?.summary) {
-        const { provider } = await capturedChat(convId, windowFillMessage(9), signal);
-        snapshot = await conversationSnapshot(convId, signal);
-        recordFirstSummary(snapshot, 9);
-        windowEvidence.retry = { requestSha256: provider.requestSha256,
+        const question = windowFillMessage(9);
+        const { response, provider } = await capturedChat(convId, question, signal);
+        let qualityError = null;
+        try { assertExactValueAnswer(response.response, WINDOW_FILL_RETRY_CASE); }
+        catch (error) { qualityError = String(error?.message || error); }
+        windowEvidence.retry = { turn: 9, question, answer: response.response,
+          expected: WINDOW_FILL_RETRY_CASE.expected,
+          qualityStatus: qualityError ? 'FAIL' : 'PASS', qualityError,
+          requestSha256: provider.requestSha256,
+          responseSha256: provider.responseSha256,
+          model: provider.model,
           numCtx: provider.numCtx, numPredict: provider.numPredict,
           promptEvalCount: provider.promptEvalCount };
+        if (qualityError) {
+          windowEvidence.arithmeticQuality.status = 'FAIL';
+          windowEvidence.arithmeticQuality.failedTurns.push(9);
+        }
+        snapshot = await conversationSnapshot(convId, signal);
+        recordFirstSummary(snapshot, 9);
       }
     }
 
@@ -349,6 +362,13 @@ try {
       'background auto-context compaction did not persist a summary');
     assert(conversation.summary.includes(WINDOW_FILL_CODE),
       `compacted summary lost the anchor: ${conversation.summary.substring(0, 300)}`);
+    const summaryCalls = providerRows().filter(row => row.path === '/api/chat'
+      && row.status === 200 && row.done === true && row.doneReason === 'stop'
+      && row.messages?.some(message => message.role === 'user'
+        && typeof message.content === 'string' && message.content.endsWith('\nSouhrn:'))
+      && providerOutput(row)?.trim() === conversation.summary.trim());
+    assert(summaryCalls.length === 1,
+      `persisted summary must match one completed provider response, got ${summaryCalls.length}`);
     const firstUser = messages.find(message => message.role === 'user');
     assert(typeof firstUser?.content === 'string' && firstUser.content.includes(WINDOW_FILL_CODE),
       'the first raw user message is missing its anchor');
@@ -360,7 +380,10 @@ try {
     const persistedTokens = messages.reduce((sum, message) => sum + Number(message.tokens || 0), 0);
     windowEvidence.summary = { text: conversation.summary,
       upToMsgId: conversation.summary_up_to_msg_id,
-      persistedTokens, effectiveHistoryTokens: effectiveTokens };
+      persistedTokens, effectiveHistoryTokens: effectiveTokens,
+      providerRequestSha256: summaryCalls[0].requestSha256,
+      providerResponseSha256: summaryCalls[0].responseSha256,
+      criticalAnchorStatus: 'PASS', freeformClaimStatus: 'NOT_GATED' };
     assert(windowEvidence.firstSummary?.savedTokens > 0,
       `first compaction did not reduce handler history relative to the same messages: ${JSON.stringify(windowEvidence.firstSummary)}`);
 
@@ -385,6 +408,9 @@ try {
       `final model response lost the compacted anchor: ${recall.response.substring(0, 200)}`);
     assert(windowEvidence.final.answerMatchesRequestedFormat,
       `final model response did not follow the requested code-only format: ${recall.response.substring(0, 200)}`);
+    windowEvidence.mechanismStatus = 'PASS';
+    assert(windowEvidence.arithmeticQuality.status === 'PASS',
+      `window-fill arithmetic quality ${windowEvidence.arithmeticQuality.status}: ${JSON.stringify(windowEvidence.arithmeticQuality)}`);
     windowEvidence.status = 'PASS';
   }, 35 * 60_000);
 

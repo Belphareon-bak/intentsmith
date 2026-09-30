@@ -14,10 +14,38 @@ import {
   attestWindowFillEvidence, preflightProviderCapture, startProviderCaptureProxy,
 } from '../scripts/provider-capture.js';
 import { runSuite } from '../scripts/run-suites.js';
+import { WINDOW_FILL_CASES, WINDOW_FILL_RETRY_CASE,
+  windowFillMessage } from '../scripts/chat85-window-values.js';
+import { assertExactValueAnswer } from './helpers/chat-value-fidelity-journey.js';
 
 const listen = server => new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const close = server => new Promise(resolve => server.close(resolve));
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
+
+test('window-fill source and independent eight-turn arithmetic oracle stay aligned', () => {
+  assert.equal(WINDOW_FILL_CASES.length, 8);
+  for (const valueCase of WINDOW_FILL_CASES) {
+    const lines = windowFillMessage(valueCase.turn).split('\n');
+    const first = lines.find(line => line.startsWith(`Záznam ${valueCase.turn}.1:`));
+    const last = lines.find(line => line.startsWith(`Záznam ${valueCase.turn}.24:`));
+    assert.equal(Number(first.match(/kalibrace (\d+)/)?.[1]), valueCase.expected.a);
+    assert.equal(Number(last.match(/kalibrace (\d+)/)?.[1]), valueCase.expected.b);
+    assert.equal(valueCase.expected.delta, 11);
+    assert.equal(valueCase.expected.higher, 'A');
+    assertExactValueAnswer(JSON.stringify(valueCase.expected), valueCase);
+  }
+  const retryLines = windowFillMessage(9).split('\n');
+  assert.equal(Number(retryLines.find(line => line.startsWith('Záznam 9.1:'))
+    ?.match(/kalibrace (\d+)/)?.[1]), WINDOW_FILL_RETRY_CASE.expected.a);
+  assert.equal(Number(retryLines.find(line => line.startsWith('Záznam 9.24:'))
+    ?.match(/kalibrace (\d+)/)?.[1]), WINDOW_FILL_RETRY_CASE.expected.b);
+  assert.throws(() => assertExactValueAnswer('{"a":106,"b":23,"delta":83,"higher":"A"}',
+    WINDOW_FILL_CASES[2]), /wrong values/);
+  assert.throws(() => assertExactValueAnswer('{"a":66,"b":55,"delta":29,"higher":"A"}',
+    WINDOW_FILL_CASES[3]), /wrong values/);
+  assert.throws(() => assertExactValueAnswer('{"a":59,"b":48,"delta":11,"higher":"B"}',
+    WINDOW_FILL_CASES[6]), /wrong values/);
+});
 
 test('provider proxy records the exact terminal chat before forwarding success', async () => {
   const root = mkdtempSync(path.join(os.tmpdir(), 'intentsmith-capture-selfcheck-'));
@@ -29,11 +57,14 @@ test('provider proxy records the exact terminal chat before forwarding success',
     const body = Buffer.concat(chunks);
     seen.push({ method: request.method, path: request.url, body });
     const bad = body.toString('utf8').includes('fail: retry');
+    const valueTurn = Number(body.toString('utf8').match(/Záznam (\d+)\.1:/)?.[1]);
+    const valueCase = valueTurn === 9 ? WINDOW_FILL_RETRY_CASE : WINDOW_FILL_CASES[valueTurn - 1];
     response.writeHead(bad ? 503 : 200, { 'Content-Type': 'application/json' });
     response.end(JSON.stringify({
       model: CAPTURE_MODEL, digest: CAPTURE_DIGEST, done: !bad,
       done_reason: 'stop', prompt_eval_count: 3072, eval_count: 8,
-      message: { role: 'assistant', content: 'RIGEL_KAPPA_731' },
+      message: { role: 'assistant', content: valueCase
+        ? JSON.stringify(valueCase.expected) : 'RIGEL_KAPPA_731' },
     }));
   });
   await listen(provider);
@@ -74,14 +105,35 @@ test('provider proxy records the exact terminal chat before forwarding success',
     assert.equal(seen.length, 1);
     assert.equal(seen[0].path, '/api/chat');
 
+    const valueTurns = [];
+    for (const valueCase of [...WINDOW_FILL_CASES, WINDOW_FILL_RETRY_CASE]) {
+      const question = windowFillMessage(valueCase.turn);
+      const reply = await fetch(`${proxy.url}/api/chat`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: CAPTURE_MODEL, stream: false,
+          messages: [{ role: 'user', content: `User: ${question}` }],
+          options: { num_ctx: 4096, num_predict: 1200 } }),
+      });
+      assert.equal(reply.status, 200);
+      const answer = (await reply.json()).message.content;
+      assertExactValueAnswer(answer, valueCase);
+      const valueRow = readFileSync(captureFile, 'utf8').trim().split('\n').map(JSON.parse).at(-1);
+      valueTurns.push({ turn: valueCase.turn, question, answer,
+        expected: valueCase.expected, qualityStatus: 'PASS', qualityError: null,
+        requestSha256: valueRow.requestSha256, responseSha256: valueRow.responseSha256,
+        model: valueRow.model, numCtx: valueRow.numCtx,
+        numPredict: valueRow.numPredict, promptEvalCount: valueRow.promptEvalCount });
+    }
+    const retry = valueTurns.pop();
     const sourceRevision = 'a'.repeat(40);
     const evidenceFile = path.join(root, '85-window-fill-evidence.json');
     const captureBytes = readFileSync(captureFile);
     const windowEvidence = {
-      status: 'PASS', sourceRevision,
+      status: 'PASS', mechanismStatus: 'PASS', sourceRevision,
+      arithmeticQuality: { status: 'PASS', expectedTurns: 8, checkedTurns: 8, failedTurns: [] },
       providerCaptureBytes: captureBytes.length,
       providerCaptureSha256: sha256(captureBytes),
-      turns: [{ turn: 1, requestSha256: rows[0].requestSha256 }],
+      turns: valueTurns, retry,
       observedWindow: 4096, summary: { text: 'RIGEL_KAPPA_731' },
       final: {
         requestSha256: rows[0].requestSha256,
@@ -110,8 +162,23 @@ test('provider proxy records the exact terminal chat before forwarding success',
     assert.equal(trailingResponse.status, 200);
     await trailingResponse.text();
     const attested = attest();
-    assert.equal(attested.observedProviderRows, 1);
-    assert.equal(attested.providerRows, 2);
+    assert.equal(attested.observedProviderRows, 10);
+    assert.equal(attested.providerRows, 11);
+    writeEvidence({ ...windowEvidence, arithmeticQuality: { ...windowEvidence.arithmeticQuality, status: 'FAIL' } });
+    assert.throws(attest, /arithmetic quality did not pass/);
+    writeEvidence({ ...windowEvidence, turns: valueTurns.slice(0, 7) });
+    assert.throws(attest, /eight quality-checked turns/);
+    writeEvidence({ ...windowEvidence, turns: valueTurns.map((turn, index) => index === 2
+      ? { ...turn, answer: '{"a":106,"b":23,"delta":83,"higher":"A"}' } : turn) });
+    assert.throws(attest, /answered with wrong values/);
+    writeEvidence({ ...windowEvidence, turns: valueTurns.map((turn, index) => index === 0
+      ? { ...turn, answer: '{"a":0,"a":73,"b":62,"delta":11,"higher":"A"}' } : turn) });
+    assert.throws(attest, /four unique members/);
+    writeEvidence({ ...windowEvidence, turns: valueTurns.map((turn, index) => index === 0
+      ? { ...turn, question: 'User: fabricated source' } : turn) });
+    assert.throws(attest, /source question changed/);
+    writeEvidence({ ...windowEvidence, retry: { ...retry, answer: '{"a":92,"b":81,"delta":0,"higher":"A"}' } });
+    assert.throws(attest, /answered with wrong values/);
     writeEvidence({ ...windowEvidence, sourceRevision: 'b'.repeat(40) });
     assert.throws(attest, /source revision mismatch/);
     writeEvidence({ ...windowEvidence, providerCaptureSha256: '0'.repeat(64) });
@@ -121,7 +188,10 @@ test('provider proxy records the exact terminal chat before forwarding success',
     writeEvidence({ ...windowEvidence, final: { ...windowEvidence.final, requestSha256: '0'.repeat(64) } });
     assert.throws(attest, /final provider call is missing/);
     writeEvidence({ ...windowEvidence, final: { ...windowEvidence.final, answer: 'forged' } });
-    assert.throws(attest, /final answer mismatch/);
+    assert.throws(attest, /not the code alone/);
+    writeEvidence({ ...windowEvidence, final: { ...windowEvidence.final,
+      answer: 'Auditní kód RIGEL_KAPPA_731.', answerMatchesRequestedFormat: true } });
+    assert.throws(attest, /not the code alone/);
     writeEvidence({ ...windowEvidence, final: { ...windowEvidence.final, answerMatchesRequestedFormat: false } });
     assert.throws(attest, /code-only format/);
     writeEvidence({ ...windowEvidence, final: { ...windowEvidence.final, numPredict: 512 } });
