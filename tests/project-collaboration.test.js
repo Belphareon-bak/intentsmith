@@ -242,6 +242,44 @@ test('separate new projects do not inherit the first project request', async t =
   assert.equal(response.metadata.projectWorkProposal, null);
 });
 
+test('alternating projects keep only their own current README in the packed model prompt', async t => {
+  const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'is-project-prompt-isolation-'));
+  t.after(() => fs.rm(parent, { recursive: true, force: true }));
+  const firstPath = path.join(parent, 'orion');
+  const secondPath = path.join(parent, 'lyra');
+  await fs.mkdir(firstPath);
+  await fs.mkdir(secondPath);
+  const firstCode = 'ORION_PROMPT_A27';
+  const updatedFirstCode = 'ORION_PROMPT_C63';
+  const secondCode = 'LYRA_PROMPT_B42';
+  await fs.writeFile(path.join(firstPath, 'README.md'), `Current project code: ${firstCode}\n`);
+  await fs.writeFile(path.join(secondPath, 'README.md'), `Current project code: ${secondCode}\n`);
+  const first = { id: 7001, path: firstPath, name: 'Orion', description: 'Orion notes', is_external: 1 };
+  const second = { id: 7002, path: secondPath, name: 'Lyra', description: 'Lyra notes', is_external: 1 };
+
+  async function packedPrompt(project, ownCode, otherCodes) {
+    let packed;
+    const response = await discussProject('What is the current README code?', { project }, {
+      generate: async ({ prompt }) => {
+        packed = fitProjectDiscussionPrompt(prompt, 4096).prompt;
+        return generated({ reply: ownCode, plan: null });
+      },
+    });
+    assert.equal(response.metadata.projectId, project.id);
+    assert.ok(packed.includes(ownCode), `project ${project.id} lost its README in the packed prompt`);
+    for (const otherCode of otherCodes) {
+      assert.ok(!packed.includes(otherCode), `project ${project.id} packed stale or foreign README content`);
+    }
+    return response.metadata.inspection.workspaceRevision;
+  }
+
+  const oldRevision = await packedPrompt(first, firstCode, [secondCode, updatedFirstCode]);
+  await packedPrompt(second, secondCode, [firstCode, updatedFirstCode]);
+  await fs.writeFile(path.join(firstPath, 'README.md'), `Current project code: ${updatedFirstCode}\n`);
+  const newRevision = await packedPrompt(first, updatedFirstCode, [firstCode, secondCode]);
+  assert.notEqual(newRevision, oldRevision, 'a changed README must change the observed workspace revision');
+});
+
 test('planning phrases do not turn a clarification into a directory-list approval', () => {
   for (const input of ['Rozděl čtení a historii a pak navrhni soubory.',
     'Navrhni strukturu tohoto projektu.', 'Chci vytvořit widget a soubory projektu.', 'a jak?']) {
