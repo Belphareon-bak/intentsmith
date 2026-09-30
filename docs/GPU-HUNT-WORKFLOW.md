@@ -1,6 +1,6 @@
 # GPU hunt — cílové workflow celého systému
 
-**Read-only checkpoint 30. 9. 2026, 21:51 UTC:** vývojový Hunt/Studio/chat
+**Read-only checkpoint 30. 9. 2026, 22:36 UTC:** vývojový Hunt/Studio/chat
 zdroj není nasazený. [Report aktuálního kontraktu](../scripts/model-evaluation-report.js)
 nad instalovanou DB a evaluačním providerem `0.34.2-intentsmith.1` uvádí
 **84/84 použitelných dvojic model–role `MISSING`**, dalších **14 `N/A`**,

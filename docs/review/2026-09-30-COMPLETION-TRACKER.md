@@ -1,6 +1,31 @@
 # IntentSmith — průběžné dokončování k 30. 9. 2026
 
-## Checkpoint 22:38 UTC
+## Checkpoint 22:56 UTC
+
+Integrační větev je čistě publikovaná na `658ba911`; nenasazený backend
+zůstává starší `c84b88cd`. Dva navazující izolované kandidáty ještě nelze
+přijmout. Přísný JSON režim na `0785ac1c` v reálném provider-body průchodu
+chybně povýšil citovanou větu za výstupní pokyn (`format=json`); nezávislé
+review je **CHANGES_REQUIRED** a probíhá oprava s negativními případy.
+Plánovaný M3 produktový scénář na `fbab2281` prošel registrovaně **3/3**,
+ale testovací přesměrování důvěryhodných manifestů bylo dostupné i při
+`NODE_ENV=production`; nezávislé review je **CHANGES_REQUIRED** a oprava
+odděluje testovací rozvrh od produkční autentizace. Obě čísla jsou vývojové
+důkazy původních kandidátů, nikoli přejímka oprav.
+
+Read-only Hunt report v 22:36 UTC nad instalovanou DB a providerem
+`0.34.2-intentsmith.1` opět uvádí **84/84** použitelných model–role dvojic
+`MISSING`, **0** přijatých rozhodnutí a `UNVERIFIED_RUNTIME` bindingy.
+Kontrola druhého posudku našla 106 dávkových JSONů, **596/1 173** různých
+odpovědí a **2 324** kritérií; D1 má 166/180, D2/R1/R2 dosud žádné. Jde o
+vývojový částečný posudek, bez kanonické úplné validace a bez rozhodovací
+autority. `PROGRESS.md` v soukromém důkazním adresáři uvádí zastaralý konec
+D1 na indexu 558; skutečně dodané dávky končí na 595. Lokální inventář
+ukazuje **46 worktree**, z nichž rozpočtový skript označuje právě jednu za
+bezpečně odstranitelnou; vlastní redukce počká na závěrečný audit vlastníků,
+důkazů a dosažitelnosti commitů.
+
+## Historický checkpoint 22:38 UTC
 
 Chatový `length` retry `22c369c3` získal nezávislé omezené `REVIEW_PASS` a
 je integrovaný jako `0e0f48be`. Opravné CODE požadavky v plném 4K okně nyní
