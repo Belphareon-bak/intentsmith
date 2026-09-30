@@ -640,6 +640,108 @@ test('a verbose answer cannot evict earlier user facts from a three-turn convers
   assert(Buffer.byteLength(result.prompt + systemPrompt) / 2 + result.maxTokens + 384 <= 4096);
 });
 
+test('the latest user turn is protected through 512 serialized bytes, with longer history still bounded', () => {
+  const serializedBytes = content => Buffer.byteLength(JSON.stringify({ role: 'user', content }), 'utf8') + 1;
+  const protectedContent = 'x'.repeat(512 - serializedBytes(''));
+  const longerContent = protectedContent + 'x';
+  assert.equal(serializedBytes(protectedContent), 512);
+  assert.equal(serializedBytes(longerContent), 513);
+  const history = content => [{ response: { tag: { speaker: 'user' }, content } }];
+  const systemPrompt = 'I'.repeat(5_200);
+  const protectedResult = buildAnswerContext('dotaz', history(protectedContent), systemPrompt,
+    2_048, 4_096, { allowSummaryOutputTradeoff: true });
+  assert(protectedResult.prompt.includes(JSON.stringify({ role: 'user', content: protectedContent })));
+  const longerResult = buildAnswerContext('dotaz', history(longerContent), systemPrompt,
+    2_048, 4_096, { allowSummaryOutputTradeoff: true });
+  assert(!longerResult.prompt.includes(JSON.stringify({ role: 'user', content: longerContent })));
+  assert.match(longerResult.prompt, /část historie vynechána/u);
+  assert(protectedResult.maxTokens < longerResult.maxTokens);
+});
+
+await testAsync('final ANSWER provider request retains a concise correction after the durable summary', async () => {
+  const previousFetch = globalThis.fetch;
+  const requestBodies = [];
+  const input = 'Podklad ' + 'x'.repeat(2_200)
+    + ' Jaká je podle mé poslední opravy hodnota skupiny A?';
+  const summaryContent = '[Souhrn předchozí konverzace]\nPůvodní hodnota skupiny A byla 3 z 10. '
+    + 'x'.repeat(850) + ' Konec původního souhrnu.';
+  const correction = 'Oprava předchozí hodnoty: skupina A má 4 z 10, skupina B zůstává 90 ze 100.';
+  const history = [
+    { isSummary: true, response: { tag: { speaker: 'system' }, content: summaryContent } },
+    { response: { tag: { speaker: 'user' }, content: correction } },
+    { response: { tag: { speaker: 'system' }, content: 'Rozumím opravě; použiji čtyři z deseti.' } },
+    { response: { tag: { speaker: 'user' }, content: input } },
+  ];
+  try {
+    clearNumCtxCache();
+    setNumCtx(config.models.CHAT, 4_096);
+    globalThis.fetch = async (_url, options) => {
+      requestBodies.push(JSON.parse(options.body));
+      return { ok: true, json: async () => ({
+        message: { content: 'Podle poslední opravy je hodnota skupiny A 4 z 10. Tato oprava má přednost před starším údajem v souhrnu.' },
+        done_reason: 'stop', prompt_eval_count: 200, eval_count: 50,
+      }) };
+    };
+    const decision = creDecisionEngine.overrideDecision({ type: 'ANSWER', intent: 'CONVERSATIONAL',
+      tools: [], source: 'recent_user_correction_regression', reason: 'Controlled recent correction', confidence: 1 });
+    const result = await handleAnswerDecision(input, decision, {
+      sessionId: 'recent-user-correction', sessionState: new SessionState('recent-user-correction'), history,
+    });
+    assert.equal(requestBodies.length, 1);
+    const body = requestBodies[0];
+    const providerPrompt = body.messages.find(message => message.role === 'user')?.content || '';
+    const wholeSummary = JSON.stringify({ role: 'summary', content: summaryContent });
+    const wholeCorrection = JSON.stringify({ role: 'user', content: correction });
+    assert(providerPrompt.includes(wholeSummary));
+    assert(providerPrompt.includes(wholeCorrection), 'the corrected value must reach the final model request');
+    assert(providerPrompt.indexOf(wholeSummary) < providerPrompt.indexOf(wholeCorrection));
+    assert(providerPrompt.endsWith(`User: ${input}`));
+    assert(body.options.num_predict >= 256 && body.options.num_predict < 512);
+    const systemContent = body.messages.find(message => message.role === 'system')?.content || '';
+    const wordTarget = Number(systemContent.match(/Naplánuj úplnou odpověď přibližně do (\d+) slov/u)?.[1]);
+    assert.equal(wordTarget, Math.max(20, Math.floor(body.options.num_predict / 5)));
+    assert.equal(result.tag.metadata.answerBudget.maxTokens, body.options.num_predict);
+  } finally {
+    globalThis.fetch = previousFetch;
+    clearNumCtxCache();
+  }
+});
+
+await testAsync('a concise correction that cannot fit beside the full summary fails before provider', async () => {
+  const previousFetch = globalThis.fetch;
+  const requestBodies = [];
+  const input = 'Podklad ' + 'x'.repeat(2_441)
+    + ' Jaká je podle mé poslední opravy hodnota skupiny A?';
+  const summaryContent = '[Souhrn předchozí konverzace]\nPůvodní hodnota skupiny A byla 3 z 10. '
+    + 'x'.repeat(850) + ' Konec původního souhrnu.';
+  const correction = 'Oprava předchozí hodnoty: skupina A má 4 z 10, skupina B zůstává 90 ze 100.';
+  const history = [
+    { isSummary: true, response: { tag: { speaker: 'system' }, content: summaryContent } },
+    { response: { tag: { speaker: 'user' }, content: correction } },
+    { response: { tag: { speaker: 'system' }, content: 'Rozumím opravě; použiji čtyři z deseti.' } },
+    { response: { tag: { speaker: 'user' }, content: input } },
+  ];
+  try {
+    clearNumCtxCache();
+    setNumCtx(config.models.CHAT, 4_096);
+    globalThis.fetch = async (_url, options) => {
+      requestBodies.push(JSON.parse(options.body));
+      throw new Error('provider must not receive a prompt missing the correction');
+    };
+    const decision = creDecisionEngine.overrideDecision({ type: 'ANSWER', intent: 'CONVERSATIONAL',
+      tools: [], source: 'recent_user_boundary_regression', reason: 'Controlled correction limit', confidence: 1 });
+    await assert.rejects(() => handleAnswerDecision(input, decision, {
+      sessionId: 'recent-user-boundary', sessionState: new SessionState('recent-user-boundary'), history,
+    }), error => error instanceof ChatProcessingError
+      && error.code === ChatTurnErrorCode.CHAT_PROCESSING_FAILED
+      && error.sourceErrorType === 'ANSWER_RECENT_USER_CONTEXT_TOO_LARGE');
+    assert.equal(requestBodies.length, 0);
+  } finally {
+    globalThis.fetch = previousFetch;
+    clearNumCtxCache();
+  }
+});
+
 await testAsync('actual ANSWER continuation bypasses ambiguous classification and retains context and cancellation', async () => {
   const previousCall = llmGateway.call; const previousDecide = creDecisionEngine.decide;
   const calls = []; const abort = new AbortController();
