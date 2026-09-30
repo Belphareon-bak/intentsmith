@@ -136,6 +136,25 @@ export function fitProjectDiscussionPrompt(serialized, numCtx, systemPrompt = `$
       data.analysis.excerpts.push(selected);
       prompt = JSON.stringify(data);
       const previousMaxTokens = maxTokens;
+      if (requestedFile(file)) {
+        // Optional excerpts cannot force a false capacity refusal for a file
+        // the user named. Old unsummarized turns are optional too; the current
+        // request and every durable summary are retained outside this loop.
+        // Manifest facts and nodeProject remain in analysis.
+        while (!fits()) {
+          const optionalIndex = data.analysis.excerpts.findLastIndex(item =>
+            item.path !== file.path && !requestedFile(item));
+          if (optionalIndex < 0) break;
+          data.analysis.excerpts.splice(optionalIndex, 1);
+          prompt = JSON.stringify(data);
+        }
+        while (!fits()) {
+          const optionalIndex = data.history.findIndex(turn => turn.role !== 'summary');
+          if (optionalIndex < 0) break;
+          data.history.splice(optionalIndex, 1);
+          prompt = JSON.stringify(data);
+        }
+      }
       if (!fits()) {
         const availableOutput = numCtx - 384 - Math.ceil(Buffer.byteLength(systemPrompt + prompt) / 2);
         if (availableOutput >= 1024) {

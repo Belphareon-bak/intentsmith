@@ -550,6 +550,36 @@ test('requested source is complete or rejected before the model; short natural w
   assert.doesNotThrow(() => fitProjectDiscussionPrompt(JSON.stringify(shortPath), 4096, 'S'.repeat(2190)));
 });
 
+test('named README displaces optional package excerpt and older turns before capacity refusal', () => {
+  const request = 'Přečti přesný kód v README-A.md';
+  const system = 'S'.repeat(2190);
+  const base = { request, host: { observation: '' },
+    project: { id: 1, name: 'A', description: '' },
+    history: [{ role: 'user', content: request }],
+    analysis: { fileCount: 2, files: ['package.json', 'README-A.md'], setup: {}, directories: ['.'],
+      nodeProject: { manifest: 'package.json', declaredOnly: true },
+      excerpts: [{ path: 'package.json', text: 'P'.repeat(300), truncated: false },
+        { path: 'README-A.md', text: 'R'.repeat(1800), truncated: false }] },
+    expertiseGuidance: 'E'.repeat(600), projectWorkEvidence: [] };
+  const withPackage = fitProjectDiscussionPrompt(JSON.stringify(base), 4096, system);
+  const selectedPackageCase = JSON.parse(withPackage.prompt);
+  assert.equal(selectedPackageCase.analysis.excerpts.find(file => file.path === 'README-A.md')?.text,
+    'R'.repeat(1800));
+  assert.deepEqual(selectedPackageCase.analysis.nodeProject, base.analysis.nodeProject);
+  assert(withPackage.maxTokens >= 1024);
+  const withHistory = { ...base, host: { observation: 'O'.repeat(1000) },
+    history: [{ role: 'user', content: 'Q'.repeat(100) },
+      { role: 'assistant', content: 'A'.repeat(100) }, { role: 'user', content: request }],
+    analysis: { ...base.analysis, files: ['README-A.md'],
+      excerpts: [{ path: 'README-A.md', text: 'R'.repeat(900), truncated: false }] } };
+  const bounded = fitProjectDiscussionPrompt(JSON.stringify(withHistory), 4096, system);
+  const selectedHistoryCase = JSON.parse(bounded.prompt);
+  assert.equal(selectedHistoryCase.request, request);
+  assert.equal(selectedHistoryCase.analysis.excerpts[0].text, 'R'.repeat(900));
+  assert(bounded.maxTokens >= 1024);
+  assert(Buffer.byteLength(bounded.systemPrompt + bounded.prompt) <= bounded.maxBytes);
+});
+
 test('project inspection puts a named file ahead of the ten generic excerpts', async t => {
   const project = await fixture(t);
   for (let index = 0; index < 12; index++) {
