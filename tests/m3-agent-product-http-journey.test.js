@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
 // Exercise the shipped Project Health extension through the actual product
-// server, including its local capability gate and a process restart. The
+// server, including unauthenticated rejection, local capability access, and a
+// process restart. The
 // existing service-level journey covers change notifications and source errors.
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
@@ -52,8 +53,11 @@ test('Project Health runs through the product HTTP server and survives restart',
   const productionAdminToken = randomBytes(32).toString('base64url');
   let product = null;
   t.after(async () => {
-    if (product) await stopProduct(product);
-    await provider.close();
+    try {
+      if (product) await stopProduct(product);
+    } finally {
+      await provider.close();
+    }
   });
   const launch = () => startProduct(runtime, provider.url, MODEL,
     { enableAgents: true, productionAdminToken });
@@ -62,8 +66,10 @@ test('Project Health runs through the product HTTP server and survives restart',
   const unauthenticated = await fetch(`http://127.0.0.1:${product.port}/api/agent-extensions`, {
     signal: AbortSignal.timeout(5_000),
   });
-  assert(unauthenticated.status >= 400 && unauthenticated.status < 500,
-    'agent extension inventory must require the product local capability');
+  assert.equal(unauthenticated.status, 401,
+    'agent extension inventory must reject a request without credentials');
+  const unauthenticatedBody = await unauthenticated.json();
+  assert.equal(unauthenticatedBody.code, 'INTENTSMITH_AUTH_REQUIRED');
 
   const extensionId = 'project-health';
   const instanceId = `health-product-${randomBytes(4).toString('hex')}`;
@@ -116,6 +122,7 @@ test('Project Health runs through the product HTTP server and survives restart',
       sourceRevision: process.env.INTENTSMITH_TEST_SOURCE_REVISION || null,
       projectId, instanceId, runs: [disabled.run_state, baseline.run_state,
         unchanged.run_state, restored.run_state], providerModelCalls: provider.modelCalls,
-      productRestarted: true, localCapabilityRequired: true,
+      productRestarted: true, unauthenticatedRejected: true,
+      localCapabilityAccepted: true,
     }, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
 });
