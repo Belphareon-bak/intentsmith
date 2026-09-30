@@ -1,6 +1,22 @@
 # IntentSmith — průběžné dokončování k 30. 9. 2026
 
-## Checkpoint 22:32 UTC
+## Checkpoint 22:38 UTC
+
+Chatový `length` retry `22c369c3` získal nezávislé omezené `REVIEW_PASS` a
+je integrovaný jako `0e0f48be`. Opravné CODE požadavky v plném 4K okně nyní
+znovu rozpočtují volitelnou historii a dostávají odlišnou úspornější
+systémovou instrukci; úplný souhrn, aktuální dotaz a krátká poslední
+uživatelská oprava zůstávají chráněné. Registrovaná M1 sada na čistém
+integračním SHA prošla **1/1**, uvnitř **49/49**
+(`.intentsmith-artifacts/run-suites/2026-09-30T22-38-34-364Z/report.json`).
+Skutečný modelový výsledek opravy je **LIVE_NOT_RUN**; společný běh sady 85
+se zopakuje po integraci formátové opravy JSON. Jeden přímý modelový
+`chat-pipeline` pokus bez GPU lease skončil **50/52** a není důkazem
+akceptace. Aktuální read-only Hunt report v 22:36 UTC nad instalovanou DB
+opět uvádí **84/84** použitelných dvojic `MISSING`, **0** přijatých
+rozhodnutí a `UNVERIFIED_RUNTIME` bindingy.
+
+## Historický checkpoint 22:32 UTC
 
 Oprava splatnosti a validního plánu M3 workeru `6be426aa` získala po
 remediaci nálezu cron preview omezené nezávislé **REVIEW_PASS**. Integrační
