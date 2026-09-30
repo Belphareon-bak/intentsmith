@@ -33,7 +33,7 @@ skutečným časem; test kontroluje řízený čas v `explain`, stavu a triggere
 **Scénáře:** HTTP discovery/preview/install; disabled bez DB běhu nebo zdroje;
 enabled baseline; opakovaný unchanged bez notifikace; změna souboru a přesná
 provenance; opakování beze změny; nezávislý druhý projekt; zavření a nové
-otevření DB, služby a HTTP listeneru; disabled po restartu; kontrolovaná chyba
+otevření DB, služby a HTTP listeneru; disabled po znovuotevření; kontrolovaná chyba
 providera s terminálním `ERROR_SOURCE`; zotavení a následná změna.
 
 **Příkaz:**

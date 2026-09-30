@@ -1,7 +1,9 @@
 # WP — projektová expertiza v reálné HTTP konverzaci
 
-**Stav:** implementační kandidát; focused deterministický serverový běh PASS;
-nezávislé review, integrovaný běh a modelová odpověď `NOT RUN`.
+**Stav k 30. 9. 2026:** implementační kandidát; omezené nezávislé review
+`REVIEW_PASS` a integrovaný deterministický serverový běh 1/1 PASS na
+`0939a564` (před dokumentačním commitem). Odpověď skutečného modelu,
+release Gate 0 a širší přejímka zůstávají `NOT RUN`.
 
 **Autorita:** explicitní zadání operátora z 2026-09-30 připravit a otestovat
 chat s různými projekty a expertizami. `PRODUCT.md` vyžaduje projektové
@@ -75,4 +77,5 @@ Registrované modelové sady `IS-T3-E2E-54-CHAT-WITH-EXPERTISE` a
 `IS-T3-E2E-75-EXPERTISE-BEHAVIORAL` zůstávají `BLOCKED` s `lastGreen=null`;
 jejich skutečný modelový běh zůstává nutný po uvolnění GPU hodnocení.
 Z focused PASS se nepřepisuje jejich stav ani `lastGreen` nového testu.
-Nezávislé review a integrovaný běh jsou zvláštní kroky před přejímkou.
+Nezávislé review i integrovaný běh jsou doloženy pouze v uvedeném omezeném
+rozsahu; modelový a release důkaz zůstávají zvláštními kroky před přejímkou.

@@ -309,7 +309,7 @@ test('native worker HTTP journey is durable, idempotent and project-bound', asyn
       assert.equal(new Set(requests).size, requests.length, 'every durable run has a distinct project query');
     });
 
-    await t.test('process-style restart retains state; disable and source error terminate safely', async () => {
+    await t.test('reopened SQLite and services retain state; disable and source error terminate safely', async () => {
       await server.close();
       server = null;
       runtime.database.close();
