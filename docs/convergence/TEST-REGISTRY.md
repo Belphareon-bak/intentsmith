@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 556
-- Explicit support-module exclusions: 23
-- Profiles: offline=307, database=81, server=51, model=82, soak=15, manual=20
-- States: ACTIVE=462, HISTORICAL=15, BLOCKED=79
+- Runnable programs: 558
+- Explicit support-module exclusions: 24
+- Profiles: offline=307, database=81, server=52, model=83, soak=15, manual=20
+- States: ACTIVE=463, HISTORICAL=15, BLOCKED=80
 
 ## Execution profiles
 
@@ -92,6 +92,8 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T3-TESTS-CHAT-PIPELINE-TEST` | `tests/chat-pipeline.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-CHAT-PRIVACY-HTTP-TEST` | `tests/chat-privacy-http.test.js` | `C3-015` | T3 | `server` | 5 s | 90 s | network:loopback, temp-db | yes | `ACTIVE` | — | WP-REVIEW-REMEDIATION-20260917 |
 | `IS-T3-TESTS-CHAT-PROJECT-EXPERTISE-HTTP-TEST` | `tests/chat-project-expertise-http.test.js` | `C3-007` | T3 | `server` | 10 s | 4 min | network:loopback, temp-db | yes | `ACTIVE` | — | WP-CHAT-PROJECT-EXPERTISE-HTTP-20260930 |
+| `IS-T3-TESTS-CHAT-PROJECT-EXPERTISE-LIVE-TEST` | `tests/chat-project-expertise-live.test.js` | `C3-007` | T3 | `model` | 10 min | 25 min | network:loopback, temp-db, ollama, gpu | yes | `BLOCKED` | — | WP-CHAT-PROJECT-EXPERTISE-LIVE-20260930 |
+| `IS-T3-TESTS-CHAT-PROJECT-EXPERTISE-MODEL-CONTRACT-TEST` | `tests/chat-project-expertise-model-contract.test.js` | `C3-007` | T3 | `server` | 10 s | 4 min | network:loopback, temp-db | yes | `ACTIVE` | — | WP-CHAT-PROJECT-EXPERTISE-LIVE-20260930 |
 | `IS-T3-TESTS-CHAT-QUALITY-TEST` | `tests/chat-quality.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CHAT-SEARCH-QUALITY-TEST` | `tests/chat-search-quality.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-CHAT-SPECIALIST-FOLLOWUP-HTTP-TEST` | `tests/chat-specialist-followup-http.test.js` | `C3-013` | T3 | `server` | 10 s | 3 min | network:loopback, temp-db | yes | `ACTIVE` | — | WP-CHAT-SPECIALIST-FOLLOWUP-20260930 |
@@ -613,6 +615,7 @@ ledger.
 | `tests/fixtures/studio-m1-electron-backend.js` | Suite-owned M1 Electron backend fixture launched only by studio-m1-electron-journey.e2e.js. |
 | `tests/harness.js` | Imported unit-test harness library with no top-level test entry point. |
 | `tests/helpers/chat-journey-response.js` | Imported model-journey response classifier with deterministic checks covered by m1-chat-contract.test.js. |
+| `tests/helpers/chat-project-expertise-model-journey.js` | Shared owned M1 HTTP project and expertise journey imported by deterministic and opt-in live suites; no standalone entry point. |
 | `tests/helpers/isolated-test-db.js` | Imported direct-run database isolation bootstrap, not a standalone test. |
 | `tests/helpers/m2-http-build-fixture.js` | Owned child HTTP composition for generation, effects and process restart in m2-lifecycle-http-e2e.test.js; not a standalone suite. |
 | `tests/helpers/m6-owned-runtime-probe.js` | Imported M6 owned-server and loopback namespace harness, not a standalone test. |
