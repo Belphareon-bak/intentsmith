@@ -11,6 +11,7 @@
 
 import { ConditionEvaluator } from './conditions.js';
 import { TriggerEvaluator } from './triggers.js';
+import { ALLOWED } from './schema.js';
 import { EXTENSION_HOST_CAPABILITY } from '../../contracts/m3/extension-v1.js';
 import { fetchProjectHealthSource } from './sources/project-health.js';
 
@@ -300,7 +301,7 @@ export class AgentRunner {
       }
       validation.preview.schedule = {
         type: def.schedule.type,
-        interval: def.schedule.interval,
+        interval: def.schedule.value,
         description: this.describeSchedule(def.schedule)
       };
     }
@@ -369,17 +370,16 @@ export class AgentRunner {
   }
 
   validateSchedule(schedule) {
-    if (!schedule.type) {
+    if (!schedule?.type || !ALLOWED.schedule_types.includes(schedule.type)) {
       return { valid: false, error: 'Schedule must have a type' };
     }
-    if (schedule.type === 'interval' && !schedule.interval) {
-      return { valid: false, error: 'Interval schedule must have an interval' };
+    if (schedule.type === 'interval' && !ALLOWED.intervals.includes(schedule.value)) {
+      return { valid: false, error: `Invalid interval: ${schedule.value}` };
     }
-    if (schedule.type === 'interval') {
-      const match = schedule.interval.match(/^(\d+)(s|m|h|d)$/);
-      if (!match) {
-        return { valid: false, error: `Invalid interval format: ${schedule.interval}. Use format like "5m", "1h", "1d"` };
-      }
+    if (schedule.type === 'cron'
+      && (typeof schedule.value !== 'string'
+        || schedule.value.trim().split(/\s+/).length !== 5)) {
+      return { valid: false, error: 'Cron schedule requires a five-part value' };
     }
     return { valid: true };
   }
@@ -457,9 +457,9 @@ export class AgentRunner {
   describeSchedule(schedule) {
     switch (schedule.type) {
       case 'interval':
-        return `Run every ${schedule.interval}`;
+        return `Run every ${schedule.value}`;
       case 'cron':
-        return `Cron: ${schedule.cron}`;
+        return `Cron: ${schedule.value}`;
       case 'manual':
         return `Manual trigger only`;
       default:
@@ -955,7 +955,7 @@ export class AgentRunner {
     let minInterval;
     switch (schedule.type) {
       case 'interval':
-        minInterval = this.parseInterval(schedule.interval);
+        minInterval = this.parseInterval(schedule.value);
         break;
       case 'cron':
         // For cron, defer to scheduler
@@ -978,7 +978,7 @@ export class AgentRunner {
     if (!lastRun) return this.clock().toISOString();
     
     const lastRunTime = new Date(lastRun).getTime();
-    const interval = this.parseInterval(schedule.interval);
+    const interval = this.parseInterval(schedule.value);
     
     return new Date(lastRunTime + interval).toISOString();
   }

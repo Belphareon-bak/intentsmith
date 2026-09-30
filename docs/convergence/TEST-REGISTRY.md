@@ -16,7 +16,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 - Runnable programs: 573
 - Explicit support-module exclusions: 25
-- Profiles: offline=317, database=83, server=54, model=84, soak=15, manual=20
+- Profiles: offline=316, database=84, server=54, model=84, soak=15, manual=20
 - States: ACTIVE=477, HISTORICAL=15, BLOCKED=81
 
 ## Execution profiles
@@ -528,7 +528,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-SAZENI-ENGINE-TEST` | `tests/sazeni-engine.test.js` | `C3-013` | T1 | `offline` | 2 s | 30 s | network:none | yes | `ACTIVE` | — | WP-SPECIALISTS-20260911 |
 | `IS-T1-TESTS-SAZENI-INTEGRATION-TEST` | `tests/sazeni-integration.test.js` | `C3-013` | T1 | `database` | 2 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-SPECIALISTS-20260911 |
 | `IS-T1-TESTS-SCENARIO-ENGINE-TEST` | `tests/scenario-engine.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
-| `IS-T1-TESTS-SCHEDULER-TEST` | `tests/scheduler.test.js` | `C3-015` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-SCHEDULER-TEST` | `tests/scheduler.test.js` | `C3-015` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SCHEMA-MIGRATIONS-TEST` | `tests/schema-migrations.test.js` | `C3-024` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SCM-STUDIO-TEST` | `tests/scm-studio.test.js` | `C3-005` | T1 | `database` | 2 s | 1 min | network:none, temp-db, toolchain:git | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-SCOPE-LIMITER-TEST` | `tests/scope-limiter.test.js` | `C3-007` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
