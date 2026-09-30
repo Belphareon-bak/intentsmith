@@ -1,5 +1,10 @@
 import { strict as assert } from 'assert';
+import { readFileSync } from 'node:fs';
+import Database from 'better-sqlite3';
+import { AgentRepository, initAgentTables } from '../src/agents/repository.js';
+import { AgentRunner } from '../src/agents/runner.js';
 import { AgentScheduler } from '../src/agents/scheduler.js';
+import { validateAgentDefinition } from '../src/agents/schema.js';
 
 let passed = 0;
 let failed = 0;
@@ -118,6 +123,98 @@ test('T3: getStatus reports running agents from the in-flight guard', () => {
   const status = scheduler.getStatus();
 
   assert.deepEqual(status.runningAgents, ['agent-3']);
+});
+
+await asyncTest('T4: real SQLite repository selects only enabled due ISO schedules', async () => {
+  const db = new Database(':memory:');
+  try {
+    db.pragma('foreign_keys = ON');
+    initAgentTables(db);
+    const repo = new AgentRepository(db);
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const tomorrow = new Date(today.getTime() + 86_400_000);
+    for (const [id, enabled, nextRun] of [
+      ['due', true, today],
+      ['future', true, tomorrow],
+      ['disabled', false, today],
+    ]) {
+      repo.createAgent({ id, name: id,
+        definition: { schedule: { type: 'interval', value: '5m' } }, enabled });
+      repo.setSchedule(id, { nextRun: nextRun.toISOString(), intervalMs: 300_000 });
+    }
+    repo.createAgent({ id: 'malformed', name: 'malformed',
+      definition: { schedule: { type: 'interval', value: '5m' } }, enabled: true });
+    repo.setSchedule('malformed', { nextRun: 'not-a-timestamp', intervalMs: 300_000 });
+
+    assert.deepEqual(repo.getDueAgents().map(row => row.agent_id), ['due']);
+    const calls = [];
+    const scheduler = new AgentScheduler({ repository: repo,
+      runner: { execute: async id => { calls.push(id); } }, logger: mockLogger });
+    scheduler.running = true;
+    await scheduler.checkDue();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(calls, ['due']);
+    assert.equal(repo.getSchedule('due').interval_ms, 300_000);
+  } finally {
+    db.close();
+  }
+});
+
+await asyncTest('T5: runner uses the validated schedule value for preview and cooldown', async () => {
+  const now = new Date('2026-09-30T12:02:00.000Z');
+  const runner = new AgentRunner({ repository: {}, logger: mockLogger, clock: () => now });
+  const schedule = { type: 'interval', value: '5m' };
+  const agent = { definition: { schedule }, state: { _last_run: '2026-09-30T12:00:00.000Z' } };
+  const definition = JSON.parse(readFileSync(
+    new URL('../agent-extensions/project-health/agent.json', import.meta.url), 'utf8'))
+    .payload.definition;
+  definition.schedule = schedule;
+  const schemaValidation = validateAgentDefinition(definition);
+  assert.equal(schemaValidation.valid, true, JSON.stringify(schemaValidation.errors));
+  const preview = await runner.dryRun(definition);
+  assert.equal(preview.errors.some(error => error.field === 'schedule'), false,
+    JSON.stringify(preview.errors));
+  assert.deepEqual(preview.preview.schedule,
+    { type: 'interval', interval: '5m', description: 'Run every 5m' });
+  assert.deepEqual(runner.validateSchedule(schedule), { valid: true });
+  assert.equal(runner.validateSchedule({ type: 'interval', value: '1m' }).valid, false);
+  assert.deepEqual(runner.validateSchedule({ type: 'cron', value: '0 8 * * *' }), { valid: true });
+  assert.equal(runner.validateSchedule({ type: 'cron', value: '0 8 *' }).valid, false);
+  assert.equal(runner.describeSchedule(schedule), 'Run every 5m');
+  assert.equal(runner.describeSchedule({ type: 'cron', value: '0 8 * * *' }), 'Cron: 0 8 * * *');
+  assert.equal(runner.checkCooldown(agent), false);
+  assert.equal(runner.calculateNextRun(agent), '2026-09-30T12:05:00.000Z');
+  now.setUTCMinutes(5);
+  assert.equal(runner.checkCooldown(agent), true);
+});
+
+await asyncTest('T6: a new scheduler instance recovers an overdue interval from real SQLite', async () => {
+  const db = new Database(':memory:');
+  try {
+    db.pragma('foreign_keys = ON');
+    initAgentTables(db);
+    const repo = new AgentRepository(db);
+    const agent = repo.createAgent({ id: 'restart-due', name: 'Restart due',
+      definition: { schedule: { type: 'interval', value: '5m' } },
+      state: { _last_run: new Date(Date.now() - 600_000).toISOString() },
+      enabled: true });
+    const initial = new AgentScheduler({ repository: repo,
+      runner: { execute: async () => {} }, logger: mockLogger });
+    assert.equal(initial.scheduleAgent(agent), true);
+    assert.equal(repo.getSchedule(agent.id).interval_ms, 300_000);
+
+    const calls = [];
+    const recovered = new AgentScheduler({ repository: new AgentRepository(db),
+      runner: { execute: async id => { calls.push(id); } }, logger: mockLogger });
+    recovered.running = true;
+    await recovered.checkDue();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(calls, [agent.id]);
+    assert.deepEqual(repo.getDueAgents().map(row => row.agent_id), []);
+  } finally {
+    db.close();
+  }
 });
 
 console.log(`\n${'═'.repeat(60)}`);

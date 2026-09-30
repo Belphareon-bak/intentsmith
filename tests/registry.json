@@ -7688,12 +7688,12 @@
       "capabilityId": "C3-015",
       "tier": "T1",
       "fixture": "isolated-home",
-      "profile": "offline",
+      "profile": "database",
       "timeoutMs": 120000,
       "expectedDurationMs": 30000,
       "requirements": {
         "network": "none",
-        "database": false,
+        "database": true,
         "server": false,
         "ollama": false,
         "gpu": false

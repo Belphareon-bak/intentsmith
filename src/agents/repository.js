@@ -441,7 +441,7 @@ export class AgentRepository {
     return this.db.prepare(`
       SELECT s.*, a.enabled FROM agent_schedule_v33 s
       JOIN agents_v33 a ON s.agent_id = a.id
-      WHERE a.enabled = 1 AND s.next_run <= CURRENT_TIMESTAMP
+      WHERE a.enabled = 1 AND julianday(s.next_run) <= julianday('now')
       ORDER BY s.next_run
     `).all();
   }
