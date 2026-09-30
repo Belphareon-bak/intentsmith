@@ -149,7 +149,8 @@ export async function startProviderCaptureProxy({ captureFile, upstreamOrigin = 
       const isChat = incoming.method === 'POST' && incoming.url === '/api/chat';
       if (isChat) row = {
         schemaVersion: 1, at: new Date().toISOString(), path: incoming.url,
-        method: incoming.method, model: body.model, numCtx: body.options.num_ctx,
+        method: incoming.method, model: body.model, stream: body.stream,
+        think: body.think ?? null, numCtx: body.options.num_ctx,
         numPredict: body.options.num_predict ?? null,
         requestSha256: SHA256(bytes), messages: body.messages,
       };
