@@ -1,5 +1,16 @@
 # WP — skutečné naplnění okna a auto-context v živém chatu
 
+**Druhé review a oprava citovaného bloku (1. 10. 2026):** review
+`0785ac1c` vrátilo **CHANGES_REQUIRED** kvůli třem skutečným vstupům,
+v nichž byl poslední řádek stále součástí citace. Nové provider-body testy
+na předchozím kandidátu skončily `53 PASS / 3 FAIL`; po kontrole hranice
+citace v celém aktuálním USER vstupu dává M1 kontrakt `58/58 PASS`.
+Výslovně jsou zelené obě skutečné syntaxe window-fill `windowFillMessage(1)`
+a `windowFillMessage(8)`: posílají `format: 'json'` a celý aktuální požadavek.
+Původní fixture ani starší živý důkaz se nemění. Opakované nezávislé review,
+integrace a živý modelový běh jsou **PENDING**; offline výsledek nepotvrzuje
+věcnou kvalitu fyzického modelu.
+
 **Navazující review checkpoint (1. 10. 2026):** první nezávislé review
 `f0a8a539` vrátilo **CHANGES_REQUIRED**: běžný kreativní požadavek na krátké
 názvy ztratil instrukci v skutečném provider promptu a samostatná citovaná

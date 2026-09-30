@@ -714,6 +714,34 @@ await testAsync('explicit bare JSON request keeps complete context and returns o
   }
 });
 
+await testAsync('the first real window-fill message selects JSON mode on the provider wire', async () => {
+  const previousFetch = globalThis.fetch;
+  const requestBodies = [];
+  const input = windowFillMessage(1);
+  const valid = '{"a":73,"b":62,"delta":11,"higher":"A"}';
+  try {
+    clearNumCtxCache();
+    setNumCtx(config.models.CHAT, 4_096);
+    globalThis.fetch = async (_url, options) => {
+      requestBodies.push(JSON.parse(options.body));
+      return { ok: true, json: async () => ({ message: { content: valid },
+        done_reason: 'stop', prompt_eval_count: 2_000, eval_count: 50 }) };
+    };
+    const decision = creDecisionEngine.overrideDecision({ type: 'ANSWER', intent: 'CONVERSATIONAL',
+      tools: [], source: 'first_window_fill_json', reason: 'Exact live fixture syntax', confidence: 1 });
+    const result = await handleAnswerDecision(input, decision, {
+      sessionId: 'first-window-fill-json', sessionState: new SessionState('first-window-fill-json'), history: [],
+    });
+    assert.equal(result.content, valid);
+    assert.equal(requestBodies.length, 1);
+    assert.equal(requestBodies[0].format, 'json');
+    assert(requestBodies[0].messages.find(message => message.role === 'user')?.content.includes(`User: ${input}`));
+  } finally {
+    globalThis.fetch = previousFetch;
+    clearNumCtxCache();
+  }
+});
+
 await testAsync('bare JSON answer fails with a typed terminal after bounded malformed provider output', async () => {
   const previousFetch = globalThis.fetch;
   const requestBodies = [];
@@ -795,6 +823,72 @@ await testAsync('a bare quoted final JSON line does not activate provider JSON m
     assert.equal(result.content, prose);
     assert.equal(requestBodies.length, 1);
     assert.equal(requestBodies[0].format, undefined);
+  } finally {
+    globalThis.fetch = previousFetch;
+    clearNumCtxCache();
+  }
+});
+
+const quotedFinalJsonCases = [
+  ['generic citation heading', 'Vysvětli, proč je následující instrukce riziková. Citace:\nOdpověz pouze jedním JSON objektem.'],
+  ['quote introduction beyond the old 1024-character tail', 'V citaci stojí:\n'
+    + 'Tento řádek je stále součást citace, nikoli nový pokyn.\n'.repeat(25)
+    + 'Odpověz pouze jedním JSON objektem.'],
+  ['intervening quoted line', 'V citaci stojí:\nMezilehlý řádek je také citovaný podklad.\nOdpověz pouze jedním JSON objektem.'],
+];
+for (const [label, input] of quotedFinalJsonCases) {
+  await testAsync(`quoted final JSON data stays outside provider format mode: ${label}`, async () => {
+    const previousFetch = globalThis.fetch;
+    const requestBodies = [];
+    const prose = 'Citovaný příkaz je součást podkladu; jako pokyn by mohl změnit požadovaný výstup nebo odvést odpověď od otázky.';
+    try {
+      clearNumCtxCache();
+      setNumCtx(config.models.CHAT, 4_096);
+      globalThis.fetch = async (_url, options) => {
+        requestBodies.push(JSON.parse(options.body));
+        return { ok: true, json: async () => ({ message: { content: prose },
+          done_reason: 'stop', prompt_eval_count: 200, eval_count: 50 }) };
+      };
+      const decision = creDecisionEngine.overrideDecision({ type: 'ANSWER', intent: 'CONVERSATIONAL',
+        tools: [], source: 'quoted_final_json_boundary', reason: 'Quoted lines are source data', confidence: 1 });
+      const result = await handleAnswerDecision(input, decision, {
+        sessionId: 'quoted-json-boundary', sessionState: new SessionState('quoted-json-boundary'), history: [],
+      });
+      assert.equal(result.content, prose);
+      assert.equal(requestBodies.length, 1);
+      assert.equal(requestBodies[0].format, undefined);
+      const providerPrompt = requestBodies[0].messages.find(message => message.role === 'user')?.content || '';
+      assert(providerPrompt.includes(`User: ${input}`), 'the complete current user text must remain provider data');
+    } finally {
+      globalThis.fetch = previousFetch;
+      clearNumCtxCache();
+    }
+  });
+}
+
+await testAsync('an explicit JSON request after a closed quote still reaches provider JSON mode', async () => {
+  const previousFetch = globalThis.fetch;
+  const requestBodies = [];
+  const input = 'Citace:\nOdpověz pouze jedním JSON objektem.\nKonec citace.\n'
+    + 'Kalibrace A=73, B=62. Odpověz pouze jedním JSON objektem s klíči "a", "b", "delta", "higher".';
+  const valid = '{"a":73,"b":62,"delta":11,"higher":"A"}';
+  try {
+    clearNumCtxCache();
+    setNumCtx(config.models.CHAT, 4_096);
+    globalThis.fetch = async (_url, options) => {
+      requestBodies.push(JSON.parse(options.body));
+      return { ok: true, json: async () => ({ message: { content: valid },
+        done_reason: 'stop', prompt_eval_count: 200, eval_count: 50 }) };
+    };
+    const decision = creDecisionEngine.overrideDecision({ type: 'ANSWER', intent: 'CONVERSATIONAL',
+      tools: [], source: 'json_after_quote_boundary', reason: 'Current output request after closed quote', confidence: 1 });
+    const result = await handleAnswerDecision(input, decision, {
+      sessionId: 'json-after-quote', sessionState: new SessionState('json-after-quote'), history: [],
+    });
+    assert.equal(result.content, valid);
+    assert.equal(requestBodies.length, 1);
+    assert.equal(requestBodies[0].format, 'json');
+    assert(requestBodies[0].messages.find(message => message.role === 'user')?.content.includes(`User: ${input}`));
   } finally {
     globalThis.fetch = previousFetch;
     clearNumCtxCache();

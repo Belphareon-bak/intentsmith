@@ -75,15 +75,22 @@ export function isAnswerExpansion(input) {
 }
 
 // Only an explicit final-sentence instruction in the current user turn can
-// select provider JSON mode. Historical turns and summaries are not inspected;
-// a quoted instruction followed by a prose request does not select JSON mode.
+// select provider JSON mode. Keep the full turn for quote-boundary inspection:
+// the quotation heading may be far earlier than the final quoted line.
 function requestsBareJsonObject(input) {
-  const tail = typeof input === 'string' ? input.trim().slice(-1_024) : '';
-  const withoutFinalPunctuation = tail.replace(/[.!?]\s*$/u, '');
+  const currentUser = typeof input === 'string' ? input.trim() : '';
+  const withoutFinalPunctuation = currentUser.replace(/[.!?]\s*$/u, '');
   const finalSentence = withoutFinalPunctuation.split(/[.!?]\s+|\n/u).at(-1)?.trim() || '';
+  if (!/^(?:odpověz|vrať|uveď|napiš|respond|reply|return|output)\s+(?:pouze|jen(?:om)?|only)\s+[^\n.!?]{0,100}\bjson\s+(?:objektem|objekt|object)\b/iu.test(finalSentence)) return false;
   const precedingText = withoutFinalPunctuation.slice(0, -finalSentence.length).trimEnd();
-  if (/(?:^|\n)\s*(?:v\s+citaci\s+stojí|v\s+citovaném\s+textu\s+stojí|quoted\s+text\s+says|the\s+quote\s+says)\s*:\s*$/iu.test(precedingText)) return false;
-  return /^(?:odpověz|vrať|uveď|napiš|respond|reply|return|output)\s+(?:pouze|jen(?:om)?|only)\s+[^\n.!?]{0,100}\bjson\s+(?:objektem|objekt|object)\b/iu.test(finalSentence);
+  const quoteHeading = /(?<!\p{L})(?:citac[ei]|citovan\p{L}*|cit[aá]t|citation|quote|quoted)(?!\p{L})[^\n]*:\s*$/iu;
+  const quoteEnd = /^\s*(?:konec\s+citace|konec\s+citovaného\s+textu|end\s+(?:of\s+)?quote)[.!?]?\s*$/iu;
+  let insideQuote = false;
+  for (const line of precedingText.split('\n')) {
+    if (quoteHeading.test(line)) insideQuote = true;
+    else if (quoteEnd.test(line)) insideQuote = false;
+  }
+  return !insideQuote;
 }
 const COMPACT_CREATIVE_PATTERN = /\bhaiku\b/iu;
 const COMPACT_NAMING_PATTERN = /(?:\b(?:n[aá]zev|jm[eé]no|title|name)\b.{0,50}\b(?:pro|for)\b|\b(?:n[aá]vrhy?|suggestions?)\b.{0,30}\b(?:n[aá]zev|jm[eé]n|titles?|names?)\b)/iu;
