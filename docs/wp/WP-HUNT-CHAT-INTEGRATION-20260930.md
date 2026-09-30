@@ -13,8 +13,11 @@ sloučená s chatovým zachováním celého souhrnu a testy správnosti hodnot v
 programů (`476 ACTIVE`, `81 BLOCKED`, `15 HISTORICAL`), module graph 1 460
 hran, 3 cykly / 28 členů. Na tomto čistém SHA skončil celý offline/database
 audit **398 PASS / 2 FAIL / 0 BLOCKED**: zastaralý počet hran v ROADMAP a
-zapečetěná Gate 0 politika registru. Oprava ROADMAP je rozpracovaná; audit
-po ní se musí opakovat. Kandidát zůstává `REVIEW_PENDING / NOT_DEPLOYED /
+zapečetěná Gate 0 politika registru. ROADMAP je na `09e72b74` opravená a
+cílená kontrola artefaktů prošla 160/160; celý audit po ní chybí. Nezávislé
+review zjistilo neplatné `COMPLETE` v historii a detailu po odvolání přejímky.
+Izolovaná oprava projekce zachovává syrový auditní zápis odděleně a čeká na
+nové review. Kandidát zůstává `REVIEW_PENDING / NOT_DEPLOYED /
 REAL_NO_GO`.
 
 ## Vlastněný rozsah

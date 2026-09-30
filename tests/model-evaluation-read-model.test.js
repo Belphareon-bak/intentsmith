@@ -136,7 +136,15 @@ test('unreviewed semantic score stays historical while exact run time remains vi
   assertEqual(row.status, 'BLOCKED');
   assertEqual(row.score, null);
   assertEqual(row.errorCode, 'EVALUATION_GRADER_ACCEPTANCE_MISSING');
-  assertEqual(new ModelEvaluationReadModel(db, { plans }).readRun('complete-chat').score, 0.75);
+  const detail = new ModelEvaluationReadModel(db, { plans }).readRun('complete-chat');
+  assertEqual(detail.status, 'BLOCKED');
+  assertEqual(detail.score, null);
+  assertEqual(detail.recordedResult.status, 'COMPLETE');
+  assertEqual(detail.recordedResult.score, 0.75);
+  const historical = result.history.find(item => item.runId === 'complete-chat');
+  assertEqual(historical.status, 'BLOCKED');
+  assertEqual(historical.score, null);
+  assertEqual(historical.recordedResult.score, 0.75);
   assertEqual(row.testedAt, '2026-08-24T18:01:00.000Z');
   assertEqual(row.startedAt, '2026-08-24T18:00:00.000Z');
   assertEqual(row.durationMs, 60_000);

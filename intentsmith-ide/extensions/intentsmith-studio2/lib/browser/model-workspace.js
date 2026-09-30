@@ -35,10 +35,13 @@ function errorText(error) { return error?.message || 'Požadavek selhal.'; }
 function percent(value) { return Number.isFinite(value) ? (value * 100).toFixed(1) + ' %' : 'bez známky'; }
 function noteText(value) { return typeof value === 'string' ? value : JSON.stringify(value ?? ''); }
 function runDetailNote(run) {
+  if (run.reviewStatus === 'SIMULATED_EVIDENCE') return 'Simulovaný důkaz nemá použitelnou známku.';
+  if (run.reviewStatus === 'REVIEW_FINAL_UNVERIFIED') return 'Uložené skóre nelze ověřit proti původním posudkům; není použitelné.'
+    + (run.recordedResult ? ' Původní auditní zápis: ' + text(run.recordedResult.status)
+      + ' · ' + percent(run.recordedResult.score) + '.' : '');
   if (run.adjudication || run.grading?.adjudication) return 'Dva původní posudky a rozsouzení jsou zachované níže.';
   if (run.reviewStatus === 'REVIEW_DISPUTED') return 'Posudky se liší; do rozsouzení nevzniká skóre.';
   if (run.reviewStatus === 'REVIEW_PENDING_PAIR') return 'První posudek je uložený; čeká se na druhého nezávislého hodnotitele.';
-  if (run.reviewStatus === 'REVIEW_FINAL_UNVERIFIED') return 'Uložené skóre nelze ověřit proti původním posudkům; není použitelné.';
   if (run.reviewStatus === 'GRADED') return 'Skóre pochází ze dvou ověřených nezávislých posudků.';
   if (run.collection) return 'Uložené odpovědi čekají na posouzení; neúplný sběr není nulová známka.';
   if (run.grading?.graders?.length === 2) return 'Skóre pochází ze dvou uložených posudků.';

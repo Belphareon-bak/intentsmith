@@ -1,9 +1,9 @@
-# IntentSmith — průběžné dokončování k 30. 9. 2026, 20:07 UTC
+# IntentSmith — průběžné dokončování k 30. 9. 2026
 
 ## Nejnovější integrační checkpoint
 
-Na `work/real-chat-journeys-20260930` je pushnutý čistý společný kandidát
-`edc61a7362a42c747c6c73987c0c3ad43be6bebd`: IDE 2.0, chat, Hunt
+Na `work/real-chat-journeys-20260930` je společný kandidát
+`09e72b74939175eabb9a8a8d9733178a7adbb4fd`: IDE 2.0, chat, Hunt
 `caf767bf`, oprava úplného souhrnu a opt-in testy hodnotové věrnosti.
 Není nasazený; běžící backend je stále `c84b88cd`, frontend `fddfe996`.
 Registr má **572 programů** (`476 ACTIVE`, `81 BLOCKED`, `15 HISTORICAL`),
@@ -17,7 +17,11 @@ fingerprint `8fdc658258af7394aaaf7bf753b28bbc6f1da8341b873b35f7821becf00c455b`.
 - Opravený Hunt read model připojuje ověřené dva posudky a rozsouzení ke
   zdrojovému pokusu. Při jednom posudku a sporu je skóre `null`; ověřený
   COMPLETE řádek ho smí vydat až po rozsouzení. Grading acceptance **24/24**,
-  read model i Studio test prošly. Skutečné rozhodnutí pro role a instalace
+  read model i Studio test prošly. Nezávislé review navíc našlo, že detail
+  finálního řádku a historie po odvolání přejímky stále ukazovaly syrové
+  `COMPLETE` a skóre. Izolovaná oprava promítá `BLOCKED/null` do obou API
+  výstupů a syrový zápis odděluje jako `recordedResult`; její přejímka čeká.
+  Skutečné rozhodnutí pro role a instalace
   zůstávají **NO_GO**. Druhý hodnotitel má 106 samostatných dávkových JSONů
   se 596 odlišnými odpověďmi (CHAT 400, D/R 166, CODE 30); jejich validace,
   agregace a rozsouzení ještě nebyly přijaty. Aktuální produkční evidence
@@ -25,9 +29,10 @@ fingerprint `8fdc658258af7394aaaf7bf753b28bbc6f1da8341b873b35f7821becf00c455b`.
 - Celý sériový offline/database profil na čistém `edc61a73` vybral 400
   programů a skončil **398 PASS / 2 FAIL / 0 BLOCKED**; soukromý report je
   `.intentsmith-artifacts/test-runs/2026-09-30T19-58-51-602Z/report.json`.
-  FAIL `artifact-validation` je pouze zastaralý počet hran v ROADMAP po
-  oficiální aktualizaci baseline na 1 460 hran. Oprava dokumentu se připravuje
-  a vyžaduje nový audit. Druhý FAIL je původní zapečetěná Gate 0 politika
+  FAIL `artifact-validation` byl zastaralý počet hran v ROADMAP po
+  oficiální aktualizaci baseline na 1 460 hran. Na `09e72b74` je dokument
+  opravený a cílený `artifact-validation` prošel 160/160; celý profil se
+  musí zopakovat. Druhý FAIL je původní zapečetěná Gate 0 politika
   registru; bez nové přejímky se pečeť nepřepisuje. Release verdict je FAIL.
 - Opt-in živé sady pro naplnění kontextu, projektové expertizy a podepsané
   číselné rozdíly na finálním integrovaném SHA zůstávají `LIVE_NOT_RUN`.
@@ -38,7 +43,7 @@ fingerprint `8fdc658258af7394aaaf7bf753b28bbc6f1da8341b873b35f7821becf00c455b`.
   Zmenšení větví a worktree je až poslední milník po přejímce a zachování
   cizí práce.
 
-Nezávislé review finálního společného merge, nový úplný audit, produkční
+Nezávislé přijetí finálního společného merge, nový úplný audit, produkční
 build/UI a živé modelové výsledky ještě chybějí. Žádný z uvedených
 fixture PASS tyto brány nenahrazuje.
 
