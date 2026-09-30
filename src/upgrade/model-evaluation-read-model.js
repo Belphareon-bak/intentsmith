@@ -34,6 +34,7 @@ export const MODEL_EVALUATION_INTERVAL_INTEGRITY = Object.freeze({
 });
 
 const INTERVAL_TOLERANCE_MS = 2;
+const SEMANTIC_REVIEW_ROLES = new Set(['D1', 'D2', 'R1', 'R2', 'CHAT']);
 
 function decodedInterval(row) {
   const startedMs = Date.parse(row.started_at);
@@ -295,23 +296,27 @@ function decodeCurrentRow(row, includeTasks = true, includeResponses = false) {
 // Keep the recorded value separately and project every public read surface
 // through the same gate, including history and the exact run detail.
 function projectCollectionComplete(db, row, plan, result) {
-  if (!plan?.collectionOnly || row.status !== 'COMPLETE'
-    || row.suite_name !== plan.suiteName || row.suite_version !== plan.suiteVersion
-    || row.suite_contract_sha256 !== plan.suiteContractSha256) return result;
+  if (row.status !== 'COMPLETE' || !SEMANTIC_REVIEW_ROLES.has(row.role)) return result;
+  const exact = plan?.collectionOnly === true
+    && row.suite_name === plan.suiteName && row.suite_version === plan.suiteVersion
+    && row.suite_contract_sha256 === plan.suiteContractSha256;
   const simulated = simulatedEvidenceBlocked({
     metadata: JSON.parse(row.metadata_json || '{}'), model_name: row.model_name,
   }, db);
   const grading = JSON.parse(row.metadata_json || '{}').grading;
-  if (!simulated && validStoredGradingPair(db, grading, plan.acceptance?.graders,
+  if (exact && !simulated && validStoredGradingPair(db, grading, plan.acceptance?.graders,
     row.model_digest_sha256, row.role, plan.suiteContractSha256, result.score)) return result;
+  const errorCode = simulated ? 'EVALUATION_SIMULATED_EVIDENCE'
+    : exact ? 'EVALUATION_GRADER_ACCEPTANCE_MISSING' : 'EVALUATION_REVIEW_CONTRACT_UNVERIFIED';
   return {
     ...result,
     status: 'BLOCKED', score: null,
     reviewStatus: simulated ? 'SIMULATED_EVIDENCE' : 'REVIEW_FINAL_UNVERIFIED',
-    errorCode: simulated ? 'EVALUATION_SIMULATED_EVIDENCE' : 'EVALUATION_GRADER_ACCEPTANCE_MISSING',
+    errorCode,
     errorMessage: simulated
       ? 'Simulované známky nejsou produkční evidence. Původní záznam zůstává v historii.'
-      : 'Přejímka hodnotitele už není platná. Původní známky zůstávají v historii.',
+      : exact ? 'Přejímka hodnotitele už není platná. Původní známky zůstávají v historii.'
+        : 'Historický kontrakt nebo plán posudků není aktuálně ověřitelný. Původní známky zůstávají v historii.',
     recordedResult: { status: result.status, score: result.score },
     ...(result.tasks ? { tasks: result.tasks.map(task => ({ ...task, mean: null, scores: [],
       details: task.details.map(detail => ({ ...detail, score: null,

@@ -16,8 +16,10 @@ audit **398 PASS / 2 FAIL / 0 BLOCKED**: zastaralý počet hran v ROADMAP a
 zapečetěná Gate 0 politika registru. ROADMAP je na `09e72b74` opravená a
 cílená kontrola artefaktů prošla 160/160; celý audit po ní chybí. Nezávislé
 review zjistilo neplatné `COMPLETE` v historii a detailu po odvolání přejímky.
-Izolovaná oprava projekce zachovává syrový auditní zápis odděleně a čeká na
-nové review. Kandidát zůstává `REVIEW_PENDING / NOT_DEPLOYED /
+Navazující review našlo stejný únik při změně názvu, verze nebo SHA sady a
+bez aktuálního plánu. Izolovaná oprava blokuje i tyto historické sémantické
+řádky, zachovává syrový auditní zápis odděleně a čeká na nové review.
+Kandidát zůstává `REVIEW_PENDING / NOT_DEPLOYED /
 REAL_NO_GO`.
 
 ## Vlastněný rozsah

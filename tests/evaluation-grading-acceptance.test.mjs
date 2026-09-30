@@ -543,6 +543,15 @@ test('reviewed adjudication closes only exact criterion disputes and preserves b
       .run(row.adjudication_id),/append-only/);
     assert.equal(f.db.prepare('SELECT count(*) AS n FROM model_evaluation_grader_reviews').get().n,2);
     assert.equal(read.readRun(saved.runId).status,'COMPLETE');
+    const driftBeforeRevocation=new ModelEvaluationReadModel(f.db,{plans:{D1:{
+      ...f.plan,suiteVersion:f.plan.suiteVersion+'-drift',
+    }}});
+    for(const projected of [driftBeforeRevocation.readRun(saved.runId),
+      driftBeforeRevocation.read().history.find(item=>item.runId===saved.runId)]) {
+      assert.equal(projected.status,'BLOCKED','contract drift blocks even a still-accepted pair');
+      assert.equal(projected.score,null);
+      assert.deepEqual(projected.recordedResult,{status:'COMPLETE',score:1});
+    }
     f.revoke(id);
     const after=read.read({inventory:[{name:'answer-model',digest:A}]});
     const current=after.models[0].evaluations.D1;
@@ -573,5 +582,27 @@ test('reviewed adjudication closes only exact criterion disputes and preserves b
       assert.equal(shown.tasks[0].score,'bez známky');
       assert.match(shown.tasks[0].attempts[0].label,/bez známky/);
     }finally{workspace.destroy();}
+    for (const key of ['suiteName','suiteVersion','suiteContractSha256']) {
+      const changed=key==='suiteContractSha256'?'f'.repeat(64):f.plan[key]+'-drift';
+      const stale=new ModelEvaluationReadModel(f.db,{plans:{D1:{...f.plan,[key]:changed}}});
+      const detail=stale.readRun(saved.runId);
+      const listed=stale.read().history.find(item=>item.runId===saved.runId);
+      for(const projected of [detail,listed]) {
+        assert.equal(projected.status,'BLOCKED',key+' drift must not expose COMPLETE');
+        assert.equal(projected.score,null);
+        assert.equal(projected.errorCode,'EVALUATION_REVIEW_CONTRACT_UNVERIFIED');
+        assert.deepEqual(projected.recordedResult,{status:'COMPLETE',score:1});
+      }
+      assert.equal(detail.tasks[0].mean,null);
+      assert.deepEqual(detail.tasks[0].scores,[]);
+    }
+    const absent=new ModelEvaluationReadModel(f.db,{plans:{}});
+    for(const projected of [absent.readRun(saved.runId),
+      absent.read().history.find(item=>item.runId===saved.runId)]) {
+      assert.equal(projected.status,'BLOCKED','missing plan must not expose COMPLETE');
+      assert.equal(projected.score,null);
+      assert.equal(projected.errorCode,'EVALUATION_REVIEW_CONTRACT_UNVERIFIED');
+      assert.deepEqual(projected.recordedResult,{status:'COMPLETE',score:1});
+    }
   }finally{f.db.close();}
 });

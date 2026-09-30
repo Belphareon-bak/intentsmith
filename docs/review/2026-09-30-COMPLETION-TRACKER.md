@@ -20,7 +20,10 @@ fingerprint `8fdc658258af7394aaaf7bf753b28bbc6f1da8341b873b35f7821becf00c455b`.
   read model i Studio test prošly. Nezávislé review navíc našlo, že detail
   finálního řádku a historie po odvolání přejímky stále ukazovaly syrové
   `COMPLETE` a skóre. Izolovaná oprava promítá `BLOCKED/null` do obou API
-  výstupů a syrový zápis odděluje jako `recordedResult`; její přejímka čeká.
+  výstupů a syrový zápis odděluje jako `recordedResult`. Navazující review
+  našlo stejnou mezeru při změně názvu, verze nebo SHA sady a při chybějícím
+  aktuálním plánu. Kandidát uzavírá i tyto historické sémantické řádky;
+  jeho nezávislá přejímka čeká.
   Skutečné rozhodnutí pro role a instalace
   zůstávají **NO_GO**. Druhý hodnotitel má 106 samostatných dávkových JSONů
   se 596 odlišnými odpověďmi (CHAT 400, D/R 166, CODE 30); jejich validace,
