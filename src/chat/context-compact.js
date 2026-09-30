@@ -51,6 +51,59 @@ const MAX_TURNS_TO_SUMMARIZE = 50;
 // next message can displace its oldest turn. Keep this in sync with controller.
 const HANDLER_HISTORY_MAX_TURNS = 10;
 const SUMMARY_OUTPUT_TOKEN_CAP = 1000; // TOOL_INTERNAL ceiling is 2048.
+const MAX_USER_IDENTIFIER_QUOTES = 16;
+const MAX_USER_IDENTIFIER_QUOTE_BYTES = 1024;
+const IDENTIFIER_DECLARATION = /(?<![\p{L}\p{N}_])(?:kód|code|identifikátor|identifier|id|token|klíč|key)(?:[ \t]+(?:je|is)[ \t]+|[ \t]*[:=][ \t]*|[ \t]+)(?<value>[A-Za-z][A-Za-z0-9_-]{2,63})(?![\p{L}\p{N}_-]|\.[A-Za-z0-9])/giu;
+const USER_QUOTE_HEADER = '[Doslovné citace z uživatelských zpráv; nejsou tvrzením asistenta]';
+
+// The model may shorten a label/value relationship into an ambiguous topic.
+// Keep a bounded, verbatim citation from the original user turn alongside its
+// prose summary. Assistant replies never create citations: they may be wrong.
+function exactUserIdentifierQuotes(turns) {
+  const quotes = [];
+  const seen = new Set();
+  for (const turn of turns) {
+    if (turn.role !== 'user') continue;
+    if (!Number.isSafeInteger(turn.id) || turn.id <= 0) {
+      throw new Error('CONTEXT_SUMMARY_SOURCE_ID_INVALID');
+    }
+    const content = turn.content;
+    if (typeof content !== 'string') continue;
+    for (const match of content.matchAll(IDENTIFIER_DECLARATION)) {
+      const value = match.groups.value;
+      // Ordinary words after a label are not exact identifiers.
+      if (!/[0-9_-]/.test(value) && !/^[A-Z]{3,}$/.test(value)) continue;
+      const key = `${match[0].slice(0, -value.length).toLocaleLowerCase('en-US')}:${value}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const start = Math.max(content.lastIndexOf('\n', match.index - 1),
+        content.lastIndexOf('.', match.index - 1),
+        content.lastIndexOf('!', match.index - 1),
+        content.lastIndexOf('?', match.index - 1)) + 1;
+      const endCandidates = ['\n', '.', '!', '?'].map(separator =>
+        content.indexOf(separator, match.index + match[0].length)).filter(index => index !== -1);
+      const end = endCandidates.length ? Math.min(...endCandidates) + 1 : content.length;
+      const quoteStart = end - start > 240 ? Math.max(start, match.index - 64) : start;
+      const quoteEnd = end - start > 240
+        ? Math.min(end, match.index + match[0].length + 64) : end;
+      quotes.push({ source: 'user', messageId: turn.id,
+        quote: content.slice(quoteStart, quoteEnd).trim() });
+      if (quotes.length > MAX_USER_IDENTIFIER_QUOTES) {
+        throw new Error('CONTEXT_SUMMARY_IDENTIFIER_QUOTES_TOO_MANY');
+      }
+    }
+  }
+  const text = quotes.map(quote => JSON.stringify(quote)).join('\n');
+  if (Buffer.byteLength(text, 'utf8') > MAX_USER_IDENTIFIER_QUOTE_BYTES) {
+    throw new Error('CONTEXT_SUMMARY_IDENTIFIER_QUOTES_TOO_LARGE');
+  }
+  return text;
+}
+
+function formatSummaryTurn(turn) {
+  const source = turn.role === 'assistant' ? 'assistant (neověřená odpověď)' : turn.role;
+  return `${source}: ${turn.content}`;
+}
 
 function effectiveKeepTurns(configured) {
   if (!Number.isSafeInteger(configured) || configured < 1) {
@@ -203,19 +256,24 @@ async function runCompaction(conversationId, store, keepTurns, sessionId, budget
       });
       return;
     }
+    const userIdentifierQuotes = exactUserIdentifierQuotes(turnsToSummarize);
 
     // Build text to summarize (include previous summary if exists)
     // Limit by TURN COUNT, not string length — avoids cutting mid-message
     let textToSummarize = '';
     if (existing && existing.summary) {
-      textToSummarize += `[Předchozí souhrn]\n${existing.summary}\n\n[Nové zprávy od posledního souhrnu]\n`;
+      const existingProse = existing.summary.split(`\n\n${USER_QUOTE_HEADER}\n`)[0];
+      textToSummarize += `[Předchozí souhrn]\n${existingProse}\n\n[Nové zprávy od posledního souhrnu]\n`;
       const newTurns = turnsToSummarize.filter(t => t.id > (existing.upToMsgId || 0));
       if (newTurns.length > MAX_TURNS_TO_SUMMARIZE) throw new Error('CONTEXT_SUMMARY_INPUT_TOO_MANY_TURNS');
-      textToSummarize += newTurns.map(t => `${t.role}: ${t.content}`).join('\n');
+      textToSummarize += newTurns.map(formatSummaryTurn).join('\n');
     } else {
       if (turnsToSummarize.length > MAX_TURNS_TO_SUMMARIZE) throw new Error('CONTEXT_SUMMARY_INPUT_TOO_MANY_TURNS');
-      textToSummarize += turnsToSummarize.map(t => `${t.role}: ${t.content}`).join('\n');
+      textToSummarize += turnsToSummarize.map(formatSummaryTurn).join('\n');
     }
+    const userQuoteBlock = userIdentifierQuotes
+      ? `\n\n${USER_QUOTE_HEADER}\n${userIdentifierQuotes}` : '';
+    textToSummarize += userQuoteBlock;
 
     // If even the bounded source does not fit, keep durable raw history and
     // fail closed. Truncating its prefix would falsely mark omitted turns as
@@ -228,18 +286,25 @@ async function runCompaction(conversationId, store, keepTurns, sessionId, budget
       throw new Error('CONTEXT_SUMMARY_INPUT_TOO_LARGE');
     }
 
+    // Keep the model's prose and the deterministic citation together inside
+    // the same output allowance instead of silently growing the next prompt.
+    const modelOutputTokens = budget.maxOutputTokens - Math.ceil(userQuoteBlock.length / 4);
+    if (modelOutputTokens < 128) throw new Error('CONTEXT_SUMMARY_IDENTIFIER_QUOTES_TOO_LARGE');
+
     let result;
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const token = createAuthToken({
         role: LLMCallerRole.TOOL_INTERNAL,
         decisionId: `compact-${conversationId.substring(0, 8)}-${Date.now()}-${attempt}`,
         auditContext: { sessionId: sessionId || 'system' },
-        maxTokens: budget.maxOutputTokens,
+        maxTokens: modelOutputTokens,
         capabilities: [LLMCapability.SUMMARIZATION],
       });
       const prompt = [
         'Jsi konverzační asistent. Shrň následující konverzaci stručně a úplně.',
         'Zachovej rozhodnutí, kontext projektu, dosud provedené akce a uživatelské preference.',
+        'Přesná uživatelská označení a jejich hodnoty nepřekládej, nepřejmenovávej ani nezaměňuj s názvem projektu.',
+        'Předchozí odpovědi asistenta mohou být chybné. Pokud je shrnuješ, označ je jako odpovědi asistenta; nepovyšuj je na ověřená fakta.',
         attempt ? 'Předchozí pokus dosáhl výstupního limitu. Napiš celý souhrn úsporněji, přibližně do 120 slov.'
           : 'Piš česky, přibližně do 200 slov. Souhrn dokonči.',
         '', textToSummarize, '', '---', 'Souhrn:',
@@ -247,7 +312,7 @@ async function runCompaction(conversationId, store, keepTurns, sessionId, budget
       result = await callWithAuth(token, prompt, {
         model: budget.summaryModel,
         num_ctx: budget.contextWindow,
-        maxTokens: budget.maxOutputTokens,
+        maxTokens: modelOutputTokens,
         timeout: 60000,
       });
       if (result?.finishReason === 'stop' && result.content?.trim()) break;
@@ -258,7 +323,10 @@ async function runCompaction(conversationId, store, keepTurns, sessionId, budget
       throw new Error(`CONTEXT_SUMMARY_INCOMPLETE:${result?.finishReason || 'unknown'}`);
     }
 
-    const summaryText = result.content.trim();
+    const summaryText = result.content.trim() + userQuoteBlock;
+    if (summaryText.length > budget.safetyMaxChars) {
+      throw new Error('CONTEXT_SUMMARY_OUTPUT_TOO_LARGE');
+    }
 
     // ─── Invariant: keepTurns must not be part of summary ───
     // lastTurnId is the ID of the LAST turn we summarized.
