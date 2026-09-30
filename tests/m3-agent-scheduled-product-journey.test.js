@@ -123,19 +123,21 @@ test('trusted scheduled M3 extension runs in the product, recovers and notifies'
     }
   });
   const launch = () => startProduct(runtime, provider.url, MODEL, {
-    enableAgents: true, productionAdminToken, testAgentExtensionsDir: extensionsDir,
+    enableAgents: true, testAgentExtensionsDir: extensionsDir,
   });
+  await assert.rejects(async () => {
+    const exposed = await startProduct(runtime, provider.url, MODEL, {
+      enableAgents: true, productionAdminToken, testAgentExtensionsDir: extensionsDir,
+    });
+    await stopProduct(exposed);
+  }, /M3 test extension directory requires NODE_ENV=test/,
+  'production runtime must reject even a valid private test extension root');
   await assert.rejects(() => startProduct(runtime, provider.url, MODEL, {
-    enableAgents: true, productionAdminToken,
+    enableAgents: true,
     testAgentExtensionsDir: runtime.projects,
   }), /Product exited before ready/,
   'an extension directory outside the private test artifacts must be rejected');
   product = await launch();
-  const unauthenticated = await fetch(`http://127.0.0.1:${product.port}/api/agent-extensions`, {
-    signal: AbortSignal.timeout(5_000),
-  });
-  assert.equal(unauthenticated.status, 401);
-
   const listed = await expectJson(product, 'GET', '/api/agent-extensions', null, 200);
   assert(listed.extensions.some(item => item.id === EXTENSION_ID),
     'the product must discover the isolated trusted extension');
@@ -249,6 +251,6 @@ test('trusted scheduled M3 extension runs in the product, recovers and notifies'
       scheduledNextRun: scheduledEntry.nextRun,
       controlledElapsedMinutes: 10,
       untrustedRunCount: 0, providerModelCalls: provider.modelCalls,
-      productionAuthRejected: true, productRestarts: 3,
+      executionMode: 'test', productionOverrideRejected: true, productRestarts: 3,
     }, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
 });

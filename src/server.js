@@ -44,9 +44,10 @@ function isolatedTestAgentExtensionsDir() {
   if (!requested) return undefined;
   const artifactDir = process.env.INTENTSMITH_TEST_ARTIFACT_DIR;
   const nonce = process.env.INTENTSMITH_TEST_SERVER_NONCE;
-  if (process.env.CI !== '1' || !/^[A-Za-z0-9_-]{43}$/.test(nonce || '')
+  if (process.env.NODE_ENV !== 'test' || process.env.CI !== '1'
+    || !/^[A-Za-z0-9_-]{43}$/.test(nonce || '')
     || !artifactDir || !path.isAbsolute(artifactDir) || !path.isAbsolute(requested)) {
-    throw new Error('M3 test extension directory requires an isolated test runtime');
+    throw new Error('M3 test extension directory requires NODE_ENV=test in an isolated test runtime');
   }
   const artifactStat = fs.lstatSync(artifactDir);
   const requestedStat = fs.lstatSync(requested);
