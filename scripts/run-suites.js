@@ -15,18 +15,19 @@
  * nezapisuje `lastGreen` a nemění stav žádné sady. Je to měření, ne certifikace.
  */
 
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { mkdirSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
 import { loadTestRegistry } from './test-registry.js';
 import { makeSuiteEnvironment } from './nightly-audit.js';
 import { acquireGpuEvaluationLock } from '../src/upgrade/gpu-evaluation-lock.js';
 import {
   CAPTURE_DIGEST, CAPTURE_MODEL, CAPTURE_SUITE_ID,
-  preflightProviderCapture, startProviderCaptureProxy,
+  attestWindowFillEvidence, preflightProviderCapture, startProviderCaptureProxy,
 } from './provider-capture.js';
 
 const ROOT = process.cwd();
@@ -107,32 +108,44 @@ async function waitForReady(portFile, log, timeoutMs) {
   throw new Error('Server nenaběhl do limitu');
 }
 
-function runSuite(suite, env, timeoutMs, outPath) {
-  return new Promise(resolve => {
+export function runSuite(suite, env, timeoutMs, outPath) {
+  return new Promise((resolve, reject) => {
     const started = Date.now();
     const chunks = [];
-    const child = spawn(suite.argv[0], [suite.argv[1]], {
-      cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    let child;
+    try {
+      child = spawn(suite.argv[0], [suite.argv[1]], {
+        cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'],
+      });
+    } catch (error) { reject(error); return; }
     let killed = false;
+    let settled = false;
     const timer = setTimeout(() => {
       killed = true;
       child.kill('SIGKILL');
     }, timeoutMs);
     // A stale watchdog must never keep a completed development run alive.
     timer.unref();
-    child.on('exit', (code, signal) => {
+    const finish = (code, signal, spawnError = null) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
       const output = Buffer.concat(chunks).toString('utf8');
-      writeFileSync(outPath, output, { mode: 0o600 });
-      const durationMs = Date.now() - started;
-      const status = code === 0 ? 'PASS' : (killed || signal === 'SIGKILL' ? 'TIMEOUT' : 'FAIL');
-      const detail = (output.match(/❌[^\n]{0,110}/) || [])[0] || null;
-      const stepsPassed = (output.match(/✅/g) || []).length;
-      resolve({ status, exitCode: code, signal, durationMs, detail, stepsPassed });
-    });
-    child.stdout.on('data', c => chunks.push(c));
-    child.stderr.on('data', c => chunks.push(c));
+      try {
+        writeFileSync(outPath, output, { mode: 0o600 });
+        const durationMs = Date.now() - started;
+        const status = spawnError ? 'FAIL'
+          : code === 0 ? 'PASS' : (killed || signal === 'SIGKILL' ? 'TIMEOUT' : 'FAIL');
+        const detail = spawnError ? `spawn failed: ${spawnError.message}`
+          : (output.match(/❌[^\n]{0,110}/) || [])[0] || null;
+        const stepsPassed = (output.match(/✅/g) || []).length;
+        resolve({ status, exitCode: code, signal, durationMs, detail, stepsPassed });
+      } catch (error) { reject(error); }
+    };
+    child.on('error', error => finish(null, null, error));
+    child.on('exit', (code, signal) => finish(code, signal));
+    child.stdout?.on('data', c => chunks.push(c));
+    child.stderr?.on('data', c => chunks.push(c));
   });
 }
 
@@ -191,8 +204,10 @@ Výstup NENÍ Gate 0 evidence — registr se nemění a lastGreen se nezapisuje.
   const runId = new Date().toISOString().replace(/[:.]/g, '-');
   const dirs = makeRunRoot(runId);
   const serverLog = path.join(dirs.root, 'server.log');
-  const sourceRevision = (process.env.INTENTSMITH_TEST_SOURCE_REVISION || '').trim()
-    || (await import('node:child_process')).execSync('git rev-parse HEAD', { cwd: ROOT }).toString().trim();
+  const gitRevision = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim();
+  const sourceRevision = opts.captureProvider
+    ? gitRevision
+    : ((process.env.INTENTSMITH_TEST_SOURCE_REVISION || '').trim() || gitRevision);
 
   const base = makeSuiteEnvironment({
     suite: { requirements: { server: true, ollama: true } },
@@ -225,6 +240,8 @@ Výstup NENÍ Gate 0 evidence — registr se nemění a lastGreen se nezapisuje.
   } : null;
   try {
     if (opts.captureProvider) {
+      const sourceDirt = execFileSync('git', ['status', '--porcelain'], { cwd: ROOT, encoding: 'utf8' }).trim();
+      if (sourceDirt) throw new Error('Provider capture requires a clean committed source tree');
       lease = acquireGpuEvaluationLock({ command: `run-suites provider capture ${CAPTURE_SUITE_ID}` });
       captureReport.preflight = await preflightProviderCapture();
       capturePhase = 'setup';
@@ -275,7 +292,8 @@ Výstup NENÍ Gate 0 evidence — registr se nemění a lastGreen se nezapisuje.
       captureReport.records = capture.getCapturedCount();
       if (capture.getFailure()) throw new Error(`Provider capture boundary failed: ${capture.getFailure()}`);
       if (captureReport.records === 0) throw new Error('Provider capture recorded no model requests');
-      captureReport.status = results.every(result => result.status === 'PASS') ? 'PASS' : 'FAIL';
+      captureReport.status = results.length === 1 && results[0].status === 'PASS'
+        ? 'PENDING_ATTESTATION' : 'FAIL';
     }
   } catch (error) {
     console.error(`CHYBA: ${error.message}`);
@@ -287,16 +305,30 @@ Výstup NENÍ Gate 0 evidence — registr se nemění a lastGreen se nezapisuje.
   } finally {
     if (server) await terminateOwnedServer(server);
     if (capture) {
-      captureReport.records = capture.getCapturedCount();
       try { await capture.close(); } catch (error) {
         captureReport.status = 'FAIL';
         captureReport.error = error.message;
         exitCode = 1;
       }
+      captureReport.records = capture.getCapturedCount();
       if (capture.getFailure()) {
         captureReport.status = 'FAIL';
         captureReport.error = `Provider capture boundary failed: ${capture.getFailure()}`;
         exitCode = 1;
+      }
+      if (captureReport.status === 'PENDING_ATTESTATION' && exitCode === 0) {
+        try {
+          captureReport.windowFillAttestation = attestWindowFillEvidence({
+            evidenceFile: path.join(dirs.artifacts, '85-window-fill-evidence.json'),
+            captureFile: captureReport.file,
+            sourceRevision,
+          });
+          captureReport.status = 'PASS';
+        } catch (error) {
+          captureReport.status = 'FAIL';
+          captureReport.error = `Window-fill attestation failed: ${error.message}`;
+          exitCode = 1;
+        }
       }
     }
     if (lease) {
@@ -309,15 +341,19 @@ Výstup NENÍ Gate 0 evidence — registr se nemění a lastGreen se nezapisuje.
     }
   }
 
-  const summary = results.reduce((acc, r) => { acc[r.status] = (acc[r.status] || 0) + 1; return acc; }, {});
-  if (captureReport?.status === 'BLOCKED') summary.BLOCKED = 1;
+  const suiteSummary = results.reduce((acc, r) => { acc[r.status] = (acc[r.status] || 0) + 1; return acc; }, {});
+  const summary = !captureReport ? suiteSummary
+    : captureReport.status === 'PASS' ? { PASS: 1 }
+      : captureReport.status === 'BLOCKED' ? { BLOCKED: 1 }
+        : results.length === 1 && results[0].status !== 'PASS' ? suiteSummary
+          : { FAIL: 1 };
   const report = {
     schemaVersion: 1, runId, sourceRevision,
     evidenceType: 'intentsmith.suite-run',
     gateEvidence: false,
     note: 'Běhový režim mimo Gate 0. Neaktualizuje registr ani lastGreen.',
     summary, results,
-    ...(captureReport ? { providerCapture: captureReport } : {}),
+    ...(captureReport ? { runnerStatus: captureReport.status, suiteSummary, providerCapture: captureReport } : {}),
   };
   writeFileSync(path.join(dirs.root, 'report.json'), `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
 
@@ -328,7 +364,9 @@ Výstup NENÍ Gate 0 evidence — registr se nemění a lastGreen se nezapisuje.
   return exitCode;
 }
 
-main().then(code => { process.exitCode = code; }).catch(error => {
-  console.error(error.stack || error.message);
-  process.exitCode = 1;
-});
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().then(code => { process.exitCode = code; }).catch(error => {
+    console.error(error.stack || error.message);
+    process.exitCode = 1;
+  });
+}

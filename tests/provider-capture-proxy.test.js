@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
@@ -9,8 +9,9 @@ import { test } from 'node:test';
 
 import {
   CAPTURE_DIGEST, CAPTURE_MODEL,
-  preflightProviderCapture, startProviderCaptureProxy,
+  attestWindowFillEvidence, preflightProviderCapture, startProviderCaptureProxy,
 } from '../scripts/provider-capture.js';
+import { runSuite } from '../scripts/run-suites.js';
 
 const listen = server => new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const close = server => new Promise(resolve => server.close(resolve));
@@ -23,10 +24,12 @@ test('provider proxy records the exact terminal chat before forwarding success',
   const provider = http.createServer(async (request, response) => {
     const chunks = [];
     for await (const chunk of request) chunks.push(chunk);
-    seen.push({ method: request.method, path: request.url, body: Buffer.concat(chunks) });
-    response.writeHead(200, { 'Content-Type': 'application/json' });
+    const body = Buffer.concat(chunks);
+    seen.push({ method: request.method, path: request.url, body });
+    const bad = body.toString('utf8').includes('fail: retry');
+    response.writeHead(bad ? 503 : 200, { 'Content-Type': 'application/json' });
     response.end(JSON.stringify({
-      model: CAPTURE_MODEL, digest: CAPTURE_DIGEST, done: true,
+      model: CAPTURE_MODEL, digest: CAPTURE_DIGEST, done: !bad,
       done_reason: 'stop', prompt_eval_count: 3072, eval_count: 8,
       message: { role: 'assistant', content: 'RIGEL_KAPPA_731' },
     }));
@@ -39,7 +42,7 @@ test('provider proxy records the exact terminal chat before forwarding success',
     });
     const messages = [
       { role: 'system', content: 'Souhrn: RIGEL_KAPPA_731' },
-      { role: 'user', content: 'Jaký přesný auditní kód?' },
+      { role: 'user', content: 'User: Jaký přesný auditní kód?' },
     ];
     const body = JSON.stringify({ model: CAPTURE_MODEL, messages, stream: false, options: { num_ctx: 4096 } });
     const response = await fetch(`${proxy.url}/api/chat`, {
@@ -66,6 +69,68 @@ test('provider proxy records the exact terminal chat before forwarding success',
     assert.equal(proxy.getFailure(), null);
     assert.equal(seen.length, 1);
     assert.equal(seen[0].path, '/api/chat');
+
+    const sourceRevision = 'a'.repeat(40);
+    const evidenceFile = path.join(root, '85-window-fill-evidence.json');
+    const captureBytes = readFileSync(captureFile);
+    const windowEvidence = {
+      status: 'PASS', sourceRevision,
+      providerCaptureBytes: captureBytes.length,
+      providerCaptureSha256: sha256(captureBytes),
+      turns: [{ turn: 1, requestSha256: rows[0].requestSha256 }],
+      observedWindow: 4096, summary: { text: 'RIGEL_KAPPA_731' },
+      final: {
+        requestSha256: rows[0].requestSha256,
+        responseSha256: rows[0].responseSha256,
+        numCtx: 4096, promptEvalCount: 3072,
+        question: 'Jaký přesný auditní kód?', answer: 'RIGEL_KAPPA_731',
+        providerPrompt: messages.map(message => message.content).join('\n'),
+        rawFirstMessagePresent: false, rawFirstMidLinePresent: false,
+      },
+    };
+    const attest = () => attestWindowFillEvidence({ evidenceFile, captureFile, sourceRevision });
+    // A legacy suite can return exit 0 with provider rows but without the
+    // dedicated window-fill artifact. That must never become runner PASS.
+    assert.throws(attest, /ENOENT/);
+    const writeEvidence = value => writeFileSync(evidenceFile, `${JSON.stringify(value)}\n`, { mode: 0o600 });
+    writeEvidence(windowEvidence);
+    assert.equal(attest().finalRequestSha256, rows[0].requestSha256);
+
+    const trailingResponse = await fetch(`${proxy.url}/api/chat`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: CAPTURE_MODEL, stream: false,
+        messages: [{ role: 'user', content: 'User: later background request' }],
+        options: { num_ctx: 4096 } }),
+    });
+    assert.equal(trailingResponse.status, 200);
+    await trailingResponse.text();
+    const attested = attest();
+    assert.equal(attested.observedProviderRows, 1);
+    assert.equal(attested.providerRows, 2);
+    writeEvidence({ ...windowEvidence, sourceRevision: 'b'.repeat(40) });
+    assert.throws(attest, /source revision mismatch/);
+    writeEvidence({ ...windowEvidence, providerCaptureSha256: '0'.repeat(64) });
+    assert.throws(attest, /capture digest mismatch/);
+    writeEvidence({ ...windowEvidence, providerCaptureBytes: captureBytes.length - 1 });
+    assert.throws(attest, /not newline terminated/);
+    writeEvidence({ ...windowEvidence, final: { ...windowEvidence.final, requestSha256: '0'.repeat(64) } });
+    assert.throws(attest, /final provider call is missing/);
+    writeEvidence({ ...windowEvidence, final: { ...windowEvidence.final, answer: 'forged' } });
+    assert.throws(attest, /final answer mismatch/);
+    writeEvidence({ ...windowEvidence, final: { ...windowEvidence.final, rawFirstMessagePresent: true } });
+    assert.throws(attest, /raw first message remains/);
+    writeFileSync(evidenceFile, '{', { mode: 0o600 });
+    assert.throws(attest, SyntaxError);
+    writeEvidence(windowEvidence);
+    const failedResponse = await fetch(`${proxy.url}/api/chat`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: CAPTURE_MODEL, stream: false,
+        messages: [{ role: 'user', content: 'fail: retry' }], options: { num_ctx: 4096 } }),
+    });
+    assert.equal(failedResponse.status, 503);
+    await failedResponse.text();
+    assert.match(proxy.getFailure(), /provider returned HTTP 503/);
+    assert.throws(attest, /failed provider call in capture/);
   } finally {
     if (proxy) await proxy.close();
     await close(provider);
@@ -169,4 +234,15 @@ test('capture CLI rejects other suites before touching provider or GPU', () => {
   assert.ifError(result.error);
   assert.equal(result.status, 2);
   assert.match(result.stderr, /vyžaduje pouze/);
+});
+
+test('suite spawn error resolves as FAIL for runner cleanup', async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'intentsmith-suite-spawn-'));
+  try {
+    const result = await runSuite({ argv: [path.join(root, 'missing-node'), 'unused'] },
+      process.env, 1_000, path.join(root, 'suite.out'));
+    assert.equal(result.status, 'FAIL');
+    assert.match(result.detail, /spawn failed: spawn/);
+    assert.equal(readFileSync(path.join(root, 'suite.out'), 'utf8'), '');
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });
