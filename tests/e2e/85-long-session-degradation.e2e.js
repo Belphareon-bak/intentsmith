@@ -14,7 +14,7 @@ import { setTimeout as pause } from 'node:timers/promises';
 import { config } from '../../src/config.js';
 import { assertExactValueAnswer } from '../helpers/chat-value-fidelity-journey.js';
 import { WINDOW_FILL_CASES, WINDOW_FILL_CODE, WINDOW_FILL_RETRY_CASE,
-  windowFillMessage, windowFillUserQuoteBlock } from '../../scripts/chat85-window-values.js';
+  windowFillArithmeticQuality, windowFillMessage, windowFillUserQuoteBlock } from '../../scripts/chat85-window-values.js';
 
 await waitForServer();
 const created = [];
@@ -27,8 +27,7 @@ const GPU_COOLDOWN_MS = configuredCooldownSeconds * 1000;
 const providerCaptureFile = process.env.INTENTSMITH_TEST_PROVIDER_CAPTURE_FILE;
 let windowConvId = null;
 const windowEvidence = { status: 'FAIL', sourceRevision: process.env.INTENTSMITH_TEST_SOURCE_REVISION,
-  mechanismStatus: 'FAIL', arithmeticQuality: { status: 'INCOMPLETE', expectedTurns: 8,
-    checkedTurns: 0, failedTurns: [] },
+  mechanismStatus: 'FAIL', arithmeticQuality: windowFillArithmeticQuality([]),
   startedAt: new Date().toISOString(), turns: [] };
 
 async function serialTest(name, fn, limitMs) {
@@ -280,6 +279,7 @@ try {
         numCtx: provider.numCtx, numPredict: provider.numPredict,
         promptEvalCount: provider.promptEvalCount };
       windowEvidence.turns.push(turnEvidence);
+      windowEvidence.arithmeticQuality = windowFillArithmeticQuality(windowEvidence.turns);
       if (observedWindow) {
         assertEqual(provider.numCtx, observedWindow,
           'CHAT provider context window changed during one test conversation');
@@ -301,14 +301,6 @@ try {
         messageCount: snapshot.messages.length,
         summaryUpToMsgId: snapshot.conversation?.summary_up_to_msg_id ?? null });
     }
-    const failedTurns = windowEvidence.turns.filter(turn => turn.qualityStatus !== 'PASS')
-      .map(turn => turn.turn);
-    windowEvidence.arithmeticQuality = {
-      status: windowEvidence.turns.length === 8
-        ? failedTurns.length ? 'FAIL' : 'PASS' : 'INCOMPLETE',
-      expectedTurns: 8, checkedTurns: windowEvidence.turns.length, failedTurns,
-    };
-
     windowEvidence.observedWindow = observedWindow;
     windowEvidence.peakProviderTokens = peakProviderTokens;
     windowEvidence.peakPreSummaryEffectiveTokens = peakPreSummaryEffectiveTokens;
@@ -342,10 +334,8 @@ try {
           model: provider.model,
           numCtx: provider.numCtx, numPredict: provider.numPredict,
           promptEvalCount: provider.promptEvalCount };
-        if (qualityError) {
-          windowEvidence.arithmeticQuality.status = 'FAIL';
-          windowEvidence.arithmeticQuality.failedTurns.push(9);
-        }
+        windowEvidence.arithmeticQuality = windowFillArithmeticQuality(
+          windowEvidence.turns, windowEvidence.retry);
         snapshot = await conversationSnapshot(convId, signal);
         recordFirstSummary(snapshot, 9);
       }
@@ -417,6 +407,8 @@ try {
   }, 35 * 60_000);
 
 } finally {
+  windowEvidence.arithmeticQuality = windowFillArithmeticQuality(
+    windowEvidence.turns, windowEvidence.retry);
   if (windowConvId) {
     try {
       const snapshot = await conversationSnapshot(windowConvId, AbortSignal.timeout(5_000));
