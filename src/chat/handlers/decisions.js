@@ -18,7 +18,7 @@ import {
 } from '../cre-decision.js';
 import { toolExecutor, ExecutionStatus } from '../../executor/tool-executor.js';
 import { logger } from '../../core/logger.js';
-import { ChatProcessingError } from '../../core/chat-turn-error.js';
+import { ChatContextCapacityError, ChatProcessingError } from '../../core/chat-turn-error.js';
 import { developmentEnvironmentPrompt } from '../../setup/development-environment.js';
 import { Structure, FollowUpStyle } from '../../memory/preferences.js';
 import { synthesizeWithLLM } from './utils/synthesis.js';
@@ -280,6 +280,7 @@ function selectAnswerTokenBudget(input, intent) {
 class AnswerSummaryBudgetError extends Error {}
 class AnswerCompletionBudgetError extends Error {}
 class AnswerRecentUserBudgetError extends Error {}
+class AnswerCurrentUserBudgetError extends Error {}
 
 export function buildAnswerContext(input, history, systemPrompt, requestedTokens, numCtx, options = {}) {
   // Conservative UTF-8 budget; reserve space for clock, role wrappers and a
@@ -287,7 +288,9 @@ export function buildAnswerContext(input, history, systemPrompt, requestedTokens
   const bytes = text => Buffer.byteLength(text, 'utf8');
   const base = `User: ${input}`;
   const available = numCtx - 384 - Math.ceil(bytes(systemPrompt + base) / 2);
-  if (available < Math.min(requestedTokens, 384)) throw new Error('Zpráva se nevejde do kontextu modelu. Zkrať ji nebo ji rozděl na části.');
+  if (available < Math.min(requestedTokens, 384)) {
+    throw new AnswerCurrentUserBudgetError('Zpráva se nevejde do kontextu modelu. Zkrať ji nebo ji rozděl na části.');
+  }
   const turns = [];
   for (const item of history || []) {
     if (item.userInput) turns.push({ role: 'user', content: item.userInput });
@@ -1300,6 +1303,8 @@ Délku, strukturu a počet příkladů přizpůsob zadání. Přiznej nejistotu;
     const MAX_ANSWER_RETRIES = 2;
     let answerRetry = 0;
     let currentPrompt = prompt;
+    const boundedRetryPrompt = candidate => Math.ceil(Buffer.byteLength(systemPrompt + candidate, 'utf8') / 2)
+      + answerContext.maxTokens + 384 <= numCtx ? candidate : prompt;
     let result;
     const answerResponseIntent = detectResponseIntent(input, {
       lastResponseIntent: context.sessionState?.lastResponseIntent || null,
@@ -1333,8 +1338,7 @@ Délku, strukturu a počet příkladů přizpůsob zadání. Přiznej nejistotu;
         // A context-filled turn may have spent the retry reserve on its
         // complete summary. Reuse the exact bounded prompt in that case;
         // a colder retry can still finish without evicting the source facts.
-        currentPrompt = Math.ceil(Buffer.byteLength(systemPrompt + promptedRetry, 'utf8') / 2)
-          + answerContext.maxTokens + 384 <= numCtx ? promptedRetry : prompt;
+        currentPrompt = boundedRetryPrompt(promptedRetry);
         answerRetry++;
         continue;
       }
@@ -1377,7 +1381,7 @@ Délku, strukturu a počet příkladů přizpůsob zadání. Přiznej nejistotu;
           reason: gateVerdict.reason,
           retry: answerRetry,
         });
-        currentPrompt = buildOutputGateRetryPrompt(currentPrompt, gateVerdict);
+        currentPrompt = boundedRetryPrompt(buildOutputGateRetryPrompt(currentPrompt, gateVerdict));
         answerRetry++;
         continue;
       }
@@ -1398,8 +1402,8 @@ Délku, strukturu a počet příkladů přizpůsob zadání. Přiznej nejistotu;
           language: langCtx.language,
           retry: answerRetry,
         });
-        currentPrompt = buildLanguageRetryInstruction(langCtx.language, langValidation.issues)
-          + '\n\n' + prompt;
+        currentPrompt = boundedRetryPrompt(buildLanguageRetryInstruction(langCtx.language, langValidation.issues)
+          + '\n\n' + prompt);
         answerRetry++;
         continue;
       }
@@ -1415,14 +1419,14 @@ Délku, strukturu a počet příkladů přizpůsob zadání. Přiznej nejistotu;
             contentLength: result.content.length,
             retry: answerRetry,
           });
-          currentPrompt = `${prompt}\n\n` +
+          currentPrompt = boundedRetryPrompt(`${prompt}\n\n` +
             `═══════════════════════════════════════════════════════════════\n` +
             `⚠️ PŘEDCHOZÍ ODPOVĚĎ BYLA ODMÍTNUTA: ${qualityCheck.reason}\n` +
             `═══════════════════════════════════════════════════════════════\n` +
             `POŽADAVEK: Odpověz s KONKRÉTNÍM obsahem. Žádné prázdné struktury,\n` +
             `žádné opakování otázky, žádné obecné fráze. Uveď konkrétní nápady,\n` +
             `jména, čísla, příklady.\n` +
-            `═══════════════════════════════════════════════════════════════`;
+            `═══════════════════════════════════════════════════════════════`);
           answerRetry++;
           continue;
         }
@@ -1485,11 +1489,14 @@ Délku, strukturu a počet příkladů přizpůsob zadání. Přiznej nejistotu;
   } catch (err) {
     // A local context-budget refusal did not reach the model provider. Keep
     // its terminal provenance instead of reporting a false provider outage.
+    if (err instanceof AnswerCurrentUserBudgetError) {
+      throw new ChatContextCapacityError('ANSWER_CURRENT_USER_CONTEXT_TOO_LARGE', err);
+    }
     if (err instanceof AnswerSummaryBudgetError) {
-      throw new ChatProcessingError('ANSWER_CONTEXT_SUMMARY_TOO_LARGE', err);
+      throw new ChatContextCapacityError('ANSWER_CONTEXT_SUMMARY_TOO_LARGE', err);
     }
     if (err instanceof AnswerRecentUserBudgetError) {
-      throw new ChatProcessingError('ANSWER_RECENT_USER_CONTEXT_TOO_LARGE', err);
+      throw new ChatContextCapacityError('ANSWER_RECENT_USER_CONTEXT_TOO_LARGE', err);
     }
     if (err instanceof AnswerCompletionBudgetError) {
       throw new ChatProcessingError('ANSWER_COMPLETION_BUDGET_UNSTABLE', err);

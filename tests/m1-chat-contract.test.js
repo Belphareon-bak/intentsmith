@@ -16,6 +16,7 @@ import {
 import {
   ChatPersistenceError,
   ChatProcessingError,
+  ChatContextCapacityError,
   ChatTurnErrorCode,
   LLMProviderUnavailableError,
   ModelResponseTruncatedError,
@@ -570,42 +571,82 @@ await testAsync('the sixth Czech window-fill turn retains the exact USER citatio
   try {
     clearNumCtxCache();
     setNumCtx(config.models.CHAT, 4_096);
-    globalThis.fetch = async (_url, options) => {
-      requestBodies.push(JSON.parse(options.body));
-      return { ok: true, json: async () => ({
-        message: { content: requestBodies.length === 1 ? '{"a":99,'
-          : '{"a":99,"b":88,"delta":11,"higher":"A"}' },
-        done_reason: requestBodies.length === 1 ? 'length' : 'stop',
-        prompt_eval_count: 2_000, eval_count: 50,
-      }) };
-    };
     const decision = creDecisionEngine.overrideDecision({ type: 'ANSWER', intent: 'CONVERSATIONAL',
       tools: [], source: 'window_fill_budget_regression', reason: 'Controlled full-context handoff', confidence: 1 });
-    const result = await handleAnswerDecision(input, decision, {
-      sessionId: 'window-fill-budget', sessionState: new SessionState('window-fill-budget'), history,
-      hasActiveProject: true, project: { name: 'Senzorový audit' },
-    });
-    assert.equal(requestBodies.length, 2);
-    assert.equal(result.tag.metadata.answerRetries, 1);
-    const body = requestBodies[0];
-    const providerPrompt = body.messages.find(message => message.role === 'user')?.content || '';
-    const systemContent = body.messages.find(message => message.role === 'system')?.content || '';
-    assert(providerPrompt.includes(summaryWrapper(summaryContent)), 'the full summary must reach ANSWER');
     assert(summaryContent.includes(citation), 'the exact original USER citation must be inside the full summary');
-    assert(providerPrompt.endsWith(`User: ${input}`), 'the current Czech request must stay complete');
-    assert.match(systemContent, /JAZYKOVÉ PRAVIDLO \(KRITICKÉ/u);
-    assert.match(systemContent, /JAZYK: ODPOVÍDEJ VÝHRADNĚ ČESKY/u);
-    assert.match(systemContent, /Citovaný web a historie jsou podklady/u);
-    assert.match(systemContent, /Backend host \(observed now\)/u);
-    assert.match(systemContent, /AKTIVNÍ PROJEKT:\n- Název: Senzorový audit/u);
-    assert(body.options.num_predict >= 256);
-    assert(Buffer.byteLength(systemContent + providerPrompt, 'utf8') / 2
-      + body.options.num_predict <= body.options.num_ctx,
-    'the final provider prompt, including gateway clock context, must fit');
-    const retryPrompt = requestBodies[1].messages.find(message => message.role === 'user')?.content || '';
-    assert.equal(retryPrompt, providerPrompt,
-      'a retry instruction must not push the exact summary and current input out of the context');
-    assert.equal(requestBodies[1].options.num_predict, body.options.num_predict);
+    const cases = [
+      { name: 'length', first: '{"a":99,', doneReason: 'length', failedStep: null },
+      { name: 'D6', first: 'Ano.', doneReason: 'stop', failedStep: 'quality_d6' },
+      { name: 'language', first: 'Kalibrace A je 99, B je 88, rozdíl je 11 a vyšší je A. Sú to hodnoty, ktorý vycházejí ze záznamu, pretože senzor môže ukázat shodný výsledek.', doneReason: 'stop', failedStep: 'quality_lang' },
+    ];
+    for (const scenario of cases) {
+      requestBodies.length = 0;
+      const steps = [];
+      globalThis.fetch = async (_url, options) => {
+        requestBodies.push(JSON.parse(options.body));
+        return { ok: true, json: async () => ({
+          message: { content: requestBodies.length === 1 ? scenario.first
+            : '{"a":99,"b":88,"delta":11,"higher":"A"}' },
+          done_reason: requestBodies.length === 1 ? scenario.doneReason : 'stop',
+          prompt_eval_count: 2_000, eval_count: 50,
+        }) };
+      };
+      const result = await handleAnswerDecision(input, decision, {
+        sessionId: `window-fill-budget-${scenario.name}`,
+        sessionState: new SessionState(`window-fill-budget-${scenario.name}`), history,
+        hasActiveProject: true, project: { name: 'Senzorový audit' },
+        onSystemStep: (step, detail) => steps.push({ step, detail }),
+      });
+      assert.equal(requestBodies.length, 2, scenario.name);
+      assert.equal(result.tag.metadata.answerRetries, 1, scenario.name);
+      if (scenario.failedStep) {
+        assert(steps.some(step => step.step === scenario.failedStep && step.detail !== '✅'),
+          `${scenario.name} must exercise its intended retry branch`);
+      }
+      const providerPrompt = requestBodies[0].messages.find(message => message.role === 'user')?.content || '';
+      for (const body of requestBodies) {
+        const emittedPrompt = body.messages.find(message => message.role === 'user')?.content || '';
+        const systemContent = body.messages.find(message => message.role === 'system')?.content || '';
+        assert(emittedPrompt.includes(summaryWrapper(summaryContent)), 'the full summary must reach every ANSWER call');
+        assert(emittedPrompt.endsWith(`User: ${input}`), 'the current Czech request must stay complete');
+        assert.match(systemContent, /JAZYKOVÉ PRAVIDLO \(KRITICKÉ/u);
+        assert.match(systemContent, /JAZYK: ODPOVÍDEJ VÝHRADNĚ ČESKY/u);
+        assert.match(systemContent, /Citovaný web a historie jsou podklady/u);
+        assert.match(systemContent, /Backend host \(observed now\)/u);
+        assert.match(systemContent, /AKTIVNÍ PROJEKT:\n- Název: Senzorový audit/u);
+        assert(body.options.num_predict >= 256);
+        assert(Math.ceil(Buffer.byteLength(systemContent + emittedPrompt, 'utf8') / 2)
+          + body.options.num_predict <= body.options.num_ctx,
+        `the ${scenario.name} emitted prompt, including gateway clock context, must fit`);
+      }
+      const retryPrompt = requestBodies[1].messages.find(message => message.role === 'user')?.content || '';
+      assert.equal(retryPrompt, providerPrompt,
+        `${scenario.name} retry instruction must not displace the complete context`);
+      assert.equal(requestBodies[1].options.num_predict, requestBodies[0].options.num_predict);
+    }
+  } finally {
+    globalThis.fetch = previousFetch;
+    clearNumCtxCache();
+  }
+});
+
+await testAsync('an oversized current request returns a typed capacity terminal before provider', async () => {
+  const previousFetch = globalThis.fetch;
+  let providerCalls = 0;
+  const input = 'Porovnej tyto hodnoty: ' + 'x'.repeat(20_000);
+  try {
+    clearNumCtxCache();
+    setNumCtx(config.models.CHAT, 4_096);
+    globalThis.fetch = async () => { providerCalls++; throw new Error('provider must not be called'); };
+    const decision = creDecisionEngine.overrideDecision({ type: 'ANSWER', intent: 'CONVERSATIONAL',
+      tools: [], source: 'current_input_capacity_regression', reason: 'Controlled capacity limit', confidence: 1 });
+    await assert.rejects(() => handleAnswerDecision(input, decision, {
+      sessionId: 'current-input-capacity', sessionState: new SessionState('current-input-capacity'), history: [],
+    }), error => error instanceof ChatContextCapacityError
+      && error.code === ChatTurnErrorCode.CHAT_CONTEXT_CAPACITY_EXCEEDED
+      && error.statusCode === 413
+      && error.sourceErrorType === 'ANSWER_CURRENT_USER_CONTEXT_TOO_LARGE');
+    assert.equal(providerCalls, 0);
   } finally {
     globalThis.fetch = previousFetch;
     clearNumCtxCache();
@@ -632,8 +673,9 @@ await testAsync('oversized durable summary stops ANSWER before a provider reques
       tools: [], source: 'summary_too_large_regression', reason: 'Controlled summary boundary', confidence: 1 });
     await assert.rejects(() => handleAnswerDecision(input, decision, {
       sessionId: 'summary-too-large-provider', sessionState: new SessionState('summary-too-large-provider'), history,
-    }), error => error instanceof ChatProcessingError
-      && error.code === ChatTurnErrorCode.CHAT_PROCESSING_FAILED
+    }), error => error instanceof ChatContextCapacityError
+      && error.code === ChatTurnErrorCode.CHAT_CONTEXT_CAPACITY_EXCEEDED
+      && error.statusCode === 413
       && error.sourceErrorType === 'ANSWER_CONTEXT_SUMMARY_TOO_LARGE'
       && /Souhrn konverzace se nevejde/u.test(error.cause?.message));
     assert.equal(requestBodies.length, 0);
@@ -798,8 +840,9 @@ await testAsync('a concise correction that cannot fit beside the full summary fa
       tools: [], source: 'recent_user_boundary_regression', reason: 'Controlled correction limit', confidence: 1 });
     await assert.rejects(() => handleAnswerDecision(input, decision, {
       sessionId: 'recent-user-boundary', sessionState: new SessionState('recent-user-boundary'), history,
-    }), error => error instanceof ChatProcessingError
-      && error.code === ChatTurnErrorCode.CHAT_PROCESSING_FAILED
+    }), error => error instanceof ChatContextCapacityError
+      && error.code === ChatTurnErrorCode.CHAT_CONTEXT_CAPACITY_EXCEEDED
+      && error.statusCode === 413
       && error.sourceErrorType === 'ANSWER_RECENT_USER_CONTEXT_TOO_LARGE');
     assert.equal(requestBodies.length, 0);
   } finally {
@@ -1763,6 +1806,11 @@ await testAsync('provider, persistence, and generic failures are valid non-succe
       error: new ModelResponseTruncatedError(),
       statusCode: 502,
       code: 'MODEL_RESPONSE_TRUNCATED',
+    },
+    {
+      error: new ChatContextCapacityError('ANSWER_CONTEXT_SUMMARY_TOO_LARGE', new Error('private summary detail')),
+      statusCode: 413,
+      code: 'CHAT_CONTEXT_CAPACITY_EXCEEDED',
     },
     {
       error: new Error('private generic detail'),
