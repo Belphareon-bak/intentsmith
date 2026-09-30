@@ -1,5 +1,19 @@
 # WP — skutečné naplnění okna a auto-context v živém chatu
 
+**Integrační checkpoint 30. 9. 2026, 23:32 UTC (1. 10. v Praze):** omezený JSON kandidát
+`7234f55b` získal nezávislé `REVIEW_PASS`. Společný čistě pushnutý commit
+`d2591bc0` zachovává dříve přijaté přepočítání kontextu při `length` retry;
+nezávislé integrační review ověřilo na skutečném provider payloadu souhrn,
+novější uživatelskou opravu, celý aktuální dotaz, `format: 'json'` při obou
+voláních a pokles výstupního limitu 567 → 508 v okně 4096. Registrovaný M1
+kontrakt je **73/73 PASS**; sedm cílených sad společného commitu je **7/7 PASS**
+(`.intentsmith-artifacts/run-suites/2026-09-30T23-27-43-697Z/report.json`).
+Fyzický modelový běh sady 85 po této integraci je stále **LIVE_NOT_RUN**.
+Parser ověřuje tvar JSON objektu a vymezené hranice vloženého textu; věcnou
+správnost osmi odpovědí může potvrdit až živé orákulum. Níže uvedené
+`PENDING` u starších kandidátů jsou historické checkpointy, ne stav
+současného integrovaného zdroje.
+
 **Páté review a CRLF hranice (1. 10. 2026):** nezávislé review commitu
 `ce94f429` vrátilo **CHANGES_REQUIRED**. Skutečný provider-body test se
 zdrojovým nadpisem `Dokument:\r\n`, mezilehlým řádkem a citovaným závěrečným

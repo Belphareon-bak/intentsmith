@@ -1,4 +1,47 @@
-# IntentSmith — průběžné dokončování k 30. 9. 2026
+# IntentSmith — průběžné dokončování od 30. 9. 2026
+
+## Checkpoint 30. 9. 2026, 23:32 UTC (1. 10. v Praze)
+
+Integrační kandidát `d2591bc0` je čistě pushnutý. Oprava registrace nástrojů
+překladatele získala omezené nezávislé `REVIEW_PASS`, po sloučení prošly
+registrované sady překladatele, loaderu a provider capture **3/3**
+(`.intentsmith-artifacts/run-suites/2026-09-30T23-20-37-258Z/report.json`).
+Přísný JSON režim získal `REVIEW_PASS` na izolovaném `7234f55b`; společný
+merge zachoval přepočet promptu po `done_reason=length` a má samostatný
+nezávislý `REVIEW_PASS` na `d2591bc0`. Sedm registrovaných cílených sad
+včetně M1 kontraktu, hodnotové věrnosti, modelové hranice a M6 plánu prošlo
+**7/7** (`.intentsmith-artifacts/run-suites/2026-09-30T23-27-43-697Z/report.json`).
+Další produktové HTTP/SQLite scénáře pro projektovou expertizu, specialistu,
+ruční Project Health a automaticky plánovaný M3 worker prošly **4/4**
+(`.intentsmith-artifacts/run-suites/2026-09-30T23-29-19-317Z/report.json`).
+To je vývojový důkaz, nikoli Gate 0 ani živá modelová přejímka.
+
+Úplný audit před těmito integracemi na čistém `55d37eaa` skončil **384 PASS /
+3 FAIL / 13 BLOCKED**
+(`.intentsmith-artifacts/test-runs/2026-09-30T23-11-21-495Z/report.json`).
+Zastaralé literály M6 plánu 53/9 byly opraveny na skutečných 55/11 po
+registraci dalších dvou scénářů; registrovaný M6 test prošel **1/1** na
+`ede6a4f0`. Všech původně 13 blokovaných sad pak s přesně povolenými
+místními toolchainy prošlo ve dvou oddělených bězích **10/10** a **3/3**
+(`.intentsmith-artifacts/test-runs/2026-09-30T23-23-01-107Z/report.json`,
+`.intentsmith-artifacts/test-runs/2026-09-30T23-23-59-135Z/report.json`).
+Module ratchet na společném zdroji ohlásil dvě přesné nové vazby,
+`runner.js → schema.js` a `decisions.js → auth-types.js`, bez nového cyklu.
+Po omezených nezávislých revizích byl jejich přesný seznam přijat do baseline
+z připnutého `d2591bc0`; přímý test ratchetu prošel **13/13**. Registr
+současného kandidáta obsahuje **576** programů (`479 ACTIVE`, `82 BLOCKED`,
+`15 HISTORICAL`), fingerprint
+`d3c32dc80f2b1680439fea42c2f4f3be96447405ad119ca69408bb308d24432c`.
+Nový úplný audit po commitu baseline a aktualizaci dokumentace ještě chybí;
+zapečetěná Gate 0 politika registru dosud odmítá změněný fingerprint.
+
+Skutečný `qwen3.5:27b` průchod okna 4K, živý překlad a nový fyzický
+Electron/build na konečném SHA jsou **LIVE_NOT_RUN / NOT_RUN**. Kandidát stále
+není nasazený: běžící backend je `c84b88cd`, instalovaný frontend `fddfe996`.
+Integrační frontend zachovává schválenou paletu B, ale proti instalované verzi
+obsahuje čtyři změny zobrazení detailu měření modelů; starší historická věta
+o byte shodě proto neplatí pro dnešní HEAD. Mobilní M7 a redukce větví/worktree
+zůstávají v dohodnutém pořadí až za přejímkou IDE/backendu.
 
 ## Checkpoint 23:03 UTC
 
