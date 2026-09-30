@@ -1157,7 +1157,7 @@ function buildFailureFallback(input, decision, executionResult, context) {
 }
 
 /**
- * Handle ANSWER decision - only for pure CONVERSATIONAL intent
+ * Generate a read-only text answer. Project fallbacks can also enter here.
  */
 async function handleAnswerDecision(input, decision, context) {
   const { sessionId } = context;
@@ -1242,8 +1242,10 @@ Délku, strukturu a počet příkladů přizpůsob zadání. Přiznej nejistotu;
         signal: context.signal || null,
       });
 
-      if (decision.intent === IntentType.CONVERSATIONAL
-        && result.finishReason === 'length' && answerRetry < MAX_ANSWER_RETRIES) {
+      // This handler generates read-only text, including inline CODE and PLAN
+      // fallbacks. Retry a truncated answer within the original output budget
+      // before the finalizer rejects it. No tool runs inside this loop.
+      if (result.finishReason === 'length' && answerRetry < MAX_ANSWER_RETRIES) {
         logger.warn('ConversationHandler', 'Incomplete answer: retrying within the same output authority', { retry: answerRetry });
         currentPrompt = prompt + completionInstruction(answerContext.maxTokens, langCtx.language, true);
         answerRetry++;

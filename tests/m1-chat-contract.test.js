@@ -451,26 +451,28 @@ await testAsync('actual ANSWER continuation bypasses ambiguous classification an
   } finally {llmGateway.call=previousCall;creDecisionEngine.decide=previousDecide;}
 });
 
-await testAsync('truncated conversational output retries without raising authority and still fails closed after exhaustion', async () => {
+await testAsync('truncated conversational and CODE answers retry within authority and fail closed after exhaustion', async () => {
   const previousCall = llmGateway.call;
   const complete = 'Kontejner sdílí jádro hostitele. Kubernetes používá řídicí smyčku: porovnává požadovaný stav se skutečným a vytváří chybějící pody. Například Deployment se třemi replikami nahradí pod, který skončil. Dostupnost však závisí na kapacitě uzlů a správném nastavení aplikace.';
+  const completeCode = 'List comprehension vytvoří nový seznam z iterovatelného zdroje. Například `squares = [number * number for number in range(5)]` vrátí `[0, 1, 4, 9, 16]`. Volitelný filtr se píše za cyklus: `[number for number in range(5) if number % 2 == 0]` vrátí `[0, 2, 4]`.';
   try {
-    for (const recover of [true, false]) {
+    for (const intent of ['CONVERSATIONAL', 'CODE']) for (const recover of [true, false]) {
       const calls = []; const abort = new AbortController();
+      const expectedContent = intent === 'CODE' ? completeCode : complete;
       llmGateway.call = async (prompt, options) => {
         calls.push({ prompt, options });
-        return { content: recover && calls.length > 1 ? complete : 'Nedokončené vysvětlení, které',
+        return { content: recover && calls.length > 1 ? expectedContent : 'Nedokončené vysvětlení, které',
           model: 'controlled-chat', finishReason: recover && calls.length > 1 ? 'stop' : 'length' };
       };
-      const decision = creDecisionEngine.overrideDecision({ type: 'ANSWER', intent: 'CONVERSATIONAL',
+      const decision = creDecisionEngine.overrideDecision({ type: 'ANSWER', intent,
         tools: [], source: 'completion_regression', reason: 'Controlled incomplete generation', confidence: 1 });
-      const result = await handleAnswerDecision('co je docker?', decision,
+      const result = await handleAnswerDecision(intent === 'CODE' ? 'A co list comprehension?' : 'co je docker?', decision,
         { sessionId: 'completion-regression', sessionState: new SessionState('completion-regression'), history: [], signal: abort.signal });
       assert.equal(calls.length, recover ? 2 : 3);
       assert(calls.every(call => call.options._authToken.maxTokens === 1200 && call.options.signal === abort.signal));
       assert.match(calls[1].prompt, /technický limit/);
       assert.equal(result.tag.metadata.answerRetries, recover ? 1 : 2);
-      if (recover) { assert.equal(result.content, complete); assert.equal(result.tag.metadata.finishReason, 'stop'); }
+      if (recover) { assert.equal(result.content, expectedContent); assert.equal(result.tag.metadata.finishReason, 'stop'); }
       else {
         let writes = 0;
         await assert.rejects(() => finalize({ result, persistAssistantTurn: async () => { writes++; } }),

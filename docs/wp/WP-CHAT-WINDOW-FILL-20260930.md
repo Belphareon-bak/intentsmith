@@ -1,19 +1,22 @@
 # WP — skutečné naplnění okna a auto-context v živém chatu
 
-**Stav:** implementační kandidát; modelový běh `NOT RUN`, přejímka otevřená.
-Sada v registru nadále uvádí `BLOCKED`, `lastGreen=null`. Dokud nebude
-zkontrolovaná a integrovaná volba runneru `--capture-provider`, nelze tento
-scénář spustit průkazně.
+**Stav k 30. 9. 2026:** živý běh na `4a789bb1376504104698fe6f45f2f9e202000159`
+ověřil podscénář naplnění okna `PASS`, celá sada však skončila `FAIL` (3/4),
+protože jiný podscénář narazil na terminální HTTP 502 po neúplné CODE odpovědi.
+Soukromý report je `.intentsmith-artifacts/run-suites/2026-09-30T17-31-23-783Z/report.json`.
+Registr proto nadále nemá `lastGreen`; běh není release acceptance. Navazující
+opravu CODE odpovědi vlastní `WP-CHAT-ANSWER-TRUNCATION-20260930`.
 
 **Autorita:** explicitní zadání operátora z 2026-09-30 ověřit chat po
 naplnění kontextového okna a automatické zkrácení kontextu. Produktové chování
 plyne z existujícího auto-contextu; tento WP nepřidává novou politiku uchování.
 
-**Vstup:** ověřený `origin/main` `838b8cee038db027691072d293eb00153854f81e`.
-Vlastní branch `work/real-chat-journeys-20260930`; navazuje v čase na
-projektový test v témže checkoutu. Opravu počítání a promítání summary vlastní
-oddělená větev `work/intent-resilience-20260928` a výsledky se musí ověřit
-znovu až po integraci.
+**Vstup a integrace:** větev `work/real-chat-journeys-20260930` vznikla z
+`origin/main` `838b8cee038db027691072d293eb00153854f81e`. Opravy promítání
+summary a počítání krátké historie z větve `work/intent-resilience-20260928`
+jsou integrovány do kandidáta `4a789bb1`. Otevřená zůstává samostatná mezera
+asynchronní sumarizace krátkých zpráv popsaná v
+`WP-CHAT-SHORT-HISTORY-RETENTION-20260930`.
 
 **Výsledek pro uživatele:** při konverzaci, jejíž původní historie přesáhne
 skutečně odeslané `num_ctx` a jejíž efektivní historie s režijní rezervou
@@ -46,19 +49,17 @@ opakovat; model musí kód vrátit.
 Průběh, odpovědi, snapshot DB a délka se SHA256 úplného JSONL prefixu se uloží před
 odstraněním izolované konverzace do privátního artefaktu s právy `0600` i při
 selhání. Pozdější řádky background sumarizace zůstanou v surovém záznamu a
-runner musí ověřit beze změny právě uložený prefix. Provedení po integraci
-obou kandidátů:
+runner musí ověřit beze změny právě uložený prefix. Použitý příkaz:
 
 ```sh
 node scripts/run-suites.js --suite=IS-T3-E2E-85-LONG-SESSION-DEGRADATION --capture-provider --timeout-scale=2 --keep-run-root
 ```
 
 Před GPU během musí skončit cizí hodnocení a projít kontrola zámku, Ollamy,
-NVIDIA procesů a přesného modelového digestu. Capture runner je samostatný
-WP v `work/intent-resilience-20260928`; jeho izolovaný fake-upstream self-check
-nenahrazuje modelový běh. Test na starém backendu se nesmí vydávat za ověření
-nové opravy; po integraci je nutné zopakování na přesném SHA. Syntaktická,
-registry a fake-upstream kontrola znamenají pouze `NAPSÁNO`, ne modelový `PASS`.
+NVIDIA procesů a přesného modelového digestu. Capture runner je popsán v
+`WP-CHAT-PROVIDER-CAPTURE-20260930`; jeho izolovaný fake-upstream self-check
+nenahrazuje modelový běh. Po každé produktové opravě se živá sada opakuje na
+novém přesném SHA; offline kontroly nejsou modelový `PASS`.
 Všechny tahy sady nyní propagují časový limit testu do HTTP a čekání; interní
 deadline nastane 15 sekund před záložním limitem harnessu, aby po timeoutu
 nepokračoval předchozí modelový request souběžně s dalším testem. Zdvojený
