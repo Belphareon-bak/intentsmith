@@ -128,6 +128,34 @@ test('production acceptance rejects simulation provenance at every authority lay
   }finally{f.db.close();}
 });
 
+test('old accepted reviews stay historical when the grading contract changes on reusable capture',async()=>{
+  const f=fixture();try {
+    f.db.exec(`CREATE TABLE model_evaluation_decisions (decision_id TEXT PRIMARY KEY,
+      role TEXT, incumbent_run_id TEXT, candidate_run_id TEXT, policy_version TEXT,
+      policy_contract_sha256 TEXT, outcome TEXT, basis TEXT, details_json TEXT, created_at TEXT)`);
+    const source=f.collect(),oldGrader=f.store.record(f.grader()).id;
+    const oldSummary=await gradeAnswerCollection({plan:f.plan,collection:source,
+      graderAcceptanceId:oldGrader,judge:fakeJudge(f,oldGrader)});
+    persistGradedCollection({history:f.history,plan:f.plan,collection:source,summary:oldSummary});
+    const oldDetail=new ModelEvaluationReadModel(f.db,{plans:{D1:f.plan}}).readRun(source.runId);
+    assert.equal(oldDetail.tasks[0].details[0].graderReviews.length,1);
+
+    const driftPlan={...f.plan,suiteContractSha256:'f'.repeat(64),
+      acceptance:{...f.plan.acceptance,graders:[]}};
+    const historical=new ModelEvaluationReadModel(f.db,{plans:{D1:driftPlan}}).readRun(source.runId);
+    assert.equal(historical.status,'AWAITING_REVIEW');
+    assert.equal(historical.score,null);
+    assert.deepEqual(historical.tasks[0].details[0].graderReviews,[]);
+    const options=collectionGradingOptions(f.history,{D1:driftPlan},source.runId);
+    assert.deepEqual(options.reviewed,[]);
+    assert.deepEqual(options.graders,[]);
+    assert.equal(await gradeAcceptedCollection({history:f.history,plan:driftPlan,
+      runId:source.runId}),null);
+    assert.equal(f.db.prepare('SELECT count(*) AS n FROM model_evaluation_grader_reviews').get().n,1,
+      'the old append-only review must remain in history');
+  }finally{f.db.close();}
+});
+
 for(const role of ['D1','D2','CODE','R1','R2','CHAT','VISION']) test(`${role}: real plans require both reviewed stages, preserve pair and close on revocation`,()=>{
   const f=fixture(role);try {
     assert.equal(f.plan.decisionReady,false);
