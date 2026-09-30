@@ -1,5 +1,25 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 1. 10. 2026, 00:00 UTC
+
+Účetní `accountant-cz` má poprvé přesný test skutečné M1 HTTP/SQLite cesty
+pro výslovně daný základ 10 000 Kč, sazbu 21 % a rok 2025. Izolovaný
+kandidát `48364ff5` získal omezené `REVIEW_PASS` a byl sloučen jako
+`8e52c69a`. Red-first odhalil ztracený `specialistTool`/`extractedParams`
+v generativním wrapperu; další integrační aserce odhalila ztracený
+`executionStatus`. Po doplnění všech tří údajů prošel přímý produktový test
+**1/1**, M1 kontrakt **73/73**, překladatel **1/1** a specialistický
+followup **1/1**. Dokumentační validace je **160/160** po přepočtu LOC.
+Doplněk `executionStatus` čeká na novou nezávislou revizi a registrovaný
+čistý běh; fyzický účetní model je stále `LIVE_NOT_RUN`. Veřejný rozsah
+`extractedParams` se posoudí před mobilním kontraktem.
+
+Test druhé kompakce `95590541` má **CHANGES_REQUIRED**: první zelená zkouška
+nezaručila předání starší prose v souhrnu a nekontrolovala sumarizační
+provider požadavky na cizí projektová data. Oprava negativních orákul běží
+v izolované větvi. Worker crash/recovery `7373b44c` má red→green důkaz
+skutečné duplicitní notifikace a nyní čeká na nezávislé DB review.
+
 ## Checkpoint 30. 9. 2026, 23:55 UTC (1. 10. v Praze)
 
 Na čistém, vzdáleně ověřeném `c815ec435f69b4a52b30ab2f96da65136890d3c6`

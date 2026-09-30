@@ -64,6 +64,7 @@ function assertVatJourney(result, providerBody) {
   assert.equal(result.status, 'ok');
   const metadata = result.response?.metadata;
   assert.equal(metadata?.expertise?.id, 'accountant');
+  assert.equal(metadata?.executionStatus, 'SUCCESS');
   assert.equal(metadata?.specialistTool, 'accountant.vat_calculator');
   assert.deepEqual(metadata?.extractedParams, PARAMS);
   assert.equal(metadata?.toolResults?.length, 1);
@@ -139,6 +140,9 @@ test('selected accountant-cz calculates 2025 VAT through actual M1 HTTP and pers
   const wrongParams = structuredClone(result);
   wrongParams.response.metadata.extractedParams.rate = '12';
   assert.throws(() => assertVatJourney(wrongParams, provider.requests[0]));
+  const missingStatus = structuredClone(result);
+  delete missingStatus.response.metadata.executionStatus;
+  assert.throws(() => assertVatJourney(missingStatus, provider.requests[0]));
   const missingTool = structuredClone(provider.requests[0]);
   missingTool.messages.at(-1).content = INPUT;
   assert.throws(() => assertVatJourney(result, missingTool));

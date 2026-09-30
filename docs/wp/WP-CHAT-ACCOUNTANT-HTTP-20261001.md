@@ -1,6 +1,18 @@
 # WP — účetní DPH přes skutečný M1 HTTP chat
 
-**Stav 1. 10. 2026:** izolovaný implementační kandidát, **REVIEW_PENDING**.
+**Integrační checkpoint 1. 10. 2026, 00:00 UTC:** izolovaný kandidát
+`48364ff5` získal omezené nezávislé `REVIEW_PASS` a byl sloučen jako
+`8e52c69a`. Integrační kontrola doplnila další ztracený údaj téže hranice,
+`executionStatus: SUCCESS`, a negativní mutaci jeho absence. Před opravou
+nová aserce skončila **0/1**, po ní prošel skutečný HTTP/SQLite test **1/1**;
+M1 kontrakt **73/73**, překladatel **1/1**, specialistický followup **1/1**
+a dokumentační validace **160/160**. Přesný nový integrační commit a
+nezávislá revize doplňku `executionStatus` ještě čekají. Generický
+`extractedParams` zvětšuje veřejná metadata i pro jiné specialistické
+nástroje; před mobilním kontraktem je třeba rozhodnout o allowlistu či redakci.
+Fyzický účetní modelový výpočet zatím **LIVE_NOT_RUN**.
+
+**Historický stav izolovaného kandidáta:** **REVIEW_PENDING**.
 Deterministický řízený provider běh prošel 1/1; fyzický model, UI a release
 nejsou tím ověřené.
 

@@ -593,6 +593,7 @@ Based on these results, provide your expert analysis and response.`;
         expertiseSource: context.expertise?._source || 'manual', // v87
         expertise: { id: expertise.id, name: expertise.name, domain: expertise.domain },
         toolResults: toolResult.tag?.metadata?.toolResults,
+        executionStatus: toolResult.tag?.metadata?.executionStatus,
         specialistTool: toolResult.tag?.metadata?.specialistTool,
         extractedParams: toolResult.tag?.metadata?.extractedParams,
         model: result.model,
