@@ -1,5 +1,35 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 30. 9. 2026, 23:42 UTC (1. 10. v Praze)
+
+Úplný offline/databázový audit na čistém `63dc55fb` doběhl s výsledkem
+**398 PASS / 2 FAIL / 0 BLOCKED / 0 TIMEOUT**
+(`.intentsmith-artifacts/test-runs/2026-09-30T23-33-20-098Z/report.json`).
+Původně blokované toolchain sady v něm již prošly. Jeden FAIL je zastaralý
+aktuální počet hran v `ROADMAP.md`: přesná přijatá baseline má **1 462**,
+zatímco dokument psal 1 460. Opravený údaj prošel přímým
+`artifact-validation` **160/160**. Druhý FAIL, `nightly-orchestrator-self-test`,
+je nesoulad nového fingerprintu registru se zapečetěnou Gate 0 politikou;
+nesmí se označit za PASS ani obejít běžnou úpravou testu. Gate 0 vyžaduje
+samostatný release Work Package a nezávislou přejímku.
+
+Read-only kontrola Huntu v 23:35 UTC nad instalovanou DB stále hlásí
+**84/84 použitelných model–role dvojic MISSING**, 0 aktuálně přijatých
+rozhodnutí a všech sedm vazeb `UNVERIFIED_RUNTIME`. Soukromý druhý posudek
+obsahuje **596/1 173** odpovědí a **2 324/3 689** kritérií; lokální evaluator
+neběží, případný vzdálený běh dosud není doložen. Instalovaná DB má migraci
+120, ale postrádá schémata/stamps 118 a 119. Bezpečná kopie DB prošla
+aplikací právě těchto dvou migrací, kontrolou integrity a cizích klíčů i
+idempotentním opakováním; produkční DB zůstala beze změny. Vázání rolí a
+aktivace modelů z této částečné matice nejsou oprávněné.
+
+Pořadí dalších průchodů: živý test 85 na čistém integrovaném SHA; pak
+překladatel a projektová expertiza s fyzickým modelem; řízený pád workeru,
+druhá kompakce přes restart a chybějící doménové chatové scénáře; aktuální
+produkční build a Electron; teprve po stabilizaci IDE/backendu mobilní M7.
+Redukce větví a worktree zůstává posledním krokem po auditu jejich vlastníků
+a dosažitelnosti důkazů.
+
 ## Checkpoint 30. 9. 2026, 23:32 UTC (1. 10. v Praze)
 
 Integrační kandidát `d2591bc0` je čistě pushnutý. Oprava registrace nástrojů
