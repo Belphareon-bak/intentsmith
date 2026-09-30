@@ -12,6 +12,21 @@ prošla sada také `4/4`, provider capture `PASS` a GPU lease se uvolnil;
 report je `.intentsmith-artifacts/run-suites/2026-09-30T18-51-43-442Z/report.json`.
 Registr nadále nemá `lastGreen`; běhový režim není release Gate 0.
 
+**Aktuální checkpoint po živém běhu `c25174a4` (30. 9. 2026):** celá sada
+skončila **3/4 PASS, 1 FAIL**, provider capture **FAIL** a její window-fill
+podscénář **FAIL**. Syrová historie dosáhla 4579 odhadovaných tokenů při
+`num_ctx=4096`; první souhrn v tahu 6 snížil stejný snapshot o 446 tokenů.
+Souhrn i poslední provider prompt obsahovaly `RIGEL_KAPPA_731`, ale model
+odpověděl dlouhým odmítnutím a nesplnil požadavek „pouze kódem“.
+Cyklus skončil po sedmi aritmetických odpovědích; ve čtvrté uvedl hodnoty
+66 a 55, přesto označil 55 za vyšší a neuvedl správný rozdíl 11.
+Jde o **mechanismus doložený jen po dílčích kontrolách, věcnou kvalitu FAIL**,
+nikoli o přejímku chatu. Důkaz je v soukromém
+`.intentsmith-artifacts/run-suites/2026-09-30T20-42-23-470Z/`.
+Izolovaný kandidát na této větvi vyžaduje osm dokončených kol, přesný
+aritmetický výsledek každého z nich a oddělené technické a věcné verdikty;
+jeho nový živý běh je **LIVE_NOT_RUN / REVIEW_PENDING**.
+
 **Autorita:** explicitní zadání operátora z 2026-09-30 ověřit chat po
 naplnění kontextového okna a automatické zkrácení kontextu. Produktové chování
 plyne z existujícího auto-contextu; tento WP nepřidává novou politiku uchování.
@@ -31,11 +46,15 @@ zkrácení kontextu.
 Starší historie musí být shrnuta a efektivní počet tokenů klesnout. Celý
 původní dialog zůstane persistovaný.
 
-**Rozsah a vlastnictví:** pouze `tests/e2e/85-long-session-degradation.e2e.js`
-a tento WP. Neměnit modelový profil, produkční data, bindings ani cizí GPU práci.
+**Rozsah a vlastnictví:** původní scénář vlastnil
+`tests/e2e/85-long-session-degradation.e2e.js` a tento WP. Navazující
+orákulum přidává testovou faktovou sadu v `scripts/chat85-window-values.js`,
+kontrolu attestace v `scripts/provider-capture.js` a její offline test v
+`tests/provider-capture-proxy.test.js`. Neměnit modelový profil, produkční
+data, bindings ani cizí GPU práci.
 
 **Demonstrace a test:** existující registrovaná modelová sada
-`IS-T3-E2E-85-LONG-SESSION-DEGRADATION` pošle přes skutečné HTTP až osm
+`IS-T3-E2E-85-LONG-SESSION-DEGRADATION` pošle přes skutečné HTTP přesně osm
 obsahově různých delších tahů a případně devátý po cooldownu. Předem známý
 auditní kód je pouze v prvním tahu. Opt-in runner zachytí skutečné požadavky
 a terminální odpovědi `/api/chat` v soukromém JSONL artefaktu. Test porovná
@@ -53,6 +72,19 @@ metadata musí potvrdit stejný model, `num_ctx` i skutečný výstupní limit
 prompt musí obsahovat summary i kód, avšak původní první zpráva a její
 nesouhrnný prostřední řádek už v něm nesmějí být. Závěrečná otázka kód nesmí
 opakovat; model musí odpovědět přesně samotným kódem, jak uživatel požádal.
+Osm aritmetických otázek nově žádá jediný JSON objekt se skutečnými
+kalibracemi `a`, `b`, podepsaným rozdílem `delta=a−b` a směrem `higher`.
+Pevné očekávané dvojice jsou 73/62, 33/22, 106/95, 66/55, 26/15, 99/88,
+59/48 a 19/8; pro všechny platí rozdíl +11 a vyšší první položka.
+Test kontroluje přesné hodnoty a formát každého tahu včetně případného
+devátého retry, pokračuje i po jednotlivé špatné odpovědi a do artefaktu
+ukládá `mechanismStatus` odděleně
+od `arithmeticQuality`. Celkový `PASS` vyžaduje obojí. Attestace ověřuje
+všech osm odpovědí proti zachyceným provider voláním. Osm kladných případů
+neprokazuje správnost záporného nebo nulového rozdílu; ty mají samostatnou
+opt-in sadu `tests/chat-value-fidelity-live.test.js`. Volný text souhrnu
+zůstává věcně nehodnocený mimo kritický kód; test ověřuje dokončený provider
+výstup, uložený text, pokrytí první zprávy a dostupnost kódu po kompakci.
 Průběh, odpovědi, snapshot DB a délka se SHA256 úplného JSONL prefixu se uloží před
 odstraněním izolované konverzace do privátního artefaktu s právy `0600` i při
 selhání. Pozdější řádky background sumarizace zůstanou v surovém záznamu a

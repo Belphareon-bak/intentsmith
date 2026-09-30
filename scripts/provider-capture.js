@@ -8,6 +8,7 @@ import http from 'node:http';
 import path from 'node:path';
 
 import { assessScheduledEvaluationReadiness } from '../src/upgrade/gpu-evaluation-lock.js';
+import { windowFillMessage } from './chat85-window-values.js';
 
 export const CAPTURE_SUITE_ID = 'IS-T3-E2E-85-LONG-SESSION-DEGRADATION';
 export const CAPTURE_MODEL = 'qwen3.5:27b';
@@ -235,6 +236,11 @@ export function attestWindowFillEvidence({ evidenceFile, captureFile, sourceRevi
   const evidenceBytes = readFileSync(evidenceFile);
   const evidence = JSON.parse(evidenceBytes.toString('utf8'));
   assert.equal(evidence?.status, 'PASS', 'window-fill evidence did not pass');
+  assert.equal(evidence.mechanismStatus, 'PASS', 'window-fill mechanism did not pass');
+  assert.equal(evidence.arithmeticQuality?.status, 'PASS', 'window-fill arithmetic quality did not pass');
+  assert.equal(evidence.arithmeticQuality.expectedTurns, 8);
+  assert.equal(evidence.arithmeticQuality.checkedTurns, 8);
+  assert.deepEqual(evidence.arithmeticQuality.failedTurns, []);
   assert.equal(evidence.sourceRevision, sourceRevision, 'window-fill source revision mismatch');
   assert.ok(Number.isSafeInteger(evidence.providerCaptureBytes)
     && evidence.providerCaptureBytes > 0
@@ -244,8 +250,8 @@ export function attestWindowFillEvidence({ evidenceFile, captureFile, sourceRevi
   assert.equal(observedBytes.at(-1), 10, 'window-fill capture prefix is not newline terminated');
   assert.equal(captureBytes.at(-1), 10, 'window-fill capture is not newline terminated');
   assert.equal(evidence.providerCaptureSha256, SHA256(observedBytes), 'window-fill capture digest mismatch');
-  assert.ok(Array.isArray(evidence.turns) && evidence.turns.length > 0,
-    'window-fill turn evidence missing');
+  assert.ok(Array.isArray(evidence.turns) && evidence.turns.length === 8,
+    'window-fill requires eight quality-checked turns');
   assert.ok(typeof evidence.summary?.text === 'string' && evidence.summary.text.length > 0,
     'window-fill summary evidence missing');
   const final = evidence.final;
@@ -255,6 +261,8 @@ export function attestWindowFillEvidence({ evidenceFile, captureFile, sourceRevi
   assert.equal(final.rawFirstMidLinePresent, false, 'raw first message fragment remains in final prompt');
   assert.equal(final.answerMatchesRequestedFormat, true,
     'window-fill final answer did not follow the requested code-only format');
+  assert.equal(final.answer?.trim(), 'RIGEL_KAPPA_731',
+    'window-fill final answer is not the code alone');
   assert.ok(typeof final.question === 'string' && final.question.length > 0,
     'window-fill final question missing');
   const rows = captureBytes.toString('utf8').trim().split('\n').map(line => JSON.parse(line));
@@ -283,6 +291,44 @@ export function attestWindowFillEvidence({ evidenceFile, captureFile, sourceRevi
     assert.match(row.requestSha256, /^[a-f0-9]{64}$/, 'invalid provider request digest');
     assert.match(row.responseSha256, /^[a-f0-9]{64}$/, 'invalid provider response digest');
     assert.ok(Array.isArray(row.messages), 'provider prompt messages missing');
+  }
+  const expectedPairs = [[73, 62], [33, 22], [106, 95], [66, 55],
+    [26, 15], [99, 88], [59, 48], [19, 8], [92, 81]];
+  const checkedTurns = [...evidence.turns, ...(evidence.retry ? [evidence.retry] : [])];
+  for (const [index, turn] of checkedTurns.entries()) {
+    const [a, b] = expectedPairs[index];
+    const expected = { a, b, delta: a - b, higher: 'A' };
+    assert.equal(turn.turn, index + 1, 'window-fill turn order changed');
+    assert.equal(turn.qualityStatus, 'PASS', `window-fill turn ${index + 1} failed arithmetic quality`);
+    assert.equal(turn.qualityError, null);
+    assert.deepEqual(turn.expected, expected, 'window-fill expected values changed');
+    assert.equal(turn.question, windowFillMessage(index + 1),
+      `window-fill turn ${index + 1} source question changed`);
+    assert.equal(typeof turn.answer, 'string');
+    const answer = turn.answer.trim();
+    assert.ok(answer.startsWith('{') && answer.endsWith('}'),
+      `window-fill turn ${index + 1} must be one JSON object`);
+    assert.equal([...answer.matchAll(/"(?:\\.|[^"\\])*"\s*:/gu)].length, 4,
+      `window-fill turn ${index + 1} must have four unique members`);
+    const parsed = JSON.parse(answer);
+    assert.deepEqual(Object.keys(parsed).sort(), ['a', 'b', 'delta', 'higher']);
+    for (const key of ['a', 'b', 'delta']) assert.ok(Number.isSafeInteger(parsed[key]));
+    assert.deepEqual(parsed, expected,
+      `window-fill turn ${index + 1} answered with wrong values`);
+    const linked = observedRows.filter(row => row.requestSha256 === turn.requestSha256
+      && row.responseSha256 === turn.responseSha256);
+    assert.equal(linked.length, 1, `window-fill turn ${index + 1} has no unique provider call`);
+    const row = linked[0];
+    assert.equal(row.model, turn.model);
+    assert.equal(row.numCtx, turn.numCtx);
+    assert.equal(row.numPredict, turn.numPredict);
+    assert.equal(row.promptEvalCount, turn.promptEvalCount);
+    assert.ok(row.messages.map(message => String(message.content || '')).join('\n')
+      .includes(`User: ${turn.question}`), `window-fill turn ${index + 1} question absent from provider prompt`);
+    const providerAnswer = [row.terminal?.message?.content, row.terminal?.response]
+      .find(content => typeof content === 'string' && content.trim().length > 0);
+    assert.equal(turn.answer, providerAnswer,
+      `window-fill turn ${index + 1} answer differs from provider`);
   }
   const matches = observedRows.filter(row => row.requestSha256 === final.requestSha256
     && row.responseSha256 === final.responseSha256);
