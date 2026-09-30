@@ -38,6 +38,37 @@ import db from './db/database.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const legacyLocalCapability = createLegacyLocalCapability();
+
+function isolatedTestAgentExtensionsDir() {
+  const requested = process.env.INTENTSMITH_TEST_AGENT_EXTENSIONS_DIR;
+  if (!requested) return undefined;
+  const artifactDir = process.env.INTENTSMITH_TEST_ARTIFACT_DIR;
+  const nonce = process.env.INTENTSMITH_TEST_SERVER_NONCE;
+  if (process.env.CI !== '1' || !/^[A-Za-z0-9_-]{43}$/.test(nonce || '')
+    || !artifactDir || !path.isAbsolute(artifactDir) || !path.isAbsolute(requested)) {
+    throw new Error('M3 test extension directory requires an isolated test runtime');
+  }
+  const artifactStat = fs.lstatSync(artifactDir);
+  const requestedStat = fs.lstatSync(requested);
+  const currentUid = typeof process.getuid === 'function' ? process.getuid() : null;
+  if (!artifactStat.isDirectory() || artifactStat.isSymbolicLink()
+    || !requestedStat.isDirectory() || requestedStat.isSymbolicLink()
+    || (currentUid !== null && (artifactStat.uid !== currentUid || requestedStat.uid !== currentUid))
+    || (process.platform !== 'win32'
+      && ((artifactStat.mode | requestedStat.mode) & 0o077) !== 0)) {
+    throw new Error('M3 test extension directory must be private and owned');
+  }
+  const root = fs.realpathSync(artifactDir);
+  const directory = fs.realpathSync(requested);
+  const relative = path.relative(root, directory);
+  if (!root.split(path.sep).includes('.intentsmith-artifacts')
+    || !relative || relative === '..' || relative.startsWith(`..${path.sep}`)
+    || path.isAbsolute(relative)) {
+    throw new Error('M3 test extension directory must be inside test artifacts');
+  }
+  return directory;
+}
+
 let metricsCollector = null;
 const productionObservability = createProductionObservability({ logger });
 const conditionalSurfaces = resolveM5ConditionalSurfaces({ config });
@@ -701,6 +732,7 @@ if (AgentRepository) {
   const agentProjectContextBridge = createAgentProjectContextBridge({ projects: db.projects });
   agentExtensionService = new AgentExtensionService({
     repository: agentRepository,
+    extensionsDir: isolatedTestAgentExtensionsDir(),
     hostCapabilities: {
       [agentProjectContextCapabilityId]: agentProjectContextBridge.capability,
     },
