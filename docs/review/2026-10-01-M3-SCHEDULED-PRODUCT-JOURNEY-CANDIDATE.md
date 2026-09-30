@@ -1,6 +1,8 @@
 # M3 plánovaný worker v produktovém procesu
 
-**Stav:** opravený kandidát k opakovanému nezávislému review. Žádný release PASS.
+**Stav:** review na `43cb7760` přijalo produktovou a bezpečnostní část;
+celkové `CHANGES_REQUIRED` se týkalo zastaralého censu v `SYSTEM-MAP.md`.
+Dokumentační oprava čeká na opakované review. Žádný release PASS.
 
 ## Co scénář ověřuje
 
@@ -35,16 +37,19 @@ nikoli jeden společný produkční end-to-end scénář.
 
 Regresní test před opravou na `fbab22818f66f3006a1d94c4d02384d005b875f5`
 selhal na `Missing expected rejection`: produkční server přijímal
-testovací extension root. Po opravě na čistém zdrojovém commitu
+testovací extension root. Po opravě na zdrojovém commitu
 `d4be0ac1987bf3a433f7c63b22581f43df94100c` prošly 3/3 registrované
 sady (`IS-T1-TESTS-SCHEDULER-TEST` a obě výše uvedené M3 sady).
-Report: `.intentsmith-artifacts/run-suites/2026-09-30T22-54-37-558Z/report.json`.
-V jeho artefaktu `artifacts/m3-agent-scheduled-product-journey.json` jsou
+Stejný výsledek má čistý HEAD `43cb776016cef19951f782affad8666b4efef390`:
+[lokální report](../../.intentsmith-artifacts/run-suites/2026-09-30T22-56-14-308Z/report.json)
+se `sourceRevision=43cb776016cef19951f782affad8666b4efef390`.
+Report je testovací artefakt mimo git. V jeho souboru
+`artifacts/m3-agent-scheduled-product-journey.json` jsou
 `baselineRunId=1`, `changedRunId=2`, `notificationId=1`, `untrustedRunCount=0`,
 `providerModelCalls=0` a `productionOverrideRejected=true`. Jde o běhový
 report mimo Gate 0; registr ani `lastGreen` se tím nemění. Původní review
-`fbab228` skončilo `CHANGES_REQUIRED`; opravený kandidát dosud nemá
-nezávislé schválení.
+`fbab228` skončilo `CHANGES_REQUIRED`; review `43cb7760` schválilo produktovou
+a bezpečnostní část, ale vyžádalo tuto dokumentační opravu.
 
 Pět minut je řízeně simulováno **jen v testovací DB** posunem uloženého
 `_last_run` při zastaveném produktu. Test neměří skutečné pětiminutové
