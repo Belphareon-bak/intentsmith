@@ -1,11 +1,24 @@
 # WP — skutečné naplnění okna a auto-context v živém chatu
 
+**Páté review a CRLF hranice (1. 10. 2026):** nezávislé review commitu
+`ce94f429` vrátilo **CHANGES_REQUIRED**. Skutečný provider-body test se
+zdrojovým nadpisem `Dokument:\r\n`, mezilehlým řádkem a citovaným závěrečným
+JSON příkazem i test s otevřeným `` ```text `` blokem při CRLF chybně
+aktivovaly `format: 'json'`. Před opravou: **70 PASS / 2 FAIL**. Nový
+kandidát normalizuje CRLF a samostatné CR na LF pouze v lokální kopii pro
+detekci formátu; původní uživatelský text včetně CRLF zůstává v provider promptu.
+Negativní testy a pozitivní test uzavřeného CRLF dokumentu ověřují skutečné
+provider body a zachování celého `User: ${input}`. M1 kontrakt po opravě:
+**72/72 PASS**. Nezávislé opakované review, integrace a živý modelový běh
+jsou **PENDING**. Parser nadále rozpoznává jen vymezenou textovou syntaxi;
+obecně spolehlivý formát požaduje strukturovanou autoritu aktuálního tahu.
+
 **Čtvrté review a omezený parser hranic (1. 10. 2026):** review
 `c8ea0597` vrátilo **CHANGES_REQUIRED**: čtyřmi mezerami odsazený Markdown
 kód se mohl stát JSON pokynem; řádek `Konec citace je jen nadpis v dokumentu.`
 neprávem zavřel vložený dokument; naopak `Porovnej hodnoty:` zablokovalo
 skutečný následný JSON požadavek. Všechny tři provider-body regrese byly
-nejprve červené (`64 PASS / 3 FAIL`). Aktuální kandidát rozlišuje explicitní
+nejprve červené (`64 PASS / 3 FAIL`). Kandidát `ce94f429` rozlišuje explicitní
 nadpis zdroje, úzce vymezený imperativní nadpis číselného úkolu a nejednoznačný
 nadpis, který fail-closed ponechá daty; kontroluje otevřené i odsazené Markdown
 bloky a uzavírá jen celý odpovídající marker nebo celou výslovnou větu o

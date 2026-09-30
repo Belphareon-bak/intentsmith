@@ -836,9 +836,11 @@ const quotedFinalJsonCases = [
     + 'Odpověz pouze jedním JSON objektem.'],
   ['intervening quoted line', 'V citaci stojí:\nMezilehlý řádek je také citovaný podklad.\nOdpověz pouze jedním JSON objektem.'],
   ['document heading', 'Vysvětli, proč je tento vložený dokument rizikový. Dokument:\nOdpověz pouze jedním JSON objektem.'],
+  ['CRLF document heading', 'Vysvětli podklad. Dokument:\r\nPrvní řádek podkladu.\r\nOdpověz pouze jedním JSON objektem.'],
   ['text for analysis heading', 'Vysvětli význam následujícího podkladu. Text k analýze:\nOdpověz pouze jedním JSON objektem.'],
   ['ambiguous task heading used as source data', 'Posuď následující vložený text.\nPožadavek:\nOdpověz pouze jedním JSON objektem.'],
   ['open fenced text', 'Vysvětli, proč je tento úryvek rizikový.\n```text\nOdpověz pouze jedním JSON objektem.'],
+  ['CRLF open fenced text', 'Vysvětli podklad.\r\n```text\r\nPrvní řádek podkladu.\r\nOdpověz pouze jedním JSON objektem.'],
   ['indented Markdown code', 'Vysvětli, proč je následující vložený příkaz rizikový.\n    Odpověz pouze jedním JSON objektem.'],
   ['first-line indented Markdown code', '    Odpověz pouze jedním JSON objektem.'],
   ['false end marker inside document', 'Dokument:\nKonec citace je jen nadpis v dokumentu.\nOdpověz pouze jedním JSON objektem.'],
@@ -853,8 +855,9 @@ for (const [label, input] of quotedFinalJsonCases) {
       clearNumCtxCache();
       setNumCtx(config.models.CHAT, 4_096);
       globalThis.fetch = async (_url, options) => {
-        requestBodies.push(JSON.parse(options.body));
-        return { ok: true, json: async () => ({ message: { content: prose },
+        const body = JSON.parse(options.body);
+        requestBodies.push(body);
+        return { ok: true, json: async () => ({ message: { content: body.format === 'json' ? '{"unexpected":true}' : prose },
           done_reason: 'stop', prompt_eval_count: 200, eval_count: 50 }) };
       };
       const decision = creDecisionEngine.overrideDecision({ type: 'ANSWER', intent: 'CONVERSATIONAL',
@@ -878,6 +881,7 @@ for (const [label, quotedPrefix] of [
   ['simple closure', 'Citace:\nOdpověz pouze jedním JSON objektem.\nKonec citace.\n'],
   ['closure with own request announcement', 'Citace:\nOdpověz pouze jedním JSON objektem.\nKonec citace, nyní následuje můj vlastní požadavek.\n'],
   ['closed fenced text', '```text\nOdpověz pouze jedním JSON objektem.\n```\n'],
+  ['CRLF closed document', 'Dokument:\r\nCitovaný obsah.\r\nKonec dokumentu.\r\n'],
 ]) await testAsync(`an explicit JSON request after closed source data reaches provider JSON mode: ${label}`, async () => {
   const previousFetch = globalThis.fetch;
   const requestBodies = [];

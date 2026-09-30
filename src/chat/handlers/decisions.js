@@ -78,7 +78,8 @@ export function isAnswerExpansion(input) {
 // select provider JSON mode. This handles a bounded set of text boundaries;
 // ambiguous headings and Markdown code stay source data.
 function requestsBareJsonObject(input) {
-  const currentUser = typeof input === 'string' ? input.trimEnd() : '';
+  // Normalize only this inspection copy; the original user text reaches the provider unchanged.
+  const currentUser = typeof input === 'string' ? input.replace(/\r\n?/gu, '\n').trimEnd() : '';
   const withoutFinalPunctuation = currentUser.replace(/[.!?]\s*$/u, '');
   const finalLine = withoutFinalPunctuation.slice(withoutFinalPunctuation.lastIndexOf('\n') + 1);
   if (/^(?: {4,}|\t)/u.test(finalLine)) return false;
