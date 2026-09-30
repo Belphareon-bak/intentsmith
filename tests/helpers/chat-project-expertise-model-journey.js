@@ -61,11 +61,16 @@ export function productEnvironment(runtime, providerUrl, model, nonce) {
   };
 }
 
-export async function startProduct(runtime, providerUrl, model) {
+export async function startProduct(runtime, providerUrl, model,
+  { enableAgents = false, productionAdminToken = null } = {}) {
   const nonce = randomBytes(32).toString('base64url');
   if (existsSync(runtime.portFile)) unlinkSync(runtime.portFile);
   const child = spawn(process.execPath, ['src/server.js'], {
-    cwd: runtime.repositoryRoot, env: productEnvironment(runtime, providerUrl, model, nonce),
+    cwd: runtime.repositoryRoot,
+    env: { ...productEnvironment(runtime, providerUrl, model, nonce),
+      ...(enableAgents ? { INTENTSMITH_ENABLE_AGENTS: 'true' } : {}),
+      ...(productionAdminToken ? { NODE_ENV: 'production',
+        INTENTSMITH_ADMIN_TOKEN: productionAdminToken } : {}) },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   children.add(child);

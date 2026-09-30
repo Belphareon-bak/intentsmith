@@ -1,7 +1,9 @@
 # WP — produkční worker: trvalý HTTP průchod
 
 **Stav:** implementační kandidát s omezeným nezávislým `REVIEW_PASS` a
-integrovaným HTTP/SQLite během **6/6**. Širší provozní přejímka zůstává otevřená.
+integrovaným HTTP/SQLite během **6/6**. Nový samostatný kandidát testuje i
+skutečný `src/server.js` v produkčním autentizačním režimu; jeho nezávislé
+review a integrační přejímka ještě chybějí. Širší provozní přejímka zůstává otevřená.
 
 **Autorita:** výslovné zadání operátora z 2026-09-30 ověřit skutečné průchody
 chatem, specialisty, expertizami a workery. Tento ohraničený přírůstek patří
@@ -50,6 +52,22 @@ sekundou. Integrovaný commit `0939a564` byl na společném zdroji znovu ověře
 HTTP scénáře **6/6**, runner **22/22**, Project Health **10/10**. Registry
 `lastGreen` zůstává `null`: lokální běh není přejímka z čerstvého klonu.
 
-**Další důkaz:** plný `src/server.js` HTTP vstup s autentizací a skutečným M2
-providerem, provozní interval/cron worker a restart uprostřed rozpracovaného
-běhu. Live model ani dlouhodobý soak tento WP neověřuje.
+## Navazující plný serverový kandidát
+
+`tests/m3-agent-product-http-journey.test.js` spouští skutečný produktový
+`src/server.js` nad vlastní DB, projektem, lokálním providerem a náhodným
+admin tokenem s `NODE_ENV=production`. Neautentizovaný přístup ke katalogu
+extension je odmítnutý, vlastněná lokální capability dovolí discovery,
+preview, instalaci a ruční spuštění Project Health. Test ověří disabled stav,
+výchozí baseline, opakovaný běh bez triggeru a zachování baseline i trusted
+extension vazby po ukončení a opětovném spuštění produktu. Tripwire provider
+potvrzuje nulové modelové volání. Přímý i registrovaný běh na Node 24 prošel
+**1/1**; registrovaný report je
+`.intentsmith-artifacts/run-suites/2026-09-30T20-37-57-580Z/report.json`
+a výslovně není Gate 0 evidence. Nezávislé review se teprve provede.
+
+**Další důkaz:** změna zdroje a notifikace přes plný serverový vstup se
+skutečným M2 providerem, provozní interval/cron worker a restart uprostřed
+rozpracovaného běhu. Současný nový test ověřuje vlastní serverový vstup, ale
+zbytek těchto bodů nepovyšuje na PASS. Live model ani dlouhodobý soak tento WP
+neověřuje.
