@@ -4,6 +4,7 @@ import { AbortSource, createAbortError } from './abort-error.js';
 export const ChatTurnErrorCode = Object.freeze({
   LLM_PROVIDER_UNAVAILABLE: 'LLM_PROVIDER_UNAVAILABLE',
   CHAT_PROCESSING_FAILED: 'CHAT_PROCESSING_FAILED',
+  CHAT_CONTEXT_CAPACITY_EXCEEDED: 'CHAT_CONTEXT_CAPACITY_EXCEEDED',
   CHAT_PERSISTENCE_FAILED: 'CHAT_PERSISTENCE_FAILED',
   MODEL_RESPONSE_TRUNCATED: 'MODEL_RESPONSE_TRUNCATED',
   M2_EFFECT_AUTHORITY_REQUIRED: 'M2_EFFECT_AUTHORITY_REQUIRED',
@@ -12,6 +13,7 @@ export const ChatTurnErrorCode = Object.freeze({
 export const ChatTurnErrorMessage = Object.freeze({
   LLM_PROVIDER_UNAVAILABLE: 'Model provider is temporarily unavailable.',
   CHAT_PROCESSING_FAILED: 'Chat processing failed.',
+  CHAT_CONTEXT_CAPACITY_EXCEEDED: 'Conversation context exceeds this model window. Shorten the request or start a new conversation.',
   CHAT_PERSISTENCE_FAILED: 'Chat response could not be persisted.',
   MODEL_RESPONSE_TRUNCATED: 'Model response was incomplete and was not saved.',
   M2_EFFECT_AUTHORITY_REQUIRED: 'This write requires M2 effect authority.',
@@ -64,6 +66,19 @@ export class ChatProcessingError extends ChatTurnError {
       cause,
     });
     this.name = 'ChatProcessingError';
+  }
+}
+
+export class ChatContextCapacityError extends ChatTurnError {
+  constructor(sourceErrorType, cause = null) {
+    super(ChatTurnErrorMessage.CHAT_CONTEXT_CAPACITY_EXCEEDED, {
+      code: ChatTurnErrorCode.CHAT_CONTEXT_CAPACITY_EXCEEDED,
+      statusCode: 413,
+      recoverable: false,
+      sourceErrorType,
+      cause,
+    });
+    this.name = 'ChatContextCapacityError';
   }
 }
 
