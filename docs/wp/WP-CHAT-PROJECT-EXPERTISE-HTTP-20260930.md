@@ -38,7 +38,8 @@ Produkční trasy `POST /api/projects`, `POST /api/conversations`,
 `GET/PUT /api/conversations/:id/expertises` a M1 `POST /api/chat` jsou
 průchozí. Test zachytí finální `/api/chat` payload upstreamu a kontroluje
 `project.id`, rozdílné README kódy bez přenosu do druhého projektu,
-`expertiseGuidance` a odpovídající ID expertizy v odpovědi. Čte přesné revize
+konkrétní pravidla vestavěných `developer`/`writer` v `expertiseGuidance`
+včetně absence pravidla druhé expertizy a odpovídající ID v odpovědi. Čte přesné revize
 před a po restartu serveru. Poté kontroluje prázdný prompt po odebrání,
 stále platný projekt B a M3 install/enable/select/disable/delete. Negativní
 větve zkouší stale `expectedRevision`, nesprávné `projectId`, vybranou

@@ -17,6 +17,8 @@ const MODEL = 'fixture:1b';
 const DIGEST = 'a'.repeat(64);
 const PROJECT_A_CODE = 'EXPERT_A_ORION_391';
 const PROJECT_B_CODE = 'EXPERT_B_LYRA_752';
+const DEVELOPER_RULE = 'Piš čistý, čitelný kód';
+const WRITER_RULE = 'Udržuj konzistenci postav a světa napříč celým textem';
 const EXTENSION_ID = 'm3-http-expertise-journey';
 const EXTENSION_MARKER = 'M3_HTTP_EXPERTISE_JOURNEY_MARKER';
 const children = new Set();
@@ -328,6 +330,10 @@ test('project expertise selection reaches final provider prompt and remains proj
   assert.equal(typeof firstB.prompt.expertiseGuidance, 'string');
   assert(firstA.prompt.expertiseGuidance.length > 50 && firstB.prompt.expertiseGuidance.length > 50);
   assert.notEqual(firstA.prompt.expertiseGuidance, firstB.prompt.expertiseGuidance);
+  assert(firstA.prompt.expertiseGuidance.includes(DEVELOPER_RULE), 'developer rule must reach project A provider prompt');
+  assert(!firstA.prompt.expertiseGuidance.includes(WRITER_RULE), 'writer rule must not reach project A provider prompt');
+  assert(firstB.prompt.expertiseGuidance.includes(WRITER_RULE), 'writer rule must reach project B provider prompt');
+  assert(!firstB.prompt.expertiseGuidance.includes(DEVELOPER_RULE), 'developer rule must not reach project B provider prompt');
   assert.deepEqual(firstA.result.response.metadata.expertiseIds, ['developer']);
   assert.deepEqual(firstB.result.response.metadata.expertiseIds, ['writer']);
 
