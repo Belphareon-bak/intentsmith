@@ -37,3 +37,12 @@ s přesným tvarem, nikoli obecnou sémantickou extrakci všech faktů. Prompt
 odděluje neověřené odpovědi asistenta od tvrzení uživatele, ale jeho dodržení
 modelem není deterministicky zaručeno. Kandidát vyžaduje nezávislé review a
 nový živý běh; do té doby zůstává kvalita **NOT_ACCEPTED**.
+
+Nezávislé review kandidáta odhalilo možnost, že model sám vypíše vyhrazenou
+hlavičku citací a pod ní podvrženou uživatelskou citaci. Dokončený modelový
+výstup obsahující tuto hlavičku nyní končí typovanou chybou
+`CONTEXT_SUMMARY_PROVENANCE_DELIMITER_IN_MODEL_OUTPUT` před zápisem. Původní
+souhrn i kurzor zůstávají beze změny; pozdější opakování znovu vychází ze
+syrových zpráv. Deterministický negativní test ověřuje odmítnutí podvržené
+citace, její nepřítomnost v dalším rekurzivním vstupu a výstupu handleru.
+Oprava stále čeká na nové nezávislé review a živé ověření.
