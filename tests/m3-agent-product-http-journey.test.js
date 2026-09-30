@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 
 // Exercise the shipped Project Health extension through the actual product
-// server, including unauthenticated rejection, local capability access, and a
-// process restart. The
-// existing service-level journey covers change notifications and source errors.
+// server, including authentication, an actual project change, a durable in-app
+// notification, a fail-closed ProjectContext read, and a process restart.
 import assert from 'node:assert/strict';
-import { randomBytes } from 'node:crypto';
-import { writeFileSync } from 'node:fs';
+import { createHash, randomBytes } from 'node:crypto';
+import { renameSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -83,8 +82,9 @@ test('Project Health runs through the product HTTP server and survives restart',
   const projectId = created.project?.id;
   assert(Number.isSafeInteger(projectId) && projectId > 0);
   assert(created.project.path.startsWith(runtime.projects + '/'));
-  writeFileSync(path.join(created.project.path, 'project-health-probe.js'),
-    'export const healthProbe = true; // TODO PRODUCT_WORKER_SOURCE_714\n', { mode: 0o600 });
+  const projectFile = path.join(created.project.path, 'project-health-probe.js');
+  writeFileSync(projectFile,
+    'export const healthProbe = true; // PRODUCT_WORKER_SOURCE_714\n', { mode: 0o600 });
 
   const preview = await expectJson(product, 'POST',
     `/api/agent-extensions/${extensionId}/preview`, {
@@ -104,9 +104,68 @@ test('Project Health runs through the product HTTP server and survives restart',
   const baseline = await expectJson(product, 'POST', `${route}/run`, null, 200);
   assert.equal(baseline.run_state, 'INIT_BASELINE');
   assert.equal(baseline.explain.sources[0].evidence.projectId, projectId);
+  const baselineRevision = baseline.explain.sources[0].evidence.workspaceRevision;
   const unchanged = await expectJson(product, 'POST', `${route}/run`, null, 200);
   assert.equal(unchanged.run_state, 'SUCCESS_NO_TRIGGER');
   assert.deepEqual(unchanged.triggered, []);
+  const scheduler = await expectJson(product, 'GET', '/api/scheduler/status', null, 200);
+  assert.equal(scheduler.running, true);
+  assert(scheduler.scheduled.some(agent => agent.id === instanceId && agent.enabled),
+    'the product scheduler must own the enabled extension instance');
+
+  const changedContent = 'export const healthProbe = false; // FIXME PRODUCT_WORKER_CHANGED_714\n';
+  writeFileSync(projectFile, changedContent, { mode: 0o600 });
+  const changed = await expectJson(product, 'POST', `${route}/run`, null, 200);
+  assert.equal(changed.run_state, 'SUCCESS_TRIGGERED');
+  assert.deepEqual(changed.triggered, ['health_changed']);
+  assert(changed.actions.some(action => action.type === 'notify' && action.status === 'ok'));
+  const evidence = changed.explain.sources[0].evidence;
+  assert.equal(evidence.projectId, projectId);
+  assert.notEqual(evidence.workspaceRevision, baselineRevision);
+  assert.match(evidence.workspaceRevision, /^wsr1:[a-f0-9]{64}$/);
+  assert.equal(evidence.issueCount,
+    baseline.explain.sources[0].evidence.issueCount + 1,
+    'the added FIXME must increase the project finding count by one');
+  const source = evidence.provenance.find(item => item.path === 'project-health-probe.js');
+  assert(source, 'the M2 ProjectContext snapshot must identify the changed file');
+  assert.equal(source.contentDigest,
+    `sha256:${createHash('sha256').update(changedContent).digest('hex')}`);
+
+  const detail = await expectJson(product, 'GET', `/api/agents/${instanceId}`, null, 200);
+  assert.equal(detail.notifications.length, 1);
+  const notification = detail.notifications[0];
+  assert.equal(notification.agent_id, instanceId);
+  assert.equal(notification.run_id, changed.runId);
+  assert.equal(notification.title, 'Project Health: attention');
+  assert.equal(notification.data.projectId, String(projectId));
+  assert.equal(notification.data.workspaceRevision, evidence.workspaceRevision);
+  assert.equal(notification.data.snapshotDigest, evidence.snapshotDigest);
+  assert.equal(notification.data.issueCount, String(evidence.issueCount));
+  assert(notification.body.includes(`${evidence.issueCount} signálů v ${evidence.filesObserved} souborech`));
+  assert(notification.body.includes(evidence.workspaceRevision));
+  const feed = await expectJson(product, 'GET',
+    `/api/notifications?agent=${encodeURIComponent(instanceId)}`, null, 200);
+  assert.deepEqual(feed.notifications.map(item => item.id), [notification.id]);
+  assert.equal(feed.unreadCount, 1);
+  const repeated = await expectJson(product, 'POST', `${route}/run`, null, 200);
+  assert.equal(repeated.run_state, 'SUCCESS_NO_TRIGGER');
+  assert.deepEqual(repeated.triggered, []);
+  assert.equal((await expectJson(product, 'GET', `/api/agents/${instanceId}`, null, 200))
+    .notifications.length, 1);
+
+  const unavailableProjectRoot = `${created.project.path}.unavailable`;
+  renameSync(created.project.path, unavailableProjectRoot);
+  let sourceFailure;
+  try {
+    sourceFailure = await expectJson(product, 'POST', `${route}/run`, null, 200);
+  } finally {
+    renameSync(unavailableProjectRoot, created.project.path);
+  }
+  assert.equal(sourceFailure.run_state, 'ERROR_SOURCE');
+  assert.deepEqual(sourceFailure.sourceErrors.map(error => error.errorCode),
+    ['M3_AGENT_PROJECT_CONTEXT_REQUIRED']);
+  assert.equal((await expectJson(product, 'GET', `/api/agents/${instanceId}`, null, 200))
+    .notifications.length, 1);
   assert.equal(provider.modelCalls, 0);
 
   await stopProduct(product);
@@ -114,15 +173,30 @@ test('Project Health runs through the product HTTP server and survives restart',
   product = await launch();
   const restored = await expectJson(product, 'POST', `${route}/run`, null, 200);
   assert.equal(restored.run_state, 'SUCCESS_NO_TRIGGER',
-    'agent baseline and trusted extension binding must survive product restart');
+    'agent state and trusted extension binding must survive product restart');
   assert.equal(restored.explain.sources[0].evidence.projectId, projectId);
+  const durable = await expectJson(product, 'GET', `/api/agents/${instanceId}`, null, 200);
+  assert.equal(durable.notifications.length, 1);
+  assert.equal(durable.notifications[0].id, notification.id);
+  assert(durable.recentRuns.some(run => run.id === changed.runId
+    && run.explain?.run_state === 'SUCCESS_TRIGGERED'));
+  assert(durable.recentRuns.some(run => run.id === sourceFailure.runId
+    && run.status === 'error' && run.explain?.sources?.[0]?.errorCode
+      === 'M3_AGENT_PROJECT_CONTEXT_REQUIRED'));
+  assert.equal((await expectJson(product, 'GET',
+    `/api/notifications?agent=${encodeURIComponent(instanceId)}`, null, 200))
+    .notifications.length, 1);
   assert.equal(provider.modelCalls, 0);
   writeFileSync(path.join(parentRuntime.artifacts, 'm3-agent-product-http-journey.json'),
     `${JSON.stringify({ schemaVersion: 1, status: 'PASS',
       sourceRevision: process.env.INTENTSMITH_TEST_SOURCE_REVISION || null,
       projectId, instanceId, runs: [disabled.run_state, baseline.run_state,
-        unchanged.run_state, restored.run_state], providerModelCalls: provider.modelCalls,
-      productRestarted: true, unauthenticatedRejected: true,
-      localCapabilityAccepted: true,
+        unchanged.run_state, changed.run_state, repeated.run_state,
+        sourceFailure.run_state, restored.run_state],
+      changedRunId: changed.runId, notificationId: notification.id,
+      changedWorkspaceRevision: evidence.workspaceRevision,
+      failClosedSourceCode: sourceFailure.sourceErrors[0].errorCode,
+      providerModelCalls: provider.modelCalls, productRestarted: true,
+      unauthenticatedRejected: true, localCapabilityAccepted: true,
     }, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
 });

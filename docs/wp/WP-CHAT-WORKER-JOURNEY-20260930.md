@@ -55,21 +55,29 @@ HTTP scénáře **6/6**, runner **22/22**, Project Health **10/10**. Registry
 ## Navazující plný serverový kandidát
 
 `tests/m3-agent-product-http-journey.test.js` spouští skutečný produktový
-`src/server.js` nad vlastní DB, projektem, lokálním providerem a náhodným
-admin tokenem s `NODE_ENV=production`. Neautentizovaný přístup ke katalogu
-extension je odmítnutý, vlastněná lokální capability dovolí discovery,
-preview, instalaci a ruční spuštění Project Health. Test ověří disabled stav,
-výchozí baseline, opakovaný běh bez triggeru a zachování baseline i trusted
-extension vazby po ukončení a opětovném spuštění produktu. Tripwire provider
-potvrzuje nulové modelové volání. Přímý i registrovaný běh na Node 24 prošel
-**1/1** pro původní kandidát `b81c84d8`; jeho registrovaný report je
+`src/server.js` nad vlastní DB, projektem, lokálním tripwire providerem a
+náhodným admin tokenem s `NODE_ENV=production`. Neautentizovaný přístup ke
+katalogu extension je odmítnutý; vlastněná lokální capability dovolí discovery,
+preview, instalaci a ruční spuštění Project Health. Běžící `AgentScheduler`
+vlastní instanci, ale dodaný manifest má rozvrh `manual`: časovaný běh tento
+test netvrdí. Test ověří disabled stav, výchozí baseline, opakovaný běh bez
+triggeru, potom změnu vlastního projektového souboru a `SUCCESS_TRIGGERED`
+přes tentýž produktový HTTP vstup. Skutečný M2 ProjectContext provider vrátí
+novou revision, digest a cestu změněného souboru; nativní M3 runner zapíše jednu
+in-app notifikaci se stejnou revision a `runId`. Další nezměněný běh ji
+nezdvojí. Dočasně nedostupný kořen projektu vede přes M2 bridge k typovanému
+`ERROR_SOURCE`, bez druhé notifikace. Po restartu `src/server.js` přetrvají
+trusted extension vazba, notifikace i oba terminální běhy. Tripwire potvrzuje
+nulové modelové volání. Přímý test této navazující větve prošel **1/1**;
+nezávislé review a integrační přejímka navazující změny ještě chybějí.
+
+Přímý i registrovaný běh na Node 24 prošel **1/1** pro původní kandidát
+`b81c84d8`; jeho registrovaný report je
 `.intentsmith-artifacts/run-suites/2026-09-30T20-40-12-053Z/report.json`
 a výslovně není Gate 0 evidence. Nezávislé review našlo nepřesný auth assert,
 nadhodnocený důkaz v artefaktu a slabší úklid při chybě; opravy jsou v tomto
-kandidátu a čekají na opakované review.
+kandidátu `fbdb2f74` a čekají na opakované review.
 
-**Další důkaz:** změna zdroje a notifikace přes plný serverový vstup se
-skutečným M2 providerem, provozní interval/cron worker a restart uprostřed
-rozpracovaného běhu. Současný nový test ověřuje vlastní serverový vstup, ale
-zbytek těchto bodů nepovyšuje na PASS. Live model ani dlouhodobý soak tento WP
-neověřuje.
+**Další důkaz:** provozní interval/cron worker, restart uprostřed
+rozpracovaného běhu, skutečná Studio interakce, live model a dlouhodobý soak
+zatím nejsou ověřeny tímto serverovým testem. Tyto body proto nejsou PASS.
