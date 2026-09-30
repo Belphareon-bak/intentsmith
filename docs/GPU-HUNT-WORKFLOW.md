@@ -1,11 +1,19 @@
 # GPU hunt — cílové workflow celého systému
 
-**Vývojový checkpoint 30. 9. 2026:** společný Hunt/Studio/chat kandidát
-`edc61a73` je pushnutý, nikoli nasazený. Matice má 1 984 pokusů;
-106 souborů skutečného druhého posudku nyní pokrývá 596 odpovědí, včetně
-400 CHAT dialogů. Validace úplné dvojice, rozsouzení, aktuální provider
-skóre a rozhodnutí pro role zůstávají otevřené.
-[Přesný stav](review/2026-09-30-COMPLETION-TRACKER.md).
+**Read-only checkpoint 30. 9. 2026, 21:51 UTC:** vývojový Hunt/Studio/chat
+zdroj není nasazený. [Report aktuálního kontraktu](../scripts/model-evaluation-report.js)
+nad instalovanou DB a evaluačním providerem `0.34.2-intentsmith.1` uvádí
+**84/84 použitelných dvojic model–role `MISSING`**, dalších **14 `N/A`**,
+**0 aktuálních `COMPLETE`**, **0 přijatých rozhodnutí** a binding
+`UNVERIFIED_RUNTIME`. Interaktivní provider je `0.34.0-intentsmith.1`;
+uživatelský timer Huntu je vypnutý a neaktivní. [Read-only audit sběrů](../scripts/audit-hunt-collections.mjs)
+na stejném vývojovém zdroji našel pouze **2** automaticky znovupoužitelné
+CHAT sběry od **jediného přesného artefaktu**. Matice má historicky 1 984
+pokusů; 106 dávkových JSONů druhého posudku obsahuje 596 různých odpovědí
+z 1 173 položek revizního balíčku (CHAT 400, CODE 30, D/R 166). Tyto
+vývojové známky nejsou kanonicky validovaná a přijatá dvojice hodnotitelů
+ani dnešní skóre DB. [Rozsah matice](review/2026-09-28-HUNT-MATRIX-COMPLETION.md)
+a [průběžný stav](review/2026-09-30-COMPLETION-TRACKER.md).
 
 Přejímka místních hodnotitelů: [dva dokončené piloty, 146/146 volání](review/2026-09-28-HUNT-JUDGE-PILOT-RESULTS.md). Žádný kandidát zatím neprošel filtrem záchytu chyb; širší panel místních hodnotitelů zůstává nespuštěný. [Pracovní doporučení pro rozdělení rolí](review/2026-09-28-HUNT-ROLE-ALLOCATION.md) je oddělené od přejímky hodnotitelů.
 
@@ -797,15 +805,15 @@ starou kvalifikaci. Systém ukáže rozsah zneplatnění a doměří jen potřeb
 část. Neúspěšná přejímka hodnotitele neruší samotnou existenci uložených
 odpovědí: lze je později posoudit správným měřidlem při zachování identity.
 
-## 14. Implementovaný stav a zbývající přejímka (aktualizace 27. 9. 2026)
+## 14. Implementovaný stav a zbývající přejímka (checkpoint 30. 9. 2026)
 
 Tato tabulka popisuje zdrojový kód a doložené podklady, nikoli automaticky
 stav nainstalované release. Syntetické testy dokazují chování brány, ne
 kvalitu konkrétního modelu. Podrobný předávací protokol je v
 [revizi dvojího hodnocení](review/2026-09-25-GPU-HUNT-DUAL-GRADING-MILESTONE.md).
 
-Datované inventáře níže z 25. 9. jsou historické snímky, nikoli dnešní živá
-DB. Aktuální referenční rozsah je vypsaný po rolích v
+Datované inventáře v řádcích níže z 25.–29. 9. jsou historické snímky,
+nikoli dnešní živá DB. Aktuální referenční rozsah je vypsaný po rolích v
 [novém milníku](review/2026-09-27-HUNT-CHAT-REFERENCE-MILESTONE.md#co-zbývá-z-celého-workflow).
 Neplatí, že všechny ostatní role již mají úplnou matici deseti modelů
 ohodnocenou dvěma hodnotiteli a zbýval pouze CHAT.
@@ -813,13 +821,13 @@ ohodnocenou dvěma hodnotiteli a zbýval pouze CHAT.
 | Oblast | Doložený stav / zbývající mezera |
 |---|---|
 | Sběr a identity | Uložené odpovědi mají přesný digest artefaktu a kontraktu. CHAT panel dokončil 1 196 z 1 200 záznamů a 3 472 volání; viz [audit](review/2026-09-24-CHAT-OPUS-RECONCILIATION.md). To není čerstvý provozní holdout. |
-| Znovupoužití uložených odpovědí | [Read-only audit](../scripts/audit-hunt-collections.mjs) a běžná cesta huntu znovu používají sběr po změně známkovacího kontraktu pouze při stejném digestu artefaktu, verzi poskytovatele, veřejných vstupech, inference volbách a všech opakováních. Dnešní živá DB obsahuje 11 strukturálně kompatibilních dokončených sběrů pěti sémantických rolí, všechny od jediného artefaktu qwen3.8. Všechny vznikly s evaluačním providerem `0.34.2-intentsmith.1`, který připnutý launcher používá i pro další běh; systémová interaktivní Ollama `0.34.0-intentsmith.1` je oddělená. Všech **11** je podmíněně znovupoužitelných po ověření a spuštění sidecaru launcherem; read-only audit binárku neověřuje. Dalších 448 průběžných checkpointů nelze známkovat jako celé sady. Žádný sběr není známka ani druhý kandidát. Viz [rozpad](review/2026-09-25-GPU-HUNT-CAPTURE-REUSE.md). |
+| Znovupoužití uložených odpovědí | [Read-only audit](../scripts/audit-hunt-collections.mjs) a běžná cesta huntu znovu používají sběr po změně známkovacího kontraktu pouze při stejném digestu artefaktu, verzi poskytovatele, veřejných vstupech, inference volbách a všech opakováních. Dne 30. 9. ve 21:51 UTC validátor aktuálního vývojového zdroje nad instalovanou DB a filtrem `0.34.2-intentsmith.1` našel **2** automaticky znovupoužitelné dokončené sběry role CHAT, oba od **jediného artefaktu**; D1, D2, R1, R2, CODE a VISION mají **0**. Interaktivní Ollama `0.34.0-intentsmith.1` je oddělená. [Snímek z 25. 9.](review/2026-09-25-GPU-HUNT-CAPTURE-REUSE.md) uváděl 11 tehdy kompatibilních sběrů, což není dnešní počet. Read-only audit neověřuje fyzické spuštění sidecaru. Žádný sběr není známka, druhý kandidát ani přijaté rozhodnutí. |
 | Konverzační CHAT | V DB je oddělená nepřijatá sada `chat_conversation_pilot`: 400 rozhovorů z prvního opakování panelu oznámkoval jeden externí hodnotitel; 59 položek má také ruční známku GPT. Není to dvojice přijatých nezávislých hodnotitelů. Historické `chat_v3` se s ní neslévá do rozhodovací sady. |
 | Přijetí hodnotitelů | [semantic-grader-acceptance.js](../src/eval/semantic-grader-acceptance.js) vyžaduje oddělené případy a negativní sondy. Žádná konkrétní místní dvojice pro novou CHAT sadu zatím touto přejímkou neprošla. |
 | Dvojí hodnocení uložených odpovědí | [grade-answer-collection.js](../src/eval/grade-answer-collection.js) nyní spouští dva přijaté hodnotitele postupně, ukládá každý posudek append-only a porovnává známky po kritériích. Jeden posudek, neshoda nebo chybějící fyzický záznam nevytvoří `COMPLETE`. [Read/decision brána](../src/eval/independent-grader-pair.js) ověřuje oba posudky a přesný zdroj. Manuální CLI může uložit jeden průzkumný posudek. |
 | Rozsouzení neshody | [Migrace 119](../src/db/migrations/2026_09_25_119_model_evaluation_adjudications.js) uchovává append-only lidské rozhodnutí pro každé sporné kritérium, oba původní posudky zůstávají nedotčené. [CLI](../scripts/adjudicate-model-collection.mjs) umí vydat anonymní podklad bez známek hodnotitelů a po doložené revizi zapsat rozsouzení se zálohou DB; shodná kritéria nelze přepsat. Není to automatický ani nezávisle přijatý posudek. |
 | Metoda rozhodnutí | Binární provozní schéma 1 zůstává na KL. [Spojitá metoda](../src/eval/continuous-paired-decision.js) schema 2 má kalibrovaný párový interval a plánovač, avšak není zapojená do přijaté provozní kvalifikace rolí. Kalibrace starých sad je průzkumná: CHAT `chat_v3` je pro aktuální runner zakázaná a ostatní role mají příliš málo nezávislých případů. Viz [M0](review/2026-09-24-HUNT-M0-DECISION-METHOD.md). |
-| Nový vícekolový CHAT v huntu | [chat-conversation-suite.js](../src/eval/chat-conversation-suite.js) zůstává vývojový návrh mimo role plans (`measurementReady:false`), s novým explicitním adaptérem `conversationGradingSuite` a implementovanou `gradeConversation` nad celým přepisem. Tato implementace není přijetí skutečného hodnotitele. Původní 1 200-dialogový panel nepoužil produkční systémový prompt. Nový [sběr 27. 9.](review/2026-09-27-HUNT-CHAT-REFERENCE-MILESTONE.md) má přes produkční handler 80/80 úplných dialogů dvou modelů, audit skutečných požadavků a první posudek 320/320. Skutečný druhý nový posudek chybí; byl simulován v autorizovaném průchodu níže. Jde o známé scénáře a jediné opakování, bez skutečné rozhodovací autority. |
+| Nový vícekolový CHAT v huntu | [chat-conversation-suite.js](../src/eval/chat-conversation-suite.js) zůstává vývojový návrh mimo role plans (`measurementReady:false`), s novým explicitním adaptérem `conversationGradingSuite` a implementovanou `gradeConversation` nad celým přepisem. Tato implementace není přijetí skutečného hodnotitele. Původní 1 200-dialogový panel nepoužil produkční systémový prompt. [Sběr 27. 9.](review/2026-09-27-HUNT-CHAT-REFERENCE-MILESTONE.md) má přes produkční handler 80/80 úplných dialogů dvou modelů a první posudek 320/320; jeho následný [skutečný druhý posudek](review/2026-09-27-HUNT-REAL-SECOND-REVIEW.md) je také úplný, ale rozsouzení a přejímka zbývají. [Pozdější vývojová matice](review/2026-09-28-HUNT-MATRIX-COMPLETION.md) má 400 CHAT dialogů v prvním posudku a 400 CHAT položek mezi 596 položkami druhého dávkového posudku. Žádná z těchto historických sad neuděluje aktuální rozhodovací autoritu. |
 | Rozhodovací autorita | [model-evaluation-acceptance.js](../src/upgrade/model-evaluation-acceptance.js) nyní pro sémantické role vyžaduje dvě platné přejímky hodnotitelů a fyzicky uložené dva shodné posudky. Staré jednosoudcovské běhy zůstávají v historii, autoritu nedostávají. Kvalifikovaný čerstvý provozní běh pro žádnou z těchto rolí z této změny nevznikl. |
 | Sestava rolí | [model-upgrade-prototype.js](../src/upgrade/model-upgrade-prototype.js) prosazuje maximum dvě role na artefakt, explicitní zákaz autorských/revizních dvojic a kontrolu digestu a uvedené lineage. Živá sestava s qwen3.8 v D2+CODE+R1 byla podle [M0](review/2026-09-24-HUNT-M0-DECISION-METHOD.md) v konfliktu; změna solveru ji sama neopraví. Sdílení role vyžaduje schválenou dvojici, jinak vrací nevyřešenou sestavu. |
 | Aktivace a návrat | Binding application existuje, ale přepnutí celé sedmirolové sestavy na podkladech nových sad, kontrola fallbacků a návrat celé sestavy nebyly fyzicky přijaty. |

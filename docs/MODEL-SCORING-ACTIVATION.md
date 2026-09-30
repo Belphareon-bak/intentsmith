@@ -1,19 +1,33 @@
 # Modelové evaluace a aktivace
 
-**Aktuální kontrola, 30. 9. 2026:** instalovaný backend je `c84b88cd`,
-Ollama `0.34.0-intentsmith.1`; read-only census produkční DB v 18:17 UTC
-ukázal **84/84 použitelných model–role dvojic MISSING**, žádné aktuální
-`COMPLETE` ani přijaté rozhodnutí. Společný Hunt/Studio/chat zdroj
-`edc61a73` je pushnutý kandidát, ale není nasazený. Druhý posudek matice
-je částečný a neuděluje oprávnění změnit vazby.
-[Aktuální brány a měření](review/2026-09-30-COMPLETION-TRACKER.md).
+**Read-only kontrola, 30. 9. 2026, 21:51 UTC:** instalovaný backend je
+`c84b88cd`; vývojový Hunt/Studio/chat zdroj není nasazený. [Autoritativní
+read model](../scripts/model-evaluation-report.js) nad instalovanou DB a
+evaluačním providerem `0.34.2-intentsmith.1` ukazuje **84/84 použitelných
+model–role dvojic `MISSING`**, dalších **14 `N/A`**, **0 aktuálních
+`COMPLETE`**, **0 přijatých rozhodnutí** a sedm vazeb se stavem
+`UNVERIFIED_RUNTIME`. Interaktivní Ollama je `0.34.0-intentsmith.1`;
+uživatelský timer Huntu je disabled/inactive. [Audit sběrů](../scripts/audit-hunt-collections.mjs)
+na stejném vývojovém zdroji našel pouze **2** aktuálně automaticky
+znovupoužitelné CHAT sběry od **jediného artefaktu**, nikoli druhého kandidáta
+nebo skóre. [106 dávkových souborů](review/2026-09-28-HUNT-MATRIX-COMPLETION.md)
+druhého posudku pokrývá 596 z 1 173 vývojových odpovědí (CHAT 400,
+CODE 30, D/R 166); validace celého posudku, agregace, rozsouzení a přejímka
+hodnotitelů chybějí. [Aktuální brány a měření](review/2026-09-30-COMPLETION-TRACKER.md).
+
+Před návrhem změny vazby zbývá zmrazit a validovat druhý posudek včetně
+oprav, předem určit agregaci a řešení shod, cíleně doplnit případy schopné
+změnit pořadí rolí, přijmout nezávislou dvojici hodnotitelů na negativních
+sondách a provést aktuální měření přesného artefaktu i oddělený provozní
+holdout. Teprve přijaté rozhodnutí a ověřená sestava mohou vstoupit do
+ručně autorizované aktivace; historická matice ani počet sběrů binding nemění.
 
 **Provozní checkpoint, 23. 9. 2026:** tehdy nasazený runtime `400c9d8f`.
 Modely, backend i Studio používají podporovanou cestu sběru a historie;
 uložený sběr lze samostatně ohodnotit po přijetí nezávislého hodnotitele.
 Přejímky jsou záznamy v DB pro konkrétní kontrakt, runtime, profil a dvojici
-artefaktů. Živá DB má **0/7 přijatých rozhodovacích profilů**, timer je
-disabled/inactive. Staré přijetí evidence ze srpna není přijetím dnešních sad
+artefaktů. V nynějším checkpointu má DB **0/7 přijatých rozhodovacích profilů**.
+Staré přijetí evidence ze srpna není přijetím dnešních sad
 ani jejich předpovědní platnosti. [Celý aktuální packet a výsledky](review/2026-09-23-HUNT-GRADING-INTEGRATION.md).
 
 **Historické checkpointy:** následující srpnové a zářijové záznamy dokládají
