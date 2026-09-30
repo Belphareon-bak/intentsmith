@@ -1,6 +1,19 @@
 # IntentSmith — průběžné dokončování k 30. 9. 2026
 
-## Checkpoint 22:23 UTC
+## Checkpoint 22:32 UTC
+
+Oprava splatnosti a validního plánu M3 workeru `6be426aa` získala po
+remediaci nálezu cron preview omezené nezávislé **REVIEW_PASS**. Integrační
+commity `cde6c2e7` + `08719686` prošly na čistém společném SHA registrovaně
+**4/4** (`.intentsmith-artifacts/run-suites/2026-09-30T22-31-54-367Z/report.json`).
+Změna profilu registru má nový fingerprint
+`3e537b30b9893274c0fe53d3551e770c870ad4fa7d63fcccf2089e2b8380a853`;
+počty sad se nemění. `SYSTEM-MAP.md` nyní odráží přesný LOC census tohoto
+kandidáta. Plánovaný skutečný běh důvěryhodné extension instance ještě
+nebyl ověřen; nativní Project Health zůstává `manual` a vypnutý. Zdroj
+dosud není nasazený.
+
+## Historický checkpoint 22:23 UTC
 
 Integrační kandidát `9c9fdd345cdea394b67593a3ce0b0a4556ac1a5e` je čistý,
 ale zatím **není celý pushnutý**: vzdálená větev končí na `40ba87eb`.

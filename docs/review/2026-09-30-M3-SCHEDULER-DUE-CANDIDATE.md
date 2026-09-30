@@ -1,6 +1,11 @@
 # M3 scheduler: splatné běhy a formát plánu
 
-**Stav:** kandidát; nezávislé review, integrace a nasazení čekají.
+**Integrační checkpoint 22:32 UTC:** izolovaný kandidát `6be426aa` prošel
+omezeným nezávislým `REVIEW_PASS` po opravě cron preview. Je cherry-pickem
+integrován jako `cde6c2e7` + `08719686`; na čistém integrovaném
+`08719686` prošly stejné čtyři registrované sady **4/4**
+(`.intentsmith-artifacts/run-suites/2026-09-30T22-31-54-367Z/report.json`).
+Jde o vývojový důkaz, nikoli nasazení nebo autonomní přejímku.
 
 ## Pozorovaný problém
 
@@ -30,12 +35,10 @@ počítal výchozí jednu minutu.
   selhaly 2/2; před opravou náhledu selhala cron regrese. Po opravách je
   celá sada 6/6.
 - Registrované sady scheduleru, Project Health, trvalého HTTP průchodu
-  a produktového HTTP průchodu prošly 4/4 na čistém předchozím kandidátu
-  `fe9e4392` v běhu
-  `.intentsmith-artifacts/run-suites/2026-09-30T22-22-07-794Z/report.json`.
-  Tento report nepokrývá následnou opravu cron náhledu; její čistý běh
-  musí být doložen zvlášť. Registr má nadále 573 sad; změněná sada nyní
-  správně uvádí DB profil.
+  a produktového HTTP průchodu prošly 4/4 na čistém izolovaném
+  `6be426aa` (`.intentsmith-artifacts/run-suites/2026-09-30T22-30-09-598Z/report.json`)
+  a 4/4 na čistém integrovaném `08719686` (report výše). Registr má nadále
+  573 sad; změněná sada nyní správně uvádí DB profil.
 
 ## Výkonnostní mez
 
