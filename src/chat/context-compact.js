@@ -322,6 +322,12 @@ async function runCompaction(conversationId, store, keepTurns, sessionId, budget
     if (result?.finishReason !== 'stop' || !result.content?.trim()) {
       throw new Error(`CONTEXT_SUMMARY_INCOMPLETE:${result?.finishReason || 'unknown'}`);
     }
+    // Only source turns may create the reserved citation block. A model can
+    // echo its header from the prompt or fabricate one; storing that text
+    // would make the next recursive summary mistake model prose for provenance.
+    if (result.content.includes(USER_QUOTE_HEADER)) {
+      throw new Error('CONTEXT_SUMMARY_PROVENANCE_DELIMITER_IN_MODEL_OUTPUT');
+    }
 
     const summaryText = result.content.trim() + userQuoteBlock;
     if (summaryText.length > budget.safetyMaxChars) {
