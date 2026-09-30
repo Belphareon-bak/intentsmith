@@ -126,10 +126,14 @@ test('M1 value answers preserve exact signed arithmetic and durable history', {
   assert.throws(() => assertExactValueAnswer('{"a":73,"b":62,"delta":-11,"higher":"A"}', positive));
   assert.throws(() => assertExactValueAnswer('{"a":73,"b":62,"delta":11,"higher":"B"}', positive));
   assert.throws(() => assertExactValueAnswer('{"a":"73","b":62,"delta":11,"higher":"A"}', positive));
+  assert.throws(() => assertExactValueAnswer('{"a":0,"a":73,"b":62,"delta":11,"higher":"A"}', positive));
   assert.throws(() => assertExactValueAnswer('```json\n{"a":73,"b":62,"delta":11,"higher":"A"}\n```', positive));
   const missingInput = structuredClone(provider.requests.find(request => isAnswerRequest(request, positive)));
   missingInput.messages = [{ role: 'user', content: 'User: no source values' }];
   assert.throws(() => assertFinalValueRequest(missingInput, positive, MODEL));
+  const staleInput = structuredClone(provider.requests.find(request => isAnswerRequest(request, positive)));
+  staleInput.messages.push({ role: 'user', content: 'User: unrelated current request' });
+  assert.throws(() => assertFinalValueRequest(staleInput, positive, MODEL));
 
   const totalProviderCalls = provider.requests.length;
   await closeOwned();

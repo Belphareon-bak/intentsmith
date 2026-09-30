@@ -26,9 +26,11 @@ provider/proxy, čtou pouze svou SQLite. Produkční služba a DB se nepoužijí
 `A=73, B=62` (`A−B=+11`, vyšší `A`), `A=17, B=46` (`−29`, vyšší `B`) a
 `A=88, B=88` (`0`, `equal`). Prompt vyžaduje jediný JSON objekt s přesně
 `a`, `b`, `delta`, `higher`; čísla musí být celočíselné JSON hodnoty. Orákulum
-odmítne chybné znaménko, hodnotu, směr, řetězcové číslo, přidaný klíč i
-Markdown. Finální `/api/chat` požadavek providera musí obsahovat přesné
-uživatelské bajty daného případu a deklarovaný rozpočet. Každá HTTP odpověď
+odmítne chybné znaménko, hodnotu, směr, řetězcové číslo, přidaný nebo
+duplicitní JSON klíč i Markdown. Finální `/api/chat` požadavek providera musí
+končit poslední uživatelskou zprávou s přesnými bajty právě testovaného
+případu; starší shodná zpráva nestačí. Musí obsahovat i deklarovaný rozpočet.
+Každá HTTP odpověď
 se porovná s terminálním provider výsledkem a následně s HTTP historií i
 přímým read-only dotazem do soukromé SQLite.
 

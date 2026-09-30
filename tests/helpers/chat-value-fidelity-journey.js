@@ -38,6 +38,12 @@ export function assertExactValueAnswer(content, valueCase) {
   const parsed = JSON.parse(trimmed);
   assert(parsed && typeof parsed === 'object' && !Array.isArray(parsed),
     `${valueCase.label}: answer must be one JSON object`);
+  // JSON.parse keeps only the last occurrence of a duplicate member name.
+  // Once the decoded values below are restricted to integers and A/B/equal,
+  // every quoted token followed by a colon in the raw object is a member key.
+  const rawMembers = [...trimmed.matchAll(/"(?:\\.|[^"\\])*"\s*:/gu)];
+  assert.equal(rawMembers.length, 4,
+    `${valueCase.label}: raw JSON must contain exactly four members, without duplicates`);
   assert.deepEqual(Object.keys(parsed).sort(), ['a', 'b', 'delta', 'higher'],
     `${valueCase.label}: answer keys changed`);
   for (const key of ['a', 'b', 'delta']) {
@@ -48,10 +54,10 @@ export function assertExactValueAnswer(content, valueCase) {
 }
 
 export function isAnswerRequest(request, valueCase) {
-  return Array.isArray(request?.messages)
-    && request.messages.some(message => message.role === 'user'
-      && typeof message.content === 'string'
-      && message.content.includes(`User: ${valueCase.input}`));
+  if (!Array.isArray(request?.messages)) return false;
+  const lastUser = request.messages.filter(message => message.role === 'user').at(-1);
+  return typeof lastUser?.content === 'string'
+    && lastUser.content.trimEnd().endsWith(`User: ${valueCase.input}`);
 }
 
 export function assertFinalValueRequest(request, valueCase, expectedModel) {
