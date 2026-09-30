@@ -1,6 +1,54 @@
 # IntentSmith — průběžné dokončování k 30. 9. 2026
 
-## Nejnovější integrační checkpoint
+## Checkpoint 21:03 UTC
+
+Čistá integrační větev `work/real-chat-journeys-20260930` je pushnutá na
+`8134a61396f4720e33679b859ed6c324eb7ed2af`. Obsahuje opravu recentního
+uživatelského tahu, přijatou revokaci historického Hunt skóre a produktový M3
+Project Health scénář včetně opravy filtru notifikací. Registr má **573** sad
+(`477 ACTIVE`, `81 BLOCKED`, `15 HISTORICAL`), fingerprint
+`c387cd363c4ca1292858f326c19e1f511bc604d5f1c6b658fe74ab8680ee69ea`.
+Běžící backend zůstává starší release `c84b88cd`; instalovaný frontend je
+`fddfe996`. Kandidát není nasazený.
+
+- Integrovaný cílený registrovaný běh na `d1739e21` prošel **5/5**:
+  M1 chat kontrakt, Hunt read model a grading, Studio zobrazení a M3 produktový
+  průchod. Po doplnění M3 změny/notifikace a opravy `agent` filtru prošel na
+  integračním `8134a613` registrovaný produktový průchod **1/1**
+  (`.intentsmith-artifacts/run-suites/2026-09-30T21-01-42-294Z/report.json`,
+  `gateEvidence:false`). Negativní filtr před opravou selhal. Omezená
+  nezávislá review obou změn skončila `REVIEW_PASS`.
+- Nový živý běh `IS-T3-E2E-85-LONG-SESSION-DEGRADATION` na čistém `c25174a4`
+  skončil **3/4 PASS, 1 FAIL**: surová historie dosáhla 4 579 tokenů při
+  `num_ctx=4096`, souhrn v šestém tahu ušetřil 446 odhadovaných tokenů,
+  finální prompt obsahoval auditní kód, ale model místo požadovaného samotného
+  kódu napsal dlouhé odmítnutí. Ze sedmi číselných odpovědí byla jedna
+  rozporná (55 označeno za vyšší než 66), osmý tah původní test přeskočil.
+  Technický i věcný verdikt je proto **FAIL**. Soukromý report je
+  `.intentsmith-artifacts/run-suites/2026-09-30T20-42-23-470Z/report.json`;
+  zpřísněné orákulum všech osmi tahů je na izolovaném `2cd02aac` ve stavu
+  `REVIEW_PENDING/LIVE_NOT_RUN` a oprava věrnosti souhrnu se připravuje.
+- Read-only instalovaná DB k 21:01 UTC: aktuální hodnoticí provider filtr
+  `0.34.2-intentsmith.1`, interaktivní provider `0.34.0-intentsmith.1`,
+  **84/84 použitelných model–role dvojic MISSING**, **0 přijatých rozhodnutí**,
+  vazby `UNVERIFIED_RUNTIME`. Read model a Studio nyní při revokaci posudku
+  nebo změně suite vracejí bez platné známky; zdrojová oprava měla nezávislé
+  `REVIEW_PASS`. Hunt skórování a aktivace zůstávají **NO_GO**.
+- Poslední úplný offline/database audit čistého `09e72b74` je
+  **399 PASS / 1 FAIL / 0 BLOCKED** ze 400 sad. Jediný FAIL je stará
+  zapečetěná Gate 0 politika registru. Po zmrazení finálního registru je nutné
+  nezávisle revidovat delta sad/profilů a teprve potom obnovit pečeť;
+  plný audit na aktuálním SHA ještě neběžel. Dřívější produkční frontend build
+  a čtyři fyzické Electron scénáře prošly na `09e72b74`, po nové změně Hunt UI
+  je nutné je opakovat. Release verdict zůstává **FAIL/NOT_ACCEPTED**.
+- Mobilní integrace M7 čeká podle rozhodnutého pořadí na stabilní IDE/backend.
+  První mobilní konverzace, fyzická device/VPN matice a podepsaný balík jsou
+  `NOT_RUN`. Redukce větví a worktree přijde po přejímce a inventáři cizí práce.
+
+Následující sekce jsou historické checkpointy a jejich čísla nejsou
+povyšována na současný PASS.
+
+## Historický integrační checkpoint 20:07 UTC
 
 Na `work/real-chat-journeys-20260930` je společný kandidát
 `09e72b74939175eabb9a8a8d9733178a7adbb4fd`: IDE 2.0, chat, Hunt
