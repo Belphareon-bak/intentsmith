@@ -115,19 +115,38 @@ export function fitProjectDiscussionPrompt(serialized, numCtx, systemPrompt = `$
     prompt = JSON.stringify(data);
   }
   if (!fits()) throw new Error('Aktuální zadání se nevejde do schváleného kontextu modelu. Rozděl je na menší krok.');
-  // Reducing the reply/history reservation can free space after all excerpts
-  // were dropped. Refill that space from observed data; never raise the model
-  // window or displace the current request, goal, policy or execution evidence.
-  for (const file of input.analysis.excerpts) {
+  // A prompt can fit only because it dropped a freshly inspected file. Refill
+  // named files first and spend a little of the reply reserve (down to the
+  // existing 1024-token floor) before answering from old conversation alone.
+  // The model window, current request, goal and durable summary stay intact.
+  const requestedFile = file => input.request.includes(file.path);
+  const excerpts = [...input.analysis.excerpts].sort((a, b) =>
+    Number(requestedFile(b)) - Number(requestedFile(a)));
+  for (const file of excerpts) {
     if (data.analysis.excerpts.some(selected => selected.path === file.path)) continue;
     for (const limit of [1200, 300]) {
       const selected = { ...file, text: file.text.slice(0, limit), truncated: file.truncated || file.text.length > limit };
       data.analysis.excerpts.push(selected);
       prompt = JSON.stringify(data);
+      const previousMaxTokens = maxTokens;
+      if (!fits()) {
+        const availableOutput = numCtx - 384 - Math.ceil(Buffer.byteLength(systemPrompt + prompt) / 2);
+        if (availableOutput >= 1024) {
+          maxTokens = Math.min(maxTokens, availableOutput);
+          maxBytes = Math.floor((numCtx - maxTokens - 384) * 2);
+        }
+      }
       if (fits()) break;
+      maxTokens = previousMaxTokens;
+      maxBytes = Math.floor((numCtx - maxTokens - 384) * 2);
       data.analysis.excerpts.pop();
       prompt = JSON.stringify(data);
     }
+  }
+  if (excerpts.some(file => requestedFile(file)
+      && !data.analysis.excerpts.some(selected => selected.path === file.path))) {
+    throw Object.assign(new Error('Požadovaný soubor se nevejde do kontextu modelu. Vyber menší část projektu nebo rozděl zadání.'),
+      { code: 'PROJECT_CONTEXT_SOURCE_UNAVAILABLE' });
   }
   const selectedSummaries = data.history.filter(turn => turn.role === 'summary');
   if (!fits() || selectedSummaries.length !== summaries.length

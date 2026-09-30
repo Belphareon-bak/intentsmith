@@ -509,6 +509,26 @@ test('context selection keeps observed manifest facts and refills excerpts after
   assert.ok(Buffer.byteLength(result.systemPrompt + result.prompt) <= result.maxBytes);
 });
 
+test('4K project return keeps freshly inspected README requested by name', () => {
+  const source = '# README-A\nProjektový kód ORION_A_FILE_391.\n';
+  const request = 'Zopakuj kontrolní kód z README-A.md';
+  const input = { request,
+    host: { platform: 'linux', architecture: 'x64', observation: 'O'.repeat(1050) },
+    project: { id: 1, name: 'A', description: '' },
+    history: [{ role: 'user', content: 'Dřívější otázka' },
+      { role: 'assistant', content: 'Dřívější odpověď' }, { role: 'user', content: request }],
+    analysis: { fileCount: 1, files: ['README-A.md'], setup: {}, directories: ['.'],
+      nodeProject: null, excerpts: [{ path: 'README-A.md', text: source, truncated: false }] },
+    expertiseGuidance: 'E'.repeat(600), projectWorkEvidence: [] };
+  const result = fitProjectDiscussionPrompt(JSON.stringify(input), 4096, 'S'.repeat(2190));
+  const selected = JSON.parse(result.prompt);
+  assert.equal(selected.request, request);
+  assert.equal(selected.expertiseGuidance, input.expertiseGuidance);
+  assert.equal(selected.analysis.excerpts.find(file => file.path === 'README-A.md')?.text, source);
+  assert(result.maxTokens >= 1024, 'model still needs a useful reply budget');
+  assert(Buffer.byteLength(result.systemPrompt + result.prompt) <= result.maxBytes);
+});
+
 test('actual HTTP creation/import preserves foreign files, rejects collisions and survives restart', { timeout: 60_000 }, async () => {
   const { makeRuntime, startServer, stopServer, requestJson } = await import('../scripts/run-project-build-journey.js');
   const runtime = makeRuntime(isolatedTestRuntime.artifacts);
