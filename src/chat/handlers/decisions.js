@@ -61,6 +61,7 @@ const ANSWER_TOKEN_BUDGET = Object.freeze({
   NON_CONVERSATIONAL: 1200,
 });
 const MIN_SUMMARY_ANSWER_TOKENS = 256;
+const MAX_PROTECTED_RECENT_USER_BYTES = 512;
 
 const BRIEF_CONVERSATION_PATTERN = /^(?:ahoj|\u010dau|cau|nazdar|hi|hello|hey|d[ií]ky|d[eě]kuji|thanks?|thank you|ok(?:ay)?|dob[rř]e|jasn[eě]|rozum[ií]m|jak se m[áa][sš]|how are you)[!.,? ]*$/iu;
 const normalizeDetailRequest = input => String(input || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
@@ -278,6 +279,7 @@ function selectAnswerTokenBudget(input, intent) {
 
 class AnswerSummaryBudgetError extends Error {}
 class AnswerCompletionBudgetError extends Error {}
+class AnswerRecentUserBudgetError extends Error {}
 
 export function buildAnswerContext(input, history, systemPrompt, requestedTokens, numCtx, options = {}) {
   // Conservative UTF-8 budget; reserve space for clock, role wrappers and a
@@ -325,31 +327,53 @@ export function buildAnswerContext(input, history, systemPrompt, requestedTokens
   // otherwise ten later turns can silently crowd it out of the provider prompt.
   const summaryTurn = turns.findLast(turn => turn.role === 'summary');
   const recentTurns = turns.filter(turn => turn.role !== 'summary').slice(summaryTurn ? -9 : -10);
+  const latestUserIndex = recentTurns.findLastIndex(turn => turn.role === 'user');
+  const latestUserLine = latestUserIndex < 0 ? null : JSON.stringify(recentTurns[latestUserIndex]);
+  // A concise post-summary correction can be the only place where the new
+  // value exists. Reserve its complete bytes; long earlier inputs still use
+  // the ordinary bounded history representation.
+  const protectedUserLine = latestUserLine
+    && bytes(latestUserLine) + 1 <= MAX_PROTECTED_RECENT_USER_BYTES
+    ? latestUserLine : null;
+  // A persisted summary is the only representation of archived messages.
+  // It must remain complete, including facts in its middle.
+  const summaryLine = summaryTurn ? JSON.stringify(summaryTurn) : null;
+  const summaryRequiredBytes = summaryLine ? bytes(summaryLine) + 1 : 0;
+  const requiredBytes = summaryRequiredBytes + (protectedUserLine ? bytes(protectedUserLine) + 1 : 0);
   let used = 0;
   const selected = new Map();
-  if (summaryTurn) {
-    // A persisted summary is the only representation of archived messages.
-    // Head/tail clipping can silently remove a fact from its middle, so the
-    // full summary takes priority over optional recent-turn excerpts.
-    const line = JSON.stringify(summaryTurn);
-    const requiredBytes = bytes(line) + 1;
-    if (requiredBytes > historyBudget && options.allowSummaryOutputTradeoff === true) {
-      // A long conversational question can arrive just after compaction. Fit
-      // its complete summary by lowering only that answer's output allowance;
-      // CODE and other intents retain their existing generation budget.
-      const fittedOutput = available - Math.ceil((requiredBytes + 160) / 2);
-      if (fittedOutput >= Math.min(maxTokens, MIN_SUMMARY_ANSWER_TOKENS)) {
-        maxTokens = Math.min(maxTokens, fittedOutput);
-        historyBudget = Math.max(0, (available - maxTokens) * 2 - 160);
-      }
+  if (requiredBytes > historyBudget && options.allowSummaryOutputTradeoff === true) {
+    // The complete durable summary and latest concise user correction are
+    // required together. Only conversational output may trade spare tokens
+    // for these facts; CODE and other intents retain their output authority.
+    const minimumOutput = Math.min(maxTokens, MIN_SUMMARY_ANSWER_TOKENS);
+    let fittedOutput = available - Math.ceil((requiredBytes + 160) / 2);
+    if (fittedOutput < minimumOutput && summaryRequiredBytes > 0) {
+      // Preserve the precise failure cause: the summary may still fit by
+      // itself even when its later short correction cannot fit beside it.
+      fittedOutput = available - Math.ceil((summaryRequiredBytes + 160) / 2);
     }
-    if (requiredBytes > historyBudget) {
-      throw new AnswerSummaryBudgetError('Souhrn konverzace se nevejde do kontextu modelu při zachování minimálního rozpočtu odpovědi.');
+    if (fittedOutput >= minimumOutput) {
+      maxTokens = Math.min(maxTokens, fittedOutput);
+      historyBudget = Math.max(0, (available - maxTokens) * 2 - 160);
     }
-    selected.set(-1, line);
-    used += bytes(line) + 1;
+  }
+  if (summaryRequiredBytes > historyBudget) {
+    throw new AnswerSummaryBudgetError('Souhrn konverzace se nevejde do kontextu modelu při zachování minimálního rozpočtu odpovědi.');
+  }
+  if (requiredBytes > historyBudget) {
+    throw new AnswerRecentUserBudgetError('Poslední krátká uživatelská zpráva se nevejde do kontextu modelu vedle úplného souhrnu.');
+  }
+  if (summaryLine) {
+    selected.set(-1, summaryLine);
+    used += summaryRequiredBytes;
+  }
+  if (protectedUserLine) {
+    selected.set(latestUserIndex, protectedUserLine);
+    used += bytes(protectedUserLine) + 1;
   }
   const addTurn = index => {
+    if (selected.has(index)) return;
     const line = encodeTurn(recentTurns[index], historyBudget - used);
     if (!line) return;
     selected.set(index, line);
@@ -1446,6 +1470,9 @@ Délku, strukturu a počet příkladů přizpůsob zadání. Přiznej nejistotu;
     // its terminal provenance instead of reporting a false provider outage.
     if (err instanceof AnswerSummaryBudgetError) {
       throw new ChatProcessingError('ANSWER_CONTEXT_SUMMARY_TOO_LARGE', err);
+    }
+    if (err instanceof AnswerRecentUserBudgetError) {
+      throw new ChatProcessingError('ANSWER_RECENT_USER_CONTEXT_TOO_LARGE', err);
     }
     if (err instanceof AnswerCompletionBudgetError) {
       throw new ChatProcessingError('ANSWER_COMPLETION_BUDGET_UNSTABLE', err);
