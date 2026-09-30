@@ -1279,7 +1279,9 @@ Délku, strukturu a počet příkladů přizpůsob zadání. Přiznej nejistotu;
       try {
         ({ systemPrompt, answerContext } = planConversationalAnswer(systemPrompt));
       } catch (error) {
-        if (!(error instanceof AnswerSummaryBudgetError || error instanceof AnswerRecentUserBudgetError)) throw error;
+        if (!(error instanceof AnswerCurrentUserBudgetError
+          || error instanceof AnswerSummaryBudgetError
+          || error instanceof AnswerRecentUserBudgetError)) throw error;
         // The box-drawing lines in the long language banner carry no rule.
         // Remove only those separators when the complete durable facts need
         // their space; retain both language rules and all project/safety text.
