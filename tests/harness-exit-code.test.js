@@ -439,7 +439,9 @@ try {
   // the isolated database bootstrap before their production database imports.
   // 138 -> 139: the workspace tree regression test resolves project_id through
   // the real database module after importing the isolated bootstrap first.
-  const expectedDatabaseReachableRootTests = 139;
+  // 139 -> 140: native worker HTTP journey imports the real agent repository
+  // and route graph after its isolated-test-db bootstrap.
+  const expectedDatabaseReachableRootTests = 140;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,
