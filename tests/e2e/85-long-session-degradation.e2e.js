@@ -14,7 +14,7 @@ import { setTimeout as pause } from 'node:timers/promises';
 import { config } from '../../src/config.js';
 import { assertExactValueAnswer } from '../helpers/chat-value-fidelity-journey.js';
 import { WINDOW_FILL_CASES, WINDOW_FILL_CODE, WINDOW_FILL_RETRY_CASE,
-  windowFillMessage } from '../../scripts/chat85-window-values.js';
+  windowFillMessage, windowFillUserQuoteBlock } from '../../scripts/chat85-window-values.js';
 
 await waitForServer();
 const created = [];
@@ -362,14 +362,16 @@ try {
       'background auto-context compaction did not persist a summary');
     assert(conversation.summary.includes(WINDOW_FILL_CODE),
       `compacted summary lost the anchor: ${conversation.summary.substring(0, 300)}`);
+    const firstUser = messages.find(message => message.role === 'user');
+    const userQuoteBlock = windowFillUserQuoteBlock(firstUser, conversation.summary_up_to_msg_id);
     const summaryCalls = providerRows().filter(row => row.path === '/api/chat'
       && row.status === 200 && row.done === true && row.doneReason === 'stop'
       && row.messages?.some(message => message.role === 'user'
         && typeof message.content === 'string' && message.content.endsWith('\nSouhrn:'))
-      && providerOutput(row)?.trim() === conversation.summary.trim());
+      && typeof providerOutput(row) === 'string'
+      && `${providerOutput(row).trim()}${userQuoteBlock}` === conversation.summary);
     assert(summaryCalls.length === 1,
-      `persisted summary must match one completed provider response, got ${summaryCalls.length}`);
-    const firstUser = messages.find(message => message.role === 'user');
+      `persisted summary must match one completed provider response plus the exact user quote, got ${summaryCalls.length}`);
     assert(typeof firstUser?.content === 'string' && firstUser.content.includes(WINDOW_FILL_CODE),
       'the first raw user message is missing its anchor');
     assert(Number(conversation.summary_up_to_msg_id) >= Number(firstUser.id),

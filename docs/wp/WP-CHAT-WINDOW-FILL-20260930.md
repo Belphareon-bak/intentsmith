@@ -25,7 +25,10 @@ nikoli o přejímku chatu. Důkaz je v soukromém
 `.intentsmith-artifacts/run-suites/2026-09-30T20-42-23-470Z/`.
 Izolovaný kandidát na této větvi vyžaduje osm dokončených kol, přesný
 aritmetický výsledek každého z nich a oddělené technické a věcné verdikty;
-jeho nový živý běh je **LIVE_NOT_RUN / REVIEW_PENDING**.
+jeho nový živý běh je **LIVE_NOT_RUN / REVIEW_PENDING**. Ověření souhrnu v
+kandidátovi očekává také deterministickou citaci původního USER údaje podle
+navazující opravy auto-contextu `b9be61ad`; společný živý běh vyžaduje
+integraci a nezávislou přejímku obou změn.
 
 **Autorita:** explicitní zadání operátora z 2026-09-30 ověřit chat po
 naplnění kontextového okna a automatické zkrácení kontextu. Produktové chování
@@ -84,7 +87,10 @@ všech osm odpovědí proti zachyceným provider voláním. Osm kladných příp
 neprokazuje správnost záporného nebo nulového rozdílu; ty mají samostatnou
 opt-in sadu `tests/chat-value-fidelity-live.test.js`. Volný text souhrnu
 zůstává věcně nehodnocený mimo kritický kód; test ověřuje dokončený provider
-výstup, uložený text, pokrytí první zprávy a dostupnost kódu po kompakci.
+výstup, přesně uložený modelový text s doslovnou citací z původní USER
+zprávy a jejím `messageId`, pokrytí první zprávy a dostupnost kódu po
+kompakci. Runner znovu ověřuje oba SHA zachyceného sumarizačního volání,
+`done_reason=stop`, marker souhrnového promptu a přesnou výslednou kompozici.
 Průběh, odpovědi, snapshot DB a délka se SHA256 úplného JSONL prefixu se uloží před
 odstraněním izolované konverzace do privátního artefaktu s právy `0600` i při
 selhání. Pozdější řádky background sumarizace zůstanou v surovém záznamu a

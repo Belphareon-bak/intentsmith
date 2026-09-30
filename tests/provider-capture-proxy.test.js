@@ -15,7 +15,7 @@ import {
 } from '../scripts/provider-capture.js';
 import { runSuite } from '../scripts/run-suites.js';
 import { WINDOW_FILL_CASES, WINDOW_FILL_RETRY_CASE,
-  windowFillMessage } from '../scripts/chat85-window-values.js';
+  windowFillMessage, windowFillUserQuoteBlock } from '../scripts/chat85-window-values.js';
 import { assertExactValueAnswer } from './helpers/chat-value-fidelity-journey.js';
 
 const listen = server => new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -39,6 +39,14 @@ test('window-fill source and independent eight-turn arithmetic oracle stay align
     ?.match(/kalibrace (\d+)/)?.[1]), WINDOW_FILL_RETRY_CASE.expected.a);
   assert.equal(Number(retryLines.find(line => line.startsWith('Záznam 9.24:'))
     ?.match(/kalibrace (\d+)/)?.[1]), WINDOW_FILL_RETRY_CASE.expected.b);
+  const firstUser = { id: 17, role: 'user', content: windowFillMessage(1) };
+  const quoteBlock = windowFillUserQuoteBlock(firstUser, 17);
+  assert.match(quoteBlock, /"source":"user","messageId":17/);
+  assert.match(quoteBlock, /auditní kód RIGEL_KAPPA_731\./);
+  assert.throws(() => windowFillUserQuoteBlock({ ...firstUser, role: 'assistant' }, 17),
+    /original user message changed/);
+  assert.throws(() => windowFillUserQuoteBlock(firstUser, 16),
+    /does not cover the original user message/);
   assert.throws(() => assertExactValueAnswer('{"a":106,"b":23,"delta":83,"higher":"A"}',
     WINDOW_FILL_CASES[2]), /wrong values/);
   assert.throws(() => assertExactValueAnswer('{"a":66,"b":55,"delta":29,"higher":"A"}',
@@ -125,6 +133,17 @@ test('provider proxy records the exact terminal chat before forwarding success',
         numPredict: valueRow.numPredict, promptEvalCount: valueRow.promptEvalCount });
     }
     const retry = valueTurns.pop();
+    const firstUser = { id: 17, role: 'user', content: windowFillMessage(1) };
+    const summaryText = `RIGEL_KAPPA_731${windowFillUserQuoteBlock(firstUser, 17)}`;
+    const summaryReply = await fetch(`${proxy.url}/api/chat`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: CAPTURE_MODEL, stream: false,
+        messages: [{ role: 'user', content: 'Shrň podklady.\nSouhrn:' }],
+        options: { num_ctx: 4096, num_predict: 1200 } }),
+    });
+    assert.equal(summaryReply.status, 200);
+    assert.equal((await summaryReply.json()).message.content, 'RIGEL_KAPPA_731');
+    const summaryRow = readFileSync(captureFile, 'utf8').trim().split('\n').map(JSON.parse).at(-1);
     const sourceRevision = 'a'.repeat(40);
     const evidenceFile = path.join(root, '85-window-fill-evidence.json');
     const captureBytes = readFileSync(captureFile);
@@ -134,7 +153,10 @@ test('provider proxy records the exact terminal chat before forwarding success',
       providerCaptureBytes: captureBytes.length,
       providerCaptureSha256: sha256(captureBytes),
       turns: valueTurns, retry,
-      observedWindow: 4096, summary: { text: 'RIGEL_KAPPA_731' },
+      observedWindow: 4096, summary: { text: summaryText, upToMsgId: 17,
+        providerRequestSha256: summaryRow.requestSha256,
+        providerResponseSha256: summaryRow.responseSha256 },
+      finalSnapshot: { messages: [firstUser] },
       final: {
         requestSha256: rows[0].requestSha256,
         responseSha256: rows[0].responseSha256,
@@ -162,8 +184,42 @@ test('provider proxy records the exact terminal chat before forwarding success',
     assert.equal(trailingResponse.status, 200);
     await trailingResponse.text();
     const attested = attest();
-    assert.equal(attested.observedProviderRows, 10);
-    assert.equal(attested.providerRows, 11);
+    assert.equal(attested.observedProviderRows, 11);
+    assert.equal(attested.providerRows, 12);
+    writeEvidence({ ...windowEvidence, summary: { ...windowEvidence.summary,
+      providerRequestSha256: '0'.repeat(64) } });
+    assert.throws(attest, /summary provider call is missing/);
+    writeEvidence({ ...windowEvidence, summary: { ...windowEvidence.summary,
+      providerResponseSha256: '0'.repeat(64) } });
+    assert.throws(attest, /summary provider call is missing/);
+    writeEvidence({ ...windowEvidence, summary: { ...windowEvidence.summary,
+      text: `${summaryText} neověřené tvrzení` } });
+    assert.throws(attest, /persisted summary differs/);
+    writeEvidence({ ...windowEvidence, summary: { ...windowEvidence.summary, text: '  ' } });
+    assert.throws(attest, /summary evidence missing/);
+    writeEvidence({ ...windowEvidence, finalSnapshot: { messages: [{ ...firstUser,
+      content: 'forged raw source' }] } });
+    assert.throws(attest, /original user message changed/);
+    const completeRows = readFileSync(captureFile, 'utf8').trim().split('\n').map(JSON.parse);
+    const prefixRowCount = captureBytes.toString('utf8').trim().split('\n').length;
+    const mutateSummaryCapture = (change, pattern) => {
+      const altered = completeRows.map(row => row.requestSha256 === summaryRow.requestSha256
+        ? change(structuredClone(row)) : row);
+      const prefix = Buffer.from(`${altered.slice(0, prefixRowCount).map(JSON.stringify).join('\n')}\n`);
+      const mutatedCaptureFile = path.join(root, 'mutated-capture.jsonl');
+      const mutatedEvidenceFile = path.join(root, 'mutated-85-window-fill-evidence.json');
+      writeFileSync(mutatedCaptureFile, `${altered.map(JSON.stringify).join('\n')}\n`, { mode: 0o600 });
+      writeFileSync(mutatedEvidenceFile, `${JSON.stringify({ ...windowEvidence,
+        providerCaptureBytes: prefix.length, providerCaptureSha256: sha256(prefix) })}\n`,
+      { mode: 0o600 });
+      assert.throws(() => attestWindowFillEvidence({
+        evidenceFile: mutatedEvidenceFile, captureFile: mutatedCaptureFile, sourceRevision,
+      }), pattern);
+    };
+    mutateSummaryCapture(row => ({ ...row, doneReason: 'length',
+      terminal: { ...row.terminal, done_reason: 'length' } }), /summary provider response did not stop/);
+    mutateSummaryCapture(row => ({ ...row, messages: [{ role: 'user', content: 'No summary marker' }] }),
+      /summary provider prompt marker missing/);
     writeEvidence({ ...windowEvidence, arithmeticQuality: { ...windowEvidence.arithmeticQuality, status: 'FAIL' } });
     assert.throws(attest, /arithmetic quality did not pass/);
     writeEvidence({ ...windowEvidence, turns: valueTurns.slice(0, 7) });
