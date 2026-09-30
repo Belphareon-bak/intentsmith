@@ -6,6 +6,8 @@ import { DEFAULT_MODEL_EVALUATION_OPTIONS } from '../eval/model-evaluation-runne
 import { decideRoleOperational } from '../eval/role-operational-decision.js';
 import { validateSemanticAcceptance } from '../eval/semantic-grader-acceptance.js';
 import { SEMANTIC_ROLE_SUITES } from '../eval/semantic-role-suites.js';
+import { chatConversationDraft } from '../eval/chat-conversation-suite.js';
+import { acceptedGraderPair, validStoredGradingPair, simulatedEvidenceBlocked, isSimulatedEvaluationEvidence } from '../eval/independent-grader-pair.js';
 
 const roles = new Set(['D1','D2','CODE','R1','R2','CHAT','VISION']);
 const canonical = value => JSON.stringify(value, (_key, item) => item && typeof item === 'object'
@@ -61,9 +63,11 @@ function validateEnvelope(record) {
       && new Set(e.tasks.map(t => t.name)).size === e.tasks.length, 'grader tasks');
     for (const task of e.tasks) {
       requireValue(text(task.name) && ['T1','T2','T3','T4'].includes(task.tier), 'grader tier');
-      const actual = SEMANTIC_ROLE_SUITES[record.role]?.tests.find(t => t.name === task.name);
+      const suite = record.role === 'CHAT' && e.suiteName === 'chat_conversation_review'
+        ? chatConversationDraft : SEMANTIC_ROLE_SUITES[record.role];
+      const actual = suite?.tests.find(t => t.name === task.name);
       if (SEMANTIC_ROLE_SUITES[record.role]) requireValue(actual && actual.tier === task.tier
-        && (task.tier !== 'T4' || actual.semanticReference.criteria.length === task.criterionCount), 'actual grading tier');
+        && (task.tier !== 'T4' || (actual.semanticReference?.criteria.length || actual.rubric?.length) === task.criterionCount), 'actual grading tier');
       if (task.tier === 'T4') requireValue(text(task.taskType)
         && Number.isSafeInteger(task.criterionCount) && task.criterionCount > 0, 'semantic task');
       requireValue(Number.isFinite(task.floor) && task.floor >= 0 && task.floor <= (task.tier === 'T4' ? 0.25 : 0.1), 'grader floor');
@@ -77,7 +81,14 @@ function validateEnvelope(record) {
     }
     if (e.tasks.some(t => t.tier === 'T4')) validateSemanticAcceptance(e.semanticAcceptance, e);
   } else {
-    requireValue(text(e.graderAcceptanceId) && e.plan?.evaluationContractSha256 === record.contractSha256
+    const semanticRole = Boolean(SEMANTIC_ROLE_SUITES[record.role]);
+    // Legacy single-grader operational records remain readable as historical
+    // evidence, but resolve() never grants them new decision authority.
+    requireValue((semanticRole
+      ? (Array.isArray(e.graderAcceptanceIds) && e.graderAcceptanceIds.length === 2
+        && e.graderAcceptanceIds.every(text) && new Set(e.graderAcceptanceIds).size === 2)
+        || text(e.graderAcceptanceId)
+      : text(e.graderAcceptanceId)) && e.plan?.evaluationContractSha256 === record.contractSha256
       && e.plan.role === record.role
       && e.plan.runtimeSha256 === e.runtimeSha256
       && e.plan.workflow === 'intentsmith' && e.plan.developmentOnly === false && e.plan.notAHoldout === false
@@ -97,12 +108,26 @@ export class ModelEvaluationAcceptanceStore {
 
   // Explicit reviewed input only; no inference runner calls this writer.
   record(record) {
+    // Revocation must remain possible even for an imported simulated receipt.
+    if (record?.kind !== 'REVOKE' && simulatedEvidenceBlocked(record,this.db))
+      throw Error('EVALUATION_SIMULATED_EVIDENCE');
     validateEnvelope(record);
     return this.db.transaction(() => {
       if (record.kind === 'OPERATIONAL') {
-        const grader = this._rows(record.role, record.contractSha256).find(r => r.id === record.evidence.graderAcceptanceId);
-        requireValue(grader?.kind === 'GRADER' && !grader.revoked
-          && grader.evidence.runtimeSha256 === record.evidence.runtimeSha256, 'grader reference');
+        requireValue(!SEMANTIC_ROLE_SUITES[record.role]
+          || (Array.isArray(record.evidence.graderAcceptanceIds)
+            && record.evidence.graderAcceptanceIds.length === 2), 'independent grader pair');
+        const references = SEMANTIC_ROLE_SUITES[record.role]
+          ? record.evidence.graderAcceptanceIds : [record.evidence.graderAcceptanceId];
+        const graders = references.map(id => this._rows(record.role, record.contractSha256).find(r => r.id === id));
+        requireValue(graders.every(grader => grader?.kind === 'GRADER' && !grader.revoked
+          && !simulatedEvidenceBlocked(grader,this.db)
+          && grader.evidence.runtimeSha256 === record.evidence.runtimeSha256), 'grader reference');
+        if (SEMANTIC_ROLE_SUITES[record.role]) {
+          const pair = acceptedGraderPair(graders.map(g => ({id:g.id,
+            judge:g.evidence.semanticAcceptance?.plan.judge})), null);
+          requireValue(pair && pair.every(g => references.includes(g.id)), 'independent grader pair');
+        }
       }
       const payload = canonical(record), id = `accept_${randomUUID()}`;
       this.db.prepare(`INSERT INTO model_evaluation_acceptances
@@ -134,11 +159,22 @@ export class ModelEvaluationAcceptanceStore {
     if (!this.db) return blocked('EVALUATION_ACCEPTANCE_DB_UNAVAILABLE');
     try {
       const rows = this._rows(role, suiteContractSha256);
-      const current = rows.filter(r => !r.revoked && r.evidence?.runtimeSha256 === runtimeSha256);
+      const current = rows.filter(r => !r.revoked && r.evidence?.runtimeSha256 === runtimeSha256
+        && !simulatedEvidenceBlocked(r,this.db));
       const names = [...taskNames].sort().join('\n');
       const graders = current.filter(r => r.kind === 'GRADER' && r.evidence.tasks.map(t => t.name).sort().join('\n') === names);
-      const qualifications = current.filter(r => r.kind === 'OPERATIONAL' && graders.some(g => g.id === r.evidence.graderAcceptanceId))
-        .map(r => ({ id:r.id, payloadSha256:r.payloadSha256, graderId:r.evidence.graderAcceptanceId,
+      const semanticRole = Boolean(SEMANTIC_ROLE_SUITES[role]);
+      const qualifications = current.filter(r => r.kind === 'OPERATIONAL' && (semanticRole
+        ? Array.isArray(r.evidence.graderAcceptanceIds)
+          && r.evidence.graderAcceptanceIds.length === 2
+          && r.evidence.graderAcceptanceIds.every(id => graders.some(g => g.id === id))
+          && acceptedGraderPair(r.evidence.graderAcceptanceIds.map(id => {
+            const g = graders.find(row => row.id === id);
+            return {id,judge:g?.evidence.semanticAcceptance?.plan.judge};
+          })) !== null
+        : graders.some(g => g.id === r.evidence.graderAcceptanceId)))
+        .map(r => ({ id:r.id, simulation:isSimulatedEvaluationEvidence(r), payloadSha256:r.payloadSha256, graderId:r.evidence.graderAcceptanceId,
+          graderIds:r.evidence.graderAcceptanceIds || [r.evidence.graderAcceptanceId],
           review:r.review, planSha256:r.evidence.plan.planSha256,
           profileSha256:acceptanceHash(r.evidence.plan.profile), profile:r.evidence.plan.profile,
           candidateDigestSha256:r.evidence.plan.candidate.digest,
@@ -163,20 +199,17 @@ export class ModelEvaluationAcceptanceStore {
       const candidate = get(candidateRunId), incumbent = get(incumbentRunId);
       const matches = (run,q,digest) => {
         const metadata = JSON.parse(run?.metadata_json || '{}'), hardware = JSON.parse(run?.hardware_json || '{}');
-        const grader = acceptance.graders.find(g => g.id === q.graderId);
         return run?.status === 'COMPLETE' && run.role === plan.role
+          && !simulatedEvidenceBlocked({metadata,model_name:run.model_name},this.db)
           && run.suite_contract_sha256 === plan.suiteContractSha256
           && run.suite_name === plan.suiteName && run.suite_version === plan.suiteVersion
           && plan.suite.tests.every(t => [['num_ctx','numCtx'],['num_predict','numPredict'],['temperature','temperature'],['top_p','topP']]
             .every(([option,key]) => (t.options?.[option] ?? DEFAULT_MODEL_EVALUATION_OPTIONS[option]) === q.profile[key]))
           && run.model_digest_sha256 === digest && metadata.provider?.proof === 'RESPONSE_BOUND'
-          && (!plan.collectionOnly || (metadata.grading?.graderAcceptanceId === q.graderId
-            && metadata.grading?.graderAcceptanceSha256 === grader?.payloadSha256
-            && metadata.grading?.sourceCollectionRunId
-            && hash(metadata.grading?.sourceCollectionSha256)
-            && (!grader?.judge || (metadata.grading?.judge?.digestSha256 === grader.judge.digestSha256
-              && metadata.grading?.judge?.providerVersion === grader.judge.providerVersion
-              && grader.judge.digestSha256 !== digest))))
+          && (!plan.collectionOnly || (validStoredGradingPair(this.db,metadata.grading,acceptance.graders,digest,
+            plan.role,plan.suiteContractSha256,run.score)
+            && q.graderIds.length === 2
+            && q.graderIds.every(id => metadata.grading.graders.some(entry => entry.id === id))))
           && metadata.provider.version === q.providerVersion && hardware.model === q.hardware.model
           && hardware.vramMb === q.hardware.vramMb && hardware.numCtx === q.numCtx;
       };
@@ -190,6 +223,8 @@ export class ModelEvaluationAcceptanceStore {
 }
 
 export function acceptedOperationalDecision(qualification) {
+  // Even a sandbox qualification cannot escape into a production proposal.
+  if (isSimulatedEvaluationEvidence(qualification)) return null;
   const d = qualification?.decision;
   if (!d) return null;
   return { winner:d.verdict === 'ZMENIT' ? 'candidate' : d.verdict === 'PONECHAT' ? 'incumbent' : 'inconclusive',

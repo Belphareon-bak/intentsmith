@@ -611,7 +611,7 @@ await testAsync('incumbent failure is attributed exactly and later candidate rol
   } finally { restore(); }
 });
 
-await testAsync('selected installed test measures only the requested role and persists without a duel, pull or deletion', async () => {
+await testAsync('selected installed test follows the sealed role repeat count despite caller override', async () => {
   const seen = stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:27b' });
   try {
     const calls = [], saved = [], runner = fakeRunner({});
@@ -623,9 +623,9 @@ await testAsync('selected installed test measures only the requested role and pe
       trialOpts: { repeats: 3, resolveArtifact: async modelName => ({modelName,digestSha256:'a'.repeat(64)}),
         saveHistoricalSummary: async value => { saved.push(value); return {runId:'saved'}; } },
     });
-    assertEqual(result.roleErrors.length,0);assertEqual(calls.length,3);
+    assertEqual(result.roleErrors.length,0);assertEqual(calls.length,1);
     assert(calls.every(c=>c.model==='cand:27b'&&c.suite==='code_patch'));
-    assertEqual(saved.length,1);assertEqual(saved[0].role,'CODE');assertEqual(saved[0].summary.runs,3);
+    assertEqual(saved.length,1);assertEqual(saved[0].role,'CODE');assertEqual(saved[0].summary.runs,1);
     assertEqual(result.trials[0].evaluation.historyRunId,'saved');
     assertEqual(Object.keys(result.decisions).length,0);assertEqual(result.removed,false);
     assert(!seen.some(c=>c.path==='/api/pull'||c.path==='/api/delete'));

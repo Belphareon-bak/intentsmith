@@ -7,6 +7,7 @@ import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from '../src/config.js';
+import { EVALUATION_PROVIDER_BUILD } from '../src/eval/evaluation-provider-build.js';
 import { createModelFailoverRepository } from '../src/upgrade/model-failover.js';
 import { ModelEvaluationReadModel } from '../src/upgrade/model-evaluation-read-model.js';
 import { resolveCurrentBindings } from '../src/upgrade/model-upgrade-prototype.js';
@@ -48,7 +49,8 @@ export function renderEvaluationReport(readModel) {
   const lines = [
     `Autorita: ${readModel.authority.tables.join(' + ')}; current contract only; legacy fallback OFF`,
     `Vygenerováno: ${readModel.generatedAt}`,
-    `Provider filtr: ${readModel.providerVersion || 'HISTORICAL_SNAPSHOT_UNFILTERED'}`,
+    `Evaluační provider filtr: ${readModel.providerVersion || 'HISTORICAL_SNAPSHOT_UNFILTERED'}`,
+    `Interaktivní runtime provider: ${readModel.runtimeProviderVersion || 'NEOVĚŘEN'}`,
     `Binding autorita: ${readModel.bindingAuthority?.status || 'UNKNOWN'}${readModel.bindingAuthority?.reason ? ` (${readModel.bindingAuthority.reason})` : ''}`,
     `Coverage: applicable ${readModel.coverage?.applicableTotal ?? '—'}, `
       + `applicable MISSING ${readModel.coverage?.applicableStatusCounts?.MISSING ?? '—'}, `
@@ -82,12 +84,20 @@ export async function buildEvaluationReport(options = {}) {
       ? Promise.resolve(options.inventory)
       : fetchInventory(options.baseUrl));
     // An explicit inventory is an offline historical replay. Its provider
-    // filter must come from the snapshot, never from today's live service.
+    // filter must come from the snapshot. A live report uses the same pinned
+    // evaluation provider identity as ModelRegistry; the interactive provider
+    // is reported separately and cannot turn sidecar evidence into MISSING.
     const providerVersion = options.inventory
       ? options.providerVersion || null
+      : EVALUATION_PROVIDER_BUILD.version;
+    const runtimeProviderVersion = options.inventory
+      ? options.runtimeProviderVersion
       : await fetchProviderVersion(options.baseUrl);
     return new ModelEvaluationReadModel(db).read({
       providerVersion,
+      ...(runtimeProviderVersion === undefined ? {} : {
+        runtimeProviderVersion,
+      }),
       inventory,
       bindings: bindingState.bindings,
       bindingAuthority: {

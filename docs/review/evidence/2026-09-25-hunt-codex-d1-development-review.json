@@ -1,0 +1,1125 @@
+{
+  "schemaVersion": 1,
+  "status": "DRAFT_PARTIAL_REVIEW",
+  "decisionAuthority": false,
+  "reviewer": "codex",
+  "packetSha256": "b3a2f33445ed7537fca65d2dd25645e68ba90250c1c0718c57396f8371aefc0f",
+  "reviewedAt": "2026-09-25T20:36:49.230851+00:00",
+  "blindToIdentity": true,
+  "priorTaskExposurePossible": true,
+  "opusGradesRead": false,
+  "scope": {
+    "role": "D1",
+    "cases": 72,
+    "criteria": 288
+  },
+  "cases": [
+    {
+      "id": "7bb8b22b-deea-431b-ad95-b25cf2f0e362",
+      "task": "d1_audit_error_envelope",
+      "label": "A",
+      "repeat": 1,
+      "ratings": [
+        1,
+        0.5,
+        0.5,
+        0.55
+      ],
+      "reasons": [
+        "Správný řetězec || true → parsovaný ENOTFOUND → {} → total 0 → clean:true; UI caller nepředstírá jako zdroj.",
+        "Dvě cesty s tradeoffy, ale preferované odstranění || true bez zachycení stdout by chybně zahodilo audit s existujícími vulnerabilities a exit 1.",
+        "Error-JSON větev je bezpečná, avšak preferovaná exit-only oprava by nerozlišila nenulový platný audit od selhání.",
+        "Testuje error, clean i zranitelnosti, ale neupíná nenulový report k reálnému exit 1, takže chybná oprava by prošla."
+      ]
+    },
+    {
+      "id": "43935122-fac8-4441-bef9-2822fd4be63c",
+      "task": "d1_audit_error_envelope",
+      "label": "A",
+      "repeat": 2,
+      "ratings": [
+        1,
+        0.5,
+        0.5,
+        0.55
+      ],
+      "reasons": [
+        "Přesně identifikuje parsovatelný JSON error envelope a false clean přes fallback.",
+        "Druhá, obsahová alternativa je možná, ale preferované odstranění || true považuje každý exit 1 za selhání včetně validního vulnerability reportu.",
+        "Vysvětluje error/clean/nonempty, ale bezpečnost preferované opravy vůči audit exit 1 nedoloží.",
+        "Tři stavy uvádí, ale u nonempty testu nemá skutečný nenulový exit, který odhalí preferovaný defect."
+      ]
+    },
+    {
+      "id": "2c74106c-3c6c-45b4-8950-c64158a203e0",
+      "task": "d1_audit_error_envelope",
+      "label": "A",
+      "repeat": 3,
+      "ratings": [
+        1,
+        0.45,
+        0.5,
+        0.5
+      ],
+      "reasons": [
+        "Správně sleduje stdout error a clean:true až k UI stavu.",
+        "Představuje dvě varianty, ale jednoznačně doporučuje exit-only opravu rozbíjející nenulový nález; rozdíl npm exit 1 u nálezu ignoruje.",
+        "Nedefinuje, jak preferovaná oprava uchová platné vulnerability výsledky při exit 1.",
+        "Chybové a oba pozitivní scénáře uvádí, ale ne jako mock report+exit code, tedy neodliší vadný exit-only návrh."
+      ]
+    },
+    {
+      "id": "bf9c9721-cff3-445b-bfef-d7c20bc2880d",
+      "task": "d1_audit_error_envelope",
+      "label": "B",
+      "repeat": 1,
+      "ratings": [
+        0.95,
+        0.8,
+        0.8,
+        0.85
+      ],
+      "reasons": [
+        "Správný řetězec včetně parseru; zbytečně rozvádí hypotézy o stderr mimo explicitní pozorování.",
+        "Výslovně si opraví exit-only omyl u npm audit exit 1 s nálezem a navrhuje parse err.stdout jako životaschopnou druhou variantu.",
+        "Chápe typed unavailable vs valid vulnerable report, ale doporučení exit-based opravy v textu zůstává místy rozporné.",
+        "Má konkrétní empty/vulnerable(exit 1)/ENOTFOUND fixture s expected; UI zdroj správně značí jako chybějící."
+      ]
+    },
+    {
+      "id": "94dd166a-1da8-48f2-9710-c0e47d05757f",
+      "task": "d1_audit_error_envelope",
+      "label": "B",
+      "repeat": 2,
+      "ratings": [
+        0.95,
+        0.5,
+        0.5,
+        0.55
+      ],
+      "reasons": [
+        "Správně trasuje parse error envelope a rozdíl prázdného stdout.",
+        "Přes obsahovou variantu upřednostní holé odstranění || true a nazve exit rozhodujícím; npm exit 1 s nálezem by to rozbilo.",
+        "Vulnerable report uvede jako čistě úspěšný execSync bez ověření exit 1; ztráta je ve zvolené variantě.",
+        "Mock vulnerable report přes return z execSync ignoruje skutečný exit 1; jinak má tři konkrétní expected stavy."
+      ]
+    },
+    {
+      "id": "45349978-e801-40d9-8c86-290b1a9788d2",
+      "task": "d1_audit_error_envelope",
+      "label": "B",
+      "repeat": 3,
+      "ratings": [
+        1,
+        0.6,
+        0.55,
+        0.55
+      ],
+      "reasons": [
+        "Správně rozlišuje stdout chybového obalu, prázdný stdout a true clean.",
+        "Má platný check audit.error, ale preferuje remove || true bez správného zpracování vulnerable exit 1; druhá varianta není robustně integrována.",
+        "Varování před fake clean je správné; test nonempty s exit 0 by nepokryl běžný validní report s exit 1.",
+        "Tři případy explicitní, ale nonempty fixture má exit 0, a proto chybná exit-only oprava unikne."
+      ]
+    },
+    {
+      "id": "bf7a684e-4390-42fe-980c-205d6942d7fa",
+      "task": "d1_audit_error_envelope",
+      "label": "C",
+      "repeat": 1,
+      "ratings": [
+        0.9,
+        0.45,
+        0.5,
+        0.5
+      ],
+      "reasons": [
+        "Cestu validního error JSON rozpozná; příliš zdůrazňuje hypoteticky prázdný stdout navzdory předepsanému vstupu.",
+        "Doporučuje remove || true bez záchrany validního vulnerability JSON při exit 1; obsahová alternativa zůstává druhým možným návrhem.",
+        "Error state chápe, ale preferovaná oprava nedrží nonempty vulnerability report.",
+        "Pět scénářů slovně, jenže nenulový report bez exit 1 neodhalí regressi."
+      ]
+    },
+    {
+      "id": "971a8a56-d6f0-4219-b77a-01427f7895fb",
+      "task": "d1_audit_error_envelope",
+      "label": "C",
+      "repeat": 2,
+      "ratings": [
+        0.75,
+        0.8,
+        0.85,
+        0.75
+      ],
+      "reasons": [
+        "Nakonec odvodí validní ENOTFOUND JSON → empty fallback, ale dlouho spekuluje o stderr a {} navzdory explicitnímu inputu.",
+        "Správně odmítne prosté odstranění || true pro exit 1 s nálezem a zvolí strukturální validaci; další alternativa s parse err.stdout je použitelná.",
+        "Vyžaduje audit.error a validní strukturu, takže failure/empty/nonempty nezaměňuje.",
+        "Tři stavy s expected popíše, ale nonempty test bez přesného exit code neposuzuje alternativní exit-based implementaci."
+      ]
+    },
+    {
+      "id": "254a0819-61c9-466b-9063-344b1cb1a412",
+      "task": "d1_audit_error_envelope",
+      "label": "C",
+      "repeat": 3,
+      "ratings": [
+        1,
+        1,
+        0.95,
+        0.8
+      ],
+      "reasons": [
+        "Přesně odvodí parse ENOTFOUND a false clean, UI implementaci označí za chybějící.",
+        "Sama zavrhne holý exit-only návrh, popíše validní parsování err.stdout při exit 1 i jednodušší audit.error check s tradeoffy.",
+        "Zachová nonempty report s exit 1, chybu jako typed unavailable a clean jen pro platný empty.",
+        "Testy pro ENOTFOUND, empty, nonempty a parse error jsou rozlišující; část jen popisná a UI caller chybí."
+      ]
+    },
+    {
+      "id": "cf630d2e-e333-484e-b378-36312c84f08d",
+      "ratings": [
+        0.1,
+        0.35,
+        0.5,
+        0.45
+      ],
+      "reasons": [
+        "Zaznamená, že vyhozená výjimka přeskočí ř. 611, ale kořen chyby pak spekulativně přesune do #createErrorResponse/handle; mine vrácený taggedResponse s metadata.error.",
+        "Srovnává throw a guard v handle, ale guard už je podle zadání před DB zápisem a sám RAM append v process neřeší.",
+        "Chce uchovat vstup uživatele a zastavit asistenta; zvolený throw v catch neblokuje vrácený soft error před appendem.",
+        "Zkouší thrown provider error a success/cancel, nikoli handlerem vrácený metadata.error=true, který odlišuje vadný stav."
+      ]
+    },
+    {
+      "id": "8350d553-5a56-4bc7-a504-7bb18810b348",
+      "ratings": [
+        0.15,
+        0.4,
+        0.55,
+        0.5
+      ],
+      "reasons": [
+        "Správně vidí, že handler throw obejde append, ale místo vráceného error výsledku hledá poruchu již existujícího handle guardu.",
+        "Throw vs handle-guard uvádí s tradeoffem; možnost na process guard před appendem chybí.",
+        "Požaduje bezchybné historie a uchování user turn, ale throw pouze z catch neřeší soft failure.",
+        "Má konkrétní thrown handler, success a abort, nikoli vrácený error objekt s metadata.error=true."
+      ]
+    },
+    {
+      "id": "60f3781e-7d21-40ad-8f87-0c4af0a33764",
+      "ratings": [
+        0.1,
+        0.35,
+        0.4,
+        0.5
+      ],
+      "reasons": [
+        "Sám konstatuje, že thrown handler přeskočí ř. 611, přesto jako příčinu inventuje side effect #createErrorResponse/handle nebo streaming.",
+        "Odklad appendu do handle je myslitelný, ale bez ochrany přímých process volajících může rozbít úspěšnou historii; chybí guard soft erroru.",
+        "Správně chrání DB a user turn, ale přesun appendu bez smlouvy pro přímé volající nezaručuje success ani failure hranici.",
+        "Testuje thrown handler, success, cancel a DB, ne vrácený metadata.error=true před RAM appendem."
+      ]
+    },
+    {
+      "id": "b0fd35ff-51c1-45a6-96a2-91fec8e0fb91",
+      "ratings": [
+        1,
+        0.85,
+        0.85,
+        0.95
+      ],
+      "reasons": [
+        "Po počáteční korekci přesně identifikuje soft failure: handler vrátí metadata.error=true, ensureTagged ji zachová a ř. 611 appenduje před handle guardem.",
+        "Porovnává guard v process a propagaci výjimky s tradeoffem API; doporučený throw uvnitř try by se znovu chytil, nutno ohlídat tuto implementační mez.",
+        "Odděluje RAM a DB, user turn zachovává a process volajícím vrací/propaguje chybu; pozor na catch nově vyhozené výjimky.",
+        "Konkrétně testuje soft failure, thrown handler, úspěch přesně jednou, handle a abort; tyto sondy odliší předčasný append."
+      ]
+    },
+    {
+      "id": "1450bf60-30ea-4fc8-846f-e89958a703ae",
+      "ratings": [
+        0.1,
+        0.35,
+        0.45,
+        0.45
+      ],
+      "reasons": [
+        "Explicitní preserve metadata.error vyloží jako možnou chybu značky nebo handle; nereprodukuje handlerem vrácený error, který projde ř. 611.",
+        "Srovnává throw z catch s guardem v handle, jenž už existuje; obě cesty nechávají soft error v RAM.",
+        "Deklaruje žádný failed assistant v historii a ponechání user turn, ale zvolený zásah nezastaví RAM append returned erroru.",
+        "Pokrývá thrown handler, cancel a success, chybí měřitelná returned-error reprodukce."
+      ]
+    },
+    {
+      "id": "3d473f70-3a53-4edd-be93-ab5dcb186736",
+      "ratings": [
+        0.15,
+        0.3,
+        0.4,
+        0.4
+      ],
+      "reasons": [
+        "Správně pozná rozdíl RAM/DB, ale přisoudí append objektu z catch/handle v rozporu s ř. 611 uvnitř try.",
+        "Throw z process vs pozdní handle guard nejsou dva plnohodnotné zásahy do skutečné soft-failure cesty.",
+        "Ochrana user turn a DB je uvedena; předčasný RAM append při vráceném erroru zůstane.",
+        "Navrhuje thrown handler, success a cancel, bez soft-error návratu a explicitní RAM kontroly v něm."
+      ]
+    },
+    {
+      "id": "5d7cc642-26bf-420d-88a0-42b6abce044c",
+      "ratings": [
+        0.1,
+        0.2,
+        0.35,
+        0.4
+      ],
+      "reasons": [
+        "Hledá neznámé vedlejší účinky #createErrorResponse či UI místo doložené cesty vráceného metadata.error=true přes ensureTagged do appendu.",
+        "Ponechání error objektu a již existující handle kontrola nevylučují append v process; alternativy nemají nezávislý účinek.",
+        "Tvrdí, že RAM i DB zůstanou čisté, ale nikde nezastaví ř. 611 pro soft error.",
+        "Obecně testuje process/handle/cancel, nikoli případ vráceného chybového výsledku s nezměněnou historií."
+      ]
+    },
+    {
+      "id": "2bbde287-1a02-4a89-93c6-71ecdd64bf27",
+      "ratings": [
+        0.05,
+        0.2,
+        0.3,
+        0.35
+      ],
+      "reasons": [
+        "Vymýšlí chybějící metadata.error na #createErrorResponse, ač explicitní boundary říká ensureTagged flag zachová a handle jej hlídá.",
+        "Oprava tagování catch výsledku ani změna handle guardu neopraví append handlerem vráceného chybového objektu.",
+        "Ponechává user input, ale zvolený plán nezajišťuje nezměněnou RAM historii u soft failure.",
+        "Testuje vlastnosti chyby z catch, nikoli vrácený error označený již před ensureTagged; success/cancel nejsou rozhodující sondy."
+      ]
+    },
+    {
+      "id": "a2233afd-8b83-4eff-8966-5084439b7e7e",
+      "ratings": [
+        0.1,
+        0.25,
+        0.4,
+        0.4
+      ],
+      "reasons": [
+        "Uznává, že catch ř. 611 přeskočí a DB guard funguje, následně ale spekuluje o streamingu/UI; soft failure vrácený handlerem nepojmenuje.",
+        "Propagaci throw a filtrování v handle srovnává, ale ř. 611 v process při soft erroru nechá bez guardu.",
+        "Správně odlišuje RAM a durable a chce zachovat user turn; oprava handle/UI nečistí RAM mutaci.",
+        "Obsahuje thrown error, success a cancel sondy; chybí returned metadata.error se zkouškou RAM."
+      ]
+    },
+    {
+      "id": "96496a61-5457-42f4-9411-7dbc42f34d91",
+      "ratings": [
+        1,
+        0.9,
+        1,
+        0.9
+      ],
+      "reasons": [
+        "A1: Identifikuje přiřazení result.content do frozen getter-only TaggedResponse; v ES modulu TypeError skončí ve varování a scorer/emise čtou starý obsah.",
+        "A1: Srovnává lokální finalContent a konstrukci nového TaggedResponse; volí lokální obsah bez mutace původní instance a zmiňuje cenu úprav všech downstream použití. Konstruktor a přenos metadata u druhé varianty nejsou plně ověřené.",
+        "A1: Nechává původní result včetně tag/metadata beze změny a směruje stejný finalContent do scoreResponse, appendTurn i návratového response; fallback zůstává původní text.",
+        "A1: Určuje frozen getter-only fixture s improvement.response='improved', zkoumá original result, emisi, DB a scorer. Očekávání by odlišila starý výstup od opraveného."
+      ]
+    },
+    {
+      "id": "634b8638-a08a-48fd-9900-ab2ad3cfeb0d",
+      "ratings": [
+        1,
+        0.95,
+        1,
+        1
+      ],
+      "reasons": [
+        "A2: Identifikuje přiřazení result.content do frozen getter-only TaggedResponse; v ES modulu TypeError skončí ve varování a scorer/emise čtou starý obsah.",
+        "A2: Srovnává lokální finalContent a konstrukci nového TaggedResponse; volí lokální obsah bez mutace původní instance a zmiňuje cenu úprav všech downstream použití. Konstruktor a přenos metadata u druhé varianty nejsou plně ověřené.",
+        "A2: Nechává původní result včetně tag/metadata beze změny a směruje stejný finalContent do scoreResponse, appendTurn i návratového response; fallback zůstává původní text.",
+        "A2: Určuje frozen getter-only fixture s improvement.response='improved', zkoumá original result, emisi, DB a scorer. Očekávání by odlišila starý výstup od opraveného."
+      ]
+    },
+    {
+      "id": "403c7e34-00b0-4265-9d30-c035f21412e5",
+      "ratings": [
+        0.75,
+        0.9,
+        1,
+        0.95
+      ],
+      "reasons": [
+        "A3: Identifikuje přiřazení result.content do frozen getter-only TaggedResponse; v ES modulu TypeError skončí ve varování a scorer/emise čtou starý obsah. Tvrdí i opačnou strict/non-strict variantu, ale skutečný mechanismus je jinak zachycen.",
+        "A3: Srovnává lokální finalContent a konstrukci nového TaggedResponse; volí lokální obsah bez mutace původní instance a zmiňuje cenu úprav všech downstream použití. Konstruktor a přenos metadata u druhé varianty nejsou plně ověřené.",
+        "A3: Nechává původní result včetně tag/metadata beze změny a směruje stejný finalContent do scoreResponse, appendTurn i návratového response; fallback zůstává původní text.",
+        "A3: Určuje frozen getter-only fixture s improvement.response='improved', zkoumá original result, emisi, DB a scorer. Očekávání by odlišila starý výstup od opraveného."
+      ]
+    },
+    {
+      "id": "a249b2ab-896a-40c9-8e67-5b7883ff7e68",
+      "ratings": [
+        1,
+        0.9,
+        1,
+        0.9
+      ],
+      "reasons": [
+        "B1: Identifikuje přiřazení result.content do frozen getter-only TaggedResponse; v ES modulu TypeError skončí ve varování a scorer/emise čtou starý obsah.",
+        "B1: Srovnává lokální finalContent a konstrukci nového TaggedResponse; volí lokální obsah bez mutace původní instance a zmiňuje cenu úprav všech downstream použití. Konstruktor a přenos metadata u druhé varianty nejsou plně ověřené.",
+        "B1: Nechává původní result včetně tag/metadata beze změny a směruje stejný finalContent do scoreResponse, appendTurn i návratového response; fallback zůstává původní text.",
+        "B1: Určuje frozen getter-only fixture s improvement.response='improved', zkoumá original result, emisi, DB a scorer. Očekávání by odlišila starý výstup od opraveného."
+      ]
+    },
+    {
+      "id": "9edb6c6f-cf93-4065-8871-2295fabe584b",
+      "ratings": [
+        1,
+        0.9,
+        1,
+        0.95
+      ],
+      "reasons": [
+        "B2: Identifikuje přiřazení result.content do frozen getter-only TaggedResponse; v ES modulu TypeError skončí ve varování a scorer/emise čtou starý obsah.",
+        "B2: Srovnává lokální finalContent a konstrukci nového TaggedResponse; volí lokální obsah bez mutace původní instance a zmiňuje cenu úprav všech downstream použití. Konstruktor a přenos metadata u druhé varianty nejsou plně ověřené.",
+        "B2: Nechává původní result včetně tag/metadata beze změny a směruje stejný finalContent do scoreResponse, appendTurn i návratového response; fallback zůstává původní text.",
+        "B2: Určuje frozen getter-only fixture s improvement.response='improved', zkoumá original result, emisi, DB a scorer. Očekávání by odlišila starý výstup od opraveného."
+      ]
+    },
+    {
+      "id": "7eb72a67-f8d5-4f8b-a8c8-095e38036044",
+      "ratings": [
+        0.9,
+        0.9,
+        1,
+        0.9
+      ],
+      "reasons": [
+        "B3: Identifikuje přiřazení result.content do frozen getter-only TaggedResponse; v ES modulu TypeError skončí ve varování a scorer/emise čtou starý obsah.",
+        "B3: Srovnává lokální finalContent a konstrukci nového TaggedResponse; volí lokální obsah bez mutace původní instance a zmiňuje cenu úprav všech downstream použití. Konstruktor a přenos metadata u druhé varianty nejsou plně ověřené.",
+        "B3: Nechává původní result včetně tag/metadata beze změny a směruje stejný finalContent do scoreResponse, appendTurn i návratového response; fallback zůstává původní text.",
+        "B3: Určuje frozen getter-only fixture s improvement.response='improved', zkoumá original result, emisi, DB a scorer. Očekávání by odlišila starý výstup od opraveného."
+      ]
+    },
+    {
+      "id": "49810c99-914f-4f85-aef6-50df040ae0af",
+      "ratings": [
+        1,
+        0.9,
+        1,
+        0.95
+      ],
+      "reasons": [
+        "C1: Identifikuje přiřazení result.content do frozen getter-only TaggedResponse; v ES modulu TypeError skončí ve varování a scorer/emise čtou starý obsah.",
+        "C1: Srovnává lokální finalContent a konstrukci nového TaggedResponse; volí lokální obsah bez mutace původní instance a zmiňuje cenu úprav všech downstream použití. Konstruktor a přenos metadata u druhé varianty nejsou plně ověřené.",
+        "C1: Nechává původní result včetně tag/metadata beze změny a směruje stejný finalContent do scoreResponse, appendTurn i návratového response; fallback zůstává původní text.",
+        "C1: Určuje frozen getter-only fixture s improvement.response='improved', zkoumá original result, emisi, DB a scorer. Očekávání by odlišila starý výstup od opraveného."
+      ]
+    },
+    {
+      "id": "d938ccce-b6da-41a3-9c41-2c838ec54133",
+      "ratings": [
+        1,
+        0.9,
+        1,
+        0.95
+      ],
+      "reasons": [
+        "C2: Identifikuje přiřazení result.content do frozen getter-only TaggedResponse; v ES modulu TypeError skončí ve varování a scorer/emise čtou starý obsah.",
+        "C2: Srovnává lokální finalContent a konstrukci nového TaggedResponse; volí lokální obsah bez mutace původní instance a zmiňuje cenu úprav všech downstream použití. Konstruktor a přenos metadata u druhé varianty nejsou plně ověřené.",
+        "C2: Nechává původní result včetně tag/metadata beze změny a směruje stejný finalContent do scoreResponse, appendTurn i návratového response; fallback zůstává původní text.",
+        "C2: Určuje frozen getter-only fixture s improvement.response='improved', zkoumá original result, emisi, DB a scorer. Očekávání by odlišila starý výstup od opraveného."
+      ]
+    },
+    {
+      "id": "ea1a469d-efff-4fc8-8950-2bc73b137afc",
+      "ratings": [
+        1,
+        0.8,
+        0.9,
+        0.85
+      ],
+      "reasons": [
+        "C3: Identifikuje přiřazení result.content do frozen getter-only TaggedResponse; v ES modulu TypeError skončí ve varování a scorer/emise čtou starý obsah.",
+        "C3: Srovnává lokální finalContent a konstrukci nového TaggedResponse; volí lokální obsah bez mutace původní instance a zmiňuje cenu úprav všech downstream použití. Konstruktor a přenos metadata u druhé varianty nejsou plně ověřené.",
+        "C3: Nechává původní result včetně tag/metadata beze změny a směruje stejný finalContent do scoreResponse, appendTurn i návratového response; fallback zůstává původní text.",
+        "C3: Určuje frozen getter-only fixture s improvement.response='improved', zkoumá original result, emisi, DB a scorer. Kontrolu shody scoreru s emitovaným textem popisuje jen obecně."
+      ]
+    },
+    {
+      "id": "0c555f98-bf4b-461c-8e5f-042870b113c9",
+      "ratings": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reasons": [
+        "TASK_ISSUE: A1: veřejné zadání tvrdí nulové/opakované previous_model pro tutéž roli, ale neuvedená migrace 030 má previous_model NOT NULL a role PRIMARY KEY; bez schématu nelze spravedlivě posoudit příčinu.",
+        "TASK_ISSUE: Tytéž chybějící DDL hranice mění proveditelnost dvou navržených oprav a jejich tradeoffy.",
+        "TASK_ISSUE: Bez přesných autoritativních vazeb a DDL nelze pevně určit, které historické identity lze bezpečně navrhnout/smazat.",
+        "TASK_ISSUE: Testy s NULL a opakovanou rolí by na reálném schématu nevytvořily řádky; rubrika tak měří nedosažitelný případ."
+      ]
+    },
+    {
+      "id": "7ffcadfe-f708-47ea-a368-428a1d76ef11",
+      "ratings": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reasons": [
+        "TASK_ISSUE: A2: veřejné zadání tvrdí nulové/opakované previous_model pro tutéž roli, ale neuvedená migrace 030 má previous_model NOT NULL a role PRIMARY KEY; bez schématu nelze spravedlivě posoudit příčinu.",
+        "TASK_ISSUE: Tytéž chybějící DDL hranice mění proveditelnost dvou navržených oprav a jejich tradeoffy.",
+        "TASK_ISSUE: Bez přesných autoritativních vazeb a DDL nelze pevně určit, které historické identity lze bezpečně navrhnout/smazat.",
+        "TASK_ISSUE: Testy s NULL a opakovanou rolí by na reálném schématu nevytvořily řádky; rubrika tak měří nedosažitelný případ."
+      ]
+    },
+    {
+      "id": "4667a39a-7674-4908-837c-3e4077ab5c5f",
+      "ratings": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reasons": [
+        "TASK_ISSUE: A3: veřejné zadání tvrdí nulové/opakované previous_model pro tutéž roli, ale neuvedená migrace 030 má previous_model NOT NULL a role PRIMARY KEY; bez schématu nelze spravedlivě posoudit příčinu.",
+        "TASK_ISSUE: Tytéž chybějící DDL hranice mění proveditelnost dvou navržených oprav a jejich tradeoffy.",
+        "TASK_ISSUE: Bez přesných autoritativních vazeb a DDL nelze pevně určit, které historické identity lze bezpečně navrhnout/smazat.",
+        "TASK_ISSUE: Testy s NULL a opakovanou rolí by na reálném schématu nevytvořily řádky; rubrika tak měří nedosažitelný případ."
+      ]
+    },
+    {
+      "id": "334290ac-e045-4696-a8ac-89d9f41b5293",
+      "ratings": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reasons": [
+        "TASK_ISSUE: B1: veřejné zadání tvrdí nulové/opakované previous_model pro tutéž roli, ale neuvedená migrace 030 má previous_model NOT NULL a role PRIMARY KEY; bez schématu nelze spravedlivě posoudit příčinu.",
+        "TASK_ISSUE: Tytéž chybějící DDL hranice mění proveditelnost dvou navržených oprav a jejich tradeoffy.",
+        "TASK_ISSUE: Bez přesných autoritativních vazeb a DDL nelze pevně určit, které historické identity lze bezpečně navrhnout/smazat.",
+        "TASK_ISSUE: Testy s NULL a opakovanou rolí by na reálném schématu nevytvořily řádky; rubrika tak měří nedosažitelný případ."
+      ]
+    },
+    {
+      "id": "32211165-3d62-4612-8aa6-90f50cd45e44",
+      "ratings": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reasons": [
+        "TASK_ISSUE: B2: veřejné zadání tvrdí nulové/opakované previous_model pro tutéž roli, ale neuvedená migrace 030 má previous_model NOT NULL a role PRIMARY KEY; bez schématu nelze spravedlivě posoudit příčinu.",
+        "TASK_ISSUE: Tytéž chybějící DDL hranice mění proveditelnost dvou navržených oprav a jejich tradeoffy.",
+        "TASK_ISSUE: Bez přesných autoritativních vazeb a DDL nelze pevně určit, které historické identity lze bezpečně navrhnout/smazat.",
+        "TASK_ISSUE: Testy s NULL a opakovanou rolí by na reálném schématu nevytvořily řádky; rubrika tak měří nedosažitelný případ."
+      ]
+    },
+    {
+      "id": "265eb483-458f-4045-ad3e-e9c5fa3d2133",
+      "ratings": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reasons": [
+        "TASK_ISSUE: B3: veřejné zadání tvrdí nulové/opakované previous_model pro tutéž roli, ale neuvedená migrace 030 má previous_model NOT NULL a role PRIMARY KEY; bez schématu nelze spravedlivě posoudit příčinu.",
+        "TASK_ISSUE: Tytéž chybějící DDL hranice mění proveditelnost dvou navržených oprav a jejich tradeoffy.",
+        "TASK_ISSUE: Bez přesných autoritativních vazeb a DDL nelze pevně určit, které historické identity lze bezpečně navrhnout/smazat.",
+        "TASK_ISSUE: Testy s NULL a opakovanou rolí by na reálném schématu nevytvořily řádky; rubrika tak měří nedosažitelný případ."
+      ]
+    },
+    {
+      "id": "59a78da0-84f0-40a1-8c18-92f099740068",
+      "ratings": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reasons": [
+        "TASK_ISSUE: C1: veřejné zadání tvrdí nulové/opakované previous_model pro tutéž roli, ale neuvedená migrace 030 má previous_model NOT NULL a role PRIMARY KEY; bez schématu nelze spravedlivě posoudit příčinu.",
+        "TASK_ISSUE: Tytéž chybějící DDL hranice mění proveditelnost dvou navržených oprav a jejich tradeoffy.",
+        "TASK_ISSUE: Bez přesných autoritativních vazeb a DDL nelze pevně určit, které historické identity lze bezpečně navrhnout/smazat.",
+        "TASK_ISSUE: Testy s NULL a opakovanou rolí by na reálném schématu nevytvořily řádky; rubrika tak měří nedosažitelný případ."
+      ]
+    },
+    {
+      "id": "285faf78-aabe-40a2-b980-c87a56277c0b",
+      "ratings": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reasons": [
+        "TASK_ISSUE: C2: veřejné zadání tvrdí nulové/opakované previous_model pro tutéž roli, ale neuvedená migrace 030 má previous_model NOT NULL a role PRIMARY KEY; bez schématu nelze spravedlivě posoudit příčinu.",
+        "TASK_ISSUE: Tytéž chybějící DDL hranice mění proveditelnost dvou navržených oprav a jejich tradeoffy.",
+        "TASK_ISSUE: Bez přesných autoritativních vazeb a DDL nelze pevně určit, které historické identity lze bezpečně navrhnout/smazat.",
+        "TASK_ISSUE: Testy s NULL a opakovanou rolí by na reálném schématu nevytvořily řádky; rubrika tak měří nedosažitelný případ."
+      ]
+    },
+    {
+      "id": "e8fa0d13-a48f-4081-a4e5-2d12f3be9f32",
+      "ratings": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reasons": [
+        "TASK_ISSUE: C3: veřejné zadání tvrdí nulové/opakované previous_model pro tutéž roli, ale neuvedená migrace 030 má previous_model NOT NULL a role PRIMARY KEY; bez schématu nelze spravedlivě posoudit příčinu.",
+        "TASK_ISSUE: Tytéž chybějící DDL hranice mění proveditelnost dvou navržených oprav a jejich tradeoffy.",
+        "TASK_ISSUE: Bez přesných autoritativních vazeb a DDL nelze pevně určit, které historické identity lze bezpečně navrhnout/smazat.",
+        "TASK_ISSUE: Testy s NULL a opakovanou rolí by na reálném schématu nevytvořily řádky; rubrika tak měří nedosažitelný případ."
+      ]
+    },
+    {
+      "id": "974105b1-1be5-4e75-abb6-a889b26535cb",
+      "ratings": [
+        0.75,
+        0.85,
+        0.9,
+        0.9
+      ],
+      "reasons": [
+        "A1: Nachází chybějící vlastnictví při binding cutover a ochranu obou identit; výslovně pojmenovává sdílený owner vedle inference/verification.",
+        "A1: Srovnává kompozici dvou single-model leases s helperem/batch API a rollback prvního při konfliktu; sdílený režim odpovídá uvedené kompatibilitě s čtenáři.",
+        "A1: Chce držet old+target přes cutover a kompenzaci i uvolnit partial acquisition; shared lease blokuje delete/pull a souběžné shared čtenáře dovolí.",
+        "A1: Popisuje druhý konflikt a uvolnění prvního, delete při držené rezervaci a exit/finally; očekává konflikt bez provider mutací."
+      ]
+    },
+    {
+      "id": "775371f1-b69c-437f-b355-47bd733b576a",
+      "ratings": [
+        0.4,
+        0.35,
+        0.45,
+        0.8
+      ],
+      "reasons": [
+        "A2: Nachází chybějící vlastnictví při binding cutover a ochranu obou identit; zaměňuje cutover za provider mutaci a nepodloženě žádá exkluzivitu místo chybějícího shared-use owneru.",
+        "A2: Srovnává kompozici dvou single-model leases s helperem/batch API a rollback prvního při konfliktu; exkluzivní nebo smíšená varianta mění kontrakt a brání běžné inferenci; tradeoff je místy přiznaný, ale není doložen nutností.",
+        "A2: Chce držet old+target přes cutover a kompenzaci i uvolnit partial acquisition; navržený exclusive owner zbytečně blokuje čtenáře, případně zneužívá MODEL_DELETE/MODEL_PULL jako auditní identitu cutoveru.",
+        "A2: Popisuje druhý konflikt a uvolnění prvního, delete při držené rezervaci a exit/finally; ne vždy ověřuje nulové provider mutace nebo chybové pořadí kroků."
+      ]
+    },
+    {
+      "id": "6b352409-ac84-4802-a732-2f28b9128a3a",
+      "ratings": [
+        0.9,
+        0.9,
+        1,
+        0.95
+      ],
+      "reasons": [
+        "A3: Nachází chybějící vlastnictví při binding cutover a ochranu obou identit; výslovně pojmenovává sdílený owner vedle inference/verification.",
+        "A3: Srovnává kompozici dvou single-model leases s helperem/batch API a rollback prvního při konfliktu; sdílený režim odpovídá uvedené kompatibilitě s čtenáři.",
+        "A3: Chce držet old+target přes cutover a kompenzaci i uvolnit partial acquisition; shared lease blokuje delete/pull a souběžné shared čtenáře dovolí.",
+        "A3: Popisuje druhý konflikt a uvolnění prvního, delete při držené rezervaci a exit/finally; očekává konflikt bez provider mutací."
+      ]
+    },
+    {
+      "id": "1d4f145f-658d-4cf4-8ea3-bb43d649b7b8",
+      "ratings": [
+        0.5,
+        0.5,
+        0.6,
+        0.75
+      ],
+      "reasons": [
+        "B1: Nachází chybějící vlastnictví při binding cutover a ochranu obou identit; zaměňuje cutover za provider mutaci a nepodloženě žádá exkluzivitu místo chybějícího shared-use owneru.",
+        "B1: Srovnává kompozici dvou single-model leases s helperem/batch API a rollback prvního při konfliktu; exkluzivní nebo smíšená varianta mění kontrakt a brání běžné inferenci; tradeoff je místy přiznaný, ale není doložen nutností.",
+        "B1: Chce držet old+target přes cutover a kompenzaci i uvolnit partial acquisition; navržený exclusive owner zbytečně blokuje čtenáře, případně zneužívá MODEL_DELETE/MODEL_PULL jako auditní identitu cutoveru.",
+        "B1: Popisuje druhý konflikt a uvolnění prvního, delete při držené rezervaci a exit/finally; ne vždy ověřuje nulové provider mutace nebo chybové pořadí kroků."
+      ]
+    },
+    {
+      "id": "0906f8d3-d11f-47f5-869c-057e5ad4b2af",
+      "ratings": [
+        0.45,
+        0.25,
+        0.45,
+        0.65
+      ],
+      "reasons": [
+        "B2: Nachází chybějící vlastnictví při binding cutover a ochranu obou identit; zaměňuje cutover za provider mutaci a nepodloženě žádá exkluzivitu místo chybějícího shared-use owneru.",
+        "B2: Srovnává kompozici dvou single-model leases s helperem/batch API a rollback prvního při konfliktu; exkluzivní nebo smíšená varianta mění kontrakt a brání běžné inferenci; tradeoff je místy přiznaný, ale není doložen nutností.",
+        "B2: Chce držet old+target přes cutover a kompenzaci i uvolnit partial acquisition; navržený exclusive owner zbytečně blokuje čtenáře, případně zneužívá MODEL_DELETE/MODEL_PULL jako auditní identitu cutoveru.",
+        "B2: Popisuje druhý konflikt a uvolnění prvního, delete při držené rezervaci a exit/finally; ne vždy ověřuje nulové provider mutace nebo chybové pořadí kroků."
+      ]
+    },
+    {
+      "id": "faa2205c-bdc4-462e-af17-192c1c96da19",
+      "ratings": [
+        0.55,
+        0.45,
+        0.5,
+        0.75
+      ],
+      "reasons": [
+        "B3: Nachází chybějící vlastnictví při binding cutover a ochranu obou identit; zaměňuje cutover za provider mutaci a nepodloženě žádá exkluzivitu místo chybějícího shared-use owneru.",
+        "B3: Srovnává kompozici dvou single-model leases s helperem/batch API a rollback prvního při konfliktu; exkluzivní nebo smíšená varianta mění kontrakt a brání běžné inferenci; tradeoff je místy přiznaný, ale není doložen nutností.",
+        "B3: Chce držet old+target přes cutover a kompenzaci i uvolnit partial acquisition; navržený exclusive owner zbytečně blokuje čtenáře, případně zneužívá MODEL_DELETE/MODEL_PULL jako auditní identitu cutoveru.",
+        "B3: Popisuje druhý konflikt a uvolnění prvního, delete při držené rezervaci a exit/finally; ne vždy ověřuje nulové provider mutace nebo chybové pořadí kroků."
+      ]
+    },
+    {
+      "id": "e8b82b34-b09f-476e-8139-0138db7fc214",
+      "ratings": [
+        0.65,
+        0.65,
+        0.65,
+        0.8
+      ],
+      "reasons": [
+        "C1: Nachází chybějící vlastnictví při binding cutover a ochranu obou identit; zaměňuje cutover za provider mutaci a nepodloženě žádá exkluzivitu místo chybějícího shared-use owneru.",
+        "C1: Srovnává kompozici dvou single-model leases s helperem/batch API a rollback prvního při konfliktu; exkluzivní nebo smíšená varianta mění kontrakt a brání běžné inferenci; tradeoff je místy přiznaný, ale není doložen nutností.",
+        "C1: Chce držet old+target přes cutover a kompenzaci i uvolnit partial acquisition; navržený exclusive owner zbytečně blokuje čtenáře, případně zneužívá MODEL_DELETE/MODEL_PULL jako auditní identitu cutoveru.",
+        "C1: Popisuje druhý konflikt a uvolnění prvního, delete při držené rezervaci a exit/finally; ne vždy ověřuje nulové provider mutace nebo chybové pořadí kroků."
+      ]
+    },
+    {
+      "id": "1ad5b0c4-b289-4f5c-aa6a-ac15fdbd6d33",
+      "ratings": [
+        0.55,
+        0.4,
+        0.45,
+        0.8
+      ],
+      "reasons": [
+        "C2: Nachází chybějící vlastnictví při binding cutover a ochranu obou identit; zaměňuje cutover za provider mutaci a nepodloženě žádá exkluzivitu místo chybějícího shared-use owneru.",
+        "C2: Srovnává kompozici dvou single-model leases s helperem/batch API a rollback prvního při konfliktu; exkluzivní nebo smíšená varianta mění kontrakt a brání běžné inferenci; tradeoff je místy přiznaný, ale není doložen nutností.",
+        "C2: Chce držet old+target přes cutover a kompenzaci i uvolnit partial acquisition; navržený exclusive owner zbytečně blokuje čtenáře, případně zneužívá MODEL_DELETE/MODEL_PULL jako auditní identitu cutoveru.",
+        "C2: Popisuje druhý konflikt a uvolnění prvního, delete při držené rezervaci a exit/finally; ne vždy ověřuje nulové provider mutace nebo chybové pořadí kroků."
+      ]
+    },
+    {
+      "id": "98edf0ac-9758-48b0-a006-63052d0f4416",
+      "ratings": [
+        0.95,
+        0.85,
+        0.9,
+        0.9
+      ],
+      "reasons": [
+        "C3: Nachází chybějící vlastnictví při binding cutover a ochranu obou identit; výslovně pojmenovává sdílený owner vedle inference/verification.",
+        "C3: Srovnává kompozici dvou single-model leases s helperem/batch API a rollback prvního při konfliktu; sdílený režim odpovídá uvedené kompatibilitě s čtenáři.",
+        "C3: Chce držet old+target přes cutover a kompenzaci i uvolnit partial acquisition; shared lease blokuje delete/pull a souběžné shared čtenáře dovolí.",
+        "C3: Popisuje druhý konflikt a uvolnění prvního, delete při držené rezervaci a exit/finally; očekává konflikt bez provider mutací."
+      ]
+    },
+    {
+      "id": "c58af44c-0d05-4f98-8e3e-7a741844524f",
+      "ratings": [
+        0.85,
+        0.4,
+        0.45,
+        0.55
+      ],
+      "reasons": [
+        "A1: Sleduje reducer comparePair až k inconclusive a speed větvi decideRole; konkrétně nachází výměnu při poměru >=1,25 bez dokladu kvality. Neurčuje skutečné nezávislé skupiny, které ve výřezu chybí.",
+        "A1: Uvádí konzervativní blokaci speed a alternativní srovnání; volitelná náhrada pomocí margin/wins či vyšší rychlosti stále nevytváří mez nezhoršení.",
+        "A1: Brání jednoznačné speed-only výměně, ale volitelný průchod na malé kladné margin bez mezí nebo při 1,5x rychlosti opět zaměňuje neprůkaznost za nezhoršení; opakování korelované úlohy nejsou nové případy.",
+        "A1: Testuje nerozhodnou kvalitu a vyšší rychlost; chybí explicitní sonda s jedinou nezávislou skupinou, korelovanými variantami a intervalem nezhoršení, který by rozhodnutí zablokoval."
+      ]
+    },
+    {
+      "id": "6ad2be60-ae8e-4b52-a7d6-fd5ca514b7ef",
+      "ratings": [
+        0.8,
+        0.35,
+        0.4,
+        0.55
+      ],
+      "reasons": [
+        "A2: Sleduje reducer comparePair až k inconclusive a speed větvi decideRole; konkrétně nachází výměnu při poměru >=1,25 bez dokladu kvality. Neurčuje skutečné nezávislé skupiny, které ve výřezu chybí.",
+        "A2: Uvádí konzervativní blokaci speed a alternativní srovnání; volitelná náhrada pomocí margin/wins či vyšší rychlosti stále nevytváří mez nezhoršení.",
+        "A2: Brání jednoznačné speed-only výměně, ale volitelný průchod na malé kladné margin bez mezí nebo při 1,5x rychlosti opět zaměňuje neprůkaznost za nezhoršení; opakování korelované úlohy nejsou nové případy.",
+        "A2: Testuje nerozhodnou kvalitu a vyšší rychlost; chybí explicitní sonda s jedinou nezávislou skupinou, korelovanými variantami a intervalem nezhoršení, který by rozhodnutí zablokoval."
+      ]
+    },
+    {
+      "id": "b86398eb-2484-429a-b57e-2ca447c402e2",
+      "ratings": [
+        0.75,
+        0.5,
+        0.4,
+        0.55
+      ],
+      "reasons": [
+        "A3: Sleduje reducer comparePair až k inconclusive a speed větvi decideRole; konkrétně nachází výměnu při poměru >=1,25 bez dokladu kvality. Neurčuje skutečné nezávislé skupiny, které ve výřezu chybí.",
+        "A3: Uvádí konzervativní blokaci speed a alternativní srovnání; volitelná náhrada pomocí margin/wins či vyšší rychlosti stále nevytváří mez nezhoršení.",
+        "A3: Brání jednoznačné speed-only výměně, ale volitelný průchod na malé kladné margin bez mezí nebo při 1,5x rychlosti opět zaměňuje neprůkaznost za nezhoršení; opakování korelované úlohy nejsou nové případy.",
+        "A3: Testuje nerozhodnou kvalitu a vyšší rychlost; chybí explicitní sonda s jedinou nezávislou skupinou, korelovanými variantami a intervalem nezhoršení, který by rozhodnutí zablokoval."
+      ]
+    },
+    {
+      "id": "791ff0b4-2e58-40e9-a25f-17b63936bdb4",
+      "ratings": [
+        0.85,
+        0.65,
+        0.55,
+        0.65
+      ],
+      "reasons": [
+        "B1: Sleduje reducer comparePair až k inconclusive a speed větvi decideRole; konkrétně nachází výměnu při poměru >=1,25 bez dokladu kvality. Neurčuje skutečné nezávislé skupiny, které ve výřezu chybí.",
+        "B1: Uvádí konzervativní blokaci speed a alternativní srovnání; alternativa opřená o neurčitou confidence/no-loss heuristiku nemá doložený plán přejímky.",
+        "B1: Brání jednoznačné speed-only výměně, ale nezavádí explicitní group ID a úplné uchování záporných deltas až do doporučení; pouze obecně deklaruje zachování ztrát.",
+        "B1: Testuje nerozhodnou kvalitu a vyšší rychlost; chybí explicitní sonda s jedinou nezávislou skupinou, korelovanými variantami a intervalem nezhoršení, který by rozhodnutí zablokoval."
+      ]
+    },
+    {
+      "id": "d069f3b2-4f83-4fa8-b410-ea0822b3ffae",
+      "ratings": [
+        0.85,
+        0.75,
+        0.65,
+        0.65
+      ],
+      "reasons": [
+        "B2: Sleduje reducer comparePair až k inconclusive a speed větvi decideRole; konkrétně nachází výměnu při poměru >=1,25 bez dokladu kvality. Neurčuje skutečné nezávislé skupiny, které ve výřezu chybí.",
+        "B2: Uvádí konzervativní blokaci speed a alternativní srovnání; alternativa opřená o neurčitou confidence/no-loss heuristiku nemá doložený plán přejímky.",
+        "B2: Brání jednoznačné speed-only výměně, ale nezavádí explicitní group ID a úplné uchování záporných deltas až do doporučení; pouze obecně deklaruje zachování ztrát.",
+        "B2: Testuje nerozhodnou kvalitu a vyšší rychlost; chybí explicitní sonda s jedinou nezávislou skupinou, korelovanými variantami a intervalem nezhoršení, který by rozhodnutí zablokoval."
+      ]
+    },
+    {
+      "id": "98a166d6-5b34-46e6-bce2-4280b53d6cd7",
+      "ratings": [
+        0.85,
+        0.55,
+        0.55,
+        0.65
+      ],
+      "reasons": [
+        "B3: Sleduje reducer comparePair až k inconclusive a speed větvi decideRole; konkrétně nachází výměnu při poměru >=1,25 bez dokladu kvality. Neurčuje skutečné nezávislé skupiny, které ve výřezu chybí.",
+        "B3: Uvádí konzervativní blokaci speed a alternativní srovnání; alternativa opřená o neurčitou confidence/no-loss heuristiku nemá doložený plán přejímky.",
+        "B3: Brání jednoznačné speed-only výměně, ale nezavádí explicitní group ID a úplné uchování záporných deltas až do doporučení; pouze obecně deklaruje zachování ztrát.",
+        "B3: Testuje nerozhodnou kvalitu a vyšší rychlost; chybí explicitní sonda s jedinou nezávislou skupinou, korelovanými variantami a intervalem nezhoršení, který by rozhodnutí zablokoval."
+      ]
+    },
+    {
+      "id": "0238d41c-6823-4c0b-984c-ed44828867de",
+      "ratings": [
+        0.8,
+        0.65,
+        0.55,
+        0.6
+      ],
+      "reasons": [
+        "C1: Sleduje reducer comparePair až k inconclusive a speed větvi decideRole; konkrétně nachází výměnu při poměru >=1,25 bez dokladu kvality. Neurčuje skutečné nezávislé skupiny, které ve výřezu chybí.",
+        "C1: Uvádí konzervativní blokaci speed a alternativní srovnání; alternativa opřená o neurčitou confidence/no-loss heuristiku nemá doložený plán přejímky.",
+        "C1: Brání jednoznačné speed-only výměně, ale nezavádí explicitní group ID a úplné uchování záporných deltas až do doporučení; pouze obecně deklaruje zachování ztrát.",
+        "C1: Testuje nerozhodnou kvalitu a vyšší rychlost; chybí explicitní sonda s jedinou nezávislou skupinou, korelovanými variantami a intervalem nezhoršení, který by rozhodnutí zablokoval."
+      ]
+    },
+    {
+      "id": "33c3735b-9304-4456-bd59-123bf5da9058",
+      "ratings": [
+        0.85,
+        0.65,
+        0.55,
+        0.6
+      ],
+      "reasons": [
+        "C2: Sleduje reducer comparePair až k inconclusive a speed větvi decideRole; konkrétně nachází výměnu při poměru >=1,25 bez dokladu kvality. Neurčuje skutečné nezávislé skupiny, které ve výřezu chybí.",
+        "C2: Uvádí konzervativní blokaci speed a alternativní srovnání; alternativa opřená o neurčitou confidence/no-loss heuristiku nemá doložený plán přejímky.",
+        "C2: Brání jednoznačné speed-only výměně, ale nezavádí explicitní group ID a úplné uchování záporných deltas až do doporučení; pouze obecně deklaruje zachování ztrát.",
+        "C2: Testuje nerozhodnou kvalitu a vyšší rychlost; chybí explicitní sonda s jedinou nezávislou skupinou, korelovanými variantami a intervalem nezhoršení, který by rozhodnutí zablokoval."
+      ]
+    },
+    {
+      "id": "6e40f6d8-219d-4907-a2b0-54b66d0d2b79",
+      "ratings": [
+        0.85,
+        0.6,
+        0.55,
+        0.6
+      ],
+      "reasons": [
+        "C3: Sleduje reducer comparePair až k inconclusive a speed větvi decideRole; konkrétně nachází výměnu při poměru >=1,25 bez dokladu kvality. Neurčuje skutečné nezávislé skupiny, které ve výřezu chybí.",
+        "C3: Uvádí konzervativní blokaci speed a alternativní srovnání; alternativa opřená o neurčitou confidence/no-loss heuristiku nemá doložený plán přejímky.",
+        "C3: Brání jednoznačné speed-only výměně, ale nezavádí explicitní group ID a úplné uchování záporných deltas až do doporučení; pouze obecně deklaruje zachování ztrát.",
+        "C3: Testuje nerozhodnou kvalitu a vyšší rychlost; chybí explicitní sonda s jedinou nezávislou skupinou, korelovanými variantami a intervalem nezhoršení, který by rozhodnutí zablokoval."
+      ]
+    },
+    {
+      "id": "590af4ee-40a2-4bf1-a8b9-3487d3b63f78",
+      "ratings": [
+        0.95,
+        0.75,
+        0.55,
+        0.7
+      ],
+      "reasons": [
+        "A1: Správně lokalizuje leak: fetch rejection přeskočí clearTimeout na ř. 851; catch vrátí false a background verify může opakovat.",
+        "A1: Srovnává finally s alternativou catch/AbortSignal.timeout. Umístění navrženého finally až za response.json přesouvá dosavadní hranici abortu z hlaviček na celé tělo; tuto změnu dostatečně neobhájí.",
+        "A1: Navrhuje uvolnit timer a false pro network error, ale odkladem clearTimeout až po čtení body dovolí abort těla, kde původně už signál časovač neaktivoval.",
+        "A1: Má simulaci network rejection, success a non-OK; json parse zmiňuje, ale starý kód již timer před parse vyčistil, takže tato sonda nezachytí původní leak."
+      ]
+    },
+    {
+      "id": "4bd9e1b9-98b5-444a-8917-9ef1cfbae62c",
+      "ratings": [
+        0.95,
+        0.7,
+        0.45,
+        0.6
+      ],
+      "reasons": [
+        "A2: Správně lokalizuje leak: fetch rejection přeskočí clearTimeout na ř. 851; catch vrátí false a background verify může opakovat.",
+        "A2: Srovnává finally s alternativou catch/AbortSignal.timeout. Umístění navrženého finally až za response.json přesouvá dosavadní hranici abortu z hlaviček na celé tělo; tuto změnu dostatečně neobhájí.",
+        "A2: Navrhuje uvolnit timer a false pro network error, ale odkladem clearTimeout až po čtení body dovolí abort těla, kde původně už signál časovač neaktivoval.",
+        "A2: Má simulaci network rejection, success a non-OK; json parse zmiňuje, ale starý kód již timer před parse vyčistil, takže tato sonda nezachytí původní leak."
+      ]
+    },
+    {
+      "id": "28f3a3c7-379a-469e-9918-5aa41cba4d00",
+      "ratings": [
+        0.9,
+        0.7,
+        0.55,
+        0.65
+      ],
+      "reasons": [
+        "A3: Správně lokalizuje leak: fetch rejection přeskočí clearTimeout na ř. 851; catch vrátí false a background verify může opakovat.",
+        "A3: Srovnává finally s alternativou catch/AbortSignal.timeout. Umístění navrženého finally až za response.json přesouvá dosavadní hranici abortu z hlaviček na celé tělo; tuto změnu dostatečně neobhájí.",
+        "A3: Navrhuje uvolnit timer a false pro network error, ale odkladem clearTimeout až po čtení body dovolí abort těla, kde původně už signál časovač neaktivoval.",
+        "A3: Má simulaci network rejection, success a non-OK; chybí úplná sada očekávání zvlášť pro non-OK, parse a přijetí hlaviček s kontrolou přesného času clearTimeout."
+      ]
+    },
+    {
+      "id": "f3a8a578-209c-41dc-b752-2f28da602dd6",
+      "ratings": [
+        0.9,
+        0.75,
+        0.55,
+        0.65
+      ],
+      "reasons": [
+        "B1: Správně lokalizuje leak: fetch rejection přeskočí clearTimeout na ř. 851; catch vrátí false a background verify může opakovat.",
+        "B1: Srovnává finally s alternativou catch/AbortSignal.timeout. Umístění navrženého finally až za response.json přesouvá dosavadní hranici abortu z hlaviček na celé tělo; tuto změnu dostatečně neobhájí.",
+        "B1: Navrhuje uvolnit timer a false pro network error, ale odkladem clearTimeout až po čtení body dovolí abort těla, kde původně už signál časovač neaktivoval.",
+        "B1: Má simulaci network rejection, success a non-OK; chybí úplná sada očekávání zvlášť pro non-OK, parse a přijetí hlaviček s kontrolou přesného času clearTimeout."
+      ]
+    },
+    {
+      "id": "4f81f179-9621-4c1a-acf4-acea2e36bf94",
+      "ratings": [
+        0.9,
+        0.65,
+        0.55,
+        0.55
+      ],
+      "reasons": [
+        "B2: Správně lokalizuje leak: fetch rejection přeskočí clearTimeout na ř. 851; catch vrátí false a background verify může opakovat.",
+        "B2: Srovnává finally s alternativou catch/AbortSignal.timeout. Umístění navrženého finally až za response.json přesouvá dosavadní hranici abortu z hlaviček na celé tělo; tuto změnu dostatečně neobhájí.",
+        "B2: Navrhuje uvolnit timer a false pro network error, ale odkladem clearTimeout až po čtení body dovolí abort těla, kde původně už signál časovač neaktivoval.",
+        "B2: Má simulaci network rejection, success a non-OK; chybí úplná sada očekávání zvlášť pro non-OK, parse a přijetí hlaviček s kontrolou přesného času clearTimeout."
+      ]
+    },
+    {
+      "id": "0341bfaa-b77e-4085-b721-e00b48fdf7dd",
+      "ratings": [
+        0.9,
+        0.65,
+        0.55,
+        0.6
+      ],
+      "reasons": [
+        "B3: Správně lokalizuje leak: fetch rejection přeskočí clearTimeout na ř. 851; catch vrátí false a background verify může opakovat.",
+        "B3: Srovnává finally s alternativou catch/AbortSignal.timeout. Umístění navrženého finally až za response.json přesouvá dosavadní hranici abortu z hlaviček na celé tělo; tuto změnu dostatečně neobhájí.",
+        "B3: Navrhuje uvolnit timer a false pro network error, ale odkladem clearTimeout až po čtení body dovolí abort těla, kde původně už signál časovač neaktivoval.",
+        "B3: Má simulaci network rejection, success a non-OK; chybí úplná sada očekávání zvlášť pro non-OK, parse a přijetí hlaviček s kontrolou přesného času clearTimeout."
+      ]
+    },
+    {
+      "id": "7eb73849-501b-4474-94c1-0b0c0181b283",
+      "ratings": [
+        0.95,
+        0.75,
+        0.6,
+        0.7
+      ],
+      "reasons": [
+        "C1: Správně lokalizuje leak: fetch rejection přeskočí clearTimeout na ř. 851; catch vrátí false a background verify může opakovat.",
+        "C1: Srovnává finally s alternativou catch/AbortSignal.timeout. Umístění navrženého finally až za response.json přesouvá dosavadní hranici abortu z hlaviček na celé tělo; tuto změnu dostatečně neobhájí.",
+        "C1: Navrhuje uvolnit timer a false pro network error, ale odkladem clearTimeout až po čtení body dovolí abort těla, kde původně už signál časovač neaktivoval.",
+        "C1: Má simulaci network rejection, success a non-OK; json parse zmiňuje, ale starý kód již timer před parse vyčistil, takže tato sonda nezachytí původní leak."
+      ]
+    },
+    {
+      "id": "19d22ffa-e14c-4286-aaac-b6218228dc4f",
+      "ratings": [
+        0.95,
+        0.75,
+        0.55,
+        0.6
+      ],
+      "reasons": [
+        "C2: Správně lokalizuje leak: fetch rejection přeskočí clearTimeout na ř. 851; catch vrátí false a background verify může opakovat.",
+        "C2: Srovnává finally s alternativou catch/AbortSignal.timeout. Umístění navrženého finally až za response.json přesouvá dosavadní hranici abortu z hlaviček na celé tělo; tuto změnu dostatečně neobhájí.",
+        "C2: Navrhuje uvolnit timer a false pro network error, ale odkladem clearTimeout až po čtení body dovolí abort těla, kde původně už signál časovač neaktivoval.",
+        "C2: Má simulaci network rejection, success a non-OK; chybí úplná sada očekávání zvlášť pro non-OK, parse a přijetí hlaviček s kontrolou přesného času clearTimeout."
+      ]
+    },
+    {
+      "id": "2a73a0a4-8fb5-4057-8c3b-6f9623259f03",
+      "ratings": [
+        0.95,
+        0.75,
+        0.55,
+        0.65
+      ],
+      "reasons": [
+        "C3: Správně lokalizuje leak: fetch rejection přeskočí clearTimeout na ř. 851; catch vrátí false a background verify může opakovat.",
+        "C3: Srovnává finally s alternativou catch/AbortSignal.timeout. Umístění navrženého finally až za response.json přesouvá dosavadní hranici abortu z hlaviček na celé tělo; tuto změnu dostatečně neobhájí.",
+        "C3: Navrhuje uvolnit timer a false pro network error, ale odkladem clearTimeout až po čtení body dovolí abort těla, kde původně už signál časovač neaktivoval.",
+        "C3: Má simulaci network rejection, success a non-OK; json parse zmiňuje, ale starý kód již timer před parse vyčistil, takže tato sonda nezachytí původní leak."
+      ]
+    },
+    {
+      "id": "49ab464e-0e24-44ee-9db7-b472bc362e5c",
+      "ratings": [
+        1,
+        0.7,
+        0.7,
+        0.65
+      ],
+      "reasons": [
+        "A1: Správně ukazuje splice(0) před tx(batch), transakci s pre-commit throw a catch bez obnovy; tři události zmizí z bufferu i DB, retry nemá co zpracovat.",
+        "A1: Srovnává snapshot→commit→odstranit prefix s obnovou přes unshift/retry; vhodná je délka zachyceného prefixu, aby se neodstranily nově přidané události.",
+        "A1: Chce zachovat failed batch a nevyvozovat exactly-once z INSERT OR IGNORE bez unikátního klíče; návrh nepředvádí bezpečné odstranění pouze původního prefixu po úspěchu.",
+        "A1: Má test DB throw se třemi položkami a následné retry; nezahrnuje ověřený úspěšný commit jen původního prefixu při následném novém eventu."
+      ]
+    },
+    {
+      "id": "f06508a0-c73b-445d-9506-d2727ba24bc7",
+      "ratings": [
+        1,
+        0.8,
+        0.85,
+        0.7
+      ],
+      "reasons": [
+        "A2: Správně ukazuje splice(0) před tx(batch), transakci s pre-commit throw a catch bez obnovy; tři události zmizí z bufferu i DB, retry nemá co zpracovat.",
+        "A2: Srovnává snapshot→commit→odstranit prefix s obnovou přes unshift/retry; vhodná je délka zachyceného prefixu, aby se neodstranily nově přidané události.",
+        "A2: Chce zachovat failed batch a nevyvozovat exactly-once z INSERT OR IGNORE bez unikátního klíče; uvádí pořadí/izolaci původního batch a nových eventů.",
+        "A2: Má test DB throw se třemi položkami a následné retry; nezahrnuje ověřený úspěšný commit jen původního prefixu při následném novém eventu."
+      ]
+    },
+    {
+      "id": "cbe3ce8e-2f0c-4157-a826-ff21726cd49b",
+      "ratings": [
+        1,
+        0.8,
+        0.75,
+        0.6
+      ],
+      "reasons": [
+        "A3: Správně ukazuje splice(0) před tx(batch), transakci s pre-commit throw a catch bez obnovy; tři události zmizí z bufferu i DB, retry nemá co zpracovat.",
+        "A3: Srovnává snapshot→commit→odstranit prefix s obnovou přes unshift/retry; řešení místy spoléhá na všeobjímající splice po commitu, které by při reentranci smazalo i nové události.",
+        "A3: Chce zachovat failed batch a nevyvozovat exactly-once z INSERT OR IGNORE bez unikátního klíče; návrh nepředvádí bezpečné odstranění pouze původního prefixu po úspěchu.",
+        "A3: Má test DB throw se třemi položkami a následné retry; nezahrnuje ověřený úspěšný commit jen původního prefixu při následném novém eventu."
+      ]
+    },
+    {
+      "id": "7d2d9a0d-0d2e-441b-8893-3affd187e248",
+      "ratings": [
+        1,
+        0.85,
+        0.85,
+        0.8
+      ],
+      "reasons": [
+        "B1: Správně ukazuje splice(0) před tx(batch), transakci s pre-commit throw a catch bez obnovy; tři události zmizí z bufferu i DB, retry nemá co zpracovat.",
+        "B1: Srovnává snapshot→commit→odstranit prefix s obnovou přes unshift/retry; vhodná je délka zachyceného prefixu, aby se neodstranily nově přidané události.",
+        "B1: Chce zachovat failed batch a nevyvozovat exactly-once z INSERT OR IGNORE bez unikátního klíče; uvádí pořadí/izolaci původního batch a nových eventů.",
+        "B1: Má test DB throw se třemi položkami a následné retry; kontrola nových eventů je zmíněná, ale nebyla vždy svázána s přesným stavem bufferu po commitu."
+      ]
+    },
+    {
+      "id": "3f1986cc-548d-4fc8-b93c-44e70f2b1628",
+      "ratings": [
+        1,
+        0.9,
+        0.9,
+        0.75
+      ],
+      "reasons": [
+        "B2: Správně ukazuje splice(0) před tx(batch), transakci s pre-commit throw a catch bez obnovy; tři události zmizí z bufferu i DB, retry nemá co zpracovat.",
+        "B2: Srovnává snapshot→commit→odstranit prefix s obnovou přes unshift/retry; vhodná je délka zachyceného prefixu, aby se neodstranily nově přidané události.",
+        "B2: Chce zachovat failed batch a nevyvozovat exactly-once z INSERT OR IGNORE bez unikátního klíče; uvádí pořadí/izolaci původního batch a nových eventů.",
+        "B2: Má test DB throw se třemi položkami a následné retry; kontrola nových eventů je zmíněná, ale nebyla vždy svázána s přesným stavem bufferu po commitu."
+      ]
+    },
+    {
+      "id": "a90b27b8-104d-4e3c-bac0-ac59207727c0",
+      "ratings": [
+        1,
+        0.8,
+        0.8,
+        0.75
+      ],
+      "reasons": [
+        "B3: Správně ukazuje splice(0) před tx(batch), transakci s pre-commit throw a catch bez obnovy; tři události zmizí z bufferu i DB, retry nemá co zpracovat.",
+        "B3: Srovnává snapshot→commit→odstranit prefix s obnovou přes unshift/retry; vhodná je délka zachyceného prefixu, aby se neodstranily nově přidané události.",
+        "B3: Chce zachovat failed batch a nevyvozovat exactly-once z INSERT OR IGNORE bez unikátního klíče; uvádí pořadí/izolaci původního batch a nových eventů.",
+        "B3: Má test DB throw se třemi položkami a následné retry; kontrola nových eventů je zmíněná, ale nebyla vždy svázána s přesným stavem bufferu po commitu."
+      ]
+    },
+    {
+      "id": "d200695c-ec9a-42cd-9b3c-0dc44a3ac54c",
+      "ratings": [
+        1,
+        0.8,
+        0.7,
+        0.75
+      ],
+      "reasons": [
+        "C1: Správně ukazuje splice(0) před tx(batch), transakci s pre-commit throw a catch bez obnovy; tři události zmizí z bufferu i DB, retry nemá co zpracovat.",
+        "C1: Srovnává snapshot→commit→odstranit prefix s obnovou přes unshift/retry; řešení místy spoléhá na všeobjímající splice po commitu, které by při reentranci smazalo i nové události.",
+        "C1: Chce zachovat failed batch a nevyvozovat exactly-once z INSERT OR IGNORE bez unikátního klíče; návrh nepředvádí bezpečné odstranění pouze původního prefixu po úspěchu.",
+        "C1: Má test DB throw se třemi položkami a následné retry; kontrola nových eventů je zmíněná, ale nebyla vždy svázána s přesným stavem bufferu po commitu."
+      ]
+    },
+    {
+      "id": "6741fea1-4455-41da-9f96-ec8ad32f5330",
+      "ratings": [
+        1,
+        0.85,
+        0.85,
+        0.75
+      ],
+      "reasons": [
+        "C2: Správně ukazuje splice(0) před tx(batch), transakci s pre-commit throw a catch bez obnovy; tři události zmizí z bufferu i DB, retry nemá co zpracovat.",
+        "C2: Srovnává snapshot→commit→odstranit prefix s obnovou přes unshift/retry; řešení místy spoléhá na všeobjímající splice po commitu, které by při reentranci smazalo i nové události.",
+        "C2: Chce zachovat failed batch a nevyvozovat exactly-once z INSERT OR IGNORE bez unikátního klíče; uvádí pořadí/izolaci původního batch a nových eventů.",
+        "C2: Má test DB throw se třemi položkami a následné retry; kontrola nových eventů je zmíněná, ale nebyla vždy svázána s přesným stavem bufferu po commitu."
+      ]
+    },
+    {
+      "id": "5831f372-02c1-4732-8252-17415f9bc848",
+      "ratings": [
+        1,
+        0.75,
+        0.75,
+        0.65
+      ],
+      "reasons": [
+        "C3: Správně ukazuje splice(0) před tx(batch), transakci s pre-commit throw a catch bez obnovy; tři události zmizí z bufferu i DB, retry nemá co zpracovat.",
+        "C3: Srovnává snapshot→commit→odstranit prefix s obnovou přes unshift/retry; vhodná je délka zachyceného prefixu, aby se neodstranily nově přidané události.",
+        "C3: Chce zachovat failed batch a nevyvozovat exactly-once z INSERT OR IGNORE bez unikátního klíče; návrh nepředvádí bezpečné odstranění pouze původního prefixu po úspěchu.",
+        "C3: Má test DB throw se třemi položkami a následné retry; nezahrnuje ověřený úspěšný commit jen původního prefixu při následném novém eventu."
+      ]
+    }
+  ]
+}

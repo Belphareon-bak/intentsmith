@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "packetSha256": "b3a2f33445ed7537fca65d2dd25645e68ba90250c1c0718c57396f8371aefc0f",
+  "reviewer": "Codex",
+  "reviewSha256": "72231c6d959c80157f88ead2733b2e8de7a2532b827ff5b747c83c97b632e4b7",
+  "decisionAuthority": false,
+  "lowConfidence": [
+    {
+      "id": "d200695c-ec9a-42cd-9b3c-0dc44a3ac54c",
+      "criterion": 2,
+      "reason": "Moje hranice mezi částečně bezpečným prefixovým řešením a rizikem reentrance vyžaduje druhé čtení přesného návrhu."
+    },
+    {
+      "id": "0906f8d3-d11f-47f5-869c-057e5ad4b2af",
+      "criterion": 3,
+      "reason": "Odpověď míchá shared/exclusive vlastníky; míra částečného kreditu za bezpečný cutover je sporná."
+    },
+    {
+      "id": "eac76d04-1d7f-45f7-ab27-ca20671f52fd",
+      "criterion": 3,
+      "reason": "Alternativní práce s immutable výsledkem může být správná jen při ověření všech downstream kontraktů."
+    },
+    {
+      "id": "d7cc473c-eb2d-4902-b223-e152fcd3e1bb",
+      "criterion": 2,
+      "reason": "Oprava přes finally uvolní timer, ale možná posouvá deadline až za čtení těla; váhu regresní vady musí potvrdit druhý posudek."
+    },
+    {
+      "id": "6d42a70f-5258-463e-9e82-4fd357ae8881",
+      "criterion": 3,
+      "reason": "Test reprodukuje ztrátu jen částečně a kredit za alternativní scénář je nejistý."
+    },
+    {
+      "id": "b3eb2562-eac1-4275-8147-5b87457e06f7",
+      "criterion": 1,
+      "reason": "Review přehlíží změnu header/body hranice při přesunu clearTimeout; vlastní známka může být příliš vysoká."
+    },
+    {
+      "id": "ae476253-ada9-434a-b605-b44a0512bf3e",
+      "criterion": 2,
+      "reason": "Reprodukční sonda může dokazovat jen část kontraktu; dělení kritéria je subjektivní."
+    },
+    {
+      "id": "2620c950-5352-408d-83ef-cae1628419a4",
+      "criterion": 1,
+      "reason": "Zdrojový nález je silný, ale tvrzení o nezávislosti opakování potřebuje samostatné ověření."
+    }
+  ],
+  "criticalFailures": [
+    {
+      "id": "c7df56ae-91e6-4298-997d-730eb1c72697",
+      "criterion": 2,
+      "reason": "Navržené odstranění || true zablokuje běžný audit se zranitelnostmi při exit 1; jde o produkčně významnou chybnou opravu."
+    },
+    {
+      "id": "4175419a-49db-4e91-8a58-9eb8ca5f970a",
+      "criterion": 1,
+      "reason": "Review schvaluje či přisuzuje opravu chybné hranici po appendu; chyba může vrátit selhání jako úspěch nebo zapsat vadný turn."
+    },
+    {
+      "id": "bffe77c5-018a-40cc-b416-9aec6bf2ada4",
+      "criterion": 1,
+      "reason": "Review připouští speed fallback při nerozlišené kvalitě; potenciální chybná výměna modelu."
+    },
+    {
+      "id": "26e89a00-c690-4257-9299-00f578711a98",
+      "criterion": 1,
+      "reason": "Záměna shared/exclusive lease vlastníka pro cutover může rozbít validaci role."
+    }
+  ],
+  "limitations": [
+    "Flags are reviewer selections from known development cases, not an exhaustive critical-failure detector.",
+    "All model_cleanup task issues enter the operator queue separately."
+  ]
+}

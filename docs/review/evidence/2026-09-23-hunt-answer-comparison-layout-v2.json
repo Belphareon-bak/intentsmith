@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "2026-09-23T08:19:38.327821+00:00",
+  "sourceRevisionAtPreparation": "e15e596d62aefcdf4012cc9bcdd4837c45cbea33",
+  "status": "OPERATOR_REVIEW_INPUT",
+  "layoutVersion": 2,
+  "productionChanged": false,
+  "newInference": false,
+  "independentAcceptance": false,
+  "sourceDataUnchangedFromPreviousArchive": true,
+  "answersAndGradesRecomputed": false,
+  "oldLocalStorageKeyAndExportSchemaPreserved": true,
+  "modelsAndGradesVisibleByDefault": true,
+  "attemptsDisplayedTogether": true,
+  "ui": {
+    "status": "PASS",
+    "at": "2026-09-23T08:18:25.630Z",
+    "layoutVersion": 2,
+    "tasks": 27,
+    "models": 12,
+    "modelSections": 108,
+    "responses": 324,
+    "criteriaReasonsChecked": 958,
+    "images": 4,
+    "ungradedPreserved": 1,
+    "allResponsesAndScoresExact": true,
+    "allModelsAndGradesVisibleByDefault": true,
+    "gradeAlsoInAnswerHeading": true,
+    "noAttemptOrIdentitySwitches": true,
+    "modelAndGradeJumpLinks": true,
+    "legacyLocalStorageAndExportCompatible": true,
+    "unreadableLocalDraftNotOverwritten": true,
+    "scoreNotePreferenceAndWeightPersistAfterReload": true,
+    "validExportAndImport": true,
+    "invalidScoreAndWrongSourceRejected": true,
+    "originalGradeNotOverwritten": true,
+    "sourceDataSha256": "9bdeb907fc1b36f56bff17353e2b38aeb6698705a6416b25b301763195f41394",
+    "htmlSha256": "4ea3902343f75f72025ea8303f35eb0752283276f30ba3e4afbb1fe0758c636c",
+    "viewports": [
+      1640,
+      800,
+      390
+    ],
+    "narrowViewportNoOverflow": true,
+    "rendererErrors": [],
+    "networkRequests": [],
+    "syntheticTestGradesNotModelEvidence": true,
+    "diagnosticBrowserSandboxDisabled": true
+  },
+  "artifactValidation": {
+    "passed": 160,
+    "failed": 0,
+    "skipped": 0
+  },
+  "reproductionIdentical": true,
+  "oldArchivePreserved": {
+    "path": "/mnt/vi7000/intentsmith/evidence/hunt-answer-comparison-20260923.eb59a6403698979a397131d33796bb021f7ee42650aab31ed2195863978a6e58.tar.gz",
+    "sha256": "eb59a6403698979a397131d33796bb021f7ee42650aab31ed2195863978a6e58",
+    "bytes": 1391775,
+    "membersVerified": 17,
+    "manifestSha256": "9b76e7bcd0b0a3bd2ab82a0901e53a0c926be5b6015cea37c172182e90feb434"
+  },
+  "archive": {
+    "path": "/mnt/vi7000/intentsmith/evidence/hunt-answer-comparison-layout-v2-20260923.46da79379c21ce4214ad68bd39bcd17ac9b94eb37cea053e1f946ca8420f2ccb.tar.gz",
+    "sha256": "46da79379c21ce4214ad68bd39bcd17ac9b94eb37cea053e1f946ca8420f2ccb",
+    "bytes": 1514365,
+    "membersVerified": 15,
+    "manifestSha256": "91c97ea499ebac995193594ce13b485edaf9ed79aef1ff4f0b24769190c8a312"
+  },
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "5936682b4b7306306765abb19620d599b007a6837f7a331a127cc96bfc287c3c",
+      "bytes": 9301
+    },
+    {
+      "path": "comparison-template.html",
+      "sha256": "c0e194bf34985364afdcbca4786ae17a57f54ce49e6c17981931f1aa51279b92",
+      "bytes": 24778
+    },
+    {
+      "path": "render-comparison-layout-v2.py",
+      "sha256": "b29c042a59d83e3398fd037b87b38b84eff0654a0cd8737ad02cf0c6f80a15f9",
+      "bytes": 1216
+    },
+    {
+      "path": "check-comparison-layout-v2.cjs",
+      "sha256": "5c3b953b85ab44981d5fee8b740d27eb7642cd9bbd6ab7018683a3ea96680a80",
+      "bytes": 10463
+    },
+    {
+      "path": "review/comparison.html",
+      "sha256": "4ea3902343f75f72025ea8303f35eb0752283276f30ba3e4afbb1fe0758c636c",
+      "bytes": 1997950
+    },
+    {
+      "path": "review/comparison-data.json",
+      "sha256": "9bdeb907fc1b36f56bff17353e2b38aeb6698705a6416b25b301763195f41394",
+      "bytes": 2431908
+    },
+    {
+      "path": "review/selection-summary.json",
+      "sha256": "f9700d64741c12bf7d4f508c652e9b3cbc6964e30c0723ed1b1f53a9f3bb34c3",
+      "bytes": 4066
+    },
+    {
+      "path": "ui-verification-layout-v2.json",
+      "sha256": "fd15be015886215b763bd8acaaf5effd27da26a3627812c9d8a4bcafa39decd9",
+      "bytes": 1091
+    },
+    {
+      "path": "artifact-validation-layout-v2.log",
+      "sha256": "f52f3b750d7cd8d7f751d21f040b6e178db02e7090f12d6ed38b3f50e3b68476",
+      "bytes": 13425
+    },
+    {
+      "path": "comparison-layout-v2-top.png",
+      "sha256": "e003e16dcd902306183731ce610e70fd0694d744c53664359e408b63df4aca8f",
+      "bytes": 175070
+    },
+    {
+      "path": "comparison-layout-v2-answer.png",
+      "sha256": "0af2aa4ea3fb9e0ad1605aa35473c952494f7237cabcd9bb90d2dbbc2ed6adab",
+      "bytes": 155461
+    },
+    {
+      "path": "comparison-layout-v2-reasoning.png",
+      "sha256": "96d363d14c32a85dadb3ab4803c76aab2ca04da8038c0d51c955eb37e2da80c9",
+      "bytes": 188384
+    },
+    {
+      "path": "comparison-layout-v2-narrow.png",
+      "sha256": "2876bfd77738833cef2d9fd98cf4f11f7db7923fa68559a794fd90cb6467887a",
+      "bytes": 108557
+    },
+    {
+      "path": "ui-failure-layout-v2-1790151217449.json",
+      "sha256": "26642d6783ae28f8eae9c439af7c63951c17760947b7d9163221419b54d146d1",
+      "bytes": 255
+    }
+  ]
+}

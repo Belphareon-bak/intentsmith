@@ -119,7 +119,7 @@ function insert(db, values) {
 
 suite('ModelEvaluationReadModel');
 
-test('exact artifact and current contract expose score and timestamp', () => {
+test('unreviewed semantic score stays historical while exact run time remains visible', () => {
   const db = database();
   const plans = reviewedPlans('CHAT');
   insert(db, {
@@ -133,8 +133,10 @@ test('exact artifact and current contract expose score and timestamp', () => {
     bindingAuthority: { status: 'DURABLE' },
   });
   const row = result.models[0].evaluations.CHAT;
-  assertEqual(row.status, 'COMPLETE');
-  assertEqual(row.score, 0.75);
+  assertEqual(row.status, 'BLOCKED');
+  assertEqual(row.score, null);
+  assertEqual(row.errorCode, 'EVALUATION_GRADER_ACCEPTANCE_MISSING');
+  assertEqual(new ModelEvaluationReadModel(db, { plans }).readRun('complete-chat').score, 0.75);
   assertEqual(row.testedAt, '2026-08-24T18:01:00.000Z');
   assertEqual(row.startedAt, '2026-08-24T18:00:00.000Z');
   assertEqual(row.durationMs, 60_000);
@@ -169,7 +171,7 @@ test('legacy inconsistent interval keeps only an explicitly unverified audit tim
   db.close();
 });
 
-test('D1 evidence remains MISSING for D2 and R1 on distinct role suites', () => {
+test('unreviewed D1 evidence is BLOCKED and remains MISSING for D2 and R1', () => {
   const db = database();
   const plans = reviewedPlans('D1');
   assert(plans.D1.suiteName !== plans.D2.suiteName);
@@ -183,7 +185,8 @@ test('D1 evidence remains MISSING for D2 and R1 on distinct role suites', () => 
   const evaluations = new ModelEvaluationReadModel(db, { plans }).read({
     inventory: [{ name: 'fixture:latest', digest: DIGEST }],
   }).models[0].evaluations;
-  assertEqual(evaluations.D1.status, 'COMPLETE');
+  assertEqual(evaluations.D1.status, 'BLOCKED');
+  assertEqual(evaluations.D1.errorCode, 'EVALUATION_GRADER_ACCEPTANCE_MISSING');
   assertEqual(evaluations.D2.status, 'MISSING');
   assertEqual(evaluations.R1.status, 'MISSING');
   db.close();
@@ -555,7 +558,7 @@ test('provider-filtered coverage replays offline and its filter cannot be tamper
   const missing = reader.read({ inventory, providerVersion });
   assertEqual(missing.models[0].evaluations.CODE.status, 'MISSING');
   assertEqual(missing.models[0].evaluations.CODE.missingReason, 'PROVIDER_CHANGED');
-  assert(renderEvaluationReport(missing).includes(`Provider filtr: ${providerVersion}`));
+  assert(renderEvaluationReport(missing).includes(`Evaluační provider filtr: ${providerVersion}`));
   insert(db, { runId: 'current-provider', digest: DIGEST, plan: plans.CODE, score: 0.4 });
   db.prepare('UPDATE model_evaluation_runs SET metadata_json = ? WHERE run_id = ?')
     .run(JSON.stringify({ provider: { version: providerVersion } }), 'current-provider');
@@ -582,6 +585,21 @@ test('schema absence fails closed with typed 503', () => {
   try { new ModelEvaluationReadModel(db); } catch (err) { error = err; }
   assert(error instanceof ModelEvaluationReadError);
   assertEqual(error.code, 'MODEL_EVALUATION_SCHEMA_MISSING');
+  assertEqual(error.httpStatus, 503);
+  db.close();
+});
+
+test('stored collection detail requires review and adjudication migrations', () => {
+  const db = database(), plans = createRoleEvaluationPlans();
+  insert(db, { runId: 'eval_collection_schema', digest: DIGEST, plan: plans.D1,
+    status: 'BLOCKED', errorCode: 'EVALUATION_AWAITING_REVIEW' });
+  db.prepare('UPDATE model_evaluation_runs SET metadata_json=? WHERE run_id=?')
+    .run(JSON.stringify({ collection: { status: 'AWAITING_REVIEW' } }), 'eval_collection_schema');
+  const read = new ModelEvaluationReadModel(db, { plans });
+  let error = null;
+  try { read.readRun('eval_collection_schema'); } catch (caught) { error = caught; }
+  assert(error instanceof ModelEvaluationReadError);
+  assertEqual(error.code, 'MODEL_EVALUATION_REVIEW_SCHEMA_MISSING');
   assertEqual(error.httpStatus, 503);
   db.close();
 });

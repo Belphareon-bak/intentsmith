@@ -4,11 +4,14 @@
 // versioned suite contract match. Timestamps are displayed, never converted
 // into an arbitrary freshness TTL. Legacy name-only rows cannot match.
 
+import { validStoredGradingPair, simulatedEvidenceBlocked, isSimulatedEvaluationEvidence } from '../eval/independent-grader-pair.js';
+import { collectionEvidenceHash, reconcileGraderReviews, storedGraderReviews } from '../eval/grade-answer-collection.js';
 import {
   checkModelEvaluationApplicability,
   createRoleEvaluationPlans,
 } from '../eval/role-evaluation-plan.js';
 import { normalizeInstalledModel } from './model-inventory.js';
+import { ModelEvaluationHistory } from './model-evaluation-history.js';
 import {
   canonicalModelName,
   normalizeModelDigestSha256,
@@ -101,16 +104,109 @@ function taskDetails(row, includeResponses = false) {
       reason: d.reason || null, syntaxOk: d.syntaxOk, applied: d.applied,
       outcome: d.outcome, valid: d.valid, timedOut: d.timedOut,
       targetedPassed: d.targetedPassed, targeted: d.targeted, regressions: d.regressions,
-      schema: d.schema, parts: d.parts, penalties: d.penalties,
+      schema: d.schema, parts: d.parts, graderReviews: d.graderReviews || [], penalties: d.penalties,
+      criterionWeights: d.criterionWeights, adjudicationId: d.adjudicationId,
       precision: d.precision, recall: d.recall, f1: d.f1,
       truePositive: d.truePositive, falsePositive: d.falsePositive, falseNegative: d.falseNegative,
       observed: d.observed, expected: d.expected,
       responseFormat: d.responseFormat, strictJson: d.strictJson,
       contentScore: d.contentScore, formatScore: d.formatScore, criteria: d.criteria,
       contractChecks: d.contractChecks,
+      ...(includeResponses && d.conversation ? { conversation: d.conversation } : {}),
       testFiles: d.testFiles, targetNames: d.targetNames,
       regressionNames: d.regressionNames, testOutput: d.testOutput,
     })) }));
+}
+
+function collectionReviewDetail(db, plan, source, run) {
+  const tables = new Set(db.prepare(`SELECT name FROM sqlite_master WHERE type='table'
+    AND name IN ('model_evaluation_grader_reviews','model_evaluation_grader_adjudications')`)
+    .all().map(row => row.name));
+  if (tables.size !== 2) throw new ModelEvaluationReadError('MODEL_EVALUATION_REVIEW_SCHEMA_MISSING',
+    'Uložené posudky nelze ověřit bez migrovaného schématu.', { httpStatus: 503 });
+  if (simulatedEvidenceBlocked(source, db)) return { ...run, score: null,
+    reviewStatus: 'SIMULATED_EVIDENCE', reviewGraders: [], disputes: [] };
+
+  const reviews = storedGraderReviews(new ModelEvaluationHistory(db), plan, source);
+  const reconciliation = reconcileGraderReviews(reviews, plan, source);
+  const sourceSha256 = collectionEvidenceHash(source);
+  const finalRows = db.prepare(`SELECT *, json_extract(metadata_json, '$.provider.version') AS provider_version
+    FROM model_evaluation_runs WHERE status='COMPLETE' AND role=? AND model_digest_sha256=?
+      AND suite_name=? AND suite_version=? AND suite_contract_sha256=?
+      AND json_extract(metadata_json, '$.grading.sourceCollectionRunId')=?
+      AND json_extract(metadata_json, '$.grading.sourceCollectionSha256')=?
+    ORDER BY completed_at DESC, rowid DESC`).all(source.role, source.artifact.digestSha256,
+    plan.suiteName, plan.suiteVersion, plan.suiteContractSha256, source.runId, sourceSha256);
+  const sourceTasks = new Map(source.tasks.map(task => [task.name, task]));
+  if (sourceTasks.size !== source.tasks.length || run.tasks.length !== source.tasks.length)
+    throw new Error('EVALUATION_REVIEW_SOURCE_TASKS_INVALID');
+  const aligned = candidate => {
+    const tasks = JSON.parse(candidate.task_results_json || '[]');
+    if (tasks.length !== source.tasks.length) return null;
+    const byName = new Map(tasks.map(task => [task.name, task]));
+    if (byName.size !== tasks.length) return null;
+    for (const sourceTask of source.tasks) {
+      const task = byName.get(sourceTask.name);
+      if (!task || JSON.stringify(task.input) !== JSON.stringify(sourceTask.input)
+        || JSON.stringify(task.options) !== JSON.stringify(sourceTask.options)
+        || JSON.stringify(task.responses) !== JSON.stringify(sourceTask.responses)
+        || task.details?.length !== sourceTask.details?.length
+        || task.scores?.length !== sourceTask.details?.length) return null;
+      for (let i = 0; i < sourceTask.details.length; i++) {
+        if (task.details[i]?.repeat !== sourceTask.details[i]?.repeat
+          || task.details[i]?.captureStatus !== sourceTask.details[i]?.captureStatus
+          || JSON.stringify(task.details[i]?.artifact) !== JSON.stringify(sourceTask.details[i]?.artifact)) return null;
+      }
+    }
+    return byName;
+  };
+  let final = null;
+  if (finalRows.length) {
+    const row = finalRows[0];
+    const grading = JSON.parse(row.metadata_json || '{}').grading;
+    const tasks = aligned(row);
+    if (tasks && validStoredGradingPair(db, grading, plan.acceptance?.graders,
+      source.artifact.digestSha256, source.role, plan.suiteContractSha256, row.score)) {
+      final = { row, grading, tasks };
+    }
+  }
+  const adjudication = final?.grading.adjudication
+    ? db.prepare('SELECT * FROM model_evaluation_grader_adjudications WHERE adjudication_id=?')
+      .get(final.grading.adjudication.id) : null;
+  const reviewStatus = final ? (adjudication ? 'ADJUDICATED' : 'GRADED')
+    : finalRows.length ? 'REVIEW_FINAL_UNVERIFIED' : reconciliation.status === 'GRADED'
+      ? 'REVIEW_RESULT_NOT_PERSISTED' : reconciliation.status;
+  const tasks = run.tasks.map(task => {
+    const captured = sourceTasks.get(task.name);
+    if (!captured || task.details.length !== captured.details.length)
+      throw new Error('EVALUATION_REVIEW_SOURCE_TASKS_INVALID');
+    const resolved = final?.tasks.get(task.name);
+    return { ...task, mean: resolved ? resolved.mean : null,
+      scores: resolved ? resolved.scores : [], details: task.details.map((detail, index) => {
+        const repeat = captured.details[index]?.repeat;
+        const graderReviews = reviews.map(review => {
+          const matches = review.summary.tasks.filter(item => item.name === task.name);
+          const graded = matches[0]?.details?.[index];
+          if (matches.length !== 1 || graded?.repeat !== repeat)
+            throw new Error('EVALUATION_REVIEW_ATTEMPT_MISMATCH');
+          return { reviewId: review.id, graderAcceptanceId: review.summary.grading.graderAcceptanceId,
+            score: graded.score, parts: graded.parts || [] };
+        });
+        const finalDetail = resolved?.details?.[index];
+        return { ...detail, graderReviews, gradingStatus: reviewStatus,
+          ...(finalDetail ? { score: finalDetail.score, parts: finalDetail.parts,
+            adjudicationId: finalDetail.adjudicationId || null } : {}) };
+      }) };
+  });
+  return { ...run, score: final ? Number(final.row.score) : null, reviewStatus,
+    resolvedRunId: final?.row.run_id || null,
+    reviewGraders: reviews.map(review => ({ id: review.summary.grading.graderAcceptanceId,
+      reviewId: review.id, recordedAt: review.recordedAt, accepted: Boolean(review.accepted),
+      modelName: review.accepted?.judge?.modelName || null })),
+    disputes: reconciliation.disputes,
+    adjudication: adjudication ? { ...JSON.parse(adjudication.decision_json),
+      id: adjudication.adjudication_id, recordedAt: adjudication.recorded_at } : null,
+    tasks };
 }
 // Presentation only: no prompts, grading rules or contract hashes are changed.
 const TASK_LABELS = {
@@ -179,6 +275,7 @@ function decodeCurrentRow(row, includeTasks = true, includeResponses = false) {
       : row.error_code === 'EVALUATION_COLLECTION_PARTIAL' ? 'COLLECTION_PARTIAL' : row.status,
     collection: JSON.parse(row.metadata_json || '{}').collection || null,
     grading: JSON.parse(row.metadata_json || '{}').grading || null,
+    simulation:isSimulatedEvaluationEvidence({metadata:JSON.parse(row.metadata_json || '{}'),model_name:row.model_name}),
     providerVersion: row.provider_version || null,
     providerProvenance: row.provider_version ? 'RECORDED' : 'UNRECORDED',
     score: row.score == null ? null : Number(row.score),
@@ -228,11 +325,13 @@ function currentStatus(db, artifact, role, plan, providerVersion = null) {
   );
   if (row) {
     const result = decodeCurrentRow(row);
+    if (simulatedEvidenceBlocked({metadata:JSON.parse(row.metadata_json || '{}'),model_name:row.model_name},db))
+      return Object.freeze({...result,status:'BLOCKED',score:null,errorCode:'EVALUATION_SIMULATED_EVIDENCE',
+        errorMessage:'Simulované známky nejsou produkční evidence. Původní záznam zůstává v historii.'});
     if (plan.collectionOnly && row.status === 'COMPLETE') {
       const grading = JSON.parse(row.metadata_json || '{}').grading;
-      const accepted = plan.acceptance?.graders?.find(g => g.id === grading?.graderAcceptanceId
-        && g.payloadSha256 === grading?.graderAcceptanceSha256);
-      if (!accepted) return Object.freeze({ ...result, status: 'BLOCKED', score: null,
+      if (!validStoredGradingPair(db,grading,plan.acceptance?.graders,artifact.digestSha256,role,
+        plan.suiteContractSha256,result.score)) return Object.freeze({ ...result, status: 'BLOCKED', score: null,
         errorCode: 'EVALUATION_GRADER_ACCEPTANCE_MISSING',
         errorMessage: 'Přejímka hodnotitele už není platná. Původní známky zůstávají v historii.' });
     }
@@ -269,7 +368,8 @@ function decodeDecision(row, context) {
   ));
   let actionability = 'NOT_CANDIDATE_WIN';
   if (row.outcome === 'CANDIDATE') {
-    if (context.plan?.decisionReady !== true) actionability = 'EVALUATION_PROFILE_NOT_ACCEPTED';
+    if (isSimulatedEvaluationEvidence(details)) actionability = 'EVALUATION_SIMULATED_EVIDENCE';
+    else if (context.plan?.decisionReady !== true) actionability = 'EVALUATION_PROFILE_NOT_ACCEPTED';
     else if (typeof context.plan.qualificationForRuns === 'function' && (() => {
       const q = context.plan.qualificationForRuns({candidateRunId:row.candidate_run_id,incumbentRunId:row.incumbent_run_id});
       return !q || q.decision.verdict !== 'ZMENIT' || details.decision?.acceptanceId !== q.id
@@ -365,11 +465,16 @@ export class ModelEvaluationReadModel {
       const plan = this._plans[row.role];
       const exact = plan && row.suite_name === plan.suiteName && row.suite_version === plan.suiteVersion
         && row.suite_contract_sha256 === plan.suiteContractSha256;
-      return Object.freeze({ ...decodeCurrentRow(row, true, true), model: row.model_name, role: row.role,
+      const detail = { ...decodeCurrentRow(row, true, true), model: row.model_name, role: row.role,
         digestSha256: row.model_digest_sha256, suiteName: row.suite_name, suiteVersion: row.suite_version,
         suiteContractSha256: row.suite_contract_sha256, tokensPerSecond: row.tokens_per_second,
         taskCatalog: exact ? taskCatalog(plan) : [], catalogMatchesContract: Boolean(exact),
-      });
+      };
+      const source = detail.collection?.status === 'AWAITING_REVIEW'
+        && plan?.collectionOnly === true && row.suite_name === plan.suiteName
+        && row.suite_version === plan.suiteVersion
+        ? new ModelEvaluationHistory(this._db).getRun(runId) : null;
+      return Object.freeze(source ? collectionReviewDetail(this._db, plan, source, detail) : detail);
     } catch (error) {
       if (error instanceof ModelEvaluationReadError) throw error;
       throw new ModelEvaluationReadError('MODEL_EVALUATION_DB_READ_FAILED', 'Detail měření nelze načíst.', { cause: error, httpStatus: 503 });

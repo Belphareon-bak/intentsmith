@@ -492,6 +492,9 @@
 .intentsmith-studio2-widget .model-row .row-m{white-space:normal;text-align:right}
 .intentsmith-studio2-widget .model-row .row-s{display:block}
 .intentsmith-studio2-widget .model-row-actions{flex:1 0 100%;justify-content:flex-end}
+.intentsmith-studio2-widget .model-detail{max-height:70vh;overflow:auto}
+.intentsmith-studio2-widget .model-detail pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:300px;overflow:auto}
+.intentsmith-studio2-widget .model-detail .model-attempt{border-top:1px solid var(--soft);padding:7px 0}
 .intentsmith-studio2-widget .dev-panel>div{display:flex;flex-direction:column;align-items:flex-start;gap:9px;padding:11px 12px;background:var(--panel2);border:1px solid var(--soft);border-radius:8px;max-width:100%}
 .intentsmith-studio2-widget .dev-panel .blk-h{width:100%}
 .intentsmith-studio2-widget .dev-panel .dev-facts{width:100%;overflow-wrap:anywhere}

@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "status": "ONE_DEVELOPMENT_REVIEW_COMPLETE",
+  "decisionAuthority": false,
+  "acceptedGrader": false,
+  "autonomousGo": false,
+  "createdAt": "2026-09-27T12:08:38.024658+00:00",
+  "root": "/mnt/vi7000/intentsmith/evidence/hunt-chat-context-fixed-20260927-v2",
+  "captureRevisions": [
+    "24823996434e86c8c3ab6c119176f01ebd62e5e2",
+    "554f6612c63380d98f7d360fe78298b4e56cc00e"
+  ],
+  "dialogues": 80,
+  "criteria": 320,
+  "firstReviews": 1,
+  "secondReviews": 0,
+  "providerCalls": 233,
+  "matchedSystemPromptPairs": 116,
+  "gradeDistribution": {
+    "0.5": 40,
+    "1": 195,
+    "0.75": 66,
+    "0.25": 13,
+    "0.9": 4,
+    "0": 2
+  },
+  "models": [
+    {
+      "model": "qwen3.5:27b",
+      "role": "CHAT",
+      "dialogues": 40,
+      "authoredGroups": 20,
+      "repeats": 1,
+      "criteria": 160,
+      "reviewers": 1,
+      "accepted": false,
+      "weightedPercent": 84.2,
+      "unweightedPercent": 83.15625,
+      "axes": {
+        "factual": 85.0,
+        "usefulness": 83.125,
+        "conversation": 88.125,
+        "communication": 76.375
+      },
+      "languages": {
+        "cs": 84.15,
+        "en": 84.25
+      },
+      "strictJsonPassed": 2,
+      "strictJsonTotal": 2
+    },
+    {
+      "model": "qwen3.8:latest",
+      "role": "CHAT",
+      "dialogues": 40,
+      "authoredGroups": 20,
+      "repeats": 1,
+      "criteria": 160,
+      "reviewers": 1,
+      "accepted": false,
+      "weightedPercent": 86.2625,
+      "unweightedPercent": 86.4375,
+      "axes": {
+        "factual": 85.0,
+        "usefulness": 85.0,
+        "conversation": 91.875,
+        "communication": 83.875
+      },
+      "languages": {
+        "cs": 84.025,
+        "en": 88.5
+      },
+      "strictJsonPassed": 2,
+      "strictJsonTotal": 2
+    }
+  ],
+  "draftWeights": {
+    "factual": 0.4,
+    "usefulness": 0.3,
+    "conversation": 0.2,
+    "communication": 0.1
+  },
+  "sources": {
+    "final-audit.json": "0efbefd1ac406683b6236b0d0e385f86676b80f5d9c51131a464c1900bbab7e3",
+    "review/packet.json": "fdb11f598a294a13fccd84fe78f26d7503a6c6c4de44ce34bd404367d31d7f5c",
+    "assessment-codex/review.json": "1f38bddb0b322446ddf356d4cb443913084ecfd6c1f1d6a2f0659693595fab70",
+    "assessment-codex/freeze-receipt.json": "5dffeaed9e9f287186b766e6e9ce24181f37aeb9830742571a2684998145c5c4",
+    "assessment-codex/validation.json": "5a33fa2eb3dcfa3779db04fcc87f78504dbc940a765b1eb72f77fdca0f1cd954",
+    "operator-review/summary.json": "5a7fde846dde54cab5cef0b504e9e69ed9ec3bf531bd95bcc329714f3bded2c5",
+    "operator-review/priority.json": "5c903274199c7d76217d6e7857bd65e90345c4568891cf353a00012a70b3b0cc",
+    "operator-review/preservation.json": "c438a28b8904f9f4fc12e36a09eaeb1a7d71afb309b1e09dfd519a3f434e27e3",
+    "operator-review/browser-checks.json": "5b048b2ceafd37dbc0f6ae2a67e1cdc2f52ff914bd7df099cd316e516c3358bb",
+    "lineage-completion.json": "9aa7b386085be8e570b6ae8c06568c4656f8ad35d4975e00ccf8799d1f79ac8c"
+  },
+  "checks": {
+    "resumeSuite": {
+      "passed": 3,
+      "failed": 0
+    },
+    "artifactValidation": {
+      "passed": 160,
+      "failed": 0
+    },
+    "browser": {
+      "passed": 13,
+      "failed": 0
+    },
+    "review": {
+      "cases": 80,
+      "criteria": 320
+    },
+    "oldFilesPreserved": 91
+  },
+  "limitations": [
+    "Known scenarios, one repetition and 20 bilingual groups; not fresh holdout.",
+    "Codex capture author knows candidate set/history; exact new identities opened after frozen review.",
+    "One post-freeze assessor concern retained in priority queue; no silent grade replacement.",
+    "No accepted independent local grader pair; no role selection, production import or model deletion."
+  ]
+}

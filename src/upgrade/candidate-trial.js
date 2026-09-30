@@ -332,7 +332,8 @@ export async function tryCandidate(candidateName, ctx = {}) {
             graded = await ctx.gradeCollection(evaluation.historyRunId, evaluationPlan);
           out.trials.push({ role, evaluation: graded?.status === 'COMPLETE'
             ? { ...graded, historyRunId:graded.runId, grading:graded.metadata.grading } : evaluation });
-          if (graded && graded.status !== 'COMPLETE') out.roleErrors.push({role,
+          if (graded && graded.status !== 'COMPLETE'
+            && graded.errorCode !== 'EVALUATION_REVIEW_PENDING_PAIR') out.roleErrors.push({role,
             error:graded.errorMessage,code:graded.errorCode});
           if (evaluation.collection.status !== 'AWAITING_REVIEW') out.roleErrors.push({ role,
             error: 'Sběr byl přerušen; odpovědi jsou uložené bez skóre.', code: 'EVALUATION_COLLECTION_PARTIAL' });

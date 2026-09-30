@@ -1,0 +1,1019 @@
+{
+ "status": "DESIGN_SIMULATION_ONLY",
+ "decisionAuthority": false,
+ "inference": false,
+ "sims": 2000,
+ "alpha": 0.05,
+ "assumption": "group deltas ~ Normal(mu, sigma) clipped to [-1,1], independent groups",
+ "sigmaSource": "NOT MEASURED: M0 must estimate sigma from dual-graded paired pilot groups",
+ "rows": [
+  {
+   "purpose": "superiority: false accept at boundary (want <= 0.025)",
+   "mu": 0.04,
+   "sigma": 0.1,
+   "n": 20,
+   "kl": 0,
+   "t": 0.026
+  },
+  {
+   "purpose": "superiority: false accept at boundary (want <= 0.025)",
+   "mu": 0.04,
+   "sigma": 0.1,
+   "n": 40,
+   "kl": 0,
+   "t": 0.027
+  },
+  {
+   "purpose": "superiority: false accept at boundary (want <= 0.025)",
+   "mu": 0.04,
+   "sigma": 0.1,
+   "n": 60,
+   "kl": 0,
+   "t": 0.021
+  },
+  {
+   "purpose": "superiority: false accept at boundary (want <= 0.025)",
+   "mu": 0.04,
+   "sigma": 0.1,
+   "n": 100,
+   "kl": 0,
+   "t": 0.024
+  },
+  {
+   "purpose": "superiority: false accept at boundary (want <= 0.025)",
+   "mu": 0.04,
+   "sigma": 0.1,
+   "n": 150,
+   "kl": 0,
+   "t": 0.032
+  },
+  {
+   "purpose": "superiority: false accept at boundary (want <= 0.025)",
+   "mu": 0.04,
+   "sigma": 0.1,
+   "n": 250,
+   "kl": 0,
+   "t": 0.022
+  },
+  {
+   "purpose": "superiority: false accept at boundary (want <= 0.025)",
+   "mu": 0.04,
+   "sigma": 0.2,
+   "n": 20,
+   "kl": 0,
+   "t": 0.027
+  },
+  {
+   "purpose": "superiority: false accept at boundary (want <= 0.025)",
+   "mu": 0.04,
+   "sigma": 0.2,
+   "n": 40,
+   "kl": 0,
+   "t": 0.029
+  },
+  {
+   "purpose": "superiority: false accept at boundary (want <= 0.025)",
+   "mu": 0.04,
+   "sigma": 0.2,
+   "n": 60,
+   "kl": 0,
+   "t": 0.028
+  },
+  {
+   "purpose": "superiority: false accept at boundary (want <= 0.025)",
+   "mu": 0.04,
+   "sigma": 0.2,
+   "n": 100,
+   "kl": 0,
+   "t": 0.033
+  },
+  {
+   "purpose": "superiority: false accept at boundary (want <= 0.025)",
+   "mu": 0.04,
+   "sigma": 0.2,
+   "n": 150,
+   "kl": 0,
+   "t": 0.024
+  },
+  {
+   "purpose": "superiority: false accept at boundary (want <= 0.025)",
+   "mu": 0.04,
+   "sigma": 0.2,
+   "n": 250,
+   "kl": 0,
+   "t": 0.026
+  },
+  {
+   "purpose": "superiority: false accept at boundary (want <= 0.025)",
+   "mu": 0.04,
+   "sigma": 0.3,
+   "n": 20,
+   "kl": 0,
+   "t": 0.026
+  },
+  {
+   "purpose": "superiority: false accept at boundary (want <= 0.025)",
+   "mu": 0.04,
+   "sigma": 0.3,
+   "n": 40,
+   "kl": 0,
+   "t": 0.024
+  },
+  {
+   "purpose": "superiority: false accept at boundary (want <= 0.025)",
+   "mu": 0.04,
+   "sigma": 0.3,
+   "n": 60,
+   "kl": 0,
+   "t": 0.028
+  },
+  {
+   "purpose": "superiority: false accept at boundary (want <= 0.025)",
+   "mu": 0.04,
+   "sigma": 0.3,
+   "n": 100,
+   "kl": 0,
+   "t": 0.019
+  },
+  {
+   "purpose": "superiority: false accept at boundary (want <= 0.025)",
+   "mu": 0.04,
+   "sigma": 0.3,
+   "n": 150,
+   "kl": 0,
+   "t": 0.026
+  },
+  {
+   "purpose": "superiority: false accept at boundary (want <= 0.025)",
+   "mu": 0.04,
+   "sigma": 0.3,
+   "n": 250,
+   "kl": 0,
+   "t": 0.029
+  },
+  {
+   "purpose": "superiority: power, true +0.10",
+   "mu": 0.1,
+   "sigma": 0.1,
+   "n": 20,
+   "kl": 0,
+   "t": 0.73
+  },
+  {
+   "purpose": "superiority: power, true +0.10",
+   "mu": 0.1,
+   "sigma": 0.1,
+   "n": 40,
+   "kl": 0,
+   "t": 0.965
+  },
+  {
+   "purpose": "superiority: power, true +0.10",
+   "mu": 0.1,
+   "sigma": 0.1,
+   "n": 60,
+   "kl": 0,
+   "t": 0.994
+  },
+  {
+   "purpose": "superiority: power, true +0.10",
+   "mu": 0.1,
+   "sigma": 0.1,
+   "n": 100,
+   "kl": 0,
+   "t": 1
+  },
+  {
+   "purpose": "superiority: power, true +0.10",
+   "mu": 0.1,
+   "sigma": 0.1,
+   "n": 150,
+   "kl": 0,
+   "t": 1
+  },
+  {
+   "purpose": "superiority: power, true +0.10",
+   "mu": 0.1,
+   "sigma": 0.1,
+   "n": 250,
+   "kl": 0,
+   "t": 1
+  },
+  {
+   "purpose": "superiority: power, true +0.10",
+   "mu": 0.1,
+   "sigma": 0.2,
+   "n": 20,
+   "kl": 0,
+   "t": 0.242
+  },
+  {
+   "purpose": "superiority: power, true +0.10",
+   "mu": 0.1,
+   "sigma": 0.2,
+   "n": 40,
+   "kl": 0,
+   "t": 0.457
+  },
+  {
+   "purpose": "superiority: power, true +0.10",
+   "mu": 0.1,
+   "sigma": 0.2,
+   "n": 60,
+   "kl": 0,
+   "t": 0.611
+  },
+  {
+   "purpose": "superiority: power, true +0.10",
+   "mu": 0.1,
+   "sigma": 0.2,
+   "n": 100,
+   "kl": 0,
+   "t": 0.853
+  },
+  {
+   "purpose": "superiority: power, true +0.10",
+   "mu": 0.1,
+   "sigma": 0.2,
+   "n": 150,
+   "kl": 0,
+   "t": 0.963
+  },
+  {
+   "purpose": "superiority: power, true +0.10",
+   "mu": 0.1,
+   "sigma": 0.2,
+   "n": 250,
+   "kl": 0,
+   "t": 1
+  },
+  {
+   "purpose": "superiority: power, true +0.10",
+   "mu": 0.1,
+   "sigma": 0.3,
+   "n": 20,
+   "kl": 0,
+   "t": 0.139
+  },
+  {
+   "purpose": "superiority: power, true +0.10",
+   "mu": 0.1,
+   "sigma": 0.3,
+   "n": 40,
+   "kl": 0,
+   "t": 0.228
+  },
+  {
+   "purpose": "superiority: power, true +0.10",
+   "mu": 0.1,
+   "sigma": 0.3,
+   "n": 60,
+   "kl": 0,
+   "t": 0.351
+  },
+  {
+   "purpose": "superiority: power, true +0.10",
+   "mu": 0.1,
+   "sigma": 0.3,
+   "n": 100,
+   "kl": 0,
+   "t": 0.494
+  },
+  {
+   "purpose": "superiority: power, true +0.10",
+   "mu": 0.1,
+   "sigma": 0.3,
+   "n": 150,
+   "kl": 0,
+   "t": 0.693
+  },
+  {
+   "purpose": "superiority: power, true +0.10",
+   "mu": 0.1,
+   "sigma": 0.3,
+   "n": 250,
+   "kl": 0,
+   "t": 0.883
+  },
+  {
+   "purpose": "superiority: power, true +0.15",
+   "mu": 0.15,
+   "sigma": 0.1,
+   "n": 20,
+   "kl": 0,
+   "t": 0.999
+  },
+  {
+   "purpose": "superiority: power, true +0.15",
+   "mu": 0.15,
+   "sigma": 0.1,
+   "n": 40,
+   "kl": 0,
+   "t": 1
+  },
+  {
+   "purpose": "superiority: power, true +0.15",
+   "mu": 0.15,
+   "sigma": 0.1,
+   "n": 60,
+   "kl": 0,
+   "t": 1
+  },
+  {
+   "purpose": "superiority: power, true +0.15",
+   "mu": 0.15,
+   "sigma": 0.1,
+   "n": 100,
+   "kl": 0,
+   "t": 1
+  },
+  {
+   "purpose": "superiority: power, true +0.15",
+   "mu": 0.15,
+   "sigma": 0.1,
+   "n": 150,
+   "kl": 0,
+   "t": 1
+  },
+  {
+   "purpose": "superiority: power, true +0.15",
+   "mu": 0.15,
+   "sigma": 0.1,
+   "n": 250,
+   "kl": 0,
+   "t": 1
+  },
+  {
+   "purpose": "superiority: power, true +0.15",
+   "mu": 0.15,
+   "sigma": 0.2,
+   "n": 20,
+   "kl": 0,
+   "t": 0.64
+  },
+  {
+   "purpose": "superiority: power, true +0.15",
+   "mu": 0.15,
+   "sigma": 0.2,
+   "n": 40,
+   "kl": 0,
+   "t": 0.915
+  },
+  {
+   "purpose": "superiority: power, true +0.15",
+   "mu": 0.15,
+   "sigma": 0.2,
+   "n": 60,
+   "kl": 0,
+   "t": 0.982
+  },
+  {
+   "purpose": "superiority: power, true +0.15",
+   "mu": 0.15,
+   "sigma": 0.2,
+   "n": 100,
+   "kl": 0,
+   "t": 1
+  },
+  {
+   "purpose": "superiority: power, true +0.15",
+   "mu": 0.15,
+   "sigma": 0.2,
+   "n": 150,
+   "kl": 0,
+   "t": 1
+  },
+  {
+   "purpose": "superiority: power, true +0.15",
+   "mu": 0.15,
+   "sigma": 0.2,
+   "n": 250,
+   "kl": 0,
+   "t": 1
+  },
+  {
+   "purpose": "superiority: power, true +0.15",
+   "mu": 0.15,
+   "sigma": 0.3,
+   "n": 20,
+   "kl": 0,
+   "t": 0.344
+  },
+  {
+   "purpose": "superiority: power, true +0.15",
+   "mu": 0.15,
+   "sigma": 0.3,
+   "n": 40,
+   "kl": 0,
+   "t": 0.632
+  },
+  {
+   "purpose": "superiority: power, true +0.15",
+   "mu": 0.15,
+   "sigma": 0.3,
+   "n": 60,
+   "kl": 0,
+   "t": 0.791
+  },
+  {
+   "purpose": "superiority: power, true +0.15",
+   "mu": 0.15,
+   "sigma": 0.3,
+   "n": 100,
+   "kl": 0,
+   "t": 0.947
+  },
+  {
+   "purpose": "superiority: power, true +0.15",
+   "mu": 0.15,
+   "sigma": 0.3,
+   "n": 150,
+   "kl": 0,
+   "t": 0.995
+  },
+  {
+   "purpose": "superiority: power, true +0.15",
+   "mu": 0.15,
+   "sigma": 0.3,
+   "n": 250,
+   "kl": 0.001,
+   "t": 1
+  },
+  {
+   "purpose": "non-inferiority 0.02: power at true 0",
+   "mu": 0,
+   "sigma": 0.1,
+   "n": 20,
+   "kl": 0,
+   "t": 0.131
+  },
+  {
+   "purpose": "non-inferiority 0.02: power at true 0",
+   "mu": 0,
+   "sigma": 0.1,
+   "n": 40,
+   "kl": 0,
+   "t": 0.242
+  },
+  {
+   "purpose": "non-inferiority 0.02: power at true 0",
+   "mu": 0,
+   "sigma": 0.1,
+   "n": 60,
+   "kl": 0,
+   "t": 0.324
+  },
+  {
+   "purpose": "non-inferiority 0.02: power at true 0",
+   "mu": 0,
+   "sigma": 0.1,
+   "n": 100,
+   "kl": 0,
+   "t": 0.499
+  },
+  {
+   "purpose": "non-inferiority 0.02: power at true 0",
+   "mu": 0,
+   "sigma": 0.1,
+   "n": 150,
+   "kl": 0,
+   "t": 0.695
+  },
+  {
+   "purpose": "non-inferiority 0.02: power at true 0",
+   "mu": 0,
+   "sigma": 0.1,
+   "n": 250,
+   "kl": 0,
+   "t": 0.883
+  },
+  {
+   "purpose": "non-inferiority 0.02: power at true 0",
+   "mu": 0,
+   "sigma": 0.2,
+   "n": 20,
+   "kl": 0,
+   "t": 0.051
+  },
+  {
+   "purpose": "non-inferiority 0.02: power at true 0",
+   "mu": 0,
+   "sigma": 0.2,
+   "n": 40,
+   "kl": 0,
+   "t": 0.094
+  },
+  {
+   "purpose": "non-inferiority 0.02: power at true 0",
+   "mu": 0,
+   "sigma": 0.2,
+   "n": 60,
+   "kl": 0,
+   "t": 0.117
+  },
+  {
+   "purpose": "non-inferiority 0.02: power at true 0",
+   "mu": 0,
+   "sigma": 0.2,
+   "n": 100,
+   "kl": 0,
+   "t": 0.191
+  },
+  {
+   "purpose": "non-inferiority 0.02: power at true 0",
+   "mu": 0,
+   "sigma": 0.2,
+   "n": 150,
+   "kl": 0,
+   "t": 0.228
+  },
+  {
+   "purpose": "non-inferiority 0.02: power at true 0",
+   "mu": 0,
+   "sigma": 0.2,
+   "n": 250,
+   "kl": 0,
+   "t": 0.344
+  },
+  {
+   "purpose": "non-inferiority 0.02: power at true 0",
+   "mu": 0,
+   "sigma": 0.3,
+   "n": 20,
+   "kl": 0,
+   "t": 0.051
+  },
+  {
+   "purpose": "non-inferiority 0.02: power at true 0",
+   "mu": 0,
+   "sigma": 0.3,
+   "n": 40,
+   "kl": 0,
+   "t": 0.061
+  },
+  {
+   "purpose": "non-inferiority 0.02: power at true 0",
+   "mu": 0,
+   "sigma": 0.3,
+   "n": 60,
+   "kl": 0,
+   "t": 0.061
+  },
+  {
+   "purpose": "non-inferiority 0.02: power at true 0",
+   "mu": 0,
+   "sigma": 0.3,
+   "n": 100,
+   "kl": 0,
+   "t": 0.098
+  },
+  {
+   "purpose": "non-inferiority 0.02: power at true 0",
+   "mu": 0,
+   "sigma": 0.3,
+   "n": 150,
+   "kl": 0,
+   "t": 0.132
+  },
+  {
+   "purpose": "non-inferiority 0.02: power at true 0",
+   "mu": 0,
+   "sigma": 0.3,
+   "n": 250,
+   "kl": 0,
+   "t": 0.187
+  },
+  {
+   "purpose": "non-inferiority 0.02: false accept at true -0.02",
+   "mu": -0.02,
+   "sigma": 0.1,
+   "n": 20,
+   "kl": 0,
+   "t": 0.026
+  },
+  {
+   "purpose": "non-inferiority 0.02: false accept at true -0.02",
+   "mu": -0.02,
+   "sigma": 0.1,
+   "n": 40,
+   "kl": 0,
+   "t": 0.024
+  },
+  {
+   "purpose": "non-inferiority 0.02: false accept at true -0.02",
+   "mu": -0.02,
+   "sigma": 0.1,
+   "n": 60,
+   "kl": 0,
+   "t": 0.031
+  },
+  {
+   "purpose": "non-inferiority 0.02: false accept at true -0.02",
+   "mu": -0.02,
+   "sigma": 0.1,
+   "n": 100,
+   "kl": 0,
+   "t": 0.021
+  },
+  {
+   "purpose": "non-inferiority 0.02: false accept at true -0.02",
+   "mu": -0.02,
+   "sigma": 0.1,
+   "n": 150,
+   "kl": 0,
+   "t": 0.023
+  },
+  {
+   "purpose": "non-inferiority 0.02: false accept at true -0.02",
+   "mu": -0.02,
+   "sigma": 0.1,
+   "n": 250,
+   "kl": 0,
+   "t": 0.024
+  },
+  {
+   "purpose": "non-inferiority 0.02: false accept at true -0.02",
+   "mu": -0.02,
+   "sigma": 0.2,
+   "n": 20,
+   "kl": 0,
+   "t": 0.034
+  },
+  {
+   "purpose": "non-inferiority 0.02: false accept at true -0.02",
+   "mu": -0.02,
+   "sigma": 0.2,
+   "n": 40,
+   "kl": 0,
+   "t": 0.026
+  },
+  {
+   "purpose": "non-inferiority 0.02: false accept at true -0.02",
+   "mu": -0.02,
+   "sigma": 0.2,
+   "n": 60,
+   "kl": 0,
+   "t": 0.025
+  },
+  {
+   "purpose": "non-inferiority 0.02: false accept at true -0.02",
+   "mu": -0.02,
+   "sigma": 0.2,
+   "n": 100,
+   "kl": 0,
+   "t": 0.025
+  },
+  {
+   "purpose": "non-inferiority 0.02: false accept at true -0.02",
+   "mu": -0.02,
+   "sigma": 0.2,
+   "n": 150,
+   "kl": 0,
+   "t": 0.025
+  },
+  {
+   "purpose": "non-inferiority 0.02: false accept at true -0.02",
+   "mu": -0.02,
+   "sigma": 0.2,
+   "n": 250,
+   "kl": 0,
+   "t": 0.022
+  },
+  {
+   "purpose": "non-inferiority 0.02: false accept at true -0.02",
+   "mu": -0.02,
+   "sigma": 0.3,
+   "n": 20,
+   "kl": 0,
+   "t": 0.016
+  },
+  {
+   "purpose": "non-inferiority 0.02: false accept at true -0.02",
+   "mu": -0.02,
+   "sigma": 0.3,
+   "n": 40,
+   "kl": 0,
+   "t": 0.022
+  },
+  {
+   "purpose": "non-inferiority 0.02: false accept at true -0.02",
+   "mu": -0.02,
+   "sigma": 0.3,
+   "n": 60,
+   "kl": 0,
+   "t": 0.027
+  },
+  {
+   "purpose": "non-inferiority 0.02: false accept at true -0.02",
+   "mu": -0.02,
+   "sigma": 0.3,
+   "n": 100,
+   "kl": 0,
+   "t": 0.03
+  },
+  {
+   "purpose": "non-inferiority 0.02: false accept at true -0.02",
+   "mu": -0.02,
+   "sigma": 0.3,
+   "n": 150,
+   "kl": 0,
+   "t": 0.026
+  },
+  {
+   "purpose": "non-inferiority 0.02: false accept at true -0.02",
+   "mu": -0.02,
+   "sigma": 0.3,
+   "n": 250,
+   "kl": 0,
+   "t": 0.02
+  },
+  {
+   "purpose": "non-inferiority 0.05: power at true 0",
+   "mu": 0,
+   "sigma": 0.1,
+   "n": 20,
+   "kl": 0,
+   "t": 0.584
+  },
+  {
+   "purpose": "non-inferiority 0.05: power at true 0",
+   "mu": 0,
+   "sigma": 0.1,
+   "n": 40,
+   "kl": 0,
+   "t": 0.869
+  },
+  {
+   "purpose": "non-inferiority 0.05: power at true 0",
+   "mu": 0,
+   "sigma": 0.1,
+   "n": 60,
+   "kl": 0,
+   "t": 0.963
+  },
+  {
+   "purpose": "non-inferiority 0.05: power at true 0",
+   "mu": 0,
+   "sigma": 0.1,
+   "n": 100,
+   "kl": 0,
+   "t": 0.998
+  },
+  {
+   "purpose": "non-inferiority 0.05: power at true 0",
+   "mu": 0,
+   "sigma": 0.1,
+   "n": 150,
+   "kl": 0,
+   "t": 1
+  },
+  {
+   "purpose": "non-inferiority 0.05: power at true 0",
+   "mu": 0,
+   "sigma": 0.1,
+   "n": 250,
+   "kl": 0,
+   "t": 1
+  },
+  {
+   "purpose": "non-inferiority 0.05: power at true 0",
+   "mu": 0,
+   "sigma": 0.2,
+   "n": 20,
+   "kl": 0,
+   "t": 0.187
+  },
+  {
+   "purpose": "non-inferiority 0.05: power at true 0",
+   "mu": 0,
+   "sigma": 0.2,
+   "n": 40,
+   "kl": 0,
+   "t": 0.338
+  },
+  {
+   "purpose": "non-inferiority 0.05: power at true 0",
+   "mu": 0,
+   "sigma": 0.2,
+   "n": 60,
+   "kl": 0,
+   "t": 0.474
+  },
+  {
+   "purpose": "non-inferiority 0.05: power at true 0",
+   "mu": 0,
+   "sigma": 0.2,
+   "n": 100,
+   "kl": 0,
+   "t": 0.696
+  },
+  {
+   "purpose": "non-inferiority 0.05: power at true 0",
+   "mu": 0,
+   "sigma": 0.2,
+   "n": 150,
+   "kl": 0,
+   "t": 0.843
+  },
+  {
+   "purpose": "non-inferiority 0.05: power at true 0",
+   "mu": 0,
+   "sigma": 0.2,
+   "n": 250,
+   "kl": 0,
+   "t": 0.975
+  },
+  {
+   "purpose": "non-inferiority 0.05: power at true 0",
+   "mu": 0,
+   "sigma": 0.3,
+   "n": 20,
+   "kl": 0,
+   "t": 0.105
+  },
+  {
+   "purpose": "non-inferiority 0.05: power at true 0",
+   "mu": 0,
+   "sigma": 0.3,
+   "n": 40,
+   "kl": 0,
+   "t": 0.174
+  },
+  {
+   "purpose": "non-inferiority 0.05: power at true 0",
+   "mu": 0,
+   "sigma": 0.3,
+   "n": 60,
+   "kl": 0,
+   "t": 0.251
+  },
+  {
+   "purpose": "non-inferiority 0.05: power at true 0",
+   "mu": 0,
+   "sigma": 0.3,
+   "n": 100,
+   "kl": 0,
+   "t": 0.368
+  },
+  {
+   "purpose": "non-inferiority 0.05: power at true 0",
+   "mu": 0,
+   "sigma": 0.3,
+   "n": 150,
+   "kl": 0,
+   "t": 0.522
+  },
+  {
+   "purpose": "non-inferiority 0.05: power at true 0",
+   "mu": 0,
+   "sigma": 0.3,
+   "n": 250,
+   "kl": 0,
+   "t": 0.744
+  },
+  {
+   "purpose": "non-inferiority 0.05: false accept at true -0.05",
+   "mu": -0.05,
+   "sigma": 0.1,
+   "n": 20,
+   "kl": 0,
+   "t": 0.028
+  },
+  {
+   "purpose": "non-inferiority 0.05: false accept at true -0.05",
+   "mu": -0.05,
+   "sigma": 0.1,
+   "n": 40,
+   "kl": 0,
+   "t": 0.026
+  },
+  {
+   "purpose": "non-inferiority 0.05: false accept at true -0.05",
+   "mu": -0.05,
+   "sigma": 0.1,
+   "n": 60,
+   "kl": 0,
+   "t": 0.028
+  },
+  {
+   "purpose": "non-inferiority 0.05: false accept at true -0.05",
+   "mu": -0.05,
+   "sigma": 0.1,
+   "n": 100,
+   "kl": 0,
+   "t": 0.025
+  },
+  {
+   "purpose": "non-inferiority 0.05: false accept at true -0.05",
+   "mu": -0.05,
+   "sigma": 0.1,
+   "n": 150,
+   "kl": 0,
+   "t": 0.029
+  },
+  {
+   "purpose": "non-inferiority 0.05: false accept at true -0.05",
+   "mu": -0.05,
+   "sigma": 0.1,
+   "n": 250,
+   "kl": 0,
+   "t": 0.027
+  },
+  {
+   "purpose": "non-inferiority 0.05: false accept at true -0.05",
+   "mu": -0.05,
+   "sigma": 0.2,
+   "n": 20,
+   "kl": 0,
+   "t": 0.025
+  },
+  {
+   "purpose": "non-inferiority 0.05: false accept at true -0.05",
+   "mu": -0.05,
+   "sigma": 0.2,
+   "n": 40,
+   "kl": 0,
+   "t": 0.025
+  },
+  {
+   "purpose": "non-inferiority 0.05: false accept at true -0.05",
+   "mu": -0.05,
+   "sigma": 0.2,
+   "n": 60,
+   "kl": 0,
+   "t": 0.019
+  },
+  {
+   "purpose": "non-inferiority 0.05: false accept at true -0.05",
+   "mu": -0.05,
+   "sigma": 0.2,
+   "n": 100,
+   "kl": 0,
+   "t": 0.025
+  },
+  {
+   "purpose": "non-inferiority 0.05: false accept at true -0.05",
+   "mu": -0.05,
+   "sigma": 0.2,
+   "n": 150,
+   "kl": 0,
+   "t": 0.029
+  },
+  {
+   "purpose": "non-inferiority 0.05: false accept at true -0.05",
+   "mu": -0.05,
+   "sigma": 0.2,
+   "n": 250,
+   "kl": 0,
+   "t": 0.026
+  },
+  {
+   "purpose": "non-inferiority 0.05: false accept at true -0.05",
+   "mu": -0.05,
+   "sigma": 0.3,
+   "n": 20,
+   "kl": 0,
+   "t": 0.022
+  },
+  {
+   "purpose": "non-inferiority 0.05: false accept at true -0.05",
+   "mu": -0.05,
+   "sigma": 0.3,
+   "n": 40,
+   "kl": 0,
+   "t": 0.021
+  },
+  {
+   "purpose": "non-inferiority 0.05: false accept at true -0.05",
+   "mu": -0.05,
+   "sigma": 0.3,
+   "n": 60,
+   "kl": 0,
+   "t": 0.02
+  },
+  {
+   "purpose": "non-inferiority 0.05: false accept at true -0.05",
+   "mu": -0.05,
+   "sigma": 0.3,
+   "n": 100,
+   "kl": 0,
+   "t": 0.028
+  },
+  {
+   "purpose": "non-inferiority 0.05: false accept at true -0.05",
+   "mu": -0.05,
+   "sigma": 0.3,
+   "n": 150,
+   "kl": 0,
+   "t": 0.028
+  },
+  {
+   "purpose": "non-inferiority 0.05: false accept at true -0.05",
+   "mu": -0.05,
+   "sigma": 0.3,
+   "n": 250,
+   "kl": 0,
+   "t": 0.023
+  }
+ ]
+}

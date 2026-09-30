@@ -17,10 +17,81 @@ const TAB_PATHS = Object.freeze({
   policy: ['/api/system/models/policy'],
 });
 const EXACT_DIGEST = /^[0-9a-f]{64}$/;
+const REVIEW_STATUS_LABELS = Object.freeze({
+  REVIEW_PENDING_PAIR: 'Čeká na druhý posudek',
+  REVIEW_DISPUTED: 'Spor hodnotitelů',
+  REVIEW_PAIR_NOT_INDEPENDENT: 'Nezávislá dvojice není ověřená',
+  REVIEW_INCOMPLETE: 'Posudky jsou neúplné',
+  REVIEW_RESULT_NOT_PERSISTED: 'Výsledek není uložený',
+  REVIEW_FINAL_UNVERIFIED: 'Výsledek nelze ověřit',
+  SIMULATED_EVIDENCE: 'Simulovaný důkaz',
+  ADJUDICATED: 'Rozsouzeno',
+  GRADED: 'Dvojí posudek uzavřen',
+});
 
 function record(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 function text(value, fallback = '—') { return value === null || value === undefined || value === '' ? fallback : String(value); }
 function errorText(error) { return error?.message || 'Požadavek selhal.'; }
+function percent(value) { return Number.isFinite(value) ? (value * 100).toFixed(1) + ' %' : 'bez známky'; }
+function noteText(value) { return typeof value === 'string' ? value : JSON.stringify(value ?? ''); }
+function runDetailNote(run) {
+  if (run.adjudication || run.grading?.adjudication) return 'Dva původní posudky a rozsouzení jsou zachované níže.';
+  if (run.reviewStatus === 'REVIEW_DISPUTED') return 'Posudky se liší; do rozsouzení nevzniká skóre.';
+  if (run.reviewStatus === 'REVIEW_PENDING_PAIR') return 'První posudek je uložený; čeká se na druhého nezávislého hodnotitele.';
+  if (run.reviewStatus === 'REVIEW_FINAL_UNVERIFIED') return 'Uložené skóre nelze ověřit proti původním posudkům; není použitelné.';
+  if (run.reviewStatus === 'GRADED') return 'Skóre pochází ze dvou ověřených nezávislých posudků.';
+  if (run.collection) return 'Uložené odpovědi čekají na posouzení; neúplný sběr není nulová známka.';
+  if (run.grading?.graders?.length === 2) return 'Skóre pochází ze dvou uložených posudků.';
+  return 'Chybějící dvojí posudek neprokazuje rozhodovací způsobilost.';
+}
+function presentRunDetail(run) {
+  const catalog = new Map((run.taskCatalog || []).map(item => [item.name, item]));
+  return { runId: run.runId, title: text(run.model) + ' · ' + text(run.role),
+    status: text(REVIEW_STATUS_LABELS[run.reviewStatus] || run.reviewStatus || run.status) + ' · ' + percent(run.score),
+    provenance: [text(run.suiteName), text(run.suiteVersion), text(run.providerVersion, 'provider nezaznamenán'),
+      text(run.digestSha256, 'digest nezaznamenán')].join(' · '),
+    note: runDetailNote(run),
+    attempts: run.attemptCounts ? 'Pokusy: plán ' + text(run.attemptCounts.planned)
+      + ', zaznamenáno ' + text(run.attemptCounts.observed)
+      + ', neplatné ' + text(run.attemptCounts.invalid, 0)
+      + ', vyčerpání limitu ' + text(run.attemptCounts.operationalFailure, 0)
+      + ', nezahájeno ' + text(run.attemptCounts.notAttempted, 0) : '',
+    tasks: run.tasks.map(task => {
+      const definition = catalog.get(task.name) || {};
+      const requirements = definition.requirements || task.rubric || [];
+      return { title: text(definition.label, task.name), score: percent(task.mean),
+        input: typeof task.input?.text === 'string' ? task.input.text : noteText(task.input),
+        requirements: requirements.map(noteText),
+        attempts: Array.from({ length: Math.max(task.details?.length || 0, task.responses?.length || 0) }, (_, index) => {
+          const detail = task.details?.[index] || {};
+          const transcript = Array.isArray(detail.conversation?.transcript)
+            ? detail.conversation.transcript.map(message => ({ role: text(message.role), content: text(message.content, '') })) : [];
+          const response = text(task.responses?.[index], '');
+          const resolution = run.adjudication?.decisions?.find(item => item.task === task.name && item.repeat === index + 1);
+          const notes = [detail.captureStatus, detail.gradingStatus, detail.reason,
+            Number.isFinite(detail.contentScore) ? 'Obsah ' + percent(detail.contentScore) : null,
+            Number.isFinite(detail.formatScore) ? 'Formát ' + percent(detail.formatScore) : null,
+            ...(detail.contractChecks?.checks || []).filter(check => check.passed === false)
+              .map(check => 'Kontrakt: ' + text(check.name) + ' · ' + text(check.reason)),
+            ...(detail.criteria || []).filter(item => item.score === 0)
+              .map(item => text(item.id) + ': očekáváno ' + noteText(item.expected)
+                + ', vráceno ' + noteText(item.observed)),
+            detail.adjudicationId ? 'Rozsouzení ' + detail.adjudicationId : null,
+            resolution ? 'Rozhodnutí: ' + text(run.adjudication.review?.reason) : null,
+            ...(resolution?.parts || []).map(part => 'Kritérium ' + text(part.criterion)
+              + ' · ' + percent(part.score) + ' · ' + text(part.evidence) + ' · ' + text(part.reason)),
+          ].filter(Boolean);
+          const reviews = (detail.graderReviews || []).map(review => ({
+            label: text(run.reviewGraders?.find(item => item.id === review.graderAcceptanceId)?.modelName
+              || run.grading?.graders?.find(item => item.id === review.graderAcceptanceId)?.judge?.modelName,
+              review.graderAcceptanceId), score: percent(review.score),
+            parts: (review.parts || []).map(part => text(part.id) + ' · ' + percent(part.score)
+              + ' · ' + (part.evidence || []).join(' / ')) }));
+          return { label: 'Pokus ' + (index + 1) + ' · ' + percent(task.scores?.[index]),
+            transcript, response: transcript.at(-1)?.content === response ? '' : response, notes, reviews };
+        }) };
+    }) };
+}
 function validResource(tab, data) {
   if (tab === 'overview') return Array.isArray(data[0]?.models);
   if (tab === 'roles') return record(data[0]?.bindings) && record(data[1]?.roles) && Array.isArray(data[2]?.models);
@@ -49,9 +120,10 @@ class ModelWorkspace {
     this.selectedModel = '';
     this.policyDraft = null;
     this.verifyFailure = null;
+    this.runDetail = null;
     this.destroyed = false;
   }
-  destroy() { this.destroyed = true; this.resources.clear(); this.loading.clear(); }
+  destroy() { this.destroyed = true; this.resources.clear(); this.loading.clear(); this.runDetail = null; }
   changed() { if (!this.destroyed) this.onChange(); }
   async request(path, options = {}) {
     const base = this.backendUrl?.();
@@ -101,6 +173,7 @@ class ModelWorkspace {
     if (!TAB_PATHS[tab]) return false;
     this.tab = tab;
     this.notice = '';
+    this.runDetail = null;
     this.changed();
     this.load(tab);
     return true;
@@ -226,6 +299,30 @@ class ModelWorkspace {
       return 'Hodnocení uložených odpovědí bylo přijato. Průběh sleduj v GPU huntu.';
     });
   }
+  async showRun(runId) {
+    const source = this.resources.get(this.tab)?.data?.[0];
+    const row = this.tab === 'history' ? source?.history?.find(item => item.runId === runId)
+      : this.tab === 'evaluations' ? Object.values(source?.roles || {}).flatMap(plan => plan.artifacts || [])
+        .find(item => item.runId === runId) : null;
+    if (!row || typeof runId !== 'string' || !/^eval_[a-zA-Z0-9-]{1,100}$/.test(runId)) return false;
+    const token = Symbol(runId);
+    this.runDetail = { status: 'loading', runId, token }; this.changed();
+    try {
+      const run = await this.request('/api/system/models/evaluations/' + encodeURIComponent(runId));
+      if (run.runId !== runId || !Array.isArray(run.tasks) || run.model !== row.model
+        || (row.role && run.role !== row.role)) throw Error('Backend vrátil jiný nebo neúplný detail měření.');
+      if (this.runDetail?.token === token && !this.destroyed) {
+        this.runDetail = { status: 'ready', runId, data: presentRunDetail(run) }; this.changed();
+      }
+      return true;
+    } catch (error) {
+      if (this.runDetail?.token === token && !this.destroyed) {
+        this.runDetail = { status: 'error', runId, error: errorText(error) }; this.changed();
+      }
+      return false;
+    }
+  }
+  closeRun() { this.runDetail = null; this.changed(); }
   setPolicy(key, value) {
     const state = this.resources.get('policy')?.data?.[0];
     if (!state?.valid || !this.policyDraft || !['autoFailoverEnabled', 'autoCleanupEnabled', 'autoCleanupDays'].includes(key)) return;
@@ -306,14 +403,16 @@ class ModelWorkspace {
           subtitle: text(item.status) + (item.errorCode ? ' · ' + item.errorCode : ''),
           meta: item.status === 'COMPLETE' && Number.isFinite(item.score)
             ? (item.score * 100).toFixed(1) + ' %' : '—',
-          actions: [button('Nový test', () => this.evaluate(role, item.model),
+          actions: [...(item.runId ? [button('Detail', () => this.showRun(item.runId))] : []),
+            button('Nový test', () => this.evaluate(role, item.model),
             plan.measurementReady === false || !EXACT_DIGEST.test(item.digestSha256 || ''))] })));
     } else if (entry.status === 'ready' && tab === 'history') {
       rows = data[0].history.slice(0, 50).map(item => ({ title: text(item.model) + ' · ' + text(item.role),
         subtitle: text(item.testedAt) + ' · ' + text(item.status),
         meta: item.status === 'COMPLETE' && Number.isFinite(item.score)
           ? (item.score * 100).toFixed(1) + ' %' : '—',
-        actions: item.status === 'AWAITING_REVIEW' ? [button('Ohodnotit odpovědi', () => this.grade(item.runId))] : [] }));
+        actions: [button('Detail', () => this.showRun(item.runId)),
+          ...(item.status === 'AWAITING_REVIEW' ? [button('Ohodnotit odpovědi', () => this.grade(item.runId))] : [])] }));
     } else if (entry.status === 'ready' && tab === 'hunt') {
       const hunt = data[0], current = hunt.current || {};
       rows = [{ title: 'Stav: ' + hunt.state, subtitle: text(current.request?.model, 'Žádný aktivní model'),
@@ -359,7 +458,11 @@ class ModelWorkspace {
       ? data[2].models.filter(item => typeof item.name === 'string').map(item => ({ value: item.name, label: item.name })) : [];
     const policy = tab === 'policy' && entry.status === 'ready' && data[0].valid ? this.policyDraft : null;
     return { tabs: TABS.map(([id, label]) => ({ label, cls: id === tab ? 'on' : '', go: () => this.select(id) })),
-      rows: rows.slice(0, 150), buttons, status: this.notice || (entry.status === 'error'
+      rows: rows.slice(0, 150), buttons, runDetail: this.runDetail?.data || null,
+      hasRunDetail: Boolean(this.runDetail), runDetailLoading: this.runDetail?.status === 'loading',
+      runDetailError: this.runDetail?.status === 'error' ? this.runDetail.error : '',
+      runDetailReady: this.runDetail?.status === 'ready', closeRun: () => this.closeRun(),
+      status: this.notice || (entry.status === 'error'
         ? 'Načtení selhalo: ' + entry.error : entry.status === 'loading' || entry.status === 'idle'
           ? 'Načítám ověřená data z backendu…' : rows.length ? 'Data z backendu. Nezměřené modely nemají skóre kvality.' : 'Backend nevrátil žádné položky.'),
       hasRoleForm: tab === 'roles' && entry.status === 'ready',

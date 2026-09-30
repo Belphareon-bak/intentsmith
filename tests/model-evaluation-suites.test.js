@@ -30,6 +30,7 @@ import {
   textGradingRuntimeContract,
 } from '../src/eval/role-evaluation-plan.js';
 import { generateSyntheticPng, getSyntheticTestImages } from '../src/eval/synthetic-images.js';
+import { evaluateRole, trialRole } from '../src/upgrade/pairwise-trial.js';
 import { MODEL_PROFILES } from '../src/upgrade/model-profiles.js';
 
 const plans = createRoleEvaluationPlans({ repeats: 1 });
@@ -53,6 +54,33 @@ test('all seven roles have one explicit versioned contract', () => {
     assertEqual(plan.applicabilityContract.scope, 'all-technically-compatible-installed-artifacts');
     assertEqual(plan.taskCount, plan.suite.tests.length);
   }
+});
+
+test('deterministic VISION plan runs once even when other roles request repeats', () => {
+  const requested = createRoleEvaluationPlans({ repeats: 3 });
+  assertEqual(requested.VISION.repeats, 1);
+  assertEqual(requested.D2.repeats, 3);
+  assertEqual(requested.VISION.suiteContractSha256,
+    suiteContract(requested.VISION.suite, { version: requested.VISION.suiteVersion,
+      repeats: 1, extra: { textGradingRuntime: textGradingRuntimeContract() } }).sha256);
+  assert(requested.VISION.suite.tests.every(task => task.options.temperature === 0),
+    'single repeat is valid only while every VISION task remains deterministic');
+});
+
+await testAsync('VISION inference obeys the one-repeat contract in single and paired paths', async () => {
+  const plan = createRoleEvaluationPlans({ repeats: 3 }).VISION;
+  const calls = [];
+  const runner = { runSuite: async (_name, model) => {
+    calls.push(model);
+    return { total: 1, tests: [{ name: 'vision_probe', score: 1, response: '{}' }] };
+  } };
+  await evaluateRole(runner, 'VISION', 'candidate', { evaluationPlan: plan, repeats: 3 });
+  assertEqual(calls.length, 1);
+  calls.length = 0;
+  await trialRole(runner, 'VISION', 'candidate', 'incumbent', {
+    evaluationPlan: plan, repeats: 3,
+  });
+  assertEqual(calls.join(','), 'candidate,incumbent');
 });
 
 test('reasoning roles have distinct public prompts and exact contracts', () => {

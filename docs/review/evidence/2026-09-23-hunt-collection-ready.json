@@ -1,0 +1,193 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-23T14:25:42.377177+00:00",
+  "status": "IMPLEMENTED_AND_OFFLINE_VERIFIED_REVIEW_PENDING",
+  "productionImported": false,
+  "deployed": false,
+  "modelInferenceCalls": 0,
+  "independentGraderAccepted": false,
+  "semanticExtractorAccepted": false,
+  "operationalQualificationAccepted": false,
+  "decisionAuthority": false,
+  "autonomousVerdict": "NO_GO",
+  "sourceCommits": [
+    "9b3e851b055f2e3eab4f4a3b323914088bfdaeb4",
+    "095c3d1f413169b5c7985919a5c95fc050f67368",
+    "01d684e04b5171855c39f20dd9c1696b91113a61"
+  ],
+  "sourceFiles": {
+    "src/eval/collection-stage.js": "ce43b0847b2cb39902eadb0edc67f8c9c9c182084f9c3818c8e31f7cf8618034",
+    "src/eval/collection-stage-provider.js": "22d92900340e18fe9f8eccc1b3d73b9f7b02984ca8b3d8163d6f478a76295ef0",
+    "src/eval/confidence-meaning.js": "a702a037fbc4066148bd5583a9f21241b5b8c32bc788c28cbce197c16fa2c8f6",
+    "src/eval/code-confidence-v2.js": "aa26cd56a58b7778d4673eca5cd15e39c7c7ca0d68583654a4374f2cd5b03a37",
+    "scripts/manual/collect-chat-conversation.mjs": "12fb3ac3e8739b029762434ff7c6c5744ecf8b3d022f90bc63b96e48da90e092",
+    "tests/registry.json": "4c3871231fde6bebe6df7593d4c3bc68e0e22b1dd418ec26bbb88b5a5f4d1652",
+    "tests/fixtures/module-boundary/baseline.json": "420a904feee863db3a429fa67542183852243c1aed8f0aecefe2e98551cd6935"
+  },
+  "stage": {
+    "directory": "/mnt/vi7000/intentsmith/evidence/hunt-collection-ready-20260923/chat-pilot-final",
+    "sha256": "7fcbbae79a7339b99eab8afa5d9474dab3c443779ce4bd6fad1eba3f1590f1a4",
+    "sourceRevision": "01d684e04b5171855c39f20dd9c1696b91113a61",
+    "sourceContractSha256": "2415e7e16d84ad5386134275d6db51f3f7da4e5ac6718f310f290f564e2b58f2",
+    "status": "PREPARED",
+    "models": [
+      {
+        "name": "qwen3.8:latest",
+        "artifact": {
+          "modelName": "qwen3.8:latest",
+          "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+          "providerVersion": "0.34.2-intentsmith.1"
+        }
+      },
+      {
+        "name": "phi4:14b",
+        "artifact": {
+          "modelName": "phi4:14b",
+          "digestSha256": "ac896e5b8b34a1f4efa7b14d7520725140d5512484457fab45d2a4ea14c69dba",
+          "providerVersion": "0.34.2-intentsmith.1"
+        }
+      }
+    ],
+    "calls": 64,
+    "maximumOutputTokens": 131072,
+    "capturedCalls": 0,
+    "dialogs": 24,
+    "notAHoldout": true
+  },
+  "checks": {
+    "focused": {
+      "passed": 60,
+      "failed": 0,
+      "log": "/mnt/vi7000/intentsmith/evidence/hunt-collection-ready-20260923/focused-final.log",
+      "sha256": "9413d09257cf6cdcbc1cc391689708f5a4748b3cc12f5b431f25eae4b43c90c1"
+    },
+    "syntheticHttp": {
+      "calls": 64,
+      "dialogs": 24,
+      "modelInference": false
+    },
+    "artifactValidation": {
+      "passed": 160,
+      "failed": 0,
+      "log": "/mnt/vi7000/intentsmith/evidence/hunt-collection-ready-20260923/artifact-final.log",
+      "sourceState": "final documentation working bytes, committed with this report"
+    },
+    "registry": {
+      "programs": 538,
+      "active": 444,
+      "blocked": 79,
+      "historical": 15
+    },
+    "dependencyGraph": {
+      "edges": 1417,
+      "cycles": 3,
+      "membersInCycles": 28,
+      "newExactEdges": 9,
+      "noCycleGrowth": true
+    }
+  },
+  "regressions": [
+    {
+      "name": "invalidInvocation",
+      "path": "/mnt/vi7000/intentsmith/evidence/hunt-collection-ready-20260923/regression/2026-09-23T14-06-47-635Z/report.json",
+      "sha256": "715978815dec42ae8eafa0257d79b5acd4a5f40daa41d79909e83a3f059301b1",
+      "sourceRevision": "9b3e851b055f2e3eab4f4a3b323914088bfdaeb4",
+      "statusCounts": {
+        "PASS": 58,
+        "FAIL": 304,
+        "TIMEOUT": 0,
+        "BLOCKED": 10,
+        "SKIPPED": 0
+      },
+      "verdict": "FAIL"
+    },
+    {
+      "name": "serialBroad",
+      "path": "/mnt/vi7000/intentsmith/evidence/hunt-collection-ready-20260923/.intentsmith-artifacts/regression/2026-09-23T14-08-25-581Z/report.json",
+      "sha256": "6ac00f301e1e7c4e6846bd2eb75c64c89e079f7d844ef65772f346fcd633b930",
+      "sourceRevision": "9b3e851b055f2e3eab4f4a3b323914088bfdaeb4",
+      "statusCounts": {
+        "PASS": 359,
+        "FAIL": 3,
+        "TIMEOUT": 0,
+        "BLOCKED": 10,
+        "SKIPPED": 0
+      },
+      "verdict": "FAIL"
+    },
+    {
+      "name": "targetedAfterRepairs",
+      "path": "/mnt/vi7000/intentsmith/evidence/hunt-collection-ready-20260923/.intentsmith-artifacts/targeted/2026-09-23T14-19-25-047Z/report.json",
+      "sha256": "e2128e20f5ae5a3f89d9bc0d72232606e0b0044c749d61a1cc503cb8563250ea",
+      "sourceRevision": "01d684e04b5171855c39f20dd9c1696b91113a61",
+      "statusCounts": {
+        "PASS": 13,
+        "FAIL": 2,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "verdict": "FAIL"
+    }
+  ],
+  "preservation": {
+    "secondReviewerFile": "/mnt/vi7000/intentsmith/evidence/hunt-code-prose-second-review-20260923/second-reviewer-opus-DRAFT.json",
+    "sha256": "680bbc7d41b7c286c46bede4a59372dc908da298c21afd1b4dbcf95411cf9d65",
+    "changed": false,
+    "independentAcceptance": false,
+    "originalAnswersRegraded": 0
+  },
+  "nextStages": [
+    "review public task and bilingual dialogs",
+    "64-call live CHAT pilot with no grading",
+    "independent acceptance of semantic grader and extractor on unused samples",
+    "budgeted full CHAT collection if pilot usable",
+    "new paired operational qualification before per-role GO"
+  ],
+  "codeTask": {
+    "name": "code_confidence_all_quality_v2_cs",
+    "taskContractSha256": "f4d8a38408fee900caab7aefef0e9e2f7daf82b7e46e98e25c1f1b0a704e09fa",
+    "controls": [
+      {
+        "name": "gold",
+        "technicalScore": 1,
+        "matchedExpected": true,
+        "fullScore": null
+      },
+      {
+        "name": "alternative",
+        "technicalScore": 1,
+        "matchedExpected": true,
+        "fullScore": null
+      },
+      {
+        "name": "broken",
+        "technicalScore": 0.16666666666666666,
+        "matchedExpected": true,
+        "fullScore": null
+      }
+    ],
+    "semanticProbes": 18,
+    "authorControlsOnly": true,
+    "independentAcceptance": false
+  },
+  "finalVerification": {
+    "sourceRevision": "0a9eec5a320d615704ebcda76c3b33d8dc7bdb8a",
+    "focusedPassed": 60,
+    "focusedFailed": 0,
+    "auditedPrograms": 2,
+    "auditedPassed": 2,
+    "auditedFailed": 0,
+    "report": "/mnt/vi7000/intentsmith/evidence/hunt-collection-ready-20260923/.intentsmith-artifacts/final/2026-09-23T14-26-09-542Z/report.json",
+    "sourceContractMatchesPilot": true,
+    "modelCalls": 0
+  },
+  "workspaceCleanup": {
+    "status": "PARTIAL_PERMISSION_BLOCKED",
+    "plannedTargets": 566,
+    "absentAfter": 217,
+    "remainingAfter": 349,
+    "report": "/mnt/vi7000/intentsmith/evidence/hunt-collection-ready-20260923/workspace-clean-result.json",
+    "furtherDeletionAttempted": false
+  }
+}

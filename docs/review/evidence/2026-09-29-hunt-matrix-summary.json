@@ -1,0 +1,2222 @@
+{
+  "status": "COMPLETE_ATTEMPT_MATRIX_FIRST_REVIEW_WITH_EXPLICIT_LIMIT_FAILURES",
+  "createdAt": "2026-09-29T02:33:31.580324+00:00",
+  "decisionAuthority": false,
+  "productionReady": false,
+  "models": [
+    "gemma4:26b",
+    "ornith-1.5:9b",
+    "phi4:14b",
+    "qwen3:14b",
+    "qwen3-coder:latest",
+    "qwen3-30b-a3b:latest",
+    "qwen3.5:27b",
+    "qwen3.6:27b",
+    "devstral-small-2:latest",
+    "qwen3.8:latest"
+  ],
+  "roles": [
+    "D1",
+    "D2",
+    "CODE",
+    "R1",
+    "R2",
+    "CHAT",
+    "VISION"
+  ],
+  "cells": [
+    {
+      "model": "gemma4:26b",
+      "role": "D1",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.6458333333333334,
+      "percent": 64.58333333333334,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "gemma4:26b",
+      "role": "D2",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.621875,
+      "percent": 62.18749999999999,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 15,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "gemma4:26b",
+      "role": "CODE",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.8571428571428571,
+      "percent": 85.71428571428571,
+      "answers": 21,
+      "completeAnswers": 21,
+      "gradedAnswers": 21,
+      "ungradedAnswers": 0,
+      "tasks": 7,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "BOUNDED_EXECUTABLE_COMPONENT",
+        "EXECUTABLE_PLUS_EXTERNAL_LLM_MEANING_REVIEW"
+      ],
+      "digestSha256": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "gemma4:26b",
+      "role": "R1",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.409375,
+      "percent": 40.9375,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 15,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "gemma4:26b",
+      "role": "R2",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.5625,
+      "percent": 56.25,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "gemma4:26b",
+      "role": "CHAT",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.8768750000000001,
+      "percent": 87.6875,
+      "answers": 40,
+      "completeAnswers": 40,
+      "gradedAnswers": 40,
+      "ungradedAnswers": 0,
+      "tasks": 40,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68",
+      "providerVersion": "0.34.2-intentsmith.2",
+      "decisionAuthority": false
+    },
+    {
+      "model": "gemma4:26b",
+      "role": "VISION",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.7572463768115942,
+      "percent": 75.72463768115942,
+      "answers": 69,
+      "completeAnswers": 69,
+      "gradedAnswers": 69,
+      "ungradedAnswers": 0,
+      "tasks": 23,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "DETERMINISTIC_CONTENT_ORACLE"
+      ],
+      "digestSha256": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "ornith-1.5:9b",
+      "role": "D1",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.5729166666666666,
+      "percent": 57.291666666666664,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "e5df7dcdd8a263994df62d610317e07be0d6af23f96fcbd8543273058fce575e",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "ornith-1.5:9b",
+      "role": "D2",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.4192708333333333,
+      "percent": 41.92708333333333,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "e5df7dcdd8a263994df62d610317e07be0d6af23f96fcbd8543273058fce575e",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "ornith-1.5:9b",
+      "role": "CODE",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.5297619047619048,
+      "percent": 52.976190476190474,
+      "answers": 21,
+      "completeAnswers": 21,
+      "gradedAnswers": 21,
+      "ungradedAnswers": 0,
+      "tasks": 7,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "BOUNDED_EXECUTABLE_COMPONENT",
+        "EXECUTABLE_PLUS_EXTERNAL_LLM_MEANING_REVIEW"
+      ],
+      "digestSha256": "e5df7dcdd8a263994df62d610317e07be0d6af23f96fcbd8543273058fce575e",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "ornith-1.5:9b",
+      "role": "R1",
+      "status": "ČÁSTEČNÉ",
+      "score": null,
+      "percent": null,
+      "answers": 24,
+      "completeAnswers": 23,
+      "gradedAnswers": 23,
+      "ungradedAnswers": 1,
+      "tasks": 8,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": 0.3423913043478261,
+      "completionBounds": [
+        0.328125,
+        0.3697916666666667
+      ],
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW",
+        "INCOMPLETE_NOT_GRADED"
+      ],
+      "digestSha256": "e5df7dcdd8a263994df62d610317e07be0d6af23f96fcbd8543273058fce575e",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "ornith-1.5:9b",
+      "role": "R2",
+      "status": "ČÁSTEČNÉ",
+      "score": null,
+      "percent": null,
+      "answers": 24,
+      "completeAnswers": 22,
+      "gradedAnswers": 22,
+      "ungradedAnswers": 2,
+      "tasks": 8,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": 0.4090909090909091,
+      "completionBounds": [
+        0.375,
+        0.4583333333333333
+      ],
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW",
+        "INCOMPLETE_NOT_GRADED"
+      ],
+      "digestSha256": "e5df7dcdd8a263994df62d610317e07be0d6af23f96fcbd8543273058fce575e",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "ornith-1.5:9b",
+      "role": "CHAT",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.76125,
+      "percent": 76.125,
+      "answers": 40,
+      "completeAnswers": 40,
+      "gradedAnswers": 40,
+      "ungradedAnswers": 0,
+      "tasks": 40,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "e5df7dcdd8a263994df62d610317e07be0d6af23f96fcbd8543273058fce575e",
+      "providerVersion": "0.34.2-intentsmith.2",
+      "decisionAuthority": false
+    },
+    {
+      "model": "ornith-1.5:9b",
+      "role": "VISION",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.8188405797101449,
+      "percent": 81.88405797101449,
+      "answers": 69,
+      "completeAnswers": 69,
+      "gradedAnswers": 69,
+      "ungradedAnswers": 0,
+      "tasks": 23,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "DETERMINISTIC_CONTENT_ORACLE"
+      ],
+      "digestSha256": "e5df7dcdd8a263994df62d610317e07be0d6af23f96fcbd8543273058fce575e",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "phi4:14b",
+      "role": "D1",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.4010416666666667,
+      "percent": 40.10416666666667,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "ac896e5b8b34a1f4efa7b14d7520725140d5512484457fab45d2a4ea14c69dba",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "phi4:14b",
+      "role": "D2",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.4869791666666667,
+      "percent": 48.69791666666667,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "ac896e5b8b34a1f4efa7b14d7520725140d5512484457fab45d2a4ea14c69dba",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "phi4:14b",
+      "role": "CODE",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.5595238095238095,
+      "percent": 55.952380952380956,
+      "answers": 21,
+      "completeAnswers": 21,
+      "gradedAnswers": 21,
+      "ungradedAnswers": 0,
+      "tasks": 7,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "BOUNDED_EXECUTABLE_COMPONENT",
+        "EXECUTABLE_PLUS_EXTERNAL_LLM_MEANING_REVIEW"
+      ],
+      "digestSha256": "ac896e5b8b34a1f4efa7b14d7520725140d5512484457fab45d2a4ea14c69dba",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "phi4:14b",
+      "role": "R1",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.3177083333333333,
+      "percent": 31.770833333333332,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "ac896e5b8b34a1f4efa7b14d7520725140d5512484457fab45d2a4ea14c69dba",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "phi4:14b",
+      "role": "R2",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.3645833333333333,
+      "percent": 36.45833333333333,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "ac896e5b8b34a1f4efa7b14d7520725140d5512484457fab45d2a4ea14c69dba",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "phi4:14b",
+      "role": "CHAT",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.794375,
+      "percent": 79.4375,
+      "answers": 40,
+      "completeAnswers": 40,
+      "gradedAnswers": 40,
+      "ungradedAnswers": 0,
+      "tasks": 40,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "ac896e5b8b34a1f4efa7b14d7520725140d5512484457fab45d2a4ea14c69dba",
+      "providerVersion": "0.34.2-intentsmith.2",
+      "decisionAuthority": false
+    },
+    {
+      "model": "phi4:14b",
+      "role": "VISION",
+      "status": "N/A",
+      "score": null,
+      "answers": 0,
+      "reason": "Exact installed artifact does not declare image support."
+    },
+    {
+      "model": "qwen3:14b",
+      "role": "D1",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.421875,
+      "percent": 42.1875,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3:14b",
+      "role": "D2",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.4296875,
+      "percent": 42.96875,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3:14b",
+      "role": "CODE",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.6517857142857143,
+      "percent": 65.17857142857143,
+      "answers": 21,
+      "completeAnswers": 21,
+      "gradedAnswers": 21,
+      "ungradedAnswers": 0,
+      "tasks": 7,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "BOUNDED_EXECUTABLE_COMPONENT",
+        "EXECUTABLE_PLUS_EXTERNAL_LLM_MEANING_REVIEW"
+      ],
+      "digestSha256": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3:14b",
+      "role": "R1",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.3177083333333333,
+      "percent": 31.770833333333332,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3:14b",
+      "role": "R2",
+      "status": "ČÁSTEČNÉ",
+      "score": null,
+      "percent": null,
+      "answers": 24,
+      "completeAnswers": 23,
+      "gradedAnswers": 23,
+      "ungradedAnswers": 1,
+      "tasks": 8,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": 0.43478260869565216,
+      "completionBounds": [
+        0.4166666666666667,
+        0.4583333333333333
+      ],
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW",
+        "INCOMPLETE_NOT_GRADED"
+      ],
+      "digestSha256": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3:14b",
+      "role": "CHAT",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.836875,
+      "percent": 83.6875,
+      "answers": 40,
+      "completeAnswers": 40,
+      "gradedAnswers": 40,
+      "ungradedAnswers": 0,
+      "tasks": 40,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+      "providerVersion": "0.34.2-intentsmith.2",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3:14b",
+      "role": "VISION",
+      "status": "N/A",
+      "score": null,
+      "answers": 0,
+      "reason": "Exact installed artifact does not declare image support."
+    },
+    {
+      "model": "qwen3-coder:latest",
+      "role": "D1",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.5026041666666666,
+      "percent": 50.260416666666664,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "06c1097efce0431c2045fe7b2e5108366e43bee1b4603a7aded8f21689e90bca",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3-coder:latest",
+      "role": "D2",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.5390625,
+      "percent": 53.90625,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "06c1097efce0431c2045fe7b2e5108366e43bee1b4603a7aded8f21689e90bca",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3-coder:latest",
+      "role": "CODE",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.6646825396825397,
+      "percent": 66.46825396825396,
+      "answers": 21,
+      "completeAnswers": 21,
+      "gradedAnswers": 21,
+      "ungradedAnswers": 0,
+      "tasks": 7,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "BOUNDED_EXECUTABLE_COMPONENT",
+        "EXECUTABLE_PLUS_EXTERNAL_LLM_MEANING_REVIEW"
+      ],
+      "digestSha256": "06c1097efce0431c2045fe7b2e5108366e43bee1b4603a7aded8f21689e90bca",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3-coder:latest",
+      "role": "R1",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.3958333333333333,
+      "percent": 39.58333333333333,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "06c1097efce0431c2045fe7b2e5108366e43bee1b4603a7aded8f21689e90bca",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3-coder:latest",
+      "role": "R2",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.3958333333333333,
+      "percent": 39.58333333333333,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "06c1097efce0431c2045fe7b2e5108366e43bee1b4603a7aded8f21689e90bca",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3-coder:latest",
+      "role": "CHAT",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.84375,
+      "percent": 84.375,
+      "answers": 40,
+      "completeAnswers": 40,
+      "gradedAnswers": 40,
+      "ungradedAnswers": 0,
+      "tasks": 40,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "06c1097efce0431c2045fe7b2e5108366e43bee1b4603a7aded8f21689e90bca",
+      "providerVersion": "0.34.2-intentsmith.2",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3-coder:latest",
+      "role": "VISION",
+      "status": "N/A",
+      "score": null,
+      "answers": 0,
+      "reason": "Exact installed artifact does not declare image support."
+    },
+    {
+      "model": "qwen3-30b-a3b:latest",
+      "role": "D1",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.4427083333333333,
+      "percent": 44.27083333333333,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "dc0b52b99d0e4310b0e74d1b5c0b4af3459537614523b84d94ce62a7c5f99201",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3-30b-a3b:latest",
+      "role": "D2",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.4427083333333333,
+      "percent": 44.27083333333333,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "dc0b52b99d0e4310b0e74d1b5c0b4af3459537614523b84d94ce62a7c5f99201",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3-30b-a3b:latest",
+      "role": "CODE",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.3392857142857143,
+      "percent": 33.92857142857143,
+      "answers": 21,
+      "completeAnswers": 21,
+      "gradedAnswers": 21,
+      "ungradedAnswers": 0,
+      "tasks": 7,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "BOUNDED_EXECUTABLE_COMPONENT",
+        "EXECUTABLE_PLUS_EXTERNAL_LLM_MEANING_REVIEW"
+      ],
+      "digestSha256": "dc0b52b99d0e4310b0e74d1b5c0b4af3459537614523b84d94ce62a7c5f99201",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3-30b-a3b:latest",
+      "role": "R1",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.3072916666666667,
+      "percent": 30.729166666666668,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "dc0b52b99d0e4310b0e74d1b5c0b4af3459537614523b84d94ce62a7c5f99201",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3-30b-a3b:latest",
+      "role": "R2",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.34375,
+      "percent": 34.375,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "dc0b52b99d0e4310b0e74d1b5c0b4af3459537614523b84d94ce62a7c5f99201",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3-30b-a3b:latest",
+      "role": "CHAT",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.8612500000000001,
+      "percent": 86.125,
+      "answers": 40,
+      "completeAnswers": 40,
+      "gradedAnswers": 40,
+      "ungradedAnswers": 0,
+      "tasks": 40,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "dc0b52b99d0e4310b0e74d1b5c0b4af3459537614523b84d94ce62a7c5f99201",
+      "providerVersion": "0.34.2-intentsmith.2",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3-30b-a3b:latest",
+      "role": "VISION",
+      "status": "N/A",
+      "score": null,
+      "answers": 0,
+      "reason": "Exact installed artifact does not declare image support."
+    },
+    {
+      "model": "qwen3.5:27b",
+      "role": "D1",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.6380208333333333,
+      "percent": 63.80208333333333,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 21,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3.5:27b",
+      "role": "D2",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.6364583333333333,
+      "percent": 63.645833333333336,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 3,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3.5:27b",
+      "role": "CODE",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.8373015873015873,
+      "percent": 83.73015873015873,
+      "answers": 21,
+      "completeAnswers": 21,
+      "gradedAnswers": 21,
+      "ungradedAnswers": 0,
+      "tasks": 7,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "BOUNDED_EXECUTABLE_COMPONENT",
+        "EXECUTABLE_PLUS_EXTERNAL_LLM_MEANING_REVIEW"
+      ],
+      "digestSha256": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3.5:27b",
+      "role": "R1",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.453125,
+      "percent": 45.3125,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3.5:27b",
+      "role": "R2",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.75,
+      "percent": 75.0,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 3,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3.5:27b",
+      "role": "CHAT",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.8406250000000001,
+      "percent": 84.0625,
+      "answers": 40,
+      "completeAnswers": 40,
+      "gradedAnswers": 40,
+      "ungradedAnswers": 0,
+      "tasks": 40,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+      "providerVersion": "0.34.2-intentsmith.2",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3.5:27b",
+      "role": "VISION",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.886231884057971,
+      "percent": 88.62318840579711,
+      "answers": 69,
+      "completeAnswers": 69,
+      "gradedAnswers": 69,
+      "ungradedAnswers": 0,
+      "tasks": 23,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "DETERMINISTIC_CONTENT_ORACLE"
+      ],
+      "digestSha256": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3.6:27b",
+      "role": "D1",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.6640625,
+      "percent": 66.40625,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 18,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "9d5803d493a991af27b9441c098aa56f2ed7bbd260877f075ec09b575c049bc3",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3.6:27b",
+      "role": "D2",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.7151041666666667,
+      "percent": 71.51041666666667,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 15,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "9d5803d493a991af27b9441c098aa56f2ed7bbd260877f075ec09b575c049bc3",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3.6:27b",
+      "role": "CODE",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.8273809523809524,
+      "percent": 82.73809523809524,
+      "answers": 21,
+      "completeAnswers": 21,
+      "gradedAnswers": 21,
+      "ungradedAnswers": 0,
+      "tasks": 7,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "BOUNDED_EXECUTABLE_COMPONENT",
+        "EXECUTABLE_PLUS_EXTERNAL_LLM_MEANING_REVIEW"
+      ],
+      "digestSha256": "9d5803d493a991af27b9441c098aa56f2ed7bbd260877f075ec09b575c049bc3",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3.6:27b",
+      "role": "R1",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.5020833333333333,
+      "percent": 50.208333333333336,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 15,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "9d5803d493a991af27b9441c098aa56f2ed7bbd260877f075ec09b575c049bc3",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3.6:27b",
+      "role": "R2",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.7395833333333333,
+      "percent": 73.95833333333333,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 12,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "9d5803d493a991af27b9441c098aa56f2ed7bbd260877f075ec09b575c049bc3",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3.6:27b",
+      "role": "CHAT",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.85,
+      "percent": 85.0,
+      "answers": 40,
+      "completeAnswers": 40,
+      "gradedAnswers": 40,
+      "ungradedAnswers": 0,
+      "tasks": 40,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "9d5803d493a991af27b9441c098aa56f2ed7bbd260877f075ec09b575c049bc3",
+      "providerVersion": "0.34.2-intentsmith.2",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3.6:27b",
+      "role": "VISION",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.8304347826086956,
+      "percent": 83.04347826086956,
+      "answers": 69,
+      "completeAnswers": 69,
+      "gradedAnswers": 69,
+      "ungradedAnswers": 0,
+      "tasks": 23,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "DETERMINISTIC_CONTENT_ORACLE"
+      ],
+      "digestSha256": "9d5803d493a991af27b9441c098aa56f2ed7bbd260877f075ec09b575c049bc3",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "devstral-small-2:latest",
+      "role": "D1",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.5130208333333334,
+      "percent": 51.302083333333336,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "devstral-small-2:latest",
+      "role": "D2",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.4713541666666667,
+      "percent": 47.13541666666667,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "devstral-small-2:latest",
+      "role": "CODE",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.652281746031746,
+      "percent": 65.22817460317461,
+      "answers": 21,
+      "completeAnswers": 21,
+      "gradedAnswers": 21,
+      "ungradedAnswers": 0,
+      "tasks": 7,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "BOUNDED_EXECUTABLE_COMPONENT",
+        "EXECUTABLE_PLUS_EXTERNAL_LLM_MEANING_REVIEW"
+      ],
+      "digestSha256": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "devstral-small-2:latest",
+      "role": "R1",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.3125,
+      "percent": 31.25,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 15,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "devstral-small-2:latest",
+      "role": "R2",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.48958333333333337,
+      "percent": 48.958333333333336,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 12,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "devstral-small-2:latest",
+      "role": "CHAT",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.81625,
+      "percent": 81.625,
+      "answers": 40,
+      "completeAnswers": 40,
+      "gradedAnswers": 40,
+      "ungradedAnswers": 0,
+      "tasks": 40,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "providerVersion": "0.34.2-intentsmith.2",
+      "decisionAuthority": false
+    },
+    {
+      "model": "devstral-small-2:latest",
+      "role": "VISION",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.6347826086956522,
+      "percent": 63.47826086956522,
+      "answers": 69,
+      "completeAnswers": 69,
+      "gradedAnswers": 69,
+      "ungradedAnswers": 0,
+      "tasks": 23,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "DETERMINISTIC_CONTENT_ORACLE"
+      ],
+      "digestSha256": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3.8:latest",
+      "role": "D1",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.6979166666666666,
+      "percent": 69.79166666666666,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 21,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3.8:latest",
+      "role": "D2",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.6104166666666666,
+      "percent": 61.04166666666666,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 18,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3.8:latest",
+      "role": "CODE",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.9702380952380952,
+      "percent": 97.02380952380952,
+      "answers": 21,
+      "completeAnswers": 21,
+      "gradedAnswers": 21,
+      "ungradedAnswers": 0,
+      "tasks": 7,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "BOUNDED_EXECUTABLE_COMPONENT",
+        "EXECUTABLE_PLUS_EXTERNAL_LLM_MEANING_REVIEW"
+      ],
+      "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3.8:latest",
+      "role": "R1",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.56875,
+      "percent": 56.875,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 15,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3.8:latest",
+      "role": "R2",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.8125,
+      "percent": 81.25,
+      "answers": 24,
+      "completeAnswers": 24,
+      "gradedAnswers": 24,
+      "ungradedAnswers": 0,
+      "tasks": 8,
+      "secondReviewedAnswers": 15,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3.8:latest",
+      "role": "CHAT",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.864375,
+      "percent": 86.4375,
+      "answers": 40,
+      "completeAnswers": 40,
+      "gradedAnswers": 40,
+      "ungradedAnswers": 0,
+      "tasks": 40,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "EXTERNAL_LLM_FIRST_REVIEW"
+      ],
+      "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "providerVersion": "0.34.2-intentsmith.2",
+      "decisionAuthority": false
+    },
+    {
+      "model": "qwen3.8:latest",
+      "role": "VISION",
+      "status": "POSOUZENO_PRVNIM_PRUCHODEM",
+      "score": 0.772463768115942,
+      "percent": 77.2463768115942,
+      "answers": 69,
+      "completeAnswers": 69,
+      "gradedAnswers": 69,
+      "ungradedAnswers": 0,
+      "tasks": 23,
+      "secondReviewedAnswers": 0,
+      "secondScore": null,
+      "observedPartialMean": null,
+      "completionBounds": null,
+      "sourceKinds": [
+        "DETERMINISTIC_CONTENT_ORACLE"
+      ],
+      "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "decisionAuthority": false
+    }
+  ],
+  "profileChecks": [
+    {
+      "role": "CHAT",
+      "task": "cs_ambiguous_handoff",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "cs_budget_tradeoff",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "cs_causal_vs_correlation",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "cs_corrected_project",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "cs_duplicate_events",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "cs_evidence_status",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "cs_explain_then_simplify",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "cs_incompatible_constraints",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "cs_meeting_window",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "cs_offline_diagnosis",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "cs_privacy_draft",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "cs_quoted_injection",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "cs_safe_next_action",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "cs_scope_negotiation",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "cs_strict_json",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "cs_time_explanation",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "cs_tone_rewrite",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "cs_unit_capacity",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "cs_unknown_release",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "cs_weighted_average",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "en_ambiguous_handoff",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "en_budget_tradeoff",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "en_causal_vs_correlation",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "en_corrected_project",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "en_duplicate_events",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "en_evidence_status",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "en_explain_then_simplify",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "en_incompatible_constraints",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "en_meeting_window",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "en_offline_diagnosis",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "en_privacy_draft",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "en_quoted_injection",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "en_safe_next_action",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "en_scope_negotiation",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "en_strict_json",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "en_time_explanation",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "en_tone_rewrite",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "en_unit_capacity",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "en_unknown_release",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CHAT",
+      "task": "en_weighted_average",
+      "profiles": 1,
+      "answers": 10
+    },
+    {
+      "role": "CODE",
+      "task": "code_confidence_all_quality_v2_cs",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "CODE",
+      "task": "patch_0287eea75417",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "CODE",
+      "task": "patch_22149f55b861",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "CODE",
+      "task": "patch_42a13a7af087",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "CODE",
+      "task": "patch_5351c2c22f75",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "CODE",
+      "task": "patch_adb1258cfec0",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "CODE",
+      "task": "patch_b9b97c10fe85",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "D1",
+      "task": "d1_audit_error_envelope",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "D1",
+      "task": "d1_history_late_guard",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "D1",
+      "task": "d1_immutable_refinement",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "D1",
+      "task": "d1_metrics_flush",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "D1",
+      "task": "d1_model_cleanup",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "D1",
+      "task": "d1_model_lease",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "D1",
+      "task": "d1_pairwise_confidence",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "D1",
+      "task": "d1_verification_timeout",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "D2",
+      "task": "d2_audit_error_envelope",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "D2",
+      "task": "d2_history_late_guard",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "D2",
+      "task": "d2_immutable_refinement",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "D2",
+      "task": "d2_metrics_flush",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "D2",
+      "task": "d2_model_cleanup",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "D2",
+      "task": "d2_model_lease",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "D2",
+      "task": "d2_pairwise_confidence",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "D2",
+      "task": "d2_verification_timeout",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "R1",
+      "task": "r1_audit_error_envelope",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "R1",
+      "task": "r1_history_late_guard",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "R1",
+      "task": "r1_immutable_refinement",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "R1",
+      "task": "r1_metrics_flush",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "R1",
+      "task": "r1_model_cleanup",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "R1",
+      "task": "r1_model_lease",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "R1",
+      "task": "r1_pairwise_confidence",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "R1",
+      "task": "r1_verification_timeout",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "R2",
+      "task": "r2_audit_error_envelope",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "R2",
+      "task": "r2_history_late_guard",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "R2",
+      "task": "r2_immutable_refinement",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "R2",
+      "task": "r2_metrics_flush",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "R2",
+      "task": "r2_model_cleanup",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "R2",
+      "task": "r2_model_lease",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "R2",
+      "task": "r2_pairwise_confidence",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "R2",
+      "task": "r2_verification_timeout",
+      "profiles": 1,
+      "answers": 30
+    },
+    {
+      "role": "VISION",
+      "task": "vision_access_matrix",
+      "profiles": 1,
+      "answers": 18
+    },
+    {
+      "role": "VISION",
+      "task": "vision_area",
+      "profiles": 1,
+      "answers": 18
+    },
+    {
+      "role": "VISION",
+      "task": "vision_bars",
+      "profiles": 1,
+      "answers": 18
+    },
+    {
+      "role": "VISION",
+      "task": "vision_color",
+      "profiles": 1,
+      "answers": 18
+    },
+    {
+      "role": "VISION",
+      "task": "vision_connections",
+      "profiles": 1,
+      "answers": 18
+    },
+    {
+      "role": "VISION",
+      "task": "vision_count",
+      "profiles": 1,
+      "answers": 18
+    },
+    {
+      "role": "VISION",
+      "task": "vision_critical_path",
+      "profiles": 1,
+      "answers": 18
+    },
+    {
+      "role": "VISION",
+      "task": "vision_dashboard",
+      "profiles": 1,
+      "answers": 18
+    },
+    {
+      "role": "VISION",
+      "task": "vision_deployment_join",
+      "profiles": 1,
+      "answers": 18
+    },
+    {
+      "role": "VISION",
+      "task": "vision_invoice",
+      "profiles": 1,
+      "answers": 18
+    },
+    {
+      "role": "VISION",
+      "task": "vision_lines",
+      "profiles": 1,
+      "answers": 18
+    },
+    {
+      "role": "VISION",
+      "task": "vision_mixed_currency",
+      "profiles": 1,
+      "answers": 18
+    },
+    {
+      "role": "VISION",
+      "task": "vision_no_image",
+      "profiles": 1,
+      "answers": 18
+    },
+    {
+      "role": "VISION",
+      "task": "vision_orders",
+      "profiles": 1,
+      "answers": 18
+    },
+    {
+      "role": "VISION",
+      "task": "vision_reconciliation",
+      "profiles": 1,
+      "answers": 18
+    },
+    {
+      "role": "VISION",
+      "task": "vision_redacted_document",
+      "profiles": 1,
+      "answers": 18
+    },
+    {
+      "role": "VISION",
+      "task": "vision_revision_join",
+      "profiles": 1,
+      "answers": 18
+    },
+    {
+      "role": "VISION",
+      "task": "vision_ring",
+      "profiles": 1,
+      "answers": 18
+    },
+    {
+      "role": "VISION",
+      "task": "vision_routes",
+      "profiles": 1,
+      "answers": 18
+    },
+    {
+      "role": "VISION",
+      "task": "vision_spatial",
+      "profiles": 1,
+      "answers": 18
+    },
+    {
+      "role": "VISION",
+      "task": "vision_stock_ledger",
+      "profiles": 1,
+      "answers": 18
+    },
+    {
+      "role": "VISION",
+      "task": "vision_weighted_rates",
+      "profiles": 1,
+      "answers": 18
+    },
+    {
+      "role": "VISION",
+      "task": "vision_windowed_metrics",
+      "profiles": 1,
+      "answers": 18
+    }
+  ],
+  "sources": {
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/extended-capture/progress.json": "2bf876942d707a4ce9ea8e7bf0f9332139d240ccc9189213f3500026242cf4ce",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/extended-capture/jobs.json": "dd742692df760c321f10ccefb5400ef307882abf994b1a0dfc4bd78206438499",
+    "/mnt/vi7000/intentsmith/evidence/hunt-role-allocation-20260928/current-task-inputs.json": "47100573ef24beb95a7a0e33f8d683c029f3a2b2916e7bbe01ddd78fcca54605",
+    "/mnt/vi7000/intentsmith/evidence/hunt-isolated-20260925/blind/packet.json": "b3a2f33445ed7537fca65d2dd25645e68ba90250c1c0718c57396f8371aefc0f",
+    "/mnt/vi7000/intentsmith/evidence/hunt-isolated-20260925/restricted/blind-review-identity-key.json": "bea4ce97bee97b04320e856b37bcf021a9f8b5907cc4c520072d1703c1e60a7b",
+    "/home/belphareon/worktrees/is-mobile-completion-20260908/docs/review/evidence/2026-09-25-hunt-codex-all-dr-development-review.json": "72231c6d959c80157f88ead2733b2e8de7a2532b827ff5b747c83c97b632e4b7",
+    "/mnt/vi7000/intentsmith/evidence/hunt-grading-opus-20260925/dr-312/review.json": "ddba2ccb82595ad0f3d63d91b527bb82dd1548b4c532bcd4a86523c5a4685cc4",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/dr-supplement/packet.json": "f2fa37b8f9cdbd50af3360350158c33b8b1626f08f8b3a08543b6eefbc850bca",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/dr-supplement/restricted/identity-key.json": "889f8dfa88624725ab82c93e12a4b00f843bcaad2227f1aadf31fe9d7004b4fe",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/dr-supplement/assessment-codex/first-review.json": "277ae53716c559186c48f1e94e94efd870050dccb03cad7f3990e47666cd45f5",
+    "/mnt/vi7000/intentsmith/evidence/hunt-model-cleanup-v6-20260926/review-v3/packet.json": "29f97a202a688c6cf97b6bbe555d3fe3be5d43d5f8e376c831b57784af96bd74",
+    "/mnt/vi7000/intentsmith/evidence/hunt-model-cleanup-v6-20260926/review-v3/restricted/identity-key.json": "e47a618670cc4735088efd176ec00082700c2f292d7dae85daf32d8564a0bfe6",
+    "/mnt/vi7000/intentsmith/evidence/hunt-step3-codex-grading-20260926/dr-review.json": "e0261de96dd9efb30925ea05327993415f9e5dc8eefbcb4c07ed3c048e1e0f5b",
+    "/mnt/vi7000/intentsmith/evidence/hunt-step3-second-grader-20260926/dr/review.json": "909a89571f84afeac52f5ee4035481e8aad748056147f001df8c35358f117fc4",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/dr-cleanup-review/packet.json": "83083baff0414a16e46956b09a904177480d608506fecdd2c96ac0eab2e5a60c",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/dr-cleanup-review/restricted/identity-key.json": "34bdccbf165b822af20ef524439eb91875b01e62123145e69dffcaaafe6b0b23",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/dr-cleanup-review/assessment-codex/first-review.json": "be621bbfde5abae0b4adc2699c9bacf1501f5cbc7bebd36e721b77b9cece879c",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/extended-review/packet.json": "fc417e81ff4ee206c471696e3993a51fc77c35c084ed9f8e3621800fe75c093d",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/extended-review/restricted/identity-key.json": "83fc3f4fa25a7f00d0d68ab7a8f117da00bba19f1acdee5f7e67cac735f5de4e",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/extended-review/assessment-codex/first-review.json": "dc0ecda6a270e117dcf6811fe7198b283f8961298f5e87ce0f0da94b80b9a21b",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/extended-review/assessment-codex/review-annotations.json": "34e28ebb7e05b8d1ffa9988feff6f1b09d198322a4a3bd093fef7ccce3c536dc",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/extended-capture/ornith-1.5_9b/R1-pairwise_confidence/result.json": "55f126391e145d4cb444f21aaff79b11f3ac9bfc0337045ae51b9c655a348a73",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/extended-capture/ornith-1.5_9b/R1-pairwise_confidence/tasks.json": "63d7de99987df5b1d54a70a5f07e1439bab0ea0d04c53f01b3d7fc1a8fcc149d",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/extended-capture/ornith-1.5_9b/R2-immutable_refinement/result.json": "130756faf06bdf9175a4675962718fe428831ffdfccef4e0c8cfd2b2e711a3f9",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/extended-capture/ornith-1.5_9b/R2-immutable_refinement/tasks.json": "8921816e44c8b99fb5dbc24446e6b679b68885471927029fc3cfe525e8d469f8",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/extended-capture/ornith-1.5_9b/R2-pairwise_confidence/result.json": "4c3157cba7116bc6a7c078b5d91f04f0c72c86b5e114a945d20bf08b74fa1c31",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/extended-capture/ornith-1.5_9b/R2-pairwise_confidence/tasks.json": "96cbdcdd165165290937359890a9d6cfaf9c9c86060c99968acd2c3c4f44cfd0",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/extended-capture/qwen3_14b/R2-pairwise_confidence/result.json": "31d8380790bf6f83dda714f828e8032540959d9afa42d7a569e9a5f21007d5b6",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/extended-capture/qwen3_14b/R2-pairwise_confidence/tasks.json": "96cbdcdd165165290937359890a9d6cfaf9c9c86060c99968acd2c3c4f44cfd0",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/chat/review-v2/packet.json": "7a58b4ea71a328781c21a828caa033185f9badb6a04b9eba67709501dfc4927e",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/chat/review/restricted/identity-key.json": "525f4e1c5c8b1882c994d8292f93be0f6698c9359b1c223c9205a53ae3c473f9",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/chat/assessment-codex/first-review.json": "cbe7cb2010e94ccdef9548417358b61cebf67bf914e94c55f4ca089234104f33",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/chat/assessment-codex/strict-format-observations.json": "241863e6ff203a9ca8013e52c68212428ffe085c98cfdad53ea1caab8a0e1ace",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/chat/assessment-codex/confidence.json": "b3b8f354fd8fdad01854714f4afc8bdf673792ef3bab05f1c72eedf38fbad8ac",
+    "/home/belphareon/Projects/coworker/intentsmith-hunt-all-installed-20260920/answers-for-review.json": "8a71635d3ca7aed128b1ee63f85142c021a2d40542c5179d9a73610de803f91b",
+    "/mnt/vi7000/intentsmith/evidence/hunt-milestones-20260923/code-components-with-observations.json": "f10c81102d923cc9184919cd056f3d5a81f5d11a9803a25574e0a7878bb28687",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/preparation/code-scope-audit.json": "33e740f10b99b25ced6e7441727ee65cc39e09578ad04d85822ff0f4d43221b2",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/code-v2-review/packet.json": "fb7012015128cf7db89b43943b51b9fdd9ed25203ccd0398a64bd497dc567e99",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/code-v2-review/restricted/identity-key.json": "20629042a37d550b1be4d0ac937c7eef8cdb976b747128e8b802252e18385e6b",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/code-v2-review/assessment-codex/first-review.json": "decae9224c9bcdd79bb9d3fbaac76e3d0c39e8fcb395ebfa351c499cf7c976ea",
+    "/mnt/vi7000/intentsmith/evidence/hunt-role-allocation-20260928/vision-six-model-replay.json": "4adb9653de4e0bfb5b6e97f73c1dad5e901be88e0008409b8148f35b580034ac",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/dr-supplement/assessment-codex/ratings.jsonl": "c1e5c3438e7c53ae5ef9a37ebe36d07f72b3eebdb6e72a7e09346f36f302275d",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/dr-cleanup-review/assessment-codex/ratings.jsonl": "e4d1614185af64acdd4bcdef53f9a883fc01b3f8eb8b5a2d0467e17a5b3e56c6",
+    "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/extended-review/assessment-codex/ratings.jsonl": "1c985b4f4a136ed807217965683301b56ea47ea7494b016e9fa59313e6262923"
+  },
+  "limitations": [
+    "Development tasks, no new operational holdout; no production model choice.",
+    "A first exposed external LLM review is not two independent accepted reviews. Second-review coverage is explicit per cell.",
+    "CODE combines six preserved bounded executable components with the new confidence task. It is not end-to-end workflow completion.",
+    "VISION temperature-zero repeats do not establish stability or add independent cases.",
+    "CHAT is a new fixed-clock production-profile cohort: 20 CZ/EN pairs, one dialogue per task. Language twins are not independent historical cases; this is not the older three-repeat panel.",
+    "Incomplete responses are not graded as zero and not silently discarded. Completion bounds are arithmetic missing-score bounds, not confidence intervals."
+  ],
+  "matrixPath": "/mnt/vi7000/intentsmith/evidence/hunt-matrix-completion-20260928/matrix/matrix.json",
+  "matrixSha256": "9502f071d5ddc5f6bf20c95eeb9a3d2c9ad51b8cfc208fdf9bcb6f4d8ef01ce2",
+  "responseCount": 1984,
+  "completeCount": 1980,
+  "realSecondReviewedAnswers": 213,
+  "firstReviewPendingSecondPacket": {
+    "cases": 1173,
+    "criteria": 3689,
+    "byRole": {
+      "D1": 180,
+      "D2": 189,
+      "R1": 179,
+      "R2": 195,
+      "CHAT": 400,
+      "CODE": 30
+    },
+    "packetSha256": "08d0ab7e92dc324d2a8e9e210d7b32525167b8eb7db2810b7fed55f31e7d4726",
+    "decisionAuthority": false
+  }
+}

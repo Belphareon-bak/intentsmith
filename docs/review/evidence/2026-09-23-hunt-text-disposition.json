@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "status": "AUTHOR_DISPOSITION_REVIEW_PENDING",
+  "baseRevision": "83592d53e248677158bbbefaf9b654ca1f04666f",
+  "inference": false,
+  "modelReplay": false,
+  "deployed": false,
+  "originalGradesChanged": false,
+  "oracleAccepted": false,
+  "scope": "154-site author disposition, explicit CHAT content coverage, gold-only falsification pairs and strengthened CODE acceptance controls.",
+  "counts": {
+    "HARNESS_OR_PARSER": 7,
+    "FREE_TEXT_OUTSIDE_EDITABLE_SPAN": 40,
+    "DATABASE_BOUNDARY_SIGNAL": 64,
+    "SOURCE_BOUNDARY": 1,
+    "DIAGNOSTIC_TOKEN": 4,
+    "FREE_TEXT_IN_EDITABLE_SPAN": 9,
+    "FIXTURE_LITERAL_OR_ID": 11,
+    "MOCK_PROTOCOL": 12,
+    "EXPLICIT_SENTINEL": 2,
+    "TRANSFORMED_INPUT_PROXY": 1,
+    "STRUCTURED_OR_TEXT_FALLBACK": 2,
+    "EXACT_PUBLIC_ENUM": 1
+  },
+  "validation": {
+    "codePatchSuitePassed": 29,
+    "codePatchSuiteFailed": 0,
+    "browserPassed": 15,
+    "fullRunnerReferences": 5,
+    "validReferences": 4,
+    "mutationRuns": 14,
+    "disagreements": 13,
+    "pairsNotRun": 2
+  },
+  "evidenceRoot": "/mnt/vi7000/intentsmith/evidence/hunt-text-disposition-20260923",
+  "archive": {
+    "path": "/mnt/vi7000/intentsmith/evidence/hunt-text-disposition-20260923/evidence-7010a922788e256b3db2256c3ad5c7f77c21bddad9204c1407c1a6108000dc00.tar.gz",
+    "sha256": "7010a922788e256b3db2256c3ad5c7f77c21bddad9204c1407c1a6108000dc00",
+    "bytes": 3256009
+  },
+  "receiptSha256": "d64aab855856b199f976b8e0dba2712c11d171eb18f811da78f6ddb7eb64e0db",
+  "sourceHashes": {
+    "SYSTEM-MAP.md": "03cde438333093d1d3bb99ac917c929f4e65c4ae6304327c172cf9d4088144ca",
+    "docs/review/2026-09-23-HUNT-TEXT-DISPOSITION.md": "a97519e5d7e621464f1204e5e8bc10bbd1634d0e1f2f07f5b294f1844c75f6f9",
+    "scripts/manual/render-hunt-review-matrix.py": "aa40a454eb8ea97cfa5df77e200e00873e06fd6befb9735035af7d74646b9da2",
+    "scripts/manual/probe-code-oracle-text-pairs.mjs": "3e7446f2c54409a9ac6b450b3f0394d5545aa665fd9b88f032a136cf38f47abc",
+    "src/eval/code-suite-tasks.json": "7faa4b7f1e7ea99c9e7c055b2df70031f63c1ab789c254823b247367a5eca95d",
+    "tests/code-patch-suite.test.js": "c26b36a007d96a3169dd2acbd997c70bdb78203c48b7cb7d485934c01f15cdd3"
+  },
+  "matrix": {
+    "path": "/mnt/vi7000/intentsmith/evidence/hunt-text-disposition-20260923/full-matrix.html",
+    "sha256": "44818c77f9cceba3bf7feaffead7297d32250c2eae7d4f20282f81a96f784905",
+    "responses": 2922,
+    "chatContentTasks": 38,
+    "chatOutsideContentTasks": [
+      "cz_grammar_correction",
+      "en_structured_extraction"
+    ],
+    "chatOutsideContentResponses": 60
+  },
+  "limits": [
+    "Author dispositions are not independent oracle acceptance.",
+    "40 textual context checks remain outside editable spans; paired examples are plans unless a receipt says otherwise.",
+    "Two creative-output pairs were not run because the full reference did not complete.",
+    "No full release validation or installed Studio test."
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "status": "CORRECTION_APPEND_ONLY",
+  "decisionAuthority": false,
+  "comparativeGradingPacket": {
+    "path": "/mnt/vi7000/intentsmith/evidence/hunt-isolated-20260925/blind/packet.json",
+    "sha256": "b3a2f33445ed7537fca65d2dd25645e68ba90250c1c0718c57396f8371aefc0f",
+    "responses": 312,
+    "criteria": 840,
+    "rule": "One reviewer grades all 312 under one rubric and discloses prior identity/grade exposure; source packet is not a fresh holdout."
+  },
+  "withdrawnSupplementalPackets": [
+    {
+      "path": "/mnt/vi7000/intentsmith/evidence/hunt-isolated-20260925-review/new-only-120/packet.json",
+      "sha256": "44d2128b898b08d0856dfc4c497d9f014b635b2784bbf20f1604af1f28c81cf7",
+      "responses": 120
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-human-review-20260925/new-120/packet.json",
+      "sha256": "5277b6c0cc6d936d2efcfc468730829a131acdfd927004c44a97a62dc8294520",
+      "responses": 120
+    }
+  ],
+  "reason": "Different packet SHAs; D1, D2 and R2 each contain one model; no completed prior-192 grades, so splitting comparisons confounds candidate with grading conditions.",
+  "historicalFourGradeProbe": {
+    "path": "/mnt/vi7000/intentsmith/evidence/hunt-isolated-20260925-review/chat-corrected-project-v3-draft.json",
+    "sha256": "14ea72c46d8429f8bbce169c237a01adce33d0f1626bed0eb2650b978f7598f4",
+    "gradeCount": 4,
+    "priorExposureKnown": true,
+    "blind": false,
+    "independentAcceptance": false,
+    "correction": "Original draft claim of no exposure before freezing is withdrawn; author had read unblinded Opus grades earlier."
+  }
+}

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { collectAnswer, collectionSuite } from '../scripts/manual/role-collection-profile.mjs';
+import { collectAnswer, collectionCoverage, collectionSuite } from '../scripts/manual/role-collection-profile.mjs';
+import { inspectCodeCaptureSuite } from '../src/eval/code-capture-preflight.js';
 import { SEMANTIC_ROLE_SUITES } from '../src/eval/semantic-role-suites.js';
 import { codePatchSuite } from '../src/eval/code-patch-suite.js';
 import { visionV2Suite } from '../src/eval/role-quality-suites.js';
@@ -14,6 +15,41 @@ import { ModelEvaluationReadModel } from '../src/upgrade/model-evaluation-read-m
 import { createHistoryCallbacks, buildInstalledCandidateQueue } from '../src/upgrade/model-upgrade-prototype.js';
 import { createRoleEvaluationPlans } from '../src/eval/role-evaluation-plan.js';
 import { collectRoleAnswers } from '../src/eval/model-answer-collection.js';
+import { replayVisionCollection } from '../scripts/manual/replay-hunt-vision-collection.mjs';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+test('collection coverage rejects exhausted output and missing attempts', () => {
+  assert.deepEqual(collectionCoverage([{captureStatus:'CAPTURED'}],1),{captured:1,complete:true});
+  assert.equal(collectionCoverage([{captureStatus:'OUTPUT_BUDGET_EXHAUSTED'}],1).complete,false);
+  assert.equal(collectionCoverage([{captureStatus:'CAPTURED'}],2).complete,false);
+  assert.equal(collectionCoverage([{captureStatus:'CAPTURED'},{captureStatus:'TRANSPORT_ERROR'}],2).complete,false);
+});
+
+test('model-cleanup prompts and criteria match the historical database constraints', () => {
+  const revision='a3a00baae2dffa6204afa327b97f102ee36c8c09';
+  const sourcePath='src/db/migrations/2026_03_08_030_v103_model_overrides.js';
+  const fixture=JSON.parse(readFileSync(new URL('../src/eval/fixtures/role-semantic-tasks.json',import.meta.url)));
+  const ddl=execFileSync('git',['show',`${revision}:${sourcePath}`],
+    {cwd:fileURLToPath(new URL('../',import.meta.url))});
+  const digest=createHash('sha256').update(ddl).digest('hex');
+  assert.match(ddl.toString(),/role TEXT PRIMARY KEY/);
+  assert.match(ddl.toString(),/previous_model TEXT NOT NULL/);
+  for(const role of ['D1','D2','R1','R2']) {
+    const task=fixture.tasks.find(item=>item.name===`${role.toLowerCase()}_model_cleanup`);
+    assert.ok(task,role);
+    assert.match(task.prompt,/previous_model TEXT NOT NULL/);
+    assert.match(task.prompt,/role TEXT PRIMARY KEY/);
+    const source=task.provenance.additionalContext.find(item=>item.path===sourcePath);
+    assert.equal(source?.revision,revision);
+    assert.equal(source?.fileSha256,digest);
+    assert.ok(task.reference.criteria.every(row=>!/\bnull\b/i.test(row)),`${role}: impossible NULL test in rubric`);
+    assert.doesNotMatch(task.reference.gold,/null\/empty|null or repeated/i);
+    assert.match(task.reference.gold,/\/api\/delete/);
+  }
+});
 
 test('raw collection cannot grade, qualify or prepare a task; references never reach the model', async () => {
   const forbidden=()=>{throw new Error('grading side effect');};
@@ -39,6 +75,19 @@ test('complete profile retains every task and hashes changed settings/prompts',(
     assert.notEqual(suiteContract(profile,{repeats:3}).sha256,suiteContract(suite,{repeats:3}).sha256);
   }
 });
+test('R1 model_cleanup uses a separately hashed long-output collection profile',()=>{
+  const base=SEMANTIC_ROLE_SUITES.R1;
+  const long=collectionSuite('R1',base);
+  const cleanup=long.tests.find(task=>task.name==='r1_model_cleanup');
+  assert.equal(cleanup.options.num_ctx,24576);
+  assert.equal(cleanup.options.num_predict,16384);
+  assert.equal(cleanup.options.timeout,900000);
+  assert.equal(cleanup.contractMaterial.collectionProfile.options.num_predict,16384);
+  assert.notEqual(suiteContract(long,{repeats:3}).sha256,suiteContract(base,{repeats:3}).sha256);
+  assert.equal(long.tests.find(task=>task.name==='r1_history_late_guard').options.num_predict,8192);
+  assert.equal(collectionSuite('D1',SEMANTIC_ROLE_SUITES.D1).tests
+    .find(task=>task.name==='d1_model_cleanup').options.num_predict,8192);
+});
 test('confidence API and timeout preservation are explicit before capture, without changing old suites',()=>{
   const suite=collectionSuite('CODE',codePatchSuite);
   const confidence=suite.tests.find(t=>t.contractMaterial?.gradingInputs?.oracleCase==='f63d14d5eb61');
@@ -55,6 +104,31 @@ test('images are sent as images and preserved without rubric leakage',async()=>{
     return {content:'{}',doneReason:'stop'};
   });
 });
+test('VISION replay preserves operational failures and rejects changed evidence',()=>{
+  const suite=collectionSuite('VISION',visionV2Suite);
+  const model={modelName:'fixture:vision',digestSha256:'a'.repeat(64),providerVersion:'test-provider'};
+  const plan={schemaVersion:1,collectOnly:true,profile:'full',roles:[{role:'VISION',
+    contractSha256:suiteContract(suite,{repeats:1}).sha256,
+    tasks:suite.tests.map(t=>({name:t.name,options:t.options}))}],
+    repeats:1,model:model.modelName,sourceRevision:'fixture'};
+  plan.sha256=createHash('sha256').update(JSON.stringify(plan)).digest('hex');
+  const result={planSha256:plan.sha256,status:'COLLECTION_COMPLETE',decisionAuthority:false,
+    operationPolicy:{removeModels:false},artifacts:{model},
+    attempts:suite.tests.map(t=>({role:'VISION',task:t.name,repeat:1,
+      captureStatus:'CAPTURED',response:'{}',artifact:{digestSha256:model.digestSha256,
+        providerVersion:model.providerVersion}}))};
+  assert.equal(replayVisionCollection(plan,result).planned,suite.tests.length);
+  const changed=modify=>{const copy=structuredClone(result);modify(copy);return copy;};
+  assert.throws(()=>replayVisionCollection(plan,changed(r=>{r.attempts[1]={...r.attempts[0]};})),/VISION_REPLAY_INVALID:ATTEMPT/);
+  assert.throws(()=>replayVisionCollection(plan,changed(r=>{r.attempts.pop();})),/VISION_REPLAY_INVALID:COVERAGE/);
+  assert.throws(()=>replayVisionCollection(plan,changed(r=>{r.attempts[0].artifact.digestSha256='b'.repeat(64);})),/VISION_REPLAY_INVALID:ATTEMPT/);
+  assert.throws(()=>replayVisionCollection(plan,changed(r=>{r.decisionAuthority=true;})),/VISION_REPLAY_INVALID:PLAN_OR_SOURCE/);
+  const budget=replayVisionCollection(plan,changed(r=>{r.attempts[0].captureStatus='OUTPUT_BUDGET_EXHAUSTED';}));
+  assert.equal(budget.outputBudgetExhausted,1);
+  assert.equal(budget.tasks[0].attempts[0].contentScore,null);
+  assert.equal(budget.decisionAuthority,false);
+});
+
 test('length and transport failures retain evidence without inventing a score',async()=>{
   const task=collectionSuite('CHAT',SEMANTIC_ROLE_SUITES.CHAT).tests[0];
   for(const [raw,status] of [[{content:'partial',doneReason:'length'},'OUTPUT_BUDGET_EXHAUSTED'],
@@ -145,4 +219,64 @@ test('transport or digest failure preserves partial answers and cannot suppress 
     const changed=structuredClone(result);changed.collection.status='AWAITING_REVIEW';
     assert.throws(()=>history.recordCollection({summary:changed,artifact:{modelName:'fixture',digestSha256:inventory[0].digest}}),/invalid/);
   }finally{db.close();}
+});
+
+// A broken semantic grading oracle must not prevent eligible CODE raw capture.
+test('CODE capture preflight checks executable environment without invoking final oracle', async () => {
+  let prepared = 0, verified = 0;
+  const suite = { tests: [{ name: 'patch', prompt: () => ({ text: 'repair this' }),
+    prepare() { prepared++; return { oracleCase: 'fixture' }; },
+    validateOracle() { throw Error('SEMANTIC_ORACLE_REJECTED'); } }] };
+  const inspection = inspectCodeCaptureSuite(suite, { verify(_repo, task) {
+    verified++; assert.equal(task.oracleCase, 'fixture');
+    return { status: 'COMPONENT_CONTROLS_PASS', controls: [
+      { name: 'gold', ok: true, expectedTechnicalScore: 1, result: { technical: { score: 1 } } },
+      { name: 'broken', ok: true, expectedTechnicalScore: 0, result: { technical: { score: 0 } } },
+    ] };
+  }});
+  assert.equal(inspection.ready, true);
+  assert.equal(inspection.fullOracleAccepted, false);
+  assert.equal(prepared, 1); assert.equal(verified, 1);
+  const answer = await collectAnswer(collectionSuite('CODE', suite).tests[0], 'candidate', {},
+    async () => ({ content: 'replacement', doneReason: 'stop' }));
+  assert.equal(answer.captureStatus, 'CAPTURED');
+  assert.equal(answer.gradingStatus, 'NOT_GRADED');
+  assert.equal(Object.hasOwn(answer, 'score'), false);
+});
+
+test('CODE capture preflight stops on a failing executable control', () => {
+  const result = inspectCodeCaptureSuite({ tests: [{ name: 'broken-fixture', prepare: () => ({}) }] },
+    { verify: () => ({ status: 'COMPONENT_CONTROLS_FAILED', controls: [
+      { name: 'gold', ok: false, expectedTechnicalScore: 1, result: { technical: { score: 0 } } }] }) });
+  assert.equal(result.ready, false);
+  assert.equal(result.code, 'CODE_CAPTURE_FIXTURE_UNAVAILABLE');
+  assert.equal(result.failures[0].test, 'broken-fixture');
+});
+
+test('extended raw D/R capture preserves every public prompt and uses a separate common context contract', async () => {
+  for (const role of ['D1','D2','R1','R2']) {
+    const standard=collectionSuite(role,SEMANTIC_ROLE_SUITES[role]);
+    const extended=collectionSuite(role,SEMANTIC_ROLE_SUITES[role],{responseWindow:'extended'});
+    assert.notEqual(suiteContract(standard,{repeats:3}).sha256,suiteContract(extended,{repeats:3}).sha256);
+    for (const [index,task] of extended.tests.entries()) {
+      assert.deepEqual(task.prompt(),standard.tests[index].prompt());
+      assert.deepEqual(task.rubric,standard.tests[index].rubric);
+      assert.equal(task.options.num_ctx,16384);
+      assert.equal(task.options.num_predict,12288);
+      assert.equal(task.options.timeout,900000);
+      assert.equal(task.options.temperature,standard.tests[index].options.temperature);
+      const answer=await collectAnswer(task,'fixture',{},async (_model,_messages,options)=>{
+        assert.deepEqual(options,task.options);
+        return {content:'complete response',doneReason:'stop'};
+      });
+      assert.equal(answer.captureStatus,'CAPTURED');
+      assert.equal(answer.gradingStatus,'NOT_GRADED');
+      assert.equal(Object.hasOwn(answer,'score'),false);
+    }
+  }
+});
+test('extended capture rejects other roles and unknown response windows', () => {
+  for (const role of ['CHAT','VISION','CODE']) assert.throws(()=>
+    collectionSuite(role,{tests:[]},{responseWindow:'extended'}),/COLLECTION_RESPONSE_WINDOW_INVALID/);
+  assert.throws(()=>collectionSuite('D1',{tests:[]},{responseWindow:'typo'}),/COLLECTION_RESPONSE_WINDOW_INVALID/);
 });

@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-27T09:17:31.371395+00:00",
+  "status": "SIMULATION_PASS_REVIEW_PENDING_REAL_NO_GO",
+  "decisionAuthority": false,
+  "sourceBaseline": "c9054a8a710012eca11cde17d8968514e12fa7aa",
+  "reviewDirectory": "/mnt/vi7000/intentsmith/evidence/hunt-completion-review-20260927-v2",
+  "simulationDirectory": "/mnt/vi7000/intentsmith/evidence/hunt-completion-simulation-20260927-v2",
+  "sourcePreservation": {
+    "status": "PASS",
+    "count": 16,
+    "sourceManifestSha256": "5622fbd774b3a379451935dde1ae90cc0d0e418ce63f0291018da9c2d460950a"
+  },
+  "tests": {
+    "simulationAssertions": {
+      "pass": 312,
+      "fail": 0
+    },
+    "lifecycleAndCaptureGuard": {
+      "pass": 2,
+      "fail": 0
+    },
+    "gradingAcceptance": {
+      "pass": 23,
+      "fail": 0
+    },
+    "m1ChatContract": {
+      "pass": 34,
+      "fail": 0
+    },
+    "artifactValidation": {
+      "pass": 160,
+      "fail": 0
+    },
+    "browser": {
+      "pass": 8,
+      "fail": 0
+    },
+    "testRegistry": {
+      "status": "VALID",
+      "runnablePrograms": 542
+    },
+    "note": "Counts have different levels: lifecycle TAP tests contain simulation assertions; do not add them as independent tests. Grading and M1 log has 24 TAP results: 23 acceptance tests plus one wrapper containing 34 custom M1 checks."
+  },
+  "chatReplay": {
+    "attempts": 80,
+    "turns": {
+      "1": {
+        "attempts": 80,
+        "missingAnyPriorUser": 0,
+        "missingAllPriorUsers": 0,
+        "noPriorAssistant": 0,
+        "minimumOutputTokens": 1200,
+        "maximumOutputTokens": 2048
+      },
+      "2": {
+        "attempts": 76,
+        "missingAnyPriorUser": 0,
+        "missingAllPriorUsers": 0,
+        "noPriorAssistant": 0,
+        "minimumOutputTokens": 1200,
+        "maximumOutputTokens": 2012
+      },
+      "3": {
+        "attempts": 76,
+        "missingAnyPriorUser": 0,
+        "missingAllPriorUsers": 0,
+        "noPriorAssistant": 0,
+        "minimumOutputTokens": 1200,
+        "maximumOutputTokens": 2009
+      }
+    },
+    "underOriginalOutputLimit": 26,
+    "failed": [],
+    "captureGuard": {
+      "oldRejectedRequests": 84,
+      "reconstructedRejectedRequests": 0
+    }
+  },
+  "reviewInputs": {
+    "dr312Criteria": 840,
+    "dr24CriteriaEachReviewer": 66,
+    "chat80CriteriaEachReviewer": 320,
+    "proposedAdjudicatedCriteria": 5
+  },
+  "effects": {
+    "gpuInference": false,
+    "downloads": 0,
+    "productionDatabaseWrites": 0,
+    "liveBindingWrites": 0,
+    "modelDeletions": 0
+  },
+  "limitations": [
+    "Synthetic graders/oracles/calibration/holdout are not real accepted evidence.",
+    "Live activation and rollback not executed; transaction is a mock.",
+    "Current production CHAT plan is mixed single-turn, not the new conversation suite.",
+    "Actual CHAT context was invalid in 66 dialogues and requires new capture.",
+    "Targeted tests are not full release acceptance."
+  ],
+  "logs": {
+    "lifecycle": {
+      "path": "/mnt/vi7000/intentsmith/evidence/hunt-completion-review-20260927-v2/logs/lifecycle.log",
+      "sha256": "143ac7a822526ea7bc6b2466593d0002b77aab11da9593e78dc27811dec65b36"
+    },
+    "gradingAcceptanceAndM1": {
+      "path": "/mnt/vi7000/intentsmith/evidence/hunt-completion-review-20260927-v2/logs/gradingAcceptanceAndM1.log",
+      "sha256": "29cf992a5d4514329285a97b91cbe79e5d29dd7d43ffb942edfb1f5a94393583"
+    },
+    "artifacts": {
+      "path": "/mnt/vi7000/intentsmith/evidence/hunt-completion-review-20260927-v2/logs/artifacts.log",
+      "sha256": "f52f3b750d7cd8d7f751d21f040b6e178db02e7090f12d6ed38b3f50e3b68476"
+    },
+    "registry": {
+      "path": "/mnt/vi7000/intentsmith/evidence/hunt-completion-review-20260927-v2/logs/registry.log",
+      "sha256": "57d2736a8c39e21bd7620088efb54b09fb79ac174677a4f27bd76b85f9f11755"
+    },
+    "simulation": {
+      "path": "/mnt/vi7000/intentsmith/evidence/hunt-completion-review-20260927-v2/logs/simulation.log",
+      "sha256": "c770adaa65642a1907c1aa9fa76ec1e64096f19c3f8dc4edce56726e8ee3cc54"
+    }
+  },
+  "artifacts": {
+    "REVIEW.html": "e51c0a42b41650aa8ea6beda374f2ca16c76a9a254c109489aa43424350022cd",
+    "review-data.json": "e583157099658b1aa3321c784511f2a0b980a86b5df90aa5e22ab1c3e3440e24",
+    "adjudication-proposal.json": "f535a1129b8190fbde74597c5cbf3272aad2349699ab2ed303460c85cfe4ce5c",
+    "context-replay.json": "29c938f4d5123a49fd4e1fa3338cc484af63a339a32524dba57b6069a54290d4",
+    "browser-checks.json": "858071aa94a66bf91ebbafa8f905c18059c3063771bf791304f9c9d7684821ac"
+  },
+  "simulationSha256": "5725810bb1e54eade19a5395d25f2e6a16172be9b6b636eb1deecf560c9fe7d3"
+}

@@ -68,6 +68,9 @@ export class ModelEvaluationRunner {
 
   async _callModel(modelName, messages, options = {}, expectedArtifact = null) {
     const controller = new AbortController();
+    const cancel = () => controller.abort(options.signal?.reason);
+    if (options.signal?.aborted) cancel();
+    else options.signal?.addEventListener('abort', cancel, { once: true });
     const timeoutMs = options.timeout ?? DEFAULT_MODEL_EVALUATION_OPTIONS.timeout;
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     const started = Date.now();
@@ -165,6 +168,7 @@ export class ModelEvaluationRunner {
       };
     } finally {
       clearTimeout(timeoutId);
+      options.signal?.removeEventListener('abort', cancel);
       lease?.release();
     }
   }

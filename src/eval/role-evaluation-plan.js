@@ -74,8 +74,8 @@ function fileSha256(url) {
 // production plans always read these fixed local files with the default reader.
 export function codeGradingRuntimeContract(readSource = readFileSync) {
   const files = [
-    './code-patch-suite.js', './code-patch-runner.js', './code-contract-check.mjs', './function-span.js',
-    './code-task-extractor.js', './build-code-suite.js', './model-evaluation-runner.js', './role-collection-profile.js',
+    './code-patch-suite.js', './code-patch-runner.js', './code-contract-check.mjs', './code-technical-projection.js', './function-span.js',
+    './code-task-extractor.js', './build-code-suite.js', './model-evaluation-runner.js', './role-collection-profile.js', './conversation-capture.js',
     '../../package-lock.json',
   ];
   return Object.freeze({
@@ -89,7 +89,7 @@ export function textGradingRuntimeContract(readSource = readFileSync) {
   const files = ['./role-quality-suites.js', './model-evaluation-runner.js',
     './runtime-json.js', './structured-answer.js', '../llm/client.js',
     './fixtures/vision/manifest.json', './semantic-role-suites.js', './semantic-evaluation-judge.js',
-    './fixtures/role-semantic-tasks.json', './role-collection-profile.js', './model-answer-collection.js',
+    './fixtures/role-semantic-tasks.json', './role-collection-profile.js', './conversation-capture.js', './model-answer-collection.js',
     './grade-answer-collection.js', './semantic-grader-acceptance.js'];
   return Object.freeze({
     version: 1, nodeVersion: process.version,
@@ -109,6 +109,10 @@ export function createRoleEvaluationPlans(opts = {}) {
   try { runtimeSha256 = qualificationRuntimeSha256(); } catch { /* unavailable source cannot authorize decisions */ }
   const plans = {};
   for (const role of Object.keys(ROLE_SUITE_NAMES)) {
+    // vision_v2 uses temperature=0; replaying the same prompt, image and
+    // artifact cannot estimate sampling stability. A stochastic profile needs
+    // its own versioned contract and explicit acceptance.
+    const roleRepeats = role === 'VISION' ? 1 : repeats;
     const collectionOnly = Boolean(SEMANTIC_ROLE_SUITES[role]);
     const profile = collectionSuite(role, SEMANTIC_ROLE_SUITES[role] || getQualitySuiteForRole(role));
     const suite = { ...profile, tests: profile.tests.map(t => ({ ...t, options: { ...t.options, num_ctx: HUNT_EVALUATION_NUM_CTX } })) };
@@ -118,7 +122,7 @@ export function createRoleEvaluationPlans(opts = {}) {
       : (suite.version || ROLE_QUALITY_VERSION);
     const contract = suiteContract(suite, {
       version: suiteVersion,
-      repeats,
+      repeats: roleRepeats,
       extra: suiteName === 'code_patch' ? { codeFixtureSha256, codeGradingRuntime } : { textGradingRuntime },
     });
     const minimumTaskCount = MINIMUM_ROLE_TASK_COUNTS[role];
@@ -137,7 +141,7 @@ export function createRoleEvaluationPlans(opts = {}) {
       suiteVersion,
       suiteContractSha256: contract.sha256,
       applicabilityContract: applicabilityContractForRole(role),
-      repeats,
+      repeats: roleRepeats,
       collectionOnly,
       numCtx: HUNT_EVALUATION_NUM_CTX,
       taskCount: suite.tests.length,

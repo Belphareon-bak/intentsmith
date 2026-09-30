@@ -1,0 +1,30 @@
+{
+  "status": "TECHNICAL_COMPONENT_ONLY",
+  "decisionAuthority": false,
+  "fullOracleAccepted": false,
+  "sourceReport": "/mnt/vi7000/intentsmith/evidence/hunt-milestones-20260923/code-components-with-observations.json",
+  "sourceReportSha256": "f10c81102d923cc9184919cd056f3d5a81f5d11a9803a25574e0a7878bb28687",
+  "sourceFilesVerified": 11,
+  "sourceFilesChanged": [],
+  "selected": [
+    {
+      "model": "qwen3.8:latest",
+      "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "attempts": 21,
+      "technicalMean": 1,
+      "fullTaskScore": null,
+      "semanticReviewRequired": 3
+    },
+    {
+      "model": "devstral-small-2:latest",
+      "digestSha256": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "providerVersion": "0.34.2-intentsmith.1",
+      "attempts": 21,
+      "technicalMean": 0.7142857142857143,
+      "fullTaskScore": null,
+      "semanticReviewRequired": 3
+    }
+  ],
+  "limitation": "Known development tasks; executable component cannot decide CODE role or operational patch workflow."
+}

@@ -15,7 +15,8 @@ export const SEMANTIC_ROLE_SUITES = Object.freeze(Object.fromEntries(['D1','D2',
     return semanticTask({ ...task, reference: { ...task.reference, rubricPolicy: fixture.rubricPolicy } });
   });
   if (!tests.length || new Set(tests.map(t => t.name)).size !== tests.length) throw new Error(`SEMANTIC_ROLE_TASKS_INVALID:${role}`);
-  return [role, Object.freeze({ name: `${role.toLowerCase()}_semantic_v1`, version: 'role-semantic.5',
+  return [role, Object.freeze({ name: `${role.toLowerCase()}_semantic_v1`,
+    version: role === 'CHAT' ? 'role-semantic.5' : 'role-semantic.6-model-cleanup-schema',
     roles: [role], description: 'Role-specific open answers; per-task calibrated T4, exploratory until independent acceptance',
     tests: Object.freeze(tests), notAHoldout: true })];
 })));

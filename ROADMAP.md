@@ -4,6 +4,13 @@
 GPU huntu a odložené mobilní integrace](docs/review/2026-09-30-COMPLETION-TRACKER.md).
 Následující datované záznamy zachovávají historii tehdejších kandidátů.
 
+**Integrační kandidát GPU huntu, 30. 9. 2026:** zdroj `e37189b2` se spojuje
+s chatem a Studiem 2. Poslední doložená matice má 1 984 pokusů, 63 úplných
+relevantních buněk, 3 částečné a 4 VISION N/A. První posudky nejsou
+nezávislá dvojí přejímka; 1 173 odpovědí čeká na další skutečný posudek.
+Instalovaná DB a vazby se nemění. **CANDIDATE / REVIEW_PENDING / REAL_NO_GO.**
+[Přesná matice](docs/review/2026-09-28-HUNT-MATRIX-COMPLETION.md).
+
 **Poslední doložená instalace IDE 2.0, 2026-09-29:** frontend `fddfe996`
 s operátorem schválenou paletou nastavení B + 20 % je místně nasazený;
 AppImage, Electron UI gate, běžný start a 11 motivů PASS. Backend `c84b88cd`
@@ -44,8 +51,10 @@ ani veřejné M5/M6 gate.
 jsou v oddělené větvi; klasický frontend je odstraněný. Přesný module graph
 měl tehdy 1 433 hran, 3 cykly / 28 členů. Závěrečné měření a nezávislé
 přijetí mají vlastní evidenci v [předávce](docs/review/2026-09-28-STUDIO2-PARITY-DELIVERY.md).
-Aktuální integrovaný module graph má 1 434 hran, 3 cykly / 28 členů po
+Tehdejší integrovaný module graph měl 1 434 hran, 3 cykly / 28 členů po
 přijetí přesné hrany `src/chat/context-compact.js -> src/core/abort-error.js`.
+Aktuální module graph má 1 459 hran, stále 3 cykly / 28 členů;
+oficiální baseline přijala dvě hrany read modelu nad čistým commitem `8c64e427`.
 
 **Studio: průběh práce a prostředí, 2026-09-23:** konkrétní tahy, nástroje,
 čekání, souborové diffy/+− a kopírování formátované odpovědi. Přidáno skutečné

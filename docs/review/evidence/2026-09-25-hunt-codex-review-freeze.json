@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "status": "FROZEN_DEVELOPMENT_REVIEW",
+  "decisionAuthority": false,
+  "frozenAt": "2026-09-25T20:48:43.358759+00:00",
+  "packetPath": "/mnt/vi7000/intentsmith/evidence/hunt-isolated-20260925/blind/packet.json",
+  "packetSha256": "b3a2f33445ed7537fca65d2dd25645e68ba90250c1c0718c57396f8371aefc0f",
+  "reviewPath": "/home/belphareon/worktrees/is-mobile-completion-20260908/docs/review/evidence/2026-09-25-hunt-codex-all-dr-development-review.json",
+  "reviewSha256": "72231c6d959c80157f88ead2733b2e8de7a2532b827ff5b747c83c97b632e4b7",
+  "cases": 312,
+  "criteria": 840,
+  "numericCriteria": 735,
+  "taskIssueCriteria": 105,
+  "roleCases": {
+    "D1": 72,
+    "D2": 72,
+    "R1": 96,
+    "R2": 72
+  },
+  "sourceFiles": {
+    "D1": {
+      "path": "/home/belphareon/worktrees/is-mobile-completion-20260908/docs/review/evidence/2026-09-25-hunt-codex-d1-development-review.json",
+      "sha256": "2220cd447b42f58c590229ff0ce3658774324dbd70e6916e87f890a50d518756"
+    },
+    "D2": {
+      "path": "/tmp/codex_d2_grades_20260925.jsonl",
+      "sha256": "95a368bb8ccc25f8474568d090bf25e6ccb6b67c8897ac8cf5c89c47c5a18ddb"
+    },
+    "R1": {
+      "path": "/home/belphareon/worktrees/is-mobile-completion-20260908/docs/review/evidence/2026-09-25-hunt-codex-r1-development-review.json",
+      "sha256": "d98bb981ed0fc5d456598de5d4d180248efc5a9223dd1eb8858a5e4a678f7c56"
+    },
+    "R2": {
+      "path": "/home/belphareon/worktrees/is-mobile-completion-20260908/docs/review/evidence/2026-09-25-hunt-codex-r2-development-review.json",
+      "sha256": "519d9de0b17be5bc08b31cc9f3b5ddba483039ada124d2a34d3df8ad312232e8"
+    }
+  },
+  "limitations": [
+    "Codex had prior exposure to task design; identity masking does not establish a fresh blind acceptance.",
+    "Opus review not read before this freeze.",
+    "No adjudication or role decision."
+  ],
+  "durableD2Archive": {
+    "path": "/home/belphareon/worktrees/is-mobile-completion-20260908/docs/review/evidence/2026-09-25-hunt-codex-d2-development-review.json",
+    "sha256": "fffd49cf4b295c46fc2842687eb19ddaf53c85d38f09ae8cdbd2dde008f61971",
+    "note": "Normalized 72-case D2 source saved before the full review freeze; original drafting JSONL was temporary."
+  },
+  "manifestAugmentedAt": "2026-09-25T21:04:14.403386+00:00"
+}

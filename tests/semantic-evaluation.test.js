@@ -1,10 +1,16 @@
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { suite, test, testAsync, summary } from './harness.js';
 import { SemanticEvaluationJudge, parseSemanticJudgement, semanticTask, calibrationProbeMetrics } from '../src/eval/semantic-evaluation-judge.js';
 import { SEMANTIC_ROLE_SUITES } from '../src/eval/semantic-role-suites.js';
 import { ModelEvaluationRunner } from '../src/eval/model-evaluation-runner.js';
 import { RoleQualityEvaluationRunner } from '../src/eval/role-quality-suites.js';
+import { hash, judgeMessages, parseJudge, referenceErrors, assertNotSelf, assertJudgeFamily, panelJobs, verifyPanelReceipt, EVIDENCE_FIRST, EVIDENCE_CHECKED, EVIDENCE_FOCUSED, declaredEvidenceScores, checkPower } from '../scripts/manual/judge-panel-protocol.mjs';
+import { assertResumableReceipt, finalizeJudgePanel } from '../scripts/manual/judge-panel-lifecycle.mjs';
 
 const artifact={modelName:'fixture:latest',digestSha256:'a'.repeat(64),providerVersion:'test-provider'};
 const proof={done:true,digestSha256:artifact.digestSha256,providerVersion:artifact.providerVersion};
@@ -202,5 +208,221 @@ await testAsync('transport errors remain distinct from incorrect answers',async(
   const runner=new ModelEvaluationRunner('');runner._callModel=async()=>({error:'ECONNRESET',durationMs:1});
   const row=await runner._runTest({name:'network',prompt:()=>'',grade:()=>{throw new Error('Must not grade');}},'fixture');
   assert.equal(row.valid,false);assert.equal(row.score,null);assert.equal(row.error,'ECONNRESET');
+});
+suite('exploratory judge panel boundaries');
+test('judge payload excludes identities, other grades and source metadata',()=>{
+  const item={role:'CHAT',question:'Task',response:'Answer',rubric:['A','B'],model:'secret-model',answerDigest:'secret-digest',first:[.1,.2],second:[.3,.4]};
+  const normal=judgeMessages(item),reverse=judgeMessages(item,true);
+  assert.ok(!JSON.stringify(normal).includes('secret'));
+  assert.deepEqual(Object.keys(JSON.parse(normal[1].content)),['role','question','criteria','context','answer']);
+  assert.deepEqual(JSON.parse(reverse[1].content).criteria.map(x=>x.criterion),[2,1]);
+});
+test('incomplete generation, duplicate IDs, nonfinite scores and missing evidence never become grades',()=>{
+  const result={done:true,doneReason:'stop',content:JSON.stringify({criteria:rows(.5)})};
+  assert.equal(parseJudge(result,2).valid,true);
+  for(const broken of [{...result,doneReason:'length'},{...result,content:JSON.stringify({criteria:[rows(1)[0],rows(1)[0]]})},
+    {...result,content:JSON.stringify({criteria:rows(1).map(r=>({...r,score:null}))})},
+    {...result,content:JSON.stringify({criteria:rows(1).map(r=>({...r,evidence:''}))})}])assert.equal(parseJudge(broken,2).valid,false);
+});
+test('unresolved reference disagreements remain separate and never manufacture a gold average',()=>{
+  const r=referenceErrors(.5,0,1);assert.equal(r.referenceDispute,true);assert.equal(r.outsideBand,0);
+  assert.equal(r.exactAnchor,false);assert.equal(r.anchorError,null);assert.equal(r.first,.5);assert.equal(r.second,.5);
+  assert.equal(referenceErrors(.9,0,.25).falseAccept,true);assert.equal(referenceErrors(null,0,0),null);
+});
+test('self grading and full power both stop exploratory inference',()=>{
+  assert.throws(()=>assertNotSelf({artifact},{answerDigest:artifact.digestSha256}),/SELF_GRADING/);
+  assert.doesNotThrow(()=>assertNotSelf({artifact},{answerDigest:answerArtifact.digestSha256}));
+  assert.throws(()=>checkPower({limitWatts:350}),/QUIET_POWER/);assert.throws(()=>checkPower({}),/QUIET_POWER/);
+  assert.doesNotThrow(()=>checkPower({limitWatts:175}));
+});
+test('resume refuses a captured response without its matching post-call environmental receipt',()=>{
+  const expected={planSha256:'plan-a',key:'job-a'},receipt={planSha256:'plan-a',judge:{digestSha256:'digest'}};
+  const post={...expected,after:{placement:[{digest:'digest'}]},afterPower:{limitWatts:175}};
+  assert.throws(()=>assertResumableReceipt(receipt,null,expected),/POSTCHECK_MISSING/);
+  assert.throws(()=>assertResumableReceipt(receipt,{...expected,key:'job-b'},expected),/POSTCHECK_MISMATCH/);
+  assert.throws(()=>assertResumableReceipt({planSha256:'plan-b'},expected,expected),/PLAN_MIX/);
+  assert.throws(()=>assertResumableReceipt(receipt,expected,expected),/POSTCHECK_INCOMPLETE/);
+  assert.doesNotThrow(()=>assertResumableReceipt(receipt,post,expected));
+});
+await testAsync('cleanup failures preserve the collection error and always write the final blocked checkpoint',async()=>{
+  const events=[];
+  const result=await finalizeJudgePanel({status:'COMPLETE',failure:new Error('ownership query failed'),
+    close:async()=>{events.push('close');throw Error('provider unavailable');},
+    release:()=>{events.push('release');throw Error('lock release failed');},
+    checkpoint:r=>{events.push('checkpoint');assert.equal(r.status,'BLOCKED');assert.equal(r.failures.length,3);}});
+  assert.deepEqual(events,['close','release','checkpoint']);
+  assert.deepEqual(result.failures.map(f=>f.stage),['collection','provider-close','lease-release']);
+  assert.equal(result.failures[0].message,'ownership query failed');
+});
+await testAsync('normal finalization preserves complete and budget-stop states',async()=>{
+  for(const status of ['COMPLETE','BUDGET_STOP']){
+    let saved;
+    const result=await finalizeJudgePanel({status,close:async()=>{},release:()=>{},checkpoint:r=>{saved=r;}});
+    assert.equal(saved.status,status);assert.equal(result,saved);assert.deepEqual(result.failures,[]);
+  }
+});
+test('the collector CLI rejects an orphan receipt before probing or leasing any GPU',()=>{
+  const directory=mkdtempSync(join(tmpdir(),'judge-orphan-'));
+  try {
+    mkdirSync(join(directory,'receipts'));mkdirSync(join(directory,'restricted'));
+    writeFileSync(join(directory,'inputs.json'),'[]');writeFileSync(join(directory,'restricted/references.json'),'{}');
+    const plan=JSON.stringify({models:[],sourceHashes:{},inputsSha256:hash('[]'),referencesSha256:hash('{}')});
+    writeFileSync(join(directory,'plan.json'),plan);
+    writeFileSync(join(directory,'receipts/orphan.json'),JSON.stringify({planSha256:hash(plan)}));
+    const run=spawnSync(process.execPath,[new URL('../scripts/manual/run-judge-panel.mjs',import.meta.url).pathname,
+      '--out='+directory,'--stage=screen','--expected-plan='+hash(plan)],{encoding:'utf8',timeout:5000,env:{...process.env,PATH:''}});
+    assert.equal(run.status,1);assert.match(run.stderr,/JUDGE_RECEIPT_POSTCHECK_MISSING:orphan/);
+  } finally {rmSync(directory,{recursive:true,force:true});}
+});
+test('evidence-first profile preserves task data and requires evidence before the numerical score',()=>{
+  const item={role:'CHAT',question:'Task',response:'Answer',rubric:['Check facts']};
+  const before=judgeMessages(item),after=judgeMessages(item,false,EVIDENCE_FIRST);
+  assert.equal(before[1].content,after[1].content);
+  assert.match(after[0].content,/evidence BEFORE score/);
+  const response=criteria=>({done:true,doneReason:'stop',content:JSON.stringify({criteria})});
+  assert.equal(parseJudge(response([{criterion:1,evidence:'Verified',score:1}]),1,EVIDENCE_FIRST).valid,true);
+  assert.equal(parseJudge(response([{criterion:1,score:1,evidence:'Verified'}]),1,EVIDENCE_FIRST).valid,false);
+  assert.throws(()=>judgeMessages(item,false,'unknown'),/UNKNOWN_JUDGE_PROFILE/);
+});
+test('family exclusions block related authors and absent provenance independently of exact digest',()=>{
+  assert.throws(()=>assertJudgeFamily({family:'qwen'},{answerFamily:'qwen'},'exclude-author-family'),/RELATED_AUTHOR/);
+  assert.throws(()=>assertJudgeFamily({family:'mistral'},{},'exclude-author-family'),/FAMILY_UNKNOWN/);
+  assert.doesNotThrow(()=>assertJudgeFamily({family:'mistral'},{answerFamily:'qwen'},'exclude-author-family'));
+});
+test('sensitivity audit retains missing low grades and separates author residual from raw grade',()=>{
+  const script=`import importlib.util
+s=importlib.util.spec_from_file_location('audit','scripts/manual/audit-judge-sensitivity.py')
+m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+base=dict(group='g',task='t',caseId='c',criterion=1,first=.25,second=.5,author='a',score=None,model='j1')
+x=m.summarize([base,dict(base,criterion=2,first=1,second=1,score=1)])
+assert x['lowTotal']==1 and x['lowCaught']==0 and x['lowInvalid']==1
+assert x['groupMAE']==0 and x['alwaysOneGroupMAEMatched']==0 and x['alwaysOneGroupMAEFull']>0
+rows=[dict(base,score=.5),dict(base,model='j2',score=1)]
+p=m.pair_summaries(rows)[0]
+assert p['caughtEither']==1 and p['onlyA']==1 and p['onlyB']==0
+boundary=[dict(base,first=.54,second=.29,score=.54)]
+assert m.summarize(boundary)['groupMAE'] is not None
+`;
+  const result=spawnSync('python3',['-c',script],{encoding:'utf8'});
+  assert.equal(result.status,0,result.stderr);
+});
+test('broad panels record family exclusions instead of silently grading self or counting missing scores',()=>{
+  const models=[{name:'q1',family:'q',artifact:{digestSha256:'a'}},{name:'m1',family:'m',artifact:{digestSha256:'b'}}];
+  const inputs=[{id:'x',role:'CHAT',reverse:true},{id:'y',role:'D2',reverse:false}];
+  const refs={x:{answerDigest:'a',answerFamily:'q'},y:{answerDigest:'c',answerFamily:'q'}};
+  const p=panelJobs(models,inputs,refs,'plan','exclude-author-family-recorded');
+  assert.equal(p.jobs.length,3);assert.equal(new Set(p.jobs.map(j=>j.key)).size,3);
+  assert.deepEqual(p.exclusions.map(e=>e.reason),['SELF_ARTIFACT','RELATED_AUTHOR_FAMILY']);
+  assert.ok(p.jobs.every(j=>j.model.name==='m1'));
+  assert.throws(()=>panelJobs(models,inputs,{...refs,y:{answerDigest:'c'}},'plan','exclude-author-family-recorded'),/FAMILY_UNKNOWN/);
+  assert.throws(()=>panelJobs(models,inputs,refs,'plan','unrecognized'),/UNKNOWN_FAMILY_POLICY/);
+  assert.throws(()=>panelJobs(models,inputs,{},'plan','exact-digest'),/IDENTITY_MISSING/);
+});
+test('archived judge scores are checked against raw output, full task payload and exact artifact',()=>{
+  const model={name:'fixture',family:'test',artifact};
+  const item={id:'case',role:'CHAT',stage:'screen',question:'What is 2+2?',response:'4',rubric:['Correct sum']};
+  const job=panelJobs([model],[item],{case:{answerDigest:'other'}},'plan').jobs[0];
+  const plan={maxPowerWatts:175,judgeProfile:EVIDENCE_FIRST};
+  const messages=judgeMessages(item,false,EVIDENCE_FIRST);
+  const result={...proof,doneReason:'stop',content:JSON.stringify({criteria:[{criterion:1,evidence:'2+2=4',score:1}]})};
+  const receipt={planSha256:'plan',caseId:'case',stage:'screen',reverse:false,judge:artifact,messages,inputSha256:hash(messages),simulation:false,decisionAuthority:false,
+    beforePower:{limitWatts:175},result,parsed:parseJudge(result,1,EVIDENCE_FIRST)};
+  const post={planSha256:'plan',key:job.key,afterPower:{limitWatts:175},after:{placement:[{digest:artifact.digestSha256,size:1,size_vram:1,context_length:16384}]}};
+  assert.equal(verifyPanelReceipt(receipt,post,job,plan,'plan').valid,true);
+  const changed=structuredClone(receipt);changed.parsed.rows[0].score=0;
+  assert.throws(()=>verifyPanelReceipt(changed,post,job,plan,'plan'),/STORED_GRADE/);
+  assert.throws(()=>verifyPanelReceipt({...receipt,messages:[]},post,job,plan,'plan'),/CONTENT_MISMATCH/);
+  assert.throws(()=>verifyPanelReceipt({...receipt,beforePower:{limitWatts:250}},post,job,plan,'plan'),/QUIET_POWER/);
+  assert.throws(()=>verifyPanelReceipt({...receipt,result:{...result,digestSha256:'wrong'}},post,job,plan,'plan'),/ARTIFACT/);
+});
+test('authored technical controls reproduce executable facts and retain partial-credit cases',()=>{
+  const controls=JSON.parse(readFileSync(new URL('../scripts/manual/judge-controls-20260928.json',import.meta.url),'utf8'));
+  assert.equal(controls.length,12);assert.equal(new Set(controls.map(c=>c.group)).size,12);
+  for(const c of controls){
+    assert.equal(c.rubric.length,2);assert.deepEqual(c.variants.map(v=>v.expected),[[1,1],[1,0],[0,0]]);
+    const r=spawnSync(process.execPath,['--input-type=module','-e',c.verification.script],{encoding:'utf8',timeout:5000});
+    assert.equal(r.status,0,c.group+': '+r.stderr);assert.equal(r.stdout.trim(),c.verification.expectedStdout,c.group);
+  }
+});
+test('v3 rejects contradictory explicit numeric verdicts without grading prose by keywords',()=>{
+  const response=(evidence,score)=>({done:true,doneReason:'stop',content:JSON.stringify({criteria:[{criterion:1,evidence,score}]})});
+  for(const evidence of ['No error. Score 1.0','Failure. Final score: 100%','Chybně. Známka: 0,75'])
+    assert.match(parseJudge(response(evidence,0),1,EVIDENCE_CHECKED).reason,/CONTRADICTORY_DECLARED_SCORE/);
+  for(const evidence of ['Checked. Score: 0.75','The answer says "Score 1.0". It is wrong.',
+      '2 + 2 = 4; 75% of items were valid.','Not a score of 1.0: one requirement fails.','An unearned score 1.0 is inappropriate.'])
+    assert.equal(parseJudge(response(evidence,.75),1,EVIDENCE_CHECKED).valid,true,evidence);
+  assert.deepEqual(declaredEvidenceScores('Evidence. Score 0.75 because of a missing fact.'),[]);
+  assert.deepEqual(declaredEvidenceScores('Evidence. Score 0.75.'),[.75]);
+  assert.equal(parseJudge(response('Wrong. Score 1.0',0),1,EVIDENCE_FIRST).valid,true,'Archived v2 semantics unchanged');
+  const item={role:'CHAT',question:'Task',response:'Answer',rubric:['Correctness']};
+  assert.equal(judgeMessages(item,false,EVIDENCE_CHECKED)[1].content,judgeMessages(item,false,EVIDENCE_FIRST)[1].content);
+});
+test('pilot gate stops low-recall, incomplete and all-zero judges; author-gap filter is binding',()=>{
+  const script=`import importlib.util
+s=importlib.util.spec_from_file_location('pilot','scripts/manual/pilot-judge-gate.py');p=importlib.util.module_from_spec(s);s.loader.exec_module(p)
+rows=[]
+for g in range(4):
+ for i in range(8):
+  low=i<3
+  rows.append(dict(group=str(g),task=str(g),caseId=str(g),criterion=i,model='judge',author='a',first=0 if low else 1,second=0 if low else 1,score=0 if low else 1))
+assert p.metrics_gate(rows,True,p.POLICY)['passed']
+assert not p.metrics_gate(rows,False,p.POLICY)['passed']
+assert not p.metrics_gate([dict(r,score=1) for r in rows],True,p.POLICY)['passed']
+assert not p.metrics_gate([dict(r,score=0) for r in rows],True,p.POLICY)['passed']
+assert not p.metrics_gate([dict(r,score=None) for r in rows],True,p.POLICY)['passed']
+policy=dict(authors=['a','b'],maximumAbsoluteDistortion=.02,minimumGroups=4)
+paired=[]
+for r in rows:
+ for a in ['a','b']:paired.append(dict(r,author=a,first=.75,second=.75,score=.77 if a=='a' else .75))
+f=p.audit.author_gap_filter
+assert f(paired,policy)['passed'],f(paired,policy)
+assert not f([dict(r,score=.78 if r['author']=='a' else r['score']) for r in paired],policy)['passed']
+assert not f([dict(r,score=None) if i==0 else r for i,r in enumerate(paired)],policy)['passed']
+conflict=[dict(r,second=.8 if r['author']=='a' else .75) for r in paired]
+assert 'AUTHOR_GAP_REFERENCE_ARBITRATION_REQUIRED' in f(conflict,policy)['reasons']
+assert not f([r for r in paired if r['group']=='0'],policy)['passed']
+`;
+  const r=spawnSync('python3',['-c',script],{encoding:'utf8'});assert.equal(r.status,0,r.stderr);
+});
+test('large CHAT collector is blocked before GPU use without a verified pilot',()=>{
+  const directory=mkdtempSync(join(tmpdir(),'judge-pilot-gate-'));
+  try {
+    mkdirSync(join(directory,'receipts'));mkdirSync(join(directory,'restricted'));
+    const inputs=JSON.stringify([{id:'c',stage:'screen',role:'CHAT',dataset:'chat-context-fixed'}]);
+    const refs=JSON.stringify({c:{answerDigest:'other',answerFamily:'qwen'}});
+    writeFileSync(join(directory,'inputs.json'),inputs);writeFileSync(join(directory,'restricted/references.json'),refs);
+    const plan=JSON.stringify({models:[{name:'j',family:'other',artifact:{digestSha256:'judge'}}],sourceHashes:{},inputsSha256:hash(inputs),referencesSha256:hash(refs),judgeProfile:EVIDENCE_CHECKED});
+    writeFileSync(join(directory,'plan.json'),plan);
+    const run=spawnSync(process.execPath,[new URL('../scripts/manual/run-judge-panel.mjs',import.meta.url).pathname,
+      '--out='+directory,'--stage=screen','--expected-plan='+hash(plan)],{encoding:'utf8',timeout:10000});
+    assert.equal(run.status,1);assert.match(run.stderr,/CHAT_PILOT_REQUIRED/);assert.doesNotMatch(run.stderr,/QUIET_POWER_LIMIT_REQUIRED/);
+  } finally {rmSync(directory,{recursive:true,force:true});}
+});
+test('focused judge checks one original criterion with complete dialogue and strict evidence output',()=>{
+  const item={role:'CHAT',question:'Original task',response:'Turn 1 wrong; turn 2 corrected',rubric:['Factual accuracy'],context:{calendarFacts:[{date:'2026-09-28',weekday:'Monday'}],otherCriterionBoundaries:['Tone']}};
+  const messages=judgeMessages(item,false,EVIDENCE_FOCUSED),payload=JSON.parse(messages[1].content);
+  assert.equal(payload.answer,item.response);assert.equal(payload.question,item.question);
+  assert.equal(payload.criterionToGrade,item.rubric[0]);assert.deepEqual(payload.context,item.context);
+  assert.equal(payload.criteria,undefined);
+  assert.throws(()=>judgeMessages({...item,rubric:['One','Two']},false,EVIDENCE_FOCUSED),/SINGLE_CRITERION/);
+  const result=rows=>({done:true,doneReason:'stop',content:JSON.stringify({criteria:rows})});
+  assert.equal(parseJudge(result([{criterion:1,evidence:'Turn 1 is unsupported; turn 2 corrects it.',score:.5}]),1,EVIDENCE_FOCUSED).valid,true);
+  assert.match(parseJudge(result([{criterion:1,evidence:'Score 1.0',score:0}]),1,EVIDENCE_FOCUSED).reason,/CONTRADICTORY/);
+  assert.match(parseJudge(result([{criterion:1,score:1,evidence:'Checked'}]),1,EVIDENCE_FOCUSED).reason,/PRECEDE/);
+  assert.equal(parseJudge(result([{criterion:1,evidence:'Checked',score:1,requirement:'copied'}]),1,EVIDENCE_FOCUSED).valid,false);
+});
+test('single-criterion grading keeps original criterion identity when comparing authors',()=>{
+  const script=`import importlib.util
+s=importlib.util.spec_from_file_location('a','scripts/manual/audit-judge-sensitivity.py');a=importlib.util.module_from_spec(s);s.loader.exec_module(a)
+rows=[]
+for g in range(4):
+ for criterion in [1,3]:
+  for author in ['a','b']:
+   rows.append(dict(group=str(g),task=str(g),criterion=1,sourceCriterion=criterion,author=author,first=.75,second=.75,score=.75,caseId=str(g)+author+str(criterion)))
+x=a.author_gap_filter(rows,dict(authors=['a','b'],maximumAbsoluteDistortion=.02,minimumGroups=4))
+assert x['passed'] and x['criteriaPairs']==8,x
+assert a.summarize(rows)['matchedAuthorResidualAll']['a minus b']['criteriaPairs']==8
+`;
+  const r=spawnSync('python3',['-c',script],{encoding:'utf8'});assert.equal(r.status,0,r.stderr);
 });
 summary();
