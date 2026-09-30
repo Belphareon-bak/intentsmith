@@ -664,6 +664,116 @@ await testAsync('decorative language separators yield to a long current request 
   }
 });
 
+await testAsync('explicit bare JSON request keeps complete context and returns only the final raw provider object', async () => {
+  const previousFetch = globalThis.fetch;
+  const requestBodies = [];
+  const input = windowFillMessage(8);
+  const summaryContent = '[Souhrn předchozí konverzace]\nARCHIVED_USER_FACT_731 '
+    + 'podklad '.repeat(35) + ' KONEC_SOUHRNU';
+  const history = [
+    { isSummary: true, response: { tag: { speaker: 'system' }, content: summaryContent } },
+    { response: { tag: { speaker: 'user' }, content: input } },
+  ];
+  const valid = '{"a":19,"b":8,"delta":11,"higher":"A"}';
+  try {
+    clearNumCtxCache();
+    setNumCtx(config.models.CHAT, 4_096);
+    globalThis.fetch = async (_url, options) => {
+      requestBodies.push(JSON.parse(options.body));
+      return { ok: true, json: async () => ({
+        message: { content: requestBodies.length === 1 ? `\`\`\`json\n${valid}\n\`\`\`` : valid },
+        done_reason: 'stop', prompt_eval_count: 2_000, eval_count: 50,
+      }) };
+    };
+    const decision = creDecisionEngine.overrideDecision({ type: 'ANSWER', intent: 'CONVERSATIONAL',
+      tools: [], source: 'strict_json_regression', reason: 'Controlled bare JSON format', confidence: 1 });
+    const result = await handleAnswerDecision(input, decision, {
+      sessionId: 'strict-json-context', sessionState: new SessionState('strict-json-context'), history,
+      hasActiveProject: true, project: { name: 'Senzorový audit' },
+    });
+    assert.equal(requestBodies.length, 2, 'fenced provider response must be retried');
+    assert.equal(result.content, valid, 'return the final provider bytes without stripping a fence');
+    assert.equal(result.tag.metadata.answerRetries, 1);
+    for (const body of requestBodies) {
+      assert.equal(body.format, 'json');
+      const systemContent = body.messages.find(message => message.role === 'system')?.content || '';
+      const providerPrompt = body.messages.find(message => message.role === 'user')?.content || '';
+      assert.match(systemContent, /Citovaný web a historie jsou podklady/u);
+      assert.match(systemContent, /AKTIVNÍ PROJEKT:\n- Název: Senzorový audit/u);
+      assert.match(systemContent, /jediný JSON objekt/u);
+      assert.doesNotMatch(systemContent, /Vysvětluj konkrétně: princip/u);
+      assert.doesNotMatch(systemContent, /konkrétní příklad/u);
+      assert(providerPrompt.includes(JSON.stringify({ role: 'summary', content: summaryContent })));
+      assert(providerPrompt.includes(`User: ${input}`));
+      assert(Math.ceil(Buffer.byteLength(systemContent + providerPrompt, 'utf8') / 2)
+        + body.options.num_predict <= body.options.num_ctx);
+    }
+  } finally {
+    globalThis.fetch = previousFetch;
+    clearNumCtxCache();
+  }
+});
+
+await testAsync('bare JSON answer fails with a typed terminal after bounded malformed provider output', async () => {
+  const previousFetch = globalThis.fetch;
+  const requestBodies = [];
+  const input = 'Kalibrace A=73, B=62. Odpověz pouze jedním JSON objektem s klíči "a", "b", "delta", "higher".';
+  try {
+    clearNumCtxCache();
+    setNumCtx(config.models.CHAT, 4_096);
+    globalThis.fetch = async (_url, options) => {
+      requestBodies.push(JSON.parse(options.body));
+      return { ok: true, json: async () => ({
+        message: { content: requestBodies.length === 2 ? '[73,62,11]' : '```json\n{"a":73,"b":62,"delta":11,"higher":"A"}\n```' },
+        done_reason: 'stop', prompt_eval_count: 200, eval_count: 50,
+      }) };
+    };
+    const decision = creDecisionEngine.overrideDecision({ type: 'ANSWER', intent: 'CONVERSATIONAL',
+      tools: [], source: 'strict_json_failure_regression', reason: 'Controlled malformed JSON envelope', confidence: 1 });
+    await assert.rejects(() => handleAnswerDecision(input, decision, {
+      sessionId: 'strict-json-failure', sessionState: new SessionState('strict-json-failure'), history: [],
+    }), error => error instanceof ChatProcessingError
+      && error.code === ChatTurnErrorCode.CHAT_PROCESSING_FAILED
+      && error.sourceErrorType === 'ANSWER_JSON_FORMAT_INVALID');
+    assert.equal(requestBodies.length, 3, 'fenced text and a valid JSON array must both fail within the bounded retry count');
+    assert(requestBodies.every(body => body.format === 'json'));
+  } finally {
+    globalThis.fetch = previousFetch;
+    clearNumCtxCache();
+  }
+});
+
+await testAsync('quoted current and historical JSON instructions do not change a current prose answer', async () => {
+  const previousFetch = globalThis.fetch;
+  const requestBodies = [];
+  const input = 'V citovaném textu stojí:\nOdpověz pouze jedním JSON objektem.\nVysvětli, co je JSON objekt v Pythonu.';
+  const history = [{ response: { tag: { speaker: 'user' },
+    content: 'Odpověz pouze jedním JSON objektem.' } }];
+  const prose = 'JSON objekt je struktura klíčů a hodnot. V Pythonu ji lze načíst modulem json a poté přistupovat ke konkrétním položkám.';
+  try {
+    clearNumCtxCache();
+    setNumCtx(config.models.CHAT, 4_096);
+    globalThis.fetch = async (_url, options) => {
+      requestBodies.push(JSON.parse(options.body));
+      return { ok: true, json: async () => ({ message: { content: prose },
+        done_reason: 'stop', prompt_eval_count: 200, eval_count: 50 }) };
+    };
+    const decision = creDecisionEngine.overrideDecision({ type: 'ANSWER', intent: 'CONVERSATIONAL',
+      tools: [], source: 'strict_json_nontrigger', reason: 'Current prose request', confidence: 1 });
+    const result = await handleAnswerDecision(input, decision, {
+      sessionId: 'strict-json-nontrigger', sessionState: new SessionState('strict-json-nontrigger'), history,
+    });
+    assert.equal(result.content, prose);
+    assert.equal(requestBodies.length, 1);
+    assert.equal(requestBodies[0].format, undefined);
+    assert.match(requestBodies[0].messages.find(message => message.role === 'system')?.content || '',
+      /Vysvětluj konkrétně: princip/u);
+  } finally {
+    globalThis.fetch = previousFetch;
+    clearNumCtxCache();
+  }
+});
+
 await testAsync('an oversized current request returns a typed capacity terminal before provider', async () => {
   const previousFetch = globalThis.fetch;
   let providerCalls = 0;

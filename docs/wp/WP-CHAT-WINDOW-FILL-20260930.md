@@ -1,5 +1,20 @@
 # WP — skutečné naplnění okna a auto-context v živém chatu
 
+**Izolovaný kandidát na základně `901babb4` (1. 10. 2026):** živý důkaz
+`9c9fdd34` níže ukázal `8/8` správných čísel, ale jen `3/8` odpovědí v
+požadovaném syrovém JSON formátu. V aktuální implementaci vybírá výslovný
+závěrečný pokyn aktuální USER zprávy režim `format: 'json'` a systémový prompt
+bez výkladových odstavců. Handler vrací původní bajty odpovědi pouze tehdy,
+jsou-li jediným JSON objektem; chybně zabalený nebo neplatný výstup opakuje
+nejvýše dvakrát a poté vrací typovaný terminál `ANSWER_JSON_FORMAT_INVALID`.
+Historie, souhrn ani citovaný starší pokyn režim neaktivují. Registrovaný
+offline M1 kontrakt po změně prošel `51/51`, modelová hranice `34/34`,
+skutečný M1 HTTP a SQLite fixture test `1/1` s byte shodou provider výstupu;
+nový fyzický modelový běh,
+nezávislé review a integrace do společného checkoutu jsou **PENDING**. Tento
+test prokazuje formátovací hranici, nikoli věcnou správnost libovolného JSON;
+tu nadále hodnotí živé osmikolové orákulum a samostatná fidelity sada.
+
 **Nový živý checkpoint 22:18 UTC na `9c9fdd34`:** přísné orákulum osmi
 odpovědí, ochrana uživatelské citace i rozpočtování promptu jsou již
 integrované. Celá registrovaná sada má **FAIL 1/1**: její třetí dílčí
