@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { closeSync, fsyncSync, openSync, readFileSync, statfsSync, writeSync } from 'node:fs';
+import { closeSync, fsyncSync, lstatSync, openSync, readFileSync, statfsSync, writeSync } from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 
@@ -124,6 +124,8 @@ export async function startProviderCaptureProxy({ captureFile, upstreamOrigin = 
   let failure = null;
   let captured = 0;
   let closed = false;
+  let pendingRequests = 0;
+  let notifyIdle = null;
   const recordFailure = error => { failure ??= error?.message || String(error); };
   const append = row => {
     const bytes = Buffer.from(`${JSON.stringify(row)}\n`);
@@ -133,6 +135,8 @@ export async function startProviderCaptureProxy({ captureFile, upstreamOrigin = 
     captured += 1;
   };
   const proxy = http.createServer(async (incoming, outgoing) => {
+    pendingRequests += 1;
+    outgoing.on('error', recordFailure);
     let row = null;
     let rowRecorded = false;
     try {
@@ -159,12 +163,14 @@ export async function startProviderCaptureProxy({ captureFile, upstreamOrigin = 
         });
         append(row); // Synchronous before the test can observe the HTTP response.
         rowRecorded = true;
-        if (result.status === 200 && (terminal?.done !== true
+        if (result.status !== 200) {
+          recordFailure(`provider returned HTTP ${result.status}`);
+        } else if (terminal?.done !== true
           || !Number.isSafeInteger(terminal?.prompt_eval_count)
           || terminal.prompt_eval_count <= 0
           || terminal.model !== CAPTURE_MODEL
           || (terminal.digest && terminal.digest !== CAPTURE_DIGEST)
-          || (terminal.model_digest_sha256 && terminal.model_digest_sha256 !== CAPTURE_DIGEST))) {
+          || (terminal.model_digest_sha256 && terminal.model_digest_sha256 !== CAPTURE_DIGEST)) {
           recordFailure('provider terminal lacks exact model identity or positive prompt usage');
         }
       }
@@ -177,8 +183,13 @@ export async function startProviderCaptureProxy({ captureFile, upstreamOrigin = 
           promptEvalCount: null, done: null, doneReason: null, error: error.message }); }
         catch (appendError) { recordFailure(appendError); }
       }
-      if (!outgoing.headersSent) outgoing.writeHead(/outside pinned capture scope/.test(error.message) ? 403 : 502);
-      outgoing.end();
+      try {
+        if (!outgoing.headersSent) outgoing.writeHead(/outside pinned capture scope/.test(error.message) ? 403 : 502);
+        if (!outgoing.writableEnded) outgoing.end();
+      } catch (replyError) { recordFailure(replyError); }
+    } finally {
+      pendingRequests -= 1;
+      if (pendingRequests === 0 && notifyIdle) notifyIdle();
     }
   });
   try {
@@ -197,7 +208,107 @@ export async function startProviderCaptureProxy({ captureFile, upstreamOrigin = 
       closed = true;
       proxy.closeAllConnections();
       await new Promise(resolve => proxy.close(resolve));
+      if (pendingRequests > 0) await new Promise(resolve => { notifyIdle = resolve; });
       closeSync(descriptor);
     },
+  });
+}
+
+/** Bind suite 85's private verdict to the exact provider bytes and final call. */
+export function attestWindowFillEvidence({ evidenceFile, captureFile, sourceRevision }) {
+  assert.ok(path.isAbsolute(evidenceFile) && path.isAbsolute(captureFile),
+    'window-fill evidence paths must be absolute');
+  assert.equal(path.dirname(evidenceFile), path.dirname(captureFile),
+    'window-fill evidence must share the capture artifact directory');
+  const directory = lstatSync(path.dirname(evidenceFile));
+  assert.ok(directory.isDirectory() && !directory.isSymbolicLink()
+    && (directory.mode & 0o777) === 0o700,
+  'window-fill evidence directory must be private');
+  for (const file of [evidenceFile, captureFile]) {
+    const stat = lstatSync(file);
+    assert.ok(stat.isFile() && !stat.isSymbolicLink() && (stat.mode & 0o777) === 0o600,
+      'window-fill evidence must be a private regular file');
+  }
+  assert.match(sourceRevision, /^[a-f0-9]{40}$/);
+  const captureBytes = readFileSync(captureFile);
+  const evidenceBytes = readFileSync(evidenceFile);
+  const evidence = JSON.parse(evidenceBytes.toString('utf8'));
+  assert.equal(evidence?.status, 'PASS', 'window-fill evidence did not pass');
+  assert.equal(evidence.sourceRevision, sourceRevision, 'window-fill source revision mismatch');
+  assert.ok(Number.isSafeInteger(evidence.providerCaptureBytes)
+    && evidence.providerCaptureBytes > 0
+    && evidence.providerCaptureBytes <= captureBytes.length,
+  'window-fill capture prefix length is invalid');
+  const observedBytes = captureBytes.subarray(0, evidence.providerCaptureBytes);
+  assert.equal(observedBytes.at(-1), 10, 'window-fill capture prefix is not newline terminated');
+  assert.equal(captureBytes.at(-1), 10, 'window-fill capture is not newline terminated');
+  assert.equal(evidence.providerCaptureSha256, SHA256(observedBytes), 'window-fill capture digest mismatch');
+  assert.ok(Array.isArray(evidence.turns) && evidence.turns.length > 0,
+    'window-fill turn evidence missing');
+  assert.ok(typeof evidence.summary?.text === 'string' && evidence.summary.text.length > 0,
+    'window-fill summary evidence missing');
+  const final = evidence.final;
+  assert.match(final?.requestSha256, /^[a-f0-9]{64}$/, 'window-fill final request hash missing');
+  assert.match(final?.responseSha256, /^[a-f0-9]{64}$/, 'window-fill final response hash missing');
+  assert.equal(final.rawFirstMessagePresent, false, 'raw first message remains in final prompt');
+  assert.equal(final.rawFirstMidLinePresent, false, 'raw first message fragment remains in final prompt');
+  assert.ok(typeof final.question === 'string' && final.question.length > 0,
+    'window-fill final question missing');
+  const rows = captureBytes.toString('utf8').trim().split('\n').map(line => JSON.parse(line));
+  const observedRows = observedBytes.toString('utf8').trim().split('\n').map(line => JSON.parse(line));
+  for (const row of rows) {
+    assert.equal(row.schemaVersion, 1, 'invalid provider capture schema');
+    assert.equal(row.method, 'POST', 'invalid provider capture method');
+    assert.equal(row.path, '/api/chat', 'invalid provider capture endpoint');
+    assert.equal(row.model, CAPTURE_MODEL, 'foreign model in provider capture');
+    assert.equal(row.status, 200, 'failed provider call in capture');
+    assert.equal(row.error, undefined, 'provider capture contains an error');
+    assert.equal(row.done, true, 'provider call did not finish');
+    assert.equal(row.terminal?.done, true, 'provider terminal did not finish');
+    assert.equal(row.terminal?.model, CAPTURE_MODEL, 'provider served a foreign model');
+    if (row.terminal?.digest) assert.equal(row.terminal.digest, CAPTURE_DIGEST);
+    if (row.terminal?.model_digest_sha256) {
+      assert.equal(row.terminal.model_digest_sha256, CAPTURE_DIGEST);
+    }
+    assert.ok(Number.isSafeInteger(row.numCtx) && row.numCtx >= 512 && row.numCtx <= 4096,
+      'invalid provider context window');
+    assert.ok(Number.isSafeInteger(row.promptEvalCount) && row.promptEvalCount > 0
+      && row.promptEvalCount === row.terminal?.prompt_eval_count,
+    'invalid provider prompt usage');
+    assert.match(row.requestSha256, /^[a-f0-9]{64}$/, 'invalid provider request digest');
+    assert.match(row.responseSha256, /^[a-f0-9]{64}$/, 'invalid provider response digest');
+    assert.ok(Array.isArray(row.messages), 'provider prompt messages missing');
+  }
+  const matches = observedRows.filter(row => row.requestSha256 === final.requestSha256
+    && row.responseSha256 === final.responseSha256);
+  assert.equal(matches.length, 1, 'window-fill final provider call is missing or ambiguous');
+  const row = matches[0];
+  assert.equal(row.schemaVersion, 1);
+  assert.equal(row.method, 'POST');
+  assert.equal(row.path, '/api/chat');
+  assert.equal(row.model, CAPTURE_MODEL);
+  assert.equal(row.status, 200);
+  assert.equal(row.done, true);
+  assert.equal(row.terminal?.done, true);
+  assert.ok(Number.isSafeInteger(row.numCtx) && row.numCtx > 0 && row.numCtx <= 4096);
+  assert.ok(Number.isSafeInteger(row.promptEvalCount) && row.promptEvalCount > 0);
+  assert.equal(final.numCtx, row.numCtx, 'window-fill final num_ctx mismatch');
+  assert.equal(evidence.observedWindow, row.numCtx, 'window-fill observed num_ctx mismatch');
+  assert.equal(final.promptEvalCount, row.promptEvalCount, 'window-fill prompt usage mismatch');
+  assert.ok(Array.isArray(row.messages), 'window-fill final provider prompt missing');
+  const prompt = row.messages.map(message => String(message.content || '')).join('\n');
+  assert.equal(final.providerPrompt, prompt, 'window-fill final provider prompt mismatch');
+  assert.ok(prompt.includes(`User: ${final.question}`), 'window-fill question absent from final provider prompt');
+  const providerAnswer = [row.terminal?.message?.content, row.terminal?.response]
+    .find(content => typeof content === 'string' && content.trim().length > 0);
+  assert.equal(final.answer, providerAnswer, 'window-fill final answer mismatch');
+  return Object.freeze({
+    evidenceFile, evidenceSha256: SHA256(evidenceBytes),
+    finalRequestSha256: row.requestSha256,
+    finalResponseSha256: row.responseSha256,
+    finalNumCtx: row.numCtx,
+    finalPromptEvalCount: row.promptEvalCount,
+    observedProviderRows: observedRows.length,
+    providerRows: rows.length,
   });
 }
