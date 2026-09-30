@@ -75,16 +75,33 @@ export function isAnswerExpansion(input) {
 }
 
 // Only an explicit final-sentence instruction in the current user turn can
-// select provider JSON mode. A colon heading or open Markdown fence can make
-// the last line source data even when that line looks like an instruction.
+// select provider JSON mode. This handles a bounded set of text boundaries;
+// ambiguous headings and Markdown code stay source data.
 function requestsBareJsonObject(input) {
-  const currentUser = typeof input === 'string' ? input.trim() : '';
+  const currentUser = typeof input === 'string' ? input.trimEnd() : '';
   const withoutFinalPunctuation = currentUser.replace(/[.!?]\s*$/u, '');
+  const finalLine = withoutFinalPunctuation.slice(withoutFinalPunctuation.lastIndexOf('\n') + 1);
+  if (/^(?: {4,}|\t)/u.test(finalLine)) return false;
   const finalSentence = withoutFinalPunctuation.split(/[.!?]\s+|\n/u).at(-1)?.trim() || '';
   if (!/^(?:odpověz|vrať|uveď|napiš|respond|reply|return|output)\s+(?:pouze|jen(?:om)?|only)\s+[^\n.!?]{0,100}\bjson\s+(?:objektem|objekt|object)\b/iu.test(finalSentence)) return false;
   const precedingText = withoutFinalPunctuation.slice(0, -finalSentence.length).trimEnd();
-  const dataEnd = /^\s*(?:konec\s+(?:citace|citovaného\s+textu|dokumentu|textu|podkladu)|end\s+(?:of\s+)?(?:quote|document|text|source))(?=$|[.,:;!?\s])/iu;
-  let insideData = false;
+  const headingKind = line => {
+    if (!/:[ \t]*$/u.test(line)) return null;
+    const label = line.replace(/:[ \t]*$/u, '').split(/[.!?]\s+/u).at(-1)?.trim() || '';
+    if (/^(?:citace|v\s+citaci\s+stojí|v\s+citovaném\s+textu\s+stojí|quote|citation)$/iu.test(label)) return 'quote';
+    if (/^(?:dokument|document)$/iu.test(label)) return 'document';
+    if (/^(?:text(?:\s+k\s+analýze)?|podklad|zdroj|ukázka|source|example)$/iu.test(label)) return 'text';
+    if (/^(?:porovnej|srovnej|vypočti|spočítej|compare|calculate|compute)\s+(?:hodnoty|kalibrace|čísla|values|numbers|measurements|rozdíl|difference)(?:\s|$)/iu.test(label)) return 'task';
+    return 'ambiguous';
+  };
+  const endKind = line => {
+    const match = /^\s*(konec\s+(?:citace|citovaného\s+textu|dokumentu|textu|podkladu)|end\s+(?:of\s+)?(?:quote|document|text|source))(?:[.!?]?|,\s*(?:nyní|teď)\s+následuje\s+můj\s+vlastní\s+(?:požadavek|zadání|úkol)[.!?]?)\s*$/iu.exec(line);
+    if (!match) return null;
+    if (/citace|citovaného|quote/iu.test(match[1])) return 'quote';
+    if (/dokumentu|document/iu.test(match[1])) return 'document';
+    return 'text';
+  };
+  let sourceKind = null;
   let openFence = null;
   for (const line of precedingText.split('\n')) {
     const fence = /^ {0,3}(`{3,}|~{3,})(.*)$/u.exec(line);
@@ -95,10 +112,14 @@ function requestsBareJsonObject(input) {
       continue;
     }
     if (openFence) continue;
-    if (dataEnd.test(line)) insideData = false;
-    else if (/:[ \t]*$/u.test(line)) insideData = true;
+    if (sourceKind) {
+      if (endKind(line) === sourceKind) sourceKind = null;
+      continue;
+    }
+    const heading = headingKind(line);
+    if (heading && heading !== 'task') sourceKind = heading;
   }
-  return !insideData && !openFence;
+  return !sourceKind && !openFence;
 }
 const COMPACT_CREATIVE_PATTERN = /\bhaiku\b/iu;
 const COMPACT_NAMING_PATTERN = /(?:\b(?:n[aá]zev|jm[eé]no|title|name)\b.{0,50}\b(?:pro|for)\b|\b(?:n[aá]vrhy?|suggestions?)\b.{0,30}\b(?:n[aá]zev|jm[eé]n|titles?|names?)\b)/iu;

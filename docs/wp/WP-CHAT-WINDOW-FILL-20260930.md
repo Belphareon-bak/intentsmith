@@ -1,5 +1,24 @@
 # WP — skutečné naplnění okna a auto-context v živém chatu
 
+**Čtvrté review a omezený parser hranic (1. 10. 2026):** review
+`c8ea0597` vrátilo **CHANGES_REQUIRED**: čtyřmi mezerami odsazený Markdown
+kód se mohl stát JSON pokynem; řádek `Konec citace je jen nadpis v dokumentu.`
+neprávem zavřel vložený dokument; naopak `Porovnej hodnoty:` zablokovalo
+skutečný následný JSON požadavek. Všechny tři provider-body regrese byly
+nejprve červené (`64 PASS / 3 FAIL`). Aktuální kandidát rozlišuje explicitní
+nadpis zdroje, úzce vymezený imperativní nadpis číselného úkolu a nejednoznačný
+nadpis, který fail-closed ponechá daty; kontroluje otevřené i odsazené Markdown
+bloky a uzavírá jen celý odpovídající marker nebo celou výslovnou větu o
+vlastním dalším požadavku. S dvěma doplňkovými negativními případy je M1
+kontrakt **69/69 PASS**; první i osmý skutečný window-fill tah stále posílají
+`format: 'json'`. Interpretace libovolné přirozené řeči tím prokázána není.
+Pro spolehlivou obecnou autoritu formátu je vhodný budoucí explicitní údaj
+aktuálního tahu v API/UI (např. `responseFormat: json`), validovaný v M1
+kontraktu a předaný CRE; jde o návrh, nikoli přijatý požadavek. Samostatná
+oprava opakování `done_reason=length` na integrační větvi se musí při sloučení
+zachovat. Nové nezávislé review, integrace a fyzický modelový běh jsou
+**PENDING**; tento kandidát sám neprokazuje odstranění živého HTTP 502.
+
 **Třetí review a obecná hranice vložených dat (1. 10. 2026):** review
 `41193afe` vrátilo **CHANGES_REQUIRED**: nadpisy `Dokument:` a
 `Text k analýze:` i otevřený Markdown code fence mohly dát citovanému poslednímu

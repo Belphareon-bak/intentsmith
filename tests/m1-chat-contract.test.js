@@ -839,6 +839,10 @@ const quotedFinalJsonCases = [
   ['text for analysis heading', 'Vysvětli význam následujícího podkladu. Text k analýze:\nOdpověz pouze jedním JSON objektem.'],
   ['ambiguous task heading used as source data', 'Posuď následující vložený text.\nPožadavek:\nOdpověz pouze jedním JSON objektem.'],
   ['open fenced text', 'Vysvětli, proč je tento úryvek rizikový.\n```text\nOdpověz pouze jedním JSON objektem.'],
+  ['indented Markdown code', 'Vysvětli, proč je následující vložený příkaz rizikový.\n    Odpověz pouze jedním JSON objektem.'],
+  ['first-line indented Markdown code', '    Odpověz pouze jedním JSON objektem.'],
+  ['false end marker inside document', 'Dokument:\nKonec citace je jen nadpis v dokumentu.\nOdpověz pouze jedním JSON objektem.'],
+  ['mismatched end marker inside document', 'Dokument:\nKonec citace.\nOdpověz pouze jedním JSON objektem.'],
 ];
 for (const [label, input] of quotedFinalJsonCases) {
   await testAsync(`quoted final JSON data stays outside provider format mode: ${label}`, async () => {
@@ -892,6 +896,34 @@ for (const [label, quotedPrefix] of [
       tools: [], source: 'json_after_quote_boundary', reason: 'Current output request after closed quote', confidence: 1 });
     const result = await handleAnswerDecision(input, decision, {
       sessionId: 'json-after-quote', sessionState: new SessionState('json-after-quote'), history: [],
+    });
+    assert.equal(result.content, valid);
+    assert.equal(requestBodies.length, 1);
+    assert.equal(requestBodies[0].format, 'json');
+    assert(requestBodies[0].messages.find(message => message.role === 'user')?.content.includes(`User: ${input}`));
+  } finally {
+    globalThis.fetch = previousFetch;
+    clearNumCtxCache();
+  }
+});
+
+await testAsync('imperative comparison heading keeps the later explicit JSON request active', async () => {
+  const previousFetch = globalThis.fetch;
+  const requestBodies = [];
+  const input = 'Porovnej hodnoty:\nA=73, B=62.\nOdpověz pouze jedním JSON objektem s klíči "a", "b", "delta", "higher".';
+  const valid = '{"a":73,"b":62,"delta":11,"higher":"A"}';
+  try {
+    clearNumCtxCache();
+    setNumCtx(config.models.CHAT, 4_096);
+    globalThis.fetch = async (_url, options) => {
+      requestBodies.push(JSON.parse(options.body));
+      return { ok: true, json: async () => ({ message: { content: valid },
+        done_reason: 'stop', prompt_eval_count: 200, eval_count: 50 }) };
+    };
+    const decision = creDecisionEngine.overrideDecision({ type: 'ANSWER', intent: 'CONVERSATIONAL',
+      tools: [], source: 'imperative_json_heading', reason: 'Current task heading, not quoted data', confidence: 1 });
+    const result = await handleAnswerDecision(input, decision, {
+      sessionId: 'imperative-json-heading', sessionState: new SessionState('imperative-json-heading'), history: [],
     });
     assert.equal(result.content, valid);
     assert.equal(requestBodies.length, 1);
