@@ -42,7 +42,11 @@ a ve stromech `*-fresh-clone-*/home` + `/repo`, které se `runtime` nejmenují.
    `node_modules/` pod `.intentsmith-artifacts/` jsou jednorázové; drží se sada
    z nejnovějšího běhu na worktree. `report.json`, `checkpoint.json`,
    `inventory.json`, `logs/` se nemažou nikdy. Sandbox obsahující důkaz je
-   chráněný. Plošné smazání `.intentsmith-artifacts` je zakázané.
+   chráněný. Patří sem také pojmenované výsledky přímých testů v
+   `direct-tests/*/artifacts/` a SQLite databáze uložené v jejich `runtime/`:
+   tyto soubory dokládají skutečně použitý stav a nesmějí propadnout jen kvůli
+   jinému názvu než `report.json`. Plošné smazání `.intentsmith-artifacts` je
+   zakázané.
 6. **Rozpočet se kontroluje na vstupu běhu a uklízí na výstupu** —
    `agent-protocol.md` §1 a §14.
 7. **Mechanismus:** [`scripts/workspace-budget.sh`](../../scripts/workspace-budget.sh)
