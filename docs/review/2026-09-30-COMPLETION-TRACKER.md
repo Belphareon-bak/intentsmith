@@ -1,8 +1,8 @@
-# IntentSmith — stav dokončování k 30. 9. 2026, 19:28 UTC
+# IntentSmith — stav dokončování k 30. 9. 2026, 19:38 UTC
 
 Tento záznam je vývojový checkpoint, nikoli release acceptance. Poslední
 ověřený a pushnutý integrační zdroj před tímto dokumentačním commitem je
-`a9fec745fd47258ec6e0aafcda55c67c34cbbdb6` na
+`60e091a81527dada7b42312a0ddc390222fb7d99` na
 `work/real-chat-journeys-20260930`; `git ls-remote` se s ním shodoval.
 Instalovaný frontend IDE 2.0 je nadále `fddfe996`, běžící backend `c84b88cd`;
 nový integrační zdroj ještě není nasazený. Studio 2 produkční kandidát
@@ -40,9 +40,11 @@ review, build kombinovaného balíku a nasazení této delty zůstávají otevř
   promptu však může vynechat prostředek již uloženého souhrnu. Izolovaný
   kandidát zachování celého souhrnu `56164594` prošel 41/41 M1 testy, ale
   dostal `CHANGES_REQUIRED`: v těsném 4K okně požadoval 349 slov při
-  `num_predict=280`. Náhradní izolovaný `223d4817` přepočítává instrukci
-  podle skutečného finálního limitu a má M1 41/41; nezávislé opakované
-  review probíhá. Produktové řešení dosud není integrováno ani živě ověřeno.
+  `num_predict=280`. Náhradní `223d4817` přepočítává instrukci podle
+  skutečného finálního limitu, získal omezené nezávislé `REVIEW_PASS` a je
+  integrován v `60e091a8`. Na společném SHA prošly M1 41/41, kompakce
+  13/13, WebSocket 92/92 a projekty 33/33. Nový živý modelový běh této
+  produktové opravy je stále `LIVE_NOT_RUN`.
 - Projektový A→B→A průchod má deterministický test a omezené nezávislé review.
   Projektové expertizy prošly na společném SHA cíleným skutečným HTTP průchodem
   **1/1** s izolovaným providerem a kontrolou finálního promptu. Nativní worker
@@ -72,14 +74,18 @@ review, build kombinovaného balíku a nasazení této delty zůstávají otevř
   Studio 2 a má izolovanou simulaci **5/5**, detailní UI test **9/9**,
   `desktop-hunt` **34/34**. Jeho čistý serializovaný offline/database audit
   vybral 400 programů a skončil **399 PASS / 1 FAIL / 0 BLOCKED**; jediný
-  FAIL je zapečetěný Gate 0 hash. Kandidát ještě čeká na integraci,
-  nezávislé review a živé hodnocení. Tato čísla nepředstavují přijaté skóre.
+  FAIL je zapečetěný Gate 0 hash. Nezávislé review integrace našlo
+  `CHANGES_REQUIRED`: skutečný detail běhu z read API zatím nepřipojuje dva
+  posudky a rozsouzení, které syntetický Studio 2 test zobrazil. Oprava
+  read modelu a test skutečné API cesty probíhají v izolované větvi;
+  integrace a živé hodnocení teprve následují. Tato čísla nepředstavují
+  přijaté skóre.
   [Pravidla výběru](../MODEL-SCORING-ACTIVATION.md).
 - Poslední úplný offline/database audit čistého integračního `09247504`
   skončil **387 PASS / 1 FAIL / 0 BLOCKED**. Jediný FAIL je kontrola
   zapečetěného Gate 0 hashe registru, který se po nových testech liší;
   report je `.intentsmith-artifacts/test-runs/2026-09-30T19-02-22-473Z/report.json`.
-  Aktuální `a9fec745` má po nových testech registr 558 a celý profil na něm
+  Aktuální `60e091a8` má po nových testech registr 558 a celý profil na něm
   dosud neběžel. Cílený provider capture self-test prošel **6/6**. Žádný
   z těchto běhů není release PASS; přepis pečeti bez nové review není řešení.
 - Mobilní aplikace má připravené UI a úzké review, ale fyzický Android,
@@ -94,7 +100,7 @@ review, build kombinovaného balíku a nasazení této delty zůstávají otevř
 
 ## Git a navazující brány
 
-Integrační branch do `a9fec745` včetně je pushnutá přesně na
+Integrační branch do `60e091a8` včetně je pushnutá přesně na
 `origin/work/real-chat-journeys-20260930`; test expertiz má také vzdálenou
 izolovanou větev. Rozpracovaný Hunt a oprava souhrnu jsou zatím lokální
 kandidáti, tedy tvrzení „vše na Git remote“ by bylo nepravdivé. Soukromé
