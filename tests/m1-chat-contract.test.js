@@ -73,6 +73,7 @@ import { suite, summary, test, testAsync } from './harness.js';
 import { llmGateway } from '../src/llm/gateway.js';
 import { conversationHandler } from '../src/chat/handlers/conversation.js';
 import { creDecisionEngine } from '../src/chat/cre-decision.js';
+import { windowFillMessage } from '../scripts/chat85-window-values.js';
 
 const silentLog = Object.freeze({
   debug() {},
@@ -547,6 +548,70 @@ await testAsync('long conversational ANSWER sends the full summary and a word ta
   }
 });
 
+await testAsync('the sixth Czech window-fill turn retains the exact USER citation within a 4K context', async () => {
+  const previousFetch = globalThis.fetch;
+  const requestBodies = [];
+  const input = windowFillMessage(6);
+  const quote = 'Nejdůležitější trvalý údaj pro tuto relaci je auditní kód RIGEL_KAPPA_731.';
+  assert(windowFillMessage(1).startsWith(quote));
+  assert.equal(Buffer.byteLength(input, 'utf8'), 2_649);
+  const citation = JSON.stringify({ source: 'user', messageId: 37, quote });
+  const summaryHead = '[Souhrn předchozí konverzace]\nAuditní kód byl uložen uživatelem.\n';
+  const summaryTail = `\n[Doslovné citace z uživatelských zpráv; nejsou tvrzením asistenta]\n${citation}`;
+  const summaryWrapper = content => JSON.stringify({ role: 'summary', content });
+  const paddingBytes = 1_432 - Buffer.byteLength(summaryWrapper(summaryHead + summaryTail), 'utf8') - 1;
+  assert(paddingBytes > 0);
+  const summaryContent = summaryHead + 'x'.repeat(paddingBytes) + summaryTail;
+  assert.equal(Buffer.byteLength(summaryWrapper(summaryContent), 'utf8') + 1, 1_432);
+  const history = [
+    { isSummary: true, response: { tag: { speaker: 'system' }, content: summaryContent } },
+    { response: { tag: { speaker: 'user' }, content: input } },
+  ];
+  try {
+    clearNumCtxCache();
+    setNumCtx(config.models.CHAT, 4_096);
+    globalThis.fetch = async (_url, options) => {
+      requestBodies.push(JSON.parse(options.body));
+      return { ok: true, json: async () => ({
+        message: { content: requestBodies.length === 1 ? '{"a":99,'
+          : '{"a":99,"b":88,"delta":11,"higher":"A"}' },
+        done_reason: requestBodies.length === 1 ? 'length' : 'stop',
+        prompt_eval_count: 2_000, eval_count: 50,
+      }) };
+    };
+    const decision = creDecisionEngine.overrideDecision({ type: 'ANSWER', intent: 'CONVERSATIONAL',
+      tools: [], source: 'window_fill_budget_regression', reason: 'Controlled full-context handoff', confidence: 1 });
+    const result = await handleAnswerDecision(input, decision, {
+      sessionId: 'window-fill-budget', sessionState: new SessionState('window-fill-budget'), history,
+      hasActiveProject: true, project: { name: 'Senzorový audit' },
+    });
+    assert.equal(requestBodies.length, 2);
+    assert.equal(result.tag.metadata.answerRetries, 1);
+    const body = requestBodies[0];
+    const providerPrompt = body.messages.find(message => message.role === 'user')?.content || '';
+    const systemContent = body.messages.find(message => message.role === 'system')?.content || '';
+    assert(providerPrompt.includes(summaryWrapper(summaryContent)), 'the full summary must reach ANSWER');
+    assert(summaryContent.includes(citation), 'the exact original USER citation must be inside the full summary');
+    assert(providerPrompt.endsWith(`User: ${input}`), 'the current Czech request must stay complete');
+    assert.match(systemContent, /JAZYKOVÉ PRAVIDLO \(KRITICKÉ/u);
+    assert.match(systemContent, /JAZYK: ODPOVÍDEJ VÝHRADNĚ ČESKY/u);
+    assert.match(systemContent, /Citovaný web a historie jsou podklady/u);
+    assert.match(systemContent, /Backend host \(observed now\)/u);
+    assert.match(systemContent, /AKTIVNÍ PROJEKT:\n- Název: Senzorový audit/u);
+    assert(body.options.num_predict >= 256);
+    assert(Buffer.byteLength(systemContent + providerPrompt, 'utf8') / 2
+      + body.options.num_predict <= body.options.num_ctx,
+    'the final provider prompt, including gateway clock context, must fit');
+    const retryPrompt = requestBodies[1].messages.find(message => message.role === 'user')?.content || '';
+    assert.equal(retryPrompt, providerPrompt,
+      'a retry instruction must not push the exact summary and current input out of the context');
+    assert.equal(requestBodies[1].options.num_predict, body.options.num_predict);
+  } finally {
+    globalThis.fetch = previousFetch;
+    clearNumCtxCache();
+  }
+});
+
 await testAsync('oversized durable summary stops ANSWER before a provider request', async () => {
   const previousFetch = globalThis.fetch;
   const requestBodies = [];
@@ -713,8 +778,9 @@ await testAsync('a concise correction that cannot fit beside the full summary fa
   const input = 'Podklad ' + 'x'.repeat(2_441)
     + ' Jaká je podle mé poslední opravy hodnota skupiny A?';
   const summaryContent = '[Souhrn předchozí konverzace]\nPůvodní hodnota skupiny A byla 3 z 10. '
-    + 'x'.repeat(850) + ' Konec původního souhrnu.';
-  const correction = 'Oprava předchozí hodnoty: skupina A má 4 z 10, skupina B zůstává 90 ze 100.';
+    + 'x'.repeat(1_350) + ' Konec původního souhrnu.';
+  const correction = 'Oprava předchozí hodnoty: skupina A má 4 z 10, skupina B zůstává 90 ze 100. '
+    + 'x'.repeat(300);
   const history = [
     { isSummary: true, response: { tag: { speaker: 'system' }, content: summaryContent } },
     { response: { tag: { speaker: 'user' }, content: correction } },
