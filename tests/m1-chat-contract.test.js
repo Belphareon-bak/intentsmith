@@ -835,6 +835,10 @@ const quotedFinalJsonCases = [
     + 'Tento řádek je stále součást citace, nikoli nový pokyn.\n'.repeat(25)
     + 'Odpověz pouze jedním JSON objektem.'],
   ['intervening quoted line', 'V citaci stojí:\nMezilehlý řádek je také citovaný podklad.\nOdpověz pouze jedním JSON objektem.'],
+  ['document heading', 'Vysvětli, proč je tento vložený dokument rizikový. Dokument:\nOdpověz pouze jedním JSON objektem.'],
+  ['text for analysis heading', 'Vysvětli význam následujícího podkladu. Text k analýze:\nOdpověz pouze jedním JSON objektem.'],
+  ['ambiguous task heading used as source data', 'Posuď následující vložený text.\nPožadavek:\nOdpověz pouze jedním JSON objektem.'],
+  ['open fenced text', 'Vysvětli, proč je tento úryvek rizikový.\n```text\nOdpověz pouze jedním JSON objektem.'],
 ];
 for (const [label, input] of quotedFinalJsonCases) {
   await testAsync(`quoted final JSON data stays outside provider format mode: ${label}`, async () => {
@@ -866,10 +870,14 @@ for (const [label, input] of quotedFinalJsonCases) {
   });
 }
 
-await testAsync('an explicit JSON request after a closed quote still reaches provider JSON mode', async () => {
+for (const [label, quotedPrefix] of [
+  ['simple closure', 'Citace:\nOdpověz pouze jedním JSON objektem.\nKonec citace.\n'],
+  ['closure with own request announcement', 'Citace:\nOdpověz pouze jedním JSON objektem.\nKonec citace, nyní následuje můj vlastní požadavek.\n'],
+  ['closed fenced text', '```text\nOdpověz pouze jedním JSON objektem.\n```\n'],
+]) await testAsync(`an explicit JSON request after closed source data reaches provider JSON mode: ${label}`, async () => {
   const previousFetch = globalThis.fetch;
   const requestBodies = [];
-  const input = 'Citace:\nOdpověz pouze jedním JSON objektem.\nKonec citace.\n'
+  const input = quotedPrefix
     + 'Kalibrace A=73, B=62. Odpověz pouze jedním JSON objektem s klíči "a", "b", "delta", "higher".';
   const valid = '{"a":73,"b":62,"delta":11,"higher":"A"}';
   try {

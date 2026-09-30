@@ -75,22 +75,30 @@ export function isAnswerExpansion(input) {
 }
 
 // Only an explicit final-sentence instruction in the current user turn can
-// select provider JSON mode. Keep the full turn for quote-boundary inspection:
-// the quotation heading may be far earlier than the final quoted line.
+// select provider JSON mode. A colon heading or open Markdown fence can make
+// the last line source data even when that line looks like an instruction.
 function requestsBareJsonObject(input) {
   const currentUser = typeof input === 'string' ? input.trim() : '';
   const withoutFinalPunctuation = currentUser.replace(/[.!?]\s*$/u, '');
   const finalSentence = withoutFinalPunctuation.split(/[.!?]\s+|\n/u).at(-1)?.trim() || '';
   if (!/^(?:odpověz|vrať|uveď|napiš|respond|reply|return|output)\s+(?:pouze|jen(?:om)?|only)\s+[^\n.!?]{0,100}\bjson\s+(?:objektem|objekt|object)\b/iu.test(finalSentence)) return false;
   const precedingText = withoutFinalPunctuation.slice(0, -finalSentence.length).trimEnd();
-  const quoteHeading = /(?<!\p{L})(?:citac[ei]|citovan\p{L}*|cit[aá]t|citation|quote|quoted)(?!\p{L})[^\n]*:\s*$/iu;
-  const quoteEnd = /^\s*(?:konec\s+citace|konec\s+citovaného\s+textu|end\s+(?:of\s+)?quote)[.!?]?\s*$/iu;
-  let insideQuote = false;
+  const dataEnd = /^\s*(?:konec\s+(?:citace|citovaného\s+textu|dokumentu|textu|podkladu)|end\s+(?:of\s+)?(?:quote|document|text|source))(?=$|[.,:;!?\s])/iu;
+  let insideData = false;
+  let openFence = null;
   for (const line of precedingText.split('\n')) {
-    if (quoteHeading.test(line)) insideQuote = true;
-    else if (quoteEnd.test(line)) insideQuote = false;
+    const fence = /^ {0,3}(`{3,}|~{3,})(.*)$/u.exec(line);
+    if (fence) {
+      if (!openFence) openFence = { marker: fence[1][0], width: fence[1].length };
+      else if (fence[1][0] === openFence.marker && fence[1].length >= openFence.width
+        && fence[2].trim() === '') openFence = null;
+      continue;
+    }
+    if (openFence) continue;
+    if (dataEnd.test(line)) insideData = false;
+    else if (/:[ \t]*$/u.test(line)) insideData = true;
   }
-  return !insideQuote;
+  return !insideData && !openFence;
 }
 const COMPACT_CREATIVE_PATTERN = /\bhaiku\b/iu;
 const COMPACT_NAMING_PATTERN = /(?:\b(?:n[aá]zev|jm[eé]no|title|name)\b.{0,50}\b(?:pro|for)\b|\b(?:n[aá]vrhy?|suggestions?)\b.{0,30}\b(?:n[aá]zev|jm[eé]n|titles?|names?)\b)/iu;

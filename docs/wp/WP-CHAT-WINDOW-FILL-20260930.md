@@ -1,5 +1,20 @@
 # WP — skutečné naplnění okna a auto-context v živém chatu
 
+**Třetí review a obecná hranice vložených dat (1. 10. 2026):** review
+`41193afe` vrátilo **CHANGES_REQUIRED**: nadpisy `Dokument:` a
+`Text k analýze:` i otevřený Markdown code fence mohly dát citovanému poslednímu
+řádku autoritu JSON formátu. Čtyři požadované provider-body případy včetně
+výslovně ukončené citace byly nejprve červené (`58 PASS / 4 FAIL`). Aktuální
+kandidát považuje libovolný samostatný nadpis zakončený dvojtečkou a otevřený
+Markdown blok za hranici vložených dat; pro zřetelné ukončení citace dovolí
+následující vlastní JSON požadavek. Nejednoznačné `Požadavek:` jako nadpis
+vloženého textu bylo samostatně červené a také se neaktivuje. Zavřený code
+fence dovolí následný vlastní JSON požadavek. M1 kontrakt je **64/64 PASS**;
+skutečné `windowFillMessage(1)` i `(8)` dál posílají
+`format: 'json'`. Toto je konzervativní textová heuristika, nikoli obecný
+sémantický parser všech citací. Nové nezávislé review, integrace a živý modelový
+běh jsou **PENDING**.
+
 **Druhé review a oprava citovaného bloku (1. 10. 2026):** review
 `0785ac1c` vrátilo **CHANGES_REQUIRED** kvůli třem skutečným vstupům,
 v nichž byl poslední řádek stále součástí citace. Nové provider-body testy
