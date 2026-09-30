@@ -1,5 +1,41 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 30. 9. 2026, 23:55 UTC (1. 10. v Praze)
+
+Na čistém, vzdáleně ověřeném `c815ec435f69b4a52b30ab2f96da65136890d3c6`
+prošly čtyři navazující fyzické chatové zkoušky s modelem
+`qwen3.5:27b`, instalovaným digestem
+`7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e`
+a providerem `0.34.0-intentsmith.1`. Každá použila vlastní backend/SQLite,
+GPU zámek a provider capture; model byl mezi běhy uvolněn. Jde o vývojové
+živé důkazy, ne o release Gate 0 ani o potvrzení aktuálních Hunt vazeb.
+
+- Registrovaná sada `IS-T3-E2E-85-LONG-SESSION-DEGRADATION` **PASS 1/1**,
+  čtyři vnitřní kroky; report
+  `.intentsmith-artifacts/run-suites/2026-09-30T23-43-46-670Z/report.json`.
+  Captured provider **60** volání; okno **4096**, osm přesných hodnotových
+  odpovědí jako holé JSON objekty **8/8**, první uložená kompakce v šestém
+  tahu, původních 5 189 tokenů historie proti 2 888 efektivním po souhrnu.
+  Finální prompt nemá surový první vstup a model odpověděl přesně
+  `RIGEL_KAPPA_731` pouze ze souhrnu. Mechanismus i kvalita mají oddělené
+  `PASS` v privátním `85-window-fill-evidence.json`; dřívější živý FAIL 3/8
+  JSON a HTTP 502 je tímto na novém SHA opraven v měřeném scénáři.
+- Vybraný překladatel přes M1, jeden dokončený modelový požadavek, správný
+  výsledek a trvalý projektový stav: **PASS 1/1**,
+  `.intentsmith-artifacts/direct-tests/chat-translator-live.test-RGxNY0/artifacts/chat-translator-live-evidence.json`.
+- Kladný, záporný a nulový rozdíl s přesným JSON výsledkem: **PASS 3/3**
+  uvnitř jedné opt-in sady,
+  `.intentsmith-artifacts/direct-tests/chat-value-fidelity-live.test-3VhJuL/artifacts/chat-value-fidelity-live-evidence.json`.
+- Přechod A→B→A mezi dvěma projekty, vlastní soubor/expertiza a trvalé zprávy:
+  **PASS 1/1**, tři dokončená modelová volání,
+  `.intentsmith-artifacts/direct-tests/chat-project-expertise-live.test-cJsULF/artifacts/chat-project-expertise-live-evidence.json`.
+
+Tyto soukromé artefakty jsou mimo Git; zdroj a dokumentace jsou pushnuté.
+Preflight připíná instalovaný digest, terminální odpověď modelu však nemusí
+obsahovat samostatnou digest attestaci obsloužených bytů. Nové kandidátní
+scénáře worker recovery, druhé kompakce a účetního běží v oddělených větvích;
+jejich první vývojové výsledky nejsou dosud integrovanou přejímkou.
+
 ## Checkpoint 30. 9. 2026, 23:42 UTC (1. 10. v Praze)
 
 Úplný offline/databázový audit na čistém `63dc55fb` doběhl s výsledkem

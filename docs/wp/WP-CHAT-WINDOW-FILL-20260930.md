@@ -1,5 +1,22 @@
 # WP — skutečné naplnění okna a auto-context v živém chatu
 
+**Živá přejímka měřeného scénáře, 30. 9. 2026 23:52 UTC:** čistý, pushnutý
+`c815ec435f69b4a52b30ab2f96da65136890d3c6` prošel registrovanou
+`IS-T3-E2E-85-LONG-SESSION-DEGRADATION` **1/1** se čtyřmi vnitřními kroky.
+Přesný report je
+`.intentsmith-artifacts/run-suites/2026-09-30T23-43-46-670Z/report.json`,
+privátní provider capture obsahuje **60** volání, digest instalovaného
+`qwen3.5:27b` je
+`7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e`.
+Osm hodnotových odpovědí má **8/8** věcně správný holý JSON. V okně 4096
+proběhla první kompakce v šestém tahu, souhrn uchoval původní auditní kód
+`RIGEL_KAPPA_731`; finální provider prompt neobsahoval surový první vstup,
+zatímco model vrátil přesně tento kód. Samostatné opt-in živé sady
+překladatele, hodnotové věrnosti (+11/−29/0) a A→B→A na témže SHA také
+prošly. Rozsah je měřený vývojový scénář, nikoli Gate 0 nebo obecná garance
+všech promptů. Starší níže uvedené `LIVE_NOT_RUN` a `PENDING` jsou historické
+checkpointy, nikoli současný stav tohoto WP.
+
 **Integrační checkpoint 30. 9. 2026, 23:32 UTC (1. 10. v Praze):** omezený JSON kandidát
 `7234f55b` získal nezávislé `REVIEW_PASS`. Společný čistě pushnutý commit
 `d2591bc0` zachovává dříve přijaté přepočítání kontextu při `length` retry;
