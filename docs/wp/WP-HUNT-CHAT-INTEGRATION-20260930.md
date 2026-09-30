@@ -36,7 +36,7 @@ službu ani modelové vazby. Zveřejnění větve není nezávislé přijetí ka
 | Detail uložených posudků | 24/24 grading acceptance, 21/21 read model, 9/9 Studio 2 PASS | `GET .../evaluations/:runId` nyní ověřuje oba append-only posudky a případné rozsouzení; zdrojový běh zůstává neměnný, skóre sporu je null až do ověřeného COMPLETE řádku; test Studia používá skutečný výstup read modelu |
 | Studio 2 view | PASS | shoda generovaného rendereru s prototypem, scénáře a 3000 fuzz kroků |
 | Desktop hunt | 34/34 PASS | Node 24 v `PATH`, lokální izolované závislosti |
-| Module graph | 1457 hran, 3 cykly / 28 členů; ratchet PASS | 23 nových přesných hran přijato oficiálním nástrojem nad čistým merge commitem `e20a7265` |
+| Module graph | 1459 hran, 3 cykly / 28 členů; ratchet PASS | 23 hran integračního merge `e20a7265` a další dvě hrany read modelu přijaty oficiálním nástrojem nad čistým zdrojem `8c64e427` |
 | Celý offline/database profil | **399 PASS / 1 FAIL / 0 BLOCKED**, verdikt FAIL | sériový běh na čistém `4edd1be6`; jediný FAIL je neaktualizovaná zapečetěná Gate 0 politika registru; report `.intentsmith-artifacts/test-runs/hunt-chat-integration-serial-4edd1be6/report.json` |
 
 ## Neuzavřené brány

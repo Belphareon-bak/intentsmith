@@ -53,8 +53,8 @@ měl tehdy 1 433 hran, 3 cykly / 28 členů. Závěrečné měření a nezávisl
 přijetí mají vlastní evidenci v [předávce](docs/review/2026-09-28-STUDIO2-PARITY-DELIVERY.md).
 Tehdejší integrovaný module graph měl 1 434 hran, 3 cykly / 28 členů po
 přijetí přesné hrany `src/chat/context-compact.js -> src/core/abort-error.js`.
-Aktuální module graph má 1 457 hran, stále 3 cykly / 28 členů;
-oficiální baseline je zapsaná nad čistým merge commitem `e20a7265`.
+Aktuální module graph má 1 459 hran, stále 3 cykly / 28 členů;
+oficiální baseline přijala dvě hrany read modelu nad čistým commitem `8c64e427`.
 
 **Studio: průběh práce a prostředí, 2026-09-23:** konkrétní tahy, nástroje,
 čekání, souborové diffy/+− a kopírování formátované odpovědi. Přidáno skutečné
