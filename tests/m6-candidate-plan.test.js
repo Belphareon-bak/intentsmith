@@ -195,18 +195,20 @@ test('model and runner-owned server phases cover every runnable required program
   const plan = buildM6CandidateExecutionPlan(registry);
   const byId = new Map(registry.suites.map(program => [program.id, program]));
   const modelPhase = plan.phases.find(item => item.id === 'model-without-server');
-  // Privacy, chat and Project Health product journeys own isolated servers.
-  assert.equal(modelPhase.programIds.length, 53);
+  // Privacy, chat, translator and Project Health product journeys own isolated servers.
+  assert.equal(modelPhase.programIds.length, 55);
   assert(modelPhase.programIds.includes('IS-T1-TESTS-PROJECT-COLLABORATION-TEST'));
   assert(modelPhase.programIds.includes('IS-T3-TESTS-CHAT-PRIVACY-HTTP-TEST'));
   assert(modelPhase.programIds.includes('IS-T3-TESTS-CHAT-PROJECT-EXPERTISE-HTTP-TEST'));
   assert(modelPhase.programIds.includes('IS-T3-TESTS-CHAT-SPECIALIST-FOLLOWUP-HTTP-TEST'));
   assert(modelPhase.programIds.includes('IS-T3-TESTS-CHAT-PROJECT-EXPERTISE-MODEL-CONTRACT-TEST'));
   assert(modelPhase.programIds.includes('IS-T3-TESTS-CHAT-VALUE-FIDELITY-CONTRACT-TEST'));
+  assert(modelPhase.programIds.includes('IS-T3-TESTS-CHAT-TRANSLATOR-MODEL-CONTRACT-TEST'));
   assert(modelPhase.programIds.includes('IS-T3-TESTS-M3-AGENT-PRODUCT-HTTP-JOURNEY-TEST'));
+  assert(modelPhase.programIds.includes('IS-T3-TESTS-M3-AGENT-SCHEDULED-PRODUCT-JOURNEY-TEST'));
   assert.equal(modelPhase.programIds.filter(id => byId.get(id).profile === 'model').length, 44);
   assert(modelPhase.programIds.includes('IS-T3-TESTS-M2-CODE-DRAFT-MODEL-TEST'));
-  assert.equal(modelPhase.programIds.filter(id => byId.get(id).profile === 'server').length, 9);
+  assert.equal(modelPhase.programIds.filter(id => byId.get(id).profile === 'server').length, 11);
   assert(modelPhase.programIds.every(id => byId.get(id).requirements.server === false));
   assert(modelPhase.programIds.every(id => byId.get(id).requirements.network !== 'external'));
 
