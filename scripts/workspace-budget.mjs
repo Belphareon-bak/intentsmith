@@ -183,6 +183,9 @@ function evidenceFiles(artifactRoot, { stopAfterFirst = false } = {}) {
   } catch {
     return [];
   }
+  // Direct product tests write named evidence under artifacts/ and preserve the
+  // exact SQLite state they exercised under runtime/. Neither uses the generic
+  // report.json/logs convention, but both must block worktree and sandbox cleanup.
   const args = [
     artifactRoot,
     '-type', 'f',
@@ -191,6 +194,10 @@ function evidenceFiles(artifactRoot, { stopAfterFirst = false } = {}) {
     '-o', '-name', 'checkpoint.json',
     '-o', '-name', 'inventory.json',
     '-o', '-path', '*/logs/*',
+    '-o', '-path', '*/direct-tests/*/artifacts/*',
+    '-o', '-path', '*/direct-tests/*/runtime/*.sqlite',
+    '-o', '-path', '*/direct-tests/*/runtime/*.sqlite3',
+    '-o', '-path', '*/direct-tests/*/runtime/*.db',
     ')',
   ];
   if (stopAfterFirst) args.push('-print', '-quit');

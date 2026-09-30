@@ -26,6 +26,9 @@ const cleanPath = path.join(fixtureRoot, 'clean old\nnewline');
 const dirtyPath = path.join(fixtureRoot, 'dirty old');
 const activePath = path.join(fixtureRoot, 'active old');
 const evidencePath = path.join(fixtureRoot, 'evidence old');
+const directExpertisePath = path.join(fixtureRoot, 'direct expertise old');
+const directValuePath = path.join(fixtureRoot, 'direct value old');
+const directAcceptancePath = path.join(fixtureRoot, 'direct acceptance old');
 const detachedPath = path.join(fixtureRoot, 'detached old');
 let activeProcess = null;
 let passed = 0;
@@ -65,13 +68,17 @@ try {
   git(repo, ['commit', '-m', 'base']);
   const base = git(repo, ['rev-parse', 'HEAD']);
 
-  for (const branch of ['clean-old', 'dirty-old', 'active-old', 'evidence-old']) {
+  for (const branch of ['clean-old', 'dirty-old', 'active-old', 'evidence-old',
+    'direct-expertise-old', 'direct-value-old', 'direct-acceptance-old']) {
     git(repo, ['branch', branch, base]);
   }
   git(repo, ['worktree', 'add', cleanPath, 'clean-old']);
   git(repo, ['worktree', 'add', dirtyPath, 'dirty-old']);
   git(repo, ['worktree', 'add', activePath, 'active-old']);
   git(repo, ['worktree', 'add', evidencePath, 'evidence-old']);
+  git(repo, ['worktree', 'add', directExpertisePath, 'direct-expertise-old']);
+  git(repo, ['worktree', 'add', directValuePath, 'direct-value-old']);
+  git(repo, ['worktree', 'add', directAcceptancePath, 'direct-acceptance-old']);
   git(repo, ['worktree', 'add', '--detach', detachedPath, base]);
 
   writeFileSync(path.join(repo, 'tracked.txt'), 'base\nnew main\n');
@@ -82,6 +89,34 @@ try {
     path.join(evidencePath, '.intentsmith-artifacts', 'run', 'logs', 'suite.log'),
     'evidence\n',
   );
+  // The original evidence matcher recognized report.json and logs, but missed
+  // these real direct-test artifact shapes and the SQLite runtime they attest.
+  const expertiseArtifact = path.join(directExpertisePath, '.intentsmith-artifacts',
+    'direct-tests', 'chat-project-expertise-model-contract.test-9Huv6r',
+    'artifacts', 'chat-project-expertise-model-contract.json');
+  const valueArtifact = path.join(directValuePath, '.intentsmith-artifacts',
+    'direct-tests', 'chat-value-fidelity-contract.test-5Z9ziT',
+    'artifacts', 'chat-value-fidelity-contract.json');
+  const valueRuntime = path.join(directValuePath, '.intentsmith-artifacts',
+    'direct-tests', 'chat-value-fidelity-contract.test-5Z9ziT', 'runtime');
+  const valueDatabase = path.join(valueRuntime, 'intentsmith-test.sqlite');
+  const newerValueRuntime = path.join(directValuePath, '.intentsmith-artifacts',
+    'direct-tests', 'newer-direct-test', 'runtime');
+  const acceptanceArtifact = path.join(directAcceptancePath, '.intentsmith-artifacts',
+    'direct-tests', 'chat-value-fidelity-contract.test-LQ5PKL',
+    'artifacts', 'chat-value-fidelity-contract.json');
+  for (const artifact of [expertiseArtifact, valueArtifact, acceptanceArtifact]) {
+    mkdirSync(path.dirname(artifact), { recursive: true });
+    writeFileSync(artifact, '{"status":"PASS","sourceRevision":"fixture"}\n');
+  }
+  mkdirSync(valueRuntime, { recursive: true });
+  mkdirSync(newerValueRuntime, { recursive: true });
+  writeFileSync(valueDatabase, 'SQLite fixture evidence');
+  writeFileSync(path.join(newerValueRuntime, 'state.bin'), 'newer scratch');
+  mkdirSync(path.join(cleanPath, '.intentsmith-artifacts'), { recursive: true });
+  const directNow = Date.now() / 1000;
+  utimesSync(valueRuntime, directNow - 300, directNow - 300);
+  utimesSync(newerValueRuntime, directNow - 100, directNow - 100);
 
   activeProcess = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], {
     cwd: activePath,
@@ -93,7 +128,7 @@ try {
   const byBranch = new Map(report.rows.map(row => [row.branch, row]));
 
   check('porcelain -z keeps spaces, newline paths and detached worktrees exact', () => {
-    assert.equal(report.worktreeCount, 6);
+    assert.equal(report.worktreeCount, 9);
     assert.equal(byBranch.get('clean-old').path, cleanPath);
     assert.equal(report.rows.filter(row => row.branch === null).length, 1);
     assert(byBranch.get(null).reasons.includes('detached'));
@@ -113,6 +148,18 @@ try {
   check('uncommitted gate evidence protects an absorbed checkout', () => {
     assert.equal(byBranch.get('evidence-old').containsEvidence, true);
     assert(byBranch.get('evidence-old').reasons.includes('evidence'));
+  });
+  check('three clean absorbed direct-test evidence roots are not retirable', () => {
+    for (const branch of ['direct-expertise-old', 'direct-value-old', 'direct-acceptance-old']) {
+      const row = byBranch.get(branch);
+      assert.equal(row.dirty, false);
+      assert.equal(row.absorbedBy, 'main');
+      assert.equal(row.containsEvidence, true, branch);
+      assert.equal(row.retirable, false, branch);
+      assert(row.reasons.includes('evidence'), branch);
+    }
+    assert.equal(byBranch.get('clean-old').containsEvidence, false,
+      'an empty ignored artifact root must remain safe to retire');
   });
 
   const artifactRoot = path.join(repo, '.intentsmith-artifacts');
@@ -142,6 +189,13 @@ try {
   utimesSync(newRuntime, now - 100, now - 100);
 
   const dryRun = JSON.parse(run(['clean', '--repo', repo, '--json']).stdout);
+  check('direct-test SQLite is protected even when a newer sandbox exists', () => {
+    assert(dryRun.protected.some(item => item.path === valueRuntime
+      && item.reasons.includes('evidence')));
+    assert(!dryRun.removable.includes(valueRuntime));
+    assert.throws(() => assertSafeSandbox(directValuePath, valueRuntime, []),
+      /sandbox contains protected evidence/);
+  });
   check('clean defaults to a non-mutating dry run', () => {
     assert.equal(dryRun.outcome, 'DRY_RUN');
     assert(dryRun.removable.includes(oldRuntime));
@@ -168,6 +222,10 @@ try {
     assert.equal(existsSync(outside), true);
     assert.equal(existsSync(path.join(cacheRuntime, 'source.go')), true);
     assert.equal(existsSync(path.join(sourceRuntime, 'source.js')), true);
+    assert.equal(existsSync(expertiseArtifact), true);
+    assert.equal(existsSync(valueArtifact), true);
+    assert.equal(existsSync(valueDatabase), true);
+    assert.equal(existsSync(acceptanceArtifact), true);
   });
   check('malformed invocation and non-Git repository fail closed', () => {
     run(['report', '--yes', '--repo', repo], 2);
