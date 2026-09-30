@@ -90,3 +90,5 @@ uchovává se lokálně v soukromém runtime. Při selhání může zůstat díl
 JSONL pro diagnostiku, nikdy ne verdikt PASS. Úspěšný lokální běh stále
 není Gate 0 ani důkaz Studio UI; pro přejímku je nutné nezávislé review,
 opakování na integračním SHA a odpovídající auditní záznam.
+Deterministický artefakt označí commit jen tehdy, když dodané SHA souhlasí
+s čistým checkoutem; bez něj nese `direct-run-unattested`.

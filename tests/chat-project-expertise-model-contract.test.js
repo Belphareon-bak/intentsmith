@@ -3,6 +3,7 @@
 // Actual M1 HTTP and durable SQLite, with a provider that echoes only file data
 // present in the final request. The same oracle is used by the opt-in live run.
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import http from 'node:http';
@@ -13,6 +14,21 @@ import { assertDurableJourney, assertFinalTurn, expectJson, journeySteps,
 
 const MODEL = 'fixture:1b';
 const DIGEST = 'a'.repeat(64);
+
+function verifiedSourceRevision() {
+  const supplied = process.env.INTENTSMITH_TEST_SOURCE_REVISION;
+  if (!supplied) return 'direct-run-unattested';
+  assert.match(supplied, /^[a-f0-9]{40}$/, 'source revision must be a full commit SHA');
+  const head = execFileSync('git', ['rev-parse', 'HEAD'], {
+    cwd: runtime.repositoryRoot, encoding: 'utf8', timeout: 5_000,
+  }).trim();
+  assert.equal(supplied, head, 'source revision must match the test checkout');
+  const dirt = execFileSync('git', ['status', '--porcelain'], {
+    cwd: runtime.repositoryRoot, encoding: 'utf8', timeout: 5_000,
+  }).trim();
+  assert.equal(dirt, '', 'attested source revision requires a clean checkout');
+  return supplied;
+}
 
 async function startProvider() {
   const requests = [];
@@ -52,6 +68,7 @@ async function startProvider() {
 test('A→B→A M1 project expertise uses exact file data in the final provider request', {
   timeout: 180_000,
 }, async t => {
+  const sourceRevision = verifiedSourceRevision();
   const provider = await startProvider();
   let product = null;
   t.after(async () => {
@@ -100,7 +117,7 @@ test('A→B→A M1 project expertise uses exact file data in the final provider 
 
   writeFileSync(`${runtime.artifacts}/chat-project-expertise-model-contract.json`,
     `${JSON.stringify({ schemaVersion: 1,
-      sourceRevision: process.env.INTENTSMITH_TEST_SOURCE_REVISION || 'direct-run-unattested',
+      sourceRevision,
       fixture: 'owned-fake-provider', projectIds: [a.id, b.id],
       m1Turns: turns, providerCalls: provider.requests.length,
       status: 'PASS' }, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
