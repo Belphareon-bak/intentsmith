@@ -102,10 +102,12 @@ function buildBriefReplyInstruction(input, language) {
   return BRIEF_REPLY_INSTRUCTION[language] || BRIEF_REPLY_INSTRUCTION.cs;
 }
 
-function completionInstruction(maxTokens, language, retry = false) {
+function completionInstruction(maxTokens, language, retryAttempt = 0) {
   // Plan a complete answer inside this turn's actual output allowance. This
   // scales with requested depth; it is not the old universal 45-word cap.
-  const words = Math.max(20, Math.floor(maxTokens / (retry ? 8 : 5)));
+  const retry = retryAttempt > 0;
+  const wordDivisor = retryAttempt >= 2 ? 20 : retry ? 12 : 5;
+  const words = Math.max(20, Math.floor(maxTokens / wordDivisor));
   const instructions = {
     cs: `\n\n${retry ? 'Předchozí výstup narazil na technický limit. Napiš odpověď znovu a úsporněji. ' : ''}Naplánuj úplnou odpověď přibližně do ${words} slov. Vyber nejdůležitější body a konkrétní příklad; nezačínej více oddílů, než dokážeš dokončit. Výslovná žádost o kratší odpověď má přednost. Rozlišuj běžné chování, podmínky a záruky; neopakuj chyby z historie.`,
     sk: `\n\n${retry ? 'Predošlý výstup dosiahol technický limit. Napíš odpoveď znova a úspornejšie. ' : ''}Naplánuj úplnú odpoveď približne do ${words} slov. Vyber hlavné body a príklad; dokonči všetky začaté časti. Výslovná stručnosť má prednosť. Rozlišuj bežné správanie, podmienky a záruky; neopakuj chyby z histórie.`,
@@ -1257,6 +1259,7 @@ Délku, strukturu a počet příkladů přizpůsob zadání. Přiznej nejistotu;
     const requestedTokens = selectAnswerTokenBudget(input, decision.intent);
     const numCtx = getNumCtx(config.models.CHAT);
     let answerContext;
+    let completionBasePrompt = systemPrompt;
     if (decision.intent === IntentType.CONVERSATIONAL) {
       // The full durable summary may lower the output allowance. The word
       // target sent to the model must describe that same final allowance, not
@@ -1270,14 +1273,15 @@ Délku, strukturu a počet příkladů přizpůsob zadání. Přiznej nejistotu;
           const candidateContext = buildAnswerContext(input, context.history, candidateSystemPrompt,
             outputCap, numCtx, { allowSummaryOutputTradeoff: true });
           if (candidateContext.maxTokens === outputCap) {
-            return { systemPrompt: candidateSystemPrompt, answerContext: candidateContext };
+            return { systemPrompt: candidateSystemPrompt, answerContext: candidateContext,
+              completionBasePrompt: basePrompt };
           }
           outputCap = candidateContext.maxTokens;
         }
         throw new AnswerCompletionBudgetError('Rozpočet odpovědi se neustálil před sestavením modelového promptu.');
       };
       try {
-        ({ systemPrompt, answerContext } = planConversationalAnswer(systemPrompt));
+        ({ systemPrompt, answerContext, completionBasePrompt } = planConversationalAnswer(systemPrompt));
       } catch (error) {
         if (!(error instanceof AnswerCurrentUserBudgetError
           || error instanceof AnswerSummaryBudgetError
@@ -1287,7 +1291,7 @@ Délku, strukturu a počet příkladů přizpůsob zadání. Přiznej nejistotu;
         // their space; retain both language rules and all project/safety text.
         const compactInstruction = languageInstruction.replace(/^═+(?:\r?\n|$)/gmu, '');
         if (compactInstruction === languageInstruction) throw error;
-        ({ systemPrompt, answerContext } = planConversationalAnswer(systemPromptFor(compactInstruction)));
+        ({ systemPrompt, answerContext, completionBasePrompt } = planConversationalAnswer(systemPromptFor(compactInstruction)));
       }
     } else {
       answerContext = buildAnswerContext(input, context.history, systemPrompt, requestedTokens, numCtx);
@@ -1305,8 +1309,10 @@ Délku, strukturu a počet příkladů přizpůsob zadání. Přiznej nejistotu;
     const MAX_ANSWER_RETRIES = 2;
     let answerRetry = 0;
     let currentPrompt = prompt;
-    const boundedRetryPrompt = candidate => Math.ceil(Buffer.byteLength(systemPrompt + candidate, 'utf8') / 2)
-      + answerContext.maxTokens + 384 <= numCtx ? candidate : prompt;
+    let currentSystemPrompt = systemPrompt;
+    let currentAnswerContext = answerContext;
+    const boundedRetryPrompt = candidate => Math.ceil(Buffer.byteLength(currentSystemPrompt + candidate, 'utf8') / 2)
+      + currentAnswerContext.maxTokens + 384 <= numCtx ? candidate : currentPrompt;
     let result;
     const answerResponseIntent = detectResponseIntent(input, {
       lastResponseIntent: context.sessionState?.lastResponseIntent || null,
@@ -1323,11 +1329,11 @@ Délku, strukturu a počet příkladů přizpůsob zadání. Přiznej nejistotu;
         try { context.onSystemStep('llm_calling', answerRetry > 0 ? `Opakuji (pokus ${answerRetry + 1})` : 'Generuji odpověď'); } catch (_) {}
       }
 
-      result = await creBridge.generateChatResponse(currentPrompt, systemPrompt, {
+      result = await creBridge.generateChatResponse(currentPrompt, currentSystemPrompt, {
         sessionId: `conv-${sessionId}`,
         temperature: answerRetry === 0 ? 0.7 : 0.5,
-        maxTokens: answerContext.maxTokens,
-        num_ctx: answerContext.numCtx,
+        maxTokens: currentAnswerContext.maxTokens,
+        num_ctx: currentAnswerContext.numCtx,
         signal: context.signal || null,
       });
 
@@ -1336,11 +1342,40 @@ Délku, strukturu a počet příkladů přizpůsob zadání. Přiznej nejistotu;
       // before the finalizer rejects it. No tool runs inside this loop.
       if (result.finishReason === 'length' && answerRetry < MAX_ANSWER_RETRIES) {
         logger.warn('ConversationHandler', 'Incomplete answer: retrying within the same output authority', { retry: answerRetry });
-        const promptedRetry = prompt + completionInstruction(answerContext.maxTokens, langCtx.language, true);
-        // A context-filled turn may have spent the retry reserve on its
-        // complete summary. Reuse the exact bounded prompt in that case;
-        // a colder retry can still finish without evicting the source facts.
-        currentPrompt = boundedRetryPrompt(promptedRetry);
+        // Rebuild the optional history around the stronger system instruction.
+        // Appending it to an already filled user prompt can silently fall back
+        // to the identical request. The current question, complete durable
+        // summary and protected recent user correction remain mandatory.
+        try {
+          let retryCap = answerContext.maxTokens;
+          let plannedRetry = null;
+          for (let pass = 0; pass < 4; pass++) {
+            const retrySystemPrompt = completionBasePrompt
+              + completionInstruction(retryCap, langCtx.language, answerRetry + 1);
+            const retryContext = buildAnswerContext(input, context.history, retrySystemPrompt,
+              retryCap, numCtx, { allowSummaryOutputTradeoff: decision.intent === IntentType.CONVERSATIONAL });
+            if (retryContext.maxTokens === retryCap) {
+              plannedRetry = { systemPrompt: retrySystemPrompt, context: retryContext };
+              break;
+            }
+            retryCap = retryContext.maxTokens;
+          }
+          if (plannedRetry) {
+            currentSystemPrompt = plannedRetry.systemPrompt;
+            currentAnswerContext = plannedRetry.context;
+            currentPrompt = plannedRetry.context.prompt;
+          } else {
+            logger.warn('ConversationHandler', 'Completion retry budget did not converge', { retry: answerRetry });
+          }
+        } catch (error) {
+          if (!(error instanceof AnswerCurrentUserBudgetError
+            || error instanceof AnswerSummaryBudgetError
+            || error instanceof AnswerRecentUserBudgetError)) throw error;
+          // A prior provider call already fit. Keep its exact bounded request
+          // if the stronger retry cannot fit the required data; terminal
+          // truncation still fails closed after the final attempt.
+          logger.warn('ConversationHandler', 'Completion retry cannot fit required context', { retry: answerRetry });
+        }
         answerRetry++;
         continue;
       }
@@ -1478,7 +1513,8 @@ Délku, strukturu a počet příkladů přizpůsob zadání. Přiznej nejistotu;
         model: result.model,
         duration: result.duration,
         finishReason: result.finishReason || null,
-        answerBudget: { maxTokens: answerContext.maxTokens, numCtx: answerContext.numCtx, historyTurns: answerContext.historyTurns },
+        answerBudget: { maxTokens: currentAnswerContext.maxTokens, numCtx: currentAnswerContext.numCtx,
+          historyTurns: currentAnswerContext.historyTurns },
         answerRetries: answerRetry,
         decision: decision.toJSON(),
       },
