@@ -216,8 +216,11 @@ async function discussProjectOnce(input, context, {
   const project = context.project;
   if (!project?.id || !project.path) throw new Error('Projekt není připojený.');
   const analysis = await inspect(project, { signal: context.signal });
-  const history = (context.dbHistory || []).slice(-10).map(turn => ({
-    role: turn.response?.tag?.speaker === 'user' ? 'user' : 'assistant',
+  const durableHistory = context.dbHistory || [];
+  const summary = durableHistory.findLast(turn => turn.isSummary === true);
+  const recentHistory = durableHistory.filter(turn => !turn.isSummary).slice(-10);
+  const history = [...(summary ? [summary] : []), ...recentHistory].map(turn => ({
+    role: turn.isSummary ? 'summary' : turn.response?.tag?.speaker === 'user' ? 'user' : 'assistant',
     content: String(turn.response?.content || '').slice(0, 2400),
   }));
   const observed = await inspectDevelopmentEnvironment();

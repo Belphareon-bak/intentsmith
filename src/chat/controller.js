@@ -17,7 +17,7 @@ import { logger } from '../core/logger.js';
 import { SafetyEngine } from './safety/engine.js';
 import { getConversationStore, TurnRole } from './conversation-store.js';
 import { getLTMContextForSynthesis } from './ltm-context.js';
-import { maybeCompact } from './context-compact.js';
+import { ensureCompactionBeforeNextTurn, maybeCompact } from './context-compact.js';
 import { maybeInitContext } from './context-init.js';
 import { getMemoryBank } from '../memory/memory-bank.js';
 import { chatMemory } from '../memory/chat-memory.js';
@@ -1926,6 +1926,15 @@ ChatController.handle = async function(request) {
   store.ensureConversation(dbConversationId, {
     projectId: context.projectId || null,
   });
+
+  // The preceding response may have started a background summary. Wait only
+  // when the next user message would evict an unsummarized raw message.
+  try {
+    await ensureCompactionBeforeNextTurn(dbConversationId, store, sessionId, signal);
+  } catch (error) {
+    if (isAbortError(error)) throw error;
+    throw new ChatProcessingError('CONTEXT_SUMMARY_UNAVAILABLE', error);
+  }
 
   // Studio 2 chooses expertises through a separate, revision-checked durable
   // route. M1's exact wire contract has no expertise field. Resolve IDs through

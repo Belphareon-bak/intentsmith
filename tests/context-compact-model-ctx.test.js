@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import assert from 'node:assert/strict';
 import {
   assertEqual,
   suite,
@@ -7,7 +8,7 @@ import {
   test,
   testAsync,
 } from './harness.js';
-import { maybeCompact } from '../src/chat/context-compact.js';
+import { awaitPendingCompaction, ensureCompactionBeforeNextTurn, getCompactionBudget, maybeCompact } from '../src/chat/context-compact.js';
 import { ConversationStore, TurnRole } from '../src/chat/conversation-store.js';
 import { config } from '../src/config.js';
 import { logger } from '../src/core/logger.js';
@@ -42,7 +43,7 @@ await testAsync('registered num_ctx controls the compaction threshold', async ()
   clearNumCtxCache();
 });
 
-await testAsync('one context snapshot controls truncate, provider wire, and post-fill evidence', async () => {
+await testAsync('one context snapshot controls source budget, provider wire, and post-fill evidence', async () => {
   const model = config.compact.summaryModel || config.models.CHAT;
   const originalSummaryModel = config.compact.summaryModel;
   const originalFetch = globalThis.fetch;
@@ -57,7 +58,7 @@ await testAsync('one context snapshot controls truncate, provider wire, and post
   const turns = Array.from({ length: config.compact.keepTurns + 2 }, (_, index) => ({
     id: index + 1,
     role: index % 2 === 0 ? 'user' : 'assistant',
-    content: `turn-${index}-${'x'.repeat(4000)}`,
+    content: `turn-${index}-${'x'.repeat(800)}`,
   }));
   const store = {
     getEffectiveHistoryTokens: () => tokenValues[Math.min(tokenRead++, tokenValues.length - 1)],
@@ -79,6 +80,7 @@ await testAsync('one context snapshot controls truncate, provider wire, and post
         message: { content: 'bounded summary' },
         prompt_eval_count: 10,
         eval_count: 3,
+        done_reason: 'stop',
       }),
     };
   };
@@ -96,9 +98,10 @@ await testAsync('one context snapshot controls truncate, provider wire, and post
     assertEqual(requestBodies.length, 1);
     assertEqual(requestBodies[0].model, model);
     assertEqual(requestBodies[0].options.num_ctx, 1024);
-    assertEqual(requestBodies[0].messages[0].content.includes('...[zkráceno]'), true);
-    const truncate = warnEvents.find(event => event.message === 'Turn-limited text still exceeds char limit, truncating');
-    assertEqual(truncate?.data?.maxChars, Math.floor(1024 * 0.6) * 4);
+    assertEqual(requestBodies[0].options.num_predict, 256);
+    assertEqual(requestBodies[0].messages[0].content.includes('turn-0-'), true);
+    assertEqual(getCompactionBudget(model).safetyMaxChars, Math.floor(1024 * 0.6) * 4);
+    assertEqual(warnEvents.length, 0);
     const complete = infoEvents.find(event => event.message === 'Compaction complete');
     assertEqual(complete?.data?.newFillPercent, Math.round(((100 + 1500) / 1024) * 100));
     assertEqual(storedSummary?.summaryText, 'bounded summary');
@@ -174,7 +177,7 @@ await testAsync('completion reports real savings and archived turns do not re-tr
     requests.push(JSON.parse(options.body));
     return {
       ok: true,
-      json: async () => ({ message: { content: 'Krátký souhrn.' }, prompt_eval_count: 10, eval_count: 3 }),
+      json: async () => ({ message: { content: 'Krátký souhrn.' }, prompt_eval_count: 10, eval_count: 3, done_reason: 'stop' }),
     };
   };
   logger.info = (component, message, data) => infoEvents.push({ component, message, data });
@@ -237,6 +240,7 @@ await testAsync('short turns compact before the handler evicts an unsummarized t
         message: { content: 'Stored first anchor ORION.' },
         prompt_eval_count: 10,
         eval_count: 4,
+        done_reason: 'stop',
       }),
     };
   };
@@ -287,6 +291,195 @@ await testAsync('short turns compact before the handler evicts an unsummarized t
     globalThis.fetch = originalFetch;
     config.compact.threshold = originalThreshold;
     config.compact.keepTurns = originalKeepTurns;
+    clearNumCtxCache();
+  }
+});
+
+await testAsync('pending summary blocks the next snapshot, respects cancellation, and keepTurns 10 still retains the first fact', async () => {
+  const model = config.compact.summaryModel || config.models.CHAT;
+  const previousFetch = globalThis.fetch;
+  const previousKeepTurns = config.compact.keepTurns;
+  const previousThreshold = config.compact.threshold;
+  const store = new ConversationStore(null);
+  const id = 'pending-summary-retention';
+  const requests = [];
+  let release;
+  const provider = new Promise(resolve => { release = resolve; });
+  for (let index = 0; index < 10; index += 1) {
+    store.appendTurn(id, index % 2 ? TurnRole.ASSISTANT : TurnRole.USER,
+      index === 0 ? 'Initial durable fact VEGA_431.' : `Short turn ${index}`);
+  }
+  globalThis.fetch = async (_url, options = {}) => {
+    requests.push(JSON.parse(options.body));
+    await provider;
+    return { ok: true, json: async () => ({
+      message: { content: 'Initial durable fact VEGA_431.' }, done_reason: 'stop',
+      prompt_eval_count: 40, eval_count: 20,
+    }) };
+  };
+  try {
+    config.compact.keepTurns = 10;
+    config.compact.threshold = 0.75;
+    clearNumCtxCache(); setNumCtx(model, 4096);
+    maybeCompact(id, store, 'pending-test');
+    const abort = new AbortController();
+    const cancelledWait = ensureCompactionBeforeNextTurn(id, store, 'pending-test', abort.signal);
+    let completed = false;
+    const waiting = ensureCompactionBeforeNextTurn(id, store, 'pending-test').then(() => { completed = true; });
+    await new Promise(resolve => setImmediate(resolve));
+    assertEqual(completed, false, 'the next turn must not snapshot uncompressed history while the model is pending');
+    abort.abort();
+    await assert.rejects(cancelledWait, error => error.name === 'AbortError');
+    assertEqual(completed, false, 'aborting one request must not cancel the shared summary');
+    release();
+    await waiting;
+    assertEqual(requests.length, 1);
+    assertEqual(requests[0].options.num_predict, 1000);
+    assertEqual(requests[0].messages[0].content.includes('Initial durable fact VEGA_431.'), true);
+    assertEqual(store.getSummary(id)?.upToMsgId, 2);
+    assertEqual(store.getUnsummarizedTurnCount(id), 8);
+    const history = store.buildHandlerHistory(id);
+    assertEqual(history[0].isSummary, true);
+    assertEqual(history[0].response.content.includes('VEGA_431'), true);
+    assertEqual(history.length, 9);
+    store.appendTurn(id, TurnRole.USER, 'Next question after the pending summary.');
+    const nextHistory = store.buildHandlerHistory(id);
+    assertEqual(nextHistory.length, 10);
+    assertEqual(nextHistory[0].isSummary, true);
+    assertEqual(nextHistory[1].response.content, 'Short turn 2');
+    assertEqual(nextHistory.at(-1).response.content, 'Next question after the pending summary.');
+  } finally {
+    release();
+    globalThis.fetch = previousFetch;
+    config.compact.keepTurns = previousKeepTurns;
+    config.compact.threshold = previousThreshold;
+    clearNumCtxCache();
+  }
+});
+
+await testAsync('two truncated summaries never replace raw history and the next turn fails closed', async () => {
+  const model = config.compact.summaryModel || config.models.CHAT;
+  const previousFetch = globalThis.fetch;
+  const previousKeepTurns = config.compact.keepTurns;
+  const previousThreshold = config.compact.threshold;
+  const store = new ConversationStore(null);
+  const id = 'truncated-summary-retention';
+  const requests = [];
+  for (let index = 0; index < 10; index += 1) {
+    store.appendTurn(id, index % 2 ? TurnRole.ASSISTANT : TurnRole.USER,
+      index === 0 ? 'Initial durable fact POLARIS_819.' : `Short turn ${index}`);
+  }
+  globalThis.fetch = async (_url, options = {}) => {
+    requests.push(JSON.parse(options.body));
+    return { ok: true, json: async () => ({ message: { content: 'Partial POLARIS_819' },
+      done_reason: 'length', prompt_eval_count: 40, eval_count: 1000 }) };
+  };
+  try {
+    config.compact.keepTurns = 6;
+    config.compact.threshold = 0.75;
+    clearNumCtxCache(); setNumCtx(model, 4096);
+    maybeCompact(id, store, 'incomplete-test');
+    await assert.rejects(awaitPendingCompaction(id), /CONTEXT_SUMMARY_INCOMPLETE:length/);
+    assertEqual(requests.length, 2);
+    assertEqual(requests[1].messages[0].content.includes('úsporněji'), true);
+    assertEqual(store.getSummary(id), null);
+    await assert.rejects(ensureCompactionBeforeNextTurn(id, store, 'incomplete-test'), /CONTEXT_SUMMARY_INCOMPLETE:length/);
+    assertEqual(requests.length, 4, 'one bounded retry is permitted for each compaction attempt');
+    assertEqual(store.getUnsummarizedTurnCount(id), 10);
+    assertEqual(store.getSummary(id), null);
+  } finally {
+    globalThis.fetch = previousFetch;
+    config.compact.keepTurns = previousKeepTurns;
+    config.compact.threshold = previousThreshold;
+    clearNumCtxCache();
+  }
+});
+
+await testAsync('a completed concise retry replaces the truncated draft without increasing the output cap', async () => {
+  const model = config.compact.summaryModel || config.models.CHAT;
+  const previousFetch = globalThis.fetch;
+  const previousKeepTurns = config.compact.keepTurns;
+  const store = new ConversationStore(null);
+  const id = 'completed-summary-retry';
+  const requests = [];
+  for (let index = 0; index < 10; index += 1) {
+    store.appendTurn(id, index % 2 ? TurnRole.ASSISTANT : TurnRole.USER,
+      index === 0 ? 'Initial durable fact SIRIUS_228.' : `Short turn ${index}`);
+  }
+  globalThis.fetch = async (_url, options = {}) => {
+    requests.push(JSON.parse(options.body));
+    const recovered = requests.length === 2;
+    return { ok: true, json: async () => ({ message: { content: recovered
+      ? 'Initial durable fact SIRIUS_228.' : 'Partial and unfinished' },
+    done_reason: recovered ? 'stop' : 'length', prompt_eval_count: 40,
+    eval_count: recovered ? 50 : 1000 }) };
+  };
+  try {
+    config.compact.keepTurns = 6;
+    clearNumCtxCache(); setNumCtx(model, 4096);
+    maybeCompact(id, store, 'retry-test');
+    await awaitPendingCompaction(id);
+    assertEqual(requests.length, 2);
+    assertEqual(requests.every(request => request.options.num_predict === 1000), true);
+    assertEqual(store.getSummary(id)?.summary, 'Initial durable fact SIRIUS_228.');
+    assertEqual(store.getSummary(id)?.upToMsgId, 4);
+    assertEqual(store.getUnsummarizedTurnCount(id), 6);
+  } finally {
+    globalThis.fetch = previousFetch;
+    config.compact.keepTurns = previousKeepTurns;
+    clearNumCtxCache();
+  }
+});
+
+await testAsync('oversized summary source fails before provider call instead of marking dropped turns as covered', async () => {
+  const model = config.compact.summaryModel || config.models.CHAT;
+  const previousFetch = globalThis.fetch;
+  const previousKeepTurns = config.compact.keepTurns;
+  const store = new ConversationStore(null);
+  const id = 'oversized-summary-source';
+  let calls = 0;
+  for (let index = 0; index < 10; index += 1) {
+    store.appendTurn(id, index % 2 ? TurnRole.ASSISTANT : TurnRole.USER,
+      index === 0 ? 'Initial durable fact NOVA_521.' + 'x'.repeat(11000) : `Short turn ${index}`);
+  }
+  globalThis.fetch = async () => { calls += 1; throw new Error('Provider must not be called'); };
+  try {
+    config.compact.keepTurns = 6;
+    clearNumCtxCache(); setNumCtx(model, 4096);
+    maybeCompact(id, store, 'oversize-test');
+    await assert.rejects(awaitPendingCompaction(id), /CONTEXT_SUMMARY_INPUT_TOO_LARGE/);
+    assertEqual(calls, 0);
+    assertEqual(store.getSummary(id), null);
+    assertEqual(store.getUnsummarizedTurnCount(id), 10);
+  } finally {
+    globalThis.fetch = previousFetch;
+    config.compact.keepTurns = previousKeepTurns;
+    clearNumCtxCache();
+  }
+});
+
+await testAsync('more than fifty new turns cannot be marked summarized after dropping their prefix', async () => {
+  const model = config.compact.summaryModel || config.models.CHAT;
+  const previousFetch = globalThis.fetch;
+  const previousKeepTurns = config.compact.keepTurns;
+  const store = new ConversationStore(null);
+  const id = 'too-many-summary-turns';
+  let calls = 0;
+  for (let index = 0; index < 60; index += 1) {
+    store.appendTurn(id, index % 2 ? TurnRole.ASSISTANT : TurnRole.USER, `Short turn ${index}`);
+  }
+  globalThis.fetch = async () => { calls += 1; throw new Error('Provider must not be called'); };
+  try {
+    config.compact.keepTurns = 6;
+    clearNumCtxCache(); setNumCtx(model, 4096);
+    maybeCompact(id, store, 'too-many-test');
+    await assert.rejects(awaitPendingCompaction(id), /CONTEXT_SUMMARY_INPUT_TOO_MANY_TURNS/);
+    assertEqual(calls, 0);
+    assertEqual(store.getSummary(id), null);
+    assertEqual(store.getUnsummarizedTurnCount(id), 60);
+  } finally {
+    globalThis.fetch = previousFetch;
+    config.compact.keepTurns = previousKeepTurns;
     clearNumCtxCache();
   }
 });
