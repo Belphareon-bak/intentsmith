@@ -1,5 +1,9 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**Aktuální checkpoint 30. 9. 2026:** [měřené dokončování IDE/backendu, chatu,
+GPU huntu a odložené mobilní integrace](docs/review/2026-09-30-COMPLETION-TRACKER.md).
+Následující datované záznamy zachovávají historii tehdejších kandidátů.
+
 **Poslední doložená instalace IDE 2.0, 2026-09-29:** frontend `fddfe996`
 s operátorem schválenou paletou nastavení B + 20 % je místně nasazený;
 AppImage, Electron UI gate, běžný start a 11 motivů PASS. Backend `c84b88cd`

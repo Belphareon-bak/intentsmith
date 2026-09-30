@@ -1,5 +1,9 @@
 # IntentSmith — mapa systému
 
+**Aktuální vývojový checkpoint 30. 9. 2026:** [přesné identity zdroje,
+instalace, testů a zbývajících bran](docs/review/2026-09-30-COMPLETION-TRACKER.md).
+Chronologie níže zachovává důkazy předchozích instalací a větví.
+
 **Poslední doložený vizuál IDE 2.0, 2026-09-29:** místně instalovaný frontend
 `fddfe996` používá schválenou paletu nastavení B s 20% nárůstem sytosti,
 obrysovými symboly a jemnými podklady. Reálný AppImage, Electron UI gate,

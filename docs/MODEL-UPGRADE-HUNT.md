@@ -1,5 +1,11 @@
 # Hledání lepších modelů
 
+**Aktuální stav 30. 9. 2026:** [read-only evidence instalované DB a oddělení
+vývojového hunt kandidáta](review/2026-09-30-COMPLETION-TRACKER.md). Na
+instalovaném provideru je 84/84 použitelných model–role dvojic `MISSING`,
+bez přijatého rozhodnutí; níže je popsaná pipeline kandidátní hunt větve,
+nikoli přijetí jejího skóre nebo integrace do tohoto checkoutu.
+
 **Vstup:** `scripts/model-upgrade-hunt.js` · **Stav:** current v136.1 pipeline
 **Autorita evaluací:** [MODEL-SCORING-ACTIVATION.md](MODEL-SCORING-ACTIVATION.md)
 
