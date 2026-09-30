@@ -3,7 +3,7 @@
 **Aktuální vývojový checkpoint 30. 9. 2026:** [stav dokončování, měřené
 výsledky a otevřené brány](docs/review/2026-09-30-COMPLETION-TRACKER.md).
 Níže uvedený základ `main` a starší checkpointy popisují předchozí stav;
-integrační chat/Studio 2 kandidát je zatím samostatná pushnutá větev.
+integrační chat/Studio 2/GPU Hunt kandidát je zatím samostatná pushnutá větev.
 
 **Aktuální vývojový základ — 28. 9. 2026:** `main` sjednocuje vývoj vycházející
 z C3 a zdroj právě používaného **IDE 2.0**. Základ `04f2be71` obsahuje backend

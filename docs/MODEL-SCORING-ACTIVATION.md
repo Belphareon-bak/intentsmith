@@ -1,6 +1,14 @@
 # Modelové evaluace a aktivace
 
-**Aktuální provozní stav, 23. 9. 2026:** nasazený runtime `400c9d8f`.
+**Aktuální kontrola, 30. 9. 2026:** instalovaný backend je `c84b88cd`,
+Ollama `0.34.0-intentsmith.1`; read-only census produkční DB v 18:17 UTC
+ukázal **84/84 použitelných model–role dvojic MISSING**, žádné aktuální
+`COMPLETE` ani přijaté rozhodnutí. Společný Hunt/Studio/chat zdroj
+`edc61a73` je pushnutý kandidát, ale není nasazený. Druhý posudek matice
+je částečný a neuděluje oprávnění změnit vazby.
+[Aktuální brány a měření](review/2026-09-30-COMPLETION-TRACKER.md).
+
+**Provozní checkpoint, 23. 9. 2026:** tehdy nasazený runtime `400c9d8f`.
 Modely, backend i Studio používají podporovanou cestu sběru a historie;
 uložený sběr lze samostatně ohodnotit po přijetí nezávislého hodnotitele.
 Přejímky jsou záznamy v DB pro konkrétní kontrakt, runtime, profil a dvojici

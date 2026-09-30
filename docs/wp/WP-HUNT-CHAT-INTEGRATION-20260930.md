@@ -7,11 +7,22 @@ NOT_DEPLOYED / REAL_NO_GO. Tato pracovní větev vychází z chat/Studio 2 commi
 Žádný krok tohoto WP neotevírá GPU, Ollamu, živou DB, timer, instalovanou
 službu ani modelové vazby. Zveřejnění větve není nezávislé přijetí kandidáta.
 
+**Společná integrace, 30. 9. 2026, 20:07 UTC:** Hunt oprava `caf767bf` je
+sloučená s chatovým zachováním celého souhrnu a testy správnosti hodnot v
+`edc61a73` na `work/real-chat-journeys-20260930`. Registr má nyní 572
+programů (`476 ACTIVE`, `81 BLOCKED`, `15 HISTORICAL`), module graph 1 460
+hran, 3 cykly / 28 členů. Na tomto čistém SHA skončil celý offline/database
+audit **398 PASS / 2 FAIL / 0 BLOCKED**: zastaralý počet hran v ROADMAP a
+zapečetěná Gate 0 politika registru. Oprava ROADMAP je rozpracovaná; audit
+po ní se musí opakovat. Kandidát zůstává `REVIEW_PENDING / NOT_DEPLOYED /
+REAL_NO_GO`.
+
 ## Vlastněný rozsah
 
 - Sjednotit chatové skládání historie: archivní souhrn, uživatelské opravy,
-  rozpočet okna, CODE retry a projektovou instrukci. Konfliktní větev
-  `decisions.js` vyžaduje ještě porovnání s paralelní opravou těsného kontextu.
+  rozpočet okna, CODE retry a projektovou instrukci. Konflikt `decisions.js`
+  je v integrovaném kandidátu vyřešen se zachováním celého souhrnu a
+  předností nedávných uživatelských oprav.
 - Převzít Hunt sběr, nezávislé dvojí známkování, arbitráž, rozhodovací metodu,
   plán/retenci a jejich zdrojová historická evidence. Schéma má migrace
   117, 118, 119 a 120 v tomto pořadí, celkem 107.
@@ -41,10 +52,11 @@ službu ani modelové vazby. Zveřejnění větve není nezávislé přijetí ka
 
 ## Neuzavřené brány
 
-1. Při extrémně těsném okně může být vybrán souhrn, ale jeho zkrácení odstranit
-   konkrétní fakt; starší uživatelský údaj se také nemusí vejít. Přítomnost
-   řádku `summary` není důkazem zachování jeho významu. Tato integrační
-   varianta čeká na porovnání s paralelní fail-closed opravou a nezávislé review.
+1. Původní zkrácení uloženého souhrnu je ve společném kandidátu odstraněno;
+   nevejde-li se celý, cesta selže před voláním providera. M1 testy 42/42
+   prošly. Skutečný živý modelový běh finálního SHA a nezávislé review
+   společného konfliktu stále chybějí; nedávný příliš dlouhý uživatelský tah
+   může být kvůli pevnému oknu zkrácen viditelným označením.
 2. Sjednocený zdroj ani syntetická simulace nejsou důkazem aktuálních živých
    skóre. Poslední read-only kontrola instalovaného provideru uváděla 84/84
    použitelných model–role dvojic `MISSING`, žádné přijaté rozhodnutí.
@@ -57,5 +69,5 @@ službu ani modelové vazby. Zveřejnění větve není nezávislé přijetí ka
    napojení nejsou součástí tohoto kandidáta.
 
 **Předání:** [aktuální projektový checkpoint](../review/2026-09-30-COMPLETION-TRACKER.md)
-je časově označený snímek před tímto sloučením. Hunt matice a její přesné
+uvádí samostatně tuto společnou integraci a starší checkpointy. Hunt matice a její přesné
 hranice jsou v [matrici 28. 9.](../review/2026-09-28-HUNT-MATRIX-COMPLETION.md).
