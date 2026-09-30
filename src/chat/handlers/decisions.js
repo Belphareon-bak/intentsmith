@@ -1229,10 +1229,10 @@ Délku, strukturu a počet příkladů přizpůsob zadání. Přiznej nejistotu;
 
     // Use detected language or fallback to Czech
     // v61.3: Fix operator precedence (|| vs +) and add strict language enforcement
-    let systemPrompt = (CONVERSATIONAL_SYSTEM_PROMPTS[langCtx.language]
-      || CONVERSATIONAL_SYSTEM_PROMPTS.cs)
-      + (langCtx.instruction || '')
-      + buildStrictLanguageInstruction(langCtx.language)
+    const baseSystemPrompt = CONVERSATIONAL_SYSTEM_PROMPTS[langCtx.language]
+      || CONVERSATIONAL_SYSTEM_PROMPTS.cs;
+    const languageInstruction = langCtx.instruction || '';
+    const remainingSystemInstructions = buildStrictLanguageInstruction(langCtx.language)
       + buildBriefReplyInstruction(input, langCtx.language)
       + buildStandardConversationInstruction(input, langCtx.language, decision.intent)
       + buildCompactNamingInstruction(input, langCtx.language, decision.intent)
@@ -1246,8 +1246,11 @@ Délku, strukturu a počet příkladů přizpůsob zadání. Přiznej nejistotu;
       + buildFullCodeDeliverableInstruction(input, langCtx.language, decision.intent);
 
     // v65.4: Project context injection (sanitized, length-limited)
-    systemPrompt += await developmentEnvironmentPrompt();
-    systemPrompt += buildProjectContext(context);
+    const environmentPrompt = await developmentEnvironmentPrompt();
+    const projectPrompt = buildProjectContext(context);
+    const systemPromptFor = instruction => baseSystemPrompt + instruction
+      + remainingSystemInstructions + environmentPrompt + projectPrompt;
+    let systemPrompt = systemPromptFor(languageInstruction);
     const requestedTokens = selectAnswerTokenBudget(input, decision.intent);
     const numCtx = getNumCtx(config.models.CHAT);
     let answerContext;
@@ -1257,20 +1260,29 @@ Délku, strukturu a počet příkladů přizpůsob zadání. Přiznej nejistotu;
       // the larger no-history estimate. Capping each pass at its previous
       // allowance makes this converge downward even if the shorter word count
       // frees a byte or two in the system prompt.
-      let outputCap = buildAnswerContext(input, [], systemPrompt, requestedTokens, numCtx).maxTokens;
-      for (let pass = 0; pass < 4; pass++) {
-        const candidateSystemPrompt = systemPrompt + completionInstruction(outputCap, langCtx.language);
-        const candidateContext = buildAnswerContext(input, context.history, candidateSystemPrompt,
-          outputCap, numCtx, { allowSummaryOutputTradeoff: true });
-        if (candidateContext.maxTokens === outputCap) {
-          systemPrompt = candidateSystemPrompt;
-          answerContext = candidateContext;
-          break;
+      const planConversationalAnswer = basePrompt => {
+        let outputCap = buildAnswerContext(input, [], basePrompt, requestedTokens, numCtx).maxTokens;
+        for (let pass = 0; pass < 4; pass++) {
+          const candidateSystemPrompt = basePrompt + completionInstruction(outputCap, langCtx.language);
+          const candidateContext = buildAnswerContext(input, context.history, candidateSystemPrompt,
+            outputCap, numCtx, { allowSummaryOutputTradeoff: true });
+          if (candidateContext.maxTokens === outputCap) {
+            return { systemPrompt: candidateSystemPrompt, answerContext: candidateContext };
+          }
+          outputCap = candidateContext.maxTokens;
         }
-        outputCap = candidateContext.maxTokens;
-      }
-      if (!answerContext) {
         throw new AnswerCompletionBudgetError('Rozpočet odpovědi se neustálil před sestavením modelového promptu.');
+      };
+      try {
+        ({ systemPrompt, answerContext } = planConversationalAnswer(systemPrompt));
+      } catch (error) {
+        if (!(error instanceof AnswerSummaryBudgetError || error instanceof AnswerRecentUserBudgetError)) throw error;
+        // The box-drawing lines in the long language banner carry no rule.
+        // Remove only those separators when the complete durable facts need
+        // their space; retain both language rules and all project/safety text.
+        const compactInstruction = languageInstruction.replace(/^═+(?:\r?\n|$)/gmu, '');
+        if (compactInstruction === languageInstruction) throw error;
+        ({ systemPrompt, answerContext } = planConversationalAnswer(systemPromptFor(compactInstruction)));
       }
     } else {
       answerContext = buildAnswerContext(input, context.history, systemPrompt, requestedTokens, numCtx);
@@ -1317,7 +1329,12 @@ Délku, strukturu a počet příkladů přizpůsob zadání. Přiznej nejistotu;
       // before the finalizer rejects it. No tool runs inside this loop.
       if (result.finishReason === 'length' && answerRetry < MAX_ANSWER_RETRIES) {
         logger.warn('ConversationHandler', 'Incomplete answer: retrying within the same output authority', { retry: answerRetry });
-        currentPrompt = prompt + completionInstruction(answerContext.maxTokens, langCtx.language, true);
+        const promptedRetry = prompt + completionInstruction(answerContext.maxTokens, langCtx.language, true);
+        // A context-filled turn may have spent the retry reserve on its
+        // complete summary. Reuse the exact bounded prompt in that case;
+        // a colder retry can still finish without evicting the source facts.
+        currentPrompt = Math.ceil(Buffer.byteLength(systemPrompt + promptedRetry, 'utf8') / 2)
+          + answerContext.maxTokens + 384 <= numCtx ? promptedRetry : prompt;
         answerRetry++;
         continue;
       }
