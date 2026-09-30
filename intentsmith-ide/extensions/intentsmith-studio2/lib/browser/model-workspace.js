@@ -17,22 +17,40 @@ const TAB_PATHS = Object.freeze({
   policy: ['/api/system/models/policy'],
 });
 const EXACT_DIGEST = /^[0-9a-f]{64}$/;
+const REVIEW_STATUS_LABELS = Object.freeze({
+  REVIEW_PENDING_PAIR: 'Čeká na druhý posudek',
+  REVIEW_DISPUTED: 'Spor hodnotitelů',
+  REVIEW_PAIR_NOT_INDEPENDENT: 'Nezávislá dvojice není ověřená',
+  REVIEW_INCOMPLETE: 'Posudky jsou neúplné',
+  REVIEW_RESULT_NOT_PERSISTED: 'Výsledek není uložený',
+  REVIEW_FINAL_UNVERIFIED: 'Výsledek nelze ověřit',
+  SIMULATED_EVIDENCE: 'Simulovaný důkaz',
+  ADJUDICATED: 'Rozsouzeno',
+  GRADED: 'Dvojí posudek uzavřen',
+});
 
 function record(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 function text(value, fallback = '—') { return value === null || value === undefined || value === '' ? fallback : String(value); }
 function errorText(error) { return error?.message || 'Požadavek selhal.'; }
 function percent(value) { return Number.isFinite(value) ? (value * 100).toFixed(1) + ' %' : 'bez známky'; }
 function noteText(value) { return typeof value === 'string' ? value : JSON.stringify(value ?? ''); }
+function runDetailNote(run) {
+  if (run.adjudication || run.grading?.adjudication) return 'Dva původní posudky a rozsouzení jsou zachované níže.';
+  if (run.reviewStatus === 'REVIEW_DISPUTED') return 'Posudky se liší; do rozsouzení nevzniká skóre.';
+  if (run.reviewStatus === 'REVIEW_PENDING_PAIR') return 'První posudek je uložený; čeká se na druhého nezávislého hodnotitele.';
+  if (run.reviewStatus === 'REVIEW_FINAL_UNVERIFIED') return 'Uložené skóre nelze ověřit proti původním posudkům; není použitelné.';
+  if (run.reviewStatus === 'GRADED') return 'Skóre pochází ze dvou ověřených nezávislých posudků.';
+  if (run.collection) return 'Uložené odpovědi čekají na posouzení; neúplný sběr není nulová známka.';
+  if (run.grading?.graders?.length === 2) return 'Skóre pochází ze dvou uložených posudků.';
+  return 'Chybějící dvojí posudek neprokazuje rozhodovací způsobilost.';
+}
 function presentRunDetail(run) {
   const catalog = new Map((run.taskCatalog || []).map(item => [item.name, item]));
   return { runId: run.runId, title: text(run.model) + ' · ' + text(run.role),
-    status: text(run.status) + ' · ' + percent(run.score),
+    status: text(REVIEW_STATUS_LABELS[run.reviewStatus] || run.reviewStatus || run.status) + ' · ' + percent(run.score),
     provenance: [text(run.suiteName), text(run.suiteVersion), text(run.providerVersion, 'provider nezaznamenán'),
       text(run.digestSha256, 'digest nezaznamenán')].join(' · '),
-    note: run.collection ? 'Uložené odpovědi čekají na posouzení; neúplný sběr není nulová známka.'
-      : run.grading?.adjudication ? 'Dva původní posudky a rozsouzení jsou zachované níže.'
-        : run.grading?.graders?.length === 2 ? 'Skóre pochází ze dvou uložených posudků.'
-          : 'Chybějící dvojí posudek neprokazuje rozhodovací způsobilost.',
+    note: runDetailNote(run),
     attempts: run.attemptCounts ? 'Pokusy: plán ' + text(run.attemptCounts.planned)
       + ', zaznamenáno ' + text(run.attemptCounts.observed)
       + ', neplatné ' + text(run.attemptCounts.invalid, 0)
@@ -49,6 +67,7 @@ function presentRunDetail(run) {
           const transcript = Array.isArray(detail.conversation?.transcript)
             ? detail.conversation.transcript.map(message => ({ role: text(message.role), content: text(message.content, '') })) : [];
           const response = text(task.responses?.[index], '');
+          const resolution = run.adjudication?.decisions?.find(item => item.task === task.name && item.repeat === index + 1);
           const notes = [detail.captureStatus, detail.gradingStatus, detail.reason,
             Number.isFinite(detail.contentScore) ? 'Obsah ' + percent(detail.contentScore) : null,
             Number.isFinite(detail.formatScore) ? 'Formát ' + percent(detail.formatScore) : null,
@@ -58,9 +77,13 @@ function presentRunDetail(run) {
               .map(item => text(item.id) + ': očekáváno ' + noteText(item.expected)
                 + ', vráceno ' + noteText(item.observed)),
             detail.adjudicationId ? 'Rozsouzení ' + detail.adjudicationId : null,
+            resolution ? 'Rozhodnutí: ' + text(run.adjudication.review?.reason) : null,
+            ...(resolution?.parts || []).map(part => 'Kritérium ' + text(part.criterion)
+              + ' · ' + percent(part.score) + ' · ' + text(part.evidence) + ' · ' + text(part.reason)),
           ].filter(Boolean);
           const reviews = (detail.graderReviews || []).map(review => ({
-            label: text(run.grading?.graders?.find(item => item.id === review.graderAcceptanceId)?.judge?.modelName,
+            label: text(run.reviewGraders?.find(item => item.id === review.graderAcceptanceId)?.modelName
+              || run.grading?.graders?.find(item => item.id === review.graderAcceptanceId)?.judge?.modelName,
               review.graderAcceptanceId), score: percent(review.score),
             parts: (review.parts || []).map(part => text(part.id) + ' · ' + percent(part.score)
               + ' · ' + (part.evidence || []).join(' / ')) }));

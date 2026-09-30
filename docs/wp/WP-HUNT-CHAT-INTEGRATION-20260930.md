@@ -33,6 +33,7 @@ službu ani modelové vazby. Zveřejnění větve není nezávislé přijetí ka
 | Evaluation read model | 20/20 PASS | single-grader známka jen historická, aktuálně BLOCKED |
 | Nové Hunt suite | 12/12 PASS | poslední úplná simulace trvala 116 s; bez inference |
 | Studio 2 model workspace | 9/9 PASS | přesné ID detailu, transkript, dvě revize, rozsouzení, fail-closed odlišná identita |
+| Detail uložených posudků | 24/24 grading acceptance, 21/21 read model, 9/9 Studio 2 PASS | `GET .../evaluations/:runId` nyní ověřuje oba append-only posudky a případné rozsouzení; zdrojový běh zůstává neměnný, skóre sporu je null až do ověřeného COMPLETE řádku; test Studia používá skutečný výstup read modelu |
 | Studio 2 view | PASS | shoda generovaného rendereru s prototypem, scénáře a 3000 fuzz kroků |
 | Desktop hunt | 34/34 PASS | Node 24 v `PATH`, lokální izolované závislosti |
 | Module graph | 1457 hran, 3 cykly / 28 členů; ratchet PASS | 23 nových přesných hran přijato oficiálním nástrojem nad čistým merge commitem `e20a7265` |
@@ -51,7 +52,8 @@ službu ani modelové vazby. Zveřejnění větve není nezávislé přijetí ka
    rozhodovací holdout a provozní revize stále chybějí.
 3. Celý offline/database profil na `4edd1be6` není zelený: 399/400 PASS,
    zapečetěná Gate 0 pečeť registru zůstává FAIL. Nezávislé zdrojové review
-   a nové live acceptance se provádějí samostatně. Instalace a mobilní
+   nové projekce posudků a nové live acceptance se provádějí samostatně;
+   celý profil po této opravě nebyl znovu spuštěn. Instalace a mobilní
    napojení nejsou součástí tohoto kandidáta.
 
 **Předání:** [aktuální projektový checkpoint](../review/2026-09-30-COMPLETION-TRACKER.md)

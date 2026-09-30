@@ -589,6 +589,21 @@ test('schema absence fails closed with typed 503', () => {
   db.close();
 });
 
+test('stored collection detail requires review and adjudication migrations', () => {
+  const db = database(), plans = createRoleEvaluationPlans();
+  insert(db, { runId: 'eval_collection_schema', digest: DIGEST, plan: plans.D1,
+    status: 'BLOCKED', errorCode: 'EVALUATION_AWAITING_REVIEW' });
+  db.prepare('UPDATE model_evaluation_runs SET metadata_json=? WHERE run_id=?')
+    .run(JSON.stringify({ collection: { status: 'AWAITING_REVIEW' } }), 'eval_collection_schema');
+  const read = new ModelEvaluationReadModel(db, { plans });
+  let error = null;
+  try { read.readRun('eval_collection_schema'); } catch (caught) { error = caught; }
+  assert(error instanceof ModelEvaluationReadError);
+  assertEqual(error.code, 'MODEL_EVALUATION_REVIEW_SCHEMA_MISSING');
+  assertEqual(error.httpStatus, 503);
+  db.close();
+});
+
 test('historical detail uses the exact requested run and preserves failed grading checks', () => {
   const db = database(), plans = createRoleEvaluationPlans();
   db.exec("ALTER TABLE model_evaluation_runs ADD COLUMN task_results_json TEXT DEFAULT '[]'");

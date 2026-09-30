@@ -172,23 +172,23 @@ test('stored-answer grading pins reviewed source and never starts without a vali
   workspace.destroy();
 });
 
-test('Studio 2 loads exact stored conversation, both reviews and adjudication without inventing a score', async () => {
+test('Studio 2 renders a completed run detail and rejects a mismatched run identity', async () => {
   const runId = 'eval_1234', calls = [];
   let mismatch = false;
   const workspace = new ModelWorkspace({ backendUrl: () => 'http://127.0.0.1:3335',
     fetchImpl: async (url, options) => {
       const path = new URL(url).pathname; calls.push([options.method || 'GET', path]);
       if (path === '/api/system/models/evaluations') return ok({ roles: {}, history: [{ runId,
-        model: 'fixture:latest', role: 'CHAT', status: 'AWAITING_REVIEW', score: null }] });
+        model: 'fixture:latest', role: 'CHAT', status: 'COMPLETE', score: 0.8 }] });
       if (path === '/api/system/models/evaluations/' + runId) return ok({
         runId: mismatch ? 'eval_other' : runId, model: 'fixture:latest', role: 'CHAT',
-        status: 'AWAITING_REVIEW', score: null, suiteName: 'chat_conversation_review',
-        digestSha256: 'a'.repeat(64), collection: { status: 'AWAITING_REVIEW' },
+        status: 'COMPLETE', score: 0.8, suiteName: 'chat_conversation_review',
+        digestSha256: 'a'.repeat(64), collection: null,
         attemptCounts: { planned: 1, observed: 1, invalid: 0, operationalFailure: 0, notAttempted: 0 },
         grading: { graders: [{ id: 'accept_a', judge: { modelName: 'Gemma' } },
           { id: 'accept_b', judge: { modelName: 'Phi' } }], adjudication: { id: 'adj_1' } },
-        tasks: [{ name: 'paired', mean: null, input: { text: 'Zadání' }, rubric: ['Přesnost'],
-          responses: ['Finální odpověď'], scores: [null], details: [{
+        tasks: [{ name: 'paired', mean: 0.8, input: { text: 'Zadání' }, rubric: ['Přesnost'],
+          responses: ['Finální odpověď'], scores: [0.8], details: [{
             captureStatus: 'CAPTURED', adjudicationId: 'adj_1',
             conversation: { transcript: [{ role: 'user', content: 'Dotaz' },
               { role: 'assistant', content: '<img src=x onerror=alert(1)>' },
@@ -202,10 +202,10 @@ test('Studio 2 loads exact stored conversation, both reviews and adjudication wi
       throw Error('Unexpected ' + path);
     } });
   workspace.select('history'); await workspace.load('history');
-  assert.equal(workspace.vm().rows[0].meta, '—');
+  assert.equal(workspace.vm().rows[0].meta, '80.0 %');
   assert.equal(await workspace.showRun(runId), true);
   const detail = workspace.vm().runDetail;
-  assert.equal(detail.status, 'AWAITING_REVIEW · bez známky');
+  assert.equal(detail.status, 'COMPLETE · 80.0 %');
   assert.equal(detail.tasks[0].attempts[0].transcript.length, 3);
   assert.equal(detail.tasks[0].attempts[0].response, '');
   assert.equal(detail.tasks[0].attempts[0].transcript[1].content, '<img src=x onerror=alert(1)>');

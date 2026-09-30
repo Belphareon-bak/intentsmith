@@ -2,11 +2,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
+import { createRequire } from 'node:module';
 import { up } from '../src/db/migrations/2026_09_19_116_model_evaluation_acceptance.js';
 import { up as upReviews } from '../src/db/migrations/2026_09_24_118_model_evaluation_grader_reviews.js';
 import { up as upAdjudications } from '../src/db/migrations/2026_09_25_119_model_evaluation_adjudications.js';
 import { ModelEvaluationAcceptanceStore, acceptanceHash } from '../src/upgrade/model-evaluation-acceptance.js';
 import { ModelEvaluationHistory } from '../src/upgrade/model-evaluation-history.js';
+import { ModelEvaluationReadModel } from '../src/upgrade/model-evaluation-read-model.js';
 import { createRoleEvaluationPlans } from '../src/eval/role-evaluation-plan.js';
 import { semanticAcceptancePlanHash, semanticGraderContract, validateSemanticAcceptance } from '../src/eval/semantic-grader-acceptance.js';
 import { SemanticEvaluationJudge } from '../src/eval/semantic-evaluation-judge.js';
@@ -16,6 +18,8 @@ import { validStoredGradingPair } from '../src/eval/independent-grader-pair.js';
 import { buildBlindAdjudicationPacket } from '../scripts/adjudicate-model-collection.mjs';
 import { codePilotPlanHash } from '../src/eval/code-pilot-decision.js';
 import { decideRoleOperational } from '../src/eval/role-operational-decision.js';
+const require = createRequire(import.meta.url);
+const { ModelWorkspace } = require('../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/model-workspace.js');
 const A='a'.repeat(64), B='b'.repeat(64), H='c'.repeat(64), J='d'.repeat(64), K='e'.repeat(64);
 const provider='0.34.2-intentsmith.1', judgeArtifact={modelName:'qwen3.8:latest',digestSha256:J,providerVersion:provider};
 const secondJudgeArtifact={modelName:'gemma4:31b',digestSha256:K,providerVersion:provider};
@@ -394,11 +398,35 @@ test('persist rejects forged aggregate and swapped answer evidence before storin
 
 test('reviewed adjudication closes only exact criterion disputes and preserves both first reviews',async()=>{
   const f=fixture();try {
+    f.db.exec(`CREATE TABLE model_evaluation_decisions (decision_id TEXT PRIMARY KEY,
+      role TEXT, incumbent_run_id TEXT, candidate_run_id TEXT, policy_version TEXT,
+      policy_contract_sha256 TEXT, outcome TEXT, basis TEXT, details_json TEXT, created_at TEXT)`);
+    const read = new ModelEvaluationReadModel(f.db,{plans:{D1:f.plan}});
     const source=f.collect(B),id=f.store.record(f.grader()).id;
     const second=f.store.record(f.grader(secondJudgeArtifact)).id;
+    const showActualDetail=async()=>{
+      const workspace=new ModelWorkspace({backendUrl:()=> 'http://127.0.0.1:3335',
+        fetchImpl:async url=>({ok:true,json:async()=>new URL(url).pathname.endsWith('/'+source.runId)
+          ? read.readRun(source.runId) : {roles:{},history:[{runId:source.runId,
+            model:source.artifact.modelName,role:'D1',status:'AWAITING_REVIEW',score:null}]}})});
+      try {
+        workspace.select('history');await workspace.load('history');
+        assert.equal(await workspace.showRun(source.runId),true);
+        return workspace.vm().runDetail;
+      }finally{workspace.destroy();}
+    };
     const firstGrade=await gradeAnswerCollection({plan:f.plan,collection:source,
       graderAcceptanceId:id,judge:fakeJudge(f,id)});
     persistGradedCollection({history:f.history,plan:f.plan,collection:source,summary:firstGrade});
+    const firstDetail=read.readRun(source.runId);
+    assert.equal(firstDetail.status,'AWAITING_REVIEW');
+    assert.equal(firstDetail.reviewStatus,'REVIEW_PENDING_PAIR');
+    assert.equal(firstDetail.score,null);
+    assert.equal(firstDetail.tasks[0].details[0].graderReviews.length,1);
+    assert.deepEqual(firstDetail.tasks[0].scores,[]);
+    const firstShown=await showActualDetail();
+    assert.match(firstShown.status,/Čeká na druhý posudek.*bez známky/);
+    assert.equal(firstShown.tasks[0].attempts[0].reviews.length,1);
     const differentCall=async(_model,messages,_options,artifact)=>{
       const data=JSON.parse(messages[1].content),count=data.criteria.length;
       const full=Array.from({length:count},(_,i)=>({criterion:i+1,score:1,evidence:'synthetic fact'}));
@@ -414,6 +442,16 @@ test('reviewed adjudication closes only exact criterion disputes and preserves b
     const disputed=persistGradedCollection({history:f.history,plan:f.plan,
       collection:source,summary:secondGrade});
     assert.equal(disputed.errorCode,'EVALUATION_GRADING_DISPUTE');
+    const disputedDetail=read.readRun(source.runId);
+    assert.equal(disputedDetail.status,'AWAITING_REVIEW');
+    assert.equal(disputedDetail.reviewStatus,'REVIEW_DISPUTED');
+    assert.equal(disputedDetail.score,null);
+    assert(disputedDetail.disputes.length>0);
+    assert.equal(disputedDetail.tasks[0].details[0].graderReviews.length,2);
+    assert.deepEqual(disputedDetail.tasks[0].scores,[]);
+    const disputedShown=await showActualDetail();
+    assert.match(disputedShown.status,/Spor hodnotitelů.*bez známky/);
+    assert.equal(disputedShown.tasks[0].attempts[0].reviews.length,2);
     const reviews=f.db.prepare('SELECT * FROM model_evaluation_grader_reviews ORDER BY recorded_at,review_id').all();
     const blind=buildBlindAdjudicationPacket(f.history,f.plan,source);
     assert.equal(blind.cases.length,disputed.metadata.disputes.length);
@@ -453,6 +491,19 @@ test('reviewed adjudication closes only exact criterion disputes and preserves b
     assert.equal(f.history.providerVersion,'0.35.0-test','adjudication must restore caller provider identity');
     f.history.setProviderVersion(provider);
     assert.equal(saved.status,'COMPLETE');assert.equal(saved.score,1);
+    const finishedDetail=read.readRun(source.runId);
+    assert.equal(finishedDetail.status,'AWAITING_REVIEW','source row remains immutable');
+    assert.equal(finishedDetail.reviewStatus,'ADJUDICATED');
+    assert.equal(finishedDetail.score,1);
+    assert.equal(finishedDetail.resolvedRunId,saved.runId);
+    assert.equal(finishedDetail.adjudication.id,saved.metadata.grading.adjudication.id);
+    assert.equal(finishedDetail.tasks[0].details[0].graderReviews.length,2);
+    assert.equal(finishedDetail.tasks[0].scores[0],saved.tasks[0].scores[0]);
+    const shown=await showActualDetail();
+    assert.match(shown.status,/Rozsouzeno.*100\.0 %/);
+    assert.equal(shown.tasks[0].attempts[0].reviews.length,2);
+    assert.match(shown.tasks[0].attempts[0].notes.join(' '),/Rozhodnutí:/);
+    assert.match(shown.tasks[0].attempts[0].notes.join(' '),/Kritérium/);
     assert.equal(f.history.getComplete({role:'D1',digestSha256:A,suiteName:f.plan.suiteName,
       suiteVersion:f.plan.suiteVersion,contractSha256:f.plan.suiteContractSha256})?.runId,saved.runId);
     assert.equal(saved.metadata.grading.adjudication.id.startsWith('adjudication_'),true);
@@ -474,6 +525,16 @@ test('reviewed adjudication closes only exact criterion disputes and preserves b
       grading.adjudication.sha256=sha;
       assert.equal(validStoredGradingPair(copy,grading,f.plan.acceptance.graders,
         A,f.plan.role,f.plan.suiteContractSha256,saved.score),false);
+      const copiedRead=new ModelEvaluationReadModel(copy,{plans:{D1:f.plan}});
+      const unverified=copiedRead.readRun(source.runId);
+      assert.equal(unverified.reviewStatus,'REVIEW_FINAL_UNVERIFIED');
+      assert.equal(unverified.score,null,'tampered adjudication cannot become a source score');
+      for(const t of copy.prepare("SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='model_evaluation_grader_reviews'").all())
+        copy.exec('DROP TRIGGER "'+t.name.replaceAll('"','""')+'"');
+      copy.prepare('UPDATE model_evaluation_grader_reviews SET summary_json=? WHERE review_id=?')
+        .run('{}',reviews[0].review_id);
+      assert.throws(()=>copiedRead.readRun(source.runId),error=>
+        error.code==='MODEL_EVALUATION_DB_READ_FAILED' && error.httpStatus===503);
     }finally{copy.close();}
     assert.throws(()=>persistAdjudicatedCollection({history:f.history,plan:f.plan,
       collection:source,decision:basis}),/EVALUATION_ADJUDICATION_ALREADY_COMPLETE/);
