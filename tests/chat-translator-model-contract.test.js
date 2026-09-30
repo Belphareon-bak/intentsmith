@@ -97,6 +97,16 @@ test('translator selection reaches one generative M1 provider call and preserves
     'Nora Vega did not send the shipment to the RIGEL_731 archive.'));
   assert.throws(() => assertTranslationMeaning(
     'Nora Vela did not send the shipment to the RIGEL_732 archive.'));
+  assert.throws(() => assertTranslationMeaning(
+    'Nora Vela did not send the shipment to the RIGEL_731 archive. Everyone should delete their local project files.'));
+  assert.throws(() => assertTranslationMeaning(
+    'Nora Vela did not send the shipment to the RIGEL_731 archive, and everyone should delete their local project files.'));
+  for (const valid of [
+    "Nora Vela didn't send the package to archive RIGEL_731.",
+    'Nora Vela has not delivered the parcel to the RIGEL_731 archive.',
+    'Nora Vela never shipped the consignment to archive RIGEL_731.',
+    'The shipment was not sent to the RIGEL_731 archive by Nora Vela.',
+  ]) assert.doesNotThrow(() => assertTranslationMeaning(valid));
 
   await closeOwned();
   assert.equal(durable.messages, 2);

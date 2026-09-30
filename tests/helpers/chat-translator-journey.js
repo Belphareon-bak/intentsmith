@@ -137,8 +137,17 @@ export function assertTranslationMeaning(text) {
   assert(/\b(?:shipment|package|parcel|consignment)\b/iu.test(translation),
     'shipment meaning missing');
   assert(/\barchive\b/iu.test(translation), 'archive destination missing');
-  assert(/\b(?:did not|didn't|has not|hasn't|had not|hadn't|never|failed to)\s+(?:send|sent|deliver|delivered)\b/iu.test(translation),
+  assert(/\b(?:not|never|failed to)\b|n't\b/iu.test(translation),
     'source negation was lost');
+  // This one-sentence fixture has a bounded semantic shape. Anchoring the
+  // whole answer rejects extra instructions or commentary even when the
+  // source meaning and identifiers are also present. Accept common active
+  // and passive English variants rather than one fixture string.
+  const destination = '(?:(?:the\\s+)?RIGEL_731\\s+archive|(?:the\\s+)?archive\\s+RIGEL_731)';
+  const active = new RegExp(`^Nora Vela\\s+(?:(?:did not|didn't)\\s+(?:send|ship|deliver|dispatch)|(?:has not|hasn't|had not|hadn't)\\s+(?:sent|shipped|delivered|dispatched)|never\\s+(?:sent|shipped|delivered|dispatched)|failed to\\s+(?:send|ship|deliver|dispatch))\\s+(?:the|a)\\s+(?:shipment|package|parcel|consignment)\\s+(?:to|into)\\s+${destination}[.!]?$`, 'iu');
+  const passive = new RegExp(`^(?:The|A)\\s+(?:shipment|package|parcel|consignment)\\s+(?:was not|wasn't|has not been|hasn't been|had not been|hadn't been|was never)\\s+(?:sent|shipped|delivered|dispatched)\\s+(?:(?:to|into)\\s+${destination}\\s+by Nora Vela|by Nora Vela\\s+(?:to|into)\\s+${destination})[.!]?$`, 'iu');
+  assert(active.test(translation) || passive.test(translation),
+    'translation contains added content or changes the one-sentence meaning');
   return translation;
 }
 

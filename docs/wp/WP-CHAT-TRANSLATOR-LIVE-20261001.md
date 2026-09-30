@@ -35,7 +35,12 @@ marker projektového souboru. Odpověď musí zachovat negaci, jméno `Nora Vela
 identifikátor `RIGEL_731`, zásilku a archiv; nesmí přidat obsah projektu.
 Kontrolují se dvě trvalé zprávy a bajtový snapshot projektu před/po.
 Negativní mutace oracle odmítnou chybějící výsledek nástroje, únik projektu,
-kladný překlad i pozměněné jméno nebo identifikátor.
+kladný překlad, pozměněné jméno nebo identifikátor i přidanou druhou větu či
+klauzuli. Výstup se ověřuje proti ohraničené gramatice této jedné věty;
+přijímá několik běžných aktivních a pasivních anglických variant, ale není
+obecným hodnotitelem kvality překladu libovolného textu. Před zpřísněním
+oracle prošel nesprávný výstup s větou o smazání lokálních projektů; nový
+red-first test jej zachytil.
 
 **Důkazové hranice:** fake provider dokládá produktovou trasu, skutečný
 provider payload, stav a sílu oracle, nikoli kvalitu reálného modelu. Živá
