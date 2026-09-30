@@ -11,7 +11,8 @@ import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import { setTimeout as delay } from 'node:timers/promises';
 import { test } from 'node:test';
-import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
+import { isolatedTestRuntime as parentRuntime } from './helpers/isolated-test-db.js';
+import { createOwnedJourneyRuntime } from './helpers/chat-project-expertise-model-journey.js';
 
 const MODEL = 'fixture:1b';
 const DIGEST = 'a'.repeat(64);
@@ -22,6 +23,9 @@ const WRITER_RULE = 'Udržuj konzistenci postav a světa napříč celým textem
 const EXTENSION_ID = 'm3-http-expertise-journey';
 const EXTENSION_MARKER = 'M3_HTTP_EXPERTISE_JOURNEY_MARKER';
 const children = new Set();
+// The registered runner already has a product server on parentRuntime. This
+// journey starts another server, so its DB, port file and projects must differ.
+const isolatedTestRuntime = createOwnedJourneyRuntime(parentRuntime);
 
 process.once('exit', () => {
   for (const child of children) {
@@ -157,7 +161,7 @@ async function startServer(providerUrl) {
   const deadline = Date.now() + 90_000;
   while (Date.now() < deadline) {
     if (state.code !== null || state.signal !== null) {
-      throw new Error(`Product server exited before ready: ${state.stderr.slice(-2500)}`);
+      throw new Error(`Product server exited before ready (${state.code ?? state.signal}): ${(state.stdout + state.stderr).slice(-2500)}`);
     }
     if (existsSync(isolatedTestRuntime.portFile)) {
       try {
@@ -398,6 +402,6 @@ test('project expertise selection reaches final provider prompt and remains proj
     restoredRevision: selectedA.revision, disabledProviderCalls: provider.requests.length - beforeUnavailable,
     status: 'PASS',
   };
-  writeFileSync(`${isolatedTestRuntime.artifacts}/chat-project-expertise-http.json`,
+  writeFileSync(`${parentRuntime.artifacts}/chat-project-expertise-http.json`,
     `${JSON.stringify(evidence, null, 2)}\n`, { mode: 0o600 });
 });
