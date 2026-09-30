@@ -147,6 +147,10 @@ test('Project Health runs through the product HTTP server and survives restart',
     `/api/notifications?agent=${encodeURIComponent(instanceId)}`, null, 200);
   assert.deepEqual(feed.notifications.map(item => item.id), [notification.id]);
   assert.equal(feed.unreadCount, 1);
+  const otherAgentFeed = await expectJson(product, 'GET',
+    `/api/notifications?agent=${encodeURIComponent(`${instanceId}-other`)}`, null, 200);
+  assert.deepEqual(otherAgentFeed.notifications, [],
+    'the product HTTP adapter must apply the agent filter, even with one notification');
   const repeated = await expectJson(product, 'POST', `${route}/run`, null, 200);
   assert.equal(repeated.run_state, 'SUCCESS_NO_TRIGGER');
   assert.deepEqual(repeated.triggered, []);

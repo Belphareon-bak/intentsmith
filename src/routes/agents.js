@@ -326,6 +326,7 @@ export function createAgentPlatformRoutes(deps) {
       const mockReq = { 
         query: { 
           unread: url.searchParams.get('unread'),
+          agent: url.searchParams.get('agent'),
           limit: url.searchParams.get('limit')
         }
       };
