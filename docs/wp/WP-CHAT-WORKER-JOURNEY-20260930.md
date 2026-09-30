@@ -69,14 +69,22 @@ nezdvojí. Dočasně nedostupný kořen projektu vede přes M2 bridge k typovan�
 `ERROR_SOURCE`, bez druhé notifikace. Po restartu `src/server.js` přetrvají
 trusted extension vazba, notifikace i oba terminální běhy. Tripwire potvrzuje
 nulové modelové volání. Přímý test této navazující větve prošel **1/1**;
-nezávislé review a integrační přejímka navazující změny ještě chybějí.
+první nezávislé review kandidáta `eac10968` našlo nefunkční filtr
+`GET /api/notifications?agent=…`: produktový HTTP adaptér parametr nepředával.
+Negativní kontrola s neznámým agentem na původním zdroji skutečně selhala.
+Oprava `bbef732f` předává parametr do existujícího API a stejný test prošel
+přímo i registrovaně **1/1**. Přesný čistý report je
+`.intentsmith-artifacts/run-suites/2026-09-30T20-59-01-528Z/report.json`
+(`sourceRevision=bbef732f500fe761cac6fb02ad22e90dadcbed6d`,
+`gateEvidence:false`). Opakované nezávislé review a integrační přejímka
+opravy ještě chybějí.
 
 Přímý i registrovaný běh na Node 24 prošel **1/1** pro původní kandidát
 `b81c84d8`; jeho registrovaný report je
 `.intentsmith-artifacts/run-suites/2026-09-30T20-40-12-053Z/report.json`
 a výslovně není Gate 0 evidence. Nezávislé review našlo nepřesný auth assert,
-nadhodnocený důkaz v artefaktu a slabší úklid při chybě; opravy jsou v tomto
-kandidátu `fbdb2f74` a čekají na opakované review.
+nadhodnocený důkaz v artefaktu a slabší úklid při chybě; opravy v kandidátu
+`fbdb2f74` následně dostaly omezený `REVIEW_PASS` a registrovaný běh **1/1**.
 
 **Další důkaz:** provozní interval/cron worker, restart uprostřed
 rozpracovaného běhu, skutečná Studio interakce, live model a dlouhodobý soak
