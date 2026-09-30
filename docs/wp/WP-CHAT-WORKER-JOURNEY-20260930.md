@@ -62,9 +62,11 @@ preview, instalaci a ruční spuštění Project Health. Test ověří disabled 
 výchozí baseline, opakovaný běh bez triggeru a zachování baseline i trusted
 extension vazby po ukončení a opětovném spuštění produktu. Tripwire provider
 potvrzuje nulové modelové volání. Přímý i registrovaný běh na Node 24 prošel
-**1/1**; registrovaný report je
-`.intentsmith-artifacts/run-suites/2026-09-30T20-37-57-580Z/report.json`
-a výslovně není Gate 0 evidence. Nezávislé review se teprve provede.
+**1/1** pro původní kandidát `b81c84d8`; jeho registrovaný report je
+`.intentsmith-artifacts/run-suites/2026-09-30T20-40-12-053Z/report.json`
+a výslovně není Gate 0 evidence. Nezávislé review našlo nepřesný auth assert,
+nadhodnocený důkaz v artefaktu a slabší úklid při chybě; opravy jsou v tomto
+kandidátu a čekají na opakované review.
 
 **Další důkaz:** změna zdroje a notifikace přes plný serverový vstup se
 skutečným M2 providerem, provozní interval/cron worker a restart uprostřed
