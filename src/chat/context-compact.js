@@ -78,8 +78,8 @@ export function maybeCompact(conversationId, store, sessionId) {
   // falling back to config.compact.contextWindow if not yet initialized.
   const budget = getCompactionBudget();
 
-  // Token estimation: messages + system prompt overhead
-  const messageTokens = store.getEstimatedTokens(conversationId);
+  // Estimate the same bounded, summary-aware history supplied to chat handlers.
+  const messageTokens = store.getEffectiveHistoryTokens(conversationId);
   const totalTokens = messageTokens + SYSTEM_PROMPT_OVERHEAD_TOKENS;
 
   if (totalTokens < budget.thresholdTokens) return;
@@ -110,7 +110,6 @@ export function maybeCompact(conversationId, store, sessionId) {
  */
 async function runCompaction(conversationId, store, keepTurns, sessionId, budget) {
   activeCompactions.add(conversationId);
-  const tokensBefore = store.getEstimatedTokens(conversationId);
 
   try {
     const allTurns = store.getAllTurns(conversationId);
@@ -201,11 +200,15 @@ async function runCompaction(conversationId, store, keepTurns, sessionId, budget
     // lastTurnId is the ID of the LAST turn we summarized.
     // Kept turns all have id > lastTurnId. This is guaranteed by the slice logic.
 
+    // Measure immediately around the synchronous summary write so any turns
+    // appended while the LLM was working do not appear as compaction savings.
+    const tokensBefore = store.getEffectiveHistoryTokens(conversationId);
+
     // Atomic store
     store.setSummary(conversationId, summaryText, lastTurnId);
 
-    // Post-compaction: recalculate tokens and log delta
-    const tokensAfter = store.getEstimatedTokens(conversationId);
+    // Post-compaction: recalculate the same handler view and log its delta.
+    const tokensAfter = store.getEffectiveHistoryTokens(conversationId);
     const summaryTokens = Math.ceil(summaryText.length / 4);
     const savedTokens = tokensBefore - tokensAfter;
     const newFillPercent = Math.round(
