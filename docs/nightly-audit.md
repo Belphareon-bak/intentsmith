@@ -44,6 +44,10 @@ the sealed orchestrator pin are
 `3ce12a0edffe7e6da0f875ce3f0b25758524641557023d00aae39d0784fdbbfc`.
 The fingerprint is SHA-256 over `JSON.stringify(JSON.parse(bytes))`, not a
 byte-level whitespace hash. Non-selected profiles are not counted as passing.
+This 352-program selection is historical. The current source seal in
+`scripts/nightly-orchestrator.js` expects 353 deterministic programs and a
+different registry fingerprint; a development registry change requires a new
+reviewed seal before Gate 0 can pass.
 
 The 2026-09-09 selection refresh retains all 511 programs from the prior seal
 `922f65e9e28a3dfb604148c5d5b0ecf1ad106edff9de0646724d6189407f0b40`
@@ -99,7 +103,7 @@ The run:
 4. proves the exact HEAD and clean worktree immediately after installation and
    before and after every preflight;
 5. validates the registry and test-trust self-tests;
-6. runs the 199 deterministic registry entries with the exact isolated PDF
+6. runs the exact sealed deterministic registry selection with the isolated PDF
    interpreter forwarded through the runner whitelist;
 7. validates source SHA, registry hash, exact suite IDs, profiles, result
    evidence, log containment/hashes, verdict, and process exit before summary;

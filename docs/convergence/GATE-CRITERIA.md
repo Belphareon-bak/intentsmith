@@ -63,11 +63,11 @@ database, Ollama, or GPU prerequisite. The registry validator enforces that
 tuple. This keeps a live local-boundary regression deterministic without
 misrepresenting it as zero-socket execution.
 
-At the current review-candidate registry fingerprint that is **279 suites**:
+An earlier review-candidate registry contained **279 suites**:
 223 `offline` and 56 `database`, all `ACTIVE` and required. This count is
-reproducible; it is not
-an estimate. If the number moves, the registry moved, and the change is
-reviewable as a diff.
+reproducible for that historical candidate; it is not the current selection.
+For each new candidate, derive the count from its exact registry and review
+any change as a diff before updating the Gate 0 seal.
 
 Here and in generated Gate 0 evidence, “registry fingerprint” means the
 parsed-registry serialization fingerprint
