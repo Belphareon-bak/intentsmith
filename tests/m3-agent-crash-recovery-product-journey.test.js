@@ -92,7 +92,7 @@ function readCrashState(databasePath, agentId) {
   try {
     return {
       runs: db.prepare('SELECT id, status, finished_at, error, explain FROM agent_runs_v33 WHERE agent_id = ? ORDER BY id').all(agentId),
-      notifications: db.prepare('SELECT id, run_id, data FROM agent_notifications_v33 WHERE agent_id = ? ORDER BY id').all(agentId),
+      notifications: db.prepare('SELECT id, run_id, data, effect_key FROM agent_notifications_v33 WHERE agent_id = ? ORDER BY id').all(agentId),
     };
   } finally {
     db.close();
@@ -245,6 +245,7 @@ test('product recovers a worker killed after persisted notification without dupl
   assert.equal(afterKill.notifications.length, 1);
   assert.equal(afterKill.notifications[0].id, barrier.notificationId);
   assert.equal(afterKill.notifications[0].run_id, barrier.runId);
+  assert.match(afterKill.notifications[0].effect_key, /^[0-9a-f]{64}$/);
   const persistedRevision = JSON.parse(afterKill.notifications[0].data).workspaceRevision;
   assert.match(persistedRevision, /^wsr1:[0-9a-f]{64}$/);
 
@@ -268,6 +269,8 @@ test('product recovers a worker killed after persisted notification without dupl
   assert.equal(afterRecovery.notifications.length, 1,
     'restart must not send a second notification for the same project revision');
   assert.equal(afterRecovery.notifications[0].id, barrier.notificationId);
+  assert.equal(afterRecovery.notifications[0].effect_key,
+    afterKill.notifications[0].effect_key);
   assert.equal(JSON.parse(afterRecovery.notifications[0].data).workspaceRevision,
     persistedRevision);
   assert.equal(recovered.notifications.length, 1);

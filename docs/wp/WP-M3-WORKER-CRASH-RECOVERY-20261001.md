@@ -1,8 +1,8 @@
 # WP — M3 worker: přerušení po zápisu notifikace
 
-**Stav:** implementační kandidát, `REVIEW_PENDING`, nenasazený. Přímé lokální
-testy jsou zelené; registrovaný běh a nezávislé review se doplní až po běhu
-na čistém commitu.
+**Stav:** implementační kandidát, `REVIEW_PENDING`, nenasazený. Přímé i první
+registrované lokální testy jsou zelené; nezávislé DB lifecycle review a
+produkční přejímka zůstávají otevřené.
 
 **Autorita:** explicitní zadání operátora z 2026-10-01 doplnit a otestovat
 skutečné worker journey; `PRODUCT.md` vyžaduje agent E2E a in-app notifikaci
@@ -77,3 +77,12 @@ průchod **1/1**, ruční produktový průchod **1/1** a module-boundary ratchet
 přejímkou ani release důkazem. Registry validátor po registraci nové sady:
 **577** programů, SHA-256
 `999c3ee7714c9e90d868584bd4c7053e29e5e91963b9e606308c16e5b7c5721a`.
+
+Čistý candidate commit `756af74bbc80aaf57468ece18d8c113e8cf42f08`
+prošel registrovaně **5/5** (nový crash produktový scénář, plánovaný a ruční
+produktový průchod, agent runner, artifact validation), report
+`.intentsmith-artifacts/run-suites/2026-09-30T23-55-12-860Z/report.json`.
+Navazující M3 durable/Project Health a M7 notification sady prošly
+registrovaně **3/3**, report
+`.intentsmith-artifacts/run-suites/2026-09-30T23-55-34-542Z/report.json`.
+Oba reporty mají `gateEvidence:false`; nejsou release pečeť.
