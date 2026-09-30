@@ -151,7 +151,9 @@ export class AgentRunner {
     extensionService = null,
     projectContextBridge = null,
     logger = console,
+    clock = () => new Date(),
   }) {
+    if (typeof clock !== 'function') throw new TypeError('AgentRunner clock must be a function');
     this.repo = repository;
     this.llm = llmServices;
     this.notificationRouter = notificationRouter;
@@ -159,6 +161,7 @@ export class AgentRunner {
     this.extensionService = extensionService;
     this.projectContextBridge = projectContextBridge;
     this.logger = logger;
+    this.clock = clock;
     this.conditions = new ConditionEvaluator();
     this.triggers = new TriggerEvaluator();
     
@@ -514,7 +517,7 @@ export class AgentRunner {
     // START RUN
     // ══════════════════════════════════════════════════════════════════════
     const runId = this.repo.createRun(agentId);
-    const now = new Date();
+    const now = this.clock();
     const log = [];
     
     // Track if this is first run (for baseline detection)
@@ -657,7 +660,7 @@ export class AgentRunner {
           run_state: RUN_STATE.SUCCESS_NO_NEW,
           status: 'success',
           runId,
-          duration: Date.now() - now.getTime(),
+          duration: this.clock().getTime() - now.getTime(),
           triggered: [],
           actions: [],
           log
@@ -824,11 +827,11 @@ export class AgentRunner {
 
           if (result.status === 'ok') {
             log.push(`  ✓ ${action.type}: OK${result.attempts > 1 ? ` (after ${result.attempts} attempts)` : ''}`);
-            newState._last_action = { type: action.type, at: new Date().toISOString() };
+            newState._last_action = { type: action.type, at: this.clock().toISOString() };
           } else {
             log.push(`  ✗ ${action.type}: ${result.error}${result.attempts > 1 ? ` (failed after ${result.attempts} attempts)` : ''}`);
             actionError = true;
-            newState._last_action = { type: action.type, at: new Date().toISOString(), error: result.error };
+            newState._last_action = { type: action.type, at: this.clock().toISOString(), error: result.error };
           }
 
           // v57.0 - Persist state after each action (success or failure)
@@ -860,7 +863,7 @@ export class AgentRunner {
       newState._last_run = now.toISOString();
       this.repo.updateAgentState(agentId, newState);
       
-      const duration = Date.now() - now.getTime();
+      const duration = this.clock().getTime() - now.getTime();
       log.push(`[${this.timestamp()}] Completed in ${duration}ms (state: ${runState})`);
       
       // Create explain record
@@ -946,7 +949,7 @@ export class AgentRunner {
     if (!lastRun) return true; // Never run = run now
     
     const lastRunTime = new Date(lastRun).getTime();
-    const now = Date.now();
+    const now = this.clock().getTime();
     
     // Calculate minimum interval based on schedule type
     let minInterval;
@@ -972,7 +975,7 @@ export class AgentRunner {
     if (!schedule) return null;
     
     const lastRun = agent.state?._last_run;
-    if (!lastRun) return new Date().toISOString();
+    if (!lastRun) return this.clock().toISOString();
     
     const lastRunTime = new Date(lastRun).getTime();
     const interval = this.parseInterval(schedule.interval);
@@ -1306,7 +1309,7 @@ export class AgentRunner {
       title,
       body: content,
       priority,
-      created_at: Date.now(),
+      created_at: this.clock().getTime(),
       reason: {
         trigger: triggerResults.fired?.[0] || null,
         condition: null,
@@ -1416,6 +1419,6 @@ export class AgentRunner {
   }
   
   timestamp() {
-    return new Date().toISOString().replace('T', ' ').substring(0, 19);
+    return this.clock().toISOString().replace('T', ' ').substring(0, 19);
   }
 }
