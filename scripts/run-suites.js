@@ -23,6 +23,11 @@ import process from 'node:process';
 
 import { loadTestRegistry } from './test-registry.js';
 import { makeSuiteEnvironment } from './nightly-audit.js';
+import { acquireGpuEvaluationLock } from '../src/upgrade/gpu-evaluation-lock.js';
+import {
+  CAPTURE_DIGEST, CAPTURE_MODEL, CAPTURE_SUITE_ID,
+  preflightProviderCapture, startProviderCaptureProxy,
+} from './provider-capture.js';
 
 const ROOT = process.cwd();
 const PRIVATE = '.intentsmith-artifacts';
@@ -31,6 +36,7 @@ function parseArgs(argv) {
   const opts = {
     suites: new Set(), profiles: new Set(), states: new Set(),
     timeoutScale: 1, logLevel: 'warn', keep: false, list: false,
+    captureProvider: false,
   };
   for (const arg of argv) {
     const [key, raw] = arg.includes('=') ? [arg.slice(0, arg.indexOf('=')), arg.slice(arg.indexOf('=') + 1)] : [arg, null];
@@ -41,6 +47,7 @@ function parseArgs(argv) {
     else if (key === '--timeout-scale') opts.timeoutScale = Number(raw) || 1;
     else if (key === '--log-level') opts.logLevel = String(raw || 'warn');
     else if (key === '--keep-run-root') opts.keep = true;
+    else if (key === '--capture-provider' && raw === null) opts.captureProvider = true;
     else if (key === '--list') opts.list = true;
     else if (key === '--help') opts.help = true;
     else throw new Error(`Neznámý argument: ${arg}`);
@@ -145,6 +152,7 @@ function waitForChildExit(child, timeoutMs) {
 }
 
 async function terminateOwnedServer(server) {
+  if (!Number.isSafeInteger(server.pid) || server.pid < 1) return;
   if (server.exitCode !== null || server.signalCode !== null) return;
   server.kill('SIGTERM');
   if (await waitForChildExit(server, 2_000)) return;
@@ -157,6 +165,7 @@ async function main() {
   if (opts.help) {
     console.log(`Použití: node scripts/run-suites.js [--suite=ID,..] [--profile=..] [--state=..]
                                    [--timeout-scale=N] [--log-level=info] [--keep-run-root] [--list]
+                                   [--capture-provider]
 
 Spustí registrované sady proti skutečnému serveru v runner-owned izolaci.
 Výstup NENÍ Gate 0 evidence — registr se nemění a lastGreen se nezapisuje.`);
@@ -167,6 +176,10 @@ Výstup NENÍ Gate 0 evidence — registr se nemění a lastGreen se nezapisuje.
   const selected = selectSuites(registry, opts);
   if (selected.length === 0) {
     console.error('Nevybrána žádná sada. Použij --suite, --profile nebo --state.');
+    return 2;
+  }
+  if (opts.captureProvider && (opts.list || selected.length !== 1 || selected[0].id !== CAPTURE_SUITE_ID)) {
+    console.error(`--capture-provider vyžaduje pouze --suite=${CAPTURE_SUITE_ID} bez --list.`);
     return 2;
   }
   if (opts.list) {
@@ -200,16 +213,37 @@ Výstup NENÍ Gate 0 evidence — registr se nemění a lastGreen se nezapisuje.
   console.log(`   sad: ${selected.length} · izolace: ${path.relative(ROOT, dirs.root)}`);
   console.log('   POZOR: tohle není Gate 0 evidence. Registr se nemění.\n');
 
-  const server = spawn(process.execPath, ['src/server.js'], {
-    cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'], detached: false,
-  });
-  const serverChunks = [];
-  server.stdout.on('data', c => { serverChunks.push(c); writeFileSync(serverLog, Buffer.concat(serverChunks)); });
-  server.stderr.on('data', c => { serverChunks.push(c); writeFileSync(serverLog, Buffer.concat(serverChunks)); });
-
   const results = [];
   let exitCode = 0;
+  let server = null;
+  let lease = null;
+  let capture = null;
+  let capturePhase = 'preflight';
+  const captureReport = opts.captureProvider ? {
+    status: 'NOT_RUN', model: CAPTURE_MODEL, digest: CAPTURE_DIGEST,
+    file: path.join(dirs.artifacts, 'provider-capture.jsonl'),
+  } : null;
   try {
+    if (opts.captureProvider) {
+      lease = acquireGpuEvaluationLock({ command: `run-suites provider capture ${CAPTURE_SUITE_ID}` });
+      captureReport.preflight = await preflightProviderCapture();
+      capturePhase = 'setup';
+      capture = await startProviderCaptureProxy({ captureFile: captureReport.file });
+      env.OLLAMA_URL = capture.url;
+      env.INTENTSMITH_MODEL_CHAT = CAPTURE_MODEL;
+      env.INTENTSMITH_ENABLE_ONLINE_DISCOVERY = 'false';
+      captureReport.status = 'ARMED';
+    }
+    capturePhase = 'run';
+
+    server = spawn(process.execPath, ['src/server.js'], {
+      cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'], detached: false,
+    });
+    const serverChunks = [];
+    server.on('error', error => writeFileSync(serverLog, `Error: ${error.message}\n`, { mode: 0o600 }));
+    server.stdout.on('data', c => { serverChunks.push(c); writeFileSync(serverLog, Buffer.concat(serverChunks)); });
+    server.stderr.on('data', c => { serverChunks.push(c); writeFileSync(serverLog, Buffer.concat(serverChunks)); });
+
     const ready = await waitForReady(env.INTENTSMITH_PORT_FILE, serverLog, 180_000);
     const url = `http://127.0.0.1:${ready.port}`;
     console.log(`   server: ${url}\n`);
@@ -220,7 +254,11 @@ Výstup NENÍ Gate 0 evidence — registr se nemění a lastGreen se nezapisuje.
       ...env,
       INTENTSMITH_URL: url,
       INTENTSMITH_TEST_SERVER_PID: String(server.pid),
+      ...(capture ? { INTENTSMITH_TEST_PROVIDER_CAPTURE_FILE: capture.captureFile } : {}),
     };
+    // Only the owned server may reach the provider proxy. The suite observes
+    // its JSONL evidence path and talks to the server over INTENTSMITH_URL.
+    if (capture) suiteEnv.OLLAMA_URL = 'http://127.0.0.1:1';
 
     for (const [index, suite] of selected.entries()) {
       const timeoutMs = Math.max(1000, Math.round(suite.timeoutMs * opts.timeoutScale));
@@ -233,20 +271,53 @@ Výstup NENÍ Gate 0 evidence — registr se nemění a lastGreen se nezapisuje.
         : (result.detail ? ` :: ${result.detail.slice(0, 90)}` : '');
       console.log(`[${index + 1}/${selected.length}] ${mark} ${result.status} ${path.basename(suite.path)} (${Math.round(result.durationMs / 1000)}s)${extra}`);
     }
+    if (capture) {
+      captureReport.records = capture.getCapturedCount();
+      if (capture.getFailure()) throw new Error(`Provider capture boundary failed: ${capture.getFailure()}`);
+      if (captureReport.records === 0) throw new Error('Provider capture recorded no model requests');
+      captureReport.status = results.every(result => result.status === 'PASS') ? 'PASS' : 'FAIL';
+    }
   } catch (error) {
     console.error(`CHYBA: ${error.message}`);
     exitCode = 1;
+    if (captureReport) {
+      captureReport.status = capturePhase === 'preflight' ? 'BLOCKED' : 'FAIL';
+      captureReport.error = error.message;
+    }
   } finally {
-    await terminateOwnedServer(server);
+    if (server) await terminateOwnedServer(server);
+    if (capture) {
+      captureReport.records = capture.getCapturedCount();
+      try { await capture.close(); } catch (error) {
+        captureReport.status = 'FAIL';
+        captureReport.error = error.message;
+        exitCode = 1;
+      }
+      if (capture.getFailure()) {
+        captureReport.status = 'FAIL';
+        captureReport.error = `Provider capture boundary failed: ${capture.getFailure()}`;
+        exitCode = 1;
+      }
+    }
+    if (lease) {
+      captureReport.leaseReleased = lease.release();
+      if (!captureReport.leaseReleased) {
+        captureReport.status = 'FAIL';
+        captureReport.error = 'GPU evaluation lease ownership changed before release';
+        exitCode = 1;
+      }
+    }
   }
 
   const summary = results.reduce((acc, r) => { acc[r.status] = (acc[r.status] || 0) + 1; return acc; }, {});
+  if (captureReport?.status === 'BLOCKED') summary.BLOCKED = 1;
   const report = {
     schemaVersion: 1, runId, sourceRevision,
     evidenceType: 'intentsmith.suite-run',
     gateEvidence: false,
     note: 'Běhový režim mimo Gate 0. Neaktualizuje registr ani lastGreen.',
     summary, results,
+    ...(captureReport ? { providerCapture: captureReport } : {}),
   };
   writeFileSync(path.join(dirs.root, 'report.json'), `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
 

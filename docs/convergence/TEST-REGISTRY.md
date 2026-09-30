@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 565
+- Runnable programs: 566
 - Explicit support-module exclusions: 22
-- Profiles: offline=315, database=83, server=50, model=82, soak=15, manual=20
-- States: ACTIVE=471, HISTORICAL=15, BLOCKED=79
+- Profiles: offline=316, database=83, server=50, model=82, soak=15, manual=20
+- States: ACTIVE=472, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -498,6 +498,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T2-TESTS-PROJECT-LIFECYCLE-KLICENKA-TEST` | `tests/project-lifecycle-klicenka.test.js` | `C3-005` | T2 | `database` | 1 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-PROJECT-WELCOME-TEST` | `tests/project-welcome.test.js` | `C3-005` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-PROMPT-BUILDER-TEST` | `tests/prompt-builder.test.js` | `C3-016` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-PROVIDER-CAPTURE-PROXY` | `tests/provider-capture-proxy.test.js` | `C3-027` | T1 | `offline` | 10 s | 1 min | network:loopback | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-PUSH-CHANNEL-TEST` | `tests/push-channel.test.js` | `C3-021` | T3 | `manual` | 5 min | 15 min | network:external | no | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-QG-IDEMPOTENCE-TEST` | `tests/qg-idempotence.test.js` | `C3-008` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-QUALITY-GATE-TEST` | `tests/quality-gate.test.js` | `C3-008` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
