@@ -1,30 +1,48 @@
-# IntentSmith — stav dokončování k 30. 9. 2026, 18:38 UTC
+# IntentSmith — stav dokončování k 30. 9. 2026, 19:28 UTC
 
-Tento záznam je vývojový checkpoint, nikoli release acceptance. Přesný integrační
-zdroj před dokumentačním commitem: `222793c6eb0208886d26985f7642fe2a037e7bba`
-na `work/real-chat-journeys-20260930`. Remote shoda se ověřuje po pushi.
+Tento záznam je vývojový checkpoint, nikoli release acceptance. Poslední
+ověřený a pushnutý integrační zdroj před tímto dokumentačním commitem je
+`a9fec745fd47258ec6e0aafcda55c67c34cbbdb6` na
+`work/real-chat-journeys-20260930`; `git ls-remote` se s ním shodoval.
 Instalovaný frontend IDE 2.0 je nadále `fddfe996`, běžící backend `c84b88cd`;
 nový integrační zdroj ještě není nasazený. Studio 2 produkční kandidát
-`1cb4a79f` je v této větvi integrován; jeho omezené nezávislé review a cílené
-kontroly prošly, ale release review a nasazení této delty zůstávají otevřené.
+`1cb4a79f` je v této větvi integrován. Frontend z aktuálního zdroje se
+produkčně sestavil a všechny čtyři registrované izolované Electron scénáře
+prošly na čistém `09247504` (M1 journey, Studio2 exclusive UI, boundary,
+M2 composer). Zdroj frontendu je byte shodný s instalovaným frontendem,
+backend kandidáta však mění šest cest proti běžícímu `c84b88cd`. Release
+review, build kombinovaného balíku a nasazení této delty zůstávají otevřené.
 
 ## Chat a projekty
 
-- Skutečná modelová sada `IS-T3-E2E-85-LONG-SESSION-DEGRADATION` na čistém
-  `0b0cabdba153b0bebfda8fc06a8a34da11766a30` prošla **4/4**. Runner
-  ověřil **57** zachycených provider volání pro přesný digest `qwen3.5:27b`,
-  finální prompt a odpověď, soukromý artefakt a uvolnění GPU lease. CODE
-  odpověď ukončená na 1200 tokenech byla úspěšně zopakována. Syrová historie
-  naplnila více než skutečné `num_ctx=4096`; první souhrn ušetřil 303 tokenů
-  na stejném snapshotu a finální odpověď vrátila kód z prvního tahu.
-  [Rozsah a lokální report](../wp/WP-CHAT-WINDOW-FILL-20260930.md).
-- Tento PASS neprokazuje úplnost všech souhrnů. V zachyceném běhu končily
-  některé sumarizační requesty na výstupním limitu 500 tokenů. Oprava čekání
-  na asynchronní souhrn, odmítání neúplných výstupů a zachování celého
-  souhrnu v projektovém promptu je nyní integrovaná v `88a7f91a` +
-  `222793c6` a má omezené nezávislé `REVIEW_PASS`. Cílené context, projektové,
-  M1 a persistence testy na společném SHA prošly; nový živý modelový běh je
-  při tomto checkpointu `NOT RUN`.
+- Živá sada `IS-T3-E2E-85-LONG-SESSION-DEGRADATION` na čistém `09247504`
+  technicky prošla **4/4** s **57** zachycenými provider voláními připnutého
+  `qwen3.5:27b`. Syrová historie přesáhla skutečné `num_ctx=4096`;
+  dokončený souhrn ušetřil 429 odhadovaných tokenů na stejném snapshotu,
+  poslední prompt obsahoval kód z prvního tahu bez původní první zprávy a
+  CODE odpověď po `length` dokončilo opakování. Soukromý důkaz je v
+  `.intentsmith-artifacts/run-suites/2026-09-30T18-51-43-442Z/`; lease byl
+  uvolněn. Jde o průkaz funkce cesty, nikoli správnosti všech odpovědí.
+  [Rozsah a přesné limity](../wp/WP-CHAT-WINDOW-FILL-20260930.md).
+- Nezávislé přečtení všech sedmi číselných odpovědí odhalilo **nejméně 4/7
+  věcně chybné nebo rozporné**. Správný rozdíl byl ve všech sedmi případech
+  11. Ve třetím tahu model uvedl 106→23 a rozdíl 83 místo 106→95 a 11;
+  ve čtvrtém uvedl rozdíl 29 místo 11; v sedmém označil 59 za nižší než 48.
+  Všechna porovnávaná data byla v příslušném provider promptu. Uložený
+  souhrn navíc převzal chybnou odpověď 23/83 jako úspěšně zodpovězenou.
+  Finální odpověď přidala slova kolem kódu proti zadání „pouze kódem“.
+  **Kvalita odpovědí tedy není PASS.** Aktuální test a capture na `a9fec745`
+  zpřísňují přesný finální formát a skutečné `num_predict`; nový živý běh
+  těchto orákul je `LIVE_NOT_RUN`. Připravuje se samostatná opt-in sada
+  s kontrolovanými kladnými, zápornými a nulovými výsledky.
+- Oprava čekání na asynchronní souhrn a odmítání nedokončeného výstupu je
+  integrovaná a omezeně nezávisle revidovaná. Obecný sestavovač finálního
+  promptu však může vynechat prostředek již uloženého souhrnu. Izolovaný
+  kandidát zachování celého souhrnu `56164594` prošel 41/41 M1 testy, ale
+  dostal `CHANGES_REQUIRED`: v těsném 4K okně požadoval 349 slov při
+  `num_predict=280`. Náhradní izolovaný `223d4817` přepočítává instrukci
+  podle skutečného finálního limitu a má M1 41/41; nezávislé opakované
+  review probíhá. Produktové řešení dosud není integrováno ani živě ověřeno.
 - Projektový A→B→A průchod má deterministický test a omezené nezávislé review.
   Projektové expertizy prošly na společném SHA cíleným skutečným HTTP průchodem
   **1/1** s izolovaným providerem a kontrolou finálního promptu. Nativní worker
@@ -35,7 +53,11 @@ kontroly prošly, ale release review a nasazení této delty zůstávají otevř
   nálezy a nulový modelový fallback. Tyto fixture testy neměří odpověď
   skutečného modelu, všechny specialisty ani Studio UI. Integrované worker
   HTTP testy prošly **6/6**, runner **22/22**, Project Health **10/10**;
-  registry, M6 plán, artifact-validation a harness také prošly.
+  registry, M6 plán, artifact-validation a harness také prošly. Nový
+  modelově cílený projektový A→B→A test kontroluje finální provider prompt
+  a SQLite přes M1 HTTP; po opravě pravdivého zápisu artefaktu má nezávislé
+  `REVIEW_PASS` a na integračním `dd9342a8` prošel registrovaně **1/1**.
+  Jeho skutečný modelový běh je `LIVE_NOT_RUN`.
 
 ## GPU hunt, release a mobil
 
@@ -46,12 +68,20 @@ kontroly prošly, ale release review a nasazení této delty zůstávají otevř
   nepředstavují aktuální přijaté skóre. Druhý hodnotitel má jen částečné
   soukromé výstupy (106 JSON souborů / 590 známkovaných položek z matice
   1173 odpovědí); přejímka a aktivace jsou **NO_GO**. Hunt kandidát je na
-  jiné, zatím nesloučené větvi. [Pravidla výběru](../MODEL-SCORING-ACTIVATION.md).
-- Poslední dokončený offline/database běh před novými HTTP testy měl
-  **373 PASS / 1 FAIL / 13 BLOCKED** na starším integračním SHA; jediný FAIL
-  je pečeť Gate 0. Novější audit po přidání testů byl řízeně ukončen při
-  změně inventáře; opravené cílené pojistky prošly, celý profil na aktuálním
-  SHA je **NOT RUN**. Žádný z těchto běhů není release PASS.
+  jiné, zatím nesloučené větvi. Kandidát `4edd1be6` propojuje Hunt se
+  Studio 2 a má izolovanou simulaci **5/5**, detailní UI test **9/9**,
+  `desktop-hunt` **34/34**. Jeho čistý serializovaný offline/database audit
+  vybral 400 programů a skončil **399 PASS / 1 FAIL / 0 BLOCKED**; jediný
+  FAIL je zapečetěný Gate 0 hash. Kandidát ještě čeká na integraci,
+  nezávislé review a živé hodnocení. Tato čísla nepředstavují přijaté skóre.
+  [Pravidla výběru](../MODEL-SCORING-ACTIVATION.md).
+- Poslední úplný offline/database audit čistého integračního `09247504`
+  skončil **387 PASS / 1 FAIL / 0 BLOCKED**. Jediný FAIL je kontrola
+  zapečetěného Gate 0 hashe registru, který se po nových testech liší;
+  report je `.intentsmith-artifacts/test-runs/2026-09-30T19-02-22-473Z/report.json`.
+  Aktuální `a9fec745` má po nových testech registr 558 a celý profil na něm
+  dosud neběžel. Cílený provider capture self-test prošel **6/6**. Žádný
+  z těchto běhů není release PASS; přepis pečeti bez nové review není řešení.
 - Mobilní aplikace má připravené UI a úzké review, ale fyzický Android,
   VPN/pairing/revocation, přístupnost, podepsaný release a produkční
   napojení nejsou ověřené. Host mobilní gate na společném zdroji prošel
@@ -64,17 +94,19 @@ kontroly prošly, ale release review a nasazení této delty zůstávají otevř
 
 ## Git a navazující brány
 
-Integrační branch obsahuje všechny zde uvedené přijaté zdrojové a testovací
-commity; push přesného finálního dokumentačního SHA se ověří zvlášť. Soukromé
-provider logy, databáze a obrazové
-důkazy nejsou součástí Git zdrojů. Ještě není pravdivé tvrdit, že všechny
-rozpracované materiály jsou na remote nebo že lze odstranit všechny staré
-větve. Úklid musí následovat až po integraci, ověření remote a inventáři
-vlastnictví čistých/cizích pracovních stromů.
+Integrační branch do `a9fec745` včetně je pushnutá přesně na
+`origin/work/real-chat-journeys-20260930`; test expertiz má také vzdálenou
+izolovanou větev. Rozpracovaný Hunt a oprava souhrnu jsou zatím lokální
+kandidáti, tedy tvrzení „vše na Git remote“ by bylo nepravdivé. Soukromé
+provider logy, databáze a obrazové důkazy nejsou součástí Git zdrojů.
+Inventář pracovních stromů zatím nenašel žádný cizí checkout, jehož vlastnictví
+a zachování důkazů by dovolovalo bezpečné smazání. Úklid je poslední milník
+po integraci, ověření remote a uchování důkazů.
 
-Další brány v pořadí: (1) zopakovat cílené testy po integraci a plný
-offline/database profil na jednom SHA; (2) znovu provést živou sadu 85 po
-produktové změně; (3) samostatně integrovat a kvalifikovat GPU hunt a
-hodnotitele; (4) přejmout a nasadit IDE/backend, poté otevřít mobilní napojení;
-(5) přesným inventářem a proof-of-remote zredukovat bezpečně odstranitelné
-větve a worktree.
+Další brány v pořadí: (1) nezávisle přijmout opravu celého souhrnu a sloučit
+Hunt s jeho UI bez ztráty chatového chování; (2) zmrazit společný SHA, spustit
+celý offline/database profil, Studio UI a živé chatové sady s odděleným
+technickým a kvalitativním verdiktem; (3) dokončit skutečné Hunt hodnocení,
+nezávislé posouzení a rozhodnutí o modelech; (4) přejmout a nasadit
+IDE/backend, poté otevřít mobilní napojení; (5) ověřit exact remote a až
+nakonec zredukovat bezpečně odstranitelné větve a worktree.
