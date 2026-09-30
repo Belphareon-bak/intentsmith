@@ -48,8 +48,11 @@ export function fitProjectDiscussionPrompt(serialized, numCtx, systemPrompt = `$
   // The persisted user goal is not disposable history. Keep it whole across
   // arbitrarily many increments; identical current requests need only one copy.
   const goal = String(input.project.description || '');
+  // A durable summary covers turns that are no longer present verbatim. It
+  // cannot be shortened or discarded while selecting optional prompt context.
+  const summaries = input.history.filter(turn => turn.role === 'summary');
   const data = { ...input, project: { ...input.project, description: goal === input.request ? '(same as request)' : goal },
-    history: input.history.map(turn => ({ ...turn, content: turn.content.slice(0, 600) })),
+    history: input.history.map(turn => ({ ...turn, content: turn.role === 'summary' ? turn.content : turn.content.slice(0, 600) })),
     analysis: { fileCount: input.analysis.fileCount, files: input.analysis.files.slice(0, 20), setup: input.analysis.setup,
       directories: input.analysis.directories, nodeProject: input.analysis.nodeProject ?? null,
       excerpts: input.analysis.excerpts.map(file => ({ ...file, text: file.text.slice(0, 1200), truncated: file.truncated || file.text.length > 1200 })) },
@@ -62,10 +65,17 @@ export function fitProjectDiscussionPrompt(serialized, numCtx, systemPrompt = `$
     else data.analysis.excerpts.pop();
     prompt = JSON.stringify(data);
   }
-  // Preserve the earliest available user goal and the newest user correction.
-  while (!fits() && data.history.length > 2) { data.history.splice(1, 1); prompt = JSON.stringify(data); }
+  // Preserve the durable summary and the newest optional correction.
+  const minHistoryLength = summaries.length + (summaries.length ? 1 : 2);
+  while (!fits() && data.history.length > minHistoryLength) {
+    const removable = data.history.findIndex(turn => turn.role !== 'summary');
+    if (removable < 0) break;
+    data.history.splice(removable, 1);
+    prompt = JSON.stringify(data);
+  }
   if (!fits()) {
-    data.history = data.history.filter(turn => turn.role === 'user').map(turn => ({ ...turn, content: turn.content.slice(0, 350) }));
+    data.history = [...summaries, ...data.history.filter(turn => turn.role === 'user')
+      .map(turn => ({ ...turn, content: turn.content.slice(0, 350) }))];
     data.analysis = { revision: input.analysis.revision, fileCount: input.analysis.fileCount,
       files: input.analysis.files.slice(0, 20), excerpts: [], setup: input.analysis.setup,
       directories: input.analysis.directories, nodeProject: input.analysis.nodeProject ?? null, selectionLimited: true };
@@ -83,8 +93,8 @@ export function fitProjectDiscussionPrompt(serialized, numCtx, systemPrompt = `$
     maxTokens = Math.min(maxTokens, 1024);
     maxBytes = Math.floor((numCtx - maxTokens - 384) * 2);
     const users = input.history.filter(turn => turn.role === 'user' && turn.content !== input.request);
-    data.history = [...new Set([users[0], users.at(-1)].filter(Boolean))]
-      .map(turn => ({ role: 'user', content: turn.content.slice(0, 180) }));
+    data.history = [...summaries, ...[...new Set([users[0], users.at(-1)].filter(Boolean))]
+      .map(turn => ({ role: 'user', content: turn.content.slice(0, 180) }))];
     data.analysis.files = data.analysis.files.slice(0, 8);
     data.projectWorkEvidence = data.projectWorkEvidence.slice(0, 1).map(item => ({
       state: item.state, errorCode: item.errorCode, focusedTest: item.focusedTest,
@@ -96,7 +106,12 @@ export function fitProjectDiscussionPrompt(serialized, numCtx, systemPrompt = `$
   // The persisted goal and current correction outrank old conversation
   // excerpts. A new lifecycle receipt must not make a short repair impossible
   // merely because two optional history snippets consume the remaining room.
-  while (!fits() && data.history.length) { data.history.shift(); prompt = JSON.stringify(data); }
+  while (!fits()) {
+    const removable = data.history.findIndex(turn => turn.role !== 'summary');
+    if (removable < 0) break;
+    data.history.splice(removable, 1);
+    prompt = JSON.stringify(data);
+  }
   if (!fits()) throw new Error('Aktuální zadání se nevejde do schváleného kontextu modelu. Rozděl je na menší krok.');
   // Reducing the reply/history reservation can free space after all excerpts
   // were dropped. Refill that space from observed data; never raise the model
@@ -111,6 +126,11 @@ export function fitProjectDiscussionPrompt(serialized, numCtx, systemPrompt = `$
       data.analysis.excerpts.pop();
       prompt = JSON.stringify(data);
     }
+  }
+  const selectedSummaries = data.history.filter(turn => turn.role === 'summary');
+  if (!fits() || selectedSummaries.length !== summaries.length
+      || selectedSummaries.some((summary, index) => summary.content !== summaries[index].content)) {
+    throw new Error('Aktuální zadání se nevejde do schváleného kontextu modelu. Rozděl je na menší krok.');
   }
   return { prompt, systemPrompt, maxTokens, numCtx, maxBytes, excerptCount: data.analysis.excerpts.length };
 }
@@ -221,7 +241,7 @@ async function discussProjectOnce(input, context, {
   const recentHistory = durableHistory.filter(turn => !turn.isSummary).slice(-10);
   const history = [...(summary ? [summary] : []), ...recentHistory].map(turn => ({
     role: turn.isSummary ? 'summary' : turn.response?.tag?.speaker === 'user' ? 'user' : 'assistant',
-    content: String(turn.response?.content || '').slice(0, 2400),
+    content: turn.isSummary ? String(turn.response?.content || '') : String(turn.response?.content || '').slice(0, 2400),
   }));
   const observed = await inspectDevelopmentEnvironment();
   const host = { platform: observed.platform, architecture: observed.architecture,
