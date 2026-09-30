@@ -36,6 +36,7 @@ function sourceRevision() {
 
 async function startFixtureProvider() {
   const requests = [];
+  const responses = [];
   const server = http.createServer(async (incoming, outgoing) => {
     const chunks = [];
     let length = 0;
@@ -65,6 +66,7 @@ async function startFixtureProvider() {
     const content = valueCase
       ? JSON.stringify(valueCase.expected)
       : JSON.stringify({ intent: 'CONVERSATIONAL', confidence: 0.99, fileTarget: null });
+    responses.push(content);
     outgoing.end(JSON.stringify({ model: MODEL, digest: DIGEST, done: true,
       done_reason: 'stop', prompt_eval_count: 100, eval_count: 20,
       message: { role: 'assistant', content } }));
@@ -72,7 +74,7 @@ async function startFixtureProvider() {
   await new Promise((resolve, reject) => {
     server.once('error', reject); server.listen(0, '127.0.0.1', resolve);
   });
-  return { requests, url: `http://127.0.0.1:${server.address().port}`,
+  return { requests, responses, url: `http://127.0.0.1:${server.address().port}`,
     close: () => new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve())) };
 }
 
@@ -111,7 +113,10 @@ test('M1 value answers preserve exact signed arithmetic and durable history', {
       `${valueCase.label}: expected exactly one final provider ANSWER request`);
     const answerRequest = answerRequests[0];
     assertFinalValueRequest(answerRequest, valueCase, MODEL);
+    assert.equal(answerRequest.format, 'json', `${valueCase.label}: ANSWER provider wire must request JSON mode`);
     const content = result.response?.content;
+    assert.equal(content, provider.responses[provider.requests.indexOf(answerRequest)],
+      `${valueCase.label}: HTTP content must equal the raw provider ANSWER content`);
     assertExactValueAnswer(content, valueCase);
     answers.push(content);
     turns.push({ label: valueCase.label, requestId: command.requestId,

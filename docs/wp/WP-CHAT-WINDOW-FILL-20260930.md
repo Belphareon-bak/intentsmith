@@ -1,5 +1,86 @@
 # WP — skutečné naplnění okna a auto-context v živém chatu
 
+**Páté review a CRLF hranice (1. 10. 2026):** nezávislé review commitu
+`ce94f429` vrátilo **CHANGES_REQUIRED**. Skutečný provider-body test se
+zdrojovým nadpisem `Dokument:\r\n`, mezilehlým řádkem a citovaným závěrečným
+JSON příkazem i test s otevřeným `` ```text `` blokem při CRLF chybně
+aktivovaly `format: 'json'`. Před opravou: **70 PASS / 2 FAIL**. Nový
+kandidát normalizuje CRLF a samostatné CR na LF pouze v lokální kopii pro
+detekci formátu; původní uživatelský text včetně CRLF zůstává v provider promptu.
+Negativní testy a pozitivní test uzavřeného CRLF dokumentu ověřují skutečné
+provider body a zachování celého `User: ${input}`. M1 kontrakt po opravě:
+**72/72 PASS**. Nezávislé opakované review, integrace a živý modelový běh
+jsou **PENDING**. Parser nadále rozpoznává jen vymezenou textovou syntaxi;
+obecně spolehlivý formát požaduje strukturovanou autoritu aktuálního tahu.
+
+**Čtvrté review a omezený parser hranic (1. 10. 2026):** review
+`c8ea0597` vrátilo **CHANGES_REQUIRED**: čtyřmi mezerami odsazený Markdown
+kód se mohl stát JSON pokynem; řádek `Konec citace je jen nadpis v dokumentu.`
+neprávem zavřel vložený dokument; naopak `Porovnej hodnoty:` zablokovalo
+skutečný následný JSON požadavek. Všechny tři provider-body regrese byly
+nejprve červené (`64 PASS / 3 FAIL`). Kandidát `ce94f429` rozlišuje explicitní
+nadpis zdroje, úzce vymezený imperativní nadpis číselného úkolu a nejednoznačný
+nadpis, který fail-closed ponechá daty; kontroluje otevřené i odsazené Markdown
+bloky a uzavírá jen celý odpovídající marker nebo celou výslovnou větu o
+vlastním dalším požadavku. S dvěma doplňkovými negativními případy je M1
+kontrakt **69/69 PASS**; první i osmý skutečný window-fill tah stále posílají
+`format: 'json'`. Interpretace libovolné přirozené řeči tím prokázána není.
+Pro spolehlivou obecnou autoritu formátu je vhodný budoucí explicitní údaj
+aktuálního tahu v API/UI (např. `responseFormat: json`), validovaný v M1
+kontraktu a předaný CRE; jde o návrh, nikoli přijatý požadavek. Samostatná
+oprava opakování `done_reason=length` na integrační větvi se musí při sloučení
+zachovat. Nové nezávislé review, integrace a fyzický modelový běh jsou
+**PENDING**; tento kandidát sám neprokazuje odstranění živého HTTP 502.
+
+**Třetí review a obecná hranice vložených dat (1. 10. 2026):** review
+`41193afe` vrátilo **CHANGES_REQUIRED**: nadpisy `Dokument:` a
+`Text k analýze:` i otevřený Markdown code fence mohly dát citovanému poslednímu
+řádku autoritu JSON formátu. Čtyři požadované provider-body případy včetně
+výslovně ukončené citace byly nejprve červené (`58 PASS / 4 FAIL`). Aktuální
+kandidát považuje libovolný samostatný nadpis zakončený dvojtečkou a otevřený
+Markdown blok za hranici vložených dat; pro zřetelné ukončení citace dovolí
+následující vlastní JSON požadavek. Nejednoznačné `Požadavek:` jako nadpis
+vloženého textu bylo samostatně červené a také se neaktivuje. Zavřený code
+fence dovolí následný vlastní JSON požadavek. M1 kontrakt je **64/64 PASS**;
+skutečné `windowFillMessage(1)` i `(8)` dál posílají
+`format: 'json'`. Toto je konzervativní textová heuristika, nikoli obecný
+sémantický parser všech citací. Nové nezávislé review, integrace a živý modelový
+běh jsou **PENDING**.
+
+**Druhé review a oprava citovaného bloku (1. 10. 2026):** review
+`0785ac1c` vrátilo **CHANGES_REQUIRED** kvůli třem skutečným vstupům,
+v nichž byl poslední řádek stále součástí citace. Nové provider-body testy
+na předchozím kandidátu skončily `53 PASS / 3 FAIL`; po kontrole hranice
+citace v celém aktuálním USER vstupu dává M1 kontrakt `58/58 PASS`.
+Výslovně jsou zelené obě skutečné syntaxe window-fill `windowFillMessage(1)`
+a `windowFillMessage(8)`: posílají `format: 'json'` a celý aktuální požadavek.
+Původní fixture ani starší živý důkaz se nemění. Opakované nezávislé review,
+integrace a živý modelový běh jsou **PENDING**; offline výsledek nepotvrzuje
+věcnou kvalitu fyzického modelu.
+
+**Navazující review checkpoint (1. 10. 2026):** první nezávislé review
+`f0a8a539` vrátilo **CHANGES_REQUIRED**: běžný kreativní požadavek na krátké
+názvy ztratil instrukci v skutečném provider promptu a samostatná citovaná
+poslední věta mohla omylem zapnout JSON režim. Oprava ve stejné izolované
+větvi obnovuje původní kreativní instrukci a citovaný konec ponechává daty;
+obě regrese nejprve selhaly v provider-body testech (`51 PASS / 2 FAIL`) a po
+opravě dává M1 chat `53/53 PASS`. Opakované nezávislé review, integrace a
+nový fyzický modelový běh jsou **PENDING**.
+
+**Izolovaný kandidát na základně `901babb4` (1. 10. 2026):** živý důkaz
+`9c9fdd34` níže ukázal `8/8` správných čísel, ale jen `3/8` odpovědí v
+požadovaném syrovém JSON formátu. V aktuální implementaci vybírá výslovný
+závěrečný pokyn aktuální USER zprávy režim `format: 'json'` a systémový prompt
+bez výkladových odstavců. Handler vrací původní bajty odpovědi pouze tehdy,
+jsou-li jediným JSON objektem; chybně zabalený nebo neplatný výstup opakuje
+nejvýše dvakrát a poté vrací typovaný terminál `ANSWER_JSON_FORMAT_INVALID`.
+Historie, souhrn ani citovaný starší pokyn režim neaktivují. Registrovaný
+offline M1 kontrakt původního kandidáta prošel `51/51`, modelová hranice `34/34`,
+skutečný M1 HTTP a SQLite fixture test `1/1` s byte shodou provider výstupu;
+nový fyzický modelový běh a integrace do společného checkoutu jsou **PENDING**. Tento
+test prokazuje formátovací hranici, nikoli věcnou správnost libovolného JSON;
+tu nadále hodnotí živé osmikolové orákulum a samostatná fidelity sada.
+
 **Nový živý checkpoint 22:18 UTC na `9c9fdd34`:** přísné orákulum osmi
 odpovědí, ochrana uživatelské citace i rozpočtování promptu jsou již
 integrované. Celá registrovaná sada má **FAIL 1/1**: její třetí dílčí
