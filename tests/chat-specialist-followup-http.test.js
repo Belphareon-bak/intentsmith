@@ -11,10 +11,14 @@ import http from 'node:http';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { test } from 'node:test';
+import { createOwnedJourneyRuntime } from './helpers/chat-project-expertise-model-journey.js';
 import { isolatedTestRuntime as runtime } from './helpers/isolated-test-db.js';
 
 const MODEL = 'fixture:1b';
 const DIGEST = 'a'.repeat(64);
+// The registered runner already owns a product server and DB in `runtime`.
+// This test's second server needs its own baseline, port and project roots.
+const productRuntime = createOwnedJourneyRuntime(runtime);
 const children = new Set();
 process.once('exit', () => {
   for (const child of children) {
@@ -57,15 +61,15 @@ async function startProvider() {
 function productEnvironment(providerUrl, nonce) {
   return {
     PATH: process.env.PATH || '/usr/bin:/bin', LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC',
-    HOME: runtime.home, XDG_CONFIG_HOME: runtime.xdgConfig,
-    XDG_CACHE_HOME: runtime.xdgCache, XDG_DATA_HOME: runtime.xdgData,
-    XDG_STATE_HOME: runtime.xdgState, TMPDIR: runtime.temp, TMP: runtime.temp,
-    TEMP: runtime.temp, npm_config_cache: runtime.npmCache,
-    NODE_ENV: 'test', CI: '1', DOTENV_CONFIG_PATH: `${runtime.runtime}/no-dotenv-file`,
+    HOME: productRuntime.home, XDG_CONFIG_HOME: productRuntime.xdgConfig,
+    XDG_CACHE_HOME: productRuntime.xdgCache, XDG_DATA_HOME: productRuntime.xdgData,
+    XDG_STATE_HOME: productRuntime.xdgState, TMPDIR: productRuntime.temp, TMP: productRuntime.temp,
+    TEMP: productRuntime.temp, npm_config_cache: productRuntime.npmCache,
+    NODE_ENV: 'test', CI: '1', DOTENV_CONFIG_PATH: `${productRuntime.runtime}/no-dotenv-file`,
     DOTENV_CONFIG_QUIET: 'true', INTENTSMITH_HOST: '127.0.0.1', INTENTSMITH_PORT: '0',
-    INTENTSMITH_PORT_FILE: runtime.portFile, INTENTSMITH_DB_PATH: runtime.database,
-    INTENTSMITH_PROJECTS_DIR: runtime.projects, INTENTSMITH_TEST_PROJECTS_DIR: runtime.projects,
-    INTENTSMITH_TEST_ARTIFACT_DIR: runtime.artifacts, INTENTSMITH_TEST_SERVER_NONCE: nonce,
+    INTENTSMITH_PORT_FILE: productRuntime.portFile, INTENTSMITH_DB_PATH: productRuntime.database,
+    INTENTSMITH_PROJECTS_DIR: productRuntime.projects, INTENTSMITH_TEST_PROJECTS_DIR: productRuntime.projects,
+    INTENTSMITH_TEST_ARTIFACT_DIR: productRuntime.artifacts, INTENTSMITH_TEST_SERVER_NONCE: nonce,
     INTENTSMITH_ENABLE_AGENTS: 'false', INTENTSMITH_ENABLE_LIFECYCLE: 'false',
     INTENTSMITH_ENABLE_COMFYUI: 'false', INTENTSMITH_ENABLE_AUTONOMY: 'false',
     INTENTSMITH_ENABLE_SKILLS: 'false', INTENTSMITH_ENABLE_TELEMETRY: 'false',
@@ -79,7 +83,7 @@ function productEnvironment(providerUrl, nonce) {
 
 async function startProduct(providerUrl) {
   const nonce = randomBytes(32).toString('base64url');
-  if (existsSync(runtime.portFile)) unlinkSync(runtime.portFile);
+  if (existsSync(productRuntime.portFile)) unlinkSync(productRuntime.portFile);
   const child = spawn(process.execPath, ['src/server.js'], {
     cwd: runtime.repositoryRoot, env: productEnvironment(providerUrl, nonce),
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -97,9 +101,9 @@ async function startProduct(providerUrl) {
     if (state.code !== null || state.signal !== null) {
       throw new Error(`Product exited before ready: ${state.output.slice(-2500)}`);
     }
-    if (existsSync(runtime.portFile)) {
+    if (existsSync(productRuntime.portFile)) {
       try {
-        const ready = JSON.parse(readFileSync(runtime.portFile, 'utf8'));
+        const ready = JSON.parse(readFileSync(productRuntime.portFile, 'utf8'));
         if (ready.pid === child.pid && ready.testRunNonce === nonce
           && Number.isSafeInteger(ready.port) && ready.port > 0
           && /^[A-Za-z0-9_-]{43}$/.test(ready.localCapability || '')) {
@@ -154,7 +158,7 @@ async function createProjectConversation(server, {
   const name = `specialist-${label}-${randomBytes(4).toString('hex')}`;
   const created = await expect(server, 'POST', '/api/projects', { name, description: `Private ${label}` }, 201);
   assert(Number.isSafeInteger(created.project?.id) && created.project.id > 0);
-  assert(created.project.path.startsWith(runtime.projects + '/'));
+  assert(created.project.path.startsWith(productRuntime.projects + '/'));
   mkdirSync(path.join(created.project.path, 'src'), { recursive: true });
   const sourcePath = `src/${label}-auth.js`;
   const sourceContent = `export function ${functionName}(input) {\n${sourceLine}\n}\n`;
