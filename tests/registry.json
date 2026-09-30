@@ -43,6 +43,10 @@
       "reason": "Shared owned M1 HTTP project and expertise journey imported by deterministic and opt-in live suites; no standalone entry point."
     },
     {
+      "path": "tests/helpers/chat-translator-journey.js",
+      "reason": "Shared translator M1 HTTP, provider, semantic and project oracle imported by deterministic and opt-in live suites; no standalone entry point."
+    },
+    {
       "path": "tests/helpers/chat-value-fidelity-journey.js",
       "reason": "Shared exact-value M1 HTTP and SQLite oracle imported by the deterministic and opt-in live value-fidelity suites; no standalone entry point."
     },
@@ -15929,6 +15933,66 @@
       },
       "required": true,
       "owner": "WP-CHAT-PROJECT-EXPERTISE-LIVE-20260930",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-TESTS-CHAT-TRANSLATOR-LIVE-TEST",
+      "path": "tests/chat-translator-live.test.js",
+      "argv": [
+        "node",
+        "tests/chat-translator-live.test.js"
+      ],
+      "capabilityId": "C3-007",
+      "tier": "T3",
+      "fixture": "owned-isolated-server-and-captured-local-model",
+      "profile": "model",
+      "timeoutMs": 1500000,
+      "expectedDurationMs": 600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "WP-CHAT-TRANSLATOR-LIVE-20261001",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-TESTS-CHAT-TRANSLATOR-MODEL-CONTRACT-TEST",
+      "path": "tests/chat-translator-model-contract.test.js",
+      "argv": [
+        "node",
+        "tests/chat-translator-model-contract.test.js"
+      ],
+      "capabilityId": "C3-007",
+      "tier": "T3",
+      "fixture": "owned-isolated-server-and-loopback-provider",
+      "profile": "server",
+      "timeoutMs": 240000,
+      "expectedDurationMs": 10000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-CHAT-TRANSLATOR-LIVE-20261001",
       "state": "ACTIVE",
       "lastGreen": {
         "commit": null,

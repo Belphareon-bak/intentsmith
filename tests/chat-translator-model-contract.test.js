@@ -37,7 +37,7 @@ async function startFixtureProvider() {
       response.end(JSON.stringify({ model: MODEL, digest: DIGEST, done: true,
         done_reason: 'stop', prompt_eval_count: 125, eval_count: 31,
         message: { role: 'assistant',
-          content: 'Nora Vela sent the shipment to the RIGEL_731 archive.' } }));
+          content: TRANSLATOR_CASE.fixtureTranslation } }));
     } else {
       response.writeHead(503).end(JSON.stringify({ error: 'unexpected fixture endpoint' }));
     }

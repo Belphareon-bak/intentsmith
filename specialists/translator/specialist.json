@@ -15,13 +15,13 @@
       "id": "translator.translate",
       "name": "Překlad textu",
       "module": "./index.js",
-      "function": "translate"
+      "function": "translateText"
     },
     {
       "id": "translator.detect_language",
       "name": "Detekce jazyka",
       "module": "./index.js",
-      "function": "detectLanguage"
+      "function": "detectLanguageHandler"
     }
   ],
 

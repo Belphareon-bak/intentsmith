@@ -40,7 +40,7 @@ function detectLang(text) {
 
 // ─── Tool Implementations ───────────────────────────────────────────────────
 
-async function translateText(params) {
+export async function translateText(params) {
   const { text, from, to } = params;
   if (!text) return { status: 'error', message: 'Chybí text k překladu' };
   if (!to) return { status: 'error', message: 'Chybí cílový jazyk (parametr "to")' };
@@ -60,7 +60,7 @@ async function translateText(params) {
   };
 }
 
-async function detectLanguageHandler(params) {
+export async function detectLanguageHandler(params) {
   const { text } = params;
   if (!text) return { status: 'error', message: 'Chybí text k analýze' };
 
@@ -141,6 +141,8 @@ function buildToolDefinitions() {
       id: 'translator.translate',
       name: 'Překlad textu',
       description: 'Translate text between languages',
+      modulePath: __filename,
+      functionName: 'translateText',
       patterns: [{
         priority: 10,
         patterns: [
@@ -181,6 +183,8 @@ function buildToolDefinitions() {
       id: 'translator.detect_language',
       name: 'Detekce jazyka',
       description: 'Detect the language of input text',
+      modulePath: __filename,
+      functionName: 'detectLanguageHandler',
       patterns: [{
         priority: 5,
         patterns: [
