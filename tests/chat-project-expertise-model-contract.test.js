@@ -69,12 +69,21 @@ test('A→B→A M1 project expertise uses exact file data in the final provider 
   timeout: 180_000,
 }, async t => {
   const sourceRevision = verifiedSourceRevision();
-  const provider = await startProvider();
+  let provider = await startProvider();
   let product = null;
-  t.after(async () => {
-    try { if (product) await stopProduct(product); }
-    finally { await provider.close(); }
-  });
+  const closeOwned = async () => {
+    const errors = [];
+    if (product) {
+      try { await stopProduct(product); product = null; }
+      catch (error) { errors.push(error); }
+    }
+    if (provider) {
+      try { await provider.close(); provider = null; }
+      catch (error) { errors.push(error); }
+    }
+    if (errors.length) throw new AggregateError(errors, 'owned test cleanup failed');
+  };
+  t.after(closeOwned);
   product = await startProduct(runtime, provider.url, MODEL);
   const { a, b } = await prepareJourney(product, runtime);
   const steps = journeySteps(a, b);
@@ -115,10 +124,14 @@ test('A→B→A M1 project expertise uses exact file data in the final provider 
   wrongReply.response.content += ` ${b.canary}`;
   assert.throws(() => assertFinalTurn(first.request, wrongReply, first.step));
 
+  const providerCalls = provider.requests.length;
+  // On a normal path, complete both owned shutdowns before producing PASS.
+  // t.after remains a failure-path fallback; after this call it is a no-op.
+  await closeOwned();
   writeFileSync(`${runtime.artifacts}/chat-project-expertise-model-contract.json`,
     `${JSON.stringify({ schemaVersion: 1,
       sourceRevision,
       fixture: 'owned-fake-provider', projectIds: [a.id, b.id],
-      m1Turns: turns, providerCalls: provider.requests.length,
+      m1Turns: turns, providerCalls,
       status: 'PASS' }, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
 });

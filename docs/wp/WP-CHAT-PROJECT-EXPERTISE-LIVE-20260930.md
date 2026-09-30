@@ -81,8 +81,9 @@ produkční server ani DB.
 
 **Artefakty a rozhodnutí:** přímý běh s `KEEP_TEST_RUNTIME=1` zachová
 soukromý runtime pod `.intentsmith-artifacts/direct-tests/` (`0700`), v něm
-provider JSONL a verdiktový JSON (`0600`). Verdikt `PASS` se píše až po
-úspěšném uvolnění vlastních procesů a GPU lease a obsahuje přesné source SHA,
+provider JSONL a verdiktový JSON (`0600`). Obě sady píší `PASS` až po
+úspěšném ukončení vlastního serveru a providera; živá navíc uvolní proxy a
+GPU lease. Živý verdikt obsahuje přesné source SHA,
 model/digest, verzi Ollama, SHA-256 celého JSONL a SHA-256 jednotlivých
 požadavků/odpovědí plus projektové a konverzační identity. Zachycený JSONL
 obsahuje celý prompt a odpovědi, proto se neposílá do Git repozitáře;
