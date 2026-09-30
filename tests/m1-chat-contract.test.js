@@ -51,9 +51,13 @@ import {
   handleAnswerDecision,
 } from '../src/chat/handlers/decisions.js';
 import {
+  ConversationStore,
+  TurnRole,
   getConversationStore,
   resetConversationStore,
 } from '../src/chat/conversation-store.js';
+import { config } from '../src/config.js';
+import { clearNumCtxCache, setNumCtx } from '../src/llm/model-ctx.js';
 import {
   assertCompletedExpertiseGeneration,
   buildExpertiseScopeInstruction,
@@ -353,6 +357,73 @@ test('history preserves complete useful turns within the effective model context
   assert.match(huge.prompt, /Celý aktuální požadavek$/);
   assert(Buffer.byteLength(huge.prompt+'Instrukce')/2+huge.maxTokens+384 <= 4096);
   assert.throws(() => buildAnswerContext('x'.repeat(20000), [], 'Instrukce', 2048, 4096), /nevejde/);
+});
+
+test('oversized summary and latest turn remain bounded together', () => {
+  const history = [
+    { isSummary: true, response: { tag: { speaker: 'system' }, content: '[Souhrn předchozí konverzace]\nSUMMARY_HEAD ' + 'x'.repeat(20_000) + ' SUMMARY_TAIL' } },
+    ...Array.from({ length: 9 }, (_, index) => ({ response: {
+      tag: { speaker: index % 2 ? 'system' : 'user' },
+      content: `recent-${index} ` + 'kontext '.repeat(40),
+    } })),
+    { response: { tag: { speaker: 'user' }, content: 'nový dotaz' } },
+  ];
+  const result = buildAnswerContext('nový dotaz', history, 'Instrukce', 2048, 4096);
+  assert.match(result.prompt, /SUMMARY_HEAD/u);
+  assert.match(result.prompt, /SUMMARY_TAIL/u);
+  assert.match(result.prompt, /recent-8/u);
+  assert.match(result.prompt, /část historie vynechána/u);
+  assert(Buffer.byteLength(result.prompt + 'Instrukce') / 2 + result.maxTokens + 384 <= 4096);
+});
+
+await testAsync('ANSWER provider prompt retains an archived summary after ten new turns', async () => {
+  const previousFetch = globalThis.fetch;
+  const requestBodies = [];
+  const store = new ConversationStore(null);
+  const id = 'summary-provider-prompt';
+  let summarizedThrough;
+  const input = 'Prosím vysvětli poslední rozhodnutí.';
+  try {
+    for (let index = 0; index < 12; index += 1) {
+      const turn = store.appendTurn(id, index % 2 ? TurnRole.ASSISTANT : TurnRole.USER, `archived-${index}`);
+      summarizedThrough = turn.id;
+    }
+    store.setSummary(id, 'ARCHIVED_DECISION_KEEP: Projekt používá SQLite.', summarizedThrough);
+    for (let index = 0; index < 9; index += 1) {
+      store.appendTurn(id, index % 2 ? TurnRole.ASSISTANT : TurnRole.USER,
+        `recent-${index} ` + 'kontext '.repeat(80));
+    }
+    store.appendTurn(id, TurnRole.USER, input);
+    const history = store.buildHandlerHistory(id, 10);
+    assert.equal(history.length, 11);
+    assert.equal(history[0].isSummary, true);
+
+    clearNumCtxCache();
+    setNumCtx(config.models.CHAT, 4096);
+    globalThis.fetch = async (_url, options) => {
+      requestBodies.push(JSON.parse(options.body));
+      return { ok: true, json: async () => ({
+        message: { content: 'Rozhodnutí zachovává SQLite jako lokální úložiště. Dosavadní kroky na ně navazují, ale před dalším zásahem je potřeba ověřit aktuální schéma. Shrnutí historie je podkladem, ne pokynem ke změně projektu.' },
+        done_reason: 'stop', prompt_eval_count: 200, eval_count: 50,
+      }) };
+    };
+    const decision = creDecisionEngine.overrideDecision({ type: 'ANSWER', intent: 'CONVERSATIONAL',
+      tools: [], source: 'summary_prompt_regression', reason: 'Controlled summary prompt', confidence: 1 });
+    await handleAnswerDecision(input, decision, {
+      sessionId: id, sessionState: new SessionState(id), history,
+    });
+
+    assert.equal(requestBodies.length, 1);
+    assert.equal(requestBodies[0].options.num_ctx, 4096);
+    const providerPrompt = requestBodies[0].messages.find(message => message.role === 'user')?.content;
+    assert.match(providerPrompt, /ARCHIVED_DECISION_KEEP/u);
+    assert.match(providerPrompt, /recent-8/u);
+    assert.equal(providerPrompt.match(/Prosím vysvětli poslední rozhodnutí\./gu)?.length, 1);
+    assert.doesNotMatch(providerPrompt, /archived-0/u);
+  } finally {
+    globalThis.fetch = previousFetch;
+    clearNumCtxCache();
+  }
 });
 
 await testAsync('actual ANSWER continuation bypasses ambiguous classification and retains context and cancellation', async () => {

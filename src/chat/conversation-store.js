@@ -520,6 +520,21 @@ export class ConversationStore {
   }
 
   /**
+   * Estimate the history actually supplied to a chat handler. Archived turns
+   * remain in the database, but a stored summary replaces them in this view.
+   * Keep the selection and summary wrapper identical to buildHandlerHistory().
+   *
+   * @param {string} conversationId
+   * @param {number} [maxTurns=10] — Same limit used by ChatController
+   * @returns {number}
+   */
+  getEffectiveHistoryTokens(conversationId, maxTurns = 10) {
+    if (!conversationId) return 0;
+    return this.buildHandlerHistory(conversationId, maxTurns)
+      .reduce((sum, turn) => sum + Math.ceil(turn.response.content.length / 4), 0);
+  }
+
+  /**
    * Get turns after a specific message ID (for post-summary context).
    *
    * @param {string} conversationId
