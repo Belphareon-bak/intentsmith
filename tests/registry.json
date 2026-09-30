@@ -43,6 +43,10 @@
       "reason": "Shared owned M1 HTTP project and expertise journey imported by deterministic and opt-in live suites; no standalone entry point."
     },
     {
+      "path": "tests/helpers/chat-value-fidelity-journey.js",
+      "reason": "Shared exact-value M1 HTTP and SQLite oracle imported by the deterministic and opt-in live value-fidelity suites; no standalone entry point."
+    },
+    {
       "path": "tests/helpers/isolated-test-db.js",
       "reason": "Imported direct-run database isolation bootstrap, not a standalone test."
     },
@@ -15896,6 +15900,66 @@
       "required": true,
       "owner": "WP-CHAT-PROJECT-EXPERTISE-LIVE-20260930",
       "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-TESTS-CHAT-VALUE-FIDELITY-CONTRACT-TEST",
+      "path": "tests/chat-value-fidelity-contract.test.js",
+      "argv": [
+        "node",
+        "tests/chat-value-fidelity-contract.test.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-server-and-loopback-provider",
+      "profile": "server",
+      "timeoutMs": 240000,
+      "expectedDurationMs": 10000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-CHAT-VALUE-FIDELITY-20260930",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-TESTS-CHAT-VALUE-FIDELITY-LIVE-TEST",
+      "path": "tests/chat-value-fidelity-live.test.js",
+      "argv": [
+        "node",
+        "tests/chat-value-fidelity-live.test.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-server-and-captured-local-model",
+      "profile": "model",
+      "timeoutMs": 1200000,
+      "expectedDurationMs": 360000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "WP-CHAT-VALUE-FIDELITY-20260930",
+      "state": "BLOCKED",
       "lastGreen": {
         "commit": null,
         "artifact": null
