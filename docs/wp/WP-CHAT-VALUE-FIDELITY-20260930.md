@@ -1,11 +1,14 @@
 # WP — ověření číselných hodnot v M1 chatu
 
-**Stav k 30. 9. 2026:** implementační kandidát na větvi
-`work/chat-value-fidelity-20260930`, založený z čistého
+**Stav k 30. 9. 2026:** opravený implementační kandidát na větvi
+`work/value-fidelity-acceptance-20260930`, vycházející z
+`work/chat-value-fidelity-20260930` založené z čistého
 `a9fec745fd47258ec6e0aafcda55c67c34cbbdb6`. Deterministická sada
 se skutečným M1 HTTP serverem a soukromou SQLite prošla. Živá modelová sada je
-`LIVE_NOT_RUN`; její registr má `lastGreen: null`. Nezávislé review, Gate 0
-a release přejímka této změny dosud neproběhly.
+`LIVE_NOT_RUN`; její registr má `lastGreen: null`. Nezávislé review dvakrát
+vrátilo `CHANGES_REQUIRED` kvůli falešně přijatému staršímu vstupu a zprávě
+asistenta na konci provider požadavku; tento kandidát čeká na opakované review.
+Gate 0 a release přejímka této změny dosud neproběhly.
 
 **Vstup:** operátor žádá ověřit, že chat vrací platné číselné hodnoty. V
 soukromém modelovém běhu `85` na `09247504` byly obě cílové položky přítomné
@@ -30,6 +33,8 @@ odmítne chybné znaménko, hodnotu, směr, řetězcové číslo, přidaný nebo
 duplicitní JSON klíč i Markdown. Finální `/api/chat` požadavek providera musí
 končit poslední uživatelskou zprávou s přesnými bajty právě testovaného
 případu; starší shodná zpráva nestačí. Musí obsahovat i deklarovaný rozpočet.
+Zpráva asistenta za shodným uživatelským vstupem je negativní kontrola a
+nesmí být rozpoznána jako finální ANSWER požadavek.
 Každá HTTP odpověď
 se porovná s terminálním provider výsledkem a následně s HTTP historií i
 přímým read-only dotazem do soukromé SQLite.

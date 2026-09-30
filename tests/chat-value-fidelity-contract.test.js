@@ -134,6 +134,9 @@ test('M1 value answers preserve exact signed arithmetic and durable history', {
   const staleInput = structuredClone(provider.requests.find(request => isAnswerRequest(request, positive)));
   staleInput.messages.push({ role: 'user', content: 'User: unrelated current request' });
   assert.throws(() => assertFinalValueRequest(staleInput, positive, MODEL));
+  const trailingAssistant = structuredClone(provider.requests.find(request => isAnswerRequest(request, positive)));
+  trailingAssistant.messages.push({ role: 'assistant', content: 'This is now the trailing provider message' });
+  assert.throws(() => assertFinalValueRequest(trailingAssistant, positive, MODEL));
 
   const totalProviderCalls = provider.requests.length;
   await closeOwned();

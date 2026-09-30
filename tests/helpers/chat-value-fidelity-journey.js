@@ -55,9 +55,10 @@ export function assertExactValueAnswer(content, valueCase) {
 
 export function isAnswerRequest(request, valueCase) {
   if (!Array.isArray(request?.messages)) return false;
-  const lastUser = request.messages.filter(message => message.role === 'user').at(-1);
-  return typeof lastUser?.content === 'string'
-    && lastUser.content.trimEnd().endsWith(`User: ${valueCase.input}`);
+  const lastMessage = request.messages.at(-1);
+  return lastMessage?.role === 'user'
+    && typeof lastMessage.content === 'string'
+    && lastMessage.content.endsWith(`User: ${valueCase.input}`);
 }
 
 export function assertFinalValueRequest(request, valueCase, expectedModel) {
