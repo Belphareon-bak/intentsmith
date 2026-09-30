@@ -149,6 +149,7 @@ export async function startProviderCaptureProxy({ captureFile, upstreamOrigin = 
       if (isChat) row = {
         schemaVersion: 1, at: new Date().toISOString(), path: incoming.url,
         method: incoming.method, model: body.model, numCtx: body.options.num_ctx,
+        numPredict: body.options.num_predict ?? null,
         requestSha256: SHA256(bytes), messages: body.messages,
       };
       const result = await forward(upstreamPort, incoming.method, incoming.url, bytes);
@@ -252,6 +253,8 @@ export function attestWindowFillEvidence({ evidenceFile, captureFile, sourceRevi
   assert.match(final?.responseSha256, /^[a-f0-9]{64}$/, 'window-fill final response hash missing');
   assert.equal(final.rawFirstMessagePresent, false, 'raw first message remains in final prompt');
   assert.equal(final.rawFirstMidLinePresent, false, 'raw first message fragment remains in final prompt');
+  assert.equal(final.answerMatchesRequestedFormat, true,
+    'window-fill final answer did not follow the requested code-only format');
   assert.ok(typeof final.question === 'string' && final.question.length > 0,
     'window-fill final question missing');
   const rows = captureBytes.toString('utf8').trim().split('\n').map(line => JSON.parse(line));
@@ -272,6 +275,8 @@ export function attestWindowFillEvidence({ evidenceFile, captureFile, sourceRevi
     }
     assert.ok(Number.isSafeInteger(row.numCtx) && row.numCtx >= 512 && row.numCtx <= 4096,
       'invalid provider context window');
+    assert.ok(Number.isSafeInteger(row.numPredict) && row.numPredict > 0 && row.numPredict <= row.numCtx,
+      'invalid provider output allowance');
     assert.ok(Number.isSafeInteger(row.promptEvalCount) && row.promptEvalCount > 0
       && row.promptEvalCount === row.terminal?.prompt_eval_count,
     'invalid provider prompt usage');
@@ -293,6 +298,7 @@ export function attestWindowFillEvidence({ evidenceFile, captureFile, sourceRevi
   assert.ok(Number.isSafeInteger(row.numCtx) && row.numCtx > 0 && row.numCtx <= 4096);
   assert.ok(Number.isSafeInteger(row.promptEvalCount) && row.promptEvalCount > 0);
   assert.equal(final.numCtx, row.numCtx, 'window-fill final num_ctx mismatch');
+  assert.equal(final.numPredict, row.numPredict, 'window-fill final num_predict mismatch');
   assert.equal(evidence.observedWindow, row.numCtx, 'window-fill observed num_ctx mismatch');
   assert.equal(final.promptEvalCount, row.promptEvalCount, 'window-fill prompt usage mismatch');
   assert.ok(Array.isArray(row.messages), 'window-fill final provider prompt missing');

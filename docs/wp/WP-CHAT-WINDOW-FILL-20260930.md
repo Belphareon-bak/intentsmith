@@ -48,7 +48,8 @@ rezervuje místo pro odpověď a omezuje historii. Test ověří, že background
 compaction uložila summary pokrývající první zprávu, zachovala kód a při
 prvním dokončení snížila efektivní historii vůči témuž snapshotu bez summary.
 Zachycená ANSWER odpověď providera se musí přesně rovnat HTTP odpovědi a
-metadata musí potvrdit stejný model i `num_ctx`. Závěrečný zachycený provider
+metadata musí potvrdit stejný model, `num_ctx` i skutečný výstupní limit
+`num_predict`. Závěrečný zachycený provider
 prompt musí obsahovat summary i kód, avšak původní první zpráva a její
 nesouhrnný prostřední řádek už v něm nesmějí být. Závěrečná otázka kód nesmí
 opakovat; model musí odpovědět přesně samotným kódem, jak uživatel požádal.
@@ -101,6 +102,7 @@ souhrn se přesně shodoval s terminální odpovědí zachyceného provider vol�
 požadovaného samotného `RIGEL_KAPPA_731`. Dřívější orákulum kontrolovalo
 jen výskyt kódu, proto tehdejší `4/4 PASS` dokládá dostupnost faktu po
 kompakci, nikoli dodržení přesného formátu. Nové orákulum kontroluje rovnost
-odpovědi po odstranění okolních mezer; běh s tímto přísnějším orákulem je
+odpovědi po odstranění okolních mezer a zachycuje skutečné `num_predict`;
+běh s tímto přísnějším orákulem je
 `LIVE_NOT_RUN`. Soukromý důkaz z třetího běhu zůstává mimo Git na uvedené
 cestě pod `artifacts/85-window-fill-evidence.json`.

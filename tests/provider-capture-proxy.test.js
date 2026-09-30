@@ -46,7 +46,8 @@ test('provider proxy records the exact terminal chat before forwarding success',
       { role: 'system', content: 'Souhrn: RIGEL_KAPPA_731' },
       { role: 'user', content: 'User: Jaký přesný auditní kód?' },
     ];
-    const body = JSON.stringify({ model: CAPTURE_MODEL, messages, stream: false, options: { num_ctx: 4096 } });
+    const body = JSON.stringify({ model: CAPTURE_MODEL, messages, stream: false,
+      options: { num_ctx: 4096, num_predict: 1200 } });
     const response = await fetch(`${proxy.url}/api/chat`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body,
     });
@@ -61,6 +62,7 @@ test('provider proxy records the exact terminal chat before forwarding success',
     assert.equal(rows[0].path, '/api/chat');
     assert.equal(rows[0].model, CAPTURE_MODEL);
     assert.equal(rows[0].numCtx, 4096);
+    assert.equal(rows[0].numPredict, 1200);
     assert.deepEqual(rows[0].messages, messages);
     assert.equal(rows[0].requestSha256, sha256(Buffer.from(body)));
     assert.equal(rows[0].status, 200);
@@ -84,8 +86,9 @@ test('provider proxy records the exact terminal chat before forwarding success',
       final: {
         requestSha256: rows[0].requestSha256,
         responseSha256: rows[0].responseSha256,
-        numCtx: 4096, promptEvalCount: 3072,
+        numCtx: 4096, numPredict: 1200, promptEvalCount: 3072,
         question: 'Jaký přesný auditní kód?', answer: 'RIGEL_KAPPA_731',
+        answerMatchesRequestedFormat: true,
         providerPrompt: messages.map(message => message.content).join('\n'),
         rawFirstMessagePresent: false, rawFirstMidLinePresent: false,
       },
@@ -102,7 +105,7 @@ test('provider proxy records the exact terminal chat before forwarding success',
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: CAPTURE_MODEL, stream: false,
         messages: [{ role: 'user', content: 'User: later background request' }],
-        options: { num_ctx: 4096 } }),
+        options: { num_ctx: 4096, num_predict: 1200 } }),
     });
     assert.equal(trailingResponse.status, 200);
     await trailingResponse.text();
@@ -119,6 +122,10 @@ test('provider proxy records the exact terminal chat before forwarding success',
     assert.throws(attest, /final provider call is missing/);
     writeEvidence({ ...windowEvidence, final: { ...windowEvidence.final, answer: 'forged' } });
     assert.throws(attest, /final answer mismatch/);
+    writeEvidence({ ...windowEvidence, final: { ...windowEvidence.final, answerMatchesRequestedFormat: false } });
+    assert.throws(attest, /code-only format/);
+    writeEvidence({ ...windowEvidence, final: { ...windowEvidence.final, numPredict: 512 } });
+    assert.throws(attest, /num_predict mismatch/);
     writeEvidence({ ...windowEvidence, final: { ...windowEvidence.final, rawFirstMessagePresent: true } });
     assert.throws(attest, /raw first message remains/);
     writeFileSync(evidenceFile, '{', { mode: 0o600 });
@@ -127,7 +134,8 @@ test('provider proxy records the exact terminal chat before forwarding success',
     const failedResponse = await fetch(`${proxy.url}/api/chat`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: CAPTURE_MODEL, stream: false,
-        messages: [{ role: 'user', content: 'fail: retry' }], options: { num_ctx: 4096 } }),
+        messages: [{ role: 'user', content: 'fail: retry' }],
+        options: { num_ctx: 4096, num_predict: 1200 } }),
     });
     assert.equal(failedResponse.status, 503);
     await failedResponse.text();
@@ -156,7 +164,8 @@ test('proxy rejects an effectful endpoint and a foreign model without forwarding
     });
     const foreign = await fetch(`${proxy.url}/api/chat`, {
       method: 'POST', body: JSON.stringify({ model: 'other:tag', stream: false,
-        messages: [{ role: 'user', content: 'x' }], options: { num_ctx: 4096 } }),
+        messages: [{ role: 'user', content: 'x' }],
+        options: { num_ctx: 4096, num_predict: 1200 } }),
     });
     assert.equal(forbidden.status, 403);
     assert.equal(foreign.status, 403);
@@ -185,7 +194,8 @@ test('proxy marks a successful-looking response without usage as a capture failu
     });
     const response = await fetch(`${proxy.url}/api/chat`, {
       method: 'POST', body: JSON.stringify({ model: CAPTURE_MODEL, stream: false,
-        messages: [{ role: 'user', content: 'x' }], options: { num_ctx: 4096 } }),
+        messages: [{ role: 'user', content: 'x' }],
+        options: { num_ctx: 4096, num_predict: 1200 } }),
     });
     assert.equal(response.status, 200);
     await response.text();

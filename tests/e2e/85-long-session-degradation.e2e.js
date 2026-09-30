@@ -97,10 +97,12 @@ function completedProviderCall(question, startIndex, response) {
     && row.model === config.models.CHAT && row.status === 200
     && row.terminal?.done === true && row.done === true
     && Number.isSafeInteger(row.numCtx) && row.numCtx > 0
+    && Number.isSafeInteger(row.numPredict) && row.numPredict > 0
     && Number.isSafeInteger(row.promptEvalCount) && row.promptEvalCount > 0
     && isAnswerRequestFor(row, question)
     && providerOutput(row) === response.response
     && response.metadata?.answerBudget?.numCtx === row.numCtx
+    && response.metadata?.answerBudget?.maxTokens === row.numPredict
     && response.metadata?.model === row.model);
   assert(matching.length > 0,
     `no captured CHAT ANSWER call matching the returned response and budget (${rows.length} new provider rows)`);
@@ -295,7 +297,8 @@ try {
       recordFirstSummary(snapshot, turn);
       windowEvidence.turns.push({ turn, requestSha256: provider.requestSha256,
         responseSha256: provider.responseSha256, model: provider.model,
-        numCtx: provider.numCtx, promptEvalCount: provider.promptEvalCount,
+        numCtx: provider.numCtx, numPredict: provider.numPredict,
+        promptEvalCount: provider.promptEvalCount,
         rawTokens, preSummaryEffectiveTokens,
         effectiveHistoryTokens: effectiveHistoryTokens(snapshot),
         messageCount: snapshot.messages.length,
@@ -330,7 +333,8 @@ try {
         snapshot = await conversationSnapshot(convId, signal);
         recordFirstSummary(snapshot, 9);
         windowEvidence.retry = { requestSha256: provider.requestSha256,
-          numCtx: provider.numCtx, promptEvalCount: provider.promptEvalCount };
+          numCtx: provider.numCtx, numPredict: provider.numPredict,
+          promptEvalCount: provider.promptEvalCount };
       }
     }
 
@@ -365,6 +369,7 @@ try {
     const finalPrompt = providerPrompt(finalProvider);
     windowEvidence.final = { requestSha256: finalProvider.requestSha256,
       responseSha256: finalProvider.responseSha256, numCtx: finalProvider.numCtx,
+      numPredict: finalProvider.numPredict,
       promptEvalCount: finalProvider.promptEvalCount, question: recallQuestion,
       answer: recall.response, providerPrompt: finalPrompt,
       answerMatchesRequestedFormat: recall.response.trim() === WINDOW_FILL_CODE,
