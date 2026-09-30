@@ -24,6 +24,8 @@ záznamy, generovaný `docs/convergence/TEST-REGISTRY.md` a tento WP. Vlastní
 runtime je pod `.intentsmith-artifacts/direct-tests/`, soubory mají práva
 `0700`/`0600`. Falešný i živý test spouštějí pouze svůj M1 server a svůj
 provider/proxy, čtou pouze svou SQLite. Produkční služba a DB se nepoužijí.
+Při běhu registrovaným runnerem vlastní M1 server používá ještě samostatnou
+podadresářovou DB a port, aby nesdílel modelové vazby s runnerovým serverem.
 
 **Tři případy a orákulum:** jedna M1 konverzace dostane postupně kalibrace
 `A=73, B=62` (`A−B=+11`, vyšší `A`), `A=17, B=46` (`−29`, vyšší `B`) a

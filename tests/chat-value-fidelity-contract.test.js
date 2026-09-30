@@ -11,7 +11,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 
 import { isolatedTestRuntime as runtime } from './helpers/isolated-test-db.js';
-import { expectJson, startProduct, stopProduct } from './helpers/chat-project-expertise-model-journey.js';
+import { createOwnedJourneyRuntime, expectJson, startProduct, stopProduct } from './helpers/chat-project-expertise-model-journey.js';
 import { VALUE_CASES, assertDurableValueHistory, assertExactValueAnswer,
   assertFinalValueRequest, createValueConversation, isAnswerRequest,
   makeValueCommand } from './helpers/chat-value-fidelity-journey.js';
@@ -93,7 +93,8 @@ test('M1 value answers preserve exact signed arithmetic and durable history', {
     if (errors.length) throw new AggregateError(errors, 'owned fixture cleanup failed');
   };
   t.after(closeOwned);
-  product = await startProduct(runtime, provider.url, MODEL);
+  const journeyRuntime = createOwnedJourneyRuntime(runtime);
+  product = await startProduct(journeyRuntime, provider.url, MODEL);
   const conversationId = await createValueConversation(product);
   const answers = [];
   const turns = [];
@@ -118,7 +119,7 @@ test('M1 value answers preserve exact signed arithmetic and durable history', {
       requestSha256: createHash('sha256').update(JSON.stringify(answerRequest)).digest('hex') });
   }
   assert.equal(requestIds.size, VALUE_CASES.length);
-  const durable = await assertDurableValueHistory(product, runtime.database, conversationId, answers);
+  const durable = await assertDurableValueHistory(product, journeyRuntime.database, conversationId, answers);
 
   // These negative controls ensure a future model error cannot turn green by
   // merely returning valid JSON or including the expected numbers somewhere.

@@ -9,7 +9,7 @@ import { writeFileSync } from 'node:fs';
 import http from 'node:http';
 import { test } from 'node:test';
 import { isolatedTestRuntime as runtime } from './helpers/isolated-test-db.js';
-import { assertDurableJourney, assertFinalTurn, expectJson, journeySteps,
+import { assertDurableJourney, assertFinalTurn, createOwnedJourneyRuntime, expectJson, journeySteps,
   makeM1Command, prepareJourney, startProduct, stopProduct } from './helpers/chat-project-expertise-model-journey.js';
 
 const MODEL = 'fixture:1b';
@@ -84,8 +84,9 @@ test('A→B→A M1 project expertise uses exact file data in the final provider 
     if (errors.length) throw new AggregateError(errors, 'owned test cleanup failed');
   };
   t.after(closeOwned);
-  product = await startProduct(runtime, provider.url, MODEL);
-  const { a, b } = await prepareJourney(product, runtime);
+  const journeyRuntime = createOwnedJourneyRuntime(runtime);
+  product = await startProduct(journeyRuntime, provider.url, MODEL);
+  const { a, b } = await prepareJourney(product, journeyRuntime);
   const steps = journeySteps(a, b);
   const ids = new Set();
   const turns = [];

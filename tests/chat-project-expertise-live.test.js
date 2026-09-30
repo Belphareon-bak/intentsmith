@@ -12,7 +12,7 @@ import { test } from 'node:test';
 import { holdGpuEvaluationLock } from '../src/upgrade/gpu-evaluation-lock.js';
 import { CAPTURE_DIGEST, CAPTURE_MODEL, preflightProviderCapture,
   startProviderCaptureProxy } from '../scripts/provider-capture.js';
-import { assertDurableJourney, assertFinalTurn, expectJson, journeySteps,
+import { assertDurableJourney, assertFinalTurn, createOwnedJourneyRuntime, expectJson, journeySteps,
   makeM1Command, prepareJourney, startProduct, stopProduct } from './helpers/chat-project-expertise-model-journey.js';
 
 // Import after the shared lock module has fixed the host's global /tmp lock.
@@ -85,8 +85,9 @@ test('LIVE_NOT_RUN until explicitly opted in: A→B→A M1 with captured local m
     lease = holdGpuEvaluationLock({ command: 'chat project expertise live M1 A-B-A' });
     preflight = await preflightProviderCapture();
     proxy = await startProviderCaptureProxy({ captureFile });
-    product = await startProduct(runtime, proxy.url, CAPTURE_MODEL);
-    const { a, b } = await prepareJourney(product, runtime);
+    const journeyRuntime = createOwnedJourneyRuntime(runtime);
+    product = await startProduct(journeyRuntime, proxy.url, CAPTURE_MODEL);
+    const { a, b } = await prepareJourney(product, journeyRuntime);
     const steps = journeySteps(a, b);
     const requestIds = new Set();
     const turnEvidence = [];

@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
@@ -21,6 +21,23 @@ process.once('exit', () => {
     if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM');
   }
 });
+
+// A registered suite runner may already own a server and database in the
+// parent runtime. Every journey that starts its own product needs a separate
+// child runtime so both model-binding baselines remain independent.
+export function createOwnedJourneyRuntime(parent) {
+  const root = mkdtempSync(path.join(parent.artifacts, 'm1-journey-'));
+  const directories = Object.fromEntries([
+    'home', 'temp', 'projects', 'artifacts', 'runtime',
+    'xdgConfig', 'xdgCache', 'xdgData', 'xdgState', 'npmCache',
+  ].map(name => [name, path.join(root, name)]));
+  for (const directory of Object.values(directories)) mkdirSync(directory, { mode: 0o700 });
+  return Object.freeze({ ...directories, root,
+    repositoryRoot: parent.repositoryRoot,
+    database: path.join(directories.runtime, 'c3.db'),
+    portFile: path.join(directories.runtime, 'server.port'),
+  });
+}
 
 export function productEnvironment(runtime, providerUrl, model, nonce) {
   return {

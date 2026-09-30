@@ -12,7 +12,7 @@ import { test } from 'node:test';
 import { holdGpuEvaluationLock } from '../src/upgrade/gpu-evaluation-lock.js';
 import { CAPTURE_DIGEST, CAPTURE_MODEL, preflightProviderCapture,
   startProviderCaptureProxy } from '../scripts/provider-capture.js';
-import { expectJson, startProduct, stopProduct } from './helpers/chat-project-expertise-model-journey.js';
+import { createOwnedJourneyRuntime, expectJson, startProduct, stopProduct } from './helpers/chat-project-expertise-model-journey.js';
 import { VALUE_CASES, assertDurableValueHistory, assertExactValueAnswer,
   assertFinalValueRequest, createValueConversation, isAnswerRequest,
   makeValueCommand } from './helpers/chat-value-fidelity-journey.js';
@@ -91,7 +91,8 @@ test('LIVE_NOT_RUN until opted in: pinned CHAT model returns three exact signed 
     lease = holdGpuEvaluationLock({ command: 'chat value fidelity live three signed cases' });
     preflight = await preflightProviderCapture();
     proxy = await startProviderCaptureProxy({ captureFile });
-    product = await startProduct(runtime, proxy.url, CAPTURE_MODEL);
+    const journeyRuntime = createOwnedJourneyRuntime(runtime);
+    product = await startProduct(journeyRuntime, proxy.url, CAPTURE_MODEL);
     const conversationId = await createValueConversation(product);
     const answers = [];
     const turns = [];
@@ -124,7 +125,7 @@ test('LIVE_NOT_RUN until opted in: pinned CHAT model returns three exact signed 
     }
     assert.equal(requestIds.size, VALUE_CASES.length);
     assert.equal(proxy.getFailure(), null, 'provider capture reported a failure');
-    const durable = await assertDurableValueHistory(product, runtime.database, conversationId, answers);
+    const durable = await assertDurableValueHistory(product, journeyRuntime.database, conversationId, answers);
     completed = { conversationId, turns, durable };
   } catch (error) {
     primaryError = error;
