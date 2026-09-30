@@ -35,7 +35,7 @@ službu ani modelové vazby. Push a nezávislé přijetí patří navazující b
 | Studio 2 model workspace | 9/9 PASS | přesné ID detailu, transkript, dvě revize, rozsouzení, fail-closed odlišná identita |
 | Studio 2 view | PASS | shoda generovaného rendereru s prototypem, scénáře a 3000 fuzz kroků |
 | Desktop hunt | 34/34 PASS | Node 24 v `PATH`, lokální izolované závislosti |
-| Module graph | 1457 hran, 3 cykly / 28 členů | 23 nových přesných hran; baseline se zapíše oficiálním ratchet nástrojem po čistém merge commitu |
+| Module graph | 1457 hran, 3 cykly / 28 členů; ratchet PASS | 23 nových přesných hran přijato oficiálním nástrojem nad čistým merge commitem `e20a7265` |
 
 ## Neuzavřené brány
 
@@ -48,8 +48,8 @@ službu ani modelové vazby. Push a nezávislé přijetí patří navazující b
    použitelných model–role dvojic `MISSING`, žádné přijaté rozhodnutí.
    Druhý skutečný posudek a rozsouzení celé matice, kvalifikace hodnotitelů,
    rozhodovací holdout a provozní revize stále chybějí.
-3. Celý offline/database profil na finálním merge SHA, oficiální ratchet
-   baseline, nezávislé zdrojové review a nové live acceptance se provádějí
+3. Celý offline/database profil na finálním SHA, nezávislé zdrojové review
+   a nové live acceptance se provádějí
    samostatně. Instalace a mobilní napojení nejsou součástí tohoto kandidáta.
 
 **Předání:** [aktuální projektový checkpoint](../review/2026-09-30-COMPLETION-TRACKER.md)
