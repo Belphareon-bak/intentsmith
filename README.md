@@ -3,8 +3,8 @@
 **Aktuální vývojový checkpoint 30. 9. 2026:** [stav dokončování, měřené
 výsledky a otevřené brány](docs/review/2026-09-30-COMPLETION-TRACKER.md).
 Níže uvedený základ `main` a starší checkpointy popisují předchozí stav;
-integrační chat/Studio 2 kandidát je samostatná pushnutá větev.
-Zdroj GPU huntu z `e37189b2` je nově součástí lokálního integračního
+chat/Studio 2 je samostatná pushnutá vývojová větev. Zdroj GPU huntu
+z `e37189b2` je nově součástí samostatného integračního
 kandidáta. Sloučení zdroje samo nemění instalovanou DB, provozní modely ani
 stav přejímky. [Matice měření a otevřené brány](docs/review/2026-09-28-HUNT-MATRIX-COMPLETION.md).
 

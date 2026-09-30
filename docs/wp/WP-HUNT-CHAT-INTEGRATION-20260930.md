@@ -5,7 +5,7 @@ NOT_DEPLOYED / REAL_NO_GO. Tato pracovní větev vychází z chat/Studio 2 commi
 `09247504143ac0a37d75d7d52867768447790ad2` a slučuje přesný Hunt commit
 `e37189b252a195f30e98b8f58ab25ec68dba7d85` se zachováním obou rodičů.
 Žádný krok tohoto WP neotevírá GPU, Ollamu, živou DB, timer, instalovanou
-službu ani modelové vazby. Push a nezávislé přijetí patří navazující bráně.
+službu ani modelové vazby. Zveřejnění větve není nezávislé přijetí kandidáta.
 
 ## Vlastněný rozsah
 
@@ -36,6 +36,7 @@ službu ani modelové vazby. Push a nezávislé přijetí patří navazující b
 | Studio 2 view | PASS | shoda generovaného rendereru s prototypem, scénáře a 3000 fuzz kroků |
 | Desktop hunt | 34/34 PASS | Node 24 v `PATH`, lokální izolované závislosti |
 | Module graph | 1457 hran, 3 cykly / 28 členů; ratchet PASS | 23 nových přesných hran přijato oficiálním nástrojem nad čistým merge commitem `e20a7265` |
+| Celý offline/database profil | **399 PASS / 1 FAIL / 0 BLOCKED**, verdikt FAIL | sériový běh na čistém `4edd1be6`; jediný FAIL je neaktualizovaná zapečetěná Gate 0 politika registru; report `.intentsmith-artifacts/test-runs/hunt-chat-integration-serial-4edd1be6/report.json` |
 
 ## Neuzavřené brány
 
@@ -48,9 +49,10 @@ službu ani modelové vazby. Push a nezávislé přijetí patří navazující b
    použitelných model–role dvojic `MISSING`, žádné přijaté rozhodnutí.
    Druhý skutečný posudek a rozsouzení celé matice, kvalifikace hodnotitelů,
    rozhodovací holdout a provozní revize stále chybějí.
-3. Celý offline/database profil na finálním SHA, nezávislé zdrojové review
-   a nové live acceptance se provádějí
-   samostatně. Instalace a mobilní napojení nejsou součástí tohoto kandidáta.
+3. Celý offline/database profil na `4edd1be6` není zelený: 399/400 PASS,
+   zapečetěná Gate 0 pečeť registru zůstává FAIL. Nezávislé zdrojové review
+   a nové live acceptance se provádějí samostatně. Instalace a mobilní
+   napojení nejsou součástí tohoto kandidáta.
 
 **Předání:** [aktuální projektový checkpoint](../review/2026-09-30-COMPLETION-TRACKER.md)
 je časově označený snímek před tímto sloučením. Hunt matice a její přesné

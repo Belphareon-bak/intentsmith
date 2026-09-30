@@ -6,7 +6,7 @@ Chronologie níže zachovává důkazy předchozích instalací a větví.
 
 **Integrační kandidát GPU huntu, 30. 9. 2026:** zdroj sběru, dvojího
 hodnocení a arbitráže z `e37189b2` je sloučen s chatem a Studiem 2.
-Migrace 118 a 119 a nové testy jsou pouze ve vývojovém stromu; instalovaný
+Migrace 117–120 a nové testy jsou pouze ve vývojovém stromu; instalovaný
 backend, DB a vazby se nemění. Historická matice obsahuje 63 úplných
 relevantních buněk, 3 částečné a 4 VISION N/A; skutečná druhá kvalifikovaná
 revize, živá DB přejímka a nezávislé review zbývají. **REVIEW_PENDING /
