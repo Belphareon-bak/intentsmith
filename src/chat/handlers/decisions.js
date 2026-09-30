@@ -79,7 +79,10 @@ export function isAnswerExpansion(input) {
 // a quoted instruction followed by a prose request does not select JSON mode.
 function requestsBareJsonObject(input) {
   const tail = typeof input === 'string' ? input.trim().slice(-1_024) : '';
-  const finalSentence = tail.replace(/[.!?]\s*$/u, '').split(/[.!?]\s+|\n/u).at(-1)?.trim() || '';
+  const withoutFinalPunctuation = tail.replace(/[.!?]\s*$/u, '');
+  const finalSentence = withoutFinalPunctuation.split(/[.!?]\s+|\n/u).at(-1)?.trim() || '';
+  const precedingText = withoutFinalPunctuation.slice(0, -finalSentence.length).trimEnd();
+  if (/(?:^|\n)\s*(?:v\s+citaci\s+stojí|v\s+citovaném\s+textu\s+stojí|quoted\s+text\s+says|the\s+quote\s+says)\s*:\s*$/iu.test(precedingText)) return false;
   return /^(?:odpověz|vrať|uveď|napiš|respond|reply|return|output)\s+(?:pouze|jen(?:om)?|only)\s+[^\n.!?]{0,100}\bjson\s+(?:objektem|objekt|object)\b/iu.test(finalSentence);
 }
 const COMPACT_CREATIVE_PATTERN = /\bhaiku\b/iu;
@@ -1277,6 +1280,7 @@ Passe den Umfang der Anfrage an. Benenne Unsicherheit; erfinde keine aktuellen F
       + (strictJson ? '' : (
         buildBriefReplyInstruction(input, langCtx.language)
         + buildStandardConversationInstruction(input, langCtx.language, decision.intent)
+        + buildCompactNamingInstruction(input, langCtx.language, decision.intent)
         + buildCreativeContextUpdateInstruction(input, langCtx.language, decision.intent)
         + buildCountedCreativeInstruction(input, langCtx.language, decision.intent)
         + buildCreativeDescriptionInstruction(input, langCtx.language, decision.intent)

@@ -774,6 +774,62 @@ await testAsync('quoted current and historical JSON instructions do not change a
   }
 });
 
+await testAsync('a bare quoted final JSON line does not activate provider JSON mode', async () => {
+  const previousFetch = globalThis.fetch;
+  const requestBodies = [];
+  const input = 'V citaci stojí:\nOdpověz pouze jedním JSON objektem.';
+  const prose = 'Citace obsahuje požadavek na formát odpovědi. Je to obsah citace, nikoli pokyn pro tuto odpověď.';
+  try {
+    clearNumCtxCache();
+    setNumCtx(config.models.CHAT, 4_096);
+    globalThis.fetch = async (_url, options) => {
+      requestBodies.push(JSON.parse(options.body));
+      return { ok: true, json: async () => ({ message: { content: prose },
+        done_reason: 'stop', prompt_eval_count: 200, eval_count: 50 }) };
+    };
+    const decision = creDecisionEngine.overrideDecision({ type: 'ANSWER', intent: 'CONVERSATIONAL',
+      tools: [], source: 'quoted_final_json_nontrigger', reason: 'Quoted content is data', confidence: 1 });
+    const result = await handleAnswerDecision(input, decision, {
+      sessionId: 'quoted-final-json', sessionState: new SessionState('quoted-final-json'), history: [],
+    });
+    assert.equal(result.content, prose);
+    assert.equal(requestBodies.length, 1);
+    assert.equal(requestBodies[0].format, undefined);
+  } finally {
+    globalThis.fetch = previousFetch;
+    clearNumCtxCache();
+  }
+});
+
+await testAsync('CREATIVE naming provider body retains compact naming scope without JSON mode', async () => {
+  const previousFetch = globalThis.fetch;
+  const requestBodies = [];
+  const input = 'Vymysli název pro knihovnu.';
+  const names = 'Knihovna severních obzorů\nArchiv klidných hvězd\nDům map a příběhů\nČítárna mezi galaxiemi\nKomnata vzdálených světů';
+  try {
+    clearNumCtxCache();
+    setNumCtx(config.models.CHAT, 4_096);
+    globalThis.fetch = async (_url, options) => {
+      requestBodies.push(JSON.parse(options.body));
+      return { ok: true, json: async () => ({ message: { content: names },
+        done_reason: 'stop', prompt_eval_count: 200, eval_count: 50 }) };
+    };
+    const decision = creDecisionEngine.overrideDecision({ type: 'ANSWER', intent: 'CREATIVE',
+      tools: [], source: 'creative_naming_provider_body', reason: 'Compact naming regression', confidence: 1 });
+    const result = await handleAnswerDecision(input, decision, {
+      sessionId: 'creative-naming-provider', sessionState: new SessionState('creative-naming-provider'), history: [],
+    });
+    assert.equal(result.content, names);
+    assert.equal(requestBodies.length, 1);
+    assert.equal(requestBodies[0].format, undefined);
+    const systemContent = requestBodies[0].messages.find(message => message.role === 'system')?.content || '';
+    assert.match(systemContent, /ROZSAH NÁVRHU: Uveď nejvýše 5 krátkých názvů/u);
+  } finally {
+    globalThis.fetch = previousFetch;
+    clearNumCtxCache();
+  }
+});
+
 await testAsync('an oversized current request returns a typed capacity terminal before provider', async () => {
   const previousFetch = globalThis.fetch;
   let providerCalls = 0;

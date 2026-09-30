@@ -1,5 +1,14 @@
 # WP — skutečné naplnění okna a auto-context v živém chatu
 
+**Navazující review checkpoint (1. 10. 2026):** první nezávislé review
+`f0a8a539` vrátilo **CHANGES_REQUIRED**: běžný kreativní požadavek na krátké
+názvy ztratil instrukci v skutečném provider promptu a samostatná citovaná
+poslední věta mohla omylem zapnout JSON režim. Oprava ve stejné izolované
+větvi obnovuje původní kreativní instrukci a citovaný konec ponechává daty;
+obě regrese nejprve selhaly v provider-body testech (`51 PASS / 2 FAIL`) a po
+opravě dává M1 chat `53/53 PASS`. Opakované nezávislé review, integrace a
+nový fyzický modelový běh jsou **PENDING**.
+
 **Izolovaný kandidát na základně `901babb4` (1. 10. 2026):** živý důkaz
 `9c9fdd34` níže ukázal `8/8` správných čísel, ale jen `3/8` odpovědí v
 požadovaném syrovém JSON formátu. V aktuální implementaci vybírá výslovný
@@ -8,10 +17,9 @@ bez výkladových odstavců. Handler vrací původní bajty odpovědi pouze tehd
 jsou-li jediným JSON objektem; chybně zabalený nebo neplatný výstup opakuje
 nejvýše dvakrát a poté vrací typovaný terminál `ANSWER_JSON_FORMAT_INVALID`.
 Historie, souhrn ani citovaný starší pokyn režim neaktivují. Registrovaný
-offline M1 kontrakt po změně prošel `51/51`, modelová hranice `34/34`,
+offline M1 kontrakt původního kandidáta prošel `51/51`, modelová hranice `34/34`,
 skutečný M1 HTTP a SQLite fixture test `1/1` s byte shodou provider výstupu;
-nový fyzický modelový běh,
-nezávislé review a integrace do společného checkoutu jsou **PENDING**. Tento
+nový fyzický modelový běh a integrace do společného checkoutu jsou **PENDING**. Tento
 test prokazuje formátovací hranici, nikoli věcnou správnost libovolného JSON;
 tu nadále hodnotí živé osmikolové orákulum a samostatná fidelity sada.
 
