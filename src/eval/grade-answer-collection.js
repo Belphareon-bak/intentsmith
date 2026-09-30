@@ -212,7 +212,8 @@ export async function gradeAnswerCollection({ plan, collection, judge, graderAcc
 export function storedGraderReviews(history, plan, collection) {
   const sourceSha256 = collectionEvidenceHash(collection);
   const rows = history._db.prepare(`SELECT * FROM model_evaluation_grader_reviews
-    WHERE source_run_id=? ORDER BY recorded_at, review_id`).all(collection.runId);
+    WHERE source_run_id=? AND contract_sha256=? ORDER BY recorded_at, review_id`)
+    .all(collection.runId,plan.suiteContractSha256);
   return rows.map(row => {
     const summary = JSON.parse(row.summary_json);
     if (acceptanceHash(summary) !== row.summary_sha256 || row.role !== plan.role
