@@ -542,5 +542,36 @@ test('reviewed adjudication closes only exact criterion disputes and preserves b
     assert.throws(()=>f.db.prepare('DELETE FROM model_evaluation_grader_adjudications WHERE adjudication_id=?')
       .run(row.adjudication_id),/append-only/);
     assert.equal(f.db.prepare('SELECT count(*) AS n FROM model_evaluation_grader_reviews').get().n,2);
+    assert.equal(read.readRun(saved.runId).status,'COMPLETE');
+    f.revoke(id);
+    const after=read.read({inventory:[{name:'answer-model',digest:A}]});
+    const current=after.models[0].evaluations.D1;
+    assert.equal(current.status,'BLOCKED');assert.equal(current.score,null);
+    const historical=after.history.find(item=>item.runId===saved.runId);
+    assert.equal(historical.status,'BLOCKED');assert.equal(historical.score,null);
+    assert.deepEqual(historical.recordedResult,{status:'COMPLETE',score:1});
+    const finalDetail=read.readRun(saved.runId);
+    assert.equal(finalDetail.status,'BLOCKED');assert.equal(finalDetail.score,null);
+    assert.equal(finalDetail.reviewStatus,'REVIEW_FINAL_UNVERIFIED');
+    assert.deepEqual(finalDetail.recordedResult,{status:'COMPLETE',score:1});
+    assert.equal(finalDetail.tasks[0].mean,null);
+    assert.deepEqual(finalDetail.tasks[0].scores,[]);
+    assert.equal(read.readRun(source.runId).score,null);
+    const raw=f.db.prepare('SELECT status,score FROM model_evaluation_runs WHERE run_id=?').get(saved.runId);
+    assert.deepEqual(raw,{status:'COMPLETE',score:1},'append-only audit row stays intact');
+    const workspace=new ModelWorkspace({backendUrl:()=> 'http://127.0.0.1:3335',
+      fetchImpl:async url=>({ok:true,json:async()=>new URL(url).pathname.endsWith('/'+saved.runId)
+        ? read.readRun(saved.runId) : read.read({inventory:[{name:'answer-model',digest:A}]})})});
+    try {
+      workspace.select('history');await workspace.load('history');
+      assert.match(workspace.vm().rows[0].subtitle,/BLOCKED/);
+      assert.equal(workspace.vm().rows[0].meta,'—');
+      assert.equal(await workspace.showRun(saved.runId),true);
+      const shown=workspace.vm().runDetail;
+      assert.match(shown.status,/Výsledek nelze ověřit.*bez známky/);
+      assert.match(shown.note,/Původní auditní zápis: COMPLETE · 100\.0 %/);
+      assert.equal(shown.tasks[0].score,'bez známky');
+      assert.match(shown.tasks[0].attempts[0].label,/bez známky/);
+    }finally{workspace.destroy();}
   }finally{f.db.close();}
 });

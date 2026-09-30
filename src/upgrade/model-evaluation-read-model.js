@@ -290,6 +290,35 @@ function decodeCurrentRow(row, includeTasks = true, includeResponses = false) {
   });
 }
 
+// A persisted COMPLETE row is an immutable audit fact, but its score is a
+// current decision value only while both grader acceptances still verify.
+// Keep the recorded value separately and project every public read surface
+// through the same gate, including history and the exact run detail.
+function projectCollectionComplete(db, row, plan, result) {
+  if (!plan?.collectionOnly || row.status !== 'COMPLETE'
+    || row.suite_name !== plan.suiteName || row.suite_version !== plan.suiteVersion
+    || row.suite_contract_sha256 !== plan.suiteContractSha256) return result;
+  const simulated = simulatedEvidenceBlocked({
+    metadata: JSON.parse(row.metadata_json || '{}'), model_name: row.model_name,
+  }, db);
+  const grading = JSON.parse(row.metadata_json || '{}').grading;
+  if (!simulated && validStoredGradingPair(db, grading, plan.acceptance?.graders,
+    row.model_digest_sha256, row.role, plan.suiteContractSha256, result.score)) return result;
+  return {
+    ...result,
+    status: 'BLOCKED', score: null,
+    reviewStatus: simulated ? 'SIMULATED_EVIDENCE' : 'REVIEW_FINAL_UNVERIFIED',
+    errorCode: simulated ? 'EVALUATION_SIMULATED_EVIDENCE' : 'EVALUATION_GRADER_ACCEPTANCE_MISSING',
+    errorMessage: simulated
+      ? 'Simulované známky nejsou produkční evidence. Původní záznam zůstává v historii.'
+      : 'Přejímka hodnotitele už není platná. Původní známky zůstávají v historii.',
+    recordedResult: { status: result.status, score: result.score },
+    ...(result.tasks ? { tasks: result.tasks.map(task => ({ ...task, mean: null, scores: [],
+      details: task.details.map(detail => ({ ...detail, score: null,
+        contentScore: null, formatScore: null })) })) } : {}),
+  };
+}
+
 function currentStatus(db, artifact, role, plan, providerVersion = null) {
   if (!artifact.digestSha256) {
     return Object.freeze({
@@ -328,14 +357,7 @@ function currentStatus(db, artifact, role, plan, providerVersion = null) {
     if (simulatedEvidenceBlocked({metadata:JSON.parse(row.metadata_json || '{}'),model_name:row.model_name},db))
       return Object.freeze({...result,status:'BLOCKED',score:null,errorCode:'EVALUATION_SIMULATED_EVIDENCE',
         errorMessage:'Simulované známky nejsou produkční evidence. Původní záznam zůstává v historii.'});
-    if (plan.collectionOnly && row.status === 'COMPLETE') {
-      const grading = JSON.parse(row.metadata_json || '{}').grading;
-      if (!validStoredGradingPair(db,grading,plan.acceptance?.graders,artifact.digestSha256,role,
-        plan.suiteContractSha256,result.score)) return Object.freeze({ ...result, status: 'BLOCKED', score: null,
-        errorCode: 'EVALUATION_GRADER_ACCEPTANCE_MISSING',
-        errorMessage: 'Přejímka hodnotitele už není platná. Původní známky zůstávají v historii.' });
-    }
-    return result;
+    return Object.freeze(projectCollectionComplete(db, row, plan, result));
   }
   const previous = db.prepare(`SELECT suite_name, suite_version, suite_contract_sha256, completed_at,
       json_extract(metadata_json, '$.provider.version') AS provider_version
@@ -474,7 +496,8 @@ export class ModelEvaluationReadModel {
         && plan?.collectionOnly === true && row.suite_name === plan.suiteName
         && row.suite_version === plan.suiteVersion
         ? new ModelEvaluationHistory(this._db).getRun(runId) : null;
-      return Object.freeze(source ? collectionReviewDetail(this._db, plan, source, detail) : detail);
+      return Object.freeze(source ? collectionReviewDetail(this._db, plan, source, detail)
+        : projectCollectionComplete(this._db, row, plan, detail));
     } catch (error) {
       if (error instanceof ModelEvaluationReadError) throw error;
       throw new ModelEvaluationReadError('MODEL_EVALUATION_DB_READ_FAILED', 'Detail měření nelze načíst.', { cause: error, httpStatus: 503 });
@@ -635,8 +658,9 @@ export class ModelEvaluationReadModel {
             WHERE newer.model_digest_sha256 = r.model_digest_sha256 AND newer.role = r.role
               AND newer.suite_contract_sha256 = r.suite_contract_sha256 AND newer.started_at = r.started_at
               AND newer.rowid > r.rowid)
-          ORDER BY completed_at DESC, rowid DESC LIMIT 200`).all().map(row => ({
-            ...decodeCurrentRow(row, false), model: row.model_name, role: row.role, digestSha256: row.model_digest_sha256,
+          ORDER BY completed_at DESC, rowid DESC LIMIT 200`).all().map(row => Object.freeze({
+            ...projectCollectionComplete(this._db, row, this._plans[row.role], decodeCurrentRow(row, false)),
+            model: row.model_name, role: row.role, digestSha256: row.model_digest_sha256,
             suiteName: row.suite_name, suiteContractSha256: row.suite_contract_sha256,
             current: models.some(m => m.digestSha256 === row.model_digest_sha256 && m.evaluations[row.role]?.runId === row.run_id),
           }))),
