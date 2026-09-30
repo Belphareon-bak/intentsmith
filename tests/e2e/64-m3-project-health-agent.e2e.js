@@ -2,6 +2,7 @@
 // server, runner-owned project files, M2 ProjectContext and in-app SQLite
 // notifications. It must not call a model, external network, GPU or Ollama.
 
+import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -22,6 +23,7 @@ await waitForServer();
 
 let project = null;
 let agentId = null;
+let baselineEvidence = null;
 
 try {
   suite('M3 project-health agent — extension install and disabled boundary');
@@ -72,6 +74,9 @@ try {
     assertEqual(baseline.status, 200);
     assertEqual(baseline.data.run_state, 'INIT_BASELINE');
     assertEqual(baseline.data.triggered.length, 0);
+    baselineEvidence = baseline.data.explain.sources[0].evidence;
+    assertEqual(baselineEvidence.projectId, project.id);
+    assert(Number.isSafeInteger(baselineEvidence.issueCount) && baselineEvidence.issueCount >= 0);
 
     const detail = await api('GET', `/api/agents/${agentId}`);
     assert(
@@ -84,10 +89,8 @@ try {
   });
 
   await testAsync('project change produces durable ProjectContext evidence and visible notification', async () => {
-    writeFileSync(
-      path.join(project.path, 'index.js'),
-      'export const healthy = false;\n// FIXME remove temporary bypass\n',
-    );
+    const changedContent = 'export const healthy = false;\n// FIXME remove temporary bypass\n';
+    writeFileSync(path.join(project.path, 'index.js'), changedContent);
     const changed = await api('POST', `/api/agent-extensions/instances/${agentId}/run`);
     assertEqual(changed.status, 200);
     assertEqual(changed.data.run_state, 'SUCCESS_TRIGGERED');
@@ -98,19 +101,43 @@ try {
     assertEqual(detail.status, 200);
     assertEqual(detail.data.notifications.length, 1);
     const notification = detail.data.notifications[0];
+    assertEqual(notification.agent_id, agentId);
+    assertEqual(notification.run_id, changed.data.runId);
     assertEqual(notification.title, 'Project Health: attention');
-    assert(/1 signálů v [1-9][0-9]* souborech/.test(notification.body), notification.body);
     assert(/^wsr1:[a-f0-9]{64}$/.test(notification.data.workspaceRevision));
     assert(/^pcs1:[a-f0-9]{64}$/.test(notification.data.snapshotDigest));
-    assertEqual(notification.data.issueCount, '1');
 
     const run = detail.data.recentRuns[0];
     assertEqual(run.explain.run_state, 'SUCCESS_TRIGGERED');
     const evidence = run.explain.sources[0].evidence;
-    assertEqual(evidence.issueCount, 1);
-    const sourceEvidence = evidence.provenance.find(item => item.path === 'index.js');
-    assert(sourceEvidence, 'health evidence must include the changed source path');
-    assert(/^sha256:[a-f0-9]{64}$/.test(sourceEvidence.contentDigest));
+    assertEqual(evidence.projectId, project.id);
+    assertEqual(evidence.issueCount, baselineEvidence.issueCount + 1);
+    assertEqual(evidence.filesObserved, evidence.provenance.length);
+    assertEqual(notification.data.projectId, String(project.id));
+    assertEqual(notification.data.workspaceRevision, evidence.workspaceRevision);
+    assertEqual(notification.data.snapshotDigest, evidence.snapshotDigest);
+    assertEqual(notification.data.issueCount, String(evidence.issueCount));
+    assertEqual(notification.data.filesObserved, String(evidence.filesObserved));
+    assert(notification.body.includes(`${evidence.issueCount} signálů v ${evidence.filesObserved} souborech`),
+      notification.body);
+    const changedDigest = `sha256:${createHash('sha256').update(changedContent).digest('hex')}`;
+    const sourceEvidence = evidence.provenance.filter(item => item.path === 'index.js');
+    assertEqual(sourceEvidence.length, 1);
+    assertEqual(sourceEvidence[0].contentDigest, changedDigest);
+    assert(!baselineEvidence.provenance.some(item => item.path === 'index.js'
+      && item.contentDigest === changedDigest), 'baseline must not contain the changed source bytes');
+    const previousDigests = new Map(baselineEvidence.provenance.map(item => [item.path, item.contentDigest]));
+    const currentDigests = new Map(evidence.provenance.map(item => [item.path, item.contentDigest]));
+    for (const [sourcePath, contentDigest] of previousDigests) {
+      if (sourcePath === 'index.js') continue;
+      assert(currentDigests.has(sourcePath), `unchanged source disappeared: ${sourcePath}`);
+      assertEqual(currentDigests.get(sourcePath), contentDigest);
+    }
+    for (const item of evidence.provenance) {
+      if (item.path !== 'index.js') {
+        assert(previousDigests.has(item.path), `unexpected additional source: ${item.path}`);
+      }
+    }
 
     const studio = await api('GET', '/agents');
     assertEqual(studio.status, 200);
