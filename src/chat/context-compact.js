@@ -162,8 +162,8 @@ export async function ensureCompactionBeforeNextTurn(conversationId, store, sess
     const count = store.getUnsummarizedTurnCount?.(conversationId);
     if (!Number.isSafeInteger(count)) throw new Error('CONTEXT_HISTORY_COUNT_UNAVAILABLE');
     if (count < HANDLER_HISTORY_MAX_TURNS) return;
-    // Retry a prior failed/incomplete compaction before the next user turn is
-    // persisted. Failed model output remains raw and durable, never a summary.
+    // Retry a prior failed/incomplete compaction before the ten-message handler
+    // snapshot. Failed model output remains raw and durable, never a summary.
     if (!activeCompactions.has(conversationId)) maybeCompact(conversationId, store, sessionId);
     await awaitPendingCompaction(conversationId, signal);
     const remaining = store.getUnsummarizedTurnCount?.(conversationId);

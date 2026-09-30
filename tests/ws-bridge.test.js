@@ -788,6 +788,7 @@ console.log('\n🧠 Controller Hook Emission');
 
 // Import ChatController components
 import { ChatController, ChatMode, ResponseSpeaker, ResponseTag, TaggedResponse } from '../src/chat/controller.js';
+import dbModule from '../src/db/database.js';
 
 await asyncTest('T13: ChatController.process calls onCREDecision hook', async () => {
   let hookCalled = false;
@@ -1062,7 +1063,60 @@ await asyncTest('T16e: pre-aborted static requests reject before handler dispatc
       ['user'],
       'the existing pre-flight contract retains the user turn but no assistant turn',
     );
+    const unavailableId = `${sessionId}-unavailable-expertise`;
+    const originalLookup = dbModule.conversationExpertises.getExpertises;
+    let expertiseLookups = 0;
+    dbModule.conversationExpertises.getExpertises = () => {
+      expertiseLookups++;
+      return [{ expertise_id: 'missing-preabort-expertise', weight: 1 }];
+    };
+    try {
+      await assert.rejects(
+        ChatController.handle({
+          message: 'A cancelled request must outrank a missing expertise',
+          sessionId: unavailableId,
+          conversationId: unavailableId,
+          signal: abortController.signal,
+        }),
+        error => error.name === 'AbortError' && error.abortSource === AbortSource.USER,
+      );
+      assert.equal(expertiseLookups, 0, 'pre-aborted request must not resolve expertise');
+      assert.deepEqual(store.getAllTurns(unavailableId).map(turn => turn.role), ['user']);
+      assert.equal(handlerCalled, false);
+    } finally {
+      dbModule.conversationExpertises.getExpertises = originalLookup;
+      ChatController.removeSession(unavailableId);
+    }
   } finally {
+    ChatController.removeSession(sessionId);
+    resetConversationStore();
+  }
+}, ASYNC_TEST_TIMEOUT_MS);
+
+await asyncTest('T16e1: context failure retains the user turn before handler dispatch', async () => {
+  resetConversationStore();
+  const store = getConversationStore(null);
+  const sessionId = 'test-16e1-context-failure';
+  const originalCount = store.getUnsummarizedTurnCount;
+  let handlerCalled = false;
+  store.getUnsummarizedTurnCount = () => { throw new Error('count unavailable'); };
+  ChatController.configure({
+    handlers: { [ChatMode.CONVERSATION]: async () => {
+      handlerCalled = true;
+      return 'unreachable';
+    } },
+    config: { autoModeDetection: false },
+  });
+  try {
+    await assert.rejects(
+      ChatController.handle({ message: 'Keep this turn if context fails', sessionId, conversationId: sessionId }),
+      error => error.code === 'CHAT_PROCESSING_FAILED'
+        && error.sourceErrorType === 'CONTEXT_SUMMARY_UNAVAILABLE',
+    );
+    assert.equal(handlerCalled, false);
+    assert.deepEqual(store.getAllTurns(sessionId).map(turn => turn.role), ['user']);
+  } finally {
+    store.getUnsummarizedTurnCount = originalCount;
     ChatController.removeSession(sessionId);
     resetConversationStore();
   }

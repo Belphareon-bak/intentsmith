@@ -41,9 +41,11 @@ Tato místní nasazení a cílené zkoušky nemění `REVIEW_PENDING` delta změ
 ani veřejné M5/M6 gate.
 
 **Studio 2, dokončení parity 2026-09-28:** nový frontend a backendové konektory
-jsou v oddělené větvi; klasický frontend je odstraněný. Přesný module graph má 1 433 hran,
-3 cykly / 28 členů. Závěrečné měření a nezávislé přijetí mají
-vlastní evidenci v [předávce](docs/review/2026-09-28-STUDIO2-PARITY-DELIVERY.md).
+jsou v oddělené větvi; klasický frontend je odstraněný. Přesný module graph
+měl tehdy 1 433 hran, 3 cykly / 28 členů. Závěrečné měření a nezávislé
+přijetí mají vlastní evidenci v [předávce](docs/review/2026-09-28-STUDIO2-PARITY-DELIVERY.md).
+Aktuální integrovaný module graph má 1 434 hran, 3 cykly / 28 členů po
+přijetí přesné hrany `src/chat/context-compact.js -> src/core/abort-error.js`.
 
 **Studio: průběh práce a prostředí, 2026-09-23:** konkrétní tahy, nástroje,
 čekání, souborové diffy/+− a kopírování formátované odpovědi. Přidáno skutečné

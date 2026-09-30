@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "f1a31378ca5825454c52f4263a5c5e32f00f69c2",
-  "sourceTree": "a845dfeb4407a08852ea9ce39db70a35d36ac527",
+  "sourceRevision": "f907cacb72ccc40fb23e02144dcc5e86b231701e",
+  "sourceTree": "dfef3fc996919479c46a8eb2e83d86ccad95158f",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "a111646c052627fd0803fc881838f58d7d5fd8dc",
@@ -98,6 +98,7 @@
     "src/channels/index.js -> src/channels/types.js",
     "src/chat/context-budget.js -> src/core/logger.js",
     "src/chat/context-compact.js -> src/config.js",
+    "src/chat/context-compact.js -> src/core/abort-error.js",
     "src/chat/context-compact.js -> src/core/logger.js",
     "src/chat/context-compact.js -> src/llm/auth-types.js",
     "src/chat/context-compact.js -> src/llm/gateway.js",

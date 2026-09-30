@@ -1846,13 +1846,16 @@ ChatController.handle = async function(request) {
     projectId: context.projectId || null,
   });
 
-  // The preceding response may have started a background summary. Wait only
-  // when the next user message would evict an unsummarized raw message.
-  try {
-    await ensureCompactionBeforeNextTurn(dbConversationId, store, sessionId, signal);
-  } catch (error) {
-    if (isAbortError(error)) throw error;
-    throw new ChatProcessingError('CONTEXT_SUMMARY_UNAVAILABLE', error);
+  const persistUserTurn = () => store.appendTurn(dbConversationId, TurnRole.USER, message, {
+    timestamp: Date.now(),
+    specialistId: state.specialist?.id || null,
+    m7: { turnId: durableTurnId, status: 'ok' },
+  });
+  // M1 retains a user turn even when the command was aborted before entry.
+  // Reject before expertise validation can return a normal response.
+  if (signal?.aborted) {
+    persistUserTurn();
+    throwIfAborted(signal);
   }
 
   // Studio 2 chooses expertises through a separate, revision-checked durable
@@ -1877,11 +1880,16 @@ ChatController.handle = async function(request) {
   }
 
   // INVARIANT: Persist user turn BEFORE processing
-  const persistedUserTurn = store.appendTurn(dbConversationId, TurnRole.USER, message, {
-    timestamp: Date.now(),
-    specialistId: state.specialist?.id || null,
-    m7: { turnId: durableTurnId, status: 'ok' },
-  });
+  const persistedUserTurn = persistUserTurn();
+
+  // A failed or pending summary cannot remove an older fact from the next
+  // handler snapshot. Keep the current user turn durable if compaction fails.
+  try {
+    await ensureCompactionBeforeNextTurn(dbConversationId, store, sessionId, signal);
+  } catch (error) {
+    if (isAbortError(error)) throw error;
+    throw new ChatProcessingError('CONTEXT_SUMMARY_UNAVAILABLE', error);
+  }
 
   // Load history from DB (NOT from RAM)
   const dbHistory = store.buildHandlerHistory(dbConversationId, 10);
