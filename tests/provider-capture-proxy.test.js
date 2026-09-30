@@ -15,12 +15,58 @@ import {
 } from '../scripts/provider-capture.js';
 import { runSuite } from '../scripts/run-suites.js';
 import { WINDOW_FILL_CASES, WINDOW_FILL_RETRY_CASE,
-  windowFillMessage, windowFillUserQuoteBlock } from '../scripts/chat85-window-values.js';
+  windowFillArithmeticQuality, windowFillMessage, windowFillUserQuoteBlock } from '../scripts/chat85-window-values.js';
 import { assertExactValueAnswer } from './helpers/chat-value-fidelity-journey.js';
 
 const listen = server => new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const close = server => new Promise(resolve => server.close(resolve));
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
+
+test('window-fill evidence retains checked failures when a later turn aborts', () => {
+  const turns = [];
+  const check = (valueCase, answer) => {
+    let qualityStatus = 'PASS';
+    try { assertExactValueAnswer(answer, valueCase); }
+    catch { qualityStatus = 'FAIL'; }
+    turns.push({ turn: valueCase.turn, qualityStatus });
+    return windowFillArithmeticQuality(turns);
+  };
+  assert.deepEqual(windowFillArithmeticQuality(turns), {
+    status: 'INCOMPLETE', expectedTurns: 8, checkedTurns: 0, failedTurns: [],
+  });
+  const fenced = valueCase => `\`\`\`json\n${JSON.stringify(valueCase.expected)}\n\`\`\``;
+  assert.deepEqual(check(WINDOW_FILL_CASES[0], fenced(WINDOW_FILL_CASES[0])), {
+    status: 'FAIL', expectedTurns: 8, checkedTurns: 1, failedTurns: [1],
+  });
+  check(WINDOW_FILL_CASES[1], JSON.stringify(WINDOW_FILL_CASES[1].expected));
+  assert.deepEqual(check(WINDOW_FILL_CASES[2], fenced(WINDOW_FILL_CASES[2])), {
+    status: 'FAIL', expectedTurns: 8, checkedTurns: 3, failedTurns: [1, 3],
+  });
+  for (const valueCase of WINDOW_FILL_CASES.slice(3, 5)) {
+    check(valueCase, JSON.stringify(valueCase.expected));
+  }
+  // The sixth request may fail before an answer exists. Serialization in the
+  // E2E finally block must still report all five completed checks and the
+  // exact formatting failure, rather than its initial zero-turn value.
+  const interruptedEvidence = JSON.parse(JSON.stringify({ turns,
+    arithmeticQuality: windowFillArithmeticQuality(turns) }));
+  assert.deepEqual(interruptedEvidence.arithmeticQuality, {
+    status: 'FAIL', expectedTurns: 8, checkedTurns: 5, failedTurns: [1, 3],
+  });
+  for (const valueCase of WINDOW_FILL_CASES.slice(5)) {
+    check(valueCase, JSON.stringify(valueCase.expected));
+  }
+  assert.deepEqual(windowFillArithmeticQuality(turns), {
+    status: 'FAIL', expectedTurns: 8, checkedTurns: 8, failedTurns: [1, 3],
+  });
+  assert.deepEqual(windowFillArithmeticQuality(turns, { turn: 9, qualityStatus: 'FAIL' }), {
+    status: 'FAIL', expectedTurns: 8, checkedTurns: 8, failedTurns: [1, 3, 9],
+  });
+  assert.equal(windowFillArithmeticQuality(
+    turns.slice(0, 5).map(turn => ({ ...turn, qualityStatus: 'PASS' }))).status, 'INCOMPLETE');
+  assert.equal(windowFillArithmeticQuality(
+    turns.map(turn => ({ ...turn, qualityStatus: 'PASS' }))).status, 'PASS');
+});
 
 test('window-fill source and independent eight-turn arithmetic oracle stay aligned', () => {
   assert.equal(WINDOW_FILL_CASES.length, 8);

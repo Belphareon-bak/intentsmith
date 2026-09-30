@@ -18,6 +18,21 @@ export const WINDOW_FILL_CASES = Object.freeze(PAIRS.map(([a, b], index) => Obje
 export const WINDOW_FILL_RETRY_CASE = Object.freeze({ turn: 9, label: 'window-fill-retry-9',
   expected: Object.freeze({ a: 92, b: 81, delta: 11, higher: 'A' }) });
 
+// Recompute after each checked reply. If a later HTTP/provider call aborts,
+// the private failure artifact still reflects every completed strict check.
+export function windowFillArithmeticQuality(turns, retry = null) {
+  const failedTurns = turns.filter(turn => turn.qualityStatus !== 'PASS')
+    .map(turn => turn.turn);
+  if (retry && retry.qualityStatus !== 'PASS') failedTurns.push(retry.turn);
+  return {
+    status: failedTurns.length > 0 ? 'FAIL'
+      : turns.length === WINDOW_FILL_CASES.length ? 'PASS' : 'INCOMPLETE',
+    expectedTurns: WINDOW_FILL_CASES.length,
+    checkedTurns: turns.length,
+    failedTurns,
+  };
+}
+
 export function windowFillMessage(turn) {
   if (!Number.isSafeInteger(turn) || turn < 1 || turn > 9) throw new RangeError('window-fill turn must be 1..9');
   const facts = Array.from({ length: 24 }, (_, index) => (
