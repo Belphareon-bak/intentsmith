@@ -8,7 +8,7 @@ import http from 'node:http';
 import path from 'node:path';
 
 import { assessScheduledEvaluationReadiness } from '../src/upgrade/gpu-evaluation-lock.js';
-import { windowFillMessage } from './chat85-window-values.js';
+import { windowFillMessage, windowFillUserQuoteBlock } from './chat85-window-values.js';
 
 export const CAPTURE_SUITE_ID = 'IS-T3-E2E-85-LONG-SESSION-DEGRADATION';
 export const CAPTURE_MODEL = 'qwen3.5:27b';
@@ -252,8 +252,12 @@ export function attestWindowFillEvidence({ evidenceFile, captureFile, sourceRevi
   assert.equal(evidence.providerCaptureSha256, SHA256(observedBytes), 'window-fill capture digest mismatch');
   assert.ok(Array.isArray(evidence.turns) && evidence.turns.length === 8,
     'window-fill requires eight quality-checked turns');
-  assert.ok(typeof evidence.summary?.text === 'string' && evidence.summary.text.length > 0,
+  assert.ok(typeof evidence.summary?.text === 'string' && evidence.summary.text.trim().length > 0,
     'window-fill summary evidence missing');
+  assert.match(evidence.summary.providerRequestSha256, /^[a-f0-9]{64}$/,
+    'window-fill summary request hash missing');
+  assert.match(evidence.summary.providerResponseSha256, /^[a-f0-9]{64}$/,
+    'window-fill summary response hash missing');
   const final = evidence.final;
   assert.match(final?.requestSha256, /^[a-f0-9]{64}$/, 'window-fill final request hash missing');
   assert.match(final?.responseSha256, /^[a-f0-9]{64}$/, 'window-fill final response hash missing');
@@ -292,6 +296,29 @@ export function attestWindowFillEvidence({ evidenceFile, captureFile, sourceRevi
     assert.match(row.responseSha256, /^[a-f0-9]{64}$/, 'invalid provider response digest');
     assert.ok(Array.isArray(row.messages), 'provider prompt messages missing');
   }
+  const summaryMatches = observedRows.filter(row =>
+    row.requestSha256 === evidence.summary.providerRequestSha256
+      && row.responseSha256 === evidence.summary.providerResponseSha256);
+  assert.equal(summaryMatches.length, 1,
+    'window-fill summary provider call is missing or ambiguous');
+  const summaryRow = summaryMatches[0];
+  assert.equal(summaryRow.done, true, 'window-fill summary provider call did not finish');
+  assert.equal(summaryRow.terminal?.done, true, 'window-fill summary terminal did not finish');
+  assert.equal(summaryRow.doneReason, 'stop', 'window-fill summary provider response did not stop');
+  assert.equal(summaryRow.terminal?.done_reason, 'stop',
+    'window-fill summary terminal response did not stop');
+  assert.ok(summaryRow.messages.some(message => message.role === 'user'
+    && typeof message.content === 'string' && message.content.endsWith('\nSouhrn:')),
+  'window-fill summary provider prompt marker missing');
+  const summaryContent = [summaryRow.terminal?.message?.content, summaryRow.terminal?.response]
+    .find(content => typeof content === 'string' && content.trim().length > 0);
+  assert.ok(summaryContent, 'window-fill summary provider response is empty');
+  const firstUser = evidence.finalSnapshot?.messages?.find(message => message.role === 'user');
+  const userQuoteBlock = windowFillUserQuoteBlock(firstUser, evidence.summary.upToMsgId);
+  assert.equal(`${summaryContent.trim()}${userQuoteBlock}`, evidence.summary.text,
+    'window-fill persisted summary differs from provider response plus exact user quote');
+  assert.ok(evidence.summary.text.includes('RIGEL_KAPPA_731'),
+    'window-fill persisted summary lost the critical anchor');
   const expectedPairs = [[73, 62], [33, 22], [106, 95], [66, 55],
     [26, 15], [99, 88], [59, 48], [19, 8], [92, 81]];
   const checkedTurns = [...evidence.turns, ...(evidence.retry ? [evidence.retry] : [])];

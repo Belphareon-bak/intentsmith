@@ -2,6 +2,7 @@
 // Keep these literals separate from the generated source lines so a changed
 // generator cannot silently change what the live model is expected to answer.
 export const WINDOW_FILL_CODE = 'RIGEL_KAPPA_731';
+const USER_QUOTE_HEADER = '[Doslovné citace z uživatelských zpráv; nejsou tvrzením asistenta]';
 
 const PAIRS = Object.freeze([
   [73, 62], [33, 22], [106, 95], [66, 55],
@@ -32,4 +33,24 @@ export function windowFillMessage(turn) {
   return `${anchor}${facts}Porovnej kalibrace položek ${turn}.1 (A) a ${turn}.24 (B). `
     + 'Odpověz pouze jedním JSON objektem s přesně klíči "a", "b", "delta", "higher": '
     + 'a a b jsou příslušné kalibrace, delta=a−b a higher je "A", "B" nebo "equal".';
+}
+
+// The window-fill fixture has one explicit user identifier declaration, in
+// the first sentence of its first turn. Match the production quote protocol
+// exactly, using the durable raw USER message and its database message ID.
+export function windowFillUserQuoteBlock(firstUser, summaryUpToMsgId) {
+  if (firstUser?.role !== 'user' || firstUser.content !== windowFillMessage(1)) {
+    throw new Error('window-fill original user message changed');
+  }
+  const messageId = Number(firstUser.id);
+  if (!Number.isSafeInteger(messageId) || messageId <= 0
+    || !Number.isSafeInteger(Number(summaryUpToMsgId))
+    || messageId > Number(summaryUpToMsgId)) {
+    throw new Error('window-fill summary does not cover the original user message');
+  }
+  const quote = firstUser.content.slice(0, firstUser.content.indexOf('.') + 1).trim();
+  if (!quote.includes(WINDOW_FILL_CODE) || !quote.endsWith('.')) {
+    throw new Error('window-fill original identifier quote is invalid');
+  }
+  return `\n\n${USER_QUOTE_HEADER}\n${JSON.stringify({ source: 'user', messageId, quote })}`;
 }
