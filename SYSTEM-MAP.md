@@ -647,8 +647,8 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 | | |
 |---|---:|
 | `src/**/*.js` | **232 252 ř.**, 677 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **256 540 ř.**, 570 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **572** (`476 ACTIVE`, `81 BLOCKED`, `15 HISTORICAL`) |
+| `tests/**/*.js` | **256 671 ř.**, 571 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **573** (`477 ACTIVE`, `81 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 107** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |

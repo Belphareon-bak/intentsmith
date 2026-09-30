@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 572
+- Runnable programs: 573
 - Explicit support-module exclusions: 25
-- Profiles: offline=317, database=83, server=53, model=84, soak=15, manual=20
-- States: ACTIVE=476, HISTORICAL=15, BLOCKED=81
+- Profiles: offline=317, database=83, server=54, model=84, soak=15, manual=20
+- States: ACTIVE=477, HISTORICAL=15, BLOCKED=81
 
 ## Execution profiles
 
@@ -366,6 +366,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M2-TOOL-CONTRACT-V1-TEST` | `tests/m2-tool-contract-v1.test.js` | `C3-020` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
 | `IS-T1-TESTS-M2-TOOL-PRODUCTION-CONSUMER-TEST` | `tests/m2-tool-production-consumer.test.js` | `C3-020` | T1 | `database` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
 | `IS-T2-TESTS-M3-AGENT-HTTP-DURABLE-JOURNEY-TEST` | `tests/m3-agent-http-durable-journey.test.js` | `C3-013` | T2 | `database` | 2 s | 30 s | network:loopback, temp-db | yes | `ACTIVE` | — | WP-CHAT-WORKER-JOURNEY-20260930 |
+| `IS-T3-TESTS-M3-AGENT-PRODUCT-HTTP-JOURNEY-TEST` | `tests/m3-agent-product-http-journey.test.js` | `C3-013` | T3 | `server` | 10 s | 3 min | network:loopback, temp-db | yes | `ACTIVE` | — | WP-CHAT-WORKER-JOURNEY-20260930 |
 | `IS-T1-TESTS-M3-CODE-REVIEW-SPECIALIST-TEST` | `tests/m3-code-review-specialist.test.js` | `C3-013` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M3-SPECIALIST-CODE-REVIEW |
 | `IS-T1-TESTS-M3-EXPERTISE-EXTENSION-TEST` | `tests/m3-expertise-extension.test.js` | `C3-007` | T1 | `database` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-M3-EXPERTISE |
 | `IS-T1-TESTS-M3-EXTENSION-CONTRACT-V1-TEST` | `tests/m3-extension-contract-v1.test.js` | `C3-013` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M3-BOUNDARY |

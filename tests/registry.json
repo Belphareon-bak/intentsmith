@@ -10706,6 +10706,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T3-TESTS-M3-AGENT-PRODUCT-HTTP-JOURNEY-TEST",
+      "path": "tests/m3-agent-product-http-journey.test.js",
+      "argv": [
+        "node",
+        "tests/m3-agent-product-http-journey.test.js"
+      ],
+      "capabilityId": "C3-013",
+      "tier": "T3",
+      "fixture": "owned-product-server-and-loopback-provider",
+      "profile": "server",
+      "timeoutMs": 180000,
+      "expectedDurationMs": 10000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-CHAT-WORKER-JOURNEY-20260930",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-M4-LEARNING-CONTRACT-V1-TEST",
       "path": "tests/m4-learning-contract-v1.test.js",
       "argv": [
