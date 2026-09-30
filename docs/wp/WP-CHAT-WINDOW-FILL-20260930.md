@@ -7,6 +7,9 @@ opakovaný běh na `0b0cabdba153b0bebfda8fc06a8a34da11766a30` dokončil
 celou sadu `PASS` (4/4), provider capture `PASS` a uvolnil GPU lease. Lokální
 reporty jsou `.intentsmith-artifacts/run-suites/2026-09-30T17-31-23-783Z/report.json`
 a `.intentsmith-artifacts/run-suites/2026-09-30T17-58-43-582Z/report.json`.
+Na navazujícím čistém `09247504143ac0a37d75d7d52867768447790ad2`
+prošla sada také `4/4`, provider capture `PASS` a GPU lease se uvolnil;
+report je `.intentsmith-artifacts/run-suites/2026-09-30T18-51-43-442Z/report.json`.
 Registr nadále nemá `lastGreen`; běhový režim není release Gate 0.
 
 **Autorita:** explicitní zadání operátora z 2026-09-30 ověřit chat po
@@ -19,7 +22,7 @@ summary a počítání krátké historie z větve `work/intent-resilience-202609
 jsou integrovány do kandidáta `4a789bb1`. Tehdy otevřenou mezeru asynchronní
 sumarizace krátkých zpráv řeší navazující
 `WP-CHAT-CONTEXT-RETENTION-20260930`; integrovaná oprava `88a7f91a` +
-`222793c6` má omezené nezávislé review, ale čeká na nový živý běh této sady.
+`222793c6` má omezené nezávislé review a živý běh na `09247504`.
 
 **Výsledek pro uživatele:** při konverzaci, jejíž původní historie přesáhne
 skutečně odeslané `num_ctx` a jejíž efektivní historie s režijní rezervou
@@ -48,7 +51,7 @@ Zachycená ANSWER odpověď providera se musí přesně rovnat HTTP odpovědi a
 metadata musí potvrdit stejný model i `num_ctx`. Závěrečný zachycený provider
 prompt musí obsahovat summary i kód, avšak původní první zpráva a její
 nesouhrnný prostřední řádek už v něm nesmějí být. Závěrečná otázka kód nesmí
-opakovat; model musí kód vrátit.
+opakovat; model musí odpovědět přesně samotným kódem, jak uživatel požádal.
 Průběh, odpovědi, snapshot DB a délka se SHA256 úplného JSONL prefixu se uloží před
 odstraněním izolované konverzace do privátního artefaktu s právy `0600` i při
 selhání. Pozdější řádky background sumarizace zůstanou v surovém záznamu a
@@ -85,5 +88,19 @@ Zachycené sumarizační requesty však opakovaně skončily `done_reason=length
 na tehdejším 500tokenovém limitu a tehdejší kód přijal jejich neprázdný obsah.
 Navazující oprava v `WP-CHAT-CONTEXT-RETENTION-20260930` takové souhrny
 odmítá a dovoluje v rámci existujícího limitu 1 000 výstupních tokenů.
-Nové chování dosud nemá živý důkaz; tento starší PASS potvrzuje jen uvedený
-kontrolní kód na SHA `0b0cabdb`.
+Tento starší PASS potvrzuje jen uvedený kontrolní kód na SHA `0b0cabdb`.
+
+**Třetí běh na `09247504`:** syrová historie měla 4628 odhadovaných tokenů
+nad `num_ctx=4096`; efektivní historie před souhrnem dosáhla 3314 tokenů
+plus 1500 rezervy. První dokončený souhrn při šestém tahu snížil stejný
+snapshot z 3283 na 2854 tokenů, tedy o 429. Finální provider prompt
+obsahoval uložený souhrn a kód, ale ne původní první zprávu ani její
+nesouhrnný prostřední řádek; `prompt_eval_count=1653`. Finálně uložený
+souhrn se přesně shodoval s terminální odpovědí zachyceného provider volání
+`done_reason=stop`. Model však vrátil `Auditní kód RIGEL_KAPPA_731.` místo
+požadovaného samotného `RIGEL_KAPPA_731`. Dřívější orákulum kontrolovalo
+jen výskyt kódu, proto tehdejší `4/4 PASS` dokládá dostupnost faktu po
+kompakci, nikoli dodržení přesného formátu. Nové orákulum kontroluje rovnost
+odpovědi po odstranění okolních mezer; běh s tímto přísnějším orákulem je
+`LIVE_NOT_RUN`. Soukromý důkaz z třetího běhu zůstává mimo Git na uvedené
+cestě pod `artifacts/85-window-fill-evidence.json`.

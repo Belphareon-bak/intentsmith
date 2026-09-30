@@ -367,6 +367,7 @@ try {
       responseSha256: finalProvider.responseSha256, numCtx: finalProvider.numCtx,
       promptEvalCount: finalProvider.promptEvalCount, question: recallQuestion,
       answer: recall.response, providerPrompt: finalPrompt,
+      answerMatchesRequestedFormat: recall.response.trim() === WINDOW_FILL_CODE,
       rawFirstMessagePresent: finalPrompt.includes(firstUser.content),
       rawFirstMidLinePresent: finalPrompt.includes(rawOnlyLine) };
     assert(finalPrompt.includes('[Souhrn předchozí konverzace]'),
@@ -377,6 +378,8 @@ try {
       'the captured final provider prompt still contains raw first-turn history');
     assert(recall.response.includes(WINDOW_FILL_CODE),
       `final model response lost the compacted anchor: ${recall.response.substring(0, 200)}`);
+    assert(windowEvidence.final.answerMatchesRequestedFormat,
+      `final model response did not follow the requested code-only format: ${recall.response.substring(0, 200)}`);
     windowEvidence.status = 'PASS';
   }, 35 * 60_000);
 
