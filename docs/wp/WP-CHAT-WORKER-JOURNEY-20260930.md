@@ -1,9 +1,10 @@
 # WP — produkční worker: trvalý HTTP průchod
 
 **Stav:** implementační kandidát s omezeným nezávislým `REVIEW_PASS` a
-integrovaným HTTP/SQLite během **6/6**. Nový samostatný kandidát testuje i
-skutečný `src/server.js` v produkčním autentizačním režimu; jeho nezávislé
-review a integrační přejímka ještě chybějí. Širší provozní přejímka zůstává otevřená.
+integrovaným HTTP/SQLite během **6/6**. Produktový scénář přes skutečný
+`src/server.js` v produkčním autentizačním režimu má po opravě filtru
+notifikací omezené nezávislé `REVIEW_PASS` a integrovaný registrovaný běh
+**1/1** na `8134a613`. Širší provozní přejímka zůstává otevřená.
 
 **Autorita:** výslovné zadání operátora z 2026-09-30 ověřit skutečné průchody
 chatem, specialisty, expertizami a workery. Tento ohraničený přírůstek patří
@@ -76,8 +77,10 @@ Oprava `bbef732f` předává parametr do existujícího API a stejný test proš
 přímo i registrovaně **1/1**. Přesný čistý report je
 `.intentsmith-artifacts/run-suites/2026-09-30T20-59-01-528Z/report.json`
 (`sourceRevision=bbef732f500fe761cac6fb02ad22e90dadcbed6d`,
-`gateEvidence:false`). Opakované nezávislé review a integrační přejímka
-opravy ještě chybějí.
+`gateEvidence:false`). Opakované nezávislé review skončilo omezeným
+`REVIEW_PASS`; na integrovaném `8134a613` prošel registrovaný běh **1/1**
+(`.intentsmith-artifacts/run-suites/2026-09-30T21-01-42-294Z/report.json`,
+`gateEvidence:false`).
 
 Přímý i registrovaný běh na Node 24 prošel **1/1** pro původní kandidát
 `b81c84d8`; jeho registrovaný report je

@@ -1,6 +1,6 @@
 # IntentSmith — průběžné dokončování k 30. 9. 2026
 
-## Checkpoint 21:03 UTC
+## Checkpoint 21:14 UTC
 
 Čistá integrační větev `work/real-chat-journeys-20260930` je pushnutá na
 `8134a61396f4720e33679b859ed6c324eb7ed2af`. Obsahuje opravu recentního
@@ -34,13 +34,16 @@ Běžící backend zůstává starší release `c84b88cd`; instalovaný frontend
   vazby `UNVERIFIED_RUNTIME`. Read model a Studio nyní při revokaci posudku
   nebo změně suite vracejí bez platné známky; zdrojová oprava měla nezávislé
   `REVIEW_PASS`. Hunt skórování a aktivace zůstávají **NO_GO**.
+- Produkční frontend build na integračním `e0c651b8` prošel; čtyři fyzické
+  Electron scénáře včetně Studio 2 UI skončily **4/4 PASS** v izolovaném auditu
+  `.intentsmith-artifacts/test-runs/2026-09-30T21-07-46-499Z/report.json`.
+  Běžící instalovaná verze tím nebyla změněna.
 - Poslední úplný offline/database audit čistého `09e72b74` je
   **399 PASS / 1 FAIL / 0 BLOCKED** ze 400 sad. Jediný FAIL je stará
   zapečetěná Gate 0 politika registru. Po zmrazení finálního registru je nutné
   nezávisle revidovat delta sad/profilů a teprve potom obnovit pečeť;
-  plný audit na aktuálním SHA ještě neběžel. Dřívější produkční frontend build
-  a čtyři fyzické Electron scénáře prošly na `09e72b74`, po nové změně Hunt UI
-  je nutné je opakovat. Release verdict zůstává **FAIL/NOT_ACCEPTED**.
+  plný audit na aktuálním SHA ještě neběžel. Release verdict zůstává
+  **FAIL/NOT_ACCEPTED**.
 - Mobilní integrace M7 čeká podle rozhodnutého pořadí na stabilní IDE/backend.
   První mobilní konverzace, fyzická device/VPN matice a podepsaný balík jsou
   `NOT_RUN`. Redukce větví a worktree přijde po přejímce a inventáři cizí práce.
