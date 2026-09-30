@@ -212,6 +212,27 @@ test('a short continuation receives the same project, history and real evidence;
   assert.equal(execFileSync('git', ['status', '--porcelain'], { cwd: project.path, encoding: 'utf8' }), '');
 });
 
+test('project discussion keeps the durable summary in the final bounded provider prompt after ten new messages', async t => {
+  const project = await fixture(t);
+  const summary = '[Souhrn předchozí konverzace]\nPrior decision ALTAIR_229: keep RPM history for one hour.';
+  const dbHistory = [{ isSummary: true, response: { tag: { speaker: 'system' }, content: summary } },
+    ...Array.from({ length: 10 }, (_, index) => ({ response: { tag: { speaker: index % 2 ? 'system' : 'user' },
+      content: `Short later message ${index}` } }))];
+  await discussProject('What should we do next?', { project, dbHistory }, {
+    generate: async ({ prompt }) => {
+      const raw = JSON.parse(prompt);
+      assert.equal(raw.history.length, 11);
+      assert.equal(raw.history[0].role, 'summary');
+      assert.match(raw.history[0].content, /ALTAIR_229/);
+      assert.equal(raw.history.some(turn => turn.content === 'Short later message 0'), true);
+      const bounded = JSON.parse(fitProjectDiscussionPrompt(prompt, 4096).prompt);
+      assert.ok(bounded.history.some(turn => turn.role === 'summary' && turn.content.includes('ALTAIR_229')),
+        'the final model prompt must retain the synthetic summary');
+      return generated({ reply: 'Keep the previous one-hour RPM requirement.', plan: null });
+    },
+  });
+});
+
 for (const scenario of ['path-escape', 'model-command', 'cycle', 'no-test', 'missing-parent', 'truncated']) {
   test(`invalid ${scenario} cannot become an executable proposal`, async t => {
     const project = await fixture(t);
