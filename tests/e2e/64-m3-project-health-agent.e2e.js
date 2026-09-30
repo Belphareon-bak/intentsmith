@@ -3,8 +3,11 @@
 // notifications. It must not call a model, external network, GPU or Ollama.
 
 import { createHash } from 'node:crypto';
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
+
+import { buildProjectContextManifest } from '../../src/code-intel/project-context-manifest.js';
 
 import {
   api,
@@ -24,6 +27,15 @@ await waitForServer();
 let project = null;
 let agentId = null;
 let baselineEvidence = null;
+let baselineManifest = null;
+
+function changedManifestPaths(before, after) {
+  const previous = new Map(before.entries.map(entry => [entry.path, entry]));
+  const current = new Map(after.entries.map(entry => [entry.path, entry]));
+  return [...new Set([...previous.keys(), ...current.keys()])]
+    .filter(sourcePath => !isDeepStrictEqual(previous.get(sourcePath), current.get(sourcePath)))
+    .sort();
+}
 
 try {
   suite('M3 project-health agent — extension install and disabled boundary');
@@ -77,6 +89,11 @@ try {
     baselineEvidence = baseline.data.explain.sources[0].evidence;
     assertEqual(baselineEvidence.projectId, project.id);
     assert(Number.isSafeInteger(baselineEvidence.issueCount) && baselineEvidence.issueCount >= 0);
+    baselineManifest = await buildProjectContextManifest({
+      projectId: project.id,
+      canonicalRoot: project.path,
+    });
+    assertEqual(baselineEvidence.workspaceRevision, baselineManifest.revision);
 
     const detail = await api('GET', `/api/agents/${agentId}`);
     assert(
@@ -91,6 +108,11 @@ try {
   await testAsync('project change produces durable ProjectContext evidence and visible notification', async () => {
     const changedContent = 'export const healthy = false;\n// FIXME remove temporary bypass\n';
     writeFileSync(path.join(project.path, 'index.js'), changedContent);
+    const changedManifest = await buildProjectContextManifest({
+      projectId: project.id,
+      canonicalRoot: project.path,
+    });
+    assertEqual(changedManifestPaths(baselineManifest, changedManifest).join(','), 'index.js');
     const changed = await api('POST', `/api/agent-extensions/instances/${agentId}/run`);
     assertEqual(changed.status, 200);
     assertEqual(changed.data.run_state, 'SUCCESS_TRIGGERED');
@@ -108,9 +130,12 @@ try {
     assert(/^pcs1:[a-f0-9]{64}$/.test(notification.data.snapshotDigest));
 
     const run = detail.data.recentRuns[0];
+    assertEqual(run.id, changed.data.runId);
+    assertEqual(run.explain.run_id, changed.data.runId);
     assertEqual(run.explain.run_state, 'SUCCESS_TRIGGERED');
     const evidence = run.explain.sources[0].evidence;
     assertEqual(evidence.projectId, project.id);
+    assertEqual(evidence.workspaceRevision, changedManifest.revision);
     assertEqual(evidence.issueCount, baselineEvidence.issueCount + 1);
     assertEqual(evidence.filesObserved, evidence.provenance.length);
     assertEqual(notification.data.projectId, String(project.id));
@@ -118,26 +143,38 @@ try {
     assertEqual(notification.data.snapshotDigest, evidence.snapshotDigest);
     assertEqual(notification.data.issueCount, String(evidence.issueCount));
     assertEqual(notification.data.filesObserved, String(evidence.filesObserved));
-    assert(notification.body.includes(`${evidence.issueCount} signálů v ${evidence.filesObserved} souborech`),
-      notification.body);
+    assertEqual(notification.body,
+      `Projekt ${project.id}: ${evidence.issueCount} signálů v ${evidence.filesObserved} souborech. `
+      + `Revision ${evidence.workspaceRevision}.`);
     const changedDigest = `sha256:${createHash('sha256').update(changedContent).digest('hex')}`;
     const sourceEvidence = evidence.provenance.filter(item => item.path === 'index.js');
     assertEqual(sourceEvidence.length, 1);
     assertEqual(sourceEvidence[0].contentDigest, changedDigest);
+    assertEqual(changedManifest.entries.find(entry => entry.path === 'index.js')?.contentDigest,
+      changedDigest);
     assert(!baselineEvidence.provenance.some(item => item.path === 'index.js'
       && item.contentDigest === changedDigest), 'baseline must not contain the changed source bytes');
-    const previousDigests = new Map(baselineEvidence.provenance.map(item => [item.path, item.contentDigest]));
-    const currentDigests = new Map(evidence.provenance.map(item => [item.path, item.contentDigest]));
-    for (const [sourcePath, contentDigest] of previousDigests) {
-      if (sourcePath === 'index.js') continue;
-      assert(currentDigests.has(sourcePath), `unchanged source disappeared: ${sourcePath}`);
-      assertEqual(currentDigests.get(sourcePath), contentDigest);
+    const roadmapPath = path.join(project.path, 'ROADMAP.md');
+    assert(!evidence.provenance.some(item => item.path === 'ROADMAP.md'),
+      'negative control must be outside query-matching provenance');
+    const roadmapBytes = readFileSync(roadmapPath);
+    try {
+      writeFileSync(roadmapPath, Buffer.concat([roadmapBytes, Buffer.from('\nManifest-only probe.\n')]));
+      const unrelatedEdit = await buildProjectContextManifest({
+        projectId: project.id,
+        canonicalRoot: project.path,
+      });
+      assertEqual(changedManifestPaths(changedManifest, unrelatedEdit).join(','), 'ROADMAP.md');
+      assert(unrelatedEdit.revision !== changedManifest.revision,
+        'an unrelated, query-invisible project edit must change the full workspace revision');
+    } finally {
+      writeFileSync(roadmapPath, roadmapBytes);
     }
-    for (const item of evidence.provenance) {
-      if (item.path !== 'index.js') {
-        assert(previousDigests.has(item.path), `unexpected additional source: ${item.path}`);
-      }
-    }
+    const restored = await buildProjectContextManifest({
+      projectId: project.id,
+      canonicalRoot: project.path,
+    });
+    assertEqual(restored.revision, changedManifest.revision);
 
     const studio = await api('GET', '/agents');
     assertEqual(studio.status, 200);
