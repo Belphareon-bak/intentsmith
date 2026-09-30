@@ -1,11 +1,13 @@
 # WP — skutečné naplnění okna a auto-context v živém chatu
 
-**Stav k 30. 9. 2026:** živý běh na `4a789bb1376504104698fe6f45f2f9e202000159`
-ověřil podscénář naplnění okna `PASS`, celá sada však skončila `FAIL` (3/4),
-protože jiný podscénář narazil na terminální HTTP 502 po neúplné CODE odpovědi.
-Soukromý report je `.intentsmith-artifacts/run-suites/2026-09-30T17-31-23-783Z/report.json`.
-Registr proto nadále nemá `lastGreen`; běh není release acceptance. Navazující
-opravu CODE odpovědi vlastní `WP-CHAT-ANSWER-TRUNCATION-20260930`.
+**Stav k 30. 9. 2026:** první živý běh na `4a789bb1` ověřil podscénář
+naplnění okna `PASS`, celá sada však skončila `FAIL` (3/4) po HTTP 502 u
+neúplné CODE odpovědi. Po opravě v `WP-CHAT-ANSWER-TRUNCATION-20260930`
+opakovaný běh na `0b0cabdba153b0bebfda8fc06a8a34da11766a30` dokončil
+celou sadu `PASS` (4/4), provider capture `PASS` a uvolnil GPU lease. Lokální
+reporty jsou `.intentsmith-artifacts/run-suites/2026-09-30T17-31-23-783Z/report.json`
+a `.intentsmith-artifacts/run-suites/2026-09-30T17-58-43-582Z/report.json`.
+Registr nadále nemá `lastGreen`; běhový režim není release Gate 0.
 
 **Autorita:** explicitní zadání operátora z 2026-09-30 ověřit chat po
 naplnění kontextového okna a automatické zkrácení kontextu. Produktové chování
@@ -71,3 +73,14 @@ tokenů, neshodě skutečného provider requestu nebo chybě modelové odpovědi
 prerekvizity. Tento scénář neprokazuje paměť přes více než 50 starších tahů,
 restart ani kvalitu shrnutí u jiných témat; to jsou samostatné acceptance
 scénáře. Nezměnit registr `lastGreen` z lokálního běhu.
+
+**Naměřený rozsah druhého běhu:** syrová uložená historie měla 4602 odhadovaných
+tokenů při skutečném `num_ctx=4096`; efektivní historie před souhrnem měla
+3315 tokenů a s režijní rezervou 1500 překročila 75% práh. První dokončený
+souhrn při šestém tahu snížil stejný snapshot o 303 tokenů (3267 → 2964).
+Finální provider prompt neměl syrovou první zprávu, ale obsahoval souhrn a
+počáteční auditní kód; model vrátil přesný kód, `prompt_eval_count=1638`.
+Zachycené sumarizační requesty však opakovaně skončily `done_reason=length`
+na stávajícím 500tokenovém limitu a kód přijal jejich neprázdný obsah.
+To je samostatná otevřená mezera kvality a bezeztrátovosti souhrnů, kterou
+úspěch tohoto jednoho kontrolního kódu nezavírá.
