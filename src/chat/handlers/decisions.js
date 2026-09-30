@@ -18,6 +18,7 @@ import {
 } from '../cre-decision.js';
 import { toolExecutor, ExecutionStatus } from '../../executor/tool-executor.js';
 import { logger } from '../../core/logger.js';
+import { ChatProcessingError } from '../../core/chat-turn-error.js';
 import { developmentEnvironmentPrompt } from '../../setup/development-environment.js';
 import { Structure, FollowUpStyle } from '../../memory/preferences.js';
 import { synthesizeWithLLM } from './utils/synthesis.js';
@@ -59,6 +60,7 @@ const ANSWER_TOKEN_BUDGET = Object.freeze({
   LONG_CONVERSATION: 2048,
   NON_CONVERSATIONAL: 1200,
 });
+const MIN_SUMMARY_ANSWER_TOKENS = 256;
 
 const BRIEF_CONVERSATION_PATTERN = /^(?:ahoj|\u010dau|cau|nazdar|hi|hello|hey|d[ií]ky|d[eě]kuji|thanks?|thank you|ok(?:ay)?|dob[rř]e|jasn[eě]|rozum[ií]m|jak se m[áa][sš]|how are you)[!.,? ]*$/iu;
 const normalizeDetailRequest = input => String(input || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
@@ -274,7 +276,10 @@ function selectAnswerTokenBudget(input, intent) {
   return ANSWER_TOKEN_BUDGET.LONG_CONVERSATION;
 }
 
-export function buildAnswerContext(input, history, systemPrompt, requestedTokens, numCtx) {
+class AnswerSummaryBudgetError extends Error {}
+class AnswerCompletionBudgetError extends Error {}
+
+export function buildAnswerContext(input, history, systemPrompt, requestedTokens, numCtx, options = {}) {
   // Conservative UTF-8 budget; reserve space for clock, role wrappers and a
   // possible quality retry. Never silently shorten the current user request.
   const bytes = text => Buffer.byteLength(text, 'utf8');
@@ -295,8 +300,8 @@ export function buildAnswerContext(input, history, systemPrompt, requestedTokens
   // consume the last history slot merely to reserve the maximum output cap.
   // Stay inside the same model context and output authority.
   const historyReserve = turns.length ? Math.min(512, Math.floor(available / 4)) : 0;
-  const maxTokens = Math.min(requestedTokens, available - historyReserve, Math.floor(numCtx / 2));
-  const historyBudget = Math.max(0, (available - maxTokens) * 2 - 160);
+  let maxTokens = Math.min(requestedTokens, available - historyReserve, Math.floor(numCtx / 2));
+  let historyBudget = Math.max(0, (available - maxTokens) * 2 - 160);
   const encodeTurn = (turn, remaining) => {
     if (remaining < 120) return null;
     let content = turn.content;
@@ -323,12 +328,26 @@ export function buildAnswerContext(input, history, systemPrompt, requestedTokens
   let used = 0;
   const selected = [];
   if (summaryTurn) {
-    const summaryBudget = Math.min(historyBudget, Math.max(120, Math.floor(historyBudget / 2)));
-    const line = encodeTurn(summaryTurn, summaryBudget);
-    if (line) {
-      selected.push(line);
-      used += bytes(line) + 1;
+    // A persisted summary is the only representation of archived messages.
+    // Head/tail clipping can silently remove a fact from its middle, so the
+    // full summary takes priority over optional recent-turn excerpts.
+    const line = JSON.stringify(summaryTurn);
+    const requiredBytes = bytes(line) + 1;
+    if (requiredBytes > historyBudget && options.allowSummaryOutputTradeoff === true) {
+      // A long conversational question can arrive just after compaction. Fit
+      // its complete summary by lowering only that answer's output allowance;
+      // CODE and other intents retain their existing generation budget.
+      const fittedOutput = available - Math.ceil((requiredBytes + 160) / 2);
+      if (fittedOutput >= Math.min(maxTokens, MIN_SUMMARY_ANSWER_TOKENS)) {
+        maxTokens = Math.min(maxTokens, fittedOutput);
+        historyBudget = Math.max(0, (available - maxTokens) * 2 - 160);
+      }
     }
+    if (requiredBytes > historyBudget) {
+      throw new AnswerSummaryBudgetError('Souhrn konverzace se nevejde do kontextu modelu při zachování minimálního rozpočtu odpovědi.');
+    }
+    selected.push(line);
+    used += bytes(line) + 1;
   }
   const recentSelected = [];
   for (const turn of recentTurns.reverse()) {
@@ -1200,11 +1219,31 @@ Délku, strukturu a počet příkladů přizpůsob zadání. Přiznej nejistotu;
     systemPrompt += buildProjectContext(context);
     const requestedTokens = selectAnswerTokenBudget(input, decision.intent);
     const numCtx = getNumCtx(config.models.CHAT);
+    let answerContext;
     if (decision.intent === IntentType.CONVERSATIONAL) {
-      const allowance = buildAnswerContext(input, [], systemPrompt, requestedTokens, numCtx).maxTokens;
-      systemPrompt += completionInstruction(allowance, langCtx.language);
+      // The full durable summary may lower the output allowance. The word
+      // target sent to the model must describe that same final allowance, not
+      // the larger no-history estimate. Capping each pass at its previous
+      // allowance makes this converge downward even if the shorter word count
+      // frees a byte or two in the system prompt.
+      let outputCap = buildAnswerContext(input, [], systemPrompt, requestedTokens, numCtx).maxTokens;
+      for (let pass = 0; pass < 4; pass++) {
+        const candidateSystemPrompt = systemPrompt + completionInstruction(outputCap, langCtx.language);
+        const candidateContext = buildAnswerContext(input, context.history, candidateSystemPrompt,
+          outputCap, numCtx, { allowSummaryOutputTradeoff: true });
+        if (candidateContext.maxTokens === outputCap) {
+          systemPrompt = candidateSystemPrompt;
+          answerContext = candidateContext;
+          break;
+        }
+        outputCap = candidateContext.maxTokens;
+      }
+      if (!answerContext) {
+        throw new AnswerCompletionBudgetError('Rozpočet odpovědi se neustálil před sestavením modelového promptu.');
+      }
+    } else {
+      answerContext = buildAnswerContext(input, context.history, systemPrompt, requestedTokens, numCtx);
     }
-    const answerContext = buildAnswerContext(input, context.history, systemPrompt, requestedTokens, numCtx);
     const prompt = answerContext.prompt;
 
     // v123.2: System step — prompt prepared
@@ -1396,6 +1435,14 @@ Délku, strukturu a počet příkladů přizpůsob zadání. Přiznej nejistotu;
       tag,
     });
   } catch (err) {
+    // A local context-budget refusal did not reach the model provider. Keep
+    // its terminal provenance instead of reporting a false provider outage.
+    if (err instanceof AnswerSummaryBudgetError) {
+      throw new ChatProcessingError('ANSWER_CONTEXT_SUMMARY_TOO_LARGE', err);
+    }
+    if (err instanceof AnswerCompletionBudgetError) {
+      throw new ChatProcessingError('ANSWER_COMPLETION_BUDGET_UNSTABLE', err);
+    }
     logger.error('ConversationHandler', `LLM call failed: ${err.message}`);
 
     // CRITICAL: Never return free text on error - use REFUSE decision

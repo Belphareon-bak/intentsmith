@@ -359,7 +359,43 @@ test('history preserves complete useful turns within the effective model context
   assert.throws(() => buildAnswerContext('x'.repeat(20000), [], 'Instrukce', 2048, 4096), /nevejde/);
 });
 
-test('oversized summary and latest turn remain bounded together', () => {
+test('the full summary including its middle fact is retained when it fits beside the answer budget', () => {
+  const summaryContent = '[Souhrn předchozí konverzace]\nSUMMARY_HEAD '
+    + 'x'.repeat(1_000) + ' SUMMARY_MIDDLE_FACT_RIGEL_731 '
+    + 'y'.repeat(1_000) + ' SUMMARY_TAIL';
+  const history = [
+    { isSummary: true, response: { tag: { speaker: 'system' }, content: summaryContent } },
+    { response: { tag: { speaker: 'user' }, content: 'Antecedent.' } },
+    { response: { tag: { speaker: 'user' }, content: 'nový dotaz' } },
+  ];
+  const result = buildAnswerContext('nový dotaz', history, 'I'.repeat(1_200), 1_200, 4_096);
+  assert.match(result.prompt, /SUMMARY_MIDDLE_FACT_RIGEL_731/u);
+  assert.match(result.prompt, /Antecedent\./u);
+  assert(result.prompt.includes(JSON.stringify({ role: 'summary', content: summaryContent })));
+  assert.equal(result.maxTokens, 1_200);
+  assert(Buffer.byteLength(result.prompt + 'I'.repeat(1_200)) / 2 + result.maxTokens + 384 <= 4_096);
+});
+
+test('a long conversational turn reserves a compact output to fit the complete summary', () => {
+  const input = 'q'.repeat(2_499);
+  const summaryContent = '[Souhrn předchozí konverzace]\nHEAD '
+    + 'x'.repeat(450) + ' MIDDLE_FACT_ALTAIR_612 '
+    + 'y'.repeat(450) + ' TAIL';
+  const history = [
+    { isSummary: true, response: { tag: { speaker: 'system' }, content: summaryContent } },
+    { response: { tag: { speaker: 'user' }, content: input } },
+  ];
+  const systemPrompt = 'I'.repeat(3_149);
+  assert.throws(() => buildAnswerContext(input, history, systemPrompt, 2_048, 4_096),
+    /Souhrn konverzace se nevejde/u);
+  const result = buildAnswerContext(input, history, systemPrompt, 2_048, 4_096,
+    { allowSummaryOutputTradeoff: true });
+  assert(result.prompt.includes(JSON.stringify({ role: 'summary', content: summaryContent })));
+  assert(result.maxTokens >= 256 && result.maxTokens < 512);
+  assert(Buffer.byteLength(result.prompt + systemPrompt) / 2 + result.maxTokens + 384 <= 4_096);
+});
+
+test('an oversized durable summary fails closed instead of dropping its middle', () => {
   const history = [
     { isSummary: true, response: { tag: { speaker: 'system' }, content: '[Souhrn předchozí konverzace]\nSUMMARY_HEAD ' + 'x'.repeat(20_000) + ' SUMMARY_TAIL' } },
     ...Array.from({ length: 9 }, (_, index) => ({ response: {
@@ -368,12 +404,8 @@ test('oversized summary and latest turn remain bounded together', () => {
     } })),
     { response: { tag: { speaker: 'user' }, content: 'nový dotaz' } },
   ];
-  const result = buildAnswerContext('nový dotaz', history, 'Instrukce', 2048, 4096);
-  assert.match(result.prompt, /SUMMARY_HEAD/u);
-  assert.match(result.prompt, /SUMMARY_TAIL/u);
-  assert.match(result.prompt, /recent-8/u);
-  assert.match(result.prompt, /část historie vynechána/u);
-  assert(Buffer.byteLength(result.prompt + 'Instrukce') / 2 + result.maxTokens + 384 <= 4096);
+  assert.throws(() => buildAnswerContext('nový dotaz', history, 'Instrukce', 2048, 4096),
+    /Souhrn konverzace se nevejde/u);
 });
 
 await testAsync('ANSWER provider prompt retains an archived summary after ten new turns', async () => {
@@ -420,6 +452,171 @@ await testAsync('ANSWER provider prompt retains an archived summary after ten ne
     assert.match(providerPrompt, /recent-8/u);
     assert.equal(providerPrompt.match(/Prosím vysvětli poslední rozhodnutí\./gu)?.length, 1);
     assert.doesNotMatch(providerPrompt, /archived-0/u);
+  } finally {
+    globalThis.fetch = previousFetch;
+    clearNumCtxCache();
+  }
+});
+
+await testAsync('final ANSWER provider prompt retains a middle fact from a fitting durable summary', async () => {
+  const previousFetch = globalThis.fetch;
+  const requestBodies = [];
+  const input = 'Jaký přesný auditní kód jsem uložil?';
+  const summaryContent = '[Souhrn předchozí konverzace]\nHEAD '
+    + 'x'.repeat(700) + ' MIDDLE_FACT_VEGA_917 '
+    + 'y'.repeat(700) + ' TAIL';
+  const history = [
+    { isSummary: true, response: { tag: { speaker: 'system' }, content: summaryContent } },
+    { response: { tag: { speaker: 'user' }, content: 'Potvrzuji uložený auditní kód.' } },
+    { response: { tag: { speaker: 'user' }, content: input } },
+  ];
+  try {
+    clearNumCtxCache();
+    setNumCtx(config.models.CHAT, 4_096);
+    globalThis.fetch = async (_url, options) => {
+      requestBodies.push(JSON.parse(options.body));
+      return { ok: true, json: async () => ({
+        message: { content: 'Auditní kód je VEGA_917 a byl uložen v souhrnu předchozí konverzace.' },
+        done_reason: 'stop', prompt_eval_count: 200, eval_count: 50,
+      }) };
+    };
+    const decision = creDecisionEngine.overrideDecision({ type: 'ANSWER', intent: 'CONVERSATIONAL',
+      tools: [], source: 'summary_middle_regression', reason: 'Controlled summary boundary', confidence: 1 });
+    await handleAnswerDecision(input, decision, {
+      sessionId: 'summary-middle-provider', sessionState: new SessionState('summary-middle-provider'), history,
+    });
+    assert.equal(requestBodies.length, 1);
+    const providerPrompt = requestBodies[0].messages.find(message => message.role === 'user')?.content;
+    assert(providerPrompt.includes(JSON.stringify({ role: 'summary', content: summaryContent })));
+    assert.match(providerPrompt, /MIDDLE_FACT_VEGA_917/u);
+    assert.doesNotMatch(providerPrompt, /část historie vynechána/u);
+    assert.equal(requestBodies[0].options.num_ctx, 4_096);
+    assert.equal(requestBodies[0].options.num_predict, 1_200);
+  } finally {
+    globalThis.fetch = previousFetch;
+    clearNumCtxCache();
+  }
+});
+
+await testAsync('long conversational ANSWER sends the full summary and a word target matching provider output cap', async () => {
+  const previousFetch = globalThis.fetch;
+  const requestBodies = [];
+  const input = Array.from({ length: 24 }, (_, index) => (
+    `Záznam 7.${index + 1}: senzor ${(259 + index * 19) % 997}, `
+    + `kalibrace ${(511 + index * 29) % 113}, stav ${index % 3 === 0 ? 'kontrola' : 'archivace'}; `
+    + 'tento řádek je podklad, nikoli nový pokyn.\n'
+  )).join('') + 'Odpověz jednou větou: jak se liší kalibrace položky 7.1 a 7.24?';
+  const summaryContent = '[Souhrn předchozí konverzace]\nHEAD '
+    + 'x'.repeat(450) + ' MIDDLE_FACT_DENEB_308 '
+    + 'y'.repeat(450) + ' TAIL';
+  const history = [
+    { isSummary: true, response: { tag: { speaker: 'system' }, content: summaryContent } },
+    { response: { tag: { speaker: 'user' }, content: input } },
+  ];
+  try {
+    clearNumCtxCache();
+    setNumCtx(config.models.CHAT, 4_096);
+    globalThis.fetch = async (_url, options) => {
+      requestBodies.push(JSON.parse(options.body));
+      return { ok: true, json: async () => ({
+        message: { content: 'První a poslední položka mají odlišnou kalibraci.' },
+        done_reason: 'stop', prompt_eval_count: 200, eval_count: 50,
+      }) };
+    };
+    const decision = creDecisionEngine.overrideDecision({ type: 'ANSWER', intent: 'CONVERSATIONAL',
+      tools: [], source: 'summary_long_regression', reason: 'Controlled long context', confidence: 1 });
+    const result = await handleAnswerDecision(input, decision, {
+      sessionId: 'summary-long-provider', sessionState: new SessionState('summary-long-provider'), history,
+    });
+    assert.equal(requestBodies.length, 1);
+    const body = requestBodies[0];
+    assert.equal(body.options.num_ctx, 4_096);
+    assert(body.options.num_predict >= 256 && body.options.num_predict < 512);
+    const systemContent = body.messages.find(message => message.role === 'system')?.content || '';
+    const wordTarget = Number(systemContent.match(/Naplánuj úplnou odpověď přibližně do (\d+) slov/u)?.[1]);
+    assert(Number.isInteger(wordTarget) && wordTarget < 100,
+      'the final provider prompt must use the compact output target');
+    assert.equal(wordTarget, Math.max(20, Math.floor(body.options.num_predict / 5)),
+      'the final provider word target must match its num_predict allowance');
+    assert.equal(result.tag.metadata.answerBudget.maxTokens, body.options.num_predict);
+    assert(body.messages.find(message => message.role === 'user')?.content
+      .includes(JSON.stringify({ role: 'summary', content: summaryContent })));
+  } finally {
+    globalThis.fetch = previousFetch;
+    clearNumCtxCache();
+  }
+});
+
+await testAsync('oversized durable summary stops ANSWER before a provider request', async () => {
+  const previousFetch = globalThis.fetch;
+  const requestBodies = [];
+  const input = 'Jaký auditní kód?';
+  const history = [
+    { isSummary: true, response: { tag: { speaker: 'system' },
+      content: '[Souhrn předchozí konverzace]\nHEAD ' + 'x'.repeat(20_000) + ' MIDDLE_FACT_MUST_NOT_DISAPPEAR ' + 'y'.repeat(20_000) + ' TAIL' } },
+    { response: { tag: { speaker: 'user' }, content: input } },
+  ];
+  try {
+    clearNumCtxCache();
+    setNumCtx(config.models.CHAT, 4_096);
+    globalThis.fetch = async (_url, options) => {
+      requestBodies.push(JSON.parse(options.body));
+      throw new Error('provider must not receive an incomplete summary');
+    };
+    const decision = creDecisionEngine.overrideDecision({ type: 'ANSWER', intent: 'CONVERSATIONAL',
+      tools: [], source: 'summary_too_large_regression', reason: 'Controlled summary boundary', confidence: 1 });
+    await assert.rejects(() => handleAnswerDecision(input, decision, {
+      sessionId: 'summary-too-large-provider', sessionState: new SessionState('summary-too-large-provider'), history,
+    }), error => error instanceof ChatProcessingError
+      && error.code === ChatTurnErrorCode.CHAT_PROCESSING_FAILED
+      && error.sourceErrorType === 'ANSWER_CONTEXT_SUMMARY_TOO_LARGE'
+      && /Souhrn konverzace se nevejde/u.test(error.cause?.message));
+    assert.equal(requestBodies.length, 0);
+  } finally {
+    globalThis.fetch = previousFetch;
+    clearNumCtxCache();
+  }
+});
+
+await testAsync('CODE retries keep their output budget and the complete fitting summary', async () => {
+  const previousFetch = globalThis.fetch;
+  const requestBodies = [];
+  const input = 'A co list comprehension?';
+  const summaryContent = '[Souhrn předchozí konverzace]\n'
+    + 'Začátek projektu. ' + 'x'.repeat(300)
+    + ' CODE_MIDDLE_FACT_417 ' + 'y'.repeat(300) + ' Konec souhrnu.';
+  const history = [
+    { isSummary: true, response: { tag: { speaker: 'system' }, content: summaryContent } },
+    { response: { tag: { speaker: 'user' }, content: input } },
+  ];
+  try {
+    clearNumCtxCache();
+    setNumCtx(config.models.CHAT, 4_096);
+    globalThis.fetch = async (_url, options) => {
+      requestBodies.push(JSON.parse(options.body));
+      return { ok: true, json: async () => ({
+        message: { content: requestBodies.length === 1 ? 'Nedokončená ukázka'
+          : 'List comprehension vytvoří seznam: `squares = [x * x for x in range(5)]`. Výsledek je `[0, 1, 4, 9, 16]`. Volitelný filtr je `[x for x in range(5) if x % 2 == 0]`.' },
+        done_reason: requestBodies.length === 1 ? 'length' : 'stop',
+        prompt_eval_count: 200, eval_count: 50,
+      }) };
+    };
+    const decision = creDecisionEngine.overrideDecision({ type: 'ANSWER', intent: 'CODE',
+      tools: [], source: 'summary_code_regression', reason: 'Controlled CODE retry', confidence: 1 });
+    const result = await handleAnswerDecision(input, decision, {
+      sessionId: 'summary-code-retry', sessionState: new SessionState('summary-code-retry'), history,
+    });
+    assert.equal(requestBodies.length, 2);
+    for (const body of requestBodies) {
+      assert.equal(body.options.num_ctx, 4_096);
+      assert.equal(body.options.num_predict, 1_200);
+      assert.doesNotMatch(body.messages.find(message => message.role === 'system')?.content || '',
+        /Naplánuj úplnou odpověď přibližně do/u);
+      assert(body.messages.find(message => message.role === 'user')?.content
+        .includes(JSON.stringify({ role: 'summary', content: summaryContent })));
+    }
+    assert.equal(result.tag.metadata.answerRetries, 1);
+    assert.equal(result.tag.metadata.finishReason, 'stop');
   } finally {
     globalThis.fetch = previousFetch;
     clearNumCtxCache();
