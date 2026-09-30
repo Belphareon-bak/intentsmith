@@ -3,7 +3,8 @@
 //
 // NON-BLOCKING background compaction.
 // When conversation context exceeds threshold (default 75% of context window),
-// older turns are summarized by LLM and stored as a compressed summary.
+// or the unsummarized history reaches the handler's ten-turn limit, older turns
+// are summarized by LLM and stored as a compressed summary.
 // The conversation continues uninterrupted during compaction.
 //
 // Flow:
@@ -13,7 +14,7 @@
 //   Turn N+1: sees [summary] + [last K turns] + [new msg]
 //
 // Hardening (v67.1):
-//   - Cooldown timer per conversation (min 30s between compactions)
+//   - Cooldown timer per conversation for token-pressure compactions
 //   - Turn-count limit instead of string truncation
 //   - System prompt overhead in token estimation
 //   - Post-compaction token recalculation + delta logging
@@ -43,6 +44,11 @@ const SYSTEM_PROMPT_OVERHEAD_TOKENS = 1500;
 // Maximum number of turns to feed into a single summary LLM call
 const MAX_TURNS_TO_SUMMARIZE = 50;
 
+// ChatController builds handler history with a ten-turn raw-message limit.
+// Trigger while every unsummarized turn is still in that history, before the
+// next message can displace its oldest turn. Keep this in sync with controller.
+const HANDLER_HISTORY_MAX_TURNS = 10;
+
 /** Snapshot every compaction limit from one effective model context. */
 export function getCompactionBudget(
   summaryModel = config.compact.summaryModel || config.models.CHAT,
@@ -68,11 +74,16 @@ export function maybeCompact(conversationId, store, sessionId) {
   if (!conversationId || !store) return;
   if (activeCompactions.has(conversationId)) return;
 
-  // Cooldown check — don't re-trigger within 30s of last compaction
-  const lastTime = lastCompactionTime.get(conversationId);
-  if (lastTime && (Date.now() - lastTime) < COMPACTION_COOLDOWN_MS) return;
-
   const { keepTurns } = config.compact;
+  const unsummarizedTurns = store.getUnsummarizedTurnCount?.(conversationId);
+  const retentionDue = keepTurns < HANDLER_HISTORY_MAX_TURNS
+    && Number.isInteger(unsummarizedTurns)
+    && unsummarizedTurns >= HANDLER_HISTORY_MAX_TURNS;
+
+  // Token pressure remains rate-limited. Retention cannot wait 30 seconds:
+  // the next short exchange could otherwise evict unsummarized messages.
+  const lastTime = lastCompactionTime.get(conversationId);
+  if (!retentionDue && lastTime && (Date.now() - lastTime) < COMPACTION_COOLDOWN_MS) return;
 
   // Effective context window: VRAM-optimized value from model-ctx registry,
   // falling back to config.compact.contextWindow if not yet initialized.
@@ -82,7 +93,7 @@ export function maybeCompact(conversationId, store, sessionId) {
   const messageTokens = store.getEffectiveHistoryTokens(conversationId);
   const totalTokens = messageTokens + SYSTEM_PROMPT_OVERHEAD_TOKENS;
 
-  if (totalTokens < budget.thresholdTokens) return;
+  if (!retentionDue && totalTokens < budget.thresholdTokens) return;
 
   logger.info('AutoCompact', `Triggering compaction`, {
     conversationId: conversationId.substring(0, 12),
@@ -90,6 +101,8 @@ export function maybeCompact(conversationId, store, sessionId) {
     totalTokens,
     thresholdTokens: budget.thresholdTokens,
     fillPercent: Math.round((totalTokens / budget.contextWindow) * 100),
+    reason: retentionDue ? 'history-retention' : 'token-threshold',
+    unsummarizedTurns,
   });
 
   // Fire-and-forget

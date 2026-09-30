@@ -132,6 +132,29 @@ test('effective history excludes archived turns and includes the emitted summary
     .reduce((sum, turn) => sum + Math.ceil(turn.response.content.length / 4), 0));
 });
 
+await testAsync('durable unsummarized count ignores archived and other conversation turns', async () => {
+  const Database = (await import('better-sqlite3')).default;
+  const raw = new Database(':memory:');
+  try {
+    raw.exec(`
+      CREATE TABLE conversations (id TEXT PRIMARY KEY, summary TEXT, summary_up_to_msg_id INTEGER);
+      CREATE TABLE messages (id INTEGER PRIMARY KEY, conversation_id TEXT, content TEXT);
+      INSERT INTO conversations (id) VALUES ('target'), ('other');
+      INSERT INTO messages (id, conversation_id, content) VALUES
+        (1, 'target', 'first'), (2, 'target', 'second'),
+        (3, 'other', 'foreign'), (4, 'target', 'third'), (5, 'target', 'fourth');
+    `);
+    const store = new ConversationStore({ db: raw });
+    assertEqual(store.getUnsummarizedTurnCount('target'), 4);
+    raw.prepare('UPDATE conversations SET summary = ?, summary_up_to_msg_id = ? WHERE id = ?')
+      .run('First two saved.', 2, 'target');
+    assertEqual(store.getUnsummarizedTurnCount('target'), 2);
+    assertEqual(store.getUnsummarizedTurnCount('other'), 1);
+  } finally {
+    raw.close();
+  }
+});
+
 await testAsync('completion reports real savings and archived turns do not re-trigger', async () => {
   const model = config.compact.summaryModel || config.models.CHAT;
   const originalFetch = globalThis.fetch;
@@ -191,6 +214,77 @@ await testAsync('completion reports real savings and archived turns do not re-tr
   } finally {
     globalThis.fetch = originalFetch;
     logger.info = originalInfo;
+    config.compact.threshold = originalThreshold;
+    config.compact.keepTurns = originalKeepTurns;
+    clearNumCtxCache();
+  }
+});
+
+await testAsync('short turns compact before the handler evicts an unsummarized turn', async () => {
+  const model = config.compact.summaryModel || config.models.CHAT;
+  const originalFetch = globalThis.fetch;
+  const originalThreshold = config.compact.threshold;
+  const originalKeepTurns = config.compact.keepTurns;
+  const store = new ConversationStore(null);
+  const id = 'short-turn-retention';
+  const requests = [];
+
+  globalThis.fetch = async (_url, options = {}) => {
+    requests.push(JSON.parse(options.body));
+    return {
+      ok: true,
+      json: async () => ({
+        message: { content: 'Stored first anchor ORION.' },
+        prompt_eval_count: 10,
+        eval_count: 4,
+      }),
+    };
+  };
+
+  const appendExchange = (index, trigger = true) => {
+    store.appendTurn(id, TurnRole.USER, index === 1 ? 'First raw anchor ORION.' : `Short question ${index}`);
+    store.appendTurn(id, TurnRole.ASSISTANT, `Short answer ${index}`);
+    if (trigger) maybeCompact(id, store, 'retention-test');
+  };
+  const waitForSummary = async upToMsgId => {
+    for (let attempt = 0; attempt < 20 && store.getSummary(id)?.upToMsgId !== upToMsgId; attempt += 1) {
+      await new Promise(resolve => setImmediate(resolve));
+    }
+    assertEqual(store.getSummary(id)?.upToMsgId, upToMsgId);
+  };
+
+  try {
+    config.compact.threshold = 0.75;
+    config.compact.keepTurns = 6;
+    clearNumCtxCache();
+    setNumCtx(model, 4096);
+
+    for (let index = 1; index <= 4; index += 1) appendExchange(index);
+    assertEqual(store.getUnsummarizedTurnCount(id), 8);
+    assertEqual(requests.length, 0, 'eight short turns should stay verbatim');
+    assertEqual(store.getEffectiveHistoryTokens(id) + 1500 < Math.floor(4096 * 0.75), true);
+
+    appendExchange(5, false);
+    assertEqual(store.getUnsummarizedTurnCount(id), 10);
+    assertEqual(store.getEffectiveHistoryTokens(id) + 1500 < Math.floor(4096 * 0.75), true);
+    maybeCompact(id, store, 'retention-test');
+    await waitForSummary(4);
+    assertEqual(requests.length, 1, 'the tenth short turn must trigger a summary below 75%');
+    assertEqual(requests[0].messages[0].content.includes('First raw anchor ORION.'), true);
+    assertEqual(store.getUnsummarizedTurnCount(id), 6);
+    assertEqual(store.buildHandlerHistory(id)[0].response.content.includes('Stored first anchor ORION.'), true);
+
+    appendExchange(6);
+    assertEqual(requests.length, 1, 'eight new turns still fit beside the summary');
+    appendExchange(7);
+    await waitForSummary(8);
+    assertEqual(requests.length, 2, 'retention must bypass the token cooldown before old turns fall out');
+    assertEqual(requests[1].messages[0].content.includes('[Předchozí souhrn]'), true);
+    assertEqual(requests[1].messages[0].content.includes('Short question 3'), true);
+    assertEqual(store.getUnsummarizedTurnCount(id), 6);
+    assertEqual(store.buildHandlerHistory(id)[0].response.content.includes('Stored first anchor ORION.'), true);
+  } finally {
+    globalThis.fetch = originalFetch;
     config.compact.threshold = originalThreshold;
     config.compact.keepTurns = originalKeepTurns;
     clearNumCtxCache();

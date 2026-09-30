@@ -536,6 +536,38 @@ export class ConversationStore {
   }
 
   /**
+   * Count turns that have not yet been covered by the durable summary. A token
+   * estimate of buildHandlerHistory() cannot see turns already displaced by
+   * its ten-turn limit, so retention needs this separate count.
+   *
+   * @returns {number | null} — null when the durable count is unavailable
+   */
+  getUnsummarizedTurnCount(conversationId) {
+    if (!conversationId) return 0;
+
+    if (this.#db) {
+      try {
+        const row = this.#db.db.prepare(`
+          SELECT COUNT(*) AS total FROM messages AS m
+          LEFT JOIN conversations AS c ON c.id = m.conversation_id
+          WHERE m.conversation_id = ?
+            AND m.id > CASE WHEN c.summary IS NOT NULL AND c.summary != ''
+              THEN COALESCE(c.summary_up_to_msg_id, 0) ELSE 0 END
+        `).get(conversationId);
+        return row?.total ?? 0;
+      } catch (err) {
+        logger.warn('ConversationStore', `getUnsummarizedTurnCount DB error: ${err.message}`);
+        return null;
+      }
+    }
+
+    const upToMsgId = this.getSummary(conversationId)?.upToMsgId || 0;
+    return this._memMessages.filter(m =>
+      m.conversation_id === conversationId && m.id > upToMsgId
+    ).length;
+  }
+
+  /**
    * Get turns after a specific message ID (for post-summary context).
    *
    * @param {string} conversationId
