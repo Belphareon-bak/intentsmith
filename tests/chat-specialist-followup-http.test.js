@@ -5,7 +5,7 @@
 // never substitute a model answer for the selected package tool.
 import { strict as assert } from 'node:assert';
 import { spawn } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
@@ -148,21 +148,26 @@ async function expect(server, method, route, body, status) {
   return result.data;
 }
 
-async function createProjectConversation(server, label, functionName) {
+async function createProjectConversation(server, {
+  label, functionName, sourceLine, sourceCanary, findingId, findingName,
+}) {
   const name = `specialist-${label}-${randomBytes(4).toString('hex')}`;
   const created = await expect(server, 'POST', '/api/projects', { name, description: `Private ${label}` }, 201);
   assert(Number.isSafeInteger(created.project?.id) && created.project.id > 0);
   assert(created.project.path.startsWith(runtime.projects + '/'));
   mkdirSync(path.join(created.project.path, 'src'), { recursive: true });
   const sourcePath = `src/${label}-auth.js`;
-  writeFileSync(path.join(created.project.path, sourcePath),
-    `export function ${functionName}(input) {\n  return eval(input);\n}\n`);
+  const sourceContent = `export function ${functionName}(input) {\n${sourceLine}\n}\n`;
+  assert(sourceContent.includes(sourceCanary));
+  writeFileSync(path.join(created.project.path, sourcePath), sourceContent);
   const conversation = await expect(server, 'POST', '/api/conversations', {
     title: name, project_id: created.project.id, mode: 'chat',
   }, 201);
   assert.equal(typeof conversation.conversation?.id, 'string');
   return { projectId: created.project.id, conversationId: conversation.conversation.id,
-    sourcePath, functionName };
+    sourcePath, functionName, sourceContent, sourceCanary, sourceLine,
+    sourceDigest: `sha256:${createHash('sha256').update(sourceContent).digest('hex')}`,
+    findingId, findingName };
 }
 
 function command(conversationId, label, input) {
@@ -172,19 +177,35 @@ function command(conversationId, label, input) {
     action: 'send', input };
 }
 
-function assertDeterministicResult(result, fixture, foreignPath) {
+function assertDeterministicResult(result, fixture, foreignFixture) {
   assert.equal(result.status, 'ok');
   assert.equal(result.response?.metadata?.mode, 'specialist');
   assert.equal(result.response.metadata.specialist?.id, 'code-reviewer');
   assert.equal(result.response.metadata.specialistTool, 'code-reviewer.security_scan');
   assert.equal(result.response.metadata.deterministicPresentation, true);
   assert.equal(result.response.metadata.projectContext?.projectId, fixture.projectId);
-  assert(result.response.metadata.projectContext.items.some(item => item.path === fixture.sourcePath));
-  assert(result.response.content.includes(`**CRITICAL** \`${fixture.sourcePath}:2\``));
-  assert(!result.response.content.includes(foreignPath));
+  const contextItems = result.response.metadata.projectContext.items;
+  assert(contextItems.some(item => item.path === fixture.sourcePath
+    && item.contentDigest === fixture.sourceDigest),
+  'ProjectContext must attest the exact bytes of this project source');
+  assert(contextItems.every(item => item.path !== foreignFixture.sourcePath
+    && item.contentDigest !== foreignFixture.sourceDigest));
+  assert(result.response.content.includes(`**CRITICAL** \`${fixture.sourcePath}:2\` — ${fixture.findingName}`));
+  assert(!result.response.content.includes(foreignFixture.sourcePath));
+  assert(!result.response.content.includes(foreignFixture.findingName));
   const findings = result.response.metadata.toolResults[0].data.data.vulnerabilities;
-  assert(findings.some(item => item.path === fixture.sourcePath && item.provenance.projectId === fixture.projectId));
-  assert(findings.every(item => item.path !== foreignPath));
+  const ownFindings = findings.filter(item => item.path === fixture.sourcePath);
+  assert.deepEqual(ownFindings.map(item => ({ id: item.id, name: item.name,
+    severity: item.severity, line: item.line, snippet: item.snippet,
+    projectId: item.provenance.projectId, contentDigest: item.provenance.contentDigest })), [{
+    id: fixture.findingId, name: fixture.findingName, severity: 'critical', line: 2,
+    snippet: fixture.sourceLine.trim(), projectId: fixture.projectId,
+    contentDigest: fixture.sourceDigest,
+  }]);
+  assert(findings.every(item => item.path !== foreignFixture.sourcePath
+    && item.provenance.projectId !== foreignFixture.projectId
+    && item.provenance.contentDigest !== foreignFixture.sourceDigest
+    && !item.snippet.includes(foreignFixture.sourceCanary)));
 }
 
 test('M1 specialist continuation uses conversation identity and keeps two projects isolated', {
@@ -197,8 +218,18 @@ test('M1 specialist continuation uses conversation identity and keeps two projec
     await provider.close();
   });
   server = await startProduct(provider.url);
-  const a = await createProjectConversation(server, 'a', 'validateSessionToken');
-  const b = await createProjectConversation(server, 'b', 'authorizeEditor');
+  const a = await createProjectConversation(server, {
+    label: 'a', functionName: 'validateSessionToken',
+    sourceLine: "  return eval(input + 'ORION_A_SOURCE_713');",
+    sourceCanary: 'ORION_A_SOURCE_713', findingId: 'EVAL_USAGE',
+    findingName: 'Dynamic Code Execution',
+  });
+  const b = await createProjectConversation(server, {
+    label: 'b', functionName: 'authorizeEditor',
+    sourceLine: "  return document.write(input + 'VEGA_B_SOURCE_841');",
+    sourceCanary: 'VEGA_B_SOURCE_841', findingId: 'XSS',
+    findingName: 'Cross-Site Scripting (XSS)',
+  });
   assert.notEqual(a.projectId, b.projectId);
   assert.notEqual(a.conversationId, b.conversationId);
   for (const fixture of [a, b]) {
@@ -212,8 +243,8 @@ test('M1 specialist continuation uses conversation identity and keeps two projec
     `Proveď security audit ${a.functionName} v tomto projektu.`);
   const firstB = command(b.conversationId, 'b-initial',
     `Proveď security audit ${b.functionName} v tomto projektu.`);
-  assertDeterministicResult(await expect(server, 'POST', '/api/chat', firstA, 200), a, b.sourcePath);
-  assertDeterministicResult(await expect(server, 'POST', '/api/chat', firstB, 200), b, a.sourcePath);
+  assertDeterministicResult(await expect(server, 'POST', '/api/chat', firstA, 200), a, b);
+  assertDeterministicResult(await expect(server, 'POST', '/api/chat', firstB, 200), b, a);
 
   const followA = command(a.conversationId, 'a-followup', `A co ${a.functionName} teď?`);
   const followB = command(b.conversationId, 'b-followup', `A co ${b.functionName} teď?`);
@@ -221,8 +252,8 @@ test('M1 specialist continuation uses conversation identity and keeps two projec
     followA.requestId, followB.requestId]).size, 4);
   assert.equal(new Set([firstA.turnId, firstB.turnId,
     followA.turnId, followB.turnId]).size, 4);
-  assertDeterministicResult(await expect(server, 'POST', '/api/chat', followA, 200), a, b.sourcePath);
-  assertDeterministicResult(await expect(server, 'POST', '/api/chat', followB, 200), b, a.sourcePath);
+  assertDeterministicResult(await expect(server, 'POST', '/api/chat', followA, 200), a, b);
+  assertDeterministicResult(await expect(server, 'POST', '/api/chat', followB, 200), b, a);
   assert.equal(provider.modelCalls, 0, 'deterministic specialist turns must not call the model');
   writeFileSync(path.join(runtime.artifacts, 'chat-specialist-followup-http.json'),
     `${JSON.stringify({ schemaVersion: 1,

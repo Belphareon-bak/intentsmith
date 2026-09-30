@@ -1,8 +1,9 @@
 # WP — specialistický chat přes M1, pokračování a izolace projektů
 
-**Stav:** testovací kandidát; deterministický běh na vstupním SHA PASS;
-nezávislé review a integrační běh `NOT RUN`. Modelové a UI sady tím nejsou
-přijaty.
+**Stav:** testovací kandidát; deterministický běh na vstupním SHA PASS.
+První nezávislé review požadovalo rozlišit skutečné bajty obou projektů;
+opravený kandidát čeká na opakované review a integrační běh. Modelové a UI
+sady tím nejsou přijaty.
 
 **Autorita a vstup:** operátor 2026-09-30 žádá reálné testy specialistů a
 různých projektů. Vstupní čistý commit `0b0cabdba153b0bebfda8fc06a8a34da11766a30`
@@ -39,10 +40,14 @@ dvěma různými request ID prošel už na nezměněném vstupním SHA. Proto te
 neobsahuje produktovou opravu ani netvrdí reprodukovanou chybu.
 
 **Pozitivní a negativní orákulum:** čtyři M1 tahy vrací `status=ok`,
-`mode=specialist`, nástroj `code-reviewer.security_scan`, deterministickou
-prezentaci, přesné `projectContext.projectId`, vlastní cestu a provenance
-nálezu. Opačná cesta nesmí být v odpovědi ani v nálezech. Testem vlastněný
-loopback provider počítá `/api/chat` a `/api/generate`; očekává přesně nulu.
+`mode=specialist`, nástroj `code-reviewer.security_scan` a deterministickou
+prezentaci. Projekty mají rozdílné zdrojové bajty i pravidlo nálezu:
+`EVAL_USAGE` s `ORION_A_SOURCE_713` versus `XSS` s `VEGA_B_SOURCE_841`.
+Každý počáteční i navazující tah musí vrátit svůj přesný `projectId`, cestu,
+SHA-256 zdrojových bajtů, ID, název, řádek a snippet nálezu. Cizí cesta,
+digest, ID projektu, canary a název nálezu nesmí proniknout do výsledku.
+Testem vlastněný loopback provider počítá `/api/chat` a `/api/generate`;
+očekává přesně nulu.
 Sandbox HOME, DB, projekty i JSON důkaz jsou privátní; žádné podklady uživatele
 ani skutečný Ollama model se nepoužívají.
 
