@@ -15972,6 +15972,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T3-TESTS-CHAT-ACCOUNTANT-MODEL-CONTRACT-TEST",
+      "path": "tests/chat-accountant-model-contract.test.js",
+      "argv": [
+        "node",
+        "tests/chat-accountant-model-contract.test.js"
+      ],
+      "capabilityId": "C3-013",
+      "tier": "T3",
+      "fixture": "owned-isolated-server-and-loopback-provider",
+      "profile": "server",
+      "timeoutMs": 180000,
+      "expectedDurationMs": 10000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-CHAT-ACCOUNTANT-HTTP-20261001",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T3-TESTS-CHAT-TRANSLATOR-LIVE-TEST",
       "path": "tests/chat-translator-live.test.js",
       "argv": [
