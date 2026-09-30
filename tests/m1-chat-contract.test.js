@@ -630,6 +630,40 @@ await testAsync('the sixth Czech window-fill turn retains the exact USER citatio
   }
 });
 
+await testAsync('decorative language separators yield to a long current request before capacity refusal', async () => {
+  const previousFetch = globalThis.fetch;
+  const requestBodies = [];
+  const input = 'Porovnej hodnoty. ' + 'x'.repeat(3_900);
+  try {
+    clearNumCtxCache();
+    setNumCtx(config.models.CHAT, 4_096);
+    globalThis.fetch = async (_url, options) => {
+      requestBodies.push(JSON.parse(options.body));
+      return { ok: true, json: async () => ({
+        message: { content: 'Hodnoty lze porovnat až po dodání druhé konkrétní hodnoty; současný podklad obsahuje jen zástupný text a žádné dvě měřené veličiny.' },
+        done_reason: 'stop', prompt_eval_count: 2_000, eval_count: 50,
+      }) };
+    };
+    const decision = creDecisionEngine.overrideDecision({ type: 'ANSWER', intent: 'CONVERSATIONAL',
+      tools: [], source: 'current_input_fitting_regression', reason: 'Controlled capacity fit', confidence: 1 });
+    await handleAnswerDecision(input, decision, {
+      sessionId: 'current-input-fitting', sessionState: new SessionState('current-input-fitting'), history: [],
+    });
+    assert.equal(requestBodies.length, 1);
+    const body = requestBodies[0];
+    const providerPrompt = body.messages.find(message => message.role === 'user')?.content || '';
+    const systemContent = body.messages.find(message => message.role === 'system')?.content || '';
+    assert.equal(providerPrompt, `User: ${input}`);
+    assert.match(systemContent, /JAZYKOVÉ PRAVIDLO \(KRITICKÉ/u);
+    assert.doesNotMatch(systemContent, /═{20}/u);
+    assert(Math.ceil(Buffer.byteLength(systemContent + providerPrompt, 'utf8') / 2)
+      + body.options.num_predict <= body.options.num_ctx);
+  } finally {
+    globalThis.fetch = previousFetch;
+    clearNumCtxCache();
+  }
+});
+
 await testAsync('an oversized current request returns a typed capacity terminal before provider', async () => {
   const previousFetch = globalThis.fetch;
   let providerCalls = 0;
