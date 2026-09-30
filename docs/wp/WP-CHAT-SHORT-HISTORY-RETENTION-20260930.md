@@ -1,6 +1,8 @@
 # WP — uchování krátké historie chatu před limitem handleru
 
-**Stav:** implementační kandidát; offline ověřeno na vlastním checkoutu; živý modelový průchod a nezávislé přijetí `NOT RUN`.
+**Stav původního přírůstku:** offline ověřený kandidát; následnou souběhovou
+mezeru řeší integrovaný `WP-CHAT-CONTEXT-RETENTION-20260930` s omezeným
+nezávislým `REVIEW_PASS`. Nový živý modelový průchod po této opravě `NOT RUN`.
 
 **Autorita a vstup:** operátor 30. 9. 2026 výslovně požádal dokončit reálné testy chatu včetně auto-context čištění. Navazující bounded zadání opravuje pozorovanou mezeru po kandidátu `0c8533442437ae43ab91f9bd44bf5455ac3ba656`: deset krátkých syrových zpráv se vejde hluboko pod 75% tokenový práh, ale `ChatController` předává handleru nejvýše posledních deset. Při jedenácté zprávě by první dosud neshrnutá vypadla bez spuštění sumarizace.
 
@@ -12,6 +14,12 @@
 
 **Pozitivní a negativní offline důkaz:** deterministický test v `context-compact-model-ctx.test.js` používá krátké tahy, přesný `num_ctx=4096`, práh 75 %, in-memory store a falešný provider. Ověří nulové volání při osmi zprávách, volání při deseti hluboko pod prahem, správný archivní cutoff a zachování prvního anchoru v souhrnu. Další čtyři zprávy ověří nové volání i během cooldownu a zachování předchozího souhrnu. Samostatná in-memory SQLite sonda ověří, že počet v DB vynechá archivované zprávy i jinou konverzaci. Příkaz: `/home/belphareon/.nvm/versions/node/v24.21.0/bin/node tests/context-compact-model-ctx.test.js`.
 
-**Známá souběhová mez a další WP:** sumarizace běží na pozadí. Deterministická reprodukce: po desáté krátké zprávě nechat falešný provider držet nevyřízený sumarizační promise, přidat jedenáctou zprávu a sestavit `buildHandlerHistory()` / finální provider prompt před uvolněním promise. První dosud neshrnutá zpráva v tomto mezikroku v promptu chybí, i když je trvale v DB a pozdější souhrn ji může obnovit. Takový test musí skončit `FAIL` vůči požadavku na bezeztrátový prompt; nesmí se zapsat jako zelená přejímka. Navazující samostatný WP má stanovit a ověřit tvrdou politiku při pending sumarizaci. Před jeho přijetím nelze auto-context označit za plně vyřešený.
+**Historická souběhová mez a navazující oprava:** sumarizace běží na pozadí.
+Reprodukce původního commitu držela po desáté zprávě provider promise a
+po jedenácté sestavila prompt před dokončením souhrnu; první stará zpráva v
+něm chyběla, ačkoli zůstala v DB. `WP-CHAT-CONTEXT-RETENTION-20260930`
+zavedl čekání na sdílenou sumarizaci před dalším ztrátovým snapshotem a
+ověřil jej deterministicky. Živá přejímka nové opravy zůstává otevřená.
 
-**Stop/předání:** žádné GPU, Ollama, push ani nasazení. Předání je pouze čistý commit a offline test; skutečný modelový test 85 a nezávislá revize zůstávají samostatnými bránami.
+**Předání:** samostatné review navazující opravy prošlo v omezeném rozsahu;
+skutečný modelový test 85 je další brána pro nové integrované SHA.

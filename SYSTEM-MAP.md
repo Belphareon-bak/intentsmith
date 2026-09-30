@@ -646,15 +646,15 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **229 861 ř.**, 659 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **254 127 ř.**, 563 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **555** (`461 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
+| `src/**/*.js` | **229 943 ř.**, 659 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **254 733 ř.**, 564 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **556** (`462 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **181 / 105** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
 
 Aktuální registry fingerprint je
-`00739137b3ad440b680aa3d7a786c9b663760488794bea1b9190466584dd04ee`.
+`f14ce3ce3703e47f4baa62bfdd7af838a1ba2c142537d0d37cfd3bcc17a32f0f`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 
@@ -755,7 +755,8 @@ sám nikdy neposouvá schopnost na `USER_JOURNEY_VERIFIED`.
 Souhrn: **7 `ACCEPTED/PASS`, 7 `RUNTIME_VERIFIED`, 8 `EXISTS`; 6 řádků
 mají dílčí `BROKEN`**. Žádná další schopnost zatím nemá obhajitelný stav
 `USER_JOURNEY_VERIFIED`. Inventury jsou detailní pracovní podklad; tento lehký
-obraz je jediný stavový souhrn.
+obraz shrnuje tehdejší historickou B6 inventuru; novější checkpointy mají
+samostatné důkazy v `docs/review/2026-09-30-COMPLETION-TRACKER.md`.
 
 ---
 

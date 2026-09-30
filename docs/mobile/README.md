@@ -1,13 +1,15 @@
 # IntentSmith Mobile — vývojový rozcestník
 
 Toto je jediný vstupní bod pro vývoj mobilní aplikace. Aktuální integrační
-základ je připnutý merge mobilního `1ab8d942` a B `f812259d`. Obsahuje nativní
+základ zahrnuje historický merge mobilního `1ab8d942` a B `f812259d` i
+pozdější přijatý klientský kandidát `429b779f`. Obsahuje nativní
 M7 VPN consumer s HTTPS/SPKI pinem, session lifecycle a bindingem fyzické
 release evidence. Výchozí konfigurace zůstává explicitně development;
 produkční režim se volí při buildu. Implementace není důkaz aktivace ani prod readiness.
-Nejnovější lokální změny, přesné SHA a ověření jsou v
-[convergence evidence 2026-09-09](../execution/runs/mobile/mobile-convergence-20260909.md).
-Souhrn všech milníků je v [convergence review](../review/2026-09-09-MOBILE-CONVERGENCE-REVIEW.md).
+Poslední ověřený klientský kandidát, přesné SHA a omezení jsou v
+[M7 UI handoffu](../execution/runs/mobile/m7-ui-surfaces-20260910.md) a
+[nezávislém review](../review/2026-09-11-M7-MOBILE-UI-SURFACES-REREVIEW-RESULT.md).
+Starší merge zachycuje [convergence evidence 2026-09-09](../execution/runs/mobile/mobile-convergence-20260909.md).
 Postup je v [TRYING-IT](TRYING-IT.md). Globální stav a přijetí M5/M6/M7 nadále
 vlastní `ROADMAP.md` a `SYSTEM-MAP.md`; tento rozcestník je nenahrazuje.
 
@@ -31,7 +33,7 @@ Nesmí se obnovovat. Offline, outage a retry stavy patří do
 
 Čti dokumenty v tomto pořadí:
 
-Nejdřív současnou convergence evidence a TRYING-IT uvedené výše. Následující
+Nejdřív aktuální M7 UI handoff a TRYING-IT uvedené výše. Následující
 materiály obsahují i historické snapshoty; datum a exact SHA jsou součástí tvrzení.
 
 1. [FINAL-PROTOTYPE.md](FINAL-PROTOTYPE.md) — zachovaný stav a důkazy přesného
@@ -70,7 +72,8 @@ mobilních dokumentů nesmí přepisovat aktuální stav z `ROADMAP.md` a
   migrace ani wire surface a nesmí vydat `/m1` za produkční fallback.
 - M7 connector je `m7-native-remote-client.js` a `m7-ui-api-adapter.js` nad
   existujícím fail-closed seamem; state machine a Android security boundary
-  se neduplikují. Nezávislé review tohoto merge a fyzická VPN/TalkBack evidence zbývají.
+  se neduplikují. Klientský kandidát `429b779f` prošel omezeným nezávislým
+  review; fyzická VPN/TalkBack evidence, produkční konfigurace a release zbývají.
 - Nový alternativní klient, shell nebo stavový dokument potřebuje předem
   výslovné rozhodnutí, vlastníka a plán odstranění nahrazované cesty.
 
@@ -85,3 +88,9 @@ git diff --check
 
 Focused mobilní PASS není celkový release PASS. Aktuální verdict vždy převezmi
 doslova z `ROADMAP.md` §11 a `SYSTEM-MAP.md`.
+
+**Otevřená M7 integrační mezera:** webový klient při `newChat()` vytvoří jen
+lokální identifikátor. Současný M7 adaptér volá `conversation.execute`, které
+pro neexistující DB konverzaci vrátí `ACCESS_DENIED`; katalog nemá operaci
+`conversation.create`. Před fyzickou přejímkou nové konverzace je nutné
+rozhodnout kontrakt vytvoření a ověřit první odeslání i načtení historie.

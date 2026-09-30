@@ -1,9 +1,8 @@
 # WP — specialistický chat přes M1, pokračování a izolace projektů
 
-**Stav:** testovací kandidát; deterministický běh na vstupním SHA PASS.
-První nezávislé review požadovalo rozlišit skutečné bajty obou projektů;
-opravený kandidát čeká na opakované review a integrační běh. Modelové a UI
-sady tím nejsou přijaty.
+**Stav k 30. 9. 2026:** opravené orákulum `09beea5f` má omezené nezávislé
+`REVIEW_PASS`; integrovaný skutečný M1 HTTP běh na `350d1207` prošel 1/1.
+Modelové a UI sady ani release tím nejsou přijaty.
 
 **Autorita a vstup:** operátor 2026-09-30 žádá reálné testy specialistů a
 různých projektů. Vstupní čistý commit `0b0cabdba153b0bebfda8fc06a8a34da11766a30`
@@ -65,5 +64,5 @@ Cache specialisty je v paměti a záměrně nepřežívá restart; test tedy neo
 pokračování po restartu, Studio UI, fyzický model, modelovou kvalitu ani jiné
 specialisty. Suite `IS-T3-E2E-55-CHAT-WITH-SPECIALIST` a
 `IS-T3-E2E-76-SPECIALIST-DOMAIN` zůstávají `BLOCKED`, `lastGreen=null`.
-Před integračním přijetím je nutné nezávislé review a opakovaný běh na
-sloučeném přesném SHA. Focused PASS není release PASS.
+Nezávislé review a opakovaný běh na sloučeném SHA jsou doloženy jen pro toto
+orákulum. Focused PASS není modelový ani release PASS.

@@ -16,9 +16,10 @@ plyne z existujícího auto-contextu; tento WP nepřidává novou politiku uchov
 **Vstup a integrace:** větev `work/real-chat-journeys-20260930` vznikla z
 `origin/main` `838b8cee038db027691072d293eb00153854f81e`. Opravy promítání
 summary a počítání krátké historie z větve `work/intent-resilience-20260928`
-jsou integrovány do kandidáta `4a789bb1`. Otevřená zůstává samostatná mezera
-asynchronní sumarizace krátkých zpráv popsaná v
-`WP-CHAT-SHORT-HISTORY-RETENTION-20260930`.
+jsou integrovány do kandidáta `4a789bb1`. Tehdy otevřenou mezeru asynchronní
+sumarizace krátkých zpráv řeší navazující
+`WP-CHAT-CONTEXT-RETENTION-20260930`; integrovaná oprava `88a7f91a` +
+`222793c6` má omezené nezávislé review, ale čeká na nový živý běh této sady.
 
 **Výsledek pro uživatele:** při konverzaci, jejíž původní historie přesáhne
 skutečně odeslané `num_ctx` a jejíž efektivní historie s režijní rezervou
@@ -81,6 +82,8 @@ souhrn při šestém tahu snížil stejný snapshot o 303 tokenů (3267 → 2964
 Finální provider prompt neměl syrovou první zprávu, ale obsahoval souhrn a
 počáteční auditní kód; model vrátil přesný kód, `prompt_eval_count=1638`.
 Zachycené sumarizační requesty však opakovaně skončily `done_reason=length`
-na stávajícím 500tokenovém limitu a kód přijal jejich neprázdný obsah.
-To je samostatná otevřená mezera kvality a bezeztrátovosti souhrnů, kterou
-úspěch tohoto jednoho kontrolního kódu nezavírá.
+na tehdejším 500tokenovém limitu a tehdejší kód přijal jejich neprázdný obsah.
+Navazující oprava v `WP-CHAT-CONTEXT-RETENTION-20260930` takové souhrny
+odmítá a dovoluje v rámci existujícího limitu 1 000 výstupních tokenů.
+Nové chování dosud nemá živý důkaz; tento starší PASS potvrzuje jen uvedený
+kontrolní kód na SHA `0b0cabdb`.

@@ -75,7 +75,8 @@ M3 fixture ověřuje pravidlo v `modules.domain_rules` po merge; samostatná
 interpretace pole `systemPrompt` manifestu tím není ověřena.
 Registrované modelové sady `IS-T3-E2E-54-CHAT-WITH-EXPERTISE` a
 `IS-T3-E2E-75-EXPERTISE-BEHAVIORAL` zůstávají `BLOCKED` s `lastGreen=null`;
-jejich skutečný modelový běh zůstává nutný po uvolnění GPU hodnocení.
+jejich skutečný modelový běh vyžaduje samostatně rezervovaný GPU slot a
+vhodnou modelovou přejímku.
 Z focused PASS se nepřepisuje jejich stav ani `lastGreen` nového testu.
 Nezávislé review i integrovaný běh jsou doloženy pouze v uvedeném omezeném
 rozsahu; modelový a release důkaz zůstávají zvláštními kroky před přejímkou.

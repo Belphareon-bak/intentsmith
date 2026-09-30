@@ -1,6 +1,7 @@
 # WP — produkční worker: trvalý HTTP průchod
 
-**Stav:** implementační kandidát; deterministický izolovaný test prošel a omezené nezávislé review dalo `REVIEW_PASS`. Integrovaný běh a širší provozní přejímka zůstávají otevřené.
+**Stav:** implementační kandidát s omezeným nezávislým `REVIEW_PASS` a
+integrovaným HTTP/SQLite během **6/6**. Širší provozní přejímka zůstává otevřená.
 
 **Autorita:** výslovné zadání operátora z 2026-09-30 ověřit skutečné průchody
 chatem, specialisty, expertizami a workery. Tento ohraničený přírůstek patří
@@ -45,10 +46,10 @@ providera s terminálním `ERROR_SOURCE`; zotavení a následná změna.
 
 Test vyžaduje Node 24, protože dostupný `better-sqlite3` native modul je
 sestavený pro jeho ABI. Poslední lokální běh: 6/6 PASS, 2026-09-30, pod jednou
-sekundou. Registry `lastGreen` zůstává `null`: lokální běh není přejímka z
-čerstvého klonu.
+sekundou. Integrovaný commit `0939a564` byl na společném zdroji znovu ověřen:
+HTTP scénáře **6/6**, runner **22/22**, Project Health **10/10**. Registry
+`lastGreen` zůstává `null`: lokální běh není přejímka z čerstvého klonu.
 
 **Další důkaz:** plný `src/server.js` HTTP vstup s autentizací a skutečným M2
 providerem, provozní interval/cron worker a restart uprostřed rozpracovaného
-běhu. Live model ani dlouhodobý soak tento WP neověřuje. Před začleněním se
-vyžaduje nezávislé review a znovuspuštění na integrovaném kandidátu.
+běhu. Live model ani dlouhodobý soak tento WP neověřuje.

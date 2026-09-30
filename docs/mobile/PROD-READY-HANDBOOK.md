@@ -429,8 +429,10 @@ npm run mobile:android:run       # tunel + instalace + spuštění
 asset uvnitř artefaktu, ne `server.url` a ne vzdáleně servírovaný klient —
 
 ```bash
-C3_MOBILE_APP_URL=https://mobile-gateway.example.internal \
-  npm run mobile:android:build
+INTENTSMITH_MOBILE_TRANSPORT_MODE=remote-core-v1 \
+INTENTSMITH_MOBILE_APP_URL=https://<vpn-name-or-ip>:7443 \
+INTENTSMITH_M7_SERVER_SPKI_PIN=sha256:<64-lowercase-hex> \
+npm run mobile:android:build
 ```
 
 Nešifrovaný provoz mimo loopback build bez explicitní vědomé výjimky odmítne.
@@ -458,7 +460,7 @@ jiného, telefon nemá zámek obrazovky — a to je nález, ne detail.
 | Příznak | První kontrola |
 |---|---|
 | aplikace ukazuje „Gateway není dostupná" | běží gateway? je otevřený `adb reverse`? (`mobile:android:doctor`) |
-| párovací skript nevydá kód | `C3_MOBILE_PAIRING=on` — bez něj skončí tiše a exit 0 |
+| párování nevydá kód | ověř úspěšně aktivovaný M7 VPN listener a autentizovanou lokální route podle [TRYING-IT](TRYING-IT.md); `INTENTSMITH_M7_REMOTE_ENABLED=true` patří do serverové konfigurace |
 | fronta approvalů je prázdná | běžel `mobile:demo`? má zařízení scope `read:approvals`? |
 | snímek obrazovky je černý | `FLAG_SECURE`; v debug buildu `adb shell settings put global intentsmith_capture 1` |
 | po odemčení je aplikace prázdná | správně: relace se po zamčení čte z trezoru znovu, ne z paměti |

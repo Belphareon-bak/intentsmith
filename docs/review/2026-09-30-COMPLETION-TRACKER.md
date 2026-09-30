@@ -1,8 +1,8 @@
-# IntentSmith — stav dokončování k 30. 9. 2026, 18:22 UTC
+# IntentSmith — stav dokončování k 30. 9. 2026, 18:38 UTC
 
 Tento záznam je vývojový checkpoint, nikoli release acceptance. Přesný integrační
-zdroj při zápisu: `3c2f1b2efcfecad1d917945e85da83e883644857` na
-`work/real-chat-journeys-20260930`, shodný s `origin/work/real-chat-journeys-20260930`.
+zdroj před dokumentačním commitem: `222793c6eb0208886d26985f7642fe2a037e7bba`
+na `work/real-chat-journeys-20260930`. Remote shoda se ověřuje po pushi.
 Instalovaný frontend IDE 2.0 je nadále `fddfe996`, běžící backend `c84b88cd`;
 nový integrační zdroj ještě není nasazený. Studio 2 produkční kandidát
 `1cb4a79f` je v této větvi integrován; jeho omezené nezávislé review a cílené
@@ -20,19 +20,22 @@ kontroly prošly, ale release review a nasazení této delty zůstávají otevř
   [Rozsah a lokální report](../wp/WP-CHAT-WINDOW-FILL-20260930.md).
 - Tento PASS neprokazuje úplnost všech souhrnů. V zachyceném běhu končily
   některé sumarizační requesty na výstupním limitu 500 tokenů. Oprava čekání
-  na asynchronní souhrn a odmítání neúplného souhrnu je v oddělené větvi
-  `work/intent-resilience-20260928`, při tomto checkpointu `CHANGES_REQUIRED`:
-  úsporný projektový prompt ještě umí souhrn oříznout/odhodit a po souběžném
-  přírůstku tahů je nutný další sumarizační krok. Nová živá přejímka po opravě
-  je `NOT RUN`.
+  na asynchronní souhrn, odmítání neúplných výstupů a zachování celého
+  souhrnu v projektovém promptu je nyní integrovaná v `88a7f91a` +
+  `222793c6` a má omezené nezávislé `REVIEW_PASS`. Cílené context, projektové,
+  M1 a persistence testy na společném SHA prošly; nový živý modelový běh je
+  při tomto checkpointu `NOT RUN`.
 - Projektový A→B→A průchod má deterministický test a omezené nezávislé review.
   Projektové expertizy prošly na společném SHA cíleným skutečným HTTP průchodem
   **1/1** s izolovaným providerem a kontrolou finálního promptu. Nativní worker
   prošel HTTP/SQLite scénáři **6/6**, související runner **22/22** a Project
   Health **10/10**; test restartuje DB/služby v jednom procesu. Specialistický
-  M1 test dvou projektů je v samostatné větvi a při tomto checkpointu čeká
-  na zesílení orákula a integraci. Tyto fixture testy neměří odpověď skutečného
-  modelu, všechny specialisty ani Studio UI.
+  M1 test dvou projektů po zesílení orákula prošel nezávislým omezeným review
+  a na společném SHA **1/1**. Kontroluje čtyři tahy, odlišné zdrojové bajty,
+  nálezy a nulový modelový fallback. Tyto fixture testy neměří odpověď
+  skutečného modelu, všechny specialisty ani Studio UI. Integrované worker
+  HTTP testy prošly **6/6**, runner **22/22**, Project Health **10/10**;
+  registry, M6 plán, artifact-validation a harness také prošly.
 
 ## GPU hunt, release a mobil
 
@@ -51,23 +54,27 @@ kontroly prošly, ale release review a nasazení této delty zůstávají otevř
   SHA je **NOT RUN**. Žádný z těchto běhů není release PASS.
 - Mobilní aplikace má připravené UI a úzké review, ale fyzický Android,
   VPN/pairing/revocation, přístupnost, podepsaný release a produkční
-  napojení nejsou ověřené. Integrace se otevírá po stabilizaci IDE 2.0 a
-  backendu; M7 zůstává **NOT_ACCEPTED**.
+  napojení nejsou ověřené. Host mobilní gate na společném zdroji prošel
+  **47/47**. Integrace se otevírá po stabilizaci IDE 2.0 a
+  backendu; M7 zůstává **NOT_ACCEPTED**. Konkrétní funkční mezera pro tuto
+  fázi: `newChat()` vytvoří pouze lokální ID a M7 `conversation.execute`
+  odmítne neexistující konverzaci jako `ACCESS_DENIED`. Katalog M7 zatím
+  nemá `conversation.create`; před mobilní přejímkou je nutné schválit
+  kontrakt a ověřit průchod nová konverzace → první zpráva → historie.
 
 ## Git a navazující brány
 
-Integrační branch je pushnutý na přesný commit uvedený výše. Dvě právě
-revidované práce (auto-context a specialistický test) jsou zatím pouze v
-izolovaných lokálních worktree. Soukromé provider logy, databáze a obrazové
+Integrační branch obsahuje všechny zde uvedené přijaté zdrojové a testovací
+commity; push přesného finálního dokumentačního SHA se ověří zvlášť. Soukromé
+provider logy, databáze a obrazové
 důkazy nejsou součástí Git zdrojů. Ještě není pravdivé tvrdit, že všechny
 rozpracované materiály jsou na remote nebo že lze odstranit všechny staré
 větve. Úklid musí následovat až po integraci, ověření remote a inventáři
 vlastnictví čistých/cizích pracovních stromů.
 
-Další brány v pořadí: (1) opravit a nezávisle přijmout zbývající auto-context
-mezery a specialistické orákulum; (2) zopakovat jejich cílené testy i plný
-offline/database profil na jednom SHA; (3) znovu provést živou sadu 85 po
-produktové změně; (4) samostatně integrovat a kvalifikovat GPU hunt a
-hodnotitele; (5) přejmout a nasadit IDE/backend, poté otevřít mobilní napojení;
-(6) přesným inventářem a proof-of-remote zredukovat bezpečně odstranitelné
+Další brány v pořadí: (1) zopakovat cílené testy po integraci a plný
+offline/database profil na jednom SHA; (2) znovu provést živou sadu 85 po
+produktové změně; (3) samostatně integrovat a kvalifikovat GPU hunt a
+hodnotitele; (4) přejmout a nasadit IDE/backend, poté otevřít mobilní napojení;
+(5) přesným inventářem a proof-of-remote zredukovat bezpečně odstranitelné
 větve a worktree.
