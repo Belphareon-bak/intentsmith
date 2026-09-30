@@ -1,5 +1,14 @@
 # WP — zachování kontextu při asynchronním souhrnu
 
+**Aktualizace 22:18 UTC:** ochrana citace i finální rozpočtování jsou na
+integračním `9c9fdd34` a živý window-fill podscénář ověřil zachování
+`RIGEL_KAPPA_731` z původní USER zprávy přes souhrn do přesné finální
+odpovědi. Syrová historie měla 5282 odhadovaných tokenů při `num_ctx=4096`,
+první souhrn ušetřil 316 tokenů. Celá sada přesto zůstává **FAIL** kvůli
+opakovanému `length` v běžném chatu a formátu pěti z osmi JSON odpovědí;
+nejde o release přejímku. Důkaz je v soukromém
+`.intentsmith-artifacts/run-suites/2026-09-30T22-10-04-822Z/`.
+
 Autorita: explicitní zadání operátora z 30. 9. 2026 dokončit a reálně ověřit chat včetně naplnění kontextového okna a automatického čištění; produktový závazek `PRODUCT.md` §3 zachovat historii konverzace. Tento WP nepřidává novou produktovou autoritu.
 
 Uživatelský výsledek a rozsah: další zpráva nevynechá starý fakt jen proto, že souhrn ještě běží nebo skončil na limitu. Souhrn s `finishReason=length` se neuloží. Nastavení `keepTurns >= 10` nezastaví retenční trigger. Projektový prompt předá syntetický souhrn i po deseti nových zprávách. Žádná změna modelového bindingu, GPU provozu, schvalování efektů ani mobilní hranice.

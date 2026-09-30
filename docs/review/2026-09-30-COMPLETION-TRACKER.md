@@ -1,6 +1,57 @@
 # IntentSmith — průběžné dokončování k 30. 9. 2026
 
-## Checkpoint 21:14 UTC
+## Checkpoint 22:23 UTC
+
+Integrační kandidát `9c9fdd345cdea394b67593a3ce0b0a4556ac1a5e` je čistý,
+ale zatím **není celý pushnutý**: vzdálená větev končí na `40ba87eb`.
+Rozdíl tvoří čtyři lokální commity s rozpočtem chatového promptu a typovaným
+odmítnutím příliš velkého kontextu. Nové zdroje nebyly nasazeny: běžící
+backend je `c84b88cd`, instalovaný frontend `fddfe996`.
+
+- Sada `IS-T3-E2E-85-LONG-SESSION-DEGRADATION` na přesném `9c9fdd34`
+  skončila **FAIL 1/1** (2 dílčí testy prošly, třetí v běžném desetihovorném
+  chatu dostal HTTP 502). Provider zachytil 46 volání připnutého
+  `qwen3.5:27b` digestu `7653528b...`; tři terminální odpovědi téhož
+  dotazu skončily `done_reason=length` při `num_predict=1200`.
+  Opakování nedostalo účinnou zkracovací instrukci, protože se již nevešla
+  do 4K promptu. Jde o otevřenou produktovou chybu, nikoli výpadek
+  poskytovatele. Soukromý report:
+  `.intentsmith-artifacts/run-suites/2026-09-30T22-10-04-822Z/report.json`.
+- V téže sadě dílčí naplnění okna dokončilo všech **8/8** dlouhých tahů,
+  syrová historie dosáhla **5282** odhadovaných tokenů při skutečném
+  `num_ctx=4096`; souhrn při šestém tahu ušetřil **316** tokenů a finální
+  odpověď vrátila přesně `RIGEL_KAPPA_731` jen z uloženého souhrnu.
+  `mechanismStatus=PASS` tedy dokládá tento omezený mechanismus. Všech osm
+  numerických hodnot bylo správných, ale pouze **3/8** odpovědí splnily
+  předepsaný čistý JSON; `arithmeticQuality=FAIL` a celá sada zůstává
+  **FAIL**. Soukromý důkaz je v `artifacts/85-window-fill-evidence.json`
+  téhož běhu. GPU lease byl uvolněn.
+- Integrované registrované HTTP/SQLite fixture průchody specialisty,
+  projektové expertizy a workeru prošly **3/3** na čistém `40ba87eb`
+  (`.intentsmith-artifacts/run-suites/2026-09-30T22-06-09-948Z/report.json`).
+  Skutečný modelový A→B→A průchod na témže SHA prošel **1/1** a ověřil
+  vlastní projektový zdroj i pravidlo v každém finálním promptu
+  (`.intentsmith-artifacts/direct-tests/chat-project-expertise-live.test-Kf5zNl/`).
+  Tyto průchody nepokrývají všechny specialisty ani autonomní periodický worker.
+- Izolovaný M3 kandidát `fe9e4392` reprodukoval a opravil chybu splatnosti
+  ISO času a nesoulad `schedule.value`; registrované sady prošly **4/4**
+  na čisté pushnuté větvi `work/m3-scheduler-due-20260930`. Čeká nezávislé
+  review a integrace. Nativní Project Health stále používá ruční plán;
+  autonomní spuštění, restart během běhu a fyzické Studio UI jsou
+  **NOT_RUN**.
+- Hunt dokumenty již zaznamenávají poslední read-only inventuru:
+  **84/84** použitelných model–role dvojic má chybějící aktuální evidenci,
+  **0** přijatých rozhodnutí; aktivace je **NO_GO**. V 22:25 UTC neběžel
+  hodnoticí proces ani Hunt timer. Staré skóre se nesmí vydávat za aktuální.
+- Poslední úplný offline/database audit `09e72b74` zůstává **399 PASS /
+  1 FAIL** kvůli zapečetěné Gate 0 politice registru. Aktuální `SYSTEM-MAP.md`
+  navíc obsahuje zastaralé řádkové census údaje; finální audit a Gate 0
+  pečeť vyžadují zmrazený, nezávisle revidovaný registr. Mobilní nová
+  konverzace, VPN/device matice a podepsaný balík přijdou po přejímce
+  IDE/backendu. Redukce větví a worktree je poslední milník po ověření
+  vlastnictví a dosažitelnosti.
+
+## Historický checkpoint 21:14 UTC
 
 Čistá integrační větev `work/real-chat-journeys-20260930` je pushnutá na
 `8134a61396f4720e33679b859ed6c324eb7ed2af`. Obsahuje opravu recentního

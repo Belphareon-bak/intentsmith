@@ -1,5 +1,18 @@
 # WP — skutečné naplnění okna a auto-context v živém chatu
 
+**Nový živý checkpoint 22:18 UTC na `9c9fdd34`:** přísné orákulum osmi
+odpovědí, ochrana uživatelské citace i rozpočtování promptu jsou již
+integrované. Celá registrovaná sada má **FAIL 1/1**: její třetí dílčí
+scénář dostal HTTP 502 po třech `done_reason=length` při běžném dotazu.
+Samotný window-fill scénář dokončil **8/8** dlouhých tahů, překročil
+`num_ctx=4096` syrovou historií **5282** tokenů a ušetřil při prvním
+souhrnu **316** tokenů. Finální odpověď vrátila přesně auditní kód z
+uloženého souhrnu (`mechanismStatus=PASS`). Numerické hodnoty byly **8/8**
+správné, předepsaný čistý JSON však splnily jen **3/8** odpovědí, takže
+`arithmeticQuality=FAIL`. Soukromý důkaz je
+`.intentsmith-artifacts/run-suites/2026-09-30T22-10-04-822Z/`.
+Následující historické checkpointy proto nejsou aktuálním verdiktem sady.
+
 **Stav k 30. 9. 2026:** první živý běh na `4a789bb1` ověřil podscénář
 naplnění okna `PASS`, celá sada však skončila `FAIL` (3/4) po HTTP 502 u
 neúplné CODE odpovědi. Po opravě v `WP-CHAT-ANSWER-TRUNCATION-20260930`
