@@ -1,6 +1,23 @@
 # IntentSmith — průběžné dokončování k 30. 9. 2026
 
-## Checkpoint 22:56 UTC
+## Checkpoint 23:03 UTC
+
+Plánovaný M3 produktový kandidát po opravě produkční hranice získal omezené
+nezávislé review produktové a bezpečnostní části. Jeho jediný zbývající
+nález, nesprávný `SYSTEM-MAP.md` census, byl opraven a nezávisle přepočten
+na **677/232 563** zdrojových a **572/258 048** testových `.js` souborů/řádků
+v kombinovaném stromu. Zdroj je integrován na `9f07fe7b`. Registrované
+sady plánovače, ručního produkčního HTTP průchodu a automatického intervalu
+prošly na tomto SHA **3/3**
+(`.intentsmith-artifacts/run-suites/2026-09-30T23-02-42-513Z/report.json`,
+`gateEvidence:false`). První integrační pokus **FAIL 3/3** byl chybou
+spouštěcího `PATH`: podřízené testy použily Node 22 proti nativnímu
+`better-sqlite3` sestavenému pro Node 24. Po přepnutí celého `PATH` na
+Node 24 prošel stejný registrovaný výběr; nejde o tiché smazání původního
+reportu. Produkční autentizace a plánovaný běh zůstávají dvěma oddělenými
+důkazy. Backend není nasazený a tato změna není release přejímka.
+
+## Historický checkpoint 22:56 UTC
 
 Integrační větev je čistě publikovaná na `658ba911`; nenasazený backend
 zůstává starší `c84b88cd`. Dva navazující izolované kandidáty ještě nelze

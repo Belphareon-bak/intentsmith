@@ -89,6 +89,16 @@ a výslovně není Gate 0 evidence. Nezávislé review našlo nepřesný auth as
 nadhodnocený důkaz v artefaktu a slabší úklid při chybě; opravy v kandidátu
 `fbdb2f74` následně dostaly omezený `REVIEW_PASS` a registrovaný běh **1/1**.
 
-**Další důkaz:** provozní interval/cron worker, restart uprostřed
-rozpracovaného běhu, skutečná Studio interakce, live model a dlouhodobý soak
-zatím nejsou ověřeny tímto serverovým testem. Tyto body proto nejsou PASS.
+**Navazující plánovaný průchod:** izolovaný produktový scénář
+`IS-T3-TESTS-M3-AGENT-SCHEDULED-PRODUCT-JOURNEY-TEST` po omezeném nezávislém
+review ověřil automatický baseline a dohnání intervalu po restartu,
+perzistentní notifikaci a odmítnutí nedůvěryhodné splatné instance.
+Na integračním `9f07fe7b` prošel registrovaně společně s plánovačem a
+produkčním ručním scénářem **3/3**; report je
+`.intentsmith-artifacts/run-suites/2026-09-30T23-02-42-513Z/report.json`
+(`gateEvidence:false`). Testovací interval vzniká posunem posledního běhu
+v zastavené soukromé DB při `NODE_ENV=test`; autentizace baleného ručního
+manifestu se ověřuje samostatně v `NODE_ENV=production`. Nativní manifest
+zůstává ruční. Skutečné pětiminutové čekání, cron, přerušení právě
+rozpracovaného běhu, fyzická Studio interakce, live model a dlouhodobý soak
+nadále nejsou ověřeny tímto důkazem.
