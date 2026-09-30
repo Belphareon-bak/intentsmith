@@ -227,3 +227,16 @@ test('recent activity reorders display ranks while IDs, slots and approval bindi
   store.closeSession(fifth.id);
   assert.equal(new SessionStore(mem).conversationActivity['rank-oldest'], fifth._lastUsedAt);
 });
+
+test('project last use survives closing and restoring without inventing activity for another project', () => {
+  const mem = storage(), store = new SessionStore(mem);
+  const session = store.addSession({ projectId: 7, convId: 'project-use' });
+  const used = session._lastUsedAt;
+  assert.equal(store.projectActivity['7'], used);
+  store.closeSession(session.id);
+  const restored = new SessionStore(mem);
+  assert.equal(restored.projectActivity['7'], used);
+  assert.equal(restored.projectActivity['8'], undefined);
+  assert.equal(restored.touch('missing'), false);
+  assert.equal(restored.projectActivity['7'], used);
+});

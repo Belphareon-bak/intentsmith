@@ -387,13 +387,13 @@ class LiveModel extends Component {
     const badges = this.conversationBadges(projectName, specialistName);
     return { projectId, specialistId, projectName, specialistName, createdAt, lastUsedAt, badges,
       icon: projectId ? this.data().I.folder : specialistId ? this.data().I.users : this.data().I.chat,
-      tone: projectId ? 'red' : specialistId ? 'violet' : 'amber',
+      tone: 'neutral',
       sub: [projectName, specialistName].filter(Boolean).join(' · ') || 'Samostatná konverzace' };
   }
 
   conversationDetail(vm, session, item) {
     const meta = this.conversationMeta(session, item);
-    return { ...vm, icon: meta.icon, tone: meta.tone, icls: 'always', badges: meta.badges,
+    return { ...vm, icon: meta.icon, tone: meta.tone, icls: 'neutral', badges: meta.badges,
       hasBadges: true, type: 'Konverzace',
       props: (vm.props || []).filter(prop => !['Druh', 'Vytvořeno', 'Poslední aktivita'].includes(prop.k))
         .concat([{ k: 'Vytvořeno', v: this.dateText(meta.createdAt), cls: '' },
@@ -557,8 +557,15 @@ class LiveModel extends Component {
 
   proj(id) {
     const item = this.widget.catalog.view('Projekty').items.find(row => row.id === String(id));
-    return item ? { id: item.id, name: item.name, path: item.raw?.path || '',
-      desc: item.description, status: item.state || 'active', convs: [], tree: [], recent: [], memory: [], last: '' } : null;
+    if (!item) return null;
+    const dates = [item.raw?.last_active, this.widget.store.projectActivity?.[item.id],
+      ...this.widget.store.state.sessions.filter(session => String(session._projectId) === item.id)
+        .map(session => session._lastUsedAt)];
+    const lastUsedAt = dates.filter(value => this.timestamp(value))
+      .sort((a, b) => this.timestamp(b) - this.timestamp(a))[0] || '';
+    return { id: item.id, name: item.name, path: item.raw?.path || '',
+      desc: item.description, status: item.state || 'active', convs: [], tree: [], recent: [], memory: [],
+      createdAt: item.raw?.created_at || '', lastUsedAt, last: this.dateText(lastUsedAt) };
   }
 
   spec(id) {
@@ -580,7 +587,7 @@ class LiveModel extends Component {
         deleted: 'smazaný', specification: 'specifikace' })[item.state] || 'nezjištěno' : '';
       const meta = sec === 'chats' ? this.conversationMeta(null, item) : null;
       if (meta) return { id: item.id, name: item.name, sub: meta.sub, desc: item.description,
-        ...meta, icls: 'always', groups: [meta.projectId ? 'project' : 'free', ...(meta.specialistId ? ['specialist'] : [])],
+        ...meta, icls: 'neutral', groups: [meta.projectId ? 'project' : 'free', ...(meta.specialistId ? ['specialist'] : [])],
         group: 'Uložené konverzace', catLabel: 'Uložená konverzace', meta: '', state: 'uložená', tag: '',
         usedText: this.ageText(meta.lastUsedAt), usedTitle: 'Poslední aktivita: ' + this.dateText(meta.lastUsedAt) };
       return { id: item.id, name: item.name,
@@ -606,7 +613,7 @@ class LiveModel extends Component {
       const meta = this.conversationMeta(session, item);
       return { id: sid, name: b.title, sub: meta.sub,
         desc: b.msgs.find(msg => msg.k === 'user')?.text || item?.description || 'Zatím bez zpráv.',
-        ...meta, icls: 'always', dot: state, num: this.sessionNumber(sid, s),
+        ...meta, icls: 'neutral', dot: state, num: this.sessionNumber(sid, s),
         groups: ['open', meta.projectId ? 'project' : 'free', ...(meta.specialistId ? ['specialist'] : [])],
         group: 'Otevřené relace', catLabel: 'Otevřená relace', meta: this.stLabel(state), state: this.stLabel(state),
         usedText: this.ageText(meta.lastUsedAt), usedTitle: 'Poslední aktivita: ' + this.dateText(meta.lastUsedAt) };

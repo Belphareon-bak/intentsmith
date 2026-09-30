@@ -260,3 +260,36 @@ v obchodě, změny modelových rolí a měření, jakákoli nová schopnost shel
   mají tmavou a světlou variantu. Růžová se pro kategorie nepoužívá.
 - Nastavení má tlumenější vlastní tóny, sousední Úložiště a Zálohy nejsou
   stejné. Monochromatická navigace tématu nemění barvy kategorií ve štítcích.
+
+## Navazující připomínky operátora — klidnější konverzace a projektové časy
+
+- Barevný kontext konverzace zůstává pouze v kategoriálním štítku. Ikony
+  a podklady v hlavičce, dlaždicích, seznamu a detailu jsou neutrální;
+  funkční stavové značky zachovávají své významy.
+- Projektový detail má stejně jako konverzace Vytvořeno a Poslední aktivita.
+  Backendové `created_at` / `last_active` doplňuje skutečné poslední použití
+  v místním profilu, i po zavření relace. Neznámý čas je „—“.
+- Obchod a Multimédia mají navazovat na chladný konec navigace. Předložené
+  palety A/B/C jsou možnosti, nikoli nové kategorie nebo nastavení produktu.
+- Nastavení potřebuje viditelně čitelnější ikony: větší kresba, jasnější
+  odlišné odstíny a rozpoznatelný podklad, který nezávisí na barevnosti
+  hlavní navigace.
+- Operátor odmítl palety A/B/C; nejblíže byla B, ale Multimédia nesmějí
+  připomínat žluté Konverzace. Chladný závěr proto přechází od modré přes
+  azurovou a mátovou k zelené, bez žlutozeleného konce.
+- Nastavení má vlastní plné barevné podklady, kontrastní kresbu a dvanáct
+  různých významových symbolů. Účet je osoba, Paměť kniha, Výstup dokument,
+  Systém ozubené kolo a Zálohy obnova s hodinami. Čip patří jen Modelům,
+  disk jen Úložišti. Změna se projeví i v seznamu a detailu.
+
+## Přijatá volba operátora 29. 9. — tlumené nastavení B + 20 %
+
+Operátor odmítl plné svítící podklady a vybral B z galerie
+`studio2-settings-options-20260928-34b424c3`: měděná / cihlová / fialová /
+modrá / tyrkysová / zelená. Sytost zvýšit o 20 % vůči tomuto konkrétnímu
+náhledu, zachovat navazující odstíny, původní obrysové ikony a jemný podklad.
+V OKLCH se násobí pouze chroma 1,2: tmavá 0,070 → 0,084, světlá
+0,0651 → 0,07812. Světlost a odstíny se nemění, podklad zůstává 10% směsí.
+Tato volba nahrazuje předchozí návrh plných podkladů a nových symbolů;
+stejné tóny platí pro dlaždice, seznam a detail. Levý panel a barevné
+kategoriální štítky mají své dosavadní barvy.

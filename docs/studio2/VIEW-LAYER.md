@@ -407,3 +407,21 @@ Paleta kategorií je samostatná od akcentu tématu a stavů. Navigace zůstáv�
 monochromatická v motivech, které ji tak navrhují; štítky zůstávají barevné.
 Nastavení má vlastní, tlumenější, vzájemně odlišné tóny `tone-set-*`.
 Zdroj vzhledu je stále prototyp, generované soubory se ručně neupravují.
+
+Navazující oprava: `conversationMeta` a prototyp používají pro ikony
+`neutral`, barevná je jen `conversationBadges`. `proj` přebírá skutečné
+`created_at` a `last_active`, místo prázdného `last`; `projectActivity`
+v existujícím profilu SessionStore uchovává použití i po zavření. Projektový
+a konverzační detail sdílí formát `dateText`. Pro větší nastavení jsou
+pravidla stále v prototypu, nikoli ruční změna generované React vrstvy.
+
+Po odmítnutí A/B/C operátorem je konec palety azurový / mátový / zelený,
+bez olivové podobné žlutému chatu. Nastavení používá plné podklady s
+kontrastní kresbou (`--set-ink`) a dvanáct různých symbolů z prototypu.
+Není přidán nový přepínač palety ani nové nastavení produktu.
+
+29. 9. operátor vybral tlumenou paletu B z následné galerie a požádal
+o +20 % sytosti. Aktuální prototyp má obrysové ikony ze schváleného náhledu,
+10% podklady a chroma 0,084 / 0,07812 v tmavém / světlém režimu. Hue a
+světlost zůstávají stejné jako v B. Předchozí plné podklady a nové symboly
+jsou tím nahrazeny; jedinečnost dvanácti glyphů není aktuální požadavek.

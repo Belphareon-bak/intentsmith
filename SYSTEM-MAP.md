@@ -1,25 +1,46 @@
 # IntentSmith — mapa systému
 
-**IDE 2.0 — místní produkční instalace, 2026-09-28:** frontend `79c19096`, backend `c84b88cd`;
-IDE 2.0 je výchozí desktop, původní frontend je zvlášť jako IntentSmith Legacy nad
-stejným spravovaným backendem a původní DB. Trvalý Node 24, kontrolovaný
-AppImage, zachované prostředí/profily/hold i všech sedm vazeb modelů.
-Celý finální offline/database profil **385 PASS / 1 FAIL Gate 0 / 0 BLOCKED**;
-tři Electron scénáře, živý model/M2/SCM nad kopií DB a instalovaný chat,
-Legacy, celá výška UI a restart PASS. **LOCAL_PRODUCTION_DEPLOYED /
-IMPLEMENTATION_VERIFIED / REVIEW_PENDING**; veřejná M5/M6 přejímka se nemění.
-[Nasazení, ověření a zbývající omezení](docs/review/2026-09-28-STUDIO2-PRODUCTION.md).
-[Následná oprava startu](docs/review/2026-09-28-STUDIO2-STARTUP-FIX.md) odstranila
-restartovou synchronizaci sdíleného rámu i pád na metadatech původních příloh.
-Finální 385 PASS / 1 FAIL Gate 0, tři Electron PASS, čtyři AppImage starty PASS
-a skutečný uživatelský profil bez CDP se zachovanými přílohami v Kontextu.
+**Poslední doložený vizuál IDE 2.0, 2026-09-29:** místně instalovaný frontend
+`fddfe996` používá schválenou paletu nastavení B s 20% nárůstem sytosti,
+obrysovými symboly a jemnými podklady. Reálný AppImage, Electron UI gate,
+obyčejný start a 11 motivů PASS; původní DB i backend `c84b88cd` zachovány.
+Integrační audit na předchozím `b5fda0f1` měl 385 PASS / 1 zděděný FAIL Gate 0;
+na `fddfe996` nový celý profil doložen není.
+**LOCAL_PRODUCTION_DEPLOYED / IMPLEMENTATION_VERIFIED / REVIEW_PENDING.**
+[Aktuální identita a důkazy](docs/review/2026-09-29-STUDIO2-SETTINGS-PALETTE-B.md).
 
-**Poslední relace a kategorie, 2026-09-28:** jedno MRU pořadí 1–5, barevné
-štítky kontextu, skutečná projektová historie a časy posledního použití.
-Všech 11 kombinací motivů, finální AppImage i tři Electron scénáře PASS;
-finální `79c19096` má 385 PASS / 1 zděděný FAIL Gate 0 / 0 BLOCKED.
-Backend a původní DB beze změny, nezávislé review delta změn čeká.
+**Původní místní produkční instalace IDE 2.0, 2026-09-28:** frontend i backend
+`c84b88cd`; IDE 2.0 se stalo výchozím desktopem, IntentSmith Legacy zůstal
+zvlášť nad stejnou původní DB. Trvalý Node 24, kontrolovaný AppImage,
+zachované prostředí/profily/hold i všech sedm vazeb modelů. Celý
+offline/database profil přímo na `c84b88cd`: **385 PASS / 1 FAIL Gate 0 /
+0 BLOCKED**; skutečný AppImage, model/M2/SCM nad kopií DB, instalovaný chat,
+Legacy a restart PASS. **LOCAL_PRODUCTION_DEPLOYED / IMPLEMENTATION_VERIFIED /
+REVIEW_PENDING**; veřejná M5/M6 přejímka se nemění.
+[Původní nasazení a přesné identity](docs/review/2026-09-28-STUDIO2-PRODUCTION.md).
+
+**Oprava startu, 2026-09-28:** frontend `16318bf8` odstranil restartovou
+synchronizaci sdíleného rámu a pád na metadatech uložených příloh. Celý profil
+přímo na `16318bf8` měl 385 PASS / 1 FAIL Gate 0; tři Electron scénáře,
+čtyři AppImage starty a skutečný uživatelský profil bez CDP PASS. Backend
+`c84b88cd` a původní DB zůstaly zachovány.
+[Report opravy startu](docs/review/2026-09-28-STUDIO2-STARTUP-FIX.md).
+
+**Poslední relace a kategorie, 2026-09-28:** frontend `79c19096` přidal
+jedno MRU pořadí 1–5, barevné štítky kontextu, projektovou historii a časy
+posledního použití. Všech 11 kombinací motivů, finální AppImage i tři Electron
+scénáře PASS; celý profil přímo na `79c19096` měl 385 PASS / 1 zděděný FAIL
+Gate 0 / 0 BLOCKED. Backend a původní DB beze změny, review delty čeká.
 [Ověření, náhledy a limity](docs/review/2026-09-28-STUDIO2-RECENCY-CATEGORIES.md).
+
+**Následná oprava vzhledu a projektových časů, 2026-09-28:** frontend
+`32361710` přidal neutrální konverzační ikony, skutečné Vytvořeno a Poslední
+aktivitu projektu, azurový / mátový / zelený konec navigace a tehdejší plné
+symboly nastavení. Tři Electron scénáře, AppImage, běžný start bez CDP a
+11 kombinací motivů PASS. Celý profil 385 PASS / 1 zděděný FAIL Gate 0
+běžel na integračně shodném `b5fda0f1`, nikoli na `32361710`.
+Místně nasazeno, REVIEW_PENDING.
+[Ověření, porovnání před/po a přesné identity](docs/review/2026-09-28-STUDIO2-PALETTE-PROJECT-DATES.md).
 
 **Studio 2 — dokončení parity, 2026-09-28:** nový frontend je jediný registrovaný
 vstup; klasický monolit a dočasné ruční obrazovky jsou odstraněné. Vzhled se
@@ -622,14 +643,14 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 | | |
 |---|---:|
 | `src/**/*.js` | **229 772 ř.**, 659 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **252 428 ř.**, 560 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **252 869 ř.**, 560 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **552** (`458 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **181 / 105** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
 
 Aktuální registry fingerprint je
-`aeb5944a462f042dde35f6f2f46febeefcca5716b5f5331f40b13ccbe8c921e1`.
+`83b8cee8b37ba9716052fec8eca0086291fd841a901808cfd5f78f49a4e102d6`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 

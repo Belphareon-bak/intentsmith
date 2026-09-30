@@ -178,6 +178,8 @@ class SessionStore {
     this.state = restore(storage);
     this.conversationActivity = Object.fromEntries(Object.entries(safeObject(parse(storage, V2_KEY)?.conversationActivity))
       .filter(([, value]) => dateValue(value)).slice(0, 500));
+    this.projectActivity = Object.fromEntries(Object.entries(safeObject(parse(storage, V2_KEY)?.projectActivity))
+      .filter(([, value]) => dateValue(value)).slice(0, 500));
     this.listeners = new Set();
     // Older versions allowed unlimited sessions. Keep visible sessions and all
     // unresolved work; only safe hidden sessions can be removed during migration.
@@ -202,10 +204,15 @@ class SessionStore {
       && (!this.conversationActivity[session._convId]
         || Date.parse(session._lastUsedAt) > Date.parse(this.conversationActivity[session._convId])))
       this.conversationActivity[session._convId] = session._lastUsedAt;
+    for (const session of sessions) if (session._projectId && session._lastUsedAt
+      && (!this.projectActivity[session._projectId]
+        || Date.parse(session._lastUsedAt) > Date.parse(this.projectActivity[session._projectId])))
+      this.projectActivity[session._projectId] = session._lastUsedAt;
     try {
       this.storage.setItem(V2_KEY, JSON.stringify({
         version: 2, sessions: sessions.map(snapshotSession), columns, focusedColumn, nextNumber, used, closed,
         conversationActivity: this.conversationActivity,
+        projectActivity: this.projectActivity,
       }));
     } catch { /* Storage quota must not stop a running session. */ }
   }
@@ -221,6 +228,11 @@ class SessionStore {
       const entries = [[session._convId, session._lastUsedAt], ...Object.entries(this.conversationActivity)
         .filter(([id]) => id !== session._convId)];
       this.conversationActivity = Object.fromEntries(entries.slice(0, 500));
+    }
+    if (session._projectId) {
+      const entries = [[String(session._projectId), session._lastUsedAt], ...Object.entries(this.projectActivity)
+        .filter(([id]) => id !== String(session._projectId))];
+      this.projectActivity = Object.fromEntries(entries.slice(0, 500));
     }
     return true;
   }

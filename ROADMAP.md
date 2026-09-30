@@ -1,20 +1,40 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**IDE 2.0 — místně nasazené, 2026-09-28:** frontend `79c19096`, backend `c84b88cd`;
-IntentSmith Legacy zůstává samostatně nad stejnou původní DB. Finální profil
-385 PASS / 1 zděděný FAIL Gate 0; skutečné Electron/model/M2/SCM, instalovaný
-chat, Legacy a restart PASS. Nezávislé přijetí delta změn je REVIEW_PENDING,
-veřejné M5/M6 gate se nemění.
-[Report nasazení](docs/review/2026-09-28-STUDIO2-PRODUCTION.md).
-[Oprava restartového dialogu a pádu na původních přílohách](docs/review/2026-09-28-STUDIO2-STARTUP-FIX.md):
-skutečný profil se čtyřmi relacemi, další start, Legacy a tři Electron scénáře
-PASS; finální profil 385 PASS / 1 zděděný FAIL Gate 0. Backend se nerestartoval.
+**Poslední doložená instalace IDE 2.0, 2026-09-29:** frontend `fddfe996`
+s operátorem schválenou paletou nastavení B + 20 % je místně nasazený;
+AppImage, Electron UI gate, běžný start a 11 motivů PASS. Backend `c84b88cd`
+a původní DB zachovány; nezávislé review čeká. Celý integrační profil
+385 PASS / 1 FAIL Gate 0 běžel na dřívějším `b5fda0f1`, nikoli na `fddfe996`.
+[Report a skutečné náhledy](docs/review/2026-09-29-STUDIO2-SETTINGS-PALETTE-B.md).
 
-**Poslední relace a kategorie, 2026-09-28:** MRU 1–5, štítky a časy
-napojené na původní data, výrazné kategorie a samostatné tlumené nastavení.
-Finální AppImage, tři Electron scénáře a 11 kombinací motivů PASS; celý profil
+**Původní nasazení IDE 2.0 a Legacy, 2026-09-28:** frontend i backend
+`c84b88cd`; samostatné Legacy používá stejný backend a původní DB.
+Celý offline/database profil přímo na `c84b88cd` měl 385 PASS / 1 FAIL
+Gate 0; skutečný AppImage, chat, M2/SCM nad kopií DB a instalovaný start
+PASS. [Původní produkční report](docs/review/2026-09-28-STUDIO2-PRODUCTION.md).
+
+**Oprava startu na původním profilu, 2026-09-28:** frontend `16318bf8`
+odstranil restartový dialog a pád na uložených přílohách. Celý profil přímo
+na `16318bf8` měl 385 PASS / 1 FAIL Gate 0; AppImage, Legacy a tři Electron
+scénáře PASS. Backend `c84b88cd` se nerestartoval.
+[Report opravy startu](docs/review/2026-09-28-STUDIO2-STARTUP-FIX.md).
+
+**Poslední relace a kategorie, 2026-09-28:** frontend `79c19096` přidal MRU
+1–5, štítky a časy napojené na původní data. Finální AppImage, tři Electron
+scénáře a 11 kombinací motivů PASS; celý profil přímo na `79c19096` měl
 385 PASS / 1 zděděný FAIL Gate 0. Místně nasazeno, REVIEW_PENDING.
 [Report a náhledy](docs/review/2026-09-28-STUDIO2-RECENCY-CATEGORIES.md).
+
+**Následná oprava vzhledu a projektových časů, 2026-09-28:** frontend
+`32361710` přidal neutrální konverzační ikony, skutečné projektové časy,
+zelený konec navigace a tehdejší plné ikony nastavení. Finální AppImage,
+tři Electron scénáře, běžný start bez CDP a 11 motivů PASS. Celý profil
+385 PASS / 1 FAIL Gate 0 běžel na integračně shodném `b5fda0f1`, ne na
+`32361710`; backend `c84b88cd` a původní DB zůstaly zachovány.
+[Náhledy před/po a přesné identity](docs/review/2026-09-28-STUDIO2-PALETTE-PROJECT-DATES.md).
+
+Tato místní nasazení a cílené zkoušky nemění `REVIEW_PENDING` delta změn
+ani veřejné M5/M6 gate.
 
 **Studio 2, dokončení parity 2026-09-28:** nový frontend a backendové konektory
 jsou v oddělené větvi; klasický frontend je odstraněný. Přesný module graph má 1 433 hran,
