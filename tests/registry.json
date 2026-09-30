@@ -39,6 +39,10 @@
       "reason": "Imported model-journey response classifier with deterministic checks covered by m1-chat-contract.test.js."
     },
     {
+      "path": "tests/helpers/chat-project-expertise-model-journey.js",
+      "reason": "Shared owned M1 HTTP project and expertise journey imported by deterministic and opt-in live suites; no standalone entry point."
+    },
+    {
       "path": "tests/helpers/isolated-test-db.js",
       "reason": "Imported direct-run database isolation bootstrap, not a standalone test."
     },
@@ -15831,6 +15835,66 @@
       },
       "required": true,
       "owner": "WP-CHAT-PROJECT-EXPERTISE-HTTP-20260930",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-TESTS-CHAT-PROJECT-EXPERTISE-LIVE-TEST",
+      "path": "tests/chat-project-expertise-live.test.js",
+      "argv": [
+        "node",
+        "tests/chat-project-expertise-live.test.js"
+      ],
+      "capabilityId": "C3-007",
+      "tier": "T3",
+      "fixture": "owned-isolated-server-and-captured-local-model",
+      "profile": "model",
+      "timeoutMs": 1500000,
+      "expectedDurationMs": 600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "WP-CHAT-PROJECT-EXPERTISE-LIVE-20260930",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-TESTS-CHAT-PROJECT-EXPERTISE-MODEL-CONTRACT-TEST",
+      "path": "tests/chat-project-expertise-model-contract.test.js",
+      "argv": [
+        "node",
+        "tests/chat-project-expertise-model-contract.test.js"
+      ],
+      "capabilityId": "C3-007",
+      "tier": "T3",
+      "fixture": "owned-isolated-server-and-loopback-provider",
+      "profile": "server",
+      "timeoutMs": 240000,
+      "expectedDurationMs": 10000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-CHAT-PROJECT-EXPERTISE-LIVE-20260930",
       "state": "ACTIVE",
       "lastGreen": {
         "commit": null,
