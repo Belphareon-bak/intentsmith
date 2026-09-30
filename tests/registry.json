@@ -10736,6 +10736,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T3-TESTS-M3-AGENT-SCHEDULED-PRODUCT-JOURNEY-TEST",
+      "path": "tests/m3-agent-scheduled-product-journey.test.js",
+      "argv": [
+        "node",
+        "tests/m3-agent-scheduled-product-journey.test.js"
+      ],
+      "capabilityId": "C3-015",
+      "tier": "T3",
+      "fixture": "owned-product-server-and-loopback-provider",
+      "profile": "server",
+      "timeoutMs": 90000,
+      "expectedDurationMs": 10000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M3-SCHEDULED-PRODUCT-JOURNEY-20261001",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-M4-LEARNING-CONTRACT-V1-TEST",
       "path": "tests/m4-learning-contract-v1.test.js",
       "argv": [
