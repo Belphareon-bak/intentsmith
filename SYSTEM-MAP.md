@@ -1,43 +1,46 @@
 # IntentSmith — mapa systému
 
-**Aktuální vizuál IDE 2.0, 2026-09-29:** místně instalovaný frontend
+**Poslední doložený vizuál IDE 2.0, 2026-09-29:** místně instalovaný frontend
 `fddfe996` používá schválenou paletu nastavení B s 20% nárůstem sytosti,
 obrysovými symboly a jemnými podklady. Reálný AppImage, Electron UI gate,
 obyčejný start a 11 motivů PASS; původní DB i backend `c84b88cd` zachovány.
-Integrační audit na předchozím `b5fda0f1` měl 385 PASS / 1 zděděný FAIL Gate 0.
+Integrační audit na předchozím `b5fda0f1` měl 385 PASS / 1 zděděný FAIL Gate 0;
+na `fddfe996` nový celý profil doložen není.
 **LOCAL_PRODUCTION_DEPLOYED / IMPLEMENTATION_VERIFIED / REVIEW_PENDING.**
 [Aktuální identita a důkazy](docs/review/2026-09-29-STUDIO2-SETTINGS-PALETTE-B.md).
 
-**IDE 2.0 — místní produkční instalace, 2026-09-28:** frontend `32361710`, backend `c84b88cd`;
-IDE 2.0 je výchozí desktop, původní frontend je zvlášť jako IntentSmith Legacy nad
-stejným spravovaným backendem a původní DB. Trvalý Node 24, kontrolovaný
-AppImage, zachované prostředí/profily/hold i všech sedm vazeb modelů.
-Integrační offline/database profil na `b5fda0f1`: **385 PASS / 1 FAIL Gate 0 / 0 BLOCKED**;
-tři Electron scénáře, živý model/M2/SCM nad kopií DB a instalovaný chat,
-Legacy, celá výška UI a restart PASS. **LOCAL_PRODUCTION_DEPLOYED /
-IMPLEMENTATION_VERIFIED / REVIEW_PENDING**; veřejná M5/M6 přejímka se nemění.
-[Nasazení, ověření a zbývající omezení](docs/review/2026-09-28-STUDIO2-PRODUCTION.md).
-[Následná oprava startu](docs/review/2026-09-28-STUDIO2-STARTUP-FIX.md) odstranila
-restartovou synchronizaci sdíleného rámu i pád na metadatech původních příloh.
-Finální 385 PASS / 1 FAIL Gate 0, tři Electron PASS, čtyři AppImage starty PASS
-a skutečný uživatelský profil bez CDP se zachovanými přílohami v Kontextu.
+**Původní místní produkční instalace IDE 2.0, 2026-09-28:** frontend i backend
+`c84b88cd`; IDE 2.0 se stalo výchozím desktopem, IntentSmith Legacy zůstal
+zvlášť nad stejnou původní DB. Trvalý Node 24, kontrolovaný AppImage,
+zachované prostředí/profily/hold i všech sedm vazeb modelů. Celý
+offline/database profil přímo na `c84b88cd`: **385 PASS / 1 FAIL Gate 0 /
+0 BLOCKED**; skutečný AppImage, model/M2/SCM nad kopií DB, instalovaný chat,
+Legacy a restart PASS. **LOCAL_PRODUCTION_DEPLOYED / IMPLEMENTATION_VERIFIED /
+REVIEW_PENDING**; veřejná M5/M6 přejímka se nemění.
+[Původní nasazení a přesné identity](docs/review/2026-09-28-STUDIO2-PRODUCTION.md).
 
-**Následná oprava vzhledu a projektových časů, 2026-09-28:** konverzace mají
-neutrální ikony a barevné pouze štítky; projekty skutečné Vytvořeno a Poslední
-aktivita; konec navigace je azurový / mátový / zelený. Nastavení má plné
-barevné podklady a dvanáct různých symbolů ve všech třech zobrazeních.
-Finální `32361710`: tři Electron scénáře, AppImage, běžný start bez CDP
-a 11 kombinací motivů PASS. Celý profil na integračně shodném `b5fda0f1`
-385 PASS / 1 zděděný FAIL Gate 0; rozdíl pouze vizuál/test/docs je doložený.
+**Oprava startu, 2026-09-28:** frontend `16318bf8` odstranil restartovou
+synchronizaci sdíleného rámu a pád na metadatech uložených příloh. Celý profil
+přímo na `16318bf8` měl 385 PASS / 1 FAIL Gate 0; tři Electron scénáře,
+čtyři AppImage starty a skutečný uživatelský profil bez CDP PASS. Backend
+`c84b88cd` a původní DB zůstaly zachovány.
+[Report opravy startu](docs/review/2026-09-28-STUDIO2-STARTUP-FIX.md).
+
+**Poslední relace a kategorie, 2026-09-28:** frontend `79c19096` přidal
+jedno MRU pořadí 1–5, barevné štítky kontextu, projektovou historii a časy
+posledního použití. Všech 11 kombinací motivů, finální AppImage i tři Electron
+scénáře PASS; celý profil přímo na `79c19096` měl 385 PASS / 1 zděděný FAIL
+Gate 0 / 0 BLOCKED. Backend a původní DB beze změny, review delty čeká.
+[Ověření, náhledy a limity](docs/review/2026-09-28-STUDIO2-RECENCY-CATEGORIES.md).
+
+**Následná oprava vzhledu a projektových časů, 2026-09-28:** frontend
+`32361710` přidal neutrální konverzační ikony, skutečné Vytvořeno a Poslední
+aktivitu projektu, azurový / mátový / zelený konec navigace a tehdejší plné
+symboly nastavení. Tři Electron scénáře, AppImage, běžný start bez CDP a
+11 kombinací motivů PASS. Celý profil 385 PASS / 1 zděděný FAIL Gate 0
+běžel na integračně shodném `b5fda0f1`, nikoli na `32361710`.
 Místně nasazeno, REVIEW_PENDING.
 [Ověření, porovnání před/po a přesné identity](docs/review/2026-09-28-STUDIO2-PALETTE-PROJECT-DATES.md).
-
-**Poslední relace a kategorie, 2026-09-28:** jedno MRU pořadí 1–5, barevné
-štítky kontextu, skutečná projektová historie a časy posledního použití.
-Všech 11 kombinací motivů, finální AppImage i tři Electron scénáře PASS;
-finální `79c19096` má 385 PASS / 1 zděděný FAIL Gate 0 / 0 BLOCKED.
-Backend a původní DB beze změny, nezávislé review delta změn čeká.
-[Ověření, náhledy a limity](docs/review/2026-09-28-STUDIO2-RECENCY-CATEGORIES.md).
 
 **Studio 2 — dokončení parity, 2026-09-28:** nový frontend je jediný registrovaný
 vstup; klasický monolit a dočasné ruční obrazovky jsou odstraněné. Vzhled se
