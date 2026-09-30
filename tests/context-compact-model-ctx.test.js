@@ -575,4 +575,128 @@ await testAsync('more than fifty new turns cannot be marked summarized after dro
   }
 });
 
+await testAsync('recursive summaries retain an exact user identifier citation without minting one from assistant output', async () => {
+  const model = config.compact.summaryModel || config.models.CHAT;
+  const previousFetch = globalThis.fetch;
+  const previousKeepTurns = config.compact.keepTurns;
+  const previousThreshold = config.compact.threshold;
+  const store = new ConversationStore(null);
+  const id = 'exact-user-identifier-provenance';
+  const requests = [];
+  const declaration = 'Nejdůležitější trvalý údaj této relace je auditní kód VEGA_THETA_482.';
+  const source = store.appendTurn(id, TurnRole.USER, `${declaration} Budu se ptát později.`);
+  store.appendTurn(id, TurnRole.ASSISTANT, 'Asistent tvrdil, že auditní kód WRONG_999.');
+  for (let index = 2; index < 10; index += 1) {
+    store.appendTurn(id, index % 2 ? TurnRole.ASSISTANT : TurnRole.USER, `Krátký tah ${index}`);
+  }
+  globalThis.fetch = async (_url, options = {}) => {
+    requests.push(JSON.parse(options.body));
+    return { ok: true, json: async () => ({
+      message: { content: requests.length === 1
+        ? 'Asistent shrnul téma jako projekt; původní pojmenování zkrátil.'
+        : 'Další souhrn opět obsahuje jen název projektu.' },
+      done_reason: 'stop', prompt_eval_count: 40, eval_count: 30,
+    }) };
+  };
+  try {
+    config.compact.keepTurns = 6;
+    config.compact.threshold = 0.75;
+    clearNumCtxCache(); setNumCtx(model, 4096);
+    maybeCompact(id, store, 'provenance-test');
+    await awaitPendingCompaction(id);
+    assertEqual(store.getSummary(id)?.upToMsgId, 4);
+    for (let index = 10; index < 14; index += 1) {
+      store.appendTurn(id, index % 2 ? TurnRole.ASSISTANT : TurnRole.USER, `Nový tah ${index}`);
+    }
+    maybeCompact(id, store, 'provenance-test');
+    await awaitPendingCompaction(id);
+    assertEqual(requests.length, 2);
+    assertEqual(store.getSummary(id)?.upToMsgId, 8);
+    const summaryText = store.getSummary(id).summary;
+    assertEqual(summaryText.includes(declaration), true,
+      'the original user wording must survive two model paraphrases');
+    const citation = summaryText.slice(summaryText.lastIndexOf('[Doslovné citace z uživatelských zpráv'));
+    assertEqual(citation.includes(`"messageId":${source.id}`), true);
+    assertEqual(citation.includes('"source":"user"'), true);
+    assertEqual(citation.includes('WRONG_999'), false,
+      'an assistant-only identifier must not gain user provenance');
+    assertEqual(requests[0].messages[0].content.includes('assistant (neověřená odpověď): Asistent tvrdil'), true);
+    assertEqual(requests[1].messages[0].content.includes(declaration), true);
+    assertEqual(requests[1].messages[0].content.split(declaration).length - 1, 1,
+      'recursive input must carry one original citation, not repeat its stored copy');
+    assertEqual(requests[1].messages[0].content.includes('Předchozí odpovědi asistenta mohou být chybné'), true);
+    assertEqual(requests.every(request => request.options.num_predict < 1000
+      && request.options.num_predict >= 256), true,
+    'the exact quote must reserve space inside the existing summary output budget');
+    assertEqual(store.buildHandlerHistory(id)[0].response.content.includes(declaration), true);
+  } finally {
+    globalThis.fetch = previousFetch;
+    config.compact.keepTurns = previousKeepTurns;
+    config.compact.threshold = previousThreshold;
+    clearNumCtxCache();
+  }
+});
+
+await testAsync('identifier provenance over budget keeps raw turns and never calls the model', async () => {
+  const model = config.compact.summaryModel || config.models.CHAT;
+  const previousFetch = globalThis.fetch;
+  const previousKeepTurns = config.compact.keepTurns;
+  const store = new ConversationStore(null);
+  const id = 'identifier-provenance-over-budget';
+  let calls = 0;
+  const declarations = Array.from({ length: 17 }, (_, index) =>
+    `auditní kód ITEM_${String(index).padStart(3, '0')}.`).join('\n');
+  store.appendTurn(id, TurnRole.USER, declarations);
+  for (let index = 1; index < 10; index += 1) {
+    store.appendTurn(id, index % 2 ? TurnRole.ASSISTANT : TurnRole.USER, `Krátký tah ${index}`);
+  }
+  globalThis.fetch = async () => { calls += 1; throw new Error('Provider must not be called'); };
+  try {
+    config.compact.keepTurns = 6;
+    clearNumCtxCache(); setNumCtx(model, 4096);
+    maybeCompact(id, store, 'provenance-budget-test');
+    await assert.rejects(awaitPendingCompaction(id), /CONTEXT_SUMMARY_IDENTIFIER_QUOTES_TOO_MANY/);
+    assertEqual(calls, 0);
+    assertEqual(store.getSummary(id), null);
+    assertEqual(store.getUnsummarizedTurnCount(id), 10);
+  } finally {
+    globalThis.fetch = previousFetch;
+    config.compact.keepTurns = previousKeepTurns;
+    clearNumCtxCache();
+  }
+});
+
+await testAsync('one exact user identifier still fits a 1K summary output budget', async () => {
+  const model = config.compact.summaryModel || config.models.CHAT;
+  const previousFetch = globalThis.fetch;
+  const previousKeepTurns = config.compact.keepTurns;
+  const store = new ConversationStore(null);
+  const id = 'identifier-small-context';
+  const declaration = 'Referenční kód je LUMEN_384.';
+  store.appendTurn(id, TurnRole.USER, declaration);
+  for (let index = 1; index < 10; index += 1) {
+    store.appendTurn(id, index % 2 ? TurnRole.ASSISTANT : TurnRole.USER, `Krátký tah ${index}`);
+  }
+  const requests = [];
+  globalThis.fetch = async (_url, options = {}) => {
+    requests.push(JSON.parse(options.body));
+    return { ok: true, json: async () => ({ message: { content: 'Stručný souhrn.' },
+      done_reason: 'stop', prompt_eval_count: 40, eval_count: 20 }) };
+  };
+  try {
+    config.compact.keepTurns = 6;
+    clearNumCtxCache(); setNumCtx(model, 1024);
+    maybeCompact(id, store, 'small-context-test');
+    await awaitPendingCompaction(id);
+    assertEqual(requests.length, 1);
+    assertEqual(requests[0].options.num_predict < 256, true);
+    assertEqual(requests[0].options.num_predict >= 128, true);
+    assertEqual(store.getSummary(id)?.summary.includes(declaration), true);
+  } finally {
+    globalThis.fetch = previousFetch;
+    config.compact.keepTurns = previousKeepTurns;
+    clearNumCtxCache();
+  }
+});
+
 summary();
