@@ -7011,6 +7011,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-PROVIDER-CAPTURE-PROXY",
+      "path": "tests/provider-capture-proxy.test.js",
+      "argv": [
+        "node",
+        "tests/provider-capture-proxy.test.js"
+      ],
+      "capabilityId": "C3-027",
+      "tier": "T1",
+      "fixture": "isolated-home-and-owned-loopback-server",
+      "profile": "offline",
+      "timeoutMs": 60000,
+      "expectedDurationMs": 10000,
+      "requirements": {
+        "network": "loopback",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-PROMPT-BUILDER-TEST",
       "path": "tests/prompt-builder.test.js",
       "argv": [
