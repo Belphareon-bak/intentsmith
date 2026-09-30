@@ -425,6 +425,8 @@ export async function evaluateRole(runner, role, model, opts = {}) {
   return runSuiteCached(runner, plan.suiteName, model, opts.suiteCache, {
     ...opts, role, suite: plan.suite, suiteVersion: plan.suiteVersion,
     suiteContractSha256: plan.suiteContractSha256,
+    // Execution must use the repeat count sealed into the suite contract.
+    repeats: plan.repeats ?? opts.repeats ?? DEFAULT_REPEATS,
   });
 }
 
@@ -442,6 +444,7 @@ export async function trialRole(runner, role, candidate, incumbent, opts = {}) {
     suite: plan?.suite || opts.suite,
     suiteVersion: plan?.suiteVersion || opts.suiteVersion,
     suiteContractSha256: plan?.suiteContractSha256 || opts.suiteContractSha256,
+    repeats: plan.repeats ?? opts.repeats ?? DEFAULT_REPEATS,
   });
   const policy = decisionPolicyForRole(plan, threshold);
   const qualification = plan.qualificationForRuns?.({ candidateRunId:comparison.candidateRunId, incumbentRunId:comparison.incumbentRunId });

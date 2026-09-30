@@ -1,0 +1,200 @@
+{
+  "schemaVersion": 1,
+  "status": "DRAFT_ATTACHED_FOR_ADJUDICATION",
+  "baseRevision": "ab113853aa8aafad7d11524b05df306526661b18",
+  "implementationRevision": "dd91f87f025962e62accccf77c49ed04c08ed969",
+  "createdAt": "2026-09-23T13:28:00.956486+00:00",
+  "sourceHashes": {
+    "scripts/manual/reconcile-code-prose-review.py": "081c6a4a6549e531e4e678046e5ffe133d31896755e5c2a5c56361ae8dbba83c",
+    "scripts/manual/prepare-code-prose-review.py": "2f16281b562e6df1fa34d4fc81da3b024ff53ba6d0ed7c59b538e052ae3afcf7",
+    "tests/code-prose-reconciliation.test.py": "adedcf11a0773d75488253c9ee8c6bed2e2c3512db7602b0f2f1a0542060a56f",
+    "tests/code-prose-review.test.py": "4b12bf876668ea9a843517677af5ee5f9ed3857b204c5050f929ebc31e73ac99"
+  },
+  "sources": {
+    "packet": {
+      "path": "/mnt/vi7000/intentsmith/evidence/hunt-code-prose-second-review-20260923/public/answers.json",
+      "sha256": "4e35887ed486cb4515e64efeedde75cc64ab7bf0f0218d0b88365f498aa8a648"
+    },
+    "custody": {
+      "path": "/mnt/vi7000/intentsmith/evidence/hunt-code-prose-second-review-20260923/custody/identity-key.json",
+      "sha256": "cc2190c78640bc9cdd2bf095860f226ca68c1c87bcb40f886d112de8e3f77f4b"
+    },
+    "review": {
+      "path": "/mnt/vi7000/intentsmith/evidence/hunt-code-prose-second-review-20260923/second-reviewer-opus-DRAFT.json",
+      "sha256": "680bbc7d41b7c286c46bede4a59372dc908da298c21afd1b4dbcf95411cf9d65"
+    },
+    "author": {
+      "path": "/mnt/vi7000/intentsmith/evidence/hunt-milestones-20260923/code-prose-author-review.json",
+      "sha256": "ba161882edc9cb721617e26844898d4d49eccbbfa5b2ea0da0752b63eee2df47"
+    }
+  },
+  "summary": {
+    "answers": 30,
+    "axesCompared": 60,
+    "agree": 60,
+    "missing": 0,
+    "literalQuoteChecksPassed": 60,
+    "distributions": {
+      "confidence_explanation": {
+        "0": 16,
+        "1": 14
+      },
+      "other_explanations": {
+        "1": 30
+      }
+    }
+  },
+  "qualityObservations": {
+    "total": 240,
+    "correctApiPresent": 216,
+    "missingApi": 24,
+    "wrongApi": 0,
+    "proseAutomaticallyGraded": false
+  },
+  "diagnosticObservations": [
+    {
+      "observationId": "O09",
+      "distinctDetailStrings": 1,
+      "distinctStructuralOutputs": 2,
+      "confidencePresent": 9,
+      "outputVariants": [
+        {
+          "output": {
+            "basis": "kvalita",
+            "confidence": "vysoká",
+            "detail": "rozdíl 0.030 nedosáhl prahu 0.05 — stávající zůstává",
+            "winner": "incumbent"
+          },
+          "count": 9
+        },
+        {
+          "output": {
+            "basis": "kvalita",
+            "detail": "rozdíl 0.030 nedosáhl prahu 0.05 — stávající zůstává",
+            "winner": "incumbent"
+          },
+          "count": 21
+        }
+      ]
+    },
+    {
+      "observationId": "O10",
+      "distinctDetailStrings": 1,
+      "distinctStructuralOutputs": 2,
+      "confidencePresent": 3,
+      "outputVariants": [
+        {
+          "output": {
+            "basis": "rychlost",
+            "detail": "kvalita nerozlišila (všechny úlohy shodné), kandidát je 2.00× rychlejší (20 vs 10 tok/s)",
+            "winner": "candidate"
+          },
+          "count": 27
+        },
+        {
+          "output": {
+            "basis": "rychlost",
+            "confidence": "vysoká",
+            "detail": "kvalita nerozlišila (všechny úlohy shodné), kandidát je 2.00× rychlejší (20 vs 10 tok/s)",
+            "winner": "candidate"
+          },
+          "count": 3
+        }
+      ]
+    },
+    {
+      "observationId": "O11",
+      "distinctDetailStrings": 1,
+      "distinctStructuralOutputs": 2,
+      "confidencePresent": 3,
+      "outputVariants": [
+        {
+          "output": {
+            "basis": "nerozhodně",
+            "detail": "kvalita nerozlišila a rychlost se liší jen 1.10× — stávající zůstává",
+            "winner": "incumbent"
+          },
+          "count": 27
+        },
+        {
+          "output": {
+            "basis": "nerozhodně",
+            "confidence": "vysoká",
+            "detail": "kvalita nerozlišila a rychlost se liší jen 1.10× — stávající zůstává",
+            "winner": "incumbent"
+          },
+          "count": 3
+        }
+      ]
+    },
+    {
+      "observationId": "O12",
+      "distinctDetailStrings": 1,
+      "distinctStructuralOutputs": 2,
+      "confidencePresent": 3,
+      "outputVariants": [
+        {
+          "output": {
+            "basis": "nerozhodně",
+            "detail": "kvalita nerozlišila a rychlost není změřená",
+            "winner": "incumbent"
+          },
+          "count": 27
+        },
+        {
+          "output": {
+            "basis": "nerozhodně",
+            "confidence": "vysoká",
+            "detail": "kvalita nerozlišila a rychlost není změřená",
+            "winner": "incumbent"
+          },
+          "count": 3
+        }
+      ]
+    }
+  ],
+  "recognition": {
+    "no": 16,
+    "yes-group": 14
+  },
+  "originalDraftBytesPreserved": true,
+  "decisionAuthority": false,
+  "calibrationEvidence": false,
+  "independentAgreement": false,
+  "freshHoldout": false,
+  "newInference": false,
+  "oracleReplay": false,
+  "productionImported": false,
+  "deployed": false,
+  "testResults": {
+    "newReconciliation": 8,
+    "exportRegression": 5,
+    "failed": 0,
+    "browserRerun": false,
+    "fullReleaseGateRun": false
+  },
+  "acceptedTaskScope": "Future task: confidence and consistent explanation on every basis=kvalita branch, including below threshold. Original task unchanged.",
+  "threeSourceCounterexample": {
+    "path": "/mnt/vi7000/intentsmith/evidence/hunt-code-prose-second-review-20260923/reconciliation-opus/three-source-counterexample.json",
+    "sha256": "ab053d9625296f0a56952ce5b8e82955677ce2a05df19dc396e3320d4746f053",
+    "acceptedByDeliberatelyWrongExtractor": true,
+    "semanticallyConsistent": false,
+    "usedAsModelGrader": false
+  },
+  "reconciliation": {
+    "path": "/mnt/vi7000/intentsmith/evidence/hunt-code-prose-second-review-20260923/reconciliation-opus/reconciliation.json",
+    "sha256": "4d439825fc93bda55af249c9d9973834ff2c01ab7989ffc7ec76ffd6bd0c43ba"
+  },
+  "archive": {
+    "path": "/mnt/vi7000/intentsmith/evidence/hunt-code-prose-second-review-20260923/reconciliation-opus/adjudication-sha256-37327f400a4a68c7e6e60c12b7af24637bd289a35cc735dc36a127200b30d812.zip",
+    "sha256": "37327f400a4a68c7e6e60c12b7af24637bd289a35cc735dc36a127200b30d812",
+    "membersVerified": 16,
+    "bytes": 47516,
+    "containsIdentityMapping": true,
+    "blindPacket": false
+  },
+  "manifest": {
+    "path": "/mnt/vi7000/intentsmith/evidence/hunt-code-prose-second-review-20260923/reconciliation-opus/manifest.json",
+    "sha256": "b67f623b2a6e8f5053fca3b36216446e51e554d40fb0806aad6539de4f3c17af"
+  }
+}

@@ -1,0 +1,620 @@
+{
+  "schemaVersion": 1,
+  "status": "CODEX_PRESAMPLED_DEVELOPMENT_REVIEW",
+  "decisionAuthority": false,
+  "packetSha256": "b3a2f33445ed7537fca65d2dd25645e68ba90250c1c0718c57396f8371aefc0f",
+  "sampleSource": "docs/review/evidence/2026-09-25-hunt-step3-readiness.json#presampledOperatorCases",
+  "identityMasked": true,
+  "blindness": "IDENTITIES_MASKED_BUT_PRIOR_CASE_EXPOSURE_POSSIBLE",
+  "independentOfOpusGrades": true,
+  "opusGradesRead": false,
+  "limitations": [
+    "Only the preselected 26 of 312 cases were reviewed; 3 with a task issue intentionally have no aggregate grade.",
+    "Rubric criteria graded 0..1 as preliminary judgment; this file is not an accepted reference or role ranking.",
+    "Reviewer saw earlier versions of these historical cases in the project, so anonymity does not prove a blind assessment."
+  ],
+  "items": [
+    {
+      "id": "2c74106c-3c6c-45b4-8950-c64158a203e0",
+      "role": "D1",
+      "task": "d1_audit_error_envelope",
+      "label": "A",
+      "repeat": 3,
+      "status": "CODEX_PRELIMINARY_GRADED",
+      "confidence": "medium",
+      "criterionReviews": [
+        {
+          "index": 1,
+          "score": 1.0,
+          "reason": "Správně vede ENOTFOUND přes || true, JSON.parse, prázdný vulns a clean=true."
+        },
+        {
+          "index": 2,
+          "score": 0.5,
+          "reason": "Dvě cesty porovnává, ale doporučené odstranění || true by označilo audit s nalezenými zranitelnostmi za chybu npm."
+        },
+        {
+          "index": 3,
+          "score": 0.25,
+          "reason": "Deklaruje zachování zranitelných reportů, ale doporučená cesta to při exit 1 nesplní."
+        },
+        {
+          "index": 4,
+          "score": 0.75,
+          "reason": "Uvádí vstupy pro chybový, čistý a zranitelný report; zranitelný test by doporučený fix vyvrátil."
+        }
+      ],
+      "needsOperatorReview": false
+    },
+    {
+      "id": "94dd166a-1da8-48f2-9710-c0e47d05757f",
+      "role": "D1",
+      "task": "d1_audit_error_envelope",
+      "label": "B",
+      "repeat": 2,
+      "status": "CODEX_PRELIMINARY_GRADED",
+      "confidence": "medium",
+      "criterionReviews": [
+        {
+          "index": 1,
+          "score": 1.0,
+          "reason": "Přesný řetězec od shell exit po clean=true; odděluje stdout od stderr."
+        },
+        {
+          "index": 2,
+          "score": 0.5,
+          "reason": "Porovnává dvě varianty, avšak preferuje odstranění || true bez zachování běžného exit 1 při nálezu zranitelností."
+        },
+        {
+          "index": 3,
+          "score": 0.25,
+          "reason": "Návrh nerozliší zranitelný, jinak úspěšný audit od selhání příkazu."
+        },
+        {
+          "index": 4,
+          "score": 0.75,
+          "reason": "Testy pro ENOTFOUND, čistý a zranitelný audit jsou rozlišující, i když navržený fix zranitelný test neprojde."
+        }
+      ],
+      "needsOperatorReview": false
+    },
+    {
+      "id": "971a8a56-d6f0-4219-b77a-01427f7895fb",
+      "role": "D1",
+      "task": "d1_audit_error_envelope",
+      "label": "C",
+      "repeat": 2,
+      "status": "CODEX_PRELIMINARY_GRADED",
+      "confidence": "medium",
+      "criterionReviews": [
+        {
+          "index": 1,
+          "score": 1.0,
+          "reason": "Nakonec přesně popisuje, že validní error JSON projde parserem a chybějící vulnerabilities vede k clean=true."
+        },
+        {
+          "index": 2,
+          "score": 1.0,
+          "reason": "Vysvětluje, proč exit 1 sám nestačí (npm audit vrací 1 i za zranitelnosti), a porovnává validaci struktury s exit kódem."
+        },
+        {
+          "index": 3,
+          "score": 1.0,
+          "reason": "Konečný návrh odmítá error/nestrukturovaný výstup a ponechá neprázdný zranitelný report odlišný od selhání."
+        },
+        {
+          "index": 4,
+          "score": 0.75,
+          "reason": "Jmenuje očekávané výstupy pro čistý, zranitelný, chybový a neparsovatelný report; příklady nejsou plně spustitelné."
+        }
+      ],
+      "needsOperatorReview": false
+    },
+    {
+      "id": "0c555f98-bf4b-461c-8e5f-042870b113c9",
+      "role": "D1",
+      "task": "d1_model_cleanup",
+      "label": "A",
+      "repeat": 1,
+      "status": "TASK_ISSUE_NO_AGGREGATE_GRADE",
+      "criterionReviews": [],
+      "taskIssue": "Historical model_overrides.previous_model is NOT NULL and role is PRIMARY KEY; the prompt omits DDL while its rubric treats a NULL row and repeated same-role history as observed inputs. Grade defensible empty-string, cross-role alias and delete-seam reasoning only after criterion adjudication.",
+      "confidence": "high",
+      "needsOperatorReview": true
+    },
+    {
+      "id": "32211165-3d62-4612-8aa6-90f50cd45e44",
+      "role": "D1",
+      "task": "d1_model_cleanup",
+      "label": "B",
+      "repeat": 2,
+      "status": "TASK_ISSUE_NO_AGGREGATE_GRADE",
+      "criterionReviews": [],
+      "taskIssue": "Historical model_overrides.previous_model is NOT NULL and role is PRIMARY KEY; the prompt omits DDL while its rubric treats a NULL row and repeated same-role history as observed inputs. Grade defensible empty-string, cross-role alias and delete-seam reasoning only after criterion adjudication.",
+      "confidence": "high",
+      "needsOperatorReview": true
+    },
+    {
+      "id": "285faf78-aabe-40a2-b980-c87a56277c0b",
+      "role": "D1",
+      "task": "d1_model_cleanup",
+      "label": "C",
+      "repeat": 2,
+      "status": "TASK_ISSUE_NO_AGGREGATE_GRADE",
+      "criterionReviews": [],
+      "taskIssue": "Historical model_overrides.previous_model is NOT NULL and role is PRIMARY KEY; the prompt omits DDL while its rubric treats a NULL row and repeated same-role history as observed inputs. Grade defensible empty-string, cross-role alias and delete-seam reasoning only after criterion adjudication.",
+      "confidence": "high",
+      "needsOperatorReview": true
+    },
+    {
+      "id": "d56e5490-7a02-4d0e-849c-5ea3f8744530",
+      "role": "D2",
+      "task": "d2_history_late_guard",
+      "label": "A",
+      "repeat": 2,
+      "status": "CODEX_PRELIMINARY_GRADED",
+      "confidence": "high",
+      "criterionReviews": [
+        {
+          "index": 1,
+          "score": 0.25,
+          "reason": "Hledá chybu v thrown handler a v chybějícím metadata.error, přestože zadání říká, že error metadata je zachováno; minula vrácený chybový výsledek před addToHistory."
+        },
+        {
+          "index": 2,
+          "score": 0.0,
+          "reason": "Přidání metadata.error do createErrorResponse neopraví append v success větvi; pole už podle zadání existuje."
+        },
+        {
+          "index": 3,
+          "score": 0.5,
+          "reason": "Zákaz appendu v catch je bezpečný, ale není opravou skutečné větve, kde se append děje."
+        },
+        {
+          "index": 4,
+          "score": 0.25,
+          "reason": "Testuje handler throw místo error-valued return; success a cancellation zmiňuje bez rozlišující kontroly vrácené chybové odpovědi."
+        }
+      ],
+      "needsOperatorReview": true
+    },
+    {
+      "id": "444646c2-6e9c-4ae5-9e84-1e29044756a7",
+      "role": "D2",
+      "task": "d2_history_late_guard",
+      "label": "B",
+      "repeat": 1,
+      "status": "CODEX_PRELIMINARY_GRADED",
+      "confidence": "high",
+      "criterionReviews": [
+        {
+          "index": 1,
+          "score": 0.25,
+          "reason": "Přisuzuje vkládání chyby createErrorResponse v catch; skutečný spouštěč je návrat chybově označeného response ze handleru a následný addToHistory."
+        },
+        {
+          "index": 2,
+          "score": 0.0,
+          "reason": "Re-throw v catch nezasáhne vrácený error response v try; neochrání in-memory historii."
+        },
+        {
+          "index": 3,
+          "score": 0.75,
+          "reason": "Vhodně odmítá pozdní odstraňování historie v handle pro přímé process volající, byť vychází z nepřesné diagnózy."
+        },
+        {
+          "index": 4,
+          "score": 0.5,
+          "reason": "Zkouší úspěch, abort i failed turn, ale klíčový test vrácené odpovědi s metadata.error chybí."
+        }
+      ],
+      "needsOperatorReview": true
+    },
+    {
+      "id": "19ac408d-dcef-4232-a64c-a61270895302",
+      "role": "D2",
+      "task": "d2_history_late_guard",
+      "label": "C",
+      "repeat": 2,
+      "status": "CODEX_PRELIMINARY_GRADED",
+      "confidence": "high",
+      "criterionReviews": [
+        {
+          "index": 1,
+          "score": 0.25,
+          "reason": "Tvrdí, že handle přidává chybový výstup a nevidí addToHistory uvnitř process před vnější kontrolou."
+        },
+        {
+          "index": 2,
+          "score": 0.0,
+          "reason": "Re-throw v catch neřeší handler, který vrátí objekt s metadata.error=true."
+        },
+        {
+          "index": 3,
+          "score": 0.5,
+          "reason": "Upozornění, že append v catch selhání zhorší, je pravdivé, ale není relevantním lákavým fixem aktuální větve."
+        },
+        {
+          "index": 4,
+          "score": 0.25,
+          "reason": "Regresní body měří thrown handler a délku historie, nikoli rozhodující error-valued response."
+        }
+      ],
+      "needsOperatorReview": true
+    },
+    {
+      "id": "32f6ca35-e47d-44e5-9895-c715c7b6912f",
+      "role": "D2",
+      "task": "d2_audit_error_envelope",
+      "label": "A",
+      "repeat": 2,
+      "status": "CODEX_PRELIMINARY_GRADED",
+      "confidence": "medium",
+      "criterionReviews": [
+        {
+          "index": 1,
+          "score": 1.0,
+          "reason": "Správný spouštěč a pozorované clean=true pro ENOTFOUND; propojuje shell, parser a nulový součet."
+        },
+        {
+          "index": 2,
+          "score": 0.75,
+          "reason": "Kontrola audit.error opraví doložený error envelope a zachová běžný report; samostatně neověřuje úplnost úspěšného schématu."
+        },
+        {
+          "index": 3,
+          "score": 0.0,
+          "reason": "Tvrdí, že kontrola !audit.vulnerabilities by error envelope propustila; při korektním return/throw by jej naopak zachytila."
+        },
+        {
+          "index": 4,
+          "score": 0.75,
+          "reason": "Rozlišuje network failure, platný prázdný a neprázdný report, ale bez přesného testu schématu {}."
+        }
+      ],
+      "needsOperatorReview": true
+    },
+    {
+      "id": "401f9d8d-1063-4ccb-a216-4ee2ebf83abc",
+      "role": "D2",
+      "task": "d2_audit_error_envelope",
+      "label": "B",
+      "repeat": 2,
+      "status": "CODEX_PRELIMINARY_GRADED",
+      "confidence": "medium",
+      "criterionReviews": [
+        {
+          "index": 1,
+          "score": 1.0,
+          "reason": "Správně sleduje || true, error JSON, fallback {} a clean=true."
+        },
+        {
+          "index": 2,
+          "score": 0.75,
+          "reason": "Finální malá kontrola audit.error funguje na daném vstupu a předává ENOTFOUND; neodmítá jiný validní JSON bez audit schématu."
+        },
+        {
+          "index": 3,
+          "score": 0.5,
+          "reason": "Oprávněně řeší ztrátu diagnostiky, ale tvrzení, že execSync při výjimce zahodí stdout, je nepřesné: exception.stdout je dostupné."
+        },
+        {
+          "index": 4,
+          "score": 0.75,
+          "reason": "Má konkrétní očekávání pro čistý, zranitelný, chybový i nevalidní JSON; neověřuje prázdný objekt."
+        }
+      ],
+      "needsOperatorReview": false
+    },
+    {
+      "id": "a799456e-7c5b-42ed-ab79-ab20b64bef09",
+      "role": "D2",
+      "task": "d2_audit_error_envelope",
+      "label": "C",
+      "repeat": 2,
+      "status": "CODEX_PRELIMINARY_GRADED",
+      "confidence": "medium",
+      "criterionReviews": [
+        {
+          "index": 1,
+          "score": 0.75,
+          "reason": "Příčinný řetězec zachytí, ale místy tvrdí, že nevalidní JSON nevyvolá výjimku; explicitní případ je validní error JSON."
+        },
+        {
+          "index": 2,
+          "score": 0.5,
+          "reason": "Odstranění || true zabrání ENOTFOUND clean=true, ale bez rozlišení npm exit 1 pro běžně nalezené zranitelnosti zkazí úspěšný report."
+        },
+        {
+          "index": 3,
+          "score": 0.75,
+          "reason": "Správně upozorní, že samotná kontrola audit.error neodmítne {} bez úspěšného schématu."
+        },
+        {
+          "index": 4,
+          "score": 0.75,
+          "reason": "Navrhuje kontrolu čistého, zranitelného, nevalidního a prázdného výstupu, nikoli přesnou reprodukci přes mock stdout."
+        }
+      ],
+      "needsOperatorReview": false
+    },
+    {
+      "id": "c9f47993-888b-4e89-b145-e7a429fe3832",
+      "role": "R1",
+      "task": "r1_model_lease",
+      "label": "A",
+      "repeat": 3,
+      "status": "CODEX_PRELIMINARY_GRADED",
+      "confidence": "medium",
+      "criterionReviews": [
+        {
+          "index": 1,
+          "score": 0.5,
+          "reason": "Správně uzná BINDING_CUTOVER v SHARED_OWNERS a chybějící caller rezervace, ale chybně tvrdí, že authority nekontroluje konfliktní exclusive writer."
+        },
+        {
+          "index": 2,
+          "score": 0.25,
+          "reason": "Zmiňuje cutover a release, avšak nemá pozorovatelné testy nulových delete mutací, druhé kolize a uvolnění po rollbacku."
+        }
+      ],
+      "needsOperatorReview": true
+    },
+    {
+      "id": "e938c7ea-0774-41ad-a997-2b9ddcc3f78e",
+      "role": "R1",
+      "task": "r1_model_lease",
+      "label": "B",
+      "repeat": 2,
+      "status": "CODEX_PRELIMINARY_GRADED",
+      "confidence": "medium",
+      "criterionReviews": [
+        {
+          "index": 1,
+          "score": 0.75,
+          "reason": "Po opravě vlastní úvahy uznává správnou shared klasifikaci i chybějící caller rezervaci. Atomický multi-lease API vydává za nutnost, přestože dvě rezervace s unwind stačí."
+        },
+        {
+          "index": 2,
+          "score": 0.5,
+          "reason": "Konkrétní interleaving s delete ukazuje chybějící rezervaci; chybí ověření druhé kolize a všech exit cest."
+        }
+      ],
+      "needsOperatorReview": true
+    },
+    {
+      "id": "8ea30b1d-71c4-4b0d-b73b-53eb09ec9855",
+      "role": "R1",
+      "task": "r1_model_lease",
+      "label": "C",
+      "repeat": 1,
+      "status": "CODEX_PRELIMINARY_GRADED",
+      "confidence": "medium",
+      "criterionReviews": [
+        {
+          "index": 1,
+          "score": 0.5,
+          "reason": "Rozpozná správnou taxonomy a neúplnou integraci, ale tvrdí, že caller není předán, a mylně požaduje atomický multi-model helper jako jedinou bezpečnou cestu."
+        },
+        {
+          "index": 2,
+          "score": 0.25,
+          "reason": "Naznačí partial failure, ale nedefinuje testy nulových delete mutací, kompenzace a uvolnění obou lease."
+        }
+      ],
+      "needsOperatorReview": true
+    },
+    {
+      "id": "e9cea0c8-debe-4515-b557-5a03912ad5db",
+      "role": "R1",
+      "task": "r1_model_lease",
+      "label": "D",
+      "repeat": 3,
+      "status": "CODEX_PRELIMINARY_GRADED",
+      "confidence": "medium",
+      "criterionReviews": [
+        {
+          "index": 1,
+          "score": 0.75,
+          "reason": "Správně uznává taxonomii a nutnost ochrany obou identit v calleru; přeceňuje nutnost atomického API a odvozuje další aliasové požadavky bez důkazu."
+        },
+        {
+          "index": 2,
+          "score": 0.25,
+          "reason": "Popisuje interleaving, ale nedává reprodukční setup ani očekávané výsledky pro delete, druhou kolizi a rollback."
+        }
+      ],
+      "needsOperatorReview": true
+    },
+    {
+      "id": "91fd8e98-449e-4235-9d44-8cd8c47609fb",
+      "role": "R1",
+      "task": "r1_immutable_refinement",
+      "label": "A",
+      "repeat": 1,
+      "status": "CODEX_PRELIMINARY_GRADED",
+      "confidence": "high",
+      "criterionReviews": [
+        {
+          "index": 1,
+          "score": 1.0,
+          "reason": "Přesně identifikuje inner catch, falešný success log a původní obsah ve scoreru, persistenci i výstupu; finalContent propojí všechny konzumenty."
+        },
+        {
+          "index": 2,
+          "score": 0.25,
+          "reason": "Reprodukce ověřuje jen vadný diff; chybí oddělené kontrolní pokusy pro novou hodnotu, neměnnost originálu a shodu scoreru s výstupem."
+        }
+      ],
+      "needsOperatorReview": false
+    },
+    {
+      "id": "96625fb6-bdd4-4824-b600-cad569ca2377",
+      "role": "R1",
+      "task": "r1_immutable_refinement",
+      "label": "B",
+      "repeat": 2,
+      "status": "CODEX_PRELIMINARY_GRADED",
+      "confidence": "high",
+      "criterionReviews": [
+        {
+          "index": 1,
+          "score": 1.0,
+          "reason": "Správně zamítá spolknutou výjimku a ukazuje proveditelné finalContent pro scorer, store a return."
+        },
+        {
+          "index": 2,
+          "score": 0.25,
+          "reason": "Pozoruje starý obsah po vadné změně, ale nedává regresní vstupy a očekávání pro navrženou novou hodnotu a neměnnost originálu."
+        }
+      ],
+      "needsOperatorReview": false
+    },
+    {
+      "id": "00c7f334-174a-4564-adde-ee515a251da7",
+      "role": "R1",
+      "task": "r1_immutable_refinement",
+      "label": "C",
+      "repeat": 1,
+      "status": "CODEX_PRELIMINARY_GRADED",
+      "confidence": "high",
+      "criterionReviews": [
+        {
+          "index": 1,
+          "score": 0.5,
+          "reason": "Správně rozpozná frozen getter a následné původní konzumenty, ale doporučené result = new TaggedResponse odporuje const bindingu a nepodloženému konstruktoru; zmiňuje i platnou finalContent alternativu."
+        },
+        {
+          "index": 2,
+          "score": 0.0,
+          "reason": "Nenavrhuje konkrétní ověřovací vstupy a očekávaná pozorování."
+        }
+      ],
+      "needsOperatorReview": true
+    },
+    {
+      "id": "f152850f-7040-4d6c-8095-2dd7b5307e8e",
+      "role": "R1",
+      "task": "r1_immutable_refinement",
+      "label": "D",
+      "repeat": 1,
+      "status": "CODEX_PRELIMINARY_GRADED",
+      "confidence": "high",
+      "criterionReviews": [
+        {
+          "index": 1,
+          "score": 0.75,
+          "reason": "Pozná zamítnutí diffu i správnou finalContent cestu; popisuje vnější warning, ačkoli inner catch spolknutí vede k falešnému info logu."
+        },
+        {
+          "index": 2,
+          "score": 0.0,
+          "reason": "Nepředkládá testy se zmrazeným výsledkem, neměnností originálu a stejným obsahem pro scorer/store/return."
+        }
+      ],
+      "needsOperatorReview": true
+    },
+    {
+      "id": "1ca6dd70-c232-477e-a0a5-c9aec644caaa",
+      "role": "R2",
+      "task": "r2_pairwise_confidence",
+      "label": "A",
+      "repeat": 2,
+      "status": "CODEX_PRELIMINARY_GRADED",
+      "confidence": "medium",
+      "criterionReviews": [
+        {
+          "index": 1,
+          "score": 0.75,
+          "reason": "Číselná reprodukce přes inconclusive a speed správně ukazuje nežádoucí výměnu; vedlejší tvrzení o opakování jako nezávislých případech není doložené."
+        }
+      ],
+      "needsOperatorReview": false
+    },
+    {
+      "id": "42b606d1-3d47-4505-9667-1b99de12e92f",
+      "role": "R2",
+      "task": "r2_pairwise_confidence",
+      "label": "B",
+      "repeat": 2,
+      "status": "CODEX_PRELIMINARY_GRADED",
+      "confidence": "medium",
+      "criterionReviews": [
+        {
+          "index": 1,
+          "score": 0.5,
+          "reason": "Správně míří na speed path při inconclusive, ale jeho ukázka comparePair volá s nevyplněnými/mismatched argumenty a doporučuje vážit více opakování téhož případu."
+        }
+      ],
+      "needsOperatorReview": false
+    },
+    {
+      "id": "d6e025da-a955-4a0b-b1f4-452c39b33e36",
+      "role": "R2",
+      "task": "r2_pairwise_confidence",
+      "label": "C",
+      "repeat": 1,
+      "status": "CODEX_PRELIMINARY_GRADED",
+      "confidence": "medium",
+      "criterionReviews": [
+        {
+          "index": 1,
+          "score": 0.75,
+          "reason": "Správně identifikuje speed branch bez quality non-inferiority a uvádí hodnoty pro reprodukci; vedlejší příklad korelovaných úloh není přímým důkazem z uvedeného běhu."
+        }
+      ],
+      "needsOperatorReview": false
+    },
+    {
+      "id": "26e89a00-c690-4257-9299-00f578711a98",
+      "role": "R2",
+      "task": "r2_model_lease",
+      "label": "A",
+      "repeat": 1,
+      "status": "CODEX_PRELIMINARY_GRADED",
+      "confidence": "high",
+      "criterionReviews": [
+        {
+          "index": 1,
+          "score": 0.25,
+          "reason": "Minul chybějící BINDING_CUTOVER v owner taxonomy, navrhuje MODEL_PULL exclusive pro use a jeho reprodukce nepředvádí původní validation failure."
+        }
+      ],
+      "needsOperatorReview": true
+    },
+    {
+      "id": "0abf6f12-2486-4310-b61b-ee4d4b8ea372",
+      "role": "R2",
+      "task": "r2_model_lease",
+      "label": "B",
+      "repeat": 3,
+      "status": "CODEX_PRELIMINARY_GRADED",
+      "confidence": "high",
+      "criterionReviews": [
+        {
+          "index": 1,
+          "score": 0.5,
+          "reason": "Podloženě najde nerezervujícího calleru a interleaving s delete, ale neidentifikuje prvotní chybějící BINDING_CUTOVER owner; doporučuje exclusive místo shared."
+        }
+      ],
+      "needsOperatorReview": true
+    },
+    {
+      "id": "627e30ee-cb6a-46b5-86a3-28af09e3b82b",
+      "role": "R2",
+      "task": "r2_model_lease",
+      "label": "C",
+      "repeat": 1,
+      "status": "CODEX_PRELIMINARY_GRADED",
+      "confidence": "high",
+      "criterionReviews": [
+        {
+          "index": 1,
+          "score": 0.25,
+          "reason": "Vydává chybějící multi-model API za primární vadu a demonstruje vlastní nesprávné exclusive owner; chybějící deklarace BINDING_CUTOVER se v odpovědi neobjeví."
+        }
+      ],
+      "needsOperatorReview": true
+    }
+  ]
+}

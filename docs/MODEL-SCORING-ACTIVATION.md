@@ -1,6 +1,15 @@
 # Modelové evaluace a aktivace
 
-**Stav:** současný kontrakt v136.1 · **Aktualizováno:** 2026-09-17
+**Aktuální provozní stav, 23. 9. 2026:** nasazený runtime `400c9d8f`.
+Modely, backend i Studio používají podporovanou cestu sběru a historie;
+uložený sběr lze samostatně ohodnotit po přijetí nezávislého hodnotitele.
+Přejímky jsou záznamy v DB pro konkrétní kontrakt, runtime, profil a dvojici
+artefaktů. Živá DB má **0/7 přijatých rozhodovacích profilů**, timer je
+disabled/inactive. Staré přijetí evidence ze srpna není přijetím dnešních sad
+ani jejich předpovědní platnosti. [Celý aktuální packet a výsledky](review/2026-09-23-HUNT-GRADING-INTEGRATION.md).
+
+**Historické checkpointy:** následující srpnové a zářijové záznamy dokládají
+tehdejší rozsah; jejich verze provideru, počty a zapnutí timeru nejsou živý stav.
 **Implementace:** `WP-MODEL-EVALUATION-CONSOLIDATION` · **Přijetí:**
 coverage je implementačně kompletní a čistý finální gate na `53ded662` prošel
 `279/279`; evidence rereview rozsahu `d6137d4c..3f027938` skončilo
@@ -155,15 +164,25 @@ Commitnutý snapshot nese SHA-bound normalizovanou inventory projekci včetně
 tuto projekci a stejnou read-only DB; bez kontaktu s Ollamou musí reprodukovat
 55 COMPLETE, 24 BLOCKED, 0 applicable MISSING a 12 N/A, jinak selže.
 
-## Decision-ready minima
+## Současné sady a rozhodovací minima
 
-| Role | Suite | Aktivních úloh nejméně | Stabilně rozlišujících nejméně |
+| Role | Suite | Počet úloh nyní / nejméně | Stabilně rozlišujících nejméně |
 |---|---|---:|---:|
-| D1, D2, R1 | `reasoning_v2` | 8 | 3 |
-| CODE | `code_patch` | 6 | 2 |
-| R2 | `review_v2` | 6 | 3 |
-| CHAT | `chat_v3` | 40 | 7, z toho EN 3 a CS 4 |
-| VISION | `vision_v2` | 5 | 2 |
+| D1 | `d1_semantic_v1` | 8 / 8 | 3 |
+| D2 | `d2_semantic_v1` | 8 / 8 | 3 |
+| R1 | `r1_semantic_v1` | 8 / 8 | 3 |
+| CODE | `code_patch` | 7 / 6 | 2 |
+| R2 | `r2_semantic_v1` | 8 / 6 | 3 |
+| CHAT | `chat_semantic_v1` | 40 / 40 | 7, z toho EN 3 a CS 4 |
+| VISION | `vision_v2` | 23 / 13 | 2 |
+
+Tato minima sama neotevírají rozhodování. Navíc je nutná přijatá přejímka
+hodnotitele a oddělené párové provozní kvalifikace přesných artefaktů.
+Pět sémantických rolí bez přejímky ukládá pouze odpovědi; CODE a VISION
+vydávají průzkumné výsledky deterministických kontrol. Legacy T5 sady nejsou
+produkční cestou nového měření. Profil má tři opakování a shodný kontext
+16 384 tokenů pro umístění i inferenci; VISION vyžaduje alespoň deset
+odlišných obrazových vstupů. Rychlý orientační profil zatím není přijatý.
 
 Nesplněné minimum, jiný digest, jiný contract, chybějící run nebo DB chyba
 blokují candidate decision. I pro průkazného vítěze zůstává rozhodnutí

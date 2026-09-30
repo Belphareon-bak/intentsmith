@@ -1,0 +1,672 @@
+{
+  "schemaVersion": 1,
+  "status": "CODEX_R2_DEVELOPMENT_REVIEW",
+  "decisionAuthority": false,
+  "packetSha256": "b3a2f33445ed7537fca65d2dd25645e68ba90250c1c0718c57396f8371aefc0f",
+  "reviewer": "Codex",
+  "identityMasked": true,
+  "blindness": "MODEL_IDENTITIES_MASKED_PRIOR_TASK_EXPOSURE_POSSIBLE",
+  "independentOfOpusGrades": true,
+  "opusGradesRead": false,
+  "method": "Manual reading of bounded source, rubric and answer. No Opus grades consulted. Null is a concrete task issue, not zero. One criterion per R2 answer.",
+  "limitations": [
+    "Known development cases, not fresh holdout.",
+    "No accepted grader or role decision.",
+    "model_cleanup rubric presupposes historical DDL missing from public prompt."
+  ],
+  "summary": {
+    "responses": 72,
+    "graded": 63,
+    "taskIssue": 9
+  },
+  "cases": [
+    {
+      "id": "4a5eaa62-05f2-4f68-9405-a2c5a814f58e",
+      "task": "r2_audit_error_envelope",
+      "label": "A",
+      "repeat": 1,
+      "score": 0.25,
+      "reason": "Přisuzuje ENOTFOUND zachycené výjimce a tvrzenému UI fallbacku; JSON.parse validního error objektu ve skutečnosti projde. Jeho JSON.parse sonda chybně očekává výjimku.",
+      "taskIssue": null
+    },
+    {
+      "id": "dba3957e-7a1f-41fe-8853-58d27b4494ab",
+      "task": "r2_audit_error_envelope",
+      "label": "A",
+      "repeat": 2,
+      "score": 0.5,
+      "reason": "Najde || true, ale tvrdí, že validní error JSON skončí v parse catch jako VULN_ERROR; tím mine konkrétní cestu k clean=true. Reprodukce používá neexistující cwd místo čistě odděleného ENOTFOUND.",
+      "taskIssue": null
+    },
+    {
+      "id": "8cf5561a-7c35-4eb7-8305-247f41ced206",
+      "task": "r2_audit_error_envelope",
+      "label": "A",
+      "repeat": 3,
+      "score": 0.75,
+      "reason": "Správně ukáže maskování exit a záměnu chybového výstupu za čistý audit; parserový přechod k fallback {} nedopoví a návrh odstranění || true přehlíží exit 1 při zranitelnostech.",
+      "taskIssue": null
+    },
+    {
+      "id": "19454b0b-1d94-424f-878f-29fd9458b903",
+      "task": "r2_audit_error_envelope",
+      "label": "B",
+      "repeat": 1,
+      "score": 0.75,
+      "reason": "Po přehodnocení přesně zachytí error JSON→fallback {}→clean=true a dává mock reprodukci; úvodní alternativní vysvětlení UI pro invalidní JSON je nepodložené.",
+      "taskIssue": null
+    },
+    {
+      "id": "d7a56882-ea0b-4496-9a38-a0c8387c006b",
+      "task": "r2_audit_error_envelope",
+      "label": "B",
+      "repeat": 2,
+      "score": 1,
+      "reason": "Vysvětlí shell, validní error JSON, prázdný vulns a konkrétní návrat clean=true; reprodukce a očekávaná oprava jsou zdrojově podložené.",
+      "taskIssue": null
+    },
+    {
+      "id": "d8542e3f-51f5-4d59-8d1b-805e20bb17cd",
+      "task": "r2_audit_error_envelope",
+      "label": "B",
+      "repeat": 3,
+      "score": 0.75,
+      "reason": "Správná cesta error JSON a čistý UI stav; reprodukce spoléhá na síťové prostředí namísto řízeného stdout mocku, ale uvádí pozorovatelný výsledek.",
+      "taskIssue": null
+    },
+    {
+      "id": "8ceb4f47-ee75-4834-ac89-14e8570afc02",
+      "task": "r2_audit_error_envelope",
+      "label": "C",
+      "repeat": 1,
+      "score": 1,
+      "reason": "Přesný řetězec validního ENOTFOUND JSON přes || true, JSON.parse, fallback {}, summary.total=0 a clean=true; diskriminující reprodukce.",
+      "taskIssue": null
+    },
+    {
+      "id": "e08789a8-0613-48f0-a33b-5a50e7b551bd",
+      "task": "r2_audit_error_envelope",
+      "label": "C",
+      "repeat": 2,
+      "score": 0.75,
+      "reason": "Přesně popíše hlavní chybovou větev a mock; přidává nadbytečný druhý nález pro ne-JSON výstup, který sám uzná jako správně odmítnutý.",
+      "taskIssue": null
+    },
+    {
+      "id": "04b8ead1-f8ed-490b-a826-b584f0592c36",
+      "task": "r2_audit_error_envelope",
+      "label": "C",
+      "repeat": 3,
+      "score": 1,
+      "reason": "Po vlastní opravě hypotézy správně popíše validní error JSON, maskovaný exit a clean=true s konkrétní reprodukcí.",
+      "taskIssue": null
+    },
+    {
+      "id": "6b222016-2e4a-47ff-a72c-d15c2f732b82",
+      "task": "r2_history_late_guard",
+      "label": "A",
+      "repeat": 1,
+      "score": 0.75,
+      "reason": "Po delším tápání nakonec doloží vrácenou chybovou odpověď, zápis do historie před kontrolou a reprodukci; předchozí alternativy jsou nepodložené.",
+      "taskIssue": null
+    },
+    {
+      "id": "90f0d523-2b31-4ca2-b069-ac8b63cecd71",
+      "task": "r2_history_late_guard",
+      "label": "A",
+      "repeat": 2,
+      "score": 1,
+      "reason": "Přesně popíše vrácený error result, append do historie a teprve následné odmítnutí vnější vrstvou, s diskriminující reprodukcí.",
+      "taskIssue": null
+    },
+    {
+      "id": "94f65d82-0be1-4efb-898b-3aa1dfd0137c",
+      "task": "r2_history_late_guard",
+      "label": "A",
+      "repeat": 3,
+      "score": 0.75,
+      "reason": "Konečný nález je správný a reprodukovatelný, ale předchází mu nepodložené alternativy a nepřesnosti.",
+      "taskIssue": null
+    },
+    {
+      "id": "5ee17d36-2d08-461e-b68b-0fa649b3288e",
+      "task": "r2_history_late_guard",
+      "label": "B",
+      "repeat": 1,
+      "score": 0.25,
+      "reason": "Diagnostikuje vyhozenou výjimku a tvrdí zápis do historie před catch; po odmítnutém await se však append vůbec nespustí.",
+      "taskIssue": null
+    },
+    {
+      "id": "c5803a52-4531-40e0-9470-eef71aac88dd",
+      "task": "r2_history_late_guard",
+      "label": "B",
+      "repeat": 2,
+      "score": 0.25,
+      "reason": "Cílí na vyhozenou výjimku a vymýšlí trvalou persistenci mimo dodanou hranici; navržená ochrana po return se neprovede.",
+      "taskIssue": null
+    },
+    {
+      "id": "8beb2a71-254a-4b2c-9b7e-1cbc55b1db1e",
+      "task": "r2_history_late_guard",
+      "label": "B",
+      "repeat": 3,
+      "score": 0.25,
+      "reason": "Popisuje nemožnou cestu: po výjimce z handleru se příkaz k přidání historie už nedostane ke slovu.",
+      "taskIssue": null
+    },
+    {
+      "id": "55874d79-6768-4e94-8db0-6cd49f0b9e49",
+      "task": "r2_history_late_guard",
+      "label": "C",
+      "repeat": 1,
+      "score": 0.75,
+      "reason": "Po obsáhlém hledání nakonec správně zachytí vrácenou chybovou odpověď, append a následné odmítnutí; část dřívějších tvrzení je spekulativní.",
+      "taskIssue": null
+    },
+    {
+      "id": "1e08fd07-0b2c-44f7-b942-52c42a7c385e",
+      "task": "r2_history_late_guard",
+      "label": "C",
+      "repeat": 2,
+      "score": 0.75,
+      "reason": "Správně najde cestu vráceného error result a doloží ji; vedlejší nepodložené hypotézy oslabují přesnost lokální revize.",
+      "taskIssue": null
+    },
+    {
+      "id": "8591f736-fd69-4afe-9306-95c1c5424008",
+      "task": "r2_history_late_guard",
+      "label": "C",
+      "repeat": 3,
+      "score": 0.75,
+      "reason": "Po sebeopravě správně identifikuje pořadí vrácený error result → historie → odmítnutí; předešlé chybné hypotézy nechává v odpovědi.",
+      "taskIssue": null
+    },
+    {
+      "id": "d17f2899-f1a2-47aa-a0d6-6daba0efa363",
+      "task": "r2_immutable_refinement",
+      "label": "A",
+      "repeat": 1,
+      "score": 0.75,
+      "reason": "Správná příčina i tři downstream použití; reprodukce přímo neověřuje navazující skóre, uložení a emisi.",
+      "taskIssue": null
+    },
+    {
+      "id": "a25a620e-7651-4ff6-b9b8-0b33217f1856",
+      "task": "r2_immutable_refinement",
+      "label": "A",
+      "repeat": 2,
+      "score": 1,
+      "reason": "Správně identifikuje přísný režim ES modulu, getter bez setteru, warning, starý obsah ve třech downstream místech a nabízí novou instanci se zachováním tag/actions.",
+      "taskIssue": null
+    },
+    {
+      "id": "4bc32ba6-7976-4f8a-8f77-2926bf20f3df",
+      "task": "r2_immutable_refinement",
+      "label": "A",
+      "repeat": 3,
+      "score": 0.75,
+      "reason": "Správná diagnóza a downstream cesty; ukázaná oprava přiřazuje do původního const result bez změny vazby na let, takže navržený patch neprojde.",
+      "taskIssue": null
+    },
+    {
+      "id": "7e3ce3ac-0fc1-47d7-88c7-5fc3164850ec",
+      "task": "r2_immutable_refinement",
+      "label": "B",
+      "repeat": 1,
+      "score": 1,
+      "reason": "Správný mechanismus, catch, důsledek i diskriminující reprodukce; oprava používá samostatný finalContent napříč všemi třemi odběrateli.",
+      "taskIssue": null
+    },
+    {
+      "id": "a8ace80f-feea-4730-9350-3fec8791bee4",
+      "task": "r2_immutable_refinement",
+      "label": "B",
+      "repeat": 2,
+      "score": 0.75,
+      "reason": "Správně vysvětlí TypeError a starý obsah ve třech odběratelích; navržené result = new TaggedResponse neřeší původní const binding.",
+      "taskIssue": null
+    },
+    {
+      "id": "ee24bd4f-de14-4149-8f95-e37b7e7da466",
+      "task": "r2_immutable_refinement",
+      "label": "B",
+      "repeat": 3,
+      "score": 1,
+      "reason": "Přesný zdroj, trigger, zachycená výjimka, navazující starý obsah i ověřitelná reprodukce; finalContent zachová veřejná metadata.",
+      "taskIssue": null
+    },
+    {
+      "id": "f4d1fd93-eeb0-4c1a-800c-b3d29323db45",
+      "task": "r2_immutable_refinement",
+      "label": "C",
+      "repeat": 1,
+      "score": 1,
+      "reason": "Přesně určí setter/freeze, warning a tři odběratele; reprodukce a samostatný finalContent zachovávají immutable výsledek.",
+      "taskIssue": null
+    },
+    {
+      "id": "07aba9c7-6646-4e91-8324-1ba81c4893bf",
+      "task": "r2_immutable_refinement",
+      "label": "C",
+      "repeat": 2,
+      "score": 0.75,
+      "reason": "Konečný nález a oprava jsou správné, ale výslovně upřednostňuje tiché ignorování přiřazení, ačkoli ES modul musí vyhodit TypeError a vykázat warning.",
+      "taskIssue": null
+    },
+    {
+      "id": "ab9aa6f6-3233-489a-bbd3-4a16133f170b",
+      "task": "r2_immutable_refinement",
+      "label": "C",
+      "repeat": 3,
+      "score": 1,
+      "reason": "Přesně lokalizuje TypeError v ES modulu, catch, původní obsah u skórování/persistence/return a dává reprodukci i konzistentní finalContent.",
+      "taskIssue": null
+    },
+    {
+      "id": "def8da21-8941-498d-a415-e24460a5ac06",
+      "task": "r2_metrics_flush",
+      "label": "A",
+      "repeat": 1,
+      "score": 0.75,
+      "reason": "Správný splice před transakcí a ztráta po selhání; reprodukce mění výslovně zadanou dávku tří událostí na deset a neověřuje zachování nových.",
+      "taskIssue": null
+    },
+    {
+      "id": "ce6ba180-5efa-4492-b2af-d82dc412996e",
+      "task": "r2_metrics_flush",
+      "label": "A",
+      "repeat": 2,
+      "score": 1,
+      "reason": "Přesná příčina na ř. 92/101/103, tři ztracené události po rollbacku a reprodukce prvního neúspěšného a dalšího úspěšného flush.",
+      "taskIssue": null
+    },
+    {
+      "id": "d8e5bbb5-9b3f-4062-9fb3-d17bbf05f164",
+      "task": "r2_metrics_flush",
+      "label": "A",
+      "repeat": 3,
+      "score": 1,
+      "reason": "Správná příčina a diskriminující sled tří událostí, selhání a následujícího flush; po úspěchu odebírá jen zpracovanou dávku.",
+      "taskIssue": null
+    },
+    {
+      "id": "9e440123-9243-4892-ae45-28c84c7837e8",
+      "task": "r2_metrics_flush",
+      "label": "B",
+      "repeat": 1,
+      "score": 0.75,
+      "reason": "Správný nález a oprava s obnovením dávky, ale reprodukce nejprve chybně tvrdí, že tři recordEvent spustí BATCH_SIZE=10; později upřesní ruční flush.",
+      "taskIssue": null
+    },
+    {
+      "id": "b79b4088-55d5-4e6c-af1d-8550c6d9528b",
+      "task": "r2_metrics_flush",
+      "label": "B",
+      "repeat": 2,
+      "score": 1,
+      "reason": "Správně odliší ztrátu bufferu od rollbacku DB, doloží tři události a pozdější retry, oprava řeší scope dávky.",
+      "taskIssue": null
+    },
+    {
+      "id": "7c88ee67-11a7-4145-8be5-ed2047d34e81",
+      "task": "r2_metrics_flush",
+      "label": "B",
+      "repeat": 3,
+      "score": 1,
+      "reason": "Správná příčina, pre-commit rollback, prázdný buffer, pozdější zahazování při disable a konkrétní mock reprodukce.",
+      "taskIssue": null
+    },
+    {
+      "id": "56fd9139-02a1-428d-a889-3b4aaa14fc48",
+      "task": "r2_metrics_flush",
+      "label": "C",
+      "repeat": 1,
+      "score": 0.75,
+      "reason": "Primární ztráta před commitem je doložená, ale rozděluje tentýž kauzální nález na dvě vady a bez podkladu tvrdí, že kód slibuje exactly-once.",
+      "taskIssue": null
+    },
+    {
+      "id": "d992296d-dda9-4136-9545-4681bf829417",
+      "task": "r2_metrics_flush",
+      "label": "C",
+      "repeat": 2,
+      "score": 0.75,
+      "reason": "Přesně určí splice před commitem a mock selhání, avšak stejnou vadu počítá třikrát a navrhuje nadbytečné potvrzení commitu mimo daný kontrakt.",
+      "taskIssue": null
+    },
+    {
+      "id": "4e510061-5888-4c53-8457-d754ccc665c1",
+      "task": "r2_metrics_flush",
+      "label": "C",
+      "repeat": 3,
+      "score": 0.75,
+      "reason": "Správný hlavní nález, reprodukce a bezpečné odebrání dávky po úspěchu; druhá vada jen opakuje totéž a idempotence je nedoložený nový požadavek.",
+      "taskIssue": null
+    },
+    {
+      "id": "75b16c3a-d624-4e5d-9ec9-df9da3ef7e2a",
+      "task": "r2_model_cleanup",
+      "label": "A",
+      "repeat": 1,
+      "score": null,
+      "reason": "TASK_ISSUE: Veřejný výřez neobsahuje historické DDL model_bindings (role PRIMARY KEY, previous_model NOT NULL). Rubrika chce potvrdit nebo vyvrátit návrhy o duplicitních/NULL vazbách, které z daného výřezu nelze rozhodnout; čeká na opravu kritéria nebo dodání kontextu, bez známky modelu.",
+      "taskIssue": "MISSING_HISTORICAL_DDL"
+    },
+    {
+      "id": "1ac1e092-4e9b-4e17-97fa-5ac0f68f1297",
+      "task": "r2_model_cleanup",
+      "label": "A",
+      "repeat": 2,
+      "score": null,
+      "reason": "TASK_ISSUE: Veřejný výřez neobsahuje historické DDL model_bindings (role PRIMARY KEY, previous_model NOT NULL). Rubrika chce potvrdit nebo vyvrátit návrhy o duplicitních/NULL vazbách, které z daného výřezu nelze rozhodnout; čeká na opravu kritéria nebo dodání kontextu, bez známky modelu.",
+      "taskIssue": "MISSING_HISTORICAL_DDL"
+    },
+    {
+      "id": "ecb8e6ce-edd8-4bb8-bb8b-80b6ee6d873a",
+      "task": "r2_model_cleanup",
+      "label": "A",
+      "repeat": 3,
+      "score": null,
+      "reason": "TASK_ISSUE: Veřejný výřez neobsahuje historické DDL model_bindings (role PRIMARY KEY, previous_model NOT NULL). Rubrika chce potvrdit nebo vyvrátit návrhy o duplicitních/NULL vazbách, které z daného výřezu nelze rozhodnout; čeká na opravu kritéria nebo dodání kontextu, bez známky modelu.",
+      "taskIssue": "MISSING_HISTORICAL_DDL"
+    },
+    {
+      "id": "0ce42ee8-5f2c-4bd6-84bb-2bbc46c57c61",
+      "task": "r2_model_cleanup",
+      "label": "B",
+      "repeat": 1,
+      "score": null,
+      "reason": "TASK_ISSUE: Veřejný výřez neobsahuje historické DDL model_bindings (role PRIMARY KEY, previous_model NOT NULL). Rubrika chce potvrdit nebo vyvrátit návrhy o duplicitních/NULL vazbách, které z daného výřezu nelze rozhodnout; čeká na opravu kritéria nebo dodání kontextu, bez známky modelu.",
+      "taskIssue": "MISSING_HISTORICAL_DDL"
+    },
+    {
+      "id": "9b09330e-25fb-4bf1-bf53-66c4fe890690",
+      "task": "r2_model_cleanup",
+      "label": "B",
+      "repeat": 2,
+      "score": null,
+      "reason": "TASK_ISSUE: Veřejný výřez neobsahuje historické DDL model_bindings (role PRIMARY KEY, previous_model NOT NULL). Rubrika chce potvrdit nebo vyvrátit návrhy o duplicitních/NULL vazbách, které z daného výřezu nelze rozhodnout; čeká na opravu kritéria nebo dodání kontextu, bez známky modelu.",
+      "taskIssue": "MISSING_HISTORICAL_DDL"
+    },
+    {
+      "id": "c4d59bbe-2dd7-41ba-81ae-91b036f222bb",
+      "task": "r2_model_cleanup",
+      "label": "B",
+      "repeat": 3,
+      "score": null,
+      "reason": "TASK_ISSUE: Veřejný výřez neobsahuje historické DDL model_bindings (role PRIMARY KEY, previous_model NOT NULL). Rubrika chce potvrdit nebo vyvrátit návrhy o duplicitních/NULL vazbách, které z daného výřezu nelze rozhodnout; čeká na opravu kritéria nebo dodání kontextu, bez známky modelu.",
+      "taskIssue": "MISSING_HISTORICAL_DDL"
+    },
+    {
+      "id": "c9628482-e4e3-4db3-ade3-313317dd58f4",
+      "task": "r2_model_cleanup",
+      "label": "C",
+      "repeat": 1,
+      "score": null,
+      "reason": "TASK_ISSUE: Veřejný výřez neobsahuje historické DDL model_bindings (role PRIMARY KEY, previous_model NOT NULL). Rubrika chce potvrdit nebo vyvrátit návrhy o duplicitních/NULL vazbách, které z daného výřezu nelze rozhodnout; čeká na opravu kritéria nebo dodání kontextu, bez známky modelu.",
+      "taskIssue": "MISSING_HISTORICAL_DDL"
+    },
+    {
+      "id": "6914531d-e8d4-4677-b7f8-15bf3ea7bc7b",
+      "task": "r2_model_cleanup",
+      "label": "C",
+      "repeat": 2,
+      "score": null,
+      "reason": "TASK_ISSUE: Veřejný výřez neobsahuje historické DDL model_bindings (role PRIMARY KEY, previous_model NOT NULL). Rubrika chce potvrdit nebo vyvrátit návrhy o duplicitních/NULL vazbách, které z daného výřezu nelze rozhodnout; čeká na opravu kritéria nebo dodání kontextu, bez známky modelu.",
+      "taskIssue": "MISSING_HISTORICAL_DDL"
+    },
+    {
+      "id": "b1ee058f-a571-4889-ba89-3e851f39f43d",
+      "task": "r2_model_cleanup",
+      "label": "C",
+      "repeat": 3,
+      "score": null,
+      "reason": "TASK_ISSUE: Veřejný výřez neobsahuje historické DDL model_bindings (role PRIMARY KEY, previous_model NOT NULL). Rubrika chce potvrdit nebo vyvrátit návrhy o duplicitních/NULL vazbách, které z daného výřezu nelze rozhodnout; čeká na opravu kritéria nebo dodání kontextu, bez známky modelu.",
+      "taskIssue": "MISSING_HISTORICAL_DDL"
+    },
+    {
+      "id": "26e89a00-c690-4257-9299-00f578711a98",
+      "task": "r2_model_lease",
+      "label": "A",
+      "repeat": 1,
+      "score": 0.25,
+      "reason": "Minul chybějící BINDING_CUTOVER v owner taxonomy, navrhuje MODEL_PULL exclusive pro use; reprodukce nepředvádí původní validation failure.",
+      "taskIssue": null
+    },
+    {
+      "id": "76a70dd5-9c5a-42ef-ad1e-286cb42ffcfb",
+      "task": "r2_model_lease",
+      "label": "A",
+      "repeat": 2,
+      "score": 0.25,
+      "reason": "Tvrdí, že dvě různá modelová jména nemohou mít současné lease a že exclusive má souběžet s readers; obojí odporuje popsanému per-name/shared-exclusivnímu kontraktu. Owner chybí.",
+      "taskIssue": null
+    },
+    {
+      "id": "33c81462-9872-4652-b47f-197744dd25f7",
+      "task": "r2_model_lease",
+      "label": "A",
+      "repeat": 3,
+      "score": 0.25,
+      "reason": "Chybně odvozuje zákaz dvou nezávislých leases a požaduje souběh exclusive se shared; nereprodukuje odmítnutí neregistrovaného BINDING_CUTOVER.",
+      "taskIssue": null
+    },
+    {
+      "id": "41f9e3fb-7e5f-47cd-851a-53a7009dd432",
+      "task": "r2_model_lease",
+      "label": "B",
+      "repeat": 1,
+      "score": 0.5,
+      "reason": "Ukazuje nerezervujícího calleru a riziko delete během cutover, ale nevysvětlí chybějícího BINDING_CUTOVER ownera, který brání zamýšlené shared rezervaci.",
+      "taskIssue": null
+    },
+    {
+      "id": "582fc52c-7094-4a42-bc10-ffeecdb55b75",
+      "task": "r2_model_lease",
+      "label": "B",
+      "repeat": 2,
+      "score": 0.5,
+      "reason": "Konkrétně ukazuje absenci rezervace ve volajícím a cestu kompensace; zásadní registrační mezera BINDING_CUTOVER zůstává bez nálezu.",
+      "taskIssue": null
+    },
+    {
+      "id": "0abf6f12-2486-4310-b61b-ee4d4b8ea372",
+      "task": "r2_model_lease",
+      "label": "B",
+      "repeat": 3,
+      "score": 0.5,
+      "reason": "Zdrojově najde chybějící caller lease a delete interleaving, ale neřeší neplatného ownera; doporučený exclusive lease je pro use chybné zařazení.",
+      "taskIssue": null
+    },
+    {
+      "id": "627e30ee-cb6a-46b5-86a3-28af09e3b82b",
+      "task": "r2_model_lease",
+      "label": "C",
+      "repeat": 1,
+      "score": 0.25,
+      "reason": "Místo absentního ownera vydává za vadu chybějící atomické multi-model API; používá BINDING_VERIFICATION jako exclusive, což je nesprávně.",
+      "taskIssue": null
+    },
+    {
+      "id": "13e0f13a-84e9-4c19-9b48-b9877fb718bb",
+      "task": "r2_model_lease",
+      "label": "C",
+      "repeat": 2,
+      "score": 0.25,
+      "reason": "Konstruuje požadavek na atomickou compound lease mimo zadaný kontrakt, ale přehlíží neregistrovaného BINDING_CUTOVER ownera a chybný druh lease.",
+      "taskIssue": null
+    },
+    {
+      "id": "ad9ead2d-62b4-49f6-8781-2c92c833ceb2",
+      "task": "r2_model_lease",
+      "label": "C",
+      "repeat": 3,
+      "score": 0.25,
+      "reason": "Soustředí se na hypotetické partial-acquisition hazardy vlastního volajícího; nereprodukuje konkrétní odmítnutí neregistrovaného cutover ownera.",
+      "taskIssue": null
+    },
+    {
+      "id": "2620c950-5352-408d-83ef-cae1628419a4",
+      "task": "r2_pairwise_confidence",
+      "label": "A",
+      "repeat": 1,
+      "score": 0.75,
+      "reason": "Zdrojově vysvětlí filtr nediskriminujících ztrát a speed fallback; číselná sonda je diskriminující, ale přidává nedoložený závěr o všech opakováních jako nezávislých.",
+      "taskIssue": null
+    },
+    {
+      "id": "1ca6dd70-c232-477e-a0a5-c9aec644caaa",
+      "task": "r2_pairwise_confidence",
+      "label": "A",
+      "repeat": 2,
+      "score": 0.75,
+      "reason": "Číselná reprodukce přes inconclusive a speed správně ukazuje nežádoucí výměnu; vedlejší tvrzení o opakování jako nezávislých případech není doložené.",
+      "taskIssue": null
+    },
+    {
+      "id": "a245c073-8771-424d-b3e0-da4485ab80f1",
+      "task": "r2_pairwise_confidence",
+      "label": "A",
+      "repeat": 3,
+      "score": 0.75,
+      "reason": "Konkrétní negativní delta pod prahem šumu a rychlost 1,25 správně vyvolají výměnu; navržené dynamické prahy jsou mimo prokázanou vadu.",
+      "taskIssue": null
+    },
+    {
+      "id": "4fe47a9c-656e-4f07-8f72-34e6eb40cbe4",
+      "task": "r2_pairwise_confidence",
+      "label": "B",
+      "repeat": 1,
+      "score": 0.25,
+      "reason": "Část problému speed při inconclusive pojmenuje, ale reprodukce se třemi prohranými diskriminujícími úlohami nevede do inconclusive větve; negative control mylně schvaluje speed fallback.",
+      "taskIssue": null
+    },
+    {
+      "id": "42b606d1-3d47-4505-9667-1b99de12e92f",
+      "task": "r2_pairwise_confidence",
+      "label": "B",
+      "repeat": 2,
+      "score": 0.5,
+      "reason": "Správně míří na speed path při inconclusive, ale jeho ukázka comparePair volá s nevyplněnými/mismatched argumenty a doporučuje vážit více opakování téhož případu.",
+      "taskIssue": null
+    },
+    {
+      "id": "441c1660-3214-4a61-8af0-8f7ab9e300a7",
+      "task": "r2_pairwise_confidence",
+      "label": "B",
+      "repeat": 3,
+      "score": 0.5,
+      "reason": "Správně pojmenuje speed path bez důkazu nezhoršení, ale reprodukce opakovaných stejných názvů nesedí k Map/reduceru a části závěrů nejsou ověřené.",
+      "taskIssue": null
+    },
+    {
+      "id": "d6e025da-a955-4a0b-b1f4-452c39b33e36",
+      "task": "r2_pairwise_confidence",
+      "label": "C",
+      "repeat": 1,
+      "score": 0.75,
+      "reason": "Správně identifikuje speed branch bez quality non-inferiority a uvádí hodnoty pro reprodukci; vedlejší příklad korelovaných úloh není přímým důkazem z uvedeného běhu.",
+      "taskIssue": null
+    },
+    {
+      "id": "b0d80c2f-8b24-4354-ac7c-618cb6a0b928",
+      "task": "r2_pairwise_confidence",
+      "label": "C",
+      "repeat": 2,
+      "score": 0.75,
+      "reason": "Vysvětlí inconclusive→speed chybu a dává hraniční číselný příklad; vedlejší argument o opakování a neověřené equivalence metodě není doložen.",
+      "taskIssue": null
+    },
+    {
+      "id": "9f363726-ea1c-41d2-a476-194733ffdc9d",
+      "task": "r2_pairwise_confidence",
+      "label": "C",
+      "repeat": 3,
+      "score": 0.75,
+      "reason": "Číselně reprodukuje kvalitativně nejistou rychlostní výměnu; přidává nepodložené tvrzení, že jednotlivé repeats se ve win/loss počítají nezávisle.",
+      "taskIssue": null
+    },
+    {
+      "id": "3bd0feb0-1cb0-4f56-9f52-42db806a6a47",
+      "task": "r2_verification_timeout",
+      "label": "A",
+      "repeat": 1,
+      "score": 0.75,
+      "reason": "Správně najde nevyčištěný timer po rejected fetch a dává mock; vedlejší AbortError jako samostatnou vadu a závod po dokončení nedokládá.",
+      "taskIssue": null
+    },
+    {
+      "id": "ee269256-7101-48e6-bb54-8ee502472a9d",
+      "task": "r2_verification_timeout",
+      "label": "A",
+      "repeat": 2,
+      "score": 0.5,
+      "reason": "Zachytí leak po síťové chybě, ale v téže odpovědi tvrdí, že JSON parse failure zanechá timer, ačkoli clearTimeout na ř. 851 běží před response.json.",
+      "taskIssue": null
+    },
+    {
+      "id": "617a8565-52c7-4199-88d1-665eb049fa54",
+      "task": "r2_verification_timeout",
+      "label": "A",
+      "repeat": 3,
+      "score": 0.5,
+      "reason": "Správná síťová chybová větev; falešně zahrne JSON parse failure a další nesouvisející závady, přestože timer se čistí po hlavičkách před čtením těla.",
+      "taskIssue": null
+    },
+    {
+      "id": "44281926-b220-4dca-8796-d4afa9de899c",
+      "task": "r2_verification_timeout",
+      "label": "B",
+      "repeat": 1,
+      "score": 1,
+      "reason": "Přesná ř. 839→851→catch cesta, návrat false a neuklizený 90s timer; navržené finally zachovává explicitní hranici hlaviček/těla.",
+      "taskIssue": null
+    },
+    {
+      "id": "fbf33359-5074-4030-8d72-d81bfa95013a",
+      "task": "r2_verification_timeout",
+      "label": "B",
+      "repeat": 2,
+      "score": 1,
+      "reason": "Správně lokalizuje rejected fetch a timer živý až do 90s; finally opravuje všechny výstupy bez změny failure result.",
+      "taskIssue": null
+    },
+    {
+      "id": "0eb69c1e-7a2b-4557-9cba-327a58230a00",
+      "task": "r2_verification_timeout",
+      "label": "B",
+      "repeat": 3,
+      "score": 1,
+      "reason": "Přesný trigger, zachycení a pozorovatelný aktivní timer po síťové chybě; uvádí izolovanou reprodukci a finally.",
+      "taskIssue": null
+    },
+    {
+      "id": "bfc84c22-09cc-475c-ae8f-1262f9995e24",
+      "task": "r2_verification_timeout",
+      "label": "C",
+      "repeat": 1,
+      "score": 0.5,
+      "reason": "Zachytí síťový únik, ale chybně tvrdí, že response.json vyhazující po ř. 851 rovněž zanechá timer; tím porušuje negativní kontrolu těla.",
+      "taskIssue": null
+    },
+    {
+      "id": "9e3cf0fc-54e5-48e1-a458-71b4675cce9b",
+      "task": "r2_verification_timeout",
+      "label": "C",
+      "repeat": 2,
+      "score": 0.75,
+      "reason": "Síťový únik a finally doložené; poznámka, že 90s signál dál kryje tělo, odporuje clearTimeout před response.json.",
+      "taskIssue": null
+    },
+    {
+      "id": "2fa4ab78-979b-4b04-8080-61761121a84c",
+      "task": "r2_verification_timeout",
+      "label": "C",
+      "repeat": 3,
+      "score": 0.75,
+      "reason": "Síťový únik a návrat false správně, ale závěrečná ukázka clearTimeout v catch odkazuje na timeoutId deklarovaný uvnitř try; doporučené finally by to řešilo.",
+      "taskIssue": null
+    }
+  ]
+}

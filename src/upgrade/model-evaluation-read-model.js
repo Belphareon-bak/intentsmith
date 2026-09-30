@@ -4,6 +4,7 @@
 // versioned suite contract match. Timestamps are displayed, never converted
 // into an arbitrary freshness TTL. Legacy name-only rows cannot match.
 
+import { validStoredGradingPair, simulatedEvidenceBlocked, isSimulatedEvaluationEvidence } from '../eval/independent-grader-pair.js';
 import {
   checkModelEvaluationApplicability,
   createRoleEvaluationPlans,
@@ -101,13 +102,15 @@ function taskDetails(row, includeResponses = false) {
       reason: d.reason || null, syntaxOk: d.syntaxOk, applied: d.applied,
       outcome: d.outcome, valid: d.valid, timedOut: d.timedOut,
       targetedPassed: d.targetedPassed, targeted: d.targeted, regressions: d.regressions,
-      schema: d.schema, parts: d.parts, penalties: d.penalties,
+      schema: d.schema, parts: d.parts, graderReviews: d.graderReviews || [], penalties: d.penalties,
+      criterionWeights: d.criterionWeights, adjudicationId: d.adjudicationId,
       precision: d.precision, recall: d.recall, f1: d.f1,
       truePositive: d.truePositive, falsePositive: d.falsePositive, falseNegative: d.falseNegative,
       observed: d.observed, expected: d.expected,
       responseFormat: d.responseFormat, strictJson: d.strictJson,
       contentScore: d.contentScore, formatScore: d.formatScore, criteria: d.criteria,
       contractChecks: d.contractChecks,
+      ...(includeResponses && d.conversation ? { conversation: d.conversation } : {}),
       testFiles: d.testFiles, targetNames: d.targetNames,
       regressionNames: d.regressionNames, testOutput: d.testOutput,
     })) }));
@@ -179,6 +182,7 @@ function decodeCurrentRow(row, includeTasks = true, includeResponses = false) {
       : row.error_code === 'EVALUATION_COLLECTION_PARTIAL' ? 'COLLECTION_PARTIAL' : row.status,
     collection: JSON.parse(row.metadata_json || '{}').collection || null,
     grading: JSON.parse(row.metadata_json || '{}').grading || null,
+    simulation:isSimulatedEvaluationEvidence({metadata:JSON.parse(row.metadata_json || '{}'),model_name:row.model_name}),
     providerVersion: row.provider_version || null,
     providerProvenance: row.provider_version ? 'RECORDED' : 'UNRECORDED',
     score: row.score == null ? null : Number(row.score),
@@ -228,11 +232,13 @@ function currentStatus(db, artifact, role, plan, providerVersion = null) {
   );
   if (row) {
     const result = decodeCurrentRow(row);
+    if (simulatedEvidenceBlocked({metadata:JSON.parse(row.metadata_json || '{}'),model_name:row.model_name},db))
+      return Object.freeze({...result,status:'BLOCKED',score:null,errorCode:'EVALUATION_SIMULATED_EVIDENCE',
+        errorMessage:'Simulované známky nejsou produkční evidence. Původní záznam zůstává v historii.'});
     if (plan.collectionOnly && row.status === 'COMPLETE') {
       const grading = JSON.parse(row.metadata_json || '{}').grading;
-      const accepted = plan.acceptance?.graders?.find(g => g.id === grading?.graderAcceptanceId
-        && g.payloadSha256 === grading?.graderAcceptanceSha256);
-      if (!accepted) return Object.freeze({ ...result, status: 'BLOCKED', score: null,
+      if (!validStoredGradingPair(db,grading,plan.acceptance?.graders,artifact.digestSha256,role,
+        plan.suiteContractSha256,result.score)) return Object.freeze({ ...result, status: 'BLOCKED', score: null,
         errorCode: 'EVALUATION_GRADER_ACCEPTANCE_MISSING',
         errorMessage: 'Přejímka hodnotitele už není platná. Původní známky zůstávají v historii.' });
     }
@@ -269,7 +275,8 @@ function decodeDecision(row, context) {
   ));
   let actionability = 'NOT_CANDIDATE_WIN';
   if (row.outcome === 'CANDIDATE') {
-    if (context.plan?.decisionReady !== true) actionability = 'EVALUATION_PROFILE_NOT_ACCEPTED';
+    if (isSimulatedEvaluationEvidence(details)) actionability = 'EVALUATION_SIMULATED_EVIDENCE';
+    else if (context.plan?.decisionReady !== true) actionability = 'EVALUATION_PROFILE_NOT_ACCEPTED';
     else if (typeof context.plan.qualificationForRuns === 'function' && (() => {
       const q = context.plan.qualificationForRuns({candidateRunId:row.candidate_run_id,incumbentRunId:row.incumbent_run_id});
       return !q || q.decision.verdict !== 'ZMENIT' || details.decision?.acceptanceId !== q.id

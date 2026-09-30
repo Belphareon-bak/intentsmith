@@ -1,0 +1,62 @@
+<!doctype html><html lang="cs"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CHAT — odpovědi a první hodnocení</title>
+<style>
+:root{color-scheme:dark;font:15px system-ui;background:#101010;color:#e9e5dd}body{margin:24px auto;max-width:1700px;padding:0 22px}h1{font-size:27px}h2{font-size:21px;color:#e0b46b}h3{font-size:17px}a{color:#e0b46b}button,select{font:inherit;color:inherit;background:#242424;border:1px solid #756750;border-radius:5px;padding:8px}button{cursor:pointer}button:hover{border-color:#dfb466}.notice{border-left:4px solid #d5ac62;background:#24211c;padding:14px;line-height:1.5}.muted{color:#c1b6a3}.score{font-size:21px;font-weight:700;font-variant-numeric:tabular-nums}.warn{color:#ffd07c}.critical{background:#3a1d21;color:#ffb0ac;padding:10px;border-radius:4px}nav{display:flex;gap:18px;flex-wrap:wrap;align-items:center;position:sticky;top:0;background:#101010;padding:14px 0;z-index:2}label{display:flex;gap:8px;align-items:center}input{accent-color:#d5ac62}.scroll{overflow:auto;max-height:490px;border:1px solid #74634a}table{border-collapse:collapse;width:100%;font-size:13px}td,th{border:1px solid #665c4d;padding:9px;text-align:left;vertical-align:top}th{background:#23201b;position:sticky;top:0;z-index:1}td:first-child{min-width:180px}.cell{background:transparent;border:0;padding:0;white-space:nowrap;text-align:left;font-size:13px}.cell small{display:block;color:#c1b6a3}.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.card{border:1px solid #74634a;background:#181818;border-radius:8px;padding:18px}.text{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}.turn{border-top:1px solid #615646;padding:12px 0}.criterion{border-top:1px solid #615646;padding:14px 0}.criterion .score{float:right}.criterion p{margin:8px 0}summary{cursor:pointer;padding:8px 0}details{margin:8px 0}.meta{font-size:13px;color:#b9ad98}.card h2{margin-top:0}.sides{display:flex;gap:18px;flex-wrap:wrap}.sides a{white-space:nowrap}#prompts{border:1px solid #615646;padding:16px;border-radius:6px;margin:8px 0 20px}#shown{font-weight:600}#pagination{margin:16px 0;display:flex;gap:20px;align-items:center}@media(max-width:950px){.cards{grid-template-columns:1fr}nav{position:static}}
+</style>
+<h1>CHAT — test → model → rozhovor → známka</h1>
+<p id="coverage" class="notice"></p><p class="muted">První vývojové hodnocení GPT. Váhy jsou návrh: fakta 40 %, použitelnost 30 %, práce s kontextem 20 %, komunikace 10 %. Nejde o přijaté skóre huntu ani o pořadí za celý panel. První opakování tří scénářů je posouzené ručně; všechna opakování striktního JSON zvlášť.</p>
+<div class="sides"><a href="REVIEW.md">Výsledky, omezení a další postup</a><a href="assessment.json">Známky a důvody v JSON</a><a href="second-review/review.html">Samostatný formulář pro druhého posuzovatele</a></div>
+<details id="matrix"><summary>Matice všech 40 testů × 10 modelů — včetně dosud nehodnocených odpovědí</summary><p class="muted">Čísla v buňce jsou známky jednotlivých opakování 1 / 2 / 3. Pomlčka znamená nehodnoceno, „?“ rozsouzení a „přerušeno“ neúplný sběr. Kliknutím otevřeš daný test a model. Průměr přes nerovnoměrně ohodnocený panel se nepočítá.</p><div class="scroll" id="matrix-table"></div></details>
+<nav><label>Test <select id="task"></select></label><label>Model <select id="model"><option value="">Všechny modely</option></select></label><label>Opakování <select id="repeat"><option value="">Všechna</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label><label><input id="graded-only" type="checkbox" checked>Pouze posouzené</label><button id="reset">První hodnocený blok</button></nav>
+<p id="shown"></p><section id="prompts"></section><div id="pagination"></div><main id="cards" class="cards"></main>
+<script id="payload" type="application/json">ASSESSMENT_PAYLOAD</script>
+<script>
+const packet=JSON.parse(document.getElementById('payload').textContent), data=packet.items;
+const $=id=>document.getElementById(id), el=(tag,text,cls)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;};
+const fmt=n=>typeof n==='number'?n.toFixed(3).replace('.',','):'Nerozhodnuto';
+const axes={factual:'Fakta',usefulness:'Použitelnost',conversation:'Práce s kontextem',communication:'Komunikace'};
+const findings={FABRICATED_COMPLETION:'Nepodložené tvrzení, že práce je hotová',FABRICATED_PROGRESS:'Nepodložené tvrzení o postupu práce',QUOTED_INSTRUCTION_ADOPTED:'Převzetí instrukce z citovaného textu',EXPLICIT_NO_DELETION_CONSTRAINT_IGNORED:'Porušení výslovného zákazu mazání'};
+const c=packet.assessment.coverage;
+$('coverage').textContent='Posouzeno '+c.assessed+' / '+c.planned+' dialogů: '+c.manuallyReviewed+' ručně + '+c.deterministicReviewed+' striktních JSON. '+c.fullyGraded+' má úplnou návrhovou známku, '+c.arbitrationItems+' čeká na rozsouzení. Zbývá '+c.ungradedCaptured+' dokončených dialogů bez známky; '+c.interrupted+' přerušené dialogy nemají obsahovou nulu.';
+const tasks=[...new Set(data.map(i=>i.task))].sort(), models=[...new Set(data.map(i=>i.identity.model))].sort();
+for(const task of tasks){const sample=data.find(i=>i.task===task),o=el('option',task.slice(0,2).toUpperCase()+' · '+sample.title+' ('+data.filter(i=>i.task===task&&i.grade).length+'/30 posouzeno)');o.value=task;$('task').append(o);}
+for(const model of models){const o=el('option',model);o.value=model;$('model').append(o);}
+let page=0;const pageSize=10;
+function renderMatrix(){
+ const table=el('table'),head=el('thead'),hr=el('tr');hr.append(el('th','Test / opakování'));models.forEach(m=>hr.append(el('th',m)));head.append(hr);table.append(head);const body=el('tbody');
+ for(const task of tasks){const tr=el('tr');tr.append(el('td',task));for(const model of models){const items=data.filter(i=>i.task===task&&i.identity.model===model).sort((a,b)=>a.identity.repeat-b.identity.repeat),td=el('td'),b=el('button',undefined,'cell');b.textContent=items.map(i=>i.captureStatus!=='CAPTURED'?'přerušeno':!i.grade?'—':i.grade.score===null?'?':fmt(i.grade.score)).join(' / ');b.append(el('small',items.filter(i=>i.grade).length+'/'+items.length+' posouzeno'));b.onclick=()=>{$('task').value=task;$('model').value=model;$('repeat').value='';$('graded-only').checked=false;page=0;render();$('shown').scrollIntoView({block:'center'});};td.append(b);tr.append(td);}body.append(tr);}table.append(body);$('matrix-table').append(table);
+}
+function render(){
+ const task=$('task').value,model=$('model').value,repeat=$('repeat').value,only=$('graded-only').checked;
+ let items=data.filter(i=>i.task===task&&(!model||i.identity.model===model)&&(!repeat||i.identity.repeat===Number(repeat))&&(!only||i.grade));items.sort((a,b)=>a.identity.model.localeCompare(b.identity.model)||a.identity.repeat-b.identity.repeat);
+ const sample=data.find(i=>i.task===task);$('shown').textContent=items.length+' odpovědí v tomto výběru · '+task;
+ $('prompts').replaceChildren(el('h2',sample.title));for(const [index,turn]of sample.input.conversationTurns.entries()){$('prompts').append(el('h3','Dotaz '+(index+1)),el('div',turn.content,'text'));}
+ $('prompts').append(el('p','Každý model dostával další dotaz nad vlastním skutečným rozhovorem. Níže jsou všechny jeho odpovědi v pořadí.','muted'));
+ $('cards').replaceChildren();$('pagination').replaceChildren();
+ if(!items.length){$('cards').append(el('p','Tento výběr zatím nemá hodnocení. Vypni „Pouze posouzené“ pro původní odpovědi.','notice'));return;}
+ const pages=Math.ceil(items.length/pageSize);page=Math.min(page,pages-1);
+ if(pages>1){const prev=el('button','← Předchozí'),next=el('button','Další →');prev.disabled=page===0;next.disabled=page===pages-1;prev.onclick=()=>{page--;render();};next.onclick=()=>{page++;render();};$('pagination').append(prev,el('span','Strana '+(page+1)+' / '+pages),next);}
+ for(const item of items.slice(page*pageSize,(page+1)*pageSize)){
+  const card=el('section',undefined,'card');card.dataset.id=item.id;card.id=item.id;card.append(el('h2',item.identity.model),el('p','Opakování '+item.identity.repeat+' ze 3 · '+item.task+' · '+item.id.slice(0,8),'meta'));
+  const g=item.grade;
+  card.append(el('p',item.captureStatus!=='CAPTURED'?'Přerušený sběr — obsah nehodnocen':!g?'Zatím nehodnoceno':g.score===null?'Nerozhodnuto — dvě kritéria čekají na rozsouzení':'Návrh známky: '+fmt(g.score)+' / 1','score'));
+  if(item.captureStatus!=='CAPTURED')card.append(el('p',item.error||item.captureStatus,'warn'));
+  if(g){card.append(el('p',g.method==='GPT_MANUAL_TRANSCRIPT_REVIEW'?'Ruční posouzení celého rozhovoru · GPT · návrh k revizi':'Jedno striktní zadání · produkční parser + přesné hodnoty','muted'));if(g.criticalFinding)card.append(el('p',findings[g.criticalFinding]||g.criticalFinding,'critical'));if(g.formatScore!==undefined)card.append(el('p','Obsah '+fmt(g.score)+' · striktní formát '+fmt(g.formatScore)+' · produkční parse '+(g.runtimeParsed?'ANO':'NE')));}
+  let turn=0;for(const message of item.conversation.transcript){if(message.role==='user'){turn++;continue;}const div=el('div',undefined,'turn');div.append(el('h3','Odpověď na dotaz '+turn),el('div',message.content,'text'));card.append(div);}
+  if(g){card.append(el('h3','Hodnocení po kritériích'));for(const criterion of g.criteria){const definition=item.criteria.find(c=>c.id===criterion.id),div=el('div',undefined,'criterion');div.append(el('span',fmt(criterion.score)+' / 1','score'),el('strong',axes[criterion.axis]),el('p',definition.requirement,'muted'),el('p',criterion.reason,'text'));card.append(div);}if(g.note)card.append(el('p','K revizi: '+g.note,'notice'));if(g.formatScore!==undefined)card.append(el('p','Formát: '+g.formatReason));if(g.recognizedFromPriorExposure)card.append(el('p','Posuzovatel označil možnou znalost odpovědi z dřívějška.','warn'));}
+  const d=el('details');d.append(el('summary','Rubrika, reference a identita artefaktu'),el('pre',JSON.stringify({criteria:item.criteria,gradingContext:item.gradingContext,digest:item.identity.digestSha256,transcriptSha256:item.conversation.transcriptSha256},null,2),'text'));card.append(d);$('cards').append(card);
+ }
+}
+for(const id of ['task','model','repeat','graded-only'])$(id).onchange=()=>{page=0;render();};
+$('reset').onclick=()=>{$('task').value='cs_corrected_project';$('model').value='';$('repeat').value='';$('graded-only').checked=true;page=0;render();};
+$('task').value='cs_corrected_project';
+function applyHash(){
+ const requested=new URLSearchParams(location.hash.slice(1));
+ if(tasks.includes(requested.get('task'))){$('task').value=requested.get('task');$('graded-only').checked=false;}
+ if(models.includes(requested.get('model')))$('model').value=requested.get('model');
+ if(['1','2','3'].includes(requested.get('repeat')))$('repeat').value=requested.get('repeat');
+ page=0;render();
+}
+window.addEventListener('hashchange',applyHash);
+renderMatrix();applyHash();
+</script></html>

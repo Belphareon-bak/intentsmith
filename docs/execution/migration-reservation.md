@@ -242,8 +242,10 @@ záznamu selže v `artifact-validation`.
 | `2026_09_18_114_model_evaluation_remeasure.js` | zadání operátora 2026-09-18 — nové ruční měření se zachováním historie |
 | `2026_09_18_115_intentsmith_setting_names.js` | zadání operátora 2026-09-18 — přejmenování nastavení; staré klíče a explicitní nové hodnoty zachované |
 | `2026_09_19_116_model_evaluation_acceptance.js` | zadání operátora 2026-09-19 — odvozená rozhodovací způsobilost z přijaté evidence; append-only přejímky a odvolání |
-| `2026_09_23_117_development_installations.js` | 117 | Projektové instalace, explicitní policy a audit |
-| `2026_09_25_120_studio_scm.js` | 120 | Studio 2: projektová politika pro řízené operace Git |
+| `2026_09_23_117_development_installations.js` | převzato beze změny z nainstalované release; stejná identita je již v živé DB |
+| `2026_09_24_118_model_evaluation_grader_reviews.js` | zadání operátora 2026-09-24 — samostatné append-only posudky dvojice nad jedním uloženým sběrem |
+| `2026_09_25_119_model_evaluation_adjudications.js` | zadání operátora 2026-09-25 — append-only lidské rozsouzení sporných kritérií dvojice |
+| `2026_09_25_120_studio_scm.js` | Studio 2: projektová politika pro řízené operace Git |
 <!-- migration-source-manifest:end -->
 
 ## Navazující M7 rezervace 2026-08-29
@@ -505,3 +507,16 @@ je součástí packetu přejímací brány.
 
 117 přidává tři tabulky s default ask. Ověřeno bez kolize v pracovním
 checkoutu a aktivní coworker větvi `930a3a6b`; manifest má 104 migrací.
+
+### 2026-09-25 — dvojí hodnocení huntu
+
+Živá instalace již používá migraci 117 pro development installations. Její
+nezměněné tělo bylo převzato z nainstalované release. Nové hunt migrace 118
+a 119 přidávají oddělené neměnné posudky a lidská rozsouzení; žádnou
+přejímku neudělují. Tehdejší manifest obsahoval 106 migrací. Přechod byl
+ověřen na kopii živé DB; živá DB se tímto krokem nemění.
+
+### 2026-09-30 — integrační kandidát
+
+Zdrojový manifest sjednocuje migrace 117, 118, 119 a 120, celkem 107.
+Instalovaná DB touto integrací nebyla změněna.

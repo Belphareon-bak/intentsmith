@@ -1,0 +1,1358 @@
+{
+  "schemaVersion": 1,
+  "status": "DRAFT_PARTIAL_REVIEW",
+  "decisionAuthority": false,
+  "reviewer": "codex",
+  "packetSha256": "b3a2f33445ed7537fca65d2dd25645e68ba90250c1c0718c57396f8371aefc0f",
+  "reviewedAt": "2026-09-25T20:20:00.371278+00:00",
+  "blindToIdentity": true,
+  "priorTaskExposurePossible": true,
+  "opusGradesRead": false,
+  "scope": "R1 only; all 96 packet answers and both criteria. Development review, not accepted grader.",
+  "cases": [
+    {
+      "id": "dae07765-6bd6-4d6f-ad42-de1407c37e36",
+      "task": "r1_audit_error_envelope",
+      "label": "A",
+      "repeat": 1,
+      "ratings": [
+        0.25,
+        0.25
+      ],
+      "reasons": [
+        "Odmítá změnu, ale tvrdí nepravdu JSON.parse(\"\") → {}; nevysvětluje falešnou zranitelnost error:true.",
+        "Uvádí jen obecné ověření selhání a clean stavu; chybí reprodukční trojice chybový obal/prázdný platný report/nenulový report."
+      ]
+    },
+    {
+      "id": "1d1ecdaf-287d-44a4-9427-a50d1fe8bda4",
+      "task": "r1_audit_error_envelope",
+      "label": "A",
+      "repeat": 2,
+      "ratings": [
+        0,
+        0.25
+      ],
+      "reasons": [
+        "Závěr označuje navrženou náhradu za správnou; přehlíží, že {error:true} se zpracuje jako falešná zranitelnost, nikoli typed failure.",
+        "Navrhuje offline pokus a běžný úspěch, ale neodděluje skutečné zranitelnosti ani očekávanou podobu chyby."
+      ]
+    },
+    {
+      "id": "540a248c-d7f2-4730-bffc-6908d59f88f3",
+      "task": "r1_audit_error_envelope",
+      "label": "A",
+      "repeat": 3,
+      "ratings": [
+        0.25,
+        0.25
+      ],
+      "reasons": [
+        "Změnu odmítá, ale opakovaně tvrdí neplatné JSON.parse prázdného řetězce na {} a nevyčíslí falešnou zranitelnost.",
+        "Navrhuje pouze mock prázdného výstupu; dané zadání je parsovatelný JSON error envelope a chybí platný prázdný i nenulový audit."
+      ]
+    },
+    {
+      "id": "45613a40-2972-4214-a8a4-38322525e908",
+      "task": "r1_audit_error_envelope",
+      "label": "B",
+      "repeat": 1,
+      "ratings": [
+        0.9,
+        0.5
+      ],
+      "reasons": [
+        "Správně odvodí || true, parsovatelný ENOTFOUND, falešnou info zranitelnost a potřebu explicitního error stavu; UI caller pouze ilustruje podmíněně, protože zdroj chybí.",
+        "Má konkrétní reprodukci ENOTFOUND a očekávaný výstup falešné zranitelnosti, ale nikde neověřuje skutečně prázdný a nenulový platný report."
+      ]
+    },
+    {
+      "id": "76d2f373-6db8-490d-a8f5-0349ade1dd8e",
+      "task": "r1_audit_error_envelope",
+      "label": "B",
+      "repeat": 2,
+      "ratings": [
+        0.95,
+        0.5
+      ],
+      "reasons": [
+        "Správně odmítá fake vulnerability po {error:true}, popisuje přesný vstup i výstup a návrat VULN_ERROR; hypotézy o jiných npm výstupech jsou oddělené.",
+        "Konkrétní ENOTFOUND mock s expected/actual; platný prázdný a nenulový report nejsou kontrolovány."
+      ]
+    },
+    {
+      "id": "b4b75a08-c1b9-4f1f-afd8-b3ddca40cf65",
+      "task": "r1_audit_error_envelope",
+      "label": "B",
+      "repeat": 3,
+      "ratings": [
+        0.95,
+        0.5
+      ],
+      "reasons": [
+        "Správně rozlišuje false-clean původní větve a fake info vulnerability po změně, navrhuje explicitní audit.error; caller neověřen.",
+        "Reprodukuje error envelope a očekávaný typed failure, ale bez dvou platných auditních reportů."
+      ]
+    },
+    {
+      "id": "274e27c1-a02e-4da5-8493-9832b9e43eca",
+      "task": "r1_audit_error_envelope",
+      "label": "C",
+      "repeat": 1,
+      "ratings": [
+        0.9,
+        0.5
+      ],
+      "reasons": [
+        "Přes sebekorekci správně zjistí, že návrh nevydá clean:true, nýbrž nepravdivou info vulnerability; vrácený error zůstává nutný.",
+        "Popisuje ENOTFOUND průchod a falešnou položku; chybí rozlišovací pozitivní kontroly pro prázdný a nenulový report."
+      ]
+    },
+    {
+      "id": "8e766133-3ea2-4a03-a824-4bcffc876b1b",
+      "task": "r1_audit_error_envelope",
+      "label": "C",
+      "repeat": 2,
+      "ratings": [
+        0.85,
+        0.5
+      ],
+      "reasons": [
+        "Zachycuje falešný info nález i chybějící error; úvodní tvrzení o trvajícím clean:true samo opravuje.",
+        "Testuje chybový envelope výpočtem, ale bez konkrétních obou platných reportů a jejich očekávání."
+      ]
+    },
+    {
+      "id": "cf78bd68-eac9-41c9-9c6d-3e01f1a1b1b0",
+      "task": "r1_audit_error_envelope",
+      "label": "C",
+      "repeat": 3,
+      "ratings": [
+        0.95,
+        0.5
+      ],
+      "reasons": [
+        "Konkrétně ukazuje {error:true} → info vulnerability a že caller neuvidí VULN_ERROR; UI nelze bez zdroje uzavřít.",
+        "Mock error JSON a jeho falešná zranitelnost jsou konkrétní; prázdný platný a nenulový platný audit netestuje."
+      ]
+    },
+    {
+      "id": "15b1367c-9749-48ce-908b-46a4eafae8b2",
+      "task": "r1_audit_error_envelope",
+      "label": "D",
+      "repeat": 1,
+      "ratings": [
+        0.85,
+        0.25
+      ],
+      "reasons": [
+        "Správně odmítá falešnou info vulnerability a navrhuje audit.error; nepodloženě píše o UI chování a zmiňuje nesouvisející NODE_ENV.",
+        "Reprodukce pouze error JSON/registry outage; chybí oba platné stavy a jejich očekávání."
+      ]
+    },
+    {
+      "id": "94a9f08b-79c2-4512-ab49-306a32a7cca2",
+      "task": "r1_audit_error_envelope",
+      "label": "D",
+      "repeat": 2,
+      "ratings": [
+        0.65,
+        0.25
+      ],
+      "reasons": [
+        "Správně v principu odmítá fake vulnerability, ale mylně tvrdí NaN či crash: info.severity na true je undefined a fallback info.",
+        "Uvádí jen offline příklad a žádnou diskriminační sadu pro platné reporty."
+      ]
+    },
+    {
+      "id": "99205346-d7c9-4081-bf60-575dfe95d96b",
+      "task": "r1_audit_error_envelope",
+      "label": "D",
+      "repeat": 3,
+      "ratings": [
+        0.8,
+        0.25
+      ],
+      "reasons": [
+        "Správně odmítá záměnu infrastruktury za vulnerability a navrhuje kontrolu audit.error; vágní hypotézy o npm formátech a UI nejsou zdrojem doložené.",
+        "Obsahuje obecný plán pro error a validitu, ale žádné konkrétní fixture pro prázdný a nenulový audit."
+      ]
+    },
+    {
+      "id": "83109ce0-0994-42da-843a-53497b8a564d",
+      "task": "r1_history_late_guard",
+      "label": "A",
+      "repeat": 1,
+      "ratings": [
+        0,
+        0
+      ],
+      "reasons": [
+        "Označuje navržené pořadí addToHistory → throw za opravu, přestože selhaná odpověď už je v paměti; mylně tvrdí, že throw obejde catch.",
+        "Jen deklaruje splnění požadavků, nenavrhuje žádný rozlišovací test."
+      ]
+    },
+    {
+      "id": "79a529df-38f3-4143-bf43-9c7b47c9232f",
+      "task": "r1_history_late_guard",
+      "label": "A",
+      "repeat": 2,
+      "ratings": [
+        0.75,
+        0.25
+      ],
+      "reasons": [
+        "Správně ukazuje, že kontrola až po addToHistory nechá selhání v paměti; navrhuje guard před append, ale místy tvrdí, že nová výjimka dojde přímo k handle místo lokálního catch.",
+        "Má jen náznak chybové cesty a trvalé historie; nevymezuje očekávání pro úspěch a cancellation."
+      ]
+    },
+    {
+      "id": "f6fc49cf-144e-4332-8a17-aefbc15211bf",
+      "task": "r1_history_late_guard",
+      "label": "A",
+      "repeat": 3,
+      "ratings": [
+        0.65,
+        0.25
+      ],
+      "reasons": [
+        "Odmítá patch kvůli append před guard a správně rozlišuje throw handleru od returned metadata.error; část textu spekuluje o calleru bez zdroje.",
+        "Chybí konkrétní tři fixture se stavem paměti, úspěchem a cancellation; uvádí pouze kontrolní tvrzení."
+      ]
+    },
+    {
+      "id": "4175419a-49db-4e91-8a58-9eb8ca5f970a",
+      "task": "r1_history_late_guard",
+      "label": "B",
+      "repeat": 1,
+      "ratings": [
+        0.2,
+        0
+      ],
+      "reasons": [
+        "Zaznamená append před throw, ale současně tvrdí, že změna zabrání viditelnosti a navrhuje měnit celý error contract; závěr neřeší jednoznačně danou příčinu.",
+        "Sám píše, že nemá reprodukční případ; testy nepředkládá."
+      ]
+    },
+    {
+      "id": "264cc11b-fe1e-4c7d-94d1-7fb5be972a48",
+      "task": "r1_history_late_guard",
+      "label": "B",
+      "repeat": 2,
+      "ratings": [
+        0,
+        0
+      ],
+      "reasons": [
+        "Prohlašuje patch za vyhovující, ačkoli explicitně popisuje append před throw; lokální catch vrací error response a neodstraňuje historii.",
+        "Žádné konkrétní fixture ani očekávané kontroly, jen obecné tvrzení o výkonu."
+      ]
+    },
+    {
+      "id": "88dde021-7446-4b20-bb79-a251d07bf273",
+      "task": "r1_history_late_guard",
+      "label": "B",
+      "repeat": 3,
+      "ratings": [
+        0,
+        0
+      ],
+      "reasons": [
+        "Vidí, že failed response zůstává v paměti, ale nakonec schvaluje beze změny pořadí a tvrdí opak; chybný review verdikt.",
+        "Neuvádí testy pro error, success ani cancellation."
+      ]
+    },
+    {
+      "id": "ae476253-ada9-434a-b605-b44a0512bf3e",
+      "task": "r1_history_late_guard",
+      "label": "C",
+      "repeat": 1,
+      "ratings": [
+        0.8,
+        0.25
+      ],
+      "reasons": [
+        "Správně odmítá kvůli append před guard a chytání nového Error lokálním catch; úvodní výrok o obrácených úspěšných odpovědích je nepřesný, později se koriguje.",
+        "Popisuje sled pro chybovou odpověď a paměť, ale bez samostatných success/cancellation kontrol."
+      ]
+    },
+    {
+      "id": "68210279-bfb0-4aa1-ac1f-0af62f9ef2c0",
+      "task": "r1_history_late_guard",
+      "label": "C",
+      "repeat": 2,
+      "ratings": [
+        0.9,
+        0.25
+      ],
+      "reasons": [
+        "Přesně ukazuje metadata.error → addToHistory → lokální catch → error result a doporučuje guard před append; neznámý handle nepřisuzuje jako doložený zdroj.",
+        "Má konkrétní mock chybové odpovědi a kontrolu paměti; chybí success přesně jednou a cancellation."
+      ]
+    },
+    {
+      "id": "50c563b6-b9b3-4bb9-a4a1-f5c5a677ac1b",
+      "task": "r1_history_late_guard",
+      "label": "C",
+      "repeat": 3,
+      "ratings": [
+        0.9,
+        0.25
+      ],
+      "reasons": [
+        "Správně odmítá a uvádí okamžitý append i příští turn jako pozorovatelný dopad; návrh dává guard před append a zachovává error result.",
+        "Navrhuje chybový mock a další turn, ale žádnou success ani cancellation fixture."
+      ]
+    },
+    {
+      "id": "14fd3423-f9e9-456f-8db5-7330a05effa9",
+      "task": "r1_history_late_guard",
+      "label": "D",
+      "repeat": 1,
+      "ratings": [
+        0.85,
+        0.25
+      ],
+      "reasons": [
+        "Správný blokující závěr s pořadím append/throw/catch a zachováním chybového výsledku; tvrzení o konkrétní interní historii je dle zadání, handle zdroj není.",
+        "Reprodukce chybového výsledku a inspekce historie, ale ne úplná trojice včetně úspěchu a cancellation."
+      ]
+    },
+    {
+      "id": "aea47b06-132e-4c3b-bddc-660968b2d3b6",
+      "task": "r1_history_late_guard",
+      "label": "D",
+      "repeat": 2,
+      "ratings": [
+        0.75,
+        0.25
+      ],
+      "reasons": [
+        "Správně požaduje guard před append a error result pro handle; tvrzení, že throw může vést k durable write, je bez zdroje spekulativní.",
+        "Má chybovou reprodukci, ale chybí validní úspěch přesně jednou a cancellation."
+      ]
+    },
+    {
+      "id": "f7903d7a-8f81-4668-809d-04dac9b6aae4",
+      "task": "r1_history_late_guard",
+      "label": "D",
+      "repeat": 3,
+      "ratings": [
+        0.8,
+        0.25
+      ],
+      "reasons": [
+        "Správně odmítá patch a odvozuje přetrvání failed odpovědi v paměti po lokálním catch; vedlejší domněnka o druhém appendu není doložena.",
+        "Popisuje kontrolu failed memory, ostatní dvě nezávislé kontroly chybí."
+      ]
+    },
+    {
+      "id": "91fd8e98-449e-4235-9d44-8cd8c47609fb",
+      "task": "r1_immutable_refinement",
+      "label": "A",
+      "repeat": 1,
+      "ratings": [
+        1,
+        0.5
+      ],
+      "reasons": [
+        "Správně odmítá swallow TypeError na getter-only frozen TaggedResponse; finalContent zapojuje do scoreResponse, appendTurn i return a ponechává původní objekt.",
+        "Reprodukce s original/improved textem kontroluje starý scorer, DB a odpověď; pro opravenou variantu chybí explicitní assert, že všechny tři vidí improved a originál se nezměnil."
+      ]
+    },
+    {
+      "id": "e9a17583-96da-42f5-a1f0-fe7c20c783f5",
+      "task": "r1_immutable_refinement",
+      "label": "A",
+      "repeat": 2,
+      "ratings": [
+        1,
+        0.4
+      ],
+      "reasons": [
+        "Správný příčinný řetězec frozen getter → swallowed TypeError → starý obsah ve skóre, DB i return; finalContent je zapojen napříč konzumenty.",
+        "Konkrétně reprodukuje TypeError a starý výstup; neošetřuje pozorování nového immutable výsledku ve scoreru a původního objektu."
+      ]
+    },
+    {
+      "id": "0fd20e88-5f96-4cb8-8ae1-9f2599558496",
+      "task": "r1_immutable_refinement",
+      "label": "A",
+      "repeat": 3,
+      "ratings": [
+        0.95,
+        0.4
+      ],
+      "reasons": [
+        "Správně uvádí frozen getter, silent catch a tři stale downstream místa; finalContent je správná alternativa. Přidává nepodložené obecné tvrzení o logovacím kontraktu.",
+        "Ukazuje strict-mode TypeError a výstupy původního textu, ale chybí kontrola nové hodnoty ve scoreru/DB/return po opravě."
+      ]
+    },
+    {
+      "id": "e1eb3ddb-d68d-427d-b81e-fe6181202c3e",
+      "task": "r1_immutable_refinement",
+      "label": "B",
+      "repeat": 1,
+      "ratings": [
+        1,
+        0.5
+      ],
+      "reasons": [
+        "Odmítá silent swallow, přesně identifikuje stale score/persist/return i falešný success log; finalContent napojí na všechny tři.",
+        "Reprodukce s NEW_TEXT kontroluje DB, klienta a log; finální test opravné cesty a neměnnosti originálu není explicitně formulován."
+      ]
+    },
+    {
+      "id": "96625fb6-bdd4-4824-b600-cad569ca2377",
+      "task": "r1_immutable_refinement",
+      "label": "B",
+      "repeat": 2,
+      "ratings": [
+        1,
+        0.4
+      ],
+      "reasons": [
+        "Správně odmítá, odvozuje že logger hlásí úspěch při původním obsahu a finalContent sjednotí skórování, uložení a odpověď.",
+        "Sleduje starý log/DB/UI/score po vadné změně; bez konkrétní opravené kontrolní trojice a immutable originálu."
+      ]
+    },
+    {
+      "id": "5b2264c7-5312-445a-b602-059af98a883b",
+      "task": "r1_immutable_refinement",
+      "label": "B",
+      "repeat": 3,
+      "ratings": [
+        1,
+        0.4
+      ],
+      "reasons": [
+        "Správně identifikuje frozen getter, swallowed chybu, tři stale konzumenty a opravu přes finalContent.",
+        "Konkrétní vadná reprodukce přes refinement/DB/UI; po opravě neukazuje očekávaný scorer a neměnnost originálu."
+      ]
+    },
+    {
+      "id": "00c7f334-174a-4564-adde-ee515a251da7",
+      "task": "r1_immutable_refinement",
+      "label": "C",
+      "repeat": 1,
+      "ratings": [
+        0.5,
+        0
+      ],
+      "reasons": [
+        "Vadu identifikuje, ale preferovaná oprava `result = new TaggedResponse(...)` selže na `const result`; finalContent zmiňuje, avšak bez zapojení všech tří konzumentů.",
+        "Žádný test s fixture, pozorováním scoreru či neměnnosti originálu."
+      ]
+    },
+    {
+      "id": "37fa3d52-e760-4ffe-a7ec-482856d26c64",
+      "task": "r1_immutable_refinement",
+      "label": "C",
+      "repeat": 2,
+      "ratings": [
+        0.6,
+        0
+      ],
+      "reasons": [
+        "Rozpozná silent mutation a všechny tři downstream čtení; doporučená implementace přepisuje `const result`, takže neběží, pouze druhá varianta finalContent může fungovat po dodělání.",
+        "Žádný rozlišovací test ani očekávaná pozorování."
+      ]
+    },
+    {
+      "id": "76d60996-b9ae-48d6-ac62-8d372cdeb3e6",
+      "task": "r1_immutable_refinement",
+      "label": "C",
+      "repeat": 3,
+      "ratings": [
+        0.35,
+        0
+      ],
+      "reasons": [
+        "Rozpozná immutable objekt a stale konzumenty, ale nový ResponseTag ze spread getterů není doložený a `result =` na const neprojde; žádná použitelná úplná oprava.",
+        "Žádný test fixu; jen deklarace očekávané konzistence."
+      ]
+    },
+    {
+      "id": "f152850f-7040-4d6c-8095-2dd7b5307e8e",
+      "task": "r1_immutable_refinement",
+      "label": "D",
+      "repeat": 1,
+      "ratings": [
+        0.9,
+        0.25
+      ],
+      "reasons": [
+        "Správně odmítá silent TypeError a navrhuje finalContent pro scorer, persist i output; drobně zaměňuje původní vnější catch za vnitřní swallow.",
+        "Pouze obecná reprodukce needsRefinement a starého výstupu; chybí asserty opravené hodnoty a neměnnosti originálu."
+      ]
+    },
+    {
+      "id": "33e5ec44-e78c-4ba8-afb7-6714a6dce1b6",
+      "task": "r1_immutable_refinement",
+      "label": "D",
+      "repeat": 2,
+      "ratings": [
+        0.9,
+        0.25
+      ],
+      "reasons": [
+        "Správný závěr frozen getter → swallowed TypeError → starý obsah; finalContent do všech downstream hranic.",
+        "Popisuje trigger a starý výstup, ale bez explicitních očekávání pro scorer a původní objekt v opravené cestě."
+      ]
+    },
+    {
+      "id": "38a0e876-7ffb-42b9-a97f-916cf154e513",
+      "task": "r1_immutable_refinement",
+      "label": "D",
+      "repeat": 3,
+      "ratings": [
+        0.9,
+        0.25
+      ],
+      "reasons": [
+        "Správně identifikuje silent fail, stale scorer/DB/return a opravu pomocí finalContent, bez vymyšlených descriptor požadavků.",
+        "Reprodukuje `bad`/`good` assignment, ale netestuje sjednocení vydaného obsahu a scoreru po opravě."
+      ]
+    },
+    {
+      "id": "1745b7b0-c672-4726-add2-12fb5112d995",
+      "task": "r1_model_cleanup",
+      "label": "A",
+      "repeat": 1,
+      "ratings": [
+        null,
+        null
+      ],
+      "reasons": [
+        "TASK_ISSUE: Veřejné zadání/review diff neobsahuje DDL role PRIMARY KEY a previous_model NOT NULL; rubrika boduje kontrolu NULL/duplicit, jejichž vznik dodané schéma zakazuje. Bez tohoto kontextu nelze platnou revizi porovnat s referencí.",
+        "TASK_ISSUE: Veřejné zadání/review diff neobsahuje DDL role PRIMARY KEY a previous_model NOT NULL; rubrika boduje kontrolu NULL/duplicit, jejichž vznik dodané schéma zakazuje. Bez tohoto kontextu nelze platnou revizi porovnat s referencí."
+      ]
+    },
+    {
+      "id": "5d1c6a7b-9f6b-492b-a045-dcfd7cab0dd0",
+      "task": "r1_model_cleanup",
+      "label": "A",
+      "repeat": 2,
+      "ratings": [
+        null,
+        null
+      ],
+      "reasons": [
+        "TASK_ISSUE: Veřejné zadání/review diff neobsahuje DDL role PRIMARY KEY a previous_model NOT NULL; rubrika boduje kontrolu NULL/duplicit, jejichž vznik dodané schéma zakazuje. Bez tohoto kontextu nelze platnou revizi porovnat s referencí.",
+        "TASK_ISSUE: Veřejné zadání/review diff neobsahuje DDL role PRIMARY KEY a previous_model NOT NULL; rubrika boduje kontrolu NULL/duplicit, jejichž vznik dodané schéma zakazuje. Bez tohoto kontextu nelze platnou revizi porovnat s referencí."
+      ]
+    },
+    {
+      "id": "5791e33c-5323-48fc-a1c4-bd3fc0483049",
+      "task": "r1_model_cleanup",
+      "label": "A",
+      "repeat": 3,
+      "ratings": [
+        null,
+        null
+      ],
+      "reasons": [
+        "TASK_ISSUE: Veřejné zadání/review diff neobsahuje DDL role PRIMARY KEY a previous_model NOT NULL; rubrika boduje kontrolu NULL/duplicit, jejichž vznik dodané schéma zakazuje. Bez tohoto kontextu nelze platnou revizi porovnat s referencí.",
+        "TASK_ISSUE: Veřejné zadání/review diff neobsahuje DDL role PRIMARY KEY a previous_model NOT NULL; rubrika boduje kontrolu NULL/duplicit, jejichž vznik dodané schéma zakazuje. Bez tohoto kontextu nelze platnou revizi porovnat s referencí."
+      ]
+    },
+    {
+      "id": "abc05ded-5edc-48c0-bc51-5f95d4d9a875",
+      "task": "r1_model_cleanup",
+      "label": "B",
+      "repeat": 1,
+      "ratings": [
+        null,
+        null
+      ],
+      "reasons": [
+        "TASK_ISSUE: Veřejné zadání/review diff neobsahuje DDL role PRIMARY KEY a previous_model NOT NULL; rubrika boduje kontrolu NULL/duplicit, jejichž vznik dodané schéma zakazuje. Bez tohoto kontextu nelze platnou revizi porovnat s referencí.",
+        "TASK_ISSUE: Veřejné zadání/review diff neobsahuje DDL role PRIMARY KEY a previous_model NOT NULL; rubrika boduje kontrolu NULL/duplicit, jejichž vznik dodané schéma zakazuje. Bez tohoto kontextu nelze platnou revizi porovnat s referencí."
+      ]
+    },
+    {
+      "id": "124d8e2f-0659-4c92-b3d7-1d3c6e8983a4",
+      "task": "r1_model_cleanup",
+      "label": "B",
+      "repeat": 2,
+      "ratings": [
+        null,
+        null
+      ],
+      "reasons": [
+        "TASK_ISSUE: Veřejné zadání/review diff neobsahuje DDL role PRIMARY KEY a previous_model NOT NULL; rubrika boduje kontrolu NULL/duplicit, jejichž vznik dodané schéma zakazuje. Bez tohoto kontextu nelze platnou revizi porovnat s referencí.",
+        "TASK_ISSUE: Veřejné zadání/review diff neobsahuje DDL role PRIMARY KEY a previous_model NOT NULL; rubrika boduje kontrolu NULL/duplicit, jejichž vznik dodané schéma zakazuje. Bez tohoto kontextu nelze platnou revizi porovnat s referencí."
+      ]
+    },
+    {
+      "id": "ba30e7c3-1a05-4d73-afc6-a30962e41ef8",
+      "task": "r1_model_cleanup",
+      "label": "B",
+      "repeat": 3,
+      "ratings": [
+        null,
+        null
+      ],
+      "reasons": [
+        "TASK_ISSUE: Veřejné zadání/review diff neobsahuje DDL role PRIMARY KEY a previous_model NOT NULL; rubrika boduje kontrolu NULL/duplicit, jejichž vznik dodané schéma zakazuje. Bez tohoto kontextu nelze platnou revizi porovnat s referencí.",
+        "TASK_ISSUE: Veřejné zadání/review diff neobsahuje DDL role PRIMARY KEY a previous_model NOT NULL; rubrika boduje kontrolu NULL/duplicit, jejichž vznik dodané schéma zakazuje. Bez tohoto kontextu nelze platnou revizi porovnat s referencí."
+      ]
+    },
+    {
+      "id": "b2253264-cd53-440c-b885-f534b3df2580",
+      "task": "r1_model_cleanup",
+      "label": "C",
+      "repeat": 1,
+      "ratings": [
+        null,
+        null
+      ],
+      "reasons": [
+        "TASK_ISSUE: Veřejné zadání/review diff neobsahuje DDL role PRIMARY KEY a previous_model NOT NULL; rubrika boduje kontrolu NULL/duplicit, jejichž vznik dodané schéma zakazuje. Bez tohoto kontextu nelze platnou revizi porovnat s referencí.",
+        "TASK_ISSUE: Veřejné zadání/review diff neobsahuje DDL role PRIMARY KEY a previous_model NOT NULL; rubrika boduje kontrolu NULL/duplicit, jejichž vznik dodané schéma zakazuje. Bez tohoto kontextu nelze platnou revizi porovnat s referencí."
+      ]
+    },
+    {
+      "id": "fe08b06e-d224-4070-b0fa-fba65273ffa8",
+      "task": "r1_model_cleanup",
+      "label": "C",
+      "repeat": 2,
+      "ratings": [
+        null,
+        null
+      ],
+      "reasons": [
+        "TASK_ISSUE: Veřejné zadání/review diff neobsahuje DDL role PRIMARY KEY a previous_model NOT NULL; rubrika boduje kontrolu NULL/duplicit, jejichž vznik dodané schéma zakazuje. Bez tohoto kontextu nelze platnou revizi porovnat s referencí.",
+        "TASK_ISSUE: Veřejné zadání/review diff neobsahuje DDL role PRIMARY KEY a previous_model NOT NULL; rubrika boduje kontrolu NULL/duplicit, jejichž vznik dodané schéma zakazuje. Bez tohoto kontextu nelze platnou revizi porovnat s referencí."
+      ]
+    },
+    {
+      "id": "f002d444-9749-4e89-982a-2f9b3ed99d36",
+      "task": "r1_model_cleanup",
+      "label": "C",
+      "repeat": 3,
+      "ratings": [
+        null,
+        null
+      ],
+      "reasons": [
+        "TASK_ISSUE: Veřejné zadání/review diff neobsahuje DDL role PRIMARY KEY a previous_model NOT NULL; rubrika boduje kontrolu NULL/duplicit, jejichž vznik dodané schéma zakazuje. Bez tohoto kontextu nelze platnou revizi porovnat s referencí.",
+        "TASK_ISSUE: Veřejné zadání/review diff neobsahuje DDL role PRIMARY KEY a previous_model NOT NULL; rubrika boduje kontrolu NULL/duplicit, jejichž vznik dodané schéma zakazuje. Bez tohoto kontextu nelze platnou revizi porovnat s referencí."
+      ]
+    },
+    {
+      "id": "0f81b3e4-e9db-4c22-ba6c-6dfbc617d953",
+      "task": "r1_model_cleanup",
+      "label": "D",
+      "repeat": 1,
+      "ratings": [
+        null,
+        null
+      ],
+      "reasons": [
+        "TASK_ISSUE: Veřejné zadání/review diff neobsahuje DDL role PRIMARY KEY a previous_model NOT NULL; rubrika boduje kontrolu NULL/duplicit, jejichž vznik dodané schéma zakazuje. Bez tohoto kontextu nelze platnou revizi porovnat s referencí.",
+        "TASK_ISSUE: Veřejné zadání/review diff neobsahuje DDL role PRIMARY KEY a previous_model NOT NULL; rubrika boduje kontrolu NULL/duplicit, jejichž vznik dodané schéma zakazuje. Bez tohoto kontextu nelze platnou revizi porovnat s referencí."
+      ]
+    },
+    {
+      "id": "b8a29057-113d-4e18-b9fd-9e8c93a00199",
+      "task": "r1_model_cleanup",
+      "label": "D",
+      "repeat": 2,
+      "ratings": [
+        null,
+        null
+      ],
+      "reasons": [
+        "TASK_ISSUE: Veřejné zadání/review diff neobsahuje DDL role PRIMARY KEY a previous_model NOT NULL; rubrika boduje kontrolu NULL/duplicit, jejichž vznik dodané schéma zakazuje. Bez tohoto kontextu nelze platnou revizi porovnat s referencí.",
+        "TASK_ISSUE: Veřejné zadání/review diff neobsahuje DDL role PRIMARY KEY a previous_model NOT NULL; rubrika boduje kontrolu NULL/duplicit, jejichž vznik dodané schéma zakazuje. Bez tohoto kontextu nelze platnou revizi porovnat s referencí."
+      ]
+    },
+    {
+      "id": "cc8ff17d-ef86-4238-9bd3-476a0c6fd618",
+      "task": "r1_model_cleanup",
+      "label": "D",
+      "repeat": 3,
+      "ratings": [
+        null,
+        null
+      ],
+      "reasons": [
+        "TASK_ISSUE: Veřejné zadání/review diff neobsahuje DDL role PRIMARY KEY a previous_model NOT NULL; rubrika boduje kontrolu NULL/duplicit, jejichž vznik dodané schéma zakazuje. Bez tohoto kontextu nelze platnou revizi porovnat s referencí.",
+        "TASK_ISSUE: Veřejné zadání/review diff neobsahuje DDL role PRIMARY KEY a previous_model NOT NULL; rubrika boduje kontrolu NULL/duplicit, jejichž vznik dodané schéma zakazuje. Bez tohoto kontextu nelze platnou revizi porovnat s referencí."
+      ]
+    },
+    {
+      "id": "8a199377-b5ea-4922-806f-71c237a95dde",
+      "task": "r1_model_lease",
+      "label": "A",
+      "repeat": 1,
+      "ratings": [
+        0.75,
+        0.25
+      ],
+      "reasons": [
+        "Správně vidí BINDING_CUTOVER v SHARED a chybějící reservaci obou identit v calleru; spekuluje, že shared nemusí blokovat delete, ač #lease to zajišťuje po získání.",
+        "Zmiňuje konflikt a uvolnění, ale netestuje zero provider mutations, konflikt druhého jména a všechny exit paths jako pozorovatelné výsledky."
+      ]
+    },
+    {
+      "id": "8b9ffec0-9975-454a-be02-294fd81c7cc8",
+      "task": "r1_model_lease",
+      "label": "A",
+      "repeat": 2,
+      "ratings": [
+        0.8,
+        0.35
+      ],
+      "reasons": [
+        "Správná taxonomie a správný požadavek caller acquire obou jmen s partial release; chybně považuje přímé vyloučení MODEL_DELETE za nedostatek SHARED, ačkoli je v #lease.",
+        "Nastiňuje selhání druhé akvizice a uvolnění první; neukazuje assert nulových provider mutations ani úplnou matici success/error/rollback."
+      ]
+    },
+    {
+      "id": "c9f47993-888b-4e89-b145-e7a429fe3832",
+      "task": "r1_model_lease",
+      "label": "A",
+      "repeat": 3,
+      "ratings": [
+        0.7,
+        0.25
+      ],
+      "reasons": [
+        "Vidí nezapojeného caller a potřebu držet obě lease; vlastní check na exclusive opakuje pravidlo #lease a spoléhá na nedoložený runtime deadlock.",
+        "Má popis konfliktu před cutoverem, nikoli delete během držené lease se zero mutations; ostatní release jen požaduje."
+      ]
+    },
+    {
+      "id": "fb714cd0-1aae-4f2f-ad92-25f27e4633fb",
+      "task": "r1_model_lease",
+      "label": "B",
+      "repeat": 1,
+      "ratings": [
+        0.45,
+        0.4
+      ],
+      "reasons": [
+        "Správně identifikuje, že diff pouze zavádí owner a caller lease nebere; současně tvrdí, že SHARED neblokuje EXCLUSIVE delete, což odporuje #lease.",
+        "Uvede konkrétní souběžný delete a druhý konflikt s release prvního, ale chybí úspěch/error/rollback a nulové mutace providera."
+      ]
+    },
+    {
+      "id": "e938c7ea-0774-41ad-a997-2b9ddcc3f78e",
+      "task": "r1_model_lease",
+      "label": "B",
+      "repeat": 2,
+      "ratings": [
+        0.7,
+        0.35
+      ],
+      "reasons": [
+        "Po sebekorekci uznává, že SHARED zablokuje delete, a správně požaduje caller akvizici; nadhodnocuje nutnost nové atomické API navzdory synchronnímu pořadí a unwindu.",
+        "Nastiňuje cutover/delete a partial release, ale bez přesných expected provider mutations a úplných terminal paths."
+      ]
+    },
+    {
+      "id": "a5fcd8c8-f838-4518-860c-9760ef45948b",
+      "task": "r1_model_lease",
+      "label": "B",
+      "repeat": 3,
+      "ratings": [
+        0.75,
+        0.4
+      ],
+      "reasons": [
+        "Správně interpretuje SHARED vs EXCLUSIVE a caller gap včetně finally/partial release; dřívější tvrzení o režimu si výslovně opraví.",
+        "Uvádí scénář druhé konfliktní identity a očekávaný release, ale ne úplné tři testy požadovaných výstupů."
+      ]
+    },
+    {
+      "id": "8ea30b1d-71c4-4b0d-b73b-53eb09ec9855",
+      "task": "r1_model_lease",
+      "label": "C",
+      "repeat": 1,
+      "ratings": [
+        0.55,
+        0.25
+      ],
+      "reasons": [
+        "Správně požaduje caller obě lease, ale úvodem tvrdí, že SHARED nezabrání delete; navrhuje EXCLUSIVE pro cutover proti požadovanému souběhu čtenářů.",
+        "Scénář partial acquisition uvádí bez provider zero-mutation a měření release po všech cestách."
+      ]
+    },
+    {
+      "id": "dcfb65c0-088b-49ee-b6dd-a8bf4713ce4f",
+      "task": "r1_model_lease",
+      "label": "C",
+      "repeat": 2,
+      "ratings": [
+        0.55,
+        0.35
+      ],
+      "reasons": [
+        "Uznává správnou taxonomii a nutnost dvou rezervací, ale nesprávně ztotožní krátkou synchronní akvizici s neřešitelnou atomickou race; fail-fast plus unwind je dostačující.",
+        "Ukazuje druhou konfliktní identitu a návrh release první; chybí měřené delete mutations a jednotlivé konce."
+      ]
+    },
+    {
+      "id": "7c61dee0-5c24-45f3-a3dd-c8b8ce5f9fde",
+      "task": "r1_model_lease",
+      "label": "C",
+      "repeat": 3,
+      "ratings": [
+        0.55,
+        0.35
+      ],
+      "reasons": [
+        "Správně rozlišuje taxonomii a chybějící caller, avšak pokládá nové multi-lease API za nutnou podmínku místo synchronních acquire + finally; konflikt mezi první a druhou akvizicí je fail-closed.",
+        "Konflikt druhé lease je naznačen, ale chybí přesné asserty pro zero provider mutations a release ve všech koncích."
+      ]
+    },
+    {
+      "id": "19c66700-153c-4f6b-a75d-7adbf9702356",
+      "task": "r1_model_lease",
+      "label": "D",
+      "repeat": 1,
+      "ratings": [
+        0.7,
+        0.25
+      ],
+      "reasons": [
+        "Správně oceňuje SHARED taxonomy a vyžaduje ochranu obou modelů v calleru; vedlejší tvrzení, že concurrent LLM_GATEWAY ruší cutover, odporuje povolenému sdílení.",
+        "Uvede pouze hypotetický delete během cutoveru, bez tří rozlišovacích kontrol a výsledků."
+      ]
+    },
+    {
+      "id": "bfb52bb4-e032-44f2-a1d5-35055b5454ad",
+      "task": "r1_model_lease",
+      "label": "D",
+      "repeat": 2,
+      "ratings": [
+        0.55,
+        0.1
+      ],
+      "reasons": [
+        "Správně označuje přidaný owner za potřebný a caller evidence za chybějící; tvrzení, že single-name API neumí bezpečný cutover, přehlíží dvě synchronní lease s unwindem.",
+        "Žádný konkrétní test s očekávanou provider mutací či release počtem."
+      ]
+    },
+    {
+      "id": "e9cea0c8-debe-4515-b557-5a03912ad5db",
+      "task": "r1_model_lease",
+      "label": "D",
+      "repeat": 3,
+      "ratings": [
+        0.65,
+        0.15
+      ],
+      "reasons": [
+        "Správně chápe SHARED taxonomy a caller lifecycle jako chybějící; novou atomickou multi-lease API prezentuje jako nutnost, ačkoli kontrakt dovoluje synchronní sekvenci s partial release.",
+        "Uvádí obecnou race hypotézu bez pozorovatelné trojice testů."
+      ]
+    },
+    {
+      "id": "489d40b7-2019-4992-ac59-390e53030c0e",
+      "task": "r1_pairwise_confidence",
+      "label": "A",
+      "repeat": 1,
+      "ratings": [
+        0.7,
+        0.35
+      ],
+      "reasons": [
+        "Správně odmítá 1.25→1.5, protože i 1.5× vybírá z neprůkazné kvality; nevysvětluje jediný rozlišující scénář ani závislé varianty.",
+        "Dává příklad shodné kvality a 1.3× rychlosti, který nový práh zamítne; neprokazuje selhání 1.5× ani korelované skupiny."
+      ]
+    },
+    {
+      "id": "41dac1db-ffcb-4202-a943-8a6091335bd9",
+      "task": "r1_pairwise_confidence",
+      "label": "A",
+      "repeat": 2,
+      "ratings": [
+        0.15,
+        0.15
+      ],
+      "reasons": [
+        "Navržený 1.5 práh označuje za přijatelnou opravu, ačkoli rychlost stále vítězí bez noninferiority a jedna rozlišující úloha zůstává bez podpory.",
+        "Příklad 1.26× pouze ukazuje, že nový práh zastaví jedinou rychlost, ne požadované blokace."
+      ]
+    },
+    {
+      "id": "981f9041-9db3-46e2-8492-6d4ed2c63482",
+      "task": "r1_pairwise_confidence",
+      "label": "A",
+      "repeat": 3,
+      "ratings": [
+        0.15,
+        0.15
+      ],
+      "reasons": [
+        "Schvaluje změnu na 1.5× a zachovává speed-only větev pro inconclusive quality; to je přímo popřením kontraktu.",
+        "Příklad 1.3× demonstruje jen chování mezi prahy, ne 1.5× a chybějící quality bound."
+      ]
+    },
+    {
+      "id": "bffe77c5-018a-40cc-b416-9aec6bf2ada4",
+      "task": "r1_pairwise_confidence",
+      "label": "B",
+      "repeat": 1,
+      "ratings": [
+        0.1,
+        0.1
+      ],
+      "reasons": [
+        "Schvaluje práh 1.5× jako opravu; inconclusive kvalita ani přes tento práh neznamená nezhoršení.",
+        "Není konkrétní test jedné skupiny, korelace ani 1.5× bez noninferiority."
+      ]
+    },
+    {
+      "id": "0942e5c2-229b-423c-b832-174f4be4c484",
+      "task": "r1_pairwise_confidence",
+      "label": "B",
+      "repeat": 2,
+      "ratings": [
+        0.1,
+        0.2
+      ],
+      "reasons": [
+        "Přijímá 1.5× patch, který stále mění model z neprokázané kvality; správné poznámky o grouping neopravují verdikt.",
+        "Testuje jen starý poměr 1.25–1.5, nikoli nový selhávající poměr ≥1.5 nebo jednu skupinu."
+      ]
+    },
+    {
+      "id": "09575337-2e99-42cb-b72b-20c1d84f3ea7",
+      "task": "r1_pairwise_confidence",
+      "label": "B",
+      "repeat": 3,
+      "ratings": [
+        0.75,
+        0.35
+      ],
+      "reasons": [
+        "Správně odmítá speed-only vítěze i po zvýšení prahu a chce uchovat losses; nezachycuje jedno-discriminating-task cestu.",
+        "Zmiňuje úlohy bez rozlišení a rychlost, ale bez konkrétních grouped fixture či quality CI očekávání."
+      ]
+    },
+    {
+      "id": "9f5f2a69-8156-469f-8647-c7962d70ca26",
+      "task": "r1_pairwise_confidence",
+      "label": "C",
+      "repeat": 1,
+      "ratings": [
+        0.85,
+        0.5
+      ],
+      "reasons": [
+        "Odmítá patch s konkrétním ratio 1.67 a nulovým quality důkazem; správně vyžaduje insufficient evidence, ale nezpracuje jedinou diskriminující úlohu.",
+        "Konkrétní inconclusive/1.67 očekávaný incumbent test; chybí test jediné skupiny a korelovaných variant."
+      ]
+    },
+    {
+      "id": "397c131d-37d4-4860-84c9-64e36951fa3c",
+      "task": "r1_pairwise_confidence",
+      "label": "C",
+      "repeat": 2,
+      "ratings": [
+        0.75,
+        0.45
+      ],
+      "reasons": [
+        "Správně odmítá speed-only při 1.6× a popisuje riziko lossy quality; vedlejší diagnóza o opakováních bez nezávislosti je přehnaná bez calleru.",
+        "Konkrétní nulová kvalita a 1.6×, ale ne skupinové varianty a jednu diskriminující skupinu."
+      ]
+    },
+    {
+      "id": "86f1d465-4ad0-4d1c-b287-51750bb0771b",
+      "task": "r1_pairwise_confidence",
+      "label": "C",
+      "repeat": 3,
+      "ratings": [
+        0.9,
+        0.5
+      ],
+      "reasons": [
+        "Přesně odvozuje inconclusive→speed≥1.5→candidate, uznává, že současný reducer uchovává candidateWins i incumbentWins; jediná skupina zůstává nezmíněná.",
+        "Dává vstup 160/100 a expected špatný winner; skupinovou korelaci a jediné rozlišení nedokládá testem."
+      ]
+    },
+    {
+      "id": "e6362d80-24cb-4ad9-9cec-5d621d034365",
+      "task": "r1_pairwise_confidence",
+      "label": "D",
+      "repeat": 1,
+      "ratings": [
+        0.8,
+        0.35
+      ],
+      "reasons": [
+        "Správně odmítá záměnu nerozhodnosti za rovnocennost a navrhuje quality bound; vedlejší teze o výpadku loss evidence v reduceru není doložená.",
+        "Příklad 1.3× by nový patch již ponechal incumbent; chybí kontrapříklad ≥1.5× a grouping."
+      ]
+    },
+    {
+      "id": "cd2d7f8f-fe09-466e-870a-a1528a1b7fb1",
+      "task": "r1_pairwise_confidence",
+      "label": "D",
+      "repeat": 2,
+      "ratings": [
+        0.5,
+        0.35
+      ],
+      "reasons": [
+        "Rozpozná vadný speed-only závěr a quality loss, ale alternativní kód opět dovolí rychlosti rozhodnout při neurčité quality bez noninferiority; počty wins ve větvi nemusí rozlišit ztrátu.",
+        "Scénář ztráta 0.05/spread 0.10 a 1.3× se pod novým prahem nespustí; chybí test 1.5×, jednoho případu a variant."
+      ]
+    },
+    {
+      "id": "5564d24d-82ae-4916-880f-98285d74536a",
+      "task": "r1_pairwise_confidence",
+      "label": "D",
+      "repeat": 3,
+      "ratings": [
+        0.65,
+        0.35
+      ],
+      "reasons": [
+        "Odmítá zvýšení prahu jako nedostatečné, avšak alternativní rozhodnutí stále někdy opírá o speed a counts bez quality bound; zveličuje chybějící history.",
+        "Ukazuje 1.05/1.3× na starém prahu, nikoli 1.5× a korelovaný scénář."
+      ]
+    },
+    {
+      "id": "e35c7b27-1256-4401-a04e-7dc8bea1e471",
+      "task": "r1_verification_timeout",
+      "label": "A",
+      "repeat": 1,
+      "ratings": [
+        0.6,
+        0.2
+      ],
+      "reasons": [
+        "Přijímá správný finally cleanup pro network throw, ale tvrdí, že původní timer zůstává i po JSON parse selhání; původní clearTimeout už proběhl po hlavičkách.",
+        "Přímo reprodukuje pouze síťové selhání, bez non-OK, JSON reject a úspěšných hlaviček se spy na timer."
+      ]
+    },
+    {
+      "id": "8df5f604-7906-434b-aaa3-28e56fa3dbec",
+      "task": "r1_verification_timeout",
+      "label": "A",
+      "repeat": 2,
+      "ratings": [
+        0.6,
+        0.2
+      ],
+      "reasons": [
+        "Správně přijímá finally pro network reject a zachování false; mylně počítá JSON parse failure mezi únikové cesty původního kódu.",
+        "Nabízí jen invalid URL a pozorování timeru, ne čtyři potřebné branch fixture."
+      ]
+    },
+    {
+      "id": "5ffa59cd-0c1e-4222-a9c3-bd7217fb6f5e",
+      "task": "r1_verification_timeout",
+      "label": "A",
+      "repeat": 3,
+      "ratings": [
+        0.55,
+        0.2
+      ],
+      "reasons": [
+        "Správně přijímá cleanup při fetch throw, ale chybně tvrdí, že původní non-OK a JSON parse větve přeskočí clearTimeout, který stojí před nimi.",
+        "Mockuje network failure, ostatní tři větve a header deadline neověřuje."
+      ]
+    },
+    {
+      "id": "044d0fa7-b976-4ab5-8da2-b03fbd93d6dc",
+      "task": "r1_verification_timeout",
+      "label": "B",
+      "repeat": 1,
+      "ratings": [
+        0.8,
+        0.2
+      ],
+      "reasons": [
+        "Správně vysvětluje network reject → catch bez původního clear a finally opravu; větší scope oproti header boundary netvrdí.",
+        "Ověřuje jen error s přetrvávajícím timerem; chybí explicitní non-OK, JSON reject a success checks."
+      ]
+    },
+    {
+      "id": "f2d412f8-4339-4563-9d74-4e47c8f9ae05",
+      "task": "r1_verification_timeout",
+      "label": "B",
+      "repeat": 2,
+      "ratings": [
+        0.8,
+        0.2
+      ],
+      "reasons": [
+        "Přijímá omezenou timer-lifetime změnu a nezasahuje return false; alternativní kód ponechává původní clear po fetch.",
+        "Pouze obecná simulace network failure, další větve nemají očekávané měření timerů."
+      ]
+    },
+    {
+      "id": "b3eb2562-eac1-4275-8147-5b87457e06f7",
+      "task": "r1_verification_timeout",
+      "label": "B",
+      "repeat": 3,
+      "ratings": [
+        0.8,
+        0.2
+      ],
+      "reasons": [
+        "Správně odvozuje síťovou cestu s přetrvávajícím timerem a přínos finally pro rollback/retry; nedokládá ale širší body deadline.",
+        "Reprodukuje network throw, ne úplnou matici non-OK/JSON reject/success."
+      ]
+    },
+    {
+      "id": "1bdfcf72-de11-47d8-952e-073e0026fd88",
+      "task": "r1_verification_timeout",
+      "label": "C",
+      "repeat": 1,
+      "ratings": [
+        0.8,
+        0.2
+      ],
+      "reasons": [
+        "Přijímá správnou bounded opravu; popisuje network throw a finally. Výrok o clear na každém konci je pravdivý, ale body read deadline neprokazuje.",
+        "Rozlišuje jen selhání fetch; bez konkrétního spy na timer v dalších třech cestách."
+      ]
+    },
+    {
+      "id": "ac77ceeb-0962-4449-a686-990244ca984e",
+      "task": "r1_verification_timeout",
+      "label": "C",
+      "repeat": 2,
+      "ratings": [
+        0.8,
+        0.2
+      ],
+      "reasons": [
+        "Správně přijímá finally a připouští clearTimeout(undefined) jako no-op; nevydává nové body-read SLA.",
+        "Reprodukce network error je konkrétní, další tři požadované větve nejsou oddělené."
+      ]
+    },
+    {
+      "id": "5e7a5fb2-af74-48a4-b975-6db1b5a91d95",
+      "task": "r1_verification_timeout",
+      "label": "C",
+      "repeat": 3,
+      "ratings": [
+        0.85,
+        0.25
+      ],
+      "reasons": [
+        "Správně přijímá změnu a ví, že původní clear po fetch dělá JSON reject již bezpečný; caller boolean zůstává.",
+        "Mock fetch throw má očekávaný timer cleanup; ostatní větev pouze popisuje, bez čtyř fixture."
+      ]
+    },
+    {
+      "id": "738ea210-d685-44b6-ab70-55de00597910",
+      "task": "r1_verification_timeout",
+      "label": "D",
+      "repeat": 1,
+      "ratings": [
+        0.65,
+        0.2
+      ],
+      "reasons": [
+        "Správně přijímá finally a dvojí clear hodnotí jako neškodný, ale zároveň nesprávně píše, že diff původní clearTimeout odstranil.",
+        "Čtyři exit paths vypočítává bez konkrétních mocků a očekávaných timer count."
+      ]
+    },
+    {
+      "id": "1666a06d-3b55-4e27-8072-8d4fe759b5f6",
+      "task": "r1_verification_timeout",
+      "label": "D",
+      "repeat": 2,
+      "ratings": [
+        0.85,
+        0.2
+      ],
+      "reasons": [
+        "Správně rozpozná původní clear po hlavičkách, dvojí clear a finally pro throw; drží omezený scope.",
+        "Konkrétně trasuje fetch reject, ale netestuje non-OK, JSON reject ani úspěšné hlavičky."
+      ]
+    },
+    {
+      "id": "9c1af9dc-b55e-4fcd-9a53-62a143d518e1",
+      "task": "r1_verification_timeout",
+      "label": "D",
+      "repeat": 3,
+      "ratings": [
+        0.75,
+        0.2
+      ],
+      "reasons": [
+        "Správně přijímá finally a zachování boolean kontraktu; mluví o přesunu clear ač diff původní clear ponechává.",
+        "Exit paths popisuje bez asertovaných timer lifecycle kontrol."
+      ]
+    },
+    {
+      "id": "7b188beb-c67d-4585-8e1b-12227d42f286",
+      "task": "r1_metrics_flush",
+      "label": "A",
+      "repeat": 1,
+      "ratings": [
+        0.45,
+        0.3
+      ],
+      "reasons": [
+        "Nakonec uzná slice před tx a splice po úspěchu, ale dlouho označuje hypotetickou asynchronní race za blokující, ačkoli _flush i tx jsou synchronní.",
+        "Popisuje selhání tří událostí a úspěch; pozdější event při synchronním běhu netestuje realisticky."
+      ]
+    },
+    {
+      "id": "a60dd9b3-2c81-4195-b9d3-f6662a036d5e",
+      "task": "r1_metrics_flush",
+      "label": "A",
+      "repeat": 2,
+      "ratings": [
+        0.5,
+        0.3
+      ],
+      "reasons": [
+        "Konečný závěr přijímá správný commit ordering; předchozí rozsáhlé tvrzení o data loss při uchovaném bufferu si odporuje a vede k nepodloženému blocking reportu.",
+        "Má selhání a úspěch, chybí konkrétní ověření zachování později přidaných eventů."
+      ]
+    },
+    {
+      "id": "55095004-91a5-45e9-a388-352175f1306e",
+      "task": "r1_metrics_flush",
+      "label": "A",
+      "repeat": 3,
+      "ratings": [
+        0.45,
+        0.3
+      ],
+      "reasons": [
+        "Uzná, že slice zachová batch při throw, ale blokuje diff kvůli spekulativnímu idle retry bez důkazu o stávajícím timeru/backoffu; scope repair přestřeluje.",
+        "Reprodukuje failed batch; neověřuje committed prefix a nové události."
+      ]
+    },
+    {
+      "id": "6d76be0c-b111-4f64-b7ae-8bcc4fc4c898",
+      "task": "r1_metrics_flush",
+      "label": "B",
+      "repeat": 1,
+      "ratings": [
+        0.9,
+        0.5
+      ],
+      "reasons": [
+        "Správně přijímá lokální opravu: splice až po úspěšném tx; odděluje chybějící unikátní klíč jako nejistotu. Hypotetická síťová chyba po lokálním SQLite commitu není doložena.",
+        "Srovnává 3-event rollback a úspěšné vyprázdnění; nově přidané eventy pouze komentuje, netestuje."
+      ]
+    },
+    {
+      "id": "15ba285f-3cd6-4c1a-a137-a3cf53f3091c",
+      "task": "r1_metrics_flush",
+      "label": "B",
+      "repeat": 2,
+      "ratings": [
+        0.85,
+        0.5
+      ],
+      "reasons": [
+        "Správně rozlišuje slice před synchronním tx, splice committed prefix a neprokázanou exactly-once; naznačuje asynchronní změny, ale nepokládá je za běžnou race.",
+        "Konkrétní failure a success, plus předpoklad nově přidaných událostí; chybí oddělené očekávané testovací vstupy pro prefix/later."
+      ]
+    },
+    {
+      "id": "f6d2d37e-a342-4f69-b7dd-b81be1ddf8c6",
+      "task": "r1_metrics_flush",
+      "label": "B",
+      "repeat": 3,
+      "ratings": [
+        0.85,
+        0.5
+      ],
+      "reasons": [
+        "Správně přijímá repair a izoluje memory growth/INSERT OR IGNORE bez unique constraint jako omezení; nepřepisuje je na provedenu bezpečnost.",
+        "Test failed a success batch je konkrétní, later additions pouze odvozuje bez kontrolní fixture."
+      ]
+    },
+    {
+      "id": "c1dc6d81-b4aa-420a-acc7-af320c4b5031",
+      "task": "r1_metrics_flush",
+      "label": "C",
+      "repeat": 1,
+      "ratings": [
+        0.8,
+        0.5
+      ],
+      "reasons": [
+        "Správně přijímá slice→tx→splice a zachování 3 pending eventů; věta o automaticky zajištěném retry není plně doložena z dodaných hranic.",
+        "Navrhuje DB throw se třemi eventy a retry, úspěšné očištění, nikoli explicitní pozdější event."
+      ]
+    },
+    {
+      "id": "354a23e9-4a4b-4a6e-866c-34a4a5c2e8fa",
+      "task": "r1_metrics_flush",
+      "label": "C",
+      "repeat": 2,
+      "ratings": [
+        0.7,
+        0.4
+      ],
+      "reasons": [
+        "Správný bounded buffer fix, ale slibuje durable idempotency evidence a retry scheduling, které diff ani ukázané schéma nedokládají.",
+        "Obsahuje selhání i success, ale chybí nový event oddělený od committed prefix."
+      ]
+    },
+    {
+      "id": "2bc37463-000c-4038-af8f-89417229892f",
+      "task": "r1_metrics_flush",
+      "label": "C",
+      "repeat": 3,
+      "ratings": [
+        0.8,
+        0.5
+      ],
+      "reasons": [
+        "Správně přijímá fail-preserving buffer a po commitu odstraněný prefix; přidává nadbytečný idempotency test bez schématu.",
+        "Konkrétní tři eventy při throw a následný success; netestuje zachování nově připojených eventů."
+      ]
+    },
+    {
+      "id": "868a54fd-b3a8-4c30-ae23-462ca7d5a3b5",
+      "task": "r1_metrics_flush",
+      "label": "D",
+      "repeat": 1,
+      "ratings": [
+        0.55,
+        0.4
+      ],
+      "reasons": [
+        "Po úvodním chybném blocking titulku opraví závěr na přijetí; správně uvádí, že SQLite transakce je synchronní, ale buffer growth podává jako aktuální hrozbu bez rozpočtu.",
+        "Sleduje failure/success, pozdější události bez konkrétního asertu."
+      ]
+    },
+    {
+      "id": "a77220e1-487a-44dd-9073-b250df2b7c49",
+      "task": "r1_metrics_flush",
+      "label": "D",
+      "repeat": 2,
+      "ratings": [
+        0.65,
+        0.45
+      ],
+      "reasons": [
+        "Po úvodním tvrzení, že patch maže před commitem, sám trasuje opak a přijímá; rozsáhlý rozpor snižuje důvěru závěru.",
+        "Má před/po příklad A,B,C a tx throw, ale neumísťuje pozdější událost do samostatného expected testu."
+      ]
+    },
+    {
+      "id": "39c7c1f7-84af-484b-93e7-870563575b2e",
+      "task": "r1_metrics_flush",
+      "label": "D",
+      "repeat": 3,
+      "ratings": [
+        0.25,
+        0.3
+      ],
+      "reasons": [
+        "Sám potvrzuje, že slice uchová batch a splice je až po commitu, přesto patch odmítá kvůli dlouhodobému memory growth; to je provozní limit, ne vada této bounded opravy.",
+        "Příklad 10→20 při trvalé DB chybě sleduje růst, ne požadované tři pozitivní testy."
+      ]
+    }
+  ]
+}

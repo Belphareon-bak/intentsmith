@@ -1,10 +1,25 @@
 // Operator handoff 2026-09-19: collect first, adjudicate separately.
 // This profile deliberately has no scoring or judge authority.
+import { captureConversation } from './conversation-capture.js';
 export const COLLECTION_PROFILE = 'role-collection.2';
 export const MAX_MODEL_BYTES = 22_000_000_000;
 
-export function collectionSuite(role, suite) {
-  return { ...suite, version: `${suite.version}+${COLLECTION_PROFILE}`, tests: suite.tests.map(original => {
+export function collectionCoverage(attempts, expectedAttempts) {
+  if (!Array.isArray(attempts) || !Number.isInteger(expectedAttempts) || expectedAttempts < 1) {
+    throw new Error('COLLECTION_COVERAGE_INVALID');
+  }
+  const captured = attempts.filter(attempt => attempt.captureStatus === 'CAPTURED').length;
+  return { captured, complete: attempts.length === expectedAttempts && captured === expectedAttempts };
+}
+
+export function collectionSuite(role, suite, { responseWindow = 'standard' } = {}) {
+  if (!['standard','extended'].includes(responseWindow)
+    || (responseWindow === 'extended' && !['D1','D2','R1','R2'].includes(role))) {
+    throw new Error('COLLECTION_RESPONSE_WINDOW_INVALID');
+  }
+  const profileVersion = responseWindow === 'extended'
+    ? `${COLLECTION_PROFILE}+long-output-common16k.1` : COLLECTION_PROFILE;
+  return { ...suite, version: `${suite.version}+${profileVersion}`, tests: suite.tests.map(original => {
     const additions = [];
     if (original.contractMaterial?.gradingInputs?.oracleCase === 'f63d14d5eb61') additions.push(
       'Upřesnění veřejného API: confidence je řetězec, nikoli číslo. Pro comparison.discriminating === 1 vrať přesně "nízká (jediná úloha)", pro 2 "střední", pro 3 a více "vysoká". Platí pro výhru i prohru založenou na kvalitě.');
@@ -18,18 +33,29 @@ export function collectionSuite(role, suite) {
     };
     const options = { ...original.options,
       ...(['D1','D2','R1','R2'].includes(role) ? { num_predict: 8192, timeout: 600000 } : {}),
+      // R1 model_cleanup exhausted 8192 output tokens in 2/3 observed runs.
+      // Rerun both candidates under this exact, larger profile; never splice
+      // those earlier incomplete attempts into a scored comparison.
+      ...(role === 'R1' && original.name === 'r1_model_cleanup'
+        ? { num_ctx: 24576, num_predict: 16384, timeout: 900000 } : {}),
       ...(role === 'VISION' ? { num_predict: 1024 } : {}),
+      ...(responseWindow === 'extended'
+        ? { num_ctx: 16384, num_predict: 12288, timeout: 900000 } : {}),
     };
     return { ...original, prompt, options, contractMaterial: {
       ...original.contractMaterial,
-      collectionProfile: { version: COLLECTION_PROFILE, additions, options,
+      collectionProfile: { version: profileVersion, additions, options,
         judge: null, scoring: false, tools: [], think: false },
     } };
   }) };
 }
 
-export async function collectAnswer(task, model, artifact, call) {
+export async function collectAnswer(task, model, artifact, call, onTurn) {
   const data = task.prompt();
+  if (data.conversationTurns) {
+    const answer = await captureConversation({ turns: data.conversationTurns, model, artifact, options: task.options, call, onTurn });
+    return { name: task.name, language: task.language || null, ...answer };
+  }
   const messages = structuredClone(data.messages || [{ role: 'user', content: data.text || '' }]);
   if (data.images?.length) messages[messages.length - 1].images = [...data.images];
   // Never call prepare(), validateOracle(), grade(), or a semantic judge here.

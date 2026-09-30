@@ -1,0 +1,48 @@
+{
+  "status": "REVIEW_EVIDENCE_NOT_ACCEPTANCE",
+  "decisionAuthority": false,
+  "baseCommit": "dabb9802daa2159470b724475b3efbed4e8db92f",
+  "auditedCommit": "4849cceab09d1996a4d392d80bb39505c5f02b71",
+  "fullAudit": {
+    "profile": "offline,database",
+    "reportPath": ".intentsmith-artifacts/test-runs/2026-09-25T10-52-22-102Z/report.json",
+    "reportSha256": "201a77b1e16b03c3310d35d22f2bcdc2cd050e515ae3e4715dc7bd6249846a95",
+    "PASS": 364,
+    "FAIL": 2,
+    "BLOCKED": 10,
+    "total": 376,
+    "verdict": "FAIL",
+    "failures": [
+      {
+        "program": "tests/nightly-orchestrator-self-test.js",
+        "reason": "registry hash differs from reviewed Gate 0 policy",
+        "priorEvidence": "docs/review/2026-09-25-GPU-HUNT-GO-REVIEW.md"
+      },
+      {
+        "program": "tests/m6-runtime-evidence.test.js",
+        "reason": "106 migration files versus M6 release constant 105",
+        "baseCommitAlsoMismatched": true
+      }
+    ]
+  },
+  "targeted": {
+    "codePatchSuite": "30/30",
+    "desktopHunt": "40/40",
+    "artifactValidation": "160/160",
+    "chatCaptureProvider": "13/13",
+    "registry": "541 runnable programs valid"
+  },
+  "reviewSupplement": {
+    "packetPath": "/mnt/vi7000/intentsmith/evidence/hunt-isolated-20260925-review/new-only-120/packet.json",
+    "packetSha256": "44d2128b898b08d0856dfc4c497d9f014b635b2784bbf20f1604af1f28c81cf7",
+    "cases": 120,
+    "criteria": 312,
+    "decisionAuthority": false
+  },
+  "chatRubricProbe": {
+    "draftPath": "/mnt/vi7000/intentsmith/evidence/hunt-isolated-20260925-review/chat-corrected-project-v3-draft.json",
+    "draftSha256": "14ea72c46d8429f8bbce169c237a01adce33d0f1626bed0eb2650b978f7598f4",
+    "cases": 4,
+    "decisionAuthority": false
+  }
+}

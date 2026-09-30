@@ -426,6 +426,23 @@ await testAsync('ANSWER provider prompt retains an archived summary after ten ne
   }
 });
 
+test('a verbose answer cannot evict earlier user facts from a three-turn conversation', () => {
+  const systemPrompt = 'Systémová instrukce. '.repeat(145);
+  const history = [
+    { userInput: 'Skupina A má 3 z 10; skupina B má 90 ze 100.' },
+    { response: { content: 'Dlouhá odpověď. '.repeat(120), tag: { speaker: 'system' } } },
+    { userInput: 'Oprava: skupina A má 4 z 10, skupina B zůstává 90 ze 100.' },
+    { response: { content: 'Další dlouhá odpověď. '.repeat(120), tag: { speaker: 'system' } } },
+  ];
+  const result = buildAnswerContext('Napiš opravený vážený průměr.', history, systemPrompt, 2048, 4096);
+  assert.match(result.prompt, /Skupina A má 3 z 10; skupina B má 90 ze 100/);
+  assert.match(result.prompt, /Oprava: skupina A má 4 z 10, skupina B zůstává 90 ze 100/);
+  assert(result.prompt.indexOf('Skupina A má 3 z 10') < result.prompt.indexOf('Oprava: skupina A'));
+  assert(result.maxTokens < 2048);
+  assert(result.maxTokens >= 384);
+  assert(Buffer.byteLength(result.prompt + systemPrompt) / 2 + result.maxTokens + 384 <= 4096);
+});
+
 await testAsync('actual ANSWER continuation bypasses ambiguous classification and retains context and cancellation', async () => {
   const previousCall = llmGateway.call; const previousDecide = creDecisionEngine.decide;
   const calls = []; const abort = new AbortController();

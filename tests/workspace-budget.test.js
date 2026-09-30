@@ -16,6 +16,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import './harness.js';
+import { assertSafeSandbox } from '../scripts/workspace-budget.mjs';
 
 const SOURCE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CLI = path.join(SOURCE_ROOT, 'scripts', 'workspace-budget.mjs');
@@ -120,10 +121,16 @@ try {
   const newRuntime = path.join(artifactRoot, 'run-new', 'runtime');
   const outside = path.join(fixtureRoot, 'outside-runtime');
   const escapedLink = path.join(artifactRoot, 'run-link', 'runtime');
+  const cacheRuntime = path.join(artifactRoot, 'run-old', 'toolchain', 'gomodcache', 'protobuf@1', 'runtime');
+  const sourceRuntime = path.join(artifactRoot, 'run-old', 'source', 'src', 'runtime');
   mkdirSync(oldRuntime, { recursive: true });
   mkdirSync(evidenceRuntime, { recursive: true });
   mkdirSync(newRuntime, { recursive: true });
   mkdirSync(outside, { recursive: true });
+  mkdirSync(cacheRuntime, { recursive: true });
+  mkdirSync(sourceRuntime, { recursive: true });
+  writeFileSync(path.join(cacheRuntime, 'source.go'), 'package runtime\n');
+  writeFileSync(path.join(sourceRuntime, 'source.js'), 'export const value = true;\n');
   mkdirSync(path.dirname(escapedLink), { recursive: true });
   writeFileSync(path.join(oldRuntime, 'state.bin'), 'old');
   writeFileSync(path.join(evidenceRuntime, 'report.json'), '{"verdict":"FAIL"}\n');
@@ -139,6 +146,10 @@ try {
     assert.equal(dryRun.outcome, 'DRY_RUN');
     assert(dryRun.removable.includes(oldRuntime));
     assert(existsSync(oldRuntime));
+    assert(!dryRun.removable.includes(cacheRuntime));
+    assert(!dryRun.removable.includes(sourceRuntime));
+    assert.throws(() => assertSafeSandbox(repo, cacheRuntime, []), /unsafe sandbox target/);
+    assert.throws(() => assertSafeSandbox(repo, sourceRuntime, []), /unsafe sandbox target/);
   });
   check('newest sandbox and evidence-bearing sandbox are retained', () => {
     assert(dryRun.kept.includes(newRuntime));
@@ -155,6 +166,8 @@ try {
     assert.equal(existsSync(path.join(evidenceRuntime, 'report.json')), true);
     assert.equal(existsSync(escapedLink), true);
     assert.equal(existsSync(outside), true);
+    assert.equal(existsSync(path.join(cacheRuntime, 'source.go')), true);
+    assert.equal(existsSync(path.join(sourceRuntime, 'source.js')), true);
   });
   check('malformed invocation and non-Git repository fail closed', () => {
     run(['report', '--yes', '--repo', repo], 2);

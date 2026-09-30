@@ -22,8 +22,8 @@ export function clockContext(now = new Date(), timeZone = Intl.DateTimeFormat().
   });
 }
 
-export function clockSystemPrompt() {
-  const clock = clockContext(); // Fresh for every request, including retries.
+export function clockSystemPrompt(now = new Date(), timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone) {
+  const clock = clockContext(now, timeZone); // Production defaults stay fresh, including retries.
   return `[Current clock — supplied by IntentSmith for this request]
 UTC: ${clock.utc}; local timezone: ${clock.timeZone}; local time: ${clock.localTime}.
 Yesterday / včera: ${clock.yesterday}.

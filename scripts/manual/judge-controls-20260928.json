@@ -1,0 +1,506 @@
+[
+  {
+    "group": "catch_scope",
+    "role": "D2",
+    "language": "en",
+    "question": "JavaScript: async function f(){try{const timer=1;throw new Error(\"network\");}catch(e){clearTimeout(timer);return false;}}. Explain the actual failure, then give a minimal repair returning false when the network fails.",
+    "rubric": [
+      "Explain the block-scope ReferenceError from reading timer in catch.",
+      "Propose a concrete repair keeping the timer binding visible to cleanup, returning false rather than throwing on network failure."
+    ],
+    "variants": [
+      {
+        "name": "correct-alternative",
+        "answer": "The catch cannot see the const declared inside try, so it throws ReferenceError. Repair: let timer; try { timer=setTimeout(()=>{},1); throw new Error(\"network\"); } catch(e) { clearTimeout(timer); return false; }",
+        "expected": [
+          1,
+          1
+        ]
+      },
+      {
+        "name": "partial",
+        "answer": "The catch cannot see timer and throws ReferenceError. Repair: keep const timer inside try and rename the catch parameter to networkError.",
+        "expected": [
+          1,
+          0
+        ]
+      },
+      {
+        "name": "incorrect",
+        "answer": "The network exception is swallowed and f returns false. No repair is necessary.",
+        "expected": [
+          0,
+          0
+        ]
+      }
+    ],
+    "verification": {
+      "method": "Executable facts plus explicit two independent content criteria; authored examples, not independent adjudication.",
+      "language": "node",
+      "script": "async function f(){try{const timer=1;throw Error(\"network\")}catch(e){clearTimeout(timer);return false}};try{await f()}catch(e){console.log(e.name)}",
+      "expectedStdout": "ReferenceError"
+    }
+  },
+  {
+    "group": "frozen_copy",
+    "role": "D2",
+    "language": "en",
+    "question": "Strict JavaScript: const source=Object.freeze({value:2}); function update(x){x.value=3;return x;}. Diagnose update(source), then provide a fix returning an updated plain object without changing source. All keys are enumerable data properties; no getters, symbols or custom prototypes.",
+    "rubric": [
+      "Identify the TypeError when writing a frozen property in strict mode.",
+      "Give a concrete valid new-object implementation and preserve the original value 2; an equivalent plain-object copy is allowed."
+    ],
+    "variants": [
+      {
+        "name": "correct-alternative",
+        "answer": "The write throws TypeError. Use function update(x){return Object.assign({},x,{value:3})}; it returns value 3 while source.value stays 2.",
+        "expected": [
+          1,
+          1
+        ]
+      },
+      {
+        "name": "partial",
+        "answer": "The write throws TypeError. Fix it by calling Object.assign(x,{value:3}) on the same frozen input.",
+        "expected": [
+          1,
+          0
+        ]
+      },
+      {
+        "name": "incorrect",
+        "answer": "It updates source.value to 3 successfully. Returning x directly is an immutable copy.",
+        "expected": [
+          0,
+          0
+        ]
+      }
+    ],
+    "verification": {
+      "method": "Executable facts plus explicit two independent content criteria; authored examples, not independent adjudication.",
+      "language": "node",
+      "script": "\"use strict\";const x=Object.freeze({value:2});try{x.value=3}catch(e){console.log(e.name)};console.log(JSON.stringify([Object.assign({},x,{value:3}).value,x.value]));",
+      "expectedStdout": "TypeError\n[3,2]"
+    }
+  },
+  {
+    "group": "async_foreach",
+    "role": "R1",
+    "language": "en",
+    "question": "Review this JavaScript patch. Before: async function saveAll(xs,save){for(const x of xs)await save(x)}. After: async function saveAll(xs,save){xs.forEach(async x=>await save(x))}. Contract: saveAll must wait for all writes; a rejected save must reject saveAll. State whether the patch meets the contract and show a deterministic test design.",
+    "rubric": [
+      "Reject the patch: forEach does not await callback promises, so completion/error propagation is broken.",
+      "Give an observable deferred-promise or rejection test that distinguishes the patch from the original; merely restating the conclusion is not enough."
+    ],
+    "variants": [
+      {
+        "name": "correct-alternative",
+        "answer": "Reject. forEach discards callback promises. Test: make save return a manually controlled pending Promise, call saveAll, and attach a completion flag. Before resolving the promise, after a microtask checkpoint the patched call is fulfilled while the original is pending. Then resolve it and check both complete.",
+        "expected": [
+          1,
+          1
+        ]
+      },
+      {
+        "name": "partial",
+        "answer": "Reject: forEach discards promises. Test by calling saveAll with an empty array and asserting it completes.",
+        "expected": [
+          1,
+          0
+        ]
+      },
+      {
+        "name": "incorrect",
+        "answer": "Approve: the async callback makes forEach await every write. Test with an empty list proves all failures propagate.",
+        "expected": [
+          0,
+          0
+        ]
+      }
+    ],
+    "verification": {
+      "method": "Executable facts plus explicit two independent content criteria; authored examples, not independent adjudication.",
+      "language": "node",
+      "script": "let release;const p=new Promise(r=>release=r);async function bad(){[1].forEach(async()=>await p)};async function good(){for(const x of [1])await p};let a=false,b=false;bad().then(()=>a=true);good().then(()=>b=true);await new Promise(r=>setImmediate(r));console.log(JSON.stringify([a,b]));release();await new Promise(r=>setImmediate(r));console.log(JSON.stringify([a,b]));",
+      "expectedStdout": "[true,false]\n[true,true]"
+    }
+  },
+  {
+    "group": "strict_checks",
+    "role": "R2",
+    "language": "en",
+    "question": "Review this change: passed = !errors.length replaces passed = tests?.allPassed === true && gate?.passed === true. A parser may return [] for unreadable output. Localize the defect and provide a concrete counterexample including expected and observed values.",
+    "rubric": [
+      "Explain that empty parsed errors do not prove either test success or quality-gate success.",
+      "Give concrete input with errors empty and explicit missing/failed verification, showing new true versus required false."
+    ],
+    "variants": [
+      {
+        "name": "correct-alternative",
+        "answer": "The defect is !errors.length: parser emptiness is ambiguous. For errors=[], tests={allPassed:false}, gate={passed:true}, it returns true, but the required conjunction is false.",
+        "expected": [
+          1,
+          1
+        ]
+      },
+      {
+        "name": "partial",
+        "answer": "The defect is treating parser emptiness as proof of success. Counterexample: errors=[\"x\"], tests={allPassed:false}, gate={passed:true}; both expressions are false, so this proves the regression.",
+        "expected": [
+          1,
+          0
+        ]
+      },
+      {
+        "name": "incorrect",
+        "answer": "No defect: empty errors is conclusive success. errors=[], tests={allPassed:false}, gate={passed:true} must legitimately pass.",
+        "expected": [
+          0,
+          0
+        ]
+      }
+    ],
+    "verification": {
+      "method": "Executable facts plus explicit two independent content criteria; authored examples, not independent adjudication.",
+      "language": "node",
+      "script": "const errors=[],tests={allPassed:false},gate={passed:true};console.log(JSON.stringify([!errors.length,tests?.allPassed===true&&gate?.passed===true]));",
+      "expectedStdout": "[true,false]"
+    }
+  },
+  {
+    "group": "transaction_queue",
+    "role": "D1",
+    "language": "en",
+    "question": "A queue contains [A,B]. flush executes batch=queue.splice(0); then await persist(batch). persist rejects before any commit. No retry or catch restores batch. Explain causal loss, then compare two valid repair strategies and the necessary concurrency caveat if C arrives while persist is pending.",
+    "rubric": [
+      "Trace removal before commit and loss of A/B on rejection, not an invented database partial commit.",
+      "Compare preserving queued items until confirmed commit against requeueing a detached batch on failure; explicitly protect concurrently appended C and avoid duplicate successful writes."
+    ],
+    "variants": [
+      {
+        "name": "correct-alternative",
+        "answer": "splice removes A/B before the failed persist; they are lost from queue. Option 1: retain the batch in place and remove only that confirmed prefix after commit, leaving C. Option 2: detach A/B but requeue it on failure before C. Serialize flushes or track batch IDs so a retry cannot duplicate successful writes.",
+        "expected": [
+          1,
+          1
+        ]
+      },
+      {
+        "name": "partial",
+        "answer": "splice removes A/B before persist rejects. Fix by clearing the whole queue after every persist attempt, including failures; this also handles new C.",
+        "expected": [
+          1,
+          0
+        ]
+      },
+      {
+        "name": "incorrect",
+        "answer": "A/B remain in queue because splice is rolled back automatically by a rejected Promise. The only necessary change is increase batch size.",
+        "expected": [
+          0,
+          0
+        ]
+      }
+    ],
+    "verification": {
+      "method": "Executable facts plus explicit two independent content criteria; authored examples, not independent adjudication.",
+      "language": "node",
+      "script": "const q=[\"A\",\"B\"];const batch=q.splice(0);q.push(\"C\");try{await Promise.reject(Error(\"before commit\"))}catch{}console.log(JSON.stringify({batch,queue:q}));",
+      "expectedStdout": "{\"batch\":[\"A\",\"B\"],\"queue\":[\"C\"]}"
+    }
+  },
+  {
+    "group": "alias_unbound",
+    "role": "D1",
+    "language": "en",
+    "question": "Cleanup canonicalizes name by removing :latest. Active set is [\"bound\"]. A faulty cleanup removes active names but does not deduplicate canonical unbound candidates. Propose a discriminating fixture with expected output, then explain why [\"bound\",\"bound:latest\"] is not a deduplication test.",
+    "rubric": [
+      "Use unbound aliases such as [\"spare\",\"spare:latest\"] and require exactly one canonical spare, distinguishing the faulty two from fixed one.",
+      "Explain that both bound aliases are removed by the active-binding guard even in the faulty implementation, so that fixture cannot test deduplication."
+    ],
+    "variants": [
+      {
+        "name": "correct-alternative",
+        "answer": "Use [\"spare\",\"spare:latest\"] with only bound active: faulty output is [\"spare\",\"spare\"], fixed output [\"spare\"]. The bound pair disappears through the active guard regardless of dedup, so it is nondiscriminating.",
+        "expected": [
+          1,
+          1
+        ]
+      },
+      {
+        "name": "partial",
+        "answer": "Use unbound spare aliases and expect one spare rather than two. The bound pair is also a strong dedup test because removing active models necessarily exercises dedup.",
+        "expected": [
+          1,
+          0
+        ]
+      },
+      {
+        "name": "incorrect",
+        "answer": "Use only [\"bound\",\"bound:latest\"]. Two bound names must remain and their removal proves dedup; unbound names cannot reveal this defect.",
+        "expected": [
+          0,
+          0
+        ]
+      }
+    ],
+    "verification": {
+      "method": "Executable facts plus explicit two independent content criteria; authored examples, not independent adjudication.",
+      "language": "node",
+      "script": "const f=a=>a.map(s=>s.replace(/:latest$/,\" \").trim()).filter(s=>s!==\"bound\");console.log(JSON.stringify([f([\"spare\",\"spare:latest\"]),f([\"bound\",\"bound:latest\"])]));",
+      "expectedStdout": "[[\"spare\",\"spare\"],[]]"
+    }
+  },
+  {
+    "group": "idempotent_retry",
+    "role": "D1",
+    "language": "en",
+    "question": "Payment service API: charge(key,amount) charges once for the same key and amount; repeated identical calls return the original receipt. Timeout leaves outcome unknown. Client currently generates a fresh key for each retry. Explain the risk and propose a repair plus an observable test.",
+    "rubric": [
+      "Identify that unknown-outcome retries with new keys can double-charge; a timeout does not prove the first charge failed.",
+      "Keep one key and amount per logical payment across retries and test a timeout after charge: two attempts must produce one charge/receipt."
+    ],
+    "variants": [
+      {
+        "name": "correct-alternative",
+        "answer": "The first charge may have committed before timeout, so a new key can charge twice. Store one key and amount for the logical payment. Test a stub that records a charge then times out; retry the same key and verify two attempts but one recorded charge and the same receipt.",
+        "expected": [
+          1,
+          1
+        ]
+      },
+      {
+        "name": "partial",
+        "answer": "Timeout can happen after commit and a fresh key can double-charge. Repair by generating a new random key more quickly and check only that two HTTP calls occurred.",
+        "expected": [
+          1,
+          0
+        ]
+      },
+      {
+        "name": "incorrect",
+        "answer": "A timeout guarantees nothing was charged. A fresh retry key is required for safe idempotence.",
+        "expected": [
+          0,
+          0
+        ]
+      }
+    ],
+    "verification": {
+      "method": "Executable facts plus explicit two independent content criteria; authored examples, not independent adjudication.",
+      "language": "node",
+      "script": "const seen=new Map();const charge=(k,a)=>{if(!seen.has(k))seen.set(k,a);return seen.get(k)};charge(\"same\",5);charge(\"same\",5);console.log(seen.size);charge(\"fresh\",5);console.log(seen.size);",
+      "expectedStdout": "1\n2"
+    }
+  },
+  {
+    "group": "finite_guard",
+    "role": "D2",
+    "language": "en",
+    "question": "JavaScript function ratio(a,b){return a/b}. Inputs are numbers. Return null for any nonfinite input, zero denominator or nonfinite result; otherwise return the finite ratio. Give a correct minimal implementation, then three concrete edge tests with expected results.",
+    "rubric": [
+      "Implementation rejects nonfinite input, zero denominator and overflow result using Number.isFinite or equivalent; do not reject valid zero numerator.",
+      "Provide at least three discriminating edge cases with correct outputs, including overflow and valid zero numerator."
+    ],
+    "variants": [
+      {
+        "name": "correct-alternative",
+        "answer": "function ratio(a,b){if(!Number.isFinite(a)||!Number.isFinite(b)||b===0)return null;const r=a/b;return Number.isFinite(r)?r:null;} Tests: ratio(1e308,1e-308)===null; ratio(0,2)===0; ratio(1,0)===null.",
+        "expected": [
+          1,
+          1
+        ]
+      },
+      {
+        "name": "partial",
+        "answer": "function ratio(a,b){if(!Number.isFinite(a)||!Number.isFinite(b)||b===0)return null;const r=a/b;return Number.isFinite(r)?r:null;} Tests: ratio(1e308,1e-308)===Infinity; ratio(0,2)===null; ratio(1,0)===Infinity.",
+        "expected": [
+          1,
+          0
+        ]
+      },
+      {
+        "name": "incorrect",
+        "answer": "function ratio(a,b){if(!a||!b)return null;return a/b;} Tests: ratio(0,2)===null; ratio(Infinity,2)===Infinity; overflow should stay Infinity.",
+        "expected": [
+          0,
+          0
+        ]
+      }
+    ],
+    "verification": {
+      "method": "Executable facts plus explicit two independent content criteria; authored examples, not independent adjudication.",
+      "language": "node",
+      "script": "function r(a,b){if(!Number.isFinite(a)||!Number.isFinite(b)||b===0)return null;const x=a/b;return Number.isFinite(x)?x:null};console.log(JSON.stringify([r(1e308,1e-308),r(0,2),r(1,0)]));",
+      "expectedStdout": "[null,0,null]"
+    }
+  },
+  {
+    "group": "confidence_direction",
+    "role": "R1",
+    "language": "en",
+    "question": "Review a patch changing speed threshold from 1.25 to 1.5. The code still says if (!qualityConclusive && speedRatio >= threshold) return \"REPLACE\". Contract: speed must never authorize replacement without established quality noninferiority. Give a verdict and a discriminating test.",
+    "rubric": [
+      "Reject the patch: raising a speed threshold does not add the missing quality requirement.",
+      "Provide a concrete inconclusive-quality case with speed >=1.5 that still wrongly replaces and should retain/undecided."
+    ],
+    "variants": [
+      {
+        "name": "correct-alternative",
+        "answer": "Reject: the quality prerequisite is still absent. Set qualityConclusive=false, speedRatio=2.0: patched code returns REPLACE but the contract requires undecided/retain.",
+        "expected": [
+          1,
+          1
+        ]
+      },
+      {
+        "name": "partial",
+        "answer": "Reject because the quality prerequisite is absent. Test speedRatio=1.1 and qualityConclusive=false; both old and new retain, which proves this regression is fixed.",
+        "expected": [
+          1,
+          0
+        ]
+      },
+      {
+        "name": "incorrect",
+        "answer": "Approve: 1.5 is high enough to prove quality noninferiority. At speedRatio=2.0 and inconclusive quality the required answer is REPLACE.",
+        "expected": [
+          0,
+          0
+        ]
+      }
+    ],
+    "verification": {
+      "method": "Executable facts plus explicit two independent content criteria; authored examples, not independent adjudication.",
+      "language": "node",
+      "script": "const qualityConclusive=false,speedRatio=2,threshold=1.5;console.log(!qualityConclusive&&speedRatio>=threshold?\"REPLACE\":\"RETAIN\");",
+      "expectedStdout": "REPLACE"
+    }
+  },
+  {
+    "group": "empty_envelope",
+    "role": "R1",
+    "language": "en",
+    "question": "Review a parser: issues = report.findings || []; passed = issues.length === 0. Input is one of {error:{code:\"EFAIL\"}}, {findings:[]}, {findings:[\"bug\"]}. Error envelopes mean infrastructure failure, not clean audit. State defect and tests.",
+    "rubric": [
+      "Reject treating an error envelope without findings as clean success; distinguish infrastructure from actual issue count.",
+      "Specify all three inputs with expected outcomes: infrastructure failure, clean pass, and found issue/fail respectively."
+    ],
+    "variants": [
+      {
+        "name": "correct-alternative",
+        "answer": "Reject: || [] turns the error envelope into a clean report. Tests: {error:{code:\"EFAIL\"}} => infrastructure failure/no quality score; {findings:[]} => pass; {findings:[\"bug\"]} => issue/fail.",
+        "expected": [
+          1,
+          1
+        ]
+      },
+      {
+        "name": "partial",
+        "answer": "Reject: the fallback erases the error envelope. Tests: only {findings:[]} => pass; this one case proves all envelopes are handled.",
+        "expected": [
+          1,
+          0
+        ]
+      },
+      {
+        "name": "incorrect",
+        "answer": "Approve: no findings means success, including EFAIL. All three reports should pass because parsing itself completed.",
+        "expected": [
+          0,
+          0
+        ]
+      }
+    ],
+    "verification": {
+      "method": "Executable facts plus explicit two independent content criteria; authored examples, not independent adjudication.",
+      "language": "node",
+      "script": "console.log(JSON.stringify([{error:{code:\"EFAIL\"}},{findings:[]},{findings:[\"bug\"]}].map(r=>(r.findings||[]).length===0)));",
+      "expectedStdout": "[true,true,false]"
+    }
+  },
+  {
+    "group": "splice_in_place",
+    "role": "R2",
+    "language": "en",
+    "question": "Local review: removeFirst(a){const b=a; b.splice(0,1); return b;} is documented to return a new array without modifying a. Explain the defect and give an observable distinguishing test.",
+    "rubric": [
+      "Identify shared reference and in-place splice, violating the nonmutation/new-array contract.",
+      "Use a nonempty original array; check both returned values and unchanged original plus unequal references."
+    ],
+    "variants": [
+      {
+        "name": "correct-alternative",
+        "answer": "b aliases a, so splice mutates the input. With a=[1,2], expect result [2], original [1,2], result!==a. Actual original becomes [2] and result===a.",
+        "expected": [
+          1,
+          1
+        ]
+      },
+      {
+        "name": "partial",
+        "answer": "b aliases a and splice mutates it. Test only that removeFirst([1,2]) returns [2]; this proves nonmutation.",
+        "expected": [
+          1,
+          0
+        ]
+      },
+      {
+        "name": "incorrect",
+        "answer": "Assigning b=a copies the array. The returned [2] proves original [1,2] is unchanged, so no defect.",
+        "expected": [
+          0,
+          0
+        ]
+      }
+    ],
+    "verification": {
+      "method": "Executable facts plus explicit two independent content criteria; authored examples, not independent adjudication.",
+      "language": "node",
+      "script": "const a=[1,2],b=a;b.splice(0,1);console.log(JSON.stringify({a,b,same:a===b}));",
+      "expectedStdout": "{\"a\":[2],\"b\":[2],\"same\":true}"
+    }
+  },
+  {
+    "group": "ratio_of_totals",
+    "role": "R2",
+    "language": "en",
+    "question": "A report claims a ratio of total durations. Baseline durations [1,9], candidate [1,3]. Code instead computes mean([baseline_i/candidate_i]). State the correct ratio of totals, and give the actual incorrect computed result showing a counterexample.",
+    "rubric": [
+      "Compute (1+9)/(1+3)=2.5, not the mean of per-task ratios.",
+      "Compute mean(1/1,9/3)=2 and explicitly distinguish this from the required 2.5."
+    ],
+    "variants": [
+      {
+        "name": "correct-alternative",
+        "answer": "The required ratio is 10/4=2.5. The implemented mean is (1+3)/2=2, so the same two tasks distinguish the estimands.",
+        "expected": [
+          1,
+          1
+        ]
+      },
+      {
+        "name": "partial",
+        "answer": "The required ratio is 10/4=2.5. The implementation also yields 2.5 because an average of ratios always equals a ratio of totals.",
+        "expected": [
+          1,
+          0
+        ]
+      },
+      {
+        "name": "incorrect",
+        "answer": "The required ratio of totals is 2. The arithmetic mean of the per-task ratios is 2.5, which is the correct replacement.",
+        "expected": [
+          0,
+          0
+        ]
+      }
+    ],
+    "verification": {
+      "method": "Executable facts plus explicit two independent content criteria; authored examples, not independent adjudication.",
+      "language": "node",
+      "script": "console.log(JSON.stringify([(1+9)/(1+3),(1/1+9/3)/2]));",
+      "expectedStdout": "[2.5,2]"
+    }
+  }
+]

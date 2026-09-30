@@ -1,0 +1,19 @@
+{
+  "status": "ISOLATED_COPY_PASS_NOT_DEPLOYED",
+  "source": "read-only SQLite backup of live IntentSmith DB, tested only in ignored worktree artifacts",
+  "installedMigration117": "2026_09_23_117_development_installations",
+  "installedMigration117Sha256": "9d12760320e091bec15935566b1fb9d23e8566fcfec52b5ea5f676beb6946af5",
+  "freshManifestMigrations": 106,
+  "liveCopyInitialMigrationStamps": 107,
+  "liveCopyApplied": [
+    "2026_09_24_118_model_evaluation_grader_reviews",
+    "2026_09_25_119_model_evaluation_adjudications"
+  ],
+  "repeatApplied": [],
+  "existingTablesCompared": 194,
+  "existingTableRowCountChanges": [],
+  "sqliteIntegrityCheck": "ok",
+  "foreignKeyViolations": 0,
+  "liveDbMutated": false,
+  "decisionAuthority": "NONE"
+}

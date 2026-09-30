@@ -4,6 +4,14 @@
 instalace, testů a zbývajících bran](docs/review/2026-09-30-COMPLETION-TRACKER.md).
 Chronologie níže zachovává důkazy předchozích instalací a větví.
 
+**Integrační kandidát GPU huntu, 30. 9. 2026:** zdroj sběru, dvojího
+hodnocení a arbitráže z `e37189b2` je sloučen s chatem a Studiem 2.
+Migrace 118 a 119 a nové testy jsou pouze ve vývojovém stromu; instalovaný
+backend, DB a vazby se nemění. Historická matice obsahuje 63 úplných
+relevantních buněk, 3 částečné a 4 VISION N/A; skutečná druhá kvalifikovaná
+revize, živá DB přejímka a nezávislé review zbývají. **REVIEW_PENDING /
+REAL_NO_GO.** [Matice a původ důkazů](docs/review/2026-09-28-HUNT-MATRIX-COMPLETION.md).
+
 **Poslední doložený vizuál IDE 2.0, 2026-09-29:** místně instalovaný frontend
 `fddfe996` používá schválenou paletu nastavení B s 20% nárůstem sytosti,
 obrysovými symboly a jemnými podklady. Reálný AppImage, Electron UI gate,
@@ -646,15 +654,15 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **229 951 ř.**, 659 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **254 787 ř.**, 564 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **556** (`462 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
-| Tabulek v čerstvé DB / aplikovaných migrací | **181 / 105** |
+| `src/**/*.js` | **232 105 ř.**, 677 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **255 353 ř.**, 564 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **568** (`474 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
+| Tabulek v čerstvé DB / aplikovaných migrací | **183 / 107** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
 
 Aktuální registry fingerprint je
-`f14ce3ce3703e47f4baa62bfdd7af838a1ba2c142537d0d37cfd3bcc17a32f0f`.
+`888321ef96c6ac179b7fe319d5011e277f2e5d9a80fdbe992241d828cba31a1e`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 

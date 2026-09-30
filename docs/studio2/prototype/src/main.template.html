@@ -367,6 +367,9 @@ html,body{margin:0;height:100%;overflow:hidden}
 .model-row .row-m{white-space:normal;text-align:right}
 .model-row .row-s{display:block}
 .model-row-actions{flex:1 0 100%;justify-content:flex-end}
+.model-detail{max-height:70vh;overflow:auto}
+.model-detail pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:300px;overflow:auto}
+.model-detail .model-attempt{border-top:1px solid var(--soft);padding:7px 0}
 .dev-panel>div{display:flex;flex-direction:column;align-items:flex-start;gap:9px;padding:11px 12px;background:var(--panel2);border:1px solid var(--soft);border-radius:8px;max-width:100%}
 .dev-panel .blk-h{width:100%}
 .dev-panel .dev-facts{width:100%;overflow-wrap:anywhere}
@@ -903,6 +906,24 @@ textarea.fv-ed{font-family:var(--font-mono)}
 </div></sc-if>
 <div class="model-actions"><sc-for list="{{b.modelWorkspace.buttons}}" as="action" hint-placeholder-count="2"><button class="btn" disabled="{{action.disabled}}" onClick="{{action.go}}">{{action.label}}</button></sc-for></div>
 <div class="rows"><sc-for list="{{b.modelWorkspace.rows}}" as="row" hint-placeholder-count="3"><div class="row model-row"><span class="row-tt"><strong class="row-t">{{row.title}}</strong><span class="row-s">{{row.subtitle}}</span></span><span class="row-m">{{row.meta}}</span><span class="model-row-actions"><sc-for list="{{row.actions}}" as="action" hint-placeholder-count="2"><button class="btn" disabled="{{action.disabled}}" onClick="{{action.go}}">{{action.label}}</button></sc-for></span></div></sc-for></div>
+<sc-if value="{{b.modelWorkspace.hasRunDetail}}" hint-placeholder-val="{{false}}"><div class="note model-detail" aria-label="Detail uloženého měření">
+<button class="btn" onClick="{{b.modelWorkspace.closeRun}}">Zavřít detail</button>
+<sc-if value="{{b.modelWorkspace.runDetailLoading}}" hint-placeholder-val="{{false}}"><p role="status">Načítám uložené odpovědi…</p></sc-if>
+<sc-if value="{{b.modelWorkspace.runDetailError}}" hint-placeholder-val="{{false}}"><p role="alert">{{b.modelWorkspace.runDetailError}}</p></sc-if>
+<sc-if value="{{b.modelWorkspace.runDetailReady}}" hint-placeholder-val="{{false}}"><div>
+<h3>{{b.modelWorkspace.runDetail.title}}</h3><p>{{b.modelWorkspace.runDetail.status}}</p><p class="mono">{{b.modelWorkspace.runDetail.runId}} · {{b.modelWorkspace.runDetail.provenance}}</p>
+<p>{{b.modelWorkspace.runDetail.note}}</p><p>{{b.modelWorkspace.runDetail.attempts}}</p>
+<sc-for list="{{b.modelWorkspace.runDetail.tasks}}" as="task" hint-placeholder-count="2"><details><summary>{{task.title}} · {{task.score}}</summary>
+<p>Zadání</p><pre>{{task.input}}</pre>
+<sc-for list="{{task.requirements}}" as="requirement" hint-placeholder-count="2"><p>{{requirement}}</p></sc-for>
+<sc-for list="{{task.attempts}}" as="attempt" hint-placeholder-count="2"><div class="model-attempt"><strong>{{attempt.label}}</strong>
+<sc-for list="{{attempt.transcript}}" as="message" hint-placeholder-count="2"><p>{{message.role}}</p><pre>{{message.content}}</pre></sc-for>
+<sc-if value="{{attempt.response}}" hint-placeholder-val="{{false}}"><pre>{{attempt.response}}</pre></sc-if>
+<sc-for list="{{attempt.notes}}" as="note" hint-placeholder-count="2"><p>{{note}}</p></sc-for>
+<sc-for list="{{attempt.reviews}}" as="review" hint-placeholder-count="2"><div><strong>{{review.label}} · {{review.score}}</strong><sc-for list="{{review.parts}}" as="part" hint-placeholder-count="2"><p>{{part}}</p></sc-for></div></sc-for>
+</div></sc-for></details></sc-for>
+</div></sc-if>
+</div></sc-if>
 </div></sc-if>
 <sc-if value="{{b.isPreferences}}" hint-placeholder-val="{{false}}"><div class="aps" aria-label="Uživatelské nastavení">
 <div class="blk-h"><span class="lbl-acc">Uživatelské volby</span></div>

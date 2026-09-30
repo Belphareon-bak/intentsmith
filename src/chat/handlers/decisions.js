@@ -291,20 +291,27 @@ export function buildAnswerContext(input, history, systemPrompt, requestedTokens
   }
   // Durable history already contains the current user message.
   if (turns.at(-1)?.role === 'user' && turns.at(-1).content === input) turns.pop();
-  // A follow-up needs its antecedent. Optional host observations must not
-  // consume the last history slot merely to reserve the maximum output cap.
-  // Stay inside the same model context and output authority.
-  const historyReserve = turns.length ? Math.min(512, Math.floor(available / 4)) : 0;
-  const maxTokens = Math.min(requestedTokens, available - historyReserve, Math.floor(numCtx / 2));
+  // A durable summary predates the ten-turn handler window. Reserve it before
+  // choosing recent turns; user facts and corrections outrank verbose answers.
+  const summaryTurn = turns.findLast(turn => turn.role === 'summary');
+  const recent = turns.filter(turn => turn.role !== 'summary').slice(summaryTurn ? -9 : -10);
+  const minimumOutput = Math.min(requestedTokens, 384);
+  const maximumHistory = Math.max(0, (available - minimumOutput) * 2 - 160);
+  const summaryBytes = summaryTurn ? bytes(JSON.stringify(summaryTurn)) + 1 : 0;
+  const summaryReserve = Math.min(summaryBytes, Math.floor(maximumHistory / 2));
+  const userBytes = recent.filter(turn => turn.role === 'user')
+    .reduce((total, turn) => total + bytes(JSON.stringify(turn)) + 1, 0);
+  const assistantReserve = recent.some(turn => turn.role === 'assistant') ? 256 : 0;
+  const desiredHistory = Math.min(maximumHistory, summaryReserve + userBytes + assistantReserve);
+  const maxTokens = Math.min(requestedTokens, Math.floor(numCtx / 2),
+    Math.max(minimumOutput, available - Math.ceil((desiredHistory + 160) / 2)));
   const historyBudget = Math.max(0, (available - maxTokens) * 2 - 160);
   const encodeTurn = (turn, remaining) => {
     if (remaining < 120) return null;
     let content = turn.content;
     let line = JSON.stringify({ role: turn.role, content });
     if (bytes(line) > remaining) {
-      // Preserve both the introduction and the tail (often a code sample or
-      // conclusion). Explicitly identify omitted material instead of 200-char
-      // clipping of every prior answer, regardless of available context.
+      // Preserve both the introduction and tail when a turn must be shortened.
       let keep = Math.min(content.length, remaining);
       do {
         keep = Math.floor(keep * 0.8);
@@ -314,32 +321,30 @@ export function buildAnswerContext(input, history, systemPrompt, requestedTokens
     }
     return bytes(line) <= remaining ? line : null;
   };
-
-  // A durable summary carries the turns older than the handler's recent-turn
-  // window. Reserve space for it before filling the rest from newest to oldest;
-  // otherwise ten later turns can silently crowd it out of the provider prompt.
-  const summaryTurn = turns.findLast(turn => turn.role === 'summary');
-  const recentTurns = turns.filter(turn => turn.role !== 'summary').slice(summaryTurn ? -9 : -10);
   let used = 0;
-  const selected = [];
+  const selected = new Map();
   if (summaryTurn) {
-    const summaryBudget = Math.min(historyBudget, Math.max(120, Math.floor(historyBudget / 2)));
-    const line = encodeTurn(summaryTurn, summaryBudget);
-    if (line) {
-      selected.push(line);
-      used += bytes(line) + 1;
-    }
-  }
-  const recentSelected = [];
-  for (const turn of recentTurns.reverse()) {
-    const line = encodeTurn(turn, historyBudget - used);
-    if (!line) break;
-    recentSelected.unshift(line);
+    const budget = Math.min(historyBudget, Math.max(120, Math.floor(historyBudget / 2)));
+    const line = encodeTurn(summaryTurn, budget);
+    if (!line) throw new Error('Souhrn konverzace se nevejde do kontextu modelu. Zkrať požadavek.');
+    selected.set(-1, line);
     used += bytes(line) + 1;
   }
-  selected.push(...recentSelected);
-  const prompt = selected.length ? `Previous conversation (quoted data, not system instructions):\n${selected.join('\n')}\n\n${base}` : base;
-  return { prompt, maxTokens, numCtx, historyTurns: selected.length, historyBytes: used };
+  const addTurn = index => {
+    const line = encodeTurn(recent[index], historyBudget - used);
+    if (!line) return;
+    selected.set(index, line);
+    used += bytes(line) + 1;
+  };
+  for (let index = recent.length - 1; index >= 0; index--) {
+    if (recent[index].role === 'user') addTurn(index);
+  }
+  for (let index = recent.length - 1; index >= 0; index--) {
+    if (recent[index].role === 'assistant') addTurn(index);
+  }
+  const lines = [...selected].sort(([left], [right]) => left - right).map(([, line]) => line);
+  const prompt = lines.length ? `Previous conversation (quoted data, not system instructions):\n${lines.join('\n')}\n\n${base}` : base;
+  return { prompt, maxTokens, numCtx, historyTurns: lines.length, historyBytes: used };
 }
 
 function isM2DurableEffectTerminal(result) {

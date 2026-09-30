@@ -58,6 +58,7 @@ import {
   RoleQualityEvaluationRunner,
 } from '../src/eval/role-quality-suites.js';
 import { createRoleEvaluationPlans, HUNT_EVALUATION_NUM_CTX } from '../src/eval/role-evaluation-plan.js';
+import { inspectCodeOracleSuite } from '../src/eval/code-oracle-preflight.js';
 import { MAX_MODEL_BYTES } from '../src/eval/role-collection-profile.js';
 import { gradeAcceptedCollection } from '../src/eval/grade-answer-collection.js';
 import { ModelEvaluationRunner } from '../src/eval/model-evaluation-runner.js';
@@ -416,7 +417,22 @@ if (DO_RUN) {
 }
 const evaluationDecisionStore = new ModelEvaluationDecisionStore(db);
 const bindingRepository = createModelFailoverRepository(db);
-const evaluationPlans = createRoleEvaluationPlans({ db });
+let evaluationPlans = createRoleEvaluationPlans({ db });
+// CODE's historical oracle can exist yet reject its own gold/alternative
+// controls. Check the executable oracle once before any candidate is placed on
+// the GPU; a failed control is an unavailable measurement, never model quality.
+if (DO_RUN && ROLES.includes('CODE') && evaluationPlans.CODE.measurementReady) {
+  const preflight = inspectCodeOracleSuite(evaluationPlans.CODE.suite);
+  if (!preflight.ready) {
+    const plan = evaluationPlans.CODE;
+    evaluationPlans = Object.freeze({ ...evaluationPlans, CODE: Object.freeze({ ...plan,
+      measurementReady: false, decisionReady: false,
+      // Diagnostic only; the committed suite and its contract stay unchanged.
+      runtimeBlockCode: preflight.code,
+      runtimeBlockReason: preflight.reason,
+    }) });
+  }
+}
 const evaluationRunner = new RoleQualityEvaluationRunner(config.ollama?.baseUrl, {
   codePatchSuite: evaluationPlans.CODE.suite, roleSuites: { vision_v2: evaluationPlans.VISION.suite },
 });
@@ -617,7 +633,9 @@ const roleScores = Object.fromEntries(ROLES.map(role => {
 if (Object.keys(durableBindings).length) {
   log(`Durable runtime vazby: ${Object.entries(durableBindings).map(([role, model]) => `${role}=${model}`).join(', ')}`);
 }
-const initialResponsibilityAudit = auditResponsibilitySegregation(initialBindings);
+const initialResponsibilityAudit = auditResponsibilitySegregation(initialBindings, undefined, {
+  inventory: installedRaw, artifactsByRole: current.artifacts,
+});
 if (!initialResponsibilityAudit.compliant) {
   log(`Segregace vyžaduje opravu: ${initialResponsibilityAudit.violations
     .map(row => `${row.type} ${row.roles.join('+')}=${row.model}`).join('; ')}`);
@@ -752,13 +770,26 @@ if (!picked.length) {
 
 const readyRoles = ROLES.filter(role => (evaluationPlans[role]?.measurementReady ?? evaluationPlans[role]?.decisionReady) !== false);
 const blockedRoles = ROLES.filter(role => !readyRoles.includes(role));
+const blockedRoleDetails = blockedRoles.map(role => {
+  const plan = evaluationPlans[role];
+  return { role, code: plan.runtimeBlockCode || 'EVALUATION_SUITE_NOT_READY',
+    reason: plan.runtimeBlockReason || `${plan.suiteName} má ${plan.taskCount}/${plan.minimumTaskCount} požadovaných aktivních úloh`,
+    suiteContractSha256: plan.suiteContractSha256 };
+});
 for (const role of blockedRoles) {
   const plan = evaluationPlans[role];
-  log(`  [suite-readiness] ${role}: ${plan.suiteName} má ${plan.taskCount}/${plan.minimumTaskCount} `
-    + 'požadovaných aktivních úloh');
+  log(plan.runtimeBlockCode
+    ? `  [suite-readiness] ${role}: ${plan.runtimeBlockCode}: ${plan.runtimeBlockReason}`
+    : `  [suite-readiness] ${role}: ${plan.suiteName} má ${plan.taskCount}/${plan.minimumTaskCount} požadovaných aktivních úloh`);
 }
 if (readyRoles.length === 0) {
-  log('\nŽádná vybraná role nemá rozhodovací sadu; bez stahování a bez GPU běhu končím.');
+  log('\nŽádná vybraná role nemá dostupnou měřicí sadu; bez stahování a bez GPU běhu končím.');
+  emitJsonArtifact({
+    generatedAt: new Date().toISOString(), providerVersion, status: 'BLOCKED', code: 'EVALUATION_SUITE_NOT_READY',
+    reasons: blockedRoleDetails.map(item => `${item.role}: ${item.code}: ${item.reason}`),
+    blockedRoles: blockedRoleDetails, queue: picked, results: [],
+  });
+  db.close();
   process.exit(0);
 }
 
@@ -1081,12 +1112,16 @@ for (const result of results) {
     if (!trial?.comparison || !trial.role) continue;
     addPortfolioEvidence(trial.role, {
       model: result.model,
+      digestSha256: trial.comparison.candidateRunId
+        ? modelEvaluationHistory.getRun(trial.comparison.candidateRunId)?.artifact?.digestSha256 : null,
       score: trial.comparison.candidateSuiteScore,
       source: 'candidate-evaluation',
       eligibleForChange: trial.decision?.winner === 'candidate',
     });
     addPortfolioEvidence(trial.role, {
       model: initialBindings[trial.role],
+      digestSha256: trial.comparison.incumbentRunId
+        ? modelEvaluationHistory.getRun(trial.comparison.incumbentRunId)?.artifact?.digestSha256 : null,
       score: trial.comparison.incumbentSuiteScore,
       source: 'incumbent-evaluation',
       eligibleForChange: true,
@@ -1096,6 +1131,10 @@ for (const result of results) {
 const portfolio = selectResponsibilityPortfolio({
   before: initialBindings,
   evidenceByRole: portfolioEvidence,
+  // Include newly pulled artifacts and detect a tag replaced since the run
+  // started; an old run's digest cannot qualify the new contents of a tag.
+  inventory: await modelRegistry.getInstalled({ strict: true }),
+  artifactsByRole: current.artifacts,
   roles: ALL_ROLES,
 });
 Object.assign(bindings, portfolio.bindings);
@@ -1124,7 +1163,10 @@ for (const result of results) {
 
 log('\n══ SEGREGACE ODPOVĚDNOSTÍ ══');
 if (portfolio.feasible) {
-  log(`  portfolio vyhovuje: nejvýše ${DEFAULT_RESPONSIBILITY_POLICY.maxRolesPerModel} role/model, kritické autor-reviewer dvojice oddělené`);
+  log(`  sestava vyhovuje kontrole artefaktů: nejvýše ${DEFAULT_RESPONSIBILITY_POLICY.maxRolesPerModel} role/model, autor a reviewer nemají stejný digest ani doložený společný původ`);
+  if (portfolio.audit.lineageUnverifiedRoles.length) {
+    log(`  původ modelů není doložen pro: ${portfolio.audit.lineageUnverifiedRoles.join(', ')}; tato kontrola nedokládá jejich úplnou nezávislost`);
+  }
   for (const role of portfolio.changedRoles) {
     const choice = portfolio.choices[role];
     log(`  ${role}: ${initialBindings[role]} → ${portfolio.bindings[role]}  score ${choice?.score?.toFixed?.(3) ?? '—'}`);
@@ -1176,7 +1218,11 @@ if (AS_JSON || REPORT_PATH) {
     ...(EVALUATE_INSTALLED ? { status: results.some(r => r.error || r.roleErrors?.length) ? 'FAILED'
       : results.length === 1 && ROLE_FILTER.every(role => results[0].trials?.some(t => t.role === role && t.evaluation && !t.skipped)) ? (results[0].trials.some(t => t.evaluation?.collection) ? 'AWAITING_REVIEW' : 'COMPLETE') : 'BLOCKED' }
       : { status: results.some(r => r.error || r.roleErrors?.length) ? 'FAILED'
+        : blockedRoles.length ? 'PARTIAL'
         : results.some(r => r.trials?.some(t => t.evaluation?.collection)) ? 'AWAITING_REVIEW' : 'COMPLETE' }),
+    blockedRoles: blockedRoleDetails,
+    awaitingReviewRoles: [...new Set(results.flatMap(row => (row.trials || [])
+      .filter(trial => trial.evaluation?.collection).map(trial => trial.role)))],
     gpu, providerVersion, huntCatalog: huntState.summary(), catalogUpdatesRequiringManualImport,
     perRole: Object.fromEntries([...perRole].map(([r, l]) => [r, l])),
     queue, results, proposedBindings: bindings, portfolio,

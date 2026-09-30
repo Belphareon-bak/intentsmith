@@ -15,6 +15,11 @@ import { fileURLToPath } from 'node:url';
 
 const SCRIPT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SANDBOX_NAMES = new Set(['runtime', 'home', 'repo', 'node_modules']);
+// Cleanup is deliberately limited to shallow run sandboxes. A recursive name
+// match also finds source packages such as gomodcache/.../protobuf/runtime.
+const SANDBOX_MAX_DEPTH = 4;
+const NON_SANDBOX_ANCESTORS = new Set(['.git', '.cache', 'gomodcache', 'toolchain',
+  'vendor', 'src', 'source', 'retained-clones', 'releases']);
 const DEFAULT_CEILING = 3;
 
 function parseArgs(argv) {
@@ -286,6 +291,7 @@ function sandboxDirectories(worktreePath) {
   }
   return findNull([
     artifactRoot,
+    '-maxdepth', String(SANDBOX_MAX_DEPTH),
     '-type', 'd',
     '(',
     '-name', 'runtime',
@@ -295,14 +301,21 @@ function sandboxDirectories(worktreePath) {
     ')',
     '-prune',
     '-print0',
-  ]);
+  ]).filter(target => {
+    const parts = path.relative(artifactRoot, target).split(path.sep);
+    return parts.length >= 2 && parts.length <= SANDBOX_MAX_DEPTH
+      && !parts.slice(0, -1).some(part => NON_SANDBOX_ANCESTORS.has(part));
+  });
 }
 
 function assertSafeSandbox(worktreePath, target, cwdList) {
   const artifactRoot = realpathSync(path.join(worktreePath, '.intentsmith-artifacts'));
   const parent = realpathSync(path.dirname(target));
   const resolved = path.join(parent, path.basename(target));
-  if (!pathContains(artifactRoot, resolved) || !SANDBOX_NAMES.has(path.basename(target))) {
+  const parts = path.relative(artifactRoot, resolved).split(path.sep);
+  if (!pathContains(artifactRoot, resolved) || !SANDBOX_NAMES.has(path.basename(target))
+    || parts.length < 2 || parts.length > SANDBOX_MAX_DEPTH
+    || parts.slice(0, -1).some(part => NON_SANDBOX_ANCESTORS.has(part))) {
     throw new Error(`unsafe sandbox target: ${target}`);
   }
   const metadata = lstatSync(target);

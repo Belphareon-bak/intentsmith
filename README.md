@@ -3,7 +3,10 @@
 **Aktuální vývojový checkpoint 30. 9. 2026:** [stav dokončování, měřené
 výsledky a otevřené brány](docs/review/2026-09-30-COMPLETION-TRACKER.md).
 Níže uvedený základ `main` a starší checkpointy popisují předchozí stav;
-integrační chat/Studio 2 kandidát je zatím samostatná pushnutá větev.
+integrační chat/Studio 2 kandidát je samostatná pushnutá větev.
+Zdroj GPU huntu z `e37189b2` je nově součástí lokálního integračního
+kandidáta. Sloučení zdroje samo nemění instalovanou DB, provozní modely ani
+stav přejímky. [Matice měření a otevřené brány](docs/review/2026-09-28-HUNT-MATRIX-COMPLETION.md).
 
 **Aktuální vývojový základ — 28. 9. 2026:** `main` sjednocuje vývoj vycházející
 z C3 a zdroj právě používaného **IDE 2.0**. Základ `04f2be71` obsahuje backend
@@ -16,7 +19,8 @@ a po integračních kontrolách vracejí do společné větve. Původní samosta
 pnpm/OpenCode projekt z GitHub `main` je zachován v
 [`archive/main-before-reconcile-20260928`](https://github.com/Belphareon-bak/intentsmith/tree/archive/main-before-reconcile-20260928)
 a v merge historii. [Rozsah sjednocení a ověření](docs/review/2026-09-28-MAIN-RECONCILIATION.md).
-Samostatné novější hunt/intent kandidáty toto sjednocení nepřijímá.
+Samostatné novější intent kandidáty toto původní sjednocení nepřijímá;
+navazující hunt zdroj je v tomto integračním kandidátu.
 
 GitHub CI ověřuje vývojový výřez registru, modulových hranic, soukromí a
 Studia 2; celý offline/database profil a fyzické release scénáře jsou
@@ -43,8 +47,8 @@ Studio používá Theia runtime s motivy a ovládáním IntentSmithu.
 
 **Verze:** 136.1.0, vývojový kandidát 1.0. Aktuální počty testovacích programů
 jsou v [generovaném registru](docs/convergence/TEST-REGISTRY.md):
-**556 registrovaných testovacích programů**
-(`462 ACTIVE`, `79 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).
+**568 registrovaných testovacích programů**
+(`474 ACTIVE`, `79 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).
 
 **Navazující M5 review, 2026-09-17:** historický inventář doplněn o zveřejněný
 TLS testovací klíč a certifikát: 15 známých objektů. Pár je trvale vyřazený;
@@ -444,14 +448,14 @@ intentsmith/
 │   ├── report-gen.json           #   Generování reportů
 │   └── summarizer.json           #   Sumarizace textu
 │
-├── tests/                        # Testy a kanonický registr 527 programů
+├── tests/                        # Testy a kanonický registr 568 programů
 │   ├── harness.js                #   Custom ESM test harness
 │   ├── cre-*.test.js             #   CRE testy (401+)
 │   ├── lifecycle-*.test.js       #   Lifecycle testy (103+)
 │   ├── code-intel-*.test.js      #   Code Intelligence testy (339+)
 │   ├── execution-loop.test.js    #   Execution Engine testy (597+)
 │   ├── upgrade-*.test.js         #   Model Upgrade testy
-│   └── registry.json             #   Kanonický registr 556 programů
+│   └── registry.json             #   Kanonický registr 568 programů
 │
 ├── docs/                         # Aktivní dokumentace + archiv
 │   ├── ARCHITECTURE.md           #   Kompletní architektura
