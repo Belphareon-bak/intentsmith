@@ -10,6 +10,7 @@
 // LLM je volán POUZE z akcí (notify s use_llm: true), nikdy z runneru
 
 import { ConditionEvaluator } from './conditions.js';
+import { createHash } from 'node:crypto';
 import { TriggerEvaluator } from './triggers.js';
 import { ALLOWED } from './schema.js';
 import { EXTENSION_HOST_CAPABILITY } from '../../contracts/m3/extension-v1.js';
@@ -54,6 +55,7 @@ export const RUN_STATE = {
   ERROR_SOURCE: 'ERROR_SOURCE',               // Source fetch failed
   ERROR_EXECUTION: 'ERROR_EXECUTION',         // Action execution failed
   ERROR_UNKNOWN: 'ERROR_UNKNOWN',             // Unexpected error
+  ERROR_INTERRUPTED: 'ERROR_INTERRUPTED',     // Owning process exited during run
   
   // Special states
   INIT_BASELINE: 'INIT_BASELINE',             // First run - baseline established
@@ -118,6 +120,12 @@ export const RUN_STATE_INFO = {
     icon: '❌',
     label: 'Error',
     desc: 'Neznámá chyba',
+    type: 'error'
+  },
+  [RUN_STATE.ERROR_INTERRUPTED]: {
+    icon: '❌',
+    label: 'Interrupted',
+    desc: 'Proces skončil během běhu; výsledek akce může být neúplný',
     type: 'error'
   },
   [RUN_STATE.INIT_BASELINE]: {
@@ -812,7 +820,7 @@ export class AgentRunner {
       if (triggerResults.fired.length > 0 || businessActions.some(a => a.trigger_id === null)) {
         log.push(`[${this.timestamp()}] Executing ${businessActions.length} business actions...`);
 
-        for (const action of businessActions) {
+        for (const [actionIndex, action] of businessActions.entries()) {
           // Check if action should run
           if (action.trigger_id !== null && !triggerResults.fired.includes(action.trigger_id)) {
             continue;
@@ -821,7 +829,7 @@ export class AgentRunner {
           // v57.0 - Execute with retry for retryable action types
           const isRetryable = RETRY_CONFIG.retryableTypes.includes(action.type);
           const result = await this.executeActionWithRetry(
-            action, context, agentId, runId, triggerResults, isRetryable, log
+            action, context, agentId, runId, triggerResults, isRetryable, log, actionIndex
           );
 
           executedActions.push(result);
@@ -1104,10 +1112,10 @@ export class AgentRunner {
   // ACTION HANDLERS
   // ══════════════════════════════════════════════════════════════════════════════
   
-  async executeAction(action, context, agentId, runId, triggerResults) {
+  async executeAction(action, context, agentId, runId, triggerResults, actionIndex = 0) {
     switch (action.type) {
       case 'notify':
-        return this.executeNotify(action, context, agentId, runId, triggerResults);
+        return this.executeNotify(action, context, agentId, runId, triggerResults, actionIndex);
       case 'webhook':
         return this.executeWebhook(action, context);
       case 'update_state':
@@ -1141,7 +1149,8 @@ export class AgentRunner {
    * @param {string[]} log - Log array for recording attempts
    * @returns {Promise<{type: string, trigger: string, status: string, attempts: number, error?: string}>}
    */
-  async executeActionWithRetry(action, context, agentId, runId, triggerResults, isRetryable, log) {
+  async executeActionWithRetry(action, context, agentId, runId, triggerResults, isRetryable, log,
+    actionIndex = 0) {
     const result = {
       type: action.type,
       trigger: action.trigger_id,
@@ -1156,7 +1165,7 @@ export class AgentRunner {
       result.attempts = attempt;
 
       try {
-        await this.executeAction(action, context, agentId, runId, triggerResults);
+        await this.executeAction(action, context, agentId, runId, triggerResults, actionIndex);
         result.status = 'ok';
         return result;
 
@@ -1273,7 +1282,7 @@ export class AgentRunner {
     }
   }
   
-  async executeNotify(action, context, agentId, runId, triggerResults) {
+  async executeNotify(action, context, agentId, runId, triggerResults, actionIndex = 0) {
     const config = action.config || {};
 
     // Build notification content
@@ -1294,12 +1303,26 @@ export class AgentRunner {
     const priority = config.priority || 'normal';
     const notificationData = config.data ? this.interpolateObject(config.data, context) : null;
 
+    // A ProjectContext revision is a stable effect identity across a killed
+    // process and scheduler replay. The database owns the atomic dedupe.
+    const projectRevision = notificationData?.workspaceRevision;
+    const projectId = notificationData?.projectId;
+    const effectKey = context.execution?.extensionId && config.channel === 'in_app'
+      && typeof projectRevision === 'string' && projectRevision.startsWith('wsr1:')
+      && String(projectId || '') !== ''
+      ? createHash('sha256').update(JSON.stringify([
+        'm3-project-notify-v1', context.execution.extensionId, actionIndex,
+        action.trigger_id, String(projectId), projectRevision,
+      ])).digest('hex')
+      : null;
+
     // Store notification in DB (always, regardless of channel)
     this.repo.createNotification(agentId, runId, {
       priority,
       title,
       body: content,
       data: notificationData,
+      effectKey,
     });
 
     // Build notification context (plain object, not a class)

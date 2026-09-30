@@ -55,6 +55,10 @@
       "reason": "Imported direct-run database isolation bootstrap, not a standalone test."
     },
     {
+      "path": "tests/helpers/m3-notification-crash-preload.js",
+      "reason": "Suite-owned product child preload that stops only the isolated crash-journey process after a committed M3 notification; no standalone test."
+    },
+    {
       "path": "tests/helpers/m2-http-build-fixture.js",
       "reason": "Owned child HTTP composition for generation, effects and process restart in m2-lifecycle-http-e2e.test.js; not a standalone suite."
     },
@@ -10731,6 +10735,36 @@
       },
       "required": true,
       "owner": "WP-CHAT-WORKER-JOURNEY-20260930",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-TESTS-M3-AGENT-CRASH-RECOVERY-PRODUCT-JOURNEY-TEST",
+      "path": "tests/m3-agent-crash-recovery-product-journey.test.js",
+      "argv": [
+        "node",
+        "tests/m3-agent-crash-recovery-product-journey.test.js"
+      ],
+      "capabilityId": "C3-015",
+      "tier": "T3",
+      "fixture": "owned-product-server-and-loopback-provider",
+      "profile": "server",
+      "timeoutMs": 90000,
+      "expectedDurationMs": 10000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M3-WORKER-CRASH-RECOVERY-20261001",
       "state": "ACTIVE",
       "lastGreen": {
         "commit": null,
