@@ -233,6 +233,41 @@ test('project discussion keeps the durable summary in the final bounded provider
   });
 });
 
+test('project discussion does not shorten a durable summary before budgeting', async t => {
+  const project = await fixture(t);
+  const summary = '[Souhrn předchozí konverzace]\n' + 'Earlier decision. '.repeat(155) + ' LATE_DURABLE_DECISION';
+  const dbHistory = [{ isSummary: true, response: { tag: { speaker: 'system' }, content: summary } },
+    ...Array.from({ length: 10 }, (_, index) => ({ response: { tag: { speaker: 'user' },
+      content: `New turn ${index}` } }))];
+  await discussProject('Continue the project.', { project, dbHistory }, {
+    generate: async ({ prompt }) => {
+      assert.equal(JSON.parse(prompt).history[0].content, summary);
+      const bounded = JSON.parse(fitProjectDiscussionPrompt(prompt, 8192).prompt);
+      assert.equal(bounded.history.find(turn => turn.role === 'summary')?.content, summary);
+      return generated({ reply: 'Continue with the earlier decision.', plan: null });
+    },
+  });
+});
+
+test('tight 4K project budget keeps a complete summary or fails before a provider call', () => {
+  const summary = '[Souhrn předchozí konverzace]\n' + 'Earlier facts. '.repeat(75)
+    + ' LATE_SUMMARY_CANARY';
+  const input = { request: 'Continue with the prior decision.',
+    project: { id: 1, name: 'Demo', description: 'G'.repeat(1600) },
+    history: [{ role: 'summary', content: summary },
+      ...Array.from({ length: 10 }, (_, index) => ({ role: index % 2 ? 'assistant' : 'user',
+        content: `Old history ${index} ` + 'x'.repeat(600) }))],
+    analysis: { fileCount: 0, files: [], setup: {}, directories: [], excerpts: [] },
+    projectWorkEvidence: [] };
+  const bounded = fitProjectDiscussionPrompt(JSON.stringify(input), 4096);
+  const selected = JSON.parse(bounded.prompt);
+  assert.equal(selected.history.find(turn => turn.role === 'summary')?.content, summary);
+  assert.ok(selected.history.length < input.history.length, 'optional history should yield before the summary');
+  assert.ok(Buffer.byteLength(bounded.systemPrompt + bounded.prompt) <= bounded.maxBytes);
+  assert.throws(() => fitProjectDiscussionPrompt(JSON.stringify({ ...input,
+    history: [{ role: 'summary', content: summary + 'LONG'.repeat(400) }, ...input.history.slice(1)] }), 4096), /Rozděl/);
+});
+
 for (const scenario of ['path-escape', 'model-command', 'cycle', 'no-test', 'missing-parent', 'truncated']) {
   test(`invalid ${scenario} cannot become an executable proposal`, async t => {
     const project = await fixture(t);

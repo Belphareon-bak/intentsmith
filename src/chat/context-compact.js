@@ -154,19 +154,24 @@ export async function awaitPendingCompaction(conversationId, signal = null) {
 /** Never build a ten-message snapshot while older raw messages lack a summary. */
 export async function ensureCompactionBeforeNextTurn(conversationId, store, sessionId, signal = null) {
   throwIfAborted(signal);
-  const count = store.getUnsummarizedTurnCount?.(conversationId);
-  if (!Number.isSafeInteger(count)) throw new Error('CONTEXT_HISTORY_COUNT_UNAVAILABLE');
-  if (count < HANDLER_HISTORY_MAX_TURNS) return;
-  // Retry a prior failed/incomplete compaction before the next user turn is
-  // persisted. Failed model output remains raw and durable, never a summary.
-  if (count >= HANDLER_HISTORY_MAX_TURNS && !activeCompactions.has(conversationId)) {
-    maybeCompact(conversationId, store, sessionId);
+  // A token-pressure summary can start with fewer than ten raw turns. An
+  // exchange may arrive while it is running, leaving ten still unsummarized
+  // after that successful summary. Recheck once and compact the new range
+  // before building the next ten-message handler snapshot.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const count = store.getUnsummarizedTurnCount?.(conversationId);
+    if (!Number.isSafeInteger(count)) throw new Error('CONTEXT_HISTORY_COUNT_UNAVAILABLE');
+    if (count < HANDLER_HISTORY_MAX_TURNS) return;
+    // Retry a prior failed/incomplete compaction before the next user turn is
+    // persisted. Failed model output remains raw and durable, never a summary.
+    if (!activeCompactions.has(conversationId)) maybeCompact(conversationId, store, sessionId);
+    await awaitPendingCompaction(conversationId, signal);
+    const remaining = store.getUnsummarizedTurnCount?.(conversationId);
+    if (!Number.isSafeInteger(remaining)) throw new Error('CONTEXT_HISTORY_COUNT_UNAVAILABLE');
+    if (remaining < HANDLER_HISTORY_MAX_TURNS) return;
+    if (remaining >= count) throw new Error('CONTEXT_SUMMARY_UNAVAILABLE');
   }
-  await awaitPendingCompaction(conversationId, signal);
-  const remaining = store.getUnsummarizedTurnCount?.(conversationId);
-  if (!Number.isSafeInteger(remaining) || remaining >= HANDLER_HISTORY_MAX_TURNS) {
-    throw new Error('CONTEXT_SUMMARY_UNAVAILABLE');
-  }
+  throw new Error('CONTEXT_SUMMARY_UNAVAILABLE');
 }
 
 /**
