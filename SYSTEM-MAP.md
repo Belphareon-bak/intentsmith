@@ -647,14 +647,14 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 | | |
 |---|---:|
 | `src/**/*.js` | **232 671 ř.**, 677 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **258 805 ř.**, 575 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **576** (`479 ACTIVE`, `82 BLOCKED`, `15 HISTORICAL`) |
+| `tests/**/*.js` | **259 169 ř.**, 576 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **577** (`480 ACTIVE`, `82 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 107** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
 
 Aktuální registry fingerprint je
-`d3c32dc80f2b1680439fea42c2f4f3be96447405ad119ca69408bb308d24432c`.
+`03322df64b307c864e3fa229fbd4e445f70da89d01510eb2ae5572b797782ae4`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 

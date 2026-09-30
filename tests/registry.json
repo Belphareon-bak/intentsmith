@@ -15972,6 +15972,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T3-TESTS-CHAT-SECOND-COMPACTION-HTTP-TEST",
+      "path": "tests/chat-second-compaction-http.test.js",
+      "argv": [
+        "node",
+        "tests/chat-second-compaction-http.test.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-server-and-loopback-provider",
+      "profile": "server",
+      "timeoutMs": 240000,
+      "expectedDurationMs": 10000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-CHAT-SECOND-COMPACTION-20261001",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T3-TESTS-CHAT-TRANSLATOR-LIVE-TEST",
       "path": "tests/chat-translator-live.test.js",
       "argv": [
