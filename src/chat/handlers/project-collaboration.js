@@ -3,7 +3,7 @@
 import { randomUUID, createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { inspectProject } from '../../planner/project-onboarding.js';
+import { inspectProject, referencesProjectFile } from '../../planner/project-onboarding.js';
 import { compileCodeDraftInput } from '../../lifecycle/m2-code-draft.js';
 import { clockSystemPrompt } from '../../llm/clock-context.js';
 import { inspectDevelopmentEnvironment } from '../../setup/development-environment.js';
@@ -119,12 +119,19 @@ export function fitProjectDiscussionPrompt(serialized, numCtx, systemPrompt = `$
   // named files first and spend a little of the reply reserve (down to the
   // existing 1024-token floor) before answering from old conversation alone.
   // The model window, current request, goal and durable summary stay intact.
-  const requestedFile = file => input.request.includes(file.path);
+  const requestedFile = file => referencesProjectFile(input.request, file.path);
   const excerpts = [...input.analysis.excerpts].sort((a, b) =>
     Number(requestedFile(b)) - Number(requestedFile(a)));
   for (const file of excerpts) {
-    if (data.analysis.excerpts.some(selected => selected.path === file.path)) continue;
-    for (const limit of [1200, 300]) {
+    const existing = data.analysis.excerpts.findIndex(selected => selected.path === file.path);
+    if (existing >= 0) {
+      if (!requestedFile(file)
+          || (data.analysis.excerpts[existing].text === file.text
+            && data.analysis.excerpts[existing].truncated === file.truncated)) continue;
+      data.analysis.excerpts.splice(existing, 1);
+      prompt = JSON.stringify(data);
+    }
+    for (const limit of requestedFile(file) ? [file.text.length] : [1200, 300]) {
       const selected = { ...file, text: file.text.slice(0, limit), truncated: file.truncated || file.text.length > limit };
       data.analysis.excerpts.push(selected);
       prompt = JSON.stringify(data);
@@ -144,7 +151,8 @@ export function fitProjectDiscussionPrompt(serialized, numCtx, systemPrompt = `$
     }
   }
   if (excerpts.some(file => requestedFile(file)
-      && !data.analysis.excerpts.some(selected => selected.path === file.path))) {
+      && !data.analysis.excerpts.some(selected => selected.path === file.path
+        && selected.text === file.text && selected.truncated === file.truncated))) {
     throw Object.assign(new Error('Požadovaný soubor se nevejde do kontextu modelu. Vyber menší část projektu nebo rozděl zadání.'),
       { code: 'PROJECT_CONTEXT_SOURCE_UNAVAILABLE' });
   }
@@ -256,7 +264,7 @@ async function discussProjectOnce(input, context, {
 } = {}) {
   const project = context.project;
   if (!project?.id || !project.path) throw new Error('Projekt není připojený.');
-  const analysis = await inspect(project, { signal: context.signal });
+  const analysis = await inspect(project, { signal: context.signal, request: input });
   const durableHistory = context.dbHistory || [];
   const summary = durableHistory.findLast(turn => turn.isSummary === true);
   const recentHistory = durableHistory.filter(turn => !turn.isSummary).slice(-10);

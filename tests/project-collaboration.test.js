@@ -6,7 +6,8 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { test } from 'node:test';
-import { initializeNewProject, inspectProject, importedProjectWelcome, newProjectPolicy } from '../src/planner/project-onboarding.js';
+import { initializeNewProject, inspectProject, importedProjectWelcome, newProjectPolicy,
+  referencesProjectFile } from '../src/planner/project-onboarding.js';
 import { discussProject, collectProjectWorkEvidence, fitProjectDiscussionPrompt, PROJECT_DISCUSSION_SYSTEM } from '../src/chat/handlers/project-collaboration.js';
 import { createProjectRoutes } from '../src/routes/projects.js';
 import { detectFileIntent } from '../src/chat/handlers/project.js';
@@ -527,6 +528,45 @@ test('4K project return keeps freshly inspected README requested by name', () =>
   assert.equal(selected.analysis.excerpts.find(file => file.path === 'README-A.md')?.text, source);
   assert(result.maxTokens >= 1024, 'model still needs a useful reply budget');
   assert(Buffer.byteLength(result.systemPrompt + result.prompt) <= result.maxBytes);
+});
+
+test('requested source is complete or rejected before the model; short natural words are not paths', () => {
+  const request = 'Zopakuj kód ze souboru README-A.md';
+  const source = 'X'.repeat(500) + 'FACT_AFTER_300' + 'Y'.repeat(500);
+  const input = { request, host: { observation: 'O'.repeat(1500) },
+    project: { id: 1, name: 'A', description: '' }, history: [{ role: 'user', content: request }],
+    analysis: { fileCount: 1, files: ['README-A.md'], setup: {}, directories: ['.'],
+      excerpts: [{ path: 'README-A.md', text: source, truncated: false }] },
+    expertiseGuidance: 'E'.repeat(600), projectWorkEvidence: [] };
+  assert.throws(() => fitProjectDiscussionPrompt(JSON.stringify(input), 4096, 'S'.repeat(2190)),
+    { code: 'PROJECT_CONTEXT_SOURCE_UNAVAILABLE' });
+  const shortPath = { ...input, request: 'Jaký je stav projektu?', host: { observation: 'O'.repeat(2000) },
+    history: [{ role: 'user', content: 'Jaký je stav projektu?' }],
+    analysis: { ...input.analysis, files: ['a'], excerpts: [{ path: 'a', text: 'X'.repeat(1000), truncated: false }] } };
+  assert.equal(referencesProjectFile(shortPath.request, 'a'), false);
+  assert.equal(referencesProjectFile('Otevři `a`.', 'a'), true);
+  assert.equal(referencesProjectFile('Otevři ./abc.', 'a'), false);
+  assert.equal(referencesProjectFile('Zkontroluj README-A.md.', 'README-A.md'), true);
+  assert.doesNotThrow(() => fitProjectDiscussionPrompt(JSON.stringify(shortPath), 4096, 'S'.repeat(2190)));
+});
+
+test('project inspection puts a named file ahead of the ten generic excerpts', async t => {
+  const project = await fixture(t);
+  for (let index = 0; index < 12; index++) {
+    await fs.writeFile(path.join(project.path, 'src', `section-${String(index).padStart(2, '0')}.js`),
+      `export const marker = 'SECTION_${index}';\n`);
+  }
+  const target = 'src/section-11.js';
+  const ordinary = await inspectProject(project);
+  assert.equal(ordinary.excerpts.some(file => file.path === target), false);
+  const request = `Přečti přesný marker ze souboru ${target}`;
+  const targeted = await inspectProject(project, { request });
+  assert.equal(targeted.excerpts.find(file => file.path === target)?.text,
+    "export const marker = 'SECTION_11';\n");
+  await discussProject(request, { project }, { generate: async ({ prompt }) => {
+    assert(JSON.parse(prompt).analysis.excerpts.some(file => file.path === target));
+    return generated({ reply: 'Soubor obsahuje SECTION_11.', plan: null });
+  } });
 });
 
 test('actual HTTP creation/import preserves foreign files, rejects collisions and survives restart', { timeout: 60_000 }, async () => {

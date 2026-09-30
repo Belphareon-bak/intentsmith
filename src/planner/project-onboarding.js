@@ -76,7 +76,22 @@ export async function initializeNewProject(root, { name, description = '', type 
   }
 }
 
-export async function inspectProject(project, { signal } = {}) {
+// Match a path as a distinct reference. Single-letter files need quotes or
+// ./path because a natural-language conjunction is otherwise ambiguous.
+export function referencesProjectFile(request, filePath) {
+  if (typeof request !== 'string' || typeof filePath !== 'string' || !filePath) return false;
+  const quoted = [`\`${filePath}\``, `"${filePath}"`, `'${filePath}'`]
+    .some(reference => request.includes(reference));
+  if (quoted) return true;
+  const escaped = filePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const left = '(^|[^\\p{L}\\p{N}_./-])';
+  const right = '(?=$|[^\\p{L}\\p{N}_./-]|\\.(?=$|\\s))';
+  if (new RegExp(`${left}\\./${escaped}${right}`, 'u').test(request)) return true;
+  if (filePath.length < 3 && !/[./]/.test(filePath)) return false;
+  return new RegExp(`${left}${escaped}${right}`, 'u').test(request);
+}
+
+export async function inspectProject(project, { signal, request } = {}) {
   const canonicalRoot = await fs.realpath(project.path);
   const manifest = await buildProjectContextManifest({ projectId: project.id, canonicalRoot },
     { signal, deadlineAt: Date.now() + 15_000 });
@@ -85,7 +100,9 @@ export async function inspectProject(project, { signal } = {}) {
   const priority = entry => entry.path === 'package.json' ? -1
     : /(^|\/)(readme[^/]*|package.json|pyproject.toml|cargo.toml|go.mod)$/i.test(entry.path) ? 0
     : isTest(entry.path) ? 1 : 2;
-  const selected = [...regular].sort((a, b) => priority(a) - priority(b) || a.path.localeCompare(b.path));
+  const ranked = entry => entry.path === 'package.json' ? -2
+    : referencesProjectFile(request, entry.path) ? -1 : priority(entry);
+  const selected = [...regular].sort((a, b) => ranked(a) - ranked(b) || a.path.localeCompare(b.path));
   const excerpts = [];
   let nodeProject = null;
   let used = 0;
@@ -112,6 +129,11 @@ export async function inspectProject(project, { signal } = {}) {
     const text = bytes.toString('utf8').slice(0, Math.min(5_000, 24_000 - used));
     excerpts.push({ path: entry.path, text, truncated: text.length < bytes.toString('utf8').length });
     used += text.length;
+  }
+  if (regular.some(entry => referencesProjectFile(request, entry.path)
+      && !excerpts.some(excerpt => excerpt.path === entry.path))) {
+    throw Object.assign(new Error('Požadovaný soubor nebylo možné bezpečně přečíst v mezích projektového kontextu. Vyber menší část projektu.'),
+      { code: 'PROJECT_CONTEXT_SOURCE_UNAVAILABLE' });
   }
   const names = regular.map(entry => entry.path);
   const facts = [];
