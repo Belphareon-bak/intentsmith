@@ -1,5 +1,19 @@
 # WP — generativní překladatel přes produktový M1 chat
 
+**Integrační pokračování 1. 10. 2026, 00:22 UTC:** na čistém `c815ec43`
+prošel živý M1 překlad s fyzickým `qwen3.5:27b` **1/1**; důkaz leží v
+privátním `chat-translator-live-evidence.json` pod
+`.intentsmith-artifacts/direct-tests/chat-translator-live.test-RGxNY0/`.
+Nezávislá revize společného `12b7726a` poté našla veřejný únik původního
+vstupu přes `toolResults[0].data.data.sourceText`, a při provider 503 dokonce
+HTTP 200 s raw JSON a `SUCCESS`. Red-first skutečný M1 HTTP/SQLite test
+potvrdil oba případy. Lokální oprava ponechává raw výsledek pouze v privátním
+provider promptu; veřejný specialistický `toolResults` mimo bezpečný VAT
+výpočet nese jen typ nástroje. Při provider 503 nebo `done_reason=length`
+vrací terminální M1 chybu 503/502 bez asistenční zprávy v SQLite a bez raw
+textu v odpovědi. Přímé testy překladu **3/3** a účetního **2/2** procházejí;
+čistý registrovaný commit a nezávislé review této opravy teprve následují.
+
 **Stav 2026-10-01:** implementační kandidát. Deterministický průchod se
 skutečným izolovaným HTTP serverem, privátní SQLite a řízeným providerem
 prošel 1/1 po opravě registrace. Živý Ollama průchod je `LIVE_NOT_RUN`;

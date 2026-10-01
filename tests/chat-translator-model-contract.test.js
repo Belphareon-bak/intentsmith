@@ -7,7 +7,8 @@ import http from 'node:http';
 import { test } from 'node:test';
 
 import { isolatedTestRuntime as runtime } from './helpers/isolated-test-db.js';
-import { createOwnedJourneyRuntime, expectJson, startProduct, stopProduct } from './helpers/chat-project-expertise-model-journey.js';
+import { createOwnedJourneyRuntime, expectJson, requestJson, startProduct,
+  stopProduct } from './helpers/chat-project-expertise-model-journey.js';
 import { TRANSLATOR_CASE, assertTranslationMeaning, assertTranslatorDurabilityAndProject,
   assertTranslatorM1Result, assertTranslatorProviderRequest, clearTranslator,
   createTranslatorJourney, makeTranslatorCommand, selectTranslator,
@@ -16,7 +17,7 @@ import { TRANSLATOR_CASE, assertTranslationMeaning, assertTranslatorDurabilityAn
 const MODEL = 'fixture:1b';
 const DIGEST = 'a'.repeat(64);
 
-async function startFixtureProvider() {
+async function startFixtureProvider({ failChat = false, finishReason = 'stop' } = {}) {
   const requests = [];
   const server = http.createServer(async (request, response) => {
     const chunks = [];
@@ -34,8 +35,12 @@ async function startFixtureProvider() {
     } else if (request.method === 'POST' && request.url === '/api/chat') {
       const payload = JSON.parse(Buffer.concat(chunks).toString('utf8'));
       requests.push(payload);
+      if (failChat) {
+        response.writeHead(503).end(JSON.stringify({ error: 'fixture provider unavailable' }));
+        return;
+      }
       response.end(JSON.stringify({ model: MODEL, digest: DIGEST, done: true,
-        done_reason: 'stop', prompt_eval_count: 125, eval_count: 31,
+        done_reason: finishReason, prompt_eval_count: 125, eval_count: 31,
         message: { role: 'assistant',
           content: TRANSLATOR_CASE.fixtureTranslation } }));
     } else {
@@ -110,4 +115,37 @@ test('translator selection reaches one generative M1 provider call and preserves
 
   await closeOwned();
   assert.equal(durable.messages, 2);
+});
+
+for (const failure of [
+  { name: 'provider unavailable', options: { failChat: true }, status: 503,
+    code: 'LLM_PROVIDER_UNAVAILABLE' },
+  { name: 'truncated provider answer', options: { finishReason: 'length' }, status: 502,
+    code: 'MODEL_RESPONSE_TRUNCATED' },
+]) test(`${failure.name} is terminal and never publishes raw translation source`, {
+  timeout: 180_000,
+}, async t => {
+  const provider = await startFixtureProvider(failure.options);
+  let product = null;
+  t.after(async () => {
+    if (product) await stopProduct(product);
+    await provider.close();
+  });
+  const journeyRuntime = createOwnedJourneyRuntime(runtime);
+  product = await startProduct(journeyRuntime, provider.url, MODEL);
+  const journey = await createTranslatorJourney(product, journeyRuntime);
+  await selectTranslator(product, journey.conversationId);
+  const command = makeTranslatorCommand(journey.conversationId);
+  const { status, data } = await requestJson(product, 'POST', '/api/chat', command);
+  assert.equal(status, failure.status, JSON.stringify(data));
+  assert.equal(data.error?.code, failure.code);
+  assert.equal(provider.requests.length, 1,
+    'provider failure must not trigger a second or fallback model request');
+  assert(!JSON.stringify(data).includes(TRANSLATOR_CASE.source),
+    'terminal response must not contain raw source text');
+  const messages = await expectJson(product, 'GET',
+    `/api/conversations/${journey.conversationId}/messages`, null, 200);
+  assert.deepEqual(messages.messages.map(message => [message.role, message.content]),
+    [['user', TRANSLATOR_CASE.input]],
+    'no assistant message may persist after provider failure');
 });

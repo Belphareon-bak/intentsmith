@@ -160,6 +160,8 @@ export function assertTranslatorM1Result(result) {
   assert.equal(result.response.metadata.executionStatus, 'SUCCESS');
   assert.equal(result.response.metadata.extractedParams, undefined,
     'public M1 metadata must not repeat the full source text as tool parameters');
+  assert(!JSON.stringify(result.response.metadata).includes(TRANSLATOR_CASE.source),
+    'public M1 metadata must not repeat the translation source in tool results');
   assert.equal(result.response.metadata.finishReason, 'stop');
   assertTranslationMeaning(result.response.content);
 }

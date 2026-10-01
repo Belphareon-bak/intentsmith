@@ -1,5 +1,15 @@
 # WP — účetní DPH přes skutečný M1 HTTP chat
 
+**Dodatečné review `12b7726a`: `CHANGES_REQUIRED`.** Negativní účetní
+HTTP/SQLite cesta i veřejný filtr `extractedParams` prošly, ale při selhání
+generativního wrapperu se původní raw tag vracel do M1 jako úspěch.
+Překladatel navíc v `toolResults` zveřejňoval celý zdrojový text už při
+úspěchu. Integrační oprava nyní vyřazuje raw fallback, používá typovanou
+503/502 chybu a pro ostatní specialistické výsledky zveřejňuje jen typ;
+strukturovaný VAT výsledek zůstává beze změny. Red-first HTTP testy pro
+provider 503 a truncation byly před opravou FAIL, po ní jsou PASS. Nová
+revize a čistý registrovaný běh ještě chybí.
+
 **Následné integrační ověření 1. 10. 2026, 00:16 UTC:** společný commit
 `033afd47` prošel registrovanými sadami účetního, překladatele a
 specialistického followupu **3/3**, dále dokumentační a M1 sadou **2/2**.

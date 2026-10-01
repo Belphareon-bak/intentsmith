@@ -580,6 +580,17 @@ function publicWrappedSpecialistParams(metadata) {
     rate: params.rate, direction: params.direction };
 }
 
+function publicWrappedToolResults(metadata) {
+  const results = metadata?.toolResults;
+  if (!Array.isArray(results)) return results;
+  // The raw result remains in the private model prompt. Specialist results
+  // other than the bounded VAT calculation can carry the whole user input.
+  if (metadata.specialistTool && metadata.specialistTool !== 'accountant.vat_calculator') {
+    return results.map(item => ({ type: item.type }));
+  }
+  return results;
+}
+
 async function wrapWithExpertisePersona(input, toolResult, expertise, context) {
   try {
     const creBridge = await import('../../llm/cre-bridge.js');
@@ -627,7 +638,7 @@ Based on these results, provide your expert analysis and response.`;
       metadata: {
         expertiseSource: context.expertise?._source || 'manual', // v87
         expertise: { id: expertise.id, name: expertise.name, domain: expertise.domain },
-        toolResults: toolMetadata.toolResults,
+        toolResults: publicWrappedToolResults(toolMetadata),
         ...(toolMetadata.executionStatus ? { executionStatus: toolMetadata.executionStatus } : {}),
         ...(toolMetadata.specialistTool ? { specialistTool: toolMetadata.specialistTool } : {}),
         ...(publicParams ? { extractedParams: publicParams } : {}),
@@ -645,9 +656,24 @@ Based on these results, provide your expert analysis and response.`;
     });
 
   } catch (err) {
-    // If expert wrapping fails, return original tool result
-    logger.warn('ExpertHandler', `Expert wrapping failed, returning raw result: ${err.message}`);
-    return toolResult;
+    logger.warn('ExpertHandler', `Expert wrapping failed: ${err.message}`);
+    const truncated = err.code === 'EXPERT_RESPONSE_TRUNCATED';
+    return new TaggedResponse({
+      content: 'Odpověď specialisty se nepodařilo dokončit.',
+      tag: new ResponseTag({
+        speaker: ResponseSpeaker.SYSTEM,
+        mode: ChatMode.EXPERTISE,
+        confidence: 1,
+        canExecute: false,
+        metadata: {
+          error: true,
+          errorType: 'EXPERT_LLM_FAILED',
+          ...(truncated ? { finishReason: 'length' } : {}),
+          executionStatus: 'FAILED',
+          fallbackSuppressed: true,
+        },
+      }),
+    });
   }
 }
 
@@ -759,7 +785,9 @@ async function executeSpecialistTool(input, toolResult, expertise, context) {
         expertiseSource: context.expertise?._source || 'manual',
         expertise: { id: expertise.id, name: expertise.name, domain: expertise.domain },
         executionStatus: 'SUCCESS',
-        toolResults: [{ type: toolType, data: result }],
+        toolResults: publicWrappedToolResults({
+          specialistTool: toolType, toolResults: [{ type: toolType, data: result }],
+        }),
         specialistTool: toolType,
         ...(publicParams ? { extractedParams: publicParams } : {}),
         deterministicPresentation: true,

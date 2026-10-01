@@ -1,5 +1,24 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 1. 10. 2026, 00:23 UTC
+
+Druhá skutečná auto-context kompakce přes restart a projekty A/B je
+integrovaná jako `a1c151fa`. Přísnější negativní orákula získala nezávislé
+omezené `REVIEW_PASS` na izolovaném `73345875`; na čistém sloučeném SHA
+prošly registrované sady kompakce a dokumentace **2/2**
+(`.intentsmith-artifacts/test-runs/2026-10-01T00-19-00-493Z/report.json`).
+To ověřuje řízený HTTP/SQLite tok a sumarizační provider prompty; fyzická
+kvalita druhého souhrnu je stále `LIVE_NOT_RUN`.
+
+Revize opravy účetního `12b7726a` zůstává `CHANGES_REQUIRED`: i po
+úspěšném účtování mohl generativní wrapper při provider 503 vrátit raw JSON
+jako HTTP 200/SUCCESS. Úspěšný překlad navíc opakoval původní vstup ve
+veřejných `toolResults`. Oba nedostatky reprodukovaly nové červené M1
+HTTP/SQLite testy. Lokální oprava nyní dává terminální 503/502 bez uložené
+asistenční odpovědi, zatímco interní provider prompt zachovává celý nástrojový
+výsledek; přímé testy překladatele **3/3** a účetního **2/2** procházejí.
+Čistý commit, registrovaný běh a nezávislá revize této delty ještě chybí.
+
 ## Checkpoint 1. 10. 2026, 00:17 UTC
 
 Integrovaný účetní kandidát `033afd47` na čistém pushnutém stromu prošel
