@@ -593,6 +593,8 @@ test('review mutant: conversation project reassignment must not carry ordinal fi
     ['short', 'Otevři druhý soubor.'],
     ['polite', 'Otevři prosím ten druhý soubor.'],
     ['negated', 'Neotevři ten druhý soubor.'],
+    ['mixed-path', 'Otevři ten druhý soubor, první je alpha.md'],
+    ['mixed-path-negated', 'Neotevři ten druhý soubor, první je alpha.md'],
   ]) {
     const a = await project(server, `review-reassign-a-${label}`, `REVIEW_REASSIGN_A_${label}`);
     writeFileSync(`${a.path}/alpha.md`, 'A_FIRST');
@@ -604,7 +606,7 @@ test('review mutant: conversation project reassignment must not carry ordinal fi
     assert.notEqual(read.response.metadata?.approvalRequired, true,
       `older A-context must not resolve to a private B read: ${JSON.stringify(read.response.metadata)}`);
     assert.doesNotMatch(JSON.stringify(read.response), /B_SECOND_PRIVATE|A_SECOND/u);
-    if (label === 'negated') {
+    if (label === 'negated' || label === 'mixed-path-negated') {
       assert.equal(read.response.metadata?.prohibitionAcknowledged, true);
     } else {
       assert.equal(read.response.metadata?.error, 'file_reference_unresolved');

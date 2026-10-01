@@ -245,9 +245,12 @@ export function detectFileIntent(input) {
 // a different filename as read authority. Every read still enters M2 approval.
 const ORDERED_FILE_READ_PATTERN = /^(?:přečti|precti|otevři|otevri)\s+(?:(?:mi|prosím|prosim)\s+)*(?:ten\s+)?druh[ýy]\s+soubor[.!?]?$/iu;
 
-function hasUnnamedSecondFileReference(input) {
+function hasSecondFileReference(input) {
   const plain = input.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/gu, '');
-  return /\bdruhy\s+soubor\b/u.test(plain) && !extractFilePath(input);
+  // A different named file in the same sentence does not identify the
+  // ordinal target. Send every unresolved ordinal reference through this
+  // guard before CRE can choose an unrelated file from its own output.
+  return /\bdruhy\s+soubor\b/u.test(plain);
 }
 
 function resolveImmediateOrderedFileRead(input, history, activeProjectId) {
@@ -334,7 +337,7 @@ export async function projectHandler(input, context) {
     // ════════════════════════════════════════════════════════════════════════
     if (project.path) {
       const orderedFile = resolveImmediateOrderedFileRead(input, context.history, Number(project.id));
-      if (hasUnnamedSecondFileReference(input) && !orderedFile) {
+      if (hasSecondFileReference(input) && !orderedFile) {
         const prohibited = /\b(?:neotevri|neprecti|necti|neukazuj)\b/u.test(
           input.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/gu, ''),
         );

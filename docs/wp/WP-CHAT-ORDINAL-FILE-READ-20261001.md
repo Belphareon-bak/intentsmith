@@ -74,6 +74,15 @@ při shodném timestampu. Negativní M1/SQLite scénář s dvanácti tahy a
 starým seznamem v historii nepřipraví žádný `fs.read`. Pro tento souhrnný
 kandidát zbývá nezávislé review, integrace a opakovaný živý pilot.
 
+Čtvrté nezávislé review `6ba07ef5` skončilo **CHANGES_REQUIRED**: věta
+„Otevři ten druhý soubor, první je alpha.md“ obsahovala jiný pojmenovaný
+soubor. Stráž nevyřešeného odkazu se kvůli němu vypnula a CRE mohlo samo
+navrhnout čtení `beta.md` v jiném projektu. Totéž platilo pro záporné
+„Neotevři…“. Stráž nyní zachytí každý výskyt „druhý soubor“, který neprošel
+přesným kladným resolverem, bez ohledu na další názvy ve větě. Reálné M1
+regrese obou smíšených vět po změně procházejí; nový kandidát čeká na
+opětovné nezávislé review.
+
 Produkční M2 adaptér si po prvním asynchronním použití zapamatuje tentýž
 autoritativní runtime. Synchronní resolvery čtení i výpisu odmítají použití,
 dokud nebyl runtime načten; nikdy nečtou soubor druhou, neověřenou cestou.
@@ -89,7 +98,7 @@ seznam kvalifikovaných cest nesmějí vytvořit efekt. Zkouška používá vlas
 server, provider, SQLite a soukromé projektové adresáře; není fyzickou
 modelovou přejímkou ani produkčním nasazením.
 
-**Stav kandidáta:** řízený M1 HTTP/SQLite **2/2 PASS**; sousední M2 produkční
+**Stav kandidáta:** řízený M1 HTTP/SQLite **5/5 PASS**; sousední M2 produkční
 consumer **22/22**, M2 file consumer **39/39**, CRE file guard **9/9** a
 projektový modelový kontrakt **1/1**. Nezávislé review, integrace, nový
 živý pilot a finální 53případová sada dosud čekají.
