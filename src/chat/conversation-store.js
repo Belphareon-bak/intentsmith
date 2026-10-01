@@ -428,6 +428,41 @@ export class ConversationStore {
     })) };
   }
 
+  /** Retrieve complete original user evidence when a lossy summary is insufficient.
+   * Relevance affects only which quoted data is shown, never an action or value.
+   */
+  getArchivedUserEvidence(conversationId, input, maxBytes = 1200) {
+    if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > 8192) throw new Error('ARCHIVED_SOURCE_BUDGET_INVALID');
+    const summary = this.getSummary(conversationId);
+    if (!summary?.upToMsgId) return { sources: [], omitted: false };
+    const projectId = this.getConversation(conversationId)?.project_id ?? null;
+    const rows = this.#db
+      ? this.#db.db.prepare(`SELECT id, CASE WHEN length(content) <= ? THEN content ELSE NULL END AS content, metadata FROM messages
+          WHERE conversation_id = ? AND role = 'user' AND id <= ?
+          ORDER BY id ASC LIMIT 1000`).all(maxBytes, conversationId, summary.upToMsgId)
+      : this._memMessages.filter(row => row.conversation_id === conversationId
+        && row.role === 'user' && row.id <= summary.upToMsgId).slice(0, 1000);
+    const searchWords = text => new Set(String(text).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+      .match(/[\p{L}\p{N}_]{3,}/gu)?.map(word => word.length > 4 ? word.slice(0, 4) : word) || []);
+    const terms = searchWords(input);
+    const ranked = rows.flatMap(row => {
+      const metadata = this.#parseMetadata(row.metadata);
+      if (!metadata || !Object.hasOwn(metadata, 'projectId') || metadata.projectId !== projectId) return [];
+      if (typeof row.content !== 'string' || row.content.length > maxBytes) return [];
+      const words = searchWords(row.content);
+      const score = [...terms].filter(term => words.has(term)).length;
+      return score ? [{ messageId: row.id, role: 'user', projectId, content: row.content, score }] : [];
+    }).sort((a, b) => b.score - a.score || b.messageId - a.messageId);
+    const sources = [];
+    let bytes = 0, omitted = rows.length === 1000 || rows.some(row => typeof row.content !== 'string' || row.content.length > maxBytes);
+    for (const { score, ...source } of ranked) {
+      const size = Buffer.byteLength(JSON.stringify(source), 'utf8') + 1;
+      if (sources.length === 3 || bytes + size > maxBytes) { omitted = true; continue; }
+      sources.push(source); bytes += size;
+    }
+    return { sources: sources.sort((a, b) => a.messageId - b.messageId), omitted };
+  }
+
   /** Exact durable core continuation lookup; never consult RAM/history input. */
   getFileExplainTurn(conversationId, requestId) {
     if (!this.isDurableReady()) return null;

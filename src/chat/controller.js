@@ -2152,6 +2152,7 @@ ChatController.handle = async function(request) {
     lastTurnTopic: state.lastUserInput || null,
     // v56.0 Sprint 3 — DB-backed history replaces RAM
     dbHistory,
+    archivedChatEvidence: store.getArchivedUserEvidence(dbConversationId, message),
     // v86 — LTM context for synthesis (now populated from persistent singleton)
     ltmContext,
     getMemoryContext: intent => getLTMContextForSynthesis(memory.ltm, { input: message, intent }),

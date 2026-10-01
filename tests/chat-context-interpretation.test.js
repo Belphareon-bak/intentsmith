@@ -177,6 +177,28 @@ test('interpretation never shortens the current request and excludes foreign pro
   assert(JSON.stringify(context).includes('Lípa'));
 });
 
+test('archived original user facts survive lossy summaries and never borrow foreign scope or assistant claims', () => {
+  const store = new ConversationStore(null);
+  const id = 'archived-original-facts';
+  store.ensureConversation(id, { projectId: 1 });
+  const original = 'Název je Lípa. První krok je ruční kontrola obsahu bez změny souborů.';
+  const first = store.appendTurn(id, TurnRole.USER, original, { projectId: 1 });
+  store.appendTurn(id, TurnRole.USER, 'První krok FOREIGN_PRIVATE_CANARY', { projectId: 2 });
+  store.appendTurn(id, TurnRole.ASSISTANT, 'První krok je neověřený výmysl.', { projectId: 1 });
+  const last = store.appendTurn(id, TurnRole.USER, 'Oprava: název je Javor, první krok zůstává.', { projectId: 1 });
+  store.setSummary(id, 'Nepřesný souhrn ztratil první krok.', last.id);
+  const evidence = store.getArchivedUserEvidence(id, 'Jaký název a první krok platí?');
+  assert(evidence.sources.some(source => source.messageId === first.id && source.content === original));
+  assert(evidence.sources.some(source => source.messageId === last.id && source.content.includes('Javor')));
+  assert(!JSON.stringify(evidence).includes('FOREIGN_PRIVATE_CANARY'));
+  assert(!JSON.stringify(evidence).includes('výmysl'));
+  const interpretation = buildInterpretationContext('Jaký byl první krok?', {
+    project: { id: 1 }, archivedChatEvidence: evidence }, 1600);
+  assert.equal(interpretation.sources[0].content, original);
+  assert.equal(buildInterpretationContext('Jaký byl první krok?', {
+    project: { id: 2 }, archivedChatEvidence: evidence }, 1600).sources.length, 0);
+});
+
 test('interpretation protects the complete archived summary when recent optional history is too large', () => {
   const summary = 'Platí Javor, kód LIPA_781; první krok je ruční kontrola bez změn souborů.';
   const context = { history: [
