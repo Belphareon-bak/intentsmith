@@ -2,6 +2,8 @@
 
 **Aktuální vývojový checkpoint 1. 10. 2026:** [stav dokončování, měřené
 výsledky a otevřené brány](docs/review/2026-09-30-COMPLETION-TRACKER.md).
+[Průběžný pracovní report](docs/WORK-PROGRESS.md) se aktualizuje po milníku,
+nejpozději po třech hodinách aktivní práce.
 Publikovaný zdroj `34cfc198` má GitHub CI SUCCESS a registrovaných
 **9/9 PASS / REVIEW_PASS**. Ledger, TaskFlow a řízený packaged IDE ledger
 mají skutečnou funkční přejímku; jejich
