@@ -1,6 +1,6 @@
 # WP: Functional acceptance of a generated six-file project
 
-Status: **candidate, independent review pending; physical model journey `LIVE_NOT_RUN`**.
+Status: **functional harness independently `REVIEW_PASS`; physical model journey `LIVE_NOT_RUN`**.
 Authority: operator's 2026-10-01 request to verify that generated applications actually work; `PRODUCT.md` §2.7 and §3; the six-file expense-ledger blueprint in `docs/PROJECT-BUILD.md`.
 
 ## Owned scope and fixed oracle
@@ -36,3 +36,44 @@ An initial successor probe embedded an `import` source string inside the oracle;
 The first direct invocation of the M2 test with the shell's Node 22 failed before any M2 assertion because the shared `better-sqlite3` binary is built for Node ABI 137. Re-running with local Node 24.21.0 passed both cases. The native-runtime preflight now reports this prerequisite explicitly; the Node 22 result is a toolchain failure, not evidence for application behavior.
 
 The registry owner may add two additive entries for `tests/project-app-acceptance.test.js` and `tests/project-app-m2-functional.test.js` in the registered deterministic test graph. This candidate does not edit that registry.
+
+## Accepted integration and next physical boundary — 2026-10-01 08:24 UTC
+
+Independent functional review accepted the complete `db601749 →
+62e1309f6a11fa8f750a4137621d106185a85e80` range. Its own Node 24.21.0
+run passed all 11 controls (4 oracle controls and 7 real M2/SQLite/Git
+journeys); a second reviewer accepted the static direct-API observations.
+Private receipts remain in the author checkout under
+`.intentsmith-artifacts/gate0-review-app-functional-controls-62e.log` and
+`gate0-review-app-functional-metadata-62e.json`. Previous failed reviews
+above remain historical evidence. Source, contracts and registry were
+unchanged in the reviewed author range.
+
+Root integrated all four commits in order, ending at `03c82d7e`. The
+six changed paths match the accepted candidate byte for byte. Additive
+registration of the two suites and the helper exclusion is a separate
+integration step; the original author did not claim registered evidence.
+Registered verification on the combined clean source is pending.
+
+The operator has assigned further CHAT work to another worker. The
+physical project journey here exercises CODE/M2 and a newly created
+private project; it does not run the conversational CHAT corpus. A
+read-only GPU inventory at 08:24 UTC found a foreign/UNKNOWN resident
+provider process, PID 3765553, with 16,914 MiB allocated and only 5,270 MiB
+free VRAM. No lease existed, but the resident process still prevents
+claiming an available serialized GPU slot. No foreign model was unloaded,
+no inference was attempted and production services were unchanged.
+Physical evidence remains **LIVE_NOT_RUN / GPU_IN_USE** until the slot
+is free and the exact clean source/model/digest pins have been recorded.
+
+At 08:36 UTC a fresh serialized GPU slot became available: no resident
+provider model or NVIDIA compute process, no foreign lease, 22,315 MiB
+free VRAM, 24,598,464 KiB available RAM and 162,930,421,760 bytes free disk.
+Root started the physical CODE/M2 journey on the clean, independently
+accepted author source `62e1309f6a11fa8f750a4137621d106185a85e80`, installed
+and production-desired CODE tag `qwen3.8:latest`, digest
+`22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643`.
+It owns the shared GPU lease and a new private project/DB. State is
+**RUNNING**, not a functional PASS. No conversational CHAT corpus runs.
+Private output is `.intentsmith-artifacts/project-app-live-qwen38-20261001-0836`
+in the author checkout; acceptance remains pending its actual terminal.

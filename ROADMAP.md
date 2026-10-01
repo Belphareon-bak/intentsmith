@@ -1,6 +1,32 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktualizace 1. 10. 2026, 06:19 UTC:** Celý profil čistého `4cbb4b55`
+**Aktualizace 1. 10. 2026, 08:37 UTC:** Operátor předal další CHAT
+jinému workerovi; tento proud pokračuje v IDE, backendu, projektech a Huntu.
+GitHub development CI na `45caf5b5` je skutečné **PASS**, ale celý
+profil téhož zdroje zůstává **FAIL: 397 PASS / 5 FAIL / 3 BLOCKED**.
+Tři migrační/documentation nedostatky mají přijatou opravu `4bd11302`
+a cílené registrované **3/3 PASS**; dvě účetní routing/context selhání
+jsou předaná, stále otevřená. Nový celý profil se nevydává za hotový.
+
+IDE balík přesného `45caf5b5` má přijaté build/package a skutečné no-model
+UI ověření včetně viditelného AppImage startupu. Skutečný pětiminutový
+worker nad týmž zdrojem prošel znovu **PASS**. Upgrade konzistentní
+soukromé kopie skutečné DB na backend source `e6fb6b46` lokálně prošel:
+zachování všech původních řádků, migrace 118/119/121 a druhý no-op run;
+jeho nezávislé review čeká. Produkce není aktualizovaná.
+
+Funkční testovací mechanismus šestisouborové aplikace `62e1309f` má
+nezávislé **REVIEW_PASS / 11/11 PASS** a je integrovaný. Nový registr
+`7335ff66` má **593 sad**, nové dvě sady čekají na společný registrovaný
+běh. Skutečné CODE/M2 generování přes přesný Qwen 3.8 běží na čistém
+přijatém autorově zdroji; výsledek je zatím **RUNNING**, ne PASS.
+Hunt stále **NO_GO**, druhé posudky 596/1173. První neCHAT slepá vlna
+144 odpovědí / 330 kritérií a pevná zbývající fronta 433/1035 jsou
+soukromě připravené; **NOT_EVALUATED / NO_DECISION**. Mobil následuje
+po stabilizaci IDE/backendu a bezpečný úklid větví/worktrees zůstává poslední.
+[Přesné výsledky, zdroje a limity](docs/review/2026-09-30-COMPLETION-TRACKER.md).
+
+**Historický checkpoint 1. 10. 2026, 06:19 UTC:** Celý profil čistého `4cbb4b55`
 je **FAIL (402 PASS / 3 FAIL)**. Tři testovací předpoklady byly opravené
 v nezávisle přijatém `e6e9aa05` a integrovány jako `742d3dac`; reviewer
 zopakoval **3/3 PASS**. Další opravy přirozeného významu, trvalých ID,
