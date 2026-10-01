@@ -63,7 +63,7 @@ await testAsync('polite/literal/summary saves bind exact bytes and IDs; invalid 
       if (spec.truncatePlan) doneReason = 'length';
     } else if (system.includes('Summarize only the supplied answer')) {
       summaryCalls += 1; content = summarized; doneReason = truncate ? 'length' : 'stop';
-    } else if (body.format === 'json' && system.includes('Klasifikuj záměr')) {
+    } else if (body.format === 'json' && system.includes('Klasifikuj')) {
       let evidence;
       try { evidence = JSON.parse(prompt); } catch { evidence = null; }
       const request = evidence?.request || prompt;
