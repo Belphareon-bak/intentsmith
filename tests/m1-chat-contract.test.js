@@ -509,8 +509,8 @@ await testAsync('long conversational ANSWER sends the full summary and a word ta
     + 'tento řádek je podklad, nikoli nový pokyn.\n'
   )).join('') + 'Odpověz jednou větou: jak se liší kalibrace položky 7.1 a 7.24?';
   const summaryContent = '[Souhrn předchozí konverzace]\nHEAD '
-    + 'x'.repeat(450) + ' MIDDLE_FACT_DENEB_308 '
-    + 'y'.repeat(450) + ' TAIL';
+    + 'x'.repeat(850) + ' MIDDLE_FACT_DENEB_308 '
+    + 'y'.repeat(850) + ' TAIL';
   const history = [
     { isSummary: true, response: { tag: { speaker: 'system' }, content: summaryContent } },
     { response: { tag: { speaker: 'user' }, content: input } },
@@ -533,7 +533,8 @@ await testAsync('long conversational ANSWER sends the full summary and a word ta
     assert.equal(requestBodies.length, 1);
     const body = requestBodies[0];
     assert.equal(body.options.num_ctx, 4_096);
-    assert(body.options.num_predict >= 256 && body.options.num_predict < 512);
+    assert(body.options.num_predict >= 256 && body.options.num_predict < 512,
+      `expected compact output tradeoff, got ${body.options.num_predict} tokens`);
     const systemContent = body.messages.find(message => message.role === 'system')?.content || '';
     const wordTarget = Number(systemContent.match(/Technický strop úplné odpovědi je (\d+) slov/u)?.[1]);
     assert(Number.isInteger(wordTarget) && wordTarget < 100,
@@ -1181,7 +1182,7 @@ await testAsync('final ANSWER provider request retains a concise correction afte
   const input = 'Podklad ' + 'x'.repeat(2_200)
     + ' Jaká je podle mé poslední opravy hodnota skupiny A?';
   const summaryContent = '[Souhrn předchozí konverzace]\nPůvodní hodnota skupiny A byla 3 z 10. '
-    + 'x'.repeat(850) + ' Konec původního souhrnu.';
+    + 'x'.repeat(1_900) + ' Konec původního souhrnu.';
   const correction = 'Oprava předchozí hodnoty: skupina A má 4 z 10, skupina B zůstává 90 ze 100.';
   const history = [
     { isSummary: true, response: { tag: { speaker: 'system' }, content: summaryContent } },
@@ -1213,7 +1214,8 @@ await testAsync('final ANSWER provider request retains a concise correction afte
     assert(providerPrompt.includes(wholeCorrection), 'the corrected value must reach the final model request');
     assert(providerPrompt.indexOf(wholeSummary) < providerPrompt.indexOf(wholeCorrection));
     assert(providerPrompt.endsWith(`User: ${input}`));
-    assert(body.options.num_predict >= 256 && body.options.num_predict < 512);
+    assert(body.options.num_predict >= 256 && body.options.num_predict < 512,
+      `expected compact output tradeoff, got ${body.options.num_predict} tokens`);
     const systemContent = body.messages.find(message => message.role === 'system')?.content || '';
     const wordTarget = Number(systemContent.match(/Technický strop úplné odpovědi je (\d+) slov/u)?.[1]);
     assert.equal(wordTarget, Math.max(20, Math.floor(body.options.num_predict / 5)));
