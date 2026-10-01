@@ -80,9 +80,7 @@ export function assertVatAnswer(answer) {
     'Czech jurisdiction missing');
   assert(/\b2025\b/u.test(normalized), 'tax year 2025 missing');
   assert(/\b21\s*%/u.test(normalized), 'VAT rate 21 % missing');
-  const assumptions = normalized.indexOf('Předpoklady');
-  const resultText = assumptions >= 0 ? normalized.slice(0, assumptions) : normalized;
-  assertExactLabeledAmounts(resultText);
+  assertExactLabeledAmounts(normalized);
   const lines = normalized.split(/\r?\n/u);
   assertListedSection(lines, 'Předpoklady');
   assertListedSection(lines, 'Nezahrnuje');

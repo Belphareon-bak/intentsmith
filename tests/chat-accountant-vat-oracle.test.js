@@ -50,6 +50,20 @@ test('base and VAT labels reject swapped amounts in one clause', () => {
     /base must uniquely map to 10000 CZK in the final answer/u);
 });
 
+test('VAT label rejects a contradictory monetary claim under assumptions', () => {
+  const contradictory = valid.replace('### Předpoklady',
+    '### Předpoklady\n- DPH je 2 200 Kč.');
+  assert.throws(() => assertVatAnswer(contradictory),
+    /vat must uniquely map to 2100 CZK in the final answer/u);
+});
+
+test('total label rejects a contradictory monetary claim under exclusions', () => {
+  const contradictory = valid.replace('### Nezahrnuje',
+    '### Nezahrnuje\n- Celkem je 12 200 Kč.');
+  assert.throws(() => assertVatAnswer(contradictory),
+    /total must uniquely map to 12100 CZK in the final answer/u);
+});
+
 test('captured VAT oracle binds one completed model turn to tool result and M1 bytes', () => {
   const model = 'fixture:vat';
   const digest = 'a'.repeat(64);

@@ -56,10 +56,10 @@ chybějící oddíly nebo disclaimer, nedokončený/cizí provider, jiný M1 tex
 prázdný seznam omezení, pozdní větu za disclaimerem, protichůdnou další
 částku DPH, chybějící tool prompt a chybný strukturovaný VAT výsledek. Parser
 pro tento scénář svazuje každou měnovou částku s příslušným štítkem a odmítá
-nejednoznačné vícenásobné částky v jeho úseku; nepředstírá obecné jazykové
-porozumění.
-Je to ohraničené
-orákulum pro tento jeden výpočet, ne obecný hodnotitel daňových rad.
+nejednoznačné vícenásobné částky v jeho úseku napříč celou finální odpovědí,
+včetně „Předpoklady“ a „Nezahrnuje“. Citovaná rozporná částka nemá obecnou
+výjimku; oracle ji z opatrnosti odmítne. Jde o ohraničený výpočet, ne obecný
+hodnotitel daňových rad.
 
 **Důkazové hranice:** validní provider řádek a přesný HTTP/SQLite výsledek
 vzniknou pouze při úspěchu. Verdiktový soukromý JSON se stavem `PASS` vzniká
@@ -88,6 +88,13 @@ byla na starém orákulu červená (`Missing expected exception`). Nová
 verze ověřuje jedinečnou částku za každým štítkem; oba konkrétní případy
 odmítá a přímé offline testy orákula **4/4** i řízeného M1 **2/2** procházejí.
 Oprava zůstává `REVIEW_PENDING`, živý model stále `LIVE_NOT_RUN`.
+
+Druhá nezávislá revize `67d229a5` vrátila **CHANGES_REQUIRED**: explicitní
+`- DPH je 2 200 Kč.` v oddílu „Předpoklady“ starý rozsah vůbec nečetl.
+Red-first regrese měla na `67d229a5` **2 FAIL** pro rozpornou DPH v
+„Předpoklady“ a rozpornou celkovou cenu v „Nezahrnuje“. Opravený oracle
+prochází celý finální text; přímé offline testy mají **6/6**, řízený M1
+**2/2**. Nezávislé re-review této nové opravy stále čeká.
 
 Živý příkaz až po review a uvolnění GPU slotu na přesném čistém commitu:
 
