@@ -10782,6 +10782,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T5-TESTS-M3-AGENT-REAL-SCHEDULED-SOAK-TEST",
+      "path": "tests/m3-agent-real-scheduled-soak.test.js",
+      "argv": [
+        "node",
+        "tests/m3-agent-real-scheduled-soak.test.js"
+      ],
+      "capabilityId": "C3-015",
+      "tier": "T5",
+      "fixture": "owned-product-server-and-loopback-provider",
+      "profile": "soak",
+      "timeoutMs": 450000,
+      "expectedDurationMs": 360000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M3-REAL-SCHEDULED-SOAK-20261001",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T3-TESTS-M3-AGENT-SCHEDULED-PRODUCT-JOURNEY-TEST",
       "path": "tests/m3-agent-scheduled-product-journey.test.js",
       "argv": [

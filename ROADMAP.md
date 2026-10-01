@@ -4,7 +4,8 @@
 revize `a41d6885` zpřísnila souhlas s výpočtem:**
 [měřené dokončování IDE/backendu, chatu, GPU huntu a odložené mobilní
 integrace](docs/review/2026-09-30-COMPLETION-TRACKER.md). Vývojový registr
-má 583 programů; úplný offline/database profil na čistém předchozím
+má na izolované worker-soak větvi 584 programů; nový skutečný pětiminutový
+M3 test je PENDING_RUN. Úplný offline/database profil na čistém předchozím
 `5d72b4aa` dokončil **402/402 PASS, 0 BLOCKED** s přesně povolenými
 místními toolchainy
 (`.intentsmith-artifacts/test-runs/2026-10-01T01-41-43-923Z/report.json`).

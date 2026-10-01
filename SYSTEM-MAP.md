@@ -622,9 +622,10 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 Historický blok začíná opravami soukromí/agentů z 17. 9., kdy registr měl
 519 programů. Vývojový source `1f13b936` měl 1. 10. 2026 v 01:00 UTC
 580 registrovaných programů. Kontrakt resilience a účetní M1 sada navýšily
-současný registr na **583**; nahrazení modelového účetního běhu
-deterministickou M1 sadou přesunulo její stav do ACTIVE
-(486 ACTIVE, 82 BLOCKED, 15 HISTORICAL),
+integrační registr na **583**; následný samostatný worker-soak test má
+na této větvi registr **584**. Nahrazení modelového účetního běhu
+deterministickou M1 sadou přesunulo její stav do ACTIVE; nová soak sada přidává
+další ACTIVE (nyní 487 ACTIVE, 82 BLOCKED, 15 HISTORICAL),
 jak uvádí census níže. Historické výsledky nadále patří svým přesným source
 pinům; novější registr jim zpětně nemění verdikt.
 
@@ -653,16 +654,18 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 | | |
 |---|---:|
 | `src/**/*.js` | **233 232 ř.**, 678 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **261 237 ř.**, 585 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **583** (`486 ACTIVE`, `82 BLOCKED`, `15 HISTORICAL`) |
+| `tests/**/*.js` | **261 522 ř.**, 586 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **584** (`487 ACTIVE`, `82 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 107** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
 
 Aktuální registry fingerprint je
-`0ef6b54b8e16b4e4faa12abcff9a9f39afe305ca6b1612bf4ac73fce9da47c1c`.
+`2100d02b050872bfaa542f03cfa244bf919f7e1dac917094555dfe01e2bace3b`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
+Nový worker-soak řádek je registrovaný, ale fyzický pětiminutový běh
+zůstává PENDING_RUN; záznam ACTIVE ani aktuální census není výsledek testu.
 
 Technická integrace core 2026-09-09 přebírá mobilní `2f11e911` a B
 `0b0a4669`. Registry obsahuje 413 `ACTIVE + required`, z toho 352 deterministic
