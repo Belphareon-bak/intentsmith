@@ -63,6 +63,15 @@ async function _getIsProjectScopeBuild() {
 // A model's count must not turn sentences, variants, or quoted examples into
 // a hard word limit. This checks the parameter against the actual user text;
 // it does not classify intent or grant any execution authority.
+function responseConstraintText(request) {
+  const text = String(request || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  const space = match => ' '.repeat(match.length);
+  const active = text.replace(/```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)/gu, space)
+    .replace(/^\s*>.*$/gmu, space)
+    .replace(/"[^"\n]*"|'[^'\n]*'|„[^“]*“|“[^”]*”|«[^»]*»|`[^`]*`/gu, space);
+  return { text, active };
+}
+
 function groundedResponseWordCount(count, request) {
   if (!Number.isSafeInteger(count) || count < 1 || count > 1000) return null;
   const aliases = {
@@ -73,11 +82,8 @@ function groundedResponseWordCount(count, request) {
     8: ['osm', 'osmi', 'eight', 'acht'], 9: ['devet', 'deviti', 'nine', 'neun'],
     10: ['deset', 'deseti', 'ten', 'zehn'],
   };
-  const text = String(request || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
-  const space = match => ' '.repeat(match.length);
-  const active = text.replace(/```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)/gu, space)
-    .replace(/^\s*>.*$/gmu, space)
-    .replace(/"[^"\n]*"|'[^'\n]*'|„[^“]*“|“[^”]*”|«[^»]*»|`[^`]*`/gu, space);
+  const { text, active } = responseConstraintText(request);
+  if (/\b(?:kazd(?:a|e|ou|y|ych|emu)|each|per|jeweils)\b/u.test(active)) return null;
   const values = [String(count), ...(aliases[count] || [])].join('|');
   const unit = '(?:slov(?:o|a|e|em|y|ech|ami)?|words?|wort(?:er|ern|en)?)';
   if (new RegExp(`(?<![\\p{L}\\p{N}])(?:${values})\\s+${unit}(?![\\p{L}\\p{N}])`, 'u').test(active)) return count;
@@ -2580,8 +2586,10 @@ PRAVIDLA:
       parsed.continuesPending = parsed.continuesPending === true;
       parsed.responseScope = ['conversation', 'project', 'project_status'].includes(parsed.responseScope) ? parsed.responseScope : null;
       parsed.briefResponse = parsed.briefResponse === true;
+      const currentFormat = /\b(?:slov[a-z]*|words?|wort[a-z]*|vet(?:a|y|ach|ami)|sentences?|satz[a-z]*|satze|variants?|variant[a-z]*|odraz[a-z]*|bullets?)\b/u
+        .test(responseConstraintText(input).active);
       parsed.responseWordCount = groundedResponseWordCount(parsed.responseWordCount, input)
-        ?? (parsed.continuesPending ? groundedResponseWordCount(parsed.responseWordCount,
+        ?? (parsed.continuesPending && !currentFormat ? groundedResponseWordCount(parsed.responseWordCount,
           pendingConversationQuestion(context)?.request) : null);
       parsed.requestedOperation = ['none', 'read', 'write', 'create', 'delete', 'other'].includes(parsed.requestedOperation)
         ? parsed.requestedOperation : null;

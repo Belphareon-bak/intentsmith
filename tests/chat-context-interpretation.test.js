@@ -54,6 +54,7 @@ test('classifier receives source identities, antecedent, open question and goal;
       ['Navrhni dvě varianty.', 2, null],
       ['Napiš přesně tři slova.', 5, null],
       ['Napiš přesně tři slova.', 3, 3],
+      ['Napiš dvě varianty, každou v pěti slovech.', 5, null],
       ['Napiš přesně 12 slov.', 12, 12],
       ['Write exactly five words.', 5, 5],
       ['Odpověz pouze „Rozumím“.', 1, 1],
@@ -97,6 +98,15 @@ test('classifier receives source identities, antecedent, open question and goal;
     const resumed = await creDecisionEngine.decide('Tady je podklad: seminář je ve čtvrtek.', { sessionState: state });
     assert.equal(resumed.metadata.responseWordCount, undefined);
     assert.equal(resumed.metadata.clarificationRequest, 'Zkrať ten text na dvě věty.');
+    state.setPendingDecision({ type: 'ASK_USER', intent: 'AMBIGUOUS', metadata: {
+      clarificationQuestion: 'Který text?', originalRequest: 'Zkrať ten text na pět slov.',
+    } }, ['intent_clarification']);
+    llmGateway.call = async () => ({ content: JSON.stringify({ intent: 'CONVERSATIONAL',
+      confidence: 0.95, responseScope: 'conversation', continuesPending: true, responseWordCount: 5 }) });
+    assert.equal((await creDecisionEngine._llmClassifyIntent('Místo pěti slov chci dvě věty.',
+      { sessionState: state })).responseWordCount, null, 'new sentence format cannot inherit an old word limit');
+    assert.equal((await creDecisionEngine._llmClassifyIntent('Tady je podklad: rostliny potřebují světlo.',
+      { sessionState: state })).responseWordCount, 5, 'a supplied source can retain the original word constraint');
   } finally { llmGateway.call = original; }
 });
 
