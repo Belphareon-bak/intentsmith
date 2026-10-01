@@ -145,3 +145,25 @@ soubor `network.md` skončila zbytečným upřesněním a samostatná záporná
 zůstávají otevřené pro vývojový průchod. Soukromá evidence je
 `chat-resilience-ac35e27d/runs.json`; runner exit 0 dokládá pouze úplný
 transport. F14–F20 v tomto pilotu nebyly modelu předloženy.
+
+## Nezávislé přijetí implementace a společná integrace
+
+Celá delta `4cbb4b55` → `d3e028c14261dcd7cb331ba0ab19ffdc01cab4ed`
+má **REVIEW_PASS**. Reviewer ověřil stejné produktové tree jako `ac35`,
+tři vlastní opravené M1 reprodukce a dalších 16 HTTP/SQLite průchodů:
+osm přesných schválených zápisů včetně escapování a restartu, osm
+neplatných variant bez ToolRequest. Opravená fixture zachovává konkrétní
+target error i nulový efekt. Vlastní registrované opakování má PASS
+(`2026-10-01T07-17-08-010Z/report.json` v root semantic checkoutu).
+
+Společný čistý integrační `037b8653` má **22/22 PASS**, žádný
+FAIL/BLOCKED/TIMEOUT/SKIPPED: semantic, atomické vytvoření, VAT, schema,
+M2 autorita a M6 přesné pokrytí. Soukromý report
+`2026-10-01T07-22-06-683Z/report.json` patří integraci.
+Další nezávislé merge review ověřilo přesné bytes všech 14 root cest
+oproti přijatému d3, zachování všech 26 VAT/atomic cest i všech 591 suites.
+Konfliktní M2/WS fixture byly převzaty přesně z nezávisle přijatého source.
+Registry má pouze další helper exclusion, žádný odebraný program.
+
+Stav: **IMPLEMENTATION_REVIEW_PASS**. Otevřené kvalitativní mezery živého
+pilotu a finální přejímka 53×3 se tím neuzavírají.
