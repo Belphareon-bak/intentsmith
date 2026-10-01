@@ -64,8 +64,12 @@ await testAsync('polite/literal/summary saves bind exact bytes and IDs; invalid 
     } else if (system.includes('Summarize only the supplied answer')) {
       summaryCalls += 1; content = summarized; doneReason = truncate ? 'length' : 'stop';
     } else if (body.format === 'json' && system.includes('Klasifikuj záměr')) {
-      const spec = plans.get(prompt) || [...plans].find(([input]) => prompt.startsWith(input + '\n'))?.[1];
-      if (spec) content = JSON.stringify({ intent: 'FILE_WRITE', confidence: 0.99, fileTarget: spec.target });
+      let evidence;
+      try { evidence = JSON.parse(prompt); } catch { evidence = null; }
+      const request = evidence?.request || prompt;
+      const spec = plans.get(request) || [...plans].find(([input]) => request.startsWith(input + '\n'))?.[1];
+      if (spec) content = JSON.stringify({ intent: 'FILE_WRITE', confidence: 0.99,
+        fileTarget: spec.target, responseScope: 'conversation', requestedOperation: 'write' });
     }
     response.end(JSON.stringify({ model, digest, done: true, done_reason: doneReason,
       message: { role: 'assistant', content }, response: content, prompt_eval_count: 10, eval_count: 10 }));

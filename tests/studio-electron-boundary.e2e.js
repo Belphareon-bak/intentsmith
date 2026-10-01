@@ -1953,6 +1953,8 @@ const STUDIO2_MODE_FIELDS = Object.freeze([
   'projectCatalogLoaded',
   'elevenThemesRendered',
   'specialistLocalPreviewRequiresAttachment',
+  'markdownAndCodeRendered',
+  'untrustedHtmlInert',
 ]);
 
 export function successEvidence({
