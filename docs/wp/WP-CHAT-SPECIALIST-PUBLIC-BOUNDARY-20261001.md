@@ -75,7 +75,9 @@ vrací u code revieweru nález ve veřejném textu, správné project ID/digests
 kontrolovaným transportem zachovává přesně dva pozorované zápasy, kurzy,
 `verifiedObservation=true`, `verifiedLive=false`, dvouminutovou platnost,
 osm bezpečných zdrojových referencí a evidenci v soukromé DB; soukromá
-`analysis.diagnostics` a pole mimo veřejný seznam ve výsledku chybí. Chybějící
+`analysis.diagnostics` a pole mimo veřejný seznam ve výsledku chybí. Negativní
+mutace přidává diagnostiku, modelové pole, vlastní credential a URL s query;
+veřejný projektor je zahodí. Chybějící
 `odds_io` klíč vrací `PROVIDER_ERROR` / `executionStatus=FAILED` bez síťového
 fetch a bez modelu. Selhaný vybraný účetní dokumentový nástroj vrací
 `executionStatus=FAILED`, `fallbackSuppressed=true`, přesně neutrální větu,
@@ -88,8 +90,13 @@ modelové kontrakty **5/5**, Sázení integrace **20/20** a M1 wire kontrakt
 syrového `analysis` ve veřejném M1 tagu; aktualizované orákulum kontroluje
 veřejný výběr zdrojových referencí bez soukromé diagnostiky a její přítomnost
 v trvale uloženém soukromém záznamu. Čistý předběžný commit `ccb8b9a7` měl
-registrované sady **7/7 PASS**; finální projekce zdrojů vyžaduje nový přesný
-registrovaný běh a nezávislé review. Jde o kontrolované HTTP/SQLite běhy,
+registrované sady **7/7 PASS**. Opravená projekce zdrojů na čistém
+`50ffbab510eaded2bb4faba84ae7a60e7b584795` má také **7/7 PASS**:
+`.intentsmith-artifacts/run-suites/2026-10-01T01-17-46-524Z/report.json`,
+`gateEvidence=false`. První pokus o registrovaný běh na `ccb8b9a7` měl
+**1 PASS / 6 FAIL** kvůli systémovému Node 22 oproti nativnímu modulu
+`better-sqlite3` pro Node 24; opakování se správným `PATH` prošlo **7/7**.
+Nezávislé review ještě musí následovat. Jde o kontrolované HTTP/SQLite běhy,
 nikoli fyzickou kvalitu modelu, dnešní Fortunu, mobilního klienta ani release
 Gate 0.
 
@@ -106,5 +113,6 @@ registry validátor, artifact validace a `git diff --check` procházejí na
 /home/belphareon/.nvm/versions/node/v24.21.0/bin/node scripts/module-boundary-ratchet.mjs
 /home/belphareon/.nvm/versions/node/v24.21.0/bin/node scripts/validate-test-registry.js --json
 /home/belphareon/.nvm/versions/node/v24.21.0/bin/node tests/artifact-validation.test.js
+env PATH=/home/belphareon/.nvm/versions/node/v24.21.0/bin:$PATH /home/belphareon/.nvm/versions/node/v24.21.0/bin/node scripts/run-suites.js --suite=IS-T3-TESTS-CHAT-SPECIALIST-FOLLOWUP-HTTP-TEST,IS-T3-TESTS-CHAT-SAZENI-HTTP-JOURNEY-TEST,IS-T3-TESTS-CHAT-ACCOUNTANT-MODEL-CONTRACT-TEST,IS-T3-TESTS-CHAT-TRANSLATOR-MODEL-CONTRACT-TEST,IS-T1-TESTS-SAZENI-INTEGRATION-TEST,IS-T2-TESTS-M1-CHAT-CONTRACT-TEST,IS-T1-TESTS-ARTIFACT-VALIDATION
 git diff --check
 ```
