@@ -1,6 +1,6 @@
 # IntentSmith — mapa systému
 
-**Aktuální vývojový checkpoint 30. 9. 2026:** [přesné identity zdroje,
+**Aktuální vývojový checkpoint 1. 10. 2026:** [přesné identity zdroje,
 instalace, testů a zbývajících bran](docs/review/2026-09-30-COMPLETION-TRACKER.md).
 Chronologie níže zachovává důkazy předchozích instalací a větví.
 
@@ -651,8 +651,8 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **232 874 ř.**, 677 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **260 659 ř.**, 585 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **233 119 ř.**, 678 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **260 819 ř.**, 585 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **583** (`485 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 107** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |

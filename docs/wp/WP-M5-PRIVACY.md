@@ -42,7 +42,7 @@ RE_REVIEW_REQUIRED / OPERATOR_REMEDIATION_REQUIRED`
 |---|---:|
 | Rotation receipts | **0 / 8** |
 | History disposition receipt | **chybí** |
-| Známé incident objekty stále dosažitelné | **13 / 13** |
+| Známé incident objekty stále dosažitelné | **15 / 15** (sken 1. 10. 2026 na `5d72b4aa`) |
 | Obsah osobních objektů otevřen | **ne** |
 
 Implementace je připravená k review, ale samotná operátorská remediation
@@ -166,6 +166,12 @@ Custody, skutečné operace, podpisy a history disposition zůstávají otevřen
   backup/custody setu.
 
 Stav zůstává 0/8 category receipts, bez history receiptu a bez M5 acceptance.
+Údaj 13 v rozhodnutí z 10. 9. zachycuje tehdejší rozsah. Remediace TLS
+historie ze 17. 9. rozšířila autoritativní incident manifest na 15 objektů;
+čerstvý sken 1. 10. na `5d72b4aa` potvrdil 15/15 stále dosažitelných,
+341 refů, čistý aktuální strom (3 065 cest, 1 333 čtených souborů, 0 nálezů).
+Jde o `retain_and_rotate` bez podepsaného history receiptu a bez doložených
+rotací, ne o splnění privacy exit kritéria.
 Privacy-safe inventura a přesná matice dalších akcí jsou v
 [`m5-operator-remediation-preflight-20260910.md`](../execution/runs/m5-operator-remediation-preflight-20260910.md).
 Přesná nesenzitivní evidence média A je v

@@ -1,7 +1,9 @@
 # WP — veřejná hranice vybraného specialisty
 
-**Stav:** izolovaný kandidát, `REVIEW_PENDING`, nenasazený. Vstupní čistý
-integrační commit `1f13b936e6abddcca61a4072266ce98923e3a32c`; větev
+**Stav:** opravený izolovaný kandidát `43130aa8` má omezené nezávislé
+`REVIEW_PASS`; produktové a testové bytes jsou integrované v `1303535f`,
+nenasazené. Vstupní čistý integrační commit
+`1f13b936e6abddcca61a4072266ce98923e3a32c`; původní větev
 `work/chat-specialist-public-boundary-20261001`.
 
 **Autorita a uživatelský výsledek:** operátor zadal skutečné testy specialistů
@@ -142,15 +144,20 @@ si mohou zachovat užitečný doménový text. `sourceRefs` přijímá jen uzav�
 veřejné zdroje hostu a stránky Fortuny jen pět přesných ligových URL s
 `?tab=matches`; tokenové query a libovolné vnořené klíče se zahodí.
 Pozorované dva zápasy, kurz `2.8237`, čas capture a pět kontrol tiketových
-limitů zůstávají veřejně ověřitelné. Návrh je nadále **REVIEW_PENDING**;
-žádná živá kvalita modelu ani release přejímka se z těchto fixture testů
-neodvozuje.
+limitů zůstávají veřejně ověřitelné. Opravený kandidát `43130aa8` získal
+omezené nezávislé **REVIEW_PASS**; žádná živá kvalita modelu ani release
+přejímka se z těchto fixture testů neodvozuje.
 
 **Ověření opravené revize před commitem:** přímé M1 HTTP sady **5/5**,
 účetní a překladatelské HTTP sousedy **5/5**, Sázení integrace **20/20**,
 M1 chat kontrakt **73/73**, artifact validace **160/160**. Registrovaný
 sedmisadový běh **7/7 PASS**:
 `.intentsmith-artifacts/run-suites/2026-10-01T01-42-15-399Z/report.json`;
-`gateEvidence=false`. Registry má 580 validních programů a module graph drží
-1 463 hran, tři stávající cykly / 28 souborů, bez nové hrany. Přesný commit a
-remote SHA budou uvedeny v předání reviewerovi; stav zůstává `REVIEW_PENDING`.
+`gateEvidence=false`. Na izolované větvi měl registr 580 validních programů a
+module graph 1 463 hran, tři stávající cykly / 28 souborů. Nezávislý reviewer
+na přesném `43130aa8` reprodukoval host throw s privátním markerem,
+M1 HTTP/SQLite **5/5** a Sázení integraci **20/20**; v aktuální produktové
+cestě nenašel veřejný únik. Integrační commit `1303535f` nese stejnou
+produktovou a testovou opravu; společný registr má 583 programů. Novou
+jedinou hranu modulového grafu přijal integrátor nad `1303535f`; cílená
+integrační kontrola a celý vývojový profil jsou samostatné důkazy.

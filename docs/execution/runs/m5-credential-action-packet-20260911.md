@@ -35,6 +35,14 @@ user and system `intentsmith.service` units were inactive.
 These are current-state facts. They cannot by themselves prove that an exposed
 credential never existed, was never reused or no longer has authority.
 
+**Scope update, 2026-10-01:** the 13/13 census above is the dated
+2026-09-11 snapshot. The authoritative incident manifest gained two TLS
+history objects on 2026-09-17. A clean-tree scan at `5d72b4aa` reports
+15/15 known objects reachable from 341 refs, 0 current-tree findings across
+3,065 tracked paths, and `HISTORY_RETAINED_AS_DECLARED`. Any future signed
+history receipt must bind this expanded manifest and a fresh scan; none has
+been issued.
+
 ## Exact category closure matrix
 
 For each row choose one truthful closure. `ROTATED` requires a completed

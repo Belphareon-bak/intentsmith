@@ -1,9 +1,10 @@
 # WP — účetní DPH přes skutečný lokální model a M1
 
-**Stav:** izolovaný kandidát z čistého integračního `8bf1c069ae87007773d1f196c8680b21c56bd083`,
-`REVIEW_PENDING / LIVE_NOT_RUN / NOT_DEPLOYED`. Živá GPU sada se nespustí před
-operátorským signálem po společném auditu; lokální zelená orákula nejsou
-modelový ani release důkaz.
+**Stav:** izolovaný kandidát `80990a60` získal omezené nezávislé
+`REVIEW_PASS`; sada je integrovaná od `5d72b4aa`.
+`LIVE_NOT_RUN / NOT_DEPLOYED` pro fyzický účetní model. Vstupní čistý
+integrační commit `8bf1c069ae87007773d1f196c8680b21c56bd083`.
+Lokální zelená orákula nejsou modelový ani release důkaz.
 
 **Autorita a rozsah:** operátor žádá fyzické ověření vybraného specialisty
 `accountant-cz` přes skutečný M1 HTTP chat a privátní SQLite na jediném vstupu:
@@ -144,5 +145,12 @@ INTENTSMITH_CHAT_ACCOUNTANT_LIVE=1 KEEP_TEST_RUNTIME=1 \
 ```
 
 Privátní capture a evidence zůstávají ignorované v `.intentsmith-artifacts/`.
-Po sloučení je nutné review a případný živý běh zopakovat na přesném
-integračním source SHA.
+Na finálním izolovaném `80990a60` nezávislý reviewer zopakoval negativní
+orákula a uzavřel omezené `REVIEW_PASS`; přímá offline sada měla **38/38**
+a řízený M1 účetní průchod **2/2**. Integrace `5d72b4aa` prošla celým
+offline/database profilem **402/402 PASS, 0 BLOCKED**
+(`.intentsmith-artifacts/test-runs/2026-10-01T01-41-43-923Z/report.json`),
+registr má **583** programů. Tento výsledek předchází pozdější produktové
+opravě specialisty `1303535f` a neprokazuje fyzickou kvalitu DPH odpovědi.
+Živý běh musí vzniknout z čistého integrovaného source SHA; jeho finální
+text navíc vyžaduje ruční věcnou kontrolu.

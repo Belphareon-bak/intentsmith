@@ -88,3 +88,10 @@ Tento zápis zachycuje rozhodnutí, nikoli dokončení incidentu. History receip
 nebyl podepsán a zůstává podmíněný úplným, ověřitelným řetězcem osmi category
 receipts. Aktuální stav zůstává 0/8 a známých 13 incident objektů zůstává
 dosažitelných.
+
+**Aktualizace rozsahu 1. 10. 2026:** předchozí věta je historický stav
+z 10. 9. Po doloženém containmentu dalších dvou TLS objektů obsahuje
+autoritativní incident manifest 15 známých objektů. Sken na čistém
+`5d72b4aa` potvrdil 15/15 stále dosažitelných ze 341 refů. Zvolená
+disposition `retain_and_rotate` trvá; 0/8 category receipts a history
+receipt nad rozšířeným rozsahem stále chybějí.

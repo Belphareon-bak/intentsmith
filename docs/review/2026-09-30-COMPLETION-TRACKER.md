@@ -1,5 +1,42 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 1. 10. 2026, 01:55 UTC — společný chat a veřejná hranice
+
+Na čistém a pushnutém `5d72b4aa` doběhl úplný offline/database profil
+**402/402 PASS, 0 FAIL/BLOCKED/TIMEOUT/SKIPPED** s přesně povolenými místními
+toolchainy; report
+`.intentsmith-artifacts/test-runs/2026-10-01T01-41-43-923Z/report.json`.
+Pokryl nové offline orákulum účetního DPH, izolovaný 53případový runner a
+dosavadní integrační zdroj. Fyzické modelové a release brány v něm nejsou.
+
+Účetní live test má na izolovaném `80990a60` omezené nezávislé
+`REVIEW_PASS`; přímé offline orákulum **38/38** a řízený M1/SQLite test
+**2/2**. Na `5d72b4aa` jsou stejné bytes integrovány, ale fyzický modelový
+běh ještě **LIVE_NOT_RUN**. 53případový korpus má na aktuálním runneru pouze
+jednopřípadový fyzický pilot `http-plain` (`LIVE_COMPLETE_UNASSESSED`,
+ručně správná dvouvětá odpověď); tři úplné nezměněné finální opakování jsou
+**LIVE_NOT_RUN**. První infrastrukturální pilot selhal před providerem a je
+výslovně `LIVE_ABORTED`, nikoli kvalita produktu.
+
+Izolovaná oprava veřejné hranice specialisty `43130aa8` získala omezené
+nezávislé `REVIEW_PASS`: reviewer zopakoval host throw s privátním markerem,
+M1 HTTP/SQLite **5/5** a Sázení integraci **20/20**. Stejné produktové a
+testové bytes jsou integrované v `1303535f`, zatím nenasazené. Na společném
+stromu přímé specialistické HTTP testy prošly a přesně jedna nová hrana
+`specialist.js → specialist-public.js` byla přijata přes module ratchet:
+1 463 hran, 3 cykly / 28 členů, ratchet **13/13** a dokumentační validace
+**160/160**. Celý profil po této produktové deltě se musí zopakovat.
+
+Čerstvý M5 scanner na `5d72b4aa` našel v aktuálním stromu **0** nálezů
+(3 065 cest / 1 333 přečtených souborů), ale **15/15** známých historických
+objektů zůstává dosažitelných ze 341 refů; historie je deklarovaně
+`retain_and_rotate`, ne uzavřená podepsaným receipt. Opravený počet 15 je
+zaznamenaný ve WP, Decision 035 a action packetu; zářijových 13 je v nich
+označeno jako tehdejší snímek. M5 stále postrádá osm category receipts,
+history receipt a dokončenou offline custody. Signed authority verifier
+vrací `BLOCKED / M6_RELEASE_EVIDENCE_NOT_FOUND` pro všech 13 požadovaných
+release souborů. M6, produkční nasazení a mobilní M7 zůstávají otevřené.
+
 ## Checkpoint 1. 10. 2026, 01:03 UTC — úplný vývojový audit
 
 Čistý a pushnutý integrační source `1f13b936` prošel úplným

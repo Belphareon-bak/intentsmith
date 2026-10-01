@@ -1,11 +1,14 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktuální source checkpoint 1. 10. 2026, 01:03 UTC — `1f13b936`:**
+**Aktuální source checkpoint 1. 10. 2026, 01:52 UTC — produkt `1303535f`:**
 [měřené dokončování IDE/backendu, chatu, GPU huntu a odložené mobilní
 integrace](docs/review/2026-09-30-COMPLETION-TRACKER.md). Vývojový registr
-má 580 programů; úplný offline/database profil na `1f13b936` dokončil
-**400/400 PASS, 0 BLOCKED** s přesně povolenými místními toolchainy
-(`.intentsmith-artifacts/test-runs/2026-10-01T00-53-01-193Z/report.json`).
+má 583 programů; úplný offline/database profil na čistém předchozím
+`5d72b4aa` dokončil **402/402 PASS, 0 BLOCKED** s přesně povolenými
+místními toolchainy
+(`.intentsmith-artifacts/test-runs/2026-10-01T01-41-43-923Z/report.json`).
+Nová veřejná hranice specialisty na `1303535f` získala před integrací
+omezené nezávislé `REVIEW_PASS`; celý profil se po ní musí opakovat.
 Níže uvedených 353/353 patří staršímu M6 kandidátu,
 nikoli dnešnímu vývojovému profilu; M5/M6 acceptance zůstává zavřená.
 Následující datované záznamy zachovávají historii tehdejších kandidátů.
@@ -61,11 +64,14 @@ měl tehdy 1 433 hran, 3 cykly / 28 členů. Závěrečné měření a nezávisl
 přijetí mají vlastní evidenci v [předávce](docs/review/2026-09-28-STUDIO2-PARITY-DELIVERY.md).
 Tehdejší integrovaný module graph měl 1 434 hran, 3 cykly / 28 členů po
 přijetí přesné hrany `src/chat/context-compact.js -> src/core/abort-error.js`.
-Aktuální module graph má 1 462 hran, stále 3 cykly / 28 členů;
+Aktuální module graph má 1 463 hran, stále 3 cykly / 28 členů;
 oficiální baseline přijala dvě hrany read modelu nad `8c64e427`, přesnou
 hranu chatové chyby nad čistým integračním `2305431c` a dvě nezávisle
 posouzené integrační hrany `src/agents/runner.js -> src/agents/schema.js`
 a `src/chat/handlers/decisions.js -> src/llm/auth-types.js` nad `63dc55fb`.
+Integrační baseline navíc přijala jedinou přesnou hranu
+`src/chat/handlers/specialist.js -> src/chat/handlers/specialist-public.js`
+nad `1303535f`, bez nového cyklu.
 
 **Studio: průběh práce a prostředí, 2026-09-23:** konkrétní tahy, nástroje,
 čekání, souborové diffy/+− a kopírování formátované odpovědi. Přidáno skutečné
@@ -530,7 +536,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
 | **M5 Production hardening** | `8/9 REVIEW_PASSED / BACKUP_COMPAT_REMEDIATION_REVIEW_PASSED / HISTORY_DECISION_RECORDED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_PARTIAL / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Review přijalo restore základ `65bcbc4b` i follow-up `b4136a43`. Operátor zvolil `retain_and_rotate`; scanner zaznamenaný na vstupní hunt větvi tento dosažitelný stav potvrzuje, ale podepsaný history receipt vznikne až po doložení všech osmi kategorií. LUKS2 médium A drží ověřenou offline kopii tří operátorských klíčů a oddělené LUKS2 médium B právě reviewer key; obě jsou vypnutá. Online zdroj zatím zůstává, protože chybí druhá offline kopie operátorských klíčů a otestovaná oddělená recovery kopie reviewer key. |
-| **M6 IntentSmith 1.0 release** | `RETENTION_INTEGRATED / HISTORICAL_353_PASS / DEVELOPMENT_400_PASS / DELTA_REVIEW_REQUIRED / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Bounded `dc81a0f0` historicky prošel 353/353 a spojil Studio → server → exact CODE model → schválení → restarty → DB restore; [úzké review](docs/review/2026-09-12-PRODUCTION-JOURNEY-REVIEW-RECEIPT.md) nemělo blokující nález. Historický CODE 7×3 dal Qwenu 3.5 0,3333 a Qwen Coderu 0,1143; není to nové role rozhodnutí. Vývojový offline/database profil na čistém `1f13b936` prošel **400/400, 0 BLOCKED**; samokontrola používá historický registr přesně podle zapečetěné politiky, která tím nezískává nový release PASS. Fyzický model, úplný M6 plán, kvalita větších změn, review delty, M5 custody a externí acceptance zbývají. [Aktuální checkpoint](docs/review/2026-09-30-COMPLETION-TRACKER.md). |
+| **M6 IntentSmith 1.0 release** | `RETENTION_INTEGRATED / HISTORICAL_353_PASS / DEVELOPMENT_402_PASS_ON_5D72 / DELTA_REVIEW_REQUIRED / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Bounded `dc81a0f0` historicky prošel 353/353 a spojil Studio → server → exact CODE model → schválení → restarty → DB restore; [úzké review](docs/review/2026-09-12-PRODUCTION-JOURNEY-REVIEW-RECEIPT.md) nemělo blokující nález. Historický CODE 7×3 dal Qwenu 3.5 0,3333 a Qwen Coderu 0,1143; není to nové role rozhodnutí. Vývojový offline/database profil na čistém `5d72b4aa` prošel **402/402, 0 BLOCKED**; samokontrola používá historický registr přesně podle zapečetěné politiky, která tím nezískává nový release PASS. Po další produktové změně je nutný nový celý profil. Fyzický model, úplný M6 plán, kvalita větších změn, review delty, M5 custody a externí acceptance zbývají. [Aktuální checkpoint](docs/review/2026-09-30-COMPLETION-TRACKER.md). |
 | **M7 Remote Companion** | `UI_SURFACES_REVIEW_PASSED / HOST_GATE_GREEN / DEVICE_NOT_RUN / NOT_ACCEPTED` | M6 + remote boundary | Nezávislé re-review přijalo exact candidate `429b779f`: durable journal guard zavírá settings double-activation okno a held-flush regrese odlišuje staré bytes. Mobile 47/47, runtime 7/7, adapter 8/8, artifact validation 158/158, boundary 0 violations a Android test+lint prošly. Produkční konfigurace, fyzická matice 13+7, TalkBack a release podpisy nejsou hotové. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
