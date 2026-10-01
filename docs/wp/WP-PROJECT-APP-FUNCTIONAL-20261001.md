@@ -1,6 +1,6 @@
 # WP: Functional acceptance of a generated six-file project
 
-Status: **provider-attestation follow-up candidate, independent review pending; previous `64353400` `CHANGES_REQUIRED`; 2026-10-01 physical model journey at `62e1309f` `FAIL`; successor physical journey `LIVE_NOT_RUN`**.
+Status: **functional harness and provider-attestation follow-up independently `REVIEW_PASS` at `92f7b51c`; previous `64353400` `CHANGES_REQUIRED`; physical journey at `62e1309f` `FAIL`; new physical journey `RUNNING`, not accepted**.
 Authority: operator's 2026-10-01 request to verify that generated applications actually work; `PRODUCT.md` §2.7 and §3; the six-file expense-ledger blueprint in `docs/PROJECT-BUILD.md`.
 
 ## Owned scope and fixed oracle
@@ -35,13 +35,41 @@ Independent review of the first candidate `a3a94d7f` was **CHANGES_REQUIRED**: i
 
 Independent review of successor `95c9d211` was also **CHANGES_REQUIRED**. Its generated `validate.js` mutant accepted `NaN` and both infinities, while `app.js` detected `subject-probe.mjs`, printed the complete expected `{failures:[true,true,true],distinct:true}` JSON and exited zero. The old trusted parent accepted those child-declared booleans, so actual M2 committed a faulty app with the frozen oracle hash unchanged. The reproduction and log remain in `.intentsmith-artifacts/gate0-review-app-forged-probe-95c9.{mjs,log}`.
 
-Independent review of `65ddc2e1` was **CHANGES_REQUIRED**. Its generated `storage.js` used `rows.slice()`, exposing the same row object, while detecting `subject-probe.mjs` and printing the expected before/after JSON copied from argv. Actual M2 committed the faulty app; a separate process after restart observed `sameRow=true` and changed stored amount `999`. The proof and the narrow direct-API prototype remain in `.intentsmith-artifacts/gate0-review-app-storage-{invariants,proof}-65dd.{mjs,log}` and `.intentsmith-artifacts/gate0-review-app-api-context-prototype-65dd.{mjs,log}`. This successor makes the object identity and mutation assertions in the trusted parent. Successful offline controls and the physical live journey remain different evidence states; this candidate still requires independent re-review.
+Independent review of `65ddc2e1` was **CHANGES_REQUIRED**. Its generated `storage.js` used `rows.slice()`, exposing the same row object, while detecting `subject-probe.mjs` and printing the expected before/after JSON copied from argv. Actual M2 committed the faulty app; a separate process after restart observed `sameRow=true` and changed stored amount `999`. The proof and the narrow direct-API prototype remain in `.intentsmith-artifacts/gate0-review-app-storage-{invariants,proof}-65dd.{mjs,log}` and `.intentsmith-artifacts/gate0-review-app-api-context-prototype-65dd.{mjs,log}`. This successor makes the object identity and mutation assertions in the trusted parent. Successful offline controls and the physical live journey remain different evidence states; that successor required independent re-review, which was subsequently accepted below.
 
 An initial successor probe embedded an `import` source string inside the oracle; the conservative governance scanner classified its relative specifier against the oracle file and denied the draft. Moving that probe to the frozen `test/subject-probe.mjs` file resolved the denial. The first VM candidate also triggered this conservative scanner with words in assertion text; removing those words from non-code text allowed the draft. All eight M2 offline cases run through governance without changing product policy or implementation.
 
-The first direct invocation of the M2 test with the shell's Node 22 failed before any M2 assertion because the shared `better-sqlite3` binary is built for Node ABI 137. Re-running with local Node 24.21.0 passed both cases. The native-runtime preflight now reports this prerequisite explicitly; the Node 22 result is a toolchain failure, not evidence for application behavior.
+The first direct invocation of the M2 test with the shell's Node 22 failed before any M2 assertion because the shared `better-sqlite3` binary is built for Node ABI 137. Re-running with local Node 24.21.0 passed the then-existing cases. The native-runtime preflight now reports this prerequisite explicitly; the Node 22 result is a toolchain failure, not evidence for application behavior.
 
-The registry owner may add two additive entries for `tests/project-app-acceptance.test.js` and `tests/project-app-m2-functional.test.js` in the registered deterministic test graph. This candidate does not edit that registry.
+The author candidate did not edit the registry. Integration separately added two entries for `tests/project-app-acceptance.test.js` and `tests/project-app-m2-functional.test.js`; their accepted registration and eight combined gates are documented in [WP-PROJECT-APP-REGISTRATION-20261001.md](WP-PROJECT-APP-REGISTRATION-20261001.md).
+
+## Accepted follow-up and physical repeat — 2026-10-01 09:13 UTC
+
+Independent review accepted the whole `62e1309f →
+92f7b51c2423bdd2cc5633903a579b611d01f7f3` follow-up. The unchanged six-control
+provider replay is **6/6 PASS** and independently checked all six per-file
+receipts against raw request hashes, response bytes and actual compiler paths.
+The reviewer traced sequential M2 generation and relay recording order.
+Its previous CPU run on `64353400` was **12/12 PASS**; those tests and frozen
+oracle/probe/entry bytes did not change in the mapping follow-up. The author
+reran **4/4 + 8/8 PASS** on `92f7b51c`; these are separate receipts.
+Production `src`, contracts and registry were not changed by the author delta.
+
+Root integrated `64353400` as `433f65fc` and `92f7b51c` as `24dde9b1`,
+preserving both the earlier integration receipts and physical failure below.
+The new object-command regression adds 37 test-source newline characters;
+the exact inventory is now 598 JavaScript test files / 264,888 lines.
+The combined registered eight-suite verification on the new integration
+is pending; old green gates are not relabelled as this candidate's run.
+
+At 09:13 UTC root observed no GPU lease, resident model or NVIDIA compute
+process and 22,315 MiB free VRAM. The fresh physical run pins the clean,
+reviewed author `92f7b51c`, the same exact Qwen 3.8 digest as the earlier
+failed attempt, and a new private output directory
+`.intentsmith-artifacts/project-app-live-qwen38-20261001-0913/`.
+The runner owns its serialized lease and isolated project/DB. Its current
+state is **RUNNING**. No CHAT corpus, production installation or live DB
+is changed, and the historical `62e1309f FAIL` is preserved.
 
 ## Accepted integration and next physical boundary — 2026-10-01 08:24 UTC
 
