@@ -26,6 +26,12 @@ regresích záměr „jen vysvětlit“ vyvolá cílenou otázku bez výpočtu;
 pracovní M1/SQLite/oracle sada **82/82**. Změna je zatím
 `REVIEW_PENDING` / `NOT_DEPLOYED`.
 
+Čtvrté review `a41d6885` našlo „Jen mi řekni, jak funguje DPH …“ jako
+další nechtěný výpočet. Red-first M1 byl FAIL. Opravený kandidát vyžaduje
+kladný výpočtový záměr nebo zavedený stručný kalkulační vstup; pouze
+vysvětlení vyvolá cílený dotaz. Pozitivní zkrácený snížený VAT vstup zůstává
+funkční. Cílené M1/SQLite/oracle testy **85/85**; re-review čeká.
+
 **Dodatečné review `12b7726a`: `CHANGES_REQUIRED`.** Negativní účetní
 HTTP/SQLite cesta i veřejný filtr `extractedParams` prošly, ale při selhání
 generativního wrapperu se původní raw tag vracel do M1 jako úspěch.

@@ -1,7 +1,7 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktuální source checkpoint 1. 10. 2026, 03:01 UTC — nezávislá
-revize `0ddc9773` našla i zákaz samotného výpočtu:**
+**Aktuální source checkpoint 1. 10. 2026, 03:06 UTC — nezávislá
+revize `a41d6885` zpřísnila souhlas s výpočtem:**
 [měřené dokončování IDE/backendu, chatu, GPU huntu a odložené mobilní
 integrace](docs/review/2026-09-30-COMPLETION-TRACKER.md). Vývojový registr
 má 583 programů; úplný offline/database profil na čistém předchozím
@@ -26,8 +26,13 @@ která prošla až do uložené odpovědi. Konzervativní detekce negace s ově�
 neutrálními slovy a anglické `do not` dávala **79/79** řízených případů.
 Reviewer však ověřil, že „Bez výpočtu … pouze vysvětli“ stále spustilo
 výpočet. Po červených M1 regresích je tento záměr rozlišen cíleným dotazem;
-pracovní kandidát má **82/82** řízených případů. Čistý commit, review
-a celý profil pro tuto poslední opravu ještě čekají.
+pracovní kandidát měl **82/82** řízených případů. Reviewer pak doložil, že
+„Jen mi řekni, jak funguje DPH …“ přesto vydalo výpočet. Nyní je pro
+výpočet nutný kladný výpočtový záměr nebo stručný vstup začínající
+`DPH …` / `cena bez DPH z …`; vysvětlovací požadavek zůstává dotazem.
+Pracovní kandidát má **85/85** řízených případů, starší specialistický
+loader **294/294** a session context **66/66**. Čistý commit, review a
+celý profil pro tuto poslední opravu ještě čekají.
 Níže uvedených 353/353 patří staršímu M6 kandidátu,
 nikoli dnešnímu vývojovému profilu; M5/M6 acceptance zůstává zavřená.
 Následující datované záznamy zachovávají historii tehdejších kandidátů.

@@ -251,3 +251,10 @@ DPH 2 100 Kč. Dvě red-first M1 regrese byly FAIL. Opravený pracovní
 kandidát se cíleně ptá, zda má počítat, nebo vysvětlovat; nevydá VAT
 výsledek ani modelový fallback. Cílené M1/SQLite/oracle testy **82/82**.
 Čistý commit, úplný profil a nezávislé review zůstávají otevřené.
+
+Čtvrté review `a41d6885` odmítlo nechtěný výpočet u „Jen mi řekni,
+jak funguje DPH …“. Po red-first M1 regresi se výpočet spouští pouze
+pro kladný pokyn nebo přesný zkrácený kalkulační tvar začínající `DPH …`
+či `cena bez DPH z …`; vysvětlení se ptá bez výpočtu. Cílené
+M1/SQLite/oracle sady **85/85**, starší loader **294/294** a session
+context **66/66**. Čistý commit, plný profil a re-review čekají.

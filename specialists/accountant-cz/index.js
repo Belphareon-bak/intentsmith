@@ -120,15 +120,6 @@ function extractVatParamsInline(input) {
   }
   if (params.amount === undefined) params.inputError ||= 'amount';
 
-  const explanationOnly = /\b(?:bez|m[ií]sto)\s+(?:v[ýy]po[čc]t|po[čc][ií]t[aá]n[ií]|kalkulac)\p{L}*/iu.test(normalized)
-    || /\b(?:pouze|jen|jenom)\s+(?:mi\s+)?(?:vysv[eě]tl|popi[šs]|objasn)\p{L}*/iu.test(normalized);
-  const explains = /\b(?:vysv[eě]tl|popi[šs]|objasn)\p{L}*/iu.test(normalized);
-  const asksCalculation = /\b(?:kolik|vypo[čc][ií]t|spo[čc][ií]t|p[řr]id|ode[čc]|odpo[čc]|p[řr]i[čc][ií]t)\p{L}*/iu.test(normalized);
-  if (explanationOnly || (explains && !asksCalculation)) {
-    params.inputError ||= 'calculationIntent';
-    return params;
-  }
-
   // Negated Czech commands have many valid verbs. Treat an unknown ne... word
   // conservatively; these neutral words are not instructions to avoid VAT.
   const neutralNeWord = /^(?:nebo|neboť|nejen|nejdřív|nejdříve|nejprve|nemovitost\p{L}*)$/iu;
@@ -137,6 +128,22 @@ function extractVatParamsInline(input) {
     || /\b(?:do\s+not|don't|not|never)\b/iu.test(normalized);
   if (hasNegation) {
     params.inputError ||= 'direction';
+    return params;
+  }
+
+  // A VAT amount and rate alone do not authorize arithmetic when the user
+  // asks for an explanation. Preserve the established compact calculator
+  // shorthand only when the whole utterance begins with the calculator name.
+  const explanationOnly = /\b(?:bez|m[ií]sto)\s+(?:v[ýy]po[čc]t|po[čc][ií]t[aá]n[ií]|kalkulac)\p{L}*/iu.test(normalized)
+    || /\b(?:pouze|jen|jenom)\s+(?:mi\s+)?(?:vysv[eě]tl|popi[šs]|objasn)\p{L}*/iu.test(normalized);
+  const explains = /\b(?:vysv[eě]tl|popi[šs]|objasn)\p{L}*/iu.test(normalized)
+    || /\bjak\s+funguj\p{L}*/iu.test(normalized);
+  const asksCalculation = /\b(?:kolik|vypo[čc](?:[ií]t|t)|spo[čc](?:[ií]t|t)|po[čc][ií]t|p[řr]id|p[řr]i[čc][ií]?t|ode[čc]|odpo[čc]|nav[ýy][šs]|vy[čc][ií]sl)\p{L}*/iu.test(normalized);
+  const bareVatShorthand = /^\s*DPH\b/iu.test(normalized);
+  const bareNetShorthand = /^\s*cen[auy]\s+bez\s+DPH\s+z(?:e)?\b/iu.test(normalized);
+  if (explanationOnly || (explains && !asksCalculation)
+      || (!asksCalculation && !bareVatShorthand && !bareNetShorthand)) {
+    params.inputError ||= 'calculationIntent';
     return params;
   }
 
@@ -156,7 +163,7 @@ function extractVatParamsInline(input) {
       || (addVerb && gross) || (removeVerb && net)
       || (addVerb && asksNetFrom)) params.inputError ||= 'direction';
   else if (removeVerb || gross || asksNetFrom) params.direction = 'remove';
-  else if (addVerb || net
+  else if (addVerb || net || bareVatShorthand
       || /DPH(?:\s+\d+(?:[,.]\d{1,2})?\s*%)?\s+z(?:e)?\s+/iu.test(normalized)) {
     params.direction = 'add';
   }

@@ -1,5 +1,20 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 1. 10. 2026, 03:06 UTC — kladný záměr výpočtu
+
+Čtvrté nezávislé re-review čistého `a41d6885` vrátilo **CHANGES_REQUIRED**:
+„Jen mi řekni, jak funguje DPH 21 % z 10 000 Kč…“ se stále změnilo v
+výpočet a asistenční odpověď uloženou přes M1/SQLite. Nová red-first
+regrese byla **FAIL**. Výpočet nyní vyžaduje kladný pokyn (`kolik`,
+`vypočti`, `spočítej`, `přidej`, `odečti` apod.) nebo zavedený stručný
+kalkulační zápis začínající `DPH …` či `cena bez DPH z …`. Vysvětlovací
+záměr bez pokynu k výpočtu vyvolá cílený dotaz. Současně nová pozitivní
+regrese obnovila zkrácený vstup „DPH se sníženou sazbou z 10 000 Kč“,
+který dříve neprávem končil dotazem. Pracovní M1/SQLite/oracle sada
+**85/85**, specialist loader **294/294**, session context **66/66** a
+specialist runtime **24/24**. Čistý commit, opakované nezávislé review a
+celý profil ještě chybí; žádná lokální zelená sada se nevydává za přejímku.
+
 ## Checkpoint 1. 10. 2026, 03:01 UTC — zákaz výpočtu vs vysvětlení sazby
 
 Třetí nezávislé re-review čistého `0ddc9773` vrátilo **CHANGES_REQUIRED**.
