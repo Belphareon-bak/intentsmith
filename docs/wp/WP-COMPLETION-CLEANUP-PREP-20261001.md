@@ -6,6 +6,31 @@ ani změna cizích refs/worktrees neproběhla. Vlastník inventury `/root/full40
 
 ## Navazující uchování 1. 10. 2026, 11:08 UTC
 
+**Doplnění 11:43 UTC:** také celá soukromá `.intentsmith-artifacts` evidence
+dokončeného vlastního project-app checkoutu `bc82434c` má nezávislé
+`REVIEW_PASS_REGULAR_EVIDENCE_ARCHIVE_ONLY`. Archive mimo worktree
+`/mnt/vi7000/intentsmith/evidence/completion-cleanup-20261001/taskflow-ledger/taskflow-ledger-evidence-bc82434c.tar.gz`
+má 8 674 307 B, SHA-256
+`ad22902762887797addcca84cf61f07deaaebcf841dfad3febbde929e7c18026`.
+Reviewer streamem i opakovaně v originálech ověřil všech 2 071 pravidelných
+členů / 130 421 962 B a metadata, bez extrakce/spuštění/DB open.
+Manifest SHA-256
+`ab14df94a356453f31d9dd6e97c88cdc16683533c3b6d053e7691f3272927d51`;
+review manifest SHA-256
+`3880743005e490312292f07465b6dcd021e0a07da7f015cf24ec69eb721096f4`.
+Externí node_modules symlink je excluded a jeho cíl zachovaný.
+Process kontrola má 0 pozitivních cwd/FD vazeb, ale 7 nečitelných PIDů;
+**worktree delete stále HOLD**, archivní PASS ho nenahrazuje.
+
+Oddělené review dvou starých nepřipojených refs `e6e9/ce2d` potvrdilo
+patch ekvivalenci všech šesti commitů v root, přesné evidence tags
+a explicitní uvolnění autora. Jeho manifest má SHA-256
+`3cea36f14454d78536d9e7ea34669681f408b2e6e289cb1e9ca5a7553ad43f21`.
+Pouze pro tyto lokální refs je připravený expected-SHA transakční cleanup
+po dokončení aktivních milníků a dalším čerstvém preflightu.
+Fresh úplný snapshot `11:29 UTC` má **71 worktrees / 214 local branches /
+142 tracking refs / 144 actual remote heads**; nic dosud odstraněno.
+
 Root atomicky pushnul a `ls-remote` ověřil vlastní evidence tags:
 
 | Ref | Exact peeled source |
@@ -77,7 +102,7 @@ Privátní artefakty v integračním checkoutu:
 | `.intentsmith-artifacts/cleanup-candidate-manifest-20261001/candidate-manifest.json` | `fcef378a815c61e814af0cfada5df27b7ff6da2135ed44d98585e8e1e966e331` |
 | `.intentsmith-artifacts/cleanup-candidate-manifest-20261001/git-cherry-proofs.json` | `e3e0d4134b530ccdb76fa702c547d4437d0ea32abc6f37152a2cba9198fd479f` |
 
-## Nejmenší pozdější návrh
+## Historický první návrh — snapshot 09:11 UTC
 
 Po uzavření aktivních milníků lze nejprve vzdáleně uchovat přesný vlastní
 author commit `e6e9aa057bb48a35d244250bac1449777d5d7074`, následně znovu

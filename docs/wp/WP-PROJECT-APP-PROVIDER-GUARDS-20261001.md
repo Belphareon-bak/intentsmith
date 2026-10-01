@@ -1,5 +1,36 @@
 # WP — public project-app provider evidence and request cleanup
 
+## Root přejímka — 1. 10. 2026, 11:43 UTC
+
+**REVIEW_PASS / REGISTERED_8_PASS / NO_NEW_MODEL_RUN.** Čistý autor
+`15337cdeed901c2a8468c16345db31efc2999ea1` má nezávislé source review,
+opakovaných **35/35** a další skutečné **3/3** kontroly cleanup před headers,
+upstream response abort a replay původních úplných ledger/TaskFlow důkazů.
+Review manifest SHA-256
+`f1427bbe4cdc8ab951821e1ed465ba2bbe4af390119b1587ef15bb79b468ed92`.
+Chybný první restart-import a jeho 23 PASS / 12 FAIL zůstávají uchované.
+
+Root cherry-pick `eb832646` a registrace `0bf96f05` mají nezávislé
+integrační **REVIEW_PASS**. Přesných pět author blobů zůstalo totožných;
+produkční stromy src/contracts/IDE/specialists/skills jsou shodné s `f96c2d23`.
+Celých 593 descriptors zachováno kromě právě dvou předem uvedených polí
+M2 fixture/network. Canonical writer obnovil projekci, registry fingerprint
+`24c927fc68f58622302ee675af30a9a05dc16f2ff54a8b2cc689b92100af58ca`.
+Source census 681 / 234 011 LF, tests 599 / 265 388 LF; DB-reachable roots 142.
+Root integrační review manifest SHA-256
+`7699f528a7389c2f30fe6e7032771eebcd245bdd8df272e3beb2bbbc988b1e99`.
+
+Společná skutečná registrovaná brána na clean
+`0bf96f05358a576a24d8971770c3d6daa2b339eb` skončila exit 0,
+**8 PASS / 0 FAIL / 0 BLOCKED / 0 TIMEOUT / 0 SKIPPED**, report
+`2026-10-01T11-38-51-086Z/report.json`, SHA-256
+`1a33fceee836e11a886bbb5efbf7a9883ac6c170ad7c7582d64f597627d0c514`.
+Žádná modelová/CHAT/server sada nebyla vybraná. Starší skutečné fyzické
+aplikace zůstávají přijaté; tato oprava je nové CPU/resource přijetí,
+nikoli nová inference, celý profil, instalace či release.
+
+## Historický autorský Work Package
+
 Status: `IMPLEMENTATION_GREEN / REVIEW_PENDING / NO_NEW_MODEL_RUN`.
 
 Authority: the operator's completion request and ROOT's explicit bounded

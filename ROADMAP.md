@@ -12,6 +12,12 @@ soukromý archiv má nezávislé přijetí, odstranění refs/worktrees čeká.
 CHAT řeší jiný worker. Celý nový profil, nasazení ani release nejsou přijaté.
 [Aktuální důkazy a zbývající milníky](docs/review/2026-09-30-COMPLETION-TRACKER.md).
 
+**Navazující přejímka 11:43 UTC:** společný veřejný runner má přijatou
+opravu verze a skutečného cancel/drain, integrační `0bf96f05` prošel
+**8/8 registrovanými sadami / REVIEW_PASS**. Žádné nové modelové volání.
+Privátní IDE composer successor je stále v nezávislém review.
+Archiv 2 071 projektových důkazů má přijetí; worktree cleanup zůstává HOLD.
+
 **Historický checkpoint 1. 10. 2026, 10:27 UTC:** Řízené schválení funkční aplikace
 ve skutečném AppImage má **PASS / REVIEW_PASS**, včetně frozen testu,
 přesných preview/Git bajtů a durable terminálu. Modelový composer není
@@ -23,7 +29,7 @@ na integrační kontrakt nové konverzace a fyzickou 13+7 matici; cleanup
 má HOLD. CHAT pokračuje u jiného workera.
 [Přesné výsledky a důkazy](docs/review/2026-09-30-COMPLETION-TRACKER.md).
 
-**Navazující přejímka 10:41 UTC:** TaskFlow `bc82434c` opravilo obě mezery
+**Historická přejímka 10:41 UTC:** TaskFlow `bc82434c` opravilo obě mezery
 měřidla; nezávislé REVIEW_PASS/28 testů, společná clean2741 brána **8/8 PASS**
 a integrační review PASS. Fyzický modelový TaskFlow a IDE composer čekají
 na volný GPU slot; cizí CHAT běh zůstává zachovaný. Mobil má aktuální

@@ -1,5 +1,44 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 1. 10. 2026, 11:45 UTC — veřejný runner přijat
+
+Přijatá oprava autora `15337cde` je integrovaná jako `eb832646`;
+clean `0bf96f05358a576a24d8971770c3d6daa2b339eb` má **8/8 registrovaných
+PASS / REVIEW_PASS**, skutečný exit 0, report SHA-256
+`1a33fceee836e11a886bbb5efbf7a9883ac6c170ad7c7582d64f597627d0c514`.
+Chybějící/prázdná verze poskytovatele se odmítá, oba relay stupně ruší
+vlastní upstream při odpojení a čekají na skutečný drain před unload/lease.
+Reviewer zopakoval **35/35**, přidal **3/3** skutečných error/cleanup/replay
+kontrol a třetí reviewer přijal přesnou root integraci. Manifest této
+integrační revize má SHA-256
+`7699f528a7389c2f30fe6e7032771eebcd245bdd8df272e3beb2bbbc988b1e99`.
+
+Registry zachoval všech 593 descriptors kromě přesně M2 fixture/network;
+loopback je přiznaný v existing database sadě, acceptance je network:none.
+Produktové stromy i frozen měřidla zůstaly shodné. Census tests nyní
+599 / 265 388 LF, source 681 / 234 011 LF; DB-reachable roots 142.
+Žádná nová inference, CHAT práce, celý profil ani instalace.
+[Přesná přejímka, red receipts a limity](../wp/WP-PROJECT-APP-PROVIDER-GUARDS-20261001.md).
+
+IDE successor `4a61b60e…` ověřil skutečných 16 313 package členů i verzi,
+ale nezávislé actual loopback měření zjistilo otevřený downstream po
+přerušené odpovědi. Nejde o uncaught crash; klient čeká na timeout.
+Nový oddělený successor tuto propagaci opravuje. Modelový packaged CODE
+composer zůstává **LIVE_NOT_RUN**, původní důkazy jsou zachované.
+
+Čerstvý strukturální Hunt audit `11:32 UTC`, exit 0, potvrdil stále
+**596/1173 / 2324/3689 kritérií / NO_DECISION / NO_GO**, report SHA-256
+`22f46b6bf7dc3d8e285e9f85c3930e47933ba4c45f0b09fd597f957bd34c608e`.
+Neprovádí grading, nemá accepted grader a nenahrazuje živou DB přejímku.
+Archiv všech 2 071 pravidelných project-app důkazů má nezávislé přijetí;
+worktree delete zůstává HOLD, pouze dvě vlastní nepřipojené refs mají
+samostatný pozdější expected-SHA cleanup preflight PASS.
+
+Publikovaný `f96c2d2358aef1e9239249d2f87949f200d83800` má skutečný
+[CI SUCCESS, run 36854811432](https://github.com/Belphareon-bak/intentsmith/actions/runs/36854811432),
+job `110344667604`, všechny kroky SUCCESS. Toto CI není přeznačené na
+novější runner; ten dostane vlastní výsledek po publikaci.
+
 ## Checkpoint 1. 10. 2026, 11:20 UTC — druhá skutečná aplikace přijata
 
 TaskFlow na čistém publikovaném
