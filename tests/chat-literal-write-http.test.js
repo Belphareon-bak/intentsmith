@@ -32,6 +32,10 @@ await testAsync('polite/literal/summary saves bind exact bytes and IDs; invalid 
     ['Ulož to do maybe.md, pokud je dost místa.', { target: 'maybe.md', understood: false }],
     ['Ulož to do smallname.md.', { target: 'name.md' }],
     ['Ulož to do plan-length.md.', { target: 'plan-length.md', truncatePlan: true }],
+    ['Ulož text "ghost.md" a text "ghost.md".', { target: 'ghost.md', literal: 'ghost.md' }],
+    ['Ulož text „ghost.md“ a text "ghost.md".', { target: 'ghost.md', literal: 'ghost.md' }],
+    ['Ulož text notes"PAYLOAD".md.', { target: 'notes.md', literal: 'PAYLOAD' }],
+    ['Ulož text "notes.md" do duplicate-ok.md; text "notes.md" je přesný obsah.', { target: 'duplicate-ok.md', literal: 'notes.md' }],
     ['Shrň předchozí odpověď a ulož ji do truncated.md.', { target: 'truncated.md', transformation: 'summarize' }],
   ]);
   let truncate = false;
@@ -107,6 +111,15 @@ await testAsync('polite/literal/summary saves bind exact bytes and IDs; invalid 
     assert.equal(literalProposal.response.metadata.fileSaveSource.kind, 'user_literal');
     assert.equal((await send(conversationId, `schválit efekt ${literalProposal.response.metadata.effectId}`)).response.metadata.effectResult, 'succeeded');
     assert.deepEqual(readFileSync(path.join(project.path, 'literal.md')), Buffer.from(literal));
+    const duplicateInput = 'Ulož text "notes.md" do duplicate-ok.md; text "notes.md" je přesný obsah.';
+    const duplicateProposal = await send(conversationId, duplicateInput);
+    assert.equal(duplicateProposal.response.metadata.approvalRequired, true);
+    const duplicateRequest = JSON.parse(privateDb.prepare('SELECT request_json FROM tool_v1_requests WHERE request_id = ?').get(duplicateProposal.response.metadata.toolRequestId).request_json);
+    assert.deepEqual(duplicateRequest.input, { path: 'duplicate-ok.md', content: 'notes.md' });
+    assert.equal(duplicateProposal.response.metadata.fileSaveSource.messageId,
+      privateDb.prepare("SELECT id FROM messages WHERE conversation_id = ? AND role = 'user' AND content = ?").get(conversationId, duplicateInput).id);
+    assert.equal((await send(conversationId, `schválit efekt ${duplicateProposal.response.metadata.effectId}`)).response.metadata.effectResult, 'succeeded');
+    assert.deepEqual(readFileSync(path.join(project.path, 'duplicate-ok.md')), Buffer.from('notes.md'));
     // Refresh an answer after several protocol turns: newest content, not receipt.
     assert.equal((await send(conversationId, 'Vysvětli stručně, co je Git commit.')).response.content, original);
     const originId = privateDb.prepare("SELECT id FROM messages WHERE conversation_id = ? AND role = 'assistant' ORDER BY id DESC LIMIT 1").get(conversationId).id;
@@ -137,6 +150,9 @@ await testAsync('polite/literal/summary saves bind exact bytes and IDs; invalid 
       ['Ulož to do maybe.md, pokud je dost místa.', 'file_write_constraints_unresolved'],
       ['Ulož to do smallname.md.', 'file_write_target_unverified'],
       ['Ulož to do plan-length.md.', 'file_write_plan_truncated'],
+      ['Ulož text "ghost.md" a text "ghost.md".', 'file_write_target_unverified'],
+      ['Ulož text „ghost.md“ a text "ghost.md".', 'file_write_target_unverified'],
+      ['Ulož text notes"PAYLOAD".md.', 'file_write_target_unverified'],
     ]) {
       const count = privateDb.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n;
       const rejected = await send(conversationId, input);

@@ -83,7 +83,9 @@ export function validateFileSavePlan(plan, input, available) {
     }).filter(value => input.includes(value));
     if (!quoted.length) fail('file_write_literal_unverified');
     // A path appearing solely inside the literal is data, not a target.
-    targetInput = input.replace(quoted[0], '');
+    // Every occurrence of these exact source bytes is data. Mask in place:
+    // deletion could join surrounding fragments into an invented pathname.
+    for (const value of quoted) targetInput = targetInput.replaceAll(value, ' '.repeat(value.length));
     content = plan.source.text;
   } else if (plan.source.kind === 'answer') {
     if (!sameKeys(plan.source, ['kind', 'messageId']) || !Number.isSafeInteger(plan.source.messageId)) fail('file_write_source_unverified');
