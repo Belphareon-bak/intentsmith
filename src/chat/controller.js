@@ -2174,6 +2174,8 @@ ChatController.handle = async function(request) {
     conversationStore: store,
     saveSourceCandidate: store.getLatestSaveSourceTurn(dbConversationId),
     saveSourceCandidates: store.getSaveSourceCandidates(dbConversationId),
+    saveSourceBarrier: store.hasUnansweredUserTurnBefore(dbConversationId, persistedUserTurn.id)
+      ? 'file_write_prior_turn_unanswered' : null,
     verifyFileSaveOriginalRequest: ({ messageId, request }) => {
       throwIfAborted(signal);
       const source = store.getSaveSourceTurn(dbConversationId, messageId);

@@ -160,7 +160,7 @@ test('explicit one-word answers do not trigger density retries; empty output rem
     llmGateway.call = async (prompt) => {
       calls++;
       if (calls === 2) assert(prompt.includes('6 whitespace-separated words'));
-      return { content: calls === 1 ? 'Ideální klidné místo pro soustředěnou četbu.' : 'Tichý koutek pro klidné čtení.',
+      return { content: calls === 1 ? 'Ideální klidné místo pro soustředěnou četbu.' : JSON.stringify({words:['Tichý','koutek','pro','klidné','čtení.']}),
         model: 'controlled', finishReason: 'stop' };
     };
     await handleAnswerDecision('Druhou variantu zkrať na pět slov.', brief, { history: [] });
@@ -355,6 +355,7 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
   const generationInstruction = 'Napiš dvě krátké věty o rostlinách';
   const generationRequest = `${generationInstruction} a ulož je do nového souboru plants.md, nic existujícího nepřepisuj.`;
   const generatedContent = 'Rostliny potřebují světlo odpovídající svému druhu. Zálivku přizpůsob stavu substrátu.';
+  const failedBriefRequest = 'Napiš přesně pět slov.';
   const provider = http.createServer(async (req, res) => {
     let body = '';
     for await (const chunk of req) body += chunk;
@@ -370,7 +371,11 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
     try { parsed = JSON.parse(raw); } catch { parsed = null; }
     let content;
     if (payload.format?.properties?.action) {
-      if (parsed.request === generationRequest) {
+      if (parsed.request === 'Ulož tu odpověď do stale.md.') {
+        content = JSON.stringify({ action: 'write', question: null, target: 'stale.md',
+          source: { kind: 'answer', messageId: parsed.answers[0]?.messageId }, transformation: 'none',
+          writeMode: 'replace', understood: true, unsupported: [] });
+      } else if (parsed.request === generationRequest) {
         content = JSON.stringify({ action: 'write', question: null, target: 'plants.md',
           source: { kind: 'generated', instruction: generationInstruction }, transformation: 'none',
           writeMode: 'create', understood: true, unsupported: [] });
@@ -397,7 +402,13 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
         : parsed?.request?.includes('faktoriál') ? 'CODE' : 'CONVERSATIONAL',
         confidence: 0.95, fileTarget: null, question: ambiguous ? 'Mezi čím se rozhoduješ?'
           : parsed?.request === 'Shrň odpověď a ulož ji do nového souboru, nic existujícího nepřepisuj.' ? question : null,
-        continuesPending: Boolean(parsed?.pending), responseScope: 'conversation' });
+        continuesPending: Boolean(parsed?.pending), responseScope: 'conversation',
+        briefResponse: parsed?.request === failedBriefRequest,
+        responseWordCount: parsed?.request === failedBriefRequest ? 5 : null });
+    } else if (raw.includes(failedBriefRequest)) {
+      content = payload.format?.properties?.words
+        ? JSON.stringify({ words: ['Tato', 'věta', 'má', 'bohužel', 'šest', 'slov.'] })
+        : 'Tato věta má bohužel šest slov.';
     } else if (system.includes('Create only the complete content')) {
       content = generatedContent;
     } else if (system.includes('Summarize only')) {
@@ -423,9 +434,9 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
     const conversationId = (await expectJson(product, 'POST', '/api/conversations', {
       title: 'context-save', project_id: project.id, mode: 'chat',
     }, 201)).conversation.id;
-    const send = input => expectJson(product, 'POST', '/api/chat', { contract: 'ConversationCommand', version: 1,
+    const send = (input, expectedStatus = 200) => expectJson(product, 'POST', '/api/chat', { contract: 'ConversationCommand', version: 1,
       requestId: randomBytes(16).toString('hex'), turnId: randomBytes(16).toString('hex'), conversationId,
-      action: 'send', input }, 200);
+      action: 'send', input }, expectedStatus);
     const genericQuestion = await send('Pomoz mi s výběrem.');
     assert.equal(genericQuestion.response.content, 'Mezi čím se rozhoduješ?');
     await stopProduct(product);
@@ -500,6 +511,17 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
     const before = database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n;
     await send('Neukládej nic, jen vysvětli Git commit.');
     assert.equal(database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n, before);
+    const failed = await send(failedBriefRequest, 500);
+    assert.equal(failed.error.code, 'CHAT_PROCESSING_FAILED', JSON.stringify(failed));
+    assert.equal(database.prepare("SELECT role FROM messages WHERE conversation_id = ? ORDER BY id DESC LIMIT 1")
+      .get(conversationId).role, 'user');
+    await stopProduct(product);
+    product = await startProduct(owned, `http://127.0.0.1:${provider.address().port}`, model);
+    const stale = await send('Ulož tu odpověď do stale.md.');
+    assert.equal(stale.response.metadata.awaitingClarification, true, JSON.stringify(stale));
+    assert(stale.response.content.includes('nemá dokončenou odpověď'), stale.response.content);
+    assert.equal(database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n, before);
+    assert(!existsSync(path.join(project.path, 'stale.md')));
   } finally {
     database?.close();
     await stopProduct(product);

@@ -1414,6 +1414,7 @@ Passe den Umfang der Anfrage an. Benenne Unsicherheit; erfinde keine aktuellen F
     let result;
     const requestedWords = decision.metadata?.responseWordCount;
     const hasWordCount = Number.isSafeInteger(requestedWords) && requestedWords > 0 && requestedWords <= 1000;
+    let structuredWordRetry = false;
     const answerResponseIntent = decision.metadata?.briefResponse === true || (hasWordCount && requestedWords <= 20)
       ? ResponseIntent.MINIMAL : detectResponseIntent(input, {
       lastResponseIntent: context.sessionState?.lastResponseIntent || null,
@@ -1435,7 +1436,12 @@ Passe den Umfang der Anfrage an. Benenne Unsicherheit; erfinde keine aktuellen F
         temperature: answerRetry === 0 ? 0.7 : 0.5,
         maxTokens: currentAnswerContext.maxTokens,
         num_ctx: currentAnswerContext.numCtx,
-        ...(strictJson ? { format: 'json', capability: LLMCapability.JSON_OUTPUT } : {}),
+        ...(strictJson ? { format: 'json', capability: LLMCapability.JSON_OUTPUT }
+          : structuredWordRetry ? { capability: LLMCapability.JSON_OUTPUT, format: {
+            type: 'object', additionalProperties: false, required: ['words'],
+            properties: { words: { type: 'array', minItems: requestedWords, maxItems: requestedWords,
+              items: { type: 'string', minLength: 1, pattern: '^\\S+$' } } },
+          } } : {}),
         signal: context.signal || null,
       });
 
@@ -1505,12 +1511,27 @@ Passe den Umfang der Anfrage an. Benenne Unsicherheit; erfinde keine aktuellen F
       // v55.2 Sprint 2.1 — D6 Output Quality Gate for ANSWER path
       // ════════════════════════════════════════════════════════════════════════
       if (hasWordCount && !strictJson) {
+        if (structuredWordRetry) {
+          let parsed;
+          try { parsed = JSON.parse(result.content); } catch { /* handled as a format mismatch */ }
+          if (parsed && Object.keys(parsed).length === 1 && Array.isArray(parsed.words)
+            && parsed.words.length === requestedWords && parsed.words.every(word => typeof word === 'string'
+              && !/\s/u.test(word) && /[\p{L}\p{N}]/u.test(word))) {
+            result.content = parsed.words.join(' ');
+          } else if (answerRetry === MAX_ANSWER_RETRIES) {
+            throw new AnswerWordCountError('Structured word count was not satisfied');
+          } else {
+            answerRetry++;
+            continue;
+          }
+        }
         // Checks only an explicit presentation constraint, never meaning,
         // quality, action parameters or the bytes of a saved literal.
         const actualWords = result.content.trim().split(/\s+/u).filter(word => /[\p{L}\p{N}]/u.test(word)).length;
         if (actualWords !== requestedWords) {
           if (answerRetry === MAX_ANSWER_RETRIES) throw new AnswerWordCountError('Exact requested word count was not satisfied');
-          currentPrompt = boundedRetryPrompt(`${prompt}\n\nThe previous answer had ${actualWords} whitespace-separated words instead of the explicitly requested ${requestedWords}. Return exactly ${requestedWords} words in the requested language and meaning, with no labels, preamble, explanation or count claim.`);
+          structuredWordRetry = true;
+          currentPrompt = boundedRetryPrompt(`${prompt}\n\nThe previous answer had ${actualWords} whitespace-separated words instead of the explicitly requested ${requestedWords}. Return an object with words: an array of exactly ${requestedWords} strings, one word per item, preserving the requested language and meaning. The core joins them with spaces. No labels, preamble, explanation or count claim.`);
           answerRetry++;
           continue;
         }

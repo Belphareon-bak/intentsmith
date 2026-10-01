@@ -948,7 +948,11 @@ export async function handleFileWriteDecision(input, decision, context, dependen
     // A schema-constrained model can emit `write` with an unresolved field.
     // This remains a stopped effect. Preserve CRE's concrete open question
     // instead of replacing it with a generic error and losing the request.
-    if (error.code === 'file_write_constraints_unresolved'
+    if (error.code === 'file_write_prior_turn_unanswered') {
+      plan = { action: 'clarify', candidateMessageId: null, question: lang === 'cs'
+        ? 'Poslední zadání nemá dokončenou odpověď. Chceš ho nejprve dokončit, nebo uložit některou starší odpověď? Uveď kterou.'
+        : 'The last request has no completed answer. Should I finish it first, or save an older answer? Specify which one.' };
+    } else if (error.code === 'file_write_constraints_unresolved'
       && decision.metadata?.clarificationQuestion) {
       plan = { action: 'clarify', question: decision.metadata.clarificationQuestion,
         candidateMessageId: null };

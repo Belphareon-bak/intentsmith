@@ -398,6 +398,16 @@ export class ConversationStore {
       metadata: this.#parseMetadata(row.metadata) } : null;
   }
 
+  /** A failed/cancelled prior turn cannot silently expose an older answer. */
+  hasUnansweredUserTurnBefore(conversationId, currentMessageId) {
+    if (!Number.isSafeInteger(currentMessageId) || currentMessageId <= 0) return true;
+    const row = this.#db
+      ? this.#db.db.prepare(`SELECT role FROM messages WHERE conversation_id = ? AND id < ?
+          ORDER BY id DESC LIMIT 1`).get(conversationId, currentMessageId)
+      : [...this._memMessages].reverse().find(row => row.conversation_id === conversationId && row.id < currentMessageId);
+    return row?.role === 'user';
+  }
+
   // Compaction and a long sequence of approval receipts must not change which
   // content answer a pronoun refers to. Unknown provenance remains a barrier.
   getLatestSaveSourceTurn(conversationId) {

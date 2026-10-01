@@ -160,6 +160,9 @@ export async function resolveFileSavePlan(input, context, dependencies = {}) {
     ? (context.saveSourceCandidate ? [context.saveSourceCandidate] : []) : context.history), projectId);
   const savedQuestion = context.sessionState?.pendingDecision?.metadata?.fileSaveClarification;
   const pending = savedQuestion?.projectId === projectId ? pendingConversationQuestion(context) : null;
+  if (context.saveSourceBarrier && !(pending && savedQuestion.sourceMessageId !== null)) {
+    available.barrier = context.saveSourceBarrier;
+  }
   // A later answer must not silently replace the source that was selected when
   // the question was asked. No model-generated content or ID bypasses this guard.
   if (pending && savedQuestion.sourceMessageId !== null
