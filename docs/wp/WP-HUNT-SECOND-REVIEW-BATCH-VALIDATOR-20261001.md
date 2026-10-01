@@ -19,7 +19,9 @@ Původní `scripts/verify-hunt-blind-review.mjs` ověřuje kompletní posudek
 v exportním formátu, nikoli částečné soubory `chat-###`, `code-###`, `dr-###`.
 `scripts/manual/build-hunt-dr-development-triage.py` míří na jiný 312-case
 packet a JSONL. Nový `scripts/verify-hunt-second-review-batches.mjs` čte
-aktuální packet, 106 dávkových JSONů, revize a dvě veřejné politiky.
+aktuální packet, 106 dávkových JSONů, revize, dvě veřejné politiky a
+verzovaný manifest `docs/review/evidence/2026-10-01-hunt-second-review-batch-manifest.json`
+(SHA-256 `1d85c8e1ce0a7735e3b53961ffc1df961fbc01eace2c3feaf26ec182207d2bab`).
 Nečte `restricted/`, nespouští model/GPU ani externího hodnotitele a
 nepřipojuje se k DB nebo síti. Výstup je pouze JSON na stdout; vstupní
 soubory zůstávají beze změny.
@@ -28,8 +30,12 @@ soubory zůstávají beze změny.
 
 - Povinný očekávaný SHA-256 zamyká přesné bytes `packet.json`. Samostatně
   se ověří deklarovaný hash sdíleného CHAT kontextu, CODE politiky a
-  kanonické rubrikové politiky. Report uchová SHA každého dávkového souboru
-  i revizí.
+  kanonické rubrikové politiky. **Povinný Git manifest** zamyká přesně
+  106 očekávaných jmen a SHA-256 všech jejich raw bytes i raw revizního
+  souboru. Vynechání, přidání nebo změna již zmrazeného důkazu je chyba
+  validace před výpočtem pokrytí. Nová dávka vyžaduje výslovnou verzovanou
+  aktualizaci manifestu a review; samotný nový soubor se nepromění v
+  dodatečné přijatelné pokrytí.
 - Každá známka používá jedinečný `idx` v packetu. Existující `id` musí
   přesně souhlasit; u D/R dávky bez `id` se identita odvodí pouze z
   `packet.cases[idx].id`. Ověří se role vůči typu dávky, task, anonymní
@@ -63,17 +69,23 @@ D2 0/189, R1 0/179, R2 0/195. Validátor odvodil 166 chybějících D/R ID
 z packetu; validoval 106 dávek a 34 revizí CHAT (13 změn skóre).
 Privátní reprodukovaný report je
 `.intentsmith-artifacts/hunt-second-review-validator-20261001/report.json`
-(SHA-256 `53ff3c71291641f3255943f45060225417049d9a9ed93154861bf5b73d0b7b46`,
+(SHA-256 `22f46b6bf7dc3d8e285e9f85c3930e47933ba4c45f0b09fd597f957bd34c608e`,
 mode 0600). Do Gitu se jeho anonymní indexový obsah neukládá.
 
 Testy `tests/verify-hunt-blind-review.test.mjs` používají malý vlastní
 packet a ověřují úspěšný dílčí report i negativní mutace hashů, duplicit,
-cizího indexu, ID, tasku, rubriky, citace a revize. Počáteční běh před
+povinného manifestu, cizího indexu, ID, tasku, rubriky, citace a revize.
+Nové red-first případy před opravou prokázaly, že vynechaná nerevidovaná
+dávka a změna hodnoty v jinak platné dávce prošly jako jiný dílčí report;
+po opravě obě chyby zastaví. Přímá in-memory kontrola skutečného packetu
+navíc odmítla vynechaný `chat-030.json` (`BATCH_MANIFEST_FILES`), změnu
+`dr-045.json` c1 0,5 → 0,75 (`BATCH_MANIFEST_HASH`) a změnu raw revizní
+poznámky (`REVISION_MANIFEST_HASH`). Počáteční běh před
 přidáním validátoru skončil `ERR_MODULE_NOT_FOUND`; po implementaci
-**16/16 PASS**. Opakované skutečné spuštění dalo byte-identický JSON.
+**18/18 PASS**. Opakované skutečné spuštění dalo byte-identický JSON.
 Registrovaná sada `IS-T1-TESTS-VERIFY-HUNT-BLIND-REVIEW-TEST` prošla
 **1/1 PASS** v izolovaném běhu
-`.intentsmith-artifacts/run-suites/2026-10-01T00-40-40-449Z/report.json`
+`.intentsmith-artifacts/run-suites/2026-10-01T00-48-42-237Z/report.json`
 (`gateEvidence:false`); `artifact-validation` prošla **160/160** a registr
 je validní s **579** běhovými programy. Tyto běhy nepředstavují nezávislé
 review ani produkční GO.
