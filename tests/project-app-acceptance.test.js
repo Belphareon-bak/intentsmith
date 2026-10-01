@@ -153,7 +153,8 @@ test('TaskFlow reference runs in actual separate M2 sandbox with functional CLI 
 });
 
 test('TaskFlow behavior mutants fail trusted oracle in actual separate sandbox', async () => {
-  for (const defect of ['ignore-status', 'wrong-priority', 'recycle-id', 'skip-transition',
+  for (const defect of ['shared-board', 'accept-nonplain', 'accept-nonplain-options',
+    'ignore-status', 'wrong-priority', 'recycle-id', 'skip-transition',
     'alias-rows', 'no-op-remove', 'ignore-update', 'last-result']) {
     const root = project(taskflowMutant(defect), taskflowFrozen);
     const result = await inSandbox(root, TASKFLOW_ORACLE_ARGV);

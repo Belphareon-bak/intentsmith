@@ -250,7 +250,8 @@ for (const defect of [null, 'wrong-total', 'object-command-last-result', 'assert
   });
 }
 
-for (const defect of [null, 'ignore-status', 'wrong-priority', 'recycle-id', 'skip-transition',
+for (const defect of [null, 'shared-board', 'accept-nonplain', 'accept-nonplain-options',
+  'ignore-status', 'wrong-priority', 'recycle-id', 'skip-transition',
   'alias-rows', 'no-op-remove', 'ignore-update', 'last-result']) {
   test(`M2 TaskFlow ${defect ? `rolls back ${defect}` : 'commits complete functional app'}`, async () => {
     const f = await fixture(defect, 'taskflow');
@@ -292,6 +293,12 @@ for (const defect of [null, 'ignore-status', 'wrong-priority', 'recycle-id', 'sk
         assert.equal(result.result.git.commitId, null, defect);
         assert.equal(result.result.rollback.status, 'succeeded', defect);
         assert.doesNotMatch(testOutput?.stdout || '', /TASKFLOW_APP_ORACLE_PASS/, defect);
+        if (defect === 'shared-board') assert.match(testOutput?.stderr || '', /fresh board per run/,
+          'same-realm repeated run must expose module-scope board');
+        if (defect === 'accept-nonplain') assert.match(testOutput?.stderr || '', /invalid patch new .*class Patch/,
+          'VM class instance is rejected as a non-plain patch');
+        if (defect === 'accept-nonplain-options') assert.match(testOutput?.stderr || '', /invalid options new Date/,
+          'VM Date is rejected as a non-plain options object');
         assert.equal(git(f.project, ['rev-parse', 'HEAD']), f.baseline);
         for (const relative of Object.keys(f.outputs)) assert.equal(fs.existsSync(path.join(f.project, relative)), false);
       } else {

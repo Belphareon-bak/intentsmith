@@ -86,7 +86,16 @@ export function taskflowMutant(name, reference = REFERENCE_TASKFLOW_OUTPUTS) {
     if (!outputs[file].includes(before)) throw new Error('missing mutant anchor ' + name);
     outputs[file] = outputs[file].replace(before, after);
   };
-  if (name === 'ignore-status') alter('src/query.js', 'options.status === undefined || row.status === options.status', 'true');
+  if (name === 'shared-board') {
+    alter('src/cli.js', 'export function run(commands) {', 'const board = createBoard();\nexport function run(commands) {');
+    alter('src/cli.js', '  const board = createBoard();\n  return commands.map', '  return commands.map');
+  }
+  else if (name === 'accept-nonplain') alter('src/validate.js',
+    '  && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null)', '');
+  else if (name === 'accept-nonplain-options') alter('src/validate.js',
+    'if (!plain(value) ||',
+    "if (!(value !== null && typeof value === 'object' && !Array.isArray(value)) ||");
+  else if (name === 'ignore-status') alter('src/query.js', 'options.status === undefined || row.status === options.status', 'true');
   else if (name === 'wrong-priority') alter('src/query.js', 'b.priority - a.priority || a.id - b.id', 'a.priority - b.priority || a.id - b.id');
   else if (name === 'recycle-id') alter('src/store.js', 'id: nextId++', 'id: rows.length + 1');
   else if (name === 'skip-transition') alter('src/store.js', "row.status === 'todo' && status === 'doing'", "row.status === 'todo' && ['doing', 'done'].includes(status)");
