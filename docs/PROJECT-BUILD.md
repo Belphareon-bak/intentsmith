@@ -302,3 +302,70 @@ commitem a dalším testem po restartu. Jde o jeden malý backend/M2 projekt;
 další typy projektů a průchod instalovaným IDE vyžadují vlastní ověření.
 [Důkazy a stav](wp/WP-PROJECT-APP-FUNCTIONAL-20261001.md). Příkaz nevytváří
 adresáře, neinstaluje závislosti a neaktivuje starý milestone executor.
+
+
+## Příklad: pět modulů správce úloh TaskFlow
+
+TaskFlow je druhá, věcně odlišná paměťová aplikace. Veřejné `run(commands)`
+přijímá pole n-tic `['add',title,priority]`, `['update',id,patch]`,
+`['transition',id,status]`, `['remove',id]`, `['list']` či `['list',options]`.
+Vrací jeden výsledek na každou n-tici a každé volání začíná prázdnou tabulí.
+Úloha má kladné bezpečné celočíselné ID, neblankový titul zachovaný včetně
+okrajových mezer, prioritu 1–3 a stav `todo|doing|done`. Povoleny jsou jen
+přechody `todo → doing → done`. `list` filtruje přesným stavem a řadí podle
+ID nebo sestupné priority s ID jako rozhodovačem shody. Vrácené úlohy jsou
+nezávislé kopie; smazaná ID se znovu nepřidělují. Neplatný příkaz či argument
+vyvolá chybu před změnou svého stavu. Povoleny jsou jen uvedené importy a
+standardní ECMAScript globály.
+
+Pět generovaných modulů má toto veřejné zadání. Operátor před generováním
+uloží vlastní zamčený funkční test, CLI adaptér a policy; ty nejsou součástí
+modelových výstupů. V projektu lze zadání předat stejnému `/m2-build` formuláři
+jako předchozí příklad; jeho zamčené testovací artefakty vyžadují zvláštní
+kvalifikační runner. Následující JSON je veřejná část přesného kvalifikačního
+zadání:
+
+```json
+{
+  "instruction": "Build dependency-free in-memory TaskFlow JS. Tasks={id,title,priority,status}; priority 1..3; status todo|doing|done. run(commands) accepts exact tuples below, returns one result per tuple and uses a fresh board each call. An invalid command throws before changing its own state. Generate only five modules. In every generated module use only standard ECMAScript globals; no Node/Web host globals such as structuredClone, process, console or Buffer.",
+  "files": [
+    {
+      "path": "src/app.js",
+      "instruction": "Re-export run only from './cli.js' as the public entrypoint. No other imports. Do not execute commands or start a process at import time.",
+      "dependsOn": [
+        "src/cli.js"
+      ]
+    },
+    {
+      "path": "src/cli.js",
+      "instruction": "Import createBoard only from './store.js'; no other imports. Export run(commands): require an array; make a fresh board per call. Exact tuples: ['add',title,priority], ['update',id,patch], ['transition',id,status], ['remove',id], ['list'] or ['list',options]. Reject wrong arity/unknown operations. Dispatch in order and return one result per tuple: task copies for add/update/transition, true for remove, array for list. Never return only the last result.",
+      "dependsOn": [
+        "src/store.js"
+      ]
+    },
+    {
+      "path": "src/store.js",
+      "instruction": "Import only './validate.js' and './query.js'. Export createBoard() with add(title,priority), update(id,patch), transition(id,status), remove(id), list(options={}). add assigns never-reused ids 1,2,... and todo; update changes only supplied title/priority; transition only todo->doing or doing->done; remove existing id returns true. Validate all inputs/options; unknown ids or illegal transitions throw. Return independent task copies; list uses select. No other imports.",
+      "dependsOn": [
+        "src/query.js",
+        "src/validate.js"
+      ]
+    },
+    {
+      "path": "src/query.js",
+      "instruction": "Export select(tasks,options). Filter by exact options.status when present. Default sort=created means id ascending; sort=priority means priority descending then id ascending. Return a new array of new plain {id,title,priority,status} records. Never mutate input array or rows. No imports.",
+      "dependsOn": []
+    },
+    {
+      "path": "src/validate.js",
+      "instruction": "Export validateTitle, validatePriority, validateId, validateStatus, validatePatch, validateOptions; each throws TypeError on invalid input. No imports. Title is a nonblank string, stored without trimming; priority is an integer 1..3; id is a positive safe integer; status is todo|doing|done. Patch is a nonempty plain object with only title and/or priority; validate each present field. Options is a plain object with only optional status and sort=created|priority. Never coerce values.",
+      "dependsOn": []
+    }
+  ]
+}
+```
+
+Lokální CPU přejímka kontroluje skutečný výsledek a stav aplikace v M2
+sandboxu včetně rollbacku vadných implementací a opětovného otevření SQLite.
+Fyzické vytvoření TaskFlow modelem zatím **neproběhlo**. Status a přesné
+příkazy jsou v [TaskFlow WP](wp/WP-PROJECT-TASKFLOW-FUNCTIONAL-20261001.md).
