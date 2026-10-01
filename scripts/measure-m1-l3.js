@@ -258,11 +258,13 @@ if (isLongContext) {
       (index === 8 ? 'Oprava našeho rozhodnutí: název je nyní Javor, původní volbu Lípa ruším. Kód a první krok zůstávají. ' : '')
       + `Diskusní podklad číslo ${index + 1}: ${discussion.repeat(3)} Odpověz pouze „Rozumím“.`),
     'Vrátíme se k původnímu rozhodnutí. Jaký název teď platí, jaký je náš původní kód a jaký byl první krok? Odpověz stručně; nic neprováděj.',
+    'Je v tom prvním kroku povolené měnit soubory? Odpověz stručně podle našeho původního omezení.',
   ];
   corpus = inputs.map((input, index) => ({ family: 'LONG', id: `long-${index + 1}`, input,
     intent: index === inputs.length - 1 ? 'Recall original fact and latest correction after compactions' : 'Conversation evidence',
-    contextPolicy: 'One private persisted dialog with actual default compaction budgets; session RAM evicted before recall.',
-    allowed: [index === inputs.length - 1 ? 'Javor; LIPA_781; manual content review without file changes' : 'Brief acknowledgement'],
+    contextPolicy: 'One private persisted dialog with actual default compaction budgets; actual product process restarted before recall.',
+    allowed: [index === inputs.length - 1 ? 'No file changes during the manual review'
+      : index === inputs.length - 2 ? 'Javor; LIPA_781; manual content review' : 'Brief acknowledgement'],
     forbidden: ['Any effect or invented completion'], question: 'unnecessary', usedForTuning: true, dialog: 'long-context', variant: 'development' }));
   measurementDefinition = { version: 1, purpose: 'Development live long-context probe; separate from the unchanged 53-case final corpus', cases: corpus };
 }
@@ -311,8 +313,12 @@ if(process.argv.includes('--inside')) {
  let info; for(let n=0;n<240;n++){try{info=JSON.parse(fs.readFileSync(process.env.INTENTSMITH_PORT_FILE,'utf8'));if(info.pid===process.pid)break;}catch{} await delay(250);}
  if(!info?.localCapability)throw new Error('owned server did not start');
  async function request(method,url,body=null){const began=performance.now();const r=await fetch(`http://127.0.0.1:${info.port}${url}`,{method,headers:{'X-IntentSmith-Local-Capability':info.localCapability,'Content-Type':'application/json'},...(body===null?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(180000)});const result=await r.json();return {status:r.status,result,elapsedMs:performance.now()-began};}
- const rows=[]; save('initial-corpus.json',measurementDefinition);
- const p=await request('POST','/api/projects',{name:'Chat isolated probe',type:'general'});
+ const resume=isLongContext && process.env.CHAT_PROBE_RESUME === 'true';
+ const restartState=resume ? JSON.parse(fs.readFileSync(path.join(out,'initial-long-state.json'),'utf8')) : null;
+ const rows=resume ? JSON.parse(fs.readFileSync(path.join(out,'initial-results.json'),'utf8')) : [];
+ save('initial-corpus.json',measurementDefinition);
+ const p=resume ? {result:{project:{id:restartState.projectId}}}
+  : await request('POST','/api/projects',{name:'Chat isolated probe',type:'general'});
  const projectId=p.result.project?.id??p.result.id;
  if(!projectId)throw new Error('isolated project setup: '+JSON.stringify(p));
  const db=(await import(path.join(root,'src/db/database.js'))).default;
@@ -321,7 +327,7 @@ if(process.argv.includes('--inside')) {
  // private DB. This never opens or modifies the production settings document.
  updateUserSettings(db.db,document=>({...document,'intentsmith.memory.learningEnabled':false}));
  const project=db.projects.findById.get(projectId);
- for (const [relative, content] of Object.entries(definition.fixtures || {})) {
+ for (const [relative, content] of Object.entries(resume ? {} : definition.fixtures || {})) {
   if (relative.includes('..') || path.isAbsolute(relative) || path.resolve(project.path, relative).startsWith(project.path + path.sep) === false) throw new Error('Fixture outside private project');
   fs.mkdirSync(path.dirname(path.join(project.path, relative)), { recursive: true });
   fs.writeFileSync(path.join(project.path, relative), content);
@@ -344,6 +350,7 @@ if(process.argv.includes('--inside')) {
   fingerprint:configurationFingerprint,project:{id:projectId,path:project.path} });
  const store=(await import(path.join(root,'src/chat/conversation-store.js'))).getConversationStore();
  const conversations=new Map();
+ if(resume)conversations.set('long-context',restartState.conversationId);
  const trace=()=>Object.fromEntries(['tool_v1_requests','tool_v1_results','m2_effect_requests','m2_effect_results'].map(table=>[table,db.db.prepare(`SELECT * FROM ${table}`).all()]));
  const files=()=>{
   const result={};
@@ -355,14 +362,11 @@ if(process.argv.includes('--inside')) {
   }};
   visit(project.path);return result;
  };
- for(const c of corpus.filter(c=>!requestedCases||requestedCases.includes(c.id))){
+ for(const c of corpus.filter((c,index)=>(!requestedCases||requestedCases.includes(c.id))
+   && (!isLongContext || (resume ? index >= 25 : index < 25)))){
   activeCase=c.id; const key=c.dialog||c.id;
   if(!conversations.has(key)){const created=await request('POST','/api/conversations',{project_id:projectId,title:'private '+key});conversations.set(key,created.result.conversation?.id??created.result.id);}
   const id=conversations.get(key); if(!id)throw new Error('no conversation');
-  if (isLongContext && c === corpus.at(-1)) {
-   // This verifies a cold session from the durable DB, not a process restart.
-   (await import(path.join(root,'src/chat/controller.js'))).ChatController.removeSession(id);
-  }
   const context=store.buildHandlerHistory(id,50);
   const command={contract:'ConversationCommand',version:1,requestId:randomUUID(),conversationId:id,turnId:randomUUID(),action:'send',input:c.input};
   const before=trace(),filesBefore=files(); const b=await request('POST','/api/chat',command);
@@ -371,6 +375,7 @@ if(process.argv.includes('--inside')) {
   if (isLongContext) {
    await (await import(path.join(root,'src/chat/context-compact.js'))).awaitPendingCompaction(id);
    row.summaryAfter=store.getSummary(id);
+   if(!resume)save('initial-long-state.json',{projectId,conversationId:id,processId:process.pid});
    save('initial-results.json',rows);
   }
   const target=c.approve?.path;
@@ -450,12 +455,22 @@ if(process.argv.includes('--inside')) {
   fs.chmodSync(socket,0o600);
   const runtime=fs.mkdtempSync(path.join(out,'runtime-'));for(const d of ['home','tmp','cache','config','data','state','artifacts','home/projects'])fs.mkdirSync(path.join(runtime,d),{recursive:true,mode:0o700});
   const env={PATH:process.env.PATH,LANG:'C.UTF-8',TZ:'Europe/Prague',HOME:path.join(runtime,'home'),XDG_CONFIG_HOME:path.join(runtime,'config'),XDG_CACHE_HOME:path.join(runtime,'cache'),XDG_DATA_HOME:path.join(runtime,'data'),XDG_STATE_HOME:path.join(runtime,'state'),TMPDIR:path.join(runtime,'tmp'),DOTENV_CONFIG_PATH:path.join(runtime,'absent'),NODE_ENV:'test',CI:'1',CHAT_PROBE_RUNTIME:runtime,CHAT_PROBE_RUN_ID:runId,CHAT_PROBE_RECORD:recordPath,CHAT_PROBE_OUT:out,CHAT_PROBE_CORPUS:corpusFile,CHAT_PROBE_PHASE:phase,CHAT_PROBE_CASES:process.env.CHAT_PROBE_CASES,CHAT_PROBE_NO_DIRECT:process.env.CHAT_PROBE_NO_DIRECT||(isFinal?'false':'true'),CHAT_PROBE_SOCKET:socket,INTENTSMITH_DB_PATH:path.join(runtime,'db.sqlite'),INTENTSMITH_PORT_FILE:path.join(runtime,'port.json'),INTENTSMITH_PROJECTS_DIR:path.join(runtime,'home/projects'),INTENTSMITH_TEST_PROJECTS_DIR:path.join(runtime,'home/projects'),INTENTSMITH_TEST_ARTIFACT_DIR:path.join(runtime,'artifacts'),INTENTSMITH_TEST_SERVER_NONCE:randomBytes(24).toString('base64url'),INTENTSMITH_MODEL_CHAT:model,INTENTSMITH_MODEL_D1:model,INTENTSMITH_MODEL_CODE:'qwen3.8:latest',INTENTSMITH_MODEL_D2:'qwen3.8:latest',INTENTSMITH_MODEL_R1:'qwen3.8:latest',INTENTSMITH_MODEL_R2:'devstral-small-2:latest',INTENTSMITH_ENABLE_AGENTS:'false',INTENTSMITH_ENABLE_EXPERTISES:'false',INTENTSMITH_ENABLE_LIFECYCLE:'false',INTENTSMITH_ENABLE_COMFYUI:'false',INTENTSMITH_ENABLE_AUTONOMY:'false',INTENTSMITH_MODEL_UNIVERSE_ENABLED:'false',INTENTSMITH_LOG_LEVEL:'warn',INTENTSMITH_TRACE:'0'};
+  const log=fs.createWriteStream(path.join(out,'initial-process.log'),{mode:0o600});let tail='';
+  const runInside=async childEnv=>{
   child=spawn('bwrap',['--ro-bind','/','/','--dev-bind','/dev','/dev','--bind',out,out,
    '--tmpfs','/tmp','--bind',socketDir,socketDir,'--unshare-net','--die-with-parent','--new-session',
-   process.execPath,self,'--isolated-chat','--inside'],{cwd:root,env,stdio:['ignore','pipe','pipe']});
-  const log=fs.createWriteStream(path.join(out,'initial-process.log'),{mode:0o600});let tail='';
+   process.execPath,self,'--isolated-chat','--inside'],{cwd:root,env:childEnv,stdio:['ignore','pipe','pipe']});
   child.stdout.on('data',c=>{log.write(c);const text=c.toString();for(const line of text.split('\n'))if(line.startsWith('CHAT_PROBE')){canonical(); console.log(line);}});child.stderr.on('data',c=>{log.write(c);tail=(tail+c).slice(-2000);});
-  const exit=await new Promise((resolve,reject)=>{child.on('error',reject);child.on('exit',(code,signal)=>resolve({code,signal}));});
+  return await new Promise((resolve,reject)=>{child.on('error',reject);child.on('exit',(code,signal)=>resolve({code,signal}));});
+  };
+  let exit=await runInside(env);
+  if(isLongContext && exit.code===0){
+   const first=JSON.parse(fs.readFileSync(path.join(out,'initial-long-state.json'),'utf8'));
+   exit=await runInside({...env,CHAT_PROBE_RESUME:'true'});
+   const second=JSON.parse(fs.readFileSync(env.INTENTSMITH_PORT_FILE,'utf8'));
+   save('initial-process-restart.json',{firstProcessId:first.processId,secondProcessId:second.pid,
+    firstExitCode:0,secondExitCode:exit.code,conversationId:first.conversationId,at:new Date().toISOString()});
+  }
   proxy.sealPending('CHILD_EXIT_WITH_PENDING_PROVIDER_REQUEST');
   log.end();
   let recorded=[];

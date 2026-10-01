@@ -1100,13 +1100,14 @@ export async function handleFileWriteDecision(input, decision, context, dependen
     }
 
     const previewContent = content.length <= 2000 ? content : content.slice(0, 2000);
+    const preview = contentPreview(previewContent);
     const modeDescription = plan.toolId === 'file.create'
       ? (lang === 'cs' ? 'Pouze vytvoření nového souboru; existující soubor zůstane zachovaný.'
         : 'Create a new file only; an existing file will be preserved.')
       : (lang === 'cs' ? 'Zápis může nahradit existující soubor.' : 'This write can replace an existing file.');
     const msg = lang === 'cs'
-      ? `🔐 Zápis do ${literal(filePath)} čeká na schválení. ${modeDescription}\n\nObsah (${Buffer.byteLength(content, 'utf8')} bajtů):\n${literal(previewContent)}${previewContent.length < content.length ? '\nZobrazen je začátek; celý obsah je svázaný s návrhem zápisu.' : ''}\n\nNapiš přesně: \`schválit efekt ${execution.effectRequestId}\``
-      : `🔐 Write to ${literal(filePath)} awaits approval. ${modeDescription}\n\nContent (${Buffer.byteLength(content, 'utf8')} bytes):\n${literal(previewContent)}${previewContent.length < content.length ? '\nShowing the beginning; the complete content is bound to this proposal.' : ''}\n\nEnter exactly: \`approve effect ${execution.effectRequestId}\``;
+      ? `🔐 Zápis do ${literal(filePath)} čeká na schválení. ${modeDescription}\n\nObsah (${Buffer.byteLength(content, 'utf8')} bajtů):\n${preview}${previewContent.length < content.length ? '\nZobrazen je začátek; celý obsah je svázaný s návrhem zápisu.' : ''}\n\nNapiš přesně: \`schválit efekt ${execution.effectRequestId}\``
+      : `🔐 Write to ${literal(filePath)} awaits approval. ${modeDescription}\n\nContent (${Buffer.byteLength(content, 'utf8')} bytes):\n${preview}${previewContent.length < content.length ? '\nShowing the beginning; the complete content is bound to this proposal.' : ''}\n\nEnter exactly: \`approve effect ${execution.effectRequestId}\``;
 
     logger.info('HandleFileWrite', 'Filesystem effect registered for approval', {
       effectId: execution.effectRequestId,
@@ -1199,6 +1200,15 @@ function extractFilePathFromInput(input) {
 // Root listing formatting shares the existing handler boundary to avoid a new controller cycle.
 function reject(code) {
   throw Object.assign(new Error('The stored project listing cannot be verified'), { code });
+}
+
+function contentPreview(value) {
+  const visible = String(value).replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu,
+    character => character === '\n' ? '\n' : `\\u{${character.codePointAt(0).toString(16)}}`);
+  let longest = 0;
+  for (const match of visible.matchAll(/`+/g)) longest = Math.max(longest, match[0].length);
+  const fence = '`'.repeat(Math.max(3, longest + 1));
+  return `${fence}\n${visible}\n${fence}`;
 }
 
 function literal(value) {

@@ -283,7 +283,7 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
   const digest = 'a'.repeat(64);
   const calls = [];
   const question = 'Do kterého souboru chceš uložit shrnutí?';
-  const literal = '  Žluťoučký kůň\nřádek 2  ';
+  const literal = '  Žluťoučký kůň\nřádek 2  \n```\n<img src=x onerror=alert(1)>';
   const literalRequest = `Ulož doslovně „${literal}“.`;
   const decomposedRequest = 'Ulož doslovně „Cafe\u0301“ do decomposed.txt.';
   const generationInstruction = 'Napiš dvě krátké věty o rostlinách';
@@ -402,6 +402,8 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
     product = await startProduct(owned, `http://127.0.0.1:${provider.address().port}`, model);
     const literalProposal = await send('quoted.txt');
     assert.equal(literalProposal.response.metadata.approvalRequired, true, JSON.stringify(literalProposal));
+    assert(literalProposal.response.content.includes(`\n\`\`\`\`\n${literal}\n\`\`\`\``),
+      'multiline source stays inert in a fence longer than its embedded Markdown delimiter');
     const literalSource = database.prepare("SELECT id FROM messages WHERE conversation_id = ? AND role = 'user' AND content = ?")
       .get(conversationId, literalRequest);
     assert.equal(literalProposal.response.metadata.fileSaveSource.kind, 'user_literal');
