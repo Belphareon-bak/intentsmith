@@ -1407,3 +1407,12 @@ právě o tuto devátou generaci, se stejným oraclem a rozpočtem. Žádná dal
 inference před odpovědí; aplikace zůstává APPLICATION_FAIL.
 [Stávající WP a konkrétní volba](docs/wp/WP-CODE-PEER-CONTEXT-BUDGET-20261001.md),
 [průběžný report](docs/WORK-PROGRESS.md).
+
+Nezávislé uzavření 21:03 UTC:
+**REJECTION_EVIDENCE_REVIEW_PASS / APPLICATION_FAIL_NOT_QUALIFIED**,
+receipt `79e225b6cb2cd28323942c09bb8e653cbc1c6211210b6c7025695a75be02c27b`.
+Osm přesných generací, 14 durable materiálů a 14 úspěšných rollbacků doložené;
+raw packet včetně Git indexu zachovaný. Konkrétní CLI návrh přijat jako
+omezený další krok, nikoli kvalifikovaná aplikace nebo souhlas k deváté
+generaci. Závěrečný restart a persistence přejímka nebyly dosaženy.
+Další běh čeká na konkrétní rozšíření zmrazeného limitu, nikoli na review.

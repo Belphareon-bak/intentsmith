@@ -267,7 +267,20 @@ post-success restart/replay/persistence přejímka nedosažená. Model byl vlast
 actor bezpečně unloaded, GPU lease released, relay activeRequests0/sourceclean.
 Raw packet379 pravidelných souborů /19,849,724 B zachován:
 `.intentsmith-artifacts/sqlite-catalog-indexed-physical-86002334-20261001-2037`.
-Provider review potvrzen, celkové actual evidence review se dokončuje.
+Provider review i nezávislé celkové review dokončeny:
+**REJECTION_EVIDENCE_REVIEW_PASS / APPLICATION_FAIL_NOT_QUALIFIED**.
+Provider receipt SHA
+`348c04adc35a419f717d823477b68092d517e137272fd33540a135b7d4928109`.
+Celkové review receipt SHA
+`79e225b6cb2cd28323942c09bb8e653cbc1c6211210b6c7025695a75be02c27b`,
+manifest `bb1f95a197290c1df9956e93c60f52772ca84e2ef797e0052e5a4acf879ee262`.
+Privátní receipt:
+`intentsmith-ide2-staging-20261001/.intentsmith-artifacts/gate0-review-sqlite-indexed-physical-86002334-2037/REVIEW.json`.
+Review nezávisle otevřelo durable DB read-only: dva failed terminály,
+14 přesných materiálů, 14 úspěšných rollbacků, 60 událostí a žádný Git commit.
+Restart před prvním schválením je doložený; závěrečný restart úspěšné aplikace
+a persistence přejímka nejsou dosažené. Všech 379 raw souborů zůstalo přesných
+včetně módů a Git indexu. Celkové review nepovoluje další živý běh.
 
 ## 7. Konkrétní další krok a operátorská hranice — 20:46 UTC
 
@@ -311,3 +324,11 @@ inference před odpovědí.
 **Konkrétní otázka operátorovi:** povolit devátou generaci pouze CLI s novým
 přesným M2 schválením podle výše uvedeného připraveného blueprintu?
 Celý aplikační milník není DONE; navazující práce vyžaduje toto rozhodnutí.
+
+**Nezávislé uzavření eskalace, 21:03 UTC:** reviewer přijal konkrétní blueprint,
+vazbu na druhý failed plán, šest zachovaných modulů, nezměněný oracle i úplný
+opravný vstup 5 700/11 520 B. Potvrdil, že devátá generace vyžaduje výslovné
+rozšíření kvalifikace. Výsledek je doložená eskalace skutečného blokéru;
+aplikace zůstává FAIL a žádná hypotetická CPU oprava není vydávána za CODE
+modelový výstup. Read holds jsou uvolněné; čeká pouze konkrétní rozhodnutí
+operátora, nikoli review návrhu.

@@ -1638,7 +1638,8 @@ starý digest 409. Potom oracle řádek 145 zachytil dvojí CLI `remove`:
 první volání vrací true, druhé už řádek nenajde. Opět rollback sedmi cest.
 Callback již funguje; žádný commit ani úspěšná restartová přejímka. Model
 uvolněn, GPU lease odstraněna, relay bez requestů, source čistý. Raw 379 souborů
-/19 849 724 B zachován. Provider review PASS; celkové actual review pending.
+/19 849 724 B zachován. Provider review i celkové review dokončené:
+REJECTION_EVIDENCE_REVIEW_PASS / APPLICATION_FAIL_NOT_QUALIFIED.
 
 CPU diagnostika ve třech samostatných canonical bwrap sandboxech: raw model
 FAIL; hypotetická oprava jediného CLI výrazu PASS celého frozen oracle28c9;
@@ -1651,3 +1652,13 @@ nebo zachovat limit a připravit jinou předem zmrazenou strategii. Další infe
 čeká na odpověď; aplikace zůstává FAIL. Existuje konkrétní diagnóza, compiled
 blueprint a CPU pozitivní/negativní důkaz, nikoli pouze návrh čekající na review.
 [Podrobnosti ve stávajícím WP](../wp/WP-CODE-PEER-CONTEXT-BUDGET-20261001.md).
+
+Uzavření review 21:03 UTC: receipt
+`79e225b6cb2cd28323942c09bb8e653cbc1c6211210b6c7025695a75be02c27b`
+potvrzuje osm přesných generací, 14 durable materiálů, dva failed terminály
+a 14 úspěšných rollbacků; žádný commit ani závěrečný úspěšný restart.
+379 raw souborů zůstalo přesných včetně módů a Git indexu. Konkrétní CLI
+blueprint přijat, další živý běh nepovolen bez rozšíření max8. Read holds
+uvolněné. Checkpoint `4759fe33` má přesný remote a
+[vlastní CI SUCCESS, 13 kroků](https://github.com/Belphareon-bak/intentsmith/actions/runs/36925015539).
+Toto uzavření doplňuje dokumentaci, nemění produkt ani verdikt aplikace.

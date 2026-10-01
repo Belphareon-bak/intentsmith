@@ -1,6 +1,6 @@
 # IntentSmith — průběžný report dokončování
 
-**Aktualizováno:** 1. 10. 2026, 20:46 UTC / 22:46 CEST.
+**Aktualizováno:** 1. 10. 2026, 21:03 UTC / 23:03 CEST.
 **Vlastník:** ROOT. CHAT řeší jiný worker, od posledního zadání jej ROOT neupravuje.
 **Publikace:** `work/real-chat-journeys-20260930`; průběžný report se aktualizuje
 po každém milníku, nejpozději po třech hodinách během aktivní práce. Operátor
@@ -306,7 +306,8 @@ funkční oracle odhalil dvojité volání `remove` v generovaném CLI. První v
 sedmi cest; Git HEAD zůstal stejný a commit nevznikl. Úspěšný restart/replay
 ani konečná persistence přejímka nebyly dosaženy. Vlastní model byl uvolněn,
 GPU lease odstraněna, relay má nulu aktivních requestů a zdroj zůstal čistý.
-Provider audit PASS potvrzuje důkazy selhání; celkové actual review se dokončuje.
+Provider audit i nezávislé celkové review potvrzují důkazy selhání:
+**REJECTION_EVIDENCE_REVIEW_PASS / APPLICATION_FAIL_NOT_QUALIFIED**.
 Nepřijatá aplikace se nepublikuje jako přijatý ukázkový projekt.
 
 CPU diagnostika ve třech samostatných sandboxech: původní modelový výstup
@@ -324,3 +325,27 @@ konkrétní volbu: doporučená jedna CLI revize, nebo zachování osmigeneračn
 limitu a jiná předem zmrazená strategie. Žádná další inference před odpovědí.
 
 [Podrobný stávající WP](wp/WP-CODE-PEER-CONTEXT-BUDGET-20261001.md).
+
+## Uzavření review a publikace eskalace — 21:03 UTC
+
+Nezávislé review `79e225b6cb2cd28323942c09bb8e653cbc1c6211210b6c7025695a75be02c27b`
+ověřilo všech osm requestů, úplné bajty preview a 14 durable materiálů,
+dva failed terminály, 14 úspěšných rollbacků a nepřítomnost všech sedmi
+generovaných cílů. Žádný aplikační Git commit nevznikl. Restart backendu
+před prvním schválením proběhl; závěrečný restart úspěšné aplikace a persistence
+přejímka nebyly dosaženy. Všech 379 raw souborů /19 849 724 B zůstalo přesných
+včetně módů a Git indexu. Read holds jsou uvolněné.
+
+Review přijalo také konkrétní CLI blueprint a jeho vstup 5 700/11 520 B;
+CPU oprava není kvalifikovaná aplikace. Potvrdilo hranici dosavadních osmi
+generací a potřebu konkrétního rozhodnutí pro devátou. **Není vydán souhlas
+k dalšímu živému běhu.** Eskalace je doložená a zreviewovaná; aplikace zůstává
+FAIL, nikoli dokončená.
+
+Checkpoint `4759fe339b8c21faf1a5822fd70a6b903eac12b2` je pushnutý s přesně
+ověřeným remote SHA a [CI SUCCESS, 13 kroků](https://github.com/Belphareon-bak/intentsmith/actions/runs/36925015539).
+Toto doplnění review mění pouze čtyři existující dokumenty; testovaný produkt
+zůstává `11f74be8` a živý kandidát `86002334`. Novější report nepřebírá
+funkční přejímku, která neprošla. Doporučený další krok je jedna skutečná
+CLI CODE revize se šesti zachovanými moduly, novým přesným M2 schválením,
+stejným oraclem, následným commitem a ověřením po restartu.
