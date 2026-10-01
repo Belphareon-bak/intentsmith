@@ -95,3 +95,15 @@ skutečný pětiminutový výsledek.
 
 Tento důkaz pokrývá jednu plánovanou instanci. Neměří výkon velkého počtu
 instancí, 24hodinový provoz, fyzické Studio ani instalovaný produkt.
+
+Omezené nezávislé review čistého `d5cd2018` přijalo návrh a
+krátké kontrolní průchody. Tři kandidátní commity byly integrovány
+do čistého `a199a5d1`, ale fyzický pětiminutový běh stále chybí.
+Integrační offline/database profil na tomto SHA dal **400 PASS /
+2 FAIL**: oba červené M6 kontraktní testy správně odhalily, že
+novou povinnou soak sadu ještě neuvádějí mezi programy release
+plánu; účetní deterministický HTTP test navíc zvýšil počet
+model/server sad. Následná red-first oprava explicitních
+očekávání v obou M6 testech má přímé **21/21** a **8/8 PASS**.
+Úplný profil po této opravě a skutečné pětiminutové čekání jsou
+samostatné zbývající brány.

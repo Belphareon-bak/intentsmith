@@ -1,5 +1,29 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 1. 10. 2026, 03:35 UTC — společný profil a M6 plán
+
+Účetní VAT oprava `f8d5f231` dostala omezené nezávislé
+`REVIEW_PASS` na skutečném M1/SQLite: sedm navazujících kontrol
+včetně druhé věty, datumového zápisu a kladného výpočtu, všechno
+bez providera. Nová pětiminutová worker sada z nezávisle
+reviewovaného `d5cd2018` je integrovaná v čistém `a199a5d1`;
+skutečný pětiminutový běh stále `PENDING_RUN`. Oprava transportního
+runneru `57b5e396` má samostatné omezené `REVIEW_PASS` pro
+nedokončené provider requesty a uzavření upstreamu, kontrakt
+**21/21** bez GPU; integrace končí čistým `a694de6e`.
+
+Úplný offline/database profil na přesně čistém `a199a5d1`
+vybral **402** sad a skončil **400 PASS / 2 FAIL / 0 BLOCKED**;
+report `.intentsmith-artifacts/test-runs/2026-10-01T03-26-18-773Z/report.json`.
+Oba FAIL jsou M6 kontraktní očekávání starého registru:
+`m6-candidate-plan` čekal 59 model/server sad a jen dva
+soak běhy, `m6-technical-evidence` jen dva soak běhy.
+Aktuální povinný registr má navíc řízený účetní HTTP test a
+skutečný M3 pětiminutový soak. Red doklad byl zachován; opravená
+mapa výslovně zahrnuje oba nové programy a krátké přímé kontroly
+procházejí **21/21** a **8/8**. Na této nové úpravě ještě neběžel
+celý profil, M3 fyzický soak ani release Gate 0.
+
 ## Checkpoint 1. 10. 2026, 03:24 UTC — druhá věta a směr DPH
 
 Sedmé nezávislé re-review čistého `e734d179` potvrdilo opravu

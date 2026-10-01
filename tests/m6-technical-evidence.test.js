@@ -266,6 +266,7 @@ test('program map names exact active required registry evidence for every techni
   assert.equal(result.valid, true, result.errors.join('\n'));
   assert(result.programSets['deterministic-offline-database'].length > 200);
   assert.deepEqual(result.programSets['soak-nightly-resources'], [
+    'IS-T5-TESTS-M3-AGENT-REAL-SCHEDULED-SOAK-TEST',
     M6_LONG_SOAK_PROGRAM,
     M6_MAX_THROUGHPUT_PROGRAM,
   ]);

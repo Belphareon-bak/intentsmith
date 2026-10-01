@@ -196,7 +196,7 @@ test('model and runner-owned server phases cover every runnable required program
   const byId = new Map(registry.suites.map(program => [program.id, program]));
   const modelPhase = plan.phases.find(item => item.id === 'model-without-server');
   // Privacy, chat, translator and Project Health product journeys own isolated servers.
-  assert.equal(modelPhase.programIds.length, 59);
+  assert.equal(modelPhase.programIds.length, 60);
   assert(modelPhase.programIds.includes('IS-T1-TESTS-PROJECT-COLLABORATION-TEST'));
   assert(modelPhase.programIds.includes('IS-T3-TESTS-CHAT-PRIVACY-HTTP-TEST'));
   assert(modelPhase.programIds.includes('IS-T3-TESTS-CHAT-PROJECT-EXPERTISE-HTTP-TEST'));
@@ -207,12 +207,13 @@ test('model and runner-owned server phases cover every runnable required program
   assert(modelPhase.programIds.includes('IS-T3-TESTS-M3-AGENT-PRODUCT-HTTP-JOURNEY-TEST'));
   assert(modelPhase.programIds.includes('IS-T3-TESTS-M3-AGENT-SCHEDULED-PRODUCT-JOURNEY-TEST'));
   assert(modelPhase.programIds.includes('IS-T3-TESTS-CHAT-ACCOUNTANT-MODEL-CONTRACT-TEST'));
+  assert(modelPhase.programIds.includes('IS-T3-TESTS-CHAT-ACCOUNTANT-DETERMINISTIC-HTTP-TEST'));
   assert(modelPhase.programIds.includes('IS-T3-TESTS-CHAT-SAZENI-HTTP-JOURNEY-TEST'));
   assert(modelPhase.programIds.includes('IS-T3-TESTS-CHAT-SECOND-COMPACTION-HTTP-TEST'));
   assert(modelPhase.programIds.includes('IS-T3-TESTS-M3-AGENT-CRASH-RECOVERY-PRODUCT-JOURNEY-TEST'));
   assert.equal(modelPhase.programIds.filter(id => byId.get(id).profile === 'model').length, 44);
   assert(modelPhase.programIds.includes('IS-T3-TESTS-M2-CODE-DRAFT-MODEL-TEST'));
-  assert.equal(modelPhase.programIds.filter(id => byId.get(id).profile === 'server').length, 15);
+  assert.equal(modelPhase.programIds.filter(id => byId.get(id).profile === 'server').length, 16);
   assert(modelPhase.programIds.every(id => byId.get(id).requirements.server === false));
   assert(modelPhase.programIds.every(id => byId.get(id).requirements.network !== 'external'));
 
@@ -293,14 +294,21 @@ await testAsync('required model quality programs are transport-contained to exac
   }
 });
 
-test('controlled soak contains only the two measured M6 runtimes with a 30-hour window', () => {
+test('controlled soak includes the real M3 interval and two measured M6 runtimes', () => {
   const plan = buildM6CandidateExecutionPlan(registry);
   const phase = plan.phases.find(item => item.id === 'controlled-soak');
   assert.equal(plan.phases.at(-1).id, 'controlled-soak');
   assert.deepEqual(phase.programIds, [
+    'IS-T5-TESTS-M3-AGENT-REAL-SCHEDULED-SOAK-TEST',
     'IS-T5-TESTS-M6-LONG-SOAK-E2E',
     'IS-T5-TESTS-M6-MAX-THROUGHPUT-E2E',
   ]);
+  const m3 = registry.suites.find(item =>
+    item.id === 'IS-T5-TESTS-M3-AGENT-REAL-SCHEDULED-SOAK-TEST');
+  assert.equal(m3?.profile, 'soak');
+  assert.deepEqual(m3?.requirements, {
+    network: 'loopback', database: true, server: false, ollama: false, gpu: false,
+  });
   assert.equal(phase.timeoutMinutes, 1_500);
   assert.equal(phase.deadlineHours, 30);
   assert.equal(phase.requiresGpuCensus, false);
