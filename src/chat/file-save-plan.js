@@ -189,10 +189,16 @@ Interpret all negations, conditions and additional clauses. No saving is allowed
   let validated;
   try { validated = validateFileSavePlan(plan, groundingInput, visible); }
   catch (error) {
-    // Missing a required target is a concrete stopped effect even if the
-    // model mislabels its incomplete plan as write. Never repair an effect.
+    // A known source with no target can only produce a question. The model's
+    // free-text description of missing constraints is not an action gate.
+    // The original request (including every other constraint) remains pending;
+    // the completed request must pass the entire write validator again.
+    const knownSource = plan.source?.kind === 'answer'
+      ? visible.answers.some(answer => answer.messageId === plan.source.messageId)
+      : plan.source?.kind === 'literal' && literalSources(groundingInput)
+        .some(value => value.literalId === plan.source.literalId);
     if (error.code !== 'file_write_constraints_unresolved' || plan.action !== 'write'
-      || plan.target !== null || plan.unsupported.some(value => value !== 'target')) throw error;
+      || plan.target !== null || !knownSource) throw error;
     const questions = { cs: 'Do kterého souboru chceš tento obsah uložit?',
       sk: 'Do ktorého súboru chceš tento obsah uložiť?',
       en: 'Which file should I save this content to?', de: 'In welcher Datei soll ich diesen Inhalt speichern?' };

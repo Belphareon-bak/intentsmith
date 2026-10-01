@@ -186,10 +186,12 @@ test('many durable choices fit the registered window without losing the newest s
     assert.equal(evidence.answers[0].messageId, 12);
     assert.equal(evidence.olderAnswersOmitted, true);
     assert(Math.ceil(Buffer.byteLength(prompt + system) / 2) + options.maxTokens + 128 <= options.num_ctx);
-    return { content: JSON.stringify({ action: 'clarify', question: 'Do kterého souboru?', target: null,
-      source: { kind: 'answer', messageId: 12 }, transformation: 'none', writeMode: 'replace', understood: false, unsupported: [] }) };
+    return { content: JSON.stringify({ action: 'write', question: null, target: null,
+      source: { kind: 'answer', messageId: 12 }, transformation: 'none', writeMode: 'replace',
+      understood: false, unsupported: ['missing explicit target filename'] }) };
   } });
-  assert.equal(result.question, 'Do kterého souboru?');
+  assert.equal(result.action, 'clarify');
+  assert.equal(result.question, 'Do kterého souboru chceš tento obsah uložit?');
   assert.equal(result.candidateMessageId, 12);
   } finally { clearNumCtxCache(); }
 });
@@ -254,7 +256,7 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
       content = JSON.stringify({ action: 'write', question: null,
         target: initial ? null : 'notes.md', source: { kind: 'answer', messageId: parsed.answers[0]?.messageId },
         transformation: initial ? 'none' : 'summarize', writeMode: 'create', understood: !initial,
-        unsupported: initial ? ['target'] : [] });
+        unsupported: initial ? ['missing explicit target filename'] : [] });
       }
     } else if (system.includes('Klasifikuj')) {
       const ambiguous = parsed?.request === 'Pomoz mi s výběrem.';
