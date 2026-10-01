@@ -1,13 +1,13 @@
 # IntentSmith — průběh práce na kvalitě chatu
 
-Poslední aktualizace: **1. 10. 2026, 19:27 CEST**. Stav: **CANDIDATE / REVIEW_PENDING**.
+Poslední aktualizace: **1. 10. 2026, 19:42 CEST**. Stav: **CANDIDATE / REVIEW_PENDING**.
 Dokument aktualizuji po každém dokončeném milníku, nejpozději po třech hodinách
 aktivní práce. Historická selhání zůstávají uvedena; nové ověření je nepřepisuje
 na úspěch. Nejde o plánovač úloh po ukončení této pracovní relace.
 
 Větev: `work/chat-quality-20261001`. Společný výchozí commit:
 `45caf5b54b78def257221ac2ab33a64031800813`. Poslední testovaný implementační
-commit: **`f50ffea7`**. Tento dokument se publikuje následným dokumentačním
+commit: **`14f09b69`**. Tento dokument se publikuje následným dokumentačním
 commitem. Vlastní worktree: `intentsmith-chat-quality-20261001`.
 Mimochatový worker, jeho soubory a produkční release zůstávají nedotčené.
 
@@ -49,11 +49,19 @@ cesta používá celé odpovědi a změna sdíleného gateway není součástí 
 6. Skutečná Studio aplikace prošla zkouškami odeslání, zastavení, restartu,
    přepínání relací a obnovy. Samostatná zkouška jejího skutečného DOM
    potvrzuje vykreslení Markdown/kódu a neprovedení vloženého HTML/scriptu.
+7. Generování odpovědi nyní posílá již vybraný a rozpočtovaný kontext se
+   skutečnými rolemi uživatel/asistent místo sloučení celého rozhovoru do
+   jedné uživatelské zprávy. Souhrn zůstává označeným podkladem, nikoli
+   systémovou instrukcí. Aktuální vstup se předá přesně jednou; dokončovací
+   opakování zachovává celé předchozí zadání a role. Sdílený gateway se nemění.
 
 ## Doložené výsledky a otevřená selhání
 
 | Ověření | Testovaný commit / běh | Výsledek a hranice důkazu |
 | --- | --- | --- |
+| Skutečné role zpráv a opakování | `14f09b69`, `chat-quality-focused-20261001-native-final` | 7 PASS; M1 program 74 PASS včetně přímého ověření providerových rolí, úplných zdrojů a nulové systémové autority historie |
+| Přechodové asertace starého textového obalu | `de4b4be8` a `c581b14a`, `chat-quality-focused-20261001-native-roles` / `native-retry` | Každý 6 PASS / 1 FAIL; staré očekávání JSON obalu / prefixu USER v CODE opakování. Nové asertace ověřují úplný skutečný USER vstup v každém požadavku |
+| Opakování dialogů po stručném faktickém pravidlu | `8a849891`, run `08951687-6260-468a-a86d-e609fc7049db` | B 7/12 a A 6/12 užitečných, 1 zbytečné zastavení B, 0 kritických chyb; samotný prompt kvalitu dostatečně nezlepšil |
 | Nejnovější cílené kontroly faktického promptu | `f50ffea7`, `chat-quality-focused-20261001-compact-facts` | 7 PASS / 0 FAIL / 0 BLOCKED, včetně původních pozitivních i negativních kontrol 4K kontextu |
 | Delší verze faktického promptu | `a7a82265`, `chat-quality-focused-20261001-source-uncertainty` | 6 PASS / 1 FAIL; v M1 programu tři kapacitní kontroly selhaly. Prompt zkrácen, asertace a tlakové fixtures zůstaly stejné |
 | Nové celé dialogy A/B | `09e44e89`, run `30b2ad78-ebca-4914-a2bc-4ad9b86b1d44` | 12/12 dokončeno; vlastní hodnocení B 8/12 a A 8/12 užitečných, 0 zbytečných zastavení, 0 kritických chyb |
@@ -72,11 +80,13 @@ Poslední je skutečná chyba účetního doménového směrování, nikoli pouh
 dokumentační odchylka. Tři BLOCKED: `accountant-workflow-integration`,
 `chat-export-budget`, `export-pdf-docx`; chybí autorizovaná PDF runtime.
 
-Nový A/B běh potvrdil opravu zaměnění dvou vět za dvě slova a opakované žádosti
+První nový A/B běh potvrdil opravu zaměnění dvou vět za dvě slova a opakované žádosti
 o již vložený text. Přesto měl věcné chyby: rozpor při porovnání cen, domyšlený
 záznam semináře a chybné převádění neurčených dnů na kalendář. Krátké obecné
 pravidlo pro zachování uživatelských faktů a neznámých údajů je implementované
-a cíleně zelené; jeho účinek ještě musí potvrdit další živý běh.
+a cíleně zelené. Následné opakování stále měnilo známé dny a domýšlelo fakta,
+proto nestačí k přijetí. Další implementační krok zachovává nativní role
+rozhovoru na skutečné providerové hranici; jeho živý účinek se nyní ověří.
 Další starší neúspěšné a přerušené běhy zůstávají v evidenci, nikoli jako
 PASS. Původní nepoužité rodiny F14–F20 zatím nebyly využity k ladění.
 
