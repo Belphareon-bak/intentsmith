@@ -1,8 +1,9 @@
 # WP — funkční SQLite aplikace vytvořená modelem CODE
 
-**Stav:** `SOURCE_REVIEW_PASS / REGISTERED_9_PASS / LIVE_NOT_RUN`.
-**Resource snapshot:** 14:30–14:32 UTC, cizí CHAT final-1 lease PID 571063,
-`qwen3.5:27b`, GPU 96 %. Nový živý běh nebyl zahájen.
+**Stav:** `PHYSICAL_FUNCTIONAL_PASS / CONTRACT_CHANGES_REQUIRED`.
+**Checkpoint 15:40 UTC:** skutečný běh na `936e9a33` měl sedm úplných
+generací a funkční PASS, ale nezávislá kontrola našla porušení pevného
+importového kontraktu. Celková fyzická přejímka není PASS.
 **Autorita:** výslovný požadavek operátora dokončit a skutečně otestovat různé
 generované projekty; `PRODUCT.md` §2 závazek 7 a §3 práce nad projektem;
 `CONTRACT.md` §4, §6 a §10. Výchozí ověřený publikovaný zdroj je
@@ -10,7 +11,61 @@ generované projekty; `PRODUCT.md` §2 závazek 7 a §3 práce nad projektem;
 `work/project-sqlite-functional-20261001`. Dva přijaté fyzické průchody
 Ledgeru a TaskFlow měří malé paměťové aplikace, nikoli SQLite data.
 
-## Root integrace — 1. 10. 2026
+## ROOT navazující oprava importového kontraktu — WP-first
+
+Skutečný běh `936e9a33` proběhl `15:10:38.112–15:11:42.631 UTC`, exit 0,
+model `qwen3.8:latest`, digest
+`22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643`,
+provider `0.34.0-intentsmith.1`. Sedm modulů / 10 150 B je přesně shodných
+od provider afterContent přes preview a schválený terminál po Git commit
+`63f6da756bc57d2711e771b11e3595d7148468b2` a disk. Frozen funkční oracle
+prošel před commitem i po restartu backendu. Authority DB má trvalý výsledek
+a nulové CHAT zprávy. Parent uklidil relay, vlastní model a GPU lease.
+
+Nezávislé review je **CONTRACT_CHANGES_REQUIRED**, SHA-256
+`2d30cd66e5c9a03480013abd80c66f669b966b4d737b8aa5ee73cc13f7fab2bc`,
+manifest `69e2cda46497be065b84a0a5554301cbb563caea1336ab898665c87df250efc4`.
+`schema.js` obsahuje nepoužitý import `node:sqlite`, přestože instrukce
+vyžaduje `No imports` a SQLite dovoluje jen v `store.js`. Starý oracle
+kontroloval absenci importů pouze u `query` a `validate`. Dalších šest
+skutečných modulů má správný importový graf. Raw funkční PASS zůstává
+historickým faktem; nepovyšuje se na splnění celého kontraktu.
+
+Review seal zachoval 557 původních členů a zaznamenal jednu změnu privátního
+`.git/index` (pravděpodobný refresh při kontrole, příčina není dokázaná).
+Všech 558 současných členů je stabilních a všech 15 index entries odpovídá
+HEAD; DB, modelové bajty a Git objekty se nezměnily. Původní otisky i první
+neúspěšný seal jsou uchované. Přesný source-only export 9 souborů / 20 385 B
+je zatím uchovaný pouze private, nikoli publikovaný jako přijatá aplikace.
+
+**Vlastník další opravy:** ROOT, existující integrační checkout, žádný nový
+branch/worktree. Scope: tento WP, SQLite oracle/acceptance helper, existující
+SQLite reference helper a dvě již registrované app sady. Produktové stromy,
+CHAT, oprávnění sandboxu, registry descriptors, původní Ledger/TaskFlow,
+sedm instrukcí a entrypoint jsou invarianty. Nový hash oracle je záměrný;
+starý `cea7e727…`, 53 CPU kontrol i nevyhovující fyzický packet zůstávají.
+
+1. Před implementací zachovat red důkaz, že starý oracle přijme stejný
+   nadbytečný schema import. Pouze CPU, žádný nový model/GPU.
+2. Frozen oracle musí před prvním spuštěním aplikace parsovat všech sedm
+   modulů přes `vm.SourceTextModule` bez link/evaluate a porovnat skutečné
+   static import/re-export dependencies s přesným deklarovaným grafem.
+3. Trusted preview helper má pomocí existujícího tree-sitter parseru
+   odmítnout dynamické importy v AST před schválením; text v komentářích,
+   řetězcích či regulárních výrazech nesmí být považovaný za import.
+   Tato kontrola nemění obecnou M2 produktovou autoritu.
+4. Ověřit pozitivní referenci, extra schema/native/relative/re-export
+   negativy, actual M2 rollback bez Git commitu a durable failed terminál.
+   Preview AST musí být použitý v živé cestě i M2 fixture před schválením.
+5. Explicitní Node 24 CPU sady a nezávislé source review předcházejí
+   novému clean registered gate, push/remote/CI ověření a sedmi skutečným
+   generacím na novém zmrazeném kandidátu. Raw modelové bajty se ručně
+   neopravují a zadání se nezvolňuje. Aktuálně **IMPLEMENTATION_NOT_RUN**.
+
+## Historická root integrace — 1. 10. 2026
+
+Resource snapshot `14:30–14:32 UTC` měl cizí CHAT final-1 lease PID 571063,
+`qwen3.5:27b`, GPU 96 %. V této chvíli nový živý běh nebyl zahájen.
 
 Nezávislé source review přijalo čistý autorský
 `ded751364cc8bbbb60223bf51925cebcf2330e15`: vlastní opakování **52/52 PASS**
