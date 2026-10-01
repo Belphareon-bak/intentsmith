@@ -16,7 +16,7 @@ import { computeM2ExecutionValueDigest } from '../contracts/m2/execution-v1.js';
 import { makeRuntime, startServer, stopServer, requestJson } from './run-project-build-journey.js';
 import {
   LEDGER_FILES, ORACLE_PATH, ORACLE_SOURCE, ORACLE_SHA256, PROBE_PATH, PROBE_SOURCE,
-  PROBE_SHA256, ENTRY_PATH,
+  PROBE_SHA256, VALIDATE_PATH, VALIDATE_SOURCE, VALIDATE_SHA256, ENTRY_PATH,
   ENTRY_SOURCE, ENTRY_SHA256, sha256, ledgerBlueprint, assertLedgerPreview,
   assertLedgerCLIResults, policyForFrozenOracle,
 } from './project-app-acceptance.js';
@@ -41,6 +41,7 @@ function git(cwd, args) {
 function sourceObservation() {
   return { head: git(SOURCE_ROOT, ['rev-parse', 'HEAD']), dirty: git(SOURCE_ROOT, ['status', '--porcelain=v1']),
     oracleSha256: ORACLE_SHA256, probeSha256: PROBE_SHA256,
+    validatorProbeSha256: VALIDATE_SHA256,
     entrySha256: ENTRY_SHA256, generatedPaths: EXPECTED_PATHS };
 }
 
@@ -92,6 +93,8 @@ function assertResponse(response, status, label) {
 function assertFrozenProject(project, policySha256) {
   assert.equal(sha256(fs.readFileSync(path.join(project, ORACLE_PATH))), ORACLE_SHA256, 'operator oracle preserved');
   assert.equal(sha256(fs.readFileSync(path.join(project, PROBE_PATH))), PROBE_SHA256, 'operator subject probe preserved');
+  assert.equal(sha256(fs.readFileSync(path.join(project, VALIDATE_PATH))), VALIDATE_SHA256,
+    'operator validator probe preserved');
   assert.equal(sha256(fs.readFileSync(path.join(project, ENTRY_PATH))), ENTRY_SHA256, 'operator CLI adapter preserved');
   assert.equal(sha256(fs.readFileSync(path.join(project, '.intentsmith/m2-governance-policy.json'))),
     policySha256, 'operator policy preserved');
@@ -190,6 +193,7 @@ async function runInside(configurationPath) {
     startedAt: new Date().toISOString(), networkInterfaces: interfaces.map(item => item.ifname),
     project, databasePath: runtime.database, generatedPaths: EXPECTED_PATHS,
     acceptanceOracleSha256: ORACLE_SHA256, subjectProbeSha256: PROBE_SHA256,
+    validatorProbeSha256: VALIDATE_SHA256,
     entrypointSha256: ENTRY_SHA256,
     scope: 'actual backend project and conversation registration, physical CODE draft, exact M2 approval, sandboxed functional app and restart' };
   let server = null;
@@ -222,9 +226,11 @@ async function runInside(configurationPath) {
     const policySha256 = sha256(fs.readFileSync(policyPath));
     fs.writeFileSync(path.join(project, ORACLE_PATH), ORACLE_SOURCE);
     fs.writeFileSync(path.join(project, PROBE_PATH), PROBE_SOURCE);
+    fs.writeFileSync(path.join(project, VALIDATE_PATH), VALIDATE_SOURCE);
     fs.writeFileSync(path.join(project, ENTRY_PATH), ENTRY_SOURCE);
     assertFrozenProject(project, policySha256);
-    git(project, ['add', '--', ORACLE_PATH, PROBE_PATH, ENTRY_PATH, '.intentsmith/m2-governance-policy.json']);
+    git(project, ['add', '--', ORACLE_PATH, PROBE_PATH, VALIDATE_PATH,
+      ENTRY_PATH, '.intentsmith/m2-governance-policy.json']);
     git(project, ['-c', 'core.hooksPath=/dev/null', '-c', 'commit.gpgSign=false',
       '-c', 'user.name=IntentSmith Qualification', '-c', 'user.email=qualification@example.invalid',
       'commit', '-m', 'Freeze independent ledger acceptance before inference']);
@@ -234,6 +240,7 @@ async function runInside(configurationPath) {
     evidence.oracleFrozenAt = new Date().toISOString();
     save(out, 'before-model.json', { source: cfg.source, projectId, baselineHead,
       oracleSha256: ORACLE_SHA256, probeSha256: PROBE_SHA256,
+      validatorProbeSha256: VALIDATE_SHA256,
       entrySha256: ENTRY_SHA256, policySha256,
       generatedPaths: EXPECTED_PATHS });
 

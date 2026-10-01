@@ -14,6 +14,7 @@ export const LEDGER_FILES = Object.freeze([
 
 export const ORACLE_PATH = 'test/acceptance.test.mjs';
 export const PROBE_PATH = 'test/subject-probe.mjs';
+export const VALIDATE_PATH = 'test/validate-invalid.mjs';
 export const ENTRY_PATH = 'src/index.mjs';
 export const ORACLE_SOURCE = `import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -67,22 +68,40 @@ for (const commands of [
 ]) {
   assert.notEqual(child([entry, JSON.stringify(commands)]).status, 0, 'invalid command must fail');
 }
-const extra = completeJSON(['test/subject-probe.mjs']);
-assert.deepEqual(extra.failures, [true, true, true], 'nonfinite amounts throw');
-assert.equal(extra.distinct, true, 'list returns independent row copies');
+assert.equal(child(['test/validate-invalid.mjs', 'finite']).status, 0,
+  'validate directly accepts a finite positive amount');
+for (const value of ['NaN', 'Infinity', '-Infinity']) {
+  assert.notEqual(child(['test/validate-invalid.mjs', value]).status, 0,
+    'validate directly rejects nonfinite ' + value);
+}
+const probeAmount = randomInt(400, 1000);
+const probeCategory = 'probe_' + randomBytes(8).toString('hex');
+const extra = completeJSON(['test/subject-probe.mjs',
+  JSON.stringify({ amount: probeAmount, category: probeCategory })]);
+assert.deepEqual(extra.before, { amount: probeAmount, category: probeCategory }, 'list snapshot before mutation');
+assert.deepEqual(extra.after, { amount: probeAmount, category: probeCategory }, 'list snapshot after mutation');
 console.log('PROJECT_APP_ORACLE_PASS');
 `;
 
-// This child is untrusted as soon as it loads generated app.js. Its parent
-// validates the complete JSON result; an early exit cannot claim success.
-export const PROBE_SOURCE = `import { run } from '../src/app.js';
-const failures = [NaN, Infinity, -Infinity].map(amount => {
-  try { run([['add', amount, 'food']]); return false; }
-  catch { return true; }
-});
-const rows = run([['add', 12.5, 'food'], ['list'], ['list']]);
-const distinct = rows[1] !== rows[2] && rows[1][0] !== rows[2][0];
-process.stdout.write(JSON.stringify({ failures, distinct }) + '\\n');
+// The fixed probe loads storage directly, so app.js cannot intercept it.
+// The parent checks concrete row values after an attempted mutation.
+export const PROBE_SOURCE = `import { createLedger } from '../src/storage.js';
+const { amount, category } = JSON.parse(process.argv[2]);
+const ledger = createLedger();
+ledger.add(amount, category);
+const first = ledger.list(), second = ledger.list();
+if (first === second || first[0] === second[0]) throw new Error('list did not return copies');
+try { first[0].amount = 999; } catch { /* immutable copy is safe */ }
+const after = ledger.list();
+process.stdout.write(JSON.stringify({ before: second[0], after: after[0] }) + '\\n');
+`;
+
+// The parent expects a nonzero process exit. A generated validator that merely
+// reports true while accepting NaN/Infinity cannot satisfy this observation.
+export const VALIDATE_SOURCE = `import { validate } from '../src/validate.js';
+const values = { finite: 17.5, NaN: NaN, Infinity: Infinity, '-Infinity': -Infinity };
+if (!Object.hasOwn(values, process.argv[2])) throw new Error('invalid probe selector');
+validate(values[process.argv[2]], 'food');
 `;
 
 export function policyForFrozenOracle(policy) {
@@ -104,6 +123,7 @@ process.stdout.write(JSON.stringify(run(commands)) + '\\n');
 export const sha256 = value => createHash('sha256').update(value).digest('hex');
 export const ORACLE_SHA256 = sha256(ORACLE_SOURCE);
 export const PROBE_SHA256 = sha256(PROBE_SOURCE);
+export const VALIDATE_SHA256 = sha256(VALIDATE_SOURCE);
 export const ENTRY_SHA256 = sha256(ENTRY_SOURCE);
 
 export function ledgerBlueprint() {
@@ -135,6 +155,7 @@ export function assertLedgerPreview(diff, projectRoot, readFile, exists) {
   }
   assert.equal(sha256(readFile(projectRoot, ORACLE_PATH)), ORACLE_SHA256, 'frozen oracle bytes');
   assert.equal(sha256(readFile(projectRoot, PROBE_PATH)), PROBE_SHA256, 'frozen subject probe bytes');
+  assert.equal(sha256(readFile(projectRoot, VALIDATE_PATH)), VALIDATE_SHA256, 'frozen validator probe bytes');
   assert.equal(sha256(readFile(projectRoot, ENTRY_PATH)), ENTRY_SHA256, 'frozen entrypoint bytes');
 }
 

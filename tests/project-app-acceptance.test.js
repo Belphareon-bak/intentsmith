@@ -13,7 +13,8 @@ import { computeM2ExecutionValueDigest } from '../contracts/m2/execution-v1.js';
 import { REFERENCE_LEDGER_OUTPUTS as GOOD } from './helpers/project-app-reference.js';
 import {
   LEDGER_FILES, ORACLE_PATH, ORACLE_SOURCE, ORACLE_SHA256,
-  PROBE_PATH, PROBE_SOURCE, PROBE_SHA256, ENTRY_PATH,
+  PROBE_PATH, PROBE_SOURCE, PROBE_SHA256, VALIDATE_PATH, VALIDATE_SOURCE,
+  VALIDATE_SHA256, ENTRY_PATH,
   ENTRY_SOURCE, ENTRY_SHA256, sha256, ledgerBlueprint, assertLedgerCLIResults,
 } from '../scripts/project-app-acceptance.js';
 
@@ -23,7 +24,8 @@ function project(outputs = GOOD) {
   fs.mkdirSync(path.join(root, 'test'));
   fs.writeFileSync(path.join(root, 'package.json'), '{"private":true,"type":"module"}\n');
   for (const [relative, content] of Object.entries({ ...outputs, [ORACLE_PATH]: ORACLE_SOURCE,
-    [PROBE_PATH]: PROBE_SOURCE, [ENTRY_PATH]: ENTRY_SOURCE })) {
+    [PROBE_PATH]: PROBE_SOURCE, [VALIDATE_PATH]: VALIDATE_SOURCE,
+    [ENTRY_PATH]: ENTRY_SOURCE })) {
     fs.writeFileSync(path.join(root, relative), content);
   }
   return root;
@@ -55,9 +57,10 @@ test('frozen independent acceptance has exact six-file scope and model cannot re
   assert.deepEqual(blueprint.files.map(file => file.path), LEDGER_FILES.map(file => file.path));
   assert.deepEqual(blueprint.focusedTest.argv, [ORACLE_PATH]);
   assert.equal(blueprint.focusedTest.binary, '/usr/bin/node');
-  assert.equal(blueprint.files.some(file => [ORACLE_PATH, PROBE_PATH, ENTRY_PATH].includes(file.path)), false);
+  assert.equal(blueprint.files.some(file => [ORACLE_PATH, PROBE_PATH, VALIDATE_PATH, ENTRY_PATH].includes(file.path)), false);
   assert.equal(sha256(ORACLE_SOURCE), ORACLE_SHA256);
   assert.equal(sha256(PROBE_SOURCE), PROBE_SHA256);
+  assert.equal(sha256(VALIDATE_SOURCE), VALIDATE_SHA256);
   assert.equal(sha256(ENTRY_SOURCE), ENTRY_SHA256);
 });
 
