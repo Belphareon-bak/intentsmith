@@ -477,6 +477,17 @@ class SpecialistRuntime {
     let match = this.detector.detect(input, specialist, attachments);
     let isContextual = false;
 
+    // An explicit new tool owns the conversation even when it must clarify.
+    // Leaving the old success cached would let a short reply execute the old
+    // topic. Semantic resolvers must ground the whole new request themselves.
+    throwIfAborted(signal);
+    if (match && sessionId) {
+      const cached = this._sessionCache.get(sessionId, expertiseId);
+      if (cached && (cached.toolId !== match.tool.id || typeof match.tool.resolveParams === 'function')) {
+        this._sessionCache.clear(sessionId, expertiseId);
+      }
+    }
+
     // Package-owned semantic resolvers receive only a core-owned inference
     // connector. Resolve before any cache merge: an earlier amount or action
     // cannot override a denied or ungrounded current request.

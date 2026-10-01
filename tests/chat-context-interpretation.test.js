@@ -22,6 +22,7 @@ import { config } from '../src/config.js';
 import { setNumCtx, clearNumCtxCache } from '../src/llm/model-ctx.js';
 import { resolveFileSavePlan } from '../src/chat/file-save-plan.js';
 import { formatClarificationRequest } from '../src/chat/handlers/ask-user.js';
+import { enforceOutputContract } from '../src/chat/handlers/utils/output-gate.js';
 
 test('classifier receives source identities, antecedent, open question and goal; memory never classifies', async () => {
   const original = llmGateway.call;
@@ -123,6 +124,24 @@ test('ordinary answer includes scoped memory as reference data and preserves the
     assert(calls[0].prompt.includes(input));
     assert(calls[0].options.systemPrompt.includes('stručná čeština'));
     assert.match(calls[0].options.systemPrompt, /oprávnění|permissions/i);
+  } finally { llmGateway.call = original; }
+});
+
+test('explicit one-word answers do not trigger density retries; empty output remains invalid', async () => {
+  const original = llmGateway.call;
+  let calls = 0;
+  llmGateway.call = async () => {
+    calls++;
+    return { content: 'Rozumím', model: 'controlled', finishReason: 'stop' };
+  };
+  try {
+    const decision = creDecisionEngine.overrideDecision({ type: DecisionType.ANSWER,
+      intent: IntentType.CONVERSATIONAL, confidence: 1, source: 'controlled-minimal-answer', reason: 'Explicit exact word' });
+    const result = await handleAnswerDecision('Odpověz pouze „Rozumím“.', decision, { history: [] });
+    assert.equal(result.content, 'Rozumím');
+    assert.equal(calls, 1);
+    assert.equal(enforceOutputContract('', { responseIntent: 'MINIMAL' }).ok, false);
+    assert.equal(enforceOutputContract('Dobré. Hm.', { intent: 'REPORT' }).ok, false);
   } finally { llmGateway.call = original; }
 });
 
