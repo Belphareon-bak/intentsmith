@@ -17,6 +17,7 @@
 
 import { pathToFileURL } from 'url';
 import { logger } from '../core/logger.js';
+import { isAbortError, throwIfAborted } from '../core/abort-error.js';
 
 // ─── Tool Definition ─────────────────────────────────────────────────────────
 
@@ -30,6 +31,9 @@ import { logger } from '../core/logger.js';
  * @property {Function} [adapter]   - Optional param adapter: (params) => toolFnArgs
  * @property {Array<PatternGroup>} patterns - Intent detection patterns
  * @property {Function} [extractParams] - Custom param extractor: (input) => params
+ * @property {Function} [resolveParams] - Async package-owned semantic validation:
+ *   (input, { interpretInput, history }) => params. Runs before session cache;
+ *   the optional inference connector is provided by the core chat handler.
  */
 
 /**
@@ -463,7 +467,8 @@ class SpecialistRuntime {
   async tryToolExecution(
     expertiseId,
     input,
-    { sessionId, conversationId, userMessageId, project, signal = null, attachments = [] } = {},
+    { sessionId, conversationId, userMessageId, project, signal = null, attachments = [],
+      interpretInput = null, history = [] } = {},
   ) {
     const specialist = this.registry.getSpecialist(expertiseId);
     if (!specialist) return null;
@@ -472,8 +477,27 @@ class SpecialistRuntime {
     let match = this.detector.detect(input, specialist, attachments);
     let isContextual = false;
 
+    // Package-owned semantic resolvers receive only a core-owned inference
+    // connector. Resolve before any cache merge: an earlier amount or action
+    // cannot override a denied or ungrounded current request.
+    if (match && typeof match.tool.resolveParams === 'function') {
+      try {
+        throwIfAborted(signal);
+        match.params = await match.tool.resolveParams(input, { interpretInput, history });
+        throwIfAborted(signal);
+        if (!match.params || typeof match.params !== 'object' || Array.isArray(match.params)) {
+          throw new TypeError('Invalid specialist semantic parameters');
+        }
+      } catch (error) {
+        if (isAbortError(error) || signal?.aborted) throw error;
+        if (match.tool.failClosed === true) return { status: 'error', toolType: match.tool.id,
+          errorCode: 'M3_SPECIALIST_INPUT_RESOLUTION_FAILED', error: error.message };
+        throw error;
+      }
+    }
+
     // Step 2: Merge session params (if normal match found)
-    if (match && sessionId) {
+    if (match && sessionId && typeof match.tool.resolveParams !== 'function') {
       const cached = this._sessionCache.get(sessionId, expertiseId);
       if (cached && cached.toolId === match.tool.id) {
         // Cached params as fallback — fresh extraction overrides
@@ -490,7 +514,7 @@ class SpecialistRuntime {
       const cached = this._sessionCache.get(sessionId, expertiseId);
       if (cached) {
         const cachedTool = specialist.tools.find(t => t.id === cached.toolId);
-        if (cachedTool && cachedTool.extractParams) {
+        if (cachedTool && cachedTool.extractParams && typeof cachedTool.resolveParams !== 'function') {
           const freshParams = cachedTool.extractParams(input) || {};
           // Guard: only re-execute if fresh extraction found something meaningful
           if (Object.keys(freshParams).length > 0) {

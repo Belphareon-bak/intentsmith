@@ -117,6 +117,10 @@
     {
       "path": "tests/helpers/studio-m2-composer-dom.js",
       "reason": "Explicit visual DOM probe invoked only by studio-m2-composer-dom.e2e.js through the shared Electron harness; not a standalone suite."
+    },
+    {
+      "path": "tests/helpers/vat-intent-provider.js",
+      "reason": "Test-owned explicit VAT semantic plans served through an isolated loopback provider; not a runnable suite."
     }
   ],
   "suites": [
@@ -17949,6 +17953,36 @@
       },
       "required": true,
       "owner": "WP-CHAT-LITERAL-FILE-WRITE-20261001",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-TESTS-CHAT-VAT-SEMANTIC-HTTP-TEST",
+      "path": "tests/chat-vat-semantic-http.test.js",
+      "argv": [
+        "node",
+        "tests/chat-vat-semantic-http.test.js"
+      ],
+      "capabilityId": "C3-013",
+      "tier": "T3",
+      "fixture": "owned-private-m1-sqlite-and-explicit-semantic-provider-plans",
+      "profile": "server",
+      "timeoutMs": 180000,
+      "expectedDurationMs": 10000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-CHAT-VAT-SEMANTIC-20261001",
       "state": "ACTIVE",
       "lastGreen": {
         "commit": null,

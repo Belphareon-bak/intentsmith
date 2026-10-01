@@ -150,7 +150,15 @@ console.log('\n── 3. Tool Execution (async) ──');
 
 async function runAsyncTests() {
   // tryToolExecution — full pipeline
-  const vatResult = await specialistRuntime.tryToolExecution('accountant', 'kolik je DPH z 10000');
+  const vatInput = 'kolik je DPH z 10000';
+  // An offline fixture supplies the semantic meaning. The runtime still
+  // validates numeric grounding and runs the real deterministic calculator.
+  const vatResult = await specialistRuntime.tryToolExecution('accountant', vatInput, {
+    interpretInput: async () => ({ contract: 'VatIntent', version: 1,
+      action: 'calculate', amount: 10000, rate: '21', year: 2025, direction: 'add',
+      presentation: { style: 'table', itemCount: null },
+      segments: [{ text: vatInput, kind: 'calculation' }], clarification: null }),
+  });
   it('tryToolExecution returns VAT result', () => {
     assert(vatResult);
     assert.equal(vatResult.toolType, 'accountant.vat_calculator');

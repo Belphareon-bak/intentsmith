@@ -11,11 +11,13 @@ import Database from 'better-sqlite3';
 
 import { createOwnedJourneyRuntime, expectJson, startProduct,
   stopProduct } from './helpers/chat-project-expertise-model-journey.js';
-import { assertVatDeterministicTurn, VAT_INPUT } from
+import { assertVatDeterministicTurn } from
   './helpers/chat-accountant-vat-oracle.js';
 import { isolatedTestRuntime as runtime } from './helpers/isolated-test-db.js';
 
 const MODEL = 'fixture:unused';
+// Whole calculator expression: this path intentionally needs no interpreter.
+const VAT_INPUT = 'DPH 21 % z 10 000 Kč za rok 2025 pro ČR.';
 
 async function startForbiddenProvider() {
   const requests = [];

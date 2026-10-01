@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 590
-- Explicit support-module exclusions: 29
-- Profiles: offline=320, database=85, server=63, model=86, soak=16, manual=20
-- States: ACTIVE=492, HISTORICAL=15, BLOCKED=83
+- Runnable programs: 591
+- Explicit support-module exclusions: 30
+- Profiles: offline=320, database=85, server=64, model=86, soak=16, manual=20
+- States: ACTIVE=493, HISTORICAL=15, BLOCKED=83
 
 ## Execution profiles
 
@@ -114,6 +114,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T3-TESTS-CHAT-TRANSLATOR-MODEL-CONTRACT-TEST` | `tests/chat-translator-model-contract.test.js` | `C3-007` | T3 | `server` | 10 s | 4 min | network:loopback, temp-db | yes | `ACTIVE` | — | WP-CHAT-TRANSLATOR-LIVE-20261001 |
 | `IS-T3-TESTS-CHAT-VALUE-FIDELITY-CONTRACT-TEST` | `tests/chat-value-fidelity-contract.test.js` | `C3-003` | T3 | `server` | 10 s | 4 min | network:loopback, temp-db | yes | `ACTIVE` | — | WP-CHAT-VALUE-FIDELITY-20260930 |
 | `IS-T3-TESTS-CHAT-VALUE-FIDELITY-LIVE-TEST` | `tests/chat-value-fidelity-live.test.js` | `C3-003` | T3 | `model` | 6 min | 20 min | network:loopback, temp-db, ollama, gpu | yes | `BLOCKED` | — | WP-CHAT-VALUE-FIDELITY-20260930 |
+| `IS-T3-TESTS-CHAT-VAT-SEMANTIC-HTTP-TEST` | `tests/chat-vat-semantic-http.test.js` | `C3-013` | T3 | `server` | 10 s | 3 min | network:loopback, temp-db | yes | `ACTIVE` | — | WP-CHAT-VAT-SEMANTIC-20261001 |
 | `IS-T1-TESTS-CHUNKER-TEST` | `tests/chunker.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CIRCUIT-BREAKER-V55-TEST` | `tests/circuit-breaker-v55.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CODE-ANALYZER-TEST` | `tests/code-analyzer.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
@@ -661,6 +662,7 @@ ledger.
 | `tests/helpers/studio-m2-composer-dom.js` | Explicit visual DOM probe invoked only by studio-m2-composer-dom.e2e.js through the shared Electron harness; not a standalone suite. |
 | `tests/helpers/studio2-live-harness.js` | Imported actual Studio 2 adapter harness; its assertions run in studio2-m2 and m2-lifecycle-studio-surface suites. |
 | `tests/helpers/studio2-ui-mode.js` | Imported Electron DOM mode-switch probe; its direct assertions run in studio2-exclusive-ui.e2e.js. |
+| `tests/helpers/vat-intent-provider.js` | Test-owned explicit VAT semantic plans served through an isolated loopback provider; not a runnable suite. |
 | `tests/run-all.js` | Aggregate compatibility entry point; registering it as a child suite would recurse into the registry runner. |
 
 Required fields per run: exact command and commit, clean-tree status, start/end

@@ -12,6 +12,7 @@ import { fileURLToPath } from 'url';
 import path from 'path';
 import { createAdapters } from './adapters.js';
 import { supportedYears } from './tools/tax-rates.js';
+import { extractVatParamsInline, resolveVatParams } from './vat-request.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -44,160 +45,6 @@ function extractAmountInline(input) {
   if (m) return parseInt(m[1]);
 
   return null;
-}
-
-const VAT_NUMBER = '(?<whole>\\d{1,3}(?:[ \\u00a0\\u202f.]\\d{3})+|\\d+)(?:[,.](?<fraction>\\d{1,2}))?';
-const VAT_CURRENCY = new RegExp(`(?<![\\p{L}\\d])${VAT_NUMBER}\\s*(?<scale>mil(?:ion(?:u)?)?|tis(?:[ií]c)?|[kKmM])?\\s*(?:Kč|CZK)(?!\\p{L})`, 'giu');
-const VAT_SCALED = new RegExp(`(?<![\\p{L}\\d])${VAT_NUMBER}\\s*(?<scale>mil(?:ion(?:u)?)?|tis(?:[ií]c)?|[kKmM])(?!\\p{L})`, 'giu');
-const VAT_PLAIN = new RegExp(`(?<![\\p{L}\\d])${VAT_NUMBER}(?![\\p{L}\\d])`, 'giu');
-
-// A shorthand without an affirmative verb is safe only when it is wholly a
-// calculator expression. Extra prose can change the requested action.
-const VAT_COMPACT_AMOUNT = '(?:\\d{1,3}(?:[ \\u00a0\\u202f.]\\d{3})+|\\d+)(?:[,.]\\d{1,2})?\\s*(?:Kč|CZK)?';
-const VAT_COMPACT_SUFFIX = '(?:\\s+(?:za\\s+rok\\s+\\d{4}|pro\\s+ČR|při\\s+sazbě\\s+\\d+(?:[,.]\\d{1,2})?\\s*%))*\\s*[.!?]?\\s*$';
-const VAT_COMPACT_ADD = new RegExp(`^\\s*DPH(?:\\s+(?:se\\s+)?sn[ií]ženou\\s+sazbou|\\s+\\d+(?:[,.]\\d{1,2})?\\s*%)?\\s+z(?:e)?\\s+${VAT_COMPACT_AMOUNT}${VAT_COMPACT_SUFFIX}`, 'iu');
-const VAT_COMPACT_REMOVE = new RegExp(`^\\s*cen[auy]\\s+bez\\s+DPH\\s+z(?:e)?\\s+${VAT_COMPACT_AMOUNT}${VAT_COMPACT_SUFFIX}`, 'iu');
-
-function vatAmountFromMatch(match) {
-  const whole = match.groups.whole.replace(/[ .\u00a0\u202f]/gu, '');
-  const fraction = (match.groups.fraction || '').padEnd(2, '0');
-  const scale = match.groups.scale || '';
-  const multiplier = /^(?:mil|m$)/iu.test(scale) ? 1_000_000
-    : /^(?:tis|k$)/iu.test(scale) ? 1_000 : 1;
-  const cents = (Number(whole) * 100 + Number(fraction || '0')) * multiplier;
-  return Number.isSafeInteger(cents) && cents <= 100_000_000_000
-    ? cents / 100 : null;
-}
-
-function vatAmountMatches(input) {
-  const currency = [...input.matchAll(VAT_CURRENCY)];
-  if (currency.length > 0) return currency;
-  const scaled = [...input.matchAll(VAT_SCALED)];
-  if (scaled.length > 0) return scaled;
-  return [...input.matchAll(VAT_PLAIN)];
-}
-
-function extractVatParamsInline(input) {
-  const params = {};
-  const normalized = input.normalize('NFKC');
-  const yearReferences = [...normalized.matchAll(/(?:za\s+rok|roku?|v\s+roce|year)\s*(\d{4})\b/giu)];
-  const yearAlternatives = yearReferences.length
-    ? [...normalized.matchAll(/\b(?:nebo|anebo|či)\s*(\d{4})\b/giu)] : [];
-  const years = [...yearReferences, ...yearAlternatives].map(match => Number(match[1]));
-  if (years.length > 1 && new Set(years).size > 1) params.inputError = 'year';
-  else if (years.length) params.year = years[0];
-
-  const percentages = [...normalized.matchAll(/(?<!\d)(\d+(?:[,.]\d{1,2})?)\s*%(?!\p{L})/gu)];
-  const rates = percentages.map(match => match[1].replace(',', '.'));
-  if (rates.length > 1 && new Set(rates).size > 1) params.inputError ||= 'rate';
-  else if (rates.length) params.rate = rates[0];
-  else if (/sn[ií][žz]en|ni[žz][šs][ií]/iu.test(normalized)) params.rate = '12';
-  else if (/osvobozen|export/iu.test(normalized)) params.rate = '0';
-  else params.rate = '21'; // Default is explicit in the result's assumptions.
-
-  let amountSource = normalized;
-  for (const match of [...yearReferences, ...yearAlternatives, ...percentages]) {
-    amountSource = amountSource.slice(0, match.index)
-      + ' '.repeat(match[0].length)
-      + amountSource.slice(match.index + match[0].length);
-  }
-  for (const match of amountSource.matchAll(/(?<!\d)\d{1,2}\.\s*\d{1,2}\.\s*\d{4}(?!\d)/gu)) {
-    amountSource = amountSource.slice(0, match.index)
-      + ' '.repeat(match[0].length)
-      + amountSource.slice(match.index + match[0].length);
-  }
-  // A sign or an isolated three-digit decimal group can change the amount's
-  // meaning. Ask for one unambiguous amount instead of parsing a substring.
-  if (/(?:^|[^\p{L}\d])[-−]\s*\d/u.test(amountSource)
-      || /\d+[.,]\d{3}(?!\d|[.,]\d)/u.test(amountSource)) {
-    params.inputError ||= 'amount';
-  }
-  const amounts = vatAmountMatches(amountSource);
-  // Prefer explicit currency, but do not silently drop another bare amount.
-  if ([...amountSource.matchAll(VAT_PLAIN)].some(candidate =>
-    !amounts.some(amount => candidate.index >= amount.index
-      && candidate.index + candidate[0].length <= amount.index + amount[0].length))) {
-    params.inputError ||= 'amount';
-  }
-  if (amounts.length > 1) params.inputError ||= 'amount';
-  else if (amounts.length === 1) {
-    const amount = vatAmountFromMatch(amounts[0]);
-    if (amount === null) params.inputError ||= 'amount';
-    else params.amount = amount;
-  }
-  if (params.amount === undefined) params.inputError ||= 'amount';
-
-  // Negated Czech commands have many valid verbs. Treat an unknown ne... word
-  // conservatively; these neutral words are not instructions to avoid VAT.
-  const neutralNeWord = /^(?:nebo|neboť|nejen|nejdřív|nejdříve|nejprve|nemovitost\p{L}*)$/iu;
-  const hasNegation = [...normalized.matchAll(/(?<!\p{L})ne\p{L}*(?!\p{L})/giu)]
-    .some(match => !neutralNeWord.test(match[0]))
-    || /\b(?:do\s+not|don't|not|never)\b/iu.test(normalized);
-  if (hasNegation) {
-    params.inputError ||= 'direction';
-    return params;
-  }
-
-  // A VAT amount and rate alone do not authorize arithmetic when the user
-  // asks for an explanation. Preserve compact calculator requests only when
-  // the whole utterance matches the supported shorthand grammar.
-  const explanationOnly = /\b(?:bez|m[ií]sto)\s+(?:v[ýy]po[čc]t|po[čc][ií]t[aá]n[ií]|kalkulac)\p{L}*/iu.test(normalized)
-    || /\b(?:pouze|jen|jenom)\s+(?:mi\s+)?(?:vysv[eě]tl|popi[šs]|objasn)\p{L}*/iu.test(normalized);
-  const asksExplanation = /\b(?:vysv[eě]tl|popi[šs]|objasn)\p{L}*/iu.test(normalized)
-    || /\bjak\s+funguj\p{L}*/iu.test(normalized)
-    || /\bco(?:\s+to)?\s+znamen[aá]\p{L}*/iu.test(normalized)
-    || /\bjak\s+(?:se\s+)?(?:to\s+)?(?:po[čc][ií]t|vypo[čc][ií]t)\p{L}*/iu.test(normalized)
-    || /\b(?:proč|proc|why|d[ůu]vod|v[ýy]znam|definic|zd[ůu]vodn)\p{L}*/iu.test(normalized)
-    || /\bco(?:\s+to)?\s+je\s+DPH\b/iu.test(normalized);
-  const asksCalculation = /\b(?:kolik|vypo[čc](?:[ií]t|t)|spo[čc](?:[ií]t|t)|po[čc][ií]t|p[řr]id|p[řr]i[čc][ií]?t|ode[čc]|odpo[čc]|nav[ýy][šs]|vy[čc][ií]sl)\p{L}*/iu.test(normalized);
-  const bareVatShorthand = VAT_COMPACT_ADD.test(normalized);
-  const bareNetShorthand = VAT_COMPACT_REMOVE.test(normalized);
-  // The deterministic result can present arithmetic, not an explanation or
-  // a mixed explanation+calculation request. Ask before doing only one part.
-  if (explanationOnly || asksExplanation
-      || (!asksCalculation && !bareVatShorthand && !bareNetShorthand)) {
-    params.inputError ||= 'calculationIntent';
-    return params;
-  }
-  // A second clause can change the meaning of the arithmetic verbs (for
-  // example legal deductibility versus removing VAT from a gross price).
-  // This single-result calculator must ask which request to handle first.
-  // This exact presentation request names only fields already in the
-  // deterministic VAT result; it does not ask for another decision.
-  const intentSource = normalized.replace(
-    /(?:[.!]\s*)?Uveď\s+přesně\s+základ,\s*DPH\s+a\s+cenu\s+s\s+DPH(?:\s+pro\s+ČR)?[.!?]?\s*$/iu,
-    '',
-  );
-  const hasSecondClause = /(?<!\p{L})(?:a|i|také|zároveň|současně|rovněž)(?!\p{L})/iu.test(intentSource)
-    || /[;:\n]/u.test(intentSource)
-    || /[.!?]\s+\p{L}/u.test(intentSource);
-  if (hasSecondClause) {
-    params.inputError ||= 'compoundIntent';
-    return params;
-  }
-
-  const addVerb = /p[řr]id[eě]j|p[řr]idat|p[řr]i[čc]ti|nav[ýy][šs]/iu.test(normalized);
-  const removeVerb = /ode[čc]ti|ode[čc][ií]st|odpo[čc][ií]t|remove|without/iu.test(normalized);
-  const amountMatch = amounts.length === 1 ? amounts[0] : null;
-  const before = amountMatch ? normalized.slice(Math.max(0, amountMatch.index - 30), amountMatch.index) : '';
-  const after = amountMatch ? normalized.slice(amountMatch.index + amountMatch[0].length,
-    amountMatch.index + amountMatch[0].length + 26) : '';
-  const gross = /(?:v[čc]etn[eě]|s)\s+DPH/iu.test(after)
-    || /(?:cena\s+(?:s|v[čc]etn[eě])\s+DPH|celkov[aá]\s+cena)\s*$/iu.test(before);
-  const net = /bez\s+DPH/iu.test(after)
-    || /(?:z[aá]klad(?:u)?(?:\s+dan[eě])?|cena\s+bez\s+DPH)\s*$/iu.test(before);
-  const asksNetFrom = /cen[auy]\s+bez\s+DPH\s+z(?:e)?\s*$/iu.test(before);
-  const vagueGross = /v[čc]etn[eě]\s+dan[eě]/iu.test(after);
-  if (vagueGross || (addVerb && removeVerb) || (gross && net)
-      || (addVerb && gross) || (removeVerb && net)
-      || (addVerb && asksNetFrom)) params.inputError ||= 'direction';
-  else if (removeVerb || gross || asksNetFrom) params.direction = 'remove';
-  else if (addVerb || net || bareVatShorthand
-      || /DPH(?:\s+\d+(?:[,.]\d{1,2})?\s*%)?\s+z(?:e)?\s+/iu.test(normalized)) {
-    params.direction = 'add';
-  }
-  else params.inputError ||= 'direction';
-  return params;
 }
 
 function formatCZK(value) {
@@ -326,6 +173,29 @@ export function renderVatResult({ result, params } = {}) {
     if (base !== expectedBase || vat !== expectedVat || total !== expectedTotal) {
       throw new TypeError('accountant.vat_calculator values differ from parameters');
     }
+  }
+  const style = params?.presentationStyle || 'table';
+  if (style !== 'table') {
+    if (!['concise', 'bullets', 'explanation'].includes(style)) {
+      throw new TypeError('accountant.vat_calculator invalid presentation style');
+    }
+    const values = [
+      `Základ daně: ${formatVatCents(base)}`,
+      `DPH (${result.rate_percent} %): ${formatVatCents(vat)}`,
+      `Cena s DPH: ${formatVatCents(total)}`,
+    ];
+    const calculation = result.direction === 'add'
+      ? `DPH = základ × ${result.rate_percent} / 100; celkem = základ + DPH.`
+      : `Základ = cena s DPH × 100 / ${100 + result.rate_percent}; DPH = cena s DPH − základ.`;
+    const bulletValues = params?.presentationItemCount === 2
+      ? [`${values[0]}; ${values[1]}`, values[2]] : values;
+    return [
+      `ČR, rok ${result.year}:`,
+      style === 'bullets' ? bulletValues.map(value => `- ${value}`).join('\n') : values.join('; ') + '.',
+      ...(style === 'explanation' ? [calculation, 'Peněžní částky se zaokrouhlují na haléře.'] : []),
+      ...assumptions,
+      'Informativní číselný výpočet; individuální daňové posouzení není součástí výsledku.',
+    ].join('\n');
   }
   return [
     `ČR, rok ${result.year}:`,
@@ -492,13 +362,11 @@ function buildToolDefinitions(toolsDir, ToolAdapter) {
       toolAdapter: new VATCalculatorAdapter(),
       failClosed: true,
       renderResult: renderVatResult,
+      resolveParams: resolveVatParams,
       patterns: [{
         priority: 8,
         patterns: [
-          /(?:DPH|dph)\s*.{0,30}(?:z\s|ze\s|p[řr]idat|ode[čc][ií]st|kolik|v[ýy][šs]e|sazba)/i,
-          /(?:kolik|jak[áa]|jakou|v[ýy][šs]e)\s*.{0,20}(?:DPH|dph)/i,
-          /(?:p[řr]id|ode[čc]|vypo[čc]).{0,15}(?:DPH|dph)/i,
-          /(?:v[čc]etn[eě]|s)\s+DPH.{0,40}(?:vypo[čc]|z[aá]klad)/i,
+          /(?<!\p{L})DPH(?!\p{L})/iu,
         ],
       }],
       extractParams: extractVatParamsInline,

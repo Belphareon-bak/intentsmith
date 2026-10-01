@@ -19,6 +19,7 @@ import {
   assertDecision,
 } from '../cre-decision.js';
 import { logger } from '../../core/logger.js';
+import { isAbortError } from '../../core/abort-error.js';
 import {
   handleToolCallDecision,
   handleAskUserDecision,
@@ -32,6 +33,7 @@ import {
   handleMergedExpertises,
 } from './expertise.js';
 import { discoverExpertises, extractGapTopic } from '../../expertises/expertise-discovery.js';
+import { specialistIntentContext } from './specialist-intent.js';
 import {
   publicSpecialistExecutionStatus,
   publicSpecialistProjectContext,
@@ -146,6 +148,7 @@ export async function specialistHandler(input, context) {
           project: context.project,
           signal: context.signal || null,
           attachments: context.attachments || [],
+          ...specialistIntentContext(context),
         }
       );
 
@@ -185,6 +188,7 @@ export async function specialistHandler(input, context) {
         }
       }
     } catch (err) {
+      if (isAbortError(err) || context.signal?.aborted) throw err;
       logger.warn('SpecialistHandler', `Tool dispatch failed, continuing: ${err.message}`);
     }
   }

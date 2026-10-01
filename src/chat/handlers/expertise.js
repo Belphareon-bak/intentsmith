@@ -9,6 +9,7 @@ import {
   assertDecision,
 } from '../cre-decision.js';
 import { logger } from '../../core/logger.js';
+import { isAbortError } from '../../core/abort-error.js';
 import {
   handleToolCallDecision,
   handleAskUserDecision,
@@ -20,6 +21,7 @@ import { enforceCapabilities } from '../../expertises/capability-enforcer.js';
 import { mergeExpertisePrompt } from '../../expertises/merge-engine.js';
 import { CompatibilityBlockError } from '../../expertises/merge-types.js';
 import { preHandle } from './pre-handler.js';
+import { specialistIntentContext } from './specialist-intent.js';
 import { publicSpecialistToolResults, publicSpecialistVatParams,
   publicVatClarificationQuestion } from './specialist-public.js';
 
@@ -212,6 +214,7 @@ export async function expertiseHandler(input, context) {
             userMessageId: context.userMessageId,
             project: context.project,
             signal: context.signal || null,
+            ...specialistIntentContext(context),
           });
 
           if (toolResult) {
@@ -280,6 +283,7 @@ export async function expertiseHandler(input, context) {
             }
           }
         } catch (err) {
+          if (isAbortError(err) || context.signal?.aborted) throw err;
           logger.warn('ExpertHandler', `Specialist tool failed, falling back to LLM: ${err.message}`);
           // Fall through to normal ANSWER path
         }

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 // Actual M1 HTTP accountant journey with an owned SQLite DB and a loopback
-// provider sentinel. VAT calculation must complete without model generation.
+// semantic-plan fixture. Arithmetic and presentation remain deterministic.
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import http from 'node:http';
@@ -15,6 +15,7 @@ import { assertVatDeterministicTurn,
   './helpers/chat-accountant-vat-oracle.js';
 import { publicSpecialistToolResults, publicSpecialistVatParams } from
   '../src/chat/handlers/specialist-public.js';
+import { startVatIntentProvider, vatPlan } from './helpers/vat-intent-provider.js';
 import { isolatedTestRuntime as runtime } from './helpers/isolated-test-db.js';
 
 const MODEL = 'fixture:unused';
@@ -35,50 +36,15 @@ async function startForbiddenProvider() {
     close: () => new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve())) };
 }
 
-async function startCreClassificationProvider() {
-  const requests = [];
-  const server = http.createServer(async (request, response) => {
-    let raw = '';
-    for await (const chunk of request) raw += chunk;
-    requests.push({ method: request.method, path: request.url,
-      body: raw ? JSON.parse(raw) : null });
-    response.setHeader('Content-Type', 'application/json');
-    if (request.method === 'GET' && request.url === '/api/tags') {
-      response.writeHead(200).end(JSON.stringify({ models: [
-        { name: MODEL, digest: 'a'.repeat(64) },
-      ] }));
-    } else if (request.method === 'POST' && request.url === '/api/show') {
-      response.writeHead(200).end(JSON.stringify({ model_info: {
-        'fixture.context_length': 4096,
-      } }));
-    } else if (request.method === 'POST' && request.url === '/api/chat') {
-      response.writeHead(200).end(JSON.stringify({ model: MODEL,
-        message: { role: 'assistant', content: JSON.stringify({
-          intent: 'CONVERSATIONAL', confidence: 0.99, fileTarget: null,
-        }) }, done: true, done_reason: 'stop',
-        prompt_eval_count: 80, eval_count: 20 }));
-    } else {
-      response.writeHead(503).end(JSON.stringify({ error: 'unexpected fixture endpoint' }));
-    }
-  });
-  await new Promise((resolve, reject) => {
-    server.once('error', reject);
-    server.listen(0, '127.0.0.1', resolve);
-  });
-  return { requests, url: `http://127.0.0.1:${server.address().port}`,
-    close: () => new Promise((resolve, reject) => server.close(error =>
-      error ? reject(error) : resolve())) };
-}
-
 function assertNoProviderGeneration(provider, label) {
   const generated = provider.requests.filter(request =>
-    request.method === 'POST' && request.path === '/api/chat');
+    request.method === 'POST' && request.path === '/api/chat' && !request.task);
   assert.deepEqual(generated, [], `${label}: VAT/document tool must not generate through provider`);
 }
 
-function assertNoTurnProviderRequests(provider, baseline, label) {
-  assert.deepEqual(provider.requests.slice(baseline), [],
-    `${label}: the tool turn must not contact provider`);
+function assertNoGenerativeWrapper(provider, baseline, label) {
+  assert.deepEqual(provider.requests.slice(baseline).filter(request => !request.task && request.path === '/api/chat'), [],
+    `${label}: arithmetic must not use a generative wrapper`);
   assertNoProviderGeneration(provider, label);
 }
 
@@ -90,10 +56,10 @@ function assertDurableTurn(databasePath, conversationId, expected) {
   } finally { db.close(); }
 }
 
-test('selected accountant-cz presents verified VAT through M1 and SQLite without provider', {
+test('selected accountant-cz presents verified VAT through M1 and SQLite from a fixed semantic plan', {
   timeout: 180_000,
 }, async t => {
-  const provider = await startForbiddenProvider();
+  const provider = await startVatIntentProvider(MODEL, new Map([[INPUT, vatPlan(INPUT)]]));
   let product = null;
   t.after(async () => {
     const errors = [];
@@ -124,7 +90,7 @@ test('selected accountant-cz presents verified VAT through M1 and SQLite without
     conversationId, turnId: `accountant-turn-${randomBytes(8).toString('hex')}`,
     action: 'send', input: INPUT };
   const result = await expectJson(product, 'POST', '/api/chat', command, 200);
-  assertNoTurnProviderRequests(provider, providerBaseline, 'VAT calculation');
+  assertNoGenerativeWrapper(provider, providerBaseline, 'VAT calculation');
   assertVatDeterministicTurn(result);
   const session = await expectJson(product, 'GET',
     `/api/chat/sessions/${conversationId}`, null, 200);
@@ -135,7 +101,7 @@ test('selected accountant-cz presents verified VAT through M1 and SQLite without
     { role: 'assistant', content: result.response.content }];
   assert.deepEqual(messages.messages.map(({ role, content }) => ({ role, content })), expected);
   assertDurableTurn(journeyRuntime.database, conversationId, expected);
-  assertNoTurnProviderRequests(provider, providerBaseline, 'history reads');
+  assertNoGenerativeWrapper(provider, providerBaseline, 'history reads');
 
   const wrongVat = structuredClone(result);
   wrongVat.response.metadata.toolResults[0].data.vat = 2000;
@@ -151,7 +117,11 @@ test('selected accountant-cz presents verified VAT through M1 and SQLite without
 test('direct accountant expertise publishes only verified VAT scalars and clarifies without a wrapper', {
   timeout: 180_000,
 }, async t => {
-  const provider = await startCreClassificationProvider();
+  const ambiguousInput = 'K základu daně 10 000 Kč nebo 12 000 Kč přidej DPH 21 % za rok 2025 pro ČR.';
+  const provider = await startVatIntentProvider(MODEL, new Map([
+    [INPUT, vatPlan(INPUT)],
+    [ambiguousInput, vatPlan(ambiguousInput, { action: 'clarify', clarification: 'amount' })],
+  ]));
   const owned = createOwnedJourneyRuntime(runtime);
   let product = null;
   t.after(async () => {
@@ -183,10 +153,11 @@ test('direct accountant expertise publishes only verified VAT scalars and clarif
     const requests = provider.requests.slice(providerBaseline);
     const chatRequests = requests.filter(request => request.method === 'POST'
       && request.path === '/api/chat');
-    assert.equal(chatRequests.length, 1,
-      `${label}: only CRE classification may call the provider; requests=${JSON.stringify(requests)}`);
+    assert.equal(chatRequests.length, 2,
+      `${label}: CRE and VAT interpretation may call the provider; requests=${JSON.stringify(requests)}`);
+    assert.equal(chatRequests.filter(request => request.task).length, 1);
     assert.equal(chatRequests[0].body?.format, 'json',
-      `${label}: the sole provider request must be CRE classification`);
+      `${label}: CRE classification must use JSON`);
     assert.match(JSON.stringify(chatRequests[0].body?.messages), /DPH/u,
       `${label}: classifier must have seen the VAT input`);
     const expected = [{ role: 'user', content: input },
@@ -239,7 +210,12 @@ test('direct accountant expertise publishes only verified VAT scalars and clarif
 test('invalid VAT amount and explicit unsupported year fail closed without a model fallback', {
   timeout: 180_000,
 }, async t => {
-  const provider = await startForbiddenProvider();
+  const hugeInput = 'K základu daně 9 999 999 999 Kč přidej DPH 21 % za rok 2025 pro ČR.';
+  const futureInput = 'K základu daně 10 000 Kč přidej DPH 21 % za rok 2030 pro ČR.';
+  const provider = await startVatIntentProvider(MODEL, new Map([
+    [hugeInput, vatPlan(hugeInput, { action: 'clarify', clarification: 'amount' })],
+    [futureInput, vatPlan(futureInput, { year: 2030 })],
+  ]));
   const owned = createOwnedJourneyRuntime(runtime);
   const product = await startProduct(owned, provider.url, MODEL);
   t.after(async () => {
@@ -264,7 +240,7 @@ test('invalid VAT amount and explicit unsupported year fail closed without a mod
       action: 'send', input,
     });
     assert.equal(status, 200, `${label}: ${JSON.stringify(result)}`);
-    assertNoTurnProviderRequests(provider, providerBaseline, label);
+    assertNoGenerativeWrapper(provider, providerBaseline, label);
     assert.equal(result.response?.metadata?.specialistTool, 'accountant.vat_calculator', label);
     assert.equal(result.response.metadata.executionStatus, executionStatus, label);
     assert.equal(result.response.metadata.fallbackSuppressed, true, label);
@@ -289,7 +265,7 @@ test('invalid VAT amount and explicit unsupported year fail closed without a mod
 test('selected VAT extraction preserves cents, explicit period, rate and calculation direction', {
   timeout: 180_000,
 }, async t => {
-  const provider = await startForbiddenProvider();
+  const provider = await startVatIntentProvider(MODEL);
   const owned = createOwnedJourneyRuntime(runtime);
   let product = null;
   t.after(async () => {
@@ -415,12 +391,14 @@ test('selected VAT extraction preserves cents, explicit period, rate and calcula
     { label: 'compact net price followed by a meaning question must not calculate',
       input: 'Cena bez DPH z 12 100 Kč za rok 2025 pro ČR: co to znamená?',
       needsInput: 'calculationIntent' },
-    { label: 'a mixed request needing an explanation must not return arithmetic alone',
+    { label: 'requested arithmetic explanation presents the verified procedure',
       input: 'Vypočti DPH z 10 000 Kč za rok 2025 pro ČR a vysvětli postup.',
-      needsInput: 'calculationIntent' },
-    { label: 'a mixed calculation and why request must not return arithmetic alone',
+      style: 'explanation', params: { amount: 10000, year: 2025, rate: '21', direction: 'add' },
+      vat: { base: 10000, vat: 2100, total: 12100, rate_percent: 21, direction: 'add', year: 2025 } },
+    { label: 'requested numerical reason presents the verified formula',
       input: 'Vypočti DPH z 10 000 Kč za rok 2025 pro ČR a řekni proč je to tolik.',
-      needsInput: 'calculationIntent' },
+      style: 'explanation', params: { amount: 10000, year: 2025, rate: '21', direction: 'add' },
+      vat: { base: 10000, vat: 2100, total: 12100, rate_percent: 21, direction: 'add', year: 2025 } },
     { label: 'deductibility question must not reverse the requested VAT addition',
       input: 'Vypočti DPH 21 % z 10 000 Kč za rok 2025 pro ČR a řekni, zda si lze DPH odečíst.',
       needsInput: 'compoundIntent' },
@@ -478,6 +456,17 @@ test('selected VAT extraction preserves cents, explicit period, rate and calcula
       const conversationId = conversation.conversation.id;
       await expectJson(product, 'POST', '/api/chat/specialist',
         { specialistId: 'accountant-cz', sessionId: conversationId }, 200);
+      const expectedPlan = scenario.params || {
+        amount: 10000,
+        year: Number(scenario.input.match(/za rok (\d{4})/u)?.[1] || 2025),
+        rate: scenario.input.match(/DPH (\d+) %/u)?.[1] || '21', direction: 'add',
+      };
+      provider.plans.set(scenario.input, vatPlan(scenario.input, {
+        ...expectedPlan,
+        presentation: { style: scenario.style || 'table', itemCount: null },
+        ...(scenario.needsInput && !['amount', 'rate', 'year'].includes(scenario.needsInput)
+          ? { action: 'clarify', clarification: scenario.needsInput } : {}),
+      }));
       const providerBaseline = provider.requests.length;
       const { status, data: result } = await requestJson(product, 'POST', '/api/chat', {
         contract: 'ConversationCommand', version: 1,
@@ -486,8 +475,8 @@ test('selected VAT extraction preserves cents, explicit period, rate and calcula
         action: 'send', input: scenario.input,
       });
       assert.equal(status, 200, `${scenario.label}: ${JSON.stringify(result)}`);
-      assert.deepEqual(provider.requests.slice(providerBaseline), [],
-        `${scenario.label}: no provider request may be caused by this VAT turn`);
+      assert.deepEqual(provider.requests.slice(providerBaseline).filter(request => !request.task && request.path === '/api/chat'), [],
+        `${scenario.label}: no generative wrapper may be caused by this VAT turn`);
       const metadata = result.response?.metadata;
       assert.equal(metadata?.specialistTool, 'accountant.vat_calculator', scenario.label);
       if (scenario.failure || scenario.needsInput) {
@@ -518,9 +507,14 @@ test('selected VAT extraction preserves cents, explicit period, rate and calcula
         assert.deepEqual(metadata.toolResults, [{ type: 'accountant.vat_calculator',
           data: scenario.vat }], scenario.label);
         const answer = result.response.content.replace(/[\u00a0\u202f]/gu, ' ');
+        if (scenario.style === 'explanation') {
+          assert(answer.includes('DPH = základ × 21 / 100'), scenario.label);
+          assert(answer.includes(`DPH (21 %): ${fmt(scenario.vat.vat)} Kč`), scenario.label);
+        } else {
         assert(answer.includes(`| Základ daně | ${fmt(scenario.vat.base)} Kč |`), scenario.label);
         assert(answer.includes(`| DPH (${scenario.vat.rate_percent} %) | ${fmt(scenario.vat.vat)} Kč |`), scenario.label);
         assert(answer.includes(`| Cena s DPH celkem | ${fmt(scenario.vat.total)} Kč |`), scenario.label);
+        }
       }
       const expected = [{ role: 'user', content: scenario.input },
         { role: 'assistant', content: result.response.content }];
@@ -566,7 +560,7 @@ test('failed accountant document tool cannot become a successful generative answ
   assert.equal(setup.response.metadata.executionStatus, 'SUCCESS');
   assert.equal(setup.response.metadata.extractedParams, undefined,
     'public metadata must not repeat document input');
-  assertNoTurnProviderRequests(provider, providerBaseline, 'deterministic document setup');
+  assertNoGenerativeWrapper(provider, providerBaseline, 'deterministic document setup');
   const input = 'doklad d-0000000000000000 = {invalid; vysvětli kontrolní hlášení za květen 2026';
   const command = { contract: 'ConversationCommand', version: 1,
     requestId: `accountant-error-${randomBytes(8).toString('hex')}`,
@@ -574,7 +568,7 @@ test('failed accountant document tool cannot become a successful generative answ
     action: 'send', input };
   const { status, data: result } = await requestJson(product, 'POST', '/api/chat', command);
   assert.equal(status, 200, `providerRequests=${JSON.stringify(provider.requests)} ${JSON.stringify(result)}\n${product.output}`);
-  assertNoTurnProviderRequests(provider, providerBaseline, 'fail-closed document error');
+  assertNoGenerativeWrapper(provider, providerBaseline, 'fail-closed document error');
   assert.equal(result.response?.metadata?.specialistTool, 'accountant.document_workflow');
   assert.equal(result.response.metadata.executionStatus, 'FAILED');
   assert.equal(result.response.metadata.fallbackSuppressed, true);
