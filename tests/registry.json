@@ -125,6 +125,10 @@
     {
       "path": "tests/helpers/file-save-semantic-fixture.js",
       "reason": "Explicit controlled semantic plans imported by M2 filesystem consumer suites; assertions run in their registered test programs, no standalone entry point."
+    },
+    {
+      "path": "tests/helpers/project-app-reference.js",
+      "reason": "Trusted offline reference modules imported by project-app-acceptance.test.js and project-app-m2-functional.test.js; no standalone test entry point and never used by the physical model journey."
     }
   ],
   "suites": [
@@ -17987,6 +17991,76 @@
       },
       "required": true,
       "owner": "WP-CHAT-VAT-SEMANTIC-20261001",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-PROJECT-APP-ACCEPTANCE-TEST",
+      "path": "tests/project-app-acceptance.test.js",
+      "argv": [
+        "node",
+        "tests/project-app-acceptance.test.js"
+      ],
+      "capabilityId": "C3-011",
+      "tier": "T1",
+      "fixture": "isolated-home-and-project-process",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 10000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false,
+        "toolchain": [
+          "bwrap",
+          "git",
+          "prlimit"
+        ]
+      },
+      "required": true,
+      "owner": "WP-PROJECT-APP-REGISTRATION-20261001",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-PROJECT-APP-M2-FUNCTIONAL-TEST",
+      "path": "tests/project-app-m2-functional.test.js",
+      "argv": [
+        "node",
+        "tests/project-app-m2-functional.test.js"
+      ],
+      "capabilityId": "C3-011",
+      "tier": "T1",
+      "fixture": "isolated-db-and-project-process",
+      "profile": "database",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 15000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false,
+        "toolchain": [
+          "bwrap",
+          "git",
+          "prlimit"
+        ]
+      },
+      "required": true,
+      "owner": "WP-PROJECT-APP-REGISTRATION-20261001",
       "state": "ACTIVE",
       "lastGreen": {
         "commit": null,

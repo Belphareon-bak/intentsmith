@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 591
-- Explicit support-module exclusions: 31
-- Profiles: offline=320, database=85, server=64, model=86, soak=16, manual=20
-- States: ACTIVE=493, HISTORICAL=15, BLOCKED=83
+- Runnable programs: 593
+- Explicit support-module exclusions: 32
+- Profiles: offline=321, database=86, server=64, model=86, soak=16, manual=20
+- States: ACTIVE=495, HISTORICAL=15, BLOCKED=83
 
 ## Execution profiles
 
@@ -506,6 +506,8 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-PERF-ANALYZER-TEST` | `tests/perf-analyzer.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-PILOT-C1C2C3-TEST` | `tests/pilot-c1c2c3.test.js` | `C3-027` | T2 | `database` | 1 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-PRE082-UPGRADE-REGRESSION-TEST` | `tests/pre082-upgrade-regression.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-PROJECT-APP-ACCEPTANCE-TEST` | `tests/project-app-acceptance.test.js` | `C3-011` | T1 | `offline` | 10 s | 2 min | network:none, temp-db, toolchain:bwrap, toolchain:git, toolchain:prlimit | yes | `ACTIVE` | — | WP-PROJECT-APP-REGISTRATION-20261001 |
+| `IS-T1-TESTS-PROJECT-APP-M2-FUNCTIONAL-TEST` | `tests/project-app-m2-functional.test.js` | `C3-011` | T1 | `database` | 15 s | 2 min | network:none, temp-db, toolchain:bwrap, toolchain:git, toolchain:prlimit | yes | `ACTIVE` | — | WP-PROJECT-APP-REGISTRATION-20261001 |
 | `IS-T1-TESTS-PROJECT-COLLABORATION-TEST` | `tests/project-collaboration.test.js` | `C3-005` | T3 | `server` | 5 s | 1 min | network:loopback, temp-db, toolchain:git | yes | `ACTIVE` | — | WP-PROJECT-FLOW-20260918 |
 | `IS-T3-TESTS-PROJECT-CONVERSATION-E2E-P5P7-TEST` | `tests/project-conversation-e2e-p5p7.test.js` | `C3-005` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-PROJECT-CONVERSATION-E2E-V2-TEST` | `tests/project-conversation-e2e-v2.test.js` | `C3-005` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
@@ -659,6 +661,7 @@ ledger.
 | `tests/helpers/m6-owned-runtime-probe.js` | Imported M6 owned-server and loopback namespace harness, not a standalone test. |
 | `tests/helpers/m7-durable-rate-limit-racer.js` | Suite-owned cross-process SQLite race helper launched only by m7-durable-rate-limiter.test.js. |
 | `tests/helpers/ollama-loopback-fetch-boundary.js` | Imported fail-closed M6 model-test transport boundary, not a standalone test. |
+| `tests/helpers/project-app-reference.js` | Trusted offline reference modules imported by project-app-acceptance.test.js and project-app-m2-functional.test.js; no standalone test entry point and never used by the physical model journey. |
 | `tests/helpers/sazeni-http-fixture-preload.js` | Suite-owned product-child preload with a controlled betting transport; assertions run in chat-sazeni-http-journey.test.js. |
 | `tests/helpers/studio-m2-composer-dom.js` | Explicit visual DOM probe invoked only by studio-m2-composer-dom.e2e.js through the shared Electron harness; not a standalone suite. |
 | `tests/helpers/studio2-live-harness.js` | Imported actual Studio 2 adapter harness; its assertions run in studio2-m2 and m2-lifecycle-studio-surface suites. |
