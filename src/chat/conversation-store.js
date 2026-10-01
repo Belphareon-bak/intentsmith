@@ -469,6 +469,7 @@ export class ConversationStore {
         tag: { speaker: t.role === 'assistant' ? 'system' : t.role },
         content: t.content,
       },
+      metadata: t.metadata,
       timestamp: new Date(t.created_at).getTime(),
       projectId: Number.isSafeInteger(t.metadata?.projectId) && t.metadata.projectId > 0
         ? t.metadata.projectId : null,

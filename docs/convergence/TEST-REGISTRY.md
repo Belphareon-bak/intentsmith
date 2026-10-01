@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 589
+- Runnable programs: 590
 - Explicit support-module exclusions: 29
-- Profiles: offline=320, database=85, server=62, model=86, soak=16, manual=20
-- States: ACTIVE=491, HISTORICAL=15, BLOCKED=83
+- Profiles: offline=320, database=85, server=63, model=86, soak=16, manual=20
+- States: ACTIVE=492, HISTORICAL=15, BLOCKED=83
 
 ## Execution profiles
 
@@ -101,6 +101,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T3-TESTS-CHAT-PROJECT-EXPERTISE-LIVE-TEST` | `tests/chat-project-expertise-live.test.js` | `C3-007` | T3 | `model` | 10 min | 25 min | network:loopback, temp-db, ollama, gpu | yes | `BLOCKED` | — | WP-CHAT-PROJECT-EXPERTISE-LIVE-20260930 |
 | `IS-T3-TESTS-CHAT-PROJECT-EXPERTISE-MODEL-CONTRACT-TEST` | `tests/chat-project-expertise-model-contract.test.js` | `C3-007` | T3 | `server` | 10 s | 4 min | network:loopback, temp-db | yes | `ACTIVE` | — | WP-CHAT-PROJECT-EXPERTISE-LIVE-20260930 |
 | `IS-T3-TESTS-CHAT-QUALITY-TEST` | `tests/chat-quality.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-CHAT-REPEAT-SAVE-HTTP-TEST` | `tests/chat-repeat-save-http.test.js` | `C3-016` | T3 | `server` | 10 s | 3 min | network:loopback, temp-db | yes | `ACTIVE` | — | WP-CHAT-REPEAT-SAVE-20261001 |
 | `IS-T1-TESTS-CHAT-RESILIENCE-RUNNER-CONTRACT-TEST` | `tests/chat-resilience-runner-contract.test.js` | `C3-003` | T1 | `offline` | 3 s | 30 s | network:none | yes | `ACTIVE` | — | WP-CHAT-RESILIENCE-FINAL-20261001 |
 | `IS-T3-TESTS-CHAT-SAZENI-HTTP-JOURNEY-TEST` | `tests/chat-sazeni-http-journey.test.js` | `C3-013` | T3 | `server` | 15 s | 3 min | network:loopback, temp-db | yes | `ACTIVE` | — | WP-CHAT-SAZENI-HTTP-20261001 |
 | `IS-T1-TESTS-CHAT-SEARCH-QUALITY-TEST` | `tests/chat-search-quality.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

@@ -135,11 +135,19 @@ export async function finalizeChatResponse({
     if (isIssuedFileExplainContinuation(metadata.m2FileExplain)) {
       assertFileExplainContinuationCurrent(metadata.m2FileExplain);
     }
+    // A later "save it again" must refer to an answer, never to an effect
+    // approval or the write preview. Persist this provenance with the turn;
+    // the public response metadata alone is not durable handler history.
+    const saveSourceEligible = !['file.write', 'effect.approval'].includes(metadata.handler)
+      && metadata.approvalRequired !== true
+      && metadata.securityBlocked !== true
+      && !metadata.error;
     persistAssistantTurn(finalContent, {
       mode: result.mode,
       confidence: result.confidence,
       model: metadata.model,
       intent: metadata.decision?.intent,
+      saveSourceEligible,
       ...(isIssuedFileExplainContinuation(metadata.m2FileExplain)
         ? { m2FileExplain: metadata.m2FileExplain } : {}),
       ...(turnId === null ? {} : { m7: { turnId, status: 'ok' } }),

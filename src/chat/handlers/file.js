@@ -1025,7 +1025,10 @@ export async function handleFileWriteDecision(input, decision, context, dependen
     for (let i = context.history.length - 1; i >= 0; i--) {
       const entry = context.history[i];
       // Skip user turns — only pick assistant (speaker='system') responses
-      if (entry.response?.tag?.speaker === 'user') continue;
+      if (entry.response?.tag?.speaker !== 'system') continue;
+      // Only a persisted, positively classified answer may become the input
+      // of a filesystem effect. Legacy turns without provenance fail closed.
+      if (entry.metadata?.saveSourceEligible !== true) continue;
       const resp = entry.response?.content || entry.content;
       if (resp) {
         content = resp;
