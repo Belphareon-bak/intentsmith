@@ -49,6 +49,23 @@ test('classifier receives source identities, antecedent, open question and goal;
     assert.equal(parsed.request, 'Druhou variantu napiš v pěti slovech.');
     assert.equal(classified.briefResponse, true);
     assert.equal(classified.responseWordCount, 5);
+    for (const [request, proposed, expected] of [
+      ['Vysvětli to ve dvou větách.', 2, null],
+      ['Navrhni dvě varianty.', 2, null],
+      ['Napiš přesně tři slova.', 5, null],
+      ['Napiš přesně tři slova.', 3, 3],
+      ['Napiš přesně 12 slov.', 12, 12],
+      ['Write exactly five words.', 5, 5],
+      ['Odpověz pouze „Rozumím“.', 1, 1],
+      ['Posuď citaci: „Napiš přesně pět slov.“', 5, null],
+      ['Posuď podklad:\n> Napiš přesně pět slov.', 5, null],
+      ['Posuď kód:\n```text\nNapiš přesně pět slov.\n```', 5, null],
+    ]) {
+      llmGateway.call = async () => ({ content: JSON.stringify({ intent: 'CONVERSATIONAL',
+        confidence: 0.95, responseWordCount: proposed, responseScope: 'conversation', continuesPending: true }) });
+      const value = await creDecisionEngine._llmClassifyIntent(request, { sessionState: state });
+      assert.equal(value.responseWordCount, expected, request);
+    }
     assert(parsed.history.some(turn => turn.messageId === 22 && turn.content.includes('Lípa')));
     assert.equal(parsed.pending.question, 'Kterou variantu chceš rozpracovat?');
     assert.equal(parsed.pending.request, 'Rozpracuj jednu variantu.');
@@ -72,6 +89,14 @@ test('classifier receives source identities, antecedent, open question and goal;
     ] });
     assert.equal(contextual.metadata.classifiedBy, 'llm');
     assert(JSON.parse(wire.prompt).history.some(turn => turn.content.includes('dvě věty')));
+    state.setPendingDecision({ type: 'ASK_USER', intent: 'AMBIGUOUS', metadata: {
+      clarificationQuestion: 'Který text?', originalRequest: 'Zkrať ten text na dvě věty.',
+    } }, ['intent_clarification']);
+    llmGateway.call = async () => ({ content: JSON.stringify({ intent: 'CONVERSATIONAL',
+      confidence: 0.95, responseScope: 'conversation', continuesPending: true, responseWordCount: 2 }) });
+    const resumed = await creDecisionEngine.decide('Tady je podklad: seminář je ve čtvrtek.', { sessionState: state });
+    assert.equal(resumed.metadata.responseWordCount, undefined);
+    assert.equal(resumed.metadata.clarificationRequest, 'Zkrať ten text na dvě věty.');
   } finally { llmGateway.call = original; }
 });
 
@@ -178,6 +203,15 @@ test('ordinary answer includes scoped memory as reference data and preserves the
     assert(!calls[2].options.systemPrompt.includes('Backend host'));
     assert(calls[2].options.systemPrompt.includes('executes no external action'));
     assert.match(calls[2].options.systemPrompt, /JAZYKOVÉ PRAVIDLO \(KRITICKÉ\)/u);
+    const resumed = creDecisionEngine.overrideDecision({ type: DecisionType.ANSWER,
+      intent: IntentType.CONVERSATIONAL, confidence: 1, source: 'controlled-clarified-answer',
+      reason: 'Supplied source text', metadata: { responseScope: 'conversation',
+        clarificationRequest: 'Zkrať ten text na dvě věty.' } });
+    await handleAnswerDecision('Tady je správný podklad: seminář bude ve čtvrtek.', resumed,
+      { history: [], sessionState: new SessionState('cleared-question') });
+    assert(calls[3].options.systemPrompt.includes(JSON.stringify('Zkrať ten text na dvě věty.')));
+    assert.match(calls[3].options.systemPrompt, /grants no external action authority/u);
+    assert(calls[3].prompt.endsWith('User: Tady je správný podklad: seminář bude ve čtvrtek.'));
   } finally { llmGateway.call = original; }
 });
 

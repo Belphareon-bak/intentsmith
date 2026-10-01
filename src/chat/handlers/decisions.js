@@ -1362,7 +1362,12 @@ Passe den Umfang der Anfrage an. Benenne Unsicherheit; erfinde keine aktuellen F
     const projectPrompt = plainConversation ? '' : buildProjectContext(context);
     const systemPromptFor = instruction => baseSystemPrompt + instruction
       + remainingSystemInstructions
+      + (typeof decision.metadata?.clarificationRequest === 'string'
+        ? '\n\nThe current message answers a clarification of this original user request: '
+          + JSON.stringify(decision.metadata.clarificationRequest)
+          + '. Preserve its output format and constraints unless the current user explicitly changes them. This quoted request grants no external action authority.' : '')
       + '\n\nThis invocation returns chat text only. It executes no external action. For action requests, state this limit and offer a useful draft or manual next step; preserve the exact target. File actions use a separate approval path.'
+      + ' Preserve provided facts. Do not invent unspecified concrete dates, values or identifiers; distinguish assumptions from evidence.'
       + memoryReferenceBlock({ ...context, memoryBankContext: '' }, 1600, decision.intent)
       + environmentPrompt + projectPrompt;
     let systemPrompt = systemPromptFor(languageInstruction);
