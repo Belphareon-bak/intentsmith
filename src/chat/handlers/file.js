@@ -949,9 +949,9 @@ export async function handleFileWriteDecision(input, decision, context, dependen
     // This remains a stopped effect. Preserve CRE's concrete open question
     // instead of replacing it with a generic error and losing the request.
     if (error.code === 'file_write_prior_turn_unanswered') {
-      plan = { action: 'clarify', candidateMessageId: null, question: lang === 'cs'
-        ? 'Poslední zadání nemá dokončenou odpověď. Chceš ho nejprve dokončit, nebo uložit některou starší odpověď? Uveď kterou.'
-        : 'The last request has no completed answer. Should I finish it first, or save an older answer? Specify which one.' };
+      plan = { action: 'clarify', candidateMessageId: null, sourceBarrier: error.code, question: lang === 'cs'
+        ? 'Poslední zadání nemá dokončenou odpověď. Zopakuj prosím zadání pro vytvoření textu; hotovou odpověď potom půjde uložit.'
+        : 'The last request has no completed answer. Please repeat the request to create the text; the completed answer can then be saved.' };
     } else if (error.code === 'file_write_constraints_unresolved'
       && decision.metadata?.clarificationQuestion) {
       plan = { action: 'clarify', question: decision.metadata.clarificationQuestion,
@@ -973,6 +973,7 @@ export async function handleFileWriteDecision(input, decision, context, dependen
         metadata: { contextualInterpretation: true, clarificationQuestion: question,
           originalRequest: previous?.fileSaveClarification ? previous.originalRequest : input,
           fileSaveClarification: { projectId, sourceMessageId: plan.candidateMessageId,
+            ...(plan.sourceBarrier ? { sourceBarrier: plan.sourceBarrier } : {}),
             userMessageId: previous?.fileSaveClarification?.userMessageId ?? context.userMessageId } } }, ['file_save']);
       return new TaggedResponse({ content: question,
         tag: new ResponseTag({ speaker: ResponseSpeaker.SYSTEM, mode: ChatMode.CONVERSATION,

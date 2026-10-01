@@ -522,6 +522,12 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
     assert(stale.response.content.includes('nemá dokončenou odpověď'), stale.response.content);
     assert.equal(database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n, before);
     assert(!existsSync(path.join(project.path, 'stale.md')));
+    await stopProduct(product);
+    product = await startProduct(owned, `http://127.0.0.1:${provider.address().port}`, model);
+    const stillStale = await send('stale.md');
+    assert.equal(stillStale.response.metadata.awaitingClarification, true, JSON.stringify(stillStale));
+    assert(stillStale.response.content.includes('nemá dokončenou odpověď'), stillStale.response.content);
+    assert.equal(database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n, before);
   } finally {
     database?.close();
     await stopProduct(product);
