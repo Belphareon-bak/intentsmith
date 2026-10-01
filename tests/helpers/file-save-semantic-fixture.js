@@ -7,7 +7,7 @@ import { llmGateway } from '../../src/llm/gateway.js';
 export function answerSavePlan(target, messageId, transformation = 'none') {
   return {
     action: 'write', question: null, target,
-    source: { kind: 'answer', messageId, text: null },
+    source: { kind: 'answer', messageId },
     transformation, writeMode: 'replace', understood: true, unsupported: [],
   };
 }

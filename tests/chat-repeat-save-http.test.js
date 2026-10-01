@@ -45,11 +45,12 @@ await testAsync('save the same answer twice after the first effect approval', as
         'Ulož ji do cross-project.md.': 'cross-project.md',
         'Ulož ji do stale-project.md.': 'stale-project.md',
         'Ulož ji do legacy-source.md.': 'legacy-source.md',
+        'Ulož ji do numeric-source.md.': 'numeric-source.md',
         'Ulož odpověď do timestamp-source.md.': 'timestamp-source.md',
       };
       const answer = saveInput ? JSON.stringify({ action: 'write', question: null,
         target: saveTargets[saveInput.request],
-        source: { kind: 'answer', messageId: saveInput.answers[0]?.messageId || 999999, text: null },
+        source: { kind: 'answer', messageId: saveInput.answers[0]?.messageId || 999999 },
         transformation: 'none', writeMode: 'replace', understood: true, unsupported: [] })
         : JSON.stringify({ reply: providerAnswer, plan: null });
       response.end(JSON.stringify({ model, digest, done: true, done_reason: 'stop',
@@ -202,6 +203,25 @@ await testAsync('save the same answer twice after the first effect approval', as
     // SQLite timestamps have second precision. Exercise the actual M1 save
     // after fourteen persisted HTTP turns share one timestamp, rather than
     // accepting a green ordering query without checking the emitted effect.
+    const numericId = (await expectJson(product, 'POST', '/api/conversations', {
+      title: 'numeric-provenance-barrier', project_id: project.id, mode: 'chat',
+    }, 201)).conversation.id;
+    await send('Vysvětli stručně, co je Git commit.', numericId);
+    await stopProduct(product);
+    const numericFixture = new Database(owned.database, { fileMustExist: true });
+    try {
+      numericFixture.prepare('INSERT INTO messages (conversation_id, role, content, tokens, metadata) VALUES (?, ?, ?, ?, ?)')
+        .run(numericId, 'assistant', 'UNKNOWN_NUMERIC_0_BARRIER', 7,
+          JSON.stringify({ saveSourceEligible: 0, saveSourceProjectId: project.id }));
+    } finally { numericFixture.close(); }
+    product = await startProduct(owned, `http://127.0.0.1:${provider.address().port}`, model);
+    const beforeNumeric = privateDb.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n;
+    const numericSave = await send('Ulož ji do numeric-source.md.', numericId);
+    assert.equal(numericSave.response.metadata.error, 'file_write_source_unverified');
+    assert.equal(privateDb.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n,
+      beforeNumeric, 'numeric zero is unknown provenance, not a protocol message to skip');
+    assert.equal(existsSync(path.join(project.path, 'numeric-source.md')), false);
+
     const tiedId = (await expectJson(product, 'POST', '/api/conversations', {
       title: 'same-second-source', project_id: project.id, mode: 'chat',
     }, 201)).conversation.id;

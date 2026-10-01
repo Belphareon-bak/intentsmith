@@ -54,8 +54,36 @@ Shrnutí je samostatný dokončený obsahový zdroj, s původním ID a vlastním
 netvrdí M1 terminal success ani provedení zápisu. Před návrhem M2 se znovu
 ověří projekt a bajty. Preview zobrazuje obsah a zda zápis může přepsat cíl.
 
-Stav kandidáta: **REVIEW_PENDING / LIVE_NOT_RUN**. Modelové semantic labely
+Stav prvního kandidáta: **CHANGES_REQUIRED / LIVE_PILOT_FAIL**. Modelové semantic labely
 nejsou důkazem správné interpretace negace a doménových podmínek. Offline
 fixture je konkrétní plán; fyzický pilot musí ověřit skutečné odpovědi,
 obsah návrhů a dodržení požadavků. Atomické create-only zatím čeká na svůj
 oddělený přijatý source; neznámý tool nikdy nepřejde na `file.write`.
+
+## Oprava po nezávislém review a fyzickém pilotu
+
+Čistý kandidát `b67eb312b0e8da97030345315fda6660e3005b6b` měl registrovaných
+6/6 PASS (`2026-10-01T06-26-04-687Z/report.json`). Nezávislé review přesto
+prokázalo dvě chyby skutečným M1/SQLite průchodem: číselné metadata
+`saveSourceEligible: 0` se v SQL chybně přeskočilo jako známé `false`,
+a platný JSON ukončený `finishReason: length` připravil návrh zápisu.
+SQL nyní rozlišuje JSON typ `false`; neznámá hodnota tvoří bariéru.
+Resolver useknutý plán odmítá před parsováním. Oba případy jsou v reálných
+HTTP regresních testech a vyžadují nulový počet ToolRequest.
+
+Krátký fyzický pilot `save-content,save-content-first,save-content-again`
+na tomtéž SHA použil skutečný `qwen3.5:27b`, digest
+`7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e`.
+První obsahová odpověď vznikla, oba požadavky na uložení však selhaly:
+model vybral správný cíl a ID, ale vyplnil zbytečné `source.text` prázdným
+řetězcem místo `null`. **0/2 úspěšných uložení**; HTTP 200 a exit 0 runneru
+nejsou produktový PASS. Soukromé `initial-results.json` má SHA256
+`e9be9fd6f65a4293738ba6101bea68058826b06158c6b657d017d37f5e5d3812`.
+
+Zdroj je nyní diskriminovaný kontrakt: `{kind:answer,messageId}` nebo
+`{kind:literal,text}`. Každá varianta obsahuje pouze potřebná pole;
+ověření konkrétního ID a přesných bajtů zůstává povinné. Nejde o další
+jazykovou výjimku. Přímé M1 testy po těchto opravách mají 1/1 + 1/1 PASS
+(`semantic-fixed-http.log`, `semantic-fixed-repeat.log`). Nový čistý
+kandidát čeká na nezávislé review, registrované opakování a nový fyzický
+pilot. Finální 53×3 stále **LIVE_NOT_RUN**.

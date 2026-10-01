@@ -404,7 +404,7 @@ export class ConversationStore {
     const row = this.#db
       ? this.#db.db.prepare(`SELECT id, role, content, metadata FROM messages
           WHERE conversation_id = ? AND role = 'assistant'
-          AND CASE WHEN json_valid(metadata) THEN json_extract(metadata, '$.saveSourceEligible') END IS NOT 0
+          AND CASE WHEN json_valid(metadata) THEN json_type(metadata, '$.saveSourceEligible') END IS NOT 'false'
           ORDER BY id DESC LIMIT 1`).get(conversationId)
       : [...this._memMessages].reverse().find(value => value.conversation_id === conversationId
         && value.role === 'assistant' && this.#parseMetadata(value.metadata)?.saveSourceEligible !== false);

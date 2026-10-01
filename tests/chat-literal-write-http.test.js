@@ -31,6 +31,7 @@ await testAsync('polite/literal/summary saves bind exact bytes and IDs; invalid 
     ['Ulož to do constraints.md a nastav veřejná práva.', { target: 'constraints.md', unsupported: ['chmod'] }],
     ['Ulož to do maybe.md, pokud je dost místa.', { target: 'maybe.md', understood: false }],
     ['Ulož to do smallname.md.', { target: 'name.md' }],
+    ['Ulož to do plan-length.md.', { target: 'plan-length.md', truncatePlan: true }],
     ['Shrň předchozí odpověď a ulož ji do truncated.md.', { target: 'truncated.md', transformation: 'summarize' }],
   ]);
   let truncate = false;
@@ -51,11 +52,11 @@ await testAsync('polite/literal/summary saves bind exact bytes and IDs; invalid 
       const spec = plans.get(parsed.request);
       assert(spec, `unexpected semantic fixture input: ${parsed.request}`);
       content = JSON.stringify({ action: 'write', question: null, target: spec.target,
-        source: { kind: Object.hasOwn(spec, 'literal') ? 'literal' : 'answer',
-          messageId: Object.hasOwn(spec, 'literal') ? null : spec.sourceId || parsed.answers[0]?.messageId,
-          text: Object.hasOwn(spec, 'literal') ? spec.literal : null },
+        source: Object.hasOwn(spec, 'literal') ? { kind: 'literal', text: spec.literal }
+          : { kind: 'answer', messageId: spec.sourceId || parsed.answers[0]?.messageId },
         transformation: spec.transformation || 'none', writeMode: 'replace',
         understood: spec.understood ?? true, unsupported: spec.unsupported || [] });
+      if (spec.truncatePlan) doneReason = 'length';
     } else if (system.includes('Summarize only the supplied answer')) {
       summaryCalls += 1; content = summarized; doneReason = truncate ? 'length' : 'stop';
     } else if (body.format === 'json' && system.includes('Klasifikuj záměr')) {
@@ -135,6 +136,7 @@ await testAsync('polite/literal/summary saves bind exact bytes and IDs; invalid 
       ['Ulož to do constraints.md a nastav veřejná práva.', 'file_write_constraints_unresolved'],
       ['Ulož to do maybe.md, pokud je dost místa.', 'file_write_constraints_unresolved'],
       ['Ulož to do smallname.md.', 'file_write_target_unverified'],
+      ['Ulož to do plan-length.md.', 'file_write_plan_truncated'],
     ]) {
       const count = privateDb.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n;
       const rejected = await send(conversationId, input);
