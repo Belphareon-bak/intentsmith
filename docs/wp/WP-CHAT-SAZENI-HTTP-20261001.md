@@ -1,8 +1,9 @@
 # WP — Sázení přes skutečný M1 HTTP chat
 
 **Stav:** izolovaný implementační kandidát, `REVIEW_PENDING`, nenasazený.
-Přímý řízený produktový test prošel; nezávislé review, sloučený běh a fyzická
-ověření zůstávají otevřená.
+Přímý řízený produktový test prošel. Nezávislé review commitu `e42b1507`
+vrátilo `CHANGES_REQUIRED` kvůli nedoloženému původu fixture; tato oprava
+čeká na opakované review. Sloučený běh a fyzická ověření zůstávají otevřená.
 
 **Autorita a vstup:** operátor 2026-10-01 výslovně požádal o skutečný M1
 HTTP/SQLite průchod specialisty Sázení. `PRODUCT.md` §2 požaduje specialistu
@@ -26,7 +27,8 @@ Test spouští vlastní `src/server.js` nad privátní SQLite. Přes HTTP ověř
 seznam, výběr `sazeni`, konverzace v oddělených projektech, `POST /api/chat`,
 session a trvale uložené zprávy. Testovací child má přes `--import` explicitní
 hostem vlastněný transport; přesměruje jen deklarované veřejné URL na dva
-zachycené zápasy a deterministickou syntetickou historii. Testovací most
+zápasy z kurátorsky sestavené fixture s neověřeným původem a deterministickou
+syntetickou historii. Testovací most
 vyžaduje soukromý test runtime, v produkčním režimu je odmítnutý. Nečekaná
 externí adresa selže.
 
@@ -61,8 +63,13 @@ produkční režim most odmítá. Pozdější zelený test kontroluje přesné d
 zdrojové identifikátory a ceny v privátní DB; fyzický externí read se v něm
 neprovádí.
 
-Zachycená nabídka pochází z 2026-09-12 a její čas zápasů je pro test
-deterministicky posunut. Kandidát neověřuje skutečné dnešní kurzy, kalibraci
+Fixture nese historické tvrzení o zdrojích z 2026-09-12, ale surové soubory
+`E0.json` a `markets-batch.json` se při revizi `e42b1507` nenašly. Je to
+**curated fixture, origin unverified**: její pole `unverifiedSourceClaims`
+uchovává údaje k dohledání, nikoli důkaz zachycené autentické veřejné nabídky.
+Čas zápasů je pro test deterministicky posunut. `verifiedObservation=true`
+ověřuje pouze pozorování odpovědi testovacího transportu, ne původ fixture
+ani aktuální veřejný kurz. Kandidát neověřuje skutečné dnešní kurzy, kalibraci
 modelu, přijetí sázky, fyzické UI ani mobilního klienta. Registrovaná sada
 `IS-T3-TESTS-CHAT-SAZENI-HTTP-JOURNEY-TEST` a lokální zelené běhy nejsou
 release přejímka.
@@ -75,3 +82,8 @@ se `sourceRevision=16e36176` a `gateEvidence:false`. Dokumentační kontrola
 **12/12**, registr obsahuje **578** programů a fingerprint
 `7e4070d0a62961d25ed159dc1910edd28d37579d19d0c6633f94693fb70ca99d`.
 Tento bod není nezávislé přijetí kandidáta.
+
+**Review checkpoint `e42b1507`:** `CHANGES_REQUIRED` pouze pro chybějící
+důkaz historického původu fixture; produktová cesta a testové orákulum v této
+revizi neměly další blokující nález. Oprava mění jen kvalifikaci a metadata
+fixture, nikoli její nabídku, kurzy, produktové chování či testové aserce.

@@ -1,5 +1,5 @@
 // Loaded only in the owned M1 product child, before outbound-policy captures
-// fetch. Public provider URLs receive captured fixture bytes; every other
+// fetch. Public provider URLs receive curated fixture bytes (origin unverified); every other
 // external URL fails closed. No production entry point imports this module.
 import { appendFileSync, readFileSync } from 'node:fs';
 import path from 'node:path';

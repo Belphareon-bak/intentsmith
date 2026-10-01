@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-// Actual M1 HTTP/SQLite journey. The owned product child sees captured public
-// offer bytes through a preload and cannot reach external hosts.
+// Actual M1 HTTP/SQLite journey. The owned product child sees curated offer
+// fixture bytes (origin unverified) through a preload and cannot reach external hosts.
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';

@@ -16014,7 +16014,7 @@
       ],
       "capabilityId": "C3-013",
       "tier": "T3",
-      "fixture": "owned-product-server-private-betting-sqlite-and-captured-public-offer",
+      "fixture": "owned-product-server-private-betting-sqlite-and-curated-offer-fixture",
       "profile": "server",
       "timeoutMs": 180000,
       "expectedDurationMs": 15000,

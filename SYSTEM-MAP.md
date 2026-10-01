@@ -654,7 +654,7 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
 
 Aktuální registry fingerprint je
-`7e4070d0a62961d25ed159dc1910edd28d37579d19d0c6633f94693fb70ca99d`.
+`9dde8588091b977e5ee06f30fe54e2d9752cb7aea0d431ccf6c62d2c5595930e`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 
