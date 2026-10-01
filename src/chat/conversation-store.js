@@ -428,7 +428,7 @@ export class ConversationStore {
     })) };
   }
 
-  /** Retrieve complete original user evidence when a lossy summary is insufficient.
+  /** Retrieve original user evidence when a lossy summary is insufficient.
    * Relevance affects only which quoted data is shown, never an action or value.
    */
   getArchivedUserEvidence(conversationId, input, maxBytes = 1200) {
@@ -436,10 +436,11 @@ export class ConversationStore {
     const summary = this.getSummary(conversationId);
     if (!summary?.upToMsgId) return { sources: [], omitted: false };
     const projectId = this.getConversation(conversationId)?.project_id ?? null;
+    const sourceBytes = Math.min(512, maxBytes);
     const rows = this.#db
-      ? this.#db.db.prepare(`SELECT id, CASE WHEN length(content) <= ? THEN content ELSE NULL END AS content, metadata FROM messages
+      ? this.#db.db.prepare(`SELECT id, substr(content, 1, ?) AS content, length(content) > ? AS truncated, metadata FROM messages
           WHERE conversation_id = ? AND role = 'user' AND id <= ?
-          ORDER BY id ASC LIMIT 1000`).all(maxBytes, conversationId, summary.upToMsgId)
+          ORDER BY id ASC LIMIT 1000`).all(sourceBytes, sourceBytes, conversationId, summary.upToMsgId)
       : this._memMessages.filter(row => row.conversation_id === conversationId
         && row.role === 'user' && row.id <= summary.upToMsgId).slice(0, 1000);
     const searchWords = text => new Set(String(text).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
@@ -448,17 +449,28 @@ export class ConversationStore {
     const ranked = rows.flatMap(row => {
       const metadata = this.#parseMetadata(row.metadata);
       if (!metadata || !Object.hasOwn(metadata, 'projectId') || metadata.projectId !== projectId) return [];
-      if (typeof row.content !== 'string' || row.content.length > maxBytes) return [];
-      const words = searchWords(row.content);
+      if (typeof row.content !== 'string') return [];
+      // Complete short messages; exact bounded prefixes for long messages.
+      // Never discard an entire long correction or claim its excerpt is complete.
+      let prefix = row.content.slice(0, sourceBytes);
+      if (/[\uD800-\uDBFF]$/u.test(prefix)) prefix = prefix.slice(0, -1);
+      const buffer = Buffer.from(prefix, 'utf8');
+      let end = Math.min(buffer.length, sourceBytes);
+      while (end > 0 && end < buffer.length && (buffer[end] & 0xc0) === 0x80) end--;
+      const content = buffer.subarray(0, end).toString('utf8');
+      const contentTruncated = row.truncated === 1 || row.content.length > prefix.length || buffer.length > end;
+      const words = searchWords(content);
       const score = [...terms].filter(term => words.has(term)).length;
-      return score ? [{ messageId: row.id, role: 'user', projectId, content: row.content, score }] : [];
+      return score ? [{ messageId: row.id, role: 'user', projectId, content,
+        ...(contentTruncated ? { contentTruncated: true } : {}), score }] : [];
     }).sort((a, b) => b.score - a.score || b.messageId - a.messageId);
     const sources = [];
-    let bytes = 0, omitted = rows.length === 1000 || rows.some(row => typeof row.content !== 'string' || row.content.length > maxBytes);
+    let bytes = 0, omitted = rows.length === 1000;
     for (const { score, ...source } of ranked) {
       const size = Buffer.byteLength(JSON.stringify(source), 'utf8') + 1;
       if (sources.length === 3 || bytes + size > maxBytes) { omitted = true; continue; }
       sources.push(source); bytes += size;
+      if (source.contentTruncated) omitted = true;
     }
     return { sources: sources.sort((a, b) => a.messageId - b.messageId), omitted };
   }

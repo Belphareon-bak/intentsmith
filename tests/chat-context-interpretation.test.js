@@ -177,7 +177,7 @@ test('interpretation never shortens the current request and excludes foreign pro
   assert(JSON.stringify(context).includes('Lípa'));
 });
 
-test('archived original user facts survive lossy summaries and never borrow foreign scope or assistant claims', () => {
+test('archived original user facts survive lossy summaries and never borrow foreign scope or assistant claims', async () => {
   const store = new ConversationStore(null);
   const id = 'archived-original-facts';
   store.ensureConversation(id, { projectId: 1 });
@@ -185,11 +185,27 @@ test('archived original user facts survive lossy summaries and never borrow fore
   const first = store.appendTurn(id, TurnRole.USER, original, { projectId: 1 });
   store.appendTurn(id, TurnRole.USER, 'První krok FOREIGN_PRIVATE_CANARY', { projectId: 2 });
   store.appendTurn(id, TurnRole.ASSISTANT, 'První krok je neověřený výmysl.', { projectId: 1 });
-  const last = store.appendTurn(id, TurnRole.USER, 'Oprava: název je Javor, první krok zůstává.', { projectId: 1 });
+  const correction = 'Oprava: název je Javor, první krok zůstává. ' + 'Dlouhý neutrální podklad. '.repeat(100);
+  const last = store.appendTurn(id, TurnRole.USER, correction, { projectId: 1 });
   store.setSummary(id, 'Nepřesný souhrn ztratil první krok.', last.id);
   const evidence = store.getArchivedUserEvidence(id, 'Jaký název a první krok platí?');
   assert(evidence.sources.some(source => source.messageId === first.id && source.content === original));
   assert(evidence.sources.some(source => source.messageId === last.id && source.content.includes('Javor')));
+  const excerpt = evidence.sources.find(source => source.messageId === last.id);
+  assert.equal(excerpt.contentTruncated, true);
+  assert(correction.startsWith(excerpt.content));
+  assert(Buffer.byteLength(excerpt.content, 'utf8') <= 512);
+  assert.equal(evidence.omitted, true);
+  const db = (await import('../src/db/database.js')).default;
+  const durable = new ConversationStore(db), durableId = id + '-sqlite';
+  durable.ensureConversation(durableId);
+  const durableFirst = durable.appendTurn(durableId, TurnRole.USER, original, { projectId: null });
+  const durableLast = durable.appendTurn(durableId, TurnRole.USER, correction, { projectId: null });
+  durable.setSummary(durableId, 'Nepřesný souhrn ztratil první krok.', durableLast.id);
+  const durableEvidence = durable.getArchivedUserEvidence(durableId, 'Jaký název a první krok platí?');
+  assert(durableEvidence.sources.some(source => source.messageId === durableFirst.id && source.content === original));
+  assert.deepEqual(durableEvidence.sources.map(({ messageId, projectId, ...source }) => source),
+    evidence.sources.map(({ messageId, projectId, ...source }) => source));
   assert(!JSON.stringify(evidence).includes('FOREIGN_PRIVATE_CANARY'));
   assert(!JSON.stringify(evidence).includes('výmysl'));
   const interpretation = buildInterpretationContext('Jaký byl první krok?', {
