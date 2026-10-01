@@ -1,6 +1,30 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
-## Checkpoint 1. 10. 2026, 18:53 UTC — rejection review přijatý, GPU V7 čeká na GO
+## Checkpoint 1. 10. 2026, 19:09 UTC — GPU V7 actual i export přijaté
+
+Jediný actual V7 18:55:11.326–18:55:41.123 UTC /exit0 má
+QUALIFIED_PHYSICAL_REVIEW_PASS, SHA
+`707b686ddac2b6e8f0d95e37ed541e8e6799c67927ecb483e114611b4e5951bc`.
+Sedm pointer akcí, 14 modelů /84 applicable eval /7 rolí /76 kandidátů,
+98 null scores, canonical24GiB a private Hunt503 nezávisle ověřeny.
+14 DB tabulek nula, finální namespace `after=[]`, nonce ACK, normalexit0
+a oba relay drain nula. Raw359 souborů /20,698,831 B zachováno; V5/V6
+whole FAIL zůstávají. Inference/forwarded writes nula, inner startup
+POSTshow denied1. Scope readonly UI/metadat/kapacity; installedHunt,
+grader/modelquality, CHAT, mobil a release nepřijaté.
+
+[Archiv V7](../../materials/ide2-hunt-readonly-dom-v7-20261001/README.md)
+má19 přesných MJS /105,388 B; source-only export/privacy REVIEW_PASS,
+SHA `16193bf96ae2d1a151f5005395633b936273f3d9e65e82a0d338370ac7aca904`.
+Dokumentační c106 má [vlastníCI13 SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36910252264).
+Aktuální report je [WORK-PROGRESS.md](../WORK-PROGRESS.md).
+
+[CODE context WP](../wp/WP-CODE-PEER-CONTEXT-BUDGET-20261001.md) je DRAFT,
+implementace/testy NOT_RUN. Nový cleanup návrh má jen tři nepodmíněně
+uvolněné vlastní refs, čtvrtá BC HOLD_CONDITIONAL; restore simulace PASS,
+skutečné mazání dosud NOT_RUN. Starý čtyř-ref návrh se neprovede.
+
+## Historický checkpoint 1. 10. 2026, 18:53 UTC — rejection review přijatý, GPU V7 čeká na GO
 
 [WORK-PROGRESS.md](../WORK-PROGRESS.md) je hlavní průběžný report. Poslední
 push `61bc486f` má vlastní [CI 13 kroků SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36907138041).

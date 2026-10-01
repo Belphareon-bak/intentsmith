@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 1,
+  "status": "ARCHIVAL_SOURCE_ONLY",
+  "createdUtc": "2026-10-01T19:01:40.707842+00:00",
+  "originalPacketManifestSha256": "8de45d3c69db8c4485c34649fa5665d9fdf2f25b3dddb12ed7cd228e7de1f287",
+  "configSha256NotBundled": "80e87dd31b09f079fa2c21772b4727220a93d6c49a679a0d36382ca595350940",
+  "sourceReviewSha256": "e52ea593bbe89cf57272f4760b6465729adb5df461d3cabb3acf9b936c31f09a",
+  "physicalReviewSha256": "707b686ddac2b6e8f0d95e37ed541e8e6799c67927ecb483e114611b4e5951bc",
+  "physicalStatus": "QUALIFIED_PHYSICAL_REVIEW_PASS",
+  "physicalResultSha256": "eb489b568e305e5cecd1ca15c76123e0bf38f55526f6883a31812846879a69c2",
+  "physicalHostResultSha256": "969f5fd3c1bdaf91468191d9050ed9180481610d8b3e35b4839417027e716a79",
+  "physicalUtc": {
+    "started": "2026-10-01T18:55:11.326Z",
+    "ended": "2026-10-01T18:55:41.123Z"
+  },
+  "sourcePins": {
+    "backend": "34cfc198ed09cd9094ac0f1ed264daf29c33f1f5",
+    "stage": "483fb2d957ed20d48dbf508c82837b7d1824176f",
+    "package": "45caf5b54b78def257221ac2ab33a64031800813",
+    "appImageSha256": "40b016d0316d12aabcb55270d561de89a8058dbd7f21d597718907eee58aed57"
+  },
+  "scope": "Actual packaged pointer UI, GET-only provider metadata, GPU capacity, private fresh DB absence, strict namespace cleanup; no model inference or installed Hunt grading acceptance",
+  "excluded": [
+    "CONFIG.json",
+    "private DB",
+    "raw API/provider responses",
+    "runtime logs",
+    "screenshots",
+    "Xauthority/cookie",
+    "CPU/runtime observation packets",
+    "original private packet manifest"
+  ],
+  "priorWholeFailures": "V3/V4/V5/V6 preserved, not reclassified",
+  "files": [
+    {
+      "path": "cleanup-boundary.mjs",
+      "bytes": 1724,
+      "sha256": "5087d314b3e9ff55a36436c42fb9c205244aec058a54cb05e05b7862b53a593c",
+      "originalMode": "0o600",
+      "publicMode": "0o644"
+    },
+    {
+      "path": "cleanup-controls.mjs",
+      "bytes": 6144,
+      "sha256": "638fd9c2d426311e93f39585dc0eba0f63402e894f87a07989da5bb493d65be6",
+      "originalMode": "0o600",
+      "publicMode": "0o644"
+    },
+    {
+      "path": "common.mjs",
+      "bytes": 2607,
+      "sha256": "979ba850a866ea6732b9e1d060085de28db032138974e45144c54ec8c86f0f70",
+      "originalMode": "0o600",
+      "publicMode": "0o644"
+    },
+    {
+      "path": "dom-controls.mjs",
+      "bytes": 11533,
+      "sha256": "65e2db43561023d3d5ae9930ef2c904d5042bd27a4d3f17de896e85b8e9ce545",
+      "originalMode": "0o600",
+      "publicMode": "0o644"
+    },
+    {
+      "path": "dom-target.mjs",
+      "bytes": 4159,
+      "sha256": "d86151acb2090e32ac1138a15efa45d291659622129886bde6da5fceffd07338",
+      "originalMode": "0o600",
+      "publicMode": "0o644"
+    },
+    {
+      "path": "gpu-capture.mjs",
+      "bytes": 1086,
+      "sha256": "2c4d5c9078ff02ad21c9a984b777cf5f3787d7941e03acea56e7da630dedbd21",
+      "originalMode": "0o600",
+      "publicMode": "0o644"
+    },
+    {
+      "path": "host.mjs",
+      "bytes": 13710,
+      "sha256": "064a6a929d3f00b56a19ec7c913c21613b955285f653a22501410fe2d1cea5f2",
+      "originalMode": "0o600",
+      "publicMode": "0o644"
+    },
+    {
+      "path": "namespace-controls.mjs",
+      "bytes": 5501,
+      "sha256": "68e895e41f6a6f70c5de68bd5222cedec5d136e8d4d53e0c044e4d457fdb4af9",
+      "originalMode": "0o600",
+      "publicMode": "0o644"
+    },
+    {
+      "path": "namespace-fixture.mjs",
+      "bytes": 1891,
+      "sha256": "7c4198f03b0bc06ee98133581641e28e92fd45e14c0e709eb297c0b5b8e79cd9",
+      "originalMode": "0o600",
+      "publicMode": "0o644"
+    },
+    {
+      "path": "namespace-init.mjs",
+      "bytes": 3413,
+      "sha256": "d9692214fe85d537fb73969f76e0d069b0a9c4792145b2ac0e432870ebbadf31",
+      "originalMode": "0o600",
+      "publicMode": "0o644"
+    },
+    {
+      "path": "namespace-proc-controls.mjs",
+      "bytes": 3475,
+      "sha256": "e08606b5c7b20741098bf5e4fa0ffebd5a479cc5533fd85c69fb20c55edbcdaf",
+      "originalMode": "0o600",
+      "publicMode": "0o644"
+    },
+    {
+      "path": "namespace-proc-fixture.mjs",
+      "bytes": 3533,
+      "sha256": "12dea5d3564a71d2554228950ebfe9af2bf53ecd4e1e06aa93ec8a325fd0c34d",
+      "originalMode": "0o600",
+      "publicMode": "0o644"
+    },
+    {
+      "path": "network-control-fixture.mjs",
+      "bytes": 2031,
+      "sha256": "78afe59164ee7076752c88be8982965e7b8b087318e21bb7dddac078f5fa2c8f",
+      "originalMode": "0o600",
+      "publicMode": "0o644"
+    },
+    {
+      "path": "network-controls.mjs",
+      "bytes": 3007,
+      "sha256": "b6802df6d65fb267a401c76a00b89361c9359702f062a49e76caad259bd2e0e7",
+      "originalMode": "0o600",
+      "publicMode": "0o644"
+    },
+    {
+      "path": "network-view.mjs",
+      "bytes": 2413,
+      "sha256": "db98f0b7442f70f63dcc7fb92280c0cd2f265381d2bba2120bc298695048c511",
+      "originalMode": "0o600",
+      "publicMode": "0o644"
+    },
+    {
+      "path": "package-members.mjs",
+      "bytes": 3171,
+      "sha256": "2ab938ab6fec94d79c731a1d59816cfe11a4ee70bb1adb84007d029ab6516704",
+      "originalMode": "0o600",
+      "publicMode": "0o644"
+    },
+    {
+      "path": "pid-namespace-supervisor.mjs",
+      "bytes": 6486,
+      "sha256": "75a1b9de732b07d7d93499887797c8bef682734f8a9d50dd0ac32cd7a4d53b3f",
+      "originalMode": "0o600",
+      "publicMode": "0o644"
+    },
+    {
+      "path": "probe.mjs",
+      "bytes": 26403,
+      "sha256": "c0a3abc01354949b4d12a230a0c7856517e1e67bd3d04a916d85cd58076994a4",
+      "originalMode": "0o600",
+      "publicMode": "0o644"
+    },
+    {
+      "path": "relay-owned.mjs",
+      "bytes": 3101,
+      "sha256": "b965e1b2f2f1a07fd72a41041d60bafed1c10164a55a66fa8e4a310f07f5654f",
+      "originalMode": "0o600",
+      "publicMode": "0o644"
+    }
+  ],
+  "sourceCount": 19,
+  "sourceBytes": 105388,
+  "newRuntimeExecutionsForExport": 0
+}

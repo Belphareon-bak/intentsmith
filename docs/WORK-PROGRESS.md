@@ -1,6 +1,6 @@
 # IntentSmith — průběžný report dokončování
 
-**Aktualizováno:** 1. 10. 2026, 18:53 UTC / 20:53 CEST.
+**Aktualizováno:** 1. 10. 2026, 19:09 UTC / 21:09 CEST.
 **Vlastník:** ROOT. CHAT řeší jiný worker, od posledního zadání jej ROOT neupravuje.
 **Publikace:** `work/real-chat-journeys-20260930`; průběžný report se aktualizuje
 po každém milníku, nejpozději po třech hodinách během aktivní práce. Operátor
@@ -13,7 +13,7 @@ IDE/backend mají přijaté dílčí funkční důkazy, celý release není při
 Tři malé skutečné CODE projekty fungují v doloženém rozsahu; SQLite modelové
 kvalifikace zatím neprošly celým kontraktem. M2 oprava failed návrhu je
 implementovaná a zdrojově přijatá; skutečná aplikace zůstává FAIL.
-Probíhá ověření skutečného zobrazení GPU/modelových hodnot v IDE.
+Skutečné zobrazení GPU/modelových hodnot v IDE má přijatý V7 průchod.
 Hunt stále čeká na úplné přijaté hodnocení. Mobilní zařízení přijdou po
 stabilním IDE/BE, podle zadání operátora.
 
@@ -28,11 +28,12 @@ stabilním IDE/BE, podle zadání operátora.
 | SQLite Qwen3.6 | Čtyři úplné generace; pátý prompt 9468B >8736B, odmítnut před voláním; 0 M2 operací/efektů/zpráv; review důkazů PASS | Jednotlivý scénář není kvalifikovaný; kontextové limity zachované |
 | M2 failed-plan revize | Source `a27e4470`:66/66 autorských CPU, source REVIEW_PASS, registered9/9 a CI13/13. Actual8/8 pinned generací, jedna revize, šest přesných retained modulů; nezávislý failure evidence review PASS | APPLICATION_PHYSICAL_FAIL: transaction callback rozhraní; žádný commit, dva7-path rollbacky, úspěšný restart/replay nedosažen |
 | SQLite callback kontrakt | Source `f557`: 5/5 cílených CPU, SOURCE_REVIEW_PASS, registered 9/9 a CI 13/13. Actual: čtyři generace, pátý prompt 8811 B >8736 B odmítnut před voláním; REJECTION_EVIDENCE_REVIEW_PASS | APPLICATION_FAIL; callback v běžící aplikaci nedosažen. Řešit objem kontextu, neopakovat kandidáta; první overflow 44 PASS /22 FAIL zachovaný |
-| GPU/modely v packaged IDE | V5 i V6: nezávisle ověřených 7 pointer kliků, 14 modelů /84 eval /7 rolí /76 kandidátů, 98 null scores, 24 GiB a očekávaný Hunt 503; žádná inference ani forwarded writes | Celé V5/V6 zůstávají FAIL. V6 splnila přísný finální prázdný namespace, ale parser odmítl řídicí procesy. V7: skutečný Linux CPU 4/4, cleanup 32/32, DOM fixtures 13/13 a syntax 19/19; nezávislé GO a actual čekají |
+| GPU/modely v packaged IDE | V7 QUALIFIED_PHYSICAL_REVIEW_PASS: 7 pointer kliků, 14 modelů /84 eval /7 rolí /76 kandidátů, 98 null scores, 24 GiB a očekávaný Hunt 503; inference/forwarded writes 0, přísný finální namespace prázdný | Přijetí readonly UI/metadat a kapacity. Instalovaný Hunt, přijatý grader, kvalita modelů a release netestované; starší V5/V6 whole FAIL zachované |
 | Hunt hodnocení | Strukturální čtení 18:34 UTC nezměněné: 596/1173 odpovědí, 2324/3689 kritérií; stejný report jako 13:31 a 17:21 | Přijatý grader chybí, zbývá 577 odpovědí /1365 kritérií; NO_DECISION /NO_GO. Proč se publikované výsledky neposunuly, je UNKNOWN |
 | HTTP projekty | Předem připravený omezený návrh testu | Rozhodnutí o novém M2 síťovém oprávnění; HTTP_NOT_RUN |
 | Mobil | Auditovaný handoff, historických47 host testů a přijaté VPN/TLS rozhodnutí | Fyzická matice13+7 NOT_RUN, skutečné zařízení/VPN a integrační mezery |
-| Cleanup | Nezávisle připravené čtyři vlastní nepřipojené lokální refs, exact remote evidence tags a restore transakce | Poslední fresh preflight a atomic CAS; žádné mazání dosud neprovedeno, worktree removal HOLD |
+| CODE peer kontext | Připravený DRAFT s přesnou reprodukcí 8811/8736 B a porovnáním tří řešení; doporučený explicitní verzovaný kontext rozhraní | IMPLEMENTATION_NOT_STARTED /TESTS_NOT_RUN; parser containment a podporované JS tvary DESIGN_OPEN |
+| Cleanup | Fresh 216 branches /71 worktrees, exact remote evidence tags; návrh zúžen na tři nepodmíněně uvolněné vlastní refs. Obnova v odděleném bare repo PASS včetně ochrany znovu použitého jména | Nové nezávislé GO tří-ref transakce čeká; žádné skutečné mazání. BC větev HOLD_CONDITIONAL, veškeré worktree removal HOLD |
 
 ## Publikované a uchované materiály
 
@@ -54,6 +55,11 @@ stabilním IDE/BE, podle zadání operátora.
 - Dokumentační checkpoint `61bc486f` je pushnutý a má vlastní
   [CI SUCCESS, 13 kroků](https://github.com/Belphareon-bak/intentsmith/actions/runs/36907138041).
   Jeho dokumentační změny nepřebírají actual kvalifikaci source `f557`.
+- Následný report `c106e34a` má ověřený remote a vlastní
+  [CI SUCCESS, 13 kroků](https://github.com/Belphareon-bak/intentsmith/actions/runs/36910252264).
+  Nový [archiv V7 zdrojů](../materials/ide2-hunt-readonly-dom-v7-20261001/README.md)
+  obsahuje 19 přesných MJS souborů /105,388 B a má samostatný export
+  REVIEW_PASS, SHA `16193bf96ae2d1a151f5005395633b936273f3d9e65e82a0d338370ac7aca904`.
 - Dokumentační `79b201c8` má vlastní [CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36891027839).
   Source34 má [samostatné CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36888388296).
   Dokumentační commity nepřebírají fyzickou kvalifikaci jiného SHA.
@@ -166,8 +172,30 @@ namespace prázdný; vnější vlastní sentinel zůstal nedotčený. Autorské 
 stavy/čtení nadále FAIL, přísný finální cleanup a všechny provider/DOM
 guardy zachované. Manifest V7
 `8de45d3c69db8c4485c34649fa5665d9fdf2f25b3dddb12ed7cd228e7de1f287`.
-Nezávislé source GO a nový actual jsou **PENDING /NOT_RUN**; CPU test
-není přijetí GPU UI, scoringu nebo release.
+Následné source GO a actual jsou doložené níže; CPU samotné se za
+přijetí GPU UI, scoringu nebo release nevydává.
+
+## Poslední milník — GPU V7 actual nezávisle přijatý
+
+Jeden běh 18:55:11.326–18:55:41.123 UTC, exit0, má
+**QUALIFIED_PHYSICAL_REVIEW_PASS**, review SHA
+`707b686ddac2b6e8f0d95e37ed541e8e6799c67927ecb483e114611b4e5951bc`.
+Source GO SHA `e52ea593bbe89cf57272f4760b6465729adb5df461d3cabb3acf9b936c31f09a`.
+Review ověřil všech sedm pointer hit-test akcí, metadata a převody modelů,
+absence známek, role/kandidáty, canonical GPU kapacitu a private Hunt503.
+Čtrnáct sledovaných DB tabulek má nulu, quick_check/FK bez chyby.
+Všech 359 raw souborů /20,698,831 B zachováno. Vlastní namespace je finálně
+prázdný, child/init exit0, nonce ACK a oba relay drain nula, source clean.
+Tři průběžné Z procesy jsou zachované v důkazech a odstraněné init teardown.
+
+Raw RESULT SHA `eb489b568e305e5cecd1ca15c76123e0bf38f55526f6883a31812846879a69c2`,
+HOST SHA `969f5fd3c1bdaf91468191d9050ed9180481610d8b3e35b4839417027e716a79`.
+Host provedl16 GET metadat, inference/forwarded writes0; startup inner
+POSTshow odmítnutý předhostem. Přijetí neověřuje instalovaný Hunt,
+produkční scoring, inference readiness, CHAT, mobil ani celý release.
+Veřejný source-only export má samostatný REVIEW_PASS soukromí/přesných
+bajtů, SHA `16193bf96ae2d1a151f5005395633b936273f3d9e65e82a0d338370ac7aca904`.
+Všech 21 exportovaných souborů ověřeno, žádný nový runtime při publikaci.
 
 Fresh Hunt audit 18:34 UTC má report SHA
 `22f46b6bf7dc3d8e285e9f85c3930e47933ba4c45f0b09fd597f957bd34c608e`;
@@ -183,16 +211,18 @@ Private fresh DB bez přijatých známek neověřuje produkční scoring.
 
 ## Nejbližší pořadí práce
 
-1. Uzavřít nezávislé GO V7, jeden GPU UI actual a jeho review; poté
-   zveřejnit přijaté zdroje sondy bez privátních runtime dat.
-2. Vymezit obecné řešení objemu CODE kontextu; žádné opakování, ruční
-   změny actual výstupů či zvýšení budgetu tohoto frozen WP.
+1. Pushnout přijatý source-only export V7 s aktuálním reportem a ověřit
+   přesný remote a vlastní CI; skutečný readonly průchod je přijatý.
+2. Uzavřít design [CODE peer kontextu](wp/WP-CODE-PEER-CONTEXT-BUDGET-20261001.md)
+   před implementací. DRAFT porovnává pevné output limity, verzované peer
+   rozhraní a přesný tokenizer; žádné opakování ani změny frozen budgetu.
 3. [Callback kontrakt](wp/WP-SQLITE-TRANSACTION-CALLBACK-CONTRACT-20261001.md)
    má uzavřený rejection review; funkční aplikace zůstává nepřijatá.
 4. Obecný [M2 AST scanner](wp/WP-M2-AST-IMPORT-SCANNER-20261001.md) má
    bounded návrh; TS grammar/ABI a parser resource containment jsou otevřené.
-5. Nakonec provést schválený omezený cleanup vlastních refs s restore důkazem.
-   Remote/UNKNOWN refs, cizí procesy a protected evidence se nemažou.
+5. Nakonec uzavřít nové GO a provést omezený cleanup tří vlastních refs
+   s restore důkazem. BC podmínka není splněná; žádné physical WT removal.
+   Remote/UNKNOWN refs, cizí procesy a protected evidence se zachovávají.
 
 Podrobnosti a historická chronologie:
 [completion tracker](review/2026-09-30-COMPLETION-TRACKER.md),

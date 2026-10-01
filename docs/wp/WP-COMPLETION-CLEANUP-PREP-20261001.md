@@ -4,7 +4,31 @@
 **Stav:** `PRIVATE_ARCHIVE_REVIEW_PASS / HOLD_DELETION`; žádné mazání
 ani změna cizích refs/worktrees neproběhla. Vlastník inventury `/root/full405_diagnosis`.
 
-## Poslední připravená ref transakce — aktuální vlastní scope
+## Aktuální návrh — pouze tři nepodmíněně uvolněné refs
+
+Nová ROOT kontrola 19:00 UTC našla rozpor mezi starším public textem a
+durable preflight review: BC `work/project-app-acceptance-20261001` má
+**CONDITIONAL** uvolnění po přijaté a publikované SQLite náhradě.
+SQLite application FAIL a přijatý důkaz odmítnutí tuto podmínku nesplňují.
+Pozdější nepodmíněné uvolnění nebylo v bounded důkazech nalezené.
+Tato větev zůstává **HOLD_CONDITIONAL**; stará čtyř-delete transakce se neprovede.
+
+Fresh 216 lokálních branches /71 worktrees; všechny čtyři evidence tags
+mají přesné local/remote annotated objects i peeled commits, všechny čtyři
+staré branch refs bez worktree association. Nový návrh atomicky odstraní
+pouze e6e9/ce2/153 s expected SHA a ověřením všech čtyř evidence tagů.
+PREFLIGHT SHA `4934567f5718a53e10136b8b8ad1ba1b61c600d84de16a477335967c598c9293`.
+
+Obnova je připravená přes tři `create` pouze do volných jmen. V odděleném
+vlastním bare repo byla skutečně ověřená delete3→restore3 přesných tips;
+jedno znovu použité jméno odmítne celou restore transakci a ostatní dvě
+zůstanou nepřítomné. Sdílené refs/worktree metadata před/po stejné, žádné
+skutečné mazání. Receipt SHA
+`7cd12a915286e8bb9b6e8df215940cd26b5d3e3b43cba8dfb929148918b7cd6e`.
+Nové nezávislé GO čeká. Očekávaný počet je213 branches /71 worktrees
+pouze při nezměněném okolním inventáři. Fyzické worktree removal HOLD.
+
+## Historická čtyř-ref transakce — nepoužít, podmínka BC nesplněná
 
 Read-only preflight na clean `a3d6e61d` potvrdil **216 lokálních branches /
 71 worktrees**. Všechny čtyři cíle mají přesný očekávaný SHA, 0 worktree
@@ -21,8 +45,10 @@ manifest `100332ce8de3550450da2661d6c9a6124cb08f5ef06d7e82dc4b98d3bc1a3382`.
 | `work/project-app-provider-guards-20261001` | `15337cdeed901c2a8468c16345db31efc2999ea1` | `evidence/project-app-provider-guards-20261001` |
 
 BC není ancestor nové SQLite cherry-pick řady; přesné uchování tagem je
-ověřeno odděleně od patch ekvivalence. Vlastník BC jej nově explicitně uvolnil
-pro ref-only removal po ověření originu; active atomic51 SQL branch/WT zůstávají.
+ověřeno odděleně od patch ekvivalence. Jeho uvolnění bylo podmíněné přijatou
+a publikovanou SQLite náhradou, nikoli pouze ověřením originu. Dřívější text
+tuto podmínku vynechal; oprava výše znamená BC HOLD_CONDITIONAL. Active
+atomic51 SQL branch/WT zůstávají.
 Vlastník 153 uvolnil starý ref po publikaci M3; active M3 branch/WT zůstávají.
 `ded75136` a `51d70e35` jsou navíc zachované vlastními remote evidence tags.
 Kód/profile/kernel se touto transakcí nemění. Před provedením musí ROOT znovu

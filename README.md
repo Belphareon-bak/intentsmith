@@ -4,24 +4,32 @@
 výsledky a otevřené brány](docs/review/2026-09-30-COMPLETION-TRACKER.md).
 [Průběžný pracovní report](docs/WORK-PROGRESS.md) se aktualizuje po milníku,
 nejpozději po třech hodinách aktivní práce.
-Publikovaný zdroj `34cfc198` má GitHub CI SUCCESS a registrovaných
-**9/9 PASS / REVIEW_PASS**. Ledger, TaskFlow a řízený packaged IDE ledger
+Publikovaný callback zdroj `f557fb1a` má GitHub CI SUCCESS a registrovaných
+**9/9 PASS / SOURCE_REVIEW_PASS**. Ledger, TaskFlow a řízený packaged IDE ledger
 mají skutečnou funkční přejímku; jejich
 [přesné generované zdroje](examples/generated-apps/README.md) jsou v Gitu.
 M3 code-review specialista má ověřený skutečný ProjectContext, provenance,
 odmítnutí zastaralého snapshotu a oddělení projektů; jde o deterministická
 pravidla, modelová kvalita expertíz zůstává otevřená.
 [SQLite scénář](docs/wp/WP-PROJECT-SQLITE-CATALOG-FUNCTIONAL-20261001.md)
-má první skutečný funkční PASS se sedmi modelovými generacemi, ale
-**CONTRACT_CHANGES_REQUIRED**: oracle nezachytil zakázaný import v schema.
-Navazující oprava má 62/62 CPU PASS a nezávislé source REVIEW_PASS.
-Skutečné opakování Qwen3.8 skončilo správným odmítnutím a úplným rollbackem:
-APPLICATION_PHYSICAL_FAIL / REJECTION_EVIDENCE_REVIEW_PASS. Stejný zmrazený
-scénář s instalovaným Qwen3.6 čeká na cizí GPU lease. Původní nevyhovující
-důkazy zůstávají uchované.
+zatím nemá přijatou skutečnou aplikaci. Původní funkční PASS následně
+dostal CONTRACT_CHANGES_REQUIRED kvůli mezeře oracle. Opravený oracle
+Qwen3.8 správně odmítl s rollbackem; Qwen3.6 skončil na kontextové bráně.
+Jedna modelová revize `a27e4470` opravila schema dependency, ale aplikace
+selhala na transaction callback. Upřesněný kontrakt `f557fb1a` nedošel za
+čtvrtou generaci: pátý prompt 8811 B >8736 B; REJECTION_EVIDENCE_REVIEW_PASS,
+žádný M2 efekt. Obecné řešení kontextu je otevřené, frozen budgety nezměněné.
+Původní nevyhovující důkazy zůstávají uchované.
+GPU panel V7 má přijatý skutečný readonly průchod: sedm pointer kliků,
+14 modelů, správné size/digest/GiB, nezměřené známky, 24 GiB kapacita a
+úplný namespace cleanup. Instalovaný Hunt ani kvalita scoringu tím přijaty nejsou.
+[Přijaté zdroje GPU sondy](materials/ide2-hunt-readonly-dom-v7-20261001/README.md)
+obsahují 19 přesných MJS souborů bez soukromých runtime dat.
+[Obecné řešení CODE kontextu](docs/wp/WP-CODE-PEER-CONTEXT-BUDGET-20261001.md)
+má připravený DRAFT; implementace a testy zatím NOT_RUN.
 [Skutečné HTTP projekty](docs/wp/WP-M2-PRIVATE-HTTP-QUALIFICATION-PROPOSAL-20261001.md)
 mají připravený návrh změny oprávnění, který čeká na rozhodnutí operátora.
-Hunt posledním strukturálním čtením 13:31 UTC zůstává 596/1173 / NO_GO;
+Hunt posledním strukturálním čtením 18:34 UTC zůstává 596/1173 / NO_GO;
 mobilní 13+7 fyzická matice čeká. CHAT má samostatného workera.
 Celý release není přijatý; čtení backendu 14:02 UTC potvrzuje `c84b88cd`.
 Historické instalace a checkpointy níže zůstávají důkazem svého období.
