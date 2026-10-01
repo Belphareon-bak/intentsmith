@@ -198,6 +198,9 @@ const out = process.env.CHAT_PROBE_OUT || path.join(path.dirname(recordPath), `$
 const self = fileURLToPath(import.meta.url);
 const model='qwen3.5:27b';
 const modelDigest='7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e';
+// Match the ordinary chat's first generation sampling. A remains a diagnostic
+// counterfactual using B's incoming history, not an independent dialog or tool.
+const directOptions={temperature:0.7,top_p:0.75,repeat_penalty:1.1,num_predict:1200,num_ctx:4096};
 const corpusFile = path.resolve(process.env.CHAT_PROBE_CORPUS || arg('--corpus'));
 const definition = JSON.parse(fs.readFileSync(corpusFile, 'utf8'));
 let corpus = definition.cases;
@@ -338,6 +341,7 @@ if(process.argv.includes('--inside')) {
   isolatedEnv:Object.fromEntries(Object.entries(process.env).filter(([key]) => key.startsWith('INTENTSMITH_ENABLE_') || key.startsWith('INTENTSMITH_MODEL_'))),
   memoryPolicy:readChatMemoryPolicy(db.db),corpusSize:corpus.length,
   providerVersion:preflight.provider?.version,
+  directBaseline:{options:directOptions,historySource:'B incoming durable history',tools:false},
  };
  if (typeof effectiveConfiguration.providerVersion !== 'string') throw new Error('Provider version missing from preflight');
  const configurationFingerprint=createHash('sha256').update(JSON.stringify(effectiveConfiguration)).digest('hex');
@@ -409,7 +413,7 @@ if(process.argv.includes('--inside')) {
   }
   if(process.env.CHAT_PROBE_NO_DIRECT==='true')continue;
   const messages=[{role:'system',content:'Jsi užitečný český asistent. Odpovídej přirozeně, stručně, podle celé věty a kontextu. Nástroje ani oprávnění nemáš: text a kód můžeš vytvořit, u skutečné operace jasně uveď, co je potřeba. Zachovej výslovná omezení a cíle; ptej se jen na podstatnou nejasnost.'},...context.map(e=>({role:e.response.tag.speaker==='user'?'user':'assistant',content:e.response.content})),{role:'user',content:c.input}];
-  const t=performance.now();const ar=await fetch(process.env.OLLAMA_URL+'/api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({model,messages,stream:false,think:false,options:{temperature:0.1,top_p:0.75,repeat_penalty:1.1,num_predict:1200,num_ctx:4096}}),signal:AbortSignal.timeout(180000)});const a=await ar.json();row.A={status:ar.status,result:a,elapsedMs:performance.now()-t};save('initial-results.json',rows);
+  const t=performance.now();const ar=await fetch(process.env.OLLAMA_URL+'/api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({model,messages,stream:false,think:false,options:directOptions}),signal:AbortSignal.timeout(180000)});const a=await ar.json();row.A={status:ar.status,result:a,elapsedMs:performance.now()-t};save('initial-results.json',rows);
   console.log('CHAT_PROBE '+JSON.stringify({id:c.id,variant:'A',status:ar.status,ms:Math.round(row.A.elapsedMs),content:a.message?.content,error:a.error}));
  }
  process.exit(0);
