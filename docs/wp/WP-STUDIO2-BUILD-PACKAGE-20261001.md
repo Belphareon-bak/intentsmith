@@ -7,7 +7,7 @@ předává další modelové CHAT testy jinému workerovi. Tento WP ověřuje bu
 balíček a dostupné testy rozhraní bez modelové inference.
 
 **Zdroj:** `45caf5b54b78def257221ac2ab33a64031800813`.
-**Stav:** `BUILD_PACKAGE_VERIFIED / NO_MODEL_UI_VERIFIED / PACKAGE_IDENTITY_REVIEW_PASS / REPORT_REVIEW_PENDING / NOT_DEPLOYED`.
+**Stav:** `BUILD_PACKAGE_VERIFIED / NO_MODEL_UI_VERIFIED / PACKAGE_IDENTITY_REVIEW_PASS / REPORT_REVIEW_PASS / NOT_DEPLOYED`.
 
 ## Rozsah a vlastnictví
 

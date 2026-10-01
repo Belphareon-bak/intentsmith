@@ -1,6 +1,58 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
-## Checkpoint 1. 10. 2026, 07:41 UTC — přijatá integrace a skutečný CI FAIL
+## Checkpoint 1. 10. 2026, 08:16 UTC — CHAT předán, IDE a backend
+
+Operátor výslovně předal další CHAT jinému workerovi. Další přirozený
+CHAT, VAT pilot, 53×3 a kontextové inference se v tomto proudu zastavily.
+Oddělený publikovaný `fa3fefe8` na `work/chat-semantic-write-20261001`
+uchovává pouze neověřený návrh instrukcí: **UNREVIEWED_HANDOFF / NOT_RUN**,
+není v integraci. Přijaté zdroje zůstávají v integrační větvi.
+
+GitHub development CI na přesném `45caf5b54b78def257221ac2ab33a64031800813`
+je [PASS, run 36831470700](https://github.com/Belphareon-bak/intentsmith/actions/runs/36831470700).
+Jeho kroky prošly včetně závislostí, registry/ratchet, generated Studio,
+HTTP privacy, Studio adaptéru a source hygiene. Není to release přejímka.
+
+Celý offline/database profil na témže SHA skončil **FAIL: 397 PASS /
+5 FAIL / 3 BLOCKED / 0 TIMEOUT/SKIPPED**. Report
+`2026-10-01T07-43-29-051Z/report.json` zůstává red. Tři selhání byla
+v migračním/documentation inventáři, dva další FAIL jsou předané účetní
+`tests/routing-accuracy.test.js` a `tests/session-context.test.js`.
+Jejich příčina souvisí s významovým VAT výkladem a cross-tool kontextem;
+nejsou tímto proudem opravené ani označené jako PASS. Tři BLOCKED měly
+`toolchain:python-pdf-runtime:invalid-executable-authority`, protože rootův
+první příkaz nenastavil existující PDF interpreter. Žádná brána se nevypíná.
+
+Bounded backend metadata oprava `4bd11302` má nezávislé **REVIEW_PASS** a
+byla integrována do `3bfdb5ea`. Source/registry stromy jsou beze změny,
+M6 přijímá skutečných 108 migrací a odmítá 107/109. Registrované artifact,
+M1 schema a M6 receipt **3/3 PASS**; backend accountant workflow a PDF/DOCX
+s přesným runtime **2/2 PASS**. [Rozsah a zachované chyby](../wp/WP-BACKEND-MIGRATION-EVIDENCE-20261001.md).
+Nový celý profil zůstává **PENDING_RECHECK**, dvě CHAT selhání jsou otevřená.
+
+Skutečný pětiminutový worker na clean45 opět **1/1 PASS**: interval
+300000ms, první změnový run po 300622,895ms, jediná notifikace a přesné
+tři běhy po restartu, nulové inference/nečekané requesty. [Důkazy a meze](../wp/WP-M3-REAL-SCHEDULED-SOAK-20261001.md).
+
+IDE build/package z clean45 prošel Yarn build, Electron dist, celý seal,
+skutečný Studio2 DOM, M2 provider-rejection DOM, SCM9/9, stage13/13 a
+viditelný AppImage startup proti vlastní privátní DB. AppImage digest
+`40b016d0316d12aabcb55270d561de89a8058dbd7f21d597718907eee58aed57`.
+Nezávislé package identity review a root převzetí **REVIEW_PASS**; docs
+commit483fb2d integrovanýedf506d7. [Přesný report](2026-10-01-STUDIO2-BUILD-PACKAGE-45caf5b5.md).
+Release **NOT_ACCEPTED**, produkce beze změny. Úspěšné modelové CODE,
+uživatelská-data stage a mobilní průchody nejsou těmito testy doložené.
+
+Project-app oracle `62e1309f` přímo pozoruje list-copy API ve vlastním
+JS kontextu. Nezávislé funkční re-review celého rozsahu `db601749 → 62e1309f`
+má **REVIEW_PASS**, vlastní běh **11/11 PASS** a druhé statické review
+**PASS**. Předchozí automaticky zastavená revize nevytvořila testový výsledek.
+Živé generování aplikace zůstává **LIVE_NOT_RUN**; integrace a registrace
+obou sad nyní následují. Fresh read-only Hunt z 07:43 stále vykazuje
+596/1173 posudků, 84 použitelných buněk `MISSING`, 0 přejímek a **NO_GO**.
+Žádné nové hodnocení ani aktivace. Mobil a bezpečný cleanup zůstávají poslední.
+
+## Checkpoint 1. 10. 2026, 07:38 UTC — přijatá integrace a skutečný CI FAIL
 
 Společný source `037b8653` obsahuje nezávisle přijaté atomické create-only,
 významový výklad uložení a účetní formátové preference. Kontrola merge

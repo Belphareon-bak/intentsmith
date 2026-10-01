@@ -5,7 +5,8 @@
 **Rozsah:** [WP-STUDIO2-BUILD-PACKAGE](../wp/WP-STUDIO2-BUILD-PACKAGE-20261001.md).
 **Výsledek autora:** `BUILD_PACKAGE_VERIFIED / NO_MODEL_UI_VERIFIED`.
 **Nezávislé BUILD/PACKAGE identity review:** `REVIEW_PASS`.
-**Review reportu a celého milníku:** `REVIEW_PENDING`. **Nasazení:** `NOT_DEPLOYED`.
+**Root review vymezeného BUILD/PACKAGE/NO_MODEL_UI milníku:** `REVIEW_PASS`.
+**Nasazení:** `NOT_DEPLOYED`; release `NOT_ACCEPTED`.
 
 ## Identita a skutečné příkazy
 
@@ -146,3 +147,21 @@ BUILD/PACKAGE identity**. Posudek není přejímka CHATu ani releasu.
 Soukromé logy, DB, balíček a screenshoty zůstávají v ignored artifacts a
 nepatří do pushovaného zdrojového repozitáře. Root obdrží přesné cesty a
 identity. Tracked změny jsou omezené na WP a report.
+
+## Root převzetí
+
+Root přečetl celý report, skutečné exit/result JSON a finální evidence,
+ověřil screenshot bez loading overlay, znovu spustil úplný
+`sha256sum --check SHA256SUMS --quiet` s exit 0 a nezávisle přepočítal
+195 079 898 bajtů AppImage na výše uvedený přesný digest. Manifest hash
+zůstává shodný. Dokumentační commit `483fb2d9` je integrovaný v `edf506d7`;
+žádný source/runtime soubor se při předání nemění.
+
+Rozsah je přijatý jako build a vyjmenované no-model UI/SCM průchody.
+Zmrazený `TEST-RESULTS.json` uvnitř balíčku zachovává historický
+`reportIndependentReview: REVIEW_PENDING`; nynější root receipt je tento
+dokument, balíček se kvůli změně review stavu nepřepisuje. Aktuální source
+integrační větve má navazující M6/documentation změny; tento artefakt je
+nadále přesně z `45caf5b5`, nikoli certifikace každého pozdějšího HEAD.
+Živý CODE projekt, uživatelská data, modelový CHAT, release a nasazení
+zůstávají neprovedené podle předchozího rozsahu.

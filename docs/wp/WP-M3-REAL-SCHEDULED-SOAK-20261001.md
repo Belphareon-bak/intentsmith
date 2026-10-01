@@ -1,5 +1,25 @@
 # WP — M3 worker: skutečný pětiminutový interval
 
+## Aktuální fyzické ověření na publikovaném zdroji
+
+Registrovaný `IS-T5-TESTS-M3-AGENT-REAL-SCHEDULED-SOAK-TEST` na čistém
+`45caf5b54b78def257221ac2ab33a64031800813` 1. 10. 2026 znovu prošel:
+**1/1 PASS**, exit 0, 332 825 ms celého programu. Skutečný interval je
+300 000 ms; změnový run byl poprvé pozorován po 300 622,895 ms.
+Před splatností proběhlo 150 kontrol bez předčasného run/notifikace.
+Přesné tři run ID, jediná notifikace, pracovní revize a digest souboru
+zůstaly po restartu zachované a next_run byl budoucí. Oba vlastní
+backendy i provider skončily čistě; modelové a nečekané requesty **0**.
+
+Soukromý audit `2026-10-01T07-54-14-812Z/report.json`; skutečný worker
+artefakt má SHA-256
+`135548e8e59f2e0e1a12a86d41cab8f80e02a9e708ff4f49c81d7cc446e8ecc7`.
+Stav vymezeného pětiminutového testu: **PHYSICAL_WORKER_PASS**.
+Tento výsledek platí pro source 45, vlastní testovací runtime a jednu
+instanci; nedokládá instalovaný backend, 24 hodin, velkou zátěž ani UI.
+
+## Historická příprava a předchozí review
+
 **Stav 1. 10. 2026:** samostatný testovací kandidát od čistého integračního
 zdroje 365ed33946c7e7aab1564b3e4a5b4a459cf34739. Skutečný pětiminutový
 běh je PENDING_RUN; dokud neskončí, nelze tvrdit PASS ani uzavření této mezery.

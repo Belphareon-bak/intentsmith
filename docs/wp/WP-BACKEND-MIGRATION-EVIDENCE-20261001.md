@@ -4,7 +4,7 @@ Autorita: explicitní zadání operátora dokončit backend a ověřit dokumenta
 přijatý atomický `file.create` s migrací 121 z
 `WP-CHAT-ATOMIC-CREATE-20261001`. Vstup: čistý publikovaný `45caf5b5`, CI PASS.
 Použit stávající vlastní checkout full405-baseline-oracles, bez nového worktree.
-Stav: **IMPLEMENTATION_IN_PROGRESS / REVIEW_PENDING**.
+Stav: **REVIEW_PASS / FOCUSED_GATES_PASS**; celý profil nadále FAIL.
 
 Úplný profil na `45caf5b5` je **FAIL: 397 PASS / 5 FAIL / 3 BLOCKED**,
 privátní `2026-10-01T07-43-29-051Z/report.json`. Tři selhání konkrétně
@@ -60,3 +60,14 @@ počty 591/493 ještě odkazovaly na starý `c1a25dc1` s počty 590/492.
 Referenční source je nyní opravený na `45caf5b5`; stav nové dokumentační
 opravy je **REVIEW_PENDING**. Testové aserce a všechny historické výsledky
 zůstávají beze změny.
+
+Finální nezávislé review `45caf5b5` →
+`4bd11302fa6c9eb4fbbad087b0e53e07cd2ed787` je **REVIEW_PASS**.
+Reviewer skutečným pure validátorem ověřil 108 PASS a 107/109 reject
+`upgrade-receipt:current-migrations`; ověřil přesné pořadí 53 následných
+migrací, 55 skipped a fresh 108/latest121. Source/registry stromy jsou
+bajtově shodné s 45, změna M6 je pouze jediné current count. Re-census
+potvrdil všechny počty a jedinou identity121. Private review:
+`backend-migration-evidence/gate0-review-runtime-receipts-1141.log`.
+Přijatý rozsah je integrován bez konfliktu v `3bfdb5ea`; celý profil
+45 s jeho dvěma předanými CHAT selháními a původní BLOCKED se nepřepisuje.
