@@ -1,5 +1,38 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 1. 10. 2026, 07:41 UTC — přijatá integrace a skutečný CI FAIL
+
+Společný source `037b8653` obsahuje nezávisle přijaté atomické create-only,
+významový výklad uložení a účetní formátové preference. Kontrola merge
+ověřila všechny source blob identity, zachování všech 591 testových sad
+a pouze nový helper exclusion; žádný suite se neodstranil. Společné
+registrované ověření má **22/22 PASS**, report
+`2026-10-01T07-22-06-683Z/report.json`. Celý nový offline/database profil
+a živá přejímka tím nejsou nahrazeny.
+
+Skutečný GitHub Actions run [36828233633](https://github.com/Belphareon-bak/intentsmith/actions/runs/36828233633)
+na publikovaném `1e7c5b4c` skončil **FAIL**: registry validní, devět nových
+importních hran, následující brány SKIPPED. Předchozí prázdný connector
+výsledek nebyl důkazem absence push CI: jeho workflow lookup filtruje
+pull_request event. Aktuální push run byl ověřen přímo v Actions API.
+
+Všech 14 přesných nových hran společného source (devět starších a pět
+semantic save) prošlo architektonickým review. Baseline writer na čistém
+zdroji vydal `7d66c1f7`; nezávislé review **REVIEW_PASS**, přesné členství
+SCC stejné, limity/scanner/gates nezměněné. Root registrované boundary
+ověření **2/2 PASS**. [Původ, rozsah a důkazy](../wp/WP-COMPLETION-CI-BASELINE-20261001.md).
+Nový vzdálený CI výsledek čeká na push tohoto checkpointu.
+
+Doslovné zdroje jsou vybírány modelem podle ID a původní bajty dodává
+jádro. Fyzický devítipřípadový development pilot uchoval šest schválených
+zápisů; jasný překlep a záporná žádost mají stále kvalitativní chyby.
+Finální **53×3 LIVE_NOT_RUN**, druhá fyzická kompakce po restartu čeká.
+VAT modelový development pilot je připravený, zatím NOT_RUN. Kandidát
+funkčního šestisouborového projektu `95c9d211` zůstává **CHANGES_REQUIRED**:
+modelový modul může podvrhnout kompletní probe JSON a M2 chybně commitne.
+Oprava a nový nezávislý průchod pokračují. Instalace, Hunt NO_GO,
+mobilní napojení a poslední úklid zůstávají oddělené otevřené milníky.
+
 ## CI propojení 1. 10. 2026, 06:59 UTC
 
 Přijaté atomické vytvoření a VAT jsou publikované v čistém

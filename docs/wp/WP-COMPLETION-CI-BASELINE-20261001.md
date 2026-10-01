@@ -46,3 +46,14 @@ Baseline diff přidává pouze 14 přijatých párů a aktuální source provena
 žádnou hranu nemaže. Soukromý writer log:
 `ci-baseline-reviewed-14-write.log`. Stav: **CANDIDATE_REVIEW_PENDING**;
 původní vzdálené CI je nadále FAIL, nový běh dosud není doložen.
+
+Nezávislé review přesného `cbf6a24b` → `7d66c1f7` je **REVIEW_PASS**:
+14 přijatých párů, žádná odstraněná hrana, 1478 úplných párů, správná
+source provenance, nezměněný scanner/protocol/limity a totožné členství
+SCC. Změněny pouze baseline a tento WP. Reviewer znovu spustil ratchet
+PASS, modulové testy 13/13 a specialist boundary 12/12, všechny exit 0.
+Soukromé logy `review-baseline-{identity,ratchet,module-tests,specialist-tests}-7d66c1f7.log`.
+Root zopakoval oba registrované programy **2/2 PASS**, report
+`2026-10-01T07-27-25-847Z/report.json`, a samostatný ratchet exit 0.
+Baseline je tím přijatý; nový vzdálený CI výsledek a celý produktový
+profil jsou stále **PENDING_RUN**. Povinný push následuje s ověřením SHA.
