@@ -239,6 +239,39 @@ export function detectFileIntent(input) {
   return { detected: false, filePath: null, reason: null };
 }
 
+// The immediately preceding user turn can name an ordered pair without asking
+// to read either file. Resolve only a new, exact ordinal read instruction from
+// that pair. The prior assistant turn may echo the pair, but cannot introduce
+// a different filename as read authority. Every read still enters M2 approval.
+function resolveImmediateOrderedFileRead(input, history) {
+  if (!/^(?:přečti|precti|otevři|otevri)\s+(?:mi\s+)?ten\s+druh[ýy]\s+soubor[.!?]?$/iu.test(input.trim())
+    || !Array.isArray(history)) return null;
+  const turns = history.filter(turn => !turn?.isSummary && turn?.response?.tag);
+  if (turns.at(-1)?.response?.tag?.speaker === 'user'
+    && turns.at(-1)?.response?.content === input) turns.pop();
+  const assistant = turns.at(-1);
+  const user = turns.at(-2);
+  if (user?.response?.tag?.speaker !== 'user'
+    || assistant?.response?.tag?.speaker !== 'system'
+    || typeof user.response.content !== 'string'
+    || typeof assistant.response.content !== 'string') return null;
+  const source = user.response.content;
+  const extension = '(?:md|txt|json|js|ts|py|html|css|yaml|yml|toml)';
+  const filePattern = new RegExp(`\\b[A-Za-z0-9_-]+\\.${extension}(?![.\\w-])`, 'giu');
+  const files = [...source.matchAll(filePattern)].map(match => match[0]);
+  const orderedPair = source.match(new RegExp(
+    `(?:^|\\s)soubory\\s+([A-Za-z0-9_-]+\\.${extension})\\s+a\\s+([A-Za-z0-9_-]+\\.${extension})\\s+v\\s+tomto\\s+pořadí(?:\\s|[.!?]|$)`, 'iu',
+  ));
+  if (!orderedPair || files.length !== 2 || files[0] === files[1]
+    || orderedPair[1] !== files[0] || orderedPair[2] !== files[1]
+    || [...source.matchAll(filePattern)].some(match => /[/\\]/u.test(source[match.index - 1] || ''))) return null;
+  const echoed = [...assistant.response.content.matchAll(filePattern)].map(match => match[0]);
+  if (echoed.some(file => !files.includes(file))
+    || (echoed.includes(files[0]) && echoed.includes(files[1])
+      && echoed.indexOf(files[0]) > echoed.indexOf(files[1]))) return null;
+  return files[1];
+}
+
 export async function projectHandler(input, context) {
   const { sessionId, project } = context;
 
@@ -290,7 +323,10 @@ export async function projectHandler(input, context) {
     // Runs BEFORE CRE to avoid misclassification of file queries.
     // ════════════════════════════════════════════════════════════════════════
     if (project.path) {
-      const fileDetect = detectFileIntent(input);
+      const orderedFile = resolveImmediateOrderedFileRead(input, context.history);
+      const fileDetect = orderedFile
+        ? { detected: true, filePath: orderedFile, reason: 'immediate-ordered-user-file-read' }
+        : detectFileIntent(input);
       if (fileDetect.detected) {
         logger.info('ProjectHandler', 'File intent detected by heuristic (bypassing CRE)', {
           input: input.substring(0, 60),

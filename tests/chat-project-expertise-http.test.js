@@ -11,6 +11,7 @@ import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import { setTimeout as delay } from 'node:timers/promises';
 import { test } from 'node:test';
+import Database from 'better-sqlite3';
 import { isolatedTestRuntime as parentRuntime } from './helpers/isolated-test-db.js';
 import { createOwnedJourneyRuntime } from './helpers/chat-project-expertise-model-journey.js';
 
@@ -218,13 +219,13 @@ async function expect(server, method, route, body, status) {
   return response.data;
 }
 
-function command(conversationId, label) {
+function command(conversationId, label, input = 'Jaký je stav projektu?') {
   return {
     contract: 'ConversationCommand', version: 1,
     requestId: `expertise-http-${label}-${randomBytes(5).toString('hex')}`,
     conversationId,
     turnId: `expertise-turn-${label}-${randomBytes(5).toString('hex')}`,
-    action: 'send', input: 'Jaký je stav projektu?',
+    action: 'send', input,
   };
 }
 
@@ -404,4 +405,100 @@ test('project expertise selection reaches final provider prompt and remains proj
   };
   writeFileSync(`${parentRuntime.artifacts}/chat-project-expertise-http.json`,
     `${JSON.stringify(evidence, null, 2)}\n`, { mode: 0o600 });
+});
+
+test('the second file in the immediately preceding ordered user list proposes only that private read', {
+  timeout: 120_000,
+}, async t => {
+  const provider = await startProvider();
+  let server = null;
+  t.after(async () => {
+    if (server) await stopServer(server);
+    await provider.close();
+  });
+  server = await startServer(provider.url);
+  const own = await project(server, 'ordinal-read', 'ORDINAL_A_391');
+  writeFileSync(`${own.path}/alpha.md`, 'FIRST_FILE_SHOULD_STAY_PRIVATE');
+  writeFileSync(`${own.path}/beta.md`, 'DRUHY_SOUBOR_752');
+  const first = await expect(server, 'POST', '/api/chat', command(
+    own.conversationId, 'ordered-list',
+    'Napiš jednu větu, která uvádí soubory alpha.md a beta.md v tomto pořadí. Nic nečti ani neměň.',
+  ), 200);
+  assert.equal(first.status, 'ok');
+  assert.equal(first.response.metadata?.effectId, undefined);
+  const providerCallsBeforeTerminalReads = provider.requests.length;
+
+  const read = await expect(server, 'POST', '/api/chat', command(
+    own.conversationId, 'read-second', 'Přečti ten druhý soubor.',
+  ), 200);
+  assert.equal(read.status, 'ok');
+  assert.equal(read.response.metadata?.handler, 'file.read');
+  assert.equal(read.response.metadata?.approvalRequired, true);
+  assert.equal(read.response.metadata?.filePath, 'beta.md');
+  assert.match(read.response.metadata?.effectId || '', /^effect:[a-f0-9]{64}$/u);
+  assert.doesNotMatch(read.response.content, /DRUHY_SOUBOR_752|FIRST_FILE_SHOULD_STAY_PRIVATE/u);
+
+  const approved = await expect(server, 'POST', '/api/chat', command(
+    own.conversationId, 'approve-second-read', `schválit efekt ${read.response.metadata.effectId}`,
+  ), 200);
+  assert.equal(approved.status, 'ok');
+  assert.match(approved.response.content, /DRUHY_SOUBOR_752/u);
+  assert.doesNotMatch(approved.response.content, /FIRST_FILE_SHOULD_STAY_PRIVATE/u);
+
+  const listing = await expect(server, 'POST', '/api/chat', command(
+    own.conversationId, 'list-project', 'Vypiš obsah projektu.',
+  ), 200);
+  assert.equal(listing.status, 'ok');
+  assert.equal(listing.response.metadata?.approvalRequired, true);
+  assert.match(listing.response.metadata?.effectId || '', /^effect:[a-f0-9]{64}$/u);
+  const approvedList = await expect(server, 'POST', '/api/chat', command(
+    own.conversationId, 'approve-list', `schválit efekt ${listing.response.metadata.effectId}`,
+  ), 200);
+  assert.equal(approvedList.status, 'ok');
+  assert.match(approvedList.response.content, /alpha\.md/u);
+  assert.match(approvedList.response.content, /beta\.md/u);
+  assert.doesNotMatch(approvedList.response.content, /DRUHY_SOUBOR_752/u,
+    'a directory listing must not disclose file bytes');
+  assert.equal(provider.requests.length, providerCallsBeforeTerminalReads,
+    'the read, its approval and the listing must use the exact M2 authority without model fallback');
+
+  const sqlite = new Database(isolatedTestRuntime.database, { readonly: true, fileMustExist: true });
+  try {
+    const row = sqlite.prepare('SELECT request_json FROM m2_effect_requests WHERE effect_id = ?')
+      .get(read.response.metadata.effectId);
+    assert(row, 'the read proposal must be durable');
+    const effect = JSON.parse(row.request_json);
+    assert.equal(effect.kind, 'fs.read');
+    assert.equal(effect.target.canonicalRoot, own.path);
+    assert.equal(effect.target.relativePath, 'beta.md');
+    const storedAssistantTexts = sqlite.prepare(`
+      SELECT content FROM messages WHERE conversation_id = ? AND role = 'assistant' ORDER BY id
+    `).all(own.conversationId).map(row => row.content);
+    assert(storedAssistantTexts.some(content => content.includes('DRUHY_SOUBOR_752')),
+      'the verified read content must survive in the actual conversation history');
+    const before = sqlite.prepare('SELECT count(*) AS n FROM m2_effect_requests').get().n;
+    const fresh = await project(server, 'ordinal-unbound', 'ORDINAL_B_752');
+    const unsupported = await expect(server, 'POST', '/api/chat', command(
+      fresh.conversationId, 'read-without-anchor', 'Přečti ten druhý soubor.',
+    ), 200);
+    assert.equal(unsupported.status, 'ok');
+    assert.notEqual(unsupported.response.metadata?.approvalRequired, true);
+    assert.equal(sqlite.prepare('SELECT count(*) AS n FROM m2_effect_requests').get().n, before,
+      'unbound ordinal must not create an effect');
+    for (const [label, source] of [
+      ['three-files', 'Napiš větu o souborech alpha.md, beta.md a gamma.md v tomto pořadí.'],
+      ['qualified-paths', 'Napiš jednu větu, která uvádí soubory docs/alpha.md a docs/beta.md v tomto pořadí.'],
+    ]) {
+      const ambiguous = await project(server, label, `ORDINAL_${label}`);
+      await expect(server, 'POST', '/api/chat', command(ambiguous.conversationId, `${label}-source`, source), 200);
+      const unresolved = await expect(server, 'POST', '/api/chat', command(
+        ambiguous.conversationId, `${label}-read`, 'Přečti ten druhý soubor.',
+      ), 200);
+      assert.notEqual(unresolved.response.metadata?.approvalRequired, true, label);
+      assert.equal(sqlite.prepare('SELECT count(*) AS n FROM m2_effect_requests').get().n, before,
+        `${label} must not silently select a basename or a value from an ambiguous list`);
+    }
+  } finally {
+    sqlite.close();
+  }
 });

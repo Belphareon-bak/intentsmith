@@ -1612,17 +1612,38 @@ function broadenSearchQuery(query) {
 // Every selected tool therefore crosses the typed M2 boundary. Pure local
 // tools can run directly; all read/write/exec/network tools fail closed until
 // an exact EffectRequest adapter is installed.
+let loadedProductionM2ToolRuntime = null;
+async function productionM2Runtime() {
+  const { m2ToolRuntime } = await import('../tools/m2-tool-runtime.js');
+  loadedProductionM2ToolRuntime = m2ToolRuntime;
+  return m2ToolRuntime;
+}
+
 const productionM2ToolBroker = Object.freeze({
   async execute(input) {
     // Lazy loading preserves the existing module-only test boundary while the
     // production server, whose database is already migrated, gets durable
     // exact-replay ToolRequest/ToolResult authority on first use.
-    const { m2ToolRuntime } = await import('../tools/m2-tool-runtime.js');
-    return m2ToolRuntime.execute(input);
+    return (await productionM2Runtime()).execute(input);
   },
   async settleEffect(input) {
-    const { m2ToolRuntime } = await import('../tools/m2-tool-runtime.js');
-    return m2ToolRuntime.settleEffect(input);
+    return (await productionM2Runtime()).settleEffect(input);
+  },
+  resolveFileReadContent(input) {
+    if (!loadedProductionM2ToolRuntime) {
+      throw Object.assign(new Error('Durable M2 file content authority is unavailable'), {
+        code: 'TOOL_EFFECT_AUTHORITY_UNAVAILABLE',
+      });
+    }
+    return loadedProductionM2ToolRuntime.resolveFileReadContent(input);
+  },
+  resolveFileListContent(input) {
+    if (!loadedProductionM2ToolRuntime) {
+      throw Object.assign(new Error('Durable M2 file content authority is unavailable'), {
+        code: 'TOOL_EFFECT_AUTHORITY_UNAVAILABLE',
+      });
+    }
+    return loadedProductionM2ToolRuntime.resolveFileListContent(input);
   },
 });
 
