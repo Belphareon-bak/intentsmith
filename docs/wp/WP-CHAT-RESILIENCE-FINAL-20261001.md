@@ -35,6 +35,12 @@ proto označené `usedForTuning:true` a počet nedotčených rodin je **7**
 (F14–F20). Celkových 53 případů a 20 rodin se nemění. Původní osmici
 nebudeme vydávat za nezávislý výsledek; finální série dostane nový hash
 korpusu a běží třikrát beze změny až po zmrazení zdroje.
+Nezávislé review první úpravy odhalilo, že validátor přijímal libovolných
+sedm rodin: podvržený manifest mohl vrátit již použitou F13 mezi holdout a
+vyřadit F20. Validátor nyní vyžaduje přesně F14–F20 a u každého případu
+shodu příznaku `usedForTuning` s jeho rodinou. Negativní offline test
+podvržený manifest odmítá; do nového živého běhu tato oprava znovu čeká na
+nezávislé review.
 
 Runner odděluje transportní úplnost `LIVE_COMPLETE_UNASSESSED` od významového
 hodnocení. Ani tento status není PASS kvality. Text každé odpovědi se musí

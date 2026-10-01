@@ -202,19 +202,19 @@ const corpusFile = path.resolve(process.env.CHAT_PROBE_CORPUS || arg('--corpus')
 const definition = JSON.parse(fs.readFileSync(corpusFile, 'utf8'));
 const corpus = definition.cases;
 const expectedFamilies = Array.from({ length: 20 }, (_, index) => `F${String(index + 1).padStart(2, '0')}`);
+const expectedHeldOutFamilies = expectedFamilies.slice(13);
 const actualFamilies = Array.isArray(corpus) ? [...new Set(corpus.map(c => c.family))].sort() : [];
 if (definition.version !== 1 || !Array.isArray(corpus) || corpus.length !== 53
   || definition.families !== 20 || JSON.stringify(actualFamilies) !== JSON.stringify(expectedFamilies)
   || !Array.isArray(definition.heldOutFamilies) || definition.heldOutFamilies.length !== 7
-  || new Set(definition.heldOutFamilies).size !== 7
-  || definition.heldOutFamilies.some(family => !actualFamilies.includes(family))
+  || JSON.stringify([...definition.heldOutFamilies].sort()) !== JSON.stringify(expectedHeldOutFamilies)
   || corpus.some(c => !c.id || typeof c.input !== 'string' || !c.input.trim() || !c.intent
     || typeof c.contextPolicy !== 'string' || !Array.isArray(c.allowed) || !c.allowed.length
     || !['required', 'permitted', 'unnecessary'].includes(c.question)
     || !Array.isArray(c.forbidden) || !c.forbidden.length
     || typeof c.usedForTuning !== 'boolean' || !c.variant
-    || (definition.heldOutFamilies.includes(c.family) && c.usedForTuning)))
-  throw new Error('Final corpus must have 53 declared cases, 20 families and seven untouched holdout families');
+    || c.usedForTuning !== !expectedHeldOutFamilies.includes(c.family)))
+  throw new Error('Final corpus must have 53 declared cases, 20 families and exact F14-F20 untouched holdout');
 if (new Set(corpus.map(c => c.id)).size !== corpus.length) throw new Error('Duplicate case ID');
 const requestedCases = process.env.CHAT_PROBE_CASES?.split(',').filter(Boolean) || null;
 if (requestedCases && (!requestedCases.length || new Set(requestedCases).size !== requestedCases.length

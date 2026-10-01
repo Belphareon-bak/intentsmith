@@ -197,7 +197,15 @@ try {
 
   const contaminatedHoldout = structuredClone(original);
   contaminatedHoldout.cases.find(entry => entry.family === 'F14').usedForTuning = true;
-  rejected(contaminatedHoldout, /seven untouched holdout families/u);
+  rejected(contaminatedHoldout, /exact F14-F20 untouched holdout/u);
+
+  const relabeledExposure = structuredClone(original);
+  relabeledExposure.heldOutFamilies = ['F13', 'F14', 'F15', 'F16', 'F17', 'F18', 'F19'];
+  for (const entry of relabeledExposure.cases) {
+    if (entry.family === 'F13') entry.usedForTuning = false;
+    if (entry.family === 'F20') entry.usedForTuning = true;
+  }
+  rejected(relabeledExposure, /exact F14-F20 untouched holdout/u);
 
   const wrongApprovalSource = structuredClone(original);
   wrongApprovalSource.cases.find(entry => entry.id === 'save-next').approve.fromCase = 'http';
