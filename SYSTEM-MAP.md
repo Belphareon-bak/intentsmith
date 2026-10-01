@@ -63,7 +63,7 @@ v odděleném rozsahu. Default ask, bez sudo. Skutečný Electron/M2 a SDK ově�
 Profil na `398d1448`: 366 PASS / 1 FAIL Gate 0. Při nasazení startup probe
 přerušila cizí CHAT panel; doplněno čekání na společný GPU zámek, ověření
 ápravy probíhá. REVIEW_PENDING; měřicí kontrakty ani modelové role nezměněny.
-Aktuální module graph má 1 421 hran, 3 cykly / 28 členů.
+Tehdejší module graph měl 1 421 hran, 3 cykly / 28 členů.
 [Podrobnosti, důkazy a omezení](docs/review/2026-09-23-STUDIO-ACTIVITY-ENVIRONMENT.md).
 
 **GPU hunt — hodnocení uloženého sběru, 23. 9. 2026:**
@@ -625,10 +625,11 @@ Historický blok začíná opravami soukromí/agentů z 17. 9., kdy registr měl
 integrační registr na **583**; samostatný worker-soak test a dvě sady druhého
 kontextového okna navýšily registr na **586**; test pořadí historie a izolované
 stage IDE 2.0 jej navýšily na **588**; test doslovného zápisu na **589**.
+Integrovaná M1 sada opakovaného uložení na `f5ca79a9` přidala 590. program.
 Nahrazení modelového
 účetního běhu deterministickou M1 sadou přesunulo její stav do ACTIVE; nový
 worker-soak a offline atestační test přidaly ACTIVE, fyzická sada druhého okna
-zůstává BLOCKED (491 ACTIVE, 83 BLOCKED, 15 HISTORICAL),
+zůstává BLOCKED (tehdy 491 ACTIVE, 83 BLOCKED, 15 HISTORICAL),
 jak uvádí census níže. Historické výsledky nadále patří svým přesným source
 pinům; novější registr jim zpětně nemění verdikt.
 
@@ -654,17 +655,22 @@ na nesouladu NVIDIA 595.84 / NVML 595.91; nové inference skóre nevzniklo.
 Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a role.
 **REVIEW_PENDING** — [aktuální UI oprava a evidence](docs/review/2026-09-17-HUNT-MODEL-CONTROLS-FOLLOWUP.md).
 
+Následující LOC a registry census jsou přeměřené přímo na referenčním zdroji
+`f5ca79a9` přes stejný algoritmus jako `tests/artifact-validation.test.js`:
+počet skutečných `.js` souborů a počet znaků nového řádku v jejich bytech.
+Při další integraci se přeměří znovu.
+
 | | |
 |---|---:|
-| `src/**/*.js` | **233 429 ř.**, 678 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **263 577 ř.**, 591 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **589** (`491 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
+| `src/**/*.js` | **233 481 ř.**, 678 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **263 767 ř.**, 592 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **590** (`492 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 107** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
 
-Aktuální registry fingerprint je
-`35011965f06363539512e7b84af7e40b86b13313078a26b9a733ab36a71e27b1`.
+Aktuální registry fingerprint referenčního zdroje je
+`a1c711f5ef703c54ec25799232a30486ecc967a4ee2624e563cbc88f5bfcaaf2`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 Worker-soak absolvoval fyzický pětiminutový běh na `bf7dc31f`; nové druhé

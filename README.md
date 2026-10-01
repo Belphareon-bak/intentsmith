@@ -1,11 +1,13 @@
 # IntentSmith
 
-**Aktuální vývojový checkpoint 30. 9. 2026:** [stav dokončování, měřené
+**Aktuální vývojový checkpoint 1. 10. 2026:** [stav dokončování, měřené
 výsledky a otevřené brány](docs/review/2026-09-30-COMPLETION-TRACKER.md).
 Níže uvedený základ `main` a starší checkpointy popisují předchozí stav;
-integrační chat/Studio 2/GPU Hunt kandidát je zatím samostatná pushnutá větev.
+poslední vzdáleně ověřený chat/Studio 2/GPU Hunt checkpoint `77672c2c` je na
+samostatné integrační větvi. Novější lokální kandidát `f5ca79a9` ještě čeká na
+úplný profil, integraci a publikaci; instalovaný backend stále běží z `c84b88cd`.
 
-**Aktuální vývojový základ — 28. 9. 2026:** `main` sjednocuje vývoj vycházející
+**Sjednocený základ z 28. 9. 2026:** `main` sjednocuje vývoj vycházející
 z C3 a zdroj právě používaného **IDE 2.0**. Základ `04f2be71` obsahuje backend
 `c84b88cd` a frontend `79c19096`; nasazení a jeho otevřené review popisují
 [aktuální provozní instrukce](docs/studio2/PRODUCTION.md).
@@ -41,10 +43,11 @@ fetch cesty bez deklarované autority selžou před spojením. Současný
 autoritativní IntentSmith Studio runtime už neobsahuje implicitní Google Fonts egress.
 Studio používá Theia runtime s motivy a ovládáním IntentSmithu.
 
-**Verze:** 136.1.0, vývojový kandidát 1.0. Aktuální počty testovacích programů
-jsou v [generovaném registru](docs/convergence/TEST-REGISTRY.md):
-**589 registrovaných testovacích programů**
-(`491 ACTIVE`, `83 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).
+**Verze:** 136.1.0, vývojový kandidát 1.0. Počty pro referenční zdroj
+`f5ca79a9` jsou odvozené z [generovaného registru](docs/convergence/TEST-REGISTRY.md)
+a při další integraci se znovu přeměří:
+**590 registrovaných testovacích programů**
+(`492 ACTIVE`, `83 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).
 
 **Navazující M5 review, 2026-09-17:** historický inventář doplněn o zveřejněný
 TLS testovací klíč a certifikát: 15 známých objektů. Pár je trvale vyřazený;
@@ -444,14 +447,14 @@ intentsmith/
 │   ├── report-gen.json           #   Generování reportů
 │   └── summarizer.json           #   Sumarizace textu
 │
-├── tests/                        # Testy a kanonický registr 589 programů
+├── tests/                        # Testy a kanonický registr 590 programů
 │   ├── harness.js                #   Custom ESM test harness
 │   ├── cre-*.test.js             #   CRE testy (401+)
 │   ├── lifecycle-*.test.js       #   Lifecycle testy (103+)
 │   ├── code-intel-*.test.js      #   Code Intelligence testy (339+)
 │   ├── execution-loop.test.js    #   Execution Engine testy (597+)
 │   ├── upgrade-*.test.js         #   Model Upgrade testy
-│   └── registry.json             #   Kanonický registr 589 programů
+│   └── registry.json             #   Kanonický registr 590 programů
 │
 ├── docs/                         # Aktivní dokumentace + archiv
 │   ├── ARCHITECTURE.md           #   Kompletní architektura

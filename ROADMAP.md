@@ -1,42 +1,55 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktuální source checkpoint 1. 10. 2026, 03:06 UTC — nezávislá
-revize `a41d6885` zpřísnila souhlas s výpočtem:**
-[měřené dokončování IDE/backendu, chatu, GPU huntu a odložené mobilní
-integrace](docs/review/2026-09-30-COMPLETION-TRACKER.md). Vývojový registr
-má na izolované worker-soak větvi 584 programů; nový skutečný pětiminutový
-M3 test je PENDING_RUN. Úplný offline/database profil na čistém předchozím
-`5d72b4aa` dokončil **402/402 PASS, 0 BLOCKED** s přesně povolenými
-místními toolchainy
+**Vývojový checkpoint 1. 10. 2026, 05:26 UTC — referenční source
+`f5ca79a9`:** [průběžný tracker s přesnými piny a výsledky](docs/review/2026-09-30-COMPLETION-TRACKER.md).
+Generovaný registr na tomto zdroji uvádí **590 programů**. Úplný
+offline/database profil současného integračního kandidáta je
+**PENDING_RECHECK**; přímé kontroly ani starší
+úplný profil jej nenahrazují.
+
+Poslední doložený celý profil na čistém `bf7dc31f` skončil **402/402 PASS,
+0 FAIL/BLOCKED/TIMEOUT/SKIPPED**. Samostatný skutečný pětiminutový M3 worker
+soak na témže zdroji skončil **PASS**. Jde o vývojové důkazy před dalšími
+chatovými a Studio 2 změnami, nikoli o release Gate 0 nebo ověření běžící
+instalace. Backend stále běží z `c84b88cd`; poslední doložený instalovaný
+frontend IDE 2.0 je `fddfe996`. Nová izolovaná stage Studia, druhé naplnění
+kontextového okna a tři úplná nezměněná živá opakování 53případového chatového
+korpusu čekají na fyzické ověření po zmrazení společného zdroje.
+
+GPU Hunt zůstává **NO_GO**: v instalované DB chybí všech 84 použitelných
+současných model–role skóre, není přijaté rozhodnutí a druhý vývojový posudek
+pokryl 596 z 1 173 odpovědí. Mobilní integrace následuje po stabilizaci IDE
+a backendu; první nová mobilní konverzace zatím nemá vytvoření v serverovém
+kontraktu. M5/M6 acceptance zůstává zavřená. Níže uvedených 353/353 patří
+staršímu M6 kandidátu; následující datované záznamy zachovávají historii
+tehdejších kandidátů.
+
+**Historický source checkpoint 1. 10. 2026, 03:06 UTC:** Revize
+`a41d6885` zpřísnila souhlas s účetním výpočtem. Tehdejší izolovaná
+worker-soak větev měla 584 registrovaných programů, skutečný pětiminutový
+M3 běh byl ještě `PENDING_RUN`; předchozí čistý `5d72b4aa` měl úplný
+offline/database profil **402/402 PASS, 0 BLOCKED**
 (`.intentsmith-artifacts/test-runs/2026-10-01T01-41-43-923Z/report.json`).
-Nová veřejná hranice specialisty na `1303535f` získala před integrací
-omezené nezávislé `REVIEW_PASS`. `a6ea1c85` opravil živě pozorované useknutí
-účetní VAT odpovědi. Fyzická opakování na `299d8117` a `46ca3dcc` dokončila
-modelový tah, avšak obě přidala jiný nepodložený právní nebo časový údaj;
-věcný oracle je odmítl. `46ca3dcc` má omezené `REVIEW_PASS` pro opravu
-false-red orákula, nikoli pro live kvalitu. Úzká změna VAT na deterministickou
-prezentaci z ověřeného nástroje má v pracovním stromu řízené M1/SQLite,
-oracle a přímou expertizu **69/69 PASS** a samostatný účetní balíček
-**27/27 PASS** na první opravě; přesná nová hrana je přijata v module-edge
-baseline 1 464 hran / 3 cykly / 28 členů. Nezávislé review našlo chybný
-výpočet navzdory „nepřidávej/neodečítej“ a úplný profil odhalil směr
-„cena bez DPH z …“. Po red-first regresích opravený pracovní kandidát má
-řízené M1/SQLite a oracle **73/73**, specialist runtime **24/24** a
-`harness-exit-code` PASS. Re-review pak našlo další dvě negovaná slovesa,
-která prošla až do uložené odpovědi. Konzervativní detekce negace s ověřenými
-neutrálními slovy a anglické `do not` dávala **79/79** řízených případů.
-Reviewer však ověřil, že „Bez výpočtu … pouze vysvětli“ stále spustilo
-výpočet. Po červených M1 regresích je tento záměr rozlišen cíleným dotazem;
-pracovní kandidát měl **82/82** řízených případů. Reviewer pak doložil, že
-„Jen mi řekni, jak funguje DPH …“ přesto vydalo výpočet. Nyní je pro
-výpočet nutný kladný výpočtový záměr nebo stručný vstup začínající
-`DPH …` / `cena bez DPH z …`; vysvětlovací požadavek zůstává dotazem.
-Pracovní kandidát má **85/85** řízených případů, starší specialistický
-loader **294/294** a session context **66/66**. Čistý commit, review a
-celý profil pro tuto poslední opravu ještě čekají.
-Níže uvedených 353/353 patří staršímu M6 kandidátu,
-nikoli dnešnímu vývojovému profilu; M5/M6 acceptance zůstává zavřená.
-Následující datované záznamy zachovávají historii tehdejších kandidátů.
+Veřejná hranice specialisty `1303535f` měla omezené nezávislé
+`REVIEW_PASS`. Oprava `a6ea1c85` odstranila živě pozorované useknutí VAT
+odpovědi, avšak modelová opakování na `299d8117` a `46ca3dcc` přidala
+nepodložené právní nebo časové údaje; věcný oracle je odmítl. Omezené
+`REVIEW_PASS` pro `46ca3dcc` přijalo opravu false-red orákula, nikoli
+živou kvalitu.
+
+Přechod na deterministickou prezentaci z ověřeného účetního nástroje měl
+v tomto historickém sledu řízené M1/SQLite a oracle výsledky **69/69**,
+po opravě směru a prvních negací **73/73**, po dalších negacích **79/79**,
+po zákazu výpočtu **82/82** a po požadavku na kladný výpočtový záměr
+**85/85**. Opravy vznikaly po skutečných červených regresích: review
+odhalilo chybné `nepřidávej/neodečítej`, `neprováděj/nespočítej`,
+„Bez výpočtu … pouze vysvětli“ i „Jen mi řekni, jak funguje DPH …“.
+Samostatný účetní balíček tehdy měl **27/27**, specialist runtime **24/24**,
+loader **294/294** a session context **66/66**. Přesná hrana
+`src/chat/handlers/expertise.js -> src/chat/handlers/specialist-public.js`
+byla přijata v baseline 1 464 hran / 3 cykly / 28 členů. Čistý commit,
+review a celý profil poslední opravy v okamžiku tohoto checkpointu čekaly.
+[Detail a pozdější výsledek](docs/review/2026-09-30-COMPLETION-TRACKER.md).
 
 **Integrační kandidát GPU huntu, 30. 9. 2026:** zdroj `e37189b2` je sloučený
 s chatem a Studiem 2 v `edc61a73`; dosud není nasazený. Poslední doložená
@@ -563,7 +576,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
 | **M5 Production hardening** | `8/9 REVIEW_PASSED / BACKUP_COMPAT_REMEDIATION_REVIEW_PASSED / HISTORY_DECISION_RECORDED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_PARTIAL / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Review přijalo restore základ `65bcbc4b` i follow-up `b4136a43`. Operátor zvolil `retain_and_rotate`; scanner zaznamenaný na vstupní hunt větvi tento dosažitelný stav potvrzuje, ale podepsaný history receipt vznikne až po doložení všech osmi kategorií. LUKS2 médium A drží ověřenou offline kopii tří operátorských klíčů a oddělené LUKS2 médium B právě reviewer key; obě jsou vypnutá. Online zdroj zatím zůstává, protože chybí druhá offline kopie operátorských klíčů a otestovaná oddělená recovery kopie reviewer key. |
-| **M6 IntentSmith 1.0 release** | `RETENTION_INTEGRATED / HISTORICAL_353_PASS / DEVELOPMENT_402_PASS_ON_5D72 / DELTA_REVIEW_REQUIRED / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Bounded `dc81a0f0` historicky prošel 353/353 a spojil Studio → server → exact CODE model → schválení → restarty → DB restore; [úzké review](docs/review/2026-09-12-PRODUCTION-JOURNEY-REVIEW-RECEIPT.md) nemělo blokující nález. Historický CODE 7×3 dal Qwenu 3.5 0,3333 a Qwen Coderu 0,1143; není to nové role rozhodnutí. Vývojový offline/database profil na čistém `5d72b4aa` prošel **402/402, 0 BLOCKED**; samokontrola používá historický registr přesně podle zapečetěné politiky, která tím nezískává nový release PASS. Po další produktové změně je nutný nový celý profil. Fyzický model, úplný M6 plán, kvalita větších změn, review delty, M5 custody a externí acceptance zbývají. [Aktuální checkpoint](docs/review/2026-09-30-COMPLETION-TRACKER.md). |
+| **M6 IntentSmith 1.0 release** | `RETENTION_INTEGRATED / HISTORICAL_353_PASS / DEVELOPMENT_402_PASS_ON_BF7 / CURRENT_FULL_PROFILE_PENDING / DELTA_REVIEW_REQUIRED / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Bounded `dc81a0f0` historicky prošel 353/353 a spojil Studio → server → exact CODE model → schválení → restarty → DB restore; [úzké review](docs/review/2026-09-12-PRODUCTION-JOURNEY-REVIEW-RECEIPT.md) nemělo blokující nález. Historický CODE 7×3 dal Qwenu 3.5 0,3333 a Qwen Coderu 0,1143; není to nové role rozhodnutí. Vývojové offline/database profily na čistých `5d72b4aa` a nověji `bf7dc31f` prošly každý **402/402, 0 BLOCKED**; samokontrola používá historický registr přesně podle zapečetěné politiky, která tím nezískává nový release PASS. Po dalších produktových změnách je nutný celý profil znovu. Fyzický model, úplný M6 plán, kvalita větších změn, review delty, M5 custody a externí acceptance zbývají. [Aktuální checkpoint](docs/review/2026-09-30-COMPLETION-TRACKER.md). |
 | **M7 Remote Companion** | `UI_SURFACES_REVIEW_PASSED / HOST_GATE_GREEN / DEVICE_NOT_RUN / NOT_ACCEPTED` | M6 + remote boundary | Nezávislé re-review přijalo exact candidate `429b779f`: durable journal guard zavírá settings double-activation okno a held-flush regrese odlišuje staré bytes. Mobile 47/47, runtime 7/7, adapter 8/8, artifact validation 158/158, boundary 0 violations a Android test+lint prošly. Produkční konfigurace, fyzická matice 13+7, TalkBack a release podpisy nejsou hotové. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.

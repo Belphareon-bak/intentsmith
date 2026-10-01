@@ -1,5 +1,37 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 1. 10. 2026, 05:26 UTC — zdroj, měření a publikace
+
+Referenční čistý zdroj této dokumentační revize je `f5ca79a9` (repeat-save
+integrace); [generovaný registr](../convergence/TEST-REGISTRY.md) nad ním
+uvádí **590 programů** (`492 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`). Úplný
+offline/database profil na tomto novějším zdroji je **PENDING_RECHECK**.
+Zelené přímé testy, starší profil ani samotná validace registru nejsou jeho
+náhradou. Nový source dosud neběží v místní instalaci; backendová služba
+stále používá `c84b88cd`, poslední doložený frontend IDE 2.0 `fddfe996`.
+
+Na čistém `bf7dc31f` doběhl úplný offline/database profil **402/402 PASS,
+0 FAIL/BLOCKED/TIMEOUT/SKIPPED**. Privátní report
+`.intentsmith-artifacts/test-runs/2026-10-01T03-36-23-845Z/report.json`
+má SHA-256 `1da328d78260da370fb999485696202a6f73e99ba9c383aa4d896110299bbdef`.
+Na témže zdroji prošel samostatný skutečný pětiminutový M3 worker soak:
+`status: PASS`, interval 300 000 ms, první běh po 300 604 ms od startu.
+Privátní evidence má SHA-256
+`b76226846566f644b5729f1beee43398a7e56e39469964a15912fbbb0cb4f763`.
+Tyto výsledky platí pro `bf7dc31f`, nikoli automaticky pro novější integraci,
+instalovaný backend nebo M6 release.
+
+Chatový korpus 53 případů ještě nemá tři úplná nezměněná živá opakování;
+fyzická přejímka druhého naplnění kontextového okna a izolované stage IDE 2.0
+také čekají. Dřívější pilot odhalil významové chyby; rodina F13 byla při pilotu
+odkryta a patří do vývoje, ne do nedotčeného holdoutu. GPU Hunt je nadále
+**NO_GO**: 84 použitelných současných model–role buněk je v instalované DB
+`MISSING`, přijaté rozhodnutí chybí a druhé vývojové hodnocení má 596/1 173
+odpovědí. Mobilní napojení následuje po ověření IDE a backendu; serverový
+kontrakt zatím nevytváří novou mobilní konverzaci. M5/M6 acceptance zůstává
+**BLOCKED**. [Read-only audit publikace a návrh pozdějšího úklidu](2026-10-01-GIT-PUBLICATION-CLEANUP-AUDIT.md)
+rozlišuje pushnutý zdroj, lokální kandidáty a soukromé artefakty.
+
 ## Checkpoint 1. 10. 2026, 03:35 UTC — společný profil a M6 plán
 
 Účetní VAT oprava `f8d5f231` dostala omezené nezávislé
