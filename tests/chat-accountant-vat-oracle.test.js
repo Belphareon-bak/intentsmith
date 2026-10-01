@@ -17,6 +17,7 @@ const valid = [
 
 test('bounded VAT answer oracle accepts only exact amounts and required limits', () => {
   assertVatAnswer(valid);
+  assertVatAnswer(valid.replace('ČR, rok 2025', 'V Česku, rok 2025'));
   for (const [label, mutated] of [
     ['VAT amount', valid.replace('2 100 Kč', '2 200 Kč')],
     ['total amount', valid.replace('12 100 Kč', '12 200 Kč')],
@@ -63,6 +64,26 @@ test('total label rejects a contradictory monetary claim under exclusions', () =
   assert.throws(() => assertVatAnswer(contradictory),
     /total must uniquely map to 12100 CZK in the final answer/u);
 });
+
+for (const [name, statement] of [
+  ['unlabeled VAT amount', 'Výsledná daň je 2 200 Kč.'],
+  ['unlabeled payable amount', 'Zaplatíte 2 200 Kč.'],
+  ['contradictory VAT rate', 'Sazba DPH je 12 %.'],
+  ['contradictory year', 'Platí pro rok 2024.'],
+  ['foreign jurisdiction', 'Pro Slovensko.'],
+  ['foreign jurisdiction in a Czech inflection', 'Platí na Slovensku.'],
+  ['another foreign jurisdiction', 'Platí v Německu.'],
+  ['foreign -ie jurisdiction in a Czech inflection', 'Platí ve Francii.'],
+]) {
+  test(`VAT answer rejects ${name} before the valid text`, () => {
+    assert.throws(() => assertVatAnswer(`${statement}\n${valid}`));
+  });
+  test(`VAT answer rejects ${name} in assumptions`, () => {
+    const contradictory = valid.replace('### Předpoklady',
+      `### Předpoklady\n- ${statement}`);
+    assert.throws(() => assertVatAnswer(contradictory));
+  });
+}
 
 test('captured VAT oracle binds one completed model turn to tool result and M1 bytes', () => {
   const model = 'fixture:vat';

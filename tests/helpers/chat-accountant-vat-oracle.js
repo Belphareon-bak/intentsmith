@@ -37,26 +37,56 @@ export function assertVatToolAndPrompt(result, providerBody, model) {
 }
 
 const MONEY = /(\d{1,3}(?:[ .\u00a0\u202f]\d{3})+|\d+)(?:[,.](\d{1,2}))?\s*(?:Kč|CZK)/giu;
-function moneyValues(clause) {
-  return [...clause.matchAll(MONEY)].map(match =>
-    Number(match[1].replace(/[ .\u00a0\u202f]/gu, '')
-      + (match[2] ? `.${match[2]}` : '')));
+const LABELS = /(?<total>cena s DPH|celková cena|částka s DPH|celkem|zaplatíte)|(?<base>základ(?: daně)?|cena bez DPH)|(?<vat>daň z přidané hodnoty|výsledná daň|(?<!s )(?<!bez )\bDPH\b|\bdaň\b)/giu;
+const RATE = /(?<!\p{N})(\d+(?:[,.]\d{1,2})?)\s*%/gu;
+const YEAR = /(?<!\p{N})(\d{4})(?!\p{N})/gu;
+const CZECH_JURISDICTION = /(?<!\p{L})(?:ČR|Česk(?:o|u|em)|Česk\p{L}* republic\p{L}*)(?!\p{L})/iu;
+
+function foreignJurisdictionPattern() {
+  const names = new Intl.DisplayNames(['cs'], { type: 'region' });
+  const alternatives = new Set(['Slovenská republika', 'SR']);
+  const escape = value => value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+  for (let first = 65; first <= 90; first += 1) {
+    for (let second = 65; second <= 90; second += 1) {
+      const code = String.fromCharCode(first, second);
+      if (code === 'CZ') continue;
+      const name = names.of(code);
+      if (!name || name === code || name.length < 3) continue;
+      alternatives.add(escape(name));
+      if (/(?:sko|cko)$/iu.test(name)) {
+        alternatives.add(`${escape(name.slice(0, -1))}\\p{L}*`);
+      } else if (/ie$/iu.test(name)) {
+        alternatives.add(`${escape(name.slice(0, -1))}(?:e|i|í)`);
+      }
+    }
+  }
+  return new RegExp(`(?<!\\p{L})(?:${[...alternatives].join('|')})(?!\\p{L})`, 'iu');
+}
+const FOREIGN_JURISDICTION = foreignJurisdictionPattern();
+
+function moneyAmount(match) {
+  return Number(match[1].replace(/[ .\u00a0\u202f]/gu, '')
+    + (match[2] ? `.${match[2]}` : ''));
 }
 
-const LABELS = /(?<total>cena s DPH|celková cena|částka s DPH|celkem)|(?<base>základ(?: daně)?|cena bez DPH)|(?<vat>daň z přidané hodnoty|(?<!s )(?<!bez )\bDPH\b)/giu;
 function assertExactLabeledAmounts(resultText) {
   const labels = [...resultText.matchAll(LABELS)];
   const expected = { base: VAT_RESULT.base, vat: VAT_RESULT.vat,
     total: VAT_RESULT.total };
   const observed = { base: [], vat: [], total: [] };
-  for (const [index, label] of labels.entries()) {
-    const role = Object.keys(expected).find(key => label.groups[key] !== undefined);
-    const next = labels[index + 1]?.index ?? resultText.length;
-    const amounts = moneyValues(resultText.slice(label.index + label[0].length, next));
-    if (amounts.length === 0) continue;
-    assert.equal(amounts.length, 1,
+  const perLabel = new Map();
+  for (const amount of resultText.matchAll(MONEY)) {
+    const owner = labels.findLast(label =>
+      label.index + label[0].length <= amount.index);
+    assert(owner, 'every CZK amount needs a preceding VAT/base/total label');
+    const between = resultText.slice(owner.index + owner[0].length, amount.index);
+    assert(!/[,.!?;\r\n]/u.test(between),
+      'every CZK amount must share a clause with its VAT/base/total label');
+    const role = Object.keys(expected).find(key => owner.groups[key] !== undefined);
+    perLabel.set(owner.index, (perLabel.get(owner.index) || 0) + 1);
+    assert.equal(perLabel.get(owner.index), 1,
       `${role} has ambiguous or contradictory monetary figures in one span`);
-    observed[role].push(amounts[0]);
+    observed[role].push(moneyAmount(amount));
   }
   for (const [role, amount] of Object.entries(expected)) {
     assert(observed[role].length > 0 && observed[role].every(value => value === amount),
@@ -76,10 +106,19 @@ function assertListedSection(lines, title) {
 export function assertVatAnswer(answer) {
   assert.equal(typeof answer, 'string');
   const normalized = answer.normalize('NFKC').replace(/[\u00a0\u202f]/gu, ' ');
-  assert(/(?:^|[^\p{L}])(?:ČR|Česká republika)(?=$|[^\p{L}])/iu.test(normalized),
+  assert(CZECH_JURISDICTION.test(normalized),
     'Czech jurisdiction missing');
-  assert(/\b2025\b/u.test(normalized), 'tax year 2025 missing');
-  assert(/\b21\s*%/u.test(normalized), 'VAT rate 21 % missing');
+  const foreignJurisdiction = normalized.match(FOREIGN_JURISDICTION);
+  assert(!foreignJurisdiction,
+    `foreign jurisdiction contradicts the bounded Czech VAT answer: ${foreignJurisdiction?.[0]}`);
+  const yearsWithoutMoney = normalized.replace(MONEY, value => ' '.repeat(value.length));
+  const years = [...yearsWithoutMoney.matchAll(YEAR)].map(match => Number(match[1]));
+  assert(years.length > 0 && years.every(year => year === VAT_RESULT.year),
+    'every explicit four-digit year must be 2025');
+  const rates = [...normalized.matchAll(RATE)]
+    .map(match => Number(match[1].replace(',', '.')));
+  assert(rates.length > 0 && rates.every(rate => rate === VAT_RESULT.rate_percent),
+    'every explicit percentage must be 21 %');
   assertExactLabeledAmounts(normalized);
   const lines = normalized.split(/\r?\n/u);
   assertListedSection(lines, 'Předpoklady');

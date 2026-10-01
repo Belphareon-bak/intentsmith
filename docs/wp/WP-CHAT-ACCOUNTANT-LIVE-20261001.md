@@ -96,6 +96,20 @@ Red-first regrese měla na `67d229a5` **2 FAIL** pro rozpornou DPH v
 prochází celý finální text; přímé offline testy mají **6/6**, řízený M1
 **2/2**. Nezávislé re-review této nové opravy stále čeká.
 
+Třetí revize `9a59bc05` našla další **CHANGES_REQUIRED**: prefixové
+`Výsledná daň je 2 200 Kč.` či `Zaplatíte 2 200 Kč.` zůstaly před prvním
+rozpoznaným štítkem; vedle správné odpovědi prošly i protichůdné `12 %`,
+`2024` a `Slovensko` v prefixu nebo oddílu „Předpoklady“. Red-first sada
+měla na `9a59bc05` **8 FAIL / 8 PASS**. Nynější úzký kontrakt vyžaduje,
+aby každá explicitní `Kč`/`CZK` částka měla odpovídající štítek ve stejném
+úseku věty a přesnou hodnotu; každé číselné procento musí být 21 a každý
+čtyřciferný rok mimo měnové částky 2025. Odpověď musí jmenovat ČR/Česko;
+jiné explicitní jurisdikce z českého ICU seznamu zemí a běžných českých
+skloňování odmítá. Pozitivní kontrolovaná odpověď zůstává platná, přímá
+sada nyní **22/22**, řízený M1 **2/2**. Volný jazyk mimo tyto explicitní
+tvary není obecně rozhodnutelný tímto orákulem; re-review a fyzický modelový
+běh jsou stále otevřené.
+
 Živý příkaz až po review a uvolnění GPU slotu na přesném čistém commitu:
 
 ```sh
