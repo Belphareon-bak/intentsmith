@@ -206,7 +206,7 @@ await testAsync('active file.read awaits exact approval and FILE_EXPLAIN rejects
           projectId: Number(registered.id),
           hasActiveProject: true,
           langCtx: { language: 'cs' },
-          sessionState: new SessionState(`m2-project-write-session-${index}`),
+          sessionState: { recordDecision() {}, setActiveFile() {} },
           attachments: [],
         }),
       );
@@ -329,7 +329,7 @@ await testAsync('project path routing proposes only grounded writes and keeps ro
             },
             { response: { content: input, tag: { speaker: 'user' } } },
           ],
-          sessionState: { recordDecision() {}, setActiveFile() {} },
+          sessionState: new SessionState(`m2-project-write-session-${index}`),
           hasActiveProject: true,
           persistFileSaveSummary(value) {
             summaryCalls.push(value);
@@ -1016,7 +1016,7 @@ await testAsync('production file.write persists request/link, approval settles o
       { response: { content: 'save it to result.md', tag: { speaker: 'user' } } },
     ],
     langCtx: { language: 'en' },
-    sessionState: { setActiveFile() {} },
+    sessionState: new SessionState('m2-file-write-approval'),
   });
   try {
     const pending = await handleFileWriteDecision(
@@ -1102,7 +1102,7 @@ await testAsync('workspace drift before approval settles both effect and tool as
       { response: { content: 'save it to stale.md', tag: { speaker: 'user' } } },
     ],
     langCtx: { language: 'en' },
-    sessionState: { setActiveFile() {} },
+    sessionState: new SessionState('m2-file-write-workspace-drift'),
   });
   try {
     const pending = await handleFileWriteDecision(
@@ -1179,7 +1179,7 @@ await testAsync('file.write does not smuggle an unauthorized parent-directory cr
       { response: { content: 'save it to missing/result.md', tag: { speaker: 'user' } } },
     ],
     langCtx: { language: 'en' },
-    sessionState: { setActiveFile() {} },
+    sessionState: new SessionState('m2-file-write-parent-creation'),
   });
   try {
     const pending = await handleFileWriteDecision(
