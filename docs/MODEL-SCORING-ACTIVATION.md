@@ -1,5 +1,20 @@
 # Modelové evaluace a aktivace
 
+**Read-only checkpoint 1. 10. 2026, 03:34 UTC — source `a199a5d1`:**
+autoritativní čtení instalované DB stále vrací **84/84 použitelných
+model–role dvojic MISSING**, dalších 14 `N/A`, 0 aktuálních `COMPLETE`,
+0 záznamů přejímky hodnotitele a sedm vazeb `UNVERIFIED_RUNTIME`.
+Strukturálně ověřený druhý vývojový posudek je stále 596/1 173; jeho
+CHAT 400/400 a CODE 30/30 vyžadují věcnou kontrolu, D1 má ještě 14
+chybějících odpovědí a D2/R1/R2 nemají v tomto packetu žádný nový
+druhý posudek. [Konkrétní cílená vlna a cesta k rozhodnutí](wp/WP-HUNT-COMPLETION-PATH-20261001.md)
+označuje prvních 144 dosud neposouzených odpovědí za vývojovou triáž;
+matematické meze mohou vyžadovat i zbývajících 433 odpovědí známé matice.
+Přejímka hodnotitele, současné měření a čerstvý provozní holdout jsou
+samostatné milníky.
+Aktivace zůstává `NO_GO`; tento checkpoint nic nezapsal do DB ani
+nespustil na GPU.
+
 **Strukturální checkpoint 1. 10. 2026, 01:00 UTC — source `1f13b936`:**
 [validátor druhého dávkového posudku](wp/WP-HUNT-SECOND-REVIEW-BATCH-VALIDATOR-20261001.md)
 ověřil proti [Git manifestu raw SHA-256](review/evidence/2026-10-01-hunt-second-review-batch-manifest.json)

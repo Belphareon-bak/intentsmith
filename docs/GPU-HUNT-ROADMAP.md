@@ -1,5 +1,12 @@
 # GPU hunt — finální plán a cesta k němu
 
+**Aktuální doplnění 1. 10. 2026:** [read-only stav a navazující milníky](wp/WP-HUNT-COMPLETION-PATH-20261001.md)
+ověřují současné DB pokrytí a cílenou vývojovou revizní vlnu. Následující
+text z 24. 9. je zachovaný návrh; zmínky o Opusu a počtech případů nejsou
+popisem právě běžícího druhého posudku. Jeho posuzovatel je Sonnet 5.5
+a posudek má 596/1 173 odpovědí. Rozhodovací metoda, přejímka hodnotitelů,
+současné skóre a aktivace zůstávají otevřené.
+
 **Datum:** 24. 9. 2026. **Adresát:** operátor (rozhodnutí v §2) a implementátor (milníky v §4).
 **Stav:** návrh k přijetí; **není implementační GO** ani změna přiřazení rolí.
 Podrobný cílový návrh je [GPU-HUNT-WORKFLOW](GPU-HUNT-WORKFLOW.md); tento dokument
