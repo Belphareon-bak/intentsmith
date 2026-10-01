@@ -213,7 +213,8 @@ export function publicVatClarificationQuestion(missingParams) {
     rate: 'Jakou jednu sazbu DPH mám použít: 0 %, 12 %, nebo 21 %?',
     year: 'Pro který jeden rok mám DPH vypočítat?',
     direction: 'Je zadaná částka základem bez DPH, nebo cenou včetně DPH?',
-    calculationIntent: 'Chceš DPH vypočítat, nebo jen vysvětlit sazbu?',
+    calculationIntent: 'Chceš pouze vypočítat DPH, nebo chceš také vysvětlení?',
+    compoundIntent: 'V zadání je více požadavků. Mám nyní jen vypočítat DPH, nebo chceš nejdříve řešit další otázku zvlášť?',
   };
   return questions[missingParams?.[0]] || 'Upřesni prosím zadání výpočtu DPH.';
 }

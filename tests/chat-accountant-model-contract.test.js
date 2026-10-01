@@ -418,6 +418,15 @@ test('selected VAT extraction preserves cents, explicit period, rate and calcula
     { label: 'a mixed request needing an explanation must not return arithmetic alone',
       input: 'Vypočti DPH z 10 000 Kč za rok 2025 pro ČR a vysvětli postup.',
       needsInput: 'calculationIntent' },
+    { label: 'a mixed calculation and why request must not return arithmetic alone',
+      input: 'Vypočti DPH z 10 000 Kč za rok 2025 pro ČR a řekni proč je to tolik.',
+      needsInput: 'calculationIntent' },
+    { label: 'deductibility question must not reverse the requested VAT addition',
+      input: 'Vypočti DPH 21 % z 10 000 Kč za rok 2025 pro ČR a řekni, zda si lze DPH odečíst.',
+      needsInput: 'compoundIntent' },
+    { label: 'VAT and income tax request must not silently omit the second calculation',
+      input: 'Vypočti DPH 21 % z 10 000 Kč za rok 2025 pro ČR a také daň z příjmu z téže částky.',
+      needsInput: 'compoundIntent' },
     { label: 'compact VAT calculator request remains a calculation',
       input: 'DPH z 10 000 Kč za rok 2025 pro ČR.',
       params: { amount: 10000, year: 2025, rate: '21', direction: 'add' },
@@ -492,6 +501,7 @@ test('selected VAT extraction preserves cents, explicit period, rate and calcula
             year: /rok|obdob|let/iu,
             direction: /základ|cena|včetně|bez DPH/iu,
             calculationIntent: /vypo[čc]|vysv[eě]tl|chce[šs]/iu,
+            compoundIntent: /více|další|zvlášť/iu,
           }[scenario.needsInput];
           assert.match(result.response.content, fieldPattern,
             `${scenario.label}: clarification must ask for ${scenario.needsInput}`);

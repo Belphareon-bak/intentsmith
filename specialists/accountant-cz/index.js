@@ -146,7 +146,9 @@ function extractVatParamsInline(input) {
   const asksExplanation = /\b(?:vysv[eě]tl|popi[šs]|objasn)\p{L}*/iu.test(normalized)
     || /\bjak\s+funguj\p{L}*/iu.test(normalized)
     || /\bco(?:\s+to)?\s+znamen[aá]\p{L}*/iu.test(normalized)
-    || /\bjak\s+(?:se\s+)?(?:to\s+)?(?:po[čc][ií]t|vypo[čc][ií]t)\p{L}*/iu.test(normalized);
+    || /\bjak\s+(?:se\s+)?(?:to\s+)?(?:po[čc][ií]t|vypo[čc][ií]t)\p{L}*/iu.test(normalized)
+    || /\b(?:proč|proc|why|d[ůu]vod|v[ýy]znam|definic|zd[ůu]vodn)\p{L}*/iu.test(normalized)
+    || /\bco(?:\s+to)?\s+je\s+DPH\b/iu.test(normalized);
   const asksCalculation = /\b(?:kolik|vypo[čc](?:[ií]t|t)|spo[čc](?:[ií]t|t)|po[čc][ií]t|p[řr]id|p[řr]i[čc][ií]?t|ode[čc]|odpo[čc]|nav[ýy][šs]|vy[čc][ií]sl)\p{L}*/iu.test(normalized);
   const bareVatShorthand = VAT_COMPACT_ADD.test(normalized);
   const bareNetShorthand = VAT_COMPACT_REMOVE.test(normalized);
@@ -155,6 +157,21 @@ function extractVatParamsInline(input) {
   if (explanationOnly || asksExplanation
       || (!asksCalculation && !bareVatShorthand && !bareNetShorthand)) {
     params.inputError ||= 'calculationIntent';
+    return params;
+  }
+  // A second clause can change the meaning of the arithmetic verbs (for
+  // example legal deductibility versus removing VAT from a gross price).
+  // This single-result calculator must ask which request to handle first.
+  // This exact presentation request names only fields already in the
+  // deterministic VAT result; it does not ask for another decision.
+  const intentSource = normalized.replace(
+    /(?:[.!]\s*)?Uveď\s+přesně\s+základ,\s*DPH\s+a\s+cenu\s+s\s+DPH(?:\s+pro\s+ČR)?[.!?]?\s*$/iu,
+    '',
+  );
+  const hasSecondClause = /(?<!\p{L})(?:a|i|také|zároveň|současně|rovněž)(?!\p{L})/iu.test(intentSource)
+    || /[;:\n]/u.test(intentSource);
+  if (hasSecondClause) {
+    params.inputError ||= 'compoundIntent';
     return params;
   }
 

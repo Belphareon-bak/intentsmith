@@ -268,3 +268,14 @@ výpočet jen tehdy, když celé zadání odpovídá kalkulačnímu tvaru bez
 další prózy. Řízené M1/SQLite/oracle testy **91/91**, sousední
 loader/runtime/session-context průchody PASS. Nový čistý commit,
 nezávislé re-review a úplný profil čekají.
+
+Šesté review čistého `77a96d2b` odmítlo tři složená zadání:
+výpočet s otázkou „proč“, výpočet s otázkou na nárok odečíst DPH a
+výpočet DPH společně s daní z příjmu. Druhý případ navíc kontaminoval
+směr výpočtu slovem `odečíst` z právní otázky. Každý nesprávný
+výsledek se přes M1 uložil do SQLite bez providera. Nové red-first
+regrese tyto tři odlišné chyby reprodukovaly. Oprava žádá o rozdělení
+více požadavků ještě před volbou směru; výslovné vypsání hodnot
+základ/DPH/cena s DPH z téhož deterministického výsledku zachovává.
+Řízené sady **94/94** PASS, navazující loader/runtime/context PASS.
+Celý profil a nezávislé přijetí nové opravy dosud chybí.

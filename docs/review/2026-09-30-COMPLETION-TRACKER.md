@@ -1,5 +1,22 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 1. 10. 2026, 03:19 UTC — složené účetní požadavky
+
+Šesté nezávislé re-review čistého `77a96d2b` vrátilo
+**CHANGES_REQUIRED**. Doložilo přes M1/SQLite tři odlišné neúplné
+výsledky: žádost o výpočet a vysvětlení vrátila pouze DPH, otázka na
+právní nárok odečíst DPH změnila aritmetický směr na `remove`, a
+žádost o DPH i daň z příjmu vrátila pouze DPH. Všechny chybné
+asistenční odpovědi se uložily, ačkoli provider nebyl volán.
+
+Tři red-first M1 regrese nejprve prokázaly chybu. Oprava zastaví
+složené zadání před čtením směru a ptá se, zda má řešit jen DPH, nebo
+další otázku zvlášť. Výslovný požadavek pouze na tři položky
+stejného VAT výsledku zůstává povolen. Řízené M1/SQLite/oracle
+průchody **94/94**, sousední loader/runtime/session-context sady
+PASS a module ratchet bez nové hrany. Dokumentační počet řádků byl
+aktualizován; nový čistý commit, review a úplný profil zbývají.
+
 ## Checkpoint 1. 10. 2026, 03:15 UTC — vysvětlující dovětek zkratky DPH
 
 Páté nezávislé re-review čistého `751e8531` vrátilo
