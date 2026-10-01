@@ -901,9 +901,11 @@ function parseExplicitLiteralWrite(input) {
 
 function hasNoOverwriteConstraint(text) {
   const explicitProhibition = /(?:nepřepisuj|neprepisuj|nepřepisovat|neprepisovat|nepřepsat|neprepsat|bez\s+přepsání|bez\s+prepsani|do\s+not\s+(?:overwrite|replace)|don['’]t\s+(?:overwrite|replace)|without\s+(?:overwriting|replacing))/iu;
-  const absentCondition = /(?:pokud|když|jestli|v\s+případě\s*,?\s*že)[^.!?]{0,100}(?:neexistuje|neexistuji|není\s+(?:vytvořen[ýyao]?|na\s+disku))|(?:only\s+)?if\s+[^.!?]{0,100}(?:does\s+not\s+exist|doesn['’]t\s+exist|is\s+(?:absent|missing))|unless\s+[^.!?]{0,100}\bexists\b/iu;
-  const newFileOnly = /(?:jen|pouze|výhradně)\s+(?:do|jako)\s+nov[ýé]ho?\s+souboru|(?:create|write|save)\s+only\s+(?:a\s+)?new\s+file/iu;
-  return explicitProhibition.test(text) || absentCondition.test(text) || newFileOnly.test(text);
+  const absentCondition = /(?:pokud|když|jestli|v\s+případě\s*,?\s*že)[^.!?]{0,100}(?:neexistuje|neexistuji|není\s+(?:vytvořen[ýyao]?|na\s+disku)|tam\s+(?:ještě\s+)?není|není\s+tam)|(?:only\s+)?if\s+[^.!?]{0,100}(?:does\s+not\s+exist|doesn['’]t\s+exist|is\s+(?:absent|missing|not\s+there)|isn['’]t\s+there)|unless\s+[^.!?]{0,100}\bexists\b/iu;
+  const newFileOnly = /(?:jen|pouze|výhradně)\s+(?:(?:do|jako)\s+nov[ýé]ho?\s+souboru|(?:vytvoř|vytvor|založ|zaloz)\s+nov[ýy]\s+soubor)|(?:(?:create|write|save)\s+only|only\s+(?:create|write|save))\s+(?:a\s+)?new\s+file/iu;
+  const leaveExisting = /(?:pokud|když|jestli)[^.!?]{0,100}existuje[^.!?]{0,100}(?:nech|ponech)\s+(?:jej|ho|to)\s+(?:být|byt|bejt)/iu;
+  return explicitProhibition.test(text) || absentCondition.test(text)
+    || newFileOnly.test(text) || leaveExisting.test(text);
 }
 
 // ─── v70: FILE_WRITE handler ──────────────────────────────────────────────────
@@ -970,6 +972,24 @@ export async function handleFileWriteDecision(input, decision, context, dependen
     // Auto-generate filename based on timestamp
     const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     filePath = `output-${ts}.md`;
+  }
+  // A normal file.write proposal has no conditional-write contract. For
+  // nonliteral requests, consume the entire suffix after an explicit target;
+  // an unrecognized extra clause cannot be silently discarded at approval.
+  if (!literalWrite) {
+    const targetIndex = input.toLowerCase().indexOf(filePath.toLowerCase());
+    if (targetIndex >= 0) {
+      const suffix = input.slice(targetIndex + filePath.length).trim();
+      const redundantSameTargetSave = suffix.replace(/[.]$/u, '').trim().toLowerCase()
+        === `a uložit ho do ${filePath.toLowerCase()}`;
+      const currentProjectOnly = /^v projektu\.?$/iu.test(suffix);
+      if (suffix && suffix !== '.' && !redundantSameTargetSave && !currentProjectOnly) {
+        return terminalWithoutEffect(lang === 'cs'
+          ? `⚠️ Dodatku za ${literal(filePath)} nerozumím jednoznačně. Upřesni požadovaný zápis a případné podmínky.`
+          : `⚠️ The clause after ${literal(filePath)} is ambiguous. Clarify the write and any conditions.`,
+        'file_write_suffix_ambiguous', filePath);
+      }
+    }
   }
 
   // 2. Get content to write — last ASSISTANT message from conversation history

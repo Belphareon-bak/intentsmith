@@ -130,12 +130,28 @@ await testAsync('M1 literal file write preserves exact bytes; no-overwrite never
       "Save it to existing.md only if the file doesn't exist.",
       'Ulož text "Fresh" do absent-en.md pouze pokud soubor ještě neexistuje.',
       'Write text "Fresh" to absent-en.md only if the file does not exist.',
+      'Ulož to do existing.md, pouze vytvoř nový soubor.',
+      'Ulož to do existing.md, jen vytvoř nový soubor.',
+      'Ulož to do existing.md, ale pokud existuje, nech jej být.',
+      'Ulož to do existing.md, jen pokud tam ještě není.',
+      'Save it to existing.md, only create a new file.',
+      'Save it to existing.md, only if the file is not there.',
     ]) {
       const guarded = await send(noOverwriteConversation, equivalent);
       assert.equal(guarded.response.metadata.error, 'no_overwrite_unsupported', equivalent);
       assert.equal(privateDb.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count,
         beforeNoOverwrite, `create-only variant must not register an effect: ${equivalent}`);
     }
+    const unknownSuffix = await send(noOverwriteConversation,
+      'Ulož to do existing.md, a nastav oprávnění veřejně.');
+    assert.equal(unknownSuffix.response.metadata.error, 'file_write_suffix_ambiguous');
+    assert.equal(privateDb.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count,
+      beforeNoOverwrite, 'unparsed extra file effect cannot register an effect');
+    const repeatedTarget = await send(noOverwriteConversation,
+      'Ulož to do existing.md, a pak uprav existing.md.');
+    assert.equal(repeatedTarget.response.metadata.error, 'file_write_suffix_ambiguous');
+    assert.equal(privateDb.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count,
+      beforeNoOverwrite, 'a repeated target cannot hide a trailing effect clause');
     const blockedFresh = await send(noOverwriteConversation,
       'Ulož text "Nový obsah" do absent.md, ale nepřepisuj existující soubor.');
     assert.equal(blockedFresh.response.metadata.error, 'no_overwrite_unsupported');

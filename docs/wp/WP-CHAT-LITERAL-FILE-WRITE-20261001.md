@@ -10,6 +10,17 @@ Red-first případ F06 `ulzo text "Ahoj" do network.md, necham si ho` navíc
 odhalil chybné směrování do `project.collaboration`; přesný doslovný příkaz
 teď CRE deterministicky směruje do FILE_WRITE a handler dovolí pouze tuto
 uzavřenou vedlejší větu bez změny bajtů, cíle nebo autority.
+Opakované review commitu `7397d71f` vrátilo další `CHANGES_REQUIRED`:
+šest dalších formulací create-only ve zkratce `Ulož to` stále nabízelo
+`fs.write`; reviewer také skutečným schválením doložil přepsání existujícího
+souboru. Red-first HTTP/SQLite regrese tuto chybu zopakovala. Nynější
+zpracování pojmenovaného nedoslovného zápisu odmítá jakoukoli nevyloženou
+větu za prvním výskytem cílové cesty; srozumitelné podmínky create-only vrací
+výslovný bezpečný stop. Uzavřené stávající výjimky jsou redundantní uložení
+do stejné cesty a přesné „v projektu“ v aktivním projektovém kontextu. To
+chrání i formulaci, kterou seznam synonym nezná. První běh existujícího M2
+consumeru po zavedení brzdy našel tyto dvě legitimní věty a skončil **21 PASS /
+1 FAIL**; po úzkém povolení obou konkrétních vět prošel **22/22**.
 
 **Autorita:** explicitní zadání operátora dokončovat reálné chatové scénáře
 (2026-09-30 a 2026-10-01) a živě pozorovaný pilot-4: první zpráva
@@ -49,6 +60,8 @@ a délku payloadu, absenci souboru před M2 schválením a přesné bajty po ně
 Samostatně chrání již existující soubor i se starší odpovědí v historii a
 ověřuje, že omezení nevytvoří M2 efekt. Kontroluje také starší zkratku,
 doslovný text obsahující slovo `nepřepisuj` a nejednoznačný nezakotovaný text.
+Dalších šest českých a anglických create-only formulací a dvě nevyložené
+věty za cílovou cestou musí zůstat bez M2 návrhu.
 F06 překlep testuje přesný cíl, obsah a skutečné M2 schválení; další efektová
 věta za stejným překlepem musí skončit bez návrhu.
 Původní červený HTTP test reprodukoval chybějící proposal; další běh odhalil
