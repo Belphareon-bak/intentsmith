@@ -56,6 +56,34 @@ function sha(bytes) {
   return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 }
 
+// Independent wire oracle: no production encoder/decoder is shared here.
+// Existing assertions below still compare complete original context values.
+function codeInput(prompt) {
+  const wire = JSON.parse(prompt);
+  if (!Object.hasOwn(wire, 'contextEncoding')) return wire;
+  assert.equal(wire.contextEncoding, 'indexed-full/v1');
+  assert.ok(Array.isArray(wire.paths) && wire.paths.every(value => typeof value === 'string'));
+  assert.equal(new Set(wire.paths).size, wire.paths.length);
+  const relative = index => {
+    assert.ok(Number.isSafeInteger(index) && index >= 0 && index < wire.paths.length);
+    return wire.paths[index];
+  };
+  const input = { path: relative(wire.path), filePlan: wire.filePlan.map(row => {
+    assert.ok(row.length === 2 || row.length === 3);
+    return { path: relative(row[0]), dependsOn: row[1].map(relative),
+      ...(row.length === 3 ? { state: row[2] } : {}) };
+  }) };
+  for (const [key, value] of Object.entries(wire)) {
+    if (['contextEncoding', 'paths', 'path', 'filePlan'].includes(key)) continue;
+    input[key] = key === 'peerFiles' ? value.map(row => {
+      assert.ok(row.length === 3 || row.length === 4);
+      return { path: relative(row[0]), content: row[1], state: row[2],
+        ...(row.length === 4 ? { contentDigest: row[3] } : {}) };
+    }) : value;
+  }
+  return input;
+}
+
 function policy(externalImports = []) {
   return {
     policyId: 'm2-policy-v1',
@@ -213,7 +241,7 @@ for (const type of ['general', 'desktop']) {
         'test/acceptance.test.mjs': "import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport {add} from '../src/index.mjs';\ntest('sum', () => assert.equal(add(2, 3), 5));\n",
       };
       const service = createService(db, root, makeClock(), { generateCodeDraft: async ({ prompt }) => ({
-        content: JSON.stringify({ afterContent: outputs[JSON.parse(prompt).path] }), finishReason: 'stop',
+        content: JSON.stringify({ afterContent: outputs[codeInput(prompt).path] }), finishReason: 'stop',
       }) });
       await service.recoverIncompleteSmallProjectChanges();
       const planned = await service.draftSmallProjectChange({ authenticatedSubject: SUBJECT,
@@ -653,7 +681,7 @@ for (const invalidSyntax of [false, true]) {
         generateCodeDraft: async ({ prompt, signal }) => {
           calls++;
           assert.equal(signal.aborted, false);
-          const input = JSON.parse(prompt);
+          const input = codeInput(prompt);
           assert.equal(input.path, 'src/app.js');
           assert.equal(input.beforeContent, 'export const value = 1;\n');
           return { content: JSON.stringify({ afterContent: output }), finishReason: 'stop' };
@@ -755,7 +783,7 @@ for (const invalidLastFile of [false, true]) {
     try {
       const service = createService(db, root, makeClock(), {
         generateCodeDraft: async ({ prompt }) => {
-          const input = JSON.parse(prompt);
+          const input = codeInput(prompt);
           assert.equal(input.path, paths[calls]);
           assert.equal(input.peerFiles.length, 2);
           if (calls > 0) {
@@ -818,7 +846,7 @@ for (const invalidSyntax of [true, false]) {
     try {
       const service = createService(db, root, makeClock(), {
         generateCodeDraft: async ({ prompt }) => {
-          const input = JSON.parse(prompt);
+          const input = codeInput(prompt);
           assert.equal(input.path, paths[calls]);
           if (calls > 0) assert.deepEqual(input.peerFiles.find(file => file.path === paths[0]),
             { path: paths[0], content: outputs[0], state: 'proposed' });
@@ -996,7 +1024,7 @@ for (const defect of [null, 'src/totals.js', 'src/app.js']) {
     try {
       const service = createService(db, root, makeClock(), {
         generateCodeDraft: async ({ prompt }) => {
-          const input = JSON.parse(prompt);
+          const input = codeInput(prompt);
           const definition = blueprint.files.find(file => file.path === input.path);
           assert.equal(input.path, projectBuildOrder[calls.length]);
           assert.equal(input.fileInstruction, definition.instruction);
@@ -1103,7 +1131,7 @@ for (const failure of ['missing-test', 'duplicate', 'unknown-dependency', 'cycle
       if (failure === 'missing-parent') blueprint.files[0].path = 'src/new-area/app.js';
       if (failure === 'file-parent') blueprint.files[0].path = 'src/app.js/nested.js';
       const service = createService(db, root, makeClock(), { generateCodeDraft: async ({ prompt }) => {
-        const input = JSON.parse(prompt); calls++;
+        const input = codeInput(prompt); calls++;
         if (calls === 4 && failure === 'late-cancel') controller.abort();
         if (calls === 4 && failure === 'late-stale') fs.writeFileSync(path.join(root, 'src/foreign.js'), '// foreign\n');
         return { content: JSON.stringify({ afterContent: failure === 'dependency-overflow' && calls <= 3 ? '//'+ 'x'.repeat(16000)+'\n' : failure === 'late-syntax' && calls === 4 ? 'export function broken() {' : projectBuildOutputs[input.path] }),
@@ -1138,7 +1166,7 @@ for (const defect of [null, 'missing', 'traversal', 'target-overlap', 'secret', 
       focusedTest: proposal().focusedTest };
     try {
       const service = createService(db, root, makeClock(), { generateCodeDraft: async ({ prompt }) => {
-        calls++; const input = JSON.parse(prompt);
+        calls++; const input = codeInput(prompt);
         assert.deepEqual(input.peerFiles, [{ path: contextPath, content, state: 'read_only', contentDigest: sha(content) }]);
         if (defect === 'late-stale') fs.writeFileSync(path.join(root, contextPath), 'export const priorValue = 99;\n');
         return { content: JSON.stringify({ afterContent: "export {priorValue as value} from './prior-step.js';\n" }), finishReason: 'stop' };
@@ -1163,6 +1191,87 @@ for (const defect of [null, 'missing', 'traversal', 'target-overlap', 'secret', 
   });
 }
 
+await testAsync('indexed full-source context roundtrips graphs, UTF-8, escapes and read-only provenance', async () => {
+  const content = `export const text = ${JSON.stringify('č雪🙂"\\\n\u0000 @0:2\n indexed-full/v1')};\n`;
+  for (const count of [1, 2, 7, 32]) {
+    const files = Array.from({ length: count }, (_, index) => ({
+      path: `src/shared-long-module-${index}.js`, instruction: `Implement module ${index}.`,
+      dependsOn: index === count - 1 ? Array.from({ length: index }, (_, value) => `src/shared-long-module-${value}.js`) : [],
+      contextFiles: index === count - 1 ? ['src/existing-module.js'] : [],
+    }));
+    const compiled = compileCodeDraftInput({ instruction: 'Use complete dependencies without changing them.',
+      files, focusedTest: proposal().focusedTest });
+    const step = compiled.buildSteps.at(-1);
+    const peers = step.dependsOn.map((path, index) => ({ path, content: index === 0 ? null : content,
+      state: index === 0 ? 'original' : 'proposed' }));
+    peers.push({ path: 'src/existing-module.js', content, state: 'read_only', contentDigest: sha(content) });
+    const message = buildCodeDraftPrompt(compiled, content, step.index, peers);
+    const expected = { path: compiled.changes[step.index].path,
+      filePlan: compiled.buildSteps.map(item => ({ path: compiled.changes[item.index].path, dependsOn: item.dependsOn })),
+      beforeContent: content, peerFiles: peers, instruction: compiled.intent, fileInstruction: step.instruction };
+    assert.deepEqual(codeInput(message.prompt), expected);
+    assert.equal(buildCodeDraftPrompt(compiled, content, step.index, peers).prompt, message.prompt,
+      'same complete inputs have canonical transport bytes');
+    assert.ok(message.systemPrompt.endsWith(' indexed-full/v1: path uses paths indexes; filePlan=[path,dependsOnIndexes,state?]; peerFiles=[path,content,state,contentDigest?].'));
+    assert.deepEqual(codeInput(message.prompt).peerFiles.at(-1), peers.at(-1));
+    assert.equal(codeInput(message.prompt).beforeContent, content);
+  }
+});
+
+await testAsync('indexed transport preserves retained repair source and exact byte-budget boundaries', async () => {
+  const retained = 'export const helper = "雪\\\\\\\"";\n';
+  const compiled = compileCodeDraftInput({ instruction: 'Repair the proposal without editing its retained dependency.',
+    revisionOf: { lifecycleId: 'previous-plan', planDigest: sha('previous-plan') },
+    files: [
+      { path: 'src/app.js', instruction: 'Set value to 3.', dependsOn: ['src/helper.js'] },
+      { path: 'src/helper.js', instruction: 'Retain.', dependsOn: [], reusePrevious: true },
+    ], focusedTest: proposal().focusedTest });
+  const index = compiled.changes.findIndex(change => change.path === 'src/app.js');
+  const before = 'export const value = 1;\n';
+  const previous = { content: 'export const value = 2;\n', state: 'unapplied_proposal', contentDigest: sha('export const value = 2;\n') };
+  const peers = [{ path: 'src/helper.js', content: retained, state: 'proposed' }];
+  const message = buildCodeDraftPrompt(compiled, before, index, peers, previous);
+  const decoded = codeInput(message.prompt);
+  assert.deepEqual(decoded.previousDraft, previous);
+  assert.equal(decoded.onDiskContentDigest, sha(before));
+  assert.equal(Object.hasOwn(decoded, 'beforeContent'), false);
+  assert.deepEqual(decoded.peerFiles, peers);
+  assert.equal(decoded.filePlan.find(row => row.path === 'src/helper.js').state, 'retained_without_generation');
+  const empty = buildCodeDraftPrompt(compiled, '', index, peers);
+  const cap = 8736;
+  const padding = cap - Buffer.byteLength(empty.prompt + empty.systemPrompt);
+  assert.ok(padding > 0);
+  const exact = buildCodeDraftPrompt(compiled, 'a'.repeat(padding), index, peers);
+  assert.equal(Buffer.byteLength(exact.prompt + exact.systemPrompt), cap);
+  assert.doesNotThrow(() => assertCodeDraftModelBudget(exact, { maxPromptBytes: cap }));
+  assert.throws(() => assertCodeDraftModelBudget(
+    buildCodeDraftPrompt(compiled, 'a'.repeat(padding + 1), index, peers), { maxPromptBytes: cap }),
+  { code: 'M2_CODE_DRAFT_CONTEXT_LIMIT_EXCEEDED' });
+  const unicode = buildCodeDraftPrompt(compiled, '雪'.repeat(padding), index, peers);
+  assert.equal(Buffer.byteLength(unicode.prompt + unicode.systemPrompt), cap + padding * 2);
+  assert.throws(() => assertCodeDraftModelBudget(unicode, { maxPromptBytes: cap }),
+    { code: 'M2_CODE_DRAFT_CONTEXT_LIMIT_EXCEEDED' });
+});
+
+await testAsync('indexed context rejects absent, duplicate, foreign and stale dependency data', async () => {
+  const compiled = compileCodeDraftInput({ instruction: 'Use the existing dependency.',
+    files: [{ path: 'src/app.js', instruction: 'Use priorValue.', dependsOn: [], contextFiles: ['src/prior.js'] }],
+    focusedTest: proposal().focusedTest });
+  const content = 'export const priorValue = 42;\n';
+  const peer = { path: 'src/prior.js', content, state: 'read_only', contentDigest: sha(content) };
+  for (const peers of [[], [peer, peer], [{ ...peer, path: 'src/foreign.js' }],
+    [{ ...peer, contentDigest: sha('old bytes') }], [{ ...peer, state: 'summarized' }], [{ ...peer, content: null }]]) {
+    assert.throws(() => buildCodeDraftPrompt(compiled, null, 0, peers),
+      { code: 'M2_CODE_DRAFT_CONTEXT_UNAVAILABLE' });
+  }
+  assert.doesNotThrow(() => buildCodeDraftPrompt(compiled, null, 0, [peer]));
+  // The legacy small-change wire still uses ordinary objects and string paths.
+  const small = compileCodeDraftInput({ path: 'src/app.js', instruction: 'Set value to 2.' });
+  const legacy = buildCodeDraftPrompt(small, content);
+  assert.deepEqual(JSON.parse(legacy.prompt), { path: 'src/app.js', beforeContent: content, instruction: small.intent });
+  assert.equal(legacy.systemPrompt.includes('indexed-full'), false);
+});
+
 await testAsync('a compact proposal remains repairable when the original disk file is large', async () => {
   const original = `/* ${'original scaffold '.repeat(550)} */\nexport const value = 1;\n`;
   const compiled = compileCodeDraftInput({ instruction: 'Correct the proposed value.',
@@ -1172,8 +1281,8 @@ await testAsync('a compact proposal remains repairable when the original disk fi
     contentDigest: sha('export const value = 2;\n'), state: 'unapplied_proposal' };
   const repair = buildCodeDraftPrompt(compiled, original, 0, [], previous);
   assert.doesNotThrow(() => assertCodeDraftModelBudget(repair, { maxPromptBytes: 8742 }));
-  assert.equal(JSON.parse(repair.prompt).onDiskContentDigest, sha(original));
-  assert.equal(JSON.parse(repair.prompt).previousDraft.content, previous.content);
+  assert.equal(codeInput(repair.prompt).onDiskContentDigest, sha(original));
+  assert.equal(codeInput(repair.prompt).previousDraft.content, previous.content);
   // The same large file really exceeds the budget when it is the editable base.
   assert.throws(() => assertCodeDraftModelBudget(
     buildCodeDraftPrompt(compiled, original), { maxPromptBytes: 8742 }),
@@ -1273,7 +1382,7 @@ for (const defect of [null, 'owner', 'origin', 'digest', 'active', 'stale', 'mis
     try {
       const retained = 'export const helper = 42;\n';
       const service = createService(db, root, makeClock(), { generateCodeDraft: async ({ prompt }) => {
-        calls++; const input = JSON.parse(prompt);
+        calls++; const input = codeInput(prompt);
         assert.equal(input.path, 'src/app.js');
         assert.equal(Object.hasOwn(input, 'beforeContent'), false);
         assert.equal(input.onDiskContentDigest, sha('export const value = 1;\n'));

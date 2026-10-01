@@ -134,6 +134,15 @@ async function serveControlledFixture(configPath) {
     projects: { findById: { get: id => id === HTTP_BUILD_PROJECT_ID ? { id, path: projectRoot, status: 'active' } : null } },
     generateCodeDraft: async ({ prompt }) => {
       const input = JSON.parse(prompt);
+      assert.equal(input.contextEncoding, 'indexed-full/v1');
+      const relative = index => {
+        assert.ok(Number.isSafeInteger(index) && index >= 0 && index < input.paths.length);
+        return input.paths[index];
+      };
+      input.path = relative(input.path);
+      if (input.peerFiles) input.peerFiles = input.peerFiles.map(([index, content, state, contentDigest]) => ({
+        path: relative(index), content, state, ...(contentDigest === undefined ? {} : { contentDigest }),
+      }));
       calls.push(input.path);
       assert.equal(config.restart, false, 'restart must not regenerate a completed build');
       assert.equal(input.path, ['src/calendar.mjs', 'src/app.mjs'][calls.length - 1]);

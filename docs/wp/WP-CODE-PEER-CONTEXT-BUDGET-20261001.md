@@ -9,8 +9,8 @@ a kontrola výsledku. Naměřený stav zůstává v
 [`completion trackeru`](../review/2026-09-30-COMPLETION-TRACKER.md).
 Tento návrh není nová produktová ani schvalovací autorita.
 
-**Stav:** `ACTIVE / CPU_EXPERIMENT_RUNNING` od navazujícího zadání
-operátora 1. 10. 2026. Implementace a nový modelový průchod zatím `NOT_RUN`.
+**Stav:** `ACTIVE / LOSSLESS_DESIGN_SELECTED` od navazujícího zadání
+operátora 1. 10. 2026. CPU experiment a implementace dokončeny; nový modelový průchod zatím `NOT_RUN`.
 Samotný CPU výsledek není funkční přejímka aplikace.
 
 ## Vlastnictví a konkrétní výsledek navazujícího milníku
@@ -108,105 +108,125 @@ M2 project-build draftem a sám jeho serializovaný peer rozpočet neřeší.
 Před implementací musí být určen jediný vlastník M2 draft/context connectoru.
 Samostatný návrh AST import scanneru se tímto WP nepřebírá ani nerozšiřuje.
 
-## 3. Tři řešení a doporučený směr
+## 3. CPU rozhodnutí — 20:18 UTC
 
-| Varianta | Přínos | Omezení / podmínka |
-| --- | --- | --- |
-| Pevný module-output/interface budget | Umožní před generováním odhadnout nejhorší velikosti následných vstupů podle dependency graphu a odmítnout neproveditelný plán dříve. | Samotný pevný output cap může odmítnout jinak platný celý modul. Nelze jej nastavit podle chybějících75 B nebo vydávat dřívější odmítnutí za dokončení aplikace. Počítat musí i finální JSON escaping a metadata. |
-| **Explicitně verzovaný odvozený peer kontext** | Omezuje kontext určený konzumentovi, přitom ponechává celý modelový zdroj pro plán, approval, provenance a oracle. Nepotřebuje další modelové volání. | Vyžaduje jasně označený nový profil, podporovaný statický tvar rozhraní a důkaz vazby na skutečný zdroj. Nevyřešené rozhraní musí zastavit krok. Zda skutečný vstup po projekci vyhoví, je zatím `NOT_PROVEN`. |
-| Přesný tokenizer | Mohl by měřit vstupní tokeny místo konzervativního bajtového guardu. | Vlastní následný WP: přesný modelový artefakt/tokenizer, provider build, chat template, system/user/schema balení a BOS/EOS musí odpovídat skutečnému requestu. Chybí přijatý důkaz i CPU/RAM/časové containment. `prompt_eval_count` až po inference není předběžná autorizace. |
+Přesně obnovené čtyři f557 request-body SHA a všech sedm původních a27
+requestů i osmý repair request souhlasí s historickým packetem. Rekonstrukce
+pátého f557 vstupu není nová inference. Rozklad8811 B:
 
-Doporučení: druhá varianta, doplněná deterministickým předběžným rozpočtem
-serializovaných interface records. Přesný tokenizer teď nezavádět; limity
-modelu nezvyšovat a současný guard neobcházet.
+| Část | UTF-8 B |
+| --- | ---: |
+| Systémové instrukce | 1173 |
+| Úplný zdroj dvou peers | 5961 |
+| Escaping zdroje / uvozovky | 164 /4 |
+| Metadata peers | 124 |
+| File plan | 377 |
+| Celkový úkol / instrukce cíle v JSON | 446 /512 |
+| Cíl, beforeContent, delimitery | 50 |
 
-## 4. Navržené API a explicitní význam
+| Změna reprezentace včetně jejího výkladu | Fifth B | Rezerva8736 B |
+| --- | ---: | ---: |
+| Původní úplný JSON | 8811 | -75 |
+| Přímé úplné tuples, popis97 B | 8725 | 11 |
+| Path→dependency map, popis102 B | 8730 | 6 |
+| **Indexované úplné tuples, popis130 B** | **8692** | **44** |
+| Raw length frames, popis227 B | 8936 | -200 |
+| Experimentální pozorované rozhraní | 5088 | 3648 |
 
-Pracovní návrh čistého helperu:
+**Volba ROOT:** obecný interní formát `indexed-full/v1`, stejný algoritmus
+pro všechny project-build a repair kroky. Nemění se veřejný draft formulář,
+Studio persistence ani autorské instrukce. Původní small/single-file režim
+zachová svůj JSON. BUILD/REPAIR wire se výslovně mění: nezaměňovat s původním
+wire-byte-exact režimem. Žádný automatický fallback, instrukční slovní patch,
+truncation ani navýšení rozpočtu. Net úspora na f557 je119 B (249 B obalu
+minus130 B pevného popisu), nikoli odstřižení75 B ze zdroje.
 
-`buildCodePeerContext({ mode, consumerPath, peers, authoredContracts, budget, scope })`.
+Volba má malou rezervu; **neřeší obecně růst obsahu dependencies**. Tři větší
+ASCII/UTF-8/escaping fixtures dále správně překračují8736 B. Sedm oddělených
+historických a27 kroků má v tomto formátu2284/2301/3595/2450/7853/3727/4204 B;
+repair2766 B vyhoví vlastnímu původnímu11520 B limitu. To není předpověď
+neexistujících pozdějších f557 výstupů ani přijetí původní a27 aplikace.
 
-- Původní režim s úplnými soubory zůstane výchozí a **wire-byte-exact**.
-  Zda a kde caller výslovně zvolí nový režim, musí určit reviewed návrh před
-  změnou zdroje; žádný skrytý přepínač nebo tiché přepnutí po overflow.
-- Nový enum/profile bude `declared-interface/v1` se samostatným označeným
-  schema/profilovým kontraktem. Odvozená view se nebude nazývat úplným `content`.
-- Každá view ponese cestu, původ/state, digest úplného zdroje, verzi projekce
-  a digest projekce. Vazba na vlastní project/workspace revision musí zůstat
-  ověřitelná; stale/foreign source nelze použít jako aktuální dependency.
-- **Požadované rozhraní** je původní autorská instrukce, převzatá beze změny.
-  **Pozorované rozhraní** je doložitelný statický výsledek parse-only analýzy
-  skutečných úplných bajtů. Požadavek neprokazuje, že jej implementace splnila.
-- Výčet podporovaných JS exportů/signatur a statických return-object kontraktů
-  musí být uzavřený před implementací. Nevyřešený export, computed/dynamický
-  objekt, nejasná vazba vracené metody nebo nepodporovaný tvar znamená
-  fail-closed; žádné vymyšlené signatury, automatický modelový souhrn ani
-  vydávání komentáře nebo zadání za ověřenou sémantiku implementace.
-- Číst/parsovat lze zdrojová data; nesmí se spouštět/linkovat generovaný modul,
-  resolving imports, používat eval nebo vykonávat kód kvůli odvození rozhraní.
-- Měřit se bude finální UTF-8 serializace včetně profile/system textu,
-  request metadata a escaping. Ani odvozený kontext nesmí překročit původní
-  limit. Pokud se nevejde nebo je neúplný, další modelový call ani plán nevznikne.
-- Celé `afterContent`, stávající source syntax gate, provenance, preview,
-  digest, approval, revisionOf, rollback, restart a funkční oracle zůstanou
-  autoritou konečné změny. Kontextová view se nikdy nestane zápisovým návrhem.
-- Žádné dodatečné inference pro kompresi. Skutečná kvalifikace zachová sedm
-  počátečních callů a nejvýše jednu existující povolenou revizi; žádná rekurze
-  ani ručně opravené modelové zdroje.
+Projekce není vybrána: snižuje informace a experiment neumí doložit osm
+shorthand method signatures store factory. Požadované zadání nenahrazuje
+pozorované rozhraní; computed/nevyřešené tvary by potřebovaly typed odmítnutí
+v samostatném návrhu. Zde nepřibývá parser ani odhad sémantiky. Přesný tokenizer
+experiment pro tento omezený krok nevyžaduje; konzervativní guard zůstává.
 
-**`DESIGN_OPEN`:** konečný supported-JS seznam, explicitní volba profilu,
-finite aggregate limit všech parser vstupů/výstupů, celková parser deadline
-a způsob vynucení jejího ukončení. Per-file limit sám neomezuje součet ani
-synchronní native parse. Tento návrh zatím netvrdí deadline containment,
-úplnost projekce ani to, že výsledná serializace skutečně vyhoví8736 B.
+Privátní CPU experiment:
+`.intentsmith-artifacts/code-context-experiment-20261001-2005`.
+Všech587 historických regular files /30,694,789 B zachováno.
+Nezávislý callgraph/design audit na84faa2a5 má REVIEW_PASS pro bounded
+lossless směr; není implementační ani aplikační přejímkou.
 
-## 5. Bounded implementační a důkazní plán
+## 4. Zmrazený formát a vlastněné změny
 
-1. **WP-first review návrhu:** uzavřít otevřené profile/parser/budget hranice
-   a přidělit vlastníka connectoru; teprve poté source změny.
-2. **Čistá implementace a CPU:** navržený nový helper
-   `src/lifecycle/m2-code-peer-context.js`, bounded změny pouze dvou
-   současných M2 draft/service modulů a rozšíření existujících
-   `tests/m2-code-draft-model.test.js` a
-   `tests/m2-lifecycle-application-service.test.js`.
-   Případné caller opt-in má samostatně deklarovanou owned cestu; žádná
-   změna sedmi SQLite fileInstruction hodnot jako náhrada algoritmu.
-3. **Nezávislé source review a registrované boundary kontroly:** modelové
-   souhrny, truncation, obcházení policy a rozšíření approval nejsou přijatelné.
-   Přesně změřit případné nové importní hrany, descriptor a census delty;
-   registry ani graph gate se neoslabují.
-4. **Jeden zmrazený fyzický průchod:** až po review a příslušných gates,
-   se stejným oraclem/policy/limity. Dokončená aplikace a odmítnutí porušení
-   jsou dvě odlišné kvalifikace. Modelová kvalita zde zatím `NOT_RUN`.
+Jediný product writer ROOT. Konkrétní source změna:
+`src/lifecycle/m2-code-draft.js`; stávající služba ji používá přes vlastní
+`promptFor` → `buildCodeDraftPrompt` → `generateCodeDraft`. Služba/Studio
+se změní jen při konkrétní nezbytnosti, nikoli kvůli novému public opt-in.
+Vlastněné testy/controlled decoding: `tests/m2-lifecycle-application-service.test.js`,
+`tests/project-app-m2-functional.test.js` a
+`tests/helpers/m2-http-build-fixture.js`. Poslední dvě cesty pouze dekódují
+verzovaný kontext pro stejné existující fixture výstupy a oracle.
+Existující WP, WORK-PROGRESS, completion tracker a SYSTEM-MAP jsou navázané
+reportovací cesty. Registry/graph/oracle/profile změny nejsou plánované.
 
-Předběžná CPU přejímka (zatím vše `NOT_RUN`):
+- JSON `contextEncoding` je `indexed-full/v1`.
+- `paths`: deterministická unikátní tabulka cest v pořadí target, filePlan
+  v generation order (jeho path a dependencies), peers v původním pořadí.
+- `path`: index cíle do `paths`.
+- `filePlan`: `[pathIndex, dependencyIndexes, state?]`.
+- `peerFiles`: `[pathIndex, completeContent, state, contentDigest?]`.
+- Vše ostatní včetně beforeContent/null, previousDraft/source digest,
+  repair instrukce a požadovaných instrukcí zachová přesné hodnoty.
+- Pevný130 B systémový dovětek je doslovně:
+  ` indexed-full/v1: path uses paths indexes; filePlan=[path,dependsOnIndexes,state?]; peerFiles=[path,content,state,contentDigest?].`
+- Tabulka/indexy nevykonávají zdroj. Úplné zdroje určují syntaxi, preview,
+  digest, approval, retained revizi a write. Peers zůstávají untrusted data.
+- Chybějící/duplicitní peer nebo neplatná vazba/digest nesmí vytvořit kontext.
+  Projektová scope/revision zůstává ověřována stávající službou.
+- Limity32000 B build envelope,8736 B build model-input a11520 B repair
+  model-input i output/signal/syntax/approval invarianty zůstávají.
 
-| Kontrola | Požadovaný výsledek |
-| --- | --- |
-| Starý výchozí režim se skutečnými čtyřmi f557 výstupy | Bajtově stejný8811/8736 baseline: čtyři modelové calls, odmítnutí před pátým, žádný částečný plán ani změna souborů. |
-| Explicitní nový režim se stejnými raw výstupy | Finální request vyhoví nezměněnému budgetu pouze s úplnou ověřitelnou view; původní source bajty/digesty se nezmění. Fit se musí naměřit, ne předpokládat. |
-| Požadovaný vs pozorovaný kontrakt | Nezaměnitelné fields; parser nepřidá nepozorovaný export/signaturu ani netvrdí správnost callback chování bez oraclu. |
-| Nevyřešený export/return object, unknown verze | Zastavení před dalším voláním; žádná fallback inference, vynechaná dependency nebo autoritativní odhad. |
-| Chybný digest, stale či foreign scope | View nelze použít; žádná připravená změna ani vedlejší efekt. |
-| UTF-8, JSON escaping, exact8736/8737 | Rozhoduje finální skutečný počet bajtů; žádné vydávání odhadu za tokeny. |
-| Aggregate overflow/parser deadline | Omezené CPU vstupy/výstupy i čas, prokazatelně ukončený vlastní parser; selhání nevytvoří view nebo plán. Mechanismus zatím `DESIGN_OPEN`. |
-| Cancel, truncated output, stale revize během async kroku | Stávající typed terminal, žádný částečný plán či falešný úspěch. |
-| Úplné M2 preview/new approval/revision/rollback | Operuje s celými skutečnými `afterContent`; projekce nepřepíše raw source ani digest. |
-| Ledger/TaskFlow a režim bez opt-in | Zachované původní instrukce/oracles a přesná serializace původního režimu. |
+## 5. Ověření a skutečné dokončení
 
-Actual-raw replay fixture bude privátní, ignored a hashově připnutý.
-Veřejné testy mají používat vlastní malé fixtures se stejnými měřitelnými
-hranicemi; nesmějí zveřejnit privátní modelový packet nebo kopírovat jeho
-obsah do nového veřejného testového rootu.
+Před inference: samostatná decode-equality bez společného encoderu na
+skutečném problémovém vstupu a následných/revision krocích; veřejné vlastní
+UTF-8/escaping/marker fixtures, různé1..32 graphy/read-only/state/digest,
+exact cap/cap+1, missing/stale/cancel/incomplete. Starý small JSON nezměněný.
+Private actual raw zůstává ignored, nepublikovat do veřejných tests.
 
-## 6. Stop podmínky a neprovedené práce
+Dotčené registry gates (bez GPU): lifecycle application-service, routes,
+Studio surface, project-app acceptance, project-app M2 functional a lifecycle
+HTTP E2E. Poslední dvě mají vlastní izolovaný loopback fixture; nikdy default
+produkční endpoint. Ledger/TaskFlow instrukce a frozen oracles se nemění.
+Nezávislé source review a příslušné registry/graph/inventory gates se neobchází.
 
-Zastavit implementační větev, pokud projekce potřebuje nepozorované rozhraní,
-nedoložený tokenizer, neomezené parser zdroje, další modelové calls, zvýšení
-`numCtx/maxOutput`, oslabení source/approval/oracle boundary nebo ruční opravu
-modelových výstupů. Nejde o skrytý způsob, jak přeznačit původní `FAIL`.
+Po gates/review se commit a reprezentace zmrazí. Na skutečně volné GPU a
+kanonické lease proběhne celý SQLite scénář přes produktové HTTP M2 draft/
+preview/approval. Povolena jen existující jedna schema repair revize, nikoli
+ruční patch generovaného kódu. Review musí doložit provider identity,
+preview/write bajty, approval/replay, oracle, atomic rollback, commit, restart
+backendu a persistence mezi aplikačními procesy podle stávajícího sandboxu.
 
-Tento WP nemění CHAT, mobil, Hunt/role activation, produkční DB/služby,
-frozen SQLite oracle, callback instrukce, veřejné sample sources ani cleanup.
-Source implementace, CPU kontroly, registered gate a nový fyzický běh:
-**`NOT_STARTED / NOT_RUN`**. Návrh čeká na review před source změnami.
+Důležitá hranice oracle: DB žije ve stejné privátní `/tmp` tmpfs přes několik
+aplikačních procesů; každý další sandbox má novou `/tmp`. Restart backendu
+ověřuje durable M2/commit/source a znovu funkční aplikaci, nikoli tentýž
+aplikační DB soubor přes dva sandboxy. Nezamlčet tuto hranici při handoffu.
+
+Implementace formatteru hotová, SHA
+`91c8a18d32072df560daffaa2930af1ea32479b896257cb052eef1617fe74f2a`.
+Lokální100/100 lifecycle-service a22/22 frozen app kontroly mají PASS;
+actual-product private replay8692/8736 a všechny historické decode-equality
+kontroly PASS. Samostatný modelový běh, registered integrace a finální source
+review zatím `NOT_RUN / REVIEW_PENDING`. Historické neúspěchy zachované.
+CPU experiment RESULT SHA
+`a31f1a9f48f80bacced9ebb7e65fcc9975040de9474c772319fae372725be2b2`,
+manifest `64888bdaa190d69e1f2a3d9ec5212a10389ff6ad1d8ccdd7303fbe72e2f471a9`.
+
+Pokud plný zdroj opět překročí limit, je to selhání této omezené strategie,
+ne modelová chyba či GPU nedostupnost. Dva cykly bez měřitelného posunu
+spustí diagnostiku a skutečně odlišnou strategii podle CONTRACT §11;
+potřebné rozhodnutí operátora se předá s přesným blokérem a možnostmi.
+CHAT, mobil, aktivace modelů, produkční deploy a uzavřený GPU/cleanup mimo scope.

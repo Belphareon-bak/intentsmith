@@ -1,6 +1,6 @@
 # IntentSmith — průběžný report dokončování
 
-**Aktualizováno:** 1. 10. 2026, 19:27 UTC / 21:27 CEST.
+**Aktualizováno:** 1. 10. 2026, 20:29 UTC / 22:29 CEST.
 **Vlastník:** ROOT. CHAT řeší jiný worker, od posledního zadání jej ROOT neupravuje.
 **Publikace:** `work/real-chat-journeys-20260930`; průběžný report se aktualizuje
 po každém milníku, nejpozději po třech hodinách během aktivní práce. Operátor
@@ -32,7 +32,7 @@ stabilním IDE/BE, podle zadání operátora.
 | Hunt hodnocení | Strukturální čtení 18:34 UTC nezměněné: 596/1173 odpovědí, 2324/3689 kritérií; stejný report jako 13:31 a 17:21 | Přijatý grader chybí, zbývá 577 odpovědí /1365 kritérií; NO_DECISION /NO_GO. Proč se publikované výsledky neposunuly, je UNKNOWN |
 | HTTP projekty | Předem připravený omezený návrh testu | Rozhodnutí o novém M2 síťovém oprávnění; HTTP_NOT_RUN |
 | Mobil | Auditovaný handoff, historických47 host testů a přijaté VPN/TLS rozhodnutí | Fyzická matice13+7 NOT_RUN, skutečné zařízení/VPN a integrační mezery |
-| CODE peer kontext | Připravený DRAFT s přesnou reprodukcí 8811/8736 B a porovnáním tří řešení; doporučený explicitní verzovaný kontext rozhraní | IMPLEMENTATION_NOT_STARTED /TESTS_NOT_RUN; parser containment a podporované JS tvary DESIGN_OPEN |
+| CODE peer kontext | CPU rekonstrukce čtyř f557 + sedmi a27 + repair request SHA; zvolen obecný lossless indexed-full/v1:8811→8692 B, plné zdroje zachované,44 B rezerva | Formatter implementován, local100/100 service+22/22 app PASS; source REVIEW_PENDING /registered+LIVE_NOT_RUN. Větší peer kontext nadále odmítán; projekce nevybrána |
 | Cleanup | REVIEW_PASS: atomicky odstraněny pouze tři vlastní lokální refs, 216→213 branches, 71→71 worktrees. Tagy, ostatní refs a worktree metadata zachované; obnova v odděleném bare repo PASS. Hunt zpět na původní čisté větvi | BC větev HOLD_CONDITIONAL, fyzické worktree removal HOLD; další cizí/UNKNOWN větve nepřijaté k odstranění |
 
 ## Publikované a uchované materiály
@@ -215,8 +215,9 @@ Private fresh DB bez přijatých známek neověřuje produkční scoring.
 ## Nejbližší pořadí práce
 
 1. Uzavřít design [CODE peer kontextu](wp/WP-CODE-PEER-CONTEXT-BUDGET-20261001.md)
-   před implementací. DRAFT porovnává pevné output limity, verzované peer
-   rozhraní a přesný tokenizer; žádné opakování ani změny frozen budgetu.
+   implementací obecného lossless indexed-full/v1 formatteru. CPU experiment
+   dokončen; dále source review/CPU/integrační gates a celý frozen SQLite běh.
+   Větší kontext není zaručen, budget/instrukce/oracle se nemění.
 2. [Callback kontrakt](wp/WP-SQLITE-TRANSACTION-CALLBACK-CONTRACT-20261001.md)
    má uzavřený rejection review; funkční aplikace zůstává nepřijatá.
 3. Obecný [M2 AST scanner](wp/WP-M2-AST-IMPORT-SCANNER-20261001.md) má
@@ -261,3 +262,28 @@ Podrobnosti a historická chronologie:
 [M2 revision WP](wp/WP-CODE-FAILED-PROPOSAL-REVISION-20261001.md),
 [cleanup WP](wp/WP-COMPLETION-CLEANUP-PREP-20261001.md),
 [HTTP návrh](wp/WP-M2-PRIVATE-HTTP-QUALIFICATION-PROPOSAL-20261001.md).
+
+
+## Navazující CODE milník — CPU rozhodnutí, 20:18 UTC
+
+ROOT převzal omezený connector z84faa2a5 v existujícím WP; vlastní produktový
+formatter a nezbytné přímo navázané testy. Bezztrátové indexed tuples zachovaly
+všechny původní hodnoty v nezávislém roundtripu. Konkrétní f5575 je8692/8736 B;
+44 B není obecná garance. Explicitní interface projekce je menší, ale osm
+store method signatures není doložených a ztrácela by informaci. Volba zatím
+není source PASS, inference ani hotová aplikace. Cizí GPU proces1224380
+zachovaný, přibližně5.3 GiB volných; před live bude nový celý readiness check.
+Historické raw/fails zůstávají; funkční SQLite výsledek dosud APPLICATION_FAIL.
+
+
+## CODE implementace — lokální CPU checkpoint, 20:29 UTC
+
+Produktová cesta Studio→M2 service→formatter nyní používá výslovný
+indexed-full/v1. Úplné zdroje/state/digesty i původní instrukce zachované,
+small-change JSON nezměněný. Actual private replay potvrzuje8692/8736 B
+na stejných f557 zdrojích;100 lifecycle-service a22 app-oracle kontrol PASS.
+Nové public regrese ověřují1/2/7/32 graphs, readonly, retained repair,
+UTF-8/escaping/null, chybějící/duplicitní/foreign/stale peer a8736/8737.
+Controlled fixtures pouze dekódují nový wire; frozen outputs/oracles se nemění.
+Nezávislé review a integrační gates probíhají, skutečná SQLite aplikace stále
+nepřijatá. GPU je podle20:27 metadata volná, před inference novýlease/preflight.

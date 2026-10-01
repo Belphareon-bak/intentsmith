@@ -137,6 +137,9 @@ export { run } from './cli.js';
     projects: { findById: { get: id => id === PROJECT_ID ? { id, path: project, status: 'active' } : null } },
     generateCodeDraft: async ({ prompt }) => {
       const input = JSON.parse(prompt);
+      assert.equal(input.contextEncoding, 'indexed-full/v1');
+      assert.ok(Number.isSafeInteger(input.path) && input.path >= 0 && input.path < input.paths.length);
+      input.path = input.paths[input.path];
       if (input.previousDraft) {
         assert.equal(sqlite && defect === 'schema-extra-import', true, 'only the declared revision fixture');
         assert.equal(calls.length, 7);
