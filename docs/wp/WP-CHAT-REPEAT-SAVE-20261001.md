@@ -43,7 +43,17 @@ odpovědi, takže první test správně nevytvořil efekt, ale čekal na něj be
 timeoutu. Fixture nyní výslovně označuje důvěryhodnou odpověď; opakovaný
 samostatný běh prošel **39/39 PASS**. M1 test nyní kontroluje A→B, B→A→B a
 přeřazení během provider requestu i starší netagovaný asistentský tah,
-aktuálně **1/1 PASS**. Po integraci je
-nutné ověřit společné řazení historie podle `messages.id` z WP ordinal;
-samostatná větev této opravy vychází ze staršího zdroje. Nezávislé review,
-integrace a fyzický modelový pilot dosud čekají.
+aktuálně **1/1 PASS**. Samostatný kandidát `d2121e3b` získal nezávislé
+**REVIEW_PASS** s podmínkou integrace řazení podle `messages.id` z WP
+ordinal. Kombinovaný kandidát `f5ca79a9` zachovává toto řazení i schválený
+parser doslovného zápisu a zákazu přepsání.
+
+Rozšířený M1 test vytvoří přes HTTP sedm různých odpovědí a potom ve
+zastavené soukromé testovací DB sjednotí čas všech čtrnácti tahů. Po restartu
+porovná přesný trvalý požadavek a schválený soubor s nejnovější odpovědí.
+Tento průchod zahrnuje i již vytvořený souhrn historie; **1/1 PASS**.
+Samostatný registrovaný `chat-history-order` kontroluje posledních deset
+z dvanácti tahů se shodným časem; **1/1 PASS**. Společný
+`chat-literal-write-http` **1/1** a `m2-effect-file-consumer` **39/39 PASS**.
+Nezávislé přijetí kombinovaného kandidáta, finální integrace a fyzický
+modelový pilot dosud čekají.

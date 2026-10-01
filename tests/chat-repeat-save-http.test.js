@@ -178,6 +178,41 @@ await testAsync('save the same answer twice after the first effect approval', as
     assert.equal(privateDb.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n,
       beforeLegacy);
     assert.equal(existsSync(path.join(projectB.path, 'legacy-source.md')), false);
+
+    // SQLite timestamps have second precision. Exercise the actual M1 save
+    // after fourteen persisted HTTP turns share one timestamp, rather than
+    // accepting a green ordering query without checking the emitted effect.
+    const tiedId = (await expectJson(product, 'POST', '/api/conversations', {
+      title: 'same-second-source', project_id: project.id, mode: 'chat',
+    }, 201)).conversation.id;
+    for (let index = 0; index < 7; index += 1) {
+      providerAnswer = `Odpověď ${index}: zdroj snímku Git ${index}.`;
+      assert.equal((await send('Vysvětli stručně, co je Git commit.', tiedId))
+        .response.content, providerAnswer);
+    }
+    const newestAnswer = providerAnswer;
+    await stopProduct(product);
+    // Only this stopped, owned test database is modified to make the timing
+    // collision deterministic. All content and provenance came through M1.
+    assert(owned.database.includes('/.intentsmith-artifacts/'));
+    const timestampFixture = new Database(owned.database, { fileMustExist: true });
+    try {
+      assert.equal(timestampFixture.prepare(
+        'UPDATE messages SET created_at = ? WHERE conversation_id = ?',
+      ).run(new Date(Date.now() - 1000).toISOString().replace('T', ' ').slice(0, 19),
+        tiedId).changes, 14);
+    } finally { timestampFixture.close(); }
+    product = await startProduct(owned, `http://127.0.0.1:${provider.address().port}`, model);
+    const tiedSave = await send('Ulož odpověď do timestamp-source.md.', tiedId);
+    assert.equal(tiedSave.response.metadata?.approvalRequired, true);
+    const tiedRequest = JSON.parse(privateDb.prepare(
+      'SELECT request_json FROM tool_v1_requests WHERE request_id = ?',
+    ).get(tiedSave.response.metadata.toolRequestId).request_json);
+    assert.deepEqual(tiedRequest.input, { path: 'timestamp-source.md', content: newestAnswer },
+      'same-second history must not select an older source answer');
+    assert.equal((await send(`schválit efekt ${tiedSave.response.metadata.effectId}`, tiedId))
+      .response.metadata?.effectResult, 'succeeded');
+    assert.equal(readFileSync(path.join(project.path, 'timestamp-source.md'), 'utf8'), newestAnswer);
   } finally {
     privateDb?.close();
     if (product) await stopProduct(product);
