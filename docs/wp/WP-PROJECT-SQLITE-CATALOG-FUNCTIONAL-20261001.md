@@ -1,6 +1,6 @@
 # WP — funkční SQLite aplikace vytvořená modelem CODE
 
-**Stav:** `PHYSICAL_FUNCTIONAL_PASS / CONTRACT_CHANGES_REQUIRED`.
+**Stav:** `SOURCE_FIX_REVIEW_PASS / REGISTERED_9_PASS / QWEN38_LIVE_FAIL`.
 **Checkpoint 15:40 UTC:** skutečný běh na `936e9a33` měl sedm úplných
 generací a funkční PASS, ale nezávislá kontrola našla porušení pevného
 importového kontraktu. Celková fyzická přejímka není PASS.
@@ -62,7 +62,43 @@ starý `cea7e727…`, 53 CPU kontrol i nevyhovující fyzický packet zůstávaj
    generacím na novém zmrazeném kandidátu. Raw modelové bajty se ručně
    neopravují a zadání se nezvolňuje.
 
-### Implementační checkpoint 15:53 UTC — REVIEW_PENDING
+### ROOT checkpoint 16:18 UTC — oprava přijatá, Qwen3.8 odmítnut
+
+Přesný code source `34cfc198ed09cd9094ac0f1ed264daf29c33f1f5` je pushnutý,
+má **9/9 registrovaných PASS**, exit 0, report SHA-256
+`c23cc2c6cf062e5d35bedc1edce98b4542441e634108bb5ba0ce25fae53b2207`,
+[CI SUCCESS 36888388296](https://github.com/Belphareon-bak/intentsmith/actions/runs/36888388296),
+job `110457467086`, všech 13 kroků SUCCESS. Nezávislé source review
+zopakoval vlastní **21/21 CPU PASS** a přijalo source34 i jedinou opravu
+doc popisku na `5cbd0e7ab6c594041e56189865f2d7a35a84e638`.
+Review SHA-256 `0f8ec265197d9a5a573a3a049e27ced7a4d0b4585541ad16311cd45a458691e5`,
+`HASHES.json` `919a374521fdcf08033d43ed7a8c9106a072a5352d309c04efe67fd2a9b09569`.
+Nový oracle má SHA-256
+`28c9b73f1eec7e0b32a6e563f75f71da1d7b9f60a6a8dc149fbdbbb2c9a0ceb3`.
+
+Actual repeat na clean source34 proběhl `16:10:13.157–16:11:04.053 UTC`,
+**FAIL**, exit 1, sedm úplných Qwen3.8 generací. Frozen oracle správně odmítl
+znovu přidaný `node:sqlite` v `src/schema.js`: `PROJECT_CHANGE_TEST_FAILED`,
+rollback všech sedmi cílů succeeded, Git commit null, původní HEAD
+`4ee9f622433f55708fa360ab29eef44a491fe6c7` zachovaný. Parent potvrdil vlastní
+model unload, GPU lease release a čistý source. Následný funkční oracle po
+backend restartu v tomto failed průchodu **neproběhl**. Nový raw failed
+packet i starý936 jsou uchované; nezávislé rejection review ještě běží.
+
+### Následující předem vymezená CODE kvalifikace
+
+Stejný source34, sedm instrukcí, policy, entrypoint, oracle a schválení
+zůstávají zmrazené. V novém privátním projektu/DB proběhne jeden další
+identický scénář s již místně dostupným `qwen3.6:27b`, digest
+`9d5803d493a991af27b9441c098aa56f2ed7bbd260877f075ec09b575c049bc3`,
+size 17 769 076 933 B podle metadata GET `16:16:08 UTC`. Jediná proměnná
+kvalifikace je modelový artefakt; aktuálně **LIVE_NOT_RUN**. Nové stažení,
+produkční role activation či odvození pořadí modelů z jediné aplikace nejsou
+součástí přejímky. ROOT použije nový output, čerstvý resource preflight a
+vlastní serialized lease; při cizí práci se běh nezahájí. Výsledky nesmí
+přepsat Qwen3.8 FAIL ani accepted-grader/Hunt brány.
+
+### Historický implementační checkpoint 15:53 UTC — tehdy REVIEW_PENDING
 
 Red-first skutečný sandbox se schema extra importem skončil očekávaným
 regresním **FAIL**, protože staré měřidlo vrátilo succeeded/marker; log
