@@ -1,5 +1,6 @@
 // The final resilience corpus is immutable within a three-run acceptance
 // series. These negative cases exercise the runner's pre-inference guard only.
+import './helpers/isolated-test-db.js';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
