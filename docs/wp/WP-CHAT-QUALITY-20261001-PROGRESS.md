@@ -1,6 +1,6 @@
 # IntentSmith — průběh práce na kvalitě chatu
 
-Poslední aktualizace: **1. 10. 2026, 19:51 CEST**. Stav: **CANDIDATE / REVIEW_PENDING**.
+Poslední aktualizace: **1. 10. 2026, 20:18 CEST**. Stav: **CANDIDATE / REVIEW_PENDING**.
 Dokument aktualizuji po každém dokončeném milníku, nejpozději po třech hodinách
 aktivní práce. Historická selhání zůstávají uvedena; nové ověření je nepřepisuje
 na úspěch. Nejde o plánovač úloh po ukončení této pracovní relace.
@@ -59,6 +59,10 @@ cesta používá celé odpovědi a změna sdíleného gateway není součástí 
 
 | Ověření | Testovaný commit / běh | Výsledek a hranice důkazu |
 | --- | --- | --- |
+| Aktuální dlouhý rozhovor a skutečný restart | `e1638ac2`, run `e7eb8877-3191-4ae2-8af2-e15d31862009` | 27/27 užitečných, osm skutečných kompakcí, dva různé procesy. Po restartu správně Javor / LIPA_781 / ruční kontrola bez změn; nulové efekty |
+| Zdvořilé, opakované a souhrnné uložení | `e1638ac2`, run `89a7b5ab-17c0-49a7-a37a-6754ce15a841` | 5/5 kroků dokončeno; všechny zápisy mají nula efektů před schválením a přesné následné bajty. Významově 3/5: neobratný pětislovný popis a souhrn tvořený citací s úvodem jsou nedostatečné |
+| Vytvoření nového textu a uložení | `e1638ac2`, run `7567fa86-d0ea-461c-93bf-7d1437c9274e` | 1/1 užitečný, tři odrážky, durable zdroj před M2, create-only a přesné schválené bajty |
+| Zastavený start dlouhého rozhovoru | `e1638ac2`, run `3757c726-5016-49a7-8bcc-43c97ba806a5` | BLOCKED_GPU, 0 případů a 0 modelových volání. Po nové inventuře volného provideru/GPU následoval celý 27případový běh výše; neúspěšný start zůstává zachovaný |
 | Živé dialogy po předání nativních rolí | `ca0a7603`, run `9c443452-aaf9-474c-90a6-9878c06dd581` | B 9/12 a A 8/12 užitečných, 0 zbytečných zastavení, 0 kritických chyb. Tři odpovědi B stále domýšlejí kalendářní souvislost nebo mění den registrace; kvalitativní cíl není splněn |
 | Skutečné role zpráv a opakování | `14f09b69`, `chat-quality-focused-20261001-native-final` | 7 PASS; M1 program 74 PASS včetně přímého ověření providerových rolí, úplných zdrojů a nulové systémové autority historie |
 | Přechodové asertace starého textového obalu | `de4b4be8` a `c581b14a`, `chat-quality-focused-20261001-native-roles` / `native-retry` | Každý 6 PASS / 1 FAIL; staré očekávání JSON obalu / prefixu USER v CODE opakování. Nové asertace ověřují úplný skutečný USER vstup v každém požadavku |
