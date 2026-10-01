@@ -1,5 +1,54 @@
 # GPU Hunt — cesta od vývojové matice k přijatému rozhodnutí
 
+**Aktuální stav 1. 10. 2026, 10:11 UTC:** `READ_ONLY_AUDIT_PASS /
+HANDOFF_INTEGRITY_REVIEW_PASS / DEVELOPMENT_REVIEW_INCOMPLETE / NO_GO`.
+Není nové hodnocení, přejímka hodnotitele, rozhodnutí ani aktivace role.
+
+## Čerstvý durable audit a běhové prostředí
+
+Čerstvý strukturální validátor z `10:06–10:07 UTC` stále ověřuje
+**596/1 173 odpovědí / 2 324/3 689 kritérií**; žádné přijaté hodnocení.
+Jeho durable receipt v stagingu
+`.intentsmith-artifacts/hunt-freshness-20261001-1008/` má manifest SHA-256
+`bafefa58386cc0a20f281f536609be3407c5a18ba1415f66d27829b6f1b659ed`.
+Nezávislá revize potvrdila všech 12 položek. Jeho canonical collections
+reader skončil exit `1 / ERR_MODULE_NOT_FOUND better-sqlite3`; tento FAIL
+zůstává zachovaný.
+
+Root doplnil pouze vlastní ignored dependency symlink v čistém Hunt
+checkoutu `00c71cd4b4c211715b6ac0cc0ce5678146c23e58` na již existující
+integrační `node_modules`. Oba lockfiles shodně pinují `better-sqlite3`
+`12.6.2` se stejným integrity. Nebyla instalace, změna source, migrace ani
+změna produkčního běhového prostředí. S připnutým Node `24.21.0` skutečný
+`scripts/audit-hunt-collections.mjs --db=<installed data/c3.db>` doběhl
+exit `0`; report má `generatedAt 2026-10-01T10:11:45.848Z` a SHA-256
+`1cb19a26c13fcc1ab6c7cc0e31039ec50db7a6f52705d9fcf9f9c17e415ba312`.
+Soukromé report/stderr/provenance/summary jsou v
+`.intentsmith-artifacts/hunt-native-readonly-20261001-1010/` Hunt checkoutu,
+mode `0700/0600`. Samostatná nezávislá revize má **REVIEW_PASS**:
+source read-only call graph, dependency provenance, raw bytes a přesná
+projekce rolí/exclusions ověřené bez opakování readeru. Report v stagingu
+`.intentsmith-artifacts/hunt-native-readonly-review-00c71cd4-20261001/REVIEW.json`
+má SHA-256
+`cd229e96a2b9fd0feea77db7f4a18a533a3a3f7454bd61003ffad977ba379b47`;
+manifest SHA-256
+`57e3567161fefb6018f8aee984e4e5e8652f08c228c08675e2878d33ee479478`.
+
+Reader otevřel skutečnou instalovanou DB s `readonly:true` a
+`fileMustExist:true`; provider nečetl a inference nevolal. V této DB má
+CHAT 2 compatible captures od jednoho artefaktu; D1/D2/R1/R2/CODE/VISION
+mají 0. `providerVersionFilter:null` proto správně znamená 0 automatic
+reusable captures. Všechny role mají `decisionReady:false` a sémantické
+role 0 accepted graders. Toto čtení posuzuje pouze instalovanou DB,
+nikoli oddělený vývojový packet 1 173 odpovědí; neodmítá jeho obsah.
+
+Připravená slepá vlna 144 odpovědí / 330 kritérií a zbývající fronta
+433/1 035 má samostatné integrity REVIEW_PASS, ale stále
+`NOT_EVALUATED / NO_DECISION`. Zjištění vlastníka probíhajícího externího
+hodnocení čeká; bez něj se nesmí spustit duplicitní placená práce.
+
+## Historický výchozí audit
+
 **Stav 1. 10. 2026, 03:34 UTC:** `READ_ONLY_AUDIT / DEVELOPMENT_WAVE_PLANNED /
 REVIEW_PENDING / NO_GO`. Podklad je čistý integrační source `a199a5d1` a
 instalovaná databáze čtená výhradně v režimu read-only. Tento pracovní balík

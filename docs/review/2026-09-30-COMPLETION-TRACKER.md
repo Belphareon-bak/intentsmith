@@ -1,5 +1,50 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 1. 10. 2026, 10:27 UTC — IDE schválení přijato, TaskFlow opravuje měřidlo
+
+Skutečný packaged IDE průchod řízeného návrhu přes renderer/prepare/DOM
+preview/approve má **PASS / REVIEW_PASS**. Funkční test skončil exit 0,
+šest souborů má přesné preview/Filesystem/Git bytes, nově otevřená SQLite
+potvrdila succeeded terminál a 0 chatových zpráv. AppImage je stále ze
+source `45caf5b5`; GUI/backend bloby jsou shodné s `cf67e83f`. Žádné
+nasazení nebo modelový composer PASS. [Raw identity a meze](2026-10-01-STUDIO2-M2-FUNCTIONAL-UI.md).
+
+TaskFlow má implementaci `c19432b`, ale nezávislé review je
+**CHANGES_REQUIRED**, nikoli přijetí navzdory **25/25 PASS**. Reviewer
+skutečným M2 reprodukoval commit aplikace se sdíleným board mezi run
+voláními a aplikace přijímající neplain Date/class vstupy. Author nyní
+doplnil přímé VM kontroly a tři actual M2 failure/rollback/reopen negativy
+v clean `bc82434c`; obě app sady mají **28/28 PASS**, nezávislé re-review
+čeká a modelový běh je **NOT_RUN**. Původní přijatý ledger source a frozen hashe
+se nemění. Jeho fyzický PASS zůstává platný pro původní vymezený průchod.
+
+Hunt reader po doplnění vlastního dependency prostředí skutečně doběhl
+read-only exit 0 a má nezávislé **REVIEW_PASS**. Instalovaná DB stále nedává accepted graders ani
+decisionReady roli; oddělený druhý packet stále **596/1173**. Neproběhlo
+nové hodnocení, provider inventory nebo rozhodnutí. Dřívější durable
+missing-module FAIL je zachovaný. [Fresh receipts a přesný rozsah](../wp/WP-HUNT-COMPLETION-PATH-20261001.md).
+
+Mobilní New Chat má doloženou integrační mezeru: lokální ID se nevytvoří
+v backend DB a M7 katalog nemá `conversation.create`. Fyzická 13+7 device
+matice zůstává NOT_RUN; příprava předání pokračuje bez CHAT změn. Cleanup
+stále HOLD, žádné odstranění. Publikovaný `cf67e83f` má přesný CI SUCCESS
+uvedený níže; celý starší profil zůstává red.
+
+## Publikace přijaté aplikace — 1. 10. 2026, 09:30 UTC
+
+Root atomicky pushnul a přes `ls-remote` ověřil integrační
+`cf67e83f2e7cf654bc8900f7b4dde434411cc0b2`. Nový evidence tag
+`evidence/project-app-20261001-0913` má tag object
+`d98c1f62251204d5afc8e7b2025e8923a84cf752` a vzdáleně ověřený peeled
+target přesně `92f7b51c2423bdd2cc5633903a579b611d01f7f3`, původní
+fyzický source. Důkazy/DB zůstávají privátní; jejich veřejné hashe jsou
+v příslušném WP. Žádná větev ani worktree nebyly odstraněné.
+
+[Push CI run 36842914496](https://github.com/Belphareon-bak/intentsmith/actions/runs/36842914496)
+na přesném `cf67e83f` je **SUCCESS**, job `110305992785`; všechny
+dependency/registry/boundary/Studio/HTTP-privacy/hygiene kroky prošly.
+Jde o development CI na tomto SHA, nikoli nový celý profil nebo release.
+
 ## Checkpoint 1. 10. 2026, 09:25 UTC — skutečná funkční aplikace přijata
 
 Nový fyzický CODE/backend/M2 průchod z čistého, nezávisle přijatého

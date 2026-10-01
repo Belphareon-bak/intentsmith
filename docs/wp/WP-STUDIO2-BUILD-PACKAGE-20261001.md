@@ -7,7 +7,13 @@ předává další modelové CHAT testy jinému workerovi. Tento WP ověřuje bu
 balíček a dostupné testy rozhraní bez modelové inference.
 
 **Zdroj:** `45caf5b54b78def257221ac2ab33a64031800813`.
-**Stav:** `BUILD_PACKAGE_VERIFIED / NO_MODEL_UI_VERIFIED / PACKAGE_IDENTITY_REVIEW_PASS / REPORT_REVIEW_PASS / NOT_DEPLOYED`.
+**Stav:** `BUILD_PACKAGE_VERIFIED / NO_MODEL_UI_VERIFIED / CONTROLLED_UI_M2_PASS / PACKAGE_IDENTITY_REVIEW_PASS / REPORT_REVIEW_PASS / NOT_DEPLOYED`.
+
+**Přijaté pokračování 10:14 UTC:** skutečný renderer/AppImage připravil,
+zobrazil a schválil řízený návrh šesti souborů. Pevné funkční orákulum,
+commit a nový read-only SQLite proces prošly; nezávislé REVIEW_PASS.
+[Přesný kandidát, raw důkazy a hranice](../review/2026-10-01-STUDIO2-M2-FUNCTIONAL-UI.md).
+Modelový CODE composer v AppImage není tímto řízeným návrhem ověřený.
 
 ## Rozsah a vlastnictví
 

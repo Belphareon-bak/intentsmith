@@ -1,6 +1,17 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktualizace 1. 10. 2026, 09:25 UTC:** Malá šestisouborová aplikace
+**Aktualizace 1. 10. 2026, 10:27 UTC:** Řízené schválení funkční aplikace
+ve skutečném AppImage má **PASS / REVIEW_PASS**, včetně frozen testu,
+přesných preview/Git bajtů a durable terminálu. Modelový composer není
+tímto řízeným návrhem ověřený. Druhý projekt TaskFlow `c19432b` je
+**CHANGES_REQUIRED**: actual M2 odhalilo dvě falešná přijetí orákulem;
+oprava jejich kontrol běží, modelový průchod NOT_RUN. Hunt read-only
+reader funguje, ale druhé známky stále **596/1173 / NO_GO**. Mobil čeká
+na integrační kontrakt nové konverzace a fyzickou 13+7 matici; cleanup
+má HOLD. CHAT pokračuje u jiného workera.
+[Přesné výsledky a důkazy](docs/review/2026-09-30-COMPLETION-TRACKER.md).
+
+**Historický checkpoint 1. 10. 2026, 09:25 UTC:** Malá šestisouborová aplikace
 na zmrazeném `92f7b51c` prošla skutečným CODE/backend/M2 průchodem
 a nezávislým **REVIEW_PASS**, včetně funkčního testu a ověření po restartu.
 Společná integrace `de4b779c` má **8/8** app/harness/schema/M6 a **2/2**
