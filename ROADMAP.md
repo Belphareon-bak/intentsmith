@@ -120,7 +120,7 @@ měl tehdy 1 433 hran, 3 cykly / 28 členů. Závěrečné měření a nezávisl
 přijetí mají vlastní evidenci v [předávce](docs/review/2026-09-28-STUDIO2-PARITY-DELIVERY.md).
 Tehdejší integrovaný module graph měl 1 434 hran, 3 cykly / 28 členů po
 přijetí přesné hrany `src/chat/context-compact.js -> src/core/abort-error.js`.
-Aktuální module graph má 1 464 hran, stále 3 cykly / 28 členů;
+Aktuální module graph má 1 478 hran, stále 3 cykly / 28 členů;
 oficiální baseline přijala dvě hrany read modelu nad `8c64e427`, přesnou
 hranu chatové chyby nad čistým integračním `2305431c` a dvě nezávisle
 posouzené integrační hrany `src/agents/runner.js -> src/agents/schema.js`

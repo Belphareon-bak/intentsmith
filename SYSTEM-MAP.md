@@ -662,8 +662,8 @@ Při další integraci se přeměří znovu.
 
 | | |
 |---|---:|
-| `src/**/*.js` | **234 011 ř.**  681 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **264 480 ř.**  595 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **234 011 ř.**, 681 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **264 480 ř.**, 595 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **591** (`493 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 108** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |
@@ -725,7 +725,7 @@ artefaktů měla inventory ve snapshotu 2026-08-28 devět modelů a 55/0/0/8 cov
 beze změny. Důkaz:
 [`model-removal-live-20260828.json`](docs/execution/runs/model-removal-live-20260828.json).
 
-Tool census ze zdroje: **9 JavaScript soubory, 8 905 řádků, 153 top-level
+Tool census ze zdroje: **9 JavaScript soubory, 8 956 řádků, 153 top-level
 nástrojových deklarací**. Počet 213 v dřívější inventuře byl textový false count.
 
 ---
