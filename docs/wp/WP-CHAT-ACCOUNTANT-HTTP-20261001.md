@@ -5,10 +5,13 @@ HTTP/SQLite cesta i veřejný filtr `extractedParams` prošly, ale při selhán�
 generativního wrapperu se původní raw tag vracel do M1 jako úspěch.
 Překladatel navíc v `toolResults` zveřejňoval celý zdrojový text už při
 úspěchu. Integrační oprava nyní vyřazuje raw fallback, používá typovanou
-503/502 chybu a pro ostatní specialistické výsledky zveřejňuje jen typ;
-strukturovaný VAT výsledek zůstává beze změny. Red-first HTTP testy pro
-provider 503 a truncation byly před opravou FAIL, po ní jsou PASS. Nová
-revize a čistý registrovaný běh ještě chybí.
+503/502 chybu a v generativním wrapperu a přímé expertní prezentaci pro
+ostatní specialistické výsledky zveřejňuje jen typ; samostatná
+deterministická větev vybraného specialisty je mimo tento rozsah.
+Strukturovaný VAT výsledek zůstává beze změny. Red-first HTTP testy pro
+provider 503 a truncation byly před opravou FAIL, po ní jsou PASS. Čistý
+`b9b8738` prošel registrovaně **7/7**, omezené nezávislé review vrátilo
+`REVIEW_PASS` pro oba původní nálezy.
 
 **Následné integrační ověření 1. 10. 2026, 00:16 UTC:** společný commit
 `033afd47` prošel registrovanými sadami účetního, překladatele a

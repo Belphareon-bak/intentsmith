@@ -2708,6 +2708,12 @@ ${JSON.stringify(agent.definition, null, 2)}
         type: 'error',
         desc: (r) => r.error || 'Neočekávaná chyba'
       },
+      'ERROR_INTERRUPTED': {
+        icon: '❌',
+        title: 'Běh přerušen',
+        type: 'error',
+        desc: () => 'Proces skončil během běhu; výsledek akce je nutné ověřit'
+      },
       'INIT_BASELINE': {
         icon: '🏁',
         title: 'Baseline nastaven',

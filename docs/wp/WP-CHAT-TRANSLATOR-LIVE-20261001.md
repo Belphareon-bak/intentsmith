@@ -7,12 +7,16 @@ privátním `chat-translator-live-evidence.json` pod
 Nezávislá revize společného `12b7726a` poté našla veřejný únik původního
 vstupu přes `toolResults[0].data.data.sourceText`, a při provider 503 dokonce
 HTTP 200 s raw JSON a `SUCCESS`. Red-first skutečný M1 HTTP/SQLite test
-potvrdil oba případy. Lokální oprava ponechává raw výsledek pouze v privátním
-provider promptu; veřejný specialistický `toolResults` mimo bezpečný VAT
-výpočet nese jen typ nástroje. Při provider 503 nebo `done_reason=length`
+potvrdil oba případy. Lokální oprava ponechává raw výsledek v privátním
+provider promptu; generativní wrapper a přímá expertní prezentace zveřejňují
+u jiných nástrojů než VAT jen jejich typ. Samostatná deterministická větev
+vybraného specialisty není touto úpravou metadat pokryta. Při provider 503
+nebo `done_reason=length`
 vrací terminální M1 chybu 503/502 bez asistenční zprávy v SQLite a bez raw
 textu v odpovědi. Přímé testy překladu **3/3** a účetního **2/2** procházejí;
-čistý registrovaný commit a nezávislé review této opravy teprve následují.
+čistý registrovaný commit `b9b8738` prošel **7/7**
+(`.intentsmith-artifacts/test-runs/2026-10-01T00-23-32-213Z/report.json`)
+a omezená nezávislá revize této opravy vrátila `REVIEW_PASS`.
 
 **Stav 2026-10-01:** implementační kandidát. Deterministický průchod se
 skutečným izolovaným HTTP serverem, privátní SQLite a řízeným providerem

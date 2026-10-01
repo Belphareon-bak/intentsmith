@@ -2,10 +2,46 @@
 // ══════════════════════════════════════════════════════════════════════════════
 // Database operations for agents
 
+import { readFileSync } from 'node:fs';
+
 import { logger } from '../core/logger.js';
 
 const agentRepositoryState = new WeakMap();
 const m3NotificationPortState = new WeakMap();
+
+// Linux process birth time disambiguates a reused PID. If /proc is unavailable,
+// recovery leaves a running row alone rather than terminating a live owner.
+function processIdentity(pid) {
+  if (process.platform !== 'linux') return { state: 'unknown' };
+  try {
+    process.kill(pid, 0);
+  } catch (error) {
+    return error?.code === 'ESRCH' ? { state: 'dead' } : { state: 'unknown' };
+  }
+  let stat;
+  try {
+    stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      try {
+        process.kill(pid, 0);
+      } catch (probeError) {
+        if (probeError?.code === 'ESRCH') return { state: 'dead' };
+      }
+    }
+    return { state: 'unknown' };
+  }
+  const close = stat.lastIndexOf(')');
+  const fields = close >= 0 ? stat.slice(close + 2).trim().split(/\s+/) : [];
+  if (fields.length <= 19 || !/^\d+$/.test(fields[19])) return { state: 'unknown' };
+  return { state: fields[0] === 'Z' ? 'dead' : 'alive', startedAt: fields[19] };
+}
+
+function ensureColumn(db, table, column, declaration) {
+  if (!db.prepare(`PRAGMA table_info(${table})`).all().some(row => row.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${declaration}`);
+  }
+}
 
 function requireNotificationBound(value, label, maximum = 2000) {
   if (!Number.isSafeInteger(value) || value < 0 || value > maximum) {
@@ -60,6 +96,8 @@ export function initAgentTables(db) {
       explain TEXT,
       log TEXT,
       error TEXT,
+      owner_pid INTEGER,
+      owner_started_at TEXT,
       FOREIGN KEY (agent_id) REFERENCES agents_v33(id) ON DELETE CASCADE
     )
   `);
@@ -74,12 +112,16 @@ export function initAgentTables(db) {
       body TEXT,
       priority TEXT DEFAULT 'normal',
       data TEXT,
+      effect_key TEXT,
       read_at DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (agent_id) REFERENCES agents_v33(id) ON DELETE CASCADE,
       FOREIGN KEY (run_id) REFERENCES agent_runs_v33(id) ON DELETE SET NULL
     )
   `);
+  ensureColumn(db, 'agent_runs_v33', 'owner_pid', 'INTEGER');
+  ensureColumn(db, 'agent_runs_v33', 'owner_started_at', 'TEXT');
+  ensureColumn(db, 'agent_notifications_v33', 'effect_key', 'TEXT');
   
   // Agent data store (key-value per agent)
   db.exec(`
@@ -155,6 +197,8 @@ export function initAgentTables(db) {
     CREATE INDEX IF NOT EXISTS idx_agent_runs_started ON agent_runs_v33(started_at DESC);
     CREATE INDEX IF NOT EXISTS idx_agent_notif_agent ON agent_notifications_v33(agent_id);
     CREATE INDEX IF NOT EXISTS idx_agent_notif_read ON agent_notifications_v33(read_at);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_notif_effect
+      ON agent_notifications_v33(agent_id, effect_key) WHERE effect_key IS NOT NULL;
     CREATE INDEX IF NOT EXISTS idx_agent_schedule_next ON agent_schedule_v33(next_run);
     CREATE INDEX IF NOT EXISTS idx_agent_seen_lookup ON agent_seen_items_v57(agent_id, source_id, item_id);
   `);
@@ -274,10 +318,44 @@ export class AgentRepository {
   // ════════════════════════════════════════════════════════════════════════════
   
   createRun(agentId) {
+    const owner = processIdentity(process.pid);
     const result = this.db.prepare(`
-      INSERT INTO agent_runs_v33 (agent_id, status) VALUES (?, 'running')
-    `).run(agentId);
+      INSERT INTO agent_runs_v33 (agent_id, status, owner_pid, owner_started_at)
+      VALUES (?, 'running', ?, ?)
+    `).run(agentId, owner.state === 'alive' ? process.pid : null,
+      owner.state === 'alive' ? owner.startedAt : null);
     return result.lastInsertRowid;
+  }
+
+  recoverInterruptedRuns() {
+    const running = this.db.prepare(`
+      SELECT id, owner_pid, owner_started_at FROM agent_runs_v33
+      WHERE status = 'running'
+    `).all();
+    const recover = this.db.prepare(`
+      UPDATE agent_runs_v33 SET finished_at = CURRENT_TIMESTAMP,
+        status = 'interrupted', error = 'OWNER_PROCESS_EXITED_DURING_RUN',
+        explain = ?
+      WHERE id = ? AND status = 'running'
+        AND owner_pid = ? AND owner_started_at = ?
+    `);
+    let count = 0;
+    this.db.transaction(() => {
+      for (const run of running) {
+        if (!Number.isSafeInteger(run.owner_pid) || !run.owner_started_at) continue;
+        const owner = processIdentity(run.owner_pid);
+        if (owner.state === 'unknown'
+          || (owner.state === 'alive' && owner.startedAt === run.owner_started_at)) continue;
+        const notifications = this.db.prepare(`
+          SELECT COUNT(*) AS count FROM agent_notifications_v33 WHERE run_id = ?
+        `).get(run.id).count;
+        const explain = JSON.stringify({ run_id: run.id,
+          run_state: 'ERROR_INTERRUPTED', effectOutcome: 'unknown',
+          notificationsPersisted: notifications });
+        count += recover.run(explain, run.id, run.owner_pid, run.owner_started_at).changes;
+      }
+    })();
+    return count;
   }
   
   completeRun(runId, data) {
@@ -338,17 +416,26 @@ export class AgentRepository {
   
   createNotification(agentId, runId, data) {
     const result = this.db.prepare(`
-      INSERT INTO agent_notifications_v33 (agent_id, run_id, title, body, priority, data)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO agent_notifications_v33
+        (agent_id, run_id, title, body, priority, data, effect_key)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT DO NOTHING
     `).run(
       agentId,
       runId || null,
       data.title,
       data.body || null,
       data.priority || 'normal',
-      data.data ? JSON.stringify(data.data) : null
+      data.data ? JSON.stringify(data.data) : null,
+      data.effectKey || null,
     );
-    return result.lastInsertRowid;
+    if (result.changes === 1) return result.lastInsertRowid;
+    if (!data.effectKey) throw new Error('Notification insert did not commit');
+    const existing = this.db.prepare(`
+      SELECT id FROM agent_notifications_v33 WHERE agent_id = ? AND effect_key = ?
+    `).get(agentId, data.effectKey);
+    if (!existing) throw new Error('Notification effect-key conflict without a durable row');
+    return existing.id;
   }
   
   getNotifications(options = {}) {

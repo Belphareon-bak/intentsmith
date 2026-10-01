@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 578
-- Explicit support-module exclusions: 26
-- Profiles: offline=316, database=84, server=58, model=85, soak=15, manual=20
-- States: ACTIVE=481, HISTORICAL=15, BLOCKED=82
+- Runnable programs: 579
+- Explicit support-module exclusions: 27
+- Profiles: offline=316, database=84, server=59, model=85, soak=15, manual=20
+- States: ACTIVE=482, HISTORICAL=15, BLOCKED=82
 
 ## Execution profiles
 
@@ -369,6 +369,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M2-TOOL-BROKER-V1-TEST` | `tests/m2-tool-broker-v1.test.js` | `C3-020` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
 | `IS-T1-TESTS-M2-TOOL-CONTRACT-V1-TEST` | `tests/m2-tool-contract-v1.test.js` | `C3-020` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
 | `IS-T1-TESTS-M2-TOOL-PRODUCTION-CONSUMER-TEST` | `tests/m2-tool-production-consumer.test.js` | `C3-020` | T1 | `database` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
+| `IS-T3-TESTS-M3-AGENT-CRASH-RECOVERY-PRODUCT-JOURNEY-TEST` | `tests/m3-agent-crash-recovery-product-journey.test.js` | `C3-015` | T3 | `server` | 10 s | 90 s | network:loopback, temp-db | yes | `ACTIVE` | — | WP-M3-WORKER-CRASH-RECOVERY-20261001 |
 | `IS-T2-TESTS-M3-AGENT-HTTP-DURABLE-JOURNEY-TEST` | `tests/m3-agent-http-durable-journey.test.js` | `C3-013` | T2 | `database` | 2 s | 30 s | network:loopback, temp-db | yes | `ACTIVE` | — | WP-CHAT-WORKER-JOURNEY-20260930 |
 | `IS-T3-TESTS-M3-AGENT-PRODUCT-HTTP-JOURNEY-TEST` | `tests/m3-agent-product-http-journey.test.js` | `C3-013` | T3 | `server` | 10 s | 3 min | network:loopback, temp-db | yes | `ACTIVE` | — | WP-CHAT-WORKER-JOURNEY-20260930 |
 | `IS-T3-TESTS-M3-AGENT-SCHEDULED-PRODUCT-JOURNEY-TEST` | `tests/m3-agent-scheduled-product-journey.test.js` | `C3-015` | T3 | `server` | 10 s | 90 s | network:loopback, temp-db | yes | `ACTIVE` | — | WP-M3-SCHEDULED-PRODUCT-JOURNEY-20261001 |
@@ -640,6 +641,7 @@ ledger.
 | `tests/helpers/chat-value-fidelity-journey.js` | Shared exact-value M1 HTTP and SQLite oracle imported by the deterministic and opt-in live value-fidelity suites; no standalone entry point. |
 | `tests/helpers/isolated-test-db.js` | Imported direct-run database isolation bootstrap, not a standalone test. |
 | `tests/helpers/m2-http-build-fixture.js` | Owned child HTTP composition for generation, effects and process restart in m2-lifecycle-http-e2e.test.js; not a standalone suite. |
+| `tests/helpers/m3-notification-crash-preload.js` | Suite-owned product child preload that stops only the isolated crash-journey process after a committed M3 notification; no standalone test. |
 | `tests/helpers/m6-owned-runtime-probe.js` | Imported M6 owned-server and loopback namespace harness, not a standalone test. |
 | `tests/helpers/m7-durable-rate-limit-racer.js` | Suite-owned cross-process SQLite race helper launched only by m7-durable-rate-limiter.test.js. |
 | `tests/helpers/ollama-loopback-fetch-boundary.js` | Imported fail-closed M6 model-test transport boundary, not a standalone test. |

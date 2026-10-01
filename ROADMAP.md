@@ -57,9 +57,9 @@ Tehdejší integrovaný module graph měl 1 434 hran, 3 cykly / 28 členů po
 přijetí přesné hrany `src/chat/context-compact.js -> src/core/abort-error.js`.
 Aktuální module graph má 1 462 hran, stále 3 cykly / 28 členů;
 oficiální baseline přijala dvě hrany read modelu nad `8c64e427`, přesnou
-hranu chatové chyby nad čistým integračním `2305431c` a dvě integrační
-hrany `src/agents/runner.js -> src/agents/schema.js` a
-`src/chat/handlers/decisions.js -> src/llm/auth-types.js` nad `d2591bc0`.
+hranu chatové chyby nad čistým integračním `2305431c` a dvě nezávisle
+posouzené integrační hrany `src/agents/runner.js -> src/agents/schema.js`
+a `src/chat/handlers/decisions.js -> src/llm/auth-types.js` nad `63dc55fb`.
 
 **Studio: průběh práce a prostředí, 2026-09-23:** konkrétní tahy, nástroje,
 čekání, souborové diffy/+− a kopírování formátované odpovědi. Přidáno skutečné

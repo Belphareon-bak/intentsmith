@@ -101,6 +101,13 @@ export class AgentScheduler {
       return;
     }
     
+    // Only runs whose recorded process identity is provably dead are closed.
+    // Another live product process may share the database and own its run.
+    const interrupted = this.repo.recoverInterruptedRuns?.() || 0;
+    if (interrupted > 0) {
+      this.logger.warn(`[Scheduler] Recovered ${interrupted} interrupted agent runs`);
+    }
+
     this.running = true;
     this.logger.info('[Scheduler] Starting (check every ' + checkIntervalMs + 'ms)');
     
