@@ -901,8 +901,8 @@ function parseExplicitLiteralWrite(input) {
 
 function hasNoOverwriteConstraint(text) {
   const explicitProhibition = /(?:nepřepisuj|neprepisuj|nepřepisovat|neprepisovat|nepřepsat|neprepsat|bez\s+přepsání|bez\s+prepsani|do\s+not\s+(?:overwrite|replace)|don['’]t\s+(?:overwrite|replace)|without\s+(?:overwriting|replacing))/iu;
-  const absentCondition = /(?:pokud|když|jestli|v\s+případě\s*,?\s*že)[^.!?]{0,100}(?:neexistuje|neexistuji|není\s+(?:vytvořen[ýyao]?|na\s+disku)|tam\s+(?:ještě\s+)?není|není\s+tam)|(?:only\s+)?if\s+[^.!?]{0,100}(?:does\s+not\s+exist|doesn['’]t\s+exist|is\s+(?:absent|missing|not\s+there)|isn['’]t\s+there)|unless\s+[^.!?]{0,100}\bexists\b/iu;
-  const newFileOnly = /(?:jen|pouze|výhradně)\s+(?:(?:do|jako)\s+nov[ýé]ho?\s+souboru|(?:vytvoř|vytvor|založ|zaloz)\s+nov[ýy]\s+soubor)|(?:(?:create|write|save)\s+only|only\s+(?:create|write|save))\s+(?:a\s+)?new\s+file/iu;
+  const absentCondition = /(?:pokud|když|jestli|v\s+případě\s*,?\s*že)[^.!?]{0,100}(?:neexistuje|neexistuji|(?:soubor\s+(?:ještě\s+)?)?není\s+(?:vytvořen[ýyao]?|na\s+disku)|soubor\s+(?:ještě\s+)?není|tam\s+(?:ještě\s+)?není|není\s+tam)|(?:only\s+)?if\s+[^.!?]{0,100}(?:does\s+not\s+exist|doesn['’]t\s+exist|is\s+(?:absent|missing|not\s+there)|isn['’]t\s+there)|unless\s+[^.!?]{0,100}\bexists\b/iu;
+  const newFileOnly = /(?:jen|pouze|výhradně)\s+(?:(?:do|jako)\s+nov[ýé]ho?\s+souboru|(?:vytvoř|vytvor|založ|zaloz)\s+nov[ýy]\s+soubor|nov[ýy]\s+soubor)|(?:(?:create|write|save)\s+only|only\s+(?:create|write|save))\s+(?:a\s+)?new\s+file|only\s+(?:a\s+)?new\s+file/iu;
   const leaveExisting = /(?:pokud|když|jestli)[^.!?]{0,100}existuje[^.!?]{0,100}(?:nech|ponech)\s+(?:jej|ho|to)\s+(?:být|byt|bejt)/iu;
   return explicitProhibition.test(text) || absentCondition.test(text)
     || newFileOnly.test(text) || leaveExisting.test(text);
@@ -979,6 +979,14 @@ export async function handleFileWriteDecision(input, decision, context, dependen
   if (!literalWrite) {
     const targetIndex = input.toLowerCase().indexOf(filePath.toLowerCase());
     if (targetIndex >= 0) {
+      const prefix = input.slice(0, targetIndex);
+      const unknownCondition = /(?:^|[\s,;])(?:jen|pouze|výhradně|pokud|když|jestli|bez|only|if|unless|without)(?=[\s,;]|$)|za\s+podmínky|nov[ýy]\s+soubor|new\s+file/iu.test(prefix);
+      if (unknownCondition) {
+        return terminalWithoutEffect(lang === 'cs'
+          ? `⚠️ Podmínka před ${literal(filePath)} není pro tento zápis jednoznačná. Upřesni, zda smím případný existující soubor přepsat.`
+          : `⚠️ The condition before ${literal(filePath)} is ambiguous for this write. Clarify whether an existing file may be overwritten.`,
+        'file_write_condition_ambiguous', filePath);
+      }
       const suffix = input.slice(targetIndex + filePath.length).trim();
       const redundantSameTargetSave = suffix.replace(/[.]$/u, '').trim().toLowerCase()
         === `a uložit ho do ${filePath.toLowerCase()}`;

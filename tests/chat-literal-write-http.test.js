@@ -136,6 +136,9 @@ await testAsync('M1 literal file write preserves exact bytes; no-overwrite never
       'Ulož to do existing.md, jen pokud tam ještě není.',
       'Save it to existing.md, only create a new file.',
       'Save it to existing.md, only if the file is not there.',
+      'Pouze nový soubor, ulož to do existing.md.',
+      'Jen pokud soubor ještě není, ulož to do existing.md.',
+      'Only a new file, save it to existing.md.',
     ]) {
       const guarded = await send(noOverwriteConversation, equivalent);
       assert.equal(guarded.response.metadata.error, 'no_overwrite_unsupported', equivalent);
@@ -147,6 +150,11 @@ await testAsync('M1 literal file write preserves exact bytes; no-overwrite never
     assert.equal(unknownSuffix.response.metadata.error, 'file_write_suffix_ambiguous');
     assert.equal(privateDb.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count,
       beforeNoOverwrite, 'unparsed extra file effect cannot register an effect');
+    const unknownPrefix = await send(noOverwriteConversation,
+      'Za podmínky volného místa ulož to do existing.md.');
+    assert.equal(unknownPrefix.response.metadata.error, 'file_write_condition_ambiguous');
+    assert.equal(privateDb.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count,
+      beforeNoOverwrite, 'unparsed condition before target cannot register an effect');
     const repeatedTarget = await send(noOverwriteConversation,
       'Ulož to do existing.md, a pak uprav existing.md.');
     assert.equal(repeatedTarget.response.metadata.error, 'file_write_suffix_ambiguous');

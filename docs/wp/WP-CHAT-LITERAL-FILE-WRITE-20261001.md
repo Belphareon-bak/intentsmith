@@ -21,6 +21,12 @@ do stejné cesty a přesné „v projektu“ v aktivním projektovém kontextu. 
 chrání i formulaci, kterou seznam synonym nezná. První běh existujícího M2
 consumeru po zavedení brzdy našel tyto dvě legitimní věty a skončil **21 PASS /
 1 FAIL**; po úzkém povolení obou konkrétních vět prošel **22/22**.
+Po omezeném `REVIEW_PASS` nad `88212c16` jsem ještě před integrací ověřil
+podmínku před názvem cíle: `Pouze nový soubor, ulož to do existing.md.`
+Red-first M1 HTTP/SQLite běh prokázal nový přepisující návrh. Nynější kandidát
+rozpoznává obvyklé předřazené create-only formulace; nevyložený podmínkový
+prefix před cílem se také zastaví bez M2 efektu. Tato další delta znovu
+vyžaduje nezávislé review; dřívější verdikt se na ni nepřenáší.
 
 **Autorita:** explicitní zadání operátora dokončovat reálné chatové scénáře
 (2026-09-30 a 2026-10-01) a živě pozorovaný pilot-4: první zpráva
