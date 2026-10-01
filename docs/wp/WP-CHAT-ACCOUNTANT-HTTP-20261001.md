@@ -20,7 +20,11 @@ kandidátu M1/SQLite/oracle **73/73**, specialist runtime **24/24** a
 `CHANGES_REQUIRED`: „Neprováděj“ a „Nespočítej“ skutečně provedly a uložily
 výpočet. Po dalších red-first případech širší negace a neutrální `ne…` slova
 má pracovní kandidát **79/79** řízených M1/SQLite/oracle kontrol.
-Změna je zatím `REVIEW_PENDING` / `NOT_DEPLOYED`.
+Třetí review čistého `0ddc9773` znovu vrátilo `CHANGES_REQUIRED`:
+„Bez výpočtu … pouze vysvětli“ spustilo a uložilo DPH. Po red-first
+regresích záměr „jen vysvětlit“ vyvolá cílenou otázku bez výpočtu;
+pracovní M1/SQLite/oracle sada **82/82**. Změna je zatím
+`REVIEW_PENDING` / `NOT_DEPLOYED`.
 
 **Dodatečné review `12b7726a`: `CHANGES_REQUIRED`.** Negativní účetní
 HTTP/SQLite cesta i veřejný filtr `extractedParams` prošly, ale při selhání

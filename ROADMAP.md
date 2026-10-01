@@ -1,7 +1,7 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktuální source checkpoint 1. 10. 2026, 02:56 UTC — nezávislá
-revize `365ed339` vyžaduje širší zacházení s negací:**
+**Aktuální source checkpoint 1. 10. 2026, 03:01 UTC — nezávislá
+revize `0ddc9773` našla i zákaz samotného výpočtu:**
 [měřené dokončování IDE/backendu, chatu, GPU huntu a odložené mobilní
 integrace](docs/review/2026-09-30-COMPLETION-TRACKER.md). Vývojový registr
 má 583 programů; úplný offline/database profil na čistém předchozím
@@ -23,8 +23,11 @@ výpočet navzdory „nepřidávej/neodečítej“ a úplný profil odhalil smě
 řízené M1/SQLite a oracle **73/73**, specialist runtime **24/24** a
 `harness-exit-code` PASS. Re-review pak našlo další dvě negovaná slovesa,
 která prošla až do uložené odpovědi. Konzervativní detekce negace s ověřenými
-neutrálními slovy a anglické `do not` dává v pracovním kandidátu **79/79**
-řízených případů; plný profil, čistý commit a nezávislá revize ještě čekají.
+neutrálními slovy a anglické `do not` dávala **79/79** řízených případů.
+Reviewer však ověřil, že „Bez výpočtu … pouze vysvětli“ stále spustilo
+výpočet. Po červených M1 regresích je tento záměr rozlišen cíleným dotazem;
+pracovní kandidát má **82/82** řízených případů. Čistý commit, review
+a celý profil pro tuto poslední opravu ještě čekají.
 Níže uvedených 353/353 patří staršímu M6 kandidátu,
 nikoli dnešnímu vývojovému profilu; M5/M6 acceptance zůstává zavřená.
 Následující datované záznamy zachovávají historii tehdejších kandidátů.

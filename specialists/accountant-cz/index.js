@@ -120,6 +120,15 @@ function extractVatParamsInline(input) {
   }
   if (params.amount === undefined) params.inputError ||= 'amount';
 
+  const explanationOnly = /\b(?:bez|m[ií]sto)\s+(?:v[ýy]po[čc]t|po[čc][ií]t[aá]n[ií]|kalkulac)\p{L}*/iu.test(normalized)
+    || /\b(?:pouze|jen|jenom)\s+(?:mi\s+)?(?:vysv[eě]tl|popi[šs]|objasn)\p{L}*/iu.test(normalized);
+  const explains = /\b(?:vysv[eě]tl|popi[šs]|objasn)\p{L}*/iu.test(normalized);
+  const asksCalculation = /\b(?:kolik|vypo[čc][ií]t|spo[čc][ií]t|p[řr]id|ode[čc]|odpo[čc]|p[řr]i[čc][ií]t)\p{L}*/iu.test(normalized);
+  if (explanationOnly || (explains && !asksCalculation)) {
+    params.inputError ||= 'calculationIntent';
+    return params;
+  }
+
   // Negated Czech commands have many valid verbs. Treat an unknown ne... word
   // conservatively; these neutral words are not instructions to avoid VAT.
   const neutralNeWord = /^(?:nebo|neboť|nejen|nejdřív|nejdříve|nejprve|nemovitost\p{L}*)$/iu;

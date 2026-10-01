@@ -1,5 +1,20 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 1. 10. 2026, 03:01 UTC — zákaz výpočtu vs vysvětlení sazby
+
+Třetí nezávislé re-review čistého `0ddc9773` vrátilo **CHANGES_REQUIRED**.
+Původní negace i neutrální „nemovitost“, „nejen“ a běžný výpočet byly přes
+M1/SQLite správné. Věta „Bez výpočtu DPH z 10 000 Kč mi pouze vysvětli
+sazbu 21 %…“ však přesto vypočetla a uložila DPH 2 100 Kč. Dvě nové M1
+red-first regrese pro zákaz výpočtu a pouze vysvětlení byly **FAIL**.
+Opravený vybraný VAT specialista vrací u těchto formulací `NEEDS_INPUT`
+s otázkou, zda má DPH vypočítat, nebo jen vysvětlit sazbu; nástroj ani
+generativní fallback nespustí. Řízené M1/SQLite a oracle nyní **82/82**,
+specialist runtime **24/24**. Dříve naplánovaný úplný profil na `0ddc9773`
+byl po review nálezu zastaven při **105 PASS**, bez produktového FAIL;
+signál zaznamenal právě běžící Hunt test. Další celý profil poběží až po
+nezávislém přijetí opravy a integraci sousedních samostatných milníků.
+
 ## Checkpoint 1. 10. 2026, 02:56 UTC — druhá negace z nezávislé revize
 
 Nezávislé re-review čistého `365ed339` správně potvrdilo opravu původních

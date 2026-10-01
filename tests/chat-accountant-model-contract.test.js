@@ -391,6 +391,15 @@ test('selected VAT extraction preserves cents, explicit period, rate and calcula
     { label: 'English do not must not become VAT addition',
       input: 'Do not add DPH 21 % z 10 000 Kč za rok 2025 pro ČR.',
       needsInput: 'direction' },
+    { label: 'without calculation explanation must not calculate VAT',
+      input: 'Bez výpočtu DPH z 10 000 Kč mi pouze vysvětli sazbu 21 % za rok 2025 pro ČR.',
+      needsInput: 'calculationIntent' },
+    { label: 'only explain VAT rate must not calculate VAT',
+      input: 'Jen vysvětli sazbu DPH 21 % z 10 000 Kč za rok 2025 pro ČR.',
+      needsInput: 'calculationIntent' },
+    { label: 'explain VAT rate without calculation request must not calculate VAT',
+      input: 'Vysvětli sazbu DPH 21 % z 10 000 Kč za rok 2025 pro ČR.',
+      needsInput: 'calculationIntent' },
     { label: 'first compute VAT is not a negation',
       input: 'Nejdřív vypočti DPH 21 % k základu daně 10 000 Kč za rok 2025 pro ČR.',
       params: { amount: 10000, year: 2025, rate: '21', direction: 'add' },
@@ -449,6 +458,7 @@ test('selected VAT extraction preserves cents, explicit period, rate and calcula
             rate: /sazb|procent|%/iu,
             year: /rok|obdob|let/iu,
             direction: /základ|cena|včetně|bez DPH/iu,
+            calculationIntent: /vypo[čc]|vysv[eě]tl|chce[šs]/iu,
           }[scenario.needsInput];
           assert.match(result.response.content, fieldPattern,
             `${scenario.label}: clarification must ask for ${scenario.needsInput}`);

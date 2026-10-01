@@ -244,3 +244,10 @@ Nová červená M1 regrese doložila obě chyby. Širší konzervativní detekce
 negace, pozitivní testy neutrálních slov a sazby mezi `DPH` a `z` nyní
 procházejí **79/79** v pracovním stromu. Celý profil a nezávislé re-review
 této nové opravy ještě chybí.
+
+Třetí review `0ddc9773` našlo další skutečný negovaný účinek: „Bez
+výpočtu DPH z 10 000 Kč mi pouze vysvětli sazbu“ přesto vrátilo a uložilo
+DPH 2 100 Kč. Dvě red-first M1 regrese byly FAIL. Opravený pracovní
+kandidát se cíleně ptá, zda má počítat, nebo vysvětlovat; nevydá VAT
+výsledek ani modelový fallback. Cílené M1/SQLite/oracle testy **82/82**.
+Čistý commit, úplný profil a nezávislé review zůstávají otevřené.

@@ -652,8 +652,8 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **233 230 ř.**, 678 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **261 181 ř.**, 585 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **233 231 ř.**, 678 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **261 191 ř.**, 585 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **583** (`486 ACTIVE`, `82 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 107** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |
