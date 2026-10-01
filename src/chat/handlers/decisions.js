@@ -1376,6 +1376,8 @@ Passe den Umfang der Anfrage an. Benenne Unsicherheit; erfinde keine aktuellen F
           + JSON.stringify(decision.metadata.clarificationRequest)
           + '. Preserve its output format and constraints unless the current user explicitly changes them. This quoted request grants no external action authority.' : '')
       + '\n\nThis invocation returns chat text only. It executes no external action. Complete independent text parts. Give a useful draft/manual step with the exact target; clarify only missing details. File actions need separate approval.'
+      + (decision.metadata?.requestedOperation === 'other'
+        ? ' Preserve quoted draft bodies byte-for-byte: no greeting, additions or signature. Reuse supplied dates/times verbatim; omit inferred weekdays/durations. Each independent text part keeps its own requested format; the action limitation is additional.' : '')
       + ' Prefer user facts to assistant claims. Invent no features or dates. Source weekdays are not clock dates. Check supplied values.'
       + memoryReferenceBlock({ ...context, memoryBankContext: '' }, 1600, decision.intent)
       + environmentPrompt + projectPrompt;

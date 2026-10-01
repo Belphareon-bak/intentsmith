@@ -167,6 +167,11 @@ test('unknown classifier labels preserve only grounded delete refusal, never pos
       assert.equal(await creDecisionEngine._llmClassifyIntent(`Myslím ${fileTarget}.`, { sessionState: state }), null);
     }
     proposed.fileTarget = 'notes.md';
+    for (const intent of [null, 1, ['FILE_DELETE'], { value: 'FILE_DELETE' }]) {
+      proposed.intent = intent;
+      assert.equal(await creDecisionEngine._llmClassifyIntent('Myslím notes.md.', { sessionState: state }), null);
+    }
+    proposed.intent = 'FILE_DELETE';
     for (const confidence of [null, '0.95', -0.1, 1.1]) {
       proposed.confidence = confidence;
       assert.equal(await creDecisionEngine._llmClassifyIntent('Myslím notes.md.', { sessionState: state }), null);
