@@ -1846,11 +1846,20 @@ ChatController.handle = async function(request) {
     projectId: context.projectId || null,
   });
   // Capture the durable project assignment at the moment this user turn is
-  // written. A conversation can later be reassigned; an old ordinal file
-  // reference must never resolve against the new project's files.
-  const persistedProjectId = Number(store.getConversation(dbConversationId)?.project_id);
-  const turnProjectId = Number.isSafeInteger(persistedProjectId) && persistedProjectId > 0
-    ? persistedProjectId : null;
+  // written. Later conversation reassignment must not rebind either an
+  // ordinal file reference or a saved-answer source to another project.
+  const normalizeSourceProjectId = value => {
+    const id = Number(value);
+    return Number.isSafeInteger(id) && id > 0 ? id : null;
+  };
+  const answerSourceProjectId = normalizeSourceProjectId(
+    store.getConversation(dbConversationId)?.project_id,
+  );
+  const turnProjectId = answerSourceProjectId;
+  if (Object.hasOwn(context, 'projectId')
+    && normalizeSourceProjectId(context.projectId) !== answerSourceProjectId) {
+    throw new ChatProcessingError('CONVERSATION_PROJECT_CHANGED');
+  }
 
   const persistUserTurn = () => store.appendTurn(dbConversationId, TurnRole.USER, message, {
     timestamp: Date.now(),
@@ -2181,7 +2190,22 @@ ChatController.handle = async function(request) {
     turnId: durableTurnId,
     signal,
     persistAssistantTurn: (content, turnMetadata) => {
-      store.appendTurn(dbConversationId, TurnRole.ASSISTANT, content, turnMetadata);
+      // A conversation can later be reassigned to another project. Pin the
+      // answer to the project at turn entry. The assignment may change while
+      // a provider awaits; compare and persist under one SQLite transaction,
+      // so a reply generated from A context cannot become a B source answer.
+      db.db.transaction(() => {
+        const currentProjectId = normalizeSourceProjectId(
+          store.getConversation(dbConversationId)?.project_id,
+        );
+        if (currentProjectId !== answerSourceProjectId) {
+          throw new ChatProcessingError('CONVERSATION_PROJECT_CHANGED');
+        }
+        store.appendTurn(dbConversationId, TurnRole.ASSISTANT, content, {
+          ...turnMetadata,
+          saveSourceProjectId: answerSourceProjectId,
+        });
+      })();
     },
   });
 

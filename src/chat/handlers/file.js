@@ -1015,47 +1015,9 @@ export async function handleFileWriteDecision(input, decision, context, dependen
     }
   }
 
-  // 2. Get content to write — last ASSISTANT message from conversation history
-  //    IMPORTANT: history contains both user and assistant turns.
-  //    User turns have speaker='user', assistant turns have speaker='system'.
-  //    The current user message is ALREADY in history (appended before handler),
-  //    so we MUST filter by speaker to avoid writing the user's own request.
-  let content = literalWrite ? literalWrite.content : '';
-  if (!literalWrite && !content && context.history?.length > 0) {
-    for (let i = context.history.length - 1; i >= 0; i--) {
-      const entry = context.history[i];
-      // Skip user turns — only pick assistant (speaker='system') responses
-      if (entry.response?.tag?.speaker !== 'system') continue;
-      // Only a persisted, positively classified answer may become the input
-      // of a filesystem effect. Legacy turns without provenance fail closed.
-      if (entry.metadata?.saveSourceEligible !== true) continue;
-      const resp = entry.response?.content || entry.content;
-      if (resp) {
-        content = resp;
-        break;
-      }
-    }
-  }
-
-  if (!literalWrite && !content) {
-    const msg = lang === 'cs'
-      ? '⚠️ Není co uložit — žádná předchozí odpověď v konverzaci.'
-      : '⚠️ Nothing to save — no previous response in conversation.';
-    return new TaggedResponse({
-      content: msg,
-      tag: new ResponseTag({
-        speaker: ResponseSpeaker.SYSTEM,
-        mode: ChatMode.CONVERSATION,
-        confidence: 0.9,
-        canExecute: false,
-        metadata: { decision: decision.toJSON(), handler: 'file.write', error: 'no_content' },
-      }),
-    });
-  }
-
-  // 3. M2 writes require a registered active project and authenticated caller.
-  // There is deliberately no output-directory escape hatch on this path: every
-  // production write is an EffectRequest and needs an exact ApprovalGrant.
+  // M2 write authority is required before looking for a reusable answer.
+  // This also prevents a missing project/identity from being reported as a
+  // source-provenance problem instead of the actual security boundary.
   const projectId = Number(context.project?.id ?? context.projectId);
   const authenticatedSubject = context.authenticatedSubject;
   const hasMessageIdentity = Number.isSafeInteger(context.userMessageId) && context.userMessageId > 0;
@@ -1083,6 +1045,60 @@ export async function handleFileWriteDecision(input, decision, context, dependen
           securityBlocked: true,
           error: 'effect_authority_required',
         },
+      }),
+    });
+  }
+
+  // 2. Get content to write — last ASSISTANT message from conversation history
+  //    IMPORTANT: history contains both user and assistant turns.
+  //    User turns have speaker='user', assistant turns have speaker='system'.
+  //    The current user message is ALREADY in history (appended before handler),
+  //    so we MUST filter by speaker to avoid writing the user's own request.
+  let content = literalWrite ? literalWrite.content : '';
+  const sourceProjectId = projectId;
+  if (!literalWrite && context.history?.length > 0) {
+    for (let i = context.history.length - 1; i >= 0; i--) {
+      const entry = context.history[i];
+      // Skip user turns — only pick assistant (speaker='system') responses
+      if (entry.response?.tag?.speaker !== 'system') continue;
+      if (entry.isSummary) continue;
+      // Only a persisted, positively classified answer may become the input
+      // of a filesystem effect. Known effect protocol turns may be skipped;
+      // an unclassified newer assistant turn is a barrier to older answers.
+      if (entry.metadata?.saveSourceEligible === false) continue;
+      if (entry.metadata?.saveSourceEligible !== true) {
+        return terminalWithoutEffect(lang === 'cs'
+          ? '⚠️ Původ poslední odpovědi nelze bezpečně ověřit. Uveď text v uvozovkách.'
+          : '⚠️ I cannot verify the source of the latest answer. Quote the exact text to save.',
+        'file_write_source_unverified', filePath);
+      }
+      if (!Number.isSafeInteger(sourceProjectId) || sourceProjectId <= 0
+        || entry.metadata?.saveSourceProjectId !== sourceProjectId) {
+        return terminalWithoutEffect(lang === 'cs'
+          ? '⚠️ Poslední odpověď patří k jinému projektu. Uveď výslovně obsah, který chceš uložit.'
+          : '⚠️ The latest answer belongs to another project. Provide the exact content to save.',
+        'file_write_source_project_mismatch', filePath);
+      }
+      const resp = entry.response?.content || entry.content;
+      if (resp) {
+        content = resp;
+        break;
+      }
+    }
+  }
+
+  if (!literalWrite && !content) {
+    const msg = lang === 'cs'
+      ? '⚠️ Není co uložit — žádná předchozí odpověď v konverzaci.'
+      : '⚠️ Nothing to save — no previous response in conversation.';
+    return new TaggedResponse({
+      content: msg,
+      tag: new ResponseTag({
+        speaker: ResponseSpeaker.SYSTEM,
+        mode: ChatMode.CONVERSATION,
+        confidence: 0.9,
+        canExecute: false,
+        metadata: { decision: decision.toJSON(), handler: 'file.write', error: 'no_content' },
       }),
     });
   }

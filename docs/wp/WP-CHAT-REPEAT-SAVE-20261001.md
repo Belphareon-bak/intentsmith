@@ -14,8 +14,20 @@ Finalizér nově ukládá k asistentovu trvalému tahu jednoduchou příznakovou
 informaci, zda je jeho obsah způsobilý být zdrojem dalšího zápisu. Návrh
 zápisu, hláška o schválení, čekání na schválení, blokování a chybová odpověď
 takový zdroj netvoří. Historie předaná handlerům nese tuto perzistentní
-informaci; `file.write` vybírá poslední způsobilou odpověď. Starší tah bez
-informace končí bez návrhu zápisu, protože původ obsahu nelze prokázat.
+informaci i ID projektu, ke kterému odpověď patřila při zahájení tahu.
+`file.write` přeskočí jen známé procesní hlášky; nejnovější skutečnou odpověď
+smí použít pouze ve stejném projektu. Starší tah bez informace nebo odpověď
+z jiného projektu končí bez návrhu zápisu.
+
+První nezávislé review `0ad0b4f7` bylo **CHANGES_REQUIRED**. Skutečný M1
+HTTP/SQLite průchod přeřadil konverzaci z projektu A do B, navrhl zápis
+soukromé odpovědi A do B a po schválení jej provedl. Nový red-first test
+tuto cestu reprodukoval. Oprava váže zdroj na trvalé ID projektu a při
+neshodě nepokračuje ke starší odpovědi. Test pokrývá i cyklus B→A→B.
+Přeřazení může proběhnout během čekání na provider: kontroler zachytí
+projekt při vstupu tahu a před uložením odpovědi jej porovná v jedné SQLite
+transakci. Změna během tahu ukončí odpověď bez asistentského tahu, takže
+obsah A nevznikne jako zdroj pro B.
 
 ## Ověření a hranice
 
@@ -29,5 +41,9 @@ Red-first **0/1**, po opravě **1/1 PASS**. `chat-persistence` **36/36** a
 ukončen. Jeho fixture postrádala novou informaci o trvalém původu předchozí
 odpovědi, takže první test správně nevytvořil efekt, ale čekal na něj bez
 timeoutu. Fixture nyní výslovně označuje důvěryhodnou odpověď; opakovaný
-samostatný běh prošel **39/39 PASS**. Nezávislé review,
+samostatný běh prošel **39/39 PASS**. M1 test nyní kontroluje A→B, B→A→B a
+přeřazení během provider requestu i starší netagovaný asistentský tah,
+aktuálně **1/1 PASS**. Po integraci je
+nutné ověřit společné řazení historie podle `messages.id` z WP ordinal;
+samostatná větev této opravy vychází ze staršího zdroje. Nezávislé review,
 integrace a fyzický modelový pilot dosud čekají.

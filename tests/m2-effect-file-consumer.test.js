@@ -33,7 +33,7 @@ function context(projectRoot, overrides = {}) {
     conversationId: 'conversation-1',
     history: [
       { response: { content: 'authoritative assistant content\n', tag: { speaker: 'system' } },
-        metadata: { saveSourceEligible: true } },
+        metadata: { saveSourceEligible: true, saveSourceProjectId: 17 } },
       { response: { content: 'ulož to do notes/result.md', tag: { speaker: 'user' } } },
     ],
     langCtx: { language: 'en' },
