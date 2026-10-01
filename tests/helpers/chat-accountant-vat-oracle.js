@@ -36,9 +36,9 @@ export function assertVatToolAndPrompt(result, providerBody, model) {
   return vat;
 }
 
-const MONEY = /(\d{1,3}(?:[ .\u00a0\u202f]\d{3})+|\d+)(?:[,.](\d{1,2}))?\s*(?:Kč|CZK|korun(?:a|y)?)(?!\p{L})/giu;
+const MONEY = /(?:(?<sign>[-−])\s*)?(?<amount>\d{1,3}(?:[ .\u00a0\u202f]\d{3})+|\d+)(?:[,.](?<fraction>\d{1,2}))?\s*(?:Kč|CZK|korun(?:a|y)?)(?!\p{L})/giu;
 const LABELS = /(?<total>cena s DPH|celková cena|částka s DPH|celkem|zaplatíte)|(?<base>základ(?: daně)?|cena bez DPH)|(?<vat>daň z přidané hodnoty|výsledná daň|(?<!s )(?<!bez )\bDPH\b|\bdaň\b)/giu;
-const RATE = /(?<!\p{N})(\d+(?:[,.]\d{1,2})?)\s*(?:%|procent(?:a|o|u)?|percent)(?!\p{L})/giu;
+const RATE = /(?<!\p{N})(?:(?<sign>[-−])\s*)?(?<value>\d+(?:[,.]\d{1,2})?)\s*(?:%|procent(?:a|o|u)?|percent)(?!\p{L})/giu;
 const YEAR = /(?<!\p{N})(\d{4})(?!\p{N})/gu;
 const CZECH_JURISDICTION = /(?<!\p{L})(?:ČR|Česk(?:o|u|em)|Česk\p{L}* republic\p{L}*)(?!\p{L})/iu;
 const UPPERCASE_REGION_CODE = /(?<!\p{L})([A-Z]{2})(?!\p{L})/gu;
@@ -66,8 +66,20 @@ function foreignJurisdictionPattern() {
 const FOREIGN_JURISDICTION = foreignJurisdictionPattern();
 
 function moneyAmount(match) {
-  return Number(match[1].replace(/[ .\u00a0\u202f]/gu, '')
-    + (match[2] ? `.${match[2]}` : ''));
+  const amount = Number(match.groups.amount.replace(/[ .\u00a0\u202f]/gu, '')
+    + (match.groups.fraction ? `.${match.groups.fraction}` : ''));
+  return match.groups.sign ? -amount : amount;
+}
+
+function assertNoNegatedVatOrJurisdiction(normalized) {
+  // This oracle judges one fixed calculation. An explicit denial in the same
+  // clause as its tax or jurisdiction claim contradicts that calculation.
+  for (const clause of normalized.split(/[.!?;\r\n]+/u)) {
+    if (!/(?<!\p{L})DPH(?!\p{L})/iu.test(clause)
+      && !CZECH_JURISDICTION.test(clause)) continue;
+    assert(!/(?<!\p{L})(?:není|neplatí)(?!\p{L})/iu.test(clause),
+      'explicitly negated VAT or Czech applicability in bounded answer');
+  }
 }
 
 function assertExactLabeledAmounts(resultText) {
@@ -107,6 +119,7 @@ function assertListedSection(lines, title) {
 export function assertVatAnswer(answer) {
   assert.equal(typeof answer, 'string');
   const normalized = answer.normalize('NFKC').replace(/[\u00a0\u202f]/gu, ' ');
+  assertNoNegatedVatOrJurisdiction(normalized);
   assert(CZECH_JURISDICTION.test(normalized),
     'Czech jurisdiction missing');
   const foreignJurisdiction = normalized.match(FOREIGN_JURISDICTION);
@@ -117,7 +130,8 @@ export function assertVatAnswer(answer) {
   assert(!foreignCode,
     `foreign ISO jurisdiction contradicts the bounded Czech VAT answer: ${foreignCode}`);
   const rates = [...normalized.matchAll(RATE)]
-    .map(match => Number(match[1].replace(',', '.')));
+    .map(match => Number(match.groups.value.replace(',', '.'))
+      * (match.groups.sign ? -1 : 1));
   assert(rates.length > 0 && rates.every(rate => rate === VAT_RESULT.rate_percent),
     'every explicit percentage must be 21 %');
   const withoutMoneyOrRates = normalized

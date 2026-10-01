@@ -123,6 +123,17 @@ není úplnou sémantickou validací volného textu. Každá fyzická modelová
 odpověď i s nástroji a perzistencí se proto musí navíc ručně přečíst a
 vyhodnotit; žádný fyzický běh se dosud nespustil.
 
+Pátá nezávislá revize `39467a51` vrátila **CHANGES_REQUIRED**: záporné
+`DPH je -2 100 Kč.` a `DPH -21 %` měly kladnou hodnotu kvůli ignorovanému
+znaménku; `DPH není 2 100 Kč.` a `Pro ČR tato sazba neplatí.` prošly kvůli
+ignorované negaci. Všechny čtyři konkrétní výroky byly před správnou
+odpovědí i v „Předpoklady“ falešně zelené: red-first sada **8 FAIL / 30 PASS**.
+Oracle nyní čte znaménko částky i sazby a odmítá explicitní „není“ či
+„neplatí“ v téže klauzuli jako DPH nebo českou jurisdikci. Přímá sada má
+**38/38**, řízený M1 **2/2**. Tato syntetická oprava ještě vyžaduje nezávislé
+re-review a ruční věcnou kontrolu případné fyzické odpovědi. Živý model je
+nadále **LIVE_NOT_RUN**.
+
 Živý příkaz až po review a uvolnění GPU slotu na přesném čistém commitu:
 
 ```sh

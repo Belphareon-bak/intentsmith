@@ -79,6 +79,10 @@ for (const [name, statement] of [
   ['foreign jurisdiction in a Czech inflection', 'Platí na Slovensku.'],
   ['another foreign jurisdiction', 'Platí v Německu.'],
   ['foreign -ie jurisdiction in a Czech inflection', 'Platí ve Francii.'],
+  ['negative VAT amount', 'DPH je -2 100 Kč.'],
+  ['negative VAT rate', 'DPH -21 %.'],
+  ['negated VAT amount', 'DPH není 2 100 Kč.'],
+  ['negated Czech applicability', 'Pro ČR tato sazba neplatí.'],
 ]) {
   test(`VAT answer rejects ${name} before the valid text`, () => {
     assert.throws(() => assertVatAnswer(`${statement}\n${valid}`));
