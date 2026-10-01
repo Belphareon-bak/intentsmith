@@ -34,7 +34,7 @@ function run(corpus, options = {}) {
   writeFileSync(file, JSON.stringify(corpus));
   return spawnSync(process.execPath, [runner, '--isolated-chat', '--offline',
     '--phase', options.phase || 'pilot-contract', '--corpus', file,
-    '--record', path.join(scratch, 'unused.json')], {
+    '--record', path.join(scratch, 'unused.json'), ...(options.args || [])], {
     cwd: root,
     env: { ...process.env, ...(options.env || {}) },
     encoding: 'utf8',
@@ -199,6 +199,10 @@ try {
   const accepted = run(original);
   assert.equal(accepted.status, 0, accepted.stderr);
   assert.match(accepted.stdout, /"status":"OFFLINE_CORPUS_VALIDATED","cases":53,"modelCalls":0/u);
+  const namedArtifact = run(original, { args: ['--model', 'gemma4:26b', '--model-digest', '08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68'] });
+  assert.equal(namedArtifact.status, 0, namedArtifact.stderr);
+  rejected(original, /--model-digest is required/u, { args: ['--model', 'gemma4:26b'] });
+  rejected(original, /tag and exact SHA-256 digest/u, { args: ['--model', 'gemma4:26b', '--model-digest', 'unknown'] });
 
   const incomplete = structuredClone(original);
   incomplete.cases.pop();

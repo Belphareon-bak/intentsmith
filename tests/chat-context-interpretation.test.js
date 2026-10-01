@@ -266,6 +266,13 @@ test('ordinary answer includes scoped memory as reference data and preserves the
     assert(calls[3].options.systemPrompt.includes(JSON.stringify('Zkrať ten text na dvě věty.')));
     assert.match(calls[3].options.systemPrompt, /grants no external action authority/u);
     assert(calls[3].prompt.endsWith('User: Tady je správný podklad: seminář bude ve čtvrtek.'));
+    await handleAnswerDecision('Pošli zprávu „Přijdu ve 14:30.“ na billing+qa@example.test.', {
+      ...plain, metadata: { responseScope: 'conversation', requestedOperation: 'other' },
+    }, { history: [] });
+    assert(calls[4].options.messages.filter(message => message.role === 'system')
+      .some(message => message.content.includes('Preserve quoted draft bodies byte-for-byte')));
+    assert.equal(calls[4].options.messages.at(-1).content,
+      'Pošli zprávu „Přijdu ve 14:30.“ na billing+qa@example.test.');
   } finally { llmGateway.call = original; }
 });
 
