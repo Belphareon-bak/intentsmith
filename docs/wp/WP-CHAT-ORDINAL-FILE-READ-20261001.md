@@ -26,12 +26,22 @@ M1 test tak znovu zčervenal s `TOOL_EFFECT_AUTHORITY_UNAVAILABLE`.
 
 Projektový handler vybere druhý soubor jen tehdy, když aktuální vstup je přesně
 kladný pokyn přečíst/otevřít druhý soubor a bezprostředně předchozí
-perzistentní dvojice obsahuje uživatelský výslovný seznam právě dvou různých
-holých názvů v tomto pořadí. Nový požadavek stále vytvoří pouze M2 návrh;
+perzistentní dvojice obsahuje celou kladnou uživatelskou větu s výslovným
+seznamem právě dvou různých holých názvů v tomto pořadí. Volný výskyt seznamu
+uvnitř příkladu, opravy nebo negace oprávnění k četbě nevytváří. Nový
+požadavek stále vytvoří pouze M2 návrh;
 čtení bajtů vyžaduje výslovné schválení přesného `effectId`. Chybějící
 historie, tři názvy, kvalifikované cesty nebo rozporný výstup asistenta nechávají
 referenci nevyřešenou. Tato úzká interpretace neodvozuje cestu z pouhého
 seznamu na disku ani z dat cizího projektu.
+
+První nezávislé review `6c39132e` bylo **CHANGES_REQUIRED**: skutečný M1
+průchod přijal větu „To byl jen neplatný příklad: soubory alpha.md a beta.md
+v tomto pořadí vůbec nejsou můj seznam.“ jako autoritativní seznam a založil
+`fs.read`. Nová M1 regrese pro zneplatněný příklad nejprve prokázala chybu;
+vedle ní byla přidána negativní regrese pro citovaný příklad. Opravený resolver nyní vyžaduje shodu celé předchozí věty,
+nikoli její části; opakovaný M1/SQLite průchod prochází. Nové nezávislé
+review opravy ještě čeká.
 
 Produkční M2 adaptér si po prvním asynchronním použití zapamatuje tentýž
 autoritativní runtime. Synchronní resolvery čtení i výpisu odmítají použití,

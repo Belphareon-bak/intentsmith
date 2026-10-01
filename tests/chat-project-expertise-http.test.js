@@ -488,6 +488,8 @@ test('the second file in the immediately preceding ordered user list proposes on
     for (const [label, source] of [
       ['three-files', 'Napiš větu o souborech alpha.md, beta.md a gamma.md v tomto pořadí.'],
       ['qualified-paths', 'Napiš jednu větu, která uvádí soubory docs/alpha.md a docs/beta.md v tomto pořadí.'],
+      ['invalid-example', 'To byl jen neplatný příklad: soubory alpha.md a beta.md v tomto pořadí vůbec nejsou můj seznam. Nic nečti ani neměň.'],
+      ['quoted-example', 'Cituj jen příklad „soubory alpha.md a beta.md v tomto pořadí“, nikoli můj seznam.'],
     ]) {
       const ambiguous = await project(server, label, `ORDINAL_${label}`);
       await expect(server, 'POST', '/api/chat', command(ambiguous.conversationId, `${label}-source`, source), 200);

@@ -255,16 +255,17 @@ function resolveImmediateOrderedFileRead(input, history) {
     || assistant?.response?.tag?.speaker !== 'system'
     || typeof user.response.content !== 'string'
     || typeof assistant.response.content !== 'string') return null;
-  const source = user.response.content;
+  const source = user.response.content.trim();
   const extension = '(?:md|txt|json|js|ts|py|html|css|yaml|yml|toml)';
   const filePattern = new RegExp(`\\b[A-Za-z0-9_-]+\\.${extension}(?![.\\w-])`, 'giu');
-  const files = [...source.matchAll(filePattern)].map(match => match[0]);
+  // Require the entire preceding user turn to establish the pair. A matching
+  // substring inside a quote, example, correction or negated statement cannot
+  // authorize a read of project bytes.
   const orderedPair = source.match(new RegExp(
-    `(?:^|\\s)soubory\\s+([A-Za-z0-9_-]+\\.${extension})\\s+a\\s+([A-Za-z0-9_-]+\\.${extension})\\s+v\\s+tomto\\s+pořadí(?:\\s|[.!?]|$)`, 'iu',
+    `^(?:(?:Napiš\\s+jednu\\s+větu,\\s+která\\s+uvádí|Mám|Zde\\s+jsou)\\s+)?soubory\\s+([A-Za-z0-9_-]+\\.${extension})\\s+a\\s+([A-Za-z0-9_-]+\\.${extension})\\s+v\\s+tomto\\s+pořadí[.!]?(?:\\s+Nic\\s+nečti\\s+ani\\s+neměň[.!]?)?$`, 'iu',
   ));
-  if (!orderedPair || files.length !== 2 || files[0] === files[1]
-    || orderedPair[1] !== files[0] || orderedPair[2] !== files[1]
-    || [...source.matchAll(filePattern)].some(match => /[/\\]/u.test(source[match.index - 1] || ''))) return null;
+  if (!orderedPair || orderedPair[1].toLowerCase() === orderedPair[2].toLowerCase()) return null;
+  const files = [orderedPair[1], orderedPair[2]];
   const echoed = [...assistant.response.content.matchAll(filePattern)].map(match => match[0]);
   if (echoed.some(file => !files.includes(file))
     || (echoed.includes(files[0]) && echoed.includes(files[1])
