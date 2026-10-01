@@ -279,3 +279,11 @@ více požadavků ještě před volbou směru; výslovné vypsání hodnot
 základ/DPH/cena s DPH z téhož deterministického výsledku zachovává.
 Řízené sady **94/94** PASS, navazující loader/runtime/context PASS.
 Celý profil a nezávislé přijetí nové opravy dosud chybí.
+
+Sedmé review čistého `e734d179` našlo variantu se dvěma větami:
+„Vypočti DPH 21 % z 10 000 Kč za rok 2025 pro ČR. Lze DPH
+odečíst?“ Kontrola spojek druhou otázku minula, nástroj použil
+`remove` a uložil nesprávný výpočet. Red-first M1/SQLite případ
+byl FAIL; následná oprava zastaví druhou větu před volbou směru.
+Souhrnné řízené účetní sady **95/95** PASS. Nový clean commit,
+nezávislé re-review a celý profil stále čekají.

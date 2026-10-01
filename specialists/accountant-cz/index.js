@@ -169,7 +169,8 @@ function extractVatParamsInline(input) {
     '',
   );
   const hasSecondClause = /(?<!\p{L})(?:a|i|také|zároveň|současně|rovněž)(?!\p{L})/iu.test(intentSource)
-    || /[;:\n]/u.test(intentSource);
+    || /[;:\n]/u.test(intentSource)
+    || /[.!?]\s+\p{L}/u.test(intentSource);
   if (hasSecondClause) {
     params.inputError ||= 'compoundIntent';
     return params;

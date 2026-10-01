@@ -1,5 +1,19 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 1. 10. 2026, 03:24 UTC — druhá věta a směr DPH
+
+Sedmé nezávislé re-review čistého `e734d179` potvrdilo opravu
+tří složených zadání, ale vrátilo **CHANGES_REQUIRED** pro
+„Vypočti DPH 21 % z 10 000 Kč za rok 2025 pro ČR. Lze DPH odečíst?“.
+Oddělení tečkou obešlo detekci druhé otázky, právní sloveso
+`odečíst` chybně otočilo aritmetiku na `remove` a M1 uložilo
+DPH 1 735,54 Kč bez odpovědi na právní otázku. Nová red-first
+M1/SQLite regrese nejprve selhala. Oprava rozpozná také hranici
+vět tvořenou tečkou, vykřičníkem či otazníkem a dalšími slovy;
+desetinná čísla a datum s číslem za tečkou tuto podmínku nespouštějí.
+Ověřený souhrnný účetní průchod nyní **95/95**. Čistý commit,
+nezávislé review a celý profil pro tuto opravu čekají.
+
 ## Checkpoint 1. 10. 2026, 03:19 UTC — složené účetní požadavky
 
 Šesté nezávislé re-review čistého `77a96d2b` vrátilo
