@@ -1,5 +1,21 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 1. 10. 2026, 03:15 UTC — vysvětlující dovětek zkratky DPH
+
+Páté nezávislé re-review čistého `751e8531` vrátilo
+**CHANGES_REQUIRED**. Původní vysvětlující věta už správně vyvolala
+`NEEDS_INPUT`, ale „DPH z 10 000 Kč za rok 2025 pro ČR: co to znamená?“
+se přes M1/SQLite stále změnilo v uložený výpočet 2 100 Kč. Tři nové
+M1 regrese pro významovou otázku, otázku na postup a smíšenou žádost
+nejprve selhaly. Oprava žádá upřesnění také při vysvětlujícím dovětku
+a zkrácené tvary `DPH z …` / `cena bez DPH z …` přijímá jen jako celé
+kalkulační zadání; neznámý koncový text výpočet nespustí. Pozitivní
+regrese chrání oba stručné tvary a sníženou sazbu. Řízené
+M1/SQLite/oracle sady nyní **91/91**, navazující loader, runtime a
+session-context sady prošly. Čistý commit a nezávislé přijetí této
+opravy teprve následují; celý profil pro aktuální source dosud nemá
+výsledek.
+
 ## Checkpoint 1. 10. 2026, 03:06 UTC — kladný záměr výpočtu
 
 Čtvrté nezávislé re-review čistého `a41d6885` vrátilo **CHANGES_REQUIRED**:

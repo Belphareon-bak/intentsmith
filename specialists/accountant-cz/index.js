@@ -51,6 +51,13 @@ const VAT_CURRENCY = new RegExp(`(?<![\\p{L}\\d])${VAT_NUMBER}\\s*(?<scale>mil(?
 const VAT_SCALED = new RegExp(`(?<![\\p{L}\\d])${VAT_NUMBER}\\s*(?<scale>mil(?:ion(?:u)?)?|tis(?:[ií]c)?|[kKmM])(?!\\p{L})`, 'giu');
 const VAT_PLAIN = new RegExp(`(?<![\\p{L}\\d])${VAT_NUMBER}(?![\\p{L}\\d])`, 'giu');
 
+// A shorthand without an affirmative verb is safe only when it is wholly a
+// calculator expression. Extra prose can change the requested action.
+const VAT_COMPACT_AMOUNT = '(?:\\d{1,3}(?:[ \\u00a0\\u202f.]\\d{3})+|\\d+)(?:[,.]\\d{1,2})?\\s*(?:Kč|CZK)?';
+const VAT_COMPACT_SUFFIX = '(?:\\s+(?:za\\s+rok\\s+\\d{4}|pro\\s+ČR|při\\s+sazbě\\s+\\d+(?:[,.]\\d{1,2})?\\s*%))*\\s*[.!?]?\\s*$';
+const VAT_COMPACT_ADD = new RegExp(`^\\s*DPH(?:\\s+(?:se\\s+)?sn[ií]ženou\\s+sazbou|\\s+\\d+(?:[,.]\\d{1,2})?\\s*%)?\\s+z(?:e)?\\s+${VAT_COMPACT_AMOUNT}${VAT_COMPACT_SUFFIX}`, 'iu');
+const VAT_COMPACT_REMOVE = new RegExp(`^\\s*cen[auy]\\s+bez\\s+DPH\\s+z(?:e)?\\s+${VAT_COMPACT_AMOUNT}${VAT_COMPACT_SUFFIX}`, 'iu');
+
 function vatAmountFromMatch(match) {
   const whole = match.groups.whole.replace(/[ .\u00a0\u202f]/gu, '');
   const fraction = (match.groups.fraction || '').padEnd(2, '0');
@@ -132,16 +139,20 @@ function extractVatParamsInline(input) {
   }
 
   // A VAT amount and rate alone do not authorize arithmetic when the user
-  // asks for an explanation. Preserve the established compact calculator
-  // shorthand only when the whole utterance begins with the calculator name.
+  // asks for an explanation. Preserve compact calculator requests only when
+  // the whole utterance matches the supported shorthand grammar.
   const explanationOnly = /\b(?:bez|m[ií]sto)\s+(?:v[ýy]po[čc]t|po[čc][ií]t[aá]n[ií]|kalkulac)\p{L}*/iu.test(normalized)
     || /\b(?:pouze|jen|jenom)\s+(?:mi\s+)?(?:vysv[eě]tl|popi[šs]|objasn)\p{L}*/iu.test(normalized);
-  const explains = /\b(?:vysv[eě]tl|popi[šs]|objasn)\p{L}*/iu.test(normalized)
-    || /\bjak\s+funguj\p{L}*/iu.test(normalized);
+  const asksExplanation = /\b(?:vysv[eě]tl|popi[šs]|objasn)\p{L}*/iu.test(normalized)
+    || /\bjak\s+funguj\p{L}*/iu.test(normalized)
+    || /\bco(?:\s+to)?\s+znamen[aá]\p{L}*/iu.test(normalized)
+    || /\bjak\s+(?:se\s+)?(?:to\s+)?(?:po[čc][ií]t|vypo[čc][ií]t)\p{L}*/iu.test(normalized);
   const asksCalculation = /\b(?:kolik|vypo[čc](?:[ií]t|t)|spo[čc](?:[ií]t|t)|po[čc][ií]t|p[řr]id|p[řr]i[čc][ií]?t|ode[čc]|odpo[čc]|nav[ýy][šs]|vy[čc][ií]sl)\p{L}*/iu.test(normalized);
-  const bareVatShorthand = /^\s*DPH\b/iu.test(normalized);
-  const bareNetShorthand = /^\s*cen[auy]\s+bez\s+DPH\s+z(?:e)?\b/iu.test(normalized);
-  if (explanationOnly || (explains && !asksCalculation)
+  const bareVatShorthand = VAT_COMPACT_ADD.test(normalized);
+  const bareNetShorthand = VAT_COMPACT_REMOVE.test(normalized);
+  // The deterministic result can present arithmetic, not an explanation or
+  // a mixed explanation+calculation request. Ask before doing only one part.
+  if (explanationOnly || asksExplanation
       || (!asksCalculation && !bareVatShorthand && !bareNetShorthand)) {
     params.inputError ||= 'calculationIntent';
     return params;

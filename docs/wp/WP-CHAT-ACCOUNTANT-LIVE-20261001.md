@@ -258,3 +258,13 @@ pro kladný pokyn nebo přesný zkrácený kalkulační tvar začínající `DPH
 či `cena bez DPH z …`; vysvětlení se ptá bez výpočtu. Cílené
 M1/SQLite/oracle sady **85/85**, starší loader **294/294** a session
 context **66/66**. Čistý commit, plný profil a re-review čekají.
+
+Páté review čistého `751e8531` našlo další skutečný významový
+průchod: „DPH z 10 000 Kč za rok 2025 pro ČR: co to znamená?“
+vrátilo `SUCCESS` a uložilo výpočet. Red-first M1 zkoušky potvrdily
+stejný problém u otázky na postup a smíšené žádosti o výpočet a
+vysvětlení. Oprava zastaví vysvětlující dotaz a dovolí zkrácený
+výpočet jen tehdy, když celé zadání odpovídá kalkulačnímu tvaru bez
+další prózy. Řízené M1/SQLite/oracle testy **91/91**, sousední
+loader/runtime/session-context průchody PASS. Nový čistý commit,
+nezávislé re-review a úplný profil čekají.
