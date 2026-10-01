@@ -24,7 +24,10 @@ vlastní backend a soukromou SQLite. Porovnává bajty prvního požadavku i
 souboru, trvalé označení původu tří asistentových tahů, restart backendu,
 bajty druhého požadavku i souboru po dalším výslovném schválení.
 Red-first **0/1**, po opravě **1/1 PASS**. `chat-persistence` **36/36** a
-`m1-quality-contract` **7/7 PASS**. Ruční přímý běh
+`m1-quality-contract` **7/7 PASS**. První ruční přímý běh
 `m2-effect-file-consumer` čekal přes tři minuty bez dalšího výstupu a byl
-ukončen; jeho stav je **INTERRUPTED**, nikoli PASS. Nezávislé review,
+ukončen. Jeho fixture postrádala novou informaci o trvalém původu předchozí
+odpovědi, takže první test správně nevytvořil efekt, ale čekal na něj bez
+timeoutu. Fixture nyní výslovně označuje důvěryhodnou odpověď; opakovaný
+samostatný běh prošel **39/39 PASS**. Nezávislé review,
 integrace a fyzický modelový pilot dosud čekají.
