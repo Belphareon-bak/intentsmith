@@ -13,6 +13,7 @@ import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 import { providerRelay, createProviderProxy } from '../scripts/run-project-app-journey.js';
 import { REFERENCE_LEDGER_OUTPUTS, OBJECT_COMMAND_LAST_RESULT_CLI } from './helpers/project-app-reference.js';
 import { REFERENCE_TASKFLOW_OUTPUTS, taskflowMutant } from './helpers/project-taskflow-reference.js';
+import { REFERENCE_SQLITE_OUTPUTS, sqliteCatalogMutant } from './helpers/project-sqlite-catalog-reference.js';
 import { initializeNewProject } from '../src/planner/project-onboarding.js';
 import { createDefaultM2LifecycleApplicationService } from '../src/lifecycle/m2-lifecycle-application-service.js';
 import { up as applyEffectAuthority } from '../src/db/migrations/2026_08_23_092_m2_effect_authority.js';
@@ -30,6 +31,9 @@ import { TASKFLOW_FILES, TASKFLOW_ORACLE_ARGV, TASKFLOW_ORACLE_SOURCE, TASKFLOW_
   TASKFLOW_PROBE_SOURCE, TASKFLOW_PROBE_SHA256, TASKFLOW_VALIDATE_SOURCE, TASKFLOW_VALIDATE_SHA256,
   taskflowBlueprint,
 } from '../scripts/project-taskflow-acceptance.js';
+import { SQLITE_FILES, SQLITE_ORACLE_ARGV, SQLITE_ORACLE_SOURCE, SQLITE_ORACLE_SHA256,
+  SQLITE_ENTRY_SOURCE, SQLITE_ENTRY_SHA256, sqliteCatalogBlueprint, policyForSqliteCatalog,
+} from '../scripts/project-sqlite-catalog-acceptance.js';
 
 const PROJECT_ID = 6021;
 const SUBJECT = Object.freeze({ actorType: 'user', actorId: 'ledger-acceptance-operator' });
@@ -39,6 +43,8 @@ const GENERATION_ORDER = ['src/totals.js', 'src/validate.js', 'src/storage.js',
   'src/service.js', 'src/cli.js', 'src/app.js'];
 const TASKFLOW_GENERATION_ORDER = ['src/query.js', 'src/validate.js', 'src/store.js',
   'src/cli.js', 'src/app.js'];
+const SQLITE_GENERATION_ORDER = ['src/query.js', 'src/schema.js', 'src/store.js',
+  'src/validate.js', 'src/service.js', 'src/cli.js', 'src/app.js'];
 
 function git(root, args) {
   return execFileSync('/usr/bin/git', args, { cwd: root, encoding: 'utf8', env: {
@@ -61,47 +67,51 @@ function databaseAt(file) {
 
 async function fixture(defect, scenarioId = 'ledger') {
   const taskflow = scenarioId === 'taskflow';
-  assert.ok(taskflow || scenarioId === 'ledger', 'only fixed scenarios');
-  const frozen = taskflow
+  const sqlite = scenarioId === 'sqlite-catalog';
+  assert.ok(taskflow || sqlite || scenarioId === 'ledger', 'only fixed scenarios');
+  const frozen = sqlite
+    ? { oracle: SQLITE_ORACLE_SOURCE, entry: SQLITE_ENTRY_SOURCE, order: SQLITE_GENERATION_ORDER }
+    : taskflow
     ? { oracle: TASKFLOW_ORACLE_SOURCE, probe: TASKFLOW_PROBE_SOURCE,
       validate: TASKFLOW_VALIDATE_SOURCE, order: TASKFLOW_GENERATION_ORDER }
     : { oracle: ORACLE_SOURCE, probe: PROBE_SOURCE, validate: VALIDATE_SOURCE,
       order: GENERATION_ORDER };
   const folder = fs.mkdtempSync(path.join(isolatedTestRuntime.artifacts, 'app-m2-'));
   const project = path.join(folder, 'project');
-  await initializeNewProject(project, { name: taskflow ? 'TaskFlow' : 'Expense Ledger', type: 'general' });
+  await initializeNewProject(project, { name: sqlite ? 'SQLite Catalog' : taskflow ? 'TaskFlow' : 'Expense Ledger', type: 'general' });
   const policyPath = path.join(project, '.intentsmith/m2-governance-policy.json');
-  const policy = policyForFrozenOracle(JSON.parse(fs.readFileSync(policyPath, 'utf8')));
+  const policy = (sqlite ? policyForSqliteCatalog : policyForFrozenOracle)(JSON.parse(fs.readFileSync(policyPath, 'utf8')));
   assert.ok(policy.externalImports.includes('node:child_process'));
-  assert.ok(policy.externalImports.includes('node:vm'));
+  assert.ok(policy.externalImports.includes(sqlite ? 'node:sqlite' : 'node:vm'));
   fs.writeFileSync(policyPath, JSON.stringify(policy, null, 2) + '\n');
-  fs.writeFileSync(path.join(project, ORACLE_PATH), frozen.oracle);
-  fs.writeFileSync(path.join(project, PROBE_PATH), frozen.probe);
-  fs.writeFileSync(path.join(project, VALIDATE_PATH), frozen.validate);
-  fs.writeFileSync(path.join(project, ENTRY_PATH), ENTRY_SOURCE);
-  git(project, ['add', '--', ORACLE_PATH, PROBE_PATH, VALIDATE_PATH,
-    ENTRY_PATH, '.intentsmith/m2-governance-policy.json']);
+  const frozenFiles = sqlite
+    ? [[ORACLE_PATH, frozen.oracle], [ENTRY_PATH, frozen.entry]]
+    : [[ORACLE_PATH, frozen.oracle], [PROBE_PATH, frozen.probe],
+      [VALIDATE_PATH, frozen.validate], [ENTRY_PATH, ENTRY_SOURCE]];
+  for (const [relative, content] of frozenFiles) fs.writeFileSync(path.join(project, relative), content);
+  git(project, ['add', '--', ...frozenFiles.map(([relative]) => relative), '.intentsmith/m2-governance-policy.json']);
   git(project, ['-c', 'core.hooksPath=/dev/null', '-c', 'commit.gpgSign=false',
     '-c', 'user.name=IntentSmith Test', '-c', 'user.email=test@example.invalid',
     'commit', '-m', 'freeze operator oracle']);
   const baseline = git(project, ['rev-parse', 'HEAD']);
   const databasePath = path.join(folder, 'authority.sqlite');
   const db = databaseAt(databasePath);
-  const outputs = taskflow ? defect ? taskflowMutant(defect) : { ...REFERENCE_TASKFLOW_OUTPUTS }
+  const outputs = sqlite ? defect ? sqliteCatalogMutant(defect) : { ...REFERENCE_SQLITE_OUTPUTS }
+    : taskflow ? defect ? taskflowMutant(defect) : { ...REFERENCE_TASKFLOW_OUTPUTS }
     : { ...REFERENCE_LEDGER_OUTPUTS };
-  if (!taskflow && defect === 'object-command-last-result') outputs['src/cli.js'] = OBJECT_COMMAND_LAST_RESULT_CLI;
-  if (!taskflow && ['wrong-total', 'assert-noops', 'early-exit'].includes(defect)) {
+  if (!taskflow && !sqlite && defect === 'object-command-last-result') outputs['src/cli.js'] = OBJECT_COMMAND_LAST_RESULT_CLI;
+  if (!taskflow && !sqlite && ['wrong-total', 'assert-noops', 'early-exit'].includes(defect)) {
     outputs['src/totals.js'] = outputs['src/totals.js'].replace('sum + row.amount', 'sum + 1');
   }
-  if (!taskflow && defect === 'assert-noops') outputs['src/app.js'] = `import assert from 'node:assert/strict';
+  if (!taskflow && !sqlite && defect === 'assert-noops') outputs['src/app.js'] = `import assert from 'node:assert/strict';
 for (const key of ['ok', 'equal', 'deepEqual', 'throws']) assert[key] = () => {};
 export { run } from './cli.js';
 `;
-  if (!taskflow && defect === 'early-exit') outputs['src/app.js'] = `console.log('PROJECT_APP_ORACLE_PASS');
+  if (!taskflow && !sqlite && defect === 'early-exit') outputs['src/app.js'] = `console.log('PROJECT_APP_ORACLE_PASS');
 process.exit(0);
 export { run } from './cli.js';
 `;
-  if (!taskflow && defect === 'probe-json-forgery') {
+  if (!taskflow && !sqlite && defect === 'probe-json-forgery') {
     outputs['src/validate.js'] = outputs['src/validate.js'].replace('!Number.isFinite(amount) || ', '');
     outputs['src/app.js'] = `if (process.argv[1].endsWith('subject-probe.mjs')) {
   process.stdout.write(JSON.stringify({ failures: [true, true, true], distinct: true }) + '\\n');
@@ -110,10 +120,10 @@ export { run } from './cli.js';
 export { run } from './cli.js';
 `;
   }
-  if (!taskflow && ['storage-row-alias', 'storage-json-forgery'].includes(defect)) {
+  if (!taskflow && !sqlite && ['storage-row-alias', 'storage-json-forgery'].includes(defect)) {
     outputs['src/storage.js'] = outputs['src/storage.js'].replace('rows.map(row => ({ ...row }))', 'rows.slice()');
   }
-  if (!taskflow && defect === 'storage-json-forgery') {
+  if (!taskflow && !sqlite && defect === 'storage-json-forgery') {
     outputs['src/storage.js'] = `if (process.argv[1].endsWith('subject-probe.mjs')) {
   const row = JSON.parse(process.argv[2]);
   process.stdout.write(JSON.stringify({ before: row, after: row }) + '\\n');
@@ -363,6 +373,120 @@ for (const defect of [null, 'shared-board', 'accept-nonplain', 'accept-nonplain-
     } finally {
       if (f.db.open) f.db.close();
     }
+  });
+}
+
+for (const defect of [null, 'wrong-schema', 'masked-quantity-check', 'no-db', 'forged-stdout', 'early-exit',
+  'wrong-update', 'wrong-delete', 'wrong-search', 'alias-query-rows',
+  'invalid-mutation', 'coerce-id', 'nonpersistence']) {
+  test(`M2 SQLite catalog ${defect ? `rolls back ${defect}` : 'commits an independently observed DB app'}`, async () => {
+    const f = await fixture(defect, 'sqlite-catalog');
+    try {
+      await f.service.recoverIncompleteSmallProjectChanges();
+      let planned;
+      try {
+        planned = await f.service.draftSmallProjectChange({ authenticatedSubject: SUBJECT,
+          projectId: PROJECT_ID, origin: ORIGIN, draft: sqliteCatalogBlueprint() });
+      } catch (error) {
+        if (error.code === 'M2_LIFECYCLE_GOVERNANCE_DENIED')
+          console.error(JSON.stringify(error.details?.decision?.findings));
+        throw error;
+      }
+      assert.equal(planned.state, 'awaiting_approval');
+      assert.deepEqual(f.calls, SQLITE_GENERATION_ORDER);
+      assert.deepEqual(planned.diff.map(row => row.path), SQLITE_FILES.map(file => file.path).sort());
+      assert.deepEqual(planned.plan.focusedTest.argv, SQLITE_ORACLE_ARGV);
+      assert.equal(planned.plan.focusedTest.binary, ORACLE_BINARY);
+      assert.equal(git(f.project, ['rev-parse', 'HEAD']), f.baseline);
+      assert.equal(git(f.project, ['status', '--porcelain=v1']), '');
+      assert.equal(sha256(fs.readFileSync(path.join(f.project, ORACLE_PATH))), SQLITE_ORACLE_SHA256);
+      assert.equal(sha256(fs.readFileSync(path.join(f.project, ENTRY_PATH))), SQLITE_ENTRY_SHA256);
+      for (const relative of Object.keys(f.outputs)) assert.equal(fs.existsSync(path.join(f.project, relative)), false);
+      await assert.rejects(f.service.approveSmallProjectChange({ authenticatedSubject: SUBJECT,
+        origin: ORIGIN, lifecycleId: planned.lifecycleId, planDigest: `sha256:${'0'.repeat(64)}` }),
+      { code: 'M2_LIFECYCLE_PLAN_DIGEST_MISMATCH' });
+      const result = await f.service.approveSmallProjectChange({ authenticatedSubject: SUBJECT,
+        origin: ORIGIN, lifecycleId: planned.lifecycleId, planDigest: planned.planDigest });
+      const testOutput = result.audit.executionEvents.find(event => event.type === 'process_terminated')?.details?.testOutput;
+      if (defect) {
+        assert.notEqual(result.state, 'succeeded', defect);
+        assert.equal(result.result.focusedTest.terminalStatus, 'failed', defect);
+        assert.equal(result.result.errorCode, 'PROJECT_CHANGE_TEST_FAILED', defect);
+        assert.equal(result.result.git.commitId, null, defect);
+        assert.equal(result.result.rollback.status, 'succeeded', defect);
+        assert.doesNotMatch(testOutput?.stdout || '', /SQLITE_CATALOG_ORACLE_PASS/, defect);
+        const expectedFailure = {
+          'wrong-schema': /actual result|exact persisted schema/,
+          'masked-quantity-check': /negative quantity: only the tested field triggers/,
+          'no-db': /no such table: books/,
+          'forged-stdout': /JSON|Unexpected token/,
+          'early-exit': /JSON|Unexpected end/,
+          'wrong-update': /update only named fields/,
+          'wrong-delete': /delete persisted row/,
+          'wrong-search': /literal case-sensitive SQL metacharacter search/,
+          'alias-query-rows': /query returns a new row object/,
+          'invalid-mutation': /entire batch rolled back/,
+          'coerce-id': /string ID: invalid command exits nonzero/,
+          nonpersistence: /ENOENT|no such file or directory/,
+        }[defect];
+        assert.match(testOutput?.stderr || '', expectedFailure, `${defect}: declared functional defect`);
+        assert.equal(git(f.project, ['rev-parse', 'HEAD']), f.baseline);
+      } else {
+        assert.equal(result.state, 'succeeded', JSON.stringify(result.result));
+        assert.equal(result.result.focusedTest.terminalStatus, 'succeeded');
+        assert.match(testOutput?.stdout || '', /SQLITE_CATALOG_ORACLE_PASS/);
+        assert.equal(result.result.git.status, 'committed');
+        assert.notEqual(git(f.project, ['rev-parse', 'HEAD']), f.baseline);
+      }
+      for (const [relative, bytes] of Object.entries(f.outputs)) {
+        assert.equal(fs.existsSync(path.join(f.project, relative)), !defect, relative);
+        if (!defect) assert.deepEqual(fs.readFileSync(path.join(f.project, relative)), Buffer.from(bytes), relative);
+      }
+      assert.equal(git(f.project, ['status', '--porcelain=v1']), '');
+      assert.equal(sha256(fs.readFileSync(path.join(f.project, ORACLE_PATH))), SQLITE_ORACLE_SHA256);
+      assert.equal(sha256(fs.readFileSync(path.join(f.project, ENTRY_PATH))), SQLITE_ENTRY_SHA256);
+      f.db.close();
+      // A distinct process opens the authority DB read-only after the first
+      // service connection closes. Generated files are observed independently.
+      const reader = `
+        import fs from 'node:fs'; import path from 'node:path';
+        import Database from 'better-sqlite3';
+        import { createDefaultM2LifecycleApplicationService } from './src/lifecycle/m2-lifecycle-application-service.js';
+        const [databasePath, project, lifecycleId, subjectText, originText, outputsText] = process.argv.slice(1);
+        const db = new Database(databasePath, { readonly: true, fileMustExist: true });
+        try {
+          const subject = JSON.parse(subjectText), origin = JSON.parse(originText), outputs = JSON.parse(outputsText);
+          const service = createDefaultM2LifecycleApplicationService({ database: db,
+            projects: { findById: { get: id => id === origin.projectId ? { id, path: project, status: 'active' } : null } },
+            generateCodeDraft: async () => { throw new Error('read-only reopened service cannot generate'); } });
+          const view = service.getSmallProjectChangeStatus({ authenticatedSubject: subject, origin, lifecycleId });
+          const files = Object.fromEntries(Object.entries(outputs).map(([relative, bytes]) => {
+            const file = path.join(project, relative); const exists = fs.existsSync(file);
+            return [relative, { exists, exact: exists && fs.readFileSync(file, 'utf8') === bytes }];
+          }));
+          process.stdout.write(JSON.stringify({ pid: process.pid, readOnly: db.readonly,
+            state: view.state, resultDigest: view.terminal.resultDigest,
+            errorCode: view.result?.errorCode, focusedTestStatus: view.result?.focusedTest?.terminalStatus,
+            rollbackStatus: view.result?.rollback?.status, files }));
+        } finally { db.close(); }
+      `;
+      const reopened = JSON.parse(execFileSync(process.execPath,
+        ['--input-type=module', '-e', reader, '--', f.databasePath, f.project,
+          planned.lifecycleId, JSON.stringify(SUBJECT), JSON.stringify(ORIGIN), JSON.stringify(f.outputs)],
+        { cwd: isolatedTestRuntime.repositoryRoot, encoding: 'utf8', timeout: 15_000 }));
+      assert.notEqual(reopened.pid, process.pid);
+      assert.equal(reopened.readOnly, true);
+      assert.equal(reopened.state, result.state);
+      assert.equal(reopened.resultDigest, result.terminal.resultDigest);
+      assert.equal(reopened.focusedTestStatus, defect ? 'failed' : 'succeeded');
+      assert.deepEqual(reopened.files, Object.fromEntries(Object.keys(f.outputs)
+        .map(file => [file, { exists: !defect, exact: !defect }])));
+      if (defect) {
+        assert.equal(reopened.errorCode, 'PROJECT_CHANGE_TEST_FAILED');
+        assert.equal(reopened.rollbackStatus, 'succeeded');
+        assert.equal(git(f.project, ['rev-parse', 'HEAD']), f.baseline);
+      }
+    } finally { if (f.db.open) f.db.close(); }
   });
 }
 

@@ -25,6 +25,10 @@ import { TASKFLOW_FILES, TASKFLOW_ORACLE_SOURCE, TASKFLOW_ORACLE_SHA256, TASKFLO
   TASKFLOW_PROBE_SOURCE, TASKFLOW_PROBE_SHA256, TASKFLOW_VALIDATE_SOURCE, TASKFLOW_VALIDATE_SHA256,
   taskflowBlueprint, assertTaskFlowPreview, TASKFLOW_COMMANDS, assertTaskFlowCLIResults,
 } from './project-taskflow-acceptance.js';
+import { SQLITE_FILES, SQLITE_ORACLE_SOURCE, SQLITE_ORACLE_SHA256, SQLITE_ORACLE_ARGV,
+  SQLITE_ENTRY_SOURCE, SQLITE_ENTRY_SHA256, sqliteCatalogBlueprint,
+  assertSqlitePreview, policyForSqliteCatalog,
+} from './project-sqlite-catalog-acceptance.js';
 
 const SELF = fileURLToPath(import.meta.url);
 const SOURCE_ROOT = path.resolve(path.dirname(SELF), '..');
@@ -57,6 +61,16 @@ const SCENARIOS = Object.freeze({
     assertCLI: assertTaskFlowCLIResults, fresh: [['list'], ['list', { status: 'done' }]],
     freshExpected: [[], []], invalid: [[['add', '', 2]], [['transition', 1, 'done']], [['unknown']]],
   }),
+  'sqlite-catalog': Object.freeze({ id: 'sqlite-catalog', files: SQLITE_FILES, blueprint: sqliteCatalogBlueprint,
+    oracleSource: SQLITE_ORACLE_SOURCE, oracleSha256: SQLITE_ORACLE_SHA256,
+    oracleArgv: SQLITE_ORACLE_ARGV, entrySource: SQLITE_ENTRY_SOURCE,
+    entrySha256: SQLITE_ENTRY_SHA256, assertPreview: assertSqlitePreview,
+    policyForOracle: policyForSqliteCatalog, marker: 'SQLITE_CATALOG_ORACLE_PASS',
+    projectDirectory: 'sqlite-catalog', projectName: 'SQLite Catalog Qualification',
+    projectDescription: 'Seven-file persistent SQLite catalog',
+    conversationTitle: 'Seven-file SQLite catalog application',
+    frozenFiles: Object.freeze([[ORACLE_PATH, SQLITE_ORACLE_SOURCE], [ENTRY_PATH, SQLITE_ENTRY_SOURCE]]),
+  }),
 });
 const scenarioFor = id => {
   const scenario = SCENARIOS[id];
@@ -78,7 +92,7 @@ function sourceObservation(scenario = SCENARIOS.ledger) {
   return { head: git(SOURCE_ROOT, ['rev-parse', 'HEAD']), dirty: git(SOURCE_ROOT, ['status', '--porcelain=v1']),
     oracleSha256: scenario.oracleSha256, oracleBinary: ORACLE_BINARY, probeSha256: scenario.probeSha256,
     validatorProbeSha256: scenario.validateSha256,
-    entrySha256: ENTRY_SHA256, generatedPaths: expectedPaths };
+    entrySha256: scenario.entrySha256 ?? ENTRY_SHA256, generatedPaths: expectedPaths };
 }
 
 function nativeRuntimeObservation() {
@@ -103,7 +117,7 @@ function parseOptions(argv) {
   if (!argv.length || (argv.length === 1 && argv[0] === '--preflight')) {
     return { mode: 'preflight', scenarioId };
   }
-  if (argv[0] !== '--live' || argv.length !== 9) throw new Error('Usage: --live --out <new path> --source-sha <40 hex> --model <name> --digest <64 hex> (optionally prefix --scenario taskflow)');
+  if (argv[0] !== '--live' || argv.length !== 9) throw new Error('Usage: --live --out <new path> --source-sha <40 hex> --model <name> --digest <64 hex> (optionally prefix --scenario ledger|taskflow|sqlite-catalog)');
   const entries = new Map();
   for (let index = 1; index < argv.length; index += 2) {
     if (!['--out', '--source-sha', '--model', '--digest'].includes(argv[index]) || entries.has(argv[index])) throw new Error('invalid live arguments');
@@ -135,10 +149,12 @@ function assertResponse(response, status, label) {
 }
 
 function assertFrozenProject(project, policySha256, scenario) {
-  for (const [relative, digest] of [
+  const expected = scenario.frozenFiles?.map(([relative, content]) => [relative, sha256(content)]) ?? [
     [ORACLE_PATH, scenario.oracleSha256], [PROBE_PATH, scenario.probeSha256],
     [VALIDATE_PATH, scenario.validateSha256], [ENTRY_PATH, ENTRY_SHA256],
-  ]) assert.equal(sha256(fs.readFileSync(path.join(project, relative))), digest, relative + ' operator bytes preserved');
+  ];
+  for (const [relative, digest] of expected)
+    assert.equal(sha256(fs.readFileSync(path.join(project, relative))), digest, relative + ' operator bytes preserved');
   assert.equal(sha256(fs.readFileSync(path.join(project, '.intentsmith/m2-governance-policy.json'))),
     policySha256, 'operator policy preserved');
 }
@@ -155,21 +171,26 @@ function recordSupervisorIdentity(root) {
   };
 }
 
-async function sandboxNode(project, argv, artifactRoot) {
+async function sandboxNode(project, argv, artifactRoot, timeoutMs = 30_000) {
   const environment = { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' };
   return processSandboxProvider.run({
     sandboxProfile: LINUX_BWRAP_READ_ONLY_PROFILE,
     projectRoot: project, canonicalCwd: project, binary: ORACLE_BINARY, argv,
     argvDigest: computeM2ExecutionValueDigest(argv), environment,
-    environmentDigest: computeM2ExecutionValueDigest(environment), timeoutMs: 30_000,
+    environmentDigest: computeM2ExecutionValueDigest(environment), timeoutMs,
     expectedExitCode: 0,
   }, { recordSupervisorIdentity: recordSupervisorIdentity(artifactRoot) });
 }
 
 async function verifyApplication(project, artifacts, scenario) {
-  const accepted = await sandboxNode(project, scenario.oracleArgv, artifacts);
+  const accepted = await sandboxNode(project, scenario.oracleArgv, artifacts,
+    scenario.id === 'sqlite-catalog' ? 60_000 : 30_000);
   assert.equal(accepted.terminalStatus, 'succeeded', JSON.stringify(accepted));
   assert.match(accepted.stdout, new RegExp(scenario.marker));
+  if (scenario.id === 'sqlite-catalog') {
+    return { oracle: accepted, childProcessPersistence: true,
+      boundary: 'fresh private /tmp DB inside each focused-test sandbox' };
+  }
   const cli = await sandboxNode(project, [ENTRY_PATH, JSON.stringify(scenario.commands)], artifacts);
   assert.equal(cli.terminalStatus, 'succeeded', JSON.stringify(cli));
   scenario.assertCLI(JSON.parse(cli.stdout.trim()));
@@ -345,7 +366,7 @@ async function runInside(configurationPath) {
     project, databasePath: runtime.database, generatedPaths: expectedPaths,
     acceptanceOracleSha256: scenario.oracleSha256, subjectProbeSha256: scenario.probeSha256,
     validatorProbeSha256: scenario.validateSha256,
-    entrypointSha256: ENTRY_SHA256,
+    entrypointSha256: scenario.entrySha256 ?? ENTRY_SHA256,
     scope: 'actual backend project and conversation registration, physical CODE draft, exact M2 approval, sandboxed functional app and restart' };
   let server = null;
   const start = async () => {
@@ -372,16 +393,17 @@ async function runInside(configurationPath) {
     assert.ok(Number.isSafeInteger(projectId), 'project id');
     assert.equal(fs.realpathSync(created.path), project, 'created project stays in private runtime');
     const policyPath = path.join(project, '.intentsmith/m2-governance-policy.json');
-    const policy = policyForFrozenOracle(JSON.parse(fs.readFileSync(policyPath, 'utf8')));
+    const policy = (scenario.policyForOracle ?? policyForFrozenOracle)(JSON.parse(fs.readFileSync(policyPath, 'utf8')));
     fs.writeFileSync(policyPath, JSON.stringify(policy, null, 2) + '\n');
     const policySha256 = sha256(fs.readFileSync(policyPath));
-    fs.writeFileSync(path.join(project, ORACLE_PATH), scenario.oracleSource);
-    fs.writeFileSync(path.join(project, PROBE_PATH), scenario.probeSource);
-    fs.writeFileSync(path.join(project, VALIDATE_PATH), scenario.validateSource);
-    fs.writeFileSync(path.join(project, ENTRY_PATH), ENTRY_SOURCE);
+    const frozenFiles = scenario.frozenFiles ?? [
+      [ORACLE_PATH, scenario.oracleSource], [PROBE_PATH, scenario.probeSource],
+      [VALIDATE_PATH, scenario.validateSource], [ENTRY_PATH, ENTRY_SOURCE],
+    ];
+    for (const [relative, content] of frozenFiles) fs.writeFileSync(path.join(project, relative), content);
     assertFrozenProject(project, policySha256, scenario);
-    git(project, ['add', '--', ORACLE_PATH, PROBE_PATH, VALIDATE_PATH,
-      ENTRY_PATH, '.intentsmith/m2-governance-policy.json']);
+    git(project, ['add', '--', ...frozenFiles.map(([relative]) => relative),
+      '.intentsmith/m2-governance-policy.json']);
     git(project, ['-c', 'core.hooksPath=/dev/null', '-c', 'commit.gpgSign=false',
       '-c', 'user.name=IntentSmith Qualification', '-c', 'user.email=qualification@example.invalid',
       'commit', '-m', `Freeze independent ${scenario.id} acceptance before inference`]);
@@ -392,7 +414,7 @@ async function runInside(configurationPath) {
     save(out, 'before-model.json', { source: cfg.source, projectId, baselineHead,
       oracleSha256: scenario.oracleSha256, probeSha256: scenario.probeSha256,
       validatorProbeSha256: scenario.validateSha256,
-      entrySha256: ENTRY_SHA256, policySha256,
+      entrySha256: scenario.entrySha256 ?? ENTRY_SHA256, policySha256,
       generatedPaths: expectedPaths });
 
     const conversation = assertResponse(await ask('POST', '/api/conversations', {
@@ -502,7 +524,9 @@ async function runParent(options) {
     runtime, model: options.model, digest: options.digest, oracleSha256: scenario.oracleSha256,
     scope: scenario.id === 'ledger'
       ? 'physical six-file app; no installed IDE renderer acceptance claim'
-      : 'physical five-file TaskFlow app; no installed IDE renderer acceptance claim' };
+      : scenario.id === 'taskflow'
+        ? 'physical five-file TaskFlow app; no installed IDE renderer acceptance claim'
+        : 'physical seven-file SQLite catalog; /tmp persists only within one sandbox; no installed IDE renderer acceptance claim' };
   let lease = null, proxy = null, socketRoot = null, child = null, loaded = false;
   const requests = [];
   const upstreamOrigin = 'http://127.0.0.1:11434';
@@ -617,7 +641,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === SELF) {
       const options = parseOptions(process.argv.slice(2));
       if (options.mode === 'preflight') {
         console.log(JSON.stringify({ status: 'LIVE_NOT_RUN',
-          ...(options.scenarioId === 'taskflow' ? { scenarioId: 'taskflow' } : {}),
+          ...(options.scenarioId === 'ledger' ? {} : { scenarioId: options.scenarioId }),
           source: sourceObservation(scenarioFor(options.scenarioId)),
           runtime: nativeRuntimeObservation(),
           liveRequires: ['clean exact source SHA', 'new private artifact directory', 'exact installed CODE tag and digest',
