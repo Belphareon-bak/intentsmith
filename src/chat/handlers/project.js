@@ -96,6 +96,12 @@ const PROJECT_SELF_PATTERNS = [
  * @returns {boolean}
  */
 function isProjectSelfQuery(input) {
+  // A filename is data: `summary.md`/`project-info.md` must not trigger an
+  // internal status shortcut before CRE can interpret a composed request.
+  // This check only chooses the route. Sentence punctuation may follow a
+  // named file; CRE still receives the untouched request and exact target.
+  const namedFile = extractFilePath(input.replace(/[.!?](?=\s|$)/gu, ''));
+  if (namedFile && namedFile !== '.') return false;
   return PROJECT_SELF_PATTERNS.some(p => p.test(input));
 }
 

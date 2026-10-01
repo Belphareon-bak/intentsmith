@@ -9,6 +9,7 @@ import { isM2ProjectRelativePath, validateEffectRequest } from '../contracts/m2/
 import { computeM2ToolValueDigest, validateM2ToolRequest } from '../contracts/m2/tool-v1.js';
 import { createM2FileReadPolicyPayload } from '../contracts/m2/file-read-output-v1.js';
 import { suite, testAsync, summary } from './harness.js';
+import { answerSavePlan, fileSaveSemanticFixture } from './helpers/file-save-semantic-fixture.js';
 
 const { handleFileWriteDecision, handleFileDecision, renderM2FileReadResult } = await import('../src/chat/handlers/file.js');
 const { parseExactEffectApproval, handleExactEffectApproval } = await import('../src/chat/handlers/pre-handler.js');
@@ -33,13 +34,21 @@ function context(projectRoot, overrides = {}) {
     conversationId: 'conversation-1',
     history: [
       { response: { content: 'authoritative assistant content\n', tag: { speaker: 'system' } },
-        metadata: { saveSourceEligible: true, saveSourceProjectId: 17 } },
+        messageId: 40,
+        metadata: { saveSourceEligible: true, saveSourceProjectId: 17, messageKind: 'answer' } },
       { response: { content: 'ulož to do notes/result.md', tag: { speaker: 'user' } } },
     ],
     langCtx: { language: 'en' },
     signal: new AbortController().signal,
     ...overrides,
   };
+}
+
+function semanticSave() {
+  return fileSaveSemanticFixture({
+    request: 'ulož to do notes/result.md',
+    plan: answerSavePlan('notes/result.md', 40),
+  });
 }
 
 async function withProject(callback) {
@@ -76,7 +85,7 @@ await testAsync('handler delegates exact bytes and authority context to the M2 T
       'ulož to do notes/result.md',
       decision(),
       handlerContext,
-      { toolExecutor: injectedToolExecutor },
+      { ...semanticSave(), toolExecutor: injectedToolExecutor },
     );
 
     await requestReached;
@@ -135,7 +144,7 @@ await testAsync('missing project or authenticated caller blocks before the runti
         'ulož to do notes/result.md',
         decision(),
         handlerContext,
-        { toolExecutor: injectedToolExecutor },
+        { ...semanticSave(), toolExecutor: injectedToolExecutor },
       );
       assert.equal(response.tag.metadata.securityBlocked, true);
       assert.equal(response.tag.metadata.error, 'effect_authority_required');
@@ -161,7 +170,7 @@ await testAsync('runtime rejection is surfaced as authorization failure and neve
       'ulož to do notes/result.md',
       decision(),
       context(projectRoot),
-      { toolExecutor: injectedToolExecutor },
+      { ...semanticSave(), toolExecutor: injectedToolExecutor },
     );
 
     assert.equal(runtimeCalls, 1);
@@ -179,7 +188,7 @@ await testAsync('an unavailable injected runtime fails closed instead of using d
       'ulož to do notes/result.md',
       decision(),
       context(projectRoot),
-      { toolExecutor: {} },
+      { ...semanticSave(), toolExecutor: {} },
     );
 
     assert.equal(response.tag.canExecute, false);
@@ -196,6 +205,7 @@ await testAsync('an idempotent terminal retry is rendered without asking for a s
       decision(),
       context(projectRoot),
       {
+        ...semanticSave(),
         toolExecutor: {
           async executeM2Tool() {
             return {

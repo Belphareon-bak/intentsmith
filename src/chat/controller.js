@@ -2166,6 +2166,37 @@ ChatController.handle = async function(request) {
     projectAnalysis: memory.policy.context ? projectAnalysis : '',
     // v56.0 Sprint 3 — ConversationStore reference
     conversationStore: store,
+    saveSourceCandidate: store.getLatestSaveSourceTurn(dbConversationId),
+    verifyFileSaveSource: ({ content, sourceMessageId }) => {
+      throwIfAborted(signal);
+      if (normalizeSourceProjectId(store.getConversation(dbConversationId)?.project_id) !== answerSourceProjectId) {
+        throw new ChatProcessingError('CONVERSATION_PROJECT_CHANGED');
+      }
+      if (sourceMessageId === null) return; // exact literal from this user turn
+      const source = store.getSaveSourceTurn(dbConversationId, sourceMessageId);
+      if (!source || source.role !== TurnRole.ASSISTANT || source.content !== content
+        || source.metadata?.saveSourceEligible !== true
+        || source.metadata.saveSourceProjectId !== answerSourceProjectId) {
+        throw new ChatProcessingError('FILE_SAVE_SOURCE_CHANGED');
+      }
+    },
+    persistFileSaveSummary: ({ content, sourceMessageId, sourceContent }) => db.db.transaction(() => {
+      throwIfAborted(signal);
+      if (normalizeSourceProjectId(store.getConversation(dbConversationId)?.project_id) !== answerSourceProjectId) {
+        throw new ChatProcessingError('CONVERSATION_PROJECT_CHANGED');
+      }
+      const source = store.getSaveSourceTurn(dbConversationId, sourceMessageId);
+      if (!source || source.role !== TurnRole.ASSISTANT || source.content !== sourceContent
+        || source.metadata?.saveSourceEligible !== true
+        || source.metadata.saveSourceProjectId !== answerSourceProjectId) {
+        throw new ChatProcessingError('FILE_SAVE_SOURCE_CHANGED');
+      }
+      return store.appendTurn(dbConversationId, TurnRole.ASSISTANT, content, {
+        saveSourceEligible: true, saveSourceProjectId: answerSourceProjectId,
+        messageKind: 'answer', handler: 'file.summary', summarizedMessageId: sourceMessageId,
+        generatedForTurnId: durableTurnId,
+      });
+    })(),
     // v63.0: AbortSignal for cancel propagation (from server req.on('close'))
     signal: signal || null,
     // v82.1: Inline attachments for FILE handlers (avoids disk read for attached content)

@@ -148,6 +148,8 @@ export async function finalizeChatResponse({
       model: metadata.model,
       intent: metadata.decision?.intent,
       saveSourceEligible,
+      messageKind: saveSourceEligible ? 'answer' : 'protocol',
+      ...(metadata.fileSaveSource ? { fileSaveSource: metadata.fileSaveSource } : {}),
       ...(isIssuedFileExplainContinuation(metadata.m2FileExplain)
         ? { m2FileExplain: metadata.m2FileExplain } : {}),
       ...(turnId === null ? {} : { m7: { turnId, status: 'ok' } }),

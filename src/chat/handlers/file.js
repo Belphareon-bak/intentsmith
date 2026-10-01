@@ -31,6 +31,7 @@ import { throwIfAborted, isAbortError } from '../../core/abort-error.js';
 import { issueFileExplainContinuation, getFileExplainContinuation } from '../file-explain-continuation.js';
 import { prepareFileExplanation, callFileExplanation } from './utils/file-explain.js';
 import { canonicalStringify } from '../../../contracts/m2/effect-current.js';
+import { resolveFileSavePlan, summarizeSaveAnswer } from '../file-save-plan.js';
 
 // ─── Security constants ──────────────────────────────────────────────────────
 
@@ -881,55 +882,11 @@ function _extractUserContent(input) {
   return extracted;
 }
 
-// A quoted literal in the current turn is stronger evidence than a previous
-// assistant answer. Accept only a complete, narrow command: additional clauses
-// must not silently disappear from the bytes submitted to M2.
-function parseExplicitLiteralWrite(input) {
-  const text = typeof input === 'string' ? input.trim() : '';
-  const startsLiteral = /^(?:ulo[žz]|ulzo|zapi[šs]|napi[šs]|save|write)\s+text\b/iu.test(text);
-  if (!startsLiteral) return null;
-  const match = text.match(/^(?:ulo[žz]|ulzo|zapi[šs]|napi[šs]|save|write)\s+text\s+(["'])([\s\S]*?)\1\s+(?:do|to|into)\s+(?:souboru?\s+|file\s+)?([\w./-]+\.\w{1,10})(.*)$/iu);
-  if (!match) return { ambiguous: true };
-  const suffix = match[4].trim();
-  const harmlessKeepClause = /^,\s*nech[áa]m\s+si\s+ho\.?$/iu.test(suffix);
-  if (suffix && !/^[.]$/u.test(suffix) && !harmlessKeepClause
-    && !hasNoOverwriteConstraint(suffix)) {
-    return { ambiguous: true };
-  }
-  return { content: match[2], filePath: match[3], noOverwrite: hasNoOverwriteConstraint(suffix) };
-}
-
-function hasNoOverwriteConstraint(text) {
-  const explicitProhibition = /(?:nepřepisuj|neprepisuj|nepřepisovat|neprepisovat|nepřepsat|neprepsat|bez\s+přepsání|bez\s+prepsani|do\s+not\s+(?:overwrite|replace)|don['’]t\s+(?:overwrite|replace)|without\s+(?:overwriting|replacing))/iu;
-  const absentCondition = /(?:pokud|když|jestli|v\s+případě\s*,?\s*že)[^.!?]{0,100}(?:neexistuje|neexistuji|(?:soubor\s+(?:ještě\s+)?)?není\s+(?:vytvořen[ýyao]?|na\s+disku)|soubor\s+(?:ještě\s+)?není|tam\s+(?:ještě\s+)?není|není\s+tam)|(?:only\s+)?if\s+[^.!?]{0,100}(?:does\s+not\s+exist|doesn['’]t\s+exist|is\s+(?:absent|missing|not\s+there)|isn['’]t\s+there)|unless\s+[^.!?]{0,100}\bexists\b/iu;
-  const newFileOnly = /(?:jen|pouze|výhradně)\s+(?:(?:do|jako)\s+nov[ýé]ho?\s+souboru|(?:vytvoř|vytvor|založ|zaloz)\s+nov[ýy]\s+soubor|nov[ýy]\s+soubor)|(?:(?:create|write|save)\s+only|only\s+(?:create|write|save))\s+(?:a\s+)?new\s+file|only\s+(?:a\s+)?new\s+file/iu;
-  const leaveExisting = /(?:pokud|když|jestli)[^.!?]{0,100}existuje[^.!?]{0,100}(?:nech|ponech)\s+(?:jej|ho|to)\s+(?:být|byt|bejt)/iu;
-  return explicitProhibition.test(text) || absentCondition.test(text)
-    || newFileOnly.test(text) || leaveExisting.test(text);
-}
-
-// This parser authorizes only complete, unconditional nonliteral write
-// commands. CRE's FILE_WRITE decision supplies a candidate intent and target,
-// not authority to discard words before or after the command. In particular,
-// a negative/create-only clause before "ulož to" must never become fs.write.
-function parseCompleteNonliteralWrite(input) {
-  const text = typeof input === 'string' ? input.trim() : '';
-  const target = '([\\w./-]+\\.\\w{1,10})';
-  const simple = new RegExp(
-    `^(?:ulo[žz]|uloz|zapi[šs]|napi[šs]|dej|vlo[žz]|save|write)\\s+`
-    + `(?:to|ho|ji(?:\\s+i)?|je|odpověď|odpoved|it|this|that)\\s+`
-    + `(?:do|to|into|jako)\\s+(?:souboru?\\s+|file\\s+)?${target}\\.?$`, 'iu');
-  const simpleMatch = text.match(simple);
-  if (simpleMatch) return { filePath: simpleMatch[1] };
-
-  return null;
-}
-
 // ─── v70: FILE_WRITE handler ──────────────────────────────────────────────────
 
 /**
  * Handle FILE_WRITE decision — saves previous assistant output to a file.
- * New current-turn content must be quoted; save shortcuts use the prior answer.
+ * The model interprets the request; the core grounds content by durable ID.
  * M2: registers an effect and returns an exact approval instruction. The
  * separate approval intercept owns execution through the canonical broker.
  */
@@ -972,135 +929,68 @@ export async function handleFileWriteDecision(input, decision, context, dependen
     });
   }
 
-  const literalWrite = parseExplicitLiteralWrite(input);
   const terminalWithoutEffect = (content, error, target = null) => new TaggedResponse({
     content,
     tag: new ResponseTag({
-      speaker: ResponseSpeaker.SYSTEM,
-      mode: ChatMode.CONVERSATION,
-      confidence: 1,
-      canExecute: false,
+      speaker: ResponseSpeaker.SYSTEM, mode: ChatMode.CONVERSATION,
+      confidence: 1, canExecute: false,
       metadata: { decision: decision.toJSON(), handler: 'file.write',
         approvalRequired: false, fallbackSuppressed: true, error,
         ...(target ? { filePath: target } : {}) },
     }),
   });
-  if (literalWrite?.ambiguous) {
+  let plan;
+  try {
+    plan = await resolveFileSavePlan(input, context, dependencies);
+  } catch (error) {
+    if (isAbortError(error)) throw error;
     return terminalWithoutEffect(lang === 'cs'
-      ? '⚠️ Text nebo cíl zápisu není jednoznačný. Uveď přesný text v uvozovkách a jeden název souboru.'
-      : '⚠️ The write text or target is ambiguous. Provide exact quoted text and one file name.',
-    'literal_write_ambiguous');
+      ? '⚠️ Nemohu ověřit cíl, obsah nebo omezení zápisu. Upřesni, co a kam chceš uložit; žádný zápis není připraven.'
+      : '⚠️ I cannot verify the target, content or write constraints. Clarify what to save and where; no write is prepared.',
+    error.code || 'file_write_plan_unavailable');
   }
-  // The current file.write@1 authority has no atomic create-only condition.
-  // Preparing a normal approval here would silently permit an overwrite after
-  // the user explicitly prohibited it, even if the file was absent at preview.
-  if (literalWrite ? literalWrite.noOverwrite : hasNoOverwriteConstraint(input)) {
-    const target = literalWrite?.filePath || decision.metadata?.filePath
-      || extractFilePathFromInput(input);
-    const namedTarget = target ? literal(target) : (lang === 'cs' ? 'zvolený soubor' : 'the selected file');
+  if (plan.action !== 'write') {
+    return terminalWithoutEffect(plan.question || (lang === 'cs'
+      ? 'Upřesni obsah, cíl a požadované omezení zápisu.'
+      : 'Clarify the content, target and write constraints.'),
+    plan.action === 'decline' ? 'file_write_declined' : 'file_write_plan_ambiguous');
+  }
+  const filePath = plan.filePath;
+  let content = plan.content;
+  let sourceMessageId = plan.sourceMessageId;
+  const originMessageId = sourceMessageId;
+  try {
+    if (plan.transformation === 'summarize') {
+      content = await summarizeSaveAnswer(content, input, context, dependencies);
+      if (typeof context.persistFileSaveSummary !== 'function') {
+        throw Object.assign(new Error('Durable summary source is unavailable'), { code: 'file_write_source_unverified' });
+      }
+      const saved = context.persistFileSaveSummary({ content, sourceMessageId, sourceContent: plan.content });
+      if (!saved?.persisted || !Number.isSafeInteger(saved.id)) {
+        throw Object.assign(new Error('Summary was not persisted'), { code: 'file_write_source_unverified' });
+      }
+      sourceMessageId = saved.id;
+    }
+    // Production supplies a synchronous core guard. It rechecks project and
+    // the exact persisted answer after the model awaits, before tool admission.
+    if (typeof context.verifyFileSaveSource === 'function') {
+      context.verifyFileSaveSource({ content, sourceMessageId });
+    }
+    throwIfAborted(context.signal);
+  } catch (error) {
+    if (isAbortError(error)) throw error;
     return terminalWithoutEffect(lang === 'cs'
-      ? `🔒 ${namedTarget} nepřepíšu. Podmínku zápisu bez přepsání existujícího souboru při schválení nemohu bezpečně zaručit. Pokud chceš pokračovat, zadej jiný název a výslovně rozhodni, zda lze případný existující soubor přepsat.`
-      : `🔒 I will not overwrite ${namedTarget}. I cannot safely guarantee create-only behavior at approval. To proceed, choose another file name and explicitly say whether an existing file may be overwritten.`,
-    'no_overwrite_unsupported', target);
+      ? '⚠️ Obsah nebo projekt se během přípravy změnil, případně shrnutí nebylo dokončeno. Žádný zápis není připraven.'
+      : '⚠️ The source/project changed during preparation or the summary did not complete. No write is prepared.',
+    error.code || 'file_write_source_unverified', filePath);
   }
-
-  // 1. Determine file path
-  let filePath = literalWrite?.filePath || decision.metadata?.filePath;
-  if (literalWrite && decision.metadata?.filePath
-    && decision.metadata.filePath !== literalWrite.filePath) {
-    return terminalWithoutEffect(lang === 'cs'
-      ? '⚠️ Název souboru v požadavku se liší od rozpoznaného cíle. Upřesni přesný název souboru.'
-      : '⚠️ The file name differs from the recognized target. Clarify the exact file name.',
-    'literal_write_target_mismatch');
-  }
-  if (!filePath) {
-    // Try to extract from input
-    filePath = extractFilePathFromInput(input);
-  }
-  if (!filePath) {
-    // Auto-generate filename based on timestamp
-    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    filePath = `output-${ts}.md`;
-  }
-  // A normal file.write proposal has no conditional-write contract. Require
-  // every word of a nonliteral command to fit a supported unconditional form;
-  // CRE may classify an unsafe compound instruction as FILE_WRITE.
-  let completeCommand = null;
-  if (!literalWrite) {
-    if (/^zapi[šs]\s+[\p{L}\p{N}_-]+\s+do\s+[\w./-]+\.\w{1,10}\.?$/iu.test(input.trim())) {
-      return terminalWithoutEffect(lang === 'cs'
-        ? '⚠️ Uveď přesný obsah zápisu v uvozovkách, například „Zapiš text "ahoj" do souboru.md“. Samotné slovo může být i podmínka nebo zápor.'
-        : '⚠️ Put the exact write content in quotes, for example “Write text "hello" to file.md”. A bare word may be a condition or negation.',
-      'file_write_content_unquoted', filePath);
-    }
-    if (/^(?:shr[ňn]|summari[sz]e)\s/iu.test(input.trim())) {
-      return terminalWithoutEffect(lang === 'cs'
-        ? '⚠️ Tento požadavek žádá nové shrnutí, které zápis souboru sám nevytváří. Nejprve si vyžádej shrnutí v chatu a potom napiš „Ulož to do souboru“.'
-        : '⚠️ This request asks for a new summary, which file saving does not create. Ask for the summary in chat first, then save that answer to a file.',
-      'file_write_content_not_grounded', filePath);
-    }
-    completeCommand = parseCompleteNonliteralWrite(input);
-    if (!completeCommand || completeCommand.filePath !== filePath) {
-      return terminalWithoutEffect(lang === 'cs'
-        ? `⚠️ Příkaz k zápisu do ${literal(filePath)} obsahuje nejasná slova nebo odlišný cíl. Uveď jednoznačný příkaz a výslovně rozhodni, zda lze soubor přepsat.`
-        : `⚠️ The write command for ${literal(filePath)} contains unparsed words or a different target. Give one clear command and explicitly say whether the file may be overwritten.`,
-      'file_write_command_ambiguous', filePath);
-    }
-  }
-
-  // 2. Get content to write — last ASSISTANT message from conversation history
-  //    IMPORTANT: history contains both user and assistant turns.
-  //    User turns have speaker='user', assistant turns have speaker='system'.
-  //    The current user message is ALREADY in history (appended before handler),
-  //    so we MUST filter by speaker to avoid writing the user's own request.
-  let content = literalWrite ? literalWrite.content : '';
-  const sourceProjectId = projectId;
-  if (!literalWrite && context.history?.length > 0) {
-    for (let i = context.history.length - 1; i >= 0; i--) {
-      const entry = context.history[i];
-      // Skip user turns — only pick assistant (speaker='system') responses
-      if (entry.response?.tag?.speaker !== 'system') continue;
-      if (entry.isSummary) continue;
-      // Only a persisted, positively classified answer may become the input
-      // of a filesystem effect. Known effect protocol turns may be skipped;
-      // an unclassified newer assistant turn is a barrier to older answers.
-      if (entry.metadata?.saveSourceEligible === false) continue;
-      if (entry.metadata?.saveSourceEligible !== true) {
-        return terminalWithoutEffect(lang === 'cs'
-          ? '⚠️ Původ poslední odpovědi nelze bezpečně ověřit. Uveď text v uvozovkách.'
-          : '⚠️ I cannot verify the source of the latest answer. Quote the exact text to save.',
-        'file_write_source_unverified', filePath);
-      }
-      if (!Number.isSafeInteger(sourceProjectId) || sourceProjectId <= 0
-        || entry.metadata?.saveSourceProjectId !== sourceProjectId) {
-        return terminalWithoutEffect(lang === 'cs'
-          ? '⚠️ Poslední odpověď patří k jinému projektu. Uveď výslovně obsah, který chceš uložit.'
-          : '⚠️ The latest answer belongs to another project. Provide the exact content to save.',
-        'file_write_source_project_mismatch', filePath);
-      }
-      const resp = entry.response?.content || entry.content;
-      if (resp) {
-        content = resp;
-        break;
-      }
-    }
-  }
-
-  if (!literalWrite && !content) {
-    const msg = lang === 'cs'
-      ? '⚠️ Není co uložit — žádná předchozí odpověď v konverzaci.'
-      : '⚠️ Nothing to save — no previous response in conversation.';
-    return new TaggedResponse({
-      content: msg,
-      tag: new ResponseTag({
-        speaker: ResponseSpeaker.SYSTEM,
-        mode: ChatMode.CONVERSATION,
-        confidence: 0.9,
-        canExecute: false,
-        metadata: { decision: decision.toJSON(), handler: 'file.write', error: 'no_content' },
-      }),
-    });
-  }
+  const fileSaveSource = {
+    messageId: sourceMessageId ?? context.userMessageId,
+    originMessageId: originMessageId ?? context.userMessageId,
+    kind: sourceMessageId === null ? 'user_literal' : 'answer', projectId,
+    transformation: plan.transformation,
+    digest: `sha256:${createHash('sha256').update(content, 'utf8').digest('hex')}`,
+  };
 
   // 4. Cross the same durable ToolRequest boundary as TOOL_CALL. The handler
   // never owns a filesystem syscall; canonical EffectRequest execution remains
@@ -1117,7 +1007,7 @@ export async function handleFileWriteDecision(input, decision, context, dependen
       });
     }
     const execution = await executor.executeM2Tool({
-      toolId: 'file.write',
+      toolId: plan.toolId,
       input: { path: filePath, content },
       context,
       timeoutMs: 120_000,
@@ -1160,9 +1050,14 @@ export async function handleFileWriteDecision(input, decision, context, dependen
       });
     }
 
+    const previewContent = content.length <= 2000 ? content : content.slice(0, 2000);
+    const modeDescription = plan.toolId === 'file.create'
+      ? (lang === 'cs' ? 'Pouze vytvoření nového souboru; existující soubor zůstane zachovaný.'
+        : 'Create a new file only; an existing file will be preserved.')
+      : (lang === 'cs' ? 'Zápis může nahradit existující soubor.' : 'This write can replace an existing file.');
     const msg = lang === 'cs'
-      ? `🔐 Zápis do **${filePath}** čeká na schválení. Napiš přesně: \`schválit efekt ${execution.effectRequestId}\``
-      : `🔐 Write to **${filePath}** awaits approval. Enter exactly: \`approve effect ${execution.effectRequestId}\``;
+      ? `🔐 Zápis do ${literal(filePath)} čeká na schválení. ${modeDescription}\n\nObsah (${Buffer.byteLength(content, 'utf8')} bajtů):\n${literal(previewContent)}${previewContent.length < content.length ? '\nZobrazen je začátek; celý obsah je svázaný s návrhem zápisu.' : ''}\n\nNapiš přesně: \`schválit efekt ${execution.effectRequestId}\``
+      : `🔐 Write to ${literal(filePath)} awaits approval. ${modeDescription}\n\nContent (${Buffer.byteLength(content, 'utf8')} bytes):\n${literal(previewContent)}${previewContent.length < content.length ? '\nShowing the beginning; the complete content is bound to this proposal.' : ''}\n\nEnter exactly: \`approve effect ${execution.effectRequestId}\``;
 
     logger.info('HandleFileWrite', 'Filesystem effect registered for approval', {
       effectId: execution.effectRequestId,
@@ -1187,6 +1082,8 @@ export async function handleFileWriteDecision(input, decision, context, dependen
           effectState: execution.state,
           approvalRequired: true,
           filePath,
+          fileSaveSource,
+          fileWriteMode: plan.toolId === 'file.create' ? 'create' : 'replace',
           fileSize: Buffer.byteLength(content, 'utf8'),
           fileLines: content.split('\n').length,
         },

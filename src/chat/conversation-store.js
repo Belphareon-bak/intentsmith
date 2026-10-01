@@ -387,6 +387,31 @@ export class ConversationStore {
       }));
   }
 
+  /** Read one exact message in its conversation; preserve its durable type. */
+  getSaveSourceTurn(conversationId, messageId) {
+    if (!Number.isSafeInteger(messageId) || messageId <= 0) return null;
+    const row = this.#db
+      ? this.#db.db.prepare('SELECT id, role, content, metadata FROM messages WHERE conversation_id = ? AND id = ?')
+        .get(conversationId, messageId)
+      : this._memMessages.find(value => value.conversation_id === conversationId && value.id === messageId);
+    return row ? { id: row.id, role: row.role, content: row.content,
+      metadata: this.#parseMetadata(row.metadata) } : null;
+  }
+
+  // Compaction and a long sequence of approval receipts must not change which
+  // content answer a pronoun refers to. Unknown provenance remains a barrier.
+  getLatestSaveSourceTurn(conversationId) {
+    const row = this.#db
+      ? this.#db.db.prepare(`SELECT id, role, content, metadata FROM messages
+          WHERE conversation_id = ? AND role = 'assistant'
+          AND CASE WHEN json_valid(metadata) THEN json_extract(metadata, '$.saveSourceEligible') END IS NOT 0
+          ORDER BY id DESC LIMIT 1`).get(conversationId)
+      : [...this._memMessages].reverse().find(value => value.conversation_id === conversationId
+        && value.role === 'assistant' && this.#parseMetadata(value.metadata)?.saveSourceEligible !== false);
+    return row ? { messageId: row.id, response: { tag: { speaker: 'system' }, content: row.content },
+      metadata: this.#parseMetadata(row.metadata) } : null;
+  }
+
   /** Exact durable core continuation lookup; never consult RAM/history input. */
   getFileExplainTurn(conversationId, requestId) {
     if (!this.isDurableReady()) return null;
@@ -465,6 +490,8 @@ export class ConversationStore {
     }
 
     const history = turns.map(t => ({
+      messageId: t.id,
+      messageKind: t.role,
       response: {
         tag: { speaker: t.role === 'assistant' ? 'system' : t.role },
         content: t.content,

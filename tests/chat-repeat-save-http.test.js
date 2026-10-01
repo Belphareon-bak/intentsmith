@@ -22,21 +22,38 @@ await testAsync('save the same answer twice after the first effect approval', as
   let providerAnswer = sourceAnswer;
   let delayedModel = null;
   const provider = http.createServer(async (request, response) => {
-    for await (const _chunk of request) { /* Drain owned fixture request. */ }
+    let body = '';
+    for await (const chunk of request) body += chunk;
+    const payload = body ? JSON.parse(body) : {};
+    const saveInput = payload.format?.properties?.action
+      ? JSON.parse(payload.messages?.at(-1)?.content || payload.prompt) : null;
     response.setHeader('Content-Type', 'application/json');
     if (request.method === 'GET' && request.url === '/api/tags') {
       response.end(JSON.stringify({ models: [{ name: model, digest }] }));
     } else if (request.method === 'POST' && request.url === '/api/show') {
       response.end(JSON.stringify({ model_info: { 'fixture.context_length': 4096 } }));
     } else if (request.method === 'POST' && ['/api/chat', '/api/generate'].includes(request.url)) {
-      if (delayedModel) {
+      if (!saveInput && delayedModel) {
         const held = delayedModel;
         delayedModel = null;
         held.enter();
         await held.release;
       }
+      const saveTargets = {
+        'Ulož odpověď do copy.md.': 'copy.md',
+        'Ulož ji i do copy-backup.md.': 'copy-backup.md',
+        'Ulož ji do cross-project.md.': 'cross-project.md',
+        'Ulož ji do stale-project.md.': 'stale-project.md',
+        'Ulož ji do legacy-source.md.': 'legacy-source.md',
+        'Ulož odpověď do timestamp-source.md.': 'timestamp-source.md',
+      };
+      const answer = saveInput ? JSON.stringify({ action: 'write', question: null,
+        target: saveTargets[saveInput.request],
+        source: { kind: 'answer', messageId: saveInput.answers[0]?.messageId || 999999, text: null },
+        transformation: 'none', writeMode: 'replace', understood: true, unsupported: [] })
+        : JSON.stringify({ reply: providerAnswer, plan: null });
       response.end(JSON.stringify({ model, digest, done: true, done_reason: 'stop',
-        message: { role: 'assistant', content: JSON.stringify({ reply: providerAnswer, plan: null }) },
+        message: { role: 'assistant', content: answer },
         response: providerAnswer, prompt_eval_count: 10, eval_count: 10 }));
     } else {
       response.writeHead(503).end(JSON.stringify({ error: 'Unexpected fixture endpoint' }));
@@ -80,11 +97,13 @@ await testAsync('save the same answer twice after the first effect approval', as
     assert.equal(approved.response.metadata?.effectResult, 'succeeded');
     assert.equal(readFileSync(path.join(project.path, 'copy.md'), 'utf8'), sourceAnswer);
     const turns = privateDb.prepare(
-      "SELECT content, metadata FROM messages WHERE conversation_id = ? AND role = 'assistant' ORDER BY id",
-    ).all(conversationId).map(row => ({ content: row.content, metadata: JSON.parse(row.metadata) }));
+      "SELECT id, content, metadata FROM messages WHERE conversation_id = ? AND role = 'assistant' ORDER BY id",
+    ).all(conversationId).map(row => ({ id: row.id, content: row.content, metadata: JSON.parse(row.metadata) }));
     assert.equal(turns.find(turn => turn.content === sourceAnswer)?.metadata.saveSourceEligible, true);
     assert.equal(turns.find(turn => turn.content === sourceAnswer)?.metadata.saveSourceProjectId,
       project.id);
+    assert.equal(proposed.response.metadata.fileSaveSource.messageId, turns.find(turn => turn.content === sourceAnswer).id);
+    assert.equal(turns.at(-2).metadata.fileSaveSource.messageId, turns.find(turn => turn.content === sourceAnswer).id);
     assert.equal(turns.at(-2).metadata.saveSourceEligible, false, 'write preview is not a source answer');
     assert.equal(turns.at(-1).metadata.saveSourceEligible, false, 'approval receipt is not a source answer');
 
@@ -97,6 +116,7 @@ await testAsync('save the same answer twice after the first effect approval', as
     const secondRequest = JSON.parse(privateDb.prepare(
       'SELECT request_json FROM tool_v1_requests WHERE request_id = ?',
     ).get(proposedAgain.response.metadata.toolRequestId).request_json);
+    assert.equal(proposedAgain.response.metadata.fileSaveSource.messageId, proposed.response.metadata.fileSaveSource.messageId);
     assert.deepEqual(secondRequest.input, { path: 'copy-backup.md', content: sourceAnswer },
       'the backup must not contain the first write proposal or approval message');
     const approvedAgain = await send(`schválit efekt ${proposedAgain.response.metadata.effectId}`);

@@ -1212,6 +1212,7 @@ await asyncTest('Decision 024/C: finalizer never calls a post-answer model', asy
       model: 'test-model',
       intent: 'CONVERSATIONAL',
       saveSourceEligible: true,
+      messageKind: 'answer',
     },
   }], 'assistant persistence must receive the original final content');
   assert.equal(finalized.response, original, 'returned response must remain unchanged');
@@ -1231,6 +1232,38 @@ await asyncTest('Decision 024/C: finalizer never calls a post-answer model', asy
     'removed refinement must not emit a warning',
   );
 }, ASYNC_TEST_TIMEOUT_MS);
+
+await asyncTest('file save preview persists protocol provenance without changing its content or calling a model', async () => {
+  const original = 'Write to copy.md awaits exact approval.';
+  const fileSaveSource = {
+    messageId: 41, originMessageId: 41, kind: 'answer', projectId: 17,
+    transformation: 'none', digest: `sha256:${'a'.repeat(64)}`,
+  };
+  const response = new TaggedResponse({ content: original, tag: new ResponseTag({
+    speaker: ResponseSpeaker.SYSTEM, mode: ChatMode.CONVERSATION, confidence: 1,
+    metadata: {
+      handler: 'file.write', approvalRequired: true,
+      decision: { intent: 'FILE_WRITE' }, fileSaveSource,
+    },
+  }) });
+  const persisted = [];
+  const finalized = await finalizeChatResponse({
+    result: response, message: 'Ulož tu odpověď do copy.md.',
+    sessionId: 'file-save-protocol-fixture', conversationId: 'file-save-protocol-fixture',
+    persistAssistantTurn: (content, metadata) => persisted.push({ content, metadata }),
+    dependencies: {
+      improveResponse: async () => { assert.fail('a protocol preview cannot trigger refinement'); },
+      generateChatResponse: async () => { assert.fail('a protocol preview cannot trigger model work'); },
+      scoreResponse: () => ({ total: 60 }),
+    },
+  });
+  assert.equal(response.content, original);
+  assert.equal(finalized.response, original);
+  assert.deepEqual(persisted, [{ content: original, metadata: {
+    mode: ChatMode.CONVERSATION, confidence: 1, model: undefined, intent: 'FILE_WRITE',
+    saveSourceEligible: false, messageKind: 'protocol', fileSaveSource,
+  } }], 'an approval preview retains the exact answer ID/digest but cannot itself become an answer source');
+});
 
 await asyncTest('Decision 024/C: low score is telemetry, not a rewrite trigger', async () => {
   const original = 'Praha je hlavním městem České republiky.';
