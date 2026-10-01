@@ -1,6 +1,6 @@
 # IntentSmith — průběžný report dokončování
 
-**Aktualizováno:** 1. 10. 2026, 17:43 UTC / 19:43 CEST.
+**Aktualizováno:** 1. 10. 2026, 18:06 UTC / 20:06 CEST.
 **Vlastník:** ROOT. CHAT řeší jiný worker, od posledního zadání jej ROOT neupravuje.
 **Publikace:** `work/real-chat-journeys-20260930`; průběžný report se aktualizuje
 po každém milníku, nejpozději po třech hodinách během aktivní práce. Operátor
@@ -19,14 +19,15 @@ stabilním IDE/BE, podle zadání operátora.
 | Milník | Doložený výsledek | Co zbývá |
 | --- | --- | --- |
 | Ledger a TaskFlow | Skutečný model→M2→funkční oracle→Git→restart, nezávislé přijetí | Obecné plánování a větší projekty |
-| Packaged IDE/CODE ledger | PHYSICAL_PASS / REVIEW_PASS; šest kompletních generací, DOM náhled, approval, commit a durable DB | Širší projekty a celý release |
+| Packaged IDE/CODE ledger | Přijaté DOM handlery→šest kompletních generací→M2→oracle→commit a durable DB | Kliky byly přes DOM button.click(), nikoli pointer hit-test; fyzická dostupnost tlačítek v jejich okamžiku netestovaná; širší projekty/release |
 | Worker | Skutečný pětiminutový test, první změna po intervalu, jedna notifikace, restart a čistý stop | Dlouhý soak a souběh mnoha workerů |
 | M3 specialista | Skutečný ProjectContext ze dvou projektů, provenance, stale/foreign odmítnutí, deterministické testy PASS | Živá expert-vs-general kvalita |
 | SQLite oracle | Source `34cfc198`: 62/62 autorských CPU, 21/21 nezávislých CPU, registered9/9 a CI SUCCESS / source REVIEW_PASS | Přijatá skutečná aplikace |
 | SQLite Qwen3.8 | Sedm úplných generací, ale zakázaná schema dependency; APPLICATION_FAIL, rollback7/7, žádný commit; rejection review PASS | Modelová oprava přes existující nový M2 plán |
 | SQLite Qwen3.6 | Čtyři úplné generace; pátý prompt 9468B >8736B, odmítnut před voláním; 0 M2 operací/efektů/zpráv; review důkazů PASS | Jednotlivý scénář není kvalifikovaný; kontextové limity zachované |
-| M2 failed-plan revize | Source `a27e4470`:66/66 autorských CPU, nezávislé source REVIEW_PASS, registered9/9 a push CI13/13 SUCCESS. Skutečný běh vykonal jednu revizi,8/8 úplných pinned generací a zachoval šest modulů | APPLICATION_PHYSICAL_FAIL po opravě schema: nesoulad transaction callback rozhraní; actual review zatím PENDING |
-| GPU/modely v packaged IDE | V3 actualFAIL má nezávisle přijatou evidenci: kapacita24GiB potvrzená, model workspace nedosažený;0 inference/forwarded writes. V4 připravená, CPU10/10 a syntax15/15 | V4 nezávislé GO review a fyzický běh čekají; příčina v3 kliknutí UNKNOWN; celý Hunt tím není testován |
+| M2 failed-plan revize | Source `a27e4470`:66/66 autorských CPU, source REVIEW_PASS, registered9/9 a CI13/13. Actual8/8 pinned generací, jedna revize, šest přesných retained modulů; nezávislý failure evidence review PASS | APPLICATION_PHYSICAL_FAIL: transaction callback rozhraní; žádný commit, dva7-path rollbacky, úspěšný restart/replay nedosažen |
+| SQLite callback kontrakt | WP-first `d895fef9`; pouze tři instrukce sjednocují fn() bez argumentů a catalog closure,5/5 cílených CPU PASS | Nové source review/registered gate/CI čekají, LIVE_NOT_RUN; první autorský512B overflow44PASS/22FAIL zachovaný |
+| GPU/modely v packaged IDE | V3 iV4 actualFAIL mají accepted evidence: kapacita24GiB potvrzená, model workspace nedosažený;0 inference/forwarded writes. V4 zastavila preload vrstva před pointerem; v5 prepared CPU13/13 a syntax15/15 | V5 nezávislé GO review a actual čekají; v3 příčina UNKNOWN, permanentní product hang nedoložen; celý Hunt netestován |
 | Hunt hodnocení | Nové strukturální čtení17:21UTC nezměněné:596/1173 odpovědí,2324/3689 kritérií | Accepted grader false,577/1365 chybí, NO_DECISION / NO_GO; žádná aktivace |
 | HTTP projekty | Předem připravený omezený návrh testu | Rozhodnutí o novém M2 síťovém oprávnění; HTTP_NOT_RUN |
 | Mobil | Auditovaný handoff, historických47 host testů a přijaté VPN/TLS rozhodnutí | Fyzická matice13+7 NOT_RUN, skutečné zařízení/VPN a integrační mezery |
@@ -37,12 +38,16 @@ stabilním IDE/BE, podle zadání operátora.
 - [Generované aplikace](../examples/generated-apps/README.md):17 skutečných
   modelových modulů tří přijatých snapshotů; [archivní IDE probe](../materials/ide2-code-dom-physical-response-guard-20261001/README.md)
   obsahuje15 přijatých zdrojových souborů bez privátních runtime dat.
-- Poslední potvrzený vzdálený kód je
+- Zmrazený skutečně testovaný zdroj je
   [`a27e44701c2160e24ef4b3a37528f6a2f6e745a4`](https://github.com/Belphareon-bak/intentsmith/commit/a27e44701c2160e24ef4b3a37528f6a2f6e745a4).
   Obsahuje opravený AST guard a průběžný report. Má vlastní
   [push CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36898069050),
   job110489992532,13 úspěšných kroků. Source review přijímá kvalifikaci,
   nikoli neúspěšnou aplikaci. Původní `f17aaa27` CR se zachovává.
+- Samostatný pracovní report byl poprvé pushnut v `b1791c7a`; následný
+  `fd749bacf0e19e65e602cd5dbe46c57c058f5342` má ověřený remote a vlastní
+  [CI13/13 SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36901760691).
+  Nový callback kandidát čeká na samostatné brány; nenese actuala27 PASS.
 - Dokumentační `79b201c8` má vlastní [CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36891027839).
   Source34 má [samostatné CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36888388296).
   Dokumentační commity nepřebírají fyzickou kvalifikaci jiného SHA.
@@ -68,8 +73,22 @@ přijímá harness, nikoli jeho následný actualFAIL ani modelovou kvalitu.
 Actualv3 failure review SHA `37f8c171c4299872cc71b2de494559a1aa018fae18ddc9ab2fec12d9d823b8d0`:
 kapacita24GiB potvrzená, model workspace NOT_REACHED. Všech296 souborů
 zachováno,14 kontrolovaných DB tabulek0, namespace0 a relaye prázdné.
-Příčina neúčinného settings kliknutí je zatím UNKNOWN; připravuje se úzká
-instrumentovaná v4 sonda se skutečným klikacím cílem a postclick důkazem.
+Příčina v3 settings kliknutí je UNKNOWN. Actualv4 potvrdila HIT_BLOCKED:
+centrum skutečného Nastavení BUTTON kryje DIV.theia-preload; žádný pointer
+nebyl proveden. Packaged startup lifecycle odstraňuje překryv až po layoutu.
+Chybělo bounded čekání na skutečnou hit-test připravenost; trvalé zaseknutí
+produktu není doložené. Review SHA
+`f23ac6c67e3d8dd34207f3e540cced42d83d8501b0030360cd864fecffdb0561`:
+všech298 souborů/15,885,565B přesných,14 DB tabulek0, vlastní namespace0,
+drain0 a forwarded writes0. Nová v5 tuto readiness kontrolu připravila,
+manifest `29d718929ee55a24eeef37d398fa415cd9ed4ded9d5c0f165d44202eebed4356`;
+CPU13/13 včetně delayed preload/permanent block/exact deadline negativy,
+stejný30s celkový budget, žádné odstranění overlay. Nezávislé GO a actual čekají.
+
+Audit staršího accepted ledger probe našel programové DOM button.click().
+Jeho funkční generování, M2, oracle, bajty a restart se zachovávají, ale
+pointer použitelnost v okamžiku těchto kliků není doložená. Nelze zpětně
+tvrdit, že skutečně probíhaly za preload vrstvou; chybí tehdejší hit-test.
 
 ## Poslední milník — jedna skutečná CODE revize, 17:37–17:38 UTC
 
@@ -87,7 +106,10 @@ CLI předpokládá parametr callbacku, store volá `fn()` bez parametru.
 Terminál hlásí PROJECT_CHANGE_TEST_FAILED, rollback7/7 a žádný commit.
 Úspěšný replay/restart nebyl dosažen. Actor doložil vlastní model unload,
 lease release a čisté source; nezávislé actual DB/provenance review
-je **REVIEW_PENDING**. Raw result SHA
+je **FAILURE_EVIDENCE_REVIEW_PASS**, SHA
+`fbaba85e69f83a54ec9a43ab23c3ed41c6cc30cd53d7f3a0395f2ff71545558e`.
+Všech379 souborů přesných; oba failed návrhy/durable DB/14 after_bytes,
+nová approval a oba409 i dva7-path rollbacky nezávisle potvrzeny. Raw result SHA
 `0cc384be7344cc3baead1d255f1598ea0a2122b9dbec111b3953ba3ea7668bb8`.
 Původní data se neupravují a aplikace se neexportuje jako přijatá.
 
@@ -98,9 +120,10 @@ Private fresh DB bez přijatých známek neověřuje produkční scoring.
 
 ## Nejbližší pořadí práce
 
-1. Uzavřít nezávislé review neúspěšného actual CODE revision průchodu.
-2. Před dalším kandidátem sjednotit callback kontrakt mezi CLI/service/store;
-   nový WP-first freeze a samostatná kvalifikace, bez ruční změny výstupů.
+1. Dokončit source review/registered gate/CI nového
+   [callback kontraktu](wp/WP-SQLITE-TRANSACTION-CALLBACK-CONTRACT-20261001.md).
+2. Jeden nový zmrazený modelový průchod až při volném GPU, původní oracle,
+   samostatná přejímka a žádná ruční změna skutečných výstupů.
 3. Uzavřít skutečný GPU panel audit a zveřejnit přijaté archivní zdroje sondy.
 4. Obecný [M2 AST scanner](wp/WP-M2-AST-IMPORT-SCANNER-20261001.md) má
    bounded návrh; TS grammar/ABI a parser resource containment jsou otevřené.

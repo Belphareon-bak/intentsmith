@@ -1,6 +1,6 @@
 # WP — sjednocení rozhraní transakce generovaného SQLite projektu
 
-**Stav:** `DRAFT / IMPLEMENTATION_NOT_STARTED / LIVE_NOT_RUN`.
+**Stav:** `IMPLEMENTATION_GREEN / CPU_FOCUSED5_PASS / SOURCE_REVIEW_PENDING / REGISTERED_GATE_PENDING / LIVE_NOT_RUN`.
 **Vlastník:** ROOT, stávající integrační checkout; výchozí dokumentační
 HEAD `fd749bacf0e19e65e602cd5dbe46c57c058f5342`.
 **Autorita:** operátorem požadované dokončení skutečných CODE projektů;
@@ -64,3 +64,22 @@ callback; nevytváří souběžně druhý kontrakt ani další opravovací loop.
 Před zahájením implementace nebyl spuštěn další modelový request ani změněn
 callback v raw aplikaci. Tento WP nezaručuje obecné CODE plánování,
 jednopokusovou modelovou spolehlivost, HTTP projekty ani celý release.
+
+## Implementační checkpoint 18:01 UTC
+
+WP-first `d895fef92fcf2777ad16de2688139f3ac1a044f4` předcházel změně.
+Pouze tři instruction hodnoty nyní určují stejný synchronní callback,
+bezargumentové zavolání a CLI closure s service validací. Nezvětšil se
+existing512B instruction limit. První příliš dlouhá formulace měla
+**44 PASS / 22 FAIL**, exit1,62 813.9ms; log SHA
+`a929ed81d5fd959462eabd8029ccc093ae08eda7c35104e17615235259ec1ba5`
+je zachovaný. Jde o autorskou chybu qualification vstupu, nikoli nový
+produktový regression verdict. Tato formulace nebyla použita pro inference.
+
+Po zkrácení při zachování požadavků mají instrukce CLI497B/service492B/
+store512B. Existing cílené compiler/provider/provenance/actual-M2 testy
+mají na posledním přesném vstupu **5/5 PASS**, exit0,5346.2ms, log
+`47b297c768963d5980deebf895063e01603d98711dff5faff942368c3f5f611a`.
+Další čtyři instrukce, oracle28c9, entrypoint, produktové stromy, registry
+a resource/context budget zůstávají přesné. Nezávislé source review,
+celý registered gate a aktuální push CI ještě čekají; LIVE_NOT_RUN.

@@ -1,6 +1,33 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
-## Checkpoint 1. 10. 2026, 17:43 UTC — source přijatý, skutečná revize aplikace FAIL
+## Checkpoint 1. 10. 2026, 18:01 UTC — přijatá evidence FAIL, nový callback kontrakt
+
+Aktuální cadence/stav je [WORK-PROGRESS.md](../WORK-PROGRESS.md).
+Actuala27 má **FAILURE_EVIDENCE_REVIEW_PASS**, SHA
+`fbaba85e69f83a54ec9a43ab23c3ed41c6cc30cd53d7f3a0395f2ff71545558e`:
+všech379 souborů/19,849,491B přesných,8/8 generací a14 durable after_bytes
+BLOBů souhlasí; oba typed failed návrhy, nové approval, oba409,
+dva7-path rollbacky a žádný commit. Aplikace nadále FAIL.
+
+WP-first `d895fef9` určuje jednotný fn() bez argumentů, CLI catalog closure
+a zachování service validace. Změna pouze tří instrukcí je CPU5/5 PASS;
+počáteční512B overflow44PASS/22FAIL uchovaný. Nové source review,
+registered gate a vlastní CI čekají; další inference LIVE_NOT_RUN.
+Zdrojový/funkční oracle28c9, entrypoint a budgety se nemění.
+
+GPU actualv4 má failure evidence review SHA
+`f23ac6c67e3d8dd34207f3e540cced42d83d8501b0030360cd864fecffdb0561`:
+správný BUTTON byl HIT_BLOCKED skutečným DIV.theia-preload, žádný pointer.
+Kapacita24GiB správná, model workspace nedosažený;0 inference/zápisů,
+298 souborů přesných a vlastní namespace uklizený. Čekání pouze na DOM
+element předcházelo dokončení veřejného startupu; permanentní product hang
+nedoložen. Oddělená v5 prepared CPU13/13, čeká na GO/actual;
+v3 cause nadále UNKNOWN.
+Starší ledger používal DOM button.click(): přijaté funkční M2/model/app
+bajty zůstávají, pointer dostupnost v okamžiku kliků není doložená.
+HTTP/mobil/Hunt NO_GO a cleanup HOLD zůstávají; CHAT jiný worker.
+
+## Historický checkpoint 1. 10. 2026, 17:43 UTC — source přijatý, skutečná revize aplikace FAIL
 
 Hlavní aktuální souhrn a cadence je [WORK-PROGRESS.md](../WORK-PROGRESS.md):
 aktualizace po každém milníku, nejpozději3h aktivní práce; report operátorovi2h.

@@ -1,6 +1,6 @@
 # WP — skutečná oprava neúspěšného CODE návrhu přes existující M2 revizi
 
-**Stav:** `SOURCE_REVIEW_PASS / REGISTERED9_PASS / CI_SUCCESS / APPLICATION_PHYSICAL_FAIL / ACTUAL_REVIEW_PENDING`.
+**Stav:** `SOURCE_REVIEW_PASS / REGISTERED9_PASS / CI_SUCCESS / APPLICATION_PHYSICAL_FAIL / FAILURE_EVIDENCE_REVIEW_PASS`.
 **Vlastník:** ROOT, existující integrační checkout; zdroj před změnou
 `6af06ea622dbb955cdb53e7fb2c69b430bfe8957`. Autorita: operátorem požadované
 dokončení a skutečné projektové testy; stávající M2 failed-plan revision.
@@ -148,3 +148,15 @@ Raw result SHA `0cc384be7344cc3baead1d255f1598ea0a2122b9dbec111b3953ba3ea7668bb8
 inside evidence `25ab19a38660bea48d7687e17228aaa6b8a605048d7f1fa2631be144bdb1f16c`.
 Privátní379 souborů se zachovává. Žádný manuální generated fix ani opakování
 stejného kandidáta; další API upřesnění musí být předem zmrazené v novém WP.
+
+Nezávislé actual review je uzavřené: **FAILURE_EVIDENCE_REVIEW_PASS**,
+SHA `fbaba85e69f83a54ec9a43ab23c3ed41c6cc30cd53d7f3a0395f2ff71545558e`.
+Všech379 původních souborů/19,849,491B zůstalo přesných. Reviewer nezávisle
+rekonstruoval7 afterContent +8. replacement, initial/final preview a14
+SQLite after_bytes BLOBů; dvě oddělená approval, oba409, dva7-path rollbacky,
+durable failed terminal/results, baseline Git/absent7 a vlastní cleanup.
+Úspěšný replay/postrestart zůstává NOT_REACHED. První reviewer audit exit1
+chybně porovnal80-line context se SHA celého souboru; zachován odděleně,
+opravená kontrola celých souborů exit0. Původní sourcea27 a pozdější docs
+HEADfd749bac jsou rozlišené. Další upřesnění je ve
+[WP transakčního callbacku](WP-SQLITE-TRANSACTION-CALLBACK-CONTRACT-20261001.md).
