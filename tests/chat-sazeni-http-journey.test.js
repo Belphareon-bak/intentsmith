@@ -73,13 +73,13 @@ async function createSelectedConversation(product, label) {
   return conversationId;
 }
 
-function bettingResult(response, status = 'READY') {
+function bettingResult(response, status = 'READY', executionStatus = 'SUCCESS') {
   assert.equal(response.status, 'ok');
   const metadata = response.response?.metadata;
   assert.equal(metadata?.mode, 'specialist');
   assert.equal(metadata?.specialist?.id, 'sazeni');
   assert.equal(metadata?.specialistTool, 'sazeni.ticket_builder');
-  assert.equal(metadata?.executionStatus, 'SUCCESS');
+  assert.equal(metadata?.executionStatus, executionStatus);
   assert.equal(metadata?.deterministicPresentation, true);
   assert.equal(metadata?.toolResults?.length, 1);
   const result = metadata.toolResults[0].data;
@@ -113,6 +113,22 @@ test('selected Sázení specialist uses observed Fortuna fixture and scopes foll
   assert.match(ambiguous.response.content, /do 24 h.*do 3 dnů/s);
   assert.deepEqual(providerCalls(owned), [], 'ambiguous date must stop before every source fetch');
 
+  const failedSession = await createSelectedConversation(product, 'provider-error');
+  const unavailable = await expectJson(product, 'POST', '/api/chat',
+    command(failedSession, JSON.stringify({ preferences: {
+      dataSource: 'odds_io', leagues: ['E0'], bookmakerIds: ['Tipsport.cz'],
+      horizonHours: 24,
+    } })), 200);
+  const unavailableResult = bettingResult(unavailable, 'PROVIDER_ERROR', 'FAILED');
+  assert.deepEqual(unavailableResult.tickets, []);
+  assert.equal(unavailableResult.analysis, undefined);
+  assert.equal(unavailableResult.verifiedLive, false);
+  assert.equal(unavailableResult.verifiedObservation, false);
+  assert.equal(unavailable.response.metadata.fallbackSuppressed, true);
+  assert.match(unavailable.response.content, /Datový zdroj není dostupný/u);
+  assert.deepEqual(providerCalls(owned), [],
+    'missing live provider key must fail before every source fetch');
+
   const a = await createSelectedConversation(product, 'a');
   const b = await createSelectedConversation(product, 'b');
   const firstInput = JSON.stringify({ preferences: PREFERENCES });
@@ -120,6 +136,8 @@ test('selected Sázení specialist uses observed Fortuna fixture and scopes foll
   const first = await expectJson(product, 'POST', '/api/chat', command(a, firstInput), 200);
   const after = Date.now();
   const firstResult = bettingResult(first);
+  assert.equal(firstResult.analysis, undefined,
+    'private source references and diagnostics must not ride in public toolResults');
   assert.equal(firstResult.dataMode, 'observed');
   assert.equal(firstResult.verifiedObservation, true);
   assert.equal(firstResult.verifiedLive, false);
