@@ -246,6 +246,7 @@ záznamu selže v `artifact-validation`.
 | `2026_09_24_118_model_evaluation_grader_reviews.js` | zadání operátora 2026-09-24 — samostatné append-only posudky dvojice nad jedním uloženým sběrem |
 | `2026_09_25_119_model_evaluation_adjudications.js` | zadání operátora 2026-09-25 — append-only lidské rozsouzení sporných kritérií dvojice |
 | `2026_09_25_120_studio_scm.js` | Studio 2: projektová politika pro řízené operace Git |
+| `2026_10_01_121_m2_atomic_create.js` | M2: atomické vytvoření souboru bez přepsání existujícího cíle |
 <!-- migration-source-manifest:end -->
 
 ## Navazující M7 rezervace 2026-08-29
@@ -520,3 +521,12 @@ ověřen na kopii živé DB; živá DB se tímto krokem nemění.
 
 Zdrojový manifest sjednocuje migrace 117, 118, 119 a 120, celkem 107.
 Instalovaná DB touto integrací nebyla změněna.
+
+### 2026-10-01 — atomické create-only v integračním source
+
+Přijatá migrace 121 již existuje v publikovaném `45caf5b5`; manifest nyní
+obsahuje přesně 108 zdrojových migrací. Dodatečný read-only union 330 refs
+a 71 worktrees potvrdil jedinou identity slotu 121, bez kolize. Tento census
+nedokládá předchozí rezervaci; napravuje neúplný integrační inventář.
+Tělo migrace ani instalovaná DB se nemění. Privátní důkaz a rozsah:
+[backend migration WP](../wp/WP-BACKEND-MIGRATION-EVIDENCE-20261001.md).

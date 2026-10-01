@@ -656,21 +656,21 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 **REVIEW_PENDING** — [aktuální UI oprava a evidence](docs/review/2026-09-17-HUNT-MODEL-CONTROLS-FOLLOWUP.md).
 
 Následující LOC a registry census jsou přeměřené přímo na referenčním zdroji
-`c1a25dc1` přes stejný algoritmus jako `tests/artifact-validation.test.js`:
+`45caf5b5` + bounded migration evidence delta přes stejný algoritmus jako `tests/artifact-validation.test.js`:
 počet skutečných `.js` souborů a počet znaků nového řádku v jejich bytech.
 Při další integraci se přeměří znovu.
 
 | | |
 |---|---:|
-| `src/**/*.js` | **233 480 ř.**, 678 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **263 808 ř.**, 592 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **590** (`492 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
-| Tabulek v čerstvé DB / aplikovaných migrací | **183 / 107** |
+| `src/**/*.js` | **234 011 ř.**  681 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **264 480 ř.**  595 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **591** (`493 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
+| Tabulek v čerstvé DB / aplikovaných migrací | **183 / 108** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
 
 Aktuální registry fingerprint referenčního zdroje je
-`a1c711f5ef703c54ec25799232a30486ecc967a4ee2624e563cbc88f5bfcaaf2`.
+`1d8651f21691d08ecce4220cd1af73b0e8c4a468d20a811d62b7beb70ad1f742`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 Worker-soak absolvoval fyzický pětiminutový běh na `bf7dc31f`; nové druhé
