@@ -1,9 +1,23 @@
 # Studio 2.0 — správa zdrojů (git)
 
-Stav: návrh konektoru k [Decision 049](../decisions/049-studio-2-ui-and-source-control.md)
-D3/D4, etapa S2-6 [WP-STUDIO-2](../wp/WP-STUDIO-2-20260925.md).
+**Stav instalace 1. 10. 2026:** SCM konektor je implementovaný v
+`src/routes/scm.js` a `src/scm/service.js`; nainstalovaný backend je
+`c84b88cd0c0b76639823c82c022d2feab96dfc15`, frontend AppImage je z
+`fddfe9966e7cea648bff3bb4d2bdcfdd0900f3d2`.
+[Místní produkční report](../review/2026-09-28-STUDIO2-PRODUCTION.md)
+dokládá ve skutečném AppImage nad kopií DB stage, commit, větev a zamítnutý
+nepovolený push na `c84b88cd`. [Pozdější frontendový report](../review/2026-09-29-STUDIO2-SETTINGS-PALETTE-B.md)
+dokládá sestavení a cílené Electron zkoušky `fddfe996`, ale neopakuje celé
+SCM end-to-end. Celá místní instalace je `LOCAL_PRODUCTION_DEPLOYED /
+IMPLEMENTATION_VERIFIED / REVIEW_PENDING`; zděděný Gate 0 FAIL není PASS.
+Pozdější vývojový checkout není touto instalací otestován.
 
-## 1. Co už existuje
+Oddíly 1–6 níže zachovávají **původní návrhový kontrakt** k
+[Decision 049](../decisions/049-studio-2-ui-and-source-control.md) D3/D4 a
+etapě S2-6 [WP-STUDIO-2](../wp/WP-STUDIO-2-20260925.md). Jejich budoucí čas
+není tvrzením, že každá varianta politiky či UI prošla živou přejímkou.
+
+## 1. Výchozí podklady původního návrhu
 
 | Kde | Co dělá | Použití |
 |---|---|---|
