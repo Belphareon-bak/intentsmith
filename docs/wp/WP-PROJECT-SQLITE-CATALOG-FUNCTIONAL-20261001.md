@@ -62,7 +62,7 @@ starý `cea7e727…`, 53 CPU kontrol i nevyhovující fyzický packet zůstávaj
    generacím na novém zmrazeném kandidátu. Raw modelové bajty se ručně
    neopravují a zadání se nezvolňuje.
 
-### ROOT checkpoint 16:18 UTC — oprava přijatá, Qwen3.8 odmítnut
+### ROOT checkpoint aktualizovaný 16:29 UTC — oprava přijatá, Qwen3.8 odmítnut
 
 Přesný code source `34cfc198ed09cd9094ac0f1ed264daf29c33f1f5` je pushnutý,
 má **9/9 registrovaných PASS**, exit 0, report SHA-256
@@ -83,7 +83,15 @@ rollback všech sedmi cílů succeeded, Git commit null, původní HEAD
 `4ee9f622433f55708fa360ab29eef44a491fe6c7` zachovaný. Parent potvrdil vlastní
 model unload, GPU lease release a čistý source. Následný funkční oracle po
 backend restartu v tomto failed průchodu **neproběhl**. Nový raw failed
-packet i starý936 jsou uchované; nezávislé rejection review ještě běží.
+packet i starý936 jsou uchované. Nezávislé rejection review nyní přijalo
+**REJECTION_EVIDENCE_REVIEW_PASS / APPLICATION_PHYSICAL_FAIL**, receipt
+SHA-256 `4b21d8a33a785f4b2cb163146d8d3239925dcc9a6f6fe4384c985c76691f4953`,
+`HASHES.json` `66fd382b87eff96800836ed529872f2c8c9a3c353c57be906254755ff9a413b7`.
+Sedm skutečných request SHA odpovídá rekonstrukci z připnutého zdroje a
+capture; schema dostalo správné `No imports`. Všech 375 souborů je
+bajtově/módem zachovaných. Reviewer omylem zavolal potenciálně zapisující
+`git write-tree`; full inventář nezjistil delta ani nově vzniklé soubory.
+Celý review se proto neoznačuje jako sada výhradně read-only příkazů.
 
 ### Následující předem vymezená CODE kvalifikace
 

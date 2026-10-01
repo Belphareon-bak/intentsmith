@@ -1,12 +1,14 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktualizace 1. 10. 2026, 15:53 UTC — SQLite kontrakt a skutečný M3 kontext:** publikovaný
-`936e9a33` má registrovaných **9/9 PASS / REVIEW_PASS**, skutečné
-[CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36876897340).
+**Aktualizace 1. 10. 2026, 16:29 UTC — SQLite kontrakt a skutečný M3 kontext:** publikovaný
+`34cfc198` má registrovaných **9/9 PASS / REVIEW_PASS**, skutečné
+[CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36888388296).
 M3 ověřuje skutečná projektová data a izolaci; modelovou expert-vs-general
 kvalitu tím nepřejímá. SQLite měl skutečný funkční PASS se sedmi generacemi,
 ale nezávislé review našlo zakázaný schema import: CONTRACT_CHANGES_REQUIRED.
-Oprava měřidla má 62 CPU PASS, nové review a fyzické opakování čekají.
+Oprava měřidla má 62 CPU PASS a source REVIEW_PASS. Fyzické opakování
+Qwen3.8 správně odmítlo stejnou závadu, rollback 7/7 a trvalý FAIL mají
+nezávislé přijetí důkazů. Stejný scénář s Qwen3.6 čeká na cizí GPU lease.
 Původní JSON FAIL s 0 inferencemi i raw funkční PASS zůstávají uchované.
 Nová GPU UI sonda má guard CHANGES_REQUIRED a nebyla spuštěná.
 Skutečný Ledger, TaskFlow a packaged IDE ledger jsou přijaté.

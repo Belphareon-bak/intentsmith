@@ -1,6 +1,54 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
-## Checkpoint 1. 10. 2026, 15:53 UTC — skutečný SQLite kontrakt vyžaduje opravu
+## Checkpoint 1. 10. 2026, 16:29 UTC — oprava přijatá, skutečný model odmítnut
+
+Zdroj `34cfc198ed09cd9094ac0f1ed264daf29c33f1f5` má **62/62 autorských
+CPU PASS, 21/21 nezávislých CPU PASS, 9/9 registrovaných PASS / REVIEW_PASS**
+a [push CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36888388296).
+Dokumentační checkpoint `79b201c8b484a7c8a21225945f51b9dba21d47dc` je
+pushnutý a má vlastní [CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36891027839),
+job `110466389629`, 13 kroků SUCCESS. Tyto výsledky nepřijímají aplikaci.
+
+Skutečné opakování `16:10:13.157–16:11:04.053 UTC` se stejným Qwen3.8
+artefaktem dodalo sedm úplných generací, ale znovu porušilo pevné zadání
+ve schema. Nový oracle změnu před spuštěním generované aplikace odmítl:
+**APPLICATION_PHYSICAL_FAIL / REJECTION_EVIDENCE_REVIEW_PASS**.
+Nezávislá kontrola potvrdila přesné modelové bajty, všech sedm rollbacků,
+žádný commit, trvalý failed terminál v DB a 0 CHAT zpráv. Rekonstrukce
+všech sedmi outbound payloadů odpovídá uloženým request hashům; schema
+skutečně dostalo správné `No imports`. Nejde o doloženou chybu předání
+instrukce. Po neúspěšném approval následný backend restart neproběhl.
+Review SHA-256 `4b21d8a33a785f4b2cb163146d8d3239925dcc9a6f6fe4384c985c76691f4953`,
+`HASHES.json` `66fd382b87eff96800836ed529872f2c8c9a3c353c57be906254755ff9a413b7`.
+Všech 375 původních souborů zůstalo bajtově i módem beze změny. Reviewer
+omylem zavolal potenciálně zapisující `git write-tree`; kontrola nezjistila
+žádnou změnu. Nelze tvrdit, že všechny review příkazy byly read-only.
+
+[WP předem vymezuje](../wp/WP-PROJECT-SQLITE-CATALOG-FUNCTIONAL-20261001.md)
+jeden totožný průchod s již instalovaným `qwen3.6:27b`, digest
+`9d5803d493a991af27b9441c098aa56f2ed7bbd260877f075ec09b575c049bc3`.
+Zdroj34, sedm instrukcí, oracle, policy i entrypoint zůstávají zmrazené;
+jedinou proměnnou je model. **LIVE_NOT_RUN**: resource preflight 16:26 UTC
+našel cizí GPU lease; vlastní inference nebyla zahájena. Produkční vazby
+modelů ani accepted-grader/Hunt pořadí se tímto testem nemění.
+
+Obecný produktový M2 scanner nadále chybně rozpoznává samotné slovo
+`import` v komentáři či řetězci. SQLite preview AST a compile-only oracle
+řeší svůj scénář; celou M2 autoritu tím neopravují. Následující bounded
+návrh bude používat skutečný parser, nikoli jazykové výjimky.
+GPU UI sonda v1 zůstává **GUARD_CHANGES_REQUIRED / NOT_RUN**; v2 má
+autorskou CPU kontrolu startup/abort/nezveřejněného potomka 3/3, ale
+nezávislé guard review a fyzické DOM ověření dosud čekají.
+
+Dřívější Ledger, TaskFlow a packaged IDE ledger zůstávají přijaté v přesném
+rozsahu. M3 má skutečný ProjectContext; modelová kvalita expertíz je otevřená.
+Hunt poslední strukturální audit 13:31 UTC stále 596/1173 / NO_GO;
+HTTP návrh čeká na rozhodnutí o oprávnění, mobilní fyzická matice 13+7
+NOT_RUN. CHAT řeší jiný worker. Čtyři vlastní refs mají preflight;
+žádné mazání dosud neproběhlo. Historický úplný profil se nepřeznačuje,
+produkce nebyla aktualizována a celý release není přijatý.
+
+## Historický checkpoint 1. 10. 2026, 15:53 UTC — skutečný SQLite kontrakt vyžaduje opravu
 
 Na přesném `936e9a33` proběhlo sedm úplných CODE generací katalogu; funkční
 oracle, M2 commit a opakování po restartu prošly. Nezávislé review však našlo

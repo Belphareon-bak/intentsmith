@@ -4,12 +4,15 @@
 instalace, testů a zbývajících bran](docs/review/2026-09-30-COMPLETION-TRACKER.md).
 Chronologie níže zachovává důkazy předchozích instalací a větví.
 
-Nechatový kandidát `936e9a33` má **9/9 registrovaných PASS / REVIEW_PASS**
+Nechatový zdroj `34cfc198` má **9/9 registrovaných PASS / REVIEW_PASS**
 a GitHub CI SUCCESS. M3 přímo četl dva izolované projekty, doložil přesný
 nález i provenance a odmítl stale/foreign scope. SQLite sedmimodulový scénář
 má přijatou opravu JSON boundary. První skutečný sedmigenerační průchod měl
 funkční PASS, ale CONTRACT_CHANGES_REQUIRED kvůli zakázanému schema importu.
-Navazující oprava má 62 CPU PASS / REVIEW_PENDING / opakování NOT_RUN.
+Navazující oprava má 62 CPU PASS / source REVIEW_PASS. Skutečné Qwen3.8
+opakování správně odmítlo porušení: APPLICATION_PHYSICAL_FAIL a nezávisle
+přijaté odmítnutí/rollback/trvalý DB záznam. Totožný Qwen3.6 průchod NOT_RUN
+čeká na cizí GPU lease; obecný M2 textový scanner má další známou mezeru.
 První start s 0 inferencemi i nevyhovující skutečný průchod jsou uchované. Pravomoc skutečných
 HTTP testů zůstává návrhem vyžadujícím rozhodnutí. Tyto důkazy neaktualizují
 produkční BE `c84b88cd` ani celou release přejímku.

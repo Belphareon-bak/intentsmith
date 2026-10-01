@@ -2,7 +2,7 @@
 
 **Aktuální vývojový checkpoint 1. 10. 2026:** [stav dokončování, měřené
 výsledky a otevřené brány](docs/review/2026-09-30-COMPLETION-TRACKER.md).
-Publikovaný funkční kandidát `936e9a33` má GitHub CI SUCCESS a registrovaných
+Publikovaný zdroj `34cfc198` má GitHub CI SUCCESS a registrovaných
 **9/9 PASS / REVIEW_PASS**. Ledger, TaskFlow a řízený packaged IDE ledger
 mají skutečnou funkční přejímku; jejich
 [přesné generované zdroje](examples/generated-apps/README.md) jsou v Gitu.
@@ -12,8 +12,11 @@ pravidla, modelová kvalita expertíz zůstává otevřená.
 [SQLite scénář](docs/wp/WP-PROJECT-SQLITE-CATALOG-FUNCTIONAL-20261001.md)
 má první skutečný funkční PASS se sedmi modelovými generacemi, ale
 **CONTRACT_CHANGES_REQUIRED**: oracle nezachytil zakázaný import v schema.
-Navazující oprava má 62/62 CPU PASS; nové source review a fyzická přejímka
-čekají. Původní nevyhovující důkazy zůstávají uchované.
+Navazující oprava má 62/62 CPU PASS a nezávislé source REVIEW_PASS.
+Skutečné opakování Qwen3.8 skončilo správným odmítnutím a úplným rollbackem:
+APPLICATION_PHYSICAL_FAIL / REJECTION_EVIDENCE_REVIEW_PASS. Stejný zmrazený
+scénář s instalovaným Qwen3.6 čeká na cizí GPU lease. Původní nevyhovující
+důkazy zůstávají uchované.
 [Skutečné HTTP projekty](docs/wp/WP-M2-PRIVATE-HTTP-QUALIFICATION-PROPOSAL-20261001.md)
 mají připravený návrh změny oprávnění, který čeká na rozhodnutí operátora.
 Hunt posledním strukturálním čtením 13:31 UTC zůstává 596/1173 / NO_GO;
@@ -58,7 +61,7 @@ autoritativní IntentSmith Studio runtime už neobsahuje implicitní Google Font
 Studio používá Theia runtime s motivy a ovládáním IntentSmithu.
 
 **Verze:** 136.1.0, vývojový kandidát 1.0. Počty registru pro
-`936e9a33` jsou odvozené z [generovaného registru](docs/convergence/TEST-REGISTRY.md)
+`34cfc198` jsou odvozené z [generovaného registru](docs/convergence/TEST-REGISTRY.md)
 a při další změně registrace se znovu přeměří:
 **593 registrovaných testovacích programů**
 (`495 ACTIVE`, `83 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).
