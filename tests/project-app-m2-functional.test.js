@@ -11,6 +11,7 @@ import { execFileSync } from 'node:child_process';
 import Database from 'better-sqlite3';
 import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 import { providerRelay, createProviderProxy } from '../scripts/run-project-app-journey.js';
+import { sqliteRevisionBlueprint, assertSchemaFailure, assertRetainedRevision } from '../scripts/project-app-revision.js';
 import { REFERENCE_LEDGER_OUTPUTS, OBJECT_COMMAND_LAST_RESULT_CLI } from './helpers/project-app-reference.js';
 import { REFERENCE_TASKFLOW_OUTPUTS, taskflowMutant } from './helpers/project-taskflow-reference.js';
 import { REFERENCE_SQLITE_OUTPUTS, sqliteCatalogMutant } from './helpers/project-sqlite-catalog-reference.js';
@@ -136,6 +137,19 @@ export { run } from './cli.js';
     projects: { findById: { get: id => id === PROJECT_ID ? { id, path: project, status: 'active' } : null } },
     generateCodeDraft: async ({ prompt }) => {
       const input = JSON.parse(prompt);
+      if (input.previousDraft) {
+        assert.equal(sqlite && defect === 'schema-extra-import', true, 'only the declared revision fixture');
+        assert.equal(calls.length, 7);
+        assert.equal(input.path, 'src/schema.js');
+        assert.equal(input.previousDraft.content, outputs[input.path]);
+        assert.equal(input.previousDraft.state, 'unapplied_proposal');
+        assert.equal(input.beforeContent, undefined);
+        assert.equal(git(project, ['status', '--porcelain=v1']), '');
+        calls.push(input.path);
+        return { content: JSON.stringify({ replacements: [
+          { before: "import { DatabaseSync } from 'node:sqlite';\n", after: '' },
+        ] }), finishReason: 'stop' };
+      }
       assert.equal(input.path, frozen.order[calls.length], 'dependency order');
       assert.equal(Object.hasOwn(input, 'focusedTest'), false, 'model cannot choose the oracle');
       assert.equal(fs.readFileSync(path.join(project, ORACLE_PATH), 'utf8'), frozen.oracle);
@@ -146,6 +160,42 @@ export { run } from './cli.js';
   });
   return { folder, project, db, databasePath, outputs, calls, baseline, service, frozen };
 }
+
+test('M2 failed SQLite draft rolls back and revises one module with a new exact approval', async () => {
+  const f = await fixture('schema-extra-import', 'sqlite-catalog');
+  try {
+    await f.service.recoverIncompleteSmallProjectChanges();
+    const first = await f.service.draftSmallProjectChange({ authenticatedSubject: SUBJECT,
+      projectId: PROJECT_ID, origin: ORIGIN, draft: sqliteCatalogBlueprint() });
+    const failed = await f.service.approveSmallProjectChange({ authenticatedSubject: SUBJECT,
+      origin: ORIGIN, lifecycleId: first.lifecycleId, planDigest: first.planDigest });
+    assertSchemaFailure(failed, SQLITE_FILES.map(file => file.path));
+    assert.equal(git(f.project, ['rev-parse', 'HEAD']), f.baseline);
+    for (const file of SQLITE_FILES) assert.equal(fs.existsSync(path.join(f.project, file.path)), false);
+    const next = await f.service.draftSmallProjectChange({ authenticatedSubject: SUBJECT,
+      projectId: PROJECT_ID, origin: ORIGIN, draft: sqliteRevisionBlueprint(first) });
+    assertRetainedRevision(first.diff, next.diff);
+    assert.notEqual(next.lifecycleId, first.lifecycleId);
+    assert.notEqual(next.planDigest, first.planDigest);
+    await assert.rejects(f.service.approveSmallProjectChange({ authenticatedSubject: SUBJECT,
+      origin: ORIGIN, lifecycleId: next.lifecycleId, planDigest: first.planDigest }),
+    { code: 'M2_LIFECYCLE_PLAN_DIGEST_MISMATCH' });
+    const committed = await f.service.approveSmallProjectChange({ authenticatedSubject: SUBJECT,
+      origin: ORIGIN, lifecycleId: next.lifecycleId, planDigest: next.planDigest });
+    assert.equal(committed.state, 'succeeded');
+    assert.equal(committed.result.git.status, 'committed');
+    assert.deepEqual(f.calls, [...SQLITE_GENERATION_ORDER, 'src/schema.js']);
+    for (const file of SQLITE_FILES) assert.equal(fs.readFileSync(path.join(f.project, file.path), 'utf8'),
+      REFERENCE_SQLITE_OUTPUTS[file.path]);
+    assert.equal(sha256(fs.readFileSync(path.join(f.project, ORACLE_PATH))), SQLITE_ORACLE_SHA256);
+    f.db.close();
+    const ro = new Database(f.databasePath, { readonly: true, fileMustExist: true });
+    try {
+      const rows = ro.prepare('SELECT terminal_status AS state FROM m2_lifecycle_terminals ORDER BY rowid').all();
+      assert.deepEqual(rows.map(row => row.state), ['failed', 'succeeded']);
+    } finally { ro.close(); }
+  } finally { if (f.db.open) f.db.close(); }
+});
 
 for (const defect of [null, 'wrong-total', 'object-command-last-result', 'assert-noops', 'early-exit',
   'probe-json-forgery', 'storage-row-alias', 'storage-json-forgery']) {

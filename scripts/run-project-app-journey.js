@@ -13,6 +13,8 @@ import { processSandboxProvider } from '../src/execution/process-sandbox-provide
 import { LINUX_BWRAP_READ_ONLY_PROFILE } from '../src/execution/process-supervisor-child.js';
 import { computeM2ExecutionValueDigest } from '../contracts/m2/execution-v1.js';
 import { compileCodeDraftInput } from '../src/lifecycle/m2-code-draft.js';
+import { sqliteRevisionBlueprint, assertSchemaFailure, assertRetainedRevision,
+  assessRevisionGenerations } from './project-app-revision.js';
 import { makeRuntime, startServer, stopServer, requestJson } from './run-project-build-journey.js';
 import { createOwnedProviderRelay } from './project-app-provider-relay.js';
 import {
@@ -115,6 +117,12 @@ function parseOptions(argv) {
     scenarioFor(scenarioId);
     argv = argv.slice(2);
   }
+  const revisionOnce = argv[0] === '--revision-once';
+  if (revisionOnce) {
+    assert.equal(scenarioId, 'sqlite-catalog', 'revision qualification only supports SQLite');
+    argv = argv.slice(1);
+    assert.equal(argv[0], '--live', 'revision qualification requires explicit live pins');
+  }
   if (!argv.length || (argv.length === 1 && argv[0] === '--preflight')) {
     return { mode: 'preflight', scenarioId };
   }
@@ -126,7 +134,7 @@ function parseOptions(argv) {
   }
   if (entries.size !== 4) throw new Error('all live pins are required');
   const options = { mode: 'live', scenarioId, out: entries.get('--out'), sourceSha: entries.get('--source-sha'),
-    model: entries.get('--model'), digest: entries.get('--digest') };
+    model: entries.get('--model'), digest: entries.get('--digest'), ...(revisionOnce ? { revisionOnce: true } : {}) };
   if (!SHA_PATTERN.test(options.sourceSha) || !DIGEST_PATTERN.test(options.digest) || !MODEL_PATTERN.test(options.model)) {
     throw new Error('invalid source/model/digest pin');
   }
@@ -433,7 +441,7 @@ async function runInside(configurationPath, { sourceCheckOnly = false } = {}) {
       conversationId: conversation.id, projectId };
     evidence.origin = origin;
     const blueprint = scenario.blueprint();
-    const drafted = assertResponse(await ask('POST', '/api/m2/lifecycle/draft', {
+    let drafted = assertResponse(await ask('POST', '/api/m2/lifecycle/draft', {
       projectId, origin, draft: blueprint,
     }, 900_000), 200, `${scenario.files.length}-file physical CODE draft`);
     assert.equal(drafted.state, 'awaiting_approval');
@@ -457,7 +465,7 @@ async function runInside(configurationPath, { sourceCheckOnly = false } = {}) {
     assert.equal(wrong.statusCode, 409, 'wrong digest rejects before effect');
     assert.equal(git(project, ['status', '--porcelain=v1']), '');
     assertFrozenProject(project, policySha256, scenario);
-    const statusPath = `/api/m2/lifecycle/status?${new URLSearchParams({ id: drafted.lifecycleId,
+    let statusPath = `/api/m2/lifecycle/status?${new URLSearchParams({ id: drafted.lifecycleId,
       surface: origin.surface, sessionId: origin.sessionId, conversationId: origin.conversationId,
       projectId: String(projectId) })}`;
     await stop();
@@ -466,9 +474,56 @@ async function runInside(configurationPath, { sourceCheckOnly = false } = {}) {
     assert.equal(restoredPending.state, 'awaiting_approval');
     assert.equal(restoredPending.planDigest, drafted.planDigest);
     assertFrozenProject(project, policySha256, scenario);
-    const approval = { lifecycleId: drafted.lifecycleId, planDigest: drafted.planDigest, origin };
-    const terminal = assertResponse(await ask('POST', '/api/m2/lifecycle/approve', approval, 180_000),
+    let approval = { lifecycleId: drafted.lifecycleId, planDigest: drafted.planDigest, origin };
+    let terminal = assertResponse(await ask('POST', '/api/m2/lifecycle/approve', approval, 180_000),
       200, 'exact approval');
+    if (cfg.revisionOnce) {
+      save(out, 'initial-approval-terminal.json', terminal);
+      evidence.revisionQualification = 'NOT_EXERCISED';
+      if (terminal.state !== 'succeeded') {
+        assertSchemaFailure(terminal, expectedPaths);
+        assert.equal(git(project, ['rev-parse', 'HEAD']), baselineHead);
+        assert.equal(git(project, ['status', '--porcelain=v1']), '');
+        for (const relative of expectedPaths) assert.equal(fs.existsSync(path.join(project, relative)), false);
+        assertFrozenProject(project, policySha256, scenario);
+        save(out, 'initial-failed-terminal.json', terminal);
+        evidence.initialPreviewHashes = evidence.previewHashes;
+        evidence.initialLifecycleId = drafted.lifecycleId;
+        evidence.initialPlanDigest = drafted.planDigest;
+        const initialDraft = drafted;
+        const revisionBlueprint = sqliteRevisionBlueprint(initialDraft);
+        save(out, 'revision-blueprint.json', revisionBlueprint);
+        drafted = assertResponse(await ask('POST', '/api/m2/lifecycle/draft', {
+          projectId, origin, draft: revisionBlueprint,
+        }, 180_000), 200, 'one physical schema revision');
+        assert.equal(drafted.state, 'awaiting_approval');
+        assert.notEqual(drafted.lifecycleId, initialDraft.lifecycleId);
+        assert.notEqual(drafted.planDigest, initialDraft.planDigest);
+        assertRetainedRevision(initialDraft.diff, drafted.diff);
+        scenario.assertPreview(drafted.diff, project,
+          (root, relative) => fs.readFileSync(path.join(root, relative)),
+          (root, relative) => fs.existsSync(path.join(root, relative)));
+        assert.deepEqual(drafted.plan.focusedTest.argv, scenario.oracleArgv);
+        assert.equal(drafted.plan.focusedTest.binary, ORACLE_BINARY);
+        assert.equal(git(project, ['status', '--porcelain=v1']), '');
+        assertFrozenProject(project, policySha256, scenario);
+        save(out, 'revision-draft.json', drafted);
+        evidence.lifecycleId = drafted.lifecycleId;
+        evidence.planDigest = drafted.planDigest;
+        statusPath = `/api/m2/lifecycle/status?${new URLSearchParams({ id: drafted.lifecycleId,
+          surface: origin.surface, sessionId: origin.sessionId, conversationId: origin.conversationId,
+          projectId: String(projectId) })}`;
+        evidence.previewHashes = drafted.diff.map(row => ({ path: row.path, sha256: sha256(row.after.content) }));
+        const stale = await ask('POST', '/api/m2/lifecycle/approve', {
+          lifecycleId: drafted.lifecycleId, planDigest: initialDraft.planDigest, origin,
+        });
+        assert.equal(stale.statusCode, 409, 'old digest cannot approve the replacement plan');
+        approval = { lifecycleId: drafted.lifecycleId, planDigest: drafted.planDigest, origin };
+        terminal = assertResponse(await ask('POST', '/api/m2/lifecycle/approve', approval, 180_000),
+          200, 'new exact approval for revised plan');
+        evidence.revisionQualification = 'ONE_REVISION_EXECUTED';
+      }
+    }
     evidence.terminal = terminal;
     save(out, 'terminal.json', terminal);
     assert.equal(terminal.state, 'succeeded', JSON.stringify(terminal.result));
@@ -565,7 +620,8 @@ async function runParent(options) {
     proxy = createProviderProxy({ model: options.model, requests, onModelCall: () => { loaded = true; } });
     await new Promise(resolve => proxy.server.listen(socketPath, resolve));
     fs.chmodSync(socketPath, 0o600);
-    save(out, 'inside-configuration.json', { scenarioId: scenario.id, source, model: options.model, digest: options.digest, socketPath });
+    save(out, 'inside-configuration.json', { scenarioId: scenario.id, source, model: options.model, digest: options.digest, socketPath,
+      ...(options.revisionOnce ? { revisionOnce: true } : {}) });
     child = spawn('unshare', ['--user', '--map-root-user', '--net', '--', 'bwrap', '--bind', '/', '/',
       '--dev', '/dev', '--die-with-parent', process.execPath, SELF, '--inside', path.join(out, 'inside-configuration.json')],
     { cwd: SOURCE_ROOT, env: safeBaseEnvironment(), stdio: ['ignore', 'pipe', 'pipe'] });
@@ -578,10 +634,13 @@ async function runParent(options) {
     const insidePath = path.join(out, 'app-journey.json');
     const inside = fs.existsSync(insidePath) ? JSON.parse(fs.readFileSync(insidePath, 'utf8')) : null;
     evidence.insideStatus = inside?.status ?? 'MISSING';
-    evidence.providerAttestation = assessProviderGenerations(requests, {
+    const providerPins = {
       model: options.model, digest: options.digest, version: evidence.providerVersion,
       previewHashes: inside?.previewHashes ?? null, scenarioId: scenario.id,
-    });
+    };
+    evidence.providerAttestation = options.revisionOnce && inside?.initialPreviewHashes
+      ? assessRevisionGenerations(requests, { ...providerPins, initialPreviewHashes: inside.initialPreviewHashes }, assessProviderGenerations)
+      : assessProviderGenerations(requests, providerPins);
     evidence.physicalGenerationsObserved = evidence.providerAttestation.observed;
     assert.equal(exit.code, 0, output.stderr);
     assert.equal(exit.signal, null);
@@ -601,13 +660,19 @@ async function runParent(options) {
       catch (error) { evidence.status = 'FAIL'; evidence.relayCleanupError = error.message; }
     }
     {
-      let previewHashes = null;
-      try { previewHashes = JSON.parse(fs.readFileSync(path.join(out, 'app-journey.json'), 'utf8')).previewHashes ?? null; }
+      let previewHashes = null, initialPreviewHashes = null;
+      try {
+        const inside = JSON.parse(fs.readFileSync(path.join(out, 'app-journey.json'), 'utf8'));
+        previewHashes = inside.previewHashes ?? null; initialPreviewHashes = inside.initialPreviewHashes ?? null;
+      }
       catch { /* no completed child journey */ }
-      evidence.providerAttestation = assessProviderGenerations(requests, {
+      const providerPins = {
         model: options.model, digest: options.digest, version: evidence.providerVersion,
         previewHashes, scenarioId: scenario.id,
-      });
+      };
+      evidence.providerAttestation = options.revisionOnce && initialPreviewHashes
+        ? assessRevisionGenerations(requests, { ...providerPins, initialPreviewHashes }, assessProviderGenerations)
+        : assessProviderGenerations(requests, providerPins);
       evidence.physicalGenerationsObserved = evidence.providerAttestation.observed;
     }
     if (!evidence.providerAttestation.valid) evidence.status = 'FAIL';

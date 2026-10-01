@@ -1,6 +1,6 @@
 # WP — skutečná oprava neúspěšného CODE návrhu přes existující M2 revizi
 
-**Stav:** `WP_FIRST / IMPLEMENTATION_NOT_STARTED / LIVE_NOT_RUN`.
+**Stav:** `IMPLEMENTATION_GREEN / REVIEW_PENDING / LIVE_NOT_RUN`.
 **Vlastník:** ROOT, existující integrační checkout; zdroj před změnou
 `6af06ea622dbb955cdb53e7fb2c69b430bfe8957`. Autorita: operátorem požadované
 dokončení a skutečné projektové testy; stávající M2 failed-plan revision.
@@ -59,4 +59,27 @@ zmrazenému živému průchodu. Žádná další inference během cizího GPU le
 Nejde o přijetí jednopokusové modelové spolehlivosti, obecného automatického
 repair systému, projektového plánování, HTTP aplikací, expertíz ani release.
 Privátní raw output zůstává zachovaný; veřejný source-only snapshot až po
-nezávislé funkční/provenance přejímce. Tento návrh nebyl dosud implementován.
+nezávislé funkční/provenance přejímce.
+
+## Autorský CPU checkpoint 16:56 UTC
+
+WP-first commit `8e069c030ac5242a52c03cac17cf2704feb5ec9b` předcházel kódu.
+Scope implementace: runner, nový parse-only qualification helper a dvě
+již registrované app sady. Produktové stromy ani SQLite oracle se nezměnily.
+První nový actual-M2 test měl **0 PASS / 1 FAIL**, exit 1: závěrečná kontrola
+DB chybně použila neexistující tabulku. Log SHA-256
+`6524c21357e0ac0ccc671310699740dcab6bc4ef9a5a5918f3565664c2713ad5`
+je zachovaný; není to produktový PASS. Po opravě SQL dotazu měla úzká sada
+**3/3 PASS**, exit 0, log `76dadfb8a9f92403c1b0f38bba5a6f382e27316c83cb9fb9b8080c0cefd1e284`.
+
+Konečné dvě celé CPU app sady mají na explicitním Node24 **65/65 PASS**,
+0 FAIL, exit 0, 42 631.7 ms. Log SHA-256
+`d278fffaee6d450a621fc4a8337b37c16a55946b9ff2f9297aa282a9b0284b09`.
+Skutečný M2 fixture doložil failed→7 rollback→nový digest/lifecycle,
+šest byte-identických retained modulů, odmítnutí starého approval digestu,
+nové approval→frozen test→commit a po uzavření writeru read-only DB se dvěma
+terminály failed/succeeded. Generátor této CPU fixture je deterministický,
+nikoli model; fyzická revize zůstává LIVE_NOT_RUN. Provider controls
+rekonstruují osmý replacement a odmítají changed retained/schema bytes,
+jiný model digest, truncation, chybějící i přebytečnou generaci.
+Nezávislé source review, přesný registered gate a push/CI ještě čekají.

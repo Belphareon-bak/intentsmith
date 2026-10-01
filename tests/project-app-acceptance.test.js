@@ -12,6 +12,7 @@ import { LINUX_BWRAP_READ_ONLY_PROFILE } from '../src/execution/process-supervis
 import { computeM2ExecutionValueDigest } from '../contracts/m2/execution-v1.js';
 import { compileCodeDraftInput } from '../src/lifecycle/m2-code-draft.js';
 import { assessProviderGenerations, requireProviderVersion } from '../scripts/run-project-app-journey.js';
+import { assessRevisionGenerations, assertRetainedRevision } from '../scripts/project-app-revision.js';
 import { REFERENCE_LEDGER_OUTPUTS as GOOD } from './helpers/project-app-reference.js';
 import { REFERENCE_TASKFLOW_OUTPUTS, taskflowMutant } from './helpers/project-taskflow-reference.js';
 import { REFERENCE_SQLITE_OUTPUTS, sqliteCatalogMutant } from './helpers/project-sqlite-catalog-reference.js';
@@ -356,4 +357,43 @@ test('provider proof rejects missing or invalid expected and terminal versions f
       true, `${scenarioId}: complete valid exact metadata`);
     assert.equal(requireProviderVersion('0.34.0'), '0.34.0');
   }
+});
+
+test('revision provider proof reconstructs the eighth replacement and rejects false provenance', () => {
+  const original = sqliteCatalogMutant('schema-extra-import');
+  const compiled = compileCodeDraftInput(sqliteCatalogBlueprint());
+  const order = compiled.buildSteps.map(step => compiled.changes[step.index].path);
+  const model = 'qualification-model', digest = 'a'.repeat(64), version = '0.34.0';
+  const response = content => ({ method: 'POST', path: '/api/chat', model, status: 200,
+    responseTruncated: false, terminal: { model, digest, provider_version: version, done: true,
+      done_reason: 'stop', message: { content: JSON.stringify(content) } } });
+  const requests = order.map(target => response({ afterContent: original[target] }));
+  requests.push(response({ replacements: [{ before: "import { DatabaseSync } from 'node:sqlite';\n", after: '' }] }));
+  const pins = { model, digest, version, scenarioId: 'sqlite-catalog',
+    initialPreviewHashes: Object.entries(original).map(([path, content]) => ({ path, sha256: sha256(content) })),
+    previewHashes: Object.entries(REFERENCE_SQLITE_OUTPUTS).map(([path, content]) => ({ path, sha256: sha256(content) })) };
+  const proof = assessRevisionGenerations(requests, pins, assessProviderGenerations);
+  assert.equal(proof.valid, true, JSON.stringify(proof.failures));
+  assert.equal(proof.observed, 8); assert.equal(proof.perFile[7].outputPreviewMatch, true);
+  for (const corrupt of ['retained', 'schema', 'digest', 'truncated', 'missing', 'extra']) {
+    const changedRows = structuredClone(requests), changedPins = structuredClone(pins);
+    if (corrupt === 'retained' || corrupt === 'schema') changedPins.previewHashes.find(row => row.path ===
+      (corrupt === 'schema' ? 'src/schema.js' : 'src/query.js')).sha256 = 'b'.repeat(64);
+    if (corrupt === 'digest') changedRows[7].terminal.digest = 'b'.repeat(64);
+    if (corrupt === 'truncated') changedRows[7].terminal.done_reason = 'length';
+    if (corrupt === 'missing') changedRows.pop();
+    if (corrupt === 'extra') changedRows.push(changedRows[7]);
+    assert.equal(assessRevisionGenerations(changedRows, changedPins, assessProviderGenerations).valid, false, corrupt);
+  }
+});
+
+test('revision preserves all six unrelated module bytes', () => {
+  const initial = Object.entries(sqliteCatalogMutant('schema-extra-import')).sort(([a], [b]) => a.localeCompare(b))
+    .map(([path, content]) => ({ path, after: { content } }));
+  const revised = Object.entries(REFERENCE_SQLITE_OUTPUTS).sort(([a], [b]) => a.localeCompare(b))
+    .map(([path, content]) => ({ path, after: { content } }));
+  assertRetainedRevision(initial, revised);
+  const forged = structuredClone(revised); forged.find(row => row.path === 'src/cli.js').after.content += '// changed\n';
+  assert.throws(() => assertRetainedRevision(initial, forged), /retained module bytes/);
+  assert.throws(() => assertRetainedRevision(initial, initial), /Expected.*unequal|not.*equal/i);
 });
