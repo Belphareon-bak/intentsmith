@@ -35,6 +35,7 @@ await testAsync('polite/literal/summary saves bind exact bytes and IDs; invalid 
     ['Ulož text "ghost.md" a text "ghost.md".', { target: 'ghost.md', literal: 'ghost.md' }],
     ['Ulož text „ghost.md“ a text "ghost.md".', { target: 'ghost.md', literal: 'ghost.md' }],
     ['Ulož text notes"PAYLOAD".md.', { target: 'notes.md', literal: 'PAYLOAD' }],
+    ['Ulož text notes"PAYLOAD".md, díky.', { target: 'notes' + ' '.repeat(9) + '.md', literal: 'PAYLOAD' }],
     ['Ulož text "notes.md" do duplicate-ok.md; text "notes.md" je přesný obsah.', { target: 'duplicate-ok.md', literal: 'notes.md' }],
     ['Shrň předchozí odpověď a ulož ji do truncated.md.', { target: 'truncated.md', transformation: 'summarize' }],
   ]);
@@ -56,7 +57,7 @@ await testAsync('polite/literal/summary saves bind exact bytes and IDs; invalid 
       const spec = plans.get(parsed.request);
       assert(spec, `unexpected semantic fixture input: ${parsed.request}`);
       content = JSON.stringify({ action: 'write', question: null, target: spec.target,
-        source: Object.hasOwn(spec, 'literal') ? { kind: 'literal', text: spec.literal }
+        source: Object.hasOwn(spec, 'literal') ? { kind: 'literal', literalId: parsed.literals.find(value => value.content === spec.literal)?.literalId ?? 999999999 }
           : { kind: 'answer', messageId: spec.sourceId || parsed.answers[0]?.messageId },
         transformation: spec.transformation || 'none', writeMode: 'replace',
         understood: spec.understood ?? true, unsupported: spec.unsupported || [] });
@@ -153,6 +154,7 @@ await testAsync('polite/literal/summary saves bind exact bytes and IDs; invalid 
       ['Ulož text "ghost.md" a text "ghost.md".', 'file_write_target_unverified'],
       ['Ulož text „ghost.md“ a text "ghost.md".', 'file_write_target_unverified'],
       ['Ulož text notes"PAYLOAD".md.', 'file_write_target_unverified'],
+      ['Ulož text notes"PAYLOAD".md, díky.', 'file_write_target_unverified'],
     ]) {
       const count = privateDb.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n;
       const rejected = await send(conversationId, input);
