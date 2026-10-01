@@ -145,6 +145,28 @@ test('explicit one-word answers do not trigger density retries; empty output rem
     const result = await handleAnswerDecision('Odpověz pouze „Rozumím“.', decision, { history: [] });
     assert.equal(result.content, 'Rozumím');
     assert.equal(calls, 1);
+    const oneWord = creDecisionEngine.overrideDecision({ type: DecisionType.ANSWER,
+      intent: IntentType.CONVERSATIONAL, confidence: 1, source: 'controlled-long-minimal-answer',
+      reason: 'Only acknowledge a long discussion', metadata: { briefResponse: true, responseWordCount: 1 } });
+    let wire;
+    llmGateway.call = async (prompt, options) => {
+      wire = { prompt, options };
+      return { content: 'Rozumím', model: 'controlled', finishReason: 'stop' };
+    };
+    setNumCtx(config.models.CHAT, 4096);
+    const longInput = 'Diskusní podklad: ' + 'Tým žádá dohledatelné podklady a ruční kontrolu. '.repeat(25)
+      + 'Odpověz pouze „Rozumím“.';
+    const fullSummary = 'Platí Javor, kód LIPA_781, bez změn souborů. ' + 'Ostatní diskuse patří do této konverzace. '.repeat(30);
+    assert.equal((await handleAnswerDecision(longInput, oneWord, { project: { id: 1 }, history: [
+      { isSummary: true, response: { tag: { speaker: 'system' }, content: fullSummary } },
+    ], archivedChatEvidence: { sources: [{ messageId: 1, projectId: 1, content: 'Kód LIPA_781, původně Lípa.' },
+      { messageId: 3, projectId: 1, content: 'Oprava: platí Javor. Kód a zákaz změn souborů zůstávají.' }] },
+    })).content, 'Rozumím');
+    assert(wire.prompt.includes(fullSummary));
+    assert(wire.prompt.endsWith(`User: ${longInput}`));
+    assert(wire.options.systemPrompt.includes('Oprava: platí Javor.'));
+    assert(wire.options.maxTokens <= 64);
+    clearNumCtxCache();
     assert.equal(enforceOutputContract('', { responseIntent: 'MINIMAL' }).ok, false);
     assert.equal(enforceOutputContract('Dobré. Hm.', { intent: 'REPORT' }).ok, false);
     const brief = creDecisionEngine.overrideDecision({ type: DecisionType.ANSWER,
@@ -168,7 +190,7 @@ test('explicit one-word answers do not trigger density retries; empty output rem
     llmGateway.call = async () => ({ content: 'Ideální klidné místo pro soustředěnou četbu.', model: 'controlled', finishReason: 'stop' });
     await assert.rejects(handleAnswerDecision('Druhou variantu zkrať na pět slov.', brief, { history: [] }),
       error => error.code === 'CHAT_PROCESSING_FAILED' && error.sourceErrorType === 'ANSWER_WORD_COUNT_INVALID');
-  } finally { llmGateway.call = original; }
+  } finally { llmGateway.call = original; clearNumCtxCache(); }
 });
 
 test('twelve short messages keep their original facts without an unnecessary model summary', async () => {
