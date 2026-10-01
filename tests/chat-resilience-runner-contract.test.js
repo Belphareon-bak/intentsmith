@@ -235,6 +235,12 @@ try {
   rejected(original, /Quality dialogs cannot filter/u, {
     phase: 'quality-dialogs', env: { CHAT_PROBE_CASES: 'http-plain' },
   });
+  const capabilityProbe = run(original, { phase: 'quality-capabilities' });
+  assert.equal(capabilityProbe.status, 0, capabilityProbe.stderr);
+  assert.match(capabilityProbe.stdout, /"cases":13,"modelCalls":0/u);
+  rejected(original, /Capability dialogs cannot filter/u, {
+    phase: 'quality-capabilities', env: { CHAT_PROBE_CASES: 'http-plain' },
+  });
 
   const valid = { path: '/api/chat', scenario: 'valid' };
   const clean = transport(await controlledProviderWire([valid]));
