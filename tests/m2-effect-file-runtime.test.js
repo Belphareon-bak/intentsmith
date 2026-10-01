@@ -1,12 +1,15 @@
 import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 
 import { up as applyFileListOutputs } from '../src/db/migrations/2026_09_10_110_m2_file_list_outputs.js';
+import { up as applyAtomicCreate } from '../src/db/migrations/2026_10_01_121_m2_atomic_create.js';
 import * as currentEffects from '../contracts/m2/effect-current.js';
 import { createM2FileListOutputEvidence } from '../contracts/m2/file-list-output-v1.js';
 import { EffectFileListOutputRepository } from '../src/effects/effect-file-list-output-repository.js';
 import { symlinkSync } from 'node:fs';
+import fs from 'node:fs';
 import { ToolExecutor } from '../src/executor/tool-executor.js';
 import { createEffectBroker } from '../src/effects/effect-broker.js';
+import { createFilesystemEffectProvider } from '../src/effects/filesystem-effect-provider.js';
 import { createM2FileListTarget, parseM2FileListSnapshot, createM2FileListSnapshot } from '../contracts/m2/file-list-snapshot-v1.js';
 import { m2FileListOutputEvidenceRef } from '../contracts/m2/file-list-output-v1.js';
 import { pruneAllData, DEFAULT_STORAGE_CONFIG } from '../src/db/data-retention.js';
@@ -15,6 +18,7 @@ import { up as applyFileReadOutputs } from '../src/db/migrations/2026_09_09_109_
 import { M2ToolAuthorityRepository } from '../src/tools/m2-tool-authority-repository.js';
 import { createM2ToolBroker } from '../src/tools/m2-tool-broker.js';
 import { createM2ToolEffectAdapter } from '../src/tools/m2-tool-effect-adapter.js';
+import { createProjectFileAtomic } from '../src/executor/project-path-authority.js';
 import { getM2ToolDescriptor, getCurrentM2ToolDescriptor } from '../src/tools/m2-tool-registry.js';
 
 import assert from 'node:assert/strict';
@@ -82,6 +86,7 @@ function installAuthoritySchema(database) {
   applyEffectRollbackReceipts(database);
   if (!database.prepare("SELECT name FROM sqlite_master WHERE name = 'm2_file_list_outputs'").get()) applyFileReadOutputs(database);
   applyFileListOutputs(database);
+  applyAtomicCreate(database);
 }
 
 const authorityTemplatePath = path.join(
@@ -156,6 +161,190 @@ function requestInput(projectRoot, overrides = {}) {
 }
 
 suite('M2 durable filesystem effect runtime');
+
+await testAsync('file.create@1 binds v3 create-only authority, persists exact bytes and replays across restart', async () => {
+  await withEnvironment(async environment => {
+    const context = { sessionId: 'ws-1', conversationId: 'conversation-1', userMessageId: 901,
+      authenticatedSubject: { actorType: 'user', actorId: 'local-operator' },
+      project: { id: 17, path: environment.projectRoot } };
+    const input = { path: 'notes/create.md', content: 'Příliš žluťoučký kůň\n' };
+    const target = path.join(environment.projectRoot, input.path);
+    const runtime = environment.runtime();
+    const toolRepository = new M2ToolAuthorityRepository(environment.database);
+    const broker = createM2ToolBroker({
+      repository: toolRepository,
+      effectAdapter: createM2ToolEffectAdapter({ effectRuntime: runtime }),
+    });
+    const pending = await broker.execute({ toolId: 'file.create', input, context });
+    assert.equal(pending.state, 'approval_required');
+    assert.equal(existsSync(target), false);
+    assert.equal(pending.request.toolVersion, 1);
+    assert.equal(pending.request.effectBinding.requiredCapability, 'project.fs.create');
+    assert.equal(pending.effectRequest.version, 3);
+    assert.equal(pending.effectRequest.requiredCapability, 'project.fs.create');
+    assert.equal(environment.database.prepare(`SELECT m2_effect_request_create_v3(request_json, request_digest, created_at_ms) AS valid
+      FROM m2_effect_requests WHERE effect_id = ?`).get(pending.effectRequestId).valid, 1);
+    const forgedRequest = { ...pending.effectRequest, requiredCapability: 'project.fs.write' };
+    const forgedJson = currentEffects.canonicalStringify(forgedRequest);
+    const forgedDigest = `sha256:${createHash('sha256').update(forgedJson).digest('hex')}`;
+    assert.equal(environment.database.prepare('SELECT m2_effect_request_create_v3(?, ?, ?) AS valid')
+      .get(forgedJson, forgedDigest, Date.parse(forgedRequest.createdAt)).valid, 0);
+    await assert.rejects(runtime.approveFilesystemCreate({ effectId: pending.effectRequestId,
+      conversationId: context.conversationId, subjectId: 'attacker' }), { code: 'EFFECT_PENDING_NOT_FOUND' });
+    const effect = await runtime.approveFilesystemCreate({ effectId: pending.effectRequestId,
+      conversationId: context.conversationId, subjectId: 'local-operator' });
+    assert.equal(effect.terminalStatus, 'succeeded');
+    assert.equal(effect.changes.beforeDigest, null);
+    const forgedResult = { ...effect, changes: { ...effect.changes,
+      beforeDigest: `sha256:${'0'.repeat(64)}` } };
+    assert.equal(environment.database.prepare('SELECT m2_effect_result_matches_request_v3(?, ?) AS valid')
+      .get(currentEffects.canonicalStringify(pending.effectRequest),
+        currentEffects.canonicalStringify(forgedResult)).valid, 0);
+    assert.deepEqual(readFileSync(target), Buffer.from(input.content, 'utf8'));
+    const recordToolResult = toolRepository.recordToolResult.bind(toolRepository);
+    toolRepository.recordToolResult = (result, options) => {
+      const output = { ...result.output, path: 'notes/forged.md' };
+      const forged = { ...result, output, outputDigest: computeM2ToolValueDigest(output) };
+      assert.throws(() => insertToolResultDirect(environment.database, forged),
+        /M2_TOOL_LINKED_TERMINAL_PROJECTION_MISMATCH/);
+      return recordToolResult(result, options);
+    };
+    const settled = broker.settleEffect({ effectId: effect.effectId, context });
+    assert.equal(settled.result.status, 'ok');
+    assert.equal(settled.result.output.path, input.path);
+    environment.reopen();
+    const replay = await createM2ToolBroker({
+      repository: new M2ToolAuthorityRepository(environment.database),
+      effectAdapter: createM2ToolEffectAdapter({ effectRuntime: environment.runtime() }),
+    }).execute({ toolId: 'file.create', input, context });
+    assert.equal(replay.result.status, 'ok');
+    assert.equal(replay.request.requestId, pending.request.requestId);
+    assert.equal(environment.database.prepare('SELECT count(*) AS n FROM m2_effect_results WHERE effect_id = ?')
+      .get(effect.effectId).n, 1);
+  });
+});
+
+await testAsync('file.create@1 refuses a target created after preview and never reports an effect', async () => {
+  await withEnvironment(async environment => {
+    const runtime = environment.runtime();
+    const input = requestInput(environment.projectRoot, {
+      operationId: 'message:create-race', relativePath: 'notes/occupied.md', content: 'approved bytes\n',
+    });
+    const prepared = await runtime.requestFilesystemCreate(input);
+    const target = path.join(environment.projectRoot, input.relativePath);
+    writeFileSync(target, 'foreign bytes\n');
+    const result = await runtime.approveFilesystemCreate({ effectId: prepared.effectId,
+      conversationId: input.conversationId, subjectId: input.subjectId });
+    assert.equal(result.terminalStatus, 'failed');
+    assert.equal(result.errorCode, 'EFFECT_FS_CREATE_EXISTS');
+    assert.deepEqual(result.changes.paths, []);
+    assert.equal(result.rollback.required, false);
+    assert.equal(readFileSync(target, 'utf8'), 'foreign bytes\n');
+  });
+});
+
+await testAsync('file.create@1 refuses a target already present before preparation', async () => {
+  await withEnvironment(async environment => {
+    const runtime = environment.runtime();
+    const input = requestInput(environment.projectRoot, {
+      operationId: 'message:create-existing', relativePath: 'notes/existing.md', content: 'approved bytes\n',
+    });
+    const target = path.join(environment.projectRoot, input.relativePath);
+    writeFileSync(target, 'existing bytes\n');
+    const prepared = await runtime.requestFilesystemCreate(input);
+    const result = await runtime.approveFilesystemCreate({ effectId: prepared.effectId,
+      conversationId: input.conversationId, subjectId: input.subjectId });
+    assert.equal(result.terminalStatus, 'failed');
+    assert.equal(result.errorCode, 'EFFECT_FS_CREATE_EXISTS');
+    assert.equal(result.rollback.required, false);
+    assert.equal(readFileSync(target, 'utf8'), 'existing bytes\n');
+  });
+});
+
+await testAsync('file.create@1 records an applied orphan with rollback debt when parent fsync fails', async () => {
+  await withEnvironment(async environment => {
+    let fsyncCalls = 0;
+    const fileSystem = { ...fs, fsyncSync(fd) {
+      fsyncCalls += 1;
+      if (fsyncCalls === 2) throw Object.assign(new Error('directory fsync failed'), { code: 'EIO' });
+      fs.fsyncSync(fd);
+    } };
+    const workspaceAuthority = { async observe() {
+      return { canonicalRoot: realpathSync(environment.projectRoot), workspaceRevision: 'wsr1:runtime-integration' };
+    } };
+    const broker = createEffectBroker(new EffectAuthorityRepository(environment.database), {
+      workspaceAuthority,
+      providers: { 'fs.write': createFilesystemEffectProvider({ fileSystem }) },
+    });
+    const runtime = createEffectFileRuntime({ database: environment.database, workspaceAuthority, broker });
+    const input = requestInput(environment.projectRoot, {
+      operationId: 'message:create-fsync', relativePath: 'notes/fsync.md', content: 'published but uncertain\n',
+    });
+    const prepared = await runtime.requestFilesystemCreate(input);
+    const result = await runtime.approveFilesystemCreate({ effectId: prepared.effectId,
+      conversationId: input.conversationId, subjectId: input.subjectId });
+    assert.equal(result.terminalStatus, 'orphaned');
+    assert.equal(result.errorCode, 'PROJECT_CREATE_DURABILITY_UNCONFIRMED');
+    assert.equal(result.rollback.required, true);
+    assert.equal(result.rollback.status, 'pending');
+    assert.equal(result.changes.afterDigest, null);
+    assert.equal(result.outputDigest, null);
+    assert.equal(readFileSync(path.join(environment.projectRoot, input.relativePath), 'utf8'), input.content);
+    assert.equal((await runtime.approveFilesystemCreate({ effectId: prepared.effectId,
+      conversationId: input.conversationId, subjectId: input.subjectId })).terminalStatus, 'orphaned');
+    assert.equal(fsyncCalls, 2);
+  });
+});
+
+await testAsync('atomic link rejects a name appearing at commit, preserving foreign bytes and cancelling before publish', async () => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'm2-create-link-'));
+  try {
+    const target = path.join(directory, 'target.txt');
+    const fileSystem = { ...fs, linkSync(source, destination) {
+      writeFileSync(destination, 'other writer\n');
+      fs.linkSync(source, destination);
+    } };
+    assert.throws(() => createProjectFileAtomic(directory, 'target.txt', Buffer.from('approved\n'), { fileSystem }),
+      { code: 'EEXIST' });
+    assert.equal(readFileSync(target, 'utf8'), 'other writer\n');
+    assert.deepEqual(fs.readdirSync(directory), ['target.txt']);
+    const controller = new AbortController();
+    controller.abort();
+    assert.throws(() => createProjectFileAtomic(directory, 'cancelled.txt', Buffer.from('not published'),
+      { signal: controller.signal }), { code: 'EFFECT_CANCELLED' });
+    assert.equal(existsSync(path.join(directory, 'cancelled.txt')), false);
+    const duringWrite = new AbortController();
+    const cancelAfterTempFsync = { ...fs, fsyncSync(fd) {
+      fs.fsyncSync(fd);
+      duringWrite.abort();
+    } };
+    assert.throws(() => createProjectFileAtomic(directory, 'cancelled-after-temp.txt',
+      Buffer.from('not published'), { fileSystem: cancelAfterTempFsync, signal: duringWrite.signal }),
+    { code: 'EFFECT_CANCELLED' });
+    assert.equal(existsSync(path.join(directory, 'cancelled-after-temp.txt')), false);
+    assert.deepEqual(fs.readdirSync(directory), ['target.txt']);
+    let fsyncCalls = 0;
+    const failDirectoryFsync = { ...fs, fsyncSync(fd) {
+      fsyncCalls += 1;
+      if (fsyncCalls === 2) throw Object.assign(new Error('directory fsync failed'), { code: 'EIO' });
+      fs.fsyncSync(fd);
+    } };
+    assert.throws(() => createProjectFileAtomic(directory, 'durability.txt', Buffer.from('published\n'),
+      { fileSystem: failDirectoryFsync }), error => error.effectApplied === true);
+    assert.equal(readFileSync(path.join(directory, 'durability.txt'), 'utf8'), 'published\n');
+    const hardlink = path.join(directory, 'hardlink.txt');
+    fs.linkSync(target, hardlink);
+    assert.throws(() => createProjectFileAtomic(directory, 'hardlink.txt', Buffer.from('approved')),
+      { code: 'EFFECT_FS_CREATE_EXISTS' });
+    const symlink = path.join(directory, 'symlink.txt');
+    fs.symlinkSync(target, symlink);
+    assert.throws(() => createProjectFileAtomic(directory, 'symlink.txt', Buffer.from('approved')),
+      /PROJECT_PATH_VIOLATION/);
+    assert.equal(readFileSync(target, 'utf8'), 'other writer\n');
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
 
 await testAsync('request persists exact pending bytes and exact approval is the only write path', async () => {
   await withEnvironment(async environment => {

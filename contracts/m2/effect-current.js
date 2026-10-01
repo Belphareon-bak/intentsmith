@@ -16,6 +16,16 @@ const digest = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex
 const timestamp = value => { try { legacy.timestampToMs(value); return true; } catch { return false; } };
 
 export function validateEffectRequest(value) {
+  if (value?.version === 3) {
+    const errors = [];
+    if (value.kind !== 'fs.write' || value.requiredCapability !== 'project.fs.create'
+      || value.riskClass !== 'write' || value.target?.type !== 'filesystem'
+      || value.actor?.type !== 'user' || value.parentEffectId !== null) {
+      errors.push('effect-request-v3:create-only-scope');
+    }
+    errors.push(...legacy.validateEffectRequest({ ...value, version: 1 }).errors);
+    return result(errors, value);
+  }
   if (value?.version !== 2) return legacy.validateEffectRequest(value);
   const errors = [];
   if (!exact(value, ['contract','version','effectId','runId','parentEffectId','actor','origin',
@@ -44,7 +54,7 @@ export function validateEffectRequest(value) {
 }
 
 export function computeEffectRequestDigest(request) {
-  if (request?.version !== 2) return legacy.computeEffectRequestDigest(request);
+  if (request?.version !== 2 && request?.version !== 3) return legacy.computeEffectRequestDigest(request);
   const normalized = { ...request, approvalGrantId: null };
   const check = validateEffectRequest(normalized);
   if (!check.valid) throw new TypeError(`m2-effect:invalid-request-for-digest:${check.errors.join(',')}`);
@@ -52,6 +62,10 @@ export function computeEffectRequestDigest(request) {
 }
 
 export function deriveApprovalGrantConstraints(request) {
+  if (request?.version === 3) {
+    if (!validateEffectRequest(request).valid) throw new TypeError('m2-effect:invalid-create-request-for-grant');
+    return legacy.deriveApprovalGrantConstraints({ ...request, version: 1 });
+  }
   if (request?.version !== 2) return legacy.deriveApprovalGrantConstraints(request);
   if (!validateEffectRequest(request).valid) throw new TypeError('m2-effect:invalid-root-list-request-for-grant');
   return Object.freeze({ allowedRealpaths: Object.freeze([request.target.canonicalRoot]),
@@ -59,6 +73,11 @@ export function deriveApprovalGrantConstraints(request) {
 }
 
 export function validateApprovalGrantForRequest(request, grant) {
+  if (request?.version === 3) {
+    const errors = [...validateEffectRequest(request).errors,
+      ...legacy.validateApprovalGrantForRequest({ ...request, version: 1 }, grant).errors];
+    return result(errors, grant);
+  }
   if (request?.version !== 2) return legacy.validateApprovalGrantForRequest(request, grant);
   const errors = [...validateEffectRequest(request).errors, ...legacy.validateApprovalGrant(grant).errors];
   if (errors.length) return result(errors, grant);
@@ -73,6 +92,18 @@ export function validateApprovalGrantForRequest(request, grant) {
 }
 
 export function validateEffectResultForRequest(request, value) {
+  if (request?.version === 3) {
+    const errors = [...validateEffectRequest(request).errors];
+    if (errors.length) return result(errors, value);
+    const legacyRequest = { ...request, version: 1 };
+    const legacyResult = { ...value, requestDigest: legacy.computeEffectRequestDigest(legacyRequest) };
+    errors.push(...legacy.validateEffectResultForRequest(legacyRequest, legacyResult).errors);
+    if (value?.requestDigest !== computeEffectRequestDigest(request)) errors.push('effect-result-v3:request-digest');
+    if (value?.terminalStatus === 'succeeded' && value?.changes?.beforeDigest !== null) {
+      errors.push('effect-result-v3:create-before-must-be-absent');
+    }
+    return result(errors, value);
+  }
   if (request?.version !== 2) return legacy.validateEffectResultForRequest(request, value);
   const errors = [...validateEffectRequest(request).errors, ...legacy.validateEffectResult(value).errors];
   if (errors.length) return result(errors, value);
@@ -92,7 +123,7 @@ export function validateEffectResultForRequest(request, value) {
 }
 
 export function validateM2EffectContract(value, expectedContract = null) {
-  if (value?.contract !== 'EffectRequest' || value?.version !== 2) return legacy.validateM2EffectContract(value, expectedContract);
+  if (value?.contract !== 'EffectRequest' || ![2, 3].includes(value?.version)) return legacy.validateM2EffectContract(value, expectedContract);
   if (expectedContract !== null && expectedContract !== 'EffectRequest') return result(['m2-effect:unexpected-contract'], value);
   return validateEffectRequest(value);
 }

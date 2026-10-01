@@ -1,6 +1,15 @@
 import { canonicalStringify, computeEffectRequestDigest, validateEffectRequest,
   timestampToMs, validateEffectResultForRequest, validateApprovalGrantForRequest } from '../../contracts/m2/effect-current.js';
 export function registerM2EffectCurrentFunctions(database) {
+  database.function('m2_effect_request_create_v3', { deterministic: true }, (requestJson, requestDigest, createdAtMs) => {
+    try {
+      const request = JSON.parse(requestJson);
+      return request.version === 3 && validateEffectRequest(request).valid
+        && timestampToMs(request.createdAt) === createdAtMs
+        && canonicalStringify(request) === requestJson
+        && computeEffectRequestDigest(request) === requestDigest ? 1 : 0;
+    } catch { return 0; }
+  });
   database.function('m2_effect_request_root_list_v2', { deterministic: true }, (requestJson, requestDigest, createdAtMs) => {
     try {
       const request = JSON.parse(requestJson);

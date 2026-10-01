@@ -329,6 +329,7 @@ export function createEffectFileRuntime({
   async function requestFilesystemEffect({
       kind,
       rootList = false,
+      createOnly = false,
       sessionId,
       conversationId,
       subjectId,
@@ -362,7 +363,8 @@ export function createEffectFileRuntime({
         operationId,
       );
       const prepare = rootList ? broker.prepareFilesystemListRoot
-        : kind === 'fs.read' ? broker.prepareFilesystemRead : broker.prepareFilesystemWrite;
+        : kind === 'fs.read' ? broker.prepareFilesystemRead
+          : createOnly ? broker.prepareFilesystemCreate : broker.prepareFilesystemWrite;
       const prepared = await prepare({
         runId,
         actor: { type: 'user', id: subjectId },
@@ -418,6 +420,7 @@ export function createEffectFileRuntime({
 
   const runtime = Object.freeze({
     requestFilesystemWrite(input = {}) { return requestFilesystemEffect({ ...input, kind: 'fs.write' }); },
+    requestFilesystemCreate(input = {}) { return requestFilesystemEffect({ ...input, kind: 'fs.write', createOnly: true }); },
     requestFilesystemRead(input = {}) { return requestFilesystemEffect({ ...input, kind: 'fs.read' }); },
     requestFilesystemListRoot(input = {}) { return requestFilesystemEffect({ ...input, kind: 'fs.read', rootList: true }); },
     approveFilesystemListRoot(input = {}) {
@@ -426,6 +429,13 @@ export function createEffectFileRuntime({
     },
 
     approveFilesystemWrite(input = {}) { return approveFilesystemKind(input, 'fs.write'); },
+    approveFilesystemCreate(input = {}) {
+      const request = repository.getEffectRequest(input.effectId);
+      if (request?.version !== 3 || request?.requiredCapability !== 'project.fs.create') {
+        throw Object.assign(new Error('Exact create-only request required'), { code: 'EFFECT_RUNTIME_INPUT_INVALID' });
+      }
+      return runtime.approveFilesystemEffect(input);
+    },
     approveFilesystemRead(input = {}) { return approveFilesystemKind(input, 'fs.read'); },
 
     async approveFilesystemEffect({ effectId, conversationId, subjectId, signal } = {}) {

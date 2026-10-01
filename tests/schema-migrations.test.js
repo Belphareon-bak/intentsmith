@@ -219,6 +219,7 @@ const ALL_MIGRATIONS = [
   '2026_09_24_118_model_evaluation_grader_reviews',
   '2026_09_25_119_model_evaluation_adjudications',
   '2026_09_25_120_studio_scm',
+  '2026_10_01_121_m2_atomic_create',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
@@ -505,6 +506,7 @@ describe('T-SM0: Migration identity preflight', async () => {
   '2026_09_24_118_model_evaluation_grader_reviews',
   '2026_09_25_119_model_evaluation_adjudications',
   '2026_09_25_120_studio_scm',
+  '2026_10_01_121_m2_atomic_create',
     ]);
     assert.strictEqual(db.prepare(`
       SELECT COUNT(*) AS count FROM schema_migrations
@@ -1574,9 +1576,10 @@ describe('T-SM11: Core / hunt branch upgrades converge without losing evidence',
         const graderReviews = '2026_09_24_118_model_evaluation_grader_reviews';
         const adjudications = '2026_09_25_119_model_evaluation_adjudications';
         const studioScm = '2026_09_25_120_studio_scm';
+        const atomicCreate = '2026_10_01_121_m2_atomic_create';
         assert.deepEqual(result.applied, origin === 'fresh' ? ALL_MIGRATIONS
-          : origin === 'base' ? [...huntVersions, canonicalWeb, repeatedMeasurement, settingNames, evaluationAcceptance, developmentInstallations, graderReviews, adjudications, studioScm]
-          : origin === 'web' ? [...huntVersions, repeatedMeasurement, settingNames, evaluationAcceptance, developmentInstallations, graderReviews, adjudications, studioScm] : [canonicalWeb, repeatedMeasurement, settingNames, evaluationAcceptance, developmentInstallations, graderReviews, adjudications, studioScm]);
+          : origin === 'base' ? [...huntVersions, canonicalWeb, repeatedMeasurement, settingNames, evaluationAcceptance, developmentInstallations, graderReviews, adjudications, studioScm, atomicCreate]
+          : origin === 'web' ? [...huntVersions, repeatedMeasurement, settingNames, evaluationAcceptance, developmentInstallations, graderReviews, adjudications, studioScm, atomicCreate] : [canonicalWeb, repeatedMeasurement, settingNames, evaluationAcceptance, developmentInstallations, graderReviews, adjudications, studioScm, atomicCreate]);
         assert.deepEqual(schema(db), expectedSchema);
         for (const [table, originalRows] of Object.entries(before)) assert.deepEqual(rows(db)[table], originalRows, `${origin}: ${table}`);
         assert.deepEqual(db.pragma('foreign_key_check'), []);

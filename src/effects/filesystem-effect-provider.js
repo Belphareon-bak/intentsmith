@@ -8,6 +8,7 @@ import {
 } from '../../contracts/m2/file-read-output-v1.js';
 import {
   ProjectPathError,
+  createProjectFileAtomic,
   readProjectFileBytes,
   writeProjectFileAtomic,
 } from '../executor/project-path-authority.js';
@@ -108,6 +109,63 @@ export function createFilesystemEffectProvider({
         const error = new Error('Effect cancelled before filesystem write');
         error.code = 'EFFECT_CANCELLED';
         throw error;
+      }
+
+      if (request.version === 3) {
+        if (request.requiredCapability !== 'project.fs.create') {
+          throw Object.assign(new Error('Create-only effect capability mismatch'), { code: 'EFFECT_PROVIDER_UNSUPPORTED' });
+        }
+        try {
+          createProjectFileAtomic(
+            request.target.canonicalRoot,
+            request.target.relativePath,
+            payload,
+            { fileSystem, signal },
+          );
+        } catch (error) {
+          if (error?.code === 'EEXIST') error.code = 'EFFECT_FS_CREATE_EXISTS';
+          if (error?.effectApplied === true) {
+            error.evidence = appliedFilesystemEvidence({
+              request, beforeDigest: null,
+              reason: 'fs-create-durability-unconfirmed',
+            });
+          }
+          throw error;
+        }
+        try {
+          const after = readProjectFileBytes(
+            request.target.canonicalRoot,
+            request.target.relativePath,
+            { fileSystem, rejectHardlinks: true, requireCanonicalTarget: true },
+          );
+          if (!after.exists || !after.bytes.equals(payload)) {
+            throw Object.assign(new Error('Create-only bytes differ after commit'), {
+              code: 'EFFECT_FS_CREATE_VERIFICATION_FAILED',
+            });
+          }
+        } catch (error) {
+          error.effectApplied = true;
+          error.evidence = appliedFilesystemEvidence({
+            request, beforeDigest: null,
+            reason: 'fs-create-post-commit-verification-failed',
+          });
+          throw error;
+        }
+        return Object.freeze({
+          changes: Object.freeze({
+            paths: Object.freeze([request.target.relativePath]),
+            beforeDigest: null,
+            afterDigest: request.payloadDigest,
+            diffArtifact: null,
+          }),
+          outputDigest: request.payloadDigest,
+          evidenceRefs: Object.freeze([`effect:${request.effectId}:fs-create`]),
+        });
+      }
+      if (request.version !== 1 || request.requiredCapability !== 'project.fs.write') {
+        throw Object.assign(new Error('Filesystem write version or capability mismatch'), {
+          code: 'EFFECT_PROVIDER_UNSUPPORTED',
+        });
       }
 
       const before = readProjectFileBytes(

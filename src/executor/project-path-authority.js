@@ -47,6 +47,18 @@ export class ProjectWriteDurabilityError extends Error {
   }
 }
 
+export class ProjectCreateDurabilityError extends Error {
+  constructor(filePath, directory, cause) {
+    super('Project file was created but parent-directory durability or exact target was not confirmed', {
+      cause,
+    });
+    this.name = 'ProjectCreateDurabilityError';
+    this.code = 'PROJECT_CREATE_DURABILITY_UNCONFIRMED';
+    this.effectApplied = true;
+    this.detail = { filePath, directory, ioCode: cause?.code || 'EUNKNOWN' };
+  }
+}
+
 export class ProjectDeleteDurabilityError extends Error {
   constructor(filePath, directory, cause) {
     super('Project file was removed but parent-directory durability was not confirmed', {
@@ -528,6 +540,102 @@ export function writeProjectFileAtomic(projectRoot, filePath, content, {
   }
 
   return current;
+}
+
+/**
+ * Publish complete bytes only if the target name is still absent at the
+ * commit syscall. link(2) is the no-clobber boundary: unlike rename(2), it
+ * fails with EEXIST even when another process created the name after preview.
+ * The temp inode is private, written and synced before it becomes visible.
+ */
+export function createProjectFileAtomic(projectRoot, filePath, content, {
+  expectedTarget = null,
+  fileSystem = fs,
+  signal = null,
+} = {}) {
+  const before = resolveProjectTarget(projectRoot, filePath, { fileSystem });
+  if (expectedTarget && !sameTarget(expectedTarget, before)) {
+    throw changedTargetError(expectedTarget, before, filePath);
+  }
+  const directory = path.dirname(before.real);
+  const parent = fileSystem.statSync(directory);
+  if (!parent.isDirectory()) throw new ProjectPathError('parent_not_directory', {
+    input: filePath, projectRoot: before.projectRoot, target: directory,
+  });
+  try {
+    fileSystem.lstatSync(before.real);
+    throw Object.assign(new Error('Create-only target already exists'), { code: 'EFFECT_FS_CREATE_EXISTS' });
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+  if (typeof fileSystem.fsyncSync !== 'function' || typeof fileSystem.linkSync !== 'function') {
+    throw Object.assign(new Error('Durable no-clobber link is unavailable'), { code: 'ENOTSUP' });
+  }
+  const cancelled = () => {
+    if (signal?.aborted) throw Object.assign(new Error('Create-only write cancelled'), { code: 'EFFECT_CANCELLED' });
+  };
+  cancelled();
+  const tempPath = `${before.real}.intentsmith-${process.pid}-${randomUUID()}.tmp`;
+  const flags = (fileSystem.constants?.O_WRONLY ?? fs.constants.O_WRONLY)
+    | (fileSystem.constants?.O_CREAT ?? fs.constants.O_CREAT)
+    | (fileSystem.constants?.O_EXCL ?? fs.constants.O_EXCL)
+    | (fileSystem.constants?.O_NOFOLLOW ?? fs.constants.O_NOFOLLOW ?? 0);
+  let descriptor = null;
+  let directoryDescriptor = null;
+  let linked = false;
+  let tempExists = false;
+  let writtenInode = null;
+  try {
+    descriptor = fileSystem.openSync(tempPath, flags, 0o600);
+    tempExists = true;
+    writtenInode = fileSystem.fstatSync(descriptor);
+    if (!writtenInode.isFile() || writtenInode.nlink !== 1) {
+      throw new ProjectPathError('temp_not_private_regular_file', {
+        input: filePath, projectRoot: before.projectRoot, target: tempPath,
+      });
+    }
+    fileSystem.writeFileSync(descriptor, content);
+    fileSystem.fsyncSync(descriptor);
+    fileSystem.closeSync(descriptor);
+    descriptor = null;
+    cancelled();
+    revalidateProjectTarget(projectRoot, filePath, before, { fileSystem });
+    // The source and destination are in one directory, hence one filesystem.
+    // EEXIST here is a complete pre-effect rejection, including a preview race.
+    fileSystem.linkSync(tempPath, before.real);
+    linked = true;
+    const readOnly = fileSystem.constants?.O_RDONLY ?? fs.constants.O_RDONLY;
+    const directoryOnly = fileSystem.constants?.O_DIRECTORY ?? fs.constants.O_DIRECTORY ?? 0;
+    directoryDescriptor = fileSystem.openSync(directory, readOnly | directoryOnly);
+    fileSystem.fsyncSync(directoryDescriptor);
+    fileSystem.unlinkSync(tempPath);
+    tempExists = false;
+    fileSystem.fsyncSync(directoryDescriptor);
+    fileSystem.closeSync(directoryDescriptor);
+    directoryDescriptor = null;
+    const after = revalidateProjectTarget(projectRoot, filePath, before, { fileSystem });
+    const committed = fileSystem.lstatSync(after.real);
+    if (!committed.isFile() || committed.dev !== writtenInode.dev
+      || committed.ino !== writtenInode.ino || committed.nlink !== 1) {
+      throw new ProjectPathError('created_target_changed', {
+        input: filePath, projectRoot: before.projectRoot, target: after.real,
+      });
+    }
+    return after;
+  } catch (error) {
+    if (linked) throw new ProjectCreateDurabilityError(filePath, directory, error);
+    throw error;
+  } finally {
+    if (descriptor !== null) {
+      try { fileSystem.closeSync(descriptor); } catch { /* own descriptor cleanup */ }
+    }
+    if (directoryDescriptor !== null) {
+      try { fileSystem.closeSync(directoryDescriptor); } catch { /* own descriptor cleanup */ }
+    }
+    if (tempExists) {
+      try { fileSystem.unlinkSync(tempPath); } catch { /* temp cleanup is best effort */ }
+    }
+  }
 }
 
 /**

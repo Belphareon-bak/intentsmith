@@ -222,6 +222,19 @@ export function registerM2FileListToolProjectionFunction(database) {
     });
 }
 
+export function registerM2CreateToolProjectionFunction(database) {
+  database.function('m2_tool_effect_projection_create_v1', { deterministic: true },
+    (requestJson, effectRequestJson, effectResultJson, resultJson) => {
+      try {
+        const request = JSON.parse(requestJson);
+        const effect = JSON.parse(effectRequestJson);
+        if (request.toolId !== 'file.create' || request.toolVersion !== 1
+          || effect.version !== 3 || effect.requiredCapability !== 'project.fs.create') return 0;
+        return projectionFunction(requestJson, effectRequestJson, effectResultJson, resultJson);
+      } catch { return 0; }
+    });
+}
+
 export class M2ToolAuthorityRepository {
   constructor(database, { clock = Date.now, executionLiveness = processExecutionLiveness } = {}) {
     this.database = requireDatabase(database);
@@ -243,6 +256,7 @@ export class M2ToolAuthorityRepository {
     });
     registerM2FileReadToolProjectionFunction(this.database);
     registerM2FileListToolProjectionFunction(this.database);
+    registerM2CreateToolProjectionFunction(this.database);
     this.database.function('m2_tool_effect_operation_key_matches_v1', {
       deterministic: true,
     }, (toolRequestJson, effectRequestJson) => {

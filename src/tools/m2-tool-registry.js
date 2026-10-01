@@ -431,6 +431,38 @@ const DESCRIPTORS = Object.freeze([
     },
   }),
   descriptor({
+    id: 'file.create',
+    riskClass: M2_TOOL_RISK_CLASS.WRITE,
+    authorityMode: M2_TOOL_AUTHORITY_MODE.EFFECT,
+    requiredEffectKind: 'fs.write',
+    inputSchema: 'intentsmith.tool.file-create.input@1',
+    outputSchema: 'intentsmith.tool.file-create.output@1',
+    validateInput: value => validateFileInput(value, true),
+    validateOutput: validateFileWriteOutput,
+    buildEffectBinding(input) {
+      const payload = Buffer.from(input.content, 'utf8');
+      return effectBinding({
+        kind: 'fs.write',
+        target: { type: 'filesystem', relativePath: input.path },
+        payloadDigest: `sha256:${createHash('sha256').update(payload).digest('hex')}`,
+        payloadBytes: payload.length,
+        requiredCapability: 'project.fs.create',
+        riskClass: 'write',
+      });
+    },
+    validateEffectTranslation(request, effectRequest) {
+      return effectRequest?.version === 3 && bindingMatchesEffect(request.effectBinding, effectRequest);
+    },
+    projectEffectOutput(request, effectRequest, effectResult) {
+      if (effectResult?.terminalStatus !== 'succeeded') return null;
+      return Object.freeze({
+        path: request.input.path,
+        effectId: effectRequest.effectId,
+        terminalStatus: effectResult.terminalStatus,
+      });
+    },
+  }),
+  descriptor({
     id: 'code.execute',
     riskClass: M2_TOOL_RISK_CLASS.EXEC,
     authorityMode: M2_TOOL_AUTHORITY_MODE.UNAVAILABLE,

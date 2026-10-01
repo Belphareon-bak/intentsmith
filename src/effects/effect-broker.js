@@ -246,6 +246,7 @@ export function createEffectBroker(repositoryValue, {
   async function prepareFilesystemEffect({
     kind,
     rootList = false,
+    createOnly = false,
     runId,
     actor,
     origin,
@@ -258,6 +259,9 @@ export function createEffectBroker(repositoryValue, {
     signal,
   } = {}) {
     if (signal?.aborted) fail(EffectBrokerErrorCode.INPUT_INVALID, 'Effect preparation was cancelled');
+    if (createOnly && (kind !== 'fs.write' || rootList)) {
+      fail(EffectBrokerErrorCode.INPUT_INVALID, 'Create-only requires a filesystem write target');
+    }
     if (origin?.projectId !== projectId) {
       fail(EffectBrokerErrorCode.INPUT_INVALID, 'Origin project identity does not match projectId');
     }
@@ -276,7 +280,7 @@ export function createEffectBroker(repositoryValue, {
     const existing = repository.getEffectRequest(effectId);
     const request = {
       contract: M2_EFFECT_CONTRACT_KIND.EFFECT_REQUEST,
-      version: rootList ? 2 : 1,
+      version: createOnly ? 3 : rootList ? 2 : 1,
       effectId,
       runId,
       parentEffectId: null,
@@ -292,7 +296,8 @@ export function createEffectBroker(repositoryValue, {
       payloadDigest: sha256(payload),
       payloadBytes: payload.length,
       workspaceRevision: observed.workspaceRevision,
-      requiredCapability: rootList ? 'project.fs.list' : kind === 'fs.read' ? 'project.fs.read' : 'project.fs.write',
+      requiredCapability: createOnly ? 'project.fs.create'
+        : rootList ? 'project.fs.list' : kind === 'fs.read' ? 'project.fs.read' : 'project.fs.write',
       riskClass: kind === 'fs.read' ? 'read' : 'write',
       timeoutMs,
       idempotencyKey,
@@ -315,6 +320,10 @@ export function createEffectBroker(repositoryValue, {
 
   function prepareFilesystemWrite(input = {}) {
     return prepareFilesystemEffect({ ...input, kind: 'fs.write' });
+  }
+
+  function prepareFilesystemCreate(input = {}) {
+    return prepareFilesystemEffect({ ...input, kind: 'fs.write', createOnly: true });
   }
 
   function prepareFilesystemRead(input = {}) {
@@ -580,7 +589,7 @@ export function createEffectBroker(repositoryValue, {
     return commitOutcome(outcome);
   }
 
-  return Object.freeze({ prepareFilesystemWrite, prepareFilesystemRead, prepareFilesystemListRoot, execute });
+  return Object.freeze({ prepareFilesystemWrite, prepareFilesystemCreate, prepareFilesystemRead, prepareFilesystemListRoot, execute });
 }
 
 export const _testInternals = Object.freeze({

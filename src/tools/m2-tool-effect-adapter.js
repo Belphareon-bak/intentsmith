@@ -6,7 +6,8 @@ function unavailable(reason) {
 
 /**
  * Narrow production adapter from the typed Tool connector to the canonical
- * EffectRequest runtime. file.write@1 and file.read@2 carry exact project/request authority.
+ * EffectRequest runtime. file.write@1, file.create@1 and file.read@2 carry
+ * exact project/request authority; create binds only to EffectRequest@3.
  * Network search deliberately remains unavailable: a query does not identify
  * the concrete provider requests and redirects that an ApprovalGrant must bind.
  */
@@ -23,7 +24,10 @@ export function createM2ToolEffectAdapter({ effectRuntime = null } = {}) {
       const read = request.toolId === 'file.read' && request.toolVersion === 2 && request.requiredEffectKind === 'fs.read';
       const list = request.toolId === 'file.list' && request.toolVersion === 2 && request.requiredEffectKind === 'fs.read';
       const write = request.toolId === 'file.write' && request.toolVersion === 1 && request.requiredEffectKind === 'fs.write';
-      if (!read && !write && !list) {
+      const create = request.toolId === 'file.create' && request.toolVersion === 1
+        && request.requiredEffectKind === 'fs.write'
+        && request.effectBinding?.requiredCapability === 'project.fs.create';
+      if (!read && !write && !list && !create) {
         return unavailable('No exact effect translation is installed for this tool');
       }
       const projectId = request.origin.projectId;
@@ -45,7 +49,8 @@ export function createM2ToolEffectAdapter({ effectRuntime = null } = {}) {
         const module = await import('../effects/effect-file-runtime.js');
         runtime = module.effectFileRuntime;
       }
-      const prepare = list ? runtime?.requestFilesystemListRoot : read ? runtime?.requestFilesystemRead : runtime?.requestFilesystemWrite;
+      const prepare = list ? runtime?.requestFilesystemListRoot : read ? runtime?.requestFilesystemRead
+        : create ? runtime?.requestFilesystemCreate : runtime?.requestFilesystemWrite;
       if (typeof prepare !== 'function') {
         return unavailable('Filesystem effect runtime is not ready');
       }
