@@ -1,13 +1,13 @@
 # IntentSmith — průběh práce na kvalitě chatu
 
-Poslední aktualizace: **1. 10. 2026, 19:13 CEST**. Stav: **CANDIDATE / REVIEW_PENDING**.
+Poslední aktualizace: **1. 10. 2026, 19:27 CEST**. Stav: **CANDIDATE / REVIEW_PENDING**.
 Dokument aktualizuji po každém dokončeném milníku, nejpozději po třech hodinách
 aktivní práce. Historická selhání zůstávají uvedena; nové ověření je nepřepisuje
 na úspěch. Nejde o plánovač úloh po ukončení této pracovní relace.
 
 Větev: `work/chat-quality-20261001`. Společný výchozí commit:
 `45caf5b54b78def257221ac2ab33a64031800813`. Poslední testovaný implementační
-commit: **`82a9a7a2`**. Tento dokument se publikuje následným dokumentačním
+commit: **`f50ffea7`**. Tento dokument se publikuje následným dokumentačním
 commitem. Vlastní worktree: `intentsmith-chat-quality-20261001`.
 Mimochatový worker, jeho soubory a produkční release zůstávají nedotčené.
 
@@ -54,6 +54,9 @@ cesta používá celé odpovědi a změna sdíleného gateway není součástí 
 
 | Ověření | Testovaný commit / běh | Výsledek a hranice důkazu |
 | --- | --- | --- |
+| Nejnovější cílené kontroly faktického promptu | `f50ffea7`, `chat-quality-focused-20261001-compact-facts` | 7 PASS / 0 FAIL / 0 BLOCKED, včetně původních pozitivních i negativních kontrol 4K kontextu |
+| Delší verze faktického promptu | `a7a82265`, `chat-quality-focused-20261001-source-uncertainty` | 6 PASS / 1 FAIL; v M1 programu tři kapacitní kontroly selhaly. Prompt zkrácen, asertace a tlakové fixtures zůstaly stejné |
+| Nové celé dialogy A/B | `09e44e89`, run `30b2ad78-ebca-4914-a2bc-4ad9b86b1d44` | 12/12 dokončeno; vlastní hodnocení B 8/12 a A 8/12 užitečných, 0 zbytečných zastavení, 0 kritických chyb |
 | Celý offline + DB baseline | `45caf5b5` | 397 PASS / 5 FAIL / 3 BLOCKED |
 | Poslední celý offline + DB kandidát | `77cdd7b6`, `chat-quality-full-20261001-rubric` | 399 PASS / 4 FAIL / 3 BLOCKED; není zelená brána ani důkaz novějšího commitu |
 | Nejnovější cílené kontroly | `82a9a7a2`, `chat-quality-focused-20261001-cancelled-format` | 7 PASS / 0 FAIL / 0 BLOCKED; kontext, doslovný zápis, opakované uložení, runner, CRE, M1 a importní hranice |
@@ -69,11 +72,21 @@ Poslední je skutečná chyba účetního doménového směrování, nikoli pouh
 dokumentační odchylka. Tři BLOCKED: `accountant-workflow-integration`,
 `chat-export-budget`, `export-pdf-docx`; chybí autorizovaná PDF runtime.
 
-Poslední živý vývojový běh odhalil zaměnění dvou vět za dvě slova, domyšlená
-kalendářní data a opakované žádání o již vložený text. Následné opravy jsou
-implementované a cíleně zelené; jejich účinek ještě musí potvrdit nový živý
-běh. Další starší neúspěšné a přerušené běhy zůstávají v evidenci, nikoli jako
+Nový A/B běh potvrdil opravu zaměnění dvou vět za dvě slova a opakované žádosti
+o již vložený text. Přesto měl věcné chyby: rozpor při porovnání cen, domyšlený
+záznam semináře a chybné převádění neurčených dnů na kalendář. Krátké obecné
+pravidlo pro zachování uživatelských faktů a neznámých údajů je implementované
+a cíleně zelené; jeho účinek ještě musí potvrdit další živý běh.
+Další starší neúspěšné a přerušené běhy zůstávají v evidenci, nikoli jako
 PASS. Původní nepoužité rodiny F14–F20 zatím nebyly využity k ladění.
+
+A/B latence tohoto vývojového běhu: první studená B odpověď 73,0 s, z toho
+52,8 s načítání modelu; ostatních 11 B odpovědí medián 15,2 s a p95 30,8 s.
+Celé A/B páry měly medián B 16,1 s versus A 5,1 s. A používá jednodušší
+systémový prompt a příchozí historii B; není to nezávisle vedený dialog ani
+měření čisté režie aplikace. Rozdíl převyšuje deklarovaných 20 % a vyžaduje
+zvážení nákladů klasifikace a bezpečného předání kontextu, nikoli tvrzení o
+splněné pohotovosti.
 
 Surové DB, providerové záznamy a úplné diagnostické logy jsou místní soukromé
 artefakty v `.intentsmith-artifacts/chat-quality-20261001/` a
