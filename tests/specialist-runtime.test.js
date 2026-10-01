@@ -156,7 +156,7 @@ async function runAsyncTests() {
   const vatResult = await specialistRuntime.tryToolExecution('accountant', vatInput, {
     interpretInput: async () => ({ contract: 'VatIntent', version: 1,
       action: 'calculate', amount: 10000, rate: '21', year: 2025, direction: 'add',
-      presentation: { style: 'table', itemCount: null },
+      presentation: { style: 'table', itemCount: null, itemCountSource: null },
       segments: [{ text: vatInput, kind: 'calculation' }], clarification: null }),
   });
   it('tryToolExecution returns VAT result', () => {

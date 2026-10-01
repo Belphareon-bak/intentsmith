@@ -43,9 +43,19 @@ function assertNoProviderGeneration(provider, label) {
 }
 
 function assertNoGenerativeWrapper(provider, baseline, label) {
-  assert.deepEqual(provider.requests.slice(baseline).filter(request => !request.task && request.path === '/api/chat'), [],
-    `${label}: arithmetic must not use a generative wrapper`);
+  const unexpected = provider.requests.slice(baseline).filter(request =>
+    !((request.method === 'GET' && request.path === '/api/tags')
+      || (request.method === 'POST' && request.path === '/api/show')
+      || (request.method === 'POST' && request.path === '/api/chat'
+        && request.task?.task === 'specialist.input.interpretation'
+        && request.body?.format === 'json')));
+  assert.deepEqual(unexpected, [], `${label}: only the VAT interpreter and its artifact lookup may contact provider`);
   assertNoProviderGeneration(provider, label);
+}
+
+function assertNoTurnProviderRequests(provider, baseline, label) {
+  assert.deepEqual(provider.requests.slice(baseline), [],
+    `${label}: this deterministic turn must not contact provider`);
 }
 
 function assertDurableTurn(databasePath, conversationId, expected) {
@@ -463,7 +473,7 @@ test('selected VAT extraction preserves cents, explicit period, rate and calcula
       };
       provider.plans.set(scenario.input, vatPlan(scenario.input, {
         ...expectedPlan,
-        presentation: { style: scenario.style || 'table', itemCount: null },
+        presentation: { style: scenario.style || 'table', itemCount: null, itemCountSource: null },
         ...(scenario.needsInput && !['amount', 'rate', 'year'].includes(scenario.needsInput)
           ? { action: 'clarify', clarification: scenario.needsInput } : {}),
       }));
@@ -560,7 +570,7 @@ test('failed accountant document tool cannot become a successful generative answ
   assert.equal(setup.response.metadata.executionStatus, 'SUCCESS');
   assert.equal(setup.response.metadata.extractedParams, undefined,
     'public metadata must not repeat document input');
-  assertNoGenerativeWrapper(provider, providerBaseline, 'deterministic document setup');
+  assertNoTurnProviderRequests(provider, providerBaseline, 'deterministic document setup');
   const input = 'doklad d-0000000000000000 = {invalid; vysvětli kontrolní hlášení za květen 2026';
   const command = { contract: 'ConversationCommand', version: 1,
     requestId: `accountant-error-${randomBytes(8).toString('hex')}`,
@@ -568,7 +578,7 @@ test('failed accountant document tool cannot become a successful generative answ
     action: 'send', input };
   const { status, data: result } = await requestJson(product, 'POST', '/api/chat', command);
   assert.equal(status, 200, `providerRequests=${JSON.stringify(provider.requests)} ${JSON.stringify(result)}\n${product.output}`);
-  assertNoGenerativeWrapper(provider, providerBaseline, 'fail-closed document error');
+  assertNoTurnProviderRequests(provider, providerBaseline, 'fail-closed document error');
   assert.equal(result.response?.metadata?.specialistTool, 'accountant.document_workflow');
   assert.equal(result.response.metadata.executionStatus, 'FAILED');
   assert.equal(result.response.metadata.fallbackSuppressed, true);

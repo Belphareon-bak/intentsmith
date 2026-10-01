@@ -37,8 +37,8 @@ navzdory negovanému plánu. Přesné příkazy a výsledky budou doplněny po b
 
 Na vstupním SHA byl skutečný požadavek „… a napiš výsledek stručně“ odmítnut
 jako `NEEDS_INPUT/compoundIntent`. Red-first první sada měla 16 selhání;
-reprodukce této konkrétní chyby porovnává M1 status a odpověď. Po změně má
-registrovaná sada 22/22 PASS, včetně restartu a trvalého kontextu. Další
+reprodukce této konkrétní chyby porovnává M1 status a odpověď. První
+registrovaná sada na `fbad93b1` měla 22/22 PASS, včetně restartu a trvalého kontextu. Další
 konkrétní negativní případy: jiná částka/sazba/rok, obrácení explicitního
 základu bez DPH, pokus schovat alternativní sazbu do formátu, falešný rozsah
 citace, vynechaná věta, neplatná authority navíc, rozbitý JSON, selhání
@@ -48,15 +48,19 @@ Model vyloží přirozené zadání do `VatIntent/v1`. Jádro poskytne autorizov
 `classifyIntent` connector přes registrovaný runtime; balíček jej neimportuje.
 Úplný zdrojový text musí být zachován v segmentaci plánu. Peněžní parametry
 se znovu čtou ze zdroje; hodnoty v modelovém plánu se s nimi porovnají.
-Sazba/rok/částka v ostatních nequoted segmentech zůstávají numerickým
-omezením. Kontext tvoří nejvýše osm trvalých tahů ze stejného projektu,
+Po opravě nezávislého review se sazba/rok/částka čtou z celého původního
+vstupu; modelové štítky ani hranice segmentů je nemohou vyřadit. Kontext
+tvoří nejvýše osm trvalých tahů ze stejného projektu,
 s dohledatelným původem a nejvýše 500 znaky na tah; technické hlášky a
 souhrn bez projektové provenance se nepředávají. Parametry předchozího
 výpočtu se při semantic resolution nepřebírají ze session cache.
 
 Prezentace `table/concise/bullets/explanation` používá jen výsledek skutečného
-kalkulátoru. Číselný požadavek na dvě nebo tři odrážky se ověří ve zdroji a
-renderer dodrží počet. Vysvětlení ukáže vzorec výpočtu a zaokrouhlení,
+kalkulátoru. Číselný požadavek na dvě nebo tři odrážky musí mít typovaný
+`presentation.itemCountSource`, který obsahuje jedinečný doslovný počet
+a jednotku odrážek z originálu. Jádro ověří hodnotu a jednotku rozvržení;
+měna, procento ani rok nemohou tvořit tuto výjimku. Renderer dodrží počet.
+Vysvětlení ukáže vzorec výpočtu a zaokrouhlení,
 nevytváří právní text. Whole calculator expression dál funguje bez modelu.
 Přirozená prose spotřebuje jedno další inference volání; direct-expertise
 průchod má také svou stávající CRE klasifikaci. Selhání provideru ani
@@ -66,7 +70,7 @@ Ověřené příkazy (Node 24.21.0, soukromé testovací runtime):
 
 | Příkaz `node tests/…` | Výsledek |
 |---|---:|
-| `chat-vat-semantic-http.test.js` | 22/22 PASS |
+| `chat-vat-semantic-http.test.js` | 27/27 PASS po review opravě |
 | `chat-accountant-model-contract.test.js` | 53/53 PASS |
 | `chat-accountant-deterministic-http.test.js` | 1/1 PASS; přesný kalkulátorový výraz, restart, žádná inference |
 | `accountant-self-contained.test.js` | 27/27 PASS |
@@ -78,6 +82,24 @@ Ověřené příkazy (Node 24.21.0, soukromé testovací runtime):
 `node scripts/validate-test-registry.js --json` je validní: 591 programů;
 fingerprint `8225f8bb671d654e87aaf96351aa5934b3e88aeaae5fab0756be2856e6f60b9a`.
 `git diff --check` je čistý. Širší profil tohoto nového SHA neběžel.
+
+Nezávislé review prvního kandidáta `fbad93b1` bylo **CHANGES_REQUIRED**.
+Skutečný M1/SQLite průchod přijímal částku 10 000 při doplnění alternativní
+částky 20 000, pokud model tuto větu označil jako formát. Rozdělení „12 %“
+či „20 000 Kč“ mezi formát a zdvořilost také ukrylo alternativu. Úplné
+pokrytí řetězce samo tuto chybu nechránilo. Čtyři přidané red-first případy
+(včetně rozděleného alternativního roku) na tomto kandidátu skutečně
+vracely `SUCCESS`; po opravě mají `NEEDS_INPUT`, žádný výsledek ani
+ToolRequest. Další test odmítá pokus prohlásit částku „2 Kč odrážky“ za
+počet položek. Modelová segmentace už číselný zdroj neupravuje.
+
+Review také našlo oslabení původního oracle dokumentového workflow:
+společný pomocník přehlížel provider lookupy. Pro oba non-VAT dokumentové
+průchody je obnoven úplný zero-contact oracle. VAT prose povoluje pouze
+explicitní JSON rozpoznání významu a jeho lookup `/api/tags` či
+`/api/show`; wrapper ani jiný endpoint není povolen. Obnovená sada má
+53/53 PASS. Reporty jsou v soukromých `vat-whole-input-{red,green}.log`,
+`vat-model-contract-after-review.log` a `vat-runtime-after-review.log`.
 
 **Stav: `REVIEW_PENDING`, živá významová kvalita `NOT_RUN`.**
 Řízený provider dodává předem pojmenované významové plány; dokládá propojení,

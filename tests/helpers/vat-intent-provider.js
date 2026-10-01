@@ -5,7 +5,7 @@ import http from 'node:http';
 export function vatPlan(input, options = {}) {
   return { contract: 'VatIntent', version: 1, action: 'calculate',
     amount: 10000, rate: '21', year: 2025, direction: 'add',
-    presentation: { style: 'table', itemCount: null }, segments: [{ text: input, kind: 'calculation' }],
+    presentation: { style: 'table', itemCount: null, itemCountSource: null }, segments: [{ text: input, kind: 'calculation' }],
     clarification: null, ...options };
 }
 
