@@ -60,7 +60,33 @@ starý `cea7e727…`, 53 CPU kontrol i nevyhovující fyzický packet zůstávaj
 5. Explicitní Node 24 CPU sady a nezávislé source review předcházejí
    novému clean registered gate, push/remote/CI ověření a sedmi skutečným
    generacím na novém zmrazeném kandidátu. Raw modelové bajty se ručně
-   neopravují a zadání se nezvolňuje. Aktuálně **IMPLEMENTATION_NOT_RUN**.
+   neopravují a zadání se nezvolňuje.
+
+### Implementační checkpoint 15:53 UTC — REVIEW_PENDING
+
+Red-first skutečný sandbox se schema extra importem skončil očekávaným
+regresním **FAIL**, protože staré měřidlo vrátilo succeeded/marker; log
+SHA-256 `7e3ca09d6ffdf0846a46c5fb0eedcf18d1ba5d61877e5b2e6bf0294c09495c0d`.
+První implementační běh měl **44 PASS / 18 FAIL**, zachovaný log
+`ebd80830f38916d52993f1975ecce4d2fbec16f414614b35e38bc03ed06b41ce`.
+Jedna chyba byla použití neexistujícího tree-sitter API; zbývajících 17 byly
+governance denials před efektem: starý produktový scanner považuje samotné
+slovo `import` v komentáři či textu chyby oracle za nepodporovanou syntaxi.
+ROOT opravil API a použil v trusted oracle textu výraz `dependencies`;
+scanner ani přijímaný uživatelský jazyk touto změnou neupravuje. Omezení
+scanneru je skutečná zbývající mezera obecného M2, ne nový bezpečnostní PASS.
+
+Druhý explicitní Node `24.21.0` běh má **62/62 PASS**, exit 0,
+46 003.5 ms, log SHA-256
+`279718a394e744b5f85a772e14632d5cb5296e7bb286d4a6d96bcf7218d1fd41`.
+Čtyři nové static graph negativy se odmítly přímo v sandboxu a v M2
+focused testu; M2 vrátil všech sedm souborů, bez commitu, a nový read-only
+authority DB proces potvrdil stejný failed terminál. AST kontrola odmítá
+dormant dynamic import ve všech sedmi cílech a přijímá inertní text.
+V M2 fixture se stejný preview helper skutečně volá před schválením.
+Počet descriptors zůstává 593 / exclusions 34; census 600 JS / 265 978 LF.
+Nové nezávislé source review, clean registered gate a fyzické opakování
+ještě nebyly provedené. Celý release se tímto nepřejímá.
 
 ## Historická root integrace — 1. 10. 2026
 

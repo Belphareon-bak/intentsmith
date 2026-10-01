@@ -1,6 +1,32 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
-## Checkpoint 1. 10. 2026 — přijatý M3 a SQLite CPU, živý běh čeká
+## Checkpoint 1. 10. 2026, 15:53 UTC — skutečný SQLite kontrakt vyžaduje opravu
+
+Na přesném `936e9a33` proběhlo sedm úplných CODE generací katalogu; funkční
+oracle, M2 commit a opakování po restartu prošly. Nezávislé review však našlo
+zakázaný import `node:sqlite` ve schema: **PHYSICAL_FUNCTIONAL_PASS /
+CONTRACT_CHANGES_REQUIRED**, nikoli celková přejímka. Raw modelové bajty
+jsou beze změny uchované, zdroje tohoto kandidáta se nezveřejňují jako přijatý
+snapshot. [Přesná sekvence a důkazy](../wp/WP-PROJECT-SQLITE-CATALOG-FUNCTIONAL-20261001.md).
+
+ROOT zapsal a pushnul WP-first `0098e8fb` a připravil nezávislé compile-only
+ověření sedmi static dependency grafů i preview AST zákaz dynamických
+importů. Red-first reprodukce zůstává; druhý CPU běh je **62/62 PASS**,
+exit 0. První implementační běh měl 44 PASS / 18 FAIL a je zachovaný.
+Source review, nový clean registered gate a modelové opakování jsou pending.
+Objevené obecné omezení M2 scanneru na slovo v komentáři zůstává samostatnou
+produktovou mezerou. Žádný nový celý profil nebo release PASS.
+
+GPU UI read-only sonda nebyla spuštěná: nezávislá kontrola našla dvě startup
+cleanup mezery, **GUARD_CHANGES_REQUIRED**. Zdrojový manifest
+`5f6cce4663f254a8aed4f3de8c389c57dd136636128bc6383a9312e79e890359`,
+review `9efd4717f51fcca9d29625832e4b62f83c008e7030f62bbc8b2e4ee1b2d92033`.
+Dosavadní 3/3 CPU cleanup kontroly tato okna neověřovaly. GPU/Hunt živé známky
+se neodvozují z připravené sondy; graded snapshot níže má svůj původní čas.
+HTTP rozhodnutí stále čeká, CHAT má svého workera, mobil následuje stabilní
+IDE/BE. Čtyři vlastní ref deletions i physical worktree removal ještě NOT_RUN.
+
+## Historický checkpoint 1. 10. 2026 — přijatý M3 a SQLite CPU, živý běh čekal
 
 Publikovaný čistý funkční kandidát
 `936e9a33d70e889dc9827d2a4710bfefd57dca7e` má **9/9 registrovaných PASS**,

@@ -10,9 +10,11 @@ M3 code-review specialista má ověřený skutečný ProjectContext, provenance,
 odmítnutí zastaralého snapshotu a oddělení projektů; jde o deterministická
 pravidla, modelová kvalita expertíz zůstává otevřená.
 [SQLite scénář](docs/wp/WP-PROJECT-SQLITE-CATALOG-FUNCTIONAL-20261001.md)
-má 53/53 CPU testů a nezávislé source review. První fyzický start selhal
-před inferencí na JSON konfiguraci; opravený zmrazený kandidát čeká na cizí
-GPU lease. [Skutečné HTTP projekty](docs/wp/WP-M2-PRIVATE-HTTP-QUALIFICATION-PROPOSAL-20261001.md)
+má první skutečný funkční PASS se sedmi modelovými generacemi, ale
+**CONTRACT_CHANGES_REQUIRED**: oracle nezachytil zakázaný import v schema.
+Navazující oprava má 62/62 CPU PASS; nové source review a fyzická přejímka
+čekají. Původní nevyhovující důkazy zůstávají uchované.
+[Skutečné HTTP projekty](docs/wp/WP-M2-PRIVATE-HTTP-QUALIFICATION-PROPOSAL-20261001.md)
 mají připravený návrh změny oprávnění, který čeká na rozhodnutí operátora.
 Hunt posledním strukturálním čtením 13:31 UTC zůstává 596/1173 / NO_GO;
 mobilní 13+7 fyzická matice čeká. CHAT má samostatného workera.

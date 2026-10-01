@@ -1,12 +1,15 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktualizace 1. 10. 2026 — SQLite CPU a skutečný M3 kontext:** publikovaný
+**Aktualizace 1. 10. 2026, 15:53 UTC — SQLite kontrakt a skutečný M3 kontext:** publikovaný
 `936e9a33` má registrovaných **9/9 PASS / REVIEW_PASS**, skutečné
 [CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36876897340).
 M3 ověřuje skutečná projektová data a izolaci; modelovou expert-vs-general
-kvalitu tím nepřejímá. SQLite měřidlo má 53 CPU kontrol a source review;
-nový živý běh čeká na cizí CHAT GPU lease. Původní JSON FAIL s 0 inferencemi
-zůstává uchovaný. Skutečný Ledger, TaskFlow a packaged IDE ledger jsou přijaté.
+kvalitu tím nepřejímá. SQLite měl skutečný funkční PASS se sedmi generacemi,
+ale nezávislé review našlo zakázaný schema import: CONTRACT_CHANGES_REQUIRED.
+Oprava měřidla má 62 CPU PASS, nové review a fyzické opakování čekají.
+Původní JSON FAIL s 0 inferencemi i raw funkční PASS zůstávají uchované.
+Nová GPU UI sonda má guard CHANGES_REQUIRED a nebyla spuštěná.
+Skutečný Ledger, TaskFlow a packaged IDE ledger jsou přijaté.
 Další skutečný HTTP projekt vyžaduje
 [omezené rozhodnutí o M2 profilu](docs/wp/WP-M2-PRIVATE-HTTP-QUALIFICATION-PROPOSAL-20261001.md),
 protože přijatý sandbox sockety zakazuje. Hunt 13:31 UTC stále 596/1173 /

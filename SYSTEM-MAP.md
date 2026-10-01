@@ -7,8 +7,10 @@ Chronologie níže zachovává důkazy předchozích instalací a větví.
 Nechatový kandidát `936e9a33` má **9/9 registrovaných PASS / REVIEW_PASS**
 a GitHub CI SUCCESS. M3 přímo četl dva izolované projekty, doložil přesný
 nález i provenance a odmítl stale/foreign scope. SQLite sedmimodulový scénář
-má 53/53 CPU kontrol a přijatou opravu JSON boundary; první fyzický start
-byl FAIL s 0 inferencemi, nový běh čeká na cizí GPU lease. Pravomoc skutečných
+má přijatou opravu JSON boundary. První skutečný sedmigenerační průchod měl
+funkční PASS, ale CONTRACT_CHANGES_REQUIRED kvůli zakázanému schema importu.
+Navazující oprava má 62 CPU PASS / REVIEW_PENDING / opakování NOT_RUN.
+První start s 0 inferencemi i nevyhovující skutečný průchod jsou uchované. Pravomoc skutečných
 HTTP testů zůstává návrhem vyžadujícím rozhodnutí. Tyto důkazy neaktualizují
 produkční BE `c84b88cd` ani celou release přejímku.
 
@@ -664,14 +666,14 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 **REVIEW_PENDING** — [aktuální UI oprava a evidence](docs/review/2026-09-17-HUNT-MODEL-CONTROLS-FOLLOWUP.md).
 
 Následující LOC a registry census jsou přeměřené přímo na referenčním zdroji
-`6a9161a5` + přeměřená SQLite JSON regrese přes stejný algoritmus jako `tests/artifact-validation.test.js`:
+`0098e8fb` + přeměřená SQLite import regrese přes stejný algoritmus jako `tests/artifact-validation.test.js`:
 počet skutečných `.js` souborů a počet znaků nového řádku v jejich bytech.
 Při další integraci se přeměří znovu.
 
 | | |
 |---|---:|
 | `src/**/*.js` | **234 011 ř.**, 681 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **265 943 ř.**, 600 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **265 978 ř.**, 600 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **593** (`495 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 108** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |

@@ -26,7 +26,7 @@ import { TASKFLOW_FILES, TASKFLOW_ORACLE_ARGV, TASKFLOW_ORACLE_SOURCE, TASKFLOW_
   taskflowBlueprint, TASKFLOW_COMMANDS, assertTaskFlowCLIResults,
 } from '../scripts/project-taskflow-acceptance.js';
 import { SQLITE_FILES, SQLITE_ORACLE_SOURCE, SQLITE_ORACLE_SHA256, SQLITE_ORACLE_ARGV,
-  SQLITE_ENTRY_SOURCE, SQLITE_ENTRY_SHA256, sqliteCatalogBlueprint,
+  SQLITE_ENTRY_SOURCE, SQLITE_ENTRY_SHA256, sqliteCatalogBlueprint, assertSqlitePreview,
 } from '../scripts/project-sqlite-catalog-acceptance.js';
 
 function project(outputs = GOOD, frozen = null) {
@@ -234,6 +234,30 @@ test('SQLite catalog reference passes trusted actual sandbox with fresh generate
   const result = await inSandbox(root, SQLITE_ORACLE_ARGV);
   assert.equal(result.terminalStatus, 'succeeded', JSON.stringify(result));
   assert.match(result.stdout, /SQLITE_CATALOG_ORACLE_PASS/);
+});
+
+for (const defect of ['schema-extra-import', 'schema-extra-reexport', 'cli-extra-import', 'store-extra-builtin']) {
+  test('SQLite import graph rejects ' + defect, async () => {
+    const root = project(sqliteCatalogMutant(defect), { oracle: SQLITE_ORACLE_SOURCE, entry: SQLITE_ENTRY_SOURCE });
+    const result = await inSandbox(root, SQLITE_ORACLE_ARGV);
+    assert.equal(result.terminalStatus, 'failed', defect + ': ' + JSON.stringify(result));
+    assert.match(result.stderr, /SQLite declared dependencies/, defect);
+    assert.doesNotMatch(result.stdout, /SQLITE_CATALOG_ORACLE_PASS/, defect);
+  });
+}
+
+test('SQLite preview AST rejects dormant dynamic imports and accepts inert import text', () => {
+  const read = (_root, relative) => relative === ORACLE_PATH ? SQLITE_ORACLE_SOURCE : SQLITE_ENTRY_SOURCE;
+  const preview = outputs => Object.entries(outputs).map(([file, content]) => ({ path: file, after: { content } }));
+  const inert = { ...REFERENCE_SQLITE_OUTPUTS,
+    'src/schema.js': "// import('node:sqlite')\nconst text = \"import('node:sqlite')\";\nconst pattern = /import\\('node:sqlite'\\)/;\n" + REFERENCE_SQLITE_OUTPUTS['src/schema.js'] };
+  assert.doesNotThrow(() => assertSqlitePreview(preview(inert), '/unused', read, () => false));
+  for (const file of Object.keys(REFERENCE_SQLITE_OUTPUTS)) {
+    const dynamic = { ...REFERENCE_SQLITE_OUTPUTS,
+      [file]: REFERENCE_SQLITE_OUTPUTS[file] + "\nexport function dormant() { return import('node:sqlite'); }\n" };
+    assert.throws(() => assertSqlitePreview(preview(dynamic), '/unused', read, () => false),
+      /SQLite dynamic imports forbidden/);
+  }
 });
 
 test('SQLite catalog behavioral mutants fail trusted actual sandbox', async () => {

@@ -123,7 +123,11 @@ export function sqliteCatalogMutant(name) {
     if (!outputs[file].includes(before)) throw new Error('missing mutant anchor ' + name);
     outputs[file] = outputs[file].replace(before, after);
   };
-  if (name === 'wrong-schema') alter('src/schema.js', 'priceCents INTEGER NOT NULL CHECK(priceCents>=0)', 'priceCents TEXT NOT NULL');
+  if (name === 'schema-extra-import') outputs['src/schema.js'] = "import { DatabaseSync } from 'node:sqlite';\n" + outputs['src/schema.js'];
+  else if (name === 'schema-extra-reexport') outputs['src/schema.js'] = "export { searchRows } from './query.js';\n" + outputs['src/schema.js'];
+  else if (name === 'cli-extra-import') outputs['src/cli.js'] = "import './query.js';\n" + outputs['src/cli.js'];
+  else if (name === 'store-extra-builtin') outputs['src/store.js'] = "import 'node:vm';\n" + outputs['src/store.js'];
+  else if (name === 'wrong-schema') alter('src/schema.js', 'priceCents INTEGER NOT NULL CHECK(priceCents>=0)', 'priceCents TEXT NOT NULL');
   else if (name === 'masked-quantity-check') {
     alter('src/schema.js', 'id INTEGER PRIMARY KEY AUTOINCREMENT',
       'id INTEGER PRIMARY KEY AUTOINCREMENT CHECK(id>0)');

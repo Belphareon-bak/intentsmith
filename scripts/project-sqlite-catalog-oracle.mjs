@@ -7,6 +7,30 @@ import fs from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import vm from 'node:vm';
 
+// Compile only: generated modules are never linked or evaluated here. Use
+// decoded ECMAScript dependency specifiers, including re-exports.
+// The operator's graph is checked before the first generated child starts.
+const declaredImports = {
+  'src/app.js': ['./cli.js'],
+  'src/cli.js': ['./service.js'],
+  'src/service.js': ['./store.js', './validate.js'],
+  'src/store.js': ['./query.js', './schema.js', 'node:sqlite'],
+  'src/schema.js': [],
+  'src/query.js': [],
+  'src/validate.js': [],
+};
+const parseContext = vm.createContext(Object.create(null), {
+  codeGeneration: { strings: false, wasm: false },
+});
+for (const [identifier, expected] of Object.entries(declaredImports)) {
+  const module = new vm.SourceTextModule(fs.readFileSync(identifier, 'utf8'), {
+    context: parseContext, identifier,
+    importModuleDynamically: () => { throw new Error('dynamic imports denied'); },
+  });
+  assert.deepEqual([...new Set(module.dependencySpecifiers)].sort(), [...expected].sort(),
+    'SQLite declared dependencies: ' + identifier);
+}
+
 const dbPath = '/tmp/is-catalog-' + randomBytes(16).toString('hex') + '.sqlite';
 const entry = 'src/index.mjs';
 const skuA = 'SKU-' + randomBytes(6).toString('hex').toUpperCase();

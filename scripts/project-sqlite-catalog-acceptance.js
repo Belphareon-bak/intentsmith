@@ -1,6 +1,8 @@
 // Operator-owned, fixed SQLite application contract. Frozen before inference.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import Parser from 'tree-sitter';
+import JavaScript from 'tree-sitter-javascript';
 import { sha256, ORACLE_BINARY, ORACLE_PATH, ENTRY_PATH } from './project-app-acceptance.js';
 
 export const SQLITE_FILES = Object.freeze([
@@ -46,10 +48,25 @@ export function policyForSqliteCatalog(policy) {
 
 export function assertSqlitePreview(diff, projectRoot, readFile, exists) {
   assert.deepEqual(diff.map(file => file.path).sort(), SQLITE_FILES.map(file => file.path).sort());
+  const parser = new Parser();
+  parser.setLanguage(JavaScript);
   for (const row of diff) {
     assert.equal(typeof row.after?.content, 'string');
     assert.ok(row.after.content.trim(), row.path + ' nonempty');
     assert.equal(exists(projectRoot, row.path), false, row.path + ' absent before approval');
+    // Static dependencies are independently checked by the frozen oracle.
+    // Reject dormant dynamic imports without executing code or matching words
+    // inside comments, strings or regular expressions.
+    const tree = parser.parse(row.after.content);
+    assert.equal(tree.rootNode.hasError, false, row.path + ' valid JavaScript AST');
+    const pending = [tree.rootNode];
+    while (pending.length) {
+      const node = pending.pop();
+      assert.equal(node.type === 'call_expression'
+        && node.childForFieldName('function')?.type === 'import', false,
+      'SQLite dynamic imports forbidden: ' + row.path);
+      pending.push(...node.namedChildren);
+    }
   }
   assert.equal(sha256(readFile(projectRoot, ORACLE_PATH)), SQLITE_ORACLE_SHA256, 'frozen SQLite oracle');
   assert.equal(sha256(readFile(projectRoot, ENTRY_PATH)), SQLITE_ENTRY_SHA256, 'frozen SQLite entry');

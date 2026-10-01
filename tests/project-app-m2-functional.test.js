@@ -32,7 +32,7 @@ import { TASKFLOW_FILES, TASKFLOW_ORACLE_ARGV, TASKFLOW_ORACLE_SOURCE, TASKFLOW_
   taskflowBlueprint,
 } from '../scripts/project-taskflow-acceptance.js';
 import { SQLITE_FILES, SQLITE_ORACLE_ARGV, SQLITE_ORACLE_SOURCE, SQLITE_ORACLE_SHA256,
-  SQLITE_ENTRY_SOURCE, SQLITE_ENTRY_SHA256, sqliteCatalogBlueprint, policyForSqliteCatalog,
+  SQLITE_ENTRY_SOURCE, SQLITE_ENTRY_SHA256, sqliteCatalogBlueprint, policyForSqliteCatalog, assertSqlitePreview,
 } from '../scripts/project-sqlite-catalog-acceptance.js';
 
 const PROJECT_ID = 6021;
@@ -376,7 +376,8 @@ for (const defect of [null, 'shared-board', 'accept-nonplain', 'accept-nonplain-
   });
 }
 
-for (const defect of [null, 'wrong-schema', 'masked-quantity-check', 'no-db', 'forged-stdout', 'early-exit',
+for (const defect of [null, 'schema-extra-import', 'schema-extra-reexport', 'cli-extra-import', 'store-extra-builtin',
+  'wrong-schema', 'masked-quantity-check', 'no-db', 'forged-stdout', 'early-exit',
   'wrong-update', 'wrong-delete', 'wrong-search', 'alias-query-rows',
   'invalid-mutation', 'coerce-id', 'nonpersistence']) {
   test(`M2 SQLite catalog ${defect ? `rolls back ${defect}` : 'commits an independently observed DB app'}`, async () => {
@@ -402,6 +403,8 @@ for (const defect of [null, 'wrong-schema', 'masked-quantity-check', 'no-db', 'f
       assert.equal(sha256(fs.readFileSync(path.join(f.project, ORACLE_PATH))), SQLITE_ORACLE_SHA256);
       assert.equal(sha256(fs.readFileSync(path.join(f.project, ENTRY_PATH))), SQLITE_ENTRY_SHA256);
       for (const relative of Object.keys(f.outputs)) assert.equal(fs.existsSync(path.join(f.project, relative)), false);
+      assertSqlitePreview(planned.diff, f.project,
+        (root, relative) => fs.readFileSync(path.join(root, relative)), (root, relative) => fs.existsSync(path.join(root, relative)));
       await assert.rejects(f.service.approveSmallProjectChange({ authenticatedSubject: SUBJECT,
         origin: ORIGIN, lifecycleId: planned.lifecycleId, planDigest: `sha256:${'0'.repeat(64)}` }),
       { code: 'M2_LIFECYCLE_PLAN_DIGEST_MISMATCH' });
@@ -416,6 +419,10 @@ for (const defect of [null, 'wrong-schema', 'masked-quantity-check', 'no-db', 'f
         assert.equal(result.result.rollback.status, 'succeeded', defect);
         assert.doesNotMatch(testOutput?.stdout || '', /SQLITE_CATALOG_ORACLE_PASS/, defect);
         const expectedFailure = {
+          'schema-extra-import': /SQLite declared dependencies: src\/schema.js/,
+          'schema-extra-reexport': /SQLite declared dependencies: src\/schema.js/,
+          'cli-extra-import': /SQLite declared dependencies: src\/cli.js/,
+          'store-extra-builtin': /SQLite declared dependencies: src\/store.js/,
           'wrong-schema': /actual result|exact persisted schema/,
           'masked-quantity-check': /negative quantity: only the tested field triggers/,
           'no-db': /no such table: books/,
