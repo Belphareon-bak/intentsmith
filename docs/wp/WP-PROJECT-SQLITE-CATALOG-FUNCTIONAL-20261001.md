@@ -65,13 +65,15 @@ libovolný vstup pro cesty/commandy/testy.
    `add/get/list/search/update/delete` vrací přesné JSON výsledky. Celé
    `run(commands)` je atomické: neplatný příkaz v libovolném místě dávky
    končí nenulově a DB zůstane ve stavu před dávkou.
-2. Důvěryhodný oracle nenačte nativní SQLite ani generated `store/service/cli/app`
-   do svého procesu či VM. Čisté listové moduly `query` a `validate` bez importů
-   zkontroluje odděleně v restriktivním VM kontextu s objekty vytvořenými
-   v tomtéž realm, bez host objektů či funkcí. Po každém spuštěném dítěti
-   nezávisle znovu otevře SQLite, ověří skutečné schéma, constrainty a řádky
-   z náhodné výzvy, včetně persistence přes nové dítě. Zkontroluje úplný JSON
-   a status, takže falešný výstup či předčasný `exit 0` nestačí.
+2. Důvěryhodný oracle sám používá `node:sqlite` ke kontrole DB. Generované
+   moduly `schema/store/service/cli/app` nikdy nenačte do svého procesu ani
+   VM; běží v oddělených dětských procesech. Čisté listové moduly `query` a
+   `validate` bez importů zkontroluje odděleně v restriktivním VM kontextu s
+   objekty vytvořenými v tomtéž realm, bez host objektů či funkcí. Po každém
+   spuštěném dítěti nezávisle znovu otevře SQLite, ověří skutečné schéma,
+   constrainty a řádky z náhodné výzvy, včetně persistence přes nové dítě.
+   Zkontroluje úplný JSON a status, takže falešný výstup či předčasný `exit 0`
+   nestačí.
 3. Referenční implementace projde skutečný M2 draft→preview→approval→
    focusedTest→Git→restart. Vadné schéma, chybějící DB, falešný stdout,
    předčasný exit, chybné update/delete/search, mutace při invalidním vstupu
