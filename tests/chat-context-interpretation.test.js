@@ -24,19 +24,21 @@ import { resolveFileSavePlan, generateSaveContent } from '../src/chat/file-save-
 import { formatClarificationRequest } from '../src/chat/handlers/ask-user.js';
 import { enforceOutputContract } from '../src/chat/handlers/utils/output-gate.js';
 import { getLanguageContext } from '../src/chat/handlers/utils/language.js';
+import { assertCreativeQuality } from '../src/chat/handlers/utils/quality.js';
 
 test('classifier receives source identities, antecedent, open question and goal; memory never classifies', async () => {
   const original = llmGateway.call;
   let wire;
   llmGateway.call = async (prompt, options) => {
     wire = { prompt, options };
-    return { content: JSON.stringify({ intent: 'CREATIVE', confidence: 0.9, fileTarget: null }) };
+    return { content: JSON.stringify({ intent: 'CREATIVE', confidence: 0.9, fileTarget: null,
+      briefResponse: true, responseWordCount: 5 }) };
   };
   try {
     const state = new SessionState('context-classifier');
     state.setPendingDecision({ type: 'ASK_USER', intent: 'AMBIGUOUS',
       metadata: { clarificationQuestion: 'Kterou variantu chceš rozpracovat?', originalRequest: 'Rozpracuj jednu variantu.' } }, ['intent_clarification']);
-    await creDecisionEngine._llmClassifyIntent('Druhou variantu.', {
+    const classified = await creDecisionEngine._llmClassifyIntent('Druhou variantu napiš v pěti slovech.', {
       sessionId: 'context-classifier', sessionState: state, projectGoal: 'Vybrat název aplikace',
       ltmContext: 'PRIVATE_MEMORY_MUST_NOT_CLASSIFY', history: [
         { messageId: 21, response: { tag: { speaker: 'user' }, content: 'Navrhni dvě varianty názvu.' } },
@@ -44,7 +46,9 @@ test('classifier receives source identities, antecedent, open question and goal;
       ],
     });
     const parsed = JSON.parse(wire.prompt);
-    assert.equal(parsed.request, 'Druhou variantu.');
+    assert.equal(parsed.request, 'Druhou variantu napiš v pěti slovech.');
+    assert.equal(classified.briefResponse, true);
+    assert.equal(classified.responseWordCount, 5);
     assert(parsed.history.some(turn => turn.messageId === 22 && turn.content.includes('Lípa')));
     assert.equal(parsed.pending.question, 'Kterou variantu chceš rozpracovat?');
     assert.equal(parsed.pending.request, 'Rozpracuj jednu variantu.');
@@ -143,6 +147,27 @@ test('explicit one-word answers do not trigger density retries; empty output rem
     assert.equal(calls, 1);
     assert.equal(enforceOutputContract('', { responseIntent: 'MINIMAL' }).ok, false);
     assert.equal(enforceOutputContract('Dobré. Hm.', { intent: 'REPORT' }).ok, false);
+    const brief = creDecisionEngine.overrideDecision({ type: DecisionType.ANSWER,
+      intent: IntentType.CREATIVE, confidence: 1, source: 'controlled-five-word-answer',
+      reason: 'Explicit word count', metadata: { briefResponse: true, responseWordCount: 5 } });
+    calls = 0;
+    llmGateway.call = async () => { calls++; return { content: 'Tichý koutek pro klidné čtení.', model: 'controlled', finishReason: 'stop' }; };
+    assert.equal((await handleAnswerDecision('Druhou variantu zkrať na pět slov.', brief, { history: [] })).content,
+      'Tichý koutek pro klidné čtení.');
+    assert.equal(calls, 1);
+    assert.equal(assertCreativeQuality('[TODO]', 'Krátký slogan.', { responseIntent: 'MINIMAL' }).valid, false);
+    calls = 0;
+    llmGateway.call = async (prompt) => {
+      calls++;
+      if (calls === 2) assert(prompt.includes('6 whitespace-separated words'));
+      return { content: calls === 1 ? 'Ideální klidné místo pro soustředěnou četbu.' : 'Tichý koutek pro klidné čtení.',
+        model: 'controlled', finishReason: 'stop' };
+    };
+    await handleAnswerDecision('Druhou variantu zkrať na pět slov.', brief, { history: [] });
+    assert.equal(calls, 2);
+    llmGateway.call = async () => ({ content: 'Ideální klidné místo pro soustředěnou četbu.', model: 'controlled', finishReason: 'stop' });
+    await assert.rejects(handleAnswerDecision('Druhou variantu zkrať na pět slov.', brief, { history: [] }),
+      error => error.code === 'CHAT_PROCESSING_FAILED' && error.sourceErrorType === 'ANSWER_WORD_COUNT_INVALID');
   } finally { llmGateway.call = original; }
 });
 

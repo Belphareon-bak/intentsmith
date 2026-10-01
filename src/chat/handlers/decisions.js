@@ -351,6 +351,7 @@ class AnswerCompletionBudgetError extends Error {}
 class AnswerRecentUserBudgetError extends Error {}
 class AnswerCurrentUserBudgetError extends Error {}
 class AnswerJsonFormatError extends Error {}
+class AnswerWordCountError extends Error {}
 
 export function buildAnswerContext(input, history, systemPrompt, requestedTokens, numCtx, options = {}) {
   // Conservative UTF-8 budget; reserve space for clock, role wrappers and a
@@ -1411,7 +1412,10 @@ Passe den Umfang der Anfrage an. Benenne Unsicherheit; erfinde keine aktuellen F
     const boundedRetryPrompt = candidate => Math.ceil(Buffer.byteLength(currentSystemPrompt + candidate, 'utf8') / 2)
       + currentAnswerContext.maxTokens + 384 <= numCtx ? candidate : currentPrompt;
     let result;
-    const answerResponseIntent = detectResponseIntent(input, {
+    const requestedWords = decision.metadata?.responseWordCount;
+    const hasWordCount = Number.isSafeInteger(requestedWords) && requestedWords > 0 && requestedWords <= 1000;
+    const answerResponseIntent = decision.metadata?.briefResponse === true || (hasWordCount && requestedWords <= 20)
+      ? ResponseIntent.MINIMAL : detectResponseIntent(input, {
       lastResponseIntent: context.sessionState?.lastResponseIntent || null,
     });
 
@@ -1500,6 +1504,17 @@ Passe den Umfang der Anfrage an. Benenne Unsicherheit; erfinde keine aktuellen F
       // ════════════════════════════════════════════════════════════════════════
       // v55.2 Sprint 2.1 — D6 Output Quality Gate for ANSWER path
       // ════════════════════════════════════════════════════════════════════════
+      if (hasWordCount && !strictJson) {
+        // Checks only an explicit presentation constraint, never meaning,
+        // quality, action parameters or the bytes of a saved literal.
+        const actualWords = result.content.trim().split(/\s+/u).filter(word => /[\p{L}\p{N}]/u.test(word)).length;
+        if (actualWords !== requestedWords) {
+          if (answerRetry === MAX_ANSWER_RETRIES) throw new AnswerWordCountError('Exact requested word count was not satisfied');
+          currentPrompt = boundedRetryPrompt(`${prompt}\n\nThe previous answer had ${actualWords} whitespace-separated words instead of the explicitly requested ${requestedWords}. Return exactly ${requestedWords} words in the requested language and meaning, with no labels, preamble, explanation or count claim.`);
+          answerRetry++;
+          continue;
+        }
+      }
       const gateVerdict = enforceOutputContract(result.content, {
         intent: decision.intent || 'CONVERSATIONAL',
         responseIntent: answerResponseIntent,
@@ -1547,7 +1562,7 @@ Passe den Umfang der Anfrage an. Benenne Unsicherheit; erfinde keine aktuellen F
       // v55.2 Sprint 2.2 — Creative Quality Gate: RETRY, not log
       // ════════════════════════════════════════════════════════════════════════
       if (decision.intent === IntentType.CREATIVE) {
-        const qualityCheck = assertCreativeQuality(result.content, input);
+        const qualityCheck = assertCreativeQuality(result.content, input, { responseIntent: answerResponseIntent });
         if (!qualityCheck.valid && answerRetry < MAX_ANSWER_RETRIES) {
           logger.warn('ConversationHandler', 'CREATIVE quality gate → RETRY', {
             reason: qualityCheck.reason,
@@ -1659,6 +1674,9 @@ Passe den Umfang der Anfrage an. Benenne Unsicherheit; erfinde keine aktuellen F
     }
     if (err instanceof AnswerJsonFormatError) {
       throw new ChatProcessingError('ANSWER_JSON_FORMAT_INVALID', err);
+    }
+    if (err instanceof AnswerWordCountError) {
+      throw new ChatProcessingError('ANSWER_WORD_COUNT_INVALID', err);
     }
     logger.error('ConversationHandler', `LLM call failed: ${err.message}`);
 
