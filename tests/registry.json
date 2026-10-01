@@ -121,6 +121,10 @@
     {
       "path": "tests/helpers/vat-intent-provider.js",
       "reason": "Test-owned explicit VAT semantic plans served through an isolated loopback provider; not a runnable suite."
+    },
+    {
+      "path": "tests/helpers/file-save-semantic-fixture.js",
+      "reason": "Explicit controlled semantic plans imported by M2 filesystem consumer suites; assertions run in their registered test programs, no standalone entry point."
     }
   ],
   "suites": [
