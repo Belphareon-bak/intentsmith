@@ -5,7 +5,6 @@ import assert from 'node:assert/strict';
 import { spawn, execFileSync } from 'node:child_process';
 import { randomBytes, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
-import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
@@ -15,6 +14,7 @@ import { LINUX_BWRAP_READ_ONLY_PROFILE } from '../src/execution/process-supervis
 import { computeM2ExecutionValueDigest } from '../contracts/m2/execution-v1.js';
 import { compileCodeDraftInput } from '../src/lifecycle/m2-code-draft.js';
 import { makeRuntime, startServer, stopServer, requestJson } from './run-project-build-journey.js';
+import { createOwnedProviderRelay } from './project-app-provider-relay.js';
 import {
   LEDGER_FILES, ORACLE_PATH, ORACLE_BINARY, ORACLE_ARGV, ORACLE_SOURCE, ORACLE_SHA256, PROBE_PATH, PROBE_SOURCE,
   PROBE_SHA256, VALIDATE_PATH, VALIDATE_SOURCE, VALIDATE_SHA256, ENTRY_PATH,
@@ -32,6 +32,7 @@ const ARTIFACT_ROOT = path.join(SOURCE_ROOT, '.intentsmith-artifacts');
 const MODEL_PATTERN = /^[A-Za-z0-9_.:/-]{1,128}$/;
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
 const DIGEST_PATTERN = /^[0-9a-f]{64}$/;
+const PROVIDER_VERSION_PATTERN = /^\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?$/;
 const SCENARIOS = Object.freeze({
   ledger: Object.freeze({ id: 'ledger', files: LEDGER_FILES, blueprint: ledgerBlueprint,
     oracleSource: ORACLE_SOURCE, oracleSha256: ORACLE_SHA256, oracleArgv: ORACLE_ARGV,
@@ -209,11 +210,21 @@ function observedBinding(databasePath, model, digest) {
 // Qualification evidence is computed even when the private child reports a
 // functional failure. A failed app must not hide otherwise complete provider
 // identity, and complete provider calls must not turn that app failure green.
+export function requireProviderVersion(version) {
+  assert.ok(typeof version === 'string' && version.trim() === version && PROVIDER_VERSION_PATTERN.test(version),
+    'provider version must be a nonempty version identity');
+  return version;
+}
+
 export function assessProviderGenerations(requests, { model, digest, version, previewHashes = null, scenarioId = 'ledger' }) {
   const scenario = scenarioFor(scenarioId);
   const expectedPaths = scenario.files.map(file => file.path).sort();
   const generations = requests.filter(row => row && ['/api/chat', '/api/generate'].includes(row.path));
   const failures = [];
+  const expectedIdentityValid = typeof model === 'string' && MODEL_PATTERN.test(model)
+    && typeof digest === 'string' && DIGEST_PATTERN.test(digest)
+    && typeof version === 'string' && version.trim() === version && PROVIDER_VERSION_PATTERN.test(version);
+  if (!expectedIdentityValid) failures.push('expected provider identity is missing or invalid');
   if (generations.length !== expectedPaths.length) failures.push(`expected ${expectedPaths.length} generations, observed ${generations.length}`);
   if (requests.some(row => row?.error)) failures.push('one or more provider relay requests failed');
   let generationPaths = [];
@@ -238,8 +249,8 @@ export function assessProviderGenerations(requests, { model, digest, version, pr
       && row.responseTruncated === false && terminal?.done === true
       && terminal?.done_reason === 'stop';
     if (!complete) failures.push(`generation ${index + 1} incomplete`);
-    const identityMatched = terminal?.model === model
-      && (terminal?.model_digest_sha256 || terminal?.digest) === digest
+    const identityMatched = expectedIdentityValid && terminal?.model === model
+      && (terminal?.model_digest_sha256 ?? terminal?.digest) === digest
       && terminal?.provider_version === version;
     if (!identityMatched) failures.push(`generation ${index + 1} identity mismatch`);
     let outputSha256 = null;
@@ -258,14 +269,60 @@ export function assessProviderGenerations(requests, { model, digest, version, pr
     previewCompared: completePreview, generationPaths, perFile, failures };
 }
 
-function providerRelay(socketPath) {
-  return http.createServer((incoming, outgoing) => {
-    const forwarded = http.request({ socketPath, path: incoming.url, method: incoming.method,
-      headers: JSON_HEADERS }, response => {
-      outgoing.writeHead(response.statusCode, response.headers); response.pipe(outgoing);
-    });
-    forwarded.on('error', error => { if (!outgoing.headersSent) outgoing.writeHead(502); outgoing.end(error.message); });
-    incoming.pipe(forwarded);
+export function providerRelay(socketPath) {
+  return createOwnedProviderRelay((incoming, outgoing, forward) => {
+    forward({ socketPath, path: incoming.url, method: incoming.method, headers: JSON_HEADERS });
+  });
+}
+
+export function createProviderProxy({ model, requests, onModelCall, upstreamPort = 11434 }) {
+  return createOwnedProviderRelay(async (incoming, outgoing, forward) => {
+    let row;
+    try {
+      const chunks = []; let bytes = 0;
+      for await (const chunk of incoming) { bytes += chunk.length; assert.ok(bytes <= 1_000_000); chunks.push(chunk); }
+      const payload = Buffer.concat(chunks);
+      const body = payload.length ? JSON.parse(payload) : null;
+      row = { at: new Date().toISOString(), method: incoming.method, path: incoming.url,
+        requestSha256: sha256(payload), model: body?.model ?? body?.name ?? null,
+        numCtx: body?.options?.num_ctx ?? body?.num_ctx ?? null,
+        maxTokens: body?.options?.num_predict ?? body?.num_predict ?? null,
+        stream: body?.stream ?? null };
+      requests.push(row);
+      const read = incoming.method === 'GET' && ['/api/tags', '/api/ps', '/api/version'].includes(incoming.url);
+      const modelCall = incoming.method === 'POST' && ['/api/chat', '/api/generate'].includes(incoming.url)
+        && body?.model === model;
+      const show = incoming.method === 'POST' && incoming.url === '/api/show'
+        && (body?.model || body?.name) === model;
+      assert.ok(read || modelCall || show, 'provider request outside exact model scope');
+      forward({ hostname: '127.0.0.1', port: upstreamPort, path: incoming.url, method: incoming.method,
+        headers: { ...JSON_HEADERS, 'Content-Length': payload.length } }, {
+        payload,
+        onResponse(response) {
+          row.status = response.statusCode;
+          const received = []; let total = 0;
+          response.on('data', chunk => { total += chunk.length; if (total <= 16_000_000) received.push(chunk); });
+          response.on('end', () => {
+            row.responseBytes = total;
+            row.responseTruncated = total > 16_000_000;
+            const raw = Buffer.concat(received);
+            row.responseSha256 = row.responseTruncated ? null : sha256(raw);
+            try { row.terminal = JSON.parse(raw); }
+            catch { row.terminal = raw.toString().trim().split('\n').map(line => {
+              try { return JSON.parse(line); } catch { return null; }
+            }).filter(Boolean).at(-1) ?? null; }
+          });
+        },
+        onError(error) { row.error = error.message; },
+      });
+      if (modelCall) onModelCall();
+    } catch (error) {
+      if (row) row.error = error.message;
+      if (!outgoing.destroyed) {
+        if (!outgoing.headersSent) outgoing.writeHead(403);
+        outgoing.end();
+      }
+    }
   });
 }
 
@@ -279,8 +336,8 @@ async function runInside(configurationPath) {
   const interfaces = JSON.parse(execFileSync('/usr/sbin/ip', ['-j', 'address'], { encoding: 'utf8' }));
   assert.deepEqual(interfaces.map(item => item.ifname), ['lo'], 'namespace has loopback only');
   const relay = providerRelay(cfg.socketPath);
-  await new Promise(resolve => relay.listen(0, '127.0.0.1', resolve));
-  const providerUrl = `http://127.0.0.1:${relay.address().port}`;
+  await new Promise(resolve => relay.server.listen(0, '127.0.0.1', resolve));
+  const providerUrl = `http://127.0.0.1:${relay.server.address().port}`;
   const runtime = makeRuntime(out);
   const project = path.join(runtime.projects, scenario.projectDirectory);
   const evidence = { status: 'RUNNING', scenarioId: scenario.id, source: cfg.source, model: cfg.model, digest: cfg.digest,
@@ -421,8 +478,7 @@ async function runInside(configurationPath) {
     evidence.error = { message: error.message, stack: error.stack };
   } finally {
     try { await stop(); } catch (error) { evidence.status = 'FAIL'; evidence.stopError = error.message; }
-    relay.closeAllConnections();
-    await new Promise(resolve => relay.close(resolve));
+    evidence.providerRelayCleanup = await relay.close();
     evidence.completedAt = new Date().toISOString();
     save(out, 'app-journey.json', evidence);
   }
@@ -472,60 +528,12 @@ async function runParent(options) {
     assert.equal(inventory.models.find(item => item.name === options.model)?.digest, options.digest,
       'installed exact model digest');
     const version = await upstream('/api/version');
-    evidence.providerVersion = version.version;
+    evidence.providerVersion = requireProviderVersion(version.version);
     socketRoot = fs.mkdtempSync('/tmp/is-project-app-');
     fs.chmodSync(socketRoot, 0o700);
     const socketPath = path.join(socketRoot, 'provider.sock');
-    proxy = http.createServer(async (incoming, outgoing) => {
-      let row;
-      try {
-        const chunks = []; let bytes = 0;
-        for await (const chunk of incoming) { bytes += chunk.length; assert.ok(bytes <= 1_000_000); chunks.push(chunk); }
-        const payload = Buffer.concat(chunks);
-        const body = payload.length ? JSON.parse(payload) : null;
-        row = { at: new Date().toISOString(), method: incoming.method, path: incoming.url,
-          requestSha256: sha256(payload), model: body?.model ?? body?.name ?? null,
-          numCtx: body?.options?.num_ctx ?? body?.num_ctx ?? null,
-          maxTokens: body?.options?.num_predict ?? body?.num_predict ?? null,
-          stream: body?.stream ?? null };
-        requests.push(row);
-        const read = incoming.method === 'GET' && ['/api/tags', '/api/ps', '/api/version'].includes(incoming.url);
-        const modelCall = incoming.method === 'POST' && ['/api/chat', '/api/generate'].includes(incoming.url)
-          && body?.model === options.model;
-        const show = incoming.method === 'POST' && incoming.url === '/api/show'
-          && (body?.model || body?.name) === options.model;
-        assert.ok(read || modelCall || show, 'provider request outside exact model scope');
-        if (modelCall) loaded = true;
-        const request = http.request({ hostname: '127.0.0.1', port: 11434,
-          path: incoming.url, method: incoming.method,
-          headers: { ...JSON_HEADERS, 'Content-Length': payload.length } }, response => {
-          row.status = response.statusCode;
-          outgoing.writeHead(response.statusCode, response.headers);
-          const received = []; let total = 0;
-          response.on('data', chunk => { total += chunk.length; if (total <= 16_000_000) received.push(chunk); });
-          response.on('end', () => {
-            row.responseBytes = total;
-            row.responseTruncated = total > 16_000_000;
-            const raw = Buffer.concat(received);
-            row.responseSha256 = row.responseTruncated ? null : sha256(raw);
-            try { row.terminal = JSON.parse(raw); }
-            catch { row.terminal = raw.toString().trim().split('\n').map(line => {
-              try { return JSON.parse(line); } catch { return null; }
-            }).filter(Boolean).at(-1) ?? null; }
-          });
-          response.pipe(outgoing);
-        });
-        request.setTimeout(180_000, () => request.destroy(new Error('bounded provider timeout')));
-        request.on('error', error => { row.error = error.message;
-          if (!outgoing.headersSent) outgoing.writeHead(502); outgoing.end(); });
-        request.end(payload);
-      } catch (error) {
-        if (row) row.error = error.message;
-        if (!outgoing.headersSent) outgoing.writeHead(403);
-        outgoing.end();
-      }
-    });
-    await new Promise(resolve => proxy.listen(socketPath, resolve));
+    proxy = createProviderProxy({ model: options.model, requests, onModelCall: () => { loaded = true; } });
+    await new Promise(resolve => proxy.server.listen(socketPath, resolve));
     fs.chmodSync(socketPath, 0o600);
     save(out, 'inside-configuration.json', { scenarioId: scenario.id, source, model: options.model, digest: options.digest, socketPath });
     child = spawn('unshare', ['--user', '--map-root-user', '--net', '--', 'bwrap', '--bind', '/', '/',
@@ -557,8 +565,12 @@ async function runParent(options) {
     evidence.status = 'FAIL'; evidence.error = { message: error.message, stack: error.stack };
   } finally {
     if (child && child.exitCode === null && child.signalCode === null) child.kill('SIGTERM');
-    if (proxy) { proxy.closeAllConnections(); await new Promise(resolve => proxy.close(resolve)); }
-    if (!evidence.providerAttestation) {
+    let relaySettled = proxy === null;
+    if (proxy) {
+      try { evidence.providerRelayCleanup = await proxy.close(); relaySettled = true; }
+      catch (error) { evidence.status = 'FAIL'; evidence.relayCleanupError = error.message; }
+    }
+    {
       let previewHashes = null;
       try { previewHashes = JSON.parse(fs.readFileSync(path.join(out, 'app-journey.json'), 'utf8')).previewHashes ?? null; }
       catch { /* no completed child journey */ }
@@ -569,7 +581,7 @@ async function runParent(options) {
       evidence.physicalGenerationsObserved = evidence.providerAttestation.observed;
     }
     if (!evidence.providerAttestation.valid) evidence.status = 'FAIL';
-    if (loaded) {
+    if (loaded && relaySettled) {
       try {
         const ps = await upstream('/api/ps');
         assert.ok(ps.models.every(item => item.name === options.model && item.digest === options.digest),
@@ -580,10 +592,11 @@ async function runParent(options) {
       } catch (error) { evidence.status = 'FAIL'; evidence.cleanupError = error.message; }
     }
     if (socketRoot) fs.rmSync(socketRoot, { recursive: true, force: true });
-    if (lease) {
+    if (lease && relaySettled) {
       evidence.gpuLeaseReleased = lease.release();
       if (!evidence.gpuLeaseReleased) evidence.status = 'FAIL';
     }
+    if (!relaySettled) { evidence.status = 'FAIL'; evidence.gpuLeaseRetainedForUnsettledRequests = lease !== null; }
     const afterSource = sourceObservation(scenario);
     evidence.sourceCleanAfter = afterSource.dirty === ''
       && JSON.stringify(afterSource) === JSON.stringify(source);

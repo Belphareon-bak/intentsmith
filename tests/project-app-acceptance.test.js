@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Offline, owned-code controls for the frozen ledger oracle. No model calls.
+// Offline, owned-code controls for the frozen app oracles. No model calls.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -11,7 +11,7 @@ import { processSandboxProvider } from '../src/execution/process-sandbox-provide
 import { LINUX_BWRAP_READ_ONLY_PROFILE } from '../src/execution/process-supervisor-child.js';
 import { computeM2ExecutionValueDigest } from '../contracts/m2/execution-v1.js';
 import { compileCodeDraftInput } from '../src/lifecycle/m2-code-draft.js';
-import { assessProviderGenerations } from '../scripts/run-project-app-journey.js';
+import { assessProviderGenerations, requireProviderVersion } from '../scripts/run-project-app-journey.js';
 import { REFERENCE_LEDGER_OUTPUTS as GOOD } from './helpers/project-app-reference.js';
 import { REFERENCE_TASKFLOW_OUTPUTS, taskflowMutant } from './helpers/project-taskflow-reference.js';
 import {
@@ -167,7 +167,7 @@ test('TaskFlow provider proof binds each generation to its canonical compiler ta
   const compiled = compileCodeDraftInput(taskflowBlueprint());
   const paths = compiled.buildSteps.map(step => compiled.changes[step.index].path);
   assert.deepEqual(paths, ['src/query.js', 'src/validate.js', 'src/store.js', 'src/cli.js', 'src/app.js']);
-  const model = 'qualification-model', digest = 'a'.repeat(64), version = 'qualification-version';
+  const model = 'qualification-model', digest = 'a'.repeat(64), version = '0.34.0';
   const requests = paths.map((target, index) => ({
     path: '/api/chat', method: 'POST', model, status: 200, responseTruncated: false,
     requestSha256: sha256(`request-${index}`), terminal: {
@@ -190,4 +190,32 @@ test('TaskFlow provider proof binds each generation to its canonical compiler ta
   assert.equal(wrong.valid, false);
   assert.deepEqual(wrong.perFile.filter(row => !row.outputPreviewMatch).map(row => row.targetPath),
     ['src/cli.js', 'src/app.js']);
+});
+
+test('provider proof rejects missing or invalid expected and terminal versions for both fixed apps', () => {
+  for (const [scenarioId, blueprint, outputs] of [
+    ['ledger', ledgerBlueprint, GOOD], ['taskflow', taskflowBlueprint, REFERENCE_TASKFLOW_OUTPUTS],
+  ]) {
+    const compiled = compileCodeDraftInput(blueprint());
+    const paths = compiled.buildSteps.map(step => compiled.changes[step.index].path);
+    const model = 'qualification-model', digest = 'a'.repeat(64);
+    const rows = version => paths.map(target => ({ path: '/api/chat', method: 'POST', model,
+      status: 200, responseTruncated: false, terminal: {
+        done: true, done_reason: 'stop', model, model_digest_sha256: digest,
+        provider_version: version, message: { content: JSON.stringify({ afterContent: outputs[target] }) },
+      } }));
+    const previewHashes = paths.map(target => ({ path: target, sha256: sha256(outputs[target]) }));
+    for (const version of [undefined, null, '', ' ', 'unrecorded', '0.34', '0.34.0\n', ' 0.34.0']) {
+      assert.throws(() => requireProviderVersion(version), /provider version/);
+      assert.equal(assessProviderGenerations(rows(version), { model, digest, version, previewHashes, scenarioId }).valid,
+        false, `${scenarioId}: invalid equal versions ${String(version)} must not attest`);
+      assert.equal(assessProviderGenerations(rows(version), { model, digest, version: '0.34.0', previewHashes, scenarioId }).valid,
+        false, `${scenarioId}: invalid terminal version ${String(version)}`);
+    }
+    assert.equal(assessProviderGenerations(rows('0.34.0'), { model, digest, version: '0.34.1', previewHashes, scenarioId }).valid,
+      false, `${scenarioId}: exact provider version mismatch`);
+    assert.equal(assessProviderGenerations(rows('0.34.0'), { model, digest, version: '0.34.0', previewHashes, scenarioId }).valid,
+      true, `${scenarioId}: complete valid exact metadata`);
+    assert.equal(requireProviderVersion('0.34.0'), '0.34.0');
+  }
 });
