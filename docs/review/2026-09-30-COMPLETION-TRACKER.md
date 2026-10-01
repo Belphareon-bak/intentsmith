@@ -11,15 +11,15 @@ jen uživatelský tah, bez asistenčního textu. Doklad je soukromá capture
 `.intentsmith-artifacts/direct-tests/chat-accountant-live.test-waYVes/artifacts/chat-accountant-live-provider.jsonl`;
 nejde o přijatý živý účetní výsledek.
 
-Úzká oprava v rozpracovaném integračním stromu nastavuje 512 výstupních
+Úzká oprava na `a6ea1c85` nastavuje 512 výstupních
 tokenů jen pro VAT wrapper; ostatní expertizy zůstávají na 256 a neúplný
 terminál se dál odmítá. Řízený M1 provider red-first reprodukoval 502 při
 starém limitu a po opravě prošel **2/2**. Významový VAT oracle také chybně
 odmítal přesné číslo zákona z výsledku nástroje a dvě běžné varianty tučného
 Markdown nadpisu; po cílených červených mutacích nyní prochází **40/40**
 včetně tabulky, negace přes citaci a nesprávných částek. Sousední přímé
-účetní/překladatelské/projektové sady prošly **49/49**. Tento patch ještě
-čeká na čistý commit, nezávislé review a nový fyzický běh.
+účetní/překladatelské/projektové sady prošly **49/49**. Tento commit ještě
+čeká na nezávislé review a nový fyzický běh.
 
 ## Checkpoint 1. 10. 2026, 01:55 UTC — společný chat a veřejná hranice
 

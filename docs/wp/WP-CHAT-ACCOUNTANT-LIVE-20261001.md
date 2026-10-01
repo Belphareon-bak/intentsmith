@@ -184,6 +184,6 @@ negativní kontrola negace za citací znovu **1 FAIL / 39 PASS**. Synteticky
 dokončená skutečná tabulka z capture i negativní mutace částek, sazby,
 období, zákona a disclaimeru nyní procházejí **40/40**. Šest sousedních
 direct sad účetního, překladatele, projektové expertizy, veřejné hranice a
-hodnotové věrnosti prošlo **49/49**. Požadován je nový čistý commit,
-nezávislé review delty a fyzický běh; z offline oprav se nový modelový
+hodnotové věrnosti prošlo **49/49**. Oprava je připnutá na `a6ea1c85`;
+požadováno je nezávislé review delty a fyzický běh. Z offline oprav se nový modelový
 výsledek neodvozuje.

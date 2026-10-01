@@ -1,6 +1,6 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktuální source checkpoint 1. 10. 2026, 01:52 UTC — produkt `1303535f`:**
+**Aktuální source checkpoint 1. 10. 2026, 02:05 UTC — produkt `a6ea1c85`:**
 [měřené dokončování IDE/backendu, chatu, GPU huntu a odložené mobilní
 integrace](docs/review/2026-09-30-COMPLETION-TRACKER.md). Vývojový registr
 má 583 programů; úplný offline/database profil na čistém předchozím
@@ -8,7 +8,9 @@ má 583 programů; úplný offline/database profil na čistém předchozím
 místními toolchainy
 (`.intentsmith-artifacts/test-runs/2026-10-01T01-41-43-923Z/report.json`).
 Nová veřejná hranice specialisty na `1303535f` získala před integrací
-omezené nezávislé `REVIEW_PASS`; celý profil se po ní musí opakovat.
+omezené nezávislé `REVIEW_PASS`. Následný `a6ea1c85` opravuje živě
+pozorované useknutí účetní VAT odpovědi; jeho nezávislé review, opakovaný
+fyzický běh a celý offline/database profil teprve následují.
 Níže uvedených 353/353 patří staršímu M6 kandidátu,
 nikoli dnešnímu vývojovému profilu; M5/M6 acceptance zůstává zavřená.
 Následující datované záznamy zachovávají historii tehdejších kandidátů.
