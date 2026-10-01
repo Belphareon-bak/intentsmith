@@ -195,8 +195,9 @@ test('model and runner-owned server phases cover every runnable required program
   const plan = buildM6CandidateExecutionPlan(registry);
   const byId = new Map(registry.suites.map(program => [program.id, program]));
   const modelPhase = plan.phases.find(item => item.id === 'model-without-server');
-  // Privacy, chat, translator and Project Health product journeys own isolated servers.
-  assert.equal(modelPhase.programIds.length, 60);
+  // The literal/repeat save HTTP journeys added after bf7dc31f own isolated
+  // servers too: the exact registry now contains 44 model + 18 server programs.
+  assert.equal(modelPhase.programIds.length, 62);
   assert(modelPhase.programIds.includes('IS-T1-TESTS-PROJECT-COLLABORATION-TEST'));
   assert(modelPhase.programIds.includes('IS-T3-TESTS-CHAT-PRIVACY-HTTP-TEST'));
   assert(modelPhase.programIds.includes('IS-T3-TESTS-CHAT-PROJECT-EXPERTISE-HTTP-TEST'));
@@ -211,9 +212,21 @@ test('model and runner-owned server phases cover every runnable required program
   assert(modelPhase.programIds.includes('IS-T3-TESTS-CHAT-SAZENI-HTTP-JOURNEY-TEST'));
   assert(modelPhase.programIds.includes('IS-T3-TESTS-CHAT-SECOND-COMPACTION-HTTP-TEST'));
   assert(modelPhase.programIds.includes('IS-T3-TESTS-M3-AGENT-CRASH-RECOVERY-PRODUCT-JOURNEY-TEST'));
+  for (const programId of [
+    'IS-T3-TESTS-CHAT-LITERAL-WRITE-HTTP-TEST',
+    'IS-T3-TESTS-CHAT-REPEAT-SAVE-HTTP-TEST',
+  ]) {
+    assert(modelPhase.programIds.includes(programId));
+    const omitted = structuredClone(plan);
+    omitted.phases.find(phase => phase.id === modelPhase.id).programIds =
+      modelPhase.programIds.filter(id => id !== programId);
+    const validation = validateM6CandidateExecutionPlan(omitted, registry);
+    assert.equal(validation.valid, false, programId);
+    assert(validation.errors.includes(`plan:required-program-uncovered:${programId}`));
+  }
   assert.equal(modelPhase.programIds.filter(id => byId.get(id).profile === 'model').length, 44);
   assert(modelPhase.programIds.includes('IS-T3-TESTS-M2-CODE-DRAFT-MODEL-TEST'));
-  assert.equal(modelPhase.programIds.filter(id => byId.get(id).profile === 'server').length, 16);
+  assert.equal(modelPhase.programIds.filter(id => byId.get(id).profile === 'server').length, 18);
   assert(modelPhase.programIds.every(id => byId.get(id).requirements.server === false));
   assert(modelPhase.programIds.every(id => byId.get(id).requirements.network !== 'external'));
 
