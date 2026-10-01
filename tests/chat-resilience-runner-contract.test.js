@@ -196,8 +196,8 @@ try {
   rejected(incomplete, /53 declared cases/u);
 
   const contaminatedHoldout = structuredClone(original);
-  contaminatedHoldout.cases.find(entry => entry.family === 'F13').usedForTuning = true;
-  rejected(contaminatedHoldout, /eight untouched holdout families/u);
+  contaminatedHoldout.cases.find(entry => entry.family === 'F14').usedForTuning = true;
+  rejected(contaminatedHoldout, /seven untouched holdout families/u);
 
   const wrongApprovalSource = structuredClone(original);
   wrongApprovalSource.cases.find(entry => entry.id === 'save-next').approve.fromCase = 'http';

@@ -205,8 +205,8 @@ const expectedFamilies = Array.from({ length: 20 }, (_, index) => `F${String(ind
 const actualFamilies = Array.isArray(corpus) ? [...new Set(corpus.map(c => c.family))].sort() : [];
 if (definition.version !== 1 || !Array.isArray(corpus) || corpus.length !== 53
   || definition.families !== 20 || JSON.stringify(actualFamilies) !== JSON.stringify(expectedFamilies)
-  || !Array.isArray(definition.heldOutFamilies) || definition.heldOutFamilies.length !== 8
-  || new Set(definition.heldOutFamilies).size !== 8
+  || !Array.isArray(definition.heldOutFamilies) || definition.heldOutFamilies.length !== 7
+  || new Set(definition.heldOutFamilies).size !== 7
   || definition.heldOutFamilies.some(family => !actualFamilies.includes(family))
   || corpus.some(c => !c.id || typeof c.input !== 'string' || !c.input.trim() || !c.intent
     || typeof c.contextPolicy !== 'string' || !Array.isArray(c.allowed) || !c.allowed.length
@@ -214,7 +214,7 @@ if (definition.version !== 1 || !Array.isArray(corpus) || corpus.length !== 53
     || !Array.isArray(c.forbidden) || !c.forbidden.length
     || typeof c.usedForTuning !== 'boolean' || !c.variant
     || (definition.heldOutFamilies.includes(c.family) && c.usedForTuning)))
-  throw new Error('Final corpus must have 53 declared cases, 20 families and eight untouched holdout families');
+  throw new Error('Final corpus must have 53 declared cases, 20 families and seven untouched holdout families');
 if (new Set(corpus.map(c => c.id)).size !== corpus.length) throw new Error('Duplicate case ID');
 const requestedCases = process.env.CHAT_PROBE_CASES?.split(',').filter(Boolean) || null;
 if (requestedCases && (!requestedCases.length || new Set(requestedCases).size !== requestedCases.length

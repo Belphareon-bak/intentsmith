@@ -21,13 +21,20 @@ relativní cesta a předem určený digest; nesoulad zůstane `approvalBlocked`.
 Výsledné soubory, HTTP, DB řádky, provider request/response a latence se uloží
 do soukromých ignorovaných artefaktů, nikoli do Git historie.
 
-Korpus vychází z `00742bcd` (53 případů, 20 rodin, 8 nedotčených rodin).
+Korpus vychází z `00742bcd` (53 případů, 20 rodin, původně 8 nedotčených rodin).
 Přenos doplnil u čtyř `approve.previous` explicitní `fromCase`, protože dnešní
 `buildHandlerHistory()` nepředává původní metadata odpovědi. To mění hash
 korpusu proti historickému `5e6b8c9f…`; všechny tři nové finální běhy musí
 použít **stejné nové bytes**, stejný source, modelový digest, Node, provider
 verzi, bindings a memory policy. Historické `NEEDS_MORE_WORK` a 53 × 3
 `LIVE_NOT_RUN` zůstávají historickým stavem, ne výsledkem tohoto přenosu.
+
+Pilot `pilot-4` použil případ `no-overwrite` z rodiny F13. Tuto rodinu už
+nelze poctivě označit za nedotčený holdout: oba její variantní případy jsou
+proto označené `usedForTuning:true` a počet nedotčených rodin je **7**
+(F14–F20). Celkových 53 případů a 20 rodin se nemění. Původní osmici
+nebudeme vydávat za nezávislý výsledek; finální série dostane nový hash
+korpusu a běží třikrát beze změny až po zmrazení zdroje.
 
 Runner odděluje transportní úplnost `LIVE_COMPLETE_UNASSESSED` od významového
 hodnocení. Ani tento status není PASS kvality. Text každé odpovědi se musí

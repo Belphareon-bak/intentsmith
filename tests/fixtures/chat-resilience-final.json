@@ -1,9 +1,8 @@
 {
   "version": 1,
-  "purpose": "Predeclared final verification, not executed during tuning. Eight of twenty families are held out from this milestone's tuning. Variants of a family do not inflate base-family count.",
+  "purpose": "Predeclared final verification. F13 was exposed in pilot-4 and is now a development family; seven of twenty families remain untouched holdout. Variants of a family do not inflate base-family count.",
   "families": 20,
   "heldOutFamilies": [
-    "F13",
     "F14",
     "F15",
     "F16",
@@ -761,7 +760,7 @@
         "silently dropping no-overwrite restriction"
       ],
       "question": "permitted",
-      "usedForTuning": false,
+      "usedForTuning": true,
       "variant": "standard"
     },
     {
@@ -777,7 +776,7 @@
         "overwrite existing.md"
       ],
       "question": "permitted",
-      "usedForTuning": false,
+      "usedForTuning": true,
       "variant": "no_diacritics"
     },
     {
