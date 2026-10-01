@@ -66,3 +66,12 @@ deterministicky posunut. Kandidát neověřuje skutečné dnešní kurzy, kalibr
 modelu, přijetí sázky, fyzické UI ani mobilního klienta. Registrovaná sada
 `IS-T3-TESTS-CHAT-SAZENI-HTTP-JOURNEY-TEST` a lokální zelené běhy nejsou
 release přejímka.
+
+**První čistý commit a registrovaný běh:** `16e361764d0e0c30ea153a336864760453aee185`
+prošel přes `scripts/run-suites.js` jako **1/1 PASS**; přesný lokální report je
+`.intentsmith-artifacts/run-suites/2026-10-01T00-16-44-338Z/report.json`
+se `sourceRevision=16e36176` a `gateEvidence:false`. Dokumentační kontrola
+`artifact-validation` prošla **160/160**, specialistický boundary ratchet
+**12/12**, registr obsahuje **578** programů a fingerprint
+`7e4070d0a62961d25ed159dc1910edd28d37579d19d0c6633f94693fb70ca99d`.
+Tento bod není nezávislé přijetí kandidáta.
