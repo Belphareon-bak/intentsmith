@@ -43,11 +43,25 @@ function moneyValues(clause) {
       + (match[2] ? `.${match[2]}` : '')));
 }
 
-function assertLabeledAmount(clauses, label, expected, name) {
-  const observed = clauses.filter(clause => label.test(clause))
-    .map(moneyValues).filter(values => values.length > 0);
-  assert(observed.length > 0 && observed.every(values => values.includes(expected)),
-    `${name} must be labeled with exactly ${expected} CZK without a conflicting figure`);
+const LABELS = /(?<total>cena s DPH|celková cena|částka s DPH|celkem)|(?<base>základ(?: daně)?|cena bez DPH)|(?<vat>daň z přidané hodnoty|(?<!s )(?<!bez )\bDPH\b)/giu;
+function assertExactLabeledAmounts(resultText) {
+  const labels = [...resultText.matchAll(LABELS)];
+  const expected = { base: VAT_RESULT.base, vat: VAT_RESULT.vat,
+    total: VAT_RESULT.total };
+  const observed = { base: [], vat: [], total: [] };
+  for (const [index, label] of labels.entries()) {
+    const role = Object.keys(expected).find(key => label.groups[key] !== undefined);
+    const next = labels[index + 1]?.index ?? resultText.length;
+    const amounts = moneyValues(resultText.slice(label.index + label[0].length, next));
+    if (amounts.length === 0) continue;
+    assert.equal(amounts.length, 1,
+      `${role} has ambiguous or contradictory monetary figures in one span`);
+    observed[role].push(amounts[0]);
+  }
+  for (const [role, amount] of Object.entries(expected)) {
+    assert(observed[role].length > 0 && observed[role].every(value => value === amount),
+      `${role} must uniquely map to ${amount} CZK in the final answer`);
+  }
 }
 
 function assertListedSection(lines, title) {
@@ -68,13 +82,7 @@ export function assertVatAnswer(answer) {
   assert(/\b21\s*%/u.test(normalized), 'VAT rate 21 % missing');
   const assumptions = normalized.indexOf('Předpoklady');
   const resultText = assumptions >= 0 ? normalized.slice(0, assumptions) : normalized;
-  const clauses = resultText.split(/[,;\n]/u);
-  assertLabeledAmount(clauses, /(?:základ(?: daně)?|cena bez DPH)/iu,
-    VAT_RESULT.base, 'base');
-  assertLabeledAmount(clauses, /(?<!s )(?<!bez )\bDPH\b/iu,
-    VAT_RESULT.vat, 'VAT');
-  assertLabeledAmount(clauses, /(?:cena s DPH|celková cena|celkem|částka s DPH)/iu,
-    VAT_RESULT.total, 'total');
+  assertExactLabeledAmounts(resultText);
   const lines = normalized.split(/\r?\n/u);
   assertListedSection(lines, 'Předpoklady');
   assertListedSection(lines, 'Nezahrnuje');

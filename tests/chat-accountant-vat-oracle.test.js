@@ -36,6 +36,20 @@ test('bounded VAT answer oracle accepts only exact amounts and required limits',
   }
 });
 
+test('VAT label rejects two monetary amounts in one sentence', () => {
+  const contradictory = valid.replace('DPH 21 % je 2 100 Kč',
+    'DPH 21 % je 2 100 Kč i 2 200 Kč');
+  assert.throws(() => assertVatAnswer(contradictory),
+    /vat has ambiguous or contradictory monetary figures in one span/u);
+});
+
+test('base and VAT labels reject swapped amounts in one clause', () => {
+  const swapped = valid.replace('základ 10 000 Kč, DPH 21 % je 2 100 Kč',
+    'základ 2 100 Kč a DPH 21 % je 10 000 Kč');
+  assert.throws(() => assertVatAnswer(swapped),
+    /base must uniquely map to 10000 CZK in the final answer/u);
+});
+
 test('captured VAT oracle binds one completed model turn to tool result and M1 bytes', () => {
   const model = 'fixture:vat';
   const digest = 'a'.repeat(64);

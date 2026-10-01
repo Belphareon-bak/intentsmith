@@ -50,10 +50,14 @@ označený základ, DPH a cenu s DPH, sazbu, rok a ČR, oddíly „Předpoklady�
 konzultaci poradce. HTTP historie i přímý read-only SQLite dotaz musí mít
 právě uložený uživatelský vstup a shodný asistenční text.
 
-Negativní offline mutace odmítají chybné tři částky, sazbu, rok, jurisdikci,
+Negativní offline mutace odmítají chybné tři částky, dvě částky DPH v jedné
+větě i prohozené štítky základu a DPH v jednom souvětí, sazbu, rok, jurisdikci,
 chybějící oddíly nebo disclaimer, nedokončený/cizí provider, jiný M1 text,
 prázdný seznam omezení, pozdní větu za disclaimerem, protichůdnou další
-částku DPH, chybějící tool prompt a chybný strukturovaný VAT výsledek.
+částku DPH, chybějící tool prompt a chybný strukturovaný VAT výsledek. Parser
+pro tento scénář svazuje každou měnovou částku s příslušným štítkem a odmítá
+nejednoznačné vícenásobné částky v jeho úseku; nepředstírá obecné jazykové
+porozumění.
 Je to ohraničené
 orákulum pro tento jeden výpočet, ne obecný hodnotitel daňových rad.
 
@@ -75,6 +79,15 @@ sdílení orákula **2/2**, dokumentační validace **160/160**, syntaxe živé 
 a registr **582** programů prošly. Vynucený neopt-in běh skončil ještě před
 lease jako `LIVE_NOT_RUN` (záměrná negativní kontrola). Fyzický Ollama běh
 zatím **neproběhl**.
+
+Nezávislá revize kandidáta `afb73b05` vrátila **CHANGES_REQUIRED**: starý
+oracle falešně přijal dvě různé částky DPH v jedné větě i prohozené štítky
+základu a DPH ve stejném souvětí. Přímé opakování obou přesných mutací na
+`afb73b05` dalo `FALSE_GREEN` a samostatná negativní regrese na první případ
+byla na starém orákulu červená (`Missing expected exception`). Nová
+verze ověřuje jedinečnou částku za každým štítkem; oba konkrétní případy
+odmítá a přímé offline testy orákula **4/4** i řízeného M1 **2/2** procházejí.
+Oprava zůstává `REVIEW_PENDING`, živý model stále `LIVE_NOT_RUN`.
 
 Živý příkaz až po review a uvolnění GPU slotu na přesném čistém commitu:
 
