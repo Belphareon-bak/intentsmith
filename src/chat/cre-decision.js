@@ -3194,6 +3194,11 @@ PRAVIDLA:
     const _text = input.trim();
     const _norm = normalizeForClassification(_text);
     const deterministicIntent = this.classifyIntent(input);
+    // A courtesy/knowledge shortcut must not consume a request containing a
+    // concrete file target. Let the model interpret the whole composed turn;
+    // the downstream handler independently grounds any resulting write plan.
+    const namedFileCandidate = extractFilePath(_text.replace(/[.!?,;:]+$/u, ''));
+    const requiresFileArbitration = Boolean(namedFileCandidate && namedFileCandidate !== '.');
     const isDeterministicLiteralWrite = EXPLICIT_LITERAL_FILE_WRITE_PATTERN.test(_text);
     // ConversationHandler appends this exact context-owned formatter output.
     // Remove only that suffix for the new listing recognizer; all later guards
@@ -3263,6 +3268,7 @@ PRAVIDLA:
               : deterministicIntent;
     const isDeterministic =
       (resolvedDeterministicIntent === IntentType.CONVERSATIONAL
+        && !requiresFileArbitration
         && !mayRequireLocalAuthority
         && !creativeKnowledgeNeedsArbitration
         && (isExplicitConversation

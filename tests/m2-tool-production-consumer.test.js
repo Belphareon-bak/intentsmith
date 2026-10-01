@@ -15,6 +15,9 @@ import {
 import path from 'node:path';
 
 import { suite, test, testAsync, summary } from './harness.js';
+import {
+  answerSavePlan, ambiguousSavePlan, fileSaveSemanticFixture, withFileSaveSemanticProvider,
+} from './helpers/file-save-semantic-fixture.js';
 
 const {
   creDecisionEngine,
@@ -262,14 +265,23 @@ await testAsync('project path routing proposes only grounded writes and keeps ro
     'chci uložit text do saved.txt',
     'vytvořit soubor plan.md a uložit ho do plan.md',
     'write this to result.txt',
-    'Shrň všechno co jsi zjistil. Výsledek dej do souboru project-analysis.md v projektu.',
+    'Shrň předchozí odpověď a ulož ji do summary.md.',
+    'Prosím ulož to do polite.md.',
+    'Ulož tu odpověď do answer.md.',
   ];
-  const ungroundedInputs = new Map([
-    [writeInputs[0], 'file_write_content_unquoted'],
-    [writeInputs[1], 'file_write_command_ambiguous'],
-    [writeInputs[2], 'file_write_command_ambiguous'],
-    [writeInputs[4], 'file_write_content_not_grounded'],
-  ]);
+  const targets = ['notes.txt', 'saved.txt', 'plan.md', 'result.txt', 'summary.md', 'polite.md', 'answer.md'];
+  // Typed model outcomes are explicit fixtures, not a second language parser.
+  // These three unresolved plans must never acquire tool/effect authority.
+  const unresolvedInputs = new Set(writeInputs.slice(0, 3));
+  const fixtures = new Map(writeInputs.map((input, index) => [input,
+    fileSaveSemanticFixture({
+      request: input,
+      plan: unresolvedInputs.has(input)
+        ? ambiguousSavePlan('Which exact content should be saved?')
+        : answerSavePlan(targets[index], 590 + index, index === 4 ? 'summarize' : 'none'),
+      summary: index === 4 ? 'Explicit completed summary with value 42.\n' : null,
+    }),
+  ]));
   let decideCalls = 0;
   try {
     for (const input of writeInputs) {
@@ -290,50 +302,73 @@ await testAsync('project path routing proposes only grounded writes and keeps ro
         confidence: 1,
         metadata: {
           handler: 'file.write',
-          filePath: extractFilePath(input),
+          filePath: targets[writeInputs.indexOf(input)],
         },
       });
     };
 
-    for (const [index, input] of writeInputs.entries()) {
-      const target = extractFilePath(input);
-      const beforeRequests = db.prepare('SELECT count(*) AS count FROM tool_v1_requests').get().count;
-      const beforeEffects = db.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count;
-      const response = await projectHandler(input, context({
-        input,
-        query: input,
-        sessionId: `m2-project-write-session-${index}`,
-        conversationId: `m2-project-write-conversation-${index}`,
-        userMessageId: 600 + index,
-        project: { id: Number(registered.id), path: projectRoot, name: 'routing' },
-        projectId: Number(registered.id),
-        history: [
-          { response: { content: `durable content ${index}\n`, tag: { speaker: 'system' } } },
-          { response: { content: input, tag: { speaker: 'user' } } },
-        ],
-        sessionState: { recordDecision() {}, setActiveFile() {} },
-        hasActiveProject: true,
-      }));
-      assert.equal(response.tag.metadata.handler, 'file.write');
-      if (ungroundedInputs.has(input)) {
-        assert.equal(response.tag.metadata.approvalRequired, false, input);
-        assert.equal(response.tag.metadata.error, ungroundedInputs.get(input), input);
-        assert.equal(db.prepare('SELECT count(*) AS count FROM tool_v1_requests').get().count,
-          beforeRequests, 'ungrounded content must not register a ToolRequest');
-        assert.equal(db.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count,
-          beforeEffects, 'ungrounded content must not register an effect');
+    await withFileSaveSemanticProvider(fixtures, async () => {
+      for (const [index, input] of writeInputs.entries()) {
+        const target = targets[index];
+        const summaryCalls = [];
+        const beforeRequests = db.prepare('SELECT count(*) AS count FROM tool_v1_requests').get().count;
+        const beforeEffects = db.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count;
+        const response = await projectHandler(input, context({
+          input,
+          query: input,
+          sessionId: `m2-project-write-session-${index}`,
+          conversationId: `m2-project-write-conversation-${index}`,
+          userMessageId: 600 + index,
+          project: { id: Number(registered.id), path: projectRoot, name: 'routing' },
+          projectId: Number(registered.id),
+          history: [
+            {
+              messageId: 590 + index,
+              metadata: { saveSourceEligible: true, saveSourceProjectId: Number(registered.id), messageKind: 'answer' },
+              response: { content: `durable content ${index}\n`, tag: { speaker: 'system' } },
+            },
+            { response: { content: input, tag: { speaker: 'user' } } },
+          ],
+          sessionState: { recordDecision() {}, setActiveFile() {} },
+          hasActiveProject: true,
+          persistFileSaveSummary(value) {
+            summaryCalls.push(value);
+            return { persisted: true, id: 700 + index };
+          },
+        }));
+        assert.equal(response.tag.metadata.handler, 'file.write');
+        if (unresolvedInputs.has(input)) {
+          assert.equal(response.tag.metadata.approvalRequired, false, input);
+          assert.equal(response.tag.metadata.error, 'file_write_plan_ambiguous', input);
+          assert.equal(db.prepare('SELECT count(*) AS count FROM tool_v1_requests').get().count,
+            beforeRequests, 'ungrounded content must not register a ToolRequest');
+          assert.equal(db.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count,
+            beforeEffects, 'ungrounded content must not register an effect');
+          assert.equal(existsSync(path.join(projectRoot, target)), false);
+          continue;
+        }
+        assert.equal(response.tag.metadata.approvalRequired, true);
+        assert.match(response.tag.metadata.toolRequestId, /^tool:[a-f0-9]{64}$/);
         assert.equal(existsSync(path.join(projectRoot, target)), false);
-        continue;
+        const stored = db.prepare(`
+          SELECT tool_id, request_json FROM tool_v1_requests WHERE request_id = ?
+        `).get(response.tag.metadata.toolRequestId);
+        assert.equal(stored.tool_id, 'file.write');
+        assert.deepEqual(JSON.parse(stored.request_json).input, {
+          path: target,
+          content: index === 4 ? 'Explicit completed summary with value 42.\n' : `durable content ${index}\n`,
+        }, 'the concrete model plan must preserve the grounded target and content bytes');
+        assert.equal(response.tag.metadata.fileSaveSource.originMessageId, 590 + index);
+        assert.equal(response.tag.metadata.fileSaveSource.messageId, index === 4 ? 700 + index : 590 + index);
+        assert.deepEqual(summaryCalls, index === 4 ? [{
+          content: 'Explicit completed summary with value 42.\n',
+          sourceMessageId: 590 + index,
+          sourceContent: `durable content ${index}\n`,
+        }] : []);
+        assert.deepEqual(fixtures.get(input).calls.map(call => call.kind),
+          index === 4 ? ['interpret', 'summarize'] : ['interpret']);
       }
-      assert.equal(response.tag.metadata.approvalRequired, true);
-      assert.match(response.tag.metadata.toolRequestId, /^tool:[a-f0-9]{64}$/);
-      assert.equal(existsSync(path.join(projectRoot, target)), false);
-      const stored = db.prepare(`
-        SELECT tool_id, request_json FROM tool_v1_requests WHERE request_id = ?
-      `).get(response.tag.metadata.toolRequestId);
-      assert.equal(stored.tool_id, 'file.write');
-      assert.equal(JSON.parse(stored.request_json).input.path, target);
-    }
+    });
     assert.equal(decideCalls, writeInputs.length);
 
     creDecisionEngine.decide = async () => {
@@ -973,7 +1008,11 @@ await testAsync('production file.write persists request/link, approval settles o
     input: 'save it to result.md',
     query: 'save it to result.md',
     history: [
-      { response: { content: 'durable tool content\n', tag: { speaker: 'system' } } },
+      {
+        messageId: 500,
+        metadata: { saveSourceEligible: true, saveSourceProjectId: Number(registered.id) },
+        response: { content: 'durable tool content\n', tag: { speaker: 'system' } },
+      },
       { response: { content: 'save it to result.md', tag: { speaker: 'user' } } },
     ],
     langCtx: { language: 'en' },
@@ -984,6 +1023,7 @@ await testAsync('production file.write persists request/link, approval settles o
       'save it to result.md',
       fileDecision('result.md'),
       baseContext,
+      fileSaveSemanticFixture({ request: 'save it to result.md', plan: answerSavePlan('result.md', 500) }),
     );
     const effectId = pending.tag.metadata.effectId;
     assert.equal(pending.tag.metadata.approvalRequired, true);
@@ -1025,6 +1065,7 @@ await testAsync('production file.write persists request/link, approval settles o
       'save it to result.md',
       fileDecision('result.md'),
       { ...baseContext, sessionId: 'm2-tool-write-session-third', userMessageId: 501 },
+      fileSaveSemanticFixture({ request: 'save it to result.md', plan: answerSavePlan('result.md', 500) }),
     );
     assert.equal(replay.tag.metadata.terminalStatus, 'ok');
     assert.equal(replay.tag.metadata.approvalRequired, false);
@@ -1053,7 +1094,11 @@ await testAsync('workspace drift before approval settles both effect and tool as
     input: 'save it to stale.md',
     query: 'save it to stale.md',
     history: [
-      { response: { content: 'must not be written\n', tag: { speaker: 'system' } } },
+      {
+        messageId: 505,
+        metadata: { saveSourceEligible: true, saveSourceProjectId: Number(registered.id) },
+        response: { content: 'must not be written\n', tag: { speaker: 'system' } },
+      },
       { response: { content: 'save it to stale.md', tag: { speaker: 'user' } } },
     ],
     langCtx: { language: 'en' },
@@ -1064,6 +1109,7 @@ await testAsync('workspace drift before approval settles both effect and tool as
       'save it to stale.md',
       fileDecision('stale.md'),
       writeContext,
+      fileSaveSemanticFixture({ request: 'save it to stale.md', plan: answerSavePlan('stale.md', 505) }),
     );
     const effectId = pending.tag.metadata.effectId;
     writeFileSync(path.join(projectRoot, 'workspace-drift.txt'), 'changed after request\n');
@@ -1125,7 +1171,11 @@ await testAsync('file.write does not smuggle an unauthorized parent-directory cr
     input: 'save it to missing/result.md',
     query: 'save it to missing/result.md',
     history: [
-      { response: { content: 'bounded content\n', tag: { speaker: 'system' } } },
+      {
+        messageId: 499,
+        metadata: { saveSourceEligible: true, saveSourceProjectId: Number(registered.id) },
+        response: { content: 'bounded content\n', tag: { speaker: 'system' } },
+      },
       { response: { content: 'save it to missing/result.md', tag: { speaker: 'user' } } },
     ],
     langCtx: { language: 'en' },
@@ -1136,6 +1186,7 @@ await testAsync('file.write does not smuggle an unauthorized parent-directory cr
       'save it to missing/result.md',
       fileDecision('missing/result.md'),
       writeContext,
+      fileSaveSemanticFixture({ request: 'save it to missing/result.md', plan: answerSavePlan('missing/result.md', 499) }),
     );
     const approved = await preHandle(
       `approve effect ${pending.tag.metadata.effectId}`,
