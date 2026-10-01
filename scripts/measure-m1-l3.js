@@ -380,7 +380,9 @@ if(process.argv.includes('--inside')) {
  const {acquireGpuEvaluationLock}=await import(path.join(root,'src/upgrade/gpu-evaluation-lock.js'));
  let lease;
  const wire=[];let child,proxy;
- const socketDir=fs.mkdtempSync(path.join(out,'relay-')); const socket=path.join(socketDir,'provider.sock');
+ // Linux sun_path is limited to 108 bytes. Bind only this private short socket
+ // directory into the otherwise read-only child namespace.
+ const socketDir=fs.mkdtempSync('/tmp/is-chat-live-'); const socket=path.join(socketDir,'provider.sock');
  try{
   canonical();
   lease=acquireGpuEvaluationLock({command:`CHAT resilience ${phase} ${manifest.revision}`});
@@ -397,10 +399,16 @@ if(process.argv.includes('--inside')) {
    const upstream=http.request({hostname:'127.0.0.1',port:11434,path:req.url,method:req.method,headers:{'Content-Type':'application/json','Content-Length':bytes.length}},r=>{row.status=r.statusCode;res.writeHead(r.statusCode,r.headers);const returned=[];r.on('data',c=>returned.push(c));r.on('end',()=>{row.elapsedMs=Date.now()-Date.parse(row.at);const raw=Buffer.concat(returned).toString();try{row.response=JSON.parse(raw);}catch{row.responseLines=raw.trim().split('\n').map(l=>{try{return JSON.parse(l);}catch{return {invalid:l};}});}save('initial-provider-wire.json',wire);
    });r.pipe(res);});upstream.on('error',e=>{row.error=e.message;res.writeHead(502);res.end();save('initial-provider-wire.json',wire);});upstream.end(bytes);
   }catch(e){if(row)row.error=e.message;res.writeHead(403);res.end(e.message);save('initial-provider-wire.json',wire);}});
-  await new Promise(r=>proxy.listen(socket,r)); fs.chmodSync(socket,0o600);
+  await new Promise((resolve,reject)=>{
+   proxy.once('error',reject);
+   proxy.listen(socket,()=>{proxy.off('error',reject);resolve();});
+  });
+  fs.chmodSync(socket,0o600);
   const runtime=fs.mkdtempSync(path.join(out,'runtime-'));for(const d of ['home','tmp','cache','config','data','state','artifacts','home/projects'])fs.mkdirSync(path.join(runtime,d),{recursive:true,mode:0o700});
   const env={PATH:process.env.PATH,LANG:'C.UTF-8',TZ:'Europe/Prague',HOME:path.join(runtime,'home'),XDG_CONFIG_HOME:path.join(runtime,'config'),XDG_CACHE_HOME:path.join(runtime,'cache'),XDG_DATA_HOME:path.join(runtime,'data'),XDG_STATE_HOME:path.join(runtime,'state'),TMPDIR:path.join(runtime,'tmp'),DOTENV_CONFIG_PATH:path.join(runtime,'absent'),NODE_ENV:'test',CI:'1',CHAT_PROBE_RUNTIME:runtime,CHAT_PROBE_RUN_ID:runId,CHAT_PROBE_RECORD:recordPath,CHAT_PROBE_OUT:out,CHAT_PROBE_CORPUS:corpusFile,CHAT_PROBE_PHASE:phase,CHAT_PROBE_CASES:process.env.CHAT_PROBE_CASES,CHAT_PROBE_NO_DIRECT:process.env.CHAT_PROBE_NO_DIRECT||(isFinal?'false':'true'),CHAT_PROBE_SOCKET:socket,INTENTSMITH_DB_PATH:path.join(runtime,'db.sqlite'),INTENTSMITH_PORT_FILE:path.join(runtime,'port.json'),INTENTSMITH_PROJECTS_DIR:path.join(runtime,'home/projects'),INTENTSMITH_TEST_PROJECTS_DIR:path.join(runtime,'home/projects'),INTENTSMITH_TEST_ARTIFACT_DIR:path.join(runtime,'artifacts'),INTENTSMITH_TEST_SERVER_NONCE:randomBytes(24).toString('base64url'),INTENTSMITH_MODEL_CHAT:model,INTENTSMITH_MODEL_D1:model,INTENTSMITH_MODEL_CODE:'qwen3.8:latest',INTENTSMITH_MODEL_D2:'qwen3.8:latest',INTENTSMITH_MODEL_R1:'qwen3.8:latest',INTENTSMITH_MODEL_R2:'devstral-small-2:latest',INTENTSMITH_ENABLE_AGENTS:'false',INTENTSMITH_ENABLE_EXPERTISES:'false',INTENTSMITH_ENABLE_LIFECYCLE:'false',INTENTSMITH_ENABLE_COMFYUI:'false',INTENTSMITH_ENABLE_AUTONOMY:'false',INTENTSMITH_MODEL_UNIVERSE_ENABLED:'false',INTENTSMITH_LOG_LEVEL:'warn',INTENTSMITH_TRACE:'0'};
-  child=spawn('bwrap',['--ro-bind','/','/','--dev-bind','/dev','/dev','--bind',out,out,'--tmpfs','/tmp','--unshare-net','--die-with-parent','--new-session',process.execPath,self,'--isolated-chat','--inside'],{cwd:root,env,stdio:['ignore','pipe','pipe']});
+  child=spawn('bwrap',['--ro-bind','/','/','--dev-bind','/dev','/dev','--bind',out,out,
+   '--tmpfs','/tmp','--bind',socketDir,socketDir,'--unshare-net','--die-with-parent','--new-session',
+   process.execPath,self,'--isolated-chat','--inside'],{cwd:root,env,stdio:['ignore','pipe','pipe']});
   const log=fs.createWriteStream(path.join(out,'initial-process.log'),{mode:0o600});let tail='';
   child.stdout.on('data',c=>{log.write(c);const text=c.toString();for(const line of text.split('\n'))if(line.startsWith('CHAT_PROBE')){canonical(); console.log(line);}});child.stderr.on('data',c=>{log.write(c);tail=(tail+c).slice(-2000);});
   const exit=await new Promise((resolve,reject)=>{child.on('error',reject);child.on('exit',(code,signal)=>resolve({code,signal}));});
