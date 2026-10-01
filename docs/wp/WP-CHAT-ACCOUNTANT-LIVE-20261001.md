@@ -1,12 +1,17 @@
-# WP — účetní DPH přes skutečný lokální model a M1
+# WP — účetní DPH přes skutečné M1 a ověřený nástroj
 
 **Stav:** izolovaný testový kandidát `80990a60` získal omezené nezávislé
-`REVIEW_PASS`; sada je integrovaná od `5d72b4aa`. První fyzický běh na
-`84f22982` je **FAIL / MODEL_RESPONSE_TRUNCATED**. Úzká produktová oprava
-rozpočtu a oprava orákula jsou `REVIEW_PENDING`,
-`LIVE_RECHECK_NOT_RUN` a `NOT_DEPLOYED`. Vstupní čistý
+`REVIEW_PASS`; sada je integrovaná od `5d72b4aa`. Tři fyzické modelové běhy
+na `84f22982`, `299d8117` a `46ca3dcc` jsou **FAIL**: nejdříve uříznutý
+disclaimer, potom nepodložený § 38 a časová spekulace. Oprava orákula na
+`46ca3dcc` má omezené nezávislé `REVIEW_PASS`; nová deterministická
+prezentace VAT nástroje je `REVIEW_PENDING` / `NOT_DEPLOYED`. Vstupní čistý
 integrační commit `8bf1c069ae87007773d1f196c8680b21c56bd083`.
 Lokální zelená orákula nejsou modelový ani release důkaz.
+
+Původní požadavek na jeden generativní provider tah v oddílech níže je
+historie tří odmítnutých modelových pokusů. Platný nový VAT kontrakt je v
+závěrečném oddílu „Opakované sémantické FAIL a změna akceptační cesty“.
 
 **Autorita a rozsah:** operátor žádá fyzické ověření vybraného specialisty
 `accountant-cz` přes skutečný M1 HTTP chat a privátní SQLite na jediném vstupu:
@@ -137,7 +142,7 @@ Oracle nyní čte znaménko částky i sazby a odmítá explicitní „není“ 
 re-review a ruční věcnou kontrolu případné fyzické odpovědi. Živý model je
 nadále **LIVE_NOT_RUN**.
 
-Živý příkaz až po review a uvolnění GPU slotu na přesném čistém commitu:
+Historický živý příkaz pro odmítnutou generativní VAT cestu (nyní nepoužívat):
 
 ```sh
 export PATH=/home/belphareon/.nvm/versions/node/v24.21.0/bin:$PATH
@@ -187,3 +192,40 @@ direct sad účetního, překladatele, projektové expertizy, veřejné hranice 
 hodnotové věrnosti prošlo **49/49**. Oprava je připnutá na `a6ea1c85`;
 požadováno je nezávislé review delty a fyzický běh. Z offline oprav se nový modelový
 výsledek neodvozuje.
+
+## Opakované sémantické FAIL a změna akceptační cesty
+
+Na čistém `299d8117` dokončená odpověď správně počítala DPH, ale přidala
+`§ 38` bez opory v nástroji; na čistém `46ca3dcc` po omezení právních citací
+model přidal časově zavádějící výrok o legislativě po roce 2026 pro období
+2025. V obou případech byl M1 transport HTTP 200, ale věcný oracle **FAIL**.
+Soukromé capture jsou v
+`.intentsmith-artifacts/direct-tests/chat-accountant-live.test-YNhG4e/`
+a `.intentsmith-artifacts/direct-tests/chat-accountant-live.test-eA6qoK/`.
+Oprava false-red citace mezi štítkem a částkou na `46ca3dcc` dostala
+nezávislé omezené `REVIEW_PASS`; oba modelové výsledky zůstávají odmítnuté.
+
+Kalkulačka DPH nyní dostává `renderResult` jako existující deterministický
+daňový nástroj. Renderer ověří strukturované částky, haléře, sazbu, rok,
+směr, assumptions a soulad se vstupními parametry; výstup má jen potvrzené
+částky, fixní omezení rozsahu a disclaimer. Explicitní nepodporovaný rok musí
+selhat uzavřeně. Veřejná M1 metadata zveřejní jen povolené číselné výsledky
+a scalar parametry. Nový `tests/chat-accountant-deterministic-http.test.js`
+nahradí původní live modelovou sadu: musí projít skutečným M1 a vlastní
+SQLite, ověřit přesně **0 generativních provider `/api/chat` volání**,
+`deterministicPresentation`,
+vazbu na nástroj, finální text a chyby bez generativního fallbacku. Historický
+požadavek na jediný terminální modelový tah pro VAT už není platný. Skutečné
+modelové chatové scénáře projektů, expertiz a kontextu se měří samostatně.
+Tato náhrada není přijatá, dokud neprojde čistým registrovaným během a
+nezávislou revizí.
+
+Řízený M1/SQLite průchod deterministické cesty, restart a persistence, přímá
+expertiza po CRE, negativní extrakce a orákulum na pracovním kandidátu
+1. 10. 2026, 02:45 UTC prošly **69/69**. Samostatný účetní balíček má
+**27/27**. První souběžný běh restartového testu byl **FAIL** kvůli chybné
+testové aserci, která považovala opožděné startup `POST /api/show` a
+`GET /api/tags` za generativní tah. Aserce teď povoluje pouze tyto dva
+inventory endpointy a dál odmítá jakékoli `/api/chat` či jiné inference
+volání; opakovaný běh je **69/69 PASS**. Zdroj ještě není čistý commit,
+nezávisle revidovaný ani nasazený.

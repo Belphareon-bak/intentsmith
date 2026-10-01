@@ -20,6 +20,8 @@ import { enforceCapabilities } from '../../expertises/capability-enforcer.js';
 import { mergeExpertisePrompt } from '../../expertises/merge-engine.js';
 import { CompatibilityBlockError } from '../../expertises/merge-types.js';
 import { preHandle } from './pre-handler.js';
+import { publicSpecialistToolResults, publicSpecialistVatParams,
+  publicVatClarificationQuestion } from './specialist-public.js';
 
 const EXPERTISE_TOKEN_BUDGET = Object.freeze({
   COMPACT: 128,
@@ -215,6 +217,24 @@ export async function expertiseHandler(input, context) {
           if (toolResult) {
             // v75: Clarification — tool matched but needs more params
             if (toolResult.status === 'clarify') {
+              if (toolResult.toolType === 'accountant.vat_calculator') {
+                return new TaggedResponse({
+                  content: publicVatClarificationQuestion(toolResult.missingParams),
+                  tag: new ResponseTag({
+                    speaker: ResponseSpeaker.SYSTEM,
+                    mode: ChatMode.EXPERTISE,
+                    confidence: 1,
+                    canExecute: false,
+                    metadata: {
+                      expertise: { id: expertise.id, name: expertise.name,
+                        domain: expertise.domain },
+                      specialistTool: toolResult.toolType,
+                      executionStatus: 'NEEDS_INPUT',
+                      fallbackSuppressed: true,
+                    },
+                  }),
+                });
+              }
               logger.info('ExpertHandler', `Specialist needs clarification: ${toolResult.missingParams.join(', ')}`, {
                 toolType: toolResult.toolType,
                 expertise: expertise.id,
@@ -571,19 +591,18 @@ async function generateExpertiseResponse(input, expertise, context) {
 function publicWrappedSpecialistParams(metadata) {
   // The raw invocation may contain full user text or document input. Only
   // bounded scalar VAT parameters are part of this public M1 metadata surface.
-  if (metadata?.specialistTool !== 'accountant.vat_calculator') return undefined;
-  const params = metadata.extractedParams;
-  if (!params || typeof params !== 'object' || Array.isArray(params)
-      || !Number.isFinite(params.amount) || !Number.isSafeInteger(params.year)
-      || typeof params.rate !== 'string' || !/^\d{1,3}(?:[.,]\d{1,2})?$/u.test(params.rate)
-      || !['add', 'remove'].includes(params.direction)) return undefined;
-  return { amount: params.amount, year: params.year,
-    rate: params.rate, direction: params.direction };
+  return publicSpecialistVatParams(metadata?.specialistTool,
+    metadata?.extractedParams);
 }
 
 function publicWrappedToolResults(metadata) {
   const results = metadata?.toolResults;
   if (!Array.isArray(results)) return results;
+  if (metadata.specialistTool === 'accountant.vat_calculator') {
+    return results.map(item => item?.type === 'accountant.vat_calculator'
+      ? publicSpecialistToolResults(item.type, item.data)[0]
+      : { type: item?.type });
+  }
   // The raw result remains in the private model prompt. Specialist results
   // other than the bounded VAT calculation can carry the whole user input.
   if (metadata.specialistTool && metadata.specialistTool !== 'accountant.vat_calculator') {

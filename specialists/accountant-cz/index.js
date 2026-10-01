@@ -11,6 +11,7 @@
 import { fileURLToPath } from 'url';
 import path from 'path';
 import { createAdapters } from './adapters.js';
+import { supportedYears } from './tools/tax-rates.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -43,6 +44,99 @@ function extractAmountInline(input) {
   if (m) return parseInt(m[1]);
 
   return null;
+}
+
+const VAT_NUMBER = '(?<whole>\\d{1,3}(?:[ \\u00a0\\u202f.]\\d{3})+|\\d+)(?:[,.](?<fraction>\\d{1,2}))?';
+const VAT_CURRENCY = new RegExp(`(?<![\\p{L}\\d])${VAT_NUMBER}\\s*(?<scale>mil(?:ion(?:u)?)?|tis(?:[ií]c)?|[kKmM])?\\s*(?:Kč|CZK)(?!\\p{L})`, 'giu');
+const VAT_SCALED = new RegExp(`(?<![\\p{L}\\d])${VAT_NUMBER}\\s*(?<scale>mil(?:ion(?:u)?)?|tis(?:[ií]c)?|[kKmM])(?!\\p{L})`, 'giu');
+const VAT_PLAIN = new RegExp(`(?<![\\p{L}\\d])${VAT_NUMBER}(?![\\p{L}\\d])`, 'giu');
+
+function vatAmountFromMatch(match) {
+  const whole = match.groups.whole.replace(/[ .\u00a0\u202f]/gu, '');
+  const fraction = (match.groups.fraction || '').padEnd(2, '0');
+  const scale = match.groups.scale || '';
+  const multiplier = /^(?:mil|m$)/iu.test(scale) ? 1_000_000
+    : /^(?:tis|k$)/iu.test(scale) ? 1_000 : 1;
+  const cents = (Number(whole) * 100 + Number(fraction || '0')) * multiplier;
+  return Number.isSafeInteger(cents) && cents <= 100_000_000_000
+    ? cents / 100 : null;
+}
+
+function vatAmountMatches(input) {
+  const currency = [...input.matchAll(VAT_CURRENCY)];
+  if (currency.length > 0) return currency;
+  const scaled = [...input.matchAll(VAT_SCALED)];
+  if (scaled.length > 0) return scaled;
+  return [...input.matchAll(VAT_PLAIN)];
+}
+
+function extractVatParamsInline(input) {
+  const params = {};
+  const normalized = input.normalize('NFKC');
+  const yearReferences = [...normalized.matchAll(/(?:za\s+rok|roku?|v\s+roce|year)\s*(\d{4})\b/giu)];
+  const yearAlternatives = yearReferences.length
+    ? [...normalized.matchAll(/\b(?:nebo|anebo|či)\s*(\d{4})\b/giu)] : [];
+  const years = [...yearReferences, ...yearAlternatives].map(match => Number(match[1]));
+  if (years.length > 1 && new Set(years).size > 1) params.inputError = 'year';
+  else if (years.length) params.year = years[0];
+
+  const percentages = [...normalized.matchAll(/(?<!\d)(\d+(?:[,.]\d{1,2})?)\s*%(?!\p{L})/gu)];
+  const rates = percentages.map(match => match[1].replace(',', '.'));
+  if (rates.length > 1 && new Set(rates).size > 1) params.inputError ||= 'rate';
+  else if (rates.length) params.rate = rates[0];
+  else if (/sn[ií][žz]en|ni[žz][šs][ií]/iu.test(normalized)) params.rate = '12';
+  else if (/osvobozen|export/iu.test(normalized)) params.rate = '0';
+  else params.rate = '21'; // Default is explicit in the result's assumptions.
+
+  let amountSource = normalized;
+  for (const match of [...yearReferences, ...yearAlternatives, ...percentages]) {
+    amountSource = amountSource.slice(0, match.index)
+      + ' '.repeat(match[0].length)
+      + amountSource.slice(match.index + match[0].length);
+  }
+  for (const match of amountSource.matchAll(/(?<!\d)\d{1,2}\.\s*\d{1,2}\.\s*\d{4}(?!\d)/gu)) {
+    amountSource = amountSource.slice(0, match.index)
+      + ' '.repeat(match[0].length)
+      + amountSource.slice(match.index + match[0].length);
+  }
+  // A sign or an isolated three-digit decimal group can change the amount's
+  // meaning. Ask for one unambiguous amount instead of parsing a substring.
+  if (/(?:^|[^\p{L}\d])[-−]\s*\d/u.test(amountSource)
+      || /\d+[.,]\d{3}(?!\d|[.,]\d)/u.test(amountSource)) {
+    params.inputError ||= 'amount';
+  }
+  const amounts = vatAmountMatches(amountSource);
+  // Prefer explicit currency, but do not silently drop another bare amount.
+  if ([...amountSource.matchAll(VAT_PLAIN)].some(candidate =>
+    !amounts.some(amount => candidate.index >= amount.index
+      && candidate.index + candidate[0].length <= amount.index + amount[0].length))) {
+    params.inputError ||= 'amount';
+  }
+  if (amounts.length > 1) params.inputError ||= 'amount';
+  else if (amounts.length === 1) {
+    const amount = vatAmountFromMatch(amounts[0]);
+    if (amount === null) params.inputError ||= 'amount';
+    else params.amount = amount;
+  }
+  if (params.amount === undefined) params.inputError ||= 'amount';
+
+  const addVerb = /p[řr]id[eě]j|p[řr]idat|p[řr]i[čc]ti|nav[ýy][šs]/iu.test(normalized);
+  const removeVerb = /ode[čc]ti|ode[čc][ií]st|odpo[čc][ií]t|remove|without/iu.test(normalized);
+  const amountMatch = amounts.length === 1 ? amounts[0] : null;
+  const before = amountMatch ? normalized.slice(Math.max(0, amountMatch.index - 30), amountMatch.index) : '';
+  const after = amountMatch ? normalized.slice(amountMatch.index + amountMatch[0].length,
+    amountMatch.index + amountMatch[0].length + 26) : '';
+  const gross = /(?:v[čc]etn[eě]|s)\s+DPH/iu.test(after)
+    || /(?:cena\s+(?:s|v[čc]etn[eě])\s+DPH|celkov[aá]\s+cena)\s*$/iu.test(before);
+  const net = /bez\s+DPH/iu.test(after)
+    || /(?:z[aá]klad(?:u)?(?:\s+dan[eě])?|cena\s+bez\s+DPH)\s*$/iu.test(before);
+  const vagueGross = /v[čc]etn[eě]\s+dan[eě]/iu.test(after);
+  if (vagueGross || (addVerb && removeVerb) || (gross && net)
+      || (addVerb && gross) || (removeVerb && net)) params.inputError ||= 'direction';
+  else if (removeVerb || gross) params.direction = 'remove';
+  else if (addVerb || net || /DPH\s+z(?:e)?\s+/iu.test(normalized)) params.direction = 'add';
+  else params.inputError ||= 'direction';
+  return params;
 }
 
 function formatCZK(value) {
@@ -107,6 +201,88 @@ export function renderTaxResult({ result }) {
     '*Toto je informativní přehled, nikoli závazná daňová rada. Pro konkrétní daňové rozhodnutí konzultujte daňového poradce.*',
   );
   return lines.join('\n');
+}
+
+function vatCents(value, label) {
+  const cents = Math.round(value * 100);
+  if (!Number.isFinite(value) || value < 0 || !Number.isSafeInteger(cents)
+      || Math.abs(value * 100 - cents) > 1e-6) {
+    throw new TypeError(`accountant.vat_calculator invalid ${label}`);
+  }
+  return cents;
+}
+
+function formatVatCents(cents) {
+  return `${new Intl.NumberFormat('cs-CZ', {
+    minimumFractionDigits: cents % 100 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(cents / 100)} Kč`;
+}
+
+/** Render only the bounded calculator result, never a generated legal claim. */
+export function renderVatResult({ result, params } = {}) {
+  if (!result || typeof result !== 'object' || Array.isArray(result)
+      || !Number.isSafeInteger(result.year) || !supportedYears().includes(result.year)
+      || ![0, 12, 21].includes(result.rate_percent)
+      || !['add', 'remove'].includes(result.direction)
+      || result.rate_decimal !== result.rate_percent / 100) {
+    throw new TypeError('accountant.vat_calculator requires a valid structured result');
+  }
+  const base = vatCents(result.base, 'base');
+  const vat = vatCents(result.vat, 'vat');
+  const total = vatCents(result.total, 'total');
+  if (base + vat !== total) {
+    throw new TypeError('accountant.vat_calculator inconsistent monetary totals');
+  }
+  const assumptions = [
+    `Sazba DPH: ${result.rate_percent}% (zákon č. 235/2004 Sb.)`,
+    `Rok: ${result.year}`,
+    result.direction === 'add'
+      ? 'Vstupní částka = základ daně (bez DPH)'
+      : 'Vstupní částka = cena včetně DPH',
+  ];
+  if (!Array.isArray(result.assumptions)
+      || result.assumptions.length !== assumptions.length
+      || result.assumptions.some((value, index) => value !== assumptions[index])) {
+    throw new TypeError('accountant.vat_calculator inconsistent assumptions');
+  }
+  if (params !== undefined) {
+    if (!params || typeof params !== 'object' || Array.isArray(params)
+        || !Number.isFinite(params.amount) || params.amount < 0
+        || String(params.rate) !== String(result.rate_percent)
+        || params.direction !== result.direction
+        || (params.year !== undefined && params.year !== result.year)) {
+      throw new TypeError('accountant.vat_calculator parameters differ from result');
+    }
+    const input = vatCents(params.amount, 'input amount');
+    const roundRatio = (numerator, denominator) =>
+      Math.floor((2 * numerator + denominator) / (2 * denominator));
+    const expectedBase = result.direction === 'add'
+      ? input : roundRatio(input * 100, 100 + result.rate_percent);
+    const expectedVat = result.direction === 'add'
+      ? roundRatio(expectedBase * result.rate_percent, 100) : input - expectedBase;
+    const expectedTotal = result.direction === 'add' ? expectedBase + expectedVat : input;
+    if (base !== expectedBase || vat !== expectedVat || total !== expectedTotal) {
+      throw new TypeError('accountant.vat_calculator values differ from parameters');
+    }
+  }
+  return [
+    `ČR, rok ${result.year}:`,
+    '',
+    '| Položka | Částka |',
+    '|---|---:|',
+    `| Základ daně | ${formatVatCents(base)} |`,
+    `| DPH (${result.rate_percent} %) | ${formatVatCents(vat)} |`,
+    `| Cena s DPH celkem | ${formatVatCents(total)} |`,
+    '',
+    '### Předpoklady',
+    ...assumptions.map(value => `- ${value}`),
+    '',
+    '### Nezahrnuje',
+    '- Individuální daňové posouzení konkrétního plnění.',
+    '',
+    '*Toto je informativní přehled, nikoli závazná daňová rada. Pro konkrétní daňové rozhodnutí konzultujte daňového poradce.*',
+  ].join('\n');
 }
 
 function extractYearInline(input) {
@@ -253,28 +429,18 @@ function buildToolDefinitions(toolsDir, ToolAdapter) {
       modulePath: path.join(toolsDir, 'vat-calc.js'),
       functionName: 'calculateVAT',
       toolAdapter: new VATCalculatorAdapter(),
+      failClosed: true,
+      renderResult: renderVatResult,
       patterns: [{
         priority: 8,
         patterns: [
           /(?:DPH|dph)\s*.{0,30}(?:z\s|ze\s|p[řr]idat|ode[čc][ií]st|kolik|v[ýy][šs]e|sazba)/i,
           /(?:kolik|jak[áa]|jakou|v[ýy][šs]e)\s*.{0,20}(?:DPH|dph)/i,
           /(?:p[řr]id|ode[čc]|vypo[čc]).{0,15}(?:DPH|dph)/i,
+          /(?:v[čc]etn[eě]|s)\s+DPH.{0,40}(?:vypo[čc]|z[aá]klad)/i,
         ],
       }],
-      extractParams: (input) => {
-        const amount = extractAmountInline(input);
-        const year = extractYearInline(input);
-        const params = {};
-        if (amount) params.amount = amount;
-        if (year) params.year = year;
-        const lower = input.toLowerCase();
-        if (/12\s*%|sn[ií][žz]en|ni[žz][šs][ií]/i.test(lower)) params.rate = '12';
-        else if (/0\s*%|osvobozen|export/i.test(lower)) params.rate = '0';
-        else params.rate = '21';
-        if (/bez\s+DPH|ode[čc][ií]st|remove|without/i.test(lower)) params.direction = 'remove';
-        else params.direction = 'add';
-        return params;
-      },
+      extractParams: extractVatParamsInline,
     },
     {
       id: 'accountant.salary_calculator',

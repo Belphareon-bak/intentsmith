@@ -1,8 +1,12 @@
 # WP — Strukturální kontrola dávkového druhého posudku Huntu
 
-**Stav:** izolovaný implementační kandidát, `REVIEW_PENDING`. Nejde o přijetí
-hodnotitele, akceptaci modelu ani povolení aktivace. Vstupní čistý integrační
-commit: `20792e81146bd36ccc2cc0a1447c4fb15b5f3095`; vlastní větev:
+**Stav 1. 10. 2026:** validátor a zmrazený manifest jsou integrované od
+`1f13b936`; omezené review přejímky zůstává `REVIEW_PENDING`. Strukturální
+kontrola soukromého packetu znovu vrací
+`DEVELOPMENT_REVIEW_INCOMPLETE / NO_DECISION` (596/1 173 odpovědí,
+2 324/3 689 kritérií). Nejde o přijetí hodnotitele, akceptaci modelu ani
+povolení aktivace. Původní izolovaná práce vycházela z čistého
+`20792e81146bd36ccc2cc0a1447c4fb15b5f3095` na větvi
 `work/hunt-second-review-validator-20261001`.
 
 ## Autorita a rozsah

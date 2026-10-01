@@ -1,5 +1,56 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 1. 10. 2026, 02:45 UTC — řízená VAT přejímka
+
+V pracovním integračním stromu prošel nový skutečný M1 HTTP/SQLite průchod
+vybraného `accountant-cz`, restart a perzistence, přímá expertiza po CRE,
+negativní extrakce a věcný oracle **69/69**; samostatný účetní balíček
+**27/27**. Testy odhalily a ověřily opravu chybného čtení `0.005 Kč` jako
+`5 Kč`, ztraceného znaménka u `-10 000 Kč`, druhé částky bez jednotky a
+číselné sazby `0`, která dříve použila výchozích 21 %. Nejasné částky
+vyvolávají cílený dotaz; explicitně nepodporovaný rok/sazba selžou uzavřeně.
+Veřejná M1 metadata obsahují jen povolené skaláry a VAT odpověď vychází
+z deterministického rendereru bez generativního `/api/chat` volání.
+
+První souběžný restartový test měl **FAIL** v aserci: opožděný startup
+inventory request `/api/show`/`/api/tags` byl chybně považován za
+generativní tah. Opravený test připouští jen tyto inventory endpointy a
+všechna inference volání stále odmítá; opakování prošlo **69/69**.
+Registry validace prošla se 583 programy a fingerprintem
+`0ef6b54b8e16b4e4faa12abcff9a9f39afe305ca6b1612bf4ac73fce9da47c1c`.
+Přesný module graph má jednu novou hranu
+`src/chat/handlers/expertise.js -> src/chat/handlers/specialist-public.js`;
+ratchet správně hlásí **1 FAIL**, dokud nebude hrana výslovně přijata z
+čistého source commitu. Úplný offline/database profil a nezávislé review
+této delty ještě neběžely. Stav `REVIEW_PENDING` / `NOT_DEPLOYED`.
+
+## Checkpoint 1. 10. 2026, 02:20 UTC — VAT odpověď přes ověřený nástroj
+
+Druhý fyzický M1 účetní běh na čistém `299d8117` dokončil jediný provider
+tah (`num_predict=512`, `done_reason=stop`), HTTP 200 i uložení asistenta.
+Výpočet 10 000 + 2 100 = 12 100 Kč, sazba 21 %, rok 2025 a ČR byly správné.
+Odpověď však přidala `§ 38`, který VAT nástroj neposkytl. Věcný oracle
+správně skončil **FAIL**. Soukromá capture:
+`.intentsmith-artifacts/direct-tests/chat-accountant-live.test-YNhG4e/artifacts/chat-accountant-live-provider.jsonl`.
+
+Třetí fyzický běh na čistém/pushnutém `46ca3dcc` opět dokončil jeden modelový
+tah (`num_ctx=4096`, `num_predict=512`, `prompt_eval_count=1153`,
+`done_reason=stop`) se správnou aritmetikou a HTTP 200. Model tentokrát
+přidal nepodložený výrok o možné změně legislativy po roce 2026 pro období
+2025 a další výjimky, které nástroj nedodal. Oracle odmítl cizí rok; stav je
+znovu **FAIL**, nikoli přijatý živý účetní výsledek. Soukromá capture:
+`.intentsmith-artifacts/direct-tests/chat-accountant-live.test-eA6qoK/artifacts/chat-accountant-live-provider.jsonl`.
+
+Nezávislá revize `46ca3dcc` uzavřela omezené `REVIEW_PASS` pro opravu
+false-red citace zákona mezi štítkem a částkou; negarantuje modelovou kvalitu.
+Proto se účetní kalkulačka mění na existující deterministickou prezentaci
+z validovaného strukturovaného nástroje. Přísný M1/SQLite test nově musí
+prokázat správné hodnoty, přesná veřejná metadata, nulové generativní
+provider `/api/chat` volání,
+uložený text a fail-closed při neplatném výsledku či nepodporovaném explicitním
+roce. Dokud nová cesta neprojde na čistém commitu, je `REVIEW_PENDING` a
+`NOT_DEPLOYED`. Živé modelové testy zůstávají nutné pro generativní scénáře.
+
 ## Checkpoint 1. 10. 2026, 02:05 UTC — první fyzický účetní nález
 
 Na čistém `84f22982` první fyzický M1 účetní test **FAIL**: jediný zachycený

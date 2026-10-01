@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { assertVatAnswer, assertVatCapturedTurn,
+import { assertVatAnswer, assertVatDeterministicTurn,
   VAT_INPUT, VAT_PARAMS, VAT_RESULT } from './helpers/chat-accountant-vat-oracle.js';
 
 const valid = [
@@ -151,34 +151,24 @@ for (const [name, statement] of [
   });
 }
 
-test('captured VAT oracle binds one completed model turn to tool result and M1 bytes', () => {
-  const model = 'fixture:vat';
-  const digest = 'a'.repeat(64);
-  const tool = { ...VAT_RESULT, assumptions: ['Vstupní částka = základ daně'] };
+test('deterministic VAT oracle binds public tool scalars and final M1 text', () => {
   const result = { status: 'ok', response: { content: valid,
     metadata: { expertise: { id: 'accountant' }, executionStatus: 'SUCCESS',
       specialistTool: 'accountant.vat_calculator', extractedParams: VAT_PARAMS,
-      toolResults: [{ type: 'accountant.vat_calculator', data: tool }],
-      finishReason: 'stop' } } };
-  const row = { schemaVersion: 1, method: 'POST', path: '/api/chat', status: 200,
-    model, stream: false, think: false, numCtx: 4096, numPredict: 1024,
-    promptEvalCount: 300, requestSha256: 'b'.repeat(64), responseSha256: 'c'.repeat(64),
-    done: true, doneReason: 'stop', messages: [{ role: 'system', content: 'Účetní' },
-      { role: 'user', content: `User asked: "${VAT_INPUT}"\n\nTool execution results:\n${JSON.stringify(tool)}\n\nBased on these results, provide your expert analysis and response.` }],
-    terminal: { model, digest, done: true, done_reason: 'stop',
-      prompt_eval_count: 300, message: { role: 'assistant', content: valid } } };
-  assert.deepEqual(assertVatCapturedTurn(row, result, { model, digest }).toolResult, tool);
+      toolResults: [{ type: 'accountant.vat_calculator', data: VAT_RESULT }],
+      deterministicPresentation: true } } };
+  assert.deepEqual(assertVatDeterministicTurn(result).toolResult, VAT_RESULT);
   for (const [label, mutate] of [
-    ['incomplete provider', r => { r.doneReason = 'length'; }],
-    ['foreign model', r => { r.terminal.model = 'other'; }],
-    ['provider text mismatch', r => { r.terminal.message.content = 'Other answer'; }],
-    ['missing tool prompt', r => { r.messages.at(-1).content = VAT_INPUT; }],
-    ['incorrect structured VAT', (_r, m1) => { m1.response.metadata.toolResults[0].data.vat = 2000; }],
+    ['incorrect structured VAT', m1 => { m1.response.metadata.toolResults[0].data.vat = 2000; }],
+    ['wrong extracted rate', m1 => { m1.response.metadata.extractedParams.rate = '12'; }],
+    ['missing execution status', m1 => { delete m1.response.metadata.executionStatus; }],
+    ['missing deterministic marker', m1 => { delete m1.response.metadata.deterministicPresentation; }],
+    ['claimed model evidence', m1 => { m1.response.metadata.model = 'fixture:vat'; }],
+    ['unbounded raw field', m1 => { m1.response.metadata.toolResults[0].data.input = VAT_INPUT; }],
+    ['incorrect final text', m1 => { m1.response.content = valid.replace('2 100 Kč', '2 200 Kč'); }],
   ]) {
-    const changedRow = structuredClone(row);
     const changedResult = structuredClone(result);
-    mutate(changedRow, changedResult);
-    assert.throws(() => assertVatCapturedTurn(changedRow, changedResult,
-      { model, digest }), undefined, label);
+    mutate(changedResult);
+    assert.throws(() => assertVatDeterministicTurn(changedResult), undefined, label);
   }
 });

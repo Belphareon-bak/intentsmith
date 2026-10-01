@@ -44,7 +44,7 @@
     },
     {
       "path": "tests/helpers/chat-accountant-vat-oracle.js",
-      "reason": "Shared bounded VAT tool, prompt and answer oracle imported by deterministic, negative and opt-in live accountant suites; no standalone entry point."
+      "reason": "Shared bounded VAT tool and deterministic answer oracle imported by HTTP and negative accountant suites; no standalone entry point."
     },
     {
       "path": "tests/helpers/sazeni-http-fixture-preload.js",
@@ -16074,28 +16074,28 @@
       "quarantineExpiry": null
     },
     {
-      "id": "IS-T3-TESTS-CHAT-ACCOUNTANT-LIVE-TEST",
-      "path": "tests/chat-accountant-live.test.js",
+      "id": "IS-T3-TESTS-CHAT-ACCOUNTANT-DETERMINISTIC-HTTP-TEST",
+      "path": "tests/chat-accountant-deterministic-http.test.js",
       "argv": [
         "node",
-        "tests/chat-accountant-live.test.js"
+        "tests/chat-accountant-deterministic-http.test.js"
       ],
       "capabilityId": "C3-013",
       "tier": "T3",
-      "fixture": "owned-private-m1-sqlite-and-captured-local-ollama",
-      "profile": "model",
-      "timeoutMs": 1500000,
-      "expectedDurationMs": 600000,
+      "fixture": "owned-private-m1-sqlite-and-forbidden-loopback-provider",
+      "profile": "server",
+      "timeoutMs": 180000,
+      "expectedDurationMs": 10000,
       "requirements": {
         "network": "loopback",
         "database": true,
         "server": false,
-        "ollama": true,
-        "gpu": true
+        "ollama": false,
+        "gpu": false
       },
       "required": true,
       "owner": "WP-CHAT-ACCOUNTANT-LIVE-20261001",
-      "state": "BLOCKED",
+      "state": "ACTIVE",
       "lastGreen": {
         "commit": null,
         "artifact": null
@@ -16112,7 +16112,7 @@
       ],
       "capabilityId": "C3-013",
       "tier": "T1",
-      "fixture": "synthetic-vat-answer-and-captured-provider-row",
+      "fixture": "synthetic-vat-answer-and-deterministic-m1-metadata",
       "profile": "offline",
       "timeoutMs": 120000,
       "expectedDurationMs": 1000,

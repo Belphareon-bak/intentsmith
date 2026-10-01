@@ -91,6 +91,13 @@ class VATCalculatorAdapter extends ToolAdapter {
     });
   }
 
+  validate(params) {
+    if (params.inputError) {
+      return { status: 'clarify', missingParams: [params.inputError] };
+    }
+    return super.validate(params);
+  }
+
   execute(params) {
     return calculateVAT(params);
   }

@@ -4,9 +4,11 @@
 // without any hardcoded dependencies in core.
 
 import { suite, test, testAsync, assert, assertEqual, summary } from './harness.js';
+import strictAssert from 'node:assert/strict';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { ToolAdapter } from '../src/expertises/tool-adapter.js';
+import { calculateVAT } from '../specialists/accountant-cz/tools/vat-calc.js';
 import {
   EXTENSION_HOST_CAPABILITY,
   canonicalizeLegacySpecialistManifest,
@@ -241,6 +243,62 @@ await testAsync('vat_calculator handler works', async () => {
   const result = await handler({ amount: 10000, rate: '21', direction: 'add' });
   assertEqual(result.status, 'ok', `VAT calc status should be ok, got ${result.status}`);
   assert(result.data?.total > 0, 'should have positive total');
+});
+
+test('VAT renderer preserves add/remove, rates and cents without model claims', () => {
+  const cases = [
+    ['0', 'add', 10000.01, 0, 10000.01],
+    [0, 'add', 10000.01, 0, 10000.01],
+    ['12', 'add', 10000.01, 1200, 11200.01],
+    ['21', 'add', 10000.01, 2100, 12100.01],
+    ['0', 'remove', 10000.01, 0, 10000.01],
+    ['12', 'remove', 8928.58, 1071.43, 10000.01],
+    ['21', 'remove', 8264.47, 1735.54, 10000.01],
+  ];
+  const display = value => new Intl.NumberFormat('cs-CZ', {
+    minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(value).replace(/[\u00a0\u202f]/gu, ' ');
+  for (const [rate, direction, base, vat, total] of cases) {
+    const params = { amount: 10000.01, rate, direction, year: 2025 };
+    const calculated = calculateVAT(params);
+    strictAssert.equal(calculated.success, true, `${rate}/${direction}`);
+    strictAssert.deepEqual([calculated.result.base, calculated.result.vat,
+      calculated.result.total], [base, vat, total], `${rate}/${direction}`);
+    const answer = accountant.renderVatResult({ result: calculated.result, params })
+      .replace(/[\u00a0\u202f]/gu, ' ');
+    strictAssert.match(answer, /ČR, rok 2025/u);
+    strictAssert(answer.includes(`| Základ daně | ${display(base)} Kč |`), `${rate}/${direction} base`);
+    strictAssert(answer.includes(`| DPH (${rate} %) | ${display(vat)} Kč |`), `${rate}/${direction} VAT`);
+    strictAssert(answer.includes(`| Cena s DPH celkem | ${display(total)} Kč |`), `${rate}/${direction} total`);
+    strictAssert.match(answer, /### Předpoklady[\s\S]*### Nezahrnuje/u);
+    strictAssert(answer.trimEnd().endsWith('Pro konkrétní daňové rozhodnutí konzultujte daňového poradce.*'));
+    strictAssert.doesNotMatch(answer, /změny legislativy|§\s*38/iu);
+  }
+});
+
+test('VAT renderer and calculator reject malformed result, mismatch and unsupported period', () => {
+  const params = { amount: 10000.01, rate: '21', direction: 'add', year: 2025 };
+  const { result } = calculateVAT(params);
+  for (const [name, mutate] of [
+    ['missing total', ({ data }) => { delete data.total; }],
+    ['nonfinite VAT', ({ data }) => { data.vat = Number.NaN; }],
+    ['inconsistent total', ({ data }) => { data.total += 1; }],
+    ['unsupported result year', ({ data }) => { data.year = 2030; }],
+    ['invented assumption', ({ data }) => { data.assumptions.push('Změny legislativy po roce 2026'); }],
+    ['wrong input amount', ({ input }) => { input.amount = 10001.01; }],
+    ['wrong input rate', ({ input }) => { input.rate = '12'; }],
+    ['wrong input direction', ({ input }) => { input.direction = 'remove'; }],
+    ['wrong input year', ({ input }) => { input.year = 2024; }],
+  ]) {
+    const data = structuredClone(result);
+    const input = { ...params };
+    mutate({ data, input });
+    strictAssert.throws(() => accountant.renderVatResult({ result: data, params: input }),
+      undefined, name);
+  }
+  strictAssert.equal(calculateVAT({ ...params, year: 2030 }).success, false,
+    'an explicitly requested unsupported tax period must not silently fall back');
 });
 
 await testAsync('salary_calculator handler works', async () => {

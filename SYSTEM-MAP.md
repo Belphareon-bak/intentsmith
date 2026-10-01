@@ -621,9 +621,10 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 Historický blok začíná opravami soukromí/agentů z 17. 9., kdy registr měl
 519 programů. Vývojový source `1f13b936` měl 1. 10. 2026 v 01:00 UTC
-580 registrovaných programů. Nově připravovaný kontrakt resilience a opt-in
-živá účetní sada navýšily současný registr na **583**
-(485 ACTIVE, 83 BLOCKED, 15 HISTORICAL),
+580 registrovaných programů. Kontrakt resilience a účetní M1 sada navýšily
+současný registr na **583**; nahrazení modelového účetního běhu
+deterministickou M1 sadou přesunulo její stav do ACTIVE
+(486 ACTIVE, 82 BLOCKED, 15 HISTORICAL),
 jak uvádí census níže. Historické výsledky nadále patří svým přesným source
 pinům; novější registr jim zpětně nemění verdikt.
 
@@ -651,15 +652,15 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **233 128 ř.**, 678 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **260 892 ř.**, 585 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **583** (`485 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
+| `src/**/*.js` | **233 230 ř.**, 678 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **261 143 ř.**, 585 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **583** (`486 ACTIVE`, `82 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 107** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
 
 Aktuální registry fingerprint je
-`6aab751a4f7b926a4aab4601c22fd9eaa39b8d8e252cc85dfdeb9e9df2e3305d`.
+`0ef6b54b8e16b4e4faa12abcff9a9f39afe305ca6b1612bf4ac73fce9da47c1c`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 

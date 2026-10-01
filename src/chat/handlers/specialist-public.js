@@ -195,8 +195,46 @@ export function publicSpecialistExecutionStatus(toolType, result) {
   return BETTING_FAILURE_STATUSES.has(result.status) ? 'FAILED' : 'SUCCESS';
 }
 
+export function publicSpecialistVatParams(toolType, params) {
+  if (toolType !== 'accountant.vat_calculator' || !params
+      || typeof params !== 'object' || Array.isArray(params)
+      || !Number.isFinite(params.amount) || params.amount < 0
+      || !Number.isSafeInteger(params.year)
+      || typeof params.rate !== 'string'
+      || !['0', '12', '21'].includes(params.rate)
+      || !['add', 'remove'].includes(params.direction)) return undefined;
+  return { amount: params.amount, year: params.year,
+    rate: params.rate, direction: params.direction };
+}
+
+export function publicVatClarificationQuestion(missingParams) {
+  const questions = {
+    amount: 'Jakou jednu částku v Kč mám pro výpočet DPH použít?',
+    rate: 'Jakou jednu sazbu DPH mám použít: 0 %, 12 %, nebo 21 %?',
+    year: 'Pro který jeden rok mám DPH vypočítat?',
+    direction: 'Je zadaná částka základem bez DPH, nebo cenou včetně DPH?',
+  };
+  return questions[missingParams?.[0]] || 'Upřesni prosím zadání výpočtu DPH.';
+}
+
+function publicVatResult(result) {
+  if (!result || typeof result !== 'object' || Array.isArray(result)
+      || !['add', 'remove'].includes(result.direction)
+      || ![0, 12, 21].includes(result.rate_percent)
+      || !Number.isSafeInteger(result.year)
+      || !['base', 'vat', 'total'].every(key =>
+        Number.isFinite(result[key]) && result[key] >= 0)) return undefined;
+  return { base: result.base, vat: result.vat, total: result.total,
+    rate_percent: result.rate_percent, direction: result.direction,
+    year: result.year };
+}
+
 export function publicSpecialistToolResults(toolType, result) {
   const item = { type: toolType };
+  if (toolType === 'accountant.vat_calculator') {
+    const data = publicVatResult(result);
+    if (data) item.data = data;
+  }
   // Sázení intentionally publishes its structured ticket/observation fields.
   // Publish bounded observation references; keep raw model diagnostics private.
   if (isBettingTool(toolType) && result?.contract === 'BettingResult'

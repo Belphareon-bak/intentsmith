@@ -36,6 +36,8 @@ import {
   publicSpecialistExecutionStatus,
   publicSpecialistProjectContext,
   publicSpecialistToolResults,
+  publicSpecialistVatParams,
+  publicVatClarificationQuestion,
 } from './specialist-public.js';
 
 // Gap choice detection patterns
@@ -152,6 +154,9 @@ export async function specialistHandler(input, context) {
           return specialistToolFailureResponse(toolResult, specialist);
         }
         if (toolResult.status === 'clarify') {
+          if (toolResult.toolType === 'accountant.vat_calculator') {
+            return vatClarificationResponse(toolResult, specialist);
+          }
           // Tool matched but needs more params — inject context for LLM
           context.toolClarification = {
             tool: toolResult.toolType,
@@ -280,9 +285,28 @@ function specialistToolFailureResponse(toolResult, specialist) {
   });
 }
 
+function vatClarificationResponse(toolResult, specialist) {
+  return new TaggedResponse({
+    content: publicVatClarificationQuestion(toolResult.missingParams),
+    tag: new ResponseTag({
+      speaker: ResponseSpeaker.SYSTEM,
+      mode: ChatMode.SPECIALIST,
+      confidence: 1,
+      canExecute: false,
+      metadata: {
+        specialistId: specialist.id,
+        specialistTool: 'accountant.vat_calculator',
+        executionStatus: 'NEEDS_INPUT',
+        fallbackSuppressed: true,
+      },
+    }),
+  });
+}
+
 function deterministicSpecialistToolResponse(toolResult, specialist, expertise) {
   const executionStatus = publicSpecialistExecutionStatus(toolResult.toolType, toolResult.result);
   const projectContext = publicSpecialistProjectContext(toolResult.toolType, toolResult.evidence);
+  const vatParams = publicSpecialistVatParams(toolResult.toolType, toolResult.params);
   const tag = new ResponseTag({
     speaker: ResponseSpeaker.EXPERTISE,
     mode: ChatMode.SPECIALIST,
@@ -302,6 +326,7 @@ function deterministicSpecialistToolResponse(toolResult, specialist, expertise) 
       },
       specialistTool: toolResult.toolType,
       toolResults: publicSpecialistToolResults(toolResult.toolType, toolResult.result),
+      ...(vatParams ? { extractedParams: vatParams } : {}),
       ...(projectContext ? { projectContext } : {}),
       deterministicPresentation: true,
     },

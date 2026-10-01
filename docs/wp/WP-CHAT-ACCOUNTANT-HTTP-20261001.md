@@ -1,5 +1,18 @@
 # WP — účetní DPH přes skutečný M1 HTTP chat
 
+**Aktuální změna 1. 10. 2026:** po třech odmítnutých fyzických modelových
+pokusných výstupech se VAT nástroj převádí na deterministický `renderResult`.
+Platný cílový M1 kontrakt je nyní přesná data z kalkulačky, pevný výstup,
+úzká veřejná metadata, uložení do privátní SQLite a **0 generativních
+provider `/api/chat` volání**; explicitní nepodporovaný rok a neplatná data
+selžou uzavřeně. Test se mění spolu s
+[přejímacím WP](WP-CHAT-ACCOUNTANT-LIVE-20261001.md). Dosavadní požadavek
+na jednu generativní odpověď v datovaných záznamech níže je historický a
+není platnou akceptací nové cesty. Pracovní kandidát prošel řízenými M1/SQLite,
+oracle a přímou expertizou **69/69** a samostatnou účetní sadou **27/27**;
+modulová baseline čeká na explicitní přijetí nové hrany z čistého commitu.
+Změna je zatím `REVIEW_PENDING` / `NOT_DEPLOYED`.
+
 **Dodatečné review `12b7726a`: `CHANGES_REQUIRED`.** Negativní účetní
 HTTP/SQLite cesta i veřejný filtr `extractedParams` prošly, ale při selhání
 generativního wrapperu se původní raw tag vracel do M1 jako úspěch.
