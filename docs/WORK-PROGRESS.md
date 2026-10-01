@@ -1,6 +1,6 @@
 # IntentSmith — průběžný report dokončování
 
-**Aktualizováno:** 1. 10. 2026, 18:57 UTC / 20:57 CEST.
+**Aktualizováno:** 1. 10. 2026, 18:53 UTC / 20:53 CEST.
 **Vlastník:** ROOT. CHAT řeší jiný worker, od posledního zadání jej ROOT neupravuje.
 **Publikace:** `work/real-chat-journeys-20260930`; průběžný report se aktualizuje
 po každém milníku, nejpozději po třech hodinách během aktivní práce. Operátor
@@ -11,8 +11,9 @@ přesný testovaný zdroj; novější dokumentační commit nepřebírá jeho te
 
 IDE/backend mají přijaté dílčí funkční důkazy, celý release není přijatý.
 Tři malé skutečné CODE projekty fungují v doloženém rozsahu; SQLite modelové
-kvalifikace zatím neprošly celým kontraktem. Probíhá kvalifikace existující
-M2 opravy failed návrhu a skutečné zobrazení GPU/modelových hodnot v IDE.
+kvalifikace zatím neprošly celým kontraktem. M2 oprava failed návrhu je
+implementovaná a zdrojově přijatá; skutečná aplikace zůstává FAIL.
+Probíhá ověření skutečného zobrazení GPU/modelových hodnot v IDE.
 Hunt stále čeká na úplné přijaté hodnocení. Mobilní zařízení přijdou po
 stabilním IDE/BE, podle zadání operátora.
 

@@ -1,6 +1,6 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
-## Checkpoint 1. 10. 2026, 18:57 UTC — rejection review přijatý, GPU V7 čeká na GO
+## Checkpoint 1. 10. 2026, 18:53 UTC — rejection review přijatý, GPU V7 čeká na GO
 
 [WORK-PROGRESS.md](../WORK-PROGRESS.md) je hlavní průběžný report. Poslední
 push `61bc486f` má vlastní [CI 13 kroků SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36907138041).
