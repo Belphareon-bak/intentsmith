@@ -19,7 +19,7 @@ import { up as applyExecutionAuthority } from '../src/db/migrations/2026_08_24_0
 import { up as applyLifecycleAuthority } from '../src/db/migrations/2026_08_24_079_m2_lifecycle_authority.js';
 import {
   ORACLE_PATH, ORACLE_SOURCE, ORACLE_SHA256, PROBE_PATH, PROBE_SOURCE, PROBE_SHA256,
-  ENTRY_PATH, ENTRY_SOURCE, ENTRY_SHA256,
+  VALIDATE_PATH, VALIDATE_SOURCE, VALIDATE_SHA256, ENTRY_PATH, ENTRY_SOURCE, ENTRY_SHA256,
   sha256, ledgerBlueprint, policyForFrozenOracle,
 } from '../scripts/project-app-acceptance.js';
 
@@ -59,8 +59,10 @@ async function fixture(defect) {
   fs.writeFileSync(policyPath, JSON.stringify(policy, null, 2) + '\n');
   fs.writeFileSync(path.join(project, ORACLE_PATH), ORACLE_SOURCE);
   fs.writeFileSync(path.join(project, PROBE_PATH), PROBE_SOURCE);
+  fs.writeFileSync(path.join(project, VALIDATE_PATH), VALIDATE_SOURCE);
   fs.writeFileSync(path.join(project, ENTRY_PATH), ENTRY_SOURCE);
-  git(project, ['add', '--', ORACLE_PATH, PROBE_PATH, ENTRY_PATH, '.intentsmith/m2-governance-policy.json']);
+  git(project, ['add', '--', ORACLE_PATH, PROBE_PATH, VALIDATE_PATH,
+    ENTRY_PATH, '.intentsmith/m2-governance-policy.json']);
   git(project, ['-c', 'core.hooksPath=/dev/null', '-c', 'commit.gpgSign=false',
     '-c', 'user.name=IntentSmith Test', '-c', 'user.email=test@example.invalid',
     'commit', '-m', 'freeze operator oracle']);
@@ -68,7 +70,9 @@ async function fixture(defect) {
   const databasePath = path.join(folder, 'authority.sqlite');
   const db = databaseAt(databasePath);
   const outputs = { ...REFERENCE_LEDGER_OUTPUTS };
-  if (defect) outputs['src/totals.js'] = outputs['src/totals.js'].replace('sum + row.amount', 'sum + 1');
+  if (defect && defect !== 'probe-json-forgery') {
+    outputs['src/totals.js'] = outputs['src/totals.js'].replace('sum + row.amount', 'sum + 1');
+  }
   if (defect === 'assert-noops') outputs['src/app.js'] = `import assert from 'node:assert/strict';
 for (const key of ['ok', 'equal', 'deepEqual', 'throws']) assert[key] = () => {};
 export { run } from './cli.js';
@@ -77,6 +81,15 @@ export { run } from './cli.js';
 process.exit(0);
 export { run } from './cli.js';
 `;
+  if (defect === 'probe-json-forgery') {
+    outputs['src/validate.js'] = outputs['src/validate.js'].replace('!Number.isFinite(amount) || ', '');
+    outputs['src/app.js'] = `if (process.argv[1].endsWith('subject-probe.mjs')) {
+  process.stdout.write(JSON.stringify({ failures: [true, true, true], distinct: true }) + '\\n');
+  process.exit(0);
+}
+export { run } from './cli.js';
+`;
+  }
   const calls = [];
   const service = createDefaultM2LifecycleApplicationService({ database: db,
     projects: { findById: { get: id => id === PROJECT_ID ? { id, path: project, status: 'active' } : null } },
@@ -93,7 +106,7 @@ export { run } from './cli.js';
   return { folder, project, db, databasePath, outputs, calls, baseline, service };
 }
 
-for (const defect of [null, 'wrong-total', 'assert-noops', 'early-exit']) {
+for (const defect of [null, 'wrong-total', 'assert-noops', 'early-exit', 'probe-json-forgery']) {
   test(`M2 six-file project ${defect ? `rolls back ${defect}` : 'commits a functioning app'}`, async () => {
     const f = await fixture(defect);
     try {
@@ -118,6 +131,7 @@ for (const defect of [null, 'wrong-total', 'assert-noops', 'early-exit']) {
       for (const relative of Object.keys(f.outputs)) assert.equal(fs.existsSync(path.join(f.project, relative)), false);
       assert.equal(sha256(fs.readFileSync(path.join(f.project, ORACLE_PATH))), ORACLE_SHA256);
       assert.equal(sha256(fs.readFileSync(path.join(f.project, PROBE_PATH))), PROBE_SHA256);
+      assert.equal(sha256(fs.readFileSync(path.join(f.project, VALIDATE_PATH))), VALIDATE_SHA256);
       assert.equal(sha256(fs.readFileSync(path.join(f.project, ENTRY_PATH))), ENTRY_SHA256);
       await assert.rejects(f.service.approveSmallProjectChange({ authenticatedSubject: SUBJECT,
         origin: ORIGIN, lifecycleId: planned.lifecycleId, planDigest: `sha256:${'0'.repeat(64)}` }),
@@ -128,6 +142,11 @@ for (const defect of [null, 'wrong-total', 'assert-noops', 'early-exit']) {
       if (defect) {
         assert.notEqual(result.state, 'succeeded');
         assert.equal(result.result.focusedTest.terminalStatus, 'failed');
+        if (defect === 'probe-json-forgery') {
+          const testOutput = result.audit.executionEvents.find(event => event.type === 'process_terminated')?.details?.testOutput;
+          assert.match(testOutput?.stderr || '', /validate directly rejects nonfinite NaN/,
+            'direct validator process status catches forged probe JSON');
+        }
         assert.equal(result.result.rollback.status, 'succeeded');
         assert.equal(git(f.project, ['rev-parse', 'HEAD']), f.baseline);
         for (const relative of Object.keys(f.outputs)) assert.equal(fs.existsSync(path.join(f.project, relative)), false);
@@ -145,6 +164,7 @@ for (const defect of [null, 'wrong-total', 'assert-noops', 'early-exit']) {
       assert.equal(git(f.project, ['status', '--porcelain=v1']), '');
       assert.equal(sha256(fs.readFileSync(path.join(f.project, ORACLE_PATH))), ORACLE_SHA256);
       assert.equal(sha256(fs.readFileSync(path.join(f.project, PROBE_PATH))), PROBE_SHA256);
+      assert.equal(sha256(fs.readFileSync(path.join(f.project, VALIDATE_PATH))), VALIDATE_SHA256);
       assert.equal(sha256(fs.readFileSync(path.join(f.project, ENTRY_PATH))), ENTRY_SHA256);
       f.db.close();
       const restartScript = `
