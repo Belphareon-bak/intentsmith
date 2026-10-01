@@ -22,7 +22,7 @@ import {
   handleAnswerDecision,
   handleRefuseDecision,
 } from './decisions.js';
-import { handleFileDecision, handleFileWriteDecision } from './file.js';
+import { handleFileDecision, handleFileWriteDecision, clearSupersededFileSaveQuestion } from './file.js';
 import { handleLocalDecision } from './local.js';
 import { handleShellDecision } from './conversation.js';
 import { handleDesignDecision } from './design.js';
@@ -403,10 +403,7 @@ export async function projectHandler(input, context) {
     });
 
     assertDecision(decision);
-    if (context.sessionState?.pendingDecision?.metadata?.fileSaveClarification
-      && decision.type !== DecisionType.ASK_USER && decision.intent !== IntentType.FILE_WRITE) {
-      context.sessionState.clearPendingDecision();
-    }
+    clearSupersededFileSaveQuestion(context, decision);
 
     logger.info('ProjectHandler', `CRE Decision: ${decision.type}`, {
       intent: decision.intent,

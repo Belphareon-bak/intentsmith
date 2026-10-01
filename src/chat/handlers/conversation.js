@@ -12,7 +12,7 @@ import {
 import { logger } from '../../core/logger.js';
 import { tryResolveClarification, assessGoalAlignment } from './clarification.js';
 import { handleLocalDecision } from './local.js';
-import { handleFileDecision, handleFileWriteDecision } from './file.js';
+import { handleFileDecision, handleFileWriteDecision, clearSupersededFileSaveQuestion } from './file.js';
 import {
   handleToolCallDecision,
   handleAskUserDecision,
@@ -495,10 +495,7 @@ export async function conversationHandler(input, context) {
 
   // STEP 1.5: Fail-fast assertion - catch bugs early
   assertDecision(decision);
-  if (sessionState?.pendingDecision?.metadata?.fileSaveClarification
-    && decision.type !== DecisionType.ASK_USER && decision.intent !== IntentType.FILE_WRITE) {
-    sessionState.clearPendingDecision();
-  }
+  clearSupersededFileSaveQuestion(context, decision);
 
   // v86 M2: Record turn for pattern tracking (cross-conversation learning)
   try {

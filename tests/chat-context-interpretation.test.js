@@ -377,6 +377,7 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
   const generationInstruction = 'Napiš dvě krátké věty o rostlinách';
   const generationRequest = `${generationInstruction} a ulož je do nového souboru plants.md, nic existujícího nepřepisuj.`;
   const generatedContent = 'Rostliny potřebují světlo odpovídající svému druhu. Zálivku přizpůsob stavu substrátu.';
+  const freshLiteralRequest = 'Ulož doslovně „Nový text“ do replacement.md.';
   const failedBriefRequest = 'Napiš přesně pět slov.';
   const provider = http.createServer(async (req, res) => {
     let body = '';
@@ -393,7 +394,11 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
     try { parsed = JSON.parse(raw); } catch { parsed = null; }
     let content;
     if (payload.format?.properties?.action) {
-      if (parsed.request === 'Ulož tu odpověď do stale.md.') {
+      if (parsed.request === freshLiteralRequest) {
+        content = JSON.stringify({ action: 'write', question: null, target: 'replacement.md',
+          source: { kind: 'literal', literalId: parsed.literals.find(x => x.content === 'Nový text')?.literalId },
+          transformation: 'none', writeMode: 'replace', understood: true, unsupported: [] });
+      } else if (parsed.request === 'Ulož tu odpověď do stale.md.') {
         content = JSON.stringify({ action: 'write', question: null, target: 'stale.md',
           source: { kind: 'answer', messageId: parsed.answers[0]?.messageId }, transformation: 'none',
           writeMode: 'replace', understood: true, unsupported: [] });
@@ -431,7 +436,7 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
         : parsed?.request?.includes('faktoriál') ? 'CODE' : 'CONVERSATIONAL',
         confidence: 0.95, fileTarget: null, question: ambiguous ? 'Mezi čím se rozhoduješ?'
           : parsed?.request === 'Shrň odpověď a ulož ji do nového souboru, nic existujícího nepřepisuj.' ? question : null,
-        continuesPending: Boolean(parsed?.pending), responseScope: 'conversation',
+        continuesPending: parsed?.request === freshLiteralRequest ? false : Boolean(parsed?.pending), responseScope: 'conversation',
         briefResponse: parsed?.request === failedBriefRequest,
         responseWordCount: parsed?.request === failedBriefRequest ? 5 : null,
         requestedOperation: write ? 'write' : 'none' });
@@ -539,6 +544,19 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
     assert(!existsSync(path.join(project.path, 'plants.md')));
     await send(`schválit efekt ${generated.response.metadata.effectId}`);
     assert.equal(readFileSync(path.join(project.path, 'plants.md'), 'utf8'), generatedContent);
+    await send('Shrň odpověď a ulož ji do nového souboru, nic existujícího nepřepisuj.');
+    const freshLiteral = await send(freshLiteralRequest);
+    assert.equal(freshLiteral.response.metadata.approvalRequired, true, JSON.stringify(freshLiteral));
+    const freshInterpretation = calls.filter(call => call.format?.properties?.action).at(-1);
+    assert.equal(JSON.parse(freshInterpretation.messages.at(-1).content).pending, undefined,
+      'a clear new request supersedes the old save question');
+    const freshTool = JSON.parse(database.prepare('SELECT request_json FROM tool_v1_requests WHERE request_id = ?')
+      .get(freshLiteral.response.metadata.toolRequestId).request_json);
+    assert.equal(freshTool.toolId, 'file.write');
+    assert.deepEqual(freshTool.input, { path: 'replacement.md', content: 'Nový text' });
+    assert(!existsSync(path.join(project.path, 'replacement.md')));
+    await send(`schválit efekt ${freshLiteral.response.metadata.effectId}`);
+    assert.equal(readFileSync(path.join(project.path, 'replacement.md'), 'utf8'), 'Nový text');
     const before = database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n;
     await send('Neukládej nic, jen vysvětli Git commit.');
     assert.equal(database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n, before);

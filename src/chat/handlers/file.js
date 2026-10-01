@@ -33,6 +33,15 @@ import { prepareFileExplanation, callFileExplanation } from './utils/file-explai
 import { canonicalStringify } from '../../../contracts/m2/effect-current.js';
 import { resolveFileSavePlan, summarizeSaveAnswer, generateSaveContent } from '../file-save-plan.js';
 
+export function clearSupersededFileSaveQuestion(context, decision) {
+  const state = context.sessionState;
+  if (state?.pendingDecision?.metadata?.fileSaveClarification
+    && ((decision.metadata?.contextualInterpretation === true && decision.metadata.continuesPending === false)
+      || (decision.type !== 'ASK_USER' && decision.intent !== 'FILE_WRITE'))) {
+    state.clearPendingDecision();
+  }
+}
+
 // ─── Security constants ──────────────────────────────────────────────────────
 
 const MAX_FILE_SIZE = config.limits.maxFileSize;
