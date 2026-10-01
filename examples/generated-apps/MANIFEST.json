@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 1,
+  "kind": "exact-generated-source-snapshots",
+  "publishedDocumentationCommit": "f96c2d2358aef1e9239249d2f87949f200d83800",
+  "generatedSourceFileCount": 11,
+  "generatedSourceBytes": 9151,
+  "generatedFilesEditedAfterAcceptedRun": false,
+  "historicalAcceptance": "Accepted backend/M2 application journeys; this export is not a new test run",
+  "apps": [
+    {
+      "name": "expense-ledger",
+      "physicalSourceCommit": "92f7b51c2423bdd2cc5633903a579b611d01f7f3",
+      "generatedProjectCommit": "8b52262b4d7b3124451cde1a2bb8177315b2feef",
+      "generationCount": 6,
+      "model": "qwen3.8:latest",
+      "modelDigestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "providerVersion": "0.34.0-intentsmith.1",
+      "historicalRunStartedAt": "2026-10-01T09:13:44.242Z",
+      "historicalRunCompletedAt": "2026-10-01T09:14:18.203Z",
+      "acceptedWorkPackage": "docs/wp/WP-PROJECT-APP-FUNCTIONAL-20261001.md",
+      "acceptedWorkPackageSha256AtPublication": "7a8f25e9082928f26686e56877571fcea39eb9a817479ff30c03ce98648899f3",
+      "publicOracleSource": "scripts/project-app-acceptance.js",
+      "frozenOracleSha256": "1593a906dbdc69b46b3e8a445887dd6ca9e77571a75f7415a565dac407884933",
+      "sourceAndPreviewAndGitAndDiskExact": true,
+      "publishedReceiptSha256": {
+        "result.json": "13aa773bdab828e4e311214c92a3ccdcd2f8c771c5aaf994378b6c665ccc8a40",
+        "app-journey.json": "a24164836184408742289b512d8acfd69a8bb040ea0798ef9e79f24fe77c3556",
+        "terminal.json": "8c6663ee4c5d17aa602ebcf7ae98a615ad63525205b860b8707a891cc614c142",
+        "provider-requests.json": "7221dcf073ccf7abe4af286f15baf1b57d33d9a7ba12ce901f2af31b09e4fcb6"
+      }
+    },
+    {
+      "name": "taskflow",
+      "physicalSourceCommit": "6f0f04d5034a5f7307882c3d0034f644c89f8dc4",
+      "generatedProjectCommit": "523773dc9c4bf450cb4cbee9d2d3d7bf08f53792",
+      "generationCount": 5,
+      "model": "qwen3.8:latest",
+      "modelDigestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "providerVersion": "0.34.0-intentsmith.1",
+      "historicalRunStartedAt": "2026-10-01T10:57:16.033Z",
+      "historicalRunCompletedAt": "2026-10-01T10:58:01.654Z",
+      "acceptedWorkPackage": "docs/wp/WP-PROJECT-TASKFLOW-FUNCTIONAL-20261001.md",
+      "acceptedWorkPackageSha256AtPublication": "6d597e7056b739ee89f45415cafb98be72bbf1db105803efb00710dbdbaa49e5",
+      "publicOracleSource": "scripts/project-taskflow-acceptance.js",
+      "frozenOracleSha256": "150fc79d2443a85a6cd90382c23c80ff56f721172a36c8323bd3410171a5dd79",
+      "sourceAndPreviewAndGitAndDiskExact": true,
+      "publishedReceiptSha256": {
+        "result.json": "572273b84a8bbf54e2eb4fadf82648cde568851a86b6d32cc5e2b8e3aacb3cba",
+        "app-journey.json": "1bf758b1110586381fd89d5715cdc97c49b8e42fd7811c78f0e76b228bc646b5",
+        "terminal.json": "44a0f2475ef1e0ff37a2dcd6c2c09d7ed1e190c80ef0e19e4fa7cd4334ffa1c4",
+        "provider-requests.json": "598a1ff99e8e5a3d9df4d49e55df2c600a34f81a6e37b6f496ea358a72de8ed2"
+      }
+    }
+  ],
+  "files": [
+    {
+      "path": "expense-ledger/src/app.js",
+      "bytes": 49,
+      "sha256": "63f6c7c6d211c72e17d6c41bea422f38ae4deacf0b613935c74bd25b90c64f61",
+      "gitBlobSha1": "24bdb8f8c5f4d19cc6afbabd056f79e26e11a49b",
+      "generationPosition": 6
+    },
+    {
+      "path": "expense-ledger/src/cli.js",
+      "bytes": 1223,
+      "sha256": "4184b6366aec4ec37bcce559d058230064576cbc8a325e5d0754b03628e41715",
+      "gitBlobSha1": "f2c8327f49f2252b2a5869fa75fe6497364d337f",
+      "generationPosition": 5
+    },
+    {
+      "path": "expense-ledger/src/service.js",
+      "bytes": 442,
+      "sha256": "e10e7d518ef826c91245450dcf1bd7e58f7d079bb400efd67df3b76ec630389e",
+      "gitBlobSha1": "010bf7aaad9b245f5761f4bcfdc056f3d7818504",
+      "generationPosition": 4
+    },
+    {
+      "path": "expense-ledger/src/storage.js",
+      "bytes": 287,
+      "sha256": "f3fa4c2ee86db4cffa762ee87abb0b526fbe8caf72f7a2fb142a09e34feec795",
+      "gitBlobSha1": "5ea2d4d325bc5ac252dff6ea869660297b79a796",
+      "generationPosition": 3
+    },
+    {
+      "path": "expense-ledger/src/totals.js",
+      "bytes": 631,
+      "sha256": "d101a0e5ea7d0e62c36ba06863b1935b0d488819cabf4c3d95ffa77cccf4375a",
+      "gitBlobSha1": "71d7a066d66cf0b476114ef7952fe593e59c7ab3",
+      "generationPosition": 1
+    },
+    {
+      "path": "expense-ledger/src/validate.js",
+      "bytes": 411,
+      "sha256": "033604aff4796d874301c66155908dacf83f471b14983d09ad60eadcfd45a24f",
+      "gitBlobSha1": "a691bb88d5c8829778ac6ef88c19e810d06f21d5",
+      "generationPosition": 2
+    },
+    {
+      "path": "taskflow/src/app.js",
+      "bytes": 32,
+      "sha256": "2d56d807f8c0274991a2361c394a7cc8066612c8dd33337e110b6984a3ef3802",
+      "gitBlobSha1": "556c30caf1e3d48afd8a89298c6310cf3c8de8a3",
+      "generationPosition": 5
+    },
+    {
+      "path": "taskflow/src/cli.js",
+      "bytes": 1813,
+      "sha256": "59d8102af27e9ead9ff4fe3aef24522f858e8b7215176f745dc52c8caa015dc0",
+      "gitBlobSha1": "446a4f83c2c500b33b23a25ba3f2f7d0d9b37002",
+      "generationPosition": 4
+    },
+    {
+      "path": "taskflow/src/query.js",
+      "bytes": 707,
+      "sha256": "b42d1d6deb3febc4a056cc7ce7864a95022751a02a92f3f4fa80b739ba90f3d7",
+      "gitBlobSha1": "6c6f76f9485de684b1636f8269aea408716e4678",
+      "generationPosition": 1
+    },
+    {
+      "path": "taskflow/src/store.js",
+      "bytes": 1653,
+      "sha256": "db0614c1c9a75c33a1aa705dfbe1885704da4c0920563a34468ed29ba8daf4be",
+      "gitBlobSha1": "d70db09f11be74a25536432b5a9d11098ea650fb",
+      "generationPosition": 3
+    },
+    {
+      "path": "taskflow/src/validate.js",
+      "bytes": 1903,
+      "sha256": "19bdcece1c5f73846c140c8aa4f5db34c5edbdc47d55a5d6f7c529a3f2f29f53",
+      "gitBlobSha1": "4ac325b4827cca108d396a7e31da219bb8a436f5",
+      "generationPosition": 2
+    }
+  ]
+}

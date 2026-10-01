@@ -367,5 +367,15 @@ zadání:
 
 Lokální CPU přejímka kontroluje skutečný výsledek a stav aplikace v M2
 sandboxu včetně rollbacku vadných implementací a opětovného otevření SQLite.
-Fyzické vytvoření TaskFlow modelem zatím **neproběhlo**. Status a přesné
-příkazy jsou v [TaskFlow WP](wp/WP-PROJECT-TASKFLOW-FUNCTIONAL-20261001.md).
+Fyzické vytvoření TaskFlow přesným modelem na `6f0f04d5` má nyní
+**PASS / REVIEW_PASS**, včetně frozen testu, přesných bajtů a restartu.
+Status a důkazy jsou v [TaskFlow WP](wp/WP-PROJECT-TASKFLOW-FUNCTIONAL-20261001.md).
+
+## Přesné zdroje přijatých generovaných aplikací
+
+[Ledger a TaskFlow](../examples/generated-apps/README.md) obsahují všech
+11 původních modelových souborů, jejich hash/Git blob manifest a příklady
+tuple volání. Jsou zkopírované bez dodatečných oprav z přijatých skutečných
+průchodů `92f7b51c` a `6f0f04d5`. Nezávislé source-only review ověřilo
+provider → preview → terminal → Git → filesystem → export, žádná nová
+inference. Soukromé DB, prompts a raw odpovědi jsou mimo Git.

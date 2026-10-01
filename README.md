@@ -2,11 +2,14 @@
 
 **Aktuální vývojový checkpoint 1. 10. 2026:** [stav dokončování, měřené
 výsledky a otevřené brány](docs/review/2026-09-30-COMPLETION-TRACKER.md).
-Níže uvedený základ `main` a starší checkpointy popisují předchozí stav;
-poslední vzdáleně ověřený chat/Studio 2/GPU Hunt checkpoint `77672c2c` je na
-samostatné integrační větvi. Novější chatový source `c1a25dc1` má omezené
-nezávislé REVIEW_PASS a je integrovaný; čeká na nový úplný profil a publikaci.
-Instalovaný backend stále běží z `c84b88cd`.
+Poslední publikovaný vlastní checkpoint `a0e29537` má GitHub CI SUCCESS;
+čistý runner source `0bf96f05` má registrovaných **8/8 PASS / REVIEW_PASS**.
+Ledger a TaskFlow mají skutečný CODE/backend/M2 PASS; jejich
+[přesné generované zdroje a manifest](examples/generated-apps/README.md)
+jsou v tomto repozitáři. Modelový IDE composer čeká na fyzickou přejímku,
+Hunt zůstává NO_GO a mobil na fyzické testy. CHAT dokončuje jiný worker.
+Čerstvé čtení běžícího backendu potvrzuje `c84b88cd`; níže uvedený základ
+`main` a starší checkpointy zůstávají historickou evidencí.
 
 **Sjednocený základ z 28. 9. 2026:** `main` sjednocuje vývoj vycházející
 z C3 a zdroj právě používaného **IDE 2.0**. Základ `04f2be71` obsahuje backend
@@ -44,9 +47,9 @@ fetch cesty bez deklarované autority selžou před spojením. Současný
 autoritativní IntentSmith Studio runtime už neobsahuje implicitní Google Fonts egress.
 Studio používá Theia runtime s motivy a ovládáním IntentSmithu.
 
-**Verze:** 136.1.0, vývojový kandidát 1.0. Počty pro referenční zdroj
-`03c82d7e` + registrace dvou app sad jsou odvozené z [generovaného registru](docs/convergence/TEST-REGISTRY.md)
-a při další integraci se znovu přeměří:
+**Verze:** 136.1.0, vývojový kandidát 1.0. Počty registru pro
+`0bf96f05` jsou odvozené z [generovaného registru](docs/convergence/TEST-REGISTRY.md)
+a při další změně registrace se znovu přeměří:
 **593 registrovaných testovacích programů**
 (`495 ACTIVE`, `83 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).
 

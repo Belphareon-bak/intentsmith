@@ -1,5 +1,31 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Publikace zdrojových materiálů — 1. 10. 2026, 11:58 UTC
+
+[Přesné zdroje Ledgeru a TaskFlow](../../examples/generated-apps/README.md)
+nově obsahují 11 skutečně generovaných souborů / 9 151 B, README a
+manifest, celkem 13 souborů. Nezávislé **REVIEW_PASS** každého zdroje
+potvrdilo původní provider afterContent, preview, terminal diff, Git blob
+a současný disk. Export neobsahuje DB, provozní ID, prompts, raw odpovědi,
+grades, credentials ani lokální cesty. Source-only manifest SHA-256
+`46b0025f5fd4363cd5cabd91cb93f37b60e5f73cd1ba4106a82f3fc721494e3f`,
+review manifest SHA-256
+`c610a26097d741203125d0900a3bf7f7f3f4ab00283507e417ea5bcf74d9513e`.
+Root znovu ověřil přesnou kopii všech 13 souborů. Nešlo o nový běh aplikace.
+
+Přijatý runner checkpoint `a0e295376de3cded8bfe6939f7a666202bcbf033`
+je vzdáleně ověřený a má skutečný
+[CI SUCCESS, run 36857383485](https://github.com/Belphareon-bak/intentsmith/actions/runs/36857383485),
+job `110353022981`, všechny kroky SUCCESS. Původní author source je
+vzdáleně zachovaný `evidence/project-app-provider-guards-20261001 → 15337cde`.
+Nový source-only export necertifikuje instalaci, celý profil nebo release.
+
+Fresh pasivní inventura potvrzuje backend PID 2026 z přesného
+`c84b88cd0c0b76639823c82c022d2feab96dfc15` a remote main `838b8cee`.
+Main checkout `832db06f` má stále 7 cizích/UNKNOWN rozpracovaných položek,
+které root nepřebírá ani nepushuje. Tvrzení o publikaci se týká vlastních
+přijatých zdrojů a reportů; soukromé důkazy jsou archivované mimo worktrees.
+
 ## Checkpoint 1. 10. 2026, 11:45 UTC — veřejný runner přijat
 
 Přijatá oprava autora `15337cde` je integrovaná jako `eb832646`;
