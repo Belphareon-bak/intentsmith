@@ -1102,8 +1102,8 @@ export async function handleFileWriteDecision(input, decision, context, dependen
     const previewContent = content.length <= 2000 ? content : content.slice(0, 2000);
     const preview = contentPreview(previewContent);
     const modeDescription = plan.toolId === 'file.create'
-      ? (lang === 'cs' ? 'Pouze vytvoření nového souboru; existující soubor zůstane zachovaný.'
-        : 'Create a new file only; an existing file will be preserved.')
+      ? (lang === 'cs' ? 'Pouze vytvoření nového souboru. Pokud soubor už existuje, zápis bude odmítnut a původní obsah zůstane zachovaný. Pro novou kopii zopakuj zadání s jiným názvem souboru.'
+        : 'Create a new file only. If the file already exists, the write will be refused and the original content preserved. For a new copy, repeat the request with a different filename.')
       : (lang === 'cs' ? 'Zápis může nahradit existující soubor.' : 'This write can replace an existing file.');
     const msg = lang === 'cs'
       ? `🔐 Zápis do ${literal(filePath)} čeká na schválení. ${modeDescription}\n\nObsah (${Buffer.byteLength(content, 'utf8')} bajtů):\n${preview}${previewContent.length < content.length ? '\nZobrazen je začátek; celý obsah je svázaný s návrhem zápisu.' : ''}\n\nNapiš přesně: \`schválit efekt ${execution.effectRequestId}\``
