@@ -95,3 +95,10 @@ assertions remain unchanged. SYSTEM-MAP LOC is remeasured after the comment
 change. No product source, contract, registry descriptor, CHAT behavior,
 model or production data is changed. The failed combined report is retained;
 a new clean registered gate and review of this narrow follow-up are pending.
+
+The repeated clean gate on `226c0e71` ended **FAIL: 7 PASS / 1 FAIL**,
+report `2026-10-01T08-41-09-930Z/report.json`. Harness coverage now passes;
+artifact-validation caught a missing separator comma in root's LOC formatter.
+The measured 264,851 total was correct. The exact machine-readable comma is
+restored without changing the validator or any source byte count. This failed
+report also remains preserved; the final clean gate is still pending.
