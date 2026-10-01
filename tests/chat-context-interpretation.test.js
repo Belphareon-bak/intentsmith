@@ -418,6 +418,13 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
         unsupported: initial ? ['missing explicit target filename'] : [] });
       }
     } else if (system.includes('Klasifikuj')) {
+      if (parsed?.request === 'Smaž ten druhý.' || parsed?.request === 'Myslím notes.md.') {
+        content = JSON.stringify({ intent: parsed.request === 'Smaž ten druhý.' ? 'AMBIGUOUS' : 'FILE_READ',
+          confidence: 0.95, fileTarget: parsed.request === 'Myslím notes.md.' ? 'notes.md' : null,
+          question: parsed.request === 'Smaž ten druhý.' ? 'Který soubor chceš smazat?' : null,
+          requestedOperation: parsed.request === 'Smaž ten druhý.' ? 'delete' : 'read',
+          continuesPending: Boolean(parsed.pending), responseScope: 'conversation' });
+      } else {
       const ambiguous = parsed?.request === 'Pomoz mi s výběrem.';
       const write = parsed?.pending?.intent === 'FILE_WRITE' || /ulož/i.test(parsed?.request || raw);
       content = JSON.stringify({ intent: ambiguous ? 'AMBIGUOUS' : write ? 'FILE_WRITE'
@@ -426,7 +433,9 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
           : parsed?.request === 'Shrň odpověď a ulož ji do nového souboru, nic existujícího nepřepisuj.' ? question : null,
         continuesPending: Boolean(parsed?.pending), responseScope: 'conversation',
         briefResponse: parsed?.request === failedBriefRequest,
-        responseWordCount: parsed?.request === failedBriefRequest ? 5 : null });
+        responseWordCount: parsed?.request === failedBriefRequest ? 5 : null,
+        requestedOperation: write ? 'write' : 'none' });
+      }
     } else if (raw.includes(failedBriefRequest)) {
       content = payload.format?.properties?.words
         ? JSON.stringify({ words: ['Tato', 'věta', 'má', 'bohužel', 'šest', 'slov.'] })
@@ -533,6 +542,15 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
     const before = database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n;
     await send('Neukládej nic, jen vysvětli Git commit.');
     assert.equal(database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n, before);
+    const deleteQuestion = await send('Smaž ten druhý.');
+    assert.equal(deleteQuestion.response.content, 'Který soubor chceš smazat?');
+    await stopProduct(product);
+    product = await startProduct(owned, `http://127.0.0.1:${provider.address().port}`, model);
+    const refusedDeletion = await send('Myslím notes.md.');
+    assert(refusedDeletion.response.content.includes('soubory mazat neumím'), JSON.stringify(refusedDeletion));
+    assert.notEqual(refusedDeletion.response.metadata.approvalRequired, true);
+    assert.equal(database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n, before);
+    assert.equal(readFileSync(path.join(project.path, 'notes.md'), 'utf8'), 'Git commit uchovává snímek změn.');
     const failed = await send(failedBriefRequest, 500);
     assert.equal(failed.error.code, 'CHAT_PROCESSING_FAILED', JSON.stringify(failed));
     assert.equal(database.prepare("SELECT role FROM messages WHERE conversation_id = ? ORDER BY id DESC LIMIT 1")

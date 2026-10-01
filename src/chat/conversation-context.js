@@ -17,6 +17,8 @@ export function pendingConversationQuestion(context) {
     request: metadata.originalRequest || pending.originalInput || state.lastUserInput || '',
     question: metadata.clarificationQuestion || '',
     intent: pending.intent || null,
+    requestedOperation: metadata.originalRequestedOperation || metadata.requestedOperation
+      || ({ FILE_WRITE: 'write', FILE_READ: 'read', FILE_EXPLAIN: 'read' })[pending.intent] || null,
     slots: state.awaitingSlots || pending.slots || [],
   };
 }

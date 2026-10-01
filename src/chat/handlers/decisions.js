@@ -1775,6 +1775,14 @@ function handleRefuseDecision(input, decision, context) {
     },
   });
 
+  if (decision.metadata?.unavailableOperation === 'delete') {
+    context.sessionState?.clearPendingDecision();
+    const language = getLanguageContext(input, inferUserLanguageFromHistory(context.history)).language;
+    return new TaggedResponse({ content: language === 'en'
+      ? 'I cannot delete files from this chat. Nothing was deleted. You can remove the file manually in your file manager.'
+      : 'Z tohoto chatu teď soubory mazat neumím. Nic jsem nesmazal. Soubor můžeš odstranit ručně ve správci souborů.', tag });
+  }
+
   return new TaggedResponse({
     content: `⚠️ Tento požadavek nemohu zpracovat.\n\n` +
              `**Důvod:** ${decision.reason}\n\n` +

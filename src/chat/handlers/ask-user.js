@@ -17,6 +17,10 @@ export function handleAskUserDecision(input, decision, context) {
   const content = formatClarificationRequest(input, decision);
   const originalRequest = decision.metadata?.continuesPending === false ? input
     : sessionState?.pendingDecision?.metadata?.originalRequest || input;
+  const originalRequestedOperation = decision.metadata?.continuesPending === false
+    ? decision.metadata?.requestedOperation
+    : sessionState?.pendingDecision?.metadata?.originalRequestedOperation
+      || sessionState?.pendingDecision?.metadata?.requestedOperation || decision.metadata?.requestedOperation;
 
   // ════════════════════════════════════════════════════════════════════════════
   // v44.2 - SAVE PENDING DECISION FOR RESUMPTION
@@ -29,7 +33,8 @@ export function handleAskUserDecision(input, decision, context) {
     const decisionWithAttempts = {
       ...decision,
       attempts: currentAttempts + 1,
-      metadata: { ...decision.metadata, contextualInterpretation: true, originalRequest, clarificationQuestion: content },
+      metadata: { ...decision.metadata, contextualInterpretation: true, originalRequest, clarificationQuestion: content,
+        ...(originalRequestedOperation ? { originalRequestedOperation } : {}) },
     };
 
     sessionState.recordDecision(decisionWithAttempts, input);
