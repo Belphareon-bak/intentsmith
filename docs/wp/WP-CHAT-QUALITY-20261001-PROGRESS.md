@@ -1,13 +1,14 @@
 # IntentSmith — průběh práce na kvalitě chatu
 
-Poslední aktualizace: **1. 10. 2026, 20:18 CEST**. Stav: **CANDIDATE / REVIEW_PENDING**.
+Poslední aktualizace: **1. 10. 2026, 21:10 CEST**. Stav: **CANDIDATE / REVIEW_PENDING**.
 Dokument aktualizuji po každém dokončeném milníku, nejpozději po třech hodinách
 aktivní práce. Historická selhání zůstávají uvedena; nové ověření je nepřepisuje
 na úspěch. Nejde o plánovač úloh po ukončení této pracovní relace.
 
 Větev: `work/chat-quality-20261001`. Společný výchozí commit:
 `45caf5b54b78def257221ac2ab33a64031800813`. Poslední testovaný implementační
-commit: **`14f09b69`**. Tento dokument se publikuje následným dokumentačním
+commit: **`09d9fa01`** (poslední změna pouze testového helperu; runtime shodný
+s `495a069f`). Tento dokument se publikuje následným dokumentačním
 commitem. Vlastní worktree: `intentsmith-chat-quality-20261001`.
 Mimochatový worker, jeho soubory a produkční release zůstávají nedotčené.
 
@@ -59,6 +60,10 @@ cesta používá celé odpovědi a změna sdíleného gateway není součástí 
 
 | Ověření | Testovaný commit / běh | Výsledek a hranice důkazu |
 | --- | --- | --- |
+| Celý offline + DB profil po nativních rolích | `495a069f`, `chat-quality-full-20261001-native` | 399 PASS / 4 FAIL / 3 BLOCKED z 406. Žádné nové selhání; čtyři otevřené chyby a tři blokované exportní/runtime sady níže zůstávají |
+| Devět skutečných HTTP sad | `09d9fa01`, `chat-quality-journeys-20261001-native-current` | 9 PASS: účetní deterministická cesta, doslovný zápis, soukromí, projektové expertízy, opakované uložení, druhá kompakce, návaznost specialisty, překlad a přesnost hodnot |
+| Starý prefix ve fixture přesnosti hodnot | `495a069f`, `chat-quality-journeys-20261001-native-fixed` | 8 PASS / 1 FAIL; helper nerozpoznal přesný nativní USER vstup. Opraveno v `09d9fa01`, původní pozitivní i negativní kontroly hodnot zůstaly. Samostatné opakování `chat-quality-value-native-20261001` 1 PASS a celé HTTP opakování výše 9 PASS |
+| Chybný první výběr HTTP sad | `chat-quality-journeys-20261001-native` | Runner odmítl neexistující ID, exit 2, 0 provedených testů. Není selháním produktu ani PASS; opravený výběr používá registrovaná ID |
 | Aktuální dlouhý rozhovor a skutečný restart | `e1638ac2`, run `e7eb8877-3191-4ae2-8af2-e15d31862009` | 27/27 užitečných, osm skutečných kompakcí, dva různé procesy. Po restartu správně Javor / LIPA_781 / ruční kontrola bez změn; nulové efekty |
 | Zdvořilé, opakované a souhrnné uložení | `e1638ac2`, run `89a7b5ab-17c0-49a7-a37a-6754ce15a841` | 5/5 kroků dokončeno; všechny zápisy mají nula efektů před schválením a přesné následné bajty. Významově 3/5: neobratný pětislovný popis a souhrn tvořený citací s úvodem jsou nedostatečné |
 | Vytvoření nového textu a uložení | `e1638ac2`, run `7567fa86-d0ea-461c-93bf-7d1437c9274e` | 1/1 užitečný, tři odrážky, durable zdroj před M2, create-only a přesné schválené bajty |
@@ -113,16 +118,15 @@ soukromých dat.
 
 ## Další milník a podmínky přijetí
 
-1. Zopakovat nové 12případové dialogy také přímo proti stejnému modelu s
-   historií. Oddělit aplikační chyby od kvality modelu; porovnávat skutečný
-   obsah, nikoli pouze délku.
-2. Na aktuálním kandidátu dokončit přirozené akce a dlouhou návaznost včetně
-   restartu a nejméně dvou kompakcí.
-3. Zmrazit commit a dokončit tři celé nezměněné série původních 53 případů.
+1. Nové dialogy A/B, přirozené akce, dlouhá návaznost, restart a osm kompakcí
+   jsou dokončené. Významové nedostatky jsou uvedené výše; cíle nejsou splněné.
+2. Technický profil a devět HTTP sad jsou dokončené. Baseline chyby zůstávají
+   explicitně otevřené; profil není zelený.
+3. Zmrazit následující publikovaný commit a dokončit tři celé nezměněné série původních 53 případů.
    Celá tato série tvoří jeden přejímkový milník; během ní se testovaný commit
    nemění. Odpovědi se významově vyhodnotí až po dokončení všech tří sérií.
-4. Dokončit celý technický profil aktuálního commitu, významové hodnocení,
-   porovnání latence a závěrečný review report. Vlastní hodnocení se označí
+4. Po třech sériích dokončit významové hodnocení, porovnání latence a závěrečný
+   review report. Vlastní hodnocení se označí
    samostatně od nezávislého přijetí.
 
 Předem dané cíle: ≥95 % užitečných reakcí, ≤5 % zbytečných zastavení,
