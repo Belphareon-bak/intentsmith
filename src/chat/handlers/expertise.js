@@ -604,7 +604,10 @@ async function wrapWithExpertisePersona(input, toolResult, expertise, context) {
     const wrapConvId = context.conversationId || context.sessionId;
     const expertiseSystemPrompt = await buildExpertiseSystemPrompt(expertise, wrapConvId);
     const boundedExpertiseSystemPrompt = expertiseSystemPrompt
-      + '\n\nRESPONSE SCOPE: Explain only the supplied tool result in at most 120 words. Do not add unverified facts, alternatives, or a follow-up offer.';
+      + '\n\nRESPONSE SCOPE: Explain only the supplied tool result in at most 120 words. Do not add unverified facts, alternatives, or a follow-up offer.'
+      + (toolMetadata.specialistTool === 'accountant.vat_calculator'
+        ? ' For this VAT calculation, use only the numerical values and legal references explicitly present in the tool result. Do not cite any statutory section or paragraph unless the tool result supplies it.'
+        : '');
 
     // Build prompt that includes tool results
     const toolContent = toolResult.content || '';

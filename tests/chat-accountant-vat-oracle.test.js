@@ -56,6 +56,15 @@ test('VAT oracle accepts the tool supplied act number and bold section headings'
   /explicitly negated VAT or Czech applicability/u);
 });
 
+test('VAT label remains bound to its amount across the exact tool citation', () => {
+  const inlineCitation = valid.replace('DPH 21 % je 2 100 Kč',
+    'DPH 21 % podle zákona č. 235/2004 Sb. činí 2 100 Kč');
+  assertVatAnswer(inlineCitation);
+  assert.throws(() => assertVatAnswer(inlineCitation.replace('2 100 Kč', '2 200 Kč')),
+    /vat must uniquely map to 2100 CZK/u);
+  assert.throws(() => assertVatAnswer(inlineCitation.replace('235/2004', '235/2005')));
+});
+
 test('VAT oracle checks the observed model table layout without flattening its labels', () => {
   const modelTable = [
     'Pro zdaňovací období rok 2025 v České republice platí výpočet podle zákona č. 235/2004 Sb.:',
@@ -80,6 +89,8 @@ test('VAT oracle checks the observed model table layout without flattening its l
     ['rate', modelTable.replace('21 %)', '12 %)')],
     ['period', modelTable.replace('rok 2025', 'rok 2024')],
     ['legal reference', modelTable.replace('235/2004', '236/2004')],
+    ['invented paragraph', modelTable.replace('* Sazba DPH: 21 %',
+      '* Sazba DPH: 21 % (§ 38)')],
     ['missing closing advice', modelTable.replace(' konzultujte daňového poradce.', '.')],
   ]) assert.throws(() => assertVatAnswer(changed), undefined, label);
 });

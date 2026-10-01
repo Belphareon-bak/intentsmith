@@ -153,7 +153,7 @@ export function assertVatAnswer(answer) {
   assert(!/\p{Nd}/u.test(withoutMoneyOrRates.replace(YEAR,
     value => ' '.repeat(value.length))),
   'unknown Arabic numeral in bounded VAT answer');
-  assertExactLabeledAmounts(normalized);
+  assertExactLabeledAmounts(claims);
   const lines = normalized.split(/\r?\n/u);
   assertListedSection(lines, 'Předpoklady');
   assertListedSection(lines, 'Nezahrnuje');
