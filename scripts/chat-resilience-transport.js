@@ -6,9 +6,13 @@ export function assessChatResilienceTransport({ wire, recorded, selected, exit,
     ['/api/chat', '/api/generate'].includes(call.path));
   const invalidInferenceWire = inferenceWire.filter(call => {
     const terminal = call.response || call.responseLines?.at(-1);
-    return call.error || call.status !== 200 || terminal?.done !== true
+    const presentDigests = terminal && typeof terminal === 'object'
+      ? ['digest', 'model_digest_sha256'].filter(key => Object.hasOwn(terminal, key))
+      : [];
+    return call.error || call.captureComplete === false || call.status !== 200 || terminal?.done !== true
       || terminal.model !== model
-      || (terminal.digest || terminal.model_digest_sha256) !== modelDigest;
+      || presentDigests.length === 0
+      || presentDigests.some(key => terminal[key] !== modelDigest);
   });
   const exactWire = invalidInferenceWire.length === 0;
   const transportComplete = exit.code === 0 && inferenceWire.length > 0
@@ -23,4 +27,10 @@ export function assessChatResilienceTransport({ wire, recorded, selected, exit,
         && inferenceWire.some(call => call.caseId === c.id && call.path === '/api/chat'))));
   return { inferenceWire, exactWire,
     invalidInferenceCallCount: invalidInferenceWire.length, transportComplete };
+}
+
+export function chatResilienceRunStatus(exit) {
+  if (!exit) return 'RUNNING';
+  if (exit.code === 0 && exit.transportComplete) return 'LIVE_COMPLETE_UNASSESSED';
+  return exit.blocked ? 'BLOCKED_GPU' : 'LIVE_INCOMPLETE';
 }

@@ -6,6 +6,7 @@ WP pokrývá jen navazující 53případovou sadu z historického
 `work/intent-resilience-20260928`; ostatní produktové cesty mají vlastní WP.
 Vstup: čistý integrační `76274bb6`. Vlastněné cesty:
 `scripts/measure-m1-l3.js`, `scripts/chat-resilience-transport.js`,
+`scripts/chat-resilience-provider-relay.js`,
 `tests/fixtures/chat-resilience-final.json`,
 `tests/chat-resilience-runner-contract.test.js`, příslušný řádek
 `tests/registry.json` a tento dokument.
@@ -70,7 +71,12 @@ neočekávaném efektu je běh `BLOCKED`/`LIVE_INCOMPLETE`, ne PASS. Do úplnost
 počítá **každý** zachycený `/api/chat` a `/api/generate` request: HTTP chyba,
 chybějící terminál ani neplatná identita modelu se nesmí ztratit za pozdějším
 úspěšným voláním. `initial-exit.json` ukládá počet všech inference requestů a
-počet neplatných.
+počet neplatných. Všechna přítomná pole identity (`digest` i
+`model_digest_sha256`) musí souhlasit. Soukromý `initial-provider-raw.jsonl`
+ukládá a synchronizuje začátek requestu i syrové request/response chunky před
+jejich předáním dál. Přerušený upstream nebo odchod child uzavře čekající
+request jako `incomplete`; kanonický `providerWire` a veřejný status zůstávají
+`LIVE_INCOMPLETE`, nikoli důkaz úplné odpovědi.
 
 ## První skutečný pilot, 1. 10. 2026
 

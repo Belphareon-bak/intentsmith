@@ -9,7 +9,8 @@ import http from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { assessChatResilienceTransport } from '../scripts/chat-resilience-transport.js';
+import { assessChatResilienceTransport, chatResilienceRunStatus } from '../scripts/chat-resilience-transport.js';
+import { createChatResilienceProviderRelay } from '../scripts/chat-resilience-provider-relay.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const runner = path.join(root, 'scripts/measure-m1-l3.js');
@@ -51,6 +52,10 @@ async function controlledProviderWire(scenarios) {
     const body = scenario === 'failed' ? { error: 'controlled upstream failure' }
       : { model: MODEL, digest: DIGEST, done: scenario !== 'nonterminal',
         message: { content: 'controlled answer' } };
+    if (scenario === 'both-valid') body.model_digest_sha256 = DIGEST;
+    if (scenario === 'conflicting-digest') body.model_digest_sha256 = 'b'.repeat(64);
+    if (scenario === 'alternate-only') { delete body.digest; body.model_digest_sha256 = DIGEST; }
+    if (scenario === 'missing-digest') delete body.digest;
     response.writeHead(status, { 'content-type': 'application/json' });
     response.end(JSON.stringify(body));
   });
@@ -89,6 +94,70 @@ function transport(wire) {
   });
 }
 
+async function interruptedRelay(scenario) {
+  const ordinal = ++providerOrdinal;
+  const providerPath = `\0is-provider-abort-${process.pid}-${ordinal}`;
+  const relayPath = `\0is-relay-abort-${process.pid}-${ordinal}`;
+  let forwarded;
+  const sawForward = new Promise(resolve => { forwarded = resolve; });
+  const provider = http.createServer(async (request, response) => {
+    for await (const _ of request) { /* consume the request */ }
+    forwarded();
+    if (scenario === 'upstream-abort') {
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.write('{"model":"qwen3.5:27b","digest":"');
+      setTimeout(() => response.destroy(), 20);
+    }
+  });
+  await new Promise(resolve => provider.listen(providerPath, resolve));
+  const out = mkdtempSync(path.join(tmpdir(), 'is-resilience-relay-'));
+  const wire = [];
+  const relay = createChatResilienceProviderRelay({out, upstream:{socketPath:providerPath},
+    model:MODEL,wire,persistWire:rows=>writeFileSync(path.join(out,'initial-provider-wire.json'),JSON.stringify(rows))});
+  try {
+    await new Promise(resolve => relay.listen(relayPath, resolve));
+    const clientDone = new Promise(resolve => {
+      const client = http.request({socketPath:relayPath,path:'/api/chat',method:'POST',
+        headers:{'content-type':'application/json'}},response=>{
+        response.resume();
+        response.on('end',resolve);
+        response.on('error',resolve);
+        response.on('close',resolve);
+      });
+      client.on('error',resolve);
+      client.end(JSON.stringify({model:MODEL,messages:[],stream:false}));
+    });
+    await sawForward;
+    if (scenario === 'child-exit') relay.sealPending('CHILD_EXIT_WITH_PENDING_PROVIDER_REQUEST');
+    await clientDone;
+    const persisted = JSON.parse(readFileSync(path.join(out,'initial-provider-wire.json'),'utf8'));
+    const events = readFileSync(path.join(out,'initial-provider-raw.jsonl'),'utf8').trim().split('\n').map(JSON.parse);
+    assert.equal(wire.length,1);
+    assert.equal(persisted.length,1);
+    assert.equal(persisted[0].captureComplete,false);
+    assert.match(persisted[0].error,/UPSTREAM_RESPONSE_|CHILD_EXIT_WITH_PENDING_PROVIDER_REQUEST/u);
+    assert.equal(events.some(event=>event.event==='request_chunk'),true);
+    assert.equal(events.some(event=>event.event==='incomplete'),true);
+    if (scenario === 'upstream-abort') {
+      assert.equal(events.some(event=>event.event==='response_start'),true);
+      assert.equal(events.some(event=>event.event==='response_chunk'),true);
+      assert.equal(events.some(event=>event.event==='response_end'),false);
+    }
+    const verdict=transport(wire);
+    assert.equal(verdict.transportComplete,false);
+    assert.equal(chatResilienceRunStatus({code:0,transportComplete:verdict.transportComplete}),
+      'LIVE_INCOMPLETE');
+  } finally {
+    relay.sealPending('TEST_SHUTDOWN');
+    relay.closeAllConnections();
+    await new Promise(resolve=>relay.close(resolve));
+    relay.closeJournal();
+    provider.closeAllConnections();
+    await new Promise(resolve=>provider.close(resolve));
+    rmSync(out,{recursive:true,force:true});
+  }
+}
+
 try {
   const accepted = run(original);
   assert.equal(accepted.status, 0, accepted.stderr);
@@ -121,6 +190,19 @@ try {
   assert.equal(clean.transportComplete, true);
   assert.equal(clean.inferenceWire.length, 1);
   assert.equal(clean.invalidInferenceCallCount, 0);
+  assert.equal(transport(await controlledProviderWire([
+    { path: '/api/chat', scenario: 'both-valid' },
+  ])).transportComplete, true);
+  assert.equal(transport(await controlledProviderWire([
+    { path: '/api/chat', scenario: 'alternate-only' },
+  ])).transportComplete, true);
+  assert.equal(transport(await controlledProviderWire([
+    { path: '/api/chat', scenario: 'missing-digest' },
+  ])).transportComplete, false);
+  assert.equal(transport(await controlledProviderWire([
+    { path: '/api/chat', scenario: 'conflicting-digest' },
+  ])).transportComplete, false,
+  'expected digest hid a conflicting model_digest_sha256');
   const failedChat = await controlledProviderWire([
     { path: '/api/chat', scenario: 'failed' }, valid,
   ]);
@@ -148,7 +230,10 @@ try {
     { caseId: 'http-plain', path: '/api/chat', error: 'socket closed' }]).transportComplete,
   false, 'captured request without an HTTP terminal was ignored');
 
-  console.log('chat resilience runner contract: 13/13 PASS (offline, 0 model calls)');
+  await interruptedRelay('upstream-abort');
+  await interruptedRelay('child-exit');
+
+  console.log('chat resilience runner contract: 19/19 PASS (offline, 0 model calls)');
 } finally {
   rmSync(scratch, { recursive: true, force: true });
 }

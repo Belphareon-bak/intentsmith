@@ -16,7 +16,8 @@ import { spawn, execFileSync } from 'node:child_process';
 import { randomUUID, randomBytes, createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
-import { assessChatResilienceTransport } from './chat-resilience-transport.js';
+import { assessChatResilienceTransport, chatResilienceRunStatus } from './chat-resilience-transport.js';
+import { createChatResilienceProviderRelay } from './chat-resilience-provider-relay.js';
 
 const BASE = (process.env.INTENTSMITH_URL ?? process.env['C3_URL']);
 const ISOLATED_CHAT = process.argv.includes('--isolated-chat');
@@ -260,8 +261,7 @@ const canonical = () => {
   const run = { ...prior, runId, phase, manifest, artifactDirectory: out,
     configuration: read('initial-configuration.json'), preflight: read('initial-preflight.json'),
     cases: read('initial-results.json') || [], providerWire: read('initial-provider-wire.json') || [], exit,
-    status: exit ? (exit.code === 0 && exit.transportComplete ? 'LIVE_COMPLETE_UNASSESSED'
-      : exit.blocked ? 'BLOCKED_GPU' : 'LIVE_INCOMPLETE') : 'RUNNING' };
+    status: chatResilienceRunStatus(exit) };
   record.runs = record.runs.filter(r => r.runId !== runId).concat(run);
   record.updatedAt = new Date().toISOString();
   fs.writeFileSync(recordPath + '.tmp', JSON.stringify(record, null, 2) + '\n', { mode: 0o600 });
@@ -394,12 +394,8 @@ if(process.argv.includes('--inside')) {
   const artifact=(await (await fetch('http://127.0.0.1:11434/api/tags')).json()).models?.find(entry=>entry.name===model);
   if(artifact?.digest!==modelDigest)throw new Error('MODEL_DIGEST_DRIFT: expected fixed CHAT artifact is unavailable');
   save('initial-preflight.json',{at:new Date().toISOString(),lease:{pid:lease.owner.pid,command:lease.owner.command,startedAt:lease.owner.startedAt},ps,compute,gpu:execFileSync('nvidia-smi',['--query-gpu=memory.total,memory.used,utilization.gpu','--format=csv,noheader'],{encoding:'utf8'}).trim(),provider:await (await fetch('http://127.0.0.1:11434/api/version')).json()});
-  proxy=http.createServer(async(req,res)=>{let row;try{const chunks=[];for await(const c of req)chunks.push(c);const bytes=Buffer.concat(chunks),body=bytes.length?JSON.parse(bytes):null;row={at:new Date().toISOString(),caseId:req.headers['x-chat-measurement-case']||'boot',path:req.url,method:req.method,body};wire.push(row);
-   const allowed=(req.method==='GET'&&['/api/tags','/api/ps','/api/version'].includes(req.url))||(req.method==='POST'&&['/api/chat','/api/generate','/api/show'].includes(req.url)&&[model].includes(body?.model||body?.name)&&!(req.url==='/api/generate'&&body?.keep_alive===0));
-   if(!allowed)throw new Error('OUT_OF_SCOPE provider request');
-   const upstream=http.request({hostname:'127.0.0.1',port:11434,path:req.url,method:req.method,headers:{'Content-Type':'application/json','Content-Length':bytes.length}},r=>{row.status=r.statusCode;res.writeHead(r.statusCode,r.headers);const returned=[];r.on('data',c=>returned.push(c));r.on('end',()=>{row.elapsedMs=Date.now()-Date.parse(row.at);const raw=Buffer.concat(returned).toString();try{row.response=JSON.parse(raw);}catch{row.responseLines=raw.trim().split('\n').map(l=>{try{return JSON.parse(l);}catch{return {invalid:l};}});}save('initial-provider-wire.json',wire);
-   });r.pipe(res);});upstream.on('error',e=>{row.error=e.message;res.writeHead(502);res.end();save('initial-provider-wire.json',wire);});upstream.end(bytes);
-  }catch(e){if(row)row.error=e.message;res.writeHead(403);res.end(e.message);save('initial-provider-wire.json',wire);}});
+  proxy=createChatResilienceProviderRelay({out,upstream:{hostname:'127.0.0.1',port:11434},model,wire,
+   persistWire:rows=>save('initial-provider-wire.json',rows)});
   await new Promise((resolve,reject)=>{
    proxy.once('error',reject);
    proxy.listen(socket,()=>{proxy.off('error',reject);resolve();});
@@ -413,6 +409,7 @@ if(process.argv.includes('--inside')) {
   const log=fs.createWriteStream(path.join(out,'initial-process.log'),{mode:0o600});let tail='';
   child.stdout.on('data',c=>{log.write(c);const text=c.toString();for(const line of text.split('\n'))if(line.startsWith('CHAT_PROBE')){canonical(); console.log(line);}});child.stderr.on('data',c=>{log.write(c);tail=(tail+c).slice(-2000);});
   const exit=await new Promise((resolve,reject)=>{child.on('error',reject);child.on('exit',(code,signal)=>resolve({code,signal}));});
+  proxy.sealPending('CHILD_EXIT_WITH_PENDING_PROVIDER_REQUEST');
   log.end();
   let recorded=[];
   try { recorded=JSON.parse(fs.readFileSync(path.join(out,'initial-results.json'),'utf8')); } catch {}
@@ -428,8 +425,8 @@ if(process.argv.includes('--inside')) {
    expectedCases:selected.length,recordedCases:recorded.length,at:new Date().toISOString()});
   console.log('pilot exit',JSON.stringify({...exit,transportComplete}),tail);
   process.exitCode=transportComplete?0:1;
- }catch(error){save('initial-exit.json',{code:1,blocked:['GPU_EVALUATION_BUSY','BLOCKED_GPU'].includes(error.code)||error.message.startsWith('BLOCKED_GPU'),errorCode:error.code||null,error:error.message,at:new Date().toISOString()});process.exitCode=1;console.error(error.message);}
- finally{if(child&&child.exitCode===null)child.kill('SIGTERM');if(proxy){proxy.closeAllConnections();await new Promise(r=>proxy.close(r));}fs.rmSync(socketDir,{recursive:true,force:true});lease?.release();canonical();}
+ }catch(error){proxy?.sealPending('RUNNER_ERROR_WITH_PENDING_PROVIDER_REQUEST');save('initial-exit.json',{code:1,blocked:['GPU_EVALUATION_BUSY','BLOCKED_GPU'].includes(error.code)||error.message.startsWith('BLOCKED_GPU'),errorCode:error.code||null,error:error.message,at:new Date().toISOString()});process.exitCode=1;console.error(error.message);}
+ finally{if(child&&child.exitCode===null)child.kill('SIGTERM');if(proxy){proxy.sealPending('RUNNER_SHUTDOWN_WITH_PENDING_PROVIDER_REQUEST');proxy.closeAllConnections();await new Promise(r=>proxy.close(r));proxy.closeJournal();}fs.rmSync(socketDir,{recursive:true,force:true});lease?.release();canonical();}
 }
 
 }
