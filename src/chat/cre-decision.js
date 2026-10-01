@@ -1135,7 +1135,8 @@ export function isExplicitFileReadIntent(input) {
 
 export function isExplicitFileWriteIntent(input) {
   const text = typeof input === 'string' ? input.trim() : '';
-  return FILE_WRITE_PATTERNS.some(pattern => pattern.test(text));
+  return EXPLICIT_LITERAL_FILE_WRITE_PATTERN.test(text)
+    || FILE_WRITE_PATTERNS.some(pattern => pattern.test(text));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1218,6 +1219,12 @@ const FILE_WRITE_PATTERNS = [
   // EN: "write to file X"
   /(?:^|\s)write\s+(?:it\s+)?to\s+(?:file\s+)?[\w./-]+/i,
 ];
+
+// Exact quoted bytes plus a named file are an effectful write request even
+// when the classifier calls it ordinary conversation. `ulzo` is the narrow,
+// unambiguous transposition seen in the F06 live corpus; the handler still
+// validates the complete command and rejects unsupported trailing clauses.
+const EXPLICIT_LITERAL_FILE_WRITE_PATTERN = /^(?:ulo[žz]|ulzo|zapi[šs]|napi[šs]|save|write)\s+text\s+(["'])[\s\S]*?\1\s+(?:do|to|into)\s+(?:souboru?\s+|file\s+)?[\w./-]+\.\w{1,10}(?=\s|[,.;]|$)/iu;
 
 // v70: Extract file path from file-write input
 function extractWriteFilePath(input) {
@@ -3187,6 +3194,7 @@ PRAVIDLA:
     const _text = input.trim();
     const _norm = normalizeForClassification(_text);
     const deterministicIntent = this.classifyIntent(input);
+    const isDeterministicLiteralWrite = EXPLICIT_LITERAL_FILE_WRITE_PATTERN.test(_text);
     // ConversationHandler appends this exact context-owned formatter output.
     // Remove only that suffix for the new listing recognizer; all later guards
     // still receive the unchanged input and must enforce their normal rules.
@@ -3242,15 +3250,17 @@ PRAVIDLA:
           ].includes(deterministicIntent))
         || (isStableKnowledgeExplanation && deterministicIntent === IntentType.DESIGN)
       );
-    const resolvedDeterministicIntent = isDeterministicProjectListing
-      ? IntentType.FILE_READ
-      : isDeterministicLiveSearch
-        ? IntentType.SEARCH
-        : isDeterministicInlineCode
-          ? IntentType.CODE
-          : stableConversationOverride
-            ? IntentType.CONVERSATIONAL
-            : deterministicIntent;
+    const resolvedDeterministicIntent = isDeterministicLiteralWrite
+      ? IntentType.FILE_WRITE
+      : isDeterministicProjectListing
+        ? IntentType.FILE_READ
+        : isDeterministicLiveSearch
+          ? IntentType.SEARCH
+          : isDeterministicInlineCode
+            ? IntentType.CODE
+            : stableConversationOverride
+              ? IntentType.CONVERSATIONAL
+              : deterministicIntent;
     const isDeterministic =
       (resolvedDeterministicIntent === IntentType.CONVERSATIONAL
         && !mayRequireLocalAuthority
@@ -3261,6 +3271,7 @@ PRAVIDLA:
           || isStableDiscussion
           || isStableLearningGoal)) ||
       resolvedDeterministicIntent === IntentType.LOCAL ||
+      isDeterministicLiteralWrite ||
       isDeterministicProjectListing ||
       isDeterministicInlineCode ||
       isDeterministicCreative ||

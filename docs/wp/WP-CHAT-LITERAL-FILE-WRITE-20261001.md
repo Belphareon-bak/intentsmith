@@ -2,6 +2,15 @@
 
 **Stav:** implementační kandidát; omezené lokální testy PASS, nezávislé review a integrace otevřené.
 
+První nezávislé review commitu `3046c9d0` vrátilo `CHANGES_REQUIRED`:
+podmínka „pouze pokud soubor ještě neexistuje“ stále mohla vytvořit přepisující
+efekt. Následný red-first M1 HTTP test selhal přesně na chybějícím blokování.
+Následná oprava rozpoznává ekvivalentní české a anglické podmínky create-only.
+Red-first případ F06 `ulzo text "Ahoj" do network.md, necham si ho` navíc
+odhalil chybné směrování do `project.collaboration`; přesný doslovný příkaz
+teď CRE deterministicky směruje do FILE_WRITE a handler dovolí pouze tuto
+uzavřenou vedlejší větu bez změny bajtů, cíle nebo autority.
+
 **Autorita:** explicitní zadání operátora dokončovat reálné chatové scénáře
 (2026-09-30 a 2026-10-01) a živě pozorovaný pilot-4: první zpráva
 `Ulož text "Ahoj" do new-notes.md.` i omezený zápis do `existing.md`
@@ -11,16 +20,19 @@ odpověď asistenta. Tento WP nezakládá nové produktové rozhodnutí.
 
 **Vstup a vlastnictví:** čistý integrační checkpoint `2477c8a2` ve vlastní
 větvi `work/chat-literal-write-20261001` a vlastním checkoutu. Dotčené cesty:
-`src/chat/handlers/file.js`, `tests/chat-literal-write-http.test.js`,
+`src/chat/cre-decision.js`, `src/chat/handlers/file.js`,
+`tests/chat-literal-write-http.test.js`,
 `tests/registry.json`, generovaný `docs/convergence/TEST-REGISTRY.md` a tento
-WP. Žádná produkční DB, GPU, služba, model binding ani korpus 53 živých případů.
+WP. Žádné úpravy produkční DB, služby, GPU huntu, model bindingu ani korpusu
+53 živých případů.
 Paralelní oprava druhého kontextového okna patří jinému WP.
 
 **Výsledek pro uživatele:** jednoznačný příkaz s textem v uvozovkách zapíše
 přesně tyto bajty do pojmenovaného souboru po samostatném M2 schválení.
 Zkratka `Ulož to` dál ukládá předchozí odpověď. Neúplný doslovný příkaz
 vyvolá upřesnění. Požadavek „nepřepisuj existující soubor“ nevytvoří návrh
-efektu, který by mohl později soubor přepsat.
+efektu, který by mohl později soubor přepsat; totéž platí pro „jen pokud
+soubor ještě neexistuje“ a `only if the file does not exist`.
 
 **Bezpečnostní hranice:** aktuální `file.write@1` a M2 `fs.write` nemají
 atomickou podmínku „vytvoř jen při neexistenci“. Kontrola existence před
@@ -37,6 +49,8 @@ a délku payloadu, absenci souboru před M2 schválením a přesné bajty po ně
 Samostatně chrání již existující soubor i se starší odpovědí v historii a
 ověřuje, že omezení nevytvoří M2 efekt. Kontroluje také starší zkratku,
 doslovný text obsahující slovo `nepřepisuj` a nejednoznačný nezakotovaný text.
+F06 překlep testuje přesný cíl, obsah a skutečné M2 schválení; další efektová
+věta za stejným překlepem musí skončit bez návrhu.
 Původní červený HTTP test reprodukoval chybějící proposal; další běh odhalil
 tečku připojenou k názvu souboru u starší zkratky, kterou tento WP opravil.
 
@@ -51,6 +65,17 @@ Registr kandidáta validuje 585 programů s fingerprintem
 `81f1b52615e18c67db7af02635128d091c93274bc4c22ff77efba0d5c6287953`.
 Nezávislé review a integrovaný test zůstávají otevřené; tyto omezené výsledky
 nejsou živou modelovou ani release akceptací.
+
+Při následné kontrole CRE byly omylem spuštěny dvě nepovinné sady
+`cre-comprehensive` a `cre-guard-interactions`, které skutečně kontaktovaly
+sdílenou Ollamu. Oba vlastní Node procesy byly ihned ukončeny; jejich výsledek
+je **INTERRUPTED**, nikoli PASS. Logy zůstaly v ignorované soukromé cestě
+`.intentsmith-artifacts/followup-{0,1}.log`. Další ověření používá pouze
+řízenou loopback fixture. Po opravě prošel nový M1 HTTP scénář **1/1**,
+`cre-file-reference-guard` **9/9**, M1 kontrakt **73/73**, produkční M2
+consumer **22/22**, M2 souborový consumer **39/39** a extrakce **21/21**.
+Generovaný registr znovu validoval stejných 585 programů a fingerprint
+`81f1b52615e18c67db7af02635128d091c93274bc4c22ff77efba0d5c6287953`.
 
 **Stop condition:** při nejednoznačném textu, cíli nebo negaci nevytvořit
 M2 proposal. Historii, stav registru `lastGreen` a produkční soubory neměnit.

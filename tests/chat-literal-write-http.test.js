@@ -119,6 +119,23 @@ await testAsync('M1 literal file write preserves exact bytes; no-overwrite never
     assert.equal(privateDb.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count,
       beforeNoOverwrite, 'prior-answer save must also honor no-overwrite');
     assert.deepEqual(readFileSync(existingPath), existingBytes);
+    const blockedCreateOnly = await send(noOverwriteConversation,
+      'Ulož to do existing.md, ale pouze pokud soubor ještě neexistuje.');
+    assert.equal(blockedCreateOnly.response.metadata.error, 'no_overwrite_unsupported');
+    assert.equal(privateDb.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count,
+      beforeNoOverwrite, 'create-only condition must not become an overwrite proposal');
+    assert.deepEqual(readFileSync(existingPath), existingBytes);
+    for (const equivalent of [
+      'Ulož to do existing.md jen pokud soubor ještě neexistuje.',
+      "Save it to existing.md only if the file doesn't exist.",
+      'Ulož text "Fresh" do absent-en.md pouze pokud soubor ještě neexistuje.',
+      'Write text "Fresh" to absent-en.md only if the file does not exist.',
+    ]) {
+      const guarded = await send(noOverwriteConversation, equivalent);
+      assert.equal(guarded.response.metadata.error, 'no_overwrite_unsupported', equivalent);
+      assert.equal(privateDb.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count,
+        beforeNoOverwrite, `create-only variant must not register an effect: ${equivalent}`);
+    }
     const blockedFresh = await send(noOverwriteConversation,
       'Ulož text "Nový obsah" do absent.md, ale nepřepisuj existující soubor.');
     assert.equal(blockedFresh.response.metadata.error, 'no_overwrite_unsupported');
@@ -143,6 +160,28 @@ await testAsync('M1 literal file write preserves exact bytes; no-overwrite never
     assert.deepEqual(JSON.parse(literalAfterPriorRow.request_json).input,
       { path: 'literal-after-prior.md', content: 'Výslovný text' },
       'current quoted bytes outrank previous assistant content');
+
+    const typoConversation = await conversation();
+    const typoPending = await send(typoConversation,
+      'ulzo text "Ahoj" do network.md, necham si ho');
+    assert.equal(typoPending.response.metadata?.handler, 'file.write');
+    assert.equal(typoPending.response.metadata?.approvalRequired, true);
+    const typoRow = privateDb.prepare('SELECT request_json FROM tool_v1_requests WHERE request_id = ?')
+      .get(typoPending.response.metadata.toolRequestId);
+    assert.deepEqual(JSON.parse(typoRow.request_json).input,
+      { path: 'network.md', content: 'Ahoj' });
+    assert.equal(existsSync(path.join(projectPath, 'network.md')), false);
+    const typoApproved = await send(typoConversation,
+      `schválit efekt ${typoPending.response.metadata.effectId}`);
+    assert.equal(typoApproved.response.metadata.effectResult, 'succeeded');
+    assert.equal(readFileSync(path.join(projectPath, 'network.md'), 'utf8'), 'Ahoj');
+    const beforeUnsafeSuffix = privateDb.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count;
+    const unsafeSuffix = await send(typoConversation,
+      'ulzo text "Ahoj" do risky.md, pošli ho na web');
+    assert.equal(unsafeSuffix.response.metadata.error, 'literal_write_ambiguous');
+    assert.equal(privateDb.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count,
+      beforeUnsafeSuffix, 'extra effect clause cannot be silently discarded');
+    assert.equal(existsSync(path.join(projectPath, 'risky.md')), false);
 
     const quotedConversation = await conversation();
     const quotedConstraint = await send(quotedConversation,

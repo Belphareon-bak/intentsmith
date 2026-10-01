@@ -886,19 +886,24 @@ function _extractUserContent(input) {
 // must not silently disappear from the bytes submitted to M2.
 function parseExplicitLiteralWrite(input) {
   const text = typeof input === 'string' ? input.trim() : '';
-  const startsLiteral = /^(?:ulo[žz]|zapi[šs]|napi[šs]|save|write)\s+text\b/iu.test(text);
+  const startsLiteral = /^(?:ulo[žz]|ulzo|zapi[šs]|napi[šs]|save|write)\s+text\b/iu.test(text);
   if (!startsLiteral) return null;
-  const match = text.match(/^(?:ulo[žz]|zapi[šs]|napi[šs]|save|write)\s+text\s+(["'])([\s\S]*?)\1\s+(?:do|to|into)\s+(?:souboru?\s+|file\s+)?([\w./-]+\.\w{1,10})(.*)$/iu);
+  const match = text.match(/^(?:ulo[žz]|ulzo|zapi[šs]|napi[šs]|save|write)\s+text\s+(["'])([\s\S]*?)\1\s+(?:do|to|into)\s+(?:souboru?\s+|file\s+)?([\w./-]+\.\w{1,10})(.*)$/iu);
   if (!match) return { ambiguous: true };
   const suffix = match[4].trim();
-  if (suffix && !/^[.]$/u.test(suffix) && !hasNoOverwriteConstraint(suffix)) {
+  const harmlessKeepClause = /^,\s*nech[áa]m\s+si\s+ho\.?$/iu.test(suffix);
+  if (suffix && !/^[.]$/u.test(suffix) && !harmlessKeepClause
+    && !hasNoOverwriteConstraint(suffix)) {
     return { ambiguous: true };
   }
   return { content: match[2], filePath: match[3], noOverwrite: hasNoOverwriteConstraint(suffix) };
 }
 
 function hasNoOverwriteConstraint(text) {
-  return /(?:nepřepisuj|neprepisuj|nepřepsat|neprepsat|bez\s+přepsání|bez\s+prepsani|do\s+not\s+overwrite|don't\s+overwrite|without\s+overwriting)/iu.test(text);
+  const explicitProhibition = /(?:nepřepisuj|neprepisuj|nepřepisovat|neprepisovat|nepřepsat|neprepsat|bez\s+přepsání|bez\s+prepsani|do\s+not\s+(?:overwrite|replace)|don['’]t\s+(?:overwrite|replace)|without\s+(?:overwriting|replacing))/iu;
+  const absentCondition = /(?:pokud|když|jestli|v\s+případě\s*,?\s*že)[^.!?]{0,100}(?:neexistuje|neexistuji|není\s+(?:vytvořen[ýyao]?|na\s+disku))|(?:only\s+)?if\s+[^.!?]{0,100}(?:does\s+not\s+exist|doesn['’]t\s+exist|is\s+(?:absent|missing))|unless\s+[^.!?]{0,100}\bexists\b/iu;
+  const newFileOnly = /(?:jen|pouze|výhradně)\s+(?:do|jako)\s+nov[ýé]ho?\s+souboru|(?:create|write|save)\s+only\s+(?:a\s+)?new\s+file/iu;
+  return explicitProhibition.test(text) || absentCondition.test(text) || newFileOnly.test(text);
 }
 
 // ─── v70: FILE_WRITE handler ──────────────────────────────────────────────────
@@ -943,7 +948,7 @@ export async function handleFileWriteDecision(input, decision, context, dependen
       || extractFilePathFromInput(input);
     const namedTarget = target ? literal(target) : (lang === 'cs' ? 'zvolený soubor' : 'the selected file');
     return terminalWithoutEffect(lang === 'cs'
-      ? `🔒 ${namedTarget} nepřepíšu. Podmínku „nepřepisuj existující soubor“ při schválení zápisu nemohu bezpečně zaručit. Pokud chceš pokračovat, zadej jiný název a výslovně rozhodni, zda lze případný existující soubor přepsat.`
+      ? `🔒 ${namedTarget} nepřepíšu. Podmínku zápisu bez přepsání existujícího souboru při schválení nemohu bezpečně zaručit. Pokud chceš pokračovat, zadej jiný název a výslovně rozhodni, zda lze případný existující soubor přepsat.`
       : `🔒 I will not overwrite ${namedTarget}. I cannot safely guarantee create-only behavior at approval. To proceed, choose another file name and explicitly say whether an existing file may be overwritten.`,
     'no_overwrite_unsupported', target);
   }
