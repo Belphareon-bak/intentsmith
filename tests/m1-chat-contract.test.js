@@ -284,6 +284,8 @@ test('ANSWER token budgets bound short chat without constraining richer intents 
   assert.equal(selectAnswerTokenBudget('OK', 'CONVERSATIONAL'), 64);
   assert.equal(selectAnswerTokenBudget('Jak se máš?', 'CONVERSATIONAL'), 128);
   assert.equal(selectAnswerTokenBudget('Co si myslíš o Pythonu?', 'CONVERSATIONAL'), 1200);
+  assert.equal(selectAnswerTokenBudget('Vysvětli krátce RAM.', 'CONVERSATIONAL'), 1200);
+  assert.equal(selectAnswerTokenBudget('Briefly explain RAM.', 'CONVERSATIONAL'), 1200);
   for (const topic of ['Python', '?', 'DNS', 'Co je AI?']) {
     assert.equal(selectAnswerTokenBudget(topic, 'CONVERSATIONAL'), 1200);
     assert.doesNotMatch(buildStandardConversationInstruction(topic, 'en', 'CONVERSATIONAL'), /45 words|2–3 sentences/u);
