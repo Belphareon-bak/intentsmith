@@ -69,3 +69,14 @@ Nový celý profil i modelová/fyzická přejímka zůstávají samostatnými br
 - Stav před nezávislým review: **IMPLEMENTATION_VERIFIED / REVIEW_PENDING**.
   Tento focused výsledek nedokládá nový celý profil ani přijetí přirozeného
   chatu; jeho změnu připravuje navazující produktový WP.
+
+## Nezávislé přijetí a integrace
+
+Reviewer `gate0_proposal_review` přijal přesný čistý `e6e9aa05` jako
+**REVIEW_PASS pouze pro tři testy a jejich WP**. Vlastní registrovaný report
+`2026-10-01T06-04-07-945Z/report.json` má **3/3 PASS**. Přímé negativní
+experimenty s neoznačeným nebo cizím zdrojem vytvořily 0 ToolRequest; správně
+označený zdroj vyžádal schválení přesných bajtů. Oba nové M6 programy jsou
+přesně rozdílem 60→62; jejich vynechání odmítá pokrytí. WS nadále ověřuje
+nezměněné bajty a nulové následné modelové volání. Integrované jako `742d3dac`.
+Původní celý 4cbb profil zůstává FAIL; toto není nová celková přejímka.

@@ -1,5 +1,25 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 1. 10. 2026, 06:19 UTC — celý profil a další opravy
+
+Celý offline/database profil na přesném čistém `4cbb4b55` doběhl jako
+**FAIL: 402 PASS / 3 FAIL / 0 BLOCKED/TIMEOUT/SKIPPED**. Soukromý report:
+`2026-10-01T05-46-38-895Z/report.json`. Nejde o přejímku.
+
+Tři selhání byly v testovacích předpokladech: M2 fixture neoznačila původ
+obsahové odpovědi, M6 očekával 60 místo skutečných 62 serverových/modelových
+programů a WS nepočítal s uloženým `saveSourceEligible`. Kandidát `e6e9aa05`
+má nezávislé **REVIEW_PASS**; reviewer zopakoval registrované **3/3 PASS**,
+negativní provenance experiment a vynechání obou nových M6 programů.
+Integrovaný commit je `742d3dac`; produktový source se v této deltě neměnil.
+
+Operátorské review otevřelo další produktový řez: modelový výklad přirozené
+žádosti, přesná ID obsahových zpráv, složené shrnutí→uložení, účetní formátové
+preference a atomické vytvoření bez přepisu. Tyto kandidáty jsou rozpracované,
+**REVIEW_PENDING / LIVE_NOT_RUN**. Celý profil nového společného zdroje bude
+následovat až po review a integraci; finální 53×3 a druhé kontextové okno
+čekají po krátkém živém vývojovém pilotu a zmrazení kandidáta.
+
 ## Checkpoint 1. 10. 2026, 05:42 UTC — přijatá chatová integrace
 
 Čistý `c1a25dc1` získal nezávislé omezené **REVIEW_PASS** a je integrovaný.

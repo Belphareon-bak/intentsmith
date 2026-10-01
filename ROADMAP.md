@@ -1,6 +1,14 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktualizace 1. 10. 2026, 05:42 UTC:** Kombinované opravy doslovného a
+**Aktualizace 1. 10. 2026, 06:19 UTC:** Celý profil čistého `4cbb4b55`
+je **FAIL (402 PASS / 3 FAIL)**. Tři testovací předpoklady byly opravené
+v nezávisle přijatém `e6e9aa05` a integrovány jako `742d3dac`; reviewer
+zopakoval **3/3 PASS**. Další opravy přirozeného významu, trvalých ID,
+složených požadavků, DPH formátu a atomického create-only jsou rozpracované.
+Nový celý profil ani fyzická přejímka tím nejsou splněné.
+[Checkpoint a konkrétní selhání](docs/review/2026-09-30-COMPLETION-TRACKER.md).
+
+**Historický checkpoint 1. 10. 2026, 05:42 UTC:** Kombinované opravy doslovného a
 opakovaného zápisu, projektového původu, řazení zpráv a testovací izolace
 jsou integrované z nezávisle posouzeného `c1a25dc1` (**REVIEW_PASS v rozsahu
 delty**). Registr má 590 programů; nový celý offline/database profil čeká.
@@ -17,7 +25,7 @@ offline/database profil současného integračního kandidáta je
 **PENDING_RECHECK**; přímé kontroly ani starší
 úplný profil jej nenahrazují.
 
-Poslední doložený celý profil na čistém `bf7dc31f` skončil **402/402 PASS,
+Poslední doložený **zelený** celý profil na čistém `bf7dc31f` skončil **402/402 PASS,
 0 FAIL/BLOCKED/TIMEOUT/SKIPPED**. Samostatný skutečný pětiminutový M3 worker
 soak na témže zdroji skončil **PASS**. Jde o vývojové důkazy před dalšími
 chatovými a Studio 2 změnami, nikoli o release Gate 0 nebo ověření běžící
