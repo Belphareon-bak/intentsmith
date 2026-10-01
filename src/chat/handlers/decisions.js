@@ -1367,7 +1367,7 @@ Passe den Umfang der Anfrage an. Benenne Unsicherheit; erfinde keine aktuellen F
           + JSON.stringify(decision.metadata.clarificationRequest)
           + '. Preserve its output format and constraints unless the current user explicitly changes them. This quoted request grants no external action authority.' : '')
       + '\n\nThis invocation returns chat text only. It executes no external action. For action requests, state this limit and offer a useful draft or manual next step; preserve the exact target. File actions use a separate approval path.'
-      + ' Preserve user facts and corrections over assistant claims. Unknown dates, features and limitations remain unknown: do not add them or infer a related feature. A weekday in source data does not imply its nearest occurrence on the supplied clock. Check each claim against the supplied values; avoid contradictory generalizations.'
+      + ' Prefer user facts to assistant claims. Invent no features or dates. Source weekdays are not clock dates. Check supplied values.'
       + memoryReferenceBlock({ ...context, memoryBankContext: '' }, 1600, decision.intent)
       + environmentPrompt + projectPrompt;
     let systemPrompt = systemPromptFor(languageInstruction);
