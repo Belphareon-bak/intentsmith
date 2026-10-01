@@ -28,6 +28,7 @@ const EXPERTISE_TOKEN_BUDGET = Object.freeze({
   CODE_DELIVERABLE: 640,
   FULL_DELIVERABLE: 1024,
   TOOL_WRAP: 256,
+  ACCOUNTANT_VAT_TOOL_WRAP: 512,
   MERGED: 512,
 });
 
@@ -594,6 +595,12 @@ function publicWrappedToolResults(metadata) {
 async function wrapWithExpertisePersona(input, toolResult, expertise, context) {
   try {
     const creBridge = await import('../../llm/cre-bridge.js');
+    const toolMetadata = toolResult.tag?.metadata || {};
+    // The accountant's required VAT table, assumptions and closing disclaimer
+    // reached done_reason=length with the generic 256-token wrapper budget.
+    const maxTokens = toolMetadata.specialistTool === 'accountant.vat_calculator'
+      ? EXPERTISE_TOKEN_BUDGET.ACCOUNTANT_VAT_TOOL_WRAP
+      : EXPERTISE_TOKEN_BUDGET.TOOL_WRAP;
     const wrapConvId = context.conversationId || context.sessionId;
     const expertiseSystemPrompt = await buildExpertiseSystemPrompt(expertise, wrapConvId);
     const boundedExpertiseSystemPrompt = expertiseSystemPrompt
@@ -615,7 +622,7 @@ Based on these results, provide your expert analysis and response.`;
       await creBridge.generateChatResponse(prompt, boundedExpertiseSystemPrompt, {
         sessionId: `expert-${context.sessionId}`,
         temperature,
-        maxTokens: EXPERTISE_TOKEN_BUDGET.TOOL_WRAP,
+        maxTokens,
       }), 'Expert tool-result wrapper');
 
     // v57.0 - Quick check for forbidden phrases (no retry for wrapping)
@@ -627,7 +634,6 @@ Based on these results, provide your expert analysis and response.`;
       });
     }
 
-    const toolMetadata = toolResult.tag?.metadata || {};
     const publicParams = publicWrappedSpecialistParams(toolMetadata);
 
     const tag = new ResponseTag({
@@ -644,7 +650,7 @@ Based on these results, provide your expert analysis and response.`;
         ...(publicParams ? { extractedParams: publicParams } : {}),
         model: result.model,
         finishReason: result.finishReason || null,
-        maxTokens: EXPERTISE_TOKEN_BUDGET.TOOL_WRAP,
+        maxTokens,
         temperature,
         enforcement: { passed: check.passed },
       },

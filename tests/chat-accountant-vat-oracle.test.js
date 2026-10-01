@@ -19,6 +19,8 @@ test('bounded VAT answer oracle accepts only exact amounts and required limits',
   assertVatAnswer(valid);
   assertVatAnswer(valid.replace('ČR, rok 2025', 'V Česku, rok 2025'));
   assertVatAnswer(valid.replaceAll('Kč', 'korun').replaceAll('21 %', '21 procent'));
+  assertVatAnswer(valid.replace('### Předpoklady', '**Předpoklady**:')
+    .replace('### Nezahrnuje', '**Nezahrnuje**:'));
   for (const [label, mutated] of [
     ['VAT amount', valid.replace('2 100 Kč', '2 200 Kč')],
     ['total amount', valid.replace('12 100 Kč', '12 200 Kč')],
@@ -36,6 +38,50 @@ test('bounded VAT answer oracle accepts only exact amounts and required limits',
   ]) {
     assert.throws(() => assertVatAnswer(mutated), undefined, label);
   }
+});
+
+test('VAT oracle accepts the tool supplied act number and bold section headings', () => {
+  const withToolCitation = valid
+    .replace('ČR, rok 2025:',
+      'ČR, rok 2025 podle zákona č. 235/2004 Sb.:')
+    .replace('### Předpoklady', '**Předpoklady:**')
+    .replace('### Nezahrnuje', '**Nezahrnuje:**');
+  assertVatAnswer(withToolCitation);
+  assert.throws(() => assertVatAnswer(withToolCitation.replace('235/2004', '235/2005')),
+    /every explicit four-digit year must be 2025|unknown Arabic numeral/u);
+  assert.throws(() => assertVatAnswer(withToolCitation.replace('235/2004', '325/2004')),
+    /every explicit four-digit year must be 2025|unknown Arabic numeral/u);
+  assert.throws(() => assertVatAnswer(
+    `DPH podle zákona č. 235/2004 Sb. neplatí.\n${withToolCitation}`),
+  /explicitly negated VAT or Czech applicability/u);
+});
+
+test('VAT oracle checks the observed model table layout without flattening its labels', () => {
+  const modelTable = [
+    'Pro zdaňovací období rok 2025 v České republice platí výpočet podle zákona č. 235/2004 Sb.:',
+    '| Položka | Částka (CZK) |',
+    '| :--- | :--- |',
+    '| Základ daně | 10 000 Kč |',
+    '| DPH (sazba 21 %) | 2 100 Kč |',
+    '| Cena s DPH celkem | 12 100 Kč |',
+    '**Předpoklady:**',
+    '* Sazba DPH: 21 % (zákon č. 235/2004 Sb.)',
+    '* Rok: 2025',
+    '* Vstupní částka = základ daně (bez DPH)',
+    '**Nezahrnuje:**',
+    '* Daňové přiznání nebo fakturační lhůty pro konkrétní subjekt.',
+    '*Toto je informativní přehled, nikoli závazná daňová rada. Pro konkrétní daňové rozhodnutí konzultujte daňového poradce.*',
+  ].join('\n');
+  assertVatAnswer(modelTable);
+  for (const [label, changed] of [
+    ['base', modelTable.replace('10 000 Kč', '10 100 Kč')],
+    ['vat', modelTable.replace('2 100 Kč', '2 200 Kč')],
+    ['total', modelTable.replace('12 100 Kč', '12 200 Kč')],
+    ['rate', modelTable.replace('21 %)', '12 %)')],
+    ['period', modelTable.replace('rok 2025', 'rok 2024')],
+    ['legal reference', modelTable.replace('235/2004', '236/2004')],
+    ['missing closing advice', modelTable.replace(' konzultujte daňového poradce.', '.')],
+  ]) assert.throws(() => assertVatAnswer(changed), undefined, label);
 });
 
 test('VAT label rejects two monetary amounts in one sentence', () => {

@@ -1,8 +1,10 @@
 # WP — účetní DPH přes skutečný lokální model a M1
 
-**Stav:** izolovaný kandidát `80990a60` získal omezené nezávislé
-`REVIEW_PASS`; sada je integrovaná od `5d72b4aa`.
-`LIVE_NOT_RUN / NOT_DEPLOYED` pro fyzický účetní model. Vstupní čistý
+**Stav:** izolovaný testový kandidát `80990a60` získal omezené nezávislé
+`REVIEW_PASS`; sada je integrovaná od `5d72b4aa`. První fyzický běh na
+`84f22982` je **FAIL / MODEL_RESPONSE_TRUNCATED**. Úzká produktová oprava
+rozpočtu a oprava orákula jsou `REVIEW_PENDING`,
+`LIVE_RECHECK_NOT_RUN` a `NOT_DEPLOYED`. Vstupní čistý
 integrační commit `8bf1c069ae87007773d1f196c8680b21c56bd083`.
 Lokální zelená orákula nejsou modelový ani release důkaz.
 
@@ -152,5 +154,36 @@ offline/database profilem **402/402 PASS, 0 BLOCKED**
 (`.intentsmith-artifacts/test-runs/2026-10-01T01-41-43-923Z/report.json`),
 registr má **583** programů. Tento výsledek předchází pozdější produktové
 opravě specialisty `1303535f` a neprokazuje fyzickou kvalitu DPH odpovědi.
-Živý běh musí vzniknout z čistého integrovaného source SHA; jeho finální
-text navíc vyžaduje ruční věcnou kontrolu.
+Nový živý běh po opravě musí vzniknout z čistého integrovaného source SHA;
+jeho finální text navíc vyžaduje ruční věcnou kontrolu.
+
+## První fyzický FAIL a úzká oprava 1. 10. 2026
+
+Na čistém a pushnutém `84f22982` použil účetní jediný skutečný provider
+`/api/chat`: `qwen3.5:27b`, připnutý digest, `num_ctx=4096`,
+`prompt_eval_count=1118`, `num_predict=256`, `eval_count=256`,
+`done_reason=length`. Odpověď skončila uprostřed povinného disclaimeru.
+M1 správně vrátil HTTP **502 `MODEL_RESPONSE_TRUNCATED`**; privátní SQLite
+obsahuje jen jednu uživatelskou zprávu a žádnou asistenční. Test je **FAIL**,
+nikoli `LIVE_NOT_RUN` ani účetní PASS. Původní soukromá capture je
+`.intentsmith-artifacts/direct-tests/chat-accountant-live.test-waYVes/artifacts/chat-accountant-live-provider.jsonl`.
+
+Red-first řízený M1 provider, který vrací `length` při nedostatečném výstupním
+rozpočtu, dal před opravou **1 FAIL / 1 PASS**. Produktový wrapper nyní žádá
+512 tokenů pouze pro `accountant.vat_calculator`; ostatní expertizy mají
+svůj původní limit a `done_reason=length` zůstává terminální chybou.
+Řízený M1 test po opravě prošel **2/2**.
+
+Samostatná sémantická kontrola před opravou falešně odmítala číslo zákona
+`235/2004` přenesené ze skutečného výsledku VAT nástroje jako údajný rok a
+Markdown nadpisy `**Předpoklady:**` / `**Nezahrnuje:**`. Úzká oprava
+povoluje jen přesnou citaci v tomto kontextu a maskuje ji před kontrolou
+roku i negace; jiná neznámá čísla a negované tvrzení za citací zůstávají
+FAIL. Red-first nová pozitivní kontrola měla **1 FAIL / 38 PASS** a
+negativní kontrola negace za citací znovu **1 FAIL / 39 PASS**. Synteticky
+dokončená skutečná tabulka z capture i negativní mutace částek, sazby,
+období, zákona a disclaimeru nyní procházejí **40/40**. Šest sousedních
+direct sad účetního, překladatele, projektové expertizy, veřejné hranice a
+hodnotové věrnosti prošlo **49/49**. Požadován je nový čistý commit,
+nezávislé review delty a fyzický běh; z offline oprav se nový modelový
+výsledek neodvozuje.

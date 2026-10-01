@@ -1,5 +1,26 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 1. 10. 2026, 02:05 UTC — první fyzický účetní nález
+
+Na čistém `84f22982` první fyzický M1 účetní test **FAIL**: jediný zachycený
+provider požadavek na připnutý `qwen3.5:27b` měl `num_ctx=4096`, vstupních
+1 118 tokenů, `num_predict=256` a terminál `done_reason=length`. Model
+ukončil odpověď uprostřed povinného daňového disclaimeru. Backend správně
+vrátil HTTP **502 `MODEL_RESPONSE_TRUNCATED`** a privátní SQLite ponechala
+jen uživatelský tah, bez asistenčního textu. Doklad je soukromá capture
+`.intentsmith-artifacts/direct-tests/chat-accountant-live.test-waYVes/artifacts/chat-accountant-live-provider.jsonl`;
+nejde o přijatý živý účetní výsledek.
+
+Úzká oprava v rozpracovaném integračním stromu nastavuje 512 výstupních
+tokenů jen pro VAT wrapper; ostatní expertizy zůstávají na 256 a neúplný
+terminál se dál odmítá. Řízený M1 provider red-first reprodukoval 502 při
+starém limitu a po opravě prošel **2/2**. Významový VAT oracle také chybně
+odmítal přesné číslo zákona z výsledku nástroje a dvě běžné varianty tučného
+Markdown nadpisu; po cílených červených mutacích nyní prochází **40/40**
+včetně tabulky, negace přes citaci a nesprávných částek. Sousední přímé
+účetní/překladatelské/projektové sady prošly **49/49**. Tento patch ještě
+čeká na čistý commit, nezávislé review a nový fyzický běh.
+
 ## Checkpoint 1. 10. 2026, 01:55 UTC — společný chat a veřejná hranice
 
 Na čistém a pushnutém `5d72b4aa` doběhl úplný offline/database profil

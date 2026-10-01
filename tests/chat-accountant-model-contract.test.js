@@ -45,9 +45,15 @@ async function startFixtureProvider() {
     } else if (request.method === 'POST' && request.url === '/api/show') {
       response.end(JSON.stringify({ model_info: { 'fixture.context_length': 4096 } }));
     } else if (request.method === 'POST' && request.url === '/api/chat') {
-      requests.push(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+      const providerRequest = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+      requests.push(providerRequest);
+      // Physical qwen3.5:27b hit done_reason=length at num_predict=256
+      // before finishing the mandatory disclaimer. Keep this M1 fixture red
+      // when the selected accountant still has that measured output budget.
+      const completed = providerRequest.options?.num_predict >= 512;
       response.end(JSON.stringify({ model: MODEL, digest: DIGEST, done: true,
-        done_reason: 'stop', prompt_eval_count: 125, eval_count: 45,
+        done_reason: completed ? 'stop' : 'length',
+        prompt_eval_count: 125, eval_count: completed ? 300 : 256,
         message: { role: 'assistant', content: ANSWER } }));
     } else {
       response.writeHead(503).end(JSON.stringify({ error: 'unexpected fixture endpoint' }));

@@ -40,6 +40,9 @@ const MONEY = /(?:(?<sign>[-−])\s*)?(?<amount>\d{1,3}(?:[ .\u00a0\u202f]\d{3})
 const LABELS = /(?<total>cena s DPH|celková cena|částka s DPH|celkem|zaplatíte)|(?<base>základ(?: daně)?|cena bez DPH)|(?<vat>daň z přidané hodnoty|výsledná daň|(?<!s )(?<!bez )\bDPH\b|\bdaň\b)/giu;
 const RATE = /(?<!\p{N})(?:(?<sign>[-−])\s*)?(?<value>\d+(?:[,.]\d{1,2})?)\s*(?:%|procent(?:a|o|u)?|percent)(?!\p{L})/giu;
 const YEAR = /(?<!\p{N})(\d{4})(?!\p{N})/gu;
+// This exact act number is already present in the calculator's assumptions;
+// it is a legal reference, not a competing tax year or computed amount.
+const VAT_ACT_REFERENCE = /(?<!\p{L})zákon(?:a|u)?\s+č\.\s*235\/2004\s+Sb\./giu;
 const CZECH_JURISDICTION = /(?<!\p{L})(?:ČR|Česk(?:o|u|em)|Česk\p{L}* republic\p{L}*)(?!\p{L})/iu;
 const UPPERCASE_REGION_CODE = /(?<!\p{L})([A-Z]{2})(?!\p{L})/gu;
 
@@ -108,7 +111,10 @@ function assertExactLabeledAmounts(resultText) {
 }
 
 function assertListedSection(lines, title) {
-  const heading = new RegExp(`^[ \\t]*(?:#{1,6}[ \\t]*|\\*\\*)?${title}(?:\\*\\*)?[ \\t]*:?[ \\t]*$`, 'iu');
+  const heading = new RegExp(
+    `^[ \\t]*(?:#{1,6}[ \\t]*)?(?:\\*\\*${title}:?\\*\\*:?|${title}:?)[ \\t]*$`,
+    'iu',
+  );
   const index = lines.findIndex(line => heading.test(line));
   assert(index >= 0, `${title} section missing`);
   const next = lines.slice(index + 1).find(line => line.trim().length > 0);
@@ -119,7 +125,11 @@ function assertListedSection(lines, title) {
 export function assertVatAnswer(answer) {
   assert.equal(typeof answer, 'string');
   const normalized = answer.normalize('NFKC').replace(/[\u00a0\u202f]/gu, ' ');
-  assertNoNegatedVatOrJurisdiction(normalized);
+  // Mask the whole tool-supplied citation before sentence-level checks too:
+  // its "č." and "Sb." periods must not hide a following negation.
+  const claims = normalized.replace(VAT_ACT_REFERENCE,
+    value => ' '.repeat(value.length));
+  assertNoNegatedVatOrJurisdiction(claims);
   assert(CZECH_JURISDICTION.test(normalized),
     'Czech jurisdiction missing');
   const foreignJurisdiction = normalized.match(FOREIGN_JURISDICTION);
@@ -134,7 +144,7 @@ export function assertVatAnswer(answer) {
       * (match.groups.sign ? -1 : 1));
   assert(rates.length > 0 && rates.every(rate => rate === VAT_RESULT.rate_percent),
     'every explicit percentage must be 21 %');
-  const withoutMoneyOrRates = normalized
+  const withoutMoneyOrRates = claims
     .replace(MONEY, value => ' '.repeat(value.length))
     .replace(RATE, value => ' '.repeat(value.length));
   const years = [...withoutMoneyOrRates.matchAll(YEAR)].map(match => Number(match[1]));
