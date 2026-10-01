@@ -881,6 +881,26 @@ function _extractUserContent(input) {
   return extracted;
 }
 
+// A quoted literal in the current turn is stronger evidence than a previous
+// assistant answer. Accept only a complete, narrow command: additional clauses
+// must not silently disappear from the bytes submitted to M2.
+function parseExplicitLiteralWrite(input) {
+  const text = typeof input === 'string' ? input.trim() : '';
+  const startsLiteral = /^(?:ulo[žz]|zapi[šs]|napi[šs]|save|write)\s+text\b/iu.test(text);
+  if (!startsLiteral) return null;
+  const match = text.match(/^(?:ulo[žz]|zapi[šs]|napi[šs]|save|write)\s+text\s+(["'])([\s\S]*?)\1\s+(?:do|to|into)\s+(?:souboru?\s+|file\s+)?([\w./-]+\.\w{1,10})(.*)$/iu);
+  if (!match) return { ambiguous: true };
+  const suffix = match[4].trim();
+  if (suffix && !/^[.]$/u.test(suffix) && !hasNoOverwriteConstraint(suffix)) {
+    return { ambiguous: true };
+  }
+  return { content: match[2], filePath: match[3], noOverwrite: hasNoOverwriteConstraint(suffix) };
+}
+
+function hasNoOverwriteConstraint(text) {
+  return /(?:nepřepisuj|neprepisuj|nepřepsat|neprepsat|bez\s+přepsání|bez\s+prepsani|do\s+not\s+overwrite|don't\s+overwrite|without\s+overwriting)/iu.test(text);
+}
+
 // ─── v70: FILE_WRITE handler ──────────────────────────────────────────────────
 
 /**
@@ -896,8 +916,47 @@ export async function handleFileWriteDecision(input, decision, context, dependen
   const langCtx = context.langCtx || getLanguageContext(input);
   const lang = langCtx?.language || 'cs';
 
+  const literalWrite = parseExplicitLiteralWrite(input);
+  const terminalWithoutEffect = (content, error, target = null) => new TaggedResponse({
+    content,
+    tag: new ResponseTag({
+      speaker: ResponseSpeaker.SYSTEM,
+      mode: ChatMode.CONVERSATION,
+      confidence: 1,
+      canExecute: false,
+      metadata: { decision: decision.toJSON(), handler: 'file.write',
+        approvalRequired: false, fallbackSuppressed: true, error,
+        ...(target ? { filePath: target } : {}) },
+    }),
+  });
+  if (literalWrite?.ambiguous) {
+    return terminalWithoutEffect(lang === 'cs'
+      ? '⚠️ Text nebo cíl zápisu není jednoznačný. Uveď přesný text v uvozovkách a jeden název souboru.'
+      : '⚠️ The write text or target is ambiguous. Provide exact quoted text and one file name.',
+    'literal_write_ambiguous');
+  }
+  // The current file.write@1 authority has no atomic create-only condition.
+  // Preparing a normal approval here would silently permit an overwrite after
+  // the user explicitly prohibited it, even if the file was absent at preview.
+  if (literalWrite ? literalWrite.noOverwrite : hasNoOverwriteConstraint(input)) {
+    const target = literalWrite?.filePath || decision.metadata?.filePath
+      || extractFilePathFromInput(input);
+    const namedTarget = target ? literal(target) : (lang === 'cs' ? 'zvolený soubor' : 'the selected file');
+    return terminalWithoutEffect(lang === 'cs'
+      ? `🔒 ${namedTarget} nepřepíšu. Podmínku „nepřepisuj existující soubor“ při schválení zápisu nemohu bezpečně zaručit. Pokud chceš pokračovat, zadej jiný název a výslovně rozhodni, zda lze případný existující soubor přepsat.`
+      : `🔒 I will not overwrite ${namedTarget}. I cannot safely guarantee create-only behavior at approval. To proceed, choose another file name and explicitly say whether an existing file may be overwritten.`,
+    'no_overwrite_unsupported', target);
+  }
+
   // 1. Determine file path
-  let filePath = decision.metadata?.filePath;
+  let filePath = literalWrite?.filePath || decision.metadata?.filePath;
+  if (literalWrite && decision.metadata?.filePath
+    && decision.metadata.filePath !== literalWrite.filePath) {
+    return terminalWithoutEffect(lang === 'cs'
+      ? '⚠️ Název souboru v požadavku se liší od rozpoznaného cíle. Upřesni přesný název souboru.'
+      : '⚠️ The file name differs from the recognized target. Clarify the exact file name.',
+    'literal_write_target_mismatch');
+  }
   if (!filePath) {
     // Try to extract from input
     filePath = extractFilePathFromInput(input);
@@ -913,8 +972,8 @@ export async function handleFileWriteDecision(input, decision, context, dependen
   //    User turns have speaker='user', assistant turns have speaker='system'.
   //    The current user message is ALREADY in history (appended before handler),
   //    so we MUST filter by speaker to avoid writing the user's own request.
-  let content = '';
-  if (context.history?.length > 0) {
+  let content = literalWrite ? literalWrite.content : '';
+  if (!literalWrite && context.history?.length > 0) {
     for (let i = context.history.length - 1; i >= 0; i--) {
       const entry = context.history[i];
       // Skip user turns — only pick assistant (speaker='system') responses
@@ -931,7 +990,7 @@ export async function handleFileWriteDecision(input, decision, context, dependen
   // response exists. Handles compound intent: content + save command in one message.
   // E.g.: "mam novy update pro aplikaci, schopna ovladat desktop, zapis to do planu"
   // → content = "mam novy update pro aplikaci, schopna ovladat desktop"
-  if (!content && input) {
+  if (!literalWrite && !content && input) {
     const extracted = _extractUserContent(input);
     if (extracted) {
       content = extracted;
@@ -942,7 +1001,7 @@ export async function handleFileWriteDecision(input, decision, context, dependen
     }
   }
 
-  if (!content) {
+  if (!literalWrite && !content) {
     const msg = lang === 'cs'
       ? '⚠️ Není co uložit — žádná předchozí odpověď v konverzaci.'
       : '⚠️ Nothing to save — no previous response in conversation.';
@@ -1120,7 +1179,7 @@ function extractFilePathFromInput(input) {
 
   const tokens = input.split(/\s+/);
   for (let i = tokens.length - 1; i >= 0; i--) {
-    const t = tokens[i].replace(/[,;:!?]+$/, '');
+    const t = tokens[i].replace(/[,;:!?.]+$/, '');
     if (/^[\w./-]+\.\w{1,10}$/.test(t) && !['mi', 'si', 'ti'].includes(t.toLowerCase())) {
       return t;
     }

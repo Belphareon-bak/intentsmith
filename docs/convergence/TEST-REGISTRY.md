@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 588
+- Runnable programs: 589
 - Explicit support-module exclusions: 29
-- Profiles: offline=320, database=85, server=61, model=86, soak=16, manual=20
-- States: ACTIVE=490, HISTORICAL=15, BLOCKED=83
+- Profiles: offline=320, database=85, server=62, model=86, soak=16, manual=20
+- States: ACTIVE=491, HISTORICAL=15, BLOCKED=83
 
 ## Execution profiles
 
@@ -91,6 +91,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST` | `tests/chat-export-budget.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none, toolchain:python-pdf-runtime | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CHAT-FIXES-TEST` | `tests/chat-fixes.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-CHAT-HISTORY-ORDER-TEST` | `tests/chat-history-order.test.js` | `C3-007` | T2 | `database` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-CHAT-ORDINAL-FILE-READ-20261001 |
+| `IS-T3-TESTS-CHAT-LITERAL-WRITE-HTTP-TEST` | `tests/chat-literal-write-http.test.js` | `C3-020` | T3 | `server` | 10 s | 3 min | network:loopback, temp-db | yes | `ACTIVE` | — | WP-CHAT-LITERAL-FILE-WRITE-20261001 |
 | `IS-T1-TESTS-CHAT-MEMORY-PRIVACY-TEST` | `tests/chat-memory-privacy.test.js` | `C3-015` | T1 | `database` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-REVIEW-REMEDIATION-20260917 |
 | `IS-T1-TESTS-CHAT-OUTPUT-QUALITY-TEST` | `tests/chat-output-quality.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-CHAT-PERSISTENCE-TEST` | `tests/chat-persistence.test.js` | `C3-003` | T3 | `server` | 30 s | 3 min | network:loopback, temp-db | yes | `ACTIVE` | — | primary implementer |
