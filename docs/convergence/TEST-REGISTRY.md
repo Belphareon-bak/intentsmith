@@ -15,7 +15,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 ## Inventory
 
 - Runnable programs: 592
-- Explicit support-module exclusions: 31
+- Explicit support-module exclusions: 32
 - Profiles: offline=320, database=86, server=64, model=86, soak=16, manual=20
 - States: ACTIVE=494, HISTORICAL=15, BLOCKED=83
 
@@ -649,6 +649,7 @@ ledger.
 | `tests/fixtures/studio-m1-electron-backend.js` | Suite-owned M1 Electron backend fixture launched only by studio-m1-electron-journey.e2e.js. |
 | `tests/harness.js` | Imported unit-test harness library with no top-level test entry point. |
 | `tests/helpers/chat-accountant-vat-oracle.js` | Shared bounded VAT tool and deterministic answer oracle imported by HTTP and negative accountant suites; no standalone entry point. |
+| `tests/helpers/chat-framework-list-oracle.js` | Imported five-item cardinality oracle; calibration runs in chat-resilience-runner-contract.test.js, live list use in e2e/89-response-usefulness.e2e.js. No standalone test entry point. |
 | `tests/helpers/chat-journey-response.js` | Imported model-journey response classifier with deterministic checks covered by m1-chat-contract.test.js. |
 | `tests/helpers/chat-project-expertise-model-journey.js` | Shared owned M1 HTTP project and expertise journey imported by deterministic and opt-in live suites; no standalone entry point. |
 | `tests/helpers/chat-translator-journey.js` | Shared translator M1 HTTP, provider, semantic and project oracle imported by deterministic and opt-in live suites; no standalone entry point. |
