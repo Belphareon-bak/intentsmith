@@ -176,6 +176,7 @@ test('ordinary answer includes scoped memory as reference data and preserves the
     assert(calls[2].options.systemPrompt.includes('Relevantní preference'));
     assert(!calls[2].options.systemPrompt.includes('UNRELATED_PROJECT_BANNER'));
     assert(!calls[2].options.systemPrompt.includes('Backend host'));
+    assert(calls[2].options.systemPrompt.includes('executes no external action'));
     assert.match(calls[2].options.systemPrompt, /JAZYKOVÉ PRAVIDLO \(KRITICKÉ\)/u);
   } finally { llmGateway.call = original; }
 });

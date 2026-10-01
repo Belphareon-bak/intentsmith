@@ -1362,6 +1362,7 @@ Passe den Umfang der Anfrage an. Benenne Unsicherheit; erfinde keine aktuellen F
     const projectPrompt = plainConversation ? '' : buildProjectContext(context);
     const systemPromptFor = instruction => baseSystemPrompt + instruction
       + remainingSystemInstructions
+      + '\n\nThis invocation returns chat text only. It executes no external action. For action requests, state this limit and offer a useful draft or manual next step; preserve the exact target. File actions use a separate approval path.'
       + memoryReferenceBlock({ ...context, memoryBankContext: '' }, 1600, decision.intent)
       + environmentPrompt + projectPrompt;
     let systemPrompt = systemPromptFor(languageInstruction);

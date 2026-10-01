@@ -3369,8 +3369,9 @@ PRAVIDLA:
     // but a DESIGN label alone must not turn a stable learning discussion into
     // the software-architecture handler. A typed request for project work
     // retains the model's scope. File/action routes keep their own guards.
-    if (intent === IntentType.DESIGN && stableConversationOverride
+    if (intent === IntentType.DESIGN && (stableConversationOverride || isStableDiscussion || isStableLearningGoal)
       && resolvedDeterministicIntent === IntentType.CONVERSATIONAL
+      && !mayRequireLocalAuthority && !creativeKnowledgeNeedsArbitration
       && llmMeta?.responseScope !== 'project') {
       intent = IntentType.CONVERSATIONAL;
       _diag.overrides.push('stable_conversation_design_arbitration');
