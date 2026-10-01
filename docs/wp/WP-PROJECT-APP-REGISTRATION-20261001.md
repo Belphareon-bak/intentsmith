@@ -7,6 +7,16 @@ Jde o běžnou registraci existujících testů; produktové chování se neměn
 **Vlastník:** `/root/full405_diagnosis`.
 **Stav:** `REGISTRATION_REVIEW_PASS / COMBINED_FOCUSED_GATES_PASS`.
 
+**Nové společné ověření 1. 10. 2026, 09:16 UTC:** čistý integrační
+`de4b779c7939b968c9c76ebd5a2b5d283bd9e04f` po přijatém app follow-up
+prošel stejnými osmi registrovanými sadami **8/8 PASS**, nulové ostatní
+stavy. Report `2026-10-01T09-15-54-680Z/report.json`, SHA-256
+`6f528cb923f43a394154a5403051025da53d4a78cd89cbd8801e2a6f3d9df2bd`.
+Nezávislé integration review potvrzuje nezměněný registr/projekci/baseline
+a nový skutečný test census **598 / 264 888**. Dřívější výsledky níže jsou
+datované historické důkazy. Živý app PASS má samostatný
+[funkční WP](WP-PROJECT-APP-FUNCTIONAL-20261001.md).
+
 ## Vlastněný rozsah
 
 Pouze `tests/registry.json`, autoritativně generovaný

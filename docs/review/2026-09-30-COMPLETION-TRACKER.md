@@ -1,5 +1,41 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 1. 10. 2026, 09:25 UTC — skutečná funkční aplikace přijata
+
+Nový fyzický CODE/backend/M2 průchod z čistého, nezávisle přijatého
+`92f7b51c2423bdd2cc5633903a579b611d01f7f3` má **PASS / REVIEW_PASS**.
+Skutečný Qwen 3.8, digest `22130167…79643`, provider
+`0.34.0-intentsmith.1`, vytvořil šest modulů. Pevné orákulum běželo
+před commitem i po restartu; ověřené bajty odpovídají preview a Git,
+nové volání má čerstvý stav. Zdroj a všechny důkazy z předchozího
+`62e1309f FAIL` zůstaly zachované. [Přesné hashe a hranice](../wp/WP-PROJECT-APP-FUNCTIONAL-20261001.md).
+
+Přijatý follow-up původu výstupů je integrovaný v `24dde9b1`;
+clean `de4b779c7939b968c9c76ebd5a2b5d283bd9e04f` prošel
+**8/8 registrovanými app/harness/schema/M6 sadami**, report
+`2026-10-01T09-15-54-680Z/report.json`. Nezávislé integrační review
+potvrdilo přesné author bytes, zachování původního source/registry/baseline
+a census tests **598 / 264 888**. Další **2/2 registrované sady** na
+témže SHA ověřily lokální code review specialist a skutečné worker
+crash/recovery, report `2026-10-01T09-18-24-929Z/report.json`.
+Žádný CHAT korpus ani další VAT/context běh zde nebyl proveden.
+
+Zbývající kvalitativní mezera: připravené TaskFlow/RecipeBook/LinkShortener
+a vícekolový Flask mají převážně textové/syntax kontroly; nejsou dokladem
+fungující výsledné aplikace. Druhý odlišný projekt TaskFlow se připravuje
+jako veřejný kontrakt a nezávislé funkční orákulum, **DRAFT_NOT_IMPLEMENTED**.
+Modelové expertizy také potřebují věcná orákula a živé měření; jejich
+keyword/length PASS není věcné přijetí. Small-app PASS není IDE renderer,
+production release, mobilní integrace ani Hunt role-score přijetí.
+
+Cleanup inventura `09:00–09:11 UTC` má **71 worktrees / 213 lokálních větví /
+142 tracking refs / 144 skutečných remote větví**, **HOLD**. Aktivní/cizí/
+UNKNOWN a evidence-bearing worktrees zůstávají; žádné odstranění.
+529 lokálních commitů nemá prokázanou dostupnost v remote historii, což
+není počet chybějících funkcí. [Manifest, hash a podmínky](../wp/WP-COMPLETION-CLEANUP-PREP-20261001.md).
+Současný checkpoint a přesný autorův fyzický source se nyní připravují
+k publikaci; nový remote CI bude přiřazen až k jeho skutečnému SHA.
+
 ## Publikace a CI — 1. 10. 2026, 08:52 UTC
 
 Accepted nonCHAT checkpoint je pushnutý na

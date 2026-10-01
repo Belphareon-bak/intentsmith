@@ -1,5 +1,13 @@
 # WP — M3 worker: přerušení po zápisu notifikace
 
+**Aktuální integrační ověření 1. 10. 2026, 09:18 UTC:** na čistém
+`de4b779c7939b968c9c76ebd5a2b5d283bd9e04f` prošly registrované crash/recovery
+journey a lokální code review specialist **2/2 PASS**, report
+`.intentsmith-artifacts/test-runs/2026-10-01T09-18-24-929Z/report.json`.
+Skutečný soukromý HTTP/SQLite crash běh ověřil přerušený terminál, jedinou
+notifikaci po restartu a nula modelových volání. Produkční nasazení a
+instalované UI zůstávají samostatné přejímky.
+
 **Následný stav 1. 10. 2026:** čistý pushnutý kandidát `7373b44c` získal
 nezávislé omezené `REVIEW_PASS` pro DB lifecycle, durable effect key a
 skutečnou HTTP/SQLite crash/replay cestu. Registrované sady na této větvi
@@ -7,7 +15,7 @@ prošly **8/8** v reportu
 `.intentsmith-artifacts/run-suites/2026-09-30T23-56-43-739Z/report.json`.
 Integrace do společného zdroje a opakování tam jsou samostatné brány.
 
-**Stav:** implementační kandidát, `REVIEW_PENDING`, nenasazený. Přímé i první
+**Historický stav původního kandidáta:** implementační kandidát, `REVIEW_PENDING`, nenasazený. Přímé i první
 registrované lokální testy jsou zelené; nezávislé DB lifecycle review a
 produkční přejímka zůstávají otevřené.
 

@@ -1,6 +1,17 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktualizace 1. 10. 2026, 08:48 UTC:** Přijaté IDE build a backend
+**Aktualizace 1. 10. 2026, 09:25 UTC:** Malá šestisouborová aplikace
+na zmrazeném `92f7b51c` prošla skutečným CODE/backend/M2 průchodem
+a nezávislým **REVIEW_PASS**, včetně funkčního testu a ověření po restartu.
+Společná integrace `de4b779c` má **8/8** app/harness/schema/M6 a **2/2**
+specialist/worker crash kontrol. IDE build/package a upgrade reálných dat
+mají samostatné přijaté důkazy. Větší/různé projekty potřebují skutečná
+funkční orákula; jejich starší textové kontroly nestačí. Hunt zůstává
+**NO_GO**, CHAT dokončuje jiný worker, mobilní a release přejímky čekají.
+Cleanup má pouze ověřený časový inventář, žádné mazání neproběhlo.
+[Aktuální výsledky, zdroje a omezení](docs/review/2026-09-30-COMPLETION-TRACKER.md).
+
+**Historický checkpoint 1. 10. 2026, 08:48 UTC:** Přijaté IDE build a backend
 evidence jsou integrované. Skutečný upgrade privátní kopie reálných dat
 má nezávislé REVIEW_PASS; registrovaná app/harness/schema/M6 brána má
 **8/8 PASS na `eef20c56`**. První živé CODE generování ale skončilo

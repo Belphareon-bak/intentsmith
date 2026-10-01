@@ -1,9 +1,49 @@
 # WP: Functional acceptance of a generated six-file project
 
-Status: **functional harness and provider-attestation follow-up independently `REVIEW_PASS` at `92f7b51c`; previous `64353400` `CHANGES_REQUIRED`; physical journey at `62e1309f` `FAIL`; new physical journey `RUNNING`, not accepted**.
+Status: **functional harness and physical six-file CODE/backend/M2 journey independently `REVIEW_PASS` at `92f7b51c`; new physical journey `PASS`; previous `64353400` `CHANGES_REQUIRED` and `62e1309f` physical `FAIL` retained**.
 Authority: operator's 2026-10-01 request to verify that generated applications actually work; `PRODUCT.md` §2.7 and §3; the six-file expense-ledger blueprint in `docs/PROJECT-BUILD.md`.
 
 ## Owned scope and fixed oracle
+
+### Current accepted physical result — 2026-10-01 09:14 UTC
+
+The new run lasted `09:13:44.242–09:14:18.203 UTC`, actual exit **0 / PASS**,
+on clean `92f7b51c2423bdd2cc5633903a579b611d01f7f3`, Qwen 3.8 digest
+`22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643`,
+provider `0.34.0-intentsmith.1`. Independent read-only review accepted the
+actual raw six responses, canonical generation paths, preview and committed
+file bytes, pre-inference frozen files, exact approval and durable SQLite
+terminal, successful focused test and commit `8b52262b4d7b3124451cde1a2bb8177315b2feef`.
+The saved post-restart oracle and CLI confirm total `23.25`, categories
+`{food:16,travel:7.25}` and fresh empty state. All recorded backend and
+sandbox supervisor processes have exited; source remained clean and the
+runner released its lease and unloaded its owned model.
+
+Wrong-digest rejection, approval replay and three rejected CLI cases are
+supported by executed runner assertions, without separate saved raw response
+receipts. The unload has a successful runner assertion, without a saved
+post-unload resident-model response. Review does not invent those artifacts.
+This acceptance covers one small backend/M2 application, not installed IDE
+generation, larger projects, model role scoring or release acceptance.
+
+Private directory: `.intentsmith-artifacts/project-app-live-qwen38-20261001-0913/`
+in the author checkout. SHA-256 receipts:
+
+| Artifact | SHA-256 |
+|---|---|
+| `result.json` | `13aa773bdab828e4e311214c92a3ccdcd2f8c771c5aaf994378b6c665ccc8a40` |
+| `app-journey.json` | `a24164836184408742289b512d8acfd69a8bb040ea0798ef9e79f24fe77c3556` |
+| `terminal.json` | `8c6663ee4c5d17aa602ebcf7ae98a615ad63525205b860b8707a891cc614c142` |
+| `provider-requests.json` | `7221dcf073ccf7abe4af286f15baf1b57d33d9a7ba12ce901f2af31b09e4fcb6` |
+| independent review hash manifest | `38f2a3b8f2fe95430a3932979452ae2c551f6e7381056f679a3266f36889d1fb` |
+
+Independent integration review also accepted clean
+`de4b779c7939b968c9c76ebd5a2b5d283bd9e04f`: all five executable/public
+author paths match `92f7b51c`, original root receipts retained, product
+source/contracts/registry/boundary baseline unchanged. Actual registered
+combined gate is **8/8 PASS**, report `2026-10-01T09-15-54-680Z/report.json`,
+SHA-256 `6f528cb923f43a394154a5403051025da53d4a78cd89cbd8801e2a6f3d9df2bd`.
+No new full offline/database profile is claimed.
 
 This package owns only `scripts/project-app-acceptance.js`, `scripts/run-project-app-journey.js`, `tests/helpers/project-app-reference.js`, `tests/project-app-acceptance.test.js`, `tests/project-app-m2-functional.test.js`, `docs/PROJECT-BUILD.md`, and this WP. It changes no chat, M2, provider, contract, schema, registry, or production service code. The runner creates a fresh project and DB under its own ignored `.intentsmith-artifacts/<new-run>/runtime-*` tree. No imported project path is used.
 

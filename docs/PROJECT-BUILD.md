@@ -296,6 +296,9 @@ Model může selhat nebo vrátit nekvalitní implementaci. První fyzický
 šestisouborový pokus na `62e1309f` skončil `FAIL`: model navrhl objektové
 příkazy místo zde uvedených n-tic a M2 všechny soubory vrátilo. Původní
 modelové zadání tento tvar výslovně neuvádělo; nynější veřejný kontrakt ho
-upřesňuje. Další fyzický běh nad upřesněným zadáním ještě neproběhl.
+upřesňuje. Nový fyzický běh na `92f7b51c` dne 1. 10. 2026 v 09:14 UTC
+prošel **PASS** a nezávislým review: aplikace prošla pevným funkčním testem,
+commitem a dalším testem po restartu. Jde o jeden malý backend/M2 projekt;
+další typy projektů a průchod instalovaným IDE vyžadují vlastní ověření.
 [Důkazy a stav](wp/WP-PROJECT-APP-FUNCTIONAL-20261001.md). Příkaz nevytváří
 adresáře, neinstaluje závislosti a neaktivuje starý milestone executor.
