@@ -172,6 +172,15 @@ await testAsync('M1 literal file write preserves exact bytes; no-overwrite never
         beforeNoOverwrite, `negative prefix must not register an effect: ${negativePrefix}`);
       assert.deepEqual(readFileSync(existingPath), existingBytes);
     }
+    for (const ambiguousWord of ['jen', 'pouze', 'pokud', 'nikdy', 'nic']) {
+      const command = `Zapiš ${ambiguousWord} do existing.md.`;
+      const blockedWord = await send(noOverwriteConversation, command);
+      assert.equal(blockedWord.response.metadata.approvalRequired, false, command);
+      assert.equal(blockedWord.response.metadata.error, 'file_write_content_unquoted', command);
+      assert.equal(privateDb.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count,
+        beforeNoOverwrite, `ambiguous unquoted word must not register an effect: ${command}`);
+      assert.deepEqual(readFileSync(existingPath), existingBytes);
+    }
     const repeatedTarget = await send(noOverwriteConversation,
       'Ulož to do existing.md, a pak uprav existing.md.');
     assert.equal(repeatedTarget.response.metadata.error, 'file_write_command_ambiguous');
@@ -204,13 +213,19 @@ await testAsync('M1 literal file write preserves exact bytes; no-overwrite never
     assert.equal(existsSync(path.join(projectPath, 'prior-copy.md')), false);
     const wordConversation = await conversation();
     await send(wordConversation, 'Ahoj, odpověz krátce.');
-    const wordPending = await send(wordConversation, 'Zapiš ahoj do word.md.');
+    const beforeWord = privateDb.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count;
+    const unquotedWord = await send(wordConversation, 'Zapiš ahoj do word.md.');
+    assert.equal(unquotedWord.response.metadata?.approvalRequired, false);
+    assert.equal(unquotedWord.response.metadata?.error, 'file_write_content_unquoted');
+    assert.match(unquotedWord.response.content, /uvozov|quotes/iu);
+    assert.equal(privateDb.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count,
+      beforeWord, 'unquoted current-turn content must not bind a previous answer');
+    assert.equal(existsSync(path.join(projectPath, 'word.md')), false);
+    const wordPending = await send(wordConversation, 'Zapiš text "ahoj" do word.md.');
     assert.equal(wordPending.response.metadata?.approvalRequired, true);
     const wordRow = privateDb.prepare('SELECT request_json FROM tool_v1_requests WHERE request_id = ?')
       .get(wordPending.response.metadata.toolRequestId);
-    assert.deepEqual(JSON.parse(wordRow.request_json).input,
-      { path: 'word.md', content: 'ahoj' },
-      'current-turn word content must outrank previous assistant text');
+    assert.deepEqual(JSON.parse(wordRow.request_json).input, { path: 'word.md', content: 'ahoj' });
     const wordApproved = await send(wordConversation,
       `schválit efekt ${wordPending.response.metadata.effectId}`);
     assert.equal(wordApproved.response.metadata.effectResult, 'succeeded');

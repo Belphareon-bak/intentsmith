@@ -36,10 +36,8 @@ Nynější kandidát vyžaduje, aby **celý nedoslovný příkaz** odpovídal je
 z uzavřených nepodmíněných tvarů a jeho cíl přesně souhlasil s cílem CRE.
 Libovolná nevyložená slova před příkazem i po něm zastaví zápis bez M2 efektu.
 Tím se záměrně zužuje starší cesta pro volný text bez uvozovek ve stejné zprávě:
-nový víceslovný obsah je třeba zadat v uvozovkách, zatímco zkratka `Ulož to`
-ukládá poslední odpověď asistenta. Jeden výslovný datový token ve tvaru
-`Zapiš ahoj do word.md.` se váže jako obsah `ahoj`, nikoli jako pokyn k
-uložení starší odpovědi. Předchozí `REVIEW_PASS` se na tuto změnu
+nový obsah je třeba zadat v uvozovkách, zatímco zkratka `Ulož to`
+ukládá předchozí odpověď asistenta. Předchozí `REVIEW_PASS` se na tuto změnu
 nepřenáší; nezávislé review zůstává otevřené.
 
 Nezávislé review `c857c5f5` po zavedení úplné gramatiky našlo ještě
@@ -47,7 +45,7 @@ nesoulad hodnoty: `Zapiš ahoj do word.md.` vytvořilo `ToolRequest` s předchoz
 odpovědí místo `ahoj` a po schválení tento chybný obsah zapsalo. Red-first
 M1 HTTP/SQLite regrese v
 `.intentsmith-artifacts/literal-write-direct-word-red-20261001.log` to
-potvrdila; nynější kandidát váže jeden datový token přesně z aktuálního
+potvrdila; kandidát `25f61cce` vázal jeden datový token přesně z aktuálního
 příkazu. Požadavek na návazné uložení `Ulož ji i do prior-copy.md.` zase
 odhalil příliš přísnou gramatiku. Samostatný red-first běh je v
 `.intentsmith-artifacts/literal-write-repeat-syntax-red-20261001.log`;
@@ -67,6 +65,17 @@ uložit odpověď. Původní souhrnná výjimka „v projektu“ byla odstraněn
 Produkční test směrování nyní kontroluje u těchto tří tvarů žádný ToolRequest
 ani efekt; očekávání živého `project-e2e` bylo upraveno, ale tento scénář
 nebyl spuštěn proti sdílené službě ani GPU.
+
+Nezávislé review `18eaa16e` pak doložilo mezeru i v jednoslovném tvaru:
+`Zapiš jen/pouze/pokud/nikdy/nic do existing.md.` procházelo jako obsah.
+Schválení příkazu s `nic` opravdu změnilo původní soubor. Nový red-first
+M1 HTTP/SQLite běh
+`.intentsmith-artifacts/literal-write-controlword-red-20261001.log`
+reprodukoval `approvalRequired=true` už pro `jen`. Nynější kandidát
+jednoslovný zápis bez uvozovek celý odmítá s cílenou žádostí o přesné
+uvozovky; neposuzuje bezpečnost podle seznamu zakázaných slov. Registrovaný
+M2 routing test už po takovém vstupu neočekává návrh. Doslovné `Zapiš text
+"ahoj" do word.md.` zůstává funkční s přesnými bajty po M2 schválení.
 
 **Autorita:** explicitní zadání operátora dokončovat reálné chatové scénáře
 (2026-09-30 a 2026-10-01) a živě pozorovaný pilot-4: první zpráva
@@ -112,7 +121,9 @@ M2 návrhu; test při každé z nich kontroluje i původní bajty existujícího
 souboru.
 F06 překlep testuje přesný cíl, obsah a skutečné M2 schválení; další efektová
 věta za stejným překlepem musí skončit bez návrhu.
-Jednoslovný obsah bez uvozovek testuje přesný `ToolRequest` a skutečné bajty
+Jednoslovný obsah bez uvozovek testuje absenci `ToolRequest` a cílené
+upřesnění; pět podmínkových a záporných slov nesmí přepsat existující soubor.
+Doslovný obsah v uvozovkách kontroluje přesný `ToolRequest` a skutečné bajty
 po schválení; navazující `Ulož ji i` kontroluje jen povolený úplný tvar a cíl.
 Skutečné M1 HTTP/SQLite ověřuje rovněž absenci návrhu a souboru pro nové
 shrnutí a oba další příkazy bez určeného obsahu; u shrnutí vyžaduje cílené
@@ -150,6 +161,9 @@ znovu **1/1** a aktualizovaný produkční M2 consumer **22/22**;
 `project-e2e` prošel pouze syntaktickou kontrolou a jeho běh proti službě
 je **NOT_RUN**. Tyto výsledky patří novému kandidátovi a dosud nemají
 nezávislý verdikt.
+Po úplném odmítnutí jednoslovného obsahu bez uvozovek prošel skutečný M1
+HTTP/SQLite test **1/1** a aktualizovaný produkční M2 consumer **22/22**;
+další nezávislé review této delty teprve proběhne.
 
 **Stop condition:** při nejednoznačném textu, cíli nebo negaci nevytvořit
 M2 proposal. Historii, stav registru `lastGreen` a produkční soubory neměnit.

@@ -265,6 +265,7 @@ await testAsync('project path routing proposes only grounded writes and keeps ro
     'Shrň všechno co jsi zjistil. Výsledek dej do souboru project-analysis.md v projektu.',
   ];
   const ungroundedInputs = new Map([
+    [writeInputs[0], 'file_write_content_unquoted'],
     [writeInputs[1], 'file_write_command_ambiguous'],
     [writeInputs[2], 'file_write_command_ambiguous'],
     [writeInputs[4], 'file_write_content_not_grounded'],

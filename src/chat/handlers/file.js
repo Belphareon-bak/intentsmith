@@ -922,10 +922,6 @@ function parseCompleteNonliteralWrite(input) {
   const simpleMatch = text.match(simple);
   if (simpleMatch) return { filePath: simpleMatch[1] };
 
-  const directWord = text.match(new RegExp(
-    `^zapi[šs]\\s+([\\p{L}\\p{N}_-]+)\\s+do\\s+${target}\\.?$`, 'iu'));
-  if (directWord) return { filePath: directWord[2], content: directWord[1] };
-
   return null;
 }
 
@@ -933,8 +929,7 @@ function parseCompleteNonliteralWrite(input) {
 
 /**
  * Handle FILE_WRITE decision — saves previous assistant output to a file.
- * A complete one-word "zapiš X do file" command binds X as current-turn data.
- * Other new content must be quoted; save shortcuts use the prior answer.
+ * New current-turn content must be quoted; save shortcuts use the prior answer.
  * M2: registers an effect and returns an exact approval instruction. The
  * separate approval intercept owns execution through the canonical broker.
  */
@@ -999,6 +994,12 @@ export async function handleFileWriteDecision(input, decision, context, dependen
   // CRE may classify an unsafe compound instruction as FILE_WRITE.
   let completeCommand = null;
   if (!literalWrite) {
+    if (/^zapi[šs]\s+[\p{L}\p{N}_-]+\s+do\s+[\w./-]+\.\w{1,10}\.?$/iu.test(input.trim())) {
+      return terminalWithoutEffect(lang === 'cs'
+        ? '⚠️ Uveď přesný obsah zápisu v uvozovkách, například „Zapiš text "ahoj" do souboru.md“. Samotné slovo může být i podmínka nebo zápor.'
+        : '⚠️ Put the exact write content in quotes, for example “Write text "hello" to file.md”. A bare word may be a condition or negation.',
+      'file_write_content_unquoted', filePath);
+    }
     if (/^(?:shr[ňn]|summari[sz]e)\s/iu.test(input.trim())) {
       return terminalWithoutEffect(lang === 'cs'
         ? '⚠️ Tento požadavek žádá nové shrnutí, které zápis souboru sám nevytváří. Nejprve si vyžádej shrnutí v chatu a potom napiš „Ulož to do souboru“.'
@@ -1019,7 +1020,7 @@ export async function handleFileWriteDecision(input, decision, context, dependen
   //    User turns have speaker='user', assistant turns have speaker='system'.
   //    The current user message is ALREADY in history (appended before handler),
   //    so we MUST filter by speaker to avoid writing the user's own request.
-  let content = literalWrite ? literalWrite.content : (completeCommand.content ?? '');
+  let content = literalWrite ? literalWrite.content : '';
   if (!literalWrite && !content && context.history?.length > 0) {
     for (let i = context.history.length - 1; i >= 0; i--) {
       const entry = context.history[i];
