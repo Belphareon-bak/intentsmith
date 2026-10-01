@@ -963,7 +963,10 @@ vede ze Studio příkazu `/m2-draft src/app.js :: popis změny` přes jeden omez
 modelový požadavek do stejného strict M2 návrhu. Úplný before/after obsah se
 ukáže před `/m2-approve`; model nevolí cestu ani test. Výchozí kontrola je
 pouze syntax; API dovoluje explicitní focused test. Draft vyžaduje existující
-M2 governance, Git projekt a malý JS soubor (do 1600 bajtů), neaktivuje legacy
+M2 governance a Git projekt; kontext existujícího cíle čte do 1600 bajtů
+pro editaci a do 16 384 bajtů pro projektový build s explicitním focused testem
+(`m2-lifecycle-application-service.js`, `maxFileBytes`). Tento limit čteného
+kontextu není limitem velikosti výsledného souboru. Neaktivuje legacy
 milestone executor. Stav: `IMPLEMENTED_CANDIDATE / REVIEW_REQUIRED`;
 fyzický modelový důkaz na `782ed681` s předchozí instalací závislostí je `PASS`: jeden request na exact
 `qwen3.5:27b`, context 4096, 138 input / 68 output tokenů, následné M2

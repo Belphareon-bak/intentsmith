@@ -1,6 +1,18 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktualizace 1. 10. 2026, 10:27 UTC:** Řízené schválení funkční aplikace
+**Aktualizace 1. 10. 2026, 11:20 UTC:** Druhý skutečný CODE/backend/M2
+projekt TaskFlow na publikovaném `6f0f04d5` má **PHYSICAL_PASS / REVIEW_PASS**.
+Pět úplných modelových výstupů prošlo frozen funkčním testem, přesnou
+preview/DB/filesystem/Git vazbou a ověřením po restartu. Development CI
+tohoto SHA je **SUCCESS**. Přijatý AppImage má řízený UI/M2 průchod;
+skutečný modelový composer čeká na opravu a review resource guardů.
+Hunt zůstává **596/1173 / NO_GO**, mobil má auditovaný handoff a fyzické
+testy **NOT_RUN**. Přesné vlastní evidence SHA jsou vzdáleně uchované;
+soukromý archiv má nezávislé přijetí, odstranění refs/worktrees čeká.
+CHAT řeší jiný worker. Celý nový profil, nasazení ani release nejsou přijaté.
+[Aktuální důkazy a zbývající milníky](docs/review/2026-09-30-COMPLETION-TRACKER.md).
+
+**Historický checkpoint 1. 10. 2026, 10:27 UTC:** Řízené schválení funkční aplikace
 ve skutečném AppImage má **PASS / REVIEW_PASS**, včetně frozen testu,
 přesných preview/Git bajtů a durable terminálu. Modelový composer není
 tímto řízeným návrhem ověřený. Druhý projekt TaskFlow `c19432b` je

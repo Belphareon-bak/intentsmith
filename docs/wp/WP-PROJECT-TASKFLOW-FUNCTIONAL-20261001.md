@@ -1,5 +1,57 @@
 # WP — druhá funkční aplikace TaskFlow
 
+## Přijatý skutečný CODE průchod — 1. 10. 2026, 11:08 UTC
+
+**Stav:** `PHYSICAL_TASKFLOW_PASS / REVIEW_PASS`; release ani IDE renderer
+se tímto samostatným backend/M2 průchodem nepřijímají.
+Přesný čistý a publikovaný source
+`6f0f04d5034a5f7307882c3d0034f644c89f8dc4`, Node `24.21.0`, skutečný
+`qwen3.8:latest`, digest
+`22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643`,
+provider `0.34.0-intentsmith.1`. Skutečný běh `10:57:16.033–10:58:01.654 UTC`
+skončil exit `0`. Pět úplných CODE odpovědí v pořadí query/validate/store/
+cli/app má přesné bajty pro každý target, preview, DB, filesystem i Git.
+
+M2 schválilo přesný plán a před commitem spustilo frozen orákulum, exit 0,
+`TASKFLOW_APP_ORACLE_PASS`. Commit aplikace je
+`523773dc9c4bf450cb4cbee9d2d3d7bf08f53792`. Uložený další oracle/CLI po
+restartu prošel; fresh run vrací `[[],[]]`. Nezávislé review ověřilo raw
+provider verzi/digest/bytes, frozen soubory i původní Git baseline,
+operation/terminal/result, 14 DB událostí, jediný approval a 0 CHAT zpráv.
+Backup snapshots potvrzují čekající stav před schválením a terminál po něm.
+Tři backend PID ani socket po běhu nezůstaly. C194 false-commit důkazy
+zůstávají přesné. Parent deklaruje owned model unload a lease release.
+
+Soukromý main root `.intentsmith-artifacts/taskflow-live-qwen38-20261001-1056/`:
+
+| Důkaz | SHA-256 |
+|---|---|
+| `result.json` | `572273b84a8bbf54e2eb4fadf82648cde568851a86b6d32cc5e2b8e3aacb3cba` |
+| `app-journey.json` | `1bf758b1110586381fd89d5715cdc97c49b8e42fd7811c78f0e76b228bc646b5` |
+| `terminal.json` | `44a0f2475ef1e0ff37a2dcd6c2c09d7ed1e190c80ef0e19e4fa7cd4334ffa1c4` |
+| `provider-requests.json` | `598a1ff99e8e5a3d9df4d49e55df2c600a34f81a6e37b6f496ea358a72de8ed2` |
+| `before-model.json` | `d85d30cdcae2eebad6cee9a47e77e94903f7d895cc0444a8c82120cb2bb644ea` |
+| `draft.json` | `5e5940c9a24438e92cd87d00ea164495b1bb4954920beb1a8da7b87f04e2ac27` |
+
+Oddělený review `.intentsmith-artifacts/gate0-review-taskflow-live-1056/`
+má původní 577-file manifest SHA-256
+`a0873e61894e1d2e26652af3200266f9e86f36752e8d625568f3cbfe21d50ae5`
+a reviewer manifest SHA-256
+`859d7759635bb8561b538c4b9387b1b74e8106d1d160410d2df16403b4cdbb34`.
+HTTP 409/replay, jednotlivé tři invalid CLI výsledky a parent GPU
+readiness/unload jsou provedené runner assertions, nikoli samostatně uložené
+raw request/response receipts. Obecné missing-version/cancellation mezery
+runneru se opravují pro budoucí pokusy; konkrétní dokončený průchod má
+úplnou neprázdnou provider verzi a zůstává přijatý.
+
+Autorův oracle source je samostatně vzdáleně uchovaný tagem
+`evidence/taskflow-oracle-20261001`, peeled `bc82434c`; physical source
+`6f0f04d5` je přesný integrační remote HEAD a má CI
+[SUCCESS, run 36851222413](https://github.com/Belphareon-bak/intentsmith/actions/runs/36851222413).
+Nové HTTP/DB/DOM aplikace a větší projekty potřebují další funkční přejímky.
+
+## Historie CPU přípravy a přejímky
+
 **Root převzetí 1. 10. 2026, 10:35 UTC:** čistý autorský
 `bc82434cd068c8c2e4f360e2be191b4e55e91b58` má nezávislé **REVIEW_PASS**;
 reviewer zopakoval **28/28** a původní protipříklady s referencí **4/4**.

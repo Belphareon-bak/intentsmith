@@ -1,5 +1,46 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 1. 10. 2026, 11:20 UTC — druhá skutečná aplikace přijata
+
+TaskFlow na čistém publikovaném
+`6f0f04d5034a5f7307882c3d0034f644c89f8dc4` skutečně prošel CODE/backend/M2
+`10:57:16.033–10:58:01.654 UTC`, exit 0, **PHYSICAL_PASS / REVIEW_PASS**.
+Qwen 3.8 digest `22130167…79643`, provider `0.34.0-intentsmith.1`, vytvořil
+pět úplných výstupů. Nezávislý reviewer ověřil přesné modelové bajty vůči
+preview/DB/filesystem/Git, frozen test, 14 DB událostí, jediný approval,
+0 CHAT zpráv a skutečný oracle/CLI po restartu. Aplikační commit je
+`523773dc9c4bf450cb4cbee9d2d3d7bf08f53792`; c194 falešná přijetí zůstávají
+uchovaná. [Úplné identity, hashe a důkazní limity](../wp/WP-PROJECT-TASKFLOW-FUNCTIONAL-20261001.md).
+
+Přesný `6f0f04d5` má skutečný
+[push CI SUCCESS, run 36851222413](https://github.com/Belphareon-bak/intentsmith/actions/runs/36851222413),
+job `110333074297`. Jde o development CI tohoto zdroje; celý poslední
+profil na `45caf5b5` zůstává **397 PASS / 5 FAIL / 3 BLOCKED**.
+
+Společný veřejný modelový runner i nový privátní IDE composer probe mají
+pro budoucí pokusy konkrétní resource/identity mezery: chybějící provider
+verze, skutečné zrušení upstream requestu a u IDE ověření všech manifest
+členů před spuštěním. Opravy jsou rozpracované v existujících vlastních
+checkoutech. Úplné skutečné odpovědi přijatého ledger/TaskFlow běhu mají
+verzi a dokončený stream; jejich přijetí se nemění. Modelový IDE composer
+stále **LIVE_NOT_RUN / REVIEW_CHANGES_REQUIRED**, balík ani produkce se
+neaktualizovaly. Další CHAT se zde nevyvíjí ani netestuje.
+
+Čtyři evidence tags vzdáleně uchovávají původní source ledger, TaskFlow,
+backend upgrade a full405 opravy. Soukromý archiv mimo worktree obsahuje
+přesných 404 pravidelných důkazů; root streamem i opakovaným hashováním
+originálů potvrdil **REVIEW_PASS_REGULAR_EVIDENCE_ARCHIVE_ONLY**.
+Nový local snapshot `11:08 UTC` má 71 worktrees / 214 branches / 142
+tracking refs; 144 remote heads je starší skutečný snapshot `10:42 UTC`.
+Vlastní checkout se používá pro opravu runneru, cizí/UNKNOWN stav zůstává
+HOLD a zatím neproběhlo žádné odstranění.
+[Uchování, přesné SHA a omezení úklidu](../wp/WP-COMPLETION-CLEANUP-PREP-20261001.md).
+
+Mobil má přijatý read-only handoff, fyzická 13+7 matice čeká a vytvoření
+nové konverzace vyžaduje core/CHAT ownera. Hunt druhé známky zůstávají
+596/1173; návrh slepé fronty je připravený, vlastník hodnocení dosud
+nepotvrzený. Žádné nové známky, role aktivace nebo placené hodnocení.
+
 ## Checkpoint 1. 10. 2026, 10:41 UTC — druhé projektové měřidlo přijato
 
 TaskFlow oprava `bc82434c` má nezávislé **REVIEW_PASS**, vlastní repeat

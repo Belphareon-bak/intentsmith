@@ -1,8 +1,51 @@
 # WP — příprava závěrečné redukce větví a worktrees
 
 **Autorita:** operátor požaduje redukci po dokončení analýzy a milníků.
-**Stav:** `HOLD_CLEANUP_PREPARATION_ONLY`; žádné mazání, archivace ani
-změna cizích refs/worktrees neproběhla. Vlastník inventury `/root/full405_diagnosis`.
+**Stav:** `PRIVATE_ARCHIVE_REVIEW_PASS / HOLD_DELETION`; žádné mazání
+ani změna cizích refs/worktrees neproběhla. Vlastník inventury `/root/full405_diagnosis`.
+
+## Navazující uchování 1. 10. 2026, 11:08 UTC
+
+Root atomicky pushnul a `ls-remote` ověřil vlastní evidence tags:
+
+| Ref | Exact peeled source |
+|---|---|
+| `evidence/full405-baseline-oracles-20261001` | `e6e9aa057bb48a35d244250bac1449777d5d7074` |
+| `evidence/backend-user-data-upgrade-20261001` | `ce2d2d4d571c9f0c92cf8edb2ebc8f59d233a803` |
+
+Ancestry kontrola potvrdila, že `ce2d` uchovává skutečný physical DB source
+`e6fb6b46463e73055cc7924679e6a659ae48c93d`; patch ekvivalence ho nenahrazuje.
+Původní ledger source má tag `evidence/project-app-20261001-0913 → 92f7b51c`,
+TaskFlow oracle `evidence/taskflow-oracle-20261001 → bc82434c`; physical
+TaskFlow `6f0f04d5` je přesný publikovaný integrační source.
+
+Skutečný private archive mimo worktree je
+`/mnt/vi7000/intentsmith/evidence/completion-cleanup-20261001/full405-backend/full405-evidence-ce2d2d4d.tar.gz`:
+55 023 027 B, SHA-256
+`9ecb21fc75e41b52e53fda24eba5e4b9365a25cdcdd6fe475805963bc68aecac`.
+Přesných 404 pravidelných členů / 324 826 796 původních B bylo ověřeno
+před zápisem, při něm, streamem tar bez extrakce a znovu v originálech.
+Root navíc nezávisle znovu ověřil celý stream, aktuálních 404 originálů,
+15 manifestových členů i samotný manifest, mode `0700/0600`.
+Archive metadata manifest SHA-256
+`346b40bbe41149cd7f4d7f61bf053b808d6f8c77ba87a6fbb3c65643c651c8fe`;
+root review `.intentsmith-artifacts/root-archive-review-full405-20261001/REVIEW.json`
+v IDE stagingu má SHA-256
+`28b0eb7998878e5c183bbd985ddbd0d9d54b771a9545487629fd4ed745de7dfc`.
+
+**Hranice:** archiv je jen pravidelná evidence, není celý worktree backup.
+Samostatná fixture symlink `link.pdf` je excluded s uchovanými metadata;
+node_modules, .git, produktový source a produkční DB nejsou v archivu.
+Originals zůstaly. Sedm UID1000/mixed procesů má nečitelné cwd/FD a úplné
+uvolnění nebylo prokázané. Dokončený vlastní checkout je navíc nyní aktivně
+znovupoužit pro bounded public provider-harness opravu; nesmí se odstranit.
+
+Čerstvý local snapshot `11:08 UTC` má **71 worktrees / 214 local branches /
+142 tracking refs**. Oproti předchozím 213 přibyla jedna bounded větev v
+existujícím checkoutu; nevznikl worktree. Posledních 144 actual remote heads
+patří `10:42 UTC`, není přeznačených na nový čas. Nejmenší pozdější ref
+cleanup stále vyžaduje nový ownership/association/expected SHA preflight;
+žádné odstranění se tímto uchováním netvrdí.
 
 ## Ověřený časový snapshot
 
