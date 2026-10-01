@@ -427,6 +427,7 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
   const generatedContent = 'Rostliny potřebují světlo odpovídající svému druhu. Zálivku přizpůsob stavu substrátu.';
   const freshLiteralRequest = 'Ulož doslovně „Nový text“ do replacement.md.';
   const failedBriefRequest = 'Napiš přesně pět slov.';
+  let inventMissingTarget = false;
   const provider = http.createServer(async (req, res) => {
     let body = '';
     for await (const chunk of req) body += chunk;
@@ -466,9 +467,10 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
       } else {
       const initial = parsed.request === 'Shrň odpověď a ulož ji do nového souboru, nic existujícího nepřepisuj.';
       content = JSON.stringify({ action: 'write', question: null,
-        target: initial ? null : 'notes.md', source: { kind: 'answer', messageId: parsed.answers[0]?.messageId },
-        transformation: initial ? 'none' : 'summarize', writeMode: 'create', understood: !initial,
-        unsupported: initial ? ['missing explicit target filename'] : [] });
+        target: initial ? inventMissingTarget ? 'invented.md' : null : 'notes.md',
+        source: { kind: 'answer', messageId: parsed.answers[0]?.messageId },
+        transformation: initial ? 'none' : 'summarize', writeMode: 'create', understood: !initial || inventMissingTarget,
+        unsupported: initial && !inventMissingTarget ? ['missing explicit target filename'] : [] });
       }
     } else if (system.includes('Klasifikuj')) {
       if (parsed?.request === 'Smaž ten druhý.' || parsed?.request === 'Myslím notes.md.') {
@@ -540,6 +542,12 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
     assert.equal(asked.response.metadata.awaitingClarification, true);
     assert.equal(database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n, 0);
     assert.equal(database.prepare("SELECT json_extract(metadata, '$.saveSourceEligible') AS eligible FROM messages WHERE conversation_id = ? AND role = 'assistant' ORDER BY id DESC LIMIT 1").get(conversationId).eligible, 0);
+    inventMissingTarget = true;
+    const recovered = await send('Shrň odpověď a ulož ji do nového souboru, nic existujícího nepřepisuj.');
+    assert.equal(recovered.response.content, question);
+    assert.equal(recovered.response.metadata.awaitingClarification, true);
+    assert.equal(database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n, 0);
+    assert(!existsSync(path.join(project.path, 'invented.md')));
     await stopProduct(product);
     product = await startProduct(owned, `http://127.0.0.1:${provider.address().port}`, model);
     const proposal = await send('notes.md');

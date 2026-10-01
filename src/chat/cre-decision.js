@@ -3365,6 +3365,17 @@ PRAVIDLA:
     // v73: Capture initial intent before any overrides
     _diag.initialIntent = intent;
 
+    // Contextual interpretation supplies presentation/continuation metadata,
+    // but a DESIGN label alone must not turn a stable learning discussion into
+    // the software-architecture handler. A typed request for project work
+    // retains the model's scope. File/action routes keep their own guards.
+    if (intent === IntentType.DESIGN && stableConversationOverride
+      && resolvedDeterministicIntent === IntentType.CONVERSATIONAL
+      && llmMeta?.responseScope !== 'project') {
+      intent = IntentType.CONVERSATIONAL;
+      _diag.overrides.push('stable_conversation_design_arbitration');
+    }
+
     // A filled target cannot substitute a different operation for the one
     // whose question was opened. Missing semantic evidence stops the effect.
     const openQuestion = pendingConversationQuestion(context);

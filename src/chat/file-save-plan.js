@@ -221,8 +221,11 @@ Interpret all negations, conditions and additional clauses. No saving is allowed
         .some(value => value.literalId === plan.source.literalId)
         : plan.source?.kind === 'generated' && typeof plan.source.instruction === 'string'
           && plan.source.instruction.trim() && groundingInput.includes(plan.source.instruction);
-    if (error.code !== 'file_write_constraints_unresolved' || plan.action !== 'write'
-      || plan.target !== null || !knownSource) throw error;
+    const recoverableTarget = plan.target === null
+      || (error.code === 'file_write_target_unverified' && context.saveClarificationQuestion
+        && !groundingInput.includes(plan.target));
+    if (!['file_write_constraints_unresolved', 'file_write_target_unverified'].includes(error.code)
+      || plan.action !== 'write' || !recoverableTarget || !knownSource) throw error;
     const questions = { cs: 'Do kterého souboru chceš tento obsah uložit?',
       sk: 'Do ktorého súboru chceš tento obsah uložiť?',
       en: 'Which file should I save this content to?', de: 'In welcher Datei soll ich diesen Inhalt speichern?' };

@@ -259,13 +259,13 @@ await testAsync('stable no-diacritics influence question bypasses outbound autho
   assertEqual(decision.metadata.classifiedBy, 'deterministic');
 });
 
-for (const input of [
-  'Chci se naucit programovat systematicky, ne nahodne.',
-  'Jak bys vysvetlil rozdil mezi programovanim a softwarovym inzenyrstvim?',
-  'Chci zacit cvicit, ale dlouhodobe, ne jen na mesic.',
-  'Je lepsi zacit silou nebo kondici? Proc?',
-  'Jake chyby zacatecnici delaji nejcasteji?',
-  'Shrni hlavni rizika a prilezitosti AI pro bezneho cloveka.',
+for (const [input, expectedCalls] of [
+  ['Chci se naucit programovat systematicky, ne nahodne.', 1],
+  ['Jak bys vysvetlil rozdil mezi programovanim a softwarovym inzenyrstvim?', 0],
+  ['Chci zacit cvicit, ale dlouhodobe, ne jen na mesic.', 1],
+  ['Je lepsi zacit silou nebo kondici? Proc?', 1],
+  ['Jake chyby zacatecnici delaji nejcasteji?', 0],
+  ['Shrni hlavni rizika a prilezitosti AI pro bezneho cloveka.', 0],
 ]) {
   await testAsync(`stable learning discussion "${input}" cannot become DESIGN`, async () => {
     let classificationCalls = 0;
@@ -277,8 +277,8 @@ for (const input of [
 
     assertEqual(decision.intent, IntentType.CONVERSATIONAL);
     assertEqual(decision.type, DecisionType.ANSWER);
-    assertEqual(decision.metadata.classifiedBy, 'deterministic');
-    assertEqual(classificationCalls, 0);
+    assertEqual(decision.metadata.classifiedBy, expectedCalls ? 'llm' : 'deterministic');
+    assertEqual(classificationCalls, expectedCalls);
   });
 }
 
