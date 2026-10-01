@@ -15920,6 +15920,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-CHAT-RESILIENCE-RUNNER-CONTRACT-TEST",
+      "path": "tests/chat-resilience-runner-contract.test.js",
+      "argv": [
+        "node",
+        "tests/chat-resilience-runner-contract.test.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 3000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-CHAT-RESILIENCE-FINAL-20261001",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T3-TESTS-CHAT-PROJECT-EXPERTISE-HTTP-TEST",
       "path": "tests/chat-project-expertise-http.test.js",
       "argv": [
