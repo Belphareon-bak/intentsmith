@@ -21,6 +21,7 @@ import { buildInterpretationContext } from '../src/chat/conversation-context.js'
 import { config } from '../src/config.js';
 import { setNumCtx, clearNumCtxCache } from '../src/llm/model-ctx.js';
 import { resolveFileSavePlan } from '../src/chat/file-save-plan.js';
+import { formatClarificationRequest } from '../src/chat/handlers/ask-user.js';
 
 test('classifier receives source identities, antecedent, open question and goal; memory never classifies', async () => {
   const original = llmGateway.call;
@@ -55,6 +56,11 @@ test('first-turn ASK_USER is returned verbatim without a generation call or cate
   const originalDecide = creDecisionEngine.decide;
   const originalCall = llmGateway.call;
   const question = 'Který soubor chceš upravit a jakou změnu v něm potřebuješ?';
+  for (const input of ['Napiš ten kód.', 'Najdi ty informace.', 'Udělej přehled.']) {
+    const fallback = formatClarificationRequest(input, { slots: ['intent_clarification'], metadata: {} });
+    assert.match(fallback, /Čeho konkrétně/);
+    assert(!fallback.includes('Chcete:'));
+  }
   creDecisionEngine.decide = async () => creDecisionEngine.overrideDecision({
     type: DecisionType.ASK_USER, intent: IntentType.AMBIGUOUS,
     slots: ['intent_clarification'], confidence: 0.9,

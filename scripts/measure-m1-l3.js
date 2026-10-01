@@ -200,7 +200,7 @@ const model='qwen3.5:27b';
 const modelDigest='7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e';
 const corpusFile = path.resolve(process.env.CHAT_PROBE_CORPUS || arg('--corpus'));
 const definition = JSON.parse(fs.readFileSync(corpusFile, 'utf8'));
-const corpus = definition.cases;
+let corpus = definition.cases;
 const expectedFamilies = Array.from({ length: 20 }, (_, index) => `F${String(index + 1).padStart(2, '0')}`);
 const expectedHeldOutFamilies = expectedFamilies.slice(13);
 const actualFamilies = Array.isArray(corpus) ? [...new Set(corpus.map(c => c.family))].sort() : [];
@@ -232,6 +232,28 @@ const isFinal = /^final-[123]$/u.test(phase);
 if (phase.startsWith('final-') && !isFinal) throw new Error('Unknown final phase');
 if (isFinal && requestedCases) throw new Error('Final phase cannot filter cases');
 if (isFinal && process.env.CHAT_PROBE_NO_DIRECT === 'true') throw new Error('Final phase requires direct A/B baseline');
+const isLongContext = phase === 'quality-long-context';
+if (isLongContext && requestedCases) throw new Error('Long-context probe cannot filter its declared conversation');
+let measurementDefinition = definition;
+if (isLongContext) {
+  const discussion = 'Tým chce srozumitelnou komunikaci, přiměřeně krátké odpovědi a dohledatelné podklady. '
+    + 'Při hodnocení rozlišujeme názor, doložené zjištění a otevřenou otázku. '
+    + 'Jednotlivé varianty porovnáváme podle přínosu pro uživatele, nikoli podle délky textu. '
+    + 'Plán přípravy má obsahovat jasný cíl, dostupné zdroje a čas na zpětnou vazbu. ';
+  const inputs = [
+    'Pro tento rozhovor platí kód LIPA_781. Název záměru je Lípa. První krok je ruční kontrola obsahu bez změny souborů. Zapamatuj si to pro tuto konverzaci a potvrď jednou větou.',
+    ...Array.from({ length: 24 }, (_, index) =>
+      (index === 8 ? 'Oprava našeho rozhodnutí: název je nyní Javor, původní volbu Lípa ruším. Kód a první krok zůstávají. ' : '')
+      + `Diskusní podklad číslo ${index + 1}: ${discussion.repeat(3)} Odpověz pouze „Rozumím“.`),
+    'Vrátíme se k původnímu rozhodnutí. Jaký název teď platí, jaký je náš původní kód a jaký byl první krok? Odpověz stručně; nic neprováděj.',
+  ];
+  corpus = inputs.map((input, index) => ({ family: 'LONG', id: `long-${index + 1}`, input,
+    intent: index === inputs.length - 1 ? 'Recall original fact and latest correction after compactions' : 'Conversation evidence',
+    contextPolicy: 'One private persisted dialog with actual default compaction budgets; session RAM evicted before recall.',
+    allowed: [index === inputs.length - 1 ? 'Javor; LIPA_781; manual content review without file changes' : 'Brief acknowledgement'],
+    forbidden: ['Any effect or invented completion'], question: 'unnecessary', usedForTuning: true, dialog: 'long-context', variant: 'development' }));
+  measurementDefinition = { version: 1, purpose: 'Development live long-context probe; separate from the unchanged 53-case final corpus', cases: corpus };
+}
 if (process.argv.includes('--offline')) {
   console.log(JSON.stringify({ status: 'OFFLINE_CORPUS_VALIDATED', cases: corpus.length, modelCalls: 0 }));
   return;
@@ -239,7 +261,7 @@ if (process.argv.includes('--offline')) {
 const dirtyStatus = execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim();
 if (dirtyStatus) throw new Error('LIVE_SOURCE_DIRTY: commit the exact runner and corpus before inference');
 const manifest = { revision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), sourceClean: dirtyStatus.length === 0, dirtyStatus,
-  corpusSha256: createHash('sha256').update(fs.readFileSync(corpusFile)).digest('hex'),
+  corpusSha256: createHash('sha256').update(isLongContext ? JSON.stringify(measurementDefinition) : fs.readFileSync(corpusFile)).digest('hex'),
   runnerSha256: createHash('sha256').update(fs.readFileSync(self)).digest('hex'), model, modelDigest,
   providerUrl: 'http://127.0.0.1:11434', node: process.version, inferenceSerial: true, networkIsolation: 'kernel namespace plus explicit Unix provider relay' };
 if (isFinal && !inside && phase !== 'final-1') {
@@ -277,7 +299,7 @@ if(process.argv.includes('--inside')) {
  let info; for(let n=0;n<240;n++){try{info=JSON.parse(fs.readFileSync(process.env.INTENTSMITH_PORT_FILE,'utf8'));if(info.pid===process.pid)break;}catch{} await delay(250);}
  if(!info?.localCapability)throw new Error('owned server did not start');
  async function request(method,url,body=null){const began=performance.now();const r=await fetch(`http://127.0.0.1:${info.port}${url}`,{method,headers:{'X-IntentSmith-Local-Capability':info.localCapability,'Content-Type':'application/json'},...(body===null?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(180000)});const result=await r.json();return {status:r.status,result,elapsedMs:performance.now()-began};}
- const rows=[]; save('initial-corpus.json',definition);
+ const rows=[]; save('initial-corpus.json',measurementDefinition);
  const p=await request('POST','/api/projects',{name:'Chat isolated probe',type:'general'});
  const projectId=p.result.project?.id??p.result.id;
  if(!projectId)throw new Error('isolated project setup: '+JSON.stringify(p));
@@ -325,11 +347,20 @@ if(process.argv.includes('--inside')) {
   activeCase=c.id; const key=c.dialog||c.id;
   if(!conversations.has(key)){const created=await request('POST','/api/conversations',{project_id:projectId,title:'private '+key});conversations.set(key,created.result.conversation?.id??created.result.id);}
   const id=conversations.get(key); if(!id)throw new Error('no conversation');
+  if (isLongContext && c === corpus.at(-1)) {
+   // This verifies a cold session from the durable DB, not a process restart.
+   (await import(path.join(root,'src/chat/controller.js'))).ChatController.removeSession(id);
+  }
   const context=store.buildHandlerHistory(id,50);
   const command={contract:'ConversationCommand',version:1,requestId:randomUUID(),conversationId:id,turnId:randomUUID(),action:'send',input:c.input};
   const before=trace(),filesBefore=files(); const b=await request('POST','/api/chat',command);
   const row={case:c,context,B:b,firstContentMs:b.elapsedMs,firstUsefulMs:null,traceBefore:before,traceAfter:trace(),filesBefore,filesAfter:files()};rows.push(row);save('initial-results.json',rows);
   console.log('CHAT_PROBE '+JSON.stringify({id:c.id,variant:'B',status:b.status,ms:Math.round(b.elapsedMs),content:b.result.response?.content,error:b.result.error}));
+  if (isLongContext) {
+   await (await import(path.join(root,'src/chat/context-compact.js'))).awaitPendingCompaction(id);
+   row.summaryAfter=store.getSummary(id);
+   save('initial-results.json',rows);
+  }
   const target=c.approve?.path;
   const effectId=b.result.response?.metadata?.effectId || b.result.response?.content?.match(/effect:[a-f0-9]{64}/u)?.[0];
   if(target&&effectId){

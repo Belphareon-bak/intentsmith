@@ -70,36 +70,9 @@ export function formatClarificationRequest(input, decision) {
   const shortInput = input.length > 60 ? input.substring(0, 60) + '...' : input;
 
   if (decision.slots.includes('intent_clarification')) {
-    // v44.2 - Analyze input to show relevant options only
-    const lower = input.toLowerCase();
-
-    // Check if input looks like news/report request
-    const looksLikeReport = /souhrn|přehled|prehled|zpráv|zprav|novinky|za|report|analýz/i.test(lower);
-    const looksLikeSearch = /najdi|hledej|vyhledej|kde|kolik|cen|odkaz/i.test(lower);
-    const looksLikeCode = /kód|kod|funkc|napš|oprav|bug|class|function/i.test(lower);
-
-    // Show only relevant options based on input analysis
-    if (looksLikeReport && !looksLikeSearch && !looksLikeCode) {
-      return `📋 **"${shortInput}"**\n\n` +
-             `Chcete:\n` +
-             `• **Přehled** - vytvořit souhrn informací\n` +
-             `• **Vyhledávání** - najít odkazy na webu`;
-    }
-
-    if (looksLikeSearch && !looksLikeReport && !looksLikeCode) {
-      return `🔍 **"${shortInput}"**\n\n` +
-             `Chcete:\n` +
-             `• **Najít informace** - vyhledat na webu\n` +
-             `• **Vytvořit přehled** - zpracovat do souhrnu`;
-    }
-
-    if (looksLikeCode) {
-      return `💻 **"${shortInput}"**\n\n` +
-             `Chcete:\n` +
-             `• **Napsat kód** - vytvořit/upravit program\n` +
-             `• **Vysvětlit** - obecná otázka o programování`;
-    }
-
+    // A missing semantic detail cannot be filled by choosing an internal
+    // routing category. Prefer the model's concrete question above; keep the
+    // fallback about the user's intended result.
     return `Čeho konkrétně chceš dosáhnout v zadání „${shortInput}“?`;
   }
 
