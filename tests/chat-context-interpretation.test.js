@@ -23,6 +23,7 @@ import { setNumCtx, clearNumCtxCache } from '../src/llm/model-ctx.js';
 import { resolveFileSavePlan, generateSaveContent } from '../src/chat/file-save-plan.js';
 import { formatClarificationRequest } from '../src/chat/handlers/ask-user.js';
 import { enforceOutputContract } from '../src/chat/handlers/utils/output-gate.js';
+import { getLanguageContext } from '../src/chat/handlers/utils/language.js';
 
 test('classifier receives source identities, antecedent, open question and goal; memory never classifies', async () => {
   const original = llmGateway.call;
@@ -167,6 +168,8 @@ test('twelve short messages keep their original facts without an unnecessary mod
 });
 
 test('interpretation never shortens the current request and excludes foreign project evidence', () => {
+  assert.equal(getLanguageContext('Uloz text "Novy obsah" do existing.md, ale neprepisuj existujici soubor.').language, 'cs');
+  assert.equal(getLanguageContext('Save this text to a new file, please.').language, 'en');
   assert.throws(() => buildInterpretationContext('x'.repeat(500), {}, 100),
     error => error.code === 'CHAT_INTERPRETATION_CONTEXT_LIMIT');
   const context = buildInterpretationContext('Druhou variantu.', { project: { id: 1 }, history: [
