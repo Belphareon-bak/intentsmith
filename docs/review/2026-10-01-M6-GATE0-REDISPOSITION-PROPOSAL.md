@@ -77,6 +77,26 @@ exercised validation start/progress/result, while the new E2E checks the current
 read-only authority and removed endpoints. The proposed three retirements need
 an explicit semantic parity or intentional-scope decision.
 
+The E2E assertion deltas are concrete, not merely path changes:
+
+| Source # | Observable test-contract delta since `da485841` |
+|---:|---|
+| 129 | Health asserts readiness, database and lifecycle recovery, and no leaked process/provider details instead of the old timestamp/LLM/cwd shape. |
+| 131 | Missing conversation messages now require HTTP 404 instead of an empty list. |
+| 136 | Legacy agent create, dry-run and delete checks were replaced by typed retirement and missing-agent checks. Current agent-extension journeys need separate review. |
+| 141 | Token prefix changed from `c3_` to `intentsmith_`; webhook secret generation now must be rejected. |
+| 142 | Heuristic scoring/proposal/validation-score endpoints are expected absent; exact evaluations and discovery-only candidates are expected present. |
+| 143 | Quality report assertion changed its product heading only. |
+| 149 | Architecture journey prompt and project description changed the product name, retaining one phase test. |
+| 159 | Model-upgrade rollback requires exact recovery identity; old validation GET checks were replaced with current evaluation-authority check. |
+| 163 | Runner changes isolated DB path and inherited environment names from C3 to IntentSmith; execution equivalence needs a bounded runner check. |
+| 173 | A bound project file read changed from canary-success to durable, fail-closed denial. This is a deliberate authority change, and positive approved-read coverage must be checked elsewhere. |
+| 177 | Chat cancellation now sends causally adjacent WS frames in one batch; the terminal assertion title remains. |
+| 179 | Old model-validation start, WS progress and persisted result checks disappeared; new E2E 62 only checks the read-only evaluation API and retired routes. |
+| 180 | Legacy agent dry-run success was replaced by HTTP 410 and an agent-extension replacement pointer. |
+| 191 | WS semantic events now bind conversation ID, rehydrate completion/request ID, durable barrier conversations and batched cancellation. |
+| 210 | Shared E2E helper changed C3 environment/WS names and added batched frames; all dependent suites must use the same runner contract. |
+
 If the three retirements are accepted, the proposed 225-row totals become
 `EXCLUDE 94`, `KEEP 40`, `REBUILD 91` (`REPAIRED 59`, `DEFERRED 32`). The
 historical totals remain `91/42/92` with 60 repaired subjects. The table is a
