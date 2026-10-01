@@ -1605,3 +1605,49 @@ technickým a kvalitativním verdiktem; (3) dokončit skutečné Hunt hodnocení
 nezávislé posouzení a rozhodnutí o modelech; (4) přejmout a nasadit
 IDE/backend, poté otevřít mobilní napojení; (5) ověřit exact remote a až
 nakonec zredukovat bezpečně odstranitelné větve a worktree.
+
+
+## Navazující CODE kontext a SQLite — 1. 10. 2026 20:46 UTC
+
+Z `84faa2a5` ve stejné větvi/worktree převzat omezený produktový connector.
+CPU porovnání vybralo bezztrátový `indexed-full/v1`: historický pátý vstup
+8 811 → 8 692 B při limitu 8 736 B. Úplné zdroje, digesty, instrukce a approval
+zůstaly; původní malý JSON má stejné bajty. Větší vstupy nadále odmítané.
+Žádný nový parser/projekce/tokenizer, aktivace modelu ani produkční deploy.
+
+Produkt `11f74be8` má SOURCE_REVIEW_PASS
+`b11d96b011a46737541ce07d5e0cf9b21aee2a9349af284d1d1851a65b833ba1`;
+formatter SHA `91c8a18d32072df560daffaa2930af1ea32479b896257cb052eef1617fe74f2a`.
+Lokální 100 + 22 PASS a nezávislé čisté CPU 9 PASS. Registrovaný běh šest
+PASS/jeden stale LOC FAIL → doc-only `86002334` census recheck PASS.
+HTTP ABI 127 environment FAIL → explicitní Node 24 PATH a 75 assertions PASS.
+Původní FAIL zachované. Remote `86002334` přesný; CI run `36922420547`,
+job `110571450326`, všech 13 kroků SUCCESS. Produktové bajty se nezměnily.
+
+Skutečný běh 20:37:01.283–20:37:59.703 UTC **APPLICATION_FAIL**: osm úplných
+připnutých Qwen3.8 odpovědí. Vstupy 2 284/2 301/3 592/2 450/7 662/3 731/4 104 B
+ a schema repair 2 766 B vyhověly budgetu. Všech osm request SHA i úplné
+výstup → preview → plan bytes vazby a šest retained modulů souhlasí.
+Nový store 2 855 B a validate 2 090 B se liší od f557 4 110/1 851 B;
+původní obal by s novými výstupy měl 7 781 B a také vyhověl. Izolovaný důkaz
+přínosu formatteru je historický CPU replay, nikoli nový živý fit.
+
+Zakázaný schema import `node:sqlite` odmítnut, rollback sedmi cest. Povolená
+osmá modelová oprava jej odstranila; nový plán, nový digest, přesné schválení,
+starý digest 409. Potom oracle řádek 145 zachytil dvojí CLI `remove`:
+první volání vrací true, druhé už řádek nenajde. Opět rollback sedmi cest.
+Callback již funguje; žádný commit ani úspěšná restartová přejímka. Model
+uvolněn, GPU lease odstraněna, relay bez requestů, source čistý. Raw 379 souborů
+/19 849 724 B zachován. Provider review PASS; celkové actual review pending.
+
+CPU diagnostika ve třech samostatných canonical bwrap sandboxech: raw model
+FAIL; hypotetická oprava jediného CLI výrazu PASS celého frozen oracle28c9;
+mutant vynechávající mazání FAIL. Nejde o novou skutečnou modelovou generaci.
+Konkrétní CLI-only blueprint váže poslední failed lifecycle/digest a zachová
+šest modulů včetně schématu. Repair vstup 5 700/11 520 B. Stávající WP dovoluje
+jen jednu schema opravu/osm generací. Připravená eskalace: výslovně povolit
+právě jednu další CLI revizi s novým přesným M2 schválením a stejným oraclem,
+nebo zachovat limit a připravit jinou předem zmrazenou strategii. Další inference
+čeká na odpověď; aplikace zůstává FAIL. Existuje konkrétní diagnóza, compiled
+blueprint a CPU pozitivní/negativní důkaz, nikoli pouze návrh čekající na review.
+[Podrobnosti ve stávajícím WP](../wp/WP-CODE-PEER-CONTEXT-BUDGET-20261001.md).

@@ -1376,3 +1376,34 @@ se stejným produktem a výslovným Node24 PATH v privátním network namespace.
 Source review/nový physical model/app acceptance zatím pending.
 [Pracovní WP](docs/wp/WP-CODE-PEER-CONTEXT-BUDGET-20261001.md),
 [průběžný report](docs/WORK-PROGRESS.md).
+
+
+## CODE860 — živý průchod 20:37–20:38 UTC, APPLICATION_FAIL
+
+SOURCE_REVIEW_PASS pro `11f74be8`; dokumentační `86002334` má ověřený remote
+SHA a všech 13 kroků CI SUCCESS. Sedm počátečních generací a jedna schema
+oprava mají úplné odpovědi, přesné request SHA/modelové identity i vazby
+výstup → preview → plán. Všechny vstupy vyhověly původním limitům.
+
+Úspora 8 811 → 8 692 B je izolovaně doložená CPU replayem historického vstupu.
+Nový živý běh dodal menší store; i původní JSON by s novými výstupy vyhověl
+na 7 781 B. Živý fit proto neprokazuje, že pomohla výhradně komprese.
+
+První oracle odmítl zakázaný schema import. Následoval rollback sedmi cest,
+povolená osmá modelová oprava, nový digest a přesné schválení. Šest ostatních
+modulů zůstalo stejných. Druhý test odhalil dvojí volání `remove` v CLI:
+první vrací true, druhé již řádek nenajde. Opět rollback sedmi cest, dva failed
+terminály a žádný Git commit. Úspěšná restartová přejímka nebyla dosažena.
+Vlastní model byl uvolněn, GPU lease odstraněna, relay má nulu requestů
+ a source zůstal čistý. Původních 379 souborů /19 849 724 B zachováno.
+
+CPU diagnostika se stejným oraclem: raw model FAIL; hypotetická jednomístná
+CLI oprava PASS; mutant bez mazání FAIL. Není to nová modelová generace.
+
+**Blokér:** původní WP povoluje jen jednu schema opravu/osm generací.
+Připravená revize pouze CLI má 5 700/11 520 B, zachovává šest modulů a vyžaduje
+nový preview/digest a přesné M2 schválení. Doporučeno výslovně rozšířit rozsah
+právě o tuto devátou generaci, se stejným oraclem a rozpočtem. Žádná další
+inference před odpovědí; aplikace zůstává APPLICATION_FAIL.
+[Stávající WP a konkrétní volba](docs/wp/WP-CODE-PEER-CONTEXT-BUDGET-20261001.md),
+[průběžný report](docs/WORK-PROGRESS.md).

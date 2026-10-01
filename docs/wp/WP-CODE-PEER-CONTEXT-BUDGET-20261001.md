@@ -7,10 +7,11 @@ relevantní kontext s provenance, návrh, přesné schválení, atomické proved
 a kontrola výsledku. Naměřený stav zůstává v
 [`SYSTEM-MAP.md`](../../SYSTEM-MAP.md) a
 [`completion trackeru`](../review/2026-09-30-COMPLETION-TRACKER.md).
-Tento návrh není nová produktová ani schvalovací autorita.
+Tento WP nepřidává produktovou ani schvalovací autoritu.
 
-**Stav:** `ACTIVE / LOSSLESS_DESIGN_SELECTED` od navazujícího zadání
-operátora 1. 10. 2026. CPU experiment a implementace dokončeny; nový modelový průchod zatím `NOT_RUN`.
+**Stav:** `SOURCE_REVIEW_PASS / APPLICATION_FAIL / OPERATOR_DECISION_REQUIRED` od navazujícího zadání
+operátora 1. 10. 2026. CPU experiment, implementace a nový zmrazený modelový průchod dokončeny;
+aplikace neprošla. Další inference čeká na výslovné rozšíření limitu opravy.
 Samotný CPU výsledek není funkční přejímka aplikace.
 
 ## Vlastnictví a konkrétní výsledek navazujícího milníku
@@ -157,7 +158,8 @@ Privátní CPU experiment:
 `.intentsmith-artifacts/code-context-experiment-20261001-2005`.
 Všech587 historických regular files /30,694,789 B zachováno.
 Nezávislý callgraph/design audit na84faa2a5 má REVIEW_PASS pro bounded
-lossless směr; není implementační ani aplikační přejímkou.
+lossless směr. Následný source11f74be8 má SOURCE_REVIEW_PASS, nikoli
+aplikační přejímku.
 
 ## 4. Zmrazený formát a vlastněné změny
 
@@ -219,8 +221,13 @@ Implementace formatteru hotová, SHA
 `91c8a18d32072df560daffaa2930af1ea32479b896257cb052eef1617fe74f2a`.
 Lokální100/100 lifecycle-service a22/22 frozen app kontroly mají PASS;
 actual-product private replay8692/8736 a všechny historické decode-equality
-kontroly PASS. Samostatný modelový běh, registered integrace a finální source
-review zatím `NOT_RUN / REVIEW_PENDING`. Historické neúspěchy zachované.
+kontroly PASS. Registered integrace: šest PASS na11f74be8, artifact-validation stale census
+FAIL zachovaný, doc-only860 census recheck PASS. HTTP owned-server75 assertions
+PASS na860 s Node24 PATH; předchozí ABI127 environment FAIL zachovaný.
+Source review PASS b11d96b011a46737541ce07d5e0cf9b21aee2a9349af284d1d1851a65b833ba1;
+reviewer vlastní čisté9/9 CPU, kandidát860 má totožný product zdroj11.
+Push remote860 a CI36922420547/job110571450326:13 SUCCESS.
+Historické neúspěchy se nepřeznačují a CPU/source/CI není hotová aplikace.
 CPU experiment RESULT SHA
 `a31f1a9f48f80bacced9ebb7e65fcc9975040de9474c772319fae372725be2b2`,
 manifest `64888bdaa190d69e1f2a3d9ec5212a10389ff6ad1d8ccdd7303fbe72e2f471a9`.
@@ -230,3 +237,77 @@ ne modelová chyba či GPU nedostupnost. Dva cykly bez měřitelného posunu
 spustí diagnostiku a skutečně odlišnou strategii podle CONTRACT §11;
 potřebné rozhodnutí operátora se předá s přesným blokérem a možnostmi.
 CHAT, mobil, aktivace modelů, produkční deploy a uzavřený GPU/cleanup mimo scope.
+
+
+## 6. Skutečný průchod860 — 20:37–20:38 UTC
+
+Zmrazený `860023341c7b2da78e17da32414ec79e904c7013`, product11f74be8,
+Qwen3.8 digest22130167…79643/provider0.34.0-intentsmith.1:
+**APPLICATION_FAIL, exit1** 20:37:01.283–20:37:59.703 UTC.
+Všech osm skutečných request SHA rekonstruováno; úplné output/preview/plan
+bajty a šest retained zdrojů souhlasí. Input2284/2301/3592/2450/7662/3731/4104 B,
+repair2766 B; každý vyhověl původnímu8736/11520 B limitu.
+
+Pozor: nový store2855 B a validate2090 B nejsou původní f5574110/1851 B.
+S těmito novými zdroji by i původní JSON vstup7781 B vyhověl. Přímý izolovaný
+důkaz přínosu formatteru je CPU replay starého8811→8692 B, nikoli tvrzení,
+že nový živý fit způsobila výhradně komprese. Živý důkaz je úplná produktová
+CODE generace/preview/approval při zachovaných limitech a identitě.
+
+První exact approval odmítl skutečný zakázaný schema importnode:sqlite.
+Sedm cest atomicky vráceno. Jediná předem povolená osmá schema revize import
+odstranila, zachovala šest úplných modulů, dostala nový plán/digest/schválení;
+starý digest409. Druhý frozen funkční test selhal při mazání:
+CLI výraz `catalog.remove(cmd[1]) === undefined ? true : catalog.remove(cmd[1])`
+volá remove dvakrát. První vracítrue, druhý už nenajde řádek a vyhodí chybu.
+Callbackfn() už prošel; nejde o původní callback/context blokér.
+
+Druhý rollback opět7/7. Oba terminály failed, žádný generated commit,
+post-success restart/replay/persistence přejímka nedosažená. Model byl vlastní
+actor bezpečně unloaded, GPU lease released, relay activeRequests0/sourceclean.
+Raw packet379 pravidelných souborů /19,849,724 B zachován:
+`.intentsmith-artifacts/sqlite-catalog-indexed-physical-86002334-20261001-2037`.
+Provider review potvrzen, celkové actual evidence review se dokončuje.
+
+## 7. Konkrétní další krok a operátorská hranice — 20:46 UTC
+
+Současný [failed revision WP](WP-CODE-FAILED-PROPOSAL-REVISION-20261001.md)
+§Předem vymezený test2 dovoluje nejvýše jedno další modelové volání pouze
+schema.js a osm generací celkem. Tato oprava byla spotřebována. Deváté CLI
+volání není součástí tohoto zmrazeného protokolu. Produktové revisionOf jej
+technicky umí, ale kontraktovou přejímku nelze potichu rozšířit.
+
+Připravený konkrétní návrh: z druhého failed lifecycle/digest vytvořit nový
+CODE draft, jediný generovaný cíl `src/cli.js`, šest dalších `reusePrevious`
+včetně již modelově opraveného schema. Opravný pokyn: každý dispatch provést
+jednou a výsledek nejprve uložit před normalizací; tuple/API, validace,
+transaction/close a ostatní chování zachovat. Stejný model/digest/budget,
+nový úplný preview/digest/exact approval, tentýž oracle, commit/restart/replay.
+Žádný ruční patch skutečného modelového výstupu a žádná aktivace role.
+
+Před žádostí o rozhodnutí provedena izolovaná CPU diagnostika v canonical
+bwrap nad třemi vlastními kopiemi:
+
+| Kopie | Nezměněný frozen oracle |
+| --- | --- |
+| Skutečný modelový výstup po schema revizi | FAIL: dvojité mazání |
+| Hypotetická autorská oprava jediného CLI výrazu | PASS celého oraclu |
+| Mutant vynechávající mazání | FAIL |
+
+Hypotetická oprava je diagnostika, **není nová modelová generace ani přijatá
+aplikace**. Všechny původní modelové bajty zůstaly nezměněné. Konkrétní CODE
+revision blueprint je compiled a jeho úplný repair vstup5700/11520 B.
+Private packet `.intentsmith-artifacts/sqlite-double-delete-cpu-diagnosis-860-20261001`,
+RESULT20842bf091a8b4c34cc70a5c0175a2c0263b4a8e71297f21edfd390a4846e68d,
+blueprint1c2f9fefb413142426f9fe537277cc21140206bd5d6b7bfd5233eea3346952e3,
+manifest51c3150ea860a3d678b2de4b0299420c2ad8606b3535ea6f3f3aaff835b115c2.
+
+**Možnosti:** (A, doporučeno) výslovně povolit právě jednu další CLI CODE
+revizi, nejvýše devět generací celkem, beze změny oraclu/ostatních šesti
+modulů/approval; (B) zachovat osmigenerační limit a připravit jinou předem
+zmrazenou strategii. Stejný kandidát se neopakuje kvůli náhodě. Žádná další
+inference před odpovědí.
+
+**Konkrétní otázka operátorovi:** povolit devátou generaci pouze CLI s novým
+přesným M2 schválením podle výše uvedeného připraveného blueprintu?
+Celý aplikační milník není DONE; navazující práce vyžaduje toto rozhodnutí.

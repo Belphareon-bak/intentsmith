@@ -1,6 +1,6 @@
 # IntentSmith — průběžný report dokončování
 
-**Aktualizováno:** 1. 10. 2026, 20:29 UTC / 22:29 CEST.
+**Aktualizováno:** 1. 10. 2026, 20:46 UTC / 22:46 CEST.
 **Vlastník:** ROOT. CHAT řeší jiný worker, od posledního zadání jej ROOT neupravuje.
 **Publikace:** `work/real-chat-journeys-20260930`; průběžný report se aktualizuje
 po každém milníku, nejpozději po třech hodinách během aktivní práce. Operátor
@@ -32,7 +32,8 @@ stabilním IDE/BE, podle zadání operátora.
 | Hunt hodnocení | Strukturální čtení 18:34 UTC nezměněné: 596/1173 odpovědí, 2324/3689 kritérií; stejný report jako 13:31 a 17:21 | Přijatý grader chybí, zbývá 577 odpovědí /1365 kritérií; NO_DECISION /NO_GO. Proč se publikované výsledky neposunuly, je UNKNOWN |
 | HTTP projekty | Předem připravený omezený návrh testu | Rozhodnutí o novém M2 síťovém oprávnění; HTTP_NOT_RUN |
 | Mobil | Auditovaný handoff, historických47 host testů a přijaté VPN/TLS rozhodnutí | Fyzická matice13+7 NOT_RUN, skutečné zařízení/VPN a integrační mezery |
-| CODE peer kontext | CPU rekonstrukce čtyř f557 + sedmi a27 + repair request SHA; zvolen obecný lossless indexed-full/v1:8811→8692 B, plné zdroje zachované,44 B rezerva | Formatter implementován, local100/100 service+22/22 app PASS; source REVIEW_PENDING /registered+LIVE_NOT_RUN. Větší peer kontext nadále odmítán; projekce nevybrána |
+| CODE peer kontext | SOURCE_REVIEW_PASS; CPU 8 811 → 8 692 B. Lokálně 100 + 22 PASS, šest registry PASS + census recheck PASS, HTTP 75 assertions PASS, CI 13 SUCCESS | Doložená omezená úspora; větší zdroje dál správně odmítané. Celá aplikace stále FAIL |
+| SQLite indexed860 | Osm úplných připnutých výstupů, nové přesné M2 schválení, šest retained modulů a dva rollbacky sedmi cest. Callback funguje, vstupy vyhověly rozpočtu | APPLICATION_FAIL: CLI maže dvakrát. Bez commitu a úspěšné restartové přejímky. Konkrétní CLI revize 5 700/11 520 B čeká na rozšíření osmi generací na devět |
 | Cleanup | REVIEW_PASS: atomicky odstraněny pouze tři vlastní lokální refs, 216→213 branches, 71→71 worktrees. Tagy, ostatní refs a worktree metadata zachované; obnova v odděleném bare repo PASS. Hunt zpět na původní čisté větvi | BC větev HOLD_CONDITIONAL, fyzické worktree removal HOLD; další cizí/UNKNOWN větve nepřijaté k odstranění |
 
 ## Publikované a uchované materiály
@@ -215,9 +216,10 @@ Private fresh DB bez přijatých známek neověřuje produkční scoring.
 ## Nejbližší pořadí práce
 
 1. Uzavřít design [CODE peer kontextu](wp/WP-CODE-PEER-CONTEXT-BUDGET-20261001.md)
-   implementací obecného lossless indexed-full/v1 formatteru. CPU experiment
-   dokončen; dále source review/CPU/integrační gates a celý frozen SQLite běh.
-   Větší kontext není zaručen, budget/instrukce/oracle se nemění.
+   source review a actual průchodem je dílčí kontextové řešení dokončené.
+   Celý SQLite oracle po schema revizi selhal na dvojitém CLI remove;
+   připravená pouze CLI revize vyžaduje rozšíření frozen8→9call scope.
+   Větší kontext není zaručen, budget/initialinstrukce/oracle se nemění.
 2. [Callback kontrakt](wp/WP-SQLITE-TRANSACTION-CALLBACK-CONTRACT-20261001.md)
    má uzavřený rejection review; funkční aplikace zůstává nepřijatá.
 3. Obecný [M2 AST scanner](wp/WP-M2-AST-IMPORT-SCANNER-20261001.md) má
@@ -266,24 +268,59 @@ Podrobnosti a historická chronologie:
 
 ## Navazující CODE milník — CPU rozhodnutí, 20:18 UTC
 
-ROOT převzal omezený connector z84faa2a5 v existujícím WP; vlastní produktový
-formatter a nezbytné přímo navázané testy. Bezztrátové indexed tuples zachovaly
-všechny původní hodnoty v nezávislém roundtripu. Konkrétní f5575 je8692/8736 B;
-44 B není obecná garance. Explicitní interface projekce je menší, ale osm
-store method signatures není doložených a ztrácela by informaci. Volba zatím
-není source PASS, inference ani hotová aplikace. Cizí GPU proces1224380
-zachovaný, přibližně5.3 GiB volných; před live bude nový celý readiness check.
-Historické raw/fails zůstávají; funkční SQLite výsledek dosud APPLICATION_FAIL.
+ROOT převzal omezený connector z `84faa2a5` ve stávajícím WP. CPU experiment
+porovnal úplný JSON, tuples, mapu cest, raw frames a projekci rozhraní.
+Vybraný obecný `indexed-full/v1` zachoval všechny původní hodnoty a bajty.
+Historický pátý vstup se zmenšil z 8 811 na 8 692 B, tedy 44 B pod limitem.
+Větší vstupy nadále správně odmítá guard. Projekce nevybrána: neprokazovala
+osm signatur metod factory a ztrácela část informace. Cizí GPU proces zůstal
+nedotčený; výsledek v tomto checkpointu ještě nebyl implementační PASS.
 
+## CODE implementace — CPU checkpoint, 20:29 UTC
 
-## CODE implementace — lokální CPU checkpoint, 20:29 UTC
+Studio → M2 service → produktový formatter používá výslovný verzovaný JSON.
+Úplné zdroje, stavy, digesty a autorské instrukce zůstaly; původní režim malých
+změn má stejné bajty. Lokálně prošlo 100 kontrol služby a 22 kontrol app oracle.
+Nové regrese zahrnují grafy 1/2/7/32 souborů, read-only kontext, retained repair,
+UTF-8, escaping, null, chybějící/duplicitní/cizí/zastaralý peer a limit + 1 B.
+Controlled fixtures pouze dekódují nový vstup; nemění funkční očekávání.
 
-Produktová cesta Studio→M2 service→formatter nyní používá výslovný
-indexed-full/v1. Úplné zdroje/state/digesty i původní instrukce zachované,
-small-change JSON nezměněný. Actual private replay potvrzuje8692/8736 B
-na stejných f557 zdrojích;100 lifecycle-service a22 app-oracle kontrol PASS.
-Nové public regrese ověřují1/2/7/32 graphs, readonly, retained repair,
-UTF-8/escaping/null, chybějící/duplicitní/foreign/stale peer a8736/8737.
-Controlled fixtures pouze dekódují nový wire; frozen outputs/oracles se nemění.
-Nezávislé review a integrační gates probíhají, skutečná SQLite aplikace stále
-nepřijatá. GPU je podle20:27 metadata volná, před inference novýlease/preflight.
+## Poslední CODE milník — živý FAIL a konkrétní eskalace, 20:46 UTC
+
+Produktový `11f74be8` má **SOURCE_REVIEW_PASS**. Testovaný `86002334` přidává
+jen opravený dokumentační census a má ověřený remote SHA i všech 13 kroků CI
+SUCCESS: run `36922420547`, job `110571450326`. Šest registrovaných kontrol
+prošlo; původní artifact-validation FAIL kvůli LOC zůstal zachován a nový census
+recheck prošel. HTTP test po opravě Node 24 PATH prošel 75 assertions ve
+vlastním network namespace; předchozí ABI 127 environment FAIL je zachován.
+
+Skutečný běh 20:37–20:38 UTC dodal sedm modulů a jednu povolenou modelovou
+opravu schématu. Všech osm request SHA, model/digest/provider, úplné bajty
+preview a plánu i šest retained modulů souhlasí. Pátý vstup měl 7 662/8 736 B.
+Nové výstupy jsou menší: i původní JSON by s nimi vyhověl na 7 781 B. Izolovaný
+důkaz úspory formatteru proto zůstává historický CPU replay 8 811 → 8 692 B.
+
+**Aplikace zůstává FAIL.** Po odstranění zakázaného schema importu původní
+funkční oracle odhalil dvojité volání `remove` v generovaném CLI. První vrátí
+`true`, druhé už řádek nenajde. Oba neúspěšné plány provedly rollback všech
+sedmi cest; Git HEAD zůstal stejný a commit nevznikl. Úspěšný restart/replay
+ani konečná persistence přejímka nebyly dosaženy. Vlastní model byl uvolněn,
+GPU lease odstraněna, relay má nulu aktivních requestů a zdroj zůstal čistý.
+Provider audit PASS potvrzuje důkazy selhání; celkové actual review se dokončuje.
+Nepřijatá aplikace se nepublikuje jako přijatý ukázkový projekt.
+
+CPU diagnostika ve třech samostatných sandboxech: původní modelový výstup
+FAIL, hypotetická oprava jediného CLI výrazu PASS celého stejného oraclu,
+mutant vynechávající mazání FAIL. Historické modelové bajty se nezměnily.
+Tato hypotetická oprava není skutečná CODE generace ani přijetí aplikace.
+
+**Připravený další krok:** pouze modelová revize `src/cli.js`, navázaná přes
+poslední failed lifecycle/digest; ostatních šest modulů se zachová, včetně
+opraveného schématu. Úplný opravný vstup má 5 700/11 520 B. Následuje nový
+preview/digest, přesné M2 schválení, nezměněný oracle, commit a restart/replay.
+Stávající WP dovoluje pouze jednu schema opravu a osm generací. Devátá CLI
+generace vyžaduje výslovné rozšíření tohoto zmrazeného rozsahu. Operátor dostal
+konkrétní volbu: doporučená jedna CLI revize, nebo zachování osmigeneračního
+limitu a jiná předem zmrazená strategie. Žádná další inference před odpovědí.
+
+[Podrobný stávající WP](wp/WP-CODE-PEER-CONTEXT-BUDGET-20261001.md).
