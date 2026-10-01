@@ -38,6 +38,7 @@ import { throwIfAborted } from '../core/abort-error.js';
 import { buildProjectHint } from './handlers/utils/project-context-prompt.js';
 import { buildInterpretationContext, pendingConversationQuestion } from './conversation-context.js';
 import { getNumCtx } from '../llm/model-ctx.js';
+import { getLanguageContext } from './handlers/utils/language.js';
 
 // v73: Lazy import to avoid circular dependency (followup.js → intent.js → cre-decision.js)
 let _detectFollowUpType = null;
@@ -3370,14 +3371,16 @@ PRAVIDLA:
     const operation = openQuestion && llmMeta?.continuesPending === true
       ? openQuestion.requestedOperation || llmMeta.requestedOperation : llmMeta?.requestedOperation;
     const fileOperation = [IntentType.FILE_READ, IntentType.FILE_EXPLAIN, IntentType.FILE_WRITE].includes(intent);
-    if (operation === 'delete' && (fileOperation || intent === IntentType.CONVERSATIONAL)) {
+    const resolvedUnavailableDelete = intent === IntentType.AMBIGUOUS
+      && llmMeta?.fileTarget && llmMeta.fileTarget === namedFileCandidate;
+    if (operation === 'delete' && (fileOperation || intent === IntentType.CONVERSATIONAL || resolvedUnavailableDelete)) {
       return _makeDecision({ type: DecisionType.REFUSE, intent, tools: [], confidence: 1,
         reason: 'File deletion is unavailable in this chat path', metadata: { unavailableOperation: 'delete' } });
     }
     if (openQuestion && fileOperation && llmMeta?.continuesPending !== false) {
       const compatible = intent === IntentType.FILE_WRITE ? ['write', 'create'] : ['read'];
       if (!compatible.includes(operation)) {
-        const question = getLanguageContext(input).language === 'en'
+        const question = getLanguageContext(input, getLanguageContext(openQuestion.request).language).language === 'en'
           ? 'Which operation do you want on this file? Specifying its name does not change the original request.'
           : 'Jakou operaci chceš se souborem provést? Samotné doplnění názvu nemění původní zadání.';
         return _makeDecision({ type: DecisionType.ASK_USER, intent: IntentType.AMBIGUOUS,

@@ -123,6 +123,24 @@ test('a numeric reply fills an open question instead of taking the stateless ari
     assert.equal(classified, true);
     assert.equal(decision.intent, 'FILE_WRITE');
     assert.equal(decision.metadata.classifiedBy, 'llm');
+    creDecisionEngine._llmClassifyIntent = async () => ({ intent: 'FILE_READ', confidence: 0.95,
+      fileTarget: 'notes.md', requestedOperation: 'read', contextualInterpretation: true, continuesPending: true });
+    const wrongOperation = await creDecisionEngine.decide('notes.md', { project: { id: 1 }, sessionState: state });
+    assert.equal(wrongOperation.type, 'ASK_USER');
+    assert.match(wrongOperation.metadata.clarificationQuestion, /Jakou operaci/u);
+    const deleting = new SessionState('resolved-unavailable-delete');
+    deleting.setPendingDecision({ type: 'ASK_USER', intent: 'AMBIGUOUS', metadata: {
+      originalRequest: 'Smaž ten druhý.', originalRequestedOperation: 'delete',
+      clarificationQuestion: 'Který soubor?',
+    } });
+    creDecisionEngine._llmClassifyIntent = async () => ({ intent: 'AMBIGUOUS', confidence: 0.85,
+      fileTarget: 'notes.md', question: 'Máte na mysli smazat notes.md?', requestedOperation: 'delete',
+      contextualInterpretation: true, continuesPending: true });
+    const resolved = await creDecisionEngine.decide('Myslím notes.md.', { sessionState: deleting });
+    assert.equal(resolved.type, 'REFUSE');
+    assert.equal(resolved.metadata.unavailableOperation, 'delete');
+    const ungrounded = await creDecisionEngine.decide('Myslím něco jiného.', { sessionState: deleting });
+    assert.equal(ungrounded.type, 'ASK_USER');
   } finally { creDecisionEngine._llmClassifyIntent = original; }
 });
 
