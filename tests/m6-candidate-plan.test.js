@@ -195,9 +195,9 @@ test('model and runner-owned server phases cover every runnable required program
   const plan = buildM6CandidateExecutionPlan(registry);
   const byId = new Map(registry.suites.map(program => [program.id, program]));
   const modelPhase = plan.phases.find(item => item.id === 'model-without-server');
-  // The literal/repeat save HTTP journeys added after bf7dc31f own isolated
-  // servers too: the exact registry now contains 44 model + 18 server programs.
-  assert.equal(modelPhase.programIds.length, 62);
+  // Literal/repeat save and the grounded VAT journey own isolated servers:
+  // the exact registry contains 44 model + 19 server programs.
+  assert.equal(modelPhase.programIds.length, 63);
   assert(modelPhase.programIds.includes('IS-T1-TESTS-PROJECT-COLLABORATION-TEST'));
   assert(modelPhase.programIds.includes('IS-T3-TESTS-CHAT-PRIVACY-HTTP-TEST'));
   assert(modelPhase.programIds.includes('IS-T3-TESTS-CHAT-PROJECT-EXPERTISE-HTTP-TEST'));
@@ -215,6 +215,7 @@ test('model and runner-owned server phases cover every runnable required program
   for (const programId of [
     'IS-T3-TESTS-CHAT-LITERAL-WRITE-HTTP-TEST',
     'IS-T3-TESTS-CHAT-REPEAT-SAVE-HTTP-TEST',
+    'IS-T3-TESTS-CHAT-VAT-SEMANTIC-HTTP-TEST',
   ]) {
     assert(modelPhase.programIds.includes(programId));
     const omitted = structuredClone(plan);
@@ -226,7 +227,7 @@ test('model and runner-owned server phases cover every runnable required program
   }
   assert.equal(modelPhase.programIds.filter(id => byId.get(id).profile === 'model').length, 44);
   assert(modelPhase.programIds.includes('IS-T3-TESTS-M2-CODE-DRAFT-MODEL-TEST'));
-  assert.equal(modelPhase.programIds.filter(id => byId.get(id).profile === 'server').length, 18);
+  assert.equal(modelPhase.programIds.filter(id => byId.get(id).profile === 'server').length, 19);
   assert(modelPhase.programIds.every(id => byId.get(id).requirements.server === false));
   assert(modelPhase.programIds.every(id => byId.get(id).requirements.network !== 'external'));
 

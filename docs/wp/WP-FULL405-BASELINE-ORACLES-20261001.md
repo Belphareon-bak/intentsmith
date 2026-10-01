@@ -80,3 +80,14 @@ označený zdroj vyžádal schválení přesných bajtů. Oba nové M6 programy 
 přesně rozdílem 60→62; jejich vynechání odmítá pokrytí. WS nadále ověřuje
 nezměněné bajty a nulové následné modelové volání. Integrované jako `742d3dac`.
 Původní celý 4cbb profil zůstává FAIL; toto není nová celková přejímka.
+
+## Doplnění přesného člena po integraci VAT
+
+Přijatý VAT source přidal jediný nový required ACTIVE server program
+`IS-T3-TESTS-CHAT-VAT-SEMANTIC-HTTP-TEST` (bez vlastního runner-owned
+serveru). Na čistém `0ceca5da` původní M6 test opět skutečně selhal
+20/21, očekával 62 místo 63 (`m6-vat-registry-red.log`). Přesný registry
+diff je 44 modelových + 19 serverových členů dané fáze. Test nyní kromě
+tohoto počtu ověřuje konkrétní VAT ID a zamítnutí plánu při jeho vynechání.
+Source plánu, kontrakty ani registr se tímto doplněním nemění.
+Tato testová změna čeká na samostatné review; nový úplný profil čeká také.
