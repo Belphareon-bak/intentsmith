@@ -1,5 +1,15 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Publikace IDE/Hunt evidence — 1. 10. 2026, 10:31 UTC
+
+Integrační `3c6a58cbd9a540f99817a55301e9f3cc0ab3471f` je pushnutý;
+root přes `ls-remote` ověřil přesný vzdálený ref. Skutečný
+[push CI run 36849502200](https://github.com/Belphareon-bak/intentsmith/actions/runs/36849502200)
+na tomto SHA je **SUCCESS**, job `110327535354`, všechny kroky PASS.
+Jsou zveřejněné přijaté GUI/M2 a read-only Hunt receipts včetně hashů;
+privátní DB/observation evidence zůstávají mimo Git. Žádná produkční
+služba, role binding, mobilní zařízení nebo checkout nebyly změněné.
+
 ## Checkpoint 1. 10. 2026, 10:27 UTC — IDE schválení přijato, TaskFlow opravuje měřidlo
 
 Skutečný packaged IDE průchod řízeného návrhu přes renderer/prepare/DOM
