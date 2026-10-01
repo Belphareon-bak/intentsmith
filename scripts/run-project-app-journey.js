@@ -15,9 +15,10 @@ import { LINUX_BWRAP_READ_ONLY_PROFILE } from '../src/execution/process-supervis
 import { computeM2ExecutionValueDigest } from '../contracts/m2/execution-v1.js';
 import { makeRuntime, startServer, stopServer, requestJson } from './run-project-build-journey.js';
 import {
-  LEDGER_FILES, ORACLE_PATH, ORACLE_SOURCE, ORACLE_SHA256, ENTRY_PATH,
+  LEDGER_FILES, ORACLE_PATH, ORACLE_SOURCE, ORACLE_SHA256, PROBE_PATH, PROBE_SOURCE,
+  PROBE_SHA256, ENTRY_PATH,
   ENTRY_SOURCE, ENTRY_SHA256, sha256, ledgerBlueprint, assertLedgerPreview,
-  assertLedgerCLIResults,
+  assertLedgerCLIResults, policyForFrozenOracle,
 } from './project-app-acceptance.js';
 
 const SELF = fileURLToPath(import.meta.url);
@@ -39,7 +40,8 @@ function git(cwd, args) {
 
 function sourceObservation() {
   return { head: git(SOURCE_ROOT, ['rev-parse', 'HEAD']), dirty: git(SOURCE_ROOT, ['status', '--porcelain=v1']),
-    oracleSha256: ORACLE_SHA256, entrySha256: ENTRY_SHA256, generatedPaths: EXPECTED_PATHS };
+    oracleSha256: ORACLE_SHA256, probeSha256: PROBE_SHA256,
+    entrySha256: ENTRY_SHA256, generatedPaths: EXPECTED_PATHS };
 }
 
 function nativeRuntimeObservation() {
@@ -87,9 +89,12 @@ function assertResponse(response, status, label) {
   return response.json;
 }
 
-function assertFrozenProject(project) {
+function assertFrozenProject(project, policySha256) {
   assert.equal(sha256(fs.readFileSync(path.join(project, ORACLE_PATH))), ORACLE_SHA256, 'operator oracle preserved');
+  assert.equal(sha256(fs.readFileSync(path.join(project, PROBE_PATH))), PROBE_SHA256, 'operator subject probe preserved');
   assert.equal(sha256(fs.readFileSync(path.join(project, ENTRY_PATH))), ENTRY_SHA256, 'operator CLI adapter preserved');
+  assert.equal(sha256(fs.readFileSync(path.join(project, '.intentsmith/m2-governance-policy.json'))),
+    policySha256, 'operator policy preserved');
 }
 
 function recordSupervisorIdentity(root) {
@@ -184,7 +189,8 @@ async function runInside(configurationPath) {
   const evidence = { status: 'RUNNING', source: cfg.source, model: cfg.model, digest: cfg.digest,
     startedAt: new Date().toISOString(), networkInterfaces: interfaces.map(item => item.ifname),
     project, databasePath: runtime.database, generatedPaths: EXPECTED_PATHS,
-    acceptanceOracleSha256: ORACLE_SHA256, entrypointSha256: ENTRY_SHA256,
+    acceptanceOracleSha256: ORACLE_SHA256, subjectProbeSha256: PROBE_SHA256,
+    entrypointSha256: ENTRY_SHA256,
     scope: 'actual backend project and conversation registration, physical CODE draft, exact M2 approval, sandboxed functional app and restart' };
   let server = null;
   const start = async () => {
@@ -210,10 +216,15 @@ async function runInside(configurationPath) {
     const projectId = created.project?.id;
     assert.ok(Number.isSafeInteger(projectId), 'project id');
     assert.equal(fs.realpathSync(created.path), project, 'created project stays in private runtime');
+    const policyPath = path.join(project, '.intentsmith/m2-governance-policy.json');
+    const policy = policyForFrozenOracle(JSON.parse(fs.readFileSync(policyPath, 'utf8')));
+    fs.writeFileSync(policyPath, JSON.stringify(policy, null, 2) + '\n');
+    const policySha256 = sha256(fs.readFileSync(policyPath));
     fs.writeFileSync(path.join(project, ORACLE_PATH), ORACLE_SOURCE);
+    fs.writeFileSync(path.join(project, PROBE_PATH), PROBE_SOURCE);
     fs.writeFileSync(path.join(project, ENTRY_PATH), ENTRY_SOURCE);
-    assertFrozenProject(project);
-    git(project, ['add', '--', ORACLE_PATH, ENTRY_PATH]);
+    assertFrozenProject(project, policySha256);
+    git(project, ['add', '--', ORACLE_PATH, PROBE_PATH, ENTRY_PATH, '.intentsmith/m2-governance-policy.json']);
     git(project, ['-c', 'core.hooksPath=/dev/null', '-c', 'commit.gpgSign=false',
       '-c', 'user.name=IntentSmith Qualification', '-c', 'user.email=qualification@example.invalid',
       'commit', '-m', 'Freeze independent ledger acceptance before inference']);
@@ -222,15 +233,18 @@ async function runInside(configurationPath) {
     evidence.baselineHead = baselineHead;
     evidence.oracleFrozenAt = new Date().toISOString();
     save(out, 'before-model.json', { source: cfg.source, projectId, baselineHead,
-      oracleSha256: ORACLE_SHA256, entrySha256: ENTRY_SHA256, generatedPaths: EXPECTED_PATHS });
+      oracleSha256: ORACLE_SHA256, probeSha256: PROBE_SHA256,
+      entrySha256: ENTRY_SHA256, policySha256,
+      generatedPaths: EXPECTED_PATHS });
 
     const conversation = assertResponse(await ask('POST', '/api/conversations', {
       title: 'Six-file expense ledger', project_id: projectId,
     }), 201, 'create project conversation').conversation;
-    assert.ok(Number.isSafeInteger(conversation.id), 'conversation id');
+    assert.ok(typeof conversation.id === 'string' && conversation.id.startsWith('conv-')
+      && conversation.id.length <= 128, 'durable string conversation id');
     assert.equal(conversation.project_id, projectId, 'M1 conversation stays bound to project');
     const origin = { surface: 'http', sessionId: `app-${randomUUID()}`,
-      conversationId: String(conversation.id), projectId };
+      conversationId: conversation.id, projectId };
     evidence.origin = origin;
     const blueprint = ledgerBlueprint();
     const drafted = assertResponse(await ask('POST', '/api/m2/lifecycle/draft', {
@@ -243,6 +257,7 @@ async function runInside(configurationPath) {
     assertLedgerPreview(drafted.diff, project,
       (root, relative) => fs.readFileSync(path.join(root, relative)),
       (root, relative) => fs.existsSync(path.join(root, relative)));
+    assertFrozenProject(project, policySha256);
     assert.equal(git(project, ['rev-parse', 'HEAD']), baselineHead);
     assert.equal(git(project, ['status', '--porcelain=v1']), '');
     save(out, 'draft.json', drafted);
@@ -255,7 +270,7 @@ async function runInside(configurationPath) {
     });
     assert.equal(wrong.statusCode, 409, 'wrong digest rejects before effect');
     assert.equal(git(project, ['status', '--porcelain=v1']), '');
-    assertFrozenProject(project);
+    assertFrozenProject(project, policySha256);
     const statusPath = `/api/m2/lifecycle/status?${new URLSearchParams({ id: drafted.lifecycleId,
       surface: origin.surface, sessionId: origin.sessionId, conversationId: origin.conversationId,
       projectId: String(projectId) })}`;
@@ -264,7 +279,7 @@ async function runInside(configurationPath) {
     const restoredPending = assertResponse(await ask('GET', statusPath), 200, 'pending status after restart');
     assert.equal(restoredPending.state, 'awaiting_approval');
     assert.equal(restoredPending.planDigest, drafted.planDigest);
-    assertFrozenProject(project);
+    assertFrozenProject(project, policySha256);
     const approval = { lifecycleId: drafted.lifecycleId, planDigest: drafted.planDigest, origin };
     const terminal = assertResponse(await ask('POST', '/api/m2/lifecycle/approve', approval, 180_000),
       200, 'exact approval');
@@ -273,7 +288,7 @@ async function runInside(configurationPath) {
     const testOutput = terminal.audit?.executionEvents?.find(event => event.type === 'process_terminated')?.details?.testOutput;
     assert.match(testOutput?.stdout || '', /PROJECT_APP_ORACLE_PASS/, 'M2 ran the exact frozen oracle process');
     assert.equal(terminal.result?.git?.status, 'committed', 'all six approved files committed');
-    assertFrozenProject(project);
+    assertFrozenProject(project, policySha256);
     const snapshot = fileSnapshot(project, drafted.diff);
     const committedHead = git(project, ['rev-parse', 'HEAD']);
     assert.notEqual(committedHead, baselineHead);
@@ -295,7 +310,7 @@ async function runInside(configurationPath) {
     assert.deepEqual(fileSnapshot(project, drafted.diff), snapshot, 'files unchanged across restart/replay');
     assert.equal(git(project, ['rev-parse', 'HEAD']), committedHead);
     assert.equal(git(project, ['status', '--porcelain=v1']), '');
-    assertFrozenProject(project);
+    assertFrozenProject(project, policySha256);
     evidence.postRestartApp = await verifyApplication(project, runtime.artifacts);
     evidence.bindingAfterRestart = observedBinding(runtime.database, cfg.model, cfg.digest);
     assert.deepEqual(evidence.bindingAfterRestart, evidence.binding);
