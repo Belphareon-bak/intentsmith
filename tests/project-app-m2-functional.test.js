@@ -18,8 +18,9 @@ import { up as applyEffectClaimTruth } from '../src/db/migrations/2026_08_24_073
 import { up as applyExecutionAuthority } from '../src/db/migrations/2026_08_24_078_m2_execution_authority.js';
 import { up as applyLifecycleAuthority } from '../src/db/migrations/2026_08_24_079_m2_lifecycle_authority.js';
 import {
-  ORACLE_PATH, ORACLE_SOURCE, ORACLE_SHA256, ENTRY_PATH, ENTRY_SOURCE, ENTRY_SHA256,
-  sha256, ledgerBlueprint,
+  ORACLE_PATH, ORACLE_SOURCE, ORACLE_SHA256, PROBE_PATH, PROBE_SOURCE, PROBE_SHA256,
+  ENTRY_PATH, ENTRY_SOURCE, ENTRY_SHA256,
+  sha256, ledgerBlueprint, policyForFrozenOracle,
 } from '../scripts/project-app-acceptance.js';
 
 const PROJECT_ID = 6021;
@@ -52,9 +53,14 @@ async function fixture(defect) {
   const folder = fs.mkdtempSync(path.join(isolatedTestRuntime.artifacts, 'app-m2-'));
   const project = path.join(folder, 'project');
   await initializeNewProject(project, { name: 'Expense Ledger', type: 'general' });
+  const policyPath = path.join(project, '.intentsmith/m2-governance-policy.json');
+  const policy = policyForFrozenOracle(JSON.parse(fs.readFileSync(policyPath, 'utf8')));
+  assert.ok(policy.externalImports.includes('node:child_process'));
+  fs.writeFileSync(policyPath, JSON.stringify(policy, null, 2) + '\n');
   fs.writeFileSync(path.join(project, ORACLE_PATH), ORACLE_SOURCE);
+  fs.writeFileSync(path.join(project, PROBE_PATH), PROBE_SOURCE);
   fs.writeFileSync(path.join(project, ENTRY_PATH), ENTRY_SOURCE);
-  git(project, ['add', '--', ORACLE_PATH, ENTRY_PATH]);
+  git(project, ['add', '--', ORACLE_PATH, PROBE_PATH, ENTRY_PATH, '.intentsmith/m2-governance-policy.json']);
   git(project, ['-c', 'core.hooksPath=/dev/null', '-c', 'commit.gpgSign=false',
     '-c', 'user.name=IntentSmith Test', '-c', 'user.email=test@example.invalid',
     'commit', '-m', 'freeze operator oracle']);
@@ -63,6 +69,14 @@ async function fixture(defect) {
   const db = databaseAt(databasePath);
   const outputs = { ...REFERENCE_LEDGER_OUTPUTS };
   if (defect) outputs['src/totals.js'] = outputs['src/totals.js'].replace('sum + row.amount', 'sum + 1');
+  if (defect === 'assert-noops') outputs['src/app.js'] = `import assert from 'node:assert/strict';
+for (const key of ['ok', 'equal', 'deepEqual', 'throws']) assert[key] = () => {};
+export { run } from './cli.js';
+`;
+  if (defect === 'early-exit') outputs['src/app.js'] = `console.log('PROJECT_APP_ORACLE_PASS');
+process.exit(0);
+export { run } from './cli.js';
+`;
   const calls = [];
   const service = createDefaultM2LifecycleApplicationService({ database: db,
     projects: { findById: { get: id => id === PROJECT_ID ? { id, path: project, status: 'active' } : null } },
@@ -79,13 +93,21 @@ async function fixture(defect) {
   return { folder, project, db, databasePath, outputs, calls, baseline, service };
 }
 
-for (const defect of [false, true]) {
-  test(`M2 six-file project ${defect ? 'rolls back a wrong total' : 'commits a functioning app'}`, async () => {
+for (const defect of [null, 'wrong-total', 'assert-noops', 'early-exit']) {
+  test(`M2 six-file project ${defect ? `rolls back ${defect}` : 'commits a functioning app'}`, async () => {
     const f = await fixture(defect);
     try {
       await f.service.recoverIncompleteSmallProjectChanges();
-      const planned = await f.service.draftSmallProjectChange({ authenticatedSubject: SUBJECT,
-        projectId: PROJECT_ID, origin: ORIGIN, draft: ledgerBlueprint() });
+      let planned;
+      try {
+        planned = await f.service.draftSmallProjectChange({ authenticatedSubject: SUBJECT,
+          projectId: PROJECT_ID, origin: ORIGIN, draft: ledgerBlueprint() });
+      } catch (error) {
+        if (error.code === 'M2_LIFECYCLE_GOVERNANCE_DENIED') {
+          console.error(JSON.stringify(error.details?.decision?.findings));
+        }
+        throw error;
+      }
       assert.equal(planned.state, 'awaiting_approval');
       assert.deepEqual(f.calls, GENERATION_ORDER);
       assert.deepEqual(planned.diff.map(row => row.path), Object.keys(f.outputs).sort());
@@ -95,6 +117,7 @@ for (const defect of [false, true]) {
       assert.equal(git(f.project, ['status', '--porcelain=v1']), '');
       for (const relative of Object.keys(f.outputs)) assert.equal(fs.existsSync(path.join(f.project, relative)), false);
       assert.equal(sha256(fs.readFileSync(path.join(f.project, ORACLE_PATH))), ORACLE_SHA256);
+      assert.equal(sha256(fs.readFileSync(path.join(f.project, PROBE_PATH))), PROBE_SHA256);
       assert.equal(sha256(fs.readFileSync(path.join(f.project, ENTRY_PATH))), ENTRY_SHA256);
       await assert.rejects(f.service.approveSmallProjectChange({ authenticatedSubject: SUBJECT,
         origin: ORIGIN, lifecycleId: planned.lifecycleId, planDigest: `sha256:${'0'.repeat(64)}` }),
@@ -121,6 +144,7 @@ for (const defect of [false, true]) {
       }
       assert.equal(git(f.project, ['status', '--porcelain=v1']), '');
       assert.equal(sha256(fs.readFileSync(path.join(f.project, ORACLE_PATH))), ORACLE_SHA256);
+      assert.equal(sha256(fs.readFileSync(path.join(f.project, PROBE_PATH))), PROBE_SHA256);
       assert.equal(sha256(fs.readFileSync(path.join(f.project, ENTRY_PATH))), ENTRY_SHA256);
       f.db.close();
       const restartScript = `

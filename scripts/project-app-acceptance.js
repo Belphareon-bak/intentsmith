@@ -13,13 +13,36 @@ export const LEDGER_FILES = Object.freeze([
 ]);
 
 export const ORACLE_PATH = 'test/acceptance.test.mjs';
+export const PROBE_PATH = 'test/subject-probe.mjs';
 export const ENTRY_PATH = 'src/index.mjs';
 export const ORACLE_SOURCE = `import assert from 'node:assert/strict';
-import { run } from '../src/app.js';
+import { spawnSync } from 'node:child_process';
+import { randomBytes, randomInt } from 'node:crypto';
+
+// This trusted process never imports generated modules. The fixed entrypoint
+// loads them in a separate, sandbox-contained child process only.
+const entry = 'src/index.mjs';
+function child(argv) {
+  const result = spawnSync(process.execPath, argv, {
+    cwd: process.cwd(), encoding: 'utf8', timeout: 6000, maxBuffer: 65536,
+    env: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' }, shell: false,
+  });
+  assert.equal(result.error, undefined, 'subject process must start and finish');
+  assert.equal(result.signal, null, 'subject process must not die by signal');
+  return result;
+}
+function completeJSON(argv) {
+  const result = child(argv);
+  assert.equal(result.status, 0, result.stderr);
+  const parsed = JSON.parse(result.stdout);
+  assert.equal(result.stdout.trim(), JSON.stringify(parsed), 'one complete JSON result and no forged marker');
+  return parsed;
+}
+const run = commands => completeJSON([entry, JSON.stringify(commands)]);
 
 const commands = [
   ['add', 12.5, 'food'], ['add', 7.25, 'travel'], ['add', 3.5, 'food'],
-  ['total'], ['categories'], ['list'], ['list'],
+  ['total'], ['categories'], ['list'],
 ];
 const result = run(commands);
 assert.ok(Array.isArray(result) && result.length === commands.length, 'one result per command');
@@ -28,18 +51,47 @@ assert.deepEqual(result[4], { food: 16, travel: 7.25 }, 'category sums');
 assert.ok(Array.isArray(result[5]) && result[5].length === 3, 'all rows listed');
 assert.deepEqual(result[5].map(row => [row.amount, row.category]),
   [[12.5, 'food'], [7.25, 'travel'], [3.5, 'food']], 'rows preserve order and values');
-result[5][0].amount = 999;
-assert.equal(result[6][0].amount, 12.5, 'list returns independent row copies');
-assert.deepEqual(run([['list'], ['total'], ['categories']]), [[], 0, {}], 'each run starts empty');
-for (const amount of [0, -1, NaN, Infinity, -Infinity, '4']) {
-  assert.throws(() => run([['add', amount, 'food']]), 'invalid amount: ' + String(amount));
+assert.deepEqual(run([['list'], ['total'], ['categories']]), [[], 0, {}], 'fresh process starts empty');
+
+const amountA = randomInt(31, 100), amountB = randomInt(101, 300);
+const category = 'category_' + randomBytes(8).toString('hex');
+const varied = run([['add', amountA, category], ['add', amountB, category], ['total'], ['categories'], ['list']]);
+assert.equal(varied[2], amountA + amountB, 'new values are summed');
+assert.deepEqual(varied[3], { [category]: amountA + amountB }, 'new category is grouped');
+assert.deepEqual(varied[4].map(row => [row.amount, row.category]),
+  [[amountA, category], [amountB, category]], 'new rows remain ordered');
+
+for (const commands of [
+  [['add', 0, 'food']], [['add', -1, 'food']], [['add', '4', 'food']],
+  [['add', 1, '']], [['add', 1, '   ']], [['add', 1, 4]], [['add', 1, null]], [['unknown']],
+]) {
+  assert.notEqual(child([entry, JSON.stringify(commands)]).status, 0, 'invalid command must fail');
 }
-for (const category of ['', '   ', 4, null]) {
-  assert.throws(() => run([['add', 1, category]]), 'invalid category: ' + String(category));
-}
-assert.throws(() => run([['unknown']]), 'unknown operation is rejected');
+const extra = completeJSON(['test/subject-probe.mjs']);
+assert.deepEqual(extra.failures, [true, true, true], 'nonfinite amounts throw');
+assert.equal(extra.distinct, true, 'list returns independent row copies');
 console.log('PROJECT_APP_ORACLE_PASS');
 `;
+
+// This child is untrusted as soon as it loads generated app.js. Its parent
+// validates the complete JSON result; an early exit cannot claim success.
+export const PROBE_SOURCE = `import { run } from '../src/app.js';
+const failures = [NaN, Infinity, -Infinity].map(amount => {
+  try { run([['add', amount, 'food']]); return false; }
+  catch { return true; }
+});
+const rows = run([['add', 12.5, 'food'], ['list'], ['list']]);
+const distinct = rows[1] !== rows[2] && rows[1][0] !== rows[2][0];
+process.stdout.write(JSON.stringify({ failures, distinct }) + '\\n');
+`;
+
+export function policyForFrozenOracle(policy) {
+  assert.equal(policy.policyId, 'intentsmith-local-project-v1');
+  assert.ok(policy.layers?.some(layer => layer.roots?.includes('test')));
+  const imports = new Set(policy.externalImports);
+  imports.add('node:child_process');
+  return { ...policy, externalImports: [...imports].sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b))) };
+}
 
 // The new project's package.json already executes this entrypoint via npm start.
 // It is fixed before inference; the model writes only LEDGER_FILES.
@@ -51,6 +103,7 @@ process.stdout.write(JSON.stringify(run(commands)) + '\\n');
 
 export const sha256 = value => createHash('sha256').update(value).digest('hex');
 export const ORACLE_SHA256 = sha256(ORACLE_SOURCE);
+export const PROBE_SHA256 = sha256(PROBE_SOURCE);
 export const ENTRY_SHA256 = sha256(ENTRY_SOURCE);
 
 export function ledgerBlueprint() {
@@ -81,6 +134,7 @@ export function assertLedgerPreview(diff, projectRoot, readFile, exists) {
     assert.equal(exists(projectRoot, row.path), false, row.path + ' absent before approval');
   }
   assert.equal(sha256(readFile(projectRoot, ORACLE_PATH)), ORACLE_SHA256, 'frozen oracle bytes');
+  assert.equal(sha256(readFile(projectRoot, PROBE_PATH)), PROBE_SHA256, 'frozen subject probe bytes');
   assert.equal(sha256(readFile(projectRoot, ENTRY_PATH)), ENTRY_SHA256, 'frozen entrypoint bytes');
 }
 
