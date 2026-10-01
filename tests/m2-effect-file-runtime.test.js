@@ -224,6 +224,24 @@ await testAsync('file.create@1 binds v3 create-only authority, persists exact by
   });
 });
 
+await testAsync('public write and create runtime methods cannot be switched by caller mode flags', async () => {
+  await withEnvironment(async environment => {
+    const runtime = environment.runtime();
+    const base = requestInput(environment.projectRoot, {
+      relativePath: 'notes/mode.md', content: 'exact mode bytes\n',
+    });
+    const write = await runtime.requestFilesystemWrite({ ...base,
+      operationId: 'message:write-mode', rootList: true, createOnly: true });
+    assert.equal(write.request.version, 1);
+    assert.equal(write.request.requiredCapability, 'project.fs.write');
+    const create = await runtime.requestFilesystemCreate({ ...base,
+      operationId: 'message:create-mode', rootList: true, createOnly: false });
+    assert.equal(create.request.version, 3);
+    assert.equal(create.request.requiredCapability, 'project.fs.create');
+    assert.equal(existsSync(path.join(environment.projectRoot, base.relativePath)), false);
+  });
+});
+
 await testAsync('file.create@1 refuses a target created after preview and never reports an effect', async () => {
   await withEnvironment(async environment => {
     const runtime = environment.runtime();

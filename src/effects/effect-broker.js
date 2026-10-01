@@ -319,11 +319,11 @@ export function createEffectBroker(repositoryValue, {
   }
 
   function prepareFilesystemWrite(input = {}) {
-    return prepareFilesystemEffect({ ...input, kind: 'fs.write' });
+    return prepareFilesystemEffect({ ...input, kind: 'fs.write', rootList: false, createOnly: false });
   }
 
   function prepareFilesystemCreate(input = {}) {
-    return prepareFilesystemEffect({ ...input, kind: 'fs.write', createOnly: true });
+    return prepareFilesystemEffect({ ...input, kind: 'fs.write', rootList: false, createOnly: true });
   }
 
   function prepareFilesystemRead(input = {}) {

@@ -419,8 +419,8 @@ export function createEffectFileRuntime({
   }
 
   const runtime = Object.freeze({
-    requestFilesystemWrite(input = {}) { return requestFilesystemEffect({ ...input, kind: 'fs.write' }); },
-    requestFilesystemCreate(input = {}) { return requestFilesystemEffect({ ...input, kind: 'fs.write', createOnly: true }); },
+    requestFilesystemWrite(input = {}) { return requestFilesystemEffect({ ...input, kind: 'fs.write', rootList: false, createOnly: false }); },
+    requestFilesystemCreate(input = {}) { return requestFilesystemEffect({ ...input, kind: 'fs.write', rootList: false, createOnly: true }); },
     requestFilesystemRead(input = {}) { return requestFilesystemEffect({ ...input, kind: 'fs.read' }); },
     requestFilesystemListRoot(input = {}) { return requestFilesystemEffect({ ...input, kind: 'fs.read', rootList: true }); },
     approveFilesystemListRoot(input = {}) {
