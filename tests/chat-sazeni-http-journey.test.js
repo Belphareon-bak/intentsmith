@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -73,13 +73,13 @@ async function createSelectedConversation(product, label) {
   return conversationId;
 }
 
-function bettingResult(response, status = 'READY') {
+function bettingResult(response, status = 'READY', executionStatus = 'SUCCESS') {
   assert.equal(response.status, 'ok');
   const metadata = response.response?.metadata;
   assert.equal(metadata?.mode, 'specialist');
   assert.equal(metadata?.specialist?.id, 'sazeni');
   assert.equal(metadata?.specialistTool, 'sazeni.ticket_builder');
-  assert.equal(metadata?.executionStatus, 'SUCCESS');
+  assert.equal(metadata?.executionStatus, executionStatus);
   assert.equal(metadata?.deterministicPresentation, true);
   assert.equal(metadata?.toolResults?.length, 1);
   const result = metadata.toolResults[0].data;
@@ -113,6 +113,23 @@ test('selected Sázení specialist uses observed Fortuna fixture and scopes foll
   assert.match(ambiguous.response.content, /do 24 h.*do 3 dnů/s);
   assert.deepEqual(providerCalls(owned), [], 'ambiguous date must stop before every source fetch');
 
+  const failedSession = await createSelectedConversation(product, 'provider-error');
+  const unavailable = await expectJson(product, 'POST', '/api/chat',
+    command(failedSession, JSON.stringify({ preferences: {
+      dataSource: 'odds_io', leagues: ['E0'], bookmakerIds: ['Tipsport.cz'],
+      horizonHours: 24,
+    } })), 200);
+  const unavailableResult = bettingResult(unavailable, 'PROVIDER_ERROR', 'FAILED');
+  assert.deepEqual(unavailableResult.tickets, []);
+  assert.equal(unavailableResult.analysis?.autonomous, true);
+  assert.deepEqual(unavailableResult.analysis?.sourceRefs, []);
+  assert.equal(unavailableResult.verifiedLive, false);
+  assert.equal(unavailableResult.verifiedObservation, false);
+  assert.equal(unavailable.response.metadata.fallbackSuppressed, true);
+  assert.match(unavailable.response.content, /Datový zdroj není dostupný/u);
+  assert.deepEqual(providerCalls(owned), [],
+    'missing live provider key must fail before every source fetch');
+
   const a = await createSelectedConversation(product, 'a');
   const b = await createSelectedConversation(product, 'b');
   const firstInput = JSON.stringify({ preferences: PREFERENCES });
@@ -120,6 +137,20 @@ test('selected Sázení specialist uses observed Fortuna fixture and scopes foll
   const first = await expectJson(product, 'POST', '/api/chat', command(a, firstInput), 200);
   const after = Date.now();
   const firstResult = bettingResult(first);
+  assert.equal(firstResult.analysis?.autonomous, true);
+  assert.equal(firstResult.analysis?.sourceRefs?.length, 8,
+    'public observation references must keep the eight captured sources');
+  assert.equal(firstResult.analysis?.diagnostics, undefined,
+    'private model diagnostics must not ride in public toolResults');
+  assert(firstResult.analysis.sourceRefs.every(ref => {
+    const source = new URL(ref.url);
+    return source.protocol === 'https:' && !source.search && !source.username
+      && !source.password && ref.sha256.length === 64;
+  }));
+  assert.deepEqual(firstResult.analysis.publicSourcePages, [{
+    league: 'E0',
+    url: 'https://www.ifortuna.cz/sazeni/fotbal/anglie-4/1-anglie?tab=matches',
+  }]);
   assert.equal(firstResult.dataMode, 'observed');
   assert.equal(firstResult.verifiedObservation, true);
   assert.equal(firstResult.verifiedLive, false);
@@ -143,6 +174,11 @@ test('selected Sázení specialist uses observed Fortuna fixture and scopes foll
     assert.equal(ticket.selections.length, 2);
     assert(Number(ticket.totalOdds) >= 2 && Number(ticket.totalOdds) <= 4);
     assert.equal(ticket.money.stakeMinor, 5000);
+    assert.equal(ticket.constraints.length, 5);
+    assert.deepEqual(ticket.constraints[0], {
+      field: 'ticketOdds', actual: ticket.totalOdds,
+      required: { min: '2', max: '4' }, pass: true,
+    });
     assert(ticket.selections.every(selection => selection.sourceUpdatedAt === null));
     assert(ticket.selections.every(selection => Date.parse(selection.observedAt) >= before
       && Date.parse(selection.observedAt) <= after));
@@ -213,6 +249,34 @@ test('selected Sázení specialist uses observed Fortuna fixture and scopes foll
   } finally {
     db.close();
   }
+});
+
+test('selected Sázení specialist contains a thrown host error at the M1 boundary', {
+  timeout: 60_000,
+}, async t => {
+  const secret = 'PRIVATE_HOST_ERROR_CANARY_4bf7d0';
+  const provider = await startTripwireProvider();
+  const owned = createOwnedJourneyRuntime(runtime);
+  writeFileSync(path.join(owned.artifacts, 'sazeni-forced-host-error.txt'), secret,
+    { mode: 0o600 });
+  let product = null;
+  t.after(async () => {
+    const errors = [];
+    if (product) try { await stopProduct(product); } catch (error) { errors.push(error); }
+    try { await provider.close(); } catch (error) { errors.push(error); }
+    if (errors.length) throw new AggregateError(errors, 'Sázení error fixture cleanup failed');
+  });
+  product = await startProduct(owned, provider.url, MODEL,
+    { testPreload: PRELOAD, testBettingBridgeRequired: true });
+  const conversation = await createSelectedConversation(product, 'host-error');
+  const response = await expectJson(product, 'POST', '/api/chat',
+    command(conversation, JSON.stringify({ preferences: PREFERENCES })), 200);
+  const result = bettingResult(response, 'PROVIDER_ERROR', 'FAILED');
+  assert.equal(result.errors?.[0]?.code, 'PROVIDER_ERROR');
+  assert.equal(result.errors?.[0]?.message, 'Datový zdroj není dostupný. Zkus výpočet později.');
+  assert.doesNotMatch(JSON.stringify(response), /PRIVATE_HOST_ERROR_CANARY_4bf7d0/u);
+  assert(providerCalls(owned).some(call => call.kind === 'injected-host-error'));
+  assert.equal(provider.modelCalls, 0);
 });
 
 test('betting fixture hook rejects production and requires an owned preload', async () => {

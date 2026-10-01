@@ -13,6 +13,8 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { test } from 'node:test';
 import { createOwnedJourneyRuntime } from './helpers/chat-project-expertise-model-journey.js';
 import { isolatedTestRuntime as runtime } from './helpers/isolated-test-db.js';
+import { publicSpecialistProjectContext, publicSpecialistToolResults } from
+  '../src/chat/handlers/specialist-public.js';
 
 const MODEL = 'fixture:1b';
 const DIGEST = 'a'.repeat(64);
@@ -187,30 +189,98 @@ function assertDeterministicResult(result, fixture, foreignFixture) {
   assert.equal(result.response.metadata.specialist?.id, 'code-reviewer');
   assert.equal(result.response.metadata.specialistTool, 'code-reviewer.security_scan');
   assert.equal(result.response.metadata.deterministicPresentation, true);
+  assert.equal(result.response.metadata.executionStatus, 'SUCCESS');
+  assert.equal(result.response.metadata.expertise?.evidence, undefined);
+  assert.deepEqual(result.response.metadata.toolResults,
+    [{ type: 'code-reviewer.security_scan' }],
+  'public metadata must expose the tool identity without raw source snippets');
   assert.equal(result.response.metadata.projectContext?.projectId, fixture.projectId);
+  assert.deepEqual(Object.keys(result.response.metadata.projectContext).sort(),
+    ['contract', 'items', 'outcome', 'projectId', 'snapshotDigest', 'version', 'workspaceRevision']);
   const contextItems = result.response.metadata.projectContext.items;
+  assert(contextItems.every(item => Object.keys(item).sort().join(',')
+    === 'contentDigest,endLine,path,startLine'));
   assert(contextItems.some(item => item.path === fixture.sourcePath
     && item.contentDigest === fixture.sourceDigest),
   'ProjectContext must attest the exact bytes of this project source');
   assert(contextItems.every(item => item.path !== foreignFixture.sourcePath
     && item.contentDigest !== foreignFixture.sourceDigest));
   assert(result.response.content.includes(`**CRITICAL** \`${fixture.sourcePath}:2\` — ${fixture.findingName}`));
+  if (fixture.sourceSecret) assert(result.response.content.includes('Hardcoded Secret'));
   assert(!result.response.content.includes(foreignFixture.sourcePath));
   assert(!result.response.content.includes(foreignFixture.findingName));
-  const findings = result.response.metadata.toolResults[0].data.data.vulnerabilities;
-  const ownFindings = findings.filter(item => item.path === fixture.sourcePath);
-  assert.deepEqual(ownFindings.map(item => ({ id: item.id, name: item.name,
-    severity: item.severity, line: item.line, snippet: item.snippet,
-    projectId: item.provenance.projectId, contentDigest: item.provenance.contentDigest })), [{
-    id: fixture.findingId, name: fixture.findingName, severity: 'critical', line: 2,
-    snippet: fixture.sourceLine.trim(), projectId: fixture.projectId,
-    contentDigest: fixture.sourceDigest,
-  }]);
-  assert(findings.every(item => item.path !== foreignFixture.sourcePath
-    && item.provenance.projectId !== foreignFixture.projectId
-    && item.provenance.contentDigest !== foreignFixture.sourceDigest
-    && !item.snippet.includes(foreignFixture.sourceCanary)));
+  const publicWire = JSON.stringify(result);
+  assert(!publicWire.includes(fixture.sourceCanary));
+  assert(!publicWire.includes(foreignFixture.sourceCanary));
+  if (fixture.sourceSecret) assert(!publicWire.includes(fixture.sourceSecret));
 }
+
+test('selected-specialist public projection drops injected private evidence', () => {
+  const secret = 'PRIVATE_EVIDENCE_7w3m2';
+  const evidence = {
+    contract: 'ProjectContextSnapshot', version: 1, projectId: 7,
+    workspaceRevision: 'wsr1:' + 'a'.repeat(64),
+    snapshotDigest: 'pcs1:' + 'b'.repeat(64), outcome: 'found',
+    sourceText: secret,
+    items: [{ path: 'src/auth.js', startLine: 1, endLine: 2,
+      contentDigest: 'sha256:' + 'c'.repeat(64), content: secret }],
+  };
+  const projected = publicSpecialistProjectContext('code-reviewer.security_scan', evidence);
+  assert.deepEqual(Object.keys(projected).sort(),
+    ['contract', 'items', 'outcome', 'projectId', 'snapshotDigest', 'version', 'workspaceRevision']);
+  assert.deepEqual(Object.keys(projected.items[0]).sort(),
+    ['contentDigest', 'endLine', 'path', 'startLine']);
+  assert(!JSON.stringify(projected).includes(secret));
+  assert.deepEqual(publicSpecialistToolResults('code-reviewer.security_scan',
+    { status: 'ok', data: { vulnerabilities: [{ snippet: secret }] } }),
+  [{ type: 'code-reviewer.security_scan' }]);
+  const betting = publicSpecialistToolResults('sazeni.ticket_builder', {
+    contract: 'BettingResult', version: 3, status: 'READY', internalNote: secret,
+    effectivePreferences: { ticketCount: 2, privateToken: secret,
+      stake: { currency: 'CZK', perTicketMinor: 5000, privateToken: secret } },
+    coverage: { complete: true, scope: 'E0', privateToken: secret },
+    search: { completed: true, nodes: 3, privateToken: secret },
+    errors: [{ code: 'PROVIDER_ERROR', message: secret, sourceRef: { token: secret },
+      privateToken: secret }],
+    tickets: [{ ticketId: 'ticket:public', totalOdds: '2.5', privateToken: secret,
+      selections: [{ eventId: 'event:public', decimalOdds: '2.5', privateToken: secret }],
+      money: { currency: 'CZK', stakeMinor: 5000, privateToken: secret },
+      constraints: [{ field: 'ticketOdds', actual: '2.5',
+        required: { min: '2', max: '4', privateToken: secret }, pass: true,
+        privateToken: secret }] }],
+    alternatives: [{ field: 'ticketOdds.min', value: '2', privateToken: secret,
+      example: { ticketId: 'ticket:example', privateToken: secret } }],
+    evidenceRefs: [{ snapshotId: 'snapshot:public', privateToken: secret,
+      source: { id: 'source:public', privateToken: secret } }],
+    rejections: [{ code: 'USER_EXCLUDED', privateToken: secret }],
+    persistence: { status: 'SAVED', recordId: 42, privateToken: secret },
+    analysis: { autonomous: true, diagnostics: [secret], models: [{ token: secret }],
+      limitations: [secret], policy: { id: secret, selectedMethod: secret },
+      publicSourcePages: [{ league: 'E0', url: `https://example.test/?token=${secret}` }],
+      sourceRefs: [{
+      observationId: 'source-1', resource: 'history',
+      retrievedAt: '2026-10-01T00:00:00.000Z', lastModified: null,
+      sha256: 'd'.repeat(64), url: 'https://www.football-data.co.uk/mmz4281/2223/E0.csv', bytes: 42,
+      credential: secret,
+    }, {
+      observationId: 'source-2', resource: 'history',
+      retrievedAt: '2026-10-01T00:00:00.000Z', lastModified: null,
+      sha256: 'd'.repeat(64), url: `https://www.football-data.co.uk/mmz4281/2223/E0.csv?token=${secret}`,
+      bytes: 42,
+    }] },
+  });
+  assert.equal(betting[0].data.analysis.sourceRefs.length, 1);
+  assert.equal(betting[0].data.tickets[0].ticketId, 'ticket:public');
+  assert.equal(betting[0].data.tickets[0].selections[0].decimalOdds, '2.5');
+  assert.deepEqual(betting[0].data.tickets[0].constraints[0], {
+    field: 'ticketOdds', actual: '2.5', required: { min: '2', max: '4' }, pass: true,
+  });
+  assert.equal(betting[0].data.effectivePreferences.stake.perTicketMinor, 5000);
+  assert.equal(betting[0].data.errors[0].message,
+    'Datový zdroj není dostupný. Zkus výpočet později.');
+  assert(!JSON.stringify(betting).includes(secret));
+  assert.equal(publicSpecialistProjectContext('other.tool', evidence), undefined);
+});
 
 test('M1 specialist continuation uses conversation identity and keeps two projects isolated', {
   timeout: 180_000,
@@ -224,10 +294,11 @@ test('M1 specialist continuation uses conversation identity and keeps two projec
   server = await startProduct(provider.url);
   const a = await createProjectConversation(server, {
     label: 'a', functionName: 'validateSessionToken',
-    sourceLine: "  return eval(input + 'ORION_A_SOURCE_713');",
+    sourceLine: "  const apiKey = 'PRIVATE_A_KEY_9x7p2z4q'; return eval(input + 'ORION_A_SOURCE_713');",
     sourceCanary: 'ORION_A_SOURCE_713', findingId: 'EVAL_USAGE',
     findingName: 'Dynamic Code Execution',
   });
+  a.sourceSecret = 'PRIVATE_A_KEY_9x7p2z4q';
   const b = await createProjectConversation(server, {
     label: 'b', functionName: 'authorizeEditor',
     sourceLine: "  return document.write(input + 'VEGA_B_SOURCE_841');",
@@ -258,12 +329,30 @@ test('M1 specialist continuation uses conversation identity and keeps two projec
     followA.turnId, followB.turnId]).size, 4);
   assertDeterministicResult(await expect(server, 'POST', '/api/chat', followA, 200), a, b);
   assertDeterministicResult(await expect(server, 'POST', '/api/chat', followB, 200), b, a);
+
+  const accountantConversation = await expect(server, 'POST', '/api/conversations',
+    { title: 'selected-accountant-failure', mode: 'chat' }, 201);
+  const accountantId = accountantConversation.conversation.id;
+  await expect(server, 'POST', '/api/chat/specialist',
+    { sessionId: accountantId, specialistId: 'accountant-cz' }, 200);
+  const setup = await expect(server, 'POST', '/api/chat',
+    command(accountantId, 'accountant-setup', 'Vysvětli kontrolní hlášení za květen 2026.'), 200);
+  assert.equal(setup.response.metadata.specialistTool, 'accountant.document_workflow');
+  const failedInput = 'doklad d-0000000000000000 = {invalid PRIVATE_FAILURE_8q2m; vysvětli kontrolní hlášení';
+  const failed = await expect(server, 'POST', '/api/chat',
+    command(accountantId, 'accountant-failed', failedInput), 200);
+  assert.equal(failed.response.metadata.specialistTool, 'accountant.document_workflow');
+  assert.equal(failed.response.metadata.executionStatus, 'FAILED');
+  assert.equal(failed.response.metadata.fallbackSuppressed, true);
+  assert.equal(failed.response.content,
+    'Nástroj specialisty nebyl úspěšně dokončen; výsledek není potvrzen.');
+  assert(!JSON.stringify(failed).includes('PRIVATE_FAILURE_8q2m'));
   assert.equal(provider.modelCalls, 0, 'deterministic specialist turns must not call the model');
   writeFileSync(path.join(runtime.artifacts, 'chat-specialist-followup-http.json'),
     `${JSON.stringify({ schemaVersion: 1,
       sourceRevision: process.env.INTENTSMITH_TEST_SOURCE_REVISION || 'direct-run-unattested',
       fixture: 'owned-local-provider', projectIds: [a.projectId, b.projectId],
-      conversationCount: 2, m1TurnCount: 4, distinctRequestIds: 4,
+      conversationCount: 3, m1TurnCount: 6, distinctRequestIds: 6,
       providerModelCalls: provider.modelCalls, status: 'PASS',
     }, null, 2)}\n`, { mode: 0o600 });
 });

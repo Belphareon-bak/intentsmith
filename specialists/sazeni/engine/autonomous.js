@@ -2,7 +2,7 @@ import { LIVE_BOOKS, oddsIOSnapshot, historyTeam } from '../providers/odds-io.js
 import {FORTUNA_PUBLIC_BOOK,fortunaPublicSnapshot,fortunaPages} from '../providers/fortuna-public.js';
 import {buildTickets,digest} from './tickets.js';
 import {validateRequest} from './contract.js';
-import {keys,fail} from './values.js';
+import {keys,fail,isTrustedBettingFailure} from './values.js';
 import {LEAGUES,historyRecords,fixturesSnapshot} from '../providers/football-data.js';
 import {fitFootball,predictFootball,marketProbabilities} from '../models/football.js';
 import {FORECAST_POLICY} from '../models/policy.js';
@@ -84,7 +84,9 @@ export async function runAutonomous(preferences,turn={}) {
     try{result.persistence={status:'SAVED',recordId:await turn.bettingData.save(evidence)};}catch{result.status=turn.signal?.aborted?'CANCELLED':'PERSISTENCE_ERROR';result.tickets=[];result.errors.push({code:'PERSISTENCE_ERROR',fieldPath:null,message:'Výsledek nebyl spolehlivě uložen.',retryable:false,sourceRef:null});}
     return result;
   } catch(error){
-    result=await buildTickets(request,null,turn);result.status=turn.signal?.aborted?'CANCELLED':['INVALID_REQUEST','NEEDS_INPUT','INSUFFICIENT_DATA','PROVIDER_ERROR','CANCELLED'].includes(error.code)?error.code:error.message?.startsWith('MODEL_')?'MODEL_UNAVAILABLE':'PROVIDER_ERROR';
-    result.tickets=[];result.errors=[{code:result.status,fieldPath:error.fieldPath??null,message:error.message,retryable:result.status==='PROVIDER_ERROR',sourceRef:null}];result.analysis={autonomous:true,sourceRefs:sources,diagnostics};return result;
+    const trusted=isTrustedBettingFailure(error);
+    result=await buildTickets(request,null,turn);result.status=turn.signal?.aborted?'CANCELLED':trusted&&['INVALID_REQUEST','NEEDS_INPUT','INSUFFICIENT_DATA','PROVIDER_ERROR','CANCELLED'].includes(error.code)?error.code:typeof error?.message==='string'&&/^MODEL_[A-Z0-9_]+/u.test(error.message)?'MODEL_UNAVAILABLE':'PROVIDER_ERROR';
+    const message=turn.signal?.aborted?'Výpočet zrušen.':trusted?error.message:result.status==='MODEL_UNAVAILABLE'?'Požadovaný model není dostupný.':'Datový zdroj není dostupný. Zkus výpočet později.';
+    result.tickets=[];result.errors=[{code:result.status,fieldPath:trusted?error.fieldPath??null:null,message,retryable:result.status==='PROVIDER_ERROR',sourceRef:null}];result.analysis={autonomous:true,sourceRefs:sources,diagnostics};return result;
   }
 }

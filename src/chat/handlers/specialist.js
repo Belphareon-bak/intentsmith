@@ -32,6 +32,11 @@ import {
   handleMergedExpertises,
 } from './expertise.js';
 import { discoverExpertises, extractGapTopic } from '../../expertises/expertise-discovery.js';
+import {
+  publicSpecialistExecutionStatus,
+  publicSpecialistProjectContext,
+  publicSpecialistToolResults,
+} from './specialist-public.js';
 
 // Gap choice detection patterns
 const GAP_CREATE_PATTERNS = [
@@ -155,10 +160,12 @@ export async function specialistHandler(input, context) {
           };
           // Fall through to expertise/fallback — LLM will ask for params
         } else {
-          // Tool executed successfully — wrap with persona and return
-          logger.info('SpecialistHandler', 'Tool dispatch: SUCCESS', {
+          // The package returned a result. Its domain status still determines
+          // whether a deterministic presentation represents a completed task.
+          logger.info('SpecialistHandler', 'Tool dispatch completed', {
             toolType: toolResult.toolType,
             specialist: specialist.id,
+            resultStatus: toolResult.result?.status || null,
           });
 
           // Find the primary expertise for persona wrapping
@@ -262,24 +269,28 @@ function specialistToolFailureResponse(toolResult, specialist) {
       specialistId: specialist.id,
       specialistTool: toolResult.toolType,
       executionStatus: 'FAILED',
-      errorCode: toolResult.errorCode,
+      errorCode: /^M3_[A-Z0-9_]+$/u.test(toolResult.errorCode || '')
+        ? toolResult.errorCode : 'M3_SPECIALIST_TOOL_FAILED',
       fallbackSuppressed: true,
     },
   });
   return new TaggedResponse({
-    content: `Nástroj specialisty nebyl spuštěn: ${toolResult.error}`,
+    content: 'Nástroj specialisty nebyl úspěšně dokončen; výsledek není potvrzen.',
     tag,
   });
 }
 
 function deterministicSpecialistToolResponse(toolResult, specialist, expertise) {
+  const executionStatus = publicSpecialistExecutionStatus(toolResult.toolType, toolResult.result);
+  const projectContext = publicSpecialistProjectContext(toolResult.toolType, toolResult.evidence);
   const tag = new ResponseTag({
     speaker: ResponseSpeaker.EXPERTISE,
     mode: ChatMode.SPECIALIST,
     confidence: 0.95,
     canExecute: false,
     metadata: {
-      executionStatus: 'SUCCESS',
+      executionStatus,
+      ...(executionStatus === 'FAILED' ? { fallbackSuppressed: true } : {}),
       specialist: {
         id: specialist.id,
         name: specialist.name,
@@ -288,11 +299,10 @@ function deterministicSpecialistToolResponse(toolResult, specialist, expertise) 
       expertise: {
         id: expertise.id,
         applied: true,
-        evidence: toolResult.expertiseEvidence,
       },
       specialistTool: toolResult.toolType,
-      toolResults: [{ type: toolResult.toolType, data: toolResult.result }],
-      projectContext: toolResult.evidence,
+      toolResults: publicSpecialistToolResults(toolResult.toolType, toolResult.result),
+      ...(projectContext ? { projectContext } : {}),
       deterministicPresentation: true,
     },
   });

@@ -1,7 +1,7 @@
 // Loaded only in the owned M1 product child, before outbound-policy captures
 // fetch. Public provider URLs receive curated fixture bytes (origin unverified); every other
 // external URL fails closed. No production entry point imports this module.
-import { appendFileSync, readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 if (process.env.NODE_ENV !== 'test' || process.env.CI !== '1'
@@ -41,6 +41,12 @@ function historyCSV(season, at) {
 
 async function fixtureTransport(input) {
   const url = new URL(input instanceof Request ? input.url : String(input));
+  const forcedHostError = path.join(process.env.INTENTSMITH_TEST_ARTIFACT_DIR,
+    'sazeni-forced-host-error.txt');
+  if (existsSync(forcedHostError)) {
+    appendFileSync(log, `${JSON.stringify({ kind: 'injected-host-error', path: url.pathname })}\n`);
+    throw new Error(readFileSync(forcedHostError, 'utf8'));
+  }
   if (url.origin === 'https://www.football-data.co.uk') {
     const match = /^\/mmz4281\/(\d{2})\d{2}\/E0\.csv$/.exec(url.pathname);
     if (!match || url.search) throw new Error(`TEST_OUTBOUND_DENIED:${url.origin}${url.pathname}`);
