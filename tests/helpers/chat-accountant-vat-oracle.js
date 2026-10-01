@@ -36,11 +36,12 @@ export function assertVatToolAndPrompt(result, providerBody, model) {
   return vat;
 }
 
-const MONEY = /(\d{1,3}(?:[ .\u00a0\u202f]\d{3})+|\d+)(?:[,.](\d{1,2}))?\s*(?:Kč|CZK)/giu;
+const MONEY = /(\d{1,3}(?:[ .\u00a0\u202f]\d{3})+|\d+)(?:[,.](\d{1,2}))?\s*(?:Kč|CZK|korun(?:a|y)?)(?!\p{L})/giu;
 const LABELS = /(?<total>cena s DPH|celková cena|částka s DPH|celkem|zaplatíte)|(?<base>základ(?: daně)?|cena bez DPH)|(?<vat>daň z přidané hodnoty|výsledná daň|(?<!s )(?<!bez )\bDPH\b|\bdaň\b)/giu;
-const RATE = /(?<!\p{N})(\d+(?:[,.]\d{1,2})?)\s*%/gu;
+const RATE = /(?<!\p{N})(\d+(?:[,.]\d{1,2})?)\s*(?:%|procent(?:a|o|u)?|percent)(?!\p{L})/giu;
 const YEAR = /(?<!\p{N})(\d{4})(?!\p{N})/gu;
 const CZECH_JURISDICTION = /(?<!\p{L})(?:ČR|Česk(?:o|u|em)|Česk\p{L}* republic\p{L}*)(?!\p{L})/iu;
+const UPPERCASE_REGION_CODE = /(?<!\p{L})([A-Z]{2})(?!\p{L})/gu;
 
 function foreignJurisdictionPattern() {
   const names = new Intl.DisplayNames(['cs'], { type: 'region' });
@@ -111,14 +112,23 @@ export function assertVatAnswer(answer) {
   const foreignJurisdiction = normalized.match(FOREIGN_JURISDICTION);
   assert(!foreignJurisdiction,
     `foreign jurisdiction contradicts the bounded Czech VAT answer: ${foreignJurisdiction?.[0]}`);
-  const yearsWithoutMoney = normalized.replace(MONEY, value => ' '.repeat(value.length));
-  const years = [...yearsWithoutMoney.matchAll(YEAR)].map(match => Number(match[1]));
-  assert(years.length > 0 && years.every(year => year === VAT_RESULT.year),
-    'every explicit four-digit year must be 2025');
+  const foreignCode = [...normalized.matchAll(UPPERCASE_REGION_CODE)]
+    .map(match => match[1]).find(code => code !== 'CZ');
+  assert(!foreignCode,
+    `foreign ISO jurisdiction contradicts the bounded Czech VAT answer: ${foreignCode}`);
   const rates = [...normalized.matchAll(RATE)]
     .map(match => Number(match[1].replace(',', '.')));
   assert(rates.length > 0 && rates.every(rate => rate === VAT_RESULT.rate_percent),
     'every explicit percentage must be 21 %');
+  const withoutMoneyOrRates = normalized
+    .replace(MONEY, value => ' '.repeat(value.length))
+    .replace(RATE, value => ' '.repeat(value.length));
+  const years = [...withoutMoneyOrRates.matchAll(YEAR)].map(match => Number(match[1]));
+  assert(years.length > 0 && years.every(year => year === VAT_RESULT.year),
+    'every explicit four-digit year must be 2025');
+  assert(!/\p{Nd}/u.test(withoutMoneyOrRates.replace(YEAR,
+    value => ' '.repeat(value.length))),
+  'unknown Arabic numeral in bounded VAT answer');
   assertExactLabeledAmounts(normalized);
   const lines = normalized.split(/\r?\n/u);
   assertListedSection(lines, 'Předpoklady');

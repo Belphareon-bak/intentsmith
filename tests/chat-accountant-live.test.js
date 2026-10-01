@@ -159,7 +159,9 @@ test('LIVE_NOT_RUN until opted in: selected accountant-cz VAT through captured O
     'closed provider capture must contain exactly one call');
   const captureBytes = readFileSync(captureFile);
   writeFileSync(path.join(runtime.artifacts, 'chat-accountant-live-evidence.json'),
-    `${JSON.stringify({ schemaVersion: 1, status: 'PASS', sourceRevision,
+    `${JSON.stringify({ schemaVersion: 1,
+      status: 'AUTOMATED_CHECKS_PASS_REVIEW_PENDING', manualReviewStatus: 'PENDING',
+      sourceRevision,
       specialist: 'accountant-cz', model: CAPTURE_MODEL,
       installedDigest: CAPTURE_DIGEST, providerVersion: preflight.version,
       captureBytes: captureBytes.length, captureSha256: sha256(captureBytes),

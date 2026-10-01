@@ -62,7 +62,8 @@ výjimku; oracle ji z opatrnosti odmítne. Jde o ohraničený výpočet, ne obec
 hodnotitel daňových rad.
 
 **Důkazové hranice:** validní provider řádek a přesný HTTP/SQLite výsledek
-vzniknou pouze při úspěchu. Verdiktový soukromý JSON se stavem `PASS` vzniká
+vzniknou pouze při úspěchu. Soukromý JSON se stavem
+`AUTOMATED_CHECKS_PASS_REVIEW_PENDING` vzniká
 až po zastavení serveru i proxy a uvolnění lease; váže source SHA, model,
 instalovaný digest, verzi providera, capture SHA a VAT orákulum. Pokud
 obsloužený model nevrátí vlastní digest, capture váže jeho jméno a preflight
@@ -109,6 +110,18 @@ skloňování odmítá. Pozitivní kontrolovaná odpověď zůstává platná, p
 sada nyní **22/22**, řízený M1 **2/2**. Volný jazyk mimo tyto explicitní
 tvary není obecně rozhodnutelný tímto orákulem; re-review a fyzický modelový
 běh jsou stále otevřené.
+
+Čtvrté nezávislé review `e4a9d3b6` vrátilo **CHANGES_REQUIRED** pro šest
+nových falešně zelených mutací: `2 200 korun`, `12 procent` a ISO `SK`, vždy
+v prefixu i v „Předpoklady“. Dvě další negativní mutace ověřují neznámé
+arabské číslo bez jednotky. Red-first sada měla na původní verzi **8 FAIL**.
+Nový kontrakt rozpozná také `korun(a/y)` a `procent(a/o/u)`, odmítne cizí
+dvoupísmenný ISO kód a po odečtení přesných měnových částek, sazeb a roku
+odmítne jakoukoli zbývající arabskou číslici. Přímá syntetická sada nyní
+**30/30**, řízený M1 **2/2**. Oracle je záměrně přísný pro jedno DPH zadání;
+není úplnou sémantickou validací volného textu. Každá fyzická modelová
+odpověď i s nástroji a perzistencí se proto musí navíc ručně přečíst a
+vyhodnotit; žádný fyzický běh se dosud nespustil.
 
 Živý příkaz až po review a uvolnění GPU slotu na přesném čistém commitu:
 
