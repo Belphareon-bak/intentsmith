@@ -373,6 +373,14 @@ Status a důkazy jsou v [TaskFlow WP](wp/WP-PROJECT-TASKFLOW-FUNCTIONAL-20261001
 
 ## Přesné zdroje přijatých generovaných aplikací
 
+Samostatná [generace Ledgeru ve skutečném packaged IDE](../examples/generated-apps/expense-ledger-ide/README.md)
+má šest přesných modulů a vlastní manifest; následná fyzická přejímka
+CODE/composer/M2 získala **REVIEW_PASS**. [Report](review/2026-10-01-STUDIO2-M2-FUNCTIONAL-UI.md)
+vymezuje předvyplněný blueprint, frozen test, Git/restart/DB a důkazní
+limity. Archivní [source probe](../materials/ide2-code-dom-physical-response-guard-20261001/README.md)
+je rovněž zveřejněný. Historické stavy při exportu jsou zachované;
+starší backend Ledger/TaskFlow snapshoty a manifest se nemění.
+
 [Ledger a TaskFlow](../examples/generated-apps/README.md) obsahují všech
 11 původních modelových souborů, jejich hash/Git blob manifest a příklady
 tuple volání. Jsou zkopírované bez dodatečných oprav z přijatých skutečných

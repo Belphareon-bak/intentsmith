@@ -1,0 +1,55 @@
+{
+  "status": "PASS",
+  "results": [
+    {
+      "tier": "host",
+      "mode": "complete",
+      "callbackSha256": "51e1765170e56caa204dfda1671b731623decdfdd61fde00adb7c2580e1e72f4",
+      "upstreamSeen": 1,
+      "downstreamClosedWithinTwoSeconds": true,
+      "ownedPending": 0,
+      "upstreamResponseErrorListenerBeforeFailure": true,
+      "hostRowError": null,
+      "innerRelayErrors": [],
+      "noModelProviderCalled": true
+    },
+    {
+      "tier": "host",
+      "mode": "partial",
+      "callbackSha256": "51e1765170e56caa204dfda1671b731623decdfdd61fde00adb7c2580e1e72f4",
+      "upstreamSeen": 1,
+      "downstreamClosedWithinTwoSeconds": true,
+      "ownedPending": 0,
+      "upstreamResponseErrorListenerBeforeFailure": true,
+      "hostRowError": "upstream provider response aborted",
+      "innerRelayErrors": [],
+      "noModelProviderCalled": true
+    },
+    {
+      "tier": "inner",
+      "mode": "complete",
+      "callbackSha256": "b8d8679c4a499a3d144e25013f08a29ae2f4ad3c5a51eedf5c0a1ee7156fa40e",
+      "upstreamSeen": 1,
+      "downstreamClosedWithinTwoSeconds": true,
+      "ownedPending": 0,
+      "upstreamResponseErrorListenerBeforeFailure": true,
+      "hostRowError": null,
+      "innerRelayErrors": [],
+      "noModelProviderCalled": true
+    },
+    {
+      "tier": "inner",
+      "mode": "partial",
+      "callbackSha256": "b8d8679c4a499a3d144e25013f08a29ae2f4ad3c5a51eedf5c0a1ee7156fa40e",
+      "upstreamSeen": 1,
+      "downstreamClosedWithinTwoSeconds": true,
+      "ownedPending": 0,
+      "upstreamResponseErrorListenerBeforeFailure": true,
+      "hostRowError": null,
+      "innerRelayErrors": [
+        "upstream provider response aborted"
+      ],
+      "noModelProviderCalled": true
+    }
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "status": "LIVE_NOT_RUN",
+  "identity": {
+    "stageHead": "483fb2d957ed20d48dbf508c82837b7d1824176f",
+    "stageClean": true,
+    "sourceRevision": "45caf5b54b78def257221ac2ab33a64031800813",
+    "equivalentSourceRevision": "cf67e83f2e7cf654bc8900f7b4dde434411cc0b2",
+    "appImageSha256": "40b016d0316d12aabcb55270d561de89a8058dbd7f21d597718907eee58aed57",
+    "packageManifestSha256": "8c94ac560d15642769b4ece6de69d48e2b9136ae7d1e531e88174fc5cc830d77",
+    "packageMemberCount": 16313,
+    "comparedTrackedFilesPerCopy": 1178,
+    "packagedNodeSha256": "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c",
+    "nativeSqliteSha256": "0ce99d60cc96c6aeea33438748d6c0a8d585f8dec24a10dbe5c68dcaed29ef83",
+    "hostSha256": "63039d91a7dfba8d85e86cd8fdab1ceee2e8acc0c3e86c4a22e9f74c6fc88d29",
+    "probeSha256": "671ded498b53a327b380ebff951711c27d79c4c8c4977e8225fa3fd7f182f346",
+    "configSha256": "8396d27ce916c26ab21a104f79985204f83480d27a550c3937893045a8f6b2b2",
+    "packageMembersVerifierSha256": "2ab938ab6fec94d79c731a1d59816cfe11a4ee70bb1adb84007d029ab6516704",
+    "ownedRelaySha256": "b965e1b2f2f1a07fd72a41041d60bafed1c10164a55a66fa8e4a310f07f5654f",
+    "inputSha256": "1414bb7b6428d08a351b43dab2fe36018ebe651da5f765f8e33093cf985b4e3a",
+    "oracleSha256": "1593a906dbdc69b46b3e8a445887dd6ca9e77571a75f7415a565dac407884933",
+    "subjectProbeSha256": "838f3c8d41abbdbf1185fe8c2885dde79eb895f3d3b766d342dd5c836d7da9ec",
+    "validatorProbeSha256": "baf09f9295d18aad4c55850d1b6d8205ed9120a49f22efc503097022f2f2aafe",
+    "entrySha256": "58a792dce6f33cf5c6d9d92bc2beee920bb4ab566952bd799918916bef538a3f",
+    "expectedPaths": [
+      "src/app.js",
+      "src/cli.js",
+      "src/service.js",
+      "src/storage.js",
+      "src/totals.js",
+      "src/validate.js"
+    ],
+    "generationPaths": [
+      "src/totals.js",
+      "src/validate.js",
+      "src/storage.js",
+      "src/service.js",
+      "src/cli.js",
+      "src/app.js"
+    ],
+    "blueprintSha256": "53cb7d0c566ec467139a504ea656b41b41cf61e6952bceaa5fcffd2640050a55",
+    "composerDraftSha256": "6cc413e1644f1b28718db2d89a8c7ebda452af7ebc87bda05a6b244d92c5ba47",
+    "proofControls": {
+      "correct": true,
+      "swapped": false,
+      "missingGeneration": false,
+      "wrongDigest": false,
+      "missingVersion": false,
+      "blankVersion": false,
+      "oneTerminalMissingVersion": false,
+      "relayError": false
+    },
+    "focusedTest": {
+      "binary": "/home/belphareon/Projects/intentsmith-ide2-staging-20261001/.intentsmith-artifacts/ide2-build-45caf5b5/package/runtime/bin/node",
+      "argv": [
+        "--experimental-vm-modules",
+        "test/acceptance.test.mjs"
+      ],
+      "environment": {
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "NO_COLOR": "1"
+      },
+      "timeoutMs": 30000
+    }
+  },
+  "liveRequires": [
+    "new output direct child",
+    "exact source/AppImage/host/probe/model/digest pins",
+    "serial idle GPU/provider lease",
+    "scoped X11 authority",
+    "private project/SQLite",
+    "six exact CODE calls"
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "stage": "/home/belphareon/Projects/intentsmith-ide2-staging-20261001",
+  "main": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930",
+  "package": "/home/belphareon/Projects/intentsmith-ide2-staging-20261001/.intentsmith-artifacts/ide2-build-45caf5b5/package",
+  "stageHead": "483fb2d957ed20d48dbf508c82837b7d1824176f",
+  "sourceRevision": "45caf5b54b78def257221ac2ab33a64031800813",
+  "equivalentSourceRevision": "cf67e83f2e7cf654bc8900f7b4dde434411cc0b2",
+  "appImageSha256": "40b016d0316d12aabcb55270d561de89a8058dbd7f21d597718907eee58aed57",
+  "packageManifestSha256": "8c94ac560d15642769b4ece6de69d48e2b9136ae7d1e531e88174fc5cc830d77",
+  "rendererEntrypointSha256": "76f788da1a229f55675180b287aea67a8b8f4861dbe81c7cda743fece196155b",
+  "helpers": {
+    "packageMembersSha256": "2ab938ab6fec94d79c731a1d59816cfe11a4ee70bb1adb84007d029ab6516704",
+    "relayOwnedSha256": "b965e1b2f2f1a07fd72a41041d60bafed1c10164a55a66fa8e4a310f07f5654f"
+  },
+  "inputs": [
+    {
+      "path": "scripts/project-app-acceptance.js",
+      "file": "inputs/project-app-acceptance.js",
+      "sha256": "1414bb7b6428d08a351b43dab2fe36018ebe651da5f765f8e33093cf985b4e3a"
+    }
+  ],
+  "historicalCpuEvidence": "ide2-m2-success-cf67-20261001-1006",
+  "scope": "Private physical CODE generation through packaged Studio 2 composer and exact M2 approval; ledger only. No chat turn."
+}

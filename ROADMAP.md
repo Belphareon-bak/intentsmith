@@ -1,6 +1,21 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktualizace 1. 10. 2026, 11:20 UTC:** Druhý skutečný CODE/backend/M2
+**Aktualizace 1. 10. 2026, 12:30 UTC:** skutečný modelový CODE composer
+v přijatém AppImage prošel jedním ledger průchodem **PHYSICAL_PASS /
+REVIEW_PASS**: šest kompletních generací, přesný DOM náhled a schválení,
+frozen funkční test, Git commit, restart a durable DB s 0 CHAT zprávami.
+Blueprint byl explicitně předvyplněný; obecná plánovací kvalita a větší
+projekty tím nejsou přijaté. Veřejné zdroje doplňuje šest přesných modulů
+a 15 souborů archivního probe, samostatně přijatých pro kopii a soukromí.
+Checkpoint `3971d28a` má skutečné development CI SUCCESS. Hunt stále
+**596/1173 / NO_GO**, mobilní 13+7 matice **NOT_RUN**, CHAT řeší jiný worker.
+Soukromé archivy a dvě nepřipojené vlastní refs mají cleanup preflight;
+mazání zatím neproběhlo, worktrees zůstávají HOLD. Nový celý profil,
+produkční nasazení ani release nejsou přijaté.
+[Přesná fyzická přejímka](docs/review/2026-10-01-STUDIO2-M2-FUNCTIONAL-UI.md)
+a [aktuální důkazy a zbývající milníky](docs/review/2026-09-30-COMPLETION-TRACKER.md).
+
+**Historický checkpoint 1. 10. 2026, 11:20 UTC:** Druhý skutečný CODE/backend/M2
 projekt TaskFlow na publikovaném `6f0f04d5` má **PHYSICAL_PASS / REVIEW_PASS**.
 Pět úplných modelových výstupů prošlo frozen funkčním testem, přesnou
 preview/DB/filesystem/Git vazbou a ověřením po restartu. Development CI
@@ -12,7 +27,7 @@ soukromý archiv má nezávislé přijetí, odstranění refs/worktrees čeká.
 CHAT řeší jiný worker. Celý nový profil, nasazení ani release nejsou přijaté.
 [Aktuální důkazy a zbývající milníky](docs/review/2026-09-30-COMPLETION-TRACKER.md).
 
-**Navazující přejímka 11:43 UTC:** společný veřejný runner má přijatou
+**Historická navazující přejímka 11:43 UTC:** společný veřejný runner má přijatou
 opravu verze a skutečného cancel/drain, integrační `0bf96f05` prošel
 **8/8 registrovanými sadami / REVIEW_PASS**. Žádné nové modelové volání.
 Privátní IDE composer successor je stále v nezávislém review.

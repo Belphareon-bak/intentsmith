@@ -2,12 +2,15 @@
 
 **Aktuální vývojový checkpoint 1. 10. 2026:** [stav dokončování, měřené
 výsledky a otevřené brány](docs/review/2026-09-30-COMPLETION-TRACKER.md).
-Poslední publikovaný vlastní checkpoint `a0e29537` má GitHub CI SUCCESS;
+Poslední ověřený publikovaný checkpoint `3971d28a` má GitHub CI SUCCESS;
 čistý runner source `0bf96f05` má registrovaných **8/8 PASS / REVIEW_PASS**.
 Ledger a TaskFlow mají skutečný CODE/backend/M2 PASS; jejich
 [přesné generované zdroje a manifest](examples/generated-apps/README.md)
-jsou v tomto repozitáři. Modelový IDE composer čeká na fyzickou přejímku,
-Hunt zůstává NO_GO a mobil na fyzické testy. CHAT dokončuje jiný worker.
+jsou v tomto repozitáři. Skutečný modelový IDE composer má
+[PHYSICAL_PASS / REVIEW_PASS](docs/review/2026-10-01-STUDIO2-M2-FUNCTIONAL-UI.md)
+pro jeden ledger s explicitním typovaným blueprintem; jeho přesné výstupy
+a zdroje probe jsou přiložené. Hunt zůstává NO_GO a mobil čeká na fyzické
+testy. CHAT dokončuje jiný worker. Celý release není přijatý.
 Čerstvé čtení běžícího backendu potvrzuje `c84b88cd`; níže uvedený základ
 `main` a starší checkpointy zůstávají historickou evidencí.
 

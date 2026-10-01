@@ -1,5 +1,47 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 1. 10. 2026, 12:30 UTC — skutečný IDE/CODE průchod přijat
+
+Skutečný packaged IDE composer na source `45caf5b5`, staging `483fb2d9`,
+prošel `12:06:09.242–12:07:10.029 UTC`, exit 0, **PHYSICAL_PASS /
+REVIEW_PASS**. Explicitně předvyplněný typovaný ledger blueprint vedl
+přes jeden DOM draft, šest úplných CODE generací, přesný náhled a jedno
+schválení k frozen testu exit 0 a commitu
+`7a38869cb25c1d0e3826cbf66a81dd69f8be83a8`. Restart/nový read-only DB
+proces ověřily trvalý výsledek, šest typovaných zápisů, 16 událostí a
+0 CHAT zpráv. Reviewer znovu ověřil **527 souborů / 24 913 418 B**,
+package/source identity, modelové bajty, DB, Git a screenshot.
+Review SHA-256 `62a55072c97427194481836eb49116cfe55edf6f97f00d814e4f395b872ff137`,
+manifest `9b064232cbdebb99e76baa9952c5cdd519ffed85d8ba299648dc049ac4b5fa50`.
+[Úplné raw identity, historické FAIL a důkazní limity](2026-10-01-STUDIO2-M2-FUNCTIONAL-UI.md).
+
+Vlastní veřejné materiály nově doplňuje
+[15 přesných archivních souborů probe](../../materials/ide2-code-dom-physical-response-guard-20261001/README.md),
+117 651 B, export manifest
+`088ffa515f22f5dc14df24688fffbe6303c30b2a74ec7771d620a2214a7b76bf`,
+copy/privacy REVIEW_PASS `19354687b990ab742828c5d3f35e4152287df56dcdc102475be544f228efcd06`.
+Samostatný [IDE ledger snapshot](../../examples/generated-apps/expense-ledger-ide/README.md)
+má šest skutečných modulů / 3 137 B, celkem osm souborů / 8 389 B;
+manifest `a02b7353387e43f9db7ab4cea89abf13bc7f635380c22820183b303901817378`,
+copy/privacy REVIEW_PASS `3e64ec888e4f7f11c5dd54b49a7a37365509dfa4629f12845d1ec64cfff48b81`.
+Root ověřil přesné kopie. Starších 11 Ledger/TaskFlow modulů a jejich
+manifest se nezměnily; celkem jsou publikované tři samostatné snapshoty
+s 17 skutečně generovanými moduly. Historické at-export REVIEW_PENDING
+je zachované, aktuální přijetí je uvedené zde a v parent README.
+
+Publikovaný source-only checkpoint `3971d28a2ccce1368fd4cb2a4bcbf093c19106de`
+má skutečný [CI SUCCESS, run 36858835591](https://github.com/Belphareon-bak/intentsmith/actions/runs/36858835591),
+job `110357760098`, všechny kroky SUCCESS. Následná publikace tohoto
+checkpointu dostane vlastní CI; výsledek 3971 se na ni nepřeznačuje.
+Přijatý integrační registrovaný gate zůstává 8/8 na clean `0bf96f05`.
+
+Další CHAT je u jiného workera. Hunt poslední audit stále 596/1173 /
+NO_GO, fyzická mobilní 13+7 matice NOT_RUN. Větší aplikace a modelová
+kvalita expertíz mají samostatné otevřené brány. Poslední celý profil
+`45caf5b5` zůstává **397 PASS / 5 FAIL / 3 BLOCKED**, produkční BE `c84b88cd`
+nebyl aktualizovaný. Celý release není přijatý. Cleanup dvou vlastních
+refs následuje až po publikaci; worktree removal zůstává HOLD.
+
 ## Publikace zdrojových materiálů — 1. 10. 2026, 11:58 UTC
 
 [Přesné zdroje Ledgeru a TaskFlow](../../examples/generated-apps/README.md)

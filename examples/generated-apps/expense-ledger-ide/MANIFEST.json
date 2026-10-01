@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "kind": "exact-packaged-ide-generated-source-candidate",
+  "reviewStatusAtExport": "REVIEW_PENDING",
+  "physicalRunRecordedStatus": "PASS",
+  "independentPhysicalAcceptanceAtExport": "PENDING_ROOT_GATE0",
+  "lineageOnly": true,
+  "sourceFiles": 6,
+  "sourceBytes": 3137,
+  "sourceEditedAfterPhysicalRun": false,
+  "packageSourceCommit": "45caf5b54b78def257221ac2ab33a64031800813",
+  "stageCommit": "483fb2d957ed20d48dbf508c82837b7d1824176f",
+  "guiBackendEquivalentCommit": "cf67e83f2e7cf654bc8900f7b4dde434411cc0b2",
+  "physicalProbePacketManifestSha256": "49a8173cbcd3045a8bb70f4582b27210087abd8ee6d52817c58bf7de67bc4fab",
+  "generatedProjectCommit": "7a38869cb25c1d0e3826cbf66a81dd69f8be83a8",
+  "model": "qwen3.8:latest",
+  "modelDigestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+  "providerVersion": "0.34.0-intentsmith.1",
+  "originalRunStartedAt": "2026-10-01T12:06:09.242Z",
+  "originalRunEndedAt": "2026-10-01T12:07:10.029Z",
+  "originalReceiptSha256": {
+    "HOST-RESULT.json": "7c501a9f21557e08938e83de3e0e2ac6fff66ed7448385b59ace7af77a435022",
+    "RESULT.json": "a9e69545694e3c49f0e12673f81823402795edb125490ead978768692a74a8d4",
+    "PROVIDER-REQUESTS.json": "c94b621878e41a57c14af5853b83c9acc409254f8aa15d36123bd27edf8553f1",
+    "PREPARED.json": "e99c444bba51cbade60b67041136919e7660859c53168469b8e60fd454b30aec",
+    "TERMINAL.json": "28b8793917362812618d01988dd215c25a469575c35ed16aafe4f75f328b800b"
+  },
+  "files": [
+    {
+      "path": "src/app.js",
+      "bytes": 49,
+      "sha256": "63f6c7c6d211c72e17d6c41bea422f38ae4deacf0b613935c74bd25b90c64f61",
+      "gitBlobSha1": "24bdb8f8c5f4d19cc6afbabd056f79e26e11a49b",
+      "generationPosition": 6
+    },
+    {
+      "path": "src/cli.js",
+      "bytes": 1230,
+      "sha256": "da18e52e6380984832382b1bb223d1972de88054a2f186cb507da421db797f9b",
+      "gitBlobSha1": "e8908b88f30bc2b35c29d45424d7171863f76267",
+      "generationPosition": 5
+    },
+    {
+      "path": "src/service.js",
+      "bytes": 458,
+      "sha256": "78b739f6e30cc2c760234deb69e0203fa61101942208dee154ecd050f11237e1",
+      "gitBlobSha1": "bd24845e465150c48fa23d40430914efd3104960",
+      "generationPosition": 4
+    },
+    {
+      "path": "src/storage.js",
+      "bytes": 287,
+      "sha256": "f3fa4c2ee86db4cffa762ee87abb0b526fbe8caf72f7a2fb142a09e34feec795",
+      "gitBlobSha1": "5ea2d4d325bc5ac252dff6ea869660297b79a796",
+      "generationPosition": 3
+    },
+    {
+      "path": "src/totals.js",
+      "bytes": 674,
+      "sha256": "b822ab68f4f4a8869738361734ec05ed6d3ae18217fd13509df4703511cacd6e",
+      "gitBlobSha1": "eeaa8f64ecd57274072a28a32443c002403e084a",
+      "generationPosition": 1
+    },
+    {
+      "path": "src/validate.js",
+      "bytes": 439,
+      "sha256": "eaa965577a57c777753b7c8d7ff8dcf0b70afdb4a0d92a40a62c7642ebe0ffdd",
+      "gitBlobSha1": "f632f64a3dba0907a7a4391e5814e122f79631d2",
+      "generationPosition": 2
+    }
+  ]
+}

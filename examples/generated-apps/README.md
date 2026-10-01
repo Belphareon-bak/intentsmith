@@ -45,3 +45,18 @@ IDE generation, new application types, larger projects and release acceptance
 have separate evidence. The complete history, including prior failures, is in
 [Ledger WP](../../docs/wp/WP-PROJECT-APP-FUNCTIONAL-20261001.md) and
 [TaskFlow WP](../../docs/wp/WP-PROJECT-TASKFLOW-FUNCTIONAL-20261001.md).
+
+## Separate packaged IDE snapshot
+
+[Expense Ledger generated in the packaged IDE](expense-ledger-ide/README.md)
+adds six exact modules from the separate 12:06–12:07 UTC CODE/composer/M2
+run. Its original source export records `REVIEW_PENDING` at export time;
+the subsequent independent physical review is **REVIEW_PASS**, receipt
+SHA-256 `62a55072c97427194481836eb49116cfe55edf6f97f00d814e4f395b872ff137`.
+The current scope and limitations are in the
+[physical IDE report](../../docs/review/2026-10-01-STUDIO2-M2-FUNCTIONAL-UI.md).
+Its separate manifest SHA-256 is
+`a02b7353387e43f9db7ab4cea89abf13bc7f635380c22820183b303901817378`;
+source-copy/privacy review is **REVIEW_PASS**. The earlier 11 source files
+and their parent manifest remain unchanged. This adds no new execution
+or broader functional acceptance.

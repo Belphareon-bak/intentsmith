@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "kind": "exact-machine-specific-ide-probe-source-snapshot",
+  "publicationSnapshot": "3971d28a2ccce1368fd4cb2a4bcbf093c19106de",
+  "originalPacketManifestSha256": "49a8173cbcd3045a8bb70f4582b27210087abd8ee6d52817c58bf7de67bc4fab",
+  "acceptedSourceCpuReviewSha256": "e839c54aad8c08979ba953cf7cc36193582bb3fadb95e2a1f865049df5577501",
+  "reviewerHashInventorySha256": "629e8e263cb2dd7779a0bcf4b302690ff92b8abed497c99417ca603cfaf12df7",
+  "originalPacketMemberCount": 12,
+  "originalPacketMemberBytes": 106022,
+  "membersNotAlreadyTracked": 11,
+  "alreadyTrackedMemberCount": 1,
+  "originalPreflightLiveStatus": "LIVE_NOT_RUN",
+  "sourceCpuReview": "REVIEW_PASS",
+  "physicalAcceptance": "Separate later run, independent review pending at export; no physical verdict from this snapshot",
+  "originalSourceConfigAndEvidenceBytesUnchanged": true,
+  "machineSpecificConfig": "Exact nonsecret absolute stage/main/package paths; no redaction or substitution",
+  "omittedOriginalMembers": [],
+  "members": [
+    {
+      "path": "CONFIG.json",
+      "bytes": 1402,
+      "sha256": "8396d27ce916c26ab21a104f79985204f83480d27a550c3937893045a8f6b2b2",
+      "gitBlobSha1": "d2645882df3800283c8f74c974af2d6f26b3ecae",
+      "alreadyTrackedExactAtSnapshot": [],
+      "exportedUnchanged": true
+    },
+    {
+      "path": "HANDOFF.md",
+      "bytes": 6657,
+      "sha256": "5be4a383ca4af0d752ae896172b3701d4dbccdf0d428bae41a34aee2d1ce3c37",
+      "gitBlobSha1": "8658e48f9394b05aba202ad27df81cd1112d1fe8",
+      "alreadyTrackedExactAtSnapshot": [],
+      "exportedUnchanged": true
+    },
+    {
+      "path": "PREFLIGHT.json",
+      "bytes": 3067,
+      "sha256": "716a564e304ceabff2696b589dfa9b1cb7805393c66d39d69adb0cf9e881d2c2",
+      "gitBlobSha1": "aa073ed9219b07e3c3bf862008b3d5c5523ea18c",
+      "alreadyTrackedExactAtSnapshot": [],
+      "exportedUnchanged": true
+    },
+    {
+      "path": "RELAY-CONTROLS.json",
+      "bytes": 1738,
+      "sha256": "82d6dbff534c62f14ff3945f218fa782061d08d7c76337be42a20be8dc90407c",
+      "gitBlobSha1": "b87a63f80f511061ffcf923ec580a90dea8d1e3c",
+      "alreadyTrackedExactAtSnapshot": [],
+      "exportedUnchanged": true
+    },
+    {
+      "path": "SELFTEST.json",
+      "bytes": 396,
+      "sha256": "10caab7c182dd0b46fd9a1dafbc25fa28e89f876da8af3b296060a688e3c9894",
+      "gitBlobSha1": "446a2d55c244b88c445e9f9de34bd6b21d70ab39",
+      "alreadyTrackedExactAtSnapshot": [],
+      "exportedUnchanged": true
+    },
+    {
+      "path": "host.mjs",
+      "bytes": 25510,
+      "sha256": "63039d91a7dfba8d85e86cd8fdab1ceee2e8acc0c3e86c4a22e9f74c6fc88d29",
+      "gitBlobSha1": "7a41f20792d4a285361147f25c15635b09124c3d",
+      "alreadyTrackedExactAtSnapshot": [],
+      "exportedUnchanged": true
+    },
+    {
+      "path": "inputs/project-app-acceptance.js",
+      "bytes": 13680,
+      "sha256": "1414bb7b6428d08a351b43dab2fe36018ebe651da5f765f8e33093cf985b4e3a",
+      "gitBlobSha1": "0df6305343e000bcdbc4a033fac71e5edf71184d",
+      "alreadyTrackedExactAtSnapshot": [
+        "scripts/project-app-acceptance.js"
+      ],
+      "exportedUnchanged": true
+    },
+    {
+      "path": "package-members.mjs",
+      "bytes": 3171,
+      "sha256": "2ab938ab6fec94d79c731a1d59816cfe11a4ee70bb1adb84007d029ab6516704",
+      "gitBlobSha1": "cfb5a2b1961a72fff22dbed783bfd05fa81ae5ce",
+      "alreadyTrackedExactAtSnapshot": [],
+      "exportedUnchanged": true
+    },
+    {
+      "path": "probe.mjs",
+      "bytes": 36006,
+      "sha256": "671ded498b53a327b380ebff951711c27d79c4c8c4977e8225fa3fd7f182f346",
+      "gitBlobSha1": "efb78eb0c814ffc4ee1b83ee45c089b95796c493",
+      "alreadyTrackedExactAtSnapshot": [],
+      "exportedUnchanged": true
+    },
+    {
+      "path": "relay-integration.mjs",
+      "bytes": 5607,
+      "sha256": "fae796f8911391119a59fc9075c21c669a08f9f8a51bb74a078967fada1c3135",
+      "gitBlobSha1": "6cfc758633d5032089dcd9810840323038b2c4a5",
+      "alreadyTrackedExactAtSnapshot": [],
+      "exportedUnchanged": true
+    },
+    {
+      "path": "relay-owned.mjs",
+      "bytes": 3101,
+      "sha256": "b965e1b2f2f1a07fd72a41041d60bafed1c10164a55a66fa8e4a310f07f5654f",
+      "gitBlobSha1": "6d1e254bc7ae74d0187232a691b392963bdc75f7",
+      "alreadyTrackedExactAtSnapshot": [],
+      "exportedUnchanged": true
+    },
+    {
+      "path": "selftest.mjs",
+      "bytes": 5687,
+      "sha256": "efe511b7d35a67103ab1a1292f4e980d4d9b6183b354a9b2dca2ab2ed8308302",
+      "gitBlobSha1": "30896d529a080091229b4c56642db3f48a922d8e",
+      "alreadyTrackedExactAtSnapshot": [],
+      "exportedUnchanged": true
+    }
+  ]
+}
