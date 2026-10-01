@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "fd7ea6a57b1f6bdd5878ae40e4eecc921735c536",
-  "sourceTree": "69b0219ab535ef60758ebaeb7d159fd1ac74569c",
+  "sourceRevision": "5d58f11b72d476587eb1e5cec7f26c29bf50d14d",
+  "sourceTree": "4ea0b8c87aecb3ea404c86d49c455b0ffe47004b",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "a111646c052627fd0803fc881838f58d7d5fd8dc",
@@ -130,6 +130,7 @@
     "src/chat/cre-decision.js -> src/chat/cre-routing-patches.js",
     "src/chat/cre-decision.js -> src/chat/handlers/build-handoff.js",
     "src/chat/cre-decision.js -> src/chat/handlers/utils/followup.js",
+    "src/chat/cre-decision.js -> src/chat/handlers/utils/language.js",
     "src/chat/cre-decision.js -> src/chat/handlers/utils/project-context-prompt.js",
     "src/chat/cre-decision.js -> src/config.js",
     "src/chat/cre-decision.js -> src/core/abort-error.js",
