@@ -87,6 +87,31 @@ function assertCapturedArithmetic(answer, expected, label) {
   assert.deepEqual(parsed, expected, `${label} arithmetic answer has wrong values`);
 }
 
+function assertPersistedTurn(receipt, messages, question, answer, label) {
+  assert(Array.isArray(messages), `${label} SQLite messages missing`);
+  assert(Number.isSafeInteger(receipt?.messageCount) && receipt.messageCount >= 2
+    && receipt.messageCount <= messages.length, `${label} persisted message count invalid`);
+  for (const source of ['http', 'sqlite']) {
+    const pair = receipt[source];
+    assert(pair?.user && pair?.assistant, `${label} ${source} persisted pair missing`);
+    assert(Number.isSafeInteger(pair.user.id) && pair.user.id > 0
+      && Number.isSafeInteger(pair.assistant.id) && pair.assistant.id > pair.user.id,
+    `${label} ${source} persisted pair IDs are not ordered`);
+    assert.equal(pair.user.role, 'user', `${label} ${source} persisted user role changed`);
+    assert.equal(pair.assistant.role, 'assistant',
+      `${label} ${source} persisted assistant role changed`);
+    assert.equal(pair.user.content, question,
+      `${label} ${source} persisted user differs from POST input`);
+    assert.equal(pair.assistant.content, answer,
+      `${label} ${source} persisted assistant differs from POST answer`);
+  }
+  assert.deepEqual(receipt.http, receipt.sqlite, `${label} GET/SQLite persisted pair differs`);
+  assert.deepEqual(messages.slice(receipt.messageCount - 2, receipt.messageCount),
+    [receipt.sqlite.user, receipt.sqlite.assistant],
+    `${label} persisted pair differs from ordered SQLite snapshot`);
+  return receipt.sqlite.assistant.id;
+}
+
 /** Verify a complete private receipt against the exact captured provider bytes. */
 export function validateSecondWindowEvidence({ captureBytes, evidence, sourceRevision }) {
   assert(Buffer.isBuffer(captureBytes) && captureBytes.length > 0, 'capture bytes missing');
@@ -140,10 +165,13 @@ export function validateSecondWindowEvidence({ captureBytes, evidence, sourceRev
   assert.equal(restart?.firstUpToMsgId, first.upToMsgId, 'summary boundary changed over restart');
   assert.equal(restart?.rawFirstUserRetained, true, 'restart lost the original raw turn');
   assert(Array.isArray(first.messages) && Array.isArray(restart.messages)
-    && Array.isArray(second.messages), 'raw SQLite snapshots missing');
+    && Array.isArray(second.messages) && Array.isArray(evidence.final?.messages),
+  'raw SQLite snapshots missing');
   assert.deepEqual(restart.messages, first.messages, 'restart changed persisted raw messages');
   assert.deepEqual(second.messages.slice(0, first.messages.length), first.messages,
     'second compaction discarded or changed old raw messages');
+  assert.deepEqual(evidence.final.messages.slice(0, second.messages.length), second.messages,
+    'final recall discarded or changed old raw messages');
   assert.ok(Number.isSafeInteger(restart?.beforePid) && restart.beforePid > 0);
   assert.ok(Number.isSafeInteger(restart?.afterPid) && restart.afterPid > 0
     && restart.afterPid !== restart.beforePid, 'product process did not restart');
@@ -192,8 +220,11 @@ export function validateSecondWindowEvidence({ captureBytes, evidence, sourceRev
     assertNoForeign(providerPromptText(row), [foreignB.file, foreignB.canary, foreignB.rule],
       'project A summary');
   }
-  for (const receipt of [evidence.projectB?.before, evidence.projectB?.afterRestart,
-    evidence.projectB?.afterSecond]) {
+  const bReceipts = [evidence.projectB?.before, evidence.projectB?.afterRestart,
+    evidence.projectB?.afterSecond];
+  let priorBMessages = [];
+  let priorBAssistantId = 0;
+  for (const receipt of bReceipts) {
     const row = captureRow(rows, receipt, 'project B');
     assertNoForeign(providerPromptText(row), [FIRST_CODE, SECOND_CODE, ownA.file, ownA.canary, ownA.rule],
       'project B provider request');
@@ -203,13 +234,39 @@ export function validateSecondWindowEvidence({ captureBytes, evidence, sourceRev
     assert(answer.includes(foreignB.canary), 'project B answer lost its own file code');
     assertNoForeign(answer, [FIRST_CODE, SECOND_CODE, ownA.file, ownA.canary, ownA.rule],
       'project B answer');
+    const question = `Jaký stav má projekt podle ${foreignB.file}? Uveď přesný projektový kód.`;
+    assert.equal(receipt.question, question, 'project B POST question changed');
+    assert(Array.isArray(receipt.messages), 'project B SQLite snapshot missing');
+    assert.deepEqual(receipt.messages.slice(0, priorBMessages.length), priorBMessages,
+      'project B persisted history changed between turns');
+    if (priorBMessages.length) assert.equal(receipt.messages.length, priorBMessages.length + 2,
+      'project B did not persist exactly one new user/assistant pair');
+    const assistantId = assertPersistedTurn(receipt.persistence, receipt.messages,
+      question, receipt.answer, 'project B');
+    assert(assistantId > priorBAssistantId, 'project B persisted turns are not ordered');
+    assert.equal(receipt.persistence.messageCount, receipt.messages.length,
+      'project B persisted turn was not latest');
+    priorBAssistantId = assistantId;
+    priorBMessages = receipt.messages;
   }
   assert.ok(Array.isArray(evidence.turns) && evidence.turns.length >= 10,
     'insufficient physical long turns');
   const seen = new Set();
+  let priorAStage = 1;
+  let priorATurn = 0;
+  let priorAAssistantId = 0;
+  let priorAMessageCount = 0;
   for (const turn of evidence.turns) {
     const key = `${turn.stage}.${turn.turn}`;
     assert(!seen.has(key), 'duplicate physical turn'); seen.add(key);
+    if (turn.stage !== priorAStage) {
+      assert.equal(turn.stage, 2, 'physical turns have an invalid stage order');
+      assert.equal(priorAStage, 1, 'physical turns returned to the first stage');
+      priorAStage = 2;
+      priorATurn = 0;
+    }
+    assert.equal(turn.turn, priorATurn + 1, `${key} physical turn order changed`);
+    priorATurn = turn.turn;
     const valueCase = secondWindowCase(turn.stage, turn.turn);
     assert.deepEqual(turn.expected, valueCase.expected, `${key} oracle changed`);
     assert.equal(turn.question, secondWindowMessage(turn.stage, turn.turn), `${key} question changed`);
@@ -219,7 +276,18 @@ export function validateSecondWindowEvidence({ captureBytes, evidence, sourceRev
     assert.equal(turn.answer, output, `${key} HTTP answer differs from captured provider answer`);
     assertCapturedArithmetic(output, valueCase.expected, key);
     assert.equal(turn.qualityStatus, 'PASS', `${key} model answer quality failed`);
+    const assistantId = assertPersistedTurn(turn.persistence,
+      turn.stage === 1 ? first.messages : second.messages,
+      turn.question, turn.answer, key);
+    assert(assistantId > priorAAssistantId, `${key} persisted turns are not ordered`);
+    if (priorAMessageCount) assert.equal(turn.persistence.messageCount, priorAMessageCount + 2,
+      `${key} did not persist exactly one new user/assistant pair`);
+    priorAAssistantId = assistantId;
+    priorAMessageCount = turn.persistence.messageCount;
+    assertPersistedTurn(turn.persistence, evidence.final.messages, turn.question, turn.answer,
+      `${key} final history`);
   }
+  assert.equal(priorAStage, 2, 'no post-restart physical turns');
   const semantic = secondWindowSemanticQuality(evidence.turns, evidence.final?.answer,
     [first.text, second.text]);
   assert.deepEqual(evidence.semanticQuality, semantic,
@@ -232,6 +300,14 @@ export function validateSecondWindowEvidence({ captureBytes, evidence, sourceRev
   assertNoForeign(finalWire, [foreignB.file, foreignB.canary, foreignB.rule], 'final project A prompt');
   assert.equal(evidence.final.answer, providerReply(finalRow),
     'final HTTP answer differs from captured provider output');
+  assert.equal(evidence.final.question, FINAL_QUESTION, 'final POST question changed');
+  const finalAssistantId = assertPersistedTurn(evidence.final.persistence,
+    evidence.final.messages, FINAL_QUESTION, evidence.final.answer, 'final recall');
+  assert(finalAssistantId > priorAAssistantId, 'final persisted turn is not after long turns');
+  assert.equal(evidence.final.persistence.messageCount, priorAMessageCount + 2,
+    'final recall did not persist exactly one new user/assistant pair');
+  assert.equal(evidence.final.persistence.messageCount, evidence.final.messages.length,
+    'final persisted turn was not latest');
   assert.equal(semantic.recall, true, 'physical model did not recall both anchors and old policy');
   return Object.freeze({ sourceRevision, captureSha256: sha256(captureBytes),
     providerRows: rows.length, firstUpToMsgId: first.upToMsgId,

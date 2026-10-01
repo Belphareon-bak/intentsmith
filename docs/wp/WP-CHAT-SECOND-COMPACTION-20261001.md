@@ -91,7 +91,11 @@ všechny hodnotové odpovědi a závěrečné vybavení. Souhrnný `PASS` vyžad
 obojí. Každá odpověď a oba souhrny mají unikátní vazbu na terminální provider
 request/response SHA; nezávislý atestor kontroluje celý privátní JSONL a
 negativní mutace odmítají ztracenou prose, starý/stojící cutoff, cizí projekt
-i neúplný druhý window-fill.
+i neúplný druhý window-fill. Po každém tahu A i B a po finálním vybavení
+producent načte GET historii a read-only SQLite, ověří jejich úplnou shodu a
+naváže poslední dvojici uživatel/asistent na přesný vstup a HTTP odpověď.
+Atestor nezávisle váže zachycenou provider odpověď na HTTP, GET a SQLite
+obsah, pořadí ID i pozici dvojice v následujících trvalých snímcích.
 
 Registrované programy:
 
@@ -130,9 +134,21 @@ zmínka o změně souborů neprojde. Oba souhrny musí zachovat přesnou původn
 větu o tomto rozhodnutí. Fyzický běh nad opraveným SHA je stále
 `LIVE_NOT_RUN / REVIEW_PENDING`.
 
-Předběžné offline ověření kandidáta: atestační orákulum **2/2 PASS** včetně
-negativních mutací, řízený HTTP/SQLite scénář **1/1 PASS**, registr **585**
-validních programů a module-boundary ratchet **1464/1464** bez nových hran.
-`node tests/chat-second-window-live.test.js` bez opt-in skončil očekávaně
-`LIVE_NOT_RUN`; tento fail-closed vstup nic neposlal provideru. Tyto výsledky
-nejsou fyzickým přijetím druhého okna.
+Další nezávislá revize kandidáta `cf8cb509` vrátila `CHANGES_REQUIRED`:
+atestor přijímal správnou provider/POST odpověď, i když se stejná chybná
+odpověď uložila do GET a SQLite historie. Plný 16řádkový fixture s chybnou
+asistentskou zprávou ID 2 před opravou skutečně skončil falešným `PASS`.
+Oprava ukládá po každém fyzickém A/B/final tahu dvojici GET/SQLite a počet
+zpráv, kontroluje přesný POST obsah a při offline atestaci propojuje každou
+dvojici s příslušným uloženým snímkem. Negativní mutace A, B i závěrečného
+tahu nyní musí být odmítnuty i při správné provider/POST odpovědi a vzájemně
+shodné, ale chybné GET/SQLite historii. Opravená fyzická sada zůstává
+`LIVE_NOT_RUN / REVIEW_PENDING` do nové nezávislé revize a řízeného GPU běhu.
+
+Po této opravě prošlo offline atestační orákulum **2/2 PASS** včetně negativních
+mutací, registr **585** validních programů a module-boundary ratchet
+**1464/1464** bez nových hran. Řízený HTTP/SQLite scénář měl **1/1 PASS** na
+předchozím `cf8cb509` a tato oprava jej nemění; v této revizi se znovu
+nespouštěl. `node tests/chat-second-window-live.test.js` bez opt-in dříve
+skončil očekávaně `LIVE_NOT_RUN`; tento fail-closed vstup nic neposlal
+provideru. Tyto výsledky nejsou fyzickým přijetím druhého okna.

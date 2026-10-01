@@ -76,7 +76,8 @@ function projectReply(row) {
   catch { return null; }
 }
 
-async function projectBChat(product, proxy, captureFile, fixtureB, label) {
+async function projectBChat(product, proxy, captureFile, journeyRuntime, fixtureB, label,
+  previousMessages = null) {
   const question = `Jaký stav má projekt podle ${fixtureB.file}? Uveď přesný projektový kód.`;
   const before = proxy.getCapturedCount();
   const response = await expectJson(product, 'POST', '/api/chat',
@@ -98,8 +99,16 @@ async function projectBChat(product, proxy, captureFile, fixtureB, label) {
     assert(!response.response.content.includes(foreign),
       `${label}: project A data leaked into project B answer: ${foreign}`);
   }
+  const state = await snapshot(product, journeyRuntime, fixtureB.conversationId);
+  if (previousMessages) {
+    assert.deepEqual(state.messages.slice(0, previousMessages.length), previousMessages,
+      `${label}: project B history changed between turns`);
+    assert.equal(state.messages.length, previousMessages.length + 2,
+      `${label}: project B did not persist a new user/assistant pair`);
+  }
+  const persistence = durableTurnReceipt(state, question, response.response.content, label);
   return { requestSha256: row.requestSha256, responseSha256: row.responseSha256,
-    answer: response.response.content };
+    question, answer: response.response.content, persistence, messages: state.messages };
 }
 
 function sqliteSnapshot(database, conversationId) {
@@ -129,10 +138,32 @@ async function snapshot(product, journeyRuntime, conversationId) {
     if (httpConv.conversation?.id === dbState.conversation?.id
       && httpConv.conversation.summary === dbState.conversation.summary
       && httpConv.conversation.summary_up_to_msg_id === dbState.conversation.summary_up_to_msg_id
-      && JSON.stringify(httpTurns) === JSON.stringify(dbState.messages)) return dbState;
+      && JSON.stringify(httpTurns) === JSON.stringify(dbState.messages)) {
+      return { ...dbState, httpMessages: httpTurns };
+    }
     await delay(25);
   } while (Date.now() < deadline);
   throw new Error(`HTTP/SQLite snapshot did not converge for ${conversationId}`);
+}
+
+function durableTurnReceipt(state, question, answer, label) {
+  const pair = messages => {
+    assert(Array.isArray(messages) && messages.length >= 2,
+      `${label}: durable turn missing`);
+    const [user, assistant] = messages.slice(-2);
+    assert.equal(user.role, 'user', `${label}: last persisted pair lacks user turn`);
+    assert.equal(assistant.role, 'assistant', `${label}: last persisted pair lacks assistant turn`);
+    assert.equal(user.content, question, `${label}: persisted user differs from POST input`);
+    assert.equal(assistant.content, answer, `${label}: persisted assistant differs from POST answer`);
+    assert(Number.isSafeInteger(user.id) && user.id > 0
+      && Number.isSafeInteger(assistant.id) && assistant.id > user.id,
+    `${label}: persisted turn IDs are not ordered`);
+    return { user, assistant };
+  };
+  const http = pair(state.httpMessages);
+  const sqlite = pair(state.messages);
+  assert.deepEqual(http, sqlite, `${label}: GET/SQLite persisted turn differs`);
+  return { http, sqlite, messageCount: state.messages.length };
 }
 
 function rawTokens(messages, fromId = 0) {
@@ -155,11 +186,14 @@ async function longTurn(product, proxy, captureFile, fixtureA, stage, turn, evid
   try { assertExactValueAnswer(response.response, { label: `${stage}.${turn}`,
     expected: valueCase.expected }); }
   catch (error) { qualityError = String(error?.message || error); }
+  const state = await snapshot(product, evidence.journeyRuntime, fixtureA.conversationId);
+  const persistence = durableTurnReceipt(state, question, response.response, `${stage}.${turn}`);
   evidence.turns.push({ stage, turn, question, expected: valueCase.expected,
     answer: response.response, qualityStatus: qualityError ? 'FAIL' : 'PASS', qualityError,
+    persistence,
     requestSha256: row.requestSha256, responseSha256: row.responseSha256,
     numCtx: row.numCtx, numPredict: row.numPredict, promptEvalCount: row.promptEvalCount });
-  return snapshot(product, evidence.journeyRuntime, fixtureA.conversationId);
+  return state;
 }
 
 function matchingSummary(rows, storedText, requiredCode) {
@@ -225,7 +259,8 @@ test('physical second window: two compactions, restart, A/B isolation and anchor
     const { a, b } = await prepareJourney(product, journeyRuntime);
     evidence.projects = { a: { id: a.id, file: a.file, canary: a.canary, rule: a.rule },
       b: { id: b.id, file: b.file, canary: b.canary, rule: b.rule } };
-    evidence.projectB = { before: await projectBChat(product, proxy, captureFile, b, 'before-restart') };
+    evidence.projectB = { before: await projectBChat(product, proxy, captureFile,
+      journeyRuntime, b, 'before-restart') };
     let state;
     let firstUser;
     for (let turn = 1; turn <= 8; turn += 1) {
@@ -257,7 +292,8 @@ test('physical second window: two compactions, restart, A/B isolation and anchor
       rawFirstUserRetained: true, messages: state.messages };
     assert.equal(evidence.restart.firstSummary, evidence.first.text);
     assert.equal(evidence.restart.firstUpToMsgId, evidence.first.upToMsgId);
-    evidence.projectB.afterRestart = await projectBChat(product, proxy, captureFile, b, 'after-restart');
+    evidence.projectB.afterRestart = await projectBChat(product, proxy, captureFile,
+      journeyRuntime, b, 'after-restart', evidence.projectB.before.messages);
     let secondUser;
     for (let turn = 1; turn <= 12; turn += 1) {
       state = await longTurn(product, proxy, captureFile, a, 2, turn, evidence);
@@ -280,7 +316,8 @@ test('physical second window: two compactions, restart, A/B isolation and anchor
     assert(state.messages.some(message => message.id === firstUser.id
       && message.content === secondWindowMessage(1, 1)),
     'second compaction deleted the original raw user turn');
-    evidence.projectB.afterSecond = await projectBChat(product, proxy, captureFile, b, 'after-second-summary');
+    evidence.projectB.afterSecond = await projectBChat(product, proxy, captureFile,
+      journeyRuntime, b, 'after-second-summary', evidence.projectB.afterRestart.messages);
     const beforeRecall = proxy.getCapturedCount();
     const recall = await expectJson(product, 'POST', '/api/chat', {
       conversation_id: a.conversationId, project_id: a.id,
@@ -289,7 +326,11 @@ test('physical second window: two compactions, restart, A/B isolation and anchor
     assert.equal(typeof recall.response, 'string');
     const finalRow = capturedResponse(captureRows(captureFile), beforeRecall,
       FINAL_QUESTION, recall.response, 'final recall');
+    const finalState = await snapshot(product, journeyRuntime, a.conversationId);
+    const persistence = durableTurnReceipt(finalState, FINAL_QUESTION, recall.response,
+      'final recall');
     evidence.final = { question: FINAL_QUESTION, answer: recall.response,
+      persistence, messages: finalState.messages,
       requestSha256: finalRow.requestSha256, responseSha256: finalRow.responseSha256,
       numCtx: finalRow.numCtx, promptEvalCount: finalRow.promptEvalCount };
     evidence.semanticQuality = secondWindowSemanticQuality(evidence.turns, recall.response,

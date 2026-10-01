@@ -86,15 +86,35 @@ function fixture() {
     { id: index * 2 + 13, role: 'assistant',
       content: JSON.stringify(secondWindowCase(2, index + 1).expected), tokens: 440 },
   ]).flat();
+  const persisted = (messages, index, priorCount = 0) => {
+    const pair = { user: messages[index * 2], assistant: messages[index * 2 + 1] };
+    return { http: structuredClone(pair), sqlite: structuredClone(pair),
+      messageCount: priorCount + (index + 1) * 2 };
+  };
+  for (const turn of turns) {
+    turn.persistence = persisted(turn.stage === 1 ? firstMessages : postRestartMessages,
+      turn.turn - 1, turn.stage === 1 ? 0 : firstMessages.length);
+  }
+  const bQuestion = `Jaký stav má projekt podle ${projectB.file}? Uveď přesný projektový kód.`;
+  const bPairs = Array.from({ length: 3 }, (_, index) => [
+    { id: 101 + index * 2, role: 'user', content: bQuestion, tokens: 24 },
+    { id: 102 + index * 2, role: 'assistant', content: projectB.canary, tokens: 24 },
+  ]).flat();
+  const finalMessages = [...firstMessages, ...postRestartMessages,
+    { id: 22, role: 'user', content: FINAL_QUESTION, tokens: 24 },
+    { id: 23, role: 'assistant', content: finalAnswer, tokens: 24 }];
   const evidence = { schemaVersion: 1, status: 'PASS', mechanismStatus: 'PASS',
     semanticQuality: secondWindowSemanticQuality(turns, finalAnswer, [firstText, secondText]),
     sourceRevision, physicalProvider: true, model: CAPTURE_MODEL,
     installedDigest: CAPTURE_DIGEST, captureBytes: captureBytes.length,
     captureSha256: sha256(captureBytes), turns,
     projects: { a: projectA, b: projectB },
-    projectB: { before: { ...receipt(bBefore), answer: projectB.canary },
-      afterRestart: { ...receipt(bAfter), answer: projectB.canary },
-      afterSecond: { ...receipt(bAfterSecond), answer: projectB.canary } },
+    projectB: { before: { ...receipt(bBefore), question: bQuestion,
+      answer: projectB.canary, persistence: persisted(bPairs, 0), messages: bPairs.slice(0, 2) },
+    afterRestart: { ...receipt(bAfter), question: bQuestion,
+      answer: projectB.canary, persistence: persisted(bPairs, 1), messages: bPairs.slice(0, 4) },
+    afterSecond: { ...receipt(bAfterSecond), question: bQuestion,
+      answer: projectB.canary, persistence: persisted(bPairs, 2), messages: bPairs } },
     first: { firstUserId: 1, upToMsgId: 8, rawTokens: 4300,
       messages: firstMessages, text: firstText, ...receipt(firstSummary) },
     restart: { beforePid: 111, afterPid: 222, firstSummary: firstText,
@@ -102,7 +122,8 @@ function fixture() {
     second: { secondUserId: 12, upToMsgId: 20, postRestartRawTokens: 4400,
       messages: [...firstMessages, ...postRestartMessages],
       text: secondText, ...receipt(secondSummary) },
-    final: { question: FINAL_QUESTION, answer: finalAnswer, ...receipt(final) } };
+    final: { question: FINAL_QUESTION, answer: finalAnswer, ...receipt(final),
+      persistence: persisted(finalMessages, 10), messages: finalMessages } };
   return { captureBytes, evidence, sourceRevision };
 }
 
@@ -235,4 +256,48 @@ test('captured physical receipt requires the exact recursive source, project iso
   // A forged PASS receipt must be recomputed from the captured answer.
   fileChange.evidence.semanticQuality = baseline.evidence.semanticQuality;
   assert.throws(() => validateSecondWindowEvidence(fileChange), /policy|negation|semantic|file change/i);
+
+  // Provider and POST still agree, while both GET and SQLite persist the
+  // same wrong assistant content. Snapshot-to-snapshot parity must not pass.
+  const persistedWrongA = changed(x => {
+    for (const messages of [x.evidence.first.messages, x.evidence.restart.messages,
+      x.evidence.second.messages, x.evidence.final.messages]) {
+      messages.find(message => message.id === 2).content = 'PERSISTED_WRONG_VALUE';
+    }
+    x.evidence.turns[0].persistence.http.assistant.content = 'PERSISTED_WRONG_VALUE';
+    x.evidence.turns[0].persistence.sqlite.assistant.content = 'PERSISTED_WRONG_VALUE';
+  });
+  assert.throws(() => validateSecondWindowEvidence(persistedWrongA), /persisted|POST|assistant|answer/i);
+  const storedOnlyA = changed(x => {
+    for (const messages of [x.evidence.first.messages, x.evidence.restart.messages,
+      x.evidence.second.messages, x.evidence.final.messages]) {
+      messages.find(message => message.id === 2).content = 'PERSISTED_WRONG_VALUE';
+    }
+  });
+  assert.throws(() => validateSecondWindowEvidence(storedOnlyA), /persisted|SQLite/i);
+  const getOnlyA = changed(x => {
+    x.evidence.turns[0].persistence.http.assistant.content = 'PERSISTED_WRONG_VALUE';
+  });
+  assert.throws(() => validateSecondWindowEvidence(getOnlyA), /persisted|POST|assistant|answer/i);
+  const persistedWrongB = changed(x => {
+    for (const receipt of [x.evidence.projectB.before, x.evidence.projectB.afterRestart,
+      x.evidence.projectB.afterSecond]) {
+      receipt.messages.find(message => message.id === 102).content = 'PERSISTED_WRONG_VALUE';
+    }
+    x.evidence.projectB.before.persistence.http.assistant.content = 'PERSISTED_WRONG_VALUE';
+    x.evidence.projectB.before.persistence.sqlite.assistant.content = 'PERSISTED_WRONG_VALUE';
+  });
+  assert.throws(() => validateSecondWindowEvidence(persistedWrongB), /persisted|POST|assistant|answer/i);
+  const missingRepeatedB = changed(x => {
+    x.evidence.projectB.afterRestart.messages = structuredClone(x.evidence.projectB.before.messages);
+    x.evidence.projectB.afterRestart.persistence = structuredClone(x.evidence.projectB.before.persistence);
+  });
+  assert.throws(() => validateSecondWindowEvidence(missingRepeatedB),
+    /project B.*new user\/assistant pair|project B.*ordered/i);
+  const persistedWrongFinal = changed(x => {
+    x.evidence.final.messages.find(message => message.id === 23).content = 'PERSISTED_WRONG_VALUE';
+    x.evidence.final.persistence.http.assistant.content = 'PERSISTED_WRONG_VALUE';
+    x.evidence.final.persistence.sqlite.assistant.content = 'PERSISTED_WRONG_VALUE';
+  });
+  assert.throws(() => validateSecondWindowEvidence(persistedWrongFinal), /persisted|POST|assistant|answer/i);
 });
