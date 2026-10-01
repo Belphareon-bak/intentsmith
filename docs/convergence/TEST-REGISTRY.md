@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 579
-- Explicit support-module exclusions: 27
-- Profiles: offline=316, database=84, server=59, model=85, soak=15, manual=20
-- States: ACTIVE=482, HISTORICAL=15, BLOCKED=82
+- Runnable programs: 580
+- Explicit support-module exclusions: 28
+- Profiles: offline=316, database=84, server=60, model=85, soak=15, manual=20
+- States: ACTIVE=483, HISTORICAL=15, BLOCKED=82
 
 ## Execution profiles
 
@@ -97,6 +97,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T3-TESTS-CHAT-PROJECT-EXPERTISE-LIVE-TEST` | `tests/chat-project-expertise-live.test.js` | `C3-007` | T3 | `model` | 10 min | 25 min | network:loopback, temp-db, ollama, gpu | yes | `BLOCKED` | — | WP-CHAT-PROJECT-EXPERTISE-LIVE-20260930 |
 | `IS-T3-TESTS-CHAT-PROJECT-EXPERTISE-MODEL-CONTRACT-TEST` | `tests/chat-project-expertise-model-contract.test.js` | `C3-007` | T3 | `server` | 10 s | 4 min | network:loopback, temp-db | yes | `ACTIVE` | — | WP-CHAT-PROJECT-EXPERTISE-LIVE-20260930 |
 | `IS-T3-TESTS-CHAT-QUALITY-TEST` | `tests/chat-quality.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-CHAT-SAZENI-HTTP-JOURNEY-TEST` | `tests/chat-sazeni-http-journey.test.js` | `C3-013` | T3 | `server` | 15 s | 3 min | network:loopback, temp-db | yes | `ACTIVE` | — | WP-CHAT-SAZENI-HTTP-20261001 |
 | `IS-T1-TESTS-CHAT-SEARCH-QUALITY-TEST` | `tests/chat-search-quality.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-CHAT-SECOND-COMPACTION-HTTP-TEST` | `tests/chat-second-compaction-http.test.js` | `C3-003` | T3 | `server` | 10 s | 4 min | network:loopback, temp-db | yes | `ACTIVE` | — | WP-CHAT-SECOND-COMPACTION-20261001 |
 | `IS-T3-TESTS-CHAT-SPECIALIST-FOLLOWUP-HTTP-TEST` | `tests/chat-specialist-followup-http.test.js` | `C3-013` | T3 | `server` | 10 s | 3 min | network:loopback, temp-db | yes | `ACTIVE` | — | WP-CHAT-SPECIALIST-FOLLOWUP-20260930 |
@@ -645,6 +646,7 @@ ledger.
 | `tests/helpers/m6-owned-runtime-probe.js` | Imported M6 owned-server and loopback namespace harness, not a standalone test. |
 | `tests/helpers/m7-durable-rate-limit-racer.js` | Suite-owned cross-process SQLite race helper launched only by m7-durable-rate-limiter.test.js. |
 | `tests/helpers/ollama-loopback-fetch-boundary.js` | Imported fail-closed M6 model-test transport boundary, not a standalone test. |
+| `tests/helpers/sazeni-http-fixture-preload.js` | Suite-owned product-child preload with a controlled betting transport; assertions run in chat-sazeni-http-journey.test.js. |
 | `tests/helpers/studio-m2-composer-dom.js` | Explicit visual DOM probe invoked only by studio-m2-composer-dom.e2e.js through the shared Electron harness; not a standalone suite. |
 | `tests/helpers/studio2-live-harness.js` | Imported actual Studio 2 adapter harness; its assertions run in studio2-m2 and m2-lifecycle-studio-surface suites. |
 | `tests/helpers/studio2-ui-mode.js` | Imported Electron DOM mode-switch probe; its direct assertions run in studio2-exclusive-ui.e2e.js. |

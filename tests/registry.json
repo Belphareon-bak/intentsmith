@@ -43,6 +43,10 @@
       "reason": "Shared owned M1 HTTP project and expertise journey imported by deterministic and opt-in live suites; no standalone entry point."
     },
     {
+      "path": "tests/helpers/sazeni-http-fixture-preload.js",
+      "reason": "Suite-owned product-child preload with a controlled betting transport; assertions run in chat-sazeni-http-journey.test.js."
+    },
+    {
       "path": "tests/helpers/chat-translator-journey.js",
       "reason": "Shared translator M1 HTTP, provider, semantic and project oracle imported by deterministic and opt-in live suites; no standalone entry point."
     },
@@ -16027,6 +16031,36 @@
       },
       "required": true,
       "owner": "WP-CHAT-ACCOUNTANT-HTTP-20261001",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-TESTS-CHAT-SAZENI-HTTP-JOURNEY-TEST",
+      "path": "tests/chat-sazeni-http-journey.test.js",
+      "argv": [
+        "node",
+        "tests/chat-sazeni-http-journey.test.js"
+      ],
+      "capabilityId": "C3-013",
+      "tier": "T3",
+      "fixture": "owned-product-server-private-betting-sqlite-and-curated-offer-fixture",
+      "profile": "server",
+      "timeoutMs": 180000,
+      "expectedDurationMs": 15000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-CHAT-SAZENI-HTTP-20261001",
       "state": "ACTIVE",
       "lastGreen": {
         "commit": null,

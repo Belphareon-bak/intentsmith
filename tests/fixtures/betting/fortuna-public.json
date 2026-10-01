@@ -1,7 +1,8 @@
 {
   "provenance": {
-    "kind": "captured-public-offer",
-    "sourceSnapshots": [
+    "kind": "curated-fixture",
+    "originVerification": "unverified",
+    "unverifiedSourceClaims": [
       {
         "url": "https://api.ifortuna.cz/offer/structure/api/v1_0/tournament/ufo:tour:00-03m/matches?timeFilter=all",
         "status": 200,
