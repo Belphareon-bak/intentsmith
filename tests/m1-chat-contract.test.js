@@ -1185,7 +1185,7 @@ await testAsync('final ANSWER provider request retains a concise correction afte
   const input = 'Podklad ' + 'x'.repeat(2_200)
     + ' Jaká je podle mé poslední opravy hodnota skupiny A?';
   const summaryContent = '[Souhrn předchozí konverzace]\nPůvodní hodnota skupiny A byla 3 z 10. '
-    + 'x'.repeat(2_850) + ' Konec původního souhrnu.';
+    + 'x'.repeat(2_600) + ' Konec původního souhrnu.';
   const correction = 'Oprava předchozí hodnoty: skupina A má 4 z 10, skupina B zůstává 90 ze 100.';
   const history = [
     { isSummary: true, response: { tag: { speaker: 'system' }, content: summaryContent } },
