@@ -10,6 +10,9 @@ všech **106** soukromých dávek a vykázal **596/1 173** známkovaných odpov�
 věcnou správnost známek, přijetí dvojice hodnotitelů, aktuální skóre DB ani
 vazbu role. Soukromé raw dávky a report se do Git neukládají. Na source
 `1f13b936` nebylo provedeno nové rozhodovací měření ani aktivace.
+Read-only stav instalované DB z 1. 10. 00:18 UTC byl stále **84/84 MISSING**,
+**0** přijatých rozhodnutí a sedm vazeb `UNVERIFIED_RUNTIME`; evaluační
+provider `0.34.2-intentsmith.1` se lišil od běžícího `0.34.0-intentsmith.1`.
 
 **Předchozí read-only kontrola, 30. 9. 2026, 21:51 UTC:** instalovaný backend je
 `c84b88cd`; vývojový Hunt/Studio/chat zdroj není nasazený. [Autoritativní

@@ -8,7 +8,7 @@ Má **596/1 173** známkovaných odpovědí, **577** chybějících a
 **2 324/3 689** kritérií. Verdikt je
 `DEVELOPMENT_REVIEW_INCOMPLETE / NO_DECISION`; hodnotitel není přijatý,
 známky nejsou rozhodovací skóre DB a role se neaktivují. Poslední read-only
-DB evidence z 30. 9. 23:35 UTC dávala **84/84 MISSING**, **0** přijatých
+DB evidence z 1. 10. 00:18 UTC dávala **84/84 MISSING**, **0** přijatých
 rozhodnutí a sedm `UNVERIFIED_RUNTIME` vazeb. Tento strukturální checkpoint
 nezapisuje instalovanou DB, nemění modelové vazby ani nenasazuje backend.
 

@@ -1,5 +1,37 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 1. 10. 2026, 01:03 UTC — úplný vývojový audit
+
+Čistý a pushnutý integrační source `1f13b936` prošel úplným
+offline/database profilem **400/400 PASS, 0 FAIL, 0 BLOCKED, 0 TIMEOUT**.
+Přesně povolené lokální toolchainy zahrnuly i všech 13 dříve blokovaných
+programů; report je
+`.intentsmith-artifacts/test-runs/2026-10-01T00-53-01-193Z/report.json`
+(registry fingerprint `233d99bb58b2cb64ec87288851d6704fa0d92cc3e6af9fbb1313bde35ecd7923`).
+Oprava samokontroly `afb726fa` používá původní historický registr s pečetí
+`162b890b…` a nemění produkční Gate 0 politiku. Profil neobsahuje fyzické
+Ollama/GPU, čerstvý release kandidát, M5 custody ani nasazení.
+
+Po integraci na společném zdroji prošly také registrované cílené sady
+workeru **10/10** na `20792e81`, Sázení a návazných scénářů **6/6** na
+`8bf1c069`, druhé kompakce a dokumentace **2/2** na `a1c151fa`.
+IDE 2.0 produkční browser/node/Electron build a čtyři fyzické Electron sady
+prošly na `8bf1c069` **4/4, 0 BLOCKED**; tento source není nasazený.
+První fyzické naplnění okna, překladatel, projektová expertiza a přesné
+hodnoty prošly na starším čistém `c815ec43`; po posledních produktových
+opravách se živé scénáře mají opakovat na jediném finálním kandidátu.
+
+Nezávislé review nového opt-in účetního live testu `afb73b05` nyní hlásí
+**CHANGES_REQUIRED**: orákulum propouští současně správnou a chybnou částku
+DPH v jedné větě. GPU běh se před opravou nespustil. Samostatně je otevřená
+veřejná hranice vybraného specialisty: deterministická M1 metadata mohou
+obsahovat syrový výsledek nástroje a Sázení může při chybě providera hlásit
+`SUCCESS`; red-first oprava vzniká izolovaně. Strukturálně ověřený Hunt
+packet je stále **596/1 173 / NO_DECISION**, bez aktuálního DB score.
+Read-only instalovaná DB v 00:18 UTC měla **84/84 MISSING** a všech sedm
+modelových vazeb `UNVERIFIED_RUNTIME`; hodnoticí sidecar `0.34.2-intentsmith.1`
+se lišil od běžícího providera `0.34.0-intentsmith.1`.
+
 ## Checkpoint 1. 10. 2026, 01:00 UTC — integrační source `1f13b936`
 
 Tento čistý, pushnutý source je **vývojový kandidát**, nikoli nasazený
@@ -30,7 +62,7 @@ a **2 324/3 689** kritérií; explicitně chybí **577** odpovědí a **1 365**
 kritérií. Výsledek je `DEVELOPMENT_REVIEW_INCOMPLETE / NO_DECISION`,
 `decisionAuthority:false`, `acceptedGrader:false`; validace struktury
 neověřuje věcnou správnost známek. Poslední read-only stav instalované DB
-z 30. 9. 23:35 UTC stále uváděl **84/84 MISSING**, **0** přijatých
+z 1. 10. 00:18 UTC stále uváděl **84/84 MISSING**, **0** přijatých
 rozhodnutí a sedm `UNVERIFIED_RUNTIME` vazeb; na source `1f13b936` nebylo
 provedeno nové rozhodovací měření ani aktivace role.
 

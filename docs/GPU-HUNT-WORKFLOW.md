@@ -9,7 +9,7 @@ pro raw SHA-256 všech **106** soukromých souborů druhého posudku. Skutečný
 `DEVELOPMENT_REVIEW_INCOMPLETE / NO_DECISION`, bez rozhodovací autority a
 bez přijatého hodnotitele. Strukturální kontrola neověřila obsah známek,
 neprovedla DB scoring, nové GPU měření ani aktivaci modelů. Poslední
-read-only kontrola instalované DB z 30. 9. 23:35 UTC měla **84/84 MISSING**,
+read-only kontrola instalované DB z 1. 10. 00:18 UTC měla **84/84 MISSING**,
 **0** přijatých rozhodnutí a sedm `UNVERIFIED_RUNTIME` vazeb; jde o starší
 DB snapshot, nikoli opakované měření na tomto source.
 
