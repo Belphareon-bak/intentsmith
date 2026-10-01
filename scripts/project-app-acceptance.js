@@ -4,12 +4,12 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 
 export const LEDGER_FILES = Object.freeze([
-  { path: 'src/app.js', instruction: 'Re-export run from cli as the public entrypoint.', dependsOn: ['src/cli.js'] },
-  { path: 'src/cli.js', instruction: 'Export run(commands): add takes amount/category; list, total, categories return results; unknown operation throws. Each run has a fresh service.', dependsOn: ['src/service.js'] },
-  { path: 'src/service.js', instruction: 'Export createService(): expose ledger add/list, total() and categories() using the totals module.', dependsOn: ['src/storage.js', 'src/totals.js'] },
-  { path: 'src/storage.js', instruction: 'Export createLedger(): add(amount,category) validates and stores one item; list() returns copies.', dependsOn: ['src/validate.js'] },
-  { path: 'src/totals.js', instruction: 'Export total(rows) and categories(rows), summing numeric amount, also grouped by category.', dependsOn: [] },
-  { path: 'src/validate.js', instruction: 'Export validate(amount,category). Require a finite positive number (no string coercion) and a non-whitespace string category; throw otherwise.', dependsOn: [] },
+  { path: 'src/app.js', instruction: "Re-export run from './cli.js' as the public entrypoint. Its input is an array of command tuples and its output is one result per command in order.", dependsOn: ['src/cli.js'] },
+  { path: 'src/cli.js', instruction: "Export run(commands). Commands are tuples: ['add',amount,category], ['list'], ['total'], ['categories']. Return an array of one result per command in order; add may yield undefined/null. Create a fresh service per run; throw on unknown operations or invalid arguments. Do not use object commands or return only the last result.", dependsOn: ['src/service.js'] },
+  { path: 'src/service.js', instruction: 'Export createService(): create one fresh ledger; expose add(amount,category), list(), total(), categories(). list returns ordered {amount,category} rows; total and categories use those rows and the totals module.', dependsOn: ['src/storage.js', 'src/totals.js'] },
+  { path: 'src/storage.js', instruction: 'Export createLedger(): add(amount,category) calls validate, then stores one {amount,category} row from the arguments. Do not depend on the return value of validate. list() returns ordered independent copies of rows; mutating a result cannot change stored rows or another result.', dependsOn: ['src/validate.js'] },
+  { path: 'src/totals.js', instruction: 'Export total(rows) as the numeric sum of row.amount (0 for no rows), and categories(rows) as a plain object mapping each row.category to its numeric sum ({} for no rows). Rows have {amount,category}; do not coerce invalid amounts.', dependsOn: [] },
+  { path: 'src/validate.js', instruction: 'Export validate(amount,category): throw unless amount is a finite positive number without string coercion and category is a non-whitespace string. Storage calls it for rejection and creates the row itself; no return value is required.', dependsOn: [] },
 ]);
 
 export const ORACLE_PATH = 'test/acceptance.test.mjs';
@@ -190,7 +190,7 @@ export const ENTRY_SHA256 = sha256(ENTRY_SOURCE);
 
 export function ledgerBlueprint() {
   return {
-    instruction: 'Build a small in-memory expense ledger with a command entrypoint and no external dependencies.',
+    instruction: 'Build a dependency-free in-memory expense ledger. Public run(commands) takes an array of command tuples and returns one result per tuple in order. Each run starts with empty state. Generate the six listed modules only.',
     files: LEDGER_FILES.map(file => ({ ...file, dependsOn: [...file.dependsOn] })),
     focusedTest: {
       binary: ORACLE_BINARY, argv: [...ORACLE_ARGV],

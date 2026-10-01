@@ -166,6 +166,40 @@ function observedBinding(databasePath, model, digest) {
   } finally { database.close(); }
 }
 
+// Qualification evidence is computed even when the private child reports a
+// functional failure. A failed app must not hide otherwise complete provider
+// identity, and complete provider calls must not turn that app failure green.
+export function assessProviderGenerations(requests, { model, digest, version, previewHashes = null }) {
+  const generations = requests.filter(row => ['/api/chat', '/api/generate'].includes(row.path));
+  const failures = [];
+  if (generations.length !== EXPECTED_PATHS.length) failures.push(`expected ${EXPECTED_PATHS.length} generations, observed ${generations.length}`);
+  if (requests.some(row => row.error)) failures.push('one or more provider relay requests failed');
+  const outputHashes = [];
+  for (const [index, row] of generations.entries()) {
+    const terminal = row.terminal;
+    if (row.method !== 'POST' || row.model !== model || row.status !== 200
+      || row.responseTruncated !== false || terminal?.done !== true
+      || terminal?.done_reason !== 'stop') failures.push(`generation ${index + 1} incomplete`);
+    if (terminal?.model !== model || (terminal?.model_digest_sha256 || terminal?.digest) !== digest
+      || terminal?.provider_version !== version) failures.push(`generation ${index + 1} identity mismatch`);
+    try {
+      const content = JSON.parse(terminal?.message?.content);
+      if (typeof content.afterContent !== 'string') throw new Error('missing afterContent');
+      outputHashes.push(sha256(content.afterContent));
+    } catch { failures.push(`generation ${index + 1} has no complete afterContent`); }
+  }
+  if (!Array.isArray(previewHashes) || previewHashes.length !== EXPECTED_PATHS.length
+    || new Set(previewHashes.map(row => row.path)).size !== EXPECTED_PATHS.length
+    || previewHashes.some(row => !EXPECTED_PATHS.includes(row.path) || !DIGEST_PATTERN.test(row.sha256))) {
+    failures.push('complete six-file preview is unavailable');
+  } else if (JSON.stringify(outputHashes.sort()) !== JSON.stringify(previewHashes.map(row => row.sha256).sort())) {
+    failures.push('provider output bytes differ from the approved preview');
+  }
+  return { valid: failures.length === 0, observed: generations.length, expected: EXPECTED_PATHS.length,
+    previewCompared: Array.isArray(previewHashes) && previewHashes.length === EXPECTED_PATHS.length,
+    failures };
+}
+
 function providerRelay(socketPath) {
   return http.createServer((incoming, outgoing) => {
     const forwarded = http.request({ socketPath, path: incoming.url, method: incoming.method,
@@ -290,6 +324,8 @@ async function runInside(configurationPath) {
     const approval = { lifecycleId: drafted.lifecycleId, planDigest: drafted.planDigest, origin };
     const terminal = assertResponse(await ask('POST', '/api/m2/lifecycle/approve', approval, 180_000),
       200, 'exact approval');
+    evidence.terminal = terminal;
+    save(out, 'terminal.json', terminal);
     assert.equal(terminal.state, 'succeeded', JSON.stringify(terminal.result));
     assert.equal(terminal.result?.focusedTest?.terminalStatus, 'succeeded', 'frozen app oracle passed within M2 sandbox');
     const testOutput = terminal.audit?.executionEvents?.find(event => event.type === 'process_terminated')?.details?.testOutput;
@@ -300,11 +336,9 @@ async function runInside(configurationPath) {
     const committedHead = git(project, ['rev-parse', 'HEAD']);
     assert.notEqual(committedHead, baselineHead);
     assert.equal(git(project, ['status', '--porcelain=v1']), '');
-    evidence.terminal = terminal;
     evidence.committedHead = committedHead;
     evidence.files = snapshot;
     evidence.binding = observedBinding(runtime.database, cfg.model, cfg.digest);
-    save(out, 'terminal.json', terminal);
 
     await stop();
     await start();
@@ -439,22 +473,19 @@ async function runParent(options) {
     const exit = await new Promise((resolve, reject) => { child.once('error', reject);
       child.once('exit', (code, signal) => resolve({ code, signal })); });
     evidence.child = { ...exit, ...output };
+    const insidePath = path.join(out, 'app-journey.json');
+    const inside = fs.existsSync(insidePath) ? JSON.parse(fs.readFileSync(insidePath, 'utf8')) : null;
+    evidence.insideStatus = inside?.status ?? 'MISSING';
+    evidence.providerAttestation = assessProviderGenerations(requests, {
+      model: options.model, digest: options.digest, version: evidence.providerVersion,
+      previewHashes: inside?.previewHashes ?? null,
+    });
+    evidence.physicalGenerationsObserved = evidence.providerAttestation.observed;
     assert.equal(exit.code, 0, output.stderr);
     assert.equal(exit.signal, null);
-    const generations = requests.filter(row => ['/api/chat', '/api/generate'].includes(row.path));
-    assert.equal(generations.length, 6, 'one complete physical generation per planned file');
-    for (const row of generations) {
-      assert.equal(row.status, 200, row.path + ' provider status');
-      assert.equal(row.responseTruncated, false, 'complete provider evidence');
-      assert.equal(row.terminal?.done, true, 'physical generation terminal');
-      assert.equal(row.terminal?.done_reason, 'stop', 'physical generation stop reason');
-      assert.equal(row.terminal?.model_digest_sha256 || row.terminal?.digest, options.digest,
-        'provider attests exact model bytes');
-      assert.equal(row.terminal?.provider_version, version.version, 'provider version attestation');
-    }
-    assert.ok(requests.every(row => !row.error), 'all provider calls remained inside scope');
-    evidence.physicalGenerations = generations.length;
-    const inside = JSON.parse(fs.readFileSync(path.join(out, 'app-journey.json'), 'utf8'));
+    assert.equal(evidence.providerAttestation.valid, true, JSON.stringify(evidence.providerAttestation.failures));
+    evidence.physicalGenerations = evidence.providerAttestation.observed;
+    assert.ok(inside, 'private child journey evidence missing');
     assert.equal(inside.status, 'PASS', inside.error?.message);
     evidence.insideStatus = inside.status;
     evidence.status = 'PASS';
@@ -463,6 +494,17 @@ async function runParent(options) {
   } finally {
     if (child && child.exitCode === null && child.signalCode === null) child.kill('SIGTERM');
     if (proxy) { proxy.closeAllConnections(); await new Promise(resolve => proxy.close(resolve)); }
+    if (!evidence.providerAttestation) {
+      let previewHashes = null;
+      try { previewHashes = JSON.parse(fs.readFileSync(path.join(out, 'app-journey.json'), 'utf8')).previewHashes ?? null; }
+      catch { /* no completed child journey */ }
+      evidence.providerAttestation = assessProviderGenerations(requests, {
+        model: options.model, digest: options.digest, version: evidence.providerVersion,
+        previewHashes,
+      });
+      evidence.physicalGenerationsObserved = evidence.providerAttestation.observed;
+    }
+    if (!evidence.providerAttestation.valid) evidence.status = 'FAIL';
     if (loaded) {
       try {
         const ps = await upstream('/api/ps');
