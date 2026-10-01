@@ -2,17 +2,22 @@
 
 **Aktuální vývojový checkpoint 1. 10. 2026:** [stav dokončování, měřené
 výsledky a otevřené brány](docs/review/2026-09-30-COMPLETION-TRACKER.md).
-Poslední ověřený publikovaný checkpoint `3971d28a` má GitHub CI SUCCESS;
-čistý runner source `0bf96f05` má registrovaných **8/8 PASS / REVIEW_PASS**.
-Ledger a TaskFlow mají skutečný CODE/backend/M2 PASS; jejich
-[přesné generované zdroje a manifest](examples/generated-apps/README.md)
-jsou v tomto repozitáři. Skutečný modelový IDE composer má
-[PHYSICAL_PASS / REVIEW_PASS](docs/review/2026-10-01-STUDIO2-M2-FUNCTIONAL-UI.md)
-pro jeden ledger s explicitním typovaným blueprintem; jeho přesné výstupy
-a zdroje probe jsou přiložené. Hunt zůstává NO_GO a mobil čeká na fyzické
-testy. CHAT dokončuje jiný worker. Celý release není přijatý.
-Čerstvé čtení běžícího backendu potvrzuje `c84b88cd`; níže uvedený základ
-`main` a starší checkpointy zůstávají historickou evidencí.
+Publikovaný funkční kandidát `936e9a33` má GitHub CI SUCCESS a registrovaných
+**9/9 PASS / REVIEW_PASS**. Ledger, TaskFlow a řízený packaged IDE ledger
+mají skutečnou funkční přejímku; jejich
+[přesné generované zdroje](examples/generated-apps/README.md) jsou v Gitu.
+M3 code-review specialista má ověřený skutečný ProjectContext, provenance,
+odmítnutí zastaralého snapshotu a oddělení projektů; jde o deterministická
+pravidla, modelová kvalita expertíz zůstává otevřená.
+[SQLite scénář](docs/wp/WP-PROJECT-SQLITE-CATALOG-FUNCTIONAL-20261001.md)
+má 53/53 CPU testů a nezávislé source review. První fyzický start selhal
+před inferencí na JSON konfiguraci; opravený zmrazený kandidát čeká na cizí
+GPU lease. [Skutečné HTTP projekty](docs/wp/WP-M2-PRIVATE-HTTP-QUALIFICATION-PROPOSAL-20261001.md)
+mají připravený návrh změny oprávnění, který čeká na rozhodnutí operátora.
+Hunt posledním strukturálním čtením 13:31 UTC zůstává 596/1173 / NO_GO;
+mobilní 13+7 fyzická matice čeká. CHAT má samostatného workera.
+Celý release není přijatý; čtení backendu 14:02 UTC potvrzuje `c84b88cd`.
+Historické instalace a checkpointy níže zůstávají důkazem svého období.
 
 **Sjednocený základ z 28. 9. 2026:** `main` sjednocuje vývoj vycházející
 z C3 a zdroj právě používaného **IDE 2.0**. Základ `04f2be71` obsahuje backend
@@ -51,7 +56,7 @@ autoritativní IntentSmith Studio runtime už neobsahuje implicitní Google Font
 Studio používá Theia runtime s motivy a ovládáním IntentSmithu.
 
 **Verze:** 136.1.0, vývojový kandidát 1.0. Počty registru pro
-`0bf96f05` jsou odvozené z [generovaného registru](docs/convergence/TEST-REGISTRY.md)
+`936e9a33` jsou odvozené z [generovaného registru](docs/convergence/TEST-REGISTRY.md)
 a při další změně registrace se znovu přeměří:
 **593 registrovaných testovacích programů**
 (`495 ACTIVE`, `83 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).

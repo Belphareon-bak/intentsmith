@@ -4,6 +4,14 @@
 instalace, testů a zbývajících bran](docs/review/2026-09-30-COMPLETION-TRACKER.md).
 Chronologie níže zachovává důkazy předchozích instalací a větví.
 
+Nechatový kandidát `936e9a33` má **9/9 registrovaných PASS / REVIEW_PASS**
+a GitHub CI SUCCESS. M3 přímo četl dva izolované projekty, doložil přesný
+nález i provenance a odmítl stale/foreign scope. SQLite sedmimodulový scénář
+má 53/53 CPU kontrol a přijatou opravu JSON boundary; první fyzický start
+byl FAIL s 0 inferencemi, nový běh čeká na cizí GPU lease. Pravomoc skutečných
+HTTP testů zůstává návrhem vyžadujícím rozhodnutí. Tyto důkazy neaktualizují
+produkční BE `c84b88cd` ani celou release přejímku.
+
 **Poslední doložený vizuál IDE 2.0, 2026-09-29:** místně instalovaný frontend
 `fddfe996` používá schválenou paletu nastavení B s 20% nárůstem sytosti,
 obrysovými symboly a jemnými podklady. Reálný AppImage, Electron UI gate,

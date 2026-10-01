@@ -1,5 +1,20 @@
 # GPU Hunt — cesta od vývojové matice k přijatému rozhodnutí
 
+## Poslední strukturální kontrola — 1. 10. 2026, 13:31 UTC
+
+Read-only canonical verifier nad stejným frozen packetem znovu skončil exit 0:
+106 batch souborů, **596/1173 / 2324/3689 kritérií**, chybí **577/1365**.
+Accepted grader false, NO_DECISION / activation NO_GO. Result SHA-256
+`22f46b6bf7dc3d8e285e9f85c3930e47933ba4c45f0b09fd597f957bd34c608e`
+zůstává shodný s 11:32 UTC. Grade tree před/po měl stejný SHA-256
+`ebfeeef1e834bd83998177227bde7b3b26c815fa01d1da6fbeef941552f83c86`.
+Žádné nové grading/model/GPU/DB write tímto nevzniklo. Soukromý SUMMARY
+v owned Hunt checkoutu má SHA-256
+`ece4d20a913ab94ca0db7d00104d606d36c451f125c68f3cada153d9be2ce4da`.
+Jde o datovaný strukturální důkaz, nikoli tvrzení, že cizí evaluátor přestal.
+Hunt checkout `00c71cd4` je později dočasně uvolněný pro frozen SQLite936
+v témže checkoutu; původní ref i 19 ignored důkazů zůstávají uchované.
+
 **Aktuální stav 1. 10. 2026, 10:11 UTC:** `READ_ONLY_AUDIT_PASS /
 HANDOFF_INTEGRITY_REVIEW_PASS / DEVELOPMENT_REVIEW_INCOMPLETE / NO_GO`.
 Není nové hodnocení, přejímka hodnotitele, rozhodnutí ani aktivace role.

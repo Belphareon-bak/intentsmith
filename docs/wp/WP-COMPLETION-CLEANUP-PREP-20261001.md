@@ -4,6 +4,53 @@
 **Stav:** `PRIVATE_ARCHIVE_REVIEW_PASS / HOLD_DELETION`; žádné mazání
 ani změna cizích refs/worktrees neproběhla. Vlastník inventury `/root/full405_diagnosis`.
 
+## Poslední připravená ref transakce — aktuální vlastní scope
+
+Read-only preflight na clean `a3d6e61d` potvrdil **216 lokálních branches /
+71 worktrees**. Všechny čtyři cíle mají přesný očekávaný SHA, 0 worktree
+associations a vzdáleně ověřené annotated tag objects i peeled commits.
+Nezávislé preflight review SHA-256
+`8e690e0dfd021f47b29be78b702ce5c58076be8f6e4262de08253053f6fb1152`,
+manifest `100332ce8de3550450da2661d6c9a6124cb08f5ef06d7e82dc4b98d3bc1a3382`.
+
+| Vlastní nepřipojený local ref | Expected old SHA | Zachovaný remote evidence tag |
+| --- | --- | --- |
+| `work/full405-baseline-oracles-20261001` | `e6e9aa057bb48a35d244250bac1449777d5d7074` | `evidence/full405-baseline-oracles-20261001` |
+| `work/backend-migration-evidence-20261001` | `ce2d2d4d571c9f0c92cf8edb2ebc8f59d233a803` | `evidence/backend-user-data-upgrade-20261001` |
+| `work/project-app-acceptance-20261001` | `bc82434cd068c8c2e4f360e2be191b4e55e91b58` | `evidence/taskflow-oracle-20261001` |
+| `work/project-app-provider-guards-20261001` | `15337cdeed901c2a8468c16345db31efc2999ea1` | `evidence/project-app-provider-guards-20261001` |
+
+BC není ancestor nové SQLite cherry-pick řady; přesné uchování tagem je
+ověřeno odděleně od patch ekvivalence. Vlastník BC jej nově explicitně uvolnil
+pro ref-only removal po ověření originu; active atomic51 SQL branch/WT zůstávají.
+Vlastník 153 uvolnil starý ref po publikaci M3; active M3 branch/WT zůstávají.
+`ded75136` a `51d70e35` jsou navíc zachované vlastními remote evidence tags.
+Kód/profile/kernel se touto transakcí nemění. Před provedením musí ROOT znovu
+ověřit refs, remote tag objects, asociace a explicitní vlastnictví; transakce
+ověřuje všechny čtyři tag objects a CAS-deletes všechny čtyři local refs.
+Obnova je připravená jako atomický `create`, pouze pokud jsou všechna jména volná.
+**Provedení dosud NOT_RUN**; odhad 212 branches / 71 worktrees platí jen při
+nezměněném okolním inventáři. Žádné cizí refy ani physical WT se nemažou.
+
+Třetí private archiv mimo worktree je
+`/mnt/vi7000/intentsmith/evidence/completion-cleanup-20261001/ide-code-ledger/ide-code-ledger-physical-1205.tar.gz`:
+2 346 989 B, SHA-256
+`27d39a23cb8cb1d0a7ce6235d4614f1c67ab597f9cba4b8ad652bf9522d530e5`.
+Obsahuje 527 physical a šest review členů: **533 pravidelných souborů /
+25 185 430 původních B**. Root i nezávislý reviewer ověřili stream a
+originály; originals zůstávají. Review SHA-256
+`2ce071413f86e49cab114fa05739cce93f6d68d97e791f9a09f15a6cca3bdd03`,
+manifest `c3ef513955740647f6d3dccadcc2126c7a46963412db2857187b6444b91fab5d`.
+Historické at-export REVIEW_PENDING se nepřepsalo; archiv se váže na skutečné
+accepted physical review `62a55072…`. Dřívější archivy 404 a 2 071 členů níže
+zůstávají přijaté. Archive PASS není potvrzení možnosti odstranit worktree.
+
+Owned Hunt checkout byl dočasně znovupoužit jako detached `936e9a33` pro
+čekající SQLite běh. Původní `00c71cd4` ref i všech 19 ignorovaných důkazů
+jsou uchované a nezávisle ověřené. Nové checkouty ani branch nevznikly;
+Hunt je po dobu čekání ACTIVE a nelze ho odstranit. Kvůli sedmi nečitelným
+PID cwd/FD i cizí/UNKNOWN práci zůstává veškeré physical WT removal **HOLD**.
+
 ## Navazující uchování 1. 10. 2026, 11:08 UTC
 
 **Doplnění 11:43 UTC:** také celá soukromá `.intentsmith-artifacts` evidence

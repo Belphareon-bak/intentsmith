@@ -1,5 +1,30 @@
 # IntentSmith — publikace zdrojů a podklad pro pozdější úklid Gitu
 
+## Navazující ověřená publikace — 1. 10. 2026
+
+Vzdálený root source `936e9a33d70e889dc9827d2a4710bfefd57dca7e` byl po
+pushi ověřený přes `ls-remote`; má [CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36876897340)
+a cílenou registrovanou bránu 9/9. Publikace zahrnuje vlastní přijaté
+M3/SQLite testy, opravený veřejný runner a navržený HTTP WP. Skutečné zdroje
+Ledgeru/TaskFlow a packaged IDE ledgeru (17 modulů), 15 archival probe souborů
+a jejich manifesty jsou už zveřejněné na `3971d28a`/`0625ee60`; aktuální
+publikace je zachovává beze změny. Raw DB, provider captures, prompts a grades
+zůstávají private. Tři evidence archivy 404 / 2 071 / 533 členů mají oddělené
+ověření mimo worktrees; nejsou automaticky úplným worktree backupem.
+
+Přesné originální CPU zdroje zachovávají annotated tags
+`evidence/sqlite-catalog-cpu-20261001 → ded75136` a
+`evidence/sqlite-catalog-source-boundary-20261001 → 51d70e35`.
+Čtyři staré vlastní refs mají owner release a expected-SHA cleanup preflight;
+216 branches / 71 worktrees, odstranění dosud NOT_RUN. Další refs i worktree
+zůstávají HOLD/ACTIVE/UNKNOWN podle vlastnictví a evidence.
+Čtení hlavního checkoutu 14:02 UTC našlo stále 7 cizích/UNKNOWN položek na
+`832db06f`; root je nepřebírá a netvrdí „veškerá cizí práce je pushnutá“.
+[Úplná chronologie vlastních výsledků a otevřené brány](2026-09-30-COMPLETION-TRACKER.md)
+a [přesné podmínky poslední redukce](../wp/WP-COMPLETION-CLEANUP-PREP-20261001.md).
+
+## Historický původní snapshot
+
 **Read-only snapshot 1. 10. 2026, 05:26 UTC.** Výchozí integrační commit pro
 tento dokument je `f5ca79a9d9c4f65c753ae7dc9e5a3e656e2df687`. Inventář
 zachycuje pohyblivý lokální stav; žádné worktree, refy, procesy ani data nebyly

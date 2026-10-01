@@ -1,10 +1,25 @@
 # WP-M3-REAL-PROJECT-CONTEXT-20261001
 
-**Stav:** `IMPLEMENTATION_GREEN / REGISTERED_GREEN / REVIEW_PENDING`
+**Stav:** `REVIEW_PASS / REGISTERED_GREEN / NO_MODEL_QUALIFICATION`
 **Vlastník:** `/root/full405_diagnosis`; integrace a registry metadata: root.
 **Vstup:** publikovaný `0625ee6077c32386d3de34b81f837d19647ada6f`.
 **Větev:** `work/m3-real-project-context-20261001`, existující owned checkout
 `intentsmith-full405-baseline-oracles-20261001`; žádný nový worktree.
+
+## Root přijetí a publikace
+
+Původní řada `082851f7 → 9d9d44cf → a3d6e61d` je přímo v root historii.
+Nezávislý reviewer zopakoval 8/8, ověřil skutečný retrieval call graph,
+12 author důkazů a aktivní import deny guard. Review SHA-256
+`cc79741fad757b3f1a3ea0e4f8af5fc25500c73a815c93916eae589a66e7d897`,
+manifest `6e371789a303665c4b75b06026ae2b5a5e9d1fb7eaeed665c65b913a5d261ed9`.
+Root clean `a3d6e61d` má vlastní registrovanou bránu 2/2, report SHA-256
+`64ce4752302a908e723e16f479c3e7cfb5ebe8d9fed054b99642d94fbf2352c1`.
+Společný publikovaný clean `936e9a33` má 9/9 PASS, report SHA-256
+`2076f55c902d807b307e4821f0c88fb13e3c447d40342bbda31512345801517a`
+a CI SUCCESS. Přesný test blob je nezměněný od `9d9d44cf`.
+Tato přejímka dokládá deterministického specialistu nad skutečným
+ProjectContext, modelovou sémantickou kvalifikaci nechává otevřenou.
 
 ## Autorita a výsledek
 

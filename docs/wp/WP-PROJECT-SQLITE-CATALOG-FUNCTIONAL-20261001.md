@@ -1,6 +1,8 @@
 # WP — funkční SQLite aplikace vytvořená modelem CODE
 
-**Stav:** `SOURCE_REVIEW_PASS / ROOT_FIX_GATE_PENDING / LIVE_NOT_RUN`.
+**Stav:** `SOURCE_REVIEW_PASS / REGISTERED_9_PASS / LIVE_NOT_RUN`.
+**Resource snapshot:** 14:30–14:32 UTC, cizí CHAT final-1 lease PID 571063,
+`qwen3.5:27b`, GPU 96 %. Nový živý běh nebyl zahájen.
 **Autorita:** výslovný požadavek operátora dokončit a skutečně otestovat různé
 generované projekty; `PRODUCT.md` §2 závazek 7 a §3 práce nad projektem;
 `CONTRACT.md` §4, §6 a §10. Výchozí ověřený publikovaný zdroj je
@@ -43,9 +45,21 @@ prošly a devět podvržených konfigurací se odmítlo před runtime/DB.
 Review SHA-256 `1cf38437ade3966eb451107f14582f839212c273b8ad255d30ba9d999345866b`,
 21členný manifest
 `d2383b4666ad981a06b9c7223556534ff195121ee4b63449df6a53b5660cdad4`.
-Opravený společný kandidát teprve čeká na novou registrovanou bránu a
-nový živý průchod. Poté smí běžet explicitní scénář `sqlite-catalog` s přesným source/model/digest
-pinem, vlastní DB/projektem a serialized GPU lease. CHAT, produkční
+Opravený společný clean `936e9a33d70e889dc9827d2a4710bfefd57dca7e`
+má **9/9 registrovaných PASS**, exit 0, report SHA-256
+`2076f55c902d807b307e4821f0c88fb13e3c447d40342bbda31512345801517a`.
+Nezávislé mechanické review ověřilo všech šest blobů vůči `51d70e35`, pět
+produktových tree IDs, přesně stejné registry a nový census 600 / 265 943 LF.
+[CI 36876897340](https://github.com/Belphareon-bak/intentsmith/actions/runs/36876897340)
+je SUCCESS, job `110418517418`, všech 13 kroků SUCCESS. Root zachoval originální
+`ded75136` a `51d70e35` vzdálenými annotated evidence tags.
+
+Přesný `936e9a33` je dočasně zmrazený detached v existujícím vlastním Hunt
+checkoutu pro pozdější serialized běh; jeho původní `00c71cd4` větev a všech
+19 původních ignorovaných souborů / 4 264 813 B jsou uchované. Nový worktree
+ani branch nevznikly. Native preflight má Node 24.21.0 / ABI 137 / available.
+Další explicitní `sqlite-catalog` běh musí počkat na volné GPU a použít stejné
+source/model/digest pinem, vlastní DB/projektem a serialized GPU lease. CHAT, produkční
 DB/nasazení a mobil jsou mimo tento milník.
 
 ## Uživatelský výsledek a pravdivá hranice

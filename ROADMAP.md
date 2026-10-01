@@ -1,6 +1,21 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktualizace 1. 10. 2026, 12:30 UTC:** skutečný modelový CODE composer
+**Aktualizace 1. 10. 2026 — SQLite CPU a skutečný M3 kontext:** publikovaný
+`936e9a33` má registrovaných **9/9 PASS / REVIEW_PASS**, skutečné
+[CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36876897340).
+M3 ověřuje skutečná projektová data a izolaci; modelovou expert-vs-general
+kvalitu tím nepřejímá. SQLite měřidlo má 53 CPU kontrol a source review;
+nový živý běh čeká na cizí CHAT GPU lease. Původní JSON FAIL s 0 inferencemi
+zůstává uchovaný. Skutečný Ledger, TaskFlow a packaged IDE ledger jsou přijaté.
+Další skutečný HTTP projekt vyžaduje
+[omezené rozhodnutí o M2 profilu](docs/wp/WP-M2-PRIVATE-HTTP-QUALIFICATION-PROPOSAL-20261001.md),
+protože přijatý sandbox sockety zakazuje. Hunt 13:31 UTC stále 596/1173 /
+NO_GO; mobil fyzicky NOT_RUN. Čtyři vlastní nepřipojené refs jsou připravené
+k poslednímu guarded cleanupu; zatím 216 lokálních větví / 71 worktrees,
+žádné odstranění. Celý profil, produkční nasazení ani release nejsou přijaté.
+[Aktuální výsledky a přejímkové limity](docs/review/2026-09-30-COMPLETION-TRACKER.md).
+
+**Historická aktualizace 1. 10. 2026, 12:30 UTC:** skutečný modelový CODE composer
 v přijatém AppImage prošel jedním ledger průchodem **PHYSICAL_PASS /
 REVIEW_PASS**: šest kompletních generací, přesný DOM náhled a schválení,
 frozen funkční test, Git commit, restart a durable DB s 0 CHAT zprávami.

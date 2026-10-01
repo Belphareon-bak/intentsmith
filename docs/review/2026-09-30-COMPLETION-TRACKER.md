@@ -1,5 +1,57 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 1. 10. 2026 — přijatý M3 a SQLite CPU, živý běh čeká
+
+Publikovaný čistý funkční kandidát
+`936e9a33d70e889dc9827d2a4710bfefd57dca7e` má **9/9 registrovaných PASS**,
+exit 0, report SHA-256
+`2076f55c902d807b307e4821f0c88fb13e3c447d40342bbda31512345801517a`
+a nezávislé mechanické review. Skutečné
+[GitHub CI SUCCESS, run 36876897340](https://github.com/Belphareon-bak/intentsmith/actions/runs/36876897340),
+job `110418517418`, všech 13 kroků SUCCESS, patří právě tomuto SHA.
+Předchozí root `3863549f` měl také 9/9 PASS/CI; první chybný příkaz bez
+povolení deklarovaných bwrap/git/prlimit měl 7 PASS / 2 BLOCKED a zůstává
+zachovaný. Žádný nový celý offline/database profil se tímto nedokládá.
+
+| Milník | Přijatý výsledek | Zbývající hranice |
+| --- | --- | --- |
+| M3 code-review specialista | 8/8 skutečný ProjectContext; řádek 21, stabilní provenance, dva projekty, STALE/foreign scope; source `a3d6e61d` přímo v historii | Deterministická pravidla; modelová kvalita expertíz je otevřená |
+| SQLite katalog | Sedmimodulový frozen kontrakt, 53/53 CPU, 12 M2 rollback vadných variant a nezávislé source review | Nová modelová generace LIVE_NOT_RUN |
+| Ledger / TaskFlow / packaged IDE ledger | Dříve přijaté skutečné CODE/backend/M2/Git/restart průchody a 17 publikovaných modulů | Obecné plánování a větší projekty samostatně |
+| Skutečná HTTP aplikace | [94řádkový návrh](../wp/WP-M2-PRIVATE-HTTP-QUALIFICATION-PROPOSAL-20261001.md), source-copy `d26869ec…`, nezávislé decision-only review | Změna L0/pinned M2 sandboxu vyžaduje souhlas; testy jsou návrh, HTTP NOT_RUN |
+| Hunt | Strukturální audit 13:31 UTC: 596/1173 odpovědí, 2324/3689 kritérií; report `22f46b6b…` | Accepted grader false, NO_DECISION / NO_GO, 577/1365 chybí |
+| Mobil | Auditovaný handoff a přijaté VPN/TLS rozhodnutí | Fyzická 13+7 matice NOT_RUN; návaznost na stabilní IDE/BE |
+
+První skutečný SQLite start `3863549f` byl **FAIL před inferencí, 0/7**:
+JSON konfigurace odstranila dvě `undefined` položky a child source guard
+je odmítl. Raw result SHA-256
+`d346a5ecda608b0415bee5fecf2674aab17b87a1958c7bc9945eb3246494a55b`
+a oddělená root CLI chyba relativní `--out` cesty zůstávají.
+Oprava `51d70e35`, cherry-pick `6a9161a5`, má source review
+`1cf38437ade3966eb451107f14582f839212c273b8ad255d30ba9d999345866b`;
+reviewer navíc přes skutečný namespace ověřil tři scénáře a devět podvržených
+konfigurací. První autorský CPU pokus měl 20 PASS / 33 ABI FAIL na Node 22;
+platný explicitní Node 24 běh má 53/53. Frozen oracle zůstal přesně
+`cea7e727d6d75da2216b036b7943ade8e2a9bedac7662265aeef5d4dbc1d3f15`.
+[Úplná sekvence, původní adversarial nálezy a persistence scope](../wp/WP-PROJECT-SQLITE-CATALOG-FUNCTIONAL-20261001.md).
+
+Resource kontrola 14:30–14:32 UTC našla cizí CHAT final-1 lease PID 571063,
+`qwen3.5:27b`, 96% GPU. Žádná další SQLite inference nebyla zahájena.
+Exact `936e9a33` je dočasně detached v již existujícím owned Hunt checkoutu;
+původní větev `00c71cd4` a 19 důkazů / 4 264 813 B jsou uchované.
+Filesystem/dependency review SHA-256
+`55a4841645dc0ac6cbd9924a995ac107d92286cd34e810a279ffbb261eb2c7dd`;
+Node 24 / ABI 137 preflight dostupný. Nevznikl nový branch ani worktree.
+
+Cleanup nyní připravuje **čtyři vlastní nepřipojené lokální refs**,
+216 branches / 71 worktrees; dosud žádné mazání. Třetí private archiv
+IDE má 533 souborů, archive SHA `27d39a23…` a nezávislé přijetí.
+[Fyzické uchování, owner release a přesná poslední transakce](../wp/WP-COMPLETION-CLEANUP-PREP-20261001.md).
+Cizí/UNKNOWN rozpracovanost hlavního checkoutu (7 položek) i produkční
+BE `c84b88cd` jsou podle čtení 14:02 UTC zachované. CHAT pokračuje u svého
+workera. Poslední celý profil `45caf5b5` zůstává **397 PASS / 5 FAIL /
+3 BLOCKED**; cílené pozdější opravy jej nepřeznačují. Celý release není přijatý.
+
 ## Checkpoint 1. 10. 2026, 12:30 UTC — skutečný IDE/CODE průchod přijat
 
 Skutečný packaged IDE composer na source `45caf5b5`, staging `483fb2d9`,
