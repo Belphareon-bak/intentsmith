@@ -120,9 +120,13 @@ function extractVatParamsInline(input) {
   }
   if (params.amount === undefined) params.inputError ||= 'amount';
 
-  const negatedAction = /\bne(?:p[řr]id|p[řr]i[čc][ií]t|ode[čc]|odpo[čc]|nav[ýy][šs]|vypo[čc]|po[čc][ií]t)\p{L}*/iu.test(normalized)
-    || /\b(?:nechci|nem[aá]m[e]?|nesm[ií]m[e]?)\b.{0,32}\b(?:p[řr]id|ode[čc]|odpo[čc]|vypo[čc]|po[čc][ií]t)\p{L}*/iu.test(normalized);
-  if (negatedAction) {
+  // Negated Czech commands have many valid verbs. Treat an unknown ne... word
+  // conservatively; these neutral words are not instructions to avoid VAT.
+  const neutralNeWord = /^(?:nebo|neboť|nejen|nejdřív|nejdříve|nejprve|nemovitost\p{L}*)$/iu;
+  const hasNegation = [...normalized.matchAll(/(?<!\p{L})ne\p{L}*(?!\p{L})/giu)]
+    .some(match => !neutralNeWord.test(match[0]))
+    || /\b(?:do\s+not|don't|not|never)\b/iu.test(normalized);
+  if (hasNegation) {
     params.inputError ||= 'direction';
     return params;
   }
@@ -143,7 +147,10 @@ function extractVatParamsInline(input) {
       || (addVerb && gross) || (removeVerb && net)
       || (addVerb && asksNetFrom)) params.inputError ||= 'direction';
   else if (removeVerb || gross || asksNetFrom) params.direction = 'remove';
-  else if (addVerb || net || /DPH\s+z(?:e)?\s+/iu.test(normalized)) params.direction = 'add';
+  else if (addVerb || net
+      || /DPH(?:\s+\d+(?:[,.]\d{1,2})?\s*%)?\s+z(?:e)?\s+/iu.test(normalized)) {
+    params.direction = 'add';
+  }
   else params.inputError ||= 'direction';
   return params;
 }

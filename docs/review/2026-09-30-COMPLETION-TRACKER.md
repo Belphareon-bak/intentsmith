@@ -1,5 +1,23 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 1. 10. 2026, 02:56 UTC — druhá negace z nezávislé revize
+
+Nezávislé re-review čistého `365ed339` správně potvrdilo opravu původních
+tří negací, ale našlo další skutečný M1/SQLite **CHANGES_REQUIRED**:
+„Neprováděj výpočet DPH z …“ a „Nespočítej DPH z …“ vrátily a uložily
+úspěšný výpočet. Dvě nové red-first M1 regrese byly **FAIL**. Vedle nich
+pozitivní zkoušky odhalily dosavadní chybné upřesnění u „DPH 21 % z …“
+s neutrálními slovy „nemovitost“ a „nejen“; vstup s „nejdřív“ už procházel.
+Opravený extraktor konzervativně žádá upřesnění pro neznámé české `ne…`
+slovo a anglické `do not`/`not`/`never`, zatímco `nebo`, `nejen`, `nejdřív`,
+`nejprve` a tvar „nemovitost“ ponechává jako neutrální. Zároveň čte
+`DPH 21 % z částky` jako základ pro přičtení. Řízené M1/SQLite a oracle
+v pracovním stromu **79/79**, specialist runtime **24/24** a
+`harness-exit-code` PASS. Úplný profil na `365ed339` byl řízeně zastaven
+po **105 PASS**, když reviewer našel novou chybu; právě běžící Hunt test
+zaznamenal signálový FAIL. Tento částečný běh ani pracovní testy nejsou
+akceptací; nový čistý commit, plný profil a nezávislé review teprve následují.
+
 ## Checkpoint 1. 10. 2026, 02:50 UTC — nezávislý nález negace a plný profil
 
 Nezávislé re-review čistého `2cff545a` vrátilo **CHANGES_REQUIRED**.

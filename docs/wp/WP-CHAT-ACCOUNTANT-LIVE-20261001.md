@@ -237,3 +237,10 @@ red-first M1 regresích opravený pracovní kandidát zastaví negaci cíleným
 dotazem a rozpozná cenu bez DPH *z* celkové částky jako `remove`.
 Cílené sady nyní **73/73**, specialist runtime **24/24** a harness meta-test
 PASS. Opakovaný čistý plný profil a nezávislé review ještě čekají.
+
+Druhé review čistého `365ed339` vrátilo `CHANGES_REQUIRED`: ještě
+„Neprováděj výpočet DPH“ a „Nespočítej DPH“ se změnily v uložený výpočet.
+Nová červená M1 regrese doložila obě chyby. Širší konzervativní detekce
+negace, pozitivní testy neutrálních slov a sazby mezi `DPH` a `z` nyní
+procházejí **79/79** v pracovním stromu. Celý profil a nezávislé re-review
+této nové opravy ještě chybí.

@@ -16,7 +16,11 @@ Nezávislé review prvního čistého kandidáta `2cff545a` vrátilo
 který uživatel odmítl; plný profil odhalil chybné `add` pro „cena bez DPH
 z 12100“. Nové červené regresní testy a zdrojová oprava dávají na pracovním
 kandidátu M1/SQLite/oracle **73/73**, specialist runtime **24/24** a
-`harness-exit-code` PASS. Změna je zatím `REVIEW_PENDING` / `NOT_DEPLOYED`.
+`harness-exit-code` PASS. Druhé review `365ed339` vrátilo opět
+`CHANGES_REQUIRED`: „Neprováděj“ a „Nespočítej“ skutečně provedly a uložily
+výpočet. Po dalších red-first případech širší negace a neutrální `ne…` slova
+má pracovní kandidát **79/79** řízených M1/SQLite/oracle kontrol.
+Změna je zatím `REVIEW_PENDING` / `NOT_DEPLOYED`.
 
 **Dodatečné review `12b7726a`: `CHANGES_REQUIRED`.** Negativní účetní
 HTTP/SQLite cesta i veřejný filtr `extractedParams` prošly, ale při selhání
