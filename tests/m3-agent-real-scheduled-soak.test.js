@@ -26,18 +26,26 @@ const DUE_GRACE_MS = 45_000;
 
 async function startTripwireProvider() {
   let modelCalls = 0;
+  let unexpectedCalls = 0;
+  const unexpectedRequests = [];
   const server = http.createServer(async (request, response) => {
-    for await (const _chunk of request) { /* drain */ }
+    const chunks = [];
+    for await (const chunk of request) chunks.push(chunk);
+    let body = null;
+    try {
+      if (chunks.length > 0) body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    } catch { /* malformed requests are unexpected */ }
     response.setHeader('Content-Type', 'application/json');
-    if (request.url === '/api/tags') {
+    if (request.method === 'GET' && request.url === '/api/tags') {
       response.end(JSON.stringify({ models: [{ name: MODEL, digest: DIGEST }] }));
-    } else if (request.url === '/api/show') {
+    } else if (request.method === 'POST' && request.url === '/api/show'
+      && (body?.name === MODEL || body?.model === MODEL)) {
       response.end(JSON.stringify({ model_info: { 'fixture.context_length': 4096 } }));
-    } else if (request.url === '/api/chat' || request.url === '/api/generate') {
-      modelCalls++;
-      response.writeHead(503).end(JSON.stringify({ error: 'Worker soak must not call a model' }));
     } else {
-      response.writeHead(503).end(JSON.stringify({ error: 'Unexpected provider endpoint' }));
+      unexpectedCalls++;
+      unexpectedRequests.push({ method: request.method, path: request.url });
+      if (request.url === '/api/chat' || request.url === '/api/generate') modelCalls++;
+      response.writeHead(503).end(JSON.stringify({ error: 'Unexpected provider request' }));
     }
   });
   await new Promise((resolve, reject) => {
@@ -49,9 +57,39 @@ async function startTripwireProvider() {
   return {
     url: 'http://127.0.0.1:' + address.port,
     get modelCalls() { return modelCalls; },
+    get unexpectedCalls() { return unexpectedCalls; },
+    get unexpectedRequests() { return [...unexpectedRequests]; },
     close: () => new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve())),
   };
 }
+
+test('tripwire counts and rejects all unexpected provider requests', {
+  timeout: 5_000,
+}, async () => {
+  const provider = await startTripwireProvider();
+  try {
+    const requests = [
+      { method: 'POST', path: '/api/tags', body: '{}' },
+      { method: 'GET', path: '/api/show' },
+      { method: 'GET', path: '/unexpected' },
+      { method: 'POST', path: '/api/chat', body: '{}' },
+    ];
+    for (const item of requests) {
+      const response = await fetch(provider.url + item.path, {
+        method: item.method,
+        ...(item.body ? { headers: { 'content-type': 'application/json' },
+          body: item.body } : {}),
+      });
+      assert.equal(response.status, 503);
+    }
+    assert.equal(provider.unexpectedCalls, requests.length);
+    assert.equal(provider.modelCalls, 1);
+    assert.deepEqual(provider.unexpectedRequests,
+      requests.map(item => ({ method: item.method, path: item.path })));
+  } finally {
+    await provider.close();
+  }
+});
 
 function createTestExtensionRoot(runtime) {
   const root = path.join(runtime.artifacts, 'agent-extensions');
@@ -119,6 +157,10 @@ test('trusted worker waits for a real five-minute due time and notifies once', {
     } finally {
       await provider.close();
     }
+    assert.equal(provider.modelCalls, 0, 'owned product attempted model inference');
+    assert.equal(provider.unexpectedCalls, 0,
+      'owned product attempted an unexpected provider endpoint or method: '
+      + JSON.stringify(provider.unexpectedRequests));
     if (successfulEvidence) {
       writeFileSync(path.join(parentRuntime.artifacts, 'm3-agent-real-scheduled-soak.json'),
         JSON.stringify({ ...successfulEvidence, status: 'PASS',
@@ -243,6 +285,7 @@ test('trusted worker waits for a real five-minute due time and notifies once', {
   assert(Date.parse(afterDue.nextRun) > Date.now(),
     'completed scheduled run must leave a future next_run');
   assert.equal(provider.modelCalls, 0);
+  assert.equal(provider.unexpectedCalls, 0);
 
   const manual = await expectJson(product, 'POST',
     '/api/agent-extensions/instances/' + instanceId + '/run', null, 200);
@@ -257,11 +300,27 @@ test('trusted worker waits for a real five-minute due time and notifies once', {
   product = await launch();
   const recovered = await expectJson(product, 'GET',
     '/api/agents/' + instanceId, null, 200);
+  assert.equal(recovered.recentRuns.length, 3,
+    'restart must preserve exactly baseline, due trigger and manual unchanged runs');
+  assert.deepEqual(new Set(recovered.recentRuns.map(run => run.id)),
+    new Set([baseline.id, changed.id, manual.runId]),
+    'restart must neither lose nor add a worker run');
+  assert.equal(recovered.recentRuns.find(run => run.id === baseline.id)
+    ?.explain?.run_state, 'INIT_BASELINE');
+  assert.equal(recovered.recentRuns.find(run => run.id === manual.runId)
+    ?.explain?.run_state, 'SUCCESS_NO_TRIGGER');
   assert.equal(recovered.notifications.length, 1);
   assert.equal(recovered.notifications[0].id, notification.id);
   assert(recovered.recentRuns.some(run => run.id === changed.id
     && run.explain?.run_state === 'SUCCESS_TRIGGERED'));
+  const recoveredSchedule = await expectJson(product, 'GET',
+    '/api/scheduler/status', null, 200);
+  const recoveredEntry = recoveredSchedule.scheduled.find(item => item.id === instanceId);
+  assert(recoveredSchedule.running && recoveredEntry?.enabled
+    && Date.parse(recoveredEntry.nextRun) > Date.now(),
+  'restart must preserve an enabled worker with a future persisted next_run');
   assert.equal(provider.modelCalls, 0);
+  assert.equal(provider.unexpectedCalls, 0);
 
   const sourceRevision = process.env.INTENTSMITH_TEST_SOURCE_REVISION
     || execFileSync('git', ['rev-parse', 'HEAD'], {
@@ -273,13 +332,16 @@ test('trusted worker waits for a real five-minute due time and notifies once', {
       restartedProductPid: product.child.pid,
       baselineRunId: baseline.id, changedRunId: changed.id,
       manualUnchangedRunId: manual.runId, notificationId: notification.id,
+      finalRunIds: recovered.recentRuns.map(run => run.id),
       baselineLastRun: scheduled.lastRun, persistedDueAt: scheduled.nextRun,
+      persistedNextRunAfterRestart: recoveredEntry.nextRun,
       changedStartedAt: changed.started_at, changedFirstObservedAt:
         new Date(firstChangedObservedEpochMs).toISOString(),
       changeAt: new Date(changeEpochMs).toISOString(),
       monotonicObservedIntervalMs: performance.now() - changeMonotonicMs,
       beforeDuePolls, workspaceRevision: evidence.workspaceRevision,
       changedSourceDigest: source.contentDigest, providerModelCalls: provider.modelCalls,
+      providerUnexpectedCalls: provider.unexpectedCalls,
       productRestarted: true, finalNotificationCount: recovered.notifications.length,
     };
 });

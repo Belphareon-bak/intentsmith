@@ -22,8 +22,9 @@ crash/replay scénář ověřuje jinou hranici.
 Test má vlastní produktový child src/server.js, privátní SQLite a projekt.
 Testovací kopie důvěryhodného manifestu má interval přesně 5m; produkční
 manifest zůstává ruční. Tento extension root může produkt přijmout pouze v
-izolovaném režimu NODE_ENV=test. Lokální loopback provider odpovídá na
-inventory endpointy a počítá případné pokusy o generativní volání.
+izolovaném režimu NODE_ENV=test. Lokální loopback provider odpovídá jen na
+GET /api/tags a POST /api/show pro přesný fixture model. Každou jinou
+metodu/cestu odmítne a započítá; generativní volání počítá zvlášť.
 
 Pozitivní cesta přes produktové HTTP API vytvoří projekt a instanci, zapne
 scheduler a bez posunu hodin nebo DB čeká na automatický INIT_BASELINE. Ze
@@ -35,10 +36,13 @@ kontrolní periody plus 15 sekund musí vzniknout přesně jeden terminální
 SUCCESS_TRIGGERED s přesnou ProjectContext revizí a SHA-256 změněného
 souboru; jediná notifikace musí nést stejnou revizi a run ID. Doplňkový
 ruční průchod beze změny musí být SUCCESS_NO_TRIGGER bez nové notifikace.
-Restart vlastního produktu musí zachovat run i jedinou notifikaci.
+Restart vlastního produktu musí zachovat přesně tři známá run ID (baseline,
+plánovaný trigger a ruční no-trigger), jedinou notifikaci a budoucí uložený
+next_run.
 
 Negativní hranice: předčasný běh, duplicitní run/notifikace, špatná revize,
-ztráta po restartu, modelové volání, mrtvý child nebo posun systémového času
+ztráta nebo nový run po restartu, libovolný neočekávaný provider request,
+mrtvý child nebo posun systémového času
 vedou k selhání. Artefakt se stavem PASS vznikne až po čistém ukončení
 produktového procesu i loopback provideru. Test měří monotónní uplynulý čas,
 zapisuje source revision, PID, uloženou splatnost a skutečná ID.
@@ -70,6 +74,12 @@ a nemá deklarovaný blocker. První pokus o krátké Node testy v novém worktr
 selhal infrastrukturně na chybějícím better-sqlite3; po připojení ignorovaného
 node_modules z integračního worktree prošly. Nový pětiminutový test stále
 PENDING_RUN; přípravné kontroly jeho chování nepotvrzují.
+
+Křížové review prvního kandidáta 0c353c81 vyžádalo přesnou množinu run ID,
+budoucí plán po restartu a zachycení všech nečekaných provider requestů.
+Navazující kandidát tyto aserce doplnil; samostatný krátký HTTP negativní
+test tripwire prošel 1/1 bez modelu. Opakované nezávislé review a fyzický
+pětiminutový běh zůstávají otevřené.
 
 Tento důkaz pokrývá jednu plánovanou instanci. Neměří výkon velkého počtu
 instancí, 24hodinový provoz, fyzické Studio ani instalovaný produkt.
