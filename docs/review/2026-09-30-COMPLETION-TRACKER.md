@@ -1,5 +1,40 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 1. 10. 2026, 08:48 UTC — přijaté nonCHAT milníky
+
+Další CHAT je předaný jinému workerovi. Zde nebyl opakován korpus,
+VAT pilot ani další kontextové okno. Celý profil `45caf5b5` zůstává
+**FAIL (397 PASS / 5 FAIL / 3 BLOCKED)**, včetně dvou předaných
+routing/context selhání. Nový celý profil není tvrzený jako PASS.
+
+- Přijaté IDE build/package/no-model UI důkazy jsou integrované.
+  Balík je pořád z přesného `45caf5b5`; novější integrace ani produkce
+  tím nezískávají automatické release přijetí.
+- Backend migration evidence má REVIEW_PASS. Skutečný upgrade soukromé
+  kopie uživatelské DB má také nezávislé **REVIEW_PASS**: všech 37 309
+  původních uživatelských řádků zachováno, pouze očekávané migrace
+  118/119/121, reopen integrity a druhý no-op. [Podklady a hranice](../wp/WP-BACKEND-USER-DATA-UPGRADE-20261001.md).
+- Registrace dvou app sad je přijata; **593 sad / 32 exclusions**,
+  staré záznamy zachované. Skutečné společné registrované ověření
+  `eef20c56` má **8/8 PASS**. Předchozí 6/2 a 7/1 výsledky a konkrétní
+  chyby dokumentace/harness census jsou zachované. [Přesná evidence](../wp/WP-PROJECT-APP-REGISTRATION-20261001.md).
+- Fyzické CODE generování aplikace na `62e1309f`, přesný Qwen 3.8 digest,
+  skončilo **FAIL**: model viděl neúplný kontrakt příkazů. M2 odmítlo
+  chybnou aplikaci a přesně rollbackovalo všech šest souborů bez commitu.
+  Nezávislá diagnóza potvrdila provider attestace a chybu rozhraní.
+  Veřejný blueprint a failure evidence runneru se opravují; žádná
+  živá aplikace dosud není přijatá. [Rozsah](../wp/WP-PROJECT-APP-FUNCTIONAL-20261001.md).
+- Hunt handoff má nezávislé integrity REVIEW_PASS: slepá vlna 144/330,
+  fronta 433/1035, původní indexy/kontext/bytes ověřené. Nové známky
+  nevznikly: **NOT_EVALUATED / NO_DECISION / NO_GO**. Root zjišťuje
+  vlastníka probíhajícího hodnocení, aby nevytvořil duplicitní výdaje.
+
+Čerstvý skutečný pětiminutový worker PASS na `45caf5b5` je uveden níže.
+Mobilní integrace a bezpečné odstranění zastaralých větví/worktrees
+následují až po příslušných přejímkách. Produkční DB/služby/instalace
+nebyly změněné. Tento checkpoint se nyní publikuje pro kontrolu;
+nový vzdálený CI výsledek bude ověřen na jeho konkrétním SHA.
+
 ## Checkpoint 1. 10. 2026, 08:16 UTC — CHAT předán, IDE a backend
 
 Operátor výslovně předal další CHAT jinému workerovi. Další přirozený

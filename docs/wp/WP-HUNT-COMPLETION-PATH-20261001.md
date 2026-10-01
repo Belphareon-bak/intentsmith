@@ -212,3 +212,35 @@ Git neukládají. Tento checkpoint doplňuje
 [strukturální validaci](WP-HUNT-SECOND-REVIEW-BATCH-VALIDATOR-20261001.md),
 [vývojovou matici](../review/2026-09-28-HUNT-MATRIX-COMPLETION.md) a
 [metodický stress test](../review/2026-09-24-HUNT-DECISION-FEASIBILITY.md).
+
+## 6. Frozen non-CHAT handoff — 2026-10-01 08:47 UTC
+
+The previously committed selection is now prepared privately and has
+independent **HANDOFF_INTEGRITY_REVIEW_PASS**. The read-only verifier again
+confirmed 596/1173 existing second reviews (2324/3689 criteria). Every one
+of those 596 is excluded from the new wave and queue. First wave is exactly
+144 responses/330 criteria; remaining 433/1035 form 23 complete blocks in
+the role/model/original-index order specified above. Their union is exactly
+the 577 missing cases. Both source packet and frozen 106-batch manifest
+still match their existing hashes. All selected questions, rubrics, response
+bytes, IDs and original indices match; reviewer metadata has no real model
+identity or first grades. Every one of the 144 was independently paired
+with its actual source capture, complete user prompt and exact answer,
+without missing non-CHAT context. CHAT/CODE cases are absent.
+
+Private evaluator-facing wave SHA:
+`d89dae739fb7bf527dce22c1f55e975ff5515bfb7b962e364f878e572d02aada`.
+Private remaining-queue SHA:
+`9129a04c439cb37f4c1b3ce7ba157bf8fd6f610523a0b1e532ee177b5ee11d72`.
+Aggregate summary SHA:
+`bac646c600e1e8c917dd6295a86efbc6d6be55bc5d3e35e137fcf11bccebb171`.
+Files live only under the author checkout's ignored 0700/0600
+`.intentsmith-artifacts/hunt-second-review-handoff-20261001-wave1`.
+They were not uploaded or pushed. The evaluator must receive only the
+reviewer directory, never the restricted identity/selection material.
+
+Integrity acceptance does not establish valid grades, accepted evaluator
+qualification or role ordering. **NOT_EVALUATED / NO_DECISION / NO_GO**
+remain. No external model calls or grading took place. Root requested the
+current grading owner to avoid duplicating ongoing work or expense; other
+non-CHAT completion milestones continue while that input is pending.

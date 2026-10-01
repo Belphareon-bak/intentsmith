@@ -77,3 +77,28 @@ It owns the shared GPU lease and a new private project/DB. State is
 **RUNNING**, not a functional PASS. No conversational CHAT corpus runs.
 Private output is `.intentsmith-artifacts/project-app-live-qwen38-20261001-0836`
 in the author checkout; acceptance remains pending its actual terminal.
+
+## First physical terminal — 2026-10-01 08:37 UTC
+
+The actual frozen `62e1309f` run ended exit 1 / **FAIL**, not an accepted
+app. Six complete CODE responses were generated and the exact plan approved;
+the frozen functional test rejected the application. Durable execution stderr
+reports `src/cli.js:53 Error: Unknown operation: undefined`. Generated CLI
+expected command objects and returned only the final result; the documented
+example and fixed entrypoint use tuple arrays and one result per command.
+The model-visible per-file instruction omitted that wire-format requirement;
+focusedTest is deliberately not supplied to the model and no context file
+was requested. This is a generated interface mismatch and an incomplete
+public blueprint, not a valid clean test of an explicitly supplied format.
+
+Independent read-only diagnosis verified all six provider terminals, exact
+digest/version, and bytes against the preview hashes. It also verified six
+rollback events, failed durable terminal, no commit, unchanged baseline HEAD,
+clean project and absence of all six generated targets. Frozen oracle, probes,
+entrypoint and policy hashes are unchanged. GPU lease was released and the
+owned model unloaded. The runner did not save terminal.json or validate its
+provider attestations after the failed child exit; the durable SQLite and raw
+provider log supply these independently verified facts. That failure-evidence
+omission and the public interface contract are a separately reviewed follow-up.
+No assertion or oracle is weakened and this physical failure remains preserved.
+Physical success/restarts of a generated app remain **NOT_ACCEPTED**.

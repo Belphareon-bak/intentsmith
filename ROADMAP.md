@@ -1,6 +1,16 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktualizace 1. 10. 2026, 08:37 UTC:** Operátor předal další CHAT
+**Aktualizace 1. 10. 2026, 08:48 UTC:** Přijaté IDE build a backend
+evidence jsou integrované. Skutečný upgrade privátní kopie reálných dat
+má nezávislé REVIEW_PASS; registrovaná app/harness/schema/M6 brána má
+**8/8 PASS na `eef20c56`**. První živé CODE generování ale skončilo
+**FAIL** na neúplně zadaném rozhraní; M2 provedlo správný rollback.
+Oprava veřejného zadání a failure evidence běží, fyzická aplikace není
+přijatá. Hunt packet je připravený a nezávisle ověřený, stále
+**NOT_EVALUATED / NO_GO**. CHAT je předán jinému workerovi.
+[Úplné aktuální výsledky a otevřené milníky](docs/review/2026-09-30-COMPLETION-TRACKER.md).
+
+**Historický checkpoint 1. 10. 2026, 08:37 UTC:** Operátor předal další CHAT
 jinému workerovi; tento proud pokračuje v IDE, backendu, projektech a Huntu.
 GitHub development CI na `45caf5b5` je skutečné **PASS**, ale celý
 profil téhož zdroje zůstává **FAIL: 397 PASS / 5 FAIL / 3 BLOCKED**.

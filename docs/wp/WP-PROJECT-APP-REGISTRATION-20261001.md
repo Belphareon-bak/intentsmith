@@ -5,7 +5,7 @@ app sady podle požadavku operátora dokončit a ověřit skutečné projekty.
 Jde o běžnou registraci existujících testů; produktové chování se nemění.
 **Výchozí integrační zdroj:** `03c82d7e43e0d2831e8da3877476e2e4af8ed74e`.
 **Vlastník:** `/root/full405_diagnosis`.
-**Stav:** `REGISTRATION_VERIFIED / INTEGRATION_REVIEW_PENDING`.
+**Stav:** `REGISTRATION_REVIEW_PASS / COMBINED_FOCUSED_GATES_PASS`.
 
 ## Vlastněný rozsah
 
@@ -102,3 +102,14 @@ artifact-validation caught a missing separator comma in root's LOC formatter.
 The measured 264,851 total was correct. The exact machine-readable comma is
 restored without changing the validator or any source byte count. This failed
 report also remains preserved; the final clean gate is still pending.
+
+Final independent narrow review accepted `7335ff66 → eef20c56` as
+**REVIEW_PASS**, while retaining **CHANGES_REQUIRED** for `226c0e71`.
+All source/contracts/registry/projection/validator bytes are unchanged in
+that follow-up; only the reviewed root count, comments and census formatting
+changed. Final actual registered gate on clean
+`eef20c56aa0a1f6e6221e4cec731377fb6fdaada` is **8/8 PASS**, zero
+FAIL/BLOCKED/TIMEOUT/SKIPPED, report
+`2026-10-01T08-45-43-095Z/report.json`. This is the bounded combined app,
+harness, artifact, migration-schema and M6 evidence gate. It is not a new
+full offline/database profile or successful physical model application.
