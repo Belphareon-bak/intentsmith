@@ -53,9 +53,13 @@ syscallu*, nikoli absolutní odolnost proti nepřátelskému přesunu parentu.
 2. Existující soubor před přípravou i soubor vzniklý až po ní skončí
    `EFFECT_FS_CREATE_EXISTS` bez změn a bez rollback debt. Injekce souběhu
    přímo v `linkSync` prokáže no-clobber na commit hranici.
-3. Cancel před linkem, hardlink/symlink, selhání parent fsync a nesprávná
+3. Cancel před i po linku, hardlink/symlink, selhání parent fsync a nesprávná
    capability se ověří bez GPU. Typovaný SQL validator odmítne padělaný
-   v3 request i result s falešným before digestem.
+   v3 request i každý terminální result s falešným before digestem. Restart
+   musí do SQLite zapsat pravdivý rollback receipt: přítomný forward soubor
+   dluh vypořádá, chybějící soubor po doloženém linku odpovídá stavu před
+   efektem a neznámý restart orphan si dluh ponechá. Raw SQL nesmí vložit
+   nepravdivý receipt.
 4. Dosavadní M2 runtime, broker, repository a schema upgrade scénáře
    zůstanou zelené; red-first mutace `link → rename` musí skutečně selhat.
 5. Nezávislý reviewer připne přesný commit a vrátí `REVIEW_PASS`; teprve potom
@@ -63,3 +67,9 @@ syscallu*, nikoli absolutní odolnost proti nepřátelskému přesunu parentu.
 
 **Zakázaný rozsah:** GPU/model, produkční DB/služba, legacy přímý zápis,
 úprava `src/chat/handlers/file.js`, mobil, push a cizí worktree.
+
+**Revizní historie:** první připnutý kandidát `54d45428` obdržel
+`CHANGES_REQUIRED`: v3 terminály orphaned/cancelled přijímaly falešný
+`beforeDigest` a rollback settlement používal v1 digest, takže restart přeskočil
+v3 dluh. Následný kandidát opravuje obě hranice; nové nezávislé review je
+nutné před integrací.

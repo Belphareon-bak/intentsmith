@@ -160,6 +160,26 @@ function requestInput(projectRoot, overrides = {}) {
   };
 }
 
+function assertForgedCreateBeforeRejected(database, request, result) {
+  const forged = { ...result, changes: { ...result.changes,
+    beforeDigest: `sha256:${'0'.repeat(64)}` } };
+  assert.equal(currentEffects.validateEffectResultForRequest(request, forged).valid, false);
+  const requestJson = currentEffects.canonicalStringify(request);
+  const forgedJson = currentEffects.canonicalStringify(forged);
+  assert.equal(database.prepare('SELECT m2_effect_result_matches_request_v3(?, ?) AS valid')
+    .get(requestJson, forgedJson).valid, 0);
+  assert.throws(() => database.prepare(`
+    INSERT INTO m2_effect_results (
+      effect_id, run_id, project_id, request_digest, approval_grant_id,
+      terminal_status, result_json, completed_at_ms
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(forged.effectId, forged.runId, forged.projectId, forged.requestDigest,
+    forged.approvalGrantId, forged.terminalStatus, forgedJson,
+    Date.parse(forged.completedAt)), /M2_EFFECT_RESULT_SEMANTIC_AUTHORITY_MISMATCH/);
+  assert.equal(database.prepare('SELECT count(*) AS n FROM m2_effect_results WHERE effect_id = ?')
+    .get(forged.effectId).n, 0);
+}
+
 suite('M2 durable filesystem effect runtime');
 
 await testAsync('file.create@1 binds v3 create-only authority, persists exact bytes and replays across restart', async () => {
@@ -290,7 +310,16 @@ await testAsync('file.create@1 records an applied orphan with rollback debt when
     const workspaceAuthority = { async observe() {
       return { canonicalRoot: realpathSync(environment.projectRoot), workspaceRevision: 'wsr1:runtime-integration' };
     } };
-    const broker = createEffectBroker(new EffectAuthorityRepository(environment.database), {
+    const repository = new EffectAuthorityRepository(environment.database);
+    const recordEffectResult = repository.recordEffectResult.bind(repository);
+    repository.recordEffectResult = result => {
+      if (result.terminalStatus === 'orphaned') {
+        assertForgedCreateBeforeRejected(environment.database,
+          repository.getEffectRequest(result.effectId), result);
+      }
+      return recordEffectResult(result);
+    };
+    const broker = createEffectBroker(repository, {
       workspaceAuthority,
       providers: { 'fs.write': createFilesystemEffectProvider({ fileSystem }) },
     });
@@ -311,6 +340,128 @@ await testAsync('file.create@1 records an applied orphan with rollback debt when
     assert.equal((await runtime.approveFilesystemCreate({ effectId: prepared.effectId,
       conversationId: input.conversationId, subjectId: input.subjectId })).terminalStatus, 'orphaned');
     assert.equal(fsyncCalls, 2);
+    environment.reopen();
+    const restarted = environment.runtime();
+    const settlement = restarted.getEffectSettlement(prepared.effectId);
+    assert.equal(settlement.rollbackReceipt.observationCode, 'matches_forward');
+    assert.equal(settlement.rollbackDebt.required, false);
+    assert.equal(environment.database.prepare('SELECT count(*) AS n FROM m2_effect_rollback_receipts WHERE effect_id = ?')
+      .get(prepared.effectId).n, 1);
+  });
+});
+
+await testAsync('file.create@1 post-link cancellation keeps truthful rollback and rejects forged before bytes', async () => {
+  await withEnvironment(async environment => {
+    let published;
+    let releaseProvider;
+    const afterPublish = new Promise(resolve => { published = resolve; });
+    const provider = createFilesystemEffectProvider();
+    const repository = new EffectAuthorityRepository(environment.database);
+    const recordEffectResult = repository.recordEffectResult.bind(repository);
+    repository.recordEffectResult = result => {
+      if (result.terminalStatus === 'cancelled' && result.rollback.required) {
+        assertForgedCreateBeforeRejected(environment.database,
+          repository.getEffectRequest(result.effectId), result);
+      }
+      return recordEffectResult(result);
+    };
+    const workspaceAuthority = { async observe() {
+      return { canonicalRoot: realpathSync(environment.projectRoot), workspaceRevision: 'wsr1:runtime-integration' };
+    } };
+    const broker = createEffectBroker(repository, { workspaceAuthority, providers: {
+      'fs.write': { async execute(input) {
+        const evidence = await provider.execute(input);
+        published();
+        await new Promise(resolve => { releaseProvider = resolve; });
+        return evidence;
+      } },
+    } });
+    const runtime = createEffectFileRuntime({ database: environment.database, workspaceAuthority, broker });
+    const input = requestInput(environment.projectRoot, {
+      operationId: 'message:create-cancel-post-link', relativePath: 'notes/cancelled-after-link.md',
+      content: 'already published\n',
+    });
+    const prepared = await runtime.requestFilesystemCreate(input);
+    const controller = new AbortController();
+    const approval = runtime.approveFilesystemCreate({ effectId: prepared.effectId,
+      conversationId: input.conversationId, subjectId: input.subjectId, signal: controller.signal });
+    await afterPublish;
+    assert.equal(readFileSync(path.join(environment.projectRoot, input.relativePath), 'utf8'), input.content);
+    controller.abort();
+    await new Promise(resolve => setImmediate(resolve));
+    releaseProvider();
+    const result = await approval;
+    assert.equal(result.terminalStatus, 'cancelled');
+    assert.equal(result.rollback.required, true);
+    assert.equal(result.rollback.status, 'pending');
+    assert.equal(result.changes.beforeDigest, null);
+    assert.equal(result.lateCompletionRejected, true);
+  });
+});
+
+await testAsync('create-only rollback sees absent post-link target as before and absent unknown orphan as foreign', async () => {
+  await withEnvironment(async environment => {
+    let fsyncCalls = 0;
+    const fileSystem = { ...fs, fsyncSync(fd) {
+      fsyncCalls += 1;
+      if (fsyncCalls === 2) throw Object.assign(new Error('directory fsync failed'), { code: 'EIO' });
+      fs.fsyncSync(fd);
+    } };
+    const workspaceAuthority = { async observe() {
+      return { canonicalRoot: realpathSync(environment.projectRoot), workspaceRevision: 'wsr1:runtime-integration' };
+    } };
+    const runtime = createEffectFileRuntime({ database: environment.database, workspaceAuthority,
+      broker: createEffectBroker(new EffectAuthorityRepository(environment.database), {
+        workspaceAuthority, providers: { 'fs.write': createFilesystemEffectProvider({ fileSystem }) },
+      }) });
+    const appliedInput = requestInput(environment.projectRoot, {
+      operationId: 'message:create-applied-then-removed', relativePath: 'notes/removed.md',
+      content: 'published then removed\n',
+    });
+    const applied = await runtime.requestFilesystemCreate(appliedInput);
+    assert.equal((await runtime.approveFilesystemCreate({ effectId: applied.effectId,
+      conversationId: appliedInput.conversationId, subjectId: appliedInput.subjectId })).terminalStatus, 'orphaned');
+    fs.unlinkSync(path.join(environment.projectRoot, appliedInput.relativePath));
+    const raw = environment.database.prepare(`
+      SELECT request.request_json AS requestJson, result.result_json AS resultJson,
+             result.request_digest AS requestDigest,
+             m2_effect_result_json_digest_v1(result.result_json) AS resultDigest,
+             result.completed_at_ms AS completedAtMs
+      FROM m2_effect_requests request JOIN m2_effect_results result
+        ON result.effect_id = request.effect_id
+      WHERE request.effect_id = ?
+    `).get(applied.effectId);
+    assert.equal(environment.database.prepare(`
+      SELECT m2_effect_rollback_observation_matches_v1(?, ?, ?, ?, ?) AS valid
+    `).get(raw.requestJson, raw.resultJson, 'matches_forward', 0, null).valid, 0);
+    assert.throws(() => environment.database.prepare(`
+      INSERT INTO m2_effect_rollback_receipts (
+        effect_id, request_digest, result_digest, observation_code,
+        observed_exists, observed_digest, observed_at_ms, evidence_ref
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(applied.effectId, raw.requestDigest, raw.resultDigest,
+      'matches_forward', 0, null, raw.completedAtMs,
+      `effect:${applied.effectId}:rollback-observation:matches_forward`),
+    /M2_EFFECT_ROLLBACK_RECEIPT_AUTHORITY_MISMATCH/);
+    const unknownInput = requestInput(environment.projectRoot, {
+      operationId: 'message:create-unknown', relativePath: 'notes/unknown.md',
+      content: 'may never have linked\n',
+    });
+    const unknown = await runtime.requestFilesystemCreate(unknownInput);
+    const repository = new EffectAuthorityRepository(environment.database);
+    const grant = createApprovalGrantIssuer(repository).issue({ effectId: unknown.effectId,
+      authenticatedSubject: { actorType: 'user', actorId: unknownInput.subjectId } }).grant;
+    repository.consumeApprovalGrant({ grantId: grant.grantId,
+      request: repository.getEffectRequest(unknown.effectId), executionOwner: processExecutionOwner });
+    environment.reopen();
+    const restarted = environment.runtime({ executionLiveness: { isProvablyDead: () => true } });
+    const appliedSettlement = restarted.getEffectSettlement(applied.effectId);
+    const unknownSettlement = restarted.getEffectSettlement(unknown.effectId);
+    assert.equal(appliedSettlement.rollbackReceipt.observationCode, 'matches_before');
+    assert.equal(appliedSettlement.rollbackDebt.required, false);
+    assert.equal(unknownSettlement.result.terminalStatus, 'orphaned');
+    assert.equal(unknownSettlement.rollbackReceipt.observationCode, 'foreign');
+    assert.equal(unknownSettlement.rollbackDebt.required, true);
   });
 });
 

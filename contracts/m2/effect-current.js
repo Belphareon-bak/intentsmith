@@ -99,7 +99,9 @@ export function validateEffectResultForRequest(request, value) {
     const legacyResult = { ...value, requestDigest: legacy.computeEffectRequestDigest(legacyRequest) };
     errors.push(...legacy.validateEffectResultForRequest(legacyRequest, legacyResult).errors);
     if (value?.requestDigest !== computeEffectRequestDigest(request)) errors.push('effect-result-v3:request-digest');
-    if (value?.terminalStatus === 'succeeded' && value?.changes?.beforeDigest !== null) {
+    // A create-only request never had authorized prior target bytes. Even an
+    // applied orphan, post-link cancellation, or timeout cannot invent them.
+    if (value?.changes?.beforeDigest !== null) {
       errors.push('effect-result-v3:create-before-must-be-absent');
     }
     return result(errors, value);

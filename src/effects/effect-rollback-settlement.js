@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import { computeEffectRequestDigest } from '../../contracts/m2/effect-v1.js';
+import { computeEffectRequestDigest } from '../../contracts/m2/effect-current.js';
 
 export const M2_ROLLBACK_OBSERVATION = Object.freeze({
   MATCHES_FORWARD: 'matches_forward',
@@ -16,8 +16,18 @@ export function digestStoredEffectResult(resultJson) {
   return `sha256:${createHash('sha256').update(resultJson, 'utf8').digest('hex')}`;
 }
 
-function knownMissingBefore(result) {
+function knownMissingBefore(request, result) {
   if (result?.changes?.beforeDigest !== null) return false;
+  if (request?.version === 3 && request?.requiredCapability === 'project.fs.create') {
+    // Only provider evidence from after the atomic link proves that the
+    // create-only target was absent. A restart orphan with no provider
+    // evidence must retain its debt when the current name is missing.
+    return Array.isArray(result?.evidenceRefs) && [
+      'fs-create',
+      'fs-create-durability-unconfirmed',
+      'fs-create-post-commit-verification-failed',
+    ].some(reason => result.evidenceRefs.includes(`effect:${result.effectId}:${reason}`));
+  }
   if (result?.changes?.afterDigest !== null) return true;
   return Array.isArray(result?.evidenceRefs)
     && result.evidenceRefs.includes(
@@ -41,6 +51,8 @@ export function classifyRollbackObservation({
   const validObservation = typeof observedExists === 'boolean'
     && (observedExists ? DIGEST_PATTERN.test(observedDigest) : observedDigest === null);
   const exactAuthority = request?.kind === 'fs.write'
+    && (request.version !== 3 || (request.requiredCapability === 'project.fs.create'
+      && result?.changes?.beforeDigest === null))
     && result?.effectId === request.effectId
     && result?.requestDigest === computeEffectRequestDigest(request)
     && result?.rollback?.required === true
@@ -55,7 +67,7 @@ export function classifyRollbackObservation({
     && result.changes?.beforeDigest !== null
     && observedDigest === result.changes.beforeDigest
   ) return M2_ROLLBACK_OBSERVATION.MATCHES_BEFORE;
-  if (!observedExists && knownMissingBefore(result)) {
+  if (!observedExists && knownMissingBefore(request, result)) {
     return M2_ROLLBACK_OBSERVATION.MATCHES_BEFORE;
   }
   return M2_ROLLBACK_OBSERVATION.FOREIGN;
