@@ -193,14 +193,27 @@ function secondReviewFixture(){
       s:{meaning:[.5,'Meaning reason','Meaning evidence'],api:[.25,'API reason','API evidence']},
       meaning_points_of_24:12,api_cases_ok:6,provisional_task_mean:.38,
       exact_fractions:{meaning:.5,api:.25},scale_snap:{meaning:.5,api:.25}}),
-    file('dr-001.json',{idx:2,task:'d1_case',label:'C',s:{c1:[.75,'Cause reason','Cause evidence']}}),
+    file('dr-001.json',{idx:2,task:'d1_case',label:'C',s:{c1:[.5,'Cause reason','Cause evidence']}}),
   ];
   const revisionBytes=Buffer.from(JSON.stringify({note:'Context revision',clock:'Owned clock',log:[
     {idx:0,task:'cs_case',label:'A',criterion:'case.1',old_score:.25,new_score:.5,
       old_reason:'Prior assessment',new_reason:'Revised because context resolves the subject'},
   ]})+'\n');
-  return {packetBytes,expectedPacketSha256:createHash('sha256').update(packetBytes).digest('hex'),
+  const source={packetBytes,expectedPacketSha256:createHash('sha256').update(packetBytes).digest('hex'),
     sharedContextBytes,codePolicyBytes,batchFiles,revisionBytes};
+  source.manifestBytes=freezeSecondReviewFixture(source);
+  return source;
+}
+
+function freezeSecondReviewFixture(source){
+  const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
+  return Buffer.from(JSON.stringify({schemaVersion:1,
+    status:'FROZEN_DEVELOPMENT_REVIEW_EVIDENCE',decisionAuthority:false,
+    packetSha256:source.expectedPacketSha256,
+    batchFiles:source.batchFiles.map(file=>({name:file.name,sha256:hash(file.bytes)}))
+      .sort((a,b)=>a.name.localeCompare(b.name,'en')),
+    revisionFile:{name:'revisions-after-context.json',sha256:hash(source.revisionBytes)},
+  })+'\n');
 }
 
 function mutateBatch(source,name,change){
@@ -209,6 +222,7 @@ function mutateBatch(source,name,change){
   const batch=JSON.parse(value.batchFiles[index].bytes.toString('utf8'));
   change(batch);
   value.batchFiles[index].bytes=Buffer.from(JSON.stringify(batch)+'\n');
+  value.manifestBytes=freezeSecondReviewFixture(value);
   return value;
 }
 
@@ -234,6 +248,7 @@ test('even complete structural second-review coverage remains NO_DECISION',()=>{
     note:'Owned completion fixture',grades:[{idx:3,id:'missing-id',task:'r1_case',label:'D',repeat:3,
       s:{c1:[1,'Review reason','Review evidence']}}]};
   source.batchFiles.push({name:'dr-002.json',bytes:Buffer.from(JSON.stringify(last)+'\n')});
+  source.manifestBytes=freezeSecondReviewFixture(source);
   const result=verifyHuntSecondReviewBatches(source);
   assert.equal(result.status,'STRUCTURALLY_COMPLETE_NO_DECISION');
   assert.equal(result.decisionStatus,'NO_DECISION');
@@ -275,5 +290,24 @@ test('partial second review rejects rubric, reason and revision drift',()=>{
   const revision={...base};
   const value=JSON.parse(revision.revisionBytes.toString('utf8'));value.log[0].new_score=.75;
   revision.revisionBytes=Buffer.from(JSON.stringify(value));
+  revision.manifestBytes=freezeSecondReviewFixture(revision);
   assert.throws(()=>verifyHuntSecondReviewBatches(revision),/REVISION_CURRENT_MISMATCH/);
+});
+
+test('frozen raw evidence rejects an omitted batch and a still-valid changed score',()=>{
+  const base=secondReviewFixture();
+  const omitted={...base,batchFiles:base.batchFiles.filter(file=>file.name!=='dr-001.json')};
+  assert.throws(()=>verifyHuntSecondReviewBatches(omitted),/BATCH_MANIFEST_FILES/);
+  const changed=mutateBatch(base,'dr-001.json',batch=>{batch.grades[0].s.c1[0]=.75;});
+  changed.manifestBytes=base.manifestBytes;
+  assert.throws(()=>verifyHuntSecondReviewBatches(changed),/BATCH_MANIFEST_HASH/);
+});
+
+test('frozen raw revision bytes reject a harmless-looking note edit',()=>{
+  const base=secondReviewFixture();
+  const changed={...base};
+  const value=JSON.parse(base.revisionBytes.toString('utf8'));
+  value.note='A different note with the same scores';
+  changed.revisionBytes=Buffer.from(JSON.stringify(value)+'\n');
+  assert.throws(()=>verifyHuntSecondReviewBatches(changed),/REVISION_MANIFEST_HASH/);
 });

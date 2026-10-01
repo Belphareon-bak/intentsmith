@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Structural audit of an incomplete development second review. Reads packet,
-// public review context and batch files only; never grades or decides a role.
+// Structural audit of an incomplete development second review. The committed
+// manifest freezes existing raw batches; this never grades or decides a role.
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
@@ -18,6 +18,7 @@ const scoreOnScale = (value, denominator) => typeof value === 'number'
 const canonical = value => JSON.stringify(value, (_key, item) => object(item)
   ? Object.fromEntries(Object.keys(item).sort().map(key => [key, item[key]])) : item);
 const filePattern = /^(chat|code|dr)-\d{3}\.json$/;
+const hashPattern = /^[a-f0-9]{64}$/;
 const roleForFile = Object.freeze({ chat: ['CHAT'], code: ['CODE'], dr: ['D1', 'D2', 'R1', 'R2'] });
 
 function parseJson(bytes, code) {
@@ -64,10 +65,34 @@ function verifyCodeComponents(row) {
 }
 
 export function verifyHuntSecondReviewBatches({packetBytes,expectedPacketSha256,
-  sharedContextBytes,codePolicyBytes,batchFiles,revisionBytes} = {}) {
-  if (!/^[a-f0-9]{64}$/.test(expectedPacketSha256 ?? '')) fail('EXPECTED_PACKET_HASH');
+  sharedContextBytes,codePolicyBytes,batchFiles,revisionBytes,manifestBytes} = {}) {
+  if (!hashPattern.test(expectedPacketSha256 ?? '')) fail('EXPECTED_PACKET_HASH');
   const packetSha256 = sha256(packetBytes);
   if (packetSha256 !== expectedPacketSha256) fail('PACKET_HASH');
+  const manifest = parseJson(manifestBytes, 'MANIFEST_JSON');
+  if (!exactKeys(manifest, ['schemaVersion','status','decisionAuthority',
+    'packetSha256','batchFiles','revisionFile'])
+    || manifest.schemaVersion !== 1
+    || manifest.status !== 'FROZEN_DEVELOPMENT_REVIEW_EVIDENCE'
+    || manifest.decisionAuthority !== false
+    || manifest.packetSha256 !== packetSha256
+    || !Array.isArray(manifest.batchFiles) || !manifest.batchFiles.length
+    || manifest.batchFiles.some(entry => !exactKeys(entry, ['name','sha256'])
+      || !filePattern.test(entry.name) || !hashPattern.test(entry.sha256))
+    || !exactKeys(manifest.revisionFile, ['name','sha256'])
+    || manifest.revisionFile.name !== 'revisions-after-context.json'
+    || !hashPattern.test(manifest.revisionFile.sha256)) fail('MANIFEST_SCOPE');
+  const expectedFiles=manifest.batchFiles.map(entry => entry.name);
+  if (JSON.stringify(expectedFiles) !== JSON.stringify([...expectedFiles].sort((a,b)=>a.localeCompare(b,'en')))
+    || new Set(expectedFiles).size !== expectedFiles.length) fail('MANIFEST_FILES');
+  if (!Array.isArray(batchFiles) || batchFiles.length !== expectedFiles.length
+    || JSON.stringify(batchFiles.map(file=>file?.name).sort((a,b)=>String(a).localeCompare(String(b),'en')))
+      !== JSON.stringify(expectedFiles)) fail('BATCH_MANIFEST_FILES');
+  const expectedHashes=new Map(manifest.batchFiles.map(entry=>[entry.name,entry.sha256]));
+  for (const file of batchFiles) {
+    if (sha256(file.bytes) !== expectedHashes.get(file.name)) fail('BATCH_MANIFEST_HASH');
+  }
+  if (sha256(revisionBytes) !== manifest.revisionFile.sha256) fail('REVISION_MANIFEST_HASH');
   const packet = parseJson(packetBytes, 'PACKET_JSON');
   if (packet?.schemaVersion !== 1 || packet.status !== 'DEVELOPMENT_BLIND_REVIEW'
     || packet.notFreshHoldout !== true || packet.decisionAuthority !== false
@@ -99,7 +124,6 @@ export function verifyHuntSecondReviewBatches({packetBytes,expectedPacketSha256,
     totalByRole.set(item.role, (totalByRole.get(item.role) ?? 0) + 1);
   }
 
-  if (!Array.isArray(batchFiles) || batchFiles.length === 0) fail('BATCH_FILES');
   const seenNames = new Set(), grades = new Map(), files = [], reviewers = new Set();
   let validatedCriteria = 0, taskIssueCriteria = 0, normalizedMissingIds = 0;
   for (const file of [...batchFiles].sort((a, b) => a.name.localeCompare(b.name, 'en'))) {
@@ -178,7 +202,7 @@ export function verifyHuntSecondReviewBatches({packetBytes,expectedPacketSha256,
     status:missingCases.length ? 'DEVELOPMENT_REVIEW_INCOMPLETE' : 'STRUCTURALLY_COMPLETE_NO_DECISION',
     decisionStatus:'NO_DECISION',decisionAuthority:false,acceptedGrader:false,
     notFreshHoldout:true,validationScope:'STRUCTURE_ONLY_NO_GRADING',
-    packetSha256,sharedContextSha256,codePolicySha256,
+    packetSha256,manifestSha256:sha256(manifestBytes),sharedContextSha256,codePolicySha256,
     reviewer:[...reviewers][0],normalizedMissingIds,
     coverage:{packetCases:packet.cases.length,validatedCases:grades.size,missingCases:missingCases.length,
       packetCriteria,validatedCriteria,missingCriteria:packetCriteria-validatedCriteria,taskIssueCriteria},
@@ -213,6 +237,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
       expectedPacketSha256:options['expected-packet-sha256'],
       sharedContextBytes:readFileSync(join(parent,'shared-system-context.json')),
       codePolicyBytes:readFileSync(join(parent,'CODE-REVIEW-POLICY.md')),
+      // The manifest is selected by reviewed source, not by a caller path.
+      manifestBytes:readFileSync(new URL('../docs/review/evidence/2026-10-01-hunt-second-review-batch-manifest.json',import.meta.url)),
       batchFiles:json.filter(entry=>entry.name!=='revisions-after-context.json')
         .map(entry=>({name:entry.name,bytes:readFileSync(join(gradesDir,entry.name))})),
       revisionBytes:readFileSync(join(gradesDir,'revisions-after-context.json')),
