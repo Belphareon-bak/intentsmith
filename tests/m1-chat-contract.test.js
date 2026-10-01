@@ -1181,7 +1181,7 @@ await testAsync('context-filled CODE retries send a new bounded completion instr
       assert(systems[index].includes('JAZYKOVÉ PRAVIDLO (KRITICKÉ'));
       assert(body.messages.some(message => message.role === 'user' && message.content === precedingQuestion),
         'the preceding question must remain a complete USER turn on every retry');
-      assert(prompts[index].endsWith(`User: ${input}`));
+      assert.deepEqual(body.messages.at(-1), { role: 'user', content: input });
       // The clock is already part of the final provider system message; 96
       // tokens remain for provider role wrappers after the byte-based estimate.
       const providerBytes = body.messages.reduce((sum, message) => sum + Buffer.byteLength(message.content, 'utf8'), 0);
