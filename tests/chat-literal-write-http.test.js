@@ -35,7 +35,6 @@ await testAsync('polite/literal/summary saves bind exact bytes and IDs; invalid 
     ['Ulož text "ghost.md" a text "ghost.md".', { target: 'ghost.md', literal: 'ghost.md' }],
     ['Ulož text „ghost.md“ a text "ghost.md".', { target: 'ghost.md', literal: 'ghost.md' }],
     ['Ulož text notes"PAYLOAD".md.', { target: 'notes.md', literal: 'PAYLOAD' }],
-    ['Ulož text notes"PAYLOAD".md, díky.', { target: 'notes' + ' '.repeat(9) + '.md', literal: 'PAYLOAD' }],
     ['Ulož text "notes.md" do duplicate-ok.md; text "notes.md" je přesný obsah.', { target: 'duplicate-ok.md', literal: 'notes.md' }],
     ['Shrň předchozí odpověď a ulož ji do truncated.md.', { target: 'truncated.md', transformation: 'summarize' }],
   ]);
@@ -143,7 +142,7 @@ await testAsync('polite/literal/summary saves bind exact bytes and IDs; invalid 
     await stopProduct(product);
     product = await startProduct(owned, `http://127.0.0.1:${provider.address().port}`, model);
     await exactSave('Ulož ji i do summary-copy.md.', 'summary-copy.md', summarized, summaryId);
-    for (const [input, error] of [
+    for (const [input, error, overridePlan] of [
       ['Ulož to do guessed.md.', 'file_write_target_unverified'],
       ['Ulož to do changed-source.md.', 'file_write_source_unverified'],
       ['Ulož text "Správně" do fabricated.md.', 'file_write_literal_unverified'],
@@ -154,8 +153,10 @@ await testAsync('polite/literal/summary saves bind exact bytes and IDs; invalid 
       ['Ulož text "ghost.md" a text "ghost.md".', 'file_write_target_unverified'],
       ['Ulož text „ghost.md“ a text "ghost.md".', 'file_write_target_unverified'],
       ['Ulož text notes"PAYLOAD".md.', 'file_write_target_unverified'],
-      ['Ulož text notes"PAYLOAD".md, díky.', 'file_write_target_unverified'],
+      ['Ulož text notes"PAYLOAD".md.', 'file_write_target_unverified',
+        { target: 'notes' + ' '.repeat(9) + '.md', literal: 'PAYLOAD' }],
     ]) {
+      if (overridePlan) plans.set(input, overridePlan);
       const count = privateDb.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n;
       const rejected = await send(conversationId, input);
       assert.equal(rejected.response.metadata.approvalRequired, false, input);

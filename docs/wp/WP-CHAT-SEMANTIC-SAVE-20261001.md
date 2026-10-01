@@ -120,6 +120,28 @@ Nezávislá třetí repro takové cesty na `b2` zůstává uchována.
 HTTP regrese stále ověřuje původní pozitivní doslovné bajty, samostatný
 cíl při opakovaném obsahu a všechny původní nepřípustné cíle; přidává
 modelově zvolenou cestu s maskovanými mezerami a neznámé literal ID.
-První přímé opakování má **1/1 PASS** (`semantic-literal-ids-green.log`).
+První přímé opakování mělo **0/1 FAIL** (`semantic-literal-ids-green.log`),
+registrované opakování na `ac35e27d` **5 PASS / 1 FAIL** v reportu
+`2026-10-01T07-07-39-091Z`. Původní nesprávné tvrzení 1/1 PASS vzniklo
+čtením exit code shellu, který po Node testu spustil úspěšný `git diff
+--check`; zachovaný testový log ve skutečnosti obsahuje selhání. Tento
+výsledek se nepřepisuje. Další příkazy testují Node samostatně.
+Nová regrese s dovětkem „díky“ neprošla file handlerem a neměla jeho
+konkrétní error. Opravená fixture posílá stejný původní vstup
+`Ulož text notes"PAYLOAD".md.` dvakrát: jednou s cílem `notes.md`, podruhé
+s maskovanými mezerami. Obě konkrétní chyby a nulový počet ToolRequest
+zůstávají povinné; obcházení handleru se neprohlašuje za PASS.
+Samostatný Node běh opravené fixture skončil **1/1 PASS**, exit 0
+(`semantic-literal-ids-fixture-corrected.log`); jeho návratový kód byl
+odečten před samostatnou kontrolou diffu.
 Nový kandidát zůstává **REVIEW_PENDING / LIVE_NOT_RUN**; poslední přijatý
 celý CHAT ještě neexistuje a finální 53×3 stále čeká.
+
+Fyzický devítipřípadový pilot na čistém `ac35e27d` dokončil **šest
+schválených zápisů s přesnými bajty** (čtyři literály, dvě kopie původní
+odpovědi). Nejde o celý devítipřípadový PASS: překlepová žádost o lokální
+soubor `network.md` skončila zbytečným upřesněním a samostatná záporná
+žádost dostala nepřínosnou otázku na cíl projektu. Tyto kvalitativní mezery
+zůstávají otevřené pro vývojový průchod. Soukromá evidence je
+`chat-resilience-ac35e27d/runs.json`; runner exit 0 dokládá pouze úplný
+transport. F14–F20 v tomto pilotu nebyly modelu předloženy.
