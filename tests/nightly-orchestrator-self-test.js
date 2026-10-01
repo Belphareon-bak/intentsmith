@@ -19,6 +19,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { Writable } from 'node:stream';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { gunzipSync } from 'node:zlib';
 
 import {
   parseArgs,
@@ -663,9 +664,11 @@ async function writeFixtureRepo(repo) {
   await writeFile(fakePdfInstaller, fakePdfInstallerSource(), { mode: 0o755 });
   await chmod(fakePdfInstaller, 0o755);
 
-  const registry = JSON.parse(
-    await readFile(path.join(SOURCE_ROOT, 'tests', 'registry.json'), 'utf8'),
-  );
+  // Gate 0 is sealed to this reviewed registry. The active registry can grow
+  // without changing the release policy exercised by this fixture.
+  const registry = JSON.parse(gunzipSync(await readFile(path.join(
+    SOURCE_ROOT, 'tests', 'fixtures', 'gate0-registry-162b890b.json.gz',
+  ))).toString('utf8'));
   await writeJson(path.join(repo, 'tests', 'registry.json'), registry);
   await writeFile(
     path.join(repo, 'scripts', 'validate-test-registry.js'),

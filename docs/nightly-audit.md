@@ -23,6 +23,14 @@ The registry counts and seal below describe the historical reviewed Gate 0
 selection, not the current development registry. The release seal is not
 updated by a development validation run (`CONTRACT.md §8`).
 
+The orchestrator self-test uses the reviewed Gate 0 registry snapshot from
+`9462ec0b` in `tests/fixtures/gate0-registry-162b890b.json.gz` (parsed SHA-256
+`162b890b97142127fdd4859bc48a02056a837b3fd2773e26d8a130e0e55f4deb`,
+279 offline and 74 database suites). This keeps the self-test tied to the
+actual release seal while the development registry grows. The compressed file
+is test input; it does not change the Gate 0 source branch, registry policy, or
+release readiness.
+
 ## Historical reviewed Gate 0 selection
 
 Status: reviewed one-shot verification candidate. Systemd installation and
