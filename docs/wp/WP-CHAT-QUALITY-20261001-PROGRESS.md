@@ -1,14 +1,14 @@
 # IntentSmith — průběh práce na kvalitě chatu
 
-Poslední aktualizace: **1. 10. 2026, 23:00 CEST**. Stav: **CHANGES_REQUIRED / WORK_CONTINUES / REVIEW_PENDING**.
+Poslední aktualizace: **1. 10. 2026, 23:28 CEST**. Stav: **CHANGES_REQUIRED / WORK_CONTINUES / REVIEW_PENDING**.
 Dokument aktualizuji po každém dokončeném milníku, nejpozději po třech hodinách
 aktivní práce. Historická selhání zůstávají uvedena; nové ověření je nepřepisuje
 na úspěch. Nejde o plánovač úloh po ukončení této pracovní relace.
 
 Větev: `work/chat-quality-20261001`. Společný výchozí commit:
 `45caf5b54b78def257221ac2ab33a64031800813`. Poslední testovaný implementační
-commit: **`3b3b399f`** (tři celé živé série; runtime shodný s `495a069f`,
-testový helper opravený v `09d9fa01`). Tento dokument se publikuje následným dokumentačním
+commit: **`c868fea3`** (aktuální oprava schopností, 7 cílených PASS a 13
+živých vývojových kroků; S1 se vztahuje výhradně k `3b3b399f`). Tento dokument se publikuje následným dokumentačním
 commitem. Vlastní worktree: `intentsmith-chat-quality-20261001`.
 Mimochatový worker, jeho soubory a produkční release zůstávají nedotčené.
 
@@ -130,6 +130,41 @@ artefakty v `.intentsmith-artifacts/chat-quality-20261001/` a
 commitu. Kontrolovatelný výběr výsledků je v [review reportu](../review/2026-10-01-CHAT-QUALITY.md)
 a jeho evidence přílohách; obsahuje syntetické odpovědi, důvody, identity,
 bajty efektů, latence a původní neúspěchy, bez privátních DB a capabilities.
+
+## Milník S2 — návaznost mazání a skutečné schopnosti aplikace
+
+- `09ec41ec` zachovává z neznámého intent enumu pouze konkrétní typed delete
+  pro odmítnutí. Neznámé kladné akce, neověřený cíl, neplatný tvar/confidence
+  a zkrácená odpověď zůstávají odmítnuté. Reprodukce používá skutečnou
+  providerovou hranici a HTTP pokračování po restartu; delete se nemění na read.
+- Klasifikátor zná chybějící adaptéry pro zprávy, osobní kalendář a hardware;
+  vlastní dostupnost nepožaduje po uživateli. Jazyk konkrétní otázky a neutrální
+  chybějící referent jsou součástí interpretace. Dostupné souborové akce si
+  zachovávají vlastní schvalovací cestu.
+- Nejnovější `chat-quality-focused-20261001-capabilities-literal` na `c868fea3`
+  má 7 PASS, M1 74/74; původní kapacitní limity a fixtures zůstaly.
+  První `09ec41ec` průchod měl 5 PASS / 2 FAIL kvůli delší instrukci a její
+  textové asertaci; zkrácení v `db8e9553` vrátilo celou sedmici na PASS.
+- Předem deklarovaných 13 nových vývojových kroků: `3d4f57b2` / run
+  `6a96cd3a-012d-4827-8c8d-d2937402d44f`: B-only, 8/13 užitečných.
+  `c868fea3` / run `888d5b79-b85e-4fec-8f0b-448a45a484d0`: všech 13 B/A
+  dokončeno, vlastní hodnocení B 9/13. Oba mají 0 zbytečných zastavení,
+  0 kritických chyb a přesný schválený zápis `sum=37ms` do `metrics.md`;
+  všech 26 kroků před schválením bez efektu a změny souborů.
+- Opravená návaznost mazání, cílené chybějící referenty a kalendářový návrh
+  prošly. Přesný e-mailový draft a formát samostatné části složeného zadání
+  stále selhávají; další konceptuální odpověď chybně zaručuje neobnovitelnost
+  smazání. Živý výkon tedy stále nesplňuje kvalitativní cíl.
+- Diagnostická chyba byla opravena: kontrola první SYSTEM zprávy (hodiny)
+  nesprávně naznačila ztrátu metadat. Druhá SYSTEM zpráva skutečně obsahuje
+  nové instrukce. Nebyla provedena oprava neexistující ztráty; selhání je
+  nedodržení předaného pravidla modelem. Obě série a důvody zůstávají v
+  [evidenci vývojového milníku](../review/evidence/chat-quality-20261001/capabilities-development.json).
+
+Další práce: celý technický profil aktuálního runtime a izolované srovnání
+již instalovaných přesných artefaktů na stejných dialozích. Produkční modelové
+bindingy se nemění. Po volbě kandidáta následují tři nezměněné regresní série
+původních 53 případů; odhalené F14–F20 nejsou nový nepoužitý holdout.
 
 ## Další milník a podmínky přijetí
 

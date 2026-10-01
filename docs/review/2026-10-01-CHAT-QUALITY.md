@@ -110,6 +110,41 @@ V každé sérii pouze tři anglické případy; výsledky B 1/3, 2/3, 2/3 nesta
 Kontrolovatelná evidence: [odpovědi, důvody, identity a měření S1](evidence/chat-quality-20261001/semantic-assessment-s1.json), [technické běhy včetně FAIL/BLOCKED](evidence/chat-quality-20261001/technical-evidence.json), [přesné efekty](evidence/chat-quality-20261001/final-effect-check.json), [izolované kontroly kódu](evidence/chat-quality-20261001/final-code-check.json), [kalibrace](evidence/chat-quality-20261001/code-validator-calibration.json), [předem vybraný textový vzorek](evidence/chat-quality-20261001/final-comparison-scope.json). Jde o syntetické testové rozhovory; privátní DB, authorization capability a surové wire logy se nepublikují.
 
 
+## Vývojový milník S2 po neúspěšné sérii S1
+
+- `09ec41ec` zachovává z neznámého intent enumu pouze konkrétní typed delete
+  pro odmítnutí. Neznámé kladné akce, neověřený cíl, neplatný tvar/confidence
+  a zkrácená odpověď zůstávají odmítnuté. Reprodukce používá skutečnou
+  providerovou hranici a HTTP pokračování po restartu; delete se nemění na read.
+- Klasifikátor zná chybějící adaptéry pro zprávy, osobní kalendář a hardware;
+  vlastní dostupnost nepožaduje po uživateli. Jazyk konkrétní otázky a neutrální
+  chybějící referent jsou součástí interpretace. Dostupné souborové akce si
+  zachovávají vlastní schvalovací cestu.
+- Nejnovější `chat-quality-focused-20261001-capabilities-literal` na `c868fea3`
+  má 7 PASS, M1 74/74; původní kapacitní limity a fixtures zůstaly.
+  První `09ec41ec` průchod měl 5 PASS / 2 FAIL kvůli delší instrukci a její
+  textové asertaci; zkrácení v `db8e9553` vrátilo celou sedmici na PASS.
+- Předem deklarovaných 13 nových vývojových kroků: `3d4f57b2` / run
+  `6a96cd3a-012d-4827-8c8d-d2937402d44f`: B-only, 8/13 užitečných.
+  `c868fea3` / run `888d5b79-b85e-4fec-8f0b-448a45a484d0`: všech 13 B/A
+  dokončeno, vlastní hodnocení B 9/13. Oba mají 0 zbytečných zastavení,
+  0 kritických chyb a přesný schválený zápis `sum=37ms` do `metrics.md`;
+  všech 26 kroků před schválením bez efektu a změny souborů.
+- Opravená návaznost mazání, cílené chybějící referenty a kalendářový návrh
+  prošly. Přesný e-mailový draft a formát samostatné části složeného zadání
+  stále selhávají; další konceptuální odpověď chybně zaručuje neobnovitelnost
+  smazání. Živý výkon tedy stále nesplňuje kvalitativní cíl.
+- Diagnostická chyba byla opravena: kontrola první SYSTEM zprávy (hodiny)
+  nesprávně naznačila ztrátu metadat. Druhá SYSTEM zpráva skutečně obsahuje
+  nové instrukce. Nebyla provedena oprava neexistující ztráty; selhání je
+  nedodržení předaného pravidla modelem. Obě série a důvody zůstávají v
+  [evidenci vývojového milníku](evidence/chat-quality-20261001/capabilities-development.json).
+
+Další práce: celý technický profil aktuálního runtime a izolované srovnání
+již instalovaných přesných artefaktů na stejných dialozích. Produkční modelové
+bindingy se nemění. Po volbě kandidáta následují tři nezměněné regresní série
+původních 53 případů; odhalené F14–F20 nejsou nový nepoužitý holdout.
+
 ## Publikace a další postup
 
 Větev `work/chat-quality-20261001` vychází z přesně připnutého `45caf5b5`, srovnávací vzdálená větev `review/chat-quality-base-20261001` ukazuje na stejný commit. Pushe jsou ověřené vzdáleným SHA; nejsou nasazením ani přejímkou. Draft PR nevzniklo: GitHub integrace odmítla operaci 403 `Resource not accessible by integration`. Stav **PR_NOT_CREATED / CI_NOT_RUN / REVIEW_PENDING** se nemění bez nového důkazu. Jiné workerovy checkouty a produkční proces zůstaly nedotčené.
