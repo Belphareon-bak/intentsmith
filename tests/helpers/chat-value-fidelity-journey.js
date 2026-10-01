@@ -58,7 +58,8 @@ export function isAnswerRequest(request, valueCase) {
   const lastMessage = request.messages.at(-1);
   return lastMessage?.role === 'user'
     && typeof lastMessage.content === 'string'
-    && lastMessage.content.endsWith(`User: ${valueCase.input}`);
+    && (lastMessage.content === valueCase.input
+      || lastMessage.content.endsWith(`User: ${valueCase.input}`));
 }
 
 export function assertFinalValueRequest(request, valueCase, expectedModel) {
