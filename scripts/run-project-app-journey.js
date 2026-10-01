@@ -15,7 +15,7 @@ import { LINUX_BWRAP_READ_ONLY_PROFILE } from '../src/execution/process-supervis
 import { computeM2ExecutionValueDigest } from '../contracts/m2/execution-v1.js';
 import { makeRuntime, startServer, stopServer, requestJson } from './run-project-build-journey.js';
 import {
-  LEDGER_FILES, ORACLE_PATH, ORACLE_SOURCE, ORACLE_SHA256, PROBE_PATH, PROBE_SOURCE,
+  LEDGER_FILES, ORACLE_PATH, ORACLE_BINARY, ORACLE_ARGV, ORACLE_SOURCE, ORACLE_SHA256, PROBE_PATH, PROBE_SOURCE,
   PROBE_SHA256, VALIDATE_PATH, VALIDATE_SOURCE, VALIDATE_SHA256, ENTRY_PATH,
   ENTRY_SOURCE, ENTRY_SHA256, sha256, ledgerBlueprint, assertLedgerPreview,
   assertLedgerCLIResults, policyForFrozenOracle,
@@ -40,7 +40,7 @@ function git(cwd, args) {
 
 function sourceObservation() {
   return { head: git(SOURCE_ROOT, ['rev-parse', 'HEAD']), dirty: git(SOURCE_ROOT, ['status', '--porcelain=v1']),
-    oracleSha256: ORACLE_SHA256, probeSha256: PROBE_SHA256,
+    oracleSha256: ORACLE_SHA256, oracleBinary: ORACLE_BINARY, probeSha256: PROBE_SHA256,
     validatorProbeSha256: VALIDATE_SHA256,
     entrySha256: ENTRY_SHA256, generatedPaths: EXPECTED_PATHS };
 }
@@ -116,7 +116,7 @@ async function sandboxNode(project, argv, artifactRoot) {
   const environment = { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' };
   return processSandboxProvider.run({
     sandboxProfile: LINUX_BWRAP_READ_ONLY_PROFILE,
-    projectRoot: project, canonicalCwd: project, binary: '/usr/bin/node', argv,
+    projectRoot: project, canonicalCwd: project, binary: ORACLE_BINARY, argv,
     argvDigest: computeM2ExecutionValueDigest(argv), environment,
     environmentDigest: computeM2ExecutionValueDigest(environment), timeoutMs: 30_000,
     expectedExitCode: 0,
@@ -124,7 +124,7 @@ async function sandboxNode(project, argv, artifactRoot) {
 }
 
 async function verifyApplication(project, artifacts) {
-  const accepted = await sandboxNode(project, [ORACLE_PATH], artifacts);
+  const accepted = await sandboxNode(project, ORACLE_ARGV, artifacts);
   assert.equal(accepted.terminalStatus, 'succeeded', JSON.stringify(accepted));
   assert.match(accepted.stdout, /PROJECT_APP_ORACLE_PASS/);
   const commands = [['add', 12.5, 'food'], ['add', 7.25, 'travel'], ['add', 3.5, 'food'],
@@ -259,8 +259,8 @@ async function runInside(configurationPath) {
     }, 900_000), 200, 'six-file physical CODE draft');
     assert.equal(drafted.state, 'awaiting_approval');
     assert.match(drafted.planDigest, /^sha256:[0-9a-f]{64}$/);
-    assert.deepEqual(drafted.plan.focusedTest.argv, [ORACLE_PATH]);
-    assert.equal(drafted.plan.focusedTest.binary, '/usr/bin/node');
+    assert.deepEqual(drafted.plan.focusedTest.argv, ORACLE_ARGV);
+    assert.equal(drafted.plan.focusedTest.binary, ORACLE_BINARY);
     assertLedgerPreview(drafted.diff, project,
       (root, relative) => fs.readFileSync(path.join(root, relative)),
       (root, relative) => fs.existsSync(path.join(root, relative)));
@@ -479,8 +479,8 @@ async function runParent(options) {
       if (!evidence.gpuLeaseReleased) evidence.status = 'FAIL';
     }
     const afterSource = sourceObservation();
-    evidence.sourceCleanAfter = afterSource.head === source.head && afterSource.dirty === ''
-      && afterSource.oracleSha256 === source.oracleSha256;
+    evidence.sourceCleanAfter = afterSource.dirty === ''
+      && JSON.stringify(afterSource) === JSON.stringify(source);
     if (!evidence.sourceCleanAfter) evidence.status = 'FAIL';
     evidence.completedAt = new Date().toISOString();
     save(out, 'provider-requests.json', requests);

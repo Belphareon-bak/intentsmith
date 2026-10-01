@@ -18,7 +18,7 @@ import { up as applyEffectClaimTruth } from '../src/db/migrations/2026_08_24_073
 import { up as applyExecutionAuthority } from '../src/db/migrations/2026_08_24_078_m2_execution_authority.js';
 import { up as applyLifecycleAuthority } from '../src/db/migrations/2026_08_24_079_m2_lifecycle_authority.js';
 import {
-  ORACLE_PATH, ORACLE_SOURCE, ORACLE_SHA256, PROBE_PATH, PROBE_SOURCE, PROBE_SHA256,
+  ORACLE_PATH, ORACLE_BINARY, ORACLE_ARGV, ORACLE_SOURCE, ORACLE_SHA256, PROBE_PATH, PROBE_SOURCE, PROBE_SHA256,
   VALIDATE_PATH, VALIDATE_SOURCE, VALIDATE_SHA256, ENTRY_PATH, ENTRY_SOURCE, ENTRY_SHA256,
   sha256, ledgerBlueprint, policyForFrozenOracle,
 } from '../scripts/project-app-acceptance.js';
@@ -56,6 +56,7 @@ async function fixture(defect) {
   const policyPath = path.join(project, '.intentsmith/m2-governance-policy.json');
   const policy = policyForFrozenOracle(JSON.parse(fs.readFileSync(policyPath, 'utf8')));
   assert.ok(policy.externalImports.includes('node:child_process'));
+  assert.ok(policy.externalImports.includes('node:vm'));
   fs.writeFileSync(policyPath, JSON.stringify(policy, null, 2) + '\n');
   fs.writeFileSync(path.join(project, ORACLE_PATH), ORACLE_SOURCE);
   fs.writeFileSync(path.join(project, PROBE_PATH), PROBE_SOURCE);
@@ -70,7 +71,7 @@ async function fixture(defect) {
   const databasePath = path.join(folder, 'authority.sqlite');
   const db = databaseAt(databasePath);
   const outputs = { ...REFERENCE_LEDGER_OUTPUTS };
-  if (defect && defect !== 'probe-json-forgery') {
+  if (['wrong-total', 'assert-noops', 'early-exit'].includes(defect)) {
     outputs['src/totals.js'] = outputs['src/totals.js'].replace('sum + row.amount', 'sum + 1');
   }
   if (defect === 'assert-noops') outputs['src/app.js'] = `import assert from 'node:assert/strict';
@@ -90,6 +91,17 @@ export { run } from './cli.js';
 export { run } from './cli.js';
 `;
   }
+  if (['storage-row-alias', 'storage-json-forgery'].includes(defect)) {
+    outputs['src/storage.js'] = outputs['src/storage.js'].replace('rows.map(row => ({ ...row }))', 'rows.slice()');
+  }
+  if (defect === 'storage-json-forgery') {
+    outputs['src/storage.js'] = `if (process.argv[1].endsWith('subject-probe.mjs')) {
+  const row = JSON.parse(process.argv[2]);
+  process.stdout.write(JSON.stringify({ before: row, after: row }) + '\\n');
+  process.exit(0);
+}
+` + outputs['src/storage.js'];
+  }
   const calls = [];
   const service = createDefaultM2LifecycleApplicationService({ database: db,
     projects: { findById: { get: id => id === PROJECT_ID ? { id, path: project, status: 'active' } : null } },
@@ -106,7 +118,8 @@ export { run } from './cli.js';
   return { folder, project, db, databasePath, outputs, calls, baseline, service };
 }
 
-for (const defect of [null, 'wrong-total', 'assert-noops', 'early-exit', 'probe-json-forgery']) {
+for (const defect of [null, 'wrong-total', 'assert-noops', 'early-exit',
+  'probe-json-forgery', 'storage-row-alias', 'storage-json-forgery']) {
   test(`M2 six-file project ${defect ? `rolls back ${defect}` : 'commits a functioning app'}`, async () => {
     const f = await fixture(defect);
     try {
@@ -124,8 +137,8 @@ for (const defect of [null, 'wrong-total', 'assert-noops', 'early-exit', 'probe-
       assert.equal(planned.state, 'awaiting_approval');
       assert.deepEqual(f.calls, GENERATION_ORDER);
       assert.deepEqual(planned.diff.map(row => row.path), Object.keys(f.outputs).sort());
-      assert.deepEqual(planned.plan.focusedTest.argv, [ORACLE_PATH]);
-      assert.equal(planned.plan.focusedTest.binary, '/usr/bin/node');
+      assert.deepEqual(planned.plan.focusedTest.argv, ORACLE_ARGV);
+      assert.equal(planned.plan.focusedTest.binary, ORACLE_BINARY);
       assert.equal(git(f.project, ['rev-parse', 'HEAD']), f.baseline);
       assert.equal(git(f.project, ['status', '--porcelain=v1']), '');
       for (const relative of Object.keys(f.outputs)) assert.equal(fs.existsSync(path.join(f.project, relative)), false);
@@ -146,6 +159,12 @@ for (const defect of [null, 'wrong-total', 'assert-noops', 'early-exit', 'probe-
           const testOutput = result.audit.executionEvents.find(event => event.type === 'process_terminated')?.details?.testOutput;
           assert.match(testOutput?.stderr || '', /validate directly rejects nonfinite NaN/,
             'direct validator process status catches forged probe JSON');
+        }
+        if (defect === 'storage-row-alias' || defect === 'storage-json-forgery') {
+          const testOutput = result.audit.executionEvents.find(event => event.type === 'process_terminated')?.details?.testOutput;
+          assert.match(testOutput?.stderr || '',
+            defect === 'storage-json-forgery' ? /process is not defined/ : /list returns independent row objects/,
+            'trusted direct API observation rejects aliased storage');
         }
         assert.equal(result.result.rollback.status, 'succeeded');
         assert.equal(git(f.project, ['rev-parse', 'HEAD']), f.baseline);

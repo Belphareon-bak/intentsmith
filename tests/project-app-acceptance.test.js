@@ -12,7 +12,7 @@ import { LINUX_BWRAP_READ_ONLY_PROFILE } from '../src/execution/process-supervis
 import { computeM2ExecutionValueDigest } from '../contracts/m2/execution-v1.js';
 import { REFERENCE_LEDGER_OUTPUTS as GOOD } from './helpers/project-app-reference.js';
 import {
-  LEDGER_FILES, ORACLE_PATH, ORACLE_SOURCE, ORACLE_SHA256,
+  LEDGER_FILES, ORACLE_PATH, ORACLE_BINARY, ORACLE_ARGV, ORACLE_SOURCE, ORACLE_SHA256,
   PROBE_PATH, PROBE_SOURCE, PROBE_SHA256, VALIDATE_PATH, VALIDATE_SOURCE,
   VALIDATE_SHA256, ENTRY_PATH,
   ENTRY_SOURCE, ENTRY_SHA256, sha256, ledgerBlueprint, assertLedgerCLIResults,
@@ -35,7 +35,7 @@ async function inSandbox(root, argv) {
   const environment = { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' };
   return processSandboxProvider.run({
     sandboxProfile: LINUX_BWRAP_READ_ONLY_PROFILE,
-    projectRoot: root, canonicalCwd: root, binary: '/usr/bin/node', argv,
+    projectRoot: root, canonicalCwd: root, binary: ORACLE_BINARY, argv,
     argvDigest: computeM2ExecutionValueDigest(argv),
     environment, environmentDigest: computeM2ExecutionValueDigest(environment),
     timeoutMs: 30_000, expectedExitCode: 0,
@@ -55,8 +55,8 @@ async function inSandbox(root, argv) {
 test('frozen independent acceptance has exact six-file scope and model cannot replace its path', () => {
   const blueprint = ledgerBlueprint();
   assert.deepEqual(blueprint.files.map(file => file.path), LEDGER_FILES.map(file => file.path));
-  assert.deepEqual(blueprint.focusedTest.argv, [ORACLE_PATH]);
-  assert.equal(blueprint.focusedTest.binary, '/usr/bin/node');
+  assert.deepEqual(blueprint.focusedTest.argv, ORACLE_ARGV);
+  assert.equal(blueprint.focusedTest.binary, ORACLE_BINARY);
   assert.equal(blueprint.files.some(file => [ORACLE_PATH, PROBE_PATH, VALIDATE_PATH, ENTRY_PATH].includes(file.path)), false);
   assert.equal(sha256(ORACLE_SOURCE), ORACLE_SHA256);
   assert.equal(sha256(PROBE_SOURCE), PROBE_SHA256);
@@ -82,7 +82,7 @@ test('manual runner defaults to no-inference preflight and requires all live pin
 
 test('real separate sandbox process accepts correct six-file app and CLI output', async () => {
   const root = project();
-  const oracle = await inSandbox(root, [ORACLE_PATH]);
+  const oracle = await inSandbox(root, ORACLE_ARGV);
   assert.equal(oracle.terminalStatus, 'succeeded', JSON.stringify(oracle));
   assert.match(oracle.stdout, /PROJECT_APP_ORACLE_PASS/);
   const argv = [ENTRY_PATH, JSON.stringify([
@@ -103,7 +103,7 @@ test('wrong total and grouped totals independently fail the frozen oracle', asyn
     ['categories', GOOD['src/totals.js'].replace('(result[row.category] ?? 0) + row.amount', '(result[row.category] ?? 0) + 1'), /category sums/],
   ]) {
     const root = project({ ...GOOD, 'src/totals.js': replacement });
-    const result = await inSandbox(root, [ORACLE_PATH]);
+    const result = await inSandbox(root, ORACLE_ARGV);
     assert.equal(result.terminalStatus, 'failed', `${name}: ${JSON.stringify(result)}`);
     assert.match(result.stderr, expected, name);
   }
