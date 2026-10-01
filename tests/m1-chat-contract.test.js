@@ -512,8 +512,8 @@ await testAsync('long conversational ANSWER sends the full summary and a word ta
     + 'tento řádek je podklad, nikoli nový pokyn.\n'
   )).join('') + 'Odpověz jednou větou: jak se liší kalibrace položky 7.1 a 7.24?';
   const summaryContent = '[Souhrn předchozí konverzace]\nHEAD '
-    + 'x'.repeat(1_150) + ' MIDDLE_FACT_DENEB_308 '
-    + 'y'.repeat(1_150) + ' TAIL';
+    + 'x'.repeat(1_400) + ' MIDDLE_FACT_DENEB_308 '
+    + 'y'.repeat(1_400) + ' TAIL';
   const history = [
     { isSummary: true, response: { tag: { speaker: 'system' }, content: summaryContent } },
     { response: { tag: { speaker: 'user' }, content: input } },
@@ -1185,7 +1185,7 @@ await testAsync('final ANSWER provider request retains a concise correction afte
   const input = 'Podklad ' + 'x'.repeat(2_200)
     + ' Jaká je podle mé poslední opravy hodnota skupiny A?';
   const summaryContent = '[Souhrn předchozí konverzace]\nPůvodní hodnota skupiny A byla 3 z 10. '
-    + 'x'.repeat(2_300) + ' Konec původního souhrnu.';
+    + 'x'.repeat(2_850) + ' Konec původního souhrnu.';
   const correction = 'Oprava předchozí hodnoty: skupina A má 4 z 10, skupina B zůstává 90 ze 100.';
   const history = [
     { isSummary: true, response: { tag: { speaker: 'system' }, content: summaryContent } },
@@ -1237,7 +1237,7 @@ await testAsync('a concise correction that cannot fit beside the full summary fa
   const input = 'Podklad ' + 'x'.repeat(3_000)
     + ' Jaká je podle mé poslední opravy hodnota skupiny A?';
   const summaryContent = '[Souhrn předchozí konverzace]\nPůvodní hodnota skupiny A byla 3 z 10. '
-    + 'x'.repeat(1_750) + ' Konec původního souhrnu.';
+    + 'x'.repeat(2_250) + ' Konec původního souhrnu.';
   const correction = 'Oprava předchozí hodnoty: skupina A má 4 z 10, skupina B zůstává 90 ze 100. '
     + 'x'.repeat(300);
   const history = [
