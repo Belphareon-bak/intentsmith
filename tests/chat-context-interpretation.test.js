@@ -140,6 +140,43 @@ test('first-turn ASK_USER is returned verbatim without a generation call or cate
   } finally { creDecisionEngine.decide = originalDecide; llmGateway.call = originalCall; }
 });
 
+test('unknown classifier labels preserve only grounded delete refusal, never positive action authority', async () => {
+  const original = llmGateway.call;
+  const state = new SessionState('unknown-delete-label');
+  state.setPendingDecision({ type: 'ASK_USER', intent: 'AMBIGUOUS', metadata: {
+    originalRequest: 'Smaž ten druhý.', originalRequestedOperation: 'delete',
+    clarificationQuestion: 'Který soubor?',
+  } });
+  let proposed = { intent: 'FILE_DELETE', confidence: 0.95, fileTarget: 'notes.md',
+    requestedOperation: 'delete', continuesPending: true, responseScope: 'conversation' };
+  let finishReason = 'stop';
+  llmGateway.call = async () => ({ content: JSON.stringify(proposed), finishReason });
+  try {
+    const decision = await creDecisionEngine.decide('Myslím notes.md.', { sessionState: state });
+    assert.equal(decision.type, DecisionType.REFUSE);
+    assert.equal(decision.metadata.unavailableOperation, 'delete');
+    assert.deepEqual(decision.tools, []);
+    assert.equal(await creDecisionEngine._llmClassifyIntent('Myslím něco jiného.', { sessionState: state }), null);
+    for (const requestedOperation of ['read', 'write', 'create', 'other', null]) {
+      proposed = { ...proposed, intent: 'UNKNOWN_ACTION', requestedOperation };
+      assert.equal(await creDecisionEngine._llmClassifyIntent('Myslím notes.md.', { sessionState: state }), null);
+    }
+    proposed = { ...proposed, requestedOperation: 'delete' };
+    for (const fileTarget of ['', '../notes.md', '/notes.md', 'notes\u0000.md', 'notes\n.md']) {
+      proposed.fileTarget = fileTarget;
+      assert.equal(await creDecisionEngine._llmClassifyIntent(`Myslím ${fileTarget}.`, { sessionState: state }), null);
+    }
+    proposed.fileTarget = 'notes.md';
+    for (const confidence of [null, '0.95', -0.1, 1.1]) {
+      proposed.confidence = confidence;
+      assert.equal(await creDecisionEngine._llmClassifyIntent('Myslím notes.md.', { sessionState: state }), null);
+    }
+    proposed.confidence = 0.95;
+    finishReason = 'length';
+    assert.equal(await creDecisionEngine._llmClassifyIntent('Myslím notes.md.', { sessionState: state }), null);
+  } finally { llmGateway.call = original; }
+});
+
 test('a numeric reply fills an open question instead of taking the stateless arithmetic shortcut', async () => {
   const original = creDecisionEngine._llmClassifyIntent;
   const state = new SessionState('numeric-file-name');
@@ -521,10 +558,10 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
       }
     } else if (system.includes('Klasifikuj')) {
       if (parsed?.request === 'Smaž ten druhý.' || parsed?.request === 'Myslím notes.md.') {
-        content = JSON.stringify({ intent: parsed.request === 'Smaž ten druhý.' ? 'AMBIGUOUS' : 'FILE_READ',
+        content = JSON.stringify({ intent: parsed.request === 'Smaž ten druhý.' ? 'AMBIGUOUS' : 'FILE_DELETE',
           confidence: 0.95, fileTarget: parsed.request === 'Myslím notes.md.' ? 'notes.md' : null,
           question: parsed.request === 'Smaž ten druhý.' ? 'Který soubor chceš smazat?' : null,
-          requestedOperation: parsed.request === 'Smaž ten druhý.' ? 'delete' : 'read',
+          requestedOperation: 'delete',
           continuesPending: Boolean(parsed.pending), responseScope: 'conversation' });
       } else {
       const ambiguous = parsed?.request === 'Pomoz mi s výběrem.';
