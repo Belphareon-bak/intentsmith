@@ -36,7 +36,7 @@ import { config } from '../config.js';
 import { featureManager } from '../core/feature-manager.js';
 import { throwIfAborted } from '../core/abort-error.js';
 import { buildProjectHint } from './handlers/utils/project-context-prompt.js';
-import { buildInterpretationContext } from './conversation-context.js';
+import { buildInterpretationContext, pendingConversationQuestion } from './conversation-context.js';
 import { getNumCtx } from '../llm/model-ctx.js';
 
 // v73: Lazy import to avoid circular dependency (followup.js → intent.js → cre-decision.js)
@@ -3285,7 +3285,9 @@ PRAVIDLA:
             : stableConversationOverride
               ? IntentType.CONVERSATIONAL
               : deterministicIntent;
-    const isDeterministic =
+    // A short reply (including a number) can fill an open slot. Interpret it
+    // with the original question before a stateless shortcut chooses a route.
+    const isDeterministic = !pendingConversationQuestion(context) && (
       (resolvedDeterministicIntent === IntentType.CONVERSATIONAL
         && !requiresFileArbitration
         && !mayRequireLocalAuthority
@@ -3304,7 +3306,7 @@ PRAVIDLA:
       isLowInformation ||
       isAmbiguousTechnologyTopic ||
       // v72: ITEM_LOOKUP is purely pattern-based (count + thing) — skip LLM
-      resolvedDeterministicIntent === IntentType.ITEM_LOOKUP;
+      resolvedDeterministicIntent === IntentType.ITEM_LOOKUP);
 
     if (isDeterministic) {
       const _classStart = performance.now();

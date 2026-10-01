@@ -74,6 +74,29 @@ test('first-turn ASK_USER is returned verbatim without a generation call or cate
   } finally { creDecisionEngine.decide = originalDecide; llmGateway.call = originalCall; }
 });
 
+test('a numeric reply fills an open question instead of taking the stateless arithmetic shortcut', async () => {
+  const original = creDecisionEngine._llmClassifyIntent;
+  const state = new SessionState('numeric-file-name');
+  state.setPendingDecision({ type: 'ASK_USER', intent: 'FILE_WRITE', metadata: {
+    originalRequest: 'Ulož odpověď.', clarificationQuestion: 'Do kterého souboru?',
+    fileSaveClarification: { projectId: 1, sourceMessageId: null, userMessageId: 101 },
+  } });
+  let classified = false;
+  creDecisionEngine._llmClassifyIntent = async (input, context) => {
+    assert.equal(input, '21');
+    assert.equal(context.sessionState.pendingDecision.metadata.originalRequest, 'Ulož odpověď.');
+    classified = true;
+    return { intent: 'FILE_WRITE', confidence: 0.95, fileTarget: '21',
+      contextualInterpretation: true, continuesPending: true };
+  };
+  try {
+    const decision = await creDecisionEngine.decide('21', { project: { id: 1 }, sessionState: state });
+    assert.equal(classified, true);
+    assert.equal(decision.intent, 'FILE_WRITE');
+    assert.equal(decision.metadata.classifiedBy, 'llm');
+  } finally { creDecisionEngine._llmClassifyIntent = original; }
+});
+
 test('ordinary answer includes scoped memory as reference data and preserves the current user request', async () => {
   const original = llmGateway.call;
   const calls = [];
@@ -171,12 +194,36 @@ test('many durable choices fit the registered window without losing the newest s
   } finally { clearNumCtxCache(); }
 });
 
+test('resumed literal requires durable origin verification and preserves its original bytes', async () => {
+  const literal = '  Žluťoučký kůň\nřádek 2  ';
+  const request = `Ulož doslovně „${literal}“.`;
+  const state = new SessionState('literal-origin');
+  state.setPendingDecision({ type: 'ASK_USER', intent: 'FILE_WRITE', metadata: {
+    originalRequest: request, clarificationQuestion: 'Do kterého souboru?',
+    fileSaveClarification: { projectId: 1, sourceMessageId: null, userMessageId: 101 },
+  } });
+  const context = { project: { id: 1 }, sessionState: state, history: [] };
+  const dependencies = { interpretSave: async () => ({ content: JSON.stringify({
+    action: 'write', question: null, target: 'literal.txt', source: { kind: 'literal', literalId: 1 },
+    transformation: 'none', writeMode: 'replace', understood: true, unsupported: [],
+  }) }) };
+  await assert.rejects(resolveFileSavePlan('literal.txt', context, dependencies),
+    error => error.code === 'file_write_literal_origin_unverified');
+  const plan = await resolveFileSavePlan('literal.txt', { ...context,
+    verifyFileSaveOriginalRequest: value => assert.deepEqual(value, { messageId: 101, request }),
+  }, dependencies);
+  assert.equal(plan.content, literal);
+  assert.equal(plan.literalOriginMessageId, 101);
+});
+
 test('M1 restart resumes a targeted save question, preserves summarize/create constraints and never saves cancellation', async () => {
   const owned = createOwnedJourneyRuntime(isolatedTestRuntime);
   const model = 'fixture:1b';
   const digest = 'a'.repeat(64);
   const calls = [];
   const question = 'Do kterého souboru chceš uložit shrnutí?';
+  const literal = '  Žluťoučký kůň\nřádek 2  ';
+  const literalRequest = `Ulož doslovně „${literal}“.`;
   const provider = http.createServer(async (req, res) => {
     let body = '';
     for await (const chunk of req) body += chunk;
@@ -192,14 +239,21 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
     try { parsed = JSON.parse(raw); } catch { parsed = null; }
     let content;
     if (payload.format?.properties?.action) {
+      if (parsed.request === literalRequest || parsed.pending?.request === literalRequest) {
+        const complete = parsed.request === 'quoted.txt';
+        content = JSON.stringify({ action: 'write', question: null, target: complete ? 'quoted.txt' : null,
+          source: { kind: 'literal', literalId: parsed.literals.find(value => value.content === literal)?.literalId },
+          transformation: 'none', writeMode: 'replace', understood: complete, unsupported: complete ? [] : ['target'] });
+      } else {
       const initial = parsed.request === 'Shrň odpověď a ulož ji do nového souboru, nic existujícího nepřepisuj.';
       content = JSON.stringify({ action: 'write', question: null,
         target: initial ? null : 'notes.md', source: { kind: 'answer', messageId: parsed.answers[0]?.messageId },
         transformation: initial ? 'none' : 'summarize', writeMode: 'create', understood: !initial,
         unsupported: initial ? ['target'] : [] });
+      }
     } else if (system.includes('Klasifikuj')) {
       const ambiguous = parsed?.request === 'Pomoz mi s výběrem.';
-      const write = parsed?.pending?.intent === 'FILE_WRITE' || /ulož/.test(parsed?.request || raw);
+      const write = parsed?.pending?.intent === 'FILE_WRITE' || /ulož/i.test(parsed?.request || raw);
       content = JSON.stringify({ intent: ambiguous ? 'AMBIGUOUS' : write ? 'FILE_WRITE'
         : parsed?.request?.includes('faktoriál') ? 'CODE' : 'CONVERSATIONAL',
         confidence: 0.95, fileTarget: null, question: ambiguous ? 'Mezi čím se rozhoduješ?'
@@ -265,6 +319,21 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
     assert.equal(approved.response.metadata.effectResult, 'succeeded');
     assert.equal(readFileSync(path.join(project.path, 'notes.md'), 'utf8'), tool.input.content);
     assert.equal(typeof approved.response.metadata.chatTiming.totalMs, 'number');
+    const beforeLiteral = database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n;
+    await send(literalRequest);
+    await send('ano');
+    assert.equal(database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n, beforeLiteral);
+    await stopProduct(product);
+    product = await startProduct(owned, `http://127.0.0.1:${provider.address().port}`, model);
+    const literalProposal = await send('quoted.txt');
+    assert.equal(literalProposal.response.metadata.approvalRequired, true, JSON.stringify(literalProposal));
+    const literalSource = database.prepare("SELECT id FROM messages WHERE conversation_id = ? AND role = 'user' AND content = ?")
+      .get(conversationId, literalRequest);
+    assert.equal(literalProposal.response.metadata.fileSaveSource.kind, 'user_literal');
+    assert.equal(literalProposal.response.metadata.fileSaveSource.originMessageId, literalSource.id);
+    assert(!existsSync(path.join(project.path, 'quoted.txt')));
+    await send(`schválit efekt ${literalProposal.response.metadata.effectId}`);
+    assert.equal(readFileSync(path.join(project.path, 'quoted.txt'), 'utf8'), literal);
     const before = database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n;
     await send('Neukládej nic, jen vysvětli Git commit.');
     assert.equal(database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n, before);

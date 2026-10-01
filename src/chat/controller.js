@@ -2173,12 +2173,24 @@ ChatController.handle = async function(request) {
     conversationStore: store,
     saveSourceCandidate: store.getLatestSaveSourceTurn(dbConversationId),
     saveSourceCandidates: store.getSaveSourceCandidates(dbConversationId),
-    verifyFileSaveSource: ({ content, sourceMessageId }) => {
+    verifyFileSaveOriginalRequest: ({ messageId, request }) => {
+      throwIfAborted(signal);
+      const source = store.getSaveSourceTurn(dbConversationId, messageId);
+      if (!source || source.role !== TurnRole.USER || source.content !== request
+        || normalizeSourceProjectId(store.getConversation(dbConversationId)?.project_id) !== answerSourceProjectId) {
+        throw new ChatProcessingError('FILE_SAVE_LITERAL_ORIGIN_CHANGED');
+      }
+    },
+    verifyFileSaveSource: ({ content, sourceMessageId, literalOriginMessageId, literalRequest }) => {
       throwIfAborted(signal);
       if (normalizeSourceProjectId(store.getConversation(dbConversationId)?.project_id) !== answerSourceProjectId) {
         throw new ChatProcessingError('CONVERSATION_PROJECT_CHANGED');
       }
-      if (sourceMessageId === null) return; // exact literal from this user turn
+      if (sourceMessageId === null) {
+        if (literalOriginMessageId) fullContext.verifyFileSaveOriginalRequest({
+          messageId: literalOriginMessageId, request: literalRequest });
+        return; // exact current literal, or reverified original user request
+      }
       const source = store.getSaveSourceTurn(dbConversationId, sourceMessageId);
       if (!source || source.role !== TurnRole.ASSISTANT || source.content !== content
         || source.metadata?.saveSourceEligible !== true

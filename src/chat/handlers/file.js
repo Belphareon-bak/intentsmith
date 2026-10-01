@@ -941,7 +941,8 @@ export async function handleFileWriteDecision(input, decision, context, dependen
   });
   let plan;
   try {
-    plan = await resolveFileSavePlan(input, context, dependencies);
+    plan = await resolveFileSavePlan(input, { ...context, langCtx,
+      saveClarificationQuestion: decision.metadata?.clarificationQuestion }, dependencies);
   } catch (error) {
     if (isAbortError(error)) throw error;
     // A schema-constrained model can emit `write` with an unresolved field.
@@ -968,7 +969,7 @@ export async function handleFileWriteDecision(input, decision, context, dependen
         metadata: { contextualInterpretation: true, clarificationQuestion: question,
           originalRequest: previous?.fileSaveClarification ? previous.originalRequest : input,
           fileSaveClarification: { projectId, sourceMessageId: plan.candidateMessageId,
-            userMessageId: context.userMessageId } } }, ['file_save']);
+            userMessageId: previous?.fileSaveClarification?.userMessageId ?? context.userMessageId } } }, ['file_save']);
       return new TaggedResponse({ content: question,
         tag: new ResponseTag({ speaker: ResponseSpeaker.SYSTEM, mode: ChatMode.CONVERSATION,
           confidence: 1, canExecute: false, metadata: { decision: decision.toJSON(),
@@ -1000,7 +1001,9 @@ export async function handleFileWriteDecision(input, decision, context, dependen
     // Production supplies a synchronous core guard. It rechecks project and
     // the exact persisted answer after the model awaits, before tool admission.
     if (typeof context.verifyFileSaveSource === 'function') {
-      context.verifyFileSaveSource({ content, sourceMessageId });
+      context.verifyFileSaveSource({ content, sourceMessageId,
+        ...(plan.literalOriginMessageId ? { literalOriginMessageId: plan.literalOriginMessageId,
+          literalRequest: plan.literalRequest } : {}) });
     }
     throwIfAborted(context.signal);
   } catch (error) {
@@ -1011,8 +1014,8 @@ export async function handleFileWriteDecision(input, decision, context, dependen
     error.code || 'file_write_source_unverified', filePath);
   }
   const fileSaveSource = {
-    messageId: sourceMessageId ?? context.userMessageId,
-    originMessageId: originMessageId ?? context.userMessageId,
+    messageId: plan.literalOriginMessageId ?? sourceMessageId ?? context.userMessageId,
+    originMessageId: plan.literalOriginMessageId ?? originMessageId ?? context.userMessageId,
     kind: sourceMessageId === null ? 'user_literal' : 'answer', projectId,
     transformation: plan.transformation,
     digest: `sha256:${createHash('sha256').update(content, 'utf8').digest('hex')}`,
