@@ -10,26 +10,36 @@ import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 import { processSandboxProvider } from '../src/execution/process-sandbox-provider.js';
 import { LINUX_BWRAP_READ_ONLY_PROFILE } from '../src/execution/process-supervisor-child.js';
 import { computeM2ExecutionValueDigest } from '../contracts/m2/execution-v1.js';
+import { compileCodeDraftInput } from '../src/lifecycle/m2-code-draft.js';
+import { assessProviderGenerations } from '../scripts/run-project-app-journey.js';
 import { REFERENCE_LEDGER_OUTPUTS as GOOD } from './helpers/project-app-reference.js';
+import { REFERENCE_TASKFLOW_OUTPUTS, taskflowMutant } from './helpers/project-taskflow-reference.js';
 import {
   LEDGER_FILES, ORACLE_PATH, ORACLE_BINARY, ORACLE_ARGV, ORACLE_SOURCE, ORACLE_SHA256,
   PROBE_PATH, PROBE_SOURCE, PROBE_SHA256, VALIDATE_PATH, VALIDATE_SOURCE,
   VALIDATE_SHA256, ENTRY_PATH,
   ENTRY_SOURCE, ENTRY_SHA256, sha256, ledgerBlueprint, assertLedgerCLIResults,
 } from '../scripts/project-app-acceptance.js';
+import { TASKFLOW_FILES, TASKFLOW_ORACLE_ARGV, TASKFLOW_ORACLE_SOURCE, TASKFLOW_ORACLE_SHA256,
+  TASKFLOW_PROBE_SOURCE, TASKFLOW_PROBE_SHA256, TASKFLOW_VALIDATE_SOURCE, TASKFLOW_VALIDATE_SHA256,
+  taskflowBlueprint, TASKFLOW_COMMANDS, assertTaskFlowCLIResults,
+} from '../scripts/project-taskflow-acceptance.js';
 
-function project(outputs = GOOD) {
+function project(outputs = GOOD, frozen = null) {
   const root = fs.mkdtempSync(path.join(isolatedTestRuntime.artifacts, 'app-oracle-'));
   fs.mkdirSync(path.join(root, 'src'));
   fs.mkdirSync(path.join(root, 'test'));
   fs.writeFileSync(path.join(root, 'package.json'), '{"private":true,"type":"module"}\n');
-  for (const [relative, content] of Object.entries({ ...outputs, [ORACLE_PATH]: ORACLE_SOURCE,
-    [PROBE_PATH]: PROBE_SOURCE, [VALIDATE_PATH]: VALIDATE_SOURCE,
+  for (const [relative, content] of Object.entries({ ...outputs, [ORACLE_PATH]: frozen?.oracle ?? ORACLE_SOURCE,
+    [PROBE_PATH]: frozen?.probe ?? PROBE_SOURCE, [VALIDATE_PATH]: frozen?.validate ?? VALIDATE_SOURCE,
     [ENTRY_PATH]: ENTRY_SOURCE })) {
     fs.writeFileSync(path.join(root, relative), content);
   }
   return root;
 }
+
+const taskflowFrozen = Object.freeze({ oracle: TASKFLOW_ORACLE_SOURCE,
+  probe: TASKFLOW_PROBE_SOURCE, validate: TASKFLOW_VALIDATE_SOURCE });
 
 async function inSandbox(root, argv) {
   const environment = { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' };
@@ -107,4 +117,76 @@ test('wrong total and grouped totals independently fail the frozen oracle', asyn
     assert.equal(result.terminalStatus, 'failed', `${name}: ${JSON.stringify(result)}`);
     assert.match(result.stderr, expected, name);
   }
+});
+
+test('fixed TaskFlow compiler scope and preflight freeze a separate operator oracle', () => {
+  const blueprint = taskflowBlueprint();
+  assert.deepEqual(blueprint.files.map(file => file.path), TASKFLOW_FILES.map(file => file.path));
+  assert.deepEqual(blueprint.focusedTest.argv, TASKFLOW_ORACLE_ARGV);
+  assert.equal(blueprint.focusedTest.binary, ORACLE_BINARY);
+  assert.equal(blueprint.files.some(file => [ORACLE_PATH, PROBE_PATH, VALIDATE_PATH, ENTRY_PATH].includes(file.path)), false);
+  assert.equal(sha256(TASKFLOW_ORACLE_SOURCE), TASKFLOW_ORACLE_SHA256);
+  assert.equal(sha256(TASKFLOW_PROBE_SOURCE), TASKFLOW_PROBE_SHA256);
+  assert.equal(sha256(TASKFLOW_VALIDATE_SOURCE), TASKFLOW_VALIDATE_SHA256);
+  const runner = path.join(isolatedTestRuntime.repositoryRoot, 'scripts/run-project-app-journey.js');
+  const result = spawnSync(process.execPath, [runner, '--scenario', 'taskflow', '--preflight'],
+    { cwd: isolatedTestRuntime.repositoryRoot, encoding: 'utf8', timeout: 15_000 });
+  assert.equal(result.status, 0, result.stderr);
+  const preflight = JSON.parse(result.stdout);
+  assert.equal(preflight.status, 'LIVE_NOT_RUN');
+  assert.equal(preflight.scenarioId, 'taskflow');
+  assert.equal(preflight.source.oracleSha256, TASKFLOW_ORACLE_SHA256);
+  assert.deepEqual(preflight.source.generatedPaths, TASKFLOW_FILES.map(file => file.path).sort());
+});
+
+test('TaskFlow reference runs in actual separate M2 sandbox with functional CLI and fresh process', async () => {
+  const root = project(REFERENCE_TASKFLOW_OUTPUTS, taskflowFrozen);
+  const oracle = await inSandbox(root, TASKFLOW_ORACLE_ARGV);
+  assert.equal(oracle.terminalStatus, 'succeeded', JSON.stringify(oracle));
+  assert.match(oracle.stdout, /TASKFLOW_APP_ORACLE_PASS/);
+  const cli = await inSandbox(root, [ENTRY_PATH, JSON.stringify(TASKFLOW_COMMANDS)]);
+  assert.equal(cli.terminalStatus, 'succeeded', JSON.stringify(cli));
+  assertTaskFlowCLIResults(JSON.parse(cli.stdout.trim()));
+  const fresh = await inSandbox(root, [ENTRY_PATH, JSON.stringify([['list'], ['list', { status: 'done' }]])]);
+  assert.equal(fresh.terminalStatus, 'succeeded', JSON.stringify(fresh));
+  assert.deepEqual(JSON.parse(fresh.stdout.trim()), [[], []]);
+});
+
+test('TaskFlow behavior mutants fail trusted oracle in actual separate sandbox', async () => {
+  for (const defect of ['ignore-status', 'wrong-priority', 'recycle-id', 'skip-transition',
+    'alias-rows', 'no-op-remove', 'ignore-update', 'last-result']) {
+    const root = project(taskflowMutant(defect), taskflowFrozen);
+    const result = await inSandbox(root, TASKFLOW_ORACLE_ARGV);
+    assert.equal(result.terminalStatus, 'failed', `${defect}: ${JSON.stringify(result)}`);
+    assert.doesNotMatch(result.stdout, /TASKFLOW_APP_ORACLE_PASS/, defect);
+  }
+});
+
+test('TaskFlow provider proof binds each generation to its canonical compiler target', () => {
+  const compiled = compileCodeDraftInput(taskflowBlueprint());
+  const paths = compiled.buildSteps.map(step => compiled.changes[step.index].path);
+  assert.deepEqual(paths, ['src/query.js', 'src/validate.js', 'src/store.js', 'src/cli.js', 'src/app.js']);
+  const model = 'qualification-model', digest = 'a'.repeat(64), version = 'qualification-version';
+  const requests = paths.map((target, index) => ({
+    path: '/api/chat', method: 'POST', model, status: 200, responseTruncated: false,
+    requestSha256: sha256(`request-${index}`), terminal: {
+      done: true, done_reason: 'stop', model, model_digest_sha256: digest,
+      provider_version: version, message: { content: JSON.stringify({ afterContent: REFERENCE_TASKFLOW_OUTPUTS[target] }) },
+    },
+  }));
+  const previewHashes = Object.entries(REFERENCE_TASKFLOW_OUTPUTS)
+    .map(([target, content]) => ({ path: target, sha256: sha256(content) }));
+  const pins = { model, digest, version, previewHashes, scenarioId: 'taskflow' };
+  const good = assessProviderGenerations(requests, pins);
+  assert.equal(good.valid, true, JSON.stringify(good.failures));
+  assert.equal(good.expected, 5);
+  assert.ok(good.perFile.every(row => row.outputPreviewMatch));
+  const swapped = previewHashes.map(row => ({ ...row }));
+  const cli = swapped.find(row => row.path === 'src/cli.js');
+  const app = swapped.find(row => row.path === 'src/app.js');
+  [cli.sha256, app.sha256] = [app.sha256, cli.sha256];
+  const wrong = assessProviderGenerations(requests, { ...pins, previewHashes: swapped });
+  assert.equal(wrong.valid, false);
+  assert.deepEqual(wrong.perFile.filter(row => !row.outputPreviewMatch).map(row => row.targetPath),
+    ['src/cli.js', 'src/app.js']);
 });

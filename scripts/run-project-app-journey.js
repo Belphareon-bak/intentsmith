@@ -21,6 +21,10 @@ import {
   ENTRY_SOURCE, ENTRY_SHA256, sha256, ledgerBlueprint, assertLedgerPreview,
   assertLedgerCLIResults, policyForFrozenOracle,
 } from './project-app-acceptance.js';
+import { TASKFLOW_FILES, TASKFLOW_ORACLE_SOURCE, TASKFLOW_ORACLE_SHA256, TASKFLOW_ORACLE_ARGV,
+  TASKFLOW_PROBE_SOURCE, TASKFLOW_PROBE_SHA256, TASKFLOW_VALIDATE_SOURCE, TASKFLOW_VALIDATE_SHA256,
+  taskflowBlueprint, assertTaskFlowPreview, TASKFLOW_COMMANDS, assertTaskFlowCLIResults,
+} from './project-taskflow-acceptance.js';
 
 const SELF = fileURLToPath(import.meta.url);
 const SOURCE_ROOT = path.resolve(path.dirname(SELF), '..');
@@ -28,7 +32,36 @@ const ARTIFACT_ROOT = path.join(SOURCE_ROOT, '.intentsmith-artifacts');
 const MODEL_PATTERN = /^[A-Za-z0-9_.:/-]{1,128}$/;
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
 const DIGEST_PATTERN = /^[0-9a-f]{64}$/;
-const EXPECTED_PATHS = LEDGER_FILES.map(file => file.path).sort();
+const SCENARIOS = Object.freeze({
+  ledger: Object.freeze({ id: 'ledger', files: LEDGER_FILES, blueprint: ledgerBlueprint,
+    oracleSource: ORACLE_SOURCE, oracleSha256: ORACLE_SHA256, oracleArgv: ORACLE_ARGV,
+    probeSource: PROBE_SOURCE, probeSha256: PROBE_SHA256,
+    validateSource: VALIDATE_SOURCE, validateSha256: VALIDATE_SHA256,
+    assertPreview: assertLedgerPreview, marker: 'PROJECT_APP_ORACLE_PASS',
+    projectDirectory: 'expense-ledger', projectName: 'Expense Ledger Qualification',
+    projectDescription: 'Six-file dependency-free Node ledger', conversationTitle: 'Six-file expense ledger',
+    commands: [['add', 12.5, 'food'], ['add', 7.25, 'travel'], ['add', 3.5, 'food'],
+      ['total'], ['categories'], ['list']], assertCLI: assertLedgerCLIResults,
+    fresh: [['list'], ['total'], ['categories']], freshExpected: [[], 0, {}],
+    invalid: [[['add', -1, 'food']], [['add', 1, '']], [['unknown']]],
+  }),
+  taskflow: Object.freeze({ id: 'taskflow', files: TASKFLOW_FILES, blueprint: taskflowBlueprint,
+    oracleSource: TASKFLOW_ORACLE_SOURCE, oracleSha256: TASKFLOW_ORACLE_SHA256,
+    oracleArgv: TASKFLOW_ORACLE_ARGV, probeSource: TASKFLOW_PROBE_SOURCE,
+    probeSha256: TASKFLOW_PROBE_SHA256, validateSource: TASKFLOW_VALIDATE_SOURCE,
+    validateSha256: TASKFLOW_VALIDATE_SHA256, assertPreview: assertTaskFlowPreview,
+    marker: 'TASKFLOW_APP_ORACLE_PASS', projectDirectory: 'taskflow',
+    projectName: 'TaskFlow Qualification', projectDescription: 'Five-file dependency-free Node TaskFlow',
+    conversationTitle: 'Five-file TaskFlow application', commands: TASKFLOW_COMMANDS,
+    assertCLI: assertTaskFlowCLIResults, fresh: [['list'], ['list', { status: 'done' }]],
+    freshExpected: [[], []], invalid: [[['add', '', 2]], [['transition', 1, 'done']], [['unknown']]],
+  }),
+});
+const scenarioFor = id => {
+  const scenario = SCENARIOS[id];
+  if (!scenario) throw new Error('unknown fixed app scenario');
+  return scenario;
+};
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 const save = (out, name, data) => fs.writeFileSync(path.join(out, name), JSON.stringify(data, null, 2) + '\n', { mode: 0o600 });
 
@@ -39,11 +72,12 @@ function git(cwd, args) {
   } }).trim();
 }
 
-function sourceObservation() {
+function sourceObservation(scenario = SCENARIOS.ledger) {
+  const expectedPaths = scenario.files.map(file => file.path).sort();
   return { head: git(SOURCE_ROOT, ['rev-parse', 'HEAD']), dirty: git(SOURCE_ROOT, ['status', '--porcelain=v1']),
-    oracleSha256: ORACLE_SHA256, oracleBinary: ORACLE_BINARY, probeSha256: PROBE_SHA256,
-    validatorProbeSha256: VALIDATE_SHA256,
-    entrySha256: ENTRY_SHA256, generatedPaths: EXPECTED_PATHS };
+    oracleSha256: scenario.oracleSha256, oracleBinary: ORACLE_BINARY, probeSha256: scenario.probeSha256,
+    validatorProbeSha256: scenario.validateSha256,
+    entrySha256: ENTRY_SHA256, generatedPaths: expectedPaths };
 }
 
 function nativeRuntimeObservation() {
@@ -59,15 +93,23 @@ function nativeRuntimeObservation() {
 }
 
 function parseOptions(argv) {
-  if (!argv.length || argv[0] === '--preflight') return { mode: 'preflight' };
-  if (argv[0] !== '--live' || argv.length !== 9) throw new Error('Usage: --live --out <new path> --source-sha <40 hex> --model <name> --digest <64 hex>');
+  let scenarioId = 'ledger';
+  if (argv[0] === '--scenario') {
+    scenarioId = argv[1];
+    scenarioFor(scenarioId);
+    argv = argv.slice(2);
+  }
+  if (!argv.length || (argv.length === 1 && argv[0] === '--preflight')) {
+    return { mode: 'preflight', scenarioId };
+  }
+  if (argv[0] !== '--live' || argv.length !== 9) throw new Error('Usage: --live --out <new path> --source-sha <40 hex> --model <name> --digest <64 hex> (optionally prefix --scenario taskflow)');
   const entries = new Map();
   for (let index = 1; index < argv.length; index += 2) {
     if (!['--out', '--source-sha', '--model', '--digest'].includes(argv[index]) || entries.has(argv[index])) throw new Error('invalid live arguments');
     entries.set(argv[index], argv[index + 1]);
   }
   if (entries.size !== 4) throw new Error('all live pins are required');
-  const options = { mode: 'live', out: entries.get('--out'), sourceSha: entries.get('--source-sha'),
+  const options = { mode: 'live', scenarioId, out: entries.get('--out'), sourceSha: entries.get('--source-sha'),
     model: entries.get('--model'), digest: entries.get('--digest') };
   if (!SHA_PATTERN.test(options.sourceSha) || !DIGEST_PATTERN.test(options.digest) || !MODEL_PATTERN.test(options.model)) {
     throw new Error('invalid source/model/digest pin');
@@ -91,12 +133,11 @@ function assertResponse(response, status, label) {
   return response.json;
 }
 
-function assertFrozenProject(project, policySha256) {
-  assert.equal(sha256(fs.readFileSync(path.join(project, ORACLE_PATH))), ORACLE_SHA256, 'operator oracle preserved');
-  assert.equal(sha256(fs.readFileSync(path.join(project, PROBE_PATH))), PROBE_SHA256, 'operator subject probe preserved');
-  assert.equal(sha256(fs.readFileSync(path.join(project, VALIDATE_PATH))), VALIDATE_SHA256,
-    'operator validator probe preserved');
-  assert.equal(sha256(fs.readFileSync(path.join(project, ENTRY_PATH))), ENTRY_SHA256, 'operator CLI adapter preserved');
+function assertFrozenProject(project, policySha256, scenario) {
+  for (const [relative, digest] of [
+    [ORACLE_PATH, scenario.oracleSha256], [PROBE_PATH, scenario.probeSha256],
+    [VALIDATE_PATH, scenario.validateSha256], [ENTRY_PATH, ENTRY_SHA256],
+  ]) assert.equal(sha256(fs.readFileSync(path.join(project, relative))), digest, relative + ' operator bytes preserved');
   assert.equal(sha256(fs.readFileSync(path.join(project, '.intentsmith/m2-governance-policy.json'))),
     policySha256, 'operator policy preserved');
 }
@@ -124,23 +165,21 @@ async function sandboxNode(project, argv, artifactRoot) {
   }, { recordSupervisorIdentity: recordSupervisorIdentity(artifactRoot) });
 }
 
-async function verifyApplication(project, artifacts) {
-  const accepted = await sandboxNode(project, ORACLE_ARGV, artifacts);
+async function verifyApplication(project, artifacts, scenario) {
+  const accepted = await sandboxNode(project, scenario.oracleArgv, artifacts);
   assert.equal(accepted.terminalStatus, 'succeeded', JSON.stringify(accepted));
-  assert.match(accepted.stdout, /PROJECT_APP_ORACLE_PASS/);
-  const commands = [['add', 12.5, 'food'], ['add', 7.25, 'travel'], ['add', 3.5, 'food'],
-    ['total'], ['categories'], ['list']];
-  const cli = await sandboxNode(project, [ENTRY_PATH, JSON.stringify(commands)], artifacts);
+  assert.match(accepted.stdout, new RegExp(scenario.marker));
+  const cli = await sandboxNode(project, [ENTRY_PATH, JSON.stringify(scenario.commands)], artifacts);
   assert.equal(cli.terminalStatus, 'succeeded', JSON.stringify(cli));
-  assertLedgerCLIResults(JSON.parse(cli.stdout.trim()));
-  const fresh = await sandboxNode(project, [ENTRY_PATH, JSON.stringify([['list'], ['total'], ['categories']])], artifacts);
+  scenario.assertCLI(JSON.parse(cli.stdout.trim()));
+  const fresh = await sandboxNode(project, [ENTRY_PATH, JSON.stringify(scenario.fresh)], artifacts);
   assert.equal(fresh.terminalStatus, 'succeeded', JSON.stringify(fresh));
-  assert.deepEqual(JSON.parse(fresh.stdout.trim()), [[], 0, {}]);
-  for (const commands of [[['add', -1, 'food']], [['add', 1, '']], [['unknown']]]) {
+  assert.deepEqual(JSON.parse(fresh.stdout.trim()), scenario.freshExpected);
+  for (const commands of scenario.invalid) {
     const rejected = await sandboxNode(project, [ENTRY_PATH, JSON.stringify(commands)], artifacts);
     assert.equal(rejected.terminalStatus, 'failed', 'CLI invalid command must exit nonzero');
   }
-  return { oracle: accepted, cli, fresh, invalidCases: 3 };
+  return { oracle: accepted, cli, fresh, invalidCases: scenario.invalid.length };
 }
 
 function fileSnapshot(project, diff) {
@@ -170,24 +209,26 @@ function observedBinding(databasePath, model, digest) {
 // Qualification evidence is computed even when the private child reports a
 // functional failure. A failed app must not hide otherwise complete provider
 // identity, and complete provider calls must not turn that app failure green.
-export function assessProviderGenerations(requests, { model, digest, version, previewHashes = null }) {
+export function assessProviderGenerations(requests, { model, digest, version, previewHashes = null, scenarioId = 'ledger' }) {
+  const scenario = scenarioFor(scenarioId);
+  const expectedPaths = scenario.files.map(file => file.path).sort();
   const generations = requests.filter(row => row && ['/api/chat', '/api/generate'].includes(row.path));
   const failures = [];
-  if (generations.length !== EXPECTED_PATHS.length) failures.push(`expected ${EXPECTED_PATHS.length} generations, observed ${generations.length}`);
+  if (generations.length !== expectedPaths.length) failures.push(`expected ${expectedPaths.length} generations, observed ${generations.length}`);
   if (requests.some(row => row?.error)) failures.push('one or more provider relay requests failed');
   let generationPaths = [];
   try {
-    const compiled = compileCodeDraftInput(ledgerBlueprint());
+    const compiled = compileCodeDraftInput(scenario.blueprint());
     generationPaths = compiled.buildSteps.map(step => compiled.changes[step.index].path);
-    if (generationPaths.length !== EXPECTED_PATHS.length
-      || JSON.stringify([...generationPaths].sort()) !== JSON.stringify(EXPECTED_PATHS)) {
-      failures.push('canonical build order does not cover the six expected paths');
+    if (generationPaths.length !== expectedPaths.length
+      || JSON.stringify([...generationPaths].sort()) !== JSON.stringify(expectedPaths)) {
+      failures.push('canonical build order does not cover the expected paths');
     }
   } catch { failures.push('canonical build order unavailable'); }
-  const completePreview = Array.isArray(previewHashes) && previewHashes.length === EXPECTED_PATHS.length
-    && previewHashes.every(row => row && EXPECTED_PATHS.includes(row.path) && DIGEST_PATTERN.test(row.sha256))
-    && new Set(previewHashes.map(row => row.path)).size === EXPECTED_PATHS.length;
-  if (!completePreview) failures.push('complete six-file preview is unavailable');
+  const completePreview = Array.isArray(previewHashes) && previewHashes.length === expectedPaths.length
+    && previewHashes.every(row => row && expectedPaths.includes(row.path) && DIGEST_PATTERN.test(row.sha256))
+    && new Set(previewHashes.map(row => row.path)).size === expectedPaths.length;
+  if (!completePreview) failures.push('complete project preview is unavailable');
   const previewByPath = new Map(completePreview ? previewHashes.map(row => [row.path, row.sha256]) : []);
   const perFile = [];
   for (const [index, row] of generations.entries()) {
@@ -213,7 +254,7 @@ export function assessProviderGenerations(requests, { model, digest, version, pr
     perFile.push({ generation: index + 1, targetPath, requestSha256: row.requestSha256 ?? null,
       outputSha256, previewSha256, complete, identityMatched, outputPreviewMatch });
   }
-  return { valid: failures.length === 0, observed: generations.length, expected: EXPECTED_PATHS.length,
+  return { valid: failures.length === 0, observed: generations.length, expected: expectedPaths.length,
     previewCompared: completePreview, generationPaths, perFile, failures };
 }
 
@@ -231,7 +272,9 @@ function providerRelay(socketPath) {
 async function runInside(configurationPath) {
   const cfg = JSON.parse(fs.readFileSync(configurationPath, 'utf8'));
   const out = path.dirname(configurationPath);
-  assert.deepEqual(sourceObservation(), cfg.source, 'exact clean source and frozen oracle after namespace entry');
+  const scenario = scenarioFor(cfg.scenarioId);
+  const expectedPaths = scenario.files.map(file => file.path).sort();
+  assert.deepEqual(sourceObservation(scenario), cfg.source, 'exact clean source and frozen oracle after namespace entry');
   execFileSync('/usr/sbin/ip', ['link', 'set', 'lo', 'up']);
   const interfaces = JSON.parse(execFileSync('/usr/sbin/ip', ['-j', 'address'], { encoding: 'utf8' }));
   assert.deepEqual(interfaces.map(item => item.ifname), ['lo'], 'namespace has loopback only');
@@ -239,12 +282,12 @@ async function runInside(configurationPath) {
   await new Promise(resolve => relay.listen(0, '127.0.0.1', resolve));
   const providerUrl = `http://127.0.0.1:${relay.address().port}`;
   const runtime = makeRuntime(out);
-  const project = path.join(runtime.projects, 'expense-ledger');
-  const evidence = { status: 'RUNNING', source: cfg.source, model: cfg.model, digest: cfg.digest,
+  const project = path.join(runtime.projects, scenario.projectDirectory);
+  const evidence = { status: 'RUNNING', scenarioId: scenario.id, source: cfg.source, model: cfg.model, digest: cfg.digest,
     startedAt: new Date().toISOString(), networkInterfaces: interfaces.map(item => item.ifname),
-    project, databasePath: runtime.database, generatedPaths: EXPECTED_PATHS,
-    acceptanceOracleSha256: ORACLE_SHA256, subjectProbeSha256: PROBE_SHA256,
-    validatorProbeSha256: VALIDATE_SHA256,
+    project, databasePath: runtime.database, generatedPaths: expectedPaths,
+    acceptanceOracleSha256: scenario.oracleSha256, subjectProbeSha256: scenario.probeSha256,
+    validatorProbeSha256: scenario.validateSha256,
     entrypointSha256: ENTRY_SHA256,
     scope: 'actual backend project and conversation registration, physical CODE draft, exact M2 approval, sandboxed functional app and restart' };
   let server = null;
@@ -265,7 +308,7 @@ async function runInside(configurationPath) {
   try {
     await start();
     const created = assertResponse(await ask('POST', '/api/projects', {
-      name: 'Expense Ledger Qualification', description: 'Six-file dependency-free Node ledger',
+      name: scenario.projectName, description: scenario.projectDescription,
       type: 'general', path: project,
     }), 201, 'create private project');
     const projectId = created.project?.id;
@@ -275,28 +318,28 @@ async function runInside(configurationPath) {
     const policy = policyForFrozenOracle(JSON.parse(fs.readFileSync(policyPath, 'utf8')));
     fs.writeFileSync(policyPath, JSON.stringify(policy, null, 2) + '\n');
     const policySha256 = sha256(fs.readFileSync(policyPath));
-    fs.writeFileSync(path.join(project, ORACLE_PATH), ORACLE_SOURCE);
-    fs.writeFileSync(path.join(project, PROBE_PATH), PROBE_SOURCE);
-    fs.writeFileSync(path.join(project, VALIDATE_PATH), VALIDATE_SOURCE);
+    fs.writeFileSync(path.join(project, ORACLE_PATH), scenario.oracleSource);
+    fs.writeFileSync(path.join(project, PROBE_PATH), scenario.probeSource);
+    fs.writeFileSync(path.join(project, VALIDATE_PATH), scenario.validateSource);
     fs.writeFileSync(path.join(project, ENTRY_PATH), ENTRY_SOURCE);
-    assertFrozenProject(project, policySha256);
+    assertFrozenProject(project, policySha256, scenario);
     git(project, ['add', '--', ORACLE_PATH, PROBE_PATH, VALIDATE_PATH,
       ENTRY_PATH, '.intentsmith/m2-governance-policy.json']);
     git(project, ['-c', 'core.hooksPath=/dev/null', '-c', 'commit.gpgSign=false',
       '-c', 'user.name=IntentSmith Qualification', '-c', 'user.email=qualification@example.invalid',
-      'commit', '-m', 'Freeze independent ledger acceptance before inference']);
+      'commit', '-m', `Freeze independent ${scenario.id} acceptance before inference`]);
     const baselineHead = git(project, ['rev-parse', 'HEAD']);
     assert.equal(git(project, ['status', '--porcelain=v1']), '');
     evidence.baselineHead = baselineHead;
     evidence.oracleFrozenAt = new Date().toISOString();
     save(out, 'before-model.json', { source: cfg.source, projectId, baselineHead,
-      oracleSha256: ORACLE_SHA256, probeSha256: PROBE_SHA256,
-      validatorProbeSha256: VALIDATE_SHA256,
+      oracleSha256: scenario.oracleSha256, probeSha256: scenario.probeSha256,
+      validatorProbeSha256: scenario.validateSha256,
       entrySha256: ENTRY_SHA256, policySha256,
-      generatedPaths: EXPECTED_PATHS });
+      generatedPaths: expectedPaths });
 
     const conversation = assertResponse(await ask('POST', '/api/conversations', {
-      title: 'Six-file expense ledger', project_id: projectId,
+      title: scenario.conversationTitle, project_id: projectId,
     }), 201, 'create project conversation').conversation;
     assert.ok(typeof conversation.id === 'string' && conversation.id.startsWith('conv-')
       && conversation.id.length <= 128, 'durable string conversation id');
@@ -304,18 +347,18 @@ async function runInside(configurationPath) {
     const origin = { surface: 'http', sessionId: `app-${randomUUID()}`,
       conversationId: conversation.id, projectId };
     evidence.origin = origin;
-    const blueprint = ledgerBlueprint();
+    const blueprint = scenario.blueprint();
     const drafted = assertResponse(await ask('POST', '/api/m2/lifecycle/draft', {
       projectId, origin, draft: blueprint,
-    }, 900_000), 200, 'six-file physical CODE draft');
+    }, 900_000), 200, `${scenario.files.length}-file physical CODE draft`);
     assert.equal(drafted.state, 'awaiting_approval');
     assert.match(drafted.planDigest, /^sha256:[0-9a-f]{64}$/);
-    assert.deepEqual(drafted.plan.focusedTest.argv, ORACLE_ARGV);
+    assert.deepEqual(drafted.plan.focusedTest.argv, scenario.oracleArgv);
     assert.equal(drafted.plan.focusedTest.binary, ORACLE_BINARY);
-    assertLedgerPreview(drafted.diff, project,
+    scenario.assertPreview(drafted.diff, project,
       (root, relative) => fs.readFileSync(path.join(root, relative)),
       (root, relative) => fs.existsSync(path.join(root, relative)));
-    assertFrozenProject(project, policySha256);
+    assertFrozenProject(project, policySha256, scenario);
     assert.equal(git(project, ['rev-parse', 'HEAD']), baselineHead);
     assert.equal(git(project, ['status', '--porcelain=v1']), '');
     save(out, 'draft.json', drafted);
@@ -328,7 +371,7 @@ async function runInside(configurationPath) {
     });
     assert.equal(wrong.statusCode, 409, 'wrong digest rejects before effect');
     assert.equal(git(project, ['status', '--porcelain=v1']), '');
-    assertFrozenProject(project, policySha256);
+    assertFrozenProject(project, policySha256, scenario);
     const statusPath = `/api/m2/lifecycle/status?${new URLSearchParams({ id: drafted.lifecycleId,
       surface: origin.surface, sessionId: origin.sessionId, conversationId: origin.conversationId,
       projectId: String(projectId) })}`;
@@ -337,7 +380,7 @@ async function runInside(configurationPath) {
     const restoredPending = assertResponse(await ask('GET', statusPath), 200, 'pending status after restart');
     assert.equal(restoredPending.state, 'awaiting_approval');
     assert.equal(restoredPending.planDigest, drafted.planDigest);
-    assertFrozenProject(project, policySha256);
+    assertFrozenProject(project, policySha256, scenario);
     const approval = { lifecycleId: drafted.lifecycleId, planDigest: drafted.planDigest, origin };
     const terminal = assertResponse(await ask('POST', '/api/m2/lifecycle/approve', approval, 180_000),
       200, 'exact approval');
@@ -346,9 +389,9 @@ async function runInside(configurationPath) {
     assert.equal(terminal.state, 'succeeded', JSON.stringify(terminal.result));
     assert.equal(terminal.result?.focusedTest?.terminalStatus, 'succeeded', 'frozen app oracle passed within M2 sandbox');
     const testOutput = terminal.audit?.executionEvents?.find(event => event.type === 'process_terminated')?.details?.testOutput;
-    assert.match(testOutput?.stdout || '', /PROJECT_APP_ORACLE_PASS/, 'M2 ran the exact frozen oracle process');
-    assert.equal(terminal.result?.git?.status, 'committed', 'all six approved files committed');
-    assertFrozenProject(project, policySha256);
+    assert.match(testOutput?.stdout || '', new RegExp(scenario.marker), 'M2 ran the exact frozen oracle process');
+    assert.equal(terminal.result?.git?.status, 'committed', 'all approved files committed');
+    assertFrozenProject(project, policySha256, scenario);
     const snapshot = fileSnapshot(project, drafted.diff);
     const committedHead = git(project, ['rev-parse', 'HEAD']);
     assert.notEqual(committedHead, baselineHead);
@@ -368,8 +411,8 @@ async function runInside(configurationPath) {
     assert.deepEqual(fileSnapshot(project, drafted.diff), snapshot, 'files unchanged across restart/replay');
     assert.equal(git(project, ['rev-parse', 'HEAD']), committedHead);
     assert.equal(git(project, ['status', '--porcelain=v1']), '');
-    assertFrozenProject(project, policySha256);
-    evidence.postRestartApp = await verifyApplication(project, runtime.artifacts);
+    assertFrozenProject(project, policySha256, scenario);
+    evidence.postRestartApp = await verifyApplication(project, runtime.artifacts, scenario);
     evidence.bindingAfterRestart = observedBinding(runtime.database, cfg.model, cfg.digest);
     assert.deepEqual(evidence.bindingAfterRestart, evidence.binding);
     evidence.status = 'PASS';
@@ -392,15 +435,18 @@ function safeBaseEnvironment() {
 }
 
 async function runParent(options) {
-  const source = sourceObservation();
+  const scenario = scenarioFor(options.scenarioId);
+  const source = sourceObservation(scenario);
   assert.equal(source.head, options.sourceSha, 'live source SHA differs from explicit pin');
   assert.equal(source.dirty, '', 'source must be clean before physical evaluation');
   const runtime = nativeRuntimeObservation();
   assert.equal(runtime.available, true, `native SQLite is unavailable for ${runtime.node}: ${runtime.error}`);
   const out = newOutputDirectory(options.out);
-  const evidence = { status: 'RUNNING', startedAt: new Date().toISOString(), source,
-    runtime, model: options.model, digest: options.digest, oracleSha256: ORACLE_SHA256,
-    scope: 'physical six-file app; no installed IDE renderer acceptance claim' };
+  const evidence = { status: 'RUNNING', scenarioId: scenario.id, startedAt: new Date().toISOString(), source,
+    runtime, model: options.model, digest: options.digest, oracleSha256: scenario.oracleSha256,
+    scope: scenario.id === 'ledger'
+      ? 'physical six-file app; no installed IDE renderer acceptance claim'
+      : 'physical five-file TaskFlow app; no installed IDE renderer acceptance claim' };
   let lease = null, proxy = null, socketRoot = null, child = null, loaded = false;
   const requests = [];
   const upstreamOrigin = 'http://127.0.0.1:11434';
@@ -410,7 +456,8 @@ async function runParent(options) {
     return response.json();
   };
   try {
-    lease = acquireGpuEvaluationLock({ command: 'six-file functional project acceptance' });
+    lease = acquireGpuEvaluationLock({ command: scenario.id === 'ledger'
+      ? 'six-file functional project acceptance' : 'taskflow functional project acceptance' });
     const ps = await upstream('/api/ps');
     const compute = execFileSync('nvidia-smi', ['--query-compute-apps=pid,process_name,used_memory', '--format=csv,noheader'],
       { encoding: 'utf8' }).trim();
@@ -480,7 +527,7 @@ async function runParent(options) {
     });
     await new Promise(resolve => proxy.listen(socketPath, resolve));
     fs.chmodSync(socketPath, 0o600);
-    save(out, 'inside-configuration.json', { source, model: options.model, digest: options.digest, socketPath });
+    save(out, 'inside-configuration.json', { scenarioId: scenario.id, source, model: options.model, digest: options.digest, socketPath });
     child = spawn('unshare', ['--user', '--map-root-user', '--net', '--', 'bwrap', '--bind', '/', '/',
       '--dev', '/dev', '--die-with-parent', process.execPath, SELF, '--inside', path.join(out, 'inside-configuration.json')],
     { cwd: SOURCE_ROOT, env: safeBaseEnvironment(), stdio: ['ignore', 'pipe', 'pipe'] });
@@ -495,7 +542,7 @@ async function runParent(options) {
     evidence.insideStatus = inside?.status ?? 'MISSING';
     evidence.providerAttestation = assessProviderGenerations(requests, {
       model: options.model, digest: options.digest, version: evidence.providerVersion,
-      previewHashes: inside?.previewHashes ?? null,
+      previewHashes: inside?.previewHashes ?? null, scenarioId: scenario.id,
     });
     evidence.physicalGenerationsObserved = evidence.providerAttestation.observed;
     assert.equal(exit.code, 0, output.stderr);
@@ -517,7 +564,7 @@ async function runParent(options) {
       catch { /* no completed child journey */ }
       evidence.providerAttestation = assessProviderGenerations(requests, {
         model: options.model, digest: options.digest, version: evidence.providerVersion,
-        previewHashes,
+        previewHashes, scenarioId: scenario.id,
       });
       evidence.physicalGenerationsObserved = evidence.providerAttestation.observed;
     }
@@ -537,7 +584,7 @@ async function runParent(options) {
       evidence.gpuLeaseReleased = lease.release();
       if (!evidence.gpuLeaseReleased) evidence.status = 'FAIL';
     }
-    const afterSource = sourceObservation();
+    const afterSource = sourceObservation(scenario);
     evidence.sourceCleanAfter = afterSource.dirty === ''
       && JSON.stringify(afterSource) === JSON.stringify(source);
     if (!evidence.sourceCleanAfter) evidence.status = 'FAIL';
@@ -556,7 +603,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === SELF) {
     } else {
       const options = parseOptions(process.argv.slice(2));
       if (options.mode === 'preflight') {
-        console.log(JSON.stringify({ status: 'LIVE_NOT_RUN', source: sourceObservation(),
+        console.log(JSON.stringify({ status: 'LIVE_NOT_RUN',
+          ...(options.scenarioId === 'taskflow' ? { scenarioId: 'taskflow' } : {}),
+          source: sourceObservation(scenarioFor(options.scenarioId)),
           runtime: nativeRuntimeObservation(),
           liveRequires: ['clean exact source SHA', 'new private artifact directory', 'exact installed CODE tag and digest',
             'idle provider/GPU and evaluation lock', 'unshare/bwrap/prlimit', 'owned private project and DB'] }, null, 2));
