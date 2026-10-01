@@ -9,10 +9,42 @@ a kontrola výsledku. Naměřený stav zůstává v
 [`completion trackeru`](../review/2026-09-30-COMPLETION-TRACKER.md).
 Tento návrh není nová produktová ani schvalovací autorita.
 
-**Stav:** `DRAFT / NOT_STARTED / DESIGN_OPEN`.
-Zdrojový helper není implementovaný, nové testy jsou `NOT_RUN` a nový
-modelový průchod je `NOT_RUN`. Statická inventura a rekonstrukce velikosti
-skutečného vstupu nejsou implementační ani fyzická přejímka.
+**Stav:** `ACTIVE / CPU_EXPERIMENT_RUNNING` od navazujícího zadání
+operátora 1. 10. 2026. Implementace a nový modelový průchod zatím `NOT_RUN`.
+Samotný CPU výsledek není funkční přejímka aplikace.
+
+## Vlastnictví a konkrétní výsledek navazujícího milníku
+
+**Vlastník connectoru a jediný zapisovatel produktu:** ROOT.
+**Baseline:** `84faa2a5a549ee968358db82b5d57fe4ef18a1c2`, existující
+`work/real-chat-journeys-20260930`, bez nového worktree.
+Vlastněné cesty: `src/lifecycle/m2-code-draft.js`,
+`src/lifecycle/m2-lifecycle-application-service.js`, nezbytné přímo navázané
+testy a podle zvolené reprezentace konkrétní Studio CODE connector.
+Případné další přímo navázané cesty se před změnou jmenovitě zaznamenají zde.
+CPU experiment má vlastní ignored packet; nezávislý reviewer zdroj nemění.
+
+Výsledek: funkční SQLite aplikace skutečnou produktovou CODE cestou:
+generování → náhled → přesné M2 schválení → frozen funkční oracle → commit
+→ restart backendu a ověření aplikační persistence v dalším procesu.
+Stejné úplné zdroje určují diff, digest, schválení a zápis. Existing povolená
+jedna opravná smyčka zůstává omezená; historické raw výstupy se neopravují.
+Oracle `28c9b73f1eec7e0b32a6e563f75f71da1d7b9f60a6a8dc149fbdbbb2c9a0ceb3`,
+entrypoint `f35a4d08d2e1ded7eff8100a9096f8cfb5538583992a6208ffa5f40496b3bec1`
+a context8192/output3440/reserve384 se nemění.
+
+Před source změnou rozhodne malý CPU experiment: přesná rekonstrukce8811 B,
+rozklad zdrojů/instrukcí/plánu/metadat/escaping a porovnání bezztrátového
+obalu úplných zdrojů s explicitní projekcí potřebného rozhraní. Měří se i
+navazující kroky a větší/UTF-8 vstupy. Dřívější doporučení projekce níže je
+předběžné; konečnou volbu určí experiment, nikoli chybějících75 B.
+Přesný tokenizer zůstává mimo kritickou cestu bez důkazu jeho nutnosti.
+
+Milník skončí doloženou funkční přejímkou/review, nebo konkrétní eskalací
+skutečného blokéru s možnostmi, doporučením a otázkou. Dva cykly bez
+měřitelného posunu spouštějí diagnostiku a změnu strategie. CHAT, mobil,
+modelová aktivace, prod nasazení a již přijatý GPU audit/cleanup mají
+oddělené vlastnictví; cizí práce a GPU procesy se zachovávají.
 
 ## 1. Pozorovaná mezera a přesný baseline
 
