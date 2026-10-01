@@ -54,6 +54,26 @@ shodě tohoto ID s nynějším projektem; starší tah bez doloženého ID selž
 uzavřeně. Čtyři skutečné M1 testy včetně negativních mutací po opravě
 procházejí **4/4**, session-context **66/66**. Další nezávislé review čeká.
 
+Třetí revize `df012e18` našla další významovou únikovou cestu: resolver
+sice nespojil starý seznam A s novým projektem B, ale po návratu do CRE
+mohl klasifikační model navrhnout `FILE_READ beta.md` pro stejný nevyřešený
+odkaz. Jeho cílová cesta se totiž nemusela objevit v aktuální větě. Proto
+projektový handler rozpoznaný, ale neprokázaný odkaz ukončí cílenou otázkou
+ještě před CRE a nevytvoří žádný efekt. M1/SQLite test pro přeřazení
+konverzace i další nevyřešené odkazy nyní vyžaduje veřejné
+`file_reference_unresolved`; řízený průchod zůstává **4/4 PASS**.
+Opakovaná nezávislá kontrola této změny dosud neproběhla.
+
+Stejná revize poukázala na druhou cestu ke starému antecedentu. SQL pro
+posledních deset zpráv řadilo podle `created_at`, které má přesnost pouze
+na sekundu. Při dvanácti zprávách se shodným časem staré SQL v izolované
+SQLite vrátilo ID 1–10 místo novějších 3–12. Nový registrovaný databázový
+test byl proto nejprve **FAIL**. Produkční čtení zpráv nyní řadí podle
+trvalého autoincrement ID; stejný test prochází **1/1** a pořadí platí i
+při shodném timestampu. Negativní M1/SQLite scénář s dvanácti tahy a
+starým seznamem v historii nepřipraví žádný `fs.read`. Pro tento souhrnný
+kandidát zbývá nezávislé review, integrace a opakovaný živý pilot.
+
 Produkční M2 adaptér si po prvním asynchronním použití zapamatuje tentýž
 autoritativní runtime. Synchronní resolvery čtení i výpisu odmítají použití,
 dokud nebyl runtime načten; nikdy nečtou soubor druhou, neověřenou cestou.

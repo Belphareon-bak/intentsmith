@@ -243,8 +243,15 @@ export function detectFileIntent(input) {
 // to read either file. Resolve only a new, exact ordinal read instruction from
 // that pair. The prior assistant turn may echo the pair, but cannot introduce
 // a different filename as read authority. Every read still enters M2 approval.
+const ORDERED_FILE_READ_PATTERN = /^(?:přečti|precti|otevři|otevri)\s+(?:(?:mi|prosím|prosim)\s+)*(?:ten\s+)?druh[ýy]\s+soubor[.!?]?$/iu;
+
+function hasUnnamedSecondFileReference(input) {
+  const plain = input.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/gu, '');
+  return /\bdruhy\s+soubor\b/u.test(plain) && !extractFilePath(input);
+}
+
 function resolveImmediateOrderedFileRead(input, history, activeProjectId) {
-  if (!/^(?:přečti|precti|otevři|otevri)\s+(?:mi\s+)?ten\s+druh[ýy]\s+soubor[.!?]?$/iu.test(input.trim())
+  if (!ORDERED_FILE_READ_PATTERN.test(input.trim())
     || !Array.isArray(history)
     || !Number.isSafeInteger(activeProjectId) || activeProjectId <= 0) return null;
   const turns = history.filter(turn => !turn?.isSummary && turn?.response?.tag);
@@ -327,6 +334,21 @@ export async function projectHandler(input, context) {
     // ════════════════════════════════════════════════════════════════════════
     if (project.path) {
       const orderedFile = resolveImmediateOrderedFileRead(input, context.history, Number(project.id));
+      if (hasUnnamedSecondFileReference(input) && !orderedFile) {
+        const prohibited = /\b(?:neotevri|neprecti|necti|neukazuj)\b/u.test(
+          input.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/gu, ''),
+        );
+        return new TaggedResponse({
+          content: prohibited
+            ? 'Rozumím. Druhý soubor neotevřu ani nepřečtu.'
+            : 'Který konkrétní soubor mám přečíst? Uveď jeho název v tomto projektu.',
+          tag: new ResponseTag({ speaker: ResponseSpeaker.SYSTEM, mode: ChatMode.PROJECT,
+            confidence: 1, canExecute: false,
+            metadata: { handler: 'file.reference', fallbackSuppressed: true,
+              ...(prohibited ? { prohibitionAcknowledged: true }
+                : { error: 'file_reference_unresolved' }) } }),
+        });
+      }
       const fileDetect = orderedFile
         ? { detected: true, filePath: orderedFile, reason: 'immediate-ordered-user-file-read' }
         : detectFileIntent(input);

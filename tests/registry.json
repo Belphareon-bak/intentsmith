@@ -15984,6 +15984,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T2-TESTS-CHAT-HISTORY-ORDER-TEST",
+      "path": "tests/chat-history-order.test.js",
+      "argv": [
+        "node",
+        "tests/chat-history-order.test.js"
+      ],
+      "capabilityId": "C3-007",
+      "tier": "T2",
+      "fixture": "isolated-home",
+      "profile": "database",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-CHAT-ORDINAL-FILE-READ-20261001",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T3-TESTS-CHAT-PROJECT-EXPERTISE-HTTP-TEST",
       "path": "tests/chat-project-expertise-http.test.js",
       "argv": [

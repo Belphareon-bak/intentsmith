@@ -767,17 +767,17 @@ export const messages = {
   `),
   
   listByConversation: db.prepare(`
-    SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC
+    SELECT * FROM messages WHERE conversation_id = ? ORDER BY id ASC
   `),
   
   listRecentByConversation: db.prepare(`
-    SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at DESC LIMIT ?
+    SELECT * FROM messages WHERE conversation_id = ? ORDER BY id DESC LIMIT ?
   `),
   
   getLastN: db.prepare(`
     SELECT * FROM (
-      SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at DESC LIMIT ?
-    ) ORDER BY created_at ASC
+      SELECT * FROM messages WHERE conversation_id = ? ORDER BY id DESC LIMIT ?
+    ) ORDER BY id ASC
   `),
   
   delete: db.prepare(`DELETE FROM messages WHERE id = ?`),

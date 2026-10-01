@@ -483,6 +483,7 @@ test('the second file in the immediately preceding ordered user list proposes on
     ), 200);
     assert.equal(unsupported.status, 'ok');
     assert.notEqual(unsupported.response.metadata?.approvalRequired, true);
+    assert.equal(unsupported.response.metadata?.error, 'file_reference_unresolved');
     assert.equal(sqlite.prepare('SELECT count(*) AS n FROM m2_effect_requests').get().n, before,
       'unbound ordinal must not create an effect');
     for (const [label, source] of [
@@ -497,9 +498,20 @@ test('the second file in the immediately preceding ordered user list proposes on
         ambiguous.conversationId, `${label}-read`, 'Přečti ten druhý soubor.',
       ), 200);
       assert.notEqual(unresolved.response.metadata?.approvalRequired, true, label);
+      assert.equal(unresolved.response.metadata?.error, 'file_reference_unresolved', label);
       assert.equal(sqlite.prepare('SELECT count(*) AS n FROM m2_effect_requests').get().n, before,
         `${label} must not silently select a basename or a value from an ambiguous list`);
     }
+    const shortCommand = await project(server, 'ordinal-short-command', 'ORDINAL_SHORT_COMMAND');
+    writeFileSync(`${shortCommand.path}/alpha.md`, 'SHORT_FIRST_PRIVATE');
+    writeFileSync(`${shortCommand.path}/beta.md`, 'SHORT_SECOND_PRIVATE');
+    await expect(server, 'POST', '/api/chat', command(shortCommand.conversationId,
+      'short-source', 'Mám soubory alpha.md a beta.md v tomto pořadí.'), 200);
+    const shortRead = await expect(server, 'POST', '/api/chat', command(shortCommand.conversationId,
+      'short-read', 'Otevři druhý soubor.'), 200);
+    assert.equal(shortRead.response.metadata?.handler, 'file.read');
+    assert.equal(shortRead.response.metadata?.filePath, 'beta.md');
+    assert.equal(shortRead.response.metadata?.approvalRequired, true);
   } finally {
     sqlite.close();
   }
@@ -540,6 +552,7 @@ test('review mutants: negation, quotation, stale reference and cross-project app
     ['condition-list', 'Mám soubory alpha.md a beta.md v tomto pořadí pouze pokud je ověříš.', 'Přečti ten druhý soubor.'],
     ['quoted-list', 'Napiš příklad „soubory alpha.md a beta.md v tomto pořadí“.', 'Přečti ten druhý soubor.'],
     ['negated-command', source, 'Nepřečti ten druhý soubor.'],
+    ['negated-open', source, 'Neotevři ten druhý soubor.'],
     ['quoted-command', source, 'Cituj jen větu „Přečti ten druhý soubor.“'],
     ['conditional-command', source, 'Přečti ten druhý soubor jen pokud je to moje schválená žádost.'],
   ];
@@ -571,23 +584,73 @@ test('review mutant: conversation project reassignment must not carry ordinal fi
     await provider.close();
   });
   server = await startServer(provider.url);
-  const a = await project(server, 'review-reassign-a', 'REVIEW_REASSIGN_A');
   const b = await project(server, 'review-reassign-b', 'REVIEW_REASSIGN_B');
-  writeFileSync(`${a.path}/alpha.md`, 'A_FIRST');
-  writeFileSync(`${a.path}/beta.md`, 'A_SECOND');
   writeFileSync(`${b.path}/alpha.md`, 'B_FIRST');
   writeFileSync(`${b.path}/beta.md`, 'B_SECOND_PRIVATE');
   const source = 'Napiš jednu větu, která uvádí soubory alpha.md a beta.md v tomto pořadí. Nic nečti ani neměň.';
-  await expect(server, 'POST', '/api/chat', command(a.conversationId, 'reassign-source', source), 200);
-  await expect(server, 'PUT', `/api/conversations/${encodeURIComponent(a.conversationId)}`, { project_id: b.id }, 200);
-  const read = await expect(server, 'POST', '/api/chat', command(a.conversationId, 'reassign-read', 'Přečti ten druhý soubor.'), 200);
-  if (read.response.metadata?.approvalRequired === true) {
-    const approved = await expect(server, 'POST', '/api/chat', command(a.conversationId,
-      'reassign-approve', `schválit efekt ${read.response.metadata.effectId}`), 200);
-    assert.match(approved.response.content, /B_SECOND_PRIVATE/u,
-      'the misresolved B target is actually disclosed after explicit approval');
-    assert.doesNotMatch(approved.response.content, /A_SECOND/u);
+  for (const [label, input] of [
+    ['full', 'Přečti ten druhý soubor.'],
+    ['short', 'Otevři druhý soubor.'],
+    ['polite', 'Otevři prosím ten druhý soubor.'],
+    ['negated', 'Neotevři ten druhý soubor.'],
+  ]) {
+    const a = await project(server, `review-reassign-a-${label}`, `REVIEW_REASSIGN_A_${label}`);
+    writeFileSync(`${a.path}/alpha.md`, 'A_FIRST');
+    writeFileSync(`${a.path}/beta.md`, 'A_SECOND');
+    await expect(server, 'POST', '/api/chat', command(a.conversationId, `reassign-source-${label}`, source), 200);
+    await expect(server, 'PUT', `/api/conversations/${encodeURIComponent(a.conversationId)}`, { project_id: b.id }, 200);
+    const read = await expect(server, 'POST', '/api/chat', command(a.conversationId,
+      `reassign-read-${label}`, input), 200);
+    assert.notEqual(read.response.metadata?.approvalRequired, true,
+      `older A-context must not resolve to a private B read: ${JSON.stringify(read.response.metadata)}`);
+    assert.doesNotMatch(JSON.stringify(read.response), /B_SECOND_PRIVATE|A_SECOND/u);
+    if (label === 'negated') {
+      assert.equal(read.response.metadata?.prohibitionAcknowledged, true);
+    } else {
+      assert.equal(read.response.metadata?.error, 'file_reference_unresolved');
+    }
   }
-  assert.notEqual(read.response.metadata?.approvalRequired, true,
-    `older A-context must not resolve to a private B read: ${JSON.stringify(read.response.metadata)}`);
+});
+
+test('same-timestamp history saturation cannot resurrect an older ordered pair', {
+  timeout: 120_000,
+}, async t => {
+  const provider = await startProvider();
+  let server = null;
+  t.after(async () => {
+    if (server) await stopServer(server);
+    await provider.close();
+  });
+  server = await startServer(provider.url);
+  const own = await project(server, 'ordinal-same-time', 'ORDINAL_SAME_TIME');
+  writeFileSync(`${own.path}/alpha.md`, 'SAME_TIME_FIRST_PRIVATE');
+  writeFileSync(`${own.path}/beta.md`, 'SAME_TIME_SECOND_PRIVATE');
+  for (let index = 0; index < 4; index += 1) {
+    await expect(server, 'POST', '/api/chat', command(own.conversationId,
+      `filler-${index}`, `Ahoj, napiš krátkou větu číslo ${index}.`), 200);
+  }
+  await expect(server, 'POST', '/api/chat', command(own.conversationId,
+    'old-pair', 'Napiš jednu větu, která uvádí soubory alpha.md a beta.md v tomto pořadí. Nic nečti ani neměň.'), 200);
+  await expect(server, 'POST', '/api/chat', command(own.conversationId,
+    'intervening-topic', 'Teď je řeč o počasí.'), 200);
+  // Private fixture only: twelve turns share a timestamp. The future value
+  // also makes any newly appended user turn sort after them by timestamp,
+  // while the durable insertion ID still identifies the true latest turn.
+  const writer = new Database(isolatedTestRuntime.database);
+  try {
+    const beforeRows = writer.prepare('SELECT count(*) AS n FROM messages WHERE conversation_id = ?')
+      .get(own.conversationId).n;
+    assert.equal(beforeRows, 12);
+    writer.prepare('UPDATE messages SET created_at = ? WHERE conversation_id = ?')
+      .run('2099-01-01 00:00:00', own.conversationId);
+    const beforeEffects = writer.prepare('SELECT count(*) AS n FROM m2_effect_requests').get().n;
+    const unresolved = await expect(server, 'POST', '/api/chat', command(own.conversationId,
+      'stale-ordinal', 'Přečti ten druhý soubor.'), 200);
+    assert.equal(unresolved.response.metadata?.error, 'file_reference_unresolved');
+    assert.notEqual(unresolved.response.metadata?.approvalRequired, true);
+    assert.equal(writer.prepare('SELECT count(*) AS n FROM m2_effect_requests').get().n,
+      beforeEffects, 'a stale pair must not create a read proposal');
+  } finally {
+    writer.close();
+  }
 });
