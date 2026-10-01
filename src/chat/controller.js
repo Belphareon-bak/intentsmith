@@ -1845,10 +1845,17 @@ ChatController.handle = async function(request) {
   store.ensureConversation(dbConversationId, {
     projectId: context.projectId || null,
   });
+  // Capture the durable project assignment at the moment this user turn is
+  // written. A conversation can later be reassigned; an old ordinal file
+  // reference must never resolve against the new project's files.
+  const persistedProjectId = Number(store.getConversation(dbConversationId)?.project_id);
+  const turnProjectId = Number.isSafeInteger(persistedProjectId) && persistedProjectId > 0
+    ? persistedProjectId : null;
 
   const persistUserTurn = () => store.appendTurn(dbConversationId, TurnRole.USER, message, {
     timestamp: Date.now(),
     specialistId: state.specialist?.id || null,
+    projectId: turnProjectId,
     m7: { turnId: durableTurnId, status: 'ok' },
   });
   // M1 retains a user turn even when the command was aborted before entry.

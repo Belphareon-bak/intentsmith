@@ -243,15 +243,17 @@ export function detectFileIntent(input) {
 // to read either file. Resolve only a new, exact ordinal read instruction from
 // that pair. The prior assistant turn may echo the pair, but cannot introduce
 // a different filename as read authority. Every read still enters M2 approval.
-function resolveImmediateOrderedFileRead(input, history) {
+function resolveImmediateOrderedFileRead(input, history, activeProjectId) {
   if (!/^(?:přečti|precti|otevři|otevri)\s+(?:mi\s+)?ten\s+druh[ýy]\s+soubor[.!?]?$/iu.test(input.trim())
-    || !Array.isArray(history)) return null;
+    || !Array.isArray(history)
+    || !Number.isSafeInteger(activeProjectId) || activeProjectId <= 0) return null;
   const turns = history.filter(turn => !turn?.isSummary && turn?.response?.tag);
   if (turns.at(-1)?.response?.tag?.speaker === 'user'
     && turns.at(-1)?.response?.content === input) turns.pop();
   const assistant = turns.at(-1);
   const user = turns.at(-2);
   if (user?.response?.tag?.speaker !== 'user'
+    || user.projectId !== activeProjectId
     || assistant?.response?.tag?.speaker !== 'system'
     || typeof user.response.content !== 'string'
     || typeof assistant.response.content !== 'string') return null;
@@ -324,7 +326,7 @@ export async function projectHandler(input, context) {
     // Runs BEFORE CRE to avoid misclassification of file queries.
     // ════════════════════════════════════════════════════════════════════════
     if (project.path) {
-      const orderedFile = resolveImmediateOrderedFileRead(input, context.history);
+      const orderedFile = resolveImmediateOrderedFileRead(input, context.history, Number(project.id));
       const fileDetect = orderedFile
         ? { detected: true, filePath: orderedFile, reason: 'immediate-ordered-user-file-read' }
         : detectFileIntent(input);

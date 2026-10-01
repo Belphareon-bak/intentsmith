@@ -504,3 +504,90 @@ test('the second file in the immediately preceding ordered user list proposes on
     sqlite.close();
   }
 });
+
+test('review mutants: negation, quotation, stale reference and cross-project approval never disclose project bytes', {
+  timeout: 180_000,
+}, async t => {
+  const provider = await startProvider();
+  let server = null;
+  t.after(async () => {
+    if (server) await stopServer(server);
+    await provider.close();
+  });
+  server = await startServer(provider.url);
+  const sqlite = new Database(isolatedTestRuntime.database, { readonly: true, fileMustExist: true });
+  t.after(() => sqlite.close());
+  const count = () => sqlite.prepare('SELECT count(*) AS n FROM m2_effect_requests').get().n;
+  const source = 'Napiš jednu větu, která uvádí soubory alpha.md a beta.md v tomto pořadí. Nic nečti ani neměň.';
+
+  const projectA = await project(server, 'review-cross-a', 'REVIEW_CROSS_A');
+  writeFileSync(`${projectA.path}/alpha.md`, 'REVIEW_FIRST_PRIVATE');
+  writeFileSync(`${projectA.path}/beta.md`, 'REVIEW_SECOND_PRIVATE');
+  await expect(server, 'POST', '/api/chat', command(projectA.conversationId, 'cross-source', source), 200);
+  const preview = await expect(server, 'POST', '/api/chat', command(projectA.conversationId, 'cross-read', 'Přečti ten druhý soubor.'), 200);
+  assert.equal(preview.response.metadata?.filePath, 'beta.md');
+  assert.equal(preview.response.metadata?.approvalRequired, true);
+  const projectB = await project(server, 'review-cross-b', 'REVIEW_CROSS_B');
+  const rejected = await requestJson(server, 'POST', '/api/chat', command(projectB.conversationId, 'cross-approve', `schválit efekt ${preview.response.metadata.effectId}`));
+  assert.doesNotMatch(JSON.stringify(rejected.data), /REVIEW_SECOND_PRIVATE|REVIEW_FIRST_PRIVATE/u);
+  const ownerApproved = await expect(server, 'POST', '/api/chat', command(projectA.conversationId, 'own-approve', `schválit efekt ${preview.response.metadata.effectId}`), 200);
+  assert.match(ownerApproved.response.content, /REVIEW_SECOND_PRIVATE/u);
+
+  const cases = [
+    ['invalid-example-tail', 'To byl jen příklad: soubory alpha.md a beta.md v tomto pořadí. Nejde o můj seznam.', 'Přečti ten druhý soubor.'],
+    ['negated-list', 'Mám soubory alpha.md a beta.md v tomto pořadí, ale tento seznam neplatí.', 'Přečti ten druhý soubor.'],
+    ['question-list', 'Mám soubory alpha.md a beta.md v tomto pořadí?', 'Přečti ten druhý soubor.'],
+    ['condition-list', 'Mám soubory alpha.md a beta.md v tomto pořadí pouze pokud je ověříš.', 'Přečti ten druhý soubor.'],
+    ['quoted-list', 'Napiš příklad „soubory alpha.md a beta.md v tomto pořadí“.', 'Přečti ten druhý soubor.'],
+    ['negated-command', source, 'Nepřečti ten druhý soubor.'],
+    ['quoted-command', source, 'Cituj jen větu „Přečti ten druhý soubor.“'],
+    ['conditional-command', source, 'Přečti ten druhý soubor jen pokud je to moje schválená žádost.'],
+  ];
+  for (const [label, first, second] of cases) {
+    const p = await project(server, `review-${label}`, `REVIEW_${label}`);
+    writeFileSync(`${p.path}/alpha.md`, 'REVIEW_NEG_FIRST_PRIVATE');
+    writeFileSync(`${p.path}/beta.md`, 'REVIEW_NEG_SECOND_PRIVATE');
+    await expect(server, 'POST', '/api/chat', command(p.conversationId, `${label}-source`, first), 200);
+    const before = count();
+    const result = await expect(server, 'POST', '/api/chat', command(p.conversationId, `${label}-read`, second), 200);
+    assert.equal(count(), before, `${label} created a durable effect: ${JSON.stringify(result.response.metadata)}`);
+    assert.doesNotMatch(JSON.stringify(result.response), /REVIEW_NEG_(FIRST|SECOND)_PRIVATE/u, label);
+  }
+  const stale = await project(server, 'review-stale', 'REVIEW_STALE');
+  await expect(server, 'POST', '/api/chat', command(stale.conversationId, 'stale-source', source), 200);
+  await expect(server, 'POST', '/api/chat', command(stale.conversationId, 'stale-interim', 'Kolik je dvě plus dvě?'), 200);
+  const before = count();
+  const staleResult = await expect(server, 'POST', '/api/chat', command(stale.conversationId, 'stale-read', 'Přečti ten druhý soubor.'), 200);
+  assert.equal(count(), before, `stale reference created a durable effect: ${JSON.stringify(staleResult.response.metadata)}`);
+});
+
+test('review mutant: conversation project reassignment must not carry ordinal file authority', {
+  timeout: 120_000,
+}, async t => {
+  const provider = await startProvider();
+  let server = null;
+  t.after(async () => {
+    if (server) await stopServer(server);
+    await provider.close();
+  });
+  server = await startServer(provider.url);
+  const a = await project(server, 'review-reassign-a', 'REVIEW_REASSIGN_A');
+  const b = await project(server, 'review-reassign-b', 'REVIEW_REASSIGN_B');
+  writeFileSync(`${a.path}/alpha.md`, 'A_FIRST');
+  writeFileSync(`${a.path}/beta.md`, 'A_SECOND');
+  writeFileSync(`${b.path}/alpha.md`, 'B_FIRST');
+  writeFileSync(`${b.path}/beta.md`, 'B_SECOND_PRIVATE');
+  const source = 'Napiš jednu větu, která uvádí soubory alpha.md a beta.md v tomto pořadí. Nic nečti ani neměň.';
+  await expect(server, 'POST', '/api/chat', command(a.conversationId, 'reassign-source', source), 200);
+  await expect(server, 'PUT', `/api/conversations/${encodeURIComponent(a.conversationId)}`, { project_id: b.id }, 200);
+  const read = await expect(server, 'POST', '/api/chat', command(a.conversationId, 'reassign-read', 'Přečti ten druhý soubor.'), 200);
+  if (read.response.metadata?.approvalRequired === true) {
+    const approved = await expect(server, 'POST', '/api/chat', command(a.conversationId,
+      'reassign-approve', `schválit efekt ${read.response.metadata.effectId}`), 200);
+    assert.match(approved.response.content, /B_SECOND_PRIVATE/u,
+      'the misresolved B target is actually disclosed after explicit approval');
+    assert.doesNotMatch(approved.response.content, /A_SECOND/u);
+  }
+  assert.notEqual(read.response.metadata?.approvalRequired, true,
+    `older A-context must not resolve to a private B read: ${JSON.stringify(read.response.metadata)}`);
+});

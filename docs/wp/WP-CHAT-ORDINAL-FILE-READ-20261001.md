@@ -40,8 +40,19 @@ průchod přijal větu „To byl jen neplatný příklad: soubory alpha.md a bet
 v tomto pořadí vůbec nejsou můj seznam.“ jako autoritativní seznam a založil
 `fs.read`. Nová M1 regrese pro zneplatněný příklad nejprve prokázala chybu;
 vedle ní byla přidána negativní regrese pro citovaný příklad. Opravený resolver nyní vyžaduje shodu celé předchozí věty,
-nikoli její části; opakovaný M1/SQLite průchod prochází. Nové nezávislé
-review opravy ještě čeká.
+nikoli její části; opakovaný M1/SQLite průchod prochází. Následovalo druhé
+nezávislé review s další negativní mutací níže.
+
+Druhé nezávislé review `f74596f2` opět skončilo **CHANGES_REQUIRED**.
+Podporované přeřazení konverzace z projektu A do projektu B přeneslo starý
+seznam A do nového kontextu B; `Přečti ten druhý soubor` vytvořilo `fs.read`
+pro B/beta.md a po schválení vrátilo skutečné soukromé bajty B. Přesná
+recenzentova M1/SQLite mutace je součástí testu a před opravou selhala.
+Každý nově uložený uživatelský tah teď nese ID projektu z trvalého záznamu
+konverzace v okamžiku zápisu. Resolver smí použít předchozí tah pouze při
+shodě tohoto ID s nynějším projektem; starší tah bez doloženého ID selže
+uzavřeně. Čtyři skutečné M1 testy včetně negativních mutací po opravě
+procházejí **4/4**, session-context **66/66**. Další nezávislé review čeká.
 
 Produkční M2 adaptér si po prvním asynchronním použití zapamatuje tentýž
 autoritativní runtime. Synchronní resolvery čtení i výpisu odmítají použití,

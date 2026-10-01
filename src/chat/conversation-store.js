@@ -447,7 +447,7 @@ export class ConversationStore {
    *
    * @param {string} conversationId
    * @param {number} [maxTurns=10]
-   * @returns {Array<{ response: { tag: { speaker: string }, content: string }, timestamp: number }>}
+   * @returns {Array<{ response: { tag: { speaker: string }, content: string }, timestamp: number, projectId: number|null }>}
    */
   buildHandlerHistory(conversationId, maxTurns = 10) {
     // v67.0: Incorporate summary — if exists, prepend as synthetic system turn
@@ -470,6 +470,8 @@ export class ConversationStore {
         content: t.content,
       },
       timestamp: new Date(t.created_at).getTime(),
+      projectId: Number.isSafeInteger(t.metadata?.projectId) && t.metadata.projectId > 0
+        ? t.metadata.projectId : null,
     }));
 
     // Prepend summary as synthetic system turn
