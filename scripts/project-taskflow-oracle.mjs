@@ -105,14 +105,14 @@ for (const invalid of [
     'invalid CLI command must fail');
 }
 
-// Generated code is never imported into this trusted Node realm. Only the
-// declared pure module graph is linked inside a VM with no host callbacks.
+// Generated code is never imported into this trusted Node realm. The public
+// cli/store/query/validate graph is linked in one VM with no host callbacks.
 const globals = Object.create(null);
 globals.console = undefined;
 const context = vm.createContext(globals, { codeGeneration: { strings: false, wasm: false } });
 const modules = new Map();
 function load(relative) {
-  assert.ok(['src/store.js', 'src/query.js', 'src/validate.js'].includes(relative),
+  assert.ok(['src/cli.js', 'src/store.js', 'src/query.js', 'src/validate.js'].includes(relative),
     'exact TaskFlow VM module graph');
   if (!modules.has(relative)) {
     modules.set(relative, new vm.SourceTextModule(fs.readFileSync(relative, 'utf8'), {
@@ -122,15 +122,21 @@ function load(relative) {
   }
   return modules.get(relative);
 }
-const store = load('src/store.js');
-await store.link((specifier, importing) => {
-  assert.equal(importing.identifier, 'src/store.js', 'query and validate have no imports');
-  assert.ok(['./query.js', './validate.js'].includes(specifier), 'store dependency allowlist');
+const cli = load('src/cli.js');
+await cli.link((specifier, importing) => {
+  if (importing.identifier === 'src/cli.js') {
+    assert.equal(specifier, './store.js', 'cli may depend only on store');
+  } else {
+    assert.equal(importing.identifier, 'src/store.js', 'query and validate have no dependencies');
+    assert.ok(['./query.js', './validate.js'].includes(specifier), 'store dependency allowlist');
+  }
   return load(path.posix.join(path.posix.dirname(importing.identifier), specifier));
 });
-await store.evaluate({ timeout: 1000 });
-assert.ok(modules.has('src/query.js') && modules.has('src/validate.js'),
-  'store links both declared dependencies');
+await cli.evaluate({ timeout: 1000 });
+assert.ok(modules.has('src/store.js') && modules.has('src/query.js')
+  && modules.has('src/validate.js'), 'declared module graph is complete');
+const store = modules.get('src/store.js');
+context.run = cli.namespace.run;
 context.createBoard = store.namespace.createBoard;
 context.select = modules.get('src/query.js').namespace.select;
 for (const key of ['validateId', 'validatePatch', 'validateOptions']) {
@@ -140,6 +146,23 @@ const evaluate = source => vm.runInContext(source, context, { timeout: 1000 });
 for (const name of ['process', 'console', 'requ' + 'ire', 'Buffer', 'structuredClone', 'fetch', 'setTimeout']) {
   assert.equal(evaluate('typeof ' + name), 'undefined', name + ' absent from VM');
 }
+
+// A fresh child process resets module singletons, so it cannot expose a board
+// allocated at module scope. Reuse the same restricted VM module graph instead.
+const firstRun = evaluate('run([["add","first run",2],["list"]])');
+assert.ok(Array.isArray(firstRun) && firstRun.length === 2, 'first run returns two results');
+assert.equal(firstRun[0].id, 1, 'first run starts with id 1');
+assert.equal(firstRun[1].length, 1, 'first run lists its own task');
+const secondRun = evaluate('run([["list"],["add","second run",1],["list"]])');
+assert.ok(Array.isArray(secondRun) && secondRun.length === 3, 'second run returns three results');
+assert.ok(Array.isArray(secondRun[0]) && secondRun[0].length === 0,
+  'fresh board per run: second run begins empty');
+assert.equal(secondRun[1].id, 1, 'fresh board per run: ids restart at 1');
+assert.equal(secondRun[2].length, 1, 'second run contains only its own task');
+assert.equal(secondRun[2][0].title, 'second run', 'second run does not inherit prior tasks');
+const thirdRun = evaluate('run([["list"]])');
+assert.ok(Array.isArray(thirdRun) && thirdRun.length === 1 && thirdRun[0].length === 0,
+  'fresh board per run: third run is also empty');
 
 const directTitle = 'direct_' + randomBytes(12).toString('hex');
 evaluate('globalThis.board=createBoard()');
@@ -165,7 +188,9 @@ for (const expression of ['0', '-1', '1.5', "'1'", '9007199254740992', 'NaN',
     'invalid id update leaves state unchanged');
 }
 for (const expression of ['{}', "{status:'done'}", "{title:'   '}",
-  '{priority:1.5}', 'null', '[]', "'title'"]) {
+  '{priority:1.5}', 'null', '[]', "'title'",
+  'new (class Patch { constructor(){ this.title="intruder" } })()',
+  'Object.create({title:"intruder"})']) {
   assert.throws(() => evaluate('validatePatch(' + expression + ')'),
     error => error?.name === 'TypeError', 'invalid patch ' + expression);
   assert.throws(() => evaluate('board.update(1,' + expression + ')'),
@@ -174,7 +199,9 @@ for (const expression of ['{}', "{status:'done'}", "{title:'   '}",
     'invalid patch leaves state unchanged');
 }
 for (const expression of ["{status:'blocked'}", "{sort:'descending'}",
-  '{other:true}', 'null', '[]', "'todo'"]) {
+  '{other:true}', 'null', '[]', "'todo'", 'new Date()',
+  'new (class Options { constructor(){ this.status="todo" } })()',
+  'Object.create({sort:"priority"})']) {
   assert.throws(() => evaluate('validateOptions(' + expression + ')'),
     error => error?.name === 'TypeError', 'invalid options ' + expression);
   assert.throws(() => evaluate('board.list(' + expression + ')'),
