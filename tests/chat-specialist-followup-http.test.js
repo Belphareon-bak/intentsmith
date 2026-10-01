@@ -234,6 +234,24 @@ test('selected-specialist public projection drops injected private evidence', ()
   assert.deepEqual(publicSpecialistToolResults('code-reviewer.security_scan',
     { status: 'ok', data: { vulnerabilities: [{ snippet: secret }] } }),
   [{ type: 'code-reviewer.security_scan' }]);
+  const betting = publicSpecialistToolResults('sazeni.ticket_builder', {
+    contract: 'BettingResult', version: 3, status: 'READY', internalNote: secret,
+    analysis: { autonomous: true, diagnostics: [secret], models: [{ token: secret }],
+      publicSourcePages: [{ league: 'E0', url: `https://example.test/?token=${secret}` }],
+      sourceRefs: [{
+      observationId: 'source-1', resource: 'history',
+      retrievedAt: '2026-10-01T00:00:00.000Z', lastModified: null,
+      sha256: 'd'.repeat(64), url: 'https://example.test/history.csv', bytes: 42,
+      credential: secret,
+    }, {
+      observationId: 'source-2', resource: 'history',
+      retrievedAt: '2026-10-01T00:00:00.000Z', lastModified: null,
+      sha256: 'd'.repeat(64), url: `https://example.test/history.csv?token=${secret}`,
+      bytes: 42,
+    }] },
+  });
+  assert.equal(betting[0].data.analysis.sourceRefs.length, 1);
+  assert(!JSON.stringify(betting).includes(secret));
   assert.equal(publicSpecialistProjectContext('other.tool', evidence), undefined);
 });
 

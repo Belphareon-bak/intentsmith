@@ -22,6 +22,48 @@ function isBettingTool(toolType) {
   return typeof toolType === 'string' && /^sazeni\.[a-z_]+$/u.test(toolType);
 }
 
+function publicSourceUrl(value) {
+  if (typeof value !== 'string') return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && !url.username && !url.password
+      && !url.search && !url.hash;
+  } catch {
+    return false;
+  }
+}
+
+function publicBettingAnalysis(analysis) {
+  if (!analysis || typeof analysis !== 'object' || Array.isArray(analysis)) return undefined;
+  const sourceRefs = Array.isArray(analysis.sourceRefs)
+    ? analysis.sourceRefs.flatMap(ref => {
+      if (!ref || typeof ref !== 'object' || !publicSourceUrl(ref.url)
+        || typeof ref.observationId !== 'string' || typeof ref.resource !== 'string'
+        || typeof ref.retrievedAt !== 'string' || typeof ref.sha256 !== 'string'
+        || !Number.isSafeInteger(ref.bytes)) return [];
+      return [{ observationId: ref.observationId, resource: ref.resource,
+        retrievedAt: ref.retrievedAt,
+        lastModified: typeof ref.lastModified === 'string' ? ref.lastModified : null,
+        sha256: ref.sha256, url: ref.url, bytes: ref.bytes }];
+    }) : [];
+  const publicPages = Array.isArray(analysis.publicSourcePages)
+    ? analysis.publicSourcePages.flatMap(page => (
+      typeof page?.league === 'string' && publicSourceUrl(page.url)
+        ? [{ league: page.league, url: page.url }] : []
+    )) : [];
+  return {
+    autonomous: analysis.autonomous === true,
+    sourceRefs,
+    ...(publicPages.length ? { publicSourcePages: publicPages } : {}),
+    ...(typeof analysis.policy?.id === 'string'
+      && typeof analysis.policy.selectedMethod === 'string'
+      ? { policy: { id: analysis.policy.id,
+        selectedMethod: analysis.policy.selectedMethod } } : {}),
+    ...(Array.isArray(analysis.limitations)
+      ? { limitations: analysis.limitations.filter(item => typeof item === 'string') } : {}),
+  };
+}
+
 export function publicSpecialistExecutionStatus(toolType, result) {
   if (!isBettingTool(toolType)) return 'SUCCESS';
   if (result?.contract !== 'BettingResult' || result.version !== 3
@@ -32,12 +74,14 @@ export function publicSpecialistExecutionStatus(toolType, result) {
 export function publicSpecialistToolResults(toolType, result) {
   const item = { type: toolType };
   // Sázení intentionally publishes its structured ticket/observation fields.
-  // The private analysis contains raw source references and diagnostics.
+  // Publish bounded observation references; keep raw model diagnostics private.
   if (isBettingTool(toolType) && result?.contract === 'BettingResult'
     && result.version === 3 && BETTING_STATUSES.has(result.status)) {
     item.data = Object.fromEntries(BETTING_PUBLIC_FIELDS
       .filter(key => Object.hasOwn(result, key))
       .map(key => [key, result[key]]));
+    const analysis = publicBettingAnalysis(result.analysis);
+    if (analysis) item.data.analysis = analysis;
   }
   return [item];
 }

@@ -53,9 +53,11 @@ Po obnovení neutrální věty stejný průchod prošel.
 Veřejná projekce vybraného specialisty vydává u code review jen typ nástroje;
 jeho `ProjectContext` je přesný seznam bezpečných identifikátorů, cest, řádků
 a digestů bez libovolných připojených polí. Sázení dál vydává strukturovaný
-`BettingResult` včetně tiketů, kurzů, času pozorování a příznaků
-`verifiedObservation`/`verifiedLive`, ale bez soukromého `analysis` se
-zdrojovými referencemi a diagnostikou. U neznámého nástroje vydává metadata
+veřejný pohled `BettingResult@3` včetně tiketů, kurzů, času pozorování a příznaků
+`verifiedObservation`/`verifiedLive`. Jeho omezené `analysis` uchovává bezpečné
+reference pozorování, veřejné zdrojové stránky, metodu a známá omezení;
+diagnostiku modelů a další soukromá pole z interního záznamu vynechává.
+U neznámého nástroje vydává metadata
 jen jeho typ. Účetní VAT generativní wrapper a jeho typované parametry se
 nemění; raw výsledek zůstává dostupný výhradně internímu provider promptu.
 
@@ -71,8 +73,9 @@ do textu syrový obsah výjimky.
 vrací u code revieweru nález ve veřejném textu, správné project ID/digests a
 žádnou zdrojovou canary ani syntetický klíč v celém M1 JSON. Sázení nad
 kontrolovaným transportem zachovává přesně dva pozorované zápasy, kurzy,
-`verifiedObservation=true`, `verifiedLive=false`, dvouminutovou platnost a
-evidenci v soukromé DB; `analysis` ve veřejných metadatech chybí. Chybějící
+`verifiedObservation=true`, `verifiedLive=false`, dvouminutovou platnost,
+osm bezpečných zdrojových referencí a evidenci v soukromé DB; soukromá
+`analysis.diagnostics` a pole mimo veřejný seznam ve výsledku chybí. Chybějící
 `odds_io` klíč vrací `PROVIDER_ERROR` / `executionStatus=FAILED` bez síťového
 fetch a bez modelu. Selhaný vybraný účetní dokumentový nástroj vrací
 `executionStatus=FAILED`, `fallbackSuppressed=true`, přesně neutrální větu,
@@ -81,11 +84,12 @@ fetch a bez modelu. Selhaný vybraný účetní dokumentový nástroj vrací
 
 **Přímá green evidence:** oba M1 programy **4/4**, účetní a překladatelské
 modelové kontrakty **5/5**, Sázení integrace **20/20** a M1 wire kontrakt
-**73/73**. Starý integrační
-test nejdřív správně zčervenal na očekávání soukromého `analysis` ve
-veřejném M1 tagu; aktualizované orákulum kontroluje jeho nepřítomnost v tagu
-a přítomnost v trvale uloženém soukromém záznamu. Registrovaný běh na čistém kandidátním SHA a
-nezávislé review ještě musí následovat. Jde o kontrolované HTTP/SQLite běhy,
+**73/73**. Starý integrační test nejdřív správně zčervenal na očekávání
+syrového `analysis` ve veřejném M1 tagu; aktualizované orákulum kontroluje
+veřejný výběr zdrojových referencí bez soukromé diagnostiky a její přítomnost
+v trvale uloženém soukromém záznamu. Čistý předběžný commit `ccb8b9a7` měl
+registrované sady **7/7 PASS**; finální projekce zdrojů vyžaduje nový přesný
+registrovaný běh a nezávislé review. Jde o kontrolované HTTP/SQLite běhy,
 nikoli fyzickou kvalitu modelu, dnešní Fortunu, mobilního klienta ani release
 Gate 0.
 

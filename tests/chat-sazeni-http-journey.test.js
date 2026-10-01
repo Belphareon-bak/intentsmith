@@ -121,7 +121,8 @@ test('selected Sázení specialist uses observed Fortuna fixture and scopes foll
     } })), 200);
   const unavailableResult = bettingResult(unavailable, 'PROVIDER_ERROR', 'FAILED');
   assert.deepEqual(unavailableResult.tickets, []);
-  assert.equal(unavailableResult.analysis, undefined);
+  assert.equal(unavailableResult.analysis?.autonomous, true);
+  assert.deepEqual(unavailableResult.analysis?.sourceRefs, []);
   assert.equal(unavailableResult.verifiedLive, false);
   assert.equal(unavailableResult.verifiedObservation, false);
   assert.equal(unavailable.response.metadata.fallbackSuppressed, true);
@@ -136,8 +137,16 @@ test('selected Sázení specialist uses observed Fortuna fixture and scopes foll
   const first = await expectJson(product, 'POST', '/api/chat', command(a, firstInput), 200);
   const after = Date.now();
   const firstResult = bettingResult(first);
-  assert.equal(firstResult.analysis, undefined,
-    'private source references and diagnostics must not ride in public toolResults');
+  assert.equal(firstResult.analysis?.autonomous, true);
+  assert.equal(firstResult.analysis?.sourceRefs?.length, 8,
+    'public observation references must keep the eight captured sources');
+  assert.equal(firstResult.analysis?.diagnostics, undefined,
+    'private model diagnostics must not ride in public toolResults');
+  assert(firstResult.analysis.sourceRefs.every(ref => {
+    const source = new URL(ref.url);
+    return source.protocol === 'https:' && !source.search && !source.username
+      && !source.password && ref.sha256.length === 64;
+  }));
   assert.equal(firstResult.dataMode, 'observed');
   assert.equal(firstResult.verifiedObservation, true);
   assert.equal(firstResult.verifiedLive, false);
