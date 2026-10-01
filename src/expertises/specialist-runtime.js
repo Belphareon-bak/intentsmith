@@ -480,8 +480,7 @@ class SpecialistRuntime {
     // An explicit new tool owns the conversation even when it must clarify.
     // Leaving the old success cached would let a short reply execute the old
     // topic. Semantic resolvers must ground the whole new request themselves.
-    throwIfAborted(signal);
-    if (match && sessionId) {
+    if (match && sessionId && !signal?.aborted) {
       const cached = this._sessionCache.get(sessionId, expertiseId);
       if (cached && (cached.toolId !== match.tool.id || typeof match.tool.resolveParams === 'function')) {
         this._sessionCache.clear(sessionId, expertiseId);

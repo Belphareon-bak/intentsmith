@@ -39,12 +39,21 @@ export function buildInterpretationContext(input, context, maxBytes) {
     content: entry.response.content });
   }
   if (turns.at(-1)?.role === 'user' && turns.at(-1).content === input) turns.pop();
+  // The durable summary carries archived decisions. Recent optional turns
+  // must not displace it and make the classifier ask for already known facts.
+  result.history.push(...turns.filter(turn => turn.role === 'summary'));
+  const protectedCount = result.history.length;
+  if (bytes() > maxBytes) {
+    throw Object.assign(new Error('The complete durable summary exceeds the interpretation budget'),
+      { code: 'CHAT_INTERPRETATION_CONTEXT_LIMIT' });
+  }
   // Keep complete turns in chronological order. If an antecedent is too large,
   // report the gap rather than substituting a fabricated or truncated source.
   for (let index = turns.length - 1; index >= 0; index--) {
-    result.history.unshift(turns[index]);
+    if (turns[index].role === 'summary') continue;
+    result.history.splice(protectedCount, 0, turns[index]);
     if (bytes() > maxBytes) {
-      result.history.shift();
+      result.history.splice(protectedCount, 1);
       result.historyOmitted = true;
       break;
     }

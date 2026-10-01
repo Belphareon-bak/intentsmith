@@ -65,7 +65,7 @@ nikoli zelenou vývojovou bránu. Mimochatové baseline chyby tato dávka nepře
 plánování a přetížení kontextu ukládacího modelu staršími zdroji. Oprava předává
 CRE významový scope, drží inline kód v chatu a zachovává původní otázku.
 Starší zdroje se vynechávají výslovně; vykonatelné bajty zůstávají z DB.
-Nová sada má 11 testů včetně skutečného M1 restartu, běžného doptání a inline
+Nová sada má 13 testů včetně skutečného M1 restartu, běžného doptání a inline
 kódu v aktivním projektu. Projektová sada 37 PASS; dva souhrny přes restart
 1 PASS. Její původní fixture emitovala neplatný intent PROJECT; stejné selhání
 je doložené na archivovaném `45caf5b5`. Fixture nyní emituje platný CRE intent;

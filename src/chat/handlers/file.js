@@ -31,7 +31,7 @@ import { throwIfAborted, isAbortError } from '../../core/abort-error.js';
 import { issueFileExplainContinuation, getFileExplainContinuation } from '../file-explain-continuation.js';
 import { prepareFileExplanation, callFileExplanation } from './utils/file-explain.js';
 import { canonicalStringify } from '../../../contracts/m2/effect-current.js';
-import { resolveFileSavePlan, summarizeSaveAnswer } from '../file-save-plan.js';
+import { resolveFileSavePlan, summarizeSaveAnswer, generateSaveContent } from '../file-save-plan.js';
 
 // ─── Security constants ──────────────────────────────────────────────────────
 
@@ -987,6 +987,18 @@ export async function handleFileWriteDecision(input, decision, context, dependen
   let sourceMessageId = plan.sourceMessageId;
   const originMessageId = sourceMessageId;
   try {
+    if (plan.generationInstruction) {
+      content = await generateSaveContent(plan.generationInstruction, context, dependencies);
+      if (typeof context.persistFileSaveGenerated !== 'function') {
+        throw Object.assign(new Error('Durable generated source is unavailable'), { code: 'file_write_source_unverified' });
+      }
+      const saved = context.persistFileSaveGenerated({ content, messageId: plan.generationOriginMessageId,
+        request: plan.generationRequest });
+      if (!saved?.persisted || !Number.isSafeInteger(saved.id)) {
+        throw Object.assign(new Error('Generated source was not persisted'), { code: 'file_write_source_unverified' });
+      }
+      sourceMessageId = saved.id;
+    }
     if (plan.transformation === 'summarize') {
       content = await summarizeSaveAnswer(content, plan.summaryRequest || input, context, dependencies);
       if (typeof context.persistFileSaveSummary !== 'function') {
@@ -1009,8 +1021,8 @@ export async function handleFileWriteDecision(input, decision, context, dependen
   } catch (error) {
     if (isAbortError(error)) throw error;
     return terminalWithoutEffect(lang === 'cs'
-      ? '⚠️ Obsah nebo projekt se během přípravy změnil, případně shrnutí nebylo dokončeno. Žádný zápis není připraven.'
-      : '⚠️ The source/project changed during preparation or the summary did not complete. No write is prepared.',
+      ? '⚠️ Obsah nebo projekt se během přípravy změnil, případně text nebyl dokončen. Žádný zápis není připraven.'
+      : '⚠️ The source/project changed during preparation or the text did not complete. No write is prepared.',
     error.code || 'file_write_source_unverified', filePath);
   }
   // M2 canonicalizes string values to NFC. Refuse a byte-changing admission
@@ -1023,9 +1035,9 @@ export async function handleFileWriteDecision(input, decision, context, dependen
   }
   const fileSaveSource = {
     messageId: plan.literalOriginMessageId ?? sourceMessageId ?? context.userMessageId,
-    originMessageId: plan.literalOriginMessageId ?? originMessageId ?? context.userMessageId,
+    originMessageId: plan.generationOriginMessageId ?? plan.literalOriginMessageId ?? originMessageId ?? context.userMessageId,
     kind: sourceMessageId === null ? 'user_literal' : 'answer', projectId,
-    transformation: plan.transformation,
+    transformation: plan.generationInstruction ? 'generate' : plan.transformation,
     digest: `sha256:${createHash('sha256').update(content, 'utf8').digest('hex')}`,
   };
 

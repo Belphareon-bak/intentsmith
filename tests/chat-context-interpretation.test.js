@@ -20,7 +20,7 @@ import { maybeCompact, awaitPendingCompaction } from '../src/chat/context-compac
 import { buildInterpretationContext } from '../src/chat/conversation-context.js';
 import { config } from '../src/config.js';
 import { setNumCtx, clearNumCtxCache } from '../src/llm/model-ctx.js';
-import { resolveFileSavePlan } from '../src/chat/file-save-plan.js';
+import { resolveFileSavePlan, generateSaveContent } from '../src/chat/file-save-plan.js';
 import { formatClarificationRequest } from '../src/chat/handlers/ask-user.js';
 import { enforceOutputContract } from '../src/chat/handlers/utils/output-gate.js';
 
@@ -177,6 +177,40 @@ test('interpretation never shortens the current request and excludes foreign pro
   assert(JSON.stringify(context).includes('Lípa'));
 });
 
+test('interpretation protects the complete archived summary when recent optional history is too large', () => {
+  const summary = 'Platí Javor, kód LIPA_781; první krok je ruční kontrola bez změn souborů.';
+  const context = { history: [
+    { isSummary: true, response: { tag: { speaker: 'system' }, content: summary } },
+    { response: { tag: { speaker: 'user' }, content: 'Nepodstatný podklad. '.repeat(100) } },
+  ] };
+  const result = buildInterpretationContext('Jaký název a první krok platí?', context, 500);
+  assert.equal(result.history[0].content, summary);
+  assert.equal(result.history[0].role, 'summary');
+  assert.equal(result.historyOmitted, true);
+  assert.throws(() => buildInterpretationContext('Co platí?', context, 120),
+    error => error.code === 'CHAT_INTERPRETATION_CONTEXT_LIMIT');
+});
+
+test('new-content saves require an exact user span, durable origin and a complete generation', async () => {
+  const instruction = 'Napiš dvě krátké věty o rostlinách';
+  const request = `${instruction} a ulož je do plants.md.`;
+  const context = { project: { id: 1 }, history: [], userMessageId: 201,
+    verifyFileSaveOriginalRequest: value => assert.deepEqual(value, { messageId: 201, request }) };
+  const makePlan = instruction => ({ action: 'write', question: null, target: 'plants.md',
+    source: { kind: 'generated', instruction }, transformation: 'none', writeMode: 'create', understood: true, unsupported: [] });
+  const result = await resolveFileSavePlan(request, context, {
+    interpretSave: async () => ({ content: JSON.stringify(makePlan(instruction)) }),
+  });
+  assert.equal(result.generationOriginMessageId, 201);
+  assert.equal(result.generationInstruction, instruction);
+  await assert.rejects(resolveFileSavePlan(request, context, {
+    interpretSave: async () => ({ content: JSON.stringify(makePlan('Vymyšlené zadání')) }),
+  }), error => error.code === 'file_write_source_unverified');
+  await assert.rejects(generateSaveContent(instruction, context, {
+    generateSave: async () => ({ content: 'Nedokončený text', finishReason: 'length' }),
+  }), error => error.code === 'file_write_generation_incomplete');
+});
+
 test('an explicit older answer ID copies complete durable bytes rather than its model preview', async () => {
   const originalContent = 'Začátek původní odpovědi. ' + 'podklad '.repeat(300) + 'PŮVODNÍ_KONEC';
   const answer = (messageId, content) => ({ messageId, response: { tag: { speaker: 'system' }, content },
@@ -252,6 +286,9 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
   const literal = '  Žluťoučký kůň\nřádek 2  ';
   const literalRequest = `Ulož doslovně „${literal}“.`;
   const decomposedRequest = 'Ulož doslovně „Cafe\u0301“ do decomposed.txt.';
+  const generationInstruction = 'Napiš dvě krátké věty o rostlinách';
+  const generationRequest = `${generationInstruction} a ulož je do nového souboru plants.md, nic existujícího nepřepisuj.`;
+  const generatedContent = 'Rostliny potřebují světlo odpovídající svému druhu. Zálivku přizpůsob stavu substrátu.';
   const provider = http.createServer(async (req, res) => {
     let body = '';
     for await (const chunk of req) body += chunk;
@@ -267,7 +304,11 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
     try { parsed = JSON.parse(raw); } catch { parsed = null; }
     let content;
     if (payload.format?.properties?.action) {
-      if (parsed.request === decomposedRequest) {
+      if (parsed.request === generationRequest) {
+        content = JSON.stringify({ action: 'write', question: null, target: 'plants.md',
+          source: { kind: 'generated', instruction: generationInstruction }, transformation: 'none',
+          writeMode: 'create', understood: true, unsupported: [] });
+      } else if (parsed.request === decomposedRequest) {
         content = JSON.stringify({ action: 'write', question: null, target: 'decomposed.txt',
           source: { kind: 'literal', literalId: 1 }, transformation: 'none', writeMode: 'replace',
           understood: true, unsupported: [] });
@@ -291,6 +332,8 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
         confidence: 0.95, fileTarget: null, question: ambiguous ? 'Mezi čím se rozhoduješ?'
           : parsed?.request === 'Shrň odpověď a ulož ji do nového souboru, nic existujícího nepřepisuj.' ? question : null,
         continuesPending: Boolean(parsed?.pending), responseScope: 'conversation' });
+    } else if (system.includes('Create only the complete content')) {
+      content = generatedContent;
     } else if (system.includes('Summarize only')) {
       assert(parsed.request.includes('Shrň odpověď'));
       assert(parsed.request.includes('nic existujícího nepřepisuj'));
@@ -371,6 +414,21 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
     assert.equal(stopped.response.metadata.error, 'file_write_byte_identity_unavailable', JSON.stringify(stopped));
     assert.equal(database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n, beforeDecomposed);
     assert(!existsSync(path.join(project.path, 'decomposed.txt')));
+    const generated = await send(generationRequest);
+    assert.equal(generated.response.metadata.approvalRequired, true, JSON.stringify(generated));
+    const generatedSource = database.prepare('SELECT role, content, metadata FROM messages WHERE id = ?')
+      .get(generated.response.metadata.fileSaveSource.messageId);
+    assert.equal(generatedSource.role, 'assistant');
+    assert.equal(generatedSource.content, generatedContent);
+    assert.equal(JSON.parse(generatedSource.metadata).generatedFromMessageId,
+      generated.response.metadata.fileSaveSource.originMessageId);
+    const generatedTool = JSON.parse(database.prepare('SELECT request_json FROM tool_v1_requests WHERE request_id = ?')
+      .get(generated.response.metadata.toolRequestId).request_json);
+    assert.equal(generatedTool.toolId, 'file.create');
+    assert.deepEqual(generatedTool.input, { path: 'plants.md', content: generatedContent });
+    assert(!existsSync(path.join(project.path, 'plants.md')));
+    await send(`schválit efekt ${generated.response.metadata.effectId}`);
+    assert.equal(readFileSync(path.join(project.path, 'plants.md'), 'utf8'), generatedContent);
     const before = database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n;
     await send('Neukládej nic, jen vysvětli Git commit.');
     assert.equal(database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n, before);

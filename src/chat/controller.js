@@ -2198,6 +2198,14 @@ ChatController.handle = async function(request) {
         throw new ChatProcessingError('FILE_SAVE_SOURCE_CHANGED');
       }
     },
+    persistFileSaveGenerated: ({ content, messageId, request }) => db.db.transaction(() => {
+      fullContext.verifyFileSaveOriginalRequest({ messageId, request });
+      return store.appendTurn(dbConversationId, TurnRole.ASSISTANT, content, {
+        saveSourceEligible: true, saveSourceProjectId: answerSourceProjectId,
+        messageKind: 'answer', handler: 'file.generate', generatedFromMessageId: messageId,
+        generatedForTurnId: durableTurnId,
+      });
+    })(),
     persistFileSaveSummary: ({ content, sourceMessageId, sourceContent }) => db.db.transaction(() => {
       throwIfAborted(signal);
       if (normalizeSourceProjectId(store.getConversation(dbConversationId)?.project_id) !== answerSourceProjectId) {
