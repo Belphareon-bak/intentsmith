@@ -1,5 +1,16 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 1. 10. 2026, 02:50 UTC — čistý účetní source a přesná modulová hrana
+
+Produktová změna VAT a řízené testy jsou v čistém commitu `ce1655ba`.
+Jediná nová hrana `src/chat/handlers/expertise.js ->
+src/chat/handlers/specialist-public.js` byla výslovně přijata nástrojem
+`--write-baseline --accept-edge` s připnutým zdrojem `ce1655ba`:
+**1 464** přesných hran, **3** cykly a **28** souborů v nich, bez nárůstu.
+Baseline a současná dokumentace teprve čekají na vlastní commit a opakování
+registrovaného ratchetu. Úplný offline/database profil, nezávislé review,
+push i nasazení se z tohoto kroku neodvozují.
+
 ## Checkpoint 1. 10. 2026, 02:45 UTC — řízená VAT přejímka
 
 V pracovním integračním stromu prošel nový skutečný M1 HTTP/SQLite průchod

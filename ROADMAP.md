@@ -1,7 +1,7 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktuální source checkpoint 1. 10. 2026, 02:45 UTC — poslední čistý
-integrovaný produkt `46ca3dcc`, další oprava rozpracovaná:**
+**Aktuální source checkpoint 1. 10. 2026, 02:50 UTC — produktová oprava
+`ce1655ba`, přesná modulová baseline a přejímka rozpracované:**
 [měřené dokončování IDE/backendu, chatu, GPU huntu a odložené mobilní
 integrace](docs/review/2026-09-30-COMPLETION-TRACKER.md). Vývojový registr
 má 583 programů; úplný offline/database profil na čistém předchozím
@@ -16,8 +16,9 @@ věcný oracle je odmítl. `46ca3dcc` má omezené `REVIEW_PASS` pro opravu
 false-red orákula, nikoli pro live kvalitu. Úzká změna VAT na deterministickou
 prezentaci z ověřeného nástroje má v pracovním stromu řízené M1/SQLite,
 oracle a přímou expertizu **69/69 PASS** a samostatný účetní balíček
-**27/27 PASS**. Čistý commit, přesná module-edge baseline, celý
-offline/database profil a nezávislá revize teprve následují.
+**27/27 PASS**. Čistý produktový commit `ce1655ba` existuje; přesná nová
+hrana je přijata v pracovní module-edge baseline 1 464 hran / 3 cykly /
+28 členů. Úplný offline/database profil a nezávislá revize teprve následují.
 Níže uvedených 353/353 patří staršímu M6 kandidátu,
 nikoli dnešnímu vývojovému profilu; M5/M6 acceptance zůstává zavřená.
 Následující datované záznamy zachovávají historii tehdejších kandidátů.
@@ -73,14 +74,16 @@ měl tehdy 1 433 hran, 3 cykly / 28 členů. Závěrečné měření a nezávisl
 přijetí mají vlastní evidenci v [předávce](docs/review/2026-09-28-STUDIO2-PARITY-DELIVERY.md).
 Tehdejší integrovaný module graph měl 1 434 hran, 3 cykly / 28 členů po
 přijetí přesné hrany `src/chat/context-compact.js -> src/core/abort-error.js`.
-Aktuální module graph má 1 463 hran, stále 3 cykly / 28 členů;
+Aktuální module graph má 1 464 hran, stále 3 cykly / 28 členů;
 oficiální baseline přijala dvě hrany read modelu nad `8c64e427`, přesnou
 hranu chatové chyby nad čistým integračním `2305431c` a dvě nezávisle
 posouzené integrační hrany `src/agents/runner.js -> src/agents/schema.js`
 a `src/chat/handlers/decisions.js -> src/llm/auth-types.js` nad `63dc55fb`.
 Integrační baseline navíc přijala jedinou přesnou hranu
 `src/chat/handlers/specialist.js -> src/chat/handlers/specialist-public.js`
-nad `1303535f`, bez nového cyklu.
+nad `1303535f`; další přesná hrana
+`src/chat/handlers/expertise.js -> src/chat/handlers/specialist-public.js`
+byla přijata nad čistým `ce1655ba`, bez nového cyklu.
 
 **Studio: průběh práce a prostředí, 2026-09-23:** konkrétní tahy, nástroje,
 čekání, souborové diffy/+− a kopírování formátované odpovědi. Přidáno skutečné
