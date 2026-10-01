@@ -4,7 +4,7 @@ import { test } from 'node:test';
 
 import { CAPTURE_DIGEST, CAPTURE_MODEL } from '../scripts/provider-capture.js';
 import { providerPromptText, validateSecondWindowEvidence } from '../scripts/chat-second-window-evidence.js';
-import { FIRST_CODE, SECOND_CODE, FIRST_FACT, FINAL_QUESTION,
+import { FIRST_CODE, SECOND_CODE, FIRST_FACT, FINAL_QUESTION, EXPECTED_FINAL_ANSWER,
   secondWindowCase, secondWindowMessage, secondWindowSemanticQuality } from '../scripts/chat-second-window-values.js';
 
 const sha256 = value => createHash('sha256').update(value).digest('hex');
@@ -69,7 +69,7 @@ function fixture() {
   const bAfterSecond = row('b-after-second', `project B ${projectB.file} ${projectB.canary} ${projectB.rule}`,
     JSON.stringify({ reply: projectB.canary, plan: null }));
   rows.push(bAfterSecond);
-  const finalAnswer = `${FIRST_CODE}, ${SECOND_CODE}; původně ruční revize bez změny souborů.`;
+  const finalAnswer = EXPECTED_FINAL_ANSWER;
   const final = row('final', `[Souhrn předchozí konverzace]\n${secondText}\nUser: ${FINAL_QUESTION}`,
     finalAnswer);
   rows.push(final);
@@ -92,8 +92,9 @@ function fixture() {
     installedDigest: CAPTURE_DIGEST, captureBytes: captureBytes.length,
     captureSha256: sha256(captureBytes), turns,
     projects: { a: projectA, b: projectB },
-    projectB: { before: receipt(bBefore), afterRestart: receipt(bAfter),
-      afterSecond: receipt(bAfterSecond) },
+    projectB: { before: { ...receipt(bBefore), answer: projectB.canary },
+      afterRestart: { ...receipt(bAfter), answer: projectB.canary },
+      afterSecond: { ...receipt(bAfterSecond), answer: projectB.canary } },
     first: { firstUserId: 1, upToMsgId: 8, rawTokens: 4300,
       messages: firstMessages, text: firstText, ...receipt(firstSummary) },
     restart: { beforePid: 111, afterPid: 222, firstSummary: firstText,
@@ -194,4 +195,44 @@ test('captured physical receipt requires the exact recursive source, project iso
         { role: 'user', content: secondWindowMessage(1, 1) }],
     });
   })), /replayed original raw user message/);
+
+  // Red-first review findings: each mutation keeps an internally consistent
+  // provider row and private receipt, but must never certify as semantic PASS.
+  const wrongArithmetic = changedRows(rows => {
+    const answer = JSON.stringify({ a: 73, b: 62, delta: 12, higher: 'A' });
+    const call = rows.find(x => x.requestSha256 === baseline.evidence.turns[0].requestSha256);
+    call.terminal.message.content = answer;
+    call.responseSha256 = sha256(`wrong arithmetic ${answer}`);
+  });
+  const arithmeticRow = wrongArithmetic.captureBytes.toString('utf8').trim().split('\n')
+    .map(line => JSON.parse(line)).find(x => x.requestSha256 === baseline.evidence.turns[0].requestSha256);
+  wrongArithmetic.evidence.turns[0].answer = arithmeticRow.terminal.message.content;
+  wrongArithmetic.evidence.turns[0].responseSha256 = arithmeticRow.responseSha256;
+  assert.throws(() => validateSecondWindowEvidence(wrongArithmetic), /arithmetic|wrong values|quality/i);
+
+  const foreignBAnswer = changedRows(rows => {
+    const call = rows.find(x => x.requestSha256 === baseline.evidence.projectB.afterSecond.requestSha256);
+    const answer = `${projectB.canary} ${projectA.canary}`;
+    call.terminal.message.content = JSON.stringify({ reply: answer, plan: null });
+    call.responseSha256 = sha256(`foreign B answer ${answer}`);
+  });
+  const foreignRow = foreignBAnswer.captureBytes.toString('utf8').trim().split('\n')
+    .map(line => JSON.parse(line)).find(x => x.requestSha256 === baseline.evidence.projectB.afterSecond.requestSha256);
+  foreignBAnswer.evidence.projectB.afterSecond.answer = JSON.parse(foreignRow.terminal.message.content).reply;
+  foreignBAnswer.evidence.projectB.afterSecond.responseSha256 = foreignRow.responseSha256;
+  assert.throws(() => validateSecondWindowEvidence(foreignBAnswer), /foreign|project A|leak/i);
+
+  const fileChange = changedRows(rows => {
+    const call = rows.find(x => x.requestSha256 === baseline.evidence.final.requestSha256);
+    const answer = `${FIRST_CODE} | ${SECOND_CODE} | ruční revize se změnou souborů`;
+    call.terminal.message.content = answer;
+    call.responseSha256 = sha256(`file change ${answer}`);
+  });
+  const finalRow = fileChange.captureBytes.toString('utf8').trim().split('\n')
+    .map(line => JSON.parse(line)).find(x => x.requestSha256 === baseline.evidence.final.requestSha256);
+  fileChange.evidence.final.answer = finalRow.terminal.message.content;
+  fileChange.evidence.final.responseSha256 = finalRow.responseSha256;
+  // A forged PASS receipt must be recomputed from the captured answer.
+  fileChange.evidence.semanticQuality = baseline.evidence.semanticQuality;
+  assert.throws(() => validateSecondWindowEvidence(fileChange), /policy|negation|semantic|file change/i);
 });

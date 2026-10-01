@@ -69,6 +69,24 @@ function assertNoForeign(wire, markers, label) {
   }
 }
 
+function assertCapturedArithmetic(answer, expected, label) {
+  assert.equal(typeof answer, 'string', `${label} model answer missing`);
+  const trimmed = answer.trim();
+  assert(trimmed.startsWith('{') && trimmed.endsWith('}'),
+    `${label} arithmetic answer is not one bare JSON object`);
+  assert.equal([...trimmed.matchAll(/"(?:\\.|[^"\\])*"\s*:/gu)].length, 4,
+    `${label} arithmetic answer has duplicate or extra members`);
+  const parsed = JSON.parse(trimmed);
+  assert(parsed && typeof parsed === 'object' && !Array.isArray(parsed),
+    `${label} arithmetic answer is not an object`);
+  assert.deepEqual(Object.keys(parsed).sort(), ['a', 'b', 'delta', 'higher'],
+    `${label} arithmetic answer keys changed`);
+  for (const key of ['a', 'b', 'delta']) {
+    assert(Number.isSafeInteger(parsed[key]), `${label} ${key} is not an integer`);
+  }
+  assert.deepEqual(parsed, expected, `${label} arithmetic answer has wrong values`);
+}
+
 /** Verify a complete private receipt against the exact captured provider bytes. */
 export function validateSecondWindowEvidence({ captureBytes, evidence, sourceRevision }) {
   assert(Buffer.isBuffer(captureBytes) && captureBytes.length > 0, 'capture bytes missing');
@@ -180,6 +198,11 @@ export function validateSecondWindowEvidence({ captureBytes, evidence, sourceRev
     assertNoForeign(providerPromptText(row), [FIRST_CODE, SECOND_CODE, ownA.file, ownA.canary, ownA.rule],
       'project B provider request');
     assert(providerPromptText(row).includes(foreignB.canary), 'project B prompt lacks its own file');
+    const answer = providerReply(row);
+    assert.equal(receipt.answer, answer, 'project B HTTP answer differs from captured provider reply');
+    assert(answer.includes(foreignB.canary), 'project B answer lost its own file code');
+    assertNoForeign(answer, [FIRST_CODE, SECOND_CODE, ownA.file, ownA.canary, ownA.rule],
+      'project B answer');
   }
   assert.ok(Array.isArray(evidence.turns) && evidence.turns.length >= 10,
     'insufficient physical long turns');
@@ -194,6 +217,7 @@ export function validateSecondWindowEvidence({ captureBytes, evidence, sourceRev
     assert(providerPromptText(row).includes(turn.question), `${key} question absent from provider request`);
     const output = providerReply(row);
     assert.equal(turn.answer, output, `${key} HTTP answer differs from captured provider answer`);
+    assertCapturedArithmetic(output, valueCase.expected, key);
     assert.equal(turn.qualityStatus, 'PASS', `${key} model answer quality failed`);
   }
   const semantic = secondWindowSemanticQuality(evidence.turns, evidence.final?.answer,

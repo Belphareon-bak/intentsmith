@@ -37,16 +37,17 @@ export function secondWindowMessage(stage, turn) {
 }
 
 export const FINAL_QUESTION = 'Jaké byly oba auditní kódy, první před restartem a druhý po restartu? '
-  + 'Jaký byl původní způsob kontroly? Odpověz jednou krátkou větou.';
+  + 'Jaký byl doslovný původní způsob kontroly? Odpověz pouze třemi poli '
+  + 'oddělenými znakem | v pořadí první kód | druhý kód | způsob kontroly, bez dalšího textu.';
+export const EXPECTED_FINAL_ANSWER = `${FIRST_CODE} | ${SECOND_CODE} | ruční revize bez změny souborů`;
 
 export function secondWindowSemanticQuality(turns, finalAnswer, summaries = []) {
   const failedTurns = turns.filter(row => row.qualityStatus !== 'PASS')
     .map(row => `${row.stage}.${row.turn}`);
   const answer = String(finalAnswer || '');
-  const recall = answer.includes(FIRST_CODE) && answer.includes(SECOND_CODE)
-    && /ruční\s+reviz/iu.test(answer);
+  const recall = answer.trim() === EXPECTED_FINAL_ANSWER;
   const policyInBothSummaries = summaries.length === 2
-    && summaries.every(value => /ruční\s+reviz/iu.test(String(value || '')));
+    && summaries.every(value => String(value || '').includes(FIRST_FACT));
   return Object.freeze({ status: turns.length > 0 && failedTurns.length === 0
     && recall && policyInBothSummaries ? 'PASS' : 'FAIL',
     checkedTurns: turns.length, failedTurns, recall, policyInBothSummaries });

@@ -115,6 +115,21 @@ PASS**. Registru `lastGreen` se lokální běh nedotkne. Řízený provider test
 `chat-second-compaction-http.test.js` dál samostatně prokazuje restarty a
 projektové hranice bez nároku na fyzickou kvalitu modelu.
 
+Nezávislá revize původního fyzického kandidáta `13eb6633` vrátila
+`CHANGES_REQUIRED`: atestor věřil deklarovanému `qualityStatus=PASS` i u
+chybného aritmetického JSON, akceptoval větu o ruční revizi **se změnou**
+souborů a nekontroloval únik kódu projektu A ve skutečné odpovědi projektu B.
+Oprava přidala negativní mutace všech tří případů; původní aritmetická mutace
+před opravou skutečně skončila falešným `PASS`. Atestor nyní znovu parsuje
+každou zachycenou hodnotovou odpověď proti pevným očekáváním, porovnává
+odpovědi B s providerem a odmítá v nich cizí markery. Producent kontroluje
+stejnou hranici při běhu. Finální otázka neprozrazuje hodnoty a vyžaduje
+přesný třípoložkový výstup `první kód | druhý kód | původní způsob kontroly`;
+správná odpověď má konec `ruční revize bez změny souborů`, takže pozitivní
+zmínka o změně souborů neprojde. Oba souhrny musí zachovat přesnou původní
+větu o tomto rozhodnutí. Fyzický běh nad opraveným SHA je stále
+`LIVE_NOT_RUN / REVIEW_PENDING`.
+
 Předběžné offline ověření kandidáta: atestační orákulum **2/2 PASS** včetně
 negativních mutací, řízený HTTP/SQLite scénář **1/1 PASS**, registr **585**
 validních programů a module-boundary ratchet **1464/1464** bez nových hran.

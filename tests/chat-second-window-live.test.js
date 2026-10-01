@@ -93,6 +93,11 @@ async function projectBChat(product, proxy, captureFile, fixtureB, label) {
     `${label}: project A anchor leaked to project B`);
   assert(response.response.content.includes(fixtureB.canary),
     `${label}: physical model did not return project B file code`);
+  for (const foreign of [FIRST_CODE, SECOND_CODE, JOURNEY.a.file,
+    JOURNEY.a.canary, JOURNEY.a.rule]) {
+    assert(!response.response.content.includes(foreign),
+      `${label}: project A data leaked into project B answer: ${foreign}`);
+  }
   return { requestSha256: row.requestSha256, responseSha256: row.responseSha256,
     answer: response.response.content };
 }
