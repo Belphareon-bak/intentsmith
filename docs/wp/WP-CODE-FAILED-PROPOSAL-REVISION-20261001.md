@@ -6,6 +6,13 @@
 dokončení a skutečné projektové testy; stávající M2 failed-plan revision.
 CHAT ani nový sandboxový či síťový effect není součástí rozsahu.
 
+**Navazující autorizace 21:32 UTC:** operátor po konkrétní eskalaci udělil
+veškeré povolení pokračovat k dokončení produktu. Původní níže uvedený
+jednoschema profil a jeho osmigenerační FAIL zůstávají historicky přesné.
+Nová omezená CLI revize nad kopií téhož failed runtime je vymezena v
+[CODE context WP §8](WP-CODE-PEER-CONTEXT-BUDGET-20261001.md#8-autorizované-pokračování--1-10-2026-2132-utc).
+Nejde o zpětnou změnu frozen protokolu ani schválení neúspěšné aplikace.
+
 ## Důvod a přesné omezení
 
 Qwen3.8 na source34 dvakrát porušilo schema dependency kontrakt. Druhý

@@ -12,7 +12,8 @@ Tento WP nepřidává produktovou ani schvalovací autoritu.
 **Stav:** `SOURCE_REVIEW_PASS / APPLICATION_FAIL / OPERATOR_DECISION_REQUIRED` od navazujícího zadání
 operátora 1. 10. 2026. CPU experiment, implementace a nový zmrazený modelový průchod dokončeny;
 aplikace neprošla. Další inference čeká na výslovné rozšíření limitu opravy.
-Samotný CPU výsledek není funkční přejímka aplikace.
+Samotný CPU výsledek není funkční přejímka aplikace. Operátor následně
+výslovně autorizoval pokračování, viz §8; historický osmigenerační FAIL platí.
 
 ## Vlastnictví a konkrétní výsledek navazujícího milníku
 
@@ -332,3 +333,45 @@ rozšíření kvalifikace. Výsledek je doložená eskalace skutečného blokér
 aplikace zůstává FAIL a žádná hypotetická CPU oprava není vydávána za CODE
 modelový výstup. Read holds jsou uvolněné; čeká pouze konkrétní rozhodnutí
 operátora, nikoli review návrhu.
+
+## 8. Autorizované pokračování — 1. 10. 2026 21:32 UTC
+
+Operátor po konkrétní eskalaci udělil „veškeré povolení“ a zadal autonomně
+dokončit produkt podle dokumentace a priorit. CHAT vlastní jiný worker.
+Tím je navazující CLI revize autorizovaná; stejná otázka se znovu nepokládá.
+Historický průchod osmi generací zůstává uzavřený FAIL, jeho zdroj a důkazy
+se nepřepisují. Toto pokračování má právě jedno nové CODE volání pro CLI,
+tedy devátou generaci řetězce, šest přesně zachovaných modulů a nový plán.
+
+**Rozsah a vlastnictví před implementací:** ROOT vlastní
+`scripts/project-app-revision.js`, nezbytné regrese v již registrovaných
+`tests/project-app-acceptance.test.js` a `tests/project-app-m2-functional.test.js`
+a existující WP/report. Delegovaný autor vlastní pouze
+`scripts/run-project-app-journey.js`; bez commitu a bez GPU. Nezávislé review
+nové změny provede jiný autor. Produktový formatter je již přijatý a nemění se.
+
+Nový explicitní resume režim zkopíruje přesný neúspěšný privátní runtime do
+nového evidence packetu. Durable DB zachová lifecycle/digest a úplné návrhy.
+Kvůli absolutním projektovým cestám se v izolovaném namespace kopie připojí
+na původní runtime cestu; skutečný původní packet zůstane nezměněný a hashovaně
+ověřený před i po běhu. Žádný zápis do původní DB, Git indexu či modelových
+výstupů. Původních osm generací a jedna nová mají oddělenou provenance.
+
+CLI pokyn a blueprint odpovídají připravenému návrhu SHA
+`1c2f9fefb413142426f9fe537277cc21140206bd5d6b7bfd5233eea3346952e3`.
+Model/digest/provider, úplné zdroje, budget, oracle28c9, entrypoint, policy,
+projektová izolace a přesné schvalování jsou invarianty. Parser pouze doloží
+pozorovaný dvojitý dispatch; nespouští generated kód v trusted procesu.
+Chybějící/stale/foreign/změněný vstup odmítne před novým voláním.
+
+Před živým během: CPU provenance a immutable-copy/mount kontroly,
+dotčené existující app/M2 integrační sady, nezávislé review, commit/push,
+exact remote/CI a zmrazení nového kandidáta. Potom skutečný draft→preview→
+nový digest→exact approval→stejný oracle→commit→backend restart/replay a
+aplikační persistence v rozsahu oraclu. Omezení private `/tmp` se přiznává;
+nový běh neprokáže uchování téže DB mezi samostatnými sandboxy.
+
+Další běžné inženýrské opravy jsou již autorizované; vznikne-li další konkrétní
+FAIL, provede se diagnostika a před dalším během se zmrazí omezená strategie.
+Nemění se zpětně žádný oracle nebo historický výsledek. Dva cykly bez posunu
+vyžadují změnu strategie podle kontraktu. Stav aplikace je stále FAIL.

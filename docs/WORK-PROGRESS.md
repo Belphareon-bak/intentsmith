@@ -1,6 +1,6 @@
 # IntentSmith — průběžný report dokončování
 
-**Aktualizováno:** 1. 10. 2026, 21:03 UTC / 23:03 CEST.
+**Aktualizováno:** 1. 10. 2026, 21:32 UTC / 23:32 CEST.
 **Vlastník:** ROOT. CHAT řeší jiný worker, od posledního zadání jej ROOT neupravuje.
 **Publikace:** `work/real-chat-journeys-20260930`; průběžný report se aktualizuje
 po každém milníku, nejpozději po třech hodinách během aktivní práce. Operátor
@@ -349,3 +349,20 @@ zůstává `11f74be8` a živý kandidát `86002334`. Novější report nepřebí
 funkční přejímku, která neprošla. Doporučený další krok je jedna skutečná
 CLI CODE revize se šesti zachovanými moduly, novým přesným M2 schválením,
 stejným oraclem, následným commitem a ověřením po restartu.
+
+## Autorizované pokračování — 21:32 UTC
+
+Operátor výslovně povolil autonomně dokončit IntentSmith podle dokumentace
+a priorit; pouze ladění CHATu vlastní druhý worker. Připravená devátá CLI
+generace je tím autorizovaná. Historický FAIL a všechny raw bajty zůstávají.
+Pokračování použije oddělenou kopii failed runtime, stejný oracle a model,
+šest retained modulů, nový digest a nové přesné M2 schválení. Původních sedm
+modulů se znovu negeneruje. Ownership, kontrola kopie a předběžné brány jsou
+v [existujícím WP §8](wp/WP-CODE-PEER-CONTEXT-BUDGET-20261001.md#8-autorizované-pokračování--1-10-2026-2132-utc).
+
+Baseline `35d50ed17c47a4649d514a4bb4ce593edbd5d902` je čistý, remote přesný,
+[CI 13/13 SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36926343858).
+Implementace pokračování začíná; aplikace stále není přijatá. Po SQLite budou
+navazovat nejbližší dokumentované release priority; souběžně probíhá pouze
+read-only audit jejich pořadí. Hotový core se nebude zaměňovat za mobilní M7,
+který přichází po stabilním IDE/backendu.
