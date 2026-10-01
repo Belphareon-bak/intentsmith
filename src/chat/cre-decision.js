@@ -68,7 +68,9 @@ function responseConstraintText(request) {
   const space = match => ' '.repeat(match.length);
   const active = text.replace(/```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)/gu, space)
     .replace(/^\s*>.*$/gmu, space)
-    .replace(/"[^"\n]*"|'[^'\n]*'|„[^“]*“|“[^”]*”|«[^»]*»|`[^`]*`/gu, space);
+    .replace(/"[^"\n]*"|'[^'\n]*'|„[^“]*“|“[^”]*”|«[^»]*»|`[^`]*`/gu, space)
+    // Mask only the cancelled count, so the replacement format remains active.
+    .replace(/\b(?:misto|namisto|instead\s+of|nikoli|nechci|not)\s+(?:\d+|[\p{L}]+)\s+(?:slov(?:o|a|e|em|y|ech|ami)?|words?|wort(?:er|ern|en)?)/gu, space);
   return { text, active };
 }
 

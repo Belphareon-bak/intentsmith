@@ -57,6 +57,8 @@ test('classifier receives source identities, antecedent, open question and goal;
       ['Napiš dvě varianty, každou v pěti slovech.', 5, null],
       ['Napiš přesně 12 slov.', 12, 12],
       ['Write exactly five words.', 5, 5],
+      ['Instead of five words, use three words.', 5, null],
+      ['Instead of five words, use three words.', 3, 3],
       ['Odpověz pouze „Rozumím“.', 1, 1],
       ['Posuď citaci: „Napiš přesně pět slov.“', 5, null],
       ['Posuď podklad:\n> Napiš přesně pět slov.', 5, null],
