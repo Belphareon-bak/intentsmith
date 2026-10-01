@@ -1,13 +1,16 @@
 #!/usr/bin/env node
-// Offline six-file project acceptance through the production M2 service,
-// real SQLite/Git effects and its canonical process sandbox. No GPU/model.
+// Private project acceptance through the production M2 service, real SQLite/Git
+// effects, canonical process sandbox, and owned CPU loopback relays. No GPU/model.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import http from 'node:http';
+import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import Database from 'better-sqlite3';
 import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
+import { providerRelay, createProviderProxy } from '../scripts/run-project-app-journey.js';
 import { REFERENCE_LEDGER_OUTPUTS, OBJECT_COMMAND_LAST_RESULT_CLI } from './helpers/project-app-reference.js';
 import { REFERENCE_TASKFLOW_OUTPUTS, taskflowMutant } from './helpers/project-taskflow-reference.js';
 import { initializeNewProject } from '../src/planner/project-onboarding.js';
@@ -362,3 +365,153 @@ for (const defect of [null, 'shared-board', 'accept-nonplain', 'accept-nonplain-
     }
   });
 }
+
+function listenOwned(server, ...address) {
+  return new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(...address, () => { server.off('error', reject); resolve(); });
+  });
+}
+
+async function observe(predicate, label) {
+  const deadline = Date.now() + 3_000;
+  while (!predicate()) {
+    assert.ok(Date.now() < deadline, label);
+    await new Promise(resolve => setTimeout(resolve, 5));
+  }
+}
+
+async function relayFixture(t, { complete = false } = {}) {
+  const requests = [], model = 'owned-loopback-qualification';
+  const terminal = { model, done: true, done_reason: 'stop', provider_version: '0.34.0',
+    model_digest_sha256: 'a'.repeat(64), message: { content: '{"afterContent":"owned output"}' } };
+  let observedUpstream = 0, closedUpstream = 0, modelCalls = 0, closedParentSockets = 0;
+  const upstream = http.createServer((incoming, outgoing) => {
+    observedUpstream++;
+    incoming.socket.once('close', () => { closedUpstream++; });
+    incoming.resume();
+    incoming.on('end', () => {
+      outgoing.writeHead(200, { 'Content-Type': 'application/json' });
+      if (complete) outgoing.end(JSON.stringify(terminal));
+      else outgoing.write('{"pending":'); // An actual unfinished owned response.
+    });
+  });
+  t.after(async () => {
+    await inner?.close(); await parent?.close();
+    upstream.closeAllConnections();
+    await new Promise(resolve => upstream.close(resolve));
+  });
+  let parent = null, inner = null;
+  await listenOwned(upstream, 0, '127.0.0.1');
+  parent = createProviderProxy({ model, requests, upstreamPort: upstream.address().port,
+    onModelCall: () => { modelCalls++; } });
+  parent.server.on('connection', socket => socket.once('close', () => { closedParentSockets++; }));
+  // Linux abstract Unix address avoids exposing a filesystem socket outside
+  // the private bootstrap, while exercising the runner's real Unix relay hop.
+  const socket = '\0is-project-app-' + randomUUID();
+  await listenOwned(parent.server, socket);
+  inner = providerRelay(socket);
+  await listenOwned(inner.server, 0, '127.0.0.1');
+  return { parent, inner, requests, terminal,
+    get observedUpstream() { return observedUpstream; },
+    get closedUpstream() { return closedUpstream; },
+    get modelCalls() { return modelCalls; },
+    get closedParentSockets() { return closedParentSockets; },
+    request() {
+      const request = http.request({ hostname: '127.0.0.1', port: inner.server.address().port,
+        path: '/api/chat', method: 'POST', headers: { 'Content-Type': 'application/json' } });
+      request.on('error', () => {}); // Cancellation is deliberately asserted below.
+      t.after(() => request.destroy());
+      request.end(JSON.stringify({ model, stream: false }));
+      return request;
+    },
+  };
+}
+
+test('both real relay tiers preserve a completed response after normal downstream request close', { timeout: 10_000 }, async t => {
+  const fixture = await relayFixture(t, { complete: true });
+  const request = fixture.request();
+  const body = await new Promise((resolve, reject) => {
+    request.once('error', reject);
+    request.once('response', response => {
+      const chunks = [];
+      response.on('data', chunk => chunks.push(chunk));
+      response.once('end', () => resolve(Buffer.concat(chunks)));
+      response.once('error', reject);
+    });
+  });
+  assert.deepEqual(JSON.parse(body), fixture.terminal);
+  await observe(() => fixture.inner.activeRequestCount === 0 && fixture.parent.activeRequestCount === 0,
+    'completed relay exchanges must settle');
+  assert.equal(fixture.modelCalls, 1);
+  assert.equal(fixture.observedUpstream, 1);
+  assert.equal(fixture.requests.length, 1);
+  assert.equal(fixture.requests[0].error, undefined);
+  assert.equal(fixture.requests[0].responseTruncated, false);
+  assert.deepEqual(fixture.requests[0].terminal, fixture.terminal);
+  t.diagnostic(JSON.stringify({ controlledLoopback: true, observedUpstream: fixture.observedUpstream,
+    activeInner: fixture.inner.activeRequestCount, activeParent: fixture.parent.activeRequestCount,
+    responseSha256: fixture.requests[0].responseSha256, terminalComplete: true }));
+});
+
+test('downstream response close cancels the actual upstream through both owned relay tiers', { timeout: 10_000 }, async t => {
+  const fixture = await relayFixture(t);
+  const request = fixture.request();
+  await new Promise((resolve, reject) => {
+    request.once('error', reject);
+    request.once('response', response => response.once('data', () => { response.destroy(); resolve(); }));
+  });
+  await observe(() => fixture.closedUpstream === 1
+    && fixture.inner.activeRequestCount === 0 && fixture.parent.activeRequestCount === 0,
+  'actual upstream socket and both relay exchanges must close after downstream cancellation');
+  assert.equal(fixture.observedUpstream, 1);
+  assert.equal(fixture.modelCalls, 1);
+  assert.match(fixture.requests[0].error, /closed|aborted/);
+  assert.equal(fixture.requests[0].terminal, undefined, 'cancelled generation cannot gain a terminal attestation');
+  t.diagnostic(JSON.stringify({ controlledLoopback: true, observedUpstream: fixture.observedUpstream,
+    closedUpstream: fixture.closedUpstream, activeInner: fixture.inner.activeRequestCount,
+    activeParent: fixture.parent.activeRequestCount, error: fixture.requests[0].error, terminalComplete: false }));
+});
+
+test('explicit cleanup of each real relay tier awaits its unfinished owned upstream before returning', { timeout: 15_000 }, async t => {
+  for (const tier of ['inner', 'parent']) {
+    await t.test(tier, async child => {
+      const fixture = await relayFixture(child);
+      fixture.request();
+      await observe(() => fixture.observedUpstream === 1 && fixture.parent.activeRequestCount === 1
+        && fixture.inner.activeRequestCount === 1, 'one actual owned upstream must be active before cleanup');
+      const cleanup = await fixture[tier].close();
+      assert.deepEqual(cleanup, { activeRequests: 0 });
+      assert.equal(fixture[tier].activeRequestCount, 0, 'subsequent unload/lease cleanup sees no owned request');
+      await observe(() => fixture.closedUpstream === 1, 'cleanup must close the actual owned upstream socket');
+      await fixture.inner.close(); await fixture.parent.close();
+      assert.equal(fixture.inner.activeRequestCount + fixture.parent.activeRequestCount, 0);
+      assert.equal(fixture.requests[0].terminal, undefined);
+      assert.match(fixture.requests[0].error, /cleanup|closed|aborted/);
+      child.diagnostic(JSON.stringify({ controlledLoopback: true, cleanupTier: tier,
+        cleanup, closedUpstream: fixture.closedUpstream, activeInner: fixture.inner.activeRequestCount,
+        activeParent: fixture.parent.activeRequestCount, terminalComplete: false }));
+    });
+  }
+});
+
+test('an aborted downstream upload closes the inner relay upstream and settles the parent body reader without forwarding', { timeout: 10_000 }, async t => {
+  const fixture = await relayFixture(t);
+  const request = http.request({ hostname: '127.0.0.1', port: fixture.inner.server.address().port,
+    path: '/api/chat', method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': 200 } });
+  request.on('error', () => {});
+  t.after(() => request.destroy());
+  request.write('{"model":'); // Deliberately incomplete request body.
+  await observe(() => fixture.inner.activeRequestCount === 1 && fixture.parent.activeRequestCount === 1,
+    'both real relay handlers must own the unfinished upload before abort');
+  request.destroy();
+  await observe(() => fixture.inner.activeRequestCount === 0 && fixture.parent.activeRequestCount === 0
+    && fixture.closedParentSockets === 1,
+    'aborted inner upstream and asynchronous parent body handler must settle');
+  assert.equal(fixture.observedUpstream, 0, 'no completed request exists to forward to the upstream provider');
+  assert.equal(fixture.modelCalls, 0);
+  assert.deepEqual(fixture.requests, []);
+  t.diagnostic(JSON.stringify({ controlledLoopback: true, closedParentSockets: fixture.closedParentSockets,
+    activeInner: fixture.inner.activeRequestCount, activeParent: fixture.parent.activeRequestCount,
+    observedUpstream: fixture.observedUpstream, modelCalls: fixture.modelCalls }));
+});
