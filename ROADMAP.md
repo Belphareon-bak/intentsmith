@@ -1,7 +1,7 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktuální source checkpoint 1. 10. 2026, 02:50 UTC — produktová oprava
-`ce1655ba`, přesná modulová baseline a přejímka rozpracované:**
+**Aktuální source checkpoint 1. 10. 2026, 02:50 UTC — nezávislá
+revize `2cff545a` vyžaduje další opravy:**
 [měřené dokončování IDE/backendu, chatu, GPU huntu a odložené mobilní
 integrace](docs/review/2026-09-30-COMPLETION-TRACKER.md). Vývojový registr
 má 583 programů; úplný offline/database profil na čistém předchozím
@@ -16,9 +16,13 @@ věcný oracle je odmítl. `46ca3dcc` má omezené `REVIEW_PASS` pro opravu
 false-red orákula, nikoli pro live kvalitu. Úzká změna VAT na deterministickou
 prezentaci z ověřeného nástroje má v pracovním stromu řízené M1/SQLite,
 oracle a přímou expertizu **69/69 PASS** a samostatný účetní balíček
-**27/27 PASS**. Čistý produktový commit `ce1655ba` existuje; přesná nová
-hrana je přijata v pracovní module-edge baseline 1 464 hran / 3 cykly /
-28 členů. Úplný offline/database profil a nezávislá revize teprve následují.
+**27/27 PASS** na první opravě; přesná nová hrana je přijata v module-edge
+baseline 1 464 hran / 3 cykly / 28 členů. Nezávislé review našlo chybný
+výpočet navzdory „nepřidávej/neodečítej“ a úplný profil odhalil směr
+„cena bez DPH z …“. Po red-first regresích opravený pracovní kandidát má
+řízené M1/SQLite a oracle **73/73**, specialist runtime **24/24** a
+`harness-exit-code` PASS. Čistý commit, nový úplný offline/database profil
+a opakované nezávislé review teprve následují.
 Níže uvedených 353/353 patří staršímu M6 kandidátu,
 nikoli dnešnímu vývojovému profilu; M5/M6 acceptance zůstává zavřená.
 Následující datované záznamy zachovávají historii tehdejších kandidátů.

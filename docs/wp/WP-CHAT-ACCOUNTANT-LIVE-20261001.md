@@ -229,3 +229,11 @@ testové aserci, která považovala opožděné startup `POST /api/show` a
 inventory endpointy a dál odmítá jakékoli `/api/chat` či jiné inference
 volání; opakovaný běh je **69/69 PASS**. Zdroj ještě není čistý commit,
 nezávisle revidovaný ani nasazený.
+
+Nezávislé review prvního čistého `2cff545a` vrátilo `CHANGES_REQUIRED`:
+negované přidání a odečtení DPH skončilo `SUCCESS` a uloženou chybnou
+odpovědí; úplný profil našel chybný směr „cena bez DPH z 12100“. Po
+red-first M1 regresích opravený pracovní kandidát zastaví negaci cíleným
+dotazem a rozpozná cenu bez DPH *z* celkové částky jako `remove`.
+Cílené sady nyní **73/73**, specialist runtime **24/24** a harness meta-test
+PASS. Opakovaný čistý plný profil a nezávislé review ještě čekají.

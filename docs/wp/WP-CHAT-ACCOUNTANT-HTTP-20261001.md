@@ -11,7 +11,12 @@ na jednu generativní odpověď v datovaných záznamech níže je historický a
 není platnou akceptací nové cesty. Pracovní kandidát prošel řízenými M1/SQLite,
 oracle a přímou expertizou **69/69** a samostatnou účetní sadou **27/27**;
 modulová baseline čeká na explicitní přijetí nové hrany z čistého commitu.
-Změna je zatím `REVIEW_PENDING` / `NOT_DEPLOYED`.
+Nezávislé review prvního čistého kandidáta `2cff545a` vrátilo
+`CHANGES_REQUIRED`: negovaná „nepřidávej/neodečítej“ provedla účinek,
+který uživatel odmítl; plný profil odhalil chybné `add` pro „cena bez DPH
+z 12100“. Nové červené regresní testy a zdrojová oprava dávají na pracovním
+kandidátu M1/SQLite/oracle **73/73**, specialist runtime **24/24** a
+`harness-exit-code` PASS. Změna je zatím `REVIEW_PENDING` / `NOT_DEPLOYED`.
 
 **Dodatečné review `12b7726a`: `CHANGES_REQUIRED`.** Negativní účetní
 HTTP/SQLite cesta i veřejný filtr `extractedParams` prošly, ale při selhání

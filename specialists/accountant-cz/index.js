@@ -120,6 +120,13 @@ function extractVatParamsInline(input) {
   }
   if (params.amount === undefined) params.inputError ||= 'amount';
 
+  const negatedAction = /\bne(?:p[řr]id|p[řr]i[čc][ií]t|ode[čc]|odpo[čc]|nav[ýy][šs]|vypo[čc]|po[čc][ií]t)\p{L}*/iu.test(normalized)
+    || /\b(?:nechci|nem[aá]m[e]?|nesm[ií]m[e]?)\b.{0,32}\b(?:p[řr]id|ode[čc]|odpo[čc]|vypo[čc]|po[čc][ií]t)\p{L}*/iu.test(normalized);
+  if (negatedAction) {
+    params.inputError ||= 'direction';
+    return params;
+  }
+
   const addVerb = /p[řr]id[eě]j|p[řr]idat|p[řr]i[čc]ti|nav[ýy][šs]/iu.test(normalized);
   const removeVerb = /ode[čc]ti|ode[čc][ií]st|odpo[čc][ií]t|remove|without/iu.test(normalized);
   const amountMatch = amounts.length === 1 ? amounts[0] : null;
@@ -130,10 +137,12 @@ function extractVatParamsInline(input) {
     || /(?:cena\s+(?:s|v[čc]etn[eě])\s+DPH|celkov[aá]\s+cena)\s*$/iu.test(before);
   const net = /bez\s+DPH/iu.test(after)
     || /(?:z[aá]klad(?:u)?(?:\s+dan[eě])?|cena\s+bez\s+DPH)\s*$/iu.test(before);
+  const asksNetFrom = /cen[auy]\s+bez\s+DPH\s+z(?:e)?\s*$/iu.test(before);
   const vagueGross = /v[čc]etn[eě]\s+dan[eě]/iu.test(after);
   if (vagueGross || (addVerb && removeVerb) || (gross && net)
-      || (addVerb && gross) || (removeVerb && net)) params.inputError ||= 'direction';
-  else if (removeVerb || gross) params.direction = 'remove';
+      || (addVerb && gross) || (removeVerb && net)
+      || (addVerb && asksNetFrom)) params.inputError ||= 'direction';
+  else if (removeVerb || gross || asksNetFrom) params.direction = 'remove';
   else if (addVerb || net || /DPH\s+z(?:e)?\s+/iu.test(normalized)) params.direction = 'add';
   else params.inputError ||= 'direction';
   return params;

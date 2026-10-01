@@ -1,5 +1,30 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 1. 10. 2026, 02:50 UTC — nezávislý nález negace a plný profil
+
+Nezávislé re-review čistého `2cff545a` vrátilo **CHANGES_REQUIRED**.
+Reviewer přes skutečné M1 HTTP a privátní SQLite doložil, že vybraný
+účetní specialista chybně vykonal `nepřidávej DPH` jako `add` a
+`neodečítej DPH` jako `remove`, s `executionStatus:SUCCESS` a uloženou
+asistenční odpovědí. Po doplnění tří negovaných a jednoho směrového
+M1 regresního případu byly přesně tyto scénáře červené **3 FAIL** a
+`tests/specialist-runtime.test.js` měl **23/24** kvůli „cena bez DPH z 12100“.
+Oprava zastaví negovaný výpočet cíleným dotazem a rozpozná žádost o cenu
+bez DPH *z* celkové částky jako `remove`. Řízené M1/SQLite a oracle nyní
+procházejí **73/73**, specialist runtime **24/24** a
+`harness-exit-code` samostatně PASS. Re-review opravy ještě nenastalo.
+
+První pokus o úplný profil na `2cff545a` byl přerušen po **43 PASS**:
+bez explicitních PDF/OCR runtime env proměnných měl dva skutečné
+`BLOCKED`; probíhající test skončil signálem. Druhý pokus se správně
+nastavenými runtime měl po **105 PASS** skutečný **FAIL**
+`tests/harness-exit-code.test.js`, který odhalil stejnou směrovou regresi;
+probíhající Hunt test skončil až řízeným přerušením po tomto nálezu.
+Oba reporty zůstávají v `.intentsmith-artifacts/test-runs/2026-10-01T02-45-00-608Z/`
+a `.intentsmith-artifacts/test-runs/2026-10-01T02-45-46-466Z/`.
+Úplný profil na opraveném čistém commitu musí běžet znovu; zatím žádných
+402/402 pro tuto deltu není.
+
 ## Checkpoint 1. 10. 2026, 02:50 UTC — čistý účetní source a přesná modulová hrana
 
 Produktová změna VAT a řízené testy jsou v čistém commitu `ce1655ba`.
