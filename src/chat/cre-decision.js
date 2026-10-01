@@ -75,7 +75,8 @@ function groundedResponseWordCount(count, request) {
   };
   const text = String(request || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
   const space = match => ' '.repeat(match.length);
-  const active = text.replace(/```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)|^\s*>.*$/gmu, space)
+  const active = text.replace(/```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)/gu, space)
+    .replace(/^\s*>.*$/gmu, space)
     .replace(/"[^"\n]*"|'[^'\n]*'|„[^“]*“|“[^”]*”|«[^»]*»|`[^`]*`/gu, space);
   const values = [String(count), ...(aliases[count] || [])].join('|');
   const unit = '(?:slov(?:o|a|e|em|y|ech|ami)?|words?|wort(?:er|ern|en)?)';
