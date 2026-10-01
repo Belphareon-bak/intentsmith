@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "d2591bc038b8cde1327703451146d248ca6b2efd",
-  "sourceTree": "a39517d2bdd999428b85c5e97064d64aaa05f7cb",
+  "sourceRevision": "915b14f16fc321d4d528aaf26665babbf2d7ccc0",
+  "sourceTree": "e99d224c76dc6a022555f4a3599a13ec273e5a1f",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "a111646c052627fd0803fc881838f58d7d5fd8dc",
@@ -347,6 +347,7 @@
     "src/chat/handlers/specialist.js -> src/chat/cre-decision.js",
     "src/chat/handlers/specialist.js -> src/chat/handlers/decisions.js",
     "src/chat/handlers/specialist.js -> src/chat/handlers/expertise.js",
+    "src/chat/handlers/specialist.js -> src/chat/handlers/specialist-public.js",
     "src/chat/handlers/specialist.js -> src/core/logger.js",
     "src/chat/handlers/specialist.js -> src/db/database.js",
     "src/chat/handlers/specialist.js -> src/expertises/expertise-discovery.js",

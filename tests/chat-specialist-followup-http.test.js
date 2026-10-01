@@ -284,12 +284,30 @@ test('M1 specialist continuation uses conversation identity and keeps two projec
     followA.turnId, followB.turnId]).size, 4);
   assertDeterministicResult(await expect(server, 'POST', '/api/chat', followA, 200), a, b);
   assertDeterministicResult(await expect(server, 'POST', '/api/chat', followB, 200), b, a);
+
+  const accountantConversation = await expect(server, 'POST', '/api/conversations',
+    { title: 'selected-accountant-failure', mode: 'chat' }, 201);
+  const accountantId = accountantConversation.conversation.id;
+  await expect(server, 'POST', '/api/chat/specialist',
+    { sessionId: accountantId, specialistId: 'accountant-cz' }, 200);
+  const setup = await expect(server, 'POST', '/api/chat',
+    command(accountantId, 'accountant-setup', 'Vysvětli kontrolní hlášení za květen 2026.'), 200);
+  assert.equal(setup.response.metadata.specialistTool, 'accountant.document_workflow');
+  const failedInput = 'doklad d-0000000000000000 = {invalid PRIVATE_FAILURE_8q2m; vysvětli kontrolní hlášení';
+  const failed = await expect(server, 'POST', '/api/chat',
+    command(accountantId, 'accountant-failed', failedInput), 200);
+  assert.equal(failed.response.metadata.specialistTool, 'accountant.document_workflow');
+  assert.equal(failed.response.metadata.executionStatus, 'FAILED');
+  assert.equal(failed.response.metadata.fallbackSuppressed, true);
+  assert.equal(failed.response.content,
+    'Nástroj specialisty nebyl úspěšně dokončen; výsledek není potvrzen.');
+  assert(!JSON.stringify(failed).includes('PRIVATE_FAILURE_8q2m'));
   assert.equal(provider.modelCalls, 0, 'deterministic specialist turns must not call the model');
   writeFileSync(path.join(runtime.artifacts, 'chat-specialist-followup-http.json'),
     `${JSON.stringify({ schemaVersion: 1,
       sourceRevision: process.env.INTENTSMITH_TEST_SOURCE_REVISION || 'direct-run-unattested',
       fixture: 'owned-local-provider', projectIds: [a.projectId, b.projectId],
-      conversationCount: 2, m1TurnCount: 4, distinctRequestIds: 4,
+      conversationCount: 3, m1TurnCount: 6, distinctRequestIds: 6,
       providerModelCalls: provider.modelCalls, status: 'PASS',
     }, null, 2)}\n`, { mode: 0o600 });
 });

@@ -114,7 +114,8 @@ await testAsync('actual chat handler accepts preferences without an imported sna
  const bridge=createBettingDataHost({store,transport:async url=>new Response(String(url).endsWith('fixtures.csv')?csv:historyCSV(Number(/mmz4281\/(\d{2})/.exec(String(url))[1]),now.toISOString()),{headers:{'last-modified':now.toUTCString()}})});
  specialistRuntime.setBettingDataHost(bridge.host);await sazkar.register(ctx(specialistRuntime));
  try {const result=await specialistHandler(JSON.stringify({preferences:{dataSource:'reference',leagues:['E0'],horizonHours:72,minOdds:'1.5',maxOdds:'3',minProbability:.4}}),{specialist:{id:'sazeni',primaryExpertiseId:'sazeni',name:'Sázkař',domain:'sports_betting',expertiseCollection:[]},sessionId:'autonomous-handler',conversationId:'conversation-auto',userMessageId:456,sessionState:{get:()=>null,clearSpecialist:()=>{}}});
-  const wire=JSON.parse(JSON.stringify(result)),data=wire.tag.metadata.toolResults[0].data;assert.equal(data.status,'READY',JSON.stringify(data.errors));assert.equal(data.analysis.autonomous,true);assert.equal(data.persistence.status,'SAVED');assert.equal(wire.tag.metadata.deterministicPresentation,true);assert.ok(wire.content.includes('1.9'));assert.equal(wire.tag.can_execute,false);
+  const wire=JSON.parse(JSON.stringify(result)),data=wire.tag.metadata.toolResults[0].data;assert.equal(data.status,'READY',JSON.stringify(data.errors));assert.equal(data.analysis,undefined);assert.equal(data.persistence.status,'SAVED');assert.equal(wire.tag.metadata.deterministicPresentation,true);assert.ok(wire.content.includes('1.9'));assert.equal(wire.tag.can_execute,false);
+  const privateRecord=JSON.parse(store.database.prepare('SELECT record_json FROM betting_runs').get().record_json);assert.equal(privateRecord.result.analysis.autonomous,true);
  }finally{sazkar.unregister(ctx(specialistRuntime));specialistRuntime.setBettingDataHost(null);store.close();}
 });
 

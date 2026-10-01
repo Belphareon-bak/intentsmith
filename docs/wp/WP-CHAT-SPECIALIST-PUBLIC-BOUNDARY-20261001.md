@@ -14,7 +14,8 @@ omezených veřejných metadat generativní expertízy.
 **Rozsah a vlastněné cesty:** `src/chat/handlers/specialist.js`, nový čistý
 projektor `src/chat/handlers/specialist-public.js`, existující M1 HTTP/SQLite
 programy `tests/chat-specialist-followup-http.test.js` a
-`tests/chat-sazeni-http-journey.test.js`, přesná hrana module graph,
+`tests/chat-sazeni-http-journey.test.js`, sousední
+`tests/sazeni-integration.test.js`, přesná hrana module graph,
 mechanické počty v `SYSTEM-MAP.md` a `ROADMAP.md` a tento WP. Žádný nový
 testový program ani změna `tests/registry.json`.
 
@@ -37,11 +38,15 @@ kontroluje pouze `status==='error'`; deterministický handler pak označil
 veřejná metadata `executionStatus=SUCCESS`.
 
 **Red-first:** na nezměněném produktu po rozšíření existujících M1 testů
-`node --test tests/chat-specialist-followup-http.test.js
+`Node 24 --test tests/chat-specialist-followup-http.test.js
 tests/chat-sazeni-http-journey.test.js` skončilo **1 PASS / 2 FAIL**.
 Code reviewer zveřejnil `PRIVATE_A_KEY_9x7p2z4q` v
 `toolResults[0].data.data.vulnerabilities[].snippet`; Sázkařův chybějící
 `odds_io` klíč vrátil `PROVIDER_ERROR` s `executionStatus=SUCCESS`.
+Další M1 aserce na selhaný vybraný účetní dokumentový nástroj byla spuštěna
+i se zpětnou mutací původní chybové věty: **1 PASS / 1 FAIL**, protože odpověď
+nepravdivě tvrdila „nebyl spuštěn“ a připojila syrový JSON parser error.
+Po obnovení neutrální věty stejný průchod prošel.
 
 ## Oprava a ověřovací hranice
 
@@ -69,11 +74,17 @@ kontrolovaným transportem zachovává přesně dva pozorované zápasy, kurzy,
 `verifiedObservation=true`, `verifiedLive=false`, dvouminutovou platnost a
 evidenci v soukromé DB; `analysis` ve veřejných metadatech chybí. Chybějící
 `odds_io` klíč vrací `PROVIDER_ERROR` / `executionStatus=FAILED` bez síťového
-fetch a bez modelu. Negativní mutace přidává soukromé `sourceText` a
+fetch a bez modelu. Selhaný vybraný účetní dokumentový nástroj vrací
+`executionStatus=FAILED`, `fallbackSuppressed=true`, přesně neutrální větu,
+žádnou syrovou chybu a žádné modelové volání. Negativní mutace přidává soukromé `sourceText` a
 `items[].content` do evidence; veřejný projektor je zahodí.
 
 **Přímá green evidence:** oba M1 programy **4/4**, účetní a překladatelské
-modelové kontrakty **5/5**. Registrovaný běh na čistém kandidátním SHA a
+modelové kontrakty **5/5**, Sázení integrace **20/20** a M1 wire kontrakt
+**73/73**. Starý integrační
+test nejdřív správně zčervenal na očekávání soukromého `analysis` ve
+veřejném M1 tagu; aktualizované orákulum kontroluje jeho nepřítomnost v tagu
+a přítomnost v trvale uloženém soukromém záznamu. Registrovaný běh na čistém kandidátním SHA a
 nezávislé review ještě musí následovat. Jde o kontrolované HTTP/SQLite běhy,
 nikoli fyzickou kvalitu modelu, dnešní Fortunu, mobilního klienta ani release
 Gate 0.
@@ -84,10 +95,12 @@ registry validátor, artifact validace a `git diff --check` procházejí na
 čistém SHA; vzdálený SHA odpovídá. Pak nezávislé review rozhodne o integraci.
 
 ```sh
-node --test tests/chat-specialist-followup-http.test.js tests/chat-sazeni-http-journey.test.js
-node --test tests/chat-accountant-model-contract.test.js tests/chat-translator-model-contract.test.js
-node scripts/module-boundary-ratchet.mjs
-node scripts/validate-test-registry.js --json
-node tests/artifact-validation.test.js
+/home/belphareon/.nvm/versions/node/v24.21.0/bin/node --test tests/chat-specialist-followup-http.test.js tests/chat-sazeni-http-journey.test.js
+/home/belphareon/.nvm/versions/node/v24.21.0/bin/node --test tests/chat-accountant-model-contract.test.js tests/chat-translator-model-contract.test.js
+/home/belphareon/.nvm/versions/node/v24.21.0/bin/node tests/sazeni-integration.test.js
+/home/belphareon/.nvm/versions/node/v24.21.0/bin/node tests/m1-chat-contract.test.js
+/home/belphareon/.nvm/versions/node/v24.21.0/bin/node scripts/module-boundary-ratchet.mjs
+/home/belphareon/.nvm/versions/node/v24.21.0/bin/node scripts/validate-test-registry.js --json
+/home/belphareon/.nvm/versions/node/v24.21.0/bin/node tests/artifact-validation.test.js
 git diff --check
 ```

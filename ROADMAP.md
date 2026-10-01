@@ -4,6 +4,13 @@
 GPU huntu a odložené mobilní integrace](docs/review/2026-09-30-COMPLETION-TRACKER.md).
 Následující datované záznamy zachovávají historii tehdejších kandidátů.
 
+**Izolovaná oprava veřejné hranice specialisty, 1. 10. 2026:** vybraný
+deterministický specialista omezuje veřejná M1 metadata a při nedostupném
+datovém zdroji nehlásí `executionStatus=SUCCESS`. Kandidátní module graph má 1 463 hran,
+3 cykly / 28 členů; nová je pouze hrana veřejného projektoru.
+HTTP/SQLite testy prošly, nezávislé review a integrace čekají.
+[Rozsah a důkaz](docs/wp/WP-CHAT-SPECIALIST-PUBLIC-BOUNDARY-20261001.md).
+
 **Integrační kandidát GPU huntu, 30. 9. 2026:** zdroj `e37189b2` je sloučený
 s chatem a Studiem 2 v `edc61a73`; dosud není nasazený. Poslední doložená
 matice má 1 984 pokusů, 63 úplných
