@@ -67,3 +67,31 @@ Root nezávisle zkontroluje registraci a na čistém HEAD spustí společnou
 registrovanou app/artifact/M6 bránu. Tato evidence je **REGISTRATION**,
 není release/model/CHAT přejímka. Source, chat, kontrakty, produkční DB,
 služby a modely se tímto během nemění; inference nebyla spuštěna.
+
+## Root registration review and actual combined red gate
+
+Root independently confirmed all 591 original descriptors, all 31 original
+exclusions, unchanged source/contracts trees and unchanged server/model
+membership. Exactly two new suites and one helper exclusion were added;
+new lastGreen fields remain null. Additive registration is **REVIEW_PASS**.
+
+Actual registered combined gate on clean `7bb3b619` ended **FAIL: 6 PASS /
+2 FAIL / 0 BLOCKED/TIMEOUT/SKIPPED**, report
+`2026-10-01T08-37-47-117Z/report.json`. Both app suites and four M1-schema/M6
+suites passed. Artifact-validation rejected the renamed DB table label in
+SYSTEM-MAP; the documented qualifier is now retained in its paragraph while
+the machine-checked row label is restored exactly. Its assertion is unchanged.
+Harness-exit-code rejected 142 database-reachable roots against its pinned
+141. Root independently extracted the existing analysis helper: the sole
+new reachable root is project-app-m2-functional, all roots are protected,
+removing the two app entry points restores 141, and removing the new root's
+static bootstrap exposes precisely that root as unprotected. Private receipt:
+`project-app-registration-03c82d7e/root-census-review.json`.
+
+This follow-up extends the bounded owned scope by
+`tests/harness-exit-code.test.js`: only the reviewed count 141→142 and its
+three-line explanation change. The unprotected, mutation and process-exit
+assertions remain unchanged. SYSTEM-MAP LOC is remeasured after the comment
+change. No product source, contract, registry descriptor, CHAT behavior,
+model or production data is changed. The failed combined report is retained;
+a new clean registered gate and review of this narrow follow-up are pending.

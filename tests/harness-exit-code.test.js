@@ -444,7 +444,10 @@ try {
   // 140 -> 141: chat-history-order imports the real messages query after the
   // isolation bootstrap. Graph comparison without that root returns 140;
   // the complete unprotected set remains empty.
-  const expectedDatabaseReachableRootTests = 141;
+  // 141 -> 142: project-app-m2-functional imports the real lifecycle service
+  // after its static isolation bootstrap. Removing only this new root returns
+  // 141; removing its bootstrap exposes that same root as unprotected.
+  const expectedDatabaseReachableRootTests = 142;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,
