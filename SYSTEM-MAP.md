@@ -621,8 +621,9 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 Historický blok začíná opravami soukromí/agentů z 17. 9., kdy registr měl
 519 programů. Vývojový source `1f13b936` měl 1. 10. 2026 v 01:00 UTC
-580 registrovaných programů. Nově připravovaný offline kontrakt resilience
-navýšil současný registr na **581** (484 ACTIVE, 82 BLOCKED, 15 HISTORICAL),
+580 registrovaných programů. Nově připravovaný kontrakt resilience a opt-in
+živá účetní sada navýšily současný registr na **583**
+(485 ACTIVE, 83 BLOCKED, 15 HISTORICAL),
 jak uvádí census níže. Historické výsledky nadále patří svým přesným source
 pinům; novější registr jim zpětně nemění verdikt.
 
@@ -651,14 +652,14 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 | | |
 |---|---:|
 | `src/**/*.js` | **232 874 ř.**, 677 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **260 199 ř.**, 582 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **581** (`484 ACTIVE`, `82 BLOCKED`, `15 HISTORICAL`) |
+| `tests/**/*.js` | **260 659 ř.**, 585 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **583** (`485 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 107** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
 
 Aktuální registry fingerprint je
-`f95a4f40c19a7a86430c11a425cc157711332e919d032d36d72eba9d13b567a2`.
+`6aab751a4f7b926a4aab4601c22fd9eaa39b8d8e252cc85dfdeb9e9df2e3305d`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 

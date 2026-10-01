@@ -67,5 +67,25 @@ effective configuration. Při dirty source, Node ABI chybě, obsazené GPU,
 odlišném modelovém digestu, konfiguraci, neúplném HTTP/provider záznamu nebo
 neočekávaném efektu je běh `BLOCKED`/`LIVE_INCOMPLETE`, ne PASS.
 
-Stav při založení: **runner a korpus v přípravě, REVIEW_PENDING; nový fyzický
-pilot ani celé finální běhy dosud neproběhly.**
+## První skutečný pilot, 1. 10. 2026
+
+Přenos `0959c45f` dostal nezávislé omezené `REVIEW_PASS` pro korpus, izolaci a
+bezpečný jednopřípadový pilot. Následný infrastrukturální pokus `pilot-1` na
+`bbecff36` skončil ještě před providerem `RELAY_SOCKET_LISTEN_EINVAL`, protože
+unixová cesta přesáhla limit `sun_path`. Původní runner po unhandled listen
+chybě zanechal kanonický záznam `RUNNING`; tento konkrétní záznam byl výslovně
+označen `LIVE_ABORTED` s postmortem a **0 provider calls**, bez přepisování
+ostatních syrových důkazů. Oprava `c75d0269` používá krátký soukromý socket
+bindovaný do read-only namespace.
+
+Na čistém `c75d0269` prošel `pilot-2` s filtrem jediného `http-plain` případu:
+M1 HTTP 200, jeden validní provider `/api/chat` s přesným digestem, SQLite
+obsahuje jeden user a jeden assistant turn a `integrity_check=ok`, M2 effect
+tabulky mají nulový přírůstek. Odpověď vysvětlila HTTP 409 ve dvou věcně
+správných větách. Výsledek runneru je **`LIVE_COMPLETE_UNASSESSED` pouze pro
+transport jednoho případu**; ruční věcná kontrola zde platí jen pro tento
+pilot. Soukromý záznam:
+`.intentsmith-artifacts/chat-resilience/runs.json`, běh
+`f836f0be-cd27-4a37-a146-55846a6d44`. Lease se uvolnil; model zůstal
+dočasně rezidentní podle standardního keep-alive providera. Celých 53 × 3,
+jejich významové hodnocení a nezávislá akceptace jsou stále **LIVE_NOT_RUN**.
