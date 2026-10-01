@@ -37,3 +37,12 @@ Privátní nezávislé důkazy v integračním checkoutu:
 
 Přijetí hran ani zelený development CI není release Gate 0, celý profil,
 živá kvalita CHATu nebo přijetí běžící instalace.
+
+Writer vydal baseline z čistého `cbf6a24b60787d6e32fff9c9ca4f6fa83d98a70f`.
+Jeho `src` tree je shodný s posouzeným `037b8653`:
+`c6f22ebc3a84aa0aa47c73f86cd451b0b91c790a`. Scanner blob zůstává
+`a111646c052627fd0803fc881838f58d7d5fd8dc`, protocol 1, limity 3/28.
+Baseline diff přidává pouze 14 přijatých párů a aktuální source provenance;
+žádnou hranu nemaže. Soukromý writer log:
+`ci-baseline-reviewed-14-write.log`. Stav: **CANDIDATE_REVIEW_PENDING**;
+původní vzdálené CI je nadále FAIL, nový běh dosud není doložen.
