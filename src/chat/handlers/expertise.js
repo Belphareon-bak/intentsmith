@@ -227,6 +227,25 @@ export async function expertiseHandler(input, context) {
               specialistNeedsClarification = true;
               // Fall through to the expert model — it will ask for the specific
               // missing params instead of starting the CRE-selected web path.
+            } else if (toolResult.status === 'error') {
+              // A fail-closed specialist result must never reach the persona
+              // wrapper: it has no successful tool data for the model to explain.
+              return new TaggedResponse({
+                content: 'Nástroj specialisty nebyl úspěšně dokončen; výsledek není potvrzen.',
+                tag: new ResponseTag({
+                  speaker: ResponseSpeaker.SYSTEM,
+                  mode: ChatMode.EXPERTISE,
+                  confidence: 1,
+                  canExecute: false,
+                  metadata: {
+                    expertise: { id: expertise.id, name: expertise.name, domain: expertise.domain },
+                    specialistTool: toolResult.toolType,
+                    executionStatus: 'FAILED',
+                    errorCode: toolResult.errorCode || 'M3_SPECIALIST_TOOL_FAILED',
+                    fallbackSuppressed: true,
+                  },
+                }),
+              });
             } else {
               logger.info('ExpertHandler', 'Specialist tool interception: deterministic package dispatch', {
                 creDecisionType: decision.type,
@@ -548,6 +567,19 @@ async function generateExpertiseResponse(input, expertise, context) {
  * Takes raw tool results and has expert interpret them
  * Uses expertise.temperature and enforcement
  */
+function publicWrappedSpecialistParams(metadata) {
+  // The raw invocation may contain full user text or document input. Only
+  // bounded scalar VAT parameters are part of this public M1 metadata surface.
+  if (metadata?.specialistTool !== 'accountant.vat_calculator') return undefined;
+  const params = metadata.extractedParams;
+  if (!params || typeof params !== 'object' || Array.isArray(params)
+      || !Number.isFinite(params.amount) || !Number.isSafeInteger(params.year)
+      || typeof params.rate !== 'string' || !/^\d{1,3}(?:[.,]\d{1,2})?$/u.test(params.rate)
+      || !['add', 'remove'].includes(params.direction)) return undefined;
+  return { amount: params.amount, year: params.year,
+    rate: params.rate, direction: params.direction };
+}
+
 async function wrapWithExpertisePersona(input, toolResult, expertise, context) {
   try {
     const creBridge = await import('../../llm/cre-bridge.js');
@@ -584,6 +616,9 @@ Based on these results, provide your expert analysis and response.`;
       });
     }
 
+    const toolMetadata = toolResult.tag?.metadata || {};
+    const publicParams = publicWrappedSpecialistParams(toolMetadata);
+
     const tag = new ResponseTag({
       speaker: ResponseSpeaker.EXPERTISE,
       mode: ChatMode.EXPERTISE,
@@ -592,10 +627,10 @@ Based on these results, provide your expert analysis and response.`;
       metadata: {
         expertiseSource: context.expertise?._source || 'manual', // v87
         expertise: { id: expertise.id, name: expertise.name, domain: expertise.domain },
-        toolResults: toolResult.tag?.metadata?.toolResults,
-        executionStatus: toolResult.tag?.metadata?.executionStatus,
-        specialistTool: toolResult.tag?.metadata?.specialistTool,
-        extractedParams: toolResult.tag?.metadata?.extractedParams,
+        toolResults: toolMetadata.toolResults,
+        ...(toolMetadata.executionStatus ? { executionStatus: toolMetadata.executionStatus } : {}),
+        ...(toolMetadata.specialistTool ? { specialistTool: toolMetadata.specialistTool } : {}),
+        ...(publicParams ? { extractedParams: publicParams } : {}),
         model: result.model,
         finishReason: result.finishReason || null,
         maxTokens: EXPERTISE_TOKEN_BUDGET.TOOL_WRAP,
@@ -713,6 +748,8 @@ async function executeSpecialistTool(input, toolResult, expertise, context) {
   const { toolType, result, params, presentation } = toolResult;
 
   if (typeof presentation === 'string') {
+    const publicParams = publicWrappedSpecialistParams({ specialistTool: toolType,
+      extractedParams: params });
     const deterministicTag = new ResponseTag({
       speaker: ResponseSpeaker.EXPERTISE,
       mode: ChatMode.EXPERTISE,
@@ -724,7 +761,7 @@ async function executeSpecialistTool(input, toolResult, expertise, context) {
         executionStatus: 'SUCCESS',
         toolResults: [{ type: toolType, data: result }],
         specialistTool: toolType,
-        extractedParams: params,
+        ...(publicParams ? { extractedParams: publicParams } : {}),
         deterministicPresentation: true,
       },
     });

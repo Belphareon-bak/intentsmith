@@ -157,6 +157,9 @@ export function assertTranslatorM1Result(result) {
     'reply must come through translator expertise');
   assert.equal(result.response.metadata.toolResults?.[0]?.type, 'translator.translate',
     'translator tool result must reach generative wrapper');
+  assert.equal(result.response.metadata.executionStatus, 'SUCCESS');
+  assert.equal(result.response.metadata.extractedParams, undefined,
+    'public M1 metadata must not repeat the full source text as tool parameters');
   assert.equal(result.response.metadata.finishReason, 'stop');
   assertTranslationMeaning(result.response.content);
 }

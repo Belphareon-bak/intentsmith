@@ -1,5 +1,29 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 1. 10. 2026, 00:17 UTC
+
+Integrovaný účetní kandidát `033afd47` na čistém pushnutém stromu prošel
+registrovanými sadami účetního/překladatele/followupu **3/3** a artifact/M1
+**2/2**. Následné nezávislé review ale správně vrátilo
+`CHANGES_REQUIRED`: fail-closed dokumentový nástroj mohl spustit modelový
+fallback a obecné veřejné `extractedParams` mohly odhalit celé zadání.
+Reprodukce na skutečném M1 HTTP/SQLite vrátila HTTP 500 po jednom provider
+volání, nikoli falešné `SUCCESS`. Lokální oprava vrací typované `FAILED`
+bez modelu, filtruje veřejné parametry na čtyři skaláry VAT a má přímé
+účetní testy **2/2**, navazující specialistické **3/3**, M1 i artifact
+validaci PASS. Čistý commit, registrovaný běh a nezávislá revize nové delty
+ještě chybí; přijetí účetního milníku je proto otevřené.
+
+IDE 2.0 produkční browser/node/Electron build na čistém `033afd47` prošel;
+fyzické Electron sady boundary, M1 journey, M2 composer a exkluzivní Studio
+UI mají **4/4 PASS, 0 BLOCKED**
+(`.intentsmith-artifacts/test-runs/2026-10-01T00-02-01-374Z/report.json`).
+Backend ani frontend z tohoto kandidáta nebyly nasazeny. Izolovaná druhá
+kompakce `73345875` po opravě negativních orákul získala omezené
+`REVIEW_PASS` a registrovaně prošla **1/1**; worker crash/recovery
+`7373b44c` získal omezené `REVIEW_PASS` a registrovaně prošel **8/8**.
+Oba kandidáty zatím čeká integrace do společného stromu a opakování.
+
 ## Checkpoint 1. 10. 2026, 00:00 UTC
 
 Účetní `accountant-cz` má poprvé přesný test skutečné M1 HTTP/SQLite cesty

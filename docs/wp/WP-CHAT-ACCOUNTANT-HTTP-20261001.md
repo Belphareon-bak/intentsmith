@@ -1,5 +1,24 @@
 # WP — účetní DPH přes skutečný M1 HTTP chat
 
+**Následné integrační ověření 1. 10. 2026, 00:16 UTC:** společný commit
+`033afd47` prošel registrovanými sadami účetního, překladatele a
+specialistického followupu **3/3**, dále dokumentační a M1 sadou **2/2**.
+Nezávislá revize však vrátila `CHANGES_REQUIRED`: `status:'error'` z
+fail-closed účetního dokumentového nástroje směl pokračovat do generativního
+wrapperu a veřejné `extractedParams` mohly obsahovat celý text překladu či
+dokumentu. Přesný skutečný negativní M1 pokus na `033afd47` vrátil HTTP 500
+`CHAT_PROCESSING_FAILED` po jednom provider volání; v tomto pokusu tedy
+**neodešla** falešná odpověď `SUCCESS`, ale uživatelská chyba a zbytečný
+modelový fallback jsou vady. Na lokální opravě stejný řízený HTTP/SQLite
+scénář vrací HTTP 200 s `executionStatus: FAILED`, kódem
+`M3_SPECIALIST_TOOL_PREPARATION_FAILED` a **0** provider volání. Úspěšný
+deterministický dokumentový tah i překladatel mají veřejné
+`extractedParams` nepřítomné; přesné čtyři skalární parametry VAT zůstávají.
+Přímé testy účetního **2/2**, ostatních specialistických hran **3/3**,
+M1 kontraktu a dokumentační validace prošly. Finální commit, čistý
+registrovaný průchod a opakovaná nezávislá revize opravy ještě čekají.
+Fyzický účetní model je stále **LIVE_NOT_RUN**.
+
 **Integrační checkpoint 1. 10. 2026, 00:00 UTC:** izolovaný kandidát
 `48364ff5` získal omezené nezávislé `REVIEW_PASS` a byl sloučen jako
 `8e52c69a`. Integrační kontrola doplnila další ztracený údaj téže hranice,

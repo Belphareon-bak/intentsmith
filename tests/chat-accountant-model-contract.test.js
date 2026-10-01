@@ -8,7 +8,7 @@ import { randomBytes } from 'node:crypto';
 import http from 'node:http';
 import { test } from 'node:test';
 
-import { createOwnedJourneyRuntime, expectJson, startProduct,
+import { createOwnedJourneyRuntime, expectJson, requestJson, startProduct,
   stopProduct } from './helpers/chat-project-expertise-model-journey.js';
 import { isolatedTestRuntime as runtime } from './helpers/isolated-test-db.js';
 
@@ -146,4 +146,59 @@ test('selected accountant-cz calculates 2025 VAT through actual M1 HTTP and pers
   const missingTool = structuredClone(provider.requests[0]);
   missingTool.messages.at(-1).content = INPUT;
   assert.throws(() => assertVatJourney(result, missingTool));
+});
+
+test('failed accountant document tool cannot become a successful generative answer', {
+  timeout: 180_000,
+}, async t => {
+  const provider = await startFixtureProvider();
+  let product = null;
+  t.after(async () => {
+    if (product) await stopProduct(product);
+    await provider.close();
+  });
+  const journeyRuntime = createOwnedJourneyRuntime(runtime);
+  product = await startProduct(journeyRuntime, provider.url, MODEL);
+  const conversation = await expectJson(product, 'POST', '/api/conversations',
+    { title: 'accountant-fail-closed', mode: 'chat' }, 201);
+  const conversationId = conversation.conversation.id;
+  const route = `/api/conversations/${conversationId}/expertises`;
+  const current = await expectJson(product, 'GET', route, null, 200);
+  const selected = await expectJson(product, 'PUT', route, {
+    projectId: null, expectedRevision: current.revision,
+    expertises: [{ id: 'accountant', weight: 1 }],
+  }, 200);
+  assert.deepEqual(selected.expertises, [{ id: 'accountant', weight: 1 }]);
+  const setupInput = 'Vysvětli kontrolní hlášení za květen 2026.';
+  const setup = await expectJson(product, 'POST', '/api/chat', {
+    contract: 'ConversationCommand', version: 1,
+    requestId: `accountant-setup-${randomBytes(8).toString('hex')}`,
+    conversationId, turnId: `accountant-setup-turn-${randomBytes(8).toString('hex')}`,
+    action: 'send', input: setupInput,
+  }, 200);
+  assert.equal(setup.response?.metadata?.specialistTool, 'accountant.document_workflow', JSON.stringify(setup));
+  assert.equal(setup.response.metadata.executionStatus, 'SUCCESS');
+  assert.equal(setup.response.metadata.extractedParams, undefined,
+    'public metadata must not repeat document input');
+  assert.equal(provider.requests.length, 0, 'deterministic document tool must not call the model');
+  const input = 'doklad d-0000000000000000 = {invalid; vysvětli kontrolní hlášení za květen 2026';
+  const command = { contract: 'ConversationCommand', version: 1,
+    requestId: `accountant-error-${randomBytes(8).toString('hex')}`,
+    conversationId, turnId: `accountant-error-turn-${randomBytes(8).toString('hex')}`,
+    action: 'send', input };
+  const { status, data: result } = await requestJson(product, 'POST', '/api/chat', command);
+  assert.equal(status, 200, `providerCalls=${provider.requests.length} ${JSON.stringify(result)}\n${product.output}`);
+  assert.equal(provider.requests.length, 0,
+    'fail-closed tool error must not invoke the generative wrapper');
+  assert.equal(result.response?.metadata?.specialistTool, 'accountant.document_workflow');
+  assert.equal(result.response.metadata.executionStatus, 'FAILED');
+  assert.equal(result.response.metadata.fallbackSuppressed, true);
+  assert.equal(result.response.metadata.errorCode, 'M3_SPECIALIST_TOOL_PREPARATION_FAILED');
+  assert.match(result.response.content, /^Nástroj specialisty nebyl úspěšně dokončen/u);
+  assert.notEqual(result.response.content, ANSWER, 'fixture model must not invent a success');
+  const messages = await expectJson(product, 'GET',
+    `/api/conversations/${conversationId}/messages`, null, 200);
+  assert.deepEqual(messages.messages.map(message => [message.role, message.content]),
+    [['user', setupInput], ['assistant', setup.response.content],
+      ['user', input], ['assistant', result.response.content]]);
 });
