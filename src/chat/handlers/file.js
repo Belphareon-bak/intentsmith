@@ -917,14 +917,14 @@ function parseCompleteNonliteralWrite(input) {
   const target = '([\\w./-]+\\.\\w{1,10})';
   const simple = new RegExp(
     `^(?:ulo[žz]|uloz|zapi[šs]|napi[šs]|dej|vlo[žz]|save|write)\\s+`
-    + `(?:to|ho|ji|je|odpověď|odpoved|it|this|that)\\s+`
+    + `(?:to|ho|ji(?:\\s+i)?|je|odpověď|odpoved|it|this|that)\\s+`
     + `(?:do|to|into|jako)\\s+(?:souboru?\\s+|file\\s+)?${target}\\.?$`, 'iu');
   const simpleMatch = text.match(simple);
   if (simpleMatch) return { filePath: simpleMatch[1] };
 
   const directWord = text.match(new RegExp(
-    `^(?:zapi[šs]|write)\\s+[\\p{L}\\p{N}_-]+\\s+(?:do|to|into)\\s+${target}\\.?$`, 'iu'));
-  if (directWord) return { filePath: directWord[1] };
+    `^zapi[šs]\\s+([\\p{L}\\p{N}_-]+)\\s+do\\s+${target}\\.?$`, 'iu'));
+  if (directWord) return { filePath: directWord[2], content: directWord[1] };
 
   const requestedText = text.match(new RegExp(
     `^chci\\s+ulo[žz]it\\s+text\\s+do\\s+${target}\\.?$`, 'iu'));
@@ -952,8 +952,8 @@ function parseCompleteNonliteralWrite(input) {
 
 /**
  * Handle FILE_WRITE decision — saves previous assistant output to a file.
- * Unquoted commands use the previous assistant response. New content must be
- * quoted in the current command so its exact bytes and instructions are clear.
+ * A complete one-word "zapiš X do file" command binds X as current-turn data.
+ * Other new content must be quoted; save shortcuts use the prior answer.
  * M2: registers an effect and returns an exact approval instruction. The
  * separate approval intercept owns execution through the canonical broker.
  */
@@ -1016,8 +1016,9 @@ export async function handleFileWriteDecision(input, decision, context, dependen
   // A normal file.write proposal has no conditional-write contract. Require
   // every word of a nonliteral command to fit a supported unconditional form;
   // CRE may classify an unsafe compound instruction as FILE_WRITE.
+  let completeCommand = null;
   if (!literalWrite) {
-    const completeCommand = parseCompleteNonliteralWrite(input);
+    completeCommand = parseCompleteNonliteralWrite(input);
     if (!completeCommand || completeCommand.filePath !== filePath) {
       return terminalWithoutEffect(lang === 'cs'
         ? `⚠️ Příkaz k zápisu do ${literal(filePath)} obsahuje nejasná slova nebo odlišný cíl. Uveď jednoznačný příkaz a výslovně rozhodni, zda lze soubor přepsat.`
@@ -1031,8 +1032,8 @@ export async function handleFileWriteDecision(input, decision, context, dependen
   //    User turns have speaker='user', assistant turns have speaker='system'.
   //    The current user message is ALREADY in history (appended before handler),
   //    so we MUST filter by speaker to avoid writing the user's own request.
-  let content = literalWrite ? literalWrite.content : '';
-  if (!literalWrite && context.history?.length > 0) {
+  let content = literalWrite ? literalWrite.content : (completeCommand.content ?? '');
+  if (!literalWrite && !content && context.history?.length > 0) {
     for (let i = context.history.length - 1; i >= 0; i--) {
       const entry = context.history[i];
       // Skip user turns — only pick assistant (speaker='system') responses

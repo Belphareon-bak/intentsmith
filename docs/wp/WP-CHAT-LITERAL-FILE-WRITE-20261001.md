@@ -36,9 +36,24 @@ Nynější kandidát vyžaduje, aby **celý nedoslovný příkaz** odpovídal je
 z uzavřených nepodmíněných tvarů a jeho cíl přesně souhlasil s cílem CRE.
 Libovolná nevyložená slova před příkazem i po něm zastaví zápis bez M2 efektu.
 Tím se záměrně zužuje starší cesta pro volný text bez uvozovek ve stejné zprávě:
-nový obsah je třeba zadat v uvozovkách, zatímco zkratka `Ulož to` ukládá
-poslední odpověď asistenta. Předchozí `REVIEW_PASS` se na tuto změnu
+nový víceslovný obsah je třeba zadat v uvozovkách, zatímco zkratka `Ulož to`
+ukládá poslední odpověď asistenta. Jeden výslovný datový token ve tvaru
+`Zapiš ahoj do word.md.` se váže jako obsah `ahoj`, nikoli jako pokyn k
+uložení starší odpovědi. Předchozí `REVIEW_PASS` se na tuto změnu
 nepřenáší; nezávislé review zůstává otevřené.
+
+Nezávislé review `c857c5f5` po zavedení úplné gramatiky našlo ještě
+nesoulad hodnoty: `Zapiš ahoj do word.md.` vytvořilo `ToolRequest` s předchozí
+odpovědí místo `ahoj` a po schválení tento chybný obsah zapsalo. Red-first
+M1 HTTP/SQLite regrese v
+`.intentsmith-artifacts/literal-write-direct-word-red-20261001.log` to
+potvrdila; nynější kandidát váže jeden datový token přesně z aktuálního
+příkazu. Požadavek na návazné uložení `Ulož ji i do prior-copy.md.` zase
+odhalil příliš přísnou gramatiku. Samostatný red-first běh je v
+`.intentsmith-artifacts/literal-write-repeat-syntax-red-20261001.log`;
+nynější gramatika povoluje právě toto úplné rozšíření. Věrnost zdroje při
+opakovaném uložení po potvrzovací zprávě řeší souběžný samostatný WP; zdejší
+test ověřuje směrování a cíl druhého návrhu, nikoli jeho obsah.
 
 **Autorita:** explicitní zadání operátora dokončovat reálné chatové scénáře
 (2026-09-30 a 2026-10-01) a živě pozorovaný pilot-4: první zpráva
@@ -84,6 +99,8 @@ M2 návrhu; test při každé z nich kontroluje i původní bajty existujícího
 souboru.
 F06 překlep testuje přesný cíl, obsah a skutečné M2 schválení; další efektová
 věta za stejným překlepem musí skončit bez návrhu.
+Jednoslovný obsah bez uvozovek testuje přesný `ToolRequest` a skutečné bajty
+po schválení; navazující `Ulož ji i` kontroluje jen povolený úplný tvar a cíl.
 Původní červený HTTP test reprodukoval chybějící proposal; další běh odhalil
 tečku připojenou k názvu souboru u starší zkratky, kterou tento WP opravil.
 

@@ -193,6 +193,28 @@ await testAsync('M1 literal file write preserves exact bytes; no-overwrite never
     assert.deepEqual(JSON.parse(shortcutRow.request_json).input,
       { path: 'prior.md', content: prior.response.content });
     assert.equal(existsSync(path.join(projectPath, 'prior.md')), false);
+    const shortcutApproved = await send(priorConversation,
+      `schválit efekt ${shortcut.response.metadata.effectId}`);
+    assert.equal(shortcutApproved.response.metadata.effectResult, 'succeeded');
+    const repeatSave = await send(priorConversation, 'Ulož ji i do prior-copy.md.');
+    assert.equal(repeatSave.response.metadata?.handler, 'file.write');
+    assert.equal(repeatSave.response.metadata?.approvalRequired, true,
+      'the exact additive repeat-save command must remain routable');
+    assert.equal(repeatSave.response.metadata?.filePath, 'prior-copy.md');
+    assert.equal(existsSync(path.join(projectPath, 'prior-copy.md')), false);
+    const wordConversation = await conversation();
+    await send(wordConversation, 'Ahoj, odpověz krátce.');
+    const wordPending = await send(wordConversation, 'Zapiš ahoj do word.md.');
+    assert.equal(wordPending.response.metadata?.approvalRequired, true);
+    const wordRow = privateDb.prepare('SELECT request_json FROM tool_v1_requests WHERE request_id = ?')
+      .get(wordPending.response.metadata.toolRequestId);
+    assert.deepEqual(JSON.parse(wordRow.request_json).input,
+      { path: 'word.md', content: 'ahoj' },
+      'current-turn word content must outrank previous assistant text');
+    const wordApproved = await send(wordConversation,
+      `schválit efekt ${wordPending.response.metadata.effectId}`);
+    assert.equal(wordApproved.response.metadata.effectResult, 'succeeded');
+    assert.equal(readFileSync(path.join(projectPath, 'word.md'), 'utf8'), 'ahoj');
     const literalAfterPrior = await send(priorConversation,
       'Ulož text "Výslovný text" do literal-after-prior.md.');
     assert.equal(literalAfterPrior.response.metadata.approvalRequired, true);
