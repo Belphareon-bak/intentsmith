@@ -1,7 +1,12 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktuální checkpoint 30. 9. 2026:** [měřené dokončování IDE/backendu, chatu,
-GPU huntu a odložené mobilní integrace](docs/review/2026-09-30-COMPLETION-TRACKER.md).
+**Aktuální source checkpoint 1. 10. 2026, 01:00 UTC — `1f13b936`:**
+[měřené dokončování IDE/backendu, chatu, GPU huntu a odložené mobilní
+integrace](docs/review/2026-09-30-COMPLETION-TRACKER.md). Vývojový registr
+má 580 programů; poslední dokončený offline/database profil vybral 400 sad
+na `edc61a73` (399 PASS / 1 Gate 0 seal FAIL). Nový úplný audit `1f13b936`
+ještě nemá výsledek. Níže uvedených 353/353 patří staršímu M6 kandidátu,
+nikoli dnešnímu vývojovému profilu; M5/M6 acceptance zůstává zavřená.
 Následující datované záznamy zachovávají historii tehdejších kandidátů.
 
 **Integrační kandidát GPU huntu, 30. 9. 2026:** zdroj `e37189b2` je sloučený
@@ -524,7 +529,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
 | **M5 Production hardening** | `8/9 REVIEW_PASSED / BACKUP_COMPAT_REMEDIATION_REVIEW_PASSED / HISTORY_DECISION_RECORDED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_PARTIAL / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Review přijalo restore základ `65bcbc4b` i follow-up `b4136a43`. Operátor zvolil `retain_and_rotate`; scanner zaznamenaný na vstupní hunt větvi tento dosažitelný stav potvrzuje, ale podepsaný history receipt vznikne až po doložení všech osmi kategorií. LUKS2 médium A drží ověřenou offline kopii tří operátorských klíčů a oddělené LUKS2 médium B právě reviewer key; obě jsou vypnutá. Online zdroj zatím zůstává, protože chybí druhá offline kopie operátorských klíčů a otestovaná oddělená recovery kopie reviewer key. |
-| **M6 IntentSmith 1.0 release** | `RETENTION_INTEGRATED / DETERMINISTIC_353_PASS / FRESH_INSTALL_PASS / BOUNDED_PHYSICAL_BUILD_PASS / CURRENT_CODE_MEASURED / DELTA_REVIEW_REQUIRED / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | `dc81a0f0`: 353/353 a spojené Studio → production server → exact CODE model → preview → schválení → 12 funkčních assertions → restarty → DB restore PASS. Čistá core instalace i opakování prošly; 61 schema kontrol zahrnuje obě upgrade linie. Aktuální CODE 7×3: Qwen 3.5 0,3333; Qwen Coder 0,1143, gold/broken kontroly 7/7. [Review tohoto bounded journey nemá blokující nález](docs/review/2026-09-12-PRODUCTION-JOURNEY-REVIEW-RECEIPT.md). Společný hunt/core kandidát `20e5a022` má 353/353 a produkční Studio build; jeho nové review zůstává otevřené. Kvalita větších změn, review retence a M5/M6 externí acceptance zbývají. [Aktuální review rozsah](docs/review/2026-09-12-HUNT-REVIEW-FOLLOWUP.md). |
+| **M6 IntentSmith 1.0 release** | `RETENTION_INTEGRATED / HISTORICAL_353_PASS / DEVELOPMENT_400_PROFILE_LAST_399_PASS_1_FAIL / CURRENT_1f13b936_AUDIT_PENDING / DELTA_REVIEW_REQUIRED / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Bounded `dc81a0f0` historicky prošel 353/353 a spojil Studio → server → exact CODE model → schválení → restarty → DB restore; [úzké review](docs/review/2026-09-12-PRODUCTION-JOURNEY-REVIEW-RECEIPT.md) nemělo blokující nález. Historický CODE 7×3 dal Qwenu 3.5 0,3333 a Qwen Coderu 0,1143; není to nové role rozhodnutí. Poslední dokončený vývojový offline/database běh na `edc61a73` vybral **400** sad a skončil **399 PASS / 1 Gate 0 seal FAIL**. Oprava self-testu `afb726fa` neuděluje Gate 0 PASS; celý běh na `1f13b936` v checkpointu 01:00 UTC ještě nemá výsledek. Kvalita větších změn, review delty, M5 custody a M5/M6 externí acceptance zbývají. [Aktuální checkpoint](docs/review/2026-09-30-COMPLETION-TRACKER.md). |
 | **M7 Remote Companion** | `UI_SURFACES_REVIEW_PASSED / HOST_GATE_GREEN / DEVICE_NOT_RUN / NOT_ACCEPTED` | M6 + remote boundary | Nezávislé re-review přijalo exact candidate `429b779f`: durable journal guard zavírá settings double-activation okno a held-flush regrese odlišuje staré bytes. Mobile 47/47, runtime 7/7, adapter 8/8, artifact validation 158/158, boundary 0 violations a Android test+lint prošly. Produkční konfigurace, fyzická matice 13+7, TalkBack a release podpisy nejsou hotové. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.

@@ -1,6 +1,17 @@
 # Modelové evaluace a aktivace
 
-**Read-only kontrola, 30. 9. 2026, 21:51 UTC:** instalovaný backend je
+**Strukturální checkpoint 1. 10. 2026, 01:00 UTC — source `1f13b936`:**
+[validátor druhého dávkového posudku](wp/WP-HUNT-SECOND-REVIEW-BATCH-VALIDATOR-20261001.md)
+ověřil proti [Git manifestu raw SHA-256](review/evidence/2026-10-01-hunt-second-review-batch-manifest.json)
+všech **106** soukromých dávek a vykázal **596/1 173** známkovaných odpovědí,
+**2 324/3 689** kritérií a přesně **577** chybějících odpovědí. Výstup je
+`DEVELOPMENT_REVIEW_INCOMPLETE / NO_DECISION`, `decisionAuthority:false`,
+`acceptedGrader:false`. Validace struktury, identity a raw hashů nepotvrzuje
+věcnou správnost známek, přijetí dvojice hodnotitelů, aktuální skóre DB ani
+vazbu role. Soukromé raw dávky a report se do Git neukládají. Na source
+`1f13b936` nebylo provedeno nové rozhodovací měření ani aktivace.
+
+**Předchozí read-only kontrola, 30. 9. 2026, 21:51 UTC:** instalovaný backend je
 `c84b88cd`; vývojový Hunt/Studio/chat zdroj není nasazený. [Autoritativní
 read model](../scripts/model-evaluation-report.js) nad instalovanou DB a
 evaluačním providerem `0.34.2-intentsmith.1` ukazuje **84/84 použitelných

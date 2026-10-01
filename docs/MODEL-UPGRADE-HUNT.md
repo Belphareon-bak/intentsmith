@@ -1,6 +1,18 @@
 # Hledání lepších modelů
 
-**Aktuální stav 30. 9. 2026:** [read-only evidence instalované DB a oddělení
+**Checkpoint 1. 10. 2026, 01:00 UTC — source `1f13b936`:** integrovaný
+[strukturální validátor](wp/WP-HUNT-SECOND-REVIEW-BATCH-VALIDATOR-20261001.md)
+váže **106** soukromých raw dávek na
+[Git SHA-256 manifest](review/evidence/2026-10-01-hunt-second-review-batch-manifest.json).
+Má **596/1 173** známkovaných odpovědí, **577** chybějících a
+**2 324/3 689** kritérií. Verdikt je
+`DEVELOPMENT_REVIEW_INCOMPLETE / NO_DECISION`; hodnotitel není přijatý,
+známky nejsou rozhodovací skóre DB a role se neaktivují. Poslední read-only
+DB evidence z 30. 9. 23:35 UTC dávala **84/84 MISSING**, **0** přijatých
+rozhodnutí a sedm `UNVERIFIED_RUNTIME` vazeb. Tento strukturální checkpoint
+nezapisuje instalovanou DB, nemění modelové vazby ani nenasazuje backend.
+
+**Předchozí stav 30. 9. 2026:** [read-only evidence instalované DB a oddělení
 vývojového hunt kandidáta](review/2026-09-30-COMPLETION-TRACKER.md). Na
 instalovaném provideru je 84/84 použitelných model–role dvojic `MISSING`,
 bez přijatého rozhodnutí. Vývojový zdroj huntu je sloučen do integračního

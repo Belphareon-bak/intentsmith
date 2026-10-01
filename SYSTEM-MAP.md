@@ -619,8 +619,11 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 ## Rozsah
 
-Aktuální tabulka zahrnuje opravy soukromí/agentů z 17. 9. (519 programů).
-Historické výsledky níže nadále patří svým přesným source pinům.
+Historický blok začíná opravami soukromí/agentů z 17. 9., kdy registr měl
+519 programů. Aktuální vývojový source `1f13b936` má 1. 10. 2026 v 01:00 UTC
+**580** registrovaných programů (483 ACTIVE, 82 BLOCKED, 15 HISTORICAL),
+jak uvádí census níže. Historické výsledky nadále patří svým přesným source
+pinům; novější registr jim zpětně nemění verdikt.
 
 Předchozí desktop/hunt checkpoint `9d13bb53` s testovacím follow-up `2587ae56`,
 2026-09-17. Společná instalace, produkční backend, GTK desktop launcher a GUI

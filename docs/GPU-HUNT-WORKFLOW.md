@@ -1,5 +1,18 @@
 # GPU hunt — cílové workflow celého systému
 
+**Strukturální checkpoint 1. 10. 2026, 01:00 UTC — source `1f13b936`:**
+[dávkový validátor](wp/WP-HUNT-SECOND-REVIEW-BATCH-VALIDATOR-20261001.md)
+má Git [manifest](review/evidence/2026-10-01-hunt-second-review-batch-manifest.json)
+pro raw SHA-256 všech **106** soukromých souborů druhého posudku. Skutečný
+částečný packet pokrývá **596/1 173** odpovědí a **2 324/3 689** kritérií;
+**577** odpovědí chybí. Jeho status je
+`DEVELOPMENT_REVIEW_INCOMPLETE / NO_DECISION`, bez rozhodovací autority a
+bez přijatého hodnotitele. Strukturální kontrola neověřila obsah známek,
+neprovedla DB scoring, nové GPU měření ani aktivaci modelů. Poslední
+read-only kontrola instalované DB z 30. 9. 23:35 UTC měla **84/84 MISSING**,
+**0** přijatých rozhodnutí a sedm `UNVERIFIED_RUNTIME` vazeb; jde o starší
+DB snapshot, nikoli opakované měření na tomto source.
+
 **Read-only checkpoint 30. 9. 2026, 22:36 UTC:** vývojový Hunt/Studio/chat
 zdroj není nasazený. [Report aktuálního kontraktu](../scripts/model-evaluation-report.js)
 nad instalovanou DB a evaluačním providerem `0.34.2-intentsmith.1` uvádí
