@@ -133,8 +133,10 @@ export function validateProposal(proposal, { report, source, subjects, head }) {
     assert(record.historicalPath === historicalPath && record.historicalBlob === historicalBlob && record.historicalMode === historicalMode, `${label}: historical subject identity changed`, errors);
     assert(record.currentPath === currentPath, `${label}: current path differs from disposition`, errors);
     assert(record.reviewState === 'SEMANTIC_REVIEW_REQUIRED', `${label}: review state must remain open`, errors);
-    assert(/^[A-Z_]+$/.test(record.semanticClass), `${label}: semantic class is invalid`, errors);
+    assert(/^[A-Z0-9_]+$/.test(record.semanticClass), `${label}: semantic class is invalid`, errors);
     assert(/^[a-f0-9]{40}$/.test(record.lineageCommit) && git('merge-base', '--is-ancestor', record.lineageCommit, head) === '', `${label}: lineage commit is not an ancestor`, errors);
+    const changedPaths = new Set(git('show', '--format=', '--name-only', '--no-renames', record.lineageCommit).split('\n').filter(Boolean));
+    assert([historicalPath, currentPath, record.relatedPath].some(value => value && changedPaths.has(value)), `${label}: lineage commit does not touch the mapped subject`, errors);
     if (currentPath) {
       const current = treeObject(head, currentPath);
       assert(current && sameObject(current, workingObject(currentPath)), `${label}: current path differs from tracked HEAD`, errors);
@@ -174,8 +176,7 @@ function main() {
     result.errors.push('proposal file differs from tracked HEAD');
     result.validSnapshot = false;
   }
-  const observedAncestor = execFileSync('git', ['merge-base', '--is-ancestor', observedCandidate, head], { cwd: root, stdio: 'ignore' });
-  void observedAncestor;
+  execFileSync('git', ['merge-base', '--is-ancestor', observedCandidate, head], { cwd: root, stdio: 'ignore' });
   if (process.argv.includes('--json')) console.log(JSON.stringify(result));
   else console.log(`M6 Gate 0 proposal snapshot: ${result.validSnapshot ? 'CONSISTENT' : 'INVALID'}; legacy Gate 0 BLOCKED (${result.legacyErrors} errors); semantic review required for ${result.affectedRecords} records.`);
   if (!result.validSnapshot) process.exitCode = 1;
