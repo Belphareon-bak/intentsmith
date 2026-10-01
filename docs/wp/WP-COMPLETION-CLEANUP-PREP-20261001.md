@@ -1,10 +1,41 @@
 # WP — příprava závěrečné redukce větví a worktrees
 
 **Autorita:** operátor požaduje redukci po dokončení analýzy a milníků.
-**Stav:** `PRIVATE_ARCHIVE_REVIEW_PASS / HOLD_DELETION`; žádné mazání
-ani změna cizích refs/worktrees neproběhla. Vlastník inventury `/root/full405_diagnosis`.
+**Stav:** `THREE_OWN_LOCAL_REFS_REMOVED / ACTUAL_REVIEW_PASS / WORKTREE_REMOVAL_HOLD`.
+Tři vlastní local refs odstraněné atomicky; cizí refs/worktrees zachované.
+Vlastník inventury `/root/full405_diagnosis`, vykonavatel ROOT.
 
-## Aktuální návrh — pouze tři nepodmíněně uvolněné refs
+## Provedení posledního omezeného cleanup, 19:14 UTC
+
+Po publikaci exportu/reportu `5fd54ee7`, remote ověření a vlastní
+[CI13 SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36912177685)
+je původní Hunt checkout obnovený na clean `00c71cd4` /původní branch.
+Všech1164 ignored regular souborů /61,603,715 B i node_modules symlink
+před/po stejné, původní19 a579 records přesné. Receipt SHA
+`0e4e464812f6075d4913661b033d5d04cef8cdb74e952fe34b4983c4459dd1b4`.
+
+Nezávislé nové GO pouze3 refs má SHA
+`f6bbeb1e38d26663fd060e79816e1809455fa8237fac93cd57a1ceeff78acd09`.
+Fresh před transakcí všechny čtyři local/remote annotated/peeled tags
+přesné, pouze tři nepodmíněně uvolněné cíle bez worktree association,
+archive tar hashe znovu stejné. Přesný delete protocol SHA
+`bc0de1f16e1865f9c3c25c049ac7bf73713370190851dd71b199df83d9eb599f`.
+
+Actual19:14:00.313–19:14:01.992 UTC, git update-ref start/prepare/commit,
+exit0: **216→213 lokálních branches /71→71 worktrees**. Pouze tři
+expected refs zmizely, ostatní ref tips a všechna worktree metadata stejná.
+BC větev a čtyři evidence tags zůstávají local/remote přesné. Raw result SHA
+`f876833991f053865e660d4b496d34a63cc14d6f9879f8e136758ce8430c4851`.
+Actual observational review **REVIEW_PASS**, SHA
+`99cf52726ce060ff9f80c458f00d90181d897aa3aa641e8ad3dc983823e66506`.
+Čerstvě ověřeno všech368 refs a71 WT records, čtyři local/remote tags,
+BC, všech1164 Hunt files/symlink, oba přijaté archivy, V7 raw359/source27/
+public21 i původníV5/V6 FAIL packets. Reviewer nevykonal Git writes,
+runtime, DB open ani procesové/modelové zásahy. Veškeré physical WT removal HOLD.
+Žádná obnova live nebyla potřeba; připravený absence-only create protokol
+se stejnými SHA chrání znovu použité názvy.
+
+## Historická příprava 19:00 UTC — tři nepodmíněně uvolněné refs
 
 Nová ROOT kontrola 19:00 UTC našla rozpor mezi starším public textem a
 durable preflight review: BC `work/project-app-acceptance-20261001` má
@@ -71,10 +102,11 @@ Historické at-export REVIEW_PENDING se nepřepsalo; archiv se váže na skuteč
 accepted physical review `62a55072…`. Dřívější archivy 404 a 2 071 členů níže
 zůstávají přijaté. Archive PASS není potvrzení možnosti odstranit worktree.
 
-Owned Hunt checkout byl dočasně znovupoužit jako detached `936e9a33` pro
+Historicky byl owned Hunt checkout dočasně znovupoužit jako detached `936e9a33` pro
 čekající SQLite běh. Původní `00c71cd4` ref i všech 19 ignorovaných důkazů
 jsou uchované a nezávisle ověřené. Nové checkouty ani branch nevznikly;
-Hunt je po dobu čekání ACTIVE a nelze ho odstranit. Kvůli sedmi nečitelným
+později byl využit na frozen34 pro accepted GPU UI audit, nyní obnoven na00c;
+jeho data zůstávají zachovaná. Kvůli sedmi historicky nečitelným
 PID cwd/FD i cizí/UNKNOWN práci zůstává veškeré physical WT removal **HOLD**.
 
 ## Navazující uchování 1. 10. 2026, 11:08 UTC

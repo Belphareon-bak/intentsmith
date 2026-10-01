@@ -1,6 +1,6 @@
 # IntentSmith — průběžný report dokončování
 
-**Aktualizováno:** 1. 10. 2026, 19:09 UTC / 21:09 CEST.
+**Aktualizováno:** 1. 10. 2026, 19:27 UTC / 21:27 CEST.
 **Vlastník:** ROOT. CHAT řeší jiný worker, od posledního zadání jej ROOT neupravuje.
 **Publikace:** `work/real-chat-journeys-20260930`; průběžný report se aktualizuje
 po každém milníku, nejpozději po třech hodinách během aktivní práce. Operátor
@@ -33,14 +33,14 @@ stabilním IDE/BE, podle zadání operátora.
 | HTTP projekty | Předem připravený omezený návrh testu | Rozhodnutí o novém M2 síťovém oprávnění; HTTP_NOT_RUN |
 | Mobil | Auditovaný handoff, historických47 host testů a přijaté VPN/TLS rozhodnutí | Fyzická matice13+7 NOT_RUN, skutečné zařízení/VPN a integrační mezery |
 | CODE peer kontext | Připravený DRAFT s přesnou reprodukcí 8811/8736 B a porovnáním tří řešení; doporučený explicitní verzovaný kontext rozhraní | IMPLEMENTATION_NOT_STARTED /TESTS_NOT_RUN; parser containment a podporované JS tvary DESIGN_OPEN |
-| Cleanup | Fresh 216 branches /71 worktrees, exact remote evidence tags; návrh zúžen na tři nepodmíněně uvolněné vlastní refs. Obnova v odděleném bare repo PASS včetně ochrany znovu použitého jména | Nové nezávislé GO tří-ref transakce čeká; žádné skutečné mazání. BC větev HOLD_CONDITIONAL, veškeré worktree removal HOLD |
+| Cleanup | REVIEW_PASS: atomicky odstraněny pouze tři vlastní lokální refs, 216→213 branches, 71→71 worktrees. Tagy, ostatní refs a worktree metadata zachované; obnova v odděleném bare repo PASS. Hunt zpět na původní čisté větvi | BC větev HOLD_CONDITIONAL, fyzické worktree removal HOLD; další cizí/UNKNOWN větve nepřijaté k odstranění |
 
 ## Publikované a uchované materiály
 
 - [Generované aplikace](../examples/generated-apps/README.md):17 skutečných
   modelových modulů tří přijatých snapshotů; [archivní IDE probe](../materials/ide2-code-dom-physical-response-guard-20261001/README.md)
   obsahuje15 přijatých zdrojových souborů bez privátních runtime dat.
-- Zmrazený skutečně testovaný zdroj je
+- Dříve zmrazený skutečně testovaný zdroj je
   [`a27e44701c2160e24ef4b3a37528f6a2f6e745a4`](https://github.com/Belphareon-bak/intentsmith/commit/a27e44701c2160e24ef4b3a37528f6a2f6e745a4).
   Obsahuje opravený AST guard a průběžný report. Má vlastní
   [push CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36898069050),
@@ -60,6 +60,9 @@ stabilním IDE/BE, podle zadání operátora.
   Nový [archiv V7 zdrojů](../materials/ide2-hunt-readonly-dom-v7-20261001/README.md)
   obsahuje 19 přesných MJS souborů /105,388 B a má samostatný export
   REVIEW_PASS, SHA `16193bf96ae2d1a151f5005395633b936273f3d9e65e82a0d338370ac7aca904`.
+- Přijatý export a nový report jsou pushnuté v `5fd54ee7`, remote přesně
+  ověřený, [vlastní CI SUCCESS, 13 kroků](https://github.com/Belphareon-bak/intentsmith/actions/runs/36912177685).
+  Návrh CODE peer kontextu je stále DRAFT, nikoli implementovaná oprava.
 - Dokumentační `79b201c8` má vlastní [CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36891027839).
   Source34 má [samostatné CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36888388296).
   Dokumentační commity nepřebírají fyzickou kvalifikaci jiného SHA.
@@ -114,7 +117,7 @@ Jeho funkční generování, M2, oracle, bajty a restart se zachovávají, ale
 pointer použitelnost v okamžiku těchto kliků není doložená. Nelze zpětně
 tvrdit, že skutečně probíhaly za preload vrstvou; chybí tehdejší hit-test.
 
-## Poslední milník — jedna skutečná CODE revize, 17:37–17:38 UTC
+## Milník — jedna skutečná CODE revize, 17:37–17:38 UTC
 
 Zmrazený source `a27e4470` má nezávislý source review SHA
 `6d709946d45d1384c55f61b696f0a1fad717e8d8ccf770e16745e86ffd6b2677`
@@ -153,7 +156,7 @@ byly rekonstruovány se shodnými hashi, pátý budget výpočet je doložený;
 To přijímá důkaz odmítnutí, nikoli aplikaci. Další inference stejného
 kandidáta se neopakuje.
 
-## Poslední milník — review GPU V6 a skutečný Linux CPU test V7
+## Milník — review GPU V6 a skutečný Linux CPU test V7
 
 V6 actual 18:37:28.962–18:37:59.490 UTC zůstává **FAIL**. Review SHA
 `888a00543c69f3b524f2dd2e91efa08e8e9e2bb5272d400282f727ef66a7e12a`
@@ -175,7 +178,7 @@ guardy zachované. Manifest V7
 Následné source GO a actual jsou doložené níže; CPU samotné se za
 přijetí GPU UI, scoringu nebo release nevydává.
 
-## Poslední milník — GPU V7 actual nezávisle přijatý
+## Milník — GPU V7 actual nezávisle přijatý
 
 Jeden běh 18:55:11.326–18:55:41.123 UTC, exit0, má
 **QUALIFIED_PHYSICAL_REVIEW_PASS**, review SHA
@@ -211,18 +214,46 @@ Private fresh DB bez přijatých známek neověřuje produkční scoring.
 
 ## Nejbližší pořadí práce
 
-1. Pushnout přijatý source-only export V7 s aktuálním reportem a ověřit
-   přesný remote a vlastní CI; skutečný readonly průchod je přijatý.
-2. Uzavřít design [CODE peer kontextu](wp/WP-CODE-PEER-CONTEXT-BUDGET-20261001.md)
+1. Uzavřít design [CODE peer kontextu](wp/WP-CODE-PEER-CONTEXT-BUDGET-20261001.md)
    před implementací. DRAFT porovnává pevné output limity, verzované peer
    rozhraní a přesný tokenizer; žádné opakování ani změny frozen budgetu.
-3. [Callback kontrakt](wp/WP-SQLITE-TRANSACTION-CALLBACK-CONTRACT-20261001.md)
+2. [Callback kontrakt](wp/WP-SQLITE-TRANSACTION-CALLBACK-CONTRACT-20261001.md)
    má uzavřený rejection review; funkční aplikace zůstává nepřijatá.
-4. Obecný [M2 AST scanner](wp/WP-M2-AST-IMPORT-SCANNER-20261001.md) má
+3. Obecný [M2 AST scanner](wp/WP-M2-AST-IMPORT-SCANNER-20261001.md) má
    bounded návrh; TS grammar/ABI a parser resource containment jsou otevřené.
-5. Nakonec uzavřít nové GO a provést omezený cleanup tří vlastních refs
-   s restore důkazem. BC podmínka není splněná; žádné physical WT removal.
+4. Mobilní integrace následuje po stabilním IDE/BE; fyzická matice a
+   M5/M6 release brány zůstávají otevřené, CHAT vlastní jiný worker.
+5. Omezený závěrečný cleanup tří refs byl přijatý po publikaci/CI.
+   BC podmínka není splněná; žádné physical WT removal.
    Remote/UNKNOWN refs, cizí procesy a protected evidence se zachovávají.
+
+## Poslední milník — závěrečný vlastní ref cleanup, 19:14 UTC
+
+Po přijaté publikaci V7 a CI13 SUCCESS se vlastní reused Hunt checkout
+vrátil na původní clean `work/hunt-completion-plan-20261001` /`00c71cd4`.
+Všech 1164 pravidelných ignored souborů /61,603,715 B i jeden externí
+node_modules symlink před/po přesné; původních19 i předchozích579 důkazů
+zachovaných. Receipt SHA
+`0e4e464812f6075d4913661b033d5d04cef8cdb74e952fe34b4983c4459dd1b4`.
+Žádný další worktree nevznikl ani nezmizel.
+
+Nový tří-ref GO SHA
+`f6bbeb1e38d26663fd060e79816e1809455fa8237fac93cd57a1ceeff78acd09`.
+Jediná actual transakce 19:14:00.313–19:14:01.992 UTC odstranila jen
+`work/full405-baseline-oracles-20261001`,
+`work/backend-migration-evidence-20261001` a
+`work/project-app-provider-guards-20261001` s přesnými expected SHA.
+Výsledek **216→213 lokálních branches /71→71 worktrees**. Všechny ostatní
+refs a worktree metadata přesné, čtyři local/remote evidence tags stejné,
+BC `work/project-app-acceptance-20261001` zachovaný. Raw receipt SHA
+`f876833991f053865e660d4b496d34a63cc14d6f9879f8e136758ce8430c4851`;
+actual observational review má **REVIEW_PASS**, SHA
+`99cf52726ce060ff9f80c458f00d90181d897aa3aa641e8ad3dc983823e66506`.
+Reviewer čerstvě ověřil všech368 refs a71 WT records, čtyři local/remote
+evidence tags i BC, všech1164 Hunt souborů/symlink, V7 raw/source/export
+a původníV5/V6 FAIL důkazy. Žádné remote/tag/DB/process writes
+ani fyzické worktree smazání. Obnova tří názvů má atomický absence-only
+protokol s pozitivním i kolizním důkazem. Starý čtyř-ref návrh NOT_RUN.
 
 Podrobnosti a historická chronologie:
 [completion tracker](review/2026-09-30-COMPLETION-TRACKER.md),

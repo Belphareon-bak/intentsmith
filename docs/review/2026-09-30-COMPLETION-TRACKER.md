@@ -1,6 +1,27 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
-## Checkpoint 1. 10. 2026, 19:09 UTC — GPU V7 actual i export přijaté
+## Checkpoint 1. 10. 2026, 19:27 UTC — závěrečné tři refs a Hunt restoration přijaté
+
+Publikace `5fd54ee7` má exact remote a
+[vlastní CI13 SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36912177685).
+Hunt reused checkout obnovený na původní clean `00c71cd4` /branch,
+všech1164 regular files /61,603,715 B a dependency symlink přesné;
+původní19/pre34 579 zachované. Poslední atomic CAS 19:14:00–19:14:02 UTC
+odstranila pouze tři vlastní lokální refs e6e9/ce2/153, **216→213 branches /
+71→71 worktrees**. Ostatní refs a všechna worktree metadata, čtyři
+local/remote evidence tags a BC zachované. Raw result SHA
+`f876833991f053865e660d4b496d34a63cc14d6f9879f8e136758ce8430c4851`.
+
+Nezávislé observational **REVIEW_PASS**, SHA
+`99cf52726ce060ff9f80c458f00d90181d897aa3aa641e8ad3dc983823e66506`:
+live refs odpovídají saved after, Hunt/archivy/V7 raw/source/public export
+i V5/V6 whole FAIL evidence zachované. Starý čtyř-ref návrh NOT_RUN;
+BC HOLD_CONDITIONAL a physical WT removal HOLD. Žádný remote/tag/process/
+DB/provider zásah. Toto není přijetí SQLite aplikace nebo celého release.
+Další milník je design CODE peer kontextu před source implementací;
+CHAT jiný worker. Aktuální souhrn/cadence [WORK-PROGRESS.md](../WORK-PROGRESS.md).
+
+## Historický checkpoint 1. 10. 2026, 19:09 UTC — GPU V7 actual i export přijaté
 
 Jediný actual V7 18:55:11.326–18:55:41.123 UTC /exit0 má
 QUALIFIED_PHYSICAL_REVIEW_PASS, SHA
