@@ -101,10 +101,30 @@ explicitní JSON rozpoznání významu a jeho lookup `/api/tags` či
 53/53 PASS. Reporty jsou v soukromých `vat-whole-input-{red,green}.log`,
 `vat-model-contract-after-review.log` a `vat-runtime-after-review.log`.
 
-**Stav: `REVIEW_PENDING`, živá významová kvalita `NOT_RUN`.**
+**Stav: `REVIEW_PASS` pro source `1e6e7733101bdb3833d719e507874c2e0c904a52`,
+živá významová kvalita `NOT_RUN`.**
 Řízený provider dodává předem pojmenované významové plány; dokládá propojení,
 numerickou kontrolu, přesnou prezentaci a persistenci. Správnost modelových
 štítků pro neznámé formulace, negaci či implicitní směr musí ještě potvrdit
 krátký živý pilot a přejímka jednoho zmrazeného kandidáta. Při samotném
 číselném dovětku bez DPH triggeru tento WP nově nepřebírá starou částku;
 obecná konverzační kompozice zůstává další integrační cesta.
+
+## Nezávislá přejímka opraveného source a integrace
+
+Nezávislý reviewer zkontroloval celý řetězec `fbad93b1` → `1e6e7733`.
+Tři původní nepřípustné plány znovu poslal skutečným M1/SQLite rozhraním;
+po nutném doplnění pole `itemCountSource: null` skončily `NEEDS_INPUT`.
+Dalších 13 průchodů ověřilo úplný číselný vstup, citace, rok, měnu,
+platné dvě/tři odrážky, přesné parametry a persistenci. Negativní případy
+nevytvořily ToolRequest. Non-VAT zero-contact oracle je zachován.
+Review výsledek: **REVIEW_PASS**, registrovaných **8/8 PASS**;
+soubor `2026-10-01T06-35-39-334Z/report.json` je v soukromých artefaktech
+autorského checkoutu `intentsmith-vat-semantic-format-20261001`.
+
+Integrace provedena commity `f8468d47` a `db601749` při zachování přijatého
+atomického create-only source. Integrační opakování na čistém `db601749`
+má **8/8 PASS**, žádný FAIL/BLOCKED/SKIPPED. Soukromý report:
+`.intentsmith-artifacts/test-runs/2026-10-01T06-50-40-419Z/report.json`.
+To potvrzuje propojení a deterministické kontroly, nikoli živou významovou
+kvalitu modelu ani úplný profil tohoto kandidáta.
