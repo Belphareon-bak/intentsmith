@@ -669,14 +669,14 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 **REVIEW_PENDING** — [aktuální UI oprava a evidence](docs/review/2026-09-17-HUNT-MODEL-CONTROLS-FOLLOWUP.md).
 
 Následující LOC a registry census jsou přeměřené přímo na referenčním zdroji
-`0098e8fb` + přeměřená SQLite import regrese přes stejný algoritmus jako `tests/artifact-validation.test.js`:
+`11f74be8` + bezztrátový CODE formatter a navázané decoding regrese přes stejný algoritmus jako `tests/artifact-validation.test.js`:
 počet skutečných `.js` souborů a počet znaků nového řádku v jejich bytech.
 Při další integraci se přeměří znovu.
 
 | | |
 |---|---:|
-| `src/**/*.js` | **234 011 ř.**, 681 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **266 085 ř.**, 600 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **234 053 ř.**, 681 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **266 206 ř.**, 600 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **593** (`495 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 108** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |
@@ -1359,3 +1359,20 @@ Při neznámém limitu se katalog neschovává. Fyzický renderer s řízeným b
 ověřil viditelnost katalogu, ruční filtr a negativní test. Scoring zůstává
 BLOCKED. Instalováno `d4dea0bb`, živé API má 24103 MiB a 49/71 v limitu.
 [Review a přesné výsledky kontrol](docs/review/2026-09-17-VRAM-CAPACITY-FALLBACK.md).
+
+
+## Navazující CODE context — source11f74be8, 1. 10. 2026 20:32 UTC
+
+Obecný verzovaný indexed-full/v1 formatter zachovává celé zdroje/instrukce,
+provenance a M2 approval/writes; původní small JSON se nemění. CPU replay
+actual f5575:8811→8692 B při nezměněném8736 B limitu; rezerva pouze44 B,
+větší kontext nadal správně odmítán. Lokální100 service+22 app kontrol PASS;
+registered routes/Studio/service/app acceptance/app functional/boundary šest
+PASS. Sedmá artifact-validation odhalila stale LOC census a vyžaduje nové
+měření výše, nikoli oslabení kontroly. Registered HTTP owned-server průchod
+na11f74be8 má ENVIRONMENT_FAIL: hlavní Node24 runner uspěl v27 základních
+checks, child suite však našel Node22 v PATH a ABI127 místo137. Opakuje se
+se stejným produktem a výslovným Node24 PATH v privátním network namespace.
+Source review/nový physical model/app acceptance zatím pending.
+[Pracovní WP](docs/wp/WP-CODE-PEER-CONTEXT-BUDGET-20261001.md),
+[průběžný report](docs/WORK-PROGRESS.md).
