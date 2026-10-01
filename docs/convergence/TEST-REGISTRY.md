@@ -15,7 +15,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 ## Inventory
 
 - Runnable programs: 593
-- Explicit support-module exclusions: 32
+- Explicit support-module exclusions: 33
 - Profiles: offline=321, database=86, server=64, model=86, soak=16, manual=20
 - States: ACTIVE=495, HISTORICAL=15, BLOCKED=83
 
@@ -662,6 +662,7 @@ ledger.
 | `tests/helpers/m7-durable-rate-limit-racer.js` | Suite-owned cross-process SQLite race helper launched only by m7-durable-rate-limiter.test.js. |
 | `tests/helpers/ollama-loopback-fetch-boundary.js` | Imported fail-closed M6 model-test transport boundary, not a standalone test. |
 | `tests/helpers/project-app-reference.js` | Trusted offline reference modules imported by project-app-acceptance.test.js and project-app-m2-functional.test.js; no standalone test entry point and never used by the physical model journey. |
+| `tests/helpers/project-taskflow-reference.js` | Trusted offline TaskFlow reference and defect modules imported by the existing project-app acceptance and M2 functional suites; no standalone entry point and never used by the physical model journey. |
 | `tests/helpers/sazeni-http-fixture-preload.js` | Suite-owned product-child preload with a controlled betting transport; assertions run in chat-sazeni-http-journey.test.js. |
 | `tests/helpers/studio-m2-composer-dom.js` | Explicit visual DOM probe invoked only by studio-m2-composer-dom.e2e.js through the shared Electron harness; not a standalone suite. |
 | `tests/helpers/studio2-live-harness.js` | Imported actual Studio 2 adapter harness; its assertions run in studio2-m2 and m2-lifecycle-studio-surface suites. |

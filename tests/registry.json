@@ -129,6 +129,10 @@
     {
       "path": "tests/helpers/project-app-reference.js",
       "reason": "Trusted offline reference modules imported by project-app-acceptance.test.js and project-app-m2-functional.test.js; no standalone test entry point and never used by the physical model journey."
+    },
+    {
+      "path": "tests/helpers/project-taskflow-reference.js",
+      "reason": "Trusted offline TaskFlow reference and defect modules imported by the existing project-app acceptance and M2 functional suites; no standalone entry point and never used by the physical model journey."
     }
   ],
   "suites": [

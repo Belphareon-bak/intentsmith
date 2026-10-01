@@ -1,5 +1,25 @@
 # WP — druhá funkční aplikace TaskFlow
 
+**Root převzetí 1. 10. 2026, 10:35 UTC:** čistý autorský
+`bc82434cd068c8c2e4f360e2be191b4e55e91b58` má nezávislé **REVIEW_PASS**;
+reviewer zopakoval **28/28** a původní protipříklady s referencí **4/4**.
+Tři mutanty skončily `PROJECT_CHANGE_TEST_FAILED`, pěti rollbacky, bez
+commitu a se shodným durable failed terminálem po novém procesu.
+Reference commitne a další run začíná prázdnou tabulí. Historických 23
+důkazů chybného `c194` přijetí zůstalo přesných. Nový devítisouborový
+review manifest má SHA-256
+`daf688567917cfb62774fdc9b0fef9c89a6e79b2b69e7b4b357054ef3e1870dc`.
+
+Root integroval WP/implementaci/opravu jako `08b74b78 / 67680929 /
+ae9732a4`. Jediný konflikt v PROJECT-BUILD zachoval předchozí přijatou
+ledger PASS pasáž a nový TaskFlow kontrakt. Doplněn pouze importovaný
+helper exclusion; **593 descriptors a původních 32 exclusions zachované**,
+celkem 33 exclusions. Autoritativní writer obnovil projekci, fingerprint
+`cf640660cad1b0673ccd2c57fe6f6f72c9f156f755044e8cb7c841d3eefd0127`.
+Census source **681 / 234 011**, tests **599 / 265 207**. Společný
+registrovaný gate a root integrační review zatím **PENDING_RUN**;
+fyzický TaskFlow s modelem **LIVE_NOT_RUN**. Níže zůstává historie autora.
+
 **Autorita:** požadavek operátora ověřit, že model vytvoří skutečně fungující různé projekty, nikoli jen text, přenos návrhu nebo Git commit. Tento balík navazuje na přijatou šestisouborovou ledger cestu, ale dokládá samostatnou doménu stavů úloh. **Výchozí čistý zdroj:** `92f7b51c2423bdd2cc5633903a579b611d01f7f3`, větev `work/project-app-acceptance-20261001`. **Stav tohoto prvního commitu:** `WP_ONLY / IMPLEMENTATION_NOT_RUN / REVIEW_PENDING`.
 
 ## Přijatá hranice a soukromý návrh
@@ -36,7 +56,7 @@ První implementační kandidát `c19432bee9b505e1bbd08a28007969b0001ec338` skon
 
 Příkaz `/home/belphareon/.nvm/versions/node/v24.21.0/bin/node --test tests/project-app-acceptance.test.js tests/project-app-m2-functional.test.js` na `c194` dokončil 25/25: osm původních ledger M2 případů, devět TaskFlow M2 případů a osm sandbox/kontraktových případů. TaskFlow měl jeden skutečný M2 commit referenční pětimodulové aplikace a osm vadných implementací s `PROJECT_CHANGE_TEST_FAILED`, bez commitu, úplným rollbackem a ověřením trvalého stavu po novém SQLite procesu. Oddělený sandbox spustil CLI s přesnými výsledky; trusted VM pozoroval identitu a mutaci objektů. Provider syntetická kontrola přijala pět správně vázaných výstupů a zamítla záměnu hashů mezi `cli.js` a `app.js`. **Těchto 25/25 nezachytilo dva další porušené veřejné kontrakty.**
 
-Gate0 následně v opravdovém M2 přehrál dva mutanty, které `c194` chybně přijalo s focused exit 0, pěti commity a trvalým `succeeded` po novém SQLite procesu: `shared-board` držel tabuli v module scope a porušil fresh board na další `run`; `accept-nonplain` odstranil kontrolu prototypu a dovolil neobyčejné VM objekty jako `Date` pro options a class instance pro patch. Evidence zůstává v soukromých `gate0-review-taskflow-{shared-board,accept-nonplain}-c19432b.json` a odpovídajících durable souborech. Tyto falešné commity jsou důvod `CHANGES_REQUIRED`, nikoli přijaté výsledky modelu.
+Gate0 následně v opravdovém M2 přehrál dva mutanty, které `c194` chybně přijalo s focused exit 0, pěti soubory a Git commitem a trvalým `succeeded` po novém SQLite procesu: `shared-board` držel tabuli v module scope a porušil fresh board na další `run`; `accept-nonplain` odstranil kontrolu prototypu a dovolil neobyčejné VM objekty jako `Date` pro options a class instance pro patch. Evidence zůstává v soukromých `gate0-review-taskflow-{shared-board,accept-nonplain}-c19432b.json` a odpovídajících durable souborech. Tyto falešné commity jsou důvod `CHANGES_REQUIRED`, nikoli přijaté výsledky modelu.
 
 ## Navazující oprava k nezávislé revizi
 
