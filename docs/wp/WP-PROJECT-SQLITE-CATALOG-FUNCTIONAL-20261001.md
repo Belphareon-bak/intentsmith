@@ -1,6 +1,6 @@
 # WP — funkční SQLite aplikace vytvořená modelem CODE
 
-**Stav:** `SOURCE_REVIEW_PASS / ROOT_INTEGRATION_GATE_PENDING / LIVE_NOT_RUN`.
+**Stav:** `SOURCE_REVIEW_PASS / ROOT_FIX_GATE_PENDING / LIVE_NOT_RUN`.
 **Autorita:** výslovný požadavek operátora dokončit a skutečně otestovat různé
 generované projekty; `PRODUCT.md` §2 závazek 7 a §3 práce nad projektem;
 `CONTRACT.md` §4, §6 a §10. Výchozí ověřený publikovaný zdroj je
@@ -25,9 +25,26 @@ Root přenesl celou WP-first řadu jako `f1424b71 → b12562f6 → 4c53ed57`
 na již přijatý M3 source `a3d6e61d`. Root vlastní jedinou novou helper
 výjimku v `tests/registry.json`, canonical projekci a přeměřený census
 `SYSTEM-MAP.md`; všech 593 suite descriptors a produktové stromy musí
-zůstat přesně shodné. Devítisadová registrovaná brána a mechanické
-nezávislé integrační review čekají na čistého kandidáta. Teprve po nich
-smí běžet explicitní scénář `sqlite-catalog` s přesným source/model/digest
+zůstat přesně shodné. Původní čistý kandidát `3863549f` má **9/9 PASS**,
+exit 0, report SHA-256
+`6ac00fdeadd716a3d9e9e434b60a1905dd8a5dd08f518cdc49609c2c7b1c52b2`;
+mechanické nezávislé review má SHA-256
+`068dde9803f82b4e39ea58261c31191d406222ed6573d5b52b16d680d4f20b27`.
+První root příkaz nepovolil deklarované bwrap/git/prlimit a jeho **7 PASS /
+2 BLOCKED**, exit 2, zůstává samostatně zachovaný. GitHub CI `3863549f`
+je [SUCCESS, run 36872538794](https://github.com/Belphareon-bak/intentsmith/actions/runs/36872538794),
+job `110403682953`, všech 13 kroků SUCCESS.
+
+Skutečný start `3863549f` pak odhalil níže popsanou JSON chybu **před
+inferencí**. Opravný autorský `51d70e355742c0dce86bfb58e1de28bbaaa2fda7`
+má **53/53 CPU PASS / REVIEW_PASS**, root cherry-pick `6a9161a5`.
+Nezávislý reviewer ověřil navíc skutečné namespace spuštění: tři scénáře
+prošly a devět podvržených konfigurací se odmítlo před runtime/DB.
+Review SHA-256 `1cf38437ade3966eb451107f14582f839212c273b8ad255d30ba9d999345866b`,
+21členný manifest
+`d2383b4666ad981a06b9c7223556534ff195121ee4b63449df6a53b5660cdad4`.
+Opravený společný kandidát teprve čeká na novou registrovanou bránu a
+nový živý průchod. Poté smí běžet explicitní scénář `sqlite-catalog` s přesným source/model/digest
 pinem, vlastní DB/projektem a serialized GPU lease. CHAT, produkční
 DB/nasazení a mobil jsou mimo tento milník.
 
