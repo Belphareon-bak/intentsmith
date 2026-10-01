@@ -55,6 +55,23 @@ test('classifier receives source identities, antecedent, open question and goal;
     assert.equal(parsed.goal, 'Vybrat název aplikace');
     assert(!wire.prompt.includes('PRIVATE_MEMORY_MUST_NOT_CLASSIFY'));
     assert.match(wire.options.systemPrompt, /untrusted|podklady/i);
+    llmGateway.call = async (prompt, options) => {
+      wire = { prompt, options };
+      return { content: JSON.stringify({ intent: 'CONVERSATIONAL', confidence: 0.95,
+        briefResponse: true, responseScope: 'conversation', requestedOperation: 'none' }) };
+    };
+    for (const request of ['vysvetli mi jka funguje pamet pocitace, kratce',
+      'Díky, teď vysvětli rozdíl mezi RAM a diskem.']) {
+      const decision = await creDecisionEngine.decide(request, { history: [] });
+      assert.equal(JSON.parse(wire.prompt).request, request);
+      assert.equal(decision.metadata.classifiedBy, 'llm');
+      assert.equal(decision.metadata.briefResponse, true);
+    }
+    const contextual = await creDecisionEngine.decide('Jak funguje DNS?', { history: [
+      { response: { tag: { speaker: 'user' }, content: 'V dalších odpovědích stačí dvě věty.' } },
+    ] });
+    assert.equal(contextual.metadata.classifiedBy, 'llm');
+    assert(JSON.parse(wire.prompt).history.some(turn => turn.content.includes('dvě věty')));
   } finally { llmGateway.call = original; }
 });
 
@@ -129,6 +146,9 @@ test('ordinary answer includes scoped memory as reference data and preserves the
     assert(calls[0].prompt.includes(input));
     assert(calls[0].options.systemPrompt.includes('stručná čeština'));
     assert.match(calls[0].options.systemPrompt, /oprávnění|permissions/i);
+    assert(!calls[0].options.systemPrompt.includes('ROZSAH:'));
+    await handleAnswerDecision('Rozveď to podrobně krok za krokem.', decision, { history: [] });
+    assert(calls[1].options.systemPrompt.includes('ROZSAH:'));
   } finally { llmGateway.call = original; }
 });
 

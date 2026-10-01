@@ -3257,6 +3257,13 @@ PRAVIDLA:
       || CONVERSATIONAL_PATTERNS.some(p => p.test(_text))
       || SELF_REFERENCE_PATTERNS.some(p => p.test(_text))
       || STATEMENT_PATTERNS.some(p => p.test(_text));
+    // A fast knowledge/courtesy match only proves a route for a simple,
+    // independent turn. Clauses can add a format constraint or another
+    // operation; prior turns can change the referent. Let the existing model
+    // interpret that whole request rather than losing its typed metadata.
+    // This boundary selects interpretation only; it grants no tool authority.
+    const requiresConversationInterpretation = Boolean(context.history?.length)
+      || /[,;:\n]|[.!?]\s+\S/u.test(_text);
     const isStaticKnowledge = DETERMINISTIC_STATIC_KNOWLEDGE_PATTERNS.some(p => p.test(_text))
       || isClosedHistoricalQuestion(_text);
     const isStableKnowledgeExplanation = KNOWLEDGE_EXPLANATION_PATTERNS.some(p => p.test(_text));
@@ -3299,6 +3306,7 @@ PRAVIDLA:
     // with the original question before a stateless shortcut chooses a route.
     const isDeterministic = !pendingConversationQuestion(context) && (
       (resolvedDeterministicIntent === IntentType.CONVERSATIONAL
+        && !requiresConversationInterpretation
         && !requiresFileArbitration
         && !mayRequireLocalAuthority
         && !creativeKnowledgeNeedsArbitration

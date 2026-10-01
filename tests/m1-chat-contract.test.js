@@ -806,7 +806,7 @@ await testAsync('quoted current and historical JSON instructions do not change a
     assert.equal(requestBodies.length, 1);
     assert.equal(requestBodies[0].format, undefined);
     assert.match(requestBodies[0].messages.find(message => message.role === 'system')?.content || '',
-      /Vysvětluj konkrétně: princip/u);
+      /Odpovídej přirozeně, stručně/u);
   } finally {
     globalThis.fetch = previousFetch;
     clearNumCtxCache();
