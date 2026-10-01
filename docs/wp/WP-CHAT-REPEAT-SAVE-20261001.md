@@ -55,8 +55,7 @@ Tento průchod zahrnuje i již vytvořený souhrn historie; **1/1 PASS**.
 Samostatný registrovaný `chat-history-order` kontroluje posledních deset
 z dvanácti tahů se shodným časem; **1/1 PASS**. Společný
 `chat-literal-write-http` **1/1** a `m2-effect-file-consumer` **39/39 PASS**.
-Nezávislé přijetí kombinovaného kandidáta, finální integrace a fyzický
-modelový pilot dosud čekají.
+Přijetí tohoto mezikandidáta bylo pozastaveno kvůli níže uvedené regresi.
 
 Širší offline/database profil na `6d16e3f8` našel regresi C15: neúplný
 `ulož to` bez oprávnění skončil na parseru místo `effect_authority_required`.
@@ -65,3 +64,12 @@ prošel společně s celou sadou **26/26**, M1 literal **1/1**, M1 repeat
 **1/1** a M2 consumer **39/39 PASS**. Přerušený profil zůstává **FAIL**
 (`98 PASS / 5 FAIL / 5 BLOCKED / 297 SKIPPED`), včetně chybějících
 závislostí IDE a nepovolených lokálních toolchainů; nový celý profil čeká.
+
+Nový čistý `c1a25dc1` získal nezávislé **REVIEW_PASS** pro kombinovaný source
+a testovací izolaci. Reviewer zopakoval C15 **26/26**, oba M1 průchody
+**1/1**, M2 **39/39**, řazení historie **1/1**, stage **13/13** a harness
+meta test. Návrat pouze `getLastN` ke starému řazení podle času změnil
+registrovaný test historie na **0/1**; obnovení ID řazení vrátilo **1/1**.
+HTTP fixture nad souhrnem prošla i pod touto mutací a tento SQL defekt sama
+nezachycuje. Source je integrovaný; nový celý profil a fyzický modelový pilot
+stále čekají. [Review receipt](../review/2026-10-01-CHAT-STAGING-INTEGRATION-REVIEW.md).

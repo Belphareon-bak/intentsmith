@@ -4,8 +4,9 @@
 výsledky a otevřené brány](docs/review/2026-09-30-COMPLETION-TRACKER.md).
 Níže uvedený základ `main` a starší checkpointy popisují předchozí stav;
 poslední vzdáleně ověřený chat/Studio 2/GPU Hunt checkpoint `77672c2c` je na
-samostatné integrační větvi. Novější lokální kandidát `f5ca79a9` ještě čeká na
-úplný profil, integraci a publikaci; instalovaný backend stále běží z `c84b88cd`.
+samostatné integrační větvi. Novější chatový source `c1a25dc1` má omezené
+nezávislé REVIEW_PASS a je integrovaný; čeká na nový úplný profil a publikaci.
+Instalovaný backend stále běží z `c84b88cd`.
 
 **Sjednocený základ z 28. 9. 2026:** `main` sjednocuje vývoj vycházející
 z C3 a zdroj právě používaného **IDE 2.0**. Základ `04f2be71` obsahuje backend
@@ -44,7 +45,7 @@ autoritativní IntentSmith Studio runtime už neobsahuje implicitní Google Font
 Studio používá Theia runtime s motivy a ovládáním IntentSmithu.
 
 **Verze:** 136.1.0, vývojový kandidát 1.0. Počty pro referenční zdroj
-`f5ca79a9` jsou odvozené z [generovaného registru](docs/convergence/TEST-REGISTRY.md)
+`c1a25dc1` jsou odvozené z [generovaného registru](docs/convergence/TEST-REGISTRY.md)
 a při další integraci se znovu přeměří:
 **590 registrovaných testovacích programů**
 (`492 ACTIVE`, `83 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).

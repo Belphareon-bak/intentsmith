@@ -656,14 +656,14 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 **REVIEW_PENDING** — [aktuální UI oprava a evidence](docs/review/2026-09-17-HUNT-MODEL-CONTROLS-FOLLOWUP.md).
 
 Následující LOC a registry census jsou přeměřené přímo na referenčním zdroji
-`f5ca79a9` přes stejný algoritmus jako `tests/artifact-validation.test.js`:
+`c1a25dc1` přes stejný algoritmus jako `tests/artifact-validation.test.js`:
 počet skutečných `.js` souborů a počet znaků nového řádku v jejich bytech.
 Při další integraci se přeměří znovu.
 
 | | |
 |---|---:|
-| `src/**/*.js` | **233 481 ř.**, 678 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **263 767 ř.**, 592 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **233 480 ř.**, 678 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **263 808 ř.**, 592 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **590** (`492 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 107** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |

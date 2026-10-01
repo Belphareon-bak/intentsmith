@@ -1,5 +1,26 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 1. 10. 2026, 05:42 UTC — přijatá chatová integrace
+
+Čistý `c1a25dc1` získal nezávislé omezené **REVIEW_PASS** a je integrovaný.
+Spojuje řazení podle ID, bezpečný doslovný zápis a opakované uložení stejné
+odpovědi s projektovým původem. Původní C15 **26/26**, M1 literal **1/1**,
+M1 repeat **1/1**, M2 **39/39**, historie **1/1**, staging **13/13** a
+harness meta test zopakoval nezávislý reviewer. [Přesný receipt, mutace a
+hranice](2026-10-01-CHAT-STAGING-INTEGRATION-REVIEW.md).
+
+První širší profil na `6d16e3f8` zůstává **FAIL** po přerušení:
+`98 PASS / 5 FAIL / 5 BLOCKED / 297 SKIPPED`. Nálezy oprávnění a izolace jsou
+opravené; final source potřebuje celý profil s připravenými závislostmi IDE
+a přesně povolenými místními toolchainy. Poslední dokončený celý profil
+stále patří `bf7dc31f` a má **402/402 PASS**.
+
+Návrh Gate 0 `efe70b42` získal nezávislé přijetí konzistence evidence;
+validátor dál hlásí **BLOCKED**, 31 historických chyb a 28 změn čekajících
+na sémantické přijetí. Není tím vytvořená release attestation. Fyzické IDE,
+modelové piloty, Hunt, M5/M6 authority, mobilní integrace a poslední úklid
+zůstávají otevřené podle dalších milestone gates.
+
 ## Checkpoint 1. 10. 2026, 05:26 UTC — zdroj, měření a publikace
 
 Referenční čistý zdroj této dokumentační revize je `f5ca79a9` (repeat-save

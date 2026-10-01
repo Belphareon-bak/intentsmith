@@ -1,5 +1,15 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**Aktualizace 1. 10. 2026, 05:42 UTC:** Kombinované opravy doslovného a
+opakovaného zápisu, projektového původu, řazení zpráv a testovací izolace
+jsou integrované z nezávisle posouzeného `c1a25dc1` (**REVIEW_PASS v rozsahu
+delty**). Registr má 590 programů; nový celý offline/database profil čeká.
+Přerušený první profil `6d16e3f8` zůstává FAIL, nová fyzická přejímka IDE
+a modelových scénářů zůstává NOT_RUN.
+[Integrační review a přesné hranice](docs/review/2026-10-01-CHAT-STAGING-INTEGRATION-REVIEW.md).
+Návrh Gate 0 `efe70b42` má nezávislé přijetí konzistence evidence;
+sémantické přijetí 28 změn a release authority nadále zůstávají BLOCKED.
+
 **Vývojový checkpoint 1. 10. 2026, 05:26 UTC — referenční source
 `f5ca79a9`:** [průběžný tracker s přesnými piny a výsledky](docs/review/2026-09-30-COMPLETION-TRACKER.md).
 Generovaný registr na tomto zdroji uvádí **590 programů**. Úplný

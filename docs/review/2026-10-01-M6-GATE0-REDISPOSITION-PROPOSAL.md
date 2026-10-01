@@ -7,6 +7,18 @@ The current M6 source must be frozen and remeasured before release evidence is
 generated. The exact machine-readable snapshot is
 [`2026-10-01-m6-gate0-redisposition-proposal-v1.json`](evidence/2026-10-01-m6-gate0-redisposition-proposal-v1.json).
 
+An independent consistency review accepted exact packet `efe70b42` on
+1 October 2026. It checked all Git identities, unchanged historical authority,
+15 E2E descriptions and eleven rejected mutations. This limited review does
+not accept any of the 28 semantic dispositions and does not change
+`gate0Status=BLOCKED`. [Receipt and scope](2026-10-01-CHAT-STAGING-INTEGRATION-REVIEW.md).
+
+The integrated chat source changes README and both registry subjects after
+the observed `77672c2c` snapshot. The v1 validator correctly rejects those
+three changed identities on the newer source. A new version must bind the
+frozen integrated candidate before this proposal can describe its current
+subjects. The accepted v1 snapshot remains historical evidence.
+
 ## Authority and reproduction
 
 - User request: prepare the remaining IntentSmith completion work by milestones.
