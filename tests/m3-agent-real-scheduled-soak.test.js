@@ -143,9 +143,43 @@ function sqliteUtc(raw) {
   return Date.parse(String(raw).replace(' ', 'T') + 'Z');
 }
 
+function assertCleanSourceRevision() {
+  const cwd = parentRuntime.repositoryRoot;
+  const sourceRevision = execFileSync('git', ['rev-parse', 'HEAD'], {
+    cwd, encoding: 'utf8',
+  }).trim();
+  const dirt = execFileSync('git', ['status', '--porcelain', '--untracked-files=all'], {
+    cwd, encoding: 'utf8',
+  }).trim();
+  assert.equal(dirt, '', 'wall-clock soak requires a clean committed source');
+  if (process.env.INTENTSMITH_TEST_SOURCE_REVISION) {
+    assert.equal(process.env.INTENTSMITH_TEST_SOURCE_REVISION, sourceRevision,
+      'audit runner source revision must equal the actual clean HEAD');
+  }
+  return sourceRevision;
+}
+
+async function stopOwnedProduct(product) {
+  await stopProduct(product);
+  assert.equal(product.signal, null,
+    'owned product exited by signal before or during clean shutdown');
+  assert.equal(product.code, 0,
+    'owned product exited nonzero before or during clean shutdown');
+}
+
+test('soak cleanup rejects an owned product that already exited badly', async () => {
+  await assert.rejects(
+    stopOwnedProduct({ child: {}, code: 1, signal: null }),
+    /owned product exited nonzero/);
+  await assert.rejects(
+    stopOwnedProduct({ child: {}, code: null, signal: 'SIGTERM' }),
+    /owned product exited by signal/);
+});
+
 test('trusted worker waits for a real five-minute due time and notifies once', {
   timeout: 450_000,
 }, async t => {
+  const sourceRevision = assertCleanSourceRevision();
   const runtime = createOwnedJourneyRuntime(parentRuntime);
   const extensionsDir = createTestExtensionRoot(runtime);
   const provider = await startTripwireProvider();
@@ -153,7 +187,7 @@ test('trusted worker waits for a real five-minute due time and notifies once', {
   let successfulEvidence = null;
   t.after(async () => {
     try {
-      if (product) await stopProduct(product);
+      if (product) await stopOwnedProduct(product);
     } finally {
       await provider.close();
     }
@@ -161,9 +195,13 @@ test('trusted worker waits for a real five-minute due time and notifies once', {
     assert.equal(provider.unexpectedCalls, 0,
       'owned product attempted an unexpected provider endpoint or method: '
       + JSON.stringify(provider.unexpectedRequests));
+    assert.equal(assertCleanSourceRevision(), sourceRevision,
+      'source revision changed before clean evidence finalization');
     if (successfulEvidence) {
       writeFileSync(path.join(parentRuntime.artifacts, 'm3-agent-real-scheduled-soak.json'),
         JSON.stringify({ ...successfulEvidence, status: 'PASS',
+          providerModelCalls: provider.modelCalls,
+          providerUnexpectedCalls: provider.unexpectedCalls,
           ownedProductCleanlyStopped: true, providerCleanlyStopped: true }, null, 2) + '\n',
         { flag: 'wx', mode: 0o600 });
     }
@@ -227,6 +265,8 @@ test('trusted worker waits for a real five-minute due time and notifies once', {
   const dueMonotonicMs = changeMonotonicMs + (dueEpochMs - changeEpochMs);
   let beforeDuePolls = 0;
   let firstChangedObservedEpochMs = null;
+  let firstChangedObservedMonotonicMs = null;
+  let notificationObservedMonotonicMs = null;
   let changedDetail = null;
   while (performance.now() < dueMonotonicMs + DUE_GRACE_MS) {
     assert.equal(product.code, null, 'owned product exited during real interval');
@@ -245,13 +285,17 @@ test('trusted worker waits for a real five-minute due time and notifies once', {
     }
     if (detail.recentRuns.length === 2) {
       const changed = detail.recentRuns[0];
-      if (firstChangedObservedEpochMs === null) firstChangedObservedEpochMs = observedAt;
+      if (firstChangedObservedEpochMs === null) {
+        firstChangedObservedEpochMs = observedAt;
+        firstChangedObservedMonotonicMs = performance.now();
+      }
       const startedAtMs = sqliteUtc(changed.started_at);
       assert(Number.isFinite(startedAtMs));
       assert(startedAtMs >= dueEpochMs - 1_000,
         'durable run started before persisted next_run');
       if (changed.status !== 'running' && detail.notifications.length === 1) {
         changedDetail = detail;
+        notificationObservedMonotonicMs = performance.now();
         break;
       }
     }
@@ -295,7 +339,7 @@ test('trusted worker waits for a real five-minute due time and notifies once', {
   assert.equal((await expectJson(product, 'GET',
     '/api/agents/' + instanceId, null, 200)).notifications.length, 1);
 
-  await stopProduct(product);
+  await stopOwnedProduct(product);
   product = null;
   product = await launch();
   const recovered = await expectJson(product, 'GET',
@@ -322,10 +366,8 @@ test('trusted worker waits for a real five-minute due time and notifies once', {
   assert.equal(provider.modelCalls, 0);
   assert.equal(provider.unexpectedCalls, 0);
 
-  const sourceRevision = process.env.INTENTSMITH_TEST_SOURCE_REVISION
-    || execFileSync('git', ['rev-parse', 'HEAD'], {
-      cwd: parentRuntime.repositoryRoot, encoding: 'utf8',
-    }).trim();
+  assert.equal(assertCleanSourceRevision(), sourceRevision,
+    'source revision changed during the wall-clock soak');
   successfulEvidence = {
       schemaVersion: 1, sourceRevision, executionMode: 'test',
       intervalMs: INTERVAL_MS, projectId, instanceId, initialProductPid,
@@ -338,7 +380,11 @@ test('trusted worker waits for a real five-minute due time and notifies once', {
       changedStartedAt: changed.started_at, changedFirstObservedAt:
         new Date(firstChangedObservedEpochMs).toISOString(),
       changeAt: new Date(changeEpochMs).toISOString(),
-      monotonicObservedIntervalMs: performance.now() - changeMonotonicMs,
+      monotonicElapsedToDueMs: dueMonotonicMs - changeMonotonicMs,
+      monotonicElapsedToFirstRunMs:
+        firstChangedObservedMonotonicMs - changeMonotonicMs,
+      monotonicElapsedToNotificationMs:
+        notificationObservedMonotonicMs - changeMonotonicMs,
       beforeDuePolls, workspaceRevision: evidence.workspaceRevision,
       changedSourceDigest: source.contentDigest, providerModelCalls: provider.modelCalls,
       providerUnexpectedCalls: provider.unexpectedCalls,

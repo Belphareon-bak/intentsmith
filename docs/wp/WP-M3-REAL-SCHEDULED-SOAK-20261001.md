@@ -44,8 +44,13 @@ Negativní hranice: předčasný běh, duplicitní run/notifikace, špatná revi
 ztráta nebo nový run po restartu, libovolný neočekávaný provider request,
 mrtvý child nebo posun systémového času
 vedou k selhání. Artefakt se stavem PASS vznikne až po čistém ukončení
-produktového procesu i loopback provideru. Test měří monotónní uplynulý čas,
-zapisuje source revision, PID, uloženou splatnost a skutečná ID.
+obou produktových procesů i loopback provideru. Helper pro shutdown sám
+neověřuje dříve ukončený child, proto test explicitně požaduje code 0 a žádný
+signál i na této cestě. Test na začátku, před výsledkem a po shutdownu
+ověřuje skutečný čistý Git HEAD; auditní source env se s ním musí shodovat.
+Odděleně měří monotónní čas do uložené splatnosti, prvního zjištěného runu
+a notifikace; ruční běh a restart do těchto intervalů nevstupují. Artefakt
+zapisuje přesné source SHA, PID, uloženou splatnost a skutečná ID.
 
 ## Ověření
 
@@ -80,6 +85,13 @@ budoucí plán po restartu a zachycení všech nečekaných provider requestů.
 Navazující kandidát tyto aserce doplnil; samostatný krátký HTTP negativní
 test tripwire prošel 1/1 bez modelu. Opakované nezávislé review a fyzický
 pětiminutový běh zůstávají otevřené.
+
+Další křížové review `fab91621` našlo neověřený dřívější exit v pomocném
+shutdownu, důvěru v libovolné source env a interval zahrnující následný
+ruční běh i restart. Tento follow-up doplnil explicitní exit kontrolu,
+její krátký negativní test pro dřívější chybový exit a signál, clean HEAD
+shodu a oddělené monotónní metriky. Tato oprava ještě nedokládá
+skutečný pětiminutový výsledek.
 
 Tento důkaz pokrývá jednu plánovanou instanci. Neměří výkon velkého počtu
 instancí, 24hodinový provoz, fyzické Studio ani instalovaný produkt.
