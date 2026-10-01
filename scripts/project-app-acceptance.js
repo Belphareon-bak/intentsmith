@@ -13,15 +13,20 @@ export const LEDGER_FILES = Object.freeze([
 ]);
 
 export const ORACLE_PATH = 'test/acceptance.test.mjs';
+export const ORACLE_BINARY = process.execPath;
+export const ORACLE_ARGV = Object.freeze(['--experimental-vm-modules', ORACLE_PATH]);
 export const PROBE_PATH = 'test/subject-probe.mjs';
 export const VALIDATE_PATH = 'test/validate-invalid.mjs';
 export const ENTRY_PATH = 'src/index.mjs';
 export const ORACLE_SOURCE = `import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import vm from 'node:vm';
 import { spawnSync } from 'node:child_process';
 import { randomBytes, randomInt } from 'node:crypto';
 
-// This trusted process never imports generated modules. The fixed entrypoint
-// loads them in a separate, sandbox-contained child process only.
+// Generated modules run only in child processes or a restricted VM context.
+// The outer M2 process sandbox remains the OS isolation boundary.
 const entry = 'src/index.mjs';
 function child(argv) {
   const result = spawnSync(process.execPath, argv, {
@@ -74,12 +79,68 @@ for (const value of ['NaN', 'Infinity', '-Infinity']) {
   assert.notEqual(child(['test/validate-invalid.mjs', value]).status, 0,
     'validate directly rejects nonfinite ' + value);
 }
+await checkDirectAPI();
 const probeAmount = randomInt(400, 1000);
 const probeCategory = 'probe_' + randomBytes(8).toString('hex');
 const extra = completeJSON(['test/subject-probe.mjs',
   JSON.stringify({ amount: probeAmount, category: probeCategory })]);
 assert.deepEqual(extra.before, { amount: probeAmount, category: probeCategory }, 'list snapshot before mutation');
 assert.deepEqual(extra.after, { amount: probeAmount, category: probeCategory }, 'list snapshot after mutation');
+
+// Observe storage object identity and effects in this trusted process. Child
+// stdout and exit status alone can be forged by generated storage.js.
+async function checkDirectAPI() {
+  const globals = Object.create(null);
+  globals.console = undefined;
+  const context = vm.createContext(globals, {
+    codeGeneration: { strings: false, wasm: false },
+  });
+  const modules = new Map();
+  function load(relative) {
+    assert.ok(relative === 'src/storage.js' || relative === 'src/validate.js', 'exact local module graph');
+    if (!modules.has(relative)) modules.set(relative, new vm.SourceTextModule(
+      fs.readFileSync(relative, 'utf8'), {
+        context, identifier: relative,
+        importModuleDynamically: () => { throw new Error('dynamic imports denied'); },
+      }));
+    return modules.get(relative);
+  }
+  const storage = load('src/storage.js');
+  await storage.link((specifier, importing) => {
+    assert.equal(importing.identifier, 'src/storage.js', 'only storage may depend on validate');
+    assert.equal(specifier, './validate.js', 'only the declared pure dependency');
+    return load(path.posix.join(path.posix.dirname(importing.identifier), specifier));
+  });
+  await storage.evaluate({ timeout: 1000 });
+  const validator = modules.get('src/validate.js');
+  assert.ok(validator, 'storage imports the validator');
+  context.createLedger = storage.namespace.createLedger;
+  context.validate = validator.namespace.validate;
+  const evaluate = source => vm.runInContext(source, context, { timeout: 1000 });
+  for (const name of ['process', 'console', 'requ' + 'ire']) {
+    assert.equal(evaluate('typeof ' + name), 'undefined', name + ' absent from VM context');
+  }
+  evaluate('validate(17.5, "food")');
+  for (const value of ['NaN', 'Infinity', '-Infinity']) {
+    assert.throws(() => evaluate('validate(' + value + ', "food")'),
+      'direct validator rejects nonfinite ' + value);
+  }
+  evaluate('globalThis.ledger=createLedger(); ledger.add(12.5, "food")');
+  const first = evaluate('ledger.list()'), second = evaluate('ledger.list()');
+  assert.notEqual(first, second, 'list returns a new array');
+  assert.notEqual(first[0], second[0], 'list returns independent row objects');
+  assert.equal(first[0].amount, 12.5, 'first direct row amount');
+  assert.equal(second[0].amount, 12.5, 'second direct row amount');
+  try { first[0].amount = 999; } catch { /* immutable copy is safe */ }
+  assert.equal(second[0].amount, 12.5, 'second snapshot remains unchanged');
+  assert.equal(evaluate('ledger.list()[0].amount'), 12.5, 'stored amount remains unchanged');
+  const amount = randomInt(400, 1000), category = 'api_' + randomBytes(8).toString('hex');
+  evaluate('ledger.add(' + amount + ', ' + JSON.stringify(category) + ')');
+  const rows = evaluate('ledger.list()');
+  assert.equal(rows.length, 2, 'direct storage row count');
+  assert.equal(rows[1].amount, amount, 'direct random row amount');
+  assert.equal(rows[1].category, category, 'direct random row category');
+}
 console.log('PROJECT_APP_ORACLE_PASS');
 `;
 
@@ -109,6 +170,7 @@ export function policyForFrozenOracle(policy) {
   assert.ok(policy.layers?.some(layer => layer.roots?.includes('test')));
   const imports = new Set(policy.externalImports);
   imports.add('node:child_process');
+  imports.add('node:vm');
   return { ...policy, externalImports: [...imports].sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b))) };
 }
 
@@ -131,7 +193,7 @@ export function ledgerBlueprint() {
     instruction: 'Build a small in-memory expense ledger with a command entrypoint and no external dependencies.',
     files: LEDGER_FILES.map(file => ({ ...file, dependsOn: [...file.dependsOn] })),
     focusedTest: {
-      binary: '/usr/bin/node', argv: [ORACLE_PATH],
+      binary: ORACLE_BINARY, argv: [...ORACLE_ARGV],
       environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' }, timeoutMs: 30_000,
     },
     gitCommit: {
