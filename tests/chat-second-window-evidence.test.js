@@ -342,4 +342,86 @@ test('captured physical receipt requires the exact recursive source, project iso
     }
   });
   assert.throws(() => validateSecondWindowEvidence(swappedB), /capture|ordinal|replay|order/i);
+
+  const moveSummaryBeforeCoveredAnswer = (summary, targetIndex) => {
+    const copy = changedRows(rows => {
+      const [entry] = rows.splice(baseline.evidence[summary].captureIndex, 1);
+      rows.splice(targetIndex, 0, entry);
+    });
+    const rows = copy.captureBytes.toString('utf8').trim().split('\n').map(line => JSON.parse(line));
+    const receipts = [...copy.evidence.turns, copy.evidence.projectB.before,
+      copy.evidence.projectB.afterRestart, copy.evidence.projectB.afterSecond,
+      copy.evidence.first, copy.evidence.second, copy.evidence.final];
+    for (const item of receipts) {
+      item.captureIndex = rows.findIndex(rowValue => rowValue.requestSha256 === item.requestSha256
+        && rowValue.responseSha256 === item.responseSha256);
+      assert(item.captureIndex >= 0);
+    }
+    return copy;
+  };
+  const earlyFirstSummary = moveSummaryBeforeCoveredAnswer('first', 4);
+  assert.throws(() => validateSecondWindowEvidence(earlyFirstSummary),
+    /summary.*covered|summary.*capture|provider.*summary.*order/i);
+  const earlySecondSummary = moveSummaryBeforeCoveredAnswer('second', 11);
+  assert.throws(() => validateSecondWindowEvidence(earlySecondSummary),
+    /summary.*covered|summary.*capture|provider.*summary.*order/i);
+  const earlyFirstAnchor = moveSummaryBeforeCoveredAnswer('first', 1);
+  earlyFirstAnchor.evidence.first.upToMsgId = earlyFirstAnchor.evidence.first.firstUserId;
+  earlyFirstAnchor.evidence.restart.firstUpToMsgId = earlyFirstAnchor.evidence.first.upToMsgId;
+  assert.throws(() => validateSecondWindowEvidence(earlyFirstAnchor), /summary.*anchor/i);
+  const earlySecondAnchor = moveSummaryBeforeCoveredAnswer('second', 8);
+  earlySecondAnchor.evidence.second.upToMsgId = earlySecondAnchor.evidence.second.secondUserId;
+  assert.throws(() => validateSecondWindowEvidence(earlySecondAnchor), /summary.*anchor/i);
+
+  const unreceiptedInitialB = changed(x => {
+    const prefixTokens = Math.ceil(projectA.canary.length / 4);
+    const bPrefix = [{ id: 99, role: 'user', content: projectA.canary, tokens: prefixTokens },
+      { id: 100, role: 'assistant', content: projectA.canary, tokens: prefixTokens }];
+    for (const receipt of [x.evidence.projectB.before, x.evidence.projectB.afterRestart,
+      x.evidence.projectB.afterSecond]) {
+      receipt.messages = [...structuredClone(bPrefix), ...receipt.messages];
+      receipt.persistence.messageCount += 2;
+    }
+  });
+  assert.throws(() => validateSecondWindowEvidence(unreceiptedInitialB),
+    /initial|new conversation|unreceipted|privacy/i);
+
+  const shiftedFirstText = baseline.evidence.first.text.replace('"messageId":1', '"messageId":3');
+  const shiftedSecondText = baseline.evidence.second.text
+    .replace('"messageId":1', '"messageId":3')
+    .replace('"messageId":12', '"messageId":14');
+  const unreceiptedInitialA = changedRows(rows => {
+    const final = rows.find(rowValue => rowValue.requestSha256 === baseline.evidence.final.requestSha256);
+    final.messages.at(-1).content = final.messages.at(-1).content
+      .replace(baseline.evidence.second.text, shiftedSecondText);
+  });
+  const aEvidence = unreceiptedInitialA.evidence;
+  const prefixTokens = Math.ceil(projectB.canary.length / 4);
+  const aPrefix = [{ id: 1, role: 'user', content: projectB.canary, tokens: prefixTokens },
+    { id: 2, role: 'assistant', content: projectB.canary, tokens: prefixTokens }];
+  for (const snapshotName of ['first', 'restart', 'second', 'final']) {
+    aEvidence[snapshotName].messages = [...structuredClone(aPrefix),
+      ...aEvidence[snapshotName].messages.map(message => ({ ...message, id: message.id + 2 }))];
+  }
+  for (const turn of [...aEvidence.turns, aEvidence.final]) {
+    for (const source of ['http', 'sqlite']) {
+      turn.persistence[source].user.id += 2;
+      turn.persistence[source].assistant.id += 2;
+    }
+    turn.persistence.messageCount += 2;
+  }
+  aEvidence.first.firstUserId += 2;
+  aEvidence.first.upToMsgId += 2;
+  aEvidence.first.rawTokens += prefixTokens * 2;
+  aEvidence.first.text = shiftedFirstText;
+  aEvidence.restart.firstSummary = shiftedFirstText;
+  aEvidence.restart.firstUpToMsgId += 2;
+  aEvidence.second.secondUserId += 2;
+  aEvidence.second.upToMsgId += 2;
+  aEvidence.second.text = shiftedSecondText;
+  aEvidence.semanticQuality = secondWindowSemanticQuality(aEvidence.turns,
+    aEvidence.final.answer, [shiftedFirstText, shiftedSecondText]);
+  assert.throws(() => validateSecondWindowEvidence(unreceiptedInitialA),
+    /initial|new conversation|unreceipted|privacy/i);
+
 });

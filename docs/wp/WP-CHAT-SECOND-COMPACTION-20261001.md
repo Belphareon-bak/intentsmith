@@ -156,6 +156,18 @@ kontroluje pořadí tahů A/B i polohu obou souhrnů mezi B etapami. Negativní
 mutace pokrývají replay, chybějící řádek a prohození B etap. Fyzická sada
 nad touto opravou zůstává `LIVE_NOT_RUN / REVIEW_PENDING`.
 
+Čtvrtá nezávislá revize kandidáta `fc0ccb2e` vrátila `CHANGES_REQUIRED`:
+souhrn se mohl v capture objevit dříve než dokončená odpověď asistenta,
+kterou jeho trvalá hranice `summary_up_to_msg_id` už údajně zahrnovala.
+Plný fixture potvrdil falešný `PASS` u prvního i druhého souhrnu. Revize
+současně odhalila, že počáteční neohlášená dvojice zpráv s kódem cizího
+projektu mohla zůstat před prvním doloženým A či B tahem. Negativní mutace
+obou těchto případů před opravou prošly. Producent i atestor nyní vyžadují,
+aby každá pokrytá odpověď i kotvicí tah předcházely příslušný provider
+souhrn; druhý souhrn musí následovat první. Nová konverzace A/B má po prvním
+tahu právě dvě zprávy a atestor porovnává všechny následující A zprávy se
+seznamem doložených tahů. Fyzický model zůstává `LIVE_NOT_RUN / REVIEW_PENDING`.
+
 Po poslední opravě prošlo offline atestační orákulum **2/2 PASS** včetně negativních
 mutací, registr **585** validních programů a module-boundary ratchet
 **1464/1464** bez nových hran. Řízený HTTP/SQLite scénář měl **1/1 PASS** na

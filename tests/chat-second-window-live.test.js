@@ -110,6 +110,9 @@ async function projectBChat(product, proxy, captureFile, journeyRuntime, fixture
       `${label}: project B history changed between turns`);
     assert.equal(state.messages.length, previousMessages.length + 2,
       `${label}: project B did not persist a new user/assistant pair`);
+  } else {
+    assert.equal(state.messages.length, 2,
+      `${label}: new project B conversation contains unreceipted initial messages`);
   }
   const persistence = durableTurnReceipt(state, question, response.response.content, label);
   return { captureIndex: row.captureIndex,
@@ -193,6 +196,8 @@ async function longTurn(product, proxy, captureFile, fixtureA, stage, turn, evid
     expected: valueCase.expected }); }
   catch (error) { qualityError = String(error?.message || error); }
   const state = await snapshot(product, evidence.journeyRuntime, fixtureA.conversationId);
+  if (stage === 1 && turn === 1) assert.equal(state.messages.length, 2,
+    'new project A conversation contains unreceipted initial messages');
   const persistence = durableTurnReceipt(state, question, response.response, `${stage}.${turn}`);
   evidence.turns.push({ stage, turn, question, expected: valueCase.expected,
     answer: response.response, qualityStatus: qualityError ? 'FAIL' : 'PASS', qualityError,
@@ -212,6 +217,18 @@ function matchingSummary(rows, storedText, requiredCode) {
     && storedText.includes(requiredCode));
   assert.equal(matches.length, 1, 'durable summary lacks one exact physical provider source');
   return matches[0];
+}
+
+function assertSummaryCaptureChronology(summary, turns, anchorUserId, label) {
+  const anchor = turns.find(turn => turn.persistence?.sqlite?.user?.id === anchorUserId);
+  assert(anchor && anchor.captureIndex < summary.captureIndex,
+    `${label}: user anchor provider answer did not precede summary capture`);
+  for (const turn of turns) {
+    if (turn.persistence.sqlite.assistant.id <= summary.upToMsgId) {
+      assert(turn.captureIndex < summary.captureIndex,
+        `${label}: summary capture preceded a covered assistant answer`);
+    }
+  }
 }
 
 async function waitForSummary(product, journeyRuntime, conversationId, afterId, coveredId) {
@@ -284,6 +301,7 @@ test('physical second window: two compactions, restart, A/B isolation and anchor
       rawTokens: rawTokens(state.messages), messages: state.messages,
       text: state.conversation.summary, captureIndex: firstRow.captureIndex,
       requestSha256: firstRow.requestSha256, responseSha256: firstRow.responseSha256 };
+    assertSummaryCaptureChronology(evidence.first, evidence.turns, firstUser.id, 'first summary');
     const beforePid = product.child.pid;
     await stopVerifiedProduct(product, 'restart');
     product = null;
@@ -319,6 +337,9 @@ test('physical second window: two compactions, restart, A/B isolation and anchor
       postRestartRawTokens: secondRawTokens, messages: state.messages,
       text: state.conversation.summary, captureIndex: secondRow.captureIndex,
       requestSha256: secondRow.requestSha256, responseSha256: secondRow.responseSha256 };
+    assert(evidence.first.captureIndex < evidence.second.captureIndex,
+      'recursive summary capture preceded its source summary');
+    assertSummaryCaptureChronology(evidence.second, evidence.turns, secondUser.id, 'second summary');
     assert(state.messages.some(message => message.id === firstUser.id
       && message.content === secondWindowMessage(1, 1)),
     'second compaction deleted the original raw user turn');

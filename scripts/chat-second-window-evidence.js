@@ -246,6 +246,8 @@ export function validateSecondWindowEvidence({ captureBytes, evidence, sourceRev
     const question = `Jaký stav má projekt podle ${foreignB.file}? Uveď přesný projektový kód.`;
     assert.equal(receipt.question, question, 'project B POST question changed');
     assert(Array.isArray(receipt.messages), 'project B SQLite snapshot missing');
+    if (priorBMessages.length === 0) assert.equal(receipt.messages.length, 2,
+      'new project B conversation contains unreceipted initial messages');
     assert.deepEqual(receipt.messages.slice(0, priorBMessages.length), priorBMessages,
       'project B persisted history changed between turns');
     if (priorBMessages.length) assert.equal(receipt.messages.length, priorBMessages.length + 2,
@@ -284,6 +286,10 @@ export function validateSecondWindowEvidence({ captureBytes, evidence, sourceRev
     }
     assert.equal(turn.turn, priorATurn + 1, `${key} physical turn order changed`);
     priorATurn = turn.turn;
+    if (turn.stage === 1 && turn.turn === 1) {
+      assert.equal(turn.persistence?.messageCount, 2,
+        'new project A conversation contains unreceipted initial messages');
+    }
     const valueCase = secondWindowCase(turn.stage, turn.turn);
     assert.deepEqual(turn.expected, valueCase.expected, `${key} oracle changed`);
     assert.equal(turn.question, secondWindowMessage(turn.stage, turn.turn), `${key} question changed`);
@@ -302,6 +308,20 @@ export function validateSecondWindowEvidence({ captureBytes, evidence, sourceRev
     const assistantId = assertPersistedTurn(turn.persistence,
       turn.stage === 1 ? first.messages : second.messages,
       turn.question, turn.answer, key);
+    for (const [summary, label] of [[first, 'first'], [second, 'second']]) {
+      if (assistantId <= summary.upToMsgId) {
+        assert(turn.captureIndex < summary.captureIndex,
+          `${label} summary capture preceded covered assistant ${key}`);
+      }
+    }
+    if (turn.persistence.sqlite.user.id === first.firstUserId) {
+      assert(turn.captureIndex < first.captureIndex,
+        'first summary capture preceded its user anchor answer');
+    }
+    if (turn.persistence.sqlite.user.id === second.secondUserId) {
+      assert(turn.captureIndex < second.captureIndex,
+        'second summary capture preceded its user anchor answer');
+    }
     assert(assistantId > priorAAssistantId, `${key} persisted turns are not ordered`);
     if (priorAMessageCount) assert.equal(turn.persistence.messageCount, priorAMessageCount + 2,
       `${key} did not persist exactly one new user/assistant pair`);
@@ -311,6 +331,12 @@ export function validateSecondWindowEvidence({ captureBytes, evidence, sourceRev
       `${key} final history`);
   }
   assert.equal(priorAStage, 2, 'no post-restart physical turns');
+  const pairMessages = stage => evidence.turns.filter(turn => turn.stage === stage)
+    .flatMap(turn => [turn.persistence.sqlite.user, turn.persistence.sqlite.assistant]);
+  assert.deepEqual(first.messages.filter(message => message.id >= first.firstUserId),
+    pairMessages(1), 'first SQLite snapshot contains an unreceipted A turn');
+  assert.deepEqual(second.messages.filter(message => message.id >= second.secondUserId),
+    pairMessages(2), 'second SQLite snapshot contains an unreceipted A turn');
   const semantic = secondWindowSemanticQuality(evidence.turns, evidence.final?.answer,
     [first.text, second.text]);
   assert.deepEqual(evidence.semanticQuality, semantic,
@@ -331,6 +357,10 @@ export function validateSecondWindowEvidence({ captureBytes, evidence, sourceRev
     'final recall did not persist exactly one new user/assistant pair');
   assert.equal(evidence.final.persistence.messageCount, evidence.final.messages.length,
     'final persisted turn was not latest');
+  assert.deepEqual(evidence.final.messages.filter(message => message.id >= first.firstUserId),
+    [...pairMessages(1), ...pairMessages(2), evidence.final.persistence.sqlite.user,
+      evidence.final.persistence.sqlite.assistant],
+  'final SQLite snapshot contains an unreceipted A turn');
   assert.equal(semantic.recall, true, 'physical model did not recall both anchors and old policy');
   return Object.freeze({ sourceRevision, captureSha256: sha256(captureBytes),
     providerRows: rows.length, firstUpToMsgId: first.upToMsgId,
