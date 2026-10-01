@@ -73,3 +73,25 @@ syscallu*, nikoli absolutní odolnost proti nepřátelskému přesunu parentu.
 `beforeDigest` a rollback settlement používal v1 digest, takže restart přeskočil
 v3 dluh. Následný kandidát opravuje obě hranice; nové nezávislé review je
 nutné před integrací.
+
+## Nezávislé review a integrace
+
+První přesný `54d45428` dostal **CHANGES_REQUIRED**. Reviewer skutečným
+post-link fsync selháním a zrušením prokázal, že padělaný předchozí digest
+prošel až do typovaného SQL repository. Také obnovení rollback dluhu v3
+používalo historický v1 digest a selhalo na neplatné verzi. Tyto neúspěchy
+zůstávají součástí historie přejímky.
+
+Čistý `041a2434` získal **REVIEW_PASS pro celý atomický řez od 4cbb**.
+Reviewer zopakoval oba skutečné případy: falešný beforeDigest odmítly JS,
+SQL UDF, repository i raw INSERT. Po nové connection vznikly durable
+matches_forward receipts s nulovým skipped; v3 neznámý orphan se odlišuje
+od doloženého post-link missing cíle. Nezávislý souběh v link zachoval cizí
+bajty a skončil EEXIST; rename mutace kontrolu zneplatnila. Soukromý report
+reviewera `2026-10-01T06-27-31-710Z/report.json`: **7/7 PASS**.
+
+Integrovaný source je `a632920f` (52cc64b7→fc3a3fa2→a632920f). Vlastní
+registrovaný integrační report `2026-10-01T06-30-30-420Z/report.json`:
+**7/7 PASS**. Přijetí necertifikuje přirozený CHAT, který novou schopnost
+teprve napojí, ani celkový release a instalaci. Parent ABA mez zůstává
+popsaná výše; není zaměněna za plnou ochranu přes dirfd/openat2.
