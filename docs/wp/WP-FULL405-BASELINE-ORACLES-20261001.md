@@ -90,4 +90,8 @@ serveru). Na čistém `0ceca5da` původní M6 test opět skutečně selhal
 diff je 44 modelových + 19 serverových členů dané fáze. Test nyní kromě
 tohoto počtu ověřuje konkrétní VAT ID a zamítnutí plánu při jeho vynechání.
 Source plánu, kontrakty ani registr se tímto doplněním nemění.
-Tato testová změna čeká na samostatné review; nový úplný profil čeká také.
+Nezávislé review dvousouborové delty `0ceca5da` → `9e6b1a70` skončilo
+**REVIEW_PASS**. Reviewer ověřil skutečný aditivní registry diff, vlastní
+vynechání VAT ID (`plan:required-program-uncovered`) i přímých **21/21 PASS**.
+Logy `m6-vat-registry-independent-{review,omission}-9e6b1a70.log` jsou
+v soukromých artefaktech integrace. Nový úplný profil stále čeká.
