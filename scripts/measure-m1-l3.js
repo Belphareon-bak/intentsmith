@@ -415,6 +415,9 @@ if(process.argv.includes('--inside')) {
   const command={contract:'ConversationCommand',version:1,requestId:randomUUID(),conversationId:id,turnId:randomUUID(),action:'send',input:c.input};
   const before=trace(),filesBefore=files(); const b=await request('POST','/api/chat',command);
   const row={case:c,context,B:b,firstContentMs:b.elapsedMs,firstUsefulMs:null,traceBefore:before,traceAfter:trace(),filesBefore,filesAfter:files()};rows.push(row);save('initial-results.json',rows);
+  // Keep the observed pre-approval state even after the approved result later
+  // replaces traceAfter/filesAfter. This is evidence, not approval authority.
+  row.traceAfterRequest=row.traceAfter;row.filesAfterRequest=row.filesAfter;
   console.log('CHAT_PROBE '+JSON.stringify({id:c.id,variant:'B',status:b.status,ms:Math.round(b.elapsedMs),content:b.result.response?.content,error:b.result.error}));
   if (isLongContext) {
    await (await import(path.join(root,'src/chat/context-compact.js'))).awaitPendingCompaction(id);
