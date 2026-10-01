@@ -193,15 +193,17 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
     let content;
     if (payload.format?.properties?.action) {
       const initial = parsed.request === 'Shrň odpověď a ulož ji do nového souboru, nic existujícího nepřepisuj.';
-      content = JSON.stringify({ action: initial ? 'clarify' : 'write', question: initial ? question : null,
-        target: initial ? null : 'notes.md', source: initial ? null : { kind: 'answer', messageId: parsed.answers[0]?.messageId },
-        transformation: initial ? 'none' : 'summarize', writeMode: 'create', understood: !initial, unsupported: [] });
+      content = JSON.stringify({ action: 'write', question: null,
+        target: initial ? null : 'notes.md', source: { kind: 'answer', messageId: parsed.answers[0]?.messageId },
+        transformation: initial ? 'none' : 'summarize', writeMode: 'create', understood: !initial,
+        unsupported: initial ? ['target'] : [] });
     } else if (system.includes('Klasifikuj')) {
       const ambiguous = parsed?.request === 'Pomoz mi s výběrem.';
       const write = parsed?.pending?.intent === 'FILE_WRITE' || /ulož/.test(parsed?.request || raw);
       content = JSON.stringify({ intent: ambiguous ? 'AMBIGUOUS' : write ? 'FILE_WRITE'
         : parsed?.request?.includes('faktoriál') ? 'CODE' : 'CONVERSATIONAL',
-        confidence: 0.95, fileTarget: null, question: ambiguous ? 'Mezi čím se rozhoduješ?' : null,
+        confidence: 0.95, fileTarget: null, question: ambiguous ? 'Mezi čím se rozhoduješ?'
+          : parsed?.request === 'Shrň odpověď a ulož ji do nového souboru, nic existujícího nepřepisuj.' ? question : null,
         continuesPending: Boolean(parsed?.pending), responseScope: 'conversation' });
     } else if (system.includes('Summarize only')) {
       assert(parsed.request.includes('Shrň odpověď'));

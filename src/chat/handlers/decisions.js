@@ -1345,8 +1345,11 @@ Passe den Umfang der Anfrage an. Benenne Unsicherheit; erfinde keine aktuellen F
     // v65.4: Project context injection (sanitized, length-limited)
     const environmentPrompt = await developmentEnvironmentPrompt();
     const projectPrompt = buildProjectContext(context);
+    const codeReplyInstruction = decision.intent === IntentType.CODE
+      ? '\nFor code requests, return the requested complete code and a brief explanation of the change. Add tutorials, extended limitations and tests only when requested. Preserve earlier constraints and later corrections.' : '';
     const systemPromptFor = instruction => baseSystemPrompt + instruction
-      + remainingSystemInstructions + memoryReferenceBlock({ ...context, memoryBankContext: '' }, 1600, decision.intent)
+      + remainingSystemInstructions + codeReplyInstruction
+      + memoryReferenceBlock({ ...context, memoryBankContext: '' }, 1600, decision.intent)
       + environmentPrompt + projectPrompt;
     let systemPrompt = systemPromptFor(languageInstruction);
     const requestedTokens = selectAnswerTokenBudget(input, decision.intent);

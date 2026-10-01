@@ -413,6 +413,7 @@ async function generateExpertiseResponse(input, expertise, context) {
           seed: retryOptions?.seed,
           maxTokens,
           num_ctx: answerContext.numCtx,
+          signal: context.signal,
         }), 'Expert retry');
       finalFinishReason = retryResult.finishReason || null;
       return retryResult.content;
@@ -427,6 +428,7 @@ async function generateExpertiseResponse(input, expertise, context) {
         temperature,
         maxTokens,
         num_ctx: answerContext.numCtx,
+        signal: context.signal,
       }), 'Expert');
     finalFinishReason = result.finishReason || null;
     const llmLatency = Math.round(performance.now() - llmStart);
@@ -900,6 +902,7 @@ async function handleMergedExpertises(input, context, executionTraceId) {
         temperature: mergeResult.metadata.temperature,
         maxTokens,
         num_ctx: answerContext.numCtx,
+        signal: context.signal,
       }), 'Merged expert');
     finalFinishReason = result.finishReason || null;
     const llmLatency = Math.round(performance.now() - llmStart);
@@ -956,6 +959,8 @@ async function handleMergedExpertises(input, context, executionTraceId) {
           temperature: retryTemp,
           seed: retryOptions?.seed,
           maxTokens,
+          num_ctx: answerContext.numCtx,
+          signal: context.signal,
         }), 'Merged expert retry');
       finalFinishReason = retryResult.finishReason || null;
       return retryResult.content;

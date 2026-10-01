@@ -944,10 +944,19 @@ export async function handleFileWriteDecision(input, decision, context, dependen
     plan = await resolveFileSavePlan(input, context, dependencies);
   } catch (error) {
     if (isAbortError(error)) throw error;
-    return terminalWithoutEffect(lang === 'cs'
-      ? '⚠️ Nemohu ověřit cíl, obsah nebo omezení zápisu. Upřesni, co a kam chceš uložit; žádný zápis není připraven.'
-      : '⚠️ I cannot verify the target, content or write constraints. Clarify what to save and where; no write is prepared.',
-    error.code || 'file_write_plan_unavailable');
+    // A schema-constrained model can emit `write` with an unresolved field.
+    // This remains a stopped effect. Preserve CRE's concrete open question
+    // instead of replacing it with a generic error and losing the request.
+    if (error.code === 'file_write_constraints_unresolved'
+      && decision.metadata?.clarificationQuestion) {
+      plan = { action: 'clarify', question: decision.metadata.clarificationQuestion,
+        candidateMessageId: null };
+    } else {
+      return terminalWithoutEffect(lang === 'cs'
+        ? '⚠️ Nemohu ověřit cíl, obsah nebo omezení zápisu. Upřesni, co a kam chceš uložit; žádný zápis není připraven.'
+        : '⚠️ I cannot verify the target, content or write constraints. Clarify what to save and where; no write is prepared.',
+      error.code || 'file_write_plan_unavailable');
+    }
   }
   if (plan.action !== 'write') {
     const question = plan.question || (lang === 'cs'

@@ -431,7 +431,9 @@ export async function projectHandler(input, context) {
       return handleAskUserDecision(input, decision, context);
     }
     if (context.m2LifecycleOnly === true
-      && (decision.metadata?.responseScope === 'conversation' || decision.metadata?.inlineCode === true)
+      && (decision.metadata?.responseScope === 'conversation' || decision.metadata?.inlineCode === true
+        || (decision.metadata?.classifiedBy === 'deterministic'
+          && [IntentType.CONVERSATIONAL, IntentType.CREATIVE].includes(decision.intent)))
       && (decision.type === DecisionType.ANSWER
         || (decision.type === DecisionType.TOOL_CALL && decision.intent === IntentType.CODE && !decision.metadata?.filePath))) {
       return handleAnswerDecision(input, decision, context);

@@ -206,7 +206,7 @@ await testAsync('active file.read awaits exact approval and FILE_EXPLAIN rejects
           projectId: Number(registered.id),
           hasActiveProject: true,
           langCtx: { language: 'cs' },
-          sessionState: { recordDecision() {}, setActiveFile() {} },
+          sessionState: new SessionState(`m2-project-write-session-${index}`),
           attachments: [],
         }),
       );
