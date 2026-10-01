@@ -1,6 +1,6 @@
 # WP — skutečná oprava neúspěšného CODE návrhu přes existující M2 revizi
 
-**Stav:** `IMPLEMENTATION_GREEN / REVIEW_PENDING / LIVE_NOT_RUN`.
+**Stav:** `SOURCE_REVIEW_PASS / REGISTERED9_PASS / CI_SUCCESS / APPLICATION_PHYSICAL_FAIL / ACTUAL_REVIEW_PENDING`.
 **Vlastník:** ROOT, existující integrační checkout; zdroj před změnou
 `6af06ea622dbb955cdb53e7fb2c69b430bfe8957`. Autorita: operátorem požadované
 dokončení a skutečné projektové testy; stávající M2 failed-plan revision.
@@ -119,3 +119,32 @@ SYSTEM-MAP byte census je přeměřen: src681JS/234011LF,
 tests600JS/266085LF; registry descriptors/fingerprint, produktové stromy,
 SQLite oracle28c9 a všechny původní modelové bytes zůstávají stejné.
 Nové nezávislé review a nový clean registered gate jsou REVIEW_PENDING.
+
+## Přesná source přejímka a jediný skutečný průchod 17:37–17:38 UTC
+
+Kandidát `a27e44701c2160e24ef4b3a37528f6a2f6e745a4` má nezávislý bounded
+source REVIEW_PASS, SHA-256
+`6d709946d45d1384c55f61b696f0a1fad717e8d8ccf770e16745e86ffd6b2677`.
+Reviewer ověřil4 skutečné pojmenované CPU testy a21 vlastních kontrol;
+originální CLI spoof je odmítnut před pokračováním. Registered gate
+má9/9 PASS, report `c595d99837e8621c30657ad4b639eb07d6c526740bb0f8cead0f17e3e71c0511`.
+[Push CI36898069050](https://github.com/Belphareon-bak/intentsmith/actions/runs/36898069050)
+má13 kroků SUCCESS. Historické f17 CR a8PASS/1FAIL zůstávají beze změny.
+
+Jediný fyzický běh exact sourcea27 proběhl17:37:41.151–17:38:37.501UTC:
+**FAIL, exit1, ONE_REVISION_EXECUTED**. Qwen3.8/22130167 provider0.34.0
+dodalo8/8 úplných pinned odpovědí; všech sedm initial preview pinů,
+osmý parse-only replacement a šest retained final pinů souhlasí.
+Schema oprava odstranila nepovolenou dependency. Nový plán a nové approval
+prošly, ale nový frozen oracle selhal na skutečné `tx.add` nad undefined:
+CLI očekává callback argument, store vykonává `fn()` bez argumentu.
+Osmá odpověď neřešila ostatní moduly a tím se neobchází one-revision scope.
+
+Oba terminály jsou failed; final result má PROJECT_CHANGE_TEST_FAILED,
+rollback7/7, Git commitId null a původní HEAD. Actor hlásí vlastní model
+unload, lease release a čisté source. Úspěšný final replay/postrestart
+nebyl dosažen; nezávislá actual DB/provenance přejímka zatím PENDING.
+Raw result SHA `0cc384be7344cc3baead1d255f1598ea0a2122b9dbec111b3953ba3ea7668bb8`,
+inside evidence `25ab19a38660bea48d7687e17228aaa6b8a605048d7f1fa2631be144bdb1f16c`.
+Privátní379 souborů se zachovává. Žádný manuální generated fix ani opakování
+stejného kandidáta; další API upřesnění musí být předem zmrazené v novém WP.

@@ -1,6 +1,6 @@
 # IntentSmith — průběžný report dokončování
 
-**Aktualizováno:** 1. 10. 2026, 17:13 UTC / 19:13 CEST.
+**Aktualizováno:** 1. 10. 2026, 17:43 UTC / 19:43 CEST.
 **Vlastník:** ROOT. CHAT řeší jiný worker, od posledního zadání jej ROOT neupravuje.
 **Publikace:** `work/real-chat-journeys-20260930`; průběžný report se aktualizuje
 po každém milníku, nejpozději po třech hodinách během aktivní práce. Operátor
@@ -25,9 +25,9 @@ stabilním IDE/BE, podle zadání operátora.
 | SQLite oracle | Source `34cfc198`: 62/62 autorských CPU, 21/21 nezávislých CPU, registered9/9 a CI SUCCESS / source REVIEW_PASS | Přijatá skutečná aplikace |
 | SQLite Qwen3.8 | Sedm úplných generací, ale zakázaná schema dependency; APPLICATION_FAIL, rollback7/7, žádný commit; rejection review PASS | Modelová oprava přes existující nový M2 plán |
 | SQLite Qwen3.6 | Čtyři úplné generace; pátý prompt 9468B >8736B, odmítnut před voláním; 0 M2 operací/efektů/zpráv; review důkazů PASS | Jednotlivý scénář není kvalifikovaný; kontextové limity zachované |
-| M2 failed-plan revize | Původní `f17aaa27` má65/65 CPU PASS, ale source CHANGES_REQUIRED a registered8PASS/1docFAIL. Navazující skutečný AST guard/fáze/census oprava má66/66 CPU PASS | Nový přesný source review/gate/CI; LIVE_NOT_RUN |
-| GPU/modely v packaged IDE | V3 izolovaná sonda má nezávislé bounded guard GO; skutečný běh skončil FAIL, 0 inference/forwarded writes, vlastní namespace uklizená | Nezávislá diagnóza actualFAIL a další přejímka; celý Hunt tím není testován |
-| Hunt hodnocení | Poslední strukturální čtení13:31UTC:596/1173 odpovědí,2324/3689 kritérií | Accepted grader false,577/1365 chybí, NO_DECISION / NO_GO; žádná aktivace |
+| M2 failed-plan revize | Source `a27e4470`:66/66 autorských CPU, nezávislé source REVIEW_PASS, registered9/9 a push CI13/13 SUCCESS. Skutečný běh vykonal jednu revizi,8/8 úplných pinned generací a zachoval šest modulů | APPLICATION_PHYSICAL_FAIL po opravě schema: nesoulad transaction callback rozhraní; actual review zatím PENDING |
+| GPU/modely v packaged IDE | V3 actualFAIL má nezávisle přijatou evidenci: kapacita24GiB potvrzená, model workspace nedosažený;0 inference/forwarded writes. V4 připravená, CPU10/10 a syntax15/15 | V4 nezávislé GO review a fyzický běh čekají; příčina v3 kliknutí UNKNOWN; celý Hunt tím není testován |
+| Hunt hodnocení | Nové strukturální čtení17:21UTC nezměněné:596/1173 odpovědí,2324/3689 kritérií | Accepted grader false,577/1365 chybí, NO_DECISION / NO_GO; žádná aktivace |
 | HTTP projekty | Předem připravený omezený návrh testu | Rozhodnutí o novém M2 síťovém oprávnění; HTTP_NOT_RUN |
 | Mobil | Auditovaný handoff, historických47 host testů a přijaté VPN/TLS rozhodnutí | Fyzická matice13+7 NOT_RUN, skutečné zařízení/VPN a integrační mezery |
 | Cleanup | Nezávisle připravené čtyři vlastní nepřipojené lokální refs, exact remote evidence tags a restore transakce | Poslední fresh preflight a atomic CAS; žádné mazání dosud neprovedeno, worktree removal HOLD |
@@ -38,13 +38,14 @@ stabilním IDE/BE, podle zadání operátora.
   modelových modulů tří přijatých snapshotů; [archivní IDE probe](../materials/ide2-code-dom-physical-response-guard-20261001/README.md)
   obsahuje15 přijatých zdrojových souborů bez privátních runtime dat.
 - Poslední potvrzený vzdálený kód je
-  [`f17aaa27e6db2c0dddb16e30cbe9b6b0f4f4b6ab`](https://github.com/Belphareon-bak/intentsmith/commit/f17aaa27e6db2c0dddb16e30cbe9b6b0f4f4b6ab).
-  Obsahuje explicitní one-revision kvalifikaci; nezávislé review vyžádalo
-  opravu, fyzický CODE běh této verze nebyl spuštěn. Samostatný pracovní
-  report byl následně pushnut v `b1791c7a06862ffbb17e08c4d07fbdb7f01482e0`.
+  [`a27e44701c2160e24ef4b3a37528f6a2f6e745a4`](https://github.com/Belphareon-bak/intentsmith/commit/a27e44701c2160e24ef4b3a37528f6a2f6e745a4).
+  Obsahuje opravený AST guard a průběžný report. Má vlastní
+  [push CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36898069050),
+  job110489992532,13 úspěšných kroků. Source review přijímá kvalifikaci,
+  nikoli neúspěšnou aplikaci. Původní `f17aaa27` CR se zachovává.
 - Dokumentační `79b201c8` má vlastní [CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36891027839).
   Source34 má [samostatné CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36888388296).
-  Výsledek novějšího kandidáta se ověřuje samostatně.
+  Dokumentační commity nepřebírají fyzickou kvalifikaci jiného SHA.
 - Privátní DB, raw provider capture, screenshoty, cookie a provozní metadata
   zůstávají v hashovaných privátních packetách a chráněných archivech. Do Gitu
   se publikují přijaté source-only kopie a popisné důkazy. Nevyhovující
@@ -70,6 +71,26 @@ zachováno,14 kontrolovaných DB tabulek0, namespace0 a relaye prázdné.
 Příčina neúčinného settings kliknutí je zatím UNKNOWN; připravuje se úzká
 instrumentovaná v4 sonda se skutečným klikacím cílem a postclick důkazem.
 
+## Poslední milník — jedna skutečná CODE revize, 17:37–17:38 UTC
+
+Zmrazený source `a27e4470` má nezávislý source review SHA
+`6d709946d45d1384c55f61b696f0a1fad717e8d8ccf770e16745e86ffd6b2677`
+a registered9/9 report `c595d99837e8621c30657ad4b639eb07d6c526740bb0f8cead0f17e3e71c0511`.
+Po přirozeném uvolnění cizího GPU běžel jediný kvalifikační pokus
+17:37:41.151–17:38:37.501UTC, exit1. Qwen3.8/22130167 dodalo osm
+kompletních výstupů se správnými bajty/digesty; šest retained modulů
+zůstalo přesných. Schema oprava odstranila původní zakázanou dependency,
+nový návrh vyžadoval nové schválení. Stav `ONE_REVISION_EXECUTED` není PASS.
+
+Frozen oracle pak při prvním create zjistil `tx.add` nad undefined:
+CLI předpokládá parametr callbacku, store volá `fn()` bez parametru.
+Terminál hlásí PROJECT_CHANGE_TEST_FAILED, rollback7/7 a žádný commit.
+Úspěšný replay/restart nebyl dosažen. Actor doložil vlastní model unload,
+lease release a čisté source; nezávislé actual DB/provenance review
+je **REVIEW_PENDING**. Raw result SHA
+`0cc384be7344cc3baead1d255f1598ea0a2122b9dbec111b3953ba3ea7668bb8`.
+Původní data se neupravují a aplikace se neexportuje jako přijatá.
+
 Poslední úplný profil staršího `45caf5b5` zůstává397PASS/5FAIL/3BLOCKED.
 Cílené opravy a nové malé testy nejsou novým úplným profilem. Static GPU
 kapacita se nesmí vydávat za volnou VRAM; velikost modelu není jeho známka.
@@ -77,10 +98,9 @@ Private fresh DB bez přijatých známek neověřuje produkční scoring.
 
 ## Nejbližší pořadí práce
 
-1. Opravit qualification guard proti forged stderr skutečným schema AST,
-   fáze revize a dokumentační census; nový přesný candidate/review/gate/CI.
-2. Jeden zmrazený modelový CODE revision průchod s původním frozen oraclem,
-   nezávislé přijetí a případný přesný source-only export.
+1. Uzavřít nezávislé review neúspěšného actual CODE revision průchodu.
+2. Před dalším kandidátem sjednotit callback kontrakt mezi CLI/service/store;
+   nový WP-first freeze a samostatná kvalifikace, bez ruční změny výstupů.
 3. Uzavřít skutečný GPU panel audit a zveřejnit přijaté archivní zdroje sondy.
 4. Obecný [M2 AST scanner](wp/WP-M2-AST-IMPORT-SCANNER-20261001.md) má
    bounded návrh; TS grammar/ABI a parser resource containment jsou otevřené.

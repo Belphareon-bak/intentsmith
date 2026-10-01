@@ -1,6 +1,36 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
-## Checkpoint 1. 10. 2026, 16:29 UTC — oprava přijatá, skutečný model odmítnut
+## Checkpoint 1. 10. 2026, 17:43 UTC — source přijatý, skutečná revize aplikace FAIL
+
+Hlavní aktuální souhrn a cadence je [WORK-PROGRESS.md](../WORK-PROGRESS.md):
+aktualizace po každém milníku, nejpozději3h aktivní práce; report operátorovi2h.
+Přesný `a27e44701c2160e24ef4b3a37528f6a2f6e745a4` má66/66 autorských CPU,
+nezávislé bounded SOURCE_REVIEW_PASS, registered9/9 a vlastní
+[push CI13/13 SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36898069050).
+Source review SHA `6d709946d45d1384c55f61b696f0a1fad717e8d8ccf770e16745e86ffd6b2677`.
+Původní f17 source CR a registered8PASS/1FAIL zůstávají historické FAIL.
+
+Jediný actualCODE17:37:41.151–17:38:37.501UTC vykonal jednu modelovou revizi,
+8/8 úplných Qwen3.8/22130167 odpovědí s přesnými provenance a retained bajty.
+Po opravě schema importu se odkryl nesoulad transaction callback rozhraní:
+CLI očekává `tx`, store volá `fn()` bez argumentu. **APPLICATION_PHYSICAL_FAIL**,
+typed failed, rollback7/7, žádný commit; úspěšný replay/postrestart nedosažen.
+Actual DB/provenance review je PENDING; raw result SHA
+`0cc384be7344cc3baead1d255f1598ea0a2122b9dbec111b3953ba3ea7668bb8`.
+Přijatý SQLite veřejný snapshot nevznikl; raw data se zachovávají.
+Další kandidát musí mít API kontrakt zmrazený před generováním.
+
+GPU UIv3 má accepted failure evidence: kapacita24GiB správná, model workspace
+nedosažený;0 inference/forwarded writes. Instrumentovaná v4 má CPU10/10,
+syntax15/15 a sealed manifest
+`d024c6a9f99c714360b4acff46d455c8df9a0214302a6bde98bcc8fa6d9e8aa9`;
+nezávislé GO a actual běh čekají. Příčina actualv3 kliknutí stále UNKNOWN.
+Hunt strukturální refresh17:21UTC stále596/1173 odpovědí a2324/3689 kritérií,
+acceptedGrader false / NO_GO; žádná aktivace. HTTP rozhodnutí a mobilní
+fyzická matice čekají. CHAT řeší jiný worker. Cleanup4 vlastních refs dosud
+neprovedený, fyzické odstranění worktree HOLD. Produkce/release nepřijaté.
+
+## Historický checkpoint 1. 10. 2026, 16:29 UTC — oprava přijatá, skutečný model odmítnut
 
 Zdroj `34cfc198ed09cd9094ac0f1ed264daf29c33f1f5` má **62/62 autorských
 CPU PASS, 21/21 nezávislých CPU PASS, 9/9 registrovaných PASS / REVIEW_PASS**
