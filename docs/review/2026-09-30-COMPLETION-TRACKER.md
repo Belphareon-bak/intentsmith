@@ -1,5 +1,47 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 1. 10. 2026, 01:00 UTC — integrační source `1f13b936`
+
+Tento čistý, pushnutý source je **vývojový kandidát**, nikoli nasazený
+backend/frontend ani M5/M6 release. Od checkpointu 00:23 integroval
+reviewované opravy veřejné hranice specialistů (`b9b8738f`), recovery a
+deduplikace M3 workeru (`20792e81`) a M1 cestu Sázkaře s kvalifikovanou
+fixture (`8bf1c069`). Druhá kompakce zůstává integrovaná od `a1c151fa`.
+Omezené nezávislé review před integrací prošlo pro specialistickou hranici,
+worker a opravu původu Sázkařovy fixture; neznamená to přejímku jejich
+sloučeného běhu. Poslední přesné registrované důkazy jsou specialistický
+balík **7/7** na `b9b8738f`, worker **8/8** na `7373b44c`, Sázení **1/1** na
+`676d6ab8` a druhá kompakce s dokumentací **2/2** na `a1c151fa`.
+Sázkařova nabídka je **curated fixture, origin unverified**; její přesná
+matematika dokládá testovaný transport, nikoli autentický dnešní veřejný kurz.
+
+Registr `1f13b936` má **580 programů** (`483 ACTIVE`, `82 BLOCKED`,
+`15 HISTORICAL`). Poslední dokončený celý offline/database běh na
+`edc61a73` vybral **400** sad a skončil **399 PASS / 1 FAIL**; jediný FAIL
+byl nesoulad vývojového registru se zapečetěnou Gate 0 politikou. Novější
+`afb726fa` připnul self-test k historické pečeti, ale úplný profil na
+`1f13b936` v tomto checkpointu ještě nemá výsledek. Historických
+**353/353** z M6 release kandidáta není aktuální počet vývojových sad.
+
+Hunt má nově integrovaný strukturální validátor druhého dávkového posudku
+(`9b22f490`, zpřesněný `1f13b936`). Git manifest připíná raw SHA-256 přesně
+**106** soukromých dávek. Reprodukovaný report uznal **596/1 173** odpovědí
+a **2 324/3 689** kritérií; explicitně chybí **577** odpovědí a **1 365**
+kritérií. Výsledek je `DEVELOPMENT_REVIEW_INCOMPLETE / NO_DECISION`,
+`decisionAuthority:false`, `acceptedGrader:false`; validace struktury
+neověřuje věcnou správnost známek. Poslední read-only stav instalované DB
+z 30. 9. 23:35 UTC stále uváděl **84/84 MISSING**, **0** přijatých
+rozhodnutí a sedm `UNVERIFIED_RUNTIME` vazeb; na source `1f13b936` nebylo
+provedeno nové rozhodovací měření ani aktivace role.
+
+IDE 2.0 build a čtyři fyzické Electron sady prošly **4/4** na dřívějším
+`033afd47`; nový build ani fyzický UI běh na `1f13b936` zatím není doložen.
+Poslední dokumentovaný instalovaný frontend je `fddfe996`, backend
+`c84b88cd`; jejich aktuální identita se tímto source checkpointem znovu
+neověřovala. Fyzický účetní model, širší spolehlivost backendu a mobilní
+M7 integrace zůstávají otevřené. Mobilní propojení a úklid větví/worktree
+navazují až po stabilizaci IDE/backendu a vlastnickém auditu důkazů.
+
 ## Checkpoint 1. 10. 2026, 00:23 UTC
 
 Druhá skutečná auto-context kompakce přes restart a projekty A/B je
