@@ -1,6 +1,6 @@
 # WP-M3-REAL-PROJECT-CONTEXT-20261001
 
-**Stav:** `IMPLEMENTATION_GREEN / REGISTERED_PENDING_RUN / REVIEW_PENDING`
+**Stav:** `IMPLEMENTATION_GREEN / REGISTERED_GREEN / REVIEW_PENDING`
 **Vlastník:** `/root/full405_diagnosis`; integrace a registry metadata: root.
 **Vstup:** publikovaný `0625ee6077c32386d3de34b81f837d19647ada6f`.
 **Větev:** `work/m3-real-project-context-20261001`, existující owned checkout
@@ -89,7 +89,7 @@ zůstaly bajtově stejné; přidány jsou čtyři skutečné filesystem případ
 | Node 24 syntax | exit 0 |
 | Přímá M3 suite s aktivním zákazem importu default DB/SQLite | 8 PASS / 0 FAIL / 0 SKIP; exit 0 |
 | Přímý `harness-exit-code` | exit 0; 129 temp roots, 142 chráněných DB-reachable roots; odstranění bootstrapu je odmítnuto |
-| Registrované dvě sady na čistém kandidátu | `PENDING_RUN` |
+| Registrované dvě sady na čistém `9d9d44cf` | 2 PASS / 0 FAIL / 0 BLOCKED / 0 SKIP; exit 0 |
 | Nezávislé review | `REVIEW_PENDING` |
 
 Soukromý receipt je
@@ -110,3 +110,25 @@ Tyto výsledky kvalifikují přímý deterministický M3 connector a skutečné
 ProjectContext čtení. Nevztahují se na modelové posouzení, aktivaci rolí,
 přirozený CHAT, přejímku mobilu nebo releasu; staré neprovedené či neúspěšné
 živé výsledky se tím nepřeznačují.
+
+## Registrovaný kandidát
+
+Skutečný běh `m3-real-context-9d9d44cf` proběhl v UTC
+`2026-10-01T13:23:43.189Z`–`13:23:45.255Z` na čistém
+`9d9d44cf258c14069568c8efd08f8517a7ee91df`, Node `v24.21.0`.
+Obě sady mají skutečný exit 0, sourceTree.clean=true a cleanup
+leakDetected=false. M3 log obsahuje všech osm PASS; harness log znovu
+potvrzuje 142 chráněných DB-reachable roots a odmítnutí bootstrap mutace.
+
+Report:
+`.intentsmith-artifacts/test-runs/m3-real-context-9d9d44cf/report.json`
+SHA256 `357609a4441c10e2b66534e89811694824d1890258b48b000097b796cd343515`.
+M3 log SHA256
+`cc6af7cdae8b9d31771f4cd13ec75c40c695f8054a09b16d72ca936e6c51345d`;
+harness log SHA256
+`53db7da7191346e11dd11754459c33ec394757d8afb239d4300b927fb29c7066`.
+
+Následný commit tohoto výsledku mění pouze WP; testové bajty zůstávají
+identické s registrovaným `9d9d44cf`. Výsledek se nevydává za běh na
+budoucím integrovaném SHA. Registry, produktové zdroje, contracts a scripts
+zůstaly beze změn. Kandidát čeká nezávislé review a root integraci/publikaci.
