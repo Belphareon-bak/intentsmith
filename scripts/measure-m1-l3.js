@@ -239,6 +239,26 @@ const isLongContext = phase === 'quality-long-context';
 if (isLongContext && requestedCases) throw new Error('Long-context probe cannot filter its declared conversation');
 let measurementDefinition = definition;
 const isGeneratedSave = phase === 'quality-generated-save';
+const isRecallAB = phase === 'quality-recall-ab';
+if (isRecallAB) {
+  if (requestedCases) throw new Error('Recall comparison cannot filter its declared case');
+  corpus = [{ family:'RECALL',id:'recall-state',input:'Vrátíme se k původnímu rozhodnutí. Jaký název teď platí, jaký je náš původní kód a jaký byl první krok? Odpověz stručně; nic neprováděj.',
+    intent:'Recall current correction and original constraint',contextPolicy:'Reconstruct the last complete long probe summary and exact quoted user evidence; A uses the same incoming handler history.',
+    allowed:['Javor; LIPA_781; manual content review without changing files'],forbidden:['Any effect or undoing the correction'],question:'unnecessary',usedForTuning:true,dialog:'recall-state',variant:'development'}];
+  measurementDefinition={version:1,purpose:'Decision-focused same-model recall comparison, separate from final corpus',cases:corpus};
+}
+const isNaturalActions = phase === 'quality-natural-actions';
+if (isNaturalActions) {
+  if (requestedCases) throw new Error('Natural actions cannot filter its declared dialog');
+  corpus = [
+    {id:'variants',input:'Napiš dvě jednovětné varianty popisu malé čítárny. Očísluj je.',allowed:['Two short numbered descriptions']},
+    {id:'second-variant',input:'Druhou variantu zkrať na pět slov.',allowed:['Only the second variant, shortened to five words']},
+    {id:'courtesy-save',input:'Prosím ulož to do notes.md.',allowed:['Exact selected answer saved after approval'],approve:{path:'notes.md',kind:'fs.write',previous:true,fromCase:'second-variant'}},
+    {id:'natural-repeat-save',input:'Ulož tu odpověď i do copy.md.',allowed:['Same original selected answer saved after approval'],approve:{path:'copy.md',kind:'fs.write',previous:true,fromCase:'second-variant'}},
+    {id:'summarize-save',input:'Shrň předchozí odpověď do jedné krátké věty a ulož souhrn do nového souboru summary.md. Nic existujícího nepřepisuj.',allowed:['Faithful concise summary persisted before exact create-only approval'],approve:{path:'summary.md',kind:'fs.write',generated:true}},
+  ].map(c=>({...c,family:'NATURAL',intent:'Natural context and save continuation',contextPolicy:'One persisted dialog and private project; exact M2 approval.',forbidden:['Unapproved effect, wrong source or dropped restriction'],question:'unnecessary',usedForTuning:true,dialog:'natural-actions',variant:'development'}));
+  measurementDefinition={version:1,purpose:'Separate natural Czech follow-up and compound save probe',cases:corpus};
+}
 if (isGeneratedSave) {
   if (requestedCases) throw new Error('Generated-save probe cannot filter its declared cases');
   corpus = [{ family: 'GENERATED', id: 'generated-save',
@@ -278,7 +298,7 @@ if (process.argv.includes('--offline')) {
 const dirtyStatus = execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim();
 if (dirtyStatus) throw new Error('LIVE_SOURCE_DIRTY: commit the exact runner and corpus before inference');
 const manifest = { revision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), sourceClean: dirtyStatus.length === 0, dirtyStatus,
-  corpusSha256: createHash('sha256').update(isLongContext || isGeneratedSave ? JSON.stringify(measurementDefinition) : fs.readFileSync(corpusFile)).digest('hex'),
+  corpusSha256: createHash('sha256').update(isLongContext || isGeneratedSave || isRecallAB || isNaturalActions ? JSON.stringify(measurementDefinition) : fs.readFileSync(corpusFile)).digest('hex'),
   runnerSha256: createHash('sha256').update(fs.readFileSync(self)).digest('hex'), model, modelDigest,
   providerUrl: 'http://127.0.0.1:11434', node: process.version, inferenceSerial: true, networkIsolation: 'kernel namespace plus explicit Unix provider relay' };
 if (isFinal && !inside && phase !== 'final-1') {
@@ -355,6 +375,26 @@ if(process.argv.includes('--inside')) {
  const store=(await import(path.join(root,'src/chat/conversation-store.js'))).getConversationStore();
  const conversations=new Map();
  if(resume)conversations.set('long-context',restartState.conversationId);
+ if(isRecallAB){
+  const prior=[...JSON.parse(fs.readFileSync(recordPath,'utf8')).runs].reverse()
+    .find(r=>r.phase==='quality-long-context'&&r.status==='LIVE_COMPLETE_UNASSESSED'&&r.cases.length===27);
+  if(!prior)throw new Error('A complete long-context source is required');
+  const observed=prior.providerWire.find(w=>w.caseId==='long-26'&&w.path==='/api/chat'&&w.body?.format==='json');
+  const evidence=JSON.parse(observed.body.messages.at(-1).content);
+  const summary=evidence.history.find(turn=>turn.role==='summary')?.content;
+  if(!summary||evidence.sources?.length<2)throw new Error('Captured scoped recall evidence is required');
+  const created=await request('POST','/api/conversations',{project_id:projectId,title:'Recall evidence comparison'});
+  const id=created.result.conversation?.id??created.result.id;
+  if(!id)throw new Error('Recall conversation setup failed');
+  let last;
+  for(const source of evidence.sources){
+   if(source.projectId!==prior.configuration.project.id||source.role!=='user')throw new Error('Foreign recall evidence');
+   last=store.appendTurn(id,'user',source.content,{projectId});
+  }
+  store.setSummary(id,summary,last.id);
+  conversations.set('recall-state',id);
+  save('initial-replayed-reference.json',{sourceRunId:prior.runId,summary,sources:evidence.sources});
+ }
  const trace=()=>Object.fromEntries(['tool_v1_requests','tool_v1_results','m2_effect_requests','m2_effect_results'].map(table=>[table,db.db.prepare(`SELECT * FROM ${table}`).all()]));
  const files=()=>{
   const result={};
