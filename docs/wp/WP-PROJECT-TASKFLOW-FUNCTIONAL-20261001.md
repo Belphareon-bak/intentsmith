@@ -17,8 +17,18 @@ helper exclusion; **593 descriptors a původních 32 exclusions zachované**,
 celkem 33 exclusions. Autoritativní writer obnovil projekci, fingerprint
 `cf640660cad1b0673ccd2c57fe6f6f72c9f156f755044e8cb7c841d3eefd0127`.
 Census source **681 / 234 011**, tests **599 / 265 207**. Společný
-registrovaný gate a root integrační review zatím **PENDING_RUN**;
-fyzický TaskFlow s modelem **LIVE_NOT_RUN**. Níže zůstává historie autora.
+registrovaný gate na clean `2741c2e7e5e4fb33697a64e7ee097bd41628ee63`
+má **8/8 PASS**, skutečný exit 0, report
+`2026-10-01T10-35-08-461Z/report.json`, SHA-256
+`a25a18cbb44cacb8cf19f7895486b73d6c6e5533eeca855fcba305929dac9344`.
+Nezávislé root integrační review má **REVIEW_PASS**: šest author
+runtime/test cest byte-identical, stromy source/contracts/IDE/specialists/
+skills, ledger bytes/WP a 593 descriptors zachované; přesná registry
+projekce a vlastní census přepočet PASS. Review manifest SHA-256
+`6c3efabb31e12462d2b8dc280f837d4d44440239761c025f69811ee8cf3a584c`.
+Fyzický TaskFlow s modelem **LIVE_NOT_RUN / GPU_BUSY**: snapshot 10:37 UTC
+má cizí CHAT lease, NVIDIA compute i 100% GPU; nic cizího se neukončuje.
+Níže zůstává historie autora.
 
 **Autorita:** požadavek operátora ověřit, že model vytvoří skutečně fungující různé projekty, nikoli jen text, přenos návrhu nebo Git commit. Tento balík navazuje na přijatou šestisouborovou ledger cestu, ale dokládá samostatnou doménu stavů úloh. **Výchozí čistý zdroj:** `92f7b51c2423bdd2cc5633903a579b611d01f7f3`, větev `work/project-app-acceptance-20261001`. **Stav tohoto prvního commitu:** `WP_ONLY / IMPLEMENTATION_NOT_RUN / REVIEW_PENDING`.
 

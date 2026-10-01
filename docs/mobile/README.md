@@ -94,3 +94,10 @@ lokální identifikátor. Současný M7 adaptér volá `conversation.execute`, k
 pro neexistující DB konverzaci vrátí `ACCESS_DENIED`; katalog nemá operaci
 `conversation.create`. Před fyzickou přejímkou nové konverzace je nutné
 rozhodnout kontrakt vytvoření a ověřit první odeslání i načtení historie.
+
+**Čerstvé předání 1. 10. 2026:** audit původních 47 mobil/M7 PASS ověřil
+log/test/source identity bez nového běhu; celý původní profil zůstává red.
+Source gap vytvoření konverzace, chybějící aktuální VPN/listener/credentials,
+toolchain piny a přesný privátní manifest jsou v
+[aktuální části Core/M7 handoffu](CORE-M7-CAPABILITY-HANDOFF.md).
+Fyzická 13+7 matice a mobilní release jsou stále NOT_RUN/NOT_ACCEPTED.

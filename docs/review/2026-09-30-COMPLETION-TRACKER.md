@@ -1,5 +1,34 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Checkpoint 1. 10. 2026, 10:41 UTC — druhé projektové měřidlo přijato
+
+TaskFlow oprava `bc82434c` má nezávislé **REVIEW_PASS**, vlastní repeat
+**28/28** a původní actual M2 protipříklady/reference **4/4**. Je integrovaná;
+clean `2741c2e7` má společný registrovaný gate **8/8 PASS**, report
+`2026-10-01T10-35-08-461Z/report.json` (SHA `a25a18cb…9344`), a nezávislé
+integrační REVIEW_PASS. Všech 593 descriptors/32 starých exclusions
+zachováno; jediný nový helper exclusion, celkem 33; tests 599/265207 LF.
+Ledger frozen bytes a produktové stromy se nezměnily.
+[Přesné identity a zachovaná falešná přijetí c194](../wp/WP-PROJECT-TASKFLOW-FUNCTIONAL-20261001.md).
+
+Modelový TaskFlow a modelový IDE composer stále **LIVE_NOT_RUN**.
+Snapshot GPU má cizí CHAT long-context lease a skutečný NVIDIA compute;
+root nevstupuje do jeho slotu ani nevybíjí model. Připravuje konkrétní
+nový AppImage composer probe bez dalšího CHAT vývoje.
+
+Mobilní handoff má durable audit 75 artefaktů: původní 47/47 PASS
+byte/hash ověřené, 139 vybraných source cest nezměněných. Konkrétní
+New Chat BE gap, current VPN/listener/credential absence a připravená
+13+7 NOT_RUN matice jsou v [aktuálním handoffu](../mobile/CORE-M7-CAPABILITY-HANDOFF.md).
+Nové mobile/device testy, release a produkční změny nejsou tvrzené.
+Independent integrity review tohoto mobile packetu má **AUDIT_REVIEW_PASS**;
+75/75 original items, 47 log vazeb, source a čerstvý pasivní host ověřené.
+
+Hunt read-only pokračování je přijato, dočasný vlastní dependency symlink
+byl po revizi odstraněný s exact target check; cílové modules zachované.
+Žádné známky/aktivace nepřibyly, **596/1173 / NO_GO**. Cleanup pokračuje
+pouze konkrétní read-only přípravou vlastních dokončených refs; žádné mazání.
+
 ## Publikace IDE/Hunt evidence — 1. 10. 2026, 10:31 UTC
 
 Integrační `3c6a58cbd9a540f99817a55301e9f3cc0ab3471f` je pushnutý;

@@ -11,6 +11,13 @@ na integrační kontrakt nové konverzace a fyzickou 13+7 matici; cleanup
 má HOLD. CHAT pokračuje u jiného workera.
 [Přesné výsledky a důkazy](docs/review/2026-09-30-COMPLETION-TRACKER.md).
 
+**Navazující přejímka 10:41 UTC:** TaskFlow `bc82434c` opravilo obě mezery
+měřidla; nezávislé REVIEW_PASS/28 testů, společná clean2741 brána **8/8 PASS**
+a integrační review PASS. Fyzický modelový TaskFlow a IDE composer čekají
+na volný GPU slot; cizí CHAT běh zůstává zachovaný. Mobil má aktuální
+read-only handoff s 47 historickými PASS a explicitními runtime mezerami.
+Žádný nový celý profil, nasazení, grading nebo cleanup delete není tvrzený.
+
 **Historický checkpoint 1. 10. 2026, 09:25 UTC:** Malá šestisouborová aplikace
 na zmrazeném `92f7b51c` prošla skutečným CODE/backend/M2 průchodem
 a nezávislým **REVIEW_PASS**, včetně funkčního testu a ověření po restartu.

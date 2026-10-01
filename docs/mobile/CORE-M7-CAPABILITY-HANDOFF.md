@@ -1,5 +1,72 @@
 # Core/M7 capability handoff
 
+## Aktuální předání 1. 10. 2026, 10:35 UTC
+
+**Stav:** `HANDOFF_AUDIT_COMPLETE / AUDIT_REVIEW_PASS / MOBILE_NOT_ACCEPTED /
+PHYSICAL_NOT_RUN`. Autorita je pokračující zadání operátora dokončovat
+IDE/backend a následně mobil. Další CHAT nyní vlastní jiný worker.
+
+Připnutý source `cf67e83f2e7cf654bc8900f7b4dde434411cc0b2` má shodných
+139 vybraných mobilních/M7/native/kontraktových/script souborů s
+`45caf5b5` i čteným pracovním source `2741c2e7`. Nejde o tvrzení shody
+všech kontraktů; M6 runtime evidence se měnila samostatně.
+
+Původní skutečný běh `2026-10-01T07-43-29-051Z` na `45caf5b5` obsahuje
+**47/47 mobilních/M7 PASS** (33 offline, 14 database). Aktuální audit
+znovu ověřil identity descriptorů, inventory pole, testové bajty a všech
+47 log hashů; nové testy nespustil. Celý původní profil zůstává
+**FAIL: 397 PASS / 5 FAIL / 3 BLOCKED**, není přijetí `cf67` nebo releasu.
+
+### Konkrétní otevřené kroky
+
+1. **BE vytvoření konverzace:** `newChat()` vytvoří pouze lokální `m-*` ID;
+   M7 adapter poté volá `conversation.execute`, core pro chybějící DB řádek
+   vrátí `M7_CONVERSATION_ACCESS_DENIED`. Katalog nemá `conversation.create`.
+   Potřebuje backendem vlastněný typed kontrakt vytvoření a jeho klientské
+   zapojení, test prvního odeslání, historie, scope/identity a replay hranic.
+   Existující konverzace tuto mezeru sama neověří. Koordinace patří core/CHAT
+   vlastníkovi; tento audit source nemění.
+2. **Provozní kandidát:** přijatá Decision 042 už určuje VPN-only TLS/SPKI a
+   systemd credentials. Pasivní host snapshot má 0 rozpoznaných VPN iface,
+   0 listenerů `:7443` a oba credential directory chybí. Obsah credentialů
+   nebyl čten. [Stávající runbook](TRYING-IT.md) popisuje exact bind, signer
+   a source-bound package; topologie se znovu nerozhoduje.
+3. **Fyzická přejímka:** připravená [13+7 device matice](DEVICE-MATRIX-RUN.md)
+   je **NOT_RUN**, stejně jako pairing/signing/distribution. Lokální PASS
+   nenahrazuje AndroidKeyStore, VPN, replay po restartu, TalkBack/Doze ani
+   skutečné schválení M2 na telefonu.
+
+Na hostu jsou podle skutečných metadata/hashes nástroje
+`/home/belphareon/toolchain/jdk21` (Temurin `21.0.12+8`) a
+`/home/belphareon/toolchain/android-sdk` (API 36, build-tools `36.0.0`,
+platform-tools `37.0.1`). Audit nástroje nespustil ani nový APK nevytvořil;
+další build musí tyto piny použít výslovně.
+
+### Durable evidence
+
+Soukromý staging packet
+`.intentsmith-artifacts/mobile-handoff-cf67-20261001-1035-evidence/`
+obsahuje 75 ověřených artefaktů, původní report/inventory/logy,
+source/callgraph/pasivní host a toolchain podklady. SUMMARY SHA-256:
+`3903490c2f64d7c7fb4f50a63c669adbee4ff679300e8d6febdd73b37f359f3a`;
+manifest SHA-256:
+`354ef70ecbec243a24592cced668184fba907644bca60827c8fe598a6208968b`.
+Původní celý report SHA-256:
+`85ef155ba3c7febb11bf23305e81bf5e96132ecff9ebdede30bc5ed2708a6977`.
+První `1032` audit narazil na souběžný posun HEAD; jeho preflight exit 1
+zůstává zachovaný, nejde o produktový test FAIL. Neproběhl build, device,
+provider, produkční DB, service nebo síťová aktivace.
+
+Nezávislý read-only reviewer ověřil všech 75 původních položek, 47 log/
+descriptor/test vazeb, 139 scoped source souborů, actual call graph a
+čerstvé pasivní host hodnoty. Závěr **AUDIT_REVIEW_PASS**, nikoli nový
+testový/fyzický PASS. Oddělený privátní report
+`.intentsmith-artifacts/gate0-review-mobile-handoff-1035.json`;
+jeho čtyřsouborový manifest SHA-256
+`635fbf6f6ac68e2973dd39a18b47fd305c625bc3c03d81451f06e1d3c9cc05a7`.
+
+## Historický snapshot
+
 > Historický snapshot níže je vázaný na SHA z 2026-08-30. Na novějším
 > integračním základu `de0e8127` existuje VPN runtime a server wiring; tento
 > text není důkaz jejich absence ani aktivace. Aktuální mobilní řez a jeho
