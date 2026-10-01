@@ -147,6 +147,7 @@ test('ordinary answer includes scoped memory as reference data and preserves the
     assert(calls[0].options.systemPrompt.includes('stručná čeština'));
     assert.match(calls[0].options.systemPrompt, /oprávnění|permissions/i);
     assert(!calls[0].options.systemPrompt.includes('ROZSAH:'));
+    assert(!calls[0].options.systemPrompt.includes('Technický strop'));
     await handleAnswerDecision('Rozveď to podrobně krok za krokem.', decision, { history: [] });
     assert(calls[1].options.systemPrompt.includes('ROZSAH:'));
   } finally { llmGateway.call = original; }

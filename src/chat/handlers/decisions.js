@@ -173,6 +173,11 @@ function completionInstruction(maxTokens, language, retryAttempt = 0, strictJson
   // Plan a complete answer inside this turn's actual output allowance. This
   // scales with requested depth; it is not the old universal 45-word cap.
   const retry = retryAttempt > 0;
+  // A normal provider allowance is headroom, not a request to fill it. Avoid
+  // anchoring every ordinary answer to a numeric word count. Keep the concrete
+  // ceiling when context pressure shrinks that allowance or a completion retry
+  // needs an explicit plan for finishing within it.
+  if (!retry && maxTokens >= ANSWER_TOKEN_BUDGET.STANDARD_CONVERSATION) return '';
   const wordDivisor = retryAttempt >= 2 ? 20 : retry ? 12 : 5;
   const words = Math.max(20, Math.floor(maxTokens / wordDivisor));
   const instructions = {
