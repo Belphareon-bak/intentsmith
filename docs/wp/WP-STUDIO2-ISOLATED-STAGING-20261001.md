@@ -67,6 +67,12 @@ ale skutečnou hodnotu stanoví operátor podle změřené potřeby vybraného m
 - Soukromý backend z balíku běží na vlastní lokální port a DB. Runner čeká na
   zdravý backend a dokončení startovních ověření vazeb. Produkční MainPID
   přečte před/po; službu nestartuje ani nezastavuje.
+- Ještě před spuštěním backendu musí migrační kopie prokázat nulové importované
+  automatické SCM fetch/pull politiky, nulové neukončené M2 lifecycle operace
+  a nulové nedořešené modelové pull operace. Produkční server totiž umí tyto
+  práce obnovit sám při startu nebo periodicky; jejich původní cesty a modelové
+  operace nesmějí uniknout z izolované přejímky. Chybějící tabulka nebo nejasný
+  stav blokuje start místo tiché sanace kopií.
 - Endpoint `POST /api/projects` založí nový projekt v `trial/home/projects`.
   Reálná cesta se ověří před každým M2/SCM efektem. Záznamy importovaných
   projektů s absolutními původními cestami se pouze kontrolují v DB, nikdy se
@@ -74,7 +80,8 @@ ale skutečnou hodnotu stanoví operátor podle změřené potřeby vybraného m
 - Skutečný AppImage otevře Studio 2 a přes jeho DOM odešle M1 dotaz do nové
   konverzace. Přijetí vyžaduje přesnou shodu privátní backend URL z preloadu,
   textovou odpověď s markerem, režim Studio 2,
-  nepřítomnost klasického panelu a trvalou zprávu v kopii DB.
+  nepřítomnost klasického panelu a v kopii DB přesnou uživatelskou zprávu a
+  pozdější přesnou asistentskou odpověď v téže nové konverzaci a projektu.
 - M2 vytvoří návrh opravy chybného `mul(a,b)`, zachová soubor před schválením,
   zobrazí diff, schválí ho a ověří výsledek na nule, záporných i desetinných
   hodnotách. SCM na témže novém projektu provede stage, commit, větev a
@@ -115,6 +122,14 @@ node scripts/validate-test-registry.js --json
 node tests/artifact-validation.test.js
 git diff --check
 ```
+
+Nezávislá kontrola `549fc8e5` požadovala opravit tři mezery: pouhá existence
+konverzace nedokazovala uložený chat; importovaná automatická SCM politika
+mohla po pěti minutách spustit fetch/pull na původní cestě projektu; a zděděné
+`GIT_DIR`/`GIT_WORK_TREE` mohly podvrhnout čistotu Legacy checkoutu. Navazující
+kontrola startup call graphu našla i obnovu schválené neukončené M2 práce a
+modelových pull operací. Pro každou cestu je nyní offline kontrakt; live stage
+zůstává **NOT RUN** a změna čeká na opětovné nezávislé review.
 
 Stav při předání tohoto kandidáta: **OFFLINE_CONTRACT_VERIFIED /
 PHYSICAL_GPU_STAGE_NOT_RUN / REVIEW_PENDING**. Teprve nový balík ze

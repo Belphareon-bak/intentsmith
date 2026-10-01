@@ -12,7 +12,8 @@ import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import {
   parseStageArgs, preflightStage, assertIsolatedProjectPath,
-  PRESERVED_TABLES, assertPreserved,
+  PRESERVED_TABLES, assertPreserved, assertNoImportedStartupEffects,
+  assertDurableStageChat,
 } from './studio2-isolated-stage-contract.mjs';
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -247,12 +248,13 @@ async function exerciseStudio(page, http, expectedBackendUrl, projectId, project
     window.IntentSmithBus.emit('session:changed', { idx: 0 });
   }, { id: conversation.id, pid: projectId });
   const marker = 'IDE2-STAGE-391';
+  const prompt = `Jednou větou vysvětli, proč tým zaznamenává rozhodnutí. Odpověď zakonči přesně ${marker}.`;
   await page.evaluate(text => {
     const input = document.querySelector('[aria-label^="Zpráva pro relaci"]');
     if (!input) throw Error('STAGE_COMPOSER_MISSING');
     Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, text);
     input.dispatchEvent(new Event('input', { bubbles: true }));
-  }, `Jednou větou vysvětli, proč tým zaznamenává rozhodnutí. Odpověď zakonči přesně ${marker}.`);
+  }, prompt);
   await page.focus('[aria-label^="Zpráva pro relaci"]');
   await page.keyboard.down('Control'); await page.keyboard.press('Enter'); await page.keyboard.up('Control');
   await page.waitForFunction(value => window._sessions[0].chat.msgs.some(
@@ -266,9 +268,10 @@ async function exerciseStudio(page, http, expectedBackendUrl, projectId, project
   });
   assert.equal(chat.mode, 'studio2');
   assert.equal(chat.classicVisible, false);
+  assert.equal(chat.conversationId, conversation.id, 'AppImage chat used a different conversation');
   assert(chat.answer.includes(marker));
   result.modelChat = { status: 'PASS', conversationId: chat.conversationId,
-    marker, answer: chat.answer };
+    projectId, prompt, marker, answer: chat.answer };
   await page.screenshot({ path: path.join(dirs.evidence, 'model-chat.png') });
 
   const fixture = path.join(projectPath, 'src/calc.cjs');
@@ -420,6 +423,9 @@ async function liveStage(plan) {
         || probe.pragma('foreign_key_check').length) fail('MIGRATION_PROBE_FAILED');
       result.migration = { status: 'PASS', counts: assertPreserved(originalRows, snapshot(probe)),
         originalModelBindingsPreserved: true };
+      result.importedStartupEffects = {
+        status: 'PASS', ...assertNoImportedStartupEffects(probe),
+      };
     } finally { probe.close(); }
     const env = makeEnvironment(plan, dirs, portFile, stageDb);
     backend = startOwned(plan.runtimeNode, ['src/server.js'], {
@@ -493,8 +499,7 @@ async function liveStage(plan) {
           { allowNew: true, allowVerificationChange: true }),
         stableModelBindingsUnchanged: true,
       };
-      assert(final.prepare('SELECT id FROM conversations WHERE id=?').get(result.modelChat.conversationId),
-        'model chat not persisted in staged DB');
+      result.modelChat.durableTurns = assertDurableStageChat(final, result.modelChat);
       result.modelChat.persistedInCopy = true;
     } finally { final.close(); }
     if (productionBackendPid() !== installedPid) fail('PRODUCTION_BACKEND_CHANGED');

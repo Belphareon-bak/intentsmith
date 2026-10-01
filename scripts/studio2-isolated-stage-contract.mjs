@@ -133,9 +133,14 @@ export async function preflightStage(options) {
   if (!(legacyNodeStat.mode & 0o111)) fail('LEGACY_NODE_INVALID');
   let legacyRevision, legacyDirty, legacyBranch;
   try {
-    legacyRevision = execFileSync('git', ['-C', legacySource, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
-    legacyDirty = execFileSync('git', ['-C', legacySource, 'status', '--porcelain'], { encoding: 'utf8' }).trim();
-    legacyBranch = execFileSync('git', ['-C', legacySource, 'branch', '--show-current'], { encoding: 'utf8' }).trim();
+    const cleanGitEnvironment = Object.fromEntries(Object.entries(process.env)
+      .filter(([key]) => !key.startsWith('GIT_')));
+    cleanGitEnvironment.GIT_CONFIG_NOSYSTEM = '1';
+    cleanGitEnvironment.GIT_CONFIG_GLOBAL = '/dev/null';
+    const gitOptions = { encoding: 'utf8', env: cleanGitEnvironment, timeout: 15_000 };
+    legacyRevision = execFileSync('git', ['-C', legacySource, 'rev-parse', 'HEAD'], gitOptions).trim();
+    legacyDirty = execFileSync('git', ['-C', legacySource, 'status', '--porcelain'], gitOptions).trim();
+    legacyBranch = execFileSync('git', ['-C', legacySource, 'branch', '--show-current'], gitOptions).trim();
   } catch { fail('LEGACY_SOURCE_UNATTESTED'); }
   if (legacyRevision !== options.expectedLegacy || legacyDirty || legacyBranch) fail('LEGACY_SOURCE_UNATTESTED');
   statRegular(sourceDb, 'SOURCE_DB_SYMLINK');
@@ -236,4 +241,44 @@ export function assertPreserved(before, after, { allowNew = false, allowVerifica
     counts[table] = { before: original.length, after: current.length };
   }
   return counts;
+}
+
+// A copied production database still names original project directories. The
+// backend's startup and periodic recovery loops must have no imported work to
+// execute before we allow the private backend to start.
+export function assertNoImportedStartupEffects(db) {
+  let automaticScmPolicies, recoverableM2Operations, outstandingModelPulls;
+  try {
+    automaticScmPolicies = db.prepare(`SELECT count(*) AS n FROM scm_project_policy
+      WHERE fetch_mode = 'automatic' OR pull_mode = 'automatic'`).get().n;
+    recoverableM2Operations = db.prepare(`SELECT count(*) AS n FROM m2_lifecycle_operations operation
+      LEFT JOIN m2_lifecycle_terminals terminal USING (lifecycle_id)
+      WHERE terminal.lifecycle_id IS NULL`).get().n;
+    outstandingModelPulls = db.prepare(`SELECT count(*) AS n FROM m6_model_artifact_operations operation
+      LEFT JOIN m6_model_artifact_events initial
+        ON initial.operation_id = operation.operation_id AND initial.sequence = 1
+      LEFT JOIN m6_model_artifact_events settled
+        ON settled.operation_id = operation.operation_id AND settled.sequence = 2
+      WHERE operation.kind = 'PULL' AND (initial.event_id IS NULL
+        OR (initial.status = 'ORPHANED' AND settled.event_id IS NULL))`).get().n;
+  } catch { fail('COPIED_DB_STARTUP_GUARD_UNAVAILABLE'); }
+  if (automaticScmPolicies) fail('IMPORTED_SCM_AUTOMATION_UNSAFE');
+  if (recoverableM2Operations) fail('IMPORTED_M2_RECOVERY_UNSAFE');
+  if (outstandingModelPulls) fail('IMPORTED_MODEL_PULL_UNSAFE');
+  return { automaticScmPolicies, recoverableM2Operations, outstandingModelPulls };
+}
+
+export function assertDurableStageChat(db, { conversationId, projectId, prompt, answer, marker }) {
+  if (typeof conversationId !== 'string' || !Number.isSafeInteger(projectId) || projectId <= 0
+    || typeof prompt !== 'string' || typeof answer !== 'string' || typeof marker !== 'string'
+    || !marker || !prompt.includes(marker) || !answer.includes(marker)) fail('MODEL_CHAT_NOT_DURABLE');
+  const conversation = db.prepare('SELECT project_id FROM conversations WHERE id = ?').get(conversationId);
+  if (conversation?.project_id !== projectId) fail('MODEL_CHAT_NOT_DURABLE');
+  const turns = db.prepare(`SELECT id, role, content FROM messages
+    WHERE conversation_id = ? ORDER BY id ASC`).all(conversationId);
+  const user = turns.find(turn => turn.role === 'user' && turn.content === prompt);
+  const assistant = user && turns.find(turn => turn.id > user.id
+    && turn.role === 'assistant' && turn.content === answer);
+  if (!assistant) fail('MODEL_CHAT_NOT_DURABLE');
+  return { userTurnId: user.id, assistantTurnId: assistant.id };
 }

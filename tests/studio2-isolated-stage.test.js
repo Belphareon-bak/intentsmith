@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { DatabaseSync } from 'node:sqlite';
 
 import {
   parseStageArgs,
@@ -12,6 +13,8 @@ import {
   assertIsolatedProjectPath,
   PRESERVED_TABLES,
   assertPreserved,
+  assertNoImportedStartupEffects,
+  assertDurableStageChat,
 } from '../scripts/studio2-isolated-stage-contract.mjs';
 
 const SOURCE = 'a'.repeat(40);
@@ -213,4 +216,72 @@ test('preservation requires duplicate originals, while permitting new stage rows
   after.expertises = [{ name: 'same' }, { name: 'same' }, { name: 'new' }];
   assert.equal(assertPreserved(before, after, { allowNew: true }).expertises.after, 3);
   assert.throws(() => assertPreserved(before, after), /PRESERVED_ROW_COUNT_CHANGED/);
+});
+
+test('poisoned Git environment cannot attest a dirty Legacy checkout through another repository', async t => {
+  const f = fixture(t);
+  const decoy = path.join(f.root, 'decoy');
+  fs.mkdirSync(decoy);
+  execFileSync('git', ['-C', decoy, 'init', '-q']);
+  fs.writeFileSync(path.join(decoy, 'clean.txt'), 'clean\n');
+  execFileSync('git', ['-C', decoy, 'add', '.']);
+  execFileSync('git', ['-C', decoy, '-c', 'user.name=stage test', '-c', 'user.email=stage@test.local',
+    'commit', '-qm', 'clean decoy']);
+  const decoyRevision = execFileSync('git', ['-C', decoy, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+  fs.appendFileSync(path.join(f.legacySource, 'intentsmith-ide/applications/electron/lib/frontend/index.html'), 'dirty\n');
+  const oldDir = process.env.GIT_DIR, oldTree = process.env.GIT_WORK_TREE;
+  process.env.GIT_DIR = path.join(decoy, '.git');
+  process.env.GIT_WORK_TREE = decoy;
+  try {
+    await assert.rejects(preflightStage({ ...f.options, expectedLegacy: decoyRevision }),
+      /LEGACY_SOURCE_UNATTESTED/);
+  } finally {
+    if (oldDir === undefined) delete process.env.GIT_DIR; else process.env.GIT_DIR = oldDir;
+    if (oldTree === undefined) delete process.env.GIT_WORK_TREE; else process.env.GIT_WORK_TREE = oldTree;
+  }
+});
+
+test('imported automatic SCM, recoverable M2 and pending model pulls block copied DB startup', () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    db.exec(`
+      CREATE TABLE scm_project_policy (project_id INTEGER, fetch_mode TEXT, pull_mode TEXT);
+      CREATE TABLE m2_lifecycle_operations (lifecycle_id TEXT, project_id INTEGER);
+      CREATE TABLE m2_lifecycle_terminals (lifecycle_id TEXT);
+      CREATE TABLE m6_model_artifact_operations (operation_id TEXT, kind TEXT);
+      CREATE TABLE m6_model_artifact_events (event_id TEXT, operation_id TEXT, sequence INTEGER, status TEXT);
+    `);
+    assert.deepEqual(assertNoImportedStartupEffects(db), {
+      automaticScmPolicies: 0, recoverableM2Operations: 0, outstandingModelPulls: 0,
+    });
+    db.prepare("INSERT INTO scm_project_policy VALUES (1,'automatic','ask')").run();
+    assert.throws(() => assertNoImportedStartupEffects(db), /IMPORTED_SCM_AUTOMATION_UNSAFE/);
+    db.prepare('DELETE FROM scm_project_policy').run();
+    db.prepare("INSERT INTO m2_lifecycle_operations VALUES ('lifecycle-1',1)").run();
+    assert.throws(() => assertNoImportedStartupEffects(db), /IMPORTED_M2_RECOVERY_UNSAFE/);
+    db.prepare("INSERT INTO m2_lifecycle_terminals VALUES ('lifecycle-1')").run();
+    db.prepare("INSERT INTO m6_model_artifact_operations VALUES ('pull-1','PULL')").run();
+    assert.throws(() => assertNoImportedStartupEffects(db), /IMPORTED_MODEL_PULL_UNSAFE/);
+    db.prepare("INSERT INTO m6_model_artifact_events VALUES ('event-1','pull-1',1,'SUCCEEDED')").run();
+    assert.deepEqual(assertNoImportedStartupEffects(db), {
+      automaticScmPolicies: 0, recoverableM2Operations: 0, outstandingModelPulls: 0,
+    });
+  } finally { db.close(); }
+});
+
+test('staged chat requires exact private conversation, user prompt and later assistant answer', () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    db.exec('CREATE TABLE conversations (id TEXT PRIMARY KEY, project_id INTEGER); CREATE TABLE messages (id INTEGER PRIMARY KEY, conversation_id TEXT, role TEXT, content TEXT)');
+    db.prepare('INSERT INTO conversations VALUES (?,?)').run('private-conv', 42);
+    const proof = { conversationId: 'private-conv', projectId: 42,
+      prompt: 'Explain this. END-MARKER', answer: 'A useful answer. END-MARKER', marker: 'END-MARKER' };
+    assert.throws(() => assertDurableStageChat(db, proof), /MODEL_CHAT_NOT_DURABLE/);
+    db.prepare('INSERT INTO messages VALUES (1,?,?,?)').run('private-conv', 'user', proof.prompt);
+    assert.throws(() => assertDurableStageChat(db, proof), /MODEL_CHAT_NOT_DURABLE/);
+    db.prepare('INSERT INTO messages VALUES (2,?,?,?)').run('private-conv', 'assistant', proof.answer);
+    assert.deepEqual(assertDurableStageChat(db, proof), { userTurnId: 1, assistantTurnId: 2 });
+    assert.throws(() => assertDurableStageChat(db, { ...proof, projectId: 99 }), /MODEL_CHAT_NOT_DURABLE/);
+    assert.throws(() => assertDurableStageChat(db, { ...proof, answer: 'Different END-MARKER' }), /MODEL_CHAT_NOT_DURABLE/);
+  } finally { db.close(); }
 });
