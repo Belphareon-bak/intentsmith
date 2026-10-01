@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 577
+- Runnable programs: 578
 - Explicit support-module exclusions: 26
-- Profiles: offline=316, database=84, server=57, model=85, soak=15, manual=20
-- States: ACTIVE=480, HISTORICAL=15, BLOCKED=82
+- Profiles: offline=316, database=84, server=58, model=85, soak=15, manual=20
+- States: ACTIVE=481, HISTORICAL=15, BLOCKED=82
 
 ## Execution profiles
 
@@ -98,6 +98,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T3-TESTS-CHAT-PROJECT-EXPERTISE-MODEL-CONTRACT-TEST` | `tests/chat-project-expertise-model-contract.test.js` | `C3-007` | T3 | `server` | 10 s | 4 min | network:loopback, temp-db | yes | `ACTIVE` | — | WP-CHAT-PROJECT-EXPERTISE-LIVE-20260930 |
 | `IS-T3-TESTS-CHAT-QUALITY-TEST` | `tests/chat-quality.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CHAT-SEARCH-QUALITY-TEST` | `tests/chat-search-quality.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-CHAT-SECOND-COMPACTION-HTTP-TEST` | `tests/chat-second-compaction-http.test.js` | `C3-003` | T3 | `server` | 10 s | 4 min | network:loopback, temp-db | yes | `ACTIVE` | — | WP-CHAT-SECOND-COMPACTION-20261001 |
 | `IS-T3-TESTS-CHAT-SPECIALIST-FOLLOWUP-HTTP-TEST` | `tests/chat-specialist-followup-http.test.js` | `C3-013` | T3 | `server` | 10 s | 3 min | network:loopback, temp-db | yes | `ACTIVE` | — | WP-CHAT-SPECIALIST-FOLLOWUP-20260930 |
 | `IS-T1-TESTS-CHAT-SYNTHESIS-HARDENING-TEST` | `tests/chat-synthesis-hardening.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-CHAT-TRANSLATOR-LIVE-TEST` | `tests/chat-translator-live.test.js` | `C3-007` | T3 | `model` | 10 min | 25 min | network:loopback, temp-db, ollama, gpu | yes | `BLOCKED` | — | WP-CHAT-TRANSLATOR-LIVE-20261001 |
