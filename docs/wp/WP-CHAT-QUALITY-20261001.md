@@ -1,5 +1,9 @@
 # WP — přirozený chat a pokračování v upřesněném zadání
 
+Aktuální milníky, výsledky, otevřená selhání a publikační stav:
+[průběžný dokument](WP-CHAT-QUALITY-20261001-PROGRESS.md), aktualizovaný po
+každém milníku nebo nejpozději po třech hodinách aktivní práce.
+
 Autorita: explicitní zadání operátora z 1. 10. 2026 ověřit dodaný posudek,
 doplnit důležité mezery a implementovat a testovat kvalitu chatu;
 `PRODUCT.md` §3 (obnovení rozhovoru, historie a řízené provádění).
