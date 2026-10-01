@@ -10,11 +10,13 @@ import { test } from 'node:test';
 
 import { createOwnedJourneyRuntime, expectJson, requestJson, startProduct,
   stopProduct } from './helpers/chat-project-expertise-model-journey.js';
+import { assertVatAnswer, assertVatToolAndPrompt,
+  VAT_INPUT as INPUT } from
+  './helpers/chat-accountant-vat-oracle.js';
 import { isolatedTestRuntime as runtime } from './helpers/isolated-test-db.js';
 
 const MODEL = 'fixture:1b';
 const DIGEST = 'b'.repeat(64);
-const INPUT = 'K základu daně 10 000 Kč přidej DPH 21 % za rok 2025. Uveď přesně základ, DPH a cenu s DPH pro ČR.';
 const ANSWER = [
   'ČR, rok 2025: základ 10 000 Kč, DPH 21 % je 2 100 Kč, cena s DPH je 12 100 Kč.',
   '',
@@ -26,7 +28,6 @@ const ANSWER = [
   '',
   '*Toto je informativní přehled, nikoli závazná daňová rada. Pro konkrétní daňové rozhodnutí konzultujte daňového poradce.*',
 ].join('\n');
-const PARAMS = Object.freeze({ amount: 10000, year: 2025, rate: '21', direction: 'add' });
 
 async function startFixtureProvider() {
   const requests = [];
@@ -61,32 +62,9 @@ async function startFixtureProvider() {
 }
 
 function assertVatJourney(result, providerBody) {
-  assert.equal(result.status, 'ok');
-  const metadata = result.response?.metadata;
-  assert.equal(metadata?.expertise?.id, 'accountant');
-  assert.equal(metadata?.executionStatus, 'SUCCESS');
-  assert.equal(metadata?.specialistTool, 'accountant.vat_calculator');
-  assert.deepEqual(metadata?.extractedParams, PARAMS);
-  assert.equal(metadata?.toolResults?.length, 1);
-  assert.equal(metadata.toolResults[0].type, 'accountant.vat_calculator');
-  const vat = metadata.toolResults[0].data;
-  assert.deepEqual({ base: vat.base, vat: vat.vat, total: vat.total,
-    rate_percent: vat.rate_percent, direction: vat.direction, year: vat.year },
-  { base: 10000, vat: 2100, total: 12100,
-    rate_percent: 21, direction: 'add', year: 2025 });
+  assertVatToolAndPrompt(result, providerBody, MODEL);
   assert.equal(result.response.content, ANSWER);
-  assert.equal(metadata.finishReason, 'stop');
-
-  assert.equal(providerBody.model, MODEL);
-  assert.equal(providerBody.stream, false);
-  assert.equal(providerBody.think, false);
-  const finalUser = providerBody.messages.at(-1);
-  assert.equal(finalUser.role, 'user');
-  assert(finalUser.content.includes(INPUT));
-  const match = /Tool execution results:\n(\{[\s\S]*?\})\n\nBased on these results/u.exec(finalUser.content);
-  assert(match, 'structured tool result must reach the final provider body');
-  const providerResult = JSON.parse(match[1]);
-  assert.deepEqual(providerResult, vat, 'provider must see the exact M1 tool result');
+  assertVatAnswer(result.response.content);
 }
 
 test('selected accountant-cz calculates 2025 VAT through actual M1 HTTP and persists exact answer', {

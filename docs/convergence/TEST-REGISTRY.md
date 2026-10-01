@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 580
-- Explicit support-module exclusions: 28
-- Profiles: offline=316, database=84, server=60, model=85, soak=15, manual=20
-- States: ACTIVE=483, HISTORICAL=15, BLOCKED=82
+- Runnable programs: 582
+- Explicit support-module exclusions: 29
+- Profiles: offline=317, database=84, server=60, model=86, soak=15, manual=20
+- States: ACTIVE=484, HISTORICAL=15, BLOCKED=83
 
 ## Execution profiles
 
@@ -84,7 +84,9 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-CAPABILITY-REGISTRY-TEST` | `tests/capability-registry.test.js` | `C3-020` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CAPABILITY-SANDBOX-TEST` | `tests/capability-sandbox.test.js` | `C3-020` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CATALOG-METADATA-TEST` | `tests/catalog-metadata.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-CHAT-ACCOUNTANT-LIVE-TEST` | `tests/chat-accountant-live.test.js` | `C3-013` | T3 | `model` | 10 min | 25 min | network:loopback, temp-db, ollama, gpu | yes | `BLOCKED` | — | WP-CHAT-ACCOUNTANT-LIVE-20261001 |
 | `IS-T3-TESTS-CHAT-ACCOUNTANT-MODEL-CONTRACT-TEST` | `tests/chat-accountant-model-contract.test.js` | `C3-013` | T3 | `server` | 10 s | 3 min | network:loopback, temp-db | yes | `ACTIVE` | — | WP-CHAT-ACCOUNTANT-HTTP-20261001 |
+| `IS-T1-TESTS-CHAT-ACCOUNTANT-VAT-ORACLE-TEST` | `tests/chat-accountant-vat-oracle.test.js` | `C3-013` | T1 | `offline` | 1 s | 2 min | network:none | yes | `ACTIVE` | — | WP-CHAT-ACCOUNTANT-LIVE-20261001 |
 | `IS-T1-TESTS-CHAT-CONVERSATION-CAPTURE-TEST-MJS` | `tests/chat-conversation-capture.test.mjs` | `C3-010` | T1 | `database` | 1 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST` | `tests/chat-export-budget.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none, toolchain:python-pdf-runtime | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CHAT-FIXES-TEST` | `tests/chat-fixes.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
@@ -636,6 +638,7 @@ ledger.
 | `tests/fixtures/model-policy-061.js` | Byte-identical accepted migration fixture imported by m1-model-automation-policy.test.js; no top-level test entry point. |
 | `tests/fixtures/studio-m1-electron-backend.js` | Suite-owned M1 Electron backend fixture launched only by studio-m1-electron-journey.e2e.js. |
 | `tests/harness.js` | Imported unit-test harness library with no top-level test entry point. |
+| `tests/helpers/chat-accountant-vat-oracle.js` | Shared bounded VAT tool, prompt and answer oracle imported by deterministic, negative and opt-in live accountant suites; no standalone entry point. |
 | `tests/helpers/chat-journey-response.js` | Imported model-journey response classifier with deterministic checks covered by m1-chat-contract.test.js. |
 | `tests/helpers/chat-project-expertise-model-journey.js` | Shared owned M1 HTTP project and expertise journey imported by deterministic and opt-in live suites; no standalone entry point. |
 | `tests/helpers/chat-translator-journey.js` | Shared translator M1 HTTP, provider, semantic and project oracle imported by deterministic and opt-in live suites; no standalone entry point. |
