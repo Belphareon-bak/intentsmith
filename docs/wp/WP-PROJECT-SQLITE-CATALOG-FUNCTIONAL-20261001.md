@@ -24,7 +24,7 @@ a nulové CHAT zprávy. Parent uklidil relay, vlastní model a GPU lease.
 
 Nezávislé review je **CONTRACT_CHANGES_REQUIRED**, SHA-256
 `2d30cd66e5c9a03480013abd80c66f669b966b4d737b8aa5ee73cc13f7fab2bc`,
-manifest `69e2cda46497be065b84a0a5554301cbb563caea1336ab898665c87df250efc4`.
+`HASHES.json` `69e2cda46497be065b84a0a5554301cbb563caea1336ab898665c87df250efc4`.
 `schema.js` obsahuje nepoužitý import `node:sqlite`, přestože instrukce
 vyžaduje `No imports` a SQLite dovoluje jen v `store.js`. Starý oracle
 kontroloval absenci importů pouze u `query` a `validate`. Dalších šest
