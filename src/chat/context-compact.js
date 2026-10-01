@@ -208,6 +208,9 @@ export async function awaitPendingCompaction(conversationId, signal = null) {
 /** Never discard raw messages at the load cap without a completed summary. */
 export async function ensureCompactionBeforeNextTurn(conversationId, store, sessionId, signal = null, historyLimit = HANDLER_HISTORY_MAX_TURNS) {
   throwIfAborted(signal);
+  // Token pressure can start a summary well before the load cap. Do not
+  // construct the next prompt from a range that is currently being archived.
+  await awaitPendingCompaction(conversationId, signal);
   // An exchange can arrive while a token-pressure summary is running. Recheck
   // once and compact a fresh range if it still reaches the bounded load cap.
   for (let attempt = 0; attempt < 2; attempt += 1) {

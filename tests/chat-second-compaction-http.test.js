@@ -134,7 +134,9 @@ async function startProvider() {
         : `Soubor obsahuje ${ownFileCode}.`;
       content = JSON.stringify({ reply: answer, plan: null });
     } else {
-      content = JSON.stringify({ intent: 'PROJECT', confidence: 0.99, fileTarget: null });
+      // Emit a valid CRE intent; PROJECT is a mode, never an IntentType.
+      content = JSON.stringify({ intent: 'CONVERSATIONAL', confidence: 0.99, fileTarget: null,
+        responseScope: 'project_status', question: null, continuesPending: false });
     }
     calls.push({ request, content, kind: isSummary ? 'summary' : isProject ? 'project' : 'other' });
     outgoing.end(JSON.stringify({ model: MODEL, digest: DIGEST, done: true,

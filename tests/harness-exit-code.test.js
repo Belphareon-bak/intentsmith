@@ -444,7 +444,8 @@ try {
   // 140 -> 141: chat-history-order imports the real messages query after the
   // isolation bootstrap. Graph comparison without that root returns 140;
   // the complete unprotected set remains empty.
-  const expectedDatabaseReachableRootTests = 141;
+  // 141 -> 142: chat-context-interpretation adds an owned M1/SQLite journey.
+  const expectedDatabaseReachableRootTests = 142;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,

@@ -325,7 +325,7 @@ if(process.argv.includes('--inside')) {
   activeCase=c.id; const key=c.dialog||c.id;
   if(!conversations.has(key)){const created=await request('POST','/api/conversations',{project_id:projectId,title:'private '+key});conversations.set(key,created.result.conversation?.id??created.result.id);}
   const id=conversations.get(key); if(!id)throw new Error('no conversation');
-  const context=store.buildHandlerHistory(id,10);
+  const context=store.buildHandlerHistory(id,50);
   const command={contract:'ConversationCommand',version:1,requestId:randomUUID(),conversationId:id,turnId:randomUUID(),action:'send',input:c.input};
   const before=trace(),filesBefore=files(); const b=await request('POST','/api/chat',command);
   const row={case:c,context,B:b,firstContentMs:b.elapsedMs,firstUsefulMs:null,traceBefore:before,traceAfter:trace(),filesBefore,filesAfter:files()};rows.push(row);save('initial-results.json',rows);

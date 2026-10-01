@@ -19,6 +19,7 @@ nikoli jako oprávnění. Přeformulování zachová nový požadavek a nezopaku
 efekt. Existující sémantické ukládání se ověří přes M1/M2 a skutečné bajty.
 
 Vlastněné cesty: `src/chat/**`, cílené chatové testy a jejich helpers,
+`scripts/measure-m1-l3.js` (shodná délka vstupní historie přímého A/B měření),
 `tests/registry.json`, přesný importní baseline, generovaný testový inventář, tento WP a vlastní review
 report. Změna sdíleného modelového gateway, modelových bindingů, DB schématu,
 providerové autority, mimochatových workerů a produkční instalace není součástí
@@ -56,3 +57,24 @@ CONVERSATIONAL). Tento běh není deterministický ani akceptační důkaz; log 
 zachovaný. Další obecné sady běží přes registrovanou síťovou izolaci.
 Baseline `45caf5b5` má doložený celý profil 397 PASS / 5 FAIL / 3 BLOCKED,
 nikoli zelenou vývojovou bránu. Mimochatové baseline chyby tato dávka nepřebírá.
+
+Živý vývojový pilot `72004a0e` prokázal přepnutí běžného textu na projektové
+plánování a přetížení kontextu ukládacího modelu staršími zdroji. Oprava předává
+CRE významový scope, drží inline kód v chatu a zachovává původní otázku.
+Starší zdroje se vynechávají výslovně; vykonatelné bajty zůstávají z DB.
+Nová sada má 8 PASS včetně skutečného M1 restartu, běžného doptání a inline
+kódu v aktivním projektu. Projektová sada 37 PASS; dva souhrny přes restart
+1 PASS. Její původní fixture emitovala neplatný intent PROJECT; stejné selhání
+je doložené na archivovaném `45caf5b5`. Fixture nyní emituje platný CRE intent;
+asertace souhrnů, původních faktů, DB, finálního promptu a izolace zůstávají.
+1024-tokenová výstupní rezerva pro pracovní návrhy zůstává; jen explicitně
+read-only stavová diskuse smí použít menší rezervu a nesmí navrhnout změny.
+
+Hodnocení živého korpusu před opakováním: užitečné = věcně řeší celý aktuální
+požadavek v kontextu, respektuje opravy, formát a omezení; doptání je užitečné
+jen pro konkrétní skutečně chybějící údaj. Zbytečné zastavení = známý údaj či
+nepotřebná volba kategorie/projektu místo řešení. Kritické = nepovolený efekt,
+záměna zdroje, negace, projektu či vymyšlené provedení. Posouzení všech odpovědí
+se zapisuje po významu, s konkrétním důvodem; automatické klíčové slovo nestačí.
+Prahy nezměněného korpusu: užitečnost ≥95 %, zastavení ≤5 %, kritické chyby 0,
+3 úplné živé opakování. Vlastní posouzení není nezávislé přijetí.

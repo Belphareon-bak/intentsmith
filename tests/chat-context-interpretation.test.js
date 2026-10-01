@@ -151,6 +151,26 @@ test('an explicit older answer ID copies complete durable bytes rather than its 
   assert.equal(plan.content, originalContent);
 });
 
+test('many durable choices fit the registered window without losing the newest source or inventing an older one', async () => {
+  const answer = messageId => ({ messageId, response: { tag: { speaker: 'system' }, content: 'ě'.repeat(2500) },
+    metadata: { saveSourceEligible: true, saveSourceProjectId: 1 } });
+  setNumCtx(config.models.FAST || config.models.CHAT, 4096);
+  try {
+  const result = await resolveFileSavePlan('Ulož poslední odpověď.', { project: { id: 1 },
+    saveSourceCandidates: { omitted: false, history: Array.from({ length: 12 }, (_, i) => answer(i + 1)) },
+  }, { interpretSave: async (prompt, system, options) => {
+    const evidence = JSON.parse(prompt);
+    assert.equal(evidence.answers[0].messageId, 12);
+    assert.equal(evidence.olderAnswersOmitted, true);
+    assert(Math.ceil(Buffer.byteLength(prompt + system) / 2) + options.maxTokens + 128 <= options.num_ctx);
+    return { content: JSON.stringify({ action: 'clarify', question: 'Do kterého souboru?', target: null,
+      source: { kind: 'answer', messageId: 12 }, transformation: 'none', writeMode: 'replace', understood: false, unsupported: [] }) };
+  } });
+  assert.equal(result.question, 'Do kterého souboru?');
+  assert.equal(result.candidateMessageId, 12);
+  } finally { clearNumCtxCache(); }
+});
+
 test('M1 restart resumes a targeted save question, preserves summarize/create constraints and never saves cancellation', async () => {
   const owned = createOwnedJourneyRuntime(isolatedTestRuntime);
   const model = 'fixture:1b';
@@ -177,12 +197,20 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
         target: initial ? null : 'notes.md', source: initial ? null : { kind: 'answer', messageId: parsed.answers[0]?.messageId },
         transformation: initial ? 'none' : 'summarize', writeMode: 'create', understood: !initial, unsupported: [] });
     } else if (system.includes('Klasifikuj')) {
-      content = JSON.stringify({ intent: parsed?.pending || /ulož/.test(parsed?.request || raw) ? 'FILE_WRITE' : 'CONVERSATIONAL',
-        confidence: 0.95, fileTarget: null, question: null, continuesPending: Boolean(parsed?.pending) });
+      const ambiguous = parsed?.request === 'Pomoz mi s výběrem.';
+      const write = parsed?.pending?.intent === 'FILE_WRITE' || /ulož/.test(parsed?.request || raw);
+      content = JSON.stringify({ intent: ambiguous ? 'AMBIGUOUS' : write ? 'FILE_WRITE'
+        : parsed?.request?.includes('faktoriál') ? 'CODE' : 'CONVERSATIONAL',
+        confidence: 0.95, fileTarget: null, question: ambiguous ? 'Mezi čím se rozhoduješ?' : null,
+        continuesPending: Boolean(parsed?.pending), responseScope: 'conversation' });
     } else if (system.includes('Summarize only')) {
       assert(parsed.request.includes('Shrň odpověď'));
       assert(parsed.request.includes('nic existujícího nepřepisuj'));
       content = 'Git commit uchovává snímek změn.';
+    } else if (raw.endsWith('Vybrat Lípu nebo Javor pro komunitní aplikaci.')) {
+      content = 'Lípa působí přátelsky; Javor technicky. Pro komunitní aplikaci zvol Lípu.';
+    } else if (raw.endsWith('Napiš krátkou funkci pro faktoriál v Pythonu.')) {
+      content = '```python\ndef factorial(n):\n    return 1 if n <= 1 else n * factorial(n - 1)\n```';
     } else if (parsed?.input || parsed?.userInput || system.includes('"reply"')) {
       content = JSON.stringify({ reply: 'Původní odpověď: Git commit uchovává snímek změn a identitu autora.', plan: null });
     } else content = 'Původní odpověď: Git commit uchovává snímek změn a identitu autora.';
@@ -201,6 +229,18 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
     const send = input => expectJson(product, 'POST', '/api/chat', { contract: 'ConversationCommand', version: 1,
       requestId: randomBytes(16).toString('hex'), turnId: randomBytes(16).toString('hex'), conversationId,
       action: 'send', input }, 200);
+    const genericQuestion = await send('Pomoz mi s výběrem.');
+    assert.equal(genericQuestion.response.content, 'Mezi čím se rozhoduješ?');
+    await stopProduct(product);
+    product = await startProduct(owned, `http://127.0.0.1:${provider.address().port}`, model);
+    const continued = await send('Vybrat Lípu nebo Javor pro komunitní aplikaci.');
+    const continuedClassification = calls.filter(call => call.messages[0]?.content?.includes('Klasifikuj')).at(-1);
+    assert.equal(JSON.parse(continuedClassification.messages.at(-1).content).pending?.request, 'Pomoz mi s výběrem.');
+    assert(continued.response.content.includes('zvol Lípu'));
+    assert.notEqual(continued.response.metadata.awaitingClarification, true);
+    const inline = await send('Napiš krátkou funkci pro faktoriál v Pythonu.');
+    assert(inline.response.content.includes('def factorial'), JSON.stringify(inline));
+    assert.notEqual(inline.response.metadata.handler, 'project.collaboration');
     await send('Vysvětli stručně Git commit.');
     database = new Database(owned.database, { readonly: true });
     const asked = await send('Shrň odpověď a ulož ji do nového souboru, nic existujícího nepřepisuj.');
