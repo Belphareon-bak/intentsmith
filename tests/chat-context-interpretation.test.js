@@ -150,6 +150,15 @@ test('ordinary answer includes scoped memory as reference data and preserves the
     assert(!calls[0].options.systemPrompt.includes('Technický strop'));
     await handleAnswerDecision('Rozveď to podrobně krok za krokem.', decision, { history: [] });
     assert(calls[1].options.systemPrompt.includes('ROZSAH:'));
+    const plain = creDecisionEngine.overrideDecision({ type: DecisionType.ANSWER,
+      intent: IntentType.CONVERSATIONAL, confidence: 1, source: 'controlled-scoped-answer',
+      reason: 'Ordinary conversation', metadata: { responseScope: 'conversation' } });
+    await handleAnswerDecision(input, plain, { history: [], project: { id: 1, name: 'UNRELATED_PROJECT_BANNER' },
+      ltmContext: 'Relevantní preference: stručná čeština [source=explicit]' });
+    assert(calls[2].options.systemPrompt.includes('Relevantní preference'));
+    assert(!calls[2].options.systemPrompt.includes('UNRELATED_PROJECT_BANNER'));
+    assert(!calls[2].options.systemPrompt.includes('Backend host'));
+    assert.match(calls[2].options.systemPrompt, /JAZYKOVÉ PRAVIDLO \(KRITICKÉ\)/u);
   } finally { llmGateway.call = original; }
 });
 
