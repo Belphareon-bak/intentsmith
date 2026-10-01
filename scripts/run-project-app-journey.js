@@ -13,6 +13,7 @@ import { acquireGpuEvaluationLock, assessScheduledEvaluationReadiness } from '..
 import { processSandboxProvider } from '../src/execution/process-sandbox-provider.js';
 import { LINUX_BWRAP_READ_ONLY_PROFILE } from '../src/execution/process-supervisor-child.js';
 import { computeM2ExecutionValueDigest } from '../contracts/m2/execution-v1.js';
+import { compileCodeDraftInput } from '../src/lifecycle/m2-code-draft.js';
 import { makeRuntime, startServer, stopServer, requestJson } from './run-project-build-journey.js';
 import {
   LEDGER_FILES, ORACLE_PATH, ORACLE_BINARY, ORACLE_ARGV, ORACLE_SOURCE, ORACLE_SHA256, PROBE_PATH, PROBE_SOURCE,
@@ -170,34 +171,50 @@ function observedBinding(databasePath, model, digest) {
 // functional failure. A failed app must not hide otherwise complete provider
 // identity, and complete provider calls must not turn that app failure green.
 export function assessProviderGenerations(requests, { model, digest, version, previewHashes = null }) {
-  const generations = requests.filter(row => ['/api/chat', '/api/generate'].includes(row.path));
+  const generations = requests.filter(row => row && ['/api/chat', '/api/generate'].includes(row.path));
   const failures = [];
   if (generations.length !== EXPECTED_PATHS.length) failures.push(`expected ${EXPECTED_PATHS.length} generations, observed ${generations.length}`);
-  if (requests.some(row => row.error)) failures.push('one or more provider relay requests failed');
-  const outputHashes = [];
+  if (requests.some(row => row?.error)) failures.push('one or more provider relay requests failed');
+  let generationPaths = [];
+  try {
+    const compiled = compileCodeDraftInput(ledgerBlueprint());
+    generationPaths = compiled.buildSteps.map(step => compiled.changes[step.index].path);
+    if (generationPaths.length !== EXPECTED_PATHS.length
+      || JSON.stringify([...generationPaths].sort()) !== JSON.stringify(EXPECTED_PATHS)) {
+      failures.push('canonical build order does not cover the six expected paths');
+    }
+  } catch { failures.push('canonical build order unavailable'); }
+  const completePreview = Array.isArray(previewHashes) && previewHashes.length === EXPECTED_PATHS.length
+    && previewHashes.every(row => row && EXPECTED_PATHS.includes(row.path) && DIGEST_PATTERN.test(row.sha256))
+    && new Set(previewHashes.map(row => row.path)).size === EXPECTED_PATHS.length;
+  if (!completePreview) failures.push('complete six-file preview is unavailable');
+  const previewByPath = new Map(completePreview ? previewHashes.map(row => [row.path, row.sha256]) : []);
+  const perFile = [];
   for (const [index, row] of generations.entries()) {
     const terminal = row.terminal;
-    if (row.method !== 'POST' || row.model !== model || row.status !== 200
-      || row.responseTruncated !== false || terminal?.done !== true
-      || terminal?.done_reason !== 'stop') failures.push(`generation ${index + 1} incomplete`);
-    if (terminal?.model !== model || (terminal?.model_digest_sha256 || terminal?.digest) !== digest
-      || terminal?.provider_version !== version) failures.push(`generation ${index + 1} identity mismatch`);
+    const targetPath = generationPaths[index] ?? null;
+    const complete = row.method === 'POST' && row.model === model && row.status === 200
+      && row.responseTruncated === false && terminal?.done === true
+      && terminal?.done_reason === 'stop';
+    if (!complete) failures.push(`generation ${index + 1} incomplete`);
+    const identityMatched = terminal?.model === model
+      && (terminal?.model_digest_sha256 || terminal?.digest) === digest
+      && terminal?.provider_version === version;
+    if (!identityMatched) failures.push(`generation ${index + 1} identity mismatch`);
+    let outputSha256 = null;
     try {
       const content = JSON.parse(terminal?.message?.content);
       if (typeof content.afterContent !== 'string') throw new Error('missing afterContent');
-      outputHashes.push(sha256(content.afterContent));
+      outputSha256 = sha256(content.afterContent);
     } catch { failures.push(`generation ${index + 1} has no complete afterContent`); }
-  }
-  if (!Array.isArray(previewHashes) || previewHashes.length !== EXPECTED_PATHS.length
-    || new Set(previewHashes.map(row => row.path)).size !== EXPECTED_PATHS.length
-    || previewHashes.some(row => !EXPECTED_PATHS.includes(row.path) || !DIGEST_PATTERN.test(row.sha256))) {
-    failures.push('complete six-file preview is unavailable');
-  } else if (JSON.stringify(outputHashes.sort()) !== JSON.stringify(previewHashes.map(row => row.sha256).sort())) {
-    failures.push('provider output bytes differ from the approved preview');
+    const previewSha256 = targetPath === null ? null : previewByPath.get(targetPath) ?? null;
+    const outputPreviewMatch = outputSha256 !== null && previewSha256 !== null && outputSha256 === previewSha256;
+    if (completePreview && !outputPreviewMatch) failures.push(`generation ${index + 1} ${targetPath ?? '(unknown path)'} differs from its preview`);
+    perFile.push({ generation: index + 1, targetPath, requestSha256: row.requestSha256 ?? null,
+      outputSha256, previewSha256, complete, identityMatched, outputPreviewMatch });
   }
   return { valid: failures.length === 0, observed: generations.length, expected: EXPECTED_PATHS.length,
-    previewCompared: Array.isArray(previewHashes) && previewHashes.length === EXPECTED_PATHS.length,
-    failures };
+    previewCompared: completePreview, generationPaths, perFile, failures };
 }
 
 function providerRelay(socketPath) {
