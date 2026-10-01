@@ -133,6 +133,10 @@
     {
       "path": "tests/helpers/project-taskflow-reference.js",
       "reason": "Trusted offline TaskFlow reference and defect modules imported by the existing project-app acceptance and M2 functional suites; no standalone entry point and never used by the physical model journey."
+    },
+    {
+      "path": "tests/helpers/project-sqlite-catalog-reference.js",
+      "reason": "Trusted offline SQLite catalog reference and defect modules imported by the existing project-app acceptance and M2 functional suites; no standalone entry point and never used by the physical model journey."
     }
   ],
   "suites": [

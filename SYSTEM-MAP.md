@@ -656,14 +656,14 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 **REVIEW_PENDING** — [aktuální UI oprava a evidence](docs/review/2026-09-17-HUNT-MODEL-CONTROLS-FOLLOWUP.md).
 
 Následující LOC a registry census jsou přeměřené přímo na referenčním zdroji
-`03c82d7e` + bounded app registry delta přes stejný algoritmus jako `tests/artifact-validation.test.js`:
+`4c53ed57` + bounded SQLite helper registry delta přes stejný algoritmus jako `tests/artifact-validation.test.js`:
 počet skutečných `.js` souborů a počet znaků nového řádku v jejich bytech.
 Při další integraci se přeměří znovu.
 
 | | |
 |---|---:|
 | `src/**/*.js` | **234 011 ř.**, 681 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **265 388 ř.**, 599 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **265 904 ř.**, 600 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **593** (`495 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 108** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |
@@ -675,7 +675,7 @@ migrační záznamy `061/062/068`; jejich zachování při upgrade má samostatn
 evidenci a nemění kanonický počet `108`.
 
 Aktuální registry fingerprint referenčního zdroje je
-`bc1e55a9ca6f68b32a8e6ca1bbbdb9f55bbb724d667769a5bf3d9ef074a8085d`.
+`64e318d18e22968dc5ec48aac917c7c3c3f7f0bfc6a5f9435d373fcd72d592a9`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 Worker-soak absolvoval fyzický pětiminutový běh na `bf7dc31f`; nové druhé

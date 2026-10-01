@@ -1,12 +1,35 @@
 # WP — funkční SQLite aplikace vytvořená modelem CODE
 
-**Stav:** `IMPLEMENTED / CPU_ACCEPTANCE_PASS / REVIEW_PENDING / LIVE_NOT_RUN`.
+**Stav:** `SOURCE_REVIEW_PASS / ROOT_INTEGRATION_GATE_PENDING / LIVE_NOT_RUN`.
 **Autorita:** výslovný požadavek operátora dokončit a skutečně otestovat různé
 generované projekty; `PRODUCT.md` §2 závazek 7 a §3 práce nad projektem;
 `CONTRACT.md` §4, §6 a §10. Výchozí ověřený publikovaný zdroj je
 `3971d28a2ccce1368fd4cb2a4bcbf093c19106de` na samostatné větvi
 `work/project-sqlite-functional-20261001`. Dva přijaté fyzické průchody
 Ledgeru a TaskFlow měří malé paměťové aplikace, nikoli SQLite data.
+
+## Root integrace — 1. 10. 2026
+
+Nezávislé source review přijalo čistý autorský
+`ded751364cc8bbbb60223bf51925cebcf2330e15`: vlastní opakování **52/52 PASS**
+na `e7721e5a`, další pozitivní kontrola a všechny čtyři původní vadné moduly
+novým orákulem odmítnuté. Konečný `ded75136` mění jen WP; šest kódových
+blobů je přesně shodných s `e7721e5a`. Review SHA-256
+`7d430c3e741b25cb5b27467d6205c684fe0c1368554d5c188e6dec61fc83388f`,
+81členný manifest
+`ea19bbf91dd19a588297544f9a7289f10de991664f67e0901617461661e74419`.
+Původní `CHANGES_REQUIRED` i opravená chyba pomocné reviewer sondy zůstávají
+uchované. Jde o CPU/source přijetí, nikoli fyzickou modelovou generaci.
+
+Root přenesl celou WP-first řadu jako `f1424b71 → b12562f6 → 4c53ed57`
+na již přijatý M3 source `a3d6e61d`. Root vlastní jedinou novou helper
+výjimku v `tests/registry.json`, canonical projekci a přeměřený census
+`SYSTEM-MAP.md`; všech 593 suite descriptors a produktové stromy musí
+zůstat přesně shodné. Devítisadová registrovaná brána a mechanické
+nezávislé integrační review čekají na čistého kandidáta. Teprve po nich
+smí běžet explicitní scénář `sqlite-catalog` s přesným source/model/digest
+pinem, vlastní DB/projektem a serialized GPU lease. CHAT, produkční
+DB/nasazení a mobil jsou mimo tento milník.
 
 ## Uživatelský výsledek a pravdivá hranice
 
