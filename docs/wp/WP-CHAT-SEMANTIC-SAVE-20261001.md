@@ -19,7 +19,8 @@ z paralelního WP; bez této schopnosti se nesmí změnit na přepis.
 Vlastněné: `src/chat/handlers/file.js`, nový interní významový resolver,
 `src/chat/conversation-store.js`, callback v `src/chat/controller.js`,
 `src/chat/response-finalizer.js`, routing v `src/chat/cre-decision.js` a
-`src/chat/handlers/project.js`, jejich
+`src/chat/handlers/project.js`, významové instrukce read-only
+`src/chat/handlers/project-collaboration.js`, jejich
 testy a registrace. Zakázané: tool/effect/provider/schema (atomic WP),
 specialist/expertise/runtime (VAT WP), produkční data, mobil, cizí změny.
 
@@ -145,3 +146,26 @@ soubor `network.md` skončila zbytečným upřesněním a samostatná záporná
 zůstávají otevřené pro vývojový průchod. Soukromá evidence je
 `chat-resilience-ac35e27d/runs.json`; runner exit 0 dokládá pouze úplný
 transport. F14–F20 v tomto pilotu nebyly modelu předloženy.
+
+### Obecná interpretace dat, překlepů a záporného požadavku
+
+Fyzický vývojový pilot ukázal záměnu názvu lokálního souboru za síťovou
+operaci a odpověď na jasný zákaz zápisu jako na žádost doplnit cíl projektu.
+Trace potvrzuje druhou cestu přes běžnou modelovou klasifikaci do read-only
+project collaboration. Nedocházelo k zápisu, ale odpověď nebyla užitečná.
+
+Významové instrukce nyní rozlišují názvy/data od požadovaných operací a
+jasný překlep akčního slova od skutečné nejasnosti. Žádné konkrétní slovo,
+název souboru ani formulace se nepřidává do whitelistu. Původní target a
+literal bajty zůstávají beze změny a jádro stále ověřuje konkrétní plán.
+Read-only project collaboration odpovídá na aktuální žádost před otázkami
+na projekt; jasný zákaz pouze potvrdí a nevytvoří plán. Nedokončený scaffold
+sám není uživatelskou žádostí o práci. Regrese a nový fyzický vývojový
+pilot jsou **NOT_RUN**, změna **UNREVIEWED_HANDOFF**; předchozí živé chyby
+a finální **LIVE_NOT_RUN** zůstávají zachované.
+
+Operátor 1. 10. 2026 výslovně předal další CHAT jinému workerovi.
+Rozpracovaná delta ve třech souborech pouze uchovává návrh instrukcí; žádný
+test ani inference nad ní neproběhl a není integrována. Přijaté zdrojové
+opravy jsou již na integrační `45caf5b5`; tento oddělený handoff nesmí být
+považován za jejich přejímku nebo za ověření živé kvality.
