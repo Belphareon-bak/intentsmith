@@ -341,9 +341,9 @@ async function test2_ExistingProject() {
     console.log(`       Mode: ${data.mode}, Response: ${data.response.length} chars`);
   });
 
-  // ── 2.8 Summary write remains pending until exact M2 approval ──
+  // ── 2.8 A requested new summary cannot reuse the previous answer as payload ──
 
-  await check('2.8 Chat: summary write produces an approval-bound request', async () => {
+  await check('2.8 Chat: ungrounded summary write asks for a separate summary', async () => {
     const { status, data } = await chat(convId, projectId,
       'Shrň všechno co jsi zjistil — architekturu, bugy, regular fázi, její output a doporučení ' +
       'pro vylepšení. Výsledek dej do souboru project-analysis.md v projektu.'
@@ -354,14 +354,14 @@ async function test2_ExistingProject() {
       data.metadata?.decision?.intent === 'FILE_WRITE',
       `Expected FILE_WRITE, got ${data.metadata?.decision?.intent}`,
     );
-    assert(data.metadata?.approvalRequired === true, 'Write must await exact M2 approval');
-    assert(
-      /^tool:[a-f0-9]{64}$/.test(data.metadata?.toolRequestId || ''),
-      'Pending write must retain its durable ToolRequest identity',
-    );
+    assert(data.metadata?.approvalRequired === false, 'New summary has no grounded write payload');
+    assert(data.metadata?.error === 'file_write_content_not_grounded');
+    assert(!data.metadata?.toolRequestId && !data.metadata?.effectId,
+      'Ungrounded summary must not register a ToolRequest or M2 effect');
+    assert(/shrnutí/iu.test(data.response), 'The user needs a targeted summary-first explanation');
     assert(
       !await fs.stat(path.join(existingPath, 'project-analysis.md')).then(() => true, () => false),
-      'Unapproved write must not create project-analysis.md',
+      'Ungrounded summary must not create project-analysis.md',
     );
     console.log(`       Mode: ${data.mode}, Response: ${data.response.length} chars`);
   });

@@ -215,6 +215,29 @@ await testAsync('M1 literal file write preserves exact bytes; no-overwrite never
       `schválit efekt ${wordPending.response.metadata.effectId}`);
     assert.equal(wordApproved.response.metadata.effectResult, 'succeeded');
     assert.equal(readFileSync(path.join(projectPath, 'word.md'), 'utf8'), 'ahoj');
+    const summaryConversation = await conversation();
+    await send(summaryConversation, 'Ahoj, odpověz krátce.');
+    const beforeSummary = privateDb.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count;
+    const unsupportedSummary = await send(summaryConversation,
+      'Shrň všechno co jsi zjistil. Výsledek dej do souboru project-analysis.md v projektu.');
+    assert.equal(unsupportedSummary.response.metadata?.handler, 'file.write');
+    assert.equal(unsupportedSummary.response.metadata?.approvalRequired, false);
+    assert.equal(unsupportedSummary.response.metadata?.error, 'file_write_content_not_grounded');
+    assert.match(unsupportedSummary.response.content, /shrnutí|summary/iu);
+    assert.equal(privateDb.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count,
+      beforeSummary, 'a request for a new summary must not register a previous-answer write');
+    assert.equal(existsSync(path.join(projectPath, 'project-analysis.md')), false);
+    for (const [ungrounded, target] of [
+      ['Chci uložit text do unspecified.md.', 'unspecified.md'],
+      ['Vytvořit soubor created.md a uložit ho do created.md.', 'created.md'],
+    ]) {
+      const blocked = await send(summaryConversation, ungrounded);
+      assert.equal(blocked.response.metadata?.approvalRequired, false, ungrounded);
+      assert.equal(blocked.response.metadata?.error, 'file_write_command_ambiguous', ungrounded);
+      assert.equal(privateDb.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count,
+        beforeSummary, `unspecified content must not register an effect: ${ungrounded}`);
+      assert.equal(existsSync(path.join(projectPath, target)), false);
+    }
     const literalAfterPrior = await send(priorConversation,
       'Ulož text "Výslovný text" do literal-after-prior.md.');
     assert.equal(literalAfterPrior.response.metadata.approvalRequired, true);

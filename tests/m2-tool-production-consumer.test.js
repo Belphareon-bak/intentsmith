@@ -251,7 +251,7 @@ await testAsync('active file.read awaits exact approval and FILE_EXPLAIN rejects
   }
 });
 
-await testAsync('project path routing keeps writes on FILE_WRITE and root listing durable', async () => {
+await testAsync('project path routing proposes only grounded writes and keeps root listing durable', async () => {
   const directory = mkdtempSync(path.join(process.env.TMPDIR, 'm2-project-path-routing-'));
   const projectRoot = path.join(directory, 'project');
   mkdirSync(projectRoot, { recursive: true, mode: 0o700 });
@@ -264,6 +264,11 @@ await testAsync('project path routing keeps writes on FILE_WRITE and root listin
     'write this to result.txt',
     'Shrň všechno co jsi zjistil. Výsledek dej do souboru project-analysis.md v projektu.',
   ];
+  const ungroundedInputs = new Map([
+    [writeInputs[1], 'file_write_command_ambiguous'],
+    [writeInputs[2], 'file_write_command_ambiguous'],
+    [writeInputs[4], 'file_write_content_not_grounded'],
+  ]);
   let decideCalls = 0;
   try {
     for (const input of writeInputs) {
@@ -291,6 +296,8 @@ await testAsync('project path routing keeps writes on FILE_WRITE and root listin
 
     for (const [index, input] of writeInputs.entries()) {
       const target = extractFilePath(input);
+      const beforeRequests = db.prepare('SELECT count(*) AS count FROM tool_v1_requests').get().count;
+      const beforeEffects = db.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count;
       const response = await projectHandler(input, context({
         input,
         query: input,
@@ -307,6 +314,16 @@ await testAsync('project path routing keeps writes on FILE_WRITE and root listin
         hasActiveProject: true,
       }));
       assert.equal(response.tag.metadata.handler, 'file.write');
+      if (ungroundedInputs.has(input)) {
+        assert.equal(response.tag.metadata.approvalRequired, false, input);
+        assert.equal(response.tag.metadata.error, ungroundedInputs.get(input), input);
+        assert.equal(db.prepare('SELECT count(*) AS count FROM tool_v1_requests').get().count,
+          beforeRequests, 'ungrounded content must not register a ToolRequest');
+        assert.equal(db.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count,
+          beforeEffects, 'ungrounded content must not register an effect');
+        assert.equal(existsSync(path.join(projectRoot, target)), false);
+        continue;
+      }
       assert.equal(response.tag.metadata.approvalRequired, true);
       assert.match(response.tag.metadata.toolRequestId, /^tool:[a-f0-9]{64}$/);
       assert.equal(existsSync(path.join(projectRoot, target)), false);

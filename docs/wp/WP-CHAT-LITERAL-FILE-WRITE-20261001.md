@@ -55,6 +55,19 @@ nynější gramatika povoluje právě toto úplné rozšíření. Věrnost zdroj
 opakovaném uložení po potvrzovací zprávě řeší souběžný samostatný WP; zdejší
 test ověřuje směrování a cíl druhého návrhu, nikoli jeho obsah.
 
+Další kontrola větví s neznámým obsahem odhalila, že tři dříve povolené
+formulace stále mohly tiše zapsat starší odpověď: „Chci uložit text do ...“,
+„Vytvořit soubor ... a uložit ho do ...“ a požadavek „Shrň všechno ... Výsledek
+dej do souboru ...“. Poslední případ prošel na `25f61cce` přes skutečné M1
+HTTP s `approvalRequired=true`; červený důkaz je v ignorovaném
+`.intentsmith-artifacts/literal-write-summary-red-20261001.log`. Nynější
+gramatika tyto tři formulace odmítá před ToolRequest/M2. U shrnutí vrací
+konkrétní vysvětlení, že se nejprve musí vytvořit shrnutí v chatu a až poté
+uložit odpověď. Původní souhrnná výjimka „v projektu“ byla odstraněna.
+Produkční test směrování nyní kontroluje u těchto tří tvarů žádný ToolRequest
+ani efekt; očekávání živého `project-e2e` bylo upraveno, ale tento scénář
+nebyl spuštěn proti sdílené službě ani GPU.
+
 **Autorita:** explicitní zadání operátora dokončovat reálné chatové scénáře
 (2026-09-30 a 2026-10-01) a živě pozorovaný pilot-4: první zpráva
 `Ulož text "Ahoj" do new-notes.md.` i omezený zápis do `existing.md`
@@ -101,6 +114,9 @@ F06 překlep testuje přesný cíl, obsah a skutečné M2 schválení; další e
 věta za stejným překlepem musí skončit bez návrhu.
 Jednoslovný obsah bez uvozovek testuje přesný `ToolRequest` a skutečné bajty
 po schválení; navazující `Ulož ji i` kontroluje jen povolený úplný tvar a cíl.
+Skutečné M1 HTTP/SQLite ověřuje rovněž absenci návrhu a souboru pro nové
+shrnutí a oba další příkazy bez určeného obsahu; u shrnutí vyžaduje cílené
+vysvětlení.
 Původní červený HTTP test reprodukoval chybějící proposal; další běh odhalil
 tečku připojenou k názvu souboru u starší zkratky, kterou tento WP opravil.
 
@@ -129,8 +145,11 @@ Generovaný registr znovu validoval stejných 585 programů a fingerprint
 Po poslední opravě úplné gramatiky prošel přímý M1 HTTP/SQLite test **1/1**,
 M1 kontrakt **73/73**, produkční M2 consumer **22/22**, M2 souborový
 consumer **39/39**, extrakční helper **21/21** a CRE file-reference guard
-**9/9**. Tyto výsledky patří novému kandidátovi a dosud nemají nezávislý
-verdikt.
+**9/9**. Po zpřísnění tří neuzemněných formulací prošel M1 HTTP/SQLite
+znovu **1/1** a aktualizovaný produkční M2 consumer **22/22**;
+`project-e2e` prošel pouze syntaktickou kontrolou a jeho běh proti službě
+je **NOT_RUN**. Tyto výsledky patří novému kandidátovi a dosud nemají
+nezávislý verdikt.
 
 **Stop condition:** při nejednoznačném textu, cíli nebo negaci nevytvořit
 M2 proposal. Historii, stav registru `lastGreen` a produkční soubory neměnit.

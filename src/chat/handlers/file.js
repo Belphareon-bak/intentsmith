@@ -926,25 +926,6 @@ function parseCompleteNonliteralWrite(input) {
     `^zapi[šs]\\s+([\\p{L}\\p{N}_-]+)\\s+do\\s+${target}\\.?$`, 'iu'));
   if (directWord) return { filePath: directWord[2], content: directWord[1] };
 
-  const requestedText = text.match(new RegExp(
-    `^chci\\s+ulo[žz]it\\s+text\\s+do\\s+${target}\\.?$`, 'iu'));
-  if (requestedText) return { filePath: requestedText[1] };
-
-  const createAndSave = text.match(new RegExp(
-    `^vytvo[rř]it\\s+soubor\\s+${target}\\s+a\\s+ulo[žz]it\\s+ho\\s+do\\s+${target}\\.?$`, 'iu'));
-  if (createAndSave && createAndSave[1] === createAndSave[2]) {
-    return { filePath: createAndSave[1] };
-  }
-
-  // Established project-summary command from the production routing journey.
-  // Its optional scope is a fixed phrase; arbitrary intervening instructions
-  // remain unparsed and are rejected below.
-  const summary = text.match(new RegExp(
-    '^shr[ňn]\\s+všechno\\s+co\\s+jsi\\s+zjistil'
-    + '(?:\\s*[—-]\\s*architekturu,\\s*bugy,\\s*regular\\s+fázi,\\s*její\\s+output\\s+a\\s+doporučení\\s+pro\\s+vylepšení)?'
-    + `\\.\\s+výsledek\\s+dej\\s+do\\s+souboru\\s+${target}\\s+v\\s+projektu\\.?$`, 'iu'));
-  if (summary) return { filePath: summary[1] };
-
   return null;
 }
 
@@ -1018,6 +999,12 @@ export async function handleFileWriteDecision(input, decision, context, dependen
   // CRE may classify an unsafe compound instruction as FILE_WRITE.
   let completeCommand = null;
   if (!literalWrite) {
+    if (/^(?:shr[ňn]|summari[sz]e)\s/iu.test(input.trim())) {
+      return terminalWithoutEffect(lang === 'cs'
+        ? '⚠️ Tento požadavek žádá nové shrnutí, které zápis souboru sám nevytváří. Nejprve si vyžádej shrnutí v chatu a potom napiš „Ulož to do souboru“.'
+        : '⚠️ This request asks for a new summary, which file saving does not create. Ask for the summary in chat first, then save that answer to a file.',
+      'file_write_content_not_grounded', filePath);
+    }
     completeCommand = parseCompleteNonliteralWrite(input);
     if (!completeCommand || completeCommand.filePath !== filePath) {
       return terminalWithoutEffect(lang === 'cs'
