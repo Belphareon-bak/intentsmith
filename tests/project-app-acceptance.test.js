@@ -14,6 +14,7 @@ import { compileCodeDraftInput } from '../src/lifecycle/m2-code-draft.js';
 import { assessProviderGenerations, requireProviderVersion } from '../scripts/run-project-app-journey.js';
 import { REFERENCE_LEDGER_OUTPUTS as GOOD } from './helpers/project-app-reference.js';
 import { REFERENCE_TASKFLOW_OUTPUTS, taskflowMutant } from './helpers/project-taskflow-reference.js';
+import { REFERENCE_SQLITE_OUTPUTS, sqliteCatalogMutant } from './helpers/project-sqlite-catalog-reference.js';
 import {
   LEDGER_FILES, ORACLE_PATH, ORACLE_BINARY, ORACLE_ARGV, ORACLE_SOURCE, ORACLE_SHA256,
   PROBE_PATH, PROBE_SOURCE, PROBE_SHA256, VALIDATE_PATH, VALIDATE_SOURCE,
@@ -24,6 +25,9 @@ import { TASKFLOW_FILES, TASKFLOW_ORACLE_ARGV, TASKFLOW_ORACLE_SOURCE, TASKFLOW_
   TASKFLOW_PROBE_SOURCE, TASKFLOW_PROBE_SHA256, TASKFLOW_VALIDATE_SOURCE, TASKFLOW_VALIDATE_SHA256,
   taskflowBlueprint, TASKFLOW_COMMANDS, assertTaskFlowCLIResults,
 } from '../scripts/project-taskflow-acceptance.js';
+import { SQLITE_FILES, SQLITE_ORACLE_SOURCE, SQLITE_ORACLE_SHA256, SQLITE_ORACLE_ARGV,
+  SQLITE_ENTRY_SOURCE, SQLITE_ENTRY_SHA256, sqliteCatalogBlueprint,
+} from '../scripts/project-sqlite-catalog-acceptance.js';
 
 function project(outputs = GOOD, frozen = null) {
   const root = fs.mkdtempSync(path.join(isolatedTestRuntime.artifacts, 'app-oracle-'));
@@ -32,7 +36,7 @@ function project(outputs = GOOD, frozen = null) {
   fs.writeFileSync(path.join(root, 'package.json'), '{"private":true,"type":"module"}\n');
   for (const [relative, content] of Object.entries({ ...outputs, [ORACLE_PATH]: frozen?.oracle ?? ORACLE_SOURCE,
     [PROBE_PATH]: frozen?.probe ?? PROBE_SOURCE, [VALIDATE_PATH]: frozen?.validate ?? VALIDATE_SOURCE,
-    [ENTRY_PATH]: ENTRY_SOURCE })) {
+    [ENTRY_PATH]: frozen?.entry ?? ENTRY_SOURCE })) {
     fs.writeFileSync(path.join(root, relative), content);
   }
   return root;
@@ -163,6 +167,47 @@ test('TaskFlow behavior mutants fail trusted oracle in actual separate sandbox',
   }
 });
 
+test('SQLite catalog is a fixed seven-target compiler contract with pre-model frozen oracle', () => {
+  const blueprint = sqliteCatalogBlueprint();
+  assert.deepEqual(blueprint.files.map(file => file.path), SQLITE_FILES.map(file => file.path));
+  assert.deepEqual(blueprint.focusedTest.argv, SQLITE_ORACLE_ARGV);
+  assert.equal(blueprint.focusedTest.binary, ORACLE_BINARY);
+  assert.ok(blueprint.files.every(file => Buffer.byteLength(file.instruction) <= 512));
+  assert.ok(Buffer.byteLength(blueprint.instruction) <= 512);
+  assert.equal(sha256(SQLITE_ORACLE_SOURCE), SQLITE_ORACLE_SHA256);
+  assert.equal(sha256(SQLITE_ENTRY_SOURCE), SQLITE_ENTRY_SHA256);
+  assert.ok(!blueprint.files.some(file => [ORACLE_PATH, ENTRY_PATH].includes(file.path)));
+  const compiled = compileCodeDraftInput(blueprint);
+  assert.deepEqual(compiled.buildSteps.map(step => compiled.changes[step.index].path).sort(),
+    SQLITE_FILES.map(file => file.path).sort());
+  const runner = path.join(isolatedTestRuntime.repositoryRoot, 'scripts/run-project-app-journey.js');
+  const preflight = spawnSync(process.execPath, [runner, '--scenario', 'sqlite-catalog', '--preflight'],
+    { cwd: isolatedTestRuntime.repositoryRoot, encoding: 'utf8', timeout: 15_000 });
+  assert.equal(preflight.status, 0, preflight.stderr);
+  const receipt = JSON.parse(preflight.stdout);
+  assert.equal(receipt.status, 'LIVE_NOT_RUN');
+  assert.equal(receipt.scenarioId, 'sqlite-catalog');
+  assert.equal(receipt.source.oracleSha256, SQLITE_ORACLE_SHA256);
+});
+
+test('SQLite catalog reference passes trusted actual sandbox with fresh generated processes and direct DB reads', async () => {
+  const root = project(REFERENCE_SQLITE_OUTPUTS, { oracle: SQLITE_ORACLE_SOURCE, entry: SQLITE_ENTRY_SOURCE });
+  const result = await inSandbox(root, SQLITE_ORACLE_ARGV);
+  assert.equal(result.terminalStatus, 'succeeded', JSON.stringify(result));
+  assert.match(result.stdout, /SQLITE_CATALOG_ORACLE_PASS/);
+});
+
+test('SQLite catalog behavioral mutants fail trusted actual sandbox', async () => {
+  for (const defect of ['wrong-schema', 'masked-quantity-check', 'no-db', 'forged-stdout', 'early-exit',
+    'wrong-update', 'wrong-delete', 'wrong-search', 'alias-query-rows',
+    'invalid-mutation', 'coerce-id', 'nonpersistence']) {
+    const root = project(sqliteCatalogMutant(defect), { oracle: SQLITE_ORACLE_SOURCE, entry: SQLITE_ENTRY_SOURCE });
+    const result = await inSandbox(root, SQLITE_ORACLE_ARGV);
+    assert.equal(result.terminalStatus, 'failed', `${defect}: ${JSON.stringify(result)}`);
+    assert.doesNotMatch(result.stdout, /SQLITE_CATALOG_ORACLE_PASS/, defect);
+  }
+});
+
 test('TaskFlow provider proof binds each generation to its canonical compiler target', () => {
   const compiled = compileCodeDraftInput(taskflowBlueprint());
   const paths = compiled.buildSteps.map(step => compiled.changes[step.index].path);
@@ -192,9 +237,39 @@ test('TaskFlow provider proof binds each generation to its canonical compiler ta
     ['src/cli.js', 'src/app.js']);
 });
 
-test('provider proof rejects missing or invalid expected and terminal versions for both fixed apps', () => {
+test('SQLite catalog provider proof binds seven compiler targets to preview bytes', () => {
+  const compiled = compileCodeDraftInput(sqliteCatalogBlueprint());
+  const paths = compiled.buildSteps.map(step => compiled.changes[step.index].path);
+  assert.deepEqual(paths, ['src/query.js', 'src/schema.js', 'src/store.js',
+    'src/validate.js', 'src/service.js', 'src/cli.js', 'src/app.js']);
+  const model = 'qualification-model', digest = 'a'.repeat(64), version = '0.34.0';
+  const requests = paths.map((target, index) => ({
+    path: '/api/chat', method: 'POST', model, status: 200, responseTruncated: false,
+    requestSha256: sha256(`sqlite-request-${index}`), terminal: {
+      done: true, done_reason: 'stop', model, model_digest_sha256: digest,
+      provider_version: version, message: { content: JSON.stringify({ afterContent: REFERENCE_SQLITE_OUTPUTS[target] }) },
+    },
+  }));
+  const previewHashes = paths.map(target => ({ path: target, sha256: sha256(REFERENCE_SQLITE_OUTPUTS[target]) }));
+  const pins = { model, digest, version, previewHashes, scenarioId: 'sqlite-catalog' };
+  const good = assessProviderGenerations(requests, pins);
+  assert.equal(good.valid, true, JSON.stringify(good.failures));
+  assert.equal(good.expected, 7);
+  assert.ok(good.perFile.every(row => row.outputPreviewMatch));
+  const swapped = previewHashes.map(row => ({ ...row }));
+  const cli = swapped.find(row => row.path === 'src/cli.js');
+  const app = swapped.find(row => row.path === 'src/app.js');
+  [cli.sha256, app.sha256] = [app.sha256, cli.sha256];
+  const wrong = assessProviderGenerations(requests, { ...pins, previewHashes: swapped });
+  assert.equal(wrong.valid, false);
+  assert.deepEqual(wrong.perFile.filter(row => !row.outputPreviewMatch).map(row => row.targetPath),
+    ['src/cli.js', 'src/app.js']);
+});
+
+test('provider proof rejects missing or invalid expected and terminal versions for all fixed apps', () => {
   for (const [scenarioId, blueprint, outputs] of [
     ['ledger', ledgerBlueprint, GOOD], ['taskflow', taskflowBlueprint, REFERENCE_TASKFLOW_OUTPUTS],
+    ['sqlite-catalog', sqliteCatalogBlueprint, REFERENCE_SQLITE_OUTPUTS],
   ]) {
     const compiled = compileCodeDraftInput(blueprint());
     const paths = compiled.buildSteps.map(step => compiled.changes[step.index].path);

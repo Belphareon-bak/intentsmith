@@ -1,6 +1,6 @@
 # WP — funkční SQLite aplikace vytvořená modelem CODE
 
-**Stav:** `WP_ONLY / IMPLEMENTATION_NOT_RUN / REVIEW_PENDING / LIVE_NOT_RUN`.
+**Stav:** `IMPLEMENTED / CPU_ACCEPTANCE_PASS / REVIEW_PENDING / LIVE_NOT_RUN`.
 **Autorita:** výslovný požadavek operátora dokončit a skutečně otestovat různé
 generované projekty; `PRODUCT.md` §2 závazek 7 a §3 práce nad projektem;
 `CONTRACT.md` §4, §6 a §10. Výchozí ověřený publikovaný zdroj je
@@ -10,7 +10,7 @@ Ledgeru a TaskFlow měří malé paměťové aplikace, nikoli SQLite data.
 
 ## Uživatelský výsledek a pravdivá hranice
 
-CODE vytvoří sedm či osm malých modulů katalogu knih v novém izolovaném Git
+CODE vytvoří přesně sedm malých modulů katalogu knih v novém izolovaném Git
 projektu. Operátorem předem zmrazený test musí před M2 commitem ověřit skutečný
 obsah SQLite souboru, správné čtení po ukončení a novém spuštění aplikačního
 procesu, CRUD, přesné řazení, vyhledávání, validaci a nezměněnou DB po chybě.
@@ -50,7 +50,7 @@ ledger CLI, TaskFlow, M2 runtime a provider relay jsou invarianty.
 
 `newProjectPolicy('general')` výchozí `node:sqlite` nepovoluje. Nový scénář
 přidá přesný import do **své** lokální seřazené `externalImports`, spolu s
-`node:child_process` pro frozen test, zkontroluje hash a provede Git commit
+`node:child_process` a `node:vm` pro frozen test, zkontroluje hash a provede Git commit
 politiky a testu **před prvním modelem**. Po schválení běží stejné frozen
 orákulum na nové privátní DB a znovu po backend restartu. Každé spuštění
 nezávisle zkontroluje vnitřní restart aplikace; M2 authority DB má samostatnou
@@ -60,15 +60,18 @@ libovolný vstup pro cesty/commandy/testy.
 ## Pozitivní, negativní a stop podmínky
 
 1. Před implementací zmrazit veřejný kontrakt `run(dbPath, commands)`, názvy
-   exportů, pevný graf importů a sedm/osm instrukcí do 512 B každá. Ceny jsou
+   exportů, pevný graf importů a sedm instrukcí do 512 B každá. Ceny jsou
    celé haléře, množství nezáporné celé číslo, SKU/název řetězce bez převodu.
-   `add/get/list/search/update/delete` vrací přesné JSON výsledky. Neplatný
-   příkaz či argument končí nenulově a nemění vlastní DB stav.
-2. Důvěryhodný oracle generované moduly nikdy nenačte do svého procesu ani
-   VM. Po každém spuštěném dítěti nezávisle znovu otevře SQLite, ověří
-   skutečné schéma, constrainty a řádky z náhodné výzvy, včetně persistence
-   přes nové dítě. Zkontroluje úplný JSON a status, takže falešný výstup či
-   předčasný `exit 0` nestačí.
+   `add/get/list/search/update/delete` vrací přesné JSON výsledky. Celé
+   `run(commands)` je atomické: neplatný příkaz v libovolném místě dávky
+   končí nenulově a DB zůstane ve stavu před dávkou.
+2. Důvěryhodný oracle nenačte nativní SQLite ani generated `store/service/cli/app`
+   do svého procesu či VM. Čisté listové moduly `query` a `validate` bez importů
+   zkontroluje odděleně v restriktivním VM kontextu s objekty vytvořenými
+   v tomtéž realm, bez host objektů či funkcí. Po každém spuštěném dítěti
+   nezávisle znovu otevře SQLite, ověří skutečné schéma, constrainty a řádky
+   z náhodné výzvy, včetně persistence přes nové dítě. Zkontroluje úplný JSON
+   a status, takže falešný výstup či předčasný `exit 0` nestačí.
 3. Referenční implementace projde skutečný M2 draft→preview→approval→
    focusedTest→Git→restart. Vadné schéma, chybějící DB, falešný stdout,
    předčasný exit, chybné update/delete/search, mutace při invalidním vstupu
@@ -83,3 +86,67 @@ libovolný vstup pro cesty/commandy/testy.
 **Stop:** nelze-li splnit skutečné DB assertions v kanonickém sandboxu bez
 rozšíření produktové pravomoci, nevydávat SQLite PASS; zachovat chybu a
 navrhnout samostatný izolovaný runtime WP.
+
+## Implementační důkazy a stav převzetí
+
+Kanonický compiler vytvořil přesné pořadí `query → schema → store → validate →
+service → cli → app`; veřejný celkový pokyn má 430 B a nejdelší pokyn k
+souboru 507 B. Zamrzlé testovací bajty a `src/index.mjs` jsou vytvořeny
+operátorem před modelem. Projektová politika přidává jen `node:sqlite`,
+`node:child_process` a `node:vm`; původní dva projekty a jejich frozen bajty
+se nemění.
+
+Na Node `v24.21.0` prošla reference v reálném `linux-bwrap-ro-v2`. Důvěryhodný
+rodič otevřel SQLite přímo po ukončení jednotlivých aplikací, kontroloval
+skutečné řádky, schéma, `UNIQUE`, všechny čtyři `NOT NULL`, obě `CHECK`,
+neopakování ID po smazání, doslovné SQL metaznaky, Unicode, změny i odmítnutí
+neplatných hodnot bez další změny řádků. Stejně kontroluje rollback celé dávky
+po předchozím platném `add`, následovaném neznámým příkazem, duplicitním SKU,
+chybnou aritou nebo příkazem jiného typu než tuple. Constraint probe používá
+pro každý sloupec nejdříve platný INSERT se stejným kladným ID, SKU a ostatními
+hodnotami, rollback savepointu, a pak mění pouze testovaný sloupec. Vyžaduje
+odpovídající typ chyby SQLite (`UNIQUE`, `CHECK`, konkrétní `NOT NULL` sloupec)
+bez závislosti na zápisu výrazu `CHECK`. Závěrečný text z dítěte není oracle.
+
+Pouze `query.js` a `validate.js` se načítají přes `vm.SourceTextModule`: importy
+a dynamické importy se odmítají, `strings/wasm` codegen je vypnutý, nedostanou
+žádné host objekty ani funkce. Oracle přímo sleduje nové plain records,
+nezměněný vstup, nezávislé výsledky po mutaci prvního, odmítnutí řetězcového,
+nebezpečně velkého a nekladného ID i ne-plain patchů. VM není novou OS
+bezpečnostní atestací; tou zůstává kanonický `linux-bwrap-ro-v2`.
+
+Skutečné M2 `draft → preview → přesné schválení → focusedTest → effect → Git`
+commitlo referenci a v dvanácti vadných variantách odmítlo commit, vrátilo
+`PROJECT_CHANGE_TEST_FAILED`, dokončilo rollback a odstranilo všech sedm
+cílů. V každém případě nový proces otevřel authority SQLite **read-only** a
+ověřil přesný trvalý terminál i existenci/bajty souborů. Vadné varianty:
+schéma, maskovaný chybějící `CHECK(quantity)`, chybějící tabulka, falešný
+stdout, předčasný exit, update, delete, search, aliasované query výsledky,
+chybný commit při neplatné dávce, koerce ID a nepersistující `:memory:` DB.
+Jednotlivé chyby se ověřují na jejich specifickém stderr, nikoli pouze na
+obecném nenulovém exitu.
+
+První úzký M2 běh měl `9/10 PASS`: testovací fixture chybně aplikovala starou
+ledger mutaci `early-exit` i na SQLite scénář a spadla před draftem. Oprava
+oddělila větve fixture; následující úzký M2 běh `10/10 PASS`. Mezikrok
+společných sad měl `48/48 PASS`, pozdější mezikrok `49/49 PASS` před
+nezávislými adversarial nálezy. Konečný společný Node `v24.21.0` běh po
+atomické dávce, čistém VM a constraint opravě má `52/52 PASS`, `0 FAIL`,
+exit `0`; soukromý ignorovaný log
+`.intentsmith-artifacts/sqlite-catalog-final-cpu-20261001-v2/two-app-suites.log`
+má SHA-256 `38d167348062349fefaadb8a6177d1b268b1afbbc0b46737b16b29017673452c`.
+Tyto CPU výsledky nejsou nezávislým review ani fyzickou generací modelem.
+
+První soukromý design snapshot
+`.intentsmith-artifacts/sqlite-catalog-design-20261001-v1/` má historické
+`CHANGES_REQUIRED`: veřejný pokyn sliboval atomickou dávku, zatímco reference
+prováděla `commands.map` bez transakce a oracle zkoušel jen samostatné neplatné
+příkazy. Reviewer dále prokázal, že oracle přijal koerci řetězcového ID,
+aliasované query objekty a schéma s maskujícím `CHECK(id>0)` bez požadovaného
+`CHECK(quantity>=0)`. Následná verze výslovně vyžaduje `BEGIN/COMMIT/ROLLBACK`
+přes `store → service → cli`, na skutečné SQLite ověřuje čtyři vadné dávky,
+měří čisté leaf API v uzavřeném VM a změnila mutant `invalid-mutation` tak,
+aby skutečně porušoval pozorovaný výsledek (chybný commit při výjimce).
+Constraint challenge nyní mění vždy právě jeden sloupec po platné kontrole.
+Historický snapshot není přijatým oraclem; finální kontrola patří přesnému
+implementačnímu commitu a jeho nezávislému review.
