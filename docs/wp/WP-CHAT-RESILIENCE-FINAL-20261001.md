@@ -5,7 +5,8 @@ chatové chování na více projektech, kontextu, specialistech a workerech. Ten
 WP pokrývá jen navazující 53případovou sadu z historického
 `work/intent-resilience-20260928`; ostatní produktové cesty mají vlastní WP.
 Vstup: čistý integrační `76274bb6`. Vlastněné cesty:
-`scripts/measure-m1-l3.js`, `tests/fixtures/chat-resilience-final.json`,
+`scripts/measure-m1-l3.js`, `scripts/chat-resilience-transport.js`,
+`tests/fixtures/chat-resilience-final.json`,
 `tests/chat-resilience-runner-contract.test.js`, příslušný řádek
 `tests/registry.json` a tento dokument.
 
@@ -65,7 +66,11 @@ Před finální sérií musí být vyřešené nálezy pilotu a znovu zmražený
 `CHAT_PROBE_CASES`; finální režim vyžaduje A/B a kontroluje návaznost SHA i
 effective configuration. Při dirty source, Node ABI chybě, obsazené GPU,
 odlišném modelovém digestu, konfiguraci, neúplném HTTP/provider záznamu nebo
-neočekávaném efektu je běh `BLOCKED`/`LIVE_INCOMPLETE`, ne PASS.
+neočekávaném efektu je běh `BLOCKED`/`LIVE_INCOMPLETE`, ne PASS. Do úplnosti se
+počítá **každý** zachycený `/api/chat` a `/api/generate` request: HTTP chyba,
+chybějící terminál ani neplatná identita modelu se nesmí ztratit za pozdějším
+úspěšným voláním. `initial-exit.json` ukládá počet všech inference requestů a
+počet neplatných.
 
 ## První skutečný pilot, 1. 10. 2026
 

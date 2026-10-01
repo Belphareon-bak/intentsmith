@@ -16,6 +16,7 @@ import { spawn, execFileSync } from 'node:child_process';
 import { randomUUID, randomBytes, createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
+import { assessChatResilienceTransport } from './chat-resilience-transport.js';
 
 const BASE = (process.env.INTENTSMITH_URL ?? process.env['C3_URL']);
 const ISOLATED_CHAT = process.argv.includes('--isolated-chat');
@@ -416,24 +417,14 @@ if(process.argv.includes('--inside')) {
   let recorded=[];
   try { recorded=JSON.parse(fs.readFileSync(path.join(out,'initial-results.json'),'utf8')); } catch {}
   const selected=corpus.filter(c=>!requestedCases||requestedCases.includes(c.id));
-  const inferenceWire=wire.filter(call=>['/api/chat','/api/generate'].includes(call.path) && call.status===200);
-  const exactWire=inferenceWire.every(call=>{
-   const terminal=call.response||call.responseLines?.at(-1);
-   return terminal?.done===true && terminal.model===model
-     && (terminal.digest||terminal.model_digest_sha256)===modelDigest;
-  });
   let postflightDigest=null;
   try { postflightDigest=(await (await fetch('http://127.0.0.1:11434/api/tags')).json()).models
    ?.find(entry=>entry.name===model)?.digest; } catch {}
-  const transportComplete=exit.code===0 && inferenceWire.length>0 && recorded.length===selected.length
-    && new Set(recorded.map(row=>row.case?.id)).size===selected.length
-    && exactWire && postflightDigest===modelDigest
-    && selected.every(c=>recorded.some(row=>row.case?.id===c.id && row.B?.status===200
-      && row.B?.result?.status==='ok'
-      && typeof row.B?.result?.response?.content==='string'
-      && (!isFinal || row.A?.status===200 && typeof row.A?.result?.message?.content==='string'
-        && inferenceWire.some(call=>call.caseId===c.id && call.path==='/api/chat'))));
-  save('initial-exit.json',{...exit,transportComplete,exactWire,postflightDigest,
+  const {inferenceWire,exactWire,invalidInferenceCallCount,transportComplete}
+   =assessChatResilienceTransport({
+   wire,recorded,selected,exit,isFinal,postflightDigest,model,modelDigest});
+  save('initial-exit.json',{...exit,transportComplete,exactWire,
+   inferenceCallCount:inferenceWire.length,invalidInferenceCallCount,postflightDigest,
    expectedCases:selected.length,recordedCases:recorded.length,at:new Date().toISOString()});
   console.log('pilot exit',JSON.stringify({...exit,transportComplete}),tail);
   process.exitCode=transportComplete?0:1;
