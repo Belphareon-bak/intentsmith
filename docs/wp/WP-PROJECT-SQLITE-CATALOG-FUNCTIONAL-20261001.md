@@ -152,3 +152,39 @@ aby skutečně porušoval pozorovaný výsledek (chybný commit při výjimce).
 Constraint challenge nyní mění vždy právě jeden sloupec po platné kontrole.
 Historický snapshot není přijatým oraclem; finální kontrola patří přesnému
 implementačnímu commitu a jeho nezávislému review.
+
+## Fyzický start SQLite: závada hranice JSON — 1. 10. 2026
+
+První explicitní živý pokus na čistém integračním zdroji `3863549f` skončil
+**FAIL před jakoukoli inferencí**: zaznamenal `0/7` generací a nedošel ani k
+vytvoření projektového runtime. Přesný soukromý záznam root je
+`.intentsmith-artifacts/sqlite-catalog-physical-3863549f-20261001-1400/result.json`.
+Rodič předal konfiguraci přes `JSON.stringify`, který odstranil dvě
+nepřítomné volitelné hodnoty `probeSha256` a `validatorProbeSha256`.
+`sourceObservation(sqlite-catalog)` je ale vytvořila s hodnotou `undefined`,
+takže první `assert.deepEqual` v `runInside` skončil chybou. Ledger a TaskFlow
+mají oba hashe přítomné a jejich přesné hodnoty se nesmí změnit.
+
+Následná úzká oprava má vytvořit JSON stabilní pozorování zdroje: volitelný
+hash v objektu existuje jen tehdy, když má definovanou hodnotu. Stejný
+produkční `runInside` počáteční guard ověří child proces s konfigurací
+procházející skutečným JSON souborem; CPU test před síťovým namespace a před
+alokací runtime ověří kladné všechny tři scénáře a odmítnutí pozměněného
+hashu. Zmrazené orákulum, sedm veřejných instrukcí, projektová politika,
+produktové moduly a GPU/provider kód zůstávají byte-identické. Tento pokus
+zůstává historickým **FAIL**; oprava sama není náhradou nového živého běhu.
+
+Red-first CPU test volal stejný počáteční guard `runInside` ve skutečném
+samostatném procesu s konfigurací z JSON souboru a zastavil se před `ip`, DB
+i modelem. Ledger/TaskFlow prošly; SQLite selhal přesně na dvou `undefined`
+polích. Po opravě má cílený test `1/1 PASS` pro tři scénáře a pro každý odmítá
+podvržený `probeSha256` i `validatorProbeSha256`. Společné dvě aplikační sady
+na zmrazeném Node `v24.21.0` mají `53/53 PASS`, exit `0`; ignorovaný log
+`.intentsmith-artifacts/sqlite-source-boundary-fix-20261001/two-app-suites-node24-final.log`
+má SHA-256 `0bf71b5014e8449389ab5ceb8eee16aaba8fcd011132ef23facdef202ae549fe`.
+Předchozí první pokus o společné sady spustil systémový Node `v22.21.1`
+(ABI 127) proti `better-sqlite3` pro ABI 137 a skončil `20 PASS / 33 FAIL` s
+`ERR_DLOPEN_FAILED`; raw log SHA-256
+`84a76e0cf08970521add904dab621c64d2d98114b4e4544bad467ec401c0e393`
+je zachován ve stejném soukromém adresáři. Nešlo o selhání aplikace, ale
+platné společné CPU přijetí dokládá teprve explicitní Node 24 běh.

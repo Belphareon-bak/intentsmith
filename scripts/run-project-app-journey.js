@@ -90,8 +90,9 @@ function git(cwd, args) {
 function sourceObservation(scenario = SCENARIOS.ledger) {
   const expectedPaths = scenario.files.map(file => file.path).sort();
   return { head: git(SOURCE_ROOT, ['rev-parse', 'HEAD']), dirty: git(SOURCE_ROOT, ['status', '--porcelain=v1']),
-    oracleSha256: scenario.oracleSha256, oracleBinary: ORACLE_BINARY, probeSha256: scenario.probeSha256,
-    validatorProbeSha256: scenario.validateSha256,
+    oracleSha256: scenario.oracleSha256, oracleBinary: ORACLE_BINARY,
+    ...(scenario.probeSha256 === undefined ? {} : { probeSha256: scenario.probeSha256 }),
+    ...(scenario.validateSha256 === undefined ? {} : { validatorProbeSha256: scenario.validateSha256 }),
     entrySha256: scenario.entrySha256 ?? ENTRY_SHA256, generatedPaths: expectedPaths };
 }
 
@@ -347,12 +348,17 @@ export function createProviderProxy({ model, requests, onModelCall, upstreamPort
   });
 }
 
-async function runInside(configurationPath) {
+async function runInside(configurationPath, { sourceCheckOnly = false } = {}) {
   const cfg = JSON.parse(fs.readFileSync(configurationPath, 'utf8'));
   const out = path.dirname(configurationPath);
   const scenario = scenarioFor(cfg.scenarioId);
   const expectedPaths = scenario.files.map(file => file.path).sort();
-  assert.deepEqual(sourceObservation(scenario), cfg.source, 'exact clean source and frozen oracle after namespace entry');
+  const observedSource = sourceObservation(scenario);
+  assert.deepEqual(observedSource, cfg.source, 'exact clean source and frozen oracle after namespace entry');
+  if (sourceCheckOnly) {
+    console.log(JSON.stringify({ status: 'SOURCE_CHECK_PASS', scenarioId: scenario.id, source: observedSource }));
+    return;
+  }
   execFileSync('/usr/sbin/ip', ['link', 'set', 'lo', 'up']);
   const interfaces = JSON.parse(execFileSync('/usr/sbin/ip', ['-j', 'address'], { encoding: 'utf8' }));
   assert.deepEqual(interfaces.map(item => item.ifname), ['lo'], 'namespace has loopback only');
@@ -635,8 +641,8 @@ async function runParent(options) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === SELF) {
   try {
-    if (process.argv[2] === '--inside' && process.argv.length === 4) {
-      await runInside(process.argv[3]);
+    if (['--inside', '--inside-source-check'].includes(process.argv[2]) && process.argv.length === 4) {
+      await runInside(process.argv[3], { sourceCheckOnly: process.argv[2] === '--inside-source-check' });
     } else {
       const options = parseOptions(process.argv.slice(2));
       if (options.mode === 'preflight') {

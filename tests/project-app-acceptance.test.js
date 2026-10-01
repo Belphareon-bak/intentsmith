@@ -94,6 +94,45 @@ test('manual runner defaults to no-inference preflight and requires all live pin
   assert.match(incomplete.stderr, /Usage: --live/);
 });
 
+test('actual inside source guard accepts JSON transport for three fixed scenarios and rejects changed hashes', () => {
+  const runner = path.join(isolatedTestRuntime.repositoryRoot, 'scripts/run-project-app-journey.js');
+  for (const scenarioId of ['ledger', 'taskflow', 'sqlite-catalog']) {
+    const argv = scenarioId === 'ledger' ? ['--preflight'] : ['--scenario', scenarioId, '--preflight'];
+    const preflight = spawnSync(process.execPath, [runner, ...argv], {
+      cwd: isolatedTestRuntime.repositoryRoot, encoding: 'utf8', timeout: 15_000,
+    });
+    assert.equal(preflight.status, 0, `${scenarioId}: ${preflight.stderr}`);
+    const { source } = JSON.parse(preflight.stdout);
+    assert.equal(Object.hasOwn(source, 'probeSha256'), scenarioId !== 'sqlite-catalog');
+    assert.equal(Object.hasOwn(source, 'validatorProbeSha256'), scenarioId !== 'sqlite-catalog');
+    if (scenarioId === 'ledger') {
+      assert.equal(source.probeSha256, PROBE_SHA256);
+      assert.equal(source.validatorProbeSha256, VALIDATE_SHA256);
+    } else if (scenarioId === 'taskflow') {
+      assert.equal(source.probeSha256, TASKFLOW_PROBE_SHA256);
+      assert.equal(source.validatorProbeSha256, TASKFLOW_VALIDATE_SHA256);
+    }
+    const root = fs.mkdtempSync(path.join(isolatedTestRuntime.artifacts, 'app-source-guard-'));
+    const config = path.join(root, 'inside-configuration.json');
+    const check = candidate => {
+      fs.writeFileSync(config, JSON.stringify({ scenarioId, source: candidate }) + '\n');
+      return spawnSync(process.execPath, [runner, '--inside-source-check', config], {
+        cwd: isolatedTestRuntime.repositoryRoot, encoding: 'utf8', timeout: 15_000,
+      });
+    };
+    const accepted = check(source);
+    assert.equal(accepted.status, 0, `${scenarioId}: ${accepted.stderr}`);
+    assert.deepEqual(JSON.parse(accepted.stdout), { status: 'SOURCE_CHECK_PASS', scenarioId, source });
+    for (const field of ['probeSha256', 'validatorProbeSha256']) {
+      const rejected = check({ ...source, [field]: '0'.repeat(64) });
+      assert.equal(rejected.status, 1, `${scenarioId}: changed ${field} must fail closed`);
+      assert.match(rejected.stderr, /exact clean source and frozen oracle after namespace entry/);
+    }
+    assert.deepEqual(fs.readdirSync(root), ['inside-configuration.json'],
+      'source guard must finish before any runtime or DB allocation');
+  }
+});
+
 test('real separate sandbox process accepts correct six-file app and CLI output', async () => {
   const root = project();
   const oracle = await inSandbox(root, ORACLE_ARGV);
