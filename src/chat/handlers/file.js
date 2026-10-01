@@ -908,12 +908,52 @@ function hasNoOverwriteConstraint(text) {
     || newFileOnly.test(text) || leaveExisting.test(text);
 }
 
+// This parser authorizes only complete, unconditional nonliteral write
+// commands. CRE's FILE_WRITE decision supplies a candidate intent and target,
+// not authority to discard words before or after the command. In particular,
+// a negative/create-only clause before "ulož to" must never become fs.write.
+function parseCompleteNonliteralWrite(input) {
+  const text = typeof input === 'string' ? input.trim() : '';
+  const target = '([\\w./-]+\\.\\w{1,10})';
+  const simple = new RegExp(
+    `^(?:ulo[žz]|uloz|zapi[šs]|napi[šs]|dej|vlo[žz]|save|write)\\s+`
+    + `(?:to|ho|ji|je|odpověď|odpoved|it|this|that)\\s+`
+    + `(?:do|to|into|jako)\\s+(?:souboru?\\s+|file\\s+)?${target}\\.?$`, 'iu');
+  const simpleMatch = text.match(simple);
+  if (simpleMatch) return { filePath: simpleMatch[1] };
+
+  const directWord = text.match(new RegExp(
+    `^(?:zapi[šs]|write)\\s+[\\p{L}\\p{N}_-]+\\s+(?:do|to|into)\\s+${target}\\.?$`, 'iu'));
+  if (directWord) return { filePath: directWord[1] };
+
+  const requestedText = text.match(new RegExp(
+    `^chci\\s+ulo[žz]it\\s+text\\s+do\\s+${target}\\.?$`, 'iu'));
+  if (requestedText) return { filePath: requestedText[1] };
+
+  const createAndSave = text.match(new RegExp(
+    `^vytvo[rř]it\\s+soubor\\s+${target}\\s+a\\s+ulo[žz]it\\s+ho\\s+do\\s+${target}\\.?$`, 'iu'));
+  if (createAndSave && createAndSave[1] === createAndSave[2]) {
+    return { filePath: createAndSave[1] };
+  }
+
+  // Established project-summary command from the production routing journey.
+  // Its optional scope is a fixed phrase; arbitrary intervening instructions
+  // remain unparsed and are rejected below.
+  const summary = text.match(new RegExp(
+    '^shr[ňn]\\s+všechno\\s+co\\s+jsi\\s+zjistil'
+    + '(?:\\s*[—-]\\s*architekturu,\\s*bugy,\\s*regular\\s+fázi,\\s*její\\s+output\\s+a\\s+doporučení\\s+pro\\s+vylepšení)?'
+    + `\\.\\s+výsledek\\s+dej\\s+do\\s+souboru\\s+${target}\\s+v\\s+projektu\\.?$`, 'iu'));
+  if (summary) return { filePath: summary[1] };
+
+  return null;
+}
+
 // ─── v70: FILE_WRITE handler ──────────────────────────────────────────────────
 
 /**
  * Handle FILE_WRITE decision — saves previous assistant output to a file.
- * v131: Falls back to extracting content from user's own message when
- * no prior assistant response exists (compound intent: content + save command).
+ * Unquoted commands use the previous assistant response. New content must be
+ * quoted in the current command so its exact bytes and instructions are clear.
  * M2: registers an effect and returns an exact approval instruction. The
  * separate approval intercept owns execution through the canonical broker.
  */
@@ -973,30 +1013,16 @@ export async function handleFileWriteDecision(input, decision, context, dependen
     const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     filePath = `output-${ts}.md`;
   }
-  // A normal file.write proposal has no conditional-write contract. For
-  // nonliteral requests, consume the entire suffix after an explicit target;
-  // an unrecognized extra clause cannot be silently discarded at approval.
+  // A normal file.write proposal has no conditional-write contract. Require
+  // every word of a nonliteral command to fit a supported unconditional form;
+  // CRE may classify an unsafe compound instruction as FILE_WRITE.
   if (!literalWrite) {
-    const targetIndex = input.toLowerCase().indexOf(filePath.toLowerCase());
-    if (targetIndex >= 0) {
-      const prefix = input.slice(0, targetIndex);
-      const unknownCondition = /(?:^|[\s,;])(?:jen|pouze|výhradně|pokud|když|jestli|bez|only|if|unless|without)(?=[\s,;]|$)|za\s+podmínky|nov[ýy]\s+soubor|new\s+file/iu.test(prefix);
-      if (unknownCondition) {
-        return terminalWithoutEffect(lang === 'cs'
-          ? `⚠️ Podmínka před ${literal(filePath)} není pro tento zápis jednoznačná. Upřesni, zda smím případný existující soubor přepsat.`
-          : `⚠️ The condition before ${literal(filePath)} is ambiguous for this write. Clarify whether an existing file may be overwritten.`,
-        'file_write_condition_ambiguous', filePath);
-      }
-      const suffix = input.slice(targetIndex + filePath.length).trim();
-      const redundantSameTargetSave = suffix.replace(/[.]$/u, '').trim().toLowerCase()
-        === `a uložit ho do ${filePath.toLowerCase()}`;
-      const currentProjectOnly = /^v projektu\.?$/iu.test(suffix);
-      if (suffix && suffix !== '.' && !redundantSameTargetSave && !currentProjectOnly) {
-        return terminalWithoutEffect(lang === 'cs'
-          ? `⚠️ Dodatku za ${literal(filePath)} nerozumím jednoznačně. Upřesni požadovaný zápis a případné podmínky.`
-          : `⚠️ The clause after ${literal(filePath)} is ambiguous. Clarify the write and any conditions.`,
-        'file_write_suffix_ambiguous', filePath);
-      }
+    const completeCommand = parseCompleteNonliteralWrite(input);
+    if (!completeCommand || completeCommand.filePath !== filePath) {
+      return terminalWithoutEffect(lang === 'cs'
+        ? `⚠️ Příkaz k zápisu do ${literal(filePath)} obsahuje nejasná slova nebo odlišný cíl. Uveď jednoznačný příkaz a výslovně rozhodni, zda lze soubor přepsat.`
+        : `⚠️ The write command for ${literal(filePath)} contains unparsed words or a different target. Give one clear command and explicitly say whether the file may be overwritten.`,
+      'file_write_command_ambiguous', filePath);
     }
   }
 
@@ -1016,21 +1042,6 @@ export async function handleFileWriteDecision(input, decision, context, dependen
         content = resp;
         break;
       }
-    }
-  }
-
-  // v131: Fallback — extract content from user's own message when no assistant
-  // response exists. Handles compound intent: content + save command in one message.
-  // E.g.: "mam novy update pro aplikaci, schopna ovladat desktop, zapis to do planu"
-  // → content = "mam novy update pro aplikaci, schopna ovladat desktop"
-  if (!literalWrite && !content && input) {
-    const extracted = _extractUserContent(input);
-    if (extracted) {
-      content = extracted;
-      logger.info('HandleFileWrite', 'Content extracted from user input (no prior assistant response)', {
-        inputLen: input.length,
-        extractedLen: extracted.length,
-      });
     }
   }
 

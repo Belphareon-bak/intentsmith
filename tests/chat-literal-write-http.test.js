@@ -144,20 +144,37 @@ await testAsync('M1 literal file write preserves exact bytes; no-overwrite never
       assert.equal(guarded.response.metadata.error, 'no_overwrite_unsupported', equivalent);
       assert.equal(privateDb.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count,
         beforeNoOverwrite, `create-only variant must not register an effect: ${equivalent}`);
+      assert.deepEqual(readFileSync(existingPath), existingBytes);
     }
     const unknownSuffix = await send(noOverwriteConversation,
       'Ulož to do existing.md, a nastav oprávnění veřejně.');
-    assert.equal(unknownSuffix.response.metadata.error, 'file_write_suffix_ambiguous');
+    assert.equal(unknownSuffix.response.metadata.error, 'file_write_command_ambiguous');
     assert.equal(privateDb.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count,
       beforeNoOverwrite, 'unparsed extra file effect cannot register an effect');
     const unknownPrefix = await send(noOverwriteConversation,
       'Za podmínky volného místa ulož to do existing.md.');
-    assert.equal(unknownPrefix.response.metadata.error, 'file_write_condition_ambiguous');
+    assert.equal(unknownPrefix.response.metadata.error, 'file_write_command_ambiguous');
     assert.equal(privateDb.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count,
       beforeNoOverwrite, 'unparsed condition before target cannot register an effect');
+    for (const negativePrefix of [
+      'Nesmíš přepsat existující soubor, ulož to do existing.md.',
+      'Ponech starý soubor beze změny a ulož to do existing.md.',
+      'Zachovej původní obsah souboru, ulož to do existing.md.',
+      'Do not change existing file, save it to existing.md.',
+      'Never overwrite an existing file; save it to existing.md.',
+      'Preserve existing content; save it to existing.md.',
+    ]) {
+      const blockedPrefix = await send(noOverwriteConversation, negativePrefix);
+      assert.equal(blockedPrefix.response.metadata.approvalRequired, false, negativePrefix);
+      assert.match(blockedPrefix.response.metadata.error,
+        /^(?:no_overwrite_unsupported|file_write_command_ambiguous)$/u, negativePrefix);
+      assert.equal(privateDb.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count,
+        beforeNoOverwrite, `negative prefix must not register an effect: ${negativePrefix}`);
+      assert.deepEqual(readFileSync(existingPath), existingBytes);
+    }
     const repeatedTarget = await send(noOverwriteConversation,
       'Ulož to do existing.md, a pak uprav existing.md.');
-    assert.equal(repeatedTarget.response.metadata.error, 'file_write_suffix_ambiguous');
+    assert.equal(repeatedTarget.response.metadata.error, 'file_write_command_ambiguous');
     assert.equal(privateDb.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count,
       beforeNoOverwrite, 'a repeated target cannot hide a trailing effect clause');
     const blockedFresh = await send(noOverwriteConversation,

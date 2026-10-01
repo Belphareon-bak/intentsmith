@@ -13,8 +13,8 @@ uzavřenou vedlejší větu bez změny bajtů, cíle nebo autority.
 Opakované review commitu `7397d71f` vrátilo další `CHANGES_REQUIRED`:
 šest dalších formulací create-only ve zkratce `Ulož to` stále nabízelo
 `fs.write`; reviewer také skutečným schválením doložil přepsání existujícího
-souboru. Red-first HTTP/SQLite regrese tuto chybu zopakovala. Nynější
-zpracování pojmenovaného nedoslovného zápisu odmítá jakoukoli nevyloženou
+souboru. Red-first HTTP/SQLite regrese tuto chybu zopakovala. Kandidát
+`88212c16` v pojmenovaném nedoslovném zápisu odmítal jakoukoli nevyloženou
 větu za prvním výskytem cílové cesty; srozumitelné podmínky create-only vrací
 výslovný bezpečný stop. Uzavřené stávající výjimky jsou redundantní uložení
 do stejné cesty a přesné „v projektu“ v aktivním projektovém kontextu. To
@@ -23,10 +23,22 @@ consumeru po zavedení brzdy našel tyto dvě legitimní věty a skončil **21 P
 1 FAIL**; po úzkém povolení obou konkrétních vět prošel **22/22**.
 Po omezeném `REVIEW_PASS` nad `88212c16` jsem ještě před integrací ověřil
 podmínku před názvem cíle: `Pouze nový soubor, ulož to do existing.md.`
-Red-first M1 HTTP/SQLite běh prokázal nový přepisující návrh. Nynější kandidát
-rozpoznává obvyklé předřazené create-only formulace; nevyložený podmínkový
-prefix před cílem se také zastaví bez M2 efektu. Tato další delta znovu
-vyžaduje nezávislé review; dřívější verdikt se na ni nepřenáší.
+Red-first M1 HTTP/SQLite běh prokázal nový přepisující návrh. Následný
+kandidát `58e2fd0a` blokoval několik podmínkových slov v prefixu, ale další
+nezávislé review vrátilo `CHANGES_REQUIRED`: šest jinak formulovaných
+záporných prefixů pořád vytvořilo `fs.write`; reviewer schválením jednoho
+návrhu doložil přepsání existujícího souboru. Nová red-first regrese
+`.intentsmith-artifacts/literal-write-prefix-negation-red-20261001.log`
+reprodukovala `approvalRequired=true` pro „Nesmíš přepsat existující soubor,
+ulož to do existing.md.“.
+
+Nynější kandidát vyžaduje, aby **celý nedoslovný příkaz** odpovídal jednomu
+z uzavřených nepodmíněných tvarů a jeho cíl přesně souhlasil s cílem CRE.
+Libovolná nevyložená slova před příkazem i po něm zastaví zápis bez M2 efektu.
+Tím se záměrně zužuje starší cesta pro volný text bez uvozovek ve stejné zprávě:
+nový obsah je třeba zadat v uvozovkách, zatímco zkratka `Ulož to` ukládá
+poslední odpověď asistenta. Předchozí `REVIEW_PASS` se na tuto změnu
+nepřenáší; nezávislé review zůstává otevřené.
 
 **Autorita:** explicitní zadání operátora dokončovat reálné chatové scénáře
 (2026-09-30 a 2026-10-01) a živě pozorovaný pilot-4: první zpráva
@@ -66,8 +78,10 @@ a délku payloadu, absenci souboru před M2 schválením a přesné bajty po ně
 Samostatně chrání již existující soubor i se starší odpovědí v historii a
 ověřuje, že omezení nevytvoří M2 efekt. Kontroluje také starší zkratku,
 doslovný text obsahující slovo `nepřepisuj` a nejednoznačný nezakotovaný text.
-Dalších šest českých a anglických create-only formulací a dvě nevyložené
-věty za cílovou cestou musí zůstat bez M2 návrhu.
+Dalších šest českých a anglických create-only formulací, šest prefixových
+záporných formulací a dvě nevyložené věty za cílovou cestou musí zůstat bez
+M2 návrhu; test při každé z nich kontroluje i původní bajty existujícího
+souboru.
 F06 překlep testuje přesný cíl, obsah a skutečné M2 schválení; další efektová
 věta za stejným překlepem musí skončit bez návrhu.
 Původní červený HTTP test reprodukoval chybějící proposal; další běh odhalil
@@ -95,6 +109,11 @@ je **INTERRUPTED**, nikoli PASS. Logy zůstaly v ignorované soukromé cestě
 consumer **22/22**, M2 souborový consumer **39/39** a extrakce **21/21**.
 Generovaný registr znovu validoval stejných 585 programů a fingerprint
 `81f1b52615e18c67db7af02635128d091c93274bc4c22ff77efba0d5c6287953`.
+Po poslední opravě úplné gramatiky prošel přímý M1 HTTP/SQLite test **1/1**,
+M1 kontrakt **73/73**, produkční M2 consumer **22/22**, M2 souborový
+consumer **39/39**, extrakční helper **21/21** a CRE file-reference guard
+**9/9**. Tyto výsledky patří novému kandidátovi a dosud nemají nezávislý
+verdikt.
 
 **Stop condition:** při nejednoznačném textu, cíli nebo negaci nevytvořit
 M2 proposal. Historii, stav registru `lastGreen` a produkční soubory neměnit.
