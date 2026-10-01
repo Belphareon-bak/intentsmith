@@ -38,3 +38,22 @@ export function categories(rows) { const result = {}; for (const row of rows)
 }
 `,
 });
+
+// Reproduces the actual 2026-10-01 physical CODE interface defect without
+// importing private model output into the deterministic test suite.
+export const OBJECT_COMMAND_LAST_RESULT_CLI = `import { createService } from './service.js';
+export function run(commands) {
+  const service = createService();
+  let result;
+  for (const cmd of commands) {
+    switch (cmd.op) {
+      case 'add': service.add(cmd.amount, cmd.category); result = undefined; break;
+      case 'list': result = service.list(); break;
+      case 'total': result = service.total(); break;
+      case 'categories': result = service.categories(); break;
+      default: throw new Error('Unknown operation: ' + cmd.op);
+    }
+  }
+  return result;
+}
+`;

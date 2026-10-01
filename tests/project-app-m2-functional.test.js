@@ -8,7 +8,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import Database from 'better-sqlite3';
 import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
-import { REFERENCE_LEDGER_OUTPUTS } from './helpers/project-app-reference.js';
+import { REFERENCE_LEDGER_OUTPUTS, OBJECT_COMMAND_LAST_RESULT_CLI } from './helpers/project-app-reference.js';
 import { initializeNewProject } from '../src/planner/project-onboarding.js';
 import { createDefaultM2LifecycleApplicationService } from '../src/lifecycle/m2-lifecycle-application-service.js';
 import { up as applyEffectAuthority } from '../src/db/migrations/2026_08_23_092_m2_effect_authority.js';
@@ -71,6 +71,7 @@ async function fixture(defect) {
   const databasePath = path.join(folder, 'authority.sqlite');
   const db = databaseAt(databasePath);
   const outputs = { ...REFERENCE_LEDGER_OUTPUTS };
+  if (defect === 'object-command-last-result') outputs['src/cli.js'] = OBJECT_COMMAND_LAST_RESULT_CLI;
   if (['wrong-total', 'assert-noops', 'early-exit'].includes(defect)) {
     outputs['src/totals.js'] = outputs['src/totals.js'].replace('sum + row.amount', 'sum + 1');
   }
@@ -118,7 +119,7 @@ export { run } from './cli.js';
   return { folder, project, db, databasePath, outputs, calls, baseline, service };
 }
 
-for (const defect of [null, 'wrong-total', 'assert-noops', 'early-exit',
+for (const defect of [null, 'wrong-total', 'object-command-last-result', 'assert-noops', 'early-exit',
   'probe-json-forgery', 'storage-row-alias', 'storage-json-forgery']) {
   test(`M2 six-file project ${defect ? `rolls back ${defect}` : 'commits a functioning app'}`, async () => {
     const f = await fixture(defect);
@@ -155,6 +156,13 @@ for (const defect of [null, 'wrong-total', 'assert-noops', 'early-exit',
       if (defect) {
         assert.notEqual(result.state, 'succeeded');
         assert.equal(result.result.focusedTest.terminalStatus, 'failed');
+        assert.equal(result.result.errorCode, 'PROJECT_CHANGE_TEST_FAILED');
+        if (defect === 'object-command-last-result') {
+          const testOutput = result.audit.executionEvents.find(event => event.type === 'process_terminated')?.details?.testOutput;
+          assert.match(testOutput?.stderr || '', /Unknown operation: undefined/,
+            'the real tuple input rejects the object-command implementation');
+          assert.equal(result.result.git.commitId, null, 'failing generated app cannot commit');
+        }
         if (defect === 'probe-json-forgery') {
           const testOutput = result.audit.executionEvents.find(event => event.type === 'process_terminated')?.details?.testOutput;
           assert.match(testOutput?.stderr || '', /validate directly rejects nonfinite NaN/,
@@ -199,7 +207,9 @@ for (const defect of [null, 'wrong-total', 'assert-noops', 'early-exit',
           const recovered = await service.recoverIncompleteSmallProjectChanges();
           const view = service.getSmallProjectChangeStatus({ authenticatedSubject: subject, origin, lifecycleId });
           process.stdout.write(JSON.stringify({ pid: process.pid, recovered: recovered.length,
-            state: view.state, resultDigest: view.terminal.resultDigest }));
+            state: view.state, resultDigest: view.terminal.resultDigest,
+            errorCode: view.result?.errorCode, rollbackStatus: view.result?.rollback?.status,
+            focusedTestStatus: view.result?.focusedTest?.terminalStatus }));
         } finally { db.close(); }
       `;
       const restarted = JSON.parse(execFileSync(process.execPath,
@@ -210,6 +220,14 @@ for (const defect of [null, 'wrong-total', 'assert-noops', 'early-exit',
       assert.equal(restarted.recovered, 0);
       assert.equal(restarted.state, result.state);
       assert.equal(restarted.resultDigest, result.terminal.resultDigest);
+      if (defect === 'object-command-last-result') {
+        assert.equal(restarted.errorCode, 'PROJECT_CHANGE_TEST_FAILED');
+        assert.equal(restarted.rollbackStatus, 'succeeded');
+        assert.equal(restarted.focusedTestStatus, 'failed');
+        assert.equal(git(f.project, ['rev-parse', 'HEAD']), f.baseline);
+        assert.equal(git(f.project, ['status', '--porcelain=v1']), '');
+        for (const relative of Object.keys(f.outputs)) assert.equal(fs.existsSync(path.join(f.project, relative)), false);
+      }
       assert.equal(f.calls.length, 6);
     } finally {
       if (f.db.open) f.db.close();
