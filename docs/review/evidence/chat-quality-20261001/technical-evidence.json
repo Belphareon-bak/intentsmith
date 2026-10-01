@@ -1,0 +1,1511 @@
+{
+  "version": 1,
+  "purpose": "Sanitized technical run index; all failures retained; private reports and full logs remain local. Fixture-provider tests do not establish live semantic quality.",
+  "node": "24.21.0",
+  "runs": [
+    {
+      "runId": "chat-quality-full-20261001-a",
+      "sourceRevision": "72004a0eead977854e6d41e6865e5a5a89d555c9",
+      "startedAt": "2026-10-01T08:21:09.004Z",
+      "endedAt": "2026-10-01T08:29:13.145Z",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "counts": {
+        "PASS": 371,
+        "BLOCKED": 13,
+        "FAIL": 22
+      },
+      "nonPass": [
+        {
+          "id": "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-INTEGRATION-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-ARTIFACT-VALIDATION",
+          "status": "FAIL",
+          "logSha256": "be73726dbe326458c262346bcdaf6382fe4a677094e4cfd0331537f9c26b997d"
+        },
+        {
+          "id": "IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-CHAT-MEMORY-PRIVACY-TEST",
+          "status": "FAIL",
+          "logSha256": "ba244dd8a6d97ffbcd8cb31819e20a6dc079ce43ea06bf21b86aad8ffde4f72e"
+        },
+        {
+          "id": "IS-T3-TESTS-CRE-BUILD-ARBITRATION-TEST",
+          "status": "FAIL",
+          "logSha256": "031dadfd72585eefda4a0e598a0be344d332857047480a60b584845d3547c599"
+        },
+        {
+          "id": "IS-T1-TESTS-DESKTOP-HUNT-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-DEVELOPMENT-INSTALLATION-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-EXPORT-PDF-DOCX-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-HARNESS-EXIT-CODE-TEST",
+          "status": "FAIL",
+          "logSha256": "d7d5308316f5a33e91652f3b51da85ccac2657b9910a84cd985e4349586ed9b7"
+        },
+        {
+          "id": "IS-T1-TESTS-IDE-WORKSPACE-TEST",
+          "status": "FAIL",
+          "logSha256": "755af4a04eaee89e4d9feb034a4b13591ea3a16237bf2b6d7b451b2ff81e03b2"
+        },
+        {
+          "id": "IS-T1-TESTS-M1-MODEL-AUTOMATION-POLICY-TEST",
+          "status": "FAIL",
+          "logSha256": "1d6e12ee7f2ed4a4aa387f80eb1be6d12b9587f358cbb99d3204ff7c74294f86"
+        },
+        {
+          "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST",
+          "status": "FAIL",
+          "logSha256": "76e922df623573b5f4792338056e5d942a62d04cfc7143c0fcad352650769a0a"
+        },
+        {
+          "id": "IS-T1-TESTS-M1-STUDIO-CLIENT-TEST",
+          "status": "FAIL",
+          "logSha256": "2c43971cd7431dff3a515926667c917057a754884bd3f70a6232969f38b90902"
+        },
+        {
+          "id": "IS-T1-TESTS-M2-EXECUTION-GIT-PRESERVATION-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-M2-EXECUTION-PROCESS-SUPERVISION-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-M2-EXECUTION-PROJECT-CHANGE-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-M2-LIFECYCLE-APPLICATION-SERVICE-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-M2-LIFECYCLE-STUDIO-SURFACE-TEST",
+          "status": "FAIL",
+          "logSha256": "4e726ee1369ef0a73dbb27183b8094f6a1282e56dbc010eb3a05e87496360e7a"
+        },
+        {
+          "id": "IS-T1-TESTS-M2-TOOL-PRODUCTION-CONSUMER-TEST",
+          "status": "FAIL",
+          "logSha256": "0b6b0842300a968c420c6b39cf8f98d5fd75d335c78cd15b5d90a6593aae95ce"
+        },
+        {
+          "id": "IS-T1-TESTS-M5-PROCESS-HARDENING-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST",
+          "status": "FAIL",
+          "logSha256": "df2c80b9c6e50cd95e48d4e6e5dc61f355602b3678652da089818396da3a84c6"
+        },
+        {
+          "id": "IS-T1-TESTS-ROUTING-ACCURACY-TEST",
+          "status": "FAIL",
+          "logSha256": "9781188160d98f0e15af82f38e4a3bced3c2591e075e2212bfa6aa70ee14c14f"
+        },
+        {
+          "id": "IS-T1-TESTS-SCM-STUDIO-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-SESSION-CONTEXT-TEST",
+          "status": "FAIL",
+          "logSha256": "619d17d0d9c33bba76d071dd17049b9f74c6997c9e0e16ea8fd8bfc718e017d3"
+        },
+        {
+          "id": "IS-T1-TESTS-STUDIO2-CONVERSATION-VIEW-TEST",
+          "status": "FAIL",
+          "logSha256": "332fba5f86d6ba9c4c2c94572ffdf22c99587bb70293b53a68e4353b2dd67c67"
+        },
+        {
+          "id": "IS-T1-TESTS-STUDIO2-EXPERTISE-SELECTION-TEST",
+          "status": "FAIL",
+          "logSha256": "2731542dfe370992ea721a8c96f2d0b1eb6460e6799310c345c662bfa47064fd"
+        },
+        {
+          "id": "IS-T1-TESTS-STUDIO2-LIVE-MODEL-TEST",
+          "status": "FAIL",
+          "logSha256": "8c6e145696dde1428ff53a5921dae6bf6b50f0f4a05e0f691738d7c8628cbd3d"
+        },
+        {
+          "id": "IS-T1-TESTS-STUDIO2-M2-TEST",
+          "status": "FAIL",
+          "logSha256": "e5efab3f2ac61e9548af44ff7ec25bf4a43fdeff0118d588afbacf7fdc02fa88"
+        },
+        {
+          "id": "IS-T1-TESTS-STUDIO2-MEDIA-INPUT-TEST",
+          "status": "FAIL",
+          "logSha256": "d0c76d0476faaca882de6c87c403d040c3c2aeb6a60720d8e05bc67b643b515c"
+        },
+        {
+          "id": "IS-T1-TESTS-STUDIO2-SESSION-STORE-TEST",
+          "status": "FAIL",
+          "logSha256": "71cfce3a9c2cb089c8bef162b6e7e0dd0471bdd5e9304a5beb2594f688184f36"
+        },
+        {
+          "id": "IS-T1-TESTS-STUDIO2-TRANSPORT-TEST",
+          "status": "FAIL",
+          "logSha256": "5cdfc3590db1448a73b82a61b64449b544da7201b0d966ff71ac0fc570d5d9c7"
+        },
+        {
+          "id": "IS-T1-TESTS-STUDIO2-VIEW-TEST",
+          "status": "FAIL",
+          "logSha256": "8405cdac73da8d428e0874bb26578bd9fc13ef4585f1956867d0420063ebae27"
+        },
+        {
+          "id": "IS-T1-TESTS-STUDIO2-WORKSPACE-FILES-TEST",
+          "status": "FAIL",
+          "logSha256": "c9e9f9a1886259559d836c46652e8d1645d897de672dd7c2aaa60a64a72e62ad"
+        },
+        {
+          "id": "IS-T1-TESTS-WORKSPACE-BUDGET-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-WORKSPACE-TREE-PROJECT-ID-TEST",
+          "status": "BLOCKED"
+        }
+      ],
+      "privateReportSha256": "d624bcfcd37169d0a704a3ffb53c2547045cf3283338e0a1d95e054561a39386"
+    },
+    {
+      "runId": "chat-quality-full-20261001-b",
+      "sourceRevision": "311a9eab30579f546832e81691a47839d8d19c5b",
+      "startedAt": "2026-10-01T08:41:23.262Z",
+      "endedAt": "2026-10-01T08:49:16.767Z",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "counts": {
+        "PASS": 396,
+        "BLOCKED": 3,
+        "FAIL": 7
+      },
+      "nonPass": [
+        {
+          "id": "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-INTEGRATION-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-ARTIFACT-VALIDATION",
+          "status": "FAIL",
+          "logSha256": "cf92cc556c415ed94d9b9e910d8475026d85fba8bc7b9dbb2f6669c69150f6fd"
+        },
+        {
+          "id": "IS-T1-TESTS-CAPABILITY-02-CRE-BEHAVIOURS-TEST",
+          "status": "FAIL",
+          "logSha256": "fad66c8a04481e0d9b1c6b46af637f6902e9ec6eb9db8c4993b580fc8bf42f20"
+        },
+        {
+          "id": "IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-EXPORT-PDF-DOCX-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST",
+          "status": "FAIL",
+          "logSha256": "5949ec2187371e4461c23c245b7c7ddca5ead648aace62ca09b2b7c037dc7d1c"
+        },
+        {
+          "id": "IS-T1-TESTS-M2-TOOL-PRODUCTION-CONSUMER-TEST",
+          "status": "FAIL",
+          "logSha256": "a76f552083c8e048d7304426ecfeb6912f6da2cfb8b622d004f98fd3728dd734"
+        },
+        {
+          "id": "IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST",
+          "status": "FAIL",
+          "logSha256": "e7c97170d237dc7e7e3b3786e361c2cd331b4fd94fcd6576b23febf8f3e08b45"
+        },
+        {
+          "id": "IS-T1-TESTS-ROUTING-ACCURACY-TEST",
+          "status": "FAIL",
+          "logSha256": "bfbe42933ef3819d96d386025cc3b773a9afabdd9aeefc77c63dfc40d5a63f4b"
+        },
+        {
+          "id": "IS-T1-TESTS-SESSION-CONTEXT-TEST",
+          "status": "FAIL",
+          "logSha256": "9de0da175901bf1c32f8498399b88e4c18dc5a9546e0b27224f947db0f902378"
+        }
+      ],
+      "privateReportSha256": "7649c2f8c126dd2b5521d68920463fa4f56559b672f81ef408aebe66edfb0482"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-final",
+      "sourceRevision": "9b0c5f30d7e3157bd68030c7c8f3453150d9853f",
+      "startedAt": "2026-10-01T08:52:27.225Z",
+      "endedAt": "2026-10-01T08:52:31.864Z",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "counts": {
+        "PASS": 5,
+        "FAIL": 1
+      },
+      "nonPass": [
+        {
+          "id": "IS-T1-TESTS-M2-TOOL-PRODUCTION-CONSUMER-TEST",
+          "status": "FAIL",
+          "logSha256": "6156b44e8184b89feecc10480e30891c8cf33c865703dc832ca16148cac35ee7"
+        }
+      ],
+      "privateReportSha256": "ba312110d27a3a005dc74e2a99a74c23cf056991ffbca758e76dbba7b6a973fc"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-final2",
+      "sourceRevision": "9ddd81b3407107a850609c5286b7e5cd405ba056",
+      "startedAt": "2026-10-01T08:54:09.377Z",
+      "endedAt": "2026-10-01T08:54:14.112Z",
+      "verdict": "PASS",
+      "exitCode": 0,
+      "counts": {
+        "PASS": 6
+      },
+      "nonPass": [],
+      "privateReportSha256": "4333ef11083d365ceff2ce6196cd9b0395403f38b4c4a4be1c6a14f8b28f1c39"
+    },
+    {
+      "runId": "chat-quality-full-20261001-final",
+      "sourceRevision": "9ddd81b3407107a850609c5286b7e5cd405ba056",
+      "startedAt": "2026-10-01T08:54:24.146Z",
+      "endedAt": "2026-10-01T09:02:45.362Z",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "counts": {
+        "PASS": 398,
+        "BLOCKED": 3,
+        "FAIL": 5
+      },
+      "nonPass": [
+        {
+          "id": "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-INTEGRATION-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-ARTIFACT-VALIDATION",
+          "status": "FAIL",
+          "logSha256": "04e8fb69f1e6fcd6f7a59f33fae80720293eca7c0e1b5d461c02349fc5720731"
+        },
+        {
+          "id": "IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-EXPORT-PDF-DOCX-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST",
+          "status": "FAIL",
+          "logSha256": "65af9f2fe574f92db2bd6b08122547f3ae49f23588b684c1d677f62569b8a8cd"
+        },
+        {
+          "id": "IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST",
+          "status": "FAIL",
+          "logSha256": "6ad75bf3ac15d84465b0bb5c22dcd0ef0ad203196ba8068e39a237581ac86261"
+        },
+        {
+          "id": "IS-T1-TESTS-ROUTING-ACCURACY-TEST",
+          "status": "FAIL",
+          "logSha256": "7d168aa185e4a5c41cd0088ee99cfc7f31f6d6ed3b76a4224f07ecf702b1edd6"
+        },
+        {
+          "id": "IS-T1-TESTS-SESSION-CONTEXT-TEST",
+          "status": "FAIL",
+          "logSha256": "99e6d4cc521126f6ee6798be9acafea9978f46c8aeee11e6f97a18751884f7a5"
+        }
+      ],
+      "privateReportSha256": "75b9bd6ea8e249bd2b3797fbe4a034c33211eac9bfcf8743b52736f4ff85fe94"
+    },
+    {
+      "runId": "chat-quality-full-20261001-final-format",
+      "sourceRevision": "3204b2f1abc97a75af99506425edc7a07e8d41b6",
+      "startedAt": "2026-10-01T09:05:19.170Z",
+      "endedAt": "2026-10-01T09:13:18.516Z",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "counts": {
+        "PASS": 397,
+        "BLOCKED": 3,
+        "FAIL": 6
+      },
+      "nonPass": [
+        {
+          "id": "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-INTEGRATION-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-ARTIFACT-VALIDATION",
+          "status": "FAIL",
+          "logSha256": "759e3b951dc546bd5afa197c6f1595bb8c27d7e75f87657f2862ea423e99f7a9"
+        },
+        {
+          "id": "IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-EXPORT-PDF-DOCX-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T2-TESTS-M1-CHAT-CONTRACT-TEST",
+          "status": "FAIL",
+          "logSha256": "955c4eadb9392d2590515726e45422309e27bbfbf6f1787a542b166e8048534d"
+        },
+        {
+          "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST",
+          "status": "FAIL",
+          "logSha256": "04935d237f594159854240c1b930c2adbd06f21eef325d0591185865634c2b8b"
+        },
+        {
+          "id": "IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST",
+          "status": "FAIL",
+          "logSha256": "a292a2338c15552505f105a9f5948e8e4565891a5f3723e637fb3246bd8c50ee"
+        },
+        {
+          "id": "IS-T1-TESTS-ROUTING-ACCURACY-TEST",
+          "status": "FAIL",
+          "logSha256": "da418ce2662a0bb5d469b5420a172a9ff76f8c27828ea3f25d10e60272b7331a"
+        },
+        {
+          "id": "IS-T1-TESTS-SESSION-CONTEXT-TEST",
+          "status": "FAIL",
+          "logSha256": "1617e53eb7cbc0ffd44af58707b7a1ec5eba8cea535cf21eb4f34eb5df2d8dbf"
+        }
+      ],
+      "privateReportSha256": "157539ca7718bb968fa99b6bb298e2dbcf242b9e3e0f2769eacec60e5ed3939e"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-literal",
+      "sourceRevision": "dcbbf4d2d3a646766c26955eba3f9bd5276f2c7c",
+      "startedAt": "2026-10-01T09:28:33.281Z",
+      "endedAt": "2026-10-01T09:28:38.790Z",
+      "verdict": "PASS",
+      "exitCode": 0,
+      "counts": {
+        "PASS": 6
+      },
+      "nonPass": [],
+      "privateReportSha256": "9fecbed8df5e1a26aba12ae3526b60b4fa6959b718c4ac06e24ff0cd8cf7eaa7"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-candidate",
+      "sourceRevision": "c8a105412f4e7de3ba19d983a35c36576a0ed2d6",
+      "startedAt": "2026-10-01T09:35:36.690Z",
+      "endedAt": "2026-10-01T09:35:42.369Z",
+      "verdict": "PASS",
+      "exitCode": 0,
+      "counts": {
+        "PASS": 6
+      },
+      "nonPass": [],
+      "privateReportSha256": "edcd4f8a719d0ea36c61e7564238d0ba7e45b69d93f4dccbeff02a3fc77c722b"
+    },
+    {
+      "runId": "chat-quality-full-20261001-e8b0790b",
+      "sourceRevision": "e8b0790b08d1e27f66f6147430e27f60c6bf8193",
+      "startedAt": "2026-10-01T09:47:39.578Z",
+      "endedAt": "2026-10-01T09:55:48.434Z",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "counts": {
+        "PASS": 398,
+        "BLOCKED": 3,
+        "FAIL": 5
+      },
+      "nonPass": [
+        {
+          "id": "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-INTEGRATION-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-ARTIFACT-VALIDATION",
+          "status": "FAIL",
+          "logSha256": "8077392020c1969b2576d6e6029ce2df175b7d3c0983d3781d2535d492d3579e"
+        },
+        {
+          "id": "IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-EXPORT-PDF-DOCX-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST",
+          "status": "FAIL",
+          "logSha256": "7d0122be32042d33508613ae46c9866559a09f7bea3ebf4f3d224db9744fb5e1"
+        },
+        {
+          "id": "IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST",
+          "status": "FAIL",
+          "logSha256": "2c83aa6da29d4fbbab253420f230028ef22cc8bbf8ec419d05344a044b6be82e"
+        },
+        {
+          "id": "IS-T1-TESTS-ROUTING-ACCURACY-TEST",
+          "status": "FAIL",
+          "logSha256": "dc3dd317486984acceca6972fee72c5d49ca86906a26a34f158188365c2c1c60"
+        },
+        {
+          "id": "IS-T1-TESTS-SESSION-CONTEXT-TEST",
+          "status": "FAIL",
+          "logSha256": "7360fe769cb24044a878a5d13c5bc7b5de9289b5a03fa05083ed7c8b82093a97"
+        }
+      ],
+      "privateReportSha256": "a12df83f19dee5897597f8c1f8bcbd718d63a930cf96d59962b211840f3949a2"
+    },
+    {
+      "runId": "chat-quality-full-20261001-context",
+      "sourceRevision": "0d4620e4eb5b6c656b1593a22bb18dc788551092",
+      "startedAt": "2026-10-01T09:57:56.000Z",
+      "endedAt": "2026-10-01T10:07:08.403Z",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "counts": {
+        "PASS": 398,
+        "BLOCKED": 3,
+        "FAIL": 5
+      },
+      "nonPass": [
+        {
+          "id": "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-INTEGRATION-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-ARTIFACT-VALIDATION",
+          "status": "FAIL",
+          "logSha256": "fa19bdfe8b880296f92b9272a63938b00402c4957ad650d2e67a347936df3726"
+        },
+        {
+          "id": "IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-EXPORT-PDF-DOCX-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST",
+          "status": "FAIL",
+          "logSha256": "b9c183317a0518dc3015d6a7a68f332ff1ca78e508966f512f073cd7a665cd30"
+        },
+        {
+          "id": "IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST",
+          "status": "FAIL",
+          "logSha256": "d049d789e6b931276b4a3b599f6542a0d0207cfdcfe673d384a2b4b4b0ff1ed0"
+        },
+        {
+          "id": "IS-T1-TESTS-ROUTING-ACCURACY-TEST",
+          "status": "FAIL",
+          "logSha256": "faa1e5dbca0408f027b8fdb11d88e71ce746a62e81ae1725b8979eb30fe0eacc"
+        },
+        {
+          "id": "IS-T1-TESTS-SESSION-CONTEXT-TEST",
+          "status": "FAIL",
+          "logSha256": "ae18a62dd8a8c9b9b6c3dc7f4c0e543e07584095f27bf122a05e929e923bafc1"
+        }
+      ],
+      "privateReportSha256": "88ed1895597adf265ac0fe5e4ceacf1b8713d825491d470dc4730788d10ff2fa"
+    },
+    {
+      "runId": "chat-quality-full-20261001-minimal",
+      "sourceRevision": "d4418258a4a56eb12121476c403dfac549bb19fa",
+      "startedAt": "2026-10-01T10:10:00.920Z",
+      "endedAt": "2026-10-01T10:18:21.486Z",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "counts": {
+        "PASS": 398,
+        "BLOCKED": 3,
+        "FAIL": 5
+      },
+      "nonPass": [
+        {
+          "id": "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-INTEGRATION-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-ARTIFACT-VALIDATION",
+          "status": "FAIL",
+          "logSha256": "6efaafac41560c52de894f3238de1bbd1a8e257fffe98ac71328bc9c431d0d65"
+        },
+        {
+          "id": "IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-EXPORT-PDF-DOCX-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST",
+          "status": "FAIL",
+          "logSha256": "0fd42cd229e7f0748a89841858654eb4e53439cb30099178f704af1d85eb979d"
+        },
+        {
+          "id": "IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST",
+          "status": "FAIL",
+          "logSha256": "721da726457235892e607e53a855f4b352a22e2131169439084920f8d0b30fe5"
+        },
+        {
+          "id": "IS-T1-TESTS-ROUTING-ACCURACY-TEST",
+          "status": "FAIL",
+          "logSha256": "10b960db24c0f27e69a79233aa76c58e115be41f4a88ef24ce665ded1db18441"
+        },
+        {
+          "id": "IS-T1-TESTS-SAZENI-INTEGRATION-TEST",
+          "status": "FAIL",
+          "logSha256": "49e229358fbce1a39f1af2e431e1eea4d619db56d4bb613479222f9fbd65d3bb"
+        }
+      ],
+      "privateReportSha256": "265ebae40d9a1f7afea60b81cb1ac110ace55ac4fe705f30520b719184d6233b"
+    },
+    {
+      "runId": "chat-quality-full-20261001-generated",
+      "sourceRevision": "729efc634ebe9093310eb237c379d81c979f6563",
+      "startedAt": "2026-10-01T10:27:55.494Z",
+      "endedAt": "2026-10-01T10:36:19.678Z",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "counts": {
+        "PASS": 399,
+        "BLOCKED": 3,
+        "FAIL": 4
+      },
+      "nonPass": [
+        {
+          "id": "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-INTEGRATION-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-ARTIFACT-VALIDATION",
+          "status": "FAIL",
+          "logSha256": "58e5931815400d520d67c934f87836996fec16f7ca2e425fa29975660bb30bfd"
+        },
+        {
+          "id": "IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-EXPORT-PDF-DOCX-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST",
+          "status": "FAIL",
+          "logSha256": "81a758a0a576cd38f6f88ae1c81d4adc19dd57bd47add5ae013d8c024a272b0a"
+        },
+        {
+          "id": "IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST",
+          "status": "FAIL",
+          "logSha256": "13364f8ce8024a6fbd7d683a9e697f089e7237e7a2b07f12bc42618baec126c0"
+        },
+        {
+          "id": "IS-T1-TESTS-ROUTING-ACCURACY-TEST",
+          "status": "FAIL",
+          "logSha256": "62c29cdefd16019b07c89cfea2a838d9766af185b69a7917ef73541d1eda6abf"
+        }
+      ],
+      "privateReportSha256": "950b8e7637a125e6f74be5b3a0a844a874164db8fcfbcf808163148aa251af6d"
+    },
+    {
+      "runId": "chat-quality-full-20261001-recovery",
+      "sourceRevision": "3bb1ed5eeade201bddff80703e704e772ac6ccee",
+      "startedAt": "2026-10-01T10:45:08.702Z",
+      "endedAt": "2026-10-01T10:54:08.256Z",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "counts": {
+        "PASS": 399,
+        "BLOCKED": 3,
+        "FAIL": 4
+      },
+      "nonPass": [
+        {
+          "id": "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-INTEGRATION-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-ARTIFACT-VALIDATION",
+          "status": "FAIL",
+          "logSha256": "a8a54e2673ea256b38f7e1e2160dd32b64bff64c3577d43c2c4327f9000c7f71"
+        },
+        {
+          "id": "IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-EXPORT-PDF-DOCX-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST",
+          "status": "FAIL",
+          "logSha256": "edb173fe98e6bd3ec166af1a06a75405a316260485df74fcac63696f58f39788"
+        },
+        {
+          "id": "IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST",
+          "status": "FAIL",
+          "logSha256": "214103bc46ddc0a9824df00f15874416863a173b3b4081391f898d71cc700203"
+        },
+        {
+          "id": "IS-T1-TESTS-ROUTING-ACCURACY-TEST",
+          "status": "FAIL",
+          "logSha256": "ba5a368b021cf41f288994e6ae4eb67036565f62cd1406dd02e896b6abe1a509"
+        }
+      ],
+      "privateReportSha256": "b84a354e149c81b61858be62bede54db2dbf81e2133d922240dcb51e36abffb9"
+    },
+    {
+      "runId": "chat-quality-full-20261001-archived",
+      "sourceRevision": "0ade9aca2e97a2d49b4b15474ef357bee2fd58b9",
+      "startedAt": "2026-10-01T11:15:23.194Z",
+      "endedAt": "2026-10-01T11:24:06.292Z",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "counts": {
+        "PASS": 399,
+        "BLOCKED": 3,
+        "FAIL": 4
+      },
+      "nonPass": [
+        {
+          "id": "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-INTEGRATION-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-ARTIFACT-VALIDATION",
+          "status": "FAIL",
+          "logSha256": "4ef77dce017af2566b2ef871104b259ab8a2303704a33a1de331ee59a0d1933b"
+        },
+        {
+          "id": "IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-EXPORT-PDF-DOCX-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST",
+          "status": "FAIL",
+          "logSha256": "65956ec7e9cb0348ace2424ffc8c3851de6150d609c0c0761db35e46dd21cbd6"
+        },
+        {
+          "id": "IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST",
+          "status": "FAIL",
+          "logSha256": "ffbc1b7497ce5ea794a500279df858a66415d4522d7f470193849a4d20423db4"
+        },
+        {
+          "id": "IS-T1-TESTS-ROUTING-ACCURACY-TEST",
+          "status": "FAIL",
+          "logSha256": "38feb80070ed561c9075583c2c5850963019e603ce778a965d42a032deb4a0da"
+        }
+      ],
+      "privateReportSha256": "92973d675b68d70b810e05aef7267ef0b783c7bb1e164f8c2f961ef643285fb5"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-semantic",
+      "sourceRevision": "02d5dddabc6f2e256377f645bb4f61b0b1a17bde",
+      "startedAt": "2026-10-01T11:58:48.409Z",
+      "endedAt": "2026-10-01T11:58:53.962Z",
+      "verdict": "PASS",
+      "exitCode": 0,
+      "counts": {
+        "PASS": 6
+      },
+      "nonPass": [],
+      "privateReportSha256": "3077e3a3f267d49849f0913ac68e8a8f3eac45f7988ba117032072b5e9bf2d17"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-brief",
+      "sourceRevision": "eff09521d971ea95d166c19bed3eff3e738d53c1",
+      "startedAt": "2026-10-01T12:11:08.418Z",
+      "endedAt": "2026-10-01T12:11:13.886Z",
+      "verdict": "PASS",
+      "exitCode": 0,
+      "counts": {
+        "PASS": 6
+      },
+      "nonPass": [],
+      "privateReportSha256": "da0cc0f95c361a5a119bb5a4e638066715b67ffebc6a6f12b9e211452b67dba3"
+    },
+    {
+      "runId": "chat-quality-full-20261001-brief",
+      "sourceRevision": "eff09521d971ea95d166c19bed3eff3e738d53c1",
+      "startedAt": "2026-10-01T12:12:20.633Z",
+      "endedAt": "2026-10-01T12:20:26.933Z",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "counts": {
+        "PASS": 399,
+        "BLOCKED": 3,
+        "FAIL": 4
+      },
+      "nonPass": [
+        {
+          "id": "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-INTEGRATION-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-ARTIFACT-VALIDATION",
+          "status": "FAIL",
+          "logSha256": "fce7cd7db8896e4db72d24d51fd957268777a1b3cd85b593cdd266ece34be419"
+        },
+        {
+          "id": "IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-EXPORT-PDF-DOCX-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST",
+          "status": "FAIL",
+          "logSha256": "3c4b3bce6f40da24d5f1d75f9a06e08cf3fec35f7a475edf730037723f1e9b68"
+        },
+        {
+          "id": "IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST",
+          "status": "FAIL",
+          "logSha256": "0f1acbb9779822d61ac0d2897e5fd8f0cd4982bac4ffb9231db1c5b6bbdd4c18"
+        },
+        {
+          "id": "IS-T1-TESTS-ROUTING-ACCURACY-TEST",
+          "status": "FAIL",
+          "logSha256": "83f2a9b203c5e5de31959f4cd079bb15adc65da704ed3cdb78fb6069ef210454"
+        }
+      ],
+      "privateReportSha256": "fd8451fcd130c7a16a774acb5e7410c9527f155e9673380e4f1efa307574005b"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-source-barrier",
+      "sourceRevision": "f03de3a042f76ed68ea15990cb64aed59cc04523",
+      "startedAt": "2026-10-01T12:39:54.384Z",
+      "endedAt": "2026-10-01T12:40:00.810Z",
+      "verdict": "PASS",
+      "exitCode": 0,
+      "counts": {
+        "PASS": 6
+      },
+      "nonPass": [],
+      "privateReportSha256": "701c79255a1be3fb7b802df4e1ab2f0866168bb7c02afaf265d0b0d8474846df"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-final-source",
+      "sourceRevision": "b06f7c92bd378a0f9e1728e6b68a822d4c16f3d5",
+      "startedAt": "2026-10-01T12:43:42.266Z",
+      "endedAt": "2026-10-01T12:43:49.673Z",
+      "verdict": "PASS",
+      "exitCode": 0,
+      "counts": {
+        "PASS": 6
+      },
+      "nonPass": [],
+      "privateReportSha256": "6e02161b8ff7193e93d0810ee82d9098a40ff61315258bac74501e222a92436c"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-minimal-budget",
+      "sourceRevision": "7c7e4c4c6ff2ebe5de7679cb0a555f2212e52271",
+      "startedAt": "2026-10-01T12:53:49.406Z",
+      "endedAt": "2026-10-01T12:54:02.504Z",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "counts": {
+        "PASS": 5,
+        "FAIL": 1
+      },
+      "nonPass": [
+        {
+          "id": "IS-T2-TESTS-M1-CHAT-CONTRACT-TEST",
+          "status": "FAIL",
+          "logSha256": "2c35b568ce6dcc34c2a82d4e71fc2e413ed7e4d35e49568af2f137767544834a"
+        }
+      ],
+      "privateReportSha256": "0c865d6b9e1ed43bf7ad39e55cd286f617c207242c94d0f81c135cc67fe4faf2"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-frozen",
+      "sourceRevision": "efb65dafec0e2523a444ad030c170d7d0b4a7cca",
+      "startedAt": "2026-10-01T13:02:55.970Z",
+      "endedAt": "2026-10-01T13:03:03.099Z",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "counts": {
+        "PASS": 5,
+        "FAIL": 1
+      },
+      "nonPass": [
+        {
+          "id": "IS-T2-TESTS-M1-CHAT-CONTRACT-TEST",
+          "status": "FAIL",
+          "logSha256": "06ef27e6ea2a94d89a32e15a196b58599a11c6bb40739465a67e2ec6efc77bfb"
+        }
+      ],
+      "privateReportSha256": "c09876e924c9c3d48a14f037b9c4a86bae65bb2ea6386fc6de69977ce44e10d2"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-acceptance-source",
+      "sourceRevision": "24cc54313efd3ce96f83b7df92a9e4ab53d6a508",
+      "startedAt": "2026-10-01T13:05:37.831Z",
+      "endedAt": "2026-10-01T13:05:45.251Z",
+      "verdict": "PASS",
+      "exitCode": 0,
+      "counts": {
+        "PASS": 6
+      },
+      "nonPass": [],
+      "privateReportSha256": "2684331a415cfd6696a01a6ff41dacfe20e0be437e13329bb60548eec78d7121"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-operation",
+      "sourceRevision": "2d3809eca6c1f4a78883f161e9068f7f2982b1d5",
+      "startedAt": "2026-10-01T13:28:40.282Z",
+      "endedAt": "2026-10-01T13:28:48.178Z",
+      "verdict": "PASS",
+      "exitCode": 0,
+      "counts": {
+        "PASS": 6
+      },
+      "nonPass": [],
+      "privateReportSha256": "3b00baca04b492c82d13b7494c18f9437c87f34f183281d8e01b23ef94ed277d"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-concise",
+      "sourceRevision": "234176480b0ff21e3ca2dd9ff9a20ad32c58c4c6",
+      "startedAt": "2026-10-01T13:40:46.094Z",
+      "endedAt": "2026-10-01T13:40:54.142Z",
+      "verdict": "PASS",
+      "exitCode": 0,
+      "counts": {
+        "PASS": 6
+      },
+      "nonPass": [],
+      "privateReportSha256": "4ef289f05645c193011a0282ea5ae1af57f6078217164195001ce4f12ee29bcc"
+    },
+    {
+      "runId": "chat-quality-full-20261001-concise",
+      "sourceRevision": "234176480b0ff21e3ca2dd9ff9a20ad32c58c4c6",
+      "startedAt": "2026-10-01T13:41:59.604Z",
+      "endedAt": "2026-10-01T13:49:50.954Z",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "counts": {
+        "PASS": 399,
+        "BLOCKED": 3,
+        "FAIL": 4
+      },
+      "nonPass": [
+        {
+          "id": "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-INTEGRATION-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-ARTIFACT-VALIDATION",
+          "status": "FAIL",
+          "logSha256": "42d6f09a794c94d5cc75cb551ce633dfc5aab2a8d88d2e74f56d77c3c3a83fd8"
+        },
+        {
+          "id": "IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-EXPORT-PDF-DOCX-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST",
+          "status": "FAIL",
+          "logSha256": "e4744a7cdd703fdb47ef44a45b741c0f3ba87aaa52d94f224430d0731260a3f9"
+        },
+        {
+          "id": "IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST",
+          "status": "FAIL",
+          "logSha256": "8ed6ddd56e1d4c0cb7200b8c0638841ec036d6b8771c6ffc7e29cc08790f5049"
+        },
+        {
+          "id": "IS-T1-TESTS-ROUTING-ACCURACY-TEST",
+          "status": "FAIL",
+          "logSha256": "550c3eb390b34e199ff254d91ec409e2f623ef02ecdb6e6ac038dfa64b6a4b42"
+        }
+      ],
+      "privateReportSha256": "3d8757c4a08ae55d5bfbe38be81db1006b04dab0e3e339624f488fd6447d131e"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-supersede",
+      "sourceRevision": "6757a788255e39cf718d9987b3edb2aeaef35053",
+      "startedAt": "2026-10-01T14:04:29.605Z",
+      "endedAt": "2026-10-01T14:04:49.894Z",
+      "verdict": "PASS",
+      "exitCode": 0,
+      "counts": {
+        "PASS": 6
+      },
+      "nonPass": [],
+      "privateReportSha256": "48d360b7f95f4785bcbf4347279ba49c0738493574abf4f3343852afd010e445"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-route-context",
+      "sourceRevision": "65a7faf53f100843f5b2f15924245695f6a57ef6",
+      "startedAt": "2026-10-01T14:22:55.021Z",
+      "endedAt": "2026-10-01T14:23:09.189Z",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "counts": {
+        "PASS": 5,
+        "FAIL": 1
+      },
+      "nonPass": [
+        {
+          "id": "IS-T2-TESTS-M1-CHAT-CONTRACT-TEST",
+          "status": "FAIL",
+          "logSha256": "0264dfcacc7e24ff2291ba43ddd502bffbf589c337bf8f85f78bb97c62f22cec"
+        }
+      ],
+      "privateReportSha256": "5033633209ae3ba6e24477b2e1f9b75932dead2702188c49c065091a4252f66d"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-conversation-context",
+      "sourceRevision": "14a375440f447b60bd62b7c0bb48999e3b0dea04",
+      "startedAt": "2026-10-01T14:24:53.790Z",
+      "endedAt": "2026-10-01T14:25:01.937Z",
+      "verdict": "PASS",
+      "exitCode": 0,
+      "counts": {
+        "PASS": 6
+      },
+      "nonPass": [],
+      "privateReportSha256": "01ad77c20a5d9e8a87d09694dfe3330796ea76ef0c64a483e31011be44c58e7a"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-no-word-anchor",
+      "sourceRevision": "9a814bfea25189a5b3a70d47bc11d197ac4e6522",
+      "startedAt": "2026-10-01T14:28:35.583Z",
+      "endedAt": "2026-10-01T14:28:43.907Z",
+      "verdict": "PASS",
+      "exitCode": 0,
+      "counts": {
+        "PASS": 6
+      },
+      "nonPass": [],
+      "privateReportSha256": "1ec11718e2f1a13617ca0812ca0f8c7a15b24f0717272ce15ad80473b8b5da06"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-compact-conditioning",
+      "sourceRevision": "1465692abdf13734a9d472dc49afc972dbb02a3c",
+      "startedAt": "2026-10-01T14:40:57.110Z",
+      "endedAt": "2026-10-01T14:41:11.234Z",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "counts": {
+        "PASS": 5,
+        "FAIL": 1
+      },
+      "nonPass": [
+        {
+          "id": "IS-T2-TESTS-M1-CHAT-CONTRACT-TEST",
+          "status": "FAIL",
+          "logSha256": "211d5c377c8d8e1ee80884322f58934ce059fc1aae0f46b6f72168622012cfbc"
+        }
+      ],
+      "privateReportSha256": "111e77cf9a99f881e2f41bbdea32b706a2cfa83f1eca2d0401bfa4941a662ddc"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-compact-source",
+      "sourceRevision": "e8f6b8af1e13cea8a18602242258dd626b4818fa",
+      "startedAt": "2026-10-01T14:42:12.835Z",
+      "endedAt": "2026-10-01T14:42:20.898Z",
+      "verdict": "PASS",
+      "exitCode": 0,
+      "counts": {
+        "PASS": 6
+      },
+      "nonPass": [],
+      "privateReportSha256": "214f5f33395c0de754efe2d454d008b51df89fb317f9487c4316f22e6dd4d5f3"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-resolved-delete",
+      "sourceRevision": "af8a975e2f276c9af52bb024779f5cba7edbc4cf",
+      "startedAt": "2026-10-01T14:59:19.669Z",
+      "endedAt": "2026-10-01T14:59:32.237Z",
+      "verdict": "PASS",
+      "exitCode": 0,
+      "counts": {
+        "PASS": 7
+      },
+      "nonPass": [],
+      "privateReportSha256": "c2eeac618f9cd8dccdf3c3a298b8af77b9bb2fd479ee6db29c91297cc22e00a6"
+    },
+    {
+      "runId": "chat-quality-full-20261001-af8a975e",
+      "sourceRevision": "af8a975e2f276c9af52bb024779f5cba7edbc4cf",
+      "startedAt": "2026-10-01T15:00:09.049Z",
+      "endedAt": "2026-10-01T15:08:02.403Z",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "counts": {
+        "PASS": 398,
+        "BLOCKED": 3,
+        "FAIL": 5
+      },
+      "nonPass": [
+        {
+          "id": "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-INTEGRATION-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-ARTIFACT-VALIDATION",
+          "status": "FAIL",
+          "logSha256": "28094feaad13f39cdd7090b70bb2b9c9c2cc52f93e61ddc558100b06416d8d10"
+        },
+        {
+          "id": "IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T3-TESTS-CRE-BUILD-ARBITRATION-TEST",
+          "status": "FAIL",
+          "logSha256": "bd94ec390929b64b5d2f85b9f9dd74fd55d1c874e9a04bb2f5154f9563189201"
+        },
+        {
+          "id": "IS-T1-TESTS-EXPORT-PDF-DOCX-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST",
+          "status": "FAIL",
+          "logSha256": "1d341d79223e58b129b125681b7b7ed192b4df0becdfe2391a8a27240519bb84"
+        },
+        {
+          "id": "IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST",
+          "status": "FAIL",
+          "logSha256": "cf9addbe847a04a12c1b7407d00235e32eb6a65e816d9a4c21a0cac49953d5e1"
+        },
+        {
+          "id": "IS-T1-TESTS-ROUTING-ACCURACY-TEST",
+          "status": "FAIL",
+          "logSha256": "c26045bdfa88d0ddd5ccf1200211c72955a6c0e28d6734e38d93d0e42824e216"
+        }
+      ],
+      "privateReportSha256": "11848d76dc35052967d29640050ac43176c506c2b1bca9b897f2fc419f64044c"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-target-recovery",
+      "sourceRevision": "a6818e4bdd6bb6c08c66aa6a5e8caafa042dfd13",
+      "startedAt": "2026-10-01T15:17:40.195Z",
+      "endedAt": "2026-10-01T15:17:52.850Z",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "counts": {
+        "PASS": 7,
+        "FAIL": 1
+      },
+      "nonPass": [
+        {
+          "id": "IS-T3-TESTS-CRE-BUILD-ARBITRATION-TEST",
+          "status": "FAIL",
+          "logSha256": "d6c8e89d6aed6232bc8fb840e0ab05647555a87a78d18a1330c0351d69167339"
+        }
+      ],
+      "privateReportSha256": "67b19f1dde8ab609263644fcbf5733ae035e7d97423e07920f9e211e53fce4e7"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-authority",
+      "sourceRevision": "35094025fc909f82624c5ee160312666673e41fa",
+      "startedAt": "2026-10-01T15:22:55.383Z",
+      "endedAt": "2026-10-01T15:23:07.552Z",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "counts": {
+        "PASS": 7,
+        "FAIL": 1
+      },
+      "nonPass": [
+        {
+          "id": "IS-T2-TESTS-M1-CHAT-CONTRACT-TEST",
+          "status": "FAIL",
+          "logSha256": "021db1a64f4f66af9850e5e03437d222e8046615c4283083bc55e11e98346d12"
+        }
+      ],
+      "privateReportSha256": "8019332c5b685c4157a18152b75a43b368f0d1ca048ae28487c4a24378b7f27f"
+    },
+    {
+      "runId": "chat-quality-full-20261001-rubric",
+      "sourceRevision": "77cdd7b640f6bbd55a4de5eeb683fa55a9f2f891",
+      "startedAt": "2026-10-01T16:07:18.100Z",
+      "endedAt": "2026-10-01T16:15:36.434Z",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "counts": {
+        "PASS": 399,
+        "BLOCKED": 3,
+        "FAIL": 4
+      },
+      "nonPass": [
+        {
+          "id": "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-INTEGRATION-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-ARTIFACT-VALIDATION",
+          "status": "FAIL",
+          "logSha256": "40e7d4fe0e5b50e54cd64b59fc77b0676b779822e7497fe7351a7aaad481704b"
+        },
+        {
+          "id": "IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-EXPORT-PDF-DOCX-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST",
+          "status": "FAIL",
+          "logSha256": "7037e6ddbdef3e70aba6bb2e3b40e5eac5ce16e04f63a92e23cd2710548945ab"
+        },
+        {
+          "id": "IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST",
+          "status": "FAIL",
+          "logSha256": "ca61f250a70ffc8d1c572b76d1aa0b72fb9d4072592434b3e3390b354ad3490c"
+        },
+        {
+          "id": "IS-T1-TESTS-ROUTING-ACCURACY-TEST",
+          "status": "FAIL",
+          "logSha256": "9731f96ca42a3241df676e489293aa4849ee720bb894520d3e9e99917295bc45"
+        }
+      ],
+      "privateReportSha256": "2321a014637624cf00347cae8160950f3cc6ec2e913d791440288829de9cfc2b"
+    },
+    {
+      "runId": "chat-quality-journeys-20261001-rubric",
+      "sourceRevision": "77cdd7b640f6bbd55a4de5eeb683fa55a9f2f891",
+      "startedAt": "2026-10-01T16:10:59.326Z",
+      "endedAt": "2026-10-01T16:11:23.334Z",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "counts": {
+        "PASS": 8,
+        "FAIL": 1
+      },
+      "nonPass": [
+        {
+          "id": "IS-T3-TESTS-CHAT-LITERAL-WRITE-HTTP-TEST",
+          "status": "FAIL",
+          "logSha256": "9298045739817a2994273d9eebe450129c4766414614d09f1f5eab92e1425059"
+        }
+      ],
+      "privateReportSha256": "d25aad6d31ab26baa97a3749897c7b4a9a1c15b5e49f383685a39d20161cc073"
+    },
+    {
+      "runId": "chat-quality-studio-20261001-rubric",
+      "sourceRevision": "77cdd7b640f6bbd55a4de5eeb683fa55a9f2f891",
+      "startedAt": "2026-10-01T16:15:09.404Z",
+      "endedAt": "2026-10-01T16:19:42.991Z",
+      "verdict": "PASS",
+      "exitCode": 0,
+      "counts": {
+        "PASS": 3
+      },
+      "nonPass": [],
+      "privateReportSha256": "598834a1ce588a36432d326bf75d8d1236fc9021c13e5213acb83a5863632de1"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-renderer",
+      "sourceRevision": "21f3d22c96dae6ebb7d63f83fa5c1d15eb9b8665",
+      "startedAt": "2026-10-01T16:21:44.758Z",
+      "endedAt": "2026-10-01T16:23:44.112Z",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "counts": {
+        "PASS": 5,
+        "FAIL": 2
+      },
+      "nonPass": [
+        {
+          "id": "IS-T3-TESTS-CHAT-LITERAL-WRITE-HTTP-TEST",
+          "status": "FAIL",
+          "logSha256": "eded0402618773237fb2c339b3d58d3619caa02f60db6d65ec22c1c46de0632e"
+        },
+        {
+          "id": "IS-T1-TESTS-STUDIO-ELECTRON-RUNNER-CONTRACT-TEST",
+          "status": "FAIL",
+          "logSha256": "ba37e245284fe07660f7ac81106498e95bc2d83b574dd98008b44ede6531dd10"
+        }
+      ],
+      "privateReportSha256": "de1f04a15a407971475754cde936e0114a4164f082deee9b1e052845ac051c40"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-freeze",
+      "sourceRevision": "05105d04d04ae0afd9f681c96cdb23eaa3bdc4b7",
+      "startedAt": "2026-10-01T16:24:23.011Z",
+      "endedAt": "2026-10-01T16:24:41.228Z",
+      "verdict": "PASS",
+      "exitCode": 0,
+      "counts": {
+        "PASS": 6
+      },
+      "nonPass": [],
+      "privateReportSha256": "9c02a629fb4092552f1dd9915dc0735380cc102d9bf3043115b26fae51d7d862"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-grounded-format",
+      "sourceRevision": "14148b2046fe353e41320ae693e82c1aca0907eb",
+      "startedAt": "2026-10-01T16:50:44.508Z",
+      "endedAt": "2026-10-01T16:51:05.103Z",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "counts": {
+        "PASS": 6,
+        "FAIL": 1
+      },
+      "nonPass": [
+        {
+          "id": "IS-T2-TESTS-M1-CHAT-CONTRACT-TEST",
+          "status": "FAIL",
+          "logSha256": "848980a866b843aaeabd68c7819b25418c213e250b608ac2f310dfccdd4e2fe8"
+        }
+      ],
+      "privateReportSha256": "790170c684d5d9e10c2c5bfad6f6fbee144284fbfea9d00560a1dca37cae5e15"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-grounded-final",
+      "sourceRevision": "8cde5b4c8f0b6383b8919630a33686ae944cd462",
+      "startedAt": "2026-10-01T16:56:09.643Z",
+      "endedAt": "2026-10-01T16:56:29.919Z",
+      "verdict": "PASS",
+      "exitCode": 0,
+      "counts": {
+        "PASS": 7
+      },
+      "nonPass": [],
+      "privateReportSha256": "7e06a7c00ae1f514cec1207535229d6a26a2a4f45e95867c4b9538541797eb04"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-format-precedence",
+      "sourceRevision": "f2fc721d44f17d2a90b07685b5430989d86b80e8",
+      "startedAt": "2026-10-01T17:01:01.341Z",
+      "endedAt": "2026-10-01T17:01:20.958Z",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "counts": {
+        "FAIL": 1,
+        "PASS": 6
+      },
+      "nonPass": [
+        {
+          "id": "IS-T1-TESTS-CHAT-CONTEXT-INTERPRETATION-TEST",
+          "status": "FAIL",
+          "logSha256": "9dfb6b490ab19d48dc2a67316a2eb8132febdb196f45d8b98ac54938447b8b6a"
+        }
+      ],
+      "privateReportSha256": "d4ab0177219261dc7552026944eca24a4bf7f3f2aaed7d00614dd5becd00fd17"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-cancelled-format",
+      "sourceRevision": "82a9a7a2f392160efe47063a4713a94060fc5346",
+      "startedAt": "2026-10-01T17:11:34.265Z",
+      "endedAt": "2026-10-01T17:11:54.639Z",
+      "verdict": "PASS",
+      "exitCode": 0,
+      "counts": {
+        "PASS": 7
+      },
+      "nonPass": [],
+      "privateReportSha256": "b5af664c694fadc3a7b8b34d62c78d4889f09b01ad284b90d2ec038721c7c13e"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-source-uncertainty",
+      "sourceRevision": "a7a822656c5aec7f45fd505c6c49103072a53052",
+      "startedAt": "2026-10-01T17:24:08.448Z",
+      "endedAt": "2026-10-01T17:24:28.426Z",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "counts": {
+        "PASS": 6,
+        "FAIL": 1
+      },
+      "nonPass": [
+        {
+          "id": "IS-T2-TESTS-M1-CHAT-CONTRACT-TEST",
+          "status": "FAIL",
+          "logSha256": "9cc22c81382432f0cf6f6d248a5764d668d3e6804118e3d8bf47e4565a3d2248"
+        }
+      ],
+      "privateReportSha256": "d34ddd5aaa054a91146bd4bab0c57b79b9aa913f151b8bb80d4ae24f2f345fe3"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-compact-facts",
+      "sourceRevision": "f50ffea73217095d04e21b88411662bb0dbc1ff1",
+      "startedAt": "2026-10-01T17:25:57.566Z",
+      "endedAt": "2026-10-01T17:26:17.630Z",
+      "verdict": "PASS",
+      "exitCode": 0,
+      "counts": {
+        "PASS": 7
+      },
+      "nonPass": [],
+      "privateReportSha256": "ba4082c432ce030317871c9cc03485a6eac22fafa20374549a82e53827aa227f"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-native-roles",
+      "sourceRevision": "de4b4be8444150dc7b93c4b59f1bb0e7324f4744",
+      "startedAt": "2026-10-01T17:38:52.711Z",
+      "endedAt": "2026-10-01T17:39:12.999Z",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "counts": {
+        "PASS": 6,
+        "FAIL": 1
+      },
+      "nonPass": [
+        {
+          "id": "IS-T2-TESTS-M1-CHAT-CONTRACT-TEST",
+          "status": "FAIL",
+          "logSha256": "8efef9d23f13eb7dc068dfcd1706cd0f7a63c4afb511a71bb05123aa80e909ae"
+        }
+      ],
+      "privateReportSha256": "d943ff2a3d61245142ace80e3f617292c42c90fd12bf8c133b45dcad865f4ab1"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-native-retry",
+      "sourceRevision": "c581b14a51ec4724f55073b7bf8150128cd48ff4",
+      "startedAt": "2026-10-01T17:40:02.352Z",
+      "endedAt": "2026-10-01T17:40:22.765Z",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "counts": {
+        "PASS": 6,
+        "FAIL": 1
+      },
+      "nonPass": [
+        {
+          "id": "IS-T2-TESTS-M1-CHAT-CONTRACT-TEST",
+          "status": "FAIL",
+          "logSha256": "19736ce5556503df6dda0e41e13c9df7e3315f4075c98f31004f45e44507482a"
+        }
+      ],
+      "privateReportSha256": "f4a8229f0a7644612e40684e80ddc3e92fe0f4fc1f2e3d060ddb21c31b0c40b3"
+    },
+    {
+      "runId": "chat-quality-focused-20261001-native-final",
+      "sourceRevision": "14f09b6951f7e2b6b5b9b43d1ff07f64b494ae90",
+      "startedAt": "2026-10-01T17:40:57.782Z",
+      "endedAt": "2026-10-01T17:41:17.860Z",
+      "verdict": "PASS",
+      "exitCode": 0,
+      "counts": {
+        "PASS": 7
+      },
+      "nonPass": [],
+      "privateReportSha256": "1891d7c1d5bd2bf6ff152050079e6f65083c60977bee0c32c6d066f83a9e08a6"
+    },
+    {
+      "runId": "chat-quality-full-20261001-native",
+      "sourceRevision": "495a069f35674283744f90195c2aa6ec1f27789d",
+      "startedAt": "2026-10-01T18:21:29.863Z",
+      "endedAt": "2026-10-01T18:29:31.973Z",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "counts": {
+        "PASS": 399,
+        "BLOCKED": 3,
+        "FAIL": 4
+      },
+      "nonPass": [
+        {
+          "id": "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-INTEGRATION-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-ARTIFACT-VALIDATION",
+          "status": "FAIL",
+          "logSha256": "173e0aa533f0d623e0f3a2398564cfdfeac05832f6a3afda626a04ac162cb588"
+        },
+        {
+          "id": "IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-EXPORT-PDF-DOCX-TEST",
+          "status": "BLOCKED"
+        },
+        {
+          "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST",
+          "status": "FAIL",
+          "logSha256": "770c62f1a2b7fe5c2c0c8f69f9bb873739216895e25c44951fe6b8a1b0504b56"
+        },
+        {
+          "id": "IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST",
+          "status": "FAIL",
+          "logSha256": "be757e22147f27feb4655240c441add16d4c9070db43b3bd5c1447fc7f01f7b5"
+        },
+        {
+          "id": "IS-T1-TESTS-ROUTING-ACCURACY-TEST",
+          "status": "FAIL",
+          "logSha256": "cdef2efc5326d3c5c3a801bf74c653e5b0fb5691134231f2b55afd18a6bf6b0a"
+        }
+      ],
+      "privateReportSha256": "6f6f85356c1e4136f6af3fa8e902060815bf10dc394f448efb38a3fb717a83ce"
+    },
+    {
+      "runId": "chat-quality-journeys-20261001-native-fixed",
+      "sourceRevision": "495a069f35674283744f90195c2aa6ec1f27789d",
+      "startedAt": "2026-10-01T18:22:09.962Z",
+      "endedAt": "2026-10-01T18:22:34.921Z",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "counts": {
+        "PASS": 8,
+        "FAIL": 1
+      },
+      "nonPass": [
+        {
+          "id": "IS-T3-TESTS-CHAT-VALUE-FIDELITY-CONTRACT-TEST",
+          "status": "FAIL",
+          "logSha256": "512e2bccd6cd9e99591c1534a2547e2016b0a48adae98dcedf58ce9de5bcf81b"
+        }
+      ],
+      "privateReportSha256": "a159ff6ae887bd2ee29479b34884c991bfd105b4c8cc652f36d9281d6b15167f"
+    },
+    {
+      "runId": "chat-quality-value-native-20261001",
+      "sourceRevision": "09d9fa0119a8c9b016652729620807511e54821e",
+      "startedAt": "2026-10-01T18:36:19.096Z",
+      "endedAt": "2026-10-01T18:36:20.183Z",
+      "verdict": "PASS",
+      "exitCode": 0,
+      "counts": {
+        "PASS": 1
+      },
+      "nonPass": [],
+      "privateReportSha256": "6e38ba67b5da4f6a049f6ca03e945ff5c89a78afdef6b84fb7ccad58f53bcc0a"
+    },
+    {
+      "runId": "chat-quality-journeys-20261001-native-current",
+      "sourceRevision": "09d9fa0119a8c9b016652729620807511e54821e",
+      "startedAt": "2026-10-01T19:06:53.556Z",
+      "endedAt": "2026-10-01T19:07:20.013Z",
+      "verdict": "PASS",
+      "exitCode": 0,
+      "counts": {
+        "PASS": 9
+      },
+      "nonPass": [],
+      "privateReportSha256": "56de16183f99f2940b2bc4d8ae58db86f4f6fc4cd8eeee148954dced35d0e78b"
+    }
+  ]
+}

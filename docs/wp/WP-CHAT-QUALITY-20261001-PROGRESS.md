@@ -1,6 +1,6 @@
 # IntentSmith — průběh práce na kvalitě chatu
 
-Poslední aktualizace: **1. 10. 2026, 22:23 CEST**. Stav: **CANDIDATE / REVIEW_PENDING**.
+Poslední aktualizace: **1. 10. 2026, 23:00 CEST**. Stav: **CHANGES_REQUIRED / WORK_CONTINUES / REVIEW_PENDING**.
 Dokument aktualizuji po každém dokončeném milníku, nejpozději po třech hodinách
 aktivní práce. Historická selhání zůstávají uvedena; nové ověření je nepřepisuje
 na úspěch. Nejde o plánovač úloh po ukončení této pracovní relace.
@@ -60,9 +60,9 @@ cesta používá celé odpovědi a změna sdíleného gateway není součástí 
 
 | Ověření | Testovaný commit / běh | Výsledek a hranice důkazu |
 | --- | --- | --- |
-| Nezměněná série final-1 | `3b3b399f`, run `1e1b2ae2-4f59-4d7b-9967-8759d68f701c` | LIVE_COMPLETE_UNASSESSED, 53/53 B a 53 A, 134 volání, 0 neplatných providerových odpovědí |
-| Nezměněná série final-2 | `3b3b399f`, run `0712bd56-9d2c-4921-a584-4f745ee0ad12` | LIVE_COMPLETE_UNASSESSED, 53/53 B a 53 A, 136 volání, 0 neplatných providerových odpovědí |
-| Nezměněná série final-3 | `3b3b399f`, run `6fde29e0-9285-48ac-ac0a-249b2a8d8c55` | LIVE_COMPLETE_UNASSESSED, 53/53 B a 53 A, 135 volání, 0 neplatných providerových odpovědí |
+| Nezměněná série final-1 | `3b3b399f`, run `1e1b2ae2-4f59-4d7b-9967-8759d68f701c` | Vlastní významové hodnocení: 42/53 = 79,25 % užitečných, 6/53 = 11,32 % zbytečných zastavení, 0 kritických chyb. Cíle nesplněny |
+| Nezměněná série final-2 | `3b3b399f`, run `0712bd56-9d2c-4921-a584-4f745ee0ad12` | Vlastní významové hodnocení: 41/53 = 77,36 % užitečných, 4/53 = 7,55 % zbytečných zastavení, 0 kritických chyb. Cíle nesplněny |
+| Nezměněná série final-3 | `3b3b399f`, run `6fde29e0-9285-48ac-ac0a-249b2a8d8c55` | Vlastní významové hodnocení: 43/53 = 81,13 % užitečných, 5/53 = 9,43 % zbytečných zastavení, 0 kritických chyb. Cíle nesplněny |
 | Celý offline + DB profil po nativních rolích | `495a069f`, `chat-quality-full-20261001-native` | 399 PASS / 4 FAIL / 3 BLOCKED z 406. Žádné nové selhání; čtyři otevřené chyby a tři blokované exportní/runtime sady níže zůstávají |
 | Devět skutečných HTTP sad | `09d9fa01`, `chat-quality-journeys-20261001-native-current` | 9 PASS: účetní deterministická cesta, doslovný zápis, soukromí, projektové expertízy, opakované uložení, druhá kompakce, návaznost specialisty, překlad a přesnost hodnot |
 | Starý prefix ve fixture přesnosti hodnot | `495a069f`, `chat-quality-journeys-20261001-native-fixed` | 8 PASS / 1 FAIL; helper nerozpoznal přesný nativní USER vstup. Opraveno v `09d9fa01`, původní pozitivní i negativní kontroly hodnot zůstaly. Samostatné opakování `chat-quality-value-native-20261001` 1 PASS a celé HTTP opakování výše 9 PASS |
@@ -97,9 +97,10 @@ Tři finální série dokončeny 22:23 CEST na jednom čistém commitu. Shodný
 manifest (source, corpus, runner, model digest a Node) i fingerprint efektivní
 konfigurace; každé volání a závěrečný inventář dokládají tentýž artefakt modelu.
 Celkem 159 odpovědí B a 159 přímých A, 405 modelových volání. Žádný průběžný
-obsah nebyl použit k ladění; významové hodnocení začíná až teď. Stav
-LIVE_COMPLETE_UNASSESSED vyjadřuje úplnost transportu, nikoli užitečnost či
-bezchybnost odpovědí. Po posledním běhu vlastní procesy skončily a provider
+obsah nebyl použit k ladění; významové hodnocení je nyní hotové: souhrnně 126/159 užitečných a 15/159
+zbytečných zastavení, 0 kritických chyb těchto sérií. Výsledek CHANGES_REQUIRED;
+žádná série nesplnila cíle. Transportní stav LIVE_COMPLETE_UNASSESSED v raw
+runner evidence zůstává původním označením před vlastním hodnocením. Po posledním běhu vlastní procesy skončily a provider
 i NVIDIA compute inventář jsou prázdné. Modelové bindingy se neměnily.
 
 První nový A/B běh potvrdil opravu zaměnění dvou vět za dvě slova a opakované žádosti
@@ -112,7 +113,8 @@ rozhovoru na skutečné providerové hranici. Živý průchod po změně má 9/1
 užitečných odpovědí B: celé doporučovací a citované dialogy prošly, zbývají
 věcné chyby v seminářovém dialogu. Nejde o důkaz ≥95% kvality systému.
 Další starší neúspěšné a přerušené běhy zůstávají v evidenci, nikoli jako
-PASS. Původní nepoužité rodiny F14–F20 zatím nebyly využity k ladění.
+PASS. Rodiny F14–F20 nebyly využity k ladění před S1; po hodnocení jsou odhalené.
+Pro další přejímku se nesmějí znovu označit jako nepoužitý vzorek.
 
 A/B latence tohoto vývojového běhu: první studená B odpověď 73,0 s, z toho
 52,8 s načítání modelu; ostatních 11 B odpovědí medián 15,2 s a p95 30,8 s.
@@ -125,8 +127,9 @@ splněné pohotovosti.
 Surové DB, providerové záznamy a úplné diagnostické logy jsou místní soukromé
 artefakty v `.intentsmith-artifacts/chat-quality-20261001/` a
 `.intentsmith-artifacts/test-runs/<run-id>/`. Neobsahují se v publikovaném
-commitu. Závěrečný report poskytne kontrolovatelný výběr výsledků bez těchto
-soukromých dat.
+commitu. Kontrolovatelný výběr výsledků je v [review reportu](../review/2026-10-01-CHAT-QUALITY.md)
+a jeho evidence přílohách; obsahuje syntetické odpovědi, důvody, identity,
+bajty efektů, latence a původní neúspěchy, bez privátních DB a capabilities.
 
 ## Další milník a podmínky přijetí
 
@@ -135,10 +138,11 @@ soukromých dat.
 2. Technický profil a devět HTTP sad jsou dokončené. Baseline chyby zůstávají
    explicitně otevřené; profil není zelený.
 3. Tři celé nezměněné série původních 53 případů dokončeny na `3b3b399f`.
-   Transportní milník se publikuje nyní, bez tvrzení o sémantické přejímce.
-4. Po třech sériích dokončit významové hodnocení, porovnání latence a závěrečný
-   review report. Vlastní hodnocení se označí
-   samostatně od nezávislého přijetí.
+   Vlastní významové hodnocení, efekty, kód a latence dokončeny; S1 nesplnil přijetí.
+4. Opravit doložený neplatný enum mazání a otázky na vlastní schopnosti aplikace,
+   zachovat fail-closed autority a potřebná doptání. Cílené testy a nové živé
+   formulace mají doložit opravu; původní S1 se nepřepisuje.
+5. Nezávislé review a skutečné CI zůstávají otevřené.
 
 Předem dané cíle: ≥95 % užitečných reakcí, ≤5 % zbytečných zastavení,
 nula kritických chyb. Vyhodnocení musí ukázat i jednotlivé oblasti a rodiny,

@@ -1,0 +1,27 @@
+{
+  "declaredAt": "2026-10-01T19:21:38.764419+00:00",
+  "basis": "Predeclared rubric; no final response content inspected. Same-model A incoming history is B history. A has no tools, so comparison of content utility excludes effect/approval/capability tasks. Raw A replies retained for every case.",
+  "compareAIds": [
+    "http",
+    "http-plain",
+    "http-typo",
+    "plain",
+    "memory-plain",
+    "typo",
+    "wifi",
+    "wifi-plain",
+    "wifi-typo",
+    "recursion",
+    "recursion-followup",
+    "recursion-plain",
+    "recursion-mixed",
+    "thanks",
+    "thanks-plain",
+    "correction",
+    "correction-next",
+    "save-content",
+    "versions",
+    "versions-en"
+  ],
+  "nonComparedReason": "Actual tool scope/approval or required adapter capability differs from pure A."
+}
