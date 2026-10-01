@@ -78,6 +78,17 @@ jejich předáním dál. Přerušený upstream nebo odchod child uzavře čekaj�
 request jako `incomplete`; kanonický `providerWire` a veřejný status zůstávají
 `LIVE_INCOMPLETE`, nikoli důkaz úplné odpovědi.
 
+Nezávislé review kandidáta `c60afb87` našlo ještě dokončený upload
+požadavku, po němž klient zavřel spojení dříve, než dorazila platná
+odpověď upstreamu. Relay dříve zapsal `response_end` a falešný
+`captureComplete:true`. Nová red-first socketová zkouška to
+reprodukovala. Opravený relay považuje odpověď za dokončenou až po
+`finish` směrem ke klientovi; předčasné `close`/`error` zapíše a
+synchronizuje jako `incomplete` a ruší čekající upstream. Úspěšný
+retry nesmí tento první request skrýt. Offline kontrakt nyní **20/20
+PASS** bez modelových volání; samostatné re-review, integrace a živý
+pilot stále čekají.
+
 ## První skutečný pilot, 1. 10. 2026
 
 Přenos `0959c45f` dostal nezávislé omezené `REVIEW_PASS` pro korpus, izolaci a

@@ -107,6 +107,10 @@ async function interruptedRelay(scenario) {
       response.writeHead(200, { 'content-type': 'application/json' });
       response.write('{"model":"qwen3.5:27b","digest":"');
       setTimeout(() => response.destroy(), 20);
+    } else if (scenario === 'downstream-abort') {
+      setTimeout(() => response.writeHead(200, { 'content-type': 'application/json' })
+        .end(JSON.stringify({ model: MODEL, digest: DIGEST, done: true,
+          message: { content: 'valid upstream answer after child disconnect' } })), 50);
     }
   });
   await new Promise(resolve => provider.listen(providerPath, resolve));
@@ -116,8 +120,9 @@ async function interruptedRelay(scenario) {
     model:MODEL,wire,persistWire:rows=>writeFileSync(path.join(out,'initial-provider-wire.json'),JSON.stringify(rows))});
   try {
     await new Promise(resolve => relay.listen(relayPath, resolve));
+    let client;
     const clientDone = new Promise(resolve => {
-      const client = http.request({socketPath:relayPath,path:'/api/chat',method:'POST',
+      client = http.request({socketPath:relayPath,path:'/api/chat',method:'POST',
         headers:{'content-type':'application/json'}},response=>{
         response.resume();
         response.on('end',resolve);
@@ -125,17 +130,24 @@ async function interruptedRelay(scenario) {
         response.on('close',resolve);
       });
       client.on('error',resolve);
+      client.on('close',resolve);
       client.end(JSON.stringify({model:MODEL,messages:[],stream:false}));
     });
     await sawForward;
     if (scenario === 'child-exit') relay.sealPending('CHILD_EXIT_WITH_PENDING_PROVIDER_REQUEST');
+    if (scenario === 'downstream-abort') client.destroy();
     await clientDone;
+    if (scenario === 'downstream-abort') {
+      // The upstream valid terminal must never upgrade a disconnected child.
+      await new Promise(resolve => setTimeout(resolve, 90));
+    }
     const persisted = JSON.parse(readFileSync(path.join(out,'initial-provider-wire.json'),'utf8'));
     const events = readFileSync(path.join(out,'initial-provider-raw.jsonl'),'utf8').trim().split('\n').map(JSON.parse);
     assert.equal(wire.length,1);
     assert.equal(persisted.length,1);
     assert.equal(persisted[0].captureComplete,false);
-    assert.match(persisted[0].error,/UPSTREAM_RESPONSE_|CHILD_EXIT_WITH_PENDING_PROVIDER_REQUEST/u);
+    assert.match(persisted[0].error,
+      /UPSTREAM_RESPONSE_|CHILD_EXIT_WITH_PENDING_PROVIDER_REQUEST|CHILD_RESPONSE_CLOSED/u);
     assert.equal(events.some(event=>event.event==='request_chunk'),true);
     assert.equal(events.some(event=>event.event==='incomplete'),true);
     if (scenario === 'upstream-abort') {
@@ -147,6 +159,11 @@ async function interruptedRelay(scenario) {
     assert.equal(verdict.transportComplete,false);
     assert.equal(chatResilienceRunStatus({code:0,transportComplete:verdict.transportComplete}),
       'LIVE_INCOMPLETE');
+    if (scenario === 'downstream-abort') {
+      const validRetry = await controlledProviderWire([{ path: '/api/chat', scenario: 'valid' }]);
+      assert.equal(transport([...wire, ...validRetry]).transportComplete, false,
+        'successful retry hid a provider response lost after child disconnect');
+    }
   } finally {
     relay.sealPending('TEST_SHUTDOWN');
     relay.closeAllConnections();
@@ -232,8 +249,9 @@ try {
 
   await interruptedRelay('upstream-abort');
   await interruptedRelay('child-exit');
+  await interruptedRelay('downstream-abort');
 
-  console.log('chat resilience runner contract: 19/19 PASS (offline, 0 model calls)');
+  console.log('chat resilience runner contract: 20/20 PASS (offline, 0 model calls)');
 } finally {
   rmSync(scratch, { recursive: true, force: true });
 }

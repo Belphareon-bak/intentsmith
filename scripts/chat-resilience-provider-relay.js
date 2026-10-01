@@ -22,7 +22,8 @@ export function createChatResilienceProviderRelay({ out, upstream, model, wire, 
     const row = { requestId: ++sequence, at: new Date().toISOString(),
       caseId: request.headers['x-chat-measurement-case'] || 'boot',
       path: request.url, method: request.method, captureComplete: false };
-    const state = { request, response, upstream: null, providerResponse: null, ended: false };
+    const state = { request, response, upstream: null, providerResponse: null,
+      upstreamEnded: false, responseBytes: 0, ended: false };
     wire.push(row);
     active.add(state);
     append({ requestId: row.requestId, event: 'request_start', at: row.at,
@@ -42,6 +43,22 @@ export function createChatResilienceProviderRelay({ out, upstream, model, wire, 
       }
     };
     state.finishError = finishError;
+    response.on('error', error => finishError(`CHILD_RESPONSE_ERROR: ${error.message}`));
+    response.on('close', () => {
+      if (response.writableFinished || state.ended) return;
+      finishError('CHILD_RESPONSE_CLOSED');
+      state.upstream?.destroy();
+      state.providerResponse?.destroy();
+    });
+    response.on('finish', () => {
+      if (state.ended) return;
+      if (!state.upstreamEnded) { finishError('CHILD_RESPONSE_FINISHED_EARLY'); return; }
+      state.ended = true;
+      row.captureComplete = true;
+      append({ requestId: row.requestId, event: 'response_end', bytes: state.responseBytes });
+      persistWire(wire);
+      active.delete(state);
+    });
     request.on('aborted', () => finishError('CHILD_REQUEST_ABORTED'));
     request.on('error', error => finishError(`CHILD_REQUEST_ERROR: ${error.message}`));
     try {
@@ -88,12 +105,10 @@ export function createChatResilienceProviderRelay({ out, upstream, model, wire, 
             try { return JSON.parse(line); } catch { return { invalid: line }; }
           }); }
           row.elapsedMs = Date.now() - Date.parse(row.at);
-          row.captureComplete = true;
-          state.ended = true;
-          append({ requestId: row.requestId, event: 'response_end', bytes: Buffer.byteLength(raw) });
-          persistWire(wire);
-          active.delete(state);
-          response.end();
+          state.responseBytes = Buffer.byteLength(raw);
+          state.upstreamEnded = true;
+          try { response.end(); }
+          catch (error) { finishError(`CHILD_RESPONSE_END_ERROR: ${error.message}`); }
         });
         providerResponse.on('aborted', () => finishError('UPSTREAM_RESPONSE_ABORTED'));
         providerResponse.on('error', error => finishError(`UPSTREAM_RESPONSE_ERROR: ${error.message}`));
