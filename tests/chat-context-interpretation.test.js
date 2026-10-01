@@ -224,6 +224,7 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
   const question = 'Do kterého souboru chceš uložit shrnutí?';
   const literal = '  Žluťoučký kůň\nřádek 2  ';
   const literalRequest = `Ulož doslovně „${literal}“.`;
+  const decomposedRequest = 'Ulož doslovně „Cafe\u0301“ do decomposed.txt.';
   const provider = http.createServer(async (req, res) => {
     let body = '';
     for await (const chunk of req) body += chunk;
@@ -239,7 +240,11 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
     try { parsed = JSON.parse(raw); } catch { parsed = null; }
     let content;
     if (payload.format?.properties?.action) {
-      if (parsed.request === literalRequest || parsed.pending?.request === literalRequest) {
+      if (parsed.request === decomposedRequest) {
+        content = JSON.stringify({ action: 'write', question: null, target: 'decomposed.txt',
+          source: { kind: 'literal', literalId: 1 }, transformation: 'none', writeMode: 'replace',
+          understood: true, unsupported: [] });
+      } else if (parsed.request === literalRequest || parsed.pending?.request === literalRequest) {
         const complete = parsed.request === 'quoted.txt';
         content = JSON.stringify({ action: 'write', question: null, target: complete ? 'quoted.txt' : null,
           source: { kind: 'literal', literalId: parsed.literals.find(value => value.content === literal)?.literalId },
@@ -334,6 +339,11 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
     assert(!existsSync(path.join(project.path, 'quoted.txt')));
     await send(`schválit efekt ${literalProposal.response.metadata.effectId}`);
     assert.equal(readFileSync(path.join(project.path, 'quoted.txt'), 'utf8'), literal);
+    const beforeDecomposed = database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n;
+    const stopped = await send(decomposedRequest);
+    assert.equal(stopped.response.metadata.error, 'file_write_byte_identity_unavailable', JSON.stringify(stopped));
+    assert.equal(database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n, beforeDecomposed);
+    assert(!existsSync(path.join(project.path, 'decomposed.txt')));
     const before = database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n;
     await send('Neukládej nic, jen vysvětli Git commit.');
     assert.equal(database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n, before);

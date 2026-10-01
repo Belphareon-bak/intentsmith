@@ -15,12 +15,12 @@
 import { ResponseTag, TaggedResponse, ResponseSpeaker, ChatMode } from '../controller.js';
 import { IntentType } from '../cre-decision.js';
 import { logger } from '../../core/logger.js';
-import { getLanguageContext } from './utils/language.js';
+import { getLanguageContext, inferUserLanguageFromHistory } from './utils/language.js';
 import { synthesizeWithLLM } from './utils/synthesis.js';
 import path from 'path';
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
-import { validateM2ToolRequest, validateM2ToolResult, computeM2ToolRequestDigest, computeM2ToolValueDigest } from '../../../contracts/m2/tool-v1.js';
+import { validateM2ToolRequest, validateM2ToolResult, computeM2ToolRequestDigest, computeM2ToolValueDigest, normalizeM2ToolValue } from '../../../contracts/m2/tool-v1.js';
 import {
   isM2FileReadOutputRequest, M2_FILE_READ_MAX_BYTES, m2FileReadConversationOrigin,
 } from '../../../contracts/m2/file-read-output-v1.js';
@@ -893,7 +893,7 @@ function _extractUserContent(input) {
 export async function handleFileWriteDecision(input, decision, context, dependencies = {}) {
   const projectPath = context.project?.path || null;
 
-  const langCtx = context.langCtx || getLanguageContext(input);
+  const langCtx = context.langCtx || getLanguageContext(input, inferUserLanguageFromHistory(context.history));
   const lang = langCtx?.language || 'cs';
 
   // M2 write authority precedes command parsing and source selection. A
@@ -1012,6 +1012,14 @@ export async function handleFileWriteDecision(input, decision, context, dependen
       ? '⚠️ Obsah nebo projekt se během přípravy změnil, případně shrnutí nebylo dokončeno. Žádný zápis není připraven.'
       : '⚠️ The source/project changed during preparation or the summary did not complete. No write is prepared.',
     error.code || 'file_write_source_unverified', filePath);
+  }
+  // M2 canonicalizes string values to NFC. Refuse a byte-changing admission
+  // rather than showing one source and executing a different payload.
+  if (!isDeepStrictEqual({ path: filePath, content }, normalizeM2ToolValue({ path: filePath, content }))) {
+    return terminalWithoutEffect(lang === 'cs'
+      ? 'Přesný zápis tohoto textu nebo názvu by změnila normalizace znaků. Žádný zápis není připraven. Tato cesta přijímá text a názvy v Unicode NFC; původní bajty vyžadují jiný způsob zápisu.'
+      : 'Character normalization would change the exact text or filename. No write is prepared. This path accepts Unicode NFC text and filenames; preserving the original bytes requires another write method.',
+    'file_write_byte_identity_unavailable', filePath);
   }
   const fileSaveSource = {
     messageId: plan.literalOriginMessageId ?? sourceMessageId ?? context.userMessageId,
