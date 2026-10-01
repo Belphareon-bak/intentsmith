@@ -1,6 +1,12 @@
 // Exact price/money operations. Probabilities deliberately remain numbers.
+const trustedFailures = new WeakSet();
 export function fail(code, message, fieldPath = null) {
-  throw Object.assign(new Error(message), { code, fieldPath });
+  const error = Object.assign(new Error(message), { code, fieldPath });
+  trustedFailures.add(error);
+  throw error;
+}
+export function isTrustedBettingFailure(error) {
+  return error !== null && typeof error === 'object' && trustedFailures.has(error);
 }
 export function record(value, path) {
   if (!value || typeof value !== 'object' || Array.isArray(value)

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { validateRequest, validateSnapshot } from './contract.js';
-import { instant, decimal, multiply, compare, number, decimalString, payout, fail, integer } from './values.js';
+import { instant, decimal, multiply, compare, number, decimalString, payout, fail, integer, isTrustedBettingFailure } from './values.js';
 
 function canonical(value) {
   if(Array.isArray(value)) return value.map(canonical);
@@ -197,9 +197,11 @@ export async function buildTickets(request, snapshot, {
     if(signal?.aborted) {result.status='CANCELLED';result.tickets=[];result.alternatives=[];}
     return result;
   } catch(error) {
-    result.status=['NEEDS_INPUT','INVALID_REQUEST','MODEL_UNAVAILABLE','PROVIDER_ERROR','INSUFFICIENT_DATA'].includes(error.code)?error.code:'INTERNAL_ERROR';
+    const trusted=isTrustedBettingFailure(error);
+    result.status=trusted&&['NEEDS_INPUT','INVALID_REQUEST','MODEL_UNAVAILABLE','PROVIDER_ERROR','INSUFFICIENT_DATA'].includes(error.code)?error.code:'INTERNAL_ERROR';
     result.tickets=[];
-    result.errors=[{code:error.code??'INTERNAL_ERROR',fieldPath:error.fieldPath??null,message:error.message,retryable:false,sourceRef:null}];
+    result.errors=[{code:result.status,fieldPath:trusted?error.fieldPath??null:null,
+      message:trusted?error.message:'Výpočet selhal.',retryable:false,sourceRef:null}];
     return result;
   }
 }

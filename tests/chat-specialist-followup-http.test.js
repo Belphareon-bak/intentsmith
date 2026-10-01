@@ -236,21 +236,48 @@ test('selected-specialist public projection drops injected private evidence', ()
   [{ type: 'code-reviewer.security_scan' }]);
   const betting = publicSpecialistToolResults('sazeni.ticket_builder', {
     contract: 'BettingResult', version: 3, status: 'READY', internalNote: secret,
+    effectivePreferences: { ticketCount: 2, privateToken: secret,
+      stake: { currency: 'CZK', perTicketMinor: 5000, privateToken: secret } },
+    coverage: { complete: true, scope: 'E0', privateToken: secret },
+    search: { completed: true, nodes: 3, privateToken: secret },
+    errors: [{ code: 'PROVIDER_ERROR', message: secret, sourceRef: { token: secret },
+      privateToken: secret }],
+    tickets: [{ ticketId: 'ticket:public', totalOdds: '2.5', privateToken: secret,
+      selections: [{ eventId: 'event:public', decimalOdds: '2.5', privateToken: secret }],
+      money: { currency: 'CZK', stakeMinor: 5000, privateToken: secret },
+      constraints: [{ field: 'ticketOdds', actual: '2.5',
+        required: { min: '2', max: '4', privateToken: secret }, pass: true,
+        privateToken: secret }] }],
+    alternatives: [{ field: 'ticketOdds.min', value: '2', privateToken: secret,
+      example: { ticketId: 'ticket:example', privateToken: secret } }],
+    evidenceRefs: [{ snapshotId: 'snapshot:public', privateToken: secret,
+      source: { id: 'source:public', privateToken: secret } }],
+    rejections: [{ code: 'USER_EXCLUDED', privateToken: secret }],
+    persistence: { status: 'SAVED', recordId: 42, privateToken: secret },
     analysis: { autonomous: true, diagnostics: [secret], models: [{ token: secret }],
+      limitations: [secret], policy: { id: secret, selectedMethod: secret },
       publicSourcePages: [{ league: 'E0', url: `https://example.test/?token=${secret}` }],
       sourceRefs: [{
       observationId: 'source-1', resource: 'history',
       retrievedAt: '2026-10-01T00:00:00.000Z', lastModified: null,
-      sha256: 'd'.repeat(64), url: 'https://example.test/history.csv', bytes: 42,
+      sha256: 'd'.repeat(64), url: 'https://www.football-data.co.uk/mmz4281/2223/E0.csv', bytes: 42,
       credential: secret,
     }, {
       observationId: 'source-2', resource: 'history',
       retrievedAt: '2026-10-01T00:00:00.000Z', lastModified: null,
-      sha256: 'd'.repeat(64), url: `https://example.test/history.csv?token=${secret}`,
+      sha256: 'd'.repeat(64), url: `https://www.football-data.co.uk/mmz4281/2223/E0.csv?token=${secret}`,
       bytes: 42,
     }] },
   });
   assert.equal(betting[0].data.analysis.sourceRefs.length, 1);
+  assert.equal(betting[0].data.tickets[0].ticketId, 'ticket:public');
+  assert.equal(betting[0].data.tickets[0].selections[0].decimalOdds, '2.5');
+  assert.deepEqual(betting[0].data.tickets[0].constraints[0], {
+    field: 'ticketOdds', actual: '2.5', required: { min: '2', max: '4' }, pass: true,
+  });
+  assert.equal(betting[0].data.effectivePreferences.stake.perTicketMinor, 5000);
+  assert.equal(betting[0].data.errors[0].message,
+    'Datový zdroj není dostupný. Zkus výpočet později.');
   assert(!JSON.stringify(betting).includes(secret));
   assert.equal(publicSpecialistProjectContext('other.tool', evidence), undefined);
 });

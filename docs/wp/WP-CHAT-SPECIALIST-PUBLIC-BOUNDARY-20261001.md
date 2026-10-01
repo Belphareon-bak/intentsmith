@@ -14,7 +14,9 @@ omezených veřejných metadat generativní expertízy.
 **Rozsah a vlastněné cesty:** `src/chat/handlers/specialist.js`, nový čistý
 projektor `src/chat/handlers/specialist-public.js`, existující M1 HTTP/SQLite
 programy `tests/chat-specialist-followup-http.test.js` a
-`tests/chat-sazeni-http-journey.test.js`, sousední
+`tests/chat-sazeni-http-journey.test.js`, testovací transport
+`tests/helpers/sazeni-http-fixture-preload.js`, bezpečné chyby v
+`specialists/sazeni/engine/{values,autonomous,tickets}.js`, sousední
 `tests/sazeni-integration.test.js`, přesná hrana module graph,
 mechanické počty v `SYSTEM-MAP.md` a `ROADMAP.md` a tento WP. Žádný nový
 testový program ani změna `tests/registry.json`.
@@ -116,3 +118,39 @@ registry validátor, artifact validace a `git diff --check` procházejí na
 env PATH=/home/belphareon/.nvm/versions/node/v24.21.0/bin:$PATH /home/belphareon/.nvm/versions/node/v24.21.0/bin/node scripts/run-suites.js --suite=IS-T3-TESTS-CHAT-SPECIALIST-FOLLOWUP-HTTP-TEST,IS-T3-TESTS-CHAT-SAZENI-HTTP-JOURNEY-TEST,IS-T3-TESTS-CHAT-ACCOUNTANT-MODEL-CONTRACT-TEST,IS-T3-TESTS-CHAT-TRANSLATOR-MODEL-CONTRACT-TEST,IS-T1-TESTS-SAZENI-INTEGRATION-TEST,IS-T2-TESTS-M1-CHAT-CONTRACT-TEST,IS-T1-TESTS-ARTIFACT-VALIDATION
 git diff --check
 ```
+
+## Navazující review a uzavření vnořených polí
+
+Nezávislé review `f712bb3e` vrátilo **CHANGES_REQUIRED**. Původní projekce
+kopírovala `errors`, `tickets` a další vnořené objekty bez filtru. Hostem
+vyvolaná výjimka tak nesla soukromý text do veřejného `errors[].message` i
+deterministické prezentace. Filtr také zahazoval legitimní veřejnou stránku
+Fortuny s přesným `?tab=matches`.
+
+Nový red-first důkaz na stejném M1 HTTP/SQLite child: **1 PASS / 2 FAIL**.
+První skutečný pozorovaný výsledek neměl `analysis.publicSourcePages`; při
+řízeném `bettingData.get` throw se `PRIVATE_HOST_ERROR_CANARY_4bf7d0`
+objevil v `errors[0].message`. Samostatná negativní projekční mutace byla
+**0/1**: privátní chybový text šel do veřejných metadat. Žádný externí
+provider ani instalovaná DB se při testu nepoužily.
+
+Oprava pouští do veřejného `BettingResult@3` jen kontraktové vnořené klíče
+včetně preferencí, tiketů, kurzů, omezení, důkazů a uloženého ID. Chybové
+metadata používají pevné veřejné věty podle typovaného stavu; syrový host error
+se zároveň vyřadí před deterministickým rendererem. Vlastní validační chyby
+si mohou zachovat užitečný doménový text. `sourceRefs` přijímá jen uzavřené
+veřejné zdroje hostu a stránky Fortuny jen pět přesných ligových URL s
+`?tab=matches`; tokenové query a libovolné vnořené klíče se zahodí.
+Pozorované dva zápasy, kurz `2.8237`, čas capture a pět kontrol tiketových
+limitů zůstávají veřejně ověřitelné. Návrh je nadále **REVIEW_PENDING**;
+žádná živá kvalita modelu ani release přejímka se z těchto fixture testů
+neodvozuje.
+
+**Ověření opravené revize před commitem:** přímé M1 HTTP sady **5/5**,
+účetní a překladatelské HTTP sousedy **5/5**, Sázení integrace **20/20**,
+M1 chat kontrakt **73/73**, artifact validace **160/160**. Registrovaný
+sedmisadový běh **7/7 PASS**:
+`.intentsmith-artifacts/run-suites/2026-10-01T01-42-15-399Z/report.json`;
+`gateEvidence=false`. Registry má 580 validních programů a module graph drží
+1 463 hran, tři stávající cykly / 28 souborů, bez nové hrany. Přesný commit a
+remote SHA budou uvedeny v předání reviewerovi; stav zůstává `REVIEW_PENDING`.
