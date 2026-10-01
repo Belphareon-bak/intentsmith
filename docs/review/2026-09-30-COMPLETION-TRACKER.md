@@ -1,5 +1,22 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## CI propojení 1. 10. 2026, 06:59 UTC
+
+Přijaté atomické vytvoření a VAT jsou publikované v čistém
+`38f189d0bd8c7fe85b6b61d29ff8ca4e3e9388e9`; vzdálený SHA je ověřen.
+GitHub pro tento SHA vrátil prázdné statusy i workflow runs. Existující
+workflow spouští push pouze na `main` a `integration/main-reconcile-*`.
+Pokus vytvořit draft PR pro kontrolu skončil chybou GitHub konektoru
+**403 Resource not accessible by integration**; PR nevznikl.
+
+Ohraničená změna přidává pouze současnou integrační větev do push triggeru.
+Joby, dependency locky, read-only permissions a původní testy se nemění.
+Výstupem má být skutečný GitHub development-check výsledek na publikovaném
+SHA. Nejde o celý deterministický profil ani o release acceptance.
+Vlastněné cesty jsou `.github/workflows/ci.yml` a tento tracker; žádný
+produktový source, produkční stav nebo foreign work se nemění. Trigger
+čeká na nezávislé review a následný push; dosud **CI_NOT_RUN**.
+
 ## Checkpoint 1. 10. 2026, 06:19 UTC — celý profil a další opravy
 
 Celý offline/database profil na přesném čistém `4cbb4b55` doběhl jako
