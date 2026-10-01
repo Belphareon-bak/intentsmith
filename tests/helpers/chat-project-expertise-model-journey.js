@@ -62,16 +62,25 @@ export function productEnvironment(runtime, providerUrl, model, nonce) {
 }
 
 export async function startProduct(runtime, providerUrl, model,
-  { enableAgents = false, productionAdminToken = null, testAgentExtensionsDir = null } = {}) {
+  { enableAgents = false, productionAdminToken = null, testAgentExtensionsDir = null,
+    testPreload = null, testBettingBridgeRequired = false } = {}) {
+  if (testPreload && productionAdminToken) {
+    throw new Error('Test preload cannot be used in production runtime');
+  }
+  if (testBettingBridgeRequired && !testPreload) {
+    throw new Error('Betting fixture requires an owned test preload');
+  }
   const nonce = randomBytes(32).toString('base64url');
   if (existsSync(runtime.portFile)) unlinkSync(runtime.portFile);
-  const child = spawn(process.execPath, ['src/server.js'], {
+  const child = spawn(process.execPath,
+    [...(testPreload ? ['--import', testPreload] : []), 'src/server.js'], {
     cwd: runtime.repositoryRoot,
     env: { ...productEnvironment(runtime, providerUrl, model, nonce),
       ...(enableAgents ? { INTENTSMITH_ENABLE_AGENTS: 'true' } : {}),
       ...(testAgentExtensionsDir ? {
         INTENTSMITH_TEST_AGENT_EXTENSIONS_DIR: testAgentExtensionsDir,
       } : {}),
+      ...(testBettingBridgeRequired ? { INTENTSMITH_TEST_BETTING_BRIDGE_REQUIRED: '1' } : {}),
       ...(productionAdminToken ? { NODE_ENV: 'production',
         INTENTSMITH_ADMIN_TOKEN: productionAdminToken } : {}) },
     stdio: ['ignore', 'pipe', 'pipe'],

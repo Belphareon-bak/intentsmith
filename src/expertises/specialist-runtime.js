@@ -623,8 +623,10 @@ class SpecialistRuntime {
         return null; // Fall back to LLM
       }
 
-      // v76: Cache params on success for next turn
-      if (sessionId) {
+      // A betting extractor can return a presented NEEDS_INPUT result while
+      // carrying inputError. Keep the last valid preferences for the next
+      // explicit followup instead of caching that failed parse as authority.
+      if (sessionId && !(match.tool.needsBettingData === true && match.params.inputError)) {
         this._sessionCache.save(sessionId, expertiseId, match.tool.id, match.params);
       }
 
