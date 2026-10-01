@@ -98,3 +98,28 @@ whitespace stejné délky. Nevznikají spojené tokeny a žádný z těchto výs
 neposkytuje autoritu cíle. HTTP regrese obsahuje oba původní případy,
 smíšené uvozovky a pozitivní opakování při samostatném výslovném cíli.
 Původní dvě privátní reprodukce zůstávají uchované jako red evidence.
+
+### Vývojový pilot b2 a výběr doslovného zdroje podle ID
+
+Na čistém `b2cbff96` proběhlo devět vývojových případů F06/F10/F12
+(žádné inference nad F14–F20). Opakované uložení odpovědi opět zachovalo
+přesné bajty ve dvou schválených souborech. Čtyři běžné literal žádosti
+selhaly, protože model do `source.text` zahrnul i uvozovky; typo varianta
+skončila otázkou. To je **LIVE_PILOT_FAIL**, nikoli úspěšná přejímka.
+Report je `chat-resilience-b2cbff96/runs.json` v soukromých artefaktech.
+
+Literal kontrakt nyní používá `{kind:literal,literalId}`. Jádro lexikálně
+vymezí citované úseky nezměněného aktuálního zadání, nabídne jejich ID a
+obsah; model pouze vybere ID. Jádro z daného úseku vezme přesné bajty,
+nikdy modelový přepis obsahu. Počet přípustných formulací se tím nemění.
+Únik cíle z literal dat stále odmítá maskování všech odpovídajících
+obsahových spanů. Po nalezení cíle navíc musí tentýž úsek původního vstupu
+přesně odpovídat cíli; maskované mezery tak nemohou vytvořit novou cestu.
+Nezávislá třetí repro takové cesty na `b2` zůstává uchována.
+
+HTTP regrese stále ověřuje původní pozitivní doslovné bajty, samostatný
+cíl při opakovaném obsahu a všechny původní nepřípustné cíle; přidává
+modelově zvolenou cestu s maskovanými mezerami a neznámé literal ID.
+První přímé opakování má **1/1 PASS** (`semantic-literal-ids-green.log`).
+Nový kandidát zůstává **REVIEW_PENDING / LIVE_NOT_RUN**; poslední přijatý
+celý CHAT ještě neexistuje a finální 53×3 stále čeká.
