@@ -535,7 +535,7 @@ await testAsync('long conversational ANSWER sends the full summary and a word ta
     assert.equal(body.options.num_ctx, 4_096);
     assert(body.options.num_predict >= 256 && body.options.num_predict < 512);
     const systemContent = body.messages.find(message => message.role === 'system')?.content || '';
-    const wordTarget = Number(systemContent.match(/Naplánuj úplnou odpověď přibližně do (\d+) slov/u)?.[1]);
+    const wordTarget = Number(systemContent.match(/Technický strop úplné odpovědi je (\d+) slov/u)?.[1]);
     assert(Number.isInteger(wordTarget) && wordTarget < 100,
       'the final provider prompt must use the compact output target');
     assert.equal(wordTarget, Math.max(20, Math.floor(body.options.num_predict / 5)),
@@ -1064,7 +1064,7 @@ await testAsync('CODE retries keep their output budget and the complete fitting 
       assert.equal(body.options.num_ctx, 4_096);
       assert.equal(body.options.num_predict, 1_200);
       const systemContent = body.messages.find(message => message.role === 'system')?.content || '';
-      if (index === 0) assert.doesNotMatch(systemContent, /Naplánuj úplnou odpověď přibližně do/u);
+      if (index === 0) assert.doesNotMatch(systemContent, /Technický strop úplné odpovědi je/u);
       else assert.match(systemContent, /Předchozí výstup narazil na technický limit/u);
       assert(body.messages.find(message => message.role === 'user')?.content
         .includes(JSON.stringify({ role: 'summary', content: summaryContent })));
@@ -1129,8 +1129,8 @@ await testAsync('context-filled CODE retries send a new bounded completion instr
     assert.notEqual(systems[2].replace(/^.*?\n\n/su, ''), systems[1].replace(/^.*?\n\n/su, ''));
     assert.match(systems[1], /Předchozí výstup narazil na technický limit/u);
     assert.match(systems[2], /Předchozí výstup narazil na technický limit/u);
-    assert.match(systems[1], /Naplánuj úplnou odpověď přibližně do 100 slov/u);
-    assert.match(systems[2], /Naplánuj úplnou odpověď přibližně do 60 slov/u);
+    assert.match(systems[1], /Technický strop úplné odpovědi je 100 slov/u);
+    assert.match(systems[2], /Technický strop úplné odpovědi je 60 slov/u);
     assert.equal(result.tag.metadata.answerRetries, 2);
     assert.equal(result.tag.metadata.answerBudget.maxTokens, requestBodies[2].options.num_predict);
     assert.equal(result.tag.metadata.finishReason, 'stop');
@@ -1215,7 +1215,7 @@ await testAsync('final ANSWER provider request retains a concise correction afte
     assert(providerPrompt.endsWith(`User: ${input}`));
     assert(body.options.num_predict >= 256 && body.options.num_predict < 512);
     const systemContent = body.messages.find(message => message.role === 'system')?.content || '';
-    const wordTarget = Number(systemContent.match(/Naplánuj úplnou odpověď přibližně do (\d+) slov/u)?.[1]);
+    const wordTarget = Number(systemContent.match(/Technický strop úplné odpovědi je (\d+) slov/u)?.[1]);
     assert.equal(wordTarget, Math.max(20, Math.floor(body.options.num_predict / 5)));
     assert.equal(result.tag.metadata.answerBudget.maxTokens, body.options.num_predict);
   } finally {
