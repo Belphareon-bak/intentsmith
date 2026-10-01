@@ -24,8 +24,11 @@ function row(label, user, content) {
       message: { role: 'assistant', content } } };
 }
 
-function receipt(rowValue) {
-  return { requestSha256: rowValue.requestSha256, responseSha256: rowValue.responseSha256 };
+function receipt(rowValue, rows) {
+  const captureIndex = rows.indexOf(rowValue);
+  assert(captureIndex >= 0, 'fixture provider row absent');
+  return { captureIndex, requestSha256: rowValue.requestSha256,
+    responseSha256: rowValue.responseSha256 };
 }
 
 function fixture() {
@@ -47,7 +50,7 @@ function fixture() {
     const call = row(`one-${turn}`, `User: ${question}`, answer);
     rows.push(call);
     turns.push({ stage: 1, turn, question, expected: valueCase.expected,
-      answer, qualityStatus: 'PASS', ...receipt(call) });
+      answer, qualityStatus: 'PASS', ...receipt(call, rows) });
   }
   const firstSummary = row('first-summary', `${firstRaw}\nSouhrn:`, firstProse);
   rows.push(firstSummary);
@@ -61,7 +64,7 @@ function fixture() {
     const call = row(`two-${turn}`, `User: ${question}`, answer);
     rows.push(call);
     turns.push({ stage: 2, turn, question, expected: valueCase.expected,
-      answer, qualityStatus: 'PASS', ...receipt(call) });
+      answer, qualityStatus: 'PASS', ...receipt(call, rows) });
   }
   const secondSource = `[Předchozí souhrn]\n${firstProse}\n\n[Nové zprávy od posledního souhrnu]\n${secondRaw}\nSouhrn:`;
   const secondSummary = row('second-summary', secondSource, secondProse);
@@ -109,20 +112,20 @@ function fixture() {
     installedDigest: CAPTURE_DIGEST, captureBytes: captureBytes.length,
     captureSha256: sha256(captureBytes), turns,
     projects: { a: projectA, b: projectB },
-    projectB: { before: { ...receipt(bBefore), question: bQuestion,
+    projectB: { before: { ...receipt(bBefore, rows), question: bQuestion,
       answer: projectB.canary, persistence: persisted(bPairs, 0), messages: bPairs.slice(0, 2) },
-    afterRestart: { ...receipt(bAfter), question: bQuestion,
+    afterRestart: { ...receipt(bAfter, rows), question: bQuestion,
       answer: projectB.canary, persistence: persisted(bPairs, 1), messages: bPairs.slice(0, 4) },
-    afterSecond: { ...receipt(bAfterSecond), question: bQuestion,
+    afterSecond: { ...receipt(bAfterSecond, rows), question: bQuestion,
       answer: projectB.canary, persistence: persisted(bPairs, 2), messages: bPairs } },
     first: { firstUserId: 1, upToMsgId: 8, rawTokens: 4300,
-      messages: firstMessages, text: firstText, ...receipt(firstSummary) },
+      messages: firstMessages, text: firstText, ...receipt(firstSummary, rows) },
     restart: { beforePid: 111, afterPid: 222, firstSummary: firstText,
       firstUpToMsgId: 8, rawFirstUserRetained: true, messages: firstMessages },
     second: { secondUserId: 12, upToMsgId: 20, postRestartRawTokens: 4400,
       messages: [...firstMessages, ...postRestartMessages],
-      text: secondText, ...receipt(secondSummary) },
-    final: { question: FINAL_QUESTION, answer: finalAnswer, ...receipt(final),
+      text: secondText, ...receipt(secondSummary, rows) },
+    final: { question: FINAL_QUESTION, answer: finalAnswer, ...receipt(final, rows),
       persistence: persisted(finalMessages, 10), messages: finalMessages } };
   return { captureBytes, evidence, sourceRevision };
 }
@@ -300,4 +303,43 @@ test('captured physical receipt requires the exact recursive source, project iso
     x.evidence.final.persistence.sqlite.assistant.content = 'PERSISTED_WRONG_VALUE';
   });
   assert.throws(() => validateSecondWindowEvidence(persistedWrongFinal), /persisted|POST|assistant|answer/i);
+
+  // Repeated B prompts can have the same correct answer. Each stage must own
+  // its own captured provider row, including when another row is deleted.
+  const replayB = changed(x => {
+    x.evidence.projectB.afterRestart.requestSha256 = x.evidence.projectB.before.requestSha256;
+    x.evidence.projectB.afterRestart.responseSha256 = x.evidence.projectB.before.responseSha256;
+  });
+  assert.throws(() => validateSecondWindowEvidence(replayB), /capture|ordinal|replay|order/i);
+  const replayBRow = changed(x => {
+    for (const name of ['requestSha256', 'responseSha256', 'captureIndex']) {
+      x.evidence.projectB.afterRestart[name] = x.evidence.projectB.before[name];
+    }
+  });
+  assert.throws(() => validateSecondWindowEvidence(replayBRow), /replay/i);
+  const replayAfterSecond = changed(x => {
+    x.evidence.projectB.afterSecond.requestSha256 = x.evidence.projectB.afterRestart.requestSha256;
+    x.evidence.projectB.afterSecond.responseSha256 = x.evidence.projectB.afterRestart.responseSha256;
+  });
+  assert.throws(() => validateSecondWindowEvidence(replayAfterSecond), /capture|ordinal|replay|order/i);
+  const missingBRow = changedRows(rows => {
+    rows.splice(baseline.evidence.projectB.afterRestart.captureIndex, 1);
+  });
+  missingBRow.evidence.projectB.afterRestart.requestSha256 = missingBRow.evidence.projectB.before.requestSha256;
+  missingBRow.evidence.projectB.afterRestart.responseSha256 = missingBRow.evidence.projectB.before.responseSha256;
+  assert.throws(() => validateSecondWindowEvidence(missingBRow), /capture|ordinal|replay|order/i);
+  const swappedBHashes = changed(x => {
+    for (const name of ['requestSha256', 'responseSha256']) {
+      [x.evidence.projectB.afterRestart[name], x.evidence.projectB.afterSecond[name]] =
+        [x.evidence.projectB.afterSecond[name], x.evidence.projectB.afterRestart[name]];
+    }
+  });
+  assert.throws(() => validateSecondWindowEvidence(swappedBHashes), /capture|ordinal|replay|order/i);
+  const swappedB = changed(x => {
+    for (const name of ['requestSha256', 'responseSha256', 'captureIndex']) {
+      [x.evidence.projectB.afterRestart[name], x.evidence.projectB.afterSecond[name]] =
+        [x.evidence.projectB.afterSecond[name], x.evidence.projectB.afterRestart[name]];
+    }
+  });
+  assert.throws(() => validateSecondWindowEvidence(swappedB), /capture|ordinal|replay|order/i);
 });

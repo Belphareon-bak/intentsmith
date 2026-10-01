@@ -58,8 +58,13 @@ function captureRows(file) {
   return bytes.toString('utf8').trim().split('\n').map(line => JSON.parse(line));
 }
 
+function indexedMatches(rows, before, predicate) {
+  return rows.flatMap((row, captureIndex) =>
+    captureIndex >= before && predicate(row) ? [{ ...row, captureIndex }] : []);
+}
+
 function capturedResponse(rows, before, question, answer, label) {
-  const candidates = rows.slice(before).filter(row => row.path === '/api/chat'
+  const candidates = indexedMatches(rows, before, row => row.path === '/api/chat'
     && row.status === 200 && row.done === true && row.doneReason === 'stop'
     && providerPromptText(row).includes(question) && providerReply(row) === answer);
   assert.equal(candidates.length, 1,
@@ -83,7 +88,7 @@ async function projectBChat(product, proxy, captureFile, journeyRuntime, fixture
   const response = await expectJson(product, 'POST', '/api/chat',
     makeM1Command(fixtureB.conversationId, label, question), 200);
   assert.equal(response.status, 'ok');
-  const candidates = captureRows(captureFile).slice(before).filter(row =>
+  const candidates = indexedMatches(captureRows(captureFile), before, row =>
     row.status === 200 && row.done === true && row.doneReason === 'stop'
       && providerPromptText(row).includes(question)
       && projectReply(row) === response.response?.content);
@@ -107,7 +112,8 @@ async function projectBChat(product, proxy, captureFile, journeyRuntime, fixture
       `${label}: project B did not persist a new user/assistant pair`);
   }
   const persistence = durableTurnReceipt(state, question, response.response.content, label);
-  return { requestSha256: row.requestSha256, responseSha256: row.responseSha256,
+  return { captureIndex: row.captureIndex,
+    requestSha256: row.requestSha256, responseSha256: row.responseSha256,
     question, answer: response.response.content, persistence, messages: state.messages };
 }
 
@@ -190,14 +196,14 @@ async function longTurn(product, proxy, captureFile, fixtureA, stage, turn, evid
   const persistence = durableTurnReceipt(state, question, response.response, `${stage}.${turn}`);
   evidence.turns.push({ stage, turn, question, expected: valueCase.expected,
     answer: response.response, qualityStatus: qualityError ? 'FAIL' : 'PASS', qualityError,
-    persistence,
+    persistence, captureIndex: row.captureIndex,
     requestSha256: row.requestSha256, responseSha256: row.responseSha256,
     numCtx: row.numCtx, numPredict: row.numPredict, promptEvalCount: row.promptEvalCount });
   return state;
 }
 
 function matchingSummary(rows, storedText, requiredCode) {
-  const matches = rows.filter(row => row.path === '/api/chat' && row.status === 200
+  const matches = indexedMatches(rows, 0, row => row.path === '/api/chat' && row.status === 200
     && row.done === true && row.doneReason === 'stop'
     && row.messages.at(-1)?.role === 'user'
     && String(row.messages.at(-1)?.content || '').endsWith('\nSouhrn:')
@@ -276,7 +282,7 @@ test('physical second window: two compactions, restart, A/B isolation and anchor
     evidence.first = { firstUserId: firstUser.id,
       upToMsgId: Number(state.conversation.summary_up_to_msg_id),
       rawTokens: rawTokens(state.messages), messages: state.messages,
-      text: state.conversation.summary,
+      text: state.conversation.summary, captureIndex: firstRow.captureIndex,
       requestSha256: firstRow.requestSha256, responseSha256: firstRow.responseSha256 };
     const beforePid = product.child.pid;
     await stopVerifiedProduct(product, 'restart');
@@ -311,7 +317,7 @@ test('physical second window: two compactions, restart, A/B isolation and anchor
     evidence.second = { secondUserId: secondUser.id,
       upToMsgId: Number(state.conversation.summary_up_to_msg_id),
       postRestartRawTokens: secondRawTokens, messages: state.messages,
-      text: state.conversation.summary,
+      text: state.conversation.summary, captureIndex: secondRow.captureIndex,
       requestSha256: secondRow.requestSha256, responseSha256: secondRow.responseSha256 };
     assert(state.messages.some(message => message.id === firstUser.id
       && message.content === secondWindowMessage(1, 1)),
@@ -330,7 +336,7 @@ test('physical second window: two compactions, restart, A/B isolation and anchor
     const persistence = durableTurnReceipt(finalState, FINAL_QUESTION, recall.response,
       'final recall');
     evidence.final = { question: FINAL_QUESTION, answer: recall.response,
-      persistence, messages: finalState.messages,
+      persistence, messages: finalState.messages, captureIndex: finalRow.captureIndex,
       requestSha256: finalRow.requestSha256, responseSha256: finalRow.responseSha256,
       numCtx: finalRow.numCtx, promptEvalCount: finalRow.promptEvalCount };
     evidence.semanticQuality = secondWindowSemanticQuality(evidence.turns, recall.response,

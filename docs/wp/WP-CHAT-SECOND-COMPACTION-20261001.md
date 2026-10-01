@@ -145,7 +145,18 @@ tahu nyní musí být odmítnuty i při správné provider/POST odpovědi a vzá
 shodné, ale chybné GET/SQLite historii. Opravená fyzická sada zůstává
 `LIVE_NOT_RUN / REVIEW_PENDING` do nové nezávislé revize a řízeného GPU běhu.
 
-Po této opravě prošlo offline atestační orákulum **2/2 PASS** včetně negativních
+Třetí nezávislá revize kandidáta `6a9c381d` vrátila `CHANGES_REQUIRED`:
+opakovaný dotaz B mohl použít provider receipt z dřívějšího B tahu a atestor
+stále hlásil `PASS`. Před opravou to reprodukoval úplný 16řádkový fixture;
+falešný `PASS` vznikl i po odstranění skutečného pozdějšího B provider řádku.
+Každý receipt nyní nese pořadové číslo řádku v capture JSONL. Producent je
+zapisuje z konkrétní dokončené provider odpovědi; offline atestor ověřuje
+SHA právě na daném řádku, zakazuje použití téhož řádku více receipty a
+kontroluje pořadí tahů A/B i polohu obou souhrnů mezi B etapami. Negativní
+mutace pokrývají replay, chybějící řádek a prohození B etap. Fyzická sada
+nad touto opravou zůstává `LIVE_NOT_RUN / REVIEW_PENDING`.
+
+Po poslední opravě prošlo offline atestační orákulum **2/2 PASS** včetně negativních
 mutací, registr **585** validních programů a module-boundary ratchet
 **1464/1464** bez nových hran. Řízený HTTP/SQLite scénář měl **1/1 PASS** na
 předchozím `cf8cb509` a tato oprava jej nemění; v této revizi se znovu

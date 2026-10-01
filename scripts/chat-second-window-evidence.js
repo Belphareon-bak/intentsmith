@@ -44,13 +44,20 @@ const providerReply = row => {
   return raw;
 };
 
-function captureRow(rows, receipt, label) {
+function captureRow(rows, receipt, label, claimedIndices) {
+  assert(Number.isSafeInteger(receipt?.captureIndex) && receipt.captureIndex >= 0
+    && receipt.captureIndex < rows.length, `${label} capture ordinal missing or out of range`);
   assert.match(receipt?.requestSha256, /^[a-f0-9]{64}$/u, `${label} request hash missing`);
   assert.match(receipt?.responseSha256, /^[a-f0-9]{64}$/u, `${label} response hash missing`);
-  const matches = rows.filter(row => row.requestSha256 === receipt.requestSha256
-    && row.responseSha256 === receipt.responseSha256);
-  assert.equal(matches.length, 1, `${label} provider call absent or ambiguous`);
-  return matches[0];
+  const row = rows[receipt.captureIndex];
+  assert.equal(row.requestSha256, receipt.requestSha256,
+    `${label} capture ordinal differs from provider request`);
+  assert.equal(row.responseSha256, receipt.responseSha256,
+    `${label} capture ordinal differs from provider response`);
+  assert(!claimedIndices.has(receipt.captureIndex),
+    `${label} provider capture row replayed by another receipt`);
+  claimedIndices.add(receipt.captureIndex);
+  return row;
 }
 
 function sourceForSummary(row, label) {
@@ -129,6 +136,8 @@ export function validateSecondWindowEvidence({ captureBytes, evidence, sourceRev
   assert.equal(captureBytes.at(-1), 10, 'capture JSONL incomplete');
   const rows = captureBytes.toString('utf8').trim().split('\n').map(line => JSON.parse(line));
   assert(rows.length >= 4, 'too few physical provider calls');
+  const claimedIndices = new Set();
+  const capture = (receipt, label) => captureRow(rows, receipt, label, claimedIndices);
   for (const row of rows) {
     assert.equal(row.schemaVersion, 1);
     assert.equal(row.method, 'POST');
@@ -184,8 +193,8 @@ export function validateSecondWindowEvidence({ captureBytes, evidence, sourceRev
   assert.ok(first.text?.includes(FIRST_CODE), 'first durable summary lost original anchor');
   assert.ok(second.text?.includes(FIRST_CODE) && second.text?.includes(SECOND_CODE),
     'recursive durable summary lost an anchor');
-  const firstRow = captureRow(rows, first, 'first summary');
-  const secondRow = captureRow(rows, second, 'second summary');
+  const firstRow = capture(first, 'first summary');
+  const secondRow = capture(second, 'second summary');
   const firstSource = sourceForSummary(firstRow, 'first summary');
   const secondSource = sourceForSummary(secondRow, 'second summary');
   const firstRaw = secondWindowMessage(1, 1);
@@ -225,7 +234,7 @@ export function validateSecondWindowEvidence({ captureBytes, evidence, sourceRev
   let priorBMessages = [];
   let priorBAssistantId = 0;
   for (const receipt of bReceipts) {
-    const row = captureRow(rows, receipt, 'project B');
+    const row = capture(receipt, 'project B');
     assertNoForeign(providerPromptText(row), [FIRST_CODE, SECOND_CODE, ownA.file, ownA.canary, ownA.rule],
       'project B provider request');
     assert(providerPromptText(row).includes(foreignB.canary), 'project B prompt lacks its own file');
@@ -249,6 +258,13 @@ export function validateSecondWindowEvidence({ captureBytes, evidence, sourceRev
     priorBAssistantId = assistantId;
     priorBMessages = receipt.messages;
   }
+  const [beforeB, afterRestartB, afterSecondB] = bReceipts;
+  assert(beforeB.captureIndex < first.captureIndex
+    && first.captureIndex < afterRestartB.captureIndex
+    && afterRestartB.captureIndex < second.captureIndex
+    && second.captureIndex < afterSecondB.captureIndex
+    && afterSecondB.captureIndex < evidence.final.captureIndex,
+  'project B capture order crossed a compaction or restart stage boundary');
   assert.ok(Array.isArray(evidence.turns) && evidence.turns.length >= 10,
     'insufficient physical long turns');
   const seen = new Set();
@@ -256,6 +272,7 @@ export function validateSecondWindowEvidence({ captureBytes, evidence, sourceRev
   let priorATurn = 0;
   let priorAAssistantId = 0;
   let priorAMessageCount = 0;
+  let priorACaptureIndex = beforeB.captureIndex;
   for (const turn of evidence.turns) {
     const key = `${turn.stage}.${turn.turn}`;
     assert(!seen.has(key), 'duplicate physical turn'); seen.add(key);
@@ -270,7 +287,13 @@ export function validateSecondWindowEvidence({ captureBytes, evidence, sourceRev
     const valueCase = secondWindowCase(turn.stage, turn.turn);
     assert.deepEqual(turn.expected, valueCase.expected, `${key} oracle changed`);
     assert.equal(turn.question, secondWindowMessage(turn.stage, turn.turn), `${key} question changed`);
-    const row = captureRow(rows, turn, key);
+    const row = capture(turn, key);
+    const lower = turn.stage === 1 ? beforeB.captureIndex : afterRestartB.captureIndex;
+    const upper = turn.stage === 1 ? afterRestartB.captureIndex : afterSecondB.captureIndex;
+    assert(turn.captureIndex > lower && turn.captureIndex < upper
+      && turn.captureIndex > priorACaptureIndex,
+    `${key} provider capture order crossed a project B stage boundary`);
+    priorACaptureIndex = turn.captureIndex;
     assert(providerPromptText(row).includes(turn.question), `${key} question absent from provider request`);
     const output = providerReply(row);
     assert.equal(turn.answer, output, `${key} HTTP answer differs from captured provider answer`);
@@ -292,7 +315,7 @@ export function validateSecondWindowEvidence({ captureBytes, evidence, sourceRev
     [first.text, second.text]);
   assert.deepEqual(evidence.semanticQuality, semantic,
     'semantic quality receipt differs from recomputed verdict');
-  const finalRow = captureRow(rows, evidence.final, 'final recall');
+  const finalRow = capture(evidence.final, 'final recall');
   const finalWire = providerPromptText(finalRow);
   assert(finalWire.includes(FINAL_QUESTION), 'final question absent from provider request');
   assert(finalWire.includes(second.text), 'final prompt lacks persisted recursive summary');
