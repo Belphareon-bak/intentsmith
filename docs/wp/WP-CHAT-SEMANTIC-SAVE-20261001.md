@@ -87,3 +87,14 @@ jazykovou výjimku. Přímé M1 testy po těchto opravách mají 1/1 + 1/1 PASS
 (`semantic-fixed-http.log`, `semantic-fixed-repeat.log`). Nový čistý
 kandidát čeká na nezávislé review, registrované opakování a nový fyzický
 pilot. Finální 53×3 stále **LIVE_NOT_RUN**.
+
+Další nezávislé review celého `4cbb4b55` → `70b78597` našlo dva skutečné
+M1/SQLite návrhy neověřeného cíle: opakovaný citovaný `ghost.md` poskytl
+cíl pouze uvnitř obsahu; odstranění `"PAYLOAD"` z `notes"PAYLOAD".md`
+dokonce vytvořilo neexistující původní token `notes.md`. Výsledek celého
+review je proto **CHANGES_REQUIRED**, i přes 8 registrovaných PASS.
+Resolver nyní maskuje všechny přesné citované výskyty zdrojových bajtů
+whitespace stejné délky. Nevznikají spojené tokeny a žádný z těchto výskytů
+neposkytuje autoritu cíle. HTTP regrese obsahuje oba původní případy,
+smíšené uvozovky a pozitivní opakování při samostatném výslovném cíli.
+Původní dvě privátní reprodukce zůstávají uchované jako red evidence.
