@@ -15,7 +15,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 ## Inventory
 
 - Runnable programs: 590
-- Explicit support-module exclusions: 29
+- Explicit support-module exclusions: 30
 - Profiles: offline=320, database=85, server=63, model=86, soak=16, manual=20
 - States: ACTIVE=492, HISTORICAL=15, BLOCKED=83
 
@@ -651,6 +651,7 @@ ledger.
 | `tests/helpers/chat-project-expertise-model-journey.js` | Shared owned M1 HTTP project and expertise journey imported by deterministic and opt-in live suites; no standalone entry point. |
 | `tests/helpers/chat-translator-journey.js` | Shared translator M1 HTTP, provider, semantic and project oracle imported by deterministic and opt-in live suites; no standalone entry point. |
 | `tests/helpers/chat-value-fidelity-journey.js` | Shared exact-value M1 HTTP and SQLite oracle imported by the deterministic and opt-in live value-fidelity suites; no standalone entry point. |
+| `tests/helpers/file-save-semantic-fixture.js` | Explicit controlled semantic plans imported by M2 filesystem consumer suites; assertions run in their registered test programs, no standalone entry point. |
 | `tests/helpers/isolated-test-db.js` | Imported direct-run database isolation bootstrap, not a standalone test. |
 | `tests/helpers/m2-http-build-fixture.js` | Owned child HTTP composition for generation, effects and process restart in m2-lifecycle-http-e2e.test.js; not a standalone suite. |
 | `tests/helpers/m3-notification-crash-preload.js` | Suite-owned product child preload that stops only the isolated crash-journey process after a committed M3 notification; no standalone test. |

@@ -117,6 +117,10 @@
     {
       "path": "tests/helpers/studio-m2-composer-dom.js",
       "reason": "Explicit visual DOM probe invoked only by studio-m2-composer-dom.e2e.js through the shared Electron harness; not a standalone suite."
+    },
+    {
+      "path": "tests/helpers/file-save-semantic-fixture.js",
+      "reason": "Explicit controlled semantic plans imported by M2 filesystem consumer suites; assertions run in their registered test programs, no standalone entry point."
     }
   ],
   "suites": [
