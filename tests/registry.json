@@ -16224,6 +16224,66 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-CHAT-SECOND-WINDOW-EVIDENCE-TEST",
+      "path": "tests/chat-second-window-evidence.test.js",
+      "argv": [
+        "node",
+        "tests/chat-second-window-evidence.test.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T1",
+      "fixture": "synthetic-provider-capture-and-negative-evidence-mutations",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-CHAT-SECOND-COMPACTION-20261001",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-TESTS-CHAT-SECOND-WINDOW-LIVE-TEST",
+      "path": "tests/chat-second-window-live.test.js",
+      "argv": [
+        "node",
+        "tests/chat-second-window-live.test.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-server-sqlite-and-captured-physical-local-model",
+      "profile": "model",
+      "timeoutMs": 3900000,
+      "expectedDurationMs": 2700000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "WP-CHAT-SECOND-COMPACTION-20261001",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T3-TESTS-CHAT-TRANSLATOR-LIVE-TEST",
       "path": "tests/chat-translator-live.test.js",
       "argv": [
