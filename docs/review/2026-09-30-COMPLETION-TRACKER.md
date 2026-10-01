@@ -1,6 +1,29 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
-## Checkpoint 1. 10. 2026, 18:22 UTC — UI/API hodnoty ověřené, CODE kontext FAIL
+## Checkpoint 1. 10. 2026, 18:57 UTC — rejection review přijatý, GPU V7 čeká na GO
+
+[WORK-PROGRESS.md](../WORK-PROGRESS.md) je hlavní průběžný report. Poslední
+push `61bc486f` má vlastní [CI 13 kroků SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36907138041).
+Callback source `f557` actual má REJECTION_EVIDENCE_REVIEW_PASS, SHA
+`bed896bac5d5549913e54351ae0db277ecd720c55db312eea95a9321ceaee43d`:
+čtyři exact requesty, pátý prompt 8811 B >8736 B, 33 M2 tabulek nula,
+208 souborů /10,845,298 B beze změny. Aplikace FAIL, callback nedosažen.
+
+GPU V6 actual je nadále whole FAIL. Nezávislé review SHA
+`888a00543c69f3b524f2dd2e91efa08e8e9e2bb5272d400282f727ef66a7e12a`
+ověřilo sedm pointer akcí, UI/API hodnoty a přísný finální namespace
+`after=[]`; 359 souborů /20,704,316 B zachováno. Inner scanner vyprodukoval
+tři UNKNOWN ještě před owned filtrem. Samostatný skutečný Linux CPU V7
+zachytil platné řídicí PGID 0 a kladný detached child, starý scanner red,
+nový filtr a finální empty namespace green. CPU 4/4, cleanup 32/32,
+DOM fixtures 13/13, syntax 19/19; nezávislé GO a actual čekají.
+
+Hunt 18:34 UTC stále 596/1173 odpovědí /2324/3689 kritérií, report shodný
+s 13:31 a 17:21; NO_GO. Důvod nepozorovaného publikovaného posunu je
+UNKNOWN, cizí proces/důkazy zachované. CHAT jiný worker; HTTP rozhodnutí,
+mobil, obecný CODE kontext/AST a poslední cleanup zůstávají otevřené.
+
+## Historický checkpoint 1. 10. 2026, 18:22 UTC — UI/API hodnoty ověřené, CODE kontext FAIL
 
 Aktuální výsledky/cadence jsou v [WORK-PROGRESS.md](../WORK-PROGRESS.md).
 Callbackf557 source REVIEW_PASS, registered9/9 a vlastní

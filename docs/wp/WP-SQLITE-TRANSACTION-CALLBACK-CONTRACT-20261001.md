@@ -107,3 +107,25 @@ Raw result `6bc2a627f4fe3bf66851094177eccee79df002627b35c53fd5d3fc27a42e4e0f`,
 inside `2631ae27c3e0f376d64b77158c4694f426c63a80aaf425d71f82d0c6967cd27e`.
 Nový callback nebyl v actual běžící aplikaci ověřen. Bez změny raw výstupů,
 opakování stejného kandidáta či zvětšování budgetu tohoto frozen WP.
+
+## Nezávislé uzavření actual evidence, 18:39 UTC
+
+**REJECTION_EVIDENCE_REVIEW_PASS / APPLICATION_FAIL_NOT_QUALIFIED**,
+review SHA `bed896bac5d5549913e54351ae0db277ecd720c55db312eea95a9321ceaee43d`.
+Všech 208 souborů /10,845,298 B má stejné cesty, módy, bajty a hash.
+Nezávislé rekonstrukce všech čtyř outbound requestů souhlasí s capture;
+pátý nesent prompt 8811 B je doložený přesným source a peers. Immutable
+DB: 33 M2 tabulek a messages/chat_messages nula, jedna privátní bootstrap
+konverzace se zachovanými sedmi CONFIG_DEFAULT vazbami. Git baseline,
+osm baseline souborů a absence sedmi generated paths potvrzené.
+
+Žádné nové provider/GPU requesty ani DB/Git writes při review. Známý
+backend PID a socket nepřítomné; čtení cizích host procesů má explicitní
+omezení, nejde o důkaz absence všech procesů na hostu. Současný HEAD je
+dokumentačně novější, actual source zůstává `f557` s přesnými relevantními
+kódy. Výsledek neověřuje callback za běhu ani úspěšný projekt/restart.
+
+Další krok vyžaduje obecné řešení kontextu CODE, např. předem určený
+rozpočet velikosti modulů nebo verzovanou reprezentaci peer rozhraní.
+Skutečný počet tokenů pátého promptu není změřený. Tento WP je uzavřen
+důkazem FAIL a s nezměněným frozen budgetem; žádné další jeho opakování.
