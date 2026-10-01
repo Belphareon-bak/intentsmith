@@ -47,3 +47,16 @@ PASS; artifact-validation odhalil další zastaralé registry/tool/module
 počty a chybu čárky ve vygenerovaném LOC řádku. Tento red výsledek je
 zachován. Následná metadata oprava doplní přesný census bez změny asercí,
 historické baseline počty v jejich datovaných odstavcích zůstanou.
+
+Clean `1141ab61` má registrované **3/3 PASS**, report
+`2026-10-01T08-04-18-443Z/report.json`. Správně deklarovaný PDF/OCR runtime
+dal backend účetní workflow a PDF/DOCX **2/2 PASS**, report
+`2026-10-01T08-05-06-178Z/report.json`. Původní tři BLOCKED z rootova
+celého běhu zůstávají zaznamenané. Exportní chatový budget není tímto WP
+opakovaný; další chatovou práci převzal jiný worker.
+
+Nezávislé review `1141ab61` našlo jednu dokumentační chybu: aktuální README
+počty 591/493 ještě odkazovaly na starý `c1a25dc1` s počty 590/492.
+Referenční source je nyní opravený na `45caf5b5`; stav nové dokumentační
+opravy je **REVIEW_PENDING**. Testové aserce a všechny historické výsledky
+zůstávají beze změny.
