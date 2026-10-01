@@ -37,6 +37,8 @@ export function createChatResilienceProviderRelay({ out, upstream, model, wire, 
       append({ requestId: row.requestId, event: 'incomplete', at: new Date().toISOString(), reason });
       persistWire(wire);
       active.delete(state);
+      state.providerResponse?.destroy();
+      state.upstream?.destroy();
       if (!response.destroyed) {
         if (!response.headersSent) response.writeHead(status);
         response.end(reason);
@@ -47,8 +49,6 @@ export function createChatResilienceProviderRelay({ out, upstream, model, wire, 
     response.on('close', () => {
       if (response.writableFinished || state.ended) return;
       finishError('CHILD_RESPONSE_CLOSED');
-      state.upstream?.destroy();
-      state.providerResponse?.destroy();
     });
     response.on('finish', () => {
       if (state.ended) return;
@@ -123,8 +123,6 @@ export function createChatResilienceProviderRelay({ out, upstream, model, wire, 
   proxy.sealPending = reason => {
     for (const state of [...active]) {
       state.finishError(reason);
-      state.upstream?.destroy();
-      state.providerResponse?.destroy();
       state.request.destroy();
     }
   };

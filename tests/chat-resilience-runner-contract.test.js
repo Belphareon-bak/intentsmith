@@ -100,6 +100,8 @@ async function interruptedRelay(scenario) {
   const relayPath = `\0is-relay-abort-${process.pid}-${ordinal}`;
   let forwarded;
   const sawForward = new Promise(resolve => { forwarded = resolve; });
+  let closedUpstream;
+  const upstreamClosed = new Promise(resolve => { closedUpstream = resolve; });
   const provider = http.createServer(async (request, response) => {
     for await (const _ of request) { /* consume the request */ }
     forwarded();
@@ -113,12 +115,15 @@ async function interruptedRelay(scenario) {
           message: { content: 'valid upstream answer after child disconnect' } })), 50);
     }
   });
+  provider.on('connection', socket => socket.once('close', closedUpstream));
   await new Promise(resolve => provider.listen(providerPath, resolve));
   const out = mkdtempSync(path.join(tmpdir(), 'is-resilience-relay-'));
   const wire = [];
   const relay = createChatResilienceProviderRelay({out, upstream:{socketPath:providerPath},
     model:MODEL,wire,persistWire:rows=>writeFileSync(path.join(out,'initial-provider-wire.json'),JSON.stringify(rows))});
   try {
+    let relayResponse;
+    relay.once('request', (_request, response) => { relayResponse = response; });
     await new Promise(resolve => relay.listen(relayPath, resolve));
     let client;
     const clientDone = new Promise(resolve => {
@@ -136,6 +141,12 @@ async function interruptedRelay(scenario) {
     await sawForward;
     if (scenario === 'child-exit') relay.sealPending('CHILD_EXIT_WITH_PENDING_PROVIDER_REQUEST');
     if (scenario === 'downstream-abort') client.destroy();
+    if (scenario === 'response-error') {
+      relayResponse.emit('error', new Error('controlled child response write failure'));
+      assert.equal(await Promise.race([upstreamClosed.then(() => true),
+        new Promise(resolve => setTimeout(() => resolve(false), 120))]), true,
+      'response error left a hanging upstream socket after the row left the active set');
+    }
     await clientDone;
     if (scenario === 'downstream-abort') {
       // The upstream valid terminal must never upgrade a disconnected child.
@@ -147,7 +158,7 @@ async function interruptedRelay(scenario) {
     assert.equal(persisted.length,1);
     assert.equal(persisted[0].captureComplete,false);
     assert.match(persisted[0].error,
-      /UPSTREAM_RESPONSE_|CHILD_EXIT_WITH_PENDING_PROVIDER_REQUEST|CHILD_RESPONSE_CLOSED/u);
+      /UPSTREAM_RESPONSE_|CHILD_EXIT_WITH_PENDING_PROVIDER_REQUEST|CHILD_RESPONSE_/u);
     assert.equal(events.some(event=>event.event==='request_chunk'),true);
     assert.equal(events.some(event=>event.event==='incomplete'),true);
     if (scenario === 'upstream-abort') {
@@ -250,8 +261,9 @@ try {
   await interruptedRelay('upstream-abort');
   await interruptedRelay('child-exit');
   await interruptedRelay('downstream-abort');
+  await interruptedRelay('response-error');
 
-  console.log('chat resilience runner contract: 20/20 PASS (offline, 0 model calls)');
+  console.log('chat resilience runner contract: 21/21 PASS (offline, 0 model calls)');
 } finally {
   rmSync(scratch, { recursive: true, force: true });
 }

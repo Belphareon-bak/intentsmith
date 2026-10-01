@@ -89,6 +89,15 @@ retry nesmí tento první request skrýt. Offline kontrakt nyní **20/20
 PASS** bez modelových volání; samostatné re-review, integrace a živý
 pilot stále čekají.
 
+Re-review `94f60283` potvrdilo opravu zavřeného klienta, ale vrátilo
+`CHANGES_REQUIRED`: umělá chyba `ServerResponse` nechala viset
+upstream socket, protože request už byl vyřazen z aktivní množiny a
+`sealPending()` jej nemohl ukončit. Negativní socketový test nejprve
+selhal. Každé nedokončené ukončení nyní po synchronizaci soukromého
+záznamu zruší provider response i outbound upstream request.
+Řízený kontrakt **21/21 PASS**, včetně fyzického uzavření upstream
+socketu; živý běh, nezávislé re-review této opravy a integrace čekají.
+
 ## První skutečný pilot, 1. 10. 2026
 
 Přenos `0959c45f` dostal nezávislé omezené `REVIEW_PASS` pro korpus, izolaci a
