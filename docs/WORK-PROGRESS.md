@@ -1,6 +1,6 @@
 # IntentSmith — průběžný report dokončování
 
-**Aktualizováno:** 1. 10. 2026, 18:06 UTC / 20:06 CEST.
+**Aktualizováno:** 1. 10. 2026, 18:22 UTC / 20:22 CEST.
 **Vlastník:** ROOT. CHAT řeší jiný worker, od posledního zadání jej ROOT neupravuje.
 **Publikace:** `work/real-chat-journeys-20260930`; průběžný report se aktualizuje
 po každém milníku, nejpozději po třech hodinách během aktivní práce. Operátor
@@ -26,8 +26,8 @@ stabilním IDE/BE, podle zadání operátora.
 | SQLite Qwen3.8 | Sedm úplných generací, ale zakázaná schema dependency; APPLICATION_FAIL, rollback7/7, žádný commit; rejection review PASS | Modelová oprava přes existující nový M2 plán |
 | SQLite Qwen3.6 | Čtyři úplné generace; pátý prompt 9468B >8736B, odmítnut před voláním; 0 M2 operací/efektů/zpráv; review důkazů PASS | Jednotlivý scénář není kvalifikovaný; kontextové limity zachované |
 | M2 failed-plan revize | Source `a27e4470`:66/66 autorských CPU, source REVIEW_PASS, registered9/9 a CI13/13. Actual8/8 pinned generací, jedna revize, šest přesných retained modulů; nezávislý failure evidence review PASS | APPLICATION_PHYSICAL_FAIL: transaction callback rozhraní; žádný commit, dva7-path rollbacky, úspěšný restart/replay nedosažen |
-| SQLite callback kontrakt | WP-first `d895fef9`; pouze tři instrukce sjednocují fn() bez argumentů a catalog closure,5/5 cílených CPU PASS | Nové source review/registered gate/CI čekají, LIVE_NOT_RUN; první autorský512B overflow44PASS/22FAIL zachovaný |
-| GPU/modely v packaged IDE | V3 iV4 actualFAIL mají accepted evidence: kapacita24GiB potvrzená, model workspace nedosažený;0 inference/forwarded writes. V4 zastavila preload vrstva před pointerem; v5 prepared CPU13/13 a syntax15/15 | V5 nezávislé GO review a actual čekají; v3 příčina UNKNOWN, permanentní product hang nedoložen; celý Hunt netestován |
+| SQLite callback kontrakt | Sourcef557:5/5 cílených CPU, SOURCE_REVIEW_PASS, registered9/9 a CI13/13. Actual4 generace, pátý prompt8811B >8736B odmítnut před voláním | APPLICATION_FAIL; actual reviewPENDING, callback nedošel do běžící aplikace. Řešit objem kontextu, neopakovat kandidát; první512B overflow44PASS/22FAIL zachovaný |
+| GPU/modely v packaged IDE | V5 nezávisle ověřila7 skutečných pointer kliků,14 modelů/84 eval/7 rolí/76 kandidátů,98 null scores,24GiB a očekávanýHunt503;0 inference/zápisů | RawwholeV5 FAIL kvůli2Z předinitteardown; parentafter0 pozorováno, starý gate jenlive0. V6 upřesní Z a zpřísní parentafter0; installedHunt/quality/release netestované |
 | Hunt hodnocení | Nové strukturální čtení17:21UTC nezměněné:596/1173 odpovědí,2324/3689 kritérií | Accepted grader false,577/1365 chybí, NO_DECISION / NO_GO; žádná aktivace |
 | HTTP projekty | Předem připravený omezený návrh testu | Rozhodnutí o novém M2 síťovém oprávnění; HTTP_NOT_RUN |
 | Mobil | Auditovaný handoff, historických47 host testů a přijaté VPN/TLS rozhodnutí | Fyzická matice13+7 NOT_RUN, skutečné zařízení/VPN a integrační mezery |
@@ -47,7 +47,9 @@ stabilním IDE/BE, podle zadání operátora.
 - Samostatný pracovní report byl poprvé pushnut v `b1791c7a`; následný
   `fd749bacf0e19e65e602cd5dbe46c57c058f5342` má ověřený remote a vlastní
   [CI13/13 SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36901760691).
-  Nový callback kandidát čeká na samostatné brány; nenese actuala27 PASS.
+  Callbackf557 má samostatný source review,9/9 registered PASS a
+  [CI13/13 SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36904385532);
+  jeho actual je kontextový FAIL.
 - Dokumentační `79b201c8` má vlastní [CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36891027839).
   Source34 má [samostatné CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36888388296).
   Dokumentační commity nepřebírají fyzickou kvalifikaci jiného SHA.
@@ -85,6 +87,17 @@ manifest `29d718929ee55a24eeef37d398fa415cd9ed4ded9d5c0f165d44202eebed4356`;
 CPU13/13 včetně delayed preload/permanent block/exact deadline negativy,
 stejný30s celkový budget, žádné odstranění overlay. Nezávislé GO a actual čekají.
 
+V5 actual18:08:58.800–18:09:31.516UTC zůstává **FAIL**. Nezávislý review
+`a6e0773e82e04d51aa66f0568f6105fd057d5ee5d99edc831f0ca9adcfb640cd`
+ověřil všech7 pointer kliků a UI/API hodnoty,359 přesných souborů/20,671,650B.
+Inner byl PASS bez catcherror; finally jej snížilo kvůli2 stateZ po
+app/backend exit0. Parentnamespace po ukončení skutečně0, starší finish
+gate však kontroloval live0, nikoli explicitně emptyafter. V6 oddělí
+validní ownedZ od živých/UNKNOWN a zpřísní finální parent emptyafter;
+rawV5 FAIL zůstává. Host16 GET-only metadata čtení, writes0; startup
+innerPOST show odmítnut před hostem. Hunt503 je private nenainstalovaný
+režim, nikoli přijetí instalovaného Hunt.
+
 Audit staršího accepted ledger probe našel programové DOM button.click().
 Jeho funkční generování, M2, oracle, bajty a restart se zachovávají, ale
 pointer použitelnost v okamžiku těchto kliků není doložená. Nelze zpětně
@@ -113,6 +126,16 @@ nová approval a oba409 i dva7-path rollbacky nezávisle potvrzeny. Raw result S
 `0cc384be7344cc3baead1d255f1598ea0a2122b9dbec111b3953ba3ea7668bb8`.
 Původní data se neupravují a aplikace se neexportuje jako přijatá.
 
+Callbackf557 source review
+`0c5543515a9134bc855be01e7c5a5775bbc890374b5704e1c427dfd7f61aa71c`,
+registered9/9 report `8d2af57acc9c43e72648ea46240e19302d19c2f957743c4f24af2f79011a196c`.
+Actual18:17:10.863–18:17:51.265UTC skončil4/7 na kontextové bráně:
+8811B >8736B, ctx8192/maxOutput3440/reserve384 zachované; žádný pátý
+request ani M2 návrh/approval/revision/efekt. Jde o byte odhad, nikoli
+změřené tokeny pátého promptu. Raw result
+`6bc2a627f4fe3bf66851094177eccee79df002627b35c53fd5d3fc27a42e4e0f`;
+actual reviewPENDING. Další inference stejného kandidáta se neopakuje.
+
 Poslední úplný profil staršího `45caf5b5` zůstává397PASS/5FAIL/3BLOCKED.
 Cílené opravy a nové malé testy nejsou novým úplným profilem. Static GPU
 kapacita se nesmí vydávat za volnou VRAM; velikost modelu není jeho známka.
@@ -120,10 +143,10 @@ Private fresh DB bez přijatých známek neověřuje produkční scoring.
 
 ## Nejbližší pořadí práce
 
-1. Dokončit source review/registered gate/CI nového
+1. Uzavřít actual budget/provenance review
    [callback kontraktu](wp/WP-SQLITE-TRANSACTION-CALLBACK-CONTRACT-20261001.md).
-2. Jeden nový zmrazený modelový průchod až při volném GPU, původní oracle,
-   samostatná přejímka a žádná ruční změna skutečných výstupů.
+2. Vymezit obecné řešení objemu CODE kontextu; žádné opakování, ruční
+   změny actual výstupů či zvýšení budgetu tohoto frozen WP.
 3. Uzavřít skutečný GPU panel audit a zveřejnit přijaté archivní zdroje sondy.
 4. Obecný [M2 AST scanner](wp/WP-M2-AST-IMPORT-SCANNER-20261001.md) má
    bounded návrh; TS grammar/ABI a parser resource containment jsou otevřené.

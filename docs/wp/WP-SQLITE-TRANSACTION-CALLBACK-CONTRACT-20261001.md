@@ -1,6 +1,6 @@
 # WP — sjednocení rozhraní transakce generovaného SQLite projektu
 
-**Stav:** `IMPLEMENTATION_GREEN / CPU_FOCUSED5_PASS / SOURCE_REVIEW_PENDING / REGISTERED_GATE_PENDING / LIVE_NOT_RUN`.
+**Stav:** `SOURCE_REVIEW_PASS / REGISTERED9_PASS / CI_SUCCESS / APPLICATION_PHYSICAL_FAIL / ACTUAL_REVIEW_PENDING`.
 **Vlastník:** ROOT, stávající integrační checkout; výchozí dokumentační
 HEAD `fd749bacf0e19e65e602cd5dbe46c57c058f5342`.
 **Autorita:** operátorem požadované dokončení skutečných CODE projektů;
@@ -83,3 +83,27 @@ mají na posledním přesném vstupu **5/5 PASS**, exit0,5346.2ms, log
 Další čtyři instrukce, oracle28c9, entrypoint, produktové stromy, registry
 a resource/context budget zůstávají přesné. Nezávislé source review,
 celý registered gate a aktuální push CI ještě čekají; LIVE_NOT_RUN.
+
+## Checkpoint 18:22 UTC — source přijatý, actual kontext FAIL
+
+Exact `f557fb1a9bbb4b1d70f1a9014d9ff30e88b1cba8` má SOURCE_REVIEW_PASS,
+SHA `0c5543515a9134bc855be01e7c5a5775bbc890374b5704e1c427dfd7f61aa71c`.
+Pure compiler/wire přejímka ověřila všech7 promptů a nezměněné512B/context
+negativní brány. Registered9/9 PASS, exit0, report
+`8d2af57acc9c43e72648ea46240e19302d19c2f957743c4f24af2f79011a196c`.
+[Vlastní CI36904385532](https://github.com/Belphareon-bak/intentsmith/actions/runs/36904385532)
+má13 kroků SUCCESS. Remote exact source byl ověřen.
+
+Jediný actual18:17:10.863–18:17:51.265UTC skončil FAIL, exit1: čtyři
+úplné Qwen3.8/22130167 generace, pátý request8811B >8736B (+75B)
+odmítnut před voláním400 M2_CODE_DRAFT_CONTEXT_LIMIT_EXCEEDED.
+ctx8192/maxOutput3440/reserve384 se nemění. Úplné peer store4110B a
+validate1851B +JSON overhead vyčerpaly konservativní byte budget;
+nejde o změřený skutečný počet tokenů pátého promptu. Žádný M2 plán,
+revision/approval/effect/commit; oracle/restart/persistence nedosažené.
+Actor dokládá unload/lease release/sourceclean. Nezávislé actual review
+je PENDING; první evidence rekonstrukce4request hashů souhlasí.
+Raw result `6bc2a627f4fe3bf66851094177eccee79df002627b35c53fd5d3fc27a42e4e0f`,
+inside `2631ae27c3e0f376d64b77158c4694f426c63a80aaf425d71f82d0c6967cd27e`.
+Nový callback nebyl v actual běžící aplikaci ověřen. Bez změny raw výstupů,
+opakování stejného kandidáta či zvětšování budgetu tohoto frozen WP.

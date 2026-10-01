@@ -1,6 +1,19 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
-## Checkpoint 1. 10. 2026, 18:01 UTC — přijatá evidence FAIL, nový callback kontrakt
+## Checkpoint 1. 10. 2026, 18:22 UTC — UI/API hodnoty ověřené, CODE kontext FAIL
+
+Aktuální výsledky/cadence jsou v [WORK-PROGRESS.md](../WORK-PROGRESS.md).
+Callbackf557 source REVIEW_PASS, registered9/9 a vlastní
+[CI13/13 SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36904385532).
+Actual18:17 skončil4/7 na8811B >8736B před pátým voláním; žádnýM2 plán
+či efekt, callback v běžící aplikaci nedosažený. Budget nezměněný, actual
+reviewPENDING. V5 skutečné7 pointer kliky a UI/API math/gradeabsence
+nezávisle ověřené, ale rawwholeFAIL kvůli2Z předinitteardown zůstává.
+Parentafter0 pozorováno; dosavadní gate jenlive0. V6 upřesní innerZ a
+zpřísní parentafterempty. Modelová kvalita, installedHunt, mobil13+7,
+HTTP rozhodnutí a cleanup zůstávají otevřené; CHAT jinýworker.
+
+## Historický checkpoint 1. 10. 2026, 18:01 UTC — přijatá evidence FAIL, nový callback kontrakt
 
 Aktuální cadence/stav je [WORK-PROGRESS.md](../WORK-PROGRESS.md).
 Actuala27 má **FAILURE_EVIDENCE_REVIEW_PASS**, SHA
