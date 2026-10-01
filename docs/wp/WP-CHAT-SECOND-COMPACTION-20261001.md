@@ -1,10 +1,13 @@
 # WP — druhé zkrácení kontextu po restartu a hranice projektů
 
 **Stav:** vývojový kandidát založený na čistém integračním commitu
-`63dc55fb897b1bf18ac9f0332bbdc63e41a487d9`. Deterministická cesta
-M1 HTTP, soukromé SQLite a vlastněného loopback providera prošla v přímém
-běhu. Po commitu a integraci je třeba zopakovat registrovanou sadu na
-čistém přesném SHA; tento WP sám není Gate 0 ani živá kvalita modelu.
+`63dc55fb897b1bf18ac9f0332bbdc63e41a487d9`. První pushnutý kandidát
+`95590541bb6c9378f34e89243eb8d8b935bbcd0d` měl v nezávislém review
+`CHANGES_REQUIRED`: kontrola druhého souhrnu mohla projít jen díky raw citaci
+starého identifikátoru, i kdyby se ztratila dřívější prose. Opravená sada
+prošla přímým během; před přijetím vyžaduje registrovaný běh na čistém
+přesném SHA a opakované nezávislé review. Tento WP sám není Gate 0 ani živá
+kvalita modelu.
 
 **Autorita a výsledek:** operátor výslovně žádá skutečné chatové testy
 naplnění kontextu, automatického čištění, různých projektů a expertiz.
@@ -28,18 +31,24 @@ vyvolají druhý souhrn. Druhá hranice musí být vyšší a musí pokrýt nov�
 všechny původní zprávy musí v SQLite zůstat. Projekt B se navštíví před
 restartem, po něm i po druhém souhrnu.
 
-**Oracle:** fake provider tvoří souhrn pouze z kódů, které skutečně dostal
-v požadavku. Test ověřuje, že první provider source obsahuje původní
-uživatelský vstup, druhý obsahuje předchozí souhrn a nové rozhodnutí, ale
-nerecykluje původní raw vstup. Finální provider prompt projektu A obsahuje
-právě jeden trvalý souhrn s oběma kódy, přesné bajty vlastního souboru a
-aktuální pravidlo vlastní expertizy. Původní raw tahy už v promptu nejsou;
-po odstranění souhrnu zkopírovaný prompt neobsahuje první kód. Žádný prompt
-ani odpověď projektu A neobsahuje cizí soubor, pravidlo či kód projektu B;
-prompty B neobsahují kódy A. HTTP odpověď se musí shodovat s terminální
-řízenou provider odpovědí a HTTP historie s read-only SQLite. Negativní
-mutace stejného oracle odmítají chybějící souhrn, ztracený původní kód a
-vpašovaný kód projektu B.
+**Oracle:** fake provider tvoří souhrn pouze z faktů, které skutečně dostal
+v požadavku. První uživatelský vstup obsahuje starý identifikátor a oddělený
+větný fakt, který se nevejde do automatických citací identifikátorů. První
+provider source musí obsahovat původní vstup. Druhý musí obsahovat přesnou
+prose předchozího dokončeného provider souhrnu v segmentu
+`[Předchozí souhrn]`, nový kód v nových tazích a nesmí znovu přehrát celý
+původní raw vstup. Řízený provider smí obnovit starý větný fakt při druhé
+kompakci pouze z tohoto segmentu. Negativní mutace odstraní předchozí prose,
+ponechá starý kód v raw citaci a musí selhat. Finální provider prompt projektu
+A obsahuje právě jeden trvalý souhrn s oběma kódy a starým větným faktem,
+přesné bajty vlastního souboru a aktuální pravidlo vlastní expertizy. Původní
+raw tahy už v promptu nejsou; po odstranění souhrnu zkopírovaný prompt
+neobsahuje první kód. Každý zachycený A summary provider request a finální
+provider prompt A nesmí obsahovat cizí soubor, pravidlo či kód projektu B;
+negativní mutace B dat ve summary requestu musí selhat. Prompty B neobsahují
+kódy A. HTTP odpověď se musí shodovat s terminální řízenou provider odpovědí
+a HTTP historie s read-only SQLite. Další negativní mutace odmítají
+chybějící souhrn, ztracený původní kód a vpašovaný kód projektu B.
 
 **Provozní hranice:** test používá deklarovaný `num_ctx=4096` a po prvním
 souhrnu zkracuje další aktuální zadání; druhou kompakci vynutí také tlak

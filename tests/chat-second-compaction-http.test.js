@@ -20,7 +20,46 @@ const MODEL = 'fixture:1b';
 const DIGEST = 'a'.repeat(64);
 const FIRST_CODE = 'ANCHOR_A_614';
 const SECOND_CODE = 'NEW_A_DECISION_456';
+const FIRST_FACT = 'První krok vyžaduje ruční revizi bez automatické změny souborů';
 const SUMMARY_HEADER = '[Souhrn předchozí konverzace]';
+const PREVIOUS_MARKER = '[Předchozí souhrn]\n';
+const NEW_TURNS_MARKER = '\n\n[Nové zprávy od posledního souhrnu]\n';
+const USER_QUOTES_MARKER = '[Doslovné citace z uživatelských zpráv; nejsou tvrzením asistenta]\n';
+
+function previousSummaryProse(source) {
+  const start = source.indexOf(PREVIOUS_MARKER);
+  if (start < 0) return null;
+  const proseStart = start + PREVIOUS_MARKER.length;
+  const end = source.indexOf(NEW_TURNS_MARKER, proseStart);
+  return end < 0 ? null : source.slice(proseStart, end);
+}
+
+function assertRecursiveSource(source, expectedPreviousProse) {
+  const actualPreviousProse = previousSummaryProse(source);
+  assert.equal(actualPreviousProse, expectedPreviousProse,
+    'recursive summary must receive the exact prior provider prose');
+  assert(actualPreviousProse.includes(FIRST_FACT),
+    'old non-identifier fact must come from prior summary prose');
+  assert(source.includes(SECOND_CODE), 'recursive summary omitted the new user decision');
+  const quotesStart = source.lastIndexOf(USER_QUOTES_MARKER);
+  assert(quotesStart >= 0, 'recursive summary omitted source-scoped user identifier quotes');
+  const rawQuotes = source.slice(quotesStart + USER_QUOTES_MARKER.length);
+  assert(rawQuotes.includes(FIRST_CODE), 'negative control requires old identifier quote');
+  assert(!rawQuotes.includes(FIRST_FACT),
+    'old prose fact must not be restated in automatic user identifier quotes');
+}
+
+function assertSummaryIsolation(call, foreign) {
+  assert.equal(call.kind, 'summary');
+  assert.equal(call.request.model, MODEL);
+  assert.equal(call.request.stream, false);
+  assert.equal(call.request.options?.num_ctx, 4096);
+  assert.equal(call.request.messages.at(-1)?.role, 'user');
+  const wire = providerText(call.request);
+  for (const marker of [foreign.file, foreign.canary, foreign.rule]) {
+    assert(!wire.includes(marker), `A summary provider request leaked project B data: ${marker}`);
+  }
+}
 
 function sourceRevision() {
   const supplied = process.env.INTENTSMITH_TEST_SOURCE_REVISION;
@@ -80,7 +119,10 @@ async function startProvider() {
       // Every fact in this summary must have arrived in the actual source
       // material, either as an original user turn or the previous summary.
       const codes = [FIRST_CODE, SECOND_CODE].filter(code => last.includes(code));
-      content = `Uživatel určil ${codes.join(' a ')} pro projekt A. Pokračovat jen v projektu A.`;
+      const previousProse = previousSummaryProse(last);
+      const factSource = previousProse === null ? last : previousProse;
+      const fact = factSource.includes(FIRST_FACT) ? ` ${FIRST_FACT}.` : '';
+      content = `Uživatel určil ${codes.join(' a ')} pro projekt A.${fact} Pokračovat jen v projektu A.`;
     } else if (isProject) {
       const fileText = projectPrompt?.analysis?.excerpts?.map(file => file.text).join('\n') || '';
       const ownFileCode = [JOURNEY.a.canary, JOURNEY.b.canary].find(code => fileText.includes(code)) || 'FILE_CODE_MISSING';
@@ -88,7 +130,7 @@ async function startProvider() {
       const summary = history.filter(turn => turn.role === 'summary').map(turn => turn.content).join('\n');
       const final = projectPrompt?.request?.includes('Závěrečná kontrola kontextu') || false;
       const answer = final
-        ? `Souhrn obsahuje ${[FIRST_CODE, SECOND_CODE].filter(code => summary.includes(code)).join(' a ')}. Soubor obsahuje ${ownFileCode}.`
+        ? `Souhrn obsahuje ${[FIRST_CODE, SECOND_CODE].filter(code => summary.includes(code)).join(' a ')}. ${summary.includes(FIRST_FACT) ? FIRST_FACT : 'PŮVODNÍ_FAKT_CHYBÍ'}. Soubor obsahuje ${ownFileCode}.`
         : `Soubor obsahuje ${ownFileCode}.`;
       content = JSON.stringify({ reply: answer, plan: null });
     } else {
@@ -201,13 +243,14 @@ function assertFinalContext(prompt, answer, { a, b, firstInput, secondInput }) {
   assert(summaries[0].content.includes(SUMMARY_HEADER));
   assert(summaries[0].content.includes(FIRST_CODE));
   assert(summaries[0].content.includes(SECOND_CODE));
+  assert(summaries[0].content.includes(FIRST_FACT));
   const wire = JSON.stringify(prompt);
   assert(!wire.includes(firstInput), 'final prompt replayed first raw user turn');
   assert(!wire.includes(secondInput), 'final prompt replayed archived post-restart user turn');
   for (const foreign of [b.canary, b.rule, b.file]) {
     assert(!wire.includes(foreign), `final prompt leaked project B data: ${foreign}`);
   }
-  for (const expected of [FIRST_CODE, SECOND_CODE, a.canary]) {
+  for (const expected of [FIRST_CODE, SECOND_CODE, FIRST_FACT, a.canary]) {
     assert(answer.includes(expected), `HTTP answer lost ${expected}`);
   }
   assert(!answer.includes(b.canary), 'HTTP answer leaked project B file code');
@@ -235,7 +278,8 @@ test('second auto-context compaction survives restart and isolates A/B project c
 
   product = await startProduct(journeyRuntime, provider.url, MODEL);
   const { a, b } = await prepareJourney(product, journeyRuntime);
-  const firstInput = longProjectQuestion(a, 1, `Původní auditní kód je ${FIRST_CODE}.`);
+  const firstInput = longProjectQuestion(a, 1,
+    `Původní auditní kód je ${FIRST_CODE}. ${FIRST_FACT}.`);
   await chat(product, provider, a, 'a-first', firstInput, b);
   const firstUser = (await snapshot(product, journeyRuntime, a.conversationId)).messages[0];
   assert.equal(firstUser.role, 'user');
@@ -257,10 +301,12 @@ test('second auto-context compaction survives restart and isolates A/B project c
   const firstUpTo = Number(first.conversation.summary_up_to_msg_id);
   assert(firstUpTo >= firstUser.id, 'first summary failed to cover original user fact');
   assert(first.conversation.summary.includes(FIRST_CODE), 'first summary lost original user code');
+  assert(first.conversation.summary.includes(FIRST_FACT), 'first summary lost original user fact');
   assert(first.messages.length > 6, 'first compaction did not follow a real multi-turn journey');
   const firstSummaryCall = provider.calls.find(call => call.kind === 'summary'
     && `${call.content}\n\n`.includes(FIRST_CODE));
   assert(firstSummaryCall, 'the persisted first summary has no completed provider source');
+  assertSummaryIsolation(firstSummaryCall, b);
   assert(first.conversation.summary.startsWith(firstSummaryCall.content),
     'first stored summary differs from provider text');
   assert(providerText(firstSummaryCall.request).includes(firstInput),
@@ -299,18 +345,35 @@ test('second auto-context compaction survives restart and isolates A/B project c
   assert(secondUpTo > firstUpTo, 'second summary did not advance its durable message ID');
   assert(secondUpTo >= secondUserId, 'second summary did not cover the post-restart decision');
   assert(second.conversation.summary.includes(FIRST_CODE), 'recursive summary lost the first user code');
+  assert(second.conversation.summary.includes(FIRST_FACT), 'recursive summary lost prior prose fact');
   assert(second.conversation.summary.includes(SECOND_CODE), 'recursive summary lost the new decision');
   assert(second.messages.length >= aTurns * 2, 'raw durable history was discarded by compaction');
   const secondSummaryCall = provider.calls.filter(call => call.kind === 'summary')
     .find(call => call.content.includes(SECOND_CODE));
   assert(secondSummaryCall, 'no completed second summary provider call');
+  assertSummaryIsolation(secondSummaryCall, b);
   assert(second.conversation.summary.startsWith(secondSummaryCall.content),
     'second stored summary differs from provider text');
-  const secondSource = providerText(secondSummaryCall.request);
-  assert(secondSource.includes('[Předchozí souhrn]'), 'second compaction did not use first summary');
-  assert(secondSource.includes(SECOND_CODE), 'second compaction omitted new user decision');
+  const precedingCalls = provider.calls.slice(0, provider.calls.indexOf(secondSummaryCall))
+    .filter(call => call.kind === 'summary');
+  const precedingSummaryProse = precedingCalls.at(-1)?.content;
+  assert.equal(typeof precedingSummaryProse, 'string',
+    'recursive compaction had no prior completed summary prose');
+  const secondSource = String(secondSummaryCall.request.messages.at(-1).content);
+  assertRecursiveSource(secondSource, precedingSummaryProse);
   assert(!secondSource.includes(firstInput), 'second compaction replayed the original raw user message');
-
+  const previousStart = secondSource.indexOf(PREVIOUS_MARKER) + PREVIOUS_MARKER.length;
+  const previousEnd = secondSource.indexOf(NEW_TURNS_MARKER, previousStart);
+  assert(previousEnd > previousStart, 'second summary previous-prose segment missing');
+  const withoutPreviousProse = secondSource.slice(0, previousStart) + secondSource.slice(previousEnd);
+  assert(withoutPreviousProse.includes(FIRST_CODE),
+    'negative probe must retain the first code in the raw quote block');
+  assert.throws(() => assertRecursiveSource(withoutPreviousProse, precedingSummaryProse),
+    'oracle must reject lost prior summary prose despite a raw identifier quote');
+  const foreignSummary = structuredClone(secondSummaryCall);
+  foreignSummary.request.messages.at(-1).content += `\n${b.file} ${b.canary} ${b.rule}`;
+  assert.throws(() => assertSummaryIsolation(foreignSummary, b),
+    'oracle must reject project B data in an A summary provider request');
   const finalInput = `Závěrečná kontrola kontextu pro ${a.file}: uveď dřívější dva kódy a přesný kód ze souboru.`;
   const final = await chat(product, provider, a, 'a-final', finalInput, b);
   const oracleInput = { a, b, firstInput, secondInput };
@@ -347,6 +410,14 @@ test('second auto-context compaction survives restart and isolates A/B project c
   assert.equal(bDurable.conversation.project_id, b.id);
   assert.equal(bDurable.messages.length, 6);
   assert(!bDurable.messages.map(message => message.content).join('\n').includes(FIRST_CODE));
+  const summaryCalls = provider.calls.filter(call => call.kind === 'summary');
+  assert(summaryCalls.length >= 2, 'expected at least two project A summary provider requests');
+  assert(summaryCalls.includes(firstSummaryCall) && summaryCalls.includes(secondSummaryCall));
+  for (const call of summaryCalls) {
+    assert(providerText(call.request).includes(FIRST_CODE),
+      'unexpected summary request without the project A original user anchor');
+    assertSummaryIsolation(call, b);
+  }
 
   const report = { schemaVersion: 1, sourceRevision: revision,
     fixture: 'owned-isolated-server-and-loopback-provider', model: MODEL,
@@ -356,7 +427,7 @@ test('second auto-context compaction survives restart and isolates A/B project c
     rawMessagesA: durable.messages.length, rawMessagesB: bDurable.messages.length,
     secondSourceSha256: createHash('sha256').update(secondSource).digest('hex'),
     finalRequestSha256: createHash('sha256').update(JSON.stringify(final.call.request)).digest('hex'),
-    providerSummaryCalls: provider.calls.filter(call => call.kind === 'summary').length,
+    providerSummaryCalls: summaryCalls.length,
     status: 'PASS' };
   await cleanup();
   writeFileSync(`${runtime.artifacts}/chat-second-compaction-http.json`,
