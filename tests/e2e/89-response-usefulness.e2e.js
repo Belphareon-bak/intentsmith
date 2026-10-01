@@ -8,6 +8,7 @@ import {
   api, waitForServer, chatInConv, createConv, hasKeywords,
   cleanupConversation, LLM_TIMEOUT,
 } from './_helpers.js';
+import { assertFiveDistinctFrameworks } from '../helpers/chat-framework-list-oracle.js';
 
 await waitForServer();
 const created = [];
@@ -107,14 +108,8 @@ try {
   await testAsync('list request returns multiple items', async () => {
     const convId = await createConv('useful-8');
     created.push(convId);
-    const r = await chatInConv(convId, 'Vyjmenuj 5 populárních JavaScriptových frameworků');
-    // Should have at least 3 items
-    const frameworks = ['react', 'vue', 'angular', 'svelte', 'next', 'nuxt', 'express', 'nest', 'ember', 'backbone'];
-    let foundCount = 0;
-    for (const fw of frameworks) {
-      if (r.response.toLowerCase().includes(fw)) foundCount++;
-    }
-    assert(foundCount >= 3, `should list at least 3 frameworks, found ${foundCount}: ${r.response.substring(0, 300)}`);
+    const r = await chatInConv(convId, 'Vyjmenuj 5 populárních JavaScriptových frameworků. Očísluj přesně pět položek.');
+    assertFiveDistinctFrameworks(r.response);
   }, LLM_TIMEOUT);
 
 } finally {

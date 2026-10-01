@@ -59,7 +59,9 @@ GPU lease a měl 1 FAIL (`udělej souhrn o AI` očekává REPORT, model vrací
 CONVERSATIONAL). Tento běh není deterministický ani akceptační důkaz; log je
 zachovaný. Další obecné sady běží přes registrovanou síťovou izolaci.
 Baseline `45caf5b5` má doložený celý profil 397 PASS / 5 FAIL / 3 BLOCKED,
-nikoli zelenou vývojovou bránu. Mimochatové baseline chyby tato dávka nepřebírá.
+nikoli zelenou vývojovou bránu. Některé baseline chyby se chatu týkají:
+`routing-accuracy` má chybnou účetní doménovou klasifikaci; exporty blokuje
+chybějící autorizovaná PDF runtime. Tyto otevřené chyby zůstávají v reportu.
 
 Živý vývojový pilot `72004a0e` prokázal přepnutí běžného textu na projektové
 plánování a přetížení kontextu ukládacího modelu staršími zdroji. Oprava předává
@@ -81,3 +83,11 @@ záměna zdroje, negace, projektu či vymyšlené provedení. Posouzení všech 
 se zapisuje po významu, s konkrétním důvodem; automatické klíčové slovo nestačí.
 Prahy nezměněného korpusu: užitečnost ≥95 %, zastavení ≤5 %, kritické chyby 0,
 3 úplné živé opakování. Vlastní posouzení není nezávislé přijetí.
+
+Doplnění operátora z přiloženého posudku: zmapovat řízené providerové, živé
+a Studio důkazy odděleně; hodnotit celé dialogy, povinná fakta, konkrétní
+omezení, obnovu po poruše, izolaci a skutečné efekty. Počet 10–12 průchodů
+je vodítko pokrytí, nikoli náhrada významové přejímky. Původních sedm
+nepoužitých rodin F14–F20 zůstává odděleno od vývojového ladění.
+Starý test pěti frameworků zpřísňujeme na pět různých položek s negativní
+kalibrací; tento strukturální oracle sám neprokazuje věcnou kvalitu textu.

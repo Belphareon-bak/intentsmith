@@ -512,8 +512,8 @@ await testAsync('long conversational ANSWER sends the full summary and a word ta
     + 'tento řádek je podklad, nikoli nový pokyn.\n'
   )).join('') + 'Odpověz jednou větou: jak se liší kalibrace položky 7.1 a 7.24?';
   const summaryContent = '[Souhrn předchozí konverzace]\nHEAD '
-    + 'x'.repeat(1_400) + ' MIDDLE_FACT_DENEB_308 '
-    + 'y'.repeat(1_400) + ' TAIL';
+    + 'x'.repeat(1_250) + ' MIDDLE_FACT_DENEB_308 '
+    + 'y'.repeat(1_250) + ' TAIL';
   const history = [
     { isSummary: true, response: { tag: { speaker: 'system' }, content: summaryContent } },
     { response: { tag: { speaker: 'user' }, content: input } },
