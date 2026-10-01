@@ -12,7 +12,7 @@ import { LINUX_BWRAP_READ_ONLY_PROFILE } from '../src/execution/process-supervis
 import { computeM2ExecutionValueDigest } from '../contracts/m2/execution-v1.js';
 import { compileCodeDraftInput } from '../src/lifecycle/m2-code-draft.js';
 import { assessProviderGenerations, requireProviderVersion } from '../scripts/run-project-app-journey.js';
-import { assessRevisionGenerations, assertRetainedRevision } from '../scripts/project-app-revision.js';
+import { assessRevisionGenerations, assertRetainedRevision, assertSchemaFailure } from '../scripts/project-app-revision.js';
 import { REFERENCE_LEDGER_OUTPUTS as GOOD } from './helpers/project-app-reference.js';
 import { REFERENCE_TASKFLOW_OUTPUTS, taskflowMutant } from './helpers/project-taskflow-reference.js';
 import { REFERENCE_SQLITE_OUTPUTS, sqliteCatalogMutant } from './helpers/project-sqlite-catalog-reference.js';
@@ -396,4 +396,21 @@ test('revision preserves all six unrelated module bytes', () => {
   const forged = structuredClone(revised); forged.find(row => row.path === 'src/cli.js').after.content += '// changed\n';
   assert.throws(() => assertRetainedRevision(initial, forged), /retained module bytes/);
   assert.throws(() => assertRetainedRevision(initial, initial), /Expected.*unequal|not.*equal/i);
+});
+
+test('schema revision requires a real AST dependency and cannot trust forged stderr', () => {
+  const paths = Object.keys(REFERENCE_SQLITE_OUTPUTS).sort();
+  const terminal = { state: 'failed', result: { errorCode: 'PROJECT_CHANGE_TEST_FAILED',
+    focusedTest: { terminalStatus: 'failed' }, rollback: { status: 'succeeded', paths } },
+    audit: { executionEvents: [{ type: 'process_terminated', details: { testOutput: {
+      stderr: 'SQLite declared dependencies: src/schema.js',
+    } } }] } };
+  const diff = content => paths.map(path => ({ path, after: { content: path === 'src/schema.js'
+    ? content : REFERENCE_SQLITE_OUTPUTS[path] } }));
+  for (const inert of [REFERENCE_SQLITE_OUTPUTS['src/schema.js'],
+    "// import './missing.js';\nexport const SCHEMA_SQL = 'import';\n",
+    "export const pattern = /import/;\nexport const text = \"export * from './missing.js'\";\n",
+  ]) assert.throws(() => assertSchemaFailure(terminal, paths, diff(inert)), /stderr is insufficient/);
+  assertSchemaFailure(terminal, paths, diff("import './missing.js';\nexport const x = 1;\n"));
+  assertSchemaFailure(terminal, paths, diff("export { x } from './missing.js';\n"));
 });

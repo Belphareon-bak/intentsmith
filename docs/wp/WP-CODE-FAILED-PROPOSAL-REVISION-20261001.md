@@ -83,3 +83,39 @@ nikoli model; fyzická revize zůstává LIVE_NOT_RUN. Provider controls
 rekonstruují osmý replacement a odmítají changed retained/schema bytes,
 jiný model digest, truncation, chybějící i přebytečnou generaci.
 Nezávislé source review, přesný registered gate a push/CI ještě čekají.
+
+## Nezávislý nález a oprava 17:13 UTC
+
+Publikovaný první kandidát `f17aaa27e6db2c0dddb16e30cbe9b6b0f4f4b6ab`
+má **CHANGES_REQUIRED**, review SHA-256
+`319e5c9008164be875fe84a087be6540d21f5687b9fabd6ef26cf0b7487f33f3`.
+Reviewer skutečným frozen sandbox oraclem doložil CLI chybu se stejným
+stderr markerem, zatímco schema nemělo žádné dependencies. První helper
+by i tak povolil opravný request. Druhý nález: stav NOT_EXERCISED zůstával
+do dokončení approval, i pokud osmý request již začal. První reviewer probe
+exit1 kvůli nesprávnému result.output poli je zachovaný jako chyba revieweru,
+nikoli produktový důkaz. Counterexample postprocessor využil již uložený
+skutečný výstup, frozen f17 helper a zachoval původní data.
+
+Registered f17 gate měl **8 PASS / 1 FAIL**, exit1, report
+`d367c3f95b53ea17853dc96bd53d646964fa7ebad11be3e3aa7a96e2510bb046`:
+artifact-validation zjistila neaktualizovaný SYSTEM-MAP test LOC census.
+Tento výsledek se nepřeznačuje na zelený.
+
+Oprava před osmým requestem parsuje přesný původní schema afterContent
+pomocí existující locked JS/JSX grammar, bez evaluace. Vyžaduje skutečnou
+static dependency declaration/reexport; komentář, string nebo regex nestačí.
+stderr marker a typed failed/rollback zůstávají nutné, samotný marker již
+nestačí. Jednoúčelový qualification AST guard neopravuje obecný M2 scanner.
+NOT_EXERCISED patří jen počátečnímu success; další fáze jsou
+REVISION_NOT_ELIGIBLE, REVISION_STARTED před requestem a REVISION_DRAFTED
+před novým approval. Konečný stav aplikace se samostatně hodnotí oraclem.
+
+Úzká CPU sada má **4/4 PASS**, log SHA-256
+`6b583325ea56ec7277b136254f404bd3d5a48775b7c55065019a4370ffa2dfb9`.
+Obě celé app sady mají **66/66 PASS**, exit0, 55 292.2 ms, log
+`933a3da611759fd2ee2e60672cab86c8583a851ef580e04a70521c53195c9592`.
+SYSTEM-MAP byte census je přeměřen: src681JS/234011LF,
+tests600JS/266085LF; registry descriptors/fingerprint, produktové stromy,
+SQLite oracle28c9 a všechny původní modelové bytes zůstávají stejné.
+Nové nezávislé review a nový clean registered gate jsou REVIEW_PENDING.

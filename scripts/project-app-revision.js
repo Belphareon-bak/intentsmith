@@ -1,5 +1,7 @@
 // Explicit qualification of the existing failed-plan revision. No file writer.
 import assert from 'node:assert/strict';
+import Parser from 'tree-sitter';
+import JavaScript from 'tree-sitter-javascript';
 import { compileCodeDraftInput, compileCodeDraftResult } from '../src/lifecycle/m2-code-draft.js';
 import { sha256 } from './project-app-acceptance.js';
 import { sqliteCatalogBlueprint } from './project-sqlite-catalog-acceptance.js';
@@ -17,7 +19,7 @@ export function sqliteRevisionBlueprint(previous) {
       : { ...file, reusePrevious: true }) };
 }
 
-export function assertSchemaFailure(terminal, paths) {
+export function assertSchemaFailure(terminal, paths, initialDiff) {
   assert.equal(terminal.state, 'failed');
   assert.equal(terminal.result?.errorCode, 'PROJECT_CHANGE_TEST_FAILED');
   assert.equal(terminal.result?.focusedTest?.terminalStatus, 'failed');
@@ -28,6 +30,23 @@ export function assertSchemaFailure(terminal, paths) {
   assert.equal(paths.length, 7);
   assert.equal(new Set(paths).size, 7);
   assert.deepEqual(terminal.result.rollback.paths, [...paths].sort());
+  const schemas = initialDiff.filter(row => row.path === REVISION_PATH);
+  assert.equal(schemas.length, 1);
+  const source = schemas[0].after.content;
+  assert.ok(typeof source === 'string' && Buffer.byteLength(source) <= 16_384);
+  // stderr can contain untrusted child output. Independently prove a real
+  // dependency declaration in the retained source; parse only, never execute.
+  const parser = new Parser(); parser.setLanguage(JavaScript);
+  const tree = parser.parse(source);
+  assert.equal(tree.rootNode.hasError, false);
+  const nodes = [tree.rootNode]; let hasDependency = false;
+  while (nodes.length) {
+    const node = nodes.pop();
+    if (node.type === 'import_statement'
+      || (node.type === 'export_statement' && node.childForFieldName('source'))) hasDependency = true;
+    nodes.push(...node.namedChildren);
+  }
+  assert.equal(hasDependency, true, 'schema must actually declare a dependency; stderr is insufficient');
 }
 
 export function assertRetainedRevision(initialDiff, revisedDiff) {

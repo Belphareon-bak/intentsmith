@@ -479,9 +479,9 @@ async function runInside(configurationPath, { sourceCheckOnly = false } = {}) {
       200, 'exact approval');
     if (cfg.revisionOnce) {
       save(out, 'initial-approval-terminal.json', terminal);
-      evidence.revisionQualification = 'NOT_EXERCISED';
+      evidence.revisionQualification = terminal.state === 'succeeded' ? 'NOT_EXERCISED' : 'REVISION_NOT_ELIGIBLE';
       if (terminal.state !== 'succeeded') {
-        assertSchemaFailure(terminal, expectedPaths);
+        assertSchemaFailure(terminal, expectedPaths, drafted.diff);
         assert.equal(git(project, ['rev-parse', 'HEAD']), baselineHead);
         assert.equal(git(project, ['status', '--porcelain=v1']), '');
         for (const relative of expectedPaths) assert.equal(fs.existsSync(path.join(project, relative)), false);
@@ -493,10 +493,12 @@ async function runInside(configurationPath, { sourceCheckOnly = false } = {}) {
         const initialDraft = drafted;
         const revisionBlueprint = sqliteRevisionBlueprint(initialDraft);
         save(out, 'revision-blueprint.json', revisionBlueprint);
+        evidence.revisionQualification = 'REVISION_STARTED';
         drafted = assertResponse(await ask('POST', '/api/m2/lifecycle/draft', {
           projectId, origin, draft: revisionBlueprint,
         }, 180_000), 200, 'one physical schema revision');
         assert.equal(drafted.state, 'awaiting_approval');
+        evidence.revisionQualification = 'REVISION_DRAFTED';
         assert.notEqual(drafted.lifecycleId, initialDraft.lifecycleId);
         assert.notEqual(drafted.planDigest, initialDraft.planDigest);
         assertRetainedRevision(initialDraft.diff, drafted.diff);

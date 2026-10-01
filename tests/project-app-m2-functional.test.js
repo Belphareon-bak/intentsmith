@@ -169,7 +169,7 @@ test('M2 failed SQLite draft rolls back and revises one module with a new exact 
       projectId: PROJECT_ID, origin: ORIGIN, draft: sqliteCatalogBlueprint() });
     const failed = await f.service.approveSmallProjectChange({ authenticatedSubject: SUBJECT,
       origin: ORIGIN, lifecycleId: first.lifecycleId, planDigest: first.planDigest });
-    assertSchemaFailure(failed, SQLITE_FILES.map(file => file.path));
+    assertSchemaFailure(failed, SQLITE_FILES.map(file => file.path), first.diff);
     assert.equal(git(f.project, ['rev-parse', 'HEAD']), f.baseline);
     for (const file of SQLITE_FILES) assert.equal(fs.existsSync(path.join(f.project, file.path)), false);
     const next = await f.service.draftSmallProjectChange({ authenticatedSubject: SUBJECT,
