@@ -1,6 +1,6 @@
 # WP-M3-REAL-PROJECT-CONTEXT-20261001
 
-**Stav:** `AUTHORIZED / IMPLEMENTATION_PENDING / REVIEW_PENDING`
+**Stav:** `IMPLEMENTATION_GREEN / REGISTERED_PENDING_RUN / REVIEW_PENDING`
 **Vlastník:** `/root/full405_diagnosis`; integrace a registry metadata: root.
 **Vstup:** publikovaný `0625ee6077c32386d3de34b81f837d19647ada6f`.
 **Větev:** `work/m3-real-project-context-20261001`, existující owned checkout
@@ -53,13 +53,16 @@ Zachovat všechny dosavadní fake capability/error testy. Doplnit:
 
 Přesné bounded příkazy:
 
+Node je přesně `/home/belphareon/.nvm/versions/node/v24.21.0/bin/node`;
+jeho bin adresář je také první v `PATH` pro child procesy. Příkazy:
+
 ```sh
-node tests/m3-code-review-specialist.test.js
-node tests/harness-exit-code.test.js
-node scripts/nightly-audit.js --suite=IS-T1-TESTS-M3-CODE-REVIEW-SPECIALIST-TEST,IS-T1-TESTS-HARNESS-EXIT-CODE-TEST --run-id=m3-real-context-candidate
+/home/belphareon/.nvm/versions/node/v24.21.0/bin/node tests/m3-code-review-specialist.test.js
+/home/belphareon/.nvm/versions/node/v24.21.0/bin/node tests/harness-exit-code.test.js
+/home/belphareon/.nvm/versions/node/v24.21.0/bin/node scripts/nightly-audit.js --suite=IS-T1-TESTS-M3-CODE-REVIEW-SPECIALIST-TEST,IS-T1-TESTS-HARNESS-EXIT-CODE-TEST --run-id=m3-real-context-candidate
 ```
 
-Třetí příkaz bude před spuštěním ověřen vůči skutečným registry ID.
+Obě registry ID byly ověřeny před spuštěním.
 Registrovaný běh patří čistému pojmenovanému kandidátu; reporty a exits
 se zachovají v ignored `.intentsmith-artifacts`, bez převydání starých výsledků.
 Aktuální suite je offline / database:false / network:none; změnu dosažitelnosti
@@ -74,3 +77,36 @@ Focused green není acceptance: finální candidate zůstane `REVIEW_PENDING`
 do nezávislého review. Commit pouze dvě vlastněné cesty; bez push, který
 provede root po přijaté integraci. Původní provider-guards větev i exact remote
 tag `evidence/project-app-provider-guards-20261001` na `15337cde` zůstávají.
+
+## Implementační důkaz 2026-10-01
+
+WP-first commit `082851f7262ba9363a79373ffc1a0cbc17634fd3` předchází
+změně testu. Původní čtyři capability/package/error testy z `0625ee60`
+zůstaly bajtově stejné; přidány jsou čtyři skutečné filesystem případy.
+
+| Kontrola | Skutečný výsledek |
+| --- | --- |
+| Node 24 syntax | exit 0 |
+| Přímá M3 suite s aktivním zákazem importu default DB/SQLite | 8 PASS / 0 FAIL / 0 SKIP; exit 0 |
+| Přímý `harness-exit-code` | exit 0; 129 temp roots, 142 chráněných DB-reachable roots; odstranění bootstrapu je odmítnuto |
+| Registrované dvě sady na čistém kandidátu | `PENDING_RUN` |
+| Nezávislé review | `REVIEW_PENDING` |
+
+Soukromý receipt je
+`.intentsmith-artifacts/m3-real-project-context-20261001T132050Z/receipt.json`.
+Obsahuje přesné argv, UTC časy, exits a SHA256 logů; focused source SHA256
+je `f1e3187a74d964fd4640fc401f3db8b52e2895e4194e69e96e8cf434bb4319ed`.
+První focused běh patří pracovnímu testu nad WP-first SHA, nikoli tehdy
+čistému kandidátu; receipt tento vztah uchovává.
+
+Ignored preload `no-default-db-guard.mjs` odmítá načtení
+`src/db/database.js`, `better-sqlite3` i `node:sqlite`. Skutečný výstup:
+`rejected:0`, `privateDbConfigured:true`, `privateDbCreated:false`.
+Registry zůstává beze změn: offline / database:false / network:none.
+Statická dosažitelnost lazy DB importu již existovala před touto změnou;
+nové přímé případy ji nevyužijí, protože injectují vlastní projektový registry.
+
+Tyto výsledky kvalifikují přímý deterministický M3 connector a skutečné
+ProjectContext čtení. Nevztahují se na modelové posouzení, aktivaci rolí,
+přirozený CHAT, přejímku mobilu nebo releasu; staré neprovedené či neúspěšné
+živé výsledky se tím nepřeznačují.
