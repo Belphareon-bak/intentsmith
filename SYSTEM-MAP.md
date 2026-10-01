@@ -623,10 +623,11 @@ Historický blok začíná opravami soukromí/agentů z 17. 9., kdy registr měl
 519 programů. Vývojový source `1f13b936` měl 1. 10. 2026 v 01:00 UTC
 580 registrovaných programů. Kontrakt resilience a účetní M1 sada navýšily
 integrační registr na **583**; samostatný worker-soak test a dvě sady druhého
-kontextového okna navýšily současný registr na **586**. Nahrazení modelového
+kontextového okna navýšily registr na **586**; test pořadí historie a izolované
+stage IDE 2.0 jej navýšily na **588**. Nahrazení modelového
 účetního běhu deterministickou M1 sadou přesunulo její stav do ACTIVE; nový
 worker-soak a offline atestační test přidaly ACTIVE, fyzická sada druhého okna
-zůstává BLOCKED (488 ACTIVE, 83 BLOCKED, 15 HISTORICAL),
+zůstává BLOCKED (490 ACTIVE, 83 BLOCKED, 15 HISTORICAL),
 jak uvádí census níže. Historické výsledky nadále patří svým přesným source
 pinům; novější registr jim zpětně nemění verdikt.
 
@@ -655,14 +656,14 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 | | |
 |---|---:|
 | `src/**/*.js` | **233 232 ř.**, 678 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **262 671 ř.**, 588 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **586** (`488 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
+| `tests/**/*.js` | **263 168 ř.**, 590 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **588** (`490 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 107** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
 
 Aktuální registry fingerprint je
-`a4d1d6d371149a93b725e9b86ccdfb20d8434b6abf745e193ad91a04d81c07fe`.
+`757d8a3fae46602672af6b077dfb619c9a00d7b2cd9a6badb2ec9c54f81b275f`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 Worker-soak absolvoval fyzický pětiminutový běh na `bf7dc31f`; nové druhé

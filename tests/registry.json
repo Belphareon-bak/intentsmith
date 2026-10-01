@@ -17445,6 +17445,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-STUDIO2-ISOLATED-STAGE-TEST",
+      "path": "tests/studio2-isolated-stage.test.js",
+      "argv": [
+        "node",
+        "tests/studio2-isolated-stage.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T1",
+      "fixture": "temporary sealed package, detached Legacy Git source and isolated trial path",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-STUDIO2-ISOLATED-STAGING-20261001",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-WORKSPACE-TREE-PROJECT-ID-TEST",
       "path": "tests/workspace-tree-project-id.test.js",
       "argv": [
