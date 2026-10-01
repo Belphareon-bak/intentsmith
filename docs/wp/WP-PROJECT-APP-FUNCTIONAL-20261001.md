@@ -1,0 +1,30 @@
+# WP: Functional acceptance of a generated six-file project
+
+Status: **candidate, independent review pending; physical model journey `LIVE_NOT_RUN`**.
+Authority: operator's 2026-10-01 request to verify that generated applications actually work; `PRODUCT.md` §2.7 and §3; the six-file expense-ledger blueprint in `docs/PROJECT-BUILD.md`.
+
+## Owned scope and fixed oracle
+
+This package adds only `scripts/project-app-acceptance.js`, `scripts/run-project-app-journey.js`, `tests/helpers/project-app-reference.js`, `tests/project-app-acceptance.test.js`, `tests/project-app-m2-functional.test.js`, and this WP. It changes no chat, M2, provider, contract, schema, registry, or production service code. The runner creates a fresh project and DB under its own ignored `.intentsmith-artifacts/<new-run>/runtime-*` tree. No imported project path is used.
+
+The model may propose **exactly** `src/app.js`, `src/cli.js`, `src/service.js`, `src/storage.js`, `src/totals.js`, and `src/validate.js`, with the dependencies and instructions from `docs/PROJECT-BUILD.md`. The operator writes `test/acceptance.test.mjs` and the `src/index.mjs` CLI adapter into the new project, checks their SHA-256 hashes, and commits them **before any model call**. Neither appears in the model's file plan or writable M2 diff. `focusedTest` is fixed to `/usr/bin/node test/acceptance.test.mjs`; the model supplies only bytes for the six generated files.
+
+The independent oracle checks three decimal additions, exact total `23.25`, exact category sums `{food:16,travel:7.25}`, ordered row values, list-copy behavior, empty state in a new run, invalid amounts and categories, and an unknown operation. The runner also executes `src/index.mjs` as a separate CLI process inside the canonical `linux-bwrap-ro-v2` process sandbox after a server restart, checking populated and fresh state plus failed exits for invalid commands. These checks do not rely on model-generated tests, source keyword matches, HTTP success alone, or a Git commit alone.
+
+## Live qualification sequence
+
+1. Freeze and independently review one clean source commit, the oracle hash, exact CODE tag and SHA-256 digest. Choose a new direct child of `.intentsmith-artifacts`. Use a Node runtime compatible with this checkout's native `better-sqlite3` ABI; currently `/home/belphareon/.nvm/versions/node/v24.21.0/bin/node`. The no-GPU command is `<node24> scripts/run-project-app-journey.js --preflight`; it reports `LIVE_NOT_RUN` and source/oracle pins plus actual native SQLite compatibility.
+2. Only in the serialized GPU slot run `<node24> scripts/run-project-app-journey.js --live --out <new-absolute-artifact-path> --source-sha <40-hex-commit> --model <exact-installed-CODE-tag> --digest <64-hex-digest>`. The runner acquires the evaluation lock; checks empty resident models, compute process inventory, RAM/disk readiness and the exact installed digest; and exposes only that model through a scoped Unix-socket relay into a loopback-only network namespace.
+3. A private backend creates a new project and project-bound conversation. Before model inference the fixed oracle and CLI adapter are hashed and committed. The actual `/api/m2/lifecycle/draft` generates six model proposals and must return the complete six-file diff while files and Git remain unchanged. A wrong digest approval must fail. The backend restarts and retrieves the same pending plan.
+4. One exact `/api/m2/lifecycle/approve` runs the frozen oracle in M2's process sandbox and commits the six exact preview byte strings. The runner checks every file's bytes, clean Git, private CODE binding and durable M2 terminal. After a second backend restart it checks identical terminal/result, idempotent repeated approval, unchanged file identity and bytes, and runs the app CLI and oracle again in separate sandboxed processes.
+5. The parent checks six complete provider responses with the requested model digest/version, releases its owned model and GPU lock, and writes `before-model.json`, `draft.json`, `terminal.json`, `app-journey.json`, `provider-requests.json`, and `result.json` in the private run directory. Any failed assertion yields `FAIL`, never a partial `PASS`.
+
+This is a backend HTTP/project/M2 functional journey. It does not claim a literal installed IDE renderer journey, a successful unknown model before the physical run, or broad API/DOM application coverage. A physical failure should preserve the private evidence for diagnosis and source-pinned revision testing; a model-generated flawed implementation is a quality failure even if draft transport succeeded.
+
+## Offline evidence and required gates
+
+`<node24> tests/project-app-acceptance.test.js` runs trusted reference modules and two deliberate total/category mutants in the real read-only process sandbox. Both mutants must fail the frozen oracle for their intended assertions. `<node24> tests/project-app-m2-functional.test.js` then runs both successful and wrong-total builds through the production M2 service, actual SQLite/Git/bwrap, exact approval, rollback, and a second Node process reading the durable terminal. `<node24> --check scripts/run-project-app-journey.js`, `<node24> scripts/run-project-app-journey.js --preflight`, `git diff --check`, and the applicable registered offline/DB profile are required before review. The physical run is separately gated on source freeze, independent review, exact model inventory, and the serialized GPU lease.
+
+The first direct invocation of the M2 test with the shell's Node 22 failed before any M2 assertion because the shared `better-sqlite3` binary is built for Node ABI 137. Re-running with local Node 24.21.0 passed both cases. The native-runtime preflight now reports this prerequisite explicitly; the Node 22 result is a toolchain failure, not evidence for application behavior.
+
+The registry owner may add two additive entries for `tests/project-app-acceptance.test.js` and `tests/project-app-m2-functional.test.js` in the registered deterministic test graph. This candidate does not edit that registry.
