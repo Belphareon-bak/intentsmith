@@ -1,5 +1,17 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
+## Publikace a CI — 1. 10. 2026, 08:52 UTC
+
+Accepted nonCHAT checkpoint je pushnutý na
+`5b79d05cb384778ca5ca330d7c8265f3ecfc3510`; root ověřil přesnou shodu
+lokálního HEAD a vzdáleného ref `work/real-chat-journeys-20260930`.
+[Skutečný push CI run 36838814444](https://github.com/Belphareon-bak/intentsmith/actions/runs/36838814444)
+je **SUCCESS**, job `110292649556`, všechny dependency/registry/boundary/
+generated-Studio/HTTP-privacy/Studio-adapter/hygiene kroky PASS.
+Privátní celá evidence a běhové DB zůstávají lokálně; veřejné WP obsahují
+jejich hashe a přijatý rozsah. Jde o development CI, nikoli release přijetí,
+nový celý offline/database profil nebo úspěšnou modelovou aplikaci.
+
 ## Checkpoint 1. 10. 2026, 08:48 UTC — přijaté nonCHAT milníky
 
 Další CHAT je předaný jinému workerovi. Zde nebyl opakován korpus,
