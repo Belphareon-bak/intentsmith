@@ -441,7 +441,10 @@ try {
   // the real database module after importing the isolated bootstrap first.
   // 139 -> 140: native worker HTTP journey imports the real agent repository
   // and route graph after its isolated-test-db bootstrap.
-  const expectedDatabaseReachableRootTests = 140;
+  // 140 -> 141: chat-history-order imports the real messages query after the
+  // isolation bootstrap. Graph comparison without that root returns 140;
+  // the complete unprotected set remains empty.
+  const expectedDatabaseReachableRootTests = 141;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,

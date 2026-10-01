@@ -57,3 +57,11 @@ z dvanácti tahů se shodným časem; **1/1 PASS**. Společný
 `chat-literal-write-http` **1/1** a `m2-effect-file-consumer` **39/39 PASS**.
 Nezávislé přijetí kombinovaného kandidáta, finální integrace a fyzický
 modelový pilot dosud čekají.
+
+Širší offline/database profil na `6d16e3f8` našel regresi C15: neúplný
+`ulož to` bez oprávnění skončil na parseru místo `effect_authority_required`.
+Kontrola oprávnění nyní předchází parseru i volbě zdroje. Původní C15
+prošel společně s celou sadou **26/26**, M1 literal **1/1**, M1 repeat
+**1/1** a M2 consumer **39/39 PASS**. Přerušený profil zůstává **FAIL**
+(`98 PASS / 5 FAIL / 5 BLOCKED / 297 SKIPPED`), včetně chybějících
+závislostí IDE a nepovolených lokálních toolchainů; nový celý profil čeká.

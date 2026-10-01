@@ -1,7 +1,7 @@
+import './helpers/isolated-test-db.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -22,7 +22,10 @@ const LEGACY = 'b'.repeat(40);
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 
 function fixture(t) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'studio2-stage-contract-'));
+  // The process still receives isolated HOME/Git/runtime paths from the
+  // bootstrap. These owned contract fixtures need a short absolute path to
+  // exercise Chromium's 72-byte socket limit and the later path guards.
+  const root = fs.mkdtempSync('/tmp/is-s2-contract-');
   fs.chmodSync(root, 0o700);
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const pkg = path.join(root, 'package');

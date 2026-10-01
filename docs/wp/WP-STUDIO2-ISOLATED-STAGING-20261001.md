@@ -131,7 +131,17 @@ kontrola startup call graphu našla i obnovu schválené neukončené M2 práce 
 modelových pull operací. Pro každou cestu je nyní offline kontrakt; live stage
 zůstává **NOT RUN** a změna čeká na opětovné nezávislé review.
 
-Stav při předání tohoto kandidáta: **OFFLINE_CONTRACT_VERIFIED /
+Historický stav při předání tohoto kandidáta: **OFFLINE_CONTRACT_VERIFIED /
 PHYSICAL_GPU_STAGE_NOT_RUN / REVIEW_PENDING**. Teprve nový balík ze
 zmrazeného integračního SHA, skutečný AppImage běh a posouzený výstup mohou
 změnit stav produkční přejímky.
+
+Offline příprava `e5b9ca82` získala nezávislé **REVIEW_PASS**. Širší profil
+integrovaného `6d16e3f8` následně našel chybějící statický isolation bootstrap
+tohoto testu. Bootstrap nyní izoluje HOME, Git a runtime; vlastní kontraktové
+fixture používají atomicky vytvořenou soukromou krátkou cestu v `/tmp`, aby
+nadále prověřily limit Chromium socketu a všechny následující path guardy.
+Kontrakty prošly **13/13**. `harness-exit-code` také prošel po doloženém
+přepočtu databázového import grafu z 140 na 141: jediným novým kořenem je
+`chat-history-order.test.js`, všechny kořeny mají isolation boundary.
+Fyzická přejímka IDE 2.0 zůstává **PHYSICAL_GPU_STAGE_NOT_RUN**.
