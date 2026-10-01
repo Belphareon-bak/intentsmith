@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 584
+- Runnable programs: 586
 - Explicit support-module exclusions: 29
-- Profiles: offline=318, database=84, server=61, model=85, soak=16, manual=20
-- States: ACTIVE=487, HISTORICAL=15, BLOCKED=82
+- Profiles: offline=319, database=84, server=61, model=86, soak=16, manual=20
+- States: ACTIVE=488, HISTORICAL=15, BLOCKED=83
 
 ## Execution profiles
 
@@ -103,6 +103,8 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T3-TESTS-CHAT-SAZENI-HTTP-JOURNEY-TEST` | `tests/chat-sazeni-http-journey.test.js` | `C3-013` | T3 | `server` | 15 s | 3 min | network:loopback, temp-db | yes | `ACTIVE` | — | WP-CHAT-SAZENI-HTTP-20261001 |
 | `IS-T1-TESTS-CHAT-SEARCH-QUALITY-TEST` | `tests/chat-search-quality.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-CHAT-SECOND-COMPACTION-HTTP-TEST` | `tests/chat-second-compaction-http.test.js` | `C3-003` | T3 | `server` | 10 s | 4 min | network:loopback, temp-db | yes | `ACTIVE` | — | WP-CHAT-SECOND-COMPACTION-20261001 |
+| `IS-T1-TESTS-CHAT-SECOND-WINDOW-EVIDENCE-TEST` | `tests/chat-second-window-evidence.test.js` | `C3-003` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-CHAT-SECOND-COMPACTION-20261001 |
+| `IS-T3-TESTS-CHAT-SECOND-WINDOW-LIVE-TEST` | `tests/chat-second-window-live.test.js` | `C3-003` | T3 | `model` | 45 min | 65 min | network:loopback, temp-db, ollama, gpu | yes | `BLOCKED` | — | WP-CHAT-SECOND-COMPACTION-20261001 |
 | `IS-T3-TESTS-CHAT-SPECIALIST-FOLLOWUP-HTTP-TEST` | `tests/chat-specialist-followup-http.test.js` | `C3-013` | T3 | `server` | 10 s | 3 min | network:loopback, temp-db | yes | `ACTIVE` | — | WP-CHAT-SPECIALIST-FOLLOWUP-20260930 |
 | `IS-T1-TESTS-CHAT-SYNTHESIS-HARDENING-TEST` | `tests/chat-synthesis-hardening.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-CHAT-TRANSLATOR-LIVE-TEST` | `tests/chat-translator-live.test.js` | `C3-007` | T3 | `model` | 10 min | 25 min | network:loopback, temp-db, ollama, gpu | yes | `BLOCKED` | — | WP-CHAT-TRANSLATOR-LIVE-20261001 |
