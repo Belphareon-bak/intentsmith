@@ -24,6 +24,7 @@ import { Structure, FollowUpStyle } from '../../memory/preferences.js';
 import { synthesizeWithLLM } from './utils/synthesis.js';
 import { getLanguageContext, inferUserLanguageFromHistory } from './utils/language.js';
 import { enforceOutputContract, buildOutputGateRetryPrompt } from './utils/output-gate.js';
+import { memoryReferenceBlock } from '../conversation-context.js';
 import { buildProjectContext } from './utils/project-context-prompt.js';
 import { styleWithConfidence, scoreToLevel } from './utils/confidence-styling.js';
 import { assertCreativeQuality } from './utils/quality.js';
@@ -398,7 +399,7 @@ export function buildAnswerContext(input, history, systemPrompt, requestedTokens
   // window. Reserve space for it before filling the rest from newest to oldest;
   // otherwise ten later turns can silently crowd it out of the provider prompt.
   const summaryTurn = turns.findLast(turn => turn.role === 'summary');
-  const recentTurns = turns.filter(turn => turn.role !== 'summary').slice(summaryTurn ? -9 : -10);
+  const recentTurns = turns.filter(turn => turn.role !== 'summary');
   const latestUserIndex = recentTurns.findLastIndex(turn => turn.role === 'user');
   const latestUserLine = latestUserIndex < 0 ? null : JSON.stringify(recentTurns[latestUserIndex]);
   // A concise post-summary correction can be the only place where the new
@@ -444,13 +445,17 @@ export function buildAnswerContext(input, history, systemPrompt, requestedTokens
     selected.set(latestUserIndex, protectedUserLine);
     used += bytes(protectedUserLine) + 1;
   }
-  const addTurn = index => {
+  const addTurn = (index, cap = Infinity) => {
     if (selected.has(index)) return;
-    const line = encodeTurn(recentTurns[index], historyBudget - used);
+    const line = encodeTurn(recentTurns[index], Math.min(cap, historyBudget - used));
     if (!line) return;
     selected.set(index, line);
     used += bytes(line) + 1;
   };
+  const latestAssistantIndex = recentTurns.findLastIndex(turn => turn.role === 'assistant');
+  if (latestUserIndex >= 0) addTurn(latestUserIndex,
+    latestAssistantIndex >= 0 ? Math.floor((historyBudget - used) / 2) : Infinity);
+  if (latestAssistantIndex >= 0) addTurn(latestAssistantIndex, Math.floor((historyBudget - used) / 2));
   // Keep source facts and later user corrections ahead of verbose model prose.
   // The Map restores chronological order after priority based selection.
   for (let index = recentTurns.length - 1; index >= 0; index--) {
@@ -1283,6 +1288,7 @@ function buildFailureFallback(input, decision, executionResult, context) {
  */
 async function handleAnswerDecision(input, decision, context) {
   const { sessionId } = context;
+  const answerStarted = performance.now();
 
   try {
     // Lazy import CRE bridge to avoid circular dependencies
@@ -1340,7 +1346,8 @@ Passe den Umfang der Anfrage an. Benenne Unsicherheit; erfinde keine aktuellen F
     const environmentPrompt = await developmentEnvironmentPrompt();
     const projectPrompt = buildProjectContext(context);
     const systemPromptFor = instruction => baseSystemPrompt + instruction
-      + remainingSystemInstructions + environmentPrompt + projectPrompt;
+      + remainingSystemInstructions + memoryReferenceBlock({ ...context, memoryBankContext: '' }, 1600, decision.intent)
+      + environmentPrompt + projectPrompt;
     let systemPrompt = systemPromptFor(languageInstruction);
     const requestedTokens = selectAnswerTokenBudget(input, decision.intent);
     const numCtx = getNumCtx(config.models.CHAT);
@@ -1383,6 +1390,7 @@ Passe den Umfang der Anfrage an. Benenne Unsicherheit; erfinde keine aktuellen F
       answerContext = buildAnswerContext(input, context.history, systemPrompt, requestedTokens, numCtx);
     }
     const prompt = answerContext.prompt;
+    const promptPrepared = performance.now();
 
     // v123.2: System step — prompt prepared
     if (typeof context.onSystemStep === 'function') {
@@ -1621,6 +1629,8 @@ Passe den Umfang der Anfrage an. Benenne Unsicherheit; erfinde keine aktuellen F
         answerBudget: { maxTokens: currentAnswerContext.maxTokens, numCtx: currentAnswerContext.numCtx,
           historyTurns: currentAnswerContext.historyTurns },
         answerRetries: answerRetry,
+        answerTiming: { promptMs: Math.round(promptPrepared - answerStarted),
+          generationAndChecksMs: Math.round(performance.now() - promptPrepared), attempts: answerRetry + 1 },
         decision: decision.toJSON(),
       },
     });

@@ -950,18 +950,35 @@ export async function handleFileWriteDecision(input, decision, context, dependen
     error.code || 'file_write_plan_unavailable');
   }
   if (plan.action !== 'write') {
-    return terminalWithoutEffect(plan.question || (lang === 'cs'
+    const question = plan.question || (lang === 'cs'
       ? 'Upřesni obsah, cíl a požadované omezení zápisu.'
-      : 'Clarify the content, target and write constraints.'),
-    plan.action === 'decline' ? 'file_write_declined' : 'file_write_plan_ambiguous');
+      : 'Clarify the content, target and write constraints.');
+    if (plan.action === 'clarify' && context.sessionState) {
+      const previous = context.sessionState.pendingDecision?.metadata;
+      context.sessionState.setPendingDecision({ type: 'ASK_USER', intent: 'FILE_WRITE',
+        metadata: { contextualInterpretation: true, clarificationQuestion: question,
+          originalRequest: previous?.fileSaveClarification ? previous.originalRequest : input,
+          fileSaveClarification: { projectId, sourceMessageId: plan.candidateMessageId,
+            userMessageId: context.userMessageId } } }, ['file_save']);
+      return new TaggedResponse({ content: question,
+        tag: new ResponseTag({ speaker: ResponseSpeaker.SYSTEM, mode: ChatMode.CONVERSATION,
+          confidence: 1, canExecute: false, metadata: { decision: decision.toJSON(),
+            handler: 'file.write', approvalRequired: false, awaitingClarification: true,
+            clarificationQuestion: question, fallbackSuppressed: true,
+            error: 'file_write_plan_ambiguous' } }) });
+    }
+    if (plan.action === 'decline') context.sessionState?.clearPendingDecision();
+    return terminalWithoutEffect(question,
+      plan.action === 'decline' ? 'file_write_declined' : 'file_write_plan_ambiguous');
   }
+  context.sessionState?.clearPendingDecision();
   const filePath = plan.filePath;
   let content = plan.content;
   let sourceMessageId = plan.sourceMessageId;
   const originMessageId = sourceMessageId;
   try {
     if (plan.transformation === 'summarize') {
-      content = await summarizeSaveAnswer(content, input, context, dependencies);
+      content = await summarizeSaveAnswer(content, plan.summaryRequest || input, context, dependencies);
       if (typeof context.persistFileSaveSummary !== 'function') {
         throw Object.assign(new Error('Durable summary source is unavailable'), { code: 'file_write_source_unverified' });
       }

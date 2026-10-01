@@ -18,6 +18,7 @@ import { SafetyEngine } from './safety/engine.js';
 import { getConversationStore, TurnRole } from './conversation-store.js';
 import { getLTMContextForSynthesis } from './ltm-context.js';
 import { ensureCompactionBeforeNextTurn, maybeCompact } from './context-compact.js';
+import { CHAT_HISTORY_MAX_TURNS } from './conversation-context.js';
 import { maybeInitContext } from './context-init.js';
 import { getMemoryBank } from '../memory/memory-bank.js';
 import { chatMemory } from '../memory/chat-memory.js';
@@ -1754,6 +1755,7 @@ ChatController.assertPersistence = function() {
 };
 
 ChatController.handle = async function(request) {
+  const turnStarted = performance.now();
   ChatController.assertPersistence();
   let {
     message, sessionId, userId, authenticatedSubject,
@@ -1897,6 +1899,7 @@ ChatController.handle = async function(request) {
 
   // INVARIANT: Persist user turn BEFORE processing
   const persistedUserTurn = persistUserTurn();
+  const compactionStarted = performance.now();
 
   // A failed or pending summary cannot remove an older fact from the next
   // handler snapshot. Keep the current user turn durable if compaction fails.
@@ -1908,7 +1911,8 @@ ChatController.handle = async function(request) {
   }
 
   // Load history from DB (NOT from RAM)
-  const dbHistory = store.buildHandlerHistory(dbConversationId, 10);
+  const dbHistory = store.buildHandlerHistory(dbConversationId, CHAT_HISTORY_MAX_TURNS);
+  const compactionFinished = performance.now();
 
   const memory = chatMemory({ conversationId: dbConversationId });
   // Only the durable conversation scope may contribute automatic memory.
@@ -2150,6 +2154,7 @@ ChatController.handle = async function(request) {
     dbHistory,
     // v86 — LTM context for synthesis (now populated from persistent singleton)
     ltmContext,
+    getMemoryContext: intent => getLTMContextForSynthesis(memory.ltm, { input: message, intent }),
     // v86 — LTM singleton reference for reinforcement + writes
     ltm: memory.ltm,
     // v86 — Budget-aware context builder (call after CRE decides intent)
@@ -2167,6 +2172,7 @@ ChatController.handle = async function(request) {
     // v56.0 Sprint 3 — ConversationStore reference
     conversationStore: store,
     saveSourceCandidate: store.getLatestSaveSourceTurn(dbConversationId),
+    saveSourceCandidates: store.getSaveSourceCandidates(dbConversationId),
     verifyFileSaveSource: ({ content, sourceMessageId }) => {
       throwIfAborted(signal);
       if (normalizeSourceProjectId(store.getConversation(dbConversationId)?.project_id) !== answerSourceProjectId) {
@@ -2265,6 +2271,8 @@ ChatController.handle = async function(request) {
     ...finalizedResponse,
     metadata: {
       ...(finalizedResponse.metadata || {}),
+      chatTiming: { totalMs: Math.round(performance.now() - turnStarted),
+        compactionWaitMs: Math.round(compactionFinished - compactionStarted) },
       ...(rejectedExpertiseId === null ? {} : {
         expertiseRejection: {
           id: rejectedExpertiseId,

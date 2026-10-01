@@ -4,7 +4,7 @@
 // Background compaction; a later turn waits if its history would otherwise
 // discard unsummarized messages.
 // When conversation context exceeds threshold (default 75% of context window),
-// or the unsummarized history reaches the handler's ten-turn limit, older turns
+// or the unsummarized history reaches the bounded load limit, older turns
 // are summarized by LLM and stored as a compressed summary.
 // The conversation continues uninterrupted during compaction.
 //
@@ -29,6 +29,7 @@ import { callWithAuth } from '../llm/gateway.js';
 import { createAuthToken, LLMCallerRole, LLMCapability } from '../llm/auth-types.js';
 import { getNumCtx } from '../llm/model-ctx.js';
 import { abortErrorFromSignal, throwIfAborted } from '../core/abort-error.js';
+import { CHAT_HISTORY_MAX_TURNS } from './conversation-context.js';
 
 // Track active compactions — prevent concurrent runs per conversation
 const activeCompactions = new Map();
@@ -46,10 +47,10 @@ const SYSTEM_PROMPT_OVERHEAD_TOKENS = 1500;
 // Maximum number of turns to feed into a single summary LLM call
 const MAX_TURNS_TO_SUMMARIZE = 50;
 
-// ChatController builds handler history with a ten-turn raw-message limit.
+// ChatController loads up to CHAT_HISTORY_MAX_TURNS raw messages.
 // Trigger while every unsummarized turn is still in that history, before the
 // next message can displace its oldest turn. Keep this in sync with controller.
-const HANDLER_HISTORY_MAX_TURNS = 10;
+const HANDLER_HISTORY_MAX_TURNS = CHAT_HISTORY_MAX_TURNS;
 const SUMMARY_OUTPUT_TOKEN_CAP = 1000; // TOOL_INTERNAL ceiling is 2048.
 const MAX_USER_IDENTIFIER_QUOTES = 16;
 const MAX_USER_IDENTIFIER_QUOTE_BYTES = 1024;
@@ -105,13 +106,13 @@ function formatSummaryTurn(turn) {
   return `${source}: ${turn.content}`;
 }
 
-function effectiveKeepTurns(configured) {
+function effectiveKeepTurns(configured, historyLimit = HANDLER_HISTORY_MAX_TURNS) {
   if (!Number.isSafeInteger(configured) || configured < 1) {
     throw new Error('INTENTSMITH_COMPACT_KEEP_TURNS must be a positive integer');
   }
   // Reserve one slot for the summary and one for the next user's message.
   // Otherwise the first post-compaction turn can evict an unsummarized fact.
-  return Math.min(configured, HANDLER_HISTORY_MAX_TURNS - 2);
+  return Math.min(configured, historyLimit - 2);
 }
 
 /** Snapshot every compaction limit from one effective model context. */
@@ -136,14 +137,14 @@ export function getCompactionBudget(
  * @param {Object} store — ConversationStore instance
  * @param {string} [sessionId] — For audit context
  */
-export function maybeCompact(conversationId, store, sessionId) {
+export function maybeCompact(conversationId, store, sessionId, historyLimit = HANDLER_HISTORY_MAX_TURNS) {
   if (!conversationId || !store) return;
   if (activeCompactions.has(conversationId)) return;
 
-  const keepTurns = effectiveKeepTurns(config.compact.keepTurns);
+  const keepTurns = effectiveKeepTurns(config.compact.keepTurns, historyLimit);
   const unsummarizedTurns = store.getUnsummarizedTurnCount?.(conversationId);
   const retentionDue = Number.isInteger(unsummarizedTurns)
-    && unsummarizedTurns >= HANDLER_HISTORY_MAX_TURNS;
+    && unsummarizedTurns >= historyLimit;
 
   // Token pressure remains rate-limited. Retention cannot wait 30 seconds:
   // the next short exchange could otherwise evict unsummarized messages.
@@ -155,7 +156,7 @@ export function maybeCompact(conversationId, store, sessionId) {
   const budget = getCompactionBudget();
 
   // Estimate the same bounded, summary-aware history supplied to chat handlers.
-  const messageTokens = store.getEffectiveHistoryTokens(conversationId);
+  const messageTokens = store.getEffectiveHistoryTokens(conversationId, historyLimit);
   const totalTokens = messageTokens + SYSTEM_PROMPT_OVERHEAD_TOKENS;
 
   if (!retentionDue && totalTokens < budget.thresholdTokens) return;
@@ -173,8 +174,8 @@ export function maybeCompact(conversationId, store, sessionId) {
   });
 
   // The first turn proceeds while compaction runs. Keep the promise so the
-  // following turn can wait before its ten-message history snapshot clips data.
-  const work = runCompaction(conversationId, store, keepTurns, sessionId, budget);
+  // following turn can wait before its bounded history snapshot clips data.
+  const work = runCompaction(conversationId, store, keepTurns, sessionId, { ...budget, historyLimit });
   activeCompactions.set(conversationId, work);
   work.then(() => activeCompactions.delete(conversationId), err => {
     logger.error('AutoCompact', `Compaction failed: ${err.message}`, {
@@ -204,24 +205,22 @@ export async function awaitPendingCompaction(conversationId, signal = null) {
   }
 }
 
-/** Never build a ten-message snapshot while older raw messages lack a summary. */
-export async function ensureCompactionBeforeNextTurn(conversationId, store, sessionId, signal = null) {
+/** Never discard raw messages at the load cap without a completed summary. */
+export async function ensureCompactionBeforeNextTurn(conversationId, store, sessionId, signal = null, historyLimit = HANDLER_HISTORY_MAX_TURNS) {
   throwIfAborted(signal);
-  // A token-pressure summary can start with fewer than ten raw turns. An
-  // exchange may arrive while it is running, leaving ten still unsummarized
-  // after that successful summary. Recheck once and compact the new range
-  // before building the next ten-message handler snapshot.
+  // An exchange can arrive while a token-pressure summary is running. Recheck
+  // once and compact a fresh range if it still reaches the bounded load cap.
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const count = store.getUnsummarizedTurnCount?.(conversationId);
     if (!Number.isSafeInteger(count)) throw new Error('CONTEXT_HISTORY_COUNT_UNAVAILABLE');
-    if (count < HANDLER_HISTORY_MAX_TURNS) return;
-    // Retry a prior failed/incomplete compaction before the ten-message handler
+    if (count < historyLimit) return;
+    // Retry a prior failed/incomplete compaction before the bounded handler
     // snapshot. Failed model output remains raw and durable, never a summary.
-    if (!activeCompactions.has(conversationId)) maybeCompact(conversationId, store, sessionId);
+    if (!activeCompactions.has(conversationId)) maybeCompact(conversationId, store, sessionId, historyLimit);
     await awaitPendingCompaction(conversationId, signal);
     const remaining = store.getUnsummarizedTurnCount?.(conversationId);
     if (!Number.isSafeInteger(remaining)) throw new Error('CONTEXT_HISTORY_COUNT_UNAVAILABLE');
-    if (remaining < HANDLER_HISTORY_MAX_TURNS) return;
+    if (remaining < historyLimit) return;
     if (remaining >= count) throw new Error('CONTEXT_SUMMARY_UNAVAILABLE');
   }
   throw new Error('CONTEXT_SUMMARY_UNAVAILABLE');
@@ -340,13 +339,13 @@ async function runCompaction(conversationId, store, keepTurns, sessionId, budget
 
     // Measure immediately around the synchronous summary write so any turns
     // appended while the LLM was working do not appear as compaction savings.
-    const tokensBefore = store.getEffectiveHistoryTokens(conversationId);
+    const tokensBefore = store.getEffectiveHistoryTokens(conversationId, budget.historyLimit);
 
     // Atomic store
     store.setSummary(conversationId, summaryText, lastTurnId);
 
     // Post-compaction: recalculate the same handler view and log its delta.
-    const tokensAfter = store.getEffectiveHistoryTokens(conversationId);
+    const tokensAfter = store.getEffectiveHistoryTokens(conversationId, budget.historyLimit);
     const summaryTokens = Math.ceil(summaryText.length / 4);
     const savedTokens = tokensBefore - tokensAfter;
     const newFillPercent = Math.round(

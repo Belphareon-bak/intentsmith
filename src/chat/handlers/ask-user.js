@@ -14,6 +14,9 @@ import { logger } from '../../core/logger.js';
  */
 export function handleAskUserDecision(input, decision, context) {
   const { sessionState } = context;
+  const content = formatClarificationRequest(input, decision);
+  const originalRequest = decision.metadata?.continuesPending === false ? input
+    : sessionState?.pendingDecision?.metadata?.originalRequest || input;
 
   // ════════════════════════════════════════════════════════════════════════════
   // v44.2 - SAVE PENDING DECISION FOR RESUMPTION
@@ -26,6 +29,7 @@ export function handleAskUserDecision(input, decision, context) {
     const decisionWithAttempts = {
       ...decision,
       attempts: currentAttempts + 1,
+      metadata: { ...decision.metadata, contextualInterpretation: true, originalRequest, clarificationQuestion: content },
     };
 
     sessionState.recordDecision(decisionWithAttempts, input);
@@ -45,10 +49,10 @@ export function handleAskUserDecision(input, decision, context) {
       decision: decision.toJSON(),
       awaitingClarification: true,
       slots: decision.slots,
+      clarificationQuestion: content,
+      originalRequest,
     },
   });
-
-  const content = formatClarificationRequest(input, decision);
 
   return new TaggedResponse({
     content,
@@ -61,6 +65,8 @@ export function handleAskUserDecision(input, decision, context) {
  * v44.2 - Intent-specific templates instead of generic options
  */
 export function formatClarificationRequest(input, decision) {
+  if (typeof decision.metadata?.clarificationQuestion === 'string'
+    && decision.metadata.clarificationQuestion.trim()) return decision.metadata.clarificationQuestion;
   const shortInput = input.length > 60 ? input.substring(0, 60) + '...' : input;
 
   if (decision.slots.includes('intent_clarification')) {
@@ -94,12 +100,7 @@ export function formatClarificationRequest(input, decision) {
              `• **Vysvětlit** - obecná otázka o programování`;
     }
 
-    // Fallback: generic but shorter
-    return `🤔 **"${shortInput}"**\n\n` +
-           `Upřesněte záměr:\n` +
-           `• **Vyhledávání** - najít informace\n` +
-           `• **Přehled** - vytvořit souhrn\n` +
-           `• **Kód** - napsat program`;
+    return `Čeho konkrétně chceš dosáhnout v zadání „${shortInput}“?`;
   }
 
   if (decision.slots.includes('source')) {
@@ -108,6 +109,9 @@ export function formatClarificationRequest(input, decision) {
   }
 
   // CODE intent without project context
+  if (decision.slots.includes('file_path') && /oprav|uprav|edit|fix|zm[eě]n/i.test(input)) {
+    return 'Který konkrétní soubor chceš upravit a jakou změnu v něm potřebuješ?';
+  }
   if (decision.slots.includes('project_context') || decision.slots.includes('file_path')) {
     return `💻 **"${shortInput}"**\n\n` +
            `V jakém projektu chcete pracovat?\n` +

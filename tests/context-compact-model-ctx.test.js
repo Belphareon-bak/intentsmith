@@ -8,7 +8,13 @@ import {
   test,
   testAsync,
 } from './harness.js';
-import { awaitPendingCompaction, ensureCompactionBeforeNextTurn, getCompactionBudget, maybeCompact } from '../src/chat/context-compact.js';
+import { awaitPendingCompaction, ensureCompactionBeforeNextTurn as ensureWithLimit, getCompactionBudget,
+  maybeCompact as compactWithLimit } from '../src/chat/context-compact.js';
+// Exercise a deliberately small load cap to expose eviction/race failures
+// cheaply. Production uses its 50-turn cap and token-pressure trigger.
+const maybeCompact = (id, store, session) => compactWithLimit(id, store, session, 10);
+const ensureCompactionBeforeNextTurn = (id, store, session, signal = null) =>
+  ensureWithLimit(id, store, session, signal, 10);
 import { ConversationStore, TurnRole } from '../src/chat/conversation-store.js';
 import { config } from '../src/config.js';
 import { logger } from '../src/core/logger.js';

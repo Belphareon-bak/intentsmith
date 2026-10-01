@@ -412,6 +412,22 @@ export class ConversationStore {
       metadata: this.#parseMetadata(row.metadata) } : null;
   }
 
+  /** Bounded durable answer choices, including answers archived by compaction. */
+  getSaveSourceCandidates(conversationId, limit = 12) {
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 50) throw new Error('FILE_SAVE_SOURCE_LIMIT_INVALID');
+    const rows = this.#db
+      ? this.#db.db.prepare(`SELECT id, role, content, metadata FROM messages
+          WHERE conversation_id = ? AND role = 'assistant'
+          AND CASE WHEN json_valid(metadata) THEN json_type(metadata, '$.saveSourceEligible') END IS NOT 'false'
+          ORDER BY id DESC LIMIT ?`).all(conversationId, limit + 1)
+      : [...this._memMessages].reverse().filter(value => value.conversation_id === conversationId
+        && value.role === 'assistant' && this.#parseMetadata(value.metadata)?.saveSourceEligible !== false).slice(0, limit + 1);
+    return { omitted: rows.length > limit, history: rows.slice(0, limit).reverse().map(row => ({
+      messageId: row.id, response: { tag: { speaker: 'system' }, content: row.content },
+      metadata: this.#parseMetadata(row.metadata),
+    })) };
+  }
+
   /** Exact durable core continuation lookup; never consult RAM/history input. */
   getFileExplainTurn(conversationId, requestId) {
     if (!this.isDurableReady()) return null;

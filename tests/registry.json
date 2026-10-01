@@ -17994,6 +17994,36 @@
       },
       "flakeCount": 0,
       "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-CHAT-CONTEXT-INTERPRETATION-TEST",
+      "path": "tests/chat-context-interpretation.test.js",
+      "argv": [
+        "node",
+        "tests/chat-context-interpretation.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T1",
+      "fixture": "owned-isolated-server-and-loopback-provider",
+      "profile": "database",
+      "timeoutMs": 180000,
+      "expectedDurationMs": 10000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-CHAT-QUALITY-20261001",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
     }
   ]
 }

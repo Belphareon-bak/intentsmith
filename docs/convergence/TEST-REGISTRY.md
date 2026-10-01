@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 591
+- Runnable programs: 592
 - Explicit support-module exclusions: 31
-- Profiles: offline=320, database=85, server=64, model=86, soak=16, manual=20
-- States: ACTIVE=493, HISTORICAL=15, BLOCKED=83
+- Profiles: offline=320, database=86, server=64, model=86, soak=16, manual=20
+- States: ACTIVE=494, HISTORICAL=15, BLOCKED=83
 
 ## Execution profiles
 
@@ -87,6 +87,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T3-TESTS-CHAT-ACCOUNTANT-DETERMINISTIC-HTTP-TEST` | `tests/chat-accountant-deterministic-http.test.js` | `C3-013` | T3 | `server` | 10 s | 3 min | network:loopback, temp-db | yes | `ACTIVE` | — | WP-CHAT-ACCOUNTANT-LIVE-20261001 |
 | `IS-T3-TESTS-CHAT-ACCOUNTANT-MODEL-CONTRACT-TEST` | `tests/chat-accountant-model-contract.test.js` | `C3-013` | T3 | `server` | 10 s | 3 min | network:loopback, temp-db | yes | `ACTIVE` | — | WP-CHAT-ACCOUNTANT-HTTP-20261001 |
 | `IS-T1-TESTS-CHAT-ACCOUNTANT-VAT-ORACLE-TEST` | `tests/chat-accountant-vat-oracle.test.js` | `C3-013` | T1 | `offline` | 1 s | 2 min | network:none | yes | `ACTIVE` | — | WP-CHAT-ACCOUNTANT-LIVE-20261001 |
+| `IS-T1-TESTS-CHAT-CONTEXT-INTERPRETATION-TEST` | `tests/chat-context-interpretation.test.js` | `C3-005` | T1 | `database` | 10 s | 3 min | network:loopback, temp-db | yes | `ACTIVE` | — | WP-CHAT-QUALITY-20261001 |
 | `IS-T1-TESTS-CHAT-CONVERSATION-CAPTURE-TEST-MJS` | `tests/chat-conversation-capture.test.mjs` | `C3-010` | T1 | `database` | 1 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST` | `tests/chat-export-budget.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none, toolchain:python-pdf-runtime | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CHAT-FIXES-TEST` | `tests/chat-fixes.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

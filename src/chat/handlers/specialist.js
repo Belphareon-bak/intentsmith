@@ -25,7 +25,11 @@ import {
   handleAskUserDecision,
   handleAnswerDecision,
   handleRefuseDecision,
+  buildAnswerContext,
 } from './decisions.js';
+import { memoryReferenceBlock } from '../conversation-context.js';
+import { getNumCtx } from '../../llm/model-ctx.js';
+import { config } from '../../config.js';
 import { randomUUID } from 'crypto';
 import {
   generateExpertiseResponse,
@@ -469,16 +473,9 @@ async function generateSpecialistAnswer(input, specialist, context) {
 ${specialist.description || ''}
 
 Odpovídej v rámci své odbornosti. Pokud nemáš specifické znalosti na dané téma, řekni to a navrhni alternativy.
-Odpovídej v češtině.`;
+Odpovídej v češtině.` + memoryReferenceBlock(context);
 
     let prompt = input;
-    if (context.history?.length > 0) {
-      const historyContext = context.history
-        .slice(-5)
-        .map(h => `${h.response?.tag?.speaker || 'user'}: ${h.response?.content?.substring(0, 200) || ''}`)
-        .join('\n');
-      prompt = `Previous context:\n${historyContext}\n\nUser question: ${input}`;
-    }
 
     if (context.toolClarification) {
       const tc = context.toolClarification;
@@ -486,9 +483,14 @@ Odpovídej v češtině.`;
       prompt += `\n\n[SYSTEM: Nástroj ${tc.tool} rozpoznal dotaz, ale chybí parametry:\n${missingList}\nZeptej se uživatele na chybějící parametry.]`;
     }
 
-    const result = await creBridge.generateChatResponse(prompt, systemPrompt, {
+    const answerContext = buildAnswerContext(prompt, context.history, systemPrompt, 1024,
+      getNumCtx(config.models.CHAT), { allowSummaryOutputTradeoff: true });
+    const result = await creBridge.generateChatResponse(answerContext.prompt, systemPrompt, {
       sessionId: `specialist-${context.sessionId}`,
       temperature: 0.4,
+      maxTokens: answerContext.maxTokens,
+      num_ctx: answerContext.numCtx,
+      signal: context.signal,
     });
 
     const tag = new ResponseTag({

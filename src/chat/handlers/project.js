@@ -403,6 +403,10 @@ export async function projectHandler(input, context) {
     });
 
     assertDecision(decision);
+    if (context.sessionState?.pendingDecision?.metadata?.fileSaveClarification
+      && decision.type !== DecisionType.ASK_USER && decision.intent !== IntentType.FILE_WRITE) {
+      context.sessionState.clearPendingDecision();
+    }
 
     logger.info('ProjectHandler', `CRE Decision: ${decision.type}`, {
       intent: decision.intent,
