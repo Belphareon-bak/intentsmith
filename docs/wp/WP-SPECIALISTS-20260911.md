@@ -7,11 +7,14 @@ CHAT handoff `2026-10-02-CHAT-ROUTING-ROOT-HANDOFF.md` předává širší
 package/shared způsobilost nástroje ROOTu. Otevřená nezměněná routing sada
 vybere VAT kalkulačku pro informační dotaz „Co je DPH v Německu?“ a zbytečně
 vyvolá calculationIntent upřesnění. ROOT přebírá ohraničenou opravu v
-`specialists/accountant-cz/index.js`, `specialists/accountant-cz/vat-request.js`,
-nezbytném `src/expertises/specialist-runtime.js`, přímo navázaném typovaném
-kontraktu a existujících relevantních testech. Delegované návrhy zůstávají
-ignored; ROOT jediný zapisuje produkt. Konkrétní kontrakt/test cesty budou
-vypsané po trasování před adopcí. CHAT/CRE handler a cizí checkout se nemění.
+`specialists/accountant-cz/vat-request.js` a nezbytném
+`src/expertises/specialist-runtime.js`; regrese pouze v existujícím
+`tests/specialist-runtime.test.js`. Přesný čtyřklíčový interní výsledek
+`SpecialistInputResolution@1/not_applicable` je vymezený v existujícím runtime
+JSDoc a ověřený před adaptérem a cache merge. Původní prosté parametry
+zůstávají kompatibilní. Delegované návrhy zůstávají ignored; ROOT jediný
+zapisuje produkt. Manifest, index, VatIntent/v1, modelové instrukce,
+CHAT/CRE handler a cizí checkout se nemění.
 
 Cíl: informační dotaz vrátí typed not-applicable před tool adapterem a bez
 kalkulačního upřesnění; skutečné výpočty, chybějící skutečný operand/sazba,
@@ -19,6 +22,33 @@ kalkulačního upřesnění; skutečné výpočty, chybějící skutečný opera
 autoritu. Nepřidávat seznamy zakázaných informačních formulací ani přepsat
 oracle. Ověřit package resolver, skutečnou runtime cestu, nezměněnou routing
 sadu a pozitivní/negativní HTTP průchody. Host port vyžaduje nezávislé review.
+
+ROOT převzal přesnou V2 nad `f2e6ac1a`. Nezměněný routing oracle má doložený
+RED 83,3 % → GREEN 100 %; původních 24 runtime assertions zachovaných,
+33 potřebných regresí navíc, actual root runtime 57/57 PASS. V1 source review
+odhalilo maskování výpočtu mezi dvěma citacemi; omezená decline-only V2
+oprava má původní straight/Czech reprodukce GREEN. Historické REDy, první
+chyba vlastní cancellation fixture a sealed V1 zůstávají. Source review PASS
+SHA `02d1fc10c840900e1c2572147ce6fc98aa9fa80e7d9a35a5a3e4d09bfea836c1`;
+V2 návrh SHA `05125d0155a1737bfab0505edfa506d6204ea79048290c81103869aa2d0e3e02`.
+Skutečný M1/backend informační-výpočetní průchod a nový celý profil čekají;
+nejde o živou kvalitu modelu ani přijetí celé účetní aplikace. Informační text
+obsahující operand nebo rozpoznaný výpočetní operátor zůstává konzervativně
+clarify. Default navázané expertýzy se pro HTTP/WS fixture neodstraňují;
+fallback může nabídnout expertise gap, což není kalkulační upřesnění ani
+potvrzená okamžitá běžná odpověď.
+
+Actual ROOT M1/backend proof na přesné V2: čtyři průchody PASS se skutečnou
+izolovanou SQLite, řízený provider (žádná modelová kvalitativní přejímka).
+Info HTTP i WS skutečně nabídly expertise gap bez calculator metadat;
+výpočet má 10000/2100/12100, chybějící operand cílené amount upřesnění.
+Výchozí vazby se nezměnily, všechny čtyři korrelace/historie a nulová
+tool_v1 effect authority ověřené. Backend i provider čistě zastavené.
+Receipt SHA `defa3be2c006c34d18cfb496ba3c4932572b9ea876a307a95b5e53c3bf39d67d`.
+Existing session-context 67/67 PASS. WS strips tool metadata a finalizer
+je neukládá do SQLite; všechny tyto assistant zprávy mají skutečně kind
+`answer`. Toto pozorování není provenance přejímka CHATu a zůstává jeho
+workerovi; žádný persistence/handler patch zde nevznikl.
 
 Následující zářijové zadání a evidence zůstávají historické.
 

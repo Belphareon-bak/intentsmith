@@ -11,14 +11,15 @@ kontrol, 594 programů /35 exclusions. Publikovaný `d7e7d1b1`: úplný profil
 opravený 160/160 PASS; chatové routování FAIL a tři PDF/OCR původně BLOCKED.
 Tyto tři runtime sady následně na `252e839b` skutečně 3/3 PASS;
 původní celý profil se nemění. Stávající runtime existují, instalace nebyla nutná.
-Aktuální `7cfe4edf`: celý profil 404 PASS /1 CHAT FAIL /3 runtime BLOCKED,
-CI `37004411495` SUCCESS: CHAT 7/7, CODE 6/6,
+Poslední celý profil `7cfe4edf`: 404 PASS /1 DPH eligibility FAIL /3 runtime BLOCKED;
+DPH tool způsobilost přebírá ROOT. Novější CHAT `00ec5b52` je integrován
+do `f2e6ac1a`, CI `37009182639` SUCCESS: CHAT 7/7, CODE 6/6,
 Studio/privacy/hygiene PASS, žádný SKIPPED krok. Lokální Studio build PASS.
 Registry11/11 PASS, default AST service103/103 a evaluator34/34 PASS, dvě omezená
 source review PASS. Žádný deploy ani release acceptance.
 Chatový report zůstává
-CHANGES_REQUIRED: finální 53×3 kvalitativně nesplněné; poslední celý profil
-`289afec0` má 399 PASS /4 FAIL /3 BLOCKED. Novější archive oprava má cílené
+NO_GO / REVIEW_PENDING: finální 53×3 kvalitativně nesplněné; jeho celý profil
+`0fad3823` má 399 PASS /4 FAIL /3 BLOCKED. Novější archive oprava má cílené
 PASS a dva živé kroky, nikoli novou finální 53×3 přejímku.
 [Důkazy a otevřené chyby CHAT](docs/wp/WP-CHAT-QUALITY-20261001-PROGRESS.md).
 Krátké měření Qwen3.8 exact digest `22130167…9643` při 16k na provideru
@@ -26,8 +27,9 @@ Krátké měření Qwen3.8 exact digest `22130167…9643` při 16k na provideru
 minfree 3 759 MiB, jedno volání a uvolněný vlastní model/lease. Není plné
 kontextové okno ani modelová/app kvalita. Produktový CODE capture pro 16k je
 zapojený, source review PASS, service 104/104 PASS; nový skutečný projekt NOT_RUN.
-Fan entry je doloženě blokovaný CHAT ProjectHandler směrováním do běžné
-odpovědi místo D1; bounded public qualification je připravená pro owner fix.
+Fan D1 entry je doloženě blokovaný CHAT ProjectHandler směrováním do běžné
+odpovědi místo D1. Dokumentovaná explicitní Studio composer cesta je další
+omezená CODE strategie; není důkazem opraveného přirozeného plánování.
 
 Zmrazený `f5964604` má SOURCE_REVIEW_PASS, čtyři dotčené registrované sady
 PASS a vlastní CI13 SUCCESS. SQLite pokračování 08:18 UTC dodalo právě
@@ -702,8 +704,8 @@ Při další integraci se přeměří znovu.
 
 | | |
 |---|---:|
-| `src/**/*.js` | **235 630 ř.**, 685 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **268 187 ř.**, 602 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **235 648 ř.**, 685 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **268 365 ř.**, 602 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **594** (`496 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 108** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |

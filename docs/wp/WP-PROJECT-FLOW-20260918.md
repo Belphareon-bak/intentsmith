@@ -157,3 +157,31 @@ registry and module ratchet PASS. Remote SHA exact, actual
 This publishes reviewed preparation, not a physical fan app. Newer published
 CHAT `00ec5b52` still has identical ProjectHandler/CRE sources and retains the
 entry blocker; ROOT integrates its archive delta without claiming a route fix.
+
+## Bounded alternative after the entry diagnostic — 2 October, 13:17 UTC
+
+One fixed software-design prefix reached actual WORKFLOW_PLANNER only for
+core (classifier fixture explicitly labeled); CLI still selected ordinary
+CREATIVE/ANSWER, with no D1 call. The early creative-writing regex matched
+`text` inside `contextFiles`. Exact original inputs and this STOP_NO_D1
+experiment remain unchanged, receipt
+`49dd755fd2dc4849e169a681031b6d5a7cfa6a3c16e9f6cfa49b7e26980ad9ce`.
+No further wording search or CHAT source change is authorized by this scope.
+
+The operator's representative CODE acceptance can use the existing documented
+explicit Studio `/m2-build <JSON>` entry (PROJECT-BUILD.md, advanced builder).
+It supports CODE generation, strict Git commit and failure-bound revision;
+normal product transport derives origin from the actual project/session.
+This alternative does not satisfy the preceding natural D1 planning scenario,
+which remains BLOCKED for the CHAT owner. It must have its own explicit freeze.
+
+ROOT owns only a bounded additional change in the two declared existing manual
+files `run-fan-monitor-journey.mjs` and `fan-monitor-studio2-controller.mjs`.
+The operator authors instructions/dependencies/test/Git input, not source code;
+the actual visible Studio command invokes the default product CODE service.
+Same frozen fan APIs, oracle hashes, target sets and two increments; at most
+11 CODE calls, zero D1 calls. Original D1 mode remains available and unchanged.
+All preview, exact approval, test/rollback, commit/restart and repair-selection
+invariants remain. No fabricated proposal, hidden composer field injection,
+manual implementation or new product framework. CPU/review and live acceptance
+for this alternative are pending; qualification preparation is not a working app.

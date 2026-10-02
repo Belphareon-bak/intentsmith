@@ -1,16 +1,17 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktuální checkpoint 2. 10. 2026, 11:29 UTC:** ROOT převzal společnou
-integraci `2a479852` + CHAT `6f0259ec`. Tři konflikty vyřešené se zachováním
-obou stran, kanonický registr 594. Publikovaný `d7e7d1b1`: celý profil
-401 PASS /2 FAIL /5 BLOCKED; dva toolchain BLOCKED následně cíleně PASS.
-Doc drift opravený 160/160 PASS; routing DPH FAIL a tři PDF/OCR BLOCKED trvají.
-Novější `03ad348f` má CI `37000616340` SUCCESS: CHAT7/7, M2 4/4,
+**Aktuální checkpoint 2. 10. 2026, 13:12 UTC:** ROOT převzal společnou
+integraci, naposledy CHAT `00ec5b52` do publikovaného `f2e6ac1a`.
+Kontroly obou stran zachované, kanonický registr 594, graph 1498/3/28.
+Poslední celý profil na `7cfe4edf`: 404 PASS /1 FAIL /3 BLOCKED;
+DPH tool eligibility přebírá ROOT. Tři PDF/OCR runtime následně skutečně
+3/3 PASS na `252e839b`, původní profil se nepřepisuje.
+`f2e6ac1a` má CI `37009182639` SUCCESS: CHAT7/7, CODE6/6,
 Studio/privacy/hygiene PASS, žádný SKIPPED krok. Lokální Studio build PASS.
 Registry11/11 PASS, adoptovaný AST evaluator34/34 a default service103/103 PASS,
 dvě omezená nezávislá source review. Tento kandidát není přijatý release.
-CHAT report zůstává CHANGES_REQUIRED: finální 53×3 nesplnilo kvalitativní cíle;
-celý profil `289afec0` má 399 PASS /4 FAIL /3 BLOCKED, nikoli výsledek nového
+CHAT report zůstává NO_GO / REVIEW_PENDING: finální 53×3 nesplnilo kvalitativní cíle;
+celý profil `0fad3823` má 399 PASS /4 FAIL /3 BLOCKED, nikoli výsledek nového
 merge. [Přesný chatový report](docs/wp/WP-CHAT-QUALITY-20261001-PROGRESS.md).
 Nový milník je společný kandidát, omezená oprava scanneru a reprezentativní
 projekt podle předem zmrazených podmínek. CODE context formatter má
@@ -30,11 +31,13 @@ jsou přijaté uzavřené výsledky; Hunt grader/modelové rozhodnutí nejsou p�
 CHAT ladí jiný worker. Po přijatém SQLite má podle revize operátora přednost
 strategie kontextu větších projektů a další odlišná funkční aplikace.
 CPU porovnání zvolilo úplné zdroje při 16k a projektové přírůstky. Krátký
-load 09:51 UTC má plnou GPU rezidenci a headroom 3 759 MiB; plné okno,
-produktové zapojení a aplikace tím přijaté nejsou. Omezený AST scanner je
+load 09:51 UTC má plnou GPU rezidenci a headroom 3 759 MiB; plné okno
+a aplikace tím přijaté nejsou. Omezený AST scanner je
 zapojený a nezávisle přijatý; CODE capture pro 16k je pushnutý v `7cfe4edf`,
-source review PASS, celý profil 404 PASS /1 CHAT FAIL /3 runtime BLOCKED,
-CI `37004411495` SUCCESS (7 CHAT a 6 CODE sad). Nová fan aplikace NOT_RUN;
+source review PASS, service104/104 PASS. Nová fan aplikace NOT_RUN;
+její skutečný D1 vstup blokuje CHAT classifier. Další omezený CODE průchod
+použije dokumentovaný explicitní Studio composer, stejný oracle a max11 CODE;
+nenahrazuje přijetí přirozeného plánování ani netvrdí D1 průchod.
 společné přijetí, M5/M6 a mobilní fyzická přejímka
 zůstávají otevřené. [Aktuální průběžný report](docs/WORK-PROGRESS.md).
 

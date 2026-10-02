@@ -32,7 +32,13 @@ import { isAbortError, throwIfAborted } from '../core/abort-error.js';
  * @property {Array<PatternGroup>} patterns - Intent detection patterns
  * @property {Function} [extractParams] - Custom param extractor: (input) => params
  * @property {Function} [resolveParams] - Async package-owned semantic validation:
- *   (input, { interpretInput, history }) => params. Runs before session cache;
+ *   (input, { interpretInput, history }) => params | SpecialistInputResolution.
+ *   Plain params retain their existing adapter contract. The only typed result
+ *   is the exact four-key object { contract: "SpecialistInputResolution",
+ *   version: 1, status: "not_applicable", toolId: <this registered tool id> }.
+ *   It means no tool execution/clarification and returns null to the existing
+ *   caller fallback. A malformed typed result is an input-resolution failure.
+ *   Resolution runs before session cache merge and before tool execution;
  *   the optional inference connector is provided by the core chat handler.
  */
 
@@ -497,6 +503,18 @@ class SpecialistRuntime {
         throwIfAborted(signal);
         if (!match.params || typeof match.params !== 'object' || Array.isArray(match.params)) {
           throw new TypeError('Invalid specialist semantic parameters');
+        }
+        if (match.params.contract === 'SpecialistInputResolution'
+            || match.params.status === 'not_applicable') {
+          const fields = ['contract', 'version', 'status', 'toolId'];
+          if (Reflect.ownKeys(match.params).length !== fields.length
+              || fields.some(field => !Object.hasOwn(match.params, field))
+              || match.params.contract !== 'SpecialistInputResolution'
+              || match.params.version !== 1 || match.params.status !== 'not_applicable'
+              || match.params.toolId !== match.tool.id) {
+            throw new TypeError('Invalid specialist input applicability resolution');
+          }
+          return null;
         }
       } catch (error) {
         if (isAbortError(error) || signal?.aborted) throw error;
