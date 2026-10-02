@@ -1,6 +1,6 @@
 # IntentSmith — průběh práce na kvalitě chatu
 
-Poslední aktualizace: **2. 10. 2026, 12:07 CEST**. Stav: **NO_GO / WORK_CONTINUES / REVIEW_PENDING**.
+Poslední aktualizace: **2. 10. 2026, 12:25 CEST**. Stav: **NO_GO / WORK_CONTINUES / REVIEW_PENDING**.
 Dokument aktualizuji po každém dokončeném milníku, nejpozději po třech hodinách
 aktivní práce. Historická selhání zůstávají uvedena; nové ověření je nepřepisuje
 na úspěch. Nejde o plánovač úloh po ukončení této pracovní relace.
@@ -299,6 +299,35 @@ Předchozí příliš obecný filtr názvu vybral nula subtestů a není započ�
 jako PASS. Správný konkrétní filtr nejprve selhal a po opravě prošel;
 potom prošel celý program. Fixture emituje použitelný přesný návrh zprávy,
 ne nesouvisející text o Gitu. Produkční metoda rozhodnutí se nemění.
+
+## Milník S8 — archivní reprodukce a oddělený výkon
+
+| Změna uživatelského chování | Stručný důkaz | Zbývající problém | Jeden následující krok |
+| --- | --- | --- | --- |
+| „Místo toho Javor“ se předává s původním pojmenováním i bez společného slova. Oprava na konci dlouhé zprávy se neztratí za prefixem. Vynechané zprávy se přiznávají i při nulové lexikální shodě. | Čtyři nové reprodukce na paměti/SQLite před opravou FAIL; po opravě celý kontextový program 21/21 PASS, včetně změny tématu, >1000 zpráv, cizího projektu, přesných UTF-8 pozic suffixu, editace/mazání a změny přes jiné spojení. Soukromá SQLite zkouška 1k/10k/50k zpráv: opakovaný řídký dotaz medián 0,25/0,28/0,42 ms proti 7,05/66,34/336,09 ms baseline; častý výraz 1,90/16,70/98,05 ms proti 7,09/68,40/347,24 ms. | Nejde o záruku libovolné vzdálené významové opravy: výběr je stále lexikální, nejvýše tři zprávy a dva sousedé. První vytvoření indexu stojí 6,58/42,77/270,12 ms; zápis přes jiné spojení jej invaliduje. Živá odpověď těchto nových případů zatím není změřená. | Zmrazit nezbytné opravy a provést deklarované živé archivní a čisté časové sondy na stejném modelu. |
+
+[Všechny podmínky měření archivu a SHA-256 zdrojů](../review/evidence/chat-quality-20261001/archive-performance.json).
+Měření používá stejnou privátní DB a 25 střídajících dotazů pro každou podmínku.
+Po zahřátí má index nula zápisů; časté výrazy zůstávají dražší. TEMP FTS5
+je cache pro nejvýše čtyři konverzace ve spojení, bez trvalé migrace.
+Vybraný obsah se znovu čte z původních zpráv ve stejném DB snapshotu;
+scope metadata jsou ověřená. Prefix a suffix zůstávají oddělené, s přiznanou
+mezerou a přesnou bajtovou pozicí. Příprava souborových efektů pořád čte celé
+původní bajty podle identity, tento index nedodává efektová oprávnění.
+
+Neúspěšný první indexový experiment měl nevhodné pořadí JOIN a byl zastaven;
+finální benchmark používá explicitní pořadí FTS → původní řádek. První test
+externího spojení selhal na chybějícím `conversation_web_writer`; fixture
+nyní registruje skutečný autoritativní writer, nikoli náhradní funkci nebo
+vypnutí triggerů. Tyto neúspěchy se nezapočítávají jako zelené ověření.
+
+Runner již nekonsoliduje celý historický master při každém providerovém
+eventu. Raw journal zůstává fsynced před předáním. Přibyly monotónní časy
+journalu, snapshotu, čekání na upstream a předání konce odpovědi; kontrolovaný
+test ověřuje úplný návrat i všechny stávající přerušené přenosy. Deklarované
+sondy: tři archivní reprodukce a šest shodných read-only otázek v nových
+konverzacích. Nepoužívají zjednodušené A instrukce a nejsou nový holdout.
+Živé časy se zapíší až po skutečném běhu na čistém commitu.
 
 ## Další milník a podmínky přijetí
 

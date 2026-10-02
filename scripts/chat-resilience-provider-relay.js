@@ -9,7 +9,9 @@ export function createChatResilienceProviderRelay({ out, upstream, model, wire, 
   const active = new Set();
   let sequence = 0;
   let journalClosed = false;
+  const timings = new Map();
   const append = event => {
+    const began = performance.now();
     const bytes = Buffer.from(`${JSON.stringify(event)}\n`);
     for (let offset = 0; offset < bytes.length;) {
       const written = fs.writeSync(journal, bytes, offset, bytes.length - offset);
@@ -17,26 +19,37 @@ export function createChatResilienceProviderRelay({ out, upstream, model, wire, 
       offset += written;
     }
     fs.fsyncSync(journal);
+    const timing = timings.get(event.requestId);
+    if (timing) timing.journalMs += performance.now() - began;
   };
   const proxy = http.createServer(async (request, response) => {
     const row = { requestId: ++sequence, at: new Date().toISOString(),
       caseId: request.headers['x-chat-measurement-case'] || 'boot',
-      path: request.url, method: request.method, captureComplete: false };
+      path: request.url, method: request.method, captureComplete: false,
+      timing: { journalMs: 0, snapshotMs: 0 } };
+    const began = performance.now();
+    timings.set(row.requestId, row.timing);
+    const persist = () => {
+      const started = performance.now();
+      persistWire(wire);
+      row.timing.snapshotMs += performance.now() - started;
+    };
     const state = { request, response, upstream: null, providerResponse: null,
       upstreamEnded: false, responseBytes: 0, ended: false };
     wire.push(row);
     active.add(state);
     append({ requestId: row.requestId, event: 'request_start', at: row.at,
       path: row.path, method: row.method, caseId: row.caseId });
-    persistWire(wire);
+    persist();
     const finishError = (reason, status = 502) => {
       if (state.ended) return;
       state.ended = true;
       row.error = reason;
       row.elapsedMs = Date.now() - Date.parse(row.at);
       append({ requestId: row.requestId, event: 'incomplete', at: new Date().toISOString(), reason });
-      persistWire(wire);
+      persist();
       active.delete(state);
+      timings.delete(row.requestId);
       state.providerResponse?.destroy();
       state.upstream?.destroy();
       if (!response.destroyed) {
@@ -56,8 +69,9 @@ export function createChatResilienceProviderRelay({ out, upstream, model, wire, 
       state.ended = true;
       row.captureComplete = true;
       append({ requestId: row.requestId, event: 'response_end', bytes: state.responseBytes });
-      persistWire(wire);
+      persist();
       active.delete(state);
+      timings.delete(row.requestId);
     });
     request.on('aborted', () => finishError('CHILD_REQUEST_ABORTED'));
     request.on('error', error => finishError(`CHILD_REQUEST_ERROR: ${error.message}`));
@@ -75,12 +89,14 @@ export function createChatResilienceProviderRelay({ out, upstream, model, wire, 
       catch (error) { finishError(`INVALID_PROVIDER_REQUEST_JSON: ${error.message}`, 403); return; }
       row.body = body;
       append({ requestId: row.requestId, event: 'request_end', bytes: bytes.length });
-      persistWire(wire);
+      persist();
       const allowed = (request.method === 'GET' && ['/api/tags', '/api/ps', '/api/version'].includes(request.url))
         || (request.method === 'POST' && ['/api/chat', '/api/generate', '/api/show'].includes(request.url)
           && (body?.model || body?.name) === model
           && !(request.url === '/api/generate' && body?.keep_alive === 0));
       if (!allowed) { finishError('OUT_OF_SCOPE provider request', 403); return; }
+      row.timing.beforeUpstreamMs = performance.now() - began;
+      const upstreamStarted = performance.now();
       state.upstream = http.request({ ...upstream, path: request.url, method: request.method,
         headers: { 'Content-Type': 'application/json', 'Content-Length': bytes.length } }, providerResponse => {
         if (state.ended) { providerResponse.destroy(); return; }
@@ -88,7 +104,7 @@ export function createChatResilienceProviderRelay({ out, upstream, model, wire, 
         row.status = providerResponse.statusCode;
         append({ requestId: row.requestId, event: 'response_start', status: row.status,
           headers: providerResponse.headers });
-        persistWire(wire);
+        persist();
         response.writeHead(providerResponse.statusCode, providerResponse.headers);
         const returned = [];
         providerResponse.on('data', chunk => {
@@ -105,6 +121,9 @@ export function createChatResilienceProviderRelay({ out, upstream, model, wire, 
             try { return JSON.parse(line); } catch { return { invalid: line }; }
           }); }
           row.elapsedMs = Date.now() - Date.parse(row.at);
+          row.timing.upstreamWallMs = performance.now() - upstreamStarted;
+          row.timing.diagnosticBeforeForwardMs = row.timing.journalMs + row.timing.snapshotMs;
+          row.timing.untilForwardedEndMs = performance.now() - began;
           state.responseBytes = Buffer.byteLength(raw);
           state.upstreamEnded = true;
           try { response.end(); }

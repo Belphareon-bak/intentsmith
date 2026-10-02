@@ -114,7 +114,11 @@ async function interruptedRelay(scenario) {
   const provider = http.createServer(async (request, response) => {
     for await (const _ of request) { /* consume the request */ }
     forwarded();
-    if (scenario === 'upstream-abort') {
+    if (scenario === 'success') {
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(JSON.stringify({ model: MODEL, digest: DIGEST, done: true, done_reason: 'stop',
+        message: { role: 'assistant', content: 'Úplná odpověď.' } }));
+    } else if (scenario === 'upstream-abort') {
       response.writeHead(200, { 'content-type': 'application/json' });
       response.write('{"model":"qwen3.5:27b","digest":"');
       setTimeout(() => response.destroy(), 20);
@@ -137,7 +141,7 @@ async function interruptedRelay(scenario) {
     let client;
     const clientDone = new Promise(resolve => {
       client = http.request({socketPath:relayPath,path:'/api/chat',method:'POST',
-        headers:{'content-type':'application/json'}},response=>{
+        headers:{'content-type':'application/json', 'x-chat-measurement-case':'http-plain'}},response=>{
         response.resume();
         response.on('end',resolve);
         response.on('error',resolve);
@@ -165,6 +169,17 @@ async function interruptedRelay(scenario) {
     const events = readFileSync(path.join(out,'initial-provider-raw.jsonl'),'utf8').trim().split('\n').map(JSON.parse);
     assert.equal(wire.length,1);
     assert.equal(persisted.length,1);
+    if (scenario === 'success') {
+      assert.equal(persisted[0].captureComplete, true);
+      assert.equal(persisted[0].response.message.content, 'Úplná odpověď.');
+      for (const field of ['journalMs','snapshotMs','beforeUpstreamMs','upstreamWallMs','diagnosticBeforeForwardMs','untilForwardedEndMs']) {
+        assert(Number.isFinite(persisted[0].timing[field]) && persisted[0].timing[field] >= 0, field);
+      }
+      assert(persisted[0].timing.diagnosticBeforeForwardMs <= persisted[0].timing.untilForwardedEndMs);
+      assert.equal(events.at(-1).event, 'response_end');
+      assert.equal(transport(wire).transportComplete, true);
+      return;
+    }
     assert.equal(persisted[0].captureComplete,false);
     assert.match(persisted[0].error,
       /UPSTREAM_RESPONSE_|CHILD_EXIT_WITH_PENDING_PROVIDER_REQUEST|CHILD_RESPONSE_/u);
@@ -251,6 +266,13 @@ try {
   rejected(original, /Archive boundary probe cannot filter/u, {
     phase: 'quality-archive-boundary', env: { CHAT_PROBE_CASES: 'http-plain' },
   });
+  for (const [phase, count] of [['quality-archive-followups', 3], ['quality-latency', 6]]) {
+    const probe = run(original, { phase, env: { CHAT_PROBE_NO_DIRECT: 'true' } });
+    assert.equal(probe.status, 0, probe.stderr);
+    assert.equal(JSON.parse(probe.stdout).cases, count);
+    rejected(original, /cannot filter/u, { phase, env: { CHAT_PROBE_NO_DIRECT: 'true', CHAT_PROBE_CASES: 'http-plain' } });
+  }
+  await interruptedRelay('success');
 
   const valid = { path: '/api/chat', scenario: 'valid' };
   const clean = transport(await controlledProviderWire([valid]));

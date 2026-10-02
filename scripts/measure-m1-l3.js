@@ -260,6 +260,25 @@ const isNaturalActions = phase === 'quality-natural-actions';
 const isQualityDialogs = phase === 'quality-dialogs';
 const isCapabilities = phase === 'quality-capabilities';
 const isArchiveBoundary = phase === 'quality-archive-boundary';
+const isArchiveFollowups = phase === 'quality-archive-followups';
+const isLatencyProbe = phase === 'quality-latency';
+if (isArchiveFollowups || isLatencyProbe) {
+  if (requestedCases) throw new Error('Declared archive/latency probes cannot filter cases');
+  if (process.env.CHAT_PROBE_NO_DIRECT !== 'true') throw new Error('Archive/latency probes measure the actual chat path without the simplified A prompt');
+  corpus = isLatencyProbe
+    ? Array.from({ length: 6 }, (_, index) => ({ id: `latency-${index + 1}`, dialog: `latency-${index + 1}`,
+      input: 'Vysvětli HTTP 409 ve dvou větách.', allowed: ['Correct conflict explanation in two sentences'], family: 'LATENCY' }))
+    : [
+      { id: 'archive-alias', dialog: 'archive-alias', input: 'Jaký je název projektu?', allowed: ['Javor, preserving the unshared follow-up correction'] },
+      { id: 'archive-tail', dialog: 'archive-tail', input: 'Jaký je název projektu?', allowed: ['Javor, preserving the correction after the excerpt prefix'] },
+      { id: 'archive-topic', dialog: 'archive-topic', input: 'Jaký je název projektu?', allowed: ['Lípa; the lunch correction is not a project rename'] },
+    ].map(row => ({ ...row, family: 'ARCHIVE_FOLLOWUP' }));
+  corpus = corpus.map(row => ({ ...row, intent: 'Read-only controlled development probe',
+    forbidden: ['Any effect or invented execution'], question: 'unnecessary', usedForTuning: true, variant: 'development',
+    contextPolicy: isLatencyProbe ? 'Six identical inputs, fresh persisted conversations, same limits; actual provider loading and capture stages measured'
+      : 'Synthetic archived original messages and stale summary; real M1 interpretation and generation, not live generation of the whole seeded archive' }));
+  measurementDefinition = { version: 1, purpose: 'Bounded reproduced archive defects or clean stage-latency experiment, not acceptance holdout', cases: corpus };
+}
 if (isArchiveBoundary) {
   if (requestedCases) throw new Error('Archive boundary probe cannot filter its declared dialog');
   corpus = [
@@ -390,7 +409,7 @@ if (process.argv.includes('--offline')) {
 const dirtyStatus = execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim();
 if (dirtyStatus) throw new Error('LIVE_SOURCE_DIRTY: commit the exact runner and corpus before inference');
 const manifest = { revision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), sourceClean: dirtyStatus.length === 0, dirtyStatus,
-  corpusSha256: createHash('sha256').update(isLongContext || isGeneratedSave || isRecallAB || isNaturalActions || isQualityDialogs || isCapabilities || isArchiveBoundary ? JSON.stringify(measurementDefinition) : fs.readFileSync(corpusFile)).digest('hex'),
+  corpusSha256: createHash('sha256').update(isLongContext || isGeneratedSave || isRecallAB || isNaturalActions || isQualityDialogs || isCapabilities || isArchiveBoundary || isArchiveFollowups || isLatencyProbe ? JSON.stringify(measurementDefinition) : fs.readFileSync(corpusFile)).digest('hex'),
   runnerSha256: createHash('sha256').update(fs.readFileSync(self)).digest('hex'), model, modelDigest,
   providerUrl: 'http://127.0.0.1:11434', node: process.version, inferenceSerial: true, networkIsolation: 'kernel namespace plus explicit Unix provider relay' };
 if (isFinal && !inside && phase !== 'final-1') {
@@ -418,7 +437,10 @@ const canonical = () => {
   fs.writeFileSync(recordPath + '.tmp', JSON.stringify(record, null, 2) + '\n', { mode: 0o600 });
   fs.renameSync(recordPath + '.tmp', recordPath);
 };
-const save = (name, data) => { fs.writeFileSync(path.join(out, name), JSON.stringify(data, null, 2) + '\n', { mode: 0o600 }); canonical(); };
+// The raw relay journal remains fsynced before forwarding. Consolidation into
+// the master is a case/run checkpoint, not a per-provider-event operation.
+const save = (name, data) => { fs.writeFileSync(path.join(out, name), JSON.stringify(data, null, 2) + '\n', { mode: 0o600 });
+  if (name !== 'initial-provider-wire.json') canonical(); };
 if(process.argv.includes('--inside')) {
  const runtime=process.env.CHAT_PROBE_RUNTIME; let activeCase='boot';
  const relay=http.createServer((req,res)=>{const upstream=http.request({socketPath:process.env.CHAT_PROBE_SOCKET,path:req.url,method:req.method,headers:{...req.headers,'X-Chat-Measurement-Case':activeCase}},r=>{res.writeHead(r.statusCode,r.headers);r.pipe(res);}); upstream.on('error',e=>{res.writeHead(502);res.end(e.message);});req.pipe(upstream);});
@@ -517,6 +539,20 @@ if(process.argv.includes('--inside')) {
   activeCase=c.id; const key=c.dialog||c.id;
   if(!conversations.has(key)){const created=await request('POST','/api/conversations',{project_id:projectId,title:'private '+key});conversations.set(key,created.result.conversation?.id??created.result.id);}
   const id=conversations.get(key); if(!id)throw new Error('no conversation');
+  if (isArchiveFollowups) {
+   const original=store.appendTurn(id,'user', c.id === 'archive-tail'
+    ? 'Poznámky ze schůzky. '+'Neutrální podklad. '.repeat(100)+' Oprava: název projektu je Javor, ne Lípa.'
+    : 'Projekt má název Lípa.',{projectId});
+   if(c.id==='archive-alias')store.appendTurn(id,'user','Oprava: místo toho používej Javor.',{projectId});
+   if(c.id==='archive-topic'){
+    store.appendTurn(id,'user','Na oběd si dám čočku.',{projectId});
+    store.appendTurn(id,'user','Oprava: místo toho bude rýže.',{projectId});
+   }
+   let last=original;
+   for(let index=0;index<1010;index++)last=store.appendTurn(id,'user',`Neutrální diskusní podklad ${index}.`,{projectId});
+   store.setSummary(id,'Zastaralý souhrn: projekt má název Lípa.',last.id);
+   save(`seed-${c.id}.json`,{firstMessageId:original.id,summaryThroughMessageId:last.id,synthetic:true});
+  }
   const context=store.buildHandlerHistory(id,50);
   const command={contract:'ConversationCommand',version:1,requestId:randomUUID(),conversationId:id,turnId:randomUUID(),action:'send',input:c.input};
   const before=trace(),filesBefore=files(); const b=await request('POST','/api/chat',command);

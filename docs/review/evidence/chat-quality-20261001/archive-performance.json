@@ -1,0 +1,143 @@
+{
+  "version": 1,
+  "baselineRevision": "c8a00c8d13e540983a3c05948e5562a442529f19",
+  "candidate": "working source before freeze; source hashes below",
+  "at": "2026-10-02T10:18:22.889Z",
+  "node": "v24.21.0",
+  "sqlite": "3.51.2",
+  "methodology": "Same private SQLite database and source rows; 25 alternating warm queries per condition. Initial index build measured separately. No model calls. Dense cases intentionally test lexical collision rather than claiming semantic success.",
+  "limitations": [
+    "One host, synchronous wall time; not production p95 or a memory limit benchmark",
+    "FTS candidate retrieval remains lexical; two follow-up messages do not guarantee distant unshared corrections",
+    "First index build remains proportional to archive size; foreign-connection edits invalidate it",
+    "Other-connection invalidation is tested separately in the functional suite"
+  ],
+  "results": [
+    {
+      "archivedUserRows": 1000,
+      "bytesPerNeutralRow": 216,
+      "initialIndexAndQueryMs": 6.576411000000007,
+      "queries": [
+        {
+          "label": "sparse",
+          "input": "Jaký název platí?",
+          "baseline": {
+            "n": 25,
+            "medianMs": 7.04793600000005,
+            "p95Ms": 8.515084000000002
+          },
+          "candidate": {
+            "n": 25,
+            "medianMs": 0.2526430000000346,
+            "p95Ms": 0.3825199999999995
+          },
+          "warmIndexWrites": 0
+        },
+        {
+          "label": "dense",
+          "input": "Jaký projektový zápis platí?",
+          "baseline": {
+            "n": 25,
+            "medianMs": 7.089107000000013,
+            "p95Ms": 7.533861000000002
+          },
+          "candidate": {
+            "n": 25,
+            "medianMs": 1.8957580000000007,
+            "p95Ms": 2.054412999999954
+          },
+          "warmIndexWrites": 0
+        }
+      ]
+    },
+    {
+      "archivedUserRows": 10000,
+      "bytesPerNeutralRow": 216,
+      "initialIndexAndQueryMs": 42.766905999999835,
+      "queries": [
+        {
+          "label": "sparse",
+          "input": "Jaký název platí?",
+          "baseline": {
+            "n": 25,
+            "medianMs": 66.34351000000015,
+            "p95Ms": 68.69791299999997
+          },
+          "candidate": {
+            "n": 25,
+            "medianMs": 0.27586200000018835,
+            "p95Ms": 0.4098389999999199
+          },
+          "warmIndexWrites": 0
+        },
+        {
+          "label": "dense",
+          "input": "Jaký projektový zápis platí?",
+          "baseline": {
+            "n": 25,
+            "medianMs": 68.39808100000027,
+            "p95Ms": 76.1900069999997
+          },
+          "candidate": {
+            "n": 25,
+            "medianMs": 16.70015400000011,
+            "p95Ms": 16.916118000000097
+          },
+          "warmIndexWrites": 0
+        }
+      ]
+    },
+    {
+      "archivedUserRows": 50000,
+      "bytesPerNeutralRow": 216,
+      "initialIndexAndQueryMs": 270.1214970000001,
+      "queries": [
+        {
+          "label": "sparse",
+          "input": "Jaký název platí?",
+          "baseline": {
+            "n": 25,
+            "medianMs": 336.0914139999986,
+            "p95Ms": 338.14798899999914
+          },
+          "candidate": {
+            "n": 25,
+            "medianMs": 0.420325000000048,
+            "p95Ms": 0.5059959999998682
+          },
+          "warmIndexWrites": 0
+        },
+        {
+          "label": "dense",
+          "input": "Jaký projektový zápis platí?",
+          "baseline": {
+            "n": 25,
+            "medianMs": 347.23584299999857,
+            "p95Ms": 349.45980299999974
+          },
+          "candidate": {
+            "n": 25,
+            "medianMs": 98.05205600000045,
+            "p95Ms": 99.45564000000013
+          },
+          "warmIndexWrites": 0
+        }
+      ]
+    }
+  ],
+  "sourceSha256": {
+    "src/chat/conversation-store.js": "38e98903df62c99c0d38a6e9ab9c35eccdd1093c84ca1f183f2e7b8f6e731bef",
+    "src/chat/archive-evidence-index.js": "ae82dedc3f6bb1c7740efaf1eeac2616974f597d53d317ea63c3af0abb7cfd37",
+    "src/chat/conversation-context.js": "31549cc6480fa6f6637b81751b7e90d2f925a91aef5518c6d1ecb9e806986c2a"
+  },
+  "failedExperiments": [
+    {
+      "status": "STOPPED_NON_ACCEPTANCE",
+      "reason": "Initial FTS join order repeatedly executed MATCH for conversation rows; controlled benchmark interrupted at 10000 rows after excessive CPU time. CROSS JOIN fixed order before the final unchanged benchmark."
+    },
+    {
+      "status": "SETUP_ERROR",
+      "reason": "First benchmark invocation used an incorrect relative import and made zero queries; corrected before any measured output."
+    }
+  ]
+}

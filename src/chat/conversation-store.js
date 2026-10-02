@@ -19,6 +19,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { logger } from '../core/logger.js';
+import { archiveTerms, getArchiveIndex } from './archive-evidence-index.js';
 import { isIssuedFileExplainContinuation, assertFileExplainContinuationCurrent } from './file-explain-continuation.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -443,78 +444,84 @@ export class ConversationStore {
    */
   getArchivedUserEvidence(conversationId, input, maxBytes = 1200) {
     if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > 8192) throw new Error('ARCHIVED_SOURCE_BUDGET_INVALID');
+    const retrieve = () => this.#selectArchivedEvidence(conversationId, input, maxBytes);
+    return this.#db ? this.#db.db.transaction(retrieve)() : retrieve();
+  }
+
+  #selectArchivedEvidence(conversationId, input, maxBytes) {
     const summary = this.getSummary(conversationId);
     if (!summary?.upToMsgId) return { sources: [], omitted: false };
     const projectId = this.getConversation(conversationId)?.project_id ?? null;
-    const sourceBytes = Math.min(512, maxBytes);
-    const searchWords = text => new Set(String(text).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
-      .match(/[\p{L}\p{N}_]{3,}/gu)?.map(word => word.length > 4 ? word.slice(0, 4) : word) || []);
-    const terms = searchWords(input);
-    let earliestBest = null, latestMatch = null, matchingCount = 0;
-    let ranked = [];
-    for (const row of this.#archivedUserRows(conversationId, summary.upToMsgId, sourceBytes)) {
+    const eligible = row => {
       const metadata = this.#parseMetadata(row.metadata);
-      if (!metadata || !Object.hasOwn(metadata, 'projectId') || metadata.projectId !== projectId) continue;
-      if (typeof row.content !== 'string') continue;
-      // Complete short messages; exact bounded prefixes for long messages.
-      // Never discard an entire long correction or claim its excerpt is complete.
-      let prefix = row.content.slice(0, sourceBytes);
-      if (/[\uD800-\uDBFF]$/u.test(prefix)) prefix = prefix.slice(0, -1);
-      const buffer = Buffer.from(prefix, 'utf8');
-      let end = Math.min(buffer.length, sourceBytes);
-      while (end > 0 && end < buffer.length && (buffer[end] & 0xc0) === 0x80) end--;
-      const content = buffer.subarray(0, end).toString('utf8');
-      const contentTruncated = row.truncated === 1 || row.content.length > prefix.length || buffer.length > end;
-      const words = searchWords(content);
-      const score = [...terms].filter(term => words.has(term)).length;
-      if (!score) continue;
-      const source = { messageId: row.id, role: 'user', projectId, content,
-        ...(contentTruncated ? { contentTruncated: true } : {}), score };
-      matchingCount++;
-      if (!earliestBest || score > earliestBest.score
-        || (score === earliestBest.score && row.id < earliestBest.messageId)) earliestBest = source;
-      if (!latestMatch || row.id > latestMatch.messageId) latestMatch = source;
-      ranked.push(source);
-      ranked.sort((a, b) => b.score - a.score || b.messageId - a.messageId);
-      ranked = ranked.slice(0, 3);
+      return row.role !== 'assistant' && metadata && Object.hasOwn(metadata, 'projectId')
+        && metadata.projectId === projectId && typeof row.content === 'string';
+    };
+    const allTerms = archiveTerms(input);
+    const terms = allTerms.slice(0, 32);
+    const scopeSql = `conversation_id = ? AND role = 'user' AND id <= ?
+      AND CASE WHEN json_valid(metadata) THEN json_type(metadata, '$.projectId') END IS NOT NULL
+      AND CASE WHEN json_valid(metadata) THEN json_extract(metadata, '$.projectId') END IS ?`;
+    const params = [conversationId, summary.upToMsgId, projectId];
+    let rows;
+    if (this.#db) {
+      const index = getArchiveIndex(this.#db.db);
+      index.prepare(conversationId, summary.upToMsgId);
+      rows = index.candidates(...params, terms);
+    } else {
+      rows = this._memMessages.filter(row => row.conversation_id === conversationId
+        && row.role === 'user' && row.id <= summary.upToMsgId && eligible(row));
     }
-    const sources = [];
-    const selectedIds = new Set();
-    let bytes = 0, omitted = false;
-    // Preserve the latest relevant user turn even when a fuller, obsolete
-    // original has a higher lexical score. Retain the original identity too;
-    // the model decides meaning from these quoted data, never tool authority.
-    for (const candidate of [latestMatch, earliestBest, ...ranked]) {
-      if (!candidate || selectedIds.has(candidate.messageId)) continue;
-      selectedIds.add(candidate.messageId);
-      const { score, ...source } = candidate;
-      const size = Buffer.byteLength(JSON.stringify(source), 'utf8') + 1;
+    const matches = rows.filter(eligible).map(row => {
+      const words = new Set(archiveTerms(row.content));
+      return { ...row, score: terms.filter(term => words.has(term)).length };
+    }).filter(row => row.score > 0);
+    matches.sort((a, b) => b.score - a.score || a.id - b.id);
+    const first = matches[0];
+    const latest = matches.reduce((best, row) => !best || row.id > best.id ? row : best, null);
+    // A short pronoun correction need not share a token with the antecedent.
+    // Include its temporal context verbatim, including topic changes; do not
+    // classify a neighbour as a correction or invent a replacement value.
+    const neighboursAfter = anchor => !anchor ? [] : this.#db
+      ? this.#db.db.prepare(`SELECT id, role, content, metadata FROM messages WHERE ${scopeSql}
+          AND id > ? ORDER BY id ASC LIMIT 2`).all(...params, anchor.id)
+      : rows.filter(row => row.id > anchor.id).sort((a, b) => a.id - b.id).slice(0, 2);
+    const neighbours = neighboursAfter(latest);
+    // Later generic matches must not displace an unshared follow-up of the
+    // strongest antecedent. Still preserve the latest explicit lexical match.
+    const strongestFollowUp = latest?.id !== first?.id ? neighboursAfter(first).slice(0, 1) : [];
+    const sources = [], ids = new Set();
+    let bytes = 2, omitted = false;
+    for (const row of [latest, ...strongestFollowUp, ...neighbours.reverse(), first, ...matches]) {
+      if (!row || ids.has(row.id)) continue;
+      ids.add(row.id);
+      const source = this.#archiveExcerpt(row, projectId, Math.min(512, maxBytes));
+      const size = Buffer.byteLength(JSON.stringify(source), 'utf8') + (sources.length ? 1 : 0);
       if (sources.length === 3 || bytes + size > maxBytes) { omitted = true; continue; }
       sources.push(source); bytes += size;
       if (source.contentTruncated) omitted = true;
     }
-    omitted ||= matchingCount > sources.length;
+    // Zero lexical score does not establish irrelevance. Be honest about all
+    // excluded same-scope user messages, not only discarded lexical matches.
+    const selected = sources.map(source => source.messageId);
+    const hasUnselected = this.#db
+      ? Boolean(this.#db.db.prepare(`SELECT 1 FROM messages WHERE ${scopeSql}
+          ${selected.length ? `AND id NOT IN (${selected.map(() => '?').join(',')})` : ''} LIMIT 1`)
+        .get(...params, ...selected))
+      : rows.some(row => !selected.includes(row.id));
+    omitted ||= hasUnselected || allTerms.length > terms.length;
     return { sources: sources.sort((a, b) => a.messageId - b.messageId), omitted };
   }
 
-  *#archivedUserRows(conversationId, upToMsgId, sourceBytes) {
-    if (!this.#db) {
-      for (const row of this._memMessages) {
-        if (row.conversation_id === conversationId && row.role === 'user' && row.id <= upToMsgId) yield row;
-      }
-      return;
-    }
-    const statement = this.#db.db.prepare(`SELECT id, substr(content, 1, ?) AS content,
-        length(content) > ? AS truncated, metadata FROM messages
-        WHERE conversation_id = ? AND role = 'user' AND id > ? AND id <= ?
-        ORDER BY id ASC LIMIT 1000`);
-    let afterId = 0;
-    while (true) {
-      const page = statement.all(sourceBytes, sourceBytes, conversationId, afterId, upToMsgId);
-      for (const row of page) yield row;
-      if (page.length < 1000) return;
-      afterId = page.at(-1).id;
-    }
+  #archiveExcerpt(row, projectId, budget) {
+    const buffer = Buffer.from(row.content, 'utf8');
+    const source = { messageId: row.id, role: 'user', projectId, content: row.content };
+    if (buffer.length <= budget) return source;
+    let head = Math.floor(budget / 2), tail = buffer.length - (budget - head);
+    while (head > 0 && (buffer[head] & 0xc0) === 0x80) head--;
+    while (tail < buffer.length && (buffer[tail] & 0xc0) === 0x80) tail++;
+    return { ...source, content: buffer.subarray(0, head).toString('utf8'), contentTruncated: true,
+      contentTail: buffer.subarray(tail).toString('utf8'), contentTailStartByte: tail, messageBytes: buffer.length };
   }
 
   /** Exact durable core continuation lookup; never consult RAM/history input. */
