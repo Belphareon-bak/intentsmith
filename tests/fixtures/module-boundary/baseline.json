@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "5d58f11b72d476587eb1e5cec7f26c29bf50d14d",
-  "sourceTree": "4ea0b8c87aecb3ea404c86d49c455b0ffe47004b",
+  "sourceRevision": "7acc9595843ea1e9a9823378e80238cd48f5469a",
+  "sourceTree": "b895e53ba139bca6d2c6a95ae2a5c3340b1b4cbb",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "a111646c052627fd0803fc881838f58d7d5fd8dc",
@@ -124,6 +124,7 @@
     "src/chat/controller.js -> src/expertises/expertise-layer.js",
     "src/chat/controller.js -> src/memory/chat-memory.js",
     "src/chat/controller.js -> src/memory/memory-bank.js",
+    "src/chat/conversation-store.js -> src/chat/archive-evidence-index.js",
     "src/chat/conversation-store.js -> src/chat/file-explain-continuation.js",
     "src/chat/conversation-store.js -> src/core/logger.js",
     "src/chat/cre-decision.js -> src/chat/conversation-context.js",

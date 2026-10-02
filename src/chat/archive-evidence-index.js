@@ -31,6 +31,11 @@ export function getArchiveIndex(database) {
     SELECT id, content, conversation_id FROM main.messages
     WHERE conversation_id = ? AND role = 'user' AND id > ? AND id <= ? ORDER BY id`);
   index = {
+    invalidate() {
+      // A caller's enclosing read transaction may have rolled back TEMP
+      // inserts after prepare(). Do not retain an in-memory high-water mark.
+      scopes.clear(); version = null;
+    },
     prepare(id, upTo) {
       const current = database.pragma('data_version', { simple: true });
       // TEMP triggers see writes on this connection only. Other connections

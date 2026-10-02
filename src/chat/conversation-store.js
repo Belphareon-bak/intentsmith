@@ -445,7 +445,13 @@ export class ConversationStore {
   getArchivedUserEvidence(conversationId, input, maxBytes = 1200) {
     if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > 8192) throw new Error('ARCHIVED_SOURCE_BUDGET_INVALID');
     const retrieve = () => this.#selectArchivedEvidence(conversationId, input, maxBytes);
-    return this.#db ? this.#db.db.transaction(retrieve)() : retrieve();
+    if (!this.#db) return retrieve();
+    if (!this.getSummary(conversationId)?.upToMsgId) return { sources: [], omitted: false };
+    // Initialize TEMP objects outside the snapshot transaction so rollback
+    // cannot remove the tables while leaving a cached JS index instance.
+    const index = getArchiveIndex(this.#db.db);
+    try { return this.#db.db.transaction(retrieve)(); }
+    catch (error) { index.invalidate(); throw error; }
   }
 
   #selectArchivedEvidence(conversationId, input, maxBytes) {

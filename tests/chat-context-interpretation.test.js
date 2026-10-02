@@ -519,6 +519,20 @@ for (const backend of ['memory', 'sqlite']) {
       const malformed = store.appendTurn(id, TurnRole.USER, 'Projekt má název MALFORMED_CANARY.', '{invalid');
       store.setSummary(id, 'Neověřený souhrn.', malformed.id);
       assert.equal(store.getArchivedUserEvidence(id, 'Jaký je název projektu?').sources.length, 0);
+      const failedId = `${id}-rollback`;
+      store.ensureConversation(failedId, { projectId });
+      const valid = store.appendTurn(failedId, TurnRole.USER, 'Projekt má název Javor.', { projectId });
+      store.setSummary(failedId, 'Neúplný souhrn.', valid.id);
+      const prepare = db.db.prepare;
+      db.db.prepare = function(sql) {
+        if (sql.startsWith('SELECT m.id, m.content, m.metadata')) throw new Error('CONTROLLED_ARCHIVE_QUERY_FAILURE');
+        return prepare.call(this, sql);
+      };
+      try {
+        assert.throws(() => store.getArchivedUserEvidence(failedId, 'Jaký je název projektu?'), /CONTROLLED_ARCHIVE_QUERY_FAILURE/);
+      } finally { db.db.prepare = prepare; }
+      assert(store.getArchivedUserEvidence(failedId, 'Jaký je název projektu?').sources[0].content.includes('Javor'),
+        'rollback must not leave a prepared high-water mark without the corresponding FTS rows');
     }
   });
 

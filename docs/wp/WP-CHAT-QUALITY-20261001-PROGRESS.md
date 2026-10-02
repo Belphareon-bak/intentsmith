@@ -1,6 +1,6 @@
 # IntentSmith — průběh práce na kvalitě chatu
 
-Poslední aktualizace: **2. 10. 2026, 12:25 CEST**. Stav: **NO_GO / WORK_CONTINUES / REVIEW_PENDING**.
+Poslední aktualizace: **2. 10. 2026, 12:30 CEST**. Stav: **NO_GO / WORK_CONTINUES / REVIEW_PENDING**.
 Dokument aktualizuji po každém dokončeném milníku, nejpozději po třech hodinách
 aktivní práce. Historická selhání zůstávají uvedena; nové ověření je nepřepisuje
 na úspěch. Nejde o plánovač úloh po ukončení této pracovní relace.
@@ -328,6 +328,18 @@ test ověřuje úplný návrat i všechny stávající přerušené přenosy. De
 sondy: tři archivní reprodukce a šest shodných read-only otázek v nových
 konverzacích. Nepoužívají zjednodušené A instrukce a nejsou nový holdout.
 Živé časy se zapíší až po skutečném běhu na čistém commitu.
+
+## Milník S9 — obnova cache a zmrazení dalšího kandidáta
+
+| Změna uživatelského chování | Stručný důkaz | Zbývající problém | Jeden následující krok |
+| --- | --- | --- | --- |
+| Selhání archivní query nezanechá falešný údaj o hotovém indexu; následující úspěšné dohledání znovu vrátí původní podklady. | Kontrolovaná chyba po naplnění TEMP indexu vyvolá rollback; následná query znovu vrací Javor. TEMP objekty vznikají před snapshotem a chybná transakce invaliduje cache. Celý kontextový program 21/21 PASS; runner zachovává 23 transportních kontrol, 53případovou rubriku a šest kalibračních kontrol seznamu. Jediná nová importní hrana je přesně přijatá v baseline. | Není nezávislá kvalitativní přejímka, zelené CI ani nové úplné technické ověření tohoto kandidáta. | Na čistém publikujícím SHA spustit sedm registrovaných cílených sad a deklarované živé sondy bez průběžných změn zdrojů. |
+
+[Opakovaný benchmark přesného zdroje po ochraně rollbacku](../review/evidence/chat-quality-20261001/archive-performance-recovery.json)
+zachovává předchozí měření S8. Další runtime opravy po tomto zmrazení vyžadují
+novou konkrétní reprodukci; původní S1/S2 a jejich commity zůstávají nedotčené.
+Nezávislý autor/hodnotitel nového holdoutu není určen; vlastní hodnocení
+jej nenahrazuje. Kontakt vlastníka CI/integrace rovněž stále chybí.
 
 ## Další milník a podmínky přijetí
 
