@@ -276,7 +276,10 @@ měl tehdy 1 433 hran, 3 cykly / 28 členů. Závěrečné měření a nezávisl
 přijetí mají vlastní evidenci v [předávce](docs/review/2026-09-28-STUDIO2-PARITY-DELIVERY.md).
 Tehdejší integrovaný module graph měl 1 434 hran, 3 cykly / 28 členů po
 přijetí přesné hrany `src/chat/context-compact.js -> src/core/abort-error.js`.
-Aktuální module graph má 1 497 hran, stále 3 cykly / 28 členů.
+Aktuální module graph má 1 498 hran, stále 3 cykly / 28 členů.
+Novější CHAT `00ec5b52` přijal při společné integraci právě hranu
+`src/chat/conversation-store.js -> src/chat/archive-evidence-index.js`
+oficiálním ratchetem nad čistým merge source `a60c1824`, bez odstranění hran.
 Čistý CODE source `a68ce03c286e4657ed0a6f1fdda88f1f06ab1132` po
 nezávislém source review přijal pouze přesnou hranu
 `src/llm/gateway.js -> src/llm/model-runtime-profile.js` oficiálním ratchetem;

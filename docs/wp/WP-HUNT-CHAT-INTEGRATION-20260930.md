@@ -51,6 +51,13 @@ REVIEW_PENDING; zděděné opravy a jeho historické FAILy nejsou release accept
 DPH routing handoff explicitně žádá ROOT o package/shared eligibility opravu;
 tento konkrétní BE specialist scope je odlišený od ladění konverzace.
 
+Čistý merge source `a60c1824a69c097ea5b21d22ae67420c0dd42317` přijal přesnou
+archivní hranu oficiálním ratchetem: 1498, bez removed edge nebo nového cyklu.
+Registry znovu regenerovaný ze sloučeného stromu: byte exact 594/35,
+fingerprint `740d8d35cba4f6793c7972827a9d2bdbe5cf5577860fdf86a9da882b185a39a6`.
+Celý profil proběhne na novém společném kandidátu po omezené eligibility
+opravě, aby se neopakoval bez nové produktové změny.
+
 Aktuální výsledky společného `d7e7d1b1`: úplný offline/database profil
 401 PASS /2 FAIL /5 BLOCKED, žádné timeout/skipped. Po explicitním povolení
 již dostupných nástrojů desktop-hunt a development-installation cíleně PASS.

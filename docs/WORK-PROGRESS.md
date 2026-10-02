@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 2. 10. 2026, 12:33 UTC / 14:33 CEST.
+**Aktualizováno:** 2. 10. 2026, 12:50 UTC / 14:50 CEST.
 **Vlastník:** ROOT. CHAT ladí jiný worker.
 Report aktualizuji po milníku, nejpozději po 3 h aktivní práce; operátorovi
 podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
@@ -42,19 +42,20 @@ podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
 1. **Společná integrace:** publikovaný `d7e7d1b1` slučuje `2a479852` + `6f0259ec`.
    Tři konflikty vyřešené, registry 594/35. Aktuální celý offline/database
    profil na `7cfe4edf`: **404 PASS /1 FAIL /3 BLOCKED**, verdict FAIL.
-   Routing DPH FAIL patří CHATu; tři PDF/OCR runtime BLOCKED následně
+   DPH eligibility FAIL přebírá ROOT podle předání CHAT workera; tři runtime BLOCKED následně
    ověřené na `252e839b` se skutečnými runtime: **3/3 PASS**, bez instalací.
-   CODE source a přesná baseline 1497 jsou publikované, remote SHA souhlasí.
+   CODE source je publikovaný, remote SHA souhlasí; novější CHAT `00ec5b52`
+   začleněný v `a60c1824`, baseline 1498. Společné nové kontroly čekají.
    [CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37004411495)
    **CHAT 7/7 + CODE 6/6**, Studio/privacy/hygiene PASS, žádný SKIPPED krok.
    Nový lokální Studio build/consumer PASS. Původní CI FAILy zůstávají;
    zelený vývojový výběr kontrol nenahrazuje celý profil ani přijetí releasu.
-   CHAT report má CHANGES_REQUIRED: celé série 53×3 nesplnily kvalitativní cíle;
-   celý profil na `289afec0` 399 PASS /4 FAIL /3 BLOCKED. Ladí jeho worker.
+   CHAT zůstává NO_GO: série 53×3 nesplnily kvalitativní cíle; archivní
+   delta je opravená, finální kvalitu dál přejímá jeho worker.
 2. **Omezený M2 scanner:** V2 adoptovaný do skutečné default M2 služby,
    evaluator 34/34 a service 103/103 PASS: přesné approval/commit/restart,
    assertion rollback tří souborů a cancel před registrací. Dvě nezávislá
-   source review PASS; AST baseline 1496 nad `4a8fb4b2`, registry 11/11 PASS.
+   source review PASS; AST baseline nad `4a8fb4b2`, registry 11/11 PASS.
    [Rozsah a historické fixture FAILy](wp/WP-M2-AST-IMPORT-SCANNER-20261001.md).
 3. **Kontext a větší projekt:** CPU rozhodnutí je úplný zdroj při 16k
    a skutečné projektové přírůstky. Ze 198 velikostních případů se při 8k
@@ -68,7 +69,8 @@ podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
    [CPU podrobnosti a odmítnutá projekce](wp/WP-CODE-PEER-CONTEXT-BUDGET-20261001.md#11-větší-projekty--nová-priorita-2-10-2026).
    **Další odlišná aplikace:** fan-monitor z existujícího projektového WP,
    offline core/CLI, dva přírůstky, max 11 CODE /8 D1. Qualification V4
-   source review PASS; veřejné manual cesty převzaté, živý běh NOT_RUN.
+   source review PASS; [veřejný runner](../scripts/manual/run-fan-monitor-journey.mjs)
+   a oracle v `4fb800c5`, focused 3/3 a CI SUCCESS; živý běh NOT_RUN.
    **Blokér:** skutečný ProjectHandler směruje původní požadavky do CHAT,
    bez D1 návrhu. Jiný veřejný vstup se nepotvrdil; potřeba CHAT owner fix
    a opakování CPU trasy před freeze. Větev/SHA vyžádané od operátora.

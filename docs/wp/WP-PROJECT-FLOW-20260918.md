@@ -147,3 +147,13 @@ ROOT imports the published branch, verifies the actual CPU path and request
 accounting, reviews the final source/native/build freeze and then runs the
 same bounded two-increment fan oracle. ROOT requested that branch/SHA from
 the operator and leaves the foreign CHAT source unchanged.
+
+Public qualification `4fb800c51f16a06e69cd5510db4646cdfd1ca357` has actual
+focused integration 3/3 PASS (project-collaboration, Studio runner contract,
+artifact validation), report SHA
+`d3eb3c5d81b113174213573897947a408ec35c4323082d1fa9532a8cf14b7af9`;
+registry and module ratchet PASS. Remote SHA exact, actual
+[CI 37007634384 SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37007634384).
+This publishes reviewed preparation, not a physical fan app. Newer published
+CHAT `00ec5b52` still has identical ProjectHandler/CRE sources and retains the
+entry blocker; ROOT integrates its archive delta without claiming a route fix.
