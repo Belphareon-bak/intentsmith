@@ -1,0 +1,150 @@
+{
+  "schemaVersion": 1,
+  "sourceRevision": "c7f03d5687f65b1a2b50665f27b037e57b8516cd",
+  "purpose": "Synthetic final runner plumbing; not sealed holdout acceptance",
+  "bareHoldoutFlagsWithInheritedUrl": true,
+  "dummySha256": "1b3b1f28e7144de840c7f821eb465567b46860ed0422b1c124e48c795d4cdfcb",
+  "runs": [
+    {
+      "phase": "holdout-1",
+      "runId": "1e0707bc-18e6-4b2c-9fb4-290fd6bfea00",
+      "manifest": {
+        "revision": "c7f03d5687f65b1a2b50665f27b037e57b8516cd",
+        "sourceClean": true,
+        "dirtyStatus": "",
+        "corpusSha256": "1b3b1f28e7144de840c7f821eb465567b46860ed0422b1c124e48c795d4cdfcb",
+        "runnerSha256": "fb815313f310647ea3dda618020ed2f4f75522d85864636274f05c76dbb466b2",
+        "model": "qwen3.5:27b",
+        "modelDigest": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+        "holdoutContractSha256": "6ae21cffab19f6a469312225ceeaa05c866c143c55f8780bf7df2cfb238a5dcc",
+        "providerUrl": "http://127.0.0.1:11434",
+        "node": "v24.21.0",
+        "inferenceSerial": true,
+        "networkIsolation": "kernel namespace plus explicit Unix provider relay"
+      },
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "transportComplete": true,
+        "exactWire": true,
+        "inferenceCallCount": 7,
+        "invalidInferenceCallCount": 0,
+        "postflightDigest": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+        "expectedCases": 3,
+        "recordedCases": 3,
+        "at": "2026-10-02T13:44:43.715Z"
+      },
+      "approvals": [
+        {
+          "id": "dummy-read",
+          "kind": "fs.read",
+          "approvalStatus": "ok",
+          "exactFileBytes": true,
+          "effectsBeforeApproval": 0
+        },
+        {
+          "id": "dummy-save",
+          "kind": "fs.write",
+          "approvalStatus": "ok",
+          "exactFileBytes": true,
+          "effectsBeforeApproval": 0
+        }
+      ],
+      "contentRedactedFromProgress": true
+    },
+    {
+      "phase": "holdout-2",
+      "runId": "e556ff39-7963-4a6d-bf32-fc7e8225918b",
+      "manifest": {
+        "revision": "c7f03d5687f65b1a2b50665f27b037e57b8516cd",
+        "sourceClean": true,
+        "dirtyStatus": "",
+        "corpusSha256": "1b3b1f28e7144de840c7f821eb465567b46860ed0422b1c124e48c795d4cdfcb",
+        "runnerSha256": "fb815313f310647ea3dda618020ed2f4f75522d85864636274f05c76dbb466b2",
+        "model": "qwen3.5:27b",
+        "modelDigest": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+        "holdoutContractSha256": "6ae21cffab19f6a469312225ceeaa05c866c143c55f8780bf7df2cfb238a5dcc",
+        "providerUrl": "http://127.0.0.1:11434",
+        "node": "v24.21.0",
+        "inferenceSerial": true,
+        "networkIsolation": "kernel namespace plus explicit Unix provider relay"
+      },
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "transportComplete": true,
+        "exactWire": true,
+        "inferenceCallCount": 7,
+        "invalidInferenceCallCount": 0,
+        "postflightDigest": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+        "expectedCases": 3,
+        "recordedCases": 3,
+        "at": "2026-10-02T13:45:21.343Z"
+      },
+      "approvals": [
+        {
+          "id": "dummy-read",
+          "kind": "fs.read",
+          "approvalStatus": "ok",
+          "exactFileBytes": true,
+          "effectsBeforeApproval": 0
+        },
+        {
+          "id": "dummy-save",
+          "kind": "fs.write",
+          "approvalStatus": "ok",
+          "exactFileBytes": true,
+          "effectsBeforeApproval": 0
+        }
+      ],
+      "contentRedactedFromProgress": true
+    },
+    {
+      "phase": "holdout-3",
+      "runId": "048455d5-bec8-4edd-964d-1c33be95d3b0",
+      "manifest": {
+        "revision": "c7f03d5687f65b1a2b50665f27b037e57b8516cd",
+        "sourceClean": true,
+        "dirtyStatus": "",
+        "corpusSha256": "1b3b1f28e7144de840c7f821eb465567b46860ed0422b1c124e48c795d4cdfcb",
+        "runnerSha256": "fb815313f310647ea3dda618020ed2f4f75522d85864636274f05c76dbb466b2",
+        "model": "qwen3.5:27b",
+        "modelDigest": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+        "holdoutContractSha256": "6ae21cffab19f6a469312225ceeaa05c866c143c55f8780bf7df2cfb238a5dcc",
+        "providerUrl": "http://127.0.0.1:11434",
+        "node": "v24.21.0",
+        "inferenceSerial": true,
+        "networkIsolation": "kernel namespace plus explicit Unix provider relay"
+      },
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "transportComplete": true,
+        "exactWire": true,
+        "inferenceCallCount": 7,
+        "invalidInferenceCallCount": 0,
+        "postflightDigest": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+        "expectedCases": 3,
+        "recordedCases": 3,
+        "at": "2026-10-02T13:46:11.968Z"
+      },
+      "approvals": [
+        {
+          "id": "dummy-read",
+          "kind": "fs.read",
+          "approvalStatus": "ok",
+          "exactFileBytes": true,
+          "effectsBeforeApproval": 0
+        },
+        {
+          "id": "dummy-save",
+          "kind": "fs.write",
+          "approvalStatus": "ok",
+          "exactFileBytes": true,
+          "effectsBeforeApproval": 0
+        }
+      ],
+      "contentRedactedFromProgress": true
+    }
+  ]
+}

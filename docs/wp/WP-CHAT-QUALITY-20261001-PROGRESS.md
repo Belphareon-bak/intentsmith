@@ -1,6 +1,6 @@
 # IntentSmith — průběh práce na kvalitě chatu
 
-Poslední aktualizace: **2. 10. 2026, 15:38 CEST**. Stav: **NO_GO / REVIEW_PENDING / CI_NOT_RUN**.
+Poslední aktualizace: **2. 10. 2026, 15:53 CEST**. Stav: **NO_GO / REVIEW_PENDING / CI_NOT_RUN**.
 Dokument aktualizuji po každém dokončeném milníku, nejpozději po třech hodinách
 aktivní práce. Historická selhání zůstávají uvedena; nové ověření je nepřepisuje
 na úspěch. Nejde o plánovač úloh po ukončení této pracovní relace.
@@ -11,8 +11,14 @@ commit: **`787ed6c98745568ad592420d2cafcfee3f448cad`**. Konečná známá
 reprodukce má 20/20 správných aplikačních e-mailů a 20/20 správně oddělených
 textových/GPU částí, 0 efektů; vlastní významové hodnocení 39/40 (jedna
 modelová věcná chyba). Celý profil: 399 PASS / 4 FAIL / 3 BLOCKED.
-Nový runner holdoutu je součástí následujícího čistého kandidáta;
-jeho finální ověření a přesný zmrazený SHA se doplní po publikaci.
+Zmrazený kandidát včetně finálního runneru:
+**`c7f03d5687f65b1a2b50665f27b037e57b8516cd`**, pevná vzdálená větev
+`review/chat-quality-holdout-candidate-20261002`, SHA ověřen. Celý profil přímo
+na něm: 399 PASS / 4 FAIL / 3 BLOCKED. Tři syntetické fáze a schválené efekty PASS.
+Aplikační zdroj je přesně shodný s živě testovaným `787ed6c9`; změna runneru
+má vlastní kontroly na pevném kandidátu. Stav skutečného holdoutu:
+**WAITING_OPERATOR_UNSEAL / NOT_RUN**. Tento pozdější dokumentační commit
+na pracovní větvi nemění pevnou kandidátní větev.
 S1 se vztahuje výhradně k `3b3b399f`, S2 k `6f0259ec`; původních 53 případů
 včetně F14–F20 je nyní exponovaná regrese. Nezávislý holdout je SEALED / NOT_RUN.
 Vlastní worktree: `intentsmith-chat-quality-20261001`.
@@ -553,3 +559,39 @@ volání u doslovného e-mailu ze dvou na jedno; nezakládá globální zrychlen
 S10 zůstává poslední čistou úzkou časovou sondou. Znalostní selhání `versions`
 a `versions-en`, nezávislé hodnocení, jazyková parita, ROOT routing a CI
 zůstávají otevřené. Modelový panel a změna bindingů zůstávají odložené.
+
+## S15 — pevný kandidát předán pro odpečetění, 2. 10., 15:53 CEST
+
+- Změna chování: dvě doložené aplikační vady jsou uzavřené v měřeném rozsahu.
+  Runner SHA-ověřeného holdoutu je hotový a drží soukromé odpovědi mimo veřejný
+  výpis. Aplikační stav provedení se již nepřebírá z modelové věty.
+- Důkaz: čistý kandidát **`c7f03d5687f65b1a2b50665f27b037e57b8516cd`**,
+  push a vzdálený SHA ověřeny pro pevnou větev
+  `review/chat-quality-holdout-candidate-20261002`. Úplný audit
+  `chat-quality-holdout-candidate-full-20261002` přímo na tomto SHA:
+  **399 PASS / 4 FAIL / 3 BLOCKED**, exit 1, 0 TIMEOUT/SKIPPED, přesně stejné
+  non-PASS jako předchozí archivní profil.
+  [Úplná identita a brány](../review/evidence/chat-quality-20261001/holdout-candidate-full-profile.json).
+  Syntetické fáze na něm: `1e0707bc-18e6-4b2c-9fb4-290fd6bfea00`,
+  `e556ff39-7963-4a6d-bf32-fc7e8225918b`,
+  `048455d5-bec8-4edd-964d-1c33be95d3b0`; každá 3/3 kroky, 7 inferencí,
+  schválené čtení a zápis, přesné bajty, nula efektů před schválením.
+  Testovány byly i samotné holdout přepínače se zděděnou URL bez explicitního
+  `--isolated-chat`. Výpis obsahuje jen ID/variant/stav/čas.
+  [Finální dummy evidence](../review/evidence/chat-quality-20261001/dummy-candidate-proof.json).
+- Zbývající problém: faktická modelová chyba (39/40 vlastních užitečných
+  odpovědí ve známé regresi), znalosti verzí, neověřená jazyková parita,
+  čtyři technická FAIL, tři BLOCKED a CI_NOT_RUN. PR-filtrovaný GitHub
+  dotaz má 0 běhů a neprokazuje nepřítomnost všech ručních workflow.
+  Automatický push trigger chatovou/kandidátní větev stále nepokrývá;
+  ruční `workflow_dispatch` existuje, integrační vlastník zůstává neurčený.
+- Následující krok: operátor odpečetí a předá privátní cestu s přesným
+  SHA-256 z Git pečeti. Worker pak ve vlastním čistém checkoutu ověří pevný
+  kandidátní HEAD a spustí skutečné `holdout-1..3` bez čtení nebo hodnocení
+  odpovědí. Nezávislé slepé hodnocení organizuje koordinátor.
+
+Pečeť `6a9d1dbe54adef4bb7cf2114afe10c58799a3a05` i kandidát byly ověřeny
+vzdáleně. Zapečetěný adresář nebyl otevřen, prohledáván ani dešifrován.
+Nedochází k nasazení, merge, změně bindingů ani reaktivaci modelového panelu.
+Vlastní GPU residency byly uvolněny pouze po kontrole identity a idle stavu;
+cizí nově běžící audit zůstal nedotčený. **Kvalitativní přejímka stále NO_GO.**

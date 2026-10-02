@@ -1,6 +1,10 @@
 # Zapečetěný holdout — předání zmrazeného chatového kandidáta
 
-Stav: **SEALED / NOT_RUN / REVIEW_PENDING**. Autorita: explicitní zadání
+Stav: **SEALED / WAITING_OPERATOR_UNSEAL / NOT_RUN / REVIEW_PENDING**.
+Zmrazený kandidát: **`c7f03d5687f65b1a2b50665f27b037e57b8516cd`**, vzdáleně ověřená pevná větev
+`review/chat-quality-holdout-candidate-20261002`. Technický profil přímo na něm:
+399 PASS / 4 FAIL / 3 BLOCKED. Finální syntetický runner 3×3 kroků PASS.
+Výsledek a důkazy jsou v [průběžném reportu](../wp/WP-CHAT-QUALITY-20261001-PROGRESS.md). Autorita: explicitní zadání
 operátora z 2. 10. 2026, známé reprodukce `recipient-bob` a `gpu-composite`
 a režim `--holdout FILE --holdout-sha256 HEX`. Dřívější návrh 60 dialogů a
 stav AUTHOR_UNKNOWN jsou překonané skutečnou pečetí od koordinátora.

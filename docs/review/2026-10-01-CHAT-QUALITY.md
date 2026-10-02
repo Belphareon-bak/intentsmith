@@ -1,7 +1,7 @@
 # Chat quality — 2026-10-01
 
-Aktualizace 2. 10. po S14: **NO_GO / REVIEW_PENDING / CI_NOT_RUN**.
-Runtime kandidát `787ed6c9`; poslední úplný profil 399 PASS / 4 FAIL / 3 BLOCKED.
+Aktualizace 2. 10. po S15: **NO_GO / REVIEW_PENDING / CI_NOT_RUN**.
+Zmrazený kandidát `c7f03d5687f65b1a2b50665f27b037e57b8516cd`; celý profil přímo na něm 399 PASS / 4 FAIL / 3 BLOCKED.
 Toto je vlastní technické a významové posouzení; nezávislá přejímka ani
 produkční nasazení neproběhly. Následující historické oddíly S1 zůstávají
 svázané se svými původními commity; nový stav je na konci dokumentu a v
@@ -341,3 +341,11 @@ Technický runtime profil má 399 PASS / 4 FAIL / 3 BLOCKED, žádná nová regr
 ROOT routing a CI zůstávají otevřené. Anglická parita není doložená a modelové
 znalosti se touto aplikační opravou neopravily. **NO_GO** pokračuje do nezávislé
 přejímky a doložení bran konkrétního kandidáta.
+
+
+S15: finální runner ověřen na přesném pevném kandidátu třemi syntetickými
+sériemi. Skutečný zapečetěný holdout je WAITING_OPERATOR_UNSEAL / NOT_RUN.
+[Finální profil](evidence/chat-quality-20261001/holdout-candidate-full-profile.json),
+[dummy schválení a bajty](evidence/chat-quality-20261001/dummy-candidate-proof.json).
+Dokumentační publikace pracovní větve nemění zmrazený kandidát; pro živý
+holdout se vyžaduje přesný předaný SHA, nikoli pozdější dokumentační HEAD.
