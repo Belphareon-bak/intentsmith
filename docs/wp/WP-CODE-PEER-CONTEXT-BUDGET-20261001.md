@@ -9,9 +9,10 @@ a kontrola výsledku. Naměřený stav zůstává v
 [`completion trackeru`](../review/2026-09-30-COMPLETION-TRACKER.md).
 Tento WP nepřidává produktovou ani schvalovací autoritu.
 
-**Stav:** `SOURCE_REVIEW_PASS / APPLICATION_FAIL / OPERATOR_DECISION_REQUIRED` od navazujícího zadání
-operátora 1. 10. 2026. CPU experiment, implementace a nový zmrazený modelový průchod dokončeny;
-aplikace neprošla. Další inference čeká na výslovné rozšíření limitu opravy.
+**Stav:** `CONTEXT_SOURCE_REVIEW_PASS / APPLICATION_FAIL / CONTINUATION_AUTHORIZED / CONTINUATION_SOURCE_REVIEW_PENDING`.
+CPU experiment, produktový formatter a historický zmrazený modelový průchod dokončeny;
+aplikace neprošla. Operátor povolil další omezenou CLI revizi; její zdrojové
+review a brány předcházejí jedinému novému modelovému volání.
 Samotný CPU výsledek není funkční přejímka aplikace. Operátor následně
 výslovně autorizoval pokračování, viz §8; historický osmigenerační FAIL platí.
 
@@ -375,3 +376,35 @@ Další běžné inženýrské opravy jsou již autorizované; vznikne-li dalš�
 FAIL, provede se diagnostika a před dalším během se zmrazí omezená strategie.
 Nemění se zpětně žádný oracle nebo historický výsledek. Dva cykly bez posunu
 vyžadují změnu strategie podle kontraktu. Stav aplikace je stále FAIL.
+
+## 9. Implementované pokračování — 2. 10. 2026 08:06 UTC
+
+Explicitní `--resume-failed` přijímá pouze přesný reviewed packet860.
+Před GPU porovná celý manifest 379 souborů /19 849 724 B, včetně módů,
+se zapečetěným nezávislým receipt `a853f74038ca8bd26a006e52dc44b1ad2ff05859b641b5cbc1bf4a013aa0a8a2`.
+Z kopie ověří SQLite integritu, dva failed terminály, 14 úplných materiálů,
+projekty/konverzaci, původní Git HEAD a nepřítomnost sedmi generovaných cest.
+Starý runtime se nepřepisuje: namespace mapuje novou kopii na staré durable
+cesty, původní packet je read-only. Nová proxy odmítne druhý modelový request
+před forwardem. Původní ledger/taskflow/schema8 režimy zůstávají podporované.
+
+Tři focused CPU kontroly i jejich recheck PASS: AST/provenance negativa,
+původní schema revize a skutečný M2 CLI failed→rollback→nový digest→stale409→
+nové přesné schválení→frozen oracle→commit. Nový blueprint odpovídá přesně
+připravenému SHA1c2f. Helper review `REVIEW.md` SHA
+`0ca83273e47e2d13b9ae211438458846e67df159df735b154305c14f2a6413fc`
+je PASS; původní nálezy missing request SHA a dormant ternary byly opraveny.
+AST kontrola dokládá jen vymezený delete dispatch, nikoli obecnou reachability.
+
+Controlled-provider úplné pokračování 08:00:02.617–08:00:10.341 UTC je
+**CPU_CONTROLLED_PROVIDER_PASS**: jediný supplied replacement přes skutečný
+backend, nový náhled, pending restart, přesné approval, oracle, commit,
+závěrečný backend restart/replay a postRestartApp. Originálních 379 souborů
+nezměněno. Toto není nový modelový výstup ani fyzická přejímka aplikace.
+Privátní packet: `.intentsmith-artifacts/sqlite-resume-runner-controlled-cpu-20261002-0800`.
+
+Předchozí CPU fixture selhání zůstávají: dlouhá unix socket cesta EINVAL,
+neúplná fake inventory LLM_PROVIDER_UNAVAILABLE s nulou generací a odlišné
+directory módy kopie. Konfigurace CPU fixture a módy pouze nové kopie jsou
+opravené; žádný provider workaround ani změna modelových bajtů.
+Expanded source review a registrované brány aktuálního kandidáta probíhají.

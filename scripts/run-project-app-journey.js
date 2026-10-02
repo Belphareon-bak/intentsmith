@@ -14,7 +14,8 @@ import { LINUX_BWRAP_READ_ONLY_PROFILE } from '../src/execution/process-supervis
 import { computeM2ExecutionValueDigest } from '../contracts/m2/execution-v1.js';
 import { compileCodeDraftInput } from '../src/lifecycle/m2-code-draft.js';
 import { sqliteRevisionBlueprint, assertSchemaFailure, assertRetainedRevision,
-  assessRevisionGenerations } from './project-app-revision.js';
+  assessRevisionGenerations, sqliteCliRevisionBlueprint, assertCliFailure,
+  assessCliRevisionGeneration } from './project-app-revision.js';
 import { makeRuntime, startServer, stopServer, requestJson } from './run-project-build-journey.js';
 import { createOwnedProviderRelay } from './project-app-provider-relay.js';
 import {
@@ -85,7 +86,7 @@ const save = (out, name, data) => fs.writeFileSync(path.join(out, name), JSON.st
 function git(cwd, args) {
   return execFileSync('/usr/bin/git', args, { cwd, encoding: 'utf8', env: {
     PATH: '/usr/bin:/bin', HOME: cwd, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null',
-    LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8',
+    LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', GIT_OPTIONAL_LOCKS: '0',
   } }).trim();
 }
 
@@ -110,7 +111,7 @@ function nativeRuntimeObservation() {
   }
 }
 
-function parseOptions(argv) {
+export function parseOptions(argv) {
   let scenarioId = 'ledger';
   if (argv[0] === '--scenario') {
     scenarioId = argv[1];
@@ -123,6 +124,15 @@ function parseOptions(argv) {
     argv = argv.slice(1);
     assert.equal(argv[0], '--live', 'revision qualification requires explicit live pins');
   }
+  let resumeFailed;
+  if (argv[0] === '--resume-failed') {
+    assert.equal(scenarioId, 'sqlite-catalog', 'failed-plan resume only supports SQLite');
+    assert.equal(revisionOnce, false, 'resume and initial schema qualification are separate');
+    resumeFailed = argv[1];
+    assert.ok(typeof resumeFailed === 'string' && path.isAbsolute(resumeFailed), 'resume packet must be absolute');
+    argv = argv.slice(2);
+    assert.equal(argv[0], '--live', 'failed-plan resume requires explicit live pins');
+  }
   if (!argv.length || (argv.length === 1 && argv[0] === '--preflight')) {
     return { mode: 'preflight', scenarioId };
   }
@@ -134,7 +144,8 @@ function parseOptions(argv) {
   }
   if (entries.size !== 4) throw new Error('all live pins are required');
   const options = { mode: 'live', scenarioId, out: entries.get('--out'), sourceSha: entries.get('--source-sha'),
-    model: entries.get('--model'), digest: entries.get('--digest'), ...(revisionOnce ? { revisionOnce: true } : {}) };
+    model: entries.get('--model'), digest: entries.get('--digest'), ...(revisionOnce ? { revisionOnce: true } : {}),
+    ...(resumeFailed ? { resumeFailed } : {}) };
   if (!SHA_PATTERN.test(options.sourceSha) || !DIGEST_PATTERN.test(options.digest) || !MODEL_PATTERN.test(options.model)) {
     throw new Error('invalid source/model/digest pin');
   }
@@ -150,6 +161,153 @@ function newOutputDirectory(candidate) {
   assert.equal(fs.realpathSync(candidate), candidate);
   fs.chmodSync(candidate, 0o700);
   return candidate;
+}
+
+// This continuation accepts the independently reviewed eight-generation FAIL,
+// not an arbitrary DB or a reconstructed operator-authored replacement app.
+const FAILED_PACKET_RECEIPTS = Object.freeze({
+  'result.json': 'b6582b0ca2bc48f19dc48c4ff6601c5d8fb0dddd4140ff9dfb94988f4591c6c7',
+  'app-journey.json': 'd3c0454f9d0b34a36749494cce728198feda1672a4c68543de53e5b0a165183a',
+  'before-model.json': '3353fa50dee1ca1b211654def4685031f49e5efe9a2a0099bac6cc0fbd21fc8d',
+  'draft.json': 'e9ae3d4ae703426836713a24ce32099ff0dd45c64e65bcc95178d964771cbd8f',
+  'revision-draft.json': '373e0ae1559b5b399e76ce528a78c8d41e00120d2d8638099c8469573f5e01d5',
+  'terminal.json': 'b6f5df2695205711aae3d61c1cdc9503bcf15411d2f96f45b3b4989ed0c79401',
+  'provider-requests.json': 'eae97b8dbae095e9c50136cd951badaeb2615d807df4fb801f85bfea8499c16f',
+});
+
+export function snapshotFailedPacket(root) {
+  assert.ok(path.isAbsolute(root));
+  assert.equal(fs.realpathSync(root), root, 'historical packet must be canonical');
+  const rows = [];
+  const walk = (directory, relative = '') => {
+    for (const name of fs.readdirSync(directory).sort()) {
+      const member = path.join(directory, name), item = path.posix.join(relative, name);
+      const stat = fs.lstatSync(member, { bigint: true });
+      const mode = Number(stat.mode & 0o7777n);
+      if (stat.isDirectory()) {
+        rows.push({ path: item, type: 'directory', mode }); walk(member, item);
+      } else {
+        assert.ok(stat.isFile() && stat.nlink === 1n, 'historical member must be regular and unshared: ' + item);
+        rows.push({ path: item, type: 'file', mode, size: Number(stat.size),
+          mtimeNs: String(stat.mtimeNs), sha256: sha256(fs.readFileSync(member)) });
+      }
+    }
+  };
+  walk(root);
+  return rows;
+}
+
+export function prepareFailedResume(packet, out, pins) {
+  assert.equal(pins.scenarioId, 'sqlite-catalog');
+  assert.equal(path.dirname(packet), ARTIFACT_ROOT, 'historical packet must be a direct private artifact child');
+  assert.equal(path.dirname(out), ARTIFACT_ROOT);
+  assert.notEqual(packet, out);
+  assert.equal(fs.realpathSync(out), out);
+  const snapshot = snapshotFailedPacket(packet);
+  assert.equal(snapshot.filter(row => row.type === 'file').length, 379, 'reviewed historical regular-file count');
+  const files = snapshot.filter(row => row.type === 'file').map(row => ({
+    path: row.path, bytes: row.size, mode: '0o' + row.mode.toString(8), sha256: row.sha256,
+  }));
+  const reviewedManifest = { root: packet, regularFiles: files.length,
+    regularBytes: files.reduce((total, row) => total + row.bytes, 0), files };
+  assert.equal(sha256(JSON.stringify(reviewedManifest, null, 2) + '\n'),
+    'a853f74038ca8bd26a006e52dc44b1ad2ff05859b641b5cbc1bf4a013aa0a8a2',
+    'all historical bytes and modes must match the independent rejection review');
+  for (const [name, digest] of Object.entries(FAILED_PACKET_RECEIPTS))
+    assert.equal(sha256(fs.readFileSync(path.join(packet, name))), digest, 'reviewed historical bytes: ' + name);
+  const read = name => JSON.parse(fs.readFileSync(path.join(packet, name), 'utf8'));
+  const result = read('result.json'), journey = read('app-journey.json'), before = read('before-model.json');
+  const initialDraft = read('draft.json'), previousDraft = read('revision-draft.json'), terminal = read('terminal.json');
+  const requests = read('provider-requests.json');
+  assert.equal(result.status, 'FAIL'); assert.equal(journey.status, 'FAIL');
+  assert.equal(result.scenarioId, 'sqlite-catalog');
+  assert.equal(result.model, pins.model); assert.equal(result.digest, pins.digest);
+  assert.equal(journey.model, pins.model); assert.equal(journey.digest, pins.digest);
+  assert.equal(result.source.head, '860023341c7b2da78e17da32414ec79e904c7013');
+  assert.deepEqual(journey.source, result.source); assert.deepEqual(before.source, result.source);
+  assert.equal(before.oracleSha256, SQLITE_ORACLE_SHA256); assert.equal(before.entrySha256, SQLITE_ENTRY_SHA256);
+  const expectedPaths = SQLITE_FILES.map(file => file.path).sort();
+  assert.deepEqual(before.generatedPaths, expectedPaths);
+  assert.deepEqual(journey.generatedPaths, expectedPaths);
+  assert.equal(before.projectId, journey.origin.projectId);
+  assert.equal(journey.lifecycleId, previousDraft.lifecycleId); assert.equal(terminal.lifecycleId, previousDraft.lifecycleId);
+  assert.equal(terminal.planDigest, previousDraft.planDigest); assert.equal(journey.planDigest, previousDraft.planDigest);
+  assert.deepEqual(terminal, journey.terminal);
+  assert.deepEqual(terminal.diff, previousDraft.diff);
+  assertCliFailure(terminal, expectedPaths, previousDraft.diff);
+  const priorAttestation = assessRevisionGenerations(requests, { model: pins.model, digest: pins.digest,
+    version: requireProviderVersion(result.providerVersion), scenarioId: 'sqlite-catalog',
+    previewHashes: journey.previewHashes, initialPreviewHashes: journey.initialPreviewHashes }, assessProviderGenerations);
+  assert.equal(priorAttestation.valid, true, JSON.stringify(priorAttestation.failures));
+  assert.deepEqual(priorAttestation, result.providerAttestation, 'historical provider provenance recomputes exactly');
+  for (const row of requests.filter(row => ['/api/chat', '/api/generate'].includes(row.path)))
+    assert.match(row.requestSha256, DIGEST_PATTERN, 'historical exact provider request identity');
+
+  const runtimeRoot = path.dirname(journey.databasePath);
+  assert.equal(path.dirname(runtimeRoot), packet, 'historical runtime belongs to the packet');
+  assert.equal(journey.databasePath, path.join(runtimeRoot, 'm1.sqlite'));
+  assert.equal(journey.project, path.join(runtimeRoot, 'home/projects/sqlite-catalog'));
+  assert.equal(fs.realpathSync(runtimeRoot), runtimeRoot);
+  const copyRoot = path.join(out, 'runtime-resume');
+  fs.cpSync(runtimeRoot, copyRoot, { recursive: true, dereference: false, errorOnExist: true,
+    force: false, preserveTimestamps: true });
+  const prefix = path.basename(runtimeRoot) + '/';
+  const originalRuntime = snapshot.filter(row => row.path.startsWith(prefix))
+    .map(row => ({ ...row, path: row.path.slice(prefix.length) }));
+  // cp preserves file modes, but creates directories using the process umask.
+  // Restore source modes only on the new copy before validating or mounting it.
+  fs.chmodSync(copyRoot, Number(fs.statSync(runtimeRoot, { bigint: true }).mode & 0o7777n));
+  for (const row of originalRuntime) fs.chmodSync(path.join(copyRoot, row.path), row.mode);
+  const copySnapshot = snapshotFailedPacket(copyRoot);
+  const comparable = rows => rows.map(({ mtimeNs, ...row }) => row);
+  assert.deepEqual(comparable(copySnapshot), comparable(originalRuntime), 'deep copy preserves every historical runtime byte and mode');
+  const copyProject = path.join(copyRoot, 'home/projects/sqlite-catalog');
+  assertFrozenProject(copyProject, before.policySha256, SCENARIOS['sqlite-catalog']);
+  assert.equal(git(copyProject, ['rev-parse', 'HEAD']), before.baselineHead);
+  assert.equal(git(copyProject, ['status', '--porcelain=v1']), '');
+  for (const relative of expectedPaths) assert.equal(fs.existsSync(path.join(copyProject, relative)), false, 'failed plan remains rolled back');
+  const database = new Database(path.join(copyRoot, 'm1.sqlite'), { readonly: true, fileMustExist: true });
+  try {
+    assert.equal(database.pragma('quick_check', { simple: true }), 'ok');
+    assert.deepEqual(database.pragma('foreign_key_check'), []);
+    assert.deepEqual(database.prepare('SELECT id,path FROM projects').all(), [{ id: before.projectId, path: journey.project }]);
+    assert.deepEqual(database.prepare('SELECT id,project_id FROM conversations').all(),
+      [{ id: journey.origin.conversationId, project_id: before.projectId }]);
+    assert.equal(database.prepare('SELECT count(*) AS n FROM messages').get().n, 0);
+    const terminals = database.prepare('SELECT lifecycle_id,terminal_status,terminal_json FROM m2_lifecycle_terminals').all();
+    assert.equal(terminals.length, 2);
+    for (const draft of [initialDraft, previousDraft]) {
+      const durable = terminals.find(row => row.lifecycle_id === draft.lifecycleId);
+      assert.equal(durable?.terminal_status, 'failed');
+      const snapshot = JSON.parse(durable.terminal_json);
+      assert.equal(snapshot.planDigest, draft.planDigest);
+      if (draft === previousDraft) assert.deepEqual(snapshot, terminal.terminal);
+      const operation = database.prepare('SELECT plan_digest,plan_json FROM m2_lifecycle_operations WHERE lifecycle_id=?').get(draft.lifecycleId);
+      assert.equal(operation?.plan_digest, draft.planDigest); assert.deepEqual(JSON.parse(operation.plan_json), draft.plan);
+      const files = database.prepare('SELECT * FROM m2_execution_files WHERE execution_id=? ORDER BY ordinal').all(draft.plan.identity.executionId);
+      assert.equal(files.length, 7);
+      for (const row of files) {
+        const preview = draft.diff.find(item => item.path === row.relative_path);
+        assert.ok(preview); assert.equal(row.before_exists, 0); assert.equal(row.before_digest, null);
+        assert.deepEqual(row.after_bytes, Buffer.from(preview.after.content));
+        assert.equal(row.after_byte_count, Buffer.byteLength(preview.after.content));
+        assert.equal(row.after_digest, 'sha256:' + sha256(preview.after.content));
+      }
+    }
+    assert.equal(database.prepare('SELECT count(*) AS n FROM m2_execution_files').get().n, 14);
+  } finally { database.close(); }
+  const blueprint = sqliteCliRevisionBlueprint(previousDraft);
+  assert.equal(sha256(JSON.stringify(blueprint, null, 2) + '\n'),
+    '1c2f9fefb413142426f9fe537277cc21140206bd5d6b7bfd5233eea3346952e3', 'frozen proposed CLI-only revision');
+  assert.deepEqual(snapshotFailedPacket(packet), snapshot, 'historical packet unchanged during preparation');
+  return { packet, runtimeRoot, copyRoot, before, journey, previousDraft, terminal, priorAttestation,
+    providerVersion: result.providerVersion, blueprint, snapshot };
+}
+
+export function resumeMountArguments(resume) {
+  // The later bind shadows only the copied runtime. Everything else in the
+  // original packet is read-only; no SQL rebinding of durable paths is needed.
+  return ['--ro-bind', resume.packet, resume.packet, '--bind', resume.copyRoot, resume.runtimeRoot];
 }
 
 function assertResponse(response, status, label) {
@@ -305,7 +463,9 @@ export function providerRelay(socketPath) {
   });
 }
 
-export function createProviderProxy({ model, requests, onModelCall, upstreamPort = 11434 }) {
+export function createProviderProxy({ model, requests, onModelCall, upstreamPort = 11434, maxModelCalls = Infinity }) {
+  assert.ok(maxModelCalls === Infinity || (Number.isSafeInteger(maxModelCalls) && maxModelCalls > 0));
+  let modelCalls = 0;
   return createOwnedProviderRelay(async (incoming, outgoing, forward) => {
     let row;
     try {
@@ -325,6 +485,7 @@ export function createProviderProxy({ model, requests, onModelCall, upstreamPort
       const show = incoming.method === 'POST' && incoming.url === '/api/show'
         && (body?.model || body?.name) === model;
       assert.ok(read || modelCall || show, 'provider request outside exact model scope');
+      if (modelCall) assert.ok(++modelCalls <= maxModelCalls, 'physical generation cap exceeded before forwarding');
       forward({ hostname: '127.0.0.1', port: upstreamPort, path: incoming.url, method: incoming.method,
         headers: { ...JSON_HEADERS, 'Content-Length': payload.length } }, {
         payload,
@@ -373,10 +534,24 @@ async function runInside(configurationPath, { sourceCheckOnly = false } = {}) {
   const relay = providerRelay(cfg.socketPath);
   await new Promise(resolve => relay.server.listen(0, '127.0.0.1', resolve));
   const providerUrl = `http://127.0.0.1:${relay.server.address().port}`;
-  const runtime = makeRuntime(out);
+  const runtime = cfg.resume ? {
+    root: cfg.resume.runtimeRoot,
+    ...Object.fromEntries([['home', 'home'], ['xdgConfig', 'xdg-config'], ['xdgCache', 'xdg-cache'],
+      ['xdgData', 'xdg-data'], ['xdgState', 'xdg-state'], ['temp', 'tmp'], ['npmCache', 'npm-cache'],
+      ['projects', 'home/projects'], ['database', 'm1.sqlite']]
+      .map(([key, relative]) => [key, path.join(cfg.resume.runtimeRoot, relative)])),
+    artifacts: path.join(out, 'resume-artifacts'), portFile: path.join(out, 'resume-port.json'),
+    serverLog: path.join(out, 'resume-server.log'),
+  } : makeRuntime(out);
+  if (cfg.resume) {
+    fs.mkdirSync(runtime.artifacts, { mode: 0o700 });
+    assert.equal(fs.statSync(runtime.database).ino,
+      fs.statSync(path.join(cfg.resume.copyRoot, 'm1.sqlite')).ino, 'legacy path is the copied runtime bind');
+  }
   const project = path.join(runtime.projects, scenario.projectDirectory);
   const evidence = { status: 'RUNNING', scenarioId: scenario.id, source: cfg.source, model: cfg.model, digest: cfg.digest,
     startedAt: new Date().toISOString(), networkInterfaces: interfaces.map(item => item.ifname),
+    providerKind: cfg.cpuControlledProvider ? 'CONTROLLED_CPU_FIXTURE' : 'PHYSICAL_MODEL',
     project, databasePath: runtime.database, generatedPaths: expectedPaths,
     acceptanceOracleSha256: scenario.oracleSha256, subjectProbeSha256: scenario.probeSha256,
     validatorProbeSha256: scenario.validateSha256,
@@ -399,70 +574,113 @@ async function runInside(configurationPath, { sourceCheckOnly = false } = {}) {
   const ask = (method, url, body, timeout) => requestJson(server, method, url, body, timeout);
   try {
     await start();
-    const created = assertResponse(await ask('POST', '/api/projects', {
-      name: scenario.projectName, description: scenario.projectDescription,
-      type: 'general', path: project,
-    }), 201, 'create private project');
-    const projectId = created.project?.id;
-    assert.ok(Number.isSafeInteger(projectId), 'project id');
-    assert.equal(fs.realpathSync(created.path), project, 'created project stays in private runtime');
-    const policyPath = path.join(project, '.intentsmith/m2-governance-policy.json');
-    const policy = (scenario.policyForOracle ?? policyForFrozenOracle)(JSON.parse(fs.readFileSync(policyPath, 'utf8')));
-    fs.writeFileSync(policyPath, JSON.stringify(policy, null, 2) + '\n');
-    const policySha256 = sha256(fs.readFileSync(policyPath));
-    const frozenFiles = scenario.frozenFiles ?? [
-      [ORACLE_PATH, scenario.oracleSource], [PROBE_PATH, scenario.probeSource],
-      [VALIDATE_PATH, scenario.validateSource], [ENTRY_PATH, ENTRY_SOURCE],
-    ];
-    for (const [relative, content] of frozenFiles) fs.writeFileSync(path.join(project, relative), content);
-    assertFrozenProject(project, policySha256, scenario);
-    git(project, ['add', '--', ...frozenFiles.map(([relative]) => relative),
-      '.intentsmith/m2-governance-policy.json']);
-    git(project, ['-c', 'core.hooksPath=/dev/null', '-c', 'commit.gpgSign=false',
-      '-c', 'user.name=IntentSmith Qualification', '-c', 'user.email=qualification@example.invalid',
-      'commit', '-m', `Freeze independent ${scenario.id} acceptance before inference`]);
-    const baselineHead = git(project, ['rev-parse', 'HEAD']);
-    assert.equal(git(project, ['status', '--porcelain=v1']), '');
-    evidence.baselineHead = baselineHead;
-    evidence.oracleFrozenAt = new Date().toISOString();
-    save(out, 'before-model.json', { source: cfg.source, projectId, baselineHead,
-      oracleSha256: scenario.oracleSha256, probeSha256: scenario.probeSha256,
-      validatorProbeSha256: scenario.validateSha256,
-      entrySha256: scenario.entrySha256 ?? ENTRY_SHA256, policySha256,
-      generatedPaths: expectedPaths });
+    let projectId, policySha256, baselineHead, origin, drafted;
+    if (cfg.resume) {
+      ({ projectId, policySha256, baselineHead } = cfg.resume.before);
+      origin = cfg.resume.journey.origin;
+      evidence.origin = origin; evidence.baselineHead = baselineHead;
+      evidence.resumedFrom = { packet: cfg.resume.packet,
+        lifecycleId: cfg.resume.previousDraft.lifecycleId, planDigest: cfg.resume.previousDraft.planDigest,
+        historicalGenerations: cfg.resume.priorAttestation.observed,
+        historicalProviderVersion: cfg.resume.providerVersion };
+      evidence.revisionQualification = 'CLI_REVISION_STARTED';
+      assertFrozenProject(project, policySha256, scenario);
+      assert.equal(git(project, ['rev-parse', 'HEAD']), baselineHead);
+      assert.equal(git(project, ['status', '--porcelain=v1']), '');
+      for (const relative of expectedPaths) assert.equal(fs.existsSync(path.join(project, relative)), false);
+      const priorStatusPath = `/api/m2/lifecycle/status?${new URLSearchParams({
+        id: cfg.resume.previousDraft.lifecycleId, surface: origin.surface, sessionId: origin.sessionId,
+        conversationId: origin.conversationId, projectId: String(projectId) })}`;
+      const prior = assertResponse(await ask('GET', priorStatusPath), 200, 'resumed failed durable plan');
+      assert.equal(prior.planDigest, cfg.resume.previousDraft.planDigest);
+      assert.deepEqual(prior.terminal, cfg.resume.terminal.terminal);
+      assert.deepEqual(prior.diff, cfg.resume.previousDraft.diff);
+      assertCliFailure(prior, expectedPaths, prior.diff);
+      save(out, 'before-model.json', { ...cfg.resume.before, source: cfg.source,
+        resumedFrom: evidence.resumedFrom });
+      save(out, 'revision-blueprint.json', cfg.resume.blueprint);
+      drafted = assertResponse(await ask('POST', '/api/m2/lifecycle/draft', {
+        projectId, origin, draft: cfg.resume.blueprint,
+      }, 180_000), 200, 'one physical CLI revision of the failed plan');
+      assert.equal(drafted.state, 'awaiting_approval');
+      assert.notEqual(drafted.lifecycleId, cfg.resume.previousDraft.lifecycleId);
+      assert.notEqual(drafted.planDigest, cfg.resume.previousDraft.planDigest);
+      assertRetainedRevision(cfg.resume.previousDraft.diff, drafted.diff, { targetPath: 'src/cli.js' });
+      assert.deepEqual(drafted.plan.focusedTest.argv, scenario.oracleArgv);
+      assert.equal(drafted.plan.focusedTest.binary, ORACLE_BINARY);
+      scenario.assertPreview(drafted.diff, project,
+        (root, relative) => fs.readFileSync(path.join(root, relative)),
+        (root, relative) => fs.existsSync(path.join(root, relative)));
+      assertFrozenProject(project, policySha256, scenario);
+      assert.equal(git(project, ['rev-parse', 'HEAD']), baselineHead);
+      assert.equal(git(project, ['status', '--porcelain=v1']), '');
+      evidence.revisionQualification = 'CLI_REVISION_DRAFTED';
+      save(out, 'draft.json', drafted);
+    } else {
+      const created = assertResponse(await ask('POST', '/api/projects', {
+        name: scenario.projectName, description: scenario.projectDescription,
+        type: 'general', path: project,
+      }), 201, 'create private project');
+      projectId = created.project?.id;
+      assert.ok(Number.isSafeInteger(projectId), 'project id');
+      assert.equal(fs.realpathSync(created.path), project, 'created project stays in private runtime');
+      const policyPath = path.join(project, '.intentsmith/m2-governance-policy.json');
+      const policy = (scenario.policyForOracle ?? policyForFrozenOracle)(JSON.parse(fs.readFileSync(policyPath, 'utf8')));
+      fs.writeFileSync(policyPath, JSON.stringify(policy, null, 2) + '\n');
+      policySha256 = sha256(fs.readFileSync(policyPath));
+      const frozenFiles = scenario.frozenFiles ?? [
+        [ORACLE_PATH, scenario.oracleSource], [PROBE_PATH, scenario.probeSource],
+        [VALIDATE_PATH, scenario.validateSource], [ENTRY_PATH, ENTRY_SOURCE],
+      ];
+      for (const [relative, content] of frozenFiles) fs.writeFileSync(path.join(project, relative), content);
+      assertFrozenProject(project, policySha256, scenario);
+      git(project, ['add', '--', ...frozenFiles.map(([relative]) => relative),
+        '.intentsmith/m2-governance-policy.json']);
+      git(project, ['-c', 'core.hooksPath=/dev/null', '-c', 'commit.gpgSign=false',
+        '-c', 'user.name=IntentSmith Qualification', '-c', 'user.email=qualification@example.invalid',
+        'commit', '-m', `Freeze independent ${scenario.id} acceptance before inference`]);
+      baselineHead = git(project, ['rev-parse', 'HEAD']);
+      assert.equal(git(project, ['status', '--porcelain=v1']), '');
+      evidence.baselineHead = baselineHead;
+      evidence.oracleFrozenAt = new Date().toISOString();
+      save(out, 'before-model.json', { source: cfg.source, projectId, baselineHead,
+        oracleSha256: scenario.oracleSha256, probeSha256: scenario.probeSha256,
+        validatorProbeSha256: scenario.validateSha256,
+        entrySha256: scenario.entrySha256 ?? ENTRY_SHA256, policySha256,
+        generatedPaths: expectedPaths });
 
-    const conversation = assertResponse(await ask('POST', '/api/conversations', {
-      title: scenario.conversationTitle, project_id: projectId,
-    }), 201, 'create project conversation').conversation;
-    assert.ok(typeof conversation.id === 'string' && conversation.id.startsWith('conv-')
-      && conversation.id.length <= 128, 'durable string conversation id');
-    assert.equal(conversation.project_id, projectId, 'M1 conversation stays bound to project');
-    const origin = { surface: 'http', sessionId: `app-${randomUUID()}`,
-      conversationId: conversation.id, projectId };
-    evidence.origin = origin;
-    const blueprint = scenario.blueprint();
-    let drafted = assertResponse(await ask('POST', '/api/m2/lifecycle/draft', {
-      projectId, origin, draft: blueprint,
-    }, 900_000), 200, `${scenario.files.length}-file physical CODE draft`);
-    assert.equal(drafted.state, 'awaiting_approval');
-    assert.match(drafted.planDigest, /^sha256:[0-9a-f]{64}$/);
-    assert.deepEqual(drafted.plan.focusedTest.argv, scenario.oracleArgv);
-    assert.equal(drafted.plan.focusedTest.binary, ORACLE_BINARY);
-    scenario.assertPreview(drafted.diff, project,
-      (root, relative) => fs.readFileSync(path.join(root, relative)),
-      (root, relative) => fs.existsSync(path.join(root, relative)));
-    assertFrozenProject(project, policySha256, scenario);
-    assert.equal(git(project, ['rev-parse', 'HEAD']), baselineHead);
-    assert.equal(git(project, ['status', '--porcelain=v1']), '');
-    save(out, 'draft.json', drafted);
-    evidence.lifecycleId = drafted.lifecycleId;
-    evidence.planDigest = drafted.planDigest;
+      const conversation = assertResponse(await ask('POST', '/api/conversations', {
+        title: scenario.conversationTitle, project_id: projectId,
+      }), 201, 'create project conversation').conversation;
+      assert.ok(typeof conversation.id === 'string' && conversation.id.startsWith('conv-')
+        && conversation.id.length <= 128, 'durable string conversation id');
+      assert.equal(conversation.project_id, projectId, 'M1 conversation stays bound to project');
+      origin = { surface: 'http', sessionId: `app-${randomUUID()}`,
+        conversationId: conversation.id, projectId };
+      evidence.origin = origin;
+      const blueprint = scenario.blueprint();
+      drafted = assertResponse(await ask('POST', '/api/m2/lifecycle/draft', {
+        projectId, origin, draft: blueprint,
+      }, 900_000), 200, `${scenario.files.length}-file physical CODE draft`);
+      assert.equal(drafted.state, 'awaiting_approval');
+      assert.match(drafted.planDigest, /^sha256:[0-9a-f]{64}$/);
+      assert.deepEqual(drafted.plan.focusedTest.argv, scenario.oracleArgv);
+      assert.equal(drafted.plan.focusedTest.binary, ORACLE_BINARY);
+      scenario.assertPreview(drafted.diff, project,
+        (root, relative) => fs.readFileSync(path.join(root, relative)),
+        (root, relative) => fs.existsSync(path.join(root, relative)));
+      assertFrozenProject(project, policySha256, scenario);
+      assert.equal(git(project, ['rev-parse', 'HEAD']), baselineHead);
+      assert.equal(git(project, ['status', '--porcelain=v1']), '');
+      save(out, 'draft.json', drafted);
+    }
+    evidence.lifecycleId = drafted.lifecycleId; evidence.planDigest = drafted.planDigest;
     evidence.previewHashes = drafted.diff.map(row => ({ path: row.path, sha256: sha256(row.after.content) }));
 
     const wrong = await ask('POST', '/api/m2/lifecycle/approve', {
-      lifecycleId: drafted.lifecycleId, planDigest: `sha256:${'0'.repeat(64)}`, origin,
+      lifecycleId: drafted.lifecycleId, planDigest: cfg.resume?.previousDraft.planDigest ?? `sha256:${'0'.repeat(64)}`, origin,
     });
-    assert.equal(wrong.statusCode, 409, 'wrong digest rejects before effect');
+    assert.equal(wrong.statusCode, 409, 'stale or wrong digest rejects before effect');
     assert.equal(git(project, ['status', '--porcelain=v1']), '');
     assertFrozenProject(project, policySha256, scenario);
     let statusPath = `/api/m2/lifecycle/status?${new URLSearchParams({ id: drafted.lifecycleId,
@@ -526,8 +744,18 @@ async function runInside(configurationPath, { sourceCheckOnly = false } = {}) {
         evidence.revisionQualification = 'ONE_REVISION_EXECUTED';
       }
     }
+    if (cfg.resume) evidence.revisionQualification = 'ONE_CLI_REVISION_EXECUTED';
     evidence.terminal = terminal;
     save(out, 'terminal.json', terminal);
+    if (cfg.resume && terminal.state === 'failed') {
+      assert.equal(terminal.result?.rollback?.status, 'succeeded', 'failed resumed plan rolls back atomically');
+      assert.deepEqual(terminal.result.rollback.paths, expectedPaths);
+      assert.equal(git(project, ['rev-parse', 'HEAD']), baselineHead);
+      assert.equal(git(project, ['status', '--porcelain=v1']), '');
+      for (const relative of expectedPaths) assert.equal(fs.existsSync(path.join(project, relative)), false);
+      assertFrozenProject(project, policySha256, scenario);
+      evidence.failedRevisionRollbackVerified = true;
+    }
     assert.equal(terminal.state, 'succeeded', JSON.stringify(terminal.result));
     assert.equal(terminal.result?.focusedTest?.terminalStatus, 'succeeded', 'frozen app oracle passed within M2 sandbox');
     const testOutput = terminal.audit?.executionEvents?.find(event => event.type === 'process_terminated')?.details?.testOutput;
@@ -591,6 +819,7 @@ async function runParent(options) {
         ? 'physical five-file TaskFlow app; no installed IDE renderer acceptance claim'
         : 'physical seven-file SQLite catalog; /tmp persists only within one sandbox; no installed IDE renderer acceptance claim' };
   let lease = null, proxy = null, socketRoot = null, child = null, loaded = false;
+  let resume = null, historicalSnapshot = null;
   const requests = [];
   const upstreamOrigin = 'http://127.0.0.1:11434';
   const upstream = async endpoint => {
@@ -599,6 +828,17 @@ async function runParent(options) {
     return response.json();
   };
   try {
+    if (options.resumeFailed) {
+      historicalSnapshot = snapshotFailedPacket(options.resumeFailed);
+      save(out, 'historical-snapshot-before.json', historicalSnapshot);
+      resume = prepareFailedResume(options.resumeFailed, out, options);
+      evidence.resumedFrom = { packet: resume.packet, runtimeRoot: resume.runtimeRoot,
+        copiedRuntimeRoot: resume.copyRoot, lifecycleId: resume.previousDraft.lifecycleId,
+        planDigest: resume.previousDraft.planDigest, providerVersion: resume.providerVersion,
+        priorAttestation: resume.priorAttestation, originalGenerations: 8, newGenerationLimit: 1,
+        snapshotSha256: sha256(JSON.stringify(historicalSnapshot, null, 2) + '\n') };
+      save(out, 'resume-provenance.json', evidence.resumedFrom);
+    }
     lease = acquireGpuEvaluationLock({ command: scenario.id === 'ledger'
       ? 'six-file functional project acceptance' : 'taskflow functional project acceptance' });
     const ps = await upstream('/api/ps');
@@ -616,16 +856,19 @@ async function runParent(options) {
       'installed exact model digest');
     const version = await upstream('/api/version');
     evidence.providerVersion = requireProviderVersion(version.version);
+    if (resume) assert.equal(evidence.providerVersion, resume.providerVersion, 'same exact historical provider version');
     socketRoot = fs.mkdtempSync('/tmp/is-project-app-');
     fs.chmodSync(socketRoot, 0o700);
     const socketPath = path.join(socketRoot, 'provider.sock');
-    proxy = createProviderProxy({ model: options.model, requests, onModelCall: () => { loaded = true; } });
+    proxy = createProviderProxy({ model: options.model, requests, onModelCall: () => { loaded = true; },
+      ...(resume ? { maxModelCalls: 1 } : {}) });
     await new Promise(resolve => proxy.server.listen(socketPath, resolve));
     fs.chmodSync(socketPath, 0o600);
     save(out, 'inside-configuration.json', { scenarioId: scenario.id, source, model: options.model, digest: options.digest, socketPath,
-      ...(options.revisionOnce ? { revisionOnce: true } : {}) });
+      ...(options.revisionOnce ? { revisionOnce: true } : {}), ...(resume ? { resume } : {}) });
     child = spawn('unshare', ['--user', '--map-root-user', '--net', '--', 'bwrap', '--bind', '/', '/',
-      '--dev', '/dev', '--die-with-parent', process.execPath, SELF, '--inside', path.join(out, 'inside-configuration.json')],
+      '--dev', '/dev', '--die-with-parent', ...(resume ? resumeMountArguments(resume) : []),
+      process.execPath, SELF, '--inside', path.join(out, 'inside-configuration.json')],
     { cwd: SOURCE_ROOT, env: safeBaseEnvironment(), stdio: ['ignore', 'pipe', 'pipe'] });
     const output = { stdout: '', stderr: '' };
     child.stdout.on('data', chunk => { output.stdout = (output.stdout + chunk).slice(-100_000); });
@@ -640,7 +883,9 @@ async function runParent(options) {
       model: options.model, digest: options.digest, version: evidence.providerVersion,
       previewHashes: inside?.previewHashes ?? null, scenarioId: scenario.id,
     };
-    evidence.providerAttestation = options.revisionOnce && inside?.initialPreviewHashes
+    evidence.providerAttestation = resume
+      ? assessCliRevisionGeneration(requests, providerPins, resume.previousDraft.diff)
+      : options.revisionOnce && inside?.initialPreviewHashes
       ? assessRevisionGenerations(requests, { ...providerPins, initialPreviewHashes: inside.initialPreviewHashes }, assessProviderGenerations)
       : assessProviderGenerations(requests, providerPins);
     evidence.physicalGenerationsObserved = evidence.providerAttestation.observed;
@@ -648,6 +893,7 @@ async function runParent(options) {
     assert.equal(exit.signal, null);
     assert.equal(evidence.providerAttestation.valid, true, JSON.stringify(evidence.providerAttestation.failures));
     evidence.physicalGenerations = evidence.providerAttestation.observed;
+    if (resume) evidence.physicalGenerationsInChain = resume.priorAttestation.observed + evidence.physicalGenerations;
     assert.ok(inside, 'private child journey evidence missing');
     assert.equal(inside.status, 'PASS', inside.error?.message);
     evidence.insideStatus = inside.status;
@@ -672,7 +918,9 @@ async function runParent(options) {
         model: options.model, digest: options.digest, version: evidence.providerVersion,
         previewHashes, scenarioId: scenario.id,
       };
-      evidence.providerAttestation = options.revisionOnce && initialPreviewHashes
+      evidence.providerAttestation = resume
+        ? assessCliRevisionGeneration(requests, providerPins, resume.previousDraft.diff)
+        : options.revisionOnce && initialPreviewHashes
         ? assessRevisionGenerations(requests, { ...providerPins, initialPreviewHashes }, assessProviderGenerations)
         : assessProviderGenerations(requests, providerPins);
       evidence.physicalGenerationsObserved = evidence.providerAttestation.observed;
@@ -698,6 +946,17 @@ async function runParent(options) {
     evidence.sourceCleanAfter = afterSource.dirty === ''
       && JSON.stringify(afterSource) === JSON.stringify(source);
     if (!evidence.sourceCleanAfter) evidence.status = 'FAIL';
+    if (historicalSnapshot) {
+      try {
+        const after = snapshotFailedPacket(options.resumeFailed);
+        save(out, 'historical-snapshot-after.json', after);
+        assert.deepEqual(after, historicalSnapshot, 'historical packet byte, path, mode and timestamp immutability');
+        evidence.historicalPacketUnchanged = true;
+      } catch (error) {
+        evidence.status = 'FAIL'; evidence.historicalPacketUnchanged = false;
+        evidence.historicalPacketError = error.message;
+      }
+    }
     evidence.completedAt = new Date().toISOString();
     save(out, 'provider-requests.json', requests);
     save(out, 'result.json', evidence);

@@ -1,6 +1,20 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktualizace 1. 10. 2026, 16:29 UTC — SQLite kontrakt a skutečný M3 kontext:** publikovaný
+**Aktuální checkpoint 2. 10. 2026, 08:06 UTC:** CODE context formatter má
+SOURCE_REVIEW_PASS a historický overflow CPU replay 8 811 → 8 692 B při
+nezměněném limitu. SQLite actual860 dodal osm úplných generací, ale oracle
+odhalil dvojité mazání v CLI; oba plány úplně rollbacknuté, žádný commit.
+Nezávislé review přijímá důkazy FAIL. Operátor autorizoval jednu navazující
+CLI revizi se šesti zachovanými moduly; nový runner má řízený CPU backend/M2/
+commit/restart průchod, fyzická modelová přejímka teprve následuje.
+Skutečný Ledger, TaskFlow, M3 ProjectContext a pětiminutový worker mají přijaté
+dílčí důkazy. GPU/model readonly UI audit V7 a odstranění tří vlastních refs
+jsou přijaté uzavřené výsledky; Hunt grader/modelové rozhodnutí nejsou přijaty.
+CHAT ladí jiný worker. Po SQLite navazuje obecný M2 AST scanner a větší
+projektový průchod; aktuální celý profil, M5/M6 a mobilní fyzická přejímka
+zůstávají otevřené. [Aktuální průběžný report](docs/WORK-PROGRESS.md).
+
+**Historická aktualizace 1. 10. 2026, 16:29 UTC — SQLite kontrakt a skutečný M3 kontext:** publikovaný
 `34cfc198` má registrovaných **9/9 PASS / REVIEW_PASS**, skutečné
 [CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36888388296).
 M3 ověřuje skutečná projektová data a izolaci; modelovou expert-vs-general

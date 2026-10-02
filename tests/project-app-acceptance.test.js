@@ -12,7 +12,8 @@ import { LINUX_BWRAP_READ_ONLY_PROFILE } from '../src/execution/process-supervis
 import { computeM2ExecutionValueDigest } from '../contracts/m2/execution-v1.js';
 import { compileCodeDraftInput } from '../src/lifecycle/m2-code-draft.js';
 import { assessProviderGenerations, requireProviderVersion } from '../scripts/run-project-app-journey.js';
-import { assessRevisionGenerations, assertRetainedRevision, assertSchemaFailure } from '../scripts/project-app-revision.js';
+import { assessRevisionGenerations, assertRetainedRevision, assertSchemaFailure,
+  sqliteCliRevisionBlueprint, assertCliFailure, assessCliRevisionGeneration } from '../scripts/project-app-revision.js';
 import { REFERENCE_LEDGER_OUTPUTS as GOOD } from './helpers/project-app-reference.js';
 import { REFERENCE_TASKFLOW_OUTPUTS, taskflowMutant } from './helpers/project-taskflow-reference.js';
 import { REFERENCE_SQLITE_OUTPUTS, sqliteCatalogMutant } from './helpers/project-sqlite-catalog-reference.js';
@@ -413,4 +414,58 @@ test('schema revision requires a real AST dependency and cannot trust forged std
   ]) assert.throws(() => assertSchemaFailure(terminal, paths, diff(inert)), /stderr is insufficient/);
   assertSchemaFailure(terminal, paths, diff("import './missing.js';\nexport const x = 1;\n"));
   assertSchemaFailure(terminal, paths, diff("export { x } from './missing.js';\n"));
+});
+
+test('CLI continuation requires the observed AST defect and binds one replacement to seven exact previews', () => {
+  const before = 'return catalog.remove(...args) === undefined ? true : catalog.remove(...args);';
+  const after = 'return catalog.remove(...args);';
+  const original = { ...REFERENCE_SQLITE_OUTPUTS,
+    'src/cli.js': REFERENCE_SQLITE_OUTPUTS['src/cli.js'].replace(after, before) };
+  const prior = Object.entries(original).sort(([a], [b]) => a.localeCompare(b))
+    .map(([path, content]) => ({ path, after: { content } }));
+  const paths = prior.map(row => row.path);
+  const terminal = { state: 'failed', result: { errorCode: 'PROJECT_CHANGE_TEST_FAILED',
+    focusedTest: { terminalStatus: 'failed' }, rollback: { status: 'succeeded', paths } },
+    audit: { executionEvents: [{ type: 'process_terminated', details: { testOutput: {
+      stderr: 'delete persisted row: /project/src/cli.js:47:68\n/project/test/acceptance.test.mjs:145:1',
+    } } }] } };
+  assertCliFailure(terminal, paths, prior);
+  for (const inert of [REFERENCE_SQLITE_OUTPUTS['src/cli.js'],
+    REFERENCE_SQLITE_OUTPUTS['src/cli.js'] + '\n// ' + before,
+    REFERENCE_SQLITE_OUTPUTS['src/cli.js'] + '\nconst text = ' + JSON.stringify(before) + ';',
+    REFERENCE_SQLITE_OUTPUTS['src/cli.js'] + '\nfunction dormant() { ' + before + ' }',
+  ]) {
+    const forged = prior.map(row => row.path === 'src/cli.js' ? { ...row, after: { content: inert } } : row);
+    assert.throws(() => assertCliFailure(terminal, paths, forged), /stderr is insufficient/);
+  }
+  const previous = { lifecycleId: 'lifecycle:previous-cli', planDigest: 'sha256:' + 'a'.repeat(64) };
+  const blueprint = sqliteCliRevisionBlueprint(previous);
+  const compiled = compileCodeDraftInput(blueprint);
+  assert.equal(compiled.buildSteps.filter(step => !step.reusePrevious).length, 1);
+  assert.deepEqual(blueprint.revisionOf, previous);
+  const model = 'qualification-model', digest = 'a'.repeat(64), version = '0.34.0';
+  const response = { method: 'POST', path: '/api/chat', model, status: 200,
+    responseTruncated: false, requestSha256: sha256('new-cli-request'),
+    terminal: { model, digest, provider_version: version, done: true, done_reason: 'stop',
+      message: { content: JSON.stringify({ replacements: [{ before, after }] }) } } };
+  const pins = { model, digest, version, scenarioId: 'sqlite-catalog',
+    previewHashes: Object.entries(REFERENCE_SQLITE_OUTPUTS).map(([path, content]) => ({ path, sha256: sha256(content) })) };
+  const proof = assessCliRevisionGeneration([response], pins, prior);
+  assert.equal(proof.valid, true, JSON.stringify(proof.failures));
+  assert.equal(proof.perFile[0].generation, 9);
+  const revised = prior.map(row => ({ ...row, after: { content: REFERENCE_SQLITE_OUTPUTS[row.path] } }));
+  assertRetainedRevision(prior, revised, { targetPath: 'src/cli.js' });
+  for (const corruption of ['retained', 'cli', 'missing', 'extra', 'truncated', 'identity', 'invalid-version', 'nonreplacement', 'request-sha']) {
+    const rows = [structuredClone(response)], changed = structuredClone(pins);
+    if (corruption === 'retained' || corruption === 'cli') changed.previewHashes.find(row =>
+      row.path === (corruption === 'cli' ? 'src/cli.js' : 'src/schema.js')).sha256 = 'b'.repeat(64);
+    if (corruption === 'missing') rows.pop();
+    if (corruption === 'extra') rows.push(response);
+    if (corruption === 'truncated') rows[0].terminal.done_reason = 'length';
+    if (corruption === 'identity') rows[0].terminal.digest = 'b'.repeat(64);
+    if (corruption === 'invalid-version') changed.version = rows[0].terminal.provider_version = 'unknown';
+    if (corruption === 'nonreplacement') rows[0].terminal.message.content = JSON.stringify({ afterContent: after });
+    if (corruption === 'request-sha') delete rows[0].requestSha256;
+    assert.equal(assessCliRevisionGeneration(rows, changed, prior).valid, false, corruption);
+  }
 });

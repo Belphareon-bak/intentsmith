@@ -669,14 +669,14 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 **REVIEW_PENDING** — [aktuální UI oprava a evidence](docs/review/2026-09-17-HUNT-MODEL-CONTROLS-FOLLOWUP.md).
 
 Následující LOC a registry census jsou přeměřené přímo na referenčním zdroji
-`11f74be8` + bezztrátový CODE formatter a navázané decoding regrese přes stejný algoritmus jako `tests/artifact-validation.test.js`:
+`b6b63692` + bezztrátový CODE formatter a navázané CLI continuation regrese přes stejný algoritmus jako `tests/artifact-validation.test.js`:
 počet skutečných `.js` souborů a počet znaků nového řádku v jejich bytech.
 Při další integraci se přeměří znovu.
 
 | | |
 |---|---:|
 | `src/**/*.js` | **234 053 ř.**, 681 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **266 206 ř.**, 600 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **266 273 ř.**, 600 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **593** (`495 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 108** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |
@@ -1416,3 +1416,11 @@ raw packet včetně Git indexu zachovaný. Konkrétní CLI návrh přijat jako
 omezený další krok, nikoli kvalifikovaná aplikace nebo souhlas k deváté
 generaci. Závěrečný restart a persistence přejímka nebyly dosaženy.
 Další běh čeká na konkrétní rozšíření zmrazeného limitu, nikoli na review.
+
+Navazující stav 2. 10. 2026 08:06 UTC: operátor autorizoval pokračování,
+devátá CLI revize je připravená. Focused 3/3 a recheck 3/3 CPU PASS;
+helper SOURCE_REVIEW_PASS a controlled-provider úplný backend/M2/commit/
+restart průchod CPU PASS. Nejde o fyzickou modelovou přejímku aplikace.
+Immutable-copy runner váže celý původní manifest379, zachovává šest modulů
+a před forwardem dovolí právě jeden nový modelový request. Původní FAIL platí.
+Expanded review, aktuální registrované brány a připnutý živý průchod následují.

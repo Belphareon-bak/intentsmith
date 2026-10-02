@@ -1,6 +1,6 @@
 # IntentSmith — průběžný report dokončování
 
-**Aktualizováno:** 1. 10. 2026, 21:32 UTC / 23:32 CEST.
+**Aktualizováno:** 2. 10. 2026, 08:06 UTC / 10:06 CEST.
 **Vlastník:** ROOT. CHAT řeší jiný worker, od posledního zadání jej ROOT neupravuje.
 **Publikace:** `work/real-chat-journeys-20260930`; průběžný report se aktualizuje
 po každém milníku, nejpozději po třech hodinách během aktivní práce. Operátor
@@ -33,7 +33,7 @@ stabilním IDE/BE, podle zadání operátora.
 | HTTP projekty | Předem připravený omezený návrh testu | Rozhodnutí o novém M2 síťovém oprávnění; HTTP_NOT_RUN |
 | Mobil | Auditovaný handoff, historických47 host testů a přijaté VPN/TLS rozhodnutí | Fyzická matice13+7 NOT_RUN, skutečné zařízení/VPN a integrační mezery |
 | CODE peer kontext | SOURCE_REVIEW_PASS; CPU 8 811 → 8 692 B. Lokálně 100 + 22 PASS, šest registry PASS + census recheck PASS, HTTP 75 assertions PASS, CI 13 SUCCESS | Doložená omezená úspora; větší zdroje dál správně odmítané. Celá aplikace stále FAIL |
-| SQLite indexed860 | Osm úplných připnutých výstupů, nové přesné M2 schválení, šest retained modulů a dva rollbacky sedmi cest. Callback funguje, vstupy vyhověly rozpočtu | APPLICATION_FAIL: CLI maže dvakrát. Bez commitu a úspěšné restartové přejímky. Konkrétní CLI revize 5 700/11 520 B čeká na rozšíření osmi generací na devět |
+| SQLite indexed860 | Osm úplných připnutých výstupů, nové přesné M2 schválení, šest retained modulů a dva rollbacky sedmi cest. Callback funguje, vstupy vyhověly rozpočtu | Historický APPLICATION_FAIL: CLI maže dvakrát. Devátá CLI revize autorizovaná; nový runner má CPU průchod, fyzická aplikace ještě nepřijatá |
 | Cleanup | REVIEW_PASS: atomicky odstraněny pouze tři vlastní lokální refs, 216→213 branches, 71→71 worktrees. Tagy, ostatní refs a worktree metadata zachované; obnova v odděleném bare repo PASS. Hunt zpět na původní čisté větvi | BC větev HOLD_CONDITIONAL, fyzické worktree removal HOLD; další cizí/UNKNOWN větve nepřijaté k odstranění |
 
 ## Publikované a uchované materiály
@@ -366,3 +366,29 @@ Implementace pokračování začíná; aplikace stále není přijatá. Po SQLit
 navazovat nejbližší dokumentované release priority; souběžně probíhá pouze
 read-only audit jejich pořadí. Hotový core se nebude zaměňovat za mobilní M7,
 který přichází po stabilním IDE/backendu.
+
+## CLI pokračování — CPU milník, 2. 10. 2026 08:06 UTC
+
+Navazující runner zpracuje přesný starý failed plán nad oddělenou kopií runtime.
+Celý historical manifest 379 souborů je vázaný na nezávislé review, proxy
+dovolí právě jeden nový modelový request. Úplné zdroje, šest retained modulů,
+nový digest a nové M2 schválení jsou zachované. Žádné ruční opravování raw
+výstupů ani opakování předchozích sedmi generací.
+
+Focused 3/3 PASS a recheck 3/3 PASS. Helper source review PASS po opravě dvou
+nálezů. Controlled-provider skutečný backend průchod má CPU PASS: draft,
+stale409, pending restart, přesné approval, frozen oracle, commit a závěrečný
+backend restart/replay. Privátní CPU výsledky jsou výslovně označené jako
+řízená fixture; živá aplikace stále není přijatá. Expanded source review,
+aktuální registrované brány, push/CI a nový připnutý modelový běh následují.
+
+Persistence je přesně vymezená: oracle ověřuje stejnou aplikační DB mezi CLI
+procesy uvnitř jedné sandbox instance; backend restart ověřuje durable M2 DB,
+commit a zdroje. Stejná aplikační DB mezi dvěma samostatnými sandboxy není
+doložená a nebude se tvrdit. Původní oracle zůstává přesný.
+
+Po SQLite: obecný M2 AST import scanner, větší projektový průchod a společný
+aktuální integrační profil. CPU scanner experiment probíhá pouze v privátním
+packetu, bez změny právě připravovaného kandidáta. Hunt přejímka měřidla,
+M5/M6 a mobilní fyzické brány zůstávají samostatné otevřené výsledky. CHAT
+nadále vlastní druhý worker; veškeré běžné navazující opravy jsou autorizované.
