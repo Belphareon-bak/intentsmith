@@ -162,6 +162,14 @@ faktické chyby proti skutečným providerovým vstupům a stejnému artefaktu;
 vlastníkem. Další porovnávání odlišných modelů je odložené. Nová série 53×3
 nebyla spuštěna; hotová S1 zůstává na `3b3b399f` s výsledkem **NO_GO**.
 
+## Milník S3-LIVE — pozdější oprava ve skutečné odpovědi
+
+| Změna uživatelského chování | Stručný důkaz | Zbývající problém | Jeden následující krok |
+| --- | --- | --- | --- |
+| Návrat k rozhodnutí po dlouhém archivu zachová pozdější Javor a původní JILM_407 / ruční kontrolu bez změn; starý souhrn s Lípou opravu nezruší. | `97395516` / `088fcb1f-9896-41d4-afc4-dcdbaf204f4b`: 2/2 užitečných, 0 zastavení, 0 kritických chyb a 0 efektů; čtyři inference přesného digestu Qwen3.5. Skutečný klasifikační paket obsahuje původní ID 1 a opravu ID 1015. Jde o 1 015 syntetických uložených USER zpráv, nikoli 1 015 živých modelových turnů. | Lexikální relevance, tři výňatky a označený 512B prefix zůstávají omezením; ostatní faktické chyby a nová kompletní přejímka tím nejsou vyřešené. | Pro konkrétní faktické chyby porovnat surovou odpověď a celý skutečný providerový vstup se stejným artefaktem modelu. |
+
+[Kontrolovatelná evidence včetně skutečných providerových rolí a podkladů](evidence/chat-quality-20261001/archive-boundary-live.json).
+
 ## Publikace a další postup
 
 Větev `work/chat-quality-20261001` vychází z přesně připnutého `45caf5b5`, srovnávací vzdálená větev `review/chat-quality-base-20261001` ukazuje na stejný commit. Pushe jsou ověřené vzdáleným SHA; nejsou nasazením ani přejímkou. Draft PR nevzniklo: GitHub integrace odmítla operaci 403 `Resource not accessible by integration`. Stav **PR_NOT_CREATED / CI_NOT_RUN / REVIEW_PENDING** se nemění bez nového důkazu. Jiné workerovy checkouty a produkční proces zůstaly nedotčené.

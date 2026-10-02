@@ -1,6 +1,6 @@
 # IntentSmith — průběh práce na kvalitě chatu
 
-Poslední aktualizace: **2. 10. 2026, 10:18 CEST**. Stav: **CHANGES_REQUIRED / WORK_CONTINUES / REVIEW_PENDING**.
+Poslední aktualizace: **2. 10. 2026, 10:32 CEST**. Stav: **CHANGES_REQUIRED / WORK_CONTINUES / REVIEW_PENDING**.
 Dokument aktualizuji po každém dokončeném milníku, nejpozději po třech hodinách
 aktivní práce. Historická selhání zůstávají uvedena; nové ověření je nepřepisuje
 na úspěch. Nejde o plánovač úloh po ukončení této pracovní relace.
@@ -8,7 +8,8 @@ na úspěch. Nejde o plánovač úloh po ukončení této pracovní relace.
 Větev: `work/chat-quality-20261001`. Společný výchozí commit:
 `45caf5b54b78def257221ac2ab33a64031800813`. Poslední testovaný implementační
 commit: **`856e07c3`** (oprava archivu: 7 cílených PASS, kontext 17/17,
-M1 74/74; živé ověření této opravy ještě neproběhlo). S1 se vztahuje výhradně
+M1 74/74). Živé ověření na `97395516` má 2/2 užitečných; source archivu
+je runtime shodný s `856e07c3`. S1 se vztahuje výhradně
 k `3b3b399f`; vývojové kroky schopností k `c868fea3`. Tento dokument se publikuje následným dokumentačním
 commitem. Vlastní worktree: `intentsmith-chat-quality-20261001`.
 Mimochatový worker, jeho soubory a produkční release zůstávají nedotčené.
@@ -183,6 +184,14 @@ faktické chyby proti skutečným providerovým vstupům a stejnému artefaktu;
 (3) zmrazená přejímka s významem a rozkladem latence; (4) CI s integračním
 vlastníkem. Další porovnávání odlišných modelů je odložené. Nová série 53×3
 nebyla spuštěna; hotová S1 zůstává na `3b3b399f` s výsledkem **NO_GO**.
+
+## Milník S3-LIVE — pozdější oprava ve skutečné odpovědi
+
+| Změna uživatelského chování | Stručný důkaz | Zbývající problém | Jeden následující krok |
+| --- | --- | --- | --- |
+| Návrat k rozhodnutí po dlouhém archivu zachová pozdější Javor a původní JILM_407 / ruční kontrolu bez změn; starý souhrn s Lípou opravu nezruší. | `97395516` / `088fcb1f-9896-41d4-afc4-dcdbaf204f4b`: 2/2 užitečných, 0 zastavení, 0 kritických chyb a 0 efektů; čtyři inference přesného digestu Qwen3.5. Skutečný klasifikační paket obsahuje původní ID 1 a opravu ID 1015. Jde o 1 015 syntetických uložených USER zpráv, nikoli 1 015 živých modelových turnů. | Lexikální relevance, tři výňatky a označený 512B prefix zůstávají omezením; ostatní faktické chyby a nová kompletní přejímka tím nejsou vyřešené. | Pro konkrétní faktické chyby porovnat surovou odpověď a celý skutečný providerový vstup se stejným artefaktem modelu. |
+
+[Kontrolovatelná evidence včetně skutečných providerových rolí a podkladů](../review/evidence/chat-quality-20261001/archive-boundary-live.json).
 
 ## Další milník a podmínky přijetí
 
