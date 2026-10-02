@@ -1,6 +1,6 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktuální checkpoint 2. 10. 2026, 08:50 UTC:** CODE context formatter má
+**Aktuální checkpoint 2. 10. 2026, 09:40 UTC:** CODE context formatter má
 SOURCE_REVIEW_PASS a historický overflow CPU replay 8 811 → 8 692 B při
 nezměněném limitu. SQLite actual860 dodal osm úplných generací, ale oracle
 odhalil dvojité mazání v CLI; oba plány úplně rollbacknuté, žádný commit.
@@ -9,12 +9,16 @@ CLI revizi se šesti zachovanými moduly. Zmrazený `f5964604` nyní prošel jed
 novou skutečnou generací, přesným M2 schválením, frozen funkčním testem,
 commitem `a5e789cb` a backend restart/replay/postRestartApp. Nezávislá
 APPLICATION_ACCEPTANCE_REVIEW_PASS přijala přesný SQLite scénář; sedm
-modelových zdrojů se publikuje. Historický osmigenerační FAIL zůstává.
+modelových zdrojů je publikováno v `cd3bece6`, remote ověřený a CI13/13.
+Historický osmigenerační FAIL zůstává.
 Skutečný Ledger, TaskFlow, M3 ProjectContext a pětiminutový worker mají přijaté
 dílčí důkazy. GPU/model readonly UI audit V7 a odstranění tří vlastních refs
 jsou přijaté uzavřené výsledky; Hunt grader/modelové rozhodnutí nejsou přijaty.
-CHAT ladí jiný worker. Po SQLite navazuje obecný M2 AST scanner a větší
-projektový průchod; aktuální celý profil, M5/M6 a mobilní fyzická přejímka
+CHAT ladí jiný worker. Po přijatém SQLite má podle revize operátora přednost
+strategie kontextu větších projektů a další odlišná funkční aplikace.
+CPU porovnání zvolilo úplné zdroje při 16k a projektové přírůstky; skutečný
+runtime FIT a produktové zapojení dosud čekají. AST příprava se uchová;
+aktuální celý profil, M5/M6 a mobilní fyzická přejímka
 zůstávají otevřené. [Aktuální průběžný report](docs/WORK-PROGRESS.md).
 
 **Historická aktualizace 1. 10. 2026, 16:29 UTC — SQLite kontrakt a skutečný M3 kontext:** publikovaný

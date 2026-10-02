@@ -1,6 +1,6 @@
 # WP — AST kontrola skutečných závislostí M2 CODE
 
-**Stav:** `BOUNDED_REPAIR_AUTHORIZED / CPU_PREPARATION_RUNNING / IMPLEMENTATION_NOT_STARTED`.
+**Stav:** `CPU_PREPARATION_PASS / IMPLEMENTATION_DEFERRED_CONTEXT_PRIORITY`.
 **Vlastník:** ROOT; navazující nechatový milník na publikovaném
 `79b201c8b484a7c8a21225945f51b9dba21d47dc`. Tento návrh neodblokuje
 aktuální fyzickou kvalifikaci a nemění zmrazený SQLite source34.
@@ -138,3 +138,16 @@ nebo source REVIEW_PASS. Před změnou trackovaných zdrojů se publikuje tento
 WP-first rozsah; poté red regrese, implementace, nezávislé adversarial review
 a dotčené skutečné M2/registrované brány. Finální zdrojová přejímka musí
 ověřit navržené meze a produkční call graph, nikoli pouze parser fixture.
+
+
+## Změna pořadí podle revize operátora — 2. 10. 2026
+
+Kontextová strategie větších projektů má přednost před touto implementací.
+80 CPU kontrol a 7 containment kontrol zůstává privátně zapečetěných;
+manifest `162b71bc8070466b9d7c8a8335753790e4d626b1991ea69cf3f98df7afa13478`.
+Delegovaní workeři nezměnili žádný trackovaný zdroj. Čtyři vlastní rozpracované
+ROOT soubory (service, package, lock, tento WP) jsou úplně uloženy v ignored
+`.intentsmith-artifacts/m2-ast-owned-hold-20261002`; patch SHA
+`63447b605b73d3b3967ca588f8acf2f856c5b65d6309570acdebe6941a1decb7`.
+Checkout zdrojů obnovený na publikovaný cd3; původní JS/runtime dependencies
+nezměněné. Produktový AST scanner dosud není implementovaný ani přijatý.

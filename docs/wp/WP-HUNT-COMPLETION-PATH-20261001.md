@@ -1,5 +1,32 @@
 # GPU Hunt — cesta od vývojové matice k přijatému rozhodnutí
 
+## Aktuální diagnóza a obnovené vývojové hodnocení — 2. 10. 2026
+
+Read-only ověření 09:21 UTC stále dává canonical 596/1173, 2324/3689 kritérií.
+Původní Sonnet relace po úspěšném zápisu poslední dávky skončila na API
+týdenním limitu v 2026-09-30T19:43:38.535Z. Přesný redigovaný event a SHA
+celého původního logu jsou v privátním packetu
+`hunt-independent-readonly-diagnosis-20261002-0928`; REVIEW SHA
+`83de196ac21ecd1fb1dfd8795dc70226a00b4fb507f7dbfc17f8f0ebfea29e64`,
+manifest `e349daa4c7a98e1d6ed81db2d78b970ec40b08da8c159307c1d51644853c6835`.
+Čtyři jiné živé CLI procesy nejsou touto grading relací; žádný pozorovaný
+duplicitní Hunt běh. Historický reset text není důkaz aktuálního quota stavu.
+
+Jedno předem zmrazené nezávislé slepé Claude Sonnet 5.5 volání skutečně
+proběhlo 09:32:50–09:36:02 UTC, tools vypnuté, bez GPU či retry. Vráceno a
+validováno 8/8 odpovědí, 32/32 kritérií, přesné anonymní ID a citace původních
+odpovědí/rubrik. Provider hlásí firstParty/model claude-sonnet-5-5 a list usage
+0,480412 USD pod zmrazeným limitem 1 USD; nejde o důkaz účtování předplatného.
+Privátní packet `hunt-owned-claude-blind-development-20261002-0933`, REVIEW
+SHA `7c443ac6291f2fd0e2fb853acc64d8c2a0f0fff139fdd43f731b14713213972d`,
+manifest `8b0593aec153600e1518c6f5d44cb4ee76448d047c7af7afa7c3b0fff9043a6e`.
+
+Jde o 8 nových owned DEVELOPMENT DRAFT známek; starých 106 canonical dávek
+zachováno, jejich 596/1173 se nepřepisuje. Z původní slepé vlny zbývá 136/298
+a navazující fronta 433/1035. Reviewer není přijatý exact-artifact grader;
+disputes, nový holdout a M0 feasibility/method/pair rozhodnutí zůstávají brány.
+Žádná aktivace, zápis do modelové DB ani nové modelové rozhodnutí.
+
 ## Poslední strukturální kontrola — 1. 10. 2026, 13:31 UTC
 
 Read-only canonical verifier nad stejným frozen packetem znovu skončil exit 0:
@@ -57,7 +84,8 @@ reusable captures. Všechny role mají `decisionReady:false` a sémantické
 role 0 accepted graders. Toto čtení posuzuje pouze instalovanou DB,
 nikoli oddělený vývojový packet 1 173 odpovědí; neodmítá jeho obsah.
 
-Připravená slepá vlna 144 odpovědí / 330 kritérií a zbývající fronta
+Historický checkpoint 1. 10. 2026 (nahrazený aktuální sekcí nahoře):
+připravená slepá vlna 144 odpovědí / 330 kritérií a zbývající fronta
 433/1 035 má samostatné integrity REVIEW_PASS, ale stále
 `NOT_EVALUATED / NO_DECISION`. Zjištění vlastníka probíhajícího externího
 hodnocení čeká; bez něj se nesmí spustit duplicitní placená práce.

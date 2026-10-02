@@ -475,5 +475,67 @@ obsahuje sedm přesných modulů /8 965 B; žádný DB, prompt, full response an
 private Git object. Samostatná copy/privacy kontrola exportu má SOURCE_EXPORT_REVIEW_PASS,
 receipt `00b78d60b3d2d7ea91f0b194d3df248e6b3679086b97a8f4ce729d20e25c42a4`;
 export manifest `d0784275c353bfeed2408a84f5ef08ec8463f1ff578440eb046b1d0bb130461c`.
-Nejcennější další krok: obecný M2 AST scanner a skutečný větší projektový
-průchod; žádné opakování již přijatého SQLite/GPU/cleanup výsledku.
+Historické pořadí před operátorovou revizí: obecný M2 AST scanner a skutečný
+větší projektový průchod. Aktuální pořadí určuje následující §11;
+žádné opakování již přijatého SQLite/GPU/cleanup výsledku.
+
+
+## 11. Větší projekty — nová priorita 2. 10. 2026
+
+Operátorova revize požaduje rozhodnout kontextovou strategii před obecným
+AST scannerem. Historický formatter a SQLite n=1 zůstávají přijaté v jejich
+rozsahu; 119 B úspora neřeší škálování. ROOT navazuje v témže owned checkoutu.
+Před implementací a GPU během porovná CPU reprezentativní větší zdroje,
+fanout, navazující opravu a UTF-8/escaping: plné zdroje při 8k/16k/32k oproti
+přírůstkové dekompozici a případné výslovné projekci rozhraní. Modelová
+hranice a 32 000 B serializační mez se nezaměňují. Service už posílá přímé
+požadované dependencies; nelze tvrdit úsporu odstraněním neexistujícího
+transitivního balastu. CODE 8192 je fallback, nikoli měřená kapacita VRAM.
+
+Případné zvýšení musí mít přesný model/digest/provider/ctx a změřenou GPU
+rezidenci/headroom bez CPU fallbacku. Změna se omezí na CODE connector,
+potřebnou přímo navázanou policy; CHAT kontext ani jeho globální ceiling se
+potichu nemění. Projekce musí odlišit požadované a skutečně pozorované API,
+verzi/původ a úplný source SHA; nepodporované JS tvary konkrétně odmítat.
+Úplné zdroje dál určují preview, digest a zápis, žádné jejich zkrácení.
+
+Nejbližší odlišný projekt je offline fan-monitor core/CLI z existujícího
+WP-PROJECT-FLOW-20260918, ve dvou skutečných D1 přírůstcích. Oracle, parametry,
+kontext i konečný opravný rozsah zmrazit před novou inferencí. Žádné další
+ruční prodlužování běhu podle selhání. Žádná modelová aktivace ani produkční změna.
+
+CPU rozhodnutí ROOT z 09:40 UTC: **úplné zdroje při 16k, pokud přesný runtime
+prokáže FIT, a skutečné projektové přírůstky**. Stávající 32 000 B obal zatím
+zůstane; při 16k modelový build guard 23 808 B a repair 27 904 B stejně omezuje
+víc. Build output se výslovně mění 3 440 → 4 096 tokenů, repair zůstává 2 048,
+rezerva 384. Před GPU během i produktovým zapojením se tato policy zmrazí.
+
+Zapečetěný privátní CPU packet `code-context-scaling-cpu-20261002-092213`,
+manifest `191b80532bfa6ce0b7f3656c6aa399c751985a5d6449572a32ccb8502befe2c7`,
+RESULT `1b77c68425ea463aadcfea6d98395fde28b092f2e5c77f896987f92637f2b060`:
+198 velikostních případů, devět 32souborových grafů se všemi kroky, 27 oprav,
+šest byte regresí a devět resolver kontrol. Původních 379 souborů zachovalo
+hash/mode/mtime. Vstup 8 811 B = 5 961 B úplných zdrojů + 164 B source escaping
++ 1 513 B nesource JSON + 1 173 B system. Indexed obal má 1 264 B nesource
+JSON a 1 303 B system, zdroje a jejich escaping přesné: celkem 8 692 B.
+
+| Konkrétní úplný vstup | B | 16k | 32k, obal beze změny |
+| --- | ---: | --- | --- |
+| Dvě 8KiB dependency, skutečný růst těl funkcí | 19 147 | fits | fits |
+| Dvě 16KiB dependency, skutečný růst těl funkcí | 35 843 | guard FAIL | serializer FAIL |
+| Escaping, dvě 8KiB dependency | 31 535 | guard FAIL | fits |
+| Repair 16KiB cíl + jedna 8KiB dependency | 27 097 | fits | fits |
+| Repair 16KiB cíl + dvě 8KiB dependency | 35 372 | guard FAIL | serializer FAIL |
+
+Matrix coverage 27/198 při 8k, 97/198 při 16k, 103/198 při 32k jsou velikostní
+fixtures, nikoli modelová kvalita. 32k jen změnou num_ctx ponechá druhou mez;
+teprve explicitní budget-derived envelope by pokryl 137/198. Pokud příští
+skutečný projekt potřebuje více, volit změřené 32k s odpovídajícím obalem nebo
+skutečnou změnu architektury na menší přírůstky. Žádné vynechání dependencies.
+
+Explicitní CPU projekce v2 zkrátila pátý vstup na 6 489 B, ale ztrácí callback,
+validaci, returns/errors a atomicitu; navazující skutečné soubory podporuje
+jen 6/13. Nevolí se jako první oprava. Resolver/gateway mají ještě nezměněný
+cache/profile ceiling: prostý caller num_ctx override není produktové řešení.
+Nový CODE rozpočet musí být interní, digest-bound a stejný při preflight i
+generování; změna nesmí potichu zvýšit CHAT kontext ani obejít starý profil.
