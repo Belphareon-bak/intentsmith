@@ -1,6 +1,6 @@
 # IntentSmith — průběh práce na kvalitě chatu
 
-Poslední aktualizace: **2. 10. 2026, 10:32 CEST**. Stav: **CHANGES_REQUIRED / WORK_CONTINUES / REVIEW_PENDING**.
+Poslední aktualizace: **2. 10. 2026, 10:49 CEST**. Stav: **CHANGES_REQUIRED / WORK_CONTINUES / REVIEW_PENDING**.
 Dokument aktualizuji po každém dokončeném milníku, nejpozději po třech hodinách
 aktivní práce. Historická selhání zůstávají uvedena; nové ověření je nepřepisuje
 na úspěch. Nejde o plánovač úloh po ukončení této pracovní relace.
@@ -192,6 +192,33 @@ nebyla spuštěna; hotová S1 zůstává na `3b3b399f` s výsledkem **NO_GO**.
 | Návrat k rozhodnutí po dlouhém archivu zachová pozdější Javor a původní JILM_407 / ruční kontrolu bez změn; starý souhrn s Lípou opravu nezruší. | `97395516` / `088fcb1f-9896-41d4-afc4-dcdbaf204f4b`: 2/2 užitečných, 0 zastavení, 0 kritických chyb a 0 efektů; čtyři inference přesného digestu Qwen3.5. Skutečný klasifikační paket obsahuje původní ID 1 a opravu ID 1015. Jde o 1 015 syntetických uložených USER zpráv, nikoli 1 015 živých modelových turnů. | Lexikální relevance, tři výňatky a označený 512B prefix zůstávají omezením; ostatní faktické chyby a nová kompletní přejímka tím nejsou vyřešené. | Pro konkrétní faktické chyby porovnat surovou odpověď a celý skutečný providerový vstup se stejným artefaktem modelu. |
 
 [Kontrolovatelná evidence včetně skutečných providerových rolí a podkladů](../review/evidence/chat-quality-20261001/archive-boundary-live.json).
+
+## Milník S4 — skutečná hranice faktických chyb
+
+| Změna uživatelského chování | Stručný důkaz | Zbývající problém | Jeden následující krok |
+| --- | --- | --- | --- |
+| Tento diagnostický milník nemění runtime. Oprava archivu zůstává; faktické odpovědi stále nelze označit za spolehlivé. Nezavádíme nedoloženou opravu předávání kontextu ani změnu modelových bindingů. | Osm konkrétních chybných odpovědí S1 je bajtově shodných se surovým providerovým textem; celé zadání a příchozí historie jsou ve skutečném vstupu. Šest nových volání přesně opakuje tři původní vstupy na stejném digestu Qwen3.5, včetně obou SYSTEM a parametrů. Rok 2024, obrácená negace a „hlubší vrstvy“ se v těchto dvou opakováních příslušného případu nevrátily; jiné nepodložené závěry o modelových verzích a přehnaný příměr paměti zůstávají. | Chybná fakta vznikají při generování. Dvě náhodná opakování neoddělí vliv promptu od omezení modelu; přímé A má jednodušší prompt, někdy jiný výstupní strop. Chyba kontextu zde doložená není. | Dokončit celý offline/DB profil aktuálního kandidáta před zmrazenou regresní přejímkou. |
+
+[Úplné syntetické providerové vstupy, původní B/A a všech šest opakování](../review/evidence/chat-quality-20261001/factual-provider-trace.json).
+Run `c1647717-6a1b-431b-b863-89d3011bfb86` na `38ca74c3`, provider
+`0.34.0-intentsmith.1`, digest beze změny; 6 platných inferencí, nulové externí
+akce. Tři předchozí starty zachovány jako BLOCKED_GPU s nulou inferencí kvůli
+využití GPU. Vlastní prokazatelně nečinná residency byla uvolněna; cizí procesy
+ani modely nebyly zastaveny. Nejde o nový počet PASS ani obecnou přejímku.
+
+U těchto chyb má smysl ověřené doplnění podkladů a řízené vyhodnocení
+instrukcí/modelu. Samotné doplnění dalšího obecného zákazu nepravdivých faktů
+nemá prokázaný přínos; stávající taková instrukce ve vstupu skutečně je.
+Aktuální priority nevyžadují změnu fyzického modelu, jeho porovnání je odložené.
+
+CI má [konkrétní předávací návrh](../review/2026-10-02-CHAT-CI-HANDOFF.md)
+na ověřený main, včetně sedmi sad a zachování auditních reportů. Vlastník/kanál
+stále není známý, workflow nebyl měněn a CI kandidáta není doložené.
+
+První nový start celého profilu `chat-quality-full-20261002-archive` runner
+odmítl (exit 2, 0 testů): nově vytvořená evidence ještě nebyla commitnutá a
+runner vyžaduje čistý strom. Nejde o výsledek profilu; po publikaci důkazu
+následuje nový čistý běh s jiným ID.
 
 ## Další milník a podmínky přijetí
 

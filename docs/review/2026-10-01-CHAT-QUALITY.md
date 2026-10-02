@@ -175,3 +175,45 @@ nebyla spuštěna; hotová S1 zůstává na `3b3b399f` s výsledkem **NO_GO**.
 Větev `work/chat-quality-20261001` vychází z přesně připnutého `45caf5b5`, srovnávací vzdálená větev `review/chat-quality-base-20261001` ukazuje na stejný commit. Pushe jsou ověřené vzdáleným SHA; nejsou nasazením ani přejímkou. Draft PR nevzniklo: GitHub integrace odmítla operaci 403 `Resource not accessible by integration`. Stav **PR_NOT_CREATED / CI_NOT_RUN / REVIEW_PENDING** se nemění bez nového důkazu. Jiné workerovy checkouty a produkční proces zůstaly nedotčené.
 
 Další milník: opravit doložené chyby interpretace nepodporovaných operací a doptávání, ověřit původní negativní kontroly a živé dialogy na nových formulacích. Změny budou pokračovat na stejné kandidátní větvi; S1 zůstane historický neúspěšný výsledek svého přesného zdroje. Průběžný dokument se aktualizuje po každém milníku nebo nejpozději po třech hodinách aktivní práce.
+
+## S4 — dohledání faktických chyb v reálném providerovém vstupu
+
+Na osmi konkrétních chybách všech tří S1 sérií je surový providerový text
+shodný s emitovanou odpovědí M1. Aktuální požadavek je ve vstupu právě jednou,
+příchozí historie včetně opravy na lidskou paměť je úplná. Obě skutečné
+SYSTEM zprávy obsahují hodiny a vlastní instrukce s nejistotou, zachováním
+uživatelských faktů a zákazem domýšlení. Chyba předávání kontextu ani pozdější
+přepsání textu tu doložené není; první chybná tvrzení jsou v generovaném textu.
+
+Na `38ca74c3` run `c1647717-6a1b-431b-b863-89d3011bfb86` zopakoval třikrát
+vybraný **přesný** zachycený vstup, každý dvakrát. Stejný Qwen3.5 digest a
+provider; historické hodiny, role, teplota 0,7, formát a tokenový rozpočet
+zůstaly zachované. Všech šest terminálních odpovědí má potvrzený digest.
+Rok 2024, původní obrácená negace letadlového režimu a vymyšlené „hlubší
+vrstvy“ se v těchto opakováních nevrátily. Zůstávají ale obecné nepodložené
+závěry o architektuře z modelového názvu a přehnaná analogie permanentního
+uložení lidské paměti. Neoznačuji tyto diagnostické výstupy souhrnným PASS.
+
+[Evidence obsahuje celé providerové vstupy, původní B/A i všechna opakování](evidence/chat-quality-20261001/factual-provider-trace.json).
+Původní A má jiný systémový prompt a u dvou vybraných případů i vyšší limit
+odpovědi: není totožnou kontrolou instrukcí. Dva náhodné vzorky neprokazují
+příčinu na straně promptu nebo modelu. Rozhodnutí: neopravovat bez důkazu
+předávání kontextu, nezavádět další pravidlo podle slov této fixture; řešit
+věcnou spolehlivost podklady a řízeným vyhodnocením promptu/modelu. Bindingy
+a sdílený gateway zůstaly beze změny. S1 NO_GO se nepřepisuje.
+
+Diagnostická rada pro Wi-Fi má chybnou výchozí polaritu vůči
+[postupu Microsoftu](https://support.microsoft.com/en-us/windows/experience/connectivity-networking/fix-wi-fi-connection-issues-in-windows).
+To neznamená, že Wi-Fi nikdy nemůže fungovat se zapnutým režimem letadla;
+[Microsoft popisuje i zapamatování Wi-Fi v tomto režimu](https://support.microsoft.com/en-us/windows/experience/connectivity-networking/essential-network-settings-and-tasks-in-windows).
+Lokalizaci paměti do „hlubších vrstev“ nepodporuje
+[výzkumný přehled distribuované paměti](https://pubmed.ncbi.nlm.nih.gov/9753601/).
+K zapomínání při vybavování existuje také
+[primární výzkum interference](https://pubmed.ncbi.nlm.nih.gov/18564040/),
+proto lidskou dlouhodobou paměť nelze slibovat jako neomylné celoživotní úložiště.
+
+Tři předchozí starty byly BLOCKED_GPU s nulou inferencí. Vlastní residency
+po dokončeném běhu prokazatelně uvolněna. První start nového celého technického
+profilu odmítl dirty strom po vytvoření evidence (exit 2, 0 testů); po commitu
+následuje nový běh. CI má konkrétní [návrh předání](2026-10-02-CHAT-CI-HANDOFF.md),
+vlastník zatím neznámý a žádná změna workflow nebyla provedena.
