@@ -3,15 +3,13 @@
 **Aktuální checkpoint 2. 10. 2026, 14:23 UTC:** ROOT převzal společnou
 integraci, naposledy CHAT `00ec5b52` do publikovaného `f2e6ac1a`.
 Kontroly obou stran zachované, kanonický registr 594, graph 1498/3/28.
-Poslední celý profil na publikovaném `26f087e4`:407 PASS /1 FAIL /0 BLOCKED;
-meta test PASS, jediný nový FAIL je odstraněná čárka v LOC tabulce.
-Počet 268380 je správný, formát opravený, dotčená sada160/160 PASS;
-původní FAIL zůstává.
+Poslední celý profil na publikovaném `2997afd5`:408 PASS /0 FAIL /0 BLOCKED,
+14:24:36–14:34:45 UTC. Původní meta/LOC FAIL reporty zachované.
 DPH eligibility má source review, runtime 57/57, routing 100 %, session 67/67
 plus skutečný řízený M1 HTTP/WS 4/4 PASS. Modelová jazyková kvalita nepřijatá.
-`26f087e4` CI `37018106744` SUCCESS: CHAT 7/7, CODE 6/6 ověřené ze staženého
+`2997afd5` CI `37019631848` SUCCESS: CHAT 7/7, CODE 6/6 ověřené ze staženého
 artefaktu, všech 18 kroků SUCCESS. Lokální Studio build PASS.
-ROOT ověří opravenou dokumentační sadu; CODE zdroje ani vstupy se nemění.
+Vývojový celý profil není release přejímka.
 Registry11/11 PASS, adoptovaný AST evaluator34/34 a default service103/103 PASS,
 dvě omezená nezávislá source review. Tento kandidát není přijatý release.
 CHAT report zůstává NO_GO / REVIEW_PENDING: finální 53×3 nesplnilo kvalitativní cíle;
@@ -43,6 +41,8 @@ její skutečný D1 vstup blokuje CHAT classifier. Další omezený CODE průcho
 použije dokumentovaný explicitní Studio `/m2-build <JSON>`, stejný oracle
 a max11 CODE /0 D1; dva helpery a source/input freeze mají nezávislé review PASS;
 nenahrazuje přijetí přirozeného plánování ani netvrdí D1 průchod.
+První manual běh skončil na pomocném DOM selektoru před inferencí; oprava
+jediného helperu má source review a skutečný CPU renderer6 PASS. Nový live čeká.
 Společné přijetí, M5/M6 a mobilní fyzická přejímka
 zůstávají otevřené. [Aktuální průběžný report](docs/WORK-PROGRESS.md).
 

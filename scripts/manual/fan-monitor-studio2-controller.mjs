@@ -330,26 +330,76 @@ export function makeManualRevision(lastDraft, failedView, selection, { phase, no
   return validateManualDraft(draft, { phase, nodeBinary, repair: true });
 }
 
+// The store can legitimately open a second column when a conversation is added.
+// Read the actual selected session and wait for its corresponding React column.
+// This function is serialized into the renderer; it has no provider or model call.
+async function manualColumnAction(model, args) {
+  if (args.action === 'send') await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  const store = model.widget.store, session = store.find(args.sessionId), state = model.st();
+  if (!session || String(session._projectId) !== String(args.projectId)
+    || String(session._convId) !== args.conversationId || store.focusedSession() !== session
+    || model.widget.transport.hasActiveM1Turn(session) || session._m2Pending
+    || session.chat._projectWorkProposal || session.chat._m2Composer?.open
+    || session.chat._delivery?.status === 'DELIVERY_UNKNOWN') throw Error('FAN_MANUAL_SCOPE_OR_BUSY');
+  const layout = store.state.columns, index = layout.indexOf(session.id);
+  if (index < 0 || layout.lastIndexOf(session.id) !== index || state.focusCol !== index
+    || JSON.stringify(state.colSids) !== JSON.stringify(layout)) throw Error('FAN_MANUAL_COLUMN_BINDING_DRIFT');
+  const visible = node => node.isConnected && node.getClientRects().length > 0
+    && getComputedStyle(node).display !== 'none' && getComputedStyle(node).visibility === 'visible';
+  const roots = [...document.querySelectorAll('[data-studio-ui="studio2"]')].filter(root => {
+    if (!visible(root)) return false;
+    const keys = Object.keys(root).filter(key => key.startsWith('__reactFiber$') || key.startsWith('__reactInternalInstance$'));
+    if (keys.length !== 1) return false;
+    for (let fiber = root[keys[0]], depth = 0; fiber && depth < 64; fiber = fiber.return, depth++) {
+      if ((fiber.memoizedProps?.model || fiber.stateNode?.props?.model) === model) return true;
+    }
+    return false;
+  });
+  const columns = roots.length === 1 ? [...roots[0].querySelectorAll('.cols > .scol')] : [];
+  const diagnostic = { ready: false, mode: state.mode, expectedColumns: layout.length,
+    renderedColumns: columns.length, sessionColumn: index, visibleModelRoots: roots.length,
+    labels: columns.map(column => [...column.querySelectorAll('div.comp > textarea')].map(input => input.getAttribute('aria-label'))) };
+  if (state.mode !== 'sessions' || columns.length !== layout.length || roots.length !== 1) return diagnostic;
+  for (let i = 0; i < columns.length; i++) {
+    const inputs = columns[i].querySelectorAll('div.comp > textarea');
+    const expected = 'Zpráva pro relaci ' + model.sessionNumber(layout[i], state);
+    if (!visible(columns[i]) || inputs.length !== 1 || inputs[0].getAttribute('aria-label') !== expected
+      || columns[i].classList.contains('focus') !== (layout.length > 1 && i === index)
+      || columns[i].querySelector('.pane-tt')?.textContent !== model.sess(layout[i], state).title
+      || inputs[0].value !== (state.drafts[layout[i]] || '')) return diagnostic;
+  }
+  const column = columns[index], input = column.querySelector('div.comp > textarea');
+  const buttons = [...column.querySelectorAll('div.comp button[aria-label="Odeslat"]')];
+  if (!visible(input) || input.disabled || buttons.length !== 1 || !visible(buttons[0]) || buttons[0].disabled) return diagnostic;
+  diagnostic.ready = true;
+  if (args.action === 'probe') return diagnostic;
+  if (args.action !== 'send') throw Error('FAN_MANUAL_UNKNOWN_ACTION');
+  Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, args.command);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  if (model.st().drafts[args.sessionId] !== args.command) throw Error('FAN_MANUAL_LITERAL_INPUT_DRIFT');
+  // The same session column owns both the controlled input and the normal Send.
+  if (!column.isConnected || !input.isConnected || !buttons[0].isConnected
+    || store.focusedSession() !== session) throw Error('FAN_MANUAL_DOM_CHANGED_BEFORE_SEND');
+  buttons[0].click(); return diagnostic;
+}
+
 export async function prepareActualManualDraft(studio, { sessionId, projectId, conversationId, phase, nodeBinary, draft, beforeSubmit = async () => {} }) {
   validateManualDraft(draft, { phase, nodeBinary, repair: Boolean(draft.revisionOf) });
   const command = '/m2-build ' + JSON.stringify(draft);
+  const args = { sessionId, projectId, conversationId, command };
+  let lastReadiness = null;
+  try {
+    await waitUntil(async () => {
+      lastReadiness = await invoke(studio, manualColumnAction, { ...args, action: 'probe' });
+      return lastReadiness.ready ? lastReadiness : null;
+    }, 'actual selected Studio session column and scoped Send', 15000);
+  } catch (error) {
+    throw new Error('FAN_MANUAL_COLUMN_NOT_READY:' + JSON.stringify(lastReadiness), { cause: error });
+  }
   // Freeze the literal operator specification before the public Send action.
   await beforeSubmit(copy(draft));
-  await invoke(studio, (model, args) => {
-    const session = model.widget.store.find(args.sessionId);
-    if (!session || String(session._projectId) !== String(args.projectId)
-      || String(session._convId) !== args.conversationId || model.widget.transport.hasActiveM1Turn(session)
-      || session._m2Pending || session.chat._projectWorkProposal || session.chat._m2Composer?.open
-      || session.chat._delivery?.status === 'DELIVERY_UNKNOWN') throw Error('FAN_MANUAL_SCOPE_OR_BUSY');
-    const textareas = [...document.querySelectorAll('[data-studio-ui="studio2"] textarea[aria-label^="Zpráva pro relaci "]')];
-    if (textareas.length !== 1) throw Error('FAN_MANUAL_ONE_VISIBLE_COLUMN');
-    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(textareas[0], args.command);
-    textareas[0].dispatchEvent(new Event('input', { bubbles: true }));
-    if (model.st().drafts[args.sessionId] !== args.command) throw Error('FAN_MANUAL_LITERAL_INPUT_DRIFT');
-    const buttons = [...document.querySelectorAll('button[aria-label="Odeslat"]')];
-    if (buttons.length !== 1 || buttons[0].disabled) throw Error('FAN_MANUAL_SEND_BUTTON');
-    buttons[0].click(); return true;
-  }, { sessionId, projectId, conversationId, command });
+  const sent = await invoke(studio, manualColumnAction, { ...args, action: 'send' });
+  assert.equal(sent.ready, true, 'actual selected column still ready before single Send');
   const result = await waitUntil(() => invoke(studio, (model, args) => {
     const session = model.widget.store.find(args.sessionId), entry = model.widget.m2.entry(session);
     if (entry.busy) return null;

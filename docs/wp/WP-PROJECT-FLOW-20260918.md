@@ -210,3 +210,27 @@ preserve all source/input/71-file bindings and historical artifacts.
 Published `734231e4` CI 18 steps SUCCESS; full profile 407 PASS /1 FAIL /0 BLOCKED
 finds only a stale specialist meta-test count. New candidate/profile required
 before live; no model call or application result claimed.
+
+## Session-bound manual UI correction — 2 October, 14:50 UTC
+
+Shared `2997afd5` has actual whole offline/database408/408 PASS, zero blockers,
+report SHA `b69dcc223e231412a3227659ad17a69397007233a1b98dd40b3846d775e5138b`,
+and CI37019631848 all18 steps SUCCESS. It is not release acceptance.
+Its first manual physical qualification failed before inference on
+FAN_MANUAL_ONE_VISIBLE_COLUMN; provider only served three metadata requests.
+Actual result SHA `c44f65c93aa0f0522c389588fecd4d1efa4062bcf8f0253385ebd79267c1e492`;
+all owned processes stopped, lease released, source unchanged.
+
+The catalog open adds a second legitimate focused column after the one-column
+button; React also briefly retains old DOM. ROOT owns only a correction in the
+existing manual controller. It now waits read-only for the model-owned visible
+root and actual session column, verifies origin/focus/number/title/draft, and
+uses that column's native input and one normal Send. Other sessions remain.
+Actual CPU Electron/React fixture6 PASS, zero network/backend/provider/model:
+receipt SHA `243b70414b0e0ccd271bed1802e730b0a052c0077973f97ee298cd00875e86f7`.
+Scoped independent source review PASS, receipt SHA
+`b05f24ca4d017a4a112004ddd86d23cc1de2eb4f74be28ce670edf533df82364`; controller SHA
+`ea133a526bf18de7b68a9bbfa882a24dceca0b1163555fc1d6135371e5c6aced`.
+Original D1/approval functions, runner, APIs, frozen inputs/oracles/caps unchanged.
+New helper closure/source freeze and actual qualification remain required;
+no generated app, model quality, commit or persistence PASS is claimed.

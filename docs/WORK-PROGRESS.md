@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 2. 10. 2026, 14:23 UTC / 16:23 CEST.
+**Aktualizováno:** 2. 10. 2026, 14:50 UTC / 16:50 CEST.
 **Vlastník:** ROOT. CHAT ladí jiný worker.
 Report aktualizuji po milníku, nejpozději po 3 h aktivní práce; operátorovi
 podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
@@ -37,13 +37,12 @@ podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
 1. **Společná integrace:** publikovaný `d7e7d1b1` slučuje `2a479852` + `6f0259ec`.
    Tři konflikty vyřešené, registry 594/35; novější CHAT `00ec5b52`
    je začleněný v `f2e6ac1a`. Poslední úplný offline/database profil
-   na publikovaném `26f087e4`: **407 PASS /1 FAIL /0 BLOCKED**, verdict FAIL.
-   Meta test je opravený a PASS. Jediný nový FAIL je formát LOC tabulky:
-   ROOT omylem odstranil čárku; správný počet 268380 se nemění.
-   Formát opravený, dotčená sada **160/160 PASS**; oba FAIL reporty zůstávají.
+   na publikovaném `2997afd5`: **408 PASS /0 FAIL /0 BLOCKED**, verdict PASS,
+   14:24:36–14:34:45 UTC; report SHA `b69dcc223e231412…775e5138b`.
+   Meta test i formát LOC opravené; oba původní FAIL reporty zachované.
    DPH eligibility: nezměněný routing 100 %, runtime 57/57, session 67/67 PASS;
    skutečný řízený M1 HTTP/WS 4/4 PASS (info vrací expertise gap).
-   [CI na přesném `26f087e4` SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37018106744):
+   [CI na přesném `2997afd5` SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37019631848):
    stažený artefakt potvrzuje **CHAT 7/7 + CODE 6/6**, všech 18 kroků SUCCESS.
    Studio/privacy/hygiene a lokální build PASS; vývojový výběr kontrol
    nenahrazuje celý profil ani přijetí releasu.
@@ -75,7 +74,10 @@ podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
    Dva helpery publikované v `734231e4`, source/input review PASS, CPU8/8;
    plné vstupy
    14–17 kB /10–12 kB přesahují starý8736 B guard. Modelová aplikace NOT_RUN.
-   Oracle, 0 D1 /max11 CODE a limity oprav 172/163 UTF-8 B jsou zmrazené.
+   První běh `2997afd5` skončil na kvalifikačním DOM výběru, **0 inferencí**;
+   čistý stop/source/lease. Oprava jediného helperu má skutečný renderer CPU6 PASS
+   a source review PASS; nový fingerprint a živý běh čekají.
+   Oracle, 0 D1 /max11 CODE a limity oprav 172/163 UTF-8 B zůstávají stejné.
    Tento průchod nepřijímá přirozené plánování; to zůstává CHAT workerovi.
 4. **Hunt:** aktuální kontrola 2. 10. 09:21 UTC potvrzuje 596/1173. Původní
    hodnoticí relace skončila na týdenním limitu poskytovatele; přesný event

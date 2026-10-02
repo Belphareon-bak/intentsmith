@@ -11,14 +11,12 @@ kontrol, 594 programů /35 exclusions. Publikovaný `d7e7d1b1`: úplný profil
 opravený 160/160 PASS; chatové routování FAIL a tři PDF/OCR původně BLOCKED.
 Tyto tři runtime sady následně na `252e839b` skutečně 3/3 PASS;
 původní celý profil se nemění. Stávající runtime existují, instalace nebyla nutná.
-Předchozí celý profil `734231e4`: 407 PASS /1 FAIL /0 BLOCKED;
-DPH eligibility již má runtime 57/57, routing 100 %, session 67/67 a skutečné
-řízené M1 HTTP/WS 4/4 PASS. Meta-test je opravený a PASS; nový celý profil
-`26f087e4` má 407 PASS /1 dokumentační FAIL /0 BLOCKED: po přeměření LOC
-chyběla čárka tabulky, počet 268380 je správný. Formát opravený, dotčená sada160/160 PASS.
-Novější CHAT `00ec5b52` je integrován do `f2e6ac1a`; aktuální publikovaný
-`26f087e4` má CI `37018106744` SUCCESS: stažené CHAT 7/7, CODE 6/6,
-všech 18 kroků SUCCESS. Lokální Studio build PASS.
+Poslední celý profil `2997afd5`:408 PASS /0 FAIL /0 BLOCKED,
+14:24:36–14:34:45 UTC. Původní734/26f meta/LOC FAIL zachované.
+DPH eligibility má runtime57/57, routing100 %, session67/67 a skutečné
+řízené M1 HTTP/WS4/4 PASS. Novější CHAT `00ec5b52` je integrován.
+`2997afd5` má CI `37019631848` SUCCESS: stažené CHAT7/7, CODE6/6,
+všech18 kroků SUCCESS. Lokální Studio build PASS.
 Registry11/11 PASS, default AST service103/103 a evaluator34/34 PASS, dvě omezená
 source review PASS. Žádný deploy ani release acceptance.
 Chatový report zůstává
@@ -34,6 +32,8 @@ zapojený, source review PASS, service 104/104 PASS; nový skutečný projekt NO
 Fan D1 entry je doloženě blokovaný CHAT ProjectHandler směrováním do běžné
 odpovědi místo D1. Dokumentovaná explicitní Studio `/m2-build <JSON>` cesta je další
 omezená CODE strategie; není důkazem opraveného přirozeného plánování.
+Její první actualUI pokus skončil na pomocném selektoru, 0model calls, čistý
+stop/lease/source. Jediný helper opravený a actualCPU renderer6 PASS; live čeká.
 
 Zmrazený `f5964604` má SOURCE_REVIEW_PASS, čtyři dotčené registrované sady
 PASS a vlastní CI13 SUCCESS. SQLite pokračování 08:18 UTC dodalo právě
