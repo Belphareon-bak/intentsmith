@@ -1,6 +1,6 @@
 # IntentSmith — průběh práce na kvalitě chatu
 
-Poslední aktualizace: **2. 10. 2026, 11:02 CEST**. Stav: **CHANGES_REQUIRED / WORK_CONTINUES / REVIEW_PENDING**.
+Poslední aktualizace: **2. 10. 2026, 12:05 CEST**. Stav: **NO_GO / WORK_CONTINUES / REVIEW_PENDING**.
 Dokument aktualizuji po každém dokončeném milníku, nejpozději po třech hodinách
 aktivní práce. Historická selhání zůstávají uvedena; nové ověření je nepřepisuje
 na úspěch. Nejde o plánovač úloh po ukončení této pracovní relace.
@@ -243,6 +243,52 @@ Qwen3.5. Nová série je **regrese po S1**, nikoli dosud neviděný holdout F14�
 Výsledky a milník se zapíší po dokončení celé zmrazené série, SHA je v jejím
 manifestu. Vlastní hodnocení nenahrazuje nezávislé přijetí.
 
+## Milník S6 — dokončená zmrazená regrese S2
+
+| Změna uživatelského chování | Stručný důkaz | Zbývající problém | Jeden následující krok |
+| --- | --- | --- | --- |
+| Aktuální cesta zvládá přesné schválené soubory, dostupnost nástrojů a většinu návaznosti v původních dialozích. Může však nepravdivě oznámit odeslání e-mailu, přestože žádný efekt nenastal. | Nezměněný `6f0259ec`, tři úplné série 53: vlastní užitečnost 49/53, 48/53, 47/53 (celkem 144/159 = 90,57 %), zbytečná zastavení 0/0/1, kritické nálezy 1/0/0. Všech 159 žádostí bez předčasného efektu; 39 přesných schválených zápisů a 12 správných čtení. Všech 24 příkladů Pythonu izolovaně ověřeno. | **NO_GO**: cíl 95 % nesplněn a existuje vymyšlené provedení. Toto je vlastní hodnocení známé regrese, nikoli nový holdout nebo nezávislé přijetí. Technická brána zůstává 399 PASS / 4 FAIL / 3 BLOCKED; CI nedoložené. | Opravit nezávisle reprodukovanou mezeru fixture `decision.toJSON` a ověřit také úspěšný návrat handleru. |
+
+Běhy: `1020b23a-c809-46b4-8df0-e610baa0ab49`,
+`7a554d42-eb33-43d5-b87d-38f11756f3d5`,
+`c0558205-c3e3-4e5c-b66d-16bca89d8f61`. Stejný model/digest, corpus,
+runner a konfigurace; 139/139/140 platných inference, žádná neplatná.
+Odmítnutý start druhého běhu `62cdd4af-b15d-4aac-922f-333583f1e90f`
+zůstává **BLOCKED_GPU**, 0 případů a volání. Odpovědi se četly až po dokončení
+všech tří opakování; mezi běhy nebyla žádná změna kandidáta.
+
+[Každá odpověď a významový důvod hodnocení](../review/evidence/chat-quality-20261001/s2-semantic-assessment.json),
+[skutečné efekty](../review/evidence/chat-quality-20261001/s2-effect-check.json),
+[izolované příklady](../review/evidence/chat-quality-20261001/s2-code-check.json),
+[rozklad latence S2](../review/evidence/chat-quality-20261001/s2-latency-decomposition.json),
+[kritický providerový vstup a nezměněný výstup](../review/evidence/chat-quality-20261001/s2-critical-provider-trace.json).
+Kritický nález není skutečné odeslání: raw modelový výstup tvrdí odeslání,
+zatímco trace žádný efekt nedokládá. Zlepšení vlastního souhrnného skóre proti
+S1 neprokazuje konvergenci ani přijetí; známé formulace už nejsou holdout.
+
+Na stejných dvaceti textových případech má S2 průměr rozhodování
+2,413 / 3,555 / 4,693 s a generování s kontrolami 4,666 / 6,240 / 8,054 s.
+Providerový součet je 6,267 / 6,812 / 7,172 s. Zbytek není čistá režie aplikace:
+synchronní evidence roste i uvnitř nového masteru. S1 a S2 mají jiný objem
+diagnostické historie; jejich rozdíl nelze vydávat za zrychlení produktu.
+Čisté měření interpretace/generování/aplikace/diagnostiky teprve následuje.
+
+### Přijatý doplňující nezávislý posudek
+
+Potvrzuji přesnější stav úplného profilu na `289afec0` a jeho runtime shodu
+s dokumentačním `6f0259ec`. Novou reprodukci „Projekt má název Lípa.“ →
+„Oprava: místo toho používej Javor.“ přijímám jako konkrétní závadu výběru
+archivu: chybí významová návaznost a `omitted=false` zamlčuje nevybranou opravu.
+Zvlášť ověřím růst ceny hledání, opravy za koncem výňatku a změnu tématu.
+FTS5 ani embeddings nejsou samy důkazem správnosti významu.
+
+Další aplikační opravy vyžadují reprodukci. Původní 53 zůstává regresí;
+budoucí nepoužitý holdout bude oddělen od ladění a nezávisle hodnocen.
+Modelový pilot M0 nepřijal nezhoršení Qwen3.8 a hodnotitel viděl identity;
+porovnávání modelů zůstává odložené podle operátora. `routing-accuracy`
+(DPH v Německu) je otevřená skutečná vada sdílené specialistní cesty.
+CI návrh je připraven, kontakt vlastníka integrace dosud není určen.
+
 ## Další milník a podmínky přijetí
 
 1. Nové dialogy A/B, přirozené akce, dlouhá návaznost, restart a osm kompakcí
@@ -251,9 +297,9 @@ manifestu. Vlastní hodnocení nenahrazuje nezávislé přijetí.
    explicitně otevřené; profil není zelený.
 3. Tři celé nezměněné série původních 53 případů dokončeny na `3b3b399f`.
    Vlastní významové hodnocení, efekty, kód a latence dokončeny; S1 nesplnil přijetí.
-4. Opravit doložený neplatný enum mazání a otázky na vlastní schopnosti aplikace,
-   zachovat fail-closed autority a potřebná doptání. Cílené testy a nové živé
-   formulace mají doložit opravu; původní S1 se nepřepisuje.
+4. S2 je dokončená regrese na `6f0259ec`, rovněž NO_GO. Následuje oprava
+   fixture, významového výběru archivu a oddělené měření výkonu a latence.
+   Původní S1 ani S2 se nepřepisují.
 5. Nezávislé review a skutečné CI zůstávají otevřené.
 
 Předem dané cíle: ≥95 % užitečných reakcí, ≤5 % zbytečných zastavení,
