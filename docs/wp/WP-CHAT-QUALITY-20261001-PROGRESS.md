@@ -1,6 +1,6 @@
 # IntentSmith — průběh práce na kvalitě chatu
 
-Poslední aktualizace: **2. 10. 2026, 12:05 CEST**. Stav: **NO_GO / WORK_CONTINUES / REVIEW_PENDING**.
+Poslední aktualizace: **2. 10. 2026, 12:07 CEST**. Stav: **NO_GO / WORK_CONTINUES / REVIEW_PENDING**.
 Dokument aktualizuji po každém dokončeném milníku, nejpozději po třech hodinách
 aktivní práce. Historická selhání zůstávají uvedena; nové ověření je nepřepisuje
 na úspěch. Nejde o plánovač úloh po ukončení této pracovní relace.
@@ -288,6 +288,17 @@ Modelový pilot M0 nepřijal nezhoršení Qwen3.8 a hodnotitel viděl identity;
 porovnávání modelů zůstává odložené podle operátora. `routing-accuracy`
 (DPH v Německu) je otevřená skutečná vada sdílené specialistní cesty.
 CI návrh je připraven, kontakt vlastníka integrace dosud není určen.
+
+## Milník S7 — odstraněná falešně zelená fixture
+
+| Změna uživatelského chování | Stručný důkaz | Zbývající problém | Jeden následující krok |
+| --- | --- | --- | --- |
+| Produkční chování se touto opravou nemění. Kontrola běžné odpovědi nyní odhalí chybu návratu handleru i při správném providerovém vstupu. | Přidaná asertace před opravou reprodukovala `decision.toJSON is not a function`. Po vytvoření skutečného rozhodnutí přes existující factory: celý program 17/17 PASS, včetně skutečného HTTP restartu. Test ověřuje přesný návrh zprávy, nepřítomnost error, model, finishReason, ANSWER, requestedOperation, čas a canExecute=false. | Jde o opravu důkazu, nikoli o důkaz vyšší modelové kvality; kritický S2 nález, archiv, CI a technické non-PASS zůstávají. | Reprodukovat a opravit výběr archivní opravy bez společných slov pro paměťový i SQLite backend. |
+
+Předchozí příliš obecný filtr názvu vybral nula subtestů a není započítán
+jako PASS. Správný konkrétní filtr nejprve selhal a po opravě prošel;
+potom prošel celý program. Fixture emituje použitelný přesný návrh zprávy,
+ne nesouvisející text o Gitu. Produkční metoda rozhodnutí se nemění.
 
 ## Další milník a podmínky přijetí
 

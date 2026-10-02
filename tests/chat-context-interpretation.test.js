@@ -226,9 +226,11 @@ test('a numeric reply fills an open question instead of taking the stateless ari
 test('ordinary answer includes scoped memory as reference data and preserves the current user request', async () => {
   const original = llmGateway.call;
   const calls = [];
+  const draft = 'Nemám nástroj k odeslání zprávy. Pro billing+qa@example.test je připraven text: „Přijdu ve 14:30.“';
   llmGateway.call = async (prompt, options) => {
     calls.push({ prompt, options });
-    return { content: 'Commit je uložený snímek změn v Gitu.', model: 'controlled', finishReason: 'stop' };
+    return { content: prompt.includes('billing+qa@example.test') ? draft : 'Commit je uložený snímek změn v Gitu.',
+      model: 'controlled', finishReason: 'stop' };
   };
   try {
     const decision = creDecisionEngine.overrideDecision({ type: DecisionType.ANSWER,
@@ -266,9 +268,19 @@ test('ordinary answer includes scoped memory as reference data and preserves the
     assert(calls[3].options.systemPrompt.includes(JSON.stringify('Zkrať ten text na dvě věty.')));
     assert.match(calls[3].options.systemPrompt, /grants no external action authority/u);
     assert(calls[3].prompt.endsWith('User: Tady je správný podklad: seminář bude ve čtvrtek.'));
-    await handleAnswerDecision('Pošli zprávu „Přijdu ve 14:30.“ na billing+qa@example.test.', {
+    const draftDecision = creDecisionEngine.overrideDecision({
       ...plain, metadata: { responseScope: 'conversation', requestedOperation: 'other' },
-    }, { history: [] });
+    });
+    const draftReply = await handleAnswerDecision('Pošli zprávu „Přijdu ve 14:30.“ na billing+qa@example.test.',
+      draftDecision, { history: [] });
+    assert.equal(draftReply.content, draft);
+    assert.equal(draftReply.tag.metadata.error, undefined, JSON.stringify(draftReply));
+    assert.equal(draftReply.tag.canExecute, false);
+    assert.equal(draftReply.tag.metadata.model, 'controlled');
+    assert.equal(draftReply.tag.metadata.finishReason, 'stop');
+    assert.equal(draftReply.tag.metadata.decision.type, DecisionType.ANSWER);
+    assert.equal(draftReply.tag.metadata.decision.metadata.requestedOperation, 'other');
+    assert.equal(typeof draftReply.tag.metadata.answerTiming.generationAndChecksMs, 'number');
     assert(calls[4].options.messages.filter(message => message.role === 'system')
       .some(message => message.content.includes('Preserve quoted draft bodies byte-for-byte')));
     assert.equal(calls[4].options.messages.at(-1).content,
