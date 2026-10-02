@@ -602,6 +602,7 @@ servisní CI kontrola
 `0ced6510ee02374d578edd9182b57eca8e2eb1b5500ed49481721aeb207fdf2a`.
 CI zahrne oba modelové/context testy, bez změny chatových kontrol.
 Jedna nová hrana gateway→model-runtime-profile; žádný removed edge ani
-nový cyklus. Baseline se přijme oficiálním nástrojem na čistém source.
+nový cyklus. Oficiální ratchet přijal právě tuto hranu na čistém source
+`a68ce03c286e4657ed0a6f1fdda88f1f06ab1132`: 1497 hran, 3 cykly /28 členů.
 Poté jeden celý společný profil. GPU/app/full-window jsou stále NOT_RUN;
 allocation-only profil nezaměňuje UNKNOWN za vymyšlený obecný VRAM FIT.

@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "4a8fb4b2dfb8752324974ef364860a79f8ac3892",
-  "sourceTree": "06a28b3dff89dd303987dd50b1a7df598ae9ab3d",
+  "sourceRevision": "a68ce03c286e4657ed0a6f1fdda88f1f06ab1132",
+  "sourceTree": "8253543c8f1ba3d40516e51a0e5247cfe74f6d20",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "a111646c052627fd0803fc881838f58d7d5fd8dc",
@@ -810,6 +810,7 @@
     "src/llm/gateway.js -> src/core/logger.js",
     "src/llm/gateway.js -> src/llm/auth-types.js",
     "src/llm/gateway.js -> src/llm/model-ctx.js",
+    "src/llm/gateway.js -> src/llm/model-runtime-profile.js",
     "src/llm/gateway.js -> src/upgrade/model-identity.js",
     "src/llm/gateway.js -> src/upgrade/model-universe-store.js",
     "src/llm/gateway.js -> src/upgrade/model-use-authority.js",
