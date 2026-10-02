@@ -10189,7 +10189,10 @@
         "database": false,
         "server": false,
         "ollama": false,
-        "gpu": false
+        "gpu": false,
+        "toolchain": [
+          "prlimit"
+        ]
       },
       "required": true,
       "owner": "primary implementer",
@@ -10222,7 +10225,8 @@
         "gpu": false,
         "toolchain": [
           "bwrap",
-          "git"
+          "git",
+          "prlimit"
         ]
       },
       "required": true,

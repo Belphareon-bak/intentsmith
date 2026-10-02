@@ -24,6 +24,14 @@ import {
 import { suite, testAsync, summary } from './harness.js';
 import { compileCodeDraftInput, compileCodeDraftResult, buildCodeDraftPrompt, assertCodeDraftModelBudget } from '../src/lifecycle/m2-code-draft.js';
 import { initializeNewProject } from '../src/planner/project-onboarding.js';
+import { processSandboxProvider } from '../src/execution/process-sandbox-provider.js';
+import { computeM2ProjectChangeRequestDigest } from '../contracts/m2/execution-v1.js';
+import {
+  M2_GOVERNANCE_DECISION_CHECKS,
+  computeM2GovernanceBaselineDigest,
+  computeM2GovernancePolicySnapshotDigest,
+  createM2GovernanceDecision,
+} from '../contracts/m2/governance-v1.js';
 
 const PROJECT_ID = 27;
 // Node 24 infers ESM from syntax and no longer accepts this legacy flag.
@@ -353,6 +361,124 @@ await testAsync('real SQLite, ProjectContext, Git and bwrap journey reaches one 
     fs.rmSync(authorityRoot, { recursive: true, force: true });
   }
 }, 60_000);
+
+for (const failsOracle of [false, true]) {
+  await testAsync('AST production M2 preserves exact bytes and restart (' + (failsOracle ? 'functional rollback' : 'commit') + ')', async () => {
+    const root = makeProject();
+    const authorityRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-ast-m2-authority-'));
+    const databasePath = path.join(authorityRoot, 'authority.sqlite');
+    let db = openDatabase(databasePath);
+    try {
+      writePolicy(root, policy(['node:assert/strict']));
+      git(root, ['add', '--', '.intentsmith/m2-governance-policy.json']);
+      git(root, ['-c', 'user.name=IntentSmith Test', '-c', 'user.email=intentsmith@example.invalid',
+        'commit', '-m', 'Freeze AST integration policy']);
+      const beforeHead = git(root, ['rev-parse', 'HEAD']);
+      const beforeContent = fs.readFileSync(path.join(root, 'src/app.js'), 'utf8');
+      const changes = [
+        { path: 'src/app.js', afterContent: [
+          "// import 'blocked'; require('blocked') are inert comment data.",
+          "import { value } from './\\u0064ep.js';",
+          'export const result = value + 1;',
+          "export const inert = \"require('blocked')\";",
+          'export const pattern = /import missing/;',
+        ].join('\n') + '\n' },
+        { path: 'src/dep.js', afterContent: 'export const value = 41;\n' },
+        { path: 'src/probe.js', afterContent: [
+          "import assert from 'node:assert/strict';",
+          "import { result, inert } from './app.js';",
+          'assert.equal(result, ' + (failsOracle ? '999' : '42') + ');',
+          "assert.equal(inert, \"require('blocked')\");",
+        ].join('\n') + '\n' },
+      ];
+      const proposalValue = proposal({ changes });
+      proposalValue.focusedTest.binary = process.execPath;
+      proposalValue.focusedTest.argv = ['--disable-wasm-trap-handler', 'src/probe.js'];
+      const processResults = [];
+      const service = createService(db, root, makeClock(), { processProvider: {
+        async run(input, options) {
+          const result = await processSandboxProvider.run(input, options);
+          processResults.push(result);
+          return result;
+        },
+      } });
+      await service.recoverIncompleteSmallProjectChanges();
+      const planned = await prepare(service, proposalValue);
+      assert.equal(planned.audit.governanceDecision.verdict, 'allow');
+      assert.deepEqual(planned.diff.map(file => [file.path, file.after.content]),
+        changes.map(file => [file.path, file.afterContent]));
+      assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), beforeContent);
+      for (const relative of ['src/dep.js', 'src/probe.js']) assert.equal(fs.existsSync(path.join(root, relative)), false);
+      await assert.rejects(service.approveSmallProjectChange({
+        authenticatedSubject: SUBJECT, lifecycleId: planned.lifecycleId, origin: ORIGIN,
+        planDigest: 'sha256:' + '0'.repeat(64),
+      }), { code: M2LifecycleServiceErrorCode.PLAN_DIGEST_MISMATCH });
+      assert.equal(git(root, ['rev-parse', 'HEAD']), beforeHead);
+      const completed = await service.approveSmallProjectChange({
+        authenticatedSubject: SUBJECT, lifecycleId: planned.lifecycleId,
+        origin: ORIGIN, planDigest: planned.planDigest,
+      });
+      assert.equal(completed.state, failsOracle ? 'failed' : 'succeeded', JSON.stringify(completed.result));
+      if (failsOracle) {
+        assert.equal(completed.result.errorCode, 'PROJECT_CHANGE_TEST_FAILED');
+        assert.equal(processResults.length, 1);
+        assert.match(processResults[0].stderr, /ERR_ASSERTION/);
+        assert.match(processResults[0].stderr, /42 !== 999/);
+        assert.equal(completed.result.rollback.status, 'succeeded');
+        assert.deepEqual([...completed.result.rollback.paths].sort(), changes.map(file => file.path));
+        assert.equal(git(root, ['rev-parse', 'HEAD']), beforeHead);
+        assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), beforeContent);
+        for (const relative of ['src/dep.js', 'src/probe.js']) assert.equal(fs.existsSync(path.join(root, relative)), false);
+      } else {
+        assert.equal(completed.result.focusedTest.exitCode, 0);
+        assert.equal(completed.result.git.status, 'committed');
+        for (const file of changes) {
+          assert.equal(fs.readFileSync(path.join(root, file.path), 'utf8'), file.afterContent);
+          assert.deepEqual(execFileSync('/usr/bin/git', ['show', 'HEAD:' + file.path], { cwd: root }),
+            Buffer.from(file.afterContent));
+        }
+      }
+      assert.equal(git(root, ['status', '--porcelain=v1']), '');
+      db.close(); db = openDatabase(databasePath);
+      const restarted = createService(db, root);
+      await restarted.recoverIncompleteSmallProjectChanges();
+      const durable = restarted.getSmallProjectChangeStatus({
+        authenticatedSubject: SUBJECT, lifecycleId: planned.lifecycleId, origin: ORIGIN,
+      });
+      assert.equal(durable.state, completed.state);
+      assert.equal(durable.terminal.resultDigest, completed.terminal.resultDigest);
+      assert.equal(db.prepare('SELECT count(*) AS n FROM m2_lifecycle_terminals').get().n, 1);
+    } finally {
+      if (db.open) db.close();
+      fs.rmSync(root, { recursive: true, force: true });
+      fs.rmSync(authorityRoot, { recursive: true, force: true });
+    }
+  }, 60_000);
+}
+
+await testAsync('abort during asynchronous governance wins over denial and registers no authority', async () => {
+  const root = makeProject(); const db = openDatabase(); const controller = new AbortController();
+  try {
+    const beforeHead = git(root, ['rev-parse', 'HEAD']);
+    const service = createService(db, root, makeClock(), {
+      evaluateGovernance: async (_args, { signal }) => {
+        assert.equal(signal, controller.signal);
+        await Promise.resolve();
+        controller.abort();
+        return { verdict: 'unavailable' };
+      },
+    });
+    await service.recoverIncompleteSmallProjectChanges();
+    await assert.rejects(service.prepareSmallProjectChange({
+      authenticatedSubject: SUBJECT, projectId: PROJECT_ID, origin: ORIGIN,
+      proposal: proposal(), signal: controller.signal,
+    }), { code: M2LifecycleServiceErrorCode.CANCELLED });
+    assert.equal(db.prepare('SELECT count(*) AS n FROM m2_lifecycle_operations').get().n, 0);
+    assert.equal(db.prepare('SELECT count(*) AS n FROM m2_effect_requests').get().n, 0);
+    assert.equal(git(root, ['rev-parse', 'HEAD']), beforeHead);
+    assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), 'export const value = 1;\n');
+  } finally { db.close(); fs.rmSync(root, { recursive: true, force: true }); }
+});
 
 await testAsync('production lifecycle commits a governed non-manifest file with an unchanged revision', async () => {
   const root = makeProject();
@@ -1361,9 +1487,34 @@ for (const [name, value, code] of [
 await testAsync('retaining an old invalid proposal still checks syntax before inference', async () => {
   const root = makeProject(); const db = openDatabase(); let calls = 0;
   try {
-    const service = createService(db, root, makeClock(), { generateCodeDraft: async () => { calls++; throw Error('must not infer'); } });
-    await service.recoverIncompleteSmallProjectChanges();
     const old = proposal(); old.changes[0].afterContent = 'export const value = ;\n';
+    const generateCodeDraft = async () => { calls++; throw Error('must not infer'); };
+    const current = createService(db, root, makeClock(), { generateCodeDraft });
+    await current.recoverIncompleteSmallProjectChanges();
+    await assert.rejects(prepare(current, old), { code: M2LifecycleServiceErrorCode.GOVERNANCE_DENIED });
+    assert.equal(db.prepare('SELECT count(*) AS n FROM m2_lifecycle_operations').get().n, 0);
+    // Only this historical setup emulates the old regex evaluator's ALLOW for
+    // syntactically invalid source. Use the typed writer, never direct DB edits.
+    let historicalEvaluations = 0;
+    const service = createService(db, root, makeClock(), {
+      generateCodeDraft,
+      evaluateGovernance(args) {
+        historicalEvaluations++;
+        return createM2GovernanceDecision({
+          lifecycleId: args.lifecycleId, milestoneId: args.milestoneId,
+          executionId: args.request.executionId, runId: args.request.runId,
+          projectId: args.request.project.projectId,
+          requestDigest: computeM2ProjectChangeRequestDigest(args.request),
+          policyDigest: computeM2GovernancePolicySnapshotDigest(args.policySnapshot),
+          baselineDigest: computeM2GovernanceBaselineDigest(args.baselineSnapshot),
+          expectedAfterRevision: args.expectedAfterRevision, verdict: 'allow',
+          checks: M2_GOVERNANCE_DECISION_CHECKS.map(checkId => ({
+            checkId, required: true, status: 'pass', findingIds: [],
+          })), findings: [], blockingFindingIds: [],
+        });
+      },
+    });
+    await service.recoverIncompleteSmallProjectChanges();
     const prior = await prepare(service, old);
     await service.cancelSmallProjectChange({ authenticatedSubject: SUBJECT, origin: ORIGIN, lifecycleId: prior.lifecycleId });
     await assert.rejects(service.draftSmallProjectChange({ authenticatedSubject: SUBJECT, projectId: PROJECT_ID, origin: ORIGIN,
@@ -1371,6 +1522,7 @@ await testAsync('retaining an old invalid proposal still checks syntax before in
         focusedTest: proposal().focusedTest, revisionOf: { lifecycleId: prior.lifecycleId, planDigest: prior.planDigest } } }),
     { code: 'M2_CODE_DRAFT_OUTPUT_SYNTAX_INVALID' });
     assert.equal(calls, 0);
+    assert.equal(historicalEvaluations, 1);
     assert.equal(db.prepare('SELECT count(*) AS n FROM m2_lifecycle_operations').get().n, 1);
     assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), 'export const value = 1;\n');
   } finally { db.close(); fs.rmSync(root, { recursive: true, force: true }); }

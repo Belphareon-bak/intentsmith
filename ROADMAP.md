@@ -1,12 +1,14 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktuální checkpoint 2. 10. 2026, 10:20 UTC:** ROOT převzal společnou
+**Aktuální checkpoint 2. 10. 2026, 11:12 UTC:** ROOT převzal společnou
 integraci `2a479852` + CHAT `6f0259ec`. Tři konflikty vyřešené se zachováním
 obou stran, kanonický registr 594. Publikovaný `d7e7d1b1`: celý profil
 401 PASS /2 FAIL /5 BLOCKED; dva toolchain BLOCKED následně cíleně PASS.
 Doc drift opravený 160/160 PASS; routing DPH FAIL a tři PDF/OCR BLOCKED trvají.
-CI `36993324070` má 6 CHAT PASS /1 host-dependent fixture FAIL; její izolace
-74/74 PASS, nové CI čeká. Tento kandidát není přijatý release.
+Novější `7afc96f2` má CI `36995956642`: CHAT7/7 PASS, M2 namespace0/2 FAIL
+před aplikací. Úzká bwrap CI politika připravená podle desktopového kontraktu;
+nové CI čeká. Adoptovaný AST má evaluator34/34 a default service103/103 PASS,
+dvě omezená nezávislá source review. Tento kandidát není přijatý release.
 CHAT report zůstává CHANGES_REQUIRED: finální 53×3 nesplnilo kvalitativní cíle;
 celý profil `289afec0` má 399 PASS /4 FAIL /3 BLOCKED, nikoli výsledek nového
 merge. [Přesný chatový report](docs/wp/WP-CHAT-QUALITY-20261001-PROGRESS.md).

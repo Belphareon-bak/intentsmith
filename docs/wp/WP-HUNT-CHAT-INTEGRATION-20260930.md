@@ -49,6 +49,14 @@ reprodukce podporuje diagnózu, ne tvrzení o přečteném poli. Přesná aserce
 RECENT_USER/413 a nulové provider volání zůstává. Nezávislá diagnóza SHA
 `78f09945f40e806821a480551ecacbe3dfbe2cbb105ffa9c11d84ae01888bb35`.
 
+Nové CI na `7afc96f2`, run `36995956642`: CHAT 7/7 PASS. Dvě M2 sady
+selhaly před spuštěním aplikace na `bwrap: loopback: Failed RTM_NEWADDR`.
+Raw ZIP SHA `99f6c8e7976d9f576b413f72663410d5cdbfc55ff244278ce63fb78a92cd94b7`
+zůstává zachovaný. ROOT přibírá pouze CI namespace bootstrap podle
+existujícího profilu v `docs/DESKTOP.md`: root-owned profil pro `/usr/bin/bwrap`,
+bez vypnutí AppArmor, změny produktového sandboxu či sudo při aplikačních testech.
+CI zaznamená kernel nastavení a skutečně vyzkouší namespace před testy.
+
 **Stav:** SOURCE_MERGED_CANDIDATE / OFFLINE_FOCUSED_PASS / REVIEW_PENDING /
 NOT_DEPLOYED / REAL_NO_GO. Tato pracovní větev vychází z chat/Studio 2 commitu
 `09247504143ac0a37d75d7d52867768447790ad2` a slučuje přesný Hunt commit

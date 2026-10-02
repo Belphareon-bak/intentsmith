@@ -47,7 +47,24 @@ jobs:
       - name: Install chat and M2 isolation tools
         run: |
           sudo apt-get update
-          sudo apt-get install --yes bubblewrap iproute2 util-linux
+          sudo apt-get install --yes bubblewrap iproute2 util-linux apparmor
+      - name: Prepare Ubuntu namespace policy for M2 sandbox tests
+        run: |
+          cat /sys/module/apparmor/parameters/enabled
+          cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns
+          test ! -e /etc/apparmor.d/intentsmith-bwrap-ci
+          sudo install --mode=0644 /dev/stdin /etc/apparmor.d/intentsmith-bwrap-ci <<'PROFILE'
+          abi <abi/4.0>,
+          include <tunables/global>
+          profile intentsmith-bwrap-ci /usr/bin/bwrap flags=(unconfined) {
+            userns,
+          }
+          PROFILE
+          sudo apparmor_parser --replace /etc/apparmor.d/intentsmith-bwrap-ci
+          /usr/bin/bwrap --unshare-all --unshare-user --disable-userns --cap-drop ALL \
+            --ro-bind /usr /usr --symlink usr/bin /bin \
+            --symlink usr/lib /lib --symlink usr/lib64 /lib64 --dev /dev --proc /proc \
+            --tmpfs /tmp -- /usr/bin/true
       - name: Verify chat context and approved effects (offline)
         run: >-
           node scripts/nightly-audit.js
@@ -59,7 +76,7 @@ jobs:
         run: >-
           node scripts/nightly-audit.js
           --run-id=ci-code-${{ github.run_id }}-${{ github.run_attempt }}
-          --suite=IS-T1-TESTS-PROJECT-APP-ACCEPTANCE-TEST,IS-T1-TESTS-PROJECT-APP-M2-FUNCTIONAL-TEST
+          --suite=IS-T1-TESTS-PROJECT-APP-ACCEPTANCE-TEST,IS-T1-TESTS-PROJECT-APP-M2-FUNCTIONAL-TEST,IS-T1-TESTS-M2-GOVERNANCE-EVALUATOR-TEST,IS-T1-TESTS-M2-LIFECYCLE-APPLICATION-SERVICE-TEST
           --concurrency=1
           --allow-blocker=toolchain:bwrap,toolchain:git,toolchain:prlimit
       - name: Preserve chat and M2 audit reports
@@ -88,5 +105,5 @@ jobs:
           test -z "$(git status --porcelain)"
 
 # This is the development subset named above, not the complete deterministic
-# profile or a release gate. The full offline/database evidence retains its
-# known Gate 0 seal failure; no test or verdict is reclassified by this workflow.
+# profile or a release gate. The exact d7 full-profile failures and blockers
+# remain in its report; no verdict is reclassified by this workflow.

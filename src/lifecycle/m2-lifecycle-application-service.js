@@ -64,8 +64,8 @@ import { processSandboxProvider } from '../execution/process-sandbox-provider.js
 import { readProjectFileBytes } from '../executor/project-path-authority.js';
 import {
   createM2GovernanceReceipt,
-  evaluateM2Governance,
 } from './m2-governance-evaluator.js';
+import { evaluateM2GovernanceWithAst } from './m2-governance-ast-adapter.js';
 import { M2LifecycleAuthorityRepository } from './m2-lifecycle-authority-repository.js';
 import { compileM2ProjectChangeProposal } from './m2-proposal-compiler.js';
 import {
@@ -893,7 +893,7 @@ export function createM2LifecycleApplicationService(dependencyValues) {
       planned.request,
       planned.files,
     );
-    const decision = governanceEvaluator({
+    const decision = await governanceEvaluator({
       lifecycleId: identity.lifecycleId,
       milestoneId: identity.milestoneId,
       request: planned.request,
@@ -901,7 +901,8 @@ export function createM2LifecycleApplicationService(dependencyValues) {
       baselineSnapshot,
       candidateFiles: candidateFiles(planned.files),
       expectedAfterRevision,
-    });
+    }, { signal });
+    if (signal?.aborted) fail(M2LifecycleServiceErrorCode.CANCELLED, 'Plan preparation cancelled');
     if (decision.verdict !== M2_GOVERNANCE_VERDICT.ALLOW) {
       fail(M2LifecycleServiceErrorCode.GOVERNANCE_DENIED, 'Deterministic governance did not allow execution', {
         decision,
@@ -1436,6 +1437,7 @@ export function createDefaultM2LifecycleApplicationService({
   clock = Date.now,
   processProvider = processSandboxProvider,
   generateCodeDraft = defaultGenerateCodeDraft,
+  evaluateGovernance = evaluateM2GovernanceWithAst,
   scmCommitMode,
 } = {}) {
   if (!database || typeof database.transaction !== 'function') {
@@ -1463,7 +1465,7 @@ export function createDefaultM2LifecycleApplicationService({
     buildManifest: buildProjectContextManifest,
     observeGitBaseline: observeExactGitBaseline,
     planChange: planProjectChange,
-    evaluateGovernance: evaluateM2Governance,
+    evaluateGovernance,
     createGovernanceReceipt: createM2GovernanceReceipt,
     executeChange: executeProjectChange,
     readProjectFile: readProjectFileBytes,

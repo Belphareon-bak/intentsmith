@@ -9,8 +9,10 @@ checkoutu. Tři konflikty registru/harnessu vyřešené se zachováním všech
 kontrol, 594 programů /35 exclusions. Publikovaný `d7e7d1b1`: úplný profil
 401 PASS /2 FAIL /5 BLOCKED; dva toolchain BLOCKED cíleně PASS. Doc drift
 opravený 160/160 PASS, chatové routování FAIL a tři PDF/OCR BLOCKED trvají.
-CI `36993324070` mělo 6 CHAT PASS /1 host-dependent kapacitní fixture FAIL;
-její izolace 74/74 PASS, nové CI čeká. Žádný deploy ani release acceptance.
+Novější `7afc96f2` má CI `36995956642`: CHAT7/7 PASS, M2 namespace0/2 FAIL
+před aplikací. Připravená úzká bwrap CI politika podle desktopového kontraktu;
+nové CI čeká. Default AST service103/103 a evaluator34/34 PASS, dvě omezená
+source review PASS. Žádný deploy ani release acceptance.
 Chatový report zůstává
 CHANGES_REQUIRED: finální 53×3 kvalitativně nesplněné; poslední celý profil
 `289afec0` má 399 PASS /4 FAIL /3 BLOCKED. Novější archive oprava má cílené
@@ -688,14 +690,14 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 **REVIEW_PENDING** — [aktuální UI oprava a evidence](docs/review/2026-09-17-HUNT-MODEL-CONTROLS-FOLLOWUP.md).
 
 Následující LOC a registry census jsou přeměřené přímo na referenčním zdroji
-sloučeném stromu rodičů `2a479852` + `6f0259ec` přes stejný algoritmus jako `tests/artifact-validation.test.js`:
+sloučeném stromu nad `7afc96f2` s omezeným AST scannerem přes stejný algoritmus jako `tests/artifact-validation.test.js`:
 počet skutečných `.js` souborů a počet znaků nového řádku v jejich bytech.
 Při další integraci se přeměří znovu.
 
 | | |
 |---|---:|
-| `src/**/*.js` | **234 764 ř.**, 682 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **267 228 ř.**, 602 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **235 349 ř.**, 684 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **267 617 ř.**, 602 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **594** (`496 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 108** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |
@@ -707,7 +709,7 @@ migrační záznamy `061/062/068`; jejich zachování při upgrade má samostatn
 evidenci a nemění kanonický počet `108`.
 
 Aktuální registry fingerprint referenčního zdroje je
-`2789b9bff16936ec63c384244e6eebef22884663f6d731d062db8628b0604918`.
+`740d8d35cba4f6793c7972827a9d2bdbe5cf5577860fdf86a9da882b185a39a6`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 Worker-soak absolvoval fyzický pětiminutový běh na `bf7dc31f`; nové druhé

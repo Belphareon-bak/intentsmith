@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 2. 10. 2026, 10:20 UTC / 12:20 CEST.
+**Aktualizováno:** 2. 10. 2026, 11:12 UTC / 13:12 CEST.
 **Vlastník:** ROOT. CHAT ladí jiný worker.
 Report aktualizuji po milníku, nejpozději po 3 h aktivní práce; operátorovi
 podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
@@ -43,15 +43,19 @@ podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
    Tři konflikty vyřešené, registry 594/35; celý offline/database profil
    **401 PASS /2 FAIL /5 BLOCKED**. Dva toolchain BLOCKED cíleně PASS;
    opravené počty README/ROADMAP: 160/160 PASS; routing DPH FAIL patří CHATu.
-   Tři PDF/OCR BLOCKED trvají. [CI](https://github.com/Belphareon-bak/intentsmith/actions/runs/36993324070)
-   má 6 chatových PASS /1 M1 capacity FAIL; lokálně M1 74/74 PASS.
-   Rozdíl reprodukován: 30 B host tool facts přepne guard. Izolovaná fixture
-   zachovává přesnou 413/recent-user aserci, 74/74 PASS; nové CI čeká na push.
-   M2 a Studio kroky původního CI byly SKIPPED; celé D7 výsledky se nepřepisují.
+   Tři PDF/OCR BLOCKED trvají. Publikovaný `7afc96f2` izoluje kapacitní fixture;
+   [CI](https://github.com/Belphareon-bak/intentsmith/actions/runs/36995956642)
+   má CHAT **7/7 PASS**, M2 **0/2 FAIL**: bwrap namespace odmítnut před aplikací.
+   Připravená přesná CI AppArmor výjimka podle desktopového kontraktu;
+   lokální smoke PASS, nový GitHub běh čeká. Žádný global disable ani sudo app.
+   Původní CI FAILy a SKIPPED zůstávají, nejsou nahrazené lokálním PASS.
    CHAT report má CHANGES_REQUIRED: celé série 53×3 nesplnily kvalitativní cíle;
    celý profil na `289afec0` 399 PASS /4 FAIL /3 BLOCKED. Ladí jeho worker.
-2. **Omezený M2 scanner:** opravit falešné dependency v komentářích/řetězcích;
-   zachovat připravené CPU kontroly a zapojit do skutečné M2 cesty.
+2. **Omezený M2 scanner:** V2 adoptovaný do skutečné default M2 služby,
+   evaluator 34/34 a service 103/103 PASS: přesné approval/commit/restart,
+   assertion rollback tří souborů a cancel před registrací. Dvě nezávislá
+   source review PASS; registry/CI doplněné, nové CI a baseline ještě čekají.
+   [Rozsah a historické fixture FAILy](wp/WP-M2-AST-IMPORT-SCANNER-20261001.md).
 3. **Kontext a větší projekt:** CPU rozhodnutí je úplný zdroj při 16k
    a skutečné projektové přírůstky. Ze 198 velikostních případů se při 8k
    vejde 27, při 16k 97; nejde o míru modelové úspěšnosti. Krátký skutečný

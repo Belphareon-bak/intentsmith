@@ -539,3 +539,31 @@ jen 6/13. Nevolí se jako první oprava. Resolver/gateway mají ještě nezměn�
 cache/profile ceiling: prostý caller num_ctx override není produktové řešení.
 Nový CODE rozpočet musí být interní, digest-bound a stejný při preflight i
 generování; změna nesmí potichu zvýšit CHAT kontext ani obejít starý profil.
+
+### Omezené produktové vlastnictví před implementací — 2. 10. 11:05 UTC
+
+Krátký skutečný load přesného Qwen3.8 při 16384 prokázal pouze alokaci:
+13 vstupních /1 výstupní token, plná GPU rezidence, minfree 3759 MiB;
+plný kontext a nový projekt zůstávají NOT_RUN. Receipt
+`82dd95941b8a4008d2fda274f7e9f6264b48ecf80bad75b806a71365cb264fd6`.
+CPU call-graph návrh má 20 kontrol; manifest
+`66be12ab18d50c5f69f4c632835a940844b2721d93c070abaa46bf0a4c22b8eb`.
+
+ROOT vlastní právě `src/lifecycle/m2-code-draft.js`,
+`src/lifecycle/m2-lifecycle-application-service.js`, `src/llm/gateway.js`
+a `src/llm/model-runtime-profile.js` a nezbytné existující testy těchto cest.
+Delegovaný worker připravuje pouze ignored adoptovatelný patch; ROOT
+jediný zapisuje produkt. Ověří skutečné názvy cest před adopcí.
+Jedna privátní gateway-issued capture sváže config CODE, durable exact
+artifact, oddělený schválený CODE profil a provider identity s oběma budgets
+a všemi kroky. Drift před preflightem, po frontě či u served identity
+konkrétně zastaví volání. Veřejné options/JSON capture nenahrazují.
+
+Přesný nový profil: Qwen3.8 digest `22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643`,
+provider `0.34.0-intentsmith.1`, 16384, build4096 /repair2048 /reserve384,
+obal32000 B. Globální cache, CHAT/D1 resolver, dosavadní M1 profil a T3
+4096 fixture se nemění; žádná aktivace modelů nebo produkční změna.
+Pokud tyto scope/digest podmínky nejsou splněné, stará cesta má své původní
+limity; neznámý artifact nesmí získat nové oprávnění. Úplné sources určují
+preview/digest/zápis. Nezávislé review a dotčené integrační kontroly před
+zmrazeným fan-monitor průchodem; žádný CPU nebo krátký FIT není aplikace.

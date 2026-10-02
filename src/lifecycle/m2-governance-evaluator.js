@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import path from 'node:path';
+import { IMPORT_SCANNER_LIMITS, readM2ImportObservation } from './m2-import-scanner.js';
 
 import {
   M2_GOVERNANCE_CHECK_STATUS,
@@ -34,12 +35,6 @@ import {
 
 const REVISION_PATTERN = /^wsr1:[0-9a-f]{64}$/;
 const SUPPORTED_SOURCE_EXTENSIONS = new Set(['.cjs', '.js', '.jsx', '.mjs', '.ts', '.tsx']);
-const IMPORT_PATTERNS = Object.freeze([
-  /\bimport\s+(?:[^'";]*?\s+from\s+)?['"]([^'"]+)['"]/g,
-  /\bexport(?!\s+(?:(?:async\s+)?function|class|const|let|var|default)\b)\s+[^'";]*?\s+from\s+['"]([^'"]+)['"]/g,
-  /\brequire\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
-  /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
-]);
 
 function compareUtf8(left, right) {
   return Buffer.compare(Buffer.from(left, 'utf8'), Buffer.from(right, 'utf8'));
@@ -175,35 +170,6 @@ function layerForFile(filePath, policy) {
   return matches[0]?.name ?? null;
 }
 
-function scanImports(source) {
-  const imports = [];
-  const recognizedRanges = [];
-  for (const pattern of IMPORT_PATTERNS) {
-    const expression = new RegExp(pattern.source, pattern.flags);
-    let match;
-    while ((match = expression.exec(source)) !== null) {
-      imports.push(match[1]);
-      recognizedRanges.push([match.index, match.index + match[0].length]);
-    }
-  }
-  // RegExp offsets are UTF-16 code-unit indexes, so split the same way.
-  const residue = source.split('');
-  for (const [start, end] of recognizedRanges) {
-    for (let index = start; index < end; index += 1) residue[index] = ' ';
-  }
-  const unmatched = residue.join('').replace(/\bimport\s*\.\s*meta\b/g, '');
-  return Object.freeze({
-    specifiers: Object.freeze([...new Set(imports)].sort(compareUtf8)),
-    complete: !(
-      /\b(?:import|require)\b/.test(unmatched)
-      // A declaration body can contain Array.from or a comment mentioning a
-      // source. It is not a re-export. Nested import()/require() are scanned
-      // independently above and still fail closed when not understood.
-      || /\bexport(?!\s+(?:(?:async\s+)?function|class|const|let|var|default)\b)\s+[^;]*?\bfrom\b/.test(unmatched)
-    ),
-  });
-}
-
 function resolveRelativeImport(specifier, sourcePath, filesByPath) {
   const relative = specifier.startsWith('.');
   const base = relative
@@ -263,12 +229,7 @@ function upstreamUnavailable(findingsById, checkId, upstream) {
   );
 }
 
-/**
- * Deterministically evaluate the exact proposed after-images before executing
- * ProjectChangeRequest. No filesystem, database, model, network, or clock is
- * consulted. Every byte used by the evaluator is supplied and digest-bound.
- */
-export function evaluateM2Governance({
+function prepareInputState({
   lifecycleId,
   milestoneId,
   request,
@@ -393,6 +354,58 @@ export function evaluateM2Governance({
     });
   }
 
+  return { lifecycleId, milestoneId, request, policySnapshot, baselineSnapshot, candidateFiles,
+    requestDigest, policyDigest, baselineDigest, boundAfterRevision, findingsById, inputStatus, inventoryStatus };
+}
+
+// Shared pure preparation: the adapter runs it before any process is admitted;
+// the evaluator independently recomputes it to reject stale observations.
+function prepareSourceSet(state) {
+  if (state.inventoryStatus !== M2_GOVERNANCE_CHECK_STATUS.PASS) return Object.freeze({ ready: false, error: null });
+  const { lifecycleId, milestoneId, request, policySnapshot, baselineSnapshot, candidateFiles,
+    requestDigest, policyDigest, baselineDigest, boundAfterRevision } = state;
+  let error = null;
+  if (baselineSnapshot.files.length > IMPORT_SCANNER_LIMITS.files) error = 'SOURCE_PARSER_FILE_COUNT_LIMIT';
+  if (baselineSnapshot.files.reduce((sum, file) => sum + file.bytes, 0) > IMPORT_SCANNER_LIMITS.totalBytes / 2) error = 'SOURCE_PARSER_BASELINE_BYTES_LIMIT';
+  const overlay = overlayCandidate(baselineSnapshot, candidateFiles, request);
+  if (overlay.length > IMPORT_SCANNER_LIMITS.files) error ??= 'SOURCE_PARSER_FILE_COUNT_LIMIT';
+  const extensions = new Set(policySnapshot.sourceExtensions), files = [], sourceSet = [];
+  let totalBytes = 0;
+  for (const file of overlay) {
+    const bytes = file.bytes.length, digest = sha256(file.bytes);
+    sourceSet.push(Object.freeze({ path: file.path, bytes, digest }));
+    totalBytes += bytes;
+    if (bytes > IMPORT_SCANNER_LIMITS.fileBytes) error ??= 'SOURCE_PARSER_FILE_BYTES_LIMIT';
+    const extension = path.posix.extname(file.path).toLowerCase();
+    if (!extensions.has(extension)) continue;
+    if (!SUPPORTED_SOURCE_EXTENSIONS.has(extension) || layerForFile(file.path, policySnapshot) === null) {
+      return Object.freeze({ ready: false, error: null });
+    }
+    const source = validUtf8(file.bytes);
+    if (source === null) error ??= 'SOURCE_NOT_UTF8';
+    files.push(Object.freeze({ path: file.path, extension, source, bytes, digest }));
+  }
+  if (totalBytes > IMPORT_SCANNER_LIMITS.totalBytes) error ??= 'SOURCE_PARSER_TOTAL_BYTES_LIMIT';
+  const bindingDigest = computeM2GovernanceValueDigest({ lifecycleId, milestoneId, requestDigest, policyDigest,
+    baselineDigest, candidateDigest: computeM2GovernanceValueDigest(candidateFiles),
+    expectedAfterRevision: boundAfterRevision, sourceSet });
+  return Object.freeze({ ready: error === null, error, bindingDigest, files: Object.freeze(files) });
+}
+
+export function prepareM2GovernanceSourceSet(args) {
+  return prepareSourceSet(prepareInputState(args));
+}
+
+/**
+ * Deterministically evaluate the exact proposed after-images before executing
+ * ProjectChangeRequest. No filesystem, database, model, network, or clock is
+ * consulted. Every byte used by the evaluator is supplied and digest-bound.
+ */
+export function evaluateM2Governance(args) {
+  const state = prepareInputState(args);
+  const { lifecycleId, milestoneId, request, policySnapshot, baselineSnapshot, candidateFiles,
+    requestDigest, policyDigest, baselineDigest, boundAfterRevision, findingsById, inputStatus, inventoryStatus } = state;
+  const prepared = prepareSourceSet(state);
   let layersStatus = M2_GOVERNANCE_CHECK_STATUS.PASS;
   let importsStatus = M2_GOVERNANCE_CHECK_STATUS.PASS;
   let overlay = [];
@@ -428,6 +441,14 @@ export function evaluateM2Governance({
       importsStatus = M2_GOVERNANCE_CHECK_STATUS.UNAVAILABLE;
       upstreamUnavailable(findingsById, 'imports.allowed', 'layers.mapped');
     } else if (importsStatus === M2_GOVERNANCE_CHECK_STATUS.PASS) {
+      const observation = readM2ImportObservation(args.importObservation, prepared);
+      const observationError = prepared.error ?? observation?.error
+        ?? (observation === null ? 'IMPORT_OBSERVATION_UNAVAILABLE' : null);
+      const scansByPath = new Map(observation?.files?.map(file => [file.path, file]) ?? []);
+      if (observationError && observationError !== 'SOURCE_NOT_UTF8') {
+        importsStatus = M2_GOVERNANCE_CHECK_STATUS.UNAVAILABLE;
+        addFinding(findingsById, 'imports.allowed', observationError, null, { sourceSetBinding: prepared.bindingDigest });
+      }
       const filesByPath = new Map(overlay.map(file => [file.path, file]));
       const rulesByLayer = new Map(policySnapshot.rules.map(rule => [rule.from, rule]));
       for (const file of overlay) {
@@ -445,10 +466,12 @@ export function evaluateM2Governance({
         }
         const fromLayer = layerForFile(file.path, policySnapshot);
         const rule = rulesByLayer.get(fromLayer);
-        const scan = scanImports(source);
-        if (!scan.complete) {
-          importsStatus = M2_GOVERNANCE_CHECK_STATUS.UNAVAILABLE;
-          addFinding(findingsById, 'imports.allowed', 'IMPORT_SYNTAX_UNSUPPORTED', file.path, {
+        const scan = scansByPath.get(file.path);
+        // Missing/untrusted/stale observations can never become an empty scan.
+        if (!scan) continue;
+        if (!scan.complete) importsStatus = M2_GOVERNANCE_CHECK_STATUS.UNAVAILABLE;
+        for (const error of scan.errors) {
+          addFinding(findingsById, 'imports.allowed', error.code, file.path, {
             sourcePath: file.path,
             sourceDigest: sha256(file.bytes),
           });
@@ -588,6 +611,5 @@ export const _testInternals = Object.freeze({
   decodeCanonicalBase64,
   layerForFile,
   resolveRelativeImport,
-  scanImports,
   validUtf8,
 });

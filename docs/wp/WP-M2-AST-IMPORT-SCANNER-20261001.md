@@ -1,6 +1,8 @@
 # WP — AST kontrola skutečných závislostí M2 CODE
 
-**Stav:** `CPU_PREPARATION_PASS / IMPLEMENTATION_IN_PROGRESS`.
+**Stav:** `BOUNDED_AST_SOURCE_REVIEW_PASS / ACTUAL_M2_CPU_PASS`;
+registrovaná integrace a nové CI ještě čekají. Aktuální stav je tato hlavička
+a poslední datovaný oddíl; starší návrhy a odložení jsou historie.
 **Vlastník:** ROOT; navazující nechatový milník na publikovaném
 `79b201c8b484a7c8a21225945f51b9dba21d47dc`. Tento návrh neodblokuje
 obecnou kapacitu CODE a nemění přijatý SQLite ani jeho historické FAIL.
@@ -22,7 +24,7 @@ Existující root lock má `tree-sitter@0.21.1` a JS/JSX grammar
 `tree-sitter-javascript@0.21.4`, nemá TS/TSX parser. Kandidátní
 [oficiální TypeScript grammar v0.23.2](https://github.com/tree-sitter/tree-sitter-typescript/blob/v0.23.2/package.json)
 uvádí peer `tree-sitter ^0.21.0`, ale kompatibilita přesného native artefaktu
-s Node 24/ABI137 a náklady na závislosti jsou **UNVERIFIED**. Verze se
+s Node 24/ABI137 a náklady na závislosti byly tehdy **UNVERIFIED**. Verze se
 nezaměňuje za úspěšný integrační důkaz.
 
 ## Omezený rozsah a invarianty
@@ -86,9 +88,18 @@ označené immutable pozorování), `src/lifecycle/m2-governance-ast-adapter.js`
 `src/lifecycle/m2-governance-evaluator.js` a existující
 `tests/m2-governance-evaluator.test.js`. ROOT vlastní navázaný
 `src/lifecycle/m2-lifecycle-application-service.js`, existující skutečné M2
-integrační testy, přesnou dependency/lock změnu, registraci potřebných helperů,
+`tests/m2-lifecycle-application-service.test.js` a navázaný
+`tests/project-app-m2-functional.test.js`, `package.json` / `package-lock.json`,
+registraci potřebných helperů,
 census a tento WP. Ostatní cesty vyžadují výslovné zaznamenání před editací.
 SQLite raw packet, modelové zdroje, oracles a původní příklady se nemění.
+
+Navázaná registrace vlastní `tests/registry.json` a regenerovaný
+`docs/convergence/TEST-REGISTRY.md`: governance a lifecycle vyžadují
+`prlimit` pro skutečný izolovaný parser. Společné CI vlastní existující
+integrační WP; přidá obě skutečné M2 sady k již zachovaným aplikacím.
+Explicitní nové source hrany se přijmou až na čistém commitnutém zdroji
+po review, bez zvýšení limitu cyklů.
 
 Volba: **async trusted AST adapter před synchronním čistým evaluatorem**.
 Service čeká na parser, před registrací opět ověří cancellation. Adapter
@@ -161,3 +172,29 @@ Delegovaný worker připravuje adoptovatelnou změnu v privátní ignored cestě
 trackované produktové zdroje dosud nemění. Rozsah a vlastníci výše platí.
 ROOT naváže service, přesný parser lock a skutečnou M2 regresi po uzavření
 konkrétní CI diagnostiky. Kontextová kapacita ani CHAT se scannerem nemění.
+
+## Adoptovaný omezený scanner — 2. 10. 2026, 11:10 UTC
+
+ROOT adoptoval V2 čtyř souborů, zapojil default async service a přesně
+zamkl TS grammar0.23.2. Manifest návrhu
+`e59585a56ef55adebf7b721f08c3e280c129d03cbe92b2af8b7b6ca9cc84889a`.
+V1 nalezené native identity a eval/Function mezery jsou zachované jako
+CHANGES_REQUIRED; V2 identifikuje skutečný addon resolverem a odmítá
+nepodporované ambient code-generation loadery. Parent addon nenačítá.
+
+Skutečný ROOT evaluator: 34/34 PASS. Default aplikační služba: 103/103
+PASS, včetně tří nových regresí: inertní import/require v datech plus
+escaped lokální import, plné tří souborové approval/test/commit a přesné
+bajty Git/disku/restartu; skutečná assertion chyba `42 !== 999` atomicky
+rollbackne tři soubory; abort během parseru vrátí CANCELLED před registrací.
+Historický nevalidní návrh se vytvoří pouze typed test setupem, současný
+AST jej odmítá. Dva ROOT fixture neúspěchy 101/2 zůstávají v raw logách:
+Node18 bootstrap a nesprávný testový port; nejsou označené za produktový PASS.
+
+Nezávislé adversarial source review
+`441b7011ab0441f76bcbf6a0fa01976d8b0dcb3affc52d0a04157b47d52ea6b7`;
+connector/fixtures/CI review
+`d4304f0ecd7f5f149f3e68ecf6d1da0866f59a0f4b1023ff473a092db7087bba`.
+Obě přijetí jsou omezená na prohlédnuté zdroje a doložené CPU výsledky,
+nikoli release, GPU projekt nebo nové CI. Jsou čtyři nové source hrany,
+žádný nový cyklus; přesné přijetí baseline až na čistém commitnutém zdroji.
