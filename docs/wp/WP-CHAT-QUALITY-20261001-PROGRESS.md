@@ -1,16 +1,17 @@
 # IntentSmith — průběh práce na kvalitě chatu
 
-Poslední aktualizace: **2. 10. 2026, 12:30 CEST**. Stav: **NO_GO / WORK_CONTINUES / REVIEW_PENDING**.
+Poslední aktualizace: **2. 10. 2026, 12:45 CEST**. Stav: **NO_GO / REVIEW_PENDING / CI_NOT_RUN**.
 Dokument aktualizuji po každém dokončeném milníku, nejpozději po třech hodinách
 aktivní práce. Historická selhání zůstávají uvedena; nové ověření je nepřepisuje
 na úspěch. Nejde o plánovač úloh po ukončení této pracovní relace.
 
 Větev: `work/chat-quality-20261001`. Společný výchozí commit:
 `45caf5b54b78def257221ac2ab33a64031800813`. Poslední testovaný implementační
-commit: **`856e07c3`** (oprava archivu: 7 cílených PASS, kontext 17/17,
-M1 74/74). Živé ověření na `97395516` má 2/2 užitečných; source archivu
-je runtime shodný s `856e07c3`. S1 se vztahuje výhradně
-k `3b3b399f`; vývojové kroky schopností k `c868fea3`. Tento dokument se publikuje následným dokumentačním
+commit: **`0fad3823`** (7 cílených PASS, kontext 21/21, M1 74/74;
+celý profil 399 PASS / 4 FAIL / 3 BLOCKED). Živé archivní reprodukce na témže
+SHA mají 3/3 užitečných; úzká časová sonda má šest úplných odpovědí.
+S1 se vztahuje výhradně k `3b3b399f`, S2 k `6f0259ec`;
+vývojové kroky schopností k `c868fea3`. Tento dokument se publikuje následným dokumentačním
 commitem. Vlastní worktree: `intentsmith-chat-quality-20261001`.
 Mimochatový worker, jeho soubory a produkční release zůstávají nedotčené.
 
@@ -340,6 +341,60 @@ zachovává předchozí měření S8. Další runtime opravy po tomto zmrazení 
 novou konkrétní reprodukci; původní S1/S2 a jejich commity zůstávají nedotčené.
 Nezávislý autor/hodnotitel nového holdoutu není určen; vlastní hodnocení
 jej nenahrazuje. Kontakt vlastníka CI/integrace rovněž stále chybí.
+
+## Milník S10 — živé reprodukce, čistý rozklad a celý zmrazený profil
+
+| Změna uživatelského chování | Stručný důkaz | Zbývající problém | Jeden následující krok |
+| --- | --- | --- | --- |
+| Na `0fad3823` chat živě drží Javor po opravě bez společných slov i z konce dlouhé zprávy; při opravě oběda zachová projekt Lípa. | `63ee5ba2-7313-4a37-b629-bec809767544`: 3/3 užitečné podle vlastního čtení, šest přesných inference stejného digestu, původní identity v klasifikaci i generování, nula efektů. Sedm registrovaných cílených sad PASS. Celý profil `chat-quality-full-20261002-followups-matched` na stejném čistém SHA: 399 PASS / 4 FAIL / 3 BLOCKED, všech 406 provedeno nebo výslovně blokováno, shodná non-PASS s předchozím úplným profilem. | **NO_GO** trvá: S2 má kritické vymyšlené odeslání a vlastní užitečnost 90,57 %. Výběr archivu stále nezaručuje všechny vzdálené opravy. Technická brána a CI nejsou zelené; nezávislý nepoužitý holdout nemá autora/hodnotitele. | Předat zmrazeného kandidáta určenému nezávislému autorovi/hodnotiteli holdoutu a integračnímu vlastníkovi; identita/kontakt obou je otevřená otázka operátorovi. |
+
+[Živé podklady archivu včetně skutečných providerových zpráv](../review/evidence/chat-quality-20261001/followup-archive-live.json),
+[registrované cílené sady](../review/evidence/chat-quality-20261001/focused-followups.json),
+[nejnovější celý profil a přesné non-PASS](../review/evidence/chat-quality-20261001/full-profile-followups.json).
+Archive seed je syntetický >1000řádkový rozhovor, nikoli tisíc živých odpovědí.
+Po celou dobu těchto měření se zdroje, corpus, runner ani model neměnily.
+
+Časová sonda `0320d267-a4b0-4e08-86df-fa6e181214d4` má šest stejných
+otázek HTTP 409 v nových konverzacích, dvanáct inference, stejný 4K kontext,
+256 tokenů klasifikace a 384 tokenů generování. Providerové klasifikační
+požadavky jsou totožné; generační jsou totožné po vyjmutí pouze dodaného
+aktuálního časového SYSTEM záznamu. První cold odpověď: **11,327 s**, z toho
+načtení modelu **5,554 s**. Pět warm odpovědí: medián **5,052 s**,
+nejpomalejší **5,127 s**. Průměrné složky jsou:
+
+| Složka | Warm průměr | Jak se čte |
+| --- | --- | --- |
+| Interpretace včetně provideru | 2,198 s | Součást celého času chatu |
+| Generování a kontroly | 2,841 s | Součást celého času chatu |
+| Ostatní aplikace mimo obě fáze | 3,6 ms | Součást celého času chatu; zaokrouhlené monotónní časy |
+| Providerový součet obou inference | 4,950 s | Čas uvnitř předchozích dvou fází, ne přídavná položka |
+| Fsynced diagnostika před předáním odpovědi | 61,7 ms | Již zahrnutá v aplikačních fázích |
+| Nevysvětlený zbytek po odečtení provideru a této diagnostiky | 30,8 ms | Síť/klient/gateway a také post-forward capture; není čistý produkční overhead |
+
+[Úplný rozklad s každým vstupem, limitem a odpovědí](../review/evidence/chat-quality-20261001/clean-latency-probe.json).
+Tato sonda pokrývá jednu krátkou českou otázku a jediné cold načtení;
+neprokazuje globální zrychlení, cold distribuci ani čas prvního tokenu.
+Některé odpovědi stále přidávají nepravdivou nutnost manuálního zásahu.
+Úspěšná doprava a rychlost proto nejsou kvalitativní PASS. Dvě modelová volání
+jsou hlavní cenou **této změřené cesty**, nikoli všech zpráv aplikace.
+Žádná nová rychlá cesta ani streaming se na základě sondy nezavádí.
+
+První audit `chat-quality-full-20261002-followups` měl odlišný seznam
+povolených nástrojů a byl přerušen: 45 PASS / 2 FAIL / 2 BLOCKED / 357 SKIPPED.
+Jedno FAIL je zrušený běžící child; originální report zůstává beze změny.
+Je to **INCOMPLETE**, nikoli nová reprodukovaná produktová regrese.
+Následný úplný běh výše používá přesně předchozí konfiguraci a má exit 1.
+První bezpečné cleanup kontroly po živých sondách odmítly krátce ne-idle GPU;
+po novém ověření vlastní identity a idle stavu byly uvolněny pouze vlastní
+residency. Cizí práce a produkční release nebyly měněny.
+
+Pro ROOT je [konkrétní předání routingu](../review/2026-10-02-CHAT-ROUTING-ROOT-HANDOFF.md).
+Přesně doložený výsledek „Co je DPH v Německu?“ je chybné
+`vat_calculator → clarify [calculationIntent]`, ne doložený provedený výpočet.
+Nezávislý [holdout má připravený postup](../review/2026-10-02-CHAT-HOLDOUT-HANDOFF.md),
+ale corpus, autor a hodnocení ještě neexistují. Porovnávání modelů zůstává
+odložené; M0 není přijaté nezhoršení ani nezávislý slepý důkaz.
+CI předávací návrh není aplikované workflow a PR dříve odmítlo oprávnění 403.
 
 ## Další milník a podmínky přijetí
 

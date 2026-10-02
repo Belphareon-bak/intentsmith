@@ -58,6 +58,15 @@ Lokální důkaz na `856e07c3`: všech sedm sad PASS, kontext 17/17 a M1 74/74.
 Nová runner sada na `97395516` také PASS. GitHub prostředí zatím ověřené není.
 Známé čtyři FAIL a tři BLOCKED celého profilu se tímto výběrem nesmějí skrýt.
 
+Aktuální zmrazený kandidát `0fad3823249104b62edc1e663440d51592de0dbd`
+má těchto sedm registrovaných sad PASS, kontext 21/21, M1 74/74;
+úplný profil 399 PASS / 4 FAIL / 3 BLOCKED. Důkazy jsou v
+`evidence/chat-quality-20261001/focused-followups.json` a
+`evidence/chat-quality-20261001/full-profile-followups.json`.
+To je místní ověření, nikoli GitHub Actions. ROOT má navíc konkrétní
+`2026-10-02-CHAT-ROUTING-ROOT-HANDOFF.md`; informační dotaz DPH v Německu
+stále chybně otevře kalkulační upřesnění, výpočet tato reprodukce nedokládá.
+
 K dokončení předání chybí jméno/identita a komunikační kanál vlastníka
 integrace; otázka operátorovi je otevřená. Potom předat tento konkrétní krok,
 nechat vlastníka určit společný workflow/ruční spuštění a zkontrolovat SHA,
