@@ -115,7 +115,7 @@ function serverEnvironment(runtime, nonce, providerUrl, models = {}) {
   };
 }
 
-async function startServer(runtime, nonce, providerUrl, models = {}) {
+async function startServer(runtime, nonce, providerUrl, models = {}, onOwnedSpawn) {
   const child = spawn(process.execPath, ['src/server.js'], {
     cwd: SOURCE_ROOT,
     env: serverEnvironment(runtime, nonce, providerUrl, models),
@@ -141,6 +141,8 @@ async function startServer(runtime, nonce, providerUrl, models = {}) {
     ownedChildren.delete(child);
     writeFileSync(runtime.serverLog + '.' + child.pid, `${state.stdout}\n${state.stderr}`, { mode: 0o600 });
   });
+
+  onOwnedSpawn?.(state);
 
   const deadline = Date.now() + SERVER_START_TIMEOUT_MS;
   while (Date.now() < deadline) {
@@ -266,7 +268,7 @@ async function waitForLiteralStudioTarget(userData, childState) {
   throw new Error('literal Studio CDP readiness timeout');
 }
 
-async function startLiteralStudio(runtime) {
+async function startLiteralStudio(runtime, onOwnedSpawn) {
   const display = process.env.INTENTSMITH_STUDIO_DISPLAY;
   const xauthority = process.env.INTENTSMITH_STUDIO_XAUTHORITY;
   assert.match(display || '', /^:\d+(?:\.\d+)?$/, 'scoped Studio DISPLAY is required');
@@ -303,7 +305,7 @@ async function startLiteralStudio(runtime) {
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   ownedChildren.add(child);
-  const state = { child, exitCode: null, signal: null, stdout: '', stderr: '' };
+  const state = { child, exitCode: null, signal: null, stdout: '', stderr: '', electronTmp };
   child.stdout.setEncoding('utf8');
   child.stderr.setEncoding('utf8');
   child.stdout.on('data', chunk => { state.stdout = bounded(state.stdout, chunk); });
@@ -314,9 +316,11 @@ async function startLiteralStudio(runtime) {
     ownedChildren.delete(child);
   });
 
+  onOwnedSpawn?.(state);
   try {
     const target = await waitForLiteralStudioTarget(userData, state);
     const cdp = new CdpClient(target.webSocketDebuggerUrl);
+    state.cdp = cdp;
     await cdp.open();
     await cdp.send('Runtime.enable');
     const deadline = Date.now() + SERVER_START_TIMEOUT_MS;
@@ -336,8 +340,11 @@ async function startLiteralStudio(runtime) {
     cdp.close();
     throw new Error('literal Studio M1 wire readiness timeout');
   } catch (error) {
-    if (state.exitCode === null && state.signal === null) child.kill('SIGTERM');
-    rmSync(electronTmp, { recursive: true, force: true });
+    if (!onOwnedSpawn) {
+      if (state.exitCode === null && state.signal === null) child.kill('SIGTERM');
+      state.cdp?.close();
+      rmSync(electronTmp, { recursive: true, force: true });
+    }
     throw error;
   }
 }
@@ -345,7 +352,7 @@ async function startLiteralStudio(runtime) {
 
 async function stopLiteralStudio(studio) {
   try { await studio.cdp.send('Browser.close', {}, 2_000); } catch { /* closes CDP */ }
-  studio.cdp.close();
+  studio.cdp?.close();
   const deadline = Date.now() + SERVER_STOP_TIMEOUT_MS;
   while (
     Date.now() < deadline
@@ -720,6 +727,7 @@ async function parent(out) {
   if (evidence.status !== 'PASS') process.exitCode = 1;
 }
 
+export const OWNED_RUNTIME_SPAWN_HOOK_VERSION = 'fan-owned-spawn-v1';
 export { makeRuntime, startServer, stopServer, requestJson, startLiteralStudio, stopLiteralStudio,
   evaluateRenderer, waitUntil, clickAction, capture, trackNetwork };
 

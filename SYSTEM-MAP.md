@@ -8,7 +8,9 @@ ROOT integračně přebírá CHAT `6f0259ec` nad nechatový `2a479852` ve stáva
 checkoutu. Tři konflikty registru/harnessu vyřešené se zachováním všech
 kontrol, 594 programů /35 exclusions. Publikovaný `d7e7d1b1`: úplný profil
 401 PASS /2 FAIL /5 BLOCKED; dva toolchain BLOCKED cíleně PASS. Doc drift
-opravený 160/160 PASS, chatové routování FAIL a tři PDF/OCR BLOCKED trvají.
+opravený 160/160 PASS; chatové routování FAIL a tři PDF/OCR původně BLOCKED.
+Tyto tři runtime sady následně na `252e839b` skutečně 3/3 PASS;
+původní celý profil se nemění. Stávající runtime existují, instalace nebyla nutná.
 Aktuální `7cfe4edf`: celý profil 404 PASS /1 CHAT FAIL /3 runtime BLOCKED,
 CI `37004411495` SUCCESS: CHAT 7/7, CODE 6/6,
 Studio/privacy/hygiene PASS, žádný SKIPPED krok. Lokální Studio build PASS.
@@ -24,6 +26,8 @@ Krátké měření Qwen3.8 exact digest `22130167…9643` při 16k na provideru
 minfree 3 759 MiB, jedno volání a uvolněný vlastní model/lease. Není plné
 kontextové okno ani modelová/app kvalita. Produktový CODE capture pro 16k je
 zapojený, source review PASS, service 104/104 PASS; nový skutečný projekt NOT_RUN.
+Fan entry je doloženě blokovaný CHAT ProjectHandler směrováním do běžné
+odpovědi místo D1; bounded public qualification je připravená pro owner fix.
 
 Zmrazený `f5964604` má SOURCE_REVIEW_PASS, čtyři dotčené registrované sady
 PASS a vlastní CI13 SUCCESS. SQLite pokračování 08:18 UTC dodalo právě

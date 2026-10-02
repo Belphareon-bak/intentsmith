@@ -625,3 +625,14 @@ kroky PASS bez SKIPPED. Archiv obsahuje reporty se stejnou source identity,
 ZIP 33925 B / SHA `4c8c115673ea00385d58a0d095bf0907cbde18bea39f65df3518ea1984d8a0a2`.
 Historické FAILy zachované. CODE source/CPU/CI výsledek není dokončená
 fan aplikace ani přijetí releasu; skutečný D1/Studio/M2 průchod zůstává NOT_RUN.
+
+Konkrétní tři runtime BLOCKED byly 12:24:21–12:24:26 UTC ověřené na čistém
+`252e839b7e43ea5b0ebc0643cbbaff5473f0360c` s dokumentovaným PDF/OCR runtime:
+focused **3/3 PASS**, bez instalace či globální změny. Původní celý profil
+zůstává nezměněný. Report SHA
+`93f188bfff29f05cda6abaa2979187eb745bfbaeab574754cbecbcead3a03413`.
+Preflight runtime receipt
+`06c771b8795ce26dcff40f6741b1770a9e90debf3d4f4800b21e8072733d9b8f`
+dokládá přesné piny a skutečné ces/eng data; původním options chyběla tato
+konkrétní toolchain povolení. Aktuální fan block je actual CHAT routing,
+nikoli kontextový overflow nebo zamítnutá GPU; žádný nový modelový běh nebyl.

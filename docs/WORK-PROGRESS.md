@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 2. 10. 2026, 12:13 UTC / 14:13 CEST.
+**Aktualizováno:** 2. 10. 2026, 12:33 UTC / 14:33 CEST.
 **Vlastník:** ROOT. CHAT ladí jiný worker.
 Report aktualizuji po milníku, nejpozději po 3 h aktivní práce; operátorovi
 podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
@@ -42,7 +42,8 @@ podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
 1. **Společná integrace:** publikovaný `d7e7d1b1` slučuje `2a479852` + `6f0259ec`.
    Tři konflikty vyřešené, registry 594/35. Aktuální celý offline/database
    profil na `7cfe4edf`: **404 PASS /1 FAIL /3 BLOCKED**, verdict FAIL.
-   Routing DPH FAIL patří CHATu; tři PDF/OCR runtime BLOCKED trvají.
+   Routing DPH FAIL patří CHATu; tři PDF/OCR runtime BLOCKED následně
+   ověřené na `252e839b` se skutečnými runtime: **3/3 PASS**, bez instalací.
    CODE source a přesná baseline 1497 jsou publikované, remote SHA souhlasí.
    [CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37004411495)
    **CHAT 7/7 + CODE 6/6**, Studio/privacy/hygiene PASS, žádný SKIPPED krok.
@@ -66,10 +67,11 @@ podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
    serializační mez. Úplné zdroje dál určují náhled, digest a zápis.
    [CPU podrobnosti a odmítnutá projekce](wp/WP-CODE-PEER-CONTEXT-BUDGET-20261001.md#11-větší-projekty--nová-priorita-2-10-2026).
    **Další odlišná aplikace:** fan-monitor z existujícího projektového WP,
-   nejdříve offline core/CLI a dva skutečné plánované přírůstky. Oracle,
-   kontext, parametry a konečný opravný rozsah zmrazit před inferencí.
-   CPU review našlo směrování požadavků do CHAT místo D1; explicitní
-   existující projektová cesta se ověřuje, ruční blueprint není náhrada.
+   offline core/CLI, dva přírůstky, max 11 CODE /8 D1. Qualification V4
+   source review PASS; veřejné manual cesty převzaté, živý běh NOT_RUN.
+   **Blokér:** skutečný ProjectHandler směruje původní požadavky do CHAT,
+   bez D1 návrhu. Jiný veřejný vstup se nepotvrdil; potřeba CHAT owner fix
+   a opakování CPU trasy před freeze. Větev/SHA vyžádané od operátora.
 4. **Hunt:** aktuální kontrola 2. 10. 09:21 UTC potvrzuje 596/1173. Původní
    hodnoticí relace skončila na týdenním limitu poskytovatele; přesný event
    je připnutý v [Hunt WP](wp/WP-HUNT-COMPLETION-PATH-20261001.md).
@@ -85,7 +87,9 @@ podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
    chybí. Finální kandidát potřebuje vlastní 24h soak a throughput;
    historické jiné SHA nestačí. Offline kopie klíčů a skutečné podpisy otevřené.
 7. **Mobil, potom HTTP:** až po stabilním IDE/BE. Mobilní fyzická matice
-   13+7 NOT_RUN; HTTP má samostatný dosud nepřijatý M2 profil.
+   13+7 NOT_RUN; aktuální mobilní CPU 47/47 PASS. Chybí skutečné založení
+   konverzace v BE pro první send, device/VPN/origin/signer přejímka.
+   HTTP má samostatný dosud nepřijatý M2 profil.
 8. **Závěrečný cleanup:** až po integraci, s ověřeným vlastnictvím a obnovou.
 
 ## Publikace a historie

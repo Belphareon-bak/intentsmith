@@ -116,3 +116,34 @@ stale receipts, timeout after 180 seconds or second failure stop the run.
 This permits cause-specific engineering choices without extending the oracle,
 target set or call budget. Empty historical static pairs did not identify a
 cause and are not evidence that only two predetermined modules can be faulty.
+
+## Reviewed public preparation and concrete entry blocker — 2 October, 12:33 UTC
+
+ROOT adopted the seven declared manual paths and the exact reviewed optional
+runtime spawn callback patch. Four protected oracle/entry/wrapper sources
+remain byte exact; only controller imports/public names and qualification
+comments/status changed. Private preflight and syntax of all eight files PASS;
+default preflight reports LIVE_BLOCKED_PROJECT_ROUTING and has no provider effects.
+Original V3/V4 manifests and all historical failure records remain unchanged.
+Narrow public relocation review PASS, receipt
+`e9e84f612b2a5479e69714bca250ee95ae9a76bece1dc73eb6bd8d550174d344`;
+all thirteen local imports resolve, four protected templates remain exact.
+
+Bounded V4 review receipt
+`22cadb60b53c1951316e73093b6368deab9c50dda768c4e194bc02a5656e6085`
+accepts source controls only: typed wrong-digest409, full preview bytes,
+failure-bound repair selection and exact owned-process cleanup. Physical
+HTTP rejection/startup/interruption, fan app, commit and restart are NOT_RUN.
+The correct actual ProjectHandler CPU route proof SHA is
+`01807f7f7f6a7c92b65b666287270f5a2aa02b5b6c6fa726fb402eb9e589be57`;
+the initial wrong-spy record is preserved. Both original inputs return
+deterministic CREATIVE/ANSWER, not ProjectWorkProposal. No alternative public
+Studio/routes D1 entry was demonstrated. Neither new GPU inference nor manual
+blueprint substitution can establish this milestone on the observed route.
+
+Recommended dependency resolution: CHAT owner restores project planning for
+the original natural inputs while retaining ordinary chat and exact M2 approval;
+ROOT imports the published branch, verifies the actual CPU path and request
+accounting, reviews the final source/native/build freeze and then runs the
+same bounded two-increment fan oracle. ROOT requested that branch/SHA from
+the operator and leaves the foreign CHAT source unchanged.
