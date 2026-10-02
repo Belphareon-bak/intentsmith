@@ -31,8 +31,10 @@ CHAT ladí jiný worker. Po přijatém SQLite má podle revize operátora předn
 strategie kontextu větších projektů a další odlišná funkční aplikace.
 CPU porovnání zvolilo úplné zdroje při 16k a projektové přírůstky. Krátký
 load 09:51 UTC má plnou GPU rezidenci a headroom 3 759 MiB; plné okno,
-produktové zapojení a aplikace tím přijaté nejsou. Doplňující posudek vrací
-omezenou scanner opravu mezi aktuální práce;
+produktové zapojení a aplikace tím přijaté nejsou. Omezený AST scanner je
+zapojený a nezávisle přijatý; CODE capture pro 16k je pushnutý v `7cfe4edf`,
+source review PASS, celý profil 404 PASS /1 CHAT FAIL /3 runtime BLOCKED,
+CI `37004411495` SUCCESS (7 CHAT a 6 CODE sad). Nová fan aplikace NOT_RUN;
 společné přijetí, M5/M6 a mobilní fyzická přejímka
 zůstávají otevřené. [Aktuální průběžný report](docs/WORK-PROGRESS.md).
 

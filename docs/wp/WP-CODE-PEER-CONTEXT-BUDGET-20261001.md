@@ -16,7 +16,7 @@ Nezávislá fyzická přejímka přijala doložený scénář; historický osmig
 FAIL platí. Release a instalované Studio mají samostatné brány.
 
 **Aktuální navazující práce:** omezený CODE16k source převzatý, nezávislé
-review PASS; celý profil, CI nového kandidáta a skutečný fan-monitor čekají.
+review PASS; celý profil a CI ověřené, skutečný fan-monitor čeká.
 Rozsah a poslední výsledky v §11; přijatý SQLite se neopakuje.
 
 ## Vlastnictví a konkrétní výsledek navazujícího milníku
@@ -588,10 +588,10 @@ PASS není modelové či aplikační přijetí. Historická narrativní hodnota
 ### ROOT adopce — 2. 10. 2026, 11:56 UTC
 
 Přesné čtyři source cesty V3 a dvě existující testové sady převzaté nad
-`3fb1d9e0`; oddělený test default služby zachovává103 starých případů a má
+`3fb1d9e0`; oddělený test default služby zachovává 103 starých případů a má
 104/104 CPU PASS. Root actual gateway44/44, context18/18 PASS. Úplný
-default service vstup17675 B v CPU provider fixture překračuje původních
-8736 B a vejde se do nových23808 B; pozdější overflow/neúplný output/drift
+default service vstup 17675 B v CPU provider fixture překračuje původních
+8736 B a vejde se do nových 23808 B; pozdější overflow/neúplný output/drift
 nemají autoritní řádek ani zápis. Úplné zdroje nekrácené, opravy i build
 sdílejí stejný zachycený runtime. Metadata verze má původní bounded
 controller a model-use lease; null body zachovává typed MALFORMED_RESPONSE.
@@ -606,3 +606,22 @@ nový cyklus. Oficiální ratchet přijal právě tuto hranu na čistém source
 `a68ce03c286e4657ed0a6f1fdda88f1f06ab1132`: 1497 hran, 3 cykly /28 členů.
 Poté jeden celý společný profil. GPU/app/full-window jsou stále NOT_RUN;
 allocation-only profil nezaměňuje UNKNOWN za vymyšlený obecný VRAM FIT.
+
+### Celý společný profil a publikace — 2. 10. 2026, 12:13 UTC
+
+Source `a68ce03c286e4657ed0a6f1fdda88f1f06ab1132` a přesná baseline jsou
+pushnuté v `7cfe4edfa7e880ef4ea8e73a7e92f19ef17212c1`; remote SHA ověřené.
+Jediný nový celý offline/database profil na čistém kandidátu trval
+12:02:48–12:12:15 UTC: **404 PASS /1 FAIL /3 BLOCKED /0 TIMEOUT /0 SKIPPED**,
+verdict FAIL. Jediný FAIL je zděděné CHAT routování DPH; přesně tři BLOCKED
+jsou accountant OCR/Python PDF, chat-export-budget a export-pdf-docx runtime.
+Root default služba 104/104 PASS; source se během profilu nezměnil.
+Report `shared-code16k-7cfe4edf-20261002` SHA
+`8b181cdd7047d85b2e551068dd8f9b9949a5a71b0a291efb6d54f1d0faff4e65`.
+
+[CI 37004411495](https://github.com/Belphareon-bak/intentsmith/actions/runs/37004411495)
+na přesném SHA SUCCESS: CHAT 7/7 a CODE 6/6, všechny Studio/privacy/hygiene
+kroky PASS bez SKIPPED. Archiv obsahuje reporty se stejnou source identity,
+ZIP 33925 B / SHA `4c8c115673ea00385d58a0d095bf0907cbde18bea39f65df3518ea1984d8a0a2`.
+Historické FAILy zachované. CODE source/CPU/CI výsledek není dokončená
+fan aplikace ani přijetí releasu; skutečný D1/Studio/M2 průchod zůstává NOT_RUN.

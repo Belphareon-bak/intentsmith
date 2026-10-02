@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 2. 10. 2026, 11:29 UTC / 13:29 CEST.
+**Aktualizováno:** 2. 10. 2026, 12:13 UTC / 14:13 CEST.
 **Vlastník:** ROOT. CHAT ladí jiný worker.
 Report aktualizuji po milníku, nejpozději po 3 h aktivní práce; operátorovi
 podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
@@ -40,12 +40,12 @@ podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
 ## Aktuální priority
 
 1. **Společná integrace:** publikovaný `d7e7d1b1` slučuje `2a479852` + `6f0259ec`.
-   Tři konflikty vyřešené, registry 594/35; celý offline/database profil
-   **401 PASS /2 FAIL /5 BLOCKED**. Dva toolchain BLOCKED cíleně PASS;
-   opravené počty README/ROADMAP: 160/160 PASS; routing DPH FAIL patří CHATu.
-   Tři PDF/OCR BLOCKED trvají. Publikovaný `03ad348f`, remote SHA přesné;
-   [CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37000616340)
-   **CHAT7/7 +M2 4/4**, Studio/privacy/hygiene PASS, žádný SKIPPED krok.
+   Tři konflikty vyřešené, registry 594/35. Aktuální celý offline/database
+   profil na `7cfe4edf`: **404 PASS /1 FAIL /3 BLOCKED**, verdict FAIL.
+   Routing DPH FAIL patří CHATu; tři PDF/OCR runtime BLOCKED trvají.
+   CODE source a přesná baseline 1497 jsou publikované, remote SHA souhlasí.
+   [CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37004411495)
+   **CHAT 7/7 + CODE 6/6**, Studio/privacy/hygiene PASS, žádný SKIPPED krok.
    Nový lokální Studio build/consumer PASS. Původní CI FAILy zůstávají;
    zelený vývojový výběr kontrol nenahrazuje celý profil ani přijetí releasu.
    CHAT report má CHANGES_REQUIRED: celé série 53×3 nesplnily kvalitativní cíle;
@@ -53,14 +53,14 @@ podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
 2. **Omezený M2 scanner:** V2 adoptovaný do skutečné default M2 služby,
    evaluator 34/34 a service 103/103 PASS: přesné approval/commit/restart,
    assertion rollback tří souborů a cancel před registrací. Dvě nezávislá
-   source review PASS; baseline1496 nad čistým `4a8fb4b2`, registry11/11 PASS.
+   source review PASS; AST baseline 1496 nad `4a8fb4b2`, registry 11/11 PASS.
    [Rozsah a historické fixture FAILy](wp/WP-M2-AST-IMPORT-SCANNER-20261001.md).
 3. **Kontext a větší projekt:** CPU rozhodnutí je úplný zdroj při 16k
    a skutečné projektové přírůstky. Ze 198 velikostních případů se při 8k
    vejde 27, při 16k 97; nejde o míru modelové úspěšnosti. Krátký skutečný
    16k load 09:51 UTC: full GPU, CPU spill 0, minfree 3 759 MiB. Plné okno
    a skutečná aplikace NOT_RUN; produktový capture převzatý, source review
-   PASS, gateway44/context18/service104 CPU PASS. Dosavadní 119 B /1,4 % je omezená
+   PASS, gateway 44/44, context 18/18, service 104/104 PASS. Dosavadní 119 B /1,4 % je omezená
    úspora, nikoli řešení škálování. Nový živý fit měl i bez formatteru 7 781 B.
    `8192` je pro Qwen3.8 fallback, ne změřené maximum; build má navíc 32 000 B
    serializační mez. Úplné zdroje dál určují náhled, digest a zápis.
@@ -68,7 +68,8 @@ podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
    **Další odlišná aplikace:** fan-monitor z existujícího projektového WP,
    nejdříve offline core/CLI a dva skutečné plánované přírůstky. Oracle,
    kontext, parametry a konečný opravný rozsah zmrazit před inferencí.
-   Obecné plánování a funkční výsledek měřit odděleně od transportu.
+   CPU review našlo směrování požadavků do CHAT místo D1; explicitní
+   existující projektová cesta se ověřuje, ruční blueprint není náhrada.
 4. **Hunt:** aktuální kontrola 2. 10. 09:21 UTC potvrzuje 596/1173. Původní
    hodnoticí relace skončila na týdenním limitu poskytovatele; přesný event
    je připnutý v [Hunt WP](wp/WP-HUNT-COMPLETION-PATH-20261001.md).

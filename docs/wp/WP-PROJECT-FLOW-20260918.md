@@ -59,6 +59,17 @@ Qualification-only owned paths will be the necessary manual runner under
 `scripts/`, its trusted fan oracle and entry helper, and bounded supporting
 controller/policy helper if needed. ROOT records final exact adoption paths
 before writing. Delegated proposals stay ignored; no product framework.
+Selected public paths, recorded before adoption:
+`scripts/manual/run-fan-monitor-journey.mjs`,
+`scripts/manual/fan-monitor-studio2-controller.mjs`,
+`scripts/manual/fan-monitor-source-policy.mjs`,
+`scripts/manual/fan-monitor-oracle.mjs`,
+`scripts/manual/fan-monitor-entry-oracle.mjs`,
+`scripts/manual/fan-monitor-fixtures/operator-core-oracle.fixture.mjs`,
+`scripts/manual/fan-monitor-fixtures/operator-cli-oracle.fixture.mjs`.
+The existing `scripts/run-project-build-journey.js` may receive only an
+optional synchronous own-child spawn callback required to retain exact
+startup handles before readiness can fail. Existing callers keep their API.
 Protected operator fixtures materialize visibly in the disposable project
 `scripts/` and `test/` before inference. Original oracle and every preparation
 FAIL remain unchanged; handwritten positive references only validate oracle.
@@ -86,3 +97,22 @@ Backend restart proves M2/source/commit persistence, app history is memory-only.
 Oracle peer receipt `2003de494684b9e820ab548e8725a0bfe9068e99a05f869277fe3584b6d08935`
 accepts the exact loop-only renamed trusted proposal; materialized default
 AST CPU prepare ALLOW and D1 fit are preliminary, not a generated app.
+
+Pre-live review on 2 October found that both draft natural inputs reach
+deterministic CREATIVE/ANSWER rather than D1 in current ProjectHandler.
+No model call occurred. The qualification must use a demonstrated existing
+explicit project entry and preserve this routing limitation for the CHAT owner;
+a handwritten plan or fabricated M1 proposal cannot replace actual D1 output.
+Draft inputs and historical CPU evidence remain unchanged until the next
+explicit freeze. Actual D1 CLI input must fit over the committed real core.
+
+The repair policy is frozen before inference: original phase targets only,
+at most two selected paths, one repair lifecycle per phase and unchanged
+11 CODE /8 D1 total budget. After a first focused-test failure and exact
+rollback, no new inference precedes an explicit ROOT selection receipt bound
+to phase, failed lifecycle ID and digest with a concrete reason. The receipt
+hash is saved before repair D1 admission. Unknown causes, unsupported targets,
+stale receipts, timeout after 180 seconds or second failure stop the run.
+This permits cause-specific engineering choices without extending the oracle,
+target set or call budget. Empty historical static pairs did not identify a
+cause and are not evidence that only two predetermined modules can be faulty.

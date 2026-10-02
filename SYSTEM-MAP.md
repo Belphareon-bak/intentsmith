@@ -9,7 +9,8 @@ checkoutu. Tři konflikty registru/harnessu vyřešené se zachováním všech
 kontrol, 594 programů /35 exclusions. Publikovaný `d7e7d1b1`: úplný profil
 401 PASS /2 FAIL /5 BLOCKED; dva toolchain BLOCKED cíleně PASS. Doc drift
 opravený 160/160 PASS, chatové routování FAIL a tři PDF/OCR BLOCKED trvají.
-Novější `03ad348f` má CI `37000616340` SUCCESS: CHAT7/7, M2 4/4,
+Aktuální `7cfe4edf`: celý profil 404 PASS /1 CHAT FAIL /3 runtime BLOCKED,
+CI `37004411495` SUCCESS: CHAT 7/7, CODE 6/6,
 Studio/privacy/hygiene PASS, žádný SKIPPED krok. Lokální Studio build PASS.
 Registry11/11 PASS, default AST service103/103 a evaluator34/34 PASS, dvě omezená
 source review PASS. Žádný deploy ani release acceptance.
@@ -21,7 +22,8 @@ PASS a dva živé kroky, nikoli novou finální 53×3 přejímku.
 Krátké měření Qwen3.8 exact digest `22130167…9643` při 16k na provideru
 `0.34.0-intentsmith.1`: plná GPU rezidence 17 315 848 518 B, CPU spill 0,
 minfree 3 759 MiB, jedno volání a uvolněný vlastní model/lease. Není plné
-kontextové okno ani modelová/app kvalita; CODE produktový ceiling zatím stejný.
+kontextové okno ani modelová/app kvalita. Produktový CODE capture pro 16k je
+zapojený, source review PASS, service 104/104 PASS; nový skutečný projekt NOT_RUN.
 
 Zmrazený `f5964604` má SOURCE_REVIEW_PASS, čtyři dotčené registrované sady
 PASS a vlastní CI13 SUCCESS. SQLite pokračování 08:18 UTC dodalo právě
@@ -33,8 +35,8 @@ Sedm přesných modelových zdrojů /8 965 B je v [SQLite příkladu](examples/g
 plány a jejich rollbacky zůstávají. Aplikační DB je ověřená mezi procesy
 uvnitř jednoho sandboxu; další sandbox má novou privátní DB.
 M3 doložil skutečný ProjectContext a stale/foreign odmítnutí. GPU V7 readonly
-UI a cleanup tří vlastních refs jsou přijaté. Obecný M2 AST scanner má CPU
-přípravu; větší projekt, aktuální celý profil, Hunt grader, M5/M6 a mobil
+UI a cleanup tří vlastních refs jsou přijaté. Omezený M2 AST scanner je
+zapojený a přijatý; větší projekt, Hunt grader, M5/M6 a mobil
 zůstávají otevřené. CHAT vlastní druhý worker. HTTP permission zůstává
 samostatným návrhem. Produkční BE `c84b88cd` ani release nebyly aktualizovány.
 
