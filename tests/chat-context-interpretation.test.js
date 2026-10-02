@@ -423,6 +423,46 @@ test('interpretation protects the complete archived summary when recent optional
     error => error.code === 'CHAT_INTERPRETATION_CONTEXT_LIMIT');
 });
 
+for (const backend of ['memory', 'sqlite']) {
+  test(`archive past 1000 user turns retains the original and later lower-scoring correction (${backend})`, async () => {
+    const db = backend === 'sqlite' ? (await import('../src/db/database.js')).default : null;
+    const store = new ConversationStore(db);
+    const id = `archive-page-boundary-${backend}`;
+    const projectId = backend === 'sqlite' ? null : 1;
+    store.ensureConversation(id, { projectId });
+    const original = 'Název je Lípa, kód JILM_407 a první krok je ruční kontrola bez změn souborů.';
+    const first = store.appendTurn(id, TurnRole.USER, original, { projectId });
+    for (let index = 0; index < 1010; index++) {
+      store.appendTurn(id, TurnRole.USER, `Neutrální diskusní podklad číslo ${index}.`, { projectId });
+    }
+    for (let index = 0; index < 3; index++) {
+      store.appendTurn(id, TurnRole.USER, original, { projectId });
+    }
+    const correction = store.appendTurn(id, TurnRole.USER, 'Oprava: název je nyní Javor.', { projectId });
+    const foreign = store.appendTurn(id, TurnRole.USER, 'Název FOREIGN_ARCHIVE_CANARY, kód a první krok.', { projectId: 2 });
+    const assistant = store.appendTurn(id, TurnRole.ASSISTANT, 'Název ASSISTANT_ARCHIVE_CANARY, kód a první krok.', { projectId });
+    store.setSummary(id, 'Starý ztrátový souhrn: Lípa, JILM_407, ruční kontrola.', assistant.id);
+    const request = 'Jaký název, kód a první krok nyní platí?';
+    const evidence = store.getArchivedUserEvidence(id, request);
+    assert(evidence.sources.some(source => source.messageId === correction.id && source.content.includes('Javor')),
+      'a correction beyond the first page must survive its lower lexical score');
+    assert(evidence.sources.some(source => source.messageId === first.id && source.content === original),
+      'the original identity and unchanged constraints remain available');
+    assert(!evidence.sources.some(source => [foreign.id, assistant.id].includes(source.messageId)));
+    assert(!JSON.stringify(evidence).includes('ARCHIVE_CANARY'));
+    assert(evidence.sources.length <= 3);
+    assert(Buffer.byteLength(JSON.stringify(evidence.sources), 'utf8') <= 1200);
+    assert.equal(evidence.omitted, true);
+    const context = { projectId, archivedChatEvidence: evidence };
+    const full = buildInterpretationContext(request, context, 1600);
+    assert(full.sources.some(source => source.messageId === correction.id));
+    const tight = buildInterpretationContext(request, context, 330);
+    assert(tight.sources.some(source => source.messageId === correction.id),
+      'a tight provider budget must not prefer older originals to the later correction');
+    assert.equal(tight.sourcesOmitted, true);
+  });
+}
+
 test('new-content saves require an exact user span, durable origin and a complete generation', async () => {
   const instruction = 'Napiš dvě krátké věty o rostlinách';
   const request = `${instruction} a ulož je do plants.md.`;
