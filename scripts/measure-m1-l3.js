@@ -262,6 +262,16 @@ const isCapabilities = phase === 'quality-capabilities';
 const isArchiveBoundary = phase === 'quality-archive-boundary';
 const isArchiveFollowups = phase === 'quality-archive-followups';
 const isLatencyProbe = phase === 'quality-latency';
+const isReproducedDefects = phase === 'quality-reproduced-defects';
+if (isReproducedDefects) {
+  if (requestedCases) throw new Error('Reproduced-defect probe cannot filter its 20 repetitions per defect');
+  if (process.env.CHAT_PROBE_NO_DIRECT !== 'true') throw new Error('Reproduced-defect probe measures the real M1 path');
+  const defects = ['recipient-bob', 'gpu-composite'].map(id => corpus.find(row => row.id === id));
+  corpus = Array.from({ length: 20 }, (_, index) => defects.map(row => ({ ...row,
+    id: `${row.id}-repeat-${index + 1}`, dialog: `${row.id}-repeat-${index + 1}`,
+    usedForTuning: true, variant: 'development-reproduction' }))).flat();
+  measurementDefinition = { version: 1, purpose: '20 unchanged known reproductions each before/after the application repair; exposed regression, not holdout', cases: corpus };
+}
 if (isArchiveFollowups || isLatencyProbe) {
   if (requestedCases) throw new Error('Declared archive/latency probes cannot filter cases');
   if (process.env.CHAT_PROBE_NO_DIRECT !== 'true') throw new Error('Archive/latency probes measure the actual chat path without the simplified A prompt');
@@ -409,7 +419,7 @@ if (process.argv.includes('--offline')) {
 const dirtyStatus = execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim();
 if (dirtyStatus) throw new Error('LIVE_SOURCE_DIRTY: commit the exact runner and corpus before inference');
 const manifest = { revision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), sourceClean: dirtyStatus.length === 0, dirtyStatus,
-  corpusSha256: createHash('sha256').update(isLongContext || isGeneratedSave || isRecallAB || isNaturalActions || isQualityDialogs || isCapabilities || isArchiveBoundary || isArchiveFollowups || isLatencyProbe ? JSON.stringify(measurementDefinition) : fs.readFileSync(corpusFile)).digest('hex'),
+  corpusSha256: createHash('sha256').update(isLongContext || isGeneratedSave || isRecallAB || isNaturalActions || isQualityDialogs || isCapabilities || isArchiveBoundary || isArchiveFollowups || isLatencyProbe || isReproducedDefects ? JSON.stringify(measurementDefinition) : fs.readFileSync(corpusFile)).digest('hex'),
   runnerSha256: createHash('sha256').update(fs.readFileSync(self)).digest('hex'), model, modelDigest,
   providerUrl: 'http://127.0.0.1:11434', node: process.version, inferenceSerial: true, networkIsolation: 'kernel namespace plus explicit Unix provider relay' };
 if (isFinal && !inside && phase !== 'final-1') {

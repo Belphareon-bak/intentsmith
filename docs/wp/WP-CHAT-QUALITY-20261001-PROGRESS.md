@@ -398,6 +398,24 @@ CI předávací návrh není aplikované workflow a PR dříve odmítlo oprávn�
 
 ## Další milník a podmínky přijetí
 
+### S11 zahájení — známé reprodukce a nezávislý holdout (2. 10.)
+
+Operátor dodal zapečetěný holdout na `review/chat-holdout-seal-20261002`,
+commit `6a9d1dbe`; protokol byl přečten pouze z Git větve. Dřívější stav
+„autor/corpus neexistují“ je tím překonaný. Zapečetěný adresář nebyl otevřen
+ani prohledáván. Autorova izolace je podle koordinátora organizační,
+technicky nevynucená. Obsah worker nezná.
+
+- Uživatelské chování k opravě: neprovedené odeslání hlásí aplikace a
+  samostatné vysvětlení RAM/disku zachová dvě věty vedle limitu GPU.
+- Důkaz před opravou: připravená měřicí fáze `quality-reproduced-defects`
+  provede střídavě 20 stejných e-mailů a 20 složených žádostí přes M1;
+  aktuální produkční aplikační cesty se zatím nemění.
+- Zbývá: oba nálezy, runner holdoutu a zmrazení; kvalita stále NO_GO,
+  CI_NOT_RUN, faktické znalosti modelu ani jazyková parita nejsou vyřešené.
+- Následující krok: dokončit baseline 40 kroků na čistém commitu před
+  aplikační úpravou, potom opravit obě hranice a změřit shodných 40 kroků.
+
 1. Nové dialogy A/B, přirozené akce, dlouhá návaznost, restart a osm kompakcí
    jsou dokončené. Významové nedostatky jsou uvedené výše; cíle nejsou splněné.
 2. Technický profil a devět HTTP sad jsou dokončené. Baseline chyby zůstávají

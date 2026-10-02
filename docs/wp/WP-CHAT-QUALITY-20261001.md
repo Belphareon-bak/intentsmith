@@ -42,6 +42,20 @@ nemění trvalé schéma ani zprávy. Hledání zůstává lexikální s citovan
 nikoli sémantický rozhodovač. Výňatky mají přesný prefix a oddělený suffix
 s bajtovou pozicí; mezera není zatajená. Modelový experiment zůstává odložený.
 
+Explicitní zadání operátora z 2. 10. po S10: s existující reprodukcí opravit
+vymyšlené odeslání `recipient-bob` a neúplné složené zadání `gpu-composite`.
+Stav neprovedeného efektu sestavuje aplikace, model dodává pouze textový obsah.
+Před i po opravě proběhne 20 opakování každé reprodukce přes skutečné M1,
+stejné vstupy, modelový digest, limity a čerstvé rozhovory. Probe
+`quality-reproduced-defects` je ladicí regrese, nikoli nezávislý holdout.
+Runner přijme `--holdout FILE --holdout-sha256 HEX`, ověří hash před inferencí
+a zajistí neměnné fáze `holdout-1..3` s A/B. Ověření runneru používá pouze
+syntetický dummy; zapečetěný adresář se neotevírá ani neprohledává.
+Po čistém commitu, pushi a ověřeném SHA kandidát čeká na odpečetění operátorem;
+odpovědi ze tří holdout sérií worker nečte ani nehodnotí. Toto zadání povoluje
+jen obě doložené opravy a runner, ne ladění znalostí `versions`, změnu modelu
+či neautorizovanou úpravu sdíleného routingu/CI.
+
 Postup: (1) reprodukce posudku a inventura skutečné cesty;
 (2) společný kontext, doptávání a paměť;
 (3) rozpočtování dlouhé historie a návrat ke zdrojovému obsahu;
