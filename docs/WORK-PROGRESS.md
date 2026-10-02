@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 2. 10. 2026, 09:40 UTC / 11:40 CEST.
+**Aktualizováno:** 2. 10. 2026, 10:00 UTC / 12:00 CEST.
 **Vlastník:** ROOT. CHAT ladí jiný worker.
 Report aktualizuji po milníku, nejpozději po 3 h aktivní práce; operátorovi
 podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
@@ -39,27 +39,34 @@ podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
 
 ## Aktuální priority
 
-1. **Kontext větších CODE projektů:** CPU rozhodnutí je úplný zdroj při 16k
+1. **Společná integrace:** ROOT slučuje nechatový `2a479852` a CHAT `6f0259ec`
+   v existujícím checkoutu. Tři konflikty vyřešené se zachováním obou stran,
+   kanonický registr 594/35; nový společný profil a CI dosud NOT_RUN.
+   CHAT report má CHANGES_REQUIRED: celé série 53×3 nesplnily kvalitativní cíle;
+   celý profil na `289afec0` 399 PASS /4 FAIL /3 BLOCKED. Ladí jeho worker.
+2. **Omezený M2 scanner:** opravit falešné dependency v komentářích/řetězcích;
+   zachovat připravené CPU kontroly a zapojit do skutečné M2 cesty.
+3. **Kontext a větší projekt:** CPU rozhodnutí je úplný zdroj při 16k
    a skutečné projektové přírůstky. Ze 198 velikostních případů se při 8k
-   vejde 27, při 16k 97; nejde o míru modelové úspěšnosti. Runtime FIT dosud
-   nezměřený; větší kontext se před měřením nezapíná. Dosavadní 119 B /1,4 % je omezená
+   vejde 27, při 16k 97; nejde o míru modelové úspěšnosti. Krátký skutečný
+   16k load 09:51 UTC: full GPU, CPU spill 0, minfree 3 759 MiB. Plné okno
+   a produktové zapojení NOT_RUN. Dosavadní 119 B /1,4 % je omezená
    úspora, nikoli řešení škálování. Nový živý fit měl i bez formatteru 7 781 B.
    `8192` je pro Qwen3.8 fallback, ne změřené maximum; build má navíc 32 000 B
    serializační mez. Úplné zdroje dál určují náhled, digest a zápis.
    [CPU podrobnosti a odmítnutá projekce](wp/WP-CODE-PEER-CONTEXT-BUDGET-20261001.md#11-větší-projekty--nová-priorita-2-10-2026).
-2. **Další odlišná aplikace:** fan-monitor z existujícího projektového WP,
+   **Další odlišná aplikace:** fan-monitor z existujícího projektového WP,
    nejdříve offline core/CLI a dva skutečné plánované přírůstky. Oracle,
    kontext, parametry a konečný opravný rozsah zmrazit před inferencí.
    Obecné plánování a funkční výsledek měřit odděleně od transportu.
-3. **Hunt:** aktuální kontrola 2. 10. 09:21 UTC potvrzuje 596/1173. Původní
+4. **Hunt:** aktuální kontrola 2. 10. 09:21 UTC potvrzuje 596/1173. Původní
    hodnoticí relace skončila na týdenním limitu poskytovatele; přesný event
    je připnutý v [Hunt WP](wp/WP-HUNT-COMPLETION-PATH-20261001.md).
    Nové skutečné slepé Sonnet volání dalo 8/8 odpovědí a 32/32 kritérií;
    samostatný DEVELOPMENT DRAFT, canonical počet se nepřepisuje.
    Grader, rozhodnutí a aktivace stále nepřijaté.
-4. **M2 AST:** 80 CPU jazykových/evaluatorových a 7 containment kontrol PASS.
-   Produktová implementace dosud není hotová. Příprava a vlastní čtyři
-   rozpracované soubory bezpečně uložené; kontext má podle revize přednost.
+   Zbývajících 136/298 první vlny má omezený rozpočet 12 USD včetně prvního
+   volání, nejvýše 1 USD na dávku; stop při chybě, žádné retry ani aktivace.
 5. **Společná přejímka IDE/BE:** aktuální celý profil, fyzické pointer UI,
    funkční větší projekty, upgrade/restore a přijetí vlastněných delt.
 6. **M5/M6:** osm nepodepsaných podkladů připraveno, 13 signed receipts

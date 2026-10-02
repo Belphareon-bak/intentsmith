@@ -55,6 +55,10 @@ const PATTERNS = {
     /\b(zkus|zkusit|zopakuj|zopakovat)\b/i,
     /\b(pomoc|pomoct|pomoz|pomoci|poradit|porad)\b/i,
     /\b(chyba|chybi|spatne|spatny|problem)\b/i,
+    // Czech ASCII requests must not be classified as Polish from "ale" alone.
+    // These select only response language; executable source bytes are untouched.
+    /\b(uloz|zapis|nezapisuj|precti|neprepisuj|napis|vysvetli|nepouzivej)\b/i,
+    /\b(soubor|souboru|soubory|odpoved|odpovedi)\b/i,
   ],
 
   sk: [

@@ -891,6 +891,7 @@ test('composer PASS evidence requires actual rejection, exact input, context che
     commandPaletteNavigatesSession: true, sessionsPersistedAcrossReload: true,
     projectCatalogLoaded: true, elevenThemesRendered: true,
     specialistLocalPreviewRequiresAttachment: true,
+    markdownAndCodeRendered: true, untrustedHtmlInert: true,
   };
   const modeEvidence = successEvidence({ ...args, studio2ModeJourney: true,
     uiModes: { ...uiModes, privateCanary: 'PRIVATE_STUDIO2_CANARY' } });

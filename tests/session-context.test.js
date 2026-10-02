@@ -381,7 +381,13 @@ console.log('\n── 8. Cross-tool isolation ──');
   assert(t2 !== null, 'cross-tool: turn2 DPH matched');
   assertEq(t2.toolType, 'accountant.vat_calculator', 'cross-tool: turn2 is VAT (not tax)');
 
-  // Turn 3: "A za rok 2024?" — cache now holds VAT tool, should contextually re-execute VAT
+  // The new VAT resolver needs semantic grounding (absent in this fixture).
+  // Its clarification must invalidate the old tax success, not cache an
+  // unresolved VAT calculation as permission to execute a later short reply.
+  assertEq(t2.status, 'clarify', 'cross-tool: unresolved VAT asks for semantic grounding');
+  assertEq(runtime._sessionCache.get(SESSION, 'accountant'), null,
+    'cross-tool: new unresolved VAT invalidates old tax cache immediately');
+  // Turn 3 must never execute the old tax topic.
   const t3 = await runtime.tryToolExecution('accountant', 'A za rok 2024?', { sessionId: SESSION });
   if (t3 !== null) {
     // If it matched, it MUST be VAT (the last cached tool), NOT tax
@@ -392,11 +398,10 @@ console.log('\n── 8. Cross-tool isolation ──');
     pass('cross-tool: turn3 year follow-up → null (no ghost tax execution)');
   }
 
-  // Verify: cache should NOT hold tax params after DPH execution
+  // Verify: neither old tax params nor an unresolved semantic plan is cached.
   const cached = runtime._sessionCache.get(SESSION, 'accountant');
-  assert(cached !== null, 'cross-tool: cache has entry after turn2+3');
-  assertEq(cached.toolId, 'accountant.vat_calculator', 'cross-tool: cache holds VAT (not tax)');
-  assertEq(cached.params.gross_income, undefined, 'cross-tool: no tax params leaked into cache');
+  assertEq(cached, null, 'cross-tool: no stale or ungrounded tool after turn2+3');
+  assertEq(cached?.params?.gross_income, undefined, 'cross-tool: no tax params leaked into cache');
 
   db.close();
 }

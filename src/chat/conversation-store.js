@@ -398,6 +398,16 @@ export class ConversationStore {
       metadata: this.#parseMetadata(row.metadata) } : null;
   }
 
+  /** A failed/cancelled prior turn cannot silently expose an older answer. */
+  hasUnansweredUserTurnBefore(conversationId, currentMessageId) {
+    if (!Number.isSafeInteger(currentMessageId) || currentMessageId <= 0) return true;
+    const row = this.#db
+      ? this.#db.db.prepare(`SELECT role FROM messages WHERE conversation_id = ? AND id < ?
+          ORDER BY id DESC LIMIT 1`).get(conversationId, currentMessageId)
+      : [...this._memMessages].reverse().find(row => row.conversation_id === conversationId && row.id < currentMessageId);
+    return row?.role === 'user';
+  }
+
   // Compaction and a long sequence of approval receipts must not change which
   // content answer a pronoun refers to. Unknown provenance remains a barrier.
   getLatestSaveSourceTurn(conversationId) {
@@ -410,6 +420,101 @@ export class ConversationStore {
         && value.role === 'assistant' && this.#parseMetadata(value.metadata)?.saveSourceEligible !== false);
     return row ? { messageId: row.id, response: { tag: { speaker: 'system' }, content: row.content },
       metadata: this.#parseMetadata(row.metadata) } : null;
+  }
+
+  /** Bounded durable answer choices, including answers archived by compaction. */
+  getSaveSourceCandidates(conversationId, limit = 12) {
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 50) throw new Error('FILE_SAVE_SOURCE_LIMIT_INVALID');
+    const rows = this.#db
+      ? this.#db.db.prepare(`SELECT id, role, content, metadata FROM messages
+          WHERE conversation_id = ? AND role = 'assistant'
+          AND CASE WHEN json_valid(metadata) THEN json_type(metadata, '$.saveSourceEligible') END IS NOT 'false'
+          ORDER BY id DESC LIMIT ?`).all(conversationId, limit + 1)
+      : [...this._memMessages].reverse().filter(value => value.conversation_id === conversationId
+        && value.role === 'assistant' && this.#parseMetadata(value.metadata)?.saveSourceEligible !== false).slice(0, limit + 1);
+    return { omitted: rows.length > limit, history: rows.slice(0, limit).reverse().map(row => ({
+      messageId: row.id, response: { tag: { speaker: 'system' }, content: row.content },
+      metadata: this.#parseMetadata(row.metadata),
+    })) };
+  }
+
+  /** Retrieve original user evidence when a lossy summary is insufficient.
+   * Relevance affects only which quoted data is shown, never an action or value.
+   */
+  getArchivedUserEvidence(conversationId, input, maxBytes = 1200) {
+    if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > 8192) throw new Error('ARCHIVED_SOURCE_BUDGET_INVALID');
+    const summary = this.getSummary(conversationId);
+    if (!summary?.upToMsgId) return { sources: [], omitted: false };
+    const projectId = this.getConversation(conversationId)?.project_id ?? null;
+    const sourceBytes = Math.min(512, maxBytes);
+    const searchWords = text => new Set(String(text).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+      .match(/[\p{L}\p{N}_]{3,}/gu)?.map(word => word.length > 4 ? word.slice(0, 4) : word) || []);
+    const terms = searchWords(input);
+    let earliestBest = null, latestMatch = null, matchingCount = 0;
+    let ranked = [];
+    for (const row of this.#archivedUserRows(conversationId, summary.upToMsgId, sourceBytes)) {
+      const metadata = this.#parseMetadata(row.metadata);
+      if (!metadata || !Object.hasOwn(metadata, 'projectId') || metadata.projectId !== projectId) continue;
+      if (typeof row.content !== 'string') continue;
+      // Complete short messages; exact bounded prefixes for long messages.
+      // Never discard an entire long correction or claim its excerpt is complete.
+      let prefix = row.content.slice(0, sourceBytes);
+      if (/[\uD800-\uDBFF]$/u.test(prefix)) prefix = prefix.slice(0, -1);
+      const buffer = Buffer.from(prefix, 'utf8');
+      let end = Math.min(buffer.length, sourceBytes);
+      while (end > 0 && end < buffer.length && (buffer[end] & 0xc0) === 0x80) end--;
+      const content = buffer.subarray(0, end).toString('utf8');
+      const contentTruncated = row.truncated === 1 || row.content.length > prefix.length || buffer.length > end;
+      const words = searchWords(content);
+      const score = [...terms].filter(term => words.has(term)).length;
+      if (!score) continue;
+      const source = { messageId: row.id, role: 'user', projectId, content,
+        ...(contentTruncated ? { contentTruncated: true } : {}), score };
+      matchingCount++;
+      if (!earliestBest || score > earliestBest.score
+        || (score === earliestBest.score && row.id < earliestBest.messageId)) earliestBest = source;
+      if (!latestMatch || row.id > latestMatch.messageId) latestMatch = source;
+      ranked.push(source);
+      ranked.sort((a, b) => b.score - a.score || b.messageId - a.messageId);
+      ranked = ranked.slice(0, 3);
+    }
+    const sources = [];
+    const selectedIds = new Set();
+    let bytes = 0, omitted = false;
+    // Preserve the latest relevant user turn even when a fuller, obsolete
+    // original has a higher lexical score. Retain the original identity too;
+    // the model decides meaning from these quoted data, never tool authority.
+    for (const candidate of [latestMatch, earliestBest, ...ranked]) {
+      if (!candidate || selectedIds.has(candidate.messageId)) continue;
+      selectedIds.add(candidate.messageId);
+      const { score, ...source } = candidate;
+      const size = Buffer.byteLength(JSON.stringify(source), 'utf8') + 1;
+      if (sources.length === 3 || bytes + size > maxBytes) { omitted = true; continue; }
+      sources.push(source); bytes += size;
+      if (source.contentTruncated) omitted = true;
+    }
+    omitted ||= matchingCount > sources.length;
+    return { sources: sources.sort((a, b) => a.messageId - b.messageId), omitted };
+  }
+
+  *#archivedUserRows(conversationId, upToMsgId, sourceBytes) {
+    if (!this.#db) {
+      for (const row of this._memMessages) {
+        if (row.conversation_id === conversationId && row.role === 'user' && row.id <= upToMsgId) yield row;
+      }
+      return;
+    }
+    const statement = this.#db.db.prepare(`SELECT id, substr(content, 1, ?) AS content,
+        length(content) > ? AS truncated, metadata FROM messages
+        WHERE conversation_id = ? AND role = 'user' AND id > ? AND id <= ?
+        ORDER BY id ASC LIMIT 1000`);
+    let afterId = 0;
+    while (true) {
+      const page = statement.all(sourceBytes, sourceBytes, conversationId, afterId, upToMsgId);
+      for (const row of page) yield row;
+      if (page.length < 1000) return;
+      afterId = page.at(-1).id;
+    }
   }
 
   /** Exact durable core continuation lookup; never consult RAM/history input. */

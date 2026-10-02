@@ -75,6 +75,8 @@ export function extractLTMContext(ltm, opts = {}) {
             effectiveConfidence: entry.effectiveConfidence,
             accessCount: entry.accessCount,
             source: entry.source,
+            ...(Number.isFinite(entry.createdAt) ? { createdAt: entry.createdAt } : {}),
+            ...(Number.isFinite(entry.ttl) ? { ttl: entry.ttl } : {}),
           });
         }
       }
@@ -127,7 +129,7 @@ export function buildLTMPromptBlock(facts) {
   if (!facts || facts.length === 0) return '';
 
   const lines = [];
-  lines.push('KONTEXT O UŽIVATELI (z dlouhodobé paměti):');
+  lines.push('KONTEXT O UŽIVATELI (z dlouhodobé paměti; filtrovaný podle platnosti a důvěry):');
 
   for (const fact of facts) {
     const value = typeof fact.value === 'object'
@@ -151,6 +153,10 @@ export function buildLTMPromptBlock(facts) {
       default:
         lines.push(`- ${fact.key}: ${value}`);
     }
+    const origin = { source: fact.source || 'unknown',
+      confidence: fact.effectiveConfidence ?? fact.confidence ?? null,
+      ...(Number.isFinite(fact.createdAt) ? { createdAt: new Date(fact.createdAt).toISOString() } : {}) };
+    lines[lines.length - 1] += ` [původ: ${JSON.stringify(origin)}]`;
   }
 
   return lines.join('\n');

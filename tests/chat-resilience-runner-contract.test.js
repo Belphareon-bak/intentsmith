@@ -11,10 +11,19 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assessChatResilienceTransport, chatResilienceRunStatus } from '../scripts/chat-resilience-transport.js';
 import { createChatResilienceProviderRelay } from '../scripts/chat-resilience-provider-relay.js';
+import { assertFiveDistinctFrameworks } from './helpers/chat-framework-list-oracle.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const runner = path.join(root, 'scripts/measure-m1-l3.js');
 const original = JSON.parse(readFileSync(path.join(root, 'tests/fixtures/chat-resilience-final.json'), 'utf8'));
+const rubric = JSON.parse(readFileSync(path.join(root, 'tests/fixtures/chat-quality-rubric.json'), 'utf8'));
+assert.equal(rubric.cases.length, original.cases.length);
+assert.deepEqual(rubric.cases.map(row => row.id), original.cases.map(row => row.id));
+for (const [index, row] of rubric.cases.entries()) {
+  assert(row.required.length && row.forbidden.length && row.verification.length);
+  assert.equal(row.clarification, original.cases[index].question);
+  assert.equal(row.heldOut, original.heldOutFamilies.includes(row.family));
+}
 const scratch = mkdtempSync(path.join(tmpdir(), 'intentsmith-resilience-contract-'));
 const MODEL = 'qwen3.5:27b';
 const DIGEST = '7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e';
@@ -25,7 +34,7 @@ function run(corpus, options = {}) {
   writeFileSync(file, JSON.stringify(corpus));
   return spawnSync(process.execPath, [runner, '--isolated-chat', '--offline',
     '--phase', options.phase || 'pilot-contract', '--corpus', file,
-    '--record', path.join(scratch, 'unused.json')], {
+    '--record', path.join(scratch, 'unused.json'), ...(options.args || [])], {
     cwd: root,
     env: { ...process.env, ...(options.env || {}) },
     encoding: 'utf8',
@@ -190,6 +199,10 @@ try {
   const accepted = run(original);
   assert.equal(accepted.status, 0, accepted.stderr);
   assert.match(accepted.stdout, /"status":"OFFLINE_CORPUS_VALIDATED","cases":53,"modelCalls":0/u);
+  const namedArtifact = run(original, { args: ['--model', 'gemma4:26b', '--model-digest', '08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68'] });
+  assert.equal(namedArtifact.status, 0, namedArtifact.stderr);
+  rejected(original, /--model-digest is required/u, { args: ['--model', 'gemma4:26b'] });
+  rejected(original, /tag and exact SHA-256 digest/u, { args: ['--model', 'gemma4:26b', '--model-digest', 'unknown'] });
 
   const incomplete = structuredClone(original);
   incomplete.cases.pop();
@@ -219,6 +232,24 @@ try {
   });
   rejected(original, /Final phase requires direct A\/B baseline/u, {
     phase: 'final-1', env: { CHAT_PROBE_NO_DIRECT: 'true' },
+  });
+  const dialogProbe = run(original, { phase: 'quality-dialogs' });
+  assert.equal(dialogProbe.status, 0, dialogProbe.stderr);
+  assert.equal(JSON.parse(dialogProbe.stdout).cases, 12);
+  rejected(original, /Quality dialogs cannot filter/u, {
+    phase: 'quality-dialogs', env: { CHAT_PROBE_CASES: 'http-plain' },
+  });
+  const capabilityProbe = run(original, { phase: 'quality-capabilities' });
+  assert.equal(capabilityProbe.status, 0, capabilityProbe.stderr);
+  assert.match(capabilityProbe.stdout, /"cases":13,"modelCalls":0/u);
+  rejected(original, /Capability dialogs cannot filter/u, {
+    phase: 'quality-capabilities', env: { CHAT_PROBE_CASES: 'http-plain' },
+  });
+  const archiveProbe = run(original, { phase: 'quality-archive-boundary' });
+  assert.equal(archiveProbe.status, 0, archiveProbe.stderr);
+  assert.match(archiveProbe.stdout, /"cases":2,"modelCalls":0/u);
+  rejected(original, /Archive boundary probe cannot filter/u, {
+    phase: 'quality-archive-boundary', env: { CHAT_PROBE_CASES: 'http-plain' },
   });
 
   const valid = { path: '/api/chat', scenario: 'valid' };
@@ -271,7 +302,15 @@ try {
   await interruptedRelay('downstream-abort');
   await interruptedRelay('response-error');
 
-  console.log('chat resilience runner contract: 21/21 PASS (offline, 0 model calls)');
+  assertFiveDistinctFrameworks('1. React\n2. Vue\n3. Angular\n4. Svelte\n5. Next.js');
+  for (const incomplete of [
+    '1. React\n2. Vue\n3. Angular',
+    'React, Vue, Angular, Svelte a Next.js. '.repeat(50),
+    '1. React\n2. Vue\n3. Next.js\n4. Next\n5. Angular',
+    '1. React\n2. Vue\n3. Angular\n4. Svelte\n5. Next.js\n6. Nuxt',
+    '1. React\n2. Vue\n3. Angular\n4. Svelte\n5. neexistující příklad',
+  ]) assert.throws(() => assertFiveDistinctFrameworks(incomplete));
+  console.log('chat resilience runner contract: 23 transport checks, complete 53-case rubric and 6 list-oracle calibration cases PASS (offline, 0 model calls)');
 } finally {
   rmSync(scratch, { recursive: true, force: true });
 }

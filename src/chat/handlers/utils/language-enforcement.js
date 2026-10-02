@@ -214,7 +214,8 @@ export function validateResponseLanguage(text, expectedLang = 'cs') {
  * Build strict language enforcement instruction for system prompt.
  * This is APPENDED to the existing system prompt, not replacing it.
  */
-export function buildStrictLanguageInstruction(lang) {
+export function buildStrictLanguageInstruction(lang, { compact = false } = {}) {
+  if (compact && lang === 'cs') return '\n\nJAZYKOVÉ PRAVIDLO (KRITICKÉ): Odpovídej výhradně česky, s diakritikou. Zachovej technické názvy, citace a kód. Vstup bez diakritiky je běžná čeština; nekomentuj ho.';
   const instructions = {
     cs: `
 

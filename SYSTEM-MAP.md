@@ -1,8 +1,21 @@
 # IntentSmith — mapa systému
 
 **Aktuální vývojový checkpoint 2. 10. 2026:** [přesné identity zdroje,
-instalace, testů a zbývajících bran](docs/review/2026-09-30-COMPLETION-TRACKER.md).
+instalace, testů a zbývajících bran](docs/WORK-PROGRESS.md).
 Chronologie níže zachovává důkazy předchozích instalací a větví.
+
+ROOT integračně přebírá CHAT `6f0259ec` nad nechatový `2a479852` ve stávajícím
+checkoutu. Tři konflikty registru/harnessu vyřešené se zachováním všech
+kontrol, 594 programů /35 exclusions. Společný kandidát a rozšířené CI dosud
+NOT_RUN, není nový deploy ani release acceptance. Chatový report zůstává
+CHANGES_REQUIRED: finální 53×3 kvalitativně nesplněné; poslední celý profil
+`289afec0` má 399 PASS /4 FAIL /3 BLOCKED. Novější archive oprava má cílené
+PASS a dva živé kroky, nikoli novou finální 53×3 přejímku.
+[Důkazy a otevřené chyby CHAT](docs/wp/WP-CHAT-QUALITY-20261001-PROGRESS.md).
+Krátké měření Qwen3.8 exact digest `22130167…9643` při 16k na provideru
+`0.34.0-intentsmith.1`: plná GPU rezidence 17 315 848 518 B, CPU spill 0,
+minfree 3 759 MiB, jedno volání a uvolněný vlastní model/lease. Není plné
+kontextové okno ani modelová/app kvalita; CODE produktový ceiling zatím stejný.
 
 Zmrazený `f5964604` má SOURCE_REVIEW_PASS, čtyři dotčené registrované sady
 PASS a vlastní CI13 SUCCESS. SQLite pokračování 08:18 UTC dodalo právě
@@ -671,15 +684,15 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 **REVIEW_PENDING** — [aktuální UI oprava a evidence](docs/review/2026-09-17-HUNT-MODEL-CONTROLS-FOLLOWUP.md).
 
 Následující LOC a registry census jsou přeměřené přímo na referenčním zdroji
-`b6b63692` + bezztrátový CODE formatter a navázané CLI continuation regrese přes stejný algoritmus jako `tests/artifact-validation.test.js`:
+sloučeném stromu rodičů `2a479852` + `6f0259ec` přes stejný algoritmus jako `tests/artifact-validation.test.js`:
 počet skutečných `.js` souborů a počet znaků nového řádku v jejich bytech.
 Při další integraci se přeměří znovu.
 
 | | |
 |---|---:|
-| `src/**/*.js` | **234 053 ř.**, 681 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **266 273 ř.**, 600 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **593** (`495 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
+| `src/**/*.js` | **234 764 ř.**, 682 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **267 228 ř.**, 602 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **594** (`496 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 108** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
@@ -690,7 +703,7 @@ migrační záznamy `061/062/068`; jejich zachování při upgrade má samostatn
 evidenci a nemění kanonický počet `108`.
 
 Aktuální registry fingerprint referenčního zdroje je
-`64e318d18e22968dc5ec48aac917c7c3c3f7f0bfc6a5f9435d373fcd72d592a9`.
+`2789b9bff16936ec63c384244e6eebef22884663f6d731d062db8628b0604918`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 Worker-soak absolvoval fyzický pětiminutový běh na `bf7dc31f`; nové druhé

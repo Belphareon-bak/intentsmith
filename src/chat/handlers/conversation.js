@@ -12,7 +12,7 @@ import {
 import { logger } from '../../core/logger.js';
 import { tryResolveClarification, assessGoalAlignment } from './clarification.js';
 import { handleLocalDecision } from './local.js';
-import { handleFileDecision, handleFileWriteDecision } from './file.js';
+import { handleFileDecision, handleFileWriteDecision, clearSupersededFileSaveQuestion } from './file.js';
 import {
   handleToolCallDecision,
   handleAskUserDecision,
@@ -203,7 +203,7 @@ export async function conversationHandler(input, context) {
   // v44.8: Track if we started as a clarification follow-up (for first-turn check)
   const wasClarificationFollowUp = sessionState?.awaitingClarification;
 
-  if (sessionState?.awaitingClarification) {
+  if (sessionState?.awaitingClarification && !sessionState.pendingDecision?.metadata?.contextualInterpretation) {
     const resolvedDecision = tryResolveClarification(input, sessionState, context);
 
     if (resolvedDecision) {
@@ -341,22 +341,13 @@ export async function conversationHandler(input, context) {
     const replayIntent = previousDecision.intent || IntentType.CONVERSATIONAL;
     const replayTools = creDecisionEngine.getRequiredTools(replayIntent, previousInput);
 
-    // For language switch: use the PREVIOUS input as the task, current input just changes language
-    const effectiveInput = previousInput;
+    // The current correction is authoritative. History supplies its topic;
+    // it cannot authorize repeating the previous web/shell/file effect.
+    const effectiveInput = input;
 
-    if (replayTools.length > 0) {
-      const replayDecision = creDecisionEngine.overrideDecision({
-        type: DecisionType.TOOL_CALL,
-        intent: replayIntent,
-        tools: replayTools,
-        source: 'reformulation',
-        reason: `Reformulation of previous ${replayIntent} intent`,
-        confidence: 0.85,
-        originalDecision: previousDecision,
-        metadata: { reformulation: true, originalInput: effectiveInput },
-      });
-      return await handleToolCallDecision(effectiveInput, replayDecision, context);
-    } else {
+    // Tool continuations go through fresh contextual CRE classification.
+    // In particular a language change does not rerun an old search.
+    if (replayTools.length === 0) {
       // CONVERSATIONAL/CREATIVE/DESIGN — replay as answer with previous input
       // v58.0: DESIGN gets its own handler
       const resolvedIntent = replayIntent === IntentType.CREATIVE ? IntentType.CREATIVE
@@ -504,6 +495,7 @@ export async function conversationHandler(input, context) {
 
   // STEP 1.5: Fail-fast assertion - catch bugs early
   assertDecision(decision);
+  clearSupersededFileSaveQuestion(context, decision);
 
   // v86 M2: Record turn for pattern tracking (cross-conversation learning)
   try {
@@ -511,12 +503,9 @@ export async function conversationHandler(input, context) {
   } catch (_) {}
 
   // ════════════════════════════════════════════════════════════════════════════
-  // v44.8 FIX: NO ASK_USER ON FIRST TURN
-  // v44.9 FIX B: NO SEARCH/TOOL_CALL FOR VAGUE INPUTS ON FIRST TURN
+  // Vague first-turn inputs must not initiate a network/tool request.
   // ════════════════════════════════════════════════════════════════════════════
-  // First message in conversation should NEVER be ASK_USER.
-  // First message with vague input should NEVER be SEARCH.
-  // Instead: give optimistic conversational answer.
+  // Genuine missing information remains ASK_USER, including on the first turn.
   // ════════════════════════════════════════════════════════════════════════════
   // First turn = no previous decision AND no pending decision AND not a clarification follow-up
   // v44.8: Also check wasClarificationFollowUp to handle cases where pendingDecision was just cleared
@@ -550,28 +539,8 @@ export async function conversationHandler(input, context) {
     });
   }
 
-  if (isFirstTurn && decision.type === DecisionType.ASK_USER) {
-    logger.info('ConversationHandler', 'First turn ASK_USER blocked - forcing CREATIVE/CONVERSATIONAL answer', {
-      originalIntent: decision.intent,
-      input: input.substring(0, 50),
-    });
-
-    // Force CREATIVE if it looks like an ideation request, otherwise CONVERSATIONAL
-    const isIdeation = /vymyslet|navrh|nápad|inspirac|kampaň|kampan|příběh|pribeh/i.test(input);
-
-    decision = creDecisionEngine.overrideDecision({
-      type: DecisionType.ANSWER,
-      intent: isIdeation ? IntentType.CREATIVE : IntentType.CONVERSATIONAL,
-      source: 'first_turn_ask_user',
-      reason: 'First turn - optimistic answer instead of ASK_USER',
-      confidence: 0.7,
-      originalDecision: decision,
-      metadata: {
-        firstTurnOverride: true,
-        inputPreview: input.substring(0, 100),
-      },
-    });
-  }
+  // Missing information is equally relevant on the first and later turns.
+  // Preserve ASK_USER rather than generating an invented optimistic answer.
 
   logger.info('ConversationHandler', `CRE Decision: ${decision.type}`, {
     intent: decision.intent,

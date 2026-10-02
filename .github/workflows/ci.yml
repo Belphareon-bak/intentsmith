@@ -3,7 +3,7 @@ name: IntentSmith development checks
 on:
   pull_request:
   push:
-    branches: [main, 'integration/main-reconcile-*', 'work/real-chat-journeys-20260930']
+    branches: [main, 'integration/main-reconcile-*', 'work/real-chat-journeys-20260930', 'work/chat-quality-20261001']
   workflow_dispatch:
 
 permissions:
@@ -44,6 +44,39 @@ jobs:
         run: node intentsmith-ide/extensions/intentsmith-studio2/scripts/build-view.js --check
       - name: Verify privacy at the HTTP boundary
         run: node --test tests/chat-memory-privacy.test.js tests/chat-privacy-http.test.js tests/m5-privacy-remediation.test.js
+      - name: Install chat and M2 isolation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes bubblewrap iproute2 util-linux
+      - name: Verify chat context and approved effects (offline)
+        run: >-
+          node scripts/nightly-audit.js
+          --run-id=ci-chat-${{ github.run_id }}-${{ github.run_attempt }}
+          --suite=IS-T1-TESTS-CHAT-CONTEXT-INTERPRETATION-TEST,IS-T3-TESTS-CHAT-LITERAL-WRITE-HTTP-TEST,IS-T3-TESTS-CHAT-REPEAT-SAVE-HTTP-TEST,IS-T1-TESTS-CHAT-RESILIENCE-RUNNER-CONTRACT-TEST,IS-T3-TESTS-CRE-BUILD-ARBITRATION-TEST,IS-T2-TESTS-M1-CHAT-CONTRACT-TEST,IS-T1-TESTS-MODULE-BOUNDARY-RATCHET-TEST
+          --concurrency=1
+          --allow-blocker=toolchain:bubblewrap,toolchain:bwrap,toolchain:git,toolchain:prlimit
+      - name: Verify functional M2 application controls (offline)
+        run: >-
+          node scripts/nightly-audit.js
+          --run-id=ci-code-${{ github.run_id }}-${{ github.run_attempt }}
+          --suite=IS-T1-TESTS-PROJECT-APP-ACCEPTANCE-TEST,IS-T1-TESTS-PROJECT-APP-M2-FUNCTIONAL-TEST
+          --concurrency=1
+          --allow-blocker=toolchain:bwrap,toolchain:git,toolchain:prlimit
+      - name: Preserve chat and M2 audit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: development-audits-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .intentsmith-artifacts/test-runs/ci-chat-*/report.json
+            .intentsmith-artifacts/test-runs/ci-chat-*/checkpoint.json
+            .intentsmith-artifacts/test-runs/ci-chat-*/inventory.json
+            .intentsmith-artifacts/test-runs/ci-chat-*/logs/*.log
+            .intentsmith-artifacts/test-runs/ci-code-*/report.json
+            .intentsmith-artifacts/test-runs/ci-code-*/checkpoint.json
+            .intentsmith-artifacts/test-runs/ci-code-*/inventory.json
+            .intentsmith-artifacts/test-runs/ci-code-*/logs/*.log
+          if-no-files-found: error
       - name: Verify Studio 2 stores, rendering and authority adapters
         run: |
           for test_file in tests/studio2-*.test.js; do

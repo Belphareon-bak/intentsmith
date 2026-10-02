@@ -140,6 +140,7 @@ export async function finalizeChatResponse({
     // the public response metadata alone is not durable handler history.
     const saveSourceEligible = !['file.write', 'effect.approval'].includes(metadata.handler)
       && metadata.approvalRequired !== true
+      && metadata.awaitingClarification !== true
       && metadata.securityBlocked !== true
       && !metadata.error;
     persistAssistantTurn(finalContent, {
@@ -150,6 +151,10 @@ export async function finalizeChatResponse({
       saveSourceEligible,
       messageKind: saveSourceEligible ? 'answer' : 'protocol',
       ...(metadata.fileSaveSource ? { fileSaveSource: metadata.fileSaveSource } : {}),
+      ...(metadata.awaitingClarification === true ? { clarification: {
+        question: finalContent, request: metadata.originalRequest || message,
+        decision: metadata.decision || null,
+      } } : {}),
       ...(isIssuedFileExplainContinuation(metadata.m2FileExplain)
         ? { m2FileExplain: metadata.m2FileExplain } : {}),
       ...(turnId === null ? {} : { m7: { turnId, status: 'ok' } }),

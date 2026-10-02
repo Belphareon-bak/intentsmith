@@ -1,6 +1,13 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktuální checkpoint 2. 10. 2026, 09:40 UTC:** CODE context formatter má
+**Aktuální checkpoint 2. 10. 2026, 10:00 UTC:** ROOT převzal společnou
+integraci `2a479852` + CHAT `6f0259ec`. Tři konflikty vyřešené se zachováním
+obou stran, kanonický registr 594; společný profil a rozšířené CI NOT_RUN.
+CHAT report zůstává CHANGES_REQUIRED: finální 53×3 nesplnilo kvalitativní cíle;
+celý profil `289afec0` má 399 PASS /4 FAIL /3 BLOCKED, nikoli výsledek nového
+merge. [Přesný chatový report](docs/wp/WP-CHAT-QUALITY-20261001-PROGRESS.md).
+Nový milník je společný kandidát, omezená oprava scanneru a reprezentativní
+projekt podle předem zmrazených podmínek. CODE context formatter má
 SOURCE_REVIEW_PASS a historický overflow CPU replay 8 811 → 8 692 B při
 nezměněném limitu. SQLite actual860 dodal osm úplných generací, ale oracle
 odhalil dvojité mazání v CLI; oba plány úplně rollbacknuté, žádný commit.
@@ -16,8 +23,10 @@ dílčí důkazy. GPU/model readonly UI audit V7 a odstranění tří vlastních
 jsou přijaté uzavřené výsledky; Hunt grader/modelové rozhodnutí nejsou přijaty.
 CHAT ladí jiný worker. Po přijatém SQLite má podle revize operátora přednost
 strategie kontextu větších projektů a další odlišná funkční aplikace.
-CPU porovnání zvolilo úplné zdroje při 16k a projektové přírůstky; skutečný
-runtime FIT a produktové zapojení dosud čekají. AST příprava se uchová;
+CPU porovnání zvolilo úplné zdroje při 16k a projektové přírůstky. Krátký
+load 09:51 UTC má plnou GPU rezidenci a headroom 3 759 MiB; plné okno,
+produktové zapojení a aplikace tím přijaté nejsou. Doplňující posudek vrací
+omezenou scanner opravu mezi aktuální práce;
 aktuální celý profil, M5/M6 a mobilní fyzická přejímka
 zůstávají otevřené. [Aktuální průběžný report](docs/WORK-PROGRESS.md).
 

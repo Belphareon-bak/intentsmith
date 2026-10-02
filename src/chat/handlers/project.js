@@ -22,7 +22,7 @@ import {
   handleAnswerDecision,
   handleRefuseDecision,
 } from './decisions.js';
-import { handleFileDecision, handleFileWriteDecision } from './file.js';
+import { handleFileDecision, handleFileWriteDecision, clearSupersededFileSaveQuestion } from './file.js';
 import { handleLocalDecision } from './local.js';
 import { handleShellDecision } from './conversation.js';
 import { handleDesignDecision } from './design.js';
@@ -319,7 +319,7 @@ export async function projectHandler(input, context) {
     // and DDG gets "Jaký je stav projektu?" (nonsense web query).
     // ════════════════════════════════════════════════════════════════════════
     if (isProjectSelfQuery(input) && context.m2LifecycleOnly === true) {
-      return handleProjectCollaboration(input, context);
+      return handleProjectCollaboration(input, { ...context, readOnlyDiscussion: true });
     }
     if (isProjectSelfQuery(input)) {
       logger.info('ProjectHandler', 'Project-self query intercepted (bypassing CRE)', {
@@ -403,6 +403,7 @@ export async function projectHandler(input, context) {
     });
 
     assertDecision(decision);
+    clearSupersededFileSaveQuestion(context, decision);
 
     logger.info('ProjectHandler', `CRE Decision: ${decision.type}`, {
       intent: decision.intent,
@@ -423,10 +424,22 @@ export async function projectHandler(input, context) {
 
     // CRE still owns routing and refusals. Planning and conversational follow-ups
     // are read-only collaboration, not entry to the quarantined legacy writer.
+    if (context.m2LifecycleOnly === true && decision.type === DecisionType.ASK_USER) {
+      return handleAskUserDecision(input, decision, context);
+    }
+    if (context.m2LifecycleOnly === true
+      && (decision.metadata?.responseScope === 'conversation' || decision.metadata?.inlineCode === true
+        || (decision.metadata?.classifiedBy === 'deterministic'
+          && [IntentType.CONVERSATIONAL, IntentType.CREATIVE].includes(decision.intent)))
+      && (decision.type === DecisionType.ANSWER
+        || (decision.type === DecisionType.TOOL_CALL && decision.intent === IntentType.CODE && !decision.metadata?.filePath))) {
+      return handleAnswerDecision(input, decision, context);
+    }
     if (context.m2LifecycleOnly === true && (
-      [DecisionType.PLAN, DecisionType.ASK_USER, DecisionType.ANSWER].includes(decision.type)
+      [DecisionType.PLAN, DecisionType.ANSWER].includes(decision.type)
       || (decision.type === DecisionType.TOOL_CALL && decision.intent === IntentType.CODE && !decision.metadata?.filePath)
-    )) return handleProjectCollaboration(input, context);
+    )) return handleProjectCollaboration(input, { ...context,
+      readOnlyDiscussion: decision.metadata?.responseScope === 'project_status' });
 
     // Handle based on decision
     switch (decision.type) {

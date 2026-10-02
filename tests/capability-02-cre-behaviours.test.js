@@ -200,12 +200,12 @@ async function main() {
     project: { id: 'middleware-authority-check', path: process.env.INTENTSMITH_PROJECTS_DIR },
   });
   check(
-    projectMiddleware.type === DecisionType.TOOL_CALL
+    projectMiddleware.type === DecisionType.ANSWER
       && projectMiddleware.intent === IntentType.CODE
-      && projectMiddleware.tools.includes('file.write')
-      && projectMiddleware.metadata.enforceSandbox === true
-      && projectMiddleware.metadata.noProjectRequired === undefined,
-    'C-09b — active project middleware retains its guarded tool decision',
+      && projectMiddleware.tools.length === 0
+      && projectMiddleware.metadata.inlineCode === true
+      && projectMiddleware.metadata.noProjectRequired === true,
+    'C-09b — an active project alone does not turn an inline middleware request into a write',
   );
   const effectInputs = [
     ['Napiš middleware do souboru src/middleware.js', IntentType.FILE_WRITE],

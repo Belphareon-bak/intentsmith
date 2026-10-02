@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "assessment": "Controlled no-inference diagnostics; original S1 evidence preserved",
+  "withoutHistoricalCanonical": {
+    "version": 1,
+    "purpose": "Offline measurement of the actual diagnostic relay with a fixed synthetic /api/tags response; no GPU or real model calls",
+    "samples": [
+      {
+        "sample": 1,
+        "route": "direct-fixture",
+        "elapsedMs": 9.790901999999996
+      },
+      {
+        "sample": 1,
+        "route": "actual-diagnostic-relay",
+        "elapsedMs": 13.446742
+      },
+      {
+        "sample": 2,
+        "route": "direct-fixture",
+        "elapsedMs": 1.1450110000000038
+      },
+      {
+        "sample": 2,
+        "route": "actual-diagnostic-relay",
+        "elapsedMs": 37.776239000000004
+      },
+      {
+        "sample": 3,
+        "route": "direct-fixture",
+        "elapsedMs": 0.709385999999995
+      },
+      {
+        "sample": 3,
+        "route": "actual-diagnostic-relay",
+        "elapsedMs": 5.5691910000000036
+      }
+    ],
+    "limitations": [
+      "Small three-sample fixture; no production workload",
+      "No inference or model behavior measured",
+      "Upstream is a controlled loopback fixture, not Ollama",
+      "Same journal fsync and persistWire code, much smaller accumulated capture than a final corpus run"
+    ]
+  },
+  "withHistoricalCanonical": {
+    "version": 1,
+    "purpose": "Controlled no-inference loopback response through actual relay and runner canonical persistence behavior, with cloned pre-final-2 master history",
+    "clonedSeedBytes": 88417475,
+    "samples": [
+      {
+        "sample": 1,
+        "route": "direct-fixture",
+        "elapsedMs": 10.483305000000001,
+        "canonicalCalls": 0,
+        "canonicalMs": 0
+      },
+      {
+        "sample": 1,
+        "route": "actual-relay-with-historical-canonical",
+        "elapsedMs": 3382.911145,
+        "canonicalCalls": 4,
+        "canonicalMs": 3316.9066479999997
+      },
+      {
+        "sample": 2,
+        "route": "direct-fixture",
+        "elapsedMs": 4.063153000000057,
+        "canonicalCalls": 0,
+        "canonicalMs": 0
+      },
+      {
+        "sample": 2,
+        "route": "actual-relay-with-historical-canonical",
+        "elapsedMs": 3186.304209,
+        "canonicalCalls": 4,
+        "canonicalMs": 3108.681782000001
+      },
+      {
+        "sample": 3,
+        "route": "direct-fixture",
+        "elapsedMs": 4.113345000000663,
+        "canonicalCalls": 0,
+        "canonicalMs": 0
+      },
+      {
+        "sample": 3,
+        "route": "actual-relay-with-historical-canonical",
+        "elapsedMs": 3263.7738900000004,
+        "canonicalCalls": 4,
+        "canonicalMs": 3178.9587579999998
+      }
+    ],
+    "limitations": [
+      "Three small fixed responses, not a production workload",
+      "Capture master is a private clone; original S1 evidence unchanged",
+      "Cloned historical master excludes final-2 partial data; exact old-run overhead cannot be reconstructed",
+      "No causal model/quality conclusion; no direct subtraction from old S1 times"
+    ]
+  },
+  "conclusion": "The callback in measure-m1-l3.save performs canonical master rewriting on every relay persist. Replaying that behavior with cloned history reproduces seconds of capture latency. No exact subtraction from S1 or production-latency estimate is justified."
+}

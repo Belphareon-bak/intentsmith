@@ -15,12 +15,12 @@
 import { ResponseTag, TaggedResponse, ResponseSpeaker, ChatMode } from '../controller.js';
 import { IntentType } from '../cre-decision.js';
 import { logger } from '../../core/logger.js';
-import { getLanguageContext } from './utils/language.js';
+import { getLanguageContext, inferUserLanguageFromHistory } from './utils/language.js';
 import { synthesizeWithLLM } from './utils/synthesis.js';
 import path from 'path';
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
-import { validateM2ToolRequest, validateM2ToolResult, computeM2ToolRequestDigest, computeM2ToolValueDigest } from '../../../contracts/m2/tool-v1.js';
+import { validateM2ToolRequest, validateM2ToolResult, computeM2ToolRequestDigest, computeM2ToolValueDigest, normalizeM2ToolValue } from '../../../contracts/m2/tool-v1.js';
 import {
   isM2FileReadOutputRequest, M2_FILE_READ_MAX_BYTES, m2FileReadConversationOrigin,
 } from '../../../contracts/m2/file-read-output-v1.js';
@@ -31,7 +31,16 @@ import { throwIfAborted, isAbortError } from '../../core/abort-error.js';
 import { issueFileExplainContinuation, getFileExplainContinuation } from '../file-explain-continuation.js';
 import { prepareFileExplanation, callFileExplanation } from './utils/file-explain.js';
 import { canonicalStringify } from '../../../contracts/m2/effect-current.js';
-import { resolveFileSavePlan, summarizeSaveAnswer } from '../file-save-plan.js';
+import { resolveFileSavePlan, summarizeSaveAnswer, generateSaveContent } from '../file-save-plan.js';
+
+export function clearSupersededFileSaveQuestion(context, decision) {
+  const state = context.sessionState;
+  if (state?.pendingDecision?.metadata?.fileSaveClarification
+    && ((decision.metadata?.contextualInterpretation === true && decision.metadata.continuesPending === false)
+      || (decision.type !== 'ASK_USER' && decision.intent !== 'FILE_WRITE'))) {
+    state.clearPendingDecision();
+  }
+}
 
 // ─── Security constants ──────────────────────────────────────────────────────
 
@@ -893,7 +902,7 @@ function _extractUserContent(input) {
 export async function handleFileWriteDecision(input, decision, context, dependencies = {}) {
   const projectPath = context.project?.path || null;
 
-  const langCtx = context.langCtx || getLanguageContext(input);
+  const langCtx = context.langCtx || getLanguageContext(input, inferUserLanguageFromHistory(context.history));
   const lang = langCtx?.language || 'cs';
 
   // M2 write authority precedes command parsing and source selection. A
@@ -941,27 +950,71 @@ export async function handleFileWriteDecision(input, decision, context, dependen
   });
   let plan;
   try {
-    plan = await resolveFileSavePlan(input, context, dependencies);
+    plan = await resolveFileSavePlan(input, { ...context, langCtx,
+      saveClarificationQuestion: decision.metadata?.clarificationQuestion }, dependencies);
   } catch (error) {
     if (isAbortError(error)) throw error;
-    return terminalWithoutEffect(lang === 'cs'
-      ? '⚠️ Nemohu ověřit cíl, obsah nebo omezení zápisu. Upřesni, co a kam chceš uložit; žádný zápis není připraven.'
-      : '⚠️ I cannot verify the target, content or write constraints. Clarify what to save and where; no write is prepared.',
-    error.code || 'file_write_plan_unavailable');
+    // A schema-constrained model can emit `write` with an unresolved field.
+    // This remains a stopped effect. Preserve CRE's concrete open question
+    // instead of replacing it with a generic error and losing the request.
+    if (error.code === 'file_write_prior_turn_unanswered') {
+      plan = { action: 'clarify', candidateMessageId: null, sourceBarrier: error.code, question: lang === 'cs'
+        ? 'Poslední zadání nemá dokončenou odpověď. Zopakuj prosím zadání pro vytvoření textu; hotovou odpověď potom půjde uložit.'
+        : 'The last request has no completed answer. Please repeat the request to create the text; the completed answer can then be saved.' };
+    } else if (error.code === 'file_write_constraints_unresolved'
+      && decision.metadata?.clarificationQuestion) {
+      plan = { action: 'clarify', question: decision.metadata.clarificationQuestion,
+        candidateMessageId: null };
+    } else {
+      return terminalWithoutEffect(lang === 'cs'
+        ? '⚠️ Nemohu ověřit cíl, obsah nebo omezení zápisu. Upřesni, co a kam chceš uložit; žádný zápis není připraven.'
+        : '⚠️ I cannot verify the target, content or write constraints. Clarify what to save and where; no write is prepared.',
+      error.code || 'file_write_plan_unavailable');
+    }
   }
   if (plan.action !== 'write') {
-    return terminalWithoutEffect(plan.question || (lang === 'cs'
+    const question = plan.question || (lang === 'cs'
       ? 'Upřesni obsah, cíl a požadované omezení zápisu.'
-      : 'Clarify the content, target and write constraints.'),
-    plan.action === 'decline' ? 'file_write_declined' : 'file_write_plan_ambiguous');
+      : 'Clarify the content, target and write constraints.');
+    if (plan.action === 'clarify' && context.sessionState) {
+      const previous = context.sessionState.pendingDecision?.metadata;
+      context.sessionState.setPendingDecision({ type: 'ASK_USER', intent: 'FILE_WRITE',
+        metadata: { contextualInterpretation: true, clarificationQuestion: question,
+          originalRequest: previous?.fileSaveClarification ? previous.originalRequest : input,
+          fileSaveClarification: { projectId, sourceMessageId: plan.candidateMessageId,
+            ...(plan.sourceBarrier ? { sourceBarrier: plan.sourceBarrier } : {}),
+            userMessageId: previous?.fileSaveClarification?.userMessageId ?? context.userMessageId } } }, ['file_save']);
+      return new TaggedResponse({ content: question,
+        tag: new ResponseTag({ speaker: ResponseSpeaker.SYSTEM, mode: ChatMode.CONVERSATION,
+          confidence: 1, canExecute: false, metadata: { decision: decision.toJSON(),
+            handler: 'file.write', approvalRequired: false, awaitingClarification: true,
+            clarificationQuestion: question, fallbackSuppressed: true,
+            error: 'file_write_plan_ambiguous' } }) });
+    }
+    if (plan.action === 'decline') context.sessionState?.clearPendingDecision();
+    return terminalWithoutEffect(question,
+      plan.action === 'decline' ? 'file_write_declined' : 'file_write_plan_ambiguous');
   }
+  context.sessionState?.clearPendingDecision();
   const filePath = plan.filePath;
   let content = plan.content;
   let sourceMessageId = plan.sourceMessageId;
   const originMessageId = sourceMessageId;
   try {
+    if (plan.generationInstruction) {
+      content = await generateSaveContent(plan.generationInstruction, context, dependencies);
+      if (typeof context.persistFileSaveGenerated !== 'function') {
+        throw Object.assign(new Error('Durable generated source is unavailable'), { code: 'file_write_source_unverified' });
+      }
+      const saved = context.persistFileSaveGenerated({ content, messageId: plan.generationOriginMessageId,
+        request: plan.generationRequest });
+      if (!saved?.persisted || !Number.isSafeInteger(saved.id)) {
+        throw Object.assign(new Error('Generated source was not persisted'), { code: 'file_write_source_unverified' });
+      }
+      sourceMessageId = saved.id;
+    }
     if (plan.transformation === 'summarize') {
-      content = await summarizeSaveAnswer(content, input, context, dependencies);
+      content = await summarizeSaveAnswer(content, plan.summaryRequest || input, context, dependencies);
       if (typeof context.persistFileSaveSummary !== 'function') {
         throw Object.assign(new Error('Durable summary source is unavailable'), { code: 'file_write_source_unverified' });
       }
@@ -974,21 +1027,31 @@ export async function handleFileWriteDecision(input, decision, context, dependen
     // Production supplies a synchronous core guard. It rechecks project and
     // the exact persisted answer after the model awaits, before tool admission.
     if (typeof context.verifyFileSaveSource === 'function') {
-      context.verifyFileSaveSource({ content, sourceMessageId });
+      context.verifyFileSaveSource({ content, sourceMessageId,
+        ...(plan.literalOriginMessageId ? { literalOriginMessageId: plan.literalOriginMessageId,
+          literalRequest: plan.literalRequest } : {}) });
     }
     throwIfAborted(context.signal);
   } catch (error) {
     if (isAbortError(error)) throw error;
     return terminalWithoutEffect(lang === 'cs'
-      ? '⚠️ Obsah nebo projekt se během přípravy změnil, případně shrnutí nebylo dokončeno. Žádný zápis není připraven.'
-      : '⚠️ The source/project changed during preparation or the summary did not complete. No write is prepared.',
+      ? '⚠️ Obsah nebo projekt se během přípravy změnil, případně text nebyl dokončen. Žádný zápis není připraven.'
+      : '⚠️ The source/project changed during preparation or the text did not complete. No write is prepared.',
     error.code || 'file_write_source_unverified', filePath);
   }
+  // M2 canonicalizes string values to NFC. Refuse a byte-changing admission
+  // rather than showing one source and executing a different payload.
+  if (!isDeepStrictEqual({ path: filePath, content }, normalizeM2ToolValue({ path: filePath, content }))) {
+    return terminalWithoutEffect(lang === 'cs'
+      ? 'Přesný zápis tohoto textu nebo názvu by změnila normalizace znaků. Žádný zápis není připraven. Tato cesta přijímá text a názvy v Unicode NFC; původní bajty vyžadují jiný způsob zápisu.'
+      : 'Character normalization would change the exact text or filename. No write is prepared. This path accepts Unicode NFC text and filenames; preserving the original bytes requires another write method.',
+    'file_write_byte_identity_unavailable', filePath);
+  }
   const fileSaveSource = {
-    messageId: sourceMessageId ?? context.userMessageId,
-    originMessageId: originMessageId ?? context.userMessageId,
+    messageId: plan.literalOriginMessageId ?? sourceMessageId ?? context.userMessageId,
+    originMessageId: plan.generationOriginMessageId ?? plan.literalOriginMessageId ?? originMessageId ?? context.userMessageId,
     kind: sourceMessageId === null ? 'user_literal' : 'answer', projectId,
-    transformation: plan.transformation,
+    transformation: plan.generationInstruction ? 'generate' : plan.transformation,
     digest: `sha256:${createHash('sha256').update(content, 'utf8').digest('hex')}`,
   };
 
@@ -1051,13 +1114,14 @@ export async function handleFileWriteDecision(input, decision, context, dependen
     }
 
     const previewContent = content.length <= 2000 ? content : content.slice(0, 2000);
+    const preview = contentPreview(previewContent);
     const modeDescription = plan.toolId === 'file.create'
-      ? (lang === 'cs' ? 'Pouze vytvoření nového souboru; existující soubor zůstane zachovaný.'
-        : 'Create a new file only; an existing file will be preserved.')
+      ? (lang === 'cs' ? 'Pouze vytvoření nového souboru. Pokud soubor už existuje, zápis bude odmítnut a původní obsah zůstane zachovaný. Pro novou kopii zopakuj zadání s jiným názvem souboru.'
+        : 'Create a new file only. If the file already exists, the write will be refused and the original content preserved. For a new copy, repeat the request with a different filename.')
       : (lang === 'cs' ? 'Zápis může nahradit existující soubor.' : 'This write can replace an existing file.');
     const msg = lang === 'cs'
-      ? `🔐 Zápis do ${literal(filePath)} čeká na schválení. ${modeDescription}\n\nObsah (${Buffer.byteLength(content, 'utf8')} bajtů):\n${literal(previewContent)}${previewContent.length < content.length ? '\nZobrazen je začátek; celý obsah je svázaný s návrhem zápisu.' : ''}\n\nNapiš přesně: \`schválit efekt ${execution.effectRequestId}\``
-      : `🔐 Write to ${literal(filePath)} awaits approval. ${modeDescription}\n\nContent (${Buffer.byteLength(content, 'utf8')} bytes):\n${literal(previewContent)}${previewContent.length < content.length ? '\nShowing the beginning; the complete content is bound to this proposal.' : ''}\n\nEnter exactly: \`approve effect ${execution.effectRequestId}\``;
+      ? `🔐 Zápis do ${literal(filePath)} čeká na schválení. ${modeDescription}\n\nObsah (${Buffer.byteLength(content, 'utf8')} bajtů):\n${preview}${previewContent.length < content.length ? '\nZobrazen je začátek; celý obsah je svázaný s návrhem zápisu.' : ''}\n\nNapiš přesně: \`schválit efekt ${execution.effectRequestId}\``
+      : `🔐 Write to ${literal(filePath)} awaits approval. ${modeDescription}\n\nContent (${Buffer.byteLength(content, 'utf8')} bytes):\n${preview}${previewContent.length < content.length ? '\nShowing the beginning; the complete content is bound to this proposal.' : ''}\n\nEnter exactly: \`approve effect ${execution.effectRequestId}\``;
 
     logger.info('HandleFileWrite', 'Filesystem effect registered for approval', {
       effectId: execution.effectRequestId,
@@ -1150,6 +1214,15 @@ function extractFilePathFromInput(input) {
 // Root listing formatting shares the existing handler boundary to avoid a new controller cycle.
 function reject(code) {
   throw Object.assign(new Error('The stored project listing cannot be verified'), { code });
+}
+
+function contentPreview(value) {
+  const visible = String(value).replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu,
+    character => character === '\n' ? '\n' : `\\u{${character.codePointAt(0).toString(16)}}`);
+  let longest = 0;
+  for (const match of visible.matchAll(/`+/g)) longest = Math.max(longest, match[0].length);
+  const fence = '`'.repeat(Math.max(3, longest + 1));
+  return `${fence}\n${visible}\n${fence}`;
 }
 
 function literal(value) {

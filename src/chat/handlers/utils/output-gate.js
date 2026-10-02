@@ -134,8 +134,10 @@ const DENSITY_THRESHOLDS = {
 function checkDensity(content, intent, responseIntent = null) {
   const trimmed = (content || '').trim();
   const intentThreshold = DENSITY_THRESHOLDS[intent] || DENSITY_THRESHOLDS.DEFAULT;
+  // A complete explicitly minimal answer can be one number or word. A
+  // character floor is not a semantic quality judgment and must not expand it.
   const threshold = responseIntent === 'MINIMAL'
-    ? Math.min(intentThreshold, DENSITY_THRESHOLDS.CONVERSATIONAL)
+    ? 1
     : intentThreshold;
 
   // Strip markdown formatting for measurement

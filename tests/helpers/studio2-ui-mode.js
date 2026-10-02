@@ -47,6 +47,15 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
       specialistFileRows: [...(root?.querySelectorAll('.rp .fsec .frow .fr-n') || [])].map(node => node.textContent.trim()),
       specialistPreview: root?.querySelector('.rp .file-action pre')?.textContent || null,
       composerAttachments: [...(root?.querySelectorAll('.scol .comp .att-t') || [])].map(node => node.textContent.trim()),
+      markdownRendered: [...(root?.querySelectorAll('.md') || [])].some(node =>
+        node.querySelector('h2')?.textContent === 'Renderovací kontrola'
+        && node.querySelector('pre code')?.textContent.includes('__chatRenderSentinel = 99')),
+      markdownInert: window.__chatRenderSentinel === 0
+        && [...(root?.querySelectorAll('.md') || [])].every(node =>
+          !node.querySelector('script,img,iframe,object,embed')
+          && [...node.querySelectorAll('*')].every(child =>
+            [...child.attributes].every(attr => !/^on/i.test(attr.name)
+              && !(attr.name === 'href' && /^\\s*(?:javascript|data):/i.test(attr.value))))),
     };
   })()`;
   const waitFor = async (predicate, label) => {
@@ -71,6 +80,24 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
     && !s.hostDialogVisible, 'studio2-only-uncovered');
   const startupFrame = await evaluate(cdp, 'window.electronTheiaCore.getTitleBarStyleAtStartup()');
   if (startupFrame !== 'custom') fail('studio2-native-frame-restored');
+  // Synthetic response data exercises the shipped React/Markdown renderer.
+  // No model, transport terminal or execution authority is fabricated.
+  const markup = '## Renderovací kontrola\n\n**Text**\n\n```javascript\nwindow.__chatRenderSentinel = 99;\n```\n\n'
+    + '<img src=x onerror="window.__chatRenderSentinel = 1">'
+    + '<script>window.__chatRenderSentinel = 2</script>\n'
+    + '[škodlivý odkaz](javascript:window.__chatRenderSentinel=3)';
+  await evaluate(cdp, `(() => {
+    window.__chatRenderSentinel = 0;
+    window._sessions[0].chat.msgs.push({ role: 'assistant', text: ${JSON.stringify(markup)} });
+    window.IntentSmithBus.emit('session:changed', {});
+    return true;
+  })()`);
+  const markdown = await waitFor(s => s.markdownRendered && s.markdownInert, 'markdown-code-and-inert-html');
+  await evaluate(cdp, `(() => {
+    window._sessions[0].chat.msgs = window._sessions[0].chat.msgs.filter(msg => msg.text !== ${JSON.stringify(markup)});
+    window.IntentSmithBus.emit('session:changed', {});
+    return true;
+  })()`);
   await evaluate(cdp, `(async () => {
     for (let i = 0; i < 4; i++) {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 't', ctrlKey: true, bubbles: true, cancelable: true }));
@@ -345,5 +372,7 @@ export async function probeStudio2ModeSwitch({ cdp, evaluate, fail, artifactRoot
     specialistLocalPreviewRequiresAttachment: localPreview.specialistPreview === 'private'
       && !localPreview.composerAttachments.includes('studio2-e2e.txt')
       && localAttached.composerAttachments.includes('studio2-e2e.txt'),
+    markdownAndCodeRendered: markdown.markdownRendered,
+    untrustedHtmlInert: markdown.markdownInert,
   });
 }

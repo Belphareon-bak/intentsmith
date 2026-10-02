@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "runId": "chat-quality-full-20261002-archive-clean",
+  "sourceRevision": "289afec083d7de8933b4c514438d30cf6ff887a2",
+  "startedAt": "2026-10-02T08:50:55.792Z",
+  "endedAt": "2026-10-02T08:59:26.652Z",
+  "statusCounts": {
+    "PASS": 399,
+    "FAIL": 4,
+    "TIMEOUT": 0,
+    "BLOCKED": 3,
+    "SKIPPED": 0
+  },
+  "verdict": "FAIL",
+  "exitCode": 1,
+  "registryHash": "ac14e15fb81dc401761467b7fc9d6e4c040550b05f6cec273ee2f2edd7bbf43f",
+  "inventoryFingerprint": "02170ed1be748ea2c064405bdd704f52dc1e4bb6468bc62d49df16f77a826843",
+  "reportSha256": "a5b6d08603538da0fa32d73d4ff3db581b5e78d373dff4fe6e15de92f201beb0",
+  "nonPass": [
+    {
+      "id": "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-INTEGRATION-TEST",
+      "path": "tests/accountant-workflow-integration.test.js",
+      "profile": "offline",
+      "status": "BLOCKED",
+      "exitCode": null,
+      "durationMs": 0,
+      "blockedBy": [
+        "toolchain:python-pdf-runtime:invalid-executable-authority"
+      ],
+      "sourceRevision": "289afec083d7de8933b4c514438d30cf6ff887a2"
+    },
+    {
+      "id": "IS-T1-TESTS-ARTIFACT-VALIDATION",
+      "path": "tests/artifact-validation.test.js",
+      "profile": "offline",
+      "status": "FAIL",
+      "exitCode": 1,
+      "durationMs": 734,
+      "logSha256": "a159055996eb1f7a18d3c49986c7749f24da4939470cb19f3ceebbf3c8388b7f",
+      "sourceRevision": "289afec083d7de8933b4c514438d30cf6ff887a2"
+    },
+    {
+      "id": "IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST",
+      "path": "tests/chat-export-budget.test.js",
+      "profile": "offline",
+      "status": "BLOCKED",
+      "exitCode": null,
+      "durationMs": 0,
+      "blockedBy": [
+        "toolchain:python-pdf-runtime:invalid-executable-authority"
+      ],
+      "sourceRevision": "289afec083d7de8933b4c514438d30cf6ff887a2"
+    },
+    {
+      "id": "IS-T1-TESTS-EXPORT-PDF-DOCX-TEST",
+      "path": "tests/export-pdf-docx.test.js",
+      "profile": "offline",
+      "status": "BLOCKED",
+      "exitCode": null,
+      "durationMs": 0,
+      "blockedBy": [
+        "toolchain:python-pdf-runtime:invalid-executable-authority"
+      ],
+      "sourceRevision": "289afec083d7de8933b4c514438d30cf6ff887a2"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST",
+      "path": "tests/m1-model-failover-schema.test.js",
+      "profile": "database",
+      "status": "FAIL",
+      "exitCode": 1,
+      "durationMs": 9947,
+      "logSha256": "1296f3671c7e50dd4e6578bc19b623fa1ee11b9886edd29ad1d6cf9b5c2c0fe9",
+      "sourceRevision": "289afec083d7de8933b4c514438d30cf6ff887a2"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST",
+      "path": "tests/m6-runtime-evidence.test.js",
+      "profile": "offline",
+      "status": "FAIL",
+      "exitCode": 1,
+      "durationMs": 43,
+      "logSha256": "d1c027ccf32895382071ce8afac79bfd85789c13a6c2bd890ce04ee3b823b608",
+      "sourceRevision": "289afec083d7de8933b4c514438d30cf6ff887a2"
+    },
+    {
+      "id": "IS-T1-TESTS-ROUTING-ACCURACY-TEST",
+      "path": "tests/routing-accuracy.test.js",
+      "profile": "offline",
+      "status": "FAIL",
+      "exitCode": 1,
+      "durationMs": 352,
+      "logSha256": "d8bd06eff295aab1851e6f5ae300b05cd56bec666674c1d31f2a20ae99b9be95",
+      "sourceRevision": "289afec083d7de8933b4c514438d30cf6ff887a2"
+    }
+  ],
+  "baselineComparison": "Same four FAIL and three BLOCKED IDs as full native profile on 495a069f. No new non-PASS; not a green gate. Earlier 108/406 incomplete profile remains incomplete."
+}

@@ -1,0 +1,2577 @@
+{
+  "version": 1,
+  "scope": "Mechanical trace/snapshot checks; semantic proposal correctness still needs human review.",
+  "runs": [
+    {
+      "runId": "1e1b2ae2-4f59-4d7b-9967-8759d68f701c",
+      "phase": "final-1",
+      "revision": "3b3b399f1bd1903a27a2c05ee4ed4701774b88dd",
+      "configurationFingerprint": "a0bd6282285fb7bb7c2c6105e51874bbe904d0f009fd1f4989c347c4737c42b6",
+      "cases": [
+        {
+          "id": "context-list",
+          "family": "F08",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "context-second",
+          "family": "F08",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.read",
+              "input": {
+                "path": "beta.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.read",
+              "path": "beta.md",
+              "payloadDigest": "sha256:2d9c0f04a7ebde9876b1217e76297ad7ffb3e4527629d292116933f963658da3"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "beta.md",
+          "approvedKind": "fs.read",
+          "actualEqualsExpected": true,
+          "readPreservedAllFiles": true,
+          "readResponseContainsExactContent": true,
+          "actualBytes": 14,
+          "actualSha256": "7295a44c2d04e27b652ff71bd49187c91a8d4efbf1d1b7b62fdab2ae7e58c486"
+        },
+        {
+          "id": "ban-write",
+          "family": "F06",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "http",
+          "family": "F01",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "http-plain",
+          "family": "F01",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "http-typo",
+          "family": "F01",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "plain",
+          "family": "F02",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "memory-plain",
+          "family": "F02",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "typo",
+          "family": "F02",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "wifi",
+          "family": "F03",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "wifi-plain",
+          "family": "F03",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "wifi-typo",
+          "family": "F03",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "recursion",
+          "family": "F04",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "recursion-followup",
+          "family": "F04",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "recursion-plain",
+          "family": "F04",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "recursion-mixed",
+          "family": "F04",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "thanks",
+          "family": "F05",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "thanks-plain",
+          "family": "F05",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "newname",
+          "family": "F06",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "Ahoj",
+                "path": "new-notes.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "new-notes.md",
+              "payloadDigest": "sha256:f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "new-notes.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 4,
+          "actualSha256": "f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081"
+        },
+        {
+          "id": "newname-plain",
+          "family": "F06",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "Ahoj",
+                "path": "next.config.js"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "next.config.js",
+              "payloadDigest": "sha256:f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "next.config.js",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 4,
+          "actualSha256": "f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081"
+        },
+        {
+          "id": "newname-typo",
+          "family": "F06",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "Ahoj",
+                "path": "network.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "network.md",
+              "payloadDigest": "sha256:f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "network.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 4,
+          "actualSha256": "f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081"
+        },
+        {
+          "id": "banread",
+          "family": "F07",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.read",
+              "input": {
+                "path": "notes.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.read",
+              "path": "notes.md",
+              "payloadDigest": "sha256:2d9c0f04a7ebde9876b1217e76297ad7ffb3e4527629d292116933f963658da3"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "notes.md",
+          "approvedKind": "fs.read",
+          "actualEqualsExpected": true,
+          "readPreservedAllFiles": true,
+          "readResponseContainsExactContent": true,
+          "actualBytes": 22,
+          "actualSha256": "379661423a89125eba3088b45a0961008372c02c6c303e0348adb2e2f978d344"
+        },
+        {
+          "id": "banread-plain",
+          "family": "F07",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.read",
+              "input": {
+                "path": "notes.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.read",
+              "path": "notes.md",
+              "payloadDigest": "sha256:2d9c0f04a7ebde9876b1217e76297ad7ffb3e4527629d292116933f963658da3"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "notes.md",
+          "approvedKind": "fs.read",
+          "actualEqualsExpected": true,
+          "readPreservedAllFiles": true,
+          "readResponseContainsExactContent": true,
+          "actualBytes": 22,
+          "actualSha256": "379661423a89125eba3088b45a0961008372c02c6c303e0348adb2e2f978d344"
+        },
+        {
+          "id": "banread-en",
+          "family": "F07",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.read",
+              "input": {
+                "path": "notes.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.read",
+              "path": "notes.md",
+              "payloadDigest": "sha256:2d9c0f04a7ebde9876b1217e76297ad7ffb3e4527629d292116933f963658da3"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "notes.md",
+          "approvedKind": "fs.read",
+          "actualEqualsExpected": true,
+          "readPreservedAllFiles": true,
+          "readResponseContainsExactContent": true,
+          "actualBytes": 22,
+          "actualSha256": "379661423a89125eba3088b45a0961008372c02c6c303e0348adb2e2f978d344"
+        },
+        {
+          "id": "ambiguous",
+          "family": "F08",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "ambiguous-yes",
+          "family": "F08",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "ambiguous-target",
+          "family": "F08",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "correction",
+          "family": "F09",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "correction-next",
+          "family": "F09",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "save-next",
+          "family": "F09",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "Operační paměť je schopnost udržet v mysli několik informací jen na krátký čas pro okamžitý výpočet nebo rozhodnutí. Dlouhodobá paměť funguje jako trvalé úložiště zkušeností a faktů, které si můžeme vybavit i po mnoha letech.",
+                "path": "backup.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "backup.md",
+              "payloadDigest": "sha256:7f8b7f9b7980a5df44c528636cb53a5240a2ce0804cb48b8c55c6cf6bac4af0f"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "backup.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 254,
+          "actualSha256": "7f8b7f9b7980a5df44c528636cb53a5240a2ce0804cb48b8c55c6cf6bac4af0f"
+        },
+        {
+          "id": "save-content",
+          "family": "F10",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "save-content-first",
+          "family": "F10",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "Git commit je okamžitý snímek změn v souborech projektu, který se ukládá do lokální časové osy jako trvalá verze. Každý takový záznam obsahuje identifikátor SHA-1 a popis změny pro budoucí sledování vývoje kódu.",
+                "path": "copy.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "copy.md",
+              "payloadDigest": "sha256:270db372ddcf8a872fbbfe68d51702ee223f332f56a5365a2d7562c81e75c142"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "copy.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 234,
+          "actualSha256": "270db372ddcf8a872fbbfe68d51702ee223f332f56a5365a2d7562c81e75c142"
+        },
+        {
+          "id": "save-content-again",
+          "family": "F10",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "Git commit je okamžitý snímek změn v souborech projektu, který se ukládá do lokální časové osy jako trvalá verze. Každý takový záznam obsahuje identifikátor SHA-1 a popis změny pro budoucí sledování vývoje kódu.",
+                "path": "copy-backup.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "copy-backup.md",
+              "payloadDigest": "sha256:270db372ddcf8a872fbbfe68d51702ee223f332f56a5365a2d7562c81e75c142"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "copy-backup.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 234,
+          "actualSha256": "270db372ddcf8a872fbbfe68d51702ee223f332f56a5365a2d7562c81e75c142"
+        },
+        {
+          "id": "missing-content",
+          "family": "F11",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "missing-target",
+          "family": "F11",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "missing-target-yes",
+          "family": "F11",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "missing-target-name",
+          "family": "F11",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "Fotografie je umění chytat světlo a čas do jedné okamžité scény.",
+                "path": "photo.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "photo.md",
+              "payloadDigest": "sha256:c1ad1478fc241ae6dc94a27797eb0cc64bf18e666be8daaa0ed36772947ac42c"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "photo.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 72,
+          "actualSha256": "c1ad1478fc241ae6dc94a27797eb0cc64bf18e666be8daaa0ed36772947ac42c"
+        },
+        {
+          "id": "scoped-ban",
+          "family": "F12",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.create",
+              "input": {
+                "content": "Ahoj",
+                "path": "scoped-copy.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "scoped-copy.md",
+              "payloadDigest": "sha256:f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "scoped-copy.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 4,
+          "actualSha256": "f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081"
+        },
+        {
+          "id": "scoped-ban-plain",
+          "family": "F12",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.create",
+              "input": {
+                "content": "Ahoj",
+                "path": "scoped-copy-plain.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "scoped-copy-plain.md",
+              "payloadDigest": "sha256:f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "scoped-copy-plain.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 4,
+          "actualSha256": "f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081"
+        },
+        {
+          "id": "no-overwrite",
+          "family": "F13",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.create",
+              "input": {
+                "content": "Nový obsah",
+                "path": "existing.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "existing.md",
+              "payloadDigest": "sha256:38a0bd7e613921bd8755349598d80e121e1c718e2de59c228da7d6141cbdcfa0"
+            }
+          ],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "no-overwrite-plain",
+          "family": "F13",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.create",
+              "input": {
+                "content": "Novy obsah",
+                "path": "existing.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "existing.md",
+              "payloadDigest": "sha256:4db0a0740082a2978ba56332e86499913e679edfcce11bf06983a331b3680c7d"
+            }
+          ],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "versions",
+          "family": "F14",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "versions-en",
+          "family": "F14",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "recipient-alice",
+          "family": "F15",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "recipient-bob",
+          "family": "F15",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "port80",
+          "family": "F16",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "port=80",
+                "path": "port.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "port.md",
+              "payloadDigest": "sha256:45f8c837b798c2c36e0093ebc993ef95d0b926a54fc63ba7c59f5159264d0f78"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "port.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 7,
+          "actualSha256": "45f8c837b798c2c36e0093ebc993ef95d0b926a54fc63ba7c59f5159264d0f78"
+        },
+        {
+          "id": "port8080",
+          "family": "F16",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "port=8080",
+                "path": "port.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "port.md",
+              "payloadDigest": "sha256:80e85c8be87dbb589bcbde0f5f8783b1abed786d1c6db19c5ceb663a57ede111"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "port.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 9,
+          "actualSha256": "80e85c8be87dbb589bcbde0f5f8783b1abed786d1c6db19c5ceb663a57ede111"
+        },
+        {
+          "id": "milliwatt",
+          "family": "F17",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "power=10 mW",
+                "path": "power.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "power.md",
+              "payloadDigest": "sha256:80e4241d54e2a62ce0d3e26badfeb3d9ad88c4fe0d4e19f5b3d83a1bb878391f"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "power.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 11,
+          "actualSha256": "80e4241d54e2a62ce0d3e26badfeb3d9ad88c4fe0d4e19f5b3d83a1bb878391f"
+        },
+        {
+          "id": "megawatt",
+          "family": "F17",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "power=10 MW",
+                "path": "power.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "power.md",
+              "payloadDigest": "sha256:8bf009b9754515d664a856c72fd2848327f3536910abbe257ed0ea82844851e2"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "power.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 11,
+          "actualSha256": "8bf009b9754515d664a856c72fd2848327f3536910abbe257ed0ea82844851e2"
+        },
+        {
+          "id": "gpu-composite",
+          "family": "F18",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "gibberish",
+          "family": "F19",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "missing-tool",
+          "family": "F20",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "missing-tool-en",
+          "family": "F20",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        }
+      ]
+    },
+    {
+      "runId": "0712bd56-9d2c-4921-a584-4f745ee0ad12",
+      "phase": "final-2",
+      "revision": "3b3b399f1bd1903a27a2c05ee4ed4701774b88dd",
+      "configurationFingerprint": "a0bd6282285fb7bb7c2c6105e51874bbe904d0f009fd1f4989c347c4737c42b6",
+      "cases": [
+        {
+          "id": "context-list",
+          "family": "F08",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "context-second",
+          "family": "F08",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.read",
+              "input": {
+                "path": "beta.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.read",
+              "path": "beta.md",
+              "payloadDigest": "sha256:2d9c0f04a7ebde9876b1217e76297ad7ffb3e4527629d292116933f963658da3"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "beta.md",
+          "approvedKind": "fs.read",
+          "actualEqualsExpected": true,
+          "readPreservedAllFiles": true,
+          "readResponseContainsExactContent": true,
+          "actualBytes": 14,
+          "actualSha256": "7295a44c2d04e27b652ff71bd49187c91a8d4efbf1d1b7b62fdab2ae7e58c486"
+        },
+        {
+          "id": "ban-write",
+          "family": "F06",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "http",
+          "family": "F01",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "http-plain",
+          "family": "F01",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "http-typo",
+          "family": "F01",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "plain",
+          "family": "F02",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "memory-plain",
+          "family": "F02",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "typo",
+          "family": "F02",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "wifi",
+          "family": "F03",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "wifi-plain",
+          "family": "F03",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "wifi-typo",
+          "family": "F03",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "recursion",
+          "family": "F04",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "recursion-followup",
+          "family": "F04",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "recursion-plain",
+          "family": "F04",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "recursion-mixed",
+          "family": "F04",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "thanks",
+          "family": "F05",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "thanks-plain",
+          "family": "F05",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "newname",
+          "family": "F06",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "Ahoj",
+                "path": "new-notes.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "new-notes.md",
+              "payloadDigest": "sha256:f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "new-notes.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 4,
+          "actualSha256": "f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081"
+        },
+        {
+          "id": "newname-plain",
+          "family": "F06",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "Ahoj",
+                "path": "next.config.js"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "next.config.js",
+              "payloadDigest": "sha256:f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "next.config.js",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 4,
+          "actualSha256": "f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081"
+        },
+        {
+          "id": "newname-typo",
+          "family": "F06",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "Ahoj",
+                "path": "network.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "network.md",
+              "payloadDigest": "sha256:f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "network.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 4,
+          "actualSha256": "f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081"
+        },
+        {
+          "id": "banread",
+          "family": "F07",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.read",
+              "input": {
+                "path": "notes.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.read",
+              "path": "notes.md",
+              "payloadDigest": "sha256:2d9c0f04a7ebde9876b1217e76297ad7ffb3e4527629d292116933f963658da3"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "notes.md",
+          "approvedKind": "fs.read",
+          "actualEqualsExpected": true,
+          "readPreservedAllFiles": true,
+          "readResponseContainsExactContent": true,
+          "actualBytes": 22,
+          "actualSha256": "379661423a89125eba3088b45a0961008372c02c6c303e0348adb2e2f978d344"
+        },
+        {
+          "id": "banread-plain",
+          "family": "F07",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.read",
+              "input": {
+                "path": "notes.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.read",
+              "path": "notes.md",
+              "payloadDigest": "sha256:2d9c0f04a7ebde9876b1217e76297ad7ffb3e4527629d292116933f963658da3"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "notes.md",
+          "approvedKind": "fs.read",
+          "actualEqualsExpected": true,
+          "readPreservedAllFiles": true,
+          "readResponseContainsExactContent": true,
+          "actualBytes": 22,
+          "actualSha256": "379661423a89125eba3088b45a0961008372c02c6c303e0348adb2e2f978d344"
+        },
+        {
+          "id": "banread-en",
+          "family": "F07",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.read",
+              "input": {
+                "path": "notes.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.read",
+              "path": "notes.md",
+              "payloadDigest": "sha256:2d9c0f04a7ebde9876b1217e76297ad7ffb3e4527629d292116933f963658da3"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "notes.md",
+          "approvedKind": "fs.read",
+          "actualEqualsExpected": true,
+          "readPreservedAllFiles": true,
+          "readResponseContainsExactContent": true,
+          "actualBytes": 22,
+          "actualSha256": "379661423a89125eba3088b45a0961008372c02c6c303e0348adb2e2f978d344"
+        },
+        {
+          "id": "ambiguous",
+          "family": "F08",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "ambiguous-yes",
+          "family": "F08",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "ambiguous-target",
+          "family": "F08",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "correction",
+          "family": "F09",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "correction-next",
+          "family": "F09",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "save-next",
+          "family": "F09",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "Operativní paměť je krátkodobá kapacita pro okamžité zpracování informací, která rychle mizí bez opakování. Dlouhodobá paměť uchovává znalosti a vzpomínky trvale po celý život i při absenci aktivního vybavování.",
+                "path": "backup.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "backup.md",
+              "payloadDigest": "sha256:4d1264509294a69fc4057b58b3da9941c72f873f3ff451c519b0710bd91be840"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "backup.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 237,
+          "actualSha256": "4d1264509294a69fc4057b58b3da9941c72f873f3ff451c519b0710bd91be840"
+        },
+        {
+          "id": "save-content",
+          "family": "F10",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "save-content-first",
+          "family": "F10",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "Git commit je snímek změn v kódu uložený do lokální historii repozitáře s identifikátorem a zprávou popisující úpravu. Tento krok pevně fixuje aktuální stav projektu před jeho případným odesláním na vzdálený server.",
+                "path": "copy.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "copy.md",
+              "payloadDigest": "sha256:531519b7ed7ad2557e5f4a5646c7afc65f605db66b875a3090b7a641469551cc"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "copy.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 240,
+          "actualSha256": "531519b7ed7ad2557e5f4a5646c7afc65f605db66b875a3090b7a641469551cc"
+        },
+        {
+          "id": "save-content-again",
+          "family": "F10",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "Git commit je snímek změn v kódu uložený do lokální historii repozitáře s identifikátorem a zprávou popisující úpravu. Tento krok pevně fixuje aktuální stav projektu před jeho případným odesláním na vzdálený server.",
+                "path": "copy-backup.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "copy-backup.md",
+              "payloadDigest": "sha256:531519b7ed7ad2557e5f4a5646c7afc65f605db66b875a3090b7a641469551cc"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "copy-backup.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 240,
+          "actualSha256": "531519b7ed7ad2557e5f4a5646c7afc65f605db66b875a3090b7a641469551cc"
+        },
+        {
+          "id": "missing-content",
+          "family": "F11",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "missing-target",
+          "family": "F11",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "missing-target-yes",
+          "family": "F11",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "missing-target-name",
+          "family": "F11",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "Fotografie je umění zachycovat světlo v jediném okamžiku.",
+                "path": "photo.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "photo.md",
+              "payloadDigest": "sha256:e94dfaf2f63f175ea7e4603f37f0926f0b2ca2efa939baa2d37a9003f3f21c93"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "photo.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 62,
+          "actualSha256": "e94dfaf2f63f175ea7e4603f37f0926f0b2ca2efa939baa2d37a9003f3f21c93"
+        },
+        {
+          "id": "scoped-ban",
+          "family": "F12",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.create",
+              "input": {
+                "content": "Ahoj",
+                "path": "scoped-copy.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "scoped-copy.md",
+              "payloadDigest": "sha256:f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "scoped-copy.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 4,
+          "actualSha256": "f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081"
+        },
+        {
+          "id": "scoped-ban-plain",
+          "family": "F12",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.create",
+              "input": {
+                "content": "Ahoj",
+                "path": "scoped-copy-plain.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "scoped-copy-plain.md",
+              "payloadDigest": "sha256:f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "scoped-copy-plain.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 4,
+          "actualSha256": "f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081"
+        },
+        {
+          "id": "no-overwrite",
+          "family": "F13",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.create",
+              "input": {
+                "content": "Nový obsah",
+                "path": "existing.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "existing.md",
+              "payloadDigest": "sha256:38a0bd7e613921bd8755349598d80e121e1c718e2de59c228da7d6141cbdcfa0"
+            }
+          ],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "no-overwrite-plain",
+          "family": "F13",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.create",
+              "input": {
+                "content": "Novy obsah",
+                "path": "existing.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "existing.md",
+              "payloadDigest": "sha256:4db0a0740082a2978ba56332e86499913e679edfcce11bf06983a331b3680c7d"
+            }
+          ],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "versions",
+          "family": "F14",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "versions-en",
+          "family": "F14",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "recipient-alice",
+          "family": "F15",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "recipient-bob",
+          "family": "F15",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "port80",
+          "family": "F16",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "port=80",
+                "path": "port.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "port.md",
+              "payloadDigest": "sha256:45f8c837b798c2c36e0093ebc993ef95d0b926a54fc63ba7c59f5159264d0f78"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "port.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 7,
+          "actualSha256": "45f8c837b798c2c36e0093ebc993ef95d0b926a54fc63ba7c59f5159264d0f78"
+        },
+        {
+          "id": "port8080",
+          "family": "F16",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "port=8080",
+                "path": "port.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "port.md",
+              "payloadDigest": "sha256:80e85c8be87dbb589bcbde0f5f8783b1abed786d1c6db19c5ceb663a57ede111"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "port.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 9,
+          "actualSha256": "80e85c8be87dbb589bcbde0f5f8783b1abed786d1c6db19c5ceb663a57ede111"
+        },
+        {
+          "id": "milliwatt",
+          "family": "F17",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "power=10 mW",
+                "path": "power.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "power.md",
+              "payloadDigest": "sha256:80e4241d54e2a62ce0d3e26badfeb3d9ad88c4fe0d4e19f5b3d83a1bb878391f"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "power.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 11,
+          "actualSha256": "80e4241d54e2a62ce0d3e26badfeb3d9ad88c4fe0d4e19f5b3d83a1bb878391f"
+        },
+        {
+          "id": "megawatt",
+          "family": "F17",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "power=10 MW",
+                "path": "power.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "power.md",
+              "payloadDigest": "sha256:8bf009b9754515d664a856c72fd2848327f3536910abbe257ed0ea82844851e2"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "power.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 11,
+          "actualSha256": "8bf009b9754515d664a856c72fd2848327f3536910abbe257ed0ea82844851e2"
+        },
+        {
+          "id": "gpu-composite",
+          "family": "F18",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "gibberish",
+          "family": "F19",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "missing-tool",
+          "family": "F20",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "missing-tool-en",
+          "family": "F20",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        }
+      ]
+    },
+    {
+      "runId": "6fde29e0-9285-48ac-ac0a-249b2a8d8c55",
+      "phase": "final-3",
+      "revision": "3b3b399f1bd1903a27a2c05ee4ed4701774b88dd",
+      "configurationFingerprint": "a0bd6282285fb7bb7c2c6105e51874bbe904d0f009fd1f4989c347c4737c42b6",
+      "cases": [
+        {
+          "id": "context-list",
+          "family": "F08",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "context-second",
+          "family": "F08",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.read",
+              "input": {
+                "path": "beta.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.read",
+              "path": "beta.md",
+              "payloadDigest": "sha256:2d9c0f04a7ebde9876b1217e76297ad7ffb3e4527629d292116933f963658da3"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "beta.md",
+          "approvedKind": "fs.read",
+          "actualEqualsExpected": true,
+          "readPreservedAllFiles": true,
+          "readResponseContainsExactContent": true,
+          "actualBytes": 14,
+          "actualSha256": "7295a44c2d04e27b652ff71bd49187c91a8d4efbf1d1b7b62fdab2ae7e58c486"
+        },
+        {
+          "id": "ban-write",
+          "family": "F06",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "http",
+          "family": "F01",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "http-plain",
+          "family": "F01",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "http-typo",
+          "family": "F01",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "plain",
+          "family": "F02",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "memory-plain",
+          "family": "F02",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "typo",
+          "family": "F02",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "wifi",
+          "family": "F03",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "wifi-plain",
+          "family": "F03",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "wifi-typo",
+          "family": "F03",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "recursion",
+          "family": "F04",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "recursion-followup",
+          "family": "F04",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "recursion-plain",
+          "family": "F04",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "recursion-mixed",
+          "family": "F04",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "thanks",
+          "family": "F05",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "thanks-plain",
+          "family": "F05",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "newname",
+          "family": "F06",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "Ahoj",
+                "path": "new-notes.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "new-notes.md",
+              "payloadDigest": "sha256:f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "new-notes.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 4,
+          "actualSha256": "f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081"
+        },
+        {
+          "id": "newname-plain",
+          "family": "F06",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "Ahoj",
+                "path": "next.config.js"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "next.config.js",
+              "payloadDigest": "sha256:f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "next.config.js",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 4,
+          "actualSha256": "f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081"
+        },
+        {
+          "id": "newname-typo",
+          "family": "F06",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "Ahoj",
+                "path": "network.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "network.md",
+              "payloadDigest": "sha256:f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "network.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 4,
+          "actualSha256": "f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081"
+        },
+        {
+          "id": "banread",
+          "family": "F07",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.read",
+              "input": {
+                "path": "notes.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.read",
+              "path": "notes.md",
+              "payloadDigest": "sha256:2d9c0f04a7ebde9876b1217e76297ad7ffb3e4527629d292116933f963658da3"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "notes.md",
+          "approvedKind": "fs.read",
+          "actualEqualsExpected": true,
+          "readPreservedAllFiles": true,
+          "readResponseContainsExactContent": true,
+          "actualBytes": 22,
+          "actualSha256": "379661423a89125eba3088b45a0961008372c02c6c303e0348adb2e2f978d344"
+        },
+        {
+          "id": "banread-plain",
+          "family": "F07",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.read",
+              "input": {
+                "path": "notes.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.read",
+              "path": "notes.md",
+              "payloadDigest": "sha256:2d9c0f04a7ebde9876b1217e76297ad7ffb3e4527629d292116933f963658da3"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "notes.md",
+          "approvedKind": "fs.read",
+          "actualEqualsExpected": true,
+          "readPreservedAllFiles": true,
+          "readResponseContainsExactContent": true,
+          "actualBytes": 22,
+          "actualSha256": "379661423a89125eba3088b45a0961008372c02c6c303e0348adb2e2f978d344"
+        },
+        {
+          "id": "banread-en",
+          "family": "F07",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.read",
+              "input": {
+                "path": "notes.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.read",
+              "path": "notes.md",
+              "payloadDigest": "sha256:2d9c0f04a7ebde9876b1217e76297ad7ffb3e4527629d292116933f963658da3"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "notes.md",
+          "approvedKind": "fs.read",
+          "actualEqualsExpected": true,
+          "readPreservedAllFiles": true,
+          "readResponseContainsExactContent": true,
+          "actualBytes": 22,
+          "actualSha256": "379661423a89125eba3088b45a0961008372c02c6c303e0348adb2e2f978d344"
+        },
+        {
+          "id": "ambiguous",
+          "family": "F08",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "ambiguous-yes",
+          "family": "F08",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "ambiguous-target",
+          "family": "F08",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "correction",
+          "family": "F09",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "correction-next",
+          "family": "F09",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "save-next",
+          "family": "F09",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "Operativní paměť mozku je dočasná kapacita pro okamžitou práci s informacemi, která rychle mizí bez opakování. Dlouhodobá paměť trvale uchovává znalosti a vzpomínky na roky nebo celý život v hlubších vrstvách nervové soustavy.",
+                "path": "backup.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "backup.md",
+              "payloadDigest": "sha256:2d2ef5a291256a00c96e89f6ddb98dafdf5bf1504ea81fd1d273e3df23176bd9"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "backup.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 249,
+          "actualSha256": "2d2ef5a291256a00c96e89f6ddb98dafdf5bf1504ea81fd1d273e3df23176bd9"
+        },
+        {
+          "id": "save-content",
+          "family": "F10",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "save-content-first",
+          "family": "F10",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "Git commit je akce v systému řízení verzí, která uloží aktuální stav změn souborů do lokálního repozitáře jako trvalý záznam s unikátním identifikátorem a zprávou. Tímto krokem se vytvoří kontrolní bod, který umožňuje pozdější návrat k předchozímu stavu projektu nebo jeho sdílení s ostatními vývojáři.",
+                "path": "copy.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "copy.md",
+              "payloadDigest": "sha256:78a3a3e90c0c052eb6c650b4cc6d2a18ce39097ff2f04215a16579f52655db9b"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "copy.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 343,
+          "actualSha256": "78a3a3e90c0c052eb6c650b4cc6d2a18ce39097ff2f04215a16579f52655db9b"
+        },
+        {
+          "id": "save-content-again",
+          "family": "F10",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "Git commit je akce v systému řízení verzí, která uloží aktuální stav změn souborů do lokálního repozitáře jako trvalý záznam s unikátním identifikátorem a zprávou. Tímto krokem se vytvoří kontrolní bod, který umožňuje pozdější návrat k předchozímu stavu projektu nebo jeho sdílení s ostatními vývojáři.",
+                "path": "copy-backup.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "copy-backup.md",
+              "payloadDigest": "sha256:78a3a3e90c0c052eb6c650b4cc6d2a18ce39097ff2f04215a16579f52655db9b"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "copy-backup.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 343,
+          "actualSha256": "78a3a3e90c0c052eb6c650b4cc6d2a18ce39097ff2f04215a16579f52655db9b"
+        },
+        {
+          "id": "missing-content",
+          "family": "F11",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "missing-target",
+          "family": "F11",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "missing-target-yes",
+          "family": "F11",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "missing-target-name",
+          "family": "F11",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "Fotografie je umění uchytit okamžik světlem na trvalý snímek.",
+                "path": "photo.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "photo.md",
+              "payloadDigest": "sha256:ce7ab50f82350acb0e7d45221ee79631e114ceac4f4199e2fda3b4f63f597621"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "photo.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 67,
+          "actualSha256": "ce7ab50f82350acb0e7d45221ee79631e114ceac4f4199e2fda3b4f63f597621"
+        },
+        {
+          "id": "scoped-ban",
+          "family": "F12",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.create",
+              "input": {
+                "content": "Ahoj",
+                "path": "scoped-copy.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "scoped-copy.md",
+              "payloadDigest": "sha256:f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "scoped-copy.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 4,
+          "actualSha256": "f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081"
+        },
+        {
+          "id": "scoped-ban-plain",
+          "family": "F12",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.create",
+              "input": {
+                "content": "Ahoj",
+                "path": "scoped-copy-plain.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "scoped-copy-plain.md",
+              "payloadDigest": "sha256:f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "scoped-copy-plain.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 4,
+          "actualSha256": "f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081"
+        },
+        {
+          "id": "no-overwrite",
+          "family": "F13",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.create",
+              "input": {
+                "content": "Nový obsah",
+                "path": "existing.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "existing.md",
+              "payloadDigest": "sha256:38a0bd7e613921bd8755349598d80e121e1c718e2de59c228da7d6141cbdcfa0"
+            }
+          ],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "no-overwrite-plain",
+          "family": "F13",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.create",
+              "input": {
+                "content": "Novy obsah",
+                "path": "existing.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "existing.md",
+              "payloadDigest": "sha256:4db0a0740082a2978ba56332e86499913e679edfcce11bf06983a331b3680c7d"
+            }
+          ],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "versions",
+          "family": "F14",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "versions-en",
+          "family": "F14",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "recipient-alice",
+          "family": "F15",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "recipient-bob",
+          "family": "F15",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "port80",
+          "family": "F16",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "port=80",
+                "path": "port.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "port.md",
+              "payloadDigest": "sha256:45f8c837b798c2c36e0093ebc993ef95d0b926a54fc63ba7c59f5159264d0f78"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "port.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 7,
+          "actualSha256": "45f8c837b798c2c36e0093ebc993ef95d0b926a54fc63ba7c59f5159264d0f78"
+        },
+        {
+          "id": "port8080",
+          "family": "F16",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "port=8080",
+                "path": "port.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "port.md",
+              "payloadDigest": "sha256:80e85c8be87dbb589bcbde0f5f8783b1abed786d1c6db19c5ceb663a57ede111"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "port.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 9,
+          "actualSha256": "80e85c8be87dbb589bcbde0f5f8783b1abed786d1c6db19c5ceb663a57ede111"
+        },
+        {
+          "id": "milliwatt",
+          "family": "F17",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "power=10 mW",
+                "path": "power.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "power.md",
+              "payloadDigest": "sha256:80e4241d54e2a62ce0d3e26badfeb3d9ad88c4fe0d4e19f5b3d83a1bb878391f"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "power.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 11,
+          "actualSha256": "80e4241d54e2a62ce0d3e26badfeb3d9ad88c4fe0d4e19f5b3d83a1bb878391f"
+        },
+        {
+          "id": "megawatt",
+          "family": "F17",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "power=10 MW",
+                "path": "power.md"
+              }
+            }
+          ],
+          "newEffects": [
+            {
+              "kind": "fs.write",
+              "path": "power.md",
+              "payloadDigest": "sha256:8bf009b9754515d664a856c72fd2848327f3536910abbe257ed0ea82844851e2"
+            }
+          ],
+          "postApprovalEffects": 1,
+          "approvalHTTP": 200,
+          "approvedPath": "power.md",
+          "approvedKind": "fs.write",
+          "actualEqualsExpected": true,
+          "actualBytes": 11,
+          "actualSha256": "8bf009b9754515d664a856c72fd2848327f3536910abbe257ed0ea82844851e2"
+        },
+        {
+          "id": "gpu-composite",
+          "family": "F18",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "gibberish",
+          "family": "F19",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "missing-tool",
+          "family": "F20",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        },
+        {
+          "id": "missing-tool-en",
+          "family": "F20",
+          "preApprovalFilesUnchanged": true,
+          "preApprovalEffects": 0,
+          "newTools": [],
+          "newEffects": [],
+          "postApprovalEffects": 0
+        }
+      ]
+    }
+  ]
+}

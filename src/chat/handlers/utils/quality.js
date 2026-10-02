@@ -57,7 +57,7 @@ const FILLER_PHRASES = [
  * @param {string} input — Original user input (for context)
  * @returns {{ valid: boolean, reason?: string }}
  */
-export function assertCreativeQuality(content, input) {
+export function assertCreativeQuality(content, input, { responseIntent = null } = {}) {
   if (!content || typeof content !== 'string') {
     return { valid: false, reason: 'Empty creative response' };
   }
@@ -65,7 +65,7 @@ export function assertCreativeQuality(content, input) {
   const trimmed = content.trim();
 
   // ─── Length check ───────────────────────────────────────────────────────
-  const minimumLength = isCompactCreativeRequest(input)
+  const minimumLength = responseIntent === 'MINIMAL' ? 1 : isCompactCreativeRequest(input)
     ? COMPACT_CREATIVE_MIN_LENGTH
     : CREATIVE_MIN_LENGTH;
   if (trimmed.length < minimumLength) {

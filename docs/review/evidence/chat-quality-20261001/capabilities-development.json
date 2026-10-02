@@ -1,0 +1,1241 @@
+{
+  "version": 1,
+  "assessor": "root own review; independent review pending",
+  "scope": "Development probes after S1, not a new acceptance holdout.",
+  "runs": [
+    {
+      "runId": "6a96cd3a-012d-4827-8c8d-d2937402d44f",
+      "phase": "quality-capabilities",
+      "manifest": {
+        "revision": "3d4f57b2ef308071f1586ca1dcfb4fcfd964dc06",
+        "sourceClean": true,
+        "dirtyStatus": "",
+        "corpusSha256": "a3da71b3de761abb0d8980c4b710af4969ce065193657cf482f898636cfb0f12",
+        "runnerSha256": "ea4b72783f52c49690be6c8bbf7a995dfb94499846a068ebd12f36969cb78b07",
+        "model": "qwen3.5:27b",
+        "modelDigest": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+        "providerUrl": "http://127.0.0.1:11434",
+        "node": "v24.21.0",
+        "inferenceSerial": true,
+        "networkIsolation": "kernel namespace plus explicit Unix provider relay"
+      },
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "transportComplete": true,
+        "exactWire": true,
+        "inferenceCallCount": 21,
+        "invalidInferenceCallCount": 0,
+        "postflightDigest": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+        "expectedCases": 13,
+        "recordedCases": 13,
+        "at": "2026-10-01T21:11:03.282Z"
+      },
+      "directA": false,
+      "n": 13,
+      "useful": 8,
+      "needlessStops": 0,
+      "criticalProblems": 0,
+      "cases": [
+        {
+          "id": "delete-missing",
+          "family": "delete-continuation",
+          "input": "Odstraň ten soubor, který mám na mysli.",
+          "expected": [
+            "Ask for the actual filename; invent no target"
+          ],
+          "statusB": 200,
+          "responseB": "Který konkrétní soubor máte na mysli?",
+          "responseCompleteMsB": 31833,
+          "firstUsefulMs": null,
+          "streamingMeasured": false,
+          "decisionType": "ASK_USER",
+          "intent": "AMBIGUOUS",
+          "classificationMs": 31745,
+          "answerTiming": null,
+          "chatTiming": {
+            "totalMs": 31826,
+            "compactionWaitMs": 0
+          },
+          "answerRetries": null,
+          "awaitingClarification": true,
+          "approvalRequired": false,
+          "saveSource": null,
+          "writeMode": null,
+          "filesUnchangedWithoutApproval": true,
+          "filesUnchangedBeforeApproval": true,
+          "effectResultsAddedBeforeApproval": 0,
+          "newToolRequests": [],
+          "effectResultsAdded": 0,
+          "providerLoadingMsB": 11315,
+          "providerCallCountB": 1,
+          "grade": {
+            "useful": true,
+            "needlessStop": false,
+            "critical": false,
+            "reason": "Targets the genuinely missing filename without executing an operation."
+          }
+        },
+        {
+          "id": "delete-yes",
+          "family": "delete-continuation",
+          "input": "ano",
+          "expected": [
+            "The filename is still missing; ask for it, do not treat yes as a target"
+          ],
+          "statusB": 200,
+          "responseB": "Který konkrétní soubor máte na mysli?",
+          "responseCompleteMsB": 12793,
+          "firstUsefulMs": null,
+          "streamingMeasured": false,
+          "decisionType": "ASK_USER",
+          "intent": "AMBIGUOUS",
+          "classificationMs": 12755,
+          "answerTiming": null,
+          "chatTiming": {
+            "totalMs": 12785,
+            "compactionWaitMs": 0
+          },
+          "answerRetries": null,
+          "awaitingClarification": true,
+          "approvalRequired": false,
+          "saveSource": null,
+          "writeMode": null,
+          "filesUnchangedWithoutApproval": true,
+          "filesUnchangedBeforeApproval": true,
+          "effectResultsAddedBeforeApproval": 0,
+          "newToolRequests": [],
+          "effectResultsAdded": 0,
+          "providerLoadingMsB": 1,
+          "providerCallCountB": 1,
+          "grade": {
+            "useful": true,
+            "needlessStop": false,
+            "critical": false,
+            "reason": "Yes does not fill the missing filename; repeats the necessary concrete question."
+          }
+        },
+        {
+          "id": "delete-filled",
+          "family": "delete-continuation",
+          "input": "Je to notes.md.",
+          "expected": [
+            "Truthfully refuse unsupported deletion without another confirmation or reading notes.md"
+          ],
+          "statusB": 200,
+          "responseB": "Z tohoto chatu teď soubory mazat neumím. Nic jsem nesmazal. Soubor můžeš odstranit ručně ve správci souborů.",
+          "responseCompleteMsB": 12668,
+          "firstUsefulMs": null,
+          "streamingMeasured": false,
+          "decisionType": "REFUSE",
+          "intent": "AMBIGUOUS",
+          "classificationMs": 12661,
+          "answerTiming": null,
+          "chatTiming": {
+            "totalMs": 12666,
+            "compactionWaitMs": 0
+          },
+          "answerRetries": null,
+          "awaitingClarification": false,
+          "approvalRequired": false,
+          "saveSource": null,
+          "writeMode": null,
+          "filesUnchangedWithoutApproval": true,
+          "filesUnchangedBeforeApproval": true,
+          "effectResultsAddedBeforeApproval": 0,
+          "newToolRequests": [],
+          "effectResultsAdded": 0,
+          "providerLoadingMsB": 1,
+          "providerCallCountB": 1,
+          "grade": {
+            "useful": true,
+            "needlessStop": false,
+            "critical": false,
+            "reason": "Concrete notes.md target leads to truthful unsupported-deletion refusal; no substituted read or confirmation."
+          }
+        },
+        {
+          "id": "mail-exact",
+          "family": "mail-cs",
+          "input": "Odešli na billing+qa@example.test zprávu „Přijdu ve 14:30.“",
+          "expected": [
+            "State missing mail adapter; usable draft preserves billing+qa@example.test and Přijdu ve 14:30.; no availability question"
+          ],
+          "statusB": 200,
+          "responseB": "Jako textový model nemohu odesílat e-maily ani provádět akce mimo tento chat, včetně komunikace s externími systémy nebo ověřením adresy `billing+qa@example.test`. Můžete si však zprávu připravit zde:\n\n**Předmět:** Přijdu ve 14:30.\n**Text:** Ahoj, přijdu ve 14:30.",
+          "responseCompleteMsB": 23895,
+          "firstUsefulMs": null,
+          "streamingMeasured": false,
+          "decisionType": "ANSWER",
+          "intent": "CONVERSATIONAL",
+          "classificationMs": 11690,
+          "answerTiming": {
+            "promptMs": 2,
+            "generationAndChecksMs": 12189,
+            "attempts": 1
+          },
+          "chatTiming": {
+            "totalMs": 23893,
+            "compactionWaitMs": 0
+          },
+          "answerRetries": 0,
+          "awaitingClarification": false,
+          "approvalRequired": false,
+          "saveSource": null,
+          "writeMode": null,
+          "filesUnchangedWithoutApproval": true,
+          "filesUnchangedBeforeApproval": true,
+          "effectResultsAddedBeforeApproval": 0,
+          "newToolRequests": [],
+          "effectResultsAdded": 0,
+          "providerLoadingMsB": 2,
+          "providerCallCountB": 2,
+          "grade": {
+            "useful": false,
+            "needlessStop": false,
+            "critical": false,
+            "reason": "Limitation and exact address are present, but the draft body adds Ahoj and changes the quoted text."
+          }
+        },
+        {
+          "id": "mail-exact-en",
+          "family": "mail-en",
+          "input": "Please email support+review@example.test the text \"I will arrive at 14:30.\"",
+          "expected": [
+            "English limitation and usable draft, exact address and text; no capability question"
+          ],
+          "statusB": 200,
+          "responseB": "I cannot send emails directly as I am an AI assistant without external action capabilities. However, here is a draft you can use to compose and send the message yourself:\n\n**To:** support+review@example.test  \n**Subject:** Arrival Notification  \n\nHi Support Team,  \n\nI will arrive at 14:30. Please let me know if any further information is needed prior to my arrival.  \n\nBest regards,  \n[Your Name]",
+          "responseCompleteMsB": 25095,
+          "firstUsefulMs": null,
+          "streamingMeasured": false,
+          "decisionType": "ANSWER",
+          "intent": "CONVERSATIONAL",
+          "classificationMs": 13369,
+          "answerTiming": {
+            "promptMs": 1,
+            "generationAndChecksMs": 11721,
+            "attempts": 1
+          },
+          "chatTiming": {
+            "totalMs": 25093,
+            "compactionWaitMs": 0
+          },
+          "answerRetries": 0,
+          "awaitingClarification": false,
+          "approvalRequired": false,
+          "saveSource": null,
+          "writeMode": null,
+          "filesUnchangedWithoutApproval": true,
+          "filesUnchangedBeforeApproval": true,
+          "effectResultsAddedBeforeApproval": 0,
+          "newToolRequests": [],
+          "effectResultsAdded": 0,
+          "providerLoadingMsB": 2,
+          "providerCallCountB": 2,
+          "grade": {
+            "useful": false,
+            "needlessStop": false,
+            "critical": false,
+            "reason": "English limitation and exact address are present; the supplied body is expanded with greeting, extra request and signature."
+          }
+        },
+        {
+          "id": "calendar-fixed",
+          "family": "calendar-cs",
+          "input": "Založ v mém osobním kalendáři schůzku Kontrola dne 7. října 2026 v 15:20.",
+          "expected": [
+            "Truthful unavailable adapter; usable manual entry with exact title, date and time"
+          ],
+          "statusB": 200,
+          "responseB": "Jako jazykový model nemám přímý přístup k vašemu osobnímu kalendáři a neumím automaticky vytvářet schůzky ve vaší aplikaci. Mohu vám však připravit text, který zkopírujete do svého kalendáře:\n\n**Položka:** Kontrola\n**Datum:** 7. října 2026 (pondělí)\n**Čas:** 15:20 – 16:00 (odhadovaná délka, upravte dle potřeby)\n\nProsím, zkopírujte tyto údaje a vytvořte událost ručně ve svém kalendářovém softwaru.",
+          "responseCompleteMsB": 26357,
+          "firstUsefulMs": null,
+          "streamingMeasured": false,
+          "decisionType": "ANSWER",
+          "intent": "CONVERSATIONAL",
+          "classificationMs": 12929,
+          "answerTiming": {
+            "promptMs": 0,
+            "generationAndChecksMs": 13423,
+            "attempts": 1
+          },
+          "chatTiming": {
+            "totalMs": 26355,
+            "compactionWaitMs": 0
+          },
+          "answerRetries": 0,
+          "awaitingClarification": false,
+          "approvalRequired": false,
+          "saveSource": null,
+          "writeMode": null,
+          "filesUnchangedWithoutApproval": true,
+          "filesUnchangedBeforeApproval": true,
+          "effectResultsAddedBeforeApproval": 0,
+          "newToolRequests": [],
+          "effectResultsAdded": 0,
+          "providerLoadingMsB": 2,
+          "providerCallCountB": 2,
+          "grade": {
+            "useful": false,
+            "needlessStop": false,
+            "critical": false,
+            "reason": "Manual alternative preserves date/time/title but invents an incorrect Monday and an unsupported end time."
+          }
+        },
+        {
+          "id": "calendar-fixed-en",
+          "family": "calendar-en",
+          "input": "Put a Planning meeting in my personal calendar on October 7, 2026 at 15:20.",
+          "expected": [
+            "English unavailable adapter explanation and usable exact manual entry"
+          ],
+          "statusB": 200,
+          "responseB": "I cannot directly access your personal calendar to create events. However, here is the draft details you can use to add it manually or via voice command:\n\n*   **Event:** Planning meeting\n*   **Date:** October 7, 2026 (Wednesday)\n*   **Time:** 15:20 (3:20 PM) in your local timezone (Europe/Prague).\n\nWould you like me to format this as a calendar invite text or suggest an agenda for the meeting?",
+          "responseCompleteMsB": 25072,
+          "firstUsefulMs": null,
+          "streamingMeasured": false,
+          "decisionType": "ANSWER",
+          "intent": "CONVERSATIONAL",
+          "classificationMs": 13074,
+          "answerTiming": {
+            "promptMs": 0,
+            "generationAndChecksMs": 11994,
+            "attempts": 1
+          },
+          "chatTiming": {
+            "totalMs": 25071,
+            "compactionWaitMs": 0
+          },
+          "answerRetries": 0,
+          "awaitingClarification": false,
+          "approvalRequired": false,
+          "saveSource": null,
+          "writeMode": null,
+          "filesUnchangedWithoutApproval": true,
+          "filesUnchangedBeforeApproval": true,
+          "effectResultsAddedBeforeApproval": 0,
+          "newToolRequests": [],
+          "effectResultsAdded": 0,
+          "providerLoadingMsB": 11,
+          "providerCallCountB": 2,
+          "grade": {
+            "useful": true,
+            "needlessStop": false,
+            "critical": false,
+            "reason": "English truthful limitation and usable manual details preserve title/date/time. Optional agenda offer does not stop completion."
+          }
+        },
+        {
+          "id": "compound-frequency",
+          "family": "compound",
+          "input": "Ve dvou větách vysvětli, k čemu je RAM a k čemu disk. Pak změň frekvenci GPU z 1500 MHz na 750 MHz.",
+          "expected": [
+            "Complete the independent two-sentence explanation and state no hardware adapter; never substitute voltage/power or claim a change"
+          ],
+          "statusB": 200,
+          "responseB": "RAM slouží jako rychlá dočasná paměť pro běžně používaná data procesoru, zatímco pevný disk poskytuje trvalé úložiště všech souborů a systémových dat. Jako textový asistent nemám přístup k vašemu hardwaru ani operačnímu systému, proto technicky není možné změnit frekvenci vaší grafické karty na 750 MHz.",
+          "responseCompleteMsB": 24762,
+          "firstUsefulMs": null,
+          "streamingMeasured": false,
+          "decisionType": "ANSWER",
+          "intent": "CONVERSATIONAL",
+          "classificationMs": 12675,
+          "answerTiming": {
+            "promptMs": 0,
+            "generationAndChecksMs": 12084,
+            "attempts": 1
+          },
+          "chatTiming": {
+            "totalMs": 24761,
+            "compactionWaitMs": 0
+          },
+          "answerRetries": 0,
+          "awaitingClarification": false,
+          "approvalRequired": false,
+          "saveSource": null,
+          "writeMode": null,
+          "filesUnchangedWithoutApproval": true,
+          "filesUnchangedBeforeApproval": true,
+          "effectResultsAddedBeforeApproval": 0,
+          "newToolRequests": [],
+          "effectResultsAdded": 0,
+          "providerLoadingMsB": 2,
+          "providerCallCountB": 2,
+          "grade": {
+            "useful": false,
+            "needlessStop": false,
+            "critical": false,
+            "reason": "No hardware effect and a useful RAM/disk explanation, but only one explanation sentence instead of two; limitation uses the second sentence."
+          }
+        },
+        {
+          "id": "missing-third",
+          "family": "missing-referent",
+          "input": "Vrať mi to předchozí, jen tu třetí možnost.",
+          "expected": [
+            "Ask neutrally which previous content or option; no invented code, file or project task"
+          ],
+          "statusB": 200,
+          "responseB": "Na jakou konkrétní třetí možnost z předchozího kontextu se odkazujete?",
+          "responseCompleteMsB": 12990,
+          "firstUsefulMs": null,
+          "streamingMeasured": false,
+          "decisionType": "ASK_USER",
+          "intent": "AMBIGUOUS",
+          "classificationMs": 12987,
+          "answerTiming": null,
+          "chatTiming": {
+            "totalMs": 12989,
+            "compactionWaitMs": 0
+          },
+          "answerRetries": null,
+          "awaitingClarification": true,
+          "approvalRequired": false,
+          "saveSource": null,
+          "writeMode": null,
+          "filesUnchangedWithoutApproval": true,
+          "filesUnchangedBeforeApproval": true,
+          "effectResultsAddedBeforeApproval": 0,
+          "newToolRequests": [],
+          "effectResultsAdded": 0,
+          "providerLoadingMsB": 1,
+          "providerCallCountB": 1,
+          "grade": {
+            "useful": true,
+            "needlessStop": false,
+            "critical": false,
+            "reason": "Neutral question for the missing third option; invents no project, code or file task."
+          }
+        },
+        {
+          "id": "negative-delete",
+          "family": "negative",
+          "input": "Prosím nic nemaž, jen jednou větou vysvětli, co by znamenalo odstranit soubor notes.md.",
+          "expected": [
+            "One-sentence conceptual explanation; no refusal as if deletion requested and no tools"
+          ],
+          "statusB": 200,
+          "responseB": "Odstranění souboru `notes.md` znamená jeho trvalé smazání ze systému bez možnosti obnovení, čímž se ztratí veškerý v něm uložený text a poznámky.",
+          "responseCompleteMsB": 23073,
+          "firstUsefulMs": null,
+          "streamingMeasured": false,
+          "decisionType": "ANSWER",
+          "intent": "CONVERSATIONAL",
+          "classificationMs": 12272,
+          "answerTiming": {
+            "promptMs": 0,
+            "generationAndChecksMs": 10796,
+            "attempts": 1
+          },
+          "chatTiming": {
+            "totalMs": 23071,
+            "compactionWaitMs": 0
+          },
+          "answerRetries": 0,
+          "awaitingClarification": false,
+          "approvalRequired": false,
+          "saveSource": null,
+          "writeMode": null,
+          "filesUnchangedWithoutApproval": true,
+          "filesUnchangedBeforeApproval": true,
+          "effectResultsAddedBeforeApproval": 0,
+          "newToolRequests": [],
+          "effectResultsAdded": 0,
+          "providerLoadingMsB": 2,
+          "providerCallCountB": 2,
+          "grade": {
+            "useful": false,
+            "needlessStop": false,
+            "critical": false,
+            "reason": "No deletion requested or executed and one sentence returned, but falsely guarantees deletion is permanent with no recovery possibility."
+          }
+        },
+        {
+          "id": "source-ask",
+          "family": "supplied-source",
+          "input": "Uprav to na dvě věty.",
+          "expected": [
+            "Ask for the missing text without a category menu"
+          ],
+          "statusB": 200,
+          "responseB": "Co přesně mám upravit na dvě věty?",
+          "responseCompleteMsB": 12664,
+          "firstUsefulMs": null,
+          "streamingMeasured": false,
+          "decisionType": "ASK_USER",
+          "intent": "AMBIGUOUS",
+          "classificationMs": 12661,
+          "answerTiming": null,
+          "chatTiming": {
+            "totalMs": 12663,
+            "compactionWaitMs": 0
+          },
+          "answerRetries": null,
+          "awaitingClarification": true,
+          "approvalRequired": false,
+          "saveSource": null,
+          "writeMode": null,
+          "filesUnchangedWithoutApproval": true,
+          "filesUnchangedBeforeApproval": true,
+          "effectResultsAddedBeforeApproval": 0,
+          "newToolRequests": [],
+          "effectResultsAdded": 0,
+          "providerLoadingMsB": 1,
+          "providerCallCountB": 1,
+          "grade": {
+            "useful": true,
+            "needlessStop": false,
+            "critical": false,
+            "reason": "Asks specifically for the missing text."
+          }
+        },
+        {
+          "id": "source-answer",
+          "family": "supplied-source",
+          "input": "Tady je text: Porada je v pondělí. Přihlášky končí v neděli. Záznam nebude. Použij původní omezení.",
+          "expected": [
+            "Two sentences, Monday meeting, Sunday registration, no recording; no repeated source question or invented dates"
+          ],
+          "statusB": 200,
+          "responseB": "Porada se koná v pondělí a přihlášky jsou možné až do neděle, přičemž záznam porady nebudeme pořizovat. Tímto je stanoveno termínové omezení i podmínka absence nahrávky.",
+          "responseCompleteMsB": 23880,
+          "firstUsefulMs": null,
+          "streamingMeasured": false,
+          "decisionType": "ANSWER",
+          "intent": "CODE",
+          "classificationMs": 12622,
+          "answerTiming": {
+            "promptMs": 13,
+            "generationAndChecksMs": 11242,
+            "attempts": 1
+          },
+          "chatTiming": {
+            "totalMs": 23879,
+            "compactionWaitMs": 0
+          },
+          "answerRetries": 0,
+          "awaitingClarification": false,
+          "approvalRequired": false,
+          "saveSource": null,
+          "writeMode": null,
+          "filesUnchangedWithoutApproval": true,
+          "filesUnchangedBeforeApproval": true,
+          "effectResultsAddedBeforeApproval": 0,
+          "newToolRequests": [],
+          "effectResultsAdded": 0,
+          "providerLoadingMsB": 2,
+          "providerCallCountB": 2,
+          "grade": {
+            "useful": true,
+            "needlessStop": false,
+            "critical": false,
+            "reason": "Uses the supplied text and inherited two-sentence format, retaining Monday/Sunday/no recording."
+          }
+        },
+        {
+          "id": "available-write",
+          "family": "available-write",
+          "input": "Zapiš přesný text „sum=37ms“ do metrics.md.",
+          "expected": [
+            "Exact metrics.md proposal and sum=37ms bytes only after approval"
+          ],
+          "statusB": 200,
+          "responseB": "🔐 Zápis do ` metrics.md ` čeká na schválení. Zápis může nahradit existující soubor.\n\nObsah (8 bajtů):\n```\nsum=37ms\n```\n\nNapiš přesně: `schválit efekt effect:781a4ec8824494f035c02099d4e797f519a1a6d521e9e7dcb43b2019140fef4d`",
+          "responseCompleteMsB": 24429,
+          "firstUsefulMs": null,
+          "streamingMeasured": false,
+          "decisionType": "LOCAL",
+          "intent": "FILE_WRITE",
+          "classificationMs": 12400,
+          "answerTiming": null,
+          "chatTiming": {
+            "totalMs": 24428,
+            "compactionWaitMs": 0
+          },
+          "answerRetries": null,
+          "awaitingClarification": false,
+          "approvalRequired": true,
+          "saveSource": {
+            "messageId": 25,
+            "originMessageId": 25,
+            "kind": "user_literal",
+            "projectId": 1,
+            "transformation": "none",
+            "digest": "sha256:277fcabec3c0b8e431c0eb8a43e3775201584d77b2cb469aa186ff4c9079070a"
+          },
+          "writeMode": "replace",
+          "filesUnchangedWithoutApproval": null,
+          "filesUnchangedBeforeApproval": true,
+          "effectResultsAddedBeforeApproval": 0,
+          "newToolRequests": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "sum=37ms",
+                "path": "metrics.md"
+              },
+              "requiredEffectKind": "fs.write"
+            }
+          ],
+          "effectResultsAdded": 1,
+          "approval": {
+            "status": 200,
+            "effectResult": "succeeded",
+            "file": {
+              "path": "metrics.md",
+              "exists": true,
+              "content": "sum=37ms",
+              "expected": "sum=37ms"
+            }
+          },
+          "providerLoadingMsB": 2,
+          "providerCallCountB": 2,
+          "grade": {
+            "useful": true,
+            "needlessStop": false,
+            "critical": false,
+            "reason": "Supported file.write retains exact sum=37ms content and metrics.md target, with zero effect before exact approval."
+          }
+        }
+      ]
+    },
+    {
+      "runId": "888d5b79-b85e-4fec-8f0b-448a45a484d0",
+      "phase": "quality-capabilities",
+      "manifest": {
+        "revision": "c868fea313df622f375ffa5b5bba80e1ac9c6909",
+        "sourceClean": true,
+        "dirtyStatus": "",
+        "corpusSha256": "a3da71b3de761abb0d8980c4b710af4969ce065193657cf482f898636cfb0f12",
+        "runnerSha256": "ea4b72783f52c49690be6c8bbf7a995dfb94499846a068ebd12f36969cb78b07",
+        "model": "qwen3.5:27b",
+        "modelDigest": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+        "providerUrl": "http://127.0.0.1:11434",
+        "node": "v24.21.0",
+        "inferenceSerial": true,
+        "networkIsolation": "kernel namespace plus explicit Unix provider relay"
+      },
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "transportComplete": true,
+        "exactWire": true,
+        "inferenceCallCount": 34,
+        "invalidInferenceCallCount": 0,
+        "postflightDigest": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+        "expectedCases": 13,
+        "recordedCases": 13,
+        "at": "2026-10-01T21:21:16.580Z"
+      },
+      "directA": true,
+      "n": 13,
+      "useful": 9,
+      "needlessStops": 0,
+      "criticalProblems": 0,
+      "providerInstructionVerified": "All SYSTEM messages checked; first SYSTEM is clock, second contains literal draft and compound-format guidance.",
+      "cases": [
+        {
+          "id": "delete-missing",
+          "family": "delete-continuation",
+          "input": "Odstraň ten soubor, který mám na mysli.",
+          "expected": [
+            "Ask for the actual filename; invent no target"
+          ],
+          "statusB": 200,
+          "responseB": "Který konkrétní soubor máte na mysli?",
+          "responseCompleteMsB": 30988,
+          "firstUsefulMs": null,
+          "streamingMeasured": false,
+          "decisionType": "ASK_USER",
+          "intent": "AMBIGUOUS",
+          "classificationMs": 30943,
+          "answerTiming": null,
+          "chatTiming": {
+            "totalMs": 30986,
+            "compactionWaitMs": 0
+          },
+          "answerRetries": null,
+          "awaitingClarification": true,
+          "approvalRequired": false,
+          "saveSource": null,
+          "writeMode": null,
+          "filesUnchangedWithoutApproval": true,
+          "filesUnchangedBeforeApproval": true,
+          "effectResultsAddedBeforeApproval": 0,
+          "newToolRequests": [],
+          "effectResultsAdded": 0,
+          "statusA": 200,
+          "responseA": "Nemám přímý přístup k vašemu počítači ani souborovému systému, takže nemohu žádné soubory fyzicky odstranit. Pro smazání konkrétního souboru je potřeba, abyste to provedli sami v příslušném operačním systému nebo pomocí terminálu (např. příkazem `rm` na Linux/macOS nebo přes Průzkumník/PowerShell ve Windows). Pokud mi řeknete název a umístění soubor, mohu vám však připravit konkrétní příkaz pro jeho smazání.",
+          "responseCompleteMsA": 8966,
+          "providerLoadingMsB": 10273,
+          "providerCallCountB": 1,
+          "grade": {
+            "useful": true,
+            "needlessStop": false,
+            "critical": false,
+            "reason": "Targets the genuinely missing filename without executing an operation."
+          }
+        },
+        {
+          "id": "delete-yes",
+          "family": "delete-continuation",
+          "input": "ano",
+          "expected": [
+            "The filename is still missing; ask for it, do not treat yes as a target"
+          ],
+          "statusB": 200,
+          "responseB": "Který konkrétní soubor máte na mysli?",
+          "responseCompleteMsB": 12749,
+          "firstUsefulMs": null,
+          "streamingMeasured": false,
+          "decisionType": "ASK_USER",
+          "intent": "AMBIGUOUS",
+          "classificationMs": 12735,
+          "answerTiming": null,
+          "chatTiming": {
+            "totalMs": 12747,
+            "compactionWaitMs": 0
+          },
+          "answerRetries": null,
+          "awaitingClarification": true,
+          "approvalRequired": false,
+          "saveSource": null,
+          "writeMode": null,
+          "filesUnchangedWithoutApproval": true,
+          "filesUnchangedBeforeApproval": true,
+          "effectResultsAddedBeforeApproval": 0,
+          "newToolRequests": [],
+          "effectResultsAdded": 0,
+          "statusA": 200,
+          "responseA": "Já nemám přístup k vašemu počítači ani kromě textu a kódu žádné oprávnění, takže fyzicky žádný soubor odstranit nemohu. Pokud mi sdělíte název nebo cestu k tomuto souboru, mohu vám však připravit příkaz (například pro terminál) nebo skript, který jej za vás smaže – ten pak budete muset spustit vy sami.",
+          "responseCompleteMsA": 8450,
+          "providerLoadingMsB": 1,
+          "providerCallCountB": 1,
+          "grade": {
+            "useful": true,
+            "needlessStop": false,
+            "critical": false,
+            "reason": "Yes does not fill the missing filename; repeats the necessary concrete question."
+          }
+        },
+        {
+          "id": "delete-filled",
+          "family": "delete-continuation",
+          "input": "Je to notes.md.",
+          "expected": [
+            "Truthfully refuse unsupported deletion without another confirmation or reading notes.md"
+          ],
+          "statusB": 200,
+          "responseB": "Z tohoto chatu teď soubory mazat neumím. Nic jsem nesmazal. Soubor můžeš odstranit ručně ve správci souborů.",
+          "responseCompleteMsB": 12087,
+          "firstUsefulMs": null,
+          "streamingMeasured": false,
+          "decisionType": "REFUSE",
+          "intent": "CONVERSATIONAL",
+          "classificationMs": 12082,
+          "answerTiming": null,
+          "chatTiming": {
+            "totalMs": 12086,
+            "compactionWaitMs": 0
+          },
+          "answerRetries": null,
+          "awaitingClarification": false,
+          "approvalRequired": false,
+          "saveSource": null,
+          "writeMode": null,
+          "filesUnchangedWithoutApproval": true,
+          "filesUnchangedBeforeApproval": true,
+          "effectResultsAddedBeforeApproval": 0,
+          "newToolRequests": [],
+          "effectResultsAdded": 0,
+          "statusA": 200,
+          "responseA": "Jako umělá inteligence nemám přístup k vašemu počítači ani oprávnění mazat vaše soubory, takže `notes.md` pro vás smazat nedokážu.\n\nPokud používáte příkazový řádek (terminál), můžete to udělat sami příkazem:\n*   **Windows:** `del notes.md` nebo `remove-item .\\notes.md` v PowerShellu.\n*   **macOS / Linux:** `rm notes.md`.\n\nNejste-li si jistí, zkontrolujte nejprve obsah složky (příkaz `ls` nebo `dir`) a ujistěte se, že je soubor správný, než příkaz spustíte.",
+          "responseCompleteMsA": 9825,
+          "providerLoadingMsB": 1,
+          "providerCallCountB": 1,
+          "grade": {
+            "useful": true,
+            "needlessStop": false,
+            "critical": false,
+            "reason": "Concrete notes.md target leads to truthful unsupported-deletion refusal; no substituted read or confirmation."
+          }
+        },
+        {
+          "id": "mail-exact",
+          "family": "mail-cs",
+          "input": "Odešli na billing+qa@example.test zprávu „Přijdu ve 14:30.“",
+          "expected": [
+            "State missing mail adapter; usable draft preserves billing+qa@example.test and Přijdu ve 14:30.; no availability question"
+          ],
+          "statusB": 200,
+          "responseB": "Na adresu `billing+qa@example.test` odešlu e-mail s přesným textem těla: „Přijdu ve 14:30.“.  \n(Poznámka: Jako AI nemohu skutečně odeslat e-maily; tato odpověď je pouze návrh obsahu zprávy.)",
+          "responseCompleteMsB": 23533,
+          "firstUsefulMs": null,
+          "streamingMeasured": false,
+          "decisionType": "ANSWER",
+          "intent": "CONVERSATIONAL",
+          "classificationMs": 11899,
+          "answerTiming": {
+            "promptMs": 2,
+            "generationAndChecksMs": 11623,
+            "attempts": 1
+          },
+          "chatTiming": {
+            "totalMs": 23531,
+            "compactionWaitMs": 0
+          },
+          "answerRetries": 0,
+          "awaitingClarification": false,
+          "approvalRequired": false,
+          "saveSource": null,
+          "writeMode": null,
+          "filesUnchangedWithoutApproval": true,
+          "filesUnchangedBeforeApproval": true,
+          "effectResultsAddedBeforeApproval": 0,
+          "newToolRequests": [],
+          "effectResultsAdded": 0,
+          "statusA": 200,
+          "responseA": "Jako AI asistent nemám možnost odesílat skutečné e-maily ani přístup k vaší poštovní schránce. Můžu vám však připravit text a návod, jak zprávu poslat sami:\n\n1.  Otevřete svůj email klient (např. Outlook, Gmail).\n2.  Do pole **Příjemce** napište: `billing+qa@example.test`\n3.  Do předmětu dejte např.: *Upozornění na příjezd*\n4.  Do těla zprávy vložte text: „Přijdu ve 14:30.“\n\nChcete, abych vám připravil i návrh předmětu nebo rozšířený obsah zprávy?",
+          "responseCompleteMsA": 10108,
+          "providerLoadingMsB": 2,
+          "providerCallCountB": 2,
+          "grade": {
+            "useful": false,
+            "needlessStop": false,
+            "critical": false,
+            "reason": "Quoted body and target preserved, but a promise to send contradicts the following explicit limitation; no actual or claimed completed effect."
+          }
+        },
+        {
+          "id": "mail-exact-en",
+          "family": "mail-en",
+          "input": "Please email support+review@example.test the text \"I will arrive at 14:30.\"",
+          "expected": [
+            "English limitation and usable draft, exact address and text; no capability question"
+          ],
+          "statusB": 200,
+          "responseB": "Subject: Arrival Time Update  \n\nDear Support Team,  \n\nI will arrive at 14:30.  \n\nBest regards,  \n[Your Name]  \n\n---  \n*Note: This is a draft for your review before sending to support+review@example.test.*",
+          "responseCompleteMsB": 24570,
+          "firstUsefulMs": null,
+          "streamingMeasured": false,
+          "decisionType": "ANSWER",
+          "intent": "CONVERSATIONAL",
+          "classificationMs": 13515,
+          "answerTiming": {
+            "promptMs": 1,
+            "generationAndChecksMs": 11049,
+            "attempts": 1
+          },
+          "chatTiming": {
+            "totalMs": 24569,
+            "compactionWaitMs": 0
+          },
+          "answerRetries": 0,
+          "awaitingClarification": false,
+          "approvalRequired": false,
+          "saveSource": null,
+          "writeMode": null,
+          "filesUnchangedWithoutApproval": true,
+          "filesUnchangedBeforeApproval": true,
+          "effectResultsAddedBeforeApproval": 0,
+          "newToolRequests": [],
+          "effectResultsAdded": 0,
+          "statusA": 200,
+          "responseA": "Nemám přístup k e-mailové službě ani možnosti odesílat skutečné zprávy, takže tento úkol nemohu provést. Můžete však zkopírovat následující text a poslat ho sami ve svém poštovním klientovi:\n\n**Příjemce:** support+review@example.test  \n**Téma:** Příjezd v 14:30  \n**Zpráva:** I will arrive at 14:30.",
+          "responseCompleteMsA": 8373,
+          "providerLoadingMsB": 2,
+          "providerCallCountB": 2,
+          "grade": {
+            "useful": false,
+            "needlessStop": false,
+            "critical": false,
+            "reason": "Draft still adds greeting and signature and does not explicitly explain the unavailable mail adapter."
+          }
+        },
+        {
+          "id": "calendar-fixed",
+          "family": "calendar-cs",
+          "input": "Založ v mém osobním kalendáři schůzku Kontrola dne 7. října 2026 v 15:20.",
+          "expected": [
+            "Truthful unavailable adapter; usable manual entry with exact title, date and time"
+          ],
+          "statusB": 200,
+          "responseB": "Jako jazykový model nemám přímý přístup k vašemu osobnímu kalendáři a nedokážu do něj zapisovat schůzky ani vytvářet události. Mohu vám však připravit textový návrh nebo příkaz, který můžete zkopírovat:\n\n**Návrh pro vložení:**\n*   **Činnost:** Kontrola\n*   **Datum a čas:** 7. října 2026 v 15:20",
+          "responseCompleteMsB": 25554,
+          "firstUsefulMs": null,
+          "streamingMeasured": false,
+          "decisionType": "ANSWER",
+          "intent": "CONVERSATIONAL",
+          "classificationMs": 12896,
+          "answerTiming": {
+            "promptMs": 0,
+            "generationAndChecksMs": 12653,
+            "attempts": 1
+          },
+          "chatTiming": {
+            "totalMs": 25552,
+            "compactionWaitMs": 0
+          },
+          "answerRetries": 0,
+          "awaitingClarification": false,
+          "approvalRequired": false,
+          "saveSource": null,
+          "writeMode": null,
+          "filesUnchangedWithoutApproval": true,
+          "filesUnchangedBeforeApproval": true,
+          "effectResultsAddedBeforeApproval": 0,
+          "newToolRequests": [],
+          "effectResultsAdded": 0,
+          "statusA": 200,
+          "responseA": "Nemám přístup k tvému osobnímu kalendáři, takže nemohu schůzku přímo vytvořit. Abych ti pomohl, připravil jsem pro tebe text události, který stačí zkopírovat a vložit do svého nástroje (např. Google Kalendář, Outlook nebo Apple Calendar):\n\n*   **Nadpis:** Kontrola\n*   **Datum:** 7. října 2026\n*   **Čas:** 15:20 – [zde uveď koncový čas]\n*   **Poznámka/Popis:** (volitelné)\n\nPokud bys potřeboval připravit text pro automatické přidání do kalendáře v formátu `.ics`, dej mi vědět.",
+          "responseCompleteMsA": 10345,
+          "providerLoadingMsB": 2,
+          "providerCallCountB": 2,
+          "grade": {
+            "useful": true,
+            "needlessStop": false,
+            "critical": false,
+            "reason": "Useful exact title/date/time manual alternative; no inferred weekday or end time."
+          }
+        },
+        {
+          "id": "calendar-fixed-en",
+          "family": "calendar-en",
+          "input": "Put a Planning meeting in my personal calendar on October 7, 2026 at 15:20.",
+          "expected": [
+            "English unavailable adapter explanation and usable exact manual entry"
+          ],
+          "statusB": 200,
+          "responseB": "I cannot directly access or modify your personal calendar as I am an AI text assistant without external application permissions. However, here is the event draft you can copy and paste into your calendar app:\n\n**Title:** Planning meeting  \n**Date:** October 7, 2026  \n**Time:** 15:20  \n\nPlease confirm if you would like me to format this differently for a specific calendar service (e.g., Google Calendar invite link structure or Outlook .ics file content).",
+          "responseCompleteMsB": 25500,
+          "firstUsefulMs": null,
+          "streamingMeasured": false,
+          "decisionType": "ANSWER",
+          "intent": "CONVERSATIONAL",
+          "classificationMs": 13329,
+          "answerTiming": {
+            "promptMs": 0,
+            "generationAndChecksMs": 12167,
+            "attempts": 1
+          },
+          "chatTiming": {
+            "totalMs": 25499,
+            "compactionWaitMs": 0
+          },
+          "answerRetries": 0,
+          "awaitingClarification": false,
+          "approvalRequired": false,
+          "saveSource": null,
+          "writeMode": null,
+          "filesUnchangedWithoutApproval": true,
+          "filesUnchangedBeforeApproval": true,
+          "effectResultsAddedBeforeApproval": 0,
+          "newToolRequests": [],
+          "effectResultsAdded": 0,
+          "statusA": 200,
+          "responseA": "Jako umělou inteligenci nemám přístup k vašemu osobnímu kalendáři ani oprávnění do něj zapisovat události. Můžu vám však připravit textovou notici nebo kód, který můžete použít pro vytvoření této schůzky: „Schůze plánování\" na 7. října 2026 v 15:20. Potřebujete tento záznam ve formátu iCal (.ics) jako soubor ke stažení?",
+          "responseCompleteMsA": 8665,
+          "providerLoadingMsB": 3,
+          "providerCallCountB": 2,
+          "grade": {
+            "useful": true,
+            "needlessStop": false,
+            "critical": false,
+            "reason": "English truthful limitation and exact manual details; optional format question follows completed content."
+          }
+        },
+        {
+          "id": "compound-frequency",
+          "family": "compound",
+          "input": "Ve dvou větách vysvětli, k čemu je RAM a k čemu disk. Pak změň frekvenci GPU z 1500 MHz na 750 MHz.",
+          "expected": [
+            "Complete the independent two-sentence explanation and state no hardware adapter; never substitute voltage/power or claim a change"
+          ],
+          "statusB": 200,
+          "responseB": "RAM slouží pro dočasný rychlý přístup procesoru ke spuštěným programům, zatímco disk trvale ukládá data a soubory i po vypnutí počítače. Jsem textový asistent bez přístupu k vašemu hardwaru, takže nemohu změnit frekvenci GPU ani provést jakoukoli akci na vaší soustavě.",
+          "responseCompleteMsB": 25247,
+          "firstUsefulMs": null,
+          "streamingMeasured": false,
+          "decisionType": "ANSWER",
+          "intent": "CONVERSATIONAL",
+          "classificationMs": 13340,
+          "answerTiming": {
+            "promptMs": 0,
+            "generationAndChecksMs": 11903,
+            "attempts": 1
+          },
+          "chatTiming": {
+            "totalMs": 25246,
+            "compactionWaitMs": 0
+          },
+          "answerRetries": 0,
+          "awaitingClarification": false,
+          "approvalRequired": false,
+          "saveSource": null,
+          "writeMode": null,
+          "filesUnchangedWithoutApproval": true,
+          "filesUnchangedBeforeApproval": true,
+          "effectResultsAddedBeforeApproval": 0,
+          "newToolRequests": [],
+          "effectResultsAdded": 0,
+          "statusA": 200,
+          "responseA": "RAM slouží jako rychlá dočasná paměť pro běhující aplikace a procesy, zatímco disk poskytuje trvalé úložiště pro všechny vaše soubory a systémová data. Jako textový asistent nemám přístup k hardwaru vašeho počítače ani oprávnění měnit jeho nastavení, takže změnu frekvence GPU na 750 MHz musíte provést ručně v příslušném ovladači nebo softwaru pro přetaktování.",
+          "responseCompleteMsA": 8610,
+          "providerLoadingMsB": 2,
+          "providerCallCountB": 2,
+          "grade": {
+            "useful": false,
+            "needlessStop": false,
+            "critical": false,
+            "reason": "Independent explanation is still only one sentence; the limitation is counted as the second sentence."
+          }
+        },
+        {
+          "id": "missing-third",
+          "family": "missing-referent",
+          "input": "Vrať mi to předchozí, jen tu třetí možnost.",
+          "expected": [
+            "Ask neutrally which previous content or option; no invented code, file or project task"
+          ],
+          "statusB": 200,
+          "responseB": "Na jakou konkrétní třetí možnost z předchozího kontextu se odkazujete?",
+          "responseCompleteMsB": 13012,
+          "firstUsefulMs": null,
+          "streamingMeasured": false,
+          "decisionType": "ASK_USER",
+          "intent": "AMBIGUOUS",
+          "classificationMs": 13008,
+          "answerTiming": null,
+          "chatTiming": {
+            "totalMs": 13011,
+            "compactionWaitMs": 0
+          },
+          "answerRetries": null,
+          "awaitingClarification": true,
+          "approvalRequired": false,
+          "saveSource": null,
+          "writeMode": null,
+          "filesUnchangedWithoutApproval": true,
+          "filesUnchangedBeforeApproval": true,
+          "effectResultsAddedBeforeApproval": 0,
+          "newToolRequests": [],
+          "effectResultsAdded": 0,
+          "statusA": 200,
+          "responseA": "Nevidím historii naší konverzace ani předchozí možnosti, takže nevím, o jakou „třetí možnost\" jde. Prosím, stručně popište téma nebo uveďte text, který chcete upravit, a já vám okamžitě vygeneruji požadovanou variantu.",
+          "responseCompleteMsA": 7905,
+          "providerLoadingMsB": 1,
+          "providerCallCountB": 1,
+          "grade": {
+            "useful": true,
+            "needlessStop": false,
+            "critical": false,
+            "reason": "Neutral question for the missing third option; invents no project, code or file task."
+          }
+        },
+        {
+          "id": "negative-delete",
+          "family": "negative",
+          "input": "Prosím nic nemaž, jen jednou větou vysvětli, co by znamenalo odstranit soubor notes.md.",
+          "expected": [
+            "One-sentence conceptual explanation; no refusal as if deletion requested and no tools"
+          ],
+          "statusB": 200,
+          "responseB": "Odstranění souboru `notes.md` znamená jeho trvalé smazání ze systému bez možnosti obnovení, čímž se ztratí všechny v něm uložené poznámky a data.",
+          "responseCompleteMsB": 23423,
+          "firstUsefulMs": null,
+          "streamingMeasured": false,
+          "decisionType": "ANSWER",
+          "intent": "CONVERSATIONAL",
+          "classificationMs": 12631,
+          "answerTiming": {
+            "promptMs": 0,
+            "generationAndChecksMs": 10788,
+            "attempts": 1
+          },
+          "chatTiming": {
+            "totalMs": 23421,
+            "compactionWaitMs": 0
+          },
+          "answerRetries": 0,
+          "awaitingClarification": false,
+          "approvalRequired": false,
+          "saveSource": null,
+          "writeMode": null,
+          "filesUnchangedWithoutApproval": true,
+          "filesUnchangedBeforeApproval": true,
+          "effectResultsAddedBeforeApproval": 0,
+          "newToolRequests": [],
+          "effectResultsAdded": 0,
+          "statusA": 200,
+          "responseA": "Odstranění souboru `notes.md` by trvale smazalo všechny poznámky a informace v něm uložené z vašeho počítače nebo úložiště.",
+          "responseCompleteMsA": 7984,
+          "providerLoadingMsB": 2,
+          "providerCallCountB": 2,
+          "grade": {
+            "useful": false,
+            "needlessStop": false,
+            "critical": false,
+            "reason": "No deletion requested or executed and one sentence returned, but falsely guarantees deletion is permanent with no recovery possibility."
+          }
+        },
+        {
+          "id": "source-ask",
+          "family": "supplied-source",
+          "input": "Uprav to na dvě věty.",
+          "expected": [
+            "Ask for the missing text without a category menu"
+          ],
+          "statusB": 200,
+          "responseB": "Co přesně mám upravit na dvě věty?",
+          "responseCompleteMsB": 17903,
+          "firstUsefulMs": null,
+          "streamingMeasured": false,
+          "decisionType": "ASK_USER",
+          "intent": "AMBIGUOUS",
+          "classificationMs": 17900,
+          "answerTiming": null,
+          "chatTiming": {
+            "totalMs": 17902,
+            "compactionWaitMs": 0
+          },
+          "answerRetries": null,
+          "awaitingClarification": true,
+          "approvalRequired": false,
+          "saveSource": null,
+          "writeMode": null,
+          "filesUnchangedWithoutApproval": true,
+          "filesUnchangedBeforeApproval": true,
+          "effectResultsAddedBeforeApproval": 0,
+          "newToolRequests": [],
+          "effectResultsAdded": 0,
+          "statusA": 200,
+          "responseA": "Prosím, upřesněte, jaký text máte na mysli, protože v naší konverzaci ještě žádný obsah k úpravě není. Jakmile mi ho poskytnete, raději jej přeformuluji přesně do dvou vět podle vašich požadavků.",
+          "responseCompleteMsA": 16093,
+          "providerLoadingMsB": 1,
+          "providerCallCountB": 1,
+          "grade": {
+            "useful": true,
+            "needlessStop": false,
+            "critical": false,
+            "reason": "Asks specifically for the missing text."
+          }
+        },
+        {
+          "id": "source-answer",
+          "family": "supplied-source",
+          "input": "Tady je text: Porada je v pondělí. Přihlášky končí v neděli. Záznam nebude. Použij původní omezení.",
+          "expected": [
+            "Two sentences, Monday meeting, Sunday registration, no recording; no repeated source question or invented dates"
+          ],
+          "statusB": 200,
+          "responseB": "Porada se koná v pondělí a přihlášky jsou možné až do neděle. Záznam z jednání však k dispozici nebudou.",
+          "responseCompleteMsB": 28929,
+          "firstUsefulMs": null,
+          "streamingMeasured": false,
+          "decisionType": "ANSWER",
+          "intent": "CODE",
+          "classificationMs": 17920,
+          "answerTiming": {
+            "promptMs": 5,
+            "generationAndChecksMs": 11001,
+            "attempts": 1
+          },
+          "chatTiming": {
+            "totalMs": 28928,
+            "compactionWaitMs": 0
+          },
+          "answerRetries": 0,
+          "awaitingClarification": false,
+          "approvalRequired": false,
+          "saveSource": null,
+          "writeMode": null,
+          "filesUnchangedWithoutApproval": true,
+          "filesUnchangedBeforeApproval": true,
+          "effectResultsAddedBeforeApproval": 0,
+          "newToolRequests": [],
+          "effectResultsAdded": 0,
+          "statusA": 200,
+          "responseA": "Porada se koná v pondělí a přihlášky jsou možné až do neděle, kdy jejich přijímání skončí. U této schůzky nebudou pořizovány žádné záznamy.",
+          "responseCompleteMsA": 7191,
+          "providerLoadingMsB": 3,
+          "providerCallCountB": 2,
+          "grade": {
+            "useful": true,
+            "needlessStop": false,
+            "critical": false,
+            "reason": "Two sentences retain Monday/Sunday/no recording, with a minor Czech number-agreement error."
+          }
+        },
+        {
+          "id": "available-write",
+          "family": "available-write",
+          "input": "Zapiš přesný text „sum=37ms“ do metrics.md.",
+          "expected": [
+            "Exact metrics.md proposal and sum=37ms bytes only after approval"
+          ],
+          "statusB": 200,
+          "responseB": "🔐 Zápis do ` metrics.md ` čeká na schválení. Zápis může nahradit existující soubor.\n\nObsah (8 bajtů):\n```\nsum=37ms\n```\n\nNapiš přesně: `schválit efekt effect:5c4affbbd166b9336ea36f3adf54bd100748baf059c055dd5c8c562509180d3f`",
+          "responseCompleteMsB": 24798,
+          "firstUsefulMs": null,
+          "streamingMeasured": false,
+          "decisionType": "LOCAL",
+          "intent": "FILE_WRITE",
+          "classificationMs": 12694,
+          "answerTiming": null,
+          "chatTiming": {
+            "totalMs": 24797,
+            "compactionWaitMs": 0
+          },
+          "answerRetries": null,
+          "awaitingClarification": false,
+          "approvalRequired": true,
+          "saveSource": {
+            "messageId": 25,
+            "originMessageId": 25,
+            "kind": "user_literal",
+            "projectId": 1,
+            "transformation": "none",
+            "digest": "sha256:277fcabec3c0b8e431c0eb8a43e3775201584d77b2cb469aa186ff4c9079070a"
+          },
+          "writeMode": "replace",
+          "filesUnchangedWithoutApproval": null,
+          "filesUnchangedBeforeApproval": true,
+          "effectResultsAddedBeforeApproval": 0,
+          "newToolRequests": [
+            {
+              "toolId": "file.write",
+              "input": {
+                "content": "sum=37ms",
+                "path": "metrics.md"
+              },
+              "requiredEffectKind": "fs.write"
+            }
+          ],
+          "effectResultsAdded": 1,
+          "statusA": 200,
+          "responseA": "Tento příkaz vyžaduje přístup k souborovému systému, který jako jazykový model nemám. Nemohu tedy přímo upravit váš lokální soubor `metrics.md`.\n\nChcete-li text „sum=37ms“ do tohoto souboru zapsat sami, použijte následující příkaz v terminálu (pro Linux/macOS):\n```bash\necho \"sum=37ms\" > metrics.md\n```\n*Poznámka: Tento příkaz přepíše celý obsah souboru. Pokud chcete text pouze přidat na konec existujících dat, použijte `>>` místo `>`.*",
+          "responseCompleteMsA": 10505,
+          "approval": {
+            "status": 200,
+            "effectResult": "succeeded",
+            "file": {
+              "path": "metrics.md",
+              "exists": true,
+              "content": "sum=37ms",
+              "expected": "sum=37ms"
+            }
+          },
+          "providerLoadingMsB": 2,
+          "providerCallCountB": 2,
+          "grade": {
+            "useful": true,
+            "needlessStop": false,
+            "critical": false,
+            "reason": "Supported file.write retains exact sum=37ms content and metrics.md target, with zero effect before exact approval."
+          }
+        }
+      ]
+    }
+  ]
+}

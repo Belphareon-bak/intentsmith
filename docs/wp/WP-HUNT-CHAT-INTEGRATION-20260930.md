@@ -1,5 +1,33 @@
 # GPU hunt + chat + Studio 2 — integrační kandidát
 
+## Navazující integrační zadání ROOT — 2. 10. 2026
+
+Autorita: doplňující nezávislý posudek předaný operátorem a jeho výslovný
+pokyn převzít společnou integraci, CI a reprezentativní projektový průchod.
+ROOT vlastní integraci ve stávajícím checkoutu `intentsmith-real-chat-journeys-20260930`;
+žádný nový worktree. Vstupy: publikovaný nechatový `2a479852c8dffa672d03c56f3cef20e495289dcb`
+a chatový `6f0259ec86054adb4076901c81ca7cf74fc7f370`, oba remote SHA ověřené.
+Cizí chatový checkout je čistý a zůstává nedotčený. Ladění konverzace zůstává
+jeho workerovi; tento WP přebírá publikovanou deltu a její otevřená selhání.
+
+Zkušební merge má tři konflikty: `tests/registry.json`,
+`docs/convergence/TEST-REGISTRY.md`, `tests/harness-exit-code.test.js`.
+ROOT je vyřeší se zachováním kontrol obou stran; katalog regeneruje kanonickým
+validátorem ze sloučeného registru. Další vlastněné integrační cesty:
+`.github/workflows/ci.yml`, `ROADMAP.md`, `SYSTEM-MAP.md`, `docs/WORK-PROGRESS.md`.
+Workflow zachová oba push filtry a přidá skutečné registrované chatové sady,
+jejich toolchain a uchování výsledků. Společný offline/database profil se
+spustí na pojmenovaném kandidátu; známé FAIL/BLOCKED se neumlčí.
+
+Navazující omezený scanner opraví doložené falešné dependency v komentářích/
+řetězcích podle existujícího AST WP; nezakládá obecný framework. Větší projekt
+naváže podle projektového WP s předem stanoveným oracle, kontextem a konečným
+opravným rozpočtem. Review přijímá jednotlivé výsledky a jejich meze,
+nikoli automaticky celý release. Produkční instalace, modelová aktivace,
+M5/M6 a mobilní fyzická přejímka jsou oddělené.
+
+Následující text uchovává historický integrační checkpoint ze září.
+
 **Stav:** SOURCE_MERGED_CANDIDATE / OFFLINE_FOCUSED_PASS / REVIEW_PENDING /
 NOT_DEPLOYED / REAL_NO_GO. Tato pracovní větev vychází z chat/Studio 2 commitu
 `09247504143ac0a37d75d7d52867768447790ad2` a slučuje přesný Hunt commit

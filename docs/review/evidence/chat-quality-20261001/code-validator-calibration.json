@@ -1,0 +1,95 @@
+{
+  "status": "PASS",
+  "controls": [
+    {
+      "control": "correct",
+      "result": {
+        "wholeExample": "PASS",
+        "stdout": "120\n",
+        "functions": {
+          "factorial": {
+            "samples": [
+              {
+                "input": 0,
+                "expected": 1,
+                "actual": 1,
+                "passed": true
+              },
+              {
+                "input": 1,
+                "expected": 1,
+                "actual": 1,
+                "passed": true
+              },
+              {
+                "input": 5,
+                "expected": 120,
+                "actual": 120,
+                "passed": true
+              },
+              {
+                "input": 10,
+                "expected": 3628800,
+                "actual": 3628800,
+                "passed": true
+              }
+            ],
+            "negative": {
+              "raisesValueError": true,
+              "error": "ValueError"
+            }
+          }
+        }
+      }
+    },
+    {
+      "control": "wrong-result",
+      "result": {
+        "wholeExample": "PASS",
+        "stdout": "",
+        "functions": {
+          "factorial": {
+            "samples": [
+              {
+                "input": 0,
+                "expected": 1,
+                "actual": 1,
+                "passed": true
+              },
+              {
+                "input": 1,
+                "expected": 1,
+                "actual": 1,
+                "passed": true
+              },
+              {
+                "input": 5,
+                "expected": 120,
+                "actual": 1,
+                "passed": false
+              },
+              {
+                "input": 10,
+                "expected": 3628800,
+                "actual": 1,
+                "passed": false
+              }
+            ],
+            "negative": {
+              "raisesValueError": false,
+              "actual": 1
+            }
+          }
+        }
+      }
+    },
+    {
+      "control": "broken-example",
+      "result": {
+        "wholeExample": "FAIL",
+        "error": "NameError: name 'unknown_name' is not defined",
+        "stdout": ""
+      }
+    }
+  ]
+}

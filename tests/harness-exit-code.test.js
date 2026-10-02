@@ -445,9 +445,10 @@ try {
   // isolation bootstrap. Graph comparison without that root returns 140;
   // the complete unprotected set remains empty.
   // 141 -> 142: project-app-m2-functional imports the real lifecycle service
-  // after its static isolation bootstrap. Removing only this new root returns
-  // 141; removing its bootstrap exposes that same root as unprotected.
-  const expectedDatabaseReachableRootTests = 142;
+  // after its static isolation bootstrap. Removing only this root returns
+  // 142 in the joint tree; removing its bootstrap exposes it as unprotected.
+  // 142 -> 143: chat-context-interpretation adds its owned M1/SQLite journey.
+  const expectedDatabaseReachableRootTests = 143;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,

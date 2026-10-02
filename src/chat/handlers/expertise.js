@@ -14,7 +14,11 @@ import {
   handleToolCallDecision,
   handleAskUserDecision,
   handleRefuseDecision,
+  buildAnswerContext,
 } from './decisions.js';
+import { memoryReferenceBlock } from '../conversation-context.js';
+import { getNumCtx } from '../../llm/model-ctx.js';
+import { config } from '../../config.js';
 import { randomUUID, createHash } from 'crypto';
 import { ExpertiseEnforcer, quickCheck } from '../../expertises/expertise-enforcement.js';
 import { enforceCapabilities } from '../../expertises/capability-enforcer.js';
@@ -370,18 +374,12 @@ async function generateExpertiseResponse(input, expertise, context) {
     // D4: Pass conversationId for specialist memory injection
     const conversationId = context.conversationId || sessionId;
     const expertiseSystemPrompt = await buildExpertiseSystemPrompt(expertise, conversationId);
-    const boundedExpertiseSystemPrompt = expertiseSystemPrompt + buildExpertiseScopeInstruction(input);
-    const maxTokens = selectExpertiseTokenBudget(input);
+    const boundedExpertiseSystemPrompt = expertiseSystemPrompt + buildExpertiseScopeInstruction(input)
+      + memoryReferenceBlock(context);
+    let maxTokens = selectExpertiseTokenBudget(input);
 
     // Build prompt with context
     let prompt = input;
-    if (context.history?.length > 0) {
-      const historyContext = context.history
-        .slice(-5)
-        .map(h => `${h.response?.tag?.speaker || 'user'}: ${h.response?.content?.substring(0, 200) || ''}`)
-        .join('\n');
-      prompt = `Previous context:\n${historyContext}\n\nUser question: ${input}`;
-    }
     // v75: Tool clarification — inject structured context for LLM
     if (context.toolClarification) {
       const tc = context.toolClarification;
@@ -392,6 +390,10 @@ async function generateExpertiseResponse(input, expertise, context) {
       prompt += `\n\n[SYSTEM: Nástroj ${tc.tool} rozpoznal dotaz, ale chybí povinné parametry.\nChybí:\n${missingList}\nExtrahováno:\n${extractedList}\nZeptej se uživatele na chybějící parametry. Nepočítej sám — čekej na odpověď.]`;
     }
 
+    const answerContext = buildAnswerContext(prompt, context.history, boundedExpertiseSystemPrompt,
+      maxTokens, getNumCtx(config.models.CHAT), { allowSummaryOutputTradeoff: true });
+    prompt = answerContext.prompt;
+    maxTokens = answerContext.maxTokens;
     // v57.0 - Use expertise.temperature instead of hard-coded 0.5
     const temperature = expertise.temperature ?? 0.5;
 
@@ -410,6 +412,8 @@ async function generateExpertiseResponse(input, expertise, context) {
           temperature: retryTemp,
           seed: retryOptions?.seed,
           maxTokens,
+          num_ctx: answerContext.numCtx,
+          signal: context.signal,
         }), 'Expert retry');
       finalFinishReason = retryResult.finishReason || null;
       return retryResult.content;
@@ -423,6 +427,8 @@ async function generateExpertiseResponse(input, expertise, context) {
         sessionId: `expert-${sessionId}`,
         temperature,
         maxTokens,
+        num_ctx: answerContext.numCtx,
+        signal: context.signal,
       }), 'Expert');
     finalFinishReason = result.finishReason || null;
     const llmLatency = Math.round(performance.now() - llmStart);
@@ -877,18 +883,15 @@ async function handleMergedExpertises(input, context, executionTraceId) {
     const creBridge = await import('../../llm/cre-bridge.js');
 
     let prompt = input;
-    if (context.history?.length > 0) {
-      const historyContext = context.history
-        .slice(-5)
-        .map(h => `${h.response?.tag?.speaker || 'user'}: ${h.response?.content?.substring(0, 200) || ''}`)
-        .join('\n');
-      prompt = `Previous context:\n${historyContext}\n\nUser question: ${input}`;
-    }
-    const boundedMergedPrompt = mergeResult.prompt + buildExpertiseScopeInstruction(input);
-    const maxTokens = Math.min(
+    const boundedMergedPrompt = mergeResult.prompt + buildExpertiseScopeInstruction(input) + memoryReferenceBlock(context);
+    let maxTokens = Math.min(
       EXPERTISE_TOKEN_BUDGET.MERGED,
       selectExpertiseTokenBudget(input),
     );
+    const answerContext = buildAnswerContext(prompt, context.history, boundedMergedPrompt,
+      maxTokens, getNumCtx(config.models.CHAT), { allowSummaryOutputTradeoff: true });
+    prompt = answerContext.prompt;
+    maxTokens = answerContext.maxTokens;
 
     // v63.3: Capture timing for LLM execution log (performance.now() for sub-ms precision)
     const llmStart = performance.now();
@@ -898,6 +901,8 @@ async function handleMergedExpertises(input, context, executionTraceId) {
         sessionId: `merged-${sessionId}`,
         temperature: mergeResult.metadata.temperature,
         maxTokens,
+        num_ctx: answerContext.numCtx,
+        signal: context.signal,
       }), 'Merged expert');
     finalFinishReason = result.finishReason || null;
     const llmLatency = Math.round(performance.now() - llmStart);
@@ -954,6 +959,8 @@ async function handleMergedExpertises(input, context, executionTraceId) {
           temperature: retryTemp,
           seed: retryOptions?.seed,
           maxTokens,
+          num_ctx: answerContext.numCtx,
+          signal: context.signal,
         }), 'Merged expert retry');
       finalFinishReason = retryResult.finishReason || null;
       return retryResult.content;
