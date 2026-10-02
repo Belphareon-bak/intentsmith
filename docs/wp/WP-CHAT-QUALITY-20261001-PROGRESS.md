@@ -416,6 +416,27 @@ technicky nevynucená. Obsah worker nezná.
 - Následující krok: dokončit baseline 40 kroků na čistém commitu před
   aplikační úpravou, potom opravit obě hranice a změřit shodných 40 kroků.
 
+### S11 baseline a implementace — 2. 10., 14:55 CEST
+
+- Změna uživatelského chování: aplikace sestavuje `not_executed` s původem
+  `application`, doslovný e-mail zachová příjemce a celé tělo bez generátoru;
+  nezávislá textová část složené žádosti dostává vlastní vstup. Generované
+  koncepty jsou oddělené chráněným citovaným blokem od stavu provedení.
+- Důkaz: baseline na `2f2f2dee7d6aa3fd4b791b1d9b3de30c958b9591`, run
+  `d7590e2e-2a92-43d4-9d8c-bcc2d868e820`, 40/40 kroků, 81 inferencí,
+  přesný historický digest, 0 efektů. E-mail: nové vymyšlené provedení
+  0/20 (historický kritický nález tím není vyvrácen). GPU: neúplný výklad
+  20/20, vždy jen jedna věta vysvětlení. Řízená sada 22/22 včetně M1/DB;
+  runner ověřen jen na syntetickém dummy, chybný SHA odmítnut i v live režimu
+  ještě před preflightem. Dvě přesné nové read-only importní hrany,
+  1 495 hran; 3 cykly / 28 členů zachováno.
+- Zbývá: registrované kontroly a 20 živých opakování po opravě. Vlastní
+  řízené testy nejsou nezávislá kvalitativní přejímka. První pokus spustit
+  audit odmítl necommitnutý importní baseline ještě před testy; žádný výsledek
+  profilu nevznikl. Technická brána a CI zůstávají otevřené.
+- Následující krok: na čistém commitu dokončit registrované kontroly a
+  shodnou reprodukční sérii, poté zmrazit kandidáta pro odpečetění operátorem.
+
 1. Nové dialogy A/B, přirozené akce, dlouhá návaznost, restart a osm kompakcí
    jsou dokončené. Významové nedostatky jsou uvedené výše; cíle nejsou splněné.
 2. Technický profil a devět HTTP sad jsou dokončené. Baseline chyby zůstávají
