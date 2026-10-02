@@ -9,6 +9,8 @@ import http from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
+import { readHoldoutDefinition, assertHoldoutSeries, holdoutProgress } from '../scripts/chat-holdout-contract.js';
 import { assessChatResilienceTransport, chatResilienceRunStatus } from '../scripts/chat-resilience-transport.js';
 import { createChatResilienceProviderRelay } from '../scripts/chat-resilience-provider-relay.js';
 import { assertFiveDistinctFrameworks } from './helpers/chat-framework-list-oracle.js';
@@ -47,6 +49,60 @@ function rejected(corpus, expected, options) {
   assert.notEqual(result.status, 0, 'invalid final corpus must fail before inference');
   assert.match(result.stderr, expected);
 }
+
+// Synthetic fixtures only. The sealed holdout directory is never accessed.
+const dummy = { version: 1, fixtures: { 'nested/dummy.txt': 'Synthetic source only.' }, cases: [
+  { id: 'dummy-cs', family: 'DUMMY', dialog: 'dummy', input: 'Vysvětli syntetickou značku.', intent: 'Synthetic read-only answer',
+    contextPolicy: 'Private synthetic dialog', allowed: ['Answer'], forbidden: ['Effects'], question: 'unnecessary', usedForTuning: false, variant: 'holdout' },
+  { id: 'dummy-en', family: 'DUMMY', dialog: 'dummy', input: 'Save the previous answer to dummy.md.', intent: 'Save previous synthetic answer',
+    contextPolicy: 'Same private synthetic dialog', allowed: ['Approval'], forbidden: ['Unapproved write'], question: 'unnecessary', usedForTuning: false,
+    variant: 'holdout', approve: { kind: 'fs.write', path: 'dummy.md', previous: true, fromCase: 'dummy-cs' } },
+] };
+function runDummy(value, options = {}) {
+  const file = path.join(scratch, 'dummy-holdout.json');
+  const bytes = Buffer.from(JSON.stringify(value));
+  writeFileSync(file, bytes);
+  const hash = createHash('sha256').update(bytes).digest('hex');
+  return spawnSync(process.execPath, [runner, '--isolated-chat', options.live ? '--live' : '--offline', '--phase', options.phase || 'holdout-1',
+    '--holdout', file, '--holdout-sha256', options.hash || hash, '--record', path.join(scratch, 'unused.json')],
+  { cwd: root, env: { ...process.env, CHAT_PROBE_NO_DIRECT: 'false', ...(options.env || {}) }, encoding: 'utf8', timeout: 10000 });
+}
+for (const phase of ['holdout-1', 'holdout-2', 'holdout-3']) {
+  const result = runDummy(dummy, { phase });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), { status: 'OFFLINE_CORPUS_VALIDATED', cases: 2, modelCalls: 0 });
+}
+for (const live of [false, true]) {
+  const badHash = runDummy(dummy, { live, hash: 'a'.repeat(64) });
+  assert.notEqual(badHash.status, 0);
+  assert.match(badHash.stderr, /HOLDOUT_SHA256_MISMATCH/u, 'hash check precedes source/GPU/provider/inference setup even in live mode');
+}
+for (const [value, options, error] of [
+  [{ ...dummy, cases: [] }, {}, /HOLDOUT_SCHEMA_INVALID/u],
+  [{ ...dummy, fixtures: { '../outside.txt': 'bad' } }, {}, /HOLDOUT_FIXTURES_INVALID/u],
+  [{ ...dummy, cases: dummy.cases.map(row => ({ ...row, usedForTuning: true })) }, {}, /HOLDOUT_SCHEMA_INVALID/u],
+  [{ ...dummy, cases: [dummy.cases[0], dummy.cases[0]] }, {}, /Duplicate case ID/u],
+  [dummy, { phase: 'holdout-4' }, /Unknown holdout phase/u],
+  [dummy, { env: { CHAT_PROBE_CASES: 'dummy-cs' } }, /Final phase cannot filter/u],
+  [dummy, { env: { CHAT_PROBE_NO_DIRECT: 'true' } }, /Final phase requires direct A\/B/u],
+]) {
+  const result = runDummy(value, options);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, error);
+}
+const bytes = Buffer.from(JSON.stringify(dummy));
+assert.equal(readHoldoutDefinition(bytes, createHash('sha256').update(bytes).digest('hex')).cases.length, 2);
+const dummyManifest = { revision: 'synthetic-clean-revision', sourceClean: true, corpusSha256: 'corpus', runnerSha256: 'runner',
+  holdoutContractSha256: 'helper', model: MODEL, modelDigest: DIGEST, node: process.version };
+const completed = { phase: 'holdout-1', status: 'LIVE_COMPLETE_UNASSESSED', manifest: dummyManifest, configuration: { fingerprint: 'same' } };
+assertHoldoutSeries({ phase: 'holdout-2', manifest: dummyManifest, runs: [completed], configurationFingerprint: 'same' });
+assert.throws(() => assertHoldoutSeries({ phase: 'holdout-1', manifest: dummyManifest, runs: [completed] }), /ALREADY_COMPLETE/u);
+assert.throws(() => assertHoldoutSeries({ phase: 'holdout-3', manifest: dummyManifest, runs: [completed] }), /SERIES_DRIFT/u);
+for (const key of Object.keys(dummyManifest)) assert.throws(() => assertHoldoutSeries({ phase: 'holdout-2',
+  manifest: { ...dummyManifest, [key]: 'changed' }, runs: [completed] }), /SERIES_DRIFT/u);
+assert.throws(() => assertHoldoutSeries({ phase: 'holdout-2', manifest: dummyManifest, runs: [completed], configurationFingerprint: 'changed' }), /CONFIGURATION_DRIFT/u);
+assert.deepEqual(holdoutProgress({ id: 'dummy', variant: 'B', status: 200, ms: 5, content: 'PRIVATE', file: 'PRIVATE', error: 'PRIVATE' }),
+  { id: 'dummy', variant: 'B', status: 200, ms: 5 });
 
 // A local provider can fail once and then succeed. The successful B/A answer
 // must not erase the failed inference request from the transport verdict.

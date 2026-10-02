@@ -55,6 +55,9 @@ Po čistém commitu, pushi a ověřeném SHA kandidát čeká na odpečetění o
 odpovědi ze tří holdout sérií worker nečte ani nehodnotí. Toto zadání povoluje
 jen obě doložené opravy a runner, ne ladění znalostí `versions`, změnu modelu
 či neautorizovanou úpravu sdíleného routingu/CI.
+Součástí runneru je čistý validační helper `scripts/chat-holdout-contract.js`;
+aplikační helper `src/chat/unavailable-action.js` pouze kontroluje citované
+úseky a skládá read-only odpověď. Tyto cesty vlastní chat WP z téhož zadání.
 
 Postup: (1) reprodukce posudku a inventura skutečné cesty;
 (2) společný kontext, doptávání a paměť;
