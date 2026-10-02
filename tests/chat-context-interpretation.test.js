@@ -41,12 +41,17 @@ test('unavailable effects have application status; independent text is generated
   let wire;
   llmGateway.call = async (prompt, options) => { wire = { prompt, options }; return { content: explanation, model: 'controlled', finishReason: 'stop' }; };
   try {
-    const reply = await handleAnswerDecision(request, decision, { history: [], userMessageId: 43 });
+    const reply = await handleAnswerDecision(request, decision, { history: [
+      { messageId: 42, response: { tag: { speaker: 'user' }, content: 'Dřívější rozhodnutí: krátké vysvětlení.' } },
+      { messageId: 43, response: { tag: { speaker: 'user' }, content: request } },
+    ], userMessageId: 43 });
     assert(reply.content.startsWith(explanation + '\n\nNastavení GPU jsem nezměnil'));
     assert(reply.content.includes('současná a cílová hodnota'));
     assert(reply.content.includes(quoteActionDraft('A sniž napětí GPU na polovinu.')));
     assert.equal(wire.options.messages.at(-1).content, textRequest);
     assert(!wire.prompt.includes('sniž napětí'));
+    assert(wire.options.messages.some(message => message.content === 'Dřívější rozhodnutí: krátké vysvětlení.'));
+    assert(!wire.options.messages.some(message => message.content === request));
     assert.equal(reply.metadata.executionStatus.userMessageId, 43);
     assert.equal(reply.canExecute, false);
     assert.deepEqual(reply.actions, []);
@@ -54,6 +59,12 @@ test('unavailable effects have application status; independent text is generated
     assert.equal(validateUnavailableAction({ ...plan, request: 'Změň výkon GPU.' }, request), null);
     const missingText = { kind: 'hardware', request: 'sniž napětí GPU na polovinu', needsClarification: true };
     assert.equal(validateUnavailableAction(missingText, request).independentText, textRequest);
+    assert.equal(validateUnavailableAction({ ...missingText, needsClarification: false }, request).needsClarification, true);
+    for (const [action, expected] of [
+      ['Reduce GPU voltage by half.', true], ['Set GPU voltage to 0.5 W.', true],
+      ['Set GPU voltage to 0.5 V.', false], ['Změň frekvenci GPU z 1500 MHz na 750 MHz.', false],
+      ['Sniž napětí GPU na 1e999 V.', true],
+    ]) assert.equal(validateUnavailableAction({ kind: 'hardware', request: action, needsClarification: false }, action).needsClarification, expected);
     const omitted = creDecisionEngine.overrideDecision({ ...decision,
       metadata: { ...decision.metadata, unavailableAction: missingText } });
     const preserved = await handleAnswerDecision(request, omitted, { history: [] });
@@ -885,6 +896,8 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
     assert(gpuReply.response.content.startsWith('RAM dočasně drží pracovní data pro rychlý přístup procesoru. Disk soubory uchovává i po vypnutí počítače.'));
     assert.equal(gpuReply.response.metadata.executionStatus.capability, 'hardware');
     assert.equal(calls.at(-1).messages.at(-1).content, 'Vysvětli ve dvou větách rozdíl mezi RAM a diskem.');
+    assert(!calls.at(-1).messages.some(message => message.role === 'user' && message.content.includes('sniž napětí')),
+      'the full persisted current message must not return as generator history');
     assert.equal(database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n, 0);
     assert.equal(database.prepare('SELECT count(*) AS n FROM m2_effect_requests').get().n, 0);
     const asked = await send('Shrň odpověď a ulož ji do nového souboru, nic existujícího nepřepisuj.');

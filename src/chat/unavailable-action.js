@@ -2,6 +2,20 @@
 // The classifier selects exact spans; the application owns execution status.
 const KINDS = new Set(['mail', 'calendar', 'hardware']);
 
+function hardwareValueMissing(request) {
+  // Missing numeric parameters are a core check, not a classifier confidence
+  // flag. These are unit domains, never routing rules or executable values.
+  const domains = [
+    [/nap[eě]t[ií]|nap[aä]tie|voltage|spannung/iu, /^(?:mV|V|kV|volts?|volt[uůy]|voltov)$/iu],
+    [/frekvenc|frequency|frequenz|takt|clock/iu, /^(?:Hz|kHz|MHz|GHz)$/iu],
+    [/v[yý]kon|power|leistung/iu, /^(?:mW|W|kW|watts?|watt[uůy])$/iu],
+  ];
+  const domain = domains.find(([quantity]) => quantity.test(request));
+  if (!domain) return false;
+  const values = [...request.matchAll(/(?:^|[\s(,:])([-+]?\d+(?:[.,]\d+)?)\s*([\p{L}]+)(?![\p{L}\p{N}_])/gu)];
+  return !values.some(match => domain[1].test(match[2]) && Number.isFinite(Number(match[1].replace(',', '.'))));
+}
+
 export function validateUnavailableAction(value, input) {
   if (!value || !KINDS.has(value.kind) || typeof value.request !== 'string'
     || !value.request.trim() || !input.includes(value.request)
@@ -29,7 +43,7 @@ export function validateUnavailableAction(value, input) {
   const suffix = input.slice(requestStart + value.request.length).replace(/^[\s.!?;,]+/u, '').trim();
   const independentText = [prefix, suffix].filter(part => /[\p{L}\p{N}]/u.test(part)).join('\n');
   return { kind: value.kind, request: value.request, recipient, literalBody, independentText,
-    needsClarification: value.needsClarification === true };
+    needsClarification: value.needsClarification === true || value.kind === 'hardware' && hardwareValueMissing(value.request) };
 }
 
 // A longer fence prevents draft text becoming an application status in Markdown.

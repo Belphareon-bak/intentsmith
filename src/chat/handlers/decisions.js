@@ -1316,10 +1316,16 @@ async function handleAnswerDecision(input, decision, context) {
     source: 'unavailable-action-text', reason: 'Read-only content for an unavailable action',
     metadata: { ...decision.metadata, requestedOperation: 'none', unavailableAction: null,
       clarificationRequest: null } });
+  // The store has already persisted the full current message. When replacing
+  // its input with a subtask, remove only that message by identity; otherwise
+  // it re-enters the generator as history and reintroduces the effect clause.
+  const textContext = { ...context, history: Number.isSafeInteger(context.userMessageId)
+    ? (context.history || []).filter(entry => entry.messageId !== context.userMessageId)
+    : context.history };
   const pieces = [];
   let generated;
   if (plan?.independentText) {
-    generated = await generateAnswerDecision(plan.independentText, textDecision, context);
+    generated = await generateAnswerDecision(plan.independentText, textDecision, textContext);
     pieces.push(generated.content);
   }
   pieces.push(presentation.status);
@@ -1329,7 +1335,7 @@ async function handleAnswerDecision(input, decision, context) {
       const draftInstruction = { cs: 'Napiš pouze obsah konceptu pro toto zadání', en: 'Write only the draft content for this request',
         sk: 'Napíš iba obsah konceptu pre toto zadanie', de: 'Schreibe nur den Entwurfsinhalt für diese Anfrage' }[language] || 'Napiš pouze obsah konceptu pro toto zadání';
       const draftInput = `${draftInstruction}: ${plan?.request || input}`;
-      generated = await generateAnswerDecision(draftInput, textDecision, context);
+      generated = await generateAnswerDecision(draftInput, textDecision, textContext);
       draft = generated.content;
     }
     const recipient = plan?.recipient ? ` (${plan.recipient})` : '';

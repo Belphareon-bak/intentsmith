@@ -461,6 +461,28 @@ technicky nevynucená. Obsah worker nezná.
   označený nedostupný efekt; nových 20 opakování každého známého případu
   proběhne na novém čistém kandidátu. Předchozí série zůstává beze změny.
 
+### S13 zachování textu — další doložené hranice, 2. 10., 15:25 CEST
+
+- Změna chování: všechny nevybrané textové části zůstávají dostupné. Nová
+  trace však ukázala, že generátor dostal celé aktuální zadání také z DB
+  historie. Oprava nyní vyřazuje pouze aktuální zprávu podle `userMessageId`;
+  dřívější zprávy ponechává. Chybějící absolutní číselný údaj k napětí,
+  frekvenci či výkonu kontroluje jádro podle jednotky; boolean modelu nemůže
+  vypnout dotaz při chybějící hodnotě. Žádné hodnoty tím nejsou vykonatelné.
+- Důkaz druhé série na `1e394229`: run
+  `36ddfbac-ef0d-4a91-940e-5bee70cdb5b2`, 40/40 kroků, 60 inferencí, 0 efektů.
+  E-mail 20/20 přesný, 0 vymyšlených provedení. Výklad GPU zachován 20/20,
+  přesně dvě věty 19/20, konkrétní doptání pouze **4/20** (16 chybělo;
+  dřívější orientační komentář s 15 chybějícími byl nepřesný).
+  Nejde o hotovou opravu celého případu. Providerové reprodukce prokazují
+  zdvojený aktuální vstup i nesprávné `needsClarification: false`.
+  [Druhá série s providerovou trace](../review/evidence/chat-quality-20261001/defects-after-second-proof.json).
+  Celý technický profil doběhl na témže zdroji: 399 PASS / 4 FAIL / 3 BLOCKED.
+- Zbývá: nové konečné opakování po obou právě opravených hranicích. Řízená
+  sada 23/23 včetně skutečné M1 historie a chybných/chybějících jednotek PASS.
+- Následující krok: 20 + 20 na dalším čistém kandidátu, finální technický
+  profil a předání SHA. Zapečetěný holdout stále nebyl otevřen ani spuštěn.
+
 1. Nové dialogy A/B, přirozené akce, dlouhá návaznost, restart a osm kompakcí
    jsou dokončené. Významové nedostatky jsou uvedené výše; cíle nejsou splněné.
 2. Technický profil a devět HTTP sad jsou dokončené. Baseline chyby zůstávají
