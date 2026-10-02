@@ -8,8 +8,9 @@ package/shared způsobilost nástroje ROOTu. Otevřená nezměněná routing sad
 vybere VAT kalkulačku pro informační dotaz „Co je DPH v Německu?“ a zbytečně
 vyvolá calculationIntent upřesnění. ROOT přebírá ohraničenou opravu v
 `specialists/accountant-cz/vat-request.js` a nezbytném
-`src/expertises/specialist-runtime.js`; regrese pouze v existujícím
-`tests/specialist-runtime.test.js`. Přesný čtyřklíčový interní výsledek
+`src/expertises/specialist-runtime.js`; regrese v existujícím
+`tests/specialist-runtime.test.js`; přímo navázaný harness meta test
+`tests/harness-exit-code.test.js` musí ověřit skutečné počty a exit po injekci. Přesný čtyřklíčový interní výsledek
 `SpecialistInputResolution@1/not_applicable` je vymezený v existujícím runtime
 JSDoc a ověřený před adaptérem a cache merge. Původní prosté parametry
 zůstávají kompatibilní. Delegované návrhy zůstávají ignored; ROOT jediný
@@ -31,7 +32,7 @@ oprava má původní straight/Czech reprodukce GREEN. Historické REDy, první
 chyba vlastní cancellation fixture a sealed V1 zůstávají. Source review PASS
 SHA `02d1fc10c840900e1c2572147ce6fc98aa9fa80e7d9a35a5a3e4d09bfea836c1`;
 V2 návrh SHA `05125d0155a1737bfab0505edfa506d6204ea79048290c81103869aa2d0e3e02`.
-Skutečný M1/backend informační-výpočetní průchod a nový celý profil čekají;
+Skutečný M1/backend informační-výpočetní průchod je doložený níže;
 nejde o živou kvalitu modelu ani přijetí celé účetní aplikace. Informační text
 obsahující operand nebo rozpoznaný výpočetní operátor zůstává konzervativně
 clarify. Default navázané expertýzy se pro HTTP/WS fixture neodstraňují;
@@ -49,6 +50,16 @@ Existing session-context 67/67 PASS. WS strips tool metadata a finalizer
 je neukládá do SQLite; všechny tyto assistant zprávy mají skutečně kind
 `answer`. Toto pozorování není provenance přejímka CHATu a zůstává jeho
 workerovi; žádný persistence/handler patch zde nevznikl.
+
+Úplný profil na `734231e4`: 407 PASS /1 FAIL /0 BLOCKED. Jediný FAIL je
+navázaný meta test očekávající 23/24 po injekci; rozšířená runtime sada správně
+hlásí 56/57 a exit1. ROOT vlastní omezenou opravu této kontroly, se zachováním
+injikované chyby, přesné konzistence počtů a nenulového procesního výsledku.
+Historický FAIL se nepřepisuje. Převzatý test SHA
+`bfde8fa90ad0e155d4df29983a98db52437acd7e22c0fd9a665675483cc8ee04`
+má nezávislé source review PASS a skutečný ROOT meta test exit0;
+nový kandidát vyžaduje celý profil. Počty se odvozují z vypsaných assertions
+a přesně porovnávají s jediným souhrnem, nikoli s pevnou velikostí sady.
 
 Následující zářijové zadání a evidence zůstávají historické.
 

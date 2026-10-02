@@ -1211,10 +1211,25 @@ summary();
     1,
     failingSpecialistRuntime.stderr || failingSpecialistRuntime.stdout,
   );
-  assert.match(
-    failingSpecialistRuntime.stdout,
-    /Specialist Runtime:\s*23\/24 PASS,\s*1 FAIL/,
-  );
+  // Match the summary to actual assertion emissions as the specialist suite
+  // grows; exactly the injected assertion must fail and reach process status.
+  const specialistAssertions = [...failingSpecialistRuntime.stdout.matchAll(
+    /^ {2}(✅|❌) (.+)$/gm,
+  )];
+  const specialistPassed = specialistAssertions.filter(([, status]) => status === '✅');
+  const specialistFailed = specialistAssertions.filter(([, status]) => status === '❌');
+  assert.ok(specialistPassed.length > 0, 'specialist fixture must execute passing assertions');
+  assert.equal(specialistFailed.length, 1, 'only the injected specialist assertion fails');
+  assert.match(specialistFailed[0][2], /: meta injected specialist runtime failure$/);
+  const specialistSummaries = [...failingSpecialistRuntime.stdout.matchAll(
+    /^\s*Specialist Runtime:\s*(\d+)\/(\d+) PASS,\s*(\d+) FAIL\s*$/gm,
+  )];
+  assert.equal(specialistSummaries.length, 1, 'specialist fixture emits one complete summary');
+  const [specialistPassCount, specialistTotalCount, specialistFailCount] =
+    specialistSummaries[0].slice(1).map(Number);
+  assert.deepEqual([specialistPassCount, specialistTotalCount, specialistFailCount],
+    [specialistPassed.length, specialistAssertions.length, specialistFailed.length]);
+  assert.equal(specialistPassCount + specialistFailCount, specialistTotalCount);
   assert.match(
     failingSpecialistRuntime.stdout,
     /meta injected specialist runtime failure/,

@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 2. 10. 2026, 13:48 UTC / 15:48 CEST.
+**Aktualizováno:** 2. 10. 2026, 14:12 UTC / 16:12 CEST.
 **Vlastník:** ROOT. CHAT ladí jiný worker.
 Report aktualizuji po milníku, nejpozději po 3 h aktivní práce; operátorovi
 podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
@@ -35,18 +35,19 @@ podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
 ## Aktuální priority
 
 1. **Společná integrace:** publikovaný `d7e7d1b1` slučuje `2a479852` + `6f0259ec`.
-   Tři konflikty vyřešené, registry 594/35. Aktuální celý offline/database
-   profil na `7cfe4edf`: **404 PASS /1 FAIL /3 BLOCKED**, verdict FAIL.
-   DPH eligibility opravil ROOT: source review PASS, runtime57/57, routing100 %, session67/67;
-   skutečný řízený M1 HTTP/WS 4/4 scénáře PASS (info vrací expertise gap, ne kalkulačku).
-   Živá jazyková kvalita tím nepřijatá. Tři runtime BLOCKED následně
-   ověřené na `252e839b` se skutečnými runtime: **3/3 PASS**, bez instalací.
-   CODE source je publikovaný, remote SHA souhlasí; novější CHAT `00ec5b52`
-   začleněný v publikovaném `f2e6ac1a`, baseline 1498. Nový celý profil čeká na opravu DPH.
-   [Aktuální CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37009182639)
-   **CHAT 7/7 + CODE 6/6**, Studio/privacy/hygiene PASS, žádný SKIPPED krok.
-   Nový lokální Studio build/consumer PASS. Původní CI FAILy zůstávají;
-   zelený vývojový výběr kontrol nenahrazuje celý profil ani přijetí releasu.
+   Tři konflikty vyřešené, registry 594/35; novější CHAT `00ec5b52`
+   je začleněný v `f2e6ac1a`. Poslední úplný offline/database profil
+   na publikovaném `734231e4`: **407 PASS /1 FAIL /0 BLOCKED**, verdict FAIL.
+   Jediný FAIL je meta test se zastaralým počtem 24 specialist assertions;
+   injikovaná chyba i exit1 jsou správné, rozšířená sada má 57 kontrol.
+   ROOT převzal omezenou opravu: skutečný meta test a source review PASS;
+   nový celý profil čeká, původní FAIL zůstává.
+   DPH eligibility: nezměněný routing 100 %, runtime 57/57, session 67/67 PASS;
+   skutečný řízený M1 HTTP/WS 4/4 PASS (info vrací expertise gap).
+   [CI na přesném `734231e4` SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37015424862):
+   stažený artefakt potvrzuje **CHAT 7/7 + CODE 6/6**, všech 18 kroků SUCCESS.
+   Studio/privacy/hygiene a lokální build PASS; vývojový výběr kontrol
+   nenahrazuje celý profil ani přijetí releasu.
    CHAT zůstává NO_GO: série 53×3 nesplnily kvalitativní cíle; archivní
    delta je opravená, finální kvalitu dál přejímá jeho worker.
 2. **Omezený M2 scanner:** V2 adoptovaný do skutečné default M2 služby,
@@ -70,10 +71,12 @@ podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
    a oracle v `4fb800c5`, focused 3/3 a CI SUCCESS; živý běh NOT_RUN.
    **D1 blokér:** ProjectHandler směruje původní požadavky do CHAT;
    jediný explicitní design prefix neopraví druhý vstup (`text` v `contextFiles`).
-   Další CODE strategie použije dokumentovaný `/m2-build <JSON>` ve Studiu,
+   Další CODE strategie používá dokumentovaný `/m2-build <JSON>` ve Studiu,
    explicitní operátorské zadání, stejný oracle, max11 CODE /0 D1 a nový freeze.
-   Přesné dvě helper změny adoptované po review PASS, CPU8/8; plné vstupy
+   Dva helpery publikované v `734231e4`, source/input review PASS, CPU8/8;
+   plné vstupy
    14–17 kB /10–12 kB přesahují starý8736 B guard. Modelová aplikace NOT_RUN.
+   Oracle, 0 D1 /max11 CODE a limity oprav 172/163 UTF-8 B jsou zmrazené.
    Tento průchod nepřijímá přirozené plánování; to zůstává CHAT workerovi.
 4. **Hunt:** aktuální kontrola 2. 10. 09:21 UTC potvrzuje 596/1173. Původní
    hodnoticí relace skončila na týdenním limitu poskytovatele; přesný event

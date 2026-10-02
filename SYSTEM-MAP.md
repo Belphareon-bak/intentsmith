@@ -11,10 +11,13 @@ kontrol, 594 programů /35 exclusions. Publikovaný `d7e7d1b1`: úplný profil
 opravený 160/160 PASS; chatové routování FAIL a tři PDF/OCR původně BLOCKED.
 Tyto tři runtime sady následně na `252e839b` skutečně 3/3 PASS;
 původní celý profil se nemění. Stávající runtime existují, instalace nebyla nutná.
-Poslední celý profil `7cfe4edf`: 404 PASS /1 DPH eligibility FAIL /3 runtime BLOCKED;
-DPH tool způsobilost přebírá ROOT. Novější CHAT `00ec5b52` je integrován
-do `f2e6ac1a`, CI `37009182639` SUCCESS: CHAT 7/7, CODE 6/6,
-Studio/privacy/hygiene PASS, žádný SKIPPED krok. Lokální Studio build PASS.
+Poslední celý profil `734231e4`: 407 PASS /1 FAIL /0 BLOCKED;
+DPH eligibility již má runtime 57/57, routing 100 %, session 67/67 a skutečné
+řízené M1 HTTP/WS 4/4 PASS. Jediný FAIL je navázaný meta-test se starým
+počtem24 místo 57; ROOT přebírá omezenou opravu a nový úplný profil.
+Novější CHAT `00ec5b52` je integrován do `f2e6ac1a`; aktuální publikovaný
+`734231e4` má CI `37015424862` SUCCESS: stažené CHAT 7/7, CODE 6/6,
+všech 18 kroků SUCCESS. Lokální Studio build PASS.
 Registry11/11 PASS, default AST service103/103 a evaluator34/34 PASS, dvě omezená
 source review PASS. Žádný deploy ani release acceptance.
 Chatový report zůstává
@@ -28,7 +31,7 @@ minfree 3 759 MiB, jedno volání a uvolněný vlastní model/lease. Není plné
 kontextové okno ani modelová/app kvalita. Produktový CODE capture pro 16k je
 zapojený, source review PASS, service 104/104 PASS; nový skutečný projekt NOT_RUN.
 Fan D1 entry je doloženě blokovaný CHAT ProjectHandler směrováním do běžné
-odpovědi místo D1. Dokumentovaná explicitní Studio composer cesta je další
+odpovědi místo D1. Dokumentovaná explicitní Studio `/m2-build <JSON>` cesta je další
 omezená CODE strategie; není důkazem opraveného přirozeného plánování.
 
 Zmrazený `f5964604` má SOURCE_REVIEW_PASS, čtyři dotčené registrované sady
@@ -705,7 +708,7 @@ Při další integraci se přeměří znovu.
 | | |
 |---|---:|
 | `src/**/*.js` | **235 648 ř.**, 685 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **268 365 ř.**, 602 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **268 380 ř.**  602 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **594** (`496 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 108** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |

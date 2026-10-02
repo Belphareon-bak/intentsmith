@@ -1,13 +1,15 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktuální checkpoint 2. 10. 2026, 13:12 UTC:** ROOT převzal společnou
+**Aktuální checkpoint 2. 10. 2026, 14:06 UTC:** ROOT převzal společnou
 integraci, naposledy CHAT `00ec5b52` do publikovaného `f2e6ac1a`.
 Kontroly obou stran zachované, kanonický registr 594, graph 1498/3/28.
-Poslední celý profil na `7cfe4edf`: 404 PASS /1 FAIL /3 BLOCKED;
-DPH tool eligibility přebírá ROOT. Tři PDF/OCR runtime následně skutečně
-3/3 PASS na `252e839b`, původní profil se nepřepisuje.
-`f2e6ac1a` má CI `37009182639` SUCCESS: CHAT7/7, CODE6/6,
-Studio/privacy/hygiene PASS, žádný SKIPPED krok. Lokální Studio build PASS.
+Poslední celý profil na publikovaném `734231e4`: 407 PASS /1 FAIL /0 BLOCKED;
+jediný FAIL je stale meta-test count 24 versus 57 specialist assertions.
+DPH eligibility má source review, runtime 57/57, routing 100 %, session 67/67
+plus skutečný řízený M1 HTTP/WS 4/4 PASS. Modelová jazyková kvalita nepřijatá.
+`734231e4` CI `37015424862` SUCCESS: CHAT 7/7, CODE 6/6 ověřené ze staženého
+artefaktu, všech 18 kroků SUCCESS. Lokální Studio build PASS.
+ROOT opravuje navázaný meta test a ověří nový celý profil před živým během.
 Registry11/11 PASS, adoptovaný AST evaluator34/34 a default service103/103 PASS,
 dvě omezená nezávislá source review. Tento kandidát není přijatý release.
 CHAT report zůstává NO_GO / REVIEW_PENDING: finální 53×3 nesplnilo kvalitativní cíle;
@@ -36,9 +38,10 @@ a aplikace tím přijaté nejsou. Omezený AST scanner je
 zapojený a nezávisle přijatý; CODE capture pro 16k je pushnutý v `7cfe4edf`,
 source review PASS, service104/104 PASS. Nová fan aplikace NOT_RUN;
 její skutečný D1 vstup blokuje CHAT classifier. Další omezený CODE průchod
-použije dokumentovaný explicitní Studio composer, stejný oracle a max11 CODE;
+použije dokumentovaný explicitní Studio `/m2-build <JSON>`, stejný oracle
+a max11 CODE /0 D1; dva helpery a source/input freeze mají nezávislé review PASS;
 nenahrazuje přijetí přirozeného plánování ani netvrdí D1 průchod.
-společné přijetí, M5/M6 a mobilní fyzická přejímka
+Společné přijetí, M5/M6 a mobilní fyzická přejímka
 zůstávají otevřené. [Aktuální průběžný report](docs/WORK-PROGRESS.md).
 
 **Historická aktualizace 1. 10. 2026, 16:29 UTC — SQLite kontrakt a skutečný M3 kontext:** publikovaný
