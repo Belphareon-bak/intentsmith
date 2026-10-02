@@ -54,7 +54,7 @@ podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
 2. **Omezený M2 scanner:** V2 adoptovaný do skutečné default M2 služby,
    evaluator 34/34 a service 103/103 PASS: přesné approval/commit/restart,
    assertion rollback tří souborů a cancel před registrací. Dvě nezávislá
-   source review PASS; registry/CI doplněné, nové CI a baseline ještě čekají.
+   source review PASS; baseline1496 přijatá nad čistým `4a8fb4b2`, CI čeká.
    [Rozsah a historické fixture FAILy](wp/WP-M2-AST-IMPORT-SCANNER-20261001.md).
 3. **Kontext a větší projekt:** CPU rozhodnutí je úplný zdroj při 16k
    a skutečné projektové přírůstky. Ze 198 velikostních případů se při 8k

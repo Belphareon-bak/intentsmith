@@ -274,7 +274,9 @@ měl tehdy 1 433 hran, 3 cykly / 28 členů. Závěrečné měření a nezávisl
 přijetí mají vlastní evidenci v [předávce](docs/review/2026-09-28-STUDIO2-PARITY-DELIVERY.md).
 Tehdejší integrovaný module graph měl 1 434 hran, 3 cykly / 28 členů po
 přijetí přesné hrany `src/chat/context-compact.js -> src/core/abort-error.js`.
-Aktuální module graph má 1 492 hran, stále 3 cykly / 28 členů.
+Aktuální module graph má 1 496 hran, stále 3 cykly / 28 členů.
+Čistý `4a8fb4b2` po nezávislém AST source review přijal právě čtyři
+connector/evaluator/scanner hrany; žádná původní hrana se neodebrala.
 Společný kandidát `d7e7d1b1` zachovává všech 1 478 původních hran a
 14 chatových hran z baseline nad `5d58f11` a následného explicitního
 připnutí `af8a975e`, bez nového cyklu. Historická

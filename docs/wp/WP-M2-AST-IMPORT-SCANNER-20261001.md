@@ -198,3 +198,9 @@ connector/fixtures/CI review
 Obě přijetí jsou omezená na prohlédnuté zdroje a doložené CPU výsledky,
 nikoli release, GPU projekt nebo nové CI. Jsou čtyři nové source hrany,
 žádný nový cyklus; přesné přijetí baseline až na čistém commitnutém zdroji.
+
+Baseline následně oficiálním nástrojem přijala právě tyto čtyři reviewed
+hrany nad čistým `4a8fb4b2dfb8752324974ef364860a79f8ac3892`:
+1492 →1496, žádná removed hrana, 3 cykly /28 členů beze změny.
+Původní před-přijetím ratchet FAIL je diagnóza očekávaných čtyř hran,
+nikoli skrytý PASS nebo povolení obecné relaxace limitu.
