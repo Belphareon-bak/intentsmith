@@ -1,6 +1,40 @@
 # IntentSmith — průběžné dokončování od 30. 9. 2026
 
-## Checkpoint 1. 10. 2026, 19:27 UTC — závěrečné tři refs a Hunt restoration přijaté
+## Checkpoint 2. 10. 2026, 08:50 UTC — SQLite aplikace přijatá
+
+Zmrazený čistý `f5964604cb76cad916fdc1ef894bfc6519c7e0d5` má
+SOURCE_REVIEW_PASS, čtyři dotčené registered sady PASS a
+[vlastní CI SUCCESS, 13 kroků](https://github.com/Belphareon-bak/intentsmith/actions/runs/36982493222).
+Skutečný běh 08:18:22.941–08:18:41.453 UTC dodal jedinou devátou CLI
+generaci; šest přesných modulů zachováno. Nový náhled/digest, stale409,
+pending backend restart, přesné approval, nezměněný funkční oracle, commit
+`a5e789cbda24e009c0eeefeda16c202877d1b88f`, final backend restart/replay
+a postRestartApp prošly.
+
+Nezávislé **APPLICATION_ACCEPTANCE_REVIEW_PASS / PHYSICAL_SQLITE_SCENARIO_ACCEPTED**,
+receipt SHA `41d18e640cfbeaa9aaad38813ba822335f472438c5b96e72a0de823f9fb7302f`,
+manifest SHA `712bd19ec61857fd2b4901393fcfb552316ed4603033ca60c4822902b57372bc`.
+Reviewer rekonstruoval request5700/11520, pinned model/digest/provider,
+výstup→preview→21durable materials→disk/Git, failed/failed/succeeded,
+14 původních rollbacků a jeden nový approval/execution. Vlastní nezměněný
+oracle v canonical RO sandboxu také PASS. Původních379 i nových646 raw
+souborů, módy a Git indexy přesné; tři reviewer checker chyby uchované.
+
+Persistence je mezi dětskými procesy v jednom sandboxu. Backend restart
+prokazuje durable M2 stav, commit a zdroje; nový sandbox použije novou
+privátní DB. Restart/replay assertions dosáhl skutečný runner, jejich HTTP
+bodies nejsou zvlášť uchované. Instalované IDE, obecné plánování a celý
+release nejsou tímto scénářem přijaté. [Přesný výsledek v existujícím WP](../wp/WP-CODE-PEER-CONTEXT-BUDGET-20261001.md#10-zmrazené-skutečné-pokračování--2-10-2026-0818-utc).
+
+[Source-only SQLite export](../../examples/generated-apps/sqlite-catalog/README.md)
+obsahuje sedm přesných modulů /8 965 B; celkem čtyři snapshoty /24JS.
+Další práce: obecný M2 AST scanner s resource containment, větší skutečný
+projektový průchod a aktuální společný profil. M5/M6 nepodepsané podklady
+připravené, finální soak vyžaduje exact release kandidát. Hunt měřidlo,
+fyzické podpisy/custody a mobil zůstávají otevřené. CHAT řeší jiný worker;
+GPU readonly V7 a přijatý omezený cleanup se neopakují.
+
+## Historický checkpoint 1. 10. 2026, 19:27 UTC — závěrečné tři refs a Hunt restoration přijaté
 
 Publikace `5fd54ee7` má exact remote a
 [vlastní CI13 SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36912177685).

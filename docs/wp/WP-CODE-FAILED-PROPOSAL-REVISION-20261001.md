@@ -13,6 +13,13 @@ Nová omezená CLI revize nad kopií téhož failed runtime je vymezena v
 [CODE context WP §8](WP-CODE-PEER-CONTEXT-BUDGET-20261001.md#8-autorizované-pokračování--1-10-2026-2132-utc).
 Nejde o zpětnou změnu frozen protokolu ani schválení neúspěšné aplikace.
 
+**Navazující přejímka 2. 10. 2026:** nová autorizovaná CLI revize na
+`f5964604` má APPLICATION_ACCEPTANCE_REVIEW_PASS, receipt
+`41d18e640cfbeaa9aaad38813ba822335f472438c5b96e72a0de823f9fb7302f`.
+Nový přesně schválený plán prošel stejným oraclem, commitem a backend
+restart/replay. [Výsledek a persistence hranice](WP-CODE-PEER-CONTEXT-BUDGET-20261001.md#10-zmrazené-skutečné-pokračování--2-10-2026-0818-utc).
+Původní osmigenerační failure evidence zůstává beze změny.
+
 ## Důvod a přesné omezení
 
 Qwen3.8 na source34 dvakrát porušilo schema dependency kontrakt. Druhý

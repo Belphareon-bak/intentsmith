@@ -1,6 +1,11 @@
 # WP — sjednocení rozhraní transakce generovaného SQLite projektu
 
 **Stav:** `SOURCE_REVIEW_PASS / REGISTERED9_PASS / CI_SUCCESS / APPLICATION_PHYSICAL_FAIL / ACTUAL_REVIEW_PENDING`.
+Tento stav popisuje původní kandidát tohoto WP. Navazující `f5964604` dne
+2. 10. 2026 má APPLICATION_ACCEPTANCE_REVIEW_PASS: modelová transakce s
+bezargumentovým callbackem a whole-batch rollback prošla frozen oraclem.
+[Aktuální přejímka SQLite pokračování](WP-CODE-PEER-CONTEXT-BUDGET-20261001.md#10-zmrazené-skutečné-pokračování--2-10-2026-0818-utc)
+nemění historický kontextový FAIL původního kandidáta.
 **Vlastník:** ROOT, stávající integrační checkout; výchozí dokumentační
 HEAD `fd749bacf0e19e65e602cd5dbe46c57c058f5342`.
 **Autorita:** operátorem požadované dokončení skutečných CODE projektů;

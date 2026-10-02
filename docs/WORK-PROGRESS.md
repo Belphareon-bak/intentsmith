@@ -1,6 +1,6 @@
 # IntentSmith — průběžný report dokončování
 
-**Aktualizováno:** 2. 10. 2026, 08:06 UTC / 10:06 CEST.
+**Aktualizováno:** 2. 10. 2026, 08:50 UTC / 10:50 CEST.
 **Vlastník:** ROOT. CHAT řeší jiný worker, od posledního zadání jej ROOT neupravuje.
 **Publikace:** `work/real-chat-journeys-20260930`; průběžný report se aktualizuje
 po každém milníku, nejpozději po třech hodinách během aktivní práce. Operátor
@@ -10,9 +10,10 @@ přesný testovaný zdroj; novější dokumentační commit nepřebírá jeho te
 ## Stav nyní
 
 IDE/backend mají přijaté dílčí funkční důkazy, celý release není přijatý.
-Tři malé skutečné CODE projekty fungují v doloženém rozsahu; SQLite modelové
-kvalifikace zatím neprošly celým kontraktem. M2 oprava failed návrhu je
-implementovaná a zdrojově přijatá; skutečná aplikace zůstává FAIL.
+Tři malé skutečné CODE projekty mají přijaté funkční důkazy. SQLite nyní
+prošel skutečnou devátou CLI generací, přesným M2 schválením, frozen oraclem,
+commitem a restartem backendu; má nezávislé APPLICATION_ACCEPTANCE_REVIEW_PASS.
+Historické neúspěchy a jejich modelové výstupy zůstávají beze změny.
 Skutečné zobrazení GPU/modelových hodnot v IDE má přijatý V7 průchod.
 Hunt stále čeká na úplné přijaté hodnocení. Mobilní zařízení přijdou po
 stabilním IDE/BE, podle zadání operátora.
@@ -23,7 +24,7 @@ stabilním IDE/BE, podle zadání operátora.
 | Packaged IDE/CODE ledger | Přijaté DOM handlery→šest kompletních generací→M2→oracle→commit a durable DB | Kliky byly přes DOM button.click(), nikoli pointer hit-test; fyzická dostupnost tlačítek v jejich okamžiku netestovaná; širší projekty/release |
 | Worker | Skutečný pětiminutový test, první změna po intervalu, jedna notifikace, restart a čistý stop | Dlouhý soak a souběh mnoha workerů |
 | M3 specialista | Skutečný ProjectContext ze dvou projektů, provenance, stale/foreign odmítnutí, deterministické testy PASS | Živá expert-vs-general kvalita |
-| SQLite oracle | Source `34cfc198`: 62/62 autorských CPU, 21/21 nezávislých CPU, registered9/9 a CI SUCCESS / source REVIEW_PASS | Přijatá skutečná aplikace |
+| SQLite oracle | Source `34cfc198`: 62/62 autorských CPU, 21/21 nezávislých CPU, registered9/9 a CI SUCCESS / source REVIEW_PASS; actual `f5964604` i nezávislý stejný oracle PASS | Obecnější a větší projektové průchody |
 | SQLite Qwen3.8 | Sedm úplných generací, ale zakázaná schema dependency; APPLICATION_FAIL, rollback7/7, žádný commit; rejection review PASS | Modelová oprava přes existující nový M2 plán |
 | SQLite Qwen3.6 | Čtyři úplné generace; pátý prompt 9468B >8736B, odmítnut před voláním; 0 M2 operací/efektů/zpráv; review důkazů PASS | Jednotlivý scénář není kvalifikovaný; kontextové limity zachované |
 | M2 failed-plan revize | Source `a27e4470`:66/66 autorských CPU, source REVIEW_PASS, registered9/9 a CI13/13. Actual8/8 pinned generací, jedna revize, šest přesných retained modulů; nezávislý failure evidence review PASS | APPLICATION_PHYSICAL_FAIL: transaction callback rozhraní; žádný commit, dva7-path rollbacky, úspěšný restart/replay nedosažen |
@@ -32,14 +33,16 @@ stabilním IDE/BE, podle zadání operátora.
 | Hunt hodnocení | Strukturální čtení 18:34 UTC nezměněné: 596/1173 odpovědí, 2324/3689 kritérií; stejný report jako 13:31 a 17:21 | Přijatý grader chybí, zbývá 577 odpovědí /1365 kritérií; NO_DECISION /NO_GO. Proč se publikované výsledky neposunuly, je UNKNOWN |
 | HTTP projekty | Předem připravený omezený návrh testu | Rozhodnutí o novém M2 síťovém oprávnění; HTTP_NOT_RUN |
 | Mobil | Auditovaný handoff, historických47 host testů a přijaté VPN/TLS rozhodnutí | Fyzická matice13+7 NOT_RUN, skutečné zařízení/VPN a integrační mezery |
-| CODE peer kontext | SOURCE_REVIEW_PASS; CPU 8 811 → 8 692 B. Lokálně 100 + 22 PASS, šest registry PASS + census recheck PASS, HTTP 75 assertions PASS, CI 13 SUCCESS | Doložená omezená úspora; větší zdroje dál správně odmítané. Celá aplikace stále FAIL |
-| SQLite indexed860 | Osm úplných připnutých výstupů, nové přesné M2 schválení, šest retained modulů a dva rollbacky sedmi cest. Callback funguje, vstupy vyhověly rozpočtu | Historický APPLICATION_FAIL: CLI maže dvakrát. Devátá CLI revize autorizovaná; nový runner má CPU průchod, fyzická aplikace ještě nepřijatá |
+| CODE peer kontext | SOURCE_REVIEW_PASS; CPU 8 811 → 8 692 B. Lokálně 100 + 22 PASS, šest registry PASS + census recheck PASS, HTTP 75 assertions PASS, CI 13 SUCCESS; následná SQLite aplikace přijatá | Doložená omezená úspora; větší zdroje dál správně odmítané |
+| SQLite indexed860 | Osm úplných připnutých výstupů, nové přesné M2 schválení, šest retained modulů a dva rollbacky sedmi cest. Callback funguje, vstupy vyhověly rozpočtu | Historický APPLICATION_FAIL: CLI maže dvakrát. Původní packet a status zůstávají; následující samostatná devátá revize přijata |
+| SQLite CLI continuation | Zmrazený `f5964604`: jediná nová skutečná generace, šest přesných retained modulů, nový preview/digest, stale409, pending restart, přesné approval, oracle, commit `a5e789cb` a závěrečný BE restart/replay/postRestartApp PASS; APPLICATION_ACCEPTANCE_REVIEW_PASS | Milník přijat. Persistence aplikační DB mezi procesy v jednom sandboxu; stejná DB mezi oddělenými sandboxy netvrzená. Instalované IDE/release mají vlastní brány |
 | Cleanup | REVIEW_PASS: atomicky odstraněny pouze tři vlastní lokální refs, 216→213 branches, 71→71 worktrees. Tagy, ostatní refs a worktree metadata zachované; obnova v odděleném bare repo PASS. Hunt zpět na původní čisté větvi | BC větev HOLD_CONDITIONAL, fyzické worktree removal HOLD; další cizí/UNKNOWN větve nepřijaté k odstranění |
 
 ## Publikované a uchované materiály
 
-- [Generované aplikace](../examples/generated-apps/README.md):17 skutečných
-  modelových modulů tří přijatých snapshotů; [archivní IDE probe](../materials/ide2-code-dom-physical-response-guard-20261001/README.md)
+- [Generované aplikace](../examples/generated-apps/README.md):24 skutečných
+  modelových modulů čtyř přijatých snapshotů, nově sedm SQLite modulů;
+  [archivní IDE probe](../materials/ide2-code-dom-physical-response-guard-20261001/README.md)
   obsahuje15 přijatých zdrojových souborů bez privátních runtime dat.
 - Dříve zmrazený skutečně testovaný zdroj je
   [`a27e44701c2160e24ef4b3a37528f6a2f6e745a4`](https://github.com/Belphareon-bak/intentsmith/commit/a27e44701c2160e24ef4b3a37528f6a2f6e745a4).
@@ -392,3 +395,60 @@ aktuální integrační profil. CPU scanner experiment probíhá pouze v privát
 packetu, bez změny právě připravovaného kandidáta. Hunt přejímka měřidla,
 M5/M6 a mobilní fyzické brány zůstávají samostatné otevřené výsledky. CHAT
 nadále vlastní druhý worker; veškeré běžné navazující opravy jsou autorizované.
+
+## Release příprava M5/M6 — 2. 10. 2026
+
+Read-only audit připravil osm category payload kandidátů, všechny
+**UNSIGNED_UNACCEPTED / assessmentCompleted=false**. Existující incident
+manifest SHA `bcf08f11dd675a02ce29adae964c1efc09d6538a6a12d7e35506c9927d621855`.
+Audit SHA `8292164e14006f3f13942f7d38bf96bf90672c8937ec366c253357c46d7b77d6`,
+manifest SHA `8c13755f882cd0ebb5f02c20563a259eed653d23fd8ab8daa066156ee20f33a8`;
+privátní packet `.intentsmith-artifacts/m5-m6-release-preparation-20261002`.
+Žádný podpis, rotace credentialu, custody receipt ani produkční změna.
+Chybí 13 signed receipts a M6 release evidence index.
+
+Historická fakta operátora již existují; nepokládá se stejná otázka znovu.
+Administrative-api, ephemeral-authority a project-external vyžadují další
+konkrétní posouzení, nejsou automaticky N/A. Backup compatibility opravy
+`65bcbc4b`/`b4136a43` zůstávají přijaté. Historické 24h soak/throughput
+na `193e2351` nenahrazují běh finálního kandidáta: současný verifier vyžaduje
+exact candidateSha a Decision038 obě fáze na jednom zmrazeném zdroji po
+ostatních technických branách. Raw původních běhů v omezeně prohledaných
+známých kořenech **RAW_NOT_LOCATED**, nikoli prokázaná ztráta. Finální soak,
+offline recovery kopie klíčů a skutečné nezávislé podpisy zůstávají otevřené.
+
+## SQLite — přijatý funkční milník, 2. 10. 2026 08:50 UTC
+
+Zmrazený `f5964604` má SOURCE_REVIEW_PASS
+`92a3d31bde3ed594898acc75831b018ed45d786b6f1b0e519d60565119933123`,
+čtyři dotčené registered sady PASS a
+[CI SUCCESS, 13 kroků](https://github.com/Belphareon-bak/intentsmith/actions/runs/36982493222).
+Skutečný Qwen3.8/22130167/provider0.34.0 průchod 08:18:22–08:18:41 UTC
+provedl právě jednu devátou CLI generaci. Šest modulů zachováno, žádná ruční
+oprava modelového kódu. Přesný náhled, nový digest/approval, stale409,
+pending restart, frozen oracle, Git commit `a5e789cb` a závěrečný backend
+restart/replay/postRestartApp prošly.
+
+Nezávislé **APPLICATION_ACCEPTANCE_REVIEW_PASS**, receipt
+`41d18e640cfbeaa9aaad38813ba822335f472438c5b96e72a0de823f9fb7302f`;
+manifest `712bd19ec61857fd2b4901393fcfb552316ed4603033ca60c4822902b57372bc`.
+Potvrzeno 21 exact durable materiálů, failed/failed/succeeded, 14 historických
+rollbacků, nový exact commit a nezávislý stejný oracle PASS. Původních379 i
+nových646 raw souborů zachováno včetně módů a Git indexu. Restart/replay
+HTTP bodies nejsou zvlášť uchované; dosažené runner assertions a immutable
+DB potvrzují jednu novou approval/execution. Persistence má původní rozsah
+mezi procesy v jednom sandboxu, nikoli stejnou DB mezi sandboxy.
+
+[Sedm přesných zdrojů /8 965 B](../examples/generated-apps/sqlite-catalog/README.md)
+má samostatné **SOURCE_EXPORT_REVIEW_PASS**, receipt
+`00b78d60b3d2d7ea91f0b194d3df248e6b3679086b97a8f4ce729d20e25c42a4`.
+Export manifest `d0784275c353bfeed2408a84f5ef08ec8463f1ff578440eb046b1d0bb130461c`;
+původních17JS a všechny jejich manifesty přesné. Žádné DB, credentials,
+machine paths ani raw prompty/provider obaly. Milník uzavřen; necertifikuje
+instalované IDE, produkční nasazení nebo celý release.
+
+Navazuje [obecný M2 AST scanner](wp/WP-M2-AST-IMPORT-SCANNER-20261001.md).
+WP-first scope vymezuje trusted async adapter, čistý evaluator, úplný
+source-bound parser výsledek, bounded child a cancellation před efektem.
+Design má nezávislé přijetí architektury; implementace a source review teprve
+následují. CHAT, mobil, aktivace modelů a produkce mimo tento přírůstek.

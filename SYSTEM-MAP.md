@@ -1,21 +1,23 @@
 # IntentSmith — mapa systému
 
-**Aktuální vývojový checkpoint 1. 10. 2026:** [přesné identity zdroje,
+**Aktuální vývojový checkpoint 2. 10. 2026:** [přesné identity zdroje,
 instalace, testů a zbývajících bran](docs/review/2026-09-30-COMPLETION-TRACKER.md).
 Chronologie níže zachovává důkazy předchozích instalací a větví.
 
-Nechatový zdroj `34cfc198` má **9/9 registrovaných PASS / REVIEW_PASS**
-a GitHub CI SUCCESS. M3 přímo četl dva izolované projekty, doložil přesný
-nález i provenance a odmítl stale/foreign scope. SQLite sedmimodulový scénář
-má přijatou opravu JSON boundary. První skutečný sedmigenerační průchod měl
-funkční PASS, ale CONTRACT_CHANGES_REQUIRED kvůli zakázanému schema importu.
-Navazující oprava má 62 CPU PASS / source REVIEW_PASS. Skutečné Qwen3.8
-opakování správně odmítlo porušení: APPLICATION_PHYSICAL_FAIL a nezávisle
-přijaté odmítnutí/rollback/trvalý DB záznam. Totožný Qwen3.6 průchod NOT_RUN
-čeká na cizí GPU lease; obecný M2 textový scanner má další známou mezeru.
-První start s 0 inferencemi i nevyhovující skutečný průchod jsou uchované. Pravomoc skutečných
-HTTP testů zůstává návrhem vyžadujícím rozhodnutí. Tyto důkazy neaktualizují
-produkční BE `c84b88cd` ani celou release přejímku.
+Zmrazený `f5964604` má SOURCE_REVIEW_PASS, čtyři dotčené registrované sady
+PASS a vlastní CI13 SUCCESS. SQLite pokračování 08:18 UTC dodalo právě
+jeden nový úplný CLI výstup a šest přesných zachovaných modulů. Nový plán,
+přesné approval, frozen oracle, commit `a5e789cb` a backend restart/replay/
+postRestartApp prošly; nezávislá APPLICATION_ACCEPTANCE_REVIEW_PASS přijala
+přesný scénář, receipt `41d18e640cfbeaa9aaad38813ba822335f472438c5b96e72a0de823f9fb7302f`.
+Sedm přesných modelových zdrojů /8 965 B je v [SQLite příkladu](examples/generated-apps/sqlite-catalog/README.md). Původní dva failed
+plány a jejich rollbacky zůstávají. Aplikační DB je ověřená mezi procesy
+uvnitř jednoho sandboxu; další sandbox má novou privátní DB.
+M3 doložil skutečný ProjectContext a stale/foreign odmítnutí. GPU V7 readonly
+UI a cleanup tří vlastních refs jsou přijaté. Obecný M2 AST scanner má CPU
+přípravu; větší projekt, aktuální celý profil, Hunt grader, M5/M6 a mobil
+zůstávají otevřené. CHAT vlastní druhý worker. HTTP permission zůstává
+samostatným návrhem. Produkční BE `c84b88cd` ani release nebyly aktualizovány.
 
 **Poslední doložený vizuál IDE 2.0, 2026-09-29:** místně instalovaný frontend
 `fddfe996` používá schválenou paletu nastavení B s 20% nárůstem sytosti,

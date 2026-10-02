@@ -1,12 +1,15 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktuální checkpoint 2. 10. 2026, 08:06 UTC:** CODE context formatter má
+**Aktuální checkpoint 2. 10. 2026, 08:50 UTC:** CODE context formatter má
 SOURCE_REVIEW_PASS a historický overflow CPU replay 8 811 → 8 692 B při
 nezměněném limitu. SQLite actual860 dodal osm úplných generací, ale oracle
 odhalil dvojité mazání v CLI; oba plány úplně rollbacknuté, žádný commit.
 Nezávislé review přijímá důkazy FAIL. Operátor autorizoval jednu navazující
-CLI revizi se šesti zachovanými moduly; nový runner má řízený CPU backend/M2/
-commit/restart průchod, fyzická modelová přejímka teprve následuje.
+CLI revizi se šesti zachovanými moduly. Zmrazený `f5964604` nyní prošel jedinou
+novou skutečnou generací, přesným M2 schválením, frozen funkčním testem,
+commitem `a5e789cb` a backend restart/replay/postRestartApp. Nezávislá
+APPLICATION_ACCEPTANCE_REVIEW_PASS přijala přesný SQLite scénář; sedm
+modelových zdrojů se publikuje. Historický osmigenerační FAIL zůstává.
 Skutečný Ledger, TaskFlow, M3 ProjectContext a pětiminutový worker mají přijaté
 dílčí důkazy. GPU/model readonly UI audit V7 a odstranění tří vlastních refs
 jsou přijaté uzavřené výsledky; Hunt grader/modelové rozhodnutí nejsou přijaty.

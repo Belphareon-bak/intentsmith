@@ -1,7 +1,7 @@
 # Accepted generated application snapshots
 
-These 11 JavaScript files are the exact model-produced source bytes from two
-accepted CODE/backend/M2 application journeys. They were copied without fixes,
+These 24 JavaScript files are the exact model-produced source bytes from four
+accepted CODE/backend/M2 application snapshots. They were copied without fixes,
 formatting changes or substituted reference implementations. No database,
 runtime identity, prompt, full response, credential or machine path is included.
 
@@ -9,12 +9,15 @@ runtime identity, prompt, full response, credential or machine path is included.
 | --- | --- | --- | --- |
 | Expense Ledger | 6 | `92f7b51c2423bdd2cc5633903a579b611d01f7f3` | `8b52262b4d7b3124451cde1a2bb8177315b2feef` |
 | TaskFlow | 5 | `6f0f04d5034a5f7307882c3d0034f644c89f8dc4` | `523773dc9c4bf450cb4cbee9d2d3d7bf08f53792` |
+| Packaged IDE Expense Ledger | 6 | See its separate manifest below | `7a38869cb25c1d0e3826cbf66a81dd69f8be83a8` |
+| [SQLite Catalog](sqlite-catalog/README.md) | 7 | `f5964604cb76cad916fdc1ef894bfc6519c7e0d5` | `a5e789cbda24e009c0eeefeda16c202877d1b88f` |
 
 The generated project commits identify the original private application Git
-repositories; those Git objects are not imported here. `MANIFEST.json` pins
-every exported file's byte count, SHA-256 and original Git blob identity.
+repositories; those Git objects are not imported here. The unchanged parent
+`MANIFEST.json` pins the first 11 files; IDE Ledger and SQLite each have their
+own manifests with byte counts, SHA-256 and original Git blob identities.
 All file contents match the original provider output, M2 preview, committed
-blob and filesystem. The manifest also pins the already published Work Package
+blob and filesystem. The parent manifest also pins the published Work Package
 receipts at IntentSmith revision `f96c2d2358aef1e9239249d2f87949f200d83800`.
 
 The runs used `qwen3.8:latest` at exact digest
@@ -26,8 +29,10 @@ and does not repeat or broaden the historical functional acceptance.
 ## Use from the IntentSmith repository root
 
 Node 24 and the repository's existing `type: module` package context support
-these dependency-free modules. Each `run` creates fresh in-memory state and
-accepts command tuples. The files contain exported functions rather than an
+these dependency-free modules. The Ledger and TaskFlow `run(commands)` examples
+below create fresh in-memory state and accept command tuples. SQLite has a
+separate [persistent `run(dbPath, commands)` interface](sqlite-catalog/README.md).
+The files contain exported functions rather than an
 automatic process entrypoint. For example:
 
 ```sh

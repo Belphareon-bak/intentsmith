@@ -1,7 +1,15 @@
 # WP — funkční SQLite aplikace vytvořená modelem CODE
 
-**Stav:** `SOURCE_FIX_REVIEW_PASS / REGISTERED_9_PASS / QWEN38_LIVE_FAIL`.
-**Checkpoint 15:40 UTC:** skutečný běh na `936e9a33` měl sedm úplných
+**Stav:** `APPLICATION_ACCEPTANCE_REVIEW_PASS / PHYSICAL_SQLITE_SCENARIO_ACCEPTED`.
+**Aktuální checkpoint 2. 10. 2026:** pokračování na zmrazeném `f5964604`
+prošlo devátou CLI generací, přesným M2 approval, frozen oraclem, commitem
+`a5e789cb` a backend restart/replay. Nezávislé review
+`41d18e640cfbeaa9aaad38813ba822335f472438c5b96e72a0de823f9fb7302f` přijímá
+omezený backend SQLite scénář. [Přesný navazující výsledek a hranice](WP-CODE-PEER-CONTEXT-BUDGET-20261001.md#10-zmrazené-skutečné-pokračování--2-10-2026-0818-utc)
+a [sedm skutečných zdrojů](../../examples/generated-apps/sqlite-catalog/README.md).
+Historické neúspěchy níže a jejich raw/modelové bajty zůstávají.
+
+**Historický checkpoint 15:40 UTC:** skutečný běh na `936e9a33` měl sedm úplných
 generací a funkční PASS, ale nezávislá kontrola našla porušení pevného
 importového kontraktu. Celková fyzická přejímka není PASS.
 **Autorita:** výslovný požadavek operátora dokončit a skutečně otestovat různé

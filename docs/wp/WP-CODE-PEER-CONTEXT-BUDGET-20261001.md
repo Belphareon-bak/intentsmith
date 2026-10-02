@@ -9,12 +9,11 @@ a kontrola výsledku. Naměřený stav zůstává v
 [`completion trackeru`](../review/2026-09-30-COMPLETION-TRACKER.md).
 Tento WP nepřidává produktovou ani schvalovací autoritu.
 
-**Stav:** `CONTEXT_SOURCE_REVIEW_PASS / APPLICATION_FAIL / CONTINUATION_AUTHORIZED / CONTINUATION_SOURCE_REVIEW_PENDING`.
-CPU experiment, produktový formatter a historický zmrazený modelový průchod dokončeny;
-aplikace neprošla. Operátor povolil další omezenou CLI revizi; její zdrojové
-review a brány předcházejí jedinému novému modelovému volání.
-Samotný CPU výsledek není funkční přejímka aplikace. Operátor následně
-výslovně autorizoval pokračování, viz §8; historický osmigenerační FAIL platí.
+**Stav:** `CONTEXT_SOURCE_REVIEW_PASS / CONTINUATION_SOURCE_REVIEW_PASS / APPLICATION_ACCEPTANCE_REVIEW_PASS / MILESTONE_ACCEPTED`.
+CPU experiment a produktový formatter dokončeny. Po autorizované jediné
+CLI revizi skutečná aplikace prošla celým omezeným backend/M2 kontraktem.
+Nezávislá fyzická přejímka přijala doložený scénář; historický osmigenerační
+FAIL platí. Release a instalované Studio mají samostatné brány.
 
 ## Vlastnictví a konkrétní výsledek navazujícího milníku
 
@@ -408,3 +407,73 @@ neúplná fake inventory LLM_PROVIDER_UNAVAILABLE s nulou generací a odlišné
 directory módy kopie. Konfigurace CPU fixture a módy pouze nové kopie jsou
 opravené; žádný provider workaround ani změna modelových bajtů.
 Expanded source review a registrované brány aktuálního kandidáta probíhají.
+
+## 10. Zmrazené skutečné pokračování — 2. 10. 2026 08:18 UTC
+
+Čistý kandidát `f5964604cb76cad916fdc1ef894bfc6519c7e0d5` má přesný remote,
+[CI SUCCESS, 13 kroků](https://github.com/Belphareon-bak/intentsmith/actions/runs/36982493222)
+a SOURCE_REVIEW_PASS, receipt
+`92a3d31bde3ed594898acc75831b018ed45d786b6f1b0e519d60565119933123`.
+Reviewer ověřil celý původní manifest379, odmítnutí změny DB/souboru/módu
+před GPU a tvrdou mez právě jednoho forwardovaného requestu. V1 wire,
+produktový formatter, oracle i původní modelové výstupy zůstaly přesné.
+
+Čtyři potřebné registrované sady prošly ve dvou reportech: artifact a module
+boundary PASS, report SHA
+`f17a1c6c97fd92ac5eb63e9db0081138dbbd8ce6659626b8b1722a5488e94d0e`;
+obě app sady PASS s explicitními toolchain prerequisites, report SHA
+`e716717e6abfc3ea33cc8bca37b6d49349aaab1c859b05e7a740fb29e9a95edf`.
+První výběr chybného ID skončil ERROR bez spuštěných sad; následný běh
+bez toolchain flags měl 2 PASS /2 BLOCKED. Oba zůstávají uchované a nejsou
+vydávané za zelenou bránu.
+
+Před živým startem zmrazená konfigurace má SHA
+`0cfa8da65fbb2af0500b4e0f0687e1464b1ba5fc6dd3e70c06dabf24cf2b7ac9`:
+přesný zdroj, model/digest/provider, jeden nový request, blueprint1c2f,
+šest retained modulů, oracle28c9 a repair context8192/output2048/reserve384/
+maxPrompt11520. Vlastní GPU lease získána až bez cizího compute/requestu.
+
+Skutečný běh **08:18:22.941–08:18:41.453 UTC, exit0 / PHYSICAL_PASS**.
+`qwen3.8:latest`, digest
+`22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643`,
+provider `0.34.0-intentsmith.1`, dodal právě jednu úplnou CLI odpověď.
+Request SHA `fed2cde62aa713ebb89b6e97eb9ce50cd97e4dd8a03604487322f294cdfbef3c`,
+CLI output/preview SHA
+`944d56317cb72e0692be8e35ea854079570c8a0acc35de9388271110a19c01e9`.
+Celý řetězec má devět generací; šest modulů zachováno přesně. Mazání se
+nyní provede právě jednou. Nový preview/digest, starý digest409, pending
+backend restart, přesné approval, frozen oracle a Git commit
+`a5e789cbda24e009c0eeefeda16c202877d1b88f` prošly. Závěrečný backend
+restart, durable status/replay a `postRestartApp` opět prošly.
+
+Raw result SHA `f3eb674dbba8b0b79b995f857d64fb39433882d8bae53f79f41a5f06634c1f59`;
+app journey SHA `3003b460491a4e57bdc5ca4695b5f7c88a98f6028758759dc9e46333e38a178f`.
+Soukromý packet
+`.intentsmith-artifacts/sqlite-catalog-cli-continuation-f5964604-20261002-0816`.
+Původních 379 souborů nezměněno; relay prázdný, vlastní model uvolněný,
+GPU lease odstraněná. Čistý source po běhu. Nezávislá fyzická přejímka
+je **APPLICATION_ACCEPTANCE_REVIEW_PASS / PHYSICAL_SQLITE_SCENARIO_ACCEPTED**,
+receipt SHA `41d18e640cfbeaa9aaad38813ba822335f472438c5b96e72a0de823f9fb7302f`,
+review manifest `712bd19ec61857fd2b4901393fcfb552316ed4603033ca60c4822902b57372bc`.
+Reviewer znovu rekonstruoval request5700/11520, tři exact approval/plan/terminal
+vazby, 21 durable materiálů, failed/failed/succeeded, 14 historických rollbacků,
+sedm nových zápisů a test/commit. Vlastní samostatný canonical RO oracle PASS;
+všech 646 nových raw souborů /35 261 871 B i původních379 zachováno včetně
+Git indexů. Tři chyby polí/enum v reviewer checkeru jsou uchované a opravené,
+žádná změna produktu ani raw důkazů.
+
+Persistence má původní rozsah: stejná SQLite DB mezi dětskými procesy
+uvnitř jednoho sandboxu. Backend restart ověřil durable M2 DB, commit a
+zdroje; nový sandbox znovu provedl oracle na nové privátní DB. Stejný DB
+soubor přes dvě sandbox invocations, instalované IDE a release netvrzené.
+Restartové a replay assertions dosáhl skutečný runner se třemi backend PID;
+jejich HTTP response bodies nejsou zvlášť uchované. Immutable DB nezávisle
+potvrdila jediný nový approval a execution. Nejde o tři nové modelové běhy.
+
+Milník uzavřen v tomto přesném rozsahu. [Veřejný source-only export](../../examples/generated-apps/sqlite-catalog/README.md)
+obsahuje sedm přesných modulů /8 965 B; žádný DB, prompt, full response ani
+private Git object. Samostatná copy/privacy kontrola exportu má SOURCE_EXPORT_REVIEW_PASS,
+receipt `00b78d60b3d2d7ea91f0b194d3df248e6b3679086b97a8f4ce729d20e25c42a4`;
+export manifest `d0784275c353bfeed2408a84f5ef08ec8463f1ff578440eb046b1d0bb130461c`.
+Nejcennější další krok: obecný M2 AST scanner a skutečný větší projektový
+průchod; žádné opakování již přijatého SQLite/GPU/cleanup výsledku.

@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "kind": "exact-model-generated-sqlite-source",
+  "sourceFiles": 7,
+  "sourceBytes": 8965,
+  "sourceEditedAfterPhysicalRun": false,
+  "physicalHarnessSourceCommit": "f5964604cb76cad916fdc1ef894bfc6519c7e0d5",
+  "generatedProjectCommit": "a5e789cbda24e009c0eeefeda16c202877d1b88f",
+  "model": "qwen3.8:latest",
+  "modelDigestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+  "providerVersion": "0.34.0-intentsmith.1",
+  "originalGenerations": 8,
+  "newGenerations": 1,
+  "generationChainTotal": 9,
+  "originalRunStartedAt": "2026-10-02T08:18:22.941Z",
+  "originalRunEndedAt": "2026-10-02T08:18:41.453Z",
+  "oracleSha256": "28c9b73f1eec7e0b32a6e563f75f71da1d7b9f60a6a8dc149fbdbbb2c9a0ceb3",
+  "originalReceiptSha256": {
+    "result.json": "f3eb674dbba8b0b79b995f857d64fb39433882d8bae53f79f41a5f06634c1f59",
+    "app-journey.json": "3003b460491a4e57bdc5ca4695b5f7c88a98f6028758759dc9e46333e38a178f",
+    "draft.json": "3821e534427dc68d86e0a074913020763472ba2e7ecc2cc1cbaf8af2ecb174e1",
+    "terminal.json": "0ef70ba9285167cde46f091711487957684798b2d0632d39fa8d032e5c3c4180",
+    "provider-requests.json": "8612dac0bf5309bee0ebfa41ae8b87b925eccce9962afbb38788472cfd79490f"
+  },
+  "files": [
+    {
+      "path": "src/app.js",
+      "bytes": 32,
+      "sha256": "2d56d807f8c0274991a2361c394a7cc8066612c8dd33337e110b6984a3ef3802",
+      "gitBlobSha1": "556c30caf1e3d48afd8a89298c6310cf3c8de8a3",
+      "generationPosition": 7,
+      "retainedFromPreviousPlan": true
+    },
+    {
+      "path": "src/cli.js",
+      "bytes": 1942,
+      "sha256": "944d56317cb72e0692be8e35ea854079570c8a0acc35de9388271110a19c01e9",
+      "gitBlobSha1": "f1e2401fd166230bc53d09fcefc4106603a7d33a",
+      "generationPosition": 9,
+      "retainedFromPreviousPlan": false
+    },
+    {
+      "path": "src/query.js",
+      "bytes": 616,
+      "sha256": "e2f855fb06375e46deea8a6e863cf40df9400990d78aaf6217a00dab82827580",
+      "gitBlobSha1": "48debcf922d46a33447b4c36b87daadfcfde64e7",
+      "generationPosition": 1,
+      "retainedFromPreviousPlan": true
+    },
+    {
+      "path": "src/schema.js",
+      "bytes": 311,
+      "sha256": "5772fcc794c75a57a616c6b81d70113b65714caf9f094523fa1ac615a461c0d9",
+      "gitBlobSha1": "cbc1126e32ba25a36b690eb4c614b9e6e7bb78bc",
+      "generationPosition": 8,
+      "retainedFromPreviousPlan": true
+    },
+    {
+      "path": "src/service.js",
+      "bytes": 1119,
+      "sha256": "7ae903c23b20f0b1a9c133657ff6c3b57b7fae381b1debc5db4f5666a9c4ff3e",
+      "gitBlobSha1": "3342fb9604c75fa1d494aaec826d4c40175160a6",
+      "generationPosition": 5,
+      "retainedFromPreviousPlan": true
+    },
+    {
+      "path": "src/store.js",
+      "bytes": 2855,
+      "sha256": "497d01e777dbccd6da432386b9fd84000d9411aa4974504096c88919623f28d6",
+      "gitBlobSha1": "d6360c77ddb38d4f5e6104d97822e3d23cfb1897",
+      "generationPosition": 3,
+      "retainedFromPreviousPlan": true
+    },
+    {
+      "path": "src/validate.js",
+      "bytes": 2090,
+      "sha256": "5ab4321ef2d7b42c960656d834208dba7245ccc79df43e0e71a4834b2ff4f0e1",
+      "gitBlobSha1": "5992f63307be7a2f0e088af8e4cf403578505a79",
+      "generationPosition": 4,
+      "retainedFromPreviousPlan": true
+    }
+  ],
+  "reviewStatusAtExport": "APPLICATION_ACCEPTANCE_REVIEW_PASS",
+  "physicalQualification": "PHYSICAL_SQLITE_SCENARIO_ACCEPTED",
+  "independentPhysicalReviewSha256": "41d18e640cfbeaa9aaad38813ba822335f472438c5b96e72a0de823f9fb7302f",
+  "independentPhysicalReviewManifestSha256": "712bd19ec61857fd2b4901393fcfb552316ed4603033ca60c4822902b57372bc",
+  "frozenConfigurationSha256": "0cfa8da65fbb2af0500b4e0f0687e1464b1ba5fc6dd3e70c06dabf24cf2b7ac9",
+  "historicalPacketManifestSha256": "a853f74038ca8bd26a006e52dc44b1ad2ff05859b641b5cbc1bf4a013aa0a8a2",
+  "exactNewRequestSha256": "fed2cde62aa713ebb89b6e97eb9ce50cd97e4dd8a03604487322f294cdfbef3c",
+  "qualificationBoundaries": [
+    "SQLite row persistence is independently verified across generated CLI child process exits/reopens within one oracle sandbox.",
+    "Each separate canonical focused-test sandbox creates a fresh private /tmp DB. Backend restart proves durable M2 proposal/result/binding, exact source bytes and Git commit; post-restart oracle verifies the app anew, not reuse of the same app DB across sandbox invocations.",
+    "Three distinct backend PIDs and a clean runner PASS prove reached pending restart, terminal restart and exact approval replay assertions. These HTTP response bodies were not separately retained; immutable DB confirms one new approval and execution.",
+    "Actual backend CODE/M2 scenario; installed Studio renderer, production deployment, CHAT, mobile and whole release acceptance outside this snapshot."
+  ]
+}
