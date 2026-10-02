@@ -51,7 +51,7 @@ Přesný globální počet slov má deterministicky ověřené číslice 1–100
 
 Rozpočet vychází z efektivní kapacity modelu a konzervativních odhadů bajtů/tokenů, nikoli z jeho přesného tokenizeru. Kompakci vyvolává tlak na kapacitu i pojistka při dosažení stropu načítání 50 zpráv, aby nezmizela neshrnutá zpráva. Tím se odstraňuje předčasný desetizprávový spouštěč, ale nejde o neomezenou historii ani univerzální záruku přesného počtu tokenů.
 
-Dohledání archivovaných podkladů je omezené: prvních 1000 archivovaných uživatelských zpráv, nejvýše tři relevantní zdroje, společně 1200 UTF-8 bajtů. Dlouhá zpráva dává pouze přesný začátek do 512 bajtů, explicitně označený `contentTruncated`; původní úplná zpráva zůstává v DB. Relevance vybírá podklady, neinterpretuje efekty ani neopravuje hodnoty. Budoucí rozšíření má přidat dohledání dalších oken/identit bez vydávání zkráceného výňatku za celý důkaz.
+V kandidátu S1 bylo dohledání archivovaných podkladů omezené: prvních 1000 archivovaných uživatelských zpráv, nejvýše tři relevantní zdroje, společně 1200 UTF-8 bajtů. Dlouhá zpráva dává pouze přesný začátek do 512 bajtů, explicitně označený `contentTruncated`; původní úplná zpráva zůstává v DB. Relevance vybírá podklady, neinterpretuje efekty ani neopravuje hodnoty. Budoucí rozšíření má přidat dohledání dalších oken/identit bez vydávání zkráceného výňatku za celý důkaz.
 
 Změny jsou na samostatné větvi. Cizí checkouty, dirty práce, procesy, GPU rezidence, providerové bindingy a produkční release nejsou převzaté. Jediný přesný importní baseline přidal 14 konkrétních source hran; cykly zůstaly 3 / 28. Nejde o plošné schválení libovolných importů.
 
@@ -144,6 +144,23 @@ Další práce: celý technický profil aktuálního runtime a izolované srovn�
 již instalovaných přesných artefaktů na stejných dialozích. Produkční modelové
 bindingy se nemění. Po volbě kandidáta následují tři nezměněné regresní série
 původních 53 případů; odhalené F14–F20 nejsou nový nepoužitý holdout.
+
+## Milník S3 — archiv po tisící zprávě (2. 10. 2026)
+
+| Změna uživatelského chování | Stručný důkaz | Zbývající problém | Jeden následující krok |
+| --- | --- | --- | --- |
+| Dohledání prochází celý archiv po stránkách místo odříznutí po prvních 1 000 uživatelských zprávách. Novější relevantní oprava má místo před staršími záznamy s vyšším počtem shodných slov; při omezeném providerovém rozpočtu se vkládá před nimi. Původní identita a nezměněná omezení zůstávají dohledatelná. | Reprodukce `08eb27f1`: dvě nové kontroly FAIL v paměti i SQLite. `856e07c3`: stejná sada 17/17 PASS včetně více než 1 000 zpráv, pozdější kratší opravy, cizího projektu, asistentského výmyslu a těsného 330B rozpočtu. Celkem sedm cílených sad PASS, M1 74/74. | Živá odpověď nad takto dlouhým archivem ještě není ověřená. Výběr je stále lexikální: nejnovější shodný podklad, původní nejsilnější podklad a další relevantní zdroj; nejvýše tři výňatky / 1 200 B, dlouhé zprávy mají označený přesný začátek do 512 B. Není to záruka zachycení každé významové opravy bez společných slov nebo za koncem výňatku. | Ověřit celý M1/providerový průchod s privátním archivem nad 1 000 zprávami a ztrátovým starším souhrnem. |
+
+Poslední úplný profil `chat-quality-full-20261001-capabilities` na `3e862ecf`
+se při přerušení nedokončil: checkpoint 108/406, závěrečný report chybí,
+proces neběží. Stav **INCOMPLETE**, nikoli PASS ani celý FAIL profil.
+Neúplná evidence zůstává zachovaná.
+
+Aktuální priority operátora: (1) archiv a pozdější opravy; (2) konkrétní
+faktické chyby proti skutečným providerovým vstupům a stejnému artefaktu;
+(3) zmrazená přejímka s významem a rozkladem latence; (4) CI s integračním
+vlastníkem. Další porovnávání odlišných modelů je odložené. Nová série 53×3
+nebyla spuštěna; hotová S1 zůstává na `3b3b399f` s výsledkem **NO_GO**.
 
 ## Publikace a další postup
 

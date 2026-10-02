@@ -1,14 +1,15 @@
 # IntentSmith — průběh práce na kvalitě chatu
 
-Poslední aktualizace: **1. 10. 2026, 23:28 CEST**. Stav: **CHANGES_REQUIRED / WORK_CONTINUES / REVIEW_PENDING**.
+Poslední aktualizace: **2. 10. 2026, 10:18 CEST**. Stav: **CHANGES_REQUIRED / WORK_CONTINUES / REVIEW_PENDING**.
 Dokument aktualizuji po každém dokončeném milníku, nejpozději po třech hodinách
 aktivní práce. Historická selhání zůstávají uvedena; nové ověření je nepřepisuje
 na úspěch. Nejde o plánovač úloh po ukončení této pracovní relace.
 
 Větev: `work/chat-quality-20261001`. Společný výchozí commit:
 `45caf5b54b78def257221ac2ab33a64031800813`. Poslední testovaný implementační
-commit: **`c868fea3`** (aktuální oprava schopností, 7 cílených PASS a 13
-živých vývojových kroků; S1 se vztahuje výhradně k `3b3b399f`). Tento dokument se publikuje následným dokumentačním
+commit: **`856e07c3`** (oprava archivu: 7 cílených PASS, kontext 17/17,
+M1 74/74; živé ověření této opravy ještě neproběhlo). S1 se vztahuje výhradně
+k `3b3b399f`; vývojové kroky schopností k `c868fea3`. Tento dokument se publikuje následným dokumentačním
 commitem. Vlastní worktree: `intentsmith-chat-quality-20261001`.
 Mimochatový worker, jeho soubory a produkční release zůstávají nedotčené.
 
@@ -165,6 +166,23 @@ Další práce: celý technický profil aktuálního runtime a izolované srovn�
 již instalovaných přesných artefaktů na stejných dialozích. Produkční modelové
 bindingy se nemění. Po volbě kandidáta následují tři nezměněné regresní série
 původních 53 případů; odhalené F14–F20 nejsou nový nepoužitý holdout.
+
+## Milník S3 — archiv po tisící zprávě (2. 10. 2026)
+
+| Změna uživatelského chování | Stručný důkaz | Zbývající problém | Jeden následující krok |
+| --- | --- | --- | --- |
+| Dohledání prochází celý archiv po stránkách místo odříznutí po prvních 1 000 uživatelských zprávách. Novější relevantní oprava má místo před staršími záznamy s vyšším počtem shodných slov; při omezeném providerovém rozpočtu se vkládá před nimi. Původní identita a nezměněná omezení zůstávají dohledatelná. | Reprodukce `08eb27f1`: dvě nové kontroly FAIL v paměti i SQLite. `856e07c3`: stejná sada 17/17 PASS včetně více než 1 000 zpráv, pozdější kratší opravy, cizího projektu, asistentského výmyslu a těsného 330B rozpočtu. Celkem sedm cílených sad PASS, M1 74/74. | Živá odpověď nad takto dlouhým archivem ještě není ověřená. Výběr je stále lexikální: nejnovější shodný podklad, původní nejsilnější podklad a další relevantní zdroj; nejvýše tři výňatky / 1 200 B, dlouhé zprávy mají označený přesný začátek do 512 B. Není to záruka zachycení každé významové opravy bez společných slov nebo za koncem výňatku. | Ověřit celý M1/providerový průchod s privátním archivem nad 1 000 zprávami a ztrátovým starším souhrnem. |
+
+Poslední úplný profil `chat-quality-full-20261001-capabilities` na `3e862ecf`
+se při přerušení nedokončil: checkpoint 108/406, závěrečný report chybí,
+proces neběží. Stav **INCOMPLETE**, nikoli PASS ani celý FAIL profil.
+Neúplná evidence zůstává zachovaná.
+
+Aktuální priority operátora: (1) archiv a pozdější opravy; (2) konkrétní
+faktické chyby proti skutečným providerovým vstupům a stejnému artefaktu;
+(3) zmrazená přejímka s významem a rozkladem latence; (4) CI s integračním
+vlastníkem. Další porovnávání odlišných modelů je odložené. Nová série 53×3
+nebyla spuštěna; hotová S1 zůstává na `3b3b399f` s výsledkem **NO_GO**.
 
 ## Další milník a podmínky přijetí
 
