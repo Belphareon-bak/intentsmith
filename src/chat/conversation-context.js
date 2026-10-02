@@ -56,10 +56,13 @@ export function buildInterpretationContext(input, context, maxBytes) {
     throw Object.assign(new Error('The complete durable summary exceeds the interpretation budget'),
       { code: 'CHAT_INTERPRETATION_CONTEXT_LIMIT' });
   }
-  for (const source of archivedSources(context)) {
+  // Fit later evidence before older originals so context pressure cannot
+  // silently discard a known correction. Emit chronological data afterwards.
+  for (const source of [...archivedSources(context)].sort((a, b) => b.messageId - a.messageId)) {
     result.sources.push(source);
     if (bytes() > maxBytes) { result.sources.pop(); result.sourcesOmitted = true; }
   }
+  result.sources.sort((a, b) => a.messageId - b.messageId);
   // Keep complete turns in chronological order. If an antecedent is too large,
   // report the gap rather than substituting a fabricated or truncated source.
   for (let index = turns.length - 1; index >= 0; index--) {
