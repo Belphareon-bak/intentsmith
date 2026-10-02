@@ -1,9 +1,9 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 2. 10. 2026, 14:50 UTC / 16:50 CEST.
+**Aktualizováno:** 2. 10. 2026, 15:27 UTC /17:27 CEST.
 **Vlastník:** ROOT. CHAT ladí jiný worker.
 Report aktualizuji po milníku, nejpozději po 3 h aktivní práce; operátorovi
-podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
+podávám samostatný report po 2 h. **Release: NOT_ACCEPTED.**
 
 ## Přijaté výsledky
 
@@ -17,37 +17,29 @@ podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
 | GPU readonly UI | Přijatý V7: hodnoty, 24 GiB, sedm pointer akcí | Nepřejímá grader ani modelovou kvalitu; neopakuje se |
 | Cleanup | Přijaté odstranění tří vlastních refs, 216 → 213 větví | 71 worktrees zachováno; cizí/UNKNOWN/evidence se nemažou |
 
-## SQLite: důkazy a přesný rozsah
+## SQLite: přesný rozsah
 
-- Skutečný zdroj: `f5964604cb76cad916fdc1ef894bfc6519c7e0d5`.
-- Běh 2. 10. 08:18:22–08:18:41 UTC; jedna nová generace, devět celkem,
-  rozšíření 8 → 9 předem autorizované operátorem.
-- Git aplikace: `a5e789cbda24e009c0eeefeda16c202877d1b88f`.
-- Nezávislá přejímka SHA:
-  `41d18e640cfbeaa9aaad38813ba822335f472438c5b96e72a0de823f9fb7302f`.
-- Původní výstupy, dva failed plány, 14 rollbacků a 21 materiálů zachované.
-  Aplikační DB ověřená mezi procesy v jednom sandboxu; další sandbox má novou DB.
-  Backend restart/replay ověřuje M2 DB, commit a zdroje; HTTP bodies zvlášť neuchované.
-- [Sedm přesných modulů /8 965 B a source-copy/privacy review](../examples/generated-apps/sqlite-catalog/README.md).
-- Publikováno v [`cd3bece6`](https://github.com/Belphareon-bak/intentsmith/commit/cd3bece693264bf78b0744a5eead9aa9859c715b), remote SHA přesné;
-  [CI 13/13 SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36987144761).
+Zdroj `f5964604cb76cad916fdc1ef894bfc6519c7e0d5`, commit aplikace `a5e789cb`.
+Acceptance SHA `41d18e640cfbeaa9aaad38813ba822335f472438c5b96e72a0de823f9fb7302f`.
+[Přesný export: sedm modulů /8 965 B, source-copy/privacy review](../examples/generated-apps/sqlite-catalog/README.md).
+Publikovaný `cd3bece6` má [CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/36987144761).
+Devátá generace byla autorizovaná; dva failed plány, 14 rollbacků a původní
+výstupy zachované. Aplikační DB mezi procesy v jednom sandboxu, nikoli mezi
+různými sandboxy; backend restart/replay ověřuje M2 DB, commit a zdroje.
 
 ## Aktuální priority
 
 1. **Společná integrace:** publikovaný `d7e7d1b1` slučuje `2a479852` + `6f0259ec`.
    Tři konflikty vyřešené, registry 594/35; novější CHAT `00ec5b52`
-   je začleněný v `f2e6ac1a`. Poslední úplný offline/database profil
-   na publikovaném `2997afd5`: **408 PASS /0 FAIL /0 BLOCKED**, verdict PASS,
+   je začleněný v `f2e6ac1a`. Celý offline/database profil na `2997afd5`: **408 PASS /0 FAIL /0 BLOCKED**, verdict PASS,
    14:24:36–14:34:45 UTC; report SHA `b69dcc223e231412…775e5138b`.
-   Meta test i formát LOC opravené; oba původní FAIL reporty zachované.
-   DPH eligibility: nezměněný routing 100 %, runtime 57/57, session 67/67 PASS;
+   Meta/LOC opravené, původní FAIL zachované. DPH eligibility: nezměněný routing 100 %, runtime 57/57, session 67/67 PASS;
    skutečný řízený M1 HTTP/WS 4/4 PASS (info vrací expertise gap).
-   [CI na přesném `2997afd5` SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37019631848):
+   [Aktuální `592cb54c` CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37022906386):
    stažený artefakt potvrzuje **CHAT 7/7 + CODE 6/6**, všech 18 kroků SUCCESS.
-   Studio/privacy/hygiene a lokální build PASS; vývojový výběr kontrol
-   nenahrazuje celý profil ani přijetí releasu.
-   CHAT zůstává NO_GO: série 53×3 nesplnily kvalitativní cíle; archivní
-   delta je opravená, finální kvalitu dál přejímá jeho worker.
+   Celý profil je na `2997afd5`; potom se změnil jen kvalifikační helper a docs.
+   Studio/privacy/hygiene/build PASS; vývojové kontroly nepřijímají release.
+   CHAT NO_GO: 53×3 nesplnilo kvalitu; finální přejímku vlastní jeho worker.
 2. **Omezený M2 scanner:** V2 adoptovaný do skutečné default M2 služby,
    evaluator 34/34 a service 103/103 PASS: přesné approval/commit/restart,
    assertion rollback tří souborů a cancel před registrací. Dvě nezávislá
@@ -57,37 +49,43 @@ podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
    a skutečné projektové přírůstky. Ze 198 velikostních případů se při 8k
    vejde 27, při 16k 97; nejde o míru modelové úspěšnosti. Krátký skutečný
    16k load 09:51 UTC: full GPU, CPU spill 0, minfree 3 759 MiB. Plné okno
-   a skutečná aplikace NOT_RUN; produktový capture převzatý, source review
+   nikoli míra úspěšnosti. Aplikace ještě nepřijatá; capture převzatý, source review
    PASS, gateway 44/44, context 18/18, service 104/104 PASS. Dosavadní 119 B /1,4 % je omezená
-   úspora, nikoli řešení škálování. Nový živý fit měl i bez formatteru 7 781 B.
+   úspora, nikoli řešení škálování; SQLite fit i bez formatteru 7 781 B.
    `8192` je pro Qwen3.8 fallback, ne změřené maximum; build má navíc 32 000 B
    serializační mez. Úplné zdroje dál určují náhled, digest a zápis.
    [CPU podrobnosti a odmítnutá projekce](wp/WP-CODE-PEER-CONTEXT-BUDGET-20261001.md#11-větší-projekty--nová-priorita-2-10-2026).
-   **Další odlišná aplikace:** fan-monitor z existujícího projektového WP,
-   offline core/CLI, dva přírůstky. Původní D1 qualification V4
-   source review PASS; [veřejný runner](../scripts/manual/run-fan-monitor-journey.mjs)
-   a oracle v `4fb800c5`, focused 3/3 a CI SUCCESS; živý běh NOT_RUN.
+   **Odlišná aplikace fan-monitor:** offline core/CLI, dva přírůstky.
+   [Veřejný runner/oracle](../scripts/manual/run-fan-monitor-journey.mjs), source review
+   PASS; původní D1 vstup BLOCKED, fyzický D1 běh NOT_RUN.
    **D1 blokér:** ProjectHandler směruje původní požadavky do CHAT;
    jediný explicitní design prefix neopraví druhý vstup (`text` v `contextFiles`).
-   Další CODE strategie používá dokumentovaný `/m2-build <JSON>` ve Studiu,
-   explicitní operátorské zadání, stejný oracle, max11 CODE /0 D1 a nový freeze.
-   Dva helpery publikované v `734231e4`, source/input review PASS, CPU8/8;
-   plné vstupy
-   14–17 kB /10–12 kB přesahují starý8736 B guard. Modelová aplikace NOT_RUN.
+   CODE používá dokumentovaný Studio `/m2-build <JSON>`, explicitní zadání,
+   stejný oracle, max11 CODE /0 D1 a nový freeze.
+   Dva helpery `734231e4`, source/input review PASS, CPU8/8; vstupy nad starým byte guardem.
    První běh `2997afd5` skončil na kvalifikačním DOM výběru, **0 inferencí**;
    čistý stop/source/lease. Oprava jediného helperu má skutečný renderer CPU6 PASS
-   a source review PASS; nový fingerprint a živý běh čekají.
+   a source review PASS. Druhý actual běh `592cb54c`, 14:57:56–14:59:28 UTC:
+   **4 skutečné CODE generace**, exact provider identity, governance/source-policy PASS.
+   Vstupy 2 167 /2 280 /6 733 /22 258 B; poslední prompt 6 518 tokenů.
+   Náhled bez zápisu → wrong-digest409 → restart zachoval awaiting_approval.
+   Potom helper odmítl legitimní `_m2Pending`: FAN_CONVERSATION_BUSY.
+   **Approval, funkční test, commit a aplikační persistence NOT_RUN.**
+   Vlastněné procesy/lease čistě ukončené, tracked source nezměněný.
+   Další krok: exact pending resume v kopii runtime na stejné namespace cestě,
+   Helper oprava adoptovaná: typed status/binding, úplná runtime kopie na stejné
+   namespace cestě a consumed core-initial; CPU7 PASS, public import/syntax PASS.
+   Dva nové module pins jsou povinné; positive +2 negative freeze checks PASS.
+   Source review PASS; nový freeze/CI/live čekají, původní4 v max11, zbývá7.
    Oracle, 0 D1 /max11 CODE a limity oprav 172/163 UTF-8 B zůstávají stejné.
-   Tento průchod nepřijímá přirozené plánování; to zůstává CHAT workerovi.
+   Přirozené plánování zůstává CHAT workerovi.
 4. **Hunt:** aktuální kontrola 2. 10. 09:21 UTC potvrzuje 596/1173. Původní
-   hodnoticí relace skončila na týdenním limitu poskytovatele; přesný event
-   je připnutý v [Hunt WP](wp/WP-HUNT-COMPLETION-PATH-20261001.md).
-   Nové skutečné slepé Sonnet dávky daly 16/16 odpovědí a 64/64 kritérií;
-   samostatný DEVELOPMENT DRAFT, canonical počet se nepřepisuje.
+   grader skončil na týdenním limitu; [přesný event/vlastník](wp/WP-HUNT-COMPLETION-PATH-20261001.md).
+   Slepé Sonnet dávky: 16/16 odpovědí, 64/64 kritérií DEVELOPMENT_DRAFT.
    Grader, rozhodnutí a aktivace stále nepřijaté.
    Třetí dávka porušila přesnou množinu ID jedním vymyšleným prázdným řádkem.
-   Controller STOPPED, nic nefiltrováno ani přijato; skutečný list-cost
-   1,598950 USD včetně FAIL, limit 12 USD. Další volání zastavená, žádné retry.
+   Controller STOPPED; nic filtrováno/přijato, cost1,598950 USD /limit12 včetně FAIL.
+   Vlastník ROOT; structured-output CPU návrh/source review PASS, NOT_ADOPTED/NOT_RUN.
 5. **Společná přejímka IDE/BE:** aktuální celý profil, fyzické pointer UI,
    funkční větší projekty, upgrade/restore a přijetí vlastněných delt.
 6. **M5/M6:** osm nepodepsaných podkladů připraveno, 13 signed receipts

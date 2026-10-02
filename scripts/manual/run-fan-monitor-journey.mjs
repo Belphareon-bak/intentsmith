@@ -52,6 +52,7 @@ export function validateFreeze(freeze) {
   assert.equal(freeze.d1Context, 8192); assert.equal(freeze.codeContext, 16384);
   const entryMode = freeze.entryMode ?? 'd1'; assert.ok(['d1', 'manual'].includes(entryMode));
   assert.equal(freeze.maximumCode, 11); assert.equal(freeze.maximumD1, entryMode === 'manual' ? 0 : 8);
+  if (freeze.resumePending) assert.equal(entryMode, 'manual', 'only the preserved explicit CODE journey may continue');
   if (entryMode === 'manual') {
     assert.deepEqual(Object.keys(freeze.manualDrafts).sort(), ['cli', 'core']);
     for (const phase of ['core', 'cli']) {
@@ -67,6 +68,8 @@ export function validateFreeze(freeze) {
     'src/lifecycle/m2-code-draft.js', 'src/lifecycle/m2-lifecycle-application-service.js', 'src/llm/gateway.js',
     'src/llm/model-runtime-profile.js', 'src/llm/model-ctx.js', 'src/lifecycle/m2-import-scanner.js',
     'scripts/run-project-build-journey.js', 'intentsmith-ide/yarn.lock',
+    'intentsmith-ide/extensions/intentsmith-studio2/lib/browser/m2-controller.js',
+    'intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/work-activity.js',
     'intentsmith-ide/applications/electron/lib/frontend/bundle.js', 'intentsmith-ide/applications/electron/lib/frontend/index.html',
     'intentsmith-ide/applications/electron/lib/frontend/preload.js', 'intentsmith-ide/applications/electron/lib/backend/electron-main.js']) {
     assert.match(freeze.closure[required] || '', /^[0-9a-f]{64}$/, 'required source/build closure missing:' + required);
@@ -157,7 +160,7 @@ export function classifyGeneration(body, freeze, admission, priorRequests = []) 
 }
 
 export function createFanProviderProxy({ freeze, out, requests, onModelCall }) {
-  const budget = createFanCallBudget({ d1Model: freeze.model, codeModel: freeze.model, entryMode: freeze.entryMode ?? 'd1' }); let lastKey = null, stopped = false;
+  const budget = createFanCallBudget({ d1Model: freeze.model, codeModel: freeze.model, entryMode: freeze.entryMode ?? 'd1', historicalRows: requests.filter(row => row.admission).map(row => row.admission) }); let lastKey = null, stopped = false;
   return createOwnedProviderRelay(async (incoming, outgoing, forward) => {
     let row;
     try {
@@ -367,6 +370,86 @@ async function canonicalOracle(project, root) {
   return result;
 }
 
+export function snapshotFanPendingPacket(root) {
+  assert.ok(path.isAbsolute(root)); assert.equal(fs.realpathSync(root), root);
+  const files = [];
+  const walk = (directory, prefix = '') => {
+    for (const name of fs.readdirSync(directory).sort()) {
+      const file = path.join(directory, name), relative = path.posix.join(prefix, name), stat = fs.lstatSync(file);
+      assert.ok(stat.isDirectory() || (stat.isFile() && stat.nlink === 1), 'unsupported historical member:' + relative);
+      files.push({ path: relative, type: stat.isDirectory() ? 'directory' : 'file', mode: stat.mode & 0o7777,
+        ...(stat.isFile() ? { bytes: stat.size, sha256: sha(fs.readFileSync(file)) } : {}) });
+      if (stat.isDirectory()) walk(file, relative);
+    }
+  }; walk(root); return files;
+}
+
+export function prepareFanPendingResume(freeze, out) {
+  const pins = freeze.resumePending;
+  assert.deepEqual(Object.keys(pins || {}).sort(), ['mainDatabaseSha256', 'packet', 'snapshotSha256']);
+  const packet = pins.packet; assert.equal(path.dirname(packet), ARTIFACTS); assert.notEqual(packet, out);
+  assert.equal(path.basename(packet), 'fan-monitor-manual-592cb54c-live-20261002-1457', 'only the reviewed historical pending packet');
+  assert.equal(pins.mainDatabaseSha256, 'ebdb5523f6d971ed9066c533d4a909d9ef29fcdda9a6eda23c3adc9b3b976bfb');
+  const snapshot = snapshotFanPendingPacket(packet);
+  assert.equal(sha(JSON.stringify(snapshot)), pins.snapshotSha256, 'complete preserved packet must match the frozen checkpoint');
+  const priorFreeze = read(path.join(packet, 'frozen-input.json')), journey = read(path.join(packet, 'fan-journey.json'));
+  assert.equal(priorFreeze.sourceSha, '592cb54c9de3a6cf341a85bc40a1894827df3062');
+  assert.equal(read(path.join(packet, 'result.json')).status, 'FAIL'); assert.equal(journey.status, 'FAIL');
+  assert.match(journey.error?.message || '', /FAN_CONVERSATION_BUSY/);
+  assert.equal(journey.phases.length, 1); const phase = journey.phases[0], view = phase.preview;
+  assert.equal(view.lifecycleId, 'lifecycle:c2eb0c49-288d-4be4-aa47-4fd745668aa2');
+  assert.equal(view.planDigest, 'sha256:45e4a5a84ad19bc111ec7039e610fdcd6ff49800db5f25d88f4cb7a98b40c908');
+  assert.equal(phase.phase, 'core'); assert.equal(phase.kind, 'initial'); assert.equal(view.state, 'awaiting_approval');
+  assert.equal(view.plan.origin.projectId, journey.projectId); assert.equal(view.plan.origin.conversationId, journey.conversationId);
+  assert.equal(view.plan.origin.sessionId, journey.conversationId); assert.equal(view.plan.origin.surface, 'studio');
+  assert.ok(Date.now() < Date.parse(view.plan.approvalExpiresAt), 'historical approval expiry is immutable');
+  for (const key of ['model', 'digest', 'providerVersion', 'entryMode', 'd1Context', 'codeContext', 'maximumD1', 'maximumCode', 'inputs', 'manualDrafts', 'repairSelectionPolicy']) {
+    assert.deepEqual(freeze[key], priorFreeze[key], 'continuation changes no model/input/budget/oracle contract:' + key);
+  }
+  for (const [relative, row] of Object.entries(freeze.operatorFiles)) assert.equal(row.sha256, priorFreeze.operatorFiles[relative].sha256);
+  const allowed = new Set(['scripts/manual/fan-monitor-studio2-controller.mjs', 'scripts/manual/run-fan-monitor-journey.mjs']);
+  for (const [relative, digest] of Object.entries(priorFreeze.closure)) if (!allowed.has(relative)) assert.equal(freeze.closure[relative], digest, 'unrelated source closure drift:' + relative);
+  const requests = read(path.join(packet, 'provider-requests.json')), admitted = requests.filter(row => row.admission);
+  assert.equal(admitted.length, 4); assert.ok(admitted.every(row => row.role === 'CODE' && row.admission.phase === 'core' && row.admission.kind === 'initial' && row.physicalIdentityComplete));
+  const budget = createFanCallBudget({ d1Model: freeze.model, codeModel: freeze.model, entryMode: 'manual', historicalRows: admitted.map(row => row.admission) });
+  assert.equal(budget.snapshot().rows.length, 4); assert.equal(assessFanModelToPreview(requests, journey).observedCode, 4);
+  const savedPreview = read(path.join(packet, 'core-initial-actual-preview.json'));
+  assert.deepEqual(savedPreview.view, view); assert.deepEqual(savedPreview.submittedDraft, freeze.manualDrafts.core);
+  assert.equal(savedPreview.command, '/m2-build ' + JSON.stringify(savedPreview.submittedDraft));
+  const runtimeRoot = path.resolve(journey.project, '../../..'); assert.equal(path.dirname(runtimeRoot), packet);
+  assert.equal(journey.project, path.join(runtimeRoot, 'home/projects/fan-monitor'));
+  assert.equal(sha(fs.readFileSync(path.join(runtimeRoot, 'm1.sqlite'))), pins.mainDatabaseSha256);
+  const copyRoot = path.join(out, 'runtime-resume'); fs.cpSync(runtimeRoot, copyRoot, { recursive: true, preserveTimestamps: true, errorOnExist: true, force: false });
+  fs.chmodSync(copyRoot, fs.statSync(runtimeRoot).mode & 0o7777);
+  const prefix = path.basename(runtimeRoot) + '/', original = snapshot.filter(row => row.path.startsWith(prefix)).map(row => ({ ...row, path: row.path.slice(prefix.length) }));
+  for (const row of original) fs.chmodSync(path.join(copyRoot, row.path), row.mode);
+  assert.deepEqual(snapshotFanPendingPacket(copyRoot), original, 'copied runtime preserves all bytes and modes');
+  const project = path.join(copyRoot, 'home/projects/fan-monitor'); assert.equal(git(project, ['rev-parse', 'HEAD']), phase.baseline);
+  assert.equal(git(project, ['status', '--porcelain=v1']), ''); assert.deepEqual(beforeImages(project, TARGETS.core), phase.before);
+  assertPreviewBytes(view.diff, phase.before);
+  const frozen = { '.intentsmith/m2-governance-policy.json': sha(fs.readFileSync(path.join(project, '.intentsmith/m2-governance-policy.json'))) };
+  for (const [relative, row] of Object.entries(freeze.operatorFiles).filter(([relative]) => !relative.includes('operator-cli-'))) {
+    assert.equal(sha(fs.readFileSync(path.join(project, relative))), row.sha256); frozen[relative] = row.sha256;
+  }
+  const db = new Database(path.join(copyRoot, 'm1.sqlite'), { readonly: true, fileMustExist: true });
+  try {
+    assert.equal(db.pragma('quick_check', { simple: true }), 'ok'); assert.deepEqual(db.pragma('foreign_key_check'), []);
+    assert.deepEqual(db.prepare('SELECT id,path FROM projects').all(), [{ id: journey.projectId, path: journey.project }]);
+    assert.deepEqual(db.prepare('SELECT id,project_id FROM conversations').all(), [{ id: journey.conversationId, project_id: journey.projectId }]);
+    const operations = db.prepare('SELECT lifecycle_id,plan_digest,plan_json FROM m2_lifecycle_operations').all(); assert.equal(operations.length, 1);
+    assert.equal(operations[0].lifecycle_id, view.lifecycleId); assert.equal(operations[0].plan_digest, view.planDigest); assert.deepEqual(JSON.parse(operations[0].plan_json), view.plan);
+    for (const table of ['m2_lifecycle_terminals', 'm2_lifecycle_approval_intents', 'm2_lifecycle_grant_sets', 'm2_execution_results']) assert.equal(db.prepare('SELECT count(*) AS n FROM ' + table).get().n, 0);
+    const materials = db.prepare('SELECT relative_path,after_bytes,after_digest,after_byte_count FROM m2_execution_files WHERE execution_id=? ORDER BY ordinal').all(view.plan.identity.executionId);
+    assert.equal(materials.length, 4);
+    for (const material of materials) {
+      const file = view.diff.find(file => file.path === material.relative_path); assert.ok(file);
+      assert.deepEqual(material.after_bytes, Buffer.from(file.after.content)); assert.equal(material.after_digest, file.after.digest); assert.equal(material.after_byte_count, file.after.bytes);
+    }
+  } finally { db.close(); }
+  assert.deepEqual(snapshotFanPendingPacket(packet), snapshot, 'historical packet unchanged by preparation');
+  return { packet, snapshot, runtimeRoot, copyRoot, journey, preview: savedPreview, requests, frozen, originalModelCalls: 4, remainingModelCalls: 7 };
+}
+
 async function inside(configPath) {
   const cfg = read(configPath), out = path.dirname(configPath), freeze = validateFreeze(cfg.freeze);
   assert.deepEqual(observeSource(freeze), cfg.source, 'namespace source/build/controller closure remains frozen');
@@ -377,7 +460,10 @@ async function inside(configPath) {
     method: incoming.method, headers: { 'Content-Type': 'application/json' } }));
   await new Promise(resolve => relay.server.listen(0, '127.0.0.1', resolve));
   const providerUrl = 'http://127.0.0.1:' + relay.server.address().port;
-  const runtime = makeRuntime(out), project = path.join(runtime.projects, 'fan-monitor');
+  const runtime = cfg.resume ? { ...Object.fromEntries(Object.entries(cfg.resume.runtimePaths)),
+    portFile: path.join(out, 'resume-server-port.json'), serverLog: path.join(out, 'resume-server.log') } : makeRuntime(out);
+  const project = path.join(runtime.projects, 'fan-monitor');
+  if (cfg.resume) assert.equal(fs.statSync(runtime.database).ino, fs.statSync(path.join(cfg.resume.copyRoot, 'm1.sqlite')).ino, 'copied database is bound at unchanged signed root');
   const evidence = { status: 'RUNNING', entryMode: freeze.entryMode ?? 'd1', scope: freeze.entryMode === 'manual'
     ? 'Explicit operator Studio2 /m2-build JSON→default CODE→exact M2 approval→all tests→Git→restart; D1 remains BLOCKED'
     : 'Actual D1→Studio2 composer→CODE→exact M2 approval→all tests→Git→restart',
@@ -437,9 +523,13 @@ async function inside(configPath) {
     const row = freeze.operatorFiles[relative], content = fs.readFileSync(row.source);
     assert.equal(sha(content), row.sha256); fs.writeFileSync(path.join(project, relative), content, { flag: 'wx' }); frozen[relative] = row.sha256;
   };
-  const bind = async () => { ({ sessionId } = await bindActualConversation(studio, { projectId, conversationId, title: 'Fan monitor actual journey' })); };
+  const bind = async (resumePending = null) => { ({ sessionId } = await bindActualConversation(studio, { projectId, conversationId, title: 'Fan monitor actual journey', resumePending })); };
   try {
     await start();
+    if (cfg.resume) {
+      projectId = cfg.resume.journey.projectId; conversationId = cfg.resume.journey.conversationId; frozen = cfg.resume.frozen;
+      evidence.resumedFrom = { packet: cfg.resume.packet, lifecycleId: cfg.resume.preview.view.lifecycleId, planDigest: cfg.resume.preview.view.planDigest, originalModelCalls: 4, remainingModelCalls: 7 };
+    } else {
     const created = await ask('POST', '/api/projects', { name: 'Fan monitor qualification', description: freeze.inputs.projectGoal, type: 'general', path: project });
     projectId = created.project.id; assert.equal(fs.realpathSync(created.path), project);
     const policyPath = '.intentsmith/m2-governance-policy.json', policy = read(path.join(project, policyPath));
@@ -449,6 +539,7 @@ async function inside(configPath) {
     commitOperator(project, Object.keys(frozen), 'Freeze independent fan core oracle and unchanged red scaffold');
     const conversation = (await ask('POST', '/api/conversations', { title: 'Fan monitor actual journey', project_id: projectId })).conversation;
     conversationId = conversation.id; assert.equal(conversation.project_id, projectId); await bind();
+    }
     evidence.project = project; evidence.projectId = projectId; evidence.conversationId = conversationId;
     for (const phase of ['core', 'cli']) {
       if (phase === 'cli') { fixture('test/operator-cli-oracle.test.mjs'); commitOperator(project, ['test/operator-cli-oracle.test.mjs'], 'Freeze independent fan CLI oracle before second increment'); }
@@ -472,7 +563,11 @@ async function inside(configPath) {
           save(out, label + '-actual-composed-draft.json', draft); save(out, 'admission.json', admission);
         };
         let prepared;
-        if (freeze.entryMode === 'manual') {
+        if (cfg.resume && phase === 'core' && kind === 'initial') {
+          prepared = cfg.resume.preview; assert.deepEqual(prepared.view, cfg.resume.journey.phases[0].preview);
+          assert.deepEqual(before, cfg.resume.journey.phases[0].before); assert.equal(baseline, cfg.resume.journey.phases[0].baseline);
+          await beforeSubmit(prepared.submittedDraft);
+        } else if (freeze.entryMode === 'manual') {
           const draft = kind === 'initial' ? freeze.manualDrafts[phase]
             : makeManualRevision(lastDraft, prior, selection, { phase, nodeBinary: freeze.nodeBinary });
           prepared = await prepareActualManualDraft(studio, { sessionId, projectId, conversationId, phase,
@@ -507,9 +602,10 @@ async function inside(configPath) {
         assert.deepEqual(stillPending.diff, view.diff); assertPreviewBytes(stillPending.diff, before);
         row.wrongDigestRejection = { wrongDigest, response: wrong, stillPending };
         save(out, label + '-wrong-digest-rejection.json', row.wrongDigestRejection);
-        await stop(); await start(); await bind();
+        await stop(); await start();
         const pending = await ask('GET', statusRoute); assert.equal(pending.state, 'awaiting_approval');
-        assert.equal(pending.planDigest, view.planDigest); assert.deepEqual(pending.diff, view.diff); save(out, label + '-pending-after-restart.json', pending);
+        assert.equal(pending.planDigest, view.planDigest); assert.deepEqual(pending.plan, view.plan); assert.deepEqual(pending.diff, view.diff); save(out, label + '-pending-after-restart.json', pending);
+        await bind({ lifecycleId: view.lifecycleId, planDigest: view.planDigest, status: pending });
         await reloadActualStatus(studio, { sessionId, lifecycleId: view.lifecycleId, planDigest: view.planDigest });
         const terminal = await approveRenderedExactPlan(studio, { sessionId, lifecycleId: view.lifecycleId, planDigest: view.planDigest });
         row.terminal = terminal; save(out, label + '-actual-terminal.json', terminal);
@@ -562,7 +658,7 @@ async function parent(freezePath, freezeSha, out) {
   assert.ok(path.isAbsolute(out) && path.dirname(out) === ARTIFACTS && !fs.existsSync(out)); fs.mkdirSync(out, { mode: 0o700 });
   const runtimeProbe = new Database(':memory:'); runtimeProbe.close();
   const evidence = { status: 'RUNNING', source, freezeSha256: freezeSha, startedAt: new Date().toISOString(), liveReview: 'PENDING' };
-  const requests = []; let lease = null, proxy = null, child = null, socketRoot = null, loaded = false;
+  let resume = null; const requests = []; let lease = null, proxy = null, child = null, socketRoot = null, loaded = false;
   let interrupted = null, termination = null;
   const interruptParent = signal => {
     interrupted ||= signal;
@@ -573,6 +669,10 @@ async function parent(freezePath, freezeSha, out) {
   process.on('SIGTERM', onTerm); process.on('SIGINT', onInt);
   const upstream = async route => { const response = await fetch('http://127.0.0.1:11434' + route, { signal: AbortSignal.timeout(5000) }); assert.ok(response.ok); return response.json(); };
   try {
+    if (freeze.resumePending) {
+      resume = prepareFanPendingResume(freeze, out); requests.push(...JSON.parse(JSON.stringify(resume.requests)));
+      save(out, 'resume-provenance.json', { packet: resume.packet, snapshotSha256: freeze.resumePending.snapshotSha256, mainDatabaseSha256: freeze.resumePending.mainDatabaseSha256, originalModelCalls: 4, remainingModelCalls: 7, lifecycleId: resume.preview.view.lifecycleId, planDigest: resume.preview.view.planDigest });
+    }
     assert.equal(interrupted, null, 'interrupted before owned GPU operation');
     lease = acquireGpuEvaluationLock({ command: 'fan actual D1 Studio2 CODE two-increment qualification' });
     const ps = await upstream('/api/ps');
@@ -587,16 +687,19 @@ async function parent(freezePath, freezeSha, out) {
     socketRoot = fs.mkdtempSync('/tmp/is-fan-journey-'); fs.chmodSync(socketRoot, 0o700); const socketPath = path.join(socketRoot, 'provider.sock');
     proxy = createFanProviderProxy({ freeze, out, requests, onModelCall: () => { loaded = true; } });
     await new Promise(resolve => proxy.server.listen(socketPath, resolve)); fs.chmodSync(socketPath, 0o600);
-    save(out, 'inside-configuration.json', { freeze, source, socketPath }); save(out, 'frozen-input.json', freeze);
+    const runtimePaths = resume ? Object.fromEntries(Object.entries({ root: '', home: 'home', xdgConfig: 'xdg-config', xdgCache: 'xdg-cache', xdgData: 'xdg-data', xdgState: 'xdg-state', temp: 'tmp', npmCache: 'npm-cache', projects: 'home/projects', artifacts: 'artifacts', database: 'm1.sqlite' }).map(([key, relative]) => [key, path.join(resume.runtimeRoot, relative)])) : null;
+    save(out, 'inside-configuration.json', { freeze, source, socketPath, ...(resume ? { resume: { ...resume, runtimePaths } } : {}) }); save(out, 'frozen-input.json', freeze);
     assert.equal(interrupted, null, 'interrupted before namespace child spawn');
-    child = spawn('unshare', ['--user', '--map-root-user', '--net', '--', 'bwrap', '--bind', '/', '/', '--dev', '/dev', '--die-with-parent',
+    child = spawn('unshare', ['--user', '--map-root-user', '--net', '--', 'bwrap', '--bind', '/', '/', '--dev', '/dev', '--die-with-parent', ...(resume ? ['--ro-bind', resume.packet, resume.packet, '--bind', resume.copyRoot, resume.runtimeRoot] : []),
       process.execPath, SELF, '--inside', path.join(out, 'inside-configuration.json')], { cwd: SOURCE, env: safeEnv(), stdio: ['ignore', 'pipe', 'pipe'] });
     watchOwnedChild(child);
     const output = { stdout: '', stderr: '' }; child.stdout.on('data', chunk => { output.stdout = (output.stdout + chunk).slice(-100000); });
     child.stderr.on('data', chunk => { output.stderr = (output.stderr + chunk).slice(-100000); });
     const exit = await new Promise((resolve, reject) => { child.once('error', reject); child.once('close', (code, signal) => resolve({ code, signal })); });
     evidence.child = { ...exit, ...output }; assert.equal(exit.code, 0, output.stderr); assert.equal(exit.signal, null);
-    const actual = requests.filter(row => row.admission); assert.ok(actual.length > 0 && actual.every(row => row.physicalIdentityComplete));
+    const actual = requests.filter(row => row.admission);
+    evidence.modelCalls = { historical: resume ? 4 : 0, new: actual.length - (resume ? 4 : 0), total: actual.length, maximum: 11 };
+    assert.ok(actual.length <= 11); assert.ok(actual.length > 0 && actual.every(row => row.physicalIdentityComplete));
     assert.ok(actual.filter(row => row.role === 'CODE').length >= 7);
     if (freeze.entryMode === 'manual') assert.equal(actual.filter(row => row.role !== 'CODE').length, 0);
     else assert.ok(actual.filter(row => row.role === 'D1').length >= 2);
@@ -621,6 +724,11 @@ async function parent(freezePath, freezeSha, out) {
     } catch (error) { evidence.status = 'FAIL'; evidence.unloadError = error.message; }
     if (settled && childSettled) { if (socketRoot) fs.rmSync(socketRoot, { recursive: true, force: true }); if (lease) evidence.leaseReleased = lease.release(); }
     else { evidence.status = 'FAIL'; evidence.leaseRetainedForUnsettledRequestsOrChild = lease !== null; }
+    if (resume) {
+      try { evidence.originalPacketUnchanged = JSON.stringify(snapshotFanPendingPacket(resume.packet)) === JSON.stringify(resume.snapshot); }
+      catch (error) { evidence.originalPacketUnchanged = false; evidence.originalPacketError = error.message; }
+      if (!evidence.originalPacketUnchanged) evidence.status = 'FAIL';
+    }
     evidence.sourceUnchanged = JSON.stringify(observeSource(freeze)) === JSON.stringify(source); if (!evidence.sourceUnchanged) evidence.status = 'FAIL';
     evidence.completedAt = new Date().toISOString(); save(out, 'provider-requests.json', requests); save(out, 'result.json', evidence);
     process.off('SIGTERM', onTerm); process.off('SIGINT', onInt);

@@ -1,6 +1,6 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktuální checkpoint 2. 10. 2026, 14:23 UTC:** ROOT převzal společnou
+**Aktuální checkpoint 2. 10. 2026, 15:12 UTC:** ROOT převzal společnou
 integraci, naposledy CHAT `00ec5b52` do publikovaného `f2e6ac1a`.
 Kontroly obou stran zachované, kanonický registr 594, graph 1498/3/28.
 Poslední celý profil na publikovaném `2997afd5`:408 PASS /0 FAIL /0 BLOCKED,
@@ -41,8 +41,11 @@ její skutečný D1 vstup blokuje CHAT classifier. Další omezený CODE průcho
 použije dokumentovaný explicitní Studio `/m2-build <JSON>`, stejný oracle
 a max11 CODE /0 D1; dva helpery a source/input freeze mají nezávislé review PASS;
 nenahrazuje přijetí přirozeného plánování ani netvrdí D1 průchod.
-První manual běh skončil na pomocném DOM selektoru před inferencí; oprava
-jediného helperu má source review a skutečný CPU renderer6 PASS. Nový live čeká.
+První manual běh skončil na DOM helperu před inferencí; oprava má source
+review a actual CPU renderer6 PASS. `592cb54c`: CI18/18 SUCCESS, actual4CODE,
+poslední vstup22 258 B. Náhled/wrong-digest409/restart ověřené; pending-bind
+helper FAIL před approval/test/commit. Další krok: exact resume, max11 CODE
+včetně původních4, nový freeze/review/CI; oracle a limity oprav nezměněné.
 Společné přijetí, M5/M6 a mobilní fyzická přejímka
 zůstávají otevřené. [Aktuální průběžný report](docs/WORK-PROGRESS.md).
 

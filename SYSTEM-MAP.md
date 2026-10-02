@@ -19,6 +19,9 @@ DPH eligibility má runtime57/57, routing100 %, session67/67 a skutečné
 všech18 kroků SUCCESS. Lokální Studio build PASS.
 Registry11/11 PASS, default AST service103/103 a evaluator34/34 PASS, dvě omezená
 source review PASS. Žádný deploy ani release acceptance.
+`592cb54c`: CI18/18 SUCCESS a actual4CODE fan náhled; poslední vstup22 258 B.
+Wrong-digest409 a pending restart ověřené, helper FAN_CONVERSATION_BUSY
+před approval/test/commit. Další krok exact resume, max11 včetně původních4.
 Chatový report zůstává
 NO_GO / REVIEW_PENDING: finální 53×3 kvalitativně nesplněné; jeho celý profil
 `0fad3823` má 399 PASS /4 FAIL /3 BLOCKED. Novější archive oprava má cílené

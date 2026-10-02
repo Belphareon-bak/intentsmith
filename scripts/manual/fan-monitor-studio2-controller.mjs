@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { evaluateRenderer, waitUntil } from '../run-project-build-journey.js';
 const require = createRequire(import.meta.url);
+const { pendingBinding, validateView } = require('../../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/m2-controller.js');
 const { normalizeProposal, composerDraft, validateBlueprint } = require('../../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/m2-composer.js');
 export const TARGETS = Object.freeze({
   core: Object.freeze(['src/readings.mjs', 'src/history.mjs', 'src/monitor.mjs', 'test/acceptance.test.mjs']),
@@ -15,11 +16,16 @@ const sorted = values => [...values].sort();
 
 // Called by the existing owned relay BEFORE forwarding each actual request.
 // Counting only after a UI operation would not enforce the inference bound.
-export function createFanCallBudget({ d1Model, codeModel, entryMode = 'd1' }) {
+export function createFanCallBudget({ d1Model, codeModel, entryMode = 'd1', historicalRows = [] }) {
   assert.ok(d1Model && codeModel, 'exact role model identities required');
   assert.ok(['d1', 'manual'].includes(entryMode));
   const maximumD1 = entryMode === 'manual' ? 0 : 8;
-  const rows = []; const operations = new Set(); let active = null;
+  const rows = copy(historicalRows); const operations = new Set(); let active = null;
+  if (rows.length) {
+    assert.equal(entryMode, 'manual'); assert.equal(rows.length, 4, 'only the preserved four-call pending core can resume');
+    rows.forEach((row, index) => assert.deepEqual(row, { sequence: index + 1, role: 'CODE', model: codeModel, phase: 'core', kind: 'initial' }));
+    operations.add('core:initial'); // The saved initial draft cannot be regenerated.
+  }
   return {
     begin(phase, kind) {
       assert.ok(TARGETS[phase]); assert.ok(['initial', 'repair'].includes(kind));
@@ -83,7 +89,18 @@ export function validateCapturedPlan(bound, { phase, projectId, conversationId }
   return normalized;
 }
 
-export async function bindActualConversation(studio, { projectId, conversationId, title }) {
+export function validatePendingResume(resume, { projectId, conversationId }) {
+  assert.deepEqual(Object.keys(resume || {}).sort(), ['lifecycleId', 'planDigest', 'status']);
+  assert.match(resume.lifecycleId, /^lifecycle:[0-9a-f-]{36}$/); assert.match(resume.planDigest, /^sha256:[0-9a-f]{64}$/);
+  const expectedOrigin = { surface: 'studio', sessionId: conversationId, conversationId, projectId: Number(projectId) };
+  const view = validateView(resume.status, resume.lifecycleId, expectedOrigin, resume.planDigest);
+  assert.equal(view.state, 'awaiting_approval', 'resume requires the exact actual pending GET status');
+  const bound = pendingBinding({ lifecycleId: view.lifecycleId, planDigest: view.planDigest, origin: expectedOrigin });
+  assert.ok(bound); return bound;
+}
+
+export async function bindActualConversation(studio, { projectId, conversationId, title, resumePending = null }) {
+  const expectedPending = resumePending === null ? null : validatePendingResume(resumePending, { projectId, conversationId });
   return invoke(studio, async (model, args) => {
     if (window.IntentSmithWS?.isReady?.() !== true || window.IntentSmithWS?.isM1WireNegotiated?.() !== true) {
       throw Error('FAN_M1_NOT_NEGOTIATED');
@@ -96,9 +113,19 @@ export async function bindActualConversation(studio, { projectId, conversationId
     const session = model.widget.store.state.sessions.find(row => String(row._convId) === String(args.conversationId));
     if (!session || String(session._projectId) !== String(args.projectId)) throw Error('FAN_PROJECT_BINDING_DRIFT');
     if (model.widget.store.focusedSession() !== session) throw Error('FAN_PROJECT_NOT_FOCUSED');
-    if (model.widget.transport.hasActiveM1Turn(session) || session._m2Pending) throw Error('FAN_CONVERSATION_BUSY');
+    if (model.widget.transport.hasActiveM1Turn(session) || model.widget.m2.entry(session).busy
+      || session.chat._delivery?.status === 'DELIVERY_UNKNOWN') throw Error('FAN_CONVERSATION_BUSY');
+    const pending = session._m2Pending;
+    if (args.expectedPending) {
+      const expected = args.expectedPending;
+      if (!pending || pending.lifecycleId !== expected.lifecycleId || pending.planDigest !== expected.planDigest
+        || pending.origin?.surface !== expected.origin.surface || pending.origin?.sessionId !== expected.origin.sessionId
+        || pending.origin?.conversationId !== expected.origin.conversationId || pending.origin?.projectId !== expected.origin.projectId) {
+        throw Error('FAN_PENDING_RESUME_BINDING_DRIFT');
+      }
+    } else if (pending) throw Error('FAN_CONVERSATION_BUSY');
     return { sessionId: session.id, projectId: session._projectId, conversationId: session._convId };
-  }, { projectId, conversationId, title });
+  }, { projectId, conversationId, title, expectedPending });
 }
 
 export async function reloadActualStatus(studio, { sessionId, lifecycleId, planDigest }) {

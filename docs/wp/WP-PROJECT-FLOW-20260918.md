@@ -234,3 +234,40 @@ Scoped independent source review PASS, receipt SHA
 Original D1/approval functions, runner, APIs, frozen inputs/oracles/caps unchanged.
 New helper closure/source freeze and actual qualification remain required;
 no generated app, model quality, commit or persistence PASS is claimed.
+
+## Exact pending continuation — 2 October, 15:12 UTC
+
+Actual candidate `592cb54c` generated four complete CODE outputs, governance
+allow and source-policy PASS. Wrong-digest approval returned409; backend/Studio
+restart preserved the exact awaiting_approval lifecycle and full source diff.
+The qualification bind then rejected its normal `_m2Pending` state before
+actual approval or focused test. Result SHA
+`f17596d059d7ecd1087f55a564b7cd5a1b393f2d528b7da90f652de6ca863c6f`.
+This is a helper FAIL, not functional app acceptance or a model test failure.
+
+ROOT owns only the necessary pending-binding/continuation changes in the two
+existing manual runner/controller files. Initial binding remains fail closed;
+resume may accept only freshly read exact project/conversation/lifecycle/digest
+awaiting_approval status, never active M1 or another pending operation. No
+clearing or overwriting approval state, product/UI/CHAT change or new framework.
+Use an owned copy of the stopped private runtime bound inside the namespace at
+its original absolute path; do not rewrite DB rows, project root or signed scope.
+Original four raw outputs and FAIL remain unchanged. They seed the cumulative
+0 D1 /11 CODE budget; seven calls remain, with the same per-increment repair
+caps, instructions and protected oracle. New source freeze/review/CI required.
+
+Read-only SQLite inspection created empty WAL and SHM sidecars at15:07:40 UTC;
+main DB SHA `ebdb5523f6d971ed9066c533d4a909d9ef29fcdda9a6eda23c3adc9b3b976bfb`
+remained unchanged, with no SQL writes. Further inspection uses a private copy.
+This sidecar effect is recorded; no claim of zero runtime filesystem mutation.
+
+The exact two-helper continuation proposal is adopted; author CPU7 checks PASS,
+no provider/network/GPU call. ROOT public import and syntax PASS; two newly
+required typed-validator/work-activity closure pins fail closed when absent
+(three positive/negative pure checks). Original instructions, all four oracle
+hashes, target sets, approval buttons, repair caps and total11 stay unchanged.
+Bounded source review PASS, receipt
+`1ea7bedb030f88c640406d2469897f0b85cb5b611c7e7ed4ab79dce78f4f503f`.
+ROOT required-pin amendment has three pure checks PASS; current CI and
+new source freeze are still required before live;
+CPU is not application acceptance. Immutable approval expires15:59:25.156 UTC.
