@@ -217,3 +217,40 @@ po dokončeném běhu prokazatelně uvolněna. První start nového celého tech
 profilu odmítl dirty strom po vytvoření evidence (exit 2, 0 testů); po commitu
 následuje nový běh. CI má konkrétní [návrh předání](2026-10-02-CHAT-CI-HANDOFF.md),
 vlastník zatím neznámý a žádná změna workflow nebyla provedena.
+
+## S5 — celý profil po opravě archivu a rozklad latence
+
+`289afec0` / `chat-quality-full-20261002-archive-clean` skončil
+**399 PASS / 4 FAIL / 3 BLOCKED z 406**, exit 1. Non-PASS ID jsou shodné
+s úplným profilem `495a069f`: archivní oprava nepřidala další selhání. Není to
+zelená brána. [Evidence](evidence/chat-quality-20261001/full-profile-archive.json)
+obsahuje identitu zdroje, čas, hash plného reportu a přesná neúspěšná ID.
+Starší přerušený checkpoint 108/406 a odmítnutý dirty start se tím nepřeznačují.
+
+[Rozklad latence S1](evidence/chat-quality-20261001/s1-latency-decomposition.json)
+obsahuje všech 60 předem vybraných textových případů a odděluje rozhodnutí,
+sestavení promptu, generování/kontroly a ostatní čas. Sčítají se průměry stejné
+množiny, nikoli samostatné mediány:
+
+| S1 série, 20 textových případů | Celá chat cesta, průměr | Rozhodnutí | Generování/kontroly | Provider, celkový čas inferencí |
+| --- | --- | --- | --- | --- |
+| final-1 | 22,323 s | 9,763 s | 12,555 s | 6,760 s |
+| final-2 | 21,581 s | 9,937 s | 11,640 s | 6,100 s |
+| final-3 | 23,129 s | 10,404 s | 12,722 s | 6,454 s |
+
+Providerový čas je podmnožinou, nepřičítá se znovu. Celá cesta i obě hlavní
+části obsahují měřicí režii; rozdíl není čistá aplikační režie. V aktuálním
+runneru `save()` při každém zachyceném providerovém požadavku synchronně volá
+`canonical()` a přepisuje celý master všech minulých běhů.
+
+[Samostatná offline fixture](evidence/chat-quality-20261001/latency-capture-fixtures.json)
+s pevnou odpovědí a privátní kopií 43 historických běhů / 88 417 475 B
+reprodukuje 3,186–3,383 s požadavku bez inference; samotný přepis má
+3,109–3,317 s. Bez historického přepisu má relay jen 5,6–37,8 ms. Původní
+S1 data jsou nedotčená. Neodečítáme dnešní fixture od minulých časů, které
+měly jiný objem historie a provozní podmínky.
+
+Nová zmrazená regrese 53×3 použije samostatný prázdný master evidence,
+stejný modelový artefakt a původní corpus. Nejde o runtime optimalizaci ani
+nový holdout. Změna objemu zachytávání omezuje přímé srovnání nové latence
+se S1. CI a vlastník integrace stále otevřené; návrh předání připravený.

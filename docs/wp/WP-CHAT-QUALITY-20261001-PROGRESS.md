@@ -1,6 +1,6 @@
 # IntentSmith — průběh práce na kvalitě chatu
 
-Poslední aktualizace: **2. 10. 2026, 10:49 CEST**. Stav: **CHANGES_REQUIRED / WORK_CONTINUES / REVIEW_PENDING**.
+Poslední aktualizace: **2. 10. 2026, 11:02 CEST**. Stav: **CHANGES_REQUIRED / WORK_CONTINUES / REVIEW_PENDING**.
 Dokument aktualizuji po každém dokončeném milníku, nejpozději po třech hodinách
 aktivní práce. Historická selhání zůstávají uvedena; nové ověření je nepřepisuje
 na úspěch. Nejde o plánovač úloh po ukončení této pracovní relace.
@@ -219,6 +219,29 @@ První nový start celého profilu `chat-quality-full-20261002-archive` runner
 odmítl (exit 2, 0 testů): nově vytvořená evidence ještě nebyla commitnutá a
 runner vyžaduje čistý strom. Nejde o výsledek profilu; po publikaci důkazu
 následuje nový čistý běh s jiným ID.
+
+## Milník S5 — celý profil a měřená režie přejímky
+
+| Změna uživatelského chování | Stručný důkaz | Zbývající problém | Jeden následující krok |
+| --- | --- | --- | --- |
+| Runtime se tímto ověřením nemění. Oprava archivu nezavádí nové selhání ve všech 406 registrovaných offline/DB sadách. Latence S1 zůstává historickým měřením celé diagnostické cesty, nikoli čisté produkční aplikace. | `289afec0`, `chat-quality-full-20261002-archive-clean`: 399 PASS / 4 FAIL / 3 BLOCKED, exit 1; přesně stejné otevřené non-PASS jako před archivní opravou. Rozklad všech 60 předem vybraných textových měření: rozhodnutí průměrně 9,763 / 9,937 / 10,404 s, generování s kontrolami 12,555 / 11,640 / 12,722 s. Kontrolovaná fixture bez modelu s 88 417 475 B klonované historie reprodukuje 3,186–3,383 s na požadavek, z toho 3,109–3,317 s synchronní přepis historie. | Čtyři FAIL a tři BLOCKED nejsou odstraněné. Přesnou minulou režii jednotlivých zápisů nelze dopočítat; latence S1 není srovnatelná s čistým providerovým časem ani ji nelze upravit prostým odečtením dnešní fixture. Kvalita aktuálního runtime ještě nemá nové celé tři série. | Zmrazit čistý publikující commit a dokončit tři nezměněná regresní opakování 53 případů na samostatném prázdném masteru evidence. |
+
+[Celý technický profil](../review/evidence/chat-quality-20261001/full-profile-archive.json),
+[přesný rozklad S1 včetně hodnot každého případu](../review/evidence/chat-quality-20261001/s1-latency-decomposition.json)
+a [kontrolovaná reprodukce režie evidence](../review/evidence/chat-quality-20261001/latency-capture-fixtures.json).
+
+Pozorovaná příčina měřicí režie: `scripts/measure-m1-l3.js` volá `canonical()`
+i při každém `persistWire`, což synchronně čte a přepisuje celý společný master
+historických běhů. Samotný relay s malou historií měl v řízené fixture
+5,6–37,8 ms, nikoli sekundy. Samostatný master nové série tento historický
+objem nebude obsahovat; žádná stará evidence se nemaže ani nepřepisuje a runner
+se kvůli měření nemění. Významové skóre S1, skutečné efekty i NO_GO tím zůstávají.
+
+Následující kandidát bude mít beze změny všechny původní formulace a digest
+Qwen3.5. Nová série je **regrese po S1**, nikoli dosud neviděný holdout F14–F20.
+Žádné změny zdrojů, corpus/runner ani čtení odpovědí k ladění mezi třemi běhy.
+Výsledky a milník se zapíší po dokončení celé zmrazené série, SHA je v jejím
+manifestu. Vlastní hodnocení nenahrazuje nezávislé přijetí.
 
 ## Další milník a podmínky přijetí
 
