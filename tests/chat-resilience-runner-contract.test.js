@@ -245,6 +245,12 @@ try {
   rejected(original, /Capability dialogs cannot filter/u, {
     phase: 'quality-capabilities', env: { CHAT_PROBE_CASES: 'http-plain' },
   });
+  const archiveProbe = run(original, { phase: 'quality-archive-boundary' });
+  assert.equal(archiveProbe.status, 0, archiveProbe.stderr);
+  assert.match(archiveProbe.stdout, /"cases":2,"modelCalls":0/u);
+  rejected(original, /Archive boundary probe cannot filter/u, {
+    phase: 'quality-archive-boundary', env: { CHAT_PROBE_CASES: 'http-plain' },
+  });
 
   const valid = { path: '/api/chat', scenario: 'valid' };
   const clean = transport(await controlledProviderWire([valid]));

@@ -259,6 +259,21 @@ if (isRecallAB) {
 const isNaturalActions = phase === 'quality-natural-actions';
 const isQualityDialogs = phase === 'quality-dialogs';
 const isCapabilities = phase === 'quality-capabilities';
+const isArchiveBoundary = phase === 'quality-archive-boundary';
+if (isArchiveBoundary) {
+  if (requestedCases) throw new Error('Archive boundary probe cannot filter its declared dialog');
+  corpus = [
+    { id: 'archive-current', input: 'Podle našeho rozhovoru: jaký název nyní platí, jaký je kód a první krok? Odpověz stručně; nic neměň.',
+      allowed: ['Javor; JILM_407; manual review without file changes; latest user correction beats the stale summary'] },
+    { id: 'archive-restriction', input: 'A dovoluje ten první krok měnit soubory? Stručně podle původního omezení.',
+      allowed: ['No changes during the original manual review; no effect or reversal of Javor correction'] },
+  ].map(row => ({ ...row, family: 'ARCHIVE', dialog: 'archive-boundary',
+    intent: 'Recall original constraint and later correction beyond 1000 archived user turns',
+    contextPolicy: 'Private typed store seeded with 1015 archived USER turns and a stale summary; these are synthetic stored turns, not 1015 live model conversations',
+    forbidden: ['Stale Lipa as current name, lost original code/restriction, any tool effect'],
+    question: 'unnecessary', usedForTuning: true, variant: 'development' }));
+  measurementDefinition = { version: 1, purpose: 'Live M1 archive-page boundary and correction proof after S1; separate from original corpus', cases: corpus };
+}
 if (isCapabilities) {
   if (requestedCases) throw new Error('Capability dialogs cannot filter their declared conversations');
   const dialogs = [
@@ -375,7 +390,7 @@ if (process.argv.includes('--offline')) {
 const dirtyStatus = execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim();
 if (dirtyStatus) throw new Error('LIVE_SOURCE_DIRTY: commit the exact runner and corpus before inference');
 const manifest = { revision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), sourceClean: dirtyStatus.length === 0, dirtyStatus,
-  corpusSha256: createHash('sha256').update(isLongContext || isGeneratedSave || isRecallAB || isNaturalActions || isQualityDialogs || isCapabilities ? JSON.stringify(measurementDefinition) : fs.readFileSync(corpusFile)).digest('hex'),
+  corpusSha256: createHash('sha256').update(isLongContext || isGeneratedSave || isRecallAB || isNaturalActions || isQualityDialogs || isCapabilities || isArchiveBoundary ? JSON.stringify(measurementDefinition) : fs.readFileSync(corpusFile)).digest('hex'),
   runnerSha256: createHash('sha256').update(fs.readFileSync(self)).digest('hex'), model, modelDigest,
   providerUrl: 'http://127.0.0.1:11434', node: process.version, inferenceSerial: true, networkIsolation: 'kernel namespace plus explicit Unix provider relay' };
 if (isFinal && !inside && phase !== 'final-1') {
@@ -452,6 +467,20 @@ if(process.argv.includes('--inside')) {
  const store=(await import(path.join(root,'src/chat/conversation-store.js'))).getConversationStore();
  const conversations=new Map();
  if(resume)conversations.set('long-context',restartState.conversationId);
+ if(isArchiveBoundary){
+  const created=await request('POST','/api/conversations',{project_id:projectId,title:'Archive boundary evidence'});
+  const id=created.result.conversation?.id??created.result.id;
+  if(!id)throw new Error('Archive boundary conversation setup failed');
+  const original='Název je Lípa, kód JILM_407 a první krok je ruční kontrola bez změn souborů.';
+  const first=store.appendTurn(id,'user',original,{projectId});
+  for(let index=0;index<1010;index++)store.appendTurn(id,'user',`Neutrální diskusní podklad číslo ${index}.`,{projectId});
+  for(let index=0;index<3;index++)store.appendTurn(id,'user',original,{projectId});
+  const correction=store.appendTurn(id,'user','Oprava: název je nyní Javor.',{projectId});
+  store.setSummary(id,'Starý ztrátový souhrn: Lípa, JILM_407, ruční kontrola.',correction.id);
+  conversations.set('archive-boundary',id);
+  save('initial-archive-seed.json',{conversationId:id,archivedUserTurns:1015,firstMessageId:first.id,
+   correctionMessageId:correction.id,summaryThroughMessageId:correction.id,original,correction:correction.content});
+ }
  if(isRecallAB){
   const prior=[...JSON.parse(fs.readFileSync(recordPath,'utf8')).runs].reverse()
     .find(r=>r.phase==='quality-long-context'&&r.status==='LIVE_COMPLETE_UNASSESSED'&&r.cases.length===27);
