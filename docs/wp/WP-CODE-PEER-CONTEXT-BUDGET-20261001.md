@@ -552,6 +552,10 @@ CPU call-graph návrh má 20 kontrol; manifest
 ROOT vlastní právě `src/lifecycle/m2-code-draft.js`,
 `src/lifecycle/m2-lifecycle-application-service.js`, `src/llm/gateway.js`
 a `src/llm/model-runtime-profile.js` a nezbytné existující testy těchto cest.
+Konkrétní navázané testy: `tests/m1-model-contract.test.js`,
+`tests/model-ctx.test.js` a již vlastněný
+`tests/m2-lifecycle-application-service.test.js`; helper experimenty jsou
+ignored a nenahrazují registrovanou regresi default služby.
 Delegovaný worker připravuje pouze ignored adoptovatelný patch; ROOT
 jediný zapisuje produkt. Ověří skutečné názvy cest před adopcí.
 Jedna privátní gateway-issued capture sváže config CODE, durable exact
@@ -567,3 +571,12 @@ Pokud tyto scope/digest podmínky nejsou splněné, stará cesta má své původ
 limity; neznámý artifact nesmí získat nové oprávnění. Úplné sources určují
 preview/digest/zápis. Nezávislé review a dotčené integrační kontroly před
 zmrazeným fan-monitor průchodem; žádný CPU nebo krátký FIT není aplikace.
+
+Společné CI ve vlastněném integračním WP přidá k zachovaným čtyřem M2
+sadám právě registrovaný M1 model-contract a model-ctx; zachová všech sedm
+chatových kontrol. Celek po adopci dostane jeden nový společný profil.
+Finální V3 návrh je zapečetěný v `code-16k-adoption-cpu-20261002-null-body-v3`,
+manifest `142917dde170ac8265b69cf6d4dae78926bca9a1553177634522550cedf77d38`.
+V1 timeout a V2 null-body typová chyba zůstávají zachované; V3 CPU44+18+5
+PASS není modelové či aplikační přijetí. Historická narrativní hodnota
+8744 B v API návrhu je překlep; správný původní guard je 8736 B.

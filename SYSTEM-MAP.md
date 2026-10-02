@@ -9,10 +9,9 @@ checkoutu. Tři konflikty registru/harnessu vyřešené se zachováním všech
 kontrol, 594 programů /35 exclusions. Publikovaný `d7e7d1b1`: úplný profil
 401 PASS /2 FAIL /5 BLOCKED; dva toolchain BLOCKED cíleně PASS. Doc drift
 opravený 160/160 PASS, chatové routování FAIL a tři PDF/OCR BLOCKED trvají.
-Novější `3f440603` má CI `36999539087`: sandbox/CHAT7/7 PASS, M2 3/4 PASS;
-service101/2 FAIL ve dvou historických `/usr/bin/node` fixtures. Přesná
-Node24 fixture103/103 lokálně PASS, nové CI čeká. Registry11/11 PASS,
-default AST service103/103 a evaluator34/34 PASS, dvě omezená
+Novější `03ad348f` má CI `37000616340` SUCCESS: CHAT7/7, M2 4/4,
+Studio/privacy/hygiene PASS, žádný SKIPPED krok. Lokální Studio build PASS.
+Registry11/11 PASS, default AST service103/103 a evaluator34/34 PASS, dvě omezená
 source review PASS. Žádný deploy ani release acceptance.
 Chatový report zůstává
 CHANGES_REQUIRED: finální 53×3 kvalitativně nesplněné; poslední celý profil

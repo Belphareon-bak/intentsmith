@@ -1,7 +1,7 @@
 # WP — AST kontrola skutečných závislostí M2 CODE
 
 **Stav:** `BOUNDED_AST_SOURCE_REVIEW_PASS / ACTUAL_M2_CPU_PASS`;
-registrovaná integrace11/11 PASS, nové CI ještě čeká. Aktuální stav je tato hlavička
+registrovaná integrace11/11 PASS, CI `03ad348f` SUCCESS. Aktuální stav je tato hlavička
 a poslední datovaný oddíl; starší návrhy a odložení jsou historie.
 **Vlastník:** ROOT; navazující nechatový milník na publikovaném
 `79b201c8b484a7c8a21225945f51b9dba21d47dc`. Tento návrh neodblokuje
@@ -218,3 +218,11 @@ původní raw ZIP `36a42389a95a9c51976b9c754cb350ec5c65661a3cf4f1e6ed19d0de4f2d5
 Nezávislé review přesné třířádkové fixture změny
 `44c09acce63e31cc23594722a7007bfcd2695f4615e43b9ed27db53096b98ac2`
 má SOURCE_REVIEW_PASS, ne dodatečný inference či CI PASS.
+
+Nový přesný `03ad348fc029e7df937429bcb966c5daaca8e666` má ověřený remote
+a skutečné CI `37000616340` SUCCESS bez SKIPPED: CHAT7/7, CODE4/4,
+Studio/privacy/hygiene PASS. Archivovaný ZIP SHA
+`d328a676b8c31b224c2795f22c03d3ad3ba245091c05d617b3a84b8b777c3e84`.
+Čerstvý lokální Studio build a M1 consumer PASS. Tím uzavřená omezená
+scanner/connector integrace; nový skutečně generovaný projekt, obecná
+CODE úspěšnost, CHAT kvalita a release přejímka zůstávají samostatné.

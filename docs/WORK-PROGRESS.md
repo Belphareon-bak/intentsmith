@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 2. 10. 2026, 11:12 UTC / 13:12 CEST.
+**Aktualizováno:** 2. 10. 2026, 11:29 UTC / 13:29 CEST.
 **Vlastník:** ROOT. CHAT ladí jiný worker.
 Report aktualizuji po milníku, nejpozději po 3 h aktivní práce; operátorovi
 podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
@@ -43,12 +43,11 @@ podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
    Tři konflikty vyřešené, registry 594/35; celý offline/database profil
    **401 PASS /2 FAIL /5 BLOCKED**. Dva toolchain BLOCKED cíleně PASS;
    opravené počty README/ROADMAP: 160/160 PASS; routing DPH FAIL patří CHATu.
-   Tři PDF/OCR BLOCKED trvají. Publikovaný `3f440603` obsahuje scanner;
-   [CI](https://github.com/Belphareon-bak/intentsmith/actions/runs/36999539087)
-   má sandbox/CHAT **7/7 PASS**, M2 **3/4 PASS**; service101/2 FAIL jen staré
-   dvě `/usr/bin/node` fixtures. Přesná Node24 fixture103/103 lokálně PASS,
-   diagnostika rozšířená; původní CI subtype nebyl zalogovaný, nové CI čeká.
-   Původní CI FAILy a SKIPPED zůstávají, nejsou nahrazené lokálním PASS.
+   Tři PDF/OCR BLOCKED trvají. Publikovaný `03ad348f`, remote SHA přesné;
+   [CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37000616340)
+   **CHAT7/7 +M2 4/4**, Studio/privacy/hygiene PASS, žádný SKIPPED krok.
+   Nový lokální Studio build/consumer PASS. Původní CI FAILy zůstávají;
+   zelený vývojový výběr kontrol nenahrazuje celý profil ani přijetí releasu.
    CHAT report má CHANGES_REQUIRED: celé série 53×3 nesplnily kvalitativní cíle;
    celý profil na `289afec0` 399 PASS /4 FAIL /3 BLOCKED. Ladí jeho worker.
 2. **Omezený M2 scanner:** V2 adoptovaný do skutečné default M2 služby,
@@ -60,7 +59,8 @@ podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
    a skutečné projektové přírůstky. Ze 198 velikostních případů se při 8k
    vejde 27, při 16k 97; nejde o míru modelové úspěšnosti. Krátký skutečný
    16k load 09:51 UTC: full GPU, CPU spill 0, minfree 3 759 MiB. Plné okno
-   a produktové zapojení NOT_RUN. Dosavadní 119 B /1,4 % je omezená
+   a produktové zapojení NOT_RUN; privátní capture návrh má 43 gateway
+   a 18 context kontrol PASS, review čeká. Dosavadní 119 B /1,4 % je omezená
    úspora, nikoli řešení škálování. Nový živý fit měl i bez formatteru 7 781 B.
    `8192` je pro Qwen3.8 fallback, ne změřené maximum; build má navíc 32 000 B
    serializační mez. Úplné zdroje dál určují náhled, digest a zápis.
