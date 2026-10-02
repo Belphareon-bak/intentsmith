@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 2. 10. 2026, 14:12 UTC / 16:12 CEST.
+**Aktualizováno:** 2. 10. 2026, 14:23 UTC / 16:23 CEST.
 **Vlastník:** ROOT. CHAT ladí jiný worker.
 Report aktualizuji po milníku, nejpozději po 3 h aktivní práce; operátorovi
 podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
@@ -37,14 +37,13 @@ podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
 1. **Společná integrace:** publikovaný `d7e7d1b1` slučuje `2a479852` + `6f0259ec`.
    Tři konflikty vyřešené, registry 594/35; novější CHAT `00ec5b52`
    je začleněný v `f2e6ac1a`. Poslední úplný offline/database profil
-   na publikovaném `734231e4`: **407 PASS /1 FAIL /0 BLOCKED**, verdict FAIL.
-   Jediný FAIL je meta test se zastaralým počtem 24 specialist assertions;
-   injikovaná chyba i exit1 jsou správné, rozšířená sada má 57 kontrol.
-   ROOT převzal omezenou opravu: skutečný meta test a source review PASS;
-   nový celý profil čeká, původní FAIL zůstává.
+   na publikovaném `26f087e4`: **407 PASS /1 FAIL /0 BLOCKED**, verdict FAIL.
+   Meta test je opravený a PASS. Jediný nový FAIL je formát LOC tabulky:
+   ROOT omylem odstranil čárku; správný počet 268380 se nemění.
+   Formát opravený, dotčená sada **160/160 PASS**; oba FAIL reporty zůstávají.
    DPH eligibility: nezměněný routing 100 %, runtime 57/57, session 67/67 PASS;
    skutečný řízený M1 HTTP/WS 4/4 PASS (info vrací expertise gap).
-   [CI na přesném `734231e4` SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37015424862):
+   [CI na přesném `26f087e4` SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37018106744):
    stažený artefakt potvrzuje **CHAT 7/7 + CODE 6/6**, všech 18 kroků SUCCESS.
    Studio/privacy/hygiene a lokální build PASS; vývojový výběr kontrol
    nenahrazuje celý profil ani přijetí releasu.

@@ -58,7 +58,9 @@ injikované chyby, přesné konzistence počtů a nenulového procesního výsle
 Historický FAIL se nepřepisuje. Převzatý test SHA
 `bfde8fa90ad0e155d4df29983a98db52437acd7e22c0fd9a665675483cc8ee04`
 má nezávislé source review PASS a skutečný ROOT meta test exit0;
-nový kandidát vyžaduje celý profil. Počty se odvozují z vypsaných assertions
+Celý profil `26f087e4` potvrdil meta test PASS, 407 PASS /1 dokumentační FAIL
+/0 BLOCKED. Chybějící čárka v LOC tabulce je přímo opravená, artifact sada160/160 PASS;
+původní report zůstává. Počty se odvozují z vypsaných assertions
 a přesně porovnávají s jediným souhrnem, nikoli s pevnou velikostí sady.
 
 Následující zářijové zadání a evidence zůstávají historické.

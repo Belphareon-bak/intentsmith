@@ -1,15 +1,17 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktuální checkpoint 2. 10. 2026, 14:06 UTC:** ROOT převzal společnou
+**Aktuální checkpoint 2. 10. 2026, 14:23 UTC:** ROOT převzal společnou
 integraci, naposledy CHAT `00ec5b52` do publikovaného `f2e6ac1a`.
 Kontroly obou stran zachované, kanonický registr 594, graph 1498/3/28.
-Poslední celý profil na publikovaném `734231e4`: 407 PASS /1 FAIL /0 BLOCKED;
-jediný FAIL je stale meta-test count 24 versus 57 specialist assertions.
+Poslední celý profil na publikovaném `26f087e4`:407 PASS /1 FAIL /0 BLOCKED;
+meta test PASS, jediný nový FAIL je odstraněná čárka v LOC tabulce.
+Počet 268380 je správný, formát opravený, dotčená sada160/160 PASS;
+původní FAIL zůstává.
 DPH eligibility má source review, runtime 57/57, routing 100 %, session 67/67
 plus skutečný řízený M1 HTTP/WS 4/4 PASS. Modelová jazyková kvalita nepřijatá.
-`734231e4` CI `37015424862` SUCCESS: CHAT 7/7, CODE 6/6 ověřené ze staženého
+`26f087e4` CI `37018106744` SUCCESS: CHAT 7/7, CODE 6/6 ověřené ze staženého
 artefaktu, všech 18 kroků SUCCESS. Lokální Studio build PASS.
-ROOT opravuje navázaný meta test a ověří nový celý profil před živým během.
+ROOT ověří opravenou dokumentační sadu; CODE zdroje ani vstupy se nemění.
 Registry11/11 PASS, adoptovaný AST evaluator34/34 a default service103/103 PASS,
 dvě omezená nezávislá source review. Tento kandidát není přijatý release.
 CHAT report zůstává NO_GO / REVIEW_PENDING: finální 53×3 nesplnilo kvalitativní cíle;

@@ -11,12 +11,13 @@ kontrol, 594 programů /35 exclusions. Publikovaný `d7e7d1b1`: úplný profil
 opravený 160/160 PASS; chatové routování FAIL a tři PDF/OCR původně BLOCKED.
 Tyto tři runtime sady následně na `252e839b` skutečně 3/3 PASS;
 původní celý profil se nemění. Stávající runtime existují, instalace nebyla nutná.
-Poslední celý profil `734231e4`: 407 PASS /1 FAIL /0 BLOCKED;
+Předchozí celý profil `734231e4`: 407 PASS /1 FAIL /0 BLOCKED;
 DPH eligibility již má runtime 57/57, routing 100 %, session 67/67 a skutečné
-řízené M1 HTTP/WS 4/4 PASS. Jediný FAIL je navázaný meta-test se starým
-počtem24 místo 57; ROOT přebírá omezenou opravu a nový úplný profil.
+řízené M1 HTTP/WS 4/4 PASS. Meta-test je opravený a PASS; nový celý profil
+`26f087e4` má 407 PASS /1 dokumentační FAIL /0 BLOCKED: po přeměření LOC
+chyběla čárka tabulky, počet 268380 je správný. Formát opravený, dotčená sada160/160 PASS.
 Novější CHAT `00ec5b52` je integrován do `f2e6ac1a`; aktuální publikovaný
-`734231e4` má CI `37015424862` SUCCESS: stažené CHAT 7/7, CODE 6/6,
+`26f087e4` má CI `37018106744` SUCCESS: stažené CHAT 7/7, CODE 6/6,
 všech 18 kroků SUCCESS. Lokální Studio build PASS.
 Registry11/11 PASS, default AST service103/103 a evaluator34/34 PASS, dvě omezená
 source review PASS. Žádný deploy ani release acceptance.
@@ -708,7 +709,7 @@ Při další integraci se přeměří znovu.
 | | |
 |---|---:|
 | `src/**/*.js` | **235 648 ř.**, 685 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **268 380 ř.**  602 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **268 380 ř.**, 602 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **594** (`496 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 108** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |
