@@ -1,9 +1,9 @@
 # WP — AST kontrola skutečných závislostí M2 CODE
 
-**Stav:** `CPU_PREPARATION_PASS / IMPLEMENTATION_DEFERRED_CONTEXT_PRIORITY`.
+**Stav:** `CPU_PREPARATION_PASS / IMPLEMENTATION_IN_PROGRESS`.
 **Vlastník:** ROOT; navazující nechatový milník na publikovaném
 `79b201c8b484a7c8a21225945f51b9dba21d47dc`. Tento návrh neodblokuje
-aktuální fyzickou kvalifikaci a nemění zmrazený SQLite source34.
+obecnou kapacitu CODE a nemění přijatý SQLite ani jeho historické FAIL.
 **Autorita:** operátorské dokončení IDE/backendu a skutečné ověření různých
 projektů; produktová kontrola architektury M2 dle `CONTRACT.md` §4, §6, §10.
 Jde o opravu vyhodnocení existující policy, nikoli nové síťové oprávnění.
@@ -140,7 +140,7 @@ a dotčené skutečné M2/registrované brány. Finální zdrojová přejímka m
 ověřit navržené meze a produkční call graph, nikoli pouze parser fixture.
 
 
-## Změna pořadí podle revize operátora — 2. 10. 2026
+## Historické odložení podle první revize — 2. 10. 2026
 
 Kontextová strategie větších projektů má přednost před touto implementací.
 80 CPU kontrol a 7 containment kontrol zůstává privátně zapečetěných;
@@ -151,3 +151,13 @@ ROOT soubory (service, package, lock, tento WP) jsou úplně uloženy v ignored
 `63447b605b73d3b3967ca588f8acf2f856c5b65d6309570acdebe6941a1decb7`.
 Checkout zdrojů obnovený na publikovaný cd3; původní JS/runtime dependencies
 nezměněné. Produktový AST scanner dosud není implementovaný ani přijatý.
+
+## Obnovení omezené implementace — 2. 10. 2026, 10:20 UTC
+
+Doplňující posudek operátora výslovně obnovuje tuto samostatnou opravu.
+Společný `d7e7d1b1` je publikovaný; úplný offline/database profil doběhl
+401 PASS /2 FAIL /5 BLOCKED a dvě chybějící toolchain povolení cíleně PASS.
+Delegovaný worker připravuje adoptovatelnou změnu v privátní ignored cestě;
+trackované produktové zdroje dosud nemění. Rozsah a vlastníci výše platí.
+ROOT naváže service, přesný parser lock a skutečnou M2 regresi po uzavření
+konkrétní CI diagnostiky. Kontextová kapacita ani CHAT se scannerem nemění.

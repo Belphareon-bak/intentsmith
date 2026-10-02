@@ -1,8 +1,12 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktuální checkpoint 2. 10. 2026, 10:00 UTC:** ROOT převzal společnou
+**Aktuální checkpoint 2. 10. 2026, 10:20 UTC:** ROOT převzal společnou
 integraci `2a479852` + CHAT `6f0259ec`. Tři konflikty vyřešené se zachováním
-obou stran, kanonický registr 594; společný profil a rozšířené CI NOT_RUN.
+obou stran, kanonický registr 594. Publikovaný `d7e7d1b1`: celý profil
+401 PASS /2 FAIL /5 BLOCKED; dva toolchain BLOCKED následně cíleně PASS.
+Doc drift opravený 160/160 PASS; routing DPH FAIL a tři PDF/OCR BLOCKED trvají.
+CI `36993324070` má 6 CHAT PASS /1 host-dependent fixture FAIL; její izolace
+74/74 PASS, nové CI čeká. Tento kandidát není přijatý release.
 CHAT report zůstává CHANGES_REQUIRED: finální 53×3 nesplnilo kvalitativní cíle;
 celý profil `289afec0` má 399 PASS /4 FAIL /3 BLOCKED, nikoli výsledek nového
 merge. [Přesný chatový report](docs/wp/WP-CHAT-QUALITY-20261001-PROGRESS.md).
@@ -27,7 +31,7 @@ CPU porovnání zvolilo úplné zdroje při 16k a projektové přírůstky. Krá
 load 09:51 UTC má plnou GPU rezidenci a headroom 3 759 MiB; plné okno,
 produktové zapojení a aplikace tím přijaté nejsou. Doplňující posudek vrací
 omezenou scanner opravu mezi aktuální práce;
-aktuální celý profil, M5/M6 a mobilní fyzická přejímka
+společné přijetí, M5/M6 a mobilní fyzická přejímka
 zůstávají otevřené. [Aktuální průběžný report](docs/WORK-PROGRESS.md).
 
 **Historická aktualizace 1. 10. 2026, 16:29 UTC — SQLite kontrakt a skutečný M3 kontext:** publikovaný
@@ -268,7 +272,10 @@ měl tehdy 1 433 hran, 3 cykly / 28 členů. Závěrečné měření a nezávisl
 přijetí mají vlastní evidenci v [předávce](docs/review/2026-09-28-STUDIO2-PARITY-DELIVERY.md).
 Tehdejší integrovaný module graph měl 1 434 hran, 3 cykly / 28 členů po
 přijetí přesné hrany `src/chat/context-compact.js -> src/core/abort-error.js`.
-Aktuální module graph má 1 478 hran, stále 3 cykly / 28 členů;
+Aktuální module graph má 1 492 hran, stále 3 cykly / 28 členů.
+Společný kandidát `d7e7d1b1` zachovává všech 1 478 původních hran a
+14 chatových hran z baseline nad `5d58f11` a následného explicitního
+připnutí `af8a975e`, bez nového cyklu. Historická
 oficiální baseline přijala dvě hrany read modelu nad `8c64e427`, přesnou
 hranu chatové chyby nad čistým integračním `2305431c` a dvě nezávisle
 posouzené integrační hrany `src/agents/runner.js -> src/agents/schema.js`

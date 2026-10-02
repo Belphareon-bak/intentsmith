@@ -1,5 +1,23 @@
 # GPU Hunt — cesta od vývojové matice k přijatému rozhodnutí
 
+## Aktuální owned stav — 2. 10. 2026, 10:20 UTC
+
+Vlastník nového omezeného vývojového hodnocení ROOT; původní cizí grading
+se nepřebírá. Canonical stále 596/1173, bez accepted grader či aktivace.
+Samostatné nové dávky mají 16 validovaných draft odpovědí /64 kritérií.
+Třetí volání poskytovatele vrátilo všech osm požadovaných řádků a jeden
+vymyšlený řádek `idx:-1, criteria:[]`; přesný kontrakt jej odmítl.
+Controller se zastavil při první validační chybě, bez retry nebo filtrování.
+Skutečný kumulativní provider list-cost 1,598950 USD zahrnuje i FAIL;
+původní limit 12 USD zůstává. Z první vlny 128/266 nevalidováno,
+z toho 120/234 dosud nevoláno. Pokračování není spuštěné.
+Stopped receipt `hunt-owned-claude-blind-wave-continuation-20261002-0958`,
+REVIEW SHA `f0d2c154038723eff5ddd25edc241ff98df803777a5bfd1c8016d4a5441d60de`,
+manifest `822bd0b587895ac2b09679de07964f78a384dd7b8f78cceae46fe428999ef8fe`.
+CPU diagnóza potvrzuje, že jediná odchylka je navíc vložený prázdný řádek;
+žádné známky ani raw se neupravily. Případná výslovná projekce vyžaduje
+samostatné review; M0 metoda, pair, spory a nový holdout zůstávají otevřené.
+
 ## Aktuální diagnóza a obnovené vývojové hodnocení — 2. 10. 2026
 
 Read-only ověření 09:21 UTC stále dává canonical 596/1173, 2324/3689 kritérií.

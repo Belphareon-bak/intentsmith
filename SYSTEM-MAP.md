@@ -6,8 +6,12 @@ Chronologie níže zachovává důkazy předchozích instalací a větví.
 
 ROOT integračně přebírá CHAT `6f0259ec` nad nechatový `2a479852` ve stávajícím
 checkoutu. Tři konflikty registru/harnessu vyřešené se zachováním všech
-kontrol, 594 programů /35 exclusions. Společný kandidát a rozšířené CI dosud
-NOT_RUN, není nový deploy ani release acceptance. Chatový report zůstává
+kontrol, 594 programů /35 exclusions. Publikovaný `d7e7d1b1`: úplný profil
+401 PASS /2 FAIL /5 BLOCKED; dva toolchain BLOCKED cíleně PASS. Doc drift
+opravený 160/160 PASS, chatové routování FAIL a tři PDF/OCR BLOCKED trvají.
+CI `36993324070` mělo 6 CHAT PASS /1 host-dependent kapacitní fixture FAIL;
+její izolace 74/74 PASS, nové CI čeká. Žádný deploy ani release acceptance.
+Chatový report zůstává
 CHANGES_REQUIRED: finální 53×3 kvalitativně nesplněné; poslední celý profil
 `289afec0` má 399 PASS /4 FAIL /3 BLOCKED. Novější archive oprava má cílené
 PASS a dva živé kroky, nikoli novou finální 53×3 přejímku.

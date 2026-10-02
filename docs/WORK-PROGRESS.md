@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 2. 10. 2026, 10:00 UTC / 12:00 CEST.
+**Aktualizováno:** 2. 10. 2026, 10:20 UTC / 12:20 CEST.
 **Vlastník:** ROOT. CHAT ladí jiný worker.
 Report aktualizuji po milníku, nejpozději po 3 h aktivní práce; operátorovi
 podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
@@ -39,9 +39,15 @@ podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
 
 ## Aktuální priority
 
-1. **Společná integrace:** ROOT slučuje nechatový `2a479852` a CHAT `6f0259ec`
-   v existujícím checkoutu. Tři konflikty vyřešené se zachováním obou stran,
-   kanonický registr 594/35; nový společný profil a CI dosud NOT_RUN.
+1. **Společná integrace:** publikovaný `d7e7d1b1` slučuje `2a479852` + `6f0259ec`.
+   Tři konflikty vyřešené, registry 594/35; celý offline/database profil
+   **401 PASS /2 FAIL /5 BLOCKED**. Dva toolchain BLOCKED cíleně PASS;
+   opravené počty README/ROADMAP: 160/160 PASS; routing DPH FAIL patří CHATu.
+   Tři PDF/OCR BLOCKED trvají. [CI](https://github.com/Belphareon-bak/intentsmith/actions/runs/36993324070)
+   má 6 chatových PASS /1 M1 capacity FAIL; lokálně M1 74/74 PASS.
+   Rozdíl reprodukován: 30 B host tool facts přepne guard. Izolovaná fixture
+   zachovává přesnou 413/recent-user aserci, 74/74 PASS; nové CI čeká na push.
+   M2 a Studio kroky původního CI byly SKIPPED; celé D7 výsledky se nepřepisují.
    CHAT report má CHANGES_REQUIRED: celé série 53×3 nesplnily kvalitativní cíle;
    celý profil na `289afec0` 399 PASS /4 FAIL /3 BLOCKED. Ladí jeho worker.
 2. **Omezený M2 scanner:** opravit falešné dependency v komentářích/řetězcích;
@@ -62,11 +68,12 @@ podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
 4. **Hunt:** aktuální kontrola 2. 10. 09:21 UTC potvrzuje 596/1173. Původní
    hodnoticí relace skončila na týdenním limitu poskytovatele; přesný event
    je připnutý v [Hunt WP](wp/WP-HUNT-COMPLETION-PATH-20261001.md).
-   Nové skutečné slepé Sonnet volání dalo 8/8 odpovědí a 32/32 kritérií;
+   Nové skutečné slepé Sonnet dávky daly 16/16 odpovědí a 64/64 kritérií;
    samostatný DEVELOPMENT DRAFT, canonical počet se nepřepisuje.
    Grader, rozhodnutí a aktivace stále nepřijaté.
-   Zbývajících 136/298 první vlny má omezený rozpočet 12 USD včetně prvního
-   volání, nejvýše 1 USD na dávku; stop při chybě, žádné retry ani aktivace.
+   Třetí dávka porušila přesnou množinu ID jedním vymyšleným prázdným řádkem.
+   Controller STOPPED, nic nefiltrováno ani přijato; skutečný list-cost
+   1,598950 USD včetně FAIL, limit 12 USD. Další volání zastavená, žádné retry.
 5. **Společná přejímka IDE/BE:** aktuální celý profil, fyzické pointer UI,
    funkční větší projekty, upgrade/restore a přijetí vlastněných delt.
 6. **M5/M6:** osm nepodepsaných podkladů připraveno, 13 signed receipts

@@ -1290,9 +1290,9 @@ await testAsync('final ANSWER provider request retains a concise correction afte
 await testAsync('a concise correction that cannot fit beside the full summary fails before provider', async () => {
   const previousFetch = globalThis.fetch;
   const requestBodies = [];
-  // Compact system instructions leave more room; retain the actual capacity
-  // boundary rather than tying this negative case to the old prompt length.
-  const input = 'Podklad ' + 'x'.repeat(3_000)
+  // Exercise the conversational capacity guard independently of optional
+  // host-tool observations. Keep the full summary and latest correction bound.
+  const input = 'Podklad ' + 'x'.repeat(3_300)
     + ' Jaká je podle mé poslední opravy hodnota skupiny A?';
   const summaryContent = '[Souhrn předchozí konverzace]\nPůvodní hodnota skupiny A byla 3 z 10. '
     + 'x'.repeat(2_250) + ' Konec původního souhrnu.';
@@ -1312,7 +1312,7 @@ await testAsync('a concise correction that cannot fit beside the full summary fa
       throw new Error('provider must not receive a prompt missing the correction');
     };
     const decision = creDecisionEngine.overrideDecision({ type: 'ANSWER', intent: 'CONVERSATIONAL',
-      tools: [], source: 'recent_user_boundary_regression', reason: 'Controlled correction limit', confidence: 1 });
+      tools: [], metadata: { responseScope: 'conversation' }, source: 'recent_user_boundary_regression', reason: 'Controlled correction limit', confidence: 1 });
     await assert.rejects(() => handleAnswerDecision(input, decision, {
       sessionId: 'recent-user-boundary', sessionState: new SessionState('recent-user-boundary'), history,
     }), error => error instanceof ChatContextCapacityError

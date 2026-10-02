@@ -15,6 +15,13 @@ Zkušební merge má tři konflikty: `tests/registry.json`,
 ROOT je vyřeší se zachováním kontrol obou stran; katalog regeneruje kanonickým
 validátorem ze sloučeného registru. Další vlastněné integrační cesty:
 `.github/workflows/ci.yml`, `ROADMAP.md`, `SYSTEM-MAP.md`, `docs/WORK-PROGRESS.md`.
+Po prvním společném profilu přibírá ROOT také `README.md`: pouze počty
+kanonického registru. Diagnostika CI smí upravit prostředí či izolaci testové
+fixture; nesmí oslabit ochranu úplného souhrnu, uživatelské opravy nebo 413.
+Konkrétní navázaná cesta `tests/m1-chat-contract.test.js`: pouze izolace
+negativní kapacitní fixture jako plain conversation. Reprodukce ukázala,
+že 30 B host tool facts přepne očekávaný recent-user guard na summary guard;
+produktové chování zůstává fail-closed/provider0. Původní přesná aserce platí.
 Workflow zachová oba push filtry a přidá skutečné registrované chatové sady,
 jejich toolchain a uchování výsledků. Společný offline/database profil se
 spustí na pojmenovaném kandidátu; známé FAIL/BLOCKED se neumlčí.
@@ -27,6 +34,20 @@ nikoli automaticky celý release. Produkční instalace, modelová aktivace,
 M5/M6 a mobilní fyzická přejímka jsou oddělené.
 
 Následující text uchovává historický integrační checkpoint ze září.
+
+Aktuální výsledky společného `d7e7d1b1`: úplný offline/database profil
+401 PASS /2 FAIL /5 BLOCKED, žádné timeout/skipped. Po explicitním povolení
+již dostupných nástrojů desktop-hunt a development-installation cíleně PASS.
+Tři PDF/OCR BLOCKED zůstávají; druhý FAIL je cizí chatové routování
+„Co je DPH v Německu?“ → vat_calculator/clarify, precision 83,3 %.
+Artifact-validation měl pouze drift README/ROADMAP; oprava počtů 160/160 PASS.
+CI `36993324070` má 6 CHAT PASS /1 M1 FAIL, downstream M2/Studio SKIPPED.
+Řízená reprodukce ukázala host-dependent kapacitní fixture, ne chybějící
+upload nebo oslabenou ochranu: plain-conversation fixture prošla 74/74
+pod sedmi i jedenácti nástroji. Původní sourceErrorType CI nebyl zalogovaný;
+reprodukce podporuje diagnózu, ne tvrzení o přečteném poli. Přesná aserce
+RECENT_USER/413 a nulové provider volání zůstává. Nezávislá diagnóza SHA
+`78f09945f40e806821a480551ecacbe3dfbe2cbb105ffa9c11d84ae01888bb35`.
 
 **Stav:** SOURCE_MERGED_CANDIDATE / OFFLINE_FOCUSED_PASS / REVIEW_PENDING /
 NOT_DEPLOYED / REAL_NO_GO. Tato pracovní větev vychází z chat/Studio 2 commitu
