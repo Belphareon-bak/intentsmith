@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 2. 10. 2026, 13:36 UTC / 15:36 CEST.
+**Aktualizováno:** 2. 10. 2026, 13:48 UTC / 15:48 CEST.
 **Vlastník:** ROOT. CHAT ladí jiný worker.
 Report aktualizuji po milníku, nejpozději po 3 h aktivní práce; operátorovi
 podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
@@ -72,6 +72,8 @@ podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
    jediný explicitní design prefix neopraví druhý vstup (`text` v `contextFiles`).
    Další CODE strategie použije dokumentovaný `/m2-build <JSON>` ve Studiu,
    explicitní operátorské zadání, stejný oracle, max11 CODE /0 D1 a nový freeze.
+   Přesné dvě helper změny adoptované po review PASS, CPU8/8; plné vstupy
+   14–17 kB /10–12 kB přesahují starý8736 B guard. Modelová aplikace NOT_RUN.
    Tento průchod nepřijímá přirozené plánování; to zůstává CHAT workerovi.
 4. **Hunt:** aktuální kontrola 2. 10. 09:21 UTC potvrzuje 596/1173. Původní
    hodnoticí relace skončila na týdenním limitu poskytovatele; přesný event

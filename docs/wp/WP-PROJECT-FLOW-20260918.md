@@ -185,3 +185,18 @@ All preview, exact approval, test/rollback, commit/restart and repair-selection
 invariants remain. No fabricated proposal, hidden composer field injection,
 manual implementation or new product framework. CPU/review and live acceptance
 for this alternative are pending; qualification preparation is not a working app.
+
+ROOT adopted the exact two-file V2 after bounded source review PASS, receipt
+`0270064fa9365a91d70579fb7ad552844f33257ab741052012ac986ddd7a144a`.
+Controlled CPU 8/8 PASS covers the real public M2Controller serializer/origin,
+Git/revision, CODE16k capture, zero D1, repair and canonical whole request bytes.
+Original qualifier failure (empty first-step dependency reconstruction) remains;
+relay now reconstructs the actual target with full prior physical outputs and
+captured read-only files, without rewriting the product payload.
+Repair keeps each file API unchanged; only the global instruction adds the
+actual ROOT reason, max175 UTF-8 B for core /166 B CLI, otherwise STOP.
+The complete 11557 B oracle is useful read-only API context for generated tests,
+never an implementation/target. CPU body sizes core14398/17462 B and
+CLI9781/12260 B exceed old8736 B and fit23808 B. Reference peers are labeled;
+actual generated core/CLI context fit, model quality and app persistence remain
+NOT_RUN until the new frozen candidate's physical qualification.

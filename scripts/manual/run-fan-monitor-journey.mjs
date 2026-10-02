@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Manual qualification runner. Default preflight has no provider effects.
-// Real project entry is blocked pending the CHAT owner routing fix; no live freeze exists.
+// D1 entry remains blocked by project routing; explicit operator CODE entry requires its own reviewed freeze.
 // Existing runtime/Studio/relay/GPU/process primitives; no handwritten subject.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -16,10 +16,10 @@ import { acquireGpuEvaluationLock, assessScheduledEvaluationReadiness } from '..
 import { processSandboxProvider } from '../../src/execution/process-sandbox-provider.js';
 import { LINUX_BWRAP_READ_ONLY_PROFILE } from '../../src/execution/process-supervisor-child.js';
 import { computeM2ExecutionValueDigest } from '../../contracts/m2/execution-v1.js';
-import { buildCodeDraftPrompt, compileCodeDraftInput } from '../../src/lifecycle/m2-code-draft.js';
+import { buildCodeDraftPrompt, compileCodeDraftInput, compileCodeDraftResult } from '../../src/lifecycle/m2-code-draft.js';
 import { PROJECT_DISCUSSION_SCHEMA, PROJECT_DISCUSSION_SYSTEM } from '../../src/chat/handlers/project-collaboration.js';
 import { TARGETS, TEST_ARGV, createFanCallBudget, bindActualConversation, captureRealD1Proposal,
-  prepareActualCapturedPlan, prepareActualFailedRevision, approveRenderedExactPlan, reloadActualStatus } from './fan-monitor-studio2-controller.mjs';
+  prepareActualCapturedPlan, prepareActualFailedRevision, prepareActualManualDraft, validateManualDraft, makeManualRevision, approveRenderedExactPlan, reloadActualStatus } from './fan-monitor-studio2-controller.mjs';
 import { assertFanSubjectSourcePolicy, assertProtectedSourceHashes } from './fan-monitor-source-policy.mjs';
 const SELF = fileURLToPath(import.meta.url), PREPARATION = path.dirname(SELF);
 const SOURCE = path.resolve(PREPARATION, '../..'), ARTIFACTS = path.join(SOURCE, '.intentsmith-artifacts');
@@ -50,7 +50,15 @@ export function validateFreeze(freeze) {
   assert.equal(freeze.status, 'FROZEN_REVIEWED_FOR_LIVE', 'draft proposals cannot start live work');
   assert.equal(freeze.model, MODEL); assert.equal(freeze.digest, DIGEST); assert.equal(freeze.providerVersion, VERSION);
   assert.equal(freeze.d1Context, 8192); assert.equal(freeze.codeContext, 16384);
-  assert.equal(freeze.maximumCode, 11); assert.equal(freeze.maximumD1, 8);
+  const entryMode = freeze.entryMode ?? 'd1'; assert.ok(['d1', 'manual'].includes(entryMode));
+  assert.equal(freeze.maximumCode, 11); assert.equal(freeze.maximumD1, entryMode === 'manual' ? 0 : 8);
+  if (entryMode === 'manual') {
+    assert.deepEqual(Object.keys(freeze.manualDrafts).sort(), ['cli', 'core']);
+    for (const phase of ['core', 'cli']) {
+      validateManualDraft(freeze.manualDrafts[phase], { phase, nodeBinary: freeze.nodeBinary });
+      compileCodeDraftInput(freeze.manualDrafts[phase]);
+    }
+  }
   assert.equal(freeze.nodeBinary, process.execPath); assert.match(process.version, /^v24\./);
   assert.equal(Runtime.OWNED_RUNTIME_SPAWN_HOOK_VERSION, 'fan-owned-spawn-v1', 'ROOT must adopt reviewed runtime ownership hook before live');
   assert.ok(freeze.closure && Object.keys(freeze.closure).length >= 12, 'source/controller/native/build closure must be frozen');
@@ -81,13 +89,14 @@ export function validateFreeze(freeze) {
   return freeze;
 }
 
-export function classifyGeneration(body, freeze, admission) {
+export function classifyGeneration(body, freeze, admission, priorRequests = []) {
   const system = body.messages?.find(message => message.role === 'system')?.content;
   const user = body.messages?.findLast(message => message.role === 'user')?.content;
   assert.equal(body.model, freeze.model); assert.equal(body.stream, false);
   assert.equal(body.options?.temperature, 0.1); assert.ok(typeof system === 'string' && typeof user === 'string');
   let role;
   if (body.format?.required?.includes('reply') && body.format?.required?.includes('plan')) {
+    assert.notEqual(freeze.entryMode, 'manual', 'manual CODE qualification admits zero D1/support calls');
     role = 'D1'; assert.equal(body.options.num_ctx, freeze.d1Context);
     assert.deepEqual(body.format, PROJECT_DISCUSSION_SCHEMA);
     assert.ok(system.endsWith(PROJECT_DISCUSSION_SYSTEM), 'exact D1 base instructions with clock prefix');
@@ -105,9 +114,36 @@ export function classifyGeneration(body, freeze, admission) {
       : { type: 'object', required: ['afterContent'], additionalProperties: false, properties: { afterContent: { type: ['string', 'null'] } } };
     assert.deepEqual(body.format, expectedFormat); assert.equal(body.options.num_predict, repair ? 2048 : 4096);
     const compiled = compileCodeDraftInput(admission.draft);
-    const expected = buildCodeDraftPrompt(compiled, null, compiled.buildSteps[0].index, [], repair ? { content: '' } : null);
-    assert.equal(system, expected.systemPrompt, 'exact product CODE instruction signature');
     const input = JSON.parse(user), target = typeof input.path === 'number' ? input.paths?.[input.path] : input.path;
+    const index = compiled.changes.findIndex(change => change.path === target);
+    const step = compiled.buildSteps.find(item => item.index === index); assert.ok(step, 'actual target step required');
+    const matching = relative => priorRequests.filter(row => row.role === 'CODE' && row.admission?.phase === admission.phase
+      && row.admission?.kind === admission.kind && (() => { const value = JSON.parse(row.body.messages.findLast(message => message.role === 'user').content);
+        return (typeof value.path === 'number' ? value.paths?.[value.path] : value.path) === relative; })());
+    assert.equal(matching(target).length, 0, 'no duplicate target inference');
+    const peers = step.dependsOn.map(relative => {
+      const dependency = compiled.buildSteps.find(item => compiled.changes[item.index].path === relative);
+      const generated = matching(relative); assert.ok(generated.length <= 1, 'one full dependency output');
+      let content;
+      if (generated.length) {
+        assert.equal(generated[0].physicalIdentityComplete, true);
+        content = compileCodeDraftResult(compiled, { finishReason: 'stop', content: generated[0].terminal.message.content },
+          dependency.index, repair ? admission.previousFiles[relative].content : null).changes[0].afterContent;
+      } else {
+        assert.equal(dependency.reusePrevious, true, 'declared dependency must already have a complete output');
+        content = admission.previousFiles[relative].content;
+      }
+      return { path: relative, content, state: 'proposed' };
+    }).concat(step.contextFiles.map(relative => {
+      const file = admission.readOnlyFiles?.[relative]; assert.ok(file, 'captured actual read-only context required');
+      assert.equal(file.contentDigest, 'sha256:' + sha(file.content), 'read-only bytes bind their captured digest');
+      return { path: relative, ...file };
+    }));
+    assert.ok(Object.hasOwn(admission.beforeFiles, target), 'actual original bytes required');
+    const expected = buildCodeDraftPrompt(compiled, admission.beforeFiles[target], index, peers,
+      repair ? admission.previousFiles[target] : null);
+    assert.equal(system, expected.systemPrompt, 'exact product CODE instruction signature');
+    assert.equal(user, expected.prompt, 'exact compiled target/dependency/full-source/read-only input');
     assert.ok(TARGETS[admission.phase].includes(target), 'CODE target stays within frozen increment');
     if (repair) {
       assert.ok(admission.repairSelection?.targets.includes(target), 'repair CODE target must match failure-bound selected subset');
@@ -121,7 +157,7 @@ export function classifyGeneration(body, freeze, admission) {
 }
 
 export function createFanProviderProxy({ freeze, out, requests, onModelCall }) {
-  const budget = createFanCallBudget({ d1Model: freeze.model, codeModel: freeze.model }); let lastKey = null, stopped = false;
+  const budget = createFanCallBudget({ d1Model: freeze.model, codeModel: freeze.model, entryMode: freeze.entryMode ?? 'd1' }); let lastKey = null, stopped = false;
   return createOwnedProviderRelay(async (incoming, outgoing, forward) => {
     let row;
     try {
@@ -145,7 +181,7 @@ export function createFanProviderProxy({ freeze, out, requests, onModelCall }) {
         }
         const key = admission.phase + ':' + admission.kind;
         if (lastKey !== key) { budget.begin(admission.phase, admission.kind); lastKey = key; }
-        row.role = classifyGeneration(body, freeze, admission);
+        row.role = classifyGeneration(body, freeze, admission, requests);
         row.admission = budget.admit({ role: row.role, model: body.model });
         save(out, 'call-budget.json', budget.snapshot());
         save(out, 'provider-input-' + String(row.sequence).padStart(3, '0') + '.json', row);
@@ -342,7 +378,9 @@ async function inside(configPath) {
   await new Promise(resolve => relay.server.listen(0, '127.0.0.1', resolve));
   const providerUrl = 'http://127.0.0.1:' + relay.server.address().port;
   const runtime = makeRuntime(out), project = path.join(runtime.projects, 'fan-monitor');
-  const evidence = { status: 'RUNNING', scope: 'Actual D1→Studio2 composer→CODE→exact M2 approval→all tests→Git→restart',
+  const evidence = { status: 'RUNNING', entryMode: freeze.entryMode ?? 'd1', scope: freeze.entryMode === 'manual'
+    ? 'Explicit operator Studio2 /m2-build JSON→default CODE→exact M2 approval→all tests→Git→restart; D1 remains BLOCKED'
+    : 'Actual D1→Studio2 composer→CODE→exact M2 approval→all tests→Git→restart',
     source: cfg.source, model: freeze.model, digest: freeze.digest, providerVersion: freeze.providerVersion,
     d1Context: freeze.d1Context, codeContext: freeze.codeContext, phases: [], startedAt: new Date().toISOString() };
   let server = null, studio = null; const renderer = [], http = [];
@@ -422,12 +460,30 @@ async function inside(configPath) {
         const label = phase + '-' + kind, row = { phase, kind, baseline, before, request }; evidence.phases.push(row);
         const admission = { phase, kind, projectId, request, ...(selection ? { repairSelection: selection } : {}) };
         save(out, 'admission.json', admission); save(out, label + '-request.json', admission);
-        const d1 = await captureRealD1Proposal(studio, { sessionId, projectId, conversationId, phase, request, key: label });
-        save(out, label + '-actual-d1.json', d1);
-        const beforeSubmit = async draft => { admission.draft = draft; save(out, label + '-actual-composed-draft.json', draft); save(out, 'admission.json', admission); };
-        const prepared = kind === 'initial' ? await prepareActualCapturedPlan(studio, { sessionId, bound: d1.bound, phase, nodeBinary: freeze.nodeBinary, beforeSubmit })
-          : await prepareActualFailedRevision(studio, { sessionId, bound: d1.bound, phase, failedView: prior, lastDraft,
-            repairPaths: selection.targets, beforeSubmit });
+        const beforeSubmit = async draft => {
+          admission.draft = draft;
+          admission.beforeFiles = Object.fromEntries(Object.entries(before).map(([relative, encoded]) => [relative, encoded === null ? null : Buffer.from(encoded, 'base64').toString('utf8')]));
+          admission.readOnlyFiles = Object.fromEntries([...new Set(draft.files.flatMap(file => file.contextFiles || []))].map(relative => {
+            const content = fs.readFileSync(path.join(project, relative), 'utf8');
+            return [relative, { content, state: 'read_only', contentDigest: 'sha256:' + sha(content) }];
+          }));
+          admission.previousFiles = prior ? Object.fromEntries(prior.diff.map(file => [file.path,
+            { content: file.after.content, contentDigest: file.after.digest, state: 'unapplied_proposal' }])) : {};
+          save(out, label + '-actual-composed-draft.json', draft); save(out, 'admission.json', admission);
+        };
+        let prepared;
+        if (freeze.entryMode === 'manual') {
+          const draft = kind === 'initial' ? freeze.manualDrafts[phase]
+            : makeManualRevision(lastDraft, prior, selection, { phase, nodeBinary: freeze.nodeBinary });
+          prepared = await prepareActualManualDraft(studio, { sessionId, projectId, conversationId, phase,
+            nodeBinary: freeze.nodeBinary, draft, beforeSubmit });
+        } else {
+          const d1 = await captureRealD1Proposal(studio, { sessionId, projectId, conversationId, phase, request, key: label });
+          save(out, label + '-actual-d1.json', d1);
+          prepared = kind === 'initial' ? await prepareActualCapturedPlan(studio, { sessionId, bound: d1.bound, phase, nodeBinary: freeze.nodeBinary, beforeSubmit })
+            : await prepareActualFailedRevision(studio, { sessionId, bound: d1.bound, phase, failedView: prior, lastDraft,
+              repairPaths: selection.targets, beforeSubmit });
+        }
         const view = prepared.view; lastDraft = prepared.submittedDraft; row.preview = view;
         save(out, label + '-actual-preview.json', prepared);
         assert.deepEqual(beforeImages(project, TARGETS[phase]), before, 'no preview writes'); assert.equal(git(project, ['rev-parse', 'HEAD']), baseline);
@@ -541,7 +597,9 @@ async function parent(freezePath, freezeSha, out) {
     const exit = await new Promise((resolve, reject) => { child.once('error', reject); child.once('close', (code, signal) => resolve({ code, signal })); });
     evidence.child = { ...exit, ...output }; assert.equal(exit.code, 0, output.stderr); assert.equal(exit.signal, null);
     const actual = requests.filter(row => row.admission); assert.ok(actual.length > 0 && actual.every(row => row.physicalIdentityComplete));
-    assert.ok(actual.filter(row => row.role === 'CODE').length >= 7); assert.ok(actual.filter(row => row.role === 'D1').length >= 2);
+    assert.ok(actual.filter(row => row.role === 'CODE').length >= 7);
+    if (freeze.entryMode === 'manual') assert.equal(actual.filter(row => row.role !== 'CODE').length, 0);
+    else assert.ok(actual.filter(row => row.role === 'D1').length >= 2);
     const journey = read(path.join(out, 'fan-journey.json'));
     assert.equal(journey.status, 'PHYSICAL_PASS_REVIEW_PENDING');
     evidence.modelToPreview = assessFanModelToPreview(requests, journey); evidence.status = 'PHYSICAL_PASS_REVIEW_PENDING';

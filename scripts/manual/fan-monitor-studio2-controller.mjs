@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { evaluateRenderer, waitUntil } from '../run-project-build-journey.js';
 const require = createRequire(import.meta.url);
-const { normalizeProposal, composerDraft } = require('../../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/m2-composer.js');
+const { normalizeProposal, composerDraft, validateBlueprint } = require('../../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/m2-composer.js');
 export const TARGETS = Object.freeze({
   core: Object.freeze(['src/readings.mjs', 'src/history.mjs', 'src/monitor.mjs', 'test/acceptance.test.mjs']),
   cli: Object.freeze(['src/cli.mjs', 'src/index.mjs', 'test/cli.test.mjs']),
@@ -15,8 +15,10 @@ const sorted = values => [...values].sort();
 
 // Called by the existing owned relay BEFORE forwarding each actual request.
 // Counting only after a UI operation would not enforce the inference bound.
-export function createFanCallBudget({ d1Model, codeModel }) {
+export function createFanCallBudget({ d1Model, codeModel, entryMode = 'd1' }) {
   assert.ok(d1Model && codeModel, 'exact role model identities required');
+  assert.ok(['d1', 'manual'].includes(entryMode));
+  const maximumD1 = entryMode === 'manual' ? 0 : 8;
   const rows = []; const operations = new Set(); let active = null;
   return {
     begin(phase, kind) {
@@ -31,7 +33,7 @@ export function createFanCallBudget({ d1Model, codeModel }) {
       assert.equal(model, role === 'D1' ? d1Model : codeModel, 'pinned role identity');
       const d1 = rows.filter(row => row.role === 'D1').length;
       const code = rows.filter(row => row.role === 'CODE').length;
-      if (role === 'D1') { assert.ok(d1 < 8 && active.d1 < 2, 'D1 total8/operation2 bound'); active.d1++; }
+      if (role === 'D1') { assert.ok(d1 < maximumD1 && active.d1 < 2, 'D1 total8/operation2 bound'); active.d1++; }
       else {
         const maximum = active.kind === 'repair' ? 2 : TARGETS[active.phase].length;
         assert.ok(code < 11 && active.code < maximum, 'CODE total11/repair2 bound'); active.code++;
@@ -40,7 +42,7 @@ export function createFanCallBudget({ d1Model, codeModel }) {
       rows.push(row); return copy(row);
     },
     stop() { active = null; },
-    snapshot() { return copy({ maximumD1: 8, maximumCode: 11, rows, active }); },
+    snapshot() { return copy({ maximumD1, maximumCode: 11, rows, active }); },
   };
 }
 
@@ -278,6 +280,90 @@ export async function prepareActualFailedRevision(studio, { sessionId, phase, bo
   assert.deepEqual(sorted(view.diff.map(file => file.path)), sorted(TARGETS[phase]));
   assert.equal(view.audit?.governanceDecision?.verdict, 'allow');
   return { before, after, submittedDraft: draft, view, repairPaths: copy(repairPaths) };
+}
+
+
+// Explicit operator specification through the documented public /m2-build JSON
+// entry. This does not manufacture a D1 proposal, origin, implementation or grant.
+export function validateManualDraft(draft, { phase, nodeBinary, repair = false }) {
+  validateBlueprint(draft);
+  assert.deepEqual(sorted(draft.files.map(file => file.path)), sorted(TARGETS[phase]));
+  assert.equal(draft.focusedTest.binary, nodeBinary); assert.deepEqual(draft.focusedTest.argv, TEST_ARGV);
+  assert.deepEqual(draft.focusedTest.environment, { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' });
+  assert.ok(draft.gitCommit, 'explicit operator Git effect required');
+  for (const instruction of [draft.instruction, ...draft.files.map(file => file.instruction)]) {
+    assert.ok(instruction.isWellFormed() && Buffer.byteLength(instruction) <= 512, 'operator instruction UTF-8 <=512B');
+  }
+  assert.equal(Boolean(draft.revisionOf), repair);
+  if (!repair) assert.ok(draft.files.every(file => file.reusePrevious === undefined));
+  if (phase === 'cli') {
+    const cli = draft.files.find(file => file.path === 'src/cli.mjs');
+    assert.ok(cli.contextFiles.includes('src/monitor.mjs'));
+    assert.equal(cli.dependsOn.includes('src/monitor.mjs'), false);
+  }
+  return draft;
+}
+
+export function makeManualRevision(lastDraft, failedView, selection, { phase, nodeBinary }) {
+  assert.equal(selection.phase, phase);
+  assert.equal(failedView.state, 'failed');
+  assert.equal(failedView.result?.focusedTest?.terminalStatus, 'failed');
+  assert.equal(failedView.result?.rollback?.status, 'succeeded');
+  assert.equal(selection.failedLifecycleId, failedView.lifecycleId);
+  assert.equal(selection.planDigest, failedView.planDigest);
+  assert.ok(Array.isArray(selection.targets) && selection.targets.length >= 1 && selection.targets.length <= 2);
+  assert.equal(new Set(selection.targets).size, selection.targets.length);
+  assert.ok(selection.targets.every(path => TARGETS[phase].includes(path)));
+  assert.deepEqual(sorted(failedView.diff.map(file => file.path)), sorted(TARGETS[phase]));
+  assert.equal(typeof selection.reason, 'string'); assert.ok(selection.reason.trim());
+  assert.equal(lastDraft.revisionOf, undefined, 'one manual repair per increment');
+  const draft = copy(lastDraft);
+  const prefix = '\nOprav skutečné selhání: ';
+  const reasonBudget = 512 - Buffer.byteLength(draft.instruction + prefix);
+  assert.ok(selection.reason.isWellFormed() && Buffer.byteLength(selection.reason) <= reasonBudget,
+    'manual repair reason exceeds remaining UTF-8 budget ' + reasonBudget + 'B; shorten the explicit selection before inference');
+  draft.instruction += prefix + selection.reason;
+  draft.revisionOf = { lifecycleId: failedView.lifecycleId, planDigest: failedView.planDigest };
+  for (const file of draft.files) {
+    file.reusePrevious = !selection.targets.includes(file.path);
+  }
+  return validateManualDraft(draft, { phase, nodeBinary, repair: true });
+}
+
+export async function prepareActualManualDraft(studio, { sessionId, projectId, conversationId, phase, nodeBinary, draft, beforeSubmit = async () => {} }) {
+  validateManualDraft(draft, { phase, nodeBinary, repair: Boolean(draft.revisionOf) });
+  const command = '/m2-build ' + JSON.stringify(draft);
+  // Freeze the literal operator specification before the public Send action.
+  await beforeSubmit(copy(draft));
+  await invoke(studio, (model, args) => {
+    const session = model.widget.store.find(args.sessionId);
+    if (!session || String(session._projectId) !== String(args.projectId)
+      || String(session._convId) !== args.conversationId || model.widget.transport.hasActiveM1Turn(session)
+      || session._m2Pending || session.chat._projectWorkProposal || session.chat._m2Composer?.open
+      || session.chat._delivery?.status === 'DELIVERY_UNKNOWN') throw Error('FAN_MANUAL_SCOPE_OR_BUSY');
+    const textareas = [...document.querySelectorAll('[data-studio-ui="studio2"] textarea[aria-label^="Zpráva pro relaci "]')];
+    if (textareas.length !== 1) throw Error('FAN_MANUAL_ONE_VISIBLE_COLUMN');
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(textareas[0], args.command);
+    textareas[0].dispatchEvent(new Event('input', { bubbles: true }));
+    if (model.st().drafts[args.sessionId] !== args.command) throw Error('FAN_MANUAL_LITERAL_INPUT_DRIFT');
+    const buttons = [...document.querySelectorAll('button[aria-label="Odeslat"]')];
+    if (buttons.length !== 1 || buttons[0].disabled) throw Error('FAN_MANUAL_SEND_BUTTON');
+    buttons[0].click(); return true;
+  }, { sessionId, projectId, conversationId, command });
+  const result = await waitUntil(() => invoke(studio, (model, args) => {
+    const session = model.widget.store.find(args.sessionId), entry = model.widget.m2.entry(session);
+    if (entry.busy) return null;
+    if (entry.error) throw Error('FAN_MANUAL_DRAFT_FAILED:' + entry.error);
+    if (entry.view?.state !== 'awaiting_approval') return null;
+    return { view: JSON.parse(JSON.stringify(entry.view)),
+      userRecorded: session.chat.msgs.some(row => row.role === 'user' && row.tag === 'M2' && row.text === args.command),
+      ordinaryTurnActive: model.widget.transport.hasActiveM1Turn(session), proposal: session.chat._projectWorkProposal || null };
+  }, { sessionId, command }), 'actual public operator CODE preview', 990000);
+  assert.equal(result.userRecorded, true); assert.equal(result.ordinaryTurnActive, false); assert.equal(result.proposal, null);
+  assert.deepEqual(result.view.plan.origin, { surface: 'studio', sessionId: conversationId, conversationId, projectId });
+  assert.deepEqual(sorted(result.view.diff.map(file => file.path)), sorted(TARGETS[phase]));
+  assert.equal(result.view.audit?.governanceDecision?.verdict, 'allow');
+  return { entryMode: 'manual', command, submittedDraft: copy(draft), ...result };
 }
 
 // ROOT must call this only AFTER independent exact preview/source-policy/disk
