@@ -1,6 +1,6 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktuální checkpoint 2. 10. 2026, 15:12 UTC:** ROOT převzal společnou
+**Aktuální checkpoint 2. 10. 2026, 16:14 UTC:** ROOT převzal společnou
 integraci, naposledy CHAT `00ec5b52` do publikovaného `f2e6ac1a`.
 Kontroly obou stran zachované, kanonický registr 594, graph 1498/3/28.
 Poslední celý profil na publikovaném `2997afd5`:408 PASS /0 FAIL /0 BLOCKED,
@@ -36,16 +36,22 @@ CPU porovnání zvolilo úplné zdroje při 16k a projektové přírůstky. Krá
 load 09:51 UTC má plnou GPU rezidenci a headroom 3 759 MiB; plné okno
 a aplikace tím přijaté nejsou. Omezený AST scanner je
 zapojený a nezávisle přijatý; CODE capture pro 16k je pushnutý v `7cfe4edf`,
-source review PASS, service104/104 PASS. Nová fan aplikace NOT_RUN;
-její skutečný D1 vstup blokuje CHAT classifier. Další omezený CODE průchod
-použije dokumentovaný explicitní Studio `/m2-build <JSON>`, stejný oracle
+source review PASS, service104/104 PASS. Funkční přejímka fan aplikace je otevřená;
+její skutečný D1 vstup blokuje CHAT classifier. Omezený CODE průchod
+použil dokumentovaný explicitní Studio `/m2-build <JSON>`, stejný oracle
 a max11 CODE /0 D1; dva helpery a source/input freeze mají nezávislé review PASS;
 nenahrazuje přijetí přirozeného plánování ani netvrdí D1 průchod.
 První manual běh skončil na DOM helperu před inferencí; oprava má source
 review a actual CPU renderer6 PASS. `592cb54c`: CI18/18 SUCCESS, actual4CODE,
 poslední vstup22 258 B. Náhled/wrong-digest409/restart ověřené; pending-bind
-helper FAIL před approval/test/commit. Další krok: exact resume, max11 CODE
-včetně původních4, nový freeze/review/CI; oracle a limity oprav nezměněné.
+helper FAIL před approval/test/commit. `b1f7146c` má CI18/18 SUCCESS.
+Skutečné přesné approval/test: 8 PASS /6 FAIL, rollback 4/4, bez commitu,
+žádné nové modelové volání. Běžná oprava potřebuje čtyři soubory proti limitu dvou.
+Návrh: čtyři core opravy +tři CLI generace, celkem stále11, bez CLI retry;
+zpřesnit API a vynechat implementaci oracle pouze z modelového test vstupu.
+CPU vstup 29 043 →17 129 B, růstový fixture 22 650 B při guardu 27 904 B;
+Úplné app zdroje a fyzický oracle zachované. Omezené CPU input review PASS;
+implementace/rozhodnutí čekají, návrh není adoptován, aplikace stále FAIL.
 Společné přijetí, M5/M6 a mobilní fyzická přejímka
 zůstávají otevřené. [Aktuální průběžný report](docs/WORK-PROGRESS.md).
 

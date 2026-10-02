@@ -21,7 +21,14 @@ Registry11/11 PASS, default AST service103/103 a evaluator34/34 PASS, dvě omeze
 source review PASS. Žádný deploy ani release acceptance.
 `592cb54c`: CI18/18 SUCCESS a actual4CODE fan náhled; poslední vstup22 258 B.
 Wrong-digest409 a pending restart ověřené, helper FAN_CONVERSATION_BUSY
-před approval/test/commit. Další krok exact resume, max11 včetně původních4.
+před approval/test/commit. `b1f7146c` má CI18/18 SUCCESS.
+Skutečné přesné approval/test: 8 PASS /6 FAIL, rollback 4/4, bez commitu,
+žádné nové modelové volání. Běžná oprava potřebuje čtyři soubory proti limitu dvou.
+Návrh: čtyři core opravy +tři CLI generace, celkem stále11, bez CLI retry;
+zpřesnit API a vynechat implementaci oracle pouze z modelového test vstupu.
+CPU vstup 29 043 →17 129 B, růstový fixture 22 650 B při guardu 27 904 B;
+Úplné app zdroje a fyzický oracle zachované. Omezené CPU input review PASS;
+implementace/rozhodnutí čekají, návrh není adoptován, aplikace stále FAIL.
 Chatový report zůstává
 NO_GO / REVIEW_PENDING: finální 53×3 kvalitativně nesplněné; jeho celý profil
 `0fad3823` má 399 PASS /4 FAIL /3 BLOCKED. Novější archive oprava má cílené
@@ -31,12 +38,12 @@ Krátké měření Qwen3.8 exact digest `22130167…9643` při 16k na provideru
 `0.34.0-intentsmith.1`: plná GPU rezidence 17 315 848 518 B, CPU spill 0,
 minfree 3 759 MiB, jedno volání a uvolněný vlastní model/lease. Není plné
 kontextové okno ani modelová/app kvalita. Produktový CODE capture pro 16k je
-zapojený, source review PASS, service 104/104 PASS; nový skutečný projekt NOT_RUN.
+zapojený, source review PASS, service 104/104 PASS; funkční fan přejímka otevřená.
 Fan D1 entry je doloženě blokovaný CHAT ProjectHandler směrováním do běžné
 odpovědi místo D1. Dokumentovaná explicitní Studio `/m2-build <JSON>` cesta je další
 omezená CODE strategie; není důkazem opraveného přirozeného plánování.
 Její první actualUI pokus skončil na pomocném selektoru, 0model calls, čistý
-stop/lease/source. Jediný helper opravený a actualCPU renderer6 PASS; live čeká.
+stop/lease/source. Helper opravený, actual CPU renderer6 PASS; další actual běhy výše.
 
 Zmrazený `f5964604` má SOURCE_REVIEW_PASS, čtyři dotčené registrované sady
 PASS a vlastní CI13 SUCCESS. SQLite pokračování 08:18 UTC dodalo právě

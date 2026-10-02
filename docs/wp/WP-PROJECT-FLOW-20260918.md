@@ -271,3 +271,92 @@ Bounded source review PASS, receipt
 ROOT required-pin amendment has three pure checks PASS; current CI and
 new source freeze are still required before live;
 CPU is not application acceptance. Immutable approval expires15:59:25.156 UTC.
+
+## Actual functional failure and bounded escalation — 2 October, 15:43 UTC
+
+Published `b1f7146c` exact remote/CI37027278776 SUCCESS, all18 steps, downloaded
+CHAT7/7 +CODE6/6. Final source review
+`fcfc2f0df222b77005960c877905ad84582b3db0fc8f78c9503251fd97b327ea`.
+Frozen73-member continuation
+`e3a5a74dde29a4a4b235cc88b20dd1d07ba90c30ecfd92620906192d5fb9f48b`
+used a complete copied runtime at the unchanged absolute signed project root.
+Actual durable pending/diff and wrong-digest409 remained exact; normal visible
+Studio approval produced complete10-grant authority and real sandboxed test.
+
+Functional verdict:14 tests,8 PASS/6 FAIL; full four-target rollback succeeded,
+Git unchanged `b51881b4`, no commit. Result SHA
+`751c6fc491005c475ccca48c221c1f7380f442ffe3cda25562505e01cf0a98de`;
+terminal SHA `6cd5ae30fbdabc4c26ceb744a79e8c344862b9540e19cc690481e5afaaa18e38`.
+All four owned Studio/BE stops PASS; proxy activeRequests0, lease released,
+source and complete original packet unchanged. Four original model calls,
+zero new calls. No approval-expiry rewrite or manual source patch.
+
+The generated history rejects Array(samples), drops array sensor copies and
+orders newest first; readings returns an object/ambient clock instead of the
+protected oracle array. Monitor and four generated assertions consume that
+object. A standard contract-correct repair needs all four core targets. Our
+per-file instructions omitted explicit readings array/history output order;
+this qualification ambiguity and generated algorithm errors are separate.
+Audit process_terminated carries a truncated4096 UTF-8 B stdout excerpt
+(4042 characters); focused output
+metadata outputTruncated=false, so missing final stacks are not invented.
+
+The original max2 target correction therefore had no valid selection and
+ended FAN_REPAIR_SELECTION_TIMEOUT after the real TEST_FAILED/rollback.
+Application FAIL; CLI/commit/final application restart remain NOT_RUN.
+Escalation proposed to the operator: reallocate remaining7 as core4 repair
+plus CLI3 initial, no CLI repair; total CODE remains11 including original4,
+zero D1. Preserve all original failures/oracle, use an explicit new freeze
+with complete per-file interface inputs. Decision pending; no new inference.
+
+Independent actual negative evidence review PASS (application remains FAIL):
+`031c61543ce947f15e9c6e93c5c934b3e3680430925bb213a27590b721dabe3c`.
+Before any further model call, CPU reconstructed the proposed strengthened
+four-target correction. All instructions fit512 B; prompt sizes
+5101/4179/10439/29043 B. Acceptance exceeds repair27904 B by1139 B, including
+full previousDraft6402 B, peers7634 B and readonly oracle11557 B.
+The suggested4+3 allocation alone is therefore not live-ready. CPU STOP
+receipt `856dd91bfe09bed56f18005379493a342686a7f5005d051931bb6d8aba2ef8ed`;
+complete draft/old source bytes preserved, no public helper patch or inference.
+An explicit acceptance-context alternative is now sealed on CPU, with
+physical oracle/wrapper and all app peer sources unchanged. A separately
+measured larger context is the other option; neither is silently adopted.
+
+### Feasible input alternative — 2 October, 16:07 UTC
+
+The private proposal changes acceptance `contextFiles=[]`: no protected oracle
+implementation in that model input. All full application peers and previousDraft
+remain exact. Explicit required API inputs specify a sensor array from readFans,
+chronological deep-copied history arrays, sample `{atMs,sensors}` and injected
+clock/I/O; these are requirements, not claimed conformance of the failed sources.
+Protected physical oracle/entry/core wrapper bytes remain unchanged; the CLI
+wrapper is not yet materialized and is bound only by its unchanged frozen hash.
+The criterion map records all40 oracle assertion sites and entry criteria.
+
+Actual prior-source repair inputs: 5101/4179/10439/17129 B; acceptance decreases
+29043→17129 B. A well-formed UTF-8/escaping fixture grows complete dependencies
+by at least1.5×: largest22650 B. Actual guard accepts27904 B and rejects27905 B
+with M2_CODE_DRAFT_CONTEXT_LIMIT_EXCEEDED. CPU fit is not model/app acceptance;
+future repaired peers are unknown and must be measured before every forward.
+CLI must pass that preforward fit against the actual repaired committed core.
+Repair output stays capped at2048 tokens; the original complete generated test
+used2456 output tokens. New output completeness/quality is not proven by CPU
+input fit. Truncation or invalid output must stop normally; no hidden retry.
+CPU receipt `46bf4a03a830742ef362c6b6613215ff18480f0d3431b7e9b7e9555a4e8223ba`;
+alternative handoff `3c1291f78014cca8eaf35a9e44b10f0510dd79586db06ee54a99d712a59238d7`,
+24-member manifest `8e7946f2999e55909b38270cd7f4905f6e0c3275bd89fcf8a7bc2604d4f292d3`.
+Original17-member packet/FAILs remain exact. No inference or helper adoption.
+Independent CPU_INPUT_REPRESENTATION_REVIEW_PASS, receipt
+`4b6e308ff67dd7ee9c69b0094c49befd7dca53d252a37f426f01054340001de8`.
+It accepts this bounded input proposal; application stays FAIL and future
+helper implementation/actual repaired output/CLI fit are not accepted.
+
+Pending operator decision must cover BOTH the allocation (historical4 +core4
+repair +CLI3 initial, no CLI repair/retry, max11/zeroD1) AND stronger API inputs
+with acceptance `contextFiles=[]`. It follows the operator's requirement to
+freeze calls/repair bounds and stop rather than silently extend a failed run.
+If accepted, scope stays in the same two manual helpers, with source review,
+CPU checks, new exact source/input freeze and CI before actual continuation.
+Use a copy of the NEW FAILED b1 runtime at the same original absolute project
+root; revisionOf binds its actual failed lifecycle/digest. Do not reuse the
+original awaiting_approval DB, extend old expiry, reset budgets or patch outputs.
