@@ -169,7 +169,7 @@ function proposal({
     intent: 'Update the exact exported application value',
     changes,
     focusedTest: {
-      binary: '/usr/bin/node',
+      binary: process.execPath,
       argv: ['--version'],
       environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' },
       timeoutMs: 30_000,
@@ -329,7 +329,7 @@ await testAsync('real SQLite, ProjectContext, Git and bwrap journey reaches one 
       planDigest: planned.planDigest,
       origin: ORIGIN,
     });
-    assert.equal(completed.state, 'succeeded');
+    assert.equal(completed.state, 'succeeded', JSON.stringify(completed.result));
     assert.equal(completed.result.terminalStatus, 'succeeded');
     assert.equal(completed.result.focusedTest.terminalStatus, 'succeeded');
     assert.equal(completed.result.git.status, 'committed');
@@ -497,7 +497,7 @@ await testAsync('production lifecycle commits a governed non-manifest file with 
       planDigest: planned.planDigest,
       origin: ORIGIN,
     });
-    assert.equal(completed.state, 'succeeded');
+    assert.equal(completed.state, 'succeeded', JSON.stringify(completed.result));
     assert.equal(completed.result.changes.afterRevision, planned.plan.project.workspaceRevision);
     assert.equal(completed.result.git.status, 'committed');
     assert.equal(completed.result.rollback.required, false);

@@ -1,7 +1,7 @@
 # WP — AST kontrola skutečných závislostí M2 CODE
 
 **Stav:** `BOUNDED_AST_SOURCE_REVIEW_PASS / ACTUAL_M2_CPU_PASS`;
-registrovaná integrace a nové CI ještě čekají. Aktuální stav je tato hlavička
+registrovaná integrace11/11 PASS, nové CI ještě čeká. Aktuální stav je tato hlavička
 a poslední datovaný oddíl; starší návrhy a odložení jsou historie.
 **Vlastník:** ROOT; navazující nechatový milník na publikovaném
 `79b201c8b484a7c8a21225945f51b9dba21d47dc`. Tento návrh neodblokuje
@@ -204,3 +204,17 @@ hrany nad čistým `4a8fb4b2dfb8752324974ef364860a79f8ac3892`:
 1492 →1496, žádná removed hrana, 3 cykly /28 členů beze změny.
 Původní před-přijetím ratchet FAIL je diagnóza očekávaných čtyř hran,
 nikoli skrytý PASS nebo povolení obecné relaxace limitu.
+
+Registrovaný clean `3f440603` prošel 11/11 dotčených sad, bez BLOCKED nebo
+SKIPPED; report SHA `3c13cf7f577bd962e16b56cb3949a2a078526e38d24c48ff23bbe8bd94d1b623`.
+Skutečné CI `36999539087` má scanner a obě app kontroly PASS, namespace/chat
+PASS; service101/2 FAIL jsou dva staré skutečné případy s `/usr/bin/node`.
+CI nevydalo přesný procesový subtype; lokální Node24 --version obě varianty
+PASS vyvrací domněnku o této OOM příčině. Pouze testový default nyní používá
+kontrolované `process.execPath` Node24, dvě původní aserce mají diagnostiku
+resultu, význam/digests se nadále odvozují z celého přesného návrhu.
+ROOT103/103 PASS, bez změny produkčního sandboxu/oracle. Nové CI čeká;
+původní raw ZIP `36a42389a95a9c51976b9c754cb350ec5c65661a3cf4f1e6ed19d0de4f2d50c6` zůstává.
+Nezávislé review přesné třířádkové fixture změny
+`44c09acce63e31cc23594722a7007bfcd2695f4615e43b9ed27db53096b98ac2`
+má SOURCE_REVIEW_PASS, ne dodatečný inference či CI PASS.

@@ -43,18 +43,18 @@ podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
    Tři konflikty vyřešené, registry 594/35; celý offline/database profil
    **401 PASS /2 FAIL /5 BLOCKED**. Dva toolchain BLOCKED cíleně PASS;
    opravené počty README/ROADMAP: 160/160 PASS; routing DPH FAIL patří CHATu.
-   Tři PDF/OCR BLOCKED trvají. Publikovaný `7afc96f2` izoluje kapacitní fixture;
-   [CI](https://github.com/Belphareon-bak/intentsmith/actions/runs/36995956642)
-   má CHAT **7/7 PASS**, M2 **0/2 FAIL**: bwrap namespace odmítnut před aplikací.
-   Připravená přesná CI AppArmor výjimka podle desktopového kontraktu;
-   lokální smoke PASS, nový GitHub běh čeká. Žádný global disable ani sudo app.
+   Tři PDF/OCR BLOCKED trvají. Publikovaný `3f440603` obsahuje scanner;
+   [CI](https://github.com/Belphareon-bak/intentsmith/actions/runs/36999539087)
+   má sandbox/CHAT **7/7 PASS**, M2 **3/4 PASS**; service101/2 FAIL jen staré
+   dvě `/usr/bin/node` fixtures. Přesná Node24 fixture103/103 lokálně PASS,
+   diagnostika rozšířená; původní CI subtype nebyl zalogovaný, nové CI čeká.
    Původní CI FAILy a SKIPPED zůstávají, nejsou nahrazené lokálním PASS.
    CHAT report má CHANGES_REQUIRED: celé série 53×3 nesplnily kvalitativní cíle;
    celý profil na `289afec0` 399 PASS /4 FAIL /3 BLOCKED. Ladí jeho worker.
 2. **Omezený M2 scanner:** V2 adoptovaný do skutečné default M2 služby,
    evaluator 34/34 a service 103/103 PASS: přesné approval/commit/restart,
    assertion rollback tří souborů a cancel před registrací. Dvě nezávislá
-   source review PASS; baseline1496 přijatá nad čistým `4a8fb4b2`, CI čeká.
+   source review PASS; baseline1496 nad čistým `4a8fb4b2`, registry11/11 PASS.
    [Rozsah a historické fixture FAILy](wp/WP-M2-AST-IMPORT-SCANNER-20261001.md).
 3. **Kontext a větší projekt:** CPU rozhodnutí je úplný zdroj při 16k
    a skutečné projektové přírůstky. Ze 198 velikostních případů se při 8k
