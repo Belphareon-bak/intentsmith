@@ -59,8 +59,8 @@ podávám samostatný report po 2 h. Hotový produkt zatím není přijatý.
    a skutečné projektové přírůstky. Ze 198 velikostních případů se při 8k
    vejde 27, při 16k 97; nejde o míru modelové úspěšnosti. Krátký skutečný
    16k load 09:51 UTC: full GPU, CPU spill 0, minfree 3 759 MiB. Plné okno
-   a produktové zapojení NOT_RUN; privátní capture návrh má 43 gateway
-   a 18 context kontrol PASS, review čeká. Dosavadní 119 B /1,4 % je omezená
+   a skutečná aplikace NOT_RUN; produktový capture převzatý, source review
+   PASS, gateway44/context18/service104 CPU PASS. Dosavadní 119 B /1,4 % je omezená
    úspora, nikoli řešení škálování. Nový živý fit měl i bez formatteru 7 781 B.
    `8192` je pro Qwen3.8 fallback, ne změřené maximum; build má navíc 32 000 B
    serializační mez. Úplné zdroje dál určují náhled, digest a zápis.

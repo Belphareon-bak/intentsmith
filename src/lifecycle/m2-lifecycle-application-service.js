@@ -69,7 +69,7 @@ import { evaluateM2GovernanceWithAst } from './m2-governance-ast-adapter.js';
 import { M2LifecycleAuthorityRepository } from './m2-lifecycle-authority-repository.js';
 import { compileM2ProjectChangeProposal } from './m2-proposal-compiler.js';
 import {
-  buildCodeDraftPrompt, codeDraftError, compileCodeDraftInput, codeDraftModelBudget, assertCodeDraftModelBudget, assertCodeDraftSyntax,
+  buildCodeDraftPrompt, codeDraftError, compileCodeDraftInput, captureCodeDraftModelBudgets, assertCodeDraftModelBudget, assertCodeDraftSyntax,
   compileCodeDraftResult, generateCodeDraft as defaultGenerateCodeDraft,
 } from './m2-code-draft.js';
 
@@ -750,9 +750,10 @@ export function createM2LifecycleApplicationService(dependencyValues) {
       contextFiles.set(target, { path: target, content: new TextDecoder('utf-8', { fatal: true }).decode(observedFile.bytes),
         state: 'read_only', contentDigest: entry.contentDigest });
     }
-    const generationBudgets = generateCodeDraft === defaultGenerateCodeDraft
-      ? await Promise.all([codeDraftModelBudget(!!compiled.buildSteps),
-        codeDraftModelBudget(!!compiled.buildSteps, true)]) : null;
+    const generationRuntime = generateCodeDraft === defaultGenerateCodeDraft
+      ? await captureCodeDraftModelBudgets(!!compiled.buildSteps, { signal: boundedSignal }) : null;
+    check();
+    const generationBudgets = generationRuntime?.generationBudgets ?? null;
     const changes = [];
     const steps = compiled.buildSteps ?? files.map((_, index) => ({ index }));
     const promptFor = index => buildCodeDraftPrompt(compiled, files[index].content, index,
@@ -787,6 +788,8 @@ export function createM2LifecycleApplicationService(dependencyValues) {
       try {
         result = await generateCodeDraft({
           ...prompt, signal: boundedSignal, sessionId: transportOrigin.conversationId,
+          ...(generationRuntime ? { runtimeCapture: generationRuntime.runtimeCapture,
+            modelBudget: generationBudgets[prompt.repairBuild ? 1 : 0] } : {}),
         });
       } catch (error) {
         check();

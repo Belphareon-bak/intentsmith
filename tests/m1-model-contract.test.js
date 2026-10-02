@@ -19,12 +19,16 @@ import {
   LLMGatewayError,
   LLMGatewayErrorCode,
   callWithAuth,
+  captureCodeDraftRuntime,
+  getCodeDraftRuntime,
+  callWithCodeRuntime,
   callWithPolicy as callGatewayWithPolicy,
   llmGateway,
 } from '../src/llm/gateway.js';
-import { MODEL_RUNTIME_PROFILE } from '../src/llm/model-runtime-profile.js';
+import { MODEL_RUNTIME_PROFILE, CODE_RUNTIME_PROFILE, CODE_RUNTIME_QUALIFICATION } from '../src/llm/model-runtime-profile.js';
 import {
   LLMCallerRole,
+  LLMCapability,
   LLMOperation,
   RoleTokenCeilings,
   RoleTokenLimits,
@@ -41,6 +45,8 @@ import {
   analyzeImages,
   analyzeProjectCode,
 } from '../src/llm/cre-bridge.js';
+import { setNumCtx, getNumCtx, clearNumCtxCache } from '../src/llm/model-ctx.js';
+import { captureCodeDraftModelBudgets, generateCodeDraft, codeDraftModelBudget, assertCodeDraftModelBudget, compileCodeDraftInput, buildCodeDraftPrompt, compileCodeDraftResult } from '../src/lifecycle/m2-code-draft.js';
 import { clockContext } from '../src/llm/clock-context.js';
 import { config } from '../src/config.js';
 import { validateModelResult } from '../contracts/m1/index.js';
@@ -1622,6 +1628,265 @@ try {
   // A failure must not leak an owned slot into later programs.
   llmGateway._concurrency.active = 0;
   llmGateway._concurrency.queue.length = 0;
+}
+
+suite('Captured CODE 16k runtime — default generator and drift boundary');
+const codeSaved = {
+  fetch: globalThis.fetch, bindings: { ...config.models }, baseUrl: config.ollama.baseUrl,
+  authority: llmGateway._bindingStartupAuthority, resolver: llmGateway._bindingArtifactResolver,
+  rateLimits: { ...llmGateway.rateLimits }, concurrencyMax: llmGateway._concurrency.max,
+  signalRecorder: modelUniverseStore.recordSignalEvent,
+};
+let codeArtifact, codeVersion, codeResponseVersion, codeServedDigest, codeRequests, codeEndpoints, codeHook;
+function resetCodeFixture() {
+  config.models.CODE = CODE_RUNTIME_PROFILE.model;
+  config.ollama.baseUrl = 'http://code-unit.invalid';
+  codeArtifact = { modelName: CODE_RUNTIME_PROFILE.model, digestSha256: CODE_RUNTIME_PROFILE.digestSha256 };
+  codeVersion = CODE_RUNTIME_QUALIFICATION.providerVersion;
+  codeResponseVersion = codeVersion;
+  codeServedDigest = codeArtifact.digestSha256;
+  codeRequests = []; codeEndpoints = []; codeHook = null;
+  llmGateway.setBindingStartupAuthority({ status: 'DURABLE' }, { resolveArtifact: () => codeArtifact });
+  globalThis.fetch = async (url, options = {}) => {
+    codeEndpoints.push(url);
+    if (url === 'http://code-unit.invalid/api/version') return providerResponse({ json: { version: codeVersion } });
+    if (url === 'http://code-unit.invalid/api/tags') return providerResponse({ json: { models: [{ name: CODE_RUNTIME_PROFILE.model, digest: codeArtifact.digestSha256 }] } });
+    if (url !== 'http://code-unit.invalid/api/chat') throw Error(`Unexpected CPU provider endpoint: ${url}`);
+    const body = JSON.parse(options.body); codeRequests.push(body);
+    const response = providerResponse({ json: { model: CODE_RUNTIME_PROFILE.model,
+      digest: codeServedDigest, provider_version: codeResponseVersion,
+      message: { content: JSON.stringify({ afterContent: 'export const value = 1;\n' }) }, done_reason: 'stop' } });
+    return codeHook ? codeHook(body, options, response) : response;
+  };
+}
+function codeOperation(overrides = {}) {
+  const decisionId = `code-runtime-unit-${++tokenSequence}`;
+  const token = createAuthToken({ role: LLMCallerRole.WORKFLOW_CODER, decisionId,
+    auditContext: { sessionId: decisionId }, maxTokens: 4096,
+    capabilities: [LLMCapability.CODE_GENERATION, LLMCapability.JSON_OUTPUT] });
+  const options = { model: CODE_RUNTIME_PROFILE.model, num_ctx: 16384, maxTokens: 4096,
+    timeout: 1000, capability: LLMCapability.CODE_GENERATION, correlation: {
+      requestId: decisionId, conversationId: decisionId, turnId: decisionId,
+      callerRole: token.role, modelRole: 'CODE', purpose: 'answer' }, ...overrides };
+  return { token, options };
+}
+async function codeCall(capture, overrides = {}) {
+  const { token, options } = codeOperation(overrides);
+  return callWithCodeRuntime(token, 'CPU source fixture', options, capture);
+}
+async function waitCodeQueue() {
+  for (let i = 0; i < 100; i += 1) {
+    if (llmGateway.getConcurrencyStats().queued === 1) return;
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  throw Error('CPU waiter did not enter the gateway queue');
+}
+try {
+  llmGateway._concurrency.max = 1;
+  llmGateway.rateLimits.maxCallsPerMinute = 1000;
+  modelUniverseStore.recordSignalEvent = () => ({ ok: true });
+  await testAsync('captures once for every default build/repair generation while shared cache changes', async () => {
+    resetCodeFixture(); clearNumCtxCache(); setNumCtx(CODE_RUNTIME_PROFILE.model, 8192);
+    const runtime = await captureCodeDraftModelBudgets(true);
+    const state = getCodeDraftRuntime(runtime.runtimeCapture);
+    assertEqual(Object.isFrozen(state), true); assertEqual(Object.isFrozen(state.artifact), true);
+    assertEqual(runtime.generationBudgets[0].maxPromptBytes, 23808);
+    assertEqual(runtime.generationBudgets[1].maxPromptBytes, 27904);
+    assertEqual(codeEndpoints.length, 1, 'one capture verifies the initial provider identity');
+    for (const [repairBuild, cache] of [[false, 8192], [false, 4096], [true, 32768]]) {
+      setNumCtx(CODE_RUNTIME_PROFILE.model, cache);
+      const response = await generateCodeDraft({ prompt: 'Generate the full file.', systemPrompt: 'JSON only.',
+        sessionId: 'code-default-generator', projectBuild: true, repairBuild,
+        runtimeCapture: runtime.runtimeCapture, modelBudget: runtime.generationBudgets[repairBuild ? 1 : 0] });
+      assert(response.content.includes('afterContent'));
+    }
+    assertEqual(JSON.stringify(codeRequests.map(body => body.options.num_ctx)), '[16384,16384,16384]');
+    assertEqual(JSON.stringify(codeRequests.map(body => body.options.num_predict)), '[4096,4096,2048]');
+    assertEqual(getNumCtx(CODE_RUNTIME_PROFILE.model), 32768, 'CODE requests do not rewrite the shared cache');
+    setNumCtx(CODE_RUNTIME_PROFILE.model, 8192);
+    const chatToken = makeToken();
+    await callWithPolicy(chatToken, 'ordinary CHAT request', { model: CODE_RUNTIME_PROFILE.model, num_ctx: 16384,
+      maxTokens: 20, capability: LLMCapability.REASONING, correlation: correlation('code-isolation') });
+    assertEqual(codeRequests.at(-1).options.num_ctx, 8192);
+    assertSemaphoreReleased();
+  });
+
+  await testAsync('rejects forged captures and public option injection before any provider request', async () => {
+    resetCodeFixture(); const capture = await captureCodeDraftRuntime(); const start = codeEndpoints.length;
+    for (const forged of [{}, { ...capture }, JSON.parse(JSON.stringify(capture)), getCodeDraftRuntime(capture)]) {
+      const error = await capturedFailure(codeCall(forged));
+      assertEqual(error.code, LLMGatewayErrorCode.INVALID_REQUEST);
+    }
+    const { token, options } = codeOperation();
+    for (const name of ['runtimeCapture', 'codeRuntimeCapture', '_codeRuntimeCapture', 'codeRuntimeProfile', '_codeRuntimeProfile']) {
+      const error = await capturedFailure(callWithPolicy(token, 'spoof', { ...options, [name]: capture }));
+      assertEqual(error.code, LLMGatewayErrorCode.INVALID_REQUEST);
+    }
+    assertEqual(codeEndpoints.length, start); assertEqual(codeRequests.length, 0);
+  });
+
+  await testAsync('limits the capture to exact authorized CODE model/context/purpose/output', async () => {
+    resetCodeFixture(); const capture = await captureCodeDraftRuntime(); const start = codeEndpoints.length;
+    for (const overrides of [{ model: 'other:1b' }, { num_ctx: 8192 }, { maxTokens: 4097 },
+      { capability: LLMCapability.JSON_OUTPUT }]) {
+      assertEqual((await capturedFailure(codeCall(capture, overrides))).code, LLMGatewayErrorCode.AUTHORIZATION_DENIED);
+    }
+    const { token, options } = codeOperation();
+    for (const changed of [{ modelRole: 'CHAT' }, { purpose: 'refine' }, { requestId: 'different-decision' }]) {
+      const error = await capturedFailure(callWithCodeRuntime(token, 'wrong scope', {
+        ...options, correlation: { ...options.correlation, ...changed } }, capture));
+      assertEqual(error.code, LLMGatewayErrorCode.AUTHORIZATION_DENIED);
+    }
+    const chatToken = makeToken();
+    const error = await capturedFailure(callWithCodeRuntime(chatToken, 'wrong role', {
+      ...options, capability: LLMCapability.REASONING, correlation: { ...options.correlation,
+        callerRole: chatToken.role, requestId: chatToken.decisionId } }, capture));
+    assertEqual(error.code, LLMGatewayErrorCode.AUTHORIZATION_DENIED);
+    assertEqual(codeEndpoints.length, start); assertEqual(codeRequests.length, 0);
+  });
+
+  await testAsync('requires durable exact artifact and pinned provider; legacy 4096 remains unchanged', async () => {
+    resetCodeFixture(); llmGateway._bindingStartupAuthority = null;
+    assertEqual((await capturedFailure(captureCodeDraftRuntime())).code, LLMGatewayErrorCode.BINDING_ARTIFACT_UNVERIFIED);
+    assertEqual(codeEndpoints.length, 0);
+    resetCodeFixture(); codeArtifact = { ...codeArtifact, digestSha256: 'b'.repeat(64) };
+    assertEqual((await capturedFailure(captureCodeDraftRuntime())).code, LLMGatewayErrorCode.BINDING_ARTIFACT_DRIFT);
+    assertEqual(codeEndpoints.length, 0);
+    resetCodeFixture(); codeVersion = 'unapproved-provider';
+    assertEqual((await capturedFailure(captureCodeDraftRuntime())).code, LLMGatewayErrorCode.CODE_RUNTIME_DRIFT);
+    assertEqual(codeRequests.length, 0);
+    resetCodeFixture(); config.models.CODE = MODEL_RUNTIME_PROFILE.model;
+    assertEqual(await captureCodeDraftRuntime(), null);
+    const budget = await codeDraftModelBudget(true);
+    assertEqual(budget.numCtx, 4096); assertEqual(budget.maxTokens, 1720);
+    assertEqual(codeEndpoints.length, 0);
+  });
+
+  await testAsync('fails original capture on configuration, provider URL, binding or provider drift', async () => {
+    for (const [mutate, expected] of [
+      [() => { config.models.CODE = 'other:1b'; }, LLMGatewayErrorCode.CODE_RUNTIME_DRIFT],
+      [() => { config.ollama.baseUrl = 'http://retarget.invalid'; }, LLMGatewayErrorCode.CODE_RUNTIME_DRIFT],
+      [() => { codeArtifact = { ...codeArtifact, digestSha256: 'b'.repeat(64) }; }, LLMGatewayErrorCode.BINDING_ARTIFACT_DRIFT],
+      [() => { codeVersion = 'changed'; }, LLMGatewayErrorCode.CODE_RUNTIME_DRIFT],
+    ]) {
+      resetCodeFixture(); const capture = await captureCodeDraftRuntime(); mutate();
+      assertEqual((await capturedFailure(codeCall(capture))).code, expected);
+      assertEqual(codeRequests.length, 0); assertSemaphoreReleased();
+    }
+  });
+
+  await testAsync('rechecks configuration, artifact and provider after actual queue admission', async () => {
+    for (const [mutate, expected] of [
+      [() => { config.models.CODE = 'other:1b'; }, LLMGatewayErrorCode.CODE_RUNTIME_DRIFT],
+      [() => { codeArtifact = { ...codeArtifact, digestSha256: 'b'.repeat(64) }; }, LLMGatewayErrorCode.BINDING_ARTIFACT_DRIFT],
+      [() => { codeVersion = 'changed'; }, LLMGatewayErrorCode.CODE_RUNTIME_DRIFT],
+    ]) {
+      resetCodeFixture(); const capture = await captureCodeDraftRuntime(); let releaseOwner;
+      codeHook = (_body, _options, response) => new Promise(resolve => { releaseOwner = () => resolve(response); });
+      const owner = codeCall(capture); owner.catch(() => {});
+      for (let i = 0; !releaseOwner && i < 100; i += 1) await new Promise(resolve => setImmediate(resolve));
+      assert(releaseOwner, 'owner must reach actual mocked provider');
+      const waiter = capturedFailure(codeCall(capture));
+      await waitCodeQueue(); mutate(); codeHook = null; releaseOwner(); await owner;
+      assertEqual((await waiter).code, expected);
+      assertEqual(codeRequests.length, 1, 'queued drift sends no second request'); assertSemaphoreReleased();
+    }
+  });
+
+
+  await testAsync('post-queue provider identity stall is bounded by the actual request timeout', async () => {
+    resetCodeFixture(); const capture = await captureCodeDraftRuntime();
+    const fixtureFetch = globalThis.fetch; let versions = 0;
+    globalThis.fetch = async (url, options) => {
+      if (url.endsWith('/api/version') && ++versions === 2) return new Promise(() => {});
+      return fixtureFetch(url, options);
+    };
+    const started = Date.now();
+    const error = await capturedFailure(codeCall(capture, { timeout: 25 }));
+    assertEqual(error.name, 'AbortError');
+    assert(Date.now() - started < 1000, 'per-attempt timeout must bound the stalled identity lookup');
+    assertEqual(versions, 2); assertEqual(codeRequests.length, 0); assertSemaphoreReleased();
+  });
+
+  await testAsync('cancellation during provider identity and queued CODE leaves no slot or model request', async () => {
+    resetCodeFixture(); const controller = new AbortController();
+    globalThis.fetch = async () => { controller.abort(); return new Promise(() => {}); };
+    assertEqual((await capturedFailure(captureCodeDraftRuntime({ signal: controller.signal }))).name, 'AbortError');
+    resetCodeFixture(); const capture = await captureCodeDraftRuntime(); let releaseOwner;
+    codeHook = (_body, _options, response) => new Promise(resolve => { releaseOwner = () => resolve(response); });
+    const owner = codeCall(capture); owner.catch(() => {});
+    for (let i = 0; !releaseOwner && i < 100; i += 1) await new Promise(resolve => setImmediate(resolve));
+    assert(releaseOwner); const queuedController = new AbortController();
+    const waiter = capturedFailure(codeCall(capture, { signal: queuedController.signal }));
+    await waitCodeQueue(); queuedController.abort();
+    assertEqual((await waiter).name, 'AbortError'); codeHook = null; releaseOwner(); await owner;
+    assertEqual(codeRequests.length, 1); assertSemaphoreReleased();
+  });
+
+  await testAsync('checks actual serving digest/provider and keeps bounded/incomplete outputs denied', async () => {
+    for (const [mutate, expected] of [
+      [() => { codeResponseVersion = 'wrong-response-provider'; }, LLMGatewayErrorCode.CODE_RUNTIME_DRIFT],
+      [() => { codeServedDigest = 'b'.repeat(64); }, LLMGatewayErrorCode.BINDING_ARTIFACT_DRIFT],
+      [() => { codeServedDigest = null; }, LLMGatewayErrorCode.BINDING_ARTIFACT_UNVERIFIED],
+    ]) {
+      resetCodeFixture(); const capture = await captureCodeDraftRuntime(); mutate();
+      assertEqual((await capturedFailure(codeCall(capture))).code, expected); assertSemaphoreReleased();
+    }
+    resetCodeFixture(); const malformedCapture = await captureCodeDraftRuntime();
+    codeHook = () => providerResponse({ json: null });
+    assertEqual((await capturedFailure(codeCall(malformedCapture))).code, LLMGatewayErrorCode.MALFORMED_RESPONSE);
+    assertSemaphoreReleased();
+    resetCodeFixture(); const runtime = await captureCodeDraftModelBudgets(true);
+    const error = await capturedFailure(generateCodeDraft({ prompt: 'short', systemPrompt: '', sessionId: 'drifted-budget',
+      projectBuild: true, runtimeCapture: runtime.runtimeCapture,
+      modelBudget: { ...runtime.generationBudgets[0], numCtx: 32768 } }));
+    assertEqual(error.code, 'M2_CODE_DRAFT_MODEL_RUNTIME_DRIFT'); assertEqual(codeRequests.length, 0);
+    const compiled = compileCodeDraftInput({ instruction: 'Keep complete output.', files: [
+      { path: 'src/a.mjs', instruction: 'Export a value.', dependsOn: [] },
+    ], focusedTest: { binary: process.execPath, argv: ['--check', 'src/a.mjs'],
+      environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' }, timeoutMs: 30000 } });
+    for (const response of [ { content: '{"afterContent":"export const x =', finishReason: 'stop' },
+      { content: '{"afterContent":null}', finishReason: 'stop' }, { content: '{"afterContent":"export const x = 1;"}', finishReason: 'length' } ]) {
+      assertThrows(() => compileCodeDraftResult(compiled, response));
+    }
+  });
+
+  await testAsync('UTF-8/JSON escaping and later peer growth are measured with complete sources', async () => {
+    resetCodeFixture(); const runtime = await captureCodeDraftModelBudgets(true);
+    const [build, repair] = runtime.generationBudgets;
+    for (const budget of [build, repair]) {
+      const prefix = 'ž😀\\"\n';
+      const exact = prefix + 'x'.repeat(budget.maxPromptBytes - Buffer.byteLength(prefix));
+      assertCodeDraftModelBudget({ prompt: exact, systemPrompt: '' }, budget);
+      assertThrows(() => assertCodeDraftModelBudget({ prompt: exact + 'x', systemPrompt: '' }, budget));
+    }
+    const compiled = compileCodeDraftInput({ instruction: 'Use full UTF-8 dependencies.', files: [
+      { path: 'src/a.mjs', instruction: 'Export a value.', dependsOn: [] },
+      { path: 'src/b.mjs', instruction: 'Use a.', dependsOn: ['src/a.mjs'] },
+      { path: 'src/c.mjs', instruction: 'Use b.', dependsOn: ['src/b.mjs'] },
+    ], focusedTest: { binary: process.execPath, argv: ['--check', 'src/c.mjs'],
+      environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' }, timeoutMs: 30000 } });
+    const source = 'export const data = ' + JSON.stringify('ž😀\\"\n'.repeat(800)) + ';\n';
+    const prompt = buildCodeDraftPrompt(compiled, null, 1, [{ path: 'src/a.mjs', content: source, state: 'proposed' }]);
+    const decoded = JSON.parse(prompt.prompt);
+    assertEqual(decoded.peerFiles[0][1], source, 'full dependency bytes survive JSON escaping');
+    assertCodeDraftModelBudget(prompt, build);
+    assertThrows(() => buildCodeDraftPrompt(compiled, null, 1, []));
+    const stale = [{ path: 'src/a.mjs', content: source, state: 'proposed', contentDigest: 'sha256:' + 'b'.repeat(64) }];
+    assertThrows(() => buildCodeDraftPrompt(compiled, null, 1, stale));
+    const larger = buildCodeDraftPrompt(compiled, null, 2, [{ path: 'src/b.mjs', content: 'x'.repeat(22500), state: 'proposed' }]);
+    assertEqual(JSON.parse(larger.prompt).peerFiles[0][1].length, 22500);
+    assertThrows(() => assertCodeDraftModelBudget(larger, build));
+    assertThrows(() => buildCodeDraftPrompt(compiled, null, 2, [{ path: 'src/b.mjs', content: 'x'.repeat(32000), state: 'proposed' }]));
+    assertEqual(codeRequests.length, 0);
+  });
+} finally {
+  globalThis.fetch = codeSaved.fetch; Object.assign(config.models, codeSaved.bindings);
+  config.ollama.baseUrl = codeSaved.baseUrl;
+  llmGateway._bindingStartupAuthority = codeSaved.authority; llmGateway._bindingArtifactResolver = codeSaved.resolver;
+  Object.assign(llmGateway.rateLimits, codeSaved.rateLimits); llmGateway._concurrency.max = codeSaved.concurrencyMax;
+  modelUniverseStore.recordSignalEvent = codeSaved.signalRecorder; clearNumCtxCache();
+  llmGateway._concurrency.active = 0; llmGateway._concurrency.queue.length = 0;
 }
 
 summary();

@@ -16,6 +16,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { config } from '../config.js';
+import { CODE_RUNTIME_PROFILE, CODE_RUNTIME_QUALIFICATION, getCodeRuntimeProfile } from './model-runtime-profile.js';
 import {
   AbortSource,
   abortErrorFromSignal,
@@ -63,6 +64,8 @@ export const LLMGatewayErrorCode = Object.freeze({
   MODEL_VRAM_NON_FIT: 'MODEL_VRAM_NON_FIT',
   BINDING_ARTIFACT_UNVERIFIED: 'LLM_BINDING_ARTIFACT_UNVERIFIED',
   BINDING_ARTIFACT_DRIFT: 'LLM_BINDING_ARTIFACT_DRIFT',
+  CODE_RUNTIME_UNAVAILABLE: 'LLM_CODE_RUNTIME_UNAVAILABLE',
+  CODE_RUNTIME_DRIFT: 'LLM_CODE_RUNTIME_DRIFT',
 });
 
 export class LLMGatewayError extends Error {
@@ -331,6 +334,8 @@ function validatePolicyBoundary(token, options = {}) {
     'vramFitProfiles',
     '_vramFitProfiles',
     '_requireVramFit',
+    'runtimeCapture', 'codeRuntimeCapture', '_codeRuntimeCapture',
+    'codeRuntimeProfile', '_codeRuntimeProfile',
   ]) {
     if (Object.prototype.hasOwnProperty.call(options, forbiddenKey)) {
       throw new LLMGatewayError(
@@ -403,6 +408,110 @@ async function awaitWithAbort(promise, signal) {
     signal.addEventListener('abort', onAbort, { once: true });
     Promise.resolve(promise).then(settle(resolve), settle(reject));
   });
+}
+
+
+// Internal CODE profile authority. Tokens are not serialized or accepted as
+// request options; only this gateway can mint them from durable metadata.
+const codeRuntimeCaptures = new WeakMap();
+const providerBaseUrl = () => config.ollama?.baseUrl || 'http://127.0.0.1:11434';
+
+export function getCodeDraftRuntime(capture) {
+  const state = capture && codeRuntimeCaptures.get(capture);
+  if (!state) throw new LLMGatewayError(LLMGatewayErrorCode.INVALID_REQUEST, 'An issued CODE runtime capture is required.');
+  return state;
+}
+
+function checkCodeCaptureConfiguration(state, signal) {
+  if (signal?.aborted) throw abortErrorFromSignal(signal, {
+    fallbackSource: AbortSource.USER, message: 'CODE runtime verification cancelled',
+  });
+  if (config.models?.CODE !== state.configuredModel || providerBaseUrl() !== state.baseUrl
+    || getCodeRuntimeProfile(state.model, state.digestSha256) !== state.profile
+    || CODE_RUNTIME_QUALIFICATION.providerVersion !== state.providerVersion) {
+    throw new LLMGatewayError(LLMGatewayErrorCode.CODE_RUNTIME_DRIFT, 'The captured CODE configuration, provider or profile changed.');
+  }
+}
+
+async function resolveCodeArtifact(model, signal) {
+  if (llmGateway._bindingStartupAuthority?.status !== 'DURABLE'
+    || typeof llmGateway._bindingArtifactResolver !== 'function') {
+    throw new LLMGatewayError(LLMGatewayErrorCode.BINDING_ARTIFACT_UNVERIFIED, 'CODE requires an exact durable binding.');
+  }
+  let artifact;
+  try {
+    artifact = await awaitWithAbort(Promise.resolve().then(() => llmGateway._bindingArtifactResolver({ modelName: model, role: 'CODE' })), signal);
+  } catch (cause) {
+    if (signal?.aborted || cause?.name === 'AbortError') throw cause;
+    throw new LLMGatewayError(LLMGatewayErrorCode.BINDING_ARTIFACT_UNVERIFIED, 'The exact durable CODE artifact is unavailable.', { cause });
+  }
+  const digestSha256 = normalizeModelDigestSha256(artifact?.digestSha256);
+  if (!digestSha256 || !sameModelName(artifact?.modelName, model)) {
+    throw new LLMGatewayError(LLMGatewayErrorCode.BINDING_ARTIFACT_UNVERIFIED, 'The exact durable CODE artifact is unavailable.');
+  }
+  return Object.freeze({ modelName: artifact.modelName.trim(), digestSha256 });
+}
+
+async function codeProviderVersion(baseUrl, signal) {
+  try {
+    const response = await awaitWithAbort(fetch(`${baseUrl}/api/version`, { signal }), signal);
+    if (!response?.ok) throw Error('PROVIDER_VERSION_UNAVAILABLE');
+    const data = await awaitWithAbort(response.json(), signal);
+    if (typeof data?.version !== 'string' || !data.version) throw Error('PROVIDER_VERSION_UNAVAILABLE');
+    return data.version;
+  } catch (cause) {
+    if (signal?.aborted || cause?.name === 'AbortError') throw cause;
+    throw new LLMGatewayError(LLMGatewayErrorCode.CODE_RUNTIME_UNAVAILABLE, 'The CODE provider version cannot be verified.', { cause });
+  }
+}
+
+/** One capture per default M2 draft. Legacy models keep their existing path. */
+export async function captureCodeDraftRuntime({ signal } = {}) {
+  const configuredModel = config.models?.CODE;
+  if (!sameModelName(configuredModel, CODE_RUNTIME_PROFILE.model)) return null;
+  const boundedSignal = signal ? AbortSignal.any([signal, AbortSignal.timeout(120_000)]) : AbortSignal.timeout(120_000);
+  if (boundedSignal.aborted) throw abortErrorFromSignal(boundedSignal, { fallbackSource: AbortSource.USER, message: 'CODE capture cancelled' });
+  const baseUrl = providerBaseUrl();
+  const artifact = await resolveCodeArtifact(CODE_RUNTIME_PROFILE.model, boundedSignal);
+  const profile = getCodeRuntimeProfile(CODE_RUNTIME_PROFILE.model, artifact.digestSha256);
+  if (!profile) throw new LLMGatewayError(LLMGatewayErrorCode.BINDING_ARTIFACT_DRIFT, 'The configured CODE artifact does not match the frozen profile.');
+  const providerVersion = await codeProviderVersion(baseUrl, boundedSignal);
+  if (providerVersion !== CODE_RUNTIME_QUALIFICATION.providerVersion) {
+    throw new LLMGatewayError(LLMGatewayErrorCode.CODE_RUNTIME_DRIFT, 'The CODE provider version differs from the frozen profile.');
+  }
+  const state = Object.freeze({ configuredModel, model: profile.model, digestSha256: artifact.digestSha256,
+    artifact, profile, numCtx: profile.contextWindowTokens, baseUrl, providerVersion });
+  checkCodeCaptureConfiguration(state, boundedSignal);
+  const capture = Object.freeze(Object.create(null));
+  codeRuntimeCaptures.set(capture, state);
+  return capture;
+}
+
+function validateCodeCaptureScope(capture, token, options) {
+  const state = getCodeDraftRuntime(capture);
+  validatePolicyBoundary(token, options);
+  if (token.role !== LLMCallerRole.WORKFLOW_CODER || options.capability !== LLMCapability.CODE_GENERATION
+    || options.correlation.modelRole !== 'CODE' || options.correlation.purpose !== 'answer'
+    || options.correlation.requestId !== token.decisionId || options.model !== state.model
+    || options.num_ctx !== state.numCtx || !Number.isSafeInteger(options.maxTokens)
+    || options.maxTokens < 1 || options.maxTokens > Math.min(4096, token.maxTokens)) {
+    throw new LLMGatewayError(LLMGatewayErrorCode.AUTHORIZATION_DENIED, 'The CODE runtime capture does not authorize this model operation.');
+  }
+  return state;
+}
+
+async function assertCodeRuntimeCurrent(capture, signal) {
+  const state = getCodeDraftRuntime(capture);
+  checkCodeCaptureConfiguration(state, signal);
+  const artifact = await resolveCodeArtifact(state.model, signal);
+  if (artifact.digestSha256 !== state.digestSha256) {
+    throw new LLMGatewayError(LLMGatewayErrorCode.BINDING_ARTIFACT_DRIFT, 'The durable CODE artifact changed after capture.');
+  }
+  if (await codeProviderVersion(state.baseUrl, signal) !== state.providerVersion) {
+    throw new LLMGatewayError(LLMGatewayErrorCode.CODE_RUNTIME_DRIFT, 'The CODE provider changed after capture.');
+  }
+  checkCodeCaptureConfiguration(state, signal);
+  return state;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -744,8 +853,9 @@ class LLMGateway {
    * @param {number} [options.maxTokens] - Max tokens
    * @returns {Promise<{content: string, model: string, duration: number}>}
    */
-  async call(prompt, options = {}) {
+  async call(prompt, options = {}, codeRuntimeCapture = null) {
     const startTime = Date.now();
+    if (codeRuntimeCapture !== null) validateCodeCaptureScope(codeRuntimeCapture, options._authToken || this.currentAuth, options);
 
     // ════════════════════════════════════════════════════════════════════════
     // v125: CONCURRENCY SEMAPHORE — wait for LLM slot
@@ -906,9 +1016,14 @@ class LLMGateway {
     const timeout = options.timeout || config.timeouts?.CHAT || 60000;
     const requestType = options.requestType || 'chat';
     const correlation = safeCorrelation(options, authToken);
-    const effectiveNumCtx = resolveNumCtx(model, options.num_ctx);
-    let expectedArtifact = null;
-    if (this._bindingStartupAuthority?.status === 'DURABLE') {
+    const codeRuntime = codeRuntimeCapture !== null ? getCodeDraftRuntime(codeRuntimeCapture) : null;
+    // Do not start an unbounded metadata request after queue admission. The
+    // complete binding/provider check below uses the attempt timeout + lease.
+    if (codeRuntime) checkCodeCaptureConfiguration(codeRuntime, options.signal);
+    const effectiveNumCtx = codeRuntime?.numCtx ?? resolveNumCtx(model, options.num_ctx);
+    const baseUrl = codeRuntime?.baseUrl;
+    let expectedArtifact = codeRuntime?.artifact ?? null;
+    if (!codeRuntime && this._bindingStartupAuthority?.status === 'DURABLE') {
       try {
         expectedArtifact = await this._bindingArtifactResolver({
           modelName: model,
@@ -1095,7 +1210,7 @@ class LLMGateway {
 
         if (expectedArtifact) {
           const beforeDigest = await resolveCurrentArtifactDigest(
-            config.ollama?.baseUrl || 'http://127.0.0.1:11434',
+            baseUrl ?? providerBaseUrl(),
             model,
             controller.signal,
           );
@@ -1108,7 +1223,8 @@ class LLMGateway {
           }
         }
 
-        const response = await fetch(`${config.ollama?.baseUrl || 'http://127.0.0.1:11434'}/api/chat`, {
+        if (codeRuntime) await assertCodeRuntimeCurrent(codeRuntimeCapture, controller.signal);
+        const response = await fetch(`${baseUrl ?? providerBaseUrl()}/api/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
@@ -1140,6 +1256,9 @@ class LLMGateway {
           );
         }
         const output = parseProviderOutput(data);
+        if (codeRuntime && data.provider_version !== codeRuntime.providerVersion) {
+          throw new LLMGatewayError(LLMGatewayErrorCode.CODE_RUNTIME_DRIFT, 'The CODE response was served by a different provider version.');
+        }
         const servedModel = typeof data.model === 'string' && data.model.trim()
           ? data.model.trim()
           : model;
@@ -1437,6 +1556,16 @@ export async function callWithAuth(token, prompt, options = {}) {
  * callWithAuth(). Precise provider failures are unwrapped for the M1 adapter.
  */
 export async function callWithPolicy(token, prompt, options = {}) {
+  return callWithPolicyInternal(token, prompt, options);
+}
+
+// Separate internal argument: no public DTO/options can inject a capture.
+export async function callWithCodeRuntime(token, prompt, options, capture) {
+  validateCodeCaptureScope(capture, token, options);
+  return callWithPolicyInternal(token, prompt, options, capture);
+}
+
+async function callWithPolicyInternal(token, prompt, options = {}, codeRuntimeCapture = null) {
   if (!isPlainRecord(options)) {
     throw new LLMGatewayError(
       LLMGatewayErrorCode.INVALID_REQUEST,
@@ -1445,10 +1574,12 @@ export async function callWithPolicy(token, prompt, options = {}) {
   }
   // Snapshot own values once. Prototype properties and changing getters must
   // never make preflight inspect a different request than the provider sees.
-  const policyOptions = { ...options };
+  const policyOptions = { ...options, ...(codeRuntimeCapture !== null
+    ? { correlation: Object.freeze({ ...options.correlation }) } : {}) };
   validatePolicyBoundary(token, policyOptions);
   const model = policyOptions.model ?? config.models?.CHAT ?? 'qwen3.5:27b';
-  const numCtx = resolveNumCtx(model, policyOptions.num_ctx);
+  const codeRuntime = codeRuntimeCapture !== null ? validateCodeCaptureScope(codeRuntimeCapture, token, policyOptions) : null;
+  const numCtx = codeRuntime?.numCtx ?? resolveNumCtx(model, policyOptions.num_ctx);
   if (!isPolicyNumCtx(numCtx)) {
     throw new LLMGatewayError(
       LLMGatewayErrorCode.INVALID_REQUEST,
@@ -1502,9 +1633,10 @@ export async function callWithPolicy(token, prompt, options = {}) {
 
   let vramFit;
   try {
+    if (codeRuntime) await assertCodeRuntimeCurrent(codeRuntimeCapture, preflightController.signal);
     vramFit = await awaitWithAbort(
       fitsVram(model, {
-        ...trustedVramFitOptions(model),
+        ...(codeRuntime ? {} : trustedVramFitOptions(model)),
         numCtx,
       }),
       preflightController.signal,
@@ -1590,7 +1722,7 @@ export async function callWithPolicy(token, prompt, options = {}) {
       timeout: remainingTimeoutMs,
       retries: 1,
       _authToken: token,
-    });
+    }, codeRuntimeCapture);
   } catch (error) {
     throw normalizeProviderFailure(error);
   }

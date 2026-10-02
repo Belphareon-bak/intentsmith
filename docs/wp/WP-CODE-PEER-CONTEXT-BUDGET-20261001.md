@@ -9,11 +9,15 @@ a kontrola výsledku. Naměřený stav zůstává v
 [`completion trackeru`](../review/2026-09-30-COMPLETION-TRACKER.md).
 Tento WP nepřidává produktovou ani schvalovací autoritu.
 
-**Stav:** `CONTEXT_SOURCE_REVIEW_PASS / CONTINUATION_SOURCE_REVIEW_PASS / APPLICATION_ACCEPTANCE_REVIEW_PASS / MILESTONE_ACCEPTED`.
+**Přijatý SQLite milník:** `CONTEXT_SOURCE_REVIEW_PASS / CONTINUATION_SOURCE_REVIEW_PASS / APPLICATION_ACCEPTANCE_REVIEW_PASS / MILESTONE_ACCEPTED`.
 CPU experiment a produktový formatter dokončeny. Po autorizované jediné
 CLI revizi skutečná aplikace prošla celým omezeným backend/M2 kontraktem.
 Nezávislá fyzická přejímka přijala doložený scénář; historický osmigenerační
 FAIL platí. Release a instalované Studio mají samostatné brány.
+
+**Aktuální navazující práce:** omezený CODE16k source převzatý, nezávislé
+review PASS; celý profil, CI nového kandidáta a skutečný fan-monitor čekají.
+Rozsah a poslední výsledky v §11; přijatý SQLite se neopakuje.
 
 ## Vlastnictví a konkrétní výsledek navazujícího milníku
 
@@ -580,3 +584,24 @@ manifest `142917dde170ac8265b69cf6d4dae78926bca9a1553177634522550cedf77d38`.
 V1 timeout a V2 null-body typová chyba zůstávají zachované; V3 CPU44+18+5
 PASS není modelové či aplikační přijetí. Historická narrativní hodnota
 8744 B v API návrhu je překlep; správný původní guard je 8736 B.
+
+### ROOT adopce — 2. 10. 2026, 11:56 UTC
+
+Přesné čtyři source cesty V3 a dvě existující testové sady převzaté nad
+`3fb1d9e0`; oddělený test default služby zachovává103 starých případů a má
+104/104 CPU PASS. Root actual gateway44/44, context18/18 PASS. Úplný
+default service vstup17675 B v CPU provider fixture překračuje původních
+8736 B a vejde se do nových23808 B; pozdější overflow/neúplný output/drift
+nemají autoritní řádek ani zápis. Úplné zdroje nekrácené, opravy i build
+sdílejí stejný zachycený runtime. Metadata verze má původní bounded
+controller a model-use lease; null body zachovává typed MALFORMED_RESPONSE.
+
+Nezávislý source receipt
+`05562774d50e6e26c9964211a1bee91c6a7cc15bd528151a794c7f141c71a9a0`;
+servisní CI kontrola
+`0ced6510ee02374d578edd9182b57eca8e2eb1b5500ed49481721aeb207fdf2a`.
+CI zahrne oba modelové/context testy, bez změny chatových kontrol.
+Jedna nová hrana gateway→model-runtime-profile; žádný removed edge ani
+nový cyklus. Baseline se přijme oficiálním nástrojem na čistém source.
+Poté jeden celý společný profil. GPU/app/full-window jsou stále NOT_RUN;
+allocation-only profil nezaměňuje UNKNOWN za vymyšlený obecný VRAM FIT.

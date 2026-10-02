@@ -266,14 +266,25 @@ export function compileCodeDraftResult(compiled, response, index = 0, previousCo
   });
 }
 
-export async function codeDraftModelBudget(projectBuild = false, repairBuild = false) {
+export async function codeDraftModelBudget(projectBuild = false, repairBuild = false, runtimeCapture = null) {
   const [{ config }, { resolveNumCtx }] = await Promise.all([import('../config.js'), import('../llm/model-ctx.js')]);
-  const model = config.models?.CODE;
+  const captured = runtimeCapture === null ? null : (await import('../llm/gateway.js')).getCodeDraftRuntime(runtimeCapture);
+  const model = captured?.model ?? config.models?.CODE;
   if (typeof model !== 'string' || !model.trim()) throw codeDraftError('MODEL_UNAVAILABLE', 'Role CODE nemá nakonfigurovaný model.');
-  const numCtx = resolveNumCtx(model);
+  const numCtx = captured?.numCtx ?? resolveNumCtx(model);
   const maxTokens = repairBuild ? Math.min(2048, Math.floor(numCtx * 0.25))
     : projectBuild ? Math.min(4096, Math.floor(numCtx * 0.42)) : 1536;
-  return { model, numCtx, maxTokens, maxPromptBytes: Math.floor((numCtx - maxTokens - 384) * 2) };
+  return Object.freeze({ model, numCtx, maxTokens, maxPromptBytes: Math.floor((numCtx - maxTokens - 384) * 2) });
+}
+
+export async function captureCodeDraftModelBudgets(projectBuild = false, { signal } = {}) {
+  const { captureCodeDraftRuntime } = await import('../llm/gateway.js');
+  const runtimeCapture = await captureCodeDraftRuntime({ signal });
+  const generationBudgets = Object.freeze(await Promise.all([
+    codeDraftModelBudget(projectBuild, false, runtimeCapture),
+    codeDraftModelBudget(projectBuild, true, runtimeCapture),
+  ]));
+  return Object.freeze({ runtimeCapture, generationBudgets });
 }
 
 export function assertCodeDraftModelBudget({ prompt, systemPrompt }, budget) {
@@ -282,12 +293,16 @@ export function assertCodeDraftModelBudget({ prompt, systemPrompt }, budget) {
   }
 }
 
-export async function generateCodeDraft({ prompt, systemPrompt, signal, sessionId, projectBuild = false, repairBuild = false }) {
+export async function generateCodeDraft({ prompt, systemPrompt, signal, sessionId, projectBuild = false, repairBuild = false, runtimeCapture = undefined, modelBudget = undefined }) {
   // Lazy load only after project, scope and budget preflight. This adapter is
   // model-only; it has no file writer, process executor or approval issuer.
-  const [budget, { callWithPolicy }, auth] = await Promise.all([
-    codeDraftModelBudget(projectBuild, repairBuild), import('../llm/gateway.js'), import('../llm/auth-types.js'),
-  ]);
+  const [gateway, auth] = await Promise.all([import('../llm/gateway.js'), import('../llm/auth-types.js')]);
+  const capture = runtimeCapture === undefined ? await gateway.captureCodeDraftRuntime({ signal }) : runtimeCapture;
+  const expectedBudget = await codeDraftModelBudget(projectBuild, repairBuild, capture);
+  if (modelBudget && Object.keys(expectedBudget).some(key => modelBudget[key] !== expectedBudget[key])) {
+    throw codeDraftError('MODEL_RUNTIME_DRIFT', 'Rozpočet návrhu CODE neodpovídá zachycenému runtime. Žádný plán nevznikl.');
+  }
+  const budget = modelBudget ?? expectedBudget;
   assertCodeDraftModelBudget({ prompt, systemPrompt }, budget);
   const { model, maxTokens, numCtx } = budget;
   const requestId = `code-draft-${randomUUID()}`;
@@ -298,7 +313,7 @@ export async function generateCodeDraft({ prompt, systemPrompt, signal, sessionI
     maxTokens,
     capabilities: [auth.LLMCapability.CODE_GENERATION, auth.LLMCapability.JSON_OUTPUT],
   });
-  return callWithPolicy(token, prompt, {
+  const options = {
     systemPrompt, model, signal,
     timeout: 120_000, maxTokens, num_ctx: numCtx,
     format: repairBuild ? { type: 'object', required: ['replacements'], additionalProperties: false,
@@ -313,5 +328,8 @@ export async function generateCodeDraft({ prompt, systemPrompt, signal, sessionI
       requestId, conversationId: sessionId, turnId: requestId,
       callerRole: auth.LLMCallerRole.WORKFLOW_CODER, modelRole: 'CODE', purpose: 'answer',
     },
-  });
+  };
+  return capture === null
+    ? gateway.callWithPolicy(token, prompt, options)
+    : gateway.callWithCodeRuntime(token, prompt, options, capture);
 }

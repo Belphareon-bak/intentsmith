@@ -126,3 +126,31 @@ export function capModelContextWindow(modelName, contextWindowTokens) {
 
 export const MODEL_RUNTIME_PROFILE_KEYS = PROFILE_KEYS;
 export const MODEL_RUNTIME_PROFILE_DRIFT_KEYS = DRIFT_KEYS;
+
+
+// Separate CODE workload candidate. It does not enter the generic M1 getter,
+// context cache, or activation state. No weights/KV model is inferred here.
+export const CODE_RUNTIME_PROFILE = Object.freeze({
+  schemaVersion: 1,
+  model: 'qwen3.8:latest',
+  digestSha256: '22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643',
+  contextWindowTokens: 16384,
+  minimumHeadroomMiB: 1024,
+  minimumGpuResidencyPercent: 100,
+  fallbackPolicy: 'forbid',
+});
+if (!validateModelRuntimeProfile(CODE_RUNTIME_PROFILE).valid) {
+  throw new Error('Invalid committed CODE runtime profile');
+}
+export const CODE_RUNTIME_QUALIFICATION = Object.freeze({
+  providerVersion: '0.34.0-intentsmith.1',
+  kind: 'allocation-only',
+  receiptSha256: '82dd95941b8a4008d2fda274f7e9f6264b48ecf80bad75b806a71365cb264fd6',
+});
+
+export function getCodeRuntimeProfile(modelName, digestSha256) {
+  return typeof modelName === 'string'
+    && modelName.trim().toLowerCase() === CODE_RUNTIME_PROFILE.model
+    && digestSha256 === CODE_RUNTIME_PROFILE.digestSha256
+    ? CODE_RUNTIME_PROFILE : null;
+}
