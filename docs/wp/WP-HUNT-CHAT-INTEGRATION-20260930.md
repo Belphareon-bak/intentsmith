@@ -35,6 +35,22 @@ M5/M6 a mobilní fyzická přejímka jsou oddělené.
 
 Následující text uchovává historický integrační checkpoint ze září.
 
+### Publikovaná archivní delta CHAT — 2. 10. 2026, 12:46 UTC
+
+ROOT nalezl novější remote `00ec5b526c629f54dc897e9dbda4c67a1cd061f7`,
+nad již sloučeným `6f0259ec`. Delta má 25 cest; jediný konflikt je přesná
+graph baseline. Vstup ROOT `4fb800c51f16a06e69cd5510db4646cdfd1ca357`
+zachovává CODE16k, všechny jeho kontroly a sedm veřejných fan qualification
+cest. CHAT přidává právě store→archive-evidence-index; ROOT baseline 1497
+se zachová a jediná nová hrana bude přijata oficiálním ratchetem nad čistým
+merge source. Limity cyklů 3/28 se nezvyšují. Registry/workflow jsou byte exact.
+
+CHAT delta nemění ProjectHandler ani CRE routování původních fan požadavků:
+projektový D1 vstup zůstává blokovaný. Public CHAT report dál NO_GO /
+REVIEW_PENDING; zděděné opravy a jeho historické FAILy nejsou release acceptance.
+DPH routing handoff explicitně žádá ROOT o package/shared eligibility opravu;
+tento konkrétní BE specialist scope je odlišený od ladění konverzace.
+
 Aktuální výsledky společného `d7e7d1b1`: úplný offline/database profil
 401 PASS /2 FAIL /5 BLOCKED, žádné timeout/skipped. Po explicitním povolení
 již dostupných nástrojů desktop-hunt a development-installation cíleně PASS.

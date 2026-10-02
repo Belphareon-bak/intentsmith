@@ -1,0 +1,1230 @@
+{
+  "version": 1,
+  "scope": "Each exact emitted example and factorial values 0/1/5/10; negative cases and unchanged interface reviewed in incoming dialog context.",
+  "rows": [
+    {
+      "runId": "1020b23a-c809-46b4-8df0-e610baa0ab49",
+      "phase": "final-1",
+      "caseId": "recursion",
+      "variant": "B",
+      "block": 0,
+      "filename": "final-1-recursion-B-0.py",
+      "sha256": "2b076c1590e5f7da4185d69eccf6a96264d04387b1258c50fad15b439632dcc2",
+      "isolatedExecution": {
+        "exitCode": 0,
+        "stderr": "",
+        "result": {
+          "wholeExample": "PASS",
+          "stdout": "120\n",
+          "functions": {
+            "factorial": {
+              "samples": [
+                {
+                  "input": 0,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 1,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 5,
+                  "expected": 120,
+                  "actual": 120,
+                  "passed": true
+                },
+                {
+                  "input": 10,
+                  "expected": 3628800,
+                  "actual": 3628800,
+                  "passed": true
+                }
+              ],
+              "negative": {
+                "raisesValueError": true,
+                "error": "ValueError"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "runId": "1020b23a-c809-46b4-8df0-e610baa0ab49",
+      "phase": "final-1",
+      "caseId": "recursion",
+      "variant": "A",
+      "block": 0,
+      "filename": "final-1-recursion-A-0.py",
+      "sha256": "da87289367ad22a93e829e06f7f7072bd9a07fc5b4cf9c80dd38e1ee023e6910",
+      "isolatedExecution": {
+        "exitCode": 0,
+        "stderr": "",
+        "result": {
+          "wholeExample": "PASS",
+          "stdout": "120\n",
+          "functions": {
+            "faktorial": {
+              "samples": [
+                {
+                  "input": 0,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 1,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 5,
+                  "expected": 120,
+                  "actual": 120,
+                  "passed": true
+                },
+                {
+                  "input": 10,
+                  "expected": 3628800,
+                  "actual": 3628800,
+                  "passed": true
+                }
+              ],
+              "negative": {
+                "raisesValueError": true,
+                "error": "ValueError"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "runId": "1020b23a-c809-46b4-8df0-e610baa0ab49",
+      "phase": "final-1",
+      "caseId": "recursion-followup",
+      "variant": "B",
+      "block": 0,
+      "filename": "final-1-recursion-followup-B-0.py",
+      "sha256": "b2a838bc1090c46887954bf4e19a706e767381dc3785a5a82aca1b660f4c2515",
+      "isolatedExecution": {
+        "exitCode": 0,
+        "stderr": "",
+        "result": {
+          "wholeExample": "PASS",
+          "stdout": "120\n",
+          "functions": {
+            "factorial": {
+              "samples": [
+                {
+                  "input": 0,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 1,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 5,
+                  "expected": 120,
+                  "actual": 120,
+                  "passed": true
+                },
+                {
+                  "input": 10,
+                  "expected": 3628800,
+                  "actual": 3628800,
+                  "passed": true
+                }
+              ],
+              "negative": {
+                "raisesValueError": true,
+                "error": "ValueError"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "runId": "1020b23a-c809-46b4-8df0-e610baa0ab49",
+      "phase": "final-1",
+      "caseId": "recursion-followup",
+      "variant": "A",
+      "block": 0,
+      "filename": "final-1-recursion-followup-A-0.py",
+      "sha256": "5bab940ab1259111ef6f40187bff73f5d9d097a34729e9589c681fa57ef3f816",
+      "isolatedExecution": {
+        "exitCode": 0,
+        "stderr": "",
+        "result": {
+          "wholeExample": "PASS",
+          "stdout": "Chyba: Faktoriál není definován pro záporná čísla.\n120\n",
+          "functions": {
+            "factorial": {
+              "samples": [
+                {
+                  "input": 0,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 1,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 5,
+                  "expected": 120,
+                  "actual": 120,
+                  "passed": true
+                },
+                {
+                  "input": 10,
+                  "expected": 3628800,
+                  "actual": 3628800,
+                  "passed": true
+                }
+              ],
+              "negative": {
+                "raisesValueError": true,
+                "error": "ValueError"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "runId": "1020b23a-c809-46b4-8df0-e610baa0ab49",
+      "phase": "final-1",
+      "caseId": "recursion-plain",
+      "variant": "B",
+      "block": 0,
+      "filename": "final-1-recursion-plain-B-0.py",
+      "sha256": "65d62e80ee79cd74ebc116cf0455e6678e70b3e594bf7d6033c3b97538237603",
+      "isolatedExecution": {
+        "exitCode": 0,
+        "stderr": "",
+        "result": {
+          "wholeExample": "PASS",
+          "stdout": "120\n",
+          "functions": {
+            "factorial": {
+              "samples": [
+                {
+                  "input": 0,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 1,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 5,
+                  "expected": 120,
+                  "actual": 120,
+                  "passed": true
+                },
+                {
+                  "input": 10,
+                  "expected": 3628800,
+                  "actual": 3628800,
+                  "passed": true
+                }
+              ],
+              "negative": {
+                "raisesValueError": true,
+                "error": "ValueError"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "runId": "1020b23a-c809-46b4-8df0-e610baa0ab49",
+      "phase": "final-1",
+      "caseId": "recursion-plain",
+      "variant": "A",
+      "block": 0,
+      "filename": "final-1-recursion-plain-A-0.py",
+      "sha256": "b2d8777db0a93cdd87fe42262286e534c0af3a02c35a09a08541607ef0fd723d",
+      "isolatedExecution": {
+        "exitCode": 0,
+        "stderr": "",
+        "result": {
+          "wholeExample": "PASS",
+          "stdout": "120\n",
+          "functions": {
+            "factorial": {
+              "samples": [
+                {
+                  "input": 0,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 1,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 5,
+                  "expected": 120,
+                  "actual": 120,
+                  "passed": true
+                },
+                {
+                  "input": 10,
+                  "expected": 3628800,
+                  "actual": 3628800,
+                  "passed": true
+                }
+              ],
+              "negative": {
+                "raisesValueError": true,
+                "error": "ValueError"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "runId": "1020b23a-c809-46b4-8df0-e610baa0ab49",
+      "phase": "final-1",
+      "caseId": "recursion-mixed",
+      "variant": "B",
+      "block": 0,
+      "filename": "final-1-recursion-mixed-B-0.py",
+      "sha256": "0f0bff646e9929c459c1361a3f5b3c9d89b1b85fb294966add0ec3b824258c85",
+      "isolatedExecution": {
+        "exitCode": 0,
+        "stderr": "",
+        "result": {
+          "wholeExample": "PASS",
+          "stdout": "120\n",
+          "functions": {
+            "factorial": {
+              "samples": [
+                {
+                  "input": 0,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 1,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 5,
+                  "expected": 120,
+                  "actual": 120,
+                  "passed": true
+                },
+                {
+                  "input": 10,
+                  "expected": 3628800,
+                  "actual": 3628800,
+                  "passed": true
+                }
+              ],
+              "negative": {
+                "raisesValueError": true,
+                "error": "ValueError"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "runId": "1020b23a-c809-46b4-8df0-e610baa0ab49",
+      "phase": "final-1",
+      "caseId": "recursion-mixed",
+      "variant": "A",
+      "block": 0,
+      "filename": "final-1-recursion-mixed-A-0.py",
+      "sha256": "da87289367ad22a93e829e06f7f7072bd9a07fc5b4cf9c80dd38e1ee023e6910",
+      "isolatedExecution": {
+        "exitCode": 0,
+        "stderr": "",
+        "result": {
+          "wholeExample": "PASS",
+          "stdout": "120\n",
+          "functions": {
+            "faktorial": {
+              "samples": [
+                {
+                  "input": 0,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 1,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 5,
+                  "expected": 120,
+                  "actual": 120,
+                  "passed": true
+                },
+                {
+                  "input": 10,
+                  "expected": 3628800,
+                  "actual": 3628800,
+                  "passed": true
+                }
+              ],
+              "negative": {
+                "raisesValueError": true,
+                "error": "ValueError"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "runId": "7a554d42-eb33-43d5-b87d-38f11756f3d5",
+      "phase": "final-2",
+      "caseId": "recursion",
+      "variant": "B",
+      "block": 0,
+      "filename": "final-2-recursion-B-0.py",
+      "sha256": "b2d8777db0a93cdd87fe42262286e534c0af3a02c35a09a08541607ef0fd723d",
+      "isolatedExecution": {
+        "exitCode": 0,
+        "stderr": "",
+        "result": {
+          "wholeExample": "PASS",
+          "stdout": "120\n",
+          "functions": {
+            "factorial": {
+              "samples": [
+                {
+                  "input": 0,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 1,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 5,
+                  "expected": 120,
+                  "actual": 120,
+                  "passed": true
+                },
+                {
+                  "input": 10,
+                  "expected": 3628800,
+                  "actual": 3628800,
+                  "passed": true
+                }
+              ],
+              "negative": {
+                "raisesValueError": true,
+                "error": "ValueError"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "runId": "7a554d42-eb33-43d5-b87d-38f11756f3d5",
+      "phase": "final-2",
+      "caseId": "recursion",
+      "variant": "A",
+      "block": 0,
+      "filename": "final-2-recursion-A-0.py",
+      "sha256": "b2d8777db0a93cdd87fe42262286e534c0af3a02c35a09a08541607ef0fd723d",
+      "isolatedExecution": {
+        "exitCode": 0,
+        "stderr": "",
+        "result": {
+          "wholeExample": "PASS",
+          "stdout": "120\n",
+          "functions": {
+            "factorial": {
+              "samples": [
+                {
+                  "input": 0,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 1,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 5,
+                  "expected": 120,
+                  "actual": 120,
+                  "passed": true
+                },
+                {
+                  "input": 10,
+                  "expected": 3628800,
+                  "actual": 3628800,
+                  "passed": true
+                }
+              ],
+              "negative": {
+                "raisesValueError": true,
+                "error": "ValueError"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "runId": "7a554d42-eb33-43d5-b87d-38f11756f3d5",
+      "phase": "final-2",
+      "caseId": "recursion-followup",
+      "variant": "B",
+      "block": 0,
+      "filename": "final-2-recursion-followup-B-0.py",
+      "sha256": "66bfd098c9faa57e81b32013074785af30a4ebd22275fa887c173a296517ebc2",
+      "isolatedExecution": {
+        "exitCode": 0,
+        "stderr": "",
+        "result": {
+          "wholeExample": "PASS",
+          "stdout": "Chyba: Faktoriál není definován pro záporná čísla.\n",
+          "functions": {
+            "factorial": {
+              "samples": [
+                {
+                  "input": 0,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 1,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 5,
+                  "expected": 120,
+                  "actual": 120,
+                  "passed": true
+                },
+                {
+                  "input": 10,
+                  "expected": 3628800,
+                  "actual": 3628800,
+                  "passed": true
+                }
+              ],
+              "negative": {
+                "raisesValueError": true,
+                "error": "ValueError"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "runId": "7a554d42-eb33-43d5-b87d-38f11756f3d5",
+      "phase": "final-2",
+      "caseId": "recursion-followup",
+      "variant": "A",
+      "block": 0,
+      "filename": "final-2-recursion-followup-A-0.py",
+      "sha256": "8c1db627d3afe3cce5378d2d2c6757447e4ebd116ec59371fa38d11cf30effce",
+      "isolatedExecution": {
+        "exitCode": 0,
+        "stderr": "",
+        "result": {
+          "wholeExample": "PASS",
+          "stdout": "Faktoriál není definován pro záporná čísla.\n",
+          "functions": {
+            "factorial": {
+              "samples": [
+                {
+                  "input": 0,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 1,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 5,
+                  "expected": 120,
+                  "actual": 120,
+                  "passed": true
+                },
+                {
+                  "input": 10,
+                  "expected": 3628800,
+                  "actual": 3628800,
+                  "passed": true
+                }
+              ],
+              "negative": {
+                "raisesValueError": true,
+                "error": "ValueError"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "runId": "7a554d42-eb33-43d5-b87d-38f11756f3d5",
+      "phase": "final-2",
+      "caseId": "recursion-plain",
+      "variant": "B",
+      "block": 0,
+      "filename": "final-2-recursion-plain-B-0.py",
+      "sha256": "84b74d7cda2918a94677941f45927dabbd03b74e94aa2efb39c7c24577d44e60",
+      "isolatedExecution": {
+        "exitCode": 0,
+        "stderr": "",
+        "result": {
+          "wholeExample": "PASS",
+          "stdout": "5! = 120\n",
+          "functions": {
+            "factorial": {
+              "samples": [
+                {
+                  "input": 0,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 1,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 5,
+                  "expected": 120,
+                  "actual": 120,
+                  "passed": true
+                },
+                {
+                  "input": 10,
+                  "expected": 3628800,
+                  "actual": 3628800,
+                  "passed": true
+                }
+              ],
+              "negative": {
+                "raisesValueError": true,
+                "error": "ValueError"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "runId": "7a554d42-eb33-43d5-b87d-38f11756f3d5",
+      "phase": "final-2",
+      "caseId": "recursion-plain",
+      "variant": "A",
+      "block": 0,
+      "filename": "final-2-recursion-plain-A-0.py",
+      "sha256": "3aec48abc6192a76adddfcbe66f166ff06cb29b46e169f60b200959771e8f919",
+      "isolatedExecution": {
+        "exitCode": 0,
+        "stderr": "",
+        "result": {
+          "wholeExample": "PASS",
+          "stdout": "120\n",
+          "functions": {
+            "factorial": {
+              "samples": [
+                {
+                  "input": 0,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 1,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 5,
+                  "expected": 120,
+                  "actual": 120,
+                  "passed": true
+                },
+                {
+                  "input": 10,
+                  "expected": 3628800,
+                  "actual": 3628800,
+                  "passed": true
+                }
+              ],
+              "negative": {
+                "raisesValueError": true,
+                "error": "ValueError"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "runId": "7a554d42-eb33-43d5-b87d-38f11756f3d5",
+      "phase": "final-2",
+      "caseId": "recursion-mixed",
+      "variant": "B",
+      "block": 0,
+      "filename": "final-2-recursion-mixed-B-0.py",
+      "sha256": "f910c333e9b08cc73866409a5e918b01af6743a1025ea457583cfdb234f50f71",
+      "isolatedExecution": {
+        "exitCode": 0,
+        "stderr": "",
+        "result": {
+          "wholeExample": "PASS",
+          "stdout": "120\n",
+          "functions": {
+            "factorial": {
+              "samples": [
+                {
+                  "input": 0,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 1,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 5,
+                  "expected": 120,
+                  "actual": 120,
+                  "passed": true
+                },
+                {
+                  "input": 10,
+                  "expected": 3628800,
+                  "actual": 3628800,
+                  "passed": true
+                }
+              ],
+              "negative": {
+                "raisesValueError": true,
+                "error": "ValueError"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "runId": "7a554d42-eb33-43d5-b87d-38f11756f3d5",
+      "phase": "final-2",
+      "caseId": "recursion-mixed",
+      "variant": "A",
+      "block": 0,
+      "filename": "final-2-recursion-mixed-A-0.py",
+      "sha256": "da87289367ad22a93e829e06f7f7072bd9a07fc5b4cf9c80dd38e1ee023e6910",
+      "isolatedExecution": {
+        "exitCode": 0,
+        "stderr": "",
+        "result": {
+          "wholeExample": "PASS",
+          "stdout": "120\n",
+          "functions": {
+            "faktorial": {
+              "samples": [
+                {
+                  "input": 0,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 1,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 5,
+                  "expected": 120,
+                  "actual": 120,
+                  "passed": true
+                },
+                {
+                  "input": 10,
+                  "expected": 3628800,
+                  "actual": 3628800,
+                  "passed": true
+                }
+              ],
+              "negative": {
+                "raisesValueError": true,
+                "error": "ValueError"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "runId": "c0558205-c3e3-4e5c-b66d-16bca89d8f61",
+      "phase": "final-3",
+      "caseId": "recursion",
+      "variant": "B",
+      "block": 0,
+      "filename": "final-3-recursion-B-0.py",
+      "sha256": "d9b4ae04170ddb76a65d17d118db9d57723eab9d096d7ab106d9225c2fde4103",
+      "isolatedExecution": {
+        "exitCode": 0,
+        "stderr": "",
+        "result": {
+          "wholeExample": "PASS",
+          "stdout": "5! = 120\n",
+          "functions": {
+            "factorial": {
+              "samples": [
+                {
+                  "input": 0,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 1,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 5,
+                  "expected": 120,
+                  "actual": 120,
+                  "passed": true
+                },
+                {
+                  "input": 10,
+                  "expected": 3628800,
+                  "actual": 3628800,
+                  "passed": true
+                }
+              ],
+              "negative": {
+                "raisesValueError": true,
+                "error": "ValueError"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "runId": "c0558205-c3e3-4e5c-b66d-16bca89d8f61",
+      "phase": "final-3",
+      "caseId": "recursion",
+      "variant": "A",
+      "block": 0,
+      "filename": "final-3-recursion-A-0.py",
+      "sha256": "3051e0f98b60c8840b6c9652a448486e4307d35801f952eef09c6d6da0507cb4",
+      "isolatedExecution": {
+        "exitCode": 0,
+        "stderr": "",
+        "result": {
+          "wholeExample": "PASS",
+          "stdout": "120\n",
+          "functions": {
+            "factorial": {
+              "samples": [
+                {
+                  "input": 0,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 1,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 5,
+                  "expected": 120,
+                  "actual": 120,
+                  "passed": true
+                },
+                {
+                  "input": 10,
+                  "expected": 3628800,
+                  "actual": 3628800,
+                  "passed": true
+                }
+              ],
+              "negative": {
+                "raisesValueError": true,
+                "error": "ValueError"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "runId": "c0558205-c3e3-4e5c-b66d-16bca89d8f61",
+      "phase": "final-3",
+      "caseId": "recursion-followup",
+      "variant": "B",
+      "block": 0,
+      "filename": "final-3-recursion-followup-B-0.py",
+      "sha256": "af0a6fc80829f48073a7ac6a36b3752c894025c77786afd88a433daa2090a70c",
+      "isolatedExecution": {
+        "exitCode": 0,
+        "stderr": "",
+        "result": {
+          "wholeExample": "PASS",
+          "stdout": "5! = 120\nFaktoriál je definován pouze pro nezáporná celá čísla.\n",
+          "functions": {
+            "factorial": {
+              "samples": [
+                {
+                  "input": 0,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 1,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 5,
+                  "expected": 120,
+                  "actual": 120,
+                  "passed": true
+                },
+                {
+                  "input": 10,
+                  "expected": 3628800,
+                  "actual": 3628800,
+                  "passed": true
+                }
+              ],
+              "negative": {
+                "raisesValueError": true,
+                "error": "ValueError"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "runId": "c0558205-c3e3-4e5c-b66d-16bca89d8f61",
+      "phase": "final-3",
+      "caseId": "recursion-followup",
+      "variant": "A",
+      "block": 0,
+      "filename": "final-3-recursion-followup-A-0.py",
+      "sha256": "e65ab108c3184bc11c071181ec173376961d7e7b265b251423d4711ae8cb3433",
+      "isolatedExecution": {
+        "exitCode": 0,
+        "stderr": "",
+        "result": {
+          "wholeExample": "PASS",
+          "stdout": "Chyba: Faktoriál je definován pouze pro nezáporná celá čísla.\n",
+          "functions": {
+            "factorial": {
+              "samples": [
+                {
+                  "input": 0,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 1,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 5,
+                  "expected": 120,
+                  "actual": 120,
+                  "passed": true
+                },
+                {
+                  "input": 10,
+                  "expected": 3628800,
+                  "actual": 3628800,
+                  "passed": true
+                }
+              ],
+              "negative": {
+                "raisesValueError": true,
+                "error": "ValueError"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "runId": "c0558205-c3e3-4e5c-b66d-16bca89d8f61",
+      "phase": "final-3",
+      "caseId": "recursion-plain",
+      "variant": "B",
+      "block": 0,
+      "filename": "final-3-recursion-plain-B-0.py",
+      "sha256": "b29aa1e8e103f3f72d154a85e721c5ed0a51f6bc6b5991a865d17245db6fbac9",
+      "isolatedExecution": {
+        "exitCode": 0,
+        "stderr": "",
+        "result": {
+          "wholeExample": "PASS",
+          "stdout": "5! = 120\n",
+          "functions": {
+            "factorial": {
+              "samples": [
+                {
+                  "input": 0,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 1,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 5,
+                  "expected": 120,
+                  "actual": 120,
+                  "passed": true
+                },
+                {
+                  "input": 10,
+                  "expected": 3628800,
+                  "actual": 3628800,
+                  "passed": true
+                }
+              ],
+              "negative": {
+                "raisesValueError": true,
+                "error": "ValueError"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "runId": "c0558205-c3e3-4e5c-b66d-16bca89d8f61",
+      "phase": "final-3",
+      "caseId": "recursion-plain",
+      "variant": "A",
+      "block": 0,
+      "filename": "final-3-recursion-plain-A-0.py",
+      "sha256": "3aec48abc6192a76adddfcbe66f166ff06cb29b46e169f60b200959771e8f919",
+      "isolatedExecution": {
+        "exitCode": 0,
+        "stderr": "",
+        "result": {
+          "wholeExample": "PASS",
+          "stdout": "120\n",
+          "functions": {
+            "factorial": {
+              "samples": [
+                {
+                  "input": 0,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 1,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 5,
+                  "expected": 120,
+                  "actual": 120,
+                  "passed": true
+                },
+                {
+                  "input": 10,
+                  "expected": 3628800,
+                  "actual": 3628800,
+                  "passed": true
+                }
+              ],
+              "negative": {
+                "raisesValueError": true,
+                "error": "ValueError"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "runId": "c0558205-c3e3-4e5c-b66d-16bca89d8f61",
+      "phase": "final-3",
+      "caseId": "recursion-mixed",
+      "variant": "B",
+      "block": 0,
+      "filename": "final-3-recursion-mixed-B-0.py",
+      "sha256": "e8ed2e9313be16296736eb81c7bf9d6bde20197062e416c2c50455911449fb28",
+      "isolatedExecution": {
+        "exitCode": 0,
+        "stderr": "",
+        "result": {
+          "wholeExample": "PASS",
+          "stdout": "120\n",
+          "functions": {
+            "factorial": {
+              "samples": [
+                {
+                  "input": 0,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 1,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 5,
+                  "expected": 120,
+                  "actual": 120,
+                  "passed": true
+                },
+                {
+                  "input": 10,
+                  "expected": 3628800,
+                  "actual": 3628800,
+                  "passed": true
+                }
+              ],
+              "negative": {
+                "raisesValueError": true,
+                "error": "ValueError"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "runId": "c0558205-c3e3-4e5c-b66d-16bca89d8f61",
+      "phase": "final-3",
+      "caseId": "recursion-mixed",
+      "variant": "A",
+      "block": 0,
+      "filename": "final-3-recursion-mixed-A-0.py",
+      "sha256": "b2d8777db0a93cdd87fe42262286e534c0af3a02c35a09a08541607ef0fd723d",
+      "isolatedExecution": {
+        "exitCode": 0,
+        "stderr": "",
+        "result": {
+          "wholeExample": "PASS",
+          "stdout": "120\n",
+          "functions": {
+            "factorial": {
+              "samples": [
+                {
+                  "input": 0,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 1,
+                  "expected": 1,
+                  "actual": 1,
+                  "passed": true
+                },
+                {
+                  "input": 5,
+                  "expected": 120,
+                  "actual": 120,
+                  "passed": true
+                },
+                {
+                  "input": 10,
+                  "expected": 3628800,
+                  "actual": 3628800,
+                  "passed": true
+                }
+              ],
+              "negative": {
+                "raisesValueError": true,
+                "error": "ValueError"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -17,7 +17,7 @@ import Database from 'better-sqlite3';
 import { createOwnedJourneyRuntime, expectJson, startProduct, stopProduct } from './helpers/chat-project-expertise-model-journey.js';
 import { ConversationStore, TurnRole } from '../src/chat/conversation-store.js';
 import { maybeCompact, awaitPendingCompaction } from '../src/chat/context-compact.js';
-import { buildInterpretationContext } from '../src/chat/conversation-context.js';
+import { buildInterpretationContext, memoryReferenceBlock } from '../src/chat/conversation-context.js';
 import { config } from '../src/config.js';
 import { setNumCtx, clearNumCtxCache } from '../src/llm/model-ctx.js';
 import { resolveFileSavePlan, generateSaveContent } from '../src/chat/file-save-plan.js';
@@ -25,6 +25,7 @@ import { formatClarificationRequest } from '../src/chat/handlers/ask-user.js';
 import { enforceOutputContract } from '../src/chat/handlers/utils/output-gate.js';
 import { getLanguageContext } from '../src/chat/handlers/utils/language.js';
 import { assertCreativeQuality } from '../src/chat/handlers/utils/quality.js';
+import { registerConversationWebWriter } from '../src/network/conversation-web-repository.js';
 
 test('classifier receives source identities, antecedent, open question and goal; memory never classifies', async () => {
   const original = llmGateway.call;
@@ -226,9 +227,11 @@ test('a numeric reply fills an open question instead of taking the stateless ari
 test('ordinary answer includes scoped memory as reference data and preserves the current user request', async () => {
   const original = llmGateway.call;
   const calls = [];
+  const draft = 'Nemám nástroj k odeslání zprávy. Pro billing+qa@example.test je připraven text: „Přijdu ve 14:30.“';
   llmGateway.call = async (prompt, options) => {
     calls.push({ prompt, options });
-    return { content: 'Commit je uložený snímek změn v Gitu.', model: 'controlled', finishReason: 'stop' };
+    return { content: prompt.includes('billing+qa@example.test') ? draft : 'Commit je uložený snímek změn v Gitu.',
+      model: 'controlled', finishReason: 'stop' };
   };
   try {
     const decision = creDecisionEngine.overrideDecision({ type: DecisionType.ANSWER,
@@ -266,9 +269,19 @@ test('ordinary answer includes scoped memory as reference data and preserves the
     assert(calls[3].options.systemPrompt.includes(JSON.stringify('Zkrať ten text na dvě věty.')));
     assert.match(calls[3].options.systemPrompt, /grants no external action authority/u);
     assert(calls[3].prompt.endsWith('User: Tady je správný podklad: seminář bude ve čtvrtek.'));
-    await handleAnswerDecision('Pošli zprávu „Přijdu ve 14:30.“ na billing+qa@example.test.', {
+    const draftDecision = creDecisionEngine.overrideDecision({
       ...plain, metadata: { responseScope: 'conversation', requestedOperation: 'other' },
-    }, { history: [] });
+    });
+    const draftReply = await handleAnswerDecision('Pošli zprávu „Přijdu ve 14:30.“ na billing+qa@example.test.',
+      draftDecision, { history: [] });
+    assert.equal(draftReply.content, draft);
+    assert.equal(draftReply.tag.metadata.error, undefined, JSON.stringify(draftReply));
+    assert.equal(draftReply.tag.canExecute, false);
+    assert.equal(draftReply.tag.metadata.model, 'controlled');
+    assert.equal(draftReply.tag.metadata.finishReason, 'stop');
+    assert.equal(draftReply.tag.metadata.decision.type, DecisionType.ANSWER);
+    assert.equal(draftReply.tag.metadata.decision.metadata.requestedOperation, 'other');
+    assert.equal(typeof draftReply.tag.metadata.answerTiming.generationAndChecksMs, 'number');
     assert(calls[4].options.messages.filter(message => message.role === 'system')
       .some(message => message.content.includes('Preserve quoted draft bodies byte-for-byte')));
     assert.equal(calls[4].options.messages.at(-1).content,
@@ -424,6 +437,105 @@ test('interpretation protects the complete archived summary when recent optional
 });
 
 for (const backend of ['memory', 'sqlite']) {
+  test(`archive carries unshared corrections and topic boundaries (${backend})`, async () => {
+    const db = backend === 'sqlite' ? (await import('../src/db/database.js')).default : null;
+    const store = new ConversationStore(db), id = `archive-alias-${backend}`;
+    const projectId = backend === 'sqlite' ? null : 1;
+    store.ensureConversation(id, { projectId });
+    const original = store.appendTurn(id, TurnRole.USER, 'Projekt má název Lípa.', { projectId });
+    const correction = store.appendTurn(id, TurnRole.USER, 'Oprava: místo toho používej Javor.', { projectId });
+    const otherTopic = store.appendTurn(id, TurnRole.USER, 'Teď jiné téma: na oběd budu vařit rýži.', { projectId });
+    for (let n = 0; n < 1010; n++) store.appendTurn(id, TurnRole.USER, `Projektový neutrální zápis ${n}.`, { projectId });
+    const foreign = store.appendTurn(id, TurnRole.USER, 'Projekt má název FOREIGN_ALIAS_CANARY.', { projectId: 2 });
+    store.setSummary(id, 'Zastaralý souhrn: projekt Lípa.', foreign.id);
+    const evidence = store.getArchivedUserEvidence(id, 'Jaký je název projektu?');
+    assert(evidence.sources.some(s => s.messageId === original.id));
+    assert(evidence.sources.some(s => s.messageId === correction.id && s.content.includes('Javor')),
+      'the immediate follow-up must not need words shared with the original or question');
+    // Generic later matches may use the third slot; the separate three-turn
+    // fixture below proves preservation of the actual topic boundary.
+    assert(!JSON.stringify(evidence).includes('FOREIGN_ALIAS_CANARY'));
+    assert.equal(evidence.omitted, true, 'excluded eligible archive messages are omissions even if they score zero');
+    assert.equal(store.getArchivedUserEvidence(id, 'zzzzzzzz').omitted, true);
+    const atProvider = buildInterpretationContext('Jaký je název projektu?', { projectId, archivedChatEvidence: evidence }, 1600);
+    assert(atProvider.sources.some(s => s.messageId === correction.id));
+    assert(Buffer.byteLength(JSON.stringify(evidence.sources), 'utf8') <= 1200);
+
+    // A correction of a new topic must remain beside its antecedent rather
+    // than be converted into a new project name by retrieval code.
+    const topicId = `${id}-topic`;
+    store.ensureConversation(topicId, { projectId });
+    const name = store.appendTurn(topicId, TurnRole.USER, 'Projekt má název Lípa.', { projectId });
+    const lunch = store.appendTurn(topicId, TurnRole.USER, 'Na oběd si dám čočku.', { projectId });
+    const rice = store.appendTurn(topicId, TurnRole.USER, 'Oprava: místo toho bude rýže.', { projectId });
+    store.setSummary(topicId, 'Projekt Lípa, oběd čočka.', rice.id);
+    const topics = store.getArchivedUserEvidence(topicId, 'Jaký je název projektu?');
+    assert.deepEqual(topics.sources.map(s => s.messageId), [name.id, lunch.id, rice.id]);
+    assert.equal(topics.omitted, false);
+  });
+
+  test(`archive includes exact tails and updates indexed scope (${backend})`, async () => {
+    const db = backend === 'sqlite' ? (await import('../src/db/database.js')).default : null;
+    const store = new ConversationStore(db), id = `archive-tail-${backend}`;
+    const projectId = backend === 'sqlite' ? null : 1;
+    store.ensureConversation(id, { projectId });
+    const content = 'Poznámky ze schůzky. ' + 'Neutrální 🌲 podklad. '.repeat(100)
+      + ' Oprava: název projektu je Javor, ne Lípa.';
+    const turn = store.appendTurn(id, TurnRole.USER, content, { projectId });
+    store.setSummary(id, 'Zastaralé: Lípa.', turn.id);
+    const evidence = store.getArchivedUserEvidence(id, 'Jaký je název projektu?');
+    const source = evidence.sources.find(s => s.messageId === turn.id);
+    assert(source, 'terms beyond the first excerpt must still retrieve their original message');
+    assert.equal(source.contentTruncated, true);
+    assert(content.startsWith(source.content));
+    assert(source.contentTail.includes('Javor'));
+    assert.equal(Buffer.from(content).subarray(source.contentTailStartByte).toString('utf8'), source.contentTail);
+    assert.equal(source.messageBytes, Buffer.byteLength(content));
+    assert(Buffer.byteLength(source.content + source.contentTail) <= 512);
+    assert.equal(evidence.omitted, true);
+    const block = memoryReferenceBlock({ projectId, archivedChatEvidence: evidence });
+    assert(block.includes('Javor'));
+    const references = buildInterpretationContext('Jaký je název projektu?', { projectId, archivedChatEvidence: evidence }, 1600);
+    assert(references.sources[0].contentTail.includes('Javor'));
+    if (db) {
+      // Same-connection changes invalidate/update the transient index too.
+      db.db.prepare('UPDATE messages SET content = ?, metadata = ? WHERE id = ?')
+        .run('Projekt má název Bříza.', JSON.stringify({ projectId }), turn.id);
+      assert(store.getArchivedUserEvidence(id, 'Jaký je název projektu?').sources[0].content.includes('Bříza'));
+      const otherConnection = new Database(db.db.name);
+      registerConversationWebWriter(otherConnection);
+      try {
+        otherConnection.prepare('UPDATE messages SET content = ? WHERE id = ?').run('Identifikátor je BORUVKA_928.', turn.id);
+        assert(store.getArchivedUserEvidence(id, 'Jaký identifikátor platí?').sources[0].content.includes('BORUVKA_928'),
+          'another connection must invalidate the lexical index, even without shared old words');
+      } catch (error) {
+        throw new Error(`External archive update failed: ${error.message}`, { cause: error });
+      } finally { otherConnection.close(); }
+      db.db.prepare('UPDATE messages SET metadata = ? WHERE id = ?')
+        .run(JSON.stringify({ projectId: 2 }), turn.id);
+      assert.equal(store.getArchivedUserEvidence(id, 'Jaký je název projektu?').sources.length, 0);
+      db.messages.delete.run(turn.id);
+      assert.equal(store.getArchivedUserEvidence(id, 'Jaký je název projektu?').sources.length, 0);
+      const malformed = store.appendTurn(id, TurnRole.USER, 'Projekt má název MALFORMED_CANARY.', '{invalid');
+      store.setSummary(id, 'Neověřený souhrn.', malformed.id);
+      assert.equal(store.getArchivedUserEvidence(id, 'Jaký je název projektu?').sources.length, 0);
+      const failedId = `${id}-rollback`;
+      store.ensureConversation(failedId, { projectId });
+      const valid = store.appendTurn(failedId, TurnRole.USER, 'Projekt má název Javor.', { projectId });
+      store.setSummary(failedId, 'Neúplný souhrn.', valid.id);
+      const prepare = db.db.prepare;
+      db.db.prepare = function(sql) {
+        if (sql.startsWith('SELECT m.id, m.content, m.metadata')) throw new Error('CONTROLLED_ARCHIVE_QUERY_FAILURE');
+        return prepare.call(this, sql);
+      };
+      try {
+        assert.throws(() => store.getArchivedUserEvidence(failedId, 'Jaký je název projektu?'), /CONTROLLED_ARCHIVE_QUERY_FAILURE/);
+      } finally { db.db.prepare = prepare; }
+      assert(store.getArchivedUserEvidence(failedId, 'Jaký je název projektu?').sources[0].content.includes('Javor'),
+        'rollback must not leave a prepared high-water mark without the corresponding FTS rows');
+    }
+  });
+
   test(`archive past 1000 user turns retains the original and later lower-scoring correction (${backend})`, async () => {
     const db = backend === 'sqlite' ? (await import('../src/db/database.js')).default : null;
     const store = new ConversationStore(db);

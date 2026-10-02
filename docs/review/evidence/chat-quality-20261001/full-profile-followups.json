@@ -1,0 +1,174 @@
+{
+  "runId": "chat-quality-full-20261002-followups-matched",
+  "sourceRevision": "0fad3823249104b62edc1e663440d51592de0dbd",
+  "startedAt": "2026-10-02T10:34:01.420Z",
+  "endedAt": "2026-10-02T10:42:20.793Z",
+  "statusCounts": {
+    "PASS": 399,
+    "FAIL": 4,
+    "TIMEOUT": 0,
+    "BLOCKED": 3,
+    "SKIPPED": 0
+  },
+  "verdict": "FAIL",
+  "exitCode": 1,
+  "requiredFailureCount": 7,
+  "interruptionSignal": null,
+  "options": {
+    "concurrency": 1,
+    "failFast": false,
+    "timeoutMs": 600000,
+    "deadlineMs": 28800000,
+    "profiles": [
+      "database",
+      "offline"
+    ],
+    "ids": [],
+    "exclude": [],
+    "allowBlockers": [
+      "toolchain:accountant-ocr-runtime",
+      "toolchain:bubblewrap",
+      "toolchain:bwrap",
+      "toolchain:git",
+      "toolchain:prlimit",
+      "toolchain:python-pdf-runtime",
+      "toolchain:python3",
+      "toolchain:systemd-analyze",
+      "toolchain:tar"
+    ],
+    "noBlock": false
+  },
+  "inventoryFingerprint": "02170ed1be748ea2c064405bdd704f52dc1e4bb6468bc62d49df16f77a826843",
+  "registryHash": "ac14e15fb81dc401761467b7fc9d6e4c040550b05f6cec273ee2f2edd7bbf43f",
+  "version": 1,
+  "reportSha256": "3e7401d136d55141879a33f98e5df8f1443d0dcab61edb2901e7ae2387cd95ab",
+  "sameNonPassAsPreviousCompleteProfile": true,
+  "previousCompleteSourceRevision": "289afec083d7de8933b4c514438d30cf6ff887a2",
+  "nonPass": [
+    {
+      "id": "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-INTEGRATION-TEST",
+      "path": "tests/accountant-workflow-integration.test.js",
+      "status": "BLOCKED",
+      "exitCode": null,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 0,
+      "blockers": [
+        "toolchain:accountant-ocr-runtime",
+        "toolchain:python-pdf-runtime"
+      ],
+      "outputError": null,
+      "logSha256": null
+    },
+    {
+      "id": "IS-T1-TESTS-ARTIFACT-VALIDATION",
+      "path": "tests/artifact-validation.test.js",
+      "status": "FAIL",
+      "exitCode": 1,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 510,
+      "blockers": [],
+      "outputError": null,
+      "logSha256": "7af4897291ab837183bbbafb1e6dbfdbdc75340a17f2b6bb56e7fb7187a376bf"
+    },
+    {
+      "id": "IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST",
+      "path": "tests/chat-export-budget.test.js",
+      "status": "BLOCKED",
+      "exitCode": null,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 0,
+      "blockers": [
+        "toolchain:python-pdf-runtime"
+      ],
+      "outputError": null,
+      "logSha256": null
+    },
+    {
+      "id": "IS-T1-TESTS-EXPORT-PDF-DOCX-TEST",
+      "path": "tests/export-pdf-docx.test.js",
+      "status": "BLOCKED",
+      "exitCode": null,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 0,
+      "blockers": [
+        "toolchain:python-pdf-runtime"
+      ],
+      "outputError": null,
+      "logSha256": null
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST",
+      "path": "tests/m1-model-failover-schema.test.js",
+      "status": "FAIL",
+      "exitCode": 1,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 9803,
+      "blockers": [],
+      "outputError": null,
+      "logSha256": "99b0c36825d8c4ce1a28da3070db9f6240f95ddba4f400d47916f2140aa1d55c"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST",
+      "path": "tests/m6-runtime-evidence.test.js",
+      "status": "FAIL",
+      "exitCode": 1,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 57,
+      "blockers": [],
+      "outputError": null,
+      "logSha256": "b5fb115aa59e650f3a128293d87e16d0fcb4a4ddfc36bb30140abb58d268e55f"
+    },
+    {
+      "id": "IS-T1-TESTS-ROUTING-ACCURACY-TEST",
+      "path": "tests/routing-accuracy.test.js",
+      "status": "FAIL",
+      "exitCode": 1,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 365,
+      "blockers": [],
+      "outputError": null,
+      "logSha256": "3604f01c45c121706b1dc9d6bd3a67d230ff18c0cf77f939e2c99f87015157bd"
+    }
+  ],
+  "stoppedPriorAttempt": {
+    "runId": "chat-quality-full-20261002-followups",
+    "sourceRevision": "0fad3823249104b62edc1e663440d51592de0dbd",
+    "startedAt": "2026-10-02T10:33:23.954Z",
+    "endedAt": "2026-10-02T10:34:01.281Z",
+    "statusCounts": {
+      "PASS": 45,
+      "FAIL": 2,
+      "TIMEOUT": 0,
+      "BLOCKED": 2,
+      "SKIPPED": 357
+    },
+    "verdict": "FAIL",
+    "exitCode": 1,
+    "requiredFailureCount": 361,
+    "interruptionSignal": "SIGINT",
+    "options": {
+      "concurrency": 1,
+      "failFast": false,
+      "timeoutMs": 600000,
+      "deadlineMs": 28800000,
+      "profiles": [
+        "database",
+        "offline"
+      ],
+      "ids": [],
+      "exclude": [],
+      "allowBlockers": [],
+      "noBlock": false
+    },
+    "inventoryFingerprint": "02170ed1be748ea2c064405bdd704f52dc1e4bb6468bc62d49df16f77a826843",
+    "registryHash": "ac14e15fb81dc401761467b7fc9d6e4c040550b05f6cec273ee2f2edd7bbf43f",
+    "interpretation": "INCOMPLETE: operator-owned audit interrupted after discovering mismatched toolchain allow-list; child cancellation is retained as FAIL in the raw report, not a newly reproduced product failure. 357 skipped suites. Separate matched run above completed."
+  }
+}

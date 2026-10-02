@@ -25,13 +25,22 @@ efekt. Existující sémantické ukládání se ověří přes M1/M2 a skutečn�
 Vlastněné cesty: `src/chat/**`, `src/expertises/specialist-runtime.js`
 (pouze invalidace starého nástrojového kontextu po změně tématu), cílené
 chatové testy a jejich helpers,
-`scripts/measure-m1-l3.js` (shodná délka historie A/B a oddělená vývojová
+`scripts/measure-m1-l3.js` a `scripts/chat-resilience-provider-relay.js`
+(měření fsynced diagnostiky a konsolidace evidence mimo providerový požadavek;
+shodná délka historie A/B a oddělená vývojová
 zkouška dlouhého kontextu; původní 53případový korpus zůstává nezměněný),
 `tests/registry.json`, přesný importní baseline, generovaný testový inventář, tento WP a vlastní review
 report. Změna sdíleného modelového gateway, modelových bindingů, DB schématu,
 providerové autority, mimochatových workerů a produkční instalace není součástí
 této dávky. Konektory: ConversationStore → CRE → chat handler → M1 response;
 existující přesné M2 schvalování se nemění.
+
+Doplňující explicitní zadání operátora z 2. 10.: opravit fixture rozhodnutí,
+významové archivní reprodukce a měřit růst ceny archivu a čisté složky latence.
+`src/chat/archive-evidence-index.js` vlastní connection-local TEMP FTS5 cache;
+nemění trvalé schéma ani zprávy. Hledání zůstává lexikální s citovanými sousedy,
+nikoli sémantický rozhodovač. Výňatky mají přesný prefix a oddělený suffix
+s bajtovou pozicí; mezera není zatajená. Modelový experiment zůstává odložený.
 
 Postup: (1) reprodukce posudku a inventura skutečné cesty;
 (2) společný kontext, doptávání a paměť;

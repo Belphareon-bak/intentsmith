@@ -1,6 +1,11 @@
 # Chat quality — 2026-10-01
 
-Stav po milníku S1: **CHANGES_REQUIRED / WORK_CONTINUES / REVIEW_PENDING**. Toto je vlastní technické a významové posouzení; nezávislá přejímka ani produkční nasazení neproběhly.
+Aktualizace 2. 10. po S10: **NO_GO / REVIEW_PENDING / CI_NOT_RUN**.
+Runtime kandidát `0fad3823`; poslední úplný profil 399 PASS / 4 FAIL / 3 BLOCKED.
+Toto je vlastní technické a významové posouzení; nezávislá přejímka ani
+produkční nasazení neproběhly. Následující historické oddíly S1 zůstávají
+svázané se svými původními commity; nový stav je na konci dokumentu a v
+[průběžném reportu](../wp/WP-CHAT-QUALITY-20261001-PROGRESS.md).
 
 ## Posudek proti skutečnému baseline
 
@@ -254,3 +259,55 @@ Nová zmrazená regrese 53×3 použije samostatný prázdný master evidence,
 stejný modelový artefakt a původní corpus. Nejde o runtime optimalizaci ani
 nový holdout. Změna objemu zachytávání omezuje přímé srovnání nové latence
 se S1. CI a vlastník integrace stále otevřené; návrh předání připravený.
+
+## Dokončená S2 a opravy podle doplňujícího posudku
+
+S2 dokončena na nezměněném `6f0259ec`: 49/53, 48/53 a 47/53 užitečných
+podle vlastního významového čtení všech odpovědí; 144/159 = 90,57 %, jeden
+zbytečný stop a jeden kritický nález. Nejde o 159 nezávislých formulací:
+tři opakování mají stejných známých 53 případů. Jeden raw výstup tvrdí, že
+odeslal e-mail, přestože žádný efekt neexistuje. Pozdější přiznání nemožnosti
+odeslání tuto nepravdivou dokončenou akci neodstraňuje. **NO_GO** trvá.
+
+[S2 odpovědi a explicitní důvody](evidence/chat-quality-20261001/s2-semantic-assessment.json),
+[kritický skutečný providerový vstup/výstup](evidence/chat-quality-20261001/s2-critical-provider-trace.json).
+Přesné schválené efekty a všech 24 izolovaných příkladů Pythonu prošly;
+to neomlouvá faktické chyby, neúplné složené odpovědi ani vymyšlené provedení.
+
+Následující kandidát `0fad3823` opravil pouze konkrétní reprodukce:
+
+- Fixture zachovává skutečný prototyp rozhodnutí; ověřuje úspěšnou odpověď,
+  model, finishReason, rozhodnutí, metadata a absenci efektového oprávnění.
+  Dříve chybný návrat po správném providerovém vstupu nemohl test shodit.
+- Archiv používá connection-local TEMP FTS5 cache s ověřenými původními řádky.
+  Sousedé se předávají jako citované podklady; nejsou automaticky označeni
+  jako změna hodnoty. Oprava bez společných slov, přesný suffix s bajtovou
+  pozicí a přiznané nevybrané zprávy prošly na paměti i SQLite. Cache se
+  invaliduje při cizím spojení a obnovuje po rollbacku.
+- Celý kontextový program 21/21 PASS; sedm registrovaných sad PASS.
+  Živá sonda tří reprodukcí odpověděla Javor/Javor/Lípa a měla nula efektů.
+  Stále nejde o záruku každé vzdálené opravy ani o nový nepoužitý holdout.
+- Úplný nezměněný profil na stejném SHA: 399 PASS / 4 FAIL / 3 BLOCKED,
+  shodné otevřené non-PASS. Neúplný první start s jinou allow-list konfigurací
+  je uchován zvlášť, nepřepisuje úplný důkaz.
+
+[Živý archiv a skutečné providerové zprávy](evidence/chat-quality-20261001/followup-archive-live.json),
+[nejnovější celý profil](evidence/chat-quality-20261001/full-profile-followups.json),
+[výkon archivu](evidence/chat-quality-20261001/archive-performance-recovery.json).
+
+Čistá úzká [časová sonda](evidence/chat-quality-20261001/clean-latency-probe.json)
+má šest stejných HTTP 409 otázek, stejný model a limity: cold 11,327 s
+(5,554 s načtení), warm medián 5,052 s. Warm průměr interpretace 2,198 s,
+generování/kontrol 2,841 s; synchronní diagnostika před předáním 61,7 ms je
+zahrnutá uvnitř těchto fází. Zbytek po odečtení provideru a této diagnostiky
+je přiznaný residual, nikoli produkční aplikační overhead. Dvě volání jsou
+hlavní náklad vybrané cesty; není to univerzální vlastnost každé zprávy.
+Některé odpovědi jsou stále fakticky chybné. Sonda neprokazuje celkovou kvalitu,
+TTFT, cold distribuci nebo kauzální zrychlení proti S1/S2.
+
+K uzavření chybí nezávislý [nepoužitý holdout](2026-10-02-CHAT-HOLDOUT-HANDOFF.md),
+zelené technické brány a skutečné [CI kandidáta](2026-10-02-CHAT-CI-HANDOFF.md).
+Vlastník ROOT má připravené [předání reálné routing vady](2026-10-02-CHAT-ROUTING-ROOT-HANDOFF.md).
+Modelový pilot M0 není přijaté nezhoršení ani nezávislý slepý důkaz;
+operátorův odklad modelového srovnání zůstává platný. Další runtime změny
+po tomto zmrazení musí mít novou konkrétní reprodukci a nový kandidát.

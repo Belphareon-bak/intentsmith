@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "baselineRevision": "c8a00c8d13e540983a3c05948e5562a442529f19",
+  "candidate": "working source before freeze; source hashes below",
+  "at": "2026-10-02T10:27:07.040Z",
+  "node": "v24.21.0",
+  "sqlite": "3.51.2",
+  "methodology": "Same private SQLite database and source rows; 25 alternating warm queries per condition. Initial index build measured separately. No model calls. Dense cases intentionally test lexical collision rather than claiming semantic success.",
+  "limitations": [
+    "One host, synchronous wall time; not production p95 or a memory limit benchmark",
+    "FTS candidate retrieval remains lexical; two follow-up messages do not guarantee distant unshared corrections",
+    "First index build remains proportional to archive size; foreign-connection edits invalidate it",
+    "Other-connection invalidation is tested separately in the functional suite"
+  ],
+  "results": [
+    {
+      "archivedUserRows": 1000,
+      "bytesPerNeutralRow": 216,
+      "initialIndexAndQueryMs": 6.0828559999999925,
+      "queries": [
+        {
+          "label": "sparse",
+          "input": "Jaký název platí?",
+          "baseline": {
+            "n": 25,
+            "medianMs": 7.1397870000000125,
+            "p95Ms": 8.46360100000004
+          },
+          "candidate": {
+            "n": 25,
+            "medianMs": 0.23333900000000085,
+            "p95Ms": 0.3318100000000186
+          },
+          "warmIndexWrites": 0
+        },
+        {
+          "label": "dense",
+          "input": "Jaký projektový zápis platí?",
+          "baseline": {
+            "n": 25,
+            "medianMs": 7.204426000000012,
+            "p95Ms": 7.7711419999999976
+          },
+          "candidate": {
+            "n": 25,
+            "medianMs": 1.9592039999999997,
+            "p95Ms": 2.0907320000000027
+          },
+          "warmIndexWrites": 0
+        }
+      ]
+    },
+    {
+      "archivedUserRows": 10000,
+      "bytesPerNeutralRow": 216,
+      "initialIndexAndQueryMs": 43.910484999999994,
+      "queries": [
+        {
+          "label": "sparse",
+          "input": "Jaký název platí?",
+          "baseline": {
+            "n": 25,
+            "medianMs": 66.83152800000016,
+            "p95Ms": 70.11955199999989
+          },
+          "candidate": {
+            "n": 25,
+            "medianMs": 0.2632380000000012,
+            "p95Ms": 0.43487499999991996
+          },
+          "warmIndexWrites": 0
+        },
+        {
+          "label": "dense",
+          "input": "Jaký projektový zápis platí?",
+          "baseline": {
+            "n": 25,
+            "medianMs": 69.15755900000022,
+            "p95Ms": 73.96467999999959
+          },
+          "candidate": {
+            "n": 25,
+            "medianMs": 16.888282999999774,
+            "p95Ms": 17.221442999999454
+          },
+          "warmIndexWrites": 0
+        }
+      ]
+    },
+    {
+      "archivedUserRows": 50000,
+      "bytesPerNeutralRow": 216,
+      "initialIndexAndQueryMs": 271.72743399999945,
+      "queries": [
+        {
+          "label": "sparse",
+          "input": "Jaký název platí?",
+          "baseline": {
+            "n": 25,
+            "medianMs": 338.6941569999999,
+            "p95Ms": 341.0903610000005
+          },
+          "candidate": {
+            "n": 25,
+            "medianMs": 0.45634400000017195,
+            "p95Ms": 0.5391270000000077
+          },
+          "warmIndexWrites": 0
+        },
+        {
+          "label": "dense",
+          "input": "Jaký projektový zápis platí?",
+          "baseline": {
+            "n": 25,
+            "medianMs": 350.55920100000003,
+            "p95Ms": 356.0023199999996
+          },
+          "candidate": {
+            "n": 25,
+            "medianMs": 99.61025700000027,
+            "p95Ms": 100.75543600000128
+          },
+          "warmIndexWrites": 0
+        }
+      ]
+    }
+  ],
+  "sourceSha256": {
+    "src/chat/conversation-store.js": "4b1d2b8fb2610bcf59827172a0fa52aabe0c2334905e84465ca44e1eedc6cef2",
+    "src/chat/archive-evidence-index.js": "674bec91f29dcff0ca3be0f914e4200b4b4e2294cf8b94db0a49f5cae739300a",
+    "src/chat/conversation-context.js": "31549cc6480fa6f6637b81751b7e90d2f925a91aef5518c6d1ecb9e806986c2a"
+  }
+}

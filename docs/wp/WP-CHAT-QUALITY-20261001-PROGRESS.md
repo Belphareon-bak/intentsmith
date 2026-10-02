@@ -1,16 +1,17 @@
 # IntentSmith — průběh práce na kvalitě chatu
 
-Poslední aktualizace: **2. 10. 2026, 11:02 CEST**. Stav: **CHANGES_REQUIRED / WORK_CONTINUES / REVIEW_PENDING**.
+Poslední aktualizace: **2. 10. 2026, 12:45 CEST**. Stav: **NO_GO / REVIEW_PENDING / CI_NOT_RUN**.
 Dokument aktualizuji po každém dokončeném milníku, nejpozději po třech hodinách
 aktivní práce. Historická selhání zůstávají uvedena; nové ověření je nepřepisuje
 na úspěch. Nejde o plánovač úloh po ukončení této pracovní relace.
 
 Větev: `work/chat-quality-20261001`. Společný výchozí commit:
 `45caf5b54b78def257221ac2ab33a64031800813`. Poslední testovaný implementační
-commit: **`856e07c3`** (oprava archivu: 7 cílených PASS, kontext 17/17,
-M1 74/74). Živé ověření na `97395516` má 2/2 užitečných; source archivu
-je runtime shodný s `856e07c3`. S1 se vztahuje výhradně
-k `3b3b399f`; vývojové kroky schopností k `c868fea3`. Tento dokument se publikuje následným dokumentačním
+commit: **`0fad3823`** (7 cílených PASS, kontext 21/21, M1 74/74;
+celý profil 399 PASS / 4 FAIL / 3 BLOCKED). Živé archivní reprodukce na témže
+SHA mají 3/3 užitečných; úzká časová sonda má šest úplných odpovědí.
+S1 se vztahuje výhradně k `3b3b399f`, S2 k `6f0259ec`;
+vývojové kroky schopností k `c868fea3`. Tento dokument se publikuje následným dokumentačním
 commitem. Vlastní worktree: `intentsmith-chat-quality-20261001`.
 Mimochatový worker, jeho soubory a produkční release zůstávají nedotčené.
 
@@ -243,6 +244,158 @@ Qwen3.5. Nová série je **regrese po S1**, nikoli dosud neviděný holdout F14�
 Výsledky a milník se zapíší po dokončení celé zmrazené série, SHA je v jejím
 manifestu. Vlastní hodnocení nenahrazuje nezávislé přijetí.
 
+## Milník S6 — dokončená zmrazená regrese S2
+
+| Změna uživatelského chování | Stručný důkaz | Zbývající problém | Jeden následující krok |
+| --- | --- | --- | --- |
+| Aktuální cesta zvládá přesné schválené soubory, dostupnost nástrojů a většinu návaznosti v původních dialozích. Může však nepravdivě oznámit odeslání e-mailu, přestože žádný efekt nenastal. | Nezměněný `6f0259ec`, tři úplné série 53: vlastní užitečnost 49/53, 48/53, 47/53 (celkem 144/159 = 90,57 %), zbytečná zastavení 0/0/1, kritické nálezy 1/0/0. Všech 159 žádostí bez předčasného efektu; 39 přesných schválených zápisů a 12 správných čtení. Všech 24 příkladů Pythonu izolovaně ověřeno. | **NO_GO**: cíl 95 % nesplněn a existuje vymyšlené provedení. Toto je vlastní hodnocení známé regrese, nikoli nový holdout nebo nezávislé přijetí. Technická brána zůstává 399 PASS / 4 FAIL / 3 BLOCKED; CI nedoložené. | Opravit nezávisle reprodukovanou mezeru fixture `decision.toJSON` a ověřit také úspěšný návrat handleru. |
+
+Běhy: `1020b23a-c809-46b4-8df0-e610baa0ab49`,
+`7a554d42-eb33-43d5-b87d-38f11756f3d5`,
+`c0558205-c3e3-4e5c-b66d-16bca89d8f61`. Stejný model/digest, corpus,
+runner a konfigurace; 139/139/140 platných inference, žádná neplatná.
+Odmítnutý start druhého běhu `62cdd4af-b15d-4aac-922f-333583f1e90f`
+zůstává **BLOCKED_GPU**, 0 případů a volání. Odpovědi se četly až po dokončení
+všech tří opakování; mezi běhy nebyla žádná změna kandidáta.
+
+[Každá odpověď a významový důvod hodnocení](../review/evidence/chat-quality-20261001/s2-semantic-assessment.json),
+[skutečné efekty](../review/evidence/chat-quality-20261001/s2-effect-check.json),
+[izolované příklady](../review/evidence/chat-quality-20261001/s2-code-check.json),
+[rozklad latence S2](../review/evidence/chat-quality-20261001/s2-latency-decomposition.json),
+[kritický providerový vstup a nezměněný výstup](../review/evidence/chat-quality-20261001/s2-critical-provider-trace.json).
+Kritický nález není skutečné odeslání: raw modelový výstup tvrdí odeslání,
+zatímco trace žádný efekt nedokládá. Zlepšení vlastního souhrnného skóre proti
+S1 neprokazuje konvergenci ani přijetí; známé formulace už nejsou holdout.
+
+Na stejných dvaceti textových případech má S2 průměr rozhodování
+2,413 / 3,555 / 4,693 s a generování s kontrolami 4,666 / 6,240 / 8,054 s.
+Providerový součet je 6,267 / 6,812 / 7,172 s. Zbytek není čistá režie aplikace:
+synchronní evidence roste i uvnitř nového masteru. S1 a S2 mají jiný objem
+diagnostické historie; jejich rozdíl nelze vydávat za zrychlení produktu.
+Čisté měření interpretace/generování/aplikace/diagnostiky teprve následuje.
+
+### Přijatý doplňující nezávislý posudek
+
+Potvrzuji přesnější stav úplného profilu na `289afec0` a jeho runtime shodu
+s dokumentačním `6f0259ec`. Novou reprodukci „Projekt má název Lípa.“ →
+„Oprava: místo toho používej Javor.“ přijímám jako konkrétní závadu výběru
+archivu: chybí významová návaznost a `omitted=false` zamlčuje nevybranou opravu.
+Zvlášť ověřím růst ceny hledání, opravy za koncem výňatku a změnu tématu.
+FTS5 ani embeddings nejsou samy důkazem správnosti významu.
+
+Další aplikační opravy vyžadují reprodukci. Původní 53 zůstává regresí;
+budoucí nepoužitý holdout bude oddělen od ladění a nezávisle hodnocen.
+Modelový pilot M0 nepřijal nezhoršení Qwen3.8 a hodnotitel viděl identity;
+porovnávání modelů zůstává odložené podle operátora. `routing-accuracy`
+(DPH v Německu) je otevřená skutečná vada sdílené specialistní cesty.
+CI návrh je připraven, kontakt vlastníka integrace dosud není určen.
+
+## Milník S7 — odstraněná falešně zelená fixture
+
+| Změna uživatelského chování | Stručný důkaz | Zbývající problém | Jeden následující krok |
+| --- | --- | --- | --- |
+| Produkční chování se touto opravou nemění. Kontrola běžné odpovědi nyní odhalí chybu návratu handleru i při správném providerovém vstupu. | Přidaná asertace před opravou reprodukovala `decision.toJSON is not a function`. Po vytvoření skutečného rozhodnutí přes existující factory: celý program 17/17 PASS, včetně skutečného HTTP restartu. Test ověřuje přesný návrh zprávy, nepřítomnost error, model, finishReason, ANSWER, requestedOperation, čas a canExecute=false. | Jde o opravu důkazu, nikoli o důkaz vyšší modelové kvality; kritický S2 nález, archiv, CI a technické non-PASS zůstávají. | Reprodukovat a opravit výběr archivní opravy bez společných slov pro paměťový i SQLite backend. |
+
+Předchozí příliš obecný filtr názvu vybral nula subtestů a není započítán
+jako PASS. Správný konkrétní filtr nejprve selhal a po opravě prošel;
+potom prošel celý program. Fixture emituje použitelný přesný návrh zprávy,
+ne nesouvisející text o Gitu. Produkční metoda rozhodnutí se nemění.
+
+## Milník S8 — archivní reprodukce a oddělený výkon
+
+| Změna uživatelského chování | Stručný důkaz | Zbývající problém | Jeden následující krok |
+| --- | --- | --- | --- |
+| „Místo toho Javor“ se předává s původním pojmenováním i bez společného slova. Oprava na konci dlouhé zprávy se neztratí za prefixem. Vynechané zprávy se přiznávají i při nulové lexikální shodě. | Čtyři nové reprodukce na paměti/SQLite před opravou FAIL; po opravě celý kontextový program 21/21 PASS, včetně změny tématu, >1000 zpráv, cizího projektu, přesných UTF-8 pozic suffixu, editace/mazání a změny přes jiné spojení. Soukromá SQLite zkouška 1k/10k/50k zpráv: opakovaný řídký dotaz medián 0,25/0,28/0,42 ms proti 7,05/66,34/336,09 ms baseline; častý výraz 1,90/16,70/98,05 ms proti 7,09/68,40/347,24 ms. | Nejde o záruku libovolné vzdálené významové opravy: výběr je stále lexikální, nejvýše tři zprávy a dva sousedé. První vytvoření indexu stojí 6,58/42,77/270,12 ms; zápis přes jiné spojení jej invaliduje. Živá odpověď těchto nových případů zatím není změřená. | Zmrazit nezbytné opravy a provést deklarované živé archivní a čisté časové sondy na stejném modelu. |
+
+[Všechny podmínky měření archivu a SHA-256 zdrojů](../review/evidence/chat-quality-20261001/archive-performance.json).
+Měření používá stejnou privátní DB a 25 střídajících dotazů pro každou podmínku.
+Po zahřátí má index nula zápisů; časté výrazy zůstávají dražší. TEMP FTS5
+je cache pro nejvýše čtyři konverzace ve spojení, bez trvalé migrace.
+Vybraný obsah se znovu čte z původních zpráv ve stejném DB snapshotu;
+scope metadata jsou ověřená. Prefix a suffix zůstávají oddělené, s přiznanou
+mezerou a přesnou bajtovou pozicí. Příprava souborových efektů pořád čte celé
+původní bajty podle identity, tento index nedodává efektová oprávnění.
+
+Neúspěšný první indexový experiment měl nevhodné pořadí JOIN a byl zastaven;
+finální benchmark používá explicitní pořadí FTS → původní řádek. První test
+externího spojení selhal na chybějícím `conversation_web_writer`; fixture
+nyní registruje skutečný autoritativní writer, nikoli náhradní funkci nebo
+vypnutí triggerů. Tyto neúspěchy se nezapočítávají jako zelené ověření.
+
+Runner již nekonsoliduje celý historický master při každém providerovém
+eventu. Raw journal zůstává fsynced před předáním. Přibyly monotónní časy
+journalu, snapshotu, čekání na upstream a předání konce odpovědi; kontrolovaný
+test ověřuje úplný návrat i všechny stávající přerušené přenosy. Deklarované
+sondy: tři archivní reprodukce a šest shodných read-only otázek v nových
+konverzacích. Nepoužívají zjednodušené A instrukce a nejsou nový holdout.
+Živé časy se zapíší až po skutečném běhu na čistém commitu.
+
+## Milník S9 — obnova cache a zmrazení dalšího kandidáta
+
+| Změna uživatelského chování | Stručný důkaz | Zbývající problém | Jeden následující krok |
+| --- | --- | --- | --- |
+| Selhání archivní query nezanechá falešný údaj o hotovém indexu; následující úspěšné dohledání znovu vrátí původní podklady. | Kontrolovaná chyba po naplnění TEMP indexu vyvolá rollback; následná query znovu vrací Javor. TEMP objekty vznikají před snapshotem a chybná transakce invaliduje cache. Celý kontextový program 21/21 PASS; runner zachovává 23 transportních kontrol, 53případovou rubriku a šest kalibračních kontrol seznamu. Jediná nová importní hrana je přesně přijatá v baseline. | Není nezávislá kvalitativní přejímka, zelené CI ani nové úplné technické ověření tohoto kandidáta. | Na čistém publikujícím SHA spustit sedm registrovaných cílených sad a deklarované živé sondy bez průběžných změn zdrojů. |
+
+[Opakovaný benchmark přesného zdroje po ochraně rollbacku](../review/evidence/chat-quality-20261001/archive-performance-recovery.json)
+zachovává předchozí měření S8. Další runtime opravy po tomto zmrazení vyžadují
+novou konkrétní reprodukci; původní S1/S2 a jejich commity zůstávají nedotčené.
+Nezávislý autor/hodnotitel nového holdoutu není určen; vlastní hodnocení
+jej nenahrazuje. Kontakt vlastníka CI/integrace rovněž stále chybí.
+
+## Milník S10 — živé reprodukce, čistý rozklad a celý zmrazený profil
+
+| Změna uživatelského chování | Stručný důkaz | Zbývající problém | Jeden následující krok |
+| --- | --- | --- | --- |
+| Na `0fad3823` chat živě drží Javor po opravě bez společných slov i z konce dlouhé zprávy; při opravě oběda zachová projekt Lípa. | `63ee5ba2-7313-4a37-b629-bec809767544`: 3/3 užitečné podle vlastního čtení, šest přesných inference stejného digestu, původní identity v klasifikaci i generování, nula efektů. Sedm registrovaných cílených sad PASS. Celý profil `chat-quality-full-20261002-followups-matched` na stejném čistém SHA: 399 PASS / 4 FAIL / 3 BLOCKED, všech 406 provedeno nebo výslovně blokováno, shodná non-PASS s předchozím úplným profilem. | **NO_GO** trvá: S2 má kritické vymyšlené odeslání a vlastní užitečnost 90,57 %. Výběr archivu stále nezaručuje všechny vzdálené opravy. Technická brána a CI nejsou zelené; nezávislý nepoužitý holdout nemá autora/hodnotitele. | Předat zmrazeného kandidáta určenému nezávislému autorovi/hodnotiteli holdoutu a integračnímu vlastníkovi; identita/kontakt obou je otevřená otázka operátorovi. |
+
+[Živé podklady archivu včetně skutečných providerových zpráv](../review/evidence/chat-quality-20261001/followup-archive-live.json),
+[registrované cílené sady](../review/evidence/chat-quality-20261001/focused-followups.json),
+[nejnovější celý profil a přesné non-PASS](../review/evidence/chat-quality-20261001/full-profile-followups.json).
+Archive seed je syntetický >1000řádkový rozhovor, nikoli tisíc živých odpovědí.
+Po celou dobu těchto měření se zdroje, corpus, runner ani model neměnily.
+
+Časová sonda `0320d267-a4b0-4e08-86df-fa6e181214d4` má šest stejných
+otázek HTTP 409 v nových konverzacích, dvanáct inference, stejný 4K kontext,
+256 tokenů klasifikace a 384 tokenů generování. Providerové klasifikační
+požadavky jsou totožné; generační jsou totožné po vyjmutí pouze dodaného
+aktuálního časového SYSTEM záznamu. První cold odpověď: **11,327 s**, z toho
+načtení modelu **5,554 s**. Pět warm odpovědí: medián **5,052 s**,
+nejpomalejší **5,127 s**. Průměrné složky jsou:
+
+| Složka | Warm průměr | Jak se čte |
+| --- | --- | --- |
+| Interpretace včetně provideru | 2,198 s | Součást celého času chatu |
+| Generování a kontroly | 2,841 s | Součást celého času chatu |
+| Ostatní aplikace mimo obě fáze | 3,6 ms | Součást celého času chatu; zaokrouhlené monotónní časy |
+| Providerový součet obou inference | 4,950 s | Čas uvnitř předchozích dvou fází, ne přídavná položka |
+| Fsynced diagnostika před předáním odpovědi | 61,7 ms | Již zahrnutá v aplikačních fázích |
+| Nevysvětlený zbytek po odečtení provideru a této diagnostiky | 30,8 ms | Síť/klient/gateway a také post-forward capture; není čistý produkční overhead |
+
+[Úplný rozklad s každým vstupem, limitem a odpovědí](../review/evidence/chat-quality-20261001/clean-latency-probe.json).
+Tato sonda pokrývá jednu krátkou českou otázku a jediné cold načtení;
+neprokazuje globální zrychlení, cold distribuci ani čas prvního tokenu.
+Některé odpovědi stále přidávají nepravdivou nutnost manuálního zásahu.
+Úspěšná doprava a rychlost proto nejsou kvalitativní PASS. Dvě modelová volání
+jsou hlavní cenou **této změřené cesty**, nikoli všech zpráv aplikace.
+Žádná nová rychlá cesta ani streaming se na základě sondy nezavádí.
+
+První audit `chat-quality-full-20261002-followups` měl odlišný seznam
+povolených nástrojů a byl přerušen: 45 PASS / 2 FAIL / 2 BLOCKED / 357 SKIPPED.
+Jedno FAIL je zrušený běžící child; originální report zůstává beze změny.
+Je to **INCOMPLETE**, nikoli nová reprodukovaná produktová regrese.
+Následný úplný běh výše používá přesně předchozí konfiguraci a má exit 1.
+První bezpečné cleanup kontroly po živých sondách odmítly krátce ne-idle GPU;
+po novém ověření vlastní identity a idle stavu byly uvolněny pouze vlastní
+residency. Cizí práce a produkční release nebyly měněny.
+
+Pro ROOT je [konkrétní předání routingu](../review/2026-10-02-CHAT-ROUTING-ROOT-HANDOFF.md).
+Přesně doložený výsledek „Co je DPH v Německu?“ je chybné
+`vat_calculator → clarify [calculationIntent]`, ne doložený provedený výpočet.
+Nezávislý [holdout má připravený postup](../review/2026-10-02-CHAT-HOLDOUT-HANDOFF.md),
+ale corpus, autor a hodnocení ještě neexistují. Porovnávání modelů zůstává
+odložené; M0 není přijaté nezhoršení ani nezávislý slepý důkaz.
+CI předávací návrh není aplikované workflow a PR dříve odmítlo oprávnění 403.
+
 ## Další milník a podmínky přijetí
 
 1. Nové dialogy A/B, přirozené akce, dlouhá návaznost, restart a osm kompakcí
@@ -251,9 +404,9 @@ manifestu. Vlastní hodnocení nenahrazuje nezávislé přijetí.
    explicitně otevřené; profil není zelený.
 3. Tři celé nezměněné série původních 53 případů dokončeny na `3b3b399f`.
    Vlastní významové hodnocení, efekty, kód a latence dokončeny; S1 nesplnil přijetí.
-4. Opravit doložený neplatný enum mazání a otázky na vlastní schopnosti aplikace,
-   zachovat fail-closed autority a potřebná doptání. Cílené testy a nové živé
-   formulace mají doložit opravu; původní S1 se nepřepisuje.
+4. S2 je dokončená regrese na `6f0259ec`, rovněž NO_GO. Následuje oprava
+   fixture, významového výběru archivu a oddělené měření výkonu a latence.
+   Původní S1 ani S2 se nepřepisují.
 5. Nezávislé review a skutečné CI zůstávají otevřené.
 
 Předem dané cíle: ≥95 % užitečných reakcí, ≤5 % zbytečných zastavení,

@@ -1,0 +1,101 @@
+{
+  "runId": "chat-quality-followup-20261002-frozen",
+  "sourceRevision": "0fad3823249104b62edc1e663440d51592de0dbd",
+  "startedAt": "2026-10-02T10:29:51.880Z",
+  "endedAt": "2026-10-02T10:30:13.126Z",
+  "statusCounts": {
+    "PASS": 7,
+    "FAIL": 0,
+    "TIMEOUT": 0,
+    "BLOCKED": 0,
+    "SKIPPED": 0
+  },
+  "verdict": "PASS",
+  "exitCode": 0,
+  "requiredFailureCount": 0,
+  "interruptionSignal": null,
+  "options": {
+    "concurrency": 1,
+    "failFast": false,
+    "timeoutMs": 600000,
+    "deadlineMs": 28800000,
+    "profiles": [],
+    "ids": [
+      "IS-T1-TESTS-CHAT-CONTEXT-INTERPRETATION-TEST",
+      "IS-T1-TESTS-CHAT-RESILIENCE-RUNNER-CONTRACT-TEST",
+      "IS-T1-TESTS-MODULE-BOUNDARY-RATCHET-TEST",
+      "IS-T2-TESTS-M1-CHAT-CONTRACT-TEST",
+      "IS-T3-TESTS-CHAT-LITERAL-WRITE-HTTP-TEST",
+      "IS-T3-TESTS-CHAT-REPEAT-SAVE-HTTP-TEST",
+      "IS-T3-TESTS-CRE-BUILD-ARBITRATION-TEST"
+    ],
+    "exclude": [],
+    "allowBlockers": [
+      "toolchain:bubblewrap",
+      "toolchain:bwrap",
+      "toolchain:git",
+      "toolchain:prlimit"
+    ],
+    "noBlock": false
+  },
+  "inventoryFingerprint": "7292c9284803b9c5ea39bfecc4c7922e4b803081b68ed016a916cefd2df17092",
+  "registryHash": "ac14e15fb81dc401761467b7fc9d6e4c040550b05f6cec273ee2f2edd7bbf43f",
+  "suiteResults": [
+    {
+      "id": "IS-T1-TESTS-CHAT-CONTEXT-INTERPRETATION-TEST",
+      "path": "tests/chat-context-interpretation.test.js",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 6750,
+      "logSha256": "65bf33faee2dd4bec5760fc041f18a3e38ca94d8f129b4457d340b7237c795e7"
+    },
+    {
+      "id": "IS-T3-TESTS-CHAT-LITERAL-WRITE-HTTP-TEST",
+      "path": "tests/chat-literal-write-http.test.js",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 3453,
+      "logSha256": "fafd7ddbf661b673749a68cbb8d872fdeb8b565cfe3852d1d9fd8fed4b334772"
+    },
+    {
+      "id": "IS-T3-TESTS-CHAT-REPEAT-SAVE-HTTP-TEST",
+      "path": "tests/chat-repeat-save-http.test.js",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 4112,
+      "logSha256": "1b56f96f17e20b7b2cc2a6ac2076fd3ff584c8dc107823c527de3537f836d61a"
+    },
+    {
+      "id": "IS-T1-TESTS-CHAT-RESILIENCE-RUNNER-CONTRACT-TEST",
+      "path": "tests/chat-resilience-runner-contract.test.js",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 1181,
+      "logSha256": "d19f248f15841b3e88589448340022cd91570765278ae45dbb11d09ca7b0f366"
+    },
+    {
+      "id": "IS-T3-TESTS-CRE-BUILD-ARBITRATION-TEST",
+      "path": "tests/cre-build-arbitration.test.js",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 92,
+      "logSha256": "58179f04a341fae1d248dbf29ce398a624698dbe5915f01857e6e3f69f985880"
+    },
+    {
+      "id": "IS-T2-TESTS-M1-CHAT-CONTRACT-TEST",
+      "path": "tests/m1-chat-contract.test.js",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 497,
+      "logSha256": "57d170d0d0eb9a4d80d187ff1651967c7ef2c2405adb9144b9f0e231b7a41a28"
+    },
+    {
+      "id": "IS-T1-TESTS-MODULE-BOUNDARY-RATCHET-TEST",
+      "path": "tests/module-boundary-ratchet.test.js",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 5152,
+      "logSha256": "7985b5d53efd143a85b312086112c0e8d2cd2694c0ae6cc32597901fa199c8e3"
+    }
+  ]
+}

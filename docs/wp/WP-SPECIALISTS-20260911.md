@@ -1,5 +1,27 @@
 # WP-SPECIALISTS-20260911
 
+## ROOT navazující tool eligibility — 2. 10. 2026
+
+Autorita: dokončení IDE/BE a specialistů požadované operátorem; publikovaný
+CHAT handoff `2026-10-02-CHAT-ROUTING-ROOT-HANDOFF.md` předává širší
+package/shared způsobilost nástroje ROOTu. Otevřená nezměněná routing sada
+vybere VAT kalkulačku pro informační dotaz „Co je DPH v Německu?“ a zbytečně
+vyvolá calculationIntent upřesnění. ROOT přebírá ohraničenou opravu v
+`specialists/accountant-cz/index.js`, `specialists/accountant-cz/vat-request.js`,
+nezbytném `src/expertises/specialist-runtime.js`, přímo navázaném typovaném
+kontraktu a existujících relevantních testech. Delegované návrhy zůstávají
+ignored; ROOT jediný zapisuje produkt. Konkrétní kontrakt/test cesty budou
+vypsané po trasování před adopcí. CHAT/CRE handler a cizí checkout se nemění.
+
+Cíl: informační dotaz vrátí typed not-applicable před tool adapterem a bez
+kalkulačního upřesnění; skutečné výpočty, chybějící skutečný operand/sazba,
+číselná návaznost, negace a nejasná data zachovají současnou fail-closed
+autoritu. Nepřidávat seznamy zakázaných informačních formulací ani přepsat
+oracle. Ověřit package resolver, skutečnou runtime cestu, nezměněnou routing
+sadu a pozitivní/negativní HTTP průchody. Host port vyžaduje nezávislé review.
+
+Následující zářijové zadání a evidence zůstávají historické.
+
 Autorita: zadání operátora 2026-09-11 implementovat sázkaře podle připraveného
 kontraktu, doplnit 24h/72h okna a rozpracovat reálný účetní scénář PDF+HEIC →
 DPHKH1 + DPHDP3. Navazuje na přijatý směr M3; není release WP.
