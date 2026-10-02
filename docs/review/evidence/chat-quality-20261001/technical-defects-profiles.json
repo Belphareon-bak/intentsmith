@@ -1,0 +1,264 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Complete frozen technical runs; none replaces independent chat acceptance",
+  "runs": [
+    {
+      "runId": "chat-quality-defects-full-20261002",
+      "sourceRevision": "9317c177ca36ed461b266b98950cddee1e405d5f",
+      "startedAt": "2026-10-02T13:00:56.620Z",
+      "endedAt": "2026-10-02T13:09:06.685Z",
+      "statusCounts": {
+        "PASS": 399,
+        "FAIL": 4,
+        "TIMEOUT": 0,
+        "BLOCKED": 3,
+        "SKIPPED": 0
+      },
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "options": {
+        "concurrency": 1,
+        "failFast": false,
+        "timeoutMs": 600000,
+        "deadlineMs": 28800000,
+        "profiles": [
+          "database",
+          "offline"
+        ],
+        "ids": [],
+        "exclude": [],
+        "allowBlockers": [
+          "toolchain:accountant-ocr-runtime",
+          "toolchain:bubblewrap",
+          "toolchain:bwrap",
+          "toolchain:git",
+          "toolchain:prlimit",
+          "toolchain:python-pdf-runtime",
+          "toolchain:python3",
+          "toolchain:systemd-analyze",
+          "toolchain:tar"
+        ],
+        "noBlock": false
+      },
+      "registryHash": "ac14e15fb81dc401761467b7fc9d6e4c040550b05f6cec273ee2f2edd7bbf43f",
+      "optionsFingerprint": "822c4cb062f3e2a39a5e7af0423426aef3699195c24192817871891a389d1bd8",
+      "reportSha256": "471abf5f617bfbdf5f431698edfc2f5a4d1135f6ac7f80de17ad4e4e5aee2f7b",
+      "nonPass": [
+        {
+          "id": "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-INTEGRATION-TEST",
+          "path": "tests/accountant-workflow-integration.test.js",
+          "status": "BLOCKED",
+          "exitCode": null
+        },
+        {
+          "id": "IS-T1-TESTS-ARTIFACT-VALIDATION",
+          "path": "tests/artifact-validation.test.js",
+          "status": "FAIL",
+          "exitCode": 1
+        },
+        {
+          "id": "IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST",
+          "path": "tests/chat-export-budget.test.js",
+          "status": "BLOCKED",
+          "exitCode": null
+        },
+        {
+          "id": "IS-T1-TESTS-EXPORT-PDF-DOCX-TEST",
+          "path": "tests/export-pdf-docx.test.js",
+          "status": "BLOCKED",
+          "exitCode": null
+        },
+        {
+          "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST",
+          "path": "tests/m1-model-failover-schema.test.js",
+          "status": "FAIL",
+          "exitCode": 1
+        },
+        {
+          "id": "IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST",
+          "path": "tests/m6-runtime-evidence.test.js",
+          "status": "FAIL",
+          "exitCode": 1
+        },
+        {
+          "id": "IS-T1-TESTS-ROUTING-ACCURACY-TEST",
+          "path": "tests/routing-accuracy.test.js",
+          "status": "FAIL",
+          "exitCode": 1
+        }
+      ]
+    },
+    {
+      "runId": "chat-quality-defects-final-full-20261002",
+      "sourceRevision": "1e394229c20c672e0ca2d37a54d425f60942f7e8",
+      "startedAt": "2026-10-02T13:12:57.330Z",
+      "endedAt": "2026-10-02T13:21:09.962Z",
+      "statusCounts": {
+        "PASS": 399,
+        "FAIL": 4,
+        "TIMEOUT": 0,
+        "BLOCKED": 3,
+        "SKIPPED": 0
+      },
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "options": {
+        "concurrency": 1,
+        "failFast": false,
+        "timeoutMs": 600000,
+        "deadlineMs": 28800000,
+        "profiles": [
+          "database",
+          "offline"
+        ],
+        "ids": [],
+        "exclude": [],
+        "allowBlockers": [
+          "toolchain:accountant-ocr-runtime",
+          "toolchain:bubblewrap",
+          "toolchain:bwrap",
+          "toolchain:git",
+          "toolchain:prlimit",
+          "toolchain:python-pdf-runtime",
+          "toolchain:python3",
+          "toolchain:systemd-analyze",
+          "toolchain:tar"
+        ],
+        "noBlock": false
+      },
+      "registryHash": "ac14e15fb81dc401761467b7fc9d6e4c040550b05f6cec273ee2f2edd7bbf43f",
+      "optionsFingerprint": "822c4cb062f3e2a39a5e7af0423426aef3699195c24192817871891a389d1bd8",
+      "reportSha256": "4f1d37f2eef63e19a7792254f9530cdfd2e7c062b145abba24edaf87926d8275",
+      "nonPass": [
+        {
+          "id": "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-INTEGRATION-TEST",
+          "path": "tests/accountant-workflow-integration.test.js",
+          "status": "BLOCKED",
+          "exitCode": null
+        },
+        {
+          "id": "IS-T1-TESTS-ARTIFACT-VALIDATION",
+          "path": "tests/artifact-validation.test.js",
+          "status": "FAIL",
+          "exitCode": 1
+        },
+        {
+          "id": "IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST",
+          "path": "tests/chat-export-budget.test.js",
+          "status": "BLOCKED",
+          "exitCode": null
+        },
+        {
+          "id": "IS-T1-TESTS-EXPORT-PDF-DOCX-TEST",
+          "path": "tests/export-pdf-docx.test.js",
+          "status": "BLOCKED",
+          "exitCode": null
+        },
+        {
+          "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST",
+          "path": "tests/m1-model-failover-schema.test.js",
+          "status": "FAIL",
+          "exitCode": 1
+        },
+        {
+          "id": "IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST",
+          "path": "tests/m6-runtime-evidence.test.js",
+          "status": "FAIL",
+          "exitCode": 1
+        },
+        {
+          "id": "IS-T1-TESTS-ROUTING-ACCURACY-TEST",
+          "path": "tests/routing-accuracy.test.js",
+          "status": "FAIL",
+          "exitCode": 1
+        }
+      ]
+    },
+    {
+      "runId": "chat-quality-freeze-full-20261002",
+      "sourceRevision": "787ed6c98745568ad592420d2cafcfee3f448cad",
+      "startedAt": "2026-10-02T13:26:25.586Z",
+      "endedAt": "2026-10-02T13:34:34.449Z",
+      "statusCounts": {
+        "PASS": 399,
+        "FAIL": 4,
+        "TIMEOUT": 0,
+        "BLOCKED": 3,
+        "SKIPPED": 0
+      },
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "options": {
+        "concurrency": 1,
+        "failFast": false,
+        "timeoutMs": 600000,
+        "deadlineMs": 28800000,
+        "profiles": [
+          "database",
+          "offline"
+        ],
+        "ids": [],
+        "exclude": [],
+        "allowBlockers": [
+          "toolchain:accountant-ocr-runtime",
+          "toolchain:bubblewrap",
+          "toolchain:bwrap",
+          "toolchain:git",
+          "toolchain:prlimit",
+          "toolchain:python-pdf-runtime",
+          "toolchain:python3",
+          "toolchain:systemd-analyze",
+          "toolchain:tar"
+        ],
+        "noBlock": false
+      },
+      "registryHash": "ac14e15fb81dc401761467b7fc9d6e4c040550b05f6cec273ee2f2edd7bbf43f",
+      "optionsFingerprint": "822c4cb062f3e2a39a5e7af0423426aef3699195c24192817871891a389d1bd8",
+      "reportSha256": "2ec1690b4e3a0ea371d3899e6c45584e8d2a073653cb40007bb9a9781da470a2",
+      "nonPass": [
+        {
+          "id": "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-INTEGRATION-TEST",
+          "path": "tests/accountant-workflow-integration.test.js",
+          "status": "BLOCKED",
+          "exitCode": null
+        },
+        {
+          "id": "IS-T1-TESTS-ARTIFACT-VALIDATION",
+          "path": "tests/artifact-validation.test.js",
+          "status": "FAIL",
+          "exitCode": 1
+        },
+        {
+          "id": "IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST",
+          "path": "tests/chat-export-budget.test.js",
+          "status": "BLOCKED",
+          "exitCode": null
+        },
+        {
+          "id": "IS-T1-TESTS-EXPORT-PDF-DOCX-TEST",
+          "path": "tests/export-pdf-docx.test.js",
+          "status": "BLOCKED",
+          "exitCode": null
+        },
+        {
+          "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST",
+          "path": "tests/m1-model-failover-schema.test.js",
+          "status": "FAIL",
+          "exitCode": 1
+        },
+        {
+          "id": "IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST",
+          "path": "tests/m6-runtime-evidence.test.js",
+          "status": "FAIL",
+          "exitCode": 1
+        },
+        {
+          "id": "IS-T1-TESTS-ROUTING-ACCURACY-TEST",
+          "path": "tests/routing-accuracy.test.js",
+          "status": "FAIL",
+          "exitCode": 1
+        }
+      ]
+    }
+  ]
+}

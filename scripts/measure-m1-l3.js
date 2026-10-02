@@ -21,7 +21,9 @@ import { createChatResilienceProviderRelay } from './chat-resilience-provider-re
 import { readHoldoutDefinition, assertHoldoutSeries, holdoutProgress } from './chat-holdout-contract.js';
 
 const BASE = (process.env.INTENTSMITH_URL ?? process.env['C3_URL']);
-const ISOLATED_CHAT = process.argv.includes('--isolated-chat');
+// Holdout flags must never fall through to the ordinary live-server sampler,
+// even if INTENTSMITH_URL is inherited from an operator's environment.
+const ISOLATED_CHAT = ['--isolated-chat', '--holdout', '--holdout-sha256'].some(flag => process.argv.includes(flag));
 if (!BASE && !ISOLATED_CHAT) {
   console.error('INTENTSMITH_URL is required');
   process.exit(2);

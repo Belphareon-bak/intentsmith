@@ -1,7 +1,7 @@
 # Chat quality — 2026-10-01
 
-Aktualizace 2. 10. po S10: **NO_GO / REVIEW_PENDING / CI_NOT_RUN**.
-Runtime kandidát `0fad3823`; poslední úplný profil 399 PASS / 4 FAIL / 3 BLOCKED.
+Aktualizace 2. 10. po S14: **NO_GO / REVIEW_PENDING / CI_NOT_RUN**.
+Runtime kandidát `787ed6c9`; poslední úplný profil 399 PASS / 4 FAIL / 3 BLOCKED.
 Toto je vlastní technické a významové posouzení; nezávislá přejímka ani
 produkční nasazení neproběhly. Následující historické oddíly S1 zůstávají
 svázané se svými původními commity; nový stav je na konci dokumentu a v
@@ -311,3 +311,33 @@ Vlastník ROOT má připravené [předání reálné routing vady](2026-10-02-CH
 Modelový pilot M0 není přijaté nezhoršení ani nezávislý slepý důkaz;
 operátorův odklad modelového srovnání zůstává platný. Další runtime změny
 po tomto zmrazení musí mít novou konkrétní reprodukci a nový kandidát.
+
+
+## S14 — aplikace hlásí stav, opravený scope a příprava pečetě
+
+Operátor správně požadoval opravit známý kritický e-mail a opakovaný
+`gpu-composite` před novým holdoutem. Application status nyní vzniká v jádře;
+model tvoří pouze textovou část/označený koncept. Doslovný e-mail přebírá
+příjemce a bajty z aktuálního zdroje bez generování. Nevybraná část složeného
+zadání zůstává zachovaná a aktuální celé zadání se nepředává ještě jednou jako
+historie dílčí generace. Chybějící číselná hodnota/jednotka se kontroluje v jádře.
+
+Doložené série: před opravou 20 + 20; první oprava e-mail 20/20, GPU 1/20;
+druhá zachovala text 20/20, ale doptání pouze 4/20; konečná na `787ed6c9`
+má obě aplikační podmínky 20/20. Všechny série bez efektů. Historické vymyšlené
+odeslání se nezpochybňuje tím, že nová baseline měla 0/20. Modelová formulace
+přístupnosti disku bez proudu zůstává věcný FAIL, vlastní užitečnost je 39/40.
+[Všechny konečné odpovědi a providerové vstupy](evidence/chat-quality-20261001/defects-complete-proof.json).
+Žádný z těchto opakovaných známých případů není nezávislý holdout.
+
+Runner má nový SHA-ověřený režim `holdout-1..3` s čistým kandidátem,
+povinným A/B a kontrolou driftu. Testován byl pouze syntetický dummy,
+včetně skutečného přesného schválení a zápisu. Skutečný nezávislý corpus je
+zapečetěný, nevystavený workerovi a čeká na operátorovo odpečetění po předání SHA.
+[Aktuální předávací postup](2026-10-02-CHAT-HOLDOUT-HANDOFF.md).
+Přesný finální kandidát a jeho poslední kontroly se doplní v průběžném reportu.
+
+Technický runtime profil má 399 PASS / 4 FAIL / 3 BLOCKED, žádná nová regrese.
+ROOT routing a CI zůstávají otevřené. Anglická parita není doložená a modelové
+znalosti se touto aplikační opravou neopravily. **NO_GO** pokračuje do nezávislé
+přejímky a doložení bran konkrétního kandidáta.

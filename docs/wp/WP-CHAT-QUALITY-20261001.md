@@ -117,7 +117,8 @@ Prahy nezměněného korpusu: užitečnost ≥95 %, zastavení ≤5 %, kritické
 Doplnění operátora z přiloženého posudku: zmapovat řízené providerové, živé
 a Studio důkazy odděleně; hodnotit celé dialogy, povinná fakta, konkrétní
 omezení, obnovu po poruše, izolaci a skutečné efekty. Počet 10–12 průchodů
-je vodítko pokrytí, nikoli náhrada významové přejímky. Původních sedm
-nepoužitých rodin F14–F20 zůstává odděleno od vývojového ladění.
+je vodítko pokrytí, nikoli náhrada významové přejímky. Původně oddělené rodiny F14–F20 jsou po S1/S2 exponované; všech 53 případů
+se nadále používá jako regrese. Nezávislým holdoutem je pouze nový zapečetěný
+corpus připravený operátorem 2. 10., bez expozice workerovi.
 Starý test pěti frameworků zpřísňujeme na pět různých položek s negativní
 kalibrací; tento strukturální oracle sám neprokazuje věcnou kvalitu textu.

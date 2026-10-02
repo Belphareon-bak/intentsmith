@@ -63,7 +63,7 @@ function runDummy(value, options = {}) {
   const bytes = Buffer.from(JSON.stringify(value));
   writeFileSync(file, bytes);
   const hash = createHash('sha256').update(bytes).digest('hex');
-  return spawnSync(process.execPath, [runner, '--isolated-chat', options.live ? '--live' : '--offline', '--phase', options.phase || 'holdout-1',
+  return spawnSync(process.execPath, [runner, ...(options.omitIsolated ? [] : ['--isolated-chat']), options.live ? '--live' : '--offline', '--phase', options.phase || 'holdout-1',
     '--holdout', file, '--holdout-sha256', options.hash || hash, '--record', path.join(scratch, 'unused.json')],
   { cwd: root, env: { ...process.env, CHAT_PROBE_NO_DIRECT: 'false', ...(options.env || {}) }, encoding: 'utf8', timeout: 10000 });
 }
@@ -77,6 +77,13 @@ for (const live of [false, true]) {
   assert.notEqual(badHash.status, 0);
   assert.match(badHash.stderr, /HOLDOUT_SHA256_MISMATCH/u, 'hash check precedes source/GPU/provider/inference setup even in live mode');
 }
+const implicitIsolated = runDummy(dummy, { omitIsolated: true, env: { INTENTSMITH_URL: 'http://127.0.0.1:9' } });
+assert.equal(implicitIsolated.status, 0, implicitIsolated.stderr);
+assert.equal(JSON.parse(implicitIsolated.stdout).modelCalls, 0);
+const inheritedUrlBadHash = runDummy(dummy, { omitIsolated: true, live: true, hash: 'a'.repeat(64),
+  env: { INTENTSMITH_URL: 'http://127.0.0.1:9' } });
+assert.notEqual(inheritedUrlBadHash.status, 0);
+assert.match(inheritedUrlBadHash.stderr, /HOLDOUT_SHA256_MISMATCH/u);
 for (const [value, options, error] of [
   [{ ...dummy, cases: [] }, {}, /HOLDOUT_SCHEMA_INVALID/u],
   [{ ...dummy, fixtures: { '../outside.txt': 'bad' } }, {}, /HOLDOUT_FIXTURES_INVALID/u],

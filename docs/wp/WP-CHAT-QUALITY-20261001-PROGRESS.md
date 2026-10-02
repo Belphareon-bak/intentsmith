@@ -1,18 +1,21 @@
 # IntentSmith — průběh práce na kvalitě chatu
 
-Poslední aktualizace: **2. 10. 2026, 12:45 CEST**. Stav: **NO_GO / REVIEW_PENDING / CI_NOT_RUN**.
+Poslední aktualizace: **2. 10. 2026, 15:38 CEST**. Stav: **NO_GO / REVIEW_PENDING / CI_NOT_RUN**.
 Dokument aktualizuji po každém dokončeném milníku, nejpozději po třech hodinách
 aktivní práce. Historická selhání zůstávají uvedena; nové ověření je nepřepisuje
 na úspěch. Nejde o plánovač úloh po ukončení této pracovní relace.
 
 Větev: `work/chat-quality-20261001`. Společný výchozí commit:
-`45caf5b54b78def257221ac2ab33a64031800813`. Poslední testovaný implementační
-commit: **`0fad3823`** (7 cílených PASS, kontext 21/21, M1 74/74;
-celý profil 399 PASS / 4 FAIL / 3 BLOCKED). Živé archivní reprodukce na témže
-SHA mají 3/3 užitečných; úzká časová sonda má šest úplných odpovědí.
-S1 se vztahuje výhradně k `3b3b399f`, S2 k `6f0259ec`;
-vývojové kroky schopností k `c868fea3`. Tento dokument se publikuje následným dokumentačním
-commitem. Vlastní worktree: `intentsmith-chat-quality-20261001`.
+`45caf5b54b78def257221ac2ab33a64031800813`. Poslední testovaný aplikační
+commit: **`787ed6c98745568ad592420d2cafcfee3f448cad`**. Konečná známá
+reprodukce má 20/20 správných aplikačních e-mailů a 20/20 správně oddělených
+textových/GPU částí, 0 efektů; vlastní významové hodnocení 39/40 (jedna
+modelová věcná chyba). Celý profil: 399 PASS / 4 FAIL / 3 BLOCKED.
+Nový runner holdoutu je součástí následujícího čistého kandidáta;
+jeho finální ověření a přesný zmrazený SHA se doplní po publikaci.
+S1 se vztahuje výhradně k `3b3b399f`, S2 k `6f0259ec`; původních 53 případů
+včetně F14–F20 je nyní exponovaná regrese. Nezávislý holdout je SEALED / NOT_RUN.
+Vlastní worktree: `intentsmith-chat-quality-20261001`.
 Mimochatový worker, jeho soubory a produkční release zůstávají nedotčené.
 
 Podrobný rozsah a autorita jsou v [pracovním balíku](WP-CHAT-QUALITY-20261001.md).
@@ -508,3 +511,45 @@ nezávislou přejímku. Předchozí pokus o vytvoření draft PR skončil GitHub
 vlastní větve dosud nebylo spuštěno a jeho stav je **CI_NOT_RUN**.
 Srovnávací baseline větev `review/chat-quality-base-20261001` ukazuje přesně
 na společný `45caf5b5`.
+
+## S14 — známé aplikační reprodukce ověřeny, runner před finálním zmrazením
+
+- Změna uživatelského chování: aplikace pravdivě hlásí neprovedený e-mail,
+  bez generování převezme doslovné tělo a příjemce. U složeného zadání zachová
+  všechny nezávislé textové části, odstraní aktuální zprávu z jejich historie
+  podle identity a doplní vlastní stav i dotaz na chybějící hodnotu/jednotku.
+- Důkaz: konečná série na čistém `787ed6c9`, run
+  `b3758867-bc13-40b1-9e75-020dafcf09f5`, 40/40 kroků, 60 inferencí,
+  přesný nezměněný model/digest a limity. E-mail 20/20 přesné bajty, příjemce
+  a aplikací sestavený stav, 0 generování; GPU 20/20 dvě věty výkladu,
+  konkrétní dotaz s původní veličinou, 0 efektů. Providerové vstupy všech
+  20 GPU generování již neobsahují celý aktuální efekt v historii.
+  [Všechny odpovědi a původní trace](../review/evidence/chat-quality-20261001/defects-complete-proof.json).
+- Zbývající problém: vlastní významové hodnocení je **39/40**, nikoli
+  nezávislé přijetí. `gpu-composite-repeat-7` mylně tvrdí přístupnost dat na
+  disku bez proudu místo pouhého uchování. Tato modelová věcná chyba zůstává
+  FAIL; neladíme kvůli ní další obecný prompt. Baseline nové kritické odeslání
+  0/20 a konečná oprava 0/20 neprokazují statistický pokles vzácné chyby;
+  změnu hranice podporuje řízený adversariální test a zrušení volného modelového
+  reportování provedení. Historické kritické S2 se nepřepisuje.
+- Technický důkaz: tři nové úplné profily nezměněných zdrojů mají shodně
+  **399 PASS / 4 FAIL / 3 BLOCKED**, žádný TIMEOUT/SKIPPED.
+  [Přesné identity a non-PASS](../review/evidence/chat-quality-20261001/technical-defects-profiles.json).
+  Registry 592 programů; řízená sada 23/23, sedm registrovaných kontrol PASS.
+- Runner: ověří celý SHA před parsováním/inferencí a znovu v child procesu,
+  přijme libovolný kladný počet kroků, fixture a označení false/holdout;
+  vynutí A/B, čistý strom a neměnnou revizi/runner/model/konfiguraci mezi
+  `holdout-1..3`. Odmítá filtr, vypnutí A, opakování již úplné fáze a drift.
+  Výstup neobsahuje odpovědi; selhání holdoutu neemitují obsah chyb modelu.
+  `--holdout` vždy aktivuje izolovanou cestu i při zděděné produkční URL.
+- Následující krok: na čistém kandidátu ověřit poslední CLI změnu v celém
+  profilu a syntetických `holdout-1..3`, pushnout pevný kandidátní SHA a
+  předat operátorovi pro odpečetění. Skutečný holdout zůstává nedotčený;
+  po odpečetění tři série bez čtení či hodnocení odpovědí workerem.
+
+Srovnání latence těchto opakování není kontrolovaný produkční experiment:
+po opravě současně běžely CPU audity. Evidence ukazuje snížení počtu modelových
+volání u doslovného e-mailu ze dvou na jedno; nezakládá globální zrychlení chatu.
+S10 zůstává poslední čistou úzkou časovou sondou. Znalostní selhání `versions`
+a `versions-en`, nezávislé hodnocení, jazyková parita, ROOT routing a CI
+zůstávají otevřené. Modelový panel a změna bindingů zůstávají odložené.
