@@ -4,7 +4,8 @@ const KINDS = new Set(['mail', 'calendar', 'hardware']);
 
 export function validateUnavailableAction(value, input) {
   if (!value || !KINDS.has(value.kind) || typeof value.request !== 'string'
-    || !value.request.trim() || !input.includes(value.request)) return null;
+    || !value.request.trim() || !input.includes(value.request)
+    || input.indexOf(value.request) !== input.lastIndexOf(value.request)) return null;
   const requestStart = input.indexOf(value.request);
   const textRequest = value.textRequest ?? null;
   if (textRequest !== null) {
@@ -20,10 +21,15 @@ export function validateUnavailableAction(value, input) {
   if (literalBody !== null && (typeof literalBody !== 'string'
     || ![['"', '"'], ['„', '“'], ['“', '”'], ["'", "'"]]
       .some(([open, close]) => value.request.includes(open + literalBody + close)))) return null;
-  const quantity = typeof value.quantity === 'string' && value.quantity.trim()
-    && value.request.includes(value.quantity) ? value.quantity : null;
-  return { kind: value.kind, request: value.request, textRequest, recipient, literalBody,
-    needsClarification: value.needsClarification === true, quantity };
+  // The model may omit independent text (observed in 19/20 reproductions).
+  // Preserve ALL remaining source spans instead of trusting that omission.
+  // Remove only a dangling join after terminal punctuation, never a subject
+  // such as the variable A. No remainder can grant executable authority.
+  const prefix = input.slice(0, requestStart).replace(/([.!?;])\s+(?:a|and|then|pak|potom|und)[,\s]*$/iu, '$1').trim();
+  const suffix = input.slice(requestStart + value.request.length).replace(/^[\s.!?;,]+/u, '').trim();
+  const independentText = [prefix, suffix].filter(part => /[\p{L}\p{N}]/u.test(part)).join('\n');
+  return { kind: value.kind, request: value.request, recipient, literalBody, independentText,
+    needsClarification: value.needsClarification === true };
 }
 
 // A longer fence prevents draft text becoming an application status in Markdown.

@@ -437,6 +437,30 @@ technicky nevynucená. Obsah worker nezná.
 - Následující krok: na čistém commitu dokončit registrované kontroly a
   shodnou reprodukční sérii, poté zmrazit kandidáta pro odpečetění operátorem.
 
+### S12 první živá oprava — GPU stále FAIL, 2. 10., 15:12 CEST
+
+- Změna chování: e-mail má aplikací sestavený pravdivý stav a přesné tělo;
+  složené zadání zatím neumělo zachovat text, pokud ho model nevybral.
+- Důkaz: čistý `9317c177`, run `21860a76-3da2-425f-8319-cf5a96ceed92`,
+  40/40 kroků, 41 inferencí, 0 efektů. E-mail **20/20** přesný příjemce,
+  tělo a stav; vymyšlené provedení **0/20**. GPU **1/20** kompletní;
+  **19/20** ztratilo vysvětlení, protože `textRequest` bylo null. Je to
+  neúspěšná první implementace, nikoli kvalitativní PASS. Celý profil téhož
+  zdroje doběhl beze změny: **399 PASS / 4 FAIL / 3 BLOCKED**, žádný SKIPPED.
+  Registrovaných sedm cílených sad PASS.
+  [Baseline](../review/evidence/chat-quality-20261001/defects-before-proof.json),
+  [první oprava](../review/evidence/chat-quality-20261001/defects-after-first-proof.json).
+- Runner: syntetické `holdout-1..3` dokončeny na stejném zdroji, po 3 krocích
+  a 7 inferencích, vždy přesně schválené čtení a zápis. Bajty ověřeny;
+  veřejný progress bez obsahu a bez chybových textů. Toto ověřuje runner,
+  nikoli kvalitu skutečného zapečetěného holdoutu.
+  [Dummy protokol](../review/evidence/chat-quality-20261001/dummy-holdout-proof.json).
+- Zbývá: opravit vlastní zahazování nevybraného textu; význam názvu veličiny
+  se nebude přebírat z volného pole modelu. Dotaz bude citovat přesné zadání.
+- Následující krok: aplikace zachová všechny zdrojové úseky mimo jednoznačně
+  označený nedostupný efekt; nových 20 opakování každého známého případu
+  proběhne na novém čistém kandidátu. Předchozí série zůstává beze změny.
+
 1. Nové dialogy A/B, přirozené akce, dlouhá návaznost, restart a osm kompakcí
    jsou dokončené. Významové nedostatky jsou uvedené výše; cíle nejsou splněné.
 2. Technický profil a devět HTTP sad jsou dokončené. Baseline chyby zůstávají

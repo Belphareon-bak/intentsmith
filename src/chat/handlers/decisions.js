@@ -1308,7 +1308,7 @@ async function handleAnswerDecision(input, decision, context) {
   const plan = validateUnavailableAction(decision.metadata.unavailableAction, input);
   const language = getLanguageContext(input, inferUserLanguageFromHistory(context.history)).language;
   const kind = plan?.kind || 'other';
-  const presentation = unavailableActionPresentation(kind, language, plan?.quantity);
+  const presentation = unavailableActionPresentation(kind, language);
   // Only the source text reaches the answer generator. The app never asks it
   // to report execution. A malformed plan falls back to a labelled draft,
   // never to an unguarded free-form claim that an action completed.
@@ -1318,8 +1318,8 @@ async function handleAnswerDecision(input, decision, context) {
       clarificationRequest: null } });
   const pieces = [];
   let generated;
-  if (plan?.textRequest) {
-    generated = await generateAnswerDecision(plan.textRequest, textDecision, context);
+  if (plan?.independentText) {
+    generated = await generateAnswerDecision(plan.independentText, textDecision, context);
     pieces.push(generated.content);
   }
   pieces.push(presentation.status);
@@ -1334,7 +1334,7 @@ async function handleAnswerDecision(input, decision, context) {
     }
     const recipient = plan?.recipient ? ` (${plan.recipient})` : '';
     pieces.push(`${presentation.draftLabel}${recipient}:\n${quoteActionDraft(draft)}`);
-  } else if (plan?.needsClarification) pieces.push(presentation.clarification);
+  } else if (plan?.needsClarification) pieces.push(`${presentation.clarification}\n${quoteActionDraft(plan.request)}`);
   const executionStatus = { state: 'not_executed', reason: 'adapter_unavailable',
     capability: kind, reportedBy: 'application', requestedAction: plan?.request || input,
     userMessageId: context.userMessageId ?? null };
@@ -1343,7 +1343,7 @@ async function handleAnswerDecision(input, decision, context) {
       ...(generated?.tag.metadata || {}), decision: decision.toJSON(), executionStatus,
       ...(plan?.literalBody !== null && plan?.literalBody !== undefined
         ? { draftSource: 'user_literal', draftContent: plan.literalBody } : {}),
-      ...(plan?.textRequest ? { independentTextRequest: plan.textRequest } : {}),
+      ...(plan?.independentText ? { independentTextRequest: plan.independentText } : {}),
     } });
   context.sessionState?.recordDecision(decision, input);
   return new TaggedResponse({ content: pieces.join('\n\n'), tag });

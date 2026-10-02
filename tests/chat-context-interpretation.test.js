@@ -43,7 +43,8 @@ test('unavailable effects have application status; independent text is generated
   try {
     const reply = await handleAnswerDecision(request, decision, { history: [], userMessageId: 43 });
     assert(reply.content.startsWith(explanation + '\n\nNastavení GPU jsem nezměnil'));
-    assert(reply.content.includes('současná a cílová hodnota veličiny napětí'));
+    assert(reply.content.includes('současná a cílová hodnota'));
+    assert(reply.content.includes(quoteActionDraft('A sniž napětí GPU na polovinu.')));
     assert.equal(wire.options.messages.at(-1).content, textRequest);
     assert(!wire.prompt.includes('sniž napětí'));
     assert.equal(reply.metadata.executionStatus.userMessageId, 43);
@@ -51,6 +52,19 @@ test('unavailable effects have application status; independent text is generated
     assert.deepEqual(reply.actions, []);
     assert.equal(validateUnavailableAction({ ...plan, textRequest: request }, request), null);
     assert.equal(validateUnavailableAction({ ...plan, request: 'Změň výkon GPU.' }, request), null);
+    const missingText = { kind: 'hardware', request: 'sniž napětí GPU na polovinu', needsClarification: true };
+    assert.equal(validateUnavailableAction(missingText, request).independentText, textRequest);
+    const omitted = creDecisionEngine.overrideDecision({ ...decision,
+      metadata: { ...decision.metadata, unavailableAction: missingText } });
+    const preserved = await handleAnswerDecision(request, omitted, { history: [] });
+    assert(preserved.content.startsWith(explanation));
+    assert.equal(wire.options.messages.at(-1).content, textRequest);
+    assert.equal(validateUnavailableAction({ kind: 'hardware', request: 'Sniž napětí GPU.' },
+      'Vysvětli proměnnou A. Sniž napětí GPU.').independentText, 'Vysvětli proměnnou A.');
+    assert.equal(validateUnavailableAction({ kind: 'hardware', request: 'Sniž napětí GPU.' },
+      'Popiš RAM. Sniž napětí GPU. Potom popiš disk.').independentText, 'Popiš RAM.\nPotom popiš disk.');
+    assert.equal(validateUnavailableAction({ kind: 'hardware', request: 'Sniž napětí GPU.' },
+      'Sniž napětí GPU. Sniž napětí GPU.'), null);
     const mail = 'Please email bob@example.test the text "Ahoj".';
     const literal = creDecisionEngine.overrideDecision({ ...decision, metadata: { requestedOperation: 'other',
       unavailableAction: { kind: 'mail', request: mail, literalBody: 'Ahoj', recipient: 'bob@example.test' } } });
