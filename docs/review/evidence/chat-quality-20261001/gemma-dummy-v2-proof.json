@@ -1,0 +1,217 @@
+{
+  "scope": "SYNTHETIC_DUMMY_ONLY_NOT_SEALED_HOLDOUT",
+  "recordSha256": "5efed7a7f08bf6abb902bf5630648e58327524db9788b5e6299c9ec6fcd4ab75",
+  "runs": [
+    {
+      "runId": "8468f36e-5a93-45f4-bdd2-f3a2ba52ac4b",
+      "phase": "holdout-1",
+      "manifest": {
+        "revision": "9591ea1b07bc4b639a102bcc421f9d46b8f9906b",
+        "sourceClean": true,
+        "dirtyStatus": "",
+        "corpusSha256": "1b3b1f28e7144de840c7f821eb465567b46860ed0422b1c124e48c795d4cdfcb",
+        "runnerSha256": "63bd34f29bc0219470937a28630c808bd68899f5bf1ea2ebb3f5ccc18a3bb578",
+        "model": "gemma4:26b",
+        "modelDigest": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68",
+        "modelArtifacts": {
+          "qwen3.5:27b": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+          "gemma4:26b": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68"
+        },
+        "holdoutContractSha256": "ed00f91571df1bfd4072c03ab18b6a5767450d44006b8ba8946a6674caf9b740",
+        "providerUrl": "http://127.0.0.1:11434",
+        "node": "v24.21.0",
+        "inferenceSerial": true,
+        "networkIsolation": "kernel namespace plus explicit Unix provider relay"
+      },
+      "configurationFingerprint": "cd32b28d91ac0459b5aeb61a826c896ff96f0baf1e5044aa9c4d67ea9ade7690",
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "transportComplete": true,
+        "exactWire": true,
+        "contextBudgetValid": true,
+        "contextWindowTokens": 4096,
+        "artifactSetValid": true,
+        "postflightArtifacts": {
+          "qwen3.5:27b": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+          "gemma4:26b": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68"
+        },
+        "inferenceCallCount": 7,
+        "invalidInferenceCallCount": 0,
+        "postflightDigest": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68",
+        "expectedCases": 3,
+        "recordedCases": 3,
+        "at": "2026-10-04T18:14:17.052Z"
+      },
+      "effects": [
+        {
+          "caseId": "dummy-read",
+          "effectId": "effect:30a7722cab1c66750ef6a0f9543ec603e7c5fa0e4adf8becffbac3205c319b06",
+          "approvalGrantId": "grant:f5d39277-c67e-481e-958b-e91719d27776",
+          "kind": "fs.read",
+          "path": "synthetic/source.txt",
+          "terminalStatus": "succeeded",
+          "bytes": 17,
+          "sha256": "6567cabc47b807865644e91309c29e9be854020bdc9f2929506dcf465ee7cef2",
+          "preapprovalExecutedEffects": 0,
+          "sourceBytesExact": true
+        },
+        {
+          "caseId": "dummy-save",
+          "effectId": "effect:7b81ffc75b635b16d0aae5d79566fbc7c55bb756e6b45b15c24e787452844910",
+          "approvalGrantId": "grant:62ac4a75-a7db-4cec-b1cf-963d508c8e1b",
+          "kind": "fs.write",
+          "path": "dummy.md",
+          "terminalStatus": "succeeded",
+          "bytes": 228,
+          "sha256": "586709bc2c2e64f3e8c3f37efa5c9b6544a6c5c61185524e1bbf902ce4cf6607",
+          "preapprovalExecutedEffects": 0,
+          "sourceBytesExact": true
+        }
+      ]
+    },
+    {
+      "runId": "d652a3ee-1662-4f80-861e-9bc459644e96",
+      "phase": "holdout-2",
+      "manifest": {
+        "revision": "9591ea1b07bc4b639a102bcc421f9d46b8f9906b",
+        "sourceClean": true,
+        "dirtyStatus": "",
+        "corpusSha256": "1b3b1f28e7144de840c7f821eb465567b46860ed0422b1c124e48c795d4cdfcb",
+        "runnerSha256": "63bd34f29bc0219470937a28630c808bd68899f5bf1ea2ebb3f5ccc18a3bb578",
+        "model": "gemma4:26b",
+        "modelDigest": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68",
+        "modelArtifacts": {
+          "qwen3.5:27b": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+          "gemma4:26b": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68"
+        },
+        "holdoutContractSha256": "ed00f91571df1bfd4072c03ab18b6a5767450d44006b8ba8946a6674caf9b740",
+        "providerUrl": "http://127.0.0.1:11434",
+        "node": "v24.21.0",
+        "inferenceSerial": true,
+        "networkIsolation": "kernel namespace plus explicit Unix provider relay"
+      },
+      "configurationFingerprint": "cd32b28d91ac0459b5aeb61a826c896ff96f0baf1e5044aa9c4d67ea9ade7690",
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "transportComplete": true,
+        "exactWire": true,
+        "contextBudgetValid": true,
+        "contextWindowTokens": 4096,
+        "artifactSetValid": true,
+        "postflightArtifacts": {
+          "qwen3.5:27b": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+          "gemma4:26b": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68"
+        },
+        "inferenceCallCount": 7,
+        "invalidInferenceCallCount": 0,
+        "postflightDigest": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68",
+        "expectedCases": 3,
+        "recordedCases": 3,
+        "at": "2026-10-04T18:14:41.923Z"
+      },
+      "effects": [
+        {
+          "caseId": "dummy-read",
+          "effectId": "effect:11a98abb7f5ca54cd20ca86bb80bdc4258d27879851158e903654c903eb640ea",
+          "approvalGrantId": "grant:b704a005-bb56-4a88-b229-49e3f5e68620",
+          "kind": "fs.read",
+          "path": "synthetic/source.txt",
+          "terminalStatus": "succeeded",
+          "bytes": 17,
+          "sha256": "6567cabc47b807865644e91309c29e9be854020bdc9f2929506dcf465ee7cef2",
+          "preapprovalExecutedEffects": 0,
+          "sourceBytesExact": true
+        },
+        {
+          "caseId": "dummy-save",
+          "effectId": "effect:6b8dd4fe84486046e995be784a823201993de591caa99b5e4b70ee5f15c74cdf",
+          "approvalGrantId": "grant:d26f51e2-82a7-40c1-b411-dbdc3fe9335e",
+          "kind": "fs.write",
+          "path": "dummy.md",
+          "terminalStatus": "succeeded",
+          "bytes": 187,
+          "sha256": "beca403616d979845b8a2a9fc191096894505f9cf3a2b9265bd522736ec6d3be",
+          "preapprovalExecutedEffects": 0,
+          "sourceBytesExact": true
+        }
+      ]
+    },
+    {
+      "runId": "55f2ddc7-853c-43c5-a40b-a0a65baec8bd",
+      "phase": "holdout-3",
+      "manifest": {
+        "revision": "9591ea1b07bc4b639a102bcc421f9d46b8f9906b",
+        "sourceClean": true,
+        "dirtyStatus": "",
+        "corpusSha256": "1b3b1f28e7144de840c7f821eb465567b46860ed0422b1c124e48c795d4cdfcb",
+        "runnerSha256": "63bd34f29bc0219470937a28630c808bd68899f5bf1ea2ebb3f5ccc18a3bb578",
+        "model": "gemma4:26b",
+        "modelDigest": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68",
+        "modelArtifacts": {
+          "qwen3.5:27b": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+          "gemma4:26b": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68"
+        },
+        "holdoutContractSha256": "ed00f91571df1bfd4072c03ab18b6a5767450d44006b8ba8946a6674caf9b740",
+        "providerUrl": "http://127.0.0.1:11434",
+        "node": "v24.21.0",
+        "inferenceSerial": true,
+        "networkIsolation": "kernel namespace plus explicit Unix provider relay"
+      },
+      "configurationFingerprint": "cd32b28d91ac0459b5aeb61a826c896ff96f0baf1e5044aa9c4d67ea9ade7690",
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "transportComplete": true,
+        "exactWire": true,
+        "contextBudgetValid": true,
+        "contextWindowTokens": 4096,
+        "artifactSetValid": true,
+        "postflightArtifacts": {
+          "qwen3.5:27b": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+          "gemma4:26b": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68"
+        },
+        "inferenceCallCount": 7,
+        "invalidInferenceCallCount": 0,
+        "postflightDigest": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68",
+        "expectedCases": 3,
+        "recordedCases": 3,
+        "at": "2026-10-04T18:15:06.879Z"
+      },
+      "effects": [
+        {
+          "caseId": "dummy-read",
+          "effectId": "effect:54a5b2423f5998457ccc06d58a074e7e58f723425f0b67ff295683b44aa3ca49",
+          "approvalGrantId": "grant:5a5d85a1-6638-451d-89cf-b15faa7e8aa6",
+          "kind": "fs.read",
+          "path": "synthetic/source.txt",
+          "terminalStatus": "succeeded",
+          "bytes": 17,
+          "sha256": "6567cabc47b807865644e91309c29e9be854020bdc9f2929506dcf465ee7cef2",
+          "preapprovalExecutedEffects": 0,
+          "sourceBytesExact": true
+        },
+        {
+          "caseId": "dummy-save",
+          "effectId": "effect:75dca93da34861ffd3b94344d712d0033077c59c1532956c63d35656c4c54582",
+          "approvalGrantId": "grant:abf994d6-a17d-4d86-96f6-95bb0b60a4aa",
+          "kind": "fs.write",
+          "path": "dummy.md",
+          "terminalStatus": "succeeded",
+          "bytes": 206,
+          "sha256": "0628f04e69d5d83238350e73b6321491c71841e3cc058833ce53b40bb098472e",
+          "preapprovalExecutedEffects": 0,
+          "sourceBytesExact": true
+        }
+      ]
+    }
+  ],
+  "result": {
+    "steps": 9,
+    "approvedReads": 3,
+    "approvedWrites": 3,
+    "preapprovalExecutedEffects": 0,
+    "sourceBytesExact": true
+  }
+}

@@ -34,6 +34,7 @@ import { assessGoalAlignment } from './clarification.js';
 import { buildReportFallback } from './report.js';
 import { chatMemory } from '../../memory/chat-memory.js';
 import { config } from '../../config.js';
+import { validateUnavailableAction, quoteActionDraft, unavailableActionPresentation } from '../unavailable-action.js';
 import { getNumCtx } from '../../llm/model-ctx.js';
 import { LLMCapability } from '../../llm/auth-types.js';
 // v93.1: Extracted modules — re-exported for backward compatibility
@@ -1303,6 +1304,58 @@ function buildFailureFallback(input, decision, executionResult, context) {
  * Generate a read-only text answer. Project fallbacks can also enter here.
  */
 async function handleAnswerDecision(input, decision, context) {
+  if (decision.metadata?.requestedOperation !== 'other') return generateAnswerDecision(input, decision, context);
+  const plan = validateUnavailableAction(decision.metadata.unavailableAction, input);
+  const language = getLanguageContext(input, inferUserLanguageFromHistory(context.history)).language;
+  const kind = plan?.kind || 'other';
+  const presentation = unavailableActionPresentation(kind, language);
+  // Only the source text reaches the answer generator. The app never asks it
+  // to report execution. A malformed plan falls back to a labelled draft,
+  // never to an unguarded free-form claim that an action completed.
+  const textDecision = creDecisionEngine.overrideDecision({ ...decision,
+    source: 'unavailable-action-text', reason: 'Read-only content for an unavailable action',
+    metadata: { ...decision.metadata, requestedOperation: 'none', unavailableAction: null,
+      clarificationRequest: null } });
+  // The store has already persisted the full current message. When replacing
+  // its input with a subtask, remove only that message by identity; otherwise
+  // it re-enters the generator as history and reintroduces the effect clause.
+  const textContext = { ...context, history: Number.isSafeInteger(context.userMessageId)
+    ? (context.history || []).filter(entry => entry.messageId !== context.userMessageId)
+    : context.history };
+  const pieces = [];
+  let generated;
+  if (plan?.independentText) {
+    generated = await generateAnswerDecision(plan.independentText, textDecision, textContext);
+    pieces.push(generated.content);
+  }
+  pieces.push(presentation.status);
+  if (kind !== 'hardware') {
+    let draft = plan?.literalBody;
+    if (draft === null || draft === undefined) {
+      const draftInstruction = { cs: 'Napiš pouze obsah konceptu pro toto zadání', en: 'Write only the draft content for this request',
+        sk: 'Napíš iba obsah konceptu pre toto zadanie', de: 'Schreibe nur den Entwurfsinhalt für diese Anfrage' }[language] || 'Napiš pouze obsah konceptu pro toto zadání';
+      const draftInput = `${draftInstruction}: ${plan?.request || input}`;
+      generated = await generateAnswerDecision(draftInput, textDecision, textContext);
+      draft = generated.content;
+    }
+    const recipient = plan?.recipient ? ` (${plan.recipient})` : '';
+    pieces.push(`${presentation.draftLabel}${recipient}:\n${quoteActionDraft(draft)}`);
+  } else if (plan?.needsClarification) pieces.push(`${presentation.clarification}\n${quoteActionDraft(plan.request)}`);
+  const executionStatus = { state: 'not_executed', reason: 'adapter_unavailable',
+    capability: kind, reportedBy: 'application', requestedAction: plan?.request || input,
+    userMessageId: context.userMessageId ?? null };
+  const tag = new ResponseTag({ speaker: ResponseSpeaker.SYSTEM, mode: ChatMode.CONVERSATION,
+    confidence: 1, canExecute: false, metadata: {
+      ...(generated?.tag.metadata || {}), decision: decision.toJSON(), executionStatus,
+      ...(plan?.literalBody !== null && plan?.literalBody !== undefined
+        ? { draftSource: 'user_literal', draftContent: plan.literalBody } : {}),
+      ...(plan?.independentText ? { independentTextRequest: plan.independentText } : {}),
+    } });
+  context.sessionState?.recordDecision(decision, input);
+  return new TaggedResponse({ content: pieces.join('\n\n'), tag });
+}
+
+async function generateAnswerDecision(input, decision, context) {
   const { sessionId } = context;
   const answerStarted = performance.now();
 

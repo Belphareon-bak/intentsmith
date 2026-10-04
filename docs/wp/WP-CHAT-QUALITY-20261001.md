@@ -40,7 +40,46 @@ významové archivní reprodukce a měřit růst ceny archivu a čisté složky 
 `src/chat/archive-evidence-index.js` vlastní connection-local TEMP FTS5 cache;
 nemění trvalé schéma ani zprávy. Hledání zůstává lexikální s citovanými sousedy,
 nikoli sémantický rozhodovač. Výňatky mají přesný prefix a oddělený suffix
-s bajtovou pozicí; mezera není zatajená. Modelový experiment zůstává odložený.
+s bajtovou pozicí; mezera není zatajená. Modelový experiment byl v této fázi odložený.
+
+Explicitní změna zadání operátora 4. 10.: pokračovat v přejímce a pro CHAT
+použít Gemmu podle jeho nezávislého měření. Tato změna povoluje její ruční
+produkční aktivaci jako jediné měněné role CHAT, s přesným dostupným tagem
+`gemma4:26b`, přes existující binding application
+API včetně nezbytné podporované obnovy. Uložené bindingy ostatních rolí,
+gateway, trvalé schéma a provozní modelové politiky se nemění. Při obnově se
+projevily již dříve uložené jiné runtime role CODE/R2/VISION; přesný skutečný
+vedlejší dopad je uveden v S16 průběžného reportu. Izolovaný runner používá explicitní
+tag/digest Gemmy; D1 zachová Qwen a přímá/aplikační větev stejný 4K rozpočet.
+Původní kandidát z 2. 10. zůstane zmrazený, Gemma má nového kandidáta.
+Čísla dodaná operátorem jsou vstup pro volbu, nikoli náhrada nové přejímky.
+Obsah zapečetěného holdoutu zůstává nepřístupný; čeká se na privátní cestu.
+
+Explicitní zadání operátora z 2. 10. po S10: s existující reprodukcí opravit
+vymyšlené odeslání `recipient-bob` a neúplné složené zadání `gpu-composite`.
+Stav neprovedeného efektu sestavuje aplikace, model dodává pouze textový obsah.
+Před i po opravě proběhne 20 opakování každé reprodukce přes skutečné M1,
+stejné vstupy, modelový digest, limity a čerstvé rozhovory. Probe
+`quality-reproduced-defects` je ladicí regrese, nikoli nezávislý holdout.
+Runner přijme `--holdout FILE --holdout-sha256 HEX`, ověří hash před inferencí
+a zajistí neměnné fáze `holdout-1..3` s A/B. Ověření runneru používá pouze
+syntetický dummy; zapečetěný adresář se neotevírá ani neprohledává.
+Po čistém commitu, pushi a ověřeném SHA kandidát čeká na odpečetění operátorem;
+odpovědi ze tří holdout sérií worker nečte ani nehodnotí. Toto zadání povoluje
+jen obě doložené opravy a runner, ne ladění znalostí `versions`, změnu modelu
+či neautorizovanou úpravu sdíleného routingu/CI.
+Součástí runneru je čistý validační helper `scripts/chat-holdout-contract.js`;
+aplikační helper `src/chat/unavailable-action.js` pouze kontroluje citované
+úseky a skládá read-only odpověď. Tyto cesty vlastní chat WP z téhož zadání.
+
+Další explicitní zadání operátora 4. 10.: opravit přirozený vstup projektové
+práce z chatu do D1, včetně falešného rozpoznání `text` uvnitř `contextFiles`.
+Tato oprava je autorizovaná **až po dokončení sběru skutečného holdoutu**;
+na jeho nezávislé hodnocení se pak nečeká. Předtím probíhá pouze read-only
+diagnostika a příprava. Nový kandidát zachová starý pevný SHA a existující M2
+schvalování. Přejímka vyžaduje oba původní fan-monitor vstupy do D1,
+znovu provedené chatové regrese a následný průchod projektového workera.
+[Přesná reprodukce a postup](../review/2026-10-04-CHAT-NATURAL-D1-ENTRY.md).
 
 Postup: (1) reprodukce posudku a inventura skutečné cesty;
 (2) společný kontext, doptávání a paměť;
@@ -100,7 +139,8 @@ Prahy nezměněného korpusu: užitečnost ≥95 %, zastavení ≤5 %, kritické
 Doplnění operátora z přiloženého posudku: zmapovat řízené providerové, živé
 a Studio důkazy odděleně; hodnotit celé dialogy, povinná fakta, konkrétní
 omezení, obnovu po poruše, izolaci a skutečné efekty. Počet 10–12 průchodů
-je vodítko pokrytí, nikoli náhrada významové přejímky. Původních sedm
-nepoužitých rodin F14–F20 zůstává odděleno od vývojového ladění.
+je vodítko pokrytí, nikoli náhrada významové přejímky. Původně oddělené rodiny F14–F20 jsou po S1/S2 exponované; všech 53 případů
+se nadále používá jako regrese. Nezávislým holdoutem je pouze nový zapečetěný
+corpus připravený operátorem 2. 10., bez expozice workerovi.
 Starý test pěti frameworků zpřísňujeme na pět různých položek s negativní
 kalibrací; tento strukturální oracle sám neprokazuje věcnou kvalitu textu.

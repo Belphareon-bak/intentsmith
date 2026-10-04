@@ -18,9 +18,12 @@ import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { assessChatResilienceTransport, chatResilienceRunStatus } from './chat-resilience-transport.js';
 import { createChatResilienceProviderRelay } from './chat-resilience-provider-relay.js';
+import { readHoldoutDefinition, assertHoldoutSeries, holdoutProgress } from './chat-holdout-contract.js';
 
 const BASE = (process.env.INTENTSMITH_URL ?? process.env['C3_URL']);
-const ISOLATED_CHAT = process.argv.includes('--isolated-chat');
+// Holdout flags must never fall through to the ordinary live-server sampler,
+// even if INTENTSMITH_URL is inherited from an operator's environment.
+const ISOLATED_CHAT = ['--isolated-chat', '--holdout', '--holdout-sha256'].some(flag => process.argv.includes(flag));
 if (!BASE && !ISOLATED_CHAT) {
   console.error('INTENTSMITH_URL is required');
   process.exit(2);
@@ -176,7 +179,10 @@ async function main() {
 }
 
 (ISOLATED_CHAT ? measureIsolatedChat() : main()).catch((error) => {
-  console.error('measurement failed:', error.message);
+  const blindLive = (process.argv.includes('--holdout') || process.env.CHAT_PROBE_HOLDOUT === 'true')
+    && !process.argv.includes('--offline');
+  console.error('measurement failed:', blindLive && !/^[A-Z][A-Z0-9_]+$/u.test(error.message)
+    ? 'HOLDOUT_RUN_FAILED' : error.message);
   process.exit(1);
 });
 
@@ -207,16 +213,31 @@ const modelDigest = inside ? process.env.CHAT_PROBE_MODEL_DIGEST : modelOverride
 if (typeof model !== 'string' || !model.trim() || /\s/u.test(model) || !/^[a-f0-9]{64}$/u.test(modelDigest)) {
   throw new Error('Model comparison requires a tag and exact SHA-256 digest');
 }
+// D1 is a real dependency of the bounded request fallback. Changing CHAT
+// must preserve its role and record its identity instead of silently rebinding
+// it to CHAT or rejecting a legitimate provider call as out of scope.
+const d1Model = 'qwen3.5:27b';
+const d1Digest = '7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e';
+if (model === d1Model && modelDigest !== d1Digest) throw new Error('D1_ARTIFACT_DIGEST_CONFLICT');
+const modelArtifacts = { [d1Model]: d1Digest, [model]: modelDigest };
 // Match the ordinary chat's first generation sampling. A remains a diagnostic
 // counterfactual using B's incoming history, not an independent dialog or tool.
 const directOptions={temperature:0.7,top_p:0.75,repeat_penalty:1.1,num_predict:1200,num_ctx:4096};
-const corpusFile = path.resolve(process.env.CHAT_PROBE_CORPUS || arg('--corpus'));
-const definition = JSON.parse(fs.readFileSync(corpusFile, 'utf8'));
+const isHoldout = inside ? process.env.CHAT_PROBE_HOLDOUT === 'true' : process.argv.includes('--holdout');
+if (!inside && (process.argv.includes('--holdout-sha256') !== isHoldout || isHoldout && process.argv.includes('--corpus'))) throw new Error('Use --holdout FILE --holdout-sha256 HEX together, without --corpus');
+if (phase.startsWith('holdout-') !== isHoldout || isHoldout && !/^holdout-[123]$/u.test(phase)) throw new Error('Unknown holdout phase or missing --holdout');
+const corpusFile = path.resolve(inside ? process.env.CHAT_PROBE_CORPUS : isHoldout ? arg('--holdout') : process.env.CHAT_PROBE_CORPUS || arg('--corpus'));
+const corpusBytes = fs.readFileSync(corpusFile);
+const expectedHoldoutSha256 = inside ? process.env.CHAT_PROBE_HOLDOUT_SHA256 : isHoldout ? arg('--holdout-sha256') : null;
+// Hash is checked before parsing, preflight, provider setup or inference; the
+// child rechecks the same bytes before starting its product server.
+const definition = isHoldout ? readHoldoutDefinition(corpusBytes, expectedHoldoutSha256)
+  : JSON.parse(corpusBytes.toString('utf8'));
 let corpus = definition.cases;
 const expectedFamilies = Array.from({ length: 20 }, (_, index) => `F${String(index + 1).padStart(2, '0')}`);
 const expectedHeldOutFamilies = expectedFamilies.slice(13);
 const actualFamilies = Array.isArray(corpus) ? [...new Set(corpus.map(c => c.family))].sort() : [];
-if (definition.version !== 1 || !Array.isArray(corpus) || corpus.length !== 53
+if (!isHoldout && (definition.version !== 1 || !Array.isArray(corpus) || corpus.length !== 53
   || definition.families !== 20 || JSON.stringify(actualFamilies) !== JSON.stringify(expectedFamilies)
   || !Array.isArray(definition.heldOutFamilies) || definition.heldOutFamilies.length !== 7
   || JSON.stringify([...definition.heldOutFamilies].sort()) !== JSON.stringify(expectedHeldOutFamilies)
@@ -225,7 +246,7 @@ if (definition.version !== 1 || !Array.isArray(corpus) || corpus.length !== 53
     || !['required', 'permitted', 'unnecessary'].includes(c.question)
     || !Array.isArray(c.forbidden) || !c.forbidden.length
     || typeof c.usedForTuning !== 'boolean' || !c.variant
-    || c.usedForTuning !== !expectedHeldOutFamilies.includes(c.family)))
+    || c.usedForTuning !== !expectedHeldOutFamilies.includes(c.family))))
   throw new Error('Final corpus must have 53 declared cases, 20 families and exact F14-F20 untouched holdout');
 if (new Set(corpus.map(c => c.id)).size !== corpus.length) throw new Error('Duplicate case ID');
 const requestedCases = process.env.CHAT_PROBE_CASES?.split(',').filter(Boolean) || null;
@@ -240,7 +261,7 @@ for (const [index, entry] of corpus.entries()) {
     throw new Error(`Invalid previous-answer source for ${entry.id}`);
   }
 }
-const isFinal = /^final-[123]$/u.test(phase);
+const isFinal = /^final-[123]$/u.test(phase) || isHoldout;
 if (phase.startsWith('final-') && !isFinal) throw new Error('Unknown final phase');
 if (isFinal && requestedCases) throw new Error('Final phase cannot filter cases');
 if (isFinal && process.env.CHAT_PROBE_NO_DIRECT === 'true') throw new Error('Final phase requires direct A/B baseline');
@@ -262,6 +283,16 @@ const isCapabilities = phase === 'quality-capabilities';
 const isArchiveBoundary = phase === 'quality-archive-boundary';
 const isArchiveFollowups = phase === 'quality-archive-followups';
 const isLatencyProbe = phase === 'quality-latency';
+const isReproducedDefects = phase === 'quality-reproduced-defects';
+if (isReproducedDefects) {
+  if (requestedCases) throw new Error('Reproduced-defect probe cannot filter its 20 repetitions per defect');
+  if (process.env.CHAT_PROBE_NO_DIRECT !== 'true') throw new Error('Reproduced-defect probe measures the real M1 path');
+  const defects = ['recipient-bob', 'gpu-composite'].map(id => corpus.find(row => row.id === id));
+  corpus = Array.from({ length: 20 }, (_, index) => defects.map(row => ({ ...row,
+    id: `${row.id}-repeat-${index + 1}`, dialog: `${row.id}-repeat-${index + 1}`,
+    usedForTuning: true, variant: 'development-reproduction' }))).flat();
+  measurementDefinition = { version: 1, purpose: '20 unchanged known reproductions each before/after the application repair; exposed regression, not holdout', cases: corpus };
+}
 if (isArchiveFollowups || isLatencyProbe) {
   if (requestedCases) throw new Error('Declared archive/latency probes cannot filter cases');
   if (process.env.CHAT_PROBE_NO_DIRECT !== 'true') throw new Error('Archive/latency probes measure the actual chat path without the simplified A prompt');
@@ -409,16 +440,21 @@ if (process.argv.includes('--offline')) {
 const dirtyStatus = execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim();
 if (dirtyStatus) throw new Error('LIVE_SOURCE_DIRTY: commit the exact runner and corpus before inference');
 const manifest = { revision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), sourceClean: dirtyStatus.length === 0, dirtyStatus,
-  corpusSha256: createHash('sha256').update(isLongContext || isGeneratedSave || isRecallAB || isNaturalActions || isQualityDialogs || isCapabilities || isArchiveBoundary || isArchiveFollowups || isLatencyProbe ? JSON.stringify(measurementDefinition) : fs.readFileSync(corpusFile)).digest('hex'),
-  runnerSha256: createHash('sha256').update(fs.readFileSync(self)).digest('hex'), model, modelDigest,
+  corpusSha256: createHash('sha256').update(isLongContext || isGeneratedSave || isRecallAB || isNaturalActions || isQualityDialogs || isCapabilities || isArchiveBoundary || isArchiveFollowups || isLatencyProbe || isReproducedDefects ? JSON.stringify(measurementDefinition) : fs.readFileSync(corpusFile)).digest('hex'),
+  runnerSha256: createHash('sha256').update(fs.readFileSync(self)).digest('hex'), model, modelDigest, modelArtifacts,
+  ...(isHoldout ? { holdoutContractSha256: createHash('sha256').update(fs.readFileSync(new URL('./chat-holdout-contract.js', import.meta.url))).digest('hex') } : {}),
   providerUrl: 'http://127.0.0.1:11434', node: process.version, inferenceSerial: true, networkIsolation: 'kernel namespace plus explicit Unix provider relay' };
-if (isFinal && !inside && phase !== 'final-1') {
+if (isHoldout && !inside) {
+  let runs = []; try { runs = JSON.parse(fs.readFileSync(recordPath, 'utf8')).runs; } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  assertHoldoutSeries({ phase, manifest, runs });
+}
+if (isFinal && !isHoldout && !inside && phase !== 'final-1') {
   let previous;
   try { previous = JSON.parse(fs.readFileSync(recordPath, 'utf8')).runs
     .find(run => run.phase === `final-${Number(phase.slice(-1)) - 1}` && run.status === 'LIVE_COMPLETE_UNASSESSED');
   } catch {}
-  if (!previous || ['revision', 'corpusSha256', 'runnerSha256', 'model', 'modelDigest', 'node']
-    .some(key => previous.manifest?.[key] !== manifest[key])) {
+  if (!previous || ['revision', 'corpusSha256', 'runnerSha256', 'model', 'modelDigest', 'modelArtifacts', 'node']
+    .some(key => JSON.stringify(previous.manifest?.[key]) !== JSON.stringify(manifest[key]))) {
     throw new Error('FINAL_SERIES_DRIFT: previous complete run with unchanged source, corpus, runner and model is required');
   }
 }
@@ -449,6 +485,13 @@ if(process.argv.includes('--inside')) {
  await import(path.join(root,'src/server.js'));
  let info; for(let n=0;n<240;n++){try{info=JSON.parse(fs.readFileSync(process.env.INTENTSMITH_PORT_FILE,'utf8'));if(info.pid===process.pid)break;}catch{} await delay(250);}
  if(!info?.localCapability)throw new Error('owned server did not start');
+ // Keep A and B on the same measured context budget for an explicitly
+ // selected artifact. An unprofiled model otherwise inherits the 8K fallback
+ // while the direct control stays at 4K. Wait for startup initialization
+ // before pinning the private process cache; production is never touched.
+ const { initModelNumCtx, setNumCtx, getNumCtx } = await import(path.join(root,'src/llm/model-ctx.js'));
+ await initModelNumCtx(model, process.env.OLLAMA_URL);
+ for (const name of Object.keys(modelArtifacts)) setNumCtx(name, directOptions.num_ctx);
  async function request(method,url,body=null){const began=performance.now();const r=await fetch(`http://127.0.0.1:${info.port}${url}`,{method,headers:{'X-IntentSmith-Local-Capability':info.localCapability,'Content-Type':'application/json'},...(body===null?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(180000)});const result=await r.json();return {status:r.status,result,elapsedMs:performance.now()-began};}
  const resume=isLongContext && process.env.CHAT_PROBE_RESUME === 'true';
  const restartState=resume ? JSON.parse(fs.readFileSync(path.join(out,'initial-long-state.json'),'utf8')) : null;
@@ -475,11 +518,16 @@ if(process.argv.includes('--inside')) {
   isolatedEnv:Object.fromEntries(Object.entries(process.env).filter(([key]) => key.startsWith('INTENTSMITH_ENABLE_') || key.startsWith('INTENTSMITH_MODEL_'))),
   memoryPolicy:readChatMemoryPolicy(db.db),corpusSize:corpus.length,
   providerVersion:preflight.provider?.version,
+  contextWindowTokens:getNumCtx(model),
+  modelContextWindows:Object.fromEntries(Object.keys(modelArtifacts).map(name=>[name,getNumCtx(name)])),
   directBaseline:{options:directOptions,historySource:'B incoming durable history',tools:false},
  };
  if (typeof effectiveConfiguration.providerVersion !== 'string') throw new Error('Provider version missing from preflight');
  const configurationFingerprint=createHash('sha256').update(JSON.stringify(effectiveConfiguration)).digest('hex');
- if (isFinal && phase !== 'final-1') {
+ if (isHoldout) {
+  assertHoldoutSeries({ phase, manifest, runs: JSON.parse(fs.readFileSync(recordPath, 'utf8')).runs.filter(run => run.runId !== runId), configurationFingerprint });
+ }
+ if (isFinal && !isHoldout && phase !== 'final-1') {
   const previous=JSON.parse(fs.readFileSync(recordPath,'utf8')).runs
    .find(run=>run.phase===`final-${Number(phase.slice(-1))-1}` && run.status==='LIVE_COMPLETE_UNASSESSED');
   if (previous?.configuration?.fingerprint !== configurationFingerprint) throw new Error('FINAL_CONFIGURATION_DRIFT');
@@ -560,7 +608,7 @@ if(process.argv.includes('--inside')) {
   // Keep the observed pre-approval state even after the approved result later
   // replaces traceAfter/filesAfter. This is evidence, not approval authority.
   row.traceAfterRequest=row.traceAfter;row.filesAfterRequest=row.filesAfter;
-  console.log('CHAT_PROBE '+JSON.stringify({id:c.id,variant:'B',status:b.status,ms:Math.round(b.elapsedMs),content:b.result.response?.content,error:b.result.error}));
+  console.log('CHAT_PROBE '+JSON.stringify(isHoldout ? holdoutProgress({id:c.id,variant:'B',status:b.status,ms:Math.round(b.elapsedMs)}) : {id:c.id,variant:'B',status:b.status,ms:Math.round(b.elapsedMs),content:b.result.response?.content,error:b.result.error}));
   if (isLongContext) {
    await (await import(path.join(root,'src/chat/context-compact.js'))).awaitPendingCompaction(id);
    row.summaryAfter=store.getSummary(id);
@@ -590,7 +638,7 @@ if(process.argv.includes('--inside')) {
     row.approval=await request('POST','/api/chat',{...command,requestId:randomUUID(),turnId:randomUUID(),input:`schválit efekt ${effectId}`});
     row.traceAfter=trace(); row.file={path:target,exists:fs.existsSync(path.join(project.path,target)),content:fs.existsSync(path.join(project.path,target))?fs.readFileSync(path.join(project.path,target),'utf8'):null,expected};
     row.filesAfter=files();
-    console.log('CHAT_PROBE '+JSON.stringify({id:c.id,variant:'approval',status:row.approval.status,ms:Math.round(row.approval.elapsedMs),content:row.approval.result.response?.content,file:row.file}));
+    console.log('CHAT_PROBE '+JSON.stringify(isHoldout ? holdoutProgress({id:c.id,variant:'approval',status:row.approval.status,ms:Math.round(row.approval.elapsedMs)}) : {id:c.id,variant:'approval',status:row.approval.status,ms:Math.round(row.approval.elapsedMs),content:row.approval.result.response?.content,file:row.file}));
    }else row.approvalBlocked=!sourceEligible && c.approve?.previous
      ? 'Previous answer was not an eligible successful content response'
      : 'Unexpected effect identity or payload';
@@ -599,7 +647,7 @@ if(process.argv.includes('--inside')) {
   if(process.env.CHAT_PROBE_NO_DIRECT==='true')continue;
   const messages=[{role:'system',content:'Jsi užitečný český asistent. Odpovídej přirozeně, stručně, podle celé věty a kontextu. Nástroje ani oprávnění nemáš: text a kód můžeš vytvořit, u skutečné operace jasně uveď, co je potřeba. Zachovej výslovná omezení a cíle; ptej se jen na podstatnou nejasnost.'},...context.map(e=>({role:e.response.tag.speaker==='user'?'user':'assistant',content:e.response.content})),{role:'user',content:c.input}];
   const t=performance.now();const ar=await fetch(process.env.OLLAMA_URL+'/api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({model,messages,stream:false,think:false,options:directOptions}),signal:AbortSignal.timeout(180000)});const a=await ar.json();row.A={status:ar.status,result:a,elapsedMs:performance.now()-t};save('initial-results.json',rows);
-  console.log('CHAT_PROBE '+JSON.stringify({id:c.id,variant:'A',status:ar.status,ms:Math.round(row.A.elapsedMs),content:a.message?.content,error:a.error}));
+  console.log('CHAT_PROBE '+JSON.stringify(isHoldout ? holdoutProgress({id:c.id,variant:'A',status:ar.status,ms:Math.round(row.A.elapsedMs)}) : {id:c.id,variant:'A',status:ar.status,ms:Math.round(row.A.elapsedMs),content:a.message?.content,error:a.error}));
  }
  process.exit(0);
 }else{
@@ -632,10 +680,11 @@ if(process.argv.includes('--inside')) {
   const compute=execFileSync('nvidia-smi',['--query-compute-apps=pid,process_name,used_memory','--format=csv,noheader'],{encoding:'utf8'}).trim();
   if (!Array.isArray(ps.models)) throw new Error('GPU_PREFLIGHT_ERROR: invalid provider residency response');
   if(ps.models.length||compute)throw new Error('BLOCKED_GPU: occupied before pilot');
-  const artifact=(await (await fetch('http://127.0.0.1:11434/api/tags')).json()).models?.find(entry=>entry.name===model);
-  if(artifact?.digest!==modelDigest)throw new Error('MODEL_DIGEST_DRIFT: expected fixed CHAT artifact is unavailable');
-  save('initial-preflight.json',{at:new Date().toISOString(),lease:{pid:lease.owner.pid,command:lease.owner.command,startedAt:lease.owner.startedAt},ps,compute,gpu:execFileSync('nvidia-smi',['--query-gpu=memory.total,memory.used,utilization.gpu','--format=csv,noheader'],{encoding:'utf8'}).trim(),provider:await (await fetch('http://127.0.0.1:11434/api/version')).json()});
-  proxy=createChatResilienceProviderRelay({out,upstream:{hostname:'127.0.0.1',port:11434},model,wire,
+  const artifacts=(await (await fetch('http://127.0.0.1:11434/api/tags')).json()).models;
+  if(Object.entries(modelArtifacts).some(([name,digest])=>artifacts?.find(entry=>entry.name===name)?.digest!==digest))
+   throw new Error('MODEL_DIGEST_DRIFT: expected fixed CHAT/D1 artifact is unavailable');
+  save('initial-preflight.json',{at:new Date().toISOString(),lease:{pid:lease.owner.pid,command:lease.owner.command,startedAt:lease.owner.startedAt},ps,compute,modelArtifacts:Object.fromEntries(Object.keys(modelArtifacts).map(name=>[name,artifacts.find(entry=>entry.name===name).digest])),gpu:execFileSync('nvidia-smi',['--query-gpu=memory.total,memory.used,utilization.gpu','--format=csv,noheader'],{encoding:'utf8'}).trim(),provider:await (await fetch('http://127.0.0.1:11434/api/version')).json()});
+  proxy=createChatResilienceProviderRelay({out,upstream:{hostname:'127.0.0.1',port:11434},model,models:Object.keys(modelArtifacts),wire,
    persistWire:rows=>save('initial-provider-wire.json',rows)});
   await new Promise((resolve,reject)=>{
    proxy.once('error',reject);
@@ -643,7 +692,7 @@ if(process.argv.includes('--inside')) {
   });
   fs.chmodSync(socket,0o600);
   const runtime=fs.mkdtempSync(path.join(out,'runtime-'));for(const d of ['home','tmp','cache','config','data','state','artifacts','home/projects'])fs.mkdirSync(path.join(runtime,d),{recursive:true,mode:0o700});
-  const env={PATH:process.env.PATH,LANG:'C.UTF-8',TZ:'Europe/Prague',HOME:path.join(runtime,'home'),XDG_CONFIG_HOME:path.join(runtime,'config'),XDG_CACHE_HOME:path.join(runtime,'cache'),XDG_DATA_HOME:path.join(runtime,'data'),XDG_STATE_HOME:path.join(runtime,'state'),TMPDIR:path.join(runtime,'tmp'),DOTENV_CONFIG_PATH:path.join(runtime,'absent'),NODE_ENV:'test',CI:'1',CHAT_PROBE_RUNTIME:runtime,CHAT_PROBE_RUN_ID:runId,CHAT_PROBE_RECORD:recordPath,CHAT_PROBE_OUT:out,CHAT_PROBE_CORPUS:corpusFile,CHAT_PROBE_PHASE:phase,CHAT_PROBE_MODEL:model,CHAT_PROBE_MODEL_DIGEST:modelDigest,CHAT_PROBE_CASES:process.env.CHAT_PROBE_CASES,CHAT_PROBE_NO_DIRECT:process.env.CHAT_PROBE_NO_DIRECT||(isFinal?'false':'true'),CHAT_PROBE_SOCKET:socket,INTENTSMITH_DB_PATH:path.join(runtime,'db.sqlite'),INTENTSMITH_PORT_FILE:path.join(runtime,'port.json'),INTENTSMITH_PROJECTS_DIR:path.join(runtime,'home/projects'),INTENTSMITH_TEST_PROJECTS_DIR:path.join(runtime,'home/projects'),INTENTSMITH_TEST_ARTIFACT_DIR:path.join(runtime,'artifacts'),INTENTSMITH_TEST_SERVER_NONCE:randomBytes(24).toString('base64url'),INTENTSMITH_MODEL_CHAT:model,INTENTSMITH_MODEL_D1:model,INTENTSMITH_MODEL_CODE:'qwen3.8:latest',INTENTSMITH_MODEL_D2:'qwen3.8:latest',INTENTSMITH_MODEL_R1:'qwen3.8:latest',INTENTSMITH_MODEL_R2:'devstral-small-2:latest',INTENTSMITH_ENABLE_AGENTS:'false',INTENTSMITH_ENABLE_EXPERTISES:'false',INTENTSMITH_ENABLE_LIFECYCLE:'false',INTENTSMITH_ENABLE_COMFYUI:'false',INTENTSMITH_ENABLE_AUTONOMY:'false',INTENTSMITH_MODEL_UNIVERSE_ENABLED:'false',INTENTSMITH_LOG_LEVEL:'warn',INTENTSMITH_TRACE:'0'};
+  const env={PATH:process.env.PATH,LANG:'C.UTF-8',TZ:'Europe/Prague',HOME:path.join(runtime,'home'),XDG_CONFIG_HOME:path.join(runtime,'config'),XDG_CACHE_HOME:path.join(runtime,'cache'),XDG_DATA_HOME:path.join(runtime,'data'),XDG_STATE_HOME:path.join(runtime,'state'),TMPDIR:path.join(runtime,'tmp'),DOTENV_CONFIG_PATH:path.join(runtime,'absent'),NODE_ENV:'test',CI:'1',CHAT_PROBE_RUNTIME:runtime,CHAT_PROBE_RUN_ID:runId,CHAT_PROBE_RECORD:recordPath,CHAT_PROBE_OUT:out,CHAT_PROBE_CORPUS:corpusFile,CHAT_PROBE_PHASE:phase,CHAT_PROBE_MODEL:model,CHAT_PROBE_MODEL_DIGEST:modelDigest,CHAT_PROBE_HOLDOUT:String(isHoldout),CHAT_PROBE_HOLDOUT_SHA256:expectedHoldoutSha256 || undefined,CHAT_PROBE_CASES:process.env.CHAT_PROBE_CASES,CHAT_PROBE_NO_DIRECT:process.env.CHAT_PROBE_NO_DIRECT||(isFinal?'false':'true'),CHAT_PROBE_SOCKET:socket,INTENTSMITH_DB_PATH:path.join(runtime,'db.sqlite'),INTENTSMITH_PORT_FILE:path.join(runtime,'port.json'),INTENTSMITH_PROJECTS_DIR:path.join(runtime,'home/projects'),INTENTSMITH_TEST_PROJECTS_DIR:path.join(runtime,'home/projects'),INTENTSMITH_TEST_ARTIFACT_DIR:path.join(runtime,'artifacts'),INTENTSMITH_TEST_SERVER_NONCE:randomBytes(24).toString('base64url'),INTENTSMITH_MODEL_CHAT:model,INTENTSMITH_MODEL_D1:'qwen3.5:27b',INTENTSMITH_MODEL_CODE:'qwen3.8:latest',INTENTSMITH_MODEL_D2:'qwen3.8:latest',INTENTSMITH_MODEL_R1:'qwen3.8:latest',INTENTSMITH_MODEL_R2:'devstral-small-2:latest',INTENTSMITH_ENABLE_AGENTS:'false',INTENTSMITH_ENABLE_EXPERTISES:'false',INTENTSMITH_ENABLE_LIFECYCLE:'false',INTENTSMITH_ENABLE_COMFYUI:'false',INTENTSMITH_ENABLE_AUTONOMY:'false',INTENTSMITH_MODEL_UNIVERSE_ENABLED:'false',INTENTSMITH_LOG_LEVEL:'warn',INTENTSMITH_TRACE:'0'};
   const log=fs.createWriteStream(path.join(out,'initial-process.log'),{mode:0o600});let tail='';
   const runInside=async childEnv=>{
   child=spawn('bwrap',['--ro-bind','/','/','--dev-bind','/dev','/dev','--bind',out,out,
@@ -665,16 +714,19 @@ if(process.argv.includes('--inside')) {
   let recorded=[];
   try { recorded=JSON.parse(fs.readFileSync(path.join(out,'initial-results.json'),'utf8')); } catch {}
   const selected=corpus.filter(c=>!requestedCases||requestedCases.includes(c.id));
-  let postflightDigest=null;
-  try { postflightDigest=(await (await fetch('http://127.0.0.1:11434/api/tags')).json()).models
-   ?.find(entry=>entry.name===model)?.digest; } catch {}
-  const {inferenceWire,exactWire,invalidInferenceCallCount,transportComplete}
+  let postflightDigest=null,postflightArtifacts={};
+  try { const installed=(await (await fetch('http://127.0.0.1:11434/api/tags')).json()).models;
+   postflightArtifacts=Object.fromEntries(Object.keys(modelArtifacts).map(name=>[name,installed?.find(entry=>entry.name===name)?.digest||null]));
+   postflightDigest=postflightArtifacts[model]; } catch {}
+  const {inferenceWire,exactWire,invalidInferenceCallCount,contextBudgetValid,artifactSetValid,transportComplete}
    =assessChatResilienceTransport({
-   wire,recorded,selected,exit,isFinal,postflightDigest,model,modelDigest});
+   wire,recorded,selected,exit,isFinal,postflightDigest,model,modelDigest,
+   contextWindowTokens:directOptions.num_ctx,modelArtifacts,postflightArtifacts});
   save('initial-exit.json',{...exit,transportComplete,exactWire,
+   contextBudgetValid,contextWindowTokens:directOptions.num_ctx,artifactSetValid,postflightArtifacts,
    inferenceCallCount:inferenceWire.length,invalidInferenceCallCount,postflightDigest,
    expectedCases:selected.length,recordedCases:recorded.length,at:new Date().toISOString()});
-  console.log('pilot exit',JSON.stringify({...exit,transportComplete}),tail);
+  console.log('pilot exit',JSON.stringify({...exit,transportComplete}),isHoldout ? '' : tail);
   process.exitCode=transportComplete?0:1;
  }catch(error){proxy?.sealPending('RUNNER_ERROR_WITH_PENDING_PROVIDER_REQUEST');save('initial-exit.json',{code:1,blocked:['GPU_EVALUATION_BUSY','BLOCKED_GPU'].includes(error.code)||error.message.startsWith('BLOCKED_GPU'),errorCode:error.code||null,error:error.message,at:new Date().toISOString()});process.exitCode=1;console.error(error.message);}
  finally{if(child&&child.exitCode===null)child.kill('SIGTERM');if(proxy){proxy.sealPending('RUNNER_SHUTDOWN_WITH_PENDING_PROVIDER_REQUEST');proxy.closeAllConnections();await new Promise(r=>proxy.close(r));proxy.closeJournal();}fs.rmSync(socketDir,{recursive:true,force:true});lease?.release();canonical();}

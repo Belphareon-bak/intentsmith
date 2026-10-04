@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "runId": "chat-quality-holdout-candidate-full-20261002",
+  "sourceRevision": "c7f03d5687f65b1a2b50665f27b037e57b8516cd",
+  "startedAt": "2026-10-02T13:44:10.571Z",
+  "endedAt": "2026-10-02T13:52:12.780Z",
+  "statusCounts": {
+    "PASS": 399,
+    "FAIL": 4,
+    "TIMEOUT": 0,
+    "BLOCKED": 3,
+    "SKIPPED": 0
+  },
+  "verdict": "FAIL",
+  "exitCode": 1,
+  "options": {
+    "concurrency": 1,
+    "failFast": false,
+    "timeoutMs": 600000,
+    "deadlineMs": 28800000,
+    "profiles": [
+      "database",
+      "offline"
+    ],
+    "ids": [],
+    "exclude": [],
+    "allowBlockers": [
+      "toolchain:accountant-ocr-runtime",
+      "toolchain:bubblewrap",
+      "toolchain:bwrap",
+      "toolchain:git",
+      "toolchain:prlimit",
+      "toolchain:python-pdf-runtime",
+      "toolchain:python3",
+      "toolchain:systemd-analyze",
+      "toolchain:tar"
+    ],
+    "noBlock": false
+  },
+  "registryHash": "ac14e15fb81dc401761467b7fc9d6e4c040550b05f6cec273ee2f2edd7bbf43f",
+  "optionsFingerprint": "822c4cb062f3e2a39a5e7af0423426aef3699195c24192817871891a389d1bd8",
+  "reportSha256": "b279535a4c5da6b4e01ea8f7317ff19139733ba7912b4c9e1024e0aa324864b3",
+  "nonPassUnchangedFromFollowupProfile": true,
+  "nonPass": [
+    {
+      "id": "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-INTEGRATION-TEST",
+      "path": "tests/accountant-workflow-integration.test.js",
+      "status": "BLOCKED",
+      "exitCode": null
+    },
+    {
+      "id": "IS-T1-TESTS-ARTIFACT-VALIDATION",
+      "path": "tests/artifact-validation.test.js",
+      "status": "FAIL",
+      "exitCode": 1
+    },
+    {
+      "id": "IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST",
+      "path": "tests/chat-export-budget.test.js",
+      "status": "BLOCKED",
+      "exitCode": null
+    },
+    {
+      "id": "IS-T1-TESTS-EXPORT-PDF-DOCX-TEST",
+      "path": "tests/export-pdf-docx.test.js",
+      "status": "BLOCKED",
+      "exitCode": null
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST",
+      "path": "tests/m1-model-failover-schema.test.js",
+      "status": "FAIL",
+      "exitCode": 1
+    },
+    {
+      "id": "IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST",
+      "path": "tests/m6-runtime-evidence.test.js",
+      "status": "FAIL",
+      "exitCode": 1
+    },
+    {
+      "id": "IS-T1-TESTS-ROUTING-ACCURACY-TEST",
+      "path": "tests/routing-accuracy.test.js",
+      "status": "FAIL",
+      "exitCode": 1
+    }
+  ],
+  "githubCI": {
+    "status": "CI_NOT_RUN_BY_CHAT_WORKER",
+    "pushTriggerIncludesCandidateBranch": false,
+    "prFilteredConnectorRuns": 0,
+    "prFilteredLookupIsNotExhaustiveForManualRuns": true
+  }
+}

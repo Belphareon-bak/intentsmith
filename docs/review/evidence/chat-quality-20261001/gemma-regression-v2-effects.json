@@ -1,0 +1,740 @@
+{
+  "scope": "EXPOSED_REGRESSION_SOURCE_BYTES_AND_EFFECTS_NOT_ACCEPTANCE",
+  "sourceRevision": "9591ea1b07bc4b639a102bcc421f9d46b8f9906b",
+  "runs": [
+    {
+      "runId": "873b2cd6-95b4-4ae0-b0c2-4045aec73764",
+      "phase": "final-1",
+      "manifest": {
+        "revision": "9591ea1b07bc4b639a102bcc421f9d46b8f9906b",
+        "sourceClean": true,
+        "dirtyStatus": "",
+        "corpusSha256": "fd67aa5af3ba5b4da58291dc9deba3596dd43129d83bd64c093f1b8f9ea0ce16",
+        "runnerSha256": "63bd34f29bc0219470937a28630c808bd68899f5bf1ea2ebb3f5ccc18a3bb578",
+        "model": "gemma4:26b",
+        "modelDigest": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68",
+        "modelArtifacts": {
+          "qwen3.5:27b": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+          "gemma4:26b": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68"
+        },
+        "providerUrl": "http://127.0.0.1:11434",
+        "node": "v24.21.0",
+        "inferenceSerial": true,
+        "networkIsolation": "kernel namespace plus explicit Unix provider relay"
+      },
+      "configurationFingerprint": "1612badd851cf3b78babf804578ef3228d1ccb9064e7c09374f92d18f6f014f5",
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "transportComplete": true,
+        "exactWire": true,
+        "contextBudgetValid": true,
+        "contextWindowTokens": 4096,
+        "artifactSetValid": true,
+        "postflightArtifacts": {
+          "qwen3.5:27b": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+          "gemma4:26b": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68"
+        },
+        "inferenceCallCount": 138,
+        "invalidInferenceCallCount": 0,
+        "postflightDigest": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68",
+        "expectedCases": 53,
+        "recordedCases": 53,
+        "at": "2026-10-04T18:18:39.853Z"
+      },
+      "inferencesByArtifact": {
+        "gemma4:26b": 137,
+        "qwen3.5:27b": 1
+      },
+      "declaredApprovals": 17,
+      "missingProposals": [
+        "newname-plain",
+        "newname-typo",
+        "missing-target-name",
+        "scoped-ban",
+        "scoped-ban-plain",
+        "port8080"
+      ],
+      "effects": [
+        {
+          "caseId": "context-second",
+          "kind": "fs.read",
+          "path": "beta.md",
+          "effectId": "effect:5b37dcb65756961c6ea361c08ebf084172a3dd35ae32773ff2fe56e4563e8545",
+          "approvalGrantId": "grant:073a38e6-d9ef-473c-a586-d95705c9b491",
+          "status": "succeeded",
+          "bytes": 14,
+          "sha256": "7295a44c2d04e27b652ff71bd49187c91a8d4efbf1d1b7b62fdab2ae7e58c486",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        },
+        {
+          "caseId": "newname",
+          "kind": "fs.write",
+          "path": "new-notes.md",
+          "effectId": "effect:17265d3e7ba494f58896a2e0bdbe67acc4c38bdf0034555b0028bfaf8f1b06d7",
+          "approvalGrantId": "grant:66f824f4-fd5a-4b5c-9157-87e071f28618",
+          "status": "succeeded",
+          "bytes": 4,
+          "sha256": "f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        },
+        {
+          "caseId": "banread",
+          "kind": "fs.read",
+          "path": "notes.md",
+          "effectId": "effect:58b002969586c5792b5c84152174761a2c4ee588517c06427973fbd8d8b7fa72",
+          "approvalGrantId": "grant:0c471312-3b59-4250-bc0d-6253b831edac",
+          "status": "succeeded",
+          "bytes": 22,
+          "sha256": "379661423a89125eba3088b45a0961008372c02c6c303e0348adb2e2f978d344",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        },
+        {
+          "caseId": "banread-plain",
+          "kind": "fs.read",
+          "path": "notes.md",
+          "effectId": "effect:9695ea3063b22a73249e3147ed28790f5ff13a304173ebbd3530b03bcca2f561",
+          "approvalGrantId": "grant:5a817c6c-1432-4211-bb3c-02c8f67efad1",
+          "status": "succeeded",
+          "bytes": 22,
+          "sha256": "379661423a89125eba3088b45a0961008372c02c6c303e0348adb2e2f978d344",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        },
+        {
+          "caseId": "banread-en",
+          "kind": "fs.read",
+          "path": "notes.md",
+          "effectId": "effect:6715094ae124e99f588920123f588a49b51b3be67718cc09ea7339f5d6474ad4",
+          "approvalGrantId": "grant:12816fc4-4149-49f6-ad82-2d70f044806d",
+          "status": "succeeded",
+          "bytes": 22,
+          "sha256": "379661423a89125eba3088b45a0961008372c02c6c303e0348adb2e2f978d344",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        },
+        {
+          "caseId": "save-next",
+          "kind": "fs.write",
+          "path": "backup.md",
+          "effectId": "effect:ce942a83b75c7a7e86fb5cadf1a589ced4594e27eed43da93ba969d965c92a10",
+          "approvalGrantId": "grant:34e3215a-fb71-41af-b2a6-0e18096a2ebf",
+          "status": "succeeded",
+          "bytes": 335,
+          "sha256": "75ebb803346bbaada31b3f792bf73708060667210a058ebcfadfcede1e6e3eb4",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        },
+        {
+          "caseId": "save-content-first",
+          "kind": "fs.write",
+          "path": "copy.md",
+          "effectId": "effect:22f8b1dc99708609d8dd63f452811c0801a117b2bcf82709c736a9fe877c7a9c",
+          "approvalGrantId": "grant:adde74c4-6b37-427c-9014-a220e865db72",
+          "status": "succeeded",
+          "bytes": 200,
+          "sha256": "e9923754bb04c305301976731beb2441e176fa18b0adfcde67e146524a7e1aac",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        },
+        {
+          "caseId": "save-content-again",
+          "kind": "fs.write",
+          "path": "copy-backup.md",
+          "effectId": "effect:0d50da01f4c51e55a46790d61e04f1b672f316fe6c3c81b7ef375d987973a242",
+          "approvalGrantId": "grant:02c4ae32-f346-4110-81ae-1ba251304c51",
+          "status": "succeeded",
+          "bytes": 200,
+          "sha256": "e9923754bb04c305301976731beb2441e176fa18b0adfcde67e146524a7e1aac",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        },
+        {
+          "caseId": "port80",
+          "kind": "fs.write",
+          "path": "port.md",
+          "effectId": "effect:bc94f25a168e3a74661fcec279f889aef37f58d3330a91d500b224b982d93b25",
+          "approvalGrantId": "grant:d6027152-55ed-45aa-b18a-a22946cf81d0",
+          "status": "succeeded",
+          "bytes": 7,
+          "sha256": "45f8c837b798c2c36e0093ebc993ef95d0b926a54fc63ba7c59f5159264d0f78",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        },
+        {
+          "caseId": "milliwatt",
+          "kind": "fs.write",
+          "path": "power.md",
+          "effectId": "effect:2b75121272a1d5f4251d3a9eb903eed4512025fdc7c75431933d408f35196a37",
+          "approvalGrantId": "grant:73d69c1b-593f-4298-8817-72c4050cbec7",
+          "status": "succeeded",
+          "bytes": 11,
+          "sha256": "80e4241d54e2a62ce0d3e26badfeb3d9ad88c4fe0d4e19f5b3d83a1bb878391f",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        },
+        {
+          "caseId": "megawatt",
+          "kind": "fs.write",
+          "path": "power.md",
+          "effectId": "effect:821e1993ba22fd06f0ace677b4987a7d9c9deaf75d8b406c08d1f8d5f51617cd",
+          "approvalGrantId": "grant:64173bc0-cfc3-44a0-8083-7ca2f4fc6141",
+          "status": "succeeded",
+          "bytes": 11,
+          "sha256": "8bf009b9754515d664a856c72fd2848327f3536910abbe257ed0ea82844851e2",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        }
+      ],
+      "codeChecks": [
+        {
+          "caseId": "recursion",
+          "codeSha256": "71518e98a9c67a066ec0a5a08f5b675aa5b57f7ebd0e283ae25ff7a20a7613c2",
+          "nonRecursive": true,
+          "testedInputs": [
+            0,
+            1,
+            5,
+            10,
+            -1
+          ],
+          "passed": true
+        },
+        {
+          "caseId": "recursion-followup",
+          "codeSha256": "71518e98a9c67a066ec0a5a08f5b675aa5b57f7ebd0e283ae25ff7a20a7613c2",
+          "nonRecursive": true,
+          "testedInputs": [
+            0,
+            1,
+            5,
+            10,
+            -1
+          ],
+          "passed": true
+        },
+        {
+          "caseId": "recursion-plain",
+          "codeSha256": "845f18190e38a6a941cf7ab029c0f1ce606511fc577db676aa8b67f398818198",
+          "nonRecursive": true,
+          "testedInputs": [
+            0,
+            1,
+            5,
+            10,
+            -1
+          ],
+          "passed": true
+        },
+        {
+          "caseId": "recursion-mixed",
+          "codeSha256": "d3da72aecf4a2f3c6e655184e07564f3529e5492df9b4b76ebada9199796cc24",
+          "nonRecursive": true,
+          "testedInputs": [
+            0,
+            1,
+            5,
+            10,
+            -1
+          ],
+          "passed": true
+        }
+      ]
+    },
+    {
+      "runId": "860c927d-9556-43ad-b4ad-d8b38c6ce335",
+      "phase": "final-2",
+      "manifest": {
+        "revision": "9591ea1b07bc4b639a102bcc421f9d46b8f9906b",
+        "sourceClean": true,
+        "dirtyStatus": "",
+        "corpusSha256": "fd67aa5af3ba5b4da58291dc9deba3596dd43129d83bd64c093f1b8f9ea0ce16",
+        "runnerSha256": "63bd34f29bc0219470937a28630c808bd68899f5bf1ea2ebb3f5ccc18a3bb578",
+        "model": "gemma4:26b",
+        "modelDigest": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68",
+        "modelArtifacts": {
+          "qwen3.5:27b": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+          "gemma4:26b": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68"
+        },
+        "providerUrl": "http://127.0.0.1:11434",
+        "node": "v24.21.0",
+        "inferenceSerial": true,
+        "networkIsolation": "kernel namespace plus explicit Unix provider relay"
+      },
+      "configurationFingerprint": "1612badd851cf3b78babf804578ef3228d1ccb9064e7c09374f92d18f6f014f5",
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "transportComplete": true,
+        "exactWire": true,
+        "contextBudgetValid": true,
+        "contextWindowTokens": 4096,
+        "artifactSetValid": true,
+        "postflightArtifacts": {
+          "qwen3.5:27b": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+          "gemma4:26b": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68"
+        },
+        "inferenceCallCount": 138,
+        "invalidInferenceCallCount": 0,
+        "postflightDigest": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68",
+        "expectedCases": 53,
+        "recordedCases": 53,
+        "at": "2026-10-04T18:22:35.666Z"
+      },
+      "inferencesByArtifact": {
+        "gemma4:26b": 137,
+        "qwen3.5:27b": 1
+      },
+      "declaredApprovals": 17,
+      "missingProposals": [
+        "newname-plain",
+        "newname-typo",
+        "missing-target-name",
+        "scoped-ban",
+        "scoped-ban-plain",
+        "port8080"
+      ],
+      "effects": [
+        {
+          "caseId": "context-second",
+          "kind": "fs.read",
+          "path": "beta.md",
+          "effectId": "effect:30908a4e5da8e21e49a2df31fed5e913aaa351fcd9d9d274856cc5cc465f5f7d",
+          "approvalGrantId": "grant:ea18b515-7308-49bd-b2d0-7d59fe339ba1",
+          "status": "succeeded",
+          "bytes": 14,
+          "sha256": "7295a44c2d04e27b652ff71bd49187c91a8d4efbf1d1b7b62fdab2ae7e58c486",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        },
+        {
+          "caseId": "newname",
+          "kind": "fs.write",
+          "path": "new-notes.md",
+          "effectId": "effect:9d18e18f50fa1f7e466290964a8e1eceb187dd7f9ac470ae2156c4d8dbed99b4",
+          "approvalGrantId": "grant:5f6ed8cc-bfe9-4ee7-b0c1-e2ad2f568202",
+          "status": "succeeded",
+          "bytes": 4,
+          "sha256": "f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        },
+        {
+          "caseId": "banread",
+          "kind": "fs.read",
+          "path": "notes.md",
+          "effectId": "effect:c2101510aa1a6b64f278893ceae755060d4d08988b267543130b2fd7a27731bd",
+          "approvalGrantId": "grant:bca874f0-5c49-4b7f-8bf1-e08110fd427f",
+          "status": "succeeded",
+          "bytes": 22,
+          "sha256": "379661423a89125eba3088b45a0961008372c02c6c303e0348adb2e2f978d344",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        },
+        {
+          "caseId": "banread-plain",
+          "kind": "fs.read",
+          "path": "notes.md",
+          "effectId": "effect:b6a1c894e2b07b78669718ba6d2a5951d2253cca9dd52afc2fe6757ae2a5ba2c",
+          "approvalGrantId": "grant:1ad2cf04-b457-4fc7-b9d6-4693ee10d7fa",
+          "status": "succeeded",
+          "bytes": 22,
+          "sha256": "379661423a89125eba3088b45a0961008372c02c6c303e0348adb2e2f978d344",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        },
+        {
+          "caseId": "banread-en",
+          "kind": "fs.read",
+          "path": "notes.md",
+          "effectId": "effect:03c1c32fdf4e1eaf4a020926611e761cebef4ad2f106ca8c49c9004fbee4dc14",
+          "approvalGrantId": "grant:84590646-616a-46c3-8aa5-377878b930d8",
+          "status": "succeeded",
+          "bytes": 22,
+          "sha256": "379661423a89125eba3088b45a0961008372c02c6c303e0348adb2e2f978d344",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        },
+        {
+          "caseId": "save-next",
+          "kind": "fs.write",
+          "path": "backup.md",
+          "effectId": "effect:0d505ec36d9e4c2af7f7ccc97d0af9dd8e1ea89197d1bdfade5aa72ec4c2b489",
+          "approvalGrantId": "grant:3c5187e8-a12d-4123-8570-966560ba130c",
+          "status": "succeeded",
+          "bytes": 327,
+          "sha256": "7127abd1a0c646c1b043667438d2acd0efe8d8e5560b68c0d17c4279c4c1bc7e",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        },
+        {
+          "caseId": "save-content-first",
+          "kind": "fs.write",
+          "path": "copy.md",
+          "effectId": "effect:81c945a8d3f0c4f5ea8e1a2608d172a0afcd7c2a3057a98d95f5d41b60c1c52d",
+          "approvalGrantId": "grant:fa0e2ad8-6da9-4ad2-8639-8d23d10da73e",
+          "status": "succeeded",
+          "bytes": 250,
+          "sha256": "df5108eb38a6064ad76574c762ebbbd459f12113a1866f2e197c5cd872e15186",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        },
+        {
+          "caseId": "save-content-again",
+          "kind": "fs.write",
+          "path": "copy-backup.md",
+          "effectId": "effect:8442b111253d5f39519524cfa7368730de4675db05152556bde219b962d64ede",
+          "approvalGrantId": "grant:975ad54c-a8ea-44b6-98e1-1749eaf6aa93",
+          "status": "succeeded",
+          "bytes": 250,
+          "sha256": "df5108eb38a6064ad76574c762ebbbd459f12113a1866f2e197c5cd872e15186",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        },
+        {
+          "caseId": "port80",
+          "kind": "fs.write",
+          "path": "port.md",
+          "effectId": "effect:a508e959beb2cde4b9c8e0ef438c59b672589c5a203c8048f716cddad765d0b6",
+          "approvalGrantId": "grant:debd905a-961a-4737-968f-b593facfa392",
+          "status": "succeeded",
+          "bytes": 7,
+          "sha256": "45f8c837b798c2c36e0093ebc993ef95d0b926a54fc63ba7c59f5159264d0f78",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        },
+        {
+          "caseId": "milliwatt",
+          "kind": "fs.write",
+          "path": "power.md",
+          "effectId": "effect:3f61db7d073e35bd2ef6ab9d909cc9da8c04bc70b2a79af8dc85f012014300a2",
+          "approvalGrantId": "grant:7c8bc594-745e-4c9b-9837-6efa587306d6",
+          "status": "succeeded",
+          "bytes": 11,
+          "sha256": "80e4241d54e2a62ce0d3e26badfeb3d9ad88c4fe0d4e19f5b3d83a1bb878391f",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        },
+        {
+          "caseId": "megawatt",
+          "kind": "fs.write",
+          "path": "power.md",
+          "effectId": "effect:eafea61f596754cfe54ac74d852e1fc59e912f49cbc022739f994d6bd9b86682",
+          "approvalGrantId": "grant:db07b34e-c50e-47aa-b92e-ccc361ce7549",
+          "status": "succeeded",
+          "bytes": 11,
+          "sha256": "8bf009b9754515d664a856c72fd2848327f3536910abbe257ed0ea82844851e2",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        }
+      ],
+      "codeChecks": [
+        {
+          "caseId": "recursion",
+          "codeSha256": "71518e98a9c67a066ec0a5a08f5b675aa5b57f7ebd0e283ae25ff7a20a7613c2",
+          "nonRecursive": true,
+          "testedInputs": [
+            0,
+            1,
+            5,
+            10,
+            -1
+          ],
+          "passed": true
+        },
+        {
+          "caseId": "recursion-followup",
+          "codeSha256": "71518e98a9c67a066ec0a5a08f5b675aa5b57f7ebd0e283ae25ff7a20a7613c2",
+          "nonRecursive": true,
+          "testedInputs": [
+            0,
+            1,
+            5,
+            10,
+            -1
+          ],
+          "passed": true
+        },
+        {
+          "caseId": "recursion-plain",
+          "codeSha256": "dea8fa1932169e54d78c4c6ae8694448ecd3a78db2570396dde5a53a28dbcd33",
+          "nonRecursive": true,
+          "testedInputs": [
+            0,
+            1,
+            5,
+            10,
+            -1
+          ],
+          "passed": true
+        },
+        {
+          "caseId": "recursion-mixed",
+          "codeSha256": "d3da72aecf4a2f3c6e655184e07564f3529e5492df9b4b76ebada9199796cc24",
+          "nonRecursive": true,
+          "testedInputs": [
+            0,
+            1,
+            5,
+            10,
+            -1
+          ],
+          "passed": true
+        }
+      ]
+    },
+    {
+      "runId": "06cac090-be72-4549-aaaa-6d9f42d461aa",
+      "phase": "final-3",
+      "manifest": {
+        "revision": "9591ea1b07bc4b639a102bcc421f9d46b8f9906b",
+        "sourceClean": true,
+        "dirtyStatus": "",
+        "corpusSha256": "fd67aa5af3ba5b4da58291dc9deba3596dd43129d83bd64c093f1b8f9ea0ce16",
+        "runnerSha256": "63bd34f29bc0219470937a28630c808bd68899f5bf1ea2ebb3f5ccc18a3bb578",
+        "model": "gemma4:26b",
+        "modelDigest": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68",
+        "modelArtifacts": {
+          "qwen3.5:27b": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+          "gemma4:26b": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68"
+        },
+        "providerUrl": "http://127.0.0.1:11434",
+        "node": "v24.21.0",
+        "inferenceSerial": true,
+        "networkIsolation": "kernel namespace plus explicit Unix provider relay"
+      },
+      "configurationFingerprint": "1612badd851cf3b78babf804578ef3228d1ccb9064e7c09374f92d18f6f014f5",
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "transportComplete": true,
+        "exactWire": true,
+        "contextBudgetValid": true,
+        "contextWindowTokens": 4096,
+        "artifactSetValid": true,
+        "postflightArtifacts": {
+          "qwen3.5:27b": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+          "gemma4:26b": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68"
+        },
+        "inferenceCallCount": 138,
+        "invalidInferenceCallCount": 0,
+        "postflightDigest": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68",
+        "expectedCases": 53,
+        "recordedCases": 53,
+        "at": "2026-10-04T18:26:46.525Z"
+      },
+      "inferencesByArtifact": {
+        "gemma4:26b": 137,
+        "qwen3.5:27b": 1
+      },
+      "declaredApprovals": 17,
+      "missingProposals": [
+        "newname-plain",
+        "newname-typo",
+        "missing-target-name",
+        "scoped-ban",
+        "scoped-ban-plain",
+        "port8080"
+      ],
+      "effects": [
+        {
+          "caseId": "context-second",
+          "kind": "fs.read",
+          "path": "beta.md",
+          "effectId": "effect:71d8ad24d5aefd98d80079b1a2ca064166539c5bd91957815bce5760ab47a727",
+          "approvalGrantId": "grant:ead9c8c7-9dd4-44fd-a5bb-077dcbe1954a",
+          "status": "succeeded",
+          "bytes": 14,
+          "sha256": "7295a44c2d04e27b652ff71bd49187c91a8d4efbf1d1b7b62fdab2ae7e58c486",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        },
+        {
+          "caseId": "newname",
+          "kind": "fs.write",
+          "path": "new-notes.md",
+          "effectId": "effect:ce2dea9008cfb09fc80fa6b6429c7003c040b0d8cf67499043c2ac09199c6b69",
+          "approvalGrantId": "grant:c228e7cb-c2ea-4569-8b60-630320669e2d",
+          "status": "succeeded",
+          "bytes": 4,
+          "sha256": "f23e6807b3fb0be0ea999ea8cb88a3e94dc359c84230461f9761efac57dcb081",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        },
+        {
+          "caseId": "banread",
+          "kind": "fs.read",
+          "path": "notes.md",
+          "effectId": "effect:3999f53f3702928bbd69d2a3cec6746aaa2769f940c01b29deb65610792cff33",
+          "approvalGrantId": "grant:596be00a-7d44-40cf-8986-338280ab17ac",
+          "status": "succeeded",
+          "bytes": 22,
+          "sha256": "379661423a89125eba3088b45a0961008372c02c6c303e0348adb2e2f978d344",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        },
+        {
+          "caseId": "banread-plain",
+          "kind": "fs.read",
+          "path": "notes.md",
+          "effectId": "effect:a1bed0c825a98d961738c6af67003f3c9cebddc90ef93366cf9d4c626fd81b40",
+          "approvalGrantId": "grant:e0856e41-919e-4c03-8ce6-af40c2514844",
+          "status": "succeeded",
+          "bytes": 22,
+          "sha256": "379661423a89125eba3088b45a0961008372c02c6c303e0348adb2e2f978d344",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        },
+        {
+          "caseId": "banread-en",
+          "kind": "fs.read",
+          "path": "notes.md",
+          "effectId": "effect:45da36bc8a2b5c85a0fa24a661c170f6892ee771d811a968e0bb2f4cc2d7e8ec",
+          "approvalGrantId": "grant:8ed4862f-fcf5-4d46-acfc-adb6d1383fa9",
+          "status": "succeeded",
+          "bytes": 22,
+          "sha256": "379661423a89125eba3088b45a0961008372c02c6c303e0348adb2e2f978d344",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        },
+        {
+          "caseId": "save-next",
+          "kind": "fs.write",
+          "path": "backup.md",
+          "effectId": "effect:d0553a3a6d1713d18e20ea38886084bc62fb8cabe0932199882a933257b3e5d4",
+          "approvalGrantId": "grant:8d1b1a6c-dd43-488b-b287-2de89ecc165d",
+          "status": "succeeded",
+          "bytes": 260,
+          "sha256": "21eaa91530eaeebf4b8ce70baa302589edb5c6b7ca1e75d748bc18bbfd223594",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        },
+        {
+          "caseId": "save-content-first",
+          "kind": "fs.write",
+          "path": "copy.md",
+          "effectId": "effect:52a8d3173fcfd636171baf81689bfd7f9e16020f22ede6ba34b1bea6802e60d6",
+          "approvalGrantId": "grant:0dab709a-250a-4d26-8339-1bd7c1b50bbd",
+          "status": "succeeded",
+          "bytes": 253,
+          "sha256": "3237e632edf18597d1258c3b0d301d646f7a2bc239dd274311757617995ab40b",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        },
+        {
+          "caseId": "save-content-again",
+          "kind": "fs.write",
+          "path": "copy-backup.md",
+          "effectId": "effect:64c68ecc41871c8ea3b9c8826c61b8017ad0329d9e02d65149f0aab01fdd6400",
+          "approvalGrantId": "grant:41b8186c-709f-4fa4-8833-68dbd0e67de0",
+          "status": "succeeded",
+          "bytes": 253,
+          "sha256": "3237e632edf18597d1258c3b0d301d646f7a2bc239dd274311757617995ab40b",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        },
+        {
+          "caseId": "port80",
+          "kind": "fs.write",
+          "path": "port.md",
+          "effectId": "effect:aca85c71cd5b175e46628fd0fde71e3a1915b896ee758af73be6f64f3a2543bd",
+          "approvalGrantId": "grant:3dcb6233-a5b9-4c80-a6e7-ffd11457bd9b",
+          "status": "succeeded",
+          "bytes": 7,
+          "sha256": "45f8c837b798c2c36e0093ebc993ef95d0b926a54fc63ba7c59f5159264d0f78",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        },
+        {
+          "caseId": "milliwatt",
+          "kind": "fs.write",
+          "path": "power.md",
+          "effectId": "effect:8a04168b1219c40632301f2cc6e775588506320526525fc126726aa0b6fb4b66",
+          "approvalGrantId": "grant:f6531881-1558-4dca-b64a-8252ce433bc7",
+          "status": "succeeded",
+          "bytes": 11,
+          "sha256": "80e4241d54e2a62ce0d3e26badfeb3d9ad88c4fe0d4e19f5b3d83a1bb878391f",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        },
+        {
+          "caseId": "megawatt",
+          "kind": "fs.write",
+          "path": "power.md",
+          "effectId": "effect:d7a50cdef03a130341d9a75ec7d85ebe7efbcad4b50081049a43d54e3f4c9148",
+          "approvalGrantId": "grant:9e924b47-a4fd-4813-b920-64de7d91f572",
+          "status": "succeeded",
+          "bytes": 11,
+          "sha256": "8bf009b9754515d664a856c72fd2848327f3536910abbe257ed0ea82844851e2",
+          "sourceBytesExact": true,
+          "preapprovalExecutedEffects": 0
+        }
+      ],
+      "codeChecks": [
+        {
+          "caseId": "recursion",
+          "codeSha256": "71518e98a9c67a066ec0a5a08f5b675aa5b57f7ebd0e283ae25ff7a20a7613c2",
+          "nonRecursive": true,
+          "testedInputs": [
+            0,
+            1,
+            5,
+            10,
+            -1
+          ],
+          "passed": true
+        },
+        {
+          "caseId": "recursion-followup",
+          "codeSha256": "71518e98a9c67a066ec0a5a08f5b675aa5b57f7ebd0e283ae25ff7a20a7613c2",
+          "nonRecursive": true,
+          "testedInputs": [
+            0,
+            1,
+            5,
+            10,
+            -1
+          ],
+          "passed": true
+        },
+        {
+          "caseId": "recursion-plain",
+          "codeSha256": "933d86496d3f2d961dc714da71c21559bfe511cdc25a183302e59c9ad372c0df",
+          "nonRecursive": true,
+          "testedInputs": [
+            0,
+            1,
+            5,
+            10,
+            -1
+          ],
+          "passed": true
+        },
+        {
+          "caseId": "recursion-mixed",
+          "codeSha256": "7cd0eeb716dbc5d0389c654938a0452345cff99588d9711ef2752ceb1bc1af1c",
+          "nonRecursive": true,
+          "testedInputs": [
+            0,
+            1,
+            5,
+            10,
+            -1
+          ],
+          "passed": true
+        }
+      ]
+    }
+  ],
+  "result": {
+    "approvedReads": 12,
+    "approvedWrites": 21,
+    "preapprovalExecutedEffects": 0,
+    "sourceBytesExact": true,
+    "codeChecksPassed": 12,
+    "missingProposals": 18
+  }
+}

@@ -1,0 +1,3044 @@
+{
+  "schemaVersion": 1,
+  "status": "DEVELOPMENT_REPAIR_FAILED_GPU",
+  "sourceRevision": "9317c177ca36ed461b266b98950cddee1e405d5f",
+  "manifest": {
+    "revision": "9317c177ca36ed461b266b98950cddee1e405d5f",
+    "sourceClean": true,
+    "dirtyStatus": "",
+    "corpusSha256": "c07472e70d9159b5ff5d2c25a9550c0c299855526ef3f5816aa804c88d3322a0",
+    "runnerSha256": "21298ba6dbf443f87ad657b2d9aeb672ffa2a3c36ad33f2a874934185fd9d95a",
+    "model": "qwen3.5:27b",
+    "modelDigest": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+    "providerUrl": "http://127.0.0.1:11434",
+    "node": "v24.21.0",
+    "inferenceSerial": true,
+    "networkIsolation": "kernel namespace plus explicit Unix provider relay"
+  },
+  "runId": "21860a76-3da2-425f-8319-cf5a96ceed92",
+  "exit": {
+    "code": 0,
+    "signal": null,
+    "transportComplete": true,
+    "exactWire": true,
+    "inferenceCallCount": 41,
+    "invalidInferenceCallCount": 0,
+    "postflightDigest": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+    "expectedCases": 40,
+    "recordedCases": 40,
+    "at": "2026-10-02T13:01:18.615Z"
+  },
+  "mail": {
+    "n": 20,
+    "applicationStatusAndExactLiteral": 20,
+    "inventedExecutionObserved": 0
+  },
+  "gpuComposite": {
+    "n": 20,
+    "completeTwoSentenceExplanationAndClarification": 1,
+    "independentTextOmitted": 19
+  },
+  "traceAfter": {
+    "tool_v1_requests": [],
+    "tool_v1_results": [],
+    "m2_effect_requests": [],
+    "m2_effect_results": []
+  },
+  "cases": [
+    {
+      "id": "recipient-bob-repeat-1",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "6d401f77-a86e-45b7-a7ba-b645da773ef1",
+          "conversationId": "conv-1790945891343-ypa5ce22u",
+          "turnId": "72ce9c2b-eb4f-4ae8-94f9-aa6f6bb8c594",
+          "status": "ok",
+          "response": {
+            "content": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "mail",
+                    "request": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                    "textRequest": null,
+                    "recipient": "bob@example.test",
+                    "literalBody": "Ahoj",
+                    "needsClarification": false,
+                    "quantity": null
+                  },
+                  "classificationTimeMs": 16966,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 16998,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "mail",
+                "reportedBy": "application",
+                "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                "userMessageId": 1
+              },
+              "draftSource": "user_literal",
+              "draftContent": "Ahoj",
+              "chatTiming": {
+                "totalMs": 17016,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 17018.296872
+      }
+    },
+    {
+      "id": "gpu-composite-repeat-1",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "fb4e1227-fbc1-4621-8262-46adeff75aaf",
+          "conversationId": "conv-1790945908367-7fnhiu9me",
+          "turnId": "5e34b007-f9b9-40a4-a54c-4af9d20ac243",
+          "status": "ok",
+          "response": {
+            "content": "Nastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "hardware",
+                    "request": "sniž napětí GPU na polovinu",
+                    "textRequest": null,
+                    "recipient": null,
+                    "literalBody": null,
+                    "needsClarification": true,
+                    "quantity": null
+                  },
+                  "briefResponse": true,
+                  "classificationTimeMs": 4004,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4006,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "hardware",
+                "reportedBy": "application",
+                "requestedAction": "sniž napětí GPU na polovinu",
+                "userMessageId": 3
+              },
+              "chatTiming": {
+                "totalMs": 4011,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4012.1608579999993
+      }
+    },
+    {
+      "id": "recipient-bob-repeat-2",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "a3b182f8-161d-4c4a-938a-c51fb7d69ac1",
+          "conversationId": "conv-1790945912383-rrxlx9bum",
+          "turnId": "5b33ea77-fcb4-4b73-8a23-d9c646354049",
+          "status": "ok",
+          "response": {
+            "content": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "mail",
+                    "request": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                    "textRequest": null,
+                    "recipient": "bob@example.test",
+                    "literalBody": "Ahoj",
+                    "needsClarification": false,
+                    "quantity": null
+                  },
+                  "classificationTimeMs": 4139,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4140,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "mail",
+                "reportedBy": "application",
+                "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                "userMessageId": 5
+              },
+              "draftSource": "user_literal",
+              "draftContent": "Ahoj",
+              "chatTiming": {
+                "totalMs": 4143,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4143.799233000002
+      }
+    },
+    {
+      "id": "gpu-composite-repeat-2",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "440cddf9-3ca6-4c6b-98f6-31b8a9fa9af9",
+          "conversationId": "conv-1790945916532-74f3xfsrf",
+          "turnId": "eae65f50-9310-4ab7-ae5a-fa31f6796b1c",
+          "status": "ok",
+          "response": {
+            "content": "Nastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "hardware",
+                    "request": "sniž napětí GPU na polovinu",
+                    "textRequest": null,
+                    "recipient": null,
+                    "literalBody": null,
+                    "needsClarification": true,
+                    "quantity": null
+                  },
+                  "briefResponse": true,
+                  "classificationTimeMs": 3973,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 3974,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "hardware",
+                "reportedBy": "application",
+                "requestedAction": "sniž napětí GPU na polovinu",
+                "userMessageId": 7
+              },
+              "chatTiming": {
+                "totalMs": 3977,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 3978.0510689999974
+      }
+    },
+    {
+      "id": "recipient-bob-repeat-3",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "a3a97a63-8ed5-465b-b4c7-c0bb0c5ac742",
+          "conversationId": "conv-1790945920517-iwp0dzywh",
+          "turnId": "671df4d0-e850-42e3-8066-4f2e778b07f3",
+          "status": "ok",
+          "response": {
+            "content": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "mail",
+                    "request": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                    "textRequest": null,
+                    "recipient": "bob@example.test",
+                    "literalBody": "Ahoj",
+                    "needsClarification": false,
+                    "quantity": null
+                  },
+                  "classificationTimeMs": 4140,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4141,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "mail",
+                "reportedBy": "application",
+                "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                "userMessageId": 9
+              },
+              "draftSource": "user_literal",
+              "draftContent": "Ahoj",
+              "chatTiming": {
+                "totalMs": 4144,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4145.560650999996
+      }
+    },
+    {
+      "id": "gpu-composite-repeat-3",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "b3809e7e-5344-4689-b4af-23d8c9152111",
+          "conversationId": "conv-1790945924670-7rhj89yed",
+          "turnId": "a7103767-98f2-4a14-8291-1a83fc711773",
+          "status": "ok",
+          "response": {
+            "content": "Nastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "hardware",
+                    "request": "sniž napětí GPU na polovinu",
+                    "textRequest": null,
+                    "recipient": null,
+                    "literalBody": null,
+                    "needsClarification": true,
+                    "quantity": null
+                  },
+                  "briefResponse": true,
+                  "classificationTimeMs": 3966,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 3966,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "hardware",
+                "reportedBy": "application",
+                "requestedAction": "sniž napětí GPU na polovinu",
+                "userMessageId": 11
+              },
+              "chatTiming": {
+                "totalMs": 3969,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 3969.646799999995
+      }
+    },
+    {
+      "id": "recipient-bob-repeat-4",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "91d79450-1bf3-48dd-84a2-96842146f350",
+          "conversationId": "conv-1790945928645-r24dyd7r8",
+          "turnId": "baa84687-2932-4cb3-a354-89f4844e8c3b",
+          "status": "ok",
+          "response": {
+            "content": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "mail",
+                    "request": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                    "textRequest": null,
+                    "recipient": "bob@example.test",
+                    "literalBody": "Ahoj",
+                    "needsClarification": false,
+                    "quantity": null
+                  },
+                  "classificationTimeMs": 4100,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4100,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "mail",
+                "reportedBy": "application",
+                "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                "userMessageId": 13
+              },
+              "draftSource": "user_literal",
+              "draftContent": "Ahoj",
+              "chatTiming": {
+                "totalMs": 4103,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4104.151895000003
+      }
+    },
+    {
+      "id": "gpu-composite-repeat-4",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "a290ba1c-c955-4db1-8801-ada18f0afa45",
+          "conversationId": "conv-1790945932757-q2dm06buw",
+          "turnId": "bf1fb5cf-c459-4631-a7d2-eb5a6cfcc91d",
+          "status": "ok",
+          "response": {
+            "content": "Nastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota veličiny na polovinu, včetně jednotek?",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "hardware",
+                    "request": "sniž napětí GPU na polovinu",
+                    "textRequest": null,
+                    "recipient": null,
+                    "literalBody": null,
+                    "needsClarification": true,
+                    "quantity": "na polovinu"
+                  },
+                  "briefResponse": true,
+                  "classificationTimeMs": 3956,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 3957,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "hardware",
+                "reportedBy": "application",
+                "requestedAction": "sniž napětí GPU na polovinu",
+                "userMessageId": 15
+              },
+              "chatTiming": {
+                "totalMs": 3959,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 3960.942976999999
+      }
+    },
+    {
+      "id": "recipient-bob-repeat-5",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "31ef57fb-bc09-4bfd-8b76-b88c22d36041",
+          "conversationId": "conv-1790945936727-rixoqei2t",
+          "turnId": "674e8770-ba1f-4057-a9a8-fd4ac3890a20",
+          "status": "ok",
+          "response": {
+            "content": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "mail",
+                    "request": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                    "textRequest": null,
+                    "recipient": "bob@example.test",
+                    "literalBody": "Ahoj",
+                    "needsClarification": false,
+                    "quantity": null
+                  },
+                  "classificationTimeMs": 4323,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4324,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "mail",
+                "reportedBy": "application",
+                "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                "userMessageId": 17
+              },
+              "draftSource": "user_literal",
+              "draftContent": "Ahoj",
+              "chatTiming": {
+                "totalMs": 4326,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4327.0673099999985
+      }
+    },
+    {
+      "id": "gpu-composite-repeat-5",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "cf26d963-ea13-45ad-87f7-313b2de7264c",
+          "conversationId": "conv-1790945941062-6uv92pg3r",
+          "turnId": "d8eaf3dd-874d-4a87-9d69-7b21b0ca7b69",
+          "status": "ok",
+          "response": {
+            "content": "Nastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "hardware",
+                    "request": "sniž napětí GPU na polovinu",
+                    "textRequest": null,
+                    "recipient": null,
+                    "literalBody": null,
+                    "needsClarification": true,
+                    "quantity": null
+                  },
+                  "briefResponse": true,
+                  "classificationTimeMs": 3996,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 3996,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "hardware",
+                "reportedBy": "application",
+                "requestedAction": "sniž napětí GPU na polovinu",
+                "userMessageId": 19
+              },
+              "chatTiming": {
+                "totalMs": 3999,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4000.544356999999
+      }
+    },
+    {
+      "id": "recipient-bob-repeat-6",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "3ea53969-0832-4eaf-bf79-540603211f50",
+          "conversationId": "conv-1790945945071-jisnhq8ig",
+          "turnId": "bfa31e13-6268-43b4-95e7-b6f96ae9312f",
+          "status": "ok",
+          "response": {
+            "content": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "mail",
+                    "request": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                    "textRequest": null,
+                    "recipient": "bob@example.test",
+                    "literalBody": "Ahoj",
+                    "needsClarification": false,
+                    "quantity": null
+                  },
+                  "classificationTimeMs": 4264,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4265,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "mail",
+                "reportedBy": "application",
+                "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                "userMessageId": 21
+              },
+              "draftSource": "user_literal",
+              "draftContent": "Ahoj",
+              "chatTiming": {
+                "totalMs": 4268,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4268.883981000006
+      }
+    },
+    {
+      "id": "gpu-composite-repeat-6",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "263643a1-c19e-40d4-ab3f-ebd6780ee4d1",
+          "conversationId": "conv-1790945949349-g3oixll82",
+          "turnId": "ccdd39a1-416e-464a-ab45-ebb41ed0a1c7",
+          "status": "ok",
+          "response": {
+            "content": "Nastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota veličiny na polovinu, včetně jednotek?",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "hardware",
+                    "request": "sniž napětí GPU na polovinu",
+                    "textRequest": null,
+                    "recipient": null,
+                    "literalBody": null,
+                    "needsClarification": true,
+                    "quantity": "na polovinu"
+                  },
+                  "briefResponse": true,
+                  "classificationTimeMs": 3981,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 3981,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "hardware",
+                "reportedBy": "application",
+                "requestedAction": "sniž napětí GPU na polovinu",
+                "userMessageId": 23
+              },
+              "chatTiming": {
+                "totalMs": 3983,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 3984.6540259999965
+      }
+    },
+    {
+      "id": "recipient-bob-repeat-7",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "c005ab44-fe90-4583-920b-d55a86326196",
+          "conversationId": "conv-1790945953344-drub6lvjq",
+          "turnId": "33c8c164-dd12-4046-a4f2-f99045a7f59c",
+          "status": "ok",
+          "response": {
+            "content": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "mail",
+                    "request": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                    "textRequest": null,
+                    "recipient": "bob@example.test",
+                    "literalBody": "Ahoj",
+                    "needsClarification": false,
+                    "quantity": null
+                  },
+                  "classificationTimeMs": 4155,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4155,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "mail",
+                "reportedBy": "application",
+                "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                "userMessageId": 25
+              },
+              "draftSource": "user_literal",
+              "draftContent": "Ahoj",
+              "chatTiming": {
+                "totalMs": 4158,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4158.867673999994
+      }
+    },
+    {
+      "id": "gpu-composite-repeat-7",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "6459d9fa-7cb2-4033-9e82-ab82dfdbe708",
+          "conversationId": "conv-1790945957513-zkvnfdwg4",
+          "turnId": "0de3b249-56e5-4733-b1a8-8fc5e25a438f",
+          "status": "ok",
+          "response": {
+            "content": "Nastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "hardware",
+                    "request": "sniž napětí GPU na polovinu",
+                    "textRequest": null,
+                    "recipient": null,
+                    "literalBody": null,
+                    "needsClarification": true,
+                    "quantity": null
+                  },
+                  "briefResponse": true,
+                  "classificationTimeMs": 3953,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 3953,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "hardware",
+                "reportedBy": "application",
+                "requestedAction": "sniž napětí GPU na polovinu",
+                "userMessageId": 27
+              },
+              "chatTiming": {
+                "totalMs": 3955,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 3956.285640999995
+      }
+    },
+    {
+      "id": "recipient-bob-repeat-8",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "a32feeda-179b-4d6a-8088-1113765a0449",
+          "conversationId": "conv-1790945961478-wqqto0g8w",
+          "turnId": "3ae718f4-6c2c-4955-a2ce-1ba57f3f255c",
+          "status": "ok",
+          "response": {
+            "content": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "mail",
+                    "request": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                    "textRequest": null,
+                    "recipient": "bob@example.test",
+                    "literalBody": "Ahoj",
+                    "needsClarification": false,
+                    "quantity": null
+                  },
+                  "classificationTimeMs": 4181,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4181,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "mail",
+                "reportedBy": "application",
+                "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                "userMessageId": 29
+              },
+              "draftSource": "user_literal",
+              "draftContent": "Ahoj",
+              "chatTiming": {
+                "totalMs": 4184,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4184.963097
+      }
+    },
+    {
+      "id": "gpu-composite-repeat-8",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "33802f90-c105-4c1c-bd55-a82508a0a116",
+          "conversationId": "conv-1790945965674-2mhssoei3",
+          "turnId": "e30e1518-d39c-4c92-a003-5a2cd1120a89",
+          "status": "ok",
+          "response": {
+            "content": "Nastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "hardware",
+                    "request": "sniž napětí GPU na polovinu",
+                    "textRequest": null,
+                    "recipient": null,
+                    "literalBody": null,
+                    "needsClarification": true,
+                    "quantity": null
+                  },
+                  "briefResponse": true,
+                  "classificationTimeMs": 3960,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 3961,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "hardware",
+                "reportedBy": "application",
+                "requestedAction": "sniž napětí GPU na polovinu",
+                "userMessageId": 31
+              },
+              "chatTiming": {
+                "totalMs": 3963,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 3964.228390999997
+      }
+    },
+    {
+      "id": "recipient-bob-repeat-9",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "89388018-7965-4866-a932-f0bc0e5efee6",
+          "conversationId": "conv-1790945969649-4716c3rzo",
+          "turnId": "2b951c66-95fb-4f0d-8bea-4422922c7221",
+          "status": "ok",
+          "response": {
+            "content": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "mail",
+                    "request": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                    "textRequest": null,
+                    "recipient": "bob@example.test",
+                    "literalBody": "Ahoj",
+                    "needsClarification": false,
+                    "quantity": null
+                  },
+                  "classificationTimeMs": 4161,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4162,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "mail",
+                "reportedBy": "application",
+                "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                "userMessageId": 33
+              },
+              "draftSource": "user_literal",
+              "draftContent": "Ahoj",
+              "chatTiming": {
+                "totalMs": 4196,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4197.503604999991
+      }
+    },
+    {
+      "id": "gpu-composite-repeat-9",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "87088891-8016-4253-b720-f41e34c46289",
+          "conversationId": "conv-1790945973853-6lx7tnwzq",
+          "turnId": "8ff66892-4d0f-4355-ad03-d48f1c2979b5",
+          "status": "ok",
+          "response": {
+            "content": "Nastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "hardware",
+                    "request": "sniž napětí GPU na polovinu",
+                    "textRequest": null,
+                    "recipient": null,
+                    "literalBody": null,
+                    "needsClarification": true,
+                    "quantity": null
+                  },
+                  "briefResponse": true,
+                  "classificationTimeMs": 4132,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4132,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "hardware",
+                "reportedBy": "application",
+                "requestedAction": "sniž napětí GPU na polovinu",
+                "userMessageId": 35
+              },
+              "chatTiming": {
+                "totalMs": 4134,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4134.642357999997
+      }
+    },
+    {
+      "id": "recipient-bob-repeat-10",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "e94f0aa1-0848-48d0-9de7-3416f33404d5",
+          "conversationId": "conv-1790945977999-xyxbcorgb",
+          "turnId": "e807bc66-4dfc-4356-bd6d-044666cc884e",
+          "status": "ok",
+          "response": {
+            "content": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "mail",
+                    "request": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                    "textRequest": null,
+                    "recipient": "bob@example.test",
+                    "literalBody": "Ahoj",
+                    "needsClarification": false,
+                    "quantity": null
+                  },
+                  "classificationTimeMs": 4302,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4302,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "mail",
+                "reportedBy": "application",
+                "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                "userMessageId": 37
+              },
+              "draftSource": "user_literal",
+              "draftContent": "Ahoj",
+              "chatTiming": {
+                "totalMs": 4305,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4305.7857670000085
+      }
+    },
+    {
+      "id": "gpu-composite-repeat-10",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "4db2af60-0f45-4c5a-9417-8161e6500bf6",
+          "conversationId": "conv-1790945982316-6oyb18ipy",
+          "turnId": "8d55afbc-d0c2-4991-bc80-2066995cd341",
+          "status": "ok",
+          "response": {
+            "content": "Nastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota veličiny na polovinu, včetně jednotek?",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "hardware",
+                    "request": "sniž napětí GPU na polovinu",
+                    "textRequest": null,
+                    "recipient": null,
+                    "literalBody": null,
+                    "needsClarification": true,
+                    "quantity": "na polovinu"
+                  },
+                  "briefResponse": true,
+                  "classificationTimeMs": 4185,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4186,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "hardware",
+                "reportedBy": "application",
+                "requestedAction": "sniž napětí GPU na polovinu",
+                "userMessageId": 39
+              },
+              "chatTiming": {
+                "totalMs": 4188,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4188.779005999997
+      }
+    },
+    {
+      "id": "recipient-bob-repeat-11",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "d11888e4-62a5-4866-aca7-6bdc9659f3be",
+          "conversationId": "conv-1790945986517-o82ewk4gb",
+          "turnId": "3bc8d3e6-7abe-4dc5-80a9-a92b581874de",
+          "status": "ok",
+          "response": {
+            "content": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "mail",
+                    "request": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                    "textRequest": null,
+                    "recipient": "bob@example.test",
+                    "literalBody": "Ahoj",
+                    "needsClarification": false,
+                    "quantity": null
+                  },
+                  "classificationTimeMs": 4245,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4246,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "mail",
+                "reportedBy": "application",
+                "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                "userMessageId": 41
+              },
+              "draftSource": "user_literal",
+              "draftContent": "Ahoj",
+              "chatTiming": {
+                "totalMs": 4248,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4249.5196
+      }
+    },
+    {
+      "id": "gpu-composite-repeat-11",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "39c8fd8c-0e3e-4d7a-8611-b63dd43f9446",
+          "conversationId": "conv-1790945990779-n358omfny",
+          "turnId": "911dee2e-2a54-4ac8-9f32-851dbbc26a8b",
+          "status": "ok",
+          "response": {
+            "content": "Nastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "hardware",
+                    "request": "sniž napětí GPU na polovinu",
+                    "textRequest": null,
+                    "recipient": null,
+                    "literalBody": null,
+                    "needsClarification": true,
+                    "quantity": null
+                  },
+                  "briefResponse": true,
+                  "classificationTimeMs": 4106,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4107,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "hardware",
+                "reportedBy": "application",
+                "requestedAction": "sniž napětí GPU na polovinu",
+                "userMessageId": 43
+              },
+              "chatTiming": {
+                "totalMs": 4109,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4110.144165999998
+      }
+    },
+    {
+      "id": "recipient-bob-repeat-12",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "bad1c10c-a577-47a5-bd56-4664a28ac0d0",
+          "conversationId": "conv-1790945994902-a1zxpvr7f",
+          "turnId": "7aeebbda-74b3-4113-a836-82a62d41a51b",
+          "status": "ok",
+          "response": {
+            "content": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "mail",
+                    "request": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                    "textRequest": null,
+                    "recipient": "bob@example.test",
+                    "literalBody": "Ahoj",
+                    "needsClarification": false,
+                    "quantity": null
+                  },
+                  "classificationTimeMs": 4308,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4309,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "mail",
+                "reportedBy": "application",
+                "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                "userMessageId": 45
+              },
+              "draftSource": "user_literal",
+              "draftContent": "Ahoj",
+              "chatTiming": {
+                "totalMs": 4311,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4312.417017
+      }
+    },
+    {
+      "id": "gpu-composite-repeat-12",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "fa98effe-eb85-405a-978b-b8de7b00cd80",
+          "conversationId": "conv-1790945999231-qg6ol9dhf",
+          "turnId": "3567899a-c8ff-4449-8f90-aad41163f4ba",
+          "status": "ok",
+          "response": {
+            "content": "Nastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "hardware",
+                    "request": "sniž napětí GPU na polovinu",
+                    "textRequest": null,
+                    "recipient": null,
+                    "literalBody": null,
+                    "needsClarification": true,
+                    "quantity": null
+                  },
+                  "briefResponse": true,
+                  "classificationTimeMs": 4173,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4173,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "hardware",
+                "reportedBy": "application",
+                "requestedAction": "sniž napětí GPU na polovinu",
+                "userMessageId": 47
+              },
+              "chatTiming": {
+                "totalMs": 4176,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4177.120720000006
+      }
+    },
+    {
+      "id": "recipient-bob-repeat-13",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "c502d515-b253-4f0e-8c49-e1973556b465",
+          "conversationId": "conv-1790946003423-bxn2xito8",
+          "turnId": "323211a1-8f1a-4a12-992d-49b0690e01aa",
+          "status": "ok",
+          "response": {
+            "content": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "mail",
+                    "request": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                    "textRequest": null,
+                    "recipient": "bob@example.test",
+                    "literalBody": "Ahoj",
+                    "needsClarification": false,
+                    "quantity": null
+                  },
+                  "classificationTimeMs": 4394,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4394,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "mail",
+                "reportedBy": "application",
+                "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                "userMessageId": 49
+              },
+              "draftSource": "user_literal",
+              "draftContent": "Ahoj",
+              "chatTiming": {
+                "totalMs": 4397,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4398.422963999998
+      }
+    },
+    {
+      "id": "gpu-composite-repeat-13",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "4247bd8d-4e4d-4d76-befe-e8ae8b298e3f",
+          "conversationId": "conv-1790946007836-pwqous1ej",
+          "turnId": "0297ccde-bb61-447a-b6d6-f34788c1a79d",
+          "status": "ok",
+          "response": {
+            "content": "Nastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "hardware",
+                    "request": "sniž napětí GPU na polovinu",
+                    "textRequest": null,
+                    "recipient": null,
+                    "literalBody": null,
+                    "needsClarification": true,
+                    "quantity": null
+                  },
+                  "briefResponse": true,
+                  "classificationTimeMs": 4052,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4052,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "hardware",
+                "reportedBy": "application",
+                "requestedAction": "sniž napětí GPU na polovinu",
+                "userMessageId": 51
+              },
+              "chatTiming": {
+                "totalMs": 4054,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4055.2248450000043
+      }
+    },
+    {
+      "id": "recipient-bob-repeat-14",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "ff3e4432-1f35-4d4c-ab86-bf594f49ea47",
+          "conversationId": "conv-1790946011930-k7562muak",
+          "turnId": "c41307e8-feb8-420f-b728-5d97c9636442",
+          "status": "ok",
+          "response": {
+            "content": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "mail",
+                    "request": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                    "textRequest": null,
+                    "recipient": "bob@example.test",
+                    "literalBody": "Ahoj",
+                    "needsClarification": false,
+                    "quantity": null
+                  },
+                  "classificationTimeMs": 4496,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4496,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "mail",
+                "reportedBy": "application",
+                "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                "userMessageId": 53
+              },
+              "draftSource": "user_literal",
+              "draftContent": "Ahoj",
+              "chatTiming": {
+                "totalMs": 4499,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4499.7112669999915
+      }
+    },
+    {
+      "id": "gpu-composite-repeat-14",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "0dcddfa6-530c-4235-b2ef-3ab62f02e841",
+          "conversationId": "conv-1790946016472-nml0rz865",
+          "turnId": "61095e8c-6252-4a73-9d38-8e9c8eb69b15",
+          "status": "ok",
+          "response": {
+            "content": "Nastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "hardware",
+                    "request": "sniž napětí GPU na polovinu",
+                    "textRequest": null,
+                    "recipient": null,
+                    "literalBody": null,
+                    "needsClarification": true,
+                    "quantity": null
+                  },
+                  "briefResponse": true,
+                  "classificationTimeMs": 4367,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4367,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "hardware",
+                "reportedBy": "application",
+                "requestedAction": "sniž napětí GPU na polovinu",
+                "userMessageId": 55
+              },
+              "chatTiming": {
+                "totalMs": 4369,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4370.208503000002
+      }
+    },
+    {
+      "id": "recipient-bob-repeat-15",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "94ecb63b-3dee-49c2-bf46-f7a2eacfc527",
+          "conversationId": "conv-1790946020853-n3t4u0mzc",
+          "turnId": "a4eab681-3084-4af3-bbe7-3df1434a008e",
+          "status": "ok",
+          "response": {
+            "content": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "mail",
+                    "request": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                    "textRequest": null,
+                    "recipient": "bob@example.test",
+                    "literalBody": "Ahoj",
+                    "needsClarification": false,
+                    "quantity": null
+                  },
+                  "classificationTimeMs": 4610,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4611,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "mail",
+                "reportedBy": "application",
+                "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                "userMessageId": 57
+              },
+              "draftSource": "user_literal",
+              "draftContent": "Ahoj",
+              "chatTiming": {
+                "totalMs": 4613,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4613.653926000014
+      }
+    },
+    {
+      "id": "gpu-composite-repeat-15",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "6192c33e-ce8f-4fdf-b576-834078dca835",
+          "conversationId": "conv-1790946025478-swct7reo6",
+          "turnId": "2772f0dd-bc76-4c77-989f-e49a436f5c80",
+          "status": "ok",
+          "response": {
+            "content": "RAM je rychlá dočasná paměť pro běžící programy, která ztrácí data při vypnutí počítače. Disk slouží k trvalému ukládání dat i po vypnutí zařízení, ale má pomalejší přístup než RAM.\n\nNastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?",
+            "metadata": {
+              "model": "qwen3.5:27b",
+              "duration": 3831,
+              "finishReason": "stop",
+              "answerBudget": {
+                "maxTokens": 384,
+                "numCtx": 4096,
+                "historyTurns": 1
+              },
+              "answerRetries": 0,
+              "answerTiming": {
+                "promptMs": 3,
+                "generationAndChecksMs": 3839,
+                "attempts": 1
+              },
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "hardware",
+                    "request": "sniž napětí GPU na polovinu",
+                    "textRequest": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem.",
+                    "recipient": null,
+                    "literalBody": null,
+                    "needsClarification": true,
+                    "quantity": null
+                  },
+                  "briefResponse": true,
+                  "classificationTimeMs": 4908,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4909,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "hardware",
+                "reportedBy": "application",
+                "requestedAction": "sniž napětí GPU na polovinu",
+                "userMessageId": 59
+              },
+              "independentTextRequest": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem.",
+              "chatTiming": {
+                "totalMs": 8753,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 8754.343303000001
+      }
+    },
+    {
+      "id": "recipient-bob-repeat-16",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "6446df3b-7828-47ca-abab-728e7f1a0d4a",
+          "conversationId": "conv-1790946034294-9fm25yqi3",
+          "turnId": "5e8f5f80-c5bc-464f-b365-bec3f4d0f619",
+          "status": "ok",
+          "response": {
+            "content": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "mail",
+                    "request": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                    "textRequest": null,
+                    "recipient": "bob@example.test",
+                    "literalBody": "Ahoj",
+                    "needsClarification": false,
+                    "quantity": null
+                  },
+                  "classificationTimeMs": 4785,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4786,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "mail",
+                "reportedBy": "application",
+                "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                "userMessageId": 61
+              },
+              "draftSource": "user_literal",
+              "draftContent": "Ahoj",
+              "chatTiming": {
+                "totalMs": 4788,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4789.07564700002
+      }
+    },
+    {
+      "id": "gpu-composite-repeat-16",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "cba12963-16b2-4e1f-8dc8-324a5bdd5e35",
+          "conversationId": "conv-1790946039099-bnuus1m85",
+          "turnId": "ed929908-1bf8-46f2-80bc-8b2ae8d8ef93",
+          "status": "ok",
+          "response": {
+            "content": "Nastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "hardware",
+                    "request": "sniž napětí GPU na polovinu",
+                    "textRequest": null,
+                    "recipient": null,
+                    "literalBody": null,
+                    "needsClarification": true,
+                    "quantity": null
+                  },
+                  "briefResponse": true,
+                  "classificationTimeMs": 4423,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4423,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "hardware",
+                "reportedBy": "application",
+                "requestedAction": "sniž napětí GPU na polovinu",
+                "userMessageId": 63
+              },
+              "chatTiming": {
+                "totalMs": 4426,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4426.798949000018
+      }
+    },
+    {
+      "id": "recipient-bob-repeat-17",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "248dc238-c3f8-4512-a35c-2ce58130e03d",
+          "conversationId": "conv-1790946043543-p9w38dqcf",
+          "turnId": "16a1024a-f0a3-493a-8b77-6fbf7690daa4",
+          "status": "ok",
+          "response": {
+            "content": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "mail",
+                    "request": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                    "textRequest": null,
+                    "recipient": "bob@example.test",
+                    "literalBody": "Ahoj",
+                    "needsClarification": false,
+                    "quantity": null
+                  },
+                  "classificationTimeMs": 4698,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4698,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "mail",
+                "reportedBy": "application",
+                "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                "userMessageId": 65
+              },
+              "draftSource": "user_literal",
+              "draftContent": "Ahoj",
+              "chatTiming": {
+                "totalMs": 4700,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4701.528940999997
+      }
+    },
+    {
+      "id": "gpu-composite-repeat-17",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "41fe0d25-a0c5-4059-bc2d-f0d6324b004e",
+          "conversationId": "conv-1790946048273-epplji73x",
+          "turnId": "7890df82-a3df-4d76-8368-fd972bdb6f46",
+          "status": "ok",
+          "response": {
+            "content": "Nastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "hardware",
+                    "request": "sniž napětí GPU na polovinu",
+                    "textRequest": null,
+                    "recipient": null,
+                    "literalBody": null,
+                    "needsClarification": true,
+                    "quantity": null
+                  },
+                  "briefResponse": true,
+                  "classificationTimeMs": 4305,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4305,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "hardware",
+                "reportedBy": "application",
+                "requestedAction": "sniž napětí GPU na polovinu",
+                "userMessageId": 67
+              },
+              "chatTiming": {
+                "totalMs": 4308,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4309.534125000006
+      }
+    },
+    {
+      "id": "recipient-bob-repeat-18",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "e7140dda-c862-4d99-bfb9-02e636af6440",
+          "conversationId": "conv-1790946052619-0hu712mwu",
+          "turnId": "a5d9d6f8-3beb-41f8-b6bb-acd3a81e65dc",
+          "status": "ok",
+          "response": {
+            "content": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "mail",
+                    "request": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                    "textRequest": null,
+                    "recipient": "bob@example.test",
+                    "literalBody": "Ahoj",
+                    "needsClarification": false,
+                    "quantity": null
+                  },
+                  "classificationTimeMs": 4469,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4470,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "mail",
+                "reportedBy": "application",
+                "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                "userMessageId": 69
+              },
+              "draftSource": "user_literal",
+              "draftContent": "Ahoj",
+              "chatTiming": {
+                "totalMs": 4471,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4472.264175999997
+      }
+    },
+    {
+      "id": "gpu-composite-repeat-18",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "3d9189c7-1ba6-4a38-87df-5fc32d3e4b1d",
+          "conversationId": "conv-1790946057107-6g2hdg2ms",
+          "turnId": "b940b532-b4c6-4a82-93d6-0d05b81253ea",
+          "status": "ok",
+          "response": {
+            "content": "Nastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota veličiny na polovinu, včetně jednotek?",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "hardware",
+                    "request": "sniž napětí GPU na polovinu",
+                    "textRequest": null,
+                    "recipient": null,
+                    "literalBody": null,
+                    "needsClarification": true,
+                    "quantity": "na polovinu"
+                  },
+                  "briefResponse": true,
+                  "classificationTimeMs": 4476,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4476,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "hardware",
+                "reportedBy": "application",
+                "requestedAction": "sniž napětí GPU na polovinu",
+                "userMessageId": 71
+              },
+              "chatTiming": {
+                "totalMs": 4491,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4492.395483
+      }
+    },
+    {
+      "id": "recipient-bob-repeat-19",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "fb262693-1e32-46fb-8471-50e5b04a2021",
+          "conversationId": "conv-1790946061616-4w3onbj3b",
+          "turnId": "6913cc85-d2b0-4b12-8ada-5e799c1b374b",
+          "status": "ok",
+          "response": {
+            "content": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "mail",
+                    "request": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                    "textRequest": null,
+                    "recipient": "bob@example.test",
+                    "literalBody": "Ahoj",
+                    "needsClarification": false,
+                    "quantity": null
+                  },
+                  "classificationTimeMs": 4342,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4342,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "mail",
+                "reportedBy": "application",
+                "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                "userMessageId": 73
+              },
+              "draftSource": "user_literal",
+              "draftContent": "Ahoj",
+              "chatTiming": {
+                "totalMs": 4349,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4349.9499129999895
+      }
+    },
+    {
+      "id": "gpu-composite-repeat-19",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "7c5aaeae-6858-44c8-98d3-4b29e6d5528e",
+          "conversationId": "conv-1790946065981-ynnxwpzxi",
+          "turnId": "693471f4-4f91-48e6-887e-f08ca1a8706c",
+          "status": "ok",
+          "response": {
+            "content": "Nastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota veličiny na polovinu, včetně jednotek?",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "hardware",
+                    "request": "sniž napětí GPU na polovinu",
+                    "textRequest": null,
+                    "recipient": null,
+                    "literalBody": null,
+                    "needsClarification": true,
+                    "quantity": "na polovinu"
+                  },
+                  "briefResponse": true,
+                  "classificationTimeMs": 4146,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4146,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "hardware",
+                "reportedBy": "application",
+                "requestedAction": "sniž napětí GPU na polovinu",
+                "userMessageId": 75
+              },
+              "chatTiming": {
+                "totalMs": 4149,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4149.664519999991
+      }
+    },
+    {
+      "id": "recipient-bob-repeat-20",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "b17ed152-b2bd-4404-ad9d-000bf6d992cc",
+          "conversationId": "conv-1790946070150-0wiwi005k",
+          "turnId": "320c62ff-c596-49c9-889a-601fbe887101",
+          "status": "ok",
+          "response": {
+            "content": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "mail",
+                    "request": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                    "textRequest": null,
+                    "recipient": "bob@example.test",
+                    "literalBody": "Ahoj",
+                    "needsClarification": false,
+                    "quantity": null
+                  },
+                  "classificationTimeMs": 4215,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4216,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "mail",
+                "reportedBy": "application",
+                "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+                "userMessageId": 77
+              },
+              "draftSource": "user_literal",
+              "draftContent": "Ahoj",
+              "chatTiming": {
+                "totalMs": 4219,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4219.957506999985
+      }
+    },
+    {
+      "id": "gpu-composite-repeat-20",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "B": {
+        "status": 200,
+        "result": {
+          "contract": "ConversationResult",
+          "version": 1,
+          "requestId": "46e87d88-868a-401c-a511-ad5b6bf0159d",
+          "conversationId": "conv-1790946074431-7k9xpz4mq",
+          "turnId": "93eaba20-ab05-4c13-b29d-1e36e27fc66e",
+          "status": "ok",
+          "response": {
+            "content": "Nastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?",
+            "metadata": {
+              "decision": {
+                "type": "ANSWER",
+                "intent": "CONVERSATIONAL",
+                "tools": [],
+                "slots": [],
+                "reason": "Pure conversational input - direct response allowed",
+                "confidence": 0.9,
+                "metadata": {
+                  "contextualInterpretation": true,
+                  "continuesPending": false,
+                  "responseScope": "conversation",
+                  "requestedOperation": "other",
+                  "unavailableAction": {
+                    "kind": "hardware",
+                    "request": "sniž napětí GPU na polovinu",
+                    "textRequest": null,
+                    "recipient": null,
+                    "literalBody": null,
+                    "needsClarification": true,
+                    "quantity": null
+                  },
+                  "briefResponse": true,
+                  "classificationTimeMs": 4120,
+                  "classifiedBy": "llm",
+                  "llmConfidence": 0.95,
+                  "decideTimeMs": 4121,
+                  "deferredIntent": null,
+                  "diag": {
+                    "initialIntent": "CONVERSATIONAL",
+                    "finalIntent": "CONVERSATIONAL",
+                    "isIntentBreak": false,
+                    "lastIntent": null,
+                    "followUp": null,
+                    "overrides": null,
+                    "deferredIntent": null
+                  }
+                },
+                "attempts": 0
+              },
+              "executionStatus": {
+                "state": "not_executed",
+                "reason": "adapter_unavailable",
+                "capability": "hardware",
+                "reportedBy": "application",
+                "requestedAction": "sniž napětí GPU na polovinu",
+                "userMessageId": 79
+              },
+              "chatTiming": {
+                "totalMs": 4122,
+                "compactionWaitMs": 0
+              },
+              "mode": "conversation",
+              "confidence": 1
+            }
+          }
+        },
+        "elapsedMs": 4122.992789999989
+      }
+    }
+  ]
+}

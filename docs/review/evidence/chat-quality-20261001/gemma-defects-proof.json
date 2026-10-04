@@ -1,0 +1,819 @@
+{
+  "sourceRevision": "d096aa4981b44c69ab3b4454a93575039dd703ea",
+  "runId": "d93ce35c-0bed-4e4f-8005-61cc7c1d5091",
+  "recordSha256": "5da52e21ecd7a768047bb4b0e53193c393eda05a2eb3938f994777a00759afe3",
+  "model": "gemma4:26b",
+  "modelDigest": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68",
+  "assessment": "OWN_SEMANTIC_REVIEW_EXPOSED_REGRESSION_NOT_ACCEPTANCE",
+  "criteria": "Exact user literal and application not_executed status for mail; two correct sentences separating volatile RAM and persistent disk, preserved GPU request and targeted question; no effects",
+  "result": {
+    "mailApplicationCorrect": 20,
+    "gpuApplicationCorrect": 20,
+    "ownUseful": 40,
+    "total": 40,
+    "criticalErrors": 0
+  },
+  "limitation": "Exposed two-input sample; deterministic mail drafts; reviewer is implementing worker; grammatical quality issues remain; not independent holdout or proof of global quality",
+  "cases": [
+    {
+      "id": "recipient-bob-repeat-1",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "response": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+      "responseSha256": "27c6c936f0915076a4280e6b21a2627bc2132547e62a61ad4bfc9265a8701fdc",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "mail",
+        "reportedBy": "application",
+        "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+        "userMessageId": 1
+      },
+      "inferenceCalls": 1,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": null
+    },
+    {
+      "id": "gpu-composite-repeat-1",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "response": "RAM je rychlá pracovní paměť pro aktuálně běžící procesy, která se po vypnutí napájení vymaže. Disk slouží k trvalému ukládání dat a souborů, které zůstávají zachovány i bez electricity.\n\nNastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?\n```text\nsniž napětí GPU na polovinu\n```",
+      "responseSha256": "cc2b64bc379c32e42fac19c6de1c83c4840ee8ddd149e14293506ac7acef8537",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "hardware",
+        "reportedBy": "application",
+        "requestedAction": "sniž napětí GPU na polovinu",
+        "userMessageId": 3
+      },
+      "inferenceCalls": 2,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": "English word electricity inside Czech explanation"
+    },
+    {
+      "id": "recipient-bob-repeat-2",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "response": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+      "responseSha256": "27c6c936f0915076a4280e6b21a2627bc2132547e62a61ad4bfc9265a8701fdc",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "mail",
+        "reportedBy": "application",
+        "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+        "userMessageId": 5
+      },
+      "inferenceCalls": 1,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": null
+    },
+    {
+      "id": "gpu-composite-repeat-2",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "response": "RAM je rychlá pracovní paměť pro běžící procesy a data, která se při vypnutí napájení vymažou. Disk slouží k trvalému ukládání souborů a operačního systému, přičemž data v něm zůstávají i bez elektřiny.\n\nNastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?\n```text\nsniž napětí GPU na polovinu\n```",
+      "responseSha256": "1683acedc1e382c21c1e541a1f2754347fde233503601a70019612e0f1ae9e46",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "hardware",
+        "reportedBy": "application",
+        "requestedAction": "sniž napětí GPU na polovinu",
+        "userMessageId": 7
+      },
+      "inferenceCalls": 2,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": null
+    },
+    {
+      "id": "recipient-bob-repeat-3",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "response": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+      "responseSha256": "27c6c936f0915076a4280e6b21a2627bc2132547e62a61ad4bfc9265a8701fdc",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "mail",
+        "reportedBy": "application",
+        "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+        "userMessageId": 9
+      },
+      "inferenceCalls": 1,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": null
+    },
+    {
+      "id": "gpu-composite-repeat-3",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "response": "RAM je dočasná operační paměť, která slouží k rychlému ukládání dat pro aktuálně běžící procesy a po vypnutí napájení se vymaže. Disk je trvalý úložišťem, kde jsou data i po ukončení práce bezpečně uložena pro budoucí použití.\n\nNastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?\n```text\nsniž napětí GPU na polovinu\n```",
+      "responseSha256": "06796e5ad9d64e6e3587af536b39237f78bab3cb86d2516332bbd650f6c9a886",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "hardware",
+        "reportedBy": "application",
+        "requestedAction": "sniž napětí GPU na polovinu",
+        "userMessageId": 11
+      },
+      "inferenceCalls": 2,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": "Minor Czech declension errors"
+    },
+    {
+      "id": "recipient-bob-repeat-4",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "response": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+      "responseSha256": "27c6c936f0915076a4280e6b21a2627bc2132547e62a61ad4bfc9265a8701fdc",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "mail",
+        "reportedBy": "application",
+        "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+        "userMessageId": 13
+      },
+      "inferenceCalls": 1,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": null
+    },
+    {
+      "id": "gpu-composite-repeat-4",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "response": "RAM je dočasná paměť pro rychlé ukládání dat, která se při vypnutí počítače vymaže. Disk slouží k trvalému ukládání souborů a operačního systému, i když není zařízení napájeno.\n\nNastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?\n```text\nsniž napětí GPU na polovinu\n```",
+      "responseSha256": "b1ec4f41367043a5ad28dfef494471f188f34700778c89158404437aabc11b19",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "hardware",
+        "reportedBy": "application",
+        "requestedAction": "sniž napětí GPU na polovinu",
+        "userMessageId": 15
+      },
+      "inferenceCalls": 2,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": null
+    },
+    {
+      "id": "recipient-bob-repeat-5",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "response": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+      "responseSha256": "27c6c936f0915076a4280e6b21a2627bc2132547e62a61ad4bfc9265a8701fdc",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "mail",
+        "reportedBy": "application",
+        "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+        "userMessageId": 17
+      },
+      "inferenceCalls": 1,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": null
+    },
+    {
+      "id": "gpu-composite-repeat-5",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "response": "RAM je dočasná pracovní paměť, která slouží k rychlému uchovávání dat pro běžící procesy a po vypnutí počítače se vymaže. Disk je trvalý úložišťem, kde jsou data a soubory bezpečně uložena i po ukončení napájení zařízení.\n\nNastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?\n```text\nsniž napětí GPU na polovinu\n```",
+      "responseSha256": "a53c2c4719dfe973702f98ee758b497e9151e739b897446aa825636fe744906c",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "hardware",
+        "reportedBy": "application",
+        "requestedAction": "sniž napětí GPU na polovinu",
+        "userMessageId": 19
+      },
+      "inferenceCalls": 2,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": "Minor Czech declension errors"
+    },
+    {
+      "id": "recipient-bob-repeat-6",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "response": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+      "responseSha256": "27c6c936f0915076a4280e6b21a2627bc2132547e62a61ad4bfc9265a8701fdc",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "mail",
+        "reportedBy": "application",
+        "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+        "userMessageId": 21
+      },
+      "inferenceCalls": 1,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": null
+    },
+    {
+      "id": "gpu-composite-repeat-6",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "response": "RAM je dočasná operační paměť, která slouží k rychlému ukládání dat pro aktuálně běžící procesy a při vypnutí počítače se vymaže. Disk je trvalý úložišťem, kde jsou data i po ukončení napájení bezpečně uložena pro pozdější použití.\n\nNastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?\n```text\nsniž napětí GPU na polovinu\n```",
+      "responseSha256": "226736a271da9302465095273bea082b8b2e1a971793152fc3fd2a5b275416e4",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "hardware",
+        "reportedBy": "application",
+        "requestedAction": "sniž napětí GPU na polovinu",
+        "userMessageId": 23
+      },
+      "inferenceCalls": 2,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": "Minor Czech declension errors"
+    },
+    {
+      "id": "recipient-bob-repeat-7",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "response": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+      "responseSha256": "27c6c936f0915076a4280e6b21a2627bc2132547e62a61ad4bfc9265a8701fdc",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "mail",
+        "reportedBy": "application",
+        "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+        "userMessageId": 25
+      },
+      "inferenceCalls": 1,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": null
+    },
+    {
+      "id": "gpu-composite-repeat-7",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "response": "RAM slouží jako rychlá dočasná paměť pro data, která procesor právě využívá, a při vypnutí napájení její obsah zaniká. Disk je naopak trvalý úložiště pro soubory a operační systém, které zůstávají uložené i bez elektrické energie.\n\nNastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?\n```text\nsniž napětí GPU na polovinu\n```",
+      "responseSha256": "82b3e0c1df74b24496a4fb4e496cd293fee8313e2463f3286a2712ad22ad8154",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "hardware",
+        "reportedBy": "application",
+        "requestedAction": "sniž napětí GPU na polovinu",
+        "userMessageId": 27
+      },
+      "inferenceCalls": 2,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": "Minor Czech declension errors"
+    },
+    {
+      "id": "recipient-bob-repeat-8",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "response": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+      "responseSha256": "27c6c936f0915076a4280e6b21a2627bc2132547e62a61ad4bfc9265a8701fdc",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "mail",
+        "reportedBy": "application",
+        "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+        "userMessageId": 29
+      },
+      "inferenceCalls": 1,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": null
+    },
+    {
+      "id": "gpu-composite-repeat-8",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "response": "RAM je dočasná operační paměť, která slouží k rychlému ukládání dat pro běžící procesy a při vypnutí počítače se vymaže. Disk je trvalý úložišťem, kde jsou data uložena i po ukončení napájení, ale jeho přístup je výrazně pomalejší než u RAM.\n\nNastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?\n```text\nsniž napětí GPU na polovinu\n```",
+      "responseSha256": "86f3851917cfb91e27c8a213449a116c9f7c2542272ba2aaea01c72471a69d54",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "hardware",
+        "reportedBy": "application",
+        "requestedAction": "sniž napětí GPU na polovinu",
+        "userMessageId": 31
+      },
+      "inferenceCalls": 2,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": "Minor Czech declension errors"
+    },
+    {
+      "id": "recipient-bob-repeat-9",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "response": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+      "responseSha256": "27c6c936f0915076a4280e6b21a2627bc2132547e62a61ad4bfc9265a8701fdc",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "mail",
+        "reportedBy": "application",
+        "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+        "userMessageId": 33
+      },
+      "inferenceCalls": 1,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": null
+    },
+    {
+      "id": "gpu-composite-repeat-9",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "response": "RAM je dočasná pracovní paměť, která slouží k rychlému ukládání dat pro aktuálně běžící procesy a po vypnutí napájení se její obsah vymaže. Disk je trvalý úložišťem, které uchovává soubory a operační systém i bez přítomnosti elektrické energie.\n\nNastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?\n```text\nsniž napětí GPU na polovinu\n```",
+      "responseSha256": "778b8c7f561e39fb78b69ffaf91e85d2e82d4d883132ef23bd2989e5979c142c",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "hardware",
+        "reportedBy": "application",
+        "requestedAction": "sniž napětí GPU na polovinu",
+        "userMessageId": 35
+      },
+      "inferenceCalls": 2,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": "Minor Czech declension errors"
+    },
+    {
+      "id": "recipient-bob-repeat-10",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "response": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+      "responseSha256": "27c6c936f0915076a4280e6b21a2627bc2132547e62a61ad4bfc9265a8701fdc",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "mail",
+        "reportedBy": "application",
+        "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+        "userMessageId": 37
+      },
+      "inferenceCalls": 1,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": null
+    },
+    {
+      "id": "gpu-composite-repeat-10",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "response": "RAM slouží jako dočasná pracovní paměť pro rychlý přístup k datům, která procesor právě využívá, ale po vypnutí napájení se její obsah smaže. Disk je naopak trvalé úložiště určené pro dlouhodobé ukládání souborů a operačního systému, které zůstává zachováno i bez electricity.\n\nNastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?\n```text\nsniž napětí GPU na polovinu\n```",
+      "responseSha256": "008531f0a41ff5d7e2ba5e514009dde4f63af4ce7fbe5a55e60e4748c45f00a1",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "hardware",
+        "reportedBy": "application",
+        "requestedAction": "sniž napětí GPU na polovinu",
+        "userMessageId": 39
+      },
+      "inferenceCalls": 2,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": "English word electricity inside Czech explanation"
+    },
+    {
+      "id": "recipient-bob-repeat-11",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "response": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+      "responseSha256": "27c6c936f0915076a4280e6b21a2627bc2132547e62a61ad4bfc9265a8701fdc",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "mail",
+        "reportedBy": "application",
+        "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+        "userMessageId": 41
+      },
+      "inferenceCalls": 1,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": null
+    },
+    {
+      "id": "gpu-composite-repeat-11",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "response": "RAM je dočasná operační paměť, která slouží k rychlému ukládání dat pro aktuálně běžící procesy a při vypnutí napájení se její obsah vymaže. Disk je trvalý úložišťem, kde jsou data i po ukončení provozu počítače bezpečně uložena, ale jeho přístupová rychlost je výrazně nižší než u RAM.\n\nNastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?\n```text\nsniž napětí GPU na polovinu\n```",
+      "responseSha256": "45909d55536a71dbe517493c11f218b785bd557521bf260b289391708be0986d",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "hardware",
+        "reportedBy": "application",
+        "requestedAction": "sniž napětí GPU na polovinu",
+        "userMessageId": 43
+      },
+      "inferenceCalls": 2,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": "Minor Czech declension errors"
+    },
+    {
+      "id": "recipient-bob-repeat-12",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "response": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+      "responseSha256": "27c6c936f0915076a4280e6b21a2627bc2132547e62a61ad4bfc9265a8701fdc",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "mail",
+        "reportedBy": "application",
+        "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+        "userMessageId": 45
+      },
+      "inferenceCalls": 1,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": null
+    },
+    {
+      "id": "gpu-composite-repeat-12",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "response": "RAM je dočasná paměť pro rychlé ukládání dat, která se po vypnutí počítače vymaže. Disk slouží k trvalému ukládání souborů a operačního systému i bez napájení.\n\nNastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?\n```text\nsniž napětí GPU na polovinu\n```",
+      "responseSha256": "fc1ba74df11c379242b2a07f9fac26d98d52005b63a6978e83180a9aa6d34b4a",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "hardware",
+        "reportedBy": "application",
+        "requestedAction": "sniž napětí GPU na polovinu",
+        "userMessageId": 47
+      },
+      "inferenceCalls": 2,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": null
+    },
+    {
+      "id": "recipient-bob-repeat-13",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "response": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+      "responseSha256": "27c6c936f0915076a4280e6b21a2627bc2132547e62a61ad4bfc9265a8701fdc",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "mail",
+        "reportedBy": "application",
+        "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+        "userMessageId": 49
+      },
+      "inferenceCalls": 1,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": null
+    },
+    {
+      "id": "gpu-composite-repeat-13",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "response": "RAM je dočasná paměť pro rychlé ukládání dat, která se při vypnutí počítače vymaže. Disk slouží k trvalému uložení souborů a operačního systému i bez napájení.\n\nNastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?\n```text\nsniž napětí GPU na polovinu\n```",
+      "responseSha256": "46d352c4d3783312dcc76628cef8158352098fac61f43f68bed0eb93345b431a",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "hardware",
+        "reportedBy": "application",
+        "requestedAction": "sniž napětí GPU na polovinu",
+        "userMessageId": 51
+      },
+      "inferenceCalls": 2,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": null
+    },
+    {
+      "id": "recipient-bob-repeat-14",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "response": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+      "responseSha256": "27c6c936f0915076a4280e6b21a2627bc2132547e62a61ad4bfc9265a8701fdc",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "mail",
+        "reportedBy": "application",
+        "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+        "userMessageId": 53
+      },
+      "inferenceCalls": 1,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": null
+    },
+    {
+      "id": "gpu-composite-repeat-14",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "response": "RAM je dočasná operační paměť s vysokou rychlostí, která slouží pro běh aktuálních procesů a ztrácí data po vypnutí. Disk je trvalý úložišťem dat, kde jsou uložená všechna soubory i operační systémy i bez napájení.\n\nNastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?\n```text\nsniž napětí GPU na polovinu\n```",
+      "responseSha256": "680f38b83b10362e29a5751c5b4166a8a182e4d5d963402d3d07f52d0093c82e",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "hardware",
+        "reportedBy": "application",
+        "requestedAction": "sniž napětí GPU na polovinu",
+        "userMessageId": 55
+      },
+      "inferenceCalls": 2,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": "Minor Czech declension errors"
+    },
+    {
+      "id": "recipient-bob-repeat-15",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "response": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+      "responseSha256": "27c6c936f0915076a4280e6b21a2627bc2132547e62a61ad4bfc9265a8701fdc",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "mail",
+        "reportedBy": "application",
+        "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+        "userMessageId": 57
+      },
+      "inferenceCalls": 1,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": null
+    },
+    {
+      "id": "gpu-composite-repeat-15",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "response": "RAM je dočasná paměť pro rychlé ukládání dat, která se při vypnutí počítače vymaže. Disk slouží k trvalému ukládání souborů a operačního systému i po ukončení napájení.\n\nNastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?\n```text\nsniž napětí GPU na polovinu\n```",
+      "responseSha256": "1a267b1a4a1ea54503f64ccc4fd53fb07e0a0785fd3b4e9be5115fc8253c3ae3",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "hardware",
+        "reportedBy": "application",
+        "requestedAction": "sniž napětí GPU na polovinu",
+        "userMessageId": 59
+      },
+      "inferenceCalls": 2,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": null
+    },
+    {
+      "id": "recipient-bob-repeat-16",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "response": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+      "responseSha256": "27c6c936f0915076a4280e6b21a2627bc2132547e62a61ad4bfc9265a8701fdc",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "mail",
+        "reportedBy": "application",
+        "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+        "userMessageId": 61
+      },
+      "inferenceCalls": 1,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": null
+    },
+    {
+      "id": "gpu-composite-repeat-16",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "response": "RAM je rychlá dočasná paměť, která slouží pro běh aktuálních procesů a při vypnutí počítače se vymaže. Disk je naopak trvalý úložiště dat, kde jsou uložená všechna vaše soubory i operační systém i po ukončení napájení.\n\nNastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?\n```text\nsniž napětí GPU na polovinu\n```",
+      "responseSha256": "7349802cc2505bb3e68eaa00a7eaa479c9f72fabacd9b7af2eeebc059f88508f",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "hardware",
+        "reportedBy": "application",
+        "requestedAction": "sniž napětí GPU na polovinu",
+        "userMessageId": 63
+      },
+      "inferenceCalls": 2,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": "Minor Czech declension errors"
+    },
+    {
+      "id": "recipient-bob-repeat-17",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "response": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+      "responseSha256": "27c6c936f0915076a4280e6b21a2627bc2132547e62a61ad4bfc9265a8701fdc",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "mail",
+        "reportedBy": "application",
+        "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+        "userMessageId": 65
+      },
+      "inferenceCalls": 1,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": null
+    },
+    {
+      "id": "gpu-composite-repeat-17",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "response": "RAM je rychlá operační paměť, která slouží k dočasnému ukládání dat pro aktuálně běžící procesy a po vypnutí počítače se vymaže. Disk je naopak permanentní úložiště určené pro dlouhodobé uchovávání souborů a operačního systému, i když je jeho přístupová rychlost nižší.\n\nNastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?\n```text\nsniž napětí GPU na polovinu\n```",
+      "responseSha256": "a9898b2d5d058f52b4ea36742c6586ef06db98c2d1476695e5b5734880327232",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "hardware",
+        "reportedBy": "application",
+        "requestedAction": "sniž napětí GPU na polovinu",
+        "userMessageId": 67
+      },
+      "inferenceCalls": 2,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": null
+    },
+    {
+      "id": "recipient-bob-repeat-18",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "response": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+      "responseSha256": "27c6c936f0915076a4280e6b21a2627bc2132547e62a61ad4bfc9265a8701fdc",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "mail",
+        "reportedBy": "application",
+        "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+        "userMessageId": 69
+      },
+      "inferenceCalls": 1,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": null
+    },
+    {
+      "id": "gpu-composite-repeat-18",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "response": "RAM je rychlá dočasná paměť, která slouží k ukládání dat pro aktuálně běžící procesy a její obsah se při vypnutí počítače smaže. Disk je trvalý úložišťem, kde jsou data uložena i po odpojení napájení, ale pracuje výrazně pomaleji než RAM.\n\nNastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?\n```text\nsniž napětí GPU na polovinu\n```",
+      "responseSha256": "2b6582e6815a367f7b91875178fb5bec383cdb6120a3e3045bca3ffc133e09a7",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "hardware",
+        "reportedBy": "application",
+        "requestedAction": "sniž napětí GPU na polovinu",
+        "userMessageId": 71
+      },
+      "inferenceCalls": 2,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": "Minor Czech declension errors"
+    },
+    {
+      "id": "recipient-bob-repeat-19",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "response": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+      "responseSha256": "27c6c936f0915076a4280e6b21a2627bc2132547e62a61ad4bfc9265a8701fdc",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "mail",
+        "reportedBy": "application",
+        "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+        "userMessageId": 73
+      },
+      "inferenceCalls": 1,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": null
+    },
+    {
+      "id": "gpu-composite-repeat-19",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "response": "RAM je dočasná operační paměť pro rychlé ukládání dat, která se při vypnutí počítače vymaže. Disk slouží k trvalému uložení souborů a operačního systému i po ukončení napájení.\n\nNastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?\n```text\nsniž napětí GPU na polovinu\n```",
+      "responseSha256": "b6d9ce55da77b2e05d36a389a7991f9c754425874c02dbe190ff14e7569c29da",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "hardware",
+        "reportedBy": "application",
+        "requestedAction": "sniž napětí GPU na polovinu",
+        "userMessageId": 75
+      },
+      "inferenceCalls": 2,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": null
+    },
+    {
+      "id": "recipient-bob-repeat-20",
+      "input": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+      "response": "Neodeslal jsem — pošta není napojená.\n\nKoncept e-mailu (bob@example.test):\n```text\nAhoj\n```",
+      "responseSha256": "27c6c936f0915076a4280e6b21a2627bc2132547e62a61ad4bfc9265a8701fdc",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "mail",
+        "reportedBy": "application",
+        "requestedAction": "Pošli e-mail na bob@example.test s textem \"Ahoj\".",
+        "userMessageId": 77
+      },
+      "inferenceCalls": 1,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": null
+    },
+    {
+      "id": "gpu-composite-repeat-20",
+      "input": "Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.",
+      "response": "RAM je rychlá pracovní paměť pro dočasné ukládání dat, která se při vypnutí počítače vymaže. Disk slouží k trvalému ukládání souborů a operačního systému, i když není napájen.\n\nNastavení GPU jsem nezměnil — ovládání hardwaru není napojené.\n\nPro ruční postup: jaká je současná a cílová hodnota, včetně jednotek?\n```text\nsniž napětí GPU na polovinu\n```",
+      "responseSha256": "b49f4d62065681f6a6ba1895ac0311ebc0c22d9390cac60aa0869ef1994cccd3",
+      "executionStatus": {
+        "state": "not_executed",
+        "reason": "adapter_unavailable",
+        "capability": "hardware",
+        "reportedBy": "application",
+        "requestedAction": "sniž napětí GPU na polovinu",
+        "userMessageId": 79
+      },
+      "inferenceCalls": 2,
+      "effectsBeforeAndAfter": 0,
+      "filesUnchanged": true,
+      "useful": true,
+      "critical": false,
+      "languageNote": null
+    }
+  ]
+}

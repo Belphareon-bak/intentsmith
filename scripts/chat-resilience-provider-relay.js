@@ -4,7 +4,8 @@ import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 
-export function createChatResilienceProviderRelay({ out, upstream, model, wire, persistWire }) {
+export function createChatResilienceProviderRelay({ out, upstream, model, models = [model], wire, persistWire }) {
+  const allowedModels = new Set(models);
   const journal = fs.openSync(path.join(out, 'initial-provider-raw.jsonl'), 'wx', 0o600);
   const active = new Set();
   let sequence = 0;
@@ -92,7 +93,7 @@ export function createChatResilienceProviderRelay({ out, upstream, model, wire, 
       persist();
       const allowed = (request.method === 'GET' && ['/api/tags', '/api/ps', '/api/version'].includes(request.url))
         || (request.method === 'POST' && ['/api/chat', '/api/generate', '/api/show'].includes(request.url)
-          && (body?.model || body?.name) === model
+          && allowedModels.has(body?.model || body?.name)
           && !(request.url === '/api/generate' && body?.keep_alive === 0));
       if (!allowed) { finishError('OUT_OF_SCOPE provider request', 403); return; }
       row.timing.beforeUpstreamMs = performance.now() - began;

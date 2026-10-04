@@ -1,0 +1,93 @@
+{
+  "sourceRevision": "d096aa4981b44c69ab3b4454a93575039dd703ea",
+  "checks": [
+    {
+      "runId": "chat-gemma-focused-20261004-clean",
+      "sourceRevision": "d096aa4981b44c69ab3b4454a93575039dd703ea",
+      "reportSha256": "7f801a72f5cefdd1f0474617988c1af375ebf7d5d81af5bd6ecafa98a3d1ec1e",
+      "verdict": "PASS",
+      "counts": {
+        "PASS": 4,
+        "FAIL": 0,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "nonPASS": [],
+      "exitCode": 0
+    },
+    {
+      "runId": "chat-gemma-candidate-full-20261004",
+      "sourceRevision": "d096aa4981b44c69ab3b4454a93575039dd703ea",
+      "reportSha256": "a3de56adf641ec2e2c439c141e74841388097a5125224584ed720af7d8697744",
+      "verdict": "FAIL",
+      "counts": {
+        "PASS": 399,
+        "FAIL": 4,
+        "TIMEOUT": 0,
+        "BLOCKED": 3,
+        "SKIPPED": 0
+      },
+      "nonPASS": [
+        {
+          "id": "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-INTEGRATION-TEST",
+          "status": "BLOCKED",
+          "path": "tests/accountant-workflow-integration.test.js",
+          "reason": null
+        },
+        {
+          "id": "IS-T1-TESTS-ARTIFACT-VALIDATION",
+          "status": "FAIL",
+          "path": "tests/artifact-validation.test.js",
+          "reason": null
+        },
+        {
+          "id": "IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST",
+          "status": "BLOCKED",
+          "path": "tests/chat-export-budget.test.js",
+          "reason": null
+        },
+        {
+          "id": "IS-T1-TESTS-EXPORT-PDF-DOCX-TEST",
+          "status": "BLOCKED",
+          "path": "tests/export-pdf-docx.test.js",
+          "reason": null
+        },
+        {
+          "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST",
+          "status": "FAIL",
+          "path": "tests/m1-model-failover-schema.test.js",
+          "reason": null
+        },
+        {
+          "id": "IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST",
+          "status": "FAIL",
+          "path": "tests/m6-runtime-evidence.test.js",
+          "reason": null
+        },
+        {
+          "id": "IS-T1-TESTS-ROUTING-ACCURACY-TEST",
+          "status": "FAIL",
+          "path": "tests/routing-accuracy.test.js",
+          "reason": null
+        }
+      ],
+      "exitCode": 1
+    }
+  ],
+  "githubCI": {
+    "id": 37220582328,
+    "head_sha": "d096aa4981b44c69ab3b4454a93575039dd703ea",
+    "event": "push",
+    "head_branch": "integration/main-reconcile-chat-gemma-20261004",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/Belphareon-bak/intentsmith/actions/runs/37220582328",
+    "created_at": "2026-10-04T17:27:31Z",
+    "updated_at": "2026-10-04T17:28:42Z"
+  },
+  "scope": "CI is a development subset; the complete offline/database profile is FAIL",
+  "candidateBranch": "review/chat-quality-gemma-candidate-20261004",
+  "ciAlias": "integration/main-reconcile-chat-gemma-20261004",
+  "oldCandidateUnchanged": "c7f03d5687f65b1a2b50665f27b037e57b8516cd"
+}

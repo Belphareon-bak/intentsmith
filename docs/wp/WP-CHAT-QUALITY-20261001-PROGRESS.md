@@ -1,18 +1,51 @@
 # IntentSmith — průběh práce na kvalitě chatu
 
-Poslední aktualizace: **2. 10. 2026, 12:45 CEST**. Stav: **NO_GO / REVIEW_PENDING / CI_NOT_RUN**.
+Poslední aktualizace: **04. 10. 2026, 21:06 CEST**. Stav: **NO_GO / REVIEW_PENDING / CI_PASS_DEVELOPMENT_ONLY**.
 Dokument aktualizuji po každém dokončeném milníku, nejpozději po třech hodinách
 aktivní práce. Historická selhání zůstávají uvedena; nové ověření je nepřepisuje
 na úspěch. Nejde o plánovač úloh po ukončení této pracovní relace.
 
+Aktuální zmrazený kandidát s Gemmou (4. 10.):
+**`9591ea1b07bc4b639a102bcc421f9d46b8f9906b`**, pevná větev
+`review/chat-quality-gemma-candidate-20261004-v2`. CHAT `gemma4:26b`, digest
+`08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68`;
+D1 zůstává Qwen3.5 s vlastním ověřovaným digestem. Kandidát i oba artefakty
+jsou pevné, předchozí větve `c7f03d56` a `d096aa49` se neposunuly.
+Registry 592 PASS, cílený profil 4 PASS; úplných 406 kontrol:
+**399 PASS / 4 FAIL / 3 BLOCKED**, exit 1. [Skutečná GitHub CI](https://github.com/Belphareon-bak/intentsmith/actions/runs/37222976678)
+PASS na témže SHA; všechny vývojové job kroky úspěšné, není to celý profil.
+Syntetický runner 3×3 PASS, 6 přesně schválených efektů. Tři nezměněné
+regrese 53×3 jsou úplné; vlastní významové hodnocení **123/159 (77,36 %)**,
+**22/159 (13,84 %) zbytečných zastavení**, 0 nalezených kritických chyb.
+Angličtina 6/9, jazyková parita neprokázaná. Přejímka je stále **NO_GO**,
+nikoli přijatý rollout. Obě známé reprodukce 20× mají s Gemmou 40/40 vlastní
+užitečnost a 0 efektů; to neopravňuje k celkovému přijetí.
+Čistá úzká časová sonda stejné aplikace a stejných vstupů: Qwen 5,139 s →
+Gemma 1,972 s teplý medián, pouze jedno zadání a pět teplých opakování.
+Skutečný nezávislý holdout zůstává **SEALED / WAITING_OPERATOR_UNSEAL / NOT_RUN**.
+Privátní dešifrovaná cesta není předaná; zakázaný adresář nebyl zpřístupněn.
+Nové zadání přirozeného vstupu do D1 je reprodukované v S21. Jeho aplikační
+oprava čeká na doložení dokončení sběru skutečného holdoutu podle výslovného
+pořadí operátora; sběr mimo tento checkout je UNKNOWN, nikoli potvrzeně hotový.
+Následující hlavička a starší tabulky zachovávají historické Qwen důkazy.
+
 Větev: `work/chat-quality-20261001`. Společný výchozí commit:
-`45caf5b54b78def257221ac2ab33a64031800813`. Poslední testovaný implementační
-commit: **`0fad3823`** (7 cílených PASS, kontext 21/21, M1 74/74;
-celý profil 399 PASS / 4 FAIL / 3 BLOCKED). Živé archivní reprodukce na témže
-SHA mají 3/3 užitečných; úzká časová sonda má šest úplných odpovědí.
-S1 se vztahuje výhradně k `3b3b399f`, S2 k `6f0259ec`;
-vývojové kroky schopností k `c868fea3`. Tento dokument se publikuje následným dokumentačním
-commitem. Vlastní worktree: `intentsmith-chat-quality-20261001`.
+`45caf5b54b78def257221ac2ab33a64031800813`. Poslední testovaný aplikační
+commit: **`787ed6c98745568ad592420d2cafcfee3f448cad`**. Konečná známá
+reprodukce má 20/20 správných aplikačních e-mailů a 20/20 správně oddělených
+textových/GPU částí, 0 efektů; vlastní významové hodnocení 39/40 (jedna
+modelová věcná chyba). Celý profil: 399 PASS / 4 FAIL / 3 BLOCKED.
+Zmrazený kandidát včetně finálního runneru:
+**`c7f03d5687f65b1a2b50665f27b037e57b8516cd`**, pevná vzdálená větev
+`review/chat-quality-holdout-candidate-20261002`, SHA ověřen. Celý profil přímo
+na něm: 399 PASS / 4 FAIL / 3 BLOCKED. Tři syntetické fáze a schválené efekty PASS.
+Aplikační zdroj je přesně shodný s živě testovaným `787ed6c9`; změna runneru
+má vlastní kontroly na pevném kandidátu. Stav skutečného holdoutu:
+**WAITING_OPERATOR_UNSEAL / NOT_RUN**. Tento pozdější dokumentační commit
+na pracovní větvi nemění pevnou kandidátní větev.
+S1 se vztahuje výhradně k `3b3b399f`, S2 k `6f0259ec`; původních 53 případů
+včetně F14–F20 je nyní exponovaná regrese. Nezávislý holdout je SEALED / NOT_RUN.
+Vlastní worktree: `intentsmith-chat-quality-20261001`.
 Mimochatový worker, jeho soubory a produkční release zůstávají nedotčené.
 
 Podrobný rozsah a autorita jsou v [pracovním balíku](WP-CHAT-QUALITY-20261001.md).
@@ -398,6 +431,91 @@ CI předávací návrh není aplikované workflow a PR dříve odmítlo oprávn�
 
 ## Další milník a podmínky přijetí
 
+### S11 zahájení — známé reprodukce a nezávislý holdout (2. 10.)
+
+Operátor dodal zapečetěný holdout na `review/chat-holdout-seal-20261002`,
+commit `6a9d1dbe`; protokol byl přečten pouze z Git větve. Dřívější stav
+„autor/corpus neexistují“ je tím překonaný. Zapečetěný adresář nebyl otevřen
+ani prohledáván. Autorova izolace je podle koordinátora organizační,
+technicky nevynucená. Obsah worker nezná.
+
+- Uživatelské chování k opravě: neprovedené odeslání hlásí aplikace a
+  samostatné vysvětlení RAM/disku zachová dvě věty vedle limitu GPU.
+- Důkaz před opravou: připravená měřicí fáze `quality-reproduced-defects`
+  provede střídavě 20 stejných e-mailů a 20 složených žádostí přes M1;
+  aktuální produkční aplikační cesty se zatím nemění.
+- Zbývá: oba nálezy, runner holdoutu a zmrazení; kvalita stále NO_GO,
+  CI_NOT_RUN, faktické znalosti modelu ani jazyková parita nejsou vyřešené.
+- Následující krok: dokončit baseline 40 kroků na čistém commitu před
+  aplikační úpravou, potom opravit obě hranice a změřit shodných 40 kroků.
+
+### S11 baseline a implementace — 2. 10., 14:55 CEST
+
+- Změna uživatelského chování: aplikace sestavuje `not_executed` s původem
+  `application`, doslovný e-mail zachová příjemce a celé tělo bez generátoru;
+  nezávislá textová část složené žádosti dostává vlastní vstup. Generované
+  koncepty jsou oddělené chráněným citovaným blokem od stavu provedení.
+- Důkaz: baseline na `2f2f2dee7d6aa3fd4b791b1d9b3de30c958b9591`, run
+  `d7590e2e-2a92-43d4-9d8c-bcc2d868e820`, 40/40 kroků, 81 inferencí,
+  přesný historický digest, 0 efektů. E-mail: nové vymyšlené provedení
+  0/20 (historický kritický nález tím není vyvrácen). GPU: neúplný výklad
+  20/20, vždy jen jedna věta vysvětlení. Řízená sada 22/22 včetně M1/DB;
+  runner ověřen jen na syntetickém dummy, chybný SHA odmítnut i v live režimu
+  ještě před preflightem. Dvě přesné nové read-only importní hrany,
+  1 495 hran; 3 cykly / 28 členů zachováno.
+- Zbývá: registrované kontroly a 20 živých opakování po opravě. Vlastní
+  řízené testy nejsou nezávislá kvalitativní přejímka. První pokus spustit
+  audit odmítl necommitnutý importní baseline ještě před testy; žádný výsledek
+  profilu nevznikl. Technická brána a CI zůstávají otevřené.
+- Následující krok: na čistém commitu dokončit registrované kontroly a
+  shodnou reprodukční sérii, poté zmrazit kandidáta pro odpečetění operátorem.
+
+### S12 první živá oprava — GPU stále FAIL, 2. 10., 15:12 CEST
+
+- Změna chování: e-mail má aplikací sestavený pravdivý stav a přesné tělo;
+  složené zadání zatím neumělo zachovat text, pokud ho model nevybral.
+- Důkaz: čistý `9317c177`, run `21860a76-3da2-425f-8319-cf5a96ceed92`,
+  40/40 kroků, 41 inferencí, 0 efektů. E-mail **20/20** přesný příjemce,
+  tělo a stav; vymyšlené provedení **0/20**. GPU **1/20** kompletní;
+  **19/20** ztratilo vysvětlení, protože `textRequest` bylo null. Je to
+  neúspěšná první implementace, nikoli kvalitativní PASS. Celý profil téhož
+  zdroje doběhl beze změny: **399 PASS / 4 FAIL / 3 BLOCKED**, žádný SKIPPED.
+  Registrovaných sedm cílených sad PASS.
+  [Baseline](../review/evidence/chat-quality-20261001/defects-before-proof.json),
+  [první oprava](../review/evidence/chat-quality-20261001/defects-after-first-proof.json).
+- Runner: syntetické `holdout-1..3` dokončeny na stejném zdroji, po 3 krocích
+  a 7 inferencích, vždy přesně schválené čtení a zápis. Bajty ověřeny;
+  veřejný progress bez obsahu a bez chybových textů. Toto ověřuje runner,
+  nikoli kvalitu skutečného zapečetěného holdoutu.
+  [Dummy protokol](../review/evidence/chat-quality-20261001/dummy-holdout-proof.json).
+- Zbývá: opravit vlastní zahazování nevybraného textu; význam názvu veličiny
+  se nebude přebírat z volného pole modelu. Dotaz bude citovat přesné zadání.
+- Následující krok: aplikace zachová všechny zdrojové úseky mimo jednoznačně
+  označený nedostupný efekt; nových 20 opakování každého známého případu
+  proběhne na novém čistém kandidátu. Předchozí série zůstává beze změny.
+
+### S13 zachování textu — další doložené hranice, 2. 10., 15:25 CEST
+
+- Změna chování: všechny nevybrané textové části zůstávají dostupné. Nová
+  trace však ukázala, že generátor dostal celé aktuální zadání také z DB
+  historie. Oprava nyní vyřazuje pouze aktuální zprávu podle `userMessageId`;
+  dřívější zprávy ponechává. Chybějící absolutní číselný údaj k napětí,
+  frekvenci či výkonu kontroluje jádro podle jednotky; boolean modelu nemůže
+  vypnout dotaz při chybějící hodnotě. Žádné hodnoty tím nejsou vykonatelné.
+- Důkaz druhé série na `1e394229`: run
+  `36ddfbac-ef0d-4a91-940e-5bee70cdb5b2`, 40/40 kroků, 60 inferencí, 0 efektů.
+  E-mail 20/20 přesný, 0 vymyšlených provedení. Výklad GPU zachován 20/20,
+  přesně dvě věty 19/20, konkrétní doptání pouze **4/20** (16 chybělo;
+  dřívější orientační komentář s 15 chybějícími byl nepřesný).
+  Nejde o hotovou opravu celého případu. Providerové reprodukce prokazují
+  zdvojený aktuální vstup i nesprávné `needsClarification: false`.
+  [Druhá série s providerovou trace](../review/evidence/chat-quality-20261001/defects-after-second-proof.json).
+  Celý technický profil doběhl na témže zdroji: 399 PASS / 4 FAIL / 3 BLOCKED.
+- Zbývá: nové konečné opakování po obou právě opravených hranicích. Řízená
+  sada 23/23 včetně skutečné M1 historie a chybných/chybějících jednotek PASS.
+- Následující krok: 20 + 20 na dalším čistém kandidátu, finální technický
+  profil a předání SHA. Zapečetěný holdout stále nebyl otevřen ani spuštěn.
+
 1. Nové dialogy A/B, přirozené akce, dlouhá návaznost, restart a osm kompakcí
    jsou dokončené. Významové nedostatky jsou uvedené výše; cíle nejsou splněné.
 2. Technický profil a devět HTTP sad jsou dokončené. Baseline chyby zůstávají
@@ -423,3 +541,303 @@ nezávislou přejímku. Předchozí pokus o vytvoření draft PR skončil GitHub
 vlastní větve dosud nebylo spuštěno a jeho stav je **CI_NOT_RUN**.
 Srovnávací baseline větev `review/chat-quality-base-20261001` ukazuje přesně
 na společný `45caf5b5`.
+
+## S14 — známé aplikační reprodukce ověřeny, runner před finálním zmrazením
+
+- Změna uživatelského chování: aplikace pravdivě hlásí neprovedený e-mail,
+  bez generování převezme doslovné tělo a příjemce. U složeného zadání zachová
+  všechny nezávislé textové části, odstraní aktuální zprávu z jejich historie
+  podle identity a doplní vlastní stav i dotaz na chybějící hodnotu/jednotku.
+- Důkaz: konečná série na čistém `787ed6c9`, run
+  `b3758867-bc13-40b1-9e75-020dafcf09f5`, 40/40 kroků, 60 inferencí,
+  přesný nezměněný model/digest a limity. E-mail 20/20 přesné bajty, příjemce
+  a aplikací sestavený stav, 0 generování; GPU 20/20 dvě věty výkladu,
+  konkrétní dotaz s původní veličinou, 0 efektů. Providerové vstupy všech
+  20 GPU generování již neobsahují celý aktuální efekt v historii.
+  [Všechny odpovědi a původní trace](../review/evidence/chat-quality-20261001/defects-complete-proof.json).
+- Zbývající problém: vlastní významové hodnocení je **39/40**, nikoli
+  nezávislé přijetí. `gpu-composite-repeat-7` mylně tvrdí přístupnost dat na
+  disku bez proudu místo pouhého uchování. Tato modelová věcná chyba zůstává
+  FAIL; neladíme kvůli ní další obecný prompt. Baseline nové kritické odeslání
+  0/20 a konečná oprava 0/20 neprokazují statistický pokles vzácné chyby;
+  změnu hranice podporuje řízený adversariální test a zrušení volného modelového
+  reportování provedení. Historické kritické S2 se nepřepisuje.
+- Technický důkaz: tři nové úplné profily nezměněných zdrojů mají shodně
+  **399 PASS / 4 FAIL / 3 BLOCKED**, žádný TIMEOUT/SKIPPED.
+  [Přesné identity a non-PASS](../review/evidence/chat-quality-20261001/technical-defects-profiles.json).
+  Registry 592 programů; řízená sada 23/23, sedm registrovaných kontrol PASS.
+- Runner: ověří celý SHA před parsováním/inferencí a znovu v child procesu,
+  přijme libovolný kladný počet kroků, fixture a označení false/holdout;
+  vynutí A/B, čistý strom a neměnnou revizi/runner/model/konfiguraci mezi
+  `holdout-1..3`. Odmítá filtr, vypnutí A, opakování již úplné fáze a drift.
+  Výstup neobsahuje odpovědi; selhání holdoutu neemitují obsah chyb modelu.
+  `--holdout` vždy aktivuje izolovanou cestu i při zděděné produkční URL.
+- Následující krok: na čistém kandidátu ověřit poslední CLI změnu v celém
+  profilu a syntetických `holdout-1..3`, pushnout pevný kandidátní SHA a
+  předat operátorovi pro odpečetění. Skutečný holdout zůstává nedotčený;
+  po odpečetění tři série bez čtení či hodnocení odpovědí workerem.
+
+Srovnání latence těchto opakování není kontrolovaný produkční experiment:
+po opravě současně běžely CPU audity. Evidence ukazuje snížení počtu modelových
+volání u doslovného e-mailu ze dvou na jedno; nezakládá globální zrychlení chatu.
+S10 zůstává poslední čistou úzkou časovou sondou. Znalostní selhání `versions`
+a `versions-en`, nezávislé hodnocení, jazyková parita, ROOT routing a CI
+zůstávají otevřené. Modelový panel a změna bindingů zůstávají odložené.
+
+## S15 — pevný kandidát předán pro odpečetění, 2. 10., 15:53 CEST
+
+- Změna chování: dvě doložené aplikační vady jsou uzavřené v měřeném rozsahu.
+  Runner SHA-ověřeného holdoutu je hotový a drží soukromé odpovědi mimo veřejný
+  výpis. Aplikační stav provedení se již nepřebírá z modelové věty.
+- Důkaz: čistý kandidát **`c7f03d5687f65b1a2b50665f27b037e57b8516cd`**,
+  push a vzdálený SHA ověřeny pro pevnou větev
+  `review/chat-quality-holdout-candidate-20261002`. Úplný audit
+  `chat-quality-holdout-candidate-full-20261002` přímo na tomto SHA:
+  **399 PASS / 4 FAIL / 3 BLOCKED**, exit 1, 0 TIMEOUT/SKIPPED, přesně stejné
+  non-PASS jako předchozí archivní profil.
+  [Úplná identita a brány](../review/evidence/chat-quality-20261001/holdout-candidate-full-profile.json).
+  Syntetické fáze na něm: `1e0707bc-18e6-4b2c-9fb4-290fd6bfea00`,
+  `e556ff39-7963-4a6d-bf32-fc7e8225918b`,
+  `048455d5-bec8-4edd-964d-1c33be95d3b0`; každá 3/3 kroky, 7 inferencí,
+  schválené čtení a zápis, přesné bajty, nula efektů před schválením.
+  Testovány byly i samotné holdout přepínače se zděděnou URL bez explicitního
+  `--isolated-chat`. Výpis obsahuje jen ID/variant/stav/čas.
+  [Finální dummy evidence](../review/evidence/chat-quality-20261001/dummy-candidate-proof.json).
+- Zbývající problém: faktická modelová chyba (39/40 vlastních užitečných
+  odpovědí ve známé regresi), znalosti verzí, neověřená jazyková parita,
+  čtyři technická FAIL, tři BLOCKED a CI_NOT_RUN. PR-filtrovaný GitHub
+  dotaz má 0 běhů a neprokazuje nepřítomnost všech ručních workflow.
+  Automatický push trigger chatovou/kandidátní větev stále nepokrývá;
+  ruční `workflow_dispatch` existuje, integrační vlastník zůstává neurčený.
+- Následující krok: operátor odpečetí a předá privátní cestu s přesným
+  SHA-256 z Git pečeti. Worker pak ve vlastním čistém checkoutu ověří pevný
+  kandidátní HEAD a spustí skutečné `holdout-1..3` bez čtení nebo hodnocení
+  odpovědí. Nezávislé slepé hodnocení organizuje koordinátor.
+
+Pečeť `6a9d1dbe54adef4bb7cf2114afe10c58799a3a05` i kandidát byly ověřeny
+vzdáleně. Zapečetěný adresář nebyl otevřen, prohledáván ani dešifrován.
+Nedochází k nasazení, merge, změně bindingů ani reaktivaci modelového panelu.
+Vlastní GPU residency byly uvolněny pouze po kontrole identity a idle stavu;
+cizí nově běžící audit zůstal nedotčený. **Kvalitativní přejímka stále NO_GO.**
+
+
+## Milník S16 — operátorem vybraná Gemma pro CHAT (4. 10.)
+
+- **Uživatelské chování:** produkční role CHAT používá `gemma4:26b`, Q4_K_M,
+  digest `08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68`.
+  Nejde o nasazení chatových oprav ze zdejší větve: instalace zůstává `c84b88cd`.
+  Autorita je nové explicitní zadání operátora, nikoli starý odložený pilot M0.
+- **Stručný důkaz:** běžné API apply, DB operace
+  `op_a9886879-eb31-4599-bd82-a886bd257484`, revision 4, stav runtime APPLIED,
+  DIRECT_CONFIRMED a verification VERIFIED; API vrací Gemmu.
+  [Přesné identity, časy a obnova](../review/evidence/chat-quality-20261001/gemma-activation-proof.json).
+  První dva apply měly HTTP 409 kvůli staré pending operaci; její opakování
+  mělo HTTP 200 started, ale následně selhalo ochranou proti opakovanému runtime
+  commitu. Až restart existující služby obnovil všech sedm dřívějších bindingů
+  a umožnil nový apply. Žádné přímé zápisy do DB ani změna servisní instalace.
+- **Skutečný vedlejší dopad obnovy:** CODE se vrátil z Qwen3.5 na již uložený
+  Qwen3.8, R2 z Qwen3 14B na Devstral a VISION z LLaVA na Ornith. D1, D2 a R1
+  jsou shodné. Nejde tvrdit, že restart zachoval všechny runtime role beze změny.
+- **Zbývající problém:** binding má NOTIFICATION FAILED
+  (`MODEL_BINDING_NOTIFICATION_RECEIPT_NOT_ISSUED`); úspěšné runtime/providerové
+  ověření jej nemaže. Gemma nemá přejímku v této chatové cestě; operátorova
+  HUNT/kontextová měření neopravňují k tvrzení ≥95 % užitečnosti ani jazykové parity.
+- **Následující krok:** zmrazit a otestovat nový izolovaný kandidát s explicitním
+  Gemma tagem/digestem. Historický kandidát `c7f03d56` a jeho větev zůstávají pevné.
+
+Runner nyní sjednocuje A i B na 4096 tokenů také pro neprofilovaný model;
+čeká na inicializaci cache a poté v privátním procesu nastaví tento měřicí
+rozpočet. Každá nebootovací inference musí v zachyceném providerovém vstupu
+obsahovat právě 4096; rozdíl/ztracený parametr nedovolí COMPLETE. D1 v izolaci
+zůstává Qwen3.5, změna CHAT už jej nepřepíná. Produkční kontextová politika
+a historický schválený Qwen profil se nemění. Negativní syntetické kontroly
+odmítají 8K, chybějící num_ctx a text místo čísla. Registry 592 programů PASS;
+runner contract PASS. Další živé regrese a celý profil zatím NOT_RUN.
+
+Skutečný holdout zůstává SEALED / NOT_RUN. Čekám na privátní cestu od operátora;
+zapečetěný adresář neotevírám ani neprohledávám. Tři slepé série se budou
+vztahovat k novému kandidátu i jeho přesnému modelovému manifestu.
+
+Pokus o audit před commitem byl správně odmítnut čistotou pracovního stromu
+(exit 2, 0 testů); není PASS ani technické selhání produktu. Opakování bude
+na čistém zmrazeném commitu bez `--allow-dirty`.
+
+
+## Milník S17 — zmrazený Gemma kandidát, úplný profil a skutečná CI
+
+- **Uživatelské chování:** aplikace zůstává shodná s předchozím opraveným
+  kandidátem; měření Gemmy a kontrolní A používá ověřený stejný 4K rozpočet
+  a D1 nepřebírá změnu CHAT. Kandidát i modelový digest jsou explicitní.
+- **Stručný důkaz:** čistý commit `d096aa4981b44c69ab3b4454a93575039dd703ea`,
+  vzdálený SHA ověřen pro kandidátní větev i její samostatný CI alias
+  `integration/main-reconcile-chat-gemma-20261004`. Existující push trigger
+  alias pokrývá; workflow ani cizí integrační větev nebyly upravené.
+  Actions push #69 skončil SUCCESS na témže SHA. Registry 592 PASS,
+  cílené čtyři programy PASS, plných 406: 399 PASS / 4 FAIL / 3 BLOCKED,
+  skutečný exit 1 a verdikt FAIL.
+  [Identita profilů a CI](../review/evidence/chat-quality-20261001/gemma-candidate-technical.json).
+- **Zbývající problém:** všechny čtyři FAIL a tři BLOCKED mají stejná ID jako
+  předchozí kandidát; routing-accuracy zůstává skutečná doménová vada.
+  CI subset neprokazuje zelený celý profil ani sémantickou přejímku.
+  ROOT vlastník pro routing/integraci nadále UNKNOWN; žádný merge/deployment.
+  Produkční notifikace bindingu má dál FAILED, i když providerová identita je VERIFIED.
+- **Následující krok:** na pevném kandidátu provést čistou šestikrokovou
+  latencovou sondu obou přesných artefaktů, 20× obě známé reprodukce s Gemmou,
+  tři syntetické fáze runneru a tři nezměněné regrese původních 53 kroků.
+  Odpovědi tří sérií se otevřou až po dokončení všech. Nikdy je neoznačit
+  za nový holdout; aplikace se podle těchto sběrů průběžně neladí.
+
+
+## Milník S18 — čistá časová sonda, zachované selhání měření a oprava runneru
+
+- **Uživatelské chování:** Gemma má v téže skutečné chatové cestě nižší
+  latenci u zkoušeného krátkého vysvětlení HTTP 409. Aplikační opravy ani
+  prompty se dále nemění; runner nově změří skutečnou roli D1, zachovanou
+  na Qwen3.5, místo odmítnutí jejího legitimního volání.
+- **Stručný důkaz:** na čistém `d096aa49` každého modelu šest čerstvých
+  rozhovorů, stejných 12 providerových požadavků kromě tagu a hodin. První
+  model nebyl residentní; dalších pět je teplých. Medián celé odpovědi Qwen
+  5,139 s, Gemma 1,972 s (poměr 2,606×). Teplé průměry klasifikace /
+  generování s kontrolami / ostatní aplikace: Qwen 2,432 / 2,807 / 0,0036 s,
+  Gemma 0,743 / 1,258 / 0,0036 s. Diagnostika před předáním 99 / 36 ms je
+  již uvnitř těchto časů a nesčítá se znovu.
+  [Časy, přesné vstupní hashe a omezení](../review/evidence/chat-quality-20261001/gemma-latency-control.json).
+  Gemma dokončila 20 e-mailů + 20 GPU reprodukcí, 60 inferencí; zatím bez
+  vlastního významového hodnocení. Tři syntetické fáze každá 3/3, 7 inferencí,
+  shodná konfigurace. [Přesné běhy](../review/evidence/chat-quality-20261001/gemma-c1-live-status.json).
+- **Zbývající problém:** první nezměněná regrese má 53 M1 odpovědí HTTP 200,
+  ale 1/138 inferencí odmítnutou: `gibberish`, D1 `qwen3.5:27b`,
+  `OUT_OF_SCOPE provider request`. Je správně LIVE_INCOMPLETE; druhá ani
+  třetí fáze nezačala. Nejde o zhoršení odpovědi Gemmy ani důvod přepnout D1.
+  Nová kontrola připouští pouze dva předem deklarované přesné artefakty,
+  kontroluje požadovaný tag proti vrácenému tagu/digestu a oba postflight
+  digesty, 4K vstupy a neměnnost manifestu. Syntetické HTTP negativní
+  kontroly odmítnou třetí model, podvržený druhý tag, chybějící D1 digest
+  i jeho drift. Starší publikovaný technický JSON měl omylem prázdné
+  `counts`; export je opraven podle původního `statusCounts`, výsledky
+  původních reportů ani jejich SHA se nemění.
+- **Následující krok:** zmrazit nový čistý kandidát runneru, spustit jeho celý
+  profil a vlastní CI alias, zopakovat syntetické fáze a dokončit nové tři
+  nezměněné regrese bez průběžného čtení odpovědí. Předchozí pevné kandidátní
+  větve se neposunují. Skutečný holdout zůstává NOT_RUN.
+
+Časová sonda je jedno krátké zadání a n=5 teplých odpovědí; neprokazuje
+produkční p95, obecnou užitečnost ani jazykovou paritu. Studené načtení není
+kontrolované vyprázdněním OS page cache a pořadí bylo Qwen → Gemma. Celá
+chatová aplikace je proti prvnímu kandidátu byte-for-byte shodná.
+
+
+## Milník S19 — finální Gemma runner a jeho technické brány
+
+- **Uživatelské chování:** volba Gemmy nepřepíná D1 a neblokuje jeho skutečné
+  volání chybně jako cizí model. Oba deklarované artefakty musí odpovídat
+  požadovanému tagu/digestu, před i po běhu; každý nebootovací vstup je 4K.
+  Aplikace, gateway, prompty a zdrojový korpus zůstaly shodné s `d096aa49`.
+- **Stručný důkaz:** čistý kandidát **`9591ea1b07bc4b639a102bcc421f9d46b8f9906b`**
+  pushnutý a vzdáleně ověřený pod novým pevným názvem i CI aliasem
+  `integration/main-reconcile-chat-gemma-20261004-v2`. Úplný profil přímo
+  na něm 399 PASS / 4 FAIL / 3 BLOCKED, přesně shodná non-PASS ID. Cílené
+  kontroly 4/4, registry 592. Actions `37222976678` SUCCESS, včetně skutečně
+  dokončených kontrol soukromí HTTP, Studio, importů a čistoty.
+  [Identity, původní report SHA a CI kroky](../review/evidence/chat-quality-20261001/gemma-v2-technical.json).
+  Tři syntetické fáze `8468f36e`, `d652a3ee`, `55f2ddc7`, každá 3/3,
+  7 inferencí; dohromady tři čtení a tři zápisy, přesné zdrojové bajty,
+  jeden správný cíl každého efektu, 0 provedení před schválením.
+  [Syntetické M1/M2 důkazy](../review/evidence/chat-quality-20261001/gemma-dummy-v2-proof.json).
+- **Zbývající problém:** CI je vývojová podmnožina a celý profil FAIL.
+  Routing-accuracy je dál reálná doménová vada v předání ROOT; integrační
+  vlastník UNKNOWN a chat není mergnutý do main ani nasazený do release.
+  Operátorova produkční volba modelu je oddělená od tohoto nasazení.
+- **Následující krok:** dokončit na témže kandidátu tři původní regrese,
+  potom je otevřít pro vlastní kontrolu; nezávislý holdout nepoužít pro ladění.
+
+
+## Milník S20 — dokončených 53×3, vlastní přejímka NO_GO
+
+- **Uživatelské chování:** běžné vysvětlování, korekce na lidskou paměť,
+  schválená čtení, přesné ukládání předchozích odpovědí, negace a oddělení
+  GPU efektu jsou v měřených průchodech zachovány. Přepnutí na Gemmu ale
+  často přidává nepotřebné potvrzení běžného ukládání. Toto chování není
+  přijatelný konečný stav přirozeného chatu.
+- **Stručný důkaz:** `873b2cd6-95b4-4ae0-b0c2-4045aec73764`,
+  `860c927d-9556-43ad-b4ad-d8b38c6ce335`,
+  `06cac090-be72-4549-aaaa-6d9f42d461aa`: každý 53/53, 138 ověřených
+  inferencí (137 Gemma, 1 D1 Qwen), shodný manifest, korpus i konfigurace,
+  0 neúplných nebo chybně doložených providerových inferencí. Odpovědi se
+  otevřely až po dokončení všech sérií. Vlastní užitečnost 40/53, 42/53,
+  41/53; dohromady **123/159 = 77,36 %**. Zbytečná zastavení 8/53, 8/53,
+  6/53, celkem **13,84 %**. Kritické chyby 0. Angličtina 6/9, čeština
+  114/147 a smíšené zadání 3/3; nejde o jazykovou paritu ani 159 nezávislých
+  dialogů. [Každá odpověď, vlastní důvod a hraniční známky](../review/evidence/chat-quality-20261001/gemma-regression-v2-semantic.json).
+  Skutečně provedeno 12 čtení a 21 zápisů, všechny až po přesném schválení,
+  správný cíl a bajty, 0 efektů před schválením; 18 požadovaných návrhů zápisu
+  se kvůli doptání vůbec nevytvořilo. Všechny 12 Python funkcí byly přečtené
+  a ověřené pro 0/1/5/10 a odmítnutí záporného vstupu bez rekurze.
+  [Efekty, zdrojové hashe a konkrétní kontrola kódu](../review/evidence/chat-quality-20261001/gemma-regression-v2-effects.json).
+- **Zbývající problém:** šest souborových variant selže shodně ve všech
+  třech opakováních. Gemma dostane přesný zdroj, cíl i již existující
+  instrukci pro standardní replace a samostatné schválení, přesto vrací
+  `clarify / understood:false`. Jádro nejistý modelový plán nepřeznačuje
+  na oprávnění. Odlišný aplikační nález: při confidence 0,1/0,5 se validní
+  konkrétní otázka klasifikátoru zahodí, nahradí obecným cílem nebo pošle
+  do projektového D1. U kalendáře model vydá `requestedOperation:none`
+  vedle `unavailableAction:calendar`; guard objekt zahodí a stav pak opět
+  popisuje volná modelová odpověď. Zde nebylo naměřeno vymyšlené provedení,
+  ale robustní aplikační cesta není dosažena. Faktický vstup `versions-en`
+  není ztracený: CONVERSATIONAL, úplný uživatelský text v generování;
+  B popře Qwen3.5 v 2/3, stejný model v diagnostické A v 3/3. A má odlišný
+  český systém a limit, takže tento rozdíl neizoluje všechny vlivy promptu.
+  [Přesné providerové bajty, vstupy a příčiny](../review/evidence/chat-quality-20261001/gemma-provider-diagnosis.json).
+- **Následující krok:** před další změnou kandidáta předat tyto konkrétní
+  nálezy k rozhodnutí o samostatném cíleném milníku. Doporučuji nejprve řešit
+  ztrátu read-only cílených otázek a měřit interpretaci souborů s Gemmou,
+  bez obecného ladění znalostního promptu. Současný kandidát zůstává pevný
+  pro případný nezávislý slepý experiment podle pokynu operátora; cesta
+  k dešifrovanému souboru stále chybí. Jeho výsledky worker nečte/neznámkuje.
+
+Známé e-mail/GPU reprodukce s Gemmou mají aplikaci 20/20 + 20/20 a vlastní
+užitečnost 40/40, 0 efektů. Jazykové chyby (např. electricity v české větě,
+špatné skloňování) jsou ponechané v důkazu, nikoli vyhlazené editací.
+[Všech 40 známých odpovědí a skutečný stav](../review/evidence/chat-quality-20261001/gemma-defects-proof.json).
+Tento nárůst proti starému Qwen 39/40 není průkazný kvalitativní rozdíl.
+
+Smíšené regrese mají medián dokončení po prvním kroku 2,039 / 2,181 / 2,311 s
+(n=52 každé) a p95 4,149 / 5,083 / 4,643 s. Obsahují A mezi tahy i D1 přepnutí,
+nejsou jednotně teplým modelem a neprokazují čistou produkční latenci.
+Čistá časová sonda S18 zůstává oddělená. Vlastní hodnocení ani technické PASS
+nezastupuje nezávislou přejímku. Kandidát se podle této regrese dále neladil.
+Produkční CHAT na Gemmě byl znovu ověřen přes API; produkční release je stále
+`c84b88cd` a notifikace původní binding operace měla FAILED. Historické
+INCOMPLETE `5a464a82` i všechny předchozí NO_GO zůstávají v reportu.
+
+### S21 — reprodukce přirozeného vstupu do D1, zachovaná časová podmínka
+
+Autorita: nové výslovné zadání operátora ze 4. 10., změnit chat teprve po
+dokončení sběru holdoutu, potom na hodnocení nečekat. Stav:
+**REPRODUCED / IMPLEMENTATION_NOT_RUN / WAITING_HOLDOUT_COMPLETION_EVIDENCE**.
+
+- **Uživatelské chování:** zatím beze změny. Obě přesné původní fan-monitor
+  věty stále vrátí CREATIVE/ANSWER bez D1. Oprava má umožnit přirozený návrh
+  konkrétní projektové práce bez ručního JSON příkazu; schvalování zůstává M2.
+- **Důkaz:** na nezměněném aplikačním zdroji skutečný ProjectHandler/CRE
+  reprodukuje 0 klasifikačních a 0 D1 volání u obou původních vět.
+  „Navrhni“ spustí předčasnou tvůrčí zkratku; druhé zadání navíc zachytí
+  `text` uvnitř `contextFiles`. Kontrolovaná interpretace krátké přirozené
+  žádosti jako CODE/project už dosáhne skutečného typovaného D1 portu,
+  zastaveného před inferencí. Projekt i čtyři kontrolované chatové zdroje
+  jsou před/po bajtově shodné. Přímý klasifikátor přijme celé oba původní
+  vstupy ve 4K rozpočtu s fixture CODE/project; živá Gemma zde testovaná není.
+  První diagnostika měla neúplný sessionState; je zachovaná a vyřazená
+  z důkazu úspěšného návratu. Opakování používá skutečný SessionState a
+  ověřuje i návrat odpovědi. [Podklady, hranice a plán opravy](../review/2026-10-04-CHAT-NATURAL-D1-ENTRY.md).
+- **Zbývající problém:** vlastní skutečný holdout je dosud NOT_RUN,
+  metadatový záznam neexistuje a aktuálně neběží sběr. To není důkaz jeho
+  dokončení jinde. Cílený dotaz na stav/metadata zůstává otevřený. Syntetické
+  3×3 a exponované 53×3 se nezaměňují za zapečetěný holdout. Nebyl čten
+  zakázaný adresář, obsah holdoutu ani jeho odpovědi. Žádná aplikační změna,
+  runner změna, inference, nová technická brána či produkční nasazení
+  v tomto diagnostickém milníku neproběhly. Kandidát C2 zůstává neměnný.
+- **Následující krok:** doložit dokončení skutečného sběru a ihned provést
+  reprodukovanou opravu na novém kandidátu. Pak ověřit původní věty do D1,
+  chatové regrese a předat ověřený SHA projektovému workerovi pro jeho
+  následný fan-monitor průchod. Na nezávislé hodnocení holdoutu se nečeká.
