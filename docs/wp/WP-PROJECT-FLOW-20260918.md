@@ -1,5 +1,49 @@
 # Project collaboration and import completion
 
+## Current continuation authority — 4 October 2026
+
+Operator explicitly approved the completion plan and natural classifier → D1
+entry. ROOT now owns only that project-planning boundary in
+`src/chat/cre-decision.js`, the already-owned project collaboration path and
+its existing `tests/project-collaboration.test.js` boundary checks. This
+supersedes the earlier handoff of that specific defect to CHAT; conversational
+tuning, Gemma freeze/holdout, model activation and production deployment remain
+with their owners/outside this increment. No new classifier, synonym list,
+writer or approval authority. Existing semantic `responseScope` must choose
+project, conversation or read-only status; uncertainty/cancellation cannot
+produce an executable plan. ROOT is the sole tracked-tree writer.
+
+Input remains the existing integrated checkout `5cf1c36d`; fresh GitHub main
+`838b8cee` is an ancestor. No new worktree. Published CHAT `e066956b` is not
+yet integrated; preserve its independent freeze and review state. Validate
+the two historical inputs privately, equivalent public regressions, ordinary
+conversation/status/ambiguity/failure and existing M2 handoff before one
+independent review. Exact source/model/config/oracle and classifier/D1/CODE
+call budgets must freeze separately before a real natural-entry run.
+
+Fan continuation is authorized as historical4 + core repair4 + CLI3 = max11
+CODE calls, no added retry, unchanged functional oracle/rollback/approval.
+Operator prefers32k; measure exact-artifact VRAM first. A short allocation is
+not full-window CODE/app acceptance. External `c5309a0`/bundle is not present
+in this checkout; its reported3/3 and8/8 checks are not adopted evidence.
+Preserve the actual fan8 PASS/6 FAIL and exact4/4 rollback. Continue from a
+new copy of that FAILED packet, not its expired earlier approval.
+
+Verification after adoption: Node24 `--test tests/project-collaboration.test.js`,
+the registered CRE/session/project/M2 boundary checks and shared CI. Stop on
+semantic routing regression, stale/foreign scope, authority before approval,
+unavailable/ambiguous classifier masquerading as a valid project decision,
+or a real run exceeding its frozen call budget. Whole application remains FAIL.
+The existing `.github/workflows/ci.yml` CODE selection also owns this registered
+project-collaboration suite; all seven CHAT checks stay in the shared workflow.
+
+Adopted bounded source checkpoint: model-context18, gateway44, default M2
+service104 and project-collaboration44 CPU PASS. Independent24-case replay
+and combined source review PASS; final receipt
+`ff2dcbe1bdd205b551d712fa072df93a6beff610dec4f8b8276071ae4597b7b0`.
+The original42/2 gateway and43/1 integration fixture failures remain raw.
+This does not accept a live D1 response, generated app, new CI or deployment.
+
 Input: `2f150ce7f3f183f9e14c3e2522ce150e1fe1c7a1`. Owner: root, isolated
 audit snapshot, branch `work/project-flow-20260918`.
 

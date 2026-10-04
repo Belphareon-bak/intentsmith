@@ -3330,12 +3330,31 @@ PRAVIDLA:
       && !REPORT_FRESH_CONTEXT.test(_text);
     const isStableLearningGoal = DETERMINISTIC_LEARNING_GOAL_PATTERNS.some(p => p.test(_text));
     const hasDeterministicInlineCodeForm = DETERMINISTIC_INLINE_CODE_PATTERNS.some(p => p.test(_text));
-    const isDeterministicInlineCode = hasDeterministicInlineCodeForm
+    const inlineCodeCandidate = hasDeterministicInlineCodeForm
       && [IntentType.CODE, IntentType.CONVERSATIONAL, IntentType.AMBIGUOUS, IntentType.SEARCH].includes(deterministicIntent);
     const isDeterministicLiveSearch = DETERMINISTIC_LIVE_SEARCH_PATTERNS.some(p => p.test(_text));
-    const isDeterministicCreative = deterministicIntent === IntentType.CREATIVE
+    const creativeCandidate = deterministicIntent === IntentType.CREATIVE
       && !EXPLICIT_SEARCH_COMMAND_PATTERN.test(_text)
       && !REPORT_FRESH_CONTEXT.test(_text);
+    // A creative/code word match cannot tell a project change from a chat-only
+    // answer. In the M2 project path use the existing semantic scope instead;
+    // ordinary conversation and the explicit file/local paths keep their guards.
+    const requiresProjectScopeInterpretation = context.m2LifecycleOnly === true
+      && Boolean(context.hasActiveProject || context.project?.id)
+      && (inlineCodeCandidate || creativeCandidate);
+    const isDeterministicInlineCode = inlineCodeCandidate && !requiresProjectScopeInterpretation;
+    const isDeterministicCreative = creativeCandidate && !requiresProjectScopeInterpretation;
+    const clarifyProjectScope = () => {
+      _diag.initialIntent = IntentType.AMBIGUOUS;
+      const english = getLanguageContext(input).language === 'en';
+      return _makeDecision({ type: DecisionType.ASK_USER, intent: IntentType.AMBIGUOUS,
+        tools: [], slots: ['intent_clarification'], confidence: llmMeta?.confidence ?? 0.3,
+        reason: 'Project work scope needs verified interpretation', metadata: {
+          clarificationQuestion: llmMeta?.question || (english
+            ? 'Should the next step propose changes to the connected project files, or only prepare an answer in chat?'
+            : 'Má další krok navrhnout změny souborů připojeného projektu, nebo jen připravit odpověď v chatu?'),
+        } });
+    };
     const stableConversationOverride = !mayRequireLocalAuthority
       && !creativeKnowledgeNeedsArbitration
       && (
@@ -3391,22 +3410,30 @@ PRAVIDLA:
     } else {
       // Phase 1: LLM structured classification (primary)
       const _classStart = performance.now();
+      if (requiresProjectScopeInterpretation) throwIfAborted(context.signal);
       const llmResult = await this._llmClassifyIntent(input, context);
+      if (requiresProjectScopeInterpretation) throwIfAborted(context.signal);
       _classificationTimeMs = Math.round(performance.now() - _classStart);
 
       // v71.1: Confidence AND required fields validation
       // LLM confidence alone is not enough — action intents need valid metadata.
       const llmAccepted = llmResult && llmResult.confidence >= 0.7 &&
-        this._validateLLMResult(llmResult, input, context);
+        this._validateLLMResult(llmResult, input, context) &&
+        (!requiresProjectScopeInterpretation || (llmResult.contextualInterpretation === true
+          && ['conversation', 'project', 'project_status'].includes(llmResult.responseScope)));
 
       if (llmAccepted) {
         intent = llmResult.intent;
         llmMeta = llmResult;
+        // Do not let a creative/sticky fallback turn an unresolved project scope
+        // into a proposal. A concrete model question uses the existing ASK_USER port.
+        if (requiresProjectScopeInterpretation && intent === IntentType.AMBIGUOUS) return clarifyProjectScope();
         logger.info('CRE', `v71 LLM classification: ${intent} (${llmResult.confidence})`, {
           input: input.substring(0, 60),
           classificationTimeMs: _classificationTimeMs,
         });
       } else {
+        if (requiresProjectScopeInterpretation) return clarifyProjectScope();
         // Phase 2: Regex fallback
         intent = this.classifyIntent(input);
         logger.info('CRE', `v71 LLM fallback → regex: ${intent}`, {

@@ -1,6 +1,26 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktuální checkpoint 2. 10. 2026, 16:14 UTC:** ROOT převzal společnou
+**Aktuální checkpoint 4. 10. 2026:** operátor schválil dokončovací postup,
+32k VRAM měření, přirozený classifier → D1 a implementační HTTP WP.
+Přijaté SQLite/AST/GPU UI/omezený cleanup se bez nové delty neopakují.
+ROOT32k allocation: exact Qwen3.8, CPU spill0/minfree2512 MiB, owned cleanup;
+CODE32k kandidát drží původní capture, serializer32000 B/output caps a
+CHAT/D1 izolaci. Cílené context18/gateway44/service104 CPU PASS nejsou aplikace.
+Úzká semantic scope oprava využívá stávající classifier a D1; nezávislý
+CPU replay24 PASS, default classifier→D1 regression44/44 a nezávislé source review PASS.
+Nejbližší functional výsledek: fan historical4+repair4+CLI3/max11, exact M2,
+oracle, rollback/commit/restart; starý fan8 PASS/6 FAIL zůstává. Externí
+`c5309a0`/bundle čeká na transfer/review, novější CHAT `e066956b` na integraci.
+Hunt další grading vlastní jiný worker. Gemma freeze `9591ea1b` remote ověřen,
+exponovaná regrese stále NO_GO; operátor předal odpečetěnou cestu holdoutu,
+obsah ROOT nečetl, tři neměnné série a slepé hodnocení dosud NOT_RUN.
+HTTP follow-up autorizovaný: [omezený WP](docs/wp/WP-M2-PRIVATE-HTTP-EXECUTION-20261004.md),
+namespace mechanism CPU PASS; native profil/contract review/app ještě ne.
+Pak společný IDE/BE candidate, expertise/worker user journeys, M5/M6 a mobil
+po stabilním IDE/BE; závěrečný cleanup s obnovou. Release NOT_ACCEPTED.
+[Jeden aktuální souhrn](docs/WORK-PROGRESS.md) rozlišuje source, instalaci a důkazy.
+
+**Historický checkpoint 2. 10. 2026, 16:14 UTC:** ROOT převzal společnou
 integraci, naposledy CHAT `00ec5b52` do publikovaného `f2e6ac1a`.
 Kontroly obou stran zachované, kanonický registr 594, graph 1498/3/28.
 Poslední celý profil na publikovaném `2997afd5`:408 PASS /0 FAIL /0 BLOCKED,

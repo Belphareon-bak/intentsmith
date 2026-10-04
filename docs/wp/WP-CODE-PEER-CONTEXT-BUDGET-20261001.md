@@ -15,9 +15,27 @@ CLI revizi skutečná aplikace prošla celým omezeným backend/M2 kontraktem.
 Nezávislá fyzická přejímka přijala doložený scénář; historický osmigenerační
 FAIL platí. Release a instalované Studio mají samostatné brány.
 
-**Aktuální navazující práce:** omezený CODE16k source převzatý, nezávislé
-review PASS; celý profil a CI ověřené, skutečný fan-monitor čeká.
-Rozsah a poslední výsledky v §11; přijatý SQLite se neopakuje.
+**Aktuální navazující práce, 4. 10.:** operátor zvolil nejprve změřit32k.
+Na source `5cf1c36d` přesný Qwen3.8/provider `0.34.0-intentsmith.1` prošel
+19:10:15–19:10:34 UTC jedním krátkým32768/1 requestem: plná GPU rezidence,
+CPU spill0, minfree2512 MiB; vlastní unload a lease release ověřené.
+Receipt `3de557fc76cc26e5944fd4f3a17528981115d07fcbe49b1e6117a2196460c944`.
+ROOT vlastní omezenou adopci32k v `src/llm/model-runtime-profile.js` a
+existujících `tests/model-ctx.test.js`, `tests/m1-model-contract.test.js`,
+`tests/m2-lifecycle-application-service.test.js`. Gateway/capture, obecný
+CHAT/D1 cache, output caps a serializer32000 B se nemění. Změna je kandidát
+pro větší CODE workload, kvalifikace zůstává výslovně allocation-only.
+CPU úplný fan vstup29043 B se vejde do obalu; skutečná delší inference,
+úplný repair output, funkční fan test/commit/restart a review ještě čekají.
+Historický16k a první32k STOP_NO_RUN zůstávají: aggregate utilization32%
+pocházelo při diagnostice z desktopových G procesů, compute/ps prázdné.
+Nový zmrazený kapacitní plán zaznamenal grafickou util popisně, zachoval
+tři empty compute/resident vzorky, free≥20000 MiB, RAM/disk, lease/pins,
+100%GPU a post-load headroom≥1024 MiB. Jedno actual capacity volání mimo
+fan max11, žádný retry. App admission se tím nemění. §11 je datovaná historie.
+Nezávislé combined source review32k/D1 PASS; receipt
+`ff2dcbe1bdd205b551d712fa072df93a6beff610dec4f8b8276071ae4597b7b0`.
+Context18/gateway44/defaultservice104/project44 CPU PASS nejsou app acceptance.
 
 ## Vlastnictví a konkrétní výsledek navazujícího milníku
 

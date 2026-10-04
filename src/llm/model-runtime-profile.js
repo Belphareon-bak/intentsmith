@@ -134,7 +134,7 @@ export const CODE_RUNTIME_PROFILE = Object.freeze({
   schemaVersion: 1,
   model: 'qwen3.8:latest',
   digestSha256: '22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643',
-  contextWindowTokens: 16384,
+  contextWindowTokens: 32768,
   minimumHeadroomMiB: 1024,
   minimumGpuResidencyPercent: 100,
   fallbackPolicy: 'forbid',
@@ -145,7 +145,7 @@ if (!validateModelRuntimeProfile(CODE_RUNTIME_PROFILE).valid) {
 export const CODE_RUNTIME_QUALIFICATION = Object.freeze({
   providerVersion: '0.34.0-intentsmith.1',
   kind: 'allocation-only',
-  receiptSha256: '82dd95941b8a4008d2fda274f7e9f6264b48ecf80bad75b806a71365cb264fd6',
+  receiptSha256: '3de557fc76cc26e5944fd4f3a17528981115d07fcbe49b1e6117a2196460c944',
 });
 
 export function getCodeRuntimeProfile(modelName, digestSha256) {

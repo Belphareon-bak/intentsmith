@@ -1,9 +1,25 @@
 # IntentSmith — mapa systému
 
-**Aktuální vývojový checkpoint 2. 10. 2026:** [přesné identity zdroje,
+**Aktuální vývojový checkpoint 4. 10. 2026:** [přesné identity zdroje,
 instalace, testů a zbývajících bran](docs/WORK-PROGRESS.md).
 Chronologie níže zachovává důkazy předchozích instalací a větví.
 
+ROOT nový kandidát CODE32k: exact Qwen3.8/provider krátká skutečná alokace
+19:10 UTC, plněGPU/CPU0/minfree2512 MiB, unload/lease release PASS.
+Capture izolovaný od CHAT/D1 cache, serializer32000 B a output4096/2048
+beze změny; context18/gateway44/defaultservice104 CPU PASS. D1 scope hranice
+nově používá existující semantic classifier; private original-input replay24
+CPU PASS, default classifier→D1 regression44/44 a source review PASS; živá aplikace čeká.
+Fan poslední actual oracle8 PASS/6 FAIL, rollback4/4, bez commitu; další
+4repair+3CLI schválené při zachování max11. Externí `c5309a0` zde nedostupné.
+Autorizovaný private HTTP WP má namespace CPU feasibility PASS po diagnóze
+owner-userNS/EPERM a kanonické ip cestě; product V2/profile/app NOT_RUN.
+CHAT `e066956b` není integrován, Gemma fixed `9591ea1b` má regression NO_GO;
+operátor předal unsealed holdout cestu, ROOT obsah nečetl a série neběžely.
+Hunt zbytek má jiného grading workera; poslední596/1173 je datovaný audit.
+Instalovaný BE `c84b88cd` nezměněný; žádné nové nasazení/release acceptance.
+
+**Historický checkpoint 2. 10. 2026:**
 ROOT integračně přebírá CHAT `6f0259ec` nad nechatový `2a479852` ve stávajícím
 checkoutu. Tři konflikty registru/harnessu vyřešené se zachováním všech
 kontrol, 594 programů /35 exclusions. Publikovaný `d7e7d1b1`: úplný profil

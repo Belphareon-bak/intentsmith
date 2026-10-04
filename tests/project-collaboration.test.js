@@ -654,3 +654,284 @@ test('open-folder route works read-only and refreshes an already registered repo
   assert.equal(calls[0].value.metadata.bootstrapped, false);
   assert.equal(execFileSync('git', ['status', '--porcelain'], { cwd: project.path, encoding: 'utf8' }), '');
 });
+
+
+// These are classification-boundary fixtures, not model-quality evidence.
+// Public requests are independent examples; historical private prompts stay private.
+import { CREDecisionEngine, DecisionType, IntentType } from '../src/chat/cre-decision.js';
+
+const projectScopeRequests = [
+  'Navrhni další přírůstek monitoru: parser, paměťová historie a test. Připrav návrh bez zápisu.',
+  'Vytvoř další přírůstek monitoru ve zdrojích a testech. Existující závislost uveď pouze jako contextFiles.',
+];
+const projectScopeContext = {
+  m2LifecycleOnly: true, hasActiveProject: true,
+  project: { id: 7304, name: 'Scoped project fixture' }, sessionId: 'project-scope-fixture',
+};
+function scopedClassifierFixture(result, context = projectScopeContext) {
+  const engine = new CREDecisionEngine();
+  const calls = [];
+  engine._llmClassifyIntent = async (input, actualContext) => {
+    calls.push({ input, context: actualContext });
+    return typeof result === 'function' ? result(input, actualContext) : result;
+  };
+  return { engine, calls, context };
+}
+function interpretedScope(intent, responseScope, extra = {}) {
+  return { intent, confidence: 0.9, contextualInterpretation: true,
+    responseScope, continuesPending: false, requestedOperation: 'none',
+    briefResponse: false, responseWordCount: null, question: null, ...extra };
+}
+
+test('M2 project requests use semantic project scope despite creative words and contextFiles', async () => {
+  for (const request of projectScopeRequests) {
+    const { engine, calls, context } = scopedClassifierFixture(interpretedScope(IntentType.CREATIVE, 'project'));
+    const decision = await engine.decide(request, context);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].input, request);
+    assert.equal(calls[0].context.project.id, context.project.id);
+    assert.equal(decision.type, DecisionType.ANSWER);
+    assert.equal(decision.metadata.responseScope, 'project');
+    assert.equal(decision.metadata.classifiedBy, 'llm');
+    assert.deepEqual(decision.tools, []);
+  }
+});
+
+test('M2 inline code keeps semantic project scope through the later CODE branch', async () => {
+  const request = 'Napiš funkci pro součet dvou čísel v připojeném projektu.';
+  for (const scope of ['project', 'conversation']) {
+    const { engine, calls, context } = scopedClassifierFixture(interpretedScope(IntentType.CODE, scope));
+    const decision = await engine.decide(request, context);
+    assert.equal(calls.length, 1);
+    assert.equal(decision.metadata.responseScope, scope);
+    if (scope === 'conversation') {
+      assert.equal(decision.type, DecisionType.ANSWER);
+      assert.equal(decision.metadata.inlineCode, true);
+    } else {
+      assert.notEqual(decision.metadata.inlineCode, true);
+      assert.equal(decision.intent, IntentType.CODE);
+    }
+  }
+});
+
+test('M2 creative conversation and project status retain their distinct semantic scopes', async () => {
+  for (const [request, scope] of [
+    ['Napiš báseň o podzimu.', 'conversation'],
+    ['Navrhni stručný popis současného stavu, žádné změny.', 'project_status'],
+  ]) {
+    const { engine, calls, context } = scopedClassifierFixture(interpretedScope(IntentType.CREATIVE, scope));
+    const decision = await engine.decide(request, context);
+    assert.equal(calls.length, 1);
+    assert.equal(decision.type, DecisionType.ANSWER);
+    assert.equal(decision.metadata.responseScope, scope);
+    assert.deepEqual(decision.tools, []);
+  }
+});
+
+test('unresolved M2 project scope cannot fall back to a plan or lose a concrete question', async () => {
+  const question = 'Kterou existující část projektu chceš změnit?';
+  const cases = [
+    null,
+    interpretedScope(IntentType.BUILD, 'project', { confidence: 0.4 }),
+    interpretedScope(IntentType.CREATIVE, null),
+    interpretedScope(IntentType.CREATIVE, 'unknown'),
+    interpretedScope(IntentType.CREATIVE, 'project', { contextualInterpretation: false }),
+    interpretedScope(IntentType.AMBIGUOUS, 'project', { question }),
+  ];
+  for (const result of cases) {
+    const fixture = scopedClassifierFixture(result, { ...projectScopeContext,
+      hasActiveExpertise: true, expertise: { id: 'writer', creativeLock: true } });
+    const decision = await fixture.engine.decide(projectScopeRequests[1], fixture.context);
+    assert.equal(fixture.calls.length, 1);
+    assert.equal(decision.type, DecisionType.ASK_USER);
+    assert.equal(decision.intent, IntentType.AMBIGUOUS);
+    assert.deepEqual(decision.tools, []);
+    assert.deepEqual(decision.slots, ['intent_clarification']);
+    assert.equal(typeof decision.metadata.clarificationQuestion, 'string');
+    if (result?.question) assert.equal(decision.metadata.clarificationQuestion, question);
+  }
+});
+
+test('M2 project classification cancellation prevents admission or interpretation after abort', async () => {
+  for (const beforeCall of [true, false]) {
+    const controller = new AbortController();
+    if (beforeCall) controller.abort();
+    const fixture = scopedClassifierFixture(() => {
+      controller.abort();
+      return interpretedScope(IntentType.CREATIVE, 'project');
+    }, { ...projectScopeContext, signal: controller.signal });
+    await assert.rejects(fixture.engine.decide(projectScopeRequests[0], fixture.context),
+      { name: 'AbortError', code: 'ABORT_ERR' });
+    assert.equal(fixture.calls.length, beforeCall ? 0 : 1);
+  }
+});
+
+test('ordinary creative and inline shortcuts stay deterministic outside the M2 project path', async () => {
+  for (const context of [
+    { m2LifecycleOnly: true },
+    { hasActiveProject: true, project: projectScopeContext.project },
+  ]) {
+    for (const request of ['Napiš báseň o podzimu.', 'Napiš funkci pro součet dvou čísel.']) {
+      const fixture = scopedClassifierFixture(() => { throw new Error('Unexpected classification call'); }, context);
+      const decision = await fixture.engine.decide(request, context);
+      assert.equal(fixture.calls.length, 0);
+      assert.equal(decision.type, DecisionType.ANSWER);
+      assert.equal(decision.metadata.classifiedBy, 'deterministic');
+    }
+  }
+});
+
+
+test('natural project request crosses the actual semantic classifier and default D1 without effects', async t => {
+  // Controlled provider responses prove routing and contracts, not model quality.
+  // The classifier, ProjectHandler, D1 generator and gateway remain unmodified.
+  const [{ projectHandler }, { creDecisionEngine }, { config }, { llmGateway },
+    { modelUniverseStore }, { db }, { resolveNumCtx }, { PROJECT_DISCUSSION_SCHEMA }] = await Promise.all([
+    import('../src/chat/handlers/project.js'), import('../src/chat/cre-decision.js'),
+    import('../src/config.js'), import('../src/llm/gateway.js'),
+    import('../src/upgrade/model-universe-store.js'), import('../src/db/database.js'),
+    import('../src/llm/model-ctx.js'), import('../src/chat/handlers/project-collaboration.js'),
+  ]);
+  assert.equal(db.name, isolatedTestRuntime.database);
+  assert.equal(llmGateway._concurrency.active, 0);
+  assert.equal(llmGateway._concurrency.queue.length, 0);
+  const project = await fixture(t);
+  const request = projectScopeRequests[1];
+  const priorRequest = 'První krok má připravit parser a jeho funkční test.';
+  const priorReply = 'Připravíme návrh bez spuštění nebo změny souborů.';
+  const goal = 'Monitor s paměťovou historií a samostatnými testy.';
+  const history = [
+    { projectId: project.id, response: { content: priorRequest, tag: { speaker: 'user' } } },
+    { projectId: project.id, response: { content: priorReply, tag: { speaker: 'system' } } },
+  ];
+  const git = argv => execFileSync('git', argv, { cwd: project.path, encoding: 'utf8' });
+  const projectSnapshot = async () => ({
+    head: git(['rev-parse', 'HEAD']), status: git(['status', '--porcelain', '--untracked-files=all']),
+    bytes: Object.fromEntries(await Promise.all(git(['ls-files', '-z']).split('\0').filter(Boolean)
+      .map(async relative => [relative, (await fs.readFile(path.join(project.path, relative))).toString('base64')]))),
+  });
+  const authorityCounts = () => [
+    'm2_lifecycle_operations', 'm2_execution_requests', 'm2_effect_requests',
+  ].map(table => db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n);
+  const before = await projectSnapshot();
+  const beforeAuthority = authorityCounts();
+  const analysis = await inspectProject(project);
+  const classifierModel = 'fixture-d1-natural-classifier:1b';
+  const plannerModel = 'fixture-d1-natural-planner:1b';
+  const baseUrl = 'http://d1-natural-boundary.invalid';
+  const artifacts = {
+    [classifierModel]: { modelName: classifierModel, digestSha256: 'a'.repeat(64) },
+    [plannerModel]: { modelName: plannerModel, digestSha256: 'b'.repeat(64) },
+  };
+  const providerPlan = plan();
+  providerPlan.files[0].contextFiles = ['README.md'];
+  const providerReply = 'Návrh dalšího přírůstku je připraven ke kontrole; soubory zůstaly beze změny.';
+  const originalFetch = globalThis.fetch;
+  const originalModels = { FAST: config.models.FAST, CHAT: config.models.CHAT, D1: config.models.D1 };
+  const originalBaseUrl = config.ollama.baseUrl;
+  const originalSignalRecorder = modelUniverseStore.recordSignalEvent;
+  const gatewayState = {
+    _bindingStartupAuthority: llmGateway._bindingStartupAuthority,
+    _bindingArtifactResolver: llmGateway._bindingArtifactResolver,
+    _vramFitProfiles: llmGateway._vramFitProfiles,
+    currentAuth: llmGateway.currentAuth, callCount: llmGateway.callCount,
+    rateLimits: llmGateway.rateLimits,
+  };
+  const originalAuditLogs = llmGateway.audit.logs;
+  const engineState = {
+    _overrideCount: creDecisionEngine._overrideCount, _interceptCount: creDecisionEngine._interceptCount,
+    _overrideLog: creDecisionEngine._overrideLog, _interceptLog: creDecisionEngine._interceptLog,
+  };
+  const requests = [];
+  const resolvedBindings = [];
+  try {
+    // A shared FAST/CHAT artifact uses its registered default window. No cache
+    // mutation, footprint or GPU observation is needed for these CPU fixtures.
+    Object.assign(config.models, { FAST: classifierModel, CHAT: classifierModel, D1: plannerModel });
+    config.ollama.baseUrl = baseUrl;
+    llmGateway._vramFitProfiles = Object.freeze({}); // preserve documented UNKNOWN handling
+    llmGateway.rateLimits = { ...llmGateway.rateLimits, currentMinuteCalls: 0, currentMinuteStart: Date.now() };
+    llmGateway.audit.logs = [];
+    creDecisionEngine._overrideLog = [];
+    creDecisionEngine._interceptLog = [];
+    modelUniverseStore.recordSignalEvent = () => ({ ok: true });
+    llmGateway.setBindingStartupAuthority({ status: 'DURABLE' }, { resolveArtifact: async value => {
+      resolvedBindings.push(value);
+      assert.ok(Object.hasOwn(artifacts, value.modelName), 'only the two configured fixture artifacts are eligible');
+      return artifacts[value.modelName];
+    } });
+    globalThis.fetch = async (input, options = {}) => {
+      const url = new URL(String(input));
+      assert.equal(url.origin, baseUrl, 'no actual network or other provider is allowed');
+      assert.equal(url.search, '');
+      if (url.pathname === '/api/tags') {
+        assert.equal(options.method || 'GET', 'GET');
+        return Response.json({ models: Object.values(artifacts).map(value => ({ name: value.modelName, digest: value.digestSha256 })) });
+      }
+      assert.equal(url.pathname, '/api/chat');
+      assert.equal(options.method, 'POST');
+      const body = JSON.parse(options.body);
+      assert.ok(Object.hasOwn(artifacts, body.model), 'CODE and fallback models cannot be requested');
+      assert.ok(requests.length < 2, 'only classifier and D1 provider requests are permitted');
+      requests.push(body);
+      const value = body.model === classifierModel
+        ? { intent: 'CREATIVE', confidence: 0.95, fileTarget: null, question: null, continuesPending: false,
+          responseScope: 'project', briefResponse: false, responseWordCount: null, requestedOperation: 'none' }
+        : { reply: providerReply, plan: providerPlan };
+      return Response.json({ model: body.model, digest: artifacts[body.model].digestSha256,
+        message: { content: JSON.stringify(value) }, done: true, done_reason: 'stop', prompt_eval_count: 100, eval_count: 40 });
+    };
+
+    const response = await projectHandler(request, { project, m2LifecycleOnly: true,
+      sessionId: 'natural-d1-boundary', conversationId: 'natural-d1-boundary',
+      authenticatedSubject: { actorType: 'user', actorId: 'natural-d1-boundary' },
+      history, dbHistory: history, projectWorkingMemory: { goal } });
+    assert.deepEqual(requests.map(value => value.model), [classifierModel, plannerModel]);
+    assert.equal(requests[0].format, 'json');
+    const interpreted = JSON.parse(requests[0].messages.find(message => message.role === 'user').content);
+    assert.equal(interpreted.request, request);
+    assert.equal(interpreted.goal, goal);
+    assert.deepEqual(interpreted.history, [{ role: 'user', content: priorRequest }, { role: 'assistant', content: priorReply }]);
+    assert.match(requests[0].messages.find(message => message.role === 'system').content, /responseScope/);
+    assert.deepEqual(requests[1].format, PROJECT_DISCUSSION_SCHEMA);
+    const planned = JSON.parse(requests[1].messages.find(message => message.role === 'user').content);
+    assert.equal(planned.request, request);
+    assert.equal(planned.project.id, project.id);
+    assert.deepEqual(planned.history, interpreted.history);
+    assert.ok(planned.analysis.files.includes('README.md'));
+    assert.equal(planned.analysis.fileCount, analysis.fileCount);
+    assert.deepEqual(planned.projectWorkEvidence, []);
+    assert.equal(requests[0].options.num_ctx, resolveNumCtx(classifierModel));
+    assert.equal(requests[0].options.num_predict, 256);
+    assert.equal(requests[1].options.num_ctx, resolveNumCtx(plannerModel));
+    assert.ok(requests[1].options.num_predict > 0 && requests[1].options.num_predict <= 4000);
+    const completed = llmGateway.audit.logs.filter(entry => entry.event === 'LLM_CALL_COMPLETE');
+    assert.deepEqual(completed.map(entry => entry.role), ['WORKFLOW_CLASSIFIER', 'WORKFLOW_PLANNER']);
+    assert.equal(completed[1].modelRole, 'D1');
+    assert.equal(completed[1].purpose, 'answer');
+    assert.deepEqual(resolvedBindings.map(value => value.modelName), [classifierModel, plannerModel]);
+    assert.equal(response.content, providerReply);
+    assert.equal(response.tag.canExecute, false);
+    assert.equal(response.tag.metadata.handler, 'project.collaboration');
+    const proposal = response.tag.metadata.projectWorkProposal;
+    assert.equal(proposal.kind, 'ProjectWorkProposal@1');
+    assert.equal(proposal.projectId, project.id);
+    assert.equal(proposal.workspaceRevision, analysis.revision);
+    assert.deepEqual(proposal.draft.files, providerPlan.files);
+    assert.equal(proposal.draft.instruction, providerPlan.instruction);
+    assert.equal(proposal.draft.focusedTest.binary, process.execPath);
+    assert.equal(response.tag.metadata.inspection.testsExecuted, false);
+    assert.deepEqual(authorityCounts(), beforeAuthority);
+    assert.deepEqual(await projectSnapshot(), before);
+    assert.equal(llmGateway._concurrency.active, 0);
+    assert.equal(llmGateway._concurrency.queue.length, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    Object.assign(config.models, originalModels);
+    config.ollama.baseUrl = originalBaseUrl;
+    modelUniverseStore.recordSignalEvent = originalSignalRecorder;
+    Object.assign(llmGateway, gatewayState);
+    llmGateway.audit.logs = originalAuditLogs;
+    Object.assign(creDecisionEngine, engineState);
+  }
+});

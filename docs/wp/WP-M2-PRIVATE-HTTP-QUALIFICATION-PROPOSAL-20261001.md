@@ -1,6 +1,12 @@
 # WP-M2-PRIVATE-HTTP-QUALIFICATION-PROPOSAL-20261001
 
-**Stav:** `DRAFT / DECISION_REQUIRED / IMPLEMENTATION_NOT_RUN / HTTP_NOT_RUN`.
+**Aktuální stav 4. 10.:** `FOLLOWUP_AUTHORIZED / CONTRACT_REVIEW_PENDING / IMPLEMENTATION_NOT_RUN / HTTP_NOT_RUN`.
+Operátor výslovně povolil navazující implementační WP, review kontraktu a testy.
+[Navazující WP](WP-M2-PRIVATE-HTTP-EXECUTION-20261004.md) eviduje rozsah,
+skutečné namespace sondy a jejich omezení. Výchozí offline profil se nemění.
+Následující datovaný návrh zachovává původní stav rozhodování z 1. 10.
+
+**Historický stav 1. 10.:** `DRAFT / DECISION_REQUIRED / IMPLEMENTATION_NOT_RUN / HTTP_NOT_RUN`.
 **Datum:** 2026-10-01. **Vlastník přípravy:** ROOT; rozhodnutí náleží operátorovi.
 **Podklad:** čistý checkout `6a9161a563c81f6837ae9181df9045bf44c62682`.
 Tento WP připravuje rozhodnutí; nepovoluje implementaci ani nemění sandbox.

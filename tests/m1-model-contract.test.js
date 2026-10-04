@@ -1630,7 +1630,7 @@ try {
   llmGateway._concurrency.queue.length = 0;
 }
 
-suite('Captured CODE 16k runtime — default generator and drift boundary');
+suite('Captured CODE 32k runtime — default generator and drift boundary');
 const codeSaved = {
   fetch: globalThis.fetch, bindings: { ...config.models }, baseUrl: config.ollama.baseUrl,
   authority: llmGateway._bindingStartupAuthority, resolver: llmGateway._bindingArtifactResolver,
@@ -1664,7 +1664,7 @@ function codeOperation(overrides = {}) {
   const token = createAuthToken({ role: LLMCallerRole.WORKFLOW_CODER, decisionId,
     auditContext: { sessionId: decisionId }, maxTokens: 4096,
     capabilities: [LLMCapability.CODE_GENERATION, LLMCapability.JSON_OUTPUT] });
-  const options = { model: CODE_RUNTIME_PROFILE.model, num_ctx: 16384, maxTokens: 4096,
+  const options = { model: CODE_RUNTIME_PROFILE.model, num_ctx: 32768, maxTokens: 4096,
     timeout: 1000, capability: LLMCapability.CODE_GENERATION, correlation: {
       requestId: decisionId, conversationId: decisionId, turnId: decisionId,
       callerRole: token.role, modelRole: 'CODE', purpose: 'answer' }, ...overrides };
@@ -1690,19 +1690,19 @@ try {
     const runtime = await captureCodeDraftModelBudgets(true);
     const state = getCodeDraftRuntime(runtime.runtimeCapture);
     assertEqual(Object.isFrozen(state), true); assertEqual(Object.isFrozen(state.artifact), true);
-    assertEqual(runtime.generationBudgets[0].maxPromptBytes, 23808);
-    assertEqual(runtime.generationBudgets[1].maxPromptBytes, 27904);
+    assertEqual(runtime.generationBudgets[0].maxPromptBytes, 56576);
+    assertEqual(runtime.generationBudgets[1].maxPromptBytes, 60672);
     assertEqual(codeEndpoints.length, 1, 'one capture verifies the initial provider identity');
-    for (const [repairBuild, cache] of [[false, 8192], [false, 4096], [true, 32768]]) {
+    for (const [repairBuild, cache] of [[false, 8192], [false, 4096], [true, 65536]]) {
       setNumCtx(CODE_RUNTIME_PROFILE.model, cache);
       const response = await generateCodeDraft({ prompt: 'Generate the full file.', systemPrompt: 'JSON only.',
         sessionId: 'code-default-generator', projectBuild: true, repairBuild,
         runtimeCapture: runtime.runtimeCapture, modelBudget: runtime.generationBudgets[repairBuild ? 1 : 0] });
       assert(response.content.includes('afterContent'));
     }
-    assertEqual(JSON.stringify(codeRequests.map(body => body.options.num_ctx)), '[16384,16384,16384]');
+    assertEqual(JSON.stringify(codeRequests.map(body => body.options.num_ctx)), '[32768,32768,32768]');
     assertEqual(JSON.stringify(codeRequests.map(body => body.options.num_predict)), '[4096,4096,2048]');
-    assertEqual(getNumCtx(CODE_RUNTIME_PROFILE.model), 32768, 'CODE requests do not rewrite the shared cache');
+    assertEqual(getNumCtx(CODE_RUNTIME_PROFILE.model), 65536, 'CODE requests do not rewrite the shared cache');
     setNumCtx(CODE_RUNTIME_PROFILE.model, 8192);
     const chatToken = makeToken();
     await callWithPolicy(chatToken, 'ordinary CHAT request', { model: CODE_RUNTIME_PROFILE.model, num_ctx: 16384,
@@ -1839,7 +1839,7 @@ try {
     resetCodeFixture(); const runtime = await captureCodeDraftModelBudgets(true);
     const error = await capturedFailure(generateCodeDraft({ prompt: 'short', systemPrompt: '', sessionId: 'drifted-budget',
       projectBuild: true, runtimeCapture: runtime.runtimeCapture,
-      modelBudget: { ...runtime.generationBudgets[0], numCtx: 32768 } }));
+      modelBudget: { ...runtime.generationBudgets[0], numCtx: 65536 } }));
     assertEqual(error.code, 'M2_CODE_DRAFT_MODEL_RUNTIME_DRIFT'); assertEqual(codeRequests.length, 0);
     const compiled = compileCodeDraftInput({ instruction: 'Keep complete output.', files: [
       { path: 'src/a.mjs', instruction: 'Export a value.', dependsOn: [] },
@@ -1876,7 +1876,8 @@ try {
     assertThrows(() => buildCodeDraftPrompt(compiled, null, 1, stale));
     const larger = buildCodeDraftPrompt(compiled, null, 2, [{ path: 'src/b.mjs', content: 'x'.repeat(22500), state: 'proposed' }]);
     assertEqual(JSON.parse(larger.prompt).peerFiles[0][1].length, 22500);
-    assertThrows(() => assertCodeDraftModelBudget(larger, build));
+    assertCodeDraftModelBudget(larger, build);
+    assertThrows(() => assertCodeDraftModelBudget(larger, { ...build, numCtx: 16384, maxPromptBytes: 23808 }));
     assertThrows(() => buildCodeDraftPrompt(compiled, null, 2, [{ path: 'src/b.mjs', content: 'x'.repeat(32000), state: 'proposed' }]));
     assertEqual(codeRequests.length, 0);
   });

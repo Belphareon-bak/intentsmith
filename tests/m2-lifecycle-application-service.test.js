@@ -1591,7 +1591,7 @@ for (const defect of [null, 'owner', 'origin', 'digest', 'active', 'stale', 'mis
 // A separate Node process keeps every parent binding/cache/fetch value intact.
 // Only HTTP mock requests execute; real project preparation uses the default
 // CODE generator, SQLite, Git and AST governance. Approval remains a later gate.
-await testAsync('default CODE16k keeps complete sources and stops later failures before authority', async () => {
+await testAsync('default CODE32k keeps complete sources beyond the old16k guard and stops later failures before authority', async () => {
   const childSource = [
     "import assert from 'node:assert/strict';\nimport { createHash } from 'node:crypto';\nimport { execFileSync } from 'node:child_process';\nimport fs from 'node:fs';\nimport os from 'node:os';\nimport path from 'node:path';\nimport Database from 'better-sqlite3';\nimport { up as applyEffectAuthority } from './src/db/migrations/2026_08_23_092_m2_effect_authority.js';\nimport { up as applyEffectAuthorityHardening } from './src/db/migrations/2026_08_24_071_m2_effect_authority_hardening.js';\nimport { up as applyEffectExecutionClaims } from './src/db/migrations/2026_08_24_072_m2_effect_execution_claims.js';\nimport { up as applyEffectClaimTruth } from './src/db/migrations/2026_08_24_073_m2_effect_claim_truth.js';\nimport { up as applyExecutionAuthority } from './src/db/migrations/2026_08_24_078_m2_execution_authority.js';\nimport { up as applyLifecycleAuthority } from './src/db/migrations/2026_08_24_079_m2_lifecycle_authority.js';\nimport { createDefaultM2LifecycleApplicationService } from './src/lifecycle/m2-lifecycle-application-service.js';\nconst PROJECT_ID = 27;\nconst SUBJECT = Object.freeze({ actorType: 'user', actorId: 'operator-m2' });\nconst ORIGIN = Object.freeze({surface:'studio',sessionId:'studio-session-m2',conversationId:'studio-conversation-m2',projectId:PROJECT_ID});",
     git.toString(),
@@ -1628,7 +1628,7 @@ await testAsync('default CODE16k keeps complete sources and stops later failures
       "    const old8192Budget = await codeDraftModelBudget(true);",
       "    llmGateway.setBindingStartupAuthority({ status: 'DURABLE' }, { resolveArtifact: () => { artifactQueries += 1; return artifact; } });",
       "    modelUniverseStore.recordSignalEvent = () => ({ ok: true });",
-      "    const payload = scenario === 'later-dependency-overflow' ? 14000 : 8000;",
+      "    const payload = scenario === 'later-dependency-overflow' ? 15500 : 13200;",
       "    const outputs = {",
       "      'src/a.js': `export const a = 1;\\n/*${'a'.repeat(payload)}*/\\n`,",
       "      'src/b.js': `export const b = 2;\\n/*${'b'.repeat(payload)}*/\\n`,",
@@ -1648,14 +1648,14 @@ await testAsync('default CODE16k keeps complete sources and stops later failures
       "      const body = JSON.parse(options.body); const prompt = body.messages.find(message => message.role === 'user').content;",
       "      const input = codeInput(prompt); calls += 1; requestContexts.push(body.options.num_ctx);",
       "      assert.equal(body.model, artifact.modelName);",
-      "      assert.equal(body.options.num_ctx, 16384); assert.equal(body.options.num_predict, 4096);",
+      "      assert.equal(body.options.num_ctx, 32768); assert.equal(body.options.num_predict, 4096);",
       "      const expectedPeers = blueprint.files.find(file => file.path === input.path).dependsOn;",
       "      assert.deepEqual(input.peerFiles?.map(peer => peer.path) ?? [], expectedPeers);",
       "      for (const peer of input.peerFiles ?? []) assert.equal(peer.content, outputs[peer.path]);",
       "      sourceLengths.push({ path: input.path, promptAndSystemBytes: body.messages.reduce((sum, message) => sum + Buffer.byteLength(message.content), 0),",
       "        fullPeerBytes: (input.peerFiles ?? []).reduce((sum, peer) => sum + Buffer.byteLength(peer.content), 0) });",
       "      // Shared-cache drift between successive actual service generations must not change CODE budget.",
-      "      setNumCtx(CODE_RUNTIME_PROFILE.model, calls === 1 ? 4096 : 32768);",
+      "      setNumCtx(CODE_RUNTIME_PROFILE.model, calls === 1 ? 4096 : 8192);",
       "      if (scenario === 'later-config-drift' && calls === 2) config.models.CODE = 'retargeted:1b';",
       "      return controlledResponse({ model: artifact.modelName, digest: artifact.digestSha256,",
       "        provider_version: CODE_RUNTIME_QUALIFICATION.providerVersion,",
@@ -1673,7 +1673,8 @@ await testAsync('default CODE16k keeps complete sources and stops later failures
       "        assert.equal(db.prepare('SELECT count(*) AS n FROM m2_lifecycle_operations').get().n, 1);",
       "        if (scenario === 'complete-full-source') {",
       "        const third = sourceLengths[2]; assert.ok(third.promptAndSystemBytes > old8192Budget.maxPromptBytes);",
-      "        assert.ok(third.promptAndSystemBytes <= 23808);",
+      "        assert.ok(third.promptAndSystemBytes > 23808, 'complete sources exceed the historical16k guard');",
+      "        assert.ok(third.promptAndSystemBytes <= 32000, 'serializer cap stays unchanged');",
       "        assert.equal(third.fullPeerBytes, Buffer.byteLength(outputs['src/a.js']) + Buffer.byteLength(outputs['src/b.js']));",
       "        } else { assert.equal(versionQueries, 0); assert.equal(artifactQueries, 0); }",
       "      } else {",
@@ -1696,7 +1697,7 @@ await testAsync('default CODE16k keeps complete sources and stops later failures
       "    } finally { db.close(); fs.rmSync(root, { recursive: true, force: true }); }",
       "  }",
       "  console.log(JSON.stringify({ schemaVersion: 1, kind: 'CPU_MOCK_PROVIDER_ONLY', model: CODE_RUNTIME_PROFILE.model,",
-      "    digestSha256: CODE_RUNTIME_PROFILE.digestSha256, profileContext: 16384,",
+      "    digestSha256: CODE_RUNTIME_PROFILE.digestSha256, profileContext: 32768,",
       "    limitations: ['No live provider request or GPU', 'No approval/execution/commit acceptance', 'Five bounded generation/preparation cases only'], receipts }, null, 2));",
       "} finally {",
       "  globalThis.fetch = original.fetch; config.models.CODE = original.code; config.ollama.baseUrl = original.baseUrl;",
@@ -1713,7 +1714,7 @@ await testAsync('default CODE16k keeps complete sources and stops later failures
   const marker = '{\n  "schemaVersion": 1,\n  "kind": "CPU_MOCK_PROVIDER_ONLY"';
   const offset = output.indexOf(marker); assert.ok(offset >= 0, 'bounded child must return its exact CPU receipt');
   const evidence = JSON.parse(output.slice(offset));
-  assert.equal(evidence.kind, 'CPU_MOCK_PROVIDER_ONLY'); assert.equal(evidence.profileContext, 16384);
+  assert.equal(evidence.kind, 'CPU_MOCK_PROVIDER_ONLY'); assert.equal(evidence.profileContext, 32768);
   assert.deepEqual(evidence.receipts.map(item => [item.scenario, item.status, item.calls, item.durableOperations]), [
     ['complete-full-source', 'CPU_PASS', 4, 1], ['later-dependency-overflow', 'CPU_PASS', 2, 0],
     ['later-incomplete-output', 'CPU_PASS', 3, 0], ['later-config-drift', 'CPU_PASS', 2, 0],

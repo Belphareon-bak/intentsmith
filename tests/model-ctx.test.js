@@ -344,19 +344,19 @@ await testAsync('initialization distinguishes a parsed model from unknown-name f
   }
 });
 
-suite('CODE-only 16k profile isolation');
+suite('CODE-only 32k profile isolation');
 
 test('pins exact CODE artifact and allocation receipt without extending the generic profile', () => {
   assertEqual(validateModelRuntimeProfile(CODE_RUNTIME_PROFILE).valid, true);
   assertEqual(Object.isFrozen(CODE_RUNTIME_PROFILE), true);
-  assertEqual(CODE_RUNTIME_PROFILE.contextWindowTokens, 16384);
+  assertEqual(CODE_RUNTIME_PROFILE.contextWindowTokens, 32768);
   assertEqual(CODE_RUNTIME_PROFILE.digestSha256, '22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643');
   assertEqual(getCodeRuntimeProfile(' QWEN3.8:LATEST ', CODE_RUNTIME_PROFILE.digestSha256), CODE_RUNTIME_PROFILE);
   assertEqual(getCodeRuntimeProfile(CODE_RUNTIME_PROFILE.model, 'b'.repeat(64)), null);
   assertEqual(getModelRuntimeProfile(CODE_RUNTIME_PROFILE.model), null);
   assertEqual(CODE_RUNTIME_QUALIFICATION.providerVersion, '0.34.0-intentsmith.1');
   assertEqual(CODE_RUNTIME_QUALIFICATION.kind, 'allocation-only');
-  assertEqual(CODE_RUNTIME_QUALIFICATION.receiptSha256, '82dd95941b8a4008d2fda274f7e9f6264b48ecf80bad75b806a71365cb264fd6');
+  assertEqual(CODE_RUNTIME_QUALIFICATION.receiptSha256, '3de557fc76cc26e5944fd4f3a17528981115d07fcbe49b1e6117a2196460c944');
   assertEqual('modelWeightsMb' in CODE_RUNTIME_PROFILE, false);
   assertEqual('kvMbPer1k' in CODE_RUNTIME_PROFILE, false);
 });
