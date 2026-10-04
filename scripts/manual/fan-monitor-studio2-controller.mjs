@@ -16,9 +16,11 @@ const sorted = values => [...values].sort();
 
 // Called by the existing owned relay BEFORE forwarding each actual request.
 // Counting only after a UI operation would not enforce the inference bound.
-export function createFanCallBudget({ d1Model, codeModel, entryMode = 'd1', historicalRows = [] }) {
+export function createFanCallBudget({ d1Model, codeModel, entryMode = 'd1', historicalRows = [], continuationMode = null }) {
   assert.ok(d1Model && codeModel, 'exact role model identities required');
   assert.ok(['d1', 'manual'].includes(entryMode));
+  assert.ok(continuationMode === null || continuationMode === 'failed-core4-cli3');
+  if (continuationMode) { assert.equal(entryMode, 'manual'); assert.equal(historicalRows.length, 4); }
   const maximumD1 = entryMode === 'manual' ? 0 : 8;
   const rows = copy(historicalRows); const operations = new Set(); let active = null;
   if (rows.length) {
@@ -30,6 +32,11 @@ export function createFanCallBudget({ d1Model, codeModel, entryMode = 'd1', hist
     begin(phase, kind) {
       assert.ok(TARGETS[phase]); assert.ok(['initial', 'repair'].includes(kind));
       const key = phase + ':' + kind;
+      if (continuationMode) {
+        assert.ok(key === 'core:repair' || key === 'cli:initial', 'failed continuation permits only core4 repair then CLI3');
+        if (key === 'cli:initial') assert.equal(rows.filter(row => row.phase === 'core' && row.kind === 'repair').length, 4, 'all four core repair calls must precede CLI');
+        else assert.equal(rows.length, 4, 'one core repair immediately after historical seed');
+      }
       assert.equal(operations.has(key), false, 'one operation of each kind per increment');
       operations.add(key); active = { phase, kind, d1: 0, code: 0 };
     },
@@ -41,14 +48,15 @@ export function createFanCallBudget({ d1Model, codeModel, entryMode = 'd1', hist
       const code = rows.filter(row => row.role === 'CODE').length;
       if (role === 'D1') { assert.ok(d1 < maximumD1 && active.d1 < 2, 'D1 total8/operation2 bound'); active.d1++; }
       else {
-        const maximum = active.kind === 'repair' ? 2 : TARGETS[active.phase].length;
-        assert.ok(code < 11 && active.code < maximum, 'CODE total11/repair2 bound'); active.code++;
+        const maximum = continuationMode && active.phase === 'core' && active.kind === 'repair' ? 4
+          : active.kind === 'repair' ? 2 : TARGETS[active.phase].length;
+        assert.ok(code < 11 && active.code < maximum, continuationMode ? 'CODE total11/operation bound' : 'CODE total11/repair2 bound'); active.code++;
       }
       const row = { sequence: rows.length + 1, role, model, phase: active.phase, kind: active.kind };
       rows.push(row); return copy(row);
     },
     stop() { active = null; },
-    snapshot() { return copy({ maximumD1, maximumCode: 11, rows, active }); },
+    snapshot() { return copy({ maximumD1, maximumCode: 11, ...(continuationMode ? { continuationMode } : {}), rows, active }); },
   };
 }
 
@@ -99,8 +107,22 @@ export function validatePendingResume(resume, { projectId, conversationId }) {
   assert.ok(bound); return bound;
 }
 
-export async function bindActualConversation(studio, { projectId, conversationId, title, resumePending = null }) {
+export function validateFailedResume(resume, { projectId, conversationId }) {
+  assert.deepEqual(Object.keys(resume || {}).sort(), ['lifecycleId', 'planDigest', 'status']);
+  assert.match(resume.lifecycleId, /^lifecycle:[0-9a-f-]{36}$/); assert.match(resume.planDigest, /^sha256:[0-9a-f]{64}$/);
+  const expectedOrigin = { surface: 'studio', sessionId: conversationId, conversationId, projectId: Number(projectId) };
+  const view = validateView(resume.status, resume.lifecycleId, expectedOrigin, resume.planDigest);
+  assert.equal(view.state, 'failed');
+  assert.equal(view.result?.focusedTest?.terminalStatus, 'failed');
+  assert.equal(view.result?.rollback?.status, 'succeeded');
+  const bound = pendingBinding({ lifecycleId: view.lifecycleId, planDigest: view.planDigest, origin: expectedOrigin });
+  assert.ok(bound); return bound;
+}
+
+export async function bindActualConversation(studio, { projectId, conversationId, title, resumePending = null, resumeFailed = null }) {
+  assert.ok(resumePending === null || resumeFailed === null, 'pending and failed resumes are mutually exclusive');
   const expectedPending = resumePending === null ? null : validatePendingResume(resumePending, { projectId, conversationId });
+  const expectedFailed = resumeFailed === null ? null : validateFailedResume(resumeFailed, { projectId, conversationId });
   return invoke(studio, async (model, args) => {
     if (window.IntentSmithWS?.isReady?.() !== true || window.IntentSmithWS?.isM1WireNegotiated?.() !== true) {
       throw Error('FAN_M1_NOT_NEGOTIATED');
@@ -123,9 +145,18 @@ export async function bindActualConversation(studio, { projectId, conversationId
         || pending.origin?.conversationId !== expected.origin.conversationId || pending.origin?.projectId !== expected.origin.projectId) {
         throw Error('FAN_PENDING_RESUME_BINDING_DRIFT');
       }
-    } else if (pending) throw Error('FAN_CONVERSATION_BUSY');
+    } else if (pending) {
+      const expected = args.expectedFailed;
+      if (!expected || pending.lifecycleId !== expected.lifecycleId || pending.planDigest !== expected.planDigest
+        || pending.origin?.surface !== expected.origin.surface || pending.origin?.sessionId !== expected.origin.sessionId
+        || pending.origin?.conversationId !== expected.origin.conversationId || pending.origin?.projectId !== expected.origin.projectId) {
+        throw Error('FAN_CONVERSATION_BUSY');
+      }
+      // Only the normal subsequent /m2-status action may retire this matching
+      // failed pointer; this bind never clears or overwrites pending state.
+    }
     return { sessionId: session.id, projectId: session._projectId, conversationId: session._convId };
-  }, { projectId, conversationId, title, expectedPending });
+  }, { projectId, conversationId, title, expectedPending, expectedFailed });
 }
 
 export async function reloadActualStatus(studio, { sessionId, lifecycleId, planDigest }) {
@@ -331,19 +362,31 @@ export function validateManualDraft(draft, { phase, nodeBinary, repair = false }
   return draft;
 }
 
-export function makeManualRevision(lastDraft, failedView, selection, { phase, nodeBinary }) {
+export function makeManualRevision(lastDraft, failedView, selection, { phase, nodeBinary, frozenCoreRepairDraft = null }) {
   assert.equal(selection.phase, phase);
   assert.equal(failedView.state, 'failed');
   assert.equal(failedView.result?.focusedTest?.terminalStatus, 'failed');
   assert.equal(failedView.result?.rollback?.status, 'succeeded');
   assert.equal(selection.failedLifecycleId, failedView.lifecycleId);
   assert.equal(selection.planDigest, failedView.planDigest);
-  assert.ok(Array.isArray(selection.targets) && selection.targets.length >= 1 && selection.targets.length <= 2);
+  assert.ok(Array.isArray(selection.targets) && selection.targets.length >= 1 && selection.targets.length <= (frozenCoreRepairDraft ? 4 : 2));
   assert.equal(new Set(selection.targets).size, selection.targets.length);
   assert.ok(selection.targets.every(path => TARGETS[phase].includes(path)));
   assert.deepEqual(sorted(failedView.diff.map(file => file.path)), sorted(TARGETS[phase]));
   assert.equal(typeof selection.reason, 'string'); assert.ok(selection.reason.trim());
   assert.equal(lastDraft.revisionOf, undefined, 'one manual repair per increment');
+  if (frozenCoreRepairDraft !== null) {
+    assert.equal(phase, 'core'); assert.deepEqual(sorted(selection.targets), sorted(TARGETS.core));
+    const draft = copy(frozenCoreRepairDraft);
+    assert.deepEqual(draft.revisionOf, { lifecycleId: failedView.lifecycleId, planDigest: failedView.planDigest });
+    assert.deepEqual(draft.focusedTest, lastDraft.focusedTest); assert.deepEqual(draft.gitCommit, lastDraft.gitCommit);
+    for (const file of draft.files) {
+      const previous = lastDraft.files.find(row => row.path === file.path); assert.ok(previous);
+      assert.deepEqual(file.dependsOn, previous.dependsOn); assert.deepEqual(file.contextFiles || [], previous.contextFiles || []);
+      assert.equal(file.reusePrevious, false, 'all four failed core materials require explicit repair');
+    }
+    return validateManualDraft(draft, { phase, nodeBinary, repair: true });
+  }
   const draft = copy(lastDraft);
   const prefix = '\nOprav skutečné selhání: ';
   const reasonBudget = 512 - Buffer.byteLength(draft.instruction + prefix);

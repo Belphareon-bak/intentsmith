@@ -17,6 +17,7 @@ import { processSandboxProvider } from '../../src/execution/process-sandbox-prov
 import { LINUX_BWRAP_READ_ONLY_PROFILE } from '../../src/execution/process-supervisor-child.js';
 import { computeM2ExecutionValueDigest } from '../../contracts/m2/execution-v1.js';
 import { buildCodeDraftPrompt, compileCodeDraftInput, compileCodeDraftResult } from '../../src/lifecycle/m2-code-draft.js';
+import { CODE_RUNTIME_PROFILE } from '../../src/llm/model-runtime-profile.js';
 import { PROJECT_DISCUSSION_SCHEMA, PROJECT_DISCUSSION_SYSTEM } from '../../src/chat/handlers/project-collaboration.js';
 import { TARGETS, TEST_ARGV, createFanCallBudget, bindActualConversation, captureRealD1Proposal,
   prepareActualCapturedPlan, prepareActualFailedRevision, prepareActualManualDraft, validateManualDraft, makeManualRevision, approveRenderedExactPlan, reloadActualStatus } from './fan-monitor-studio2-controller.mjs';
@@ -49,7 +50,13 @@ export function validateFreeze(freeze) {
   assert.equal(freeze.kind, 'FanJourneyFreeze@1'); assert.match(freeze.sourceSha, /^[0-9a-f]{40}$/);
   assert.equal(freeze.status, 'FROZEN_REVIEWED_FOR_LIVE', 'draft proposals cannot start live work');
   assert.equal(freeze.model, MODEL); assert.equal(freeze.digest, DIGEST); assert.equal(freeze.providerVersion, VERSION);
-  assert.equal(freeze.d1Context, 8192); assert.equal(freeze.codeContext, 16384);
+  assert.equal(freeze.d1Context, 8192); assert.equal(freeze.codeContext, freeze.resumeFailed ? 32768 : 16384);
+  if (freeze.resumeFailed) {
+    assert.equal(CODE_RUNTIME_PROFILE.contextWindowTokens, freeze.codeContext);
+    assert.equal(CODE_RUNTIME_PROFILE.model, freeze.model); assert.equal(CODE_RUNTIME_PROFILE.digestSha256, freeze.digest);
+    assert.equal(freeze.resumePending, undefined, 'choose exactly one preserved-state continuation');
+    assert.equal(freeze.entryMode, 'manual'); validateFailedResumePins(freeze);
+  }
   const entryMode = freeze.entryMode ?? 'd1'; assert.ok(['d1', 'manual'].includes(entryMode));
   assert.equal(freeze.maximumCode, 11); assert.equal(freeze.maximumD1, entryMode === 'manual' ? 0 : 8);
   if (freeze.resumePending) assert.equal(entryMode, 'manual', 'only the preserved explicit CODE journey may continue');
@@ -86,7 +93,9 @@ export function validateFreeze(freeze) {
   }
   assert.equal(freeze.operatorFiles['scripts/fan-monitor-oracle-proposed.mjs'].sha256,
     'a6a240df97ccff493add59747dbf518cc6b5a8c7e23607a5b942babd24091609');
-  assert.deepEqual(freeze.repairSelectionPolicy, { eligiblePaths: TARGETS, maximumTargets: 2, maximumLifecyclesPerIncrement: 1, waitMs: 180000 });
+  assert.deepEqual(freeze.repairSelectionPolicy, freeze.resumeFailed
+    ? { eligiblePaths: TARGETS, maximumTargets: 4, maximumLifecyclesPerIncrement: 1, waitMs: 0, cliRepairAllowed: false }
+    : { eligiblePaths: TARGETS, maximumTargets: 2, maximumLifecyclesPerIncrement: 1, waitMs: 180000 });
   assert.ok(freeze.reviewReceipts?.length >= 1, 'independent reviewed oracle/controller freeze required');
   for (const row of freeze.reviewReceipts) { assert.ok(path.isAbsolute(row.path)); assert.equal(sha(fs.readFileSync(row.path)), row.sha256); }
   return freeze;
@@ -160,7 +169,7 @@ export function classifyGeneration(body, freeze, admission, priorRequests = []) 
 }
 
 export function createFanProviderProxy({ freeze, out, requests, onModelCall }) {
-  const budget = createFanCallBudget({ d1Model: freeze.model, codeModel: freeze.model, entryMode: freeze.entryMode ?? 'd1', historicalRows: requests.filter(row => row.admission).map(row => row.admission) }); let lastKey = null, stopped = false;
+  const budget = createFanCallBudget({ d1Model: freeze.model, codeModel: freeze.model, entryMode: freeze.entryMode ?? 'd1', historicalRows: requests.filter(row => row.admission).map(row => row.admission), continuationMode: freeze.resumeFailed ? 'failed-core4-cli3' : null }); let lastKey = null, stopped = false;
   return createOwnedProviderRelay(async (incoming, outgoing, forward) => {
     let row;
     try {
@@ -178,7 +187,7 @@ export function createFanProviderProxy({ freeze, out, requests, onModelCall }) {
         const admission = read(path.join(out, 'admission.json'));
         assert.ok(['core', 'cli'].includes(admission.phase) && ['initial', 'repair'].includes(admission.kind));
         if (admission.kind === 'repair') {
-          const { selection, selectionSha256 } = readRepairSelection(out, admission.phase, admission.repairSelection);
+          const { selection, selectionSha256 } = readRepairSelection(out, admission.phase, admission.repairSelection, freeze.resumeFailed ? 'failed-core4-cli3' : null);
           assert.equal(selectionSha256, admission.repairSelection.selectionSha256, 'selection cannot drift after receipt');
           assert.deepEqual(selection.targets, admission.repairSelection.targets);
         }
@@ -304,24 +313,27 @@ export async function stopOwnedRuntime(state, gracefulStop, label, bounds = {}) 
   return { label, ...join, gracefulError, status: !join.closed ? 'OWNED_STOP_UNRESOLVED' : gracefulError || join.termSent || join.killSent ? 'OWNED_STOP_FAILED_JOINED' : 'OWNED_STOP_PASS' };
 }
 
-export function validateRepairSelection(selection, { phase, failedLifecycleId, planDigest }) {
+export function validateRepairSelection(selection, { phase, failedLifecycleId, planDigest }, continuationMode = null) {
+  assert.ok(continuationMode === null || continuationMode === 'failed-core4-cli3');
+  if (continuationMode) assert.equal(phase, 'core');
   assert.ok(selection && Object.getPrototypeOf(selection) === Object.prototype && !Array.isArray(selection), 'selection must be a JSON record');
   assert.deepEqual(Object.keys(selection).sort(), ['failedLifecycleId', 'phase', 'planDigest', 'reason', 'targets']);
   assert.equal(selection.phase, phase); assert.equal(selection.failedLifecycleId, failedLifecycleId); assert.equal(selection.planDigest, planDigest);
   assert.match(selection.planDigest, /^sha256:[0-9a-f]{64}$/);
-  assert.ok(Array.isArray(selection.targets) && selection.targets.length >= 1 && selection.targets.length <= 2
+  assert.ok(Array.isArray(selection.targets) && selection.targets.length >= 1 && selection.targets.length <= (continuationMode ? 4 : 2)
     && new Set(selection.targets).size === selection.targets.length && selection.targets.every(relative => TARGETS[phase].includes(relative)), 'repair subset must remain in frozen eligible scope');
+  if (continuationMode) assert.deepEqual([...selection.targets].sort(), [...TARGETS.core].sort(), 'fixed full4 repair only');
   assert.ok(typeof selection.reason === 'string' && selection.reason.isWellFormed() && selection.reason.trim() && Buffer.byteLength(selection.reason) <= 1024);
   return selection;
 }
-export function readRepairSelection(out, phase, failure) {
+export function readRepairSelection(out, phase, failure, continuationMode = null) {
   assert.ok(['core', 'cli'].includes(phase));
   const dir = fs.lstatSync(out); assert.ok(dir.isDirectory() && !dir.isSymbolicLink() && (dir.mode & 0o777) === 0o700);
   const fd = fs.openSync(path.join(out, phase + '-repair-selection.json'), fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW); let raw;
   try { const stat = fs.fstatSync(fd); assert.ok(stat.isFile() && stat.nlink === 1 && stat.size <= 4096 && (stat.mode & 0o777) === 0o600); raw = fs.readFileSync(fd); }
   finally { fs.closeSync(fd); }
   assert.ok(raw.length <= 4096); assert.deepEqual(Buffer.from(raw.toString('utf8')), raw, 'selection must be exact well-formed UTF-8');
-  return { selection: validateRepairSelection(JSON.parse(raw), failure), selectionSha256: sha(raw) };
+  return { selection: validateRepairSelection(JSON.parse(raw), failure, continuationMode), selectionSha256: sha(raw) };
 }
 async function waitRepairSelection(out, phase, terminal) {
   const label = phase + '-repair-selection', file = path.join(out, label + '.json');
@@ -450,6 +462,105 @@ export function prepareFanPendingResume(freeze, out) {
   return { packet, snapshot, runtimeRoot, copyRoot, journey, preview: savedPreview, requests, frozen, originalModelCalls: 4, remainingModelCalls: 7 };
 }
 
+const FAILED_FAN_PACKET = 'fan-monitor-resume-b1f7146c-live-20261002-1535';
+const FAILED_FAN_SNAPSHOT = '7849678bba806406b955b996c2b23b6d775f4a620dfa2fab9250aacb0f1672c3';
+const FAILED_FAN_DATABASE = '6b204a4722f39d2bf5f95d0cea99ad931c1d5162a03340042040797428c1b9ec';
+const FAILED_FAN_PINS = Object.freeze({
+  'result.json': '751c6fc491005c475ccca48c221c1f7380f442ffe3cda25562505e01cf0a98de',
+  'fan-journey.json': 'fddbcda8b487541dfb441e911890c5649b6697f96551f9270700a9fdd639d300',
+  'provider-requests.json': '8912726d25122161ec980661541e742231ea91d35e37b2515554d8df0c5a7399',
+  'core-initial-actual-terminal.json': '6cd5ae30fbdabc4c26ceb744a79e8c344862b9540e19cc690481e5afaaa18e38',
+  'core-initial-actual-preview.json': '01fac90af6cea59a09d55ad818524908e4a5c3533854f932e932950669feeb5d',
+  'core-initial-actual-composed-draft.json': '1d6ab9fc3f18ec90158599fb2ead6e2fd0322a9f057ce8f284dc734af8546fd2',
+});
+export function validateFailedResumePins(freeze) {
+  const pins = freeze.resumeFailed;
+  assert.deepEqual(Object.keys(pins || {}).sort(), ['coreRepairDraftSha256', 'mainDatabaseSha256', 'packet', 'snapshotSha256']);
+  assert.equal(pins.packet, path.join(ARTIFACTS, FAILED_FAN_PACKET));
+  assert.equal(pins.mainDatabaseSha256, FAILED_FAN_DATABASE); assert.equal(pins.snapshotSha256, FAILED_FAN_SNAPSHOT);
+  assert.equal(pins.coreRepairDraftSha256, sha(JSON.stringify(freeze.coreRepairDraft)), 'literal frozen repair draft value SHA');
+  validateManualDraft(freeze.coreRepairDraft, { phase: 'core', nodeBinary: freeze.nodeBinary, repair: true });
+  compileCodeDraftInput(freeze.coreRepairDraft);
+}
+export function assertFailedResumeView(current, saved) {
+  assert.equal(current.state, 'failed'); assert.equal(current.lifecycleId, saved.lifecycleId); assert.equal(current.planDigest, saved.planDigest);
+  assert.deepEqual(current.plan, saved.plan); assert.deepEqual(current.diff, saved.diff);
+  assert.deepEqual(current.terminal, saved.terminal); assert.deepEqual(current.result, saved.result);
+  assert.equal(current.result.focusedTest.terminalStatus, 'failed'); assert.equal(current.result.rollback.status, 'succeeded');
+}
+export function prepareFanFailedResume(freeze, out) {
+  validateFailedResumePins(freeze); assert.equal(freeze.entryMode, 'manual'); assert.equal(freeze.maximumD1, 0); assert.equal(freeze.maximumCode, 11);
+  assert.equal(freeze.codeContext, 32768); assert.equal(path.dirname(out), ARTIFACTS);
+  const packet = freeze.resumeFailed.packet; assert.notEqual(packet, out);
+  const snapshot = snapshotFanPendingPacket(packet); assert.equal(sha(JSON.stringify(snapshot)), FAILED_FAN_SNAPSHOT);
+  for (const [name, expected] of Object.entries(FAILED_FAN_PINS)) assert.equal(sha(fs.readFileSync(path.join(packet, name))), expected, name);
+  const journey = read(path.join(packet, 'fan-journey.json')), priorFreeze = read(path.join(packet, 'frozen-input.json'));
+  assert.equal(journey.status, 'FAIL'); assert.match(journey.error.message, /FAN_REPAIR_SELECTION_TIMEOUT/); assert.equal(journey.phases.length, 1);
+  const phase = journey.phases[0], terminal = read(path.join(packet, 'core-initial-actual-terminal.json'));
+  assert.equal(phase.phase, 'core'); assert.equal(phase.kind, 'initial'); assert.equal(phase.atomicRollbackVerified, true);
+  assertFailedResumeView(phase.terminal, terminal);
+  const preview = read(path.join(packet, 'core-initial-actual-preview.json'));
+  assert.deepEqual(preview.view, phase.preview); assert.deepEqual(preview.view.diff, terminal.diff);
+  assert.deepEqual(preview.submittedDraft, read(path.join(packet, 'core-initial-actual-composed-draft.json')));
+  assert.deepEqual(freeze.manualDrafts, priorFreeze.manualDrafts);
+  for (const key of ['model', 'digest', 'providerVersion', 'entryMode', 'd1Context', 'maximumD1', 'maximumCode', 'inputs']) assert.deepEqual(freeze[key], priorFreeze[key]);
+  for (const [relative, row] of Object.entries(freeze.operatorFiles)) assert.equal(row.sha256, priorFreeze.operatorFiles[relative].sha256, 'oracle is immutable:' + relative);
+  const origin = terminal.plan.origin; assert.deepEqual(origin, { surface: 'studio', sessionId: journey.conversationId, conversationId: journey.conversationId, projectId: journey.projectId });
+  assert.deepEqual(terminal.plan.project.canonicalRoot, journey.project);
+  const runtimeRoot = path.join(ARTIFACTS, 'fan-monitor-manual-592cb54c-live-20261002-1457/runtime-CigGtS');
+  assert.equal(journey.project, path.join(runtimeRoot, 'home/projects/fan-monitor'));
+  const sourceRuntime = path.join(packet, 'runtime-resume'); assert.equal(sha(fs.readFileSync(path.join(sourceRuntime, 'm1.sqlite'))), FAILED_FAN_DATABASE);
+  const requests = read(path.join(packet, 'provider-requests.json')), rows = requests.filter(row => row.admission);
+  assert.equal(rows.length, 4); assert.ok(rows.every(row => row.role === 'CODE' && row.physicalIdentityComplete && row.admission.phase === 'core' && row.admission.kind === 'initial'));
+  createFanCallBudget({ d1Model: freeze.model, codeModel: freeze.model, entryMode: 'manual', historicalRows: rows.map(row => row.admission), continuationMode: 'failed-core4-cli3' });
+  assert.equal(assessFanModelToPreview(requests, journey).observedCode, 4);
+  const selection = { phase: 'core', failedLifecycleId: terminal.lifecycleId, planDigest: terminal.planDigest,
+    targets: [...TARGETS.core], reason: freeze.coreRepairDraft.instruction };
+  validateRepairSelection(selection, selection, 'failed-core4-cli3');
+  makeManualRevision(preview.submittedDraft, terminal, selection, { phase: 'core', nodeBinary: freeze.nodeBinary, frozenCoreRepairDraft: freeze.coreRepairDraft });
+  const copyRoot = path.join(out, 'runtime-resume'); fs.cpSync(sourceRuntime, copyRoot, { recursive: true, preserveTimestamps: true, errorOnExist: true, force: false });
+  fs.chmodSync(copyRoot, fs.statSync(sourceRuntime).mode & 0o7777);
+  const original = snapshot.filter(row => row.path.startsWith('runtime-resume/')).map(row => ({ ...row, path: row.path.slice('runtime-resume/'.length) }));
+  for (const row of original) fs.chmodSync(path.join(copyRoot, row.path), row.mode);
+  assert.deepEqual(snapshotFanPendingPacket(copyRoot), original, 'whole failed runtime copy bytes/modes');
+  const project = path.join(copyRoot, 'home/projects/fan-monitor');
+  assert.equal(git(project, ['rev-parse', 'HEAD']), phase.baseline); assert.equal(git(project, ['status', '--porcelain=v1']), '');
+  assert.deepEqual(beforeImages(project, TARGETS.core), phase.before); assertPreviewBytes(terminal.diff, phase.before);
+  const frozen = { '.intentsmith/m2-governance-policy.json': sha(fs.readFileSync(path.join(project, '.intentsmith/m2-governance-policy.json'))) };
+  for (const [relative, row] of Object.entries(freeze.operatorFiles).filter(([relative]) => !relative.includes('operator-cli-'))) {
+    assert.equal(sha(fs.readFileSync(path.join(project, relative))), row.sha256); frozen[relative] = row.sha256;
+  }
+  // Read only the owned copy: native SQLite may create sidecars there. The
+  // original packet is never opened by native SQLite or rewritten.
+  const db = new Database(path.join(copyRoot, 'm1.sqlite'), { readonly: true, fileMustExist: true });
+  try {
+    assert.equal(db.pragma('quick_check', { simple: true }), 'ok'); assert.deepEqual(db.pragma('foreign_key_check'), []);
+    assert.deepEqual(db.prepare('SELECT id,path FROM projects').all(), [{ id: journey.projectId, path: journey.project }]);
+    assert.deepEqual(db.prepare('SELECT id,project_id FROM conversations').all(), [{ id: journey.conversationId, project_id: journey.projectId }]);
+    const operations = db.prepare('SELECT lifecycle_id,plan_digest,plan_json FROM m2_lifecycle_operations').all(); assert.equal(operations.length, 1);
+    assert.equal(operations[0].lifecycle_id, terminal.lifecycleId); assert.equal(operations[0].plan_digest, terminal.planDigest); assert.deepEqual(JSON.parse(operations[0].plan_json), terminal.plan);
+    const saved = db.prepare('SELECT terminal_status,terminal_json FROM m2_lifecycle_terminals').all(); assert.equal(saved.length, 1);
+    assert.equal(saved[0].terminal_status, 'failed'); assert.deepEqual(JSON.parse(saved[0].terminal_json), terminal.terminal);
+    const results = db.prepare('SELECT terminal_status,result_json FROM m2_execution_results').all(); assert.equal(results.length, 1);
+    assert.equal(results[0].terminal_status, 'failed'); assert.deepEqual(JSON.parse(results[0].result_json), terminal.result);
+    for (const table of ['m2_lifecycle_approval_intents', 'm2_lifecycle_grant_sets', 'm2_execution_requests']) assert.equal(db.prepare('SELECT count(*) AS n FROM ' + table).get().n, 1);
+    const materials = db.prepare('SELECT relative_path,after_bytes,after_digest,after_byte_count FROM m2_execution_files WHERE execution_id=? ORDER BY ordinal').all(terminal.plan.identity.executionId);
+    assert.equal(materials.length, 4);
+    for (const material of materials) {
+      const file = terminal.diff.find(file => file.path === material.relative_path); assert.ok(file);
+      assert.deepEqual(material.after_bytes, Buffer.from(file.after.content)); assert.equal(material.after_digest, file.after.digest); assert.equal(material.after_byte_count, file.after.bytes);
+    }
+  } finally { db.close(); }
+  assert.equal(sha(fs.readFileSync(path.join(copyRoot, 'm1.sqlite'))), FAILED_FAN_DATABASE, 'CPU readonly verification does not modify copied main DB');
+  assert.deepEqual(snapshotFanPendingPacket(packet), snapshot, 'original failed packet immutable');
+  const selectionPath = path.join(out, 'core-repair-selection.json'); assert.equal(fs.existsSync(selectionPath), false);
+  save(out, 'core-repair-selection.json', selection);
+  const { selectionSha256 } = readRepairSelection(out, 'core', selection, 'failed-core4-cli3');
+  const boundSelection = { ...selection, selectionSha256 }; save(out, 'core-repair-selection-frozen.json', boundSelection);
+  return { kind: 'failed', packet, snapshot, runtimeRoot, sourceRuntime, copyRoot, journey, preview, terminal,
+    selection: boundSelection, requests, frozen, originalModelCalls: 4, remainingModelCalls: 7 };
+}
+
 async function inside(configPath) {
   const cfg = read(configPath), out = path.dirname(configPath), freeze = validateFreeze(cfg.freeze);
   assert.deepEqual(observeSource(freeze), cfg.source, 'namespace source/build/controller closure remains frozen');
@@ -523,12 +634,24 @@ async function inside(configPath) {
     const row = freeze.operatorFiles[relative], content = fs.readFileSync(row.source);
     assert.equal(sha(content), row.sha256); fs.writeFileSync(path.join(project, relative), content, { flag: 'wx' }); frozen[relative] = row.sha256;
   };
-  const bind = async (resumePending = null) => { ({ sessionId } = await bindActualConversation(studio, { projectId, conversationId, title: 'Fan monitor actual journey', resumePending })); };
+  const bind = async (resumePending = null, resumeFailed = null) => { ({ sessionId } = await bindActualConversation(studio, { projectId, conversationId, title: 'Fan monitor actual journey', resumePending, resumeFailed })); };
   try {
     await start();
     if (cfg.resume) {
       projectId = cfg.resume.journey.projectId; conversationId = cfg.resume.journey.conversationId; frozen = cfg.resume.frozen;
-      evidence.resumedFrom = { packet: cfg.resume.packet, lifecycleId: cfg.resume.preview.view.lifecycleId, planDigest: cfg.resume.preview.view.planDigest, originalModelCalls: 4, remainingModelCalls: 7 };
+      evidence.resumedFrom = { packet: cfg.resume.packet, lifecycleId: cfg.resume.preview.view.lifecycleId, planDigest: cfg.resume.preview.view.planDigest, originalModelCalls: 4, remainingModelCalls: 7, kind: cfg.resume.kind ?? 'pending' };
+      if (cfg.resume.kind === 'failed') {
+        const old = cfg.resume.terminal, origin = old.plan.origin;
+        const route = '/api/m2/lifecycle/status?' + new URLSearchParams({ id: old.lifecycleId, surface: origin.surface, sessionId: origin.sessionId, conversationId: origin.conversationId, projectId: String(projectId) });
+        const actual = await ask('GET', route); assertFailedResumeView(actual, old);
+        await bind(null, { lifecycleId: old.lifecycleId, planDigest: old.planDigest, status: actual });
+        const restored = await reloadActualStatus(studio, { sessionId, lifecycleId: old.lifecycleId, planDigest: old.planDigest });
+        assertFailedResumeView(restored, old);
+        assert.deepEqual(beforeImages(project, TARGETS.core), cfg.resume.journey.phases[0].before); protectedCheck();
+        assert.equal(git(project, ['rev-parse', 'HEAD']), cfg.resume.journey.phases[0].baseline); assert.equal(git(project, ['status', '--porcelain=v1']), '');
+        // Preserve historical preview/terminal as history, never as a new success.
+        evidence.phases.push({ ...cfg.resume.journey.phases[0], historical: true, sourcePacket: cfg.resume.packet });
+      }
     } else {
     const created = await ask('POST', '/api/projects', { name: 'Fan monitor qualification', description: freeze.inputs.projectGoal, type: 'general', path: project });
     projectId = created.project.id; assert.equal(fs.realpathSync(created.path), project);
@@ -547,7 +670,10 @@ async function inside(configPath) {
       const baseline = git(project, ['rev-parse', 'HEAD']), before = beforeImages(project, TARGETS[phase]);
       let kind = 'initial', request = phase === 'core' ? freeze.inputs.firstRequest : freeze.inputs.secondRequest;
       let prior = null, lastDraft = null, selection = null;
-      for (let attempt = 0; attempt < 2; attempt++) {
+      if (cfg.resume?.kind === 'failed' && phase === 'core') {
+        kind = 'repair'; prior = cfg.resume.terminal; lastDraft = cfg.resume.preview.submittedDraft; selection = cfg.resume.selection;
+      }
+      for (let attempt = 0; attempt < (cfg.resume?.kind === 'failed' ? 1 : 2); attempt++) {
         const label = phase + '-' + kind, row = { phase, kind, baseline, before, request }; evidence.phases.push(row);
         const admission = { phase, kind, projectId, request, ...(selection ? { repairSelection: selection } : {}) };
         save(out, 'admission.json', admission); save(out, label + '-request.json', admission);
@@ -563,13 +689,13 @@ async function inside(configPath) {
           save(out, label + '-actual-composed-draft.json', draft); save(out, 'admission.json', admission);
         };
         let prepared;
-        if (cfg.resume && phase === 'core' && kind === 'initial') {
+        if (cfg.resume && cfg.resume.kind !== 'failed' && phase === 'core' && kind === 'initial') {
           prepared = cfg.resume.preview; assert.deepEqual(prepared.view, cfg.resume.journey.phases[0].preview);
           assert.deepEqual(before, cfg.resume.journey.phases[0].before); assert.equal(baseline, cfg.resume.journey.phases[0].baseline);
           await beforeSubmit(prepared.submittedDraft);
         } else if (freeze.entryMode === 'manual') {
           const draft = kind === 'initial' ? freeze.manualDrafts[phase]
-            : makeManualRevision(lastDraft, prior, selection, { phase, nodeBinary: freeze.nodeBinary });
+            : makeManualRevision(lastDraft, prior, selection, { phase, nodeBinary: freeze.nodeBinary, frozenCoreRepairDraft: cfg.resume?.kind === 'failed' ? freeze.coreRepairDraft : null });
           prepared = await prepareActualManualDraft(studio, { sessionId, projectId, conversationId, phase,
             nodeBinary: freeze.nodeBinary, draft, beforeSubmit });
         } else {
@@ -580,6 +706,11 @@ async function inside(configPath) {
               repairPaths: selection.targets, beforeSubmit });
         }
         const view = prepared.view; lastDraft = prepared.submittedDraft; row.preview = view;
+        if (cfg.resume?.kind === 'failed' && phase === 'core') {
+          assert.notEqual(view.lifecycleId, prior.lifecycleId); assert.notEqual(view.planDigest, prior.planDigest);
+          assert.ok(Date.parse(view.plan.createdAt) > Date.parse(prior.plan.createdAt));
+          assert.ok(Date.parse(view.plan.approvalExpiresAt) > Date.now(), 'only fresh new-plan approval is usable');
+        }
         save(out, label + '-actual-preview.json', prepared);
         assert.deepEqual(beforeImages(project, TARGETS[phase]), before, 'no preview writes'); assert.equal(git(project, ['rev-parse', 'HEAD']), baseline);
         assertPreviewBytes(view.diff, before);
@@ -615,6 +746,7 @@ async function inside(configPath) {
           assert.deepEqual(beforeImages(project, TARGETS[phase]), before, 'atomic full rollback');
           assert.equal(git(project, ['rev-parse', 'HEAD']), baseline); assert.equal(git(project, ['status', '--porcelain=v1']), ''); protectedCheck();
           row.atomicRollbackVerified = true;
+          assert.notEqual(cfg.resume?.kind, 'failed', 'bounded4+4+3 stops on first new core/CLI failure after full rollback');
           assert.equal(attempt, 0, 'second bounded failure stops the strategy');
           selection = await waitRepairSelection(out, phase, terminal); row.repairSelection = selection;
           prior = terminal; kind = 'repair';
@@ -669,9 +801,9 @@ async function parent(freezePath, freezeSha, out) {
   process.on('SIGTERM', onTerm); process.on('SIGINT', onInt);
   const upstream = async route => { const response = await fetch('http://127.0.0.1:11434' + route, { signal: AbortSignal.timeout(5000) }); assert.ok(response.ok); return response.json(); };
   try {
-    if (freeze.resumePending) {
-      resume = prepareFanPendingResume(freeze, out); requests.push(...JSON.parse(JSON.stringify(resume.requests)));
-      save(out, 'resume-provenance.json', { packet: resume.packet, snapshotSha256: freeze.resumePending.snapshotSha256, mainDatabaseSha256: freeze.resumePending.mainDatabaseSha256, originalModelCalls: 4, remainingModelCalls: 7, lifecycleId: resume.preview.view.lifecycleId, planDigest: resume.preview.view.planDigest });
+    if (freeze.resumePending || freeze.resumeFailed) {
+      resume = freeze.resumeFailed ? prepareFanFailedResume(freeze, out) : prepareFanPendingResume(freeze, out); requests.push(...JSON.parse(JSON.stringify(resume.requests)));
+      save(out, 'resume-provenance.json', { packet: resume.packet, snapshotSha256: (freeze.resumeFailed ?? freeze.resumePending).snapshotSha256, mainDatabaseSha256: (freeze.resumeFailed ?? freeze.resumePending).mainDatabaseSha256, originalModelCalls: 4, remainingModelCalls: 7, lifecycleId: resume.preview.view.lifecycleId, planDigest: resume.preview.view.planDigest });
     }
     assert.equal(interrupted, null, 'interrupted before owned GPU operation');
     lease = acquireGpuEvaluationLock({ command: 'fan actual D1 Studio2 CODE two-increment qualification' });
@@ -690,7 +822,8 @@ async function parent(freezePath, freezeSha, out) {
     const runtimePaths = resume ? Object.fromEntries(Object.entries({ root: '', home: 'home', xdgConfig: 'xdg-config', xdgCache: 'xdg-cache', xdgData: 'xdg-data', xdgState: 'xdg-state', temp: 'tmp', npmCache: 'npm-cache', projects: 'home/projects', artifacts: 'artifacts', database: 'm1.sqlite' }).map(([key, relative]) => [key, path.join(resume.runtimeRoot, relative)])) : null;
     save(out, 'inside-configuration.json', { freeze, source, socketPath, ...(resume ? { resume: { ...resume, runtimePaths } } : {}) }); save(out, 'frozen-input.json', freeze);
     assert.equal(interrupted, null, 'interrupted before namespace child spawn');
-    child = spawn('unshare', ['--user', '--map-root-user', '--net', '--', 'bwrap', '--bind', '/', '/', '--dev', '/dev', '--die-with-parent', ...(resume ? ['--ro-bind', resume.packet, resume.packet, '--bind', resume.copyRoot, resume.runtimeRoot] : []),
+    child = spawn('unshare', ['--user', '--map-root-user', '--net', '--', 'bwrap', '--bind', '/', '/', '--dev', '/dev', '--die-with-parent', ...(resume ? ['--ro-bind', resume.packet, resume.packet, ...(resume.kind === 'failed'
+        ? ['--ro-bind', path.dirname(resume.runtimeRoot), path.dirname(resume.runtimeRoot)] : []), '--bind', resume.copyRoot, resume.runtimeRoot] : []),
       process.execPath, SELF, '--inside', path.join(out, 'inside-configuration.json')], { cwd: SOURCE, env: safeEnv(), stdio: ['ignore', 'pipe', 'pipe'] });
     watchOwnedChild(child);
     const output = { stdout: '', stderr: '' }; child.stdout.on('data', chunk => { output.stdout = (output.stdout + chunk).slice(-100000); });
@@ -699,7 +832,8 @@ async function parent(freezePath, freezeSha, out) {
     evidence.child = { ...exit, ...output }; assert.equal(exit.code, 0, output.stderr); assert.equal(exit.signal, null);
     const actual = requests.filter(row => row.admission);
     evidence.modelCalls = { historical: resume ? 4 : 0, new: actual.length - (resume ? 4 : 0), total: actual.length, maximum: 11 };
-    assert.ok(actual.length <= 11); assert.ok(actual.length > 0 && actual.every(row => row.physicalIdentityComplete));
+    assert.ok(actual.length <= 11); if (resume?.kind === 'failed') assert.equal(actual.length, 11, 'exact historical4+coreRepair4+CLI3 complete');
+    assert.ok(actual.length > 0 && actual.every(row => row.physicalIdentityComplete));
     assert.ok(actual.filter(row => row.role === 'CODE').length >= 7);
     if (freeze.entryMode === 'manual') assert.equal(actual.filter(row => row.role !== 'CODE').length, 0);
     else assert.ok(actual.filter(row => row.role === 'D1').length >= 2);

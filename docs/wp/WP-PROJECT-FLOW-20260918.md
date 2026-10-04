@@ -29,6 +29,21 @@ in this checkout; its reported3/3 and8/8 checks are not adopted evidence.
 Preserve the actual fan8 PASS/6 FAIL and exact4/4 rollback. Continue from a
 new copy of that FAILED packet, not its expired earlier approval.
 
+ROOT adoption on 4 October owns only the reviewed continuation delta in
+`scripts/manual/run-fan-monitor-journey.mjs` and
+`scripts/manual/fan-monitor-studio2-controller.mjs`. Independent source review
+`57d6ea9b54e43d8399504effe5e1d2da147a54221ec401f304c789092eb17978`
+checked the exact patch and ten meaningful CPU cases. The opt-in flow clones
+the immutable FAILED runtime, binds its original signed project identity,
+preserves historical failures, and requests a new revision/digest/fresh exact
+approval. The original repair2 default and oracle remain unchanged. This is
+manual CODE continuation, not live classifier/D1 qualification. Before live,
+freeze the strengthened API instructions, complete source prompts, Studio
+closure, exact source/model/provider identities and four repair plus three CLI
+budget; the 32,000-byte serializer and 2,048-token repair output cap still bind.
+No extra inference after a new phase failure. Source review/CPU do not accept
+the generated application.
+
 Verification after adoption: Node24 `--test tests/project-collaboration.test.js`,
 the registered CRE/session/project/M2 boundary checks and shared CI. Stop on
 semantic routing regression, stale/foreign scope, authority before approval,

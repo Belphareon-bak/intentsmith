@@ -13,8 +13,8 @@ oracle, rollback/commit/restart; starý fan8 PASS/6 FAIL zůstává. Externí
 `c5309a0`/bundle čeká na transfer/review. CHAT `e066956b` integrován v `56138e4f`,
 source preservation PASS, project44/44, registry594/35, graph1500/3/28;
 `92767d77` CI18/18 SUCCESS, actual7/7 CHAT +7/7 CODE z official logs.
-Nový celý profil404 PASS/1 FAIL/3 BLOCKED: docs census a moje nepředané
-PDF/OCR runtime params; census opravený, historický report zachovaný, retest čeká.
+`769d4930` CI SUCCESS a celý profil408 PASS/0 FAIL/0 BLOCKED/0 TIMEOUT,20:04–20:14 UTC.
+První404/1/3 report zachovaný; opravené census/explicitruntimeparams, bez změny produktu.
 Hunt další grading vlastní jiný worker. Gemma freeze `9591ea1b` remote ověřen,
 exponovaná regrese stále NO_GO; operátor předal odpečetěnou cestu holdoutu,
 obsah ROOT nečetl, tři neměnné série a slepé hodnocení dosud NOT_RUN.

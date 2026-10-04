@@ -16,8 +16,8 @@ Autorizovaný private HTTP WP má namespace CPU feasibility PASS po diagnóze
 owner-userNS/EPERM a kanonické ip cestě; design/scope review PASS, product V2/profile/app NOT_RUN.
 CHAT `e066956b` integrován v `56138e4f`, source preservation PASS,
 project44/44, registry594/35, graph1500/3/28; `92767d77` CI18/18 SUCCESS,
-actual7/7 CHAT +7/7 CODE. Celý profil404/1/3: docs census a nepředané runtime
-params, neprokázané produktové vady; oprava census/parametrů a nový běh následují.
+actual7/7 CHAT +7/7 CODE. `769d4930` CI SUCCESS a celý profil408/0/0/0,
+20:04–20:14 UTC; první404/1/3 zůstává, census/explicitruntimeparams opravené.
 Gemma fixed `9591ea1b` má regression NO_GO;
 operátor předal unsealed holdout cestu, ROOT obsah nečetl a série neběžely.
 Hunt zbytek má jiného grading workera; poslední596/1173 je datovaný audit.
