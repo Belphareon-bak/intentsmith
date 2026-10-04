@@ -4,7 +4,7 @@
 [původního návrhu](WP-M2-PRIVATE-HTTP-QUALIFICATION-PROPOSAL-20261001.md).
 **Vlastník:** ROOT, jediný tracked writer. Vstup `5cf1c36d`, existující checkout;
 čerstvý GitHub main `838b8cee` je ancestor. Žádný nový worktree.
-**Stav:** `CONTRACT_REVIEW_PENDING / NAMESPACE_FEASIBILITY_CPU_PASS /
+**Stav:** `BOUNDED_DESIGN_SCOPE_REVIEW_PASS / NAMESPACE_FEASIBILITY_CPU_PASS /
 PRODUCT_IMPLEMENTATION_NOT_RUN / GENERATED_HTTP_NOT_RUN`.
 
 ## Výsledek a hranice
@@ -43,8 +43,11 @@ a historické requesty/digesty zůstanou byte exact, bez zpětného přepisu.
 Jediný trusted native initializer `src/execution/private-http-launcher.c`
 a build hook `scripts/build-private-http-launcher.mjs`; jeho přesný inode,
 bytes, argv a policy nejsou modelovou/projectovou cestou.
+Privilegovaný setup má pevné trusted prostředí: projektové focusedEnvironment
+včetně LD_PRELOAD/LD_LIBRARY_PATH smí dostat až omezený aplikační child po
+cap-drop, nikdy initializer před omezením. Použít static/trusted launcher.
 Preview: `intentsmith-ide/extensions/intentsmith-studio2/lib/browser/m2-controller.js`
-a `intentsmith-ide/extensions/intentsmith-studio2/view/live-model.js`.
+a `intentsmith-ide/extensions/intentsmith-studio2/lib/browser/view/live-model.js`.
 Composer `lib/browser/m2-composer.js` pouze pokud profile dostane explicitní
 opt-in v composeru; aktuální raw proposal/stejný origin/planDigest port stačí.
 Existing execution/lifecycle/process-sandbox/Studio sady
@@ -89,6 +92,10 @@ CPU proof, nikoli native launcher, registrovaný profil či funkční HTTP aplik
 Policy/profile/address/port/launcher/nft/seccomp/oracle digests musí být
 součástí requestu, focused process effect payload, authoritySetDigest,
 planDigest a zobrazeného exact approval; žádná dodatečná env/options autorita.
+Exact launcher/oracle bytes, inode/FD a policy ověřit při prepare a znovu
+před prvním forward file effect, nejen v pozdějším provider.run. Oracle je
+vlastní RO/FD pin mimo modelové targets; generovaný server je oddělený child,
+nikoli import/exec projektového kódu v trusted oracle procesu.
 Stale/foreign/tamper/unknown version selže před prvním file effect. Drift
 před exec a jakákoli pozdější chyba znamenají atomický rollback celé sady.
 Trusted oracle čte skutečné HTTP status/Content-Type/úplný bounded JSON a

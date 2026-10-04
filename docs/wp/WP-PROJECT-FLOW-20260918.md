@@ -14,8 +14,8 @@ project, conversation or read-only status; uncertainty/cancellation cannot
 produce an executable plan. ROOT is the sole tracked-tree writer.
 
 Input remains the existing integrated checkout `5cf1c36d`; fresh GitHub main
-`838b8cee` is an ancestor. No new worktree. Published CHAT `e066956b` is not
-yet integrated; preserve its independent freeze and review state. Validate
+`838b8cee` is an ancestor. No new worktree. CHAT `e066956b` is now integrated
+in source merge `56138e4f`; its independent freeze and NO_GO stay intact. Validate
 the two historical inputs privately, equivalent public regressions, ordinary
 conversation/status/ambiguity/failure and existing M2 handoff before one
 independent review. Exact source/model/config/oracle and classifier/D1/CODE
@@ -43,6 +43,9 @@ and combined source review PASS; final receipt
 `ff2dcbe1bdd205b551d712fa072df93a6beff610dec4f8b8276071ae4597b7b0`.
 The original42/2 gateway and43/1 integration fixture failures remain raw.
 This does not accept a live D1 response, generated app, new CI or deployment.
+Actual merge source preservation review PASS; receipt
+`5d4c61067863da2f5fa48e9bcdec6bcfa4800d84fd2584029f74a1d89b619302`.
+After merge project44/44 PASS; canonical graph1500/3/28, registry594/35.
 
 Input: `2f150ce7f3f183f9e14c3e2522ce150e1fe1c7a1`. Owner: root, isolated
 audit snapshot, branch `work/project-flow-20260918`.

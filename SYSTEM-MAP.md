@@ -13,8 +13,10 @@ CPU PASS, default classifier→D1 regression44/44 a source review PASS; živá a
 Fan poslední actual oracle8 PASS/6 FAIL, rollback4/4, bez commitu; další
 4repair+3CLI schválené při zachování max11. Externí `c5309a0` zde nedostupné.
 Autorizovaný private HTTP WP má namespace CPU feasibility PASS po diagnóze
-owner-userNS/EPERM a kanonické ip cestě; product V2/profile/app NOT_RUN.
-CHAT `e066956b` není integrován, Gemma fixed `9591ea1b` má regression NO_GO;
+owner-userNS/EPERM a kanonické ip cestě; design/scope review PASS, product V2/profile/app NOT_RUN.
+CHAT `e066956b` integrován v `56138e4f`, source preservation PASS,
+project44/44, registry594/35, graph1500/3/28; nový celý profil/CI čekají.
+Gemma fixed `9591ea1b` má regression NO_GO;
 operátor předal unsealed holdout cestu, ROOT obsah nečetl a série neběžely.
 Hunt zbytek má jiného grading workera; poslední596/1173 je datovaný audit.
 Instalovaný BE `c84b88cd` nezměněný; žádné nové nasazení/release acceptance.

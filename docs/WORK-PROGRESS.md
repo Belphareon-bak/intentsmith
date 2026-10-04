@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 4. 10. 2026, 19:40 UTC / 21:40 CEST.
+**Aktualizováno:** 4. 10. 2026, 19:51 UTC / 21:51 CEST.
 **Vlastník:** ROOT; CHAT/Gemma a zbývající Hunt mají jiné workery.
 Po milníku, nejpozději po 3 h aktualizuji report; operátorovi report nejpozději po 2 h aktivní práce.
 **Release NOT_ACCEPTED; fan aplikace FAIL.**
@@ -22,10 +22,12 @@ Historické FAIL/oracle/rollbacky zůstávají neměnné; přijaté scénáře n
 
 ## Aktuální integrační stav
 
-Publikovaný vstup `5cf1c36d`; [CI 37032678120 SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37032678120)
-má skutečné CHAT 7/7 + CODE 6/6, všech 18 kroků. Poslední celý společný profil
-`2997afd5`: 408 PASS /0 FAIL /0 BLOCKED /0 TIMEOUT /0 SKIP, nikoli nový HEAD.
-CHAT `00ec5b52` integrován; novější publikovaný `e066956b` zatím samostatný.
+Nový source merge `56138e4f` převzal CHAT `e066956b` a vlastní CODE32k/D1;
+nezávislé source preservation PASS, po merge projekt44/44, registry594/35,
+regenerovaný graph1500/3cykly/28 souborů a provenance ratchet PASS.
+CI má7 CHAT +7 CODE kontrol; nový celý profil/remote CI se právě spouštějí.
+Předchozí publikovaný `5cf1c36d` měl [CI18/18 SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37032678120).
+Celý profil `2997afd5`:408 PASS/0 FAIL/0 BLOCKED/0 TIMEOUT, nikoli nový HEAD.
 Instalovaný BE `c84b88cd` je jiný release; tento proud jej nenasadil.
 Externí `c5309a0`/bundle zde nejsou. Hlásené359/32/16/1 a cílené 3/3 + 8/8
 bez zdrojů/raw reportu nejsou přijaté lokální výsledky ani důkaz 49 produktových vad.
@@ -86,7 +88,7 @@ HTTP follow-up je nyní výslovně autorizovaný; nejde již o čekání na souh
 navržené execution@2/network policy, exact authority/preview/digests, default V1 offline.
 ROOT CPU namespace proof PASS: skutečný HTTP, wrong-IP/wildcard/port/socket zákazy,
 capsets0/NNP/seccomp/Landlock; původní netNS-owner EPERM a ip-path FAIL zachované.
-Native implementation/contract review/registered controls/generovaná HTTP app NOT_RUN.
+Omezené design/scope review PASS; native/schema contract/registered controls/HTTP app NOT_RUN.
 HTTP CPU práce běží nezávisle; mobil se zkouší až po stabilním IDE/BE.
 
 Po fan/shared candidate: skutečné pointer UI/M2 v instalovaném service kontextu,
