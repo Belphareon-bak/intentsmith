@@ -1,6 +1,14 @@
 # Chat CI — konkrétní návrh pro vlastníka integrace
 
-Stav: **PROPOSAL / OWNER_UNKNOWN / CI_NOT_RUN**. 2. 10. 2026.
+Stav k 4. 10.: **CANDIDATE_CI_PASS_DEVELOPMENT_ONLY / INTEGRATION_OWNER_UNKNOWN**.
+Původní návrh chatových CI sad níže je historický a dosud nezačleněný.
+Na pevném Gemma kandidátu `9591ea1b07bc4b639a102bcc421f9d46b8f9906b`
+[Actions push běh](https://github.com/Belphareon-bak/intentsmith/actions/runs/37222976678)
+SUCCESS, všechny job kroky dokončené. Vlastní alias
+`integration/main-reconcile-chat-gemma-20261004-v2` využil již existující
+push trigger; žádná změna workflow, PR nebo cizí integrační větve.
+Celý místní profil má 399 PASS / 4 FAIL / 3 BLOCKED; CI jej nenahrazuje.
+Následující text zachovává stav a návrh z 2. 10. 2026.
 Autorita: operátor požaduje vyřešit zapojení chatové větve do CI s vlastníkem
 integrace. Tento dokument je předávací návrh, nikoli přijatá změna workflow.
 
@@ -58,7 +66,7 @@ Lokální důkaz na `856e07c3`: všech sedm sad PASS, kontext 17/17 a M1 74/74.
 Nová runner sada na `97395516` také PASS. GitHub prostředí zatím ověřené není.
 Známé čtyři FAIL a tři BLOCKED celého profilu se tímto výběrem nesmějí skrýt.
 
-Aktuální zmrazený kandidát `0fad3823249104b62edc1e663440d51592de0dbd`
+Tehdejší zmrazený kandidát `0fad3823249104b62edc1e663440d51592de0dbd`
 má těchto sedm registrovaných sad PASS, kontext 21/21, M1 74/74;
 úplný profil 399 PASS / 4 FAIL / 3 BLOCKED. Důkazy jsou v
 `evidence/chat-quality-20261001/focused-followups.json` a

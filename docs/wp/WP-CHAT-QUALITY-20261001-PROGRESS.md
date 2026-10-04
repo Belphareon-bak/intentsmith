@@ -1,20 +1,30 @@
 # IntentSmith — průběh práce na kvalitě chatu
 
-Poslední aktualizace: **04. 10. 2026, 20:03 CEST**. Stav: **NO_GO / REVIEW_PENDING / CI_PASS_DEVELOPMENT_ONLY**.
+Poslední aktualizace: **04. 10. 2026, 20:46 CEST**. Stav: **NO_GO / REVIEW_PENDING / CI_PASS_DEVELOPMENT_ONLY**.
 Dokument aktualizuji po každém dokončeném milníku, nejpozději po třech hodinách
 aktivní práce. Historická selhání zůstávají uvedena; nové ověření je nepřepisuje
 na úspěch. Nejde o plánovač úloh po ukončení této pracovní relace.
 
-Aktuální kandidát s Gemmou (4. 10.):
-**`d096aa4981b44c69ab3b4454a93575039dd703ea`**, pevná větev
-`review/chat-quality-gemma-candidate-20261004`. CHAT `gemma4:26b`, přesný digest
-`08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68`.
-Cílený profil 4 PASS; úplný profil 399 PASS / 4 FAIL / 3 BLOCKED.
-[GitHub CI #69](https://github.com/Belphareon-bak/intentsmith/actions/runs/37220582328)
-PASS na témže SHA, pouze vývojová sada. Latencová sonda a 20× dvě známé reprodukce jsou dokončené; první regrese
-53 kroků je LIVE_INCOMPLETE kvůli odmítnutému skutečnému D1 volání. Nový
-kandidát runneru se připravuje; nezávislý holdout čeká na privátní cestu.
-Následující hlavička a tabulky zachovávají historické důkazy Qwen kandidátů.
+Aktuální zmrazený kandidát s Gemmou (4. 10.):
+**`9591ea1b07bc4b639a102bcc421f9d46b8f9906b`**, pevná větev
+`review/chat-quality-gemma-candidate-20261004-v2`. CHAT `gemma4:26b`, digest
+`08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68`;
+D1 zůstává Qwen3.5 s vlastním ověřovaným digestem. Kandidát i oba artefakty
+jsou pevné, předchozí větve `c7f03d56` a `d096aa49` se neposunuly.
+Registry 592 PASS, cílený profil 4 PASS; úplných 406 kontrol:
+**399 PASS / 4 FAIL / 3 BLOCKED**, exit 1. [Skutečná GitHub CI](https://github.com/Belphareon-bak/intentsmith/actions/runs/37222976678)
+PASS na témže SHA; všechny vývojové job kroky úspěšné, není to celý profil.
+Syntetický runner 3×3 PASS, 6 přesně schválených efektů. Tři nezměněné
+regrese 53×3 jsou úplné; vlastní významové hodnocení **123/159 (77,36 %)**,
+**22/159 (13,84 %) zbytečných zastavení**, 0 nalezených kritických chyb.
+Angličtina 6/9, jazyková parita neprokázaná. Přejímka je stále **NO_GO**,
+nikoli přijatý rollout. Obě známé reprodukce 20× mají s Gemmou 40/40 vlastní
+užitečnost a 0 efektů; to neopravňuje k celkovému přijetí.
+Čistá úzká časová sonda stejné aplikace a stejných vstupů: Qwen 5,139 s →
+Gemma 1,972 s teplý medián, pouze jedno zadání a pět teplých opakování.
+Skutečný nezávislý holdout zůstává **SEALED / WAITING_OPERATOR_UNSEAL / NOT_RUN**.
+Privátní dešifrovaná cesta není předaná; zakázaný adresář nebyl zpřístupněn.
+Následující hlavička a starší tabulky zachovávají historické Qwen důkazy.
 
 Větev: `work/chat-quality-20261001`. Společný výchozí commit:
 `45caf5b54b78def257221ac2ab33a64031800813`. Poslední testovaný aplikační
@@ -712,3 +722,87 @@ na čistém zmrazeném commitu bez `--allow-dirty`.
 produkční p95, obecnou užitečnost ani jazykovou paritu. Studené načtení není
 kontrolované vyprázdněním OS page cache a pořadí bylo Qwen → Gemma. Celá
 chatová aplikace je proti prvnímu kandidátu byte-for-byte shodná.
+
+
+## Milník S19 — finální Gemma runner a jeho technické brány
+
+- **Uživatelské chování:** volba Gemmy nepřepíná D1 a neblokuje jeho skutečné
+  volání chybně jako cizí model. Oba deklarované artefakty musí odpovídat
+  požadovanému tagu/digestu, před i po běhu; každý nebootovací vstup je 4K.
+  Aplikace, gateway, prompty a zdrojový korpus zůstaly shodné s `d096aa49`.
+- **Stručný důkaz:** čistý kandidát **`9591ea1b07bc4b639a102bcc421f9d46b8f9906b`**
+  pushnutý a vzdáleně ověřený pod novým pevným názvem i CI aliasem
+  `integration/main-reconcile-chat-gemma-20261004-v2`. Úplný profil přímo
+  na něm 399 PASS / 4 FAIL / 3 BLOCKED, přesně shodná non-PASS ID. Cílené
+  kontroly 4/4, registry 592. Actions `37222976678` SUCCESS, včetně skutečně
+  dokončených kontrol soukromí HTTP, Studio, importů a čistoty.
+  [Identity, původní report SHA a CI kroky](../review/evidence/chat-quality-20261001/gemma-v2-technical.json).
+  Tři syntetické fáze `8468f36e`, `d652a3ee`, `55f2ddc7`, každá 3/3,
+  7 inferencí; dohromady tři čtení a tři zápisy, přesné zdrojové bajty,
+  jeden správný cíl každého efektu, 0 provedení před schválením.
+  [Syntetické M1/M2 důkazy](../review/evidence/chat-quality-20261001/gemma-dummy-v2-proof.json).
+- **Zbývající problém:** CI je vývojová podmnožina a celý profil FAIL.
+  Routing-accuracy je dál reálná doménová vada v předání ROOT; integrační
+  vlastník UNKNOWN a chat není mergnutý do main ani nasazený do release.
+  Operátorova produkční volba modelu je oddělená od tohoto nasazení.
+- **Následující krok:** dokončit na témže kandidátu tři původní regrese,
+  potom je otevřít pro vlastní kontrolu; nezávislý holdout nepoužít pro ladění.
+
+
+## Milník S20 — dokončených 53×3, vlastní přejímka NO_GO
+
+- **Uživatelské chování:** běžné vysvětlování, korekce na lidskou paměť,
+  schválená čtení, přesné ukládání předchozích odpovědí, negace a oddělení
+  GPU efektu jsou v měřených průchodech zachovány. Přepnutí na Gemmu ale
+  často přidává nepotřebné potvrzení běžného ukládání. Toto chování není
+  přijatelný konečný stav přirozeného chatu.
+- **Stručný důkaz:** `873b2cd6-95b4-4ae0-b0c2-4045aec73764`,
+  `860c927d-9556-43ad-b4ad-d8b38c6ce335`,
+  `06cac090-be72-4549-aaaa-6d9f42d461aa`: každý 53/53, 138 ověřených
+  inferencí (137 Gemma, 1 D1 Qwen), shodný manifest, korpus i konfigurace,
+  0 neúplných nebo chybně doložených providerových inferencí. Odpovědi se
+  otevřely až po dokončení všech sérií. Vlastní užitečnost 40/53, 42/53,
+  41/53; dohromady **123/159 = 77,36 %**. Zbytečná zastavení 8/53, 8/53,
+  6/53, celkem **13,84 %**. Kritické chyby 0. Angličtina 6/9, čeština
+  114/147 a smíšené zadání 3/3; nejde o jazykovou paritu ani 159 nezávislých
+  dialogů. [Každá odpověď, vlastní důvod a hraniční známky](../review/evidence/chat-quality-20261001/gemma-regression-v2-semantic.json).
+  Skutečně provedeno 12 čtení a 21 zápisů, všechny až po přesném schválení,
+  správný cíl a bajty, 0 efektů před schválením; 18 požadovaných návrhů zápisu
+  se kvůli doptání vůbec nevytvořilo. Všechny 12 Python funkcí byly přečtené
+  a ověřené pro 0/1/5/10 a odmítnutí záporného vstupu bez rekurze.
+  [Efekty, zdrojové hashe a konkrétní kontrola kódu](../review/evidence/chat-quality-20261001/gemma-regression-v2-effects.json).
+- **Zbývající problém:** šest souborových variant selže shodně ve všech
+  třech opakováních. Gemma dostane přesný zdroj, cíl i již existující
+  instrukci pro standardní replace a samostatné schválení, přesto vrací
+  `clarify / understood:false`. Jádro nejistý modelový plán nepřeznačuje
+  na oprávnění. Odlišný aplikační nález: při confidence 0,1/0,5 se validní
+  konkrétní otázka klasifikátoru zahodí, nahradí obecným cílem nebo pošle
+  do projektového D1. U kalendáře model vydá `requestedOperation:none`
+  vedle `unavailableAction:calendar`; guard objekt zahodí a stav pak opět
+  popisuje volná modelová odpověď. Zde nebylo naměřeno vymyšlené provedení,
+  ale robustní aplikační cesta není dosažena. Faktický vstup `versions-en`
+  není ztracený: CONVERSATIONAL, úplný uživatelský text v generování;
+  B popře Qwen3.5 v 2/3, stejný model v diagnostické A v 3/3. A má odlišný
+  český systém a limit, takže tento rozdíl neizoluje všechny vlivy promptu.
+  [Přesné providerové bajty, vstupy a příčiny](../review/evidence/chat-quality-20261001/gemma-provider-diagnosis.json).
+- **Následující krok:** před další změnou kandidáta předat tyto konkrétní
+  nálezy k rozhodnutí o samostatném cíleném milníku. Doporučuji nejprve řešit
+  ztrátu read-only cílených otázek a měřit interpretaci souborů s Gemmou,
+  bez obecného ladění znalostního promptu. Současný kandidát zůstává pevný
+  pro případný nezávislý slepý experiment podle pokynu operátora; cesta
+  k dešifrovanému souboru stále chybí. Jeho výsledky worker nečte/neznámkuje.
+
+Známé e-mail/GPU reprodukce s Gemmou mají aplikaci 20/20 + 20/20 a vlastní
+užitečnost 40/40, 0 efektů. Jazykové chyby (např. electricity v české větě,
+špatné skloňování) jsou ponechané v důkazu, nikoli vyhlazené editací.
+[Všech 40 známých odpovědí a skutečný stav](../review/evidence/chat-quality-20261001/gemma-defects-proof.json).
+Tento nárůst proti starému Qwen 39/40 není průkazný kvalitativní rozdíl.
+
+Smíšené regrese mají medián dokončení po prvním kroku 2,039 / 2,181 / 2,311 s
+(n=52 každé) a p95 4,149 / 5,083 / 4,643 s. Obsahují A mezi tahy i D1 přepnutí,
+nejsou jednotně teplým modelem a neprokazují čistou produkční latenci.
+Čistá časová sonda S18 zůstává oddělená. Vlastní hodnocení ani technické PASS
+nezastupuje nezávislou přejímku. Kandidát se podle této regrese dále neladil.
+Produkční CHAT na Gemmě byl znovu ověřen přes API; produkční release je stále
+`c84b88cd` a notifikace původní binding operace měla FAILED. Historické
+INCOMPLETE `5a464a82` i všechny předchozí NO_GO zůstávají v reportu.

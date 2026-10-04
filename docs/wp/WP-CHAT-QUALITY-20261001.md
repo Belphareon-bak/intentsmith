@@ -46,8 +46,10 @@ Explicitní změna zadání operátora 4. 10.: pokračovat v přejímce a pro CH
 použít Gemmu podle jeho nezávislého měření. Tato změna povoluje její ruční
 produkční aktivaci jako jediné měněné role CHAT, s přesným dostupným tagem
 `gemma4:26b`, přes existující binding application
-API včetně nezbytné podporované obnovy. Ostatní role, gateway, trvalé schéma
-a provozní modelové politiky se nemění. Izolovaný runner používá explicitní
+API včetně nezbytné podporované obnovy. Uložené bindingy ostatních rolí,
+gateway, trvalé schéma a provozní modelové politiky se nemění. Při obnově se
+projevily již dříve uložené jiné runtime role CODE/R2/VISION; přesný skutečný
+vedlejší dopad je uveden v S16 průběžného reportu. Izolovaný runner používá explicitní
 tag/digest Gemmy; D1 zachová Qwen a přímá/aplikační větev stejný 4K rozpočet.
 Původní kandidát z 2. 10. zůstane zmrazený, Gemma má nového kandidáta.
 Čísla dodaná operátorem jsou vstup pro volbu, nikoli náhrada nové přejímky.

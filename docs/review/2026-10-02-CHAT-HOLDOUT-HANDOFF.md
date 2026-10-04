@@ -1,13 +1,36 @@
 # Zapečetěný holdout — předání zmrazeného chatového kandidáta
 
-Stav: **SEALED / WAITING_OPERATOR_UNSEAL / NOT_RUN / REVIEW_PENDING**.
-Zmrazený kandidát: **`c7f03d5687f65b1a2b50665f27b037e57b8516cd`**, vzdáleně ověřená pevná větev
-`review/chat-quality-holdout-candidate-20261002`. Technický profil přímo na něm:
-399 PASS / 4 FAIL / 3 BLOCKED. Finální syntetický runner 3×3 kroků PASS.
-Výsledek a důkazy jsou v [průběžném reportu](../wp/WP-CHAT-QUALITY-20261001-PROGRESS.md). Autorita: explicitní zadání
-operátora z 2. 10. 2026, známé reprodukce `recipient-bob` a `gpu-composite`
-a režim `--holdout FILE --holdout-sha256 HEX`. Dřívější návrh 60 dialogů a
-stav AUTHOR_UNKNOWN jsou překonané skutečnou pečetí od koordinátora.
+Stav k 4. 10.: **SEALED / WAITING_OPERATOR_UNSEAL / NOT_RUN / NO_GO**.
+Zmrazený kandidát **`9591ea1b07bc4b639a102bcc421f9d46b8f9906b`**,
+vzdáleně ověřená pevná větev `review/chat-quality-gemma-candidate-20261004-v2`.
+CHAT `gemma4:26b`, digest
+`08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68`.
+D1 zůstává `qwen3.5:27b`, digest
+`7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e`.
+Runner ověřuje oba deklarované artefakty před/po běhu i u každé inference,
+oba na měřicím 4K rozpočtu. Staré pevné kandidáty `c7f03d56` a `d096aa49`
+zůstávají neměnné; dokumentační HEAD pracovní větve jej nenahrazuje.
+
+Registry 592 PASS, cílené 4 PASS, úplný profil přímo na tomto SHA:
+**399 PASS / 4 FAIL / 3 BLOCKED**, exit 1. [Skutečná CI](https://github.com/Belphareon-bak/intentsmith/actions/runs/37222976678)
+SUCCESS na témže SHA, všechny vývojové kroky provedené, pouze vývojový subset.
+Syntetický dummy 3×3 PASS, tři schválená čtení a tři zápisy, přesné bajty,
+0 provedení před schválením. Původní 53×3 regrese je úplná, vlastní významové
+hodnocení **123/159 = 77,36 %**, 13,84 % zbytečných zastavení, 0 nalezených
+kritických chyb. Je to **NO_GO**, nikoli kvalitativní přejímka.
+[Průběžný report S19–S20](../wp/WP-CHAT-QUALITY-20261001-PROGRESS.md)
+obsahuje konkrétní modelové i aplikační nálezy. Před odpečetěním doporučuji
+samostatný cílený milník zachování read-only otázek a interpretace souborových
+akcí s Gemmou. Tento kandidát se dál neladí; nové opravy patří do nového
+kandidáta s novým ověřením. Privátní dešifrovaná cesta stále není předaná.
+
+Autorita: explicitní zadání operátora z 2. 10. známých reprodukcí,
+SHA-ověřeného runneru a tří slepých sérií; ze 4. 10. výběr Gemmy pro CHAT.
+Produkční CHAT je APPLIED / DIRECT_CONFIRMED / VERIFIED; aplikace zůstává
+release `c84b88cd`, chatové opravy jsou v kandidátní větvi. Vedlejší dopady
+obnovy uložených rolí a neúspěšná notifikace jsou v S16. Žádný PR/merge ani
+nasazení chatové aplikace neproběhl. Dřívější návrh 60 dialogů a AUTHOR_UNKNOWN
+jsou překonané skutečnou pečetí od koordinátora.
 
 Pečeť: větev `review/chat-holdout-seal-20261002`, vzdáleně ověřený commit
 `6a9d1dbe54adef4bb7cf2114afe10c58799a3a05`.
@@ -24,7 +47,7 @@ Obsah neznáme. SHA-256 budoucího dešifrovaného souboru podle Git pečeti:
 Předání probíhá v tomto pořadí:
 
 1. Chat worker zmrazí čistý commit včetně runneru, pushne pevnou kandidátní
-   větev `review/chat-quality-holdout-candidate-20261002` a ověří vzdálený SHA.
+   větev `review/chat-quality-gemma-candidate-20261004-v2` a ověří vzdálený SHA.
    Průběžný report se publikuje na `work/chat-quality-20261001`; následný
    dokumentační commit nesmí změnit zmrazeného kandidáta ani jeho runner.
 2. Operátor potom dešifruje do privátního umístění mimo repozitář, mode 600,
@@ -46,11 +69,14 @@ Příklad jedné série (privátní cestu poskytne operátor, nepoužívat půvo
 zapečetěný adresář):
 
 ```bash
+git switch --detach 9591ea1b07bc4b639a102bcc421f9d46b8f9906b
 PATH=/home/belphareon/.nvm/versions/node/v24.21.0/bin:$PATH \
 CHAT_PROBE_NO_DIRECT=false node scripts/measure-m1-l3.js --live \
   --phase holdout-1 --holdout "$CHAT_HOLDOUT_FILE" \
   --holdout-sha256 2431296e7a1583329fb4185a1dbbe6610749985385cd1afa2c6952428b63e9ff \
-  --record .intentsmith-artifacts/chat-quality-20261001/live/holdout-runs.json
+  --model gemma4:26b \
+  --model-digest 08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68 \
+  --record .intentsmith-artifacts/chat-quality-20261004/holdout/holdout-runs.json
 ```
 
 Runner kontroluje SHA před parsováním/preflightem/inferencí a znovu v child
@@ -67,36 +93,18 @@ Kritéria zůstávají ≥95 % užitečných reakcí, ≤5 % zbytečných zastav
 rodiny, latenci/načtení modelu a skutečné efekty. Samotných 36 anglických
 kroků neprokazuje jazykovou paritu v mezích pěti procentních bodů.
 
-Známé aplikační reprodukce byly opravené a změřené 20krát před i po:
+Historické Qwen aplikační reprodukce byly opravené a změřené 20krát před i po:
 e-mail i GPU mají 20/20 splněných aplikačních podmínek, vlastní významové
 hodnocení 39/40 kvůli jedné zbývající modelové faktické chybě. Není to
 nezávislý holdout výsledek. Původních 53 případů včetně F14–F20 jsou regrese.
 
-Kvalitativní přejímka stále **NO_GO**. Samostatně zůstávají čtyři technická
-FAIL, tři BLOCKED a CI_NOT_RUN. Vlastník integrace pro routing a automatický
-CI trigger nebyl určen; [předání CI](2026-10-02-CHAT-CI-HANDOFF.md) a
-[přesná routing reprodukce](2026-10-02-CHAT-ROUTING-ROOT-HANDOFF.md) jsou připravené.
-Workflow již má ruční `workflow_dispatch`; přidání automatického triggeru
-chatové větve zůstává integrační práce. Srovnání modelů ani změna bindingu
-nebyly znovu otevřené. Žádný PR, merge nebo produkční nasazení neproběhlo.
-
-
-## Navazující předání — operátor vybral Gemmu 4. 10. 2026
-
-Tento záznam pro budoucí slepý běh nahrazuje výběr Qwen kandidáta výše.
-Původní commit/větev zůstávají neměnné. Nový pevný kandidát:
-`d096aa4981b44c69ab3b4454a93575039dd703ea`,
-`review/chat-quality-gemma-candidate-20261004`. Model `gemma4:26b`, digest
-`08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68`.
-Ruční produkční CHAT je APPLIED / DIRECT_CONFIRMED / VERIFIED; samotné
-chatové opravy z větve nebyly nasazené. Úplný profil kandidáta 399/4/3 FAIL;
-Actions #69 PASS je vývojová podmnožina. Privátní cesta ke skutečnému holdoutu
-stále nebyla předaná a jeho adresář je dál zakázaný.
-
-V příkazu výše přidat explicitně `--model gemma4:26b --model-digest
-08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68`;
-vlastní čistý checkout musí být na tomto novém pevném SHA. Pro skutečné
-holdout-1..3 použít nový privátní record
-`.intentsmith-artifacts/chat-quality-20261004/live/holdout-runs.json`,
-nikoli žádný dummy nebo regresní record. Pečeť, očekávaný SHA corpus,
-slepé hodnocení a zákaz čtení odpovědí mezi sériemi zůstávají shodné.
+Kvalitativní přejímka stále **NO_GO**. S Gemmou obě známé reprodukce mají
+20/20 + 20/20 aplikačních podmínek, vlastní užitečnost 40/40 a 0 efektů;
+nejde o doklad obecného zlepšení proti historickému 39/40. Samostatně
+zůstávají čtyři technická FAIL a tři BLOCKED. CI_NOT_RUN je pro aktuální
+kandidát překonán skutečným Actions výsledkem výše; společný integrační
+vlastník a ROOT routing zůstávají otevřené. [CI předání](2026-10-02-CHAT-CI-HANDOFF.md)
+a [přesná routing reprodukce](2026-10-02-CHAT-ROUTING-ROOT-HANDOFF.md).
+Použít nový skutečný holdout record výše, nikdy dummy nebo regresní record.
+Worker jeho odpovědi nebude číst ani známkovat; nezávislé hodnocení zajistí
+koordinátor. Předané pevné SHA se nepřepisují následným dokumentačním commitem.
